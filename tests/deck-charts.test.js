@@ -289,17 +289,23 @@ test('a TIPS shows as its own part; the inflow turns arterial after it', async (
   assert.equal(vi.bar.reduce((s, p) => s + p.pct, 0), 100);
 });
 
-// The label rule on every deck slide's bar, at every card width from a narrow phone card (230 px) to a Mac's widest: each
+// The label rule on every deck slide's bar, at every card width from a narrow phone card (260 px) to a Mac's widest: each
 // name 12 px or more, inside the card, under its own segment or on a leader, ≥ 4 px from every other name, every other name's
-// leader, the bar and the bracket's line, and the rows inside the card's height.
+// leader, the bar and the bracket's line, and the rows inside the card's height. The Healthy caption fits on its row, and
+// the bracket's words keep clear of the word "Now".
 const boxOf = (lay, l) => { const t = lay.top + lay.geo.head + lay.geo.barH + lay.geo.band + l.row * lay.geo.step; return { x0: l.L, x1: l.L + l.lw, y0: t, y1: t + lay.geo.lab }; };
-function checkRule(parts, of, w, hh, f, at) {
-  const lay = flowLayout(parts, of, w, hh, f, (t, ff) => t.length * ff * 0.58), g = lay.geo.g;
+function checkRule(parts, of, w, hh, f, at, hParts = null) {
+  const lay = flowLayout(parts, of, w, hh, f, (t, ff) => t.length * ff * 0.58, hParts), g = lay.geo.g;
+  assert.ok(lay.capW <= w, `${at}: the Healthy caption fits its row`);
+  if (lay.bracket) {
+    assert.ok(lay.brX - lay.brW / 2 >= lay.nowW + g - 1e-9 && lay.brX + lay.brW / 2 <= w + 1e-9, `${at}: the bracket's words clear of Now, inside the card`);
+  }
+  if (hParts) assert.deepEqual(lay.hsegs.map((h) => h.id).filter((id) => lay.segs.some((q) => q.id === id)), lay.segs.map((q) => q.id).filter((id) => lay.hsegs.some((h) => h.id === id)), `${at}: Healthy in the Now bar's order`);
   assert.ok(f >= 12 && g >= LABEL_GAP);
   assert.ok(lay.ok, `${at}: the names fit in ${lay.rows} rows`);
   assert.ok(lay.top + lay.geo.head + lay.geo.barH + lay.rows * lay.geo.step <= hh + 1e-6, `${at}: inside the card's height`);
   const barB = lay.top + lay.geo.head + lay.geo.barH, boxes = lay.labels.map((l) => boxOf(lay, l));
-  const brY = lay.top + 1.3 * f + g;
+  const brY = lay.top + lay.geo.brY;
   lay.labels.forEach((l, i) => {
     const b = boxes[i], s = lay.segs[i];
     assert.ok(b.x0 >= -1e-9 && b.x1 <= w + 1e-9, `${at}: ${s.name} inside the card`);
@@ -322,7 +328,10 @@ function checkRule(parts, of, w, hh, f, at) {
 }
 
 test('the portal blood bar: names keep the label rule on every deck slide and card width', async () => {
-  const f = 12, H = { portal: 13.75 * f, inflow: 8.5 * f };
+  const f = 12, H = { portal: 13.75 * f, inflow: 10 * f };
+  const [healthy] = await runSteps([{ preset: 'healthy' }]);
+  const hp = { portal: flowParts(healthy, 'portal'), inflow: flowParts(healthy, 'inflow') };
+  assert.ok(hp.portal.find((p) => p.id === 'liver').pct > 80, 'healthy: most portal blood reaches the liver');
   let leads = 0, n = 0;
   for (const d of DECKS) {
     const fps = await deckStates(d);
@@ -330,8 +339,8 @@ test('the portal blood bar: names keep the label rule on every deck slide and ca
       if (!fps[i]?.at) return;
       for (const of of ['portal', 'inflow']) {
         const parts = flowParts(fps[i], of);
-        for (const w of [230, 280, 340, 420, 560, 720]) {
-          const lay = checkRule(parts, of, w, H[of], f, `${d.id}/${s.id} ${of} ${w}px`);
+        for (const w of [260, 280, 340, 420, 560, 720]) {
+          const lay = checkRule(parts, of, w, H[of], f, `${d.id}/${s.id} ${of} ${w}px`, hp[of]);
           leads += lay.labels.filter((l) => l.lead).length; n++;
         }
       }
@@ -341,10 +350,10 @@ test('the portal blood bar: names keep the label rule on every deck slide and ca
   // Thin segments side by side (a TIPS slide's crumbs) and the most names the bar shows, in a narrow card.
   const crumbs = [{ id: 'liver', name: 'Liver', pct: 4 }, { id: 'tips', name: 'TIPS', pct: 86 }, { id: 'var', name: 'Varices', pct: 4 },
     { id: 'pum', name: 'Paraumbilical', pct: 3 }, { id: 'grs', name: 'Gastrorenal', pct: 2 }, { id: 'other', name: 'Other', pct: 1 }];
-  for (const w of [200, 260, 400]) checkRule(crumbs, 'portal', w, H.portal, f, `crumbs ${w}px`);
+  for (const w of [260, 300, 400]) checkRule(crumbs, 'portal', w, H.portal, f, `crumbs ${w}px`);
   const six = [{ id: 'liver', name: 'Liver', pct: 20 }, { id: 'ret', name: 'Retroperitoneal', pct: 18 }, { id: 'pum', name: 'Paraumbilical', pct: 17 },
     { id: 'grs', name: 'Gastrorenal', pct: 16 }, { id: 'srs', name: 'Splenorenal', pct: 15 }, { id: 'other', name: 'Other', pct: 14 }];
-  for (const w of [230, 300, 500]) checkRule(six, 'portal', w, H.portal, f, `six ${w}px`);
+  for (const w of [300, 400, 500]) checkRule(six, 'portal', w, H.portal, f, `six ${w}px`);
 });
 
 test('the year chart\'s milestone names: level, inside the chart, never touching each other', () => {

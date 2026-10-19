@@ -3,7 +3,9 @@
 // gastrorenal or splenorenal shunt, the paraumbilical vein, a stent…) in that route's colour, largest first. A thin bracket over
 // every bypass segment reads "Bypassing the liver 75%". Each segment's name sits under it with its percent beneath; a name too
 // wide for its segment sits on a short leader below, never touching another name or leader. No colour key (Mohammad, 19 Oct:
-// the ranked bars replaced by one bar). Shares, places and names ease as they move. tool: { kind: 'flows', of: 'inflow' }
+// the ranked bars replaced by one bar). Above it a thin Healthy bar, the healthy model's split in the same order and colours
+// (captioned "Healthy · Liver 97%"), so each segment compares straight down; the case's bar is marked "Now" (Mohammad, 19 Oct:
+// "we have to compare those bars with normal"). Shares, places and names ease as they move. tool: { kind: 'flows', of: 'inflow' }
 // splits the liver's own inflow into portal and arterial blood instead, the same bar with its two segments and no bracket.
 // The parts are the slide's fingerprint's flows (at.Q), counted as the shunt fraction is (engine/metrics.js), so the liver's
 // part is always 100 less the slide's Shunted tile (table-marks.js portalSplit). The cavernoma returns blood to the liver,
@@ -107,13 +109,29 @@ export function flowView(parts, of = 'portal') {
 
 // The label rule: a name never comes nearer than this to another name, a leader, the bar or the bracket (px).
 export const LABEL_GAP = 4;
-/** The card's measures for font size f: the bracket's room above the bar (its words, a gap, its own height; none for the
- *  inflow), the bar, the band a leader crosses above each row of names, and a row's two lines (name, then percent). */
+/** The card's measures for font size f, top down: the Healthy caption's row, the thin Healthy bar, a gap, the Now row (the
+ *  word "Now", and for the portal blood the bracket's words, then the bracket), the bar, the band a leader crosses above
+ *  each row of names, and a row's two lines (name, then percent). */
 export function flowGeo(f, of = 'portal') {
-  const g = Math.max(LABEL_GAP, 0.34 * f);
-  const head = of === 'inflow' ? 0 : 1.3 * f + g + 0.5 * f;
+  const g = Math.max(LABEL_GAP, 0.34 * f), cap = 1.3 * f;
+  const hBarY = cap + g, hBarH = Math.max(6, 0.55 * f), nowY = hBarY + hBarH + 0.9 * f, brY = nowY + cap + g;
+  const head = of === 'inflow' ? nowY + cap + g : brY + 0.5 * f;
   const barH = 1.4 * f, band = 0.6 * f + g, lab = 2.4 * f;
-  return { f, g, head, barH, band, lab, step: band + lab };
+  return { f, g, cap, hBarY, hBarH, nowY, brY, head, barH, band, lab, step: band + lab };
+}
+/** Where the bracket's words centre (x) over the bypass from x0 to x1: over its middle, clamped inside the card and kept
+ *  g clear of the word "Now" (nowW wide) at the row's left. */
+export const bracketX = (x0, x1, tw, nowW, g, w) => Math.min(Math.max((x0 + x1) / 2, nowW + g + tw / 2), w - tw / 2);
+/** The Healthy bar's segments, in the Now bar's order so each colour lines up with its own above and below (the parts the
+ *  Now bar lacks after them, largest first, Other last). */
+export function healthyOrder(hParts, nowBar, of = 'portal') {
+  const own = barOrder(hParts, of), ids = nowBar.map((p) => p.id);
+  return [...ids.map((id) => own.find((p) => p.id === id)).filter(Boolean), ...own.filter((p) => !ids.includes(p.id))];
+}
+/** The Healthy caption: "Healthy · Liver 97%" (the inflow: the portal vein's share). */
+export function healthyCaption(hParts, of = 'portal') {
+  const [id, name] = of === 'inflow' ? INFLOW[0] : LIVER;
+  return ['Healthy', ` · ${name} ${hParts?.find((p) => p.id === id)?.pct ?? 0}%`];
 }
 /** How many rows of names fit in a card hh tall (one at least). */
 export const rowsFit = (hh, geo) => Math.max(1, Math.floor((hh - geo.head - geo.barH) / geo.step + 1e-6));
@@ -200,14 +218,22 @@ export function placeLabels(segs, lw, w, geo, rowsMax = 3) {
 const PLACED = new Map();
 
 /** The whole card's layout for parts at width w, height hh, font size f: segments [{ id, name, pct, a, b }] in bar order,
- *  the bracket, the names' places, and the top offset that centres it all in the card. measure(text, f, weight) → px. */
-export function flowLayout(parts, of, w, hh, f, measure) {
+ *  the bracket and where its words centre, the Healthy bar's segments (hParts: the healthy model's parts, or null before
+ *  they arrive), the names' places, and the top offset that centres it all in the card. measure(text, f, weight) → px. */
+export function flowLayout(parts, of, w, hh, f, measure, hParts = null) {
   const geo = flowGeo(f, of), { bar, bracket } = flowView(parts, of);
-  let acc = 0;
-  const segs = bar.map((p) => { const a = (acc / 100) * w; acc += p.pct; return { id: p.id, name: p.name, pct: p.pct, a, b: (acc / 100) * w }; });
+  const spans = (list) => { let acc = 0; return list.map((p) => { const a = (acc / 100) * w; acc += p.pct; return { id: p.id, name: p.name, pct: p.pct, a, b: (acc / 100) * w }; }); };
+  const segs = spans(bar), hsegs = hParts ? spans(healthyOrder(hParts, bar, of)) : [];
   const lw = segs.map((s) => Math.max(measure(s.name, f, 500), measure(`${s.pct}%`, f, 700)));
   const lab = placeLabels(segs, lw, w, geo, rowsFit(hh, geo));
-  return { geo, segs, bracket, ...lab, top: Math.max(0, (hh - flowHeight(lab.rows, geo)) / 2) };
+  const nowW = measure('Now', f, 600);
+  let brX = null, brW = 0;
+  if (bracket) {
+    brW = measure(`${bracket[0]} `, f, 500) + measure(`${bracket[1]}%`, f, 700);
+    brX = bracketX(segs.find((s) => s.id === 'liver')?.b ?? 0, w, brW, nowW, geo.g, w);
+  }
+  const cap = healthyCaption(hParts, of), capW = measure(cap[0], f, 600) + measure(cap[1], f, 500);
+  return { geo, segs, hsegs, bracket, brX, brW, nowW, cap, capW, ...lab, top: Math.max(0, (hh - flowHeight(lab.rows, geo)) / 2) };
 }
 
 const SVGNS = 'http://www.w3.org/2000/svg';
@@ -233,7 +259,7 @@ export function createFlowsTool() {
   el.className = 'pz-flows';
   const reduceMQ = matchMedia('(prefers-reduced-motion: reduce)');
   const clip = `pfl-clip-${++uid}`;
-  let of = 'portal', params = null, goal = null, shown = null, raf = 0, size = '', memo = null;
+  let of = 'portal', params = null, goal = null, hGoal = null, ctx0 = null, shown = null, raf = 0, size = '', memo = null, wait = 0;
   const sizeNow = () => {
     const w = el.clientWidth, z = w ? el.getBoundingClientRect().width / w : 1;
     const f = Math.max(parseFloat(getComputedStyle(el).fontSize) || 12, z > 0.2 && z < 1 ? 12 / z : 0);
@@ -243,16 +269,20 @@ export function createFlowsTool() {
   const info = (id) => ALL.concat(INFLOW).find(([k]) => k === id);
   // The layout the shares are heading for (computed once per goal and size: the name search is not per frame).
   function target() {
-    const [w, hh, f] = sizeNow(), key = `${of}|${Math.round(w)}|${Math.round(hh)}|${f}|${goal.map((p) => `${p.id}:${p.pct}`).join(',')}`;
+    const pk = (ps) => (ps || []).map((p) => `${p.id}:${p.pct}`).join(',');
+    const [w, hh, f] = sizeNow(), key = `${of}|${Math.round(w)}|${Math.round(hh)}|${f}|${pk(goal)}|${pk(hGoal)}`;
     if (memo?.key === key) return memo;
-    const lay = flowLayout(goal, of, w, hh, f, textW), at = Object.fromEntries(lay.segs.map((s, i) => [s.id, [s, lay.labels[i]]]));
+    const lay = flowLayout(goal, of, w, hh, f, textW, hGoal), at = Object.fromEntries(lay.segs.map((s, i) => [s.id, [s, lay.labels[i]]]));
+    const hat = Object.fromEntries(lay.hsegs.map((s) => [s.id, s]));
     const want = Object.fromEntries(order().map((id) => {
-      const [s, l] = at[id] || [];
+      const [s, l] = at[id] || [], h = hat[id], o = shown?.[id], first = id === order()[0];
+      // (The Healthy bar's segment: in the Now bar's order, eased like it; a part healthy lacks shrinks where it stood.)
+      const hw = h ? { hx: (h.a / w) * 100, hpct: h.pct, hop: 1 } : { hx: o ? o.hx : (first ? 0 : 100), hpct: 0, hop: 0 };
       // (A part not on this slide shrinks where it stood; the bar's first part, the liver or the portal vein, stays at 0.)
-      if (!s) { const o = shown?.[id]; return [id, { x: o ? o.x : (id === order()[0] ? 0 : 100), pct: 0, op: 0, lx: o?.lx ?? w / 2, ex: o?.ex ?? w / 2, row: o?.row ?? 0, ld: o?.ld ?? 0 }]; }
-      return [id, { x: (s.a / w) * 100, pct: s.pct, op: 1, lx: l.L + l.lw / 2, ex: l.ex, row: l.row, ld: l.lead ? 1 : 0 }];
+      if (!s) return [id, { x: o ? o.x : (first ? 0 : 100), pct: 0, op: 0, lx: o?.lx ?? w / 2, ex: o?.ex ?? w / 2, row: o?.row ?? 0, ld: o?.ld ?? 0, ...hw }];
+      return [id, { x: (s.a / w) * 100, pct: s.pct, op: 1, lx: l.L + l.lw / 2, ex: l.ex, row: l.row, ld: l.lead ? 1 : 0, ...hw }];
     }));
-    want._ = { top: lay.top, br: lay.bracket && lay.bracket[1] > 0 ? 1 : 0, x: 0, pct: 0, op: 0, lx: 0, ex: 0, row: 0, ld: 0 };
+    want._ = { top: lay.top, br: lay.bracket && lay.bracket[1] > 0 ? 1 : 0, x: 0, pct: 0, op: 0, lx: 0, ex: 0, row: 0, ld: 0, hx: 0, hpct: 0, hop: hGoal ? 1 : 0 };
     memo = { key, want, w, hh, f, geo: lay.geo };
     return memo;
   }
@@ -260,24 +290,38 @@ export function createFlowsTool() {
     if (!goal || !shown || !memo) { el.replaceChildren(); return; }
     const { w, hh, f, geo } = memo, g = geo.g;
     size = `${Math.round(w)}x${Math.round(hh)}`;
-    const top = shown._.top, barT = top + geo.head, barB = barT + geo.barH;
+    const top = shown._.top, barT = top + geo.head, barB = barT + geo.barH, hT = top + geo.hBarY;
     const ids = order().filter((id) => shown[id] && shown[id].op > 0.01);
     const pc = (id) => Math.round(shown[id].pct);
-    const kids = [sv('defs', {}, sv('clipPath', { id: clip }, sv('rect', { x: 0, y: barT, width: w, height: geo.barH, rx: Math.min(6, geo.barH / 2) })))];
-    // The bar: each part's segment as wide as its share of the blood, a hairline of card between them.
-    kids.push(sv('g', { 'clip-path': `url(#${clip})` }, ids.filter((id) => shown[id].pct > 0.05).map((id) => {
-      const x = (shown[id].x / 100) * w, wd = (shown[id].pct / 100) * w;
-      return sv('rect', { class: 'pfl-seg', 'data-part': id, style: `--tone: var(${info(id)[2]}); opacity: ${shown[id].op.toFixed(3)}`,
-        x: x + (x > 0.5 ? 0.75 : 0), y: barT, width: Math.max(0.5, wd - (x > 0.5 ? 0.75 : 0) - (x + wd < w - 0.5 ? 0.75 : 0)), height: geo.barH });
-    })));
-    // The bracket over every bypass segment, its words above it.
+    const kids = [sv('defs', {},
+      sv('clipPath', { id: clip }, sv('rect', { x: 0, y: barT, width: w, height: geo.barH, rx: Math.min(6, geo.barH / 2) })),
+      sv('clipPath', { id: `${clip}-h` }, sv('rect', { x: 0, y: hT, width: w, height: geo.hBarH, rx: geo.hBarH / 2 })))];
+    // A bar's segments, each as wide as its share of the blood, a hairline of card between them.
+    const segRects = (X, P, O, y, h) => order().filter((id) => shown[id] && shown[id][O] > 0.01 && shown[id][P] > 0.05).map((id) => {
+      const x = (shown[id][X] / 100) * w, wd = (shown[id][P] / 100) * w;
+      return sv('rect', { class: 'pfl-seg', 'data-part': id, style: `--tone: var(${info(id)[2]}); opacity: ${shown[id][O].toFixed(3)}`,
+        x: x + (x > 0.5 ? 0.75 : 0), y, width: Math.max(0.5, wd - (x > 0.5 ? 0.75 : 0) - (x + wd < w - 0.5 ? 0.75 : 0)), height: h });
+    });
+    // The healthy model's bar above, thin, in the same order and colours, under its caption ("Healthy · Liver 97%").
+    if (shown._.hop > 0.01) {
+      const first = order()[0], hv = Math.round(shown[first]?.hpct || 0);
+      const [cn, cv] = healthyCaption([{ id: first, pct: hv }], of);
+      kids.push(sv('g', { class: 'pfl-healthy', style: `opacity: ${shown._.hop.toFixed(3)}` },
+        sv('text', { class: 'pfl-cap', x: 0, y: top + 1.0 * f }, sv('tspan', { class: 'k' }, cn), cv),
+        sv('g', { 'clip-path': `url(#${clip}-h)` }, segRects('hx', 'hpct', 'hop', hT, geo.hBarH))));
+    }
+    kids.push(sv('g', { 'clip-path': `url(#${clip})` }, segRects('x', 'pct', 'op', barT, geo.barH)));
+    // The Now row: the word "Now" at its left; for the portal blood the bracket's words, then the bracket over every bypass
+    // segment.
+    const nowW = textW('Now', f, 600);
+    kids.push(sv('text', { class: 'pfl-cap', x: 0, y: top + geo.nowY + 1.0 * f }, sv('tspan', { class: 'k' }, 'Now')));
     if (of !== 'inflow' && shown._.br > 0.01) {
       const lv = shown.liver || { x: 0, pct: 0 }, x0 = Math.min(w - 2, ((lv.x + lv.pct) / 100) * w + 1), x1 = w - 1;
-      const yb = top + 1.3 * f + g, txt = ['Bypassing the liver ', `${Math.round(100 - lv.pct)}%`];
-      const tw = textW(txt[0], f, 500) + textW(txt[1], f, 700), cx = Math.min(Math.max((x0 + x1) / 2, tw / 2), w - tw / 2);
+      const yb = top + geo.brY, txt = ['Bypassing the liver ', `${Math.round(100 - lv.pct)}%`];
+      const tw = textW(txt[0], f, 500) + textW(txt[1], f, 700), cx = bracketX(x0, x1, tw, nowW, g, w);
       kids.push(sv('g', { class: 'pfl-br', style: `opacity: ${shown._.br.toFixed(3)}` },
         sv('path', { d: `M${x0.toFixed(1)} ${(barT - 0.2 * f).toFixed(1)}V${yb.toFixed(1)}H${x1.toFixed(1)}V${(barT - 0.2 * f).toFixed(1)}` }),
-        sv('text', { x: cx, y: top + 1.05 * f, 'text-anchor': 'middle' }, txt[0], sv('tspan', { class: 'v' }, txt[1]))));
+        sv('text', { x: cx, y: top + geo.nowY + 1.05 * f, 'text-anchor': 'middle' }, txt[0], sv('tspan', { class: 'v' }, txt[1]))));
     }
     // Each segment's name, its percent under it; where it sits off its segment, a leader: a slant from the segment's middle
     // just under the bar, then straight down to the name.
@@ -292,9 +336,9 @@ export function createFlowsTool() {
         sv('text', { class: 'v', x: lx, y: ty + 2.15 * f, 'text-anchor': 'middle' }, v)));
     }
     const said = barOrder(goal, of).map((p) => `${p.name} ${p.pct}%`).join(', ');
-    const br = flowView(goal, of).bracket;
+    const br = flowView(goal, of).bracket, hc = hGoal ? healthyCaption(hGoal, of) : null;
     el.replaceChildren(sv('svg', { viewBox: `0 0 ${w} ${hh}`, width: w, height: hh, role: 'img', style: `font-size: ${f.toFixed(2)}px`,
-      'aria-label': `${of === 'inflow' ? 'The liver\'s inflow' : 'Where the portal blood goes'}: ${said}${br ? `; ${br[0]} ${br[1]}%` : ''}` }, kids));
+      'aria-label': `${of === 'inflow' ? 'The liver\'s inflow' : 'Where the portal blood goes'}: ${said}${br ? `; ${br[0]} ${br[1]}%` : ''}${hc ? `; ${hc[0]}${hc[1].replace(' · ', ': ')}` : ''}` }, kids));
   }
   function tick() {
     raf = 0;
@@ -304,14 +348,14 @@ export function createFlowsTool() {
     const k = reduceMQ.matches || !shown ? 1 : 0.2, mix = (a, b) => a + (b - a) * k;
     // (A part that goes fades out faster than the others move; one that comes fades in where it will stay.)
     const fade = (a, b) => (k === 1 ? b : a + (b - a) * (b < a ? 0.4 : 0.2));
-    const KEYS = ['x', 'pct', 'lx', 'ex', 'row', 'top', 'br'];
+    const KEYS = ['x', 'pct', 'lx', 'ex', 'row', 'top', 'br', 'hx', 'hpct'];
     shown = Object.fromEntries(Object.keys(want).map((id) => {
       const w0 = want[id], s0 = shown?.[id] || { ...w0, op: 0, ld: 0, pct: 0 };
-      const s = { op: fade(s0.op, w0.op), ld: fade(s0.ld, w0.ld) };
+      const s = { op: fade(s0.op, w0.op), ld: fade(s0.ld, w0.ld), hop: fade(s0.hop ?? 0, w0.hop) };
       for (const key of KEYS) if (key in w0) s[key] = mix(s0[key] ?? w0[key], w0[key]);
       return [id, s];
     }));
-    const done = Object.keys(want).every((id) => ['x', 'pct', 'op', 'ld', 'row', 'top', 'br'].every((key) => !(key in want[id]) || Math.abs(shown[id][key] - want[id][key]) < 0.01)
+    const done = Object.keys(want).every((id) => ['x', 'pct', 'op', 'ld', 'row', 'top', 'br', 'hx', 'hpct', 'hop'].every((key) => !(key in want[id]) || Math.abs(shown[id][key] - want[id][key]) < 0.01)
       && Math.abs(shown[id].lx - want[id].lx) < 0.2 && Math.abs(shown[id].ex - want[id].ex) < 0.2);
     if (done) shown = Object.fromEntries(Object.keys(want).map((id) => [id, { ...want[id] }]));
     draw();
@@ -321,7 +365,19 @@ export function createFlowsTool() {
     const p = flowParts(fp, of, params);
     if (!p) return;
     goal = p;
+    healthyNow();
     if (!raf) raf = requestAnimationFrame(tick);
+  }
+  // The healthy model's parts (the presenter's healthy fingerprint, the one the profile's dashed line uses): it can arrive
+  // after the first slide, so the card asks again for a few seconds; the Healthy bar fades in when it comes.
+  function healthyNow() {
+    const hp = flowParts(ctx0?.healthy?.(), of);
+    clearTimeout(wait); wait = 0;
+    if (hp) { hGoal = hp; return; }
+    hGoal = null;
+    let tries = 0;
+    const again = () => { wait = 0; const h = flowParts(ctx0?.healthy?.(), of); if (h) { hGoal = h; if (!raf && goal) raf = requestAnimationFrame(tick); } else if (++tries < 40 && el.isConnected !== false) wait = setTimeout(again, 250); };
+    wait = setTimeout(again, 250);
   }
   // (A new size lays the names out afresh and shows them there at once: the places are in pixels.)
   if (typeof ResizeObserver === 'function') new ResizeObserver(() => { if (shown && el.isConnected && size !== `${Math.round(el.clientWidth)}x${Math.round(el.clientHeight)}`) { if (raf) cancelAnimationFrame(raf); shown = null; tick(); } }).observe(el);
@@ -330,11 +386,11 @@ export function createFlowsTool() {
     configure(t, ctx) {
       const of2 = t?.of === 'inflow' ? 'inflow' : 'portal';
       if (of2 !== of) { shown = null; memo = null; }   // (the other split: drawn afresh)
-      of = of2; params = ctx?.params || null; el.dataset.of = of;
+      of = of2; params = ctx?.params || null; ctx0 = ctx || null; el.dataset.of = of;
       if (ctx?.fp) aim(ctx.fp);
     },
     pin(fp) { if (el.isConnected && fp) aim(fp); },
     clear() {},
-    dispose() { if (raf) cancelAnimationFrame(raf); raf = 0; },
+    dispose() { if (raf) cancelAnimationFrame(raf); raf = 0; clearTimeout(wait); wait = 0; },
   };
 }
