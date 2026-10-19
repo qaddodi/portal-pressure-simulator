@@ -9,7 +9,7 @@ import { EXT } from '../src/ui/slide-ext.js';
 import { NODES } from '../src/engine/topology.js';
 import { portalSplit } from '../src/ui/table-marks.js';
 import { profileOf, STATIONS, TIGHT_NAMES, NAME_GAP, axisTop, nameFit, profileGeo, valueSides, placeValues, curveRuns, labelPlacer, bracketLabel, BRACE_NAME, SPANS, placeBrackets, bracketBox, BR_PAD } from '../src/ui/tool-profile.js';
-import { flowParts, routeFlows, wholeShares, flowView, BAR_ROWS, MAX_ROUTES } from '../src/ui/tool-flows.js';
+import { flowParts, routeFlows, wholeShares, flowView, MAX_ROUTES, flowLayout, LABEL_GAP } from '../src/ui/tool-flows.js';
 import { milePlaces } from '../src/ui/talk-trace.js';
 import { RX, bandKeys, bandRuns, bandSpan, namePlaces } from '../src/ui/rx-bands.js';
 import { deckStates, runSteps } from './deck-states.js';
@@ -275,18 +275,76 @@ test('a TIPS shows as its own part; the inflow turns arterial after it', async (
   assert.ok(b.find((p) => p.id === 'tips').pct > 20, JSON.stringify(b));
   assert.ok(flowParts(tips, 'inflow').find((p) => p.id === 'artery').pct > flowParts(decomp, 'inflow').find((p) => p.id === 'artery').pct);
   assert.equal(flowParts({ shunt: 0.2 }), null, 'no flows, no bar');
-  // The card: a headline of the liver against the rest, then the routes as bars, largest first, never more than it keeps room for.
+  // The card: one bar, the liver first and then the routes largest first, a bracket over the bypass routes.
   const v = flowView(b);
-  assert.deepEqual(v.head.map(([n]) => n), ['Liver', 'Bypassing the liver']);
-  assert.equal(v.head[0][1] + v.head[1][1], 100);
-  assert.equal(v.head[0][1], b.find((p) => p.id === 'liver').pct);
-  assert.ok(v.bars.every((p) => p.id !== 'liver') && v.bars.length <= BAR_ROWS);
-  assert.equal(v.bars.reduce((s, p) => s + p.pct, 0), v.head[1][1], 'the bars add up to the bypassed share');
-  for (let i = 1; i < v.bars.length; i++) assert.ok(v.bars[i - 1].pct >= v.bars[i].pct, 'largest first');
+  assert.equal(v.bar[0].id, 'liver');
+  assert.equal(v.bar.reduce((s, p) => s + p.pct, 0), 100, 'the bar is all the portal blood');
+  assert.deepEqual(v.bracket, ['Bypassing the liver', 100 - v.bar[0].pct]);
+  const routes = v.bar.filter((p) => p.id !== 'liver' && p.id !== 'other');
+  assert.equal(v.bar.slice(1).reduce((s, p) => s + p.pct, 0), v.bracket[1], 'the bracket spans every bypass segment');
+  for (let i = 1; i < routes.length; i++) assert.ok(routes[i - 1].pct >= routes[i].pct, 'largest first');
   const vi = flowView(flowParts(tips, 'inflow'), 'inflow');
-  assert.deepEqual(vi.head.map(([n]) => n), ['Portal vein', 'Hepatic artery'], 'both halves named, one at 0 % too');
-  assert.equal(vi.head[0][1] + vi.head[1][1], 100);
-  for (let i = 1; i < vi.bars.length; i++) assert.ok(vi.bars[i - 1].pct >= vi.bars[i].pct);
+  assert.equal(vi.bracket, null, 'no bracket on the inflow');
+  assert.deepEqual(vi.bar.map((p) => p.id), ['portal', 'artery'].filter((id) => vi.bar.some((p) => p.id === id)));
+  assert.equal(vi.bar.reduce((s, p) => s + p.pct, 0), 100);
+});
+
+// The label rule on every deck slide's bar, at every card width from a narrow phone card (230 px) to a Mac's widest: each
+// name 12 px or more, inside the card, under its own segment or on a leader, ≥ 4 px from every other name, every other name's
+// leader, the bar and the bracket's line, and the rows inside the card's height.
+const boxOf = (lay, l) => { const t = lay.top + lay.geo.head + lay.geo.barH + lay.geo.band + l.row * lay.geo.step; return { x0: l.L, x1: l.L + l.lw, y0: t, y1: t + lay.geo.lab }; };
+function checkRule(parts, of, w, hh, f, at) {
+  const lay = flowLayout(parts, of, w, hh, f, (t, ff) => t.length * ff * 0.58), g = lay.geo.g;
+  assert.ok(f >= 12 && g >= LABEL_GAP);
+  assert.ok(lay.ok, `${at}: the names fit in ${lay.rows} rows`);
+  assert.ok(lay.top + lay.geo.head + lay.geo.barH + lay.rows * lay.geo.step <= hh + 1e-6, `${at}: inside the card's height`);
+  const barB = lay.top + lay.geo.head + lay.geo.barH, boxes = lay.labels.map((l) => boxOf(lay, l));
+  const brY = lay.top + 1.3 * f + g;
+  lay.labels.forEach((l, i) => {
+    const b = boxes[i], s = lay.segs[i];
+    assert.ok(b.x0 >= -1e-9 && b.x1 <= w + 1e-9, `${at}: ${s.name} inside the card`);
+    assert.ok(b.y0 - barB >= g - 1e-9, `${at}: ${s.name} clear of the bar`);
+    if (of !== 'inflow') assert.ok(b.y0 - brY > g, `${at}: ${s.name} clear of the bracket`);
+    if (!l.lead) assert.ok(b.x0 >= s.a - 1e-9 && b.x1 <= s.b + 1e-9, `${at}: ${s.name} without a leader sits under its own segment`);
+    lay.labels.forEach((m, j) => {
+      if (j === i) return;
+      const o = boxes[j];
+      if (m.row === l.row) assert.ok(Math.max(o.x0 - b.x1, b.x0 - o.x1) >= g - 1e-9, `${at}: ${s.name} clear of ${lay.segs[j].name}`);
+      // Another name's leader drops straight down through the rows above that name: never within g of this one.
+      if (m.lead && m.row > l.row) assert.ok(m.ex <= b.x0 - g + 1e-9 || m.ex >= b.x1 + g - 1e-9, `${at}: ${lay.segs[j].name}'s leader clear of ${s.name}`);
+    });
+    if (l.lead) assert.ok(l.ex >= b.x0 && l.ex <= b.x1, `${at}: ${s.name}'s leader ends over it`);
+  });
+  // The slants keep the bar's order, so no two leaders cross.
+  const ex = lay.labels.filter((l) => l.lead).map((l) => l.ex);
+  for (let i = 1; i < ex.length; i++) assert.ok(ex[i] > ex[i - 1], `${at}: leaders never cross`);
+  return lay;
+}
+
+test('the portal blood bar: names keep the label rule on every deck slide and card width', async () => {
+  const f = 12, H = { portal: 13.75 * f, inflow: 8.5 * f };
+  let leads = 0, n = 0;
+  for (const d of DECKS) {
+    const fps = await deckStates(d);
+    d.slides.forEach((s, i) => {
+      if (!fps[i]?.at) return;
+      for (const of of ['portal', 'inflow']) {
+        const parts = flowParts(fps[i], of);
+        for (const w of [230, 280, 340, 420, 560, 720]) {
+          const lay = checkRule(parts, of, w, H[of], f, `${d.id}/${s.id} ${of} ${w}px`);
+          leads += lay.labels.filter((l) => l.lead).length; n++;
+        }
+      }
+    });
+  }
+  assert.ok(n > 100 && leads > 0, 'many bars checked, some names on leaders');
+  // Thin segments side by side (a TIPS slide's crumbs) and the most names the bar shows, in a narrow card.
+  const crumbs = [{ id: 'liver', name: 'Liver', pct: 4 }, { id: 'tips', name: 'TIPS', pct: 86 }, { id: 'var', name: 'Varices', pct: 4 },
+    { id: 'pum', name: 'Paraumbilical', pct: 3 }, { id: 'grs', name: 'Gastrorenal', pct: 2 }, { id: 'other', name: 'Other', pct: 1 }];
+  for (const w of [200, 260, 400]) checkRule(crumbs, 'portal', w, H.portal, f, `crumbs ${w}px`);
+  const six = [{ id: 'liver', name: 'Liver', pct: 20 }, { id: 'ret', name: 'Retroperitoneal', pct: 18 }, { id: 'pum', name: 'Paraumbilical', pct: 17 },
+    { id: 'grs', name: 'Gastrorenal', pct: 16 }, { id: 'srs', name: 'Splenorenal', pct: 15 }, { id: 'other', name: 'Other', pct: 14 }];
+  for (const w of [230, 300, 500]) checkRule(six, 'portal', w, H.portal, f, `six ${w}px`);
 });
 
 test('the year chart\'s milestone names: level, inside the chart, never touching each other', () => {

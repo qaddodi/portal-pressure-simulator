@@ -23,7 +23,7 @@ import { nb, listCase, plateletText } from './glue.js?v=5a0f63226b';
 import { DECKS, REGIONS, LEVELS, TOPICS, withOverview, siteTag, SITE_TAGS } from './decks.js?v=8b01c690f7';
 import { wholeGap, tenthGap } from '../engine/gap.js?v=3a5947c552';
 import { createHvpgMonitor } from './hvpg-proc.js?v=d8438f1d1f';
-import { createTools } from './presenter-tools.js?v=b99002d2b4';
+import { createTools } from './presenter-tools.js?v=a4fd406488';
 import { openHandout } from './handout.js?v=827d06fadd';
 import { noteResume, resumeFor } from './resume.js?v=f086f80ee8';
 import { parseDeckSource, checkDeck } from './deck-source.js?v=8395c650cd';
@@ -32,7 +32,7 @@ import { frameFor, cancelFrame } from './frame.js?v=67ca200c87';
 import { createFigureKey } from './figure-key.js?v=96997852c4';
 import { traceWhen } from './trace-labels.js?v=fc916a95c6';
 import { flowCss, heatCss, dropCss, gradientCss, oxygenCss } from './colormap.js?v=b2067d6101';
-import { EXT, expandIds, stepExtra, markLabel, figureHooks, safe } from './slide-ext.js?v=64e058cfaa';
+import { EXT, expandIds, stepExtra, markLabel, figureHooks, safe } from './slide-ext.js?v=0340c8c470';
 import { citeText, focusOf, ladderFromOf, ladderFromName } from './teach-extras.js?v=d8224d9bb5';
 const nextFrame = frameFor('presenter');
 

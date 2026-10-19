@@ -6202,14 +6202,17 @@ html.thumb-ui .menu.from-dock { clip-path: inset(-64px -64px calc(var(--sink, 0p
 .ppf-br text .k { font-weight: 600; fill: var(--text-2); }
 .ppf-br[data-rate="mid"] path { stroke: var(--caution); } .ppf-br[data-rate="mid"] text { fill: var(--caution); }
 .ppf-br[data-rate="hi"] path { stroke: var(--danger); } .ppf-br[data-rate="hi"] text { fill: var(--danger); }
-/* (The headline and a row for every bar the card can show, five, whatever the slide holds: the card never resizes, tool-flows.js.) */
-.pz-flows { height: calc(var(--flows-h, 11.5em) * var(--pz-fit, 1)); min-height: 10em; }
-.pfl-head { font: 500 1em var(--font-ui); fill: var(--text-2); }
-.pfl-head .v, .pfl-bar text .v { font-weight: 700; fill: var(--text); font-variant-numeric: tabular-nums; }
-.pfl-head .sep { fill: var(--text-3); }
-.pfl-track { fill: color-mix(in srgb, var(--text) 6%, transparent); }
-.pfl-fill { fill: color-mix(in srgb, var(--tone) 45%, transparent); }
-.pfl-bar text { font: 500 1em var(--font-ui); fill: var(--text); }
+/* (The bracket, the one bar and room for three rows of names, two for the inflow's two parts, whatever the slide holds: the
+   card never resizes, and the drawing centres itself in it, tool-flows.js.) */
+.pz-flows { height: calc(var(--flows-h, 13.75em) * var(--pz-fit, 1)); min-height: 10em; }
+.pz-flows[data-of="inflow"] { --flows-h: 8.5em; min-height: 7em; }
+.pfl-seg { fill: color-mix(in srgb, var(--tone) 62%, transparent); }
+.pfl-br path { fill: none; stroke: var(--text-3); stroke-width: 1.25; stroke-linejoin: round; }
+.pfl-br text { font: 500 1em var(--font-ui); fill: var(--text-2); }
+.pfl-br text .v, .pfl-lab .v { font-weight: 700; fill: var(--text); font-variant-numeric: tabular-nums; }
+.pfl-lab .n { font: 500 1em var(--font-ui); fill: var(--text-2); }
+.pfl-lab .v { font-family: var(--font-ui); font-size: 1em; }
+.pfl-lead { fill: none; stroke: var(--text-3); stroke-width: 1; stroke-linejoin: round; }
 /* Treatment bands on the over-time charts (rx-bands.js). On the talk trace a soft band in the treatment's colour, its name in a
    deeper shade over the lines with a halo; the chart grows by the names' rows (talk-trace.js sets --band-room). On a flowtime
    chart the treatments' names on a row under the clock and a thin bar each, the chart taller by them (flow-time.js sets
