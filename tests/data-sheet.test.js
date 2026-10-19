@@ -66,13 +66,31 @@ test('a sideways phone shows the compact instrument and its tiles together, no s
 });
 
 // (An upright phone's sheet card waits for its entry hidden by visibility, not opacity, while the slide's camera frames: it still
-// counts where it rests (data-safe-rest), or the figure framed as if no card stood at the top and the card came in over the
-// slide's vessel (the test all deck's clot slide on an iPhone, 19 Oct).)
-test('a sheet card waiting unseen for its entry still counts where it rests when the camera frames', () => {
+// counts where it rests, or the figure framed as if no card stood at the top and the card came in over the slide's vessel (the
+// test all deck's clot slide on an iPhone, 19 Oct). Only that card: the closed Tests sheet and Details panel are hidden by
+// visibility too, and counted, the app opened on every screen size framed small, as if a sheet stood over the figure (19 Oct).)
+test('a sheet card waiting unseen for its entry still counts where it rests; a closed sheet or panel never does', () => {
   const stage = readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8');
+  const html = readFileSync(new URL('../index.html', import.meta.url), 'utf8');
   assert.match(css, /\.pz\.stack\.stack \.pz-data\.pz-sheet\.pz-hide \{ opacity: 1; visibility: hidden;/, 'the case this guards');
-  assert.match(js, /class: 'pz-data stage-blocker pz-hide', 'data-safe': 'right', 'data-safe-rest': ''/);
-  assert.match(stage, /const unseenCard = \(el\) => !\('safeRest' in el\.dataset\) && \(el\.checkVisibility/);
+  assert.match(js, /class: 'pz-data stage-blocker pz-hide', 'data-safe': 'right', 'data-safe-rest': '', 'data-safe-waits': ''/);
+  // Only the slide's data card waits: no piece of the app (top bar, view switch, vitals, Tests sheet, Details, Treat, History) does.
+  assert.ok((html.match(/data-safe=/g) || []).length >= 6);
+  assert.doesNotMatch(html, /data-safe-waits/);
+  for (const f of ['main.js', 'dock.js', 'card.js']) assert.doesNotMatch(readFileSync(new URL(`../src/ui/${f}`, import.meta.url), 'utf8'), /safe-waits|safeWaits/);
+  assert.equal((js.match(/data-safe-waits|safeWaits/g) || []).length, 1, 'set once, on the data card');
+  // The check itself, run on pieces as each screen size has them: hidden by visibility, it counts only when it waits.
+  const src = stage.match(/const unseenCard = (\(el\) => [^\n]+);/);
+  assert.ok(src, 'stage.js unseenCard');
+  const unseenCard = new Function('getComputedStyle', `return ${src[1]}`)((el) => ({ visibility: el.vis }));
+  const piece = (vis, data = {}, cv = true) => ({ vis, dataset: data, ...(cv ? { checkVisibility: () => vis !== 'hidden' } : {}) });
+  for (const cv of [true, false]) {   // (Safari before 17.4 has no checkVisibility)
+    assert.equal(unseenCard(piece('hidden', { safe: 'bottom', safeRest: '' }, cv)), true, 'a closed Tests sheet or Details panel: not counted');
+    assert.equal(unseenCard(piece('hidden', { safe: 'right', safeRest: '' }, cv)), true, 'a closed Treat or History card: not counted');
+    assert.equal(unseenCard(piece('visible', { safe: 'bottom', safeRest: '' }, cv)), false, 'an open sheet: counted');
+    assert.equal(unseenCard(piece('hidden', { safe: 'top', safeRest: '', safeWaits: '' }, cv)), false, 'the slide data card waiting: counted');
+    assert.equal(unseenCard(piece('visible', { safe: 'top' }, cv)), false);
+  }
   assert.equal((stage.match(/if \(unseenCard\(el\)\) continue;/g) || []).length, 2, 'both the camera (safeInsets) and the card space (cardSpace)');
   assert.doesNotMatch(stage, /^\s*if \(el\.checkVisibility \? !el\.checkVisibility\(\{ visibilityProperty: true \}\)/m);
 });

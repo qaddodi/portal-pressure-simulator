@@ -1329,11 +1329,13 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // (A piece sliding with the sinusoid zoom, main.js sinMotion: the dock as it slides away (vd-out) no longer counts, and while
   // the dock or the view pill slides back, data-slide-y holds its shift on screen, so it counts where it will rest.)
   const slideRest = (el, q) => { const y = +el.dataset.slideY || 0; return y ? new DOMRect(q.x, q.y - y, q.width, q.height) : q; };
-  // (A card hidden by visibility no longer counts, except one that counts where it rests (data-safe-rest): an upright phone's
-  // data card with its readings on a sheet waits for its entry hidden by visibility, not opacity (styles/app.css .pz-sheet.pz-hide),
-  // and the slide's camera frames while it waits. Skipped then, the figure framed as if no card stood at the top, and the card came
-  // in over the slide's vessel until it was closed and opened again: the test all deck's clot slide on an iPhone, 19 Oct.)
-  const unseenCard = (el) => !('safeRest' in el.dataset) && (el.checkVisibility ? !el.checkVisibility({ visibilityProperty: true }) : getComputedStyle(el).visibility === 'hidden');
+  // (A card hidden by visibility no longer counts, except the slide's data card while it waits for its entry (data-safe-waits):
+  // an upright phone's data card with its readings on a sheet waits hidden by visibility, not opacity (styles/app.css
+  // .pz-sheet.pz-hide), while the slide's camera frames. Skipped then, the figure framed as if no card stood at the top, and the
+  // card came in over the slide's vessel: the test all deck's clot slide on an iPhone, 19 Oct. Only that card: the Tests sheet and
+  // the Details panel (data-safe-rest too) are hidden by visibility when closed, and counted then, the app opened framed small at
+  // the top of a phone, 19 Oct.)
+  const unseenCard = (el) => !('safeWaits' in el.dataset) && (el.checkVisibility ? !el.checkVisibility({ visibilityProperty: true }) : getComputedStyle(el).visibility === 'hidden');
   function cardSpace() {
     const wr = wrap.getBoundingClientRect(), W = wr.width, H = wr.height, sp = { t: 0, b: 0 };
     for (const el of document.querySelectorAll('[data-safe]')) {
