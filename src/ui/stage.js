@@ -6019,6 +6019,10 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const MARK_GRID = [];
   for (let x = -150; x <= 150; x += 6) for (let y = -150; y <= 150; y += 6) if (Math.hypot(x, y) <= 150 && Math.hypot(x, y) >= 24) MARK_GRID.push([x, y]);
   MARK_GRID.sort((a, b) => Math.hypot(...a) - Math.hypot(...b));
+  // (Steps for a Circuit reading pulled onto a station's ring, every 4 px out to 120, nearest first: see layoutLabels.)
+  const PULL_GRID = [];
+  for (let x = -120; x <= 120; x += 4) for (let y = -120; y <= 120; y += 4) if ((x || y) && Math.hypot(x, y) <= 120) PULL_GRID.push([x, y]);
+  PULL_GRID.sort((a, b) => Math.hypot(...a) - Math.hypot(...b));
   function offset(dir, it, gap) {
     const { w, h: hh } = it;
     const d = gap * 0.72;
@@ -6654,7 +6658,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const prevSol = labelSol, nextSol = solve ? new Map() : labelSol;
     const out = [];
     const leaders = [];   // { k, tag, at }: every line, then every dot (paintLeaders)
-    let useLines = false, rings = [], ringPts = [], ringXY = [];   // rings: the Circuit's stations with a reading (see placeMulti); ringXY: their dots
+    let useLines = false, rings = [], ringXY = [];   // rings: the Circuit's stations with a reading (see placeMulti); ringXY: their dots
     let clampAlts = [];   // (the column's "60 %": other spots off the vessels, nearest first, for the slide's mark)
     const buildLines = () => { if (solve && !useLines) { useLines = true; buildSegs(); } };
     // A stent called out at its three points: the three stand in a column beside their own dots, distal to proximal in the stent's
@@ -6778,6 +6782,10 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         const slack = it.rot ? 0 : prev.w - it.w;
         it.x = ax + prev.dx + (prev.dir.includes('W') ? slack : prev.dir.includes('E') ? 0 : slack / 2);
         it.y = ay + prev.dy;
+        // (A Circuit reading carried onto a station's ring is solved again: the figure eased a few per cent closer or farther since
+        // it was solved, and the reading, kept as far from the middle of its vessel, came onto the station's ring at its end. One
+        // the solve itself left on a ring (dot) is carried, or it would be solved again every frame.)
+        if (circuit && it.key.startsWith('n:') && !prev.dot && placed.some((p) => p.dot && hits(rectOf(it), p))) { stale = true; return false; }
         placed.push(rectOf(it)); out.push(it);
         return true;
       }
@@ -7080,6 +7088,11 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         }
       }
       buildLines();
+      // (A station's ring, 4 px round, stays clear of every reading's halo by 2 px. The halo widens with the text (styles/app.css,
+      // #labels .lb.inline.bare text: 4 px a unit of --lbk; 7 px on a vessel, .on-vessel), and only the 3 px beside the words
+      // (padX) leave less room than the line's own space above and below them, so the room kept to either side of the ring grows
+      // with it: on an upright iPad, LHV's halo had covered its ring.)
+      const ringR = 5, ringRX = 3.5 + Math.max(2 * labelK, 3.5);
       // The liver's stations show when zoomed in on it or when one is selected (there is no box to open them).
       const open = liverExpanded();
       const nodes = [], flagC = flagged(f);
@@ -7094,7 +7107,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         const { ax, ay, mid, tan, w: vw } = labelAnchor(n.id, t);
         // The station dot stays where it is; a callout on a vessel also keeps clear of its own marker.
         const [sx, sy] = worldToLocal(...nodePos(n.id, t));
-        placed.push({ x0: sx - 5, y0: sy - 5, x1: sx + 5, y1: sy + 5, dot: true }); ringXY.push([sx, sy]); if (solve) ringPts.push(`${Math.round(sx)},${Math.round(sy)}`);
+        placed.push({ x0: sx - ringRX, y0: sy - ringR, x1: sx + ringRX, y1: sy + ringR, dot: true }); ringXY.push([sx, sy, ringRX]);
         if (mid) placed.push({ x0: ax - 4, y0: ay - 4, x1: ax + 4, y1: ay + 4, dot: true });
         const it = nodeItem(n.id, f, 'station', compact);
         it.align = 'middle'; it.ax = ax; it.ay = ay; it.mid = mid; it.tan = tan; it.vw = vw * CTM.sc; it.pri = it.sel ? 100 : CIRCUIT_LABELS[n.id].pri;
@@ -7186,6 +7199,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       }
       // Any reading left touching a vessel (within 3 px) takes the solid halo.
       if (solve && useLines) for (const { it } of plan) if (out.includes(it) && it._r && !it.onVessel && lineHits(it._r, 3)) { it.onVessel = true; const sol = nextSol.get(it.key); if (sol) sol.onv = true; }
+      // (And any left on a station's ring is marked, so the next frames carry it rather than solve again: see placeMulti.)
+      if (solve) for (const { it } of plan) { const sol = nextSol.get(it.key); if (sol && !sol.drop && out.includes(it) && placed.some((p) => p.dot && p !== it._r && hits(rectOf(it), p))) sol.dot = true; }
       // One unit rule for the whole circuit (17 Oct design review): where any reading had to drop its unit for room, every reading
       // shows its number alone ("Gut bed 21.1" had stood beside "SMV 18.7 mmHg"). Each one only narrows, toward its station, so it
       // runs into nothing it had cleared; its slot keeps the width it reserved, so the next frames carry it unchanged.
@@ -7377,18 +7392,43 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         || placeMulti(it, FAR_DIRS, SLID(far));
     }
     if (stale) return false;
-    if (solve) {
-      labelSol = nextSol;
-      // (The stations' rings, and the readings given up for want of room with where their stations are, for the browser
-      // checks: tests/e2e/smoke.mjs.)
-      const at = new Map(out.concat(rings).map((o) => [o.key, o]));
-      gLabels.dataset.rings = ringPts.join(' ');
-      gLabels.dataset.dropped = [...nextSol].filter(([k, v]) => v.drop && k.startsWith('n:')).map(([k]) => { const o = at.get(k); return `${k.slice(2)}@${o ? `${Math.round(o.ax)},${Math.round(o.ay)}` : ''}`; }).join(' ');
-    }
+    if (solve) labelSol = nextSol;
+    // (The stations' rings, and the readings given up for want of room with where their stations are, for the browser checks:
+    // tests/e2e/smoke.mjs. Written at every layout, a carried one too: written only when solved, they lagged behind a pan since,
+    // and a reading carried with its ring looked to stand on where the ring had been.)
+    const at = new Map(out.concat(rings).map((o) => [o.key, o]));
+    const ringsAt = ringXY.map(([x, y]) => `${Math.round(x)},${Math.round(y)}`).join(' ');
+    if (gLabels.dataset.rings !== ringsAt) gLabels.dataset.rings = ringsAt;
+    const droppedAt = [...labelSol].filter(([k, v]) => v.drop && k.startsWith('n:')).map(([k]) => { const o = at.get(k); return `${k.slice(2)}@${o ? `${Math.round(o.ax)},${Math.round(o.ay)}` : ''}`; }).join(' ');
+    if (gLabels.dataset.dropped !== droppedAt) gLabels.dataset.dropped = droppedAt;
     // Which labels show this frame. A slot never moves for a screen-fixed obstacle: a label whose box a
     // panel, card or title covers (or that has panned off the stage) is hidden, and shown again once it is
     // clear of the obstacle by a margin, so it cannot flicker at the edge. A selected label always shows.
     const stage = { x0: 0, y0: 0, x1: W, y1: H };
+    // (A Circuit reading that the pull below would set on a station's ring, its own included, where its halo would hide the ring,
+    // slides the least it needs instead, any way within 120 px: into the free space, onto no other reading as they will stand, its
+    // leader through none of them and none of theirs through it. Failing that it is pulled in as before.)
+    if (circuit && ringXY.length) {
+      const ns = out.filter((o) => o.key.startsWith('n:') && !o.live && o.ax >= -8 && o.ax <= W + 8 && o.ay >= -8 && o.ay <= H + 8);
+      const pull = new Map(ns.map((o) => { const e = rectOf(o), V = viewOf(o); return [o, [Math.max(V.x0 - e.x0, Math.min(0, V.x1 - e.x1)), Math.max(V.y0 - e.y0, Math.min(0, V.y1 - e.y1))]]; }));
+      const pulledBox = (o) => { const [cx, cy] = pull.get(o); return rectOf({ ...o, x: o.x + cx, y: o.y + cy }); };
+      const onRing = (r) => ringXY.some(([x, y, rx]) => x > r.x0 - rx && x < r.x1 + rx && y > r.y0 - 5 && y < r.y1 + 5);
+      for (const it of ns) {
+        const [cx, cy] = pull.get(it);
+        if ((!cx && !cy) || !onRing(pulledBox(it))) continue;
+        const near = ns.filter((o) => o !== it), others = near.map(pulledBox), V = viewOf(it);
+        const lines = near.filter((o) => o.leader || Math.hypot(...pull.get(o)) > 2).map((o) => { const r = pulledBox(o), e = leaderEnd(r, o.ax, o.ay); return { x0: o.ax, y0: o.ay, x1: e.x, y1: e.y }; });
+        const step = PULL_GRID.find(([dx, dy]) => {
+          const r = rectOf({ ...it, x: it.x + cx + dx, y: it.y + cy + dy });
+          if (!within(r, V) || onRing(r) || others.some((o) => hits(r, o)) || lines.some((sg) => segHitsBox(sg, r, 2))) return false;
+          const e = leaderEnd(r, it.ax, it.ay), sg = { x0: it.ax, y0: it.ay, x1: e.x, y1: e.y };
+          return !others.some((o) => segHitsBox(sg, o, 2));
+        });
+        if (!step) continue;
+        it.x += cx + step[0]; it.y += cy + step[1]; it.leader = true; pull.set(it, [0, 0]);
+        if (solve && useLines && lineHits(rectOf(it), 2)) { it.onVessel = true; const sol = nextSol.get(it.key); if (sol) sol.onv = true; }   // (on a vessel: the solid halo)
+      }
+    }
     for (const it of out) {
       if (it.live) { it.hide = false; continue; }
       // A label a pan has pushed over the stage edge is pulled back inside (with a leader to its station)
@@ -7398,22 +7438,6 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       if (it.cls === 'organ') { const was = labelVis.get(it.key) !== false, m = was ? 0 : 10; it.hide = !within({ x0: edge.x0 - m, y0: edge.y0 - m, x1: edge.x1 + m, y1: edge.y1 + m }, V) || obstacles.some((o) => hits(edge, o)); labelVis.set(it.key, !it.hide); continue; }
       const cx = Math.max(V.x0 - edge.x0, Math.min(0, V.x1 - edge.x1)), cy = Math.max(V.y0 - edge.y0, Math.min(0, V.y1 - edge.y1));
       if (cx || cy) { it.x += cx; it.y += cy; if (Math.hypot(cx, cy) > 2) it.leader = true; }
-      // (A Circuit reading pulled in never lands on a station's ring, its own included: its halo would hide the ring. It slides on
-      // the little it needs, further in or to either side, onto no other reading, and stays in the free space; failing that it
-      // stays where the pull set it.)
-      if ((cx || cy) && circuit && it.key.startsWith('n:') && ringXY.length) {
-        const ringK = 6 + 1.5 * Math.max(0, labelK - 1);   // (its halo grows with the text: tests/e2e/smoke.mjs keeps it 4 px off the ring)
-        const others = out.filter((o) => o !== it && o.key.startsWith('n:') && !o.hide && !o.live).map(rectOf);
-        const onRing = (r) => ringXY.some(([x, y]) => x > r.x0 - ringK && x < r.x1 + ringK && y > r.y0 - ringK && y < r.y1 + ringK);
-        if (onRing(rectOf(it))) {
-          const along = Math.abs(cy) >= Math.abs(cx) ? [0, Math.sign(cy)] : [Math.sign(cx), 0], across = [along[1], along[0]];
-          const ok = (dx, dy) => { const r = rectOf({ ...it, x: it.x + dx, y: it.y + dy }); return within(r, V) && !onRing(r) && !others.some((o) => hits(r, o)); };
-          for (let d = 1; d <= 48; d++) {
-            const step = [[along[0] * d, along[1] * d], [across[0] * d, across[1] * d], [-across[0] * d, -across[1] * d]].find(([dx, dy]) => ok(dx, dy));
-            if (step) { it.x += step[0]; it.y += step[1]; it.leader = true; break; }
-          }
-        }
-      }
       // (A reading pulled in onto a vessel takes the solid halo there too.)
       if ((cx || cy) && solve && useLines && it.key.startsWith('n:') && lineHits(rectOf(it), 2)) { it.onVessel = true; const sol = nextSol.get(it.key); if (sol) sol.onv = true; }
       if (!it.sel && (it.ax < -8 || it.ax > W + 8 || it.ay < -8 || it.ay > H + 8)) { it.hide = true; labelVis.set(it.key, false); continue; }
