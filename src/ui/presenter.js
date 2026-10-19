@@ -23,7 +23,7 @@ import { nb, listCase, plateletText } from './glue.js?v=5a0f63226b';
 import { DECKS, REGIONS, LEVELS, TOPICS, withOverview, siteTag, SITE_TAGS } from './decks.js?v=df7cf75f8c';
 import { wholeGap, tenthGap } from '../engine/gap.js?v=3a5947c552';
 import { createHvpgMonitor } from './hvpg-proc.js?v=d8438f1d1f';
-import { createTools } from './presenter-tools.js?v=32cd8c830b';
+import { createTools } from './presenter-tools.js?v=188d9c1ce0';
 import { openHandout } from './handout.js?v=527d3dba1d';
 import { noteResume, resumeFor } from './resume.js?v=f086f80ee8';
 import { parseDeckSource, checkDeck } from './deck-source.js?v=8395c650cd';
@@ -32,7 +32,7 @@ import { frameFor, cancelFrame } from './frame.js?v=67ca200c87';
 import { createFigureKey } from './figure-key.js?v=96997852c4';
 import { traceWhen } from './trace-labels.js?v=fc916a95c6';
 import { flowCss, heatCss, dropCss, gradientCss, oxygenCss } from './colormap.js?v=b2067d6101';
-import { EXT, expandIds, stepExtra, markLabel, figureHooks, safe } from './slide-ext.js?v=85a8b71d07';
+import { EXT, expandIds, stepExtra, markLabel, figureHooks, safe } from './slide-ext.js?v=4350421f89';
 import { citeText, focusOf, ladderFromOf, ladderFromName } from './teach-extras.js?v=d8224d9bb5';
 const nextFrame = frameFor('presenter');
 
@@ -2086,7 +2086,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     return d && d % 365 === 0 ? `Year ${d / 365}` : d <= 200 ? `Day ${d}` : `Month ${Math.round(d / 30.4)}`;
   };
   // (A state on the same day as the one before it, as a drug started at that visit, says so instead of repeating the day; a slide's `when` words it.)
-  const chainTo = (i) => { let before = null; return [...new Set(stateOf.slice(0, i + 1))].filter((k) => slides[k]?.visual !== 'outline').map((k) => { const w = whenOf(k), p = { n: k + 1, title: slides[k].title, tick: slides.find((x, j) => stateOf[j] === k && x.tick)?.tick || slides[k].title, when: traceWhen(slides[k].when, w, before), fp: states[k]?.fp, id: slides[k].id, params: states[k]?.params }; before = w; return p; }); };
+  const chainTo = (i) => { let before = null; return [...new Set(stateOf.slice(0, i + 1))].filter((k) => slides[k]?.visual !== 'outline').map((k) => { const w = whenOf(k), p = { n: k + 1, title: slides[k].title, tick: slides.find((x, j) => stateOf[j] === k && x.tick)?.tick || slides[k].title, mile: slides.find((x, j) => stateOf[j] === k && x.milestone)?.milestone, when: traceWhen(slides[k].when, w, before), fp: states[k]?.fp, id: slides[k].id, params: states[k]?.params }; before = w; return p; }); };
   // The deck's short name in a tab at the card's top right corner (decks.js TOPICS; your own deck, its title when short):
   // a darker patch of the card's own glass, flush with its top and right edges, only its bottom left corner rounded. It sits in
   // the card's top padding, so it never meets the title. (Not read out on every slide: the outline and the slide list name the talk.)

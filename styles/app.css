@@ -6197,16 +6197,24 @@ html.thumb-ui .menu.from-dock { clip-path: inset(-64px -64px calc(var(--sink, 0p
 .ppf-br text .k { font-weight: 600; fill: var(--text-2); }
 .ppf-br[data-rate="mid"] path { stroke: var(--caution); } .ppf-br[data-rate="mid"] text { fill: var(--caution); }
 .ppf-br[data-rate="hi"] path { stroke: var(--danger); } .ppf-br[data-rate="hi"] text { fill: var(--danger); }
-.pz-flows { height: calc(var(--flows-h, 8.4em) * var(--pz-fit, 1)); min-height: 6.6em; }
-.pfl-bg { fill: color-mix(in srgb, var(--text) 8%, transparent); }
-.pfl-key text { font: 500 1em var(--font-ui); fill: var(--text-2); }
-.pfl-key text .v { font-weight: 700; fill: var(--text); font-variant-numeric: tabular-nums; }
+/* (The headline and a row for every bar the card can show, five, whatever the slide holds: the card never resizes, tool-flows.js.) */
+.pz-flows { height: calc(var(--flows-h, 11.5em) * var(--pz-fit, 1)); min-height: 10em; }
+.pfl-head { font: 500 1em var(--font-ui); fill: var(--text-2); }
+.pfl-head .v, .pfl-bar text .v { font-weight: 700; fill: var(--text); font-variant-numeric: tabular-nums; }
+.pfl-head .sep { fill: var(--text-3); }
+.pfl-track { fill: color-mix(in srgb, var(--text) 6%, transparent); }
+.pfl-fill { fill: color-mix(in srgb, var(--tone) 45%, transparent); }
+.pfl-bar text { font: 500 1em var(--font-ui); fill: var(--text); }
 /* Treatment bands on the over-time charts (rx-bands.js). On the talk trace a soft band in the treatment's colour, its name in a
    deeper shade over the lines with a halo; the chart grows by the names' rows (talk-trace.js sets --band-room). On a flowtime
    chart the treatments' names on a row under the clock and a thin bar each, the chart taller by them (flow-time.js sets
    --band-room). The bands are stronger on a dark card, where a faint tint disappears. */
 .pz-talk.has-bands { height: calc((var(--talk-h, 280px) + var(--band-room, 0px)) * var(--pz-fit, 1)); }
 .ptk-band rect { fill: var(--rx); opacity: .12; }
+/* (The year chart's milestones style, talk-trace.js drawMiles: level names over the milestones, the HVPG line in its cut-off colours.) */
+.pz-talk .ptk-ms { font: 600 1em var(--font-ui); fill: var(--text-2); paint-order: stroke; stroke: var(--surface); stroke-width: 3px; stroke-linejoin: round; }
+.pz-talk .ptk-ms.now { fill: var(--text); }
+.pz-talk.miles .ptk-line.hv[data-rate="mid"] { stroke: var(--caution); } .pz-talk.miles .ptk-line.hv[data-rate="hi"] { stroke: var(--danger); }
 .pft-band { fill: color-mix(in oklab, var(--rx) 70%, var(--text)); }   /* (a deeper shade on a light card: 3:1 for every treatment) */
 .pz-flowtime.has-bands { height: calc((var(--ft-h, max(60cqi, 15em)) + var(--band-room, 0em)) * var(--pz-fit, 1)); }
 @media (max-height: 960px) { .pz.stack .pz-flowtime.has-bands svg { max-height: calc(160px + var(--band-room, 0em)); } }   /* (a phone's cap, by as much) */

@@ -1,7 +1,8 @@
-// Where the portal blood goes (deck visuals V14, package B): tool { kind: 'flows' } draws one flat bar across the card,
-// split by where the portal blood leaves the gut: through the liver, the esophageal varices, a gastrorenal or splenorenal
-// shunt, the paraumbilical vein, a stent… each part in its colour and easing as the shares move. tool: { kind: 'flows',
-// of: 'inflow' } splits the liver's own inflow into portal and arterial blood instead.
+// Where the portal blood goes (deck visuals V14, package B): tool { kind: 'flows' } draws one headline, "Liver 25% · Bypassing
+// the liver 75%", and under it one short bar per route the bypassing blood takes (the esophageal varices, a gastrorenal or
+// splenorenal shunt, the paraumbilical vein, a stent…), largest first, each bar as long as its share of all the portal blood
+// with its name and percent on it: no colour key (Mohammad's pick, 19 Oct: "Headline + bars"). Shares and places ease as they
+// move. tool: { kind: 'flows', of: 'inflow' } splits the liver's own inflow into portal and arterial blood instead.
 // The parts are the slide's fingerprint's flows (at.Q), counted as the shunt fraction is (engine/metrics.js), so the liver's
 // part is always 100 less the slide's Shunted tile (table-marks.js portalSplit). The cavernoma returns blood to the liver,
 // so it counts as liver.
@@ -85,13 +86,15 @@ export function flowParts(fp, of = 'portal', params = null) {
   return parts.filter((p) => p.pct > 0);
 }
 
-/** The key's layout: columns as wide as the widest entry allows in w px (at most 3), rows enough for six parts.
- *  tw: an entry's width. → { cols, rows, colW } */
-export function keyGrid(w, entries, tw) {
-  const widest = Math.max(...entries.map(tw)) + 18;
-  const cols = Math.max(1, Math.min(3, Math.floor(w / widest)));
-  return { cols, rows: Math.ceil((MAX_ROUTES + 2) / cols), colW: w / cols };
+/** What the card shows for parts (flowParts): the headline's two halves [name, pct], and the bars, largest first (the routes,
+ *  or for the inflow both its parts). */
+export function flowView(parts, of = 'portal') {
+  // (The inflow's headline names both its parts, one at 0 % too, as after a TIPS takes the portal blood away.)
+  if (of === 'inflow') return { head: INFLOW.map(([id, name]) => [name, parts.find((p) => p.id === id)?.pct ?? 0]), bars: parts.slice().sort((a, b) => b.pct - a.pct) };
+  const liver = parts.find((p) => p.id === 'liver')?.pct ?? 0;
+  return { head: [['Liver', liver], ['Bypassing the liver', 100 - liver]], bars: parts.filter((p) => p.id !== 'liver').sort((a, b) => b.pct - a.pct) };
 }
+export const BAR_ROWS = MAX_ROUTES + 1;   // (the card keeps room for every bar it can show, four routes and Other, so it never resizes)
 
 const SVGNS = 'http://www.w3.org/2000/svg';
 const sv = (tag, attrs = {}, ...kids) => {
@@ -125,34 +128,42 @@ export function createFlowsTool() {
     if (!goal || !shown) { el.replaceChildren(); return; }
     const [w, hh, f] = sizeNow();
     size = `${Math.round(w)}x${Math.round(hh)}`;
-    const ids = order(), parts = ids.map((id) => goal.find((p) => p.id === id)).filter(Boolean);
-    const entry = (p) => `${p.name} ${p.pct}%`;
-    const grid = keyGrid(w, parts.map(entry), (t) => textW(t, f));
-    const rowH = 1.55 * f, keyH = grid.rows * rowH, barH = Math.max(1.4 * f, Math.min(3 * f, hh - keyH - 0.9 * f));
-    const y0 = Math.max(0, (hh - barH - 0.9 * f - keyH) / 2);
-    let x = 0;
-    const segs = ids.map((id) => { const k = shown[id] || 0, wd = (w * k) / 100, r = [id, x, wd]; x += wd; return r; }).filter(([, , wd]) => wd > 0.25);
     const tone = (id) => ALL.concat(INFLOW).find(([k]) => k === id)[2];
-    const clip = `pzfc-${Math.random().toString(36).slice(2, 8)}`;
+    const name = (id) => ALL.concat(INFLOW).find(([k]) => k === id)[1];
+    // The headline: on one line where it fits, else its two halves on two.
+    const pct = (id) => Math.round(shown[id]?.pct || 0);
+    const head = of === 'inflow' ? INFLOW.map(([id, n]) => [n, pct(id)]) : [['Liver', pct('liver')], ['Bypassing the liver', 100 - pct('liver')]];
+    const half = ([n, v]) => textW(`${n} `, f, 500) + textW(`${v}%`, f, 700), sep = textW(' · ', f, 500);
+    const one = half(head[0]) + sep + half(head[1]) <= w, lh = 1.45 * f, headH = (one ? 1 : 2) * lh + 0.5 * f;
+    // The bars: a row each for as many as the card can show, each row the same height whatever is in it.
+    const rows = of === 'inflow' ? 2 : BAR_ROWS, rowH = Math.min(2.1 * f, (hh - headH) / rows), barH = Math.max(1.3 * f, rowH - 0.4 * f);
+    const bars = Object.keys(shown).filter((id) => (of === 'inflow' || id !== 'liver') && shown[id].op > 0.01);
     const svg = sv('svg', { viewBox: `0 0 ${w} ${hh}`, width: w, height: hh, role: 'img', style: `font-size: ${f.toFixed(2)}px`,
-      'aria-label': `${of === 'inflow' ? 'The liver\'s inflow' : 'Where the portal blood goes'}: ${parts.map(entry).join(', ')}` },
-      sv('defs', {}, sv('clipPath', { id: clip }, sv('rect', { x: 0, y: y0, width: w, height: barH, rx: Math.min(8, barH / 2) }))),
-      sv('g', { 'clip-path': `url(#${clip})` }, sv('rect', { class: 'pfl-bg', x: 0, y: y0, width: w, height: barH }),
-        segs.map(([id, sx, wd], j) => sv('rect', { class: 'pfl-seg', 'data-part': id, x: sx, y: y0, width: Math.max(0, wd - (j < segs.length - 1 ? 2 : 0)), height: barH, style: `fill: var(${tone(id)})` }))),
-      parts.map((p, j) => {
-        const cx = (j % grid.cols) * grid.colW, cy = y0 + barH + 0.9 * f + Math.floor(j / grid.cols) * rowH + 0.75 * f;
-        return sv('g', { class: 'pfl-key', 'data-part': p.id }, sv('rect', { x: cx, y: cy - 0.42 * f, width: 0.85 * f, height: 0.85 * f, rx: 2, style: `fill: var(${p.tone})` }),
-          sv('text', { x: cx + 0.85 * f + 6, y: cy + 0.36 * f }, `${p.name} `, sv('tspan', { class: 'v' }, `${p.pct}%`)));
+      'aria-label': `${of === 'inflow' ? 'The liver\'s inflow' : 'Where the portal blood goes'}: ${head.map(([n, v]) => `${n} ${v}%`).join(', ')}${of === 'inflow' ? '' : `; ${goal.filter((p) => p.id !== 'liver').map((p) => `${p.name} ${p.pct}%`).join(', ')}`}` },
+      sv('text', { class: 'pfl-head', x: 0, y: 1.05 * f }, ...head.flatMap(([n, v], k) => [
+        k ? (one ? sv('tspan', { class: 'sep' }, ' · ') : null) : null,
+        sv('tspan', { class: 'n', ...(k && !one ? { x: 0, dy: lh } : {}), 'data-part': k ? (of === 'inflow' ? 'artery' : 'bypass') : (of === 'inflow' ? 'portal' : 'liver') }, `${n} `),
+        sv('tspan', { class: 'v' }, `${v}%`)])),
+      bars.map((id) => {
+        const y = headH + shown[id].pos * rowH, len = Math.max(3, w * shown[id].pct / 100), op = shown[id].op;
+        return sv('g', { class: 'pfl-bar', 'data-part': id, style: `--tone: var(${tone(id)}); opacity: ${op.toFixed(3)}` },
+          sv('rect', { class: 'pfl-track', x: 0, y, width: w, height: barH, rx: Math.min(6, barH / 2) }),
+          sv('rect', { class: 'pfl-fill', x: 0, y, width: len, height: barH, rx: Math.min(6, barH / 2) }),
+          sv('text', { x: 0.6 * f, y: y + barH / 2 + 0.36 * f }, `${name(id)} `, sv('tspan', { class: 'v' }, `${Math.round(shown[id].pct)}%`)));
       }));
     el.replaceChildren(svg);
   }
   function tick() {
     raf = 0;
     if (!goal) return;
-    const want = Object.fromEntries(order().map((id) => [id, goal.find((p) => p.id === id)?.pct || 0]));
-    const k = reduceMQ.matches || !shown ? 1 : 0.2;
-    shown = Object.fromEntries(Object.keys(want).map((id) => [id, (shown?.[id] ?? 0) + (want[id] - (shown?.[id] ?? 0)) * k]));
-    const done = Object.keys(want).every((id) => Math.abs(shown[id] - want[id]) < 0.05);
+    // (Each part's share and its row ease together, so a bar that overtakes another glides past it.)
+    const { bars } = flowView(goal, of), pos = Object.fromEntries(bars.map((p, i) => [p.id, i]));
+    const want = Object.fromEntries(order().map((id) => { const g = goal.find((p) => p.id === id); return [id, { pct: g?.pct || 0, pos: pos[id] ?? shown?.[id]?.pos ?? BAR_ROWS, op: g ? 1 : 0 }]; }));
+    const k = reduceMQ.matches || !shown ? 1 : 0.2, mix = (a, b) => a + (b - a) * k;
+    // (A bar that goes fades out faster than the others move, so none passes over it; one that comes fades in where it will stay.)
+    const fade = (a, b) => (k === 1 ? b : a + (b - a) * (b < a ? 0.4 : 0.2));
+    shown = Object.fromEntries(Object.keys(want).map((id) => { const s0 = shown?.[id] || { pct: 0, pos: want[id].pos, op: 0 }; return [id, { pct: mix(s0.pct, want[id].pct), pos: mix(s0.pos, want[id].pos), op: fade(s0.op, want[id].op) }]; }));
+    const done = Object.keys(want).every((id) => Math.abs(shown[id].pct - want[id].pct) < 0.05 && Math.abs(shown[id].pos - want[id].pos) < 0.01 && Math.abs(shown[id].op - want[id].op) < 0.01);
     if (done) shown = want;
     draw();
     if (!done) raf = requestAnimationFrame(tick);

@@ -17,16 +17,40 @@ const sv = (tag, attrs = {}, ...kids) => {
   return el;
 };
 const LINES = [['pv', 'PV', '--tr-pv'], ['whvp', 'WHVP', '--tr-wedge'], ['fhvp', 'FHVP', '--tr-hv']];
+const sev = (v) => (v >= 10 ? 'hi' : v >= 5 ? 'mid' : 'ok');
+let mctx = null;
+const textW = (t, f, wt = 600) => {
+  if (mctx === null) mctx = (typeof document !== 'undefined' && document.createElement?.('canvas')?.getContext?.('2d')) || false;
+  if (!mctx?.measureText) return t.length * f * 0.62;
+  mctx.font = `${wt} ${f}px Inter, system-ui, -apple-system, 'Segoe UI', sans-serif`;
+  return mctx.measureText(t).width;
+};
+
+/** Where the milestones' names go, level over their lines: each centred on its x (moved in to stay inside [0, W]), on the
+ *  first row from the plot up where it keeps gap px from the name before it; as many rows as that takes, never cut short.
+ *  xs: each milestone's x, widths: its name's width. → { at: [{ x, row }] (x: the name's middle), rows } */
+export function milePlaces(xs, widths, W, gap = 10) {
+  const ends = [], at = xs.map((x, i) => {
+    const w = widths[i], mid = Math.min(Math.max(x, w / 2 + 2), W - w / 2 - 2);
+    let row = ends.findIndex((e) => mid - w / 2 >= e + gap);
+    if (row < 0) row = ends.length;
+    ends[row] = mid + w / 2;
+    return { x: mid, row };
+  });
+  return { at, rows: ends.length };
+}
 export function talkTrace() {
   // Drawn at the card's own pixels (one unit a CSS pixel) and its one small size, so the words never scale with the card:
   // the card's fit sets the chart's height (styles/app.css .pz-talk) and only the plot gets shorter.
   const el = h('div', { class: 'pz-talk' });
-  let chain0 = null, size = '', bands = [];   // (bands: the treatments the slide shades, rx-bands.js; none on a built-in deck)
+  let chain0 = null, size = '', bands = [], miles = false;   // (bands: the treatments the slide shades, rx-bands.js; none on a built-in deck)
   const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(() => { if (chain0 && `${el.clientWidth}x${el.clientHeight}` !== size) draw(chain0, false); }) : null;
   ro?.observe(el);
   function set(chain) { chain0 = chain; draw(chain, true); }
-  function configure(t) { bands = bandKeys(t); }
+  // (style: 'milestones' draws the milestones style, drawMiles; any other, the full chart.)
+  function configure(t) { bands = bandKeys(t); miles = t?.style === 'milestones'; el.classList.toggle('miles', miles); }
   function draw(chain, fade) {
+    if (miles) { show(drawMiles(chain), fade); return; }
     const W = el.clientWidth || 520, HT = el.clientHeight || 420, fs = parseFloat(getComputedStyle(el).fontSize) || 12, L = Math.ceil(3.3 * fs) + 8;
     size = `${W}x${HT}`;
     const pts = chain.filter((c) => c.fp);
@@ -44,7 +68,6 @@ export function talkTrace() {
     const pMax = Math.ceil(top / 10) * 10, Y = (v) => B1 - (B1 - T) * clamp(v, 0, pMax) / pMax;
     const gMax = Math.max(15, Math.ceil(Math.max(0, ...pts.map((p) => p.fp.hvpg || 0)) / 5) * 5), Y2 = (v) => B2 - (B2 - T2) * clamp(v, 0, gMax) / gMax;
     const path = (f) => pts.map((p, i) => `${i ? 'L' : 'M'}${X(i).toFixed(1)} ${f(p).toFixed(1)}`).join('');
-    const sev = (v) => (v >= 10 ? 'hi' : v >= 5 ? 'mid' : 'ok');
     const last = pts.length - 1;
     // (Gridlines every 10 mmHg, or every 20 when the plot is short; the HVPG lane names 0 and its 10 mmHg cut-off only when short.)
     const gStep = (B1 - T) / (pMax / 10) < 1.4 * fs ? 20 : 10, hTicks = (B2 - T2) / gMax * 5 < 1.2 * fs ? [0, 10] : [0, 5, 10];
@@ -87,7 +110,53 @@ export function talkTrace() {
       pts.map((p, i) => sv('circle', { class: 'ptk-pt', 'data-rate': sev(p.fp.hvpg), cx: X(i), cy: Y2(p.fp.hvpg), r: i === last ? 6 : 4 })),
       bandNames,
       pts.length ? sv('text', { class: 'ptk-v', 'data-rate': sev(pts[last].fp.hvpg), x: R + 8, y: Y2(pts[last].fp.hvpg) + 0.35 * vfs }, fmt(pts[last].fp.hvpg, 1)) : null);
-    // The new chart fades in over the old one, which then goes (never a jump); a new size just redraws.
+    show(svg, fade);
+  }
+  // The milestones style (tool: { kind: 'trace', range: 'talk', style: 'milestones' }, Mohammad's pick, 19 Oct: "Milestones only"):
+  // the HVPG alone, its line and points in their cut-off colours over the 5 and 10 mmHg cut-offs; a short level name over each
+  // slide the deck marks as a milestone (slide.milestone: 'Dx', 'Carvedilol', 'TIPS'), on as many rows as they need, never cut
+  // short or slanted; every other time point a plain dot; the treatment bands underneath, named between the names and the plot.
+  function drawMiles(chain) {
+    const W = el.clientWidth || 520, HT = el.clientHeight || 420, fs = parseFloat(getComputedStyle(el).fontSize) || 12, L = Math.ceil(3.3 * fs) + 8;
+    size = `${W}x${HT}`;
+    const pts = chain.filter((c) => c.fp), last = pts.length - 1, vfs = 1.5 * fs;
+    const R = W - Math.ceil(4 * 0.6 * vfs) - 14, n = Math.max(pts.length, 2), X = (i) => L + (R - L) * (pts.length < 2 ? 0.5 : i / (n - 1));
+    const mi = pts.map((p, i) => (p.mile ? i : -1)).filter((i) => i >= 0);
+    const { at, rows } = milePlaces(mi.map(X), mi.map((i) => textW(pts[i].mile, fs)), W);
+    const runs = bands.length ? bandRuns(pts.map((p) => p.params), bands) : [], bRows = runs.length ? (runs.length > 1 ? 2 : 1) : 0;
+    const rowH = fs + 6, nameY = (r) => 4 + fs + (rows - 1 - r) * rowH, T0 = 4 + rows * rowH, bandY = (r) => T0 + fs + (bRows - 1 - r) * (fs + 4);
+    const T = T0 + bRows * (fs + 4) + 0.6 * fs + 6, B = HT - fs - 12;
+    const gMax = Math.max(15, Math.ceil(Math.max(0, ...pts.map((p) => p.fp.hvpg || 0)) / 5) * 5), Y = (v) => B - (B - T) * clamp(v, 0, gMax) / gMax;
+    const ticks = Array.from({ length: gMax / 5 + 1 }, (_, k) => k * 5).filter((v, k, a) => (B - T) / a.length >= 1.2 * fs || v % 10 === 0 || v === 5);
+    // (The time under the line: at each milestone and the last point, where it keeps clear of its neighbour.)
+    const whenW = (p) => textW(p.when || String(p.n), fs, 500), named = new Set();
+    const list = [...new Set([...mi, last])].filter((i) => i >= 0).sort((a, b) => a - b);
+    for (let k = list.length - 1, edge = Infinity; k >= 0; k--) {
+      const i = list[k], half = whenW(pts[i]) / 2;
+      if (X(i) + half + 8 <= edge && X(i) - half >= 0) { named.add(i); edge = X(i) - half; }
+    }
+    const spans = runs.map((r) => bandSpan(r, pts.length, X, L, R));
+    const bat = namePlaces(spans, runs.map((r) => r.name), (t) => textW(t, fs), { rows: bRows || 1, maxX: W - 4 });
+    return sv('svg', { viewBox: `0 0 ${W} ${HT}`, role: 'img', 'aria-label': 'HVPG over the talk so far: ' + pts.map((p) => `${p.when || `slide ${p.n}`}${p.mile ? `, ${p.mile}` : ''}, ${fmt(p.fp.hvpg, 1)}`).join('; ')
+      + runs.map((r) => `. ${r.name} from ${pts[r.i0].when || `slide ${pts[r.i0].n}`}`).join('') },
+      runs.map((r, k) => sv('g', { class: 'ptk-band', 'data-rx': r.key, style: `--rx: var(${r.tone})` },
+        sv('rect', { x: spans[k][0], width: Math.max(2, spans[k][1] - spans[k][0]), y: T0 - 2, height: B + 4 - (T0 - 2) }))),
+      ticks.map((v) => sv('g', { class: 'ptk-grid' + (v === 5 || v === 10 ? ' cut' : ''), 'data-rate': v === 10 ? 'hi' : v === 5 ? 'mid' : null },
+        sv('line', { x1: L, x2: R, y1: Y(v), y2: Y(v) }), sv('text', { x: L - 8, y: Y(v) + 0.35 * fs, 'text-anchor': 'end' }, String(v)))),
+      sv('text', { class: 'ptk-unit', x: L - 8, y: T - 0.6 * fs - 2, 'text-anchor': 'end' }, 'mmHg'), sv('text', { class: 'ptk-ax', x: L, y: T - 0.6 * fs - 2 }, 'HVPG'),
+      // A line under each milestone's name down to the axis, and the times under the axis.
+      pts.map((p, i) => sv('g', { class: 'ptk-mark' + (i === last ? ' now' : '') }, sv('title', {}, `${p.when || `Slide ${p.n}`}: ${p.title}`),
+        p.mile ? sv('line', { x1: X(i), x2: X(i), y1: T0 - 2, y2: B + 4 }) : null,
+        named.has(i) ? sv('text', { x: X(i), y: B + fs + 6, 'text-anchor': 'middle' }, p.when || String(p.n)) : null)),
+      mi.map((i, k) => sv('text', { class: 'ptk-ms' + (i === last ? ' now' : ''), x: at[k].x, y: nameY(at[k].row), 'text-anchor': 'middle' }, pts[i].mile)),
+      runs.map((r, k) => sv('text', { class: 'ptk-band-n', style: `--rx: var(${r.tone})`, x: bat[k].x, y: bandY(bat[k].row) }, r.name)),
+      // (Each stretch of the line in the colour of where it ends, the cut-offs' own.)
+      pts.slice(1).map((p, k) => sv('path', { class: 'ptk-line hv', 'data-rate': sev(p.fp.hvpg), d: `M${X(k).toFixed(1)} ${Y(pts[k].fp.hvpg).toFixed(1)}L${X(k + 1).toFixed(1)} ${Y(p.fp.hvpg).toFixed(1)}` })),
+      pts.map((p, i) => sv('circle', { class: 'ptk-pt', 'data-rate': sev(p.fp.hvpg), cx: X(i), cy: Y(p.fp.hvpg), r: i === last ? 6 : 4 })),
+      pts.length ? sv('text', { class: 'ptk-v', 'data-rate': sev(pts[last].fp.hvpg), x: R + 10, y: Y(pts[last].fp.hvpg) + 0.35 * vfs }, fmt(pts[last].fp.hvpg, 1)) : null);
+  }
+  // The new chart fades in over the old one, which then goes (never a jump); a new size just redraws.
+  function show(svg, fade) {
     const old = [...el.children];
     if (!fade) { el.replaceChildren(svg); return; }
     svg.classList.add('in');

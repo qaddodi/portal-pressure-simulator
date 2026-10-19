@@ -1,7 +1,9 @@
 // The pressure profile on a slide (deck visuals V1, package B): tool { kind: 'profile' } draws the slide's pressure from gut
 // to heart through the Patients chart's eight stations (anatomy.js PROFILE_PATHS), the healthy line dashed beneath it, the
 // liver's stations on a soft band, and the HVPG (sinusoid to hepatic vein) and the PPG (portal vein to IVC) as brackets
-// under the names (no wedged ring: Mohammad, 19 Oct, "No need for the wedge circle"). Where the line drops steeply is where the resistance is, so presinusoidal, sinusoidal and postsinusoidal resistance look different.
+// under the names (no wedged ring: Mohammad, 19 Oct, "No need for the wedge circle"). The sinusoid's station shows the wedged
+// pressure (WHVP), the reading the HVPG is taken from, so the HVPG bracket is that point less the hepatic vein's (Mohammad,
+// 19 Oct); it lies a little under the sinusoid's own pressure, the leak to the central vein (engine.js hvpgTrue). Where the line drops steeply is where the resistance is, so presinusoidal, sinusoidal and postsinusoidal resistance look different.
 // tool: { kind: 'profile', from: true } adds the state before this slide's as a faint dotted line ('slide id' for another).
 // Its numbers are the slide's own (its fingerprint, as the tiles read it: the same on every screen), easing to each new
 // state; a what-if slider or compare button moves it with the tiles. The Patients chart (charts.js) is not changed.
@@ -17,10 +19,13 @@ export const STATIONS = PATH.nodes;
 const NI = Object.fromEntries(NODES.map((n, i) => [n.id, i]));
 // Short names where the full ones do not fit, then the shortest where those do not (a phone's or a Mac's card): clinical
 // short forms, never an ellipsis or a full stop.
-export const SHORT_NAMES = { INT: 'Gut', CONF: 'PV', RPV: 'Venule', SIN_R: 'Sinusoid', CV_R: 'CV', RHV: 'HV', IVCS: 'IVC', RA: 'RA' };
-export const TIGHT_NAMES = { INT: 'Gut', CONF: 'PV', RPV: 'Ven', SIN_R: 'Sin', CV_R: 'CV', RHV: 'HV', IVCS: 'IVC', RA: 'RA' };
+// (The sinusoid's station is named for the wedged reading it shows wherever that fits, 'Sin' only on the narrowest card.)
+export const FULL_NAMES = { ...PATH.names, SIN_R: 'Sinusoid (WHVP)' };
+export const SHORT_NAMES = { INT: 'Gut', CONF: 'PV', RPV: 'Venule', SIN_R: 'WHVP', CV_R: 'CV', RHV: 'HV', IVCS: 'IVC', RA: 'RA' };
+export const TIGHT_NAMES = { INT: 'Gut', CONF: 'PV', RPV: 'Ven', SIN_R: 'WHVP', CV_R: 'CV', RHV: 'HV', IVCS: 'IVC', RA: 'RA' };
+const TIGHTEST = { ...TIGHT_NAMES, SIN_R: 'Sin' };
 // A station's reading where the tiles have one (so its number is the tile's), else the node's own pressure.
-const AT_FP = { INT: 'int', CONF: 'pv', SIN_R: 'sin', CV_R: 'cv', RHV: 'fhvp', IVCS: 'ivc', RA: 'ra' };
+const AT_FP = { INT: 'int', CONF: 'pv', SIN_R: 'whvp', CV_R: 'cv', RHV: 'fhvp', IVCS: 'ivc', RA: 'ra' };
 export const SPANS = [['hvpg', 'HVPG', 'SIN_R', 'RHV'], ['ppg', 'PPG', 'CONF', 'IVCS']];
 
 /** A fingerprint's profile: the eight stations' pressures (mmHg) in order, and its HVPG and PPG as the tiles give them;
@@ -45,9 +50,9 @@ export const axisTop = (...lines) => {
  *  touch (narrower than any card draws it). tw: a text's width in px. → { names, rows } */
 export const NAME_GAP = 6;
 export function nameFit(slot, tw) {
-  const [full, short, tight] = [PATH.names, SHORT_NAMES, TIGHT_NAMES].map((m) => STATIONS.map((n) => m[n]));
+  const [full, short, tight, tightest] = [FULL_NAMES, SHORT_NAMES, TIGHT_NAMES, TIGHTEST].map((m) => STATIONS.map((n) => m[n]));
   const fits = (ns) => ns.every((n, i) => !i || (tw(ns[i - 1]) + tw(n)) / 2 + NAME_GAP <= slot);
-  for (const names of [full, short, tight]) if (fits(names)) return { names, rows: 1 };
+  for (const names of [full, short, tight, tightest]) if (fits(names)) return { names, rows: 1 };
   return { names: tight, rows: 2 };
 }
 
@@ -292,7 +297,7 @@ export function createProfileTool() {
       sv('text', { x: tx, y: 0.75 * f + 0.36 * f, 'text-anchor': 'end' }, t)); });
     const valY = (cy, k) => cy + sides[k].by;
     const svg = sv('svg', { viewBox: `0 0 ${w} ${hh}`, width: w, height: hh, role: 'img', style: `font-size: ${f.toFixed(2)}px`,
-      'aria-label': `Pressure from gut to heart: ${STATIONS.map((n, i) => `${PATH.names[n]} ${labels[i]}`).join(', ')} mmHg. HVPG ${one(shown.hvpg)}, PPG ${one(shown.ppg)}.` },
+      'aria-label': `Pressure from gut to heart: ${STATIONS.map((n, i) => `${FULL_NAMES[n]} ${labels[i]}`).join(', ')} mmHg. HVPG ${one(shown.hvpg)}, PPG ${one(shown.ppg)}.` },
       sv('defs', {}, sv('linearGradient', { id: gid, gradientUnits: 'userSpaceOnUse', x1: G.x(0), x2: G.x(STATIONS.length - 1), y1: 0, y2: 0 },
         shown.v.map((v, i) => sv('stop', { offset: (i / (STATIONS.length - 1)).toFixed(3), 'stop-color': col(v) })))),
       // The liver's stations on a soft band, named over the plot.

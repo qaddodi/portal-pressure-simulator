@@ -9,7 +9,8 @@ import { EXT } from '../src/ui/slide-ext.js';
 import { NODES } from '../src/engine/topology.js';
 import { portalSplit } from '../src/ui/table-marks.js';
 import { profileOf, STATIONS, TIGHT_NAMES, NAME_GAP, axisTop, nameFit, profileGeo, valueSides, placeValues, curveRuns, labelPlacer, bracketLabel } from '../src/ui/tool-profile.js';
-import { flowParts, routeFlows, wholeShares, keyGrid, MAX_ROUTES } from '../src/ui/tool-flows.js';
+import { flowParts, routeFlows, wholeShares, flowView, BAR_ROWS, MAX_ROUTES } from '../src/ui/tool-flows.js';
+import { milePlaces } from '../src/ui/talk-trace.js';
 import { RX, bandKeys, bandRuns, bandSpan, namePlaces } from '../src/ui/rx-bands.js';
 import { deckStates, runSteps } from './deck-states.js';
 
@@ -33,7 +34,10 @@ test('the profile reads the tiles\' numbers and the network\'s own pressures', a
   for (const fp of [healthy, csph, schisto]) {
     const p = profileOf(fp);
     assert.equal(p.v.length, STATIONS.length);
-    assert.deepEqual([p.v[1], p.v[3], p.v[4], p.v[5], p.v[6], p.v[7]], [fp.pv, fp.sin, fp.cv, fp.fhvp, fp.ivc, fp.ra]);
+    assert.deepEqual([p.v[1], p.v[3], p.v[4], p.v[5], p.v[6], p.v[7]], [fp.pv, fp.whvp, fp.cv, fp.fhvp, fp.ivc, fp.ra]);
+    // (The sinusoid's station shows the wedged reading, so the HVPG bracket is that point less the hepatic vein's.)
+    const tenth = (x) => Math.round(x * 10) / 10;
+    assert.ok(near(tenth(p.v[3]) - tenth(p.v[5]), fp.hvpg, 1e-6), `${p.v[3]} − ${p.v[5]} against ${fp.hvpg}`);
     assert.ok(near(p.v[0], fp.int) && near(p.v[2], fp.at.P[NI.RPV], 1e-4));
     assert.equal(p.hvpg, fp.hvpg); assert.equal(p.ppg, fp.ppg);
     assert.equal(p.w, undefined, 'no wedged ring (Mohammad, 19 Oct)');
@@ -55,7 +59,8 @@ test('the station names fit their slots on one row: full where there is room, el
   const f = 12, tw = approxW(f);
   assert.equal(nameFit(120, tw).names[2], 'Portal venule');
   assert.equal(nameFit(120, tw).rows, 1);
-  assert.equal(nameFit(60, tw).names[3], 'Sinusoid');
+  assert.equal(nameFit(120, tw).names[3], 'Sinusoid (WHVP)');
+  assert.equal(nameFit(60, tw).names[3], 'WHVP');
   for (const n of Object.values(TIGHT_NAMES)) assert.ok(!/[….]/.test(n), n);
   // (A phone, an upright iPad and a Mac card, at the sizes the demo deck draws them: one row, no two names closer than the gap.)
   for (const [dev, ff, w] of [['phone', 13.8, 352], ['iPad', 15.6, 552], ['Mac', 12.02, 259], ['small phone', 13.8, 300]]) {
@@ -176,8 +181,33 @@ test('a TIPS shows as its own part; the inflow turns arterial after it', async (
   assert.ok(b.find((p) => p.id === 'tips').pct > 20, JSON.stringify(b));
   assert.ok(flowParts(tips, 'inflow').find((p) => p.id === 'artery').pct > flowParts(decomp, 'inflow').find((p) => p.id === 'artery').pct);
   assert.equal(flowParts({ shunt: 0.2 }), null, 'no flows, no bar');
-  const g = keyGrid(358, ['Retroperitoneal 12%', 'Liver 60%'], approxW(12));
-  assert.ok(g.cols >= 2 && g.cols * g.rows >= MAX_ROUTES + 2);
+  // The card: a headline of the liver against the rest, then the routes as bars, largest first, never more than it keeps room for.
+  const v = flowView(b);
+  assert.deepEqual(v.head.map(([n]) => n), ['Liver', 'Bypassing the liver']);
+  assert.equal(v.head[0][1] + v.head[1][1], 100);
+  assert.equal(v.head[0][1], b.find((p) => p.id === 'liver').pct);
+  assert.ok(v.bars.every((p) => p.id !== 'liver') && v.bars.length <= BAR_ROWS);
+  assert.equal(v.bars.reduce((s, p) => s + p.pct, 0), v.head[1][1], 'the bars add up to the bypassed share');
+  for (let i = 1; i < v.bars.length; i++) assert.ok(v.bars[i - 1].pct >= v.bars[i].pct, 'largest first');
+  const vi = flowView(flowParts(tips, 'inflow'), 'inflow');
+  assert.deepEqual(vi.head.map(([n]) => n), ['Portal vein', 'Hepatic artery'], 'both halves named, one at 0 % too');
+  assert.equal(vi.head[0][1] + vi.head[1][1], 100);
+  for (let i = 1; i < vi.bars.length; i++) assert.ok(vi.bars[i - 1].pct >= vi.bars[i].pct);
+});
+
+test('the year chart\'s milestone names: level, inside the chart, never touching each other', () => {
+  const W = 340, w = approxW(13);
+  const names = ['Dx', 'Carvedilol', 'Clot', 'Anticoagulation', 'TIPS', '12 months'];
+  for (const xs of [[10, 60, 70, 75, 300, 335], [0, 5, 10, 15, 20, 25], [50, 100, 150, 200, 250, 300]]) {
+    const widths = names.map(w);
+    const { at, rows } = milePlaces(xs, widths, W);
+    assert.ok(rows >= 1 && rows <= names.length);
+    at.forEach((a, i) => {
+      assert.ok(a.x - widths[i] / 2 >= 0 && a.x + widths[i] / 2 <= W, `${names[i]} inside the chart`);
+      for (let j = 0; j < i; j++) if (at[j].row === a.row) assert.ok(Math.abs(a.x - at[j].x) >= (widths[i] + widths[j]) / 2 + 10 - 1e-9, `${names[i]} clear of ${names[j]}`);
+    });
+  }
+  assert.deepEqual(milePlaces([20, 200], [30, 30], 340).at.map((a) => a.row), [0, 0], 'names far apart share one row');
 });
 
 test('treatment bands: one run per stretch on, named once, the names on rows that never touch', () => {
