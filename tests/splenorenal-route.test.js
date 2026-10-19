@@ -74,3 +74,25 @@ test('the figure ties off the same vessels the engine closes for each surgical s
   assert.match(engine, /p\.dsrs && e\.id === 'SV_MID'/);
   assert.match(engine, /p\.portocaval && e\.id === 'PV_TRUNK'/);
 });
+
+// Mohammad, 19 Oct: the spontaneous shunt ran alongside the descending colon, touching it, so the colon read as a huge
+// outline round it, and it met the renal vein at a right angle. Both splenorenal shunts now keep clear of the colon along
+// their course and ease into the renal vein heading toward the cava; the spontaneous one is never wider than the splenic vein.
+test('splenorenal shunts keep clear of the descending colon and ease into the renal vein', async () => {
+  const { ORGANS } = await import('../src/ui/anatomy.js');
+  const colon = sample(ORGANS.find((o) => o.id === 'colon').d).filter((p) => p[0] > 975 && p[1] > 500 && p[1] < 640);
+  const kid = sample(EDGE_PATH.V_KID_L);
+  for (const id of ['C6', 'S_DSR']) {
+    const P = sample(EDGE_PATH[id]);
+    // Centre to centre: the colon's half width (13.5) and the shunt's (about 6) and a clear gap.
+    for (const q of P.filter((q) => q[1] > 520)) assert.ok(dist(colon, q) > 28, `${id} at ${q.map(Math.round)} keeps clear of the colon`);
+    // The last stretch heads down and toward the cava (left), as the renal vein flows, not straight down onto it.
+    const [a, b] = [P[P.length - 6], P[P.length - 1]];
+    assert.ok(b[0] < a[0] - 2 && b[1] > a[1], `${id} turns toward the cava as it joins`);
+    const k = kid.reduce((m, p) => (Math.hypot(p[0] - b[0], p[1] - b[1]) < Math.hypot(m[0] - b[0], m[1] - b[1]) ? p : m));
+    assert.ok(Math.hypot(k[0] - b[0], k[1] - b[1]) < 3, `${id} ends on the renal vein's centre line`);
+  }
+  const fs = await import('node:fs');
+  const stage = fs.readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8');
+  assert.match(stage, /if \(e\.id === 'C6' && mode !== 'flow' && EI\.V_SPL != null\) w = Math\.min\(w, /);
+});

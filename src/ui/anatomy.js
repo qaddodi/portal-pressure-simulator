@@ -174,8 +174,10 @@ export const EDGE_PATH = {
   // the left renal vein.
   C5: 'M876 302 C 868 314 854 336 852 380 C 850 460 852 560 858 596 C 860 606 861 612 862 618',
   // The splenorenal shunts leave the splenic vein halfway between the spleen and the IMV junction (SVD)
-  // and drop to the renal vein just below, right of the IMV, so they never cross it.
-  C6: 'M962 448 C 966 500 968 566 962 614',
+  // and drop to the renal vein just below, right of the IMV, so they never cross it. They bow left, clear of the
+  // descending colon (which had run alongside, touching, and read as a huge outline round the shunt), and ease into
+  // the renal vein heading the way it flows, toward the cava, instead of meeting it at a right angle.
+  C6: 'M962 448 C 958 490 948 536 954 576 C 958 600 960 612 953 619',
   // The retroperitoneal collateral leaves the SMV well below the mesocaval origin, on the lower trunk,
   // and runs across to the cava lower down (see STRANDS for its small veins).
   C7: 'M738 755 C 706 756 664 748 620 745',
@@ -192,7 +194,7 @@ export const EDGE_PATH = {
   // confluence. It stops at the IVC's left wall (x 609) and does not run along the cava or enter its lumen.
   DIPS: 'M602 442 C 582 392 595 318 620 302',
   S_PC: 'M700 556 C 682 590 652 625 620 650',
-  S_DSR: 'M962 448 C 958 500 956 566 962 614',
+  S_DSR: 'M962 448 C 958 490 948 536 954 576 C 958 600 960 612 953 619',
   S_MC: 'M690 660 C 672 650 645 648 620 650',
 };
 
