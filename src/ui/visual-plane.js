@@ -1,0 +1,320 @@
+// Deck visuals V28 (package E): two readings on one plane, one across and one up, with a guideline's zones shaded behind.
+// On a summary (visual: 'plane') each patient the slide lists in `of` is a point with its name; in the data card
+// (tool: { kind: 'plane' }) the slide's own case is a ring that eases to each new reading. The SAAG and protein quadrant
+// (presenter.js quadrantVisual) stays as it is.
+//
+//   visual: 'plane', plane: 'csph' | 'hvpg-ppg' | { x, y, zones, boxes, cuts, source }, of: [rows as a table's]
+//   tool: { kind: 'plane', plane: 'csph' }
+//
+// An axis is a fingerprint key with its range ({ key, max, min?, ticks?, name, short? }). A zone is { when, t, tone, at? }:
+// `when` lists conditions [key, op, value] (op one of < <= > >=) that all hold; the first zone whose conditions hold names a
+// point's zone, and one with no `when` is the rest of the plane. A box is an outlined zone drawn over the others (Baveno VIII's
+// "no screening scope"). cuts: the cut-off lines, { x: [..], y: [..] }. Zone words are the guideline's, checked against
+// /mnt/project-files/guidelines/baveno8-aasld.md before a deck uses them.
+//
+// Everything that decides a place or a size is a pure function here (tests/panels-e.test.js); the drawing is at the
+// element's own pixels, one unit a CSS pixel, so its words keep the slide's caption size (12 px or more) at any width.
+
+import { h, fmt, clamp } from './util.js?v=8813192ea2';
+import { TILE } from './table-marks.js?v=810c0a1575';
+
+// ── Conditions: [key, op, value], all of which must hold (shared with the flowchart, visual-chain.js) ──
+const OPS = { '<': (a, b) => a < b, '<=': (a, b) => a <= b, '>': (a, b) => a > b, '>=': (a, b) => a >= b };
+/** True when every condition holds for the values in f; an unknown key or op fails it, an empty list holds. */
+export function holds(when, f) {
+  if (!when) return true;
+  return Array.isArray(when) && when.every((c) => Array.isArray(c) && OPS[c[1]] && Number.isFinite(f?.[c[0]]) && OPS[c[1]](f[c[0]], c[2]));
+}
+/** The range [lo, hi] the conditions on one key leave open, within [min, max]. */
+export function rangeOf(when, key, min, max) {
+  let lo = min, hi = max;
+  for (const c of when || []) if (c[0] === key) { if (c[1][0] === '<') hi = Math.min(hi, c[2]); else lo = Math.max(lo, c[2]); }
+  return [lo, hi];
+}
+
+// ── The planes a deck can name ──
+// CSPH in compensated advanced chronic liver disease, Baveno VIII (as confirmed in guidelines/baveno8-aasld.md): stiffness 15 kPa
+// or less with platelets 150 or more rules CSPH out (1.15); 25 kPa or more rules it in (1.16), but not in obese MASLD, where a model's
+// probability decides; under 20 kPa with platelets 150 or more spares the screening scope in a patient not on a beta-blocker (1.19).
+// AASLD 2024 uses the same rule-out and rule-in.
+// HVPG against PPG: the app's fixed cut-offs (HVPG 5 and 10, PPG 6 and 12), the words naming the readings only, not a cause.
+export const PLANES = {
+  csph: {
+    x: { key: 'lsm', min: 0, max: 40, ticks: [0, 10, 15, 20, 25, 40], name: 'Liver stiffness, kPa', short: 'Stiffness, kPa' },
+    y: { key: 'plt', min: 0, max: 300, ticks: [0, 100, 150, 300], name: 'Platelets, ×10³/µL', short: 'Platelets' },
+    zones: [
+      { when: [['lsm', '>=', 25]], t: 'CSPH ruled in', short: 'Ruled in', tone: 'hi', note: '25 kPa or more (not in obese MASLD)' },
+      { when: [['lsm', '<=', 15], ['plt', '>=', 150]], t: 'CSPH ruled out', short: 'Ruled out', tone: 'ok', note: '15 kPa or less with platelets 150 or more' },
+      { t: 'Gray zone', short: 'Gray zone', tone: 'mid', at: [8, 50], note: 'A model or spleen stiffness decides' },
+    ],
+    boxes: [{ when: [['lsm', '<', 20], ['plt', '>=', 150]], t: 'No screening scope', short: 'No scope', note: 'Under 20 kPa with platelets 150 or more' }],
+    cuts: { x: [15, 20, 25], y: [150] },
+    source: 'Baveno VIII 1.15, 1.16, 1.19',
+  },
+  'hvpg-ppg': {
+    x: { key: 'hvpg', min: 0, max: 30, ticks: [0, 5, 10, 20, 30], name: 'HVPG, mmHg', short: 'HVPG' },
+    y: { key: 'ppg', min: 0, max: 30, ticks: [0, 6, 12, 20, 30], name: 'PPG, mmHg', short: 'PPG' },
+    zones: [
+      { when: [['hvpg', '<', 5], ['ppg', '<', 6]], t: 'Both normal', short: 'Both normal', tone: 'ok', note: 'HVPG under 5, PPG under 6 mmHg' },
+      { when: [['hvpg', '<', 5]], t: 'PPG raised, HVPG normal', short: 'PPG only', tone: 'mid', note: 'The wedge misses the resistance' },
+      { when: [['ppg', '<', 6]], t: 'HVPG raised, PPG normal', short: 'HVPG only', tone: 'info', at: [20, 3], note: 'HVPG 5 or more, PPG under 6 mmHg' },
+      { t: 'Both raised', short: 'Both raised', tone: 'hi', at: [20, 24], note: 'HVPG 5 or more, PPG 6 or more mmHg' },
+    ],
+    cuts: { x: [5, 10], y: [6, 12] },
+    source: '',
+  },
+};
+/** A slide's plane: a named one, or the deck's own, filled from the named one it starts from (base). */
+export function planeOf(p) {
+  if (typeof p === 'string') return PLANES[p] || null;
+  if (!p || typeof p !== 'object') return null;
+  const b = PLANES[p.base] || PLANES[p.zones] || null;   // (zones: 'csph' as the plan writes it, with x and y keys of its own)
+  const ax = (a, d) => (typeof a === 'string' ? { ...(d?.key === a ? d : {}), key: a, name: d?.key === a ? d.name : TILE[a]?.t || a, min: d?.key === a ? d.min : 0, max: d?.key === a ? d.max : 30 } : { ...d, ...a });
+  const pl = { ...b, ...p, x: ax(p.x ?? b?.x, b?.x), y: ax(p.y ?? b?.y, b?.y) };
+  if (!Array.isArray(pl.zones)) pl.zones = b?.zones || [];
+  if (!pl.x?.key || !pl.y?.key || !(pl.x.max > (pl.x.min ?? 0)) || !(pl.y.max > (pl.y.min ?? 0))) return null;
+  return pl;
+}
+/** The zone the values in f fall in (the first whose conditions hold), or null. */
+export const zoneOf = (pl, f) => pl.zones.find((z) => holds(z.when, f)) || null;
+
+// ── Layout ──
+/** The plot's frame in the element's pixels: its margins follow the lettering (fs: the caption size, px). */
+export function frame(W, H, fs, pl) {
+  const tw = Math.max(...(pl.y.ticks || [pl.y.min ?? 0, pl.y.max]).map((t) => est(String(t), fs)));
+  const L = Math.ceil(fs * 1.25 + 10 + tw + 8), B = Math.floor(H - (fs * 1.25 + 8 + fs + 8)), T = Math.ceil(fs * 0.6 + 4), R = Math.floor(W - Math.max(10, est(String(pl.x.max), fs) / 2 + 2));
+  return { L, R, T, B };
+}
+export const est = (t, px, w = 0.6) => String(t).length * px * w;   // (a run's width: Inter averages about 0.6 em a character)
+export const scaler = (pl, fr) => ({
+  X: (v) => fr.L + (fr.R - fr.L) * (clamp(v, pl.x.min ?? 0, pl.x.max) - (pl.x.min ?? 0)) / (pl.x.max - (pl.x.min ?? 0)),
+  Y: (v) => fr.B - (fr.B - fr.T) * (clamp(v, pl.y.min ?? 0, pl.y.max) - (pl.y.min ?? 0)) / (pl.y.max - (pl.y.min ?? 0)),
+});
+/** Words that fit a width at a size: one line, else broken at spaces into as few lines as fit, else null (never cut short). */
+export function fitWords(t, w, fs, maxLines = 3) {
+  if (est(t, fs) <= w) return [t];
+  const words = String(t).split(' '), lines = [];
+  let cur = '';
+  for (const wd of words) {
+    const next = cur ? `${cur} ${wd}` : wd;
+    if (est(next, fs) <= w) cur = next;
+    else { if (!cur || est(wd, fs) > w) return null; lines.push(cur); cur = wd; }
+  }
+  if (cur) lines.push(cur);
+  return lines.length <= maxLines ? lines : null;
+}
+/** Each point's name placed beside it, clear of the other points and names and inside the plot: [{ x, y, anchor, lines }]
+ *  (lines: the name, broken if it must be) or null for a name with nowhere to go. pts: [{ x, y, name }] in px; avoid: other
+ *  boxes [x0, y0, x1, y1] the names keep clear of (the zones' words). */
+export function placeNames(pts, fr, fs, r = 8, avoid = []) {
+  const boxes = [...pts.map((p) => [p.x - r - 2, p.y - r - 2, p.x + r + 2, p.y + r + 2]), ...avoid], out = [];
+  const lh = fs * 1.2, gap = r + 6;
+  const hit = (b) => boxes.some((o) => b[0] < o[2] && b[2] > o[0] && b[1] < o[3] && b[3] > o[1]);
+  const inside = (b) => b[0] >= fr.L + 2 && b[2] <= fr.R - 2 && b[1] >= fr.T && b[3] <= fr.B - 2;
+  for (const p of pts) {
+    let done = null;
+    for (const lines of [[p.name], fitWords(p.name, Math.max(60, (fr.R - fr.L) / 3), fs, 2), fitWords(p.name, 8 * fs, fs, 3)].filter(Boolean)) {
+      const w = Math.max(...lines.map((l) => est(l, fs, 0.62))), hgt = lines.length * lh;
+      // (Right of the point, left of it, above, below, then the four corners.)
+      const tries = [['start', p.x + gap, p.y - hgt / 2], ['end', p.x - gap, p.y - hgt / 2], ['middle', p.x, p.y - gap - hgt], ['middle', p.x, p.y + gap],
+        ['start', p.x + gap * 0.7, p.y - gap * 0.7 - hgt], ['end', p.x - gap * 0.7, p.y - gap * 0.7 - hgt], ['start', p.x + gap * 0.7, p.y + gap * 0.7], ['end', p.x - gap * 0.7, p.y + gap * 0.7]];
+      for (let [anchor, x, top] of tries) {
+        // (A name centred over or under its point slides along to stay inside the plot.)
+        if (anchor === 'middle') x = Math.min(Math.max(x, fr.L + 4 + w / 2), fr.R - 4 - w / 2);
+        const x0 = anchor === 'start' ? x : anchor === 'end' ? x - w : x - w / 2, b = [x0, top, x0 + w, top + hgt];
+        if (inside(b) && !hit(b)) { done = { x, y: top + fs * 0.85, anchor, lines, box: b }; break; }
+      }
+      if (done) break;
+    }
+    // (No room beside it: the name further out, joined to its point by a thin line, at two, three or four and a half gaps.)
+    for (const k of done ? [] : [2, 3, 4.5]) {
+      const lines = [p.name], alt = fitWords(p.name, 8 * fs, fs, 3);
+      for (const ls of [lines, alt].filter(Boolean)) {
+        const w = Math.max(...ls.map((l) => est(l, fs, 0.62))), hgt = ls.length * lh, d = gap * k;
+        for (const [dx, dy] of [[1, 0], [-1, 0], [0, -1], [0, 1], [0.7, -0.7], [-0.7, -0.7], [0.7, 0.7], [-0.7, 0.7]]) {
+          const cx = p.x + dx * d, cy = p.y + dy * d;
+          const x0 = dx > 0.1 ? cx : dx < -0.1 ? cx - w : cx - w / 2, top = dy < -0.1 ? cy - hgt : dy > 0.1 ? cy : cy - hgt / 2, b = [x0, top, x0 + w, top + hgt];
+          if (!inside(b) || hit(b)) continue;
+          const anchor = dx > 0.1 ? 'start' : dx < -0.1 ? 'end' : 'middle', x = anchor === 'start' ? x0 : anchor === 'end' ? x0 + w : x0 + w / 2;
+          // (The line runs from the point's edge to the name's nearest edge.)
+          const lx = clamp(p.x, b[0], b[2]), ly = clamp(p.y, b[1], b[3]);
+          done = { x, y: top + fs * 0.85, anchor, lines: ls, box: b, lead: [lx, ly] };
+          break;
+        }
+        if (done) break;
+      }
+      if (done) break;
+    }
+    if (done) boxes.push(done.box);
+    out.push(done);
+  }
+  return out;
+}
+/** A zone's rectangle on the plot, in data units: [x0, x1, y0, y1] (the rest of the plane: the whole of it). */
+export const zoneRect = (pl, z) => {
+  const [x0, x1] = rangeOf(z.when, pl.x.key, pl.x.min ?? 0, pl.x.max), [y0, y1] = rangeOf(z.when, pl.y.key, pl.y.min ?? 0, pl.y.max);
+  return [x0, x1, y0, y1];
+};
+
+// ── Drawing ──
+const SVGNS = 'http://www.w3.org/2000/svg';
+const sv = (tag, attrs = {}, ...kids) => {
+  const el = document.createElementNS(SVGNS, tag);
+  for (const [k, v] of Object.entries(attrs)) if (v != null) el.setAttribute(k, typeof v === 'number' ? +v.toFixed(1) : v);
+  el.append(...kids.flat().filter((k) => k != null));
+  return el;
+};
+const valOf = (k, v) => (v == null || !Number.isFinite(v) ? '—' : fmt(v * (TILE[k]?.x ?? 1), TILE[k]?.d ?? 1));
+const unitOf = (k) => TILE[k]?.u || '';
+
+/** The plot itself: an element whose CSS gives it a size; draw(points, ring) redraws it at that size.
+ *  points: [{ f, name, site }]; ring: the case's fingerprint or null. */
+export function planePlot(pl, { card = false } = {}) {
+  const el = h('div', { class: 'pze-plot' + (card ? ' pze-incard' : ''), role: 'img' });
+  const svg = sv('svg', { class: 'pze-plane', 'aria-hidden': 'true' });
+  const ringG = sv('g', { class: 'pze-ring' }, sv('circle', { r: 9 }));
+  el.append(svg);
+  let pts = [], ring = null, size = '';
+  const draw = () => {
+    const W = el.clientWidth, H = el.clientHeight;
+    if (!W || !H) return;
+    size = `${W}x${H}`;
+    const fs = Math.max(12, parseFloat(getComputedStyle(el).fontSize) || 13);
+    const fr = frame(W, H, fs, pl), { X, Y } = scaler(pl, fr);
+    svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+    svg.setAttribute('width', W); svg.setAttribute('height', H);
+    const kids = [];
+    // Zones, the rest of the plane first, the first listed last (on top), as zoneOf reads them.
+    const zs = [...pl.zones].reverse();
+    for (const z of zs) {
+      const [x0, x1, y0, y1] = zoneRect(pl, z);
+      kids.push(sv('rect', { class: 'pze-zone', 'data-tone': z.tone || 'none', x: X(x0), y: Y(y1), width: X(x1) - X(x0), height: Y(y0) - Y(y1) }));
+    }
+    // The patients' names first, so every point keeps its name; the zones' words then take what room is left (the key names
+    // every zone anyway).
+    const at = pts.filter((p) => Number.isFinite(p.f?.[pl.x.key]) && Number.isFinite(p.f?.[pl.y.key])).map((p) => ({ ...p, x: X(p.f[pl.x.key]), y: Y(p.f[pl.y.key]) }));
+    const names = placeNames(at, fr, fs, 8);
+    // Each zone's words in its corner (the rest of the plane at its own point), only where they fit whole.
+    const used = names.filter(Boolean).map((n) => n.box);
+    const dots = at.map((p) => [p.x - 12, p.y - 12, p.x + 12, p.y + 12]);
+    const words = (z, cls) => {
+      const [x0, x1, y0, y1] = zoneRect(pl, z), wpx = X(x1) - X(x0) - 12;
+      const lines = fitWords(z.t, wpx, fs, 2) || (z.short ? fitWords(z.short, wpx, fs, 2) : null);   // (the zone's short name where its full one has no room)
+      if (!lines) return;
+      const lh = fs * 1.2;
+      let x = X(x0) + 6, y = Y(y1) + 6 + fs * 0.85, anchor = 'start';
+      const w = Math.max(...lines.map((l) => est(l, fs, 0.62)));
+      // (At its point, slid along to stay inside its zone and the plot.)
+      if (z.at) { x = clamp(X(z.at[0]), Math.max(X(x0), fr.L) + 4 + w / 2, Math.min(X(x1), fr.R) - 4 - w / 2); y = Y(z.at[1]) - (lines.length - 1) * lh / 2 + fs * 0.3; anchor = 'middle'; }
+      const boxAt = (x, y, anchor) => { const bx0 = anchor === 'start' ? x : anchor === 'end' ? x - w : x - w / 2; return [bx0, y - fs * 0.85, bx0 + w, y + (lines.length - 1) * lh + fs * 0.25]; };
+      const clear = (b) => !used.some((o) => b[0] < o[2] && b[2] > o[0] && b[1] < o[3] && b[3] > o[1]) && !dots.some((o) => b[0] < o[2] && b[2] > o[0] && b[1] < o[3] && b[3] > o[1]);
+      // (A box's words in its lower right corner, else its upper right; a zone's in its corner or at its point. Never over a
+      // patient's point or another zone's words: words with no clear place are left out, the key beside names them.)
+      const tries = cls === 'pze-bxw' ? [[X(x1) - 6, Y(y0) - 6 - (lines.length - 1) * lh, 'end'], [X(x1) - 6, Y(y1) + 6 + fs * 0.85, 'end']] : [[x, y, anchor]];
+      const ok = tries.find(([tx, ty, ta]) => clear(boxAt(tx, ty, ta)));
+      if (!ok) return;
+      [x, y, anchor] = ok;
+      const b = boxAt(x, y, anchor);
+      used.push(b);
+      kids.push(sv('text', { class: 'pze-zt ' + cls, 'data-tone': z.tone || 'none', x, y, 'text-anchor': anchor, style: `font-size:${fs}px` }, lines.map((l, i) => sv('tspan', { x, dy: i ? lh : null }, l))));
+    };
+    for (const z of pl.zones) words(z, 'pze-zw');
+    for (const b of pl.boxes || []) {
+      const [x0, x1, y0, y1] = zoneRect(pl, b);
+      kids.push(sv('rect', { class: 'pze-box', x: X(x0), y: Y(y1), width: X(x1) - X(x0), height: Y(y0) - Y(y1) }));
+      if (!card) words(b, 'pze-bxw');   // (in the card the ring crosses the box's words; the key under the plot names it)
+    }
+    // The cut-off lines, the axes and their ticks.
+    for (const v of pl.cuts?.x || []) kids.push(sv('line', { class: 'pze-cut', x1: X(v), x2: X(v), y1: fr.T, y2: fr.B }));
+    for (const v of pl.cuts?.y || []) kids.push(sv('line', { class: 'pze-cut', x1: fr.L, x2: fr.R, y1: Y(v), y2: Y(v) }));
+    kids.push(sv('line', { class: 'pze-axis', x1: fr.L, x2: fr.R, y1: fr.B, y2: fr.B }), sv('line', { class: 'pze-axis', x1: fr.L, x2: fr.L, y1: fr.T, y2: fr.B }));
+    const on = (a, v) => (pl.cuts?.[a] || []).includes(v);
+    // (x ticks that would touch drop out, the cut-offs kept first)
+    const xt = [...(pl.x.ticks || [pl.x.min ?? 0, pl.x.max])].sort((a, b) => on('x', b) - on('x', a)), xs = [];
+    for (const v of xt) { const x = X(v), w = est(String(v), fs) + 6; if (xs.every((o) => Math.abs(o - x) >= w)) xs.push(x), kids.push(sv('text', { class: 'pze-t' + (on('x', v) ? ' on' : ''), x, y: fr.B + 6 + fs * 0.9, 'text-anchor': 'middle', style: `font-size:${fs}px` }, String(v))); }
+    const ys = [];
+    for (const v of pl.y.ticks || [pl.y.min ?? 0, pl.y.max]) { const y = Y(v); if (ys.every((o) => Math.abs(o - y) >= fs * 1.1)) ys.push(y), kids.push(sv('text', { class: 'pze-t' + (on('y', v) ? ' on' : ''), x: fr.L - 6, y: y + fs * 0.35, 'text-anchor': 'end', style: `font-size:${fs}px` }, String(v))); }
+    const xName = est(pl.x.name, fs) <= fr.R - fr.L ? pl.x.name : pl.x.short || pl.x.key, yName = est(pl.y.name, fs) <= fr.B - fr.T ? pl.y.name : pl.y.short || pl.y.key;
+    kids.push(sv('text', { class: 'pze-ax', x: (fr.L + fr.R) / 2, y: H - 4, 'text-anchor': 'middle', style: `font-size:${fs}px` }, xName));
+    kids.push(sv('text', { class: 'pze-ax', transform: `translate(${(fs * 0.95).toFixed(1)} ${((fr.T + fr.B) / 2).toFixed(1)}) rotate(-90)`, 'text-anchor': 'middle', style: `font-size:${fs}px` }, yName));
+    // The patients: a point each, its name beside it.
+    at.forEach((p, i) => {
+      const n = names[i];
+      kids.push(sv('g', { class: 'pze-pt', 'data-site': p.site || 'none', style: `--i:${i}` }, n?.lead ? sv('line', { class: 'pze-lead', x1: p.x, y1: p.y, x2: n.lead[0], y2: n.lead[1] }) : null, sv('circle', { cx: p.x, cy: p.y, r: 8 }),
+        n ? sv('text', { x: n.x, y: n.y, 'text-anchor': n.anchor, style: `font-size:${fs}px` }, n.lines.map((l, j) => sv('tspan', { x: n.x, dy: j ? fs * 1.2 : null }, l))) : null));
+    });
+    // The slide's case: a ring that eases from where it was (a transform, so Safari eases it too).
+    if (ring && Number.isFinite(ring[pl.x.key]) && Number.isFinite(ring[pl.y.key])) {
+      ringG.style.transform = `translate(${X(ring[pl.x.key]).toFixed(1)}px, ${Y(ring[pl.y.key]).toFixed(1)}px)`;
+      ringG.style.opacity = '1';
+    } else ringG.style.opacity = '0';
+    kids.push(ringG);
+    svg.replaceChildren(...kids);
+    el.setAttribute('aria-label', `${pl.y.name} against ${pl.x.name}` + (at.length ? ': ' + at.map((p) => `${p.name}, ${valOf(pl.x.key, p.f[pl.x.key])} and ${valOf(pl.y.key, p.f[pl.y.key])}, ${zoneOf(pl, p.f)?.t || ''}`).join('; ') : '')
+      + (ring ? `; this patient ${valOf(pl.x.key, ring[pl.x.key])} ${unitOf(pl.x.key)} and ${valOf(pl.y.key, ring[pl.y.key])} ${unitOf(pl.y.key)}, ${zoneOf(pl, ring)?.t || ''}` : ''));
+  };
+  if (typeof ResizeObserver === 'function') new ResizeObserver(() => { if (`${el.clientWidth}x${el.clientHeight}` !== size) requestAnimationFrame(draw); }).observe(el);
+  return {
+    el,
+    set(points, r = ring) { pts = points || []; ring = r; if (el.isConnected) draw(); else requestAnimationFrame(draw); },
+    ring(f) { ring = f; if (el.isConnected) draw(); },
+  };
+}
+
+/** The zones' key: each zone's swatch, words and note, and the source line. */
+export function planeKey(pl, lit = null) {
+  return h('div', { class: 'pze-key' },
+    h('ul', {}, [...pl.zones, ...(pl.boxes || []).map((b) => ({ ...b, box: true }))].map((z) => h('li', { 'data-tone': z.tone || 'none', class: (z.box ? 'pze-bx' : '') + (lit && lit === z.t ? ' on' : '') },
+      h('i', { 'aria-hidden': 'true' }), h('b', {}, z.t), z.note ? h('span', {}, z.note) : null))),
+    pl.source ? h('p', { class: 'pze-src' }, pl.source) : null);
+}
+
+/** The case's reading under the card's plot: its two values and the zone they fall in. */
+const word = (a) => (a.short || a.name || a.key).split(',')[0];
+export function planeReading(pl, f) {
+  if (!f || !Number.isFinite(f[pl.x.key]) || !Number.isFinite(f[pl.y.key])) return '';
+  const z = zoneOf(pl, f), u = (k) => (unitOf(k) ? ` ${unitOf(k)}` : '');
+  return `${word(pl.x)} ${valOf(pl.x.key, f[pl.x.key])}${u(pl.x.key)} · ${word(pl.y)} ${valOf(pl.y.key, f[pl.y.key])}${u(pl.y.key)}${z ? ` · ${z.t}` : ''}`;
+}
+/** The card's short key under its plot (the plot is too small for every zone's words): a swatch and a short name each. */
+export const planeCardKey = (pl) => h('ul', { class: 'pze-ckey', 'aria-hidden': 'true' }, [...pl.zones, ...(pl.boxes || []).map((b) => ({ ...b, box: true }))]
+  .map((z) => h('li', { 'data-tone': z.tone || 'none', class: z.box ? 'pze-bx' : null }, h('i'), z.short || z.t)));
+
+// ── The two forms ──
+/** A summary panel: the plane with a point for each patient in the slide's `of`, and the zones' key beside it. */
+export function planeVisual(s, ctx, rowsFp) {
+  const pl = planeOf(s.plane);
+  if (!pl) return null;
+  const plot = planePlot(pl);
+  const wrap = h('div', { class: 'pz-visual pze-planewrap' }, plot.el, planeKey(pl));
+  rowsFp(s, ctx, (rows) => plot.set(rows.map((r) => ({ f: r.f, name: r.name, site: r.site }))));
+  return wrap;
+}
+/** A tool's plane: its plane field, its own x, y and zones, or the CSPH plane. */
+export const toolPlane = (t) => planeOf(t?.plane ?? (t?.x || t?.y || t?.zones ? { x: t.x, y: t.y, zones: t.zones, base: t.base } : 'csph'));
+/** The data card's instrument: the slide's case as a ring on the plane, its reading under it. */
+export function createPlaneTool() {
+  const el = h('div', { class: 'pze-tool' }), read = h('p', { class: 'pze-read', 'aria-live': 'polite' });
+  let pl = null, plot = null, sig = '', last = null;
+  return {
+    el,
+    configure(t) {
+      const p = toolPlane(t);
+      const k = JSON.stringify(t.plane ?? [t.x, t.y, t.zones, t.base]);
+      if (k === sig && plot) return;
+      sig = k; pl = p;
+      if (!pl) { el.replaceChildren(); plot = null; return; }
+      plot = planePlot(pl, { card: true });
+      el.replaceChildren(plot.el, planeCardKey(pl), read);
+      if (last) this.pin(last);
+    },
+    pin(fp) {
+      last = fp;
+      if (!plot || !fp) return;
+      plot.ring(fp);
+      const t = planeReading(pl, fp);
+      if (read.textContent !== t) read.textContent = t;
+    },
+    clear() { last = null; },
+  };
+}
