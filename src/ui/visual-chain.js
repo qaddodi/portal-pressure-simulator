@@ -17,7 +17,7 @@
 
 import { h, fmt } from './util.js?v=8813192ea2';
 import { TILE, rateOf, dirAbs } from './table-marks.js?v=810c0a1575';
-import { holds } from './visual-plane.js?v=bd3af8eba2';
+import { holds } from './visual-plane.js?v=2f94fa77a5';
 
 // ── V31: the chain ──
 /** The chain's steps as { t, key }: from [words, key?], { t, key } or plain words; at most six, empty ones left out. */
@@ -99,9 +99,10 @@ export function createChainTool() {
 // ── V17: the flowchart ──
 // CSPH in compensated advanced chronic liver disease, Baveno VIII (checked against guidelines/baveno8-aasld.md): 15 kPa or less with
 // platelets 150 or more rules CSPH out (1.15); 25 kPa or more rules it in (1.16), but not in obese MASLD; in between, a model
-// (ANTICIPATE) or spleen stiffness decides; under 20 kPa with platelets 150 or more spares the screening scope in a patient not on a
-// beta-blocker (1.19); stiffness and platelets are repeated every year (1.9). CSPH calls for a beta-blocker, carvedilol preferred,
-// and a patient on one needs no screening scope.
+// (ANTICIPATE) or spleen stiffness decides; under 20 kPa with platelets 150 or more, or a spleen stiffness under 40 kPa, spares the
+// screening scope in a patient not on a beta-blocker (1.19); stiffness and platelets are repeated every year (1.9). CSPH calls for a
+// beta-blocker, carvedilol preferred, and a patient on one needs no screening scope. The model has no spleen stiffness, so the
+// case's branch is chosen on liver stiffness and platelets alone; the spleen rule is in the note.
 export const FLOWS = {
   csph: {
     t: 'Compensated advanced chronic liver disease', note: 'Stiffness and platelets',
@@ -111,7 +112,7 @@ export const FLOWS = {
       { when: [['lsm', '>=', 25]], t: 'CSPH ruled in', note: '25 kPa or more (not in obese MASLD)',
         then: [{ t: 'Beta-blocker, carvedilol preferred; no screening scope' }] },
       { t: 'Gray zone', note: 'A model or spleen stiffness decides',
-        then: [{ when: [['lsm', '<', 20], ['plt', '>=', 150]], t: 'No screening scope', note: 'Under 20 kPa, platelets 150 or more' }, { t: 'Screening scope, unless on a beta-blocker' }] },
+        then: [{ when: [['lsm', '<', 20], ['plt', '>=', 150]], t: 'No screening scope', note: 'Under 20 kPa, platelets 150 or more; or spleen stiffness under 40 kPa' }, { t: 'Screening scope, unless on a beta-blocker' }] },
     ],
     source: 'Baveno VIII 1.9, 1.15, 1.16, 1.19',
   },
@@ -133,6 +134,7 @@ export function flowPath(tree, f) {
 /** How many boxes the tree has across at its widest (its leaves). */
 export const flowLeaves = (n) => (Array.isArray(n?.then) && n.then.length ? n.then.reduce((s, k) => s + flowLeaves(k), 0) : 1);
 
+const SVGNS = 'http://www.w3.org/2000/svg';
 export function flowEl(tree) {
   const boxes = new Map();
   const node = (n) => {
@@ -141,12 +143,39 @@ export function flowEl(tree) {
     boxes.set(n, li);
     return li;
   };
-  const el = h('div', { class: 'pze-flow', style: { '--leaves': String(flowLeaves(tree)) } }, h('ul', { class: 'pze-tree' }, node(tree)), tree.source ? h('p', { class: 'pze-src' }, tree.source) : null);
+  const links = document.createElementNS(SVGNS, 'svg'), ul = h('ul', { class: 'pze-tree' }, node(tree));
+  links.setAttribute('class', 'pze-links'); links.setAttribute('aria-hidden', 'true');
+  const el = h('div', { class: 'pze-flow', style: { '--leaves': String(flowLeaves(tree)) } }, links, ul, tree.source ? h('p', { class: 'pze-src' }, tree.source) : null);
+  let on = new Set();
+  // The lines between boxes, drawn where the boxes are (a narrow card's indented list draws its own, in CSS): down from each
+  // parent, across its children, down into each; the case's way through drawn again on top in the lit colour.
+  const draw = () => {
+    const parts = [], lit = [];
+    if (el.isConnected && getComputedStyle(ul).display === 'flex') {
+      const o = el.getBoundingClientRect(), r = (n) => boxes.get(n).firstChild.getBoundingClientRect();
+      const walk = (n) => {
+        const kids = Array.isArray(n.then) ? n.then.filter((k) => boxes.get(k)?.firstChild.offsetParent) : [];
+        if (!kids.length) return;
+        const p = r(n), px = Math.round(p.left + p.width / 2 - o.left), py = p.bottom - o.top;
+        const cs = kids.map((k) => { const c = r(k); return [k, Math.round(c.left + c.width / 2 - o.left), c.top - o.top]; });
+        const my = Math.round((py + Math.min(...cs.map((c) => c[2]))) / 2), xs = cs.map((c) => c[1]);
+        parts.push(`M${px} ${py}V${my}`, `M${Math.min(px, ...xs)} ${my}H${Math.max(px, ...xs)}`, ...cs.map(([, x, y]) => `M${x} ${my}V${y}`));
+        for (const [k, x, y] of cs) if (on.has(n) && on.has(k)) lit.push(`M${px} ${py}V${my}H${x}V${y}`);
+        kids.forEach(walk);
+      };
+      walk(tree);
+    }
+    const path = (d, cls) => { const e = document.createElementNS(SVGNS, 'path'); e.setAttribute('d', d); if (cls) e.setAttribute('class', cls); return e; };
+    links.replaceChildren(...(parts.length ? [path(parts.join(''))] : []), ...(lit.length ? [path(lit.join(''), 'on')] : []));
+  };
+  if (typeof ResizeObserver === 'function') new ResizeObserver(() => requestAnimationFrame(draw)).observe(el);
   const set = (f) => {
-    const on = new Set(flowPath(tree, f));
+    on = new Set(flowPath(tree, f));
     const decided = on.size > 1;
+    if (!decided) on = new Set();
     el.classList.toggle('decided', decided);
-    for (const [n, li] of boxes) { li.classList.toggle('on', decided && on.has(n)); li.toggleAttribute('aria-current', decided && on.has(n) && !n.then?.length); }
+    for (const [n, li] of boxes) { li.classList.toggle('on', on.has(n)); li.toggleAttribute('aria-current', on.has(n) && !n.then?.length); }
+    requestAnimationFrame(draw);
   };
   return { el, set };
 }

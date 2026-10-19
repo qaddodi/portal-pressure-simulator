@@ -7,7 +7,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { EXT } from '../src/ui/slide-ext.js';
 import { DECKS } from '../src/ui/decks.js';
-import { holds, rangeOf, planeOf, zoneOf, zoneRect, PLANES, fitWords, placeNames, est, frame } from '../src/ui/visual-plane.js';
+import { holds, rangeOf, planeOf, zoneOf, zoneRect, PLANES, fitWords, placeNames, est, frame, scaler, lineBoxes, crosses } from '../src/ui/visual-plane.js';
 import { chainSteps, litSet, stepValue, FLOWS, flowOf, flowPath, flowLeaves } from '../src/ui/visual-chain.js';
 import { spentOf, spentScale, PARTS, TOP_MIN } from '../src/ui/col-spent.js';
 import { wavePath, waveVessel } from '../src/ui/col-wave.js';
@@ -85,11 +85,15 @@ test('words fit whole or not at all, and names never overlap one another or leav
   assert.equal(boxes.length, pts.length, 'every point keeps its name');
   // (The levels slide on a phone: six patients, four of them near the left axis; a name with no room beside its point sits
   // further out on a thin line.)
-  const hp = planeOf('hvpg-ppg'), hf = frame(300, 230, 13, hp);
+  const hp = planeOf('hvpg-ppg'), hf = frame(340, 280, 13, hp);   // (the phone's plot size)
   const crowd = [[0.4, 22, 'Budd–Chiari'], [2, 15, 'Portal vein thrombosis'], [3.5, 16.5, 'Schistosomiasis'], [16, 17, 'Cirrhosis'], [2.2, 4, 'Healthy'], [0.5, 1.5, 'Heart failure']]
     .map(([a, b, name]) => ({ x: hf.L + (hf.R - hf.L) * a / 30, y: hf.B - (hf.B - hf.T) * b / 30, name }));
-  const named = placeNames(crowd, hf, 13);
+  const { X, Y } = scaler(hp, hf), rules = lineBoxes(hp, X, Y, hf);
+  const named = placeNames(crowd, hf, 13, 8, rules);
   assert.ok(named.every(Boolean), 'all six are named');
+  const touch = (a, o) => a[0] < o[2] && a[2] > o[0] && a[1] < o[3] && a[3] > o[1];
+  for (const n of named) assert.ok(!rules.some((o) => touch(n.box, o)), 'no name sits on a cut-off line');
+  for (const [i, n] of named.entries()) if (n.lead) for (const q of crowd) if (q !== crowd[i]) assert.ok(!crosses(crowd[i].x, crowd[i].y, n.lead[0], n.lead[1], [q.x - 10, q.y - 10, q.x + 10, q.y + 10]), 'a leader line passes no other point');
   for (const [i, a] of named.entries()) for (const b of named.slice(i + 1)) assert.ok(!(a.box[0] < b.box[2] && a.box[2] > b.box[0] && a.box[1] < b.box[3] && a.box[3] > b.box[1]));
   for (const [i, a] of boxes.entries()) {
     assert.ok(a[0] >= fr.L && a[2] <= fr.R && a[1] >= fr.T && a[3] <= fr.B, 'inside the plot');

@@ -38,6 +38,8 @@ export function rangeOf(when, key, min, max) {
 // probability decides; under 20 kPa with platelets 150 or more spares the screening scope in a patient not on a beta-blocker (1.19).
 // AASLD 2024 uses the same rule-out and rule-in.
 // HVPG against PPG: the app's fixed cut-offs (HVPG 5 and 10, PPG 6 and 12), the words naming the readings only, not a cause.
+// Only 'Both normal' takes a rating colour (both under their amber cut-offs, as the tiles rate them); the zones where one or
+// both are raised are tinted plainly, since a zone spans readings the tiles rate amber and red alike.
 export const PLANES = {
   csph: {
     x: { key: 'lsm', min: 0, max: 40, ticks: [0, 10, 15, 20, 25, 40], name: 'Liver stiffness, kPa', short: 'Stiffness, kPa' },
@@ -47,7 +49,7 @@ export const PLANES = {
       { when: [['lsm', '<=', 15], ['plt', '>=', 150]], t: 'CSPH ruled out', short: 'Ruled out', tone: 'ok', note: '15 kPa or less with platelets 150 or more' },
       { t: 'Gray zone', short: 'Gray zone', tone: 'mid', at: [8, 50], note: 'A model or spleen stiffness decides' },
     ],
-    boxes: [{ when: [['lsm', '<', 20], ['plt', '>=', 150]], t: 'No screening scope', short: 'No scope', note: 'Under 20 kPa with platelets 150 or more' }],
+    boxes: [{ when: [['lsm', '<', 20], ['plt', '>=', 150]], t: 'No screening scope', short: 'No scope', note: 'Under 20 kPa with platelets 150 or more, or spleen stiffness under 40 kPa (not in the model)' }],
     cuts: { x: [15, 20, 25], y: [150] },
     source: 'Baveno VIII 1.15, 1.16, 1.19',
   },
@@ -56,9 +58,9 @@ export const PLANES = {
     y: { key: 'ppg', min: 0, max: 30, ticks: [0, 6, 12, 20, 30], name: 'PPG, mmHg', short: 'PPG' },
     zones: [
       { when: [['hvpg', '<', 5], ['ppg', '<', 6]], t: 'Both normal', short: 'Both normal', tone: 'ok', note: 'HVPG under 5, PPG under 6 mmHg' },
-      { when: [['hvpg', '<', 5]], t: 'PPG raised, HVPG normal', short: 'PPG only', tone: 'mid', note: 'The wedge misses the resistance' },
+      { when: [['hvpg', '<', 5]], t: 'PPG raised, HVPG normal', short: 'PPG only', tone: 'info', note: 'The wedge misses the resistance' },
       { when: [['ppg', '<', 6]], t: 'HVPG raised, PPG normal', short: 'HVPG only', tone: 'info', at: [20, 3], note: 'HVPG 5 or more, PPG under 6 mmHg' },
-      { t: 'Both raised', short: 'Both raised', tone: 'hi', at: [20, 24], note: 'HVPG 5 or more, PPG 6 or more mmHg' },
+      { t: 'Both raised', short: 'Both raised', at: [20, 24], note: 'HVPG 5 or more, PPG 6 or more mmHg' },
     ],
     cuts: { x: [5, 10], y: [6, 12] },
     source: '',
@@ -103,15 +105,36 @@ export function fitWords(t, w, fs, maxLines = 3) {
   if (cur) lines.push(cur);
   return lines.length <= maxLines ? lines : null;
 }
+/** True when the segment from (x0, y0) to (x1, y1) passes through the box [x0, y0, x1, y1] (checked every 2 px). */
+export function crosses(ax, ay, bx, by, o) {
+  const n = Math.max(1, Math.ceil(Math.hypot(bx - ax, by - ay) / 2));
+  for (let i = 0; i <= n; i++) { const x = ax + (bx - ax) * i / n, y = ay + (by - ay) * i / n; if (x > o[0] && x < o[2] && y > o[1] && y < o[3]) return true; }
+  return false;
+}
+/** The plane's lines as thin boxes words keep clear of: the cut-offs and the outlined boxes' edges. */
+export function lineBoxes(pl, X, Y, fr) {
+  const out = [];
+  for (const v of pl.cuts?.x || []) out.push([X(v) - 2, fr.T, X(v) + 2, fr.B]);
+  for (const v of pl.cuts?.y || []) out.push([fr.L, Y(v) - 2, fr.R, Y(v) + 2]);
+  for (const b of pl.boxes || []) {
+    const [x0, x1, y0, y1] = zoneRect(pl, b), L = X(x0), R = X(x1), T = Y(y1), B = Y(y0);
+    out.push([L - 2, T, L + 2, B], [R - 2, T, R + 2, B], [L, T - 2, R, T + 2], [L, B - 2, R, B + 2]);
+  }
+  return out;
+}
 /** Each point's name placed beside it, clear of the other points and names and inside the plot: [{ x, y, anchor, lines }]
  *  (lines: the name, broken if it must be) or null for a name with nowhere to go. pts: [{ x, y, name }] in px; avoid: other
  *  boxes [x0, y0, x1, y1] the names keep clear of (the zones' words). */
 export function placeNames(pts, fr, fs, r = 8, avoid = []) {
-  const boxes = [...pts.map((p) => [p.x - r - 2, p.y - r - 2, p.x + r + 2, p.y + r + 2]), ...avoid], out = [];
+  const boxes = [...pts.map((p) => [p.x - r - 2, p.y - r - 2, p.x + r + 2, p.y + r + 2]), ...avoid];
   const lh = fs * 1.2, gap = r + 6;
   const hit = (b) => boxes.some((o) => b[0] < o[2] && b[2] > o[0] && b[1] < o[3] && b[3] > o[1]);
   const inside = (b) => b[0] >= fr.L + 2 && b[2] <= fr.R - 2 && b[1] >= fr.T && b[3] <= fr.B - 2;
-  for (const p of pts) {
+  // (The most crowded points choose first, so a point with little room is not hemmed in by its neighbours' names.)
+  const near = (p) => pts.filter((q) => q !== p && Math.hypot(q.x - p.x, q.y - p.y) < 8 * fs).length;
+  const order = pts.map((p, i) => [p, i, near(p)]).sort((a, b) => b[2] - a[2] || a[1] - b[1]);
+  const out = new Array(pts.length).fill(null), named = [];
+  for (const [p, i] of order) {
     let done = null;
     for (const lines of [[p.name], fitWords(p.name, Math.max(60, (fr.R - fr.L) / 3), fs, 2), fitWords(p.name, 8 * fs, fs, 3)].filter(Boolean)) {
       const w = Math.max(...lines.map((l) => est(l, fs, 0.62))), hgt = lines.length * lh;
@@ -121,32 +144,34 @@ export function placeNames(pts, fr, fs, r = 8, avoid = []) {
       for (let [anchor, x, top] of tries) {
         // (A name centred over or under its point slides along to stay inside the plot.)
         if (anchor === 'middle') x = Math.min(Math.max(x, fr.L + 4 + w / 2), fr.R - 4 - w / 2);
+        // (and one beside a point near the top or bottom edge slides up or down to stay inside.)
+        else top = clamp(top, fr.T, fr.B - 2 - hgt);
         const x0 = anchor === 'start' ? x : anchor === 'end' ? x - w : x - w / 2, b = [x0, top, x0 + w, top + hgt];
         if (inside(b) && !hit(b)) { done = { x, y: top + fs * 0.85, anchor, lines, box: b }; break; }
       }
       if (done) break;
     }
-    // (No room beside it: the name further out, joined to its point by a thin line, at two, three or four and a half gaps.)
-    for (const k of done ? [] : [2, 3, 4.5]) {
-      const lines = [p.name], alt = fitWords(p.name, 8 * fs, fs, 3);
-      for (const ls of [lines, alt].filter(Boolean)) {
-        const w = Math.max(...ls.map((l) => est(l, fs, 0.62))), hgt = ls.length * lh, d = gap * k;
-        for (const [dx, dy] of [[1, 0], [-1, 0], [0, -1], [0, 1], [0.7, -0.7], [-0.7, -0.7], [0.7, 0.7], [-0.7, 0.7]]) {
-          const cx = p.x + dx * d, cy = p.y + dy * d;
-          const x0 = dx > 0.1 ? cx : dx < -0.1 ? cx - w : cx - w / 2, top = dy < -0.1 ? cy - hgt : dy > 0.1 ? cy : cy - hgt / 2, b = [x0, top, x0 + w, top + hgt];
-          if (!inside(b) || hit(b)) continue;
-          const anchor = dx > 0.1 ? 'start' : dx < -0.1 ? 'end' : 'middle', x = anchor === 'start' ? x0 : anchor === 'end' ? x0 + w : x0 + w / 2;
-          // (The line runs from the point's edge to the name's nearest edge.)
-          const lx = clamp(p.x, b[0], b[2]), ly = clamp(p.y, b[1], b[3]);
-          done = { x, y: top + fs * 0.85, anchor, lines: ls, box: b, lead: [lx, ly] };
-          break;
+    // (No room beside it: the name at the nearest clear place in the plot, joined to its point by a thin line that crosses no
+    // other point or name.)
+    if (!done) {
+      let best = null;
+      for (const ls of [[p.name], fitWords(p.name, 8 * fs, fs, 3)].filter(Boolean)) {
+        const w = Math.max(...ls.map((l) => est(l, fs, 0.62))), hgt = ls.length * lh;
+        for (let x0 = fr.L + 4; x0 + w <= fr.R - 2; x0 += 6) {
+          for (let top = fr.T; top + hgt <= fr.B - 2; top += 4) {
+            const b = [x0, top, x0 + w, top + hgt];
+            const lx = clamp(p.x, b[0], b[2]), ly = clamp(p.y, b[1], b[3]), d = Math.hypot(lx - p.x, ly - p.y) + ls.length * 6;
+            if ((best && d >= best.d) || hit(b)) continue;
+            if (pts.some((q) => q !== p && crosses(p.x, p.y, lx, ly, [q.x - r - 2, q.y - r - 2, q.x + r + 2, q.y + r + 2]))) continue;
+            if (named.some((o) => crosses(p.x, p.y, lx, ly, o))) continue;
+            best = { d, x: x0, y: top + fs * 0.85, anchor: 'start', lines: ls, box: b, lead: [lx, ly] };
+          }
         }
-        if (done) break;
       }
-      if (done) break;
+      done = best;
     }
-    if (done) boxes.push(done.box);
-    out.push(done);
+    if (done) boxes.push(done.box), named.push(done.box);
+    out[i] = done;
   }
   return out;
 }
@@ -193,25 +218,32 @@ export function planePlot(pl, { card = false } = {}) {
     // The patients' names first, so every point keeps its name; the zones' words then take what room is left (the key names
     // every zone anyway).
     const at = pts.filter((p) => Number.isFinite(p.f?.[pl.x.key]) && Number.isFinite(p.f?.[pl.y.key])).map((p) => ({ ...p, x: X(p.f[pl.x.key]), y: Y(p.f[pl.y.key]) }));
-    const names = placeNames(at, fr, fs, 8);
+    const rules = lineBoxes(pl, X, Y, fr);   // (no words ever sit on a line)
+    const names = placeNames(at, fr, fs, 8, rules);
     // Each zone's words in its corner (the rest of the plane at its own point), only where they fit whole.
-    const used = names.filter(Boolean).map((n) => n.box);
+    const used = [...names.filter(Boolean).map((n) => n.box), ...rules];
     const dots = at.map((p) => [p.x - 12, p.y - 12, p.x + 12, p.y + 12]);
     const words = (z, cls) => {
       const [x0, x1, y0, y1] = zoneRect(pl, z), wpx = X(x1) - X(x0) - 12;
       const lines = fitWords(z.t, wpx, fs, 2) || (z.short ? fitWords(z.short, wpx, fs, 2) : null);   // (the zone's short name where its full one has no room)
       if (!lines) return;
       const lh = fs * 1.2;
-      let x = X(x0) + 6, y = Y(y1) + 6 + fs * 0.85, anchor = 'start';
+      let x = X(x0) + 6, y = Y(y1) + 6 + fs * 0.85, anchor;
       const w = Math.max(...lines.map((l) => est(l, fs, 0.62)));
       // (At its point, slid along to stay inside its zone and the plot.)
-      if (z.at) { x = clamp(X(z.at[0]), Math.max(X(x0), fr.L) + 4 + w / 2, Math.min(X(x1), fr.R) - 4 - w / 2); y = Y(z.at[1]) - (lines.length - 1) * lh / 2 + fs * 0.3; anchor = 'middle'; }
+      if (z.at) { x = clamp(X(z.at[0]), Math.max(X(x0), fr.L) + 4 + w / 2, Math.min(X(x1), fr.R) - 4 - w / 2); y = Y(z.at[1]) - (lines.length - 1) * lh / 2 + fs * 0.3; }
       const boxAt = (x, y, anchor) => { const bx0 = anchor === 'start' ? x : anchor === 'end' ? x - w : x - w / 2; return [bx0, y - fs * 0.85, bx0 + w, y + (lines.length - 1) * lh + fs * 0.25]; };
       const clear = (b) => !used.some((o) => b[0] < o[2] && b[2] > o[0] && b[1] < o[3] && b[3] > o[1]) && !dots.some((o) => b[0] < o[2] && b[2] > o[0] && b[1] < o[3] && b[3] > o[1]);
-      // (A box's words in its lower right corner, else its upper right; a zone's in its corner or at its point. Never over a
-      // patient's point or another zone's words: words with no clear place are left out, the key beside names them.)
-      const tries = cls === 'pze-bxw' ? [[X(x1) - 6, Y(y0) - 6 - (lines.length - 1) * lh, 'end'], [X(x1) - 6, Y(y1) + 6 + fs * 0.85, 'end']] : [[x, y, anchor]];
-      const ok = tries.find(([tx, ty, ta]) => clear(boxAt(tx, ty, ta)));
+      // (A box's words along its bottom edge from the right, else along its top; a zone's along its top from its corner, or
+      // around its point. Never over a point, a line or other words, and inside the zone: words with no clear place are
+      // left out, and the key beside names them.)
+      const zl = Math.max(X(x0), fr.L) + 4, zr = Math.min(X(x1), fr.R) - 4, zt = Math.max(Y(y1), fr.T) + 4, zb = Math.min(Y(y0), fr.B) - 4;
+      const inZone = (b) => b[0] >= zl && b[2] <= zr && b[1] >= zt && b[3] <= zb;
+      const tries = [], hgt = (lines.length - 1) * lh;
+      if (cls === 'pze-bxw') for (const ty of [Y(y0) - 6 - hgt, Y(y1) + 6 + fs * 0.85]) for (let tx = zr - 2; tx - w >= zl; tx -= 6) tries.push([tx, ty, 'end']);
+      else if (z.at) for (const dy of [0, -lh, lh, -2 * lh, 2 * lh, -3 * lh, 3 * lh]) for (const dx of [0, -12, 12, -24, 24, -48, 48, -72, 72, -96, 96]) tries.push([x + dx, y + dy, 'middle']);
+      else for (let k = 0; k < 4; k++) for (let tx = x; tx + w <= zr; tx += 6) tries.push([tx, y + k * lh, 'start']);
+      const ok = tries.find(([tx, ty, ta]) => { const b = boxAt(tx, ty, ta); return inZone(b) && clear(b); });
       if (!ok) return;
       [x, y, anchor] = ok;
       const b = boxAt(x, y, anchor);
@@ -232,11 +264,11 @@ export function planePlot(pl, { card = false } = {}) {
     // (x ticks that would touch drop out, the cut-offs kept first)
     const xt = [...(pl.x.ticks || [pl.x.min ?? 0, pl.x.max])].sort((a, b) => on('x', b) - on('x', a)), xs = [];
     for (const v of xt) { const x = X(v), w = est(String(v), fs) + 6; if (xs.every((o) => Math.abs(o - x) >= w)) xs.push(x), kids.push(sv('text', { class: 'pze-t' + (on('x', v) ? ' on' : ''), x, y: fr.B + 6 + fs * 0.9, 'text-anchor': 'middle', style: `font-size:${fs}px` }, String(v))); }
-    const ys = [];
-    for (const v of pl.y.ticks || [pl.y.min ?? 0, pl.y.max]) { const y = Y(v); if (ys.every((o) => Math.abs(o - y) >= fs * 1.1)) ys.push(y), kids.push(sv('text', { class: 'pze-t' + (on('y', v) ? ' on' : ''), x: fr.L - 6, y: y + fs * 0.35, 'text-anchor': 'end', style: `font-size:${fs}px` }, String(v))); }
-    const xName = est(pl.x.name, fs) <= fr.R - fr.L ? pl.x.name : pl.x.short || pl.x.key, yName = est(pl.y.name, fs) <= fr.B - fr.T ? pl.y.name : pl.y.short || pl.y.key;
+    const ys = [];   // (y ticks that would touch drop out, the cut-offs kept first)
+    for (const v of [...(pl.y.ticks || [pl.y.min ?? 0, pl.y.max])].sort((a, b) => on('y', b) - on('y', a))) { const y = Y(v); if (ys.every((o) => Math.abs(o - y) >= fs * 1.1)) ys.push(y), kids.push(sv('text', { class: 'pze-t' + (on('y', v) ? ' on' : ''), x: fr.L - 6, y: y + fs * 0.35, 'text-anchor': 'end', style: `font-size:${fs}px` }, String(v))); }
+    const xName = est(pl.x.name, fs) <= fr.R - fr.L ? pl.x.name : pl.x.short || pl.x.key, yName = [pl.y.name, pl.y.short && pl.y.name.includes(',') ? `${pl.y.short},${pl.y.name.split(',').slice(1).join(',')}` : null, pl.y.short || pl.y.key].find((t) => t && est(t, fs) <= H - 8);   // (the name runs the plot's full height; a short name keeps the unit)
     kids.push(sv('text', { class: 'pze-ax', x: (fr.L + fr.R) / 2, y: H - 4, 'text-anchor': 'middle', style: `font-size:${fs}px` }, xName));
-    kids.push(sv('text', { class: 'pze-ax', transform: `translate(${(fs * 0.95).toFixed(1)} ${((fr.T + fr.B) / 2).toFixed(1)}) rotate(-90)`, 'text-anchor': 'middle', style: `font-size:${fs}px` }, yName));
+    kids.push(sv('text', { class: 'pze-ax', transform: `translate(${(fs * 0.95).toFixed(1)} ${clamp((fr.T + fr.B) / 2, est(yName, fs) / 2 + 4, H - est(yName, fs) / 2 - 4).toFixed(1)}) rotate(-90)`, 'text-anchor': 'middle', style: `font-size:${fs}px` }, yName));
     // The patients: a point each, its name beside it.
     at.forEach((p, i) => {
       const n = names[i];

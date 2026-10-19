@@ -7,9 +7,9 @@
 //   tool kinds 'plane', 'chain', 'flowchart'  the same in the data card, read from the slide's case
 //   table columns 'spent' (col-spent.js) and 'wave' (col-wave.js)
 
-import { planeVisual, createPlaneTool, toolPlane } from './visual-plane.js?v=bd3af8eba2';
-import { chainVisual, createChainTool, flowVisual, createFlowTool, flowOf } from './visual-chain.js?v=eb9a8673b1';
-import { spentColumn } from './col-spent.js?v=2f8c2a1821';
+import { planeVisual, createPlaneTool, toolPlane } from './visual-plane.js?v=2f94fa77a5';
+import { chainVisual, createChainTool, flowVisual, createFlowTool, flowOf } from './visual-chain.js?v=90b85fd5e0';
+import { spentColumn } from './col-spent.js?v=3614f7fe6c';
 import { waveColumn } from './col-wave.js?v=cf308a37e9';
 
 // A plane's rows: the slide's `of`, as a table's (a slide id, { id, name }, or { preset, params?, days?, name } for a patient no

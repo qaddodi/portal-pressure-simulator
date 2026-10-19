@@ -78,7 +78,7 @@ export const spentColumn = {
     later();
     return h('td', { class: 'pze-spent', title: sp.parts.map((p) => `${p.name} ${fmt(p.d, 1)}`).join(' · ') + ' mmHg' },
       h('span', { class: 'pze-sp-row' }, bar),
-      h('span', { class: 'pze-sp-top', 'data-tone': top?.tone ?? 'none' }, h('b', {}, fmt(sp.total, 0)), ' ', top ? top.name : 'No large fall'),
-      h('span', { class: 'sr-only' }, `${fmt(sp.total, 0)} mmHg lost from the portal vein to the right atrium` + (top ? `, most in the ${top.name.toLowerCase()}, ${fmt(top.d, 1)} mmHg` : ', with no large fall anywhere')));
+      h('span', { class: 'pze-sp-top', 'data-tone': top?.tone ?? 'none' }, h('b', {}, fmt(sp.total, 1)), ' ', top ? top.name : 'No large fall'),
+      h('span', { class: 'sr-only' }, `${fmt(sp.total, 1)} mmHg lost from the portal vein to the right atrium` + (top ? `, most in the ${top.name.toLowerCase()}, ${fmt(top.d, 1)} mmHg` : ', with no large fall anywhere')));
   },
 };

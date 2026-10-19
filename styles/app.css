@@ -6376,27 +6376,20 @@ html.thumb-ui .menu.from-dock { clip-path: inset(-64px -64px calc(var(--sink, 0p
 
 /* V17, the flowchart (visual-chain.js): boxes in a tree, the case's branch lit and the rest quiet. Top to bottom where the card
    is wide enough for its leaves; a narrow card or a phone indents each level under the one before. */
-.pze-flow { container-type: inline-size; width: 100%; }
+.pze-flow { container-type: inline-size; width: 100%; position: relative; }
+.pze-links { position: absolute; left: 0; top: 0; width: 100%; height: 100%; overflow: visible; pointer-events: none; fill: none; }   /* (the lines between boxes, drawn from the boxes' own places: visual-chain.js) */
+.pze-links path { stroke: var(--border-strong); stroke-width: 2; stroke-linejoin: round; }
+.pze-links path.on { stroke: var(--accent, var(--tr-pv)); }
 .pze-tree, .pze-tree ul { display: flex; justify-content: center; margin: 0; padding: 0; list-style: none; }
 .pze-tree ul { padding-top: 16px; position: relative; }
 .pze-tree li { position: relative; flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; align-items: center; padding: 16px 4px 0; }
 .pze-tree > li { padding-top: 0; }
-.pze-tree ul::before { content: ''; position: absolute; top: 0; left: 50%; height: 16px; border-left: 2px solid var(--border-strong); }
-.pze-tree ul > li::before, .pze-tree ul > li::after { content: ''; position: absolute; top: 0; width: 50%; height: 16px; border-top: 2px solid var(--border-strong); }
-.pze-tree ul > li::before { right: 50%; }
-.pze-tree ul > li::after { left: 50%; border-left: 2px solid var(--border-strong); }
-.pze-tree ul > li:first-child::before, .pze-tree ul > li:last-child::after { border-top: 0; }
-.pze-tree ul > li:only-child::before { display: none; }
-.pze-tree ul > li:only-child::after { border-top: 0; }
-.pze-tree ul > li:first-child::after { border-radius: 6px 0 0 0; }
-.pze-tree ul > li:last-child::before { border-right: 2px solid var(--border-strong); border-radius: 0 6px 0 0; }
 .pze-fb { width: 100%; max-width: 15em; display: flex; flex-direction: column; gap: .2em; padding: .5em .65em; border-radius: 10px; background: var(--surface-2); border: 1.5px solid transparent;
   font-size: var(--s-cap); line-height: 1.25; color: var(--text-2); text-align: center; transition: opacity .5s var(--ease), border-color .5s var(--ease), background-color .5s var(--ease); }
 .pze-fb b { font-size: var(--s-lab); color: var(--text); font-weight: 600; overflow-wrap: normal; }
-.pze-flow.decided .pze-fb { opacity: .55; }
+.pze-flow.decided li:not(.on) > .pze-fb, .pze-flow.decided li:not(.on) > .pze-fb b { color: var(--text-2); }   /* (quieter than the lit branch, still readable) */
+.pze-flow.decided li.on > .pze-fb > span { color: var(--text); }
 .pze-flow.decided li.on > .pze-fb { opacity: 1; border-color: var(--accent, var(--tr-pv)); background: color-mix(in srgb, var(--accent, var(--tr-pv)) 9%, var(--surface)); }
-.pze-flow.decided li.on > ul::before, .pze-flow.decided ul > li.on::after { border-left-color: var(--accent, var(--tr-pv)); }
-.pze-flow.decided ul > li.on:last-child::before { border-right-color: var(--accent, var(--tr-pv)); }
 .pze-ftool .pze-fb > span { display: none; }   /* (the card shows the steps only; the panel adds each one's note) */
 .pze-ftool .pze-fb { padding: .35em .6em; }
 .pze-ftool .pze-flow.decided li:not(.on) > ul { display: none; }   /* (in the card, a branch the case does not take shows its heading only) */
@@ -6406,7 +6399,7 @@ html.thumb-ui .menu.from-dock { clip-path: inset(-64px -64px calc(var(--sink, 0p
 @container (max-width: 560px) {
   .pze-tree, .pze-tree ul { display: block; }
   .pze-tree ul { padding: 0 0 0 18px; margin-left: 10px; border-left: 2px solid var(--border-strong); }
-  .pze-tree ul::before, .pze-tree ul > li::before, .pze-tree ul > li::after { display: none; }
+  .pze-links { display: none; }
   .pze-tree li { display: block; padding: 6px 0 0; }
   .pze-tree > li { padding: 0; }
   .pze-fb { max-width: none; text-align: left; }
@@ -6419,8 +6412,9 @@ html.thumb-ui .menu.from-dock { clip-path: inset(-64px -64px calc(var(--sink, 0p
 .pz-table thead th.pze-sp-th { white-space: normal; }
 @media (max-width: 767px), (max-width: 1100px) and (orientation: portrait) { .pz-table.pze-sp-table :is(th, td) { padding-inline: .45em; } .pz-table td.pze-spent { min-width: 5em; } }   /* (a phone: the bars' table keeps to the card's width) */
 .pze-sp-row { display: block; margin-bottom: .25em; }
-.pze-bar { display: flex; gap: 1px; height: .8em; width: calc(100% * var(--f, 0)); min-width: 2px; border-radius: 3px; overflow: hidden; transition: width .6s var(--ease); }
+.pze-bar { display: flex; height: .8em; width: calc(100% * var(--f, 0)); min-width: 8px; border-radius: 3px; overflow: hidden; transition: width .6s var(--ease); }
 .pze-bar > span { min-width: 0; }
+.pze-bar > span + span { box-shadow: inset 1px 0 var(--surface); }   /* (the parts' seams drawn inside them, so a short bar keeps its colour) */
 .pze-sp-top b { font-weight: 700; color: var(--text-2); font-variant-numeric: tabular-nums; }
 .pze-sp-top { display: block; font-size: var(--s-cap); font-weight: 600; line-height: 1.2; color: var(--text-3); }
 :is(.pze-bar > span, .pze-spent-key i)[data-tone="pv"] { background: var(--tr-pv); }
@@ -6440,7 +6434,7 @@ html.thumb-ui .menu.from-dock { clip-path: inset(-64px -64px calc(var(--sink, 0p
 .pze-wave { display: block; width: 100%; height: 100%; overflow: visible; }
 .pze-wb { stroke: var(--text-3); stroke-width: 1; vector-effect: non-scaling-stroke; }
 .pze-wt, .pze-wa { fill: none; stroke-width: 2; stroke-linejoin: round; vector-effect: non-scaling-stroke; }
-.pze-wt { stroke: var(--dop-toward); } .pze-wa { stroke: var(--dop-away); }
+.pze-wt { stroke: var(--dop-toward); } .pze-wa { stroke: color-mix(in srgb, var(--dop-away) 60%, var(--text)); }   /* (the away blue, lifted toward the text colour so it reads on a dark card too) */
 .pze-wn { display: block; text-align: center; color: var(--text-3); }
 
 /* ── Package E: end ── */
