@@ -5,7 +5,7 @@ import { dopplerVel } from './velNormal.js?v=181dda5594';
 import { DRUGS, PREGNANCY_INFO } from '../engine/scenario.js?v=1ee7733788';
 import { store, updateParams, hiddenNow } from './store.js?v=31ee79b6ab';
 import { h, fmt, fmtFlow, fp, ff, clamp, tooltipFor, infoButton, icon, svgIcon, paintRange } from './util.js?v=8813192ea2';
-import { liveBalance } from './balance-hold.js?v=ea4d9121d2';
+import { liveBalance } from './balance-hold.js?v=1792704e7a';
 import { frameFor, cancelFrame } from './frame.js?v=67ca200c87';
 const nextFrame = frameFor('inspector');
 

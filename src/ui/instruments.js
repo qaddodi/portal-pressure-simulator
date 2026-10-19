@@ -11,7 +11,7 @@ import { endoGrow } from './endo-size.js?v=824631d0bc';
 import { DEFLATE_MS, BAND_MS, BAND_DELAY_MS, fadeIn, glide } from './endo-motion.js?v=fdca92fc81';
 import { FONT } from './charts.js?v=474b84df71';
 import { store, updateParams, varicesPresent } from './store.js?v=31ee79b6ab';
-import { balanceHold } from './balance-hold.js?v=ea4d9121d2';
+import { balanceHold, balanceLine } from './balance-hold.js?v=1792704e7a';
 import { frameFor, cancelFrame } from './frame.js?v=67ca200c87';
 const nextFrame = frameFor('instruments');
 
@@ -569,22 +569,15 @@ export function createAbdomen({ onAction }) {
   const bigEl = h('b', {}, numEl, h('small', {}, 'L'));   // (the volume, coloured by its grade like the Ascites tile)
   const bellyFill = h('i', { class: 'ab-belly-fill' });
   // The litres sit inside the belly and the grade under it, so the reading and the picture stay one object.
-  // The daily balance: always on its line, never appearing or going, through balanceHold (below). When the shown value
-  // changes the line dips and comes back with the new value: amber with ▲ while fluid builds up, teal with ▼ while it goes.
+  // The daily balance: always on its line, never appearing or going, through balanceHold (below). A new value is written in
+  // place, no fade: amber with ▲ while fluid builds up, teal with ▼ while it goes, outlined in the card's colour (no pill).
   const rateArrow = h('i', { class: 'ab-rate-a', 'aria-hidden': 'true' }), rateTxt = h('span');
   const rateEl = h('span', { class: 'ab-rate', 'data-dir': 'steady' }, rateArrow, rateTxt);
-  const rateHold = balanceHold();
-  let rateTimer = 0;
+  const rateHold = balanceHold(), showRate = balanceLine(rateEl, rateArrow, rateTxt);
   const rateLabel = (b) => (b === 0 ? ['steady', '', 'Steady'] : b > 0 ? ['up', '▲', `${fmt(b, 0)} mL/day`] : ['down', '▼', `${fmt(-b, 0)} mL/day`]);
   function paintRate(raw) {
     const b = rateHold.step(raw, performance.now());
-    if (b == null) return;
-    const [dir, arrow, txt] = rateLabel(b);
-    const apply = () => { rateTimer = 0; rateEl.dataset.dir = dir; rateArrow.textContent = arrow; rateTxt.textContent = txt; rateEl.classList.remove('ab-rate-out'); };
-    if (!rateTxt.textContent) { apply(); return; }   // (the first reading: no fade)
-    clearTimeout(rateTimer);
-    rateEl.classList.add('ab-rate-out');
-    rateTimer = setTimeout(apply, 160);
+    if (b != null) showRate(...rateLabel(b));
   }
   const belly = h('div', { class: 'ab-belly' }, bellyFill, h('div', { class: 'ab-big' }, bigEl, gradeEl, rateEl));
   const gauge = h('div', { class: 'ab-gauge' }, belly);

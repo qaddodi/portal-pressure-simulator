@@ -39,7 +39,7 @@ test('the belly\'s daily balance never flashes: averaged, held until 100 mL/day 
   const { balanceHold } = await import('../src/ui/balance-hold.js');
   assert.ok(js.includes("b === 0 ? ['steady', '', 'Steady']"), 'zero reads Steady, never blank');
   assert.doesNotMatch(js, /setText\(rateEl, r100 === 0 \? ''/);
-  assert.ok(css.includes('.ab .ab-belly > .ab-big > .ab-rate.ab-rate-out { opacity: .15; }'), 'a change dips the line, never hides it');
+  assert.doesNotMatch(css, /ab-rate-out/, 'a change never dips or hides the line');
   // 60 frames a second for 20 s of each case; count how often the shown value changes
   const run = (rate) => { const hd = balanceHold(); const changes = []; for (let f = 0; f <= 1200; f++) { const t = f * 1000 / 60; if (hd.step(rate(t), t) != null) changes.push(t); } return changes; };
   const gaps = (c) => c.slice(1).map((t, i) => t - c[i]);

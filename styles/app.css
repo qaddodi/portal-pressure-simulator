@@ -5404,12 +5404,11 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
 .pz-data .pz-tool[data-kind="abdomen"] .ab-belly > .ab-big > b { font-size: clamp(14px, 29cqi, 96px) !important; }
 .pz-data .pz-tool[data-kind="abdomen"] .ab-belly > .ab-big > .ab-grade { font-size: clamp(12px, 11cqi, 34px) !important; }
 .pz-data .pz-tool[data-kind="abdomen"] .ab-belly > .ab-big > .ab-rate { font-size: clamp(12px, 8.5cqi, 28px) !important; }
-.ab .ab-belly > .ab-big > .ab-rate { display: inline-flex; align-items: baseline; justify-content: center; gap: .3em; transition: opacity .16s var(--ease); will-change: opacity; }   /* (its own layer for good: iPad Safari left the wider "▲ 120 mL/day" backing painted behind a narrower "Steady" after the dip, 16 Oct) */
-.ab .ab-belly > .ab-big > .ab-rate.ab-rate-out { opacity: .15; }
+.ab .ab-belly > .ab-big > .ab-rate { display: inline-flex; align-items: baseline; justify-content: center; gap: .3em; transition: color .3s var(--ease); }   /* (a new value is written in place, never faded: 19 Oct) */
 .ab-rate-a { font-style: normal; font-size: .72em; transition: color .3s var(--ease); }
 .ab-rate-a:empty { display: none; }
-/* (The daily balance sits on a small card-coloured backing, so it reads on the fluid, on the empty belly and across the fluid line, in every theme.) */
-.ab .ab-belly > .ab-big > .ab-rate[data-dir] { padding: .06em .55em .1em; border-radius: 999px; background: color-mix(in srgb, var(--surface) 86%, transparent); text-shadow: none !important; }
+/* (The daily balance has no backing: a card-coloured outline round its letters makes it read on the fluid, on the empty belly and across the fluid line, in every theme.) */
+.ab .ab-belly > .ab-big > .ab-rate[data-dir] { padding: .06em .55em .1em; --ab-rate-halo: 1px 0 0 var(--surface), -1px 0 0 var(--surface), 0 1px 0 var(--surface), 0 -1px 0 var(--surface), 1px 1px 0 var(--surface), -1px -1px 0 var(--surface), 1px -1px 0 var(--surface), -1px 1px 0 var(--surface), 0 0 2px var(--surface), 0 0 3px var(--surface), 0 0 5px var(--surface); text-shadow: var(--ab-rate-halo) !important; }   /* (no pill, Mohammad 19 Oct: a solid 1 px outline of the card's colour round every letter, then a soft halo, so the words read on the fluid and on the empty belly alike) */
 .ab .ab-belly > .ab-big > .ab-rate[data-dir="steady"] { color: var(--text-2) !important; }
 .ab .ab-belly > .ab-big > .ab-rate[data-dir="up"] { color: color-mix(in srgb, var(--caution) 55%, var(--text)) !important; }
 .ab .ab-belly > .ab-big > .ab-rate[data-dir="down"] { color: color-mix(in srgb, var(--vel-normal) 60%, var(--text)) !important; }
