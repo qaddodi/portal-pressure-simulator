@@ -1,5 +1,5 @@
 // Deck visuals package C (review/deck-visuals-recs.md §9): the parameter curve (V4) and the cause bars (V5). The curve's
-// point at the slide's own setting is the slide's state; the waterfall's steps and "Interaction and other" add up from the
+// point at the slide's own setting is the slide's state; the waterfall's steps and "Causes together" add up from the
 // healthy reading to the tile's; every cause the Why? panel can name falls in a mechanism; and the charts' layout keeps to the card.
 import './dom-shim.js';
 import { test } from 'node:test';
@@ -86,7 +86,7 @@ test('scales: a pressure from zero up to a close cut-off, the second line on the
   assert.ok(xt[0] === 6 && xt.at(-1) === 12 && xt.length <= 7);
 });
 
-test('the bars and "Interaction and other" sum to the rise from healthy, at most five bars, in mechanism order', async () => {
+test('the bars and "Causes together" sum to the rise from healthy, at most five bars, in mechanism order', async () => {
   const r = await seq([{ preset: 'csph', explain: ['ppg', 'hvpg', 'pv'] }, { preset: 'cirr-decomp', params: { drugs: { carvedilol: true } }, explain: 'ppg' }]);
   for (const st of r) for (const res of Object.values(st.extra.explain)) {
     const b = causeBars(res);
@@ -187,7 +187,7 @@ test('the waterfall\'s words: within their column, rows clear of each other on e
         }
       }
       assert.ok(L.axY <= h + 1e-6 && L.rows.at(-1).y + L.bh / 2 < L.B, `${w}×${h}: the axis numbers stay in the card`);
-      // (Whatever folds into "Interaction and other", the steps still add up.)
+      // (Whatever folds into "Causes together", the steps still add up.)
       const u = 10 ** data.digits;
       assert.equal(Math.round(rows[0].shown * u) + rows.filter((x) => x.kind === 'step').reduce((s, x) => s + Math.round(x.shown * u), 0), Math.round(rows.at(-1).shown * u));
     }

@@ -9,7 +9,7 @@
 // the case crosses them. The causes come from the Why? panel's leave-one-out code (engine/explain.js) run on the slide's own
 // state on the presenter's calculation worker (the slide's step asks for it: ext-model.js). At most five causes, the largest
 // (fewer when the card is too short for their rows); whatever they leave of the rise (the causes overlap, and the smaller
-// ones) is the grey "Interaction and other" step, so the printed steps add up exactly to the printed "Now". Each step takes
+// ones) is the grey "Causes together" step, so the printed steps add up exactly to the printed "Now". Each step takes
 // its mechanism's colour (resistance, inflow, the heart, shunts (collaterals among them), drugs); no key: every row is named.
 // While a compare button or what-if slider moves the live model, the causes are worked out again on the live state and the
 // steps ease to their new places. These are the model's own shares: a deck line that quotes them needs a source.
@@ -50,7 +50,9 @@ export function groupOf(label) {
 // (A step's words: the cause without the size it already shows as a length.)
 export const shortLabel = (label) => label.replace(/^(Extra blood volume|Blood loss) [+\d].*$/, '$1').replace(/^Chronic splanchnic vasodilation$/, 'Splanchnic vasodilation')
   .replace(/^Serum albumin .*$/, 'Low serum albumin').replace(/^Right-heart contractility$/, 'Weak right heart');
-export const OTHER = 'Interaction and other';
+// (What the causes add only together: pressure is flow times resistance, so two causes raise it more than each alone; the
+// smaller causes left out fold in too.)
+export const OTHER = 'Causes together';
 export const HEALTHY = 'Healthy', NOW = 'Now';
 
 /** The causes from an explain result: { bars: [{ key, label, group, delta, shown }], other, otherShown, total, current, base,
@@ -154,7 +156,7 @@ export function layout(w, h, f, rows) {
   const bh = Math.max(4, Math.min(0.95 * f, minD - 2 * gap, 2 * (minD - 0.42 * f - gap)));
   return { w, h, f, gap, vgap, Lw, Vw, bx0, bx1, rows: place, bh, top, B, axY, fits };
 }
-/** The most causes whose rows fit the card (fewer fold into "Interaction and other", so the steps still add up). */
+/** The most causes whose rows fit the card (fewer fold into "Causes together", so the steps still add up). */
 export function fitBars(r, w, h, f, metric = 'ppg') {
   for (let m = MOST; m > 0; m--) {
     const data = causeBars(r, m);
