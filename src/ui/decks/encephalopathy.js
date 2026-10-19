@@ -37,7 +37,7 @@ export const ENCEPHALOPATHY = {
       ask: ['He drives a taxi. What do you test, and what do you start?', 'One test for covert encephalopathy, such as animal naming; lactulose if it is abnormal; and advice not to drive until it improves.'],
     },
     {
-      id: 'srs', preset: 'cirr-decomp', params: { spontaneous: { C6: true } }, days: 30, cam: 'splenic', lens: 'direction', mark: { edges: ['C6'], label: 'Splenorenal shunt', kind: 'note' },
+      id: 'srs', preset: 'cirr-decomp', params: { spontaneous: { C6: true }, diuretics: false }, days: 30, cam: 'splenic', lens: 'direction', mark: { edges: ['C6'], label: 'Splenorenal shunt', kind: 'note' },
       tool: { kind: 'doppler', vessel: 'SV_CONF' }, data: 'tiles', tiles: ['liver', 'ppg'], key: ['liver'], delta: 'collat',
       kicker: 'Spontaneous shunts', site: 'sin', title: 'A large splenorenal shunt keeps encephalopathy coming back',
       vignette: 'A 58-year-old man with hepatitis B cirrhosis on entecavir has been admitted four times in 8 months with confusion while taking lactulose and rifaximin. He has no ascites or varices.',
@@ -57,9 +57,10 @@ export const ENCEPHALOPATHY = {
     },
     {
       id: 'price', params: { occluded: { C6: true } }, days: 60, lapse: { seconds: 7, from: 'Shunt closed', to: 'Two months later' }, cam: 'fit',
-      tool: { kind: 'flowtime', clock: 'days', lines: ['pv', 'asc'] }, data: 'tiles', tiles: ['pv', 'asc', 'ppg'], key: ['asc'], delta: 'srs',
+      tool: { kind: 'flowtime', clock: 'days', lines: ['ppg', 'asc'] }, data: 'tiles', tiles: ['pv', 'asc', 'ppg'], key: ['asc'], delta: 'srs',
       kicker: 'Spontaneous shunts', site: 'sin', title: 'Closing the shunt brings the portal pressure back',
-      line: 'Two months after embolization the PPG has climbed to {ppg}, and {asc} of ascites has formed.',
+      line: 'The PPG rises as soon as the shunt closes. Two months later it is {ppg}, and {asc} of ascites has formed.',
+      caveat: 'In the model the ascites gathers within days of the shunt closing; in patients it builds up more slowly.',
       notes: 'Closing a large shunt raises the portal pressure. In some patients new or larger varices or ascites follow, and some bleed. An endoscopy and an ultrasound follow the embolization, and varices that grow are treated as in any cirrhosis.',
       ask: ['What do you check after a shunt is closed?', 'Varices on endoscopy and ascites on ultrasound, because the portal pressure rises.'],
     },
