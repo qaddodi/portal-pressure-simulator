@@ -183,3 +183,19 @@ test('fluid balance flow: every band arrives, labels keep apart, and it fits the
     assert.ok(L.xR - L.xL >= 40, 'room for the bands');
   }
 });
+
+test('V19: the % in the cross-section is large, and "100 %" still clears the inner wall with room on both sides', () => {
+  const css = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
+  const rule = css.match(/^\.gl-in \{([^}]*)\}/m)[1];
+  const size = +rule.match(/font:\s*\d+\s+(\d+(?:\.\d+)?)px/)[1], edge = +rule.match(/stroke-width:\s*([\d.]+)/)[1];
+  // Inter at weight 650: "100 %" is about 3.02 em wide (measured from fonts/inter-latin.woff2); the outline adds its width.
+  const width = 3.02 * size + edge, room = (2 * (LUMEN_R - LUMEN_WALL) - width) / 2;
+  assert.ok(size >= 20, `the number is at least 20 units in the 100-unit picture (was 16): ${size}`);
+  assert.ok(room >= 6, `at least 6 units clear of the inner wall on each side: ${room.toFixed(1)}`);
+  assert.ok(edge / size >= 0.08, 'the outline keeps its weight in proportion to the number');
+});
+
+test('V19: the % in the cross-section fades with the share filled, so nothing shows at 0 %', () => {
+  const src = readFileSync(new URL('../src/ui/tool-lumen.js', import.meta.url), 'utf8');
+  assert.match(src, /inNum\.style\.opacity = Math\.min\(1, L\.occlusion \/ 0\.06\)/);
+});

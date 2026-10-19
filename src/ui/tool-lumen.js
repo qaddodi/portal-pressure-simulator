@@ -110,6 +110,8 @@ export function createLumen() {
     tissue.style.display = STENTS.has(id) ? '' : 'none';
     tissue.style.opacity = Math.min(1, x.stenosis / 0.06).toFixed(3);
     set(inNum, `${pct(L.occlusion)} %`);
+    // With nothing filled there is no number; it fades in with the clot (the same ramp) and out as it leaves, never popping.
+    inNum.style.opacity = Math.min(1, L.occlusion / 0.06).toFixed(3);
     pic.setAttribute('aria-label', `${lumenName(id)} in cross-section: ${pct(L.occlusion)}% of the lumen filled, clot ${pct(x.thrombus)}%, narrowing ${pct(x.stenosis)}%`);
   }
   function tick(now) {
