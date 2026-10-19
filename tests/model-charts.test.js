@@ -152,6 +152,10 @@ test('a word beside a ring takes the first place clear of the lines, the cut-off
   assert.equal(q.y, 30, 'clear of the first word');
   const r = placeWord([{ x: 190, y: 30, anchor: 'start' }, { x: 190, y: 30, anchor: 'end' }], 40, 12, { bounds: [0, 0, 200, 100] });
   assert.equal(r.anchor, 'end', 'inside the plot');
+  // (With no clear spot, a weighted cut-off loses to crossing a data line: a value never reads as the cut-off's name.)
+  const seg = [0, 80, 200, 80];
+  const s = placeWord([{ x: 100, y: 55, anchor: 'start' }, { x: 100, y: 84, anchor: 'start' }], 40, 12, { lines: [{ ...cut, w: 5 }], segs: [seg], bounds: [0, 0, 200, 100] });
+  assert.equal(s.y, 84);
 });
 
 test('with only the curve\'s setting moved, the case sits on the curve, read between its points', () => {

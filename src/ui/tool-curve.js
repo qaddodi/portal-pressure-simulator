@@ -148,26 +148,29 @@ export function segHits([x1, y1, x2, y2], [bx0, by0, bx1, by1]) {
   }
   return true;
 }
-/** How badly a box [x0, y0, x1, y1] lands: on a horizontal line ({ y, x0, x1 }) 1, on a data line's segment 2, on other
- *  words 3, outside the bounds 10. */
+/** How badly a box [x0, y0, x1, y1] lands: on a horizontal line ({ y, x0, x1, w }) its weight w (1 if unset), on a data
+ *  line's segment its weight w (2 if unset), on other words 3, outside the bounds 10. */
 export function boxScore(b, { lines = [], segs = [], boxes = [], bounds = null }) {
   let n = 0;
   if (bounds && (b[0] < bounds[0] || b[1] < bounds[1] || b[2] > bounds[2] || b[3] > bounds[3])) n += 10;
-  for (const l of lines) if (l.y > b[1] - 3 && l.y < b[3] + 3 && l.x0 < b[2] && b[0] < l.x1) n++;   // (and 3 px clear of a line)
-  for (const sg of segs) if (segHits(sg, b)) n += 2;
+  for (const l of lines) if (l.y > b[1] - 3 && l.y < b[3] + 3 && l.x0 < b[2] && b[0] < l.x1) n += l.w ?? 1;   // (and 3 px clear of a line)
+  for (const sg of segs) if (segHits(sg, b)) n += sg.w ?? 2;
   for (const o of boxes) if (hitBox(b, o)) n += 3;
   return n;
 }
 /** A word's place: of the candidates ({ x, y, anchor }, in order of liking), the first that lands on the fewest things.
- *  w: its width, fs: its type size. Returns the candidate with its box. */
-export function placeWord(cands, w, fs, obstacles) {
+ *  w: its width, fs: its type size. With near ({ x, y, k }) a spot also costs k for each unit of its box's distance from
+ *  that point, so a word strays from what it names only to get clear of something that counts more. Returns the candidate
+ *  with its box and n, what it lands on. */
+export function placeWord(cands, w, fs, obstacles, near = null) {
   let best = null;
   for (const c of cands) {
     const x0 = c.anchor === 'end' ? c.x - w : c.anchor === 'middle' ? c.x - w / 2 : c.x;
     const box = [x0 - 3, c.y - 0.85 * fs - 1, x0 + w + 3, c.y + 0.3 * fs + 1];   // (with room for a line's stroke and a g's tail)
     const n = boxScore(box, obstacles);
-    if (!best || n < best.n) best = { ...c, box, n };
-    if (n === 0) break;
+    const cost = n + (near ? near.k * Math.hypot(Math.max(0, box[0] - near.x, near.x - box[2]), Math.max(0, box[1] - near.y, near.y - box[3])) : 0);
+    if (!best || cost < best.cost) best = { ...c, box, n, cost };
+    if (!near && n === 0) break;
   }
   return best;
 }
@@ -246,7 +249,7 @@ export function createCurve() {
     if (!ser) return [];
     return ser.ys.flatMap((ys, j) => { const Y = j ? YR : YL, out = [];
       for (let i = 1; i < ys.length; i++) if (Number.isFinite(ys[i - 1]) && Number.isFinite(ys[i])) out.push([X(ser.xs[i - 1]), Y(ys[i - 1]), X(ser.xs[i]), Y(ys[i])]);
-      return out; });
+      return out.map((sg) => Object.assign(sg, { j })); });
   }
   function build() {
     const { f, L, R, T, B, sL, sR, ls, ax, xt } = G, YL = Yof(sL), YR = sR ? Yof(sR) : null;
@@ -290,8 +293,9 @@ export function createCurve() {
     const svg = sv('svg', { viewBox: `0 0 ${G.w} ${G.h}`, width: G.w, height: G.h, role: 'img', style: `font-size: ${f.toFixed(2)}px` },
       grid, cuts, legend, axis, at, lines.map((x) => x.path), lines.map((x) => [x.ring, x.val]));
     svg.dataset.points = ser ? String(ser.xs.length) : '0';   // (the browser checks read it: 0 until the curve is ready)
-    // (What a ring's value keeps clear of: the cut-offs and their names, the x axis, the data lines.)
-    const obstacles = { segs, cutLabs, cutBounds: [L, T - 1.2 * f, R, B - 0.1 * f], boxes: [], lines: [...cutVs.map((c) => ({ y: YL(c.v), x0: L, x1: R })), { y: B, x0: L, x1: R }], bounds: [L + 1, T - 1.3 * f, R - 1, B - 0.15 * f] };
+    // (What a ring's value keeps clear of: the cut-offs and their names, the x axis, the data lines. A value on a cut-off
+    // line reads as that line's name, so it would sooner cross a data line or another word.)
+    const obstacles = { segs, cutLabs, cutBounds: [L, T - 1.2 * f, R, B - 0.1 * f], boxes: [], lines: [...cutVs.map((c) => ({ y: YL(c.v), x0: L, x1: R, w: 5 })), { y: B, x0: L, x1: R }], bounds: [L + 1, T - 1.3 * f, R - 1, B - 0.15 * f] };
     return { svg, lines, at, obstacles };
   }
   // The rings at r: each on its line at the case's setting, its value beside it (left of it near the right edge, and the
@@ -318,10 +322,15 @@ export function createCurve() {
       // (Near the ring first: beside it, then further along, then above and below.)
       for (const d of [rr + 4, 2.6 * f]) {   // (clear of the ring itself, its box padded 3 px)
         const sides = left ? [['end', -d], ['start', d]] : [['start', d], ['end', -d]];
-        for (const dy of [-0.6 * f, 1.45 * f, -1.7 * f, 2.55 * f, -2.8 * f, 3.65 * f]) for (const [anchor, dx] of sides) cands.push({ x: cx + dx, y: cy + dy, anchor });
+        // (The usual rows first, then every fifth of a line between, for a gap that only just holds the word.)
+        const dys = [-0.6, 1.45, -1.7, 2.55, -2.8, 3.65, ...Array.from({ length: 34 }, (_, i) => -2.9 + 0.2 * i)];
+        for (const dy of dys) for (const [anchor, dx] of sides) cands.push({ x: cx + dx, y: cy + dy * f, anchor });
       }
       for (const dy of [-1.2 * f, 2.1 * f]) cands.push({ x: cx, y: cy + dy, anchor: 'middle' });
-      const pl = placeWord(cands, 1.12 * cw(txt, fs, true), fs, { ...ob, boxes });   // (measured wide, as the cut-offs' names)
+      // (Across its own line by its ring reads better than clear but far off: its own line counts half, and every f of
+      // distance half a crossing.)
+      const segs = ob.segs.map((sg) => (sg.j === j ? Object.assign([...sg], { w: 1 }) : sg));
+      const pl = placeWord(cands, 1.12 * cw(txt, fs, true), fs, { ...ob, segs, boxes }, { x: cx, y: cy, k: 0.5 / f });   // (measured wide, as the cut-offs' names)
       boxes.push(pl.box);
       p.val.setAttribute('x', pl.x.toFixed(1)); p.val.setAttribute('y', pl.y.toFixed(1)); p.val.setAttribute('text-anchor', pl.anchor);
       p.val.classList.toggle('on', pl.n > 0);   // (no clear spot on a cramped chart: the lines stop round the words)
