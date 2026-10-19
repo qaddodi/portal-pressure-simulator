@@ -80,11 +80,17 @@ function segHits([x0, y0], [x1, y1], [bx0, bx1, by0, by1]) {
   return Math.max(ya, yb) >= by0 && Math.min(ya, yb) <= by1;
 }
 
+/** Do the segments a–b and c–d cross? */
+function segsCross([ax, ay], [bx, by], [cx, cy], [dx, dy]) {
+  const o = (px, py, qx, qy, rx, ry) => Math.sign((qx - px) * (ry - py) - (qy - py) * (rx - px));
+  return o(ax, ay, bx, by, cx, cy) * o(ax, ay, bx, by, dx, dy) < 0 && o(cx, cy, dx, dy, ax, ay) * o(cx, cy, dx, dy, bx, by) < 0;
+}
+
 /** A placer for labels: boxes [x0, x1, y0, y1] (each a word with its halo) inside [top, bottom], [gx, gy] clear of every
- *  box placed before and 2 px clear of the given obstacles, and clear of the lines (runs: polylines, each with its weight:
+ *  box placed before and 1.5 px clear of the given obstacles, and clear of the lines (runs: polylines, each with its weight:
  *  the slide's own line 4, the others 1) by pad px. free(b): nothing in the way; lineCost(b): the weight of the lines it
  *  touches; cost(b): that, or Infinity where it may not go (out of bounds, on a word or a mark). */
-export function labelPlacer(runs, obstacles, top, bottom, weights = [], [gx, gy] = [3, 2], pad = 2) {
+export function labelPlacer(runs, obstacles, top, bottom, weights = [], [gx, gy] = [3, 2], pad = 1.2) {
   const segs = runs.flatMap((l, k) => l.slice(1).map((p, i) => [l[i], p, weights[k] ?? 1]));
   const boxes = [];
   const lineCost = (b) => {
@@ -93,7 +99,7 @@ export function labelPlacer(runs, obstacles, top, bottom, weights = [], [gx, gy]
     return [...hit].reduce((a, w) => a + w, 0);
   };
   const near = (b) => boxes.some((o) => b[0] < o[1] + gx && o[0] < b[1] + gx && b[2] < o[3] + gy && o[2] < b[3] + gy)
-    || obstacles.some((o) => b[0] < o[1] + 2 && o[0] < b[1] + 2 && b[2] < o[3] + 2 && o[2] < b[3] + 2);
+    || obstacles.some((o) => b[0] < o[1] + 1.5 && o[0] < b[1] + 1.5 && b[2] < o[3] + 1.5 && o[2] < b[3] + 1.5);
   const cost = (b) => (b[2] < top || b[3] > bottom || near(b) ? Infinity : lineCost(b));
   // (Where no place may be had: how much it overlaps, counting the gaps, so the least crowded one can be taken.)
   const ov = (b, o, g, h) => Math.max(0, Math.min(b[1], o[1]) - Math.max(b[0], o[0]) + g) * Math.max(0, Math.min(b[3], o[3]) - Math.max(b[2], o[2]) + h);
@@ -113,7 +119,7 @@ export function valueSides(pts, others, labels, f, tw, top, { bottom = Infinity,
   const lines = [...curveRuns([pts, ...others]), ...(axis == null ? [] : [[[left - 50, axis], [right + 50, axis]]])];
   const place = labelPlacer(lines, [...dots.map(([x, y, r]) => [x - r + 1, x + r - 1, y - r + 1, y + r - 1]), ...obstacles], top, bottom,
     [4, ...others.map(() => 1), 2]);
-  const all = [...pts, ...extra], cap = 0.72 * f, halo = 2;
+  const all = [...pts, ...extra], cap = 0.72 * f, halo = 2, between = curveRuns(others);
   // (A word's box: its digits' ink and halo, the baseline by under the point.)
   const boxOf = (i, dx, by) => { const [x, y] = all[i], wd = tw(labels[i]) / 2; return [x + dx - wd - halo, x + dx + wd + halo, y + by - cap - halo, y + by + halo]; };
   const mid = (b) => [(b[0] + b[1]) / 2, (b[2] + b[3]) / 2];
@@ -121,8 +127,8 @@ export function valueSides(pts, others, labels, f, tw, top, { bottom = Infinity,
   const mine = (i, b) => { const [cx, cy] = mid(b), d = Math.hypot(cx - all[i][0], cy - all[i][1]);
     return all.every(([ox, oy], j) => j === i || d <= 0.8 * Math.hypot(cx - ox, cy - oy)); };
   const cands = (i) => {
-    const wd = tw(labels[i]) / 2, r = dotR + 3, st = 0.3 * f, out = [];
-    for (let k = 0; k <= 5; k++) for (const sx of [0, 0.5, -0.5, 1, -1, 1.5, -1.5]) {
+    const wd = tw(labels[i]) / 2, r = dotR + 1.8, st = 0.3 * f, out = [];
+    for (let k = 0; k <= 5; k++) for (const sx of [0, ...[1, 2, 3, 4, 5, 6, 8, 10, 12].flatMap((m) => [m / 8, -m / 8])]) {
       out.push({ s: -1, dx: sx * wd, by: -r - halo - k * st, pen: 0 });
       out.push({ s: 1, dx: sx * wd, by: r + cap + halo + k * st, pen: 0.25 * f });
     }
@@ -130,8 +136,11 @@ export function valueSides(pts, others, labels, f, tw, top, { bottom = Infinity,
       out.push({ s: 0, dx: sd * (r + 1 + wd + halo), by: 0.36 * f + k * st, pen: 0.4 * f });
       out.push({ s: 0, dx: sd * (r + 10 + wd + halo), by: 0.36 * f + k * st, pen: 0.8 * f });   // (past a mark beside it)
     }
+    // (A place with another line between the value and its dot reads as that line's, so it comes after every other.)
+    const across = (b) => { const [x, y] = all[i], [cx, cy] = mid(b), q = [Math.max(b[0], Math.min(x, b[1])), Math.max(b[2], Math.min(y, b[3]))];
+      return cx === x && cy === y ? false : between.some((l) => l.slice(1).some((p, k) => segsCross(l[k], p, [x, y], q))); };
     return out.map((c) => ({ ...c, b: boxOf(i, c.dx, c.by) })).filter((c) => c.b[0] >= left && c.b[1] <= right)
-      .map((c) => ({ ...c, d: Math.hypot(...mid(c.b).map((v, k) => v - all[i][k])) + c.pen })).sort((a, b) => a.d - b.d);
+      .map((c) => ({ ...c, d: Math.hypot(...mid(c.b).map((v, k) => v - all[i][k])) + c.pen + (across(c.b) ? 10 * f : 0) })).sort((a, b) => a.d - b.d);
   };
   const C = all.map((_, i) => cands(i));
   const ok = (i, c) => mine(i, c.b) && place.cost(c.b) === 0;
