@@ -102,6 +102,17 @@ export function dashRings(rings, on, off) {
 export const NORMAL_ON = 1.08, NORMAL_OFF = 1.04;
 export const normalShown = (scale, was) => scale >= NORMAL_ON || (was && scale >= NORMAL_OFF);
 
+// ── A lifted vessel's ends ──
+/** Whether a vessel standing out of the dimmed network (a selected one, or a slide's spotlit one, V2) eases back into it
+ *  toward one end (1) or runs on at full there (0). joins: the other visible vessels meeting at that end, each { lit (selected
+ *  or spotlit too), ghost (a dotted collateral) }. It runs on into another lifted vessel. Otherwise a selected vessel eases back
+ *  only where a vessel carries on, and a spotlit one at every end, free ends too, so it fades out along its course instead of
+ *  stopping in a blunt, hard-capped end (Mohammad, 19 Oct: the shunts on the spotlight slide). */
+export function liftEnd(spotted, joins) {
+  if (joins.some((j) => j.lit)) return 0;
+  return spotted || joins.some((j) => !j.ghost) ? 1 : 0;
+}
+
 // ── The change ripple (V6) ──
 // As Patients' Δ glow (stage.js stepHalos): the vessels whose mean pressure moved by 2 mmHg or more, the 16 that moved most.
 export const RIPPLE_MIN = 2, RIPPLE_MAX = 16;

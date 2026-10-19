@@ -8,7 +8,7 @@ import { STATION_VESSEL, meanVel, velNormal } from './velNormal.js?v=181dda5594'
 import { store, updateParams, varicesPresent, varixGrowth, shownVel } from './store.js?v=31ee79b6ab';
 import { fibroReading } from './clock.js?v=520596240b';
 import { s, h, fmt, fmtFlow, fp, clamp, lerp, toast, systemEdge, bloodColors, restBox, settledBox, putText } from './util.js?v=8813192ea2';
-import { createLobuleZoom } from './lobule-zoom.js?v=8f7e10f06c';
+import { createLobuleZoom } from './lobule-zoom.js?v=000cb3dfad';
 import { runFlick, FLICK } from './flick.js?v=3da45febf2';
 import { inlineStyles } from './svg-inline.js?v=fc17cb73fe';
 import { fluidTarget, poolFade } from './fluid-step.js?v=2742314765';
@@ -22,7 +22,7 @@ import { LIVER_GEO } from './liver-geo-data.js?v=d2bd9ee6b4';
 import { createRouter } from './circuit-router.js?v=0ee9e02fc6';
 import { gpuProbe } from './gpu-probe.js?v=d4aeccea90';
 import { plateStrips, premultiply } from './plate-upload.js?v=2dd6db2a18';
-import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, ORIGIN_GREY } from './veins-gl.js?v=b7e86c7c40';
+import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, ORIGIN_GREY } from './veins-gl.js?v=d62f434d87';
 import { varixBead, beadRadius } from './varix-bead.js?v=ac0e84fd89';
 import { advanceStream, createReversalHold, bleedShapes, stepBleedFade, fadeBleedShapes, chevFlowLevel, keyChevron, KEY_CHEV_LANES, originFractions, oxygenFor, ORIGIN_N, createBolus, DYE_BINS, KAPPA, STASIS_MIN_D, HIDDEN_SECONDS } from './blood.js?v=e668d01823';
 import { frameFor, cancelFrame, noteDraw, setSaver as setFrameSaver, paceMs } from './frame.js?v=67ca200c87';
@@ -38,7 +38,7 @@ import { SIN_PERFUSION, sinStrandRadius } from './sin-perfusion.js?v=25a8407fdd'
 import { wavePacks, paintWave } from './scan-waves.js?v=066db7aa38';
 import { organDimMatrix } from './organ-dim.js?v=7888276613';
 import { parseColor, greyOf, paintRef } from './organ-grey.js?v=e41d68222c';
-import { bandRing, dashRings, normalShown, rippleList, systemOf, SYSTEM_COLOR } from './highlight-math.js?v=25f30508f6';
+import { bandRing, dashRings, liftEnd, normalShown, rippleList, systemOf, SYSTEM_COLOR } from './highlight-math.js?v=e2c1816e25';
 import { organAnchor, spleenCaliper, acrossVessel, stepGroups, spanOf, spanPath, zoneBand, SPAN_TICK, insideBy, clearOf, outward } from './callout-math.js?v=859835037f';
 const nextFrame = frameFor('stage');
 
@@ -3031,17 +3031,14 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     IVC_LIST.forEach((id, i) => { const g = E[id]?.g; b[items.length + i] = on(g, 'is-sel') | on(g, 'hl') << 1; });
     return b;
   }
-  // Whether a selected vessel eases back into the network toward its end at node n: 1 where another visible vessel joins there
-  // and none of the selection does.
+  // Whether a selected or spotlit vessel eases back into the network toward its end at node n (highlight-math.js liftEnd).
   function selEnd(id, n) {
-    if (spot.ids.has(id) && spotOn()) return 0;   // (a slide's spotlit vessels stand out whole, ends and all: deck visuals V2)
-    let other = false;
+    const joins = [];
     for (const y of EV) {
       if (y.e.id === id || !y.vis || (y.e.from !== n && y.e.to !== n)) continue;
-      if (vh.sel.has(y.e.id) || spot.ids.has(y.e.id)) return 0;
-      if (!y.g.classList.contains('coll-ghost')) other = true;
+      joins.push({ lit: vh.sel.has(y.e.id) || spot.ids.has(y.e.id), ghost: y.g.classList.contains('coll-ghost') });
     }
-    return other ? 1 : 0;
+    return liftEnd(spot.ids.has(id) && spotOn(), joins);
   }
   function glowOnlyOk(t) {
     const m = glowMemo;

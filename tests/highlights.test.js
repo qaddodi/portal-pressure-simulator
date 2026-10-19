@@ -10,7 +10,7 @@ import { ORGANS } from '../src/ui/anatomy.js';
 import { DECKS, withOverview } from '../src/ui/decks.js';
 import { EXT, expandIds } from '../src/ui/slide-ext.js';
 import A from '../src/ui/ext-highlights.js';
-import { SETS, ORGAN_TARGETS, NEW_ORGANS, spotOf, bandRing, dashRings, normalShown, NORMAL_ON, NORMAL_OFF, rippleList, RIPPLE_MAX, systemOf, SYSTEM_COLOR, stateIndex, sinceWords } from '../src/ui/highlight-math.js';
+import { SETS, ORGAN_TARGETS, NEW_ORGANS, spotOf, liftEnd, bandRing, dashRings, normalShown, NORMAL_ON, NORMAL_OFF, rippleList, RIPPLE_MAX, systemOf, SYSTEM_COLOR, stateIndex, sinceWords } from '../src/ui/highlight-math.js';
 import { Engine } from '../src/engine/engine.js';
 import { deepMerge } from '../src/engine/scenario.js';
 
@@ -190,4 +190,28 @@ test('a slide\'s fields reach the figure: spotlight, outline, ripple going forwa
   assert.deepEqual(calls.filter((c) => c[0] === 'ripple').map((c) => c.slice(1)), [[[9], [4]]], 'once it lands, from its own start');
   h.update(fps[3]);
   assert.equal(calls.filter((c) => c[0] === 'ripple').length, 1, 'once');
+});
+
+// A spotlit vessel (the shunts on the demo deck's spotlight slide) fades out along its course at both ends, into the dimmed
+// network or at a free end, and runs on only into another lifted vessel: never a blunt, hard-capped end (Mohammad, 19 Oct).
+test('a spotlit vessel fades toward every end that meets no other lifted vessel', () => {
+  const dim = { lit: false, ghost: false }, ghost = { lit: false, ghost: true }, lit = { lit: true, ghost: false };
+  // Spotlit: fades at a free end, where a dimmed vessel carries on, and beside a dotted collateral.
+  assert.equal(liftEnd(true, []), 1);
+  assert.equal(liftEnd(true, [dim]), 1);
+  assert.equal(liftEnd(true, [ghost]), 1);
+  // Into another spotlit or selected vessel it runs on at full, whatever else joins there.
+  assert.equal(liftEnd(true, [lit]), 0);
+  assert.equal(liftEnd(true, [dim, lit, ghost]), 0);
+  // A selected vessel keeps its rule: eases back only where a visible vessel carries on.
+  assert.equal(liftEnd(false, []), 0);
+  assert.equal(liftEnd(false, [ghost]), 0);
+  assert.equal(liftEnd(false, [dim]), 1);
+  assert.equal(liftEnd(false, [dim, lit]), 0);
+  // The stage asks it for each end of a lifted vessel (written to tube row 12, which the vessel shader fades over a third of
+  // the vessel, at most 60), with no early return that kept a spotlit vessel whole to its ends.
+  const fn = STAGE.match(/function selEnd\(id, n\) \{[\s\S]*?\n {2}\}/)?.[0] || '';
+  assert.match(fn, /return liftEnd\(spot\.ids\.has\(id\) && spotOn\(\), joins\)/);
+  assert.doesNotMatch(fn, /spotOn\(\)\) return 0/);
+  assert.match(STAGE, /\[easeInOut\(sa\), selEnd\(id, x\.e\.from\), selEnd\(id, x\.e\.to\), 0\]/);
 });

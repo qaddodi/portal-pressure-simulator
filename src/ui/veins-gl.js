@@ -309,7 +309,8 @@ void main() {
     vec4 tc = T(sid[s], 8);
     shov[s] = T(sid[s], 9).w;
     // The selected vessel stands out of the dimmed network, easing back into it along its course toward each end that
-    // meets an unselected vessel, so it never stops in a hard, round end where the dimmed vessel carries on.
+    // meets an unselected vessel, so it never stops in a hard, round end where the dimmed vessel carries on (a slide's
+    // spotlit vessel toward its free ends too: highlight-math.js liftEnd).
     vec4 t12 = T(sid[s], 12);
     ssel[s] = t12.x;
     if (t12.x > 0.0) {
