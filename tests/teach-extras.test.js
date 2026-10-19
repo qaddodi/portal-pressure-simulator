@@ -53,6 +53,8 @@ test('tokens: the readings to their tile decimals, a result in its rating colour
   assert.equal(eqText('pv', {}), '—');
   assert.equal(eqRate('hvpg', fp), 'hi');
   assert.equal(eqRate('whvp', fp), null);
+  assert.equal(eqRate('ppg', { pv: 16.2, ivc: 6.5 }), 'mid');
+  assert.equal(eqRate('ppg', { pv: 16.2, ivc: 6.5 }, true), 'ok');   // (after TIPS the PPG is read against its target, as its pill)
   assert.equal(eqRate('hvpg', { whvp: 9, fhvp: 2, hvpg: 7 }), 'mid');
   const out = fillEq('{whvp}' + mo('−') + '<mn>{fhvp}</mn>' + mo('=') + '{hvpg} {nope}', fp);
   assert.match(out, /<mn class="eq-v" data-k="whvp">18\.0<\/mn>/);
@@ -103,7 +105,7 @@ test('the handout prints a filled equation and the source line', () => {
 
 test('presenter wiring: the equation follows the model, the cite line and the ladder\'s earlier state are drawn', () => {
   const src = readFileSync(new URL('../src/ui/presenter.js', import.meta.url), 'utf8');
-  assert.match(src, /if \(eqFilled\(s\.eq\?\.\[0\]\)\) eqTo\(ui\.text, f\);/, 'dataTo keeps the equation live');
+  assert.match(src, /if \(eqFilled\(s\.eq\?\.\[0\]\)\) eqTo\(ui\.text, f, /, 'dataTo keeps the equation live');
   assert.equal((src.match(/citeEl\(s\)/g) || []).length, 2, 'the cite line on the words card and on a panel slide');
   assert.match(src, /if \(lad\) ladderFromTo\(s, i\);/);
 });

@@ -9,7 +9,7 @@ import { download } from './download.js?v=3564e5bf8c';
 import { LEVELS, withOverview } from './decks.js?v=0ae7bd76a1';
 import { TILE } from './table-marks.js?v=810c0a1575';
 import { plateletText } from './glue.js?v=5a0f63226b';
-import { fillEq, eqFilled, citeText } from './teach-extras.js?v=e058ac2b77';
+import { fillEq, eqFilled, citeText } from './teach-extras.js?v=6065168294';
 
 const esc = (t) => String(t ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
 const slug = (t) => t.replace(/[^\w-]+/g, '-').replace(/^-|-$/g, '').toLowerCase();

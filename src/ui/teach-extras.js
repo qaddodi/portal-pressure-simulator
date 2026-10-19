@@ -1,7 +1,7 @@
 // Deck visuals package D (review/deck-visuals-recs.md V22, V23, V15): the teaching card's and the summary tables' opt-in
 // fields, as pure functions the unit tests load. presenter.js and handout.js call them; a deck that sets none of these fields
 // looks as before.
-import { TILE, RATE, rateOf } from './table-marks.js?v=810c0a1575';
+import { TILE, RATE, rateOf, tipsGoal } from './table-marks.js?v=810c0a1575';
 
 // ── V22: the case's numbers inside an equation ──────────────────────────────
 // A token {key} (or {key@slide}) inside a slide's eq MathML is the slide's own reading, to the decimals its tile prints, so
@@ -41,10 +41,12 @@ export function eqValue(k, f) {
 }
 /** The text of that number, a true minus, "—" when not known. */
 export const eqText = (k, f) => { const v = eqValue(k, f); return v == null ? '—' : num(v, fmtOf(k)?.d ?? 1); };
-/** A result's rating (hi, mid, ok) for its colour, judged on the number shown; null for a plain reading. */
-export const eqRate = (k, f) => {
+/** A result's rating (hi, mid, ok) for its colour, judged on the number shown; null for a plain reading. tips: after a TIPS
+ *  the PPG is read against its target (below 12), as its tile and pill read it. */
+export const eqRate = (k, f, tips = false) => {
   const v = eqValue(k, f);
-  return RATED.has(k) && v != null && RATE[k] ? rateOf(k, { ...f, [k]: v })[0] || null : null;
+  if (!RATED.has(k) || v == null || !RATE[k]) return null;
+  return (tips && k === 'ppg' ? tipsGoal(v) : rateOf(k, { ...f, [k]: v }))[0] || null;
 };
 /** True when an equation's MathML carries a token the presenter fills. */
 export const eqFilled = (ml) => typeof ml === 'string' && [...ml.matchAll(EQ_TOKEN)].some(([, k]) => eqKnows(k));

@@ -24,7 +24,7 @@ import { DECKS, REGIONS, LEVELS, TOPICS, withOverview, siteTag, SITE_TAGS } from
 import { wholeGap, tenthGap } from '../engine/gap.js?v=3a5947c552';
 import { createHvpgMonitor } from './hvpg-proc.js?v=d8438f1d1f';
 import { createTools } from './presenter-tools.js?v=d93dc51f7e';
-import { openHandout } from './handout.js?v=b17aa32cc9';
+import { openHandout } from './handout.js?v=e08dcbe15a';
 import { noteResume, resumeFor } from './resume.js?v=f086f80ee8';
 import { parseDeckSource, checkDeck } from './deck-source.js?v=8395c650cd';
 import { NO_ASC, TILE, SCALE, bandsOf, rateOf, COLS, CUT, PRESS, fpv, dirAbs, dirRel, rateAbs, effOf, rateShown, tileShown, tipsGoal, liveSettled, shownSig } from './table-marks.js?v=810c0a1575';
@@ -33,7 +33,7 @@ import { createFigureKey } from './figure-key.js?v=96997852c4';
 import { traceWhen } from './trace-labels.js?v=fc916a95c6';
 import { flowCss, heatCss, dropCss, gradientCss, oxygenCss } from './colormap.js?v=b2067d6101';
 import { EXT, expandIds, stepExtra, markLabel, figureHooks, safe } from './slide-ext.js?v=a3bbea1c53';
-import { fillEq, eqFilled, eqText, eqRate, citeText, cellsMode, barsOn, barShares, focusOf, ladderFromOf } from './teach-extras.js?v=e058ac2b77';
+import { fillEq, eqFilled, eqText, eqRate, citeText, cellsMode, barsOn, barShares, focusOf, ladderFromOf } from './teach-extras.js?v=6065168294';
 const nextFrame = frameFor('presenter');
 
 const KEY = 'pps.scripts';
@@ -73,9 +73,9 @@ function equation([ml, legend]) {
   return box;
 }
 // An equation's numbers follow the model as a what-if slider, a compare button or a time-lapse moves it (V22).
-function eqTo(root, f) {
+function eqTo(root, f, tips = false) {
   for (const n of root?.querySelectorAll('.pz-eq .eq-v:not([data-at])') || []) {
-    const k = n.dataset.k, t = eqText(k, f), r = eqRate(k, f);
+    const k = n.dataset.k, t = eqText(k, f), r = eqRate(k, f, tips);
     if (n.textContent !== t) n.textContent = t;
     if ((n.dataset.rate || null) !== r) { if (r) n.dataset.rate = r; else delete n.dataset.rate; }
   }
@@ -1628,7 +1628,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     if (s.data === 'ladder') ui.ladder.set(f, { key: s.key || [], ms, brackets: s.brackets, block: blockOf(s) });
     if (s.data) ui.tiles.set(f, tileKeys(s), s.key || [], ref, ms, store.get().params?.tips?.on);
     ui.tools.pin(f);   // (an instrument's reading is the tiles' number)
-    if (eqFilled(s.eq?.[0])) eqTo(ui.text, f);   // (and an equation's)
+    if (eqFilled(s.eq?.[0])) eqTo(ui.text, f, !!store.get().params?.tips?.on);   // (and an equation's)
     stage.siteFp?.(f);   // (and a callout's)
     figureHooks('update', f, s);   // (and a deck visuals package's, slide-ext.js)
   }
@@ -2140,7 +2140,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       panel.classList.toggle('tabbed', !!tab);
       panel.replaceChildren(...(tab ? [tab] : []), h('div', { class: 'pz-ph' }, s.visual === 'outline' ? h('h1', { class: 'pz-dtitle' }, nb(deck.title)) : null, h('h1', { class: 'pz-h' }, ...diseaseNodes(nb(s.title))), s.eq ? equation(s.eq) : null, s.line ? h('p', { class: 'pz-line' }, rich(s.line, s, st?.fp, !!st?.params?.tips?.on)) : null, s.caveat ? h('p', { class: 'pz-caveat' }, s.caveat) : null, citeEl(s)),
         visualOf(s, i));
-      if (eqFilled(s.eq?.[0])) eqTo(panel, st?.fp);
+      if (eqFilled(s.eq?.[0])) eqTo(panel, st?.fp, !!st?.params?.tips?.on);
       if (!ui.root.classList.contains('pz-prep')) panel.classList.remove('pz-leave');   // (else once fitted: settle)
       ui.veil.classList.add('on');
     } else {
@@ -2155,7 +2155,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
           s.lapse && i > 0 ? h('div', { class: 'pz-lapse', role: 'status' }, h('span', { class: 'pzl-bar' }, h('i')), h('span', { class: 'pzl-t' }, lapseText(s, 0, s.days, false))) : null,
           s.rail ? rail(s.rail === 'all' ? 'all' : s.site) : null,
           s.causes?.length ? h('p', { class: 'pz-causes' }, h('span', { class: 'pz-sub' }, s.causesHead || 'Causes'), nb(listCase(s.causes))) : null]);
-      if (eqFilled(s.eq?.[0])) eqTo(text, now?.fp);   // (the numbers the card starts on: a time-lapse's start)
+      if (eqFilled(s.eq?.[0])) eqTo(text, now?.fp, !!now?.params?.tips?.on);   // (the numbers the card starts on: a time-lapse's start)
       paintKey((slideLens(s) !== 'pressure' || lensButtons(s)) ? slideLens(s) : null, s);
       markLong(text, gen !== redrawn);   // (drawn again for a new text size: judged at its full size, as a fresh load does)
       [...text.children].forEach((c, k) => c.style.setProperty('--i', k));
@@ -2327,7 +2327,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     // reference; bars puts a faint bar behind each number, its share of the column's largest; focusRow lights one row.
     const mode = cellsMode(s), focus = focusOf(s);
     const share = barsOn(s) ? Object.fromEntries(cols.filter((k) => !colExt(k)).map((k) => [k, barShares(rows.map((r) => (r.f && !r.blank.includes(k) ? fpv(k, r.f) ?? NaN : NaN)))])) : null;
-    const barOf = (k, n) => (share?.[k] ? { class: ' bar', style: { '--bar': share[k][n].toFixed(3) } } : { class: '', style: null });
+    const barOf = (k, n) => (share?.[k] ? { class: ' pzv-bar', style: { '--bar': share[k][n].toFixed(3) } } : { class: '', style: null });
     const cell = (k, r, n) => {
       if (r.blank.includes(k)) return h('td', { class: 'num blank', title: 'Not measurable' }, noneEl(), h('span', { class: 'sr-only' }, 'not measurable'));
       if (!r.f || (rel && !isRef(r, n) && !refOfRow(r))) return h('td', { class: 'num pend' }, '…');
@@ -2341,7 +2341,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       if (mode) {
         // (Numbers in the text's colour against a reference, the arrow taking the change's; against normal the number takes its rating, as the top row's.)
         const from = mode === 'change' && rel && ref ? val(k, ref) : null;
-        return h('td', { class: 'num dir vals' + (d ? '' : ' zero') + (rel ? ' rel' : '') + (from != null ? ' chg' : '') + b.class, style: b.style,
+        return h('td', { class: 'num dir pzv-vals' + (d ? '' : ' zero') + (rel ? ' rel' : '') + (from != null ? ' pzv-chg' : '') + b.class, style: b.style,
           'data-rate': rel ? null : rateAbs(k, d), 'data-eff': rel && !calm ? effOf(k, d) : null, title: from != null ? `${from} → ${v}` : v },
         ...(from != null ? [h('span', { class: 'pzv-a' }, from), h('span', { class: 'pzv-to', 'aria-hidden': 'true' }, '→'), h('span', { class: 'pzv-b' }, val(k, r.f))]
           : [h('span', { class: 'pzv-b' }, val(k, r.f)), arrowEl(d)]),
@@ -2387,12 +2387,12 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     // (long: seven rows or more; a class, not :has(), which made every table cell part of each restyle the page did)
     // (notecols: few enough columns that an upright tablet keeps each note in a column of its own under its heading, as on its side)
     const noteCols = notes.length && cols.length + (ascCols ? 2 : 0) + notes.length <= 4;
-    return h('div', { class: 'pz-table' + (rows.length >= 7 ? ' long' : '') + (noteCols ? ' notecols' : '') + (mode ? ` cells-${mode}` : '') + (focus ? ' focused' : '') }, h('table', { style: { '--nc': String(cols.length + (ascCols ? 2 : 0)), '--nn': String(notes.length), '--asc-w': '0px' } },
+    return h('div', { class: 'pz-table' + (rows.length >= 7 ? ' long' : '') + (noteCols ? ' notecols' : '') + (mode ? ` cells-${mode}` : '') + (focus ? ' pzv-focused' : '') }, h('table', { style: { '--nc': String(cols.length + (ascCols ? 2 : 0)), '--nn': String(notes.length), '--asc-w': '0px' } },
       h('thead', {}, h('tr', {}, h('th', {}, s.rowHead || 'Level'), cols.map((k) => cutTh(k, COLS[k] || colExt(k)?.heading || k, CUT[k] ?? colExt(k)?.cut)),
         ascCols ? [cutTh('saag', h('abbr', { title: 'Serum−ascites albumin gradient' }, 'SAAG'), CUT.saag), cutTh('tp', h('abbr', { title: 'Ascites protein' }, 'Prot.'), CUT.tp)] : null,
         notes.map((x) => h('th', { class: 'nh' }, x)))),
       h('tbody', {}, rows.map((r, n) => h('tr', { ...(r.i >= 0 ? { tabindex: '0', onclick: go1(r), onkeydown: go1(r), 'aria-label': `${r.title}: go to this slide` } : {}),
-          class: [r.i >= 0 ? '' : 'static', focus && (r.key === focus || (r.i >= 0 && slides[r.i]?.id === focus)) ? 'focus' : ''].filter(Boolean).join(' ') || null,
+          class: [r.i >= 0 ? '' : 'static', focus && (r.key === focus || (r.i >= 0 && slides[r.i]?.id === focus)) ? 'pzv-focus' : ''].filter(Boolean).join(' ') || null,
           'data-arrived': r.k === arrived || (rel && n > 0 && (r.vs ? vsRow(r)?.k : rows[0].k) === arrived) ? '' : null },
         h('th', { scope: 'row' }, h('span', { class: 'pz-kick', 'data-site': r.site || 'none' }, r.kicker.replace('Intrahepatic · ', '')), h('span', { class: 'tw' }, h('span', { class: 'tn' }, nb(r.title)),
           r.vs ? h('span', { class: 'vs' }, `vs ${vsName(r)}`) : null)),
