@@ -8,7 +8,7 @@
 //   tool: { kind: 'flows', of: 'inflow' }        the liver's inflow, portal against arterial
 //   bands: ['carvedilol', 'anticoag', 'tips', …] on a trace or flowtime tool: the treatments shaded (rx-bands.js RX); drawn by
 //                                                talk-trace.js and flow-time.js themselves
-import { createProfileTool } from './tool-profile.js?v=96dcf8751e';
+import { createProfileTool } from './tool-profile.js?v=1f1a0fc2a8';
 import { createFlowsTool } from './tool-flows.js?v=8be5352b01';
 
 export default {

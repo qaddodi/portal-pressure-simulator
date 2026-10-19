@@ -8,7 +8,7 @@ import { DECKS } from '../src/ui/decks.js';
 import { EXT } from '../src/ui/slide-ext.js';
 import { NODES } from '../src/engine/topology.js';
 import { portalSplit } from '../src/ui/table-marks.js';
-import { profileOf, STATIONS, axisTop, nameFit, profileGeo, valueSides, curveRuns, labelPlacer, bracketLabel } from '../src/ui/tool-profile.js';
+import { profileOf, STATIONS, axisTop, nameFit, profileGeo, valueSides, placeValues, curveRuns, labelPlacer, bracketLabel } from '../src/ui/tool-profile.js';
 import { flowParts, routeFlows, wholeShares, keyGrid, MAX_ROUTES } from '../src/ui/tool-flows.js';
 import { RX, bandKeys, bandRuns, bandSpan, namePlaces } from '../src/ui/rx-bands.js';
 import { deckStates, runSteps } from './deck-states.js';
@@ -51,7 +51,6 @@ test('the profile reads the tiles\' numbers and the network\'s own pressures', a
   assert.equal(axisTop({ v: [3, 2] }), 15);
   assert.equal(axisTop({ v: [22.4] }, null, { v: [9] }), 25);
   assert.equal(axisTop({ v: [44] }), 50);
-  assert.equal(axisTop({ v: [23.7] }), 30);   // (room for the top value above its dot)
 });
 
 test('the station names fit their slots: full where there is room, the short names on a phone, never an ellipsis', () => {
@@ -89,7 +88,7 @@ test('a value goes under its dot only where the line is in the way above', () =>
   const steep = [[0, 40], [40, 42], [80, 44], [88, 150], [130, 152]], vals = ['16.7', '13.4', '11.4', '3.6', '3.1'];
   const st = valueSides(steep, [], vals, f, tw, 0, { bottom: 160 });
   const own = labelPlacer(curveRuns([steep]), [], -1e9, 1e9, [4]);
-  st.place.boxes.forEach((b, i) => {
+  st.forEach(({ box: b }, i) => {
     assert.ok(own.lineCost(b) < 4, `${vals[i]} clear of its own line`);
     const cx = (b[0] + b[1]) / 2, cy = (b[2] + b[3]) / 2, d = (p) => Math.hypot(cx - p[0], cy - p[1]);
     assert.ok(steep.every((p, j) => j === i || d(p) > d(steep[i])), `${vals[i]} nearest its own dot`);
@@ -101,23 +100,35 @@ test('a value goes under its dot only where the line is in the way above', () =>
   assert.equal(bracketLabel(300, 380, 90, 400, 30).anchor, 'end');
 });
 
-test('on the three resistance profiles every value keeps clear of its own line and nearest its own dot', async () => {
-  const [hl, schisto, csph, sos] = (await runSteps([{ preset: 'healthy' }, { preset: 'schisto' }, { preset: 'csph' }, { preset: 'sos' }])).map(profileOf);
+test('on the resistance profiles no value touches a line or a word, and each is clearly its own dot\'s', async () => {
+  const [hl, schisto, csph, sos, comp] = (await runSteps([{ preset: 'healthy' }, { preset: 'schisto' }, { preset: 'csph' }, { preset: 'sos' }, { preset: 'cirr-comp' }])).map(profileOf);
   const one = (v) => (Math.round(v * 10) / 10).toFixed(1), hv = STATIONS.indexOf('RHV');
+  const off = [];
   // (A phone, an upright iPad and a Mac card, at the sizes the demo deck draws them.)
-  for (const [f, w, h] of [[13.8, 352, 260], [15.6, 552, 270], [12.02, 259, 229]]) for (const [g, ref] of [[schisto, null], [csph, schisto], [sos, csph]]) {
-    const tw = approxW(f), G = profileGeo(w, h, f, tw), top = axisTop(g, hl, ref), y = (v) => G.B - (G.B - G.T) * Math.min(v, top) / top;
-    const P = (p) => p.v.map((v, i) => [G.x(i), y(v)]), pg = P(g), hx = G.x(hv), dotR = Math.max(4, 0.36 * f), labels = [...g.v.map(one), one(g.w)];
-    const all = [...pg, [hx, y(g.w)]];
-    const s = valueSides(pg, [hl, ref].filter(Boolean).map(P), labels, f, tw, G.T - 0.2 * f, { bottom: G.B - 1, left: G.L + 2, right: G.R + 8, dotR, extra: [[hx, y(g.w)]],
-      obstacles: [[hx + dotR + 1, hx + dotR + 8, Math.min(y(g.w), pg[hv][1]) - 2, Math.max(y(g.w), pg[hv][1]) + 2]], dots: [...pg.map(([x, yy]) => [x, yy, dotR + 1]), [hx, y(g.w), dotR + 2.5]] });
-    const own = labelPlacer(curveRuns([pg]), [], -1e9, 1e9, [4]);
-    s.place.boxes.forEach((b, i) => {
-      assert.ok(own.lineCost(b) < 4, `${labels[i]} clear of its own line at ${w}x${h}`);
-      const cx = (b[0] + b[1]) / 2, cy = (b[2] + b[3]) / 2, d = (p) => Math.hypot(cx - p[0], cy - p[1]);
-      assert.ok(all.every((p, j) => j === i || d(p) > d(all[i])), `${labels[i]} nearest its own dot at ${w}x${h}`);
-    });
+  for (const [dev, f, w, h] of [['phone', 13.8, 352, 260], ['iPad', 15.6, 552, 270], ['Mac', 12.02, 259, 229]]) {
+    for (const [name, g, ref] of [['healthy', hl, null], ['schisto', schisto, null], ['cirrhosis', csph, schisto], ['SOS', sos, csph], ['compensated', comp, null]]) {
+      const tw = approxW(f), G = profileGeo(w, h, f, tw), goal = { ...g, top: axisTop(g, hl, ref) };
+      const y = (v) => G.B - (G.B - G.T) * Math.min(v, goal.top) / goal.top, P = (p) => p.v.map((v, i) => [G.x(i), y(v)]);
+      const pg = P(g), hasW = Number.isFinite(g.w), labels = [...g.v.map(one), ...(hasW ? [one(g.w)] : [])];
+      const all = [...pg, ...(hasW ? [[G.x(hv), y(g.w)]] : [])];
+      const s = placeValues(G, (t) => tw(t), goal, hl, ref);
+      const lines = labelPlacer([...curveRuns([pg, P(hl), ...(ref ? [P(ref)] : [])]), [[0, G.B], [w, G.B]]], [], -1e9, 1e9, [4, 1, 1, 2]);
+      const words = [...s.map((v) => v.box), ...(s.hvpgAt ? [s.hvpgAt.box] : [])];
+      for (let i = 0; i < words.length; i++) for (let j = i + 1; j < words.length; j++) {
+        const [a, b] = [words[i], words[j]];
+        assert.ok(!(a[0] < b[1] && b[0] < a[1] && a[2] < b[3] && b[2] < a[3]), `${dev} ${name}: two words overlap`);
+      }
+      s.forEach(({ box: b, tier }, i) => {
+        const [cx, cy] = [(b[0] + b[1]) / 2, (b[2] + b[3]) / 2], d = (p) => Math.hypot(cx - p[0], cy - p[1]);
+        assert.ok(all.every((p, j) => j === i || d(all[i]) < d(p)), `${dev} ${name}: ${labels[i]} nearer its own dot`);
+        if (tier || lines.lineCost(b)) off.push(`${dev} ${name} ${labels[i]}`);
+        if (!tier) assert.equal(lines.lineCost(b), 0, `${dev} ${name}: ${labels[i]} touches no line`);
+      });
+    }
   }
+  // (On a Mac card the SOS portal vein sits between the Before line and its own with no clear place: it crosses the
+  // Before line, never a word.)
+  assert.deepEqual(off, ['Mac SOS 13.4']);
 });
 
 test('whole percents keep their sum', () => {

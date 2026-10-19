@@ -32,10 +32,9 @@ export function profileOf(fp) {
   return { v, hvpg: fp.hvpg, ppg: fp.ppg, w: Number.isFinite(fp.whvp) ? +fp.whvp : null };
 }
 
-/** The axis's top: the highest point of the lines drawn and 2 mmHg over it (room for its value above it, as the app's
- *  charts keep), up to the next 5 (10 over 40), at least 15. */
+/** The axis's top: the highest point of the lines drawn, up to the next 5 (10 over 40), at least 15. */
 export const axisTop = (...lines) => {
-  const hi = Math.max(...lines.filter(Boolean).flatMap((l) => l.v)), top = Math.max(15, hi + 2);
+  const top = Math.max(15, ...lines.filter(Boolean).flatMap((l) => l.v));
   const step = top > 40 ? 10 : 5;
   return Math.ceil(top / step - 1e-9) * step;
 };
@@ -72,27 +71,27 @@ export function curveRuns(lines) {
   });
 }
 
-/** A placer for labels: boxes [x0, x1, y0, y1] inside [top, bottom], [gx, gy] clear of every box placed before and clear
- *  of the given obstacles (hard), and as clear as can be of the lines (runs: polylines, each with its weight: the slide's
- *  own line counts most). free(b): nothing in the way; cost(b): the weight of the lines it touches, Infinity where it may not go. */
-export function labelPlacer(runs, obstacles, top, bottom, weights = [], [gx, gy] = [9, 6]) {
+/** Does the segment [x0, y0]–[x1, y1] enter the box [bx0, bx1, by0, by1]? (Clipped to the box's x span, then its y span.) */
+function segHits([x0, y0], [x1, y1], [bx0, bx1, by0, by1]) {
+  if (Math.max(x0, x1) < bx0 || Math.min(x0, x1) > bx1 || Math.max(y0, y1) < by0 || Math.min(y0, y1) > by1) return false;
+  if (x1 === x0) return true;
+  const yAt = (x) => y0 + (y1 - y0) * (x - x0) / (x1 - x0), xa = Math.max(Math.min(x0, x1), bx0), xb = Math.min(Math.max(x0, x1), bx1);
+  const ya = yAt(xa), yb = yAt(xb);
+  return Math.max(ya, yb) >= by0 && Math.min(ya, yb) <= by1;
+}
+
+/** A placer for labels: boxes [x0, x1, y0, y1] (each a word with its halo) inside [top, bottom], [gx, gy] clear of every
+ *  box placed before and 2 px clear of the given obstacles, and clear of the lines (runs: polylines, each with its weight:
+ *  the slide's own line 4, the others 1) by pad px. free(b): nothing in the way; lineCost(b): the weight of the lines it
+ *  touches; cost(b): that, or Infinity where it may not go (out of bounds, on a word or a mark). */
+export function labelPlacer(runs, obstacles, top, bottom, weights = [], [gx, gy] = [3, 2], pad = 2) {
   const segs = runs.flatMap((l, k) => l.slice(1).map((p, i) => [l[i], p, weights[k] ?? 1]));
   const boxes = [];
   const lineCost = (b) => {
-    let c = 0;
-    const hit = new Set();
-    for (const [[x0, y0], [x1, y1], wt] of segs) {
-      if (hit.has(wt) || Math.max(x0, x1) < b[0] - 3 || Math.min(x0, x1) > b[1] + 3) continue;
-      // (The piece of the segment inside the box's x span, padded, against its y span: a steep drop counts too.)
-      const xa = Math.max(Math.min(x0, x1), b[0] - 3), xb = Math.min(Math.max(x0, x1), b[1] + 3);
-      const yAt = (x) => (x1 === x0 ? y0 : y0 + (y1 - y0) * (x - x0) / (x1 - x0));
-      const ya = x1 === x0 ? Math.min(y0, y1) : Math.min(yAt(xa), yAt(xb)), yb = x1 === x0 ? Math.max(y0, y1) : Math.max(yAt(xa), yAt(xb));
-      if (yb > b[2] - 3 && ya < b[3] + 3) { hit.add(wt); c += wt; }
-    }
-    return c;
+    const e = [b[0] - pad, b[1] + pad, b[2] - pad, b[3] + pad], hit = new Set();
+    for (const [p, q, wt] of segs) if (!hit.has(wt) && segHits(p, q, e)) hit.add(wt);
+    return [...hit].reduce((a, w) => a + w, 0);
   };
-  // (Values gx apart side by side and gy over each other, as each one's halo is drawn outside its box; the dots and marks
-  // 2 px.)
   const near = (b) => boxes.some((o) => b[0] < o[1] + gx && o[0] < b[1] + gx && b[2] < o[3] + gy && o[2] < b[3] + gy)
     || obstacles.some((o) => b[0] < o[1] + 2 && o[0] < b[1] + 2 && b[2] < o[3] + 2 && o[2] < b[3] + 2);
   const cost = (b) => (b[2] < top || b[3] > bottom || near(b) ? Infinity : lineCost(b));
@@ -102,39 +101,75 @@ export function labelPlacer(runs, obstacles, top, bottom, weights = [], [gx, gy]
   return { boxes, cost, crowd, lineCost, free: (b) => cost(b) === 0, take(b) { boxes.push(b); } };
 }
 
-/** Where each value goes: above its point, or under it, or a little to either side, where nothing is in the way (the lines
- *  as drawn, the dots, the other values, the axis); where no place is clear of every line, the one that touches the least
- *  of them (never the slide's own line if it can help it; the value's halo masks a reference line under it). pts: [[x, y]]
- *  of the line, others: other lines' points, extra: [[x, y]] points off the line with a value (labels follows pts then
- *  extra), dots: [x, y, r], obstacles: more boxes to keep clear of. → [{ s: -1 above | 1 under | 0 beside, dx }] */
-export function valueSides(pts, others, labels, f, tw, top, { bottom = Infinity, left = -Infinity, right = Infinity, extra = [], dots = [], dotR = 0.36 * f, obstacles = [] } = {}) {
-  const P = curveRuns([pts, ...others]);
-  const place = labelPlacer(P, [...dots.map(([x, y, r]) => [x - r + 1.5, x + r - 1.5, y - r + 1.5, y + r - 1.5]), ...obstacles], top, bottom, [4, ...others.map(() => 1)], [0.6 * f, 0.4 * f]);   // (in type sizes: the card's zoom shrinks the chart's px)
-  const all = [...pts, ...extra];
-  const sides = all.map(([x, y], i) => {
-    const wd = tw(labels[i]) / 2, sd = dotR + 5 + wd;
-    const box = (s, dx, dy = 0) => (s < 0 ? [x + dx - wd, x + dx + wd, y + dy - 1.55 * f, y + dy - 0.6 * f] : s > 0 ? [x + dx - wd, x + dx + wd, y + dy + dotR + 2, y + dy + dotR + 2 + 0.95 * f]
-      : [x + dx - wd, x + dx + wd, y + dy - 0.42 * f, y + dy + 0.42 * f]);
-    // (A value reads as its own dot's: its middle nearer that dot than any other.)
-    const mine = (b) => { const cx = (b[0] + b[1]) / 2, cy = (b[2] + b[3]) / 2, d = Math.hypot(cx - x, cy - y);
-      return all.every(([ox, oy], j) => j === i || Math.hypot(cx - ox, cy - oy) > d); };
-    const fits = (b) => b[0] >= left && b[1] <= right && mine(b);
-    // (s 0: beside its dot, at its height, left or right; then a little up or down beside it, past a mark beside it (the
-    // HVPG's bracket), or a line further off.)
-    const tries = [[-1, 0], [1, 0], ...[0.45, 0.9].flatMap((k) => [[-1, k * wd], [-1, -k * wd], [1, k * wd], [1, -k * wd]]), [0, sd], [0, -sd],
-      ...[-0.7, 0.7].flatMap((k) => [[0, sd, k * f], [0, -sd, k * f]]), [0, sd + 5, -0.7 * f], [0, -sd - 5, -0.7 * f], [-1, 0, -0.8 * f], [1, 0, 0.8 * f], [-1, 0.9 * wd, -0.8 * f], [-1, -0.9 * wd, -0.8 * f], [1, 0.9 * wd, 0.8 * f], [1, -0.9 * wd, 0.8 * f]];
-    let best = tries[0], bc = Infinity;
-    for (const t of tries) { const c = fits(box(...t)) ? place.cost(box(...t)) : Infinity; if (c < bc) { bc = c; best = t; } if (c === 0) break; }
-    // (Nowhere clear: the least crowded place, never on its own line where another place will do.)
-    if (bc === Infinity) {
-      const inX = (b) => b[0] >= left && b[1] <= right, ok = tries.filter((t) => inX(box(...t))), pool = ok.length ? ok : tries;
-      const score = (t) => { const b = box(...t); return place.crowd(b) + (place.lineCost(b) >= 4 ? 1e8 : 0) + (mine(b) ? 0 : 1e7); };
-      best = pool.reduce((a, t) => (score(t) < score(a) ? t : a), pool[0]);
+/** Where each value goes: the nearest place to its dot that touches no line (its own, the others, the axis), no other
+ *  word and no mark, and that is clearly nearer its own dot than any other point; tried above it, under it and beside it,
+ *  at its own height or a little up or down, and shifted along. The values with the fewest such places choose first.
+ *  Where a value has none, it sits right beside its own dot across its OWN line only (its halo breaking the line), else
+ *  in the least crowded place. pts: [[x, y]] of the line, others: other lines' points, extra: [[x, y]] points off the line
+ *  with a value (labels follows pts then extra), dots: [x, y, r], obstacles: more boxes to keep clear of, axis: the
+ *  axis line's y. → [{ s: -1 above | 1 under | 0 beside, dx, by }]: the value's middle dx from its point, its baseline
+ *  by under it. */
+export function valueSides(pts, others, labels, f, tw, top, { bottom = Infinity, left = -Infinity, right = Infinity, extra = [], dots = [], dotR = 0.36 * f, obstacles = [], axis = null } = {}) {
+  const lines = [...curveRuns([pts, ...others]), ...(axis == null ? [] : [[[left - 50, axis], [right + 50, axis]]])];
+  const place = labelPlacer(lines, [...dots.map(([x, y, r]) => [x - r + 1, x + r - 1, y - r + 1, y + r - 1]), ...obstacles], top, bottom,
+    [4, ...others.map(() => 1), 2]);
+  const all = [...pts, ...extra], cap = 0.72 * f, halo = 2;
+  // (A word's box: its digits' ink and halo, the baseline by under the point.)
+  const boxOf = (i, dx, by) => { const [x, y] = all[i], wd = tw(labels[i]) / 2; return [x + dx - wd - halo, x + dx + wd + halo, y + by - cap - halo, y + by + halo]; };
+  const mid = (b) => [(b[0] + b[1]) / 2, (b[2] + b[3]) / 2];
+  // (Clearly its own: its middle at most 0.8 of the way to any other point.)
+  const mine = (i, b) => { const [cx, cy] = mid(b), d = Math.hypot(cx - all[i][0], cy - all[i][1]);
+    return all.every(([ox, oy], j) => j === i || d <= 0.8 * Math.hypot(cx - ox, cy - oy)); };
+  const cands = (i) => {
+    const wd = tw(labels[i]) / 2, r = dotR + 3, st = 0.3 * f, out = [];
+    for (let k = 0; k <= 5; k++) for (const sx of [0, 0.5, -0.5, 1, -1, 1.5, -1.5]) {
+      out.push({ s: -1, dx: sx * wd, by: -r - halo - k * st, pen: 0 });
+      out.push({ s: 1, dx: sx * wd, by: r + cap + halo + k * st, pen: 0.25 * f });
     }
-    const [s, dx, dy = 0] = best;
-    place.take(box(s, dx, dy));
-    return { s, dx, dy };
-  });
+    for (let k = -5; k <= 5; k++) for (const sd of [1, -1]) {
+      out.push({ s: 0, dx: sd * (r + 1 + wd + halo), by: 0.36 * f + k * st, pen: 0.4 * f });
+      out.push({ s: 0, dx: sd * (r + 10 + wd + halo), by: 0.36 * f + k * st, pen: 0.8 * f });   // (past a mark beside it)
+    }
+    return out.map((c) => ({ ...c, b: boxOf(i, c.dx, c.by) })).filter((c) => c.b[0] >= left && c.b[1] <= right)
+      .map((c) => ({ ...c, d: Math.hypot(...mid(c.b).map((v, k) => v - all[i][k])) + c.pen })).sort((a, b) => a.d - b.d);
+  };
+  const C = all.map((_, i) => cands(i));
+  const ok = (i, c) => mine(i, c.b) && place.cost(c.b) === 0;
+  const S = C.map((cs, i) => cs.filter((c) => ok(i, c)).slice(0, 40));
+  const order = all.map((_, i) => i).filter((i) => S[i].length).sort((a, b) => S[a].length - S[b].length || a - b);
+  const rest = all.map((_, i) => i).filter((i) => !S[i].length);
+  const sides = [];
+  // (First every value in a clear place at once: the fewest choices first, each nearest first, stepping back where a
+  // later one finds none left.)
+  let steps = 0;
+  const fit = (k) => {
+    if (k === order.length) return true;
+    const i = order[k];
+    for (const c of S[i]) {
+      if (++steps > 4000) return false;
+      if (place.cost(c.b) !== 0) continue;
+      place.take(c.b);
+      sides[i] = { s: c.s, dx: c.dx, by: c.by, box: c.b, tier: 0 };
+      if (fit(k + 1)) return true;
+      place.boxes.pop();
+    }
+    return false;
+  };
+  const placed = fit(0);
+  if (!placed) place.boxes.length = 0;
+  for (const i of placed ? rest : [...order, ...rest]) {
+    let c = C[i].find((c) => ok(i, c)), tier = 0;
+    // (No clear place, as where three lines crowd a small chart: across its own line only, right by its dot; else across
+    // the axis too, under its dot; else across another line, clear of every word; else the least crowded.)
+    const by = (c) => Math.hypot(...mid(c.b).map((v, k) => v - all[i][k])) < 1.9 * f && mine(i, c.b);
+    if (!c) { tier = 1; c = C[i].find((c) => by(c) && place.cost(c.b) === 4); }
+    if (!c) { tier = 2; c = C[i].find((c) => by(c) && [2, 6].includes(place.cost(c.b))); }
+    if (!c) { tier = 3; c = C[i].filter((c) => mine(i, c.b) && Number.isFinite(place.cost(c.b))).reduce((a, c) => (!a || place.cost(c.b) < place.cost(a.b) ? c : a), null); }
+    if (!c) tier = 4;
+    c ??= C[i].reduce((a, c) => (place.crowd(c.b) + (mine(i, c.b) ? 0 : 1e7) + place.lineCost(c.b) * 1e6 < place.crowd(a.b) + (mine(i, a.b) ? 0 : 1e7) + place.lineCost(a.b) * 1e6 ? c : a), C[i][0]);
+    place.take(c.b);
+    sides[i] = { s: c.s, dx: c.dx, by: c.by, box: c.b, tier };
+  }
   sides.place = place;   // (for more labels to keep clear of these)
   return sides;
 }
@@ -171,6 +206,52 @@ const textW = (t, f, wt = 600) => {
   return mctx.measureText(t).width;
 };
 
+/** The key's entries, and whether the unit fits on the key's row. */
+function keyFit(G, tw, hasBf, hasW) {
+  const key = [['Now', 'now'], ['Healthy', 'hl'], ...(hasBf ? [['Before', 'bf']] : []), ...(hasW ? [['Wedged', 'w']] : [])];
+  const keyW = key.reduce((a, [t]) => a + tw(t, 500) + 30, 0);
+  return { key, unitOnKey: G.R - keyW >= tw('mmHg', 500) + 6 };
+}
+
+/** Where the values go on the chart G (profileGeo) for the profile goal, with the healthy line hl and the earlier one bf
+ *  (profiles or null): valueSides's answer, with hvpgAt, the HVPG's label beside its bracket ({ dy, anchor }) or null
+ *  when it goes in the bracket row. tw(t, weight): a text's width in px. */
+export function placeValues(G, tw, goal, hl, bf) {
+  const { f } = G, dotR = Math.max(4, 0.36 * f), hv = STATIONS.indexOf('RHV'), hx = G.x(hv), hasW = Number.isFinite(goal.w);
+  const yg = (v) => G.B - (G.B - G.T) * Math.max(0, Math.min(v, goal.top)) / goal.top, ptsG = (p) => p.v.map((v, i) => [G.x(i), yg(v)]);
+  const i0 = STATIONS.indexOf(PATH.liver[0]), i1 = STATIONS.indexOf(PATH.liver[1]), { unitOnKey } = keyFit(G, tw, !!bf, hasW);
+  // (The words over the plot a value keeps clear of: the liver's name, and the unit when the key needs its row.)
+  const cap = 0.72 * f, word = (x0, x1, base) => [x0 - 2, x1 + 2, base - cap - 2, base + 2], lw = (tw('LIVER', 600) + 0.3 * f) / 2;   // (its letters spaced .06em)
+  const overWords = [...(i0 >= 0 ? [word((G.x(i0) + G.x(i1)) / 2 - lw, (G.x(i0) + G.x(i1)) / 2 + lw, G.T - 0.35 * f)] : []),
+    ...(unitOnKey ? [] : [word(0, tw('mmHg', 500), G.T - 0.95 * f)])];
+  const pg = ptsG(goal), y0 = hasW ? Math.min(yg(goal.w), pg[hv][1]) : 0, y1 = hasW ? Math.max(yg(goal.w), pg[hv][1]) : 0;
+  // (The HVPG's bracket goes right of the hepatic vein's column, or left where that leaves more values a clear place.)
+  const attempt = (k) => {
+    const bx = hx + k * (dotR + 6), mark = k > 0 ? [hx + dotR + 1, hx + dotR + 8, y0 - 2, y1 + 2] : [hx - dotR - 8, hx - dotR - 1, y0 - 2, y1 + 2];
+    const sides = valueSides(pg, [hl, bf].filter(Boolean).map(ptsG), [...goal.v.map(one), ...(hasW ? [one(goal.w)] : [])], f, (t) => tw(t), G.keyH + 0.2 * f,
+      { bottom: G.B, axis: G.B, left: G.L + 2, right: G.R + 8, dotR, obstacles: [...overWords, ...(hasW ? [mark] : [])], extra: hasW ? [[hx, yg(goal.w)]] : [], dots: [...pg.map(([x, yy]) => [x, yy, dotR + 1]), ...(hasW ? [[hx, yg(goal.w), dotR + 2.5]] : [])] });
+    Object.assign(sides, { hvpgAt: null, side: k, bx });
+    if (hasW) {
+      // (The HVPG's own label: beside its bracket, outside then across the column, at its middle or a little up or down;
+      // else in the bracket row under the hepatic vein.)
+      const wd = tw(`HVPG ${one(goal.hvpg)}`, 700), ym = (y0 + y1) / 2;
+      for (const dy of [0, -0.6, 0.6, -1.2, 1.2, -1.8].map((m) => m * f)) {
+        const yy = [ym + dy - 0.36 * f - 2, ym + dy + 0.36 * f + 2];
+        const out = k > 0 ? [[bx + 3, bx + 7 + wd, ...yy], bx + 5, 'start'] : [[bx - 7 - wd, bx - 3, ...yy], bx - 5, 'end'];
+        const across = k > 0 ? [[hx - dotR - 8 - wd, hx - dotR - 4, ...yy], hx - dotR - 6, 'end'] : [[hx + dotR + 4, hx + dotR + 8 + wd, ...yy], hx + dotR + 6, 'start'];
+        const hit = [out, across].find(([b]) => b[0] >= G.L && b[1] <= G.R + 8 && sides.place.free(b));
+        if (hit) { sides.place.take(hit[0]); sides.hvpgAt = { dy, x: hit[1], anchor: hit[2], box: hit[0] }; break; }
+      }
+    }
+    return sides;
+  };
+  const score = (s) => 10 * s.filter((v) => v.tier).length + (s.hvpgAt || !hasW ? 0 : 1);
+  const right = attempt(1);
+  if (!hasW || !score(right)) return right;
+  const left = attempt(-1);
+  return score(left) < score(right) ? left : right;
+}
+
 export function createProfileTool() {
   const el = document.createElement('div');
   el.className = 'pz-prof';
@@ -206,39 +287,22 @@ export function createProfileTool() {
     // gradient a bracket between the two, so its number is the difference of the two values written beside them.
     const hv = STATIONS.indexOf('RHV'), hasW = Number.isFinite(goal.w) && Number.isFinite(shown.w), hx = G.x(hv);
     // (Each value's place is settled once per state, from where the lines will end up, so it never flips while they glide.)
-    const yg = (v) => G.B - (G.B - G.T) * Math.max(0, Math.min(v, goal.top)) / goal.top, ptsG = (p) => p.v.map((v, i) => [G.x(i), yg(v)]);
-    if (!sides) {
-      const pg = ptsG(goal);
-      sides = valueSides(pg, [hl, bf].filter(Boolean).map(ptsG), [...goal.v.map(one), ...(hasW ? [one(goal.w)] : [])], f, (t) => tw(t), G.T - 0.2 * f,
-        { bottom: G.B - 1, left: G.L + 2, right: G.R + 8, dotR, obstacles: hasW ? [[hx + dotR + 1, hx + dotR + 8, Math.min(yg(goal.w), pg[hv][1]) - 2, Math.max(yg(goal.w), pg[hv][1]) + 2]] : [], extra: hasW ? [[hx, yg(goal.w)]] : [], dots: [...pg.map(([x, yy]) => [x, yy, dotR + 1]), ...(hasW ? [[hx, yg(goal.w), dotR + 2.5]] : [])] });
-      sides.hvpgAt = null;
-      if (hasW) {
-        // (The HVPG's own label: beside its bracket, right then left, at its middle or a little up or down; else in the
-        // bracket row under the hepatic vein.)
-        const txt = `HVPG ${one(goal.hvpg)}`, wd = tw(txt, 700), bx = hx + dotR + 6, ym = (yg(goal.w) + yg(goal.v[hv])) / 2;
-        for (const dy of [0, -0.6, 0.6, -1.2, 1.2, -1.8].map((k) => k * f)) {
-          const r = [bx + 5, bx + 5 + wd, ym + dy - 0.55 * f, ym + dy + 0.45 * f], l = [hx - dotR - 6 - wd, hx - dotR - 6, r[2], r[3]];
-          const hit = r[1] <= G.R + 8 && sides.place.free(r) ? [r, 'start'] : l[0] >= G.L && sides.place.free(l) ? [l, 'end'] : null;
-          if (hit) { sides.place.take(hit[0]); sides.hvpgAt = { dy, anchor: hit[1] }; break; }
-        }
-      }
-    }
-    const step = top > 40 ? 10 : 5, every = (G.B - G.T) / (top / step) < 1.3 * f ? 2 * step : step;
     const i0 = STATIONS.indexOf(PATH.liver[0]), i1 = STATIONS.indexOf(PATH.liver[1]);
+    const { key, unitOnKey } = keyFit(G, tw, !!bf, hasW);
+    let kx = G.R;
+    sides ??= placeValues(G, tw, goal, hl, bf);
+    const step = top > 40 ? 10 : 5, every = (G.B - G.T) / (top / step) < 1.3 * f ? 2 * step : step;
     const col = (v) => pressureColor(v);
     const gid = `pzpg-${Math.random().toString(36).slice(2, 8)}`;
-    const key = [['Now', 'now'], ['Healthy', 'hl'], ...(bf ? [['Before', 'bf']] : []), ...(hasW ? [['Wedged', 'w']] : [])];
-    let kx = G.R;
-    const keyW = key.reduce((a, [t]) => a + tw(t, 500) + 30, 0), unitOnKey = G.R - keyW >= tw('mmHg', 500) + 6;
     const keyEls = key.slice().reverse().map(([t, c]) => { const tx = kx, gx = tx - tw(t, 500) - 6; kx -= tw(t, 500) + 30; return sv('g', { class: `ppf-key ${c}` },
       c === 'w' ? sv('circle', { cx: gx - 6, cy: 0.75 * f, r: dotR }) : sv('line', { x1: gx - 18, x2: gx, y1: 0.75 * f, y2: 0.75 * f }),
       sv('text', { x: tx, y: 0.75 * f + 0.36 * f, 'text-anchor': 'end' }, t)); });
-    const valY = (cy, k) => (sides[k].dy || 0) + (sides[k].s < 0 ? cy - 0.75 * f : sides[k].s > 0 ? cy + dotR + 2 + 0.85 * f : cy + 0.36 * f);
-    const yw = hasW ? y(shown.w) : 0, yf = now[hv]?.[1], bx = hx + dotR + 6, hvRate = RATE.hvpg(shown.hvpg)[0];
+    const valY = (cy, k) => cy + sides[k].by;
+    const yw = hasW ? y(shown.w) : 0, yf = now[hv]?.[1], k = sides.side || 1, bx = hx + k * (dotR + 6), hvRate = RATE.hvpg(shown.hvpg)[0];
     const hvpgTxt = (x, yy, anchor) => sv('text', { x, y: yy, 'text-anchor': anchor }, sv('tspan', { class: 'k' }, 'HVPG '), one(shown.hvpg));
     const vert = hasW ? sv('g', { class: 'ppf-br', 'data-rate': hvRate, 'data-k': 'hvpg' },
-      sv('path', { d: `M${bx - 3} ${yw}H${bx}V${yf}H${bx - 3}` }),
-      sides.hvpgAt ? hvpgTxt(sides.hvpgAt.anchor === 'start' ? bx + 5 : hx - dotR - 6, (yw + yf) / 2 + sides.hvpgAt.dy + 0.36 * f, sides.hvpgAt.anchor) : null) : null;
+      sv('path', { d: `M${bx - 3 * k} ${yw}H${bx}V${yf}H${bx - 3 * k}` }),
+      sides.hvpgAt ? hvpgTxt(sides.hvpgAt.x, (yw + yf) / 2 + sides.hvpgAt.dy + 0.36 * f, sides.hvpgAt.anchor) : null) : null;
     const svg = sv('svg', { viewBox: `0 0 ${w} ${hh}`, width: w, height: hh, role: 'img', style: `font-size: ${f.toFixed(2)}px`,
       'aria-label': `Pressure from gut to heart: ${STATIONS.map((n, i) => `${PATH.names[n]} ${labels[i]}`).join(', ')} mmHg.${hasW ? ` Wedged hepatic vein ${one(shown.w)}.` : ''} HVPG ${one(shown.hvpg)}, PPG ${one(shown.ppg)}.` },
       sv('defs', {}, sv('linearGradient', { id: gid, gradientUnits: 'userSpaceOnUse', x1: G.x(0), x2: G.x(STATIONS.length - 1), y1: 0, y2: 0 },
