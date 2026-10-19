@@ -14,6 +14,7 @@ Contents: At a glance · 1 What a deck is · 2 Deck fields · 3 Slide fields · 
 * **Patients.** 17 presets from healthy to Budd–Chiari (section 8.1), changed by a partial parameter patch (section 8.2): cirrhosis severity, clots, stenoses, collaterals, shunts (TIPS, DIPS, surgical), drugs, diuretics, heart failure, and more; plus one-off events such as banding, paracentesis, hemorrhage and rupture (section 8.3). Disease runs on a clock: `days` and `ramp` age the patient, and `lapse` plays that change live.
 * **Two views of the figure.** The anatomy plate (with named camera regions and dives into the lobule and the sinusoid) and the electrical-circuit map (resistors, one row of zigzags). Stations, vessels and organs can be labelled, glowed, marked and pointed at from the words (term pills).
 * **The data card** holds the numbers: a pressure ladder, readout tiles, comparison tables, scales, and live instruments (Doppler, endoscopy scope, FibroScan, pressure traces, the abdomen, the varix wall, a flow-over-time chart), or a what-if slider and treatment buttons that act on the live model.
+* **Opt-in visuals (deck visuals packages, 19 Oct).** Spotlights, organ outlines, the vein-system and change-since lenses, live readings in marks, calipers and circuit brackets on the figure (section 5.9); a source line under the words (6.4); the pressure profile, the portal blood split, treatment bands, parameter curves, cause bars, the two-reading plane, the vessel cross-section, the fluid balance and new Doppler options in the card (7.2); table columns for where the pressure drops and small Doppler traces (7.3). No built-in deck uses them; a slide that sets none of them looks as before. `/mnt/project-files/decks/demo-all-new-visuals.js` shows them all.
 * **Catheter choreography.** The HVPG measurement can be played step by step (route, free, wedge, result) with the live tracing.
 * **Case cards.** A slide that brings in a new patient can open with a centred frosted card holding a short clinical case (section 14).
 * **Deck furniture the app adds for you:** an Outline and objectives slide in front, the deck's short name in a tab at each slide card's top right corner, the level tab in its top left corner in decks that cover more than one level, disease-name pills, the closing quick check (`checks`), the printed handout (Present menu › Print notes), the nav pill, the corner credit.
@@ -80,11 +81,11 @@ Every field is optional unless marked. Fields are grouped by what they do. Unkno
 
 ### 3.3 The figure (section 5)
 
-`view`, `cam`, `kMax`, `zoom`, `clear`, `lens`, `labels`, `tint`, `terms`, `glow`, `glowSeq`, `mark`, `marks`, `sites`, `layers`, `callout`, `cath`, `monitor`.
+`view`, `cam`, `kMax`, `zoom`, `clear`, `lens`, `labels`, `tint`, `terms`, `glow`, `glowSeq`, `mark`, `marks`, `sites`, `layers`, `callout`, `cath`, `monitor`; opt-in (5.9): `spot`, `normalOutline`, `ripple`, `since`, `sinceLabel`, `calipers`, `steps`, `span`, `zone`.
 
 ### 3.4 The data card (section 7)
 
-`data`, `tiles`, `key`, `delta`, `brackets`, `block`, `fold`, `dataTitle`, `tool`, `visual` (+ `cols`, `asc`, `rowHead`, `note`, `vs`, `foot`, `calm`, `of`, `scale`), `compare`, `whatIf`.
+`data`, `tiles`, `key`, `delta`, `brackets`, `block`, `fold`, `dataTitle`, `tool`, `visual` (+ `cols`, `asc`, `rowHead`, `note`, `vs`, `foot`, `calm`, `of`, `scale`), `compare`, `whatIf`; opt-in: `ladderFrom`, `ladderFromLabel` (7.1), `focusRow` (7.3).
 
 ### Slide order and carry-over
 
@@ -213,6 +214,24 @@ Pointing at the resistor words `resistance` / `collaterals` / `gut arterioles` w
 
 ---
 
+### 5.9 Opt-in highlights and callouts
+
+All figure-only (no `visual`). Organ outlines, the normal spleen, organ marks, calipers and step numbers show on the anatomy view; `span` and `zone` only on the circuit view; nothing here shows in the lobule or sinusoid views. Code: `src/ui/ext-highlights.js`, `highlight-math.js`, `ext-callouts.js`, `callout-math.js`.
+
+* **More organs** for `terms`, `glow` and `[words](key)`: `stomach`, `esophagus`, `bowel` (small bowel), `colon`, `duodenum`, `kidney` (left). Outlined in the neutral ink `--text-2`.
+* **Named vessel sets** (`'@name'`) in `glow`, `spot` and a mark's `edges`: see section 8.5. `{ id: '@name', soft: true }` gives each vessel the same options.
+* **`spot: [ids]`**: a spotlight. The named vessels, `@sets` and organs stay at full strength and glow softly; the rest of the network eases back and the organ picture dims. Compare buttons and sliders keep it. Without WebGL only the organs dim.
+* **`normalOutline: ['spleen']`**: a thin line at the normal spleen's size inside an enlarged one; it shows once the spleen is 8% over normal and grows into view through a time-lapse.
+* **`ripple: true | '<slide id>'`**: as the slide lands, vessels whose pressure moved 2 mmHg or more glow warm (up) or cool (down) for about 1.6 s. Forward only; none with reduce motion.
+* **`lens: 'system'`**: portal veins, systemic veins, and collaterals with shunts in three colours (also a compare button: `{ label: 'Vein system', lens: 'system' }`). Not in Explore.
+* **`lens: 'since'`**: the Change colours against the slide before, or `since: '<slide id>'`; `sinceLabel: 'No Rx'` names the reference in the key ("Change since No Rx"). Compare buttons keep the reference, so two treatments read on one scale.
+* **Live readings in a mark**: a mark's `label` may hold any tile `{token}` (`'Varix {varix}'`), printed as its tile prints it and in its rating colour on a plain pill; it follows sliders, buttons and time-lapses without jumping. Do not repeat a reading a station label already shows.
+* **Marks on organs**: `mark: { organ: 'spleen', label: 'Spleen {spleen}' }`; organs `liver spleen heart stomach esophagus bowel colon duodenum kidney ascites`. `kind` defaults to `note`.
+* **`calipers: ['spleen' | 'varix' | 'TIPS' | <vessel id>]`**: a dimension line with its reading (spleen length, varix diameter, stent width in whole mm, any other vessel's modelled diameter).
+* **`steps: true`** with `glowSeq`: a small round number by each glow entry as it lights.
+* **`span: [{ from, to, label }]`** (circuit station ids; the label may hold tokens): a bracket under the circuit with its reading. **`zone: 'splanchnic' | 'portal' | 'liver' | 'hepatic' | 'heart'`** fills that part of the circuit softly.
+* Every reading pill keeps clear of vessels, lines, organs and the cards, at 12 px or more.
+
 ## 6. The words
 
 ### 6.1 Live values: `{token}`
@@ -290,6 +309,12 @@ Inside the liver (the view's own label takes the colour with a soft glow; use wi
 
 ---
 
+### 6.4 Source line: `cite`
+
+`cite: 'Baveno VIII 1.15, 1.16'` prints one small line under the line and any caveat, on a words slide or a panel slide, and in the handout. Cite Baveno VIII (never VII), EASL 2025 or AASLD 2024, matched to the statement; it counts in the card's fit, so keep it short.
+
+---
+
 ## 7. The data card
 
 ### 7.1 `data`
@@ -301,6 +326,7 @@ Inside the liver (the view's own label takes the colour with a soft glow; use wi
 * `block: 'pv' | 'whvp' | 'fhvp' | 'ivc' | 'ra'` on a ladder slide marks the station where pressure is lost with the ladder's bold red diagonal hatching on that node (no text). Heart-failure slides use `block: 'ra'`. Leave it off ladders of a healthy or sinusoidal patient.
 * `tiles` and `key` can also accompany `data: 'ladder'` (a slide with `data: 'ladder'` and `tiles` shows both).
 * `dataTitle` renames the tiles or instrument card ("Circulation at 24 weeks"); a ladder card is always "Pressure, portal vein to heart".
+* `ladderFrom: true | '<slide id>'` on a ladder slide draws that state as a solid grey line behind the patient's (Mac and iPad; the phone's strip draws no lines); `ladderFromLabel: 'No Rx'` names it in the legend (default "Before").
 * `fold: false` on a ladder slide: the ladder never folds its plot away behind Show (Sites uses it on its postsinusoidal slide).
 * Each tile has a scale bar coloured by its rating, a ring where it started and a dot where it is now, with "from X" or "No change" when it shows a change. After TIPS the PPG tile reads "Target met" (below 12 mmHg) or "Above target" instead of its usual rating.
 
@@ -319,6 +345,15 @@ Inside the liver (the view's own label takes the colour with a soft glow; use wi
 | `{ kind: 'wall' }` | the varix in cross-section: Laplace's T, r, w |
 | `{ kind: 'flowtime' }` | portal pressure and portal flow around a meal, drawn as the slide's time-lapse plays (clock in minutes) |
 | `{ kind: 'flowtime', clock: 'days', lines: [lower, upper] }` | the same chart over a disease time-lapse: two fingerprint keys from `pv pvFlow sin asc hvpg varix`, one point a model day |
+| `bands: [keys]` on `trace` (`range: 'talk'`) or `flowtime` | opt-in: a soft band per treatment while it was on, named once. Keys `carvedilol propranolol terlipressin octreotide anticoag diuretics tips dips` |
+| `{ kind: 'profile', from? }` | opt-in: the pressure from gut to heart through eight stations, the healthy line dashed, HVPG and PPG brackets in their cut-off colours. `from: true` (the slide before) or a slide id adds a dotted "Before" line |
+| `{ kind: 'flows', of? }` | opt-in: one bar splitting the portal blood between the liver and its bypasses (at most four named routes, the rest Other); the liver part is 100 less the Shunted tile. `of: 'inflow'` splits the liver's inflow into portal vein and hepatic artery |
+| `{ kind: 'curve', param, from, to, step?, lines, also?, label?, unit? }` | opt-in: one setting across its range against one or two readings (`lines: ['ppg', 'liver']`), cut-offs dashed, a ring where the slide sits; a what-if slider on the same setting moves the rings |
+| `{ kind: 'causes', metric? }` | opt-in: one bar per cause of the rise from healthy (`metric`: `'ppg'` default, `'hvpg'`, `'pv'`), coloured by mechanism, with a grey "Interaction and other" bar for the overlap. The shares are the model's own: no line may quote them without the owner's OK and a source |
+| `{ kind: 'plane', plane }` | opt-in: two readings on one plane with zones (`'csph'`: stiffness and platelets, Baveno VIII 1.15, 1.16, 1.19; `'hvpg-ppg'`), the slide's case a ring. See 7.3 for the panel and a deck's own plane |
+| `{ kind: 'lumen', vessel? }` | opt-in: the vessel in cross-section (default `PV_TRUNK`): open lumen %, clot, narrowing, stent |
+| `{ kind: 'fluid', forces?, caveat? }` | opt-in: lymph made against lymph drained, the build-up in the ascites colour and a sentence on what builds. `forces: true` adds the Starling push and pull; the no-kidneys caveat shows by itself with diuretics. Model rates, not clinical figures |
+| Doppler options | opt-in: `mode: 'color' \| 'variance'` (color Doppler maps; a slide without it is Spectrum again), `calipers: true` (peak and trough marks over the last 3 s and the PI in the bottom strip), `pair: true` (a slim paired trace: the right hepatic vein under a portal vein, the main portal vein under a hepatic vein or the IVC) |
 
 ### 7.3 `visual`: replaces the text and figure area with a full panel (the figure is dimmed behind)
 
@@ -329,7 +364,10 @@ Inside the liver (the view's own label takes the colour with a soft glow; use wi
 | `'table'` | `cols` (columns), `asc` (show SAAG and protein columns: `true`/`false`; default true only if `cols` is absent), `rowHead` (first column heading, default `'Level'`), `note` (heading of a text column, or an array of headings), `vs: 'first'` (arrows against the first row), `foot` (one sentence after the legend), `calm: [cols]` (changes in those columns are neither better nor worse: no green or red, as a meal's small PPG rise), `of` (rows). Pressures print in whole mmHg. A tap on a row goes to its slide; a tap on a heading shows its cut-offs. |
 | `'scale'` | `scale: { key, max, low, marks: [[value, words, shortName?], …], sub?, rules? }`. One number on a banded axis, each row a numbered dot. `max` defaults to 20; `low` names the first band and each mark's `shortName` (else its `words`) the band above it. `sub` adds readings under each row (a tile key or a list, `['hvpg', 'plt']`). `rules: [..]` prints each band's rule in words under the axis (Stiffness). |
 | `'quadrant'` | SAAG × protein quadrant (`of`: rows; a row with no ascites is left out). |
-| `'walls'` | the Laplace wall-tension illustration. |
+| `'walls'` | two wall panels: the gut capillary wall holds protein back, the liver sinusoid lets it through. Not Laplace; the varix's Laplace picture is `tool: { kind: 'wall' }`. |
+| `'plane'` | opt-in: `plane` (`'csph'`, `'hvpg-ppg'`, or a deck's own `{ x, y, zones, boxes?, cuts?, source, base? }`; zones take `when: [[key, op, value], …]`) and `of`: one named point per row (`short`: a shorter name for tight spots). A key lists each zone's rule and source. Zone words must be checked against the guideline. |
+
+Opt-in table columns: `spent` ("Where pressure drops": a bar per row of the pressure lost from portal vein to heart, split by station, the largest fall named; keep it with at most two other columns for phones) and `wave` (about two beats of each row's Doppler, `wave: 'PV_TRUNK'` on the slide or per row, one shared scale, `waveMax` to change it). `focusRow: '<slide id>'` (or a row's `key`) tints one row and quiets the rest.
 
 Table column keys (`cols`): `pv whvp fhvp ivc ra hvpg ppg sin varix asc liver shunt saag tp plt lsm spleen map hr hb pvFlow res` (the keys of `COLS` in `src/ui/table-marks.js`). Any other key prints its raw name as the heading with no cut-offs, and `tests/deck-review-bugs.test.js` fails it: give every column a `COLS` heading. Default `cols`: `['pv','whvp','fhvp','ivc','ra','hvpg','ppg']`.
 
@@ -472,6 +510,8 @@ Liver: `PRE_R` / `PRE_L` portal venules · `SIN_RR` / `SIN_LL` sinusoids · `POS
 Veins to the heart: `RHV_IVC`, `MHV_IVC`, `LHV_IVC` hepatic veins · `IVC_IS` IVC · `IVCS_RA` IVC (suprahepatic) to the atrium · `SVC_RA` · `V_UP` brachiocephalic · `AZY_SVC` azygos arch · `LRV_IVC` / `RRV_IVC` renal veins · `V_KID_L` · `ILI_IVC` · `EPI_ILI`, `EPI_SVC` epigastric veins.
 Collaterals: `C1a` coronary vein → esophageal varices · `C1b` esophageal varices → azygos · `C2` short/posterior gastric veins · `C3` paraumbilical vein · `C4` rectal (superior ↔ middle/inferior rectal veins) · `C5` gastrorenal shunt · `C6` spontaneous splenorenal shunt · `C7` retroperitoneal (Retzius) veins · `C8` periportal collaterals (cavernoma) · `C9` ascending lumbar → azygos.
 Interventions: `TIPS` · `DIPS` · `S_PC` portocaval · `S_DSR` distal splenorenal (Warren) · `S_MC` mesocaval.
+Named sets (opt-in, for `glow`, `spot`, `mark.edges`): `@portal`, `@hepatic-veins` (`RHV_IVC MHV_IVC LHV_IVC`), `@collaterals` (`C1a`, `C1b`, `C2`–`C9`), `@esophageal` (`LGV_CONF C1a C1b AZY_SVC`), `@gastrorenal` (`C2 C5 LRV_IVC`), `@splenorenal` (`C6 LRV_IVC`), `@shunts` (`TIPS DIPS S_PC S_DSR S_MC`), `@caval`, `@gut-arteries` (`A_SMA A_IMA A_SPL A_LGA`). A vessel the patient lacks is skipped.
+
 Edge tones used when you glow an id by hand: portal vessels follow their station colour; collaterals and shunts (`C3`–`C9`, `S_PC`, `S_DSR`, `S_MC`) use the varices' colour `var`.
 
 ### 8.6 Tiles (`tiles`, `key`, `{token}`, table `cols`)

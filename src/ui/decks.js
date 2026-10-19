@@ -47,7 +47,7 @@
 //   visual                   over the dimmed figure: 'ladders', 'table' (cols, asc: SAAG and protein columns, note: a text column's heading or several, vs: 'first' to show arrows against the first row,
 //                            foot: one sentence after the legend, which is built from the table; a row's ref: true keeps its numbers, its vs: a slide id
 //                            compares it with that row instead, its note: the text column's words, or an array of them), 'scale' (scale), 'quadrant'
-//                            (SAAG × protein) or 'walls'; of: the rows, slide ids or { id | preset, name, title, note, blank: [columns] }
+//                            (SAAG × protein) or 'walls' (gut capillary wall vs sinusoid); of: the rows, slide ids or { id | preset, name, title, note, blank: [columns] }
 //   compare                  [{ label, params, own? }]: buttons that switch the live model between treatments in real
 //                            time (params: each option's full set of the switched keys; own: the slide's own state);
 //                            or [{ label, preset, block? }, { label, own: true }]: buttons that ease the live model to another
@@ -61,6 +61,12 @@
 //   whatIf                   { label, param, min, max, step?, ends?: [low, high], unit? }: a slider that drags one parameter
 //                            (a dotted path, e.g. 'tips.d', or an array of paths moved together, e.g. both lobes' fibrosis)
 //                            of the live model; the figure and the data card follow it
+//   opt-in visuals (deck visuals packages; no built-in deck uses them; docs/deck-authoring-guide.md 5.9, 6.4, 7):
+//                            figure: spot, normalOutline, ripple, lens 'system' | 'since' (since, sinceLabel), calipers,
+//                            steps (with glowSeq), span, zone, mark { organ } and {tokens} in a mark's label, '@sets' in glow/spot/edges;
+//                            words: cite; card: ladderFrom, ladderFromLabel, tool kinds 'profile', 'flows', 'curve', 'causes',
+//                            'plane', 'lumen', 'fluid', Doppler mode/calipers/pair, bands on trace and flowtime;
+//                            panels: visual 'plane', table cols 'spent' and 'wave', focusRow
 //
 // Deck fields: id, level, title, minutes, summary, objectives (3 to 4 short learning objectives), slides, and sections
 // ([name, [kickers]], three to five) when its kicker groups are more than five, and checks ([[question, answer]], three
