@@ -6419,7 +6419,9 @@ html.thumb-ui .menu.from-dock { clip-path: inset(-64px -64px calc(var(--sink, 0p
 .gl[data-vessel="systemic"] { --gl-v: var(--vein-systemic); }
 .gl[data-vessel="artery"] { --gl-v: var(--artery); }
 .gl-wall { fill: color-mix(in srgb, var(--gl-v) 30%, var(--surface)); stroke: color-mix(in srgb, var(--gl-v) 75%, var(--text)); stroke-width: 1.5; }
-.gl-clot { fill: var(--thrombus); }
+.gl-clot { fill: var(--thrombus); stroke: var(--thrombus-edge); stroke-width: .8; stroke-linejoin: round; }
+.gl-dia { fill: none; stroke: var(--text); stroke-width: 1.1; stroke-linecap: round; opacity: .85; transition: opacity .25s ease; }
+.gl-dia-clot { stroke: var(--text-2); }
 .gl-open { fill: var(--gl-v); transition: opacity .25s ease; }
 .gl-stent { fill: none; stroke: var(--stent-metal); stroke-width: 2.2; stroke-dasharray: 4.6 2.2; }
 .pz-tool[data-kind="lumen"] .gl-read { flex: 1; min-width: 0; margin: 0; }

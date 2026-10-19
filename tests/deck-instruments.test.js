@@ -9,7 +9,7 @@ import { readFileSync } from 'node:fs';
 import { Engine } from '../src/engine/engine.js';
 import { computeMetrics } from '../src/engine/metrics.js';
 import { createCore } from '../src/worker-core.js';
-import { lumenOf, lumenShape, lumenWords, lumenFacts, LUMEN_R, LUMEN_WALL } from '../src/ui/tool-lumen.js';
+import { lumenOf, lumenShape, lumenWords, lumenFacts, clotPath, LUMEN_R, LUMEN_WALL } from '../src/ui/tool-lumen.js';
 import { fluidOf, fluidBars, fluidWords, sinusoidForces, pinnedForces } from '../src/ui/tool-fluid.js';
 import { pulsatility, caliperPick, caliperFrame, caliperGlide, CAL_GLIDE, CAL_SECS, pairOf, pairBand, pairScale, PAIR_GAP } from '../src/ui/doppler-marks.js';
 import ext from '../src/ui/ext-instruments.js';
@@ -41,18 +41,21 @@ test('the package registers its two instruments, titled, and no built-in deck us
   }
 });
 
-test('V19: the open lumen is 1 minus the engine\'s occlusion, and the picture\'s channel has that share of the vessel\'s area', () => {
+test('V19: the open lumen is 1 minus the engine\'s occlusion, and the picture\'s remnant lumen has that share of the vessel\'s diameter', () => {
   const e = new Engine();
   for (const [st, th] of [[0, 0], [0, 0.6], [0.4, 0], [0.5, 0.5], [0.9, 0.3], [0, 1]]) {
     e.params.stenosis.PV_TRUNK = st; e.params.thrombus.PV_TRUNK = th;
     const L = lumenOf(e.params, 'PV_TRUNK');
     near(L.open, 1 - e.occlusion('PV_TRUNK'), 1e-12, `narrowing ${st}, clot ${th}`);
     const g = lumenShape(L), R0 = LUMEN_R - LUMEN_WALL;
-    near((g.ro / R0) ** 2, L.open, 1e-9, 'the channel\'s area');
-    assert.ok(g.oy - g.ro >= 50 - g.ri - 1e-9 && g.oy + g.ro <= 50 + g.ri + 1e-9, 'the channel lies inside the lumen');
+    near((g.top - (50 - g.ri)) / (2 * R0), L.open, 1e-9, 'the remnant lumen\'s diameter');
+    assert.ok(g.top >= 50 - g.ri - 1e-9 && g.top <= g.bot + 1e-9, 'the clot\'s top lies inside the lumen');
+    assert.ok(!/NaN/.test(clotPath(g)), 'the clot\'s outline is drawable');
   }
-  assert.equal(lumenWords(lumenOf({ thrombus: { PV_TRUNK: 1 } }, 'PV_TRUNK')), 'Occlusive clot');
-  assert.equal(lumenWords(lumenOf({ thrombus: { PV_TRUNK: 0.6 } }, 'PV_TRUNK')), 'Partial clot');
+  assert.equal(lumenWords(lumenOf({ thrombus: { PV_TRUNK: 1 } }, 'PV_TRUNK')), 'Completely occlusive');
+  assert.equal(lumenWords(lumenOf({ thrombus: { PV_TRUNK: 0.6 } }, 'PV_TRUNK')), 'Partially occlusive');
+  assert.equal(lumenWords(lumenOf({ thrombus: { PV_TRUNK: 0.5 } }, 'PV_TRUNK')), 'Minimally occlusive');
+  assert.equal(lumenWords(lumenOf({ thrombus: { PV_TRUNK: 0.95 } }, 'PV_TRUNK')), 'Partially occlusive');
   assert.equal(lumenWords(lumenOf({ stenosis: { TIPS: 0.6 } }, 'TIPS')), 'Stent narrowed');
   assert.equal(lumenWords(lumenOf({}, 'PV_TRUNK')), 'Open');
   assert.equal(lumenOf({}, 'TIPS').stent, true);

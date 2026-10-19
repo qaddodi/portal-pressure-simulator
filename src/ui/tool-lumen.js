@@ -1,5 +1,5 @@
 // Deck visuals, package G, V19: a vessel in cross-section on a slide's data card, tool { kind: 'lumen', vessel: 'PV_TRUNK' }.
-// Drawn flat: the open lumen in the vessel's colour, a clot as a crescent against the wall (a full disc when occlusive), a
+// Drawn flat: the open lumen in the vessel's colour, a clot rising from the lower wall with its diameter beside the lumen's (EASL 2025), a
 // narrowing as a thicker wall, a stent as a fine ring, and the open area as a percentage. It reads the live model's params
 // (params.thrombus and params.stenosis for the vessel, combined as engine.js occlusion), so it moves with a clot-size slider,
 // a compare button or the days of anticoagulation, easing from one state to the next.
@@ -25,20 +25,35 @@ export function lumenOf(params, id) {
   return { stenosis: st, thrombus: th, occlusion, open: 1 - occlusion, stent: STENTS.has(id) };
 }
 
-/** The picture in a 100-unit box: the wall's outer edge R, the lumen inside a narrowing (radius ri, its area 1 − narrowing
- *  of the open vessel's), and the channel a clot leaves, a circle against the top of the lumen whose area is 1 − clot of
- *  the lumen's (so the crescent between them is the clot, and the channel's area is the open fraction of the vessel's).
- *  A stent's ring sits at the vessel's own lumen, outside any narrowing inside it. */
+/** The picture in a 100-unit box, drawn as EASL 2025 (Table 4) measures a portal vein clot: the wall's outer edge R, the
+ *  lumen inside any narrowing (radius ri, its diameter 1 − narrowing of the open vessel's), and a clot rising from the
+ *  lower wall to a height of clot × the lumen's diameter, so the diameter left above it, the remnant lumen, is the open
+ *  share. top: the clot's top (y, a little uneven along it); bot: the lumen's bottom. A stent's ring sits at the
+ *  vessel's own lumen, outside any narrowing inside it. */
 export const LUMEN_R = 46, LUMEN_WALL = 5;
 export function lumenShape({ stenosis = 0, thrombus = 0 }) {
-  const R0 = LUMEN_R - LUMEN_WALL, ri = R0 * Math.sqrt(clamp(1 - stenosis, 0, 1)), ro = ri * Math.sqrt(clamp(1 - thrombus, 0, 1));
-  return { cx: 50, cy: 50, R: LUMEN_R, R0, ri, ro, oy: 50 - (ri - ro) };
+  const R0 = LUMEN_R - LUMEN_WALL, ri = R0 * clamp(1 - stenosis, 0, 1), t = clamp(thrombus, 0, 1);
+  return { cx: 50, cy: 50, R: LUMEN_R, R0, ri, bot: 50 + ri, top: 50 + ri - 2 * ri * t, t };
 }
 
-/** The words for the state: an occlusive clot, a partial clot, a narrowing, or open. */
+/** The clot's outline: the lumen's circle below its top, the top a gentle wave that flattens as it fills the lumen. */
+export function clotPath(g) {
+  if (g.t < 0.005) return '';
+  const { cx, cy, ri, top } = g, amp = Math.min(2.4, ri * 0.12) * Math.sin(Math.PI * Math.min(1, g.t)), N = 24;
+  if (g.t > 0.995) return `M${cx - ri} ${cy}A${ri} ${ri} 0 1 0 ${cx + ri} ${cy}A${ri} ${ri} 0 1 0 ${cx - ri} ${cy}Z`;
+  const dy = top - cy, hx = Math.sqrt(Math.max(0, ri * ri - dy * dy)), pts = [];
+  for (let i = 0; i <= N; i++) {
+    const x = cx - hx + 2 * hx * i / N, y = top + amp * Math.sin(i / N * Math.PI * 2.2 + 0.6) * Math.sin(Math.PI * i / N);
+    pts.push(`${x.toFixed(2)} ${y.toFixed(2)}`);
+  }
+  return `M${pts.join('L')}A${ri.toFixed(2)} ${ri.toFixed(2)} 0 ${dy < 0 ? 1 : 0} 1 ${(cx - hx).toFixed(2)} ${top.toFixed(2)}Z`;
+}
+
+/** The words for the state. A clot takes EASL 2025's grades (Table 4): minimally occlusive up to half the lumen,
+ *  partially occlusive past it, completely occlusive when no lumen is left. */
 export function lumenWords({ thrombus, stenosis, occlusion, stent }) {
-  if (occlusion >= 0.97) return thrombus >= stenosis ? 'Occlusive clot' : stent ? 'Stent closed' : 'Closed';
-  if (thrombus >= 0.05 && thrombus >= stenosis) return 'Partial clot';
+  if (occlusion >= 0.995) return thrombus >= stenosis ? 'Completely occlusive' : stent ? 'Stent closed' : 'Closed';
+  if (thrombus >= 0.05 && thrombus >= stenosis) return thrombus > 0.5 ? 'Partially occlusive' : 'Minimally occlusive';
   if (stenosis >= 0.05) return stent ? 'Stent narrowed' : 'Narrowed';
   return 'Open';
 }
@@ -58,16 +73,18 @@ const sv = (tag, attrs = {}) => { const el = document.createElementNS(SVGNS, tag
 export function createLumen() {
   let id = 'PV_TRUNK';
   const wall = sv('circle', { class: 'gl-wall', cx: 50, cy: 50, r: LUMEN_R });
-  const lumen = sv('circle', { class: 'gl-clot', cx: 50, cy: 50 });
-  const chan = sv('circle', { class: 'gl-open', cx: 50 });
+  const lumen = sv('circle', { class: 'gl-open', cx: 50, cy: 50 });
+  const clot = sv('path', { class: 'gl-clot' });
+  // The two diameters EASL measures: the lumen's, and the clot's beside it.
+  const dLumen = sv('path', { class: 'gl-dia' }), dClot = sv('path', { class: 'gl-dia gl-dia-clot' });
   const ring = sv('circle', { class: 'gl-stent', cx: 50, cy: 50, r: LUMEN_R - LUMEN_WALL });
   const pic = sv('svg', { class: 'gl-pic', viewBox: '0 0 100 100', role: 'img' });
-  pic.append(wall, lumen, chan, ring);
+  pic.append(wall, lumen, clot, dLumen, dClot, ring);
   const big = h('b'), state = h('span', { class: 'gl-state' });
   // One reading: the open share and what closes it, with a line of facts the words leave out (lumenFacts).
   const facts = h('span', { class: 'gl-facts' });
   const read = h('dl', { class: 'gl-read' },
-    h('div', { class: 'gl-big' }, h('dt', {}, 'Open lumen'), h('dd', {}, big, h('small', {}, '%')), state, facts));
+    h('div', { class: 'gl-big' }, h('dt', {}, 'Remnant lumen'), h('dd', {}, big, h('small', {}, '%')), state, facts));
   let stentD = null;
   const el = h('div', { class: 'gl' }, h('div', { class: 'gl-stage' }, pic), read);
   const set = (n, t) => { if (n.textContent !== t) n.textContent = t; };
@@ -77,11 +94,14 @@ export function createLumen() {
   function paint(x) {
     const g = lumenShape(x), L = { ...x, occlusion: 1 - (1 - x.stenosis) * (1 - x.thrombus), stent: STENTS.has(id) };
     lumen.setAttribute('r', g.ri.toFixed(2));
-    chan.setAttribute('r', g.ro.toFixed(2)); chan.setAttribute('cy', g.oy.toFixed(2));
-    chan.style.opacity = g.ro < 0.4 ? '0' : '';
+    clot.setAttribute('d', clotPath(g));
+    const tk = (x, y) => `M${x - 2.5} ${y.toFixed(2)}h5`, xl = 50 - g.ri * 0.3, xc = 50 + g.ri * 0.3;
+    dLumen.setAttribute('d', `M${xl} ${(50 - g.ri).toFixed(2)}V${g.bot.toFixed(2)}${tk(xl, 50 - g.ri)}${tk(xl, g.bot)}`);
+    dClot.setAttribute('d', g.t < 0.03 ? '' : `M${xc} ${g.top.toFixed(2)}V${g.bot.toFixed(2)}${tk(xc, g.top)}${tk(xc, g.bot)}`);
+    dLumen.style.opacity = g.t < 0.03 ? '0' : '';
     set(big, pct(1 - L.occlusion)); set(state, lumenWords(L));
     set(facts, lumenFacts(x, STENTS.has(id) ? stentD : null) || '\u00a0');
-    pic.setAttribute('aria-label', `${lumenName(id)} in cross-section: ${pct(1 - L.occlusion)}% of the lumen open, clot ${pct(x.thrombus)}%, narrowing ${pct(x.stenosis)}%`);
+    pic.setAttribute('aria-label', `${lumenName(id)} in cross-section: ${pct(1 - L.occlusion)}% remnant lumen, clot ${pct(x.thrombus)}%, narrowing ${pct(x.stenosis)}%`);
   }
   function tick(now) {
     raf = 0;
