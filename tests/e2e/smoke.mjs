@@ -2263,10 +2263,14 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
   // The Mac and iPad ladder card's HVPG and PPG brackets on every slide: a real line between the ticks, the label clear
   // of every drop line, reading, name and other bracket (Mac 1280x800 and upright iPad at 100% and 200% text here; run
   // checkLadderBrackets alone for every size).
-  if (device === 'desktop') await check(device, 'presenter: ladder HVPG/PPG brackets draw a line and their labels clash with nothing', async () => {
-    const bad = await checkLadderBrackets(browser, server.url, () => {}, [LADDER_SIZES[0], LADDER_SIZES[2]]);
-    if (bad.length) throw new Error(bad.slice(0, 3).join(' | '));
-  });
+  // (One check per size and text size, so the four walks of every slide share out over the runners: as one check they ran past
+  // a share's time limit, and the checks after it in that share went unreported.)
+  if (device === 'desktop') for (const size of [LADDER_SIZES[0], LADDER_SIZES[2]]) for (const z of [1, 2]) {
+    await check(device, `presenter: ladder HVPG/PPG brackets draw a line and their labels clash with nothing (${size.name}, ${z * 100}% text)`, async () => {
+      const bad = await checkLadderBrackets(browser, server.url, () => {}, [size], [z]);
+      if (bad.length) throw new Error(bad.slice(0, 3).join(' | '));
+    });
+  }
 
   // A Mac or iPad ladder card too tall for its room even at its smallest steps folds its plot behind Show, its tiles keeping the
   // readings; shown, the plot takes the tiles' place. Folded or shown, every reading sits inside the card at 12 px or more, and
