@@ -3159,7 +3159,9 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     // doing the rest: Treatment 2 on a 667 px iPhone came in at half size, and the 8 px of its top left out shrank hvpg 5's card to 78 % on a 844 px one.)
     // (Never folded to its header behind Show any more: Mohammad, 17 Oct, "The data card should not glitch like this on the iPhone".)
     const dcs = getComputedStyle(dd), dtop = (parseFloat(dcs.top) || 0) * k;
-    const dmax = (() => { const sv = ds.maxHeight; ds.maxHeight = ''; const m = getComputedStyle(dd).maxHeight; ds.maxHeight = sv; return m === 'none' ? Infinity : m.endsWith('%') ? parseFloat(m) * H / 100 : parseFloat(m) * k; })();
+    // (The cap with the readings tucked: out, it grows by their height, styles/app.css .pz-sheet.has-tool.tool-open.)
+    const dmax = (() => { const sv = ds.maxHeight; ds.maxHeight = ''; const m = getComputedStyle(dd).maxHeight; ds.maxHeight = sv; if (m === 'none') return Infinity; let v = 0; m.replace(/(-?[\d.]+)(%|px)/g, (_, n, u) => { v += u === '%' ? n * H / 100 : n * k; }); return v; })()
+      - (splitSheet(dd) && dd.classList.contains('tool-open') && dd.classList.contains('has-tool') ? (parseFloat(ds.getPropertyValue('--pz-d')) || 0) * k : 0);
     const both = H - foot - 16 - 8 - dtop - FIG_MIN(H);
     // (Measured as the slide arrives, partly open with its sheet's edge below it, whatever the reader opened: the part's ease held
     // back so the measure sees where it rests.)

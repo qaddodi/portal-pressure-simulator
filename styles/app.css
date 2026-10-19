@@ -2491,6 +2491,10 @@ button.finding { cursor: pointer; }
 .ptk-v { font: 700 22px var(--font-ui); fill: var(--text); font-variant-numeric: tabular-nums; }
 .ptk-v[data-rate="mid"] { fill: var(--caution); } .ptk-v[data-rate="hi"] { fill: var(--danger); }
 .pz.stack .pz-data.has-tool { max-height: 50%; }
+/* (With its readings out under it, the card's cap grows by their height (--pz-d, presenter.js measureUnder): the instrument card keeps
+   the size it had with them tucked, never fitted smaller to make room for them (Mohammad, 19 Oct: "Need to maintain same card size
+   whether open or semi open"). The words' room still caps it, presenter.js layout.) */
+.pz.stack.stack .pz-data.pz-sheet.has-tool.tool-open { max-height: calc(50% + var(--pz-d, 0px)); }
 .pz.stack .pz-data > * { flex-shrink: 0; }   /* (parts keep their height, so a card too full reads as overflow and is fitted, not squeezed until a reading is cut) */
 .pz.stack .pz-tool[data-kind="doppler"] .dop-box { height: 140px; }
 .pz.stack .pz-tool[data-kind="fibroscan"] .fibroscan-box { height: 140px; }
