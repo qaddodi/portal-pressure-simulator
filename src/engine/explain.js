@@ -6,6 +6,7 @@ import { Engine } from './engine.js?v=c0a0c4e609';
 import { computeMetrics } from './metrics.js?v=e566c70621';
 import { defaultParams, DRUGS } from './scenario.js?v=1ee7733788';
 import { EDGES, dMinOf } from './topology.js?v=4044766e96';
+import { wallRead } from './wall-read.js?v=09449acd01';
 
 export const METRICS = {
   pv: { label: 'Portal pressure', unit: 'mmHg', get: (m) => m.pv, digits: 1 },
@@ -164,7 +165,8 @@ export function formula(eng, id, m = null) {
   }
   if (id === 'varix') {
     const v = eng.varix('VAR');
-    return `Laplace: T = ΔP·r / w = ${v.ptm.toFixed(1)} mmHg × ${v.r.toFixed(2)} mm / ${v.w.toFixed(2)} mm = ${v.T.toFixed(0)}  (rupture ≈ ${(v.T / v.ratio).toFixed(0)})`;
+    const t = wallRead(v);
+    return `Laplace: T = ΔP·r / w = ${t.ptm} mmHg × ${t.r} mm / ${t.w} mm = ${t.index}  (rupture ≈ ${(v.T / v.ratio).toFixed(0)})`;
   }
   if (id === 'ascites') {
     const f = eng.flows;

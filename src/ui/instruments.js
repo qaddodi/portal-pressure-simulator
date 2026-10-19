@@ -2,6 +2,7 @@
 // varix cross-section, abdomen.
 
 import { NODES } from '../engine/topology.js?v=4044766e96';
+import { wallRead } from '../engine/wall-read.js?v=09449acd01';
 import { pressureColor } from './colormap.js?v=b2067d6101';
 import { h, fmt, fitCanvas, cssVar, cssAlpha, clamp, icon } from './util.js?v=8813192ea2';
 import { simTime, isPaused } from './clock.js?v=520596240b';
@@ -290,7 +291,8 @@ export function createVarixWall() {
   }
   function update(f) {
     const v = f.metrics.varix;
-    set(ptm.v, fmt(v.ptm, 1)); set(rad.v, fmt(v.r, 1)); set(wal.v, fmt(v.w, 1)); set(idx.v, fmt(v.T, 0));
+    const wr = wallRead(v);   // (the index is worked out from the shown ΔP, r and w, so the tiles multiply out)
+    set(ptm.v, wr.ptm); set(rad.v, wr.r); set(wal.v, wr.w); set(idx.v, wr.index);
     set(stressTxt, v.ratio >= 1 ? 'above the tear point' : `${Math.round(v.ratio * 100)} % of the tear point`);
     const sev = v.ratio > 1 ? 'critical' : v.ratio > 0.7 ? 'danger' : v.ratio > 0.4 ? 'caution' : 'ok';
     if (stressBar.dataset.sev !== sev) stressBar.dataset.sev = sev;

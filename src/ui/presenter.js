@@ -23,7 +23,7 @@ import { nb, listCase, plateletText } from './glue.js?v=5a0f63226b';
 import { DECKS, REGIONS, LEVELS, TOPICS, withOverview, siteTag, SITE_TAGS } from './decks.js?v=8b01c690f7';
 import { wholeGap, tenthGap } from '../engine/gap.js?v=3a5947c552';
 import { createHvpgMonitor } from './hvpg-proc.js?v=e37cb3f5c2';
-import { createTools } from './presenter-tools.js?v=fffa5c215d';
+import { createTools } from './presenter-tools.js?v=7731bce5c5';
 import { openHandout } from './handout.js?v=6e380115f5';
 import { noteResume, resumeFor } from './resume.js?v=f086f80ee8';
 import { parseDeckSource, checkDeck } from './deck-source.js?v=8395c650cd';
@@ -1174,7 +1174,7 @@ function makeCalc() {
   };
   const ready = (async () => {
     try {
-      const w = new Worker(new URL('../worker.js?v=07f3244993', import.meta.url), { type: 'module' });
+      const w = new Worker(new URL('../worker.js?v=7c2dc79b7e', import.meta.url), { type: 'module' });
       await new Promise((res, rej) => {
         const t = setTimeout(() => rej(new Error('worker timeout')), 15000);   // (long: a slow load still gets the worker; host.js)
         w.onmessage = (e) => { if (e.data?.type === 'presets') { clearTimeout(t); res(); } };
@@ -1187,7 +1187,7 @@ function makeCalc() {
       post = (m) => w.postMessage(m); kill = () => w.terminate();
     } catch {
       try {
-        const { createCore } = await import('../worker-core.js?v=7b172fb688');
+        const { createCore } = await import('../worker-core.js?v=508ec04d04');
         const core = createCore((m) => setTimeout(() => onMsg(m), 0));
         core.handle({ type: 'visibility', visible: false }); core.handle({ type: 'run', running: false });
         post = (m) => core.handle(structuredClone(m)); kill = () => core.dispose();
