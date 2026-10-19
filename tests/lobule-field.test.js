@@ -83,12 +83,45 @@ test('the lobule\'s fibrous bands are a deeper tan in light and Soft, the collag
 
 test('the dive\'s field fills each pixel only with the passes that change it (the same picture)', () => {
   // The fade adds nothing inside its clear circle, and at full strength lays the page's colour whole past its outer edge.
-  assert.match(lz, /fieldFade\(c, shadeOf\(bg, dark\), fx0, fy0, rd, fq, field\.width, field\.height, r0, \[r0 - 1, far\]\);/);
+  assert.match(lz, /fieldFade\(c, shadeOf\(bg, dark\), fx0, fy0, rd, fq, field\.width, field\.height, r0, r1, \[r0 - 1, far\]\);/);
   assert.match(lz, /const fadeWhole = f > 0 && fq >= 1,/);
-  assert.match(lz, /if \(fadeWhole\) \{ c\.save\(\); c\.beginPath\(\); c\.arc\(fx0, fy0, r0 \* \(3\.2 \/ 1\.1\) \+ 2, 0, TAU\); c\.clip\(\); \}/);
+  assert.match(lz, /if \(fadeWhole\) \{ c\.save\(\); c\.beginPath\(\); c\.arc\(fx0, fy0, r1 \+ 2, 0, TAU\); c\.clip\(\); \}/);
   // An opaque quieted tile at full strength covers the liver-toned one.
   assert.match(lz, /if \(!\(d\.quiet >= 1\)\) fieldFill\(c, liverTile\(/);
   // The emerging mask is whole inside rho × 0.35: it is applied only past that circle.
   assert.match(lz, /c\.arc\(d\.ox \* dpr, d\.oy \* dpr, Math\.max\(0, rho \* 0\.35 - 1\), 0, TAU\); c\.clip\('evenodd'\);\n\s+c\.globalCompositeOperation = 'destination-in';/);
   assert.match(lz, /mg\.addColorStop\(0, 'rgba\(0,0,0,1\)'\); mg\.addColorStop\(1, 'rgba\(0,0,0,0\)'\);/);
+});
+
+// Zooming in, the neighbouring lobules were cut off at the top and bottom: the fade into the page closed in to 3.2 R, inside
+// the screen (Mohammad, 19 Oct). Its outer edge now never closes in past the farthest corner, so they cover the whole screen.
+test('the neighbouring lobules cover the whole screen at every moment of the dive and at rest, on every screen', async () => {
+  const { fadeAt, fadeOuter, EDGE_FADE, FADE_SPAN } = await import('../src/ui/lobule-look.js');
+  const lerp = (a, b, u) => a + (b - a) * u;
+  const screens = [[1512, 945], [1728, 1080], [1024, 1366], [1366, 1024], [820, 1180], [390, 844], [844, 390], [375, 667], [667, 375]];
+  for (const [W, H] of screens) {
+    const diag = Math.hypot(W, H), corners = [[0, 0], [W, 0], [0, H], [W, H]];
+    // The landing lobule anywhere from the middle to well off it (a slide's camera, a card beside it), small to large.
+    for (const [cx, cy] of [[W / 2, H / 2], [W * 0.3, H * 0.5], [W * 0.5, H * 0.3], [W * 0.75, H * 0.7]]) {
+      const reach = Math.max(...corners.map(([x, y]) => Math.hypot(x - cx, y - cy)));
+      for (const land of [Math.min(W, H) * 0.25, Math.min(W, H) * 0.42, Math.min(W, H) * 0.6]) {
+        for (let i = 0; i <= 40; i++) {
+          const f = i / 40, rd = lerp(24, land, f);   // (the field's lobule grows as the focus closes in)
+          const r0 = Math.exp(lerp(Math.log(diag * 0.45), Math.log(Math.min(diag * 0.45, rd * 1.1)), f));
+          const r1 = fadeOuter(r0, reach);
+          assert.ok(r1 >= r0 * FADE_SPAN - 1e-9, 'never closer in than the lobule view\'s own fade');
+          for (const [x, y] of corners) {
+            const a = fadeAt(Math.hypot(x - cx, y - cy), r0, r1);
+            assert.ok(a <= EDGE_FADE + 1e-9, `${W}×${H}, focus ${f.toFixed(2)}: a corner ${(a * 100).toFixed(0)}% faded into the page`);
+          }
+        }
+      }
+    }
+  }
+  // Both the dive's field and the resting view take their outer edge from it, measured to the farthest corner.
+  assert.match(lz, /const r1 = fadeOuter\(r0, Math\.max\(/);
+  assert.match(lz, /const fOut = fadeOuter\(fIn, reach\)/);
+  assert.match(lz, /const vg = c\.createRadialGradient\(x, y, r0, x, y, r1\)/);
+  assert.match(lz, /addColorStop\(0\.5, css\(bg, FADE_MID \* q\)\)/, 'the gradient is the one fadeAt measures');
+  assert.doesNotMatch(lz, /3\.2 \/ 1\.1|rdv \* 3\.2/, 'no fixed outer edge left');
 });

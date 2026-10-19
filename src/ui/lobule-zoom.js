@@ -24,7 +24,7 @@ import { store } from './store.js?v=31ee79b6ab';
 import { radiiChanged, canvasPx, fxMoves, DIVE_RIM } from './lobule-render-cache.js?v=57ef9d0e5a';
 import { softwareYield } from './sw-yield.js?v=e580a095b1';
 import { lobuleState, lymphRate, LOBE } from './lobule-model.js?v=2d0d439b2b';
-import { SIN_NARROW, cordTone, dullSinusoid, NEIGHBOUR_FLAT, neighbourBlur, blurWrapped, bandOutline } from './lobule-look.js?v=240bbb6cad';
+import { SIN_NARROW, cordTone, dullSinusoid, NEIGHBOUR_FLAT, neighbourBlur, blurWrapped, bandOutline, FADE_MID, fadeOuter } from './lobule-look.js?v=71638381b6';
 import { h, s, fmt, clamp, createEaser, systemEdge, bloodColors, cssVar, cssAlpha, cssRGB01 } from './util.js?v=8813192ea2';
 import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatColor, oxygenColor } from './colormap.js?v=b2067d6101';
 import { NODES, EDGES } from '../engine/topology.js?v=4044766e96';
@@ -1897,9 +1897,10 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host) }
   // The surround fades into the page (light in light mode, dark in dark mode).
   const shadeOf = (bg) => bg;
   // ring: [inner, outer] radii, to fill only that annulus (where the fade changes anything; see paintTissue).
-  function fieldFade(c, bg, x, y, rd, q, w, h, r0 = rd * 1.1, ring = null) {
-    const vg = c.createRadialGradient(x, y, r0, x, y, r0 * (3.2 / 1.1));
-    vg.addColorStop(0, css(bg, 0)); vg.addColorStop(0.5, css(bg, 0.72 * q)); vg.addColorStop(1, css(bg, q));
+  // r1: the outer edge, from fadeOuter (lobule-look.js): never short of the screen's farthest corner, so the neighbours reach every edge.
+  function fieldFade(c, bg, x, y, rd, q, w, h, r0, r1, ring = null) {
+    const vg = c.createRadialGradient(x, y, r0, x, y, r1);
+    vg.addColorStop(0, css(bg, 0)); vg.addColorStop(0.5, css(bg, FADE_MID * q)); vg.addColorStop(1, css(bg, q));
     c.fillStyle = vg;
     if (!ring) { c.fillRect(0, 0, w, h); return; }
     c.beginPath(); c.arc(x, y, ring[1], 0, TAU); if (ring[0] > 0) { c.moveTo(x + ring[0], y); c.arc(x, y, ring[0], 0, TAU); } c.fill('evenodd');
@@ -1936,14 +1937,16 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host) }
     const f = clamp(d.focus ?? d.quiet, 0, 1), fq = Math.max(f, d.quiet), fx0 = d.x * dpr, fy0 = d.y * dpr;
     const r0 = f > 0 ? Math.exp(lerp(Math.log(Math.hypot(W, H) * dpr * 0.45), Math.log(Math.min(Math.hypot(W, H) * dpr * 0.45, rd * 1.1)), f)) : 0;
     const fadeWhole = f > 0 && fq >= 1, far = Math.hypot(field.width, field.height) + Math.hypot(fx0, fy0) + 4;
-    if (fadeWhole) { c.save(); c.beginPath(); c.arc(fx0, fy0, r0 * (3.2 / 1.1) + 2, 0, TAU); c.clip(); }
+    // (The fade's outer edge never closes in past the screen's farthest corner: the neighbours cover the whole screen throughout.)
+    const r1 = fadeOuter(r0, Math.max(...[[0, 0], [field.width, 0], [0, field.height], [field.width, field.height]].map(([x, y]) => Math.hypot(x - fx0, y - fy0))));
+    if (fadeWhole) { c.save(); c.beginPath(); c.arc(fx0, fy0, r1 + 2, 0, TAU); c.clip(); }
     // The surrounding lobules start drained and tinted like the liver being zoomed into (its fill, in
     // whichever theme), so the dive reads as one tissue; the lobule's own colours come in over it.
     if (!(d.quiet >= 1)) fieldFill(c, liverTile(t, cs, dark, bg), fx0, fy0, rd, field.width, field.height);
     // Quieting: the pre-quieted tile laid over the plain one (two pattern fills, not a blend of the whole screen).
     if (d.quiet > 0) { c.globalAlpha = d.quiet; fieldFill(c, quietTile(t, shadeOf(bg, dark)), fx0, fy0, rd, field.width, field.height); c.globalAlpha = 1; }
     if (fadeWhole) c.restore();
-    if (f > 0) fieldFade(c, shadeOf(bg, dark), fx0, fy0, rd, fq, field.width, field.height, r0, [r0 - 1, far]);
+    if (f > 0) fieldFade(c, shadeOf(bg, dark), fx0, fy0, rd, fq, field.width, field.height, r0, r1, [r0 - 1, far]);
     // Emerging: the field spreads out from the dive point as it fades in.
     if (d.a < 1) {
       const diag = Math.hypot(W, H) * dpr, rho = diag * (0.2 + 1.1 * d.a + 2 * smooth(0.7, 1, d.a));   // (the last stretch spreads it past every corner, so dropping the mask at a = 1 changes nothing seen)
@@ -2357,14 +2360,15 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host) }
     // its inner edge it adds nothing, so it is not laid there; and the surround is not filled under the lobule's opaque middle,
     // which the lobule's bitmap covers whole (kept a few pixels in from its edge, past any smoothing of the bitmap's edge).
     // (Not mid-crossfade: two pictures mixed may leave its middle a hair short of opaque.)
-    const [ocx, ocy] = toScreen([cx, cy]), ox = ocx * dpr, oy = ocy * dpr, rdv = R * V.k * dpr, fIn = rdv * 1.1, fOut = rdv * 3.2;
+    const [ocx, ocy] = toScreen([cx, cy]), ox = ocx * dpr, oy = ocy * dpr, rdv = R * V.k * dpr, fIn = rdv * 1.1;
     const reach = Math.max(...[[0, 0], [tw, 0], [0, th], [tw, th]].map(([x, y]) => Math.hypot(x - ox, y - oy)));
+    const fOut = fadeOuter(fIn, reach);   // (3.2 R, or farther when the screen reaches past it: the neighbours reach every edge)
     c.setTransform(1, 0, 0, 1, 0, 0);
     c.fillStyle = bg;
     if (reach > fOut + 1) { c.beginPath(); c.rect(0, 0, tw, th); c.moveTo(ox + fOut + 1, oy); c.arc(ox, oy, fOut + 1, 0, TAU); c.fill('evenodd'); }
     const crossfading = !!(xfT0 && now - xfT0 < XF_MS && worldOld.width && worldOldSc);
     // The neighbours are the dive's field, carried on: the same tissue, in the same state, fading into
-    // the page with distance from this lobule (so zooming out, they fade away completely).
+    // the page with distance from this lobule, never wholly before the screen's edge (fadeOuter, lobule-look.js).
     {
       c.save();
       c.beginPath(); c.arc(ox, oy, fOut + 2, 0, TAU);
@@ -2412,7 +2416,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host) }
     }
     // Focus: the surround fades into the page (as the dive's field does at its end).
     // (Only between its inner edge and the outer one: inside it adds nothing, outside the page's colour is already there.)
-    { c.setTransform(1, 0, 0, 1, 0, 0); if (fIn - 1 < reach) fieldFade(c, shadeOf(rgb01(bg), dark), ox, oy, rdv, 1, W * dpr, H * dpr, fIn, [fIn - 1, fOut + 4]); c.setTransform(dpr * V.k, 0, 0, dpr * V.k, dpr * V.x, dpr * V.y); }
+    { c.setTransform(1, 0, 0, 1, 0, 0); if (fIn - 1 < reach) fieldFade(c, shadeOf(rgb01(bg), dark), ox, oy, rdv, 1, W * dpr, H * dpr, fIn, fOut, [fIn - 1, fOut + 4]); c.setTransform(dpr * V.k, 0, 0, dpr * V.k, dpr * V.x, dpr * V.y); }
     if (flatVessels) paintFlatVessels(c, cs);
     flatAt = flatVessels ? { cs, m: [dpr * V.k, 0, 0, dpr * V.k, dpr * V.x, dpr * V.y] } : null;
     if (diveRim) diveCopy();

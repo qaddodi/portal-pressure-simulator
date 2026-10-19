@@ -28,6 +28,24 @@ export function dullSinusoid(rgb, shade, fibSin) {
 /** The neighbouring lobules' contrast, cut by this much (an overlay of the page's own colour) in the lobule view (G22). */
 export const NEIGHBOUR_FLAT = 0.3;
 
+/** The surround's fade into the page round the lobule in focus: clear inside r0, FADE_MID of the page's colour halfway out,
+ *  all of it at the outer edge, which sits FADE_SPAN × r0 out (the lobule view's 1.1 R to 3.2 R). */
+export const FADE_SPAN = 3.2 / 1.1, FADE_MID = 0.72;
+/** The most of the page's colour the fade may lay anywhere on screen, so the neighbouring lobules always reach every edge
+ *  (Mohammad, 19 Oct: zooming in, they were cut off at the top and bottom). */
+export const EDGE_FADE = 0.5;
+/** How much of the page's colour the fade lays at distance d from the lobule (q = 1). */
+export function fadeAt(d, r0, r1) {
+  const s = Math.min(1, Math.max(0, (d - r0) / Math.max(1e-6, r1 - r0)));
+  return s < 0.5 ? FADE_MID * s * 2 : FADE_MID + (1 - FADE_MID) * (s - 0.5) * 2;
+}
+/** The fade's outer edge for a clear circle r0, pushed out (never in) so the farthest screen corner, reach away, is at most
+ *  EDGE_FADE faded: the neighbours cover the whole screen at every moment of the zoom and at rest, on every screen. */
+export function fadeOuter(r0, reach) {
+  const s = EDGE_FADE / (2 * FADE_MID);   // (where the first half of the ramp reaches EDGE_FADE)
+  return Math.max(r0 * FADE_SPAN, r0 + Math.max(0, reach - r0) / s);
+}
+
 /** Their blur, in px of a field tile whose lobules are R px across: none on the smallest tiles, about 4 px on a 192 px one. */
 export const neighbourBlur = (R) => (R < 24 ? 0 : R * 0.02);
 
