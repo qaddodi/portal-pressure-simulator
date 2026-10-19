@@ -1605,7 +1605,7 @@ button.finding { cursor: pointer; }
    tab and the outline and the edge reads the same all the way round.) */
 .pz-shade:is(.stack, .pz-card) { --pz-tab-ro: calc(var(--pz-r) - 1px); }
 .pz-kick[data-site="none"] { color: var(--text-3); }
-.pz-h { margin: 0; font: 540 var(--s-title)/1.06 var(--font-display); letter-spacing: -.015em; text-wrap: balance; color: var(--text); }
+.pz-h { margin: 0; font: 540 var(--s-title)/1.06 var(--font-display); letter-spacing: -.015em; text-wrap: pretty; color: var(--text); }   /* (a title fills the card's text width, as the lines under it do; balanced, a three-line title had kept to the left 60 % of a wide card (Mohammad, 19 Oct); pretty still keeps a lone word off its last line) */
 /* No rule under the title (17 Oct): its old room stays as space before the body. */
 .pz-text .pz-h, .pz-ph .pz-h { padding-bottom: calc(.3em + 2px); }
 .pz.stack .pz-h { padding-bottom: calc(.22em + 2px); }
