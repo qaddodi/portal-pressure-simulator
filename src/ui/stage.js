@@ -6646,7 +6646,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const prevSol = labelSol, nextSol = solve ? new Map() : labelSol;
     const out = [];
     const leaders = [];   // { k, tag, at }: every line, then every dot (paintLeaders)
-    let useLines = false, rings = [], ringPts = [];   // rings: the Circuit's stations with a reading (see placeMulti)
+    let useLines = false, rings = [], ringPts = [], ringXY = [];   // rings: the Circuit's stations with a reading (see placeMulti); ringXY: their dots
     let clampAlts = [];   // (the column's "60 %": other spots off the vessels, nearest first, for the slide's mark)
     const buildLines = () => { if (solve && !useLines) { useLines = true; buildSegs(); } };
     // A stent called out at its three points: the three stand in a column beside their own dots, distal to proximal in the stent's
@@ -7086,7 +7086,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         const { ax, ay, mid, tan, w: vw } = labelAnchor(n.id, t);
         // The station dot stays where it is; a callout on a vessel also keeps clear of its own marker.
         const [sx, sy] = worldToLocal(...nodePos(n.id, t));
-        placed.push({ x0: sx - 5, y0: sy - 5, x1: sx + 5, y1: sy + 5, dot: true }); if (solve) ringPts.push(`${Math.round(sx)},${Math.round(sy)}`);
+        placed.push({ x0: sx - 5, y0: sy - 5, x1: sx + 5, y1: sy + 5, dot: true }); ringXY.push([sx, sy]); if (solve) ringPts.push(`${Math.round(sx)},${Math.round(sy)}`);
         if (mid) placed.push({ x0: ax - 4, y0: ay - 4, x1: ax + 4, y1: ay + 4, dot: true });
         const it = nodeItem(n.id, f, 'station', compact);
         it.align = 'middle'; it.ax = ax; it.ay = ay; it.mid = mid; it.tan = tan; it.vw = vw * CTM.sc; it.pri = it.sel ? 100 : CIRCUIT_LABELS[n.id].pri;
@@ -7387,6 +7387,22 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       if (it.cls === 'organ') { const was = labelVis.get(it.key) !== false, m = was ? 0 : 10; it.hide = !within({ x0: edge.x0 - m, y0: edge.y0 - m, x1: edge.x1 + m, y1: edge.y1 + m }, V) || obstacles.some((o) => hits(edge, o)); labelVis.set(it.key, !it.hide); continue; }
       const cx = Math.max(V.x0 - edge.x0, Math.min(0, V.x1 - edge.x1)), cy = Math.max(V.y0 - edge.y0, Math.min(0, V.y1 - edge.y1));
       if (cx || cy) { it.x += cx; it.y += cy; if (Math.hypot(cx, cy) > 2) it.leader = true; }
+      // (A Circuit reading pulled in never lands on a station's ring, its own included: its halo would hide the ring. It slides on
+      // the little it needs, further in or to either side, onto no other reading, and stays in the free space; failing that it
+      // stays where the pull set it.)
+      if ((cx || cy) && circuit && it.key.startsWith('n:') && ringXY.length) {
+        const ringK = 6 + 1.5 * Math.max(0, labelK - 1);   // (its halo grows with the text: tests/e2e/smoke.mjs keeps it 4 px off the ring)
+        const others = out.filter((o) => o !== it && o.key.startsWith('n:') && !o.hide && !o.live).map(rectOf);
+        const onRing = (r) => ringXY.some(([x, y]) => x > r.x0 - ringK && x < r.x1 + ringK && y > r.y0 - ringK && y < r.y1 + ringK);
+        if (onRing(rectOf(it))) {
+          const along = Math.abs(cy) >= Math.abs(cx) ? [0, Math.sign(cy)] : [Math.sign(cx), 0], across = [along[1], along[0]];
+          const ok = (dx, dy) => { const r = rectOf({ ...it, x: it.x + dx, y: it.y + dy }); return within(r, V) && !onRing(r) && !others.some((o) => hits(r, o)); };
+          for (let d = 1; d <= 48; d++) {
+            const step = [[along[0] * d, along[1] * d], [across[0] * d, across[1] * d], [-across[0] * d, -across[1] * d]].find(([dx, dy]) => ok(dx, dy));
+            if (step) { it.x += step[0]; it.y += step[1]; it.leader = true; break; }
+          }
+        }
+      }
       // (A reading pulled in onto a vessel takes the solid halo there too.)
       if ((cx || cy) && solve && useLines && it.key.startsWith('n:') && lineHits(rectOf(it), 2)) { it.onVessel = true; const sol = nextSol.get(it.key); if (sol) sol.onv = true; }
       if (!it.sel && (it.ax < -8 || it.ax > W + 8 || it.ay < -8 || it.ay > H + 8)) { it.hide = true; labelVis.set(it.key, false); continue; }
