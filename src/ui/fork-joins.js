@@ -35,3 +35,15 @@ export function forkJoins(dirs) {
     runOn: [best.a, best.b],
   };
 }
+
+// A shunt drawn onto the side of a vein (stage.js SIDE_HOSTS: the splenorenal shunt on the splenic and renal veins) ends
+// at the vein's centreline. Over its last stretch inside the vein its lumen narrows to half, so its round end sits well
+// inside the vein's walls and never shows past the far wall as a bump: the scale of its radius at distance d from that
+// end (world units), for a vein of radius hostR. The narrowing lies within the vein (0.8 of its radius), out of sight.
+export const SIDE_END_MIN = 0.5;
+export function sideEndScale(d, hostR) {
+  const s = 0.8 * hostR;
+  if (!(s > 0) || d >= s) return 1;
+  const u = Math.max(0, d) / s;
+  return SIDE_END_MIN + (1 - SIDE_END_MIN) * u * u * (3 - 2 * u);
+}

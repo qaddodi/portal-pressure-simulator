@@ -2,9 +2,9 @@
 // over an SVG scene that holds the organ artwork, hit targets and overlays, and screen-space labels.
 
 import { EDGES, dopplerK, NODES, PORTAL_TERRITORY, dMinOf, edgePresent, isOccluded, SHUNT_PORTAL, SHUNT_SYSTEMIC, customShuntId, isStent, stentSite, STENT_SITES, STENT_SPANS, stentGate, stentSegments } from '../engine/topology.js?v=4044766e96';
-import { route as metroRoute, LABEL_VESSEL, TIP_FADE, TIP_CONNECT, VIEW, VB_ANAT, VB_CIRC, ATLAS_COLUMNS, HIDDEN_EDGES, HIDDEN_NODES, ANAT_HIDDEN, ANAT_HIDDEN_NODES, CAUDATE, CONTEXT_EDGES, BACK_EDGES, IVC_EDGES, NEEDS_C3, NODE_POS, EDGE_PATH, CIRCUIT_PATH, metroPath, ORGANS, ORGAN_DETAIL, BACKDROP, LIVER_INNER, LIVER_EDGES, LANE_CAPTIONS, ABDOMEN_CLIP, ABDOMEN_FLOOR, flankPath, abdomenOutline, cavityHalfWidths, SPLEEN_CENTER, SITES, ORGAN_LABELS, ATLAS_LABELS, SHORT, ABBR, CHIP_NODES, LIVER_SPLIT_X, CIRCUIT_ZONES, CIRCUIT_LABELS, STRANDS, STRAND_FROM, SIN_EDGES, FEEDERS, fanFeeders, CIRCUIT_TREES } from './anatomy.js?v=11bc2502e7';
+import { route as metroRoute, LABEL_VESSEL, TIP_FADE, TIP_CONNECT, VIEW, VB_ANAT, VB_CIRC, ATLAS_COLUMNS, HIDDEN_EDGES, HIDDEN_NODES, ANAT_HIDDEN, ANAT_HIDDEN_NODES, CAUDATE, CONTEXT_EDGES, BACK_EDGES, IVC_EDGES, NEEDS_C3, NODE_POS, EDGE_PATH, CIRCUIT_PATH, metroPath, ORGANS, ORGAN_DETAIL, BACKDROP, LIVER_INNER, LIVER_EDGES, LANE_CAPTIONS, ABDOMEN_CLIP, ABDOMEN_FLOOR, flankPath, abdomenOutline, cavityHalfWidths, SPLEEN_CENTER, SITES, ORGAN_LABELS, ATLAS_LABELS, SHORT, ABBR, CHIP_NODES, LIVER_SPLIT_X, CIRCUIT_ZONES, CIRCUIT_LABELS, STRANDS, STRAND_FROM, SIN_EDGES, FEEDERS, fanFeeders, CIRCUIT_TREES } from './anatomy.js?v=bb5ef8acc8';
 import { pressureColor, deltaColor, dropColor, flowColor, heatColor, velColorOf, velocityColor, oxygenColor } from './colormap.js?v=b2067d6101';
-import { forkJoins } from './fork-joins.js?v=f53ff3cc9f';
+import { forkJoins, sideEndScale } from './fork-joins.js?v=327d1e72e9';
 import { STATION_VESSEL, meanVel, velNormal } from './velNormal.js?v=181dda5594';
 import { store, updateParams, varicesPresent, varixGrowth, shownVel } from './store.js?v=31ee79b6ab';
 import { fibroReading } from './clock.js?v=520596240b';
@@ -42,7 +42,7 @@ import { probePose, probeShapes, awayFromProbe, PROBE_SVG } from './dop-probe.js
 import { organDimMatrix } from './organ-dim.js?v=7888276613';
 import { parseColor, greyOf, paintRef } from './organ-grey.js?v=e41d68222c';
 import { bandRing, dashRings, liftEnd, normalShown, rippleList, systemOf, SYSTEM_COLOR } from './highlight-math.js?v=e2c1816e25';
-import { organAnchor, spleenCaliper, acrossVessel, stepGroups, spanOf, spanPath, zoneBand, SPAN_TICK, insideBy, clearOf, besideLine } from './callout-math.js?v=dc03c3d240';
+import { organAnchor, spleenCaliper, acrossVessel, stepGroups, spanOf, spanPath, zoneBand, SPAN_TICK, insideBy, clearOf, besideLine } from './callout-math.js?v=eca7c07e13';
 const nextFrame = frameFor('stage');
 
 const N_SAMPLES = 64;
@@ -198,6 +198,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const GPU_EASE = { IVCS_RA: 'RA' };
   // Shunts that leave and join a vein part-way along it, not at a node: the veins at each end ([from end], [to end]).
   const SIDE_HOSTS = { C6: [['V_SPL', 'SV_MID'], ['V_KID_L']], S_DSR: [['V_SPL', 'SV_MID'], ['V_KID_L']] };
+  // The ends of those that lie inside the vein's lumen, as a side branch (the Warren shunt's start runs on from the
+  // divided splenic vein instead): narrowed there on the GPU (renderTube).
+  const SIDE_INSIDE = { C6: [true, true], S_DSR: [false, true] };
   // Surgical shunts and the vein each one divides (engine.js closes the same vessels): the Warren shunt the splenic
   // vein, the portocaval shunt the portal trunk. The vein's first stretch, at the shunt, is not drawn, so the shunt
   // side and the tied-off stump stand apart with a clear gap, each ending in a rounded cap.
@@ -2639,15 +2642,21 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     // end stays inside the vein instead of bulging out of the far wall.
     const hostW = (i) => { const hs = SIDE_HOSTS[id]?.[i].filter((h) => E[h]?.vis).map((h) => E[h].width); return hs?.length ? clamp(Math.max(...hs), w * 0.4, w) : null; };
     const a = (!stroked && hostW(0)) || endW(x.e.from), b = (!stroked && hostW(1)) || endW(x.e.to);
+    // On the GPU its end inside the vein then narrows to half (fork-joins.js sideEndScale), so the round end stays clear
+    // of the far wall: the hosts' radii at each end, or 0.
+    const hostR = (i) => { const hs = SIDE_HOSTS[id]?.[i].filter((h) => E[h]?.vis).map((h) => E[h].width); return gpu && !stroked && SIDE_INSIDE[id]?.[i] && hs?.length ? Math.max(...hs) / 2 : 0; };
     const qw = widthMoving(x) ? 2 * edgeQ() : 0;
     keep(x, 'kw', w, qw); keep(x, 'ka', a, qw); keep(x, 'kb', b, qw);
-    const key = `${x.kw},${x.ka},${x.kb}|${wallPx.toFixed(2)}|${sten ? v.toFixed(3) + '@' + stenosisAt(id, p) : ''}|${lastMorph}|${stroked}|${gpu}`;
+    keep(x, 'kh0', hostR(0), qw); keep(x, 'kh1', hostR(1), qw);
+    const key = `${x.kw},${x.ka},${x.kb},${x.kh0},${x.kh1}|${wallPx.toFixed(2)}|${sten ? v.toFixed(3) + '@' + stenosisAt(id, p) : ''}|${lastMorph}|${stroked}|${gpu}`;
     if (key === x.shadeKey) return;
     x.shadeKey = key;
     const f = sten ? waist(id, v, g.len, w, p) : null;
+    const h0 = x.kh0, h1 = x.kh1, L = g.len || 1;
     x.rOf = (u) => {
       const r = u < 0.3 ? lerp(a, w, smooth(u / 0.3)) : u > 0.7 ? lerp(w, b, smooth((u - 0.7) / 0.3)) : w;
-      return Math.max(0.35, (r / 2) * (f ? f(u) : 1));
+      const side = (h0 ? sideEndScale(u * L, h0) : 1) * (h1 ? sideEndScale((1 - u) * L, h1) : 1);
+      return Math.max(0.35, (r / 2) * (f ? f(u) : 1) * side);
     };
     // The GPU draws the tube from rOf; the SVG outlines are built only when the SVG shows them.
     if (gpu) return;
@@ -2982,7 +2991,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       // Which ends blend into which (fork-joins.js): a vessel running on into the next is not filleted to it, in a fork too.
       const dir = ([it, i]) => { if (i == null) return null; const P = it.pts, n = P.length, a = i ? P[n - 1] : P[0], b = i ? P[Math.max(0, n - 4)] : P[Math.min(n - 1, 3)], L = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1; return [(b[0] - a[0]) / L, (b[1] - a[1]) / L]; };
       const { groups, runOn } = forkJoins(uniq.map(dir));
-      if (runOn) glStraight.push({ a: uniq[runOn[0]][0].row, ia: uniq[runOn[0]][1], b: uniq[runOn[1]][0].row, ib: uniq[runOn[1]][1] });
+      if (runOn) glStraight.push({ a: uniq[runOn[0]][0].row, ia: uniq[runOn[0]][1], b: uniq[runOn[1]][0].row, ib: uniq[runOn[1]][1], fork: uniq.length > 2 });
       const reach = spread + 2 * rMax + k + 6;
       const rows = uniq.map(([it]) => it);
       for (let a = 0; a < rows.length; a++) for (let b = a + 1; b < rows.length; b++) pairs.add(pairKey(rows[a], rows[b]));
@@ -3089,10 +3098,25 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     }
     if (refs) {
       const byRow = new Map(items.map((it) => [it.row, it.obj])), itOf = new Map(items.map((it) => [it.row, it]));
-      for (const { a, ia, b, ib } of glStraight) {
+      for (const { a, ia, b, ib, fork } of glStraight) {
         const A = byRow.get(a), B = byRow.get(b);
         if (!A?.glR0 || !B?.glR0) continue;
         const ra = A.glR0[ia ? N_SAMPLES - 1 : 0], rb = B.glR0[ib ? N_SAMPLES - 1 : 0];
+        // In a fork the narrower stretch widens to the wider one's caliber at the node instead (the wider never narrows):
+        // a tributary there meets the trunk at full width, so its end stays inside the trunk's walls (the splenorenal
+        // shunt on the splenic vein, where the splenic vein's last stretch carries little).
+        if (fork) {
+          const m = Math.max(ra, rb), S = (u) => u * u * (3 - 2 * u);
+          for (const [O, i, r0, row] of [[A, ia, ra, a], [B, ib, rb, b]]) {
+            if (r0 >= m) continue;
+            // (Over about three trunk radii, not half its course: a short funnel, not a long cone.)
+            const it = itOf.get(row), step = arcLen(it.pts) / (N_SAMPLES - 1) || 1;
+            const E = Math.min(runOnSamples(it, N_SAMPLES >> 1), Math.max(2, Math.round((3 * m) / step))), R = eased.get(O) || O.glR0.slice();
+            for (let s = 0; s < E; s++) R[i ? N_SAMPLES - 1 - s : s] += (m - r0) * (1 - S(s / E));
+            eased.set(O, R);
+          }
+          continue;
+        }
         // One smoothstep from A's caliber (half A's course back) to B's (half B's course on), so the
         // taper runs steadily through the join: no plateau there, which read as a crease.
         const S = (u) => u * u * (3 - 2 * u);
