@@ -4,11 +4,12 @@
 import { EDGES, dopplerK, NODES, PORTAL_TERRITORY, dMinOf, edgePresent, isOccluded, SHUNT_PORTAL, SHUNT_SYSTEMIC, customShuntId, isStent, stentSite, STENT_SITES, STENT_SPANS, stentGate, stentSegments } from '../engine/topology.js?v=4044766e96';
 import { route as metroRoute, LABEL_VESSEL, TIP_FADE, TIP_CONNECT, VIEW, VB_ANAT, VB_CIRC, ATLAS_COLUMNS, HIDDEN_EDGES, HIDDEN_NODES, ANAT_HIDDEN, ANAT_HIDDEN_NODES, CAUDATE, CONTEXT_EDGES, BACK_EDGES, IVC_EDGES, NEEDS_C3, NODE_POS, EDGE_PATH, CIRCUIT_PATH, metroPath, ORGANS, ORGAN_DETAIL, BACKDROP, LIVER_INNER, LIVER_EDGES, LANE_CAPTIONS, ABDOMEN_CLIP, ABDOMEN_FLOOR, flankPath, abdomenOutline, cavityHalfWidths, SPLEEN_CENTER, SITES, ORGAN_LABELS, ATLAS_LABELS, SHORT, ABBR, CHIP_NODES, LIVER_SPLIT_X, CIRCUIT_ZONES, CIRCUIT_LABELS, STRANDS, STRAND_FROM, SIN_EDGES, FEEDERS, fanFeeders, CIRCUIT_TREES } from './anatomy.js?v=11bc2502e7';
 import { pressureColor, deltaColor, dropColor, flowColor, heatColor, velColorOf, velocityColor, oxygenColor } from './colormap.js?v=b2067d6101';
+import { forkJoins } from './fork-joins.js?v=f53ff3cc9f';
 import { STATION_VESSEL, meanVel, velNormal } from './velNormal.js?v=181dda5594';
 import { store, updateParams, varicesPresent, varixGrowth, shownVel } from './store.js?v=31ee79b6ab';
 import { fibroReading } from './clock.js?v=520596240b';
 import { s, h, fmt, fmtFlow, fp, clamp, lerp, toast, systemEdge, bloodColors, restBox, settledBox, putText } from './util.js?v=8813192ea2';
-import { createLobuleZoom } from './lobule-zoom.js?v=000cb3dfad';
+import { createLobuleZoom } from './lobule-zoom.js?v=bbf884db97';
 import { runFlick, FLICK } from './flick.js?v=3da45febf2';
 import { inlineStyles } from './svg-inline.js?v=fc17cb73fe';
 import { fluidTarget, poolFade } from './fluid-step.js?v=2742314765';
@@ -23,7 +24,7 @@ import { LIVER_GEO } from './liver-geo-data.js?v=d2bd9ee6b4';
 import { createRouter } from './circuit-router.js?v=0ee9e02fc6';
 import { gpuProbe } from './gpu-probe.js?v=d4aeccea90';
 import { plateStrips, premultiply } from './plate-upload.js?v=2dd6db2a18';
-import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, ORIGIN_GREY } from './veins-gl.js?v=d62f434d87';
+import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, ORIGIN_GREY } from './veins-gl.js?v=e4a9cef6c8';
 import { varixBead, beadRadius } from './varix-bead.js?v=ac0e84fd89';
 import { advanceStream, createReversalHold, bleedShapes, stepBleedFade, fadeBleedShapes, chevFlowLevel, keyChevron, KEY_CHEV_LANES, originFractions, oxygenFor, ORIGIN_N, createBolus, DYE_BINS, KAPPA, STASIS_MIN_D, HIDDEN_SECONDS } from './blood.js?v=e668d01823';
 import { frameFor, cancelFrame, noteDraw, setSaver as setFrameSaver, paceMs } from './frame.js?v=67ca200c87';
@@ -2978,20 +2979,14 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         rMin = Math.min(rMin, r); rMax = Math.max(rMax, r);
       }
       const k = clamp(1.2 * rMin + 1.2, 1.5, 11);
-      let fil = 1;
-      // One vessel running on into the next (two ends meeting nearly head on) needs no fillet: the
-      // smooth union of two overlapping ends swells the tube there, a bump at every join.
-      if (uniq.length === 2 && uniq.every(([, i]) => i != null)) {
-        const dir = ([it, i]) => { const P = it.pts, n = P.length, a = i ? P[n - 1] : P[0], b = i ? P[Math.max(0, n - 4)] : P[Math.min(n - 1, 3)], L = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1; return [(b[0] - a[0]) / L, (b[1] - a[1]) / L]; };
-        const [u, v] = uniq.map(dir), dot = u[0] * v[0] + u[1] * v[1];
-        fil = clamp((dot + 0.9) / 0.5, 0, 1);
-        if (fil < 1) glStraight.push({ a: uniq[0][0].row, ia: uniq[0][1], b: uniq[1][0].row, ib: uniq[1][1] });
-      }
+      // Which ends blend into which (fork-joins.js): a vessel running on into the next is not filleted to it, in a fork too.
+      const dir = ([it, i]) => { if (i == null) return null; const P = it.pts, n = P.length, a = i ? P[n - 1] : P[0], b = i ? P[Math.max(0, n - 4)] : P[Math.min(n - 1, 3)], L = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1; return [(b[0] - a[0]) / L, (b[1] - a[1]) / L]; };
+      const { groups, runOn } = forkJoins(uniq.map(dir));
+      if (runOn) glStraight.push({ a: uniq[runOn[0]][0].row, ia: uniq[runOn[0]][1], b: uniq[runOn[1]][0].row, ib: uniq[runOn[1]][1] });
       const reach = spread + 2 * rMax + k + 6;
       const rows = uniq.map(([it]) => it);
       for (let a = 0; a < rows.length; a++) for (let b = a + 1; b < rows.length; b++) pairs.add(pairKey(rows[a], rows[b]));
-      const groups = rows.length <= 4 ? [rows] : rows.flatMap((r, a) => rows.slice(a + 1).map((q) => [r, q]));
-      for (const g of groups) joins.push({ x: c[0], y: c[1], reach, k, fillet: fil, members: g.map((it) => it.row) });
+      for (const g of groups) joins.push({ x: c[0], y: c[1], reach, k, fillet: g.fillet, members: g.members.map((i) => rows[i].row) });
     };
     const byNode = new Map();
     for (const it of items) {

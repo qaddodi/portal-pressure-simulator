@@ -297,6 +297,14 @@ void main() {
     }
   }
 
+  // How far past its drawn end (along its course, world units) each vessel's nearest point lies: 0 alongside it.
+  float se[MAXS];
+  for (int s = 0; s < MAXS; s++) {
+    if (s >= n) break;
+    vec4 c5 = T(sid[s], 5);
+    se[s] = max(max(c5.x - su[s], su[s] - c5.y), 0.0) * c5.z;
+  }
+
   // ── Per-vessel attributes ──
   float stier[MAXS], sz[MAXS], sflag[MAXS], sa[MAXS], swall[MAXS], sheat[MAXS], shov[MAXS], ssel[MAXS];
   vec3 scol[MAXS], shcol[MAXS], sedge[MAXS];
@@ -456,7 +464,10 @@ void main() {
         pres[s] = max(pres[s], jf[j] * min(1.0, shown / max(tierAlpha[ti], 1e-3)) / (grp == 1 && tierGroup[lt] == 0 ? max(netAlpha, 1e-3) : 1.0));
       }
     }
-    // The tier's shape: plain union, filleted between vessels that share a junction.
+    // The tier's shape: plain union, filleted between vessels that share a junction. The fillet fills only the corners
+    // between them: past a vessel's own end (its round cap, inside the vessel it joins) it lets go, at twice the rate
+    // that end is passed, so a tributary's cap does not swell the trunk's far wall into a nub (the IMV and the
+    // splenorenal shunt on the splenic vein, the shunt on the renal vein).
     float D = 1e9, Ds = 1e9;
     for (int s = 0; s < MAXS; s++) if ((mem & (1 << s)) != 0) { D = min(D, sd[s]); Ds = min(Ds, sh[s]); }
     for (int j = 0; j < MAXJ; j++) {
@@ -466,8 +477,8 @@ void main() {
         if ((jj & (1 << a)) == 0) continue;
         for (int b = a + 1; b < MAXS; b++) {
           if ((jj & (1 << b)) == 0) continue;
-          D = min(D, smin(sd[a], sd[b], jk[j] * js[j]));
-          Ds = min(Ds, smin(sh[a], sh[b], jk[j] * js[j]));
+          D = min(D, smin(sd[a] + 2.0 * se[a], sd[b] + 2.0 * se[b], jk[j] * js[j]));
+          Ds = min(Ds, smin(sh[a] + 2.0 * se[a], sh[b] + 2.0 * se[b], jk[j] * js[j]));
         }
       }
     }
