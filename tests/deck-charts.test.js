@@ -61,6 +61,28 @@ test('the station names fit their slots on one row: full where there is room, el
   assert.equal(nameFit(120, tw).rows, 1);
   assert.equal(nameFit(120, tw).names[3], 'Sinusoid (WHVP)');
   assert.equal(nameFit(60, tw).names[3], 'WHVP');
+  // The sinusoid's station shows the wedged reading: its name says so on every card, never 'Sin' or 'Sinusoid' alone.
+  const si = STATIONS.indexOf('SIN_R');
+  for (const ff of [12, 12.02, 13.8, 15.6, 18]) for (let slot = 10; slot <= 200; slot += 0.5) {
+    const n = nameFit(slot, approxW(ff)).names[si];
+    assert.ok(/WHVP/.test(n) && !/^(Sin|Sinusoid)$/.test(n), `${ff} px, slot ${slot}: ${n}`);
+  }
+  // (Wide capitals, as a real font draws 'WHVP': eased apart on one row, else that name alone on a second row, else staggered;
+  // on every row no two names closer than the gap, none more than a quarter slot off its dot.)
+  const wide = (t) => [...t].reduce((a, c) => a + (/[A-Z]/.test(c) ? 0.8 : 0.55) * 12, 0);
+  let eased = 0, lifted = 0;
+  for (let slot = 20; slot <= 60; slot += 0.25) {
+    const F = nameFit(slot, wide), X = (i) => slot * i + F.dx[i];
+    assert.equal(F.names[si], 'WHVP');
+    if (F.rows === 1 && F.dx.some((d) => d)) eased++;
+    if (F.low.filter(Boolean).length === 1) { assert.ok(F.low[si]); lifted++; }
+    for (const row of [false, true]) {
+      const on = F.names.map((nm, i) => i).filter((i) => F.low[i] === row);
+      on.forEach((i, k) => { if (k) assert.ok(X(i) - wide(F.names[i]) / 2 - (X(on[k - 1]) + wide(F.names[on[k - 1]]) / 2) >= NAME_GAP - 1e-6, `slot ${slot}: ${F.names[on[k - 1]]} and ${F.names[i]}`); });
+    }
+    F.dx.forEach((d) => assert.ok(Math.abs(d) <= slot / 4 + 1e-9));
+  }
+  assert.ok(eased > 0 && lifted > 0, `eased ${eased}, lifted ${lifted}`);
   for (const n of Object.values(TIGHT_NAMES)) assert.ok(!/[….]/.test(n), n);
   // (A phone, an upright iPad and a Mac card, at the sizes the demo deck draws them: one row, no two names closer than the gap.)
   for (const [dev, ff, w] of [['phone', 13.8, 352], ['iPad', 15.6, 552], ['Mac', 12.02, 259], ['small phone', 13.8, 300]]) {
@@ -68,9 +90,10 @@ test('the station names fit their slots on one row: full where there is room, el
     assert.equal(G.fit.rows, 1, `${dev}: one row of names`);
     G.fit.names.forEach((n, i) => {
       assert.ok(ff >= 12, `${dev}: 12 px or more`);
-      if (i) assert.ok(G.x(i) - t(n) / 2 - (G.x(i - 1) + t(G.fit.names[i - 1]) / 2) >= NAME_GAP - 1e-9, `${dev}: ${G.fit.names[i - 1]} and ${n} apart`);
+      if (i) assert.ok(G.nameX(i) - t(n) / 2 - (G.nameX(i - 1) + t(G.fit.names[i - 1]) / 2) >= NAME_GAP - 1e-9, `${dev}: ${G.fit.names[i - 1]} and ${n} apart`);
+      assert.ok(Math.abs(G.nameX(i) - G.x(i)) <= G.slot / 4 + 1e-9, `${dev}: ${n} nearer its own dot`);
     });
-    assert.ok(G.x(0) - t(G.fit.names[0]) / 2 >= 0 && G.x(7) + t(G.fit.names[7]) / 2 <= w, `${dev}: names inside the chart`);
+    assert.ok(G.nameX(0) - t(G.fit.names[0]) / 2 >= 0 && G.nameX(7) + t(G.fit.names[7]) / 2 <= w, `${dev}: names inside the chart`);
   }
   for (const w of [320, 358, 420, 520, 700]) for (const hh of [160, 240, 320]) {
     const G = profileGeo(w, hh, f, tw);

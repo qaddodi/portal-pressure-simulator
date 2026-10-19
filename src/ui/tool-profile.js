@@ -19,11 +19,10 @@ export const STATIONS = PATH.nodes;
 const NI = Object.fromEntries(NODES.map((n, i) => [n.id, i]));
 // Short names where the full ones do not fit, then the shortest where those do not (a phone's or a Mac's card): clinical
 // short forms, never an ellipsis or a full stop.
-// (The sinusoid's station is named for the wedged reading it shows wherever that fits, 'Sin' only on the narrowest card.)
+// (The sinusoid's station is named for the wedged reading it shows, on every card: never 'Sin' or 'Sinusoid' alone.)
 export const FULL_NAMES = { ...PATH.names, SIN_R: 'Sinusoid (WHVP)' };
 export const SHORT_NAMES = { INT: 'Gut', CONF: 'PV', RPV: 'Venule', SIN_R: 'WHVP', CV_R: 'CV', RHV: 'HV', IVCS: 'IVC', RA: 'RA' };
 export const TIGHT_NAMES = { INT: 'Gut', CONF: 'PV', RPV: 'Ven', SIN_R: 'WHVP', CV_R: 'CV', RHV: 'HV', IVCS: 'IVC', RA: 'RA' };
-const TIGHTEST = { ...TIGHT_NAMES, SIN_R: 'Sin' };
 // A station's reading where the tiles have one (so its number is the tile's), else the node's own pressure.
 const AT_FP = { INT: 'int', CONF: 'pv', SIN_R: 'whvp', CV_R: 'cv', RHV: 'fhvp', IVCS: 'ivc', RA: 'ra' };
 export const SPANS = [['hvpg', 'HVPG', 'SIN_R', 'RHV'], ['ppg', 'PPG', 'CONF', 'IVCS']];
@@ -46,14 +45,39 @@ export const axisTop = (...lines) => {
 };
 
 /** How the station names fit slots px apart, each centred under its own dot on one row: the full names, else the short
- *  ones, else the shortest, each name at least NAME_GAP px from the next; two staggered rows only where even the shortest
- *  touch (narrower than any card draws it). tw: a text's width in px. → { names, rows } */
+ *  ones, else the shortest, each name at least NAME_GAP px from the next; else the shortest eased apart along the row, no
+ *  name more than a quarter slot off its dot (nearer its own than its neighbour's); else the wedge station's name alone on
+ *  a second row under its dot; two staggered rows only where even that touches (narrower than any card draws it).
+ *  tw: a text's width in px. → { names, rows, dx, low } (dx: each name's shift from its dot, px; low: on the second row) */
 export const NAME_GAP = 6;
 export function nameFit(slot, tw) {
-  const [full, short, tight, tightest] = [FULL_NAMES, SHORT_NAMES, TIGHT_NAMES, TIGHTEST].map((m) => STATIONS.map((n) => m[n]));
-  const fits = (ns) => ns.every((n, i) => !i || (tw(ns[i - 1]) + tw(n)) / 2 + NAME_GAP <= slot);
-  for (const names of [full, short, tight, tightest]) if (fits(names)) return { names, rows: 1 };
-  return { names: tight, rows: 2 };
+  const [full, short, tight] = [FULL_NAMES, SHORT_NAMES, TIGHT_NAMES].map((m) => STATIONS.map((n) => m[n]));
+  const all = STATIONS.map((_, i) => i), none = all.map(() => false), M = slot / 4;
+  // The shifts that keep the names at idx (one row, in order) NAME_GAP apart, none more than M off its dot: each pair too
+  // close moves apart, half each, until every pair clears; null where they cannot. ease0: centred only.
+  const lackOf = (ns, idx, dx, k) => (tw(ns[idx[k - 1]]) + tw(ns[idx[k]])) / 2 + NAME_GAP - (slot * (idx[k] - idx[k - 1]) + dx[k] - dx[k - 1]);
+  const clear = (ns, idx, dx) => idx.every((_, k) => !k || lackOf(ns, idx, dx, k) <= 1e-9);
+  const ease = (ns, idx, m) => {
+    const dx = idx.map(() => 0);
+    for (let it = 0; it < 200 && m && !clear(ns, idx, dx); it++) {
+      for (let k = 1; k < idx.length; k++) {
+        const lack = lackOf(ns, idx, dx, k);
+        if (lack <= 0) continue;
+        const a = Math.min(lack / 2, dx[k - 1] + m), b = Math.min(lack - a, m - dx[k]);
+        dx[k - 1] -= a + Math.min(lack - a - b, dx[k - 1] - a + m); dx[k] += b;
+      }
+    }
+    return clear(ns, idx, dx) ? dx : null;
+  };
+  const full1 = (dx) => all.map((i) => dx[i]);
+  for (const names of [full, short, tight]) if (ease(names, all, 0)) return { names, rows: 1, dx: all.map(() => 0), low: none };
+  let dx = ease(tight, all, M);
+  if (dx) return { names: tight, rows: 1, dx: full1(dx), low: none };
+  // (The wedge station's name alone on a second row under its dot, the rest eased on the first.)
+  const si = STATIONS.indexOf('SIN_R'), rest = all.filter((i) => i !== si);
+  dx = ease(tight, rest, M);
+  if (dx) { const out = all.map(() => 0); rest.forEach((i, k) => { out[i] = dx[k]; }); return { names: tight, rows: 2, dx: out, low: all.map((i) => i === si) }; }
+  return { names: tight, rows: 2, dx: all.map(() => 0), low: all.map((i) => i % 2 === 1) };
 }
 
 /** The chart's layout for w × h px in type f px: margins, the plot, the name rows and the two bracket rows. */
@@ -62,7 +86,7 @@ export function profileGeo(w, h, f, tw) {
   const keyH = 1.6 * f, T = keyH + 1.5 * f, nameH = fit.rows * 1.25 * f + 0.4 * f, brH = 1.55 * f;
   const B = Math.max(T + 3 * f, h - nameH - 2 * brH - 0.5 * f);
   const x = (i) => L + slot * (i + 0.5);
-  return { w, h, f, L, R, T, B, slot, x, fit, keyH, nameY: (i) => B + 1.05 * f + (fit.rows > 1 && i % 2 ? 1.25 * f : 0), brY: (k) => B + nameH + brH * (k + 0.55) };
+  return { w, h, f, L, R, T, B, slot, x, fit, keyH, nameX: (i) => x(i) + fit.dx[i], nameY: (i) => B + 1.05 * f + (fit.low[i] ? 1.25 * f : 0), brY: (k) => B + nameH + brH * (k + 0.55) };
 }
 
 /** The lines as fine polylines (the smooth curves drawn, not their chords), for the labels to keep clear of. */
@@ -315,7 +339,7 @@ export function createProfileTool() {
       sv('path', { class: 'ppf-line', d: smoothD(now), style: `stroke: url(#${gid})` }),
       now.map(([cx, cy], i) => sv('circle', { class: 'ppf-dot', cx, cy, r: dotR, style: `fill: ${col(shown.v[i])}` })),
       now.map(([cx, cy], i) => sv('text', { class: 'ppf-v', x: cx + sides[i].dx, y: valY(cy, i), 'text-anchor': 'middle' }, labels[i])),
-      STATIONS.map((n, i) => sv('text', { class: 'ppf-name', x: G.x(i), y: G.nameY(i), 'text-anchor': 'middle' }, G.fit.names[i])),
+      STATIONS.map((n, i) => sv('text', { class: 'ppf-name', x: G.nameX(i), y: G.nameY(i), 'text-anchor': 'middle' }, G.fit.names[i])),
       // The HVPG (sinusoid to hepatic vein) and the PPG (portal vein − IVC) as brackets under the names, in their cut-off colours.
       SPANS.map(([k, name, a, b], r) => {
         const v = shown[k], rate = RATE[k](v)[0];
