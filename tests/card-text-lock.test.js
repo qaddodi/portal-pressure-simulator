@@ -17,7 +17,7 @@ test('the teaching and data cards keep one width on every slide: the column neve
   assert.match(js, /dd\.style\.maxWidth = cw \? 'none'/);
   assert.doesNotMatch(js, /--pz-sw|--pz-cwr/);
   assert.doesNotMatch(css, /--pz-sw|--pz-cwr/);
-  assert.match(js, /below = title\(1\);\s*if \(!below\) ladder\(\);/);
+  assert.match(js, /below = title\(\);\s*if \(!below\) ladder\(\);/);
   assert.match(css, /\.pz\.pz-card:not\(\.stack\) \.pz-text \{ top: calc\(var\(--pz-cm\) \+ var\(--pz-cp\)\);[^}]*width: calc\(var\(--pz-cw\) - 2 \* var\(--pz-cp\)\)/, 'teaching card width from the one card width');
 });
 
@@ -35,8 +35,9 @@ test('one margin, padding, gap and card width, all from the body size', () => {
 });
 
 test('a tight slide shrinks in fixed steps and the data card never moves to the top right', () => {
-  assert.match(js, /const DK = \[\[0\.9, 0\.95\], \[0\.8, 0\.9\], \[0\.7, 0\.88\], \[0\.6, 0\.88\]\], TK = \[1, 0\.95, 0\.9, 0\.85, 0\.8\];/);
-  assert.match(js, /if \(!below\) \{ put\(TK\[TK\.length - 1\], DK\[DK\.length - 1\]\[1\]\); below = true; \}/);
+  assert.match(js, /const DK = \[0\.9, 0\.8, 0\.7, 0\.6\];/);
+  assert.match(js, /const title = \(\) => put\(1, 1\) \|\| put\(WIDE\.title, WIDE\.words\);/, 'the words at Regular or Compact, nothing in between');
+  assert.match(js, /if \(!below\) \{ put\(WIDE\.title, WIDE\.words\); below = true; \}/);
   assert.doesNotMatch(js, /let lo = 0\.4/, 'no continuous search down to 0.4');
 });
 
@@ -46,7 +47,7 @@ test('a slide Doppler card lays its readings two across so labels and values nev
 
 // iPad landscape (15 Oct): when the smallest steps still leave the pair too tall, the instrument folds behind Show, as on a phone.
 test('a pair that does not fit at the smallest steps folds the instrument behind Show on a wide screen', () => {
-  assert.match(js, /if \(!below && canFold && !held\) \{ setFolds\(true\);[^\n]*below = title\(1\); if \(!below\) ladder\(\); \}/);
+  assert.match(js, /if \(!below && canFold && !held\) \{ setFolds\(true\);[^\n]*below = title\(\); if \(!below\) ladder\(\); \}/);
   assert.match(js, /canFold = \(dd\.classList\.contains\('has-tool'\) \|\| \(!dd\.classList\.contains\('tiles-only'\) && ladderFold === foldKey\)\) && !dd\.classList\.contains\('tool-only'\) && !dd\.classList\.contains\('tool-lead'\)/);
   assert.match(js, /if \(lock\.folds\) setFolds\(true\);/, 'the fold is part of the slide\'s locked layout');
   assert.match(js, /folds: dd\.classList\.contains\('pz-folds'\)/);

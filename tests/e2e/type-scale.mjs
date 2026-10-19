@@ -31,8 +31,8 @@ export function offScale(roles) {
   for (const pz of document.querySelectorAll('.pz')) areas.push({ root: pz, name: 'slide', skip: 'svg, .pz-bar, .pz-tool, .pzj, .pz-deck, .pz-tabname, .pz-outline svg', sizes: (el) => { const host = el.closest('.pz-table, .pz-grid, .pz-rail ol, .pz.low .pz-rail-liver, .pz.stack .pz-ab, .pz.low .pz-ab, .pz-text, .pz-panel, .pz-data.col') || pz; return [...roles.map((r) => probe(host, `var(--s-${r})`)),
     // (A long title in the teaching card is the big role at the title's step, --pz-tk, as the title itself: presenter.js layout.)
     ...(host.matches('.pz-text') ? [probe(host, 'calc(var(--s-big) * var(--pz-tk, 1))')] : []),
-    // (A phone's title, upright or on its side, is the value role at its tight slide's step, --pz-ptk (f28b9ba): app.css .pz.low .pz-text .pz-h.)
-    ...(host.matches('.pz-text') && el.matches('.pz-text .pz-h') ? [probe(host, 'calc(var(--s-val) * var(--pz-ptk, 1))')] : []),
+    // (A phone's title, upright or on its side, is the value role, Regular or Compact with its words (src/ui/card-type.js): app.css .pz.low .pz-text .pz-h.)
+    ...(host.matches('.pz-text') && el.matches('.pz-text .pz-h') ? [probe(host, 'var(--s-val)')] : []),
     // (A phone's equation key and caveat under the words are four fifths of the label role, 12 px at least: app.css .pz.low .pz-eqk.)
     ...(el.closest(':is(.pz.stack, .pz.low) .pz-text :is(.pz-eqk, .pz-caveat)') ? [probe(host, 'max(12px, calc(var(--s-lab) * .8))')] : []),
     // (A colour key's words are nine tenths of the caption role (a gradient key's .78), 12 px at least: app.css .pz-fk.)

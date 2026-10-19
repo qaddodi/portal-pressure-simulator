@@ -35,6 +35,7 @@ import { flowCss, heatCss, dropCss, gradientCss, oxygenCss } from './colormap.js
 import { EXT, expandIds, stepExtra, markLabel, figureHooks, safe } from './slide-ext.js?v=6c599fe958';
 import { citeText, focusOf, ladderFromOf, ladderFromName } from './teach-extras.js?v=d8224d9bb5';
 import { DEMO_ALL } from './test-decks/demo-all-new-visuals.js?v=5b164855e2';
+import { COMPACT, WIDE } from './card-type.js?v=f5dfdb80f2';
 const nextFrame = frameFor('presenter');
 
 const KEY = 'pps.scripts';
@@ -2712,17 +2713,19 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       // (A quick check is fitted with every answer open: its words keep one size however many are revealed.)
       const all = el.querySelector('.pz-check'); all?.classList.add('pzc-all', 'pzc-still');
       // (A phone's words never fit below 12 px: the card's height cap leaves them that room, phoneTextCap.)
-      // (A phone's words, upright or on its side: one body size per layout. A tight slide's title steps down first (--pz-ptk, the
-      // titles' fixed steps), then the whole card by one step (0.9); only a slide that still does not fit goes further, to 12 px on
-      // the screen, and on its side, where no cap keeps that room, past it as a last resort rather than run out of its card.)
+      // (A phone's words, upright or on its side, and an upright iPad's: two fixed sizes, Regular or Compact (card-type.js), the whole
+      // card at once, so its title always reads larger than its words and its buttons never larger (Mohammad, 19 Oct: "Two fixed
+      // sizes"; the title had stepped down first and the buttons not at all, so all of them met at 12 to 14 px). Only a slide that
+      // does not fit even at Compact goes further, to 12 px on the screen, and on its side, where no cap keeps that room, past it as a
+      // last resort rather than run out of its card.)
       const small = el === ui.text && (phone() || ui.root.classList.contains('low'));
       const lowFloor = el === ui.data && ui.root.classList.contains('low') ? lowData(el) : 0;
       const ln = small ? el.querySelector('.pz-line, p') : null, lb = ln ? parseFloat(getComputedStyle(ln).fontSize) : 0;
       const floor = lb > 12 ? Math.ceil(12 / lb * 1000) / 1000 : 0.5;
-      const mins = small ? [...new Set([Math.max(floor, 0.9), floor, phone() ? floor : 0.5])] : [lowFloor || floor];
+      const mins = small ? [...new Set([floor, phone() ? floor : 0.5])] : [lowFloor || floor];
       let k = 1, over = 1;   // (over: the largest fit tried that still overflowed)
       const fits = () => { const o = overflowOf(el); return o.v <= 1 && o.h <= 1 ? null : o; };
-      if (small) { el.style.removeProperty('--pz-ptk'); for (const tk of TK.slice(1)) { if (!fits()) break; el.style.setProperty('--pz-ptk', tk); } }
+      if (small && fits()) { k = over = Math.max(COMPACT, floor); el.style.setProperty('--pz-fit', String(k)); }   // (Compact; over: no search back up past it)
       for (const kMin of mins) {
         for (let n = 0; n < 8 && k > kMin; n++) {
           const o = fits();
@@ -2910,20 +2913,21 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       let ch = colHeight(cw / k) * k, dk = 1;
       const slack = dd.classList.contains('col') ? 8 : 0;
       below = top0 + t.height + 2 * pad + gap + ch <= foot + slack;
-      // Too tall to stack: the words' card gives way first, only a little: its title steps down (TK, fixed steps, so titles
-      // match across a deck; its column never widens: every slide keeps one card width), then the data card's blocks step
-      // smaller (DK) with the words a little smaller to match. At the last step the pair stays stacked and the data card's own fit does the rest.
+      // Too tall to stack: the words' card gives way first, only a little: from Regular to Compact, its title and words each one
+      // fixed step (card-type.js WIDE, so every slide reads at one of two sizes and its title always well above its words; its column
+      // never widens: every slide keeps one card width), then the data card's blocks step smaller (DK). At the last step the pair
+      // stays stacked and the data card's own fit does the rest.
       const put = (tk, bk) => { ui.text.style.setProperty('--pz-tk', tk); ui.text.style.setProperty('--pz-bk', bk); t = r(ui.text); return top0 + t.height + 2 * pad + gap + ch <= foot; };   // (no slack once shrunk: the data card is never squeezed)
-      const title = (bk = 1) => { for (const tk of TK) if (put(tk, bk)) return true; return false; };
+      const title = () => put(1, 1) || put(WIDE.title, WIDE.words);   // (Regular, else Compact)
       // (A ladder folded behind Show keeps room under the words for its opened strip: the words step down for that, never the
       // strip squeezed into a header's room. pvt-cirrhosis slide 4 at 200 % on a 1440x900 screen opened into 144 px, its strip zoomed
       // to half and PPG still cut off at the card's foot.)
       // (Folded, its tiles stand where the strip shows once opened: the room is the taller of the two.)
       const foldH = (s) => Math.max(colHeight(cw / k, s), dd.classList.contains('pz-folds') && !dd.classList.contains('has-tool') ? colHeight(cw / k, s, true) : 0);
       const step = (s) => { dk = s; ch = foldH(s) * k; };
-      // (The words' text steps down with the blocks, a little less, so the two cards' type never ends far apart.)
+      // (The words stay Compact while the blocks step down: one size for the words, whatever the data card needs.)
       const ladder = () => {
-        for (const [s, bk] of DK) { if (below) break; step(s); below = title(bk); }   // (the data card's blocks a step or two smaller, the words a little: no further, or the words would squeeze)
+        for (const s of DK) { if (below) break; step(s); below = put(WIDE.title, WIDE.words); }   // (the data card's blocks a step or two smaller: no further, or the words would squeeze)
       };
       // The last step when even the smallest blocks leave the pair too tall: the instrument folds behind Show (as on a phone),
       // its tiles in a row under the header at the card's full width, and the steps run again from full size.
@@ -2933,14 +2937,14 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
         if (lock.folds) setFolds(true);
         t = r(ui.text); below = lock.below; dk = lock.dk; cw = t.right - wr.left + pad - sl; ch = foldH(dk) * k;
       } else {
-        // (A title a step or two smaller at the one card width, then the steps below; the column never widens.)
+        // (The words at Compact at the one card width, then the steps below; the column never widens.)
         if (held) { step(1); footFold(); }
-        below = title(1);
+        below = title();
         if (!below) ladder();
-        if (!below && canFold && !held) { setFolds(true); ts.removeProperty('--pz-tk'); ts.removeProperty('--pz-bk'); step(1); below = title(1); if (!below) ladder(); }
-        // (Still too tall at the smallest step: the pair stays stacked at the one card width, the title and blocks at their
-        // smallest steps; the data card is never moved to the top right, its own fit (fitCards) makes the rest fit its room.)
-        if (!below) { put(TK[TK.length - 1], DK[DK.length - 1][1]); below = true; }
+        if (!below && canFold && !held) { setFolds(true); ts.removeProperty('--pz-tk'); ts.removeProperty('--pz-bk'); step(1); below = title(); if (!below) ladder(); }
+        // (Still too tall at the smallest step: the pair stays stacked at the one card width, the words at Compact and the blocks at
+        // their smallest step; the data card is never moved to the top right, its own fit (fitCards) makes the rest fit its room.)
+        if (!below) { put(WIDE.title, WIDE.words); below = true; }
       }
       if (dk < 1) dd.style.setProperty('--pz-dk', dk); else dd.style.removeProperty('--pz-dk');
       keepH = ch;
@@ -3117,20 +3121,21 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     ts.maxHeight = '';
     const css = getComputedStyle(ui.text), own = parseFloat(css.maxHeight) * (css.maxHeight.endsWith('%') ? H / 100 : 1), foot = (parseFloat(css.bottom) || 0) * k;
     ts.maxHeight = was;
-    // (The words zoom down to fit (--pz-fit) but never below 12 px: their body size sets how far.)
+    // (The words zoom down to fit (--pz-fit): to Compact (card-type.js), and only where nothing else gives, to 12 px: their body
+    // size sets how far.)
     const line = ui.text.querySelector('.pz-line, p'), body = line ? parseFloat(getComputedStyle(line).fontSize) : 0;
-    // (Measured at that floor, not scaled from the full size: zoomed down, the lines take more words each and the card comes
+    // (Measured at that size, not scaled from the full size: zoomed down, the lines take more words each and the card comes
     // out shorter than its full height times the zoom. Scaled, HVPG 5 on a 667 px iPhone asked 263 px for words that take 230.)
-    // (With the title at its smallest step: a tight slide's title steps down before its words do, fitCards.)
-    const ptk = ts.getPropertyValue('--pz-ptk'); ts.setProperty('--pz-ptk', String(TK[TK.length - 1]));
-    const floor = body > 12 ? Math.ceil(12 / body * 1000) / 1000 : 1, words = (floor < 1 ? (() => {
+    const at = (z) => (z < 1 ? (() => {
       const sv = [ts.maxHeight, ts.getPropertyValue('--pz-fit'), ts.getPropertyValue('--pz-z')];
-      ts.maxHeight = 'none'; ts.removeProperty('--pz-z'); ts.setProperty('--pz-fit', String(floor));
+      ts.maxHeight = 'none'; ts.removeProperty('--pz-z'); ts.setProperty('--pz-fit', String(z));
       const v = ui.text.offsetHeight * k;
       ts.maxHeight = sv[0]; if (sv[1]) ts.setProperty('--pz-fit', sv[1]); else ts.removeProperty('--pz-fit'); if (sv[2]) ts.setProperty('--pz-z', sv[2]);
       return v;
     })() : natural(ui.text, ts)) + 4;
-    if (ptk) ts.setProperty('--pz-ptk', ptk); else ts.removeProperty('--pz-ptk');
+    // (words: at 12 px, whether the data card can stay open beside them, as before; compact: at Compact, the room the words take,
+    // from the figure's share when they need it: the figure gives way before the words drop under Compact.)
+    const floor = body > 12 ? Math.ceil(12 / body * 1000) / 1000 : 1, words = at(floor), compact = at(Math.max(COMPACT, floor));
     // (The words' glass starts 16 px above them, the data card ends 8 px above that and stands its own top (8 px) from the
     // screen's top: the same room the layout gives it below.) The data card shows at full size or comes in closed: never shrunk to fit.
     // It comes in closed (autoDock, its edge and handle at the top) where it and the words at 12 px cannot both fit beside the figure's
@@ -3155,20 +3160,20 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     const data = gone ? 0 : arriving(), sheetLip = dd.classList.contains('pz-sheet') ? LIP * k : 0;
     const shut = !gone && (both - data < words || data - sheetLip > dmax + 0.5) && !!dd.querySelector(':scope > :not(.pz-dh):not(.pz-grip):not(.pz-lip)');
     phoneShut = shut;
-    // (Words at 12 px win over the figure's share and the 62 % cap when nothing else gives; they never reach the data card. Closed,
+    // (Words at Compact win over the figure's share and the 62 % cap when nothing else gives; they never reach the data card. Closed,
     // the card leaves them all but its edge (GRIP) at the top, and brought back it stands over the figure down to the words.)
     const room = H - foot - 16 - 8, mine = Number.isFinite(own) ? own : 0.62 * H;
     const cap = Math.max(120, shut
-      ? Math.min(room - GRIP * k, Math.max(Math.min(mine, room - dtop - Math.min(data, dmax + sheetLip)), words))
-      : Math.min(room - dtop - data, Math.max(Math.min(mine, both - data), words))) / k;
+      ? Math.min(room - GRIP * k, Math.max(Math.min(mine, room - dtop - Math.min(data, dmax + sheetLip)), compact))
+      : Math.min(room - dtop - data, Math.max(Math.min(mine, both - data), compact))) / k;
     if (key) phoneLock = { key, cap, shut, data };
     return cap;
   }
   // The free area: the open rectangles of the figure the words, the data card (where it comes to rest) and the controls leave,
   // in wrap px. The camera centres a slide's box in whichever of them shows it largest (stage boxVT).
   let frameL = 0, colT = 0, swapNow = false;
-  // The stacked data card's fixed block sizes, largest first, and the smallest the words' title goes.
-  const DK = [[0.9, 0.95], [0.8, 0.9], [0.7, 0.88], [0.6, 0.88]], TK = [1, 0.95, 0.9, 0.85, 0.8];   // (the data card's block size with the words' text size; the title's steps)
+  // The stacked data card's fixed block sizes, largest first (the words beside them stay at Compact: card-type.js WIDE).
+  const DK = [0.9, 0.8, 0.7, 0.6];
   // The data card's height at width w (page px) under the words: as it would stand there, at full size (unfitted).
   // A header's Show or Hide keeps its title clear by the chip's own width, not a fixed 64 or 66 px: a larger text size grows the chip,
   // and a title once ran under it (DOPPLER, TH at 200 % on a 390 px phone). Its words' width goes to the stylesheet in ems of the
@@ -3311,7 +3316,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     if (!shown) return;   // (a slide on its way in lays out at the new size anyway)
     // (Nothing fitted at the old size carries over: each card's fit, the words' steps (a title judged long or not at the old
     // step had kept that size), and each ladder's choice of plot or strip.)
-    for (const el of [ui.text, ui.data, ui.panel]) { fitDone.delete(el); for (const n of ['--pz-fit', '--pz-z', '--pz-tk', '--pz-bk', '--pz-dk', '--pz-ptk']) el.style.removeProperty(n); }
+    for (const el of [ui.text, ui.data, ui.panel]) { fitDone.delete(el); for (const n of ['--pz-fit', '--pz-z', '--pz-tk', '--pz-bk', '--pz-dk']) el.style.removeProperty(n); }
     // (The ladder and strip are kept from slide to slide: their lettering and its height, set for the old size, go too, so they
     // are measured from nothing, as on a fresh load. Kept, the 200% card's words took a larger title step than a fresh load's.)
     for (const e of ui.data.querySelectorAll('svg')) { e.style.removeProperty('--lad-fixed'); for (const t of e.querySelectorAll('text[style]')) t.style.removeProperty('font-size'); }

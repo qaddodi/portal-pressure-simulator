@@ -21,7 +21,7 @@ test('phones and upright iPad: data card labels closer to the words, quick-check
 
 test('a phone held sideways uses the phone sizes for its words', () => {
   assert.match(css, /\.pz\.low \.pz-text \{ --pk: 1\.4; --s-cap: calc\(var\(--t-cap\)/);
-  assert.match(css, /\.pz\.low \.pz-text \.pz-h \{ font-size: calc\(var\(--s-val\) \* var\(--pz-ptk, 1\)\); \}/);
+  assert.match(css, /\.pz\.low \.pz-text \.pz-h \{ font-size: var\(--s-val\); \}/);
 });
 
 // Mohammad, 17 Oct ("17 px body"): a phone's slide words 1.45 times the roles (a 17.4 px body on a 390 px phone), an upright
@@ -36,12 +36,14 @@ test('phone slide words at 1.45, upright iPad at 1.39, one line spacing with sli
   assert.match(css, /\.pz-stop > :is\(\.pz-val, \.pz-term\) \{ margin-inline-end: \.08em; \}/, 'a stop sits close after its pill');
 });
 
-// A tight phone slide (upright or on its side): the title steps down first, then the body by one step, and only then further.
-test('a tight phone slide shrinks its title first and its body by one step before anything else', () => {
+// A tight phone slide (upright or on its side): the whole card at Compact, title, words and buttons together, never the title alone
+// (Mohammad, 19 Oct: "Two fixed sizes"; tests/card-type.test.js checks the sizes' order).
+test('a tight phone slide steps the whole card to Compact, never its title alone', () => {
   const js = readFileSync(new URL('../src/ui/presenter.js', import.meta.url), 'utf8');
-  assert.match(js, /const mins = small \? \[\.\.\.new Set\(\[Math\.max\(floor, 0\.9\), floor, phone\(\) \? floor : 0\.5\]\)\] : \[lowFloor \|\| floor\];/);
-  assert.match(js, /if \(small\) \{ el\.style\.removeProperty\('--pz-ptk'\); for \(const tk of TK\.slice\(1\)\)/);
-  assert.match(css, /\.pz\.stack \.pz-h \{ font-size: calc\(var\(--s-val\) \* var\(--pz-ptk, 1\)\); \}/);
+  assert.match(js, /const mins = small \? \[\.\.\.new Set\(\[floor, phone\(\) \? floor : 0\.5\]\)\] : \[lowFloor \|\| floor\];/);
+  assert.match(js, /if \(small && fits\(\)\) \{ k = over = Math\.max\(COMPACT, floor\); el\.style\.setProperty\('--pz-fit', String\(k\)\); \}/);
+  assert.doesNotMatch(js, /--pz-ptk/, 'no title step of its own');
+  assert.match(css, /\.pz\.stack \.pz-h \{ font-size: var\(--s-val\); \}/);
 });
 
 test('a phone\'s captions under the words read smaller than the words, never under 12 px', () => {

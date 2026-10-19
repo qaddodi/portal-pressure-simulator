@@ -1558,7 +1558,7 @@ button.finding { cursor: pointer; }
    (a 22 px line under a 42 px title no longer crowds a 300 px column); the title is the value role, the lines the label role. */
 .pz.low .pz-text { --pk: 1.4; --s-cap: calc(var(--t-cap) * var(--ts, 1) * var(--pk)); --s-lab: calc(var(--t-lab) * var(--ts, 1) * var(--pk)); --s-body: calc(var(--t-body) * var(--ts, 1) * var(--pk));
   --s-val: calc(var(--t-val) * var(--ts, 1) * var(--pk)); --s-big: calc(var(--t-big) * var(--ts, 1) * var(--pk)); --s-title: calc(var(--t-title) * var(--ts, 1) * var(--pk)); }
-.pz.low .pz-text .pz-h { font-size: calc(var(--s-val) * var(--pz-ptk, 1)); }
+.pz.low .pz-text .pz-h { font-size: var(--s-val); }
 .pz.low .pz-text :is(.pz-line, .pz-kick, .pz-check) { font-size: var(--s-lab); }
 .pz.low .pz-text .pz-eq math { font-size: calc(var(--s-lab) * 1.1 * var(--eq-k, 1)); }
 @media (orientation: landscape) and (max-height: 500px) { .pz:not(.stack) .pz-data { top: 8px; max-height: calc(100% - 8px - max(var(--pz-cm), calc(env(safe-area-inset-bottom, 0px) + 8px)) - 44px - 4px); max-width: calc(58vw - 50px); }
@@ -2076,7 +2076,8 @@ button.finding { cursor: pointer; }
 .pz.stack .pz-text { --pz-lh: calc(1.38 * clamp(14px, calc(1.9 * var(--pzh) / var(--vz)), 20px)); left: 21px; right: 21px; top: auto; bottom: calc(max(26px, 65px - var(--pz-lh)) + var(--pz-sb)); margin-block: 0; width: auto; max-height: 62%; gap: 6px; }/* (With a data card under the words, the pair keeps to the top so the card has room.) */
 .pz:not(.stack):has(.pz-data.under:not(.pz-hide)) .pz-text { bottom: auto; margin-block: 0; }
 .pz.stack .pz-kick { font-size: var(--s-lab); }
-.pz.stack .pz-h { font-size: calc(var(--s-val) * var(--pz-ptk, 1)); }
+/* (A phone's title: Regular or Compact with its words, never stepped down alone: src/ui/card-type.js.) */
+.pz.stack .pz-h { font-size: var(--s-val); }
 .pz.stack .pz-line { font-size: var(--s-lab); }
 /* (A phone's lines run the card's full width: balancing and pretty-wrapping shorten lines well before the edge, so the words wrap plainly, first-fit.
    An upright iPad's wider card wraps them pretty, so its last line never holds one word alone, A11; presenter.js rich() glues a short last word on every screen.) */
@@ -2246,12 +2247,15 @@ button.finding { cursor: pointer; }
    at a larger one, so the row stays the height of its 34 px buttons and the card's words keep their larger size; the label role
    under 360 px. Its roles are its own, not the slide words' 1.7x, which would not fit four across.) */
 .pz.stack .pz-ab { --s-cap: calc(var(--t-cap) * var(--ts, 1)); --s-lab: calc(var(--t-lab) * var(--ts, 1)); --s-body: calc(var(--t-body) * var(--ts, 1)); --s-val: calc(var(--t-val) * var(--ts, 1)); --s-big: calc(var(--t-big) * var(--ts, 1)); --s-title: calc(var(--t-title) * var(--ts, 1)); }
-.pz.stack .pz-text > .pz-ab { zoom: min(1, max(var(--pz-fit, 1), calc(7 / 6 / var(--ts, 1)))); }
+/* (The buttons follow the card's two sizes, src/ui/card-type.js: 14 px at Regular, 13 at Compact (zoom 0.8 × 13/14 ÷ 0.8), and
+   never under 12, so they never read larger than the words (they had kept 14 px while a tight slide's words went to 12) nor
+   smaller than the usual size's 14 px at a larger text size.) */
+.pz.stack .pz-text > .pz-ab { zoom: min(1, max(calc(var(--pz-fit, 1) * 13 / 14 / .8), calc(12 / 14))); }
 /* (A phone on its side: the same one row at the roles' own size, not the side panel's 1.4x words, which set the lens buttons
    at 16.8 px in two rows of two on an 844x390 screen.) */
 .pz.low .pz-ab { --s-lab: calc(var(--t-lab) * var(--ts, 1)); --s-body: calc(var(--t-body) * var(--ts, 1)); }
 .pz.low .pz-abb { font-size: max(var(--s-lab), var(--t-body)); min-height: 34px; padding: .4em .6em; white-space: nowrap; }
-.pz.low .pz-text > .pz-ab { zoom: min(1, max(var(--pz-fit, 1), calc(1 / var(--ts, 1)))); }   /* (the card's fit never takes the buttons under 12 px on the screen: 11 px at 150 % on an 844x390 screen) */   /* (a larger text size: the buttons, the label role, never read smaller on the screen than at the usual size's 14 px) */
+.pz.low .pz-text > .pz-ab { zoom: min(1, max(calc(var(--pz-fit, 1) * 13 / 14 / .8), calc(12 / 14))); }   /* (as upright: 14 px at Regular, 13 at Compact, never under 12 px on the screen) */
 @media (max-width: 359px) {
   /* (a 320 px card fitted smaller keeps its buttons at 12 px on the screen (they had been 9.6): the row zooms no smaller than
      that, and its height is set to what it was at the card's zoom, so the card, the figure above it and the credit stay put) */
@@ -2304,7 +2308,7 @@ button.finding { cursor: pointer; }
 .pz.stack .pz-ab { gap: 6px; padding: 3px; justify-content: center; flex-wrap: wrap; }/* A title that would run past two lines in the side pane steps down a size. */
 .pz:not(.stack) .pz-text .pz-h.long { font-size: var(--s-big); }
 .pz.pz-card:not(.stack) .pz-text .pz-h.long { font-size: calc(var(--s-big) * var(--pz-tk, 1)); }   /* (a long title gives way too when the cards stack) */
-.pz.pz-card.low .pz-text .pz-h.long { font-size: calc(var(--s-val) * var(--pz-ptk, 1)); }   /* (a phone on its side: a long title is never set larger; it steps down like any tight slide's, presenter.js fitCards) */
+.pz.pz-card.low .pz-text .pz-h.long { font-size: var(--s-val); }   /* (a phone on its side: a long title is never set larger; Regular or Compact with its words, presenter.js fitCards) */
 /* A slide's instrument (tool) in the data card: the instrument as the app draws it, without its controls. */
 .pz-data.has-tool { width: clamp(340px, 32vw, 620px); }
 /* An instrument with tiles under it (desktop): a narrower card with the tiles side by side, so the figure keeps more of the middle. */
