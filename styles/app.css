@@ -6431,31 +6431,26 @@ html.thumb-ui .menu.from-dock { clip-path: inset(-64px -64px calc(var(--sink, 0p
 .pz-tool[data-kind="lumen"] .gl-facts { grid-column: 1 / -1; font: 500 max(12px, var(--ls, 13px))/1.3 var(--font-ui); color: var(--text-3); font-variant-numeric: tabular-nums; }
 .pz.stack .pz-tool[data-kind="lumen"] .gl-stage { width: min(28%, calc(22 * var(--pzh, 8px))); }
 
-/* V27, the fluid balance (src/ui/tool-fluid.js): two bars on one scale, their key, and the day's build-up in words. */
-.pz-tool[data-kind="fluid"] .gf { display: grid; grid-template-columns: max-content minmax(0, 1fr) max-content; align-items: center; gap: 6px 10px; font: 500 var(--fs-12)/1.3 var(--font-ui); color: var(--text-2);
+/* V27, the fluid balance (src/ui/tool-fluid.js): the lymph made flowing into what the lymphatics carry, what the belly takes
+   back and what stays as ascites, each band as thick as its flow, named beside its node; the forces across the sinusoid wall as two arrows. */
+.pz-tool[data-kind="fluid"] .gf { display: flex; flex-direction: column; gap: 4px; min-width: 0; font: 500 var(--fs-12)/1.3 var(--font-ui); color: var(--text-2);
   --gf-liver: var(--organ-liver); --gf-gut: var(--organ-gut); --gf-carried: color-mix(in srgb, var(--text) 42%, var(--surface)); --gf-back: var(--vein-systemic); --gf-build: var(--ascites); --gf-build-edge: color-mix(in srgb, var(--ascites) 40%, var(--text)); }
-/* (one grid for every row, so the bars of both groups start and end together whatever the names' widths) */
-.gf-bars, .gf-forces, .gf-row { display: contents; }
-/* (beside a slide's tiles the card stacks its instrument's parts as a column, .pz-inst; this one keeps its grid there too) */
-.pz:not(.stack):not(.low) .pz-data.pz-beside > .pz-tool[data-kind="fluid"] > .gf { display: grid; align-content: center; gap: 6px 10px; }
-.gf-unit, .gf-key, .gf-words, .gf-caveat { grid-column: 1 / -1; }
-.gf-name { font: 600 var(--s-cap, 12px)/1.2 var(--font-ui); letter-spacing: .06em; text-transform: uppercase; color: var(--text-2); white-space: nowrap; }
-.gf-bar { display: flex; height: max(14px, calc(1.5 * var(--s-cap, 12px))); border-radius: 5px; background: color-mix(in srgb, var(--text) 6%, transparent); overflow: hidden; }
-.gf-thin .gf-bar { height: max(8px, calc(.7 * var(--s-cap, 12px))); }
-.gf-seg { flex: none; display: block; height: 100%; width: 0; transition: width .5s cubic-bezier(.2, .8, .2, 1); }
-.gf-liver { background: var(--gf-liver); } .gf-gut { background: var(--gf-gut); } .gf-carried { background: var(--gf-carried); }
-.gf-back { background: var(--gf-back); }
-/* (the build-up keeps the soft ascites colour, edged in it mixed toward the text colour (darker in light mode, lighter in dark) so the overflow reads at 3:1 or more on the track) */
-.gf-build { background: var(--gf-build); box-shadow: inset 0 0 0 1.5px var(--gf-build-edge); }
-.gf-sw.gf-build { box-shadow: inset 0 0 0 1.5px var(--gf-build-edge); }
-.gf-spare { box-sizing: border-box; border: 1.5px dashed var(--gf-carried); border-left: 0; border-radius: 0 5px 5px 0; }
-.gf-push { background: var(--vein-portal); } .gf-pull { background: color-mix(in srgb, var(--text) 42%, var(--surface)); }
-.gf-v { font: 600 var(--s-body, 17px)/1 var(--font-ui); letter-spacing: -.01em; font-variant-numeric: tabular-nums; color: var(--text); text-align: right; white-space: nowrap; }
-.gf-thin .gf-v { font-size: var(--fs-14, 14px); }
-.gf-unit { justify-self: end; margin-top: -2px; font-size: var(--fs-12); color: var(--text-3); }
-.gf-key { display: flex; flex-wrap: wrap; gap: 2px 12px; color: var(--text-2); }
-.gf-key > span { display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; }
-.gf-sw { display: inline-block; width: 14px; height: 8px; border-radius: 2px; }
+.pz:not(.stack):not(.low) .pz-data.pz-beside > .pz-tool[data-kind="fluid"] > .gf { display: flex; justify-content: center; }
+.gf-flow, .gf-fsvg { display: block; width: 100%; overflow: visible; }
+.gf-t { font: 500 13px/1 var(--font-ui); fill: var(--text-2); dominant-baseline: central; }
+.gf-tv { font-weight: 650; fill: var(--text); font-variant-numeric: tabular-nums; }
+.gf-fsvg .gf-t { dominant-baseline: central; }
+.gf-band { opacity: .55; transition: opacity .3s ease; }
+.gf-node.gf-liver { fill: var(--gf-liver); } .gf-node.gf-gut { fill: var(--gf-gut); }
+.gf-carried { fill: var(--gf-carried); } .gf-back { fill: var(--gf-back); }
+/* (the build-up keeps the soft ascites colour, edged in it mixed toward the text colour so it reads at 3:1 or more) */
+.gf-build { fill: var(--gf-build); }
+.gf-node.gf-build { stroke: var(--gf-build-edge); stroke-width: 1; }
+.gf-room { fill: none; stroke: var(--gf-carried); stroke-width: 1.5; stroke-dasharray: 3 2.5; }
+.gf-wall { stroke: var(--text-3); stroke-width: 2; stroke-dasharray: 3 3; }
+.gf-push { fill: var(--vein-portal); } .gf-pull { fill: color-mix(in srgb, var(--text) 42%, var(--surface)); }
+.gf-unit { align-self: flex-end; font-size: var(--fs-12); color: var(--text-3); }
+.gf-forces { display: flex; flex-direction: column; gap: 2px; margin-top: 4px; }
 .gf-words { margin: 2px 0; font: 600 var(--bs, 16px)/1.3 var(--font-ui); color: var(--text); }
 .gf-caveat { margin: 0; font-size: var(--fs-12); color: var(--text-3); }
 .gf-forces[hidden], .gf-caveat[hidden] { display: none; }

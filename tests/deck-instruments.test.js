@@ -163,3 +163,20 @@ test('V20, V21, V29: the Doppler takes a slide\'s options, and a slide that name
   const ps = pairScale(30, 0);
   assert.ok(ps.scale >= 30 / 0.85 && ps.base === 0.9, 'forward flow only: baseline low, the trace fills its side');
 });
+
+test('fluid balance flow: every band arrives, labels keep apart, and it fits the width', async () => {
+  const { fluidFlows } = await import('../src/ui/tool-fluid.js');
+  const cases = [
+    { hep: 0.5, spl: 0, made: 0.5, cap: 2.4, carried: 0.5, spare: 1.9, back: 0, net: 0, perDay: 0 },
+    { hep: 1.6, spl: 2.1, made: 3.7, cap: 2.9, carried: 2.9, spare: 0, back: 0.7, net: 0.11, perDay: 160 },
+    { hep: 1.6, spl: 2.1, made: 3.7, cap: 2.9, carried: 2.9, spare: 0, back: 0.9, net: -0.1, perDay: -144 },
+  ];
+  for (const f of cases) for (const W of [300, 360, 560]) {
+    const L = fluidFlows(f, W);
+    const into = L.bands.reduce((s, b) => s + b.t, 0), left = L.left.reduce((s, n) => s + n.lh, 0);
+    assert.ok(Math.abs(into - left) < 2.5, `bands carry what the left makes (${into} vs ${left})`);
+    for (const col of [L.left, L.right]) for (let i = 1; i < col.length; i++) assert.ok(col[i].cy - col[i - 1].cy >= 18 - 1e-6, 'labels 18 px apart');
+    for (const n of [...L.left, ...L.right]) { assert.ok(n.y >= 0 && n.y + n.h <= L.H + 1e-6, 'inside the picture'); }
+    assert.ok(L.xR - L.xL >= 40, 'room for the bands');
+  }
+});
