@@ -36,7 +36,7 @@ jobs:
     concurrency:
       group: validate-${{ github.ref }}
       cancel-in-progress: ${{ github.ref_name != 'main' }}
-    timeout-minutes: 5
+    timeout-minutes: 15   # (lint and tests take about 2 minutes; the rest is headroom for a slow or stalled runner)
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
