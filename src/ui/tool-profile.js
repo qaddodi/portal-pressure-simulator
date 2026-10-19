@@ -307,6 +307,19 @@ export function placeValues(G, tw, goal, hl, bf) {
     { bottom: G.Z, axis: G.Z, left: G.L + 2, right: G.R + 8, dotR, obstacles: overWords, dots: pg.map(([x, yy]) => [x, yy, dotR + 1]) });
 }
 
+/** Each station's value written where its dot would be, a whole number (Mohammad, 19 Oct: "use whole numbers here and put them
+ *  instead of the dots with clearance around them"): the line stops NUM_PAD px short of it. → the sides placeValues would give,
+ *  each value centred on its point, with its box. */
+export const NUM_PAD = 4;
+export const whole = (v) => String(Math.round(v));
+export function numberSides(G, tw, goal) {
+  const { f } = G, yg = (v) => G.Z - (G.Z - G.T) * Math.max(0, Math.min(v, goal.top)) / goal.top;
+  return goal.v.map((v, i) => {
+    const x = G.x(i), y = yg(v), hw = tw(whole(v), 700) / 2;
+    return { s: 0, dx: 0, by: 0.36 * f, box: [x - hw, x + hw, y - 0.36 * f, y + 0.36 * f] };
+  });
+}
+
 /** The healthy and earlier lines named on the drawing, not in a key (Mohammad, 19 Oct): each name just over or under its own
  *  line, nearest the line's right end, BR_PAD px clear of every line, dot, value, bracket and the liver's name.
  *  → [{ t, c, x, y }] (x the middle, y the baseline), or null where one has no such place (the key then shows). */
@@ -410,9 +423,9 @@ export function createProfileTool() {
     // (Each value's place and the brackets' are settled once per state, from where the lines will end up, so they never flip while
     // the lines glide. The brackets stand inside the plot where they clear everything; else in a band at the plot's foot.)
     if (!plan) {
-      let g = profileGeo(w, hh, f, tw, true), s = placeValues(g, tw, goal, hl, bf);
+      let g = profileGeo(w, hh, f, tw, true), s = numberSides(g, tw, goal);
       const brk = placeBrackets(g, tw, goal, hl, bf, s);
-      if (!brk) { g = profileGeo(w, hh, f, tw); s = placeValues(g, tw, goal, hl, bf); }   // (the band at the plot's foot)
+      if (!brk) { g = profileGeo(w, hh, f, tw); s = numberSides(g, tw, goal); }   // (the band at the plot's foot)
       plan = { inside: !!brk, sides: s, brk, names: placeLineNames(g, tw, goal, hl, bf, s, brk) };
     }
     const G = profileGeo(w, hh, f, tw, plan.inside), sides = plan.sides;
@@ -423,7 +436,7 @@ export function createProfileTool() {
     if (el.style.minHeight !== want) el.style.minHeight = want;
     const top = shown.top, y = (v) => G.Z - (G.Z - G.T) * Math.max(0, Math.min(v, top)) / top;
     const pts = (p) => p.v.map((v, i) => [G.x(i), y(v)]);
-    const now = pts(shown), labels = shown.v.map(one), dotR = Math.max(4, 0.36 * f);
+    const now = pts(shown), labels = shown.v.map(whole);
     const i0 = STATIONS.indexOf(PATH.liver[0]), i1 = STATIONS.indexOf(PATH.liver[1]);
     const { key, unitOnKey } = keyFit(G, tw, !!bf);
     let kx = G.R;
@@ -435,9 +448,13 @@ export function createProfileTool() {
       sv('text', { x: tx, y: 0.75 * f + 0.36 * f, 'text-anchor': 'end' }, t)); });
     const valY = (cy, k) => cy + sides[k].by;
     const svg = sv('svg', { viewBox: `0 0 ${w} ${hh}`, width: w, height: hh, role: 'img', style: `font-size: ${f.toFixed(2)}px`,
-      'aria-label': `Pressure from gut to heart: ${STATIONS.map((n, i) => `${SPOKEN[n]} ${labels[i]}`).join(', ')} mmHg. HVPG ${one(shown.hvpg)}, PPG ${one(shown.ppg)}.` },
+      'aria-label': `Pressure from gut to heart: ${STATIONS.map((n, i) => `${SPOKEN[n]} ${labels[i]}`).join(', ')} mmHg. HVPG ${whole(shown.hvpg)}, PPG ${whole(shown.ppg)}.` },
       sv('defs', {}, sv('linearGradient', { id: gid, gradientUnits: 'userSpaceOnUse', x1: G.x(0), x2: G.x(STATIONS.length - 1), y1: 0, y2: 0 },
-        shown.v.map((v, i) => sv('stop', { offset: (i / (STATIONS.length - 1)).toFixed(3), 'stop-color': col(v) })))),
+        shown.v.map((v, i) => sv('stop', { offset: (i / (STATIONS.length - 1)).toFixed(3), 'stop-color': col(v) }))),
+        // (The lines stop NUM_PAD px short of each number written on them.)
+        sv('mask', { id: `${gid}-m`, maskUnits: 'userSpaceOnUse', x: 0, y: 0, width: w, height: hh },
+          sv('rect', { x: 0, y: 0, width: w, height: hh, fill: '#fff' }),   // colour-exempt: a mask
+          now.map(([cx, cy], i) => { const hw = tw(labels[i], 700) / 2; return sv('rect', { x: cx - hw - NUM_PAD, y: cy - 0.36 * f - NUM_PAD, width: 2 * (hw + NUM_PAD), height: 0.72 * f + 2 * NUM_PAD, rx: NUM_PAD, fill: '#000' }); }))),   // colour-exempt: a mask
       // The liver's stations on a soft band, named over the plot.
       i0 >= 0 ? sv('g', { class: 'ppf-liver' }, sv('rect', { x: G.x(i0) - G.slot / 2, width: G.slot * (i1 - i0 + 1), y: G.T - 1.3 * f, height: G.B - G.T + 1.3 * f }),
         sv('text', { x: (G.x(i0) + G.x(i1)) / 2, y: G.T - 0.35 * f, 'text-anchor': 'middle' }, 'LIVER')) : null,
@@ -447,13 +464,12 @@ export function createProfileTool() {
       sv('text', { class: 'ptk-unit', x: 0, y: unitOnKey ? 0.75 * f + 0.36 * f : G.T - 0.95 * f }, 'mmHg'),
       // (The lines named on the drawing; the key only where a name finds no clear place.)
       plan.names ? null : keyEls,
-      hl ? sv('path', { class: 'ppf-hl', d: smoothD(pts(hl)) }) : null,
-      bf ? sv('path', { class: 'ppf-bf', d: smoothD(pts(bf)) }) : null,
+      hl ? sv('path', { class: 'ppf-hl', d: smoothD(pts(hl)), mask: `url(#${gid}-m)` }) : null,
+      bf ? sv('path', { class: 'ppf-bf', d: smoothD(pts(bf)), mask: `url(#${gid}-m)` }) : null,
       sv('path', { class: 'ppf-fill', d: `${smoothD(now)}L${G.x(STATIONS.length - 1).toFixed(1)} ${G.Z}L${G.x(0).toFixed(1)} ${G.Z}Z`, style: `fill: url(#${gid})` }),
       sv('line', { class: 'ppf-axis', x1: G.L, x2: G.R, y1: G.B, y2: G.B }),
-      sv('path', { class: 'ppf-line', d: smoothD(now), style: `stroke: url(#${gid})` }),
-      now.map(([cx, cy], i) => sv('circle', { class: 'ppf-dot', cx, cy, r: dotR, style: `fill: ${col(shown.v[i])}` })),
-      now.map(([cx, cy], i) => sv('text', { class: 'ppf-v', x: cx + sides[i].dx, y: valY(cy, i), 'text-anchor': 'middle' }, labels[i])),
+      sv('path', { class: 'ppf-line', d: smoothD(now), style: `stroke: url(#${gid})`, mask: `url(#${gid}-m)` }),
+      now.map(([cx, cy], i) => sv('text', { class: 'ppf-v', x: cx, y: valY(cy, i), 'text-anchor': 'middle' }, labels[i])),
       (plan.names || []).map((n) => sv('text', { class: `ppf-lname ${n.c}`, x: n.x, y: n.y, 'text-anchor': 'middle' }, n.t)),
       STATIONS.map((n, i) => sv('text', { class: 'ppf-name', x: G.nameX(i), y: G.nameY(i), 'text-anchor': 'middle' }, G.fit.names[i])),
       // (One brace under Pre, Intra and Post, inside the liver's band, named Sinusoidal under its tip.)
@@ -463,7 +479,7 @@ export function createProfileTool() {
       // their cut-off colours, each label inside its own bracket.
       SPANS.map(([k, name, a, b], r) => {
         const v = shown[k], rate = RATE[k](v)[0];
-        const x0 = G.x(STATIONS.indexOf(a)), x1 = G.x(STATIONS.indexOf(b)), yy = plan.inside ? plan.brk[r] : G.brY(r), val = one(v);
+        const x0 = G.x(STATIONS.indexOf(a)), x1 = G.x(STATIONS.indexOf(b)), yy = plan.inside ? plan.brk[r] : G.brY(r), val = whole(v);
         // (Laid out as the geometry planned the row: one line, or the name over the value. On one line, the gap in the bar follows
         // the label's own width; the bar is left out only where the widest value would not keep it.)
         const stack = G.brMode[r] === 'stack', lb = bracketLabel(x0, x1, tw(`${name} ${val}`, 700), [tw(name, 600), tw(val, 700)]);
