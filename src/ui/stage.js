@@ -38,6 +38,7 @@ import { SIN_PERFUSION, sinStrandRadius } from './sin-perfusion.js?v=25a8407fdd'
 import { wavePacks, paintWave } from './scan-waves.js?v=066db7aa38';
 import { organDimMatrix } from './organ-dim.js?v=7888276613';
 import { parseColor, greyOf, paintRef } from './organ-grey.js?v=e41d68222c';
+import { bandRing, ringsBelow, normalShown, rippleList, systemOf, SYSTEM_COLOR } from './highlight-math.js?v=86a89dcb9e';
 const nextFrame = frameFor('stage');
 
 const N_SAMPLES = 64;
@@ -1172,6 +1173,11 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // The selected vessel (sel: it and, on the cava, the rest of the cava) takes the same brightening, and selA eases its
   // standing out of the dimmed network in and out (syncVeins), so selecting and deselecting never snap.
   const vh = { id: null, amt: new Map(), sel: new Set(), selKey: '', selA: new Map(), raf: 0, t: 0 };
+  // A slide's spotlight (deck visuals V2, ext-highlights.js: spot): the network and the organs step back as for a selection,
+  // the named vessels stand out of it as a selected one does (selA, vhStep) and the named organs are outlined. Never in the
+  // liver's own views. live: from the spotlight set until the plate has eased back after it (the ascites follows it there).
+  const spot = { ids: new Set(), on: false, live: false };
+  const spotOn = () => spot.on && !store.get().lobule && !store.get().sinusoid;
   const SEL_FADE = 0.3;
   const selAKey = () => { let k = ''; for (const [id, v] of vh.selA) k += id + v; return k; };
 
@@ -2416,6 +2422,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       else if (mode === 'velocity') { c1 = c2 = e.kind === 'liver' ? 'var(--lens-neutral)' : velColorOf(f, k, store.get().healthy); }
       else if (mode === 'oxygen') { c1 = oxygenColor(oxy[2 * k]); c2 = oxygenColor(oxy[2 * k + 1]); }
       else if (mode === 'heat') { c1 = heatColor(ref ? qHold(mode, k, 0, P1 - ref[NI[e.from]]) : 0); c2 = heatColor(ref ? qHold(mode, k, 1, P2 - ref[NI[e.to]]) : 0); }
+      else if (mode === 'system') { c1 = c2 = SYSTEM_COLOR[systemOf(e, PORTAL_TERRITORY)]; }   // (a slide's vein system, deck visuals V7: the same on every patient)
       else if (mode === 'neutral') { c1 = c2 = PORTAL_TERRITORY.has(e.from) || PORTAL_TERRITORY.has(e.to) ? 'var(--vein-portal)' : 'var(--vein-systemic)'; }
       else { c1 = deltaColor(ref ? qHold(mode, k, 0, P1 - ref[NI[e.from]]) : 0); c2 = deltaColor(ref ? qHold(mode, k, 1, P2 - ref[NI[e.to]]) : 0); }
       setA(x.st0, 'stop-color', c1); setA(x.st1, 'stop-color', c2);
@@ -2810,6 +2817,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   let plateDim = null, plateSat = 1, netA = 1;
   // A lens switch crossfades every vessel from the colors it showed to the new lens's (no one-frame recolor).
   let shownCol = new Map(), lensFrom = null, lensT0 = 0, lensMode = null;
+  let sinceP = null;   // (a "change since" slide's reference: see changeRef)
   const JUMP_MMHG = 2;
   let jumpP = null, jumpF = null;
   function modelJumped(f) {
@@ -3015,10 +3023,11 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // Whether a selected vessel eases back into the network toward its end at node n: 1 where another visible vessel joins there
   // and none of the selection does.
   function selEnd(id, n) {
+    if (spot.ids.has(id) && spotOn()) return 0;   // (a slide's spotlit vessels stand out whole, ends and all: deck visuals V2)
     let other = false;
     for (const y of EV) {
       if (y.e.id === id || !y.vis || (y.e.from !== n && y.e.to !== n)) continue;
-      if (vh.sel.has(y.e.id)) return 0;
+      if (vh.sel.has(y.e.id) || spot.ids.has(y.e.id)) return 0;
       if (!y.g.classList.contains('coll-ghost')) other = true;
     }
     return other ? 1 : 0;
@@ -3531,7 +3540,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // The plate's dim and grey (a lens or a selection) and the network's dim ease toward their targets
   // (stepPlateEase, each frame), so a lens switch or a selection never changes the figure in one frame.
   const plateTargets = () => {
-    const dataLayer = wrap.classList.contains('data-layer'), sel = wrap.classList.contains('has-sel') || wrap.classList.contains('shunting');
+    const dataLayer = wrap.classList.contains('data-layer'), sel = wrap.classList.contains('has-sel') || wrap.classList.contains('shunting') || spotOn();
     return [(sel ? SEL_DIM : 1) * (dataLayer ? 0.72 : 1), dataLayer ? 0.12 : 1, sel ? 0.42 : 1];
   };
   function syncPlateLook() {
@@ -3632,6 +3641,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   let plateFrom = null, plateTo = null, plateT0 = 0;
   function stepPlateEase() {
     if (lensFrom) { veinsDirty = true; glowSync = true; }   // (each frame of the crossfade syncs the vessels, paused too, so it runs to its end)
+    if (!spot.on && !plateEasing()) spot.live = false;   // (the spotlight's dim has eased away: the ascites goes back to its own)
     if (!plateEasing()) { plateFrom = null; return; }
     const to = plateTargets(), now = performance.now();
     if (!plateFrom || to.some((v, i) => v !== plateTo[i])) { plateFrom = [plateDim, plateSat, netA]; plateTo = to; plateT0 = lensFrom && now - lensT0 < 60 ? lensT0 : now; }
@@ -3770,7 +3780,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // or zoom moves them in the same frame (an SVG overlay is composited apart and can trail it).
   // Each one fades in and out; the SVG lines are kept only where the GPU cannot draw them.
   const glLines = !!veins?.canLines;
-  const OL_LOOK = { sel: [2.6, 0.7], hov: [2, 0.45], pin: [2.6, 0.6] };   // as .org-sel-line and .org-hov-line: width, opacity
+  const OL_LOOK = { sel: [2.6, 0.7], hov: [2, 0.45], pin: [2.6, 0.6], spot: [2.6, 0.6], normal: [1.4, 0.5] };   // as .org-sel-line and .org-hov-line: width, opacity
+  // (spot: a slide's spotlit organ, as a pinned one; normal: the normal-sized spleen's thin line inside an enlarged one, V18.)
   // A selected organ is outlined in its own deep tone (--og-<tone>-3, read through the organ's tone class as --o3), not the
   // accent blue, with a soft glow of the same tone easing out from its edge (G20). Hovered, the same tone without the glow.
   const SEL_GLOW = { reach: 12, alpha: 0.22 };
@@ -3802,8 +3813,21 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // easing out from its edge (the GPU shades the falloff smoothly, behind the organs): reach in world units, peak opacity.
   const HEART_GLOW = { reach: 46, alpha: 0.34 };
   let olPath = null;   // sampled in <defs>: the organ itself is hidden while the GPU draws the plate
-  function olRings(id) {
-    const m = organG[id].transform.baseVal.consolidate()?.matrix;
+  // A tube (the bowel, colon, duodenum: a stroke along a centre line) is outlined along both its edges (bandRing), at the
+  // width its edge is stroked; the esophagus only below where it fades into the chest. bare: the organ's own path at its
+  // normal size, not as the figure now scales it (the normal spleen, V18).
+  const BAND_IDS = new Set(ORGANS.filter((o) => o.band).map((o) => o.id));
+  const ESO_TOP = 10;
+  function olRings(id, bare = false) {
+    const rings = olRingsRaw(id, bare);
+    if (BAND_IDS.has(id)) {
+      const edge = organG[id].querySelector('.band-edge'), w = edge ? parseFloat(getComputedStyle(edge).strokeWidth) : 0;
+      return w > 0 ? rings.map((r) => bandRing(r, w / 2)).filter((r) => r.length) : rings;
+    }
+    return id === 'esophagus' ? ringsBelow(rings, ESO_TOP) : rings;
+  }
+  function olRingsRaw(id, bare) {
+    const m = bare ? null : organG[id].transform.baseVal.consolidate()?.matrix;
     if (!olPath) { olPath = s('path'); defs.append(olPath); }
     const el = olPath;
     el.setAttribute('d', organEls[id].getAttribute('d'));
@@ -3845,9 +3869,34 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     }
     olDirty = true; olLast = performance.now();
   }
+  // A slide's spotlit organs (V2), outlined beside its pins; an organ the slide already pins keeps that one line.
+  function spotOrgans(list) {
+    const cs = getComputedStyle(svg), col = (tone) => (tone ? [...toRGB(`var(${tone.startsWith('--') ? tone : `--tr-${tone}`})`, cs)].slice(0, 3) : null);
+    const want = new Map((list || []).filter((o) => organEls[o.id]?.getAttribute('d') && !olList.some((x) => x.kind === 'pin' && x.on && x.id === o.id)).map((o) => [o.id, o.tone]));
+    for (const o of olList) if (o.kind === 'spot' && !want.has(o.id)) o.on = false;
+    for (const [id, tone] of want) {
+      const o = olList.find((x) => x.kind === 'spot' && x.id === id);
+      if (o) { o.on = true; o.col = col(tone); } else olList.push({ kind: 'spot', id, key: olKey(id), rings: olRings(id), a: 0, on: true, col: col(tone) });
+    }
+    olDirty = true; olLast = performance.now(); stageWake();
+  }
+  // The normal spleen's outline (V18): wanted by a slide, shown while the spleen is enlarged (normalSync, each frame the spleen
+  // is drawn), in the spleen's own deep tone. It keeps the organ's normal size and place as the spleen grows round it.
+  const normal = { want: false, shown: false, sc: 1 };
+  function normalSync(sc = normal.sc) {
+    normal.sc = sc;
+    const p = store.get().params;
+    const on = normal.want && !!organEls.spleen && p?.splenicRx !== 2 && easeInOut(morph) < 0.5 && normalShown(sc, normal.shown);
+    if (on === normal.shown) return;
+    normal.shown = on;
+    const o = olList.find((x) => x.kind === 'normal');
+    if (o) o.on = on;
+    else if (on) olList.push({ kind: 'normal', id: 'spleen', key: '', rings: olRings('spleen', true), a: 0, on: true, col: orgTone('spleen') });
+    olDirty = true; olLast = performance.now(); stageWake();
+  }
   // The organ was redrawn (a reshaped liver, a larger spleen): the outlines follow it.
   function olGeom() {
-    for (const o of olList) { const k = olKey(o.id); if (k !== o.key) { o.key = k; o.rings = olRings(o.id); o.verts = null; olDirty = true; } }
+    for (const o of olList) { if (o.kind === 'normal') continue; const k = olKey(o.id); if (k !== o.key) { o.key = k; o.rings = olRings(o.id); o.verts = null; olDirty = true; } }
   }
   // Eases each outline toward shown or gone and hands them to the GPU; true while anything is changing.
   function olStep(now) {
@@ -4390,6 +4439,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       if (organEls.umbilicus.getAttribute('opacity') !== op) organEls.umbilicus.setAttribute('opacity', op);
     }
     const sc = f.slow.spleen / 11;
+    normalSync(sc);
     putA(organG.spleen, 'transform', `translate(${SPLEEN_CENTER[0]} ${SPLEEN_CENTER[1]}) scale(${sc.toFixed(3)}) translate(${-SPLEEN_CENTER[0]} ${-SPLEEN_CENTER[1]})`);
     if (organG.spleen.style.opacity !== (p.splenicRx === 2 ? '0.14' : '')) organG.spleen.style.opacity = p.splenicRx === 2 ? '0.14' : '';
     liftDiaphragm(shrink, sc);
@@ -4491,7 +4541,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     }
     const run = st.running && !reduceMotion.matches;
     if (run) fluidPh = (fluidPh + dt / 1.1) % (20 * Math.PI);
-    const t = easeInOut(morph), k = (1 - t) * (wrap.classList.contains('has-sel') ? SEL_DIM : 1);
+    // (Under a slide's spotlight the fluid eases with the organs' dim: the plate's own value, less a lens's share of it.)
+    const spotK = spot.live && plateDim != null ? clamp(plateDim / (wrap.classList.contains('data-layer') ? 0.72 : 1), SEL_DIM, 1) : 1;
+    const t = easeInOut(morph), k = (1 - t) * (wrap.classList.contains('has-sel') ? SEL_DIM : spotK);
     fluidLook.s = [ABDOMEN_FLOOR + 5, fluidH, fluidAmp, run ? fluidPhase() : fluidLook.s[3]];
     fluidLook.ink = [fluidInkRGBA[0], fluidInkRGBA[1], fluidInkRGBA[2], fluidInkRGBA[3] * k * fluidFade()];
     fluidLook.ripple = run && fluidFade() > 0 && k > 0;
@@ -5885,8 +5937,30 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
 
   const REF = () => {
     const st = store.get();
+    if (!st.compareSnap && st.presenting && st.colorMode === 'since') return sinceRef();
     return st.compareSnap ? st.compareSnap.P : st.healthy?.P;
   };
+  // A "change since" slide's reference (deck visuals V11, ext-highlights.js: lens 'since'): the network its slide counts from
+  // (changeRef), and until that is set the one the figure showed as the lens came in, so the colours move as the change lands.
+  // It never touches Patients' pinned moment (compareSnap). A new reference recolours through the lens crossfade, as a jump does.
+  const sinceRef = () => { if (!sinceP && F) sinceP = Float32Array.from(F.Pf || F.P); return sinceP || store.get().healthy?.P; };
+  function changeRef(P) {
+    const was = sinceP;
+    sinceP = P ? Float32Array.from(P) : null;
+    if (was === sinceP || store.get().colorMode !== 'since') return;
+    if (shownCol.size && !reduceMotion.matches) { lensFrom = shownCol; lensT0 = performance.now(); }
+    // (Cleared as a slide leaves, the next model frame takes the figure's state then as its reference: no redraw here.)
+    if (P && F && !inUpdate) update(F);
+  }
+  // A slide's change ripple (deck visuals V6, ext-highlights.js: ripple): the vessels whose pressure moved between two of its
+  // states glow warm (up) or cool (down) for a moment, as Patients' Δ glow does after a change, without its rings and numbers.
+  let rippleT = 0;
+  function ripple(from, to) {
+    clearTimeout(rippleT);
+    const list = from && to && !quietFx() ? rippleList(EDGES, NI, from, to, (e) => { const x = E[e.id]; return !!x?.vis && !x.isArt && !x.g.classList.contains('coll-ghost'); }) : [];
+    setGlowSrc('delta', list.map(([id, d]) => ({ id, col: d > 0 ? 'var(--glow-up)' : 'var(--glow-down)', amt: 1.35, wide: 1.1, dur: 420 })));
+    if (list.length) rippleT = setTimeout(() => setGlowSrc('delta', []), 1000);
+  }
   const isImaging = () => !!store.get().imaging;
   // Captions of findings (varices, collaterals) can stay hidden until a test shows them.
   const labelHidden = (id) => !!store.get().hiddenLabels?.has(id);
@@ -7649,9 +7723,11 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     }
     // (While a shunt is being made, its source and every vessel it can join stand out of the dimmed network too: NP3.)
     const out = shunt ? new Set([...vh.sel, shunt.src, ...shunt.targets.keys()].filter((id) => E[id]?.vis)) : vh.sel;
-    for (const id of out) if (!vh.selA.has(id)) vh.selA.set(id, 0);
+    // (A slide's spotlit vessels stand out the same way: deck visuals V2.)
+    const lift = spotOn() && spot.ids.size ? new Set([...out, ...spot.ids]) : out;
+    for (const id of lift) if (!vh.selA.has(id)) vh.selA.set(id, 0);
     for (const [id, v] of vh.selA) {
-      const to = out.has(id) ? 1 : 0, k = reduceMotion.matches ? 1 : dt / SEL_FADE, nv = to > v ? Math.min(1, v + k) : Math.max(0, v - k);
+      const to = lift.has(id) ? 1 : 0, k = reduceMotion.matches ? 1 : dt / SEL_FADE, nv = to > v ? Math.min(1, v + k) : Math.max(0, v - k);
       if (nv <= 0 && !to) vh.selA.delete(id); else vh.selA.set(id, nv);
       if (nv !== to) moving = true;
     }
@@ -8268,6 +8344,20 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     setGlow(list) { setGlow(list); },
     setResGlow(list) { resLit = new Map((list || []).map((r) => [r.id, r.tone])); if (sites.list) sitesPaint(); },
     pinOrgans(list) { pinOrgans(list); },
+    // Deck visuals, package A (ext-highlights.js): a slide's spotlight ({ edges, organs: [{ id, tone }] } or null, V2), the
+    // normal spleen's outline (['spleen'] or null, V18), its change ripple (two networks' node pressures, V6) and the network a
+    // "change since" slide counts from (node pressures or null, V11).
+    spotlight(sp) {
+      spot.ids = new Set((sp?.edges || []).filter((id) => E[id]));
+      spot.on = !!sp && (spot.ids.size > 0 || !!sp.organs?.length);
+      if (spot.on) spot.live = true;
+      spotOrgans(spot.on ? sp.organs : null);
+      if (!vh.raf) { vh.t = performance.now(); vh.raf = nextFrame(vhStep); }
+      veinsDirty = true; stageWake();
+    },
+    normalOutline(ids) { normal.want = !!ids?.includes('spleen'); normalSync(); },
+    ripple(from, to) { ripple(from, to); },
+    changeRef(P) { changeRef(P); },
     siteFp(fp) { slideFp = fp; if (sites.list) sites.fp = fp; },   // (the numbers the slide's tiles now show: a what-if, a time-lapse)
     setSites(list, fp = null) { sites.list = list?.length ? [...list] : null; sites.fp = fp; if (fp) slideFp = fp; if (!sites.list) for (const k of [...resMade.keys()]) resPaint(k, SITE_DEF[k], null); if (!sites.list) for (const [k, el] of [...sites.made]) siteLeave(k, el); else { refreshCTM(); sitesPaint(); } },
     /** Frame the catheter's route ('route'), its tip close up ('tip'), or go back to the view before ('home'). */
