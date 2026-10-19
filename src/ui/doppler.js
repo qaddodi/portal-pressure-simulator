@@ -12,7 +12,7 @@ import { DOPPLER_MODES, dopplerColor, shadeColor, swatchGradient } from './doppl
 import { frameFor, noteDraw, paceMs } from './frame.js?v=67ca200c87';
 import { windowIndexFor, scaleFor } from './dopplerWindow.js?v=2067b803a2';
 import { velNormal, dopplerVel } from './velNormal.js?v=181dda5594';
-import { caliperFrame, pairOf, pairBand, pairScale, PAIR_GAP } from './doppler-marks.js?v=1c54817818';
+import { caliperFrame, caliperGlide, pairOf, pairBand, pairScale, PAIR_GAP } from './doppler-marks.js?v=ae115f112c';
 const nextFrame = frameFor('doppler');
 
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
@@ -937,7 +937,7 @@ export function createDoppler({ onProbe, pickGate = true }) {
       }
     } else { wl = null; }
     const xAt = (t) => padL + (RW - 1 - (cNow - Math.floor(t * g.cps))) / dpr;
-    drawCalipers(ctx, { sgn, k, pxPerV, baseY, padT, H, xAt });
+    drawCalipers(ctx, { now, sgn, k, pxPerV, baseY, padT, H, xAt });
     if (PB) drawPair(ctx, { tNow, y0: padT + H + PAIR_GAP, PB, padL, W, xAt });
     // One tick a second along the bottom, scrolling with the trace
     ctx.fillStyle = cssAlpha('--white', .4);
@@ -951,14 +951,15 @@ export function createDoppler({ onProbe, pickGate = true }) {
   // ── A slide's calipers (V21): a flat mark at the highest and at the lowest velocity of the last 3 s on the trace, a thin
   // line between them and the pulsatility index in the strip, the number the pattern is named from. Each frame takes one pick
   // (caliperFrame) for the marks and the index alike: a mark rides its sample as the trace sweeps and moves to the new one the
-  // moment a new extreme arrives or its sample leaves the window, so no mark is ever drawn anywhere but on the extreme. ──
-  let calip = false, cal = null;
+  // moment a new extreme arrives or its sample leaves the window, gliding there (an ease-out of CAL_GLIDE) and aiming each
+  // frame at the new sample's scrolled place, so it lands on it exactly. The index changes at once. ──
+  let calip = false, cal = null, calMk = {};
   const CAL_W = 16;
   function calNow(tNow, W) {
     cal = calip && tNow != null && probe ? caliperFrame(buf, tNow, sweepSeconds, W, CAL_W) : null;
-    if (cal) cal.gf = gateFactor();
+    if (cal) cal.gf = gateFactor(); else calMk = {};
   }
-  function drawCalipers(ctx, { sgn, k, pxPerV, baseY, padT, H, xAt }) {
+  function drawCalipers(ctx, { now, sgn, k, pxPerV, baseY, padT, H, xAt }) {
     if (!cal) return;
     // (each mark on the spectrum's outline, where the reading's peak is read: the mean across the lumen times dopplerK; the
     // window keeps every mark a whole mark inside the trace, so nothing is clamped to an edge)
@@ -968,7 +969,16 @@ export function createDoppler({ onProbe, pickGate = true }) {
       ctx.fillStyle = cssAlpha('--doppler', A); ctx.fillRect(Math.round(x - CAL_W / 2), Math.round(y) - 1, CAL_W, 2);
     };
     ctx.save();
-    const h = at(cal.hi, cal.gf), l = at(cal.lo, cal.gf);
+    // (a mark on a new sample starts from where it was drawn last frame, its offset from the new target easing to nothing)
+    const place = (w) => {
+      const p = at(cal[w], cal.gf), m = calMk[w];
+      if (m && m.t !== cal[w][0]) calMk[w] = { t: cal[w][0], off: [m.last[0] - p[0], m.last[1] - p[1]], from: now };
+      else if (!m) calMk[w] = { t: cal[w][0], off: [0, 0], from: now };
+      const c = calMk[w], [dx, dy] = caliperGlide(c.off, (now - c.from) / 1000);
+      if (dx || dy) labBusy = true;
+      return (c.last = [p[0] + dx, p[1] + dy]);
+    };
+    const h = place('hi'), l = place('lo');
     ctx.strokeStyle = cssAlpha('--doppler', 0.75); ctx.lineWidth = 1; ctx.setLineDash([3, 3]);
     ctx.beginPath(); ctx.moveTo(...h); ctx.lineTo(...l); ctx.stroke(); ctx.setLineDash([]);
     mark(h, 1); mark(l, 1);
@@ -1019,7 +1029,7 @@ export function createDoppler({ onProbe, pickGate = true }) {
   function configure(t = {}) {
     const m = MODE_OF[t?.mode] || 'spectrum';
     if (m !== mode) { mode = m; sync(); }
-    calip = !!t?.calipers; cal = null;   // (a new slide's calipers pick from its own trace)
+    calip = !!t?.calipers; cal = null; calMk = {};   // (a new slide's calipers pick from its own trace)
     if (pair !== !!t?.pair) { pair = !!t?.pair; pairSc = null; }
     redraw();
   }

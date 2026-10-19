@@ -42,6 +42,14 @@ export function caliperFrame(buf, tNow, sweep, W, markPx) {
   return c && { ...c, t0, t1 };
 }
 
+/** How long a caliper mark takes to glide to a new pick, in seconds, and how far from its target ([dx, dy] px) it is drawn
+ *  `since` seconds after the glide began from `off`: an ease-out (cubic) that lands exactly on the target at CAL_GLIDE. */
+export const CAL_GLIDE = 0.15;
+export function caliperGlide(off, since, dur = CAL_GLIDE) {
+  const u = Math.min(1, Math.max(0, since / dur)), left = (1 - u) ** 3;
+  return [off[0] * left, off[1] * left];
+}
+
 /** The vessel the paired trace shows: the right hepatic vein under a portal vein or anything else, the main portal vein under
  *  a hepatic vein or the IVC. (The worker samples only these two beside the probe.) */
 export const pairOf = (kind) => (kind === 'hepatic' || kind === 'ivc' ? 'PV_TRUNK' : 'RHV_IVC');
