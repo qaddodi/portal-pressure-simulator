@@ -10,7 +10,7 @@ import { Engine } from '../src/engine/engine.js';
 import { explain } from '../src/engine/explain.js';
 import { DRUGS } from '../src/engine/scenario.js';
 import { EXT, PACKAGES, stepExtra } from '../src/ui/slide-ext.js';
-import { curveSteps, curveSeries, curveXs, patchOf, getAt, leftScale, rightScale, cutsOf, xTicks, ringAt, placeWord, segHits, onCurve, curveAt } from '../src/ui/tool-curve.js';
+import { curveSteps, curveSeries, curveXs, patchOf, getAt, leftScale, rightScale, cutsOf, xTicks, ringAt, placeWord, segHits, onCurve, curveAt, againstOf, mergeOf, curveLines, drawnLines, crossings } from '../src/ui/tool-curve.js';
 import { causeBars, groupOf, GROUPS, wrapLabel, MOST, OTHER, steps, domainOf, layout, fitBars, shownText, GAP } from '../src/ui/tool-causes.js';
 import { tileShown, RATE } from '../src/ui/table-marks.js';
 
@@ -57,6 +57,43 @@ test('the curve\'s point at the slide\'s own setting is the slide\'s state', asy
   assert.ok(Math.abs(ser.ys[1][j] - slide.fp.liver) < 0.5, `liver flow ${ser.ys[1][j]} at 8 mm, slide ${slide.fp.liver}`);
   // (A wider stent: the PPG falls and the liver's share of flow falls with it, all the way along.)
   for (let i = 1; i < ser.xs.length; i++) assert.ok(ser.ys[0][i] < ser.ys[0][i - 1] && ser.ys[1][i] < ser.ys[1][i - 1], `${ser.xs[i]} mm`);
+});
+
+test('a curve against a drug: the second sweep carries the drug, one reading drawn twice, each crossing of its top cut-off', () => {
+  const t = { kind: 'curve', param: 'cirrhosis', from: 0, to: 0.4, step: 0.2, lines: ['ppg', 'liver'], also: { drugs: { propranolol: false } },
+    against: { label: 'Carvedilol', params: { drugs: { carvedilol: true } }, own: 'No drug' } };
+  assert.deepEqual(againstOf(t), { label: 'Carvedilol', params: { drugs: { carvedilol: true } }, own: 'No drug' });
+  assert.equal(againstOf({ against: { label: '', params: {} } }), null);
+  assert.equal(againstOf({ against: { label: 'X', params: [1] } }), null);
+  assert.equal(againstOf({ against: { label: 'X', params: {} } }).own, 'This case');
+  assert.deepEqual(mergeOf({ drugs: { propranolol: false }, cirrhosis: 0.5 }, { drugs: { carvedilol: true } }), { drugs: { propranolol: false, carvedilol: true }, cirrhosis: 0.5 });
+  assert.deepEqual(curveLines(t), ['ppg'], 'one reading with against');
+  const dl = drawnLines(t);
+  assert.deepEqual(dl.map((l) => l.name), ['No drug', 'Carvedilol']);
+  assert.notEqual(dl[0].c, dl[1].c);
+  const st = curveSteps(t);
+  assert.equal(st.length, 6);
+  assert.deepEqual(st[1].params, { drugs: { propranolol: false }, cirrhosis: 0.2 });
+  assert.deepEqual(st[4].params, { drugs: { propranolol: false, carvedilol: true }, cirrhosis: 0.2 });
+  const fp = (v) => ({ fp: { ppg: v } });
+  const ser = curveSeries(t, [fp(5), fp(9), fp(13), fp(4), fp(7), fp(11)]);
+  assert.deepEqual(ser, { xs: [0, 20, 40], ys: [[5, 9, 13], [4, 7, 11]] });
+  assert.equal(curveSeries(t, [fp(5), fp(9), fp(13)]), null, 'both sweeps or nothing');
+  assert.deepEqual(crossings(ser, 12), [35, null]);
+  assert.deepEqual(crossings({ xs: [0, 1], ys: [[13, 14]] }, 12), [null], 'already over it at the start: no crossing');
+  assert.deepEqual(ringAt(t, { cirrhosis: 0.3 }, { ppg: 11 }), { x: 30, ys: [11, null] });
+});
+
+test('carvedilol lowers the whole PPG curve of decompensated cirrhosis and moves its crossing of 12 to more scarring', async () => {
+  const t = { kind: 'curve', param: 'cirrhosis', from: 0.3, to: 0.95, step: 0.05, lines: ['ppg'],
+    against: { label: 'Carvedilol', params: { drugs: { carvedilol: true } }, own: 'No drug' } };
+  const [slide] = await seq([{ preset: 'cirr-decomp' }]);
+  const ser = curveSeries(t, await seq(curveSteps(t), slide.snap));
+  const j = ser.xs.findIndex((x) => Math.abs(x - 85) < 1e-6);
+  assert.ok(Math.abs(ser.ys[0][j] - slide.fp.ppg) < 0.05, `the own line at 85 % is the slide: ${ser.ys[0][j]} vs ${slide.fp.ppg}`);
+  for (let i = 0; i < ser.xs.length; i++) assert.ok(ser.ys[1][i] < ser.ys[0][i], `carvedilol lower at ${ser.xs[i]} %`);
+  const [a, b] = crossings(ser, 12);
+  assert.ok(a > 40 && b > a, `crosses 12 at ${a} % without the drug and ${b} % with it`);
 });
 
 test('the cirrhosis curve bends upward: the same step adds more late than early', async () => {
