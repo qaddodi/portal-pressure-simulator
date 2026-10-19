@@ -8,7 +8,7 @@ import { DECKS } from '../src/ui/decks.js';
 import { EXT } from '../src/ui/slide-ext.js';
 import { NODES } from '../src/engine/topology.js';
 import { portalSplit } from '../src/ui/table-marks.js';
-import { profileOf, STATIONS, TIGHT_NAMES, NAME_GAP, axisTop, nameFit, profileGeo, valueSides, placeValues, curveRuns, labelPlacer, bracketLabel } from '../src/ui/tool-profile.js';
+import { profileOf, STATIONS, TIGHT_NAMES, NAME_GAP, axisTop, nameFit, profileGeo, valueSides, placeValues, curveRuns, labelPlacer, bracketLabel, BRACE_NAME, SPANS, placeBrackets, bracketBox, BR_PAD } from '../src/ui/tool-profile.js';
 import { flowParts, routeFlows, wholeShares, flowView, BAR_ROWS, MAX_ROUTES } from '../src/ui/tool-flows.js';
 import { milePlaces } from '../src/ui/talk-trace.js';
 import { RX, bandKeys, bandRuns, bandSpan, namePlaces } from '../src/ui/rx-bands.js';
@@ -57,23 +57,22 @@ test('the profile reads the tiles\' numbers and the network\'s own pressures', a
 
 test('the station names fit their slots on one row: full where there is room, else abbreviated, never an ellipsis', () => {
   const f = 12, tw = approxW(f);
-  assert.equal(nameFit(120, tw).names[2], 'Portal venule');
   assert.equal(nameFit(120, tw).rows, 1);
-  assert.equal(nameFit(120, tw).names[3], 'Sinusoid (WHVP)');
-  assert.equal(nameFit(60, tw).names[3], 'WHVP');
-  // The sinusoid's station shows the wedged reading: its name says so on every card, never 'Sin' or 'Sinusoid' alone.
+  assert.equal(nameFit(120, tw).names[1], 'Portal vein');
+  // The liver's stations are Pre, Intra and Post on every card (Mohammad, 19 Oct), a brace under them named Sinusoidal.
   const si = STATIONS.indexOf('SIN_R');
   for (const ff of [12, 12.02, 13.8, 15.6, 18]) for (let slot = 10; slot <= 200; slot += 0.5) {
-    const n = nameFit(slot, approxW(ff)).names[si];
-    assert.ok(/WHVP/.test(n) && !/^(Sin|Sinusoid)$/.test(n), `${ff} px, slot ${slot}: ${n}`);
+    const F = nameFit(slot, approxW(ff));
+    assert.deepEqual(F.names.slice(si - 1, si + 2), ['Pre', 'Intra', 'Post'], `${ff} px, slot ${slot}`);
   }
+  assert.equal(BRACE_NAME, 'Sinusoidal');
   // (Wide capitals, as a real font draws 'WHVP': eased apart on one row, else that name alone on a second row, else staggered;
   // on every row no two names closer than the gap, none more than a quarter slot off its dot.)
   const wide = (t) => [...t].reduce((a, c) => a + (/[A-Z]/.test(c) ? 0.8 : 0.55) * 12, 0);
   let eased = 0, lifted = 0;
   for (let slot = 20; slot <= 60; slot += 0.25) {
     const F = nameFit(slot, wide), X = (i) => slot * i + F.dx[i];
-    assert.equal(F.names[si], 'WHVP');
+    assert.equal(F.names[si], 'Intra');
     if (F.rows === 1 && F.dx.some((d) => d)) eased++;
     if (F.low.filter(Boolean).length === 1) { assert.ok(F.low[si]); lifted++; }
     for (const row of [false, true]) {
@@ -87,10 +86,11 @@ test('the station names fit their slots on one row: full where there is room, el
   // (A phone, an upright iPad and a Mac card, at the sizes the demo deck draws them: one row, no two names closer than the gap.)
   for (const [dev, ff, w] of [['phone', 13.8, 352], ['iPad', 15.6, 552], ['Mac', 12.02, 259], ['small phone', 13.8, 300]]) {
     const t = approxW(ff), G = profileGeo(w, 240, ff, t);
-    assert.equal(G.fit.rows, 1, `${dev}: one row of names`);
+    // (One row; on the narrowest, Intra alone on a second row under its dot.)
+    assert.ok(G.fit.rows === 1 || (G.fit.low.filter(Boolean).length === 1 && G.fit.low[si]), `${dev}: one row of names`);
     G.fit.names.forEach((n, i) => {
       assert.ok(ff >= 12, `${dev}: 12 px or more`);
-      if (i) assert.ok(G.nameX(i) - t(n) / 2 - (G.nameX(i - 1) + t(G.fit.names[i - 1]) / 2) >= NAME_GAP - 1e-9, `${dev}: ${G.fit.names[i - 1]} and ${n} apart`);
+      if (i && G.fit.low[i] === G.fit.low[i - 1]) assert.ok(G.nameX(i) - t(n) / 2 - (G.nameX(i - 1) + t(G.fit.names[i - 1]) / 2) >= NAME_GAP - 1e-9, `${dev}: ${G.fit.names[i - 1]} and ${n} apart`);
       assert.ok(Math.abs(G.nameX(i) - G.x(i)) <= G.slot / 4 + 1e-9, `${dev}: ${n} nearer its own dot`);
     });
     assert.ok(G.nameX(0) - t(G.fit.names[0]) / 2 >= 0 && G.nameX(7) + t(G.fit.names[7]) / 2 <= w, `${dev}: names inside the chart`);
@@ -128,11 +128,43 @@ test('a value goes under its dot only where the line is in the way above', () =>
     const cx = (b[0] + b[1]) / 2, cy = (b[2] + b[3]) / 2, d = (p) => Math.hypot(cx - p[0], cy - p[1]);
     assert.ok(steep.every((p, j) => j === i || d(p) > d(steep[i])), `${vals[i]} nearest its own dot`);
   });
-  const lb = bracketLabel(100, 300, 70, 400, 30);
-  assert.equal(lb.anchor, 'middle');
+  const lb = bracketLabel(100, 300, 70);
+  assert.equal(lb.mode, 'gap');
   assert.ok(lb.gap[0] > 100 && lb.gap[1] < 300);
-  assert.equal(bracketLabel(100, 140, 70, 400, 30).anchor, 'start');
-  assert.equal(bracketLabel(300, 380, 90, 400, 30).anchor, 'end');
+  assert.equal(bracketLabel(100, 180, 70).mode, 'tight');
+  assert.equal(bracketLabel(100, 160, 70, [36, 22]).mode, 'stack');
+});
+
+test('a bracket\'s label stays between its two ends, clear of the other labels, 12 px or more, on every card size', () => {
+  // (Sites 4 and 5, 19 Oct: "HVPG 2.4" was drawn past its bracket's right end. Bold capitals measured wide, as a real font draws them.)
+  const wide = (f) => (t, wt = 600) => [...t].reduce((a, c) => a + (/[A-Z]/.test(c) ? 0.8 : /[0-9]/.test(c) ? 0.62 : 0.32) * f * (wt >= 700 ? 1.04 : 1), 0);
+  let stacked = 0, tight = 0;
+  // (Down to narrower than any card draws it at each type size: a Mac's 12 px card, a phone's 13.8, an iPad's 15.6 and 18.)
+  for (const [f, w0] of [[12, 220], [13.8, 280], [15.6, 340], [18, 400]]) for (let w = w0; w <= 900; w += 7) for (const h of [150, 240, 320]) {
+    const tw = wide(f), G = profileGeo(w, h, f, tw), cap = 0.72 * f;
+    assert.ok(f >= 12);
+    const boxes = SPANS.map(([, name, a, b], r) => {
+      const x0 = G.x(STATIONS.indexOf(a)), x1 = G.x(STATIONS.indexOf(b)), yy = G.brY(r);
+      return ['2.4', '14.8', '23.7', '00.0'].map((val) => {
+        const lb = bracketLabel(x0, x1, tw(`${name} ${val}`, 700), [tw(name, 600), tw(val, 700)]);
+        const stack = G.brMode[r] === 'stack', wd = stack ? Math.max(tw(name, 600), tw(val, 700)) : tw(`${name} ${val}`, 700);
+        if (stack) stacked++; else if (G.brMode[r] === 'tight') tight++;
+        const box = [lb.x - wd / 2, lb.x + wd / 2, stack ? yy - 0.19 * f - cap : yy + 0.36 * f - cap, stack ? yy + 0.91 * f : yy + 0.36 * f];
+        assert.ok(box[0] >= x0 + 3 && box[1] <= x1 - 3, `${w}x${h} at ${f} px: ${name} ${val} between its ends (${box[0].toFixed(1)}–${box[1].toFixed(1)} in ${x0.toFixed(1)}–${x1.toFixed(1)})`);
+        if (!stack && G.brMode[r] === 'gap') assert.ok(lb.gap[0] >= x0 + 8 - 1e-9 && lb.gap[1] <= x1 - 8 + 1e-9, `${w}x${h}: ${name}'s bar shows each side`);
+        return box;
+      });
+    });
+    // (In the band at the plot's foot: under the zero line, over the axis, the HVPG over the PPG, never touching.)
+    for (const hv of boxes[0]) {
+      assert.ok(hv[2] >= G.Z + 3, `${w}x${h} at ${f} px: the HVPG under the zero line`);
+      for (const pp of boxes[1]) assert.ok(hv[3] + 3 <= pp[2] && pp[3] <= G.B - 3, `${w}x${h} at ${f} px: the HVPG clear of the PPG, the PPG over the axis`);
+    }
+    assert.ok(G.Z - G.T >= 3 * f - 1e-9, `${w}x${h}: the plot keeps its room`);
+  }
+  assert.ok(stacked > 0 && tight > 0, `narrow cards stack or tighten the label (stacked ${stacked}, tight ${tight})`);
+  // (A Mac card's full width, as on Sites 5 under the words: the label on one line with the bar each side of it.)
+  assert.deepEqual(profileGeo(600, 200, 12, wide(12)).brMode, ['gap', 'gap']);
 });
 
 test('on the resistance profiles no value touches a line or a word, and each is clearly its own dot\'s', async () => {
@@ -143,10 +175,10 @@ test('on the resistance profiles no value touches a line or a word, and each is 
   for (const [dev, f, w, h] of [['phone', 13.8, 352, 260], ['iPad', 15.6, 552, 270], ['Mac', 12.02, 259, 229]]) {
     for (const [name, g, ref] of [['healthy', hl, null], ['schisto', schisto, null], ['cirrhosis', csph, schisto], ['SOS', sos, csph], ['compensated', comp, null]]) {
       const tw = approxW(f), G = profileGeo(w, h, f, tw), goal = { ...g, top: axisTop(g, hl, ref) };
-      const y = (v) => G.B - (G.B - G.T) * Math.min(v, goal.top) / goal.top, P = (p) => p.v.map((v, i) => [G.x(i), y(v)]);
+      const y = (v) => G.Z - (G.Z - G.T) * Math.min(v, goal.top) / goal.top, P = (p) => p.v.map((v, i) => [G.x(i), y(v)]);
       const pg = P(g), labels = g.v.map(one), all = pg;
       const s = placeValues(G, (t) => tw(t), goal, hl, ref);
-      const lines = labelPlacer([...curveRuns([pg, P(hl), ...(ref ? [P(ref)] : [])]), [[0, G.B], [w, G.B]]], [], -1e9, 1e9, [4, 1, 1, 2]);
+      const lines = labelPlacer([...curveRuns([pg, P(hl), ...(ref ? [P(ref)] : [])]), [[0, G.Z], [w, G.Z]]], [], -1e9, 1e9, [4, 1, 1, 2]);
       const words = s.map((v) => v.box);
       for (let i = 0; i < words.length; i++) for (let j = i + 1; j < words.length; j++) {
         const [a, b] = [words[i], words[j]];
@@ -163,6 +195,45 @@ test('on the resistance profiles no value touches a line or a word, and each is 
   }
   // (With the names on one row and no wedged ring, every value has a clear place, the Mac card's SOS too.)
   assert.deepEqual(off, []);
+});
+
+test('the HVPG and PPG brackets stand inside the plot, 4 px clear of every line, dot, value, word, the axis and each other', async () => {
+  // (Mohammad, 19 Oct: "put the HVPG and PPG brackets INSIDE the chart not outside", each label inside its own bracket.)
+  const [hl, schisto, csph, sos, comp, pvt] = (await runSteps([{ preset: 'healthy' }, { preset: 'schisto' }, { preset: 'csph' }, { preset: 'sos' }, { preset: 'cirr-comp' }, { preset: 'pvt-chronic' }])).map(profileOf);
+  const inside = [], under = [];
+  const gap = (a, b) => Math.max(b[0] - a[1], a[0] - b[1], b[2] - a[3], a[2] - b[3]);
+  for (const [dev, f, w, h] of [['phone', 13.8, 352, 260], ['iPad', 15.6, 552, 270], ['Mac', 12.02, 259, 229], ['Mac wide', 12.02, 600, 150], ['Mac beside', 12, 335, 300], ['phone sideways', 12, 300, 170]]) {
+    for (const [name, g, ref] of [['healthy', hl, null], ['schisto', schisto, null], ['cirrhosis', csph, schisto], ['SOS', sos, csph], ['compensated', comp, null], ['PVT', pvt, null]]) {
+      if (!g) continue;
+      // (As the chart plans it: inside the plot where both have room, else in the band at its foot.)
+      const tw = approxW(f), goal = { ...g, top: axisTop(g, hl, ref) };
+      let G = profileGeo(w, h, f, tw, true), s = placeValues(G, (t) => tw(t), goal, hl, ref), brk = placeBrackets(G, tw, goal, hl, ref, s);
+      if (brk) inside.push(`${dev} ${name}`);
+      else { under.push(`${dev} ${name}`); G = profileGeo(w, h, f, tw); s = placeValues(G, (t) => tw(t), goal, hl, ref); brk = [G.brY(0), G.brY(1)]; }
+      const y = (v) => G.Z - (G.Z - G.T) * Math.min(v, goal.top) / goal.top, P = (p) => p.v.map((v, i) => [G.x(i), y(v)]);
+      const lines = labelPlacer(curveRuns([P(g), P(hl), ...(ref ? [P(ref)] : [])]), [], -1e9, 1e9, [4, 1, 1], [0, 0], BR_PAD);
+      const boxes = brk.map((yy, r) => bracketBox(G, r, yy));
+      boxes.forEach((b, r) => {
+        const what = `${dev} ${name}: the ${SPANS[r][1]} bracket`;
+        assert.ok(b[2] >= G.T - 1e-9 && b[3] <= G.B - BR_PAD + 1e-9, `${what} inside the plot, clear of the axis`);
+        assert.ok(G.inside || b[2] >= G.Z + BR_PAD - 1e-9, `${what} under the zero line`);
+        assert.equal(lines.lineCost(b), 0, `${what} clear of the lines`);
+        s.forEach((v, i) => assert.ok(gap(b, v.box) >= BR_PAD - 1e-9, `${what} clear of the value ${i}`));
+        P(g).forEach(([x, yy]) => assert.ok(gap(b, [x - 4, x + 4, yy - 4, yy + 4]) >= BR_PAD - 1e-9, `${what} clear of the dots`));
+        assert.ok(f >= 12);
+      });
+      assert.ok(gap(boxes[0], boxes[1]) >= BR_PAD - 1e-9, `${dev} ${name}: the brackets clear of each other`);
+      // (The brace under Pre, Intra and Post: inside their band, its name no wider than it, under the names and over the chart's foot.)
+      const i0 = STATIONS.indexOf('RPV'), i1 = STATIONS.indexOf('CV_R'), xa = G.x(i0) - 0.42 * G.slot, xb = G.x(i1) + 0.42 * G.slot;
+      assert.ok(xa >= G.x(i0) - G.slot / 2 && xb <= G.x(i1) + G.slot / 2, `${dev}: the brace inside the liver's stations`);
+      assert.ok(tw(BRACE_NAME) <= xb - xa, `${dev}: Sinusoidal no wider than its brace`);
+      assert.ok(G.braceY >= Math.max(...STATIONS.map((_, i) => G.nameY(i))) + 0.2 * f, `${dev}: the brace under the names`);
+      assert.ok(G.braceY + 1.55 * f <= h - 0.2 * f || h < G.need, `${dev}: Sinusoidal inside the chart`);
+    }
+  }
+  // (His slide, health on a phone, an iPad and a Mac card: in the plot among the lines.)
+  for (const dev of ['phone', 'iPad', 'Mac beside']) assert.ok(inside.includes(`${dev} healthy`), `${dev} healthy: inside (band: ${under.join(', ')})`);
+  console.log(`among the lines ${inside.length}, in the band ${under.length}: ${under.join(', ')}`);
 });
 
 test('whole percents keep their sum', () => {

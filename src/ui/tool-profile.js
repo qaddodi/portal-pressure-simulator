@@ -1,7 +1,7 @@
 // The pressure profile on a slide (deck visuals V1, package B): tool { kind: 'profile' } draws the slide's pressure from gut
 // to heart through the Patients chart's eight stations (anatomy.js PROFILE_PATHS), the healthy line dashed beneath it, the
 // liver's stations on a soft band, and the HVPG (sinusoid to hepatic vein) and the PPG (portal vein to IVC) as brackets
-// under the names (no wedged ring: Mohammad, 19 Oct, "No need for the wedge circle"). The sinusoid's station shows the wedged
+// inside the plot, each label inside its bracket (in a band at the plot's foot where it has no clear room) (no wedged ring: Mohammad, 19 Oct, "No need for the wedge circle"). The sinusoid's station shows the wedged
 // pressure (WHVP), the reading the HVPG is taken from, so the HVPG bracket is that point less the hepatic vein's (Mohammad,
 // 19 Oct); it lies a little under the sinusoid's own pressure, the leak to the central vein (engine.js hvpgTrue). Where the line drops steeply is where the resistance is, so presinusoidal, sinusoidal and postsinusoidal resistance look different.
 // tool: { kind: 'profile', from: true } adds the state before this slide's as a faint dotted line ('slide id' for another).
@@ -19,10 +19,16 @@ export const STATIONS = PATH.nodes;
 const NI = Object.fromEntries(NODES.map((n, i) => [n.id, i]));
 // Short names where the full ones do not fit, then the shortest where those do not (a phone's or a Mac's card): clinical
 // short forms, never an ellipsis or a full stop.
-// (The sinusoid's station is named for the wedged reading it shows, on every card: never 'Sin' or 'Sinusoid' alone.)
-export const FULL_NAMES = { ...PATH.names, SIN_R: 'Sinusoid (WHVP)' };
-export const SHORT_NAMES = { INT: 'Gut', CONF: 'PV', RPV: 'Venule', SIN_R: 'WHVP', CV_R: 'CV', RHV: 'HV', IVCS: 'IVC', RA: 'RA' };
-export const TIGHT_NAMES = { INT: 'Gut', CONF: 'PV', RPV: 'Ven', SIN_R: 'WHVP', CV_R: 'CV', RHV: 'HV', IVCS: 'IVC', RA: 'RA' };
+// The liver's three stations are named Pre, Intra and Post on every card, one curly brace under them named Sinusoidal, so they
+// read as pre-, intra- and postsinusoidal (Mohammad, 19 Oct: "curly bracket underneath sinusoid and each x axis label is Pre
+// Intra Post"); the Intra station still shows the wedged pressure (WHVP).
+const LIVER_NAMES = { RPV: 'Pre', SIN_R: 'Intra', CV_R: 'Post' };
+export const BRACE_NAME = 'Sinusoidal';
+export const FULL_NAMES = { ...PATH.names, ...LIVER_NAMES };
+export const SHORT_NAMES = { INT: 'Gut', CONF: 'PV', ...LIVER_NAMES, RHV: 'HV', IVCS: 'IVC', RA: 'RA' };
+export const TIGHT_NAMES = SHORT_NAMES;
+// (Read aloud: the stations' own names, the wedged reading named.)
+const SPOKEN = { ...PATH.names, SIN_R: 'Sinusoid (WHVP)' };
 // A station's reading where the tiles have one (so its number is the tile's), else the node's own pressure.
 const AT_FP = { INT: 'int', CONF: 'pv', SIN_R: 'whvp', CV_R: 'cv', RHV: 'fhvp', IVCS: 'ivc', RA: 'ra' };
 export const SPANS = [['hvpg', 'HVPG', 'SIN_R', 'RHV'], ['ppg', 'PPG', 'CONF', 'IVCS']];
@@ -80,13 +86,25 @@ export function nameFit(slot, tw) {
   return { names: tight, rows: 2, dx: all.map(() => 0), low: all.map((i) => i % 2 === 1) };
 }
 
-/** The chart's layout for w × h px in type f px: margins, the plot, the name rows and the two bracket rows. */
-export function profileGeo(w, h, f, tw) {
+/** The chart's layout for w × h px in type f px: margins, the plot, the name rows and the liver's brace under them. A bracket
+ *  whose label fits on one line inside it is one line tall; one too short for that stands its name over its value inside it
+ *  (judged from the widest value, 00.0, so nothing changes height while the numbers ease). inside: the HVPG and PPG brackets
+ *  stand in the plot where placeBrackets finds them room; else (band) the plot keeps a band at its foot for them, under its zero
+ *  line and over its axis, the PPG's lowest. B: the axis; Z: the zero line (B when inside). need: the height the chart takes with
+ *  its plot at its smallest, the band kept. */
+export function profileGeo(w, h, f, tw, inside = false) {
   const L = Math.ceil(tw('30') + 12), R = w - 10, slot = (R - L) / STATIONS.length, fit = nameFit(slot, tw);
-  const keyH = 1.6 * f, T = keyH + 1.5 * f, nameH = fit.rows * 1.25 * f + 0.4 * f, brH = 1.55 * f;
-  const B = Math.max(T + 3 * f, h - nameH - 2 * brH - 0.5 * f);
+  const keyH = 1.6 * f, T = keyH + 1.5 * f, nameH = fit.rows * 1.25 * f + 0.4 * f;
+  const brMode = SPANS.map(([, name, a, b]) => bracketLabel(0, slot * (STATIONS.indexOf(b) - STATIONS.indexOf(a)), tw(`${name} 00.0`, 700), [tw(name, 600), tw('00.0', 700)]).mode);
+  const half = brMode.map((m) => (m === 'stack' ? 0.91 : 0.36) * f + 1), bandH = 3 * BR_PAD + 2 * (half[0] + half[1]), band = inside ? 0 : bandH;
+  // (The liver's brace and its name under the names: the brace 0.55 em deep, its name's baseline 1 em under its tip.)
+  const braceH = 1.85 * f;
+  const B = Math.max(T + 3 * f + band, h - nameH - braceH - 0.5 * f), y1 = B - BR_PAD - half[1];
   const x = (i) => L + slot * (i + 0.5);
-  return { w, h, f, L, R, T, B, slot, x, fit, keyH, nameX: (i) => x(i) + fit.dx[i], nameY: (i) => B + 1.05 * f + (fit.low[i] ? 1.25 * f : 0), brY: (k) => B + nameH + brH * (k + 0.55) };
+  return { w, h, f, L, R, T, B, Z: B - band, slot, x, fit, keyH, brMode, inside, need: T + 3 * f + bandH + nameH + braceH + 0.5 * f,
+    braceY: B + nameH - 0.1 * f,
+    nameX: (i) => x(i) + fit.dx[i], nameY: (i) => B + 1.05 * f + (fit.low[i] ? 1.25 * f : 0),
+    brY: (k) => (k ? y1 : y1 - half[1] - BR_PAD - half[0]) };
 }
 
 /** The lines as fine polylines (the smooth curves drawn, not their chords), for the labels to keep clear of. */
@@ -230,12 +248,23 @@ export function smoothD(pts) {
   return `M${p(pts[0][0], pts[0][1])}` + segs.map(([, , ax, ay, bx, by, x1, y1]) => `C${p(ax, ay)} ${p(bx, by)} ${p(x1, y1)}`).join('');
 }
 
-/** A bracket's label and where it goes: inside its span with a gap in the bar, else just past its right end, else before
- *  its left end. → { x, anchor, gap: [x0, x1] | null } */
-export function bracketLabel(x0, x1, wd, R, L) {
-  if (x1 - x0 - wd >= 20) { const m = (x0 + x1) / 2; return { x: m, anchor: 'middle', gap: [m - wd / 2 - 5, m + wd / 2 + 5] }; }
-  if (x1 + 6 + wd <= R + 6) return { x: x1 + 6, anchor: 'start', gap: null };
-  return { x: Math.max(L - 6, x0 - 6), anchor: 'end', gap: null };
+/** A bracket's label, always between its two ends (x0, x1): centred with a gap in the bar where it fits with 8 px of bar each
+ *  side ('gap'); else centred between the ends with the bar left out, 4 px clear of each end ('tight'); else its name over its
+ *  value, centred, the bar broken round the wider of the two where there is room ('stack'). wd: the label's width on one line;
+ *  parts: the name's and the value's widths. → { mode, x (its middle), gap: [x0, x1] (where the bar breaks) | null } */
+export const BR_CLEAR = 4;
+export function bracketLabel(x0, x1, wd, parts = [wd, 0]) {
+  const m = (x0 + x1) / 2, span = x1 - x0;
+  if (span - wd >= 26) return { mode: 'gap', x: m, gap: [m - wd / 2 - 5, m + wd / 2 + 5] };
+  if (wd <= span - 2 * BR_CLEAR) return { mode: 'tight', x: m, gap: [x0, x1] };
+  const ws = Math.max(...parts);
+  return { mode: 'stack', x: m, gap: ws + 20 <= span ? [m - ws / 2 - 5, m + ws / 2 + 5] : [x0, x1] };
+}
+
+/** A curly brace from xa to xb, its back at y0 and its tip d under it at the middle. */
+export function braceD(xa, xb, y0, d) {
+  const m = (xa + xb) / 2, r = Math.min(d, (xb - xa) / 8), y1 = y0 + d / 2, p = (x, y) => `${x.toFixed(1)} ${y.toFixed(1)}`;
+  return `M${p(xa, y0)}Q${p(xa, y1)} ${p(xa + r, y1)}L${p(m - r, y1)}Q${p(m, y1)} ${p(m, y0 + d)}Q${p(m, y1)} ${p(m + r, y1)}L${p(xb - r, y1)}Q${p(xb, y1)} ${p(xb, y0)}`;
 }
 
 const SVGNS = 'http://www.w3.org/2000/svg';
@@ -266,7 +295,7 @@ function keyFit(G, tw, hasBf) {
  *  (profiles or null): valueSides's answer. tw(t, weight): a text's width in px. */
 export function placeValues(G, tw, goal, hl, bf) {
   const { f } = G, dotR = Math.max(4, 0.36 * f);
-  const yg = (v) => G.B - (G.B - G.T) * Math.max(0, Math.min(v, goal.top)) / goal.top, ptsG = (p) => p.v.map((v, i) => [G.x(i), yg(v)]);
+  const yg = (v) => G.Z - (G.Z - G.T) * Math.max(0, Math.min(v, goal.top)) / goal.top, ptsG = (p) => p.v.map((v, i) => [G.x(i), yg(v)]);
   const i0 = STATIONS.indexOf(PATH.liver[0]), i1 = STATIONS.indexOf(PATH.liver[1]), { unitOnKey } = keyFit(G, tw, !!bf);
   // (The words over the plot a value keeps clear of: the liver's name, and the unit when the key needs its row.)
   const cap = 0.72 * f, word = (x0, x1, base) => [x0 - 2, x1 + 2, base - cap - 2, base + 2], lw = (tw('LIVER', 600) + 0.3 * f) / 2;   // (its letters spaced .06em)
@@ -274,14 +303,48 @@ export function placeValues(G, tw, goal, hl, bf) {
     ...(unitOnKey ? [] : [word(0, tw('mmHg', 500), G.T - 0.95 * f)])];
   const pg = ptsG(goal);
   return valueSides(pg, [hl, bf].filter(Boolean).map(ptsG), goal.v.map(one), f, (t) => tw(t), G.keyH + 0.2 * f,
-    { bottom: G.B, axis: G.B, left: G.L + 2, right: G.R + 8, dotR, obstacles: overWords, dots: pg.map(([x, yy]) => [x, yy, dotR + 1]) });
+    { bottom: G.Z, axis: G.Z, left: G.L + 2, right: G.R + 8, dotR, obstacles: overWords, dots: pg.map(([x, yy]) => [x, yy, dotR + 1]) });
+}
+
+/** A bracket's box, its bar at yy (G a profileGeo, r its row): the ticks and the label, a pixel round. */
+export function bracketBox(G, r, yy) {
+  const [, , a, b] = SPANS[r], { f } = G, x0 = G.x(STATIONS.indexOf(a)), x1 = G.x(STATIONS.indexOf(b));
+  const up = G.brMode[r] === 'stack' ? 0.91 * f : 0.36 * f, down = G.brMode[r] === 'stack' ? 0.91 * f : 0.36 * f;
+  return [x0 - 1, x1 + 1, yy - up - 1, yy + down + 1];
+}
+
+/** Where the HVPG and the PPG brackets stand inside the plot (Mohammad, 19 Oct: "put the HVPG and PPG brackets INSIDE the chart"):
+ *  each as low as it can go, at least BR_PAD px from every line (the slide's, the healthy one, the earlier one), dot, value
+ *  (sides: placeValues's answer), the liver's name, the axis and each other.
+ *  → [yy of the HVPG's bar, yy of the PPG's], or null where the two have no such places (the plot then keeps a band for them). */
+export const BR_PAD = 4;
+export function placeBrackets(G, tw, goal, hl, bf, sides) {
+  const { f } = G, dotR = Math.max(4, 0.36 * f);
+  const yg = (v) => G.Z - (G.Z - G.T) * Math.max(0, Math.min(v, goal.top)) / goal.top, ptsG = (p) => p.v.map((v, i) => [G.x(i), yg(v)]);
+  const pg = ptsG(goal), runs = curveRuns([pg, ...[hl, bf].filter(Boolean).map(ptsG)]);
+  const place = labelPlacer(runs, [], G.T, G.Z - BR_PAD, [], [BR_PAD, BR_PAD], BR_PAD);
+  for (const [x, y] of pg) place.take([x - dotR - 1, x + dotR + 1, y - dotR - 1, y + dotR + 1]);
+  for (const v of sides || []) if (v?.box) place.take(v.box);
+  const i0 = STATIONS.indexOf(PATH.liver[0]), i1 = STATIONS.indexOf(PATH.liver[1]);
+  if (i0 >= 0) { const m = (G.x(i0) + G.x(i1)) / 2, lw = (tw('LIVER', 600) + 0.3 * f) / 2; place.take([m - lw - 2, m + lw + 2, G.T - 0.35 * f - 0.72 * f - 2, G.T - 0.35 * f + 2]); }
+  // (Every clear height for each, then the pair standing lowest that keeps the two apart: under the curve where it has room,
+  // else over it.)
+  const ys = [0, 1].map((r) => {
+    const b0 = bracketBox(G, r, 0), out = [];
+    for (let yy = G.Z - BR_PAD - b0[3]; yy >= G.T - b0[2]; yy -= 1) if (place.cost(bracketBox(G, r, yy)) === 0) out.push(yy);
+    return out;
+  });
+  const apart = (p, q) => { const a = bracketBox(G, 0, p), b = bracketBox(G, 1, q); return Math.max(b[0] - a[1], a[0] - b[1], b[2] - a[3], a[2] - b[3]) >= BR_PAD; };
+  let best = null;
+  for (const q of ys[1]) for (const p of ys[0]) if ((!best || p + q > best[0] + best[1]) && apart(p, q)) { best = [p, q]; break; }
+  return best;
 }
 
 export function createProfileTool() {
   const el = document.createElement('div');
   el.className = 'pz-prof';
   const reduceMQ = matchMedia('(prefers-reduced-motion: reduce)');
-  let goal = null, shown = null, ref = null, cfg = { from: null }, ctx0 = null, raf = 0, sides = null, size = '';
+  let goal = null, shown = null, ref = null, cfg = { from: null }, ctx0 = null, raf = 0, plan = null, size = '';
   // (The numbers drawn: the goal's, eased; the healthy and earlier lines as they are.)
   const healthy = () => profileOf(ctx0?.healthy?.());
   function before() {
@@ -294,26 +357,44 @@ export function createProfileTool() {
     }
     return null;
   }
+  // (Drawn at its box's own size, never a size of its own: drawn taller than its box, the picture was scaled down to fit it, its
+  // words under 12 px and its values crowded, Sites 4 and 5. Not drawn until the box has a size.)
   const size0 = () => {
-    const w = el.clientWidth, z = w ? el.getBoundingClientRect().width / w : 1;
-    // (The card zooms its contents on a Mac and an iPad: the type is set larger by as much, never under 12 px on the screen.)
+    const w = el.clientWidth, hh = el.clientHeight, z = w ? el.getBoundingClientRect().width / w : 1;
+    if (!w || !hh) return null;
+    // (Zoomed by the page or an ancestor (the card's own fit leaves the chart unzoomed: styles/app.css): the type is set larger by as
+    // much, never under 12 px on the screen.)
     const f = Math.max(parseFloat(getComputedStyle(el).fontSize) || 12, z > 0.2 && z < 1 ? 12 / z : 0);
-    return [Math.max(200, w || 420), Math.max(10 * f, el.clientHeight || 240), f];
+    return [w, hh, f];
   };
   function draw() {
     if (!shown) { el.replaceChildren(); return; }
-    const [w, hh, f] = size0(), tw = (t, wt) => textW(t, f, wt);
+    const sz = size0();
+    if (!sz) return;
+    const [w, hh, f] = sz, tw = (t, wt) => textW(t, f, wt);
     size = `${Math.round(w)}x${Math.round(hh)}`;
-    const G = profileGeo(w, hh, f, tw), hl = healthy(), bf = ref;
-    const top = shown.top, y = (v) => G.B - (G.B - G.T) * Math.max(0, Math.min(v, top)) / top;
+    const hl = healthy(), bf = ref;
+    // (Each value's place and the brackets' are settled once per state, from where the lines will end up, so they never flip while
+    // the lines glide. The brackets stand inside the plot where they clear everything; else in a band at the plot's foot.)
+    if (!plan) {
+      let g = profileGeo(w, hh, f, tw, true), s = placeValues(g, tw, goal, hl, bf);
+      const brk = placeBrackets(g, tw, goal, hl, bf, s);
+      if (!brk) { g = profileGeo(w, hh, f, tw); s = placeValues(g, tw, goal, hl, bf); }   // (the band at the plot's foot)
+      plan = { inside: !!brk, sides: s, brk };
+    }
+    const G = profileGeo(w, hh, f, tw, plan.inside), sides = plan.sides;
+    // (A box shorter than the chart at its smallest with the band (a bracket's name over its value takes a taller row) asks for that
+    // much: judged from that layout alone, so the box never flips between two heights.)
+    const need = profileGeo(w, hh, f, tw).need;
+    const cssMin = 11 * (parseFloat(getComputedStyle(el).fontSize) || 12), want = need > cssMin + 0.5 ? `${Math.ceil(need)}px` : '';
+    if (el.style.minHeight !== want) el.style.minHeight = want;
+    const top = shown.top, y = (v) => G.Z - (G.Z - G.T) * Math.max(0, Math.min(v, top)) / top;
     const pts = (p) => p.v.map((v, i) => [G.x(i), y(v)]);
     const now = pts(shown), labels = shown.v.map(one), dotR = Math.max(4, 0.36 * f);
-    // (Each value's place is settled once per state, from where the lines will end up, so it never flips while they glide.)
     const i0 = STATIONS.indexOf(PATH.liver[0]), i1 = STATIONS.indexOf(PATH.liver[1]);
     const { key, unitOnKey } = keyFit(G, tw, !!bf);
     let kx = G.R;
-    sides ??= placeValues(G, tw, goal, hl, bf);
-    const step = top > 40 ? 10 : 5, every = (G.B - G.T) / (top / step) < 1.3 * f ? 2 * step : step;
+    const step = top > 40 ? 10 : 5, every = (G.Z - G.T) / (top / step) < 1.3 * f ? 2 * step : step;
     const col = (v) => pressureColor(v);
     const gid = `pzpg-${Math.random().toString(36).slice(2, 8)}`;
     const keyEls = key.slice().reverse().map(([t, c]) => { const tx = kx, gx = tx - tw(t, 500) - 6; kx -= tw(t, 500) + 30; return sv('g', { class: `ppf-key ${c}` },
@@ -321,7 +402,7 @@ export function createProfileTool() {
       sv('text', { x: tx, y: 0.75 * f + 0.36 * f, 'text-anchor': 'end' }, t)); });
     const valY = (cy, k) => cy + sides[k].by;
     const svg = sv('svg', { viewBox: `0 0 ${w} ${hh}`, width: w, height: hh, role: 'img', style: `font-size: ${f.toFixed(2)}px`,
-      'aria-label': `Pressure from gut to heart: ${STATIONS.map((n, i) => `${FULL_NAMES[n]} ${labels[i]}`).join(', ')} mmHg. HVPG ${one(shown.hvpg)}, PPG ${one(shown.ppg)}.` },
+      'aria-label': `Pressure from gut to heart: ${STATIONS.map((n, i) => `${SPOKEN[n]} ${labels[i]}`).join(', ')} mmHg. HVPG ${one(shown.hvpg)}, PPG ${one(shown.ppg)}.` },
       sv('defs', {}, sv('linearGradient', { id: gid, gradientUnits: 'userSpaceOnUse', x1: G.x(0), x2: G.x(STATIONS.length - 1), y1: 0, y2: 0 },
         shown.v.map((v, i) => sv('stop', { offset: (i / (STATIONS.length - 1)).toFixed(3), 'stop-color': col(v) })))),
       // The liver's stations on a soft band, named over the plot.
@@ -334,20 +415,29 @@ export function createProfileTool() {
       keyEls,
       hl ? sv('path', { class: 'ppf-hl', d: smoothD(pts(hl)) }) : null,
       bf ? sv('path', { class: 'ppf-bf', d: smoothD(pts(bf)) }) : null,
-      sv('path', { class: 'ppf-fill', d: `${smoothD(now)}L${G.x(STATIONS.length - 1).toFixed(1)} ${G.B}L${G.x(0).toFixed(1)} ${G.B}Z`, style: `fill: url(#${gid})` }),
+      sv('path', { class: 'ppf-fill', d: `${smoothD(now)}L${G.x(STATIONS.length - 1).toFixed(1)} ${G.Z}L${G.x(0).toFixed(1)} ${G.Z}Z`, style: `fill: url(#${gid})` }),
       sv('line', { class: 'ppf-axis', x1: G.L, x2: G.R, y1: G.B, y2: G.B }),
       sv('path', { class: 'ppf-line', d: smoothD(now), style: `stroke: url(#${gid})` }),
       now.map(([cx, cy], i) => sv('circle', { class: 'ppf-dot', cx, cy, r: dotR, style: `fill: ${col(shown.v[i])}` })),
       now.map(([cx, cy], i) => sv('text', { class: 'ppf-v', x: cx + sides[i].dx, y: valY(cy, i), 'text-anchor': 'middle' }, labels[i])),
       STATIONS.map((n, i) => sv('text', { class: 'ppf-name', x: G.nameX(i), y: G.nameY(i), 'text-anchor': 'middle' }, G.fit.names[i])),
-      // The HVPG (sinusoid to hepatic vein) and the PPG (portal vein − IVC) as brackets under the names, in their cut-off colours.
+      // (One brace under Pre, Intra and Post, inside the liver's band, named Sinusoidal under its tip.)
+      i0 >= 0 ? sv('g', { class: 'ppf-brace' }, sv('path', { d: braceD(G.x(i0) - 0.42 * G.slot, G.x(i1) + 0.42 * G.slot, G.braceY, 0.55 * f) }),
+        sv('text', { x: (G.x(i0) + G.x(i1)) / 2, y: G.braceY + 1.55 * f, 'text-anchor': 'middle' }, BRACE_NAME)) : null,
+      // The HVPG (sinusoid to hepatic vein) and the PPG (portal vein − IVC) as brackets inside the plot (else in a band at its foot), in
+      // their cut-off colours, each label inside its own bracket.
       SPANS.map(([k, name, a, b], r) => {
         const v = shown[k], rate = RATE[k](v)[0];
-        const x0 = G.x(STATIONS.indexOf(a)), x1 = G.x(STATIONS.indexOf(b)), yy = G.brY(r), txt = `${name} ${one(v)}`;
-        const lb = bracketLabel(x0, x1, tw(txt, 700), G.R, G.L), bar = lb.gap ? `M${x0} ${yy}H${lb.gap[0]}M${lb.gap[1]} ${yy}H${x1}` : `M${x0} ${yy}H${x1}`;
-        return sv('g', { class: 'ppf-br', 'data-rate': rate, 'data-k': k },
+        const x0 = G.x(STATIONS.indexOf(a)), x1 = G.x(STATIONS.indexOf(b)), yy = plan.inside ? plan.brk[r] : G.brY(r), val = one(v);
+        // (Laid out as the geometry planned the row: one line, or the name over the value. On one line, the gap in the bar follows
+        // the label's own width; the bar is left out only where the widest value would not keep it.)
+        const stack = G.brMode[r] === 'stack', lb = bracketLabel(x0, x1, tw(`${name} ${val}`, 700), [tw(name, 600), tw(val, 700)]);
+        const gap = stack ? bracketLabel(x0, x1, Infinity, [tw(name, 600), tw(val, 700)]).gap : G.brMode[r] === 'tight' ? [x0, x1] : lb.gap;
+        const bar = gap[1] - gap[0] >= x1 - x0 - 0.5 ? '' : `M${x0} ${yy}H${gap[0]}M${gap[1]} ${yy}H${x1}`;
+        return sv('g', { class: 'ppf-br', 'data-rate': rate, 'data-k': k, 'data-mode': G.brMode[r] },
           sv('path', { d: `M${x0} ${yy - 0.3 * f}V${yy + 0.3 * f}M${x1} ${yy - 0.3 * f}V${yy + 0.3 * f}${bar}` }),
-          sv('text', { x: lb.x, y: yy + 0.36 * f, 'text-anchor': lb.anchor }, sv('tspan', { class: 'k' }, `${name} `), one(v)));
+          stack ? sv('text', { x: lb.x, y: yy - 0.19 * f, 'text-anchor': 'middle' }, sv('tspan', { class: 'k' }, name), sv('tspan', { x: lb.x, dy: `${(1.1 * f).toFixed(2)}` }, val))
+            : sv('text', { x: lb.x, y: yy + 0.36 * f, 'text-anchor': 'middle' }, sv('tspan', { class: 'k' }, `${name} `), val));
       }));
     el.replaceChildren(svg);
   }
@@ -367,10 +457,10 @@ export function createProfileTool() {
     if (!p) return;
     ref = before();
     goal = { ...p, top: axisTop(p, healthy(), ref) };
-    sides = null;
+    plan = null;
     if (!raf) raf = requestAnimationFrame(tick);
   }
-  if (typeof ResizeObserver === 'function') new ResizeObserver(() => { if (shown && el.isConnected && size !== `${Math.round(el.clientWidth)}x${Math.round(el.clientHeight)}`) { sides = null; draw(); } }).observe(el);
+  if (typeof ResizeObserver === 'function') new ResizeObserver(() => { if (shown && el.isConnected && size !== `${Math.round(el.clientWidth)}x${Math.round(el.clientHeight)}`) { plan = null; draw(); } }).observe(el);
   return {
     el,
     /** The slide's options and context (presenter-tools.js show), before its numbers. */

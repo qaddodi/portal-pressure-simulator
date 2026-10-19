@@ -6176,6 +6176,10 @@ html.thumb-ui .menu.from-dock { clip-path: inset(-64px -64px calc(var(--sink, 0p
 .pz.low .pz-data.has-tool .pz-prof { --prof-h: min(44cqi, 170px); }
 .pz:not(.stack):not(.low) .pz-data > .pz-tool[data-kind="profile"], .pz:not(.stack):not(.low) .pz-data > .pz-tool[data-kind="flows"] { container-type: inline-size; }
 .pz-prof svg, .pz-flows svg { grid-area: 1 / 1; width: 100%; height: 100%; overflow: visible; }
+/* (The card's fit shortens these charts, never their width or their words: they keep the card's full width and are not zoomed with
+   the card. Narrowed and zoomed with the fit as the instruments are, a short card drew the profile at a third of its width with its
+   words under 12 px and its values crowded, Sites 4 and 5; its type already keeps 12 px on the screen, tool-profile.js.) */
+.pz .pz-data.pz-data.pz-data.pz-data > .pz-tool:is([data-kind="profile"], [data-kind="flows"]) { width: 100%; zoom: 1; }
 .ppf-liver rect { fill: var(--chart-liver-band); }
 .ppf-liver text { font: 600 1em var(--font-ui); letter-spacing: .06em; fill: var(--text-3); }
 .pz-prof :is(.ptk-grid text, .ptk-unit) { font-size: 1em; }
@@ -6191,8 +6195,10 @@ html.thumb-ui .menu.from-dock { clip-path: inset(-64px -64px calc(var(--sink, 0p
 .ppf-v { font: 600 1em var(--font-ui); fill: var(--text); font-variant-numeric: tabular-nums; paint-order: stroke; stroke: var(--surface); stroke-width: 4px; stroke-linejoin: round; }
 .ppf-axis { stroke: var(--axis); stroke-width: 1; }
 .ppf-name { font: 500 1em var(--font-ui); fill: var(--text-2); }
+.ppf-brace path { fill: none; stroke: var(--text-3); stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
+.ppf-brace text { font: 500 1em var(--font-ui); fill: var(--text-2); }
 .ppf-br path { fill: none; stroke: var(--text-3); stroke-width: 1.5; }
-.ppf-br text { font: 700 1em var(--font-ui); fill: var(--text); font-variant-numeric: tabular-nums; }
+.ppf-br text { font: 700 1em var(--font-ui); fill: var(--text); font-variant-numeric: tabular-nums; paint-order: stroke; stroke: var(--surface); stroke-width: 4px; stroke-linejoin: round; }
 .ppf-br text .k { font-weight: 600; fill: var(--text-2); }
 .ppf-br[data-rate="mid"] path { stroke: var(--caution); } .ppf-br[data-rate="mid"] text { fill: var(--caution); }
 .ppf-br[data-rate="hi"] path { stroke: var(--danger); } .ppf-br[data-rate="hi"] text { fill: var(--danger); }
