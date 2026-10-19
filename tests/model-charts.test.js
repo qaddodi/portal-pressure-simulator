@@ -10,7 +10,7 @@ import { Engine } from '../src/engine/engine.js';
 import { explain } from '../src/engine/explain.js';
 import { DRUGS } from '../src/engine/scenario.js';
 import { EXT, PACKAGES, stepExtra } from '../src/ui/slide-ext.js';
-import { curveSteps, curveSeries, curveXs, patchOf, getAt, leftScale, rightScale, cutsOf, xTicks, ringAt } from '../src/ui/tool-curve.js';
+import { curveSteps, curveSeries, curveXs, patchOf, getAt, leftScale, rightScale, cutsOf, xTicks, ringAt, placeWord, segHits, onCurve, curveAt } from '../src/ui/tool-curve.js';
 import { causeBars, groupOf, GROUPS, wrapLabel, keyLayout, MOST, OTHER } from '../src/ui/tool-causes.js';
 
 async function seq(steps, base = null) {
@@ -71,6 +71,8 @@ test('the cirrhosis curve bends upward: the same step adds more late than early'
 test('scales: a pressure from zero up to a close cut-off, the second line on the first\'s gridlines, the x ends kept', () => {
   const l = leftScale('ppg', [7.6, 12.5]);
   assert.equal(l.min, 0); assert.ok(l.max >= 12.5);
+  const l3 = leftScale('hvpg', [2.4, 22.2]);
+  assert.ok(l3.max < 30 && l3.max >= 22.2, `an HVPG of 22 reaches ${l3.max}, not 30`);
   const l2 = leftScale('hvpg', [2.4, 8.7]);
   assert.ok(l2.max >= 10, 'the red cut-off at 10 shows above 8.7');
   const r = rightScale([22.7, 40.9], l.ticks.length);
@@ -93,6 +95,14 @@ test('the bars and "Interaction and other" sum to the rise from healthy, at most
     const order = b.bars.map((x) => GROUPS.findIndex(([k]) => k === x.group));
     assert.deepEqual(order, [...order].sort((a, c) => a - c), 'drawn by mechanism');
   }
+  // (The printed numbers add up exactly to the printed rise: the other bar takes the rounding.)
+  for (const st of r) for (const res of Object.values(st.extra.explain)) {
+    const b = causeBars(res), u = 10 ** b.digits;
+    const printed = b.bars.reduce((s, x) => s + Math.round(x.shown * u), 0) + Math.round(b.otherShown * u);
+    assert.equal(printed, Math.round(res.total * u), `${res.metricId}: printed numbers add up`);
+  }
+  const rounding = causeBars({ total: 0.3, digits: 1, contributions: [{ label: 'Cirrhosis 60 %', delta: 0.14 }, { label: 'Collaterals', delta: 0.14 }] });
+  assert.deepEqual([...rounding.bars.map((x) => x.shown), rounding.otherShown], [0.1, 0.1, 0.1]);
   const carv = causeBars(r[1].extra.explain.ppg);
   assert.ok(carv.bars.some((x) => x.group === 'drugs' && x.key === 'Carvedilol' && x.delta < 0), 'carvedilol takes pressure off');
   assert.ok(causeBars({ total: 3, contributions: [] }).other === 3, 'with no causes, all of it is other');
@@ -128,4 +138,27 @@ test('the bars\' words: two lines at most, and the key\'s rows within the card',
     assert.ok(k.rows <= 3, `${w} px: ${k.rows} rows`);
     for (const it of k.items) assert.ok(it.x + 1.3 * 12 + it.name.length * 12 * 0.56 <= w + 1, `${it.name} fits ${w} px`);
   }
+});
+
+test('a word beside a ring takes the first place clear of the lines, the cut-offs and the other words', () => {
+  assert.ok(segHits([0, 0, 10, 10], [4, 4, 6, 6]));
+  assert.ok(!segHits([0, 0, 10, 0], [4, 4, 6, 6]));
+  const cut = { y: 50, x0: 0, x1: 200 };
+  // (The first spot sits on the cut-off at y 50, so the word goes to the next one.)
+  const p = placeWord([{ x: 100, y: 55, anchor: 'start' }, { x: 100, y: 75, anchor: 'start' }], 40, 12, { lines: [cut], bounds: [0, 0, 200, 100] });
+  assert.equal(p.y, 75); assert.equal(p.n, 0);
+  const q = placeWord([{ x: 100, y: 75, anchor: 'start' }, { x: 100, y: 30, anchor: 'start' }], 40, 12, { boxes: [p.box], lines: [cut], bounds: [0, 0, 200, 100] });
+  assert.equal(q.y, 30, 'clear of the first word');
+  const r = placeWord([{ x: 190, y: 30, anchor: 'start' }, { x: 190, y: 30, anchor: 'end' }], 40, 12, { bounds: [0, 0, 200, 100] });
+  assert.equal(r.anchor, 'end', 'inside the plot');
+});
+
+test('with only the curve\'s setting moved, the case sits on the curve, read between its points', () => {
+  const t = { kind: 'curve', param: 'tips.d', from: 6, to: 12, step: 1, lines: ['ppg'] };
+  const base = { cirrhosis: 0.8, tips: { on: true, d: 8 } };
+  assert.ok(onCurve(t, { cirrhosis: 0.8, tips: { on: true, d: 11 } }, base));
+  assert.ok(!onCurve(t, { cirrhosis: 0.8, tips: { on: true, d: 11 }, drugs: { carvedilol: true } }, base), 'a compare button moves it off');
+  assert.ok(onCurve({ ...t, param: 'cirrhosis' }, { cirrhosis: 0.5, tips: { on: true, d: 8 } }, base));
+  assert.deepEqual(curveAt({ xs: [6, 7, 8], ys: [[12, 10, 9]] }, 7.5), [9.5]);
+  assert.equal(curveAt({ xs: [6, 7, 8], ys: [[12, 10, 9]] }, 9), null);
 });

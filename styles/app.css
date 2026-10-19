@@ -6215,9 +6215,14 @@ html.thumb-ui .menu.from-dock { clip-path: inset(-64px -64px calc(var(--sink, 0p
    card's small type (never under 12 px on the screen), a fixed height from the card's fit, so the card never resizes for them. */
 .pz-curve, .pz-cbars { display: grid; font-size: var(--pz-sm, var(--pz-psm, 12px)); min-height: 9em; }
 .pz-curve { height: calc(var(--cv-h, max(56cqi, 15em)) * var(--pz-fit, 1)); }
-.pz-cbars { height: calc(var(--cs-h, max(56cqi, 19em)) * var(--pz-fit, 1)); }
+.pz-cbars { height: calc(var(--cs-h, max(56cqi, 22em)) * var(--pz-fit, 1)); }
 .pz.stack .pz-curve { --cv-h: min(54cqi, 190px); }
 .pz.stack .pz-cbars { --cs-h: min(60cqi, 214px); }
+/* (An iPad held upright stacks its cards too, but has room: the charts take more of its height.) */
+@media (min-width: 700px) and (min-height: 900px) {
+  .pz.stack .pz-curve { --cv-h: min(42cqi, 270px); }
+  .pz.stack .pz-cbars { --cs-h: min(46cqi, 290px); }
+}
 .pz.low .pz-data.has-tool :is(.pz-curve, .pz-cbars) { --cv-h: min(48cqi, 150px); --cs-h: min(50cqi, 160px); min-height: 0; }
 .pz:not(.stack) .pz-data.has-tool:has(.pz-tool:is([data-kind="curve"], [data-kind="causes"])) { width: clamp(340px, 44vw, 480px); }
 .pz-curve svg, .pz-cbars svg { grid-area: 1 / 1; width: 100%; height: 100%; overflow: visible; transition: opacity .42s var(--ease); }
@@ -6230,6 +6235,9 @@ html.thumb-ui .menu.from-dock { clip-path: inset(-64px -64px calc(var(--sink, 0p
 .pcv-ring { fill: var(--surface); stroke-width: 3; transition: opacity .3s var(--ease); }
 .pcv-v { font: 700 1.1em var(--font-ui); font-variant-numeric: tabular-nums; paint-order: stroke; stroke: var(--surface); stroke-width: 4px; stroke-linejoin: round; transition: opacity .3s var(--ease); }
 :is(.pcv-at, .pcv-ring, .pcv-v).off { opacity: 0; }
+.pz-curve .pcv-cut { font: 600 1em var(--font-ui); paint-order: stroke; stroke: var(--surface); stroke-width: 3px; stroke-linejoin: round; }
+.ptk-grid[data-rate="mid"] .pcv-cut { fill: color-mix(in oklab, var(--caution) 70%, var(--text)); }
+.ptk-grid[data-rate="hi"] .pcv-cut { fill: color-mix(in oklab, var(--danger) 80%, var(--text)); }
 .pcs-h { font: 600 1em var(--font-ui); fill: var(--text-2); }
 .pcs-t { font: 700 1.1em var(--font-ui); fill: var(--text); font-variant-numeric: tabular-nums; }
 .pcs-l { font: 500 1em var(--font-ui); fill: var(--text); }

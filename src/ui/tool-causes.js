@@ -57,7 +57,12 @@ export function causeBars(r, most = MOST) {
   const bars = cs.map((c) => ({ key: c.label, label: shortLabel(c.label), group: groupOf(c.label), delta: c.delta }))
     .sort((a, b) => order(a.group) - order(b.group) || Math.abs(b.delta) - Math.abs(a.delta));
   const other = r.total - bars.reduce((s, b) => s + b.delta, 0);
-  return { bars, other, total: r.total, current: r.current, base: r.base, unit: r.unit || 'mmHg', digits: r.digits ?? 1 };
+  // (The numbers printed: each bar rounded, and the other bar whatever is left of the rounded rise, so the printed numbers
+  // add up exactly to the printed rise. Counted in the last digit's units, free of float error.)
+  const u = Math.pow(10, r.digits ?? 1), n = (v) => Math.round(v * u);
+  for (const b of bars) b.shown = n(b.delta) / u;
+  const otherShown = (n(r.total) - bars.reduce((s, b) => s + n(b.delta), 0)) / u;
+  return { bars, other, otherShown, total: r.total, current: r.current, base: r.base, unit: r.unit || 'mmHg', digits: r.digits ?? 1 };
 }
 
 const fmt = (v, d) => (v < 0 ? '−' : '') + Math.abs(v).toFixed(d);
@@ -113,8 +118,10 @@ export function createCauses({ host } = {}) {
     const n = Math.max(3, (data?.bars.length ?? MOST) + 1);
     const T = 2.1 * f, B = h - keyH - 0.6 * f, pitch = Math.min(2.8 * f, Math.max(1.5 * f, (B - T) / n));
     const labs = [...rows.values()].map((r) => r.label).concat(OTHER, (data?.bars || []).map((b) => b.label));
-    const Lw = Math.min(0.56 * w, Math.max(...labs.map((l) => Math.max(...wrapLabel(l, 0.56 * w, f).map((x) => cw(x, f))))));
+    // (The words take at most what leaves the bars three tenths of a narrow card (beside a tile) and a quarter of a wider one, so a
+    // small bar still shows.)
     const Vw = cw('+00.0', f, 1) + 4;
+    const Lw = Math.min(0.56 * w, w - Vw - 1.2 * f - (w < 300 ? 0.3 : 0.25) * w, Math.max(...labs.map((l) => Math.max(...wrapLabel(l, 0.56 * w, f).map((x) => cw(x, f))))));
     return { w, h, f, key, keyH, T, B, pitch, Lw, Vw, bx0: Lw + 0.8 * f, bx1: w - Vw - 0.4 * f };
   }
   function makeRow(r) {
@@ -148,10 +155,10 @@ export function createCauses({ host } = {}) {
       g.style.opacity = o.toFixed(3);
       label.setAttribute('y', (y + 0.35 * f - (lines - 1) * 0.55 * f).toFixed(1));
       for (const ts of label.children) ts.setAttribute('x', 0);
-      bar.setAttribute('x', (v < 0 ? x0 + v * k : x0).toFixed(1)); bar.setAttribute('width', Math.max(0, Math.abs(v) * k).toFixed(1));
+      bar.setAttribute('x', (v < 0 ? x0 + v * k : x0).toFixed(1)); bar.setAttribute('width', (r.goal?.s ? Math.max(3, Math.abs(v) * k) : Math.max(0, Math.abs(v) * k)).toFixed(1));   // (a printed bar shows at least a stub)
       bar.setAttribute('y', (y - bh / 2).toFixed(1));
       val.setAttribute('y', (y + 0.35 * f).toFixed(1));
-      const txt = signed(v, data?.digits ?? 1);
+      const txt = signed(r.goal && v === r.goal.v && r.goal.s != null ? r.goal.s : v, data?.digits ?? 1);   // (settled: the printed share)
       if (val.textContent !== txt) val.textContent = txt;
     }
   }
@@ -175,14 +182,14 @@ export function createCauses({ host } = {}) {
   // The rows' goals from data: each bar in its slot, the other bar last; rows no longer named fade out where they stand.
   function aim() {
     if (!G || !parts) return;
-    const list = data ? [...data.bars, { key: OTHER, label: OTHER, group: null, delta: data.other }] : [];
+    const list = data ? [...data.bars, { key: OTHER, label: OTHER, group: null, delta: data.other, shown: data.otherShown }] : [];
     const seen = new Set();
     list.forEach((b, i) => {
       seen.add(b.key);
       const y = G.T + G.pitch * (i + 0.5);
       let r = rows.get(b.key);
       if (!r) { r = { key: b.key, label: b.label, group: b.group, cur: { v: 0, y, o: 0 } }; rows.set(b.key, r); makeRow(r); }
-      r.goal = { v: b.delta, y, o: 1 };
+      r.goal = { v: b.delta, y, o: 1, s: b.shown };
     });
     for (const [key, r] of rows) if (!seen.has(key)) r.goal = { ...r.cur, v: r.cur.v, o: 0 };
     const vs = list.map((b) => b.delta);
@@ -191,7 +198,7 @@ export function createCauses({ host } = {}) {
     if (parts.total) parts.total.textContent = data ? `${signed(data.total, data.digits)} ${data.unit}` : '';
     const m = TILE[metricOf(t)]?.t || 'The reading';
     parts.svg.setAttribute('aria-label', data ? `${m}: ${fmt(data.current, data.digits)} ${data.unit}, ${signed(data.total, data.digits)} from healthy. `
-      + list.map((b) => `${b.label} ${signed(b.delta, data.digits)}`).join(', ') : `${m}: what raises it, being worked out`);
+      + list.map((b) => `${b.label} ${signed(b.shown, data.digits)}`).join(', ') : `${m}: what raises it, being worked out`);
     parts.svg.dataset.bars = String(data ? data.bars.length : 0);   // (the browser checks read it)
     if (!raf) raf = nextFrame(tick);
   }
