@@ -199,3 +199,21 @@ test('V19: the % in the cross-section fades with the share filled, so nothing sh
   const src = readFileSync(new URL('../src/ui/tool-lumen.js', import.meta.url), 'utf8');
   assert.match(src, /inNum\.style\.opacity = Math\.min\(1, L\.occlusion \/ 0\.06\)/);
 });
+
+test('V19: "occluded" sits under the % as one block, fades with it, and is never under 12 px on screen', () => {
+  const src = readFileSync(new URL('../src/ui/tool-lumen.js', import.meta.url), 'utf8');
+  const css = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
+  assert.match(src, /inWord\.textContent = 'occluded'/);
+  assert.match(src, /inWord\.style\.opacity = inNum\.style\.opacity/);
+  const y = (re) => +src.match(re)[1];
+  const yn = y(/inNum = sv\('text'[^)]*y: (\d+)/), yw = y(/inWord = sv\('text'[^)]*y: (\d+)/);
+  assert.ok(yw > yn + 12, 'the word is under the number');
+  // The word's font: 12 px on screen (12 / px-per-unit units), held between 9 and 12 units; the number is 22 units.
+  const rule = css.match(/^\.gl-word \{([^}]*)\}/m)[1];
+  assert.match(rule, /font-size: max\(9px, min\(12px, calc\(12px \/ var\(--gl-u/);
+  for (const u of [1.2, 1.5, 2.5, 4]) {
+    const fs = Math.max(9, Math.min(12, 12 / u));
+    assert.ok(fs * u >= 12 - 1e-9 || fs === 9, `${u} px per unit: the word is 12 px on screen unless the picture is large`);
+    assert.ok(fs * 4.7 + 2 <= 2 * Math.sqrt((LUMEN_R - LUMEN_WALL) ** 2 - (yw + 4.5 - 50) ** 2) - 6, `the word clears the wall at ${u} px per unit`);
+  }
+});

@@ -92,10 +92,13 @@ export function createLumen() {
   // The share of the lumen filled (clot, or tissue in a stent), one size at the vessel's centre, white with a dark outline so
   // it reads over the open lumen and the clot alike; the clot fills in behind it. Nothing else under the picture: a deck that
   // wants the grade shows the "clot" tile on the data card.
-  const inNum = sv('text', { class: 'gl-in', x: 50, y: 50, 'text-anchor': 'middle', 'dominant-baseline': 'central' });
+  // The number and the word under it are one block, centred on the vessel's centre; the word fades with the number.
+  const inNum = sv('text', { class: 'gl-in', x: 50, y: 45, 'text-anchor': 'middle', 'dominant-baseline': 'central' });
+  const inWord = sv('text', { class: 'gl-in gl-word', x: 50, y: 61, 'text-anchor': 'middle', 'dominant-baseline': 'central' });
+  inWord.textContent = 'occluded';
   // Tissue narrowing a stent, in the clot's colour and edge so it reads at a glance against the open lumen.
   const tissue = sv('circle', { class: 'gl-clot gl-tissue', cx: 50, cy: 50, r: LUMEN_R - LUMEN_WALL });
-  pic.append(wall, tissue, lumen, clot, ring, inNum);
+  pic.append(wall, tissue, lumen, clot, ring, inNum, inWord);
   const el = h('div', { class: 'gl' }, h('div', { class: 'gl-stage' }, pic));
   const set = (n, t) => { if (n.textContent !== t) n.textContent = t; };
   const reduce = typeof matchMedia === 'function' ? matchMedia('(prefers-reduced-motion: reduce)') : null;
@@ -111,7 +114,7 @@ export function createLumen() {
     tissue.style.opacity = Math.min(1, x.stenosis / 0.06).toFixed(3);
     set(inNum, `${pct(L.occlusion)} %`);
     // With nothing filled there is no number; it fades in with the clot (the same ramp) and out as it leaves, never popping.
-    inNum.style.opacity = Math.min(1, L.occlusion / 0.06).toFixed(3);
+    inWord.style.opacity = inNum.style.opacity = Math.min(1, L.occlusion / 0.06).toFixed(3);
     pic.setAttribute('aria-label', `${lumenName(id)} in cross-section: ${pct(L.occlusion)}% of the lumen filled, clot ${pct(x.thrombus)}%, narrowing ${pct(x.stenosis)}%`);
   }
   function tick(now) {
@@ -139,5 +142,9 @@ export function createLumen() {
     ring.style.display = STENTS.has(id) ? '' : 'none';
     update();
   }
+  // The word is never under 12 px on screen: the picture scales with its card, so tell the style how many px one unit is.
+  const stage = el.firstChild;
+  const fit = () => { const w = stage.offsetWidth; if (w > 0) el.style.setProperty('--gl-u', (w / 100).toFixed(3)); };
+  if (typeof ResizeObserver === 'function') new ResizeObserver(fit).observe(stage);
   return { el, update, configure };
 }
