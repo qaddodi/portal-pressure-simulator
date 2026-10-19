@@ -2,7 +2,7 @@
 // over an SVG scene that holds the organ artwork, hit targets and overlays, and screen-space labels.
 
 import { EDGES, dopplerK, NODES, PORTAL_TERRITORY, dMinOf, edgePresent, isOccluded, SHUNT_PORTAL, SHUNT_SYSTEMIC, customShuntId, isStent, stentSite, STENT_SITES, STENT_SPANS, stentGate, stentSegments } from '../engine/topology.js?v=4044766e96';
-import { route as metroRoute, LABEL_VESSEL, TIP_FADE, TIP_CONNECT, VIEW, VB_ANAT, VB_CIRC, ATLAS_COLUMNS, HIDDEN_EDGES, HIDDEN_NODES, ANAT_HIDDEN, ANAT_HIDDEN_NODES, CAUDATE, CONTEXT_EDGES, BACK_EDGES, IVC_EDGES, NEEDS_C3, NODE_POS, EDGE_PATH, CIRCUIT_PATH, metroPath, ORGANS, ORGAN_DETAIL, BACKDROP, LIVER_INNER, LIVER_EDGES, LANE_CAPTIONS, ABDOMEN_CLIP, ABDOMEN_FLOOR, flankPath, abdomenOutline, cavityHalfWidths, SPLEEN_CENTER, SITES, ORGAN_LABELS, ATLAS_LABELS, SHORT, ABBR, CHIP_NODES, LIVER_SPLIT_X, CIRCUIT_ZONES, CIRCUIT_LABELS, STRANDS, STRAND_FROM, SIN_EDGES, FEEDERS, fanFeeders, CIRCUIT_TREES } from './anatomy.js?v=9bd5cbba37';
+import { route as metroRoute, LABEL_VESSEL, TIP_FADE, TIP_CONNECT, VIEW, VB_ANAT, VB_CIRC, ATLAS_COLUMNS, HIDDEN_EDGES, HIDDEN_NODES, ANAT_HIDDEN, ANAT_HIDDEN_NODES, CAUDATE, CONTEXT_EDGES, BACK_EDGES, IVC_EDGES, NEEDS_C3, NODE_POS, EDGE_PATH, CIRCUIT_PATH, metroPath, ORGANS, ORGAN_DETAIL, BACKDROP, LIVER_INNER, LIVER_EDGES, LANE_CAPTIONS, ABDOMEN_CLIP, ABDOMEN_FLOOR, flankPath, abdomenOutline, cavityHalfWidths, SPLEEN_CENTER, SITES, ORGAN_LABELS, ATLAS_LABELS, SHORT, ABBR, CHIP_NODES, LIVER_SPLIT_X, CIRCUIT_ZONES, CIRCUIT_LABELS, STRANDS, STRAND_FROM, SIN_EDGES, FEEDERS, fanFeeders, CIRCUIT_TREES } from './anatomy.js?v=11bc2502e7';
 import { pressureColor, deltaColor, dropColor, flowColor, heatColor, velColorOf, velocityColor, oxygenColor } from './colormap.js?v=b2067d6101';
 import { STATION_VESSEL, meanVel, velNormal } from './velNormal.js?v=181dda5594';
 import { store, updateParams, varicesPresent, varixGrowth, shownVel } from './store.js?v=31ee79b6ab';
@@ -41,7 +41,7 @@ import { probePose, probeShapes, awayFromProbe, PROBE_SVG } from './dop-probe.js
 import { organDimMatrix } from './organ-dim.js?v=7888276613';
 import { parseColor, greyOf, paintRef } from './organ-grey.js?v=e41d68222c';
 import { bandRing, dashRings, liftEnd, normalShown, rippleList, systemOf, SYSTEM_COLOR } from './highlight-math.js?v=e2c1816e25';
-import { organAnchor, spleenCaliper, acrossVessel, stepGroups, spanOf, spanPath, zoneBand, SPAN_TICK, insideBy, clearOf, besideLine } from './callout-math.js?v=7ccce59a62';
+import { organAnchor, spleenCaliper, acrossVessel, stepGroups, spanOf, spanPath, zoneBand, SPAN_TICK, insideBy, clearOf, besideLine } from './callout-math.js?v=dc03c3d240';
 const nextFrame = frameFor('stage');
 
 const N_SAMPLES = 64;
@@ -601,18 +601,6 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         s('path', { d: o.d, class: o.cls + ' band-under', transform: 'translate(1.5 3)' }),
         s('path', { d: o.d, class: o.cls + ' band-sheen', transform: 'translate(-2 -3.5)' }));
       if (o.cls === 'org-colon') g.append(s('path', { d: haustra(o.d, 11.5), class: 'org-haustra' }));
-    } else if (o.id === 'heart-out') {
-      // Blood leaving for the right ventricle: three notched darts, no shaft.
-      const n = o.d.match(/-?\d+(?:\.\d+)?/g).map(Number), L = [0, 2, 4, 6].map((i) => [n[i], n[i + 1]]);
-      const bez = (u) => [0, 1].map((j) => (1 - u) ** 3 * L[0][j] + 3 * (1 - u) ** 2 * u * L[1][j] + 3 * (1 - u) * u * u * L[2][j] + u ** 3 * L[3][j]);
-      const d = [0.3, 0.62, 0.94].map((u) => {
-        const [cx, cy] = bez(u), [ax, ay] = bez(u - 0.02), [bx, by] = bez(Math.min(1, u + 0.02));
-        const len = Math.hypot(bx - ax, by - ay) || 1;
-        const ux = (bx - ax) / len, uy = (by - ay) / len, dart = [[0.55, 0], [-0.45, 0.45], [-0.2, 0], [-0.45, -0.45]];
-        return 'M' + dart.map(([a, c]) => `${(cx + (ux * a - uy * c) * 9).toFixed(1)} ${(cy + (uy * a + ux * c) * 9).toFixed(1)}`).join(' L') + ' Z';
-      }).join(' ');
-      el = s('path', { d, class: o.cls });
-      g.append(el);
     } else if (o.deco) { el = s('path', { d: o.d, class: o.cls }); g.append(el); }
     else {
       el = s('path', { d: o.d, class: o.cls + ' org-fill', fill: o.tone ? `url(#og-${o.tone})` : null });

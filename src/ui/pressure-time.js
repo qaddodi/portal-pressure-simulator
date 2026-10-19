@@ -7,7 +7,7 @@
 
 import { store, hiddenNow } from './store.js?v=31ee79b6ab';
 import { h, fmt, fitCanvas, cssVar, cssAlpha, clamp } from './util.js?v=8813192ea2';
-import { FONT as FONT0, FONT } from './charts.js?v=9de61ba182';
+import { FONT as FONT0, FONT } from './charts.js?v=2328b3f631';
 import { frameFor } from './frame.js?v=67ca200c87';
 import { tenthGap } from '../engine/gap.js?v=3a5947c552';
 import { firstAtOrAbove, firstAbove } from './sorted.js?v=662e543c85';

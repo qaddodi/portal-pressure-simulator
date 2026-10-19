@@ -420,7 +420,6 @@ export const ORGANS = [
   // Presenter slides and the RA station point at it, not at the cava running into it.
   { id: 'heart-ra', tone: 'ra', cls: 'org org-ra', d: 'M622 60 C 608 68 601 90 601 116 C 601 142 609 162 622 170 C 634 174 643 162 645 146 C 648 122 647 92 641 74 C 637 62 630 57 622 60 Z' },
   { id: 'heart-grooves', cls: 'org-heart-groove', deco: true, d: 'M691 64 C 700 108 722 152 751 176 M648 64 C 658 102 660 150 655 193' },
-  { id: 'heart-out', cls: 'org-heart-flow', deco: true, d: 'M647 118 C 663 112 679 114 695 126' },
   { id: 'appendix', tone: 'gut', cls: 'org-appendix', band: true, d: 'M420 906 C 418 924 428 938 448 940' },
   { id: 'bowel', tone: 'gut', cls: 'org-bowel', band: true, d: 'M604 722 C 650 706 700 714 742 722 C 786 730 830 712 872 724 C 904 734 906 764 878 772 C 840 782 800 764 760 770 C 716 776 684 790 646 782 C 610 774 590 790 598 808 C 606 826 640 830 676 824 C 720 816 760 834 800 830 C 846 826 884 812 906 826 C 928 842 918 870 888 874 C 846 880 810 862 764 868 C 716 874 680 888 630 880 C 580 872 540 860 500 862 C 470 864 446 870 424 874' },
   { id: 'colon', tone: 'gut', cls: 'org-colon', band: true, d: 'M424 900 C 420 880 414 864 410 846 C 402 808 398 764 400 704 C 402 646 412 596 438 568 C 472 556 506 588 544 628 C 592 678 650 700 720 700 C 800 700 870 660 916 600 C 946 560 970 510 984 468 C 992 560 988 700 972 790 C 962 848 924 880 868 892 C 838 898 812 902 788 906' },
