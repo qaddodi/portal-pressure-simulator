@@ -21,7 +21,7 @@ import highlights from './ext-highlights.js?v=d7de13345f';
 import charts from './ext-charts.js?v=4e7ca9726d';
 import model from './ext-model.js?v=c61719ac42';
 import panels from './ext-panels.js?v=c43f06ac2d';
-import callouts from './ext-callouts.js?v=8387c92474';
+import callouts from './ext-callouts.js?v=662c19bba2';
 import instruments from './ext-instruments.js?v=53c2dd9e2d';
 
 export const PACKAGES = { A: highlights, B: charts, C: model, E: panels, F: callouts, G: instruments };
@@ -75,6 +75,7 @@ const setRef = (id) => typeof id === 'string' && id[0] === '@';
 /** A list of ids (a glow, a mark's edges) with each '@name' replaced by the named set's ids; an entry { id: '@name', … }
  *  becomes one entry per id with the same options. A list with no '@' name comes back as the very same array. */
 export function expandIds(list, sets = EXT.sets) {
+  if (list == null) return [];
   if (!Array.isArray(list) || !list.some((g) => setRef(typeof g === 'string' ? g : g?.id))) return list;
   return list.flatMap((g) => {
     const id = typeof g === 'string' ? g : g?.id;

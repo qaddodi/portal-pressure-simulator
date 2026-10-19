@@ -6447,6 +6447,21 @@ html.thumb-ui .menu.from-dock { clip-path: inset(-64px -64px calc(var(--sink, 0p
 /* ── Package E: end ── */
 
 /* ── Package F, figure callouts: start ── */
+/* V9, calipers (stage.js fxSync): a thin flat dimension line with end ticks, on a halo of the stage's colour so it reads over
+   the organ's art; it eases in and out. Its reading is a plain pill (below). */
+.fx-cal-line, .fx-span-line { opacity: 0; transition: opacity .4s var(--ease); }
+.fx-cal-line.on, .fx-span-line.on { opacity: 1; }
+.fx-cal-line path, .fx-span-line path { fill: none; vector-effect: non-scaling-stroke; stroke-linecap: round; stroke-linejoin: round; }
+.fx-cal-line .fx-halo, .fx-span-line .fx-halo { stroke: var(--label-halo); stroke-width: 4.5px; }
+.fx-cal-line .fx-ink { stroke: var(--text); stroke-width: 1.6px; }
+/* V25, the circuit's bracket under a span of stations, and a zone band lit softly (stage.js fxZone). */
+.fx-span-line .fx-ink { stroke: var(--text-2); stroke-width: 1.6px; }
+.fx-zone { fill: var(--accent); fill-opacity: 0; transition: fill-opacity .5s var(--ease); pointer-events: none; }
+.fx-zone.on { fill-opacity: .09; }
+/* The readings (calipers, brackets) and the step numbers (V10): plain pills in the label's own glass, the words in ink. */
+#labels .lb:is(.fx-cal, .fx-span, .fx-step) text { fill: var(--text); stroke: none; }
+#labels .lb.fx-step .lb-bg { fill: var(--text); stroke: none; }
+#labels .lb.fx-step text { fill: var(--stage-bg); }
 
 /* ── Package F: end ── */
 

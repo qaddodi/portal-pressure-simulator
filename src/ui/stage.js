@@ -39,6 +39,7 @@ import { wavePacks, paintWave } from './scan-waves.js?v=066db7aa38';
 import { organDimMatrix } from './organ-dim.js?v=7888276613';
 import { parseColor, greyOf, paintRef } from './organ-grey.js?v=e41d68222c';
 import { bandRing, ringsBelow, normalShown, rippleList, systemOf, SYSTEM_COLOR } from './highlight-math.js?v=86a89dcb9e';
+import { organAnchor, spleenCaliper, acrossVessel, stepGroups, spanOf, spanPath, zoneBand } from './callout-math.js?v=1d266d4ccb';
 const nextFrame = frameFor('stage');
 
 const N_SAMPLES = 64;
@@ -546,6 +547,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   CIRCUIT_ZONES.forEach(([, x0, x1], i) => {
     gGrid.append(s('rect', { x: x0, y: 40, width: x1 - x0, height: 690, class: 'zone' + (i % 2 ? ' alt' : '') }));
   });
+  // A slide's lit zone (deck visuals V25, ext-callouts.js: zone): one band of the five, lit softly (fxSync).
+  const fxZone = s('rect', { x: 0, y: 40, width: 0, height: 690, class: 'fx-zone' });
+  gGrid.append(fxZone);
 
   // Colon folds: short arcs across the tube at regular intervals.
   function haustra(d, r) {
@@ -1037,6 +1041,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     balloons: s('g'), bands: s('g'),
   };
   Object.values(ov).forEach((g) => gOver.append(g));
+  // A slide's calipers (deck visuals V9) over the anatomy, and its brackets under the circuit (V25): ext-callouts.js, fxSync.
+  const gFx = s('g', { class: 'fx-cal-g' }), gFxC = s('g', { class: 'fx-span-g circuit-only' });
+  gOver.append(gFx, gFxC);
   // The caudate lobe and its veins (CAUDATE): shown only while a slide is about them (pinOrgans 'caudate'), eased in
   // and out (.caud.on), under the stents and other overlays. Each vein is a tapered tube (a wall, its lumen colored
   // from its pressures like the vessels, a sheen) that fades into the IVC's wall instead of ending on it.
@@ -1167,7 +1174,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // A presenter slide's glows (glow: [...] and its terms' vessels), each in its station's colour. Slide, focus and
   // Doppler glows are a slim, soft band (smaller than a hover's), so they mark the vessel without swamping it.
   const toneCol = (tone) => (tone.startsWith('--') ? `var(${tone})` : tone === 'accent' ? 'var(--accent)' : `var(--tr-${tone})`);
-  function setGlow(list) { setGlowSrc('slide', (list || []).map((g) => ({ id: g.id, col: toneCol(g.tone || 'accent'), amt: g.soft ? 0.55 : 1, wide: g.soft ? 0.8 : 0.75, at: g.at, dur: 500 }))); }
+  let slideGlow = [], glowSetAt = 0;   // (the slide's glows as set, and when: a glowSeq slide's step numbers follow them, V10)
+  function setGlow(list) { slideGlow = list || []; glowSetAt = performance.now(); setGlowSrc('slide', (list || []).map((g) => ({ id: g.id, col: toneCol(g.tone || 'accent'), amt: g.soft ? 0.55 : 1, wide: g.soft ? 0.8 : 0.75, at: g.at, dur: 500 }))); }
   // The hovered vessel glows softly in its own colour (and its lumen brightens a little, vh: tube row 9).
   // Each vessel's brightening eases in and out on its own, so moving from one vessel to the next cross-fades.
   // The selected vessel (sel: it and, on the cava, the rest of the cava) takes the same brightening, and selA eases its
@@ -2128,6 +2136,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     stageWrap.classList.toggle('cmap', t > 0.5);
     gGrid.style.opacity = String(t);
     gNodes.style.opacity = String(t);
+    gFxC.style.opacity = String(t);
     // (Faded out whole, the circuit's grid and dots are hidden too (app.css, once their fade has run): at opacity 0 Safari still
     // painted the grid's patterned frames under the anatomy on every frame the figure moved.)
     gGrid.classList.toggle('gone', t === 0); gNodes.classList.toggle('gone', t === 0);
@@ -2492,6 +2501,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     updateBridges(t);
     updateLabels(f);
     updateOrgans(f, p, t);
+    fxSync(f, t);
     widthF = f; widthVer = storeVer; widthCTM = CTM;
   }
 
@@ -2593,6 +2603,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     updateOverlays(f, p, lerp(1, 0.8, t), t);
     updateBridges(t);
     if (labels) updateLabels(f);
+    if (fx) fxSync(f, t);
   }
 
   // Each vein is a filled tube whose radius eases from the junction width at either end to its
@@ -3896,6 +3907,74 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (o) o.on = on;
     else if (on) olList.push({ kind: 'normal', id: 'spleen', key: '', rings: olRings('spleen', true), a: 0, on: true, col: orgTone('spleen') });
     olDirty = true; olLast = performance.now(); stageWake();
+  }
+  // Deck visuals, package F (ext-callouts.js): a slide's figure callouts, or null. live: an edge mark's words by
+  // `${edge}|${kind}`; organs: marks on organs; calipers; steps (the glow's first entry's vessels: its order is numbered, V10);
+  // spans and zone, on the circuit (V25). Each piece of words is { runs: [{ t, sp, tone? }], wide, label }: wide, the same words at
+  // their widest, is the room its pill keeps, so a number ticking never moves or resizes it (fxPill).
+  let fx = null, fxSig = '';
+  const fxWide = new Map(), fxBuild = new Map(), fxEls = new Map();
+  function setCallouts(sp) {
+    const sig = sp ? JSON.stringify([Object.keys(sp.live || {}), (sp.organs || []).map((o) => o.organ + o.kind), (sp.calipers || []).map((c) => c.id), sp.steps, (sp.spans || []).map((x) => x.from + x.to), sp.zone]) : '';
+    if (!sp || sig !== fxSig) { fxWide.clear(); for (const [k, b] of pool) if (k.startsWith('fxs:')) b.fxIn = false; }
+    fx = sp ? { live: {}, organs: [], calipers: [], steps: null, spans: [], zone: -1, ...sp } : null; fxSig = sig;
+    const band = fx && zoneBand(fx.zone);
+    if (band) { fxZone.setAttribute('x', band[0]); fxZone.setAttribute('width', band[1] - band[0]); }
+    fxZone.classList.toggle('on', !!band);
+    stageWake();
+  }
+  // A callout's pill (a mark, a caliper's or a bracket's reading): its words as runs, a value in its rating colour where the pill
+  // is plain (tone; on a red or accent pill the words keep the pill's own ink), as wide as its widest words (and never narrower
+  // than it has been on this slide). fxw: its words with each value as #, so a number ticking redraws no pill (renderBlock).
+  const fxRuns = (runs, tone) => runs.map((r, i) => ({ t: r.t, size: 11.5, weight: r.tone !== undefined ? 750 : 650, cls: r.tone !== undefined ? 'lb-focus fx-v' : 'lb-focus', ...(i ? { gap: r.sp ? 3 : 0 } : {}), ...(tone && r.tone ? { fill: `color-mix(in srgb, var(${r.tone}) 78%, var(--text))` } : {}) }));
+  function fxPill(key, w, cls, tone) {
+    const line = fxRuns(w.runs, tone), wd = Math.max(lineW(line), lineW(fxRuns(w.wide || w.runs, tone)), fxWide.get(key) || 0);
+    fxWide.set(key, wd);
+    return { key, cls, lines: [line], align: 'middle', bg: true, padX: 8, padY: 4, w: wd, h: LINE_H(line), label: w.label, fxw: w.runs.map((r) => (r.tone !== undefined ? '#' : r.t)).join(' ') };
+  }
+  // The calipers' and brackets' lines, each frame (the spleen grows through a time-lapse, a vessel's width eases): a line that
+  // comes eases in, one that goes eases out (app.css, Package F).
+  function fxLine(key, parent, d, cls) {
+    let el = fxEls.get(key);
+    if (!el) {
+      el = s('g', { class: cls });
+      el.append(s('path', { class: 'fx-halo' }), s('path', { class: 'fx-ink' }));
+      parent.append(el); fxEls.set(key, el);
+      if (!reduceMotion.matches) requestAnimationFrame(() => requestAnimationFrame(() => el.classList.add('on'))); else el.classList.add('on');
+    }
+    el.seen = true;
+    if (el._d !== d) { el._d = d; for (const p of el.children) p.setAttribute('d', d); }
+  }
+  function caliperAt(c, f) {
+    if (c.organ) {
+      const p = f.viewParams || store.get().params;
+      if (p?.splenicRx === 2 || !organEls.spleen) return null;
+      const [a, b] = spleenCaliper((f.slow?.spleen ?? 11) / 11);
+      return { a, b };
+    }
+    const x = E[c.edge], cur = geo[c.edge]?.cur;
+    if (!x?.vis || x.g.classList.contains('coll-ghost') || !(cur?.length > 1)) return null;
+    const [wx, wy, tx, ty] = arcMid(cur), [a, b] = acrossVessel(wx, wy, tx, ty, (x.width || 4) / 2 + 3);
+    return { a, b };
+  }
+  function fxSync(f, t) {
+    for (const el of fxEls.values()) el.seen = false;
+    if (fx && t < 0.5) for (const c of fx.calipers) {
+      const g = caliperAt(c, f);
+      if (!g) continue;
+      // (Ticks across each end, 7 units either side, square to the line.)
+      const [[ax, ay], [bx, by]] = [g.a, g.b], L = Math.hypot(bx - ax, by - ay) || 1, nx = (-(by - ay) / L) * 7, ny = ((bx - ax) / L) * 7;
+      const P = (x, y) => `${x.toFixed(1)} ${y.toFixed(1)}`;
+      fxLine('c:' + c.id, gFx, `M${P(ax, ay)}L${P(bx, by)}M${P(ax - nx, ay - ny)}L${P(ax + nx, ay + ny)}M${P(bx - nx, by - ny)}L${P(bx + nx, by + ny)}`, 'fx-cal-line');
+    }
+    if (fx) for (const sp of fx.spans) { const at = spanOf(sp.from, sp.to); if (at) fxLine(`s:${sp.from}:${sp.to}`, gFxC, spanPath(at), 'fx-span-line'); }
+    for (const [k, el] of fxEls) {
+      if (el.seen || el.going) continue;
+      el.going = true; el.classList.remove('on');
+      setTimeout(() => { el.remove(); if (fxEls.get(k) === el) fxEls.delete(k); }, reduceMotion.matches ? 0 : 420);
+    }
+    for (const [k, el] of fxEls) if (el.seen && el.going) { fxEls.delete(k); }   // (a line gone and wanted again starts afresh)
+    gFx.style.opacity = t > 0 ? String(1 - t) : '';
   }
   // The organ was redrawn (a reshaped liver, a larger spleen): the outlines follow it.
   function olGeom() {
@@ -5837,7 +5916,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     // badge turning from + to − swaps its class on the same tspan rather than building the label again: 16 Oct.)
     // (A slide's mark is drawn afresh when its words change: a pill kept from another slide's longer mark could hold its old width
     // for a while after the new one was set: Review 16 Oct.)
-    const sig = JSON.stringify([it.lines.map((line) => line.map(({ t, fill, cls, ...style }) => style)), it.align, !!it.swatch, it.bg, !!it.hit, it.cls, labelK, fontPx(14), /^focus/.test(it.key) ? it.lines.map((line) => line.map((r) => r.t).join('')) : 0]);
+    const sig = JSON.stringify([it.lines.map((line) => line.map(({ t, fill, cls, ...style }) => style)), it.align, !!it.swatch, it.bg, !!it.hit, it.cls, labelK, fontPx(14), it.fxw ?? (/^focus/.test(it.key) ? it.lines.map((line) => line.map((r) => r.t).join('')) : 0)]);
     if (sig !== b.sig) {
       b.sig = sig;
       const kids = [];
@@ -5866,7 +5945,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       if (it.swatch) kids.unshift(s('rect', { class: 'lb-sw', x: it.align === 'end' ? it.w - 3 : 0, y: 1, width: 3, height: Math.max(8, it.h - 2), rx: 1.5 }));
       b.g.replaceChildren(...kids);
       // (A slide's mark that stays but takes new words fades the new words in, never swaps them in at once.)
-      const words = /^focus/.test(it.key) ? it.lines.map((line) => line.map((r) => r.t).join('')).join('\n') : null;
+      // (A live callout's words keep their shape as its numbers tick: it.fxw, so only a new slide's words fade in.)
+      const words = it.fxw ?? (/^focus/.test(it.key) ? it.lines.map((line) => line.map((r) => r.t).join('')).join('\n') : null);
       if (words != null && b.words != null && words !== b.words && b.g.style.display !== 'none' && !reduceMotion.matches) b.g.animate?.([{ opacity: 0 }, { opacity: 1 }], { duration: 400, easing: 'ease-out' });
       b.words = words;
       b.sw = it.swatch ? b.g.querySelector('.lb-sw') : null;
@@ -6340,7 +6420,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const st = store.get(), t = easeInOut(morph);
     const edges = EV.filter((x) => x.vis).map((x) => `${x.e.id}${sigWidth(x)}${x.g.classList.contains('coll-ghost') ? 'g' : ''}`).join(',');
     return [geometryVersion, t >= 0.5, rotU > 0.5, labelBase(), stageBox().width < 700, st.selection?.type + ':' + st.selection?.id, paramJSON((f.viewParams || st.params).stenosis), paramJSON((f.viewParams || st.params).stenosisSite),
-      isImaging(), st.layers.labels, st.layers.chips, layerMode(), st.focus?.label, st.focus?.edges?.[0], st.focus?.marks && JSON.stringify(st.focus.marks), vt.k > 1.35, st.labelLevel, st.presenting && st.presentLabels?.join(','), st.presenting && JSON.stringify(st.presentTerms || null), st.presenting && st.presentNames, scan.on, [...(st.hiddenLabels || [])].join(','), zoomedIn(), flagged(f).join(','), edges, ['TIPS', 'DIPS'].map((id) => +stentReady(id, f)).join(''), dop.key].join('|');
+      isImaging(), st.layers.labels, st.layers.chips, layerMode(), st.focus?.label, st.focus?.edges?.[0], st.focus?.marks && JSON.stringify(st.focus.marks), fxSig, fx?.steps && slideGlow.map((g) => g.id + g.at).join(), (fx?.organs.some((o) => o.organ === 'spleen') || fx?.calipers.some((c) => c.organ)) && Math.round((f.slow?.spleen ?? 11) * 2), vt.k > 1.35, st.labelLevel, st.presenting && st.presentLabels?.join(','), st.presenting && JSON.stringify(st.presentTerms || null), st.presenting && st.presentNames, scan.on, [...(st.hiddenLabels || [])].join(','), zoomedIn(), flagged(f).join(','), edges, ['TIPS', 'DIPS'].map((id) => +stentReady(id, f)).join(''), dop.key].join('|');
   }
   // Layout runs only when one of its inputs changed: the camera and stage box (the CTM), the label
   // signature (geometry, widths, selection, layers, levels...), the morph and turn, the floating panels,
@@ -6377,7 +6457,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const next = [];
     for (const it of labelShown) {
       const [kind, id, mode, compact] = it.src;
-      const n = kind === 'vel' ? velItem(id, f, mode) : kind === 'scan' ? scanItem() : nodeItem(id, f, mode, compact);
+      const n = kind === 'fx' ? fxBuild.get(id)?.() : kind === 'vel' ? velItem(id, f, mode) : kind === 'scan' ? scanItem() : nodeItem(id, f, mode, compact);
+      if (!n) return false;   // (a slide's callout gone: lay out again)
       if (it.short || it.abbr) shortenTo(n, it.short || 0, it.abbr);
       if (n.lines.length !== it.lines.length || Math.abs(n.w - it.w) > 0.5 || Math.abs(n.h - it.h) > 0.5) return false;
       for (let i = 0; i < n.lines.length; i++) {
@@ -7120,8 +7201,13 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       const segAt = m.seg && isStent(EDGES[EI[m.edges[0]]]) ? STENT_SITES[stentGate(m.seg, f.viewParams || st.params, m.edges[0])] : 0.5;
       const [x, y] = pointAt(geo[m.edges[0]].cur, segAt);
       const [ax, ay] = worldToLocal(x, y);
-      const it = { key: i || m.kind ? `focus${i}${m.kind || ''}` : 'focus', mk: m.kind, cls: 'focus' + (m.kind ? ` k-${m.kind}` : ''), lines: [[{ t: m.label || 'Here', size: 11.5, weight: 650, cls: 'lb-focus' }]], align: 'start', bg: true, padX: 8, padY: 4, ax, ay };
-      it.w = lineW(it.lines[0]); it.h = LINE_H(it.lines[0]);
+      const key = i || m.kind ? `focus${i}${m.kind || ''}` : 'focus', cls = 'focus' + (m.kind ? ` k-${m.kind}` : '');
+      // (A mark whose words carry live readings, deck visuals V8: its words come from the slide's callouts, filled as the model moves.)
+      const lk = `${m.edges[0]}|${m.kind || 'block'}`, lv = fx?.live?.[lk];
+      const it = lv ? fxPill(key, lv, cls, m.kind === 'note') : { key, cls, lines: [[{ t: m.label || 'Here', size: 11.5, weight: 650, cls: 'lb-focus' }]], align: 'start', bg: true, padX: 8, padY: 4 };
+      Object.assign(it, { mk: m.kind, ax, ay });
+      if (lv) { it.src = ['fx', key]; fxBuild.set(key, () => fx?.live?.[lk] && fxPill(key, fx.live[lk], cls, m.kind === 'note')); }
+      else { it.w = lineW(it.lines[0]); it.h = LINE_H(it.lines[0]); }
       // (A free mark stands by itself, with no leader: it names a group of vessels, so a line to the first would single it out.)
       const gap = 18 + (E[m.edges[0]].width || 4);
       // (Beside a stent called out at all three points the mark may stand a little farther off, on a leader that crosses no label.)
@@ -7160,6 +7246,66 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       if (marked && !m.free) it.focusLeader = true;
       it.free = !!m.free;
     });
+    // Deck visuals, package F (ext-callouts.js): the slide's marks on organs, its calipers' readings and its steps' numbers on the
+    // anatomy, its brackets' readings on the circuit. Each keeps off the vessels where it can, as the stations' readings do.
+    if (fx) {
+      // (Each set of spots first in the free space only, inside the stage and off the cards, then anywhere.)
+      const k = CTM.sc, roomy = (passes) => [...passes.map((ps) => ({ ...ps, inView: true })), ...passes];
+      const nearFar = (near) => roomy([{ gap: near, leader: false, clear: true }, { gap: near + 16, leader: true, clear: true }, { gap: near, leader: false }, { gap: near + 16, leader: true }]);
+      if (!circuit) fx.organs.forEach((m, i) => {
+        // A mark on an organ: off the organ's box, on a leader to its middle (the spleen's box grows with it).
+        const a = organAnchor(m.organ, (f.slow?.spleen ?? 11) / 11);
+        if (!a || (m.organ !== 'ascites' && !organEls[m.organ]) || (m.organ === 'spleen' && (f.viewParams || st.params)?.splenicRx === 2)) return;
+        const key = `focusO${i}`, cls = `focus k-${m.kind}`, it = fxPill(key, m, cls, m.kind === 'note');
+        const [ax, ay] = worldToLocal(...a.at), gx = a.half[0] * k + 12, gy = a.half[1] * k + 12, gd = Math.min(gx, gy);
+        Object.assign(it, { mk: m.kind, ax, ay, src: ['fx', key] });
+        fxBuild.set(key, () => fx?.organs?.[i] && fxPill(key, fx.organs[i], cls, m.kind === 'note'));
+        const passes = roomy([true, false].flatMap((clear) => [0, 24, 56].flatMap((d) => [{ dirs: ['E', 'W'], gap: gx + d, leader: true, clear }, { dirs: ['N', 'S'], gap: gy + d, leader: true, clear }, { dirs: ['NE', 'SE', 'NW', 'SW'], gap: gd + d, leader: true, clear }])));
+        buildLines();
+        if (placeMulti(it, [], passes)) it.focusLeader = true;
+      });
+      if (!circuit) fx.calipers.forEach((c) => {
+        // A caliper's reading, by the line's lower (or right-hand) end.
+        const g = caliperAt(c, f);
+        if (!g) return;
+        const [p0, p1] = [worldToLocal(...g.a), worldToLocal(...g.b)], end = p1[1] > p0[1] || (p1[1] === p0[1] && p1[0] > p0[0]) ? p1 : p0;
+        const key = 'fxc:' + c.id, it = fxPill(key, c, 'fx-cal', true);
+        Object.assign(it, { ax: end[0], ay: end[1], src: ['fx', key] });
+        fxBuild.set(key, () => { const n = fx?.calipers?.find((x) => x.id === c.id); return n && fxPill(key, n, 'fx-cal', true); });
+        buildLines();
+        placeMulti(it, ['S', 'SE', 'SW', 'E', 'W', 'N', 'NE', 'NW'], nearFar(6));
+      });
+      if (fx.steps) for (const g of stepGroups(slideGlow.filter((x) => E[x.id]?.vis), fx.steps)) {
+        // A step's number by the middle of its vessel (the first of its group drawn), or on its organ, lit as its glow lights (V10).
+        let ax, ay, near;
+        if (g.organ) {
+          const a = !circuit && organEls[g.organ] && organAnchor(g.organ, (f.slow?.spleen ?? 11) / 11);
+          if (!a) continue;
+          [ax, ay] = worldToLocal(...a.at); near = 4;
+        } else {
+          const id = g.ids.find((x) => geo[x]?.cur?.length > 1 && !E[x].g.classList.contains('coll-ghost'));
+          if (!id) continue;
+          const [wx, wy] = arcMid(geo[id].cur);
+          [ax, ay] = worldToLocal(wx, wy); near = 4 + ((E[id].width || 4) * k) / 2;
+        }
+        const it = { key: 'fxs:' + g.n, cls: 'fx-step', lines: [[{ t: String(g.n), size: 11.5, weight: 750, cls: 'lb-step' }]], align: 'middle', bg: true, pill: true, padX: 5, padY: 2, ax, ay, pri: 20, delay: g.at, free: true, label: `Step ${g.n}` };   // (free: no dot on the vessel, only a leader when it stands off)
+        it.h = LINE_H(it.lines[0]); it.w = Math.max(lineW(it.lines[0]), it.h - 4);
+        buildLines();
+        placeMulti(it, ['NE', 'NW', 'SE', 'SW', 'N', 'S', 'E', 'W'], nearFar(near));
+      }
+      if (circuit) fx.spans.forEach((sp, i) => {
+        // A bracket's reading, under its middle (above it where the stage ends first).
+        const at = spanOf(sp.from, sp.to);
+        if (!at) return;
+        const [ax, ay] = worldToLocal((at.x0 + at.x1) / 2, at.y), key = 'fxb:' + i, it = fxPill(key, sp, 'fx-span', true);
+        Object.assign(it, { ax, ay, src: ['fx', key] });
+        buildLines();
+        fxBuild.set(key, () => fx?.spans?.[i] && fxPill(key, fx.spans[i], 'fx-span', true));
+        // (On a phone held upright the circuit turns and its bracket runs down one side: farther spots, on a leader, keep the reading
+        // off the circuit.)
+        placeMulti(it, ['S', 'N', 'E', 'W', 'SE', 'SW', 'NE', 'NW'], roomy([{ gap: 5, leader: false, clear: true }, ...[18, 40, 70].map((gap) => ({ gap, leader: true, clear: true })), { gap: 5, leader: false }, { gap: 18, leader: true }]));
+      });
+    }
     // A stent's other two points, where they fit around the sampled point's callout and the slide's mark: off the vessels if they can.
     later.sort((a, b) => (b.pri - a.pri) || (b.jet - a.jet));
     for (const it of later) {
@@ -7316,6 +7462,14 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const hk = holes.map((h) => h.map((v) => v.toFixed(1)).join(',')).join(';');
     if (hk !== holesKey) { holesKey = hk; chevHoles = holes; }
     for (const it of out) renderBlock(it);
+    // (A step's number comes in as its vessel lights, deck visuals V10; with reduced motion all at once.)
+    for (const it of out) {
+      if (it.delay == null || it.hide) continue;
+      const b = pool.get(it.key), wait = it.delay - (performance.now() - glowSetAt);
+      if (!b || b.fxIn) continue;
+      b.fxIn = true;
+      if (wait > 0 && !reduceMotion.matches) b.g.animate?.([{ opacity: 0 }, { opacity: 1 }], { duration: 350, delay: wait, easing: 'ease-out', fill: 'backwards' });
+    }
     const sit = out.find((o) => o.key === 'scan'), sblk = pool.get('scan');
     if (sit && !sit.hide) {
       const le = seenEnd(sit);
@@ -8367,6 +8521,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       if (!vh.raf) { vh.t = performance.now(); vh.raf = nextFrame(vhStep); }
       veinsDirty = true; stageWake();
     },
+    // Deck visuals, package F (ext-callouts.js): a slide's figure callouts (live mark words, organ marks, calipers, step
+    // numbers, the circuit's brackets and lit zone), or null.
+    callouts(sp) { setCallouts(sp); },
     normalOutline(ids) { normal.want = !!ids?.includes('spleen'); normalSync(); },
     ripple(from, to) { ripple(from, to); },
     changeRef(P) { changeRef(P); },
