@@ -105,7 +105,8 @@ test('the handout prints a filled equation and the source line', () => {
 
 test('presenter wiring: the equation follows the model, the cite line and the ladder\'s earlier state are drawn', () => {
   const src = readFileSync(new URL('../src/ui/presenter.js', import.meta.url), 'utf8');
-  assert.match(src, /if \(eqFilled\(s\.eq\?\.\[0\]\)\) eqTo\(ui\.text, f, /, 'dataTo keeps the equation live');
+  assert.match(src, /if \(eqFilled\(s\.eq\?\.\[0\]\)\) \{[^}]*eqTo\(ui\.text, f, tp\); lineTo\(ui\.text, s, f, tp\);/, 'dataTo keeps the equation and the line\'s pills live together');
+  assert.match(src, /function lineTo\(/, 'the line\'s pills follow the same state as the equation');
   assert.equal((src.match(/citeEl\(s\)/g) || []).length, 2, 'the cite line on the words card and on a panel slide');
   assert.match(src, /if \(lad\) ladderFromTo\(s, i\);/);
 });

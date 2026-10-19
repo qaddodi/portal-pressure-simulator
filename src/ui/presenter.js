@@ -80,6 +80,17 @@ function eqTo(root, f, tips = false) {
     if ((n.dataset.rate || null) !== r) { if (r) n.dataset.rate = r; else delete n.dataset.rate; }
   }
 }
+// On a slide whose equation carries the case's numbers, the line's own live values follow the model with it, so the words
+// and the equation always read one state (V22): the same text, tone and rating as rich() gives them.
+function lineTo(root, s, f, tips = false) {
+  for (const n of root?.querySelectorAll('.pz-line .pz-val[data-k]') || []) {
+    const k = n.dataset.k, t = liveVal(k, s, f).replace(/\s(?=mmHg|g\/dL|mL|kPa|cm\/s|mm\b|%)/, '\u00a0'), r = pillRate(k, f, tips), tone = valTone(k, f, tips);
+    if (n.textContent !== t) n.textContent = t;
+    if (PILL_TONE[r]) n.dataset.rate = r; else delete n.dataset.rate;
+    n.classList.toggle('tone', !!tone);
+    if (tone) n.style.setProperty('--tone', toneVar(tone)); else n.style.removeProperty('--tone');
+  }
+}
 // A source line under the words (V23): cite: 'Baveno VIII 1.15, 1.16', in the caveat's small print.
 const citeEl = (s) => (citeText(s.cite) ? h('p', { class: 'pz-cite' }, citeText(s.cite)) : null);
 // A slide's lens (decks.js lens): what the vessel colours show on that slide, with a key under its line, its name ("Velocity")
@@ -301,7 +312,7 @@ function rich(t, s = {}, fp = null, tips = false) {
     if (lensW) out.push(lensBy.replace(/ $/, '\u00a0'), h('span', { class: 'pz-term pz-lens-t', style: `--tone: ${toneVar(LENS_TONE[LENS_WORDS[lensW]])}` }, lensW));
     else if (lw) out.push(TARGETS[lk] ? termPill(lw, lk) : lw);
     else if (tword) { seenT.add(tk); out.push(termPill(tword, tk)); }
-    else if (mk && TILE[mk]) out.push(pill(liveVal(mk, s, fp), mkStop, '', valTone(mk, fp, tips), pillRate(mk, fp, tips)));
+    else if (mk && TILE[mk]) { const pl = pill(liveVal(mk, s, fp), mkStop, '', valTone(mk, fp, tips), pillRate(mk, fp, tips)); pl.firstChild.dataset.k = mk; out.push(pl); }   // (its key, for lineTo)
     else if (mk && atRe.test(mk) && TILE[mk.match(atRe)[1]]) { const [, k, id] = mk.match(atRe), f = fpAt(id); out.push(pill(liveVal(k, s, f), mkStop, '', valTone(k, f), pillRate(k, f))); }
     else if (mk && /^[<>≥≤]=?/.test(mk)) out.push(pill(mk.replace(/^(?:>=|<=|[<>≥≤])\s*/, ''), mkStop, ' cut'));
     else if (mk) out.push(pill(mk, mkStop, ' cut'));   // (a number typed in braces, {6 to 8 g}: a rule, outlined; only a live value is the patient)
@@ -1628,7 +1639,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     if (s.data === 'ladder') ui.ladder.set(f, { key: s.key || [], ms, brackets: s.brackets, block: blockOf(s) });
     if (s.data) ui.tiles.set(f, tileKeys(s), s.key || [], ref, ms, store.get().params?.tips?.on);
     ui.tools.pin(f);   // (an instrument's reading is the tiles' number)
-    if (eqFilled(s.eq?.[0])) eqTo(ui.text, f, !!store.get().params?.tips?.on);   // (and an equation's)
+    if (eqFilled(s.eq?.[0])) { const tp = !!store.get().params?.tips?.on; eqTo(ui.text, f, tp); lineTo(ui.text, s, f, tp); }   // (and an equation's, with the line's)
     stage.siteFp?.(f);   // (and a callout's)
     figureHooks('update', f, s);   // (and a deck visuals package's, slide-ext.js)
   }
@@ -2155,7 +2166,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
           s.lapse && i > 0 ? h('div', { class: 'pz-lapse', role: 'status' }, h('span', { class: 'pzl-bar' }, h('i')), h('span', { class: 'pzl-t' }, lapseText(s, 0, s.days, false))) : null,
           s.rail ? rail(s.rail === 'all' ? 'all' : s.site) : null,
           s.causes?.length ? h('p', { class: 'pz-causes' }, h('span', { class: 'pz-sub' }, s.causesHead || 'Causes'), nb(listCase(s.causes))) : null]);
-      if (eqFilled(s.eq?.[0])) eqTo(text, now?.fp, !!now?.params?.tips?.on);   // (the numbers the card starts on: a time-lapse's start)
+      if (eqFilled(s.eq?.[0])) { eqTo(text, now?.fp, !!now?.params?.tips?.on); lineTo(text, s, now?.fp, !!now?.params?.tips?.on); }   // (the numbers the card starts on: a time-lapse's start)
       paintKey((slideLens(s) !== 'pressure' || lensButtons(s)) ? slideLens(s) : null, s);
       markLong(text, gen !== redrawn);   // (drawn again for a new text size: judged at its full size, as a fresh load does)
       [...text.children].forEach((c, k) => c.style.setProperty('--i', k));
@@ -2328,24 +2339,27 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     const mode = cellsMode(s), focus = focusOf(s);
     const share = barsOn(s) ? Object.fromEntries(cols.filter((k) => !colExt(k)).map((k) => [k, barShares(rows.map((r) => (r.f && !r.blank.includes(k) ? fpv(k, r.f) ?? NaN : NaN)))])) : null;
     const barOf = (k, n) => (share?.[k] ? { class: ' pzv-bar', style: { '--bar': share[k][n].toFixed(3) } } : { class: '', style: null });
+    // (Printed numbers keep one decimal, as everywhere but the ladder's brackets; after a TIPS the PPG is judged against its target, below 12.)
+    const valN = (k, f) => { const v = fpv(k, f); return mode && v != null && PRESS.has(k) ? fmt(v, 1) : val(k, f); };
+    const rateN = (k, r, d) => (k === 'ppg' && states[r.k]?.params?.tips?.on && fpv(k, r.f) != null ? (tipsGoal(tileShown(k, fpv(k, r.f)))[0] === 'ok' ? 'ok' : 'hi') : rateAbs(k, d));
     const cell = (k, r, n) => {
       if (r.blank.includes(k)) return h('td', { class: 'num blank', title: 'Not measurable' }, noneEl(), h('span', { class: 'sr-only' }, 'not measurable'));
       if (!r.f || (rel && !isRef(r, n) && !refOfRow(r))) return h('td', { class: 'num pend' }, '…');
       if (k === 'spleen' && !(fpv(k, r.f) > 0)) return h('td', { class: 'num none' }, 'Removed');
       const b = barOf(k, n);
-      if (isRef(r, n)) return h('td', { class: 'num ref' + b.class, style: b.style, 'data-rate': rel ? null : rateAbs(k, dirAbs(k, r.f)) }, val(k, r.f));
+      if (isRef(r, n)) return h('td', { class: 'num ref' + b.class, style: b.style, 'data-rate': rel ? null : mode ? rateN(k, r, dirAbs(k, r.f)) : rateAbs(k, dirAbs(k, r.f)) }, valN(k, r.f));
       const ref = refOfRow(r), d = rel ? (ref ? dirRel(k, r.f, ref) : 0) : dirAbs(k, r.f), v = val(k, r.f) + unitOf(k);
       // Against normal, the colour follows the arrows (amber above, red well above); against a baseline, better or worse,
       // except where a change is neither ('calm': a meal's small PPG rise, the HVPG's dip as a clot diverts portal flow).
       const calm = (s.calm || []).includes(k) || r.calm.includes(k);
       if (mode) {
         // (Numbers in the text's colour against a reference, the arrow taking the change's; against normal the number takes its rating, as the top row's.)
-        const from = mode === 'change' && rel && ref ? val(k, ref) : null;
+        const from = mode === 'change' && rel && ref ? valN(k, ref) : null, vn = valN(k, r.f) + unitOf(k), rate = rel ? null : rateN(k, r, d);
         return h('td', { class: 'num dir pzv-vals' + (d ? '' : ' zero') + (rel ? ' rel' : '') + (from != null ? ' pzv-chg' : '') + b.class, style: b.style,
-          'data-rate': rel ? null : rateAbs(k, d), 'data-eff': rel && !calm ? effOf(k, d) : null, title: from != null ? `${from} → ${v}` : v },
-        ...(from != null ? [h('span', { class: 'pzv-a' }, from), h('span', { class: 'pzv-to', 'aria-hidden': 'true' }, '→'), h('span', { class: 'pzv-b' }, val(k, r.f))]
-          : [h('span', { class: 'pzv-b' }, val(k, r.f)), arrowEl(d)]),
-        h('span', { class: 'sr-only' }, from != null ? `${WORDREL[d]}, from ${from} to ${v}` : `${rel ? WORDREL[d] : WORD[d]}, ${v}`));
+          'data-rate': rate, 'data-eff': rel && !calm ? effOf(k, d) : null, title: from != null ? `${from} → ${vn}` : vn },
+        ...(from != null ? [h('span', { class: 'pzv-a' }, from), h('span', { class: 'pzv-to', 'aria-hidden': 'true' }, '→'), h('span', { class: 'pzv-b' }, valN(k, r.f))]
+          : [h('span', { class: 'pzv-b' }, valN(k, r.f)), arrowEl(d)]),
+        h('span', { class: 'sr-only' }, from != null ? `${WORDREL[d]}, from ${from} to ${vn}` : `${rel ? WORDREL[d] : WORD[d]}, ${vn}${rate === 'ok' ? ', target met' : ''}`));
       }
       return h('td', { class: 'num dir' + (d ? '' : ' zero') + (rel ? ' rel' : ''), 'data-rate': rel ? null : rateAbs(k, d), 'data-eff': rel && !calm ? effOf(k, d) : null, title: v },
         arrowEl(d), h('span', { class: 'sr-only' }, `${rel ? WORDREL[d] : WORD[d]}, ${v}`));
@@ -2372,8 +2386,11 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     for (const k of cols) if (colExt(k)?.unit) units.push(colExt(k).unit);
     if (ascCols) units.push('SAAG and protein in g/dL');
     const refTitle = first ? lc(rows[0].title) : 'the baseline';
+    // (What a change cell reads from: the first row, the row each names, or both where only some rows name one.)
+    const changeFrom = () => { const own = rows.filter((r, n) => !isRef(r, n)), all = own.length && own.every((r) => r.vs), some = own.some((r) => r.vs);
+      return all ? 'the row named under it' : some ? `${refTitle}, or the row named under it` : refTitle; };
     const key = mode === 'change' && rel
-      ? `Each cell: ${perRow ? 'the row named under it' : refTitle} → this row${cols.some((k) => k !== 'pvFlow') ? '. Green better, red worse' : ''}`
+      ? `Each cell: ${changeFrom()} → this row${cols.some((k) => k !== 'pvFlow') ? '. Green better, red worse' : ''}`
       : rel
       ? `↑ higher, ↓ lower than ${perRow ? 'the row named under each' : refTitle}; ↑↑ ↓↓ by 40% or more; • unchanged${cols.some((k) => k !== 'pvFlow') ? '. Green better, red worse' : ''}`
       : `↑ above normal, ↓ below; ↑↑ ↓↓ past the red cut-off of that column (tap a heading for it); • within normal`;
@@ -2383,11 +2400,12 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     const cutLine = h('span', { class: 'pz-cutl', 'aria-live': 'polite' });
     const showCut = (k) => (e) => { if (e.type === 'click' || e.key === 'Enter' || e.key === ' ') { e.preventDefault?.(); e.stopPropagation?.(); cutLine.replaceChildren(h('b', {}, `${COLS[k] || colExt(k)?.heading || k}: `), ...withArrows((CUT[k] ?? colExt(k)?.cut) + '.')); } };
     const cutTh = (k, label, cut) => h('th', { class: 'num', title: cut || null, ...(cut ? { tabindex: '0', onclick: showCut(k), onkeydown: showCut(k) } : {}) }, label);
+    // (A table with opt-in cells says so on its own element, so its phone headings keep the 12 px floor: pzv-cells.)
     const go1 = (r) => (e) => { if (e.type === 'click' || e.key === 'Enter' || e.key === ' ') { e.preventDefault?.(); go(r.i); } };
     // (long: seven rows or more; a class, not :has(), which made every table cell part of each restyle the page did)
     // (notecols: few enough columns that an upright tablet keeps each note in a column of its own under its heading, as on its side)
     const noteCols = notes.length && cols.length + (ascCols ? 2 : 0) + notes.length <= 4;
-    return h('div', { class: 'pz-table' + (rows.length >= 7 ? ' long' : '') + (noteCols ? ' notecols' : '') + (mode ? ` cells-${mode}` : '') + (focus ? ' pzv-focused' : '') }, h('table', { style: { '--nc': String(cols.length + (ascCols ? 2 : 0)), '--nn': String(notes.length), '--asc-w': '0px' } },
+    return h('div', { class: 'pz-table' + (rows.length >= 7 ? ' long' : '') + (noteCols ? ' notecols' : '') + (mode ? ` pzv-cells pzv-${mode}` : '') + (focus ? ' pzv-focused' : '') }, h('table', { style: { '--nc': String(cols.length + (ascCols ? 2 : 0)), '--nn': String(notes.length), '--asc-w': '0px' } },
       h('thead', {}, h('tr', {}, h('th', {}, s.rowHead || 'Level'), cols.map((k) => cutTh(k, COLS[k] || colExt(k)?.heading || k, CUT[k] ?? colExt(k)?.cut)),
         ascCols ? [cutTh('saag', h('abbr', { title: 'Serum−ascites albumin gradient' }, 'SAAG'), CUT.saag), cutTh('tp', h('abbr', { title: 'Ascites protein' }, 'Prot.'), CUT.tp)] : null,
         notes.map((x) => h('th', { class: 'nh' }, x)))),
