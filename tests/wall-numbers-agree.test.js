@@ -43,3 +43,33 @@ test('the Wall mechanics tiles read their numbers from wallRead', () => {
   assert.match(s, /const wr = wallRead\(v\)/);
   assert.ok(!/fmt\(v\.w, 1\)/.test(s));
 });
+
+test('every percentage of the tear point is the shown index over 150, so it never disagrees with the index beside it', () => {
+  let n = 0, over = 0;
+  for (const p of PRESETS) for (const site of ['VAR', 'GV']) {
+    const e = new Engine(); e.loadPreset(p.id); e.beat = true;
+    for (let f = 0; f < 40; f++) {
+      for (let i = 0; i < 25; i++) e.step(0.004);
+      const v = e.varix(site), t = wallRead(v);
+      assert.equal(Math.round(v.ratioShown * 100), Math.round(+t.index / 150 * 100), `${p.id} ${site}: ${v.ratioShown} vs index ${t.index}`);
+      assert.ok(Math.abs(v.ratioShown - v.ratio) <= 0.01 + 0.01 * v.ratio, `${p.id} ${site}: shown ${v.ratioShown} vs model ${v.ratio}`);
+      if (v.ratioShown > 1) over++;
+      n++;
+    }
+  }
+  assert.equal(n, PRESETS.length * 2 * 40);
+  assert.ok(over > 0, 'some state is past the tear point');
+});
+
+test('the headline, the "above the tear point" switch, the Tests row, Compare, the explainer and the inspector read ratioShown', () => {
+  const ui = (p) => readFileSync(new URL(`../src/ui/${p}`, import.meta.url), 'utf8');
+  const wall = ui('instruments.js').slice(ui('instruments.js').indexOf('export function createVarixWall'));
+  assert.match(wall, /v\.ratioShown > 1 \? 'above the tear point'/);
+  assert.match(wall, /wMean = v\.ratioShown/);
+  assert.ok(!/ratio \* 100\)\} % of the tear point/.test(wall.replace(/ratioShown/g, 'S')));
+  assert.match(ui('dock.js'), /m\.varix\.ratioShown \* 100/);
+  assert.match(ui('compare.js'), /m\.varix\.ratioShown \* 100/);
+  assert.match(ui('inspector.js'), /metrics\.varix\.ratioShown \* 100/);
+  assert.match(ui('inspector.js'), /metrics\.gastricVarix\.ratioShown \* 100/);
+  assert.match(readFileSync(new URL('../src/engine/explain.js', import.meta.url), 'utf8'), /m\.varix\.ratioShown \* 100/);
+});

@@ -1,11 +1,11 @@
 // Simulation host: owns the Engine, runs the clocks, streams frames (blueprint §13.4).
 // Used inside a Web Worker (src/worker.js) or on the main thread as a fallback.
 
-import { Engine } from './engine/engine.js?v=c0a0c4e609';
+import { Engine } from './engine/engine.js?v=45634cdc12';
 import { computeMetrics } from './engine/metrics.js?v=e566c70621';
 import { tenthGap } from './engine/gap.js?v=3a5947c552';
 import { detectEvents } from './engine/events.js?v=582dd803a9';
-import { explain } from './engine/explain.js?v=42b475c4bd';
+import { explain } from './engine/explain.js?v=536bd1bedd';
 import { deepMerge, sanitizeParams, PRESETS } from './engine/scenario.js?v=1ee7733788';
 
 const SAMPLE_NODES = ['RA', 'IVCS', 'RHV', 'CONF', 'SIN_R', 'VAR', 'AO', 'SV', 'SMV'];
@@ -27,7 +27,7 @@ const fingerprint = (m, e) => {
   const P = e ? e.Pf || e.P : null, a = m.ascites, fl = e ? e.starling() : null;
   return { pv: m.pv, whvp: m.whvp, fhvp: m.fhvp, hvpg: tenthGap(m.whvp, m.fhvp, m.hvpg), ra: m.ra, ivc: m.ivc, ppg: tenthGap(m.pv, m.ivc, m.ppg),
     asc: a.volume, saag: a.saag, tp: a.totalProtein, aalb: a.albumin, salb: e?.params.albumin, sigma: a.lymphSigma, hepLymph: a.hepLymph, splLymph: a.splLymph,
-    sin: P ? P[e.ni.SIN_R] : null, cv: P ? P[e.ni.CV_R] : null, int: P ? P[e.ni.INT] : null, varix: m.varix.d, wall: e ? e.varix('VAR', e.Pf || e.P).ratio : m.varix.ratio, gv: m.gastricVarix.d, spleen: m.spleen.length, plt: m.spleen.platelets,
+    sin: P ? P[e.ni.SIN_R] : null, cv: P ? P[e.ni.CV_R] : null, int: P ? P[e.ni.INT] : null, varix: m.varix.d, wall: e ? e.varix('VAR', e.Pf || e.P).ratioShown : m.varix.ratioShown, gv: m.gastricVarix.d, spleen: m.spleen.length, plt: m.spleen.platelets,
     pvFlow: m.pvFlowMean, shunt: m.shuntFraction, he: m.heRisk.index, liver: m.liverPerfPct, lsm: m.lsm, pvVel: m.pvVelMean, map: m.map, hr: m.hr, hb: m.blood.hb, co: m.co, bv: m.blood.volume, rih: e ? liverRes(e) : null,
     lymphCap: a.lymphCap, lymphOver: fl ? fl.excess : null, lymphBack: fl ? fl.bulk + fl.water : null, lymphNet: fl ? fl.net : null,
     // (the whole network as it stood, so a slide's callouts and figure labels read its numbers as the tiles do: the same on every screen)

@@ -293,20 +293,20 @@ export function createVarixWall() {
     const v = f.metrics.varix;
     const wr = wallRead(v);   // (the index is worked out from the shown ΔP, r and w, so the tiles multiply out)
     set(ptm.v, wr.ptm); set(rad.v, wr.r); set(wal.v, wr.w); set(idx.v, wr.index);
-    set(stressTxt, v.ratio >= 1 ? 'above the tear point' : `${Math.round(v.ratio * 100)} % of the tear point`);
-    const sev = v.ratio > 1 ? 'critical' : v.ratio > 0.7 ? 'danger' : v.ratio > 0.4 ? 'caution' : 'ok';
+    set(stressTxt, v.ratioShown > 1 ? 'above the tear point' : `${Math.round(v.ratioShown * 100)} % of the tear point`);
+    const sev = v.ratioShown > 1 ? 'critical' : v.ratioShown > 0.7 ? 'danger' : v.ratioShown > 0.4 ? 'caution' : 'ok';
     if (stressBar.dataset.sev !== sev) stressBar.dataset.sev = sev;
     // (The stress swings with each beat and each breath: the number is its mean over the last several breaths, a plain
     // average while that many have not passed yet, so it reads steady and the same on every screen, folded or open.)
     const now = performance.now();
-    if (wMean == null || now - wT > 3000) { wMean = v.ratio; wN = 1; } else { wN++; wMean += (v.ratio - wMean) * Math.max(1 / wN, 1 - Math.exp(-(now - wT) / 6000)); }
+    if (wMean == null || now - wT > 3000) { wMean = v.ratioShown; wN = 1; } else { wN++; wMean += (v.ratioShown - wMean) * Math.max(1 / wN, 1 - Math.exp(-(now - wT) / 6000)); }
     wT = now;
     // (On a slide the figure is the slide's own, the state its tiles show (pin), so every screen reads the same number.)
     if (Number.isFinite(wPin)) wMean = wPin;
     const ms = wMean > 1 ? 'critical' : wMean > 0.7 ? 'danger' : wMean > 0.4 ? 'caution' : 'ok';
     set(wPct, String(Math.round(wMean * 100))); set(wSev, WALL_SEV[ms]);
     if (wSev.dataset.sev !== ms) wSev.dataset.sev = wBig.dataset.sev = ms;
-    const wPctW = `${Math.round(clamp(v.ratio, 0, 1) * 1000) / 10}%`;
+    const wPctW = `${Math.round(clamp(v.ratioShown, 0, 1) * 1000) / 10}%`;
     if (stressFill.style.width !== wPctW) stressFill.style.width = wPctW;
     const { ctx, w, h: hh } = fitCanvas(cv);
     if (w < 32 || hh < 32) return;

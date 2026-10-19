@@ -1115,7 +1115,8 @@ export class Engine {
     const r = r0 * (1 + this.varixMature(site) * (Math.sqrt(tubeArea(ptm - raRise, 0.08) / tubeArea(ref, 0.08)) - 1));
     const w = Math.max(0.12, VARIX.w0 / r0) * (site === 'GV' ? 1.4 : 1);
     const T = Math.max(0, ptm) * r / w;
-    return { ptm, r, r0, w, T, ratio: T / VARIX.Tcrit };
+    // (ratioShown: the stress index as the tiles show it (wall-read.js), over the tear point, so every percentage printed agrees with the index beside it.)
+    return { ptm, r, r0, w, T, ratio: T / VARIX.Tcrit, ratioShown: +wallRead({ ptm, r, w }).index / VARIX.Tcrit };
   }
 
   hvpgTrue(P = this.P) {
@@ -1158,5 +1159,6 @@ function solve(A, b, n) {
   return solveInPlace(A, b, n);
 }
 import { solveInPlace } from './linalg.js?v=4f20e14f7c';
+import { wallRead } from './wall-read.js?v=09449acd01';
 
 export { SPLANCHNIC_ARTERIES, PORTOSYSTEMIC_EDGES };
