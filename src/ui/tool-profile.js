@@ -264,17 +264,21 @@ export function bracketLabel(x0, x1, wd, parts = [wd, 0]) {
 }
 
 /** How a bracket span px long lays out its label (judged from the widest value, 00, so nothing changes while the numbers ease):
- *  on one line at the chart's type size f where it fits; else on one line in smaller type, never under BR_MIN px (Mohammad,
+ *  on one line with the bar each side, at the chart's type size f or smaller; else on one line with the bar left out; never under BR_MIN px (Mohammad,
  *  19 Oct: "HVPG can fit in one line inside the bracket, can make it smaller text"); else its name over its value at f.
  *  tw(t, weight): a text's width at f. → { mode (bracketLabel's), fs (the label's type size, px) } */
 export const BR_MIN = 12;
 export function bracketFit(span, name, tw, f) {
   const wd = tw(`${name} 00`, 700), parts = [tw(name, 600), tw('00', 700)];
   const at = (fs) => bracketLabel(0, span, wd * fs / f, parts.map((q) => q * fs / f)).mode;
-  if (at(f) !== 'stack') return { mode: at(f), fs: f };
-  // (The largest size, to a tenth of a px, that keeps it on one line BR_CLEAR px clear of each end.)
-  const fs = Math.min(f, Math.floor(10 * f * (span - 2 * BR_CLEAR) / wd) / 10);
-  if (fs >= BR_MIN && at(fs) !== 'stack') return { mode: at(fs), fs };
+  // (The bar showing each side of it first, as the PPG's does, in smaller type where that keeps it (Mohammad, 19 Oct: "the bracket
+  // horizontal lines should show for HVPG, if not make it a bit smaller"); else between the ends with the bar left out. Each the
+  // largest size, to a tenth of a px, that does it.)
+  const size = (room) => Math.min(f, Math.floor(10 * f * room / wd) / 10);
+  for (const [room, mode] of [[span - 26, 'gap'], [span - 2 * BR_CLEAR, 'tight']]) {
+    const fs = size(room);
+    if (fs >= BR_MIN && at(fs) === mode) return { mode, fs };
+  }
   return { mode: 'stack', fs: f };
 }
 

@@ -174,6 +174,11 @@ test('the HVPG label goes on one line in smaller type before it stacks its name 
   // (Mohammad, 19 Oct, on a Mac: "HVPG can fit in one line inside the bracket, can make it smaller text".)
   const wide = (f) => (t, wt = 600) => [...t].reduce((a, c) => a + (/[A-Z]/.test(c) ? 0.8 : /[0-9]/.test(c) ? 0.62 : 0.32) * f * (wt >= 700 ? 1.04 : 1), 0);
   const tw = wide(15), wd = tw('HVPG 00', 700);
+  assert.deepEqual(bracketFit(wd + 26, 'HVPG', tw, 15), { mode: 'gap', fs: 15 });
+  // (Room for the bar at a smaller size: smaller, with the bar each side, 8 px of it at least.)
+  const g = bracketFit(0.9 * wd + 26, 'HVPG', tw, 15);
+  assert.equal(g.mode, 'gap');
+  assert.ok(g.fs < 15 && g.fs >= BR_MIN && wd * g.fs / 15 <= 0.9 * wd + 1e-9, `${g.fs} px keeps the bar`);
   assert.deepEqual(bracketFit(wd + 2 * BR_CLEAR + 1, 'HVPG', tw, 15), { mode: 'tight', fs: 15 });
   const small = bracketFit(0.97 * wd, 'HVPG', tw, 15);
   assert.equal(small.mode, 'tight');
