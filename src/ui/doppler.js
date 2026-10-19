@@ -937,7 +937,7 @@ export function createDoppler({ onProbe, pickGate = true }) {
       }
     } else { wl = null; }
     const xAt = (t) => padL + (RW - 1 - (cNow - Math.floor(t * g.cps))) / dpr;
-    drawCalipers(ctx, { now, sgn, k, pxPerV, baseY, padT, H, xAt });
+    drawCalipers(ctx, { now, sgn, k, pxPerV, baseY, padT, padL, W, H, xAt });
     if (PB) drawPair(ctx, { tNow, y0: padT + H + PAIR_GAP, PB, padL, W, xAt });
     // One tick a second along the bottom, scrolling with the trace
     ctx.fillStyle = cssAlpha('--white', .4);
@@ -959,7 +959,7 @@ export function createDoppler({ onProbe, pickGate = true }) {
     cal = calip && tNow != null && probe ? caliperFrame(buf, tNow, sweepSeconds, W, CAL_W) : null;
     if (cal) cal.gf = gateFactor(); else calMk = {};
   }
-  function drawCalipers(ctx, { now, sgn, k, pxPerV, baseY, padT, H, xAt }) {
+  function drawCalipers(ctx, { now, sgn, k, pxPerV, baseY, padT, padL, W, H, xAt }) {
     if (!cal) return;
     // (each mark on the spectrum's outline, where the reading's peak is read: the mean across the lumen times dopplerK; the
     // window keeps every mark a whole mark inside the trace, so nothing is clamped to an edge)
@@ -979,8 +979,22 @@ export function createDoppler({ onProbe, pickGate = true }) {
       return (c.last = [p[0] + dx, p[1] + dy]);
     };
     const h = place('hi'), l = place('lo');
-    ctx.strokeStyle = cssAlpha('--doppler', 0.75); ctx.lineWidth = 1; ctx.setLineDash([3, 3]);
-    ctx.beginPath(); ctx.moveTo(...h); ctx.lineTo(...l); ctx.stroke(); ctx.setLineDash([]);
+    // What the index measures is the gap in speed between the two marks, not the slant between them: each mark runs a dashed
+    // extension level to one shared x past the later mark (before the earlier one when that would leave the trace), and one
+    // upright caliper with end ticks spans the two extensions.
+    const GAP = 8, TICK = 4, half = CAL_W / 2;
+    let xc = Math.max(h[0], l[0]) + half + GAP;
+    if (xc > padL + W - TICK - 1) xc = Math.min(h[0], l[0]) - half - GAP;
+    xc = Math.round(xc) + 0.5;
+    ctx.strokeStyle = cssAlpha('--doppler', 0.6); ctx.lineWidth = 1; ctx.setLineDash([3, 3]);
+    ctx.beginPath();
+    for (const [x, y] of [h, l]) { const yy = Math.round(y) + 0.5, from = xc > x ? x + half : x - half; ctx.moveTo(from, yy); ctx.lineTo(xc, yy); }
+    ctx.stroke(); ctx.setLineDash([]);
+    const y0 = Math.round(h[1]) + 0.5, y1 = Math.round(l[1]) + 0.5;
+    ctx.strokeStyle = cssAlpha('--black', 0.8); ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.moveTo(xc, y0); ctx.lineTo(xc, y1); ctx.moveTo(xc - TICK, y0); ctx.lineTo(xc + TICK, y0); ctx.moveTo(xc - TICK, y1); ctx.lineTo(xc + TICK, y1); ctx.stroke();
+    ctx.strokeStyle = cssAlpha('--doppler', 0.95); ctx.lineWidth = 1;
+    ctx.stroke();
     mark(h, 1); mark(l, 1);
     ctx.restore();
   }
@@ -1095,10 +1109,12 @@ export function createDoppler({ onProbe, pickGate = true }) {
   }
   function update(f) { ingest(f); redraw(); }
   function clear() { buf = []; wl = null; redraw(); }
+  // (A new recording of the same vessel: as a new probe, the trace, its scale and its reading start over.)
+  function restart() { buf = []; wl = null; tOff = 0; synth = null; scale = null; steady.probe = null; redraw(); }
   /** A slide is showing this monitor: choose its window again from the width it is drawn at. (The trace already drawn
    *  stays: only a change of window redraws it, so a slide that keeps the window enters without a full repaint.) */
   function autoWindow() { manualSweep = false; pickNext = true; redraw(); }
   /** Name the hepatic vein's a, S, v and D waves on the trace (the Presenter's waveform slides). */
   function setWaves(on) { if (waves !== !!on) { waves = !!on; redraw(); } }
-  return { id: 'doppler', label: 'Doppler', el, update, ingest, redraw, clear, setInvert, setWaves, autoWindow, pin, configure };
+  return { id: 'doppler', label: 'Doppler', el, update, ingest, redraw, clear, restart, setInvert, setWaves, autoWindow, pin, configure };
 }

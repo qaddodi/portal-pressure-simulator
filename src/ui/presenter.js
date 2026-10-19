@@ -23,7 +23,7 @@ import { nb, listCase, plateletText } from './glue.js?v=5a0f63226b';
 import { DECKS, REGIONS, LEVELS, TOPICS, withOverview, siteTag, SITE_TAGS } from './decks.js?v=df7cf75f8c';
 import { wholeGap, tenthGap } from '../engine/gap.js?v=3a5947c552';
 import { createHvpgMonitor } from './hvpg-proc.js?v=d8438f1d1f';
-import { createTools } from './presenter-tools.js?v=938a96c91a';
+import { createTools } from './presenter-tools.js?v=826f74d293';
 import { openHandout } from './handout.js?v=527d3dba1d';
 import { noteResume, resumeFor } from './resume.js?v=f086f80ee8';
 import { parseDeckSource, checkDeck } from './deck-source.js?v=8395c650cd';
@@ -1881,6 +1881,8 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     if (!skipCase && s.vignette && ui && !booting && !lap && to > lastAt && (si !== shownState || liveOff)) { if (!await caseRun(s, si, st, cut)) return; }
     // A new patient, or the same one changed: the figure fades out, the state changes unseen, it fades back in.
     const swap = si !== shownState || liveOff || !!own;
+    // (The recording instruments wait for the slide's own state: see the release once it has landed.)
+    ui?.tools.hold(swap && !booting);
     // On screen the change eases (morphTo): after the camera has landed and before the cards come in, or for a catheter slide
     // (its cards come in at once) right here. Only the first slide, or with reduced motion, does the figure dim while it changes.
     const glide = swap && !booting && !reduce.matches, later = glide && !ct && !!ui;
@@ -1950,6 +1952,8 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       await wait(60); await until(() => cut() || !cardsEntering(), 1200);
       if (cut()) return;
     }
+    // The slide's state has landed: the Doppler starts its trace from the left now, never with the leaving state's flow.
+    ui?.tools.hold(false);
     if (!s.visual) {
       // The slide's marks, labels, the stations its terms name (in their colours) and its glows (see slideTargets).
       const tg = slideTargets(s), xc = ctxOf(s, to);

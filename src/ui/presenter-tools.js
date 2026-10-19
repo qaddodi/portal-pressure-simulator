@@ -25,7 +25,7 @@
 import { store } from './store.js?v=31ee79b6ab';
 import { h } from './util.js?v=8813192ea2';
 import { EDGES } from '../engine/topology.js?v=4044766e96';
-import { createDoppler } from './doppler.js?v=6bcf374cf1';
+import { createDoppler } from './doppler.js?v=76841d4ac7';
 import { createFibroScan } from './fibroscan.js?v=81ca55ce21';
 import { createPressureTime } from './pressure-time.js?v=2a0658ccaf';
 import { createFlowTime } from './flow-time.js?v=2e3f89618c';
@@ -58,7 +58,7 @@ export function createTools({ host, stage }) {
     if (!w || !r) continue; const k = Math.min(2, Math.max(1, 12 / (13 * r / w))); if (Math.abs(k - (+sv.style.getPropertyValue('--svk') || 1)) > 0.02) sv.style.setProperty('--svk', k.toFixed(2)); } };
   if (typeof ResizeObserver === 'function') new ResizeObserver(() => nextFrame(svk)).observe(box);
   const made = {};
-  let cur = null, kind = null, probe0, gate0, lastSt = null, lastSlide = null;
+  let cur = null, kind = null, probe0, gate0, lastSt = null, lastSlide = null, held = false;
   function make(k) {
     if (made[k]) return made[k];
     const inst = k === 'doppler' ? createDoppler({ onProbe: noop, pickGate: false }) : k === 'fibroscan' ? createFibroScan() : k === 'scope' ? createEndoscopy({ onAction: noop })
@@ -71,6 +71,8 @@ export function createTools({ host, stage }) {
   const keyOf = (t) => (t.kind === 'trace' ? (t.range === 'beats' ? 'beats' : 'talk') : t.kind);
   const offFrame = store.on('frame', (f) => {
     if (!cur || !f || !box.isConnected) return;
+    // (Held while the slide's own state eases in: a recording trace would catch the leaving state, the old flow before it reverses.)
+    if (held && (kind === 'doppler' || kind === 'beats')) return;
     if (kind === 'doppler' && cur.ingest) { cur.update(f); return; }
     if (kind !== 'talk' && kind !== 'flowtime') cur.update?.(f);
   });
@@ -118,6 +120,12 @@ export function createTools({ host, stage }) {
     ghost(g) {
       ghostEl.classList.toggle('on', !!g);
       if (g) ghostEl.replaceChildren(h('span', {}, g.label), h('b', {}, g.value));
+    },
+    /** Hold the recording instruments (Doppler, beat by beat) while the slide's state changes: they draw nothing new, and on
+     *  release start over empty, sweeping from the left, their reading waiting for the new state's own beats. */
+    hold(on) {
+      on = !!on; if (on === held) return; held = on;
+      for (const k of ['doppler', 'beats']) made[k]?.restart?.() ?? made[k]?.clear?.();
     },
     hide() { stage?.pinDoppler?.(null); stage?.setScanProbe?.(false); cur = null; kind = null; lastSlide = null; delete box.dataset.kind; },
     /** The presentation is over: the Doppler goes back to the vessel it had. */
