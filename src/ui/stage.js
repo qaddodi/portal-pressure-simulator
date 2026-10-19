@@ -1092,7 +1092,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // the vessels (veins-gl.js, tube rows 10 and 11). It follows every move and pulse for free: no blur, no mask, no
   // outline to rebuild. Each source asks for vessels in a colour (null: the vessel's own); a vessel several sources
   // light takes the colour of the last in GLOW_RANK. Each eases in and out on its own, so a change cross-fades.
-  const GLOW_RANK = ['sel', 'hover', 'flash', 'delta', 'dop', 'slide', 'focus', 'shunt'];
+  const GLOW_RANK = ['spot', 'sel', 'hover', 'flash', 'delta', 'dop', 'slide', 'focus', 'shunt'];
   const glow = { src: new Map(), lit: new Map(), raf: 0, t: 0 };
   // The glow and hover eases step at the display's rate, but the vessels are redrawn at the paced rate (animate): an
   // ease only marks the tubes stale, and the paced frame rebuilds and uploads them once.
@@ -3537,11 +3537,14 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   }
   // With a vessel selected the organs (and the ascites over them) step back to SEL_DIM, as app.css's .has-sel filter (G20).
   const SEL_DIM = 0.6;
+  const SPOT_NET = 0.16;   // the network's alpha outside a slide's spotlight (deck visuals V2)
   // The plate's dim and grey (a lens or a selection) and the network's dim ease toward their targets
   // (stepPlateEase, each frame), so a lens switch or a selection never changes the figure in one frame.
   const plateTargets = () => {
-    const dataLayer = wrap.classList.contains('data-layer'), sel = wrap.classList.contains('has-sel') || wrap.classList.contains('shunting') || spotOn();
-    return [(sel ? SEL_DIM : 1) * (dataLayer ? 0.72 : 1), dataLayer ? 0.12 : 1, sel ? 0.42 : 1];
+    const dataLayer = wrap.classList.contains('data-layer'), own = wrap.classList.contains('has-sel') || wrap.classList.contains('shunting'), sel = own || spotOn();
+    // (A slide's spotlight steps the rest of the network further back than a selection, SPOT_NET: its vessels are a set, and a pale
+    // one, as the paraumbilical vein in Pressure colours, must still stand out of it.)
+    return [(sel ? SEL_DIM : 1) * (dataLayer ? 0.72 : 1), dataLayer ? 0.12 : 1, own ? 0.42 : sel ? SPOT_NET : 1];
   };
   function syncPlateLook() {
     syncOrganDim();
@@ -5954,12 +5957,18 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   }
   // A slide's change ripple (deck visuals V6, ext-highlights.js: ripple): the vessels whose pressure moved between two of its
   // states glow warm (up) or cool (down) for a moment, as Patients' Δ glow does after a change, without its rings and numbers.
+  // (Stronger, wider and held longer than Patients' Δ glow: on a slide the vessel under it often already wears the same blue or
+  // red, from the Change colours, so only its halo shows it.)
+  const RIPPLE_AMT = 2, RIPPLE_HOLD = 1600;
   let rippleT = 0;
   function ripple(from, to) {
     clearTimeout(rippleT);
     const list = from && to && !quietFx() ? rippleList(EDGES, NI, from, to, (e) => { const x = E[e.id]; return !!x?.vis && !x.isArt && !x.g.classList.contains('coll-ghost'); }) : [];
-    setGlowSrc('delta', list.map(([id, d]) => ({ id, col: d > 0 ? 'var(--glow-up)' : 'var(--glow-down)', amt: 1.35, wide: 1.1, dur: 420 })));
-    if (list.length) rippleT = setTimeout(() => setGlowSrc('delta', []), 1000);
+    const cs = getComputedStyle(svg), lift = clamp(cssNum(cs, '--ripple-lift', 0), 0, 1);
+    const tone = (v) => { const c = mix3(toRGB(v, cs), [1, 1, 1], lift); return `rgb(${c.map((x) => Math.round(x * 255)).join(', ')})`; };   // colour-exempt: built from the glow tokens
+    const up = tone('var(--glow-up)'), down = tone('var(--glow-down)');
+    setGlowSrc('delta', list.map(([id, d]) => ({ id, col: d > 0 ? up : down, amt: RIPPLE_AMT, wide: 1.3, dur: 420 })));
+    if (list.length) rippleT = setTimeout(() => setGlowSrc('delta', []), RIPPLE_HOLD);
   }
   const isImaging = () => !!store.get().imaging;
   // Captions of findings (varices, collaterals) can stay hidden until a test shows them.
@@ -7714,6 +7723,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   function vhStep(now) {
     const dt = Math.min(0.1, (now - vh.t) / 1000); vh.t = now;
     const want = new Set([...(vh.id ? vhEdges(vh.id) : []), ...vh.sel]);
+    if (spotOn()) for (const id of spot.ids) want.add(id);   // (a slide's spotlit vessels brighten as a selected one: V2)
     for (const id of want) if (!vh.amt.has(id)) vh.amt.set(id, 0);
     let moving = false;
     for (const [id, v] of vh.amt) {
@@ -8352,6 +8362,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       spot.on = !!sp && (spot.ids.size > 0 || !!sp.organs?.length);
       if (spot.on) spot.live = true;
       spotOrgans(spot.on ? sp.organs : null);
+      // (Each named vessel glows softly in its own colour, as a selected one does, so a pale one still reads against the dimmed rest.)
+      setGlowSrc('spot', spotOn() ? [...spot.ids].map((id) => ({ id, col: null, amt: 1.7, wide: 0.9, dur: SEL_FADE * 1000 })) : []);
       if (!vh.raf) { vh.t = performance.now(); vh.raf = nextFrame(vhStep); }
       veinsDirty = true; stageWake();
     },

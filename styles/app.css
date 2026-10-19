@@ -6155,6 +6155,11 @@ html.thumb-ui .menu.from-dock { clip-path: inset(-64px -64px calc(var(--sink, 0p
    between its own two lines, so packages built side by side never change the same lines. ── */
 
 /* ── Package A, figure highlights: start ── */
+/* The change ripple (stage.js ripple) takes Patients' Δ glow colours, lifted this far toward white on a dark figure, where
+   that deep blue and red hardly show on the navy round a vein the Change colours already tint. */
+:root { --ripple-lift: 0; }
+:root[data-theme="dark"] { --ripple-lift: 0.45; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]):not([data-theme="soft"]) { --ripple-lift: 0.45; } }
 
 /* ── Package A: end ── */
 
