@@ -7,7 +7,7 @@
 
 import { download } from './download.js?v=3564e5bf8c';
 import { LEVELS, withOverview } from './decks.js?v=8b01c690f7';
-import { TILE } from './table-marks.js?v=810c0a1575';
+import { TILE } from './table-marks.js?v=1dc429fe31';
 import { plateletText } from './glue.js?v=5a0f63226b';
 import { citeText } from './teach-extras.js?v=d8224d9bb5';
 

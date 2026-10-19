@@ -32,6 +32,8 @@ export const RATE = {
   // (A slow rate is no warning on its own: beta-blocked patients aim for 55 to 60, so its band is plain gray.)
   hr: (v) => (v < 60 ? ['info', 'Slow'] : v > 100 ? ['hi', 'Fast'] : ['ok', 'Normal']),
   ivc: (v) => (v > 8 ? ['hi', 'High'] : ['ok', 'Normal']),
+  // Portal vein clot, the share of the lumen it fills, in EASL 2025's grades (Table 4): minimal up to half, partial past it, complete.
+  clot: (v) => (v >= 0.995 ? ['hi', 'Complete'] : v > 0.5 ? ['hi', 'Partial'] : v >= 0.05 ? ['mid', 'Minimal'] : ['ok', 'None']),
   hb: (v) => (v < 7 ? ['hi', 'Severe'] : v < 12 ? ['mid', 'Low'] : ['ok', 'Normal']),
 };
 // Each tile: its name (n: a short one for a narrow tile, three in a row on a tablet or phone), what it is, the unit, the decimals (1 unless d), a scale (x) and which way is better
@@ -57,6 +59,7 @@ export const TILE = {
   map: { t: 'Blood pressure', n: 'MAP', s: 'Mean arterial', u: 'mmHg', d: 0 },
   hr: { t: 'Heart rate', n: 'HR', s: 'Beats a minute', u: '/min', d: 0 },
   lsm: { t: 'Liver stiffness', n: 'Stiffness', s: 'FibroScan', u: 'kPa', better: -1 },
+  clot: { t: 'Portal vein clot', n: 'Clot', s: 'Share of the lumen', u: '%', x: 100, d: 0, better: -1 },
   ra: { t: 'Right atrial pressure', n: 'RA', s: 'Pressure', u: 'mmHg', better: -1 },
   salb: { t: 'Serum albumin', n: 'Albumin', s: 'Blood', u: 'g/dL', better: 1 },
   ivc: { t: 'IVC pressure', n: 'IVC', s: 'Pressure', u: 'mmHg', better: -1 },
@@ -84,7 +87,7 @@ export const SCALE = {
   saag: [0, 3, [1.1]], tp: [0, 5, [1.5, 2.5]], asc: [0, 8, [0.15, 1.5, 5]],
   varix: [0, 10, [2.5, 5]], gv: [0, 10, [2.5, 5]], spleen: [8, 22, [13, 16]], plt: [0, 300, [100, 150]],
   pvFlow: [-0.6, 2, [0]], pvVel: [0, 50, [9, 15]], liver: [0, 125, [55, 75]], shunt: [0, 100, [10, 30]], map: [40, 120, [65]],
-  lsm: [0, 35, [10, 15, 25]], ra: [0, 20, [8]], ivc: [0, 20, [8]], salb: [1.5, 5.5, [3.5]], hb: [4, 18, [7, 12]], hr: [30, 200, [60, 100]],
+  lsm: [0, 35, [10, 15, 25]], clot: [0, 100, [5, 50]], ra: [0, 20, [8]], ivc: [0, 20, [8]], salb: [1.5, 5.5, [3.5]], hb: [4, 18, [7, 12]], hr: [30, 200, [60, 100]],
   // (Unrated, so a plain bar with no bands and no cut-off numbers: only the ring, before pregnancy, and the dot, now. Critique D4, 17 Oct.)
   bv: [3, 9, []], co: [3, 12, []],
 };

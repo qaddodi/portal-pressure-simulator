@@ -10,7 +10,7 @@
 // rings show and the lines then fade in (never a spinner).
 // Optional: label and unit (the x axis's words, for a setting PARAM does not know), and also (params every point carries).
 
-import { TILE, SCALE, RATE } from './table-marks.js?v=810c0a1575';
+import { TILE, SCALE, RATE } from './table-marks.js?v=1dc429fe31';
 import { frameFor } from './frame.js?v=67ca200c87';
 const nextFrame = frameFor('tool-curve');
 

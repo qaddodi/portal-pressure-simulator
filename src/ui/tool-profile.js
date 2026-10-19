@@ -10,7 +10,7 @@
 
 import { PROFILE_PATHS } from './anatomy.js?v=9bd5cbba37';
 import { NODES } from '../engine/topology.js?v=4044766e96';
-import { RATE } from './table-marks.js?v=810c0a1575';
+import { RATE } from './table-marks.js?v=1dc429fe31';
 import { monotoneSegs } from './curve-near.js?v=9ff15157e9';
 import { pressureColor } from './colormap.js?v=b2067d6101';
 
