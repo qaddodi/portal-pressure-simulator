@@ -12,6 +12,7 @@ import { DOPPLER_MODES, dopplerColor, shadeColor, swatchGradient } from './doppl
 import { frameFor, noteDraw, paceMs } from './frame.js?v=67ca200c87';
 import { windowIndexFor, scaleFor } from './dopplerWindow.js?v=2067b803a2';
 import { velNormal, dopplerVel } from './velNormal.js?v=181dda5594';
+import { CAL_SECS, caliperPick, caliperStale, pairOf, pairBand, pairScale, PAIR_GAP } from './doppler-marks.js?v=0d3aaf3a3d';
 const nextFrame = frameFor('doppler');
 
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
@@ -178,19 +179,21 @@ export function createDoppler({ onProbe, pickGate = true }) {
     const L = pts[pts.length - 1][0] - pts[0][0];
     if (pts.length < 8 || L < 1) return null;
     const mean = pts.reduce((a, p) => a + p[1], 0) / pts.length;
-    tpl = { t0: pts[0][0], L, pts, mean };
+    // (and the paired vessel's record beside it, a slide's pair: replayed unscaled, its swings eased out with the main one's)
+    const pm = pts.reduce((a, p) => a + (p[2] || 0), 0) / pts.length;
+    tpl = { t0: pts[0][0], L, pts, mean, pm, hasPair: pts.every((p) => Number.isFinite(p[2])) };
     return { t: tEnd, wall: performance.now(), mean, target: mean, amp: 1, still: false };
   }
-  function tplAt(t) {
+  function tplAt(t, j = 1) {
     const { t0, L, pts } = tpl;
     const x = t0 + (((t - t0) % L) + L) % L;
     let lo = 0, hi = pts.length - 1;
     while (hi - lo > 1) { const m = (lo + hi) >> 1; if (pts[m][0] <= x) lo = m; else hi = m; }
-    const [ta, va] = pts[lo], [tb, vb] = pts[hi];
+    const ta = pts[lo][0], va = pts[lo][j], tb = pts[hi][0], vb = pts[hi][j];
     const v = tb > ta ? va + (vb - va) * clamp((x - ta) / (tb - ta), 0, 1) : va;
     // Cross-fade the last 0.25 s of the loop into its start, so the seam does not step.
     const w = (x - (t0 + L - 0.25)) / 0.25;
-    return w > 0 ? v * (1 - w) + pts[0][1] * w : v;
+    return w > 0 ? v * (1 - w) + pts[0][j] * w : v;
   }
   function runSynth() {
     const now = performance.now();
@@ -204,7 +207,7 @@ export function createDoppler({ onProbe, pickGate = true }) {
       // (The template was recorded with breathing; a lapse run without respiration eases its swings out.)
       synth.amp = clamp(synth.amp + (synth.still ? -1.5 : 1.5) * (dt / n), 0, 1);
       const v = m0 + (tplAt(synth.t) - m0) * synth.amp;
-      buf.push([synth.t, ratio ? v * synth.mean / m0 : v - m0 + synth.mean]);
+      buf.push([synth.t, ratio ? v * synth.mean / m0 : v - m0 + synth.mean, tpl.hasPair ? tpl.pm + (tplAt(synth.t, 2) - tpl.pm) * synth.amp : NaN]);
     }
   }
   function ingest(f) {
@@ -220,7 +223,7 @@ export function createDoppler({ onProbe, pickGate = true }) {
       if (s?.vel?.length) synth.target = s.vel[s.vel.length - 1];
       synth.still = f.resp === false;
       // A lapse without respiration shows none from its first frame: the replay and the trace already drawn go flat at once.
-      if (synth.still && !synth.flat) { synth.flat = true; synth.amp = 0; for (const p of buf) p[1] = synth.mean; }
+      if (synth.still && !synth.flat) { synth.flat = true; synth.amp = 0; for (const p of buf) { p[1] = synth.mean; if (tpl.hasPair) p[2] = tpl.pm; } }
       if (f.running) runSynth();
     } else {
       if (synth && s?.t.length) { tOff = synth.t + 0.02 - s.t[0]; synth = null; }
@@ -228,7 +231,10 @@ export function createDoppler({ onProbe, pickGate = true }) {
       // Model time stepped back (a state loaded, as at the end of a presenter time-lapse): carry
       // the trace on from where it is instead of starting over.
       if (buf.length && s.t[0] + tOff < buf[buf.length - 1][0] - 1e-9) tOff = buf[buf.length - 1][0] + 0.02 - s.t[0];
-      for (let i = 0; i < s.t.length; i++) { const t = s.t[i] + tOff; if (!buf.length || t > buf[buf.length - 1][0]) buf.push([t, s.vel[i]]); }
+      // (Each sample keeps the paired vessel's velocity beside it, for a slide's paired trace: the worker samples the main portal
+      // vein and the right hepatic vein at every step, whatever the probe.)
+      const ps = s[pairOf(meta().kind) === 'PV_TRUNK' ? 'pvVel' : 'hvVel'];
+      for (let i = 0; i < s.t.length; i++) { const t = s.t[i] + tOff; if (!buf.length || t > buf[buf.length - 1][0]) buf.push([t, s.vel[i], ps?.[i] ?? NaN]); }
     }
     if (!buf.length) return;
     const tNow = buf[buf.length - 1][0];
@@ -769,7 +775,8 @@ export function createDoppler({ onProbe, pickGate = true }) {
     }
     ovLast = ovKey;
     const padL = PAD_L, padR = PAD_R, padT = ovTop, padB = ovOn ? 34 : 20, yLab = ovOn ? hh - 11 : 13;
-    const W = Math.max(1, Math.round(w - padL - padR)), H = Math.max(1, Math.round(hh - padT - padB));
+    // (A slide's paired trace takes a band at the foot of the trace area: the main trace is shorter by it, the card the same size.)
+    const W = Math.max(1, Math.round(w - padL - padR)), Hall = Math.max(1, Math.round(hh - padT - padB)), PB = pair ? pairBand(Hall) : 0, H = PB ? Hall - PB - PAIR_GAP : Hall;
     if (w < 60 || hh < 60 || !Number.isFinite(H) || !Number.isFinite(W)) return;
     if (pickNext) pickWindow();
     const label = probe ? probeName(meta()) + (isStentProbe() ? ` · ${SEGS.find(([v]) => v === gateOf())[1]}` : '') : '';
@@ -921,13 +928,106 @@ export function createDoppler({ onProbe, pickGate = true }) {
         }
       }
     } else { wl = null; }
+    const xAt = (t) => padL + (RW - 1 - (cNow - Math.floor(t * g.cps))) / dpr;
+    if (calip) drawCalipers(ctx, { now, tNow, sgn, k, pxPerV, baseY, padT, padL, W, H, xAt });
+    else cal = null;
+    if (PB) drawPair(ctx, { tNow, y0: padT + H + PAIR_GAP, PB, padL, W, xAt });
     // One tick a second along the bottom, scrolling with the trace
     ctx.fillStyle = cssAlpha('--white', .4);
     for (let sec = Math.ceil(tNow - sweepSeconds); sec <= tNow; sec++) {
       const x = (RW - 1 - (cNow - Math.floor(sec * g.cps))) / dpr;
-      ctx.fillRect(Math.round(padL + x), padT + H + 5, 1, 4);
+      ctx.fillRect(Math.round(padL + x), padT + Hall + 5, 1, 4);
     }
     ctx.textBaseline = 'alphabetic';
+  }
+
+  // ── A slide's calipers (V21): a flat mark at the highest and at the lowest velocity of the last 3 s, a thin line between
+  // them and the pulsatility index beside it, the number the pattern is named from. The pick holds still, scrolling with its
+  // beat, until a mark is about to leave the trace or the reading moves on; then it fades out and the newest pick fades in. ──
+  let calip = false, cal = null, calAt = 0;
+  const CAL_W = 16, CAL_PX = 14;
+  function drawCalipers(ctx, { now, tNow, sgn, k, pxPerV, baseY, padT, padL, W, H, xAt }) {
+    const dt = calAt ? Math.min(0.1, (now - calAt) / 1000) : 0; calAt = now;
+    const fresh = () => caliperPick(buf, tNow - CAL_SECS, tNow);
+    if (cal && !cal.out && (cal.sgn !== sgn || cal.gf !== gf || caliperStale(cal, fresh(), tNow - sweepSeconds + 0.35, tNow - cal.at))) cal.out = true;
+    if (!cal || (cal.out && cal.alpha <= 0)) {
+      const c = fresh();
+      cal = c ? { ...c, sgn, gf, at: tNow, alpha: cal ? 0 : 1, out: false } : null;   // (the first pick on a slide shows at once; a new one fades in)
+    }
+    if (!cal) return;
+    cal.alpha = clamp(cal.alpha + (cal.out ? -1 : 1) * dt / 0.35, 0, 1);
+    if (cal.out ? cal.alpha > 0 : cal.alpha < 1) labBusy = true;
+    const A = cal.alpha * cal.alpha * (3 - 2 * cal.alpha);
+    if (A <= 0) return;
+    // (each mark on the spectrum's outline, where the reading's peak is read: the mean across the lumen times dopplerK)
+    const at = ([t, v]) => [xAt(t), clamp(padT + baseY - sgn * v * k * gf * pxPerV, padT, padT + H)];
+    const [xh, yh] = at(cal.hi), [xl, yl] = at(cal.lo);
+    ctx.save();
+    ctx.strokeStyle = cssAlpha('--doppler', 0.75 * A); ctx.lineWidth = 1; ctx.setLineDash([3, 3]);
+    ctx.beginPath(); ctx.moveTo(xh, yh); ctx.lineTo(xl, yl); ctx.stroke(); ctx.setLineDash([]);
+    for (const [x, y] of [[xh, yh], [xl, yl]]) {
+      ctx.fillStyle = cssAlpha('--black', 0.8 * A); ctx.fillRect(Math.round(x - CAL_W / 2) - 1, Math.round(y) - 2, CAL_W + 2, 4);
+      ctx.fillStyle = cssAlpha('--doppler', A); ctx.fillRect(Math.round(x - CAL_W / 2), Math.round(y) - 1, CAL_W, 2);
+    }
+    // The index beside the line, at its middle: right of the later mark where it fits, else left of the earlier one.
+    const txt = `PI ${fmt(cal.pi, 2)}`;
+    ctx.font = FONT(700, CAL_PX); ctx.textBaseline = 'middle'; ctx.lineJoin = 'round';
+    const tw = ctx.measureText(txt).width, right = Math.max(xh, xl) + CAL_W / 2 + 6;
+    const left = right + tw <= padL + W - 2;
+    const tx = left ? right : Math.max(padL + 2, Math.min(xh, xl) - CAL_W / 2 - 6 - tw);
+    const ty = clamp((yh + yl) / 2, padT + CAL_PX / 2 + 1, padT + H - CAL_PX / 2 - 1);
+    ctx.textAlign = 'left';
+    ctx.lineWidth = 4; ctx.strokeStyle = cssAlpha('--black', 0.9 * A); ctx.strokeText(txt, tx, ty);
+    ctx.fillStyle = cssAlpha('--doppler', A); ctx.fillText(txt, tx, ty);
+    ctx.restore();
+  }
+
+  // ── A slide's paired trace (V29): the paired vessel's velocity over the same seconds as the main trace, beat for beat, as
+  // the scanner would draw it (a hepatic vein's forward flow below its baseline), slim, in a band of its own under the main
+  // trace with its own scale, named on its left. ──
+  let pair = false, pairSc = null;
+  function drawPair(ctx, { tNow, y0, PB, padL, W, xAt }) {
+    const id = pairOf(meta().kind), pm = PROBES.find((p) => p.id === id), kp = dopplerK(EDGES[EI[id]]);
+    const s = (pm.away ? -1 : 1) * (invert ? -1 : 1) * kp;
+    const pts = [];
+    let pos = 0, neg = 0;
+    for (const p of buf) {
+      if (p[0] < tNow - sweepSeconds || p[0] > tNow || !Number.isFinite(p[2])) continue;
+      const v = s * p[2]; pts.push([p[0], v]); if (v > pos) pos = v; if (-v > neg) neg = -v;
+    }
+    // (its scale holds still as the main one does: it grows at once when the trace would clip, and shrinks only after 3 s)
+    const want = pairScale(pos, neg), need = Math.max(pos, neg, 8) / 0.85;
+    if (!pairSc || pairSc.id !== id || need > pairSc.scale || (want.base >= 0.5) !== (pairSc.base >= 0.5)) pairSc = { id, ...want, at: tNow };
+    else if (want.scale < pairSc.scale || Math.abs(want.base - pairSc.base) > 0.15) { if (tNow - pairSc.at > 3) pairSc = { id, ...want, at: tNow }; }
+    else pairSc.at = tNow;
+    const by = y0 + Math.round(PB * pairSc.base), ppv = (pairSc.base >= 0.5 ? by - y0 : y0 + PB - by) / pairSc.scale;
+    ctx.save();
+    ctx.fillStyle = cssAlpha('--white', 0.06); ctx.fillRect(padL, y0, W, PB);
+    ctx.fillStyle = cssAlpha('--white', 0.5); ctx.fillRect(padL, by, W, 1);
+    if (pts.length > 1) {
+      ctx.beginPath();
+      for (let i = 0; i < pts.length; i++) { const x = xAt(pts[i][0]), y = clamp(by - pts[i][1] * ppv, y0, y0 + PB); if (i) ctx.lineTo(x, y); else ctx.moveTo(x, y); }
+      ctx.strokeStyle = cssAlpha('--white', 0.9); ctx.lineWidth = 1.5; ctx.lineJoin = 'round'; ctx.stroke();
+    }
+    // Its name top left, and its scale's end on the right margin, as the main trace's are.
+    ctx.font = FONT(600, 12); ctx.textBaseline = 'top'; ctx.textAlign = 'left'; ctx.lineJoin = 'round';
+    ctx.lineWidth = 4; ctx.strokeStyle = cssAlpha('--black', 0.85); ctx.strokeText(pm.short, padL + 4, y0 + 2);
+    ctx.fillStyle = cssAlpha('--white', 0.86); ctx.fillText(pm.short, padL + 4, y0 + 2);
+    ctx.font = FONT(500, 12); ctx.textBaseline = 'middle'; ctx.fillStyle = cssAlpha('--white', 0.78);
+    const up = pairSc.base >= 0.5, ey = up ? y0 + 6 : y0 + PB - 6, top = num(up ? pairSc.scale : -pairSc.scale);
+    ctx.fillText(top, padL + W + 13, ey);
+    if (Math.abs(by - ey) >= 14) ctx.fillText('0', padL + W + 13, by);
+    ctx.restore();
+  }
+  /** A slide's own Doppler options (presenter-tools.js show → configure, slide-ext.js): the display mode (V20: 'spectrum',
+   *  'color' or 'variance'; the next slide returns to Spectrum unless it names one), calipers (V21) and the paired trace (V29). */
+  const MODE_OF = { spectrum: 'spectrum', color: 'velocity', colour: 'velocity', velocity: 'velocity', variance: 'variance' };
+  function configure(t = {}) {
+    const m = MODE_OF[t?.mode] || 'spectrum';
+    if (m !== mode) { mode = m; sync(); }
+    if (calip !== !!t?.calipers) { calip = !!t?.calipers; cal = null; }
+    if (pair !== !!t?.pair) { pair = !!t?.pair; pairSc = null; }
+    redraw();
   }
 
   // The dock asks for a redraw with each model frame (~10 a second); the picture itself runs on
@@ -996,5 +1096,5 @@ export function createDoppler({ onProbe, pickGate = true }) {
   function autoWindow() { manualSweep = false; pickNext = true; redraw(); }
   /** Name the hepatic vein's a, S, v and D waves on the trace (the Presenter's waveform slides). */
   function setWaves(on) { if (waves !== !!on) { waves = !!on; redraw(); } }
-  return { id: 'doppler', label: 'Doppler', el, update, ingest, redraw, clear, setInvert, setWaves, autoWindow, pin };
+  return { id: 'doppler', label: 'Doppler', el, update, ingest, redraw, clear, setInvert, setWaves, autoWindow, pin, configure };
 }

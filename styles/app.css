@@ -6434,5 +6434,48 @@ html.thumb-ui .menu.from-dock { clip-path: inset(-64px -64px calc(var(--sink, 0p
 /* ── Package F: end ── */
 
 /* ── Package G, instruments: start ── */
+/* V19, the vessel in cross-section (src/ui/tool-lumen.js): the picture square on the left, its readings beside it. */
+.pz-tool[data-kind="lumen"] .gl { display: flex; flex-direction: row; align-items: center; gap: 14px; }
+.pz-tool[data-kind="lumen"] .gl-stage { flex: none; width: min(40%, calc(26 * var(--pzh, 8px))); }
+.gl-pic { display: block; width: 100%; height: auto; aspect-ratio: 1; overflow: visible; }
+.gl { --gl-v: var(--vein-portal); }
+.gl[data-vessel="systemic"] { --gl-v: var(--vein-systemic); }
+.gl[data-vessel="artery"] { --gl-v: var(--artery); }
+.gl-wall { fill: color-mix(in srgb, var(--gl-v) 30%, var(--surface)); stroke: color-mix(in srgb, var(--gl-v) 75%, var(--text)); stroke-width: 1.5; }
+.gl-clot { fill: var(--thrombus); }
+.gl-open { fill: var(--gl-v); transition: opacity .25s ease; }
+.gl-stent { fill: none; stroke: var(--stent-metal); stroke-width: 2.2; stroke-dasharray: 4.6 2.2; }
+.pz-tool[data-kind="lumen"] .gl-read { flex: 1; min-width: 0; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.pz-tool[data-kind="lumen"] .gl-read > .gl-big { grid-column: 1 / -1; display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: baseline; gap: .15em .6em; padding: 0; background: none; box-shadow: none; border: 0; }
+.pz-tool[data-kind="lumen"] .gl-big > dt { grid-column: 1 / -1; }
+.pz-tool[data-kind="lumen"] .gl-big > dd { margin: 0; font: 600 var(--pz-num, 32px)/1 var(--font-ui); letter-spacing: -.02em; font-variant-numeric: tabular-nums; white-space: nowrap; color: var(--text); }
+.pz-tool[data-kind="lumen"] .gl-big > dd small { margin-left: .15em; font: 500 var(--bs, 16px)/1 var(--font-ui); letter-spacing: 0; color: var(--text-3); }
+.pz-tool[data-kind="lumen"] .gl-state { font: 600 var(--bs, 16px)/1.2 var(--font-ui); color: var(--text-2); white-space: nowrap; }
+.pz-tool[data-kind="lumen"] .gl-read > .gl-tile[hidden] { display: none; }
+.pz-tool[data-kind="lumen"] .endo-num small { font: 500 var(--fs-12)/1 var(--font-ui); color: var(--text-3); }
+
+/* V27, the fluid balance (src/ui/tool-fluid.js): two bars on one scale, their key, and the day's build-up in words. */
+.pz-tool[data-kind="fluid"] .gf { display: grid; grid-template-columns: max-content minmax(0, 1fr) max-content; align-items: center; gap: 6px 10px; font: 500 var(--fs-12)/1.3 var(--font-ui); color: var(--text-2);
+  --gf-liver: var(--organ-liver); --gf-gut: var(--organ-gut); --gf-carried: color-mix(in srgb, var(--text) 42%, var(--surface)); --gf-back: var(--vein-systemic); --gf-build: var(--ascites); }
+/* (one grid for every row, so the bars of both groups start and end together whatever the names' widths) */
+.gf-bars, .gf-forces, .gf-row { display: contents; }
+.gf-unit, .gf-key, .gf-words, .gf-caveat { grid-column: 1 / -1; }
+.gf-name { font: 600 var(--s-cap, 12px)/1.2 var(--font-ui); letter-spacing: .06em; text-transform: uppercase; color: var(--text-2); white-space: nowrap; }
+.gf-bar { display: flex; height: max(14px, calc(1.5 * var(--s-cap, 12px))); border-radius: 5px; background: color-mix(in srgb, var(--text) 6%, transparent); overflow: hidden; }
+.gf-thin .gf-bar { height: max(8px, calc(.7 * var(--s-cap, 12px))); }
+.gf-seg { flex: none; display: block; height: 100%; width: 0; transition: width .5s cubic-bezier(.2, .8, .2, 1); }
+.gf-liver { background: var(--gf-liver); } .gf-gut { background: var(--gf-gut); } .gf-carried { background: var(--gf-carried); }
+.gf-back { background: var(--gf-back); } .gf-build { background: var(--gf-build); }
+.gf-spare { box-sizing: border-box; border: 1.5px dashed var(--gf-carried); border-left: 0; border-radius: 0 5px 5px 0; }
+.gf-push { background: var(--vein-portal); } .gf-pull { background: color-mix(in srgb, var(--text) 42%, var(--surface)); }
+.gf-v { font: 600 var(--s-body, 17px)/1 var(--font-ui); letter-spacing: -.01em; font-variant-numeric: tabular-nums; color: var(--text); text-align: right; white-space: nowrap; }
+.gf-thin .gf-v { font-size: var(--fs-14, 14px); }
+.gf-unit { justify-self: end; margin-top: -2px; font-size: var(--fs-12); color: var(--text-3); }
+.gf-key { display: flex; flex-wrap: wrap; gap: 2px 12px; color: var(--text-2); }
+.gf-key > span { display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; }
+.gf-sw { display: inline-block; width: 14px; height: 8px; border-radius: 2px; }
+.gf-words { margin: 2px 0; font: 600 var(--bs, 16px)/1.3 var(--font-ui); color: var(--text); }
+.gf-caveat { margin: 0; font-size: var(--fs-12); color: var(--text-3); }
+.gf-forces[hidden], .gf-caveat[hidden] { display: none; }
 
 /* ── Package G: end ── */

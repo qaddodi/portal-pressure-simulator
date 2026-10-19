@@ -1,0 +1,123 @@
+// Deck visuals, package G (src/ui/ext-instruments.js): the vessel in cross-section (V19), the Doppler's display mode (V20),
+// calipers (V21) and paired trace (V29), and the fluid balance (V27). Their numbers are the model's own: the open lumen is
+// 1 minus the engine's occlusion, made minus drained is the ascites made, the forces give the engine's liver lymph, and the
+// calipers' index is the one the reading names the pattern from. No built-in deck uses any of it.
+import './dom-shim.js';
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { Engine } from '../src/engine/engine.js';
+import { computeMetrics } from '../src/engine/metrics.js';
+import { createCore } from '../src/worker-core.js';
+import { lumenOf, lumenShape, lumenWords, LUMEN_R, LUMEN_WALL } from '../src/ui/tool-lumen.js';
+import { fluidOf, fluidBars, fluidWords, sinusoidForces } from '../src/ui/tool-fluid.js';
+import { pulsatility, caliperPick, caliperStale, pairOf, pairBand, pairScale, PAIR_GAP } from '../src/ui/doppler-marks.js';
+import ext from '../src/ui/ext-instruments.js';
+import { EXT } from '../src/ui/slide-ext.js';
+import { DECKS } from '../src/ui/decks.js';
+
+const DOP = readFileSync(new URL('../src/ui/doppler.js', import.meta.url), 'utf8');
+const near = (a, b, tol, msg) => assert.ok(Math.abs(a - b) <= tol, `${msg}: ${a} vs ${b}`);
+
+async function run(steps) {
+  const out = [];
+  const core = createCore((m) => { if (m.type === 'seqStep') out[m.i] = m; });
+  core.handle({ type: 'run', running: false });
+  await core.handle({ type: 'sequence', steps, reqId: 1 });
+  core.dispose();
+  return out;
+}
+
+test('the package registers its two instruments, titled, and no built-in deck uses any of its fields', () => {
+  assert.deepEqual(Object.keys(ext.tools).sort(), ['fluid', 'lumen']);
+  for (const k of ['fluid', 'lumen']) assert.equal(EXT.owner.tools[k], 'G');
+  assert.equal(ext.tools.lumen.title({ kind: 'lumen', vessel: 'PV_TRUNK' }), 'The main portal vein, in cross-section');
+  assert.equal(ext.tools.lumen.title({ kind: 'lumen', vessel: 'TIPS' }), 'The TIPS, in cross-section');
+  assert.equal(ext.tools.fluid.short(), 'Fluid balance');
+  for (const d of DECKS) for (const s of d.slides) {
+    const t = s.tool || {};
+    assert.ok(!['lumen', 'fluid'].includes(t.kind), `${d.id}/${s.id}: a new instrument`);
+    for (const k of ['mode', 'calipers', 'pair']) assert.equal(t[k], undefined, `${d.id}/${s.id}: tool.${k}`);
+  }
+});
+
+test('V19: the open lumen is 1 minus the engine\'s occlusion, and the picture\'s channel has that share of the vessel\'s area', () => {
+  const e = new Engine();
+  for (const [st, th] of [[0, 0], [0, 0.6], [0.4, 0], [0.5, 0.5], [0.9, 0.3], [0, 1]]) {
+    e.params.stenosis.PV_TRUNK = st; e.params.thrombus.PV_TRUNK = th;
+    const L = lumenOf(e.params, 'PV_TRUNK');
+    near(L.open, 1 - e.occlusion('PV_TRUNK'), 1e-12, `narrowing ${st}, clot ${th}`);
+    const g = lumenShape(L), R0 = LUMEN_R - LUMEN_WALL;
+    near((g.ro / R0) ** 2, L.open, 1e-9, 'the channel\'s area');
+    assert.ok(g.oy - g.ro >= 50 - g.ri - 1e-9 && g.oy + g.ro <= 50 + g.ri + 1e-9, 'the channel lies inside the lumen');
+  }
+  assert.equal(lumenWords(lumenOf({ thrombus: { PV_TRUNK: 1 } }, 'PV_TRUNK')), 'Occlusive clot');
+  assert.equal(lumenWords(lumenOf({ thrombus: { PV_TRUNK: 0.6 } }, 'PV_TRUNK')), 'Partial clot');
+  assert.equal(lumenWords(lumenOf({ stenosis: { TIPS: 0.6 } }, 'TIPS')), 'Stent narrowed');
+  assert.equal(lumenWords(lumenOf({}, 'PV_TRUNK')), 'Open');
+  assert.equal(lumenOf({}, 'TIPS').stent, true);
+});
+
+test('V27: made minus drained is the ascites made, from the fingerprint and from a live frame alike', async () => {
+  const st = await run([{ preset: 'cirr-decomp' }, { params: { diuretics: true } }, { preset: 'healthy' }, { preset: 'schisto' }]);
+  for (const [i, m] of st.entries()) {
+    const f = fluidOf(m.fp);
+    assert.ok(f, `step ${i}: the fingerprint carries the fluid terms`);
+    near(f.made - f.drained, m.fp.lymphNet, 1e-9, `step ${i}: made − drained = net`);
+    near(f.made, m.fp.hepLymph + m.fp.splLymph, 1e-12, `step ${i}: liver + gut`);
+    const e = new Engine(); e.restore(m.snap);
+    const g = fluidOf(computeMetrics(e));
+    for (const k of ['hep', 'spl', 'cap', 'over', 'net', 'back', 'drained']) near(g[k], f[k], 1e-6, `step ${i}: ${k} live and pinned`);
+    const b = fluidBars(f);
+    if (f.net > 0) near(b.carried + b.back + b.build, b.liver + b.gut, 1e-9, `step ${i}: the drained bar and its build-up reach the made bar's end`);
+    for (const v of Object.values(b)) assert.ok(v >= 0 && v <= 1);
+  }
+  const [cirr, , healthy] = st.map((m) => fluidOf(m.fp));
+  assert.ok(cirr.over > 0 && healthy.over === 0 && healthy.spare > 0, 'cirrhosis overflows its lymphatics; health has room to spare');
+  assert.match(fluidWords(healthy), /No ascites builds/);
+  assert.equal(fluidOf({ pv: 10 }), null, 'a live fingerprint without the fluid terms gives no bars');
+});
+
+test('V27: the forces across the sinusoid wall give the engine\'s liver lymph', async () => {
+  const st = await run([{ preset: 'cirr-decomp' }, { preset: 'healthy' }, { preset: 'rhf' }]);
+  for (const m of st) {
+    const e = new Engine(); e.restore(m.snap);
+    const fo = sinusoidForces(e.P, e.params, e.iap);
+    near(0.5 + 0.45 * Math.max(0, fo.out - fo.pull - 0.75), e.starling().hep, 1e-9, 'liver lymph from the forces');
+  }
+});
+
+test('V21: the calipers read the window\'s extremes, at their latest moments, with the reading\'s own index', () => {
+  const buf = [];
+  for (let t = 0; t <= 6; t += 0.02) buf.push([+t.toFixed(2), 20 + 8 * Math.sin(2 * Math.PI * t)]);
+  const c = caliperPick(buf, 3, 6);
+  near(c.hi[1], 28, 0.05, 'the peak'); near(c.lo[1], 12, 0.05, 'the trough');
+  near(c.pi, pulsatility(c.hi[1], c.lo[1]), 1e-12, 'its index');
+  near(c.pi, 16 / 28, 0.01, 'the swing over the larger extreme');
+  assert.ok(c.hi[0] > 5 && c.lo[0] > 5, 'both on the newest beat');
+  assert.equal(caliperStale(c, caliperPick(buf, 3.02, 6.02), 0.4), false, 'the same reading holds still');
+  assert.equal(caliperStale(c, c, Math.min(c.hi[0], c.lo[0]) + 0.01), true, 'a mark about to leave the trace gives way');
+  assert.equal(caliperStale(c, { ...c, pi: c.pi + 0.2 }, 0), true, 'a reading that moved on gives way');
+  assert.equal(caliperStale(c, { ...c, pi: c.pi + 0.2 }, 0, 1), false, 'but not in its first two seconds');
+  assert.equal(caliperStale(c, { ...c, pi: c.pi + 0.05 }, 0), false, 'a breath\'s swing never moves it');
+  assert.equal(caliperPick(buf.map(([t]) => [t, 0.2]), 3, 6), null, 'no flow, no calipers');
+  // The reading's own formula (doppler.js interpret), read from its source.
+  assert.match(DOP, /const pi = big > 0\.5 \? swing \/ big : 0;/);
+});
+
+test('V20, V21, V29: the Doppler takes a slide\'s options, and a slide that names none is plain Spectrum', () => {
+  assert.match(DOP, /return \{ id: 'doppler'[^}]*configure \};/);
+  assert.match(DOP, /const m = MODE_OF\[t\?\.mode\] \|\| 'spectrum';/);
+  assert.match(DOP, /color: 'velocity'/);
+  assert.match(DOP, /calip = !!t\?\.calipers/);
+  assert.match(DOP, /pair = !!t\?\.pair/);
+  assert.equal(pairOf('portal'), 'RHV_IVC'); assert.equal(pairOf('hepatic'), 'PV_TRUNK'); assert.equal(pairOf('tips'), 'RHV_IVC');
+  for (const hAll of [60, 100, 140, 200, 300]) {
+    const b = pairBand(hAll);
+    assert.ok(b === 0 || hAll - b - PAIR_GAP >= 60, `the main trace keeps 60 px at ${hAll}`);
+    assert.ok(b === 0 || (b >= 30 && b <= 72));
+  }
+  assert.equal(pairBand(80), 0, 'too short for two traces: the pair is left out');
+  const ps = pairScale(30, 0);
+  assert.ok(ps.scale >= 30 / 0.85 && ps.base === 0.9, 'forward flow only: baseline low, the trace fills its side');
+});
