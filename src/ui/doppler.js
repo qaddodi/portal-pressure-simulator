@@ -12,7 +12,7 @@ import { DOPPLER_MODES, dopplerColor, shadeColor, swatchGradient } from './doppl
 import { frameFor, noteDraw, paceMs } from './frame.js?v=67ca200c87';
 import { windowIndexFor, scaleFor } from './dopplerWindow.js?v=2067b803a2';
 import { velNormal, dopplerVel } from './velNormal.js?v=181dda5594';
-import { CAL_SECS, caliperPick, caliperStale, pairOf, pairBand, pairScale, PAIR_GAP } from './doppler-marks.js?v=0d3aaf3a3d';
+import { CAL_SECS, caliperPick, caliperStale, pairOf, pairBand, pairScale, PAIR_GAP } from './doppler-marks.js?v=93589e7f7b';
 const nextFrame = frameFor('doppler');
 
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
@@ -785,9 +785,15 @@ export function createDoppler({ onProbe, pickGate = true }) {
     const lw = ctx.measureText(label).width;
     ctx.font = FONT(500, 12); ctx.fillStyle = cssAlpha('--white', .5);
     // (The settings drop from the end, sweep first, where the strip is too narrow for all of them beside the units.)
-    const parts = [mode === 'spectrum' ? 'PW' : 'PW + CD', 'θ 60°', 'SV 3 mm', `${sweepSeconds} s`], room = w - padR - (padL + lw + 12) - 6;
+    const pi = calText();
+    let x0 = padL + lw + 12;
+    if (pi) {
+      ctx.font = FONT(700, 12); ctx.fillStyle = cssAlpha('--doppler', 1); ctx.fillText(pi, x0, yLab);
+      x0 += ctx.measureText(pi).width + 12; ctx.font = FONT(500, 12); ctx.fillStyle = cssAlpha('--white', .5);
+    }
+    const parts = [mode === 'spectrum' ? 'PW' : 'PW + CD', 'θ 60°', 'SV 3 mm', `${sweepSeconds} s`], room = w - padR - x0 - 6;
     while (parts.length > 1 && ctx.measureText(parts.join('  ·  ')).width > room) parts.pop();
-    if (ctx.measureText(parts.join('  ·  ')).width <= room) ctx.fillText(parts.join('  ·  '), padL + lw + 12, yLab);
+    if (ctx.measureText(parts.join('  ·  ')).width <= room) ctx.fillText(parts.join('  ·  '), x0, yLab);
     if (buf.length < 2) {
       tDisp = null;
       ctx.textAlign = 'center'; ctx.fillStyle = cssAlpha('--white', .55);
@@ -945,9 +951,12 @@ export function createDoppler({ onProbe, pickGate = true }) {
   // them and the pulsatility index beside it, the number the pattern is named from. The pick holds still, scrolling with its
   // beat, until a mark is about to leave the trace or the reading moves on; then it fades out and the newest pick fades in. ──
   let calip = false, cal = null, calAt = 0;
-  const CAL_W = 16, CAL_PX = 14;
+  const CAL_W = 16;
   function drawCalipers(ctx, { now, tNow, sgn, k, pxPerV, baseY, padT, padL, W, H, xAt }) {
-    const dt = calAt ? Math.min(0.1, (now - calAt) / 1000) : 0; calAt = now;
+    const dt = calAt ? Math.min(0.35, (now - calAt) / 1000) : 0; calAt = now;
+    // (a pick from another record, as after a slide change or a restarted clock, is dropped at once: the marks are only ever
+    // on the trace now on screen)
+    if (cal && (tNow < cal.at - 0.05 || Math.max(cal.hi[0], cal.lo[0]) > tNow + 0.05)) cal = null;
     const fresh = () => caliperPick(buf, tNow - CAL_SECS, tNow);
     if (cal && !cal.out && (cal.sgn !== sgn || cal.gf !== gf || caliperStale(cal, fresh(), tNow - sweepSeconds + 0.35, tNow - cal.at))) cal.out = true;
     if (!cal || (cal.out && cal.alpha <= 0)) {
@@ -961,7 +970,9 @@ export function createDoppler({ onProbe, pickGate = true }) {
     if (A <= 0) return;
     // (each mark on the spectrum's outline, where the reading's peak is read: the mean across the lumen times dopplerK)
     const at = ([t, v]) => [xAt(t), clamp(padT + baseY - sgn * v * k * gf * pxPerV, padT, padT + H)];
-    const [xh, yh] = at(cal.hi), [xl, yl] = at(cal.lo);
+    // (a mark at the newest moment sits just inside the trace's right edge, never past it into the scale)
+    const inX = (x) => clamp(x, padL + CAL_W / 2, padL + W - CAL_W / 2);
+    const [xh0, yh] = at(cal.hi), [xl0, yl] = at(cal.lo), xh = inX(xh0), xl = inX(xl0);
     ctx.save();
     ctx.strokeStyle = cssAlpha('--doppler', 0.75 * A); ctx.lineWidth = 1; ctx.setLineDash([3, 3]);
     ctx.beginPath(); ctx.moveTo(xh, yh); ctx.lineTo(xl, yl); ctx.stroke(); ctx.setLineDash([]);
@@ -969,18 +980,10 @@ export function createDoppler({ onProbe, pickGate = true }) {
       ctx.fillStyle = cssAlpha('--black', 0.8 * A); ctx.fillRect(Math.round(x - CAL_W / 2) - 1, Math.round(y) - 2, CAL_W + 2, 4);
       ctx.fillStyle = cssAlpha('--doppler', A); ctx.fillRect(Math.round(x - CAL_W / 2), Math.round(y) - 1, CAL_W, 2);
     }
-    // The index beside the line, at its middle: right of the later mark where it fits, else left of the earlier one.
-    const txt = `PI ${fmt(cal.pi, 2)}`;
-    ctx.font = FONT(700, CAL_PX); ctx.textBaseline = 'middle'; ctx.lineJoin = 'round';
-    const tw = ctx.measureText(txt).width, right = Math.max(xh, xl) + CAL_W / 2 + 6;
-    const left = right + tw <= padL + W - 2;
-    const tx = left ? right : Math.max(padL + 2, Math.min(xh, xl) - CAL_W / 2 - 6 - tw);
-    const ty = clamp((yh + yl) / 2, padT + CAL_PX / 2 + 1, padT + H - CAL_PX / 2 - 1);
-    ctx.textAlign = 'left';
-    ctx.lineWidth = 4; ctx.strokeStyle = cssAlpha('--black', 0.9 * A); ctx.strokeText(txt, tx, ty);
-    ctx.fillStyle = cssAlpha('--doppler', A); ctx.fillText(txt, tx, ty);
     ctx.restore();
   }
+  // (The index is read in the bottom strip, first after the probe's name, in the marks' colour: off the spectrum, always whole.)
+  const calText = () => (calip && cal && cal.alpha > 0 ? `PI ${fmt(cal.pi, 2)}` : '');
 
   // ── A slide's paired trace (V29): the paired vessel's velocity over the same seconds as the main trace, beat for beat, as
   // the scanner would draw it (a hepatic vein's forward flow below its baseline), slim, in a band of its own under the main
@@ -1009,10 +1012,9 @@ export function createDoppler({ onProbe, pickGate = true }) {
       for (let i = 0; i < pts.length; i++) { const x = xAt(pts[i][0]), y = clamp(by - pts[i][1] * ppv, y0, y0 + PB); if (i) ctx.lineTo(x, y); else ctx.moveTo(x, y); }
       ctx.strokeStyle = cssAlpha('--white', 0.9); ctx.lineWidth = 1.5; ctx.lineJoin = 'round'; ctx.stroke();
     }
-    // Its name top left, and its scale's end on the right margin, as the main trace's are.
+    // Its name above its band on the left, and its scale's end on the right margin, as the main trace's are.
     ctx.font = FONT(600, 12); ctx.textBaseline = 'top'; ctx.textAlign = 'left'; ctx.lineJoin = 'round';
-    ctx.lineWidth = 4; ctx.strokeStyle = cssAlpha('--black', 0.85); ctx.strokeText(pm.short, padL + 4, y0 + 2);
-    ctx.fillStyle = cssAlpha('--white', 0.86); ctx.fillText(pm.short, padL + 4, y0 + 2);
+    ctx.fillStyle = cssAlpha('--white', 0.86); ctx.fillText(pm.short, padL, y0 - PAIR_GAP + 1);   // (in the gap above its band, clear of both traces)
     ctx.font = FONT(500, 12); ctx.textBaseline = 'middle'; ctx.fillStyle = cssAlpha('--white', 0.78);
     const up = pairSc.base >= 0.5, ey = up ? y0 + 6 : y0 + PB - 6, top = num(up ? pairSc.scale : -pairSc.scale);
     ctx.fillText(top, padL + W + 13, ey);
@@ -1025,7 +1027,7 @@ export function createDoppler({ onProbe, pickGate = true }) {
   function configure(t = {}) {
     const m = MODE_OF[t?.mode] || 'spectrum';
     if (m !== mode) { mode = m; sync(); }
-    if (calip !== !!t?.calipers) { calip = !!t?.calipers; cal = null; }
+    calip = !!t?.calipers; cal = null;   // (a new slide's calipers pick from its own trace)
     if (pair !== !!t?.pair) { pair = !!t?.pair; pairSc = null; }
     redraw();
   }

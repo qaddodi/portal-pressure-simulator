@@ -31,15 +31,18 @@ export function caliperPick(buf, t0, t1) {
   return { hi: [th, hi], lo: [tl, lo], pi: pulsatility(hi, lo) };
 }
 
-/** Whether a held caliper pick should give way to a new one: a mark about to leave the trace's left edge, or, once it has
- *  been up CAL_HOLD seconds (held is how long), a reading that has moved on (a what-if or a new state: the index differs by
- *  more than 0.1, or an extreme by more than 15% of the larger). Breath to breath the extremes swing a little; that alone
- *  never moves the marks. */
+/** Whether a held caliper pick should give way to a new one: a mark about to leave the trace's left edge, the trace on
+ *  screen running well past a mark, or, once it has been up CAL_HOLD seconds (held is how long), a reading that has moved on
+ *  (a what-if or a new state: the index differs by more than 0.1, or an extreme by more than 15% of the larger) or that has
+ *  none (no flow left to measure). Breath to breath the extremes swing a little; that alone never moves the marks. */
 export const CAL_HOLD = 2;
 export function caliperStale(cal, now, edge, held = Infinity) {
   if (Math.min(cal.hi[0], cal.lo[0]) < edge) return true;
-  if (!now || held < CAL_HOLD) return false;
   const span = Math.max(Math.abs(cal.hi[1]), Math.abs(cal.lo[1]), 1);
+  // (the trace on screen running well past a mark gives way at once: the marks never sit inside the newest beats)
+  if (now && (now.hi[1] > cal.hi[1] + 0.15 * span || now.lo[1] < cal.lo[1] - 0.15 * span)) return true;
+  if (held < CAL_HOLD) return false;
+  if (!now) return true;   // (no reading left in the window: the marks go)
   return Math.abs(now.pi - cal.pi) > 0.1 || Math.abs(now.hi[1] - cal.hi[1]) > 0.15 * span || Math.abs(now.lo[1] - cal.lo[1]) > 0.15 * span;
 }
 
@@ -49,7 +52,7 @@ export const pairOf = (kind) => (kind === 'hepatic' || kind === 'ivc' ? 'PV_TRUN
 
 /** The paired trace's band, px, under a trace area hAll px tall: about a third of it, 30 to 72 px, and none where the
  *  main trace would be left under 60 px (the card keeps its size, so the main trace gets shorter, never the words). */
-export const PAIR_GAP = 8;
+export const PAIR_GAP = 16;   // (its name sits in this gap, 12 px type)
 export const pairBand = (hAll) => { const b = Math.min(72, Math.max(30, Math.round(hAll * 0.3))); return hAll - b - PAIR_GAP < 60 ? 0 : b; };
 
 /** The paired trace's scale (cm/s on its larger side) and baseline (a fraction of its band from the top) for its drawn

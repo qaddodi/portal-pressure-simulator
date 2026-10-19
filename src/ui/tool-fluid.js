@@ -45,6 +45,16 @@ export function sinusoidForces(P, params, iap) {
   return Number.isFinite(out) && Number.isFinite(pull) ? { out, pull } : null;
 }
 
+/** The forces at a slide's state, from its fingerprint (worker-core.js: the liver's lymph and the albumin; the cirrhosis from
+ *  the slide's params): the push read back from the engine's own liver lymph, which it sets (0.5 + 0.45 × the push beyond the
+ *  pull and 0.75), so every screen shows the same number for the same slide, whatever the breath at the moment. null where
+ *  the push is below that threshold (the lymph is at its floor and does not tell the push); the live frames show it then. */
+export function pinnedForces(fp, params) {
+  if (!fp || !params || !Number.isFinite(fp.hepLymph) || fp.hepLymph <= 0.5 + 1e-9) return null;
+  const pic = 25 * ((fp.salb ?? params.albumin ?? 4) / 4), sig = 0.1 + 0.5 * (params.cirrhosis ?? 0), pull = sig * (pic - pic * (1 - sig) * 0.9);
+  return { out: (fp.hepLymph - 0.5) / 0.45 + pull + 0.75, pull };
+}
+
 /** The bars' segments, as fractions of the scale they share (the largest of made, drained and the lymphatics' capacity). */
 export function fluidBars(f) {
   const top = Math.max(f.made, f.drained, f.cap, 0.1) * 1.04, w = (x) => clamp(x / top, 0, 1);
@@ -54,9 +64,9 @@ export function fluidBars(f) {
 /** The line under the bars. */
 export function fluidWords(f) {
   const d = Math.round(Math.abs(f.perDay) / 10) * 10;
-  if (f.net > 0 && d >= 10) return `Ascites builds by about ${d} mL a day`;
-  if (f.net < 0 && d >= 10) return `Ascites shrinks by about ${d} mL a day`;
-  return f.over > 0.005 ? 'Ascites holds steady: the belly takes back the overflow' : 'No ascites builds: the lymphatics carry it all';
+  if (f.net > 0 && d >= 10) return `Ascites builds by about ${d} mL a day.`;
+  if (f.net < 0 && d >= 10) return `Ascites shrinks by about ${d} mL a day.`;
+  return f.over > 0.005 ? 'Ascites holds steady: the belly takes back the overflow.' : 'No ascites builds: the lymphatics carry it all.';
 }
 
 const mlMin = (x) => fmt(Math.max(0, x), x < 10 ? 1 : 0);
@@ -78,7 +88,7 @@ export function createFluid() {
     h('div', { class: 'gf-row gf-thin' }, h('span', { class: 'gf-name' }, 'Pushing out'), h('span', { class: 'gf-bar' }, fOut), vOut),
     h('div', { class: 'gf-row gf-thin' }, h('span', { class: 'gf-name' }, 'Pulling in'), h('span', { class: 'gf-bar' }, fIn), vIn),
     h('span', { class: 'gf-unit' }, 'mmHg, across the sinusoid wall'));
-  const caveat = h('p', { class: 'gf-caveat' }, 'The model has no kidneys: diuretics act here only on the fluid the belly takes back.');
+  const caveat = h('p', { class: 'gf-caveat' }, 'The model has no kidneys: diuretics act here only on the fluid the belly takes back, and its rates are the model\u2019s own, not clinical figures.');
   const el = h('div', { class: 'gf', role: 'img' },
     h('div', { class: 'gf-bars' }, row('Made', vMade, S.liver, S.gut), row('Drained', vDrain, S.carried, S.back, S.build, S.spare), unit),
     key, words, forces, caveat);
@@ -94,12 +104,21 @@ export function createFluid() {
     // (the build-up fills the drained bar out to the made bar's end: what is made and not drained)
     set(vMade, mlMin(f.made)); set(vDrain, mlMin(f.drained));
     set(words, fluidWords(f));
-    el.setAttribute('aria-label', `Fluid balance: ${mlMin(f.made)} mL/min of lymph made (liver ${mlMin(f.hep)}, gut ${mlMin(f.spl)}), ${mlMin(f.drained)} drained. ${fluidWords(f)}.`);
+    el.setAttribute('aria-label', `Fluid balance: ${mlMin(f.made)} mL/min of lymph made (liver ${mlMin(f.hep)}, gut ${mlMin(f.spl)}), ${mlMin(f.drained)} drained. ${fluidWords(f)}`);
   }
+  // (Live, the push swings with each breath, as the belly's pressure does: eased over a few seconds, so it reads the
+  // breath's middle, not its moment. At rest the slide's own state sets both.)
+  let fAvg = null, fAt = 0, fPin = null;
   function paintForces(fr) {
     if (!opts.forces) return;
-    const fo = sinusoidForces(fr?.Pf || fr?.P, store.get().params, fr?.metrics?.ascites?.iap);
-    if (!fo) return;
+    let fo = fPin;
+    if (!fo) {
+      const raw = sinusoidForces(fr?.Pf || fr?.P, store.get().params, fr?.metrics?.ascites?.iap);
+      if (!raw) return;
+      const now = performance.now(), a = fAvg ? 1 - Math.exp(-Math.min(1, (now - fAt) / 1000) / 3) : 1;
+      fAt = now; fAvg = fAvg ? { out: fAvg.out + a * (raw.out - fAvg.out), pull: fAvg.pull + a * (raw.pull - fAvg.pull) } : raw;
+      fo = fAvg;
+    }
     const top = Math.max(fo.out, fo.pull, 1) * 1.04;
     width(fOut, clamp(fo.out / top, 0, 1)); width(fIn, clamp(fo.pull / top, 0, 1));
     set(vOut, fmt(Math.max(0, fo.out), 1)); set(vIn, fmt(fo.pull, 1));
@@ -108,7 +127,7 @@ export function createFluid() {
     el,
     // The slide's own state at rest (a fingerprint with the fluid terms); a live one without them (a time-lapse or a what-if,
     // presenter liveFp) hands the bars to the live model's frames until the slide's state is pinned again.
-    pin(fp) { const f = fluidOf(fp); pinned = f; if (f) paint(f); },
+    pin(fp) { const f = fluidOf(fp); pinned = f; if (f) paint(f); fPin = f ? pinnedForces(fp, store.get().params) : null; if (fPin) paintForces(null); },
     update(fr) {
       if (!pinned) paint(fluidOf(fr?.metrics));
       paintForces(fr);

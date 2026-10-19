@@ -10,7 +10,7 @@ import { Engine } from '../src/engine/engine.js';
 import { computeMetrics } from '../src/engine/metrics.js';
 import { createCore } from '../src/worker-core.js';
 import { lumenOf, lumenShape, lumenWords, LUMEN_R, LUMEN_WALL } from '../src/ui/tool-lumen.js';
-import { fluidOf, fluidBars, fluidWords, sinusoidForces } from '../src/ui/tool-fluid.js';
+import { fluidOf, fluidBars, fluidWords, sinusoidForces, pinnedForces } from '../src/ui/tool-fluid.js';
 import { pulsatility, caliperPick, caliperStale, pairOf, pairBand, pairScale, PAIR_GAP } from '../src/ui/doppler-marks.js';
 import ext from '../src/ui/ext-instruments.js';
 import { EXT } from '../src/ui/slide-ext.js';
@@ -74,7 +74,8 @@ test('V27: made minus drained is the ascites made, from the fingerprint and from
   }
   const [cirr, , healthy] = st.map((m) => fluidOf(m.fp));
   assert.ok(cirr.over > 0 && healthy.over === 0 && healthy.spare > 0, 'cirrhosis overflows its lymphatics; health has room to spare');
-  assert.match(fluidWords(healthy), /No ascites builds/);
+  assert.match(fluidWords(healthy), /^No ascites builds.*\.$/);
+  for (const f of [cirr, healthy]) assert.match(fluidWords(f), /\.$/, 'a sentence, with its full stop');
   assert.equal(fluidOf({ pv: 10 }), null, 'a live fingerprint without the fluid terms gives no bars');
 });
 
@@ -85,6 +86,19 @@ test('V27: the forces across the sinusoid wall give the engine\'s liver lymph', 
     const fo = sinusoidForces(e.P, e.params, e.iap);
     near(0.5 + 0.45 * Math.max(0, fo.out - fo.pull - 0.75), e.starling().hep, 1e-9, 'liver lymph from the forces');
   }
+});
+
+test('V27: at rest the forces come from the slide\'s own state, the same on every screen, and match the model\'s', async () => {
+  const st = await run([{ preset: 'csph', days: 60, ramp: { cirrhosis: [0.6, 0.85], albumin: [4, 2.8] } }, { preset: 'cirr-decomp' }, { preset: 'healthy' }]);
+  const [fill, cirr, healthy] = st;
+  for (const m of [fill, cirr]) {
+    const e = new Engine(); e.restore(m.snap);
+    const pf = pinnedForces(m.fp, e.params), lf = sinusoidForces(e.P, e.params, e.iap);
+    assert.ok(pf, 'the push is read from the liver lymph');
+    near(pf.pull, lf.pull, 1e-9, 'the pull');
+    near(pf.out, lf.out, 0.05, 'the push, as the model has it at that moment');
+  }
+  if (healthy.fp.hepLymph <= 0.5 + 1e-9) assert.equal(pinnedForces(healthy.fp, {}), null, 'lymph at its floor: the live frames show the push');
 });
 
 test('V21: the calipers read the window\'s extremes, at their latest moments, with the reading\'s own index', () => {
@@ -99,8 +113,11 @@ test('V21: the calipers read the window\'s extremes, at their latest moments, wi
   assert.equal(caliperStale(c, c, Math.min(c.hi[0], c.lo[0]) + 0.01), true, 'a mark about to leave the trace gives way');
   assert.equal(caliperStale(c, { ...c, pi: c.pi + 0.2 }, 0), true, 'a reading that moved on gives way');
   assert.equal(caliperStale(c, { ...c, pi: c.pi + 0.2 }, 0, 1), false, 'but not in its first two seconds');
+  assert.equal(caliperStale(c, { ...c, hi: [6, c.hi[1] * 1.5] }, 0, 1), true, 'a trace running past a mark gives way at once');
   assert.equal(caliperStale(c, { ...c, pi: c.pi + 0.05 }, 0), false, 'a breath\'s swing never moves it');
   assert.equal(caliperPick(buf.map(([t]) => [t, 0.2]), 3, 6), null, 'no flow, no calipers');
+  assert.equal(caliperStale(c, null, 0), true, 'no reading left in the window: the marks go');
+  assert.equal(caliperStale(c, null, 0, 1), false, 'but not in their first two seconds');
   // The reading's own formula (doppler.js interpret), read from its source.
   assert.match(DOP, /const pi = big > 0\.5 \? swing \/ big : 0;/);
 });
