@@ -39,7 +39,7 @@ import { wavePacks, paintWave } from './scan-waves.js?v=066db7aa38';
 import { organDimMatrix } from './organ-dim.js?v=7888276613';
 import { parseColor, greyOf, paintRef } from './organ-grey.js?v=e41d68222c';
 import { bandRing, ringsBelow, normalShown, rippleList, systemOf, SYSTEM_COLOR } from './highlight-math.js?v=86a89dcb9e';
-import { organAnchor, spleenCaliper, acrossVessel, stepGroups, spanOf, spanPath, zoneBand } from './callout-math.js?v=1d266d4ccb';
+import { organAnchor, spleenCaliper, acrossVessel, stepGroups, spanOf, spanPath, zoneBand, SPAN_TICK } from './callout-math.js?v=e245215104';
 const nextFrame = frameFor('stage');
 
 const N_SAMPLES = 64;
@@ -3927,10 +3927,14 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // is plain (tone; on a red or accent pill the words keep the pill's own ink), as wide as its widest words (and never narrower
   // than it has been on this slide). fxw: its words with each value as #, so a number ticking redraws no pill (renderBlock).
   const fxRuns = (runs, tone) => runs.map((r, i) => ({ t: r.t, size: 11.5, weight: r.tone !== undefined ? 750 : 650, cls: r.tone !== undefined ? 'lb-focus fx-v' : 'lb-focus', ...(i ? { gap: r.sp ? 3 : 0 } : {}), ...(tone && r.tone ? { fill: `color-mix(in srgb, var(${r.tone}) 78%, var(--text))` } : {}) }));
-  function fxPill(key, w, cls, tone) {
-    const line = fxRuns(w.runs, tone), wd = Math.max(lineW(line), lineW(fxRuns(w.wide || w.runs, tone)), fxWide.get(key) || 0);
-    fxWide.set(key, wd);
-    return { key, cls, lines: [line], align: 'middle', bg: true, padX: 8, padY: 4, w: wd, h: LINE_H(line), label: w.label, fxw: w.runs.map((r) => (r.tone !== undefined ? '#' : r.t)).join(' ') };
+  // (split: the words on one line and the reading from its first value on under them, where one line is too wide for its room.)
+  function fxPill(key, w, cls, tone, split = false) {
+    const cut = split ? w.runs.findIndex((r) => r.tone !== undefined) : -1, two = cut > 0;
+    const part = (runs) => (two ? [runs.slice(0, cut), runs.slice(cut)] : [runs]);
+    const lines = part(w.runs).map((r) => fxRuns(r, tone)), wide = part(w.wide || w.runs).map((r) => fxRuns(r, tone));
+    const wd = Math.max(...lines.map(lineW), ...wide.map(lineW), fxWide.get(key + (two ? ':2' : '')) || 0);
+    fxWide.set(key + (two ? ':2' : ''), wd);
+    return { key, cls, lines, align: 'middle', bg: true, padX: 8, padY: 4, w: wd, h: lines.reduce((a, l) => a + LINE_H(l), 0), label: w.label, fxw: w.runs.map((r) => (r.tone !== undefined ? '#' : r.t)).join(' ') + (two ? '|2' : '') };
   }
   // The calipers' and brackets' lines, each frame (the spleen grows through a time-lapse, a vessel's width eases): a line that
   // comes eases in, one that goes eases out (app.css, Package F).
@@ -3945,6 +3949,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     el.seen = true;
     if (el._d !== d) { el._d = d; for (const p of el.children) p.setAttribute('d', d); }
   }
+  // (Screen pixels per world unit now: lines that keep a size on screen are drawn in world units from it.)
+  const fxK = () => { if (!CTM) refreshCTM(); return CTM?.sc || 1; };
   function caliperAt(c, f) {
     if (c.organ) {
       const p = f.viewParams || store.get().params;
@@ -3954,20 +3960,26 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     }
     const x = E[c.edge], cur = geo[c.edge]?.cur;
     if (!x?.vis || x.g.classList.contains('coll-ghost') || !(cur?.length > 1)) return null;
-    const [wx, wy, tx, ty] = arcMid(cur), [a, b] = acrossVessel(wx, wy, tx, ty, (x.width || 4) / 2 + 3);
+    // (Wall to wall and a little past, and never shorter than 30 px on screen, so a narrow stent on a phone still reads as a caliper.)
+    const [wx, wy, tx, ty] = arcMid(cur), [a, b] = acrossVessel(wx, wy, tx, ty, Math.max((x.width || 4) / 2 + 3, 15 / fxK()));
     return { a, b };
+  }
+  // A caliper's line and its end ticks (5 px either side, square to it), in world units.
+  function caliperSegs(c, f) {
+    const g = caliperAt(c, f);
+    if (!g) return null;
+    const [[ax, ay], [bx, by]] = [g.a, g.b], L = Math.hypot(bx - ax, by - ay) || 1, tk = 5 / fxK(), nx = (-(by - ay) / L) * tk, ny = ((bx - ax) / L) * tk;
+    return { a: g.a, b: g.b, segs: [[g.a, g.b], [[ax - nx, ay - ny], [ax + nx, ay + ny]], [[bx - nx, by - ny], [bx + nx, by + ny]]] };
   }
   function fxSync(f, t) {
     for (const el of fxEls.values()) el.seen = false;
     if (fx && t < 0.5) for (const c of fx.calipers) {
-      const g = caliperAt(c, f);
+      const g = caliperSegs(c, f);
       if (!g) continue;
-      // (Ticks across each end, 7 units either side, square to the line.)
-      const [[ax, ay], [bx, by]] = [g.a, g.b], L = Math.hypot(bx - ax, by - ay) || 1, nx = (-(by - ay) / L) * 7, ny = ((bx - ax) / L) * 7;
-      const P = (x, y) => `${x.toFixed(1)} ${y.toFixed(1)}`;
-      fxLine('c:' + c.id, gFx, `M${P(ax, ay)}L${P(bx, by)}M${P(ax - nx, ay - ny)}L${P(ax + nx, ay + ny)}M${P(bx - nx, by - ny)}L${P(bx + nx, by + ny)}`, 'fx-cal-line');
+      const P = ([x, y]) => `${x.toFixed(1)} ${y.toFixed(1)}`;
+      fxLine('c:' + c.id, gFx, g.segs.map(([p, q]) => `M${P(p)}L${P(q)}`).join(''), 'fx-cal-line');
     }
-    if (fx) for (const sp of fx.spans) { const at = spanOf(sp.from, sp.to); if (at) fxLine(`s:${sp.from}:${sp.to}`, gFxC, spanPath(at), 'fx-span-line'); }
+    if (fx) for (const sp of fx.spans) { const at = spanOf(sp.from, sp.to, fxK()); if (at) fxLine(`s:${sp.from}:${sp.to}`, gFxC, spanPath(at), 'fx-span-line'); }
     for (const [k, el] of fxEls) {
       if (el.seen || el.going) continue;
       el.going = true; el.classList.remove('on');
@@ -6602,6 +6614,21 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const callouts = calloutBoxes();
     const obstacles = [...blockers, ...callouts];   // what can hide a label this frame
     const placed = solve ? callouts.map((b) => ({ x0: b.x0 - 3, y0: b.y0 - 3, x1: b.x1 + 3, y1: b.y1 + 3, call: true })) : [];
+    // (A slide's calipers and brackets (package F) are lines no label may sit on, their own readings included: boxes along each.)
+    if (solve && fx) {
+      const segBoxes = (p, q, pad) => {
+        const [x0, y0] = worldToLocal(...p), [x1, y1] = worldToLocal(...q), n = Math.max(1, Math.ceil(Math.hypot(x1 - x0, y1 - y0) / 8));
+        for (let i = 0; i < n; i++) {
+          const u0 = i / n, u1 = (i + 1) / n, xa = x0 + (x1 - x0) * u0, xb = x0 + (x1 - x0) * u1, ya = y0 + (y1 - y0) * u0, yb = y0 + (y1 - y0) * u1;
+          placed.push({ x0: Math.min(xa, xb) - pad, y0: Math.min(ya, yb) - pad, x1: Math.max(xa, xb) + pad, y1: Math.max(ya, yb) + pad, dot: true });
+        }
+      };
+      if (!circuit) for (const c of fx.calipers) { const g = caliperSegs(c, f); if (g) for (const [p, q] of g.segs) segBoxes(p, q, 3); }
+      if (circuit) for (const sp of fx.spans) {
+        const at = spanOf(sp.from, sp.to, fxK());
+        if (at) for (const [p, q] of [[[at.x0, at.y], [at.x1, at.y]], [[at.x0, at.y - SPAN_TICK], [at.x0, at.y]], [[at.x1, at.y - SPAN_TICK], [at.x1, at.y]]]) segBoxes(p, q, 3);
+      }
+    }
     // (The corner credit, where it shows: a stent's column and the slide's mark beside it keep off it where they can, so it holds its
     // spot when another point is picked. It moves whenever a label comes to cover it, and does not come back.)
     const creditBox = solve && dop.all ? (() => { const el = document.querySelector('.stage-credit'), r = el?.getBoundingClientRect(); return r?.width && getComputedStyle(el).opacity !== '0' ? { x0: r.left - wr.left - 10, y0: r.top - wr.top - 10, x1: r.right - wr.left + 10, y1: r.bottom - wr.top + 10 } : null; })() : null;
@@ -7219,7 +7246,10 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       // (Where no such spot is off the vessels, any spot within 150 px that is, nearest first, before one over a vessel: Review 16 Oct.)
       const reach = (clear) => [true, false].flatMap((credit) => [gap, gap + 20, gap + 52, gap + 84, gap + 120].flatMap((g) => (clear ? [true, false] : [false]).map((lead) => ({ gap: g, leader: true, uncrossed: true, clear, lead, credit }))));
       const passes = dop.all && [...reach(true), { grid: true }, ...reach(false)].flatMap((ps, tier) => (ps.grid ? MARK_GRID.map((at) => ({ at, gap: 0, leader: true, uncrossed: true, clear: true, tier })) : NUDGE.map((shift) => ({ ...ps, shift, tier }))));
-      let marked = dop.all ? placeMulti(it, FAR_DIRS, passes) : place(it, ['E', 'W', 'NE', 'SE', 'N', 'S'], gap, true);
+      // (A mark with live readings (package F) keeps its side as its numbers and the vessels under it change: its side first, a little
+      // farther out if need be, before it tries another.)
+      const side = lv && !dop.all && prevSol.get(it.key);
+      let marked = dop.all ? placeMulti(it, FAR_DIRS, passes) : (side && !side.drop && place(it, [side.dir], [gap, gap + 16, gap + 32], true)) || place(it, ['E', 'W', 'NE', 'SE', 'N', 'S'], gap, true);
       // (A mark that found no spot off the vessels, where the column's "60 %" blocks its way: the "60 %" tries its next spots off the
       // vessels, nearest first, and keeps the first that lets the mark stand clear; failing all, both stay as they were: Review 16 Oct.)
       if (marked && dop.all && clampAlts.length && clampAlts[0].el._box && placed.includes(clampAlts[0].el._box) && !passes[nextSol.get(it.key)?.pi]?.clear) {
@@ -7265,15 +7295,17 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         if (placeMulti(it, [], passes)) it.focusLeader = true;
       });
       if (!circuit) fx.calipers.forEach((c) => {
-        // A caliper's reading, by the line's lower (or right-hand) end.
+        // A caliper's reading, past the line's lower (or right-hand) end, clear of its end tick (the line's boxes keep it and every
+        // other label off the line), facing out along the line first.
         const g = caliperAt(c, f);
         if (!g) return;
-        const [p0, p1] = [worldToLocal(...g.a), worldToLocal(...g.b)], end = p1[1] > p0[1] || (p1[1] === p0[1] && p1[0] > p0[0]) ? p1 : p0;
+        const [p0, p1] = [worldToLocal(...g.a), worldToLocal(...g.b)], lo = p1[1] > p0[1] || (p1[1] === p0[1] && p1[0] > p0[0]), end = lo ? p1 : p0, from = lo ? p0 : p1;
         const key = 'fxc:' + c.id, it = fxPill(key, c, 'fx-cal', true);
         Object.assign(it, { ax: end[0], ay: end[1], src: ['fx', key] });
         fxBuild.set(key, () => { const n = fx?.calipers?.find((x) => x.id === c.id); return n && fxPill(key, n, 'fx-cal', true); });
         buildLines();
-        placeMulti(it, ['S', 'SE', 'SW', 'E', 'W', 'N', 'NE', 'NW'], nearFar(6));
+        const RING = ['E', 'SE', 'S', 'SW', 'W', 'NW', 'N', 'NE'], o = (Math.round(Math.atan2(end[1] - from[1], end[0] - from[0]) / (Math.PI / 4)) + 8) % 8;
+        placeMulti(it, [0, 1, -1, 2, -2, 3, -3, 4].map((d) => RING[(o + d + 8) % 8]), nearFar(9));
       });
       if (fx.steps) for (const g of stepGroups(slideGlow.filter((x) => E[x.id]?.vis), fx.steps)) {
         // A step's number by the middle of its vessel (the first of its group drawn), or on its organ, lit as its glow lights (V10).
@@ -7295,15 +7327,20 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       }
       if (circuit) fx.spans.forEach((sp, i) => {
         // A bracket's reading, under its middle (above it where the stage ends first).
-        const at = spanOf(sp.from, sp.to);
+        const at = spanOf(sp.from, sp.to, fxK());
         if (!at) return;
-        const [ax, ay] = worldToLocal((at.x0 + at.x1) / 2, at.y), key = 'fxb:' + i, it = fxPill(key, sp, 'fx-span', true);
+        // (Turned upright on a phone, the bracket runs down the circuit's right side, where one line of words has no room: the reading
+        // then takes two, its words over its number.)
+        const turned = rotU > 0.5, D = (d) => (turned ? TURN_DIR[d] : d), split = turned;
+        const [ax, ay] = worldToLocal((at.x0 + at.x1) / 2, at.y), key = 'fxb:' + i, it = fxPill(key, sp, 'fx-span', true, split);
         Object.assign(it, { ax, ay, src: ['fx', key] });
         buildLines();
-        fxBuild.set(key, () => fx?.spans?.[i] && fxPill(key, fx.spans[i], 'fx-span', true));
-        // (On a phone held upright the circuit turns and its bracket runs down one side: farther spots, on a leader, keep the reading
-        // off the circuit.)
-        placeMulti(it, ['S', 'N', 'E', 'W', 'SE', 'SW', 'NE', 'NW'], roomy([{ gap: 5, leader: false, clear: true }, ...[18, 40, 70].map((gap) => ({ gap, leader: true, clear: true })), { gap: 5, leader: false }, { gap: 18, leader: true }]));
+        fxBuild.set(key, () => fx?.spans?.[i] && fxPill(key, fx.spans[i], 'fx-span', true, split));
+        // Under the bracket on a leader, kept inside the stage 12 px from its edges and off every vessel; then beside it.
+        const edge = { x0: 12, y0: 12, x1: W - 12, y1: H - 12 }, ok = (r) => within(r, edge);
+        const passes = [18, 28, 40].map((gap) => ({ gap, leader: true, clear: true, inView: true, dirs: [D('S')] }));
+        const fits = (ps) => { const [dx, dy] = offset(D('S'), it, ps.gap); return ok(rectOf({ ...it, x: it.ax + dx, y: it.ay + dy })); };
+        placeMulti(it, [D('S'), D('SE'), D('SW'), D('E'), D('W')], [...passes.filter(fits), ...roomy([{ gap: 18, leader: true, clear: true }, { gap: 40, leader: true, clear: true }, { gap: 18, leader: true }])]);
       });
     }
     // A stent's other two points, where they fit around the sampled point's callout and the slide's mark: off the vessels if they can.

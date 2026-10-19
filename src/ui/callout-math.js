@@ -145,11 +145,15 @@ export const zoneIndex = (z) => (typeof z === 'number' ? (z >= 0 && z < CIRCUIT_
 export const zoneBand = (i) => (CIRCUIT_ZONES[i] ? [CIRCUIT_ZONES[i][1], CIRCUIT_ZONES[i][2]] : null);
 // The bracket runs under the circuit: below its stations (the lowest at 690) and its collateral routes (down to about 725),
 // under the zone bands (to 730), inside the circuit's view (to 760).
-export const SPAN_Y = 742, SPAN_TICK = 10;
+// The lanes' captions sit under the lowest lane, in screen pixels: the bracket keeps 24 px below that lane, so a caption fits
+// between them at any zoom (a phone's turned circuit is drawn small, so the gap is wider in circuit units there).
+export const SPAN_Y = 742, SPAN_TICK = 10, LANE_LOW = 725, SPAN_ROOM = 24;
+/** The bracket's height on the circuit at k screen pixels per circuit unit. */
+export const spanY = (k = 1) => Math.max(SPAN_Y, LANE_LOW + SPAN_ROOM / (k > 0 ? k : 1));
 /** A span between two stations, in circuit units { x0, x1, y }, or null when either is not a station of the circuit. */
-export function spanOf(from, to) {
+export function spanOf(from, to, k = 1) {
   const a = NODE_POS[from]?.[1], b = NODE_POS[to]?.[1];
   if (!a || !b || a[0] === b[0]) return null;
-  return { x0: Math.min(a[0], b[0]), x1: Math.max(a[0], b[0]), y: SPAN_Y };
+  return { x0: Math.min(a[0], b[0]), x1: Math.max(a[0], b[0]), y: spanY(k) };
 }
 export const spanPath = (sp) => `M${sp.x0} ${sp.y - SPAN_TICK}V${sp.y}H${sp.x1}V${sp.y - SPAN_TICK}`;

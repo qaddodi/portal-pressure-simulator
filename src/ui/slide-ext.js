@@ -21,7 +21,7 @@ import highlights from './ext-highlights.js?v=d7de13345f';
 import charts from './ext-charts.js?v=e38ccb3257';
 import model from './ext-model.js?v=c61719ac42';
 import panels from './ext-panels.js?v=c43f06ac2d';
-import callouts from './ext-callouts.js?v=662c19bba2';
+import callouts from './ext-callouts.js?v=c519c07109';
 import instruments from './ext-instruments.js?v=53c2dd9e2d';
 
 export const PACKAGES = { A: highlights, B: charts, C: model, E: panels, F: callouts, G: instruments };

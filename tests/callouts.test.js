@@ -83,8 +83,10 @@ test('the circuit\'s brackets span two stations under the circuit, and its zones
   assert.deepEqual([sp.x0, sp.x1], [NODE_POS.CONF[1][0], NODE_POS.IVCS[1][0]]);
   for (const v of Object.values(NODE_POS)) assert.ok(v[1][1] < SPAN_Y - 10, 'below every station');
   assert.ok(SPAN_Y - 10 >= 730 && SPAN_Y < 760, 'under the zone bands, inside the circuit\'s view');
-  assert.equal(spanPath(sp), `M480 ${SPAN_Y - 10}V${SPAN_Y}H1120V${SPAN_Y - 10}`);
+  assert.equal(spanPath(sp), `M480 ${sp.y - 10}V${sp.y}H1120V${sp.y - 10}`);
   assert.equal(spanOf('CONF', 'NOWHERE'), null);
+  assert.equal(spanOf('CONF', 'IVCS', 4).y, SPAN_Y, 'zoomed in, the bracket keeps its place');
+  assert.ok(spanOf('CONF', 'IVCS', 0.25).y >= 725 + 24 / 0.25, 'drawn small, it keeps 24 px under the lowest lane');
   assert.equal(zoneIndex('liver'), 2);
   assert.equal(zoneIndex(9), -1);
   assert.deepEqual(zoneBand(zoneIndex('heart')), CIRCUIT_ZONES[4].slice(1));
