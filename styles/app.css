@@ -6294,12 +6294,16 @@ html.thumb-ui .menu.from-dock { clip-path: inset(-64px -64px calc(var(--sink, 0p
 .pze-plot svg { position: absolute; inset: 0; display: block; overflow: visible; }
 .pze-zone { fill: var(--surface-2); }
 .pze-zone[data-tone="ok"] { fill: color-mix(in srgb, var(--ok) 18%, var(--surface)); }
-.pze-zone[data-tone="mid"] { fill: color-mix(in srgb, var(--caution) 18%, var(--surface)); }
+/* (The gray zone, "CSPH unclear", in a stronger amber than the other zones' tints, so it reads as its own band in both themes.) */
+.pze-zone[data-tone="mid"], .pze-ckey li[data-tone="mid"] i { --pze-mid: color-mix(in srgb, var(--caution) 30%, var(--surface)); }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]):not([data-theme="soft"]) :is(.pze-zone[data-tone="mid"], .pze-ckey li[data-tone="mid"] i) { --pze-mid: color-mix(in srgb, var(--caution) 34%, var(--surface)); } }
+:root[data-theme="dark"] :is(.pze-zone[data-tone="mid"], .pze-ckey li[data-tone="mid"] i) { --pze-mid: color-mix(in srgb, var(--caution) 34%, var(--surface)); }
+.pze-zone[data-tone="mid"] { fill: var(--pze-mid); }
 .pze-zone[data-tone="hi"] { fill: color-mix(in srgb, var(--danger) 18%, var(--surface)); }
 .pze-zone[data-tone="info"] { fill: color-mix(in srgb, var(--tr-hv) 16%, var(--surface)); }
 .pze-box { fill: none; stroke: var(--text-2); stroke-width: 1.5; stroke-dasharray: 6 5; }
 .pze-zt { font-weight: 700; fill: var(--text-2); }
-.pze-zt[data-tone="ok"] { fill: var(--ok); } .pze-zt[data-tone="mid"] { fill: var(--caution); } .pze-zt[data-tone="hi"] { fill: var(--danger); }
+.pze-zt[data-tone="ok"] { fill: var(--ok); } .pze-zt[data-tone="mid"] { fill: color-mix(in srgb, var(--caution) 55%, var(--text)); }   /* (darker in light, lighter in dark: 4.5:1 on its stronger band) */ .pze-zt[data-tone="hi"] { fill: var(--danger); }
 .pze-zt.pze-bxw { font-weight: 600; fill: var(--text-2); }
 .pze-cut { stroke: var(--text-3); stroke-width: 1; stroke-dasharray: 3 4; }
 .pze-axis { stroke: var(--border-strong); stroke-width: 1.5; }
@@ -6317,6 +6321,7 @@ html.thumb-ui .menu.from-dock { clip-path: inset(-64px -64px calc(var(--sink, 0p
 .pze-ckey i { width: .8em; height: .8em; border-radius: 2px; background: var(--surface-3); }
 .pze-ckey li[data-tone="ok"] i { --c: var(--ok); } .pze-ckey li[data-tone="mid"] i { --c: var(--caution); } .pze-ckey li[data-tone="hi"] i { --c: var(--danger); } .pze-ckey li[data-tone="info"] i { --c: var(--tr-hv); }
 .pze-ckey li[data-tone] i { background: color-mix(in srgb, var(--c, var(--text-3)) 18%, var(--surface)); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--c, var(--text-3)) 55%, transparent); }
+.pze-ckey li[data-tone="mid"] i { background: var(--pze-mid); }
 .pze-ckey li.pze-bx i { background: none; border: 1.5px dashed var(--text-2); }
 .pze-read { margin: 4px 0 0; font-size: var(--ch-cap, var(--s-cap)); color: var(--text-2); font-variant-numeric: tabular-nums; text-align: center; }
 .pze-key ul { display: flex; flex-direction: column; gap: 8px; margin: 0; padding: 0; list-style: none; }
@@ -6328,66 +6333,6 @@ html.thumb-ui .menu.from-dock { clip-path: inset(-64px -64px calc(var(--sink, 0p
 .pze-key span { color: var(--text-2); }
 .pze-src { margin: 8px 0 0; font-size: var(--s-cap); color: var(--text-3); }
 .pz.stack .pze-key li { padding: .35em .7em; }
-
-/* V31, the chain (visual-chain.js): flat boxes joined by arrows drawn as lines; the slide's box lit, the rest quiet. A wide card runs
-   them left to right; a narrow card or a phone stacks them. */
-.pze-chain { display: flex; align-items: stretch; gap: 26px; margin: 0; padding: 0; list-style: none; width: 100%; }
-.pze-chain li { position: relative; flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; justify-content: center; gap: .25em; padding: .6em .7em; border-radius: 12px;
-  background: var(--surface-2); border: 1.5px solid transparent; color: var(--text-2); font-size: var(--s-lab); line-height: 1.25; opacity: .78; transition: opacity .5s var(--ease), border-color .5s var(--ease), background-color .5s var(--ease), color .5s var(--ease); }
-.pze-chain li.on { opacity: 1; color: var(--text); border-color: var(--accent, var(--tr-pv)); background: color-mix(in srgb, var(--accent, var(--tr-pv)) 9%, var(--surface)); font-weight: 600; }
-.pze-chain li + li::before { content: ''; position: absolute; left: -22px; top: 50%; width: 16px; border-top: 2px solid var(--text-3); }
-.pze-chain li + li::after { content: ''; position: absolute; left: -10px; top: calc(50% - 5px); border: 5px solid transparent; border-left: 6px solid var(--text-3); border-right: 0; }
-.pze-ct { overflow-wrap: normal; hyphens: manual; }
-.pze-cv { display: flex; align-items: center; gap: .3em; font-size: var(--s-cap); color: var(--text-2); font-variant-numeric: tabular-nums; }
-.pze-cv b { font-weight: 700; }
-.pze-cv[data-rate="mid"] { color: var(--caution); } .pze-cv[data-rate="hi"] { color: var(--danger); }
-.pze-arr { display: inline-block; line-height: 0; }
-.pze-arr svg { display: block; height: 1em; width: .75em; overflow: visible; fill: none; stroke: currentColor; }
-.pze-arr.dn svg { transform: rotate(180deg); }
-.pze-chainwrap { width: 100%; align-items: center; }
-.pze-chainwrap .pze-chain { gap: 40px; }
-.pze-chainwrap .pze-chain li { padding: 1em; font-size: var(--s-body); min-height: 5.5em; }
-.pze-chainwrap .pze-chain li + li::before { left: -32px; width: 24px; }
-.pze-chainwrap .pze-chain li + li::after { left: -12px; }
-.pze-chainwrap .pze-cv { font-size: var(--s-lab); }
-.pze-chain.pze-v, .pze-chainwrap .pze-chain.pze-v { flex-direction: column; gap: 18px; }
-.pze-chain.pze-v li, .pze-chainwrap .pze-chain.pze-v li { flex: none; min-height: 0; padding: .45em .7em; }
-.pze-chain.pze-v li + li::before, .pze-chainwrap .pze-chain.pze-v li + li::before { left: 50%; top: -15px; width: 0; height: 10px; border-top: 0; border-left: 2px solid var(--text-3); }
-.pze-chain.pze-v li + li::after, .pze-chainwrap .pze-chain.pze-v li + li::after { left: calc(50% - 5px); top: -7px; border: 5px solid transparent; border-top: 6px solid var(--text-3); border-bottom: 0; }
-.pz-data .pze-ctool .pze-chain li { font-size: var(--ch-lab, var(--s-lab)); }
-
-/* V17, the flowchart (visual-chain.js): boxes in a tree, the case's branch lit and the rest quiet. Top to bottom where the card
-   is wide enough for its leaves; a narrow card or a phone indents each level under the one before. */
-.pze-flow { container-type: inline-size; width: 100%; position: relative; }
-.pze-links { position: absolute; left: 0; top: 0; width: 100%; height: 100%; overflow: visible; pointer-events: none; fill: none; }   /* (the lines between boxes, drawn from the boxes' own places: visual-chain.js) */
-.pze-links path { stroke: var(--border-strong); stroke-width: 2; stroke-linejoin: round; }
-.pze-links path.on { stroke: var(--accent, var(--tr-pv)); }
-.pze-tree, .pze-tree ul { display: flex; justify-content: center; margin: 0; padding: 0; list-style: none; }
-.pze-tree ul { padding-top: 16px; position: relative; }
-.pze-tree li { position: relative; flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; align-items: center; padding: 16px 4px 0; }
-.pze-tree > li { padding-top: 0; }
-.pze-fb { width: 100%; max-width: 15em; display: flex; flex-direction: column; gap: .2em; padding: .5em .65em; border-radius: 10px; background: var(--surface-2); border: 1.5px solid transparent;
-  font-size: var(--s-cap); line-height: 1.25; color: var(--text-2); text-align: center; transition: opacity .5s var(--ease), border-color .5s var(--ease), background-color .5s var(--ease); }
-.pze-fb b { font-size: var(--s-lab); color: var(--text); font-weight: 600; overflow-wrap: normal; }
-.pze-flow.decided li:not(.on) > .pze-fb, .pze-flow.decided li:not(.on) > .pze-fb b { color: var(--text-2); }   /* (quieter than the lit branch, still readable) */
-.pze-flow.decided li.on > .pze-fb > span { color: var(--text); }
-.pze-flow.decided li.on > .pze-fb { opacity: 1; border-color: var(--accent, var(--tr-pv)); background: color-mix(in srgb, var(--accent, var(--tr-pv)) 9%, var(--surface)); }
-.pze-ftool .pze-fb > span { display: none; }   /* (the card shows the steps only; the panel adds each one's note) */
-.pze-ftool .pze-fb { padding: .35em .6em; }
-.pze-ftool .pze-flow.decided li:not(.on) > ul { display: none; }   /* (in the card, a branch the case does not take shows its heading only) */
-.pze-flowwrap { width: 100%; }
-.pze-flowwrap .pze-fb { font-size: var(--s-lab); max-width: 18em; padding: .7em .9em; }
-.pze-flowwrap .pze-fb b { font-size: var(--s-body); }
-@container (max-width: 560px) {
-  .pze-tree, .pze-tree ul { display: block; }
-  .pze-tree ul { padding: 0 0 0 18px; margin-left: 10px; border-left: 2px solid var(--border-strong); }
-  .pze-links { display: none; }
-  .pze-tree li { display: block; padding: 6px 0 0; }
-  .pze-tree > li { padding: 0; }
-  .pze-fb { max-width: none; text-align: left; }
-  .pze-flowwrap .pze-fb { max-width: none; }
-  .pze-flow.decided li.on > ul { border-left-color: var(--accent, var(--tr-pv)); }
-}
 
 /* V30 and V16, the table columns (col-spent.js, col-wave.js). */
 .pz-table td.pze-spent { min-width: 6em; padding-block: .25em; text-align: left; vertical-align: middle; }

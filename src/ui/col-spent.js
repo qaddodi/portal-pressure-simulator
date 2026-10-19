@@ -60,13 +60,13 @@ function rescale() {
   }
 }
 const later = () => { if (!raf) raf = (globalThis.requestAnimationFrame || setTimeout)(rescale); };
-export const spentKey = () => h('span', { class: 'pze-spent-key' }, ' Pressure lost, in order: ',
+export const spentKey = () => h('span', { class: 'pze-spent-key' }, ' Where the pressure drops, portal vein to heart: ',
   PARTS.map(([, , name, tone], i) => h('span', { class: 'pze-k' }, h('i', { 'data-tone': tone, 'aria-hidden': 'true' }), name + (i < PARTS.length - 1 ? ',' : '.'))));
 
 export const spentColumn = {
-  heading: 'Pressure lost',
+  heading: 'Where pressure drops',
   cut: 'From the portal vein to the right atrium, every row on one scale. Its parts, in order: portal vein, portal venules, sinusoids, central veins, hepatic veins and IVC; the longest is named under the bar when it falls 3 mmHg or more',
-  unit: 'pressure lost in mmHg',
+  unit: 'pressure drops in mmHg',
   cell(r, ctx) {
     const sp = spentOf(r.f);
     if (!sp) return h('td', { class: 'num' }, '—');

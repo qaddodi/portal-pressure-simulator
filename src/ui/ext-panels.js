@@ -1,15 +1,12 @@
-// Deck visuals, package E. Panels and table columns: V28, V30, V31, V16, V17 (review/deck-visuals-recs.md §9).
+// Deck visuals, package E. Panels and table columns: V28, V30, V16 (review/deck-visuals-recs.md §9; V31 and V17 taken out).
 // What this package adds to slides, registered for slide-ext.js (see its header for each part's shape). A deck that sets none
 // of its fields is unchanged.
 //   visual: 'plane'      two readings on one plane with a guideline's zones (visual-plane.js), plane: 'csph' | 'hvpg-ppg' | {…}
-//   visual: 'chain'      a mechanism chain (visual-chain.js), chain: { steps, lit }
-//   visual: 'flowchart'  a guideline flowchart with the case's branch lit (visual-chain.js), flow: 'csph' | {…}, case?
-//   tool kinds 'plane', 'chain', 'flowchart'  the same in the data card, read from the slide's case
+//   tool kind 'plane'    the same in the data card, read from the slide's case
 //   table columns 'spent' (col-spent.js) and 'wave' (col-wave.js)
 
-import { planeVisual, createPlaneTool, toolPlane } from './visual-plane.js?v=5c4d32a3df';
-import { chainVisual, createChainTool, flowVisual, createFlowTool, flowOf } from './visual-chain.js?v=e486c0f858';
-import { spentColumn } from './col-spent.js?v=3614f7fe6c';
+import { planeVisual, createPlaneTool, toolPlane } from './visual-plane.js?v=dd2138eea9';
+import { spentColumn } from './col-spent.js?v=ac454d9e0a';
 import { waveColumn } from './col-wave.js?v=cf308a37e9';
 
 // A plane's rows: the slide's `of`, as a table's (a slide id, { id, name }, or { preset, params?, days?, name } for a patient no
@@ -61,13 +58,9 @@ export const planeTitle = (p) => (p ? `${word(p.x)} and ${lc(word(p.y))}` : 'Two
 export default {
   visuals: {
     plane: (s, ctx) => planeVisual(s, ctx, rowsFp),
-    chain: (s, ctx) => chainVisual(s, ctx),
-    flowchart: (s, ctx) => flowVisual(s, ctx),
   },
   tools: {
     plane: { make: () => createPlaneTool(), title: (t) => planeTitle(toolPlane(t)), short: () => 'Two readings' },
-    chain: { make: () => createChainTool(), title: () => 'How it happens', short: () => 'How it happens' },
-    flowchart: { make: () => createFlowTool(), title: (t) => (flowOf(t.flow ?? 'csph') === flowOf('csph') ? 'Baveno VIII: stiffness and platelets' : 'Where the case goes'), short: () => 'The guideline' },
   },
   columns: { spent: spentColumn, wave: waveColumn },
 };

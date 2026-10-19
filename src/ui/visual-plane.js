@@ -18,7 +18,7 @@
 import { h, fmt, clamp } from './util.js?v=8813192ea2';
 import { TILE } from './table-marks.js?v=810c0a1575';
 
-// ── Conditions: [key, op, value], all of which must hold (shared with the flowchart, visual-chain.js) ──
+// ── Conditions: [key, op, value], all of which must hold ──
 const OPS = { '<': (a, b) => a < b, '<=': (a, b) => a <= b, '>': (a, b) => a > b, '>=': (a, b) => a >= b };
 /** True when every condition holds for the values in f; an unknown key or op fails it, an empty list holds. */
 export function holds(when, f) {

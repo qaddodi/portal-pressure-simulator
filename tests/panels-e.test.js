@@ -1,5 +1,5 @@
-// Deck visuals, package E (review/deck-visuals-recs.md §9): the plane's zones (V28), the mechanism chain (V31), the guideline
-// flowchart (V17), where the gradient is spent (V30) and the small Doppler traces (V16). The drawing needs a browser; what decides
+// Deck visuals, package E (review/deck-visuals-recs.md §9): the plane's zones (V28), where the gradient is spent (V30) and the
+// small Doppler traces (V16). The drawing needs a browser; what decides
 // a zone, a branch, a place, a size or a part is pure and checked here, with the model's own numbers.
 import './dom-shim.js';
 import { test } from 'node:test';
@@ -8,15 +8,16 @@ import { readFileSync } from 'node:fs';
 import { EXT } from '../src/ui/slide-ext.js';
 import { DECKS } from '../src/ui/decks.js';
 import { holds, rangeOf, planeOf, zoneOf, zoneRect, PLANES, fitWords, placeNames, est, frame, scaler, lineBoxes, crosses } from '../src/ui/visual-plane.js';
-import { chainSteps, litSet, stepValue, FLOWS, flowOf, flowPath, flowLeaves } from '../src/ui/visual-chain.js';
 import { spentOf, spentScale, PARTS, TOP_MIN } from '../src/ui/col-spent.js';
 import { wavePath, waveVessel } from '../src/ui/col-wave.js';
 import { deckStates, runSteps } from './deck-states.js';
 import { createCore } from '../src/worker-core.js';
 
 test('package E registers its visuals, instruments and columns', () => {
-  for (const v of ['plane', 'chain', 'flowchart']) assert.equal(EXT.owner.visuals[v], 'E', `visual ${v}`);
-  for (const t of ['plane', 'chain', 'flowchart']) assert.equal(EXT.owner.tools[t], 'E', `tool ${t}`);
+  assert.equal(EXT.owner.visuals.plane, 'E');
+  assert.equal(EXT.owner.tools.plane, 'E');
+  // (The chain and the guideline flowchart were taken out at Mohammad's word, 19 Oct.)
+  for (const k of ['chain', 'flowchart']) assert.ok(!(k in EXT.owner.visuals) && !(k in EXT.owner.tools), k);
   for (const c of ['spent', 'wave']) assert.equal(EXT.owner.columns[c], 'E', `column ${c}`);
   assert.equal(EXT.tools.plane.title({ kind: 'plane' }), 'Stiffness and platelets');
   assert.equal(EXT.tools.plane.title({ kind: 'plane', plane: 'hvpg-ppg' }), 'HVPG and PPG');
@@ -101,35 +102,6 @@ test('words fit whole or not at all, and names never overlap one another or leav
     for (const p of pts) assert.ok(!(a[0] < p.x + 10 && a[2] > p.x - 10 && a[1] < p.y + 10 && a[3] > p.y - 10), 'no name covers a point');
   }
   assert.ok(est('abc', 10) > 0);
-});
-
-test('the chain takes three to six steps, lit counted from 1, with values as their tiles print them', () => {
-  assert.deepEqual(chainSteps([['Scarred liver'], ['Portal pressure', 'pv'], 'Collaterals open', { t: 'Blood around the liver', key: 'shunt' }, [''], null]),
-    [{ t: 'Scarred liver', key: null }, { t: 'Portal pressure', key: 'pv' }, { t: 'Collaterals open', key: null }, { t: 'Blood around the liver', key: 'shunt' }]);
-  assert.equal(chainSteps(Array.from({ length: 9 }, (_, i) => [`s${i}`])).length, 6);
-  assert.deepEqual([...litSet(2, 4)], [1]);
-  assert.deepEqual([...litSet([1, 4, 9, 0], 4)], [0, 3]);
-  assert.deepEqual(stepValue('pv', { pv: 18.24 }), { text: '18.2 mmHg', dir: 2, rate: 'hi' });
-  assert.deepEqual(stepValue('shunt', { shunt: 0.42 }), { text: '42%', dir: 2, rate: 'hi' });
-  assert.equal(stepValue('pv', { pv: null }), null);
-});
-
-test('the flowchart lights the branch each compensated patient takes', async () => {
-  const tree = flowOf('csph');
-  assert.equal(tree, FLOWS.csph);
-  assert.equal(flowLeaves(tree), 4);
-  const leaf = (f) => flowPath(tree, f).at(-1).t;
-  assert.equal(leaf({ lsm: 12, plt: 180 }), 'No screening scope; repeat both every year');
-  assert.equal(leaf({ lsm: 26, plt: 180 }), 'Beta-blocker, carvedilol preferred; no screening scope');
-  assert.equal(leaf({ lsm: 18, plt: 160 }), 'No screening scope', 'the gray zone under 20 with 150 or more');
-  assert.equal(leaf({ lsm: 18, plt: 120 }), 'Screening scope, unless on a beta-blocker');
-  assert.equal(leaf({ lsm: 21, plt: 160 }), 'Screening scope, unless on a beta-blocker');
-  assert.deepEqual(flowPath(tree, null), [tree], 'no case: nothing past the start is lit');
-  assert.ok(/^Baveno VIII /.test(tree.source) && !/Baveno VII\b/.test(JSON.stringify(FLOWS)));
-  const [csph] = await runSteps([{ preset: 'csph' }]);
-  assert.equal(flowPath(tree, csph)[1].t, 'Gray zone');
-  assert.equal(flowOf({ t: 'Mine', then: [] }).t, 'Mine');
-  assert.equal(flowOf(42), null);
 });
 
 test('where the gradient is spent: the parts add up, and on each level of Sites and causes the longest names it', async () => {
