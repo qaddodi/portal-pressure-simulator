@@ -3030,20 +3030,12 @@ button.finding { cursor: pointer; }
 
 /* ── Pressure over time ─────────────────────────── */
 .instrument-view.pt { display: flex; flex-direction: column; align-items: stretch; gap: 10px; min-height: 100%; }
-/* One row: HVPG, its number, the status over its trend, then Smooth and the range switch at the right. Where the
-   Tests card is too narrow for that (under 500 px inside), the switches move together to a second row, still at the
-   right. The choice follows the card's width only, never the words, so the header never jumps between the two. */
-.pt-head { display: flex; align-items: center; justify-content: space-between; gap: 8px 10px; flex-wrap: wrap; }
+/* The header is one row on every screen: HVPG, its number, and the status over its trend. Smooth and the range switch
+   sit with the trace pills under the chart, together at the right end of the pills' last line (they wrap, never scroll). */
+.pt-head { display: flex; align-items: center; gap: 8px; }
 .pt-hero { display: flex; align-items: baseline; gap: 6px 8px; flex-wrap: wrap; min-width: 0; }
 .pt-st { display: flex; flex-direction: column; align-self: center; gap: 2px; }
 .pt-ctl { display: flex; align-items: center; gap: 6px; flex: none; margin-left: auto; }
-@container tpane (max-width: 499.98px) { .pt-hero { flex-basis: 100%; } }
-@container tpane (min-width: 500px) {
-  .pt-head, .pt-hero { flex-wrap: nowrap; }
-  .pt-hero { flex: 0 1 auto; }
-  .pt-sev { white-space: nowrap; }
-  .pt-st { flex: 0 1 auto; min-width: calc(8.75 * var(--fs-12)); }   /* (room for "▲ 10.4 in 2 min" as the digits change; a longer trend, "Steady since day 730", wraps between words under it) */
-}
 .pt-k { font-size: var(--fs-12); font-weight: 600; color: var(--text-3); letter-spacing: .02em; }
 .pt-v { display: inline-flex; align-items: baseline; gap: 4px; }
 .pt-num { font-size: var(--fs-28); font-weight: 600; letter-spacing: -.02em; line-height: 1; color: var(--text); font-variant-numeric: tabular-nums; }
@@ -3054,9 +3046,9 @@ button.finding { cursor: pointer; }
 .pt-delta { font-size: var(--fs-12); line-height: 1.2; color: var(--text-3); font-variant-numeric: tabular-nums; min-width: min-content; min-height: 1.2em; }   /* (never cut with an ellipsis; its line is kept while it is empty, so the header never jumps) */
 .pt-delta[data-dir="up"] { color: var(--danger); }
 .pt-delta[data-dir="down"] { color: var(--ok); }
-.pt-range { flex: none; }
+.pt-range { flex: none; height: 28px; padding-block: 2px; }
 .pt-smooth { flex: none; }
-.pt-range button { min-height: 30px; padding-inline: 8px; }
+.pt-range button { min-height: 0; padding-block: 0; padding-inline: 10px; font-size: var(--fs-12); }   /* (the pill fills the track at the pills' height; a touch screen's 36 px button floor would push it below them) */
 .instrument-workspace .instrument-view.pt .pt-box { flex: 1 1 0; height: auto; min-height: 180px; }
 .pt-box canvas { touch-action: pan-y; cursor: crosshair; }
 .pt-chips { display: flex; gap: 6px; flex-wrap: wrap; flex: none; }
@@ -3068,7 +3060,6 @@ button.finding { cursor: pointer; }
 @media (hover: hover) { .pt-chip:hover { border-color: var(--border-strong); } }
 @media (max-width: 767px), (max-width: 1100px) and (orientation: portrait) {
   .pt-num { font-size: var(--fs-28); }
-  .pt-range button { min-height: 28px; }
 }
 
 /* ── Doppler ────────────────────────────────────── */
@@ -4714,9 +4705,8 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
   .instrument-workspace.float-ui .dock-pane .instrument-view > .chart-box:not(.square) { min-height: 100px; }
   .instrument-workspace .pt-chips { gap: 4px; }
   .instrument-workspace .pt-chips .pt-chip { height: 24px; padding: 0 7px; gap: 4px; font-size: var(--fs-12); }
-  .instrument-workspace .pt-head { row-gap: 4px; }
-  .instrument-workspace .pt-head :is(.pt-range, .pt-smooth) { height: 28px; }
-  .instrument-workspace .pt-head .pt-range button { min-height: 0; padding-block: 0; }   /* (the pill fills its 28 px track, centred like the view switch above it; a touch screen's 36 px floor pushed it below) */
+  .instrument-workspace .pt-chips .pt-range { height: 24px; }   /* (as tall as the pills beside it) */
+  .instrument-workspace .pt-chips .pt-range button { padding-inline: 8px; }
 }
 /* Tests card: each picture keeps its own shape (Doppler and HVPG wide, FibroScan square). Its box takes the
    shape's height and gives some back if the card is short; the picture fits inside, centred, never stretched. */

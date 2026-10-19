@@ -43,7 +43,7 @@ export function createPressureTime({ marks = () => [] } = {}) {
   const heroVal = h('b', { class: 'pt-num' }, '—');
   const heroSev = h('span', { class: 'pt-sev' });
   const heroDelta = h('span', { class: 'pt-delta' });
-  // The status and its trend stack beside the number, so the header (with Smooth and the range switch) keeps to one row.
+  // The header is one row on every screen: HVPG, the number, and the status over its trend.
   const hero = h('div', { class: 'pt-hero' }, h('span', { class: 'pt-k' }, 'HVPG'), h('span', { class: 'pt-v' }, heroVal, h('small', {}, 'mmHg')), h('span', { class: 'pt-st' }, heroSev, heroDelta));
   let range = 'beats', userRange = 'beats';
   const rangeSeg = h('div', { class: 'seg pt-range', role: 'group', 'aria-label': 'Time range' }, RANGES.map(([id, label]) =>
@@ -66,7 +66,9 @@ export function createPressureTime({ marks = () => [] } = {}) {
   const smoothBtn = h('button', { class: 'pt-chip pt-smooth', 'aria-pressed': 'false', title: 'Show the mean: hide beat-to-beat and breathing variation', onclick: () => {
     smooth = !smooth; yr.pressure = yr.hvpg = null; smoothBtn.setAttribute('aria-pressed', String(smooth)); draw();
   } }, 'Smooth');
-  const el = h('div', { class: 'pt' }, h('div', { class: 'pt-head' }, hero, h('div', { class: 'pt-ctl' }, smoothBtn, rangeSeg)), box, chips);
+  // Smooth and the range switch sit with the trace pills under the chart, together at the right end of the pills' last line.
+  chips.append(h('div', { class: 'pt-ctl' }, smoothBtn, rangeSeg));
+  const el = h('div', { class: 'pt' }, h('div', { class: 'pt-head' }, hero), box, chips);
 
   function setRange(id) {
     range = id;

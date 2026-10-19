@@ -7,7 +7,7 @@ import { createStage } from './stage.js?v=10b769de96';
 import { createCreditPlacer } from './credit.js?v=6c9e659d24';
 import { sinusoidSupported } from './sinusoid-view.js?v=5ed05c2ec4';
 import { createInspector } from './inspector.js?v=1e661083c1';
-import { createDock, CUTOFFS } from './dock.js?v=10594c6788';
+import { createDock, CUTOFFS } from './dock.js?v=c5461b99cc';
 import { setHvpgStage } from './hvpg-proc.js?v=9c37eeb7dc';
 import { createWhy } from './why.js?v=9bfb829f51';
 import { createTimeline, LAPSES } from './timeline.js?v=bfc1b503cf';
@@ -166,7 +166,7 @@ async function main() {
   dock = createDock({ strip: $('#strip'), head: $('#dockHead'), body: $('#dockBody'), onWhy: (m, el) => why.open(m, el), onAction: doAction, onProbe: (id) => { host.send({ type: 'probe', id }); logAction('probe', id); }, onReveal: revealDock, onLobule: () => zoomLobule('R'),
     onOpen: () => openPanel('instruments'), onClose: () => setPanelTab('chart'), onLayout: () => syncDoppler(), isVisible: () => app.classList.contains('dock-open'),
     marks: () => timeline.entries(), onBeat: () => sendBeat() });
-  presenterL = lazy(() => import('./presenter.js?v=dc7ea6c75d'), ({ createPresenter }) => createPresenter({ openSettings, loadPreset, updateParams, host, stage, dock, action: doAction,
+  presenterL = lazy(() => import('./presenter.js?v=36950e5cf3'), ({ createPresenter }) => createPresenter({ openSettings, loadPreset, updateParams, host, stage, dock, action: doAction,
     projectorOn: () => { if (!projector) toggleProjector(); }, projectorOff: () => { if (projector) toggleProjector(); },
     closeHome: () => mainMenu.close(), stashCards, rerenderHome: () => mainMenu.render() }));
   mainMenu = createMenu({

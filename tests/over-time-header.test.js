@@ -3,24 +3,26 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { wrapLabel } from '../src/ui/wrap-label.js';
 
-// Tests > Pressure > Over time: the header (HVPG, its status and trend, Smooth, the 10 s / 2 min / Days switch) keeps
-// to one row wherever the card has room, and a long event label on the chart wraps instead of ending in "…".
+// Tests > Pressure > Over time: the header (HVPG, its number, the status over its trend) is one row on every screen,
+// with Smooth and the 10 s / 2 min / Days switch beside the trace pills, and a long event label wraps instead of ending in "…".
 
 const read = (p) => readFileSync(new URL(p, import.meta.url), 'utf8');
 const css = read('../styles/app.css'), src = read('../src/ui/pressure-time.js');
 
-test('the status stacks over its trend, and Smooth and the range switch move as one group', () => {
+test('the header holds only the readout; Smooth and the range switch sit with the trace pills', () => {
   assert.match(src, /h\('span', \{ class: 'pt-st' \}, heroSev, heroDelta\)/);
-  assert.match(src, /h\('div', \{ class: 'pt-ctl' \}, smoothBtn, rangeSeg\)/);
+  assert.match(src, /chips\.append\(h\('div', \{ class: 'pt-ctl' \}, smoothBtn, rangeSeg\)\)/);
+  assert.match(src, /h\('div', \{ class: 'pt-head' \}, hero\)/);
 });
 
-test('the header takes one row on a card 500 px wide or more, two only below that, chosen by width alone', () => {
-  const wide = css.match(/@container tpane \(min-width: 500px\) \{([\s\S]*?)\n\}/)[1];
-  assert.match(wide, /\.pt-head, \.pt-hero \{ flex-wrap: nowrap; \}/);
-  assert.match(wide, /\.pt-sev \{ white-space: nowrap; \}/);
-  assert.doesNotMatch(wide, /ellipsis|overflow: hidden/);
-  assert.match(css, /@container tpane \(max-width: 499\.98px\) \{ \.pt-hero \{ flex-basis: 100%; \} \}/);
-  assert.doesNotMatch(css, /@media[^{]*\{\s*\.pt-num[^}]*\}\s*\.pt-hero \{ flex-basis: 100%; \}/, 'a screen-size rule forces two rows again');
+test('the pills row wraps and never scrolls; the switches end it at the pills\' height', () => {
+  const chips = css.match(/^\.pt-chips \{[^}]*\}/m)[0];
+  assert.match(chips, /flex-wrap: wrap/);
+  assert.doesNotMatch(chips, /overflow/);
+  assert.match(css, /^\.pt-ctl \{[^}]*margin-left: auto;[^}]*\}/m);
+  assert.match(css, /^\.pt-range \{[^}]*height: 28px;/m);
+  assert.match(css, /^\.pt-range button \{ min-height: 0;/m, 'a touch screen\'s 36 px button floor pushes the switch below the pills again');
+  assert.doesNotMatch(css, /\.pt-head :is\(\.pt-range, \.pt-smooth\)/);
   // A slide's trace keeps its own header: no switches, the status a grid item as before.
   assert.ok(css.includes('.pz-tool .pt-ctl { display: none; } .pz-tool .pt-st { display: contents; }'));
 });
