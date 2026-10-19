@@ -33,10 +33,11 @@ import { hashSeed, clotSide, clotSpan, clotRadius, clotShift, clotLayers, CLOT_E
 import { leaderEnd as edgeOf, leaderEndRects as edgeOfRects } from './leader-end.js?v=8e884700ab';
 import { balloonRy, balloonOutline, routeRadii } from './hvpg-balloon.js?v=35d7bb162c';
 import { outlineBox, placeSummary } from './cath-place.js?v=b5835a19ca';
-import { layoutWatch } from './idle-keys.js?v=27f599b5bc';
+import { layoutWatch } from './idle-keys.js?v=ea36a0b5c6';
 import { writeGlowTexels } from './glow-texels.js?v=e578794a92';
 import { SIN_PERFUSION, sinStrandRadius } from './sin-perfusion.js?v=25a8407fdd';
 import { wavePacks, paintWave } from './scan-waves.js?v=066db7aa38';
+import { probePose, probeShapes, awayFromProbe, PROBE_SVG } from './dop-probe.js?v=5019f697af';
 import { organDimMatrix } from './organ-dim.js?v=7888276613';
 import { parseColor, greyOf, paintRef } from './organ-grey.js?v=e41d68222c';
 import { bandRing, dashRings, liftEnd, normalShown, rippleList, systemOf, SYSTEM_COLOR } from './highlight-math.js?v=e2c1816e25';
@@ -1162,10 +1163,13 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // The watched vessels (REVERSAL_WATCH) whose flow runs against its healthy direction, as shown: their stations' value
   // pills carry ⟲. In an imaging case it waits, as the blood does, until a Doppler has looked at the flow.
   const revShown = new Set();
-  // The Doppler's vessel glows in the Doppler's green while its instrument is open; on a stent, only the third its gate samples.
+  // The Doppler's vessel glows (--dop-glow: white on the dark themes, ink on the light ones; 19 Oct, it was the Doppler's green, which
+  // reads as "normal") while its instrument is open; on a stent, only the third its gate samples. The probe looks at it (dprobePaint).
   // (points: a slide's Doppler on a stent shows a callout at each of its three points, not just the sampled one.)
   const dop = { id: null, want: null, pin: null, key: '', seg: '', points: false, all: false };
   const dopGateOf = (id) => (dop.id === id && dop.seg ? dop.seg : '');   // the third of a stent the Doppler samples ('' when it is elsewhere)
+  // The Doppler probe on the figure (dprobePaint): live once the stage is built (dopApply runs before its pieces exist).
+  const dpr = { el: null, on: false, key: '', side: 0, box: null, swap: 0, shapes: '', at: '', ready: false };
   function dopApply() {
     let id = dop.pin ?? dop.want ?? null;
     if (id && !E[id]) id = null;
@@ -1174,7 +1178,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (key === dop.key) return;
     dop.id = id; dop.key = key; dop.seg = seg; dop.all = all;
     // (On top of every vessel it crosses, as a glow should lie (18f2e33): the stent's lit third over the hepatic vein above it, Review 15 Oct.)
-    setGlowSrc('dop', id ? [{ id, col: 'var(--doppler)', amt: 1.1, wide: 0.8, dur: 360, top: true, span: seg ? STENT_SPANS[seg] : null }] : []);
+    setGlowSrc('dop', id ? [{ id, col: 'var(--dop-glow)', amt: 1.1, wide: 0.8, dur: 360, top: true, span: seg ? STENT_SPANS[seg] : null }] : []);
+    dprobePaint();
   }
   // A presenter slide's glows (glow: [...] and its terms' vessels), each in its station's colour. Slide, focus and
   // Doppler glows are a slim, soft band (smaller than a hover's), so they mark the vessel without swamping it.
@@ -1251,6 +1256,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (cath.st) cathLabels();
     if (sites.list) sitesPaint();
     if (scan.on) scanPaint();
+    dprobePaint();
     onViewChange?.();
   }
   applyVT();
@@ -1852,6 +1858,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       if (cath.st) { refreshCTM(); cathLabels(); if (drawVeins()) drawnView = viewVersion; }
       if (sites.list) { refreshCTM(); sitesPaint(); }
       if (scan.on) scanPaint();
+      dprobePaint();
       if (u < 1) vtAnim = nextFrame(step); else { vtGliding = false; camSettle(); }
     };
     vtAnim = nextFrame(step);
@@ -5182,6 +5189,68 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (scan.raf) { cancelFrame(scan.raf); scan.raf = 0; }
     if (el) { el.classList.add('cath-pre'); setTimeout(() => { el._glass?.dispose(); el.remove(); }, 500); }
   }
+  // ── The Doppler probe (dop-probe.js) ──
+  // While the Doppler reads a vessel, a small probe stands off it and looks at it along a narrow beam, and the sample gate sits
+  // across the beam in the middle of the lumen: the vessel's middle (where its callout points), or a stent's sampled third. It
+  // follows the camera with the labels; it fades out while the views morph and in the liver's own views. A new vessel or third, or
+  // a card making it change sides, fades it out where it stood and back in at its new place (nothing jumps).
+  let dprCardsList = [], dprCardsAt = -1e9;
+  // The cards and bars it keeps off: the slide's cards, and the docked instruments and bars. Read at most four times a second, and
+  // only while one may have moved (layoutWatch), as the labels' blockers are: each read forces a layout among the model's frames.
+  const dprStale = () => { dprCardsAt = -1e9; };
+  addEventListener('pps:occ', dprStale);
+  addEventListener('resize', dprStale);
+  function dprCards() {
+    const now = performance.now();
+    if (dprCardsAt > 0 && !(now - dprCardsAt > 250 && watch.due())) return dprCardsList;
+    dprCardsAt = now;
+    const wr = wrap.getBoundingClientRect();
+    dprCardsList = [...scanCards(), ...[...document.querySelectorAll('[data-safe], .stage-blocker:not([hidden])')].map((el) => {
+      if (el.hidden || el.closest('[hidden]') || el.classList.contains('card-leaving') || el.classList.contains('vd-out')) return null;
+      const q = el.getBoundingClientRect();
+      return q.width && q.height ? { x0: q.left - wr.left - 6, y0: q.top - wr.top - 6, x1: q.right - wr.left + 6, y1: q.bottom - wr.top + 6 } : null;
+    }).filter(Boolean)];
+    return dprCardsList;
+  }
+  function dprobePaint() {
+    if (!dpr.ready) return;
+    const st = store.get(), id = dop.id, pts = id && geo[id]?.cur;
+    const show = !!(pts?.length > 1 && E[id]?.vis && (morph < 0.01 || morph > 0.99) && !st.lobule && !st.sinusoid && !lz?.isOpen());
+    if (!show) {
+      if (dpr.on) { dpr.on = false; dpr.el.classList.add('off'); }
+      dpr.box = null; dpr.key = '';
+      return;
+    }
+    if (!dpr.el) {
+      const el = document.createElement('div');
+      el.className = 'dop-probe off'; el.setAttribute('aria-hidden', 'true'); el.innerHTML = PROBE_SVG;
+      sites.el.append(el); dpr.el = el; void el.offsetWidth;
+    }
+    if (dpr.swap) return;   // (fading out to move: it comes back at its new place)
+    const key = `${id}|${dop.seg}`, u = dop.seg ? STENT_SITES[dop.seg] : null;
+    const [wx, wy, tx, ty] = u == null ? arcMid(pts) : pointAt(pts, u);
+    const [gx, gy] = worldToLocal(wx, wy), [ax, ay] = worldToLocal(wx + tx, wy + ty);
+    const r = cathRadOf(id, u ?? 0.5) * (CTM?.sc || 1);
+    const pose = probePose({ g: [gx, gy], t: [ax - gx, ay - gy], r, away: awayFromProbe(id), w: wrapRect.width, h: wrapRect.height, cards: dprCards(), keep: key === dpr.key ? dpr.side : 0 });
+    if (dpr.on && (key !== dpr.key || pose.side !== dpr.side)) {
+      dpr.on = false; dpr.box = null; dpr.el.classList.add('off');
+      dpr.swap = setTimeout(() => { dpr.swap = 0; dpr.key = ''; dprobePaint(); }, reduceMotion.matches ? 0 : 380);
+      return;
+    }
+    const sh = `${Math.round(pose.D)}|${Math.round(r * 2)}`;
+    if (sh !== dpr.shapes) {
+      dpr.shapes = sh;
+      const p = probeShapes(pose.D, r), q = (c) => dpr.el.querySelector(c);
+      q('.dpr-beam').setAttribute('d', p.beam); q('.dpr-gate').setAttribute('d', p.gate); q('.dpr-gate-rim').setAttribute('d', p.gate); q('.dpr-head').setAttribute('transform', p.head);
+    }
+    const at = `translate(${gx.toFixed(1)}px, ${gy.toFixed(1)}px)|rotate(${pose.ang.toFixed(2)})`;
+    if (at !== dpr.at) {
+      dpr.at = at; const [tr, ro] = at.split('|');
+      dpr.el.style.transform = tr; dpr.el.querySelector('.dpr-rot').setAttribute('transform', ro);
+    }
+    dpr.key = key; dpr.side = pose.side; dpr.box = pose.box;
+    if (!dpr.on) { dpr.on = true; dpr.el.classList.remove('off'); }
+  }
   const CATH_IDS = ['SVC_RA', 'IVCS_RA', 'RHV_IVC', 'POST_R_RHV'];   // (and down the IVC_IS to the hepatic vein)
   const lenTo = (pts) => { const c = [0]; for (let i = 1; i < pts.length; i++) c.push(c[i - 1] + Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1])); return c; };
   /** The part of a polyline from length a to length b (cumulative lengths in cum). */
@@ -6313,12 +6382,14 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const out = [];
     for (const el of sites.made.values()) if (el._box && !el.classList.contains('cath-pre')) out.push(el._box);
     if (cath.made && !cath.labels.hidden) for (const el of cath.made.values()) if (el._box) out.push(el._box);
+    if (dpr.on && dpr.box) out.push(dpr.box);   // (the Doppler probe's body)
     return out;
   }
   // What the labels' slots depend on: which readings show and how big they are (where they stand follows the camera, which
   // the labels' own key already holds). A new or resized reading lays the labels out afresh, so one under it moves aside.
   const calloutSig = () => [...sites.made.values(), ...(cath.made && !cath.labels.hidden ? cath.made.values() : [])]
-    .map((el) => el._box ? `${el.className}:${Math.round(el._box.x1 - el._box.x0)}x${Math.round(el._box.y1 - el._box.y0)}` : '').join('|');
+    .map((el) => el._box ? `${el.className}:${Math.round(el._box.x1 - el._box.x0)}x${Math.round(el._box.y1 - el._box.y0)}` : '').join('|')
+    + (dpr.on && dpr.box ? `|dpr:${Math.round((dpr.box.x1 - dpr.box.x0) / 8)}x${Math.round((dpr.box.y1 - dpr.box.y0) / 8)}` : '');
   function readBlockers() {
     const wr = stageBox();
     { const r = store.get().presenting && document.querySelector('.pz-bar.pzb-pill')?.getBoundingClientRect();
@@ -6483,6 +6554,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     }
     if (sites.list) sitesPaint();
     if (scan.on) scanPaint();
+    dprobePaint();
   }
   // The live values of the labels showing, rebuilt and written into their text in place. False when one
   // changed shape (a width, a run, a change badge): the caller then lays the labels out again.
@@ -8572,6 +8644,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     }
     return null;
   }
+
+  dpr.ready = true; dprobePaint();   // (a Doppler set while the stage was being built shows now)
 
   // ── Public API ────────────────────────────────────
   return {

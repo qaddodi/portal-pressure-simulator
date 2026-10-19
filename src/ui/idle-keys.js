@@ -39,7 +39,7 @@ export function netChanged(records) {
 export const PLACE_ATTRS = ['class', 'hidden', 'style', 'data-safe', 'data-safe-pad', 'data-safe-rest', 'data-full-h', 'data-folding', 'open'];
 // The pieces watched: what the home framing (data-safe, the zoom pill), the labels (stage blockers, the slide's glass) and the
 // corner credit (its obstacles) measure. (Base selectors, without a state like :not([hidden]): a piece leaving that state counts.)
-export const PLACED = '[data-safe], .stage-blocker, .pz-shade, #zoomPill, .pz-fk, .stage-clock, .menu, .umenu, .why-pop, .modal-back, .home, .scan-probe, .pz-prog, #topbar, #vdock';
+export const PLACED = '[data-safe], .stage-blocker, .pz-shade, #zoomPill, .pz-fk, .stage-clock, .menu, .umenu, .why-pop, .modal-back, .home, .scan-probe, .dop-probe, .pz-prog, #topbar, #vdock';
 
 /**
  * A watch over what measured layout depends on, so a check that reads boxes (forcing a layout in the middle of the model's

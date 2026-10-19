@@ -5,19 +5,19 @@ import { store, hiddenNow } from './store.js?v=31ee79b6ab';
 import { EDGES } from '../engine/topology.js?v=4044766e96';
 import { h, fmt, svgIcon, closePopover, clamp, shownOf, isPhoneLayout, swapFade, scrollBehavior, countTo, swapText, glideOnResize } from './util.js?v=8813192ea2';
 import { lobuleFlows } from './lobule-model.js?v=2d0d439b2b';
-import { createProfile } from './charts.js?v=6d5cf6368e';
-import { createPressureTime } from './pressure-time.js?v=63245ce098';
-import { createFibroScan } from './fibroscan.js?v=7a27b85585';
-import { createHvpgProcedure } from './hvpg-proc.js?v=e37cb3f5c2';
-import { createDoppler } from './doppler.js?v=f848e8309e';
+import { createProfile } from './charts.js?v=9de61ba182';
+import { createPressureTime } from './pressure-time.js?v=1786166426';
+import { createFibroScan } from './fibroscan.js?v=ba32d76686';
+import { createHvpgProcedure } from './hvpg-proc.js?v=f65e2940df';
+import { createDoppler } from './doppler.js?v=2039759812';
 import { ownsSideways, pageGo } from './swipe.js?v=60b2fc909b';
-import { createEndoscopy, createVarixWall, createAbdomen } from './instruments.js?v=eef5d2ff6a';
+import { createEndoscopy, createVarixWall, createAbdomen } from './instruments.js?v=388c89d286';
 import { createReadoutsPane } from './readouts-pane.js?v=72d4398a2f';
 import { frameFor } from './frame.js?v=67ca200c87';
 import { vitalReading } from './vital-read.js?v=e902fb66cd';
 import { setShown } from './shown.js?v=82ef5e29ec';
 import { tenthGap } from '../engine/gap.js?v=3a5947c552';
-import { compareRows } from './idle-keys.js?v=27f599b5bc';
+import { compareRows } from './idle-keys.js?v=ea36a0b5c6';
 const nextFrame = frameFor('dock');
 
 // A number that changes rewrites its text node in place (setting textContent replaces the node: a DOM rebuild per paint).

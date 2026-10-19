@@ -59,7 +59,7 @@ export const TIPS_DOPPLER = {
       ask: ['When is the baseline TIPS Doppler done?', 'In the first weeks after the stent is placed; every later scan is compared with it.'],
     },
     {
-      // The gate moves along the stent with the buttons; its third glows in the Doppler's green.
+      // The gate moves along the stent with the buttons; its third glows (white on the dark themes) and the probe's gate sits on it.
       id: 'jet', cam: 'liver', lens: 'velocity', mark: { edges: ['TIPS'], label: 'Covered stent', kind: 'treat' }, tool: { kind: 'doppler', vessel: 'TIPS', gate: 'mid', points: true },
       compare: [{ label: 'Proximal', gate: 'proximal' }, { label: 'Mid', gate: 'mid', own: true }, { label: 'Distal', gate: 'distal' }],
       kicker: 'A working TIPS', title: 'The stent is sampled at three points',

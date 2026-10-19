@@ -2,7 +2,7 @@
 // It keeps its corner while that corner stays free and is never animated (no glide, no fade): any move hides it at once,
 // holds it hidden only until the cards have settled (a slide change lifts its hold 120 ms after the camera move; a move off a spot a card now covers is hidden for 80 ms), then shows it at once at the new spot; with no figure left anywhere it stays hidden.
 import { frameFor } from './frame.js?v=67ca200c87';
-import { layoutWatch } from './idle-keys.js?v=27f599b5bc';
+import { layoutWatch } from './idle-keys.js?v=ea36a0b5c6';
 const nextFrame = frameFor('credit');
 
 // Corners in order of preference. A bottom corner rises above whatever covers it (up to the middle of the figure);
@@ -116,8 +116,8 @@ export function pickCorner(spots, cur, blocked = {}) {
 }
 
 // What the credit keeps clear of. Chrome (the bars, the zoom pill, the figure's labels) is avoided but does not make the screen "busy".
-export const OBSTACLES = '.stage-blocker:not([hidden]), .pz-fk:not([hidden]), .stage-clock, .menu, .umenu:not(.out), .why-pop.show, .modal-back.show, .home:not([hidden]), .scan-probe:not(.off) .sp-body, .pz-shade, .pz-prog';   // (the FibroScan probe's body carries its reading; it counts as chrome below)
-export const CHROME = '#topbar, .pz-fk, #vdock, #zoomPill, #sinViews, .stage-clock, .pz-bar, .scan-probe:not(.off) .sp-body, .pz-prog';   // (.pz-prog: a slide's progress line along the bottom edge)   // (the FibroScan probe: its body carries the reading)
+export const OBSTACLES = '.stage-blocker:not([hidden]), .pz-fk:not([hidden]), .stage-clock, .menu, .umenu:not(.out), .why-pop.show, .modal-back.show, .home:not([hidden]), .scan-probe:not(.off) .sp-body, .dop-probe:not(.off) .dpr-body, .pz-shade, .pz-prog';   // (the FibroScan probe's body carries its reading; it counts as chrome below)
+export const CHROME = '#topbar, .pz-fk, #vdock, #zoomPill, #sinViews, .stage-clock, .pz-bar, .scan-probe:not(.off) .sp-body, .dop-probe:not(.off) .dpr-body, .pz-prog';   // (.pz-prog: a slide's progress line along the bottom edge)   // (the FibroScan probe: its body carries the reading)
 
 // The figure's own labels (station values, organ captions) and measuring callouts: each one's text and pill, padded and snapped outward to a small
 // grid, so a label that jitters by a pixel as its number changes does not read as a move.
