@@ -5,6 +5,7 @@
 import { h, fmt, clamp } from './util.js?v=8813192ea2';
 import { traceLabel, traceLabelRoom } from './trace-labels.js?v=fc916a95c6';
 import { frameFor } from './frame.js?v=67ca200c87';
+import { bandKeys, bandRuns, bandSpan, namePlaces } from './rx-bands.js?v=8d25daa2c6';
 const nextFrame = frameFor('presenter-tools');
 
 // ── The talk so far: PV, WHVP and FHVP at each state, the HVPG in its own lane with its cut-offs ──
@@ -20,10 +21,11 @@ export function talkTrace() {
   // Drawn at the card's own pixels (one unit a CSS pixel) and its one small size, so the words never scale with the card:
   // the card's fit sets the chart's height (styles/app.css .pz-talk) and only the plot gets shorter.
   const el = h('div', { class: 'pz-talk' });
-  let chain0 = null, size = '';
+  let chain0 = null, size = '', bands = [];   // (bands: the treatments the slide shades, rx-bands.js; none on a built-in deck)
   const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(() => { if (chain0 && `${el.clientWidth}x${el.clientHeight}` !== size) draw(chain0, false); }) : null;
   ro?.observe(el);
   function set(chain) { chain0 = chain; draw(chain, true); }
+  function configure(t) { bands = bandKeys(t); }
   function draw(chain, fade) {
     const W = el.clientWidth || 520, HT = el.clientHeight || 420, fs = parseFloat(getComputedStyle(el).fontSize) || 12, L = Math.ceil(3.3 * fs) + 8;
     size = `${W}x${HT}`;
@@ -50,7 +52,16 @@ export function talkTrace() {
       const half = whenW(pts[i]) / 2;
       if (X(i) + half + 8 <= edge && X(i) - half >= 0 && !(i < last && pts[i].when && pts[i].when === pts[i + 1]?.when)) { named.add(i); edge = X(i) - half; }
     }
-    const svg = sv('svg', { viewBox: `0 0 ${W} ${HT}`, role: 'img', 'aria-label': 'Pressures over the talk so far: ' + pts.map((p) => `${p.when || `slide ${p.n}`}${p.tick ? `, ${p.tick}` : ''}, PV ${fmt(p.fp.pv, 0)}, HVPG ${fmt(p.fp.hvpg, 1)}`).join('; ') },
+    // Behind everything, a soft band over the time points while each treatment was on, named once at its start between the
+    // two lanes (clear of the 45° event words over the top and of the HVPG lane's own name).
+    const runs = bands.length ? bandRuns(pts.map((p) => p.params), bands) : [], spans = runs.map((r) => bandSpan(r, pts.length, X, L, R));
+    const at = namePlaces(spans, runs.map((r) => r.name), (t) => t.length * 0.6 * fs, { ends0: [L + 4 * 0.75 * fs], maxX: R });   // (inside the plot: the line names sit right of it)
+    const bandEls = runs.map((r, k) => sv('g', { class: 'ptk-band', 'data-rx': r.key, style: `--rx: var(${r.tone})` },
+      sv('rect', { x: spans[k][0], width: Math.max(2, spans[k][1] - spans[k][0]), y: T - fs - 8, height: B2 + 4 - (T - fs - 8) }),
+      sv('text', { x: at[k].x, y: T2 - 8 - at[k].row * (fs + 4) }, r.name)));
+    const svg = sv('svg', { viewBox: `0 0 ${W} ${HT}`, role: 'img', 'aria-label': 'Pressures over the talk so far: ' + pts.map((p) => `${p.when || `slide ${p.n}`}${p.tick ? `, ${p.tick}` : ''}, PV ${fmt(p.fp.pv, 0)}, HVPG ${fmt(p.fp.hvpg, 1)}`).join('; ')
+      + runs.map((r) => `. ${r.name} from ${pts[r.i0].when || `slide ${pts[r.i0].n}`}`).join('') },
+      bandEls,
       Array.from({ length: pMax / gStep + 1 }, (_, k) => sv('g', { class: 'ptk-grid' }, sv('line', { x1: L, x2: R, y1: Y(k * gStep), y2: Y(k * gStep) }), sv('text', { x: L - 8, y: Y(k * gStep) + 0.35 * fs, 'text-anchor': 'end' }, String(k * gStep)))),
       // The unit sits once at the top of each axis, above its numbers; the top lane needs no name, the HVPG lane keeps its own (nothing wedged under the event labels).
       sv('text', { class: 'ptk-unit', x: L - 8, y: T - 8, 'text-anchor': 'end' }, 'mmHg'),
@@ -74,5 +85,5 @@ export function talkTrace() {
     nextFrame(() => nextFrame(() => svg.classList.remove('in')));
     setTimeout(() => old.forEach((o) => o.remove()), 480);
   }
-  return { el, set, update() {}, clear() {} };
+  return { el, set, configure, update() {}, clear() {} };
 }

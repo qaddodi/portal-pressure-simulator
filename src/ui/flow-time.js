@@ -8,6 +8,7 @@
 // The same chart plots a disease time-lapse (clock 'days'): two of the slide's own readings, one point per model day from
 // day 0 to its last, drawn as it plays (Ascites builds: ascites over sinusoidal pressure; varices: varix over HVPG).
 import { frameFor } from './frame.js?v=67ca200c87';
+import { RX, bandKeys } from './rx-bands.js?v=8d25daa2c6';
 const nextFrame = frameFor('flow-time');
 
 // (No imports: the series and scales load in Node for the unit tests. Every value here is positive.)
@@ -85,6 +86,7 @@ export function createFlowTime() {
   const el = document.createElement('div');
   el.className = 'pz-flowtime';
   let ser = null, parts = null, shown = 0, goal = 0, raf = 0, sig = '', clock = 'meal', keys = MEAL_LINES, LINES = linesOf(keys);
+  let rx = [];   // (the treatments on through the slide's time-lapse that its tool shades, rx-bands.js; none on a built-in deck)
   const ax = () => ser?.ax || MINUTES;
   const Yof = (band, sc) => (v) => band[1] - (band[1] - band[0]) * clamp((v - sc.min) / (sc.max - sc.min), 0, 1);
   const val = (arr, m) => { const j = clamp(Math.floor(m - ax().from), 0, arr.length - 2); return arr[j] + (arr[j + 1] - arr[j]) * clamp(m - ax().from - j, 0, 1); };
@@ -97,7 +99,7 @@ export function createFlowTime() {
     // (Right of the plot: the upper line's numbers, and the clock's unit in capitals after half its last number.)
     const half = cw(`+${ax().end}`, f) / 2 + 6, L = Math.ceil(tw(ser.pScale) + 8), R = Math.floor(w - Math.max(tw(ser.fScale) + 8, half + (meal ? 3 : 4) * f * 0.78 + 4));
     // (Room over the plot for the "Fasting" and "Meal" row, else for the upper line's value over its head.)
-    const T = legH + (meal ? 1.9 * f : 1.9 * f), B = h - 1.7 * f, ph = Math.max(4 * f, B - T);
+    const T = legH + (meal ? 1.9 * f : 1.9 * f), B = h - 1.7 * f - (rx.length ? 1.45 * f : 0), ph = Math.max(4 * f, B - T);
     return { w, h, f, half, meal, keysL, oneRow, rowH, L, R, T, B, FB: [T, T + 0.36 * ph], PB: [T + 0.62 * ph, T + ph] };
   }
   const X = (m) => G.L + (G.R - G.L) * (m - ax().from) / (ax().end - ax().from);
@@ -134,8 +136,13 @@ export function createFlowTime() {
     // (The upper band's numbers shown in the right margin, as boxes a line's value keeps clear of.)
     const showF = shows(ser.fScale, lf.Y);
     const boxes = ser.fScale.ticks.flatMap((v, j) => (showF(j) ? [[R + 6, R + 6 + cw(fmt(v, dec(ser.fScale)), f), lf.Y(v) - 0.45 * f, lf.Y(v) + 0.55 * f]] : []));
+    // A treatment on through the whole time-lapse: a soft band behind the plot in its colour (the first's, when several), named
+    // once on a row of its own under the clock, so no line, value or number can run into the name.
+    const bandEls = rx.length ? sv('g', { class: 'pft-band', style: `--rx: var(${RX[rx[0]][2]})` },
+      sv('rect', { x: L, width: R - L, y: T, height: B - T }),
+      sv('text', { x: L, y: B + 2.65 * f }, rx.map((k, j) => sv('tspan', { style: `--rx: var(${RX[k][2]})` }, (j ? ' · ' : '') + RX[k][0])))) : null;
     const svg = sv('svg', { viewBox: `0 0 ${G.w} ${G.h}`, width: G.w, height: G.h, role: 'img', style: `font-size: ${G.f.toFixed(2)}px` },
-      grid(ser.fScale, lf.Y, R + 6, 'start', lf.c), grid(ser.pScale, lp.Y, L - 6, 'end', lp.c), legend,
+      bandEls, grid(ser.fScale, lf.Y, R + 6, 'start', lf.c), grid(ser.pScale, lp.Y, L - 6, 'end', lp.c), legend,
       sv('line', { class: 'pft-x', x1: L, x2: R, y1: B, y2: B }),
       mins.map((m) => sv('text', { class: 'pft-tk', x: X(m), y: B + 1.25 * f, 'text-anchor': 'middle' }, m > 0 ? `+${m}` : m < 0 ? `−${-m}` : '0')),
       sv('text', { class: 'ptk-ax', x: R + G.half, y: B + 1.25 * f }, meal ? 'min' : 'days'),
@@ -202,7 +209,7 @@ export function createFlowTime() {
      *  the one drawn). A new trail fades in over the old chart. */
     set(trail, k = 1, spec) {
       if (spec) { clock = spec.clock || 'meal'; keys = spec.lines || MEAL_LINES; el.classList.toggle('days', clock === 'days'); }
-      const s2 = trail === undefined ? sig : trail ? JSON.stringify([clock, keys, trail[0], trail.at(-1)]) : '';
+      const s2 = trail === undefined ? sig : trail ? JSON.stringify([clock, keys, trail[0], trail.at(-1), ...(rx.length ? [rx] : [])]) : '';
       if (s2 !== sig) {
         sig = s2; LINES = linesOf(keys); ser = flowTimeSeries(trail, clock, keys);
         const old = [...el.children];
@@ -218,6 +225,9 @@ export function createFlowTime() {
       goal = minuteOf(k);
       if (!raf) raf = nextFrame(tick);
     },
+    /** The slide's tool and context (presenter-tools.js show): bands names the treatments to shade, each shown when the
+     *  slide's state has it on (its time-lapse runs on the slide's own params). */
+    configure(t, ctx) { rx = bandKeys(t).filter((k) => RX[k][1](ctx?.params)); },
     update() {}, clear() {},
   };
 }
