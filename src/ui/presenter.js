@@ -34,7 +34,7 @@ import { traceWhen } from './trace-labels.js?v=fc916a95c6';
 import { flowCss, heatCss, dropCss, gradientCss, oxygenCss } from './colormap.js?v=b2067d6101';
 import { EXT, expandIds, stepExtra, markLabel, figureHooks, safe } from './slide-ext.js?v=eff67a8d88';
 import { citeText, focusOf, ladderFromOf, ladderFromName } from './teach-extras.js?v=d8224d9bb5';
-import { DEMO_ALL } from './test-decks/demo-all-new-visuals.js?v=d6784f4cd4';
+import { DEMO_ALL } from './test-decks/demo-all-new-visuals.js?v=aa2be921f0';
 const nextFrame = frameFor('presenter');
 
 const KEY = 'pps.scripts';

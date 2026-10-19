@@ -79,3 +79,15 @@ test('the summary (slide "plane"): no key anywhere, every zone named beside the 
     }
   }
 });
+
+test('slide 38\'s With CSPH lands the dot well inside CSPH, and slide 39\'s case stays Indeterminate', async () => {
+  // (Mohammad, 19 Oct: "The patient with CSPH you show is indeterminate on the graph".)
+  const { DEMO_ALL } = await import('../src/ui/test-decks/demo-all-new-visuals.js');
+  const slide = (id) => DEMO_ALL.slides.find((s) => s.id === id);
+  const btn = slide('comp').compare.find((c) => c.label === 'With CSPH');
+  const [withCsph, between] = await runSteps([{ preset: btn.preset, params: btn.params }, { preset: slide('e-csph').preset }]);
+  assert.equal(zoneOf(pl, withCsph).t, 'CSPH');
+  assert.ok(withCsph.lsm >= 27, `well past 25 kPa, so the dot and its gap clear the line (${withCsph.lsm.toFixed(1)})`);
+  assert.match(slide('comp').line, /moves into the CSPH zone/);
+  assert.equal(zoneOf(pl, between).t, 'Indeterminate');
+});

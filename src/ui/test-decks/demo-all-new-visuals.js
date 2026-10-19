@@ -1196,13 +1196,16 @@ export const DEMO_ALL = {
         },
         {
           "label": "With CSPH",
-          "preset": "csph"
+          "preset": "csph",
+          "params": {
+            "cirrhosis": 0.75
+          }
         }
       ],
       "kicker": "Two readings on one plane",
       "site": "sin",
       "title": "Stiffness and platelets place the patient",
-      "line": "The dot marks this patient on stiffness and platelets, and the line under the plane gives both readings. Tap With CSPH and the dot moves into the Indeterminate zone."
+      "line": "The dot marks this patient on stiffness and platelets, and the line under the plane gives both readings. Tap With CSPH and the dot moves into the CSPH zone."
     },
     {
       "id": "e-csph",
