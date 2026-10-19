@@ -1329,12 +1329,17 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // (A piece sliding with the sinusoid zoom, main.js sinMotion: the dock as it slides away (vd-out) no longer counts, and while
   // the dock or the view pill slides back, data-slide-y holds its shift on screen, so it counts where it will rest.)
   const slideRest = (el, q) => { const y = +el.dataset.slideY || 0; return y ? new DOMRect(q.x, q.y - y, q.width, q.height) : q; };
+  // (A card hidden by visibility no longer counts, except one that counts where it rests (data-safe-rest): an upright phone's
+  // data card with its readings on a sheet waits for its entry hidden by visibility, not opacity (styles/app.css .pz-sheet.pz-hide),
+  // and the slide's camera frames while it waits. Skipped then, the figure framed as if no card stood at the top, and the card came
+  // in over the slide's vessel until it was closed and opened again: the test all deck's clot slide on an iPhone, 19 Oct.)
+  const unseenCard = (el) => !('safeRest' in el.dataset) && (el.checkVisibility ? !el.checkVisibility({ visibilityProperty: true }) : getComputedStyle(el).visibility === 'hidden');
   function cardSpace() {
     const wr = wrap.getBoundingClientRect(), W = wr.width, H = wr.height, sp = { t: 0, b: 0 };
     for (const el of document.querySelectorAll('[data-safe]')) {
       // (A card playing its way out no longer counts: the camera frames for what stays.)
       if (el.hidden || el.closest('[hidden]') || el.classList.contains('card-leaving') || el.classList.contains('vd-out')) continue;
-      if (el.checkVisibility ? !el.checkVisibility({ visibilityProperty: true }) : getComputedStyle(el).visibility === 'hidden') continue;
+      if (unseenCard(el)) continue;
       const q = slideRest(el, el.getBoundingClientRect());
       if (!q.width || !q.height) continue;
       const y0 = ((el.classList.contains('mini') || el.dataset.folding) && +el.dataset.fullH ? q.bottom - +el.dataset.fullH : q.top) - wr.top - (+el.dataset.safePad || 0), y1 = q.bottom - wr.top;
@@ -1355,7 +1360,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     for (const el of document.querySelectorAll('[data-safe]')) {
       // (A card playing its way out no longer counts: the camera frames for what stays.)
       if (el.hidden || el.closest('[hidden]') || el.classList.contains('card-leaving') || el.classList.contains('vd-out')) continue;
-      if (el.checkVisibility ? !el.checkVisibility({ visibilityProperty: true }) : getComputedStyle(el).visibility === 'hidden') continue;
+      if (unseenCard(el)) continue;
       let q = slideRest(el, el.getBoundingClientRect());
       if (!q.width || !q.height) continue;
       // (data-safe-rest: a card whose own transform only eases it in or out counts where it rests, so the camera frames once.)

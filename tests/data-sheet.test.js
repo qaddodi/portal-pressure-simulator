@@ -64,3 +64,15 @@ test('a sideways phone shows the compact instrument and its tiles together, no s
   assert.match(css, /\.pz\.low\.low \.pz-data\.has-tool\.has-tool \.pz-tool\[data-kind="beats"\] \.pt-box \{ height: 96px; min-height: 0; \}/);
   assert.match(css, /\.pz\.stack \.pz-data:is\(\.tool-lead, \.pz-sheet\):not\(\.tool-open\) > :is\(\.pz-tiles, \.pz-strip\)/, 'the tiles fold only upright');
 });
+
+// (An upright phone's sheet card waits for its entry hidden by visibility, not opacity, while the slide's camera frames: it still
+// counts where it rests (data-safe-rest), or the figure framed as if no card stood at the top and the card came in over the
+// slide's vessel (the test all deck's clot slide on an iPhone, 19 Oct).)
+test('a sheet card waiting unseen for its entry still counts where it rests when the camera frames', () => {
+  const stage = readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8');
+  assert.match(css, /\.pz\.stack\.stack \.pz-data\.pz-sheet\.pz-hide \{ opacity: 1; visibility: hidden;/, 'the case this guards');
+  assert.match(js, /class: 'pz-data stage-blocker pz-hide', 'data-safe': 'right', 'data-safe-rest': ''/);
+  assert.match(stage, /const unseenCard = \(el\) => !\('safeRest' in el\.dataset\) && \(el\.checkVisibility/);
+  assert.equal((stage.match(/if \(unseenCard\(el\)\) continue;/g) || []).length, 2, 'both the camera (safeInsets) and the card space (cardSpace)');
+  assert.doesNotMatch(stage, /^\s*if \(el\.checkVisibility \? !el\.checkVisibility\(\{ visibilityProperty: true \}\)/m);
+});
