@@ -65,3 +65,37 @@ test('HVPG against PPG: no key, every zone named, names beside their points and 
     }
   }
 });
+
+// The zones' fills read as the tiles' green, amber and red, and their words keep 4.5:1 on them in every theme
+// (Mohammad, 19 Oct: "where is the amber area?" on the stiffness plane, whose gray zone read olive).
+test('the plane\'s green, amber and red zones: words 4.5:1 on their fills, light, soft and dark', () => {
+  const css = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8'), tok = readFileSync(new URL('../styles/tokens.css', import.meta.url), 'utf8');
+  const pick = (block, k) => block.match(new RegExp(`--${k}: (#[0-9A-Fa-f]{6})`))[1];
+  const blocks = { light: tok.slice(0, tok.indexOf('@media (prefers-color-scheme: dark)')), soft: tok.slice(tok.indexOf(':root[data-theme="soft"]')), dark: tok.slice(tok.indexOf(':root[data-theme="dark"] {')) };
+  const theme = (b) => ({ surface: pick(b, 'surface'), text: pick(b, 'text'), ok: pick(b, 'ok'), caution: pick(b, 'caution'), danger: pick(b, 'danger'), black: pick(tok, 'black') });
+  const T = { light: theme(blocks.light), soft: { ...theme(blocks.light), ...theme(blocks.soft) }, dark: theme(tok.slice(tok.indexOf('@media (prefers-color-scheme: dark)'))) };
+  const rgb = (c) => [1, 3, 5].map((i) => parseInt(c.slice(i, i + 2), 16));
+  const mix = (a, p, b) => rgb(a).map((v, i) => v * p + rgb(b)[i] * (1 - p));
+  const lum = (c) => { const [r, g, b] = c.map((v) => { v /= 255; return v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; }); return 0.2126 * r + 0.7152 * g + 0.0722 * b; };
+  const ratio = (a, b) => { const [x, y] = [lum(a), lum(b)].sort((m, n) => m - n); return (y + 0.05) / (x + 0.05); };
+  const hex = (c) => '#' + c.map((v) => Math.round(v).toString(16).padStart(2, '0')).join('');
+  // (Each theme's variables as app.css sets them: the light and soft rule first, then the dark one.)
+  const light = css.match(/\.pze-plot, \.pze-ckey, \.pze-key \{([^}]*)\}/)[1], dark = css.match(/:root\[data-theme="dark"\] :is\(\.pze-plot, \.pze-ckey, \.pze-key\) \{([^}]*)\}/)[1];
+  const val = (rule, th, k) => {
+    const m = rule.match(new RegExp(`--pze-${k}: ([^;]+);`))[1].trim(), c = m.match(/color-mix\(in srgb, var\(--(\w+)\) (\d+)%, var\(--(\w+)\)\)/);
+    if (!c) return rgb(th[m.match(/var\(--(\w+)\)/)[1]]);
+    return mix(th[c[1]], +c[2] / 100, th[c[3]]);
+  };
+  for (const [name, th] of Object.entries(T)) {
+    const rule = name === 'dark' ? dark : light;
+    for (const [k, col] of [['ok', th.ok], ['mid', th.caution], ['hi', th.danger]]) {
+      const fill = val(rule, th, k), ink = val(rule, th, `${k}-ink`);
+      assert.ok(ratio(ink, fill) >= 4.5, `${name} ${k}: words ${ratio(ink, fill).toFixed(2)}:1 on ${hex(fill)}`);
+      // (The fill keeps the tile colour's hue: its strongest channel and its weakest are the colour's own.)
+      const order = (c) => c.map((v, i) => [v, i]).sort((a, b) => b[0] - a[0]).map((x) => x[1]);
+      assert.deepEqual([order(fill)[0], order(fill)[2]], [order(rgb(col))[0], order(rgb(col))[2]], `${name} ${k}: ${hex(fill)} reads as ${col}`);
+    }
+  }
+  assert.match(css, /@media \(prefers-color-scheme: dark\) \{ :root:not\(\[data-theme="light"\]\):not\(\[data-theme="soft"\]\) :is\(\.pze-plot, \.pze-ckey, \.pze-key\) \{\n  --pze-ok: color-mix\(in srgb, var\(--ok\) 42%, var\(--black\)\)/, 'the system dark theme matches');
+  for (const k of ['ok', 'mid', 'hi']) assert.ok(css.includes(`.pze-key li[data-tone="${k}"] i { background: var(--pze-${k}); }`) && css.includes(`.pze-ckey li[data-tone="${k}"] i { background: var(--pze-${k}); }`), `${k}: the keys' swatches are the plot's fills`);
+});

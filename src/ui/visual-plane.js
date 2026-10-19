@@ -8,8 +8,8 @@
 //
 // An axis is a fingerprint key with its range ({ key, max, min?, ticks?, name, short? }). A zone is { when, t, tone, at? }:
 // `when` lists conditions [key, op, value] (op one of < <= > >=) that all hold; the first zone whose conditions hold names a
-// point's zone, and one with no `when` is the rest of the plane. A box is an outlined zone drawn over the others (Baveno VIII's
-// "no screening scope"). cuts: the cut-off lines, { x: [..], y: [..] }. key: false leaves the zones' key off the summary, the
+// point's zone, and one with no `when` is the rest of the plane. A box is an outlined zone drawn over the others (a deck's
+// own; the CSPH plane's "no screening scope" box was taken out at Mohammad's word, 19 Oct). cuts: the cut-off lines, { x: [..], y: [..] }. key: false leaves the zones' key off the summary, the
 // plot taking its width, where the zones' own words say it all (HVPG against PPG, Mohammad 19 Oct); every zone is then named. Zone words are the guideline's, checked against
 // /mnt/project-files/guidelines/baveno8-aasld.md before a deck uses them.
 //
@@ -36,7 +36,7 @@ export function rangeOf(when, key, min, max) {
 // ── The planes a deck can name ──
 // CSPH in compensated advanced chronic liver disease, Baveno VIII (as confirmed in guidelines/baveno8-aasld.md): stiffness 15 kPa
 // or less with platelets 150 or more rules CSPH out (1.15); 25 kPa or more rules it in (1.16), but not in obese MASLD, where a model's
-// probability decides; under 20 kPa with platelets 150 or more spares the screening scope in a patient not on a beta-blocker (1.19).
+// probability decides.
 // AASLD 2024 uses the same rule-out and rule-in.
 // HVPG against PPG: the app's fixed cut-offs (HVPG 5 and 10, PPG 6 and 12), the words naming the readings only, not a cause.
 // Only 'Both normal' takes a rating colour (both under their amber cut-offs, as the tiles rate them); the zones where one or
@@ -50,9 +50,8 @@ export const PLANES = {
       { when: [['lsm', '<=', 15], ['plt', '>=', 150]], t: 'CSPH ruled out', short: 'Ruled out', tone: 'ok', note: '15 kPa or less with platelets 150 or more' },
       { t: 'Gray zone', short: 'Gray zone', tone: 'mid', at: [8, 50], note: 'A model or spleen stiffness decides' },
     ],
-    boxes: [{ when: [['lsm', '<', 20], ['plt', '>=', 150]], t: 'No screening scope', short: 'No scope', note: 'Under 20 kPa with platelets 150 or more, or spleen stiffness under 40 kPa (not in the model)' }],
-    cuts: { x: [15, 20, 25], y: [150] },
-    source: 'Baveno VIII 1.15, 1.16, 1.19',
+    cuts: { x: [15, 25], y: [150] },
+    source: 'Baveno VIII 1.15, 1.16',
   },
   'hvpg-ppg': {
     x: { key: 'hvpg', min: 0, max: 30, ticks: [0, 5, 10, 20, 30], name: 'HVPG, mmHg', short: 'HVPG' },

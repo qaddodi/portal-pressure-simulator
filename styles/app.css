@@ -6296,7 +6296,21 @@ html.thumb-ui .menu.from-dock { clip-path: inset(-64px -64px calc(var(--sink, 0p
 
 /* ── Package E, panels and table columns: start ── */
 /* V28, the plane (visual-plane.js): drawn at its element's own pixels, its words at the caption size. The zones are flat tints
-   of the rating colours; the box (Baveno VIII's no screening scope) is a dashed outline; the case in the card is a ring that eases. */
+   of the rating colours, clear green, amber and red as the tiles' scale bars (deep tints in the dark themes, where a thin amber
+   over navy reads as olive), their words 4.5:1 or more on them; a deck's own box is a dashed outline; the case in the card is a
+   ring that eases. */
+.pze-plot, .pze-ckey, .pze-key {
+  --pze-ok: color-mix(in srgb, var(--ok) 30%, var(--surface)); --pze-mid: color-mix(in srgb, var(--caution) 40%, var(--surface)); --pze-hi: color-mix(in srgb, var(--danger) 30%, var(--surface));
+  --pze-ok-ink: color-mix(in srgb, var(--ok) 55%, var(--text)); --pze-mid-ink: color-mix(in srgb, var(--caution) 40%, var(--text)); --pze-hi-ink: color-mix(in srgb, var(--danger) 55%, var(--text));
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]):not([data-theme="soft"]) :is(.pze-plot, .pze-ckey, .pze-key) {
+  --pze-ok: color-mix(in srgb, var(--ok) 42%, var(--black)); --pze-mid: color-mix(in srgb, var(--caution) 55%, var(--black)); --pze-hi: color-mix(in srgb, var(--danger) 50%, var(--black));
+  --pze-ok-ink: var(--text); --pze-mid-ink: var(--text); --pze-hi-ink: var(--text);
+} }
+:root[data-theme="dark"] :is(.pze-plot, .pze-ckey, .pze-key) {
+  --pze-ok: color-mix(in srgb, var(--ok) 42%, var(--black)); --pze-mid: color-mix(in srgb, var(--caution) 55%, var(--black)); --pze-hi: color-mix(in srgb, var(--danger) 50%, var(--black));
+  --pze-ok-ink: var(--text); --pze-mid-ink: var(--text); --pze-hi-ink: var(--text);
+}
 .pze-planewrap { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr); gap: clamp(16px, calc(3vw / var(--vz)), 48px); align-items: center; width: 100%; }
 .pz.stack .pze-planewrap { grid-template-columns: minmax(0, 1fr); gap: 12px; }
 .pze-planewrap.pze-nokey { grid-template-columns: minmax(0, 1fr); }   /* (a plane whose zones name themselves: the plot takes the key's width too) */
@@ -6309,17 +6323,14 @@ html.thumb-ui .menu.from-dock { clip-path: inset(-64px -64px calc(var(--sink, 0p
 .pz.low .pze-plot.pze-incard { height: 132px; }
 .pze-plot svg { position: absolute; inset: 0; display: block; overflow: visible; }
 .pze-zone { fill: var(--surface-2); }
-.pze-zone[data-tone="ok"] { fill: color-mix(in srgb, var(--ok) 18%, var(--surface)); }
+.pze-zone[data-tone="ok"] { fill: var(--pze-ok); }
 /* (The gray zone, "CSPH unclear", in a stronger amber than the other zones' tints, so it reads as its own band in both themes.) */
-.pze-zone[data-tone="mid"], .pze-ckey li[data-tone="mid"] i { --pze-mid: color-mix(in srgb, var(--caution) 30%, var(--surface)); }
-@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]):not([data-theme="soft"]) :is(.pze-zone[data-tone="mid"], .pze-ckey li[data-tone="mid"] i) { --pze-mid: color-mix(in srgb, var(--caution) 34%, var(--surface)); } }
-:root[data-theme="dark"] :is(.pze-zone[data-tone="mid"], .pze-ckey li[data-tone="mid"] i) { --pze-mid: color-mix(in srgb, var(--caution) 34%, var(--surface)); }
 .pze-zone[data-tone="mid"] { fill: var(--pze-mid); }
-.pze-zone[data-tone="hi"] { fill: color-mix(in srgb, var(--danger) 18%, var(--surface)); }
+.pze-zone[data-tone="hi"] { fill: var(--pze-hi); }
 .pze-zone[data-tone="info"] { fill: color-mix(in srgb, var(--tr-hv) 16%, var(--surface)); }
 .pze-box { fill: none; stroke: var(--text-2); stroke-width: 1.5; stroke-dasharray: 6 5; }
 .pze-zt { font-weight: 700; fill: var(--text-2); }
-.pze-zt[data-tone="ok"] { fill: var(--ok); } .pze-zt[data-tone="mid"] { fill: color-mix(in srgb, var(--caution) 55%, var(--text)); }   /* (darker in light, lighter in dark: 4.5:1 on its stronger band) */ .pze-zt[data-tone="hi"] { fill: var(--danger); }
+.pze-zt[data-tone="ok"] { fill: var(--pze-ok-ink); } .pze-zt[data-tone="mid"] { fill: var(--pze-mid-ink); } .pze-zt[data-tone="hi"] { fill: var(--pze-hi-ink); }   /* (4.5:1 or more on its own fill, tests/plane-callouts.test.js) */
 .pze-zt.pze-bxw { font-weight: 600; fill: var(--text-2); }
 .pze-cut { stroke: var(--text-3); stroke-width: 1; stroke-dasharray: 3 4; }
 .pze-axis { stroke: var(--border-strong); stroke-width: 1.5; }
@@ -6337,13 +6348,13 @@ html.thumb-ui .menu.from-dock { clip-path: inset(-64px -64px calc(var(--sink, 0p
 .pze-ckey i { width: .8em; height: .8em; border-radius: 2px; background: var(--surface-3); }
 .pze-ckey li[data-tone="ok"] i { --c: var(--ok); } .pze-ckey li[data-tone="mid"] i { --c: var(--caution); } .pze-ckey li[data-tone="hi"] i { --c: var(--danger); } .pze-ckey li[data-tone="info"] i { --c: var(--tr-hv); }
 .pze-ckey li[data-tone] i { background: color-mix(in srgb, var(--c, var(--text-3)) 18%, var(--surface)); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--c, var(--text-3)) 55%, transparent); }
-.pze-ckey li[data-tone="mid"] i { background: var(--pze-mid); }
+.pze-ckey li[data-tone="ok"] i { background: var(--pze-ok); } .pze-ckey li[data-tone="mid"] i { background: var(--pze-mid); } .pze-ckey li[data-tone="hi"] i { background: var(--pze-hi); }   /* (the plot's own fills) */
 .pze-ckey li.pze-bx i { background: none; border: 1.5px dashed var(--text-2); }
 .pze-read { margin: 4px 0 0; font-size: var(--ch-cap, var(--s-cap)); color: var(--text-2); font-variant-numeric: tabular-nums; text-align: center; }
 .pze-key ul { display: flex; flex-direction: column; gap: 8px; margin: 0; padding: 0; list-style: none; }
 .pze-key li { display: grid; grid-template-columns: auto minmax(0, 1fr); column-gap: .6em; align-items: baseline; padding: .5em .8em; border-radius: 12px; background: var(--surface-2); font-size: var(--s-cap); }
 .pze-key li i { grid-row: span 2; width: .9em; height: .9em; border-radius: 3px; background: var(--surface-3, var(--border)); align-self: center; }
-.pze-key li[data-tone="ok"] i { background: var(--ok); } .pze-key li[data-tone="mid"] i { background: var(--caution); } .pze-key li[data-tone="hi"] i { background: var(--danger); } .pze-key li[data-tone="info"] i { background: var(--tr-hv); }
+.pze-key li[data-tone="ok"] i { background: var(--pze-ok); } .pze-key li[data-tone="mid"] i { background: var(--pze-mid); } .pze-key li[data-tone="hi"] i { background: var(--pze-hi); } .pze-key li[data-tone="info"] i { background: var(--tr-hv); }
 .pze-key li.pze-bx i { background: none; border: 1.5px dashed var(--text-2); }
 .pze-key b { font-size: var(--s-lab); color: var(--text); }
 .pze-key span { color: var(--text-2); }

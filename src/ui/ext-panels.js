@@ -5,7 +5,7 @@
 //   tool kind 'plane'    the same in the data card, read from the slide's case
 //   table columns 'spent' (col-spent.js) and 'wave' (col-wave.js)
 
-import { planeVisual, createPlaneTool, toolPlane } from './visual-plane.js?v=d01b775b9f';
+import { planeVisual, createPlaneTool, toolPlane } from './visual-plane.js?v=6e2e7487d1';
 import { spentColumn } from './col-spent.js?v=ac454d9e0a';
 import { waveColumn } from './col-wave.js?v=cf308a37e9';
 

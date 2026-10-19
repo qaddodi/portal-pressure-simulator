@@ -50,10 +50,12 @@ test('the CSPH plane follows Baveno VIII: 15 and 150 rule out, 25 rules in, unde
   assert.equal(z(15, 149), 'Gray zone');
   assert.equal(z(25, 250), 'CSPH ruled in');
   assert.equal(z(24.9, 90), 'Gray zone');
-  assert.equal(pl.source, 'Baveno VIII 1.15, 1.16, 1.19');
+  assert.equal(pl.source, 'Baveno VIII 1.15, 1.16');
   assert.ok(!/Baveno VII\b/.test(JSON.stringify(PLANES)), 'never Baveno VII');
-  assert.equal(holds(pl.boxes[0].when, { lsm: 19.9, plt: 150 }), true);
-  assert.equal(holds(pl.boxes[0].when, { lsm: 20, plt: 200 }), false);
+  // (No "no screening scope" box and no 20 kPa line: Mohammad, 19 Oct.)
+  assert.equal(pl.boxes, undefined);
+  assert.deepEqual(pl.cuts, { x: [15, 25], y: [150] });
+  assert.ok(pl.x.ticks.includes(20), '20 stays a plain axis number');
   assert.deepEqual(zoneRect(pl, pl.zones[1]), [0, 15, 150, 300]);
   // (The plan's own spelling of the field.)
   assert.equal(planeOf({ x: 'lsm', y: 'plt', zones: 'csph' }).zones.length, 3);
