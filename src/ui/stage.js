@@ -40,7 +40,7 @@ import { wavePacks, paintWave } from './scan-waves.js?v=066db7aa38';
 import { organDimMatrix } from './organ-dim.js?v=7888276613';
 import { parseColor, greyOf, paintRef } from './organ-grey.js?v=e41d68222c';
 import { bandRing, dashRings, liftEnd, normalShown, rippleList, systemOf, SYSTEM_COLOR } from './highlight-math.js?v=e2c1816e25';
-import { organAnchor, spleenCaliper, acrossVessel, stepGroups, spanOf, spanPath, zoneBand, SPAN_TICK, insideBy, clearOf, outward } from './callout-math.js?v=859835037f';
+import { organAnchor, spleenCaliper, acrossVessel, stepGroups, spanOf, spanPath, zoneBand, SPAN_TICK, insideBy, clearOf, besideLine } from './callout-math.js?v=d5dc1b0168';
 const nextFrame = frameFor('stage');
 
 const N_SAMPLES = 64;
@@ -7315,17 +7315,20 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         if (placeMulti(it, [], [...tidy, ...passes])) it.focusLeader = true;
       });
       if (!circuit) fx.calipers.forEach((c) => {
-        // A caliper's reading, past the line's lower (or right-hand) end, clear of its end tick (the line's boxes keep it and every
-        // other label off the line), facing out along the line first.
+        // A caliper's reading at the line's middle, never an end: beside the middle where there is room, square to the line and 5 px
+        // clear of it, its ticks, every vessel and the stage's edge (inside an organ it measures, as the spleen's); where there is no
+        // room (across a narrow stent), called out on a leader from the middle, off the organ, as the slide's other callouts are.
         const g = caliperAt(c, f);
         if (!g) return;
-        const [p0, p1] = [worldToLocal(...g.a), worldToLocal(...g.b)], lo = p1[1] > p0[1] || (p1[1] === p0[1] && p1[0] > p0[0]), end = lo ? p1 : p0, from = lo ? p0 : p1;
+        const [p0, p1] = [worldToLocal(...g.a), worldToLocal(...g.b)], mid = [(p0[0] + p1[0]) / 2, (p0[1] + p1[1]) / 2];
         const key = 'fxc:' + c.id, it = fxPill(key, c, 'fx-cal', true);
-        Object.assign(it, { ax: end[0], ay: end[1], src: ['fx', key] });
+        Object.assign(it, { ax: mid[0], ay: mid[1], src: ['fx', key] });
         fxBuild.set(key, () => { const n = fx?.calipers?.find((x) => x.id === c.id); return n && fxPill(key, n, 'fx-cal', true); });
         buildLines();
-        const ob = c.organ && organBox(c.organ);
-        placeMulti(it, outward(from, end), clean(9, ob ? [ob] : undefined, nearFar(9)));
+        const ob = c.organ && organBox(c.organ), av = ob ? [ob] : undefined;
+        const beside = [11, 16].map((gap) => ({ gap, leader: false, clear: true, inView: true, pad: 5, edge: 12 }));
+        const out = [24, 36, 52, 72, 96].map((gap) => ({ gap, leader: true, clear: true, inView: true, pad: 5, edge: 12, avoid: av }));
+        placeMulti(it, besideLine(p0, p1), [...beside, ...out, ...nearFar(24)]);
       });
       if (fx.steps) for (const g of stepGroups(slideGlow.filter((x) => E[x.id]?.vis), fx.steps)) {
         // A step's number by the middle of its vessel (the first of its group drawn), or on its organ, lit as its glow lights (V10).

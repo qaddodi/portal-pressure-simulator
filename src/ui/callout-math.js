@@ -164,8 +164,8 @@ export const insideBy = (r, V, edge = 0) => r.x0 >= V.x0 + edge && r.y0 >= V.y0 
 /** Does the box r keep `pad` px clear of every box in `boxes` (a drawn organ, a line's boxes)? */
 export const clearOf = (r, boxes, pad = 0) => !(boxes || []).some((o) => r.x0 < o.x1 + pad && r.x1 > o.x0 - pad && r.y0 < o.y1 + pad && r.y1 > o.y0 - pad);
 const RING = ['E', 'SE', 'S', 'SW', 'W', 'NW', 'N', 'NE'];
-/** A caliper reading's directions, facing out past the line's end (screen px: from → end) first, then round both ways. */
-export function outward(from, end) {
-  const o = (Math.round(Math.atan2(end[1] - from[1], end[0] - from[0]) / (Math.PI / 4)) + 8) % 8;
-  return [0, 1, -1, 2, -2, 3, -3, 4].map((d) => RING[(o + d + 8) % 8]);
+/** A caliper reading's directions from the line's middle (screen px, a → b): square to the line on either side first, then round. */
+export function besideLine(a, b) {
+  const o = (Math.round(Math.atan2(b[1] - a[1], b[0] - a[0]) / (Math.PI / 4)) + 2 + 8) % 8;
+  return [0, 4, 1, 5, -1, 3, 2, 6].map((d) => RING[(o + d + 8) % 8]);
 }

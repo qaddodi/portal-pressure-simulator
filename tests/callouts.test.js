@@ -7,7 +7,7 @@ import { EDGES } from '../src/engine/topology.js';
 import { NODE_POS, SPLEEN_CENTER, CIRCUIT_ZONES } from '../src/ui/anatomy.js';
 import { DECKS } from '../src/ui/decks.js';
 import { parseLive, liveRuns, valueText, valueTone, widest, widestRuns, runsText, ORGAN_ANCHOR, ORGAN_MARKS, organAnchor, spleenCaliper, SPLEEN_AXIS,
-  acrossVessel, caliperOf, caliperText, stepPlan, stepGroups, zoneIndex, zoneBand, spanOf, spanPath, SPAN_Y, insideBy, clearOf, outward } from '../src/ui/callout-math.js';
+  acrossVessel, caliperOf, caliperText, stepPlan, stepGroups, zoneIndex, zoneBand, spanOf, spanPath, SPAN_Y, insideBy, clearOf, besideLine } from '../src/ui/callout-math.js';
 import F from '../src/ui/ext-callouts.js';
 import { expandIds } from '../src/ui/slide-ext.js';
 
@@ -140,7 +140,7 @@ test('a reading\'s pill stands 12 px inside the stage, clear of drawn shapes by 
   assert.ok(!clearOf({ x0: 162, y0: 150, x1: 210, y1: 170 }, [spleen], 4), '2 px off the organ touches it');
   assert.ok(clearOf({ x0: 165, y0: 150, x1: 210, y1: 170 }, [spleen], 4));
   assert.ok(clearOf({ x0: 0, y0: 0, x1: 1, y1: 1 }, undefined, 4));
-  assert.deepEqual(outward([100, 100], [100, 140]).slice(0, 3), ['S', 'SW', 'SE'], 'a line running down: below its lower end first');
-  assert.equal(outward([100, 100], [140, 100])[0], 'E');
-  assert.equal(new Set(outward([0, 0], [1, 1])).size, 8, 'every direction, once');
+  assert.deepEqual(besideLine([100, 100], [100, 140]).slice(0, 2), ['W', 'E'], 'a line running down: beside its middle, either side, first');
+  assert.deepEqual(besideLine([100, 100], [140, 100]).slice(0, 2), ['S', 'N'], 'a level line: above or below its middle');
+  assert.equal(new Set(besideLine([0, 0], [1, 1])).size, 8, 'every direction, once');
 });
