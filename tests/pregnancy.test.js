@@ -1,6 +1,7 @@
 // Pregnancy (params.gestation): what it does to the circulation, the "Cirrhosis in pregnancy" patient, and that at 0 weeks
 // nothing changes for anyone else (src/ui/snapshots.js, checked by `npm test`, holds every other patient's numbers).
 import { test } from 'node:test';
+import { readFileSync } from 'node:fs';
 import assert from 'node:assert/strict';
 import { Engine, pregnancyLevel } from '../src/engine/engine.js';
 import { computeMetrics } from '../src/engine/metrics.js';
@@ -69,4 +70,26 @@ test('gestation from a link is clamped to 0–40 weeks', () => {
   assert.equal(sanitizeParams({ gestation: -3 }).gestation, 0);
   assert.equal(sanitizeParams({ gestation: 'x' }).gestation, 0);
   assert.equal(sanitizeParams({}).gestation, 0);
+});
+
+test('every patient can be made pregnant from the heart card: sane numbers at any week, and back to 0 is the same patient', () => {
+  const src = readFileSync(new URL('../src/ui/actions.js', import.meta.url), 'utf8');
+  const row = src.slice(src.indexOf("id: 'gestation'"), src.indexOf('PREGNANCY_INFO }', src.indexOf("id: 'gestation'")));
+  assert.ok(row && !row.includes('showIf'), 'the heart card shows Pregnancy for every patient');
+  for (const { id } of PRESETS) {
+    const e = new Engine(); e.loadPreset(id);
+    if (id === 'pregnancy') weeks(e, 0);
+    const before = computeMetrics(e);
+    for (const w of [12, 24, 40]) {
+      const m = weeks(e, w);
+      for (const k of ['hvpg', 'pv', 'ra', 'map', 'co', 'hr']) assert.ok(Number.isFinite(m[k]) && m[k] >= 0, `${id} ${w} weeks ${k}: ${m[k]}`);
+      assert.ok(Array.from(e.P).every(Number.isFinite), `${id} ${w} weeks: a pressure is not a number`);
+      within(m.ra, 0, 30, `${id} ${w} weeks RA`);
+      within(m.map, 70, 110, `${id} ${w} weeks MAP`);
+      within(m.hr, 55, 120, `${id} ${w} weeks heart rate`);
+      within(m.ascites.iap, 0, 25, `${id} ${w} weeks abdominal pressure`);
+    }
+    const after = weeks(e, 0);
+    for (const k of ['hvpg', 'pv', 'co', 'map', 'ra', 'hr']) assert.ok(Math.abs(after[k] - before[k]) < 0.05, `${id} ${k}: ${before[k]} → ${after[k]}`);
+  }
 });

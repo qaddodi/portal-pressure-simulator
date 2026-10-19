@@ -5,10 +5,11 @@
 // the panel; on touch, the ⓘ at a presentation's end opens the same preview under its row.
 
 import { store } from './store.js?v=31ee79b6ab';
-import { h, icon, svgIcon, uiScale, clamp, swipeSheet, visibleBottom, fadeWhileMore } from './util.js?v=0140acc352';
+import { h, icon, svgIcon, uiScale, clamp, swipeSheet, visibleBottom, fadeWhileMore, PHONE_MQ } from './util.js?v=b6a40567da';
 import { SNAPSHOTS } from './snapshots.js?v=f018995b4c';
-import { pressureColor } from './colormap.js?v=5c9a375f49';
-import { frameFor } from './frame.js?v=5efaa2bcc9';
+import { pressureColor } from './colormap.js?v=dc071e3659';
+import { ownsSideways, pageGo } from './swipe.js?v=60b2fc909b';
+import { frameFor } from './frame.js?v=67ca200c87';
 const nextFrame = frameFor('menu');
 
 // Where each group's resistance sits along the pathway from the gut to the heart.
@@ -58,7 +59,7 @@ const matches = (hay, words) => words.every((w) => hay.includes(w));
 
 export function createMenu({ anchor, library, libraryNow, onPreset, share, help, onToggle }) {
   const reduce = matchMedia('(prefers-reduced-motion: reduce)');
-  const sheetMQ = matchMedia('(max-width: 767px), (max-width: 1023px) and (max-height: 500px) and (orientation: landscape)');
+  const sheetMQ = matchMedia(PHONE_MQ);
   const fine = matchMedia('(hover: hover) and (pointer: fine)');
   let el = null, back = null, pv = null, open = false, leaveT = 0, hoverT = 0, hideT = 0, pvKey = null, mark = null, query = '', tab = 'present';
 
@@ -73,10 +74,19 @@ export function createMenu({ anchor, library, libraryNow, onPreset, share, help,
     el = back = null;
     onToggle?.(false);
     if (panel.contains(document.activeElement) || !document.activeElement || document.activeElement === document.body) anchor.focus({ preventScroll: true });
-    if (reduce.matches) { done(); return; }
+    // (With Reduce Motion the same exit only fades: app.css turns the keyframes into fades.)
     scrim?.classList.add('out');
-    if (o.dragged) { panel.style.transition = 'transform .22s var(--ease)'; panel.style.transform = 'translateY(100%)'; } else panel.classList.add('out');
-    leaveT = setTimeout(done, panel.classList.contains('sheet') ? 280 : 120);
+    // (Pulled down: it carries on down from where the finger let go. Upright, the shared sheet swipe is already sinking it; the
+    // popover on a sideways iPad has no bottom edge to leave by, so it fades as it goes.)
+    const sheet = panel.classList.contains('sheet');
+    if (o.dragged && !reduce.matches) {
+      if (!document.documentElement.classList.contains('thumb-ui') || !sheet) {
+        panel.style.transition = sheet ? 'transform .22s var(--ease)' : 'transform .22s var(--ease), opacity .22s var(--ease)';
+        panel.style.transform = 'translateY(100%)';
+        if (!sheet) panel.style.opacity = '0';
+      }
+    } else panel.classList.add('out');
+    leaveT = setTimeout(done, sheet || o.dragged ? 280 : 120);
   };
   // Typing while the menu is open (and focus is elsewhere) goes to its search.
   const typed = (e) => {
@@ -154,7 +164,7 @@ export function createMenu({ anchor, library, libraryNow, onPreset, share, help,
       pvKey = key;
       const old = pv.firstElementChild, h0 = pv.offsetHeight;
       const next = make();
-      if (old && pv.classList.contains('on') && !reduce.matches) { old.classList.add('um-pv-old'); setTimeout(() => old.remove(), 130); } else old?.remove();
+      if (old && pv.classList.contains('on')) { old.classList.add('um-pv-old'); setTimeout(() => old.remove(), 130); } else old?.remove();
       pv.append(next);
       if (old && h0 && !reduce.matches) { const h1 = next.offsetHeight; pv.style.height = h0 + 'px'; void pv.offsetHeight; pv.style.height = h1 + 'px'; setTimeout(() => { pv && (pv.style.height = ''); }, 140); }
       $$rows().forEach((r) => r.classList.toggle('pv-on', r === row));
@@ -171,7 +181,7 @@ export function createMenu({ anchor, library, libraryNow, onPreset, share, help,
     clearTimeout(hideT); if (!pv) return;
     const p = pv; pv = null; pvKey = null;
     el?.querySelectorAll('.pv-on').forEach((r) => r.classList.remove('pv-on'));
-    if (now || reduce.matches || !p.classList.contains('on')) { p.remove(); return; }
+    if (now || !p.classList.contains('on')) { p.remove(); return; }
     p.classList.remove('on'); setTimeout(() => p.remove(), 140);
   }
   // On touch, the ⓘ opens the preview under its row (one at a time), easing open and shut.
@@ -260,14 +270,16 @@ export function createMenu({ anchor, library, libraryNow, onPreset, share, help,
   }
   const fades = new WeakMap();
   // Switching tabs eases the new list in; the panel keeps its size.
-  function setTab(k, focus) {
+  // (still: the list was swiped into place, so it does not play its entrance again.)
+  function setTab(k, focus, still) {
     tab = k;
     if (!el) return;
     el.dataset.tab = k;
     for (const b of el.querySelectorAll('.um-tab')) b.setAttribute('aria-selected', String(b.dataset.tab === k));
     hidePreview();
     const col = el.querySelector(`.um-col[data-col="${k}"]`);
-    if (!reduce.matches) { col.classList.remove('um-in'); void col.offsetWidth; col.classList.add('um-in'); }
+    if (still) col.classList.remove('um-in');
+    else if (!reduce.matches) { col.classList.remove('um-in'); void col.offsetWidth; col.classList.add('um-in'); }
     filter();
     if (focus) el.querySelector(`#umtab-${k}`)?.focus({ preventScroll: true });
   }
@@ -309,7 +321,7 @@ export function createMenu({ anchor, library, libraryNow, onPreset, share, help,
     if (sheet) next.classList.add('sheet');
     next.classList.add('still');
     el.replaceWith(next); el = next;
-    filter(); place(); dragToClose(el);
+    filter(); place(); dragToClose(el); swipeTabs(el);
     if (keep) el.querySelector('.um-cols').scrollTop = keep;
     if (focus === 'q') el.querySelector('.um-q').focus({ preventScroll: true });
     else if (focus) el.querySelector(`[data-k="${CSS.escape(focus)}"]`)?.focus({ preventScroll: true });
@@ -335,9 +347,11 @@ export function createMenu({ anchor, library, libraryNow, onPreset, share, help,
         addEventListener('resize', place);
         addEventListener('keydown', typed, true);
         onToggle?.(true, sheet);
-        if (sheet) el.querySelector('.um-x').focus({ preventScroll: true }); else el.querySelector('.um-q').focus({ preventScroll: true });
+        // Only a mouse or trackpad puts the caret in the search: on a touch screen (iPhone, iPad either way round)
+        // focusing it pops the on-screen keyboard, so the close button takes focus and the keyboard waits for a tap there.
+        el.querySelector(sheet || !fine.matches ? '.um-x' : '.um-q').focus({ preventScroll: true });
         if (!lib) library().then(() => { if (open) render(); scrollTo(); });
-        dragToClose(el);
+        dragToClose(el); swipeTabs(el);
       }
       const scrollTo = () => {
         if (!el) return;
@@ -352,8 +366,63 @@ export function createMenu({ anchor, library, libraryNow, onPreset, share, help,
     render,
   };
 
-  // A phone's sheet follows a drag down from anywhere on it (the shared sheet swipe) and closes past a short pull.
+  // On a touch screen the menu follows a drag down from anywhere on it (the shared sheet swipe, as the phone's cards do) and
+  // closes past a short pull or a quick flick; a short one eases back. Touch events only, so a mouse still just clicks.
   function dragToClose(panel) {
-    if (panel.classList.contains('sheet')) swipeSheet(panel, () => close({ dragged: true }));
+    swipeSheet(panel, () => close({ dragged: true }));
+  }
+  // A sideways drag pages between Present and Patients, as the Tests card pages between its tabs (dock.js): the open list
+  // follows the finger with the other beside it, and on release eases on to it (past a third of the way, or after a quick
+  // flick) or back. Past either end it gives a little and springs back. A vertical move stays the list's scroll or the pull
+  // down; the search box keeps its own drags, and a tap is still a tap.
+  function swipeTabs(panel) {
+    const cols = panel.querySelector('.um-cols'), TABS = ['present', 'patients'];
+    const colOf = (k) => cols.querySelector(`.um-col[data-col="${k}"]`);
+    const clear = (els) => { for (const e of els) if (e) { e.style.transform = ''; e.style.transition = ''; e.style.top = ''; e.style.height = ''; e.classList.remove('um-peer'); } };
+    let sw = null, settle = null;   // settle: the last swipe's switch, while its lists are still easing
+    panel.addEventListener('touchstart', (e) => {
+      // (A second swipe before the first has settled finishes the first at once, so it starts from the new tab.)
+      settle?.();
+      sw = e.touches.length === 1 && !ownsSideways(e.target, { stop: panel }) ? { x: e.touches[0].clientX, y: e.touches[0].clientY, t: performance.now(), on: false, dx: 0 } : null;
+    }, { passive: true });
+    panel.addEventListener('touchmove', (e) => {
+      if (!sw) return;
+      if (e.touches.length !== 1) { endSwipe(); return; }
+      const t = e.touches[0], dx = t.clientX - sw.x, dy = t.clientY - sw.y;
+      if (!sw.on) {
+        if (Math.hypot(dx, dy) < 8) return;
+        if (Math.abs(dx) < Math.abs(dy) * 1.2) { sw = null; return; }   // (vertical: the list's scroll, or the pull down)
+        sw.on = true; sw.i = TABS.indexOf(tab); sw.cur = colOf(tab); sw.w = cols.clientWidth;
+        if (!sw.cur) { sw = null; return; }
+      }
+      if (e.cancelable) e.preventDefault();
+      const d = dx < 0 ? 1 : -1, j = sw.i + d, nb = j >= 0 && j < TABS.length ? colOf(TABS[j]) : null;
+      if (nb !== sw.nb) {
+        clear([sw.nb]); sw.nb = nb; sw.j = j;
+        // (The other list shows from its own top, over the part of the list in view: it lands there.)
+        if (nb) { nb.style.top = cols.scrollTop + 'px'; nb.style.height = cols.clientHeight + 'px'; nb.classList.add('um-peer'); }
+      }
+      sw.dx = nb ? dx : dx / 3;
+      sw.cur.style.transform = `translateX(${sw.dx}px)`;
+      if (nb) nb.style.transform = `translateX(${sw.dx + d * sw.w}px)`;
+    }, { passive: false });
+    const endSwipe = () => {
+      const s = sw; sw = null;
+      if (!s?.on) return;
+      const go = !!s.nb && pageGo(s.dx, performance.now() - s.t, s.w);
+      const d = s.dx < 0 ? 1 : -1, ease = 'transform .24s var(--ease)';
+      s.cur.style.transition = ease; if (s.nb) s.nb.style.transition = ease;
+      s.cur.style.transform = go ? `translateX(${-d * s.w}px)` : '';
+      if (s.nb) s.nb.style.transform = go ? 'translateX(0)' : `translateX(${d * s.w}px)`;
+      const done = () => {
+        clearTimeout(timer); settle = null;
+        clear([s.cur, s.nb]);
+        if (go) { setTab(TABS[s.j], false, true); cols.scrollTop = 0; }
+      };
+      const timer = setTimeout(done, 250);
+      settle = done;
+    };
+    panel.addEventListener('touchend', endSwipe, { passive: true });
+    panel.addEventListener('touchcancel', endSwipe, { passive: true });
   }
 }

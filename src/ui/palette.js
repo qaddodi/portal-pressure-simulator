@@ -3,10 +3,10 @@
 // the argument: "tips 8", "cirrhosis 60", "albumin 2.5", "+6 months", "narrow portal 80".
 
 import { store, updateParams } from './store.js?v=31ee79b6ab';
-import { h, svgIcon, toast } from './util.js?v=0140acc352';
+import { h, svgIcon, toast, afterExit } from './util.js?v=b6a40567da';
 import { EDGES } from '../engine/topology.js?v=4044766e96';
 import { DRUGS } from '../engine/scenario.js?v=1ee7733788';
-import { HIDDEN_EDGES } from './anatomy.js?v=0b72305f30';
+import { HIDDEN_EDGES } from './anatomy.js?v=8374d8e213';
 
 const norm = (s) => s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9+ ]/g, ' ');
 
@@ -121,11 +121,19 @@ export function createPalette({ ctx }) {
   function open() {
     // (Ctrl K, or a click Safari does not focus: the Search button takes focus back, not the page.)
     ret = document.activeElement && document.activeElement !== document.body ? document.activeElement : document.getElementById('btnPalette');
+    clearTimeout(leaveT); back.classList.remove('leaving');
     back.hidden = false; input.value = ''; sel = 0; renderList();
     if (ctx.library && !ctx.libraryNow?.()) ctx.library().then(() => { if (!back.hidden) renderList(); }).catch(() => {});
     setTimeout(() => input.focus(), 0);
   }
-  function close() { back.hidden = true; ret?.focus?.({ preventScroll: true }); }
+  // It fades out as it faded in (it vanished in one frame: P20), then hides; opened again meanwhile, it simply stays.
+  let leaveT = 0;
+  function close() {
+    if (back.hidden || back.classList.contains('leaving')) return;
+    back.classList.add('leaving'); clearTimeout(leaveT);
+    leaveT = afterExit(back, 'leaving', () => { back.hidden = true; back.classList.remove('leaving'); });
+    ret?.focus?.({ preventScroll: true });
+  }
   input.addEventListener('input', () => { sel = 0; renderList(); });
   input.addEventListener('keydown', (e) => {
     if (e.key === 'ArrowDown') { e.preventDefault(); sel = Math.min(items.length - 1, sel + 1); renderList(); }
@@ -134,5 +142,5 @@ export function createPalette({ ctx }) {
     else if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); close(); }
   });
   back.addEventListener('pointerdown', (e) => { if (e.target === back) close(); });
-  return { open, close, isOpen: () => !back.hidden };
+  return { open, close, isOpen: () => !back.hidden && !back.classList.contains('leaving') };
 }

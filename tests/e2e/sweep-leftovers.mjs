@@ -61,7 +61,7 @@ for (const size of [[1280, 800], [1440, 900], [1180, 820]]) {
 
 // 3. The quick check's card ends as close under its last question as it starts above its title.
 for (const size of [[390, 844], [320, 568]]) {
-  const { page, close } = await open(size, '?script=ascites&slide=12');
+  const { page, close } = await open(size, '?script=ascites&slide=13');
   await page.waitForSelector('.pz-check li');
   await sleep(2500);
   const r = await page.evaluate(() => {

@@ -7,7 +7,7 @@
 // (straight between days). The lines draw from left to right as the time-lapse plays, easing after its clock.
 // The same chart plots a disease time-lapse (clock 'days'): two of the slide's own readings, one point per model day from
 // day 0 to its last, drawn as it plays (Ascites builds: ascites over sinusoidal pressure; varices: varix over HVPG).
-import { frameFor } from './frame.js?v=5efaa2bcc9';
+import { frameFor } from './frame.js?v=67ca200c87';
 const nextFrame = frameFor('flow-time');
 
 // (No imports: the series and scales load in Node for the unit tests. Every value here is positive.)
@@ -74,6 +74,7 @@ const linesOf = (keys) => keys.map((key, j) => { const [name, unit, d, c] = LINE
 const dec = (sc) => (sc.ticks.some((v) => Math.abs(v * 10 - Math.round(v * 10)) > 1e-6) ? 2 : sc.ticks.some((v) => v % 1) ? 1 : 0);
 
 export function createFlowTime() {
+  const reduceMQ = matchMedia('(prefers-reduced-motion: reduce)');   // (one query, read each frame: a new one was made every frame)
   const el = document.createElement('div');
   el.className = 'pz-flowtime';
   let ser = null, parts = null, shown = 0, goal = 0, raf = 0, sig = '', clock = 'meal', keys = MEAL_LINES, LINES = linesOf(keys);
@@ -143,7 +144,7 @@ export function createFlowTime() {
       l.dot.setAttribute('cx', hx.toFixed(1)); l.dot.setAttribute('cy', hy.toFixed(1));
       l.val.setAttribute('x', (hx + (left ? -0.6 : 0.6) * G.f).toFixed(1)); l.val.setAttribute('y', (hy - 0.7 * G.f).toFixed(1));
       l.val.setAttribute('text-anchor', left ? 'end' : 'start');
-      l.val.textContent = txt;
+      if (l.val.textContent !== txt) l.val.textContent = txt;   // (a glide's frames mostly keep the shown value: rewritten, the text was laid out again)
       l.val.classList.toggle('off', m - ax().from < 0.36 * (ax().end - ax().from));   // (near the start the first value is already there)
       return v;
     });
@@ -158,7 +159,7 @@ export function createFlowTime() {
   // The heads glide after the goal (never a jump).
   function tick() {
     raf = 0;
-    shown += (goal - shown) * (matchMedia('(prefers-reduced-motion: reduce)').matches ? 1 : 0.16);
+    shown += (goal - shown) * (reduceMQ.matches ? 1 : 0.16);
     if (Math.abs(goal - shown) < 0.001 * (ax().end - ax().from)) shown = goal;
     paint(shown);
     if (shown !== goal) raf = nextFrame(tick);

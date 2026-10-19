@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { binVeins } from '../src/ui/veins-bin.js';
+import { readFileSync } from 'node:fs';
 
 // While collaterals coil, one vessel's points change on each model frame and the rest hold still. Binning remembers each
 // vessel's cells, so only the moving one is tested again; the result must match a fresh binning entry for entry, and when
@@ -89,4 +90,16 @@ test('each cell lists each vessel under a head circle, then in runs of one vesse
     assert.equal(groupEnd, s0 + n);
   }
   assert.ok(runs > 0 && heads > 0);
+});
+
+test('squared distances bin exactly as Math.hypot did (round 2 review, P3): same entries, bit for bit', async () => {
+  const { createHash } = await import('node:crypto');
+  // Fingerprints of the entries and cells taken with the Math.hypot version (before 18 Oct).
+  const want = { 0: [766, 139, '21f27f695fbed023'], 0.5: [790, 148, '7be0340013fcfd65'], 0.9: [792, 151, 'fff0da2a6def8bd9'] };
+  for (const [t, [nEnt, nCells, sum]] of Object.entries(want)) {
+    const s = scene(+t), r = binVeins(s.tubes, s.joins);
+    const got = createHash('sha256').update(Buffer.from(r.ent.buffer)).update(Buffer.from(r.cells.buffer)).digest('hex').slice(0, 16);
+    assert.deepEqual([r.nEnt, r.nCells, got], [nEnt, nCells, sum], `t ${t}`);
+  }
+  assert.doesNotMatch(readFileSync(new URL('../src/ui/veins-bin.js', import.meta.url), 'utf8').replace(/\/\/.*$/gm, ''), /Math\.hypot\(/);
 });

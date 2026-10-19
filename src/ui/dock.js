@@ -3,17 +3,17 @@
 
 import { store, hiddenNow } from './store.js?v=31ee79b6ab';
 import { EDGES } from '../engine/topology.js?v=4044766e96';
-import { h, fmt, svgIcon, closePopover, clamp, shownOf } from './util.js?v=0140acc352';
-import { lobuleFlows } from './lobule-model.js?v=1ff0bc103e';
-import { createProfile } from './charts.js?v=7e8a65ec45';
-import { createPressureTime } from './pressure-time.js?v=b392d335bc';
-import { createFibroScan } from './fibroscan.js?v=b582562ab5';
-import { createHvpgProcedure } from './hvpg-proc.js?v=50c4e675b4';
-import { createDoppler } from './doppler.js?v=781d185565';
-import { ownsSideways } from './swipe.js?v=75b95b59cf';
-import { createEndoscopy, createVarixWall, createAbdomen } from './instruments.js?v=3b2ab2c133';
-import { createReadoutsPane } from './readouts-pane.js?v=e39c9f98b5';
-import { frameFor } from './frame.js?v=5efaa2bcc9';
+import { h, fmt, svgIcon, closePopover, clamp, shownOf, isPhoneLayout, swapFade, scrollBehavior, countTo, swapText, glideOnResize } from './util.js?v=b6a40567da';
+import { lobuleFlows } from './lobule-model.js?v=59d4bf2a04';
+import { createProfile } from './charts.js?v=75f52d4f49';
+import { createPressureTime } from './pressure-time.js?v=9e53260ba8';
+import { createFibroScan } from './fibroscan.js?v=488459f8fb';
+import { createHvpgProcedure } from './hvpg-proc.js?v=ca6b23e252';
+import { createDoppler } from './doppler.js?v=f13c727958';
+import { ownsSideways, pageGo } from './swipe.js?v=60b2fc909b';
+import { createEndoscopy, createVarixWall, createAbdomen } from './instruments.js?v=53635929a8';
+import { createReadoutsPane } from './readouts-pane.js?v=81690b91be';
+import { frameFor } from './frame.js?v=67ca200c87';
 import { vitalReading } from './vital-read.js?v=e902fb66cd';
 import { setShown } from './shown.js?v=82ef5e29ec';
 import { tenthGap } from '../engine/gap.js?v=3a5947c552';
@@ -21,7 +21,6 @@ import { compareRows } from './idle-keys.js?v=27f599b5bc';
 const nextFrame = frameFor('dock');
 
 // A number that changes rewrites its text node in place (setting textContent replaces the node: a DOM rebuild per paint).
-const setText = (el, t) => { const n = el.firstChild; if (n && n.nodeType === 3 && !n.nextSibling) { if (n.data !== t) n.data = t; } else if (el.textContent !== t) el.textContent = t; };
 
 
 // Readouts in teaching order: pressure, then flow, then what they lead to, then the systemic
@@ -170,7 +169,14 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
       h('span', { class: 'ro-cap', 'aria-hidden': 'true' }, label), h('div', { class: 'ro-tiles' }, ts.map((t) => tile(t, false)))));
   }
   // The Lobule view swaps the key readouts for the lobule's flows (the group is hidden elsewhere, by CSS).
-  const syncLobule = () => { const on = !!store.get().lobule, pri = on ? LOBULE_PRIMARY : PRIMARY; strip.classList.toggle('lob', on); for (const x of Object.values(tileEls)) x.el.classList.toggle('primary', pri.has(x.t.id)); };
+  // Entering or leaving it, the bar's readings crossfade (swapFade) rather than switch groups in one frame (motion review P12).
+  const applyLobule = () => { const on = !!store.get().lobule, pri = on ? LOBULE_PRIMARY : PRIMARY; strip.classList.toggle('lob', on); for (const x of Object.values(tileEls)) x.el.classList.toggle('primary', pri.has(x.t.id)); };
+  // (The play, clock and Compare beside them glide to wherever the new readings' width puts them: RF4.)
+  const syncLobule = () => {
+    const same = strip.classList.contains('lob') === !!store.get().lobule, tl = document.getElementById('timeline');
+    if (!same && tl) glideOnResize(tl, ':scope > *', { also: [strip, document.getElementById('vdock')] });
+    swapFade(strip, () => { applyLobule(); resizeSoon(); }, { instant: same });
+  };
   // A paused model sends no frames: fill the tiles from the last one at once (no dashes).
   for (const k of ['lobule', 'mode']) store.on(k, () => { syncLobule(); if (frame) updateStrip(frame); resizeSoon(); });
   // (A measurement, the Always show HVPG switch or a new patient's hidden readouts change what the tiles show: repaint
@@ -221,22 +227,23 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
       const raw = lz ? (st0.imaging ? null : t.v(f, st0)) : readoutValue(t, m, hidden);
       // The beat swings every value a little: the tile shows a running mean (about a second), so the
       // number stays steady; a real step (beyond a tenth of the scale) or a paused model shows at once.
-      let v = raw;
+      let v = raw, eased = false;
       const live = !lz && t.id in gap && raw != null && raw === t.v(m) && gap[t.id] != null;   // (a live gradient, not a measured one)
-      if (live) v = gap[t.id];
-      else if (raw != null && x.sm != null && st0.running && t.scale && Math.abs(raw - x.sm) < 0.1 * Math.abs(t.scale[1] - t.scale[0])) v = x.sm + (raw - x.sm) * Math.min(1, (now - x.smT) / 1200);
+      const near = (a) => a != null && x.sm != null && st0.running && t.scale && Math.abs(a - x.sm) < 0.1 * Math.abs(t.scale[1] - t.scale[0]);
+      if (live) { v = gap[t.id]; eased = near(v); }
+      else if (near(raw)) { v = x.sm + (raw - x.sm) * Math.min(1, (now - x.smT) / 1200); eased = true; }
       x.sm = v; x.smT = now;
       if (!lz) setShown(t.id, v);
       const measured = !lz && v != null && hidden?.has(t.hideKey);
       let sev, s;
       if (v == null) {
-        setText(x.val, '?');
+        countTo(x.val, null);
         s = 'Not measured';
         sev = 'none';
         x.hist.length = 0;
       } else {
-        const txt = fmt(v, t.d);
-        setText(x.val, txt);
+        // (A step the running mean doesn't ease, a paused edit or a treatment, rolls to the new number: P17.)
+        countTo(x.val, v, t.d, { eased });
         const a = lz ? [f, st0] : [m], vs = shownOf(v, t.d);   // (the word judges the number shown: "5.0 L" is Grade 3)
         s = measured ? 'Measured' : (t.ss && narrow.matches ? t.ss : t.s)(vs, ...a);
         sev = t.st(vs, ...a);
@@ -246,7 +253,7 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
       }
       el.classList.toggle('hidden-val', v == null);
       const trend = v == null || measured ? '' : trendOf(x, v, now);
-      if (trend !== x.trend) { x.trend = trend; x.tr.textContent = trend === 'up' ? '▲' : trend === 'down' ? '▼' : ''; }
+      if (trend !== x.trend) { x.trend = trend; swapText(x.tr, trend === 'up' ? '▲' : trend === 'down' ? '▼' : ''); }
       // Compare: each tile reports its change from the pinned moment in place of the status word.
       if (A && v != null && !measured) {
         const d = v - (lz ? (st0.compareSnap.frame ? t.v(st0.compareSnap.frame, st0) : v) : t.v(A));
@@ -266,14 +273,14 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
           el.dataset.sev = sev; x.sev = sev;
         }
       } else x.sevNext = null;
-      if (sev === x.sev && x.st.textContent !== s) { x.st.textContent = s; x.st.classList.toggle('unmeas', v == null); }
+      if (sev === x.sev) { const un = v == null; swapText(x.st, s, () => x.st.classList.toggle('unmeas', un)); }
       const aria = `${t.title || t.k}: ${v == null ? 'not measured' : `${fmt(v, t.d)} ${t.u}${t.ux || ''}, ${s}`}${x.trend ? `, ${x.trend === 'up' ? 'rising' : 'falling'}` : ''}`;
       if (aria !== x.ariaTxt) { x.ariaTxt = aria; el.setAttribute('aria-label', aria); }
     }
     for (const x of vitEls) {
       const hid = hidden?.has(x.v.hideKey);
       const r = vitalReading(x, m, st0.running, now);
-      setText(x.val, hid ? '?' : fmt(r.v, x.v.d));
+      countTo(x.val, hid ? null : r.v, x.v.d, { eased: st0.running });
       x.el.classList.toggle('bad', !hid && r.bad);
     }
   }
@@ -336,7 +343,7 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
 
   const live = h('span', { class: 'workspace-live', 'aria-live': 'off' });
   // The head is the same as Findings' and Treat's: icon, name, a quiet status, close.
-  const titleEl = h('h2', { class: 'dock-title card-title' }, svgIcon('gauge'), h('span', {}, 'Tests'), h('span', { class: 'dt-l' }));
+  const titleEl = h('h2', { class: 'dock-title card-title' }, h('span', {}, 'Tests'), h('span', { class: 'dt-l' }));
   const closeBtn = h('button', { class: 'ib card-close workspace-close', 'aria-label': 'Close Tests', title: 'Close (Esc)', onclick: close }, svgIcon('close'));
   const divider = h('div', { class: 'workspace-divider', role: 'separator', tabindex: '0', 'aria-label': 'Instruments size' }, h('span'));
   workspace.prepend(divider);
@@ -413,15 +420,17 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
   const endSwipe = () => {
     const s = sw; sw = null;
     if (!s?.on) return;
-    const ms = performance.now() - s.t, go = s.nb && (Math.abs(s.dx) > s.w * 0.35 || (Math.abs(s.dx) > 40 && Math.abs(s.dx) / ms > 0.4));
+    const ms = performance.now() - s.t, go = !!s.nb && pageGo(s.dx, ms, s.w);
     const d = s.dx < 0 ? 1 : -1, ease = 'transform .24s var(--ease)';
     s.cur.style.transition = ease; if (s.nb) s.nb.style.transition = ease;
     s.cur.style.transform = go ? `translateX(${-d * s.w}px)` : '';
     if (s.nb) s.nb.style.transform = go ? 'translateX(0)' : `translateX(${d * s.w}px)`;
     const done = () => {
       clearTimeout(timer); settle = null;
+      // (The pane that slid in is already in place: it must not play its entrance again once the drag's classes go, a blink.)
+      if (go) s.nb?.classList.add('landed');
       clearSwipe([s.cur, s.nb]);
-      if (go) { pick(TABS[s.j]); tabEls[TABS[s.j]].b.scrollIntoView?.({ block: 'nearest', inline: 'nearest' }); }
+      if (go) { pick(TABS[s.j]); tabEls[TABS[s.j]].b.scrollIntoView?.({ block: 'nearest', inline: 'nearest', behavior: scrollBehavior() }); }
     };
     const timer = setTimeout(done, 250);
     settle = done;
@@ -489,8 +498,8 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
     } else {
       // The sheet rises from above the vitals dock, at most to just under the top bar.
       const max = stageWrap.clientHeight - css('--top-safe') - css('--vdock-h') - 40;
-      // A tablet held upright keeps more than half the stage for the figure, so its vessel labels stay legible.
-      const ratio = heightRatio ?? (matchMedia('(max-width: 767px)').matches ? 0.56 : matchMedia('(orientation: portrait)').matches ? 0.4 : 0.46);
+      // (A tablet held upright takes the phone's sheet: main.js sheetBehaviour sets its Half and Full heights.)
+      const ratio = heightRatio ?? (isPhoneLayout() ? 0.56 : 0.46);
       const height = Math.min(max, Math.max(180, stageWrap.clientHeight * ratio));
       workspace.style.setProperty('--instrument-h', `${Math.max(140, height)}px`);
       divider.setAttribute('aria-valuenow', String(Math.round(ratio * 100)));
@@ -598,13 +607,26 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
     layout();
     tabs.querySelector(`.instr-tab:not([data-instrument="${tabOf(open[0])}"])`)?.focus();
   }
+  function paneOut(el, top) {
+    for (const a of el.getAnimations()) if (a.id === 'pane-out') a.cancel();
+    el.classList.add('pane-out'); el.scrollTop = top;
+    const a = el.animate([{ opacity: 1 }, { opacity: 0 }], { id: 'pane-out', duration: 150, easing: 'cubic-bezier(.4, 0, 1, 1)', fill: 'forwards' });
+    const done = () => { if (el.getAnimations().includes(a)) a.cancel(); el.classList.remove('pane-out'); };
+    a.finished.then(done, () => el.classList.remove('pane-out'));
+  }
   function pick(id) {
     if (picking && id !== tabOf(open[0])) { open = [open[0], id]; endPick(); layout(); return; }
     endPick();
     // A tab shows that instrument alone (the Pressure tab keeps the view it was on).
+    const was = open.length === 1 ? body.querySelector('.dock-pane.active') : null, top = was?.scrollTop || 0;
     open = [open.find((x) => tabOf(x) === id) || id];
     if (state === 'peek') setState('open');
     layout();
+    // A tapped tab crossfades: the pane it leaves stays where it was and fades out over the new one fading in (P13). A pane
+    // swiped into place (.landed) has already slid the old one away.
+    const now = body.querySelector('.dock-pane.active');
+    if (was && now && now !== was && !was.classList.contains('active') && !now.classList.contains('landed') && was.animate) paneOut(was, top);
+    for (const p of workspace.querySelectorAll('.dock-pane.landed:not(.active)')) p.classList.remove('landed');
     workspace.querySelector('.dock-body')?.scrollTo?.(0, 0);
   }
   function openGrid(anchor, { alongside = false } = {}) {
@@ -680,7 +702,7 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
     updateSize();
     const h0 = workspace.clientHeight, side = isSide() && state !== 'focus';
     // As a tall card the plots take a sensible share of the height, so a pair still fits.
-    const plot = side ? clamp((body.clientHeight / (open.length > 1 ? 2 : 1)) - 90, 190, 380) : clamp(h0 - (innerWidth >= 768 ? 190 : 150), 190, 420);   // a tablet's sheet has a taller header and tab row
+    const plot = side ? clamp((body.clientHeight / (open.length > 1 ? 2 : 1)) - 90, 190, 380) : clamp(h0 - (isPhoneLayout() ? 150 : 190), 190, 420);   // a tablet's sheet has a taller header and tab row (an upright one is a phone's)
     workspace.style.setProperty('--plot-h', `${plot}px`);
     workspace.style.setProperty('--square-size', `${clamp(side ? workspace.clientWidth - 80 : h0 - 160, 220, 380)}px`);
     layout();

@@ -4,11 +4,10 @@
 // (TILES, GROUPS, VITALS, readoutValue), passed in so this file does not import the dock.
 
 import { store, hiddenNow } from './store.js?v=31ee79b6ab';
-import { h, fmt, clamp, shownOf } from './util.js?v=0140acc352';
+import { h, fmt, clamp, shownOf, countTo, swapText } from './util.js?v=b6a40567da';
 import { vitalReading } from './vital-read.js?v=e902fb66cd';
 
 // A number that changes rewrites its text node in place (setting textContent replaces the node).
-const setText = (el, t) => { const n = el.firstChild; if (n && n.nodeType === 3 && !n.nextSibling) { if (n.data !== t) n.data = t; } else if (el.textContent !== t) el.textContent = t; };
 
 // A trend arrow marks a sustained change (over TREND_S seconds, larger than TREND_FRAC of the scale).
 const TREND_S = 5, TREND_FRAC = 0.03;
@@ -69,14 +68,14 @@ export function createReadoutsPane({ tiles, groups, vitals, readoutValue, onWhy,
       const { el: tileEl, t } = x;
       const raw = readoutValue(t, m, hidden);
       // A running mean (about a second) keeps the number steady through the beat; a real step or a paused model shows at once.
-      let v = raw;
-      if (raw != null && x.sm != null && st0.running && Math.abs(raw - x.sm) < 0.1 * Math.abs(t.scale[1] - t.scale[0])) v = x.sm + (raw - x.sm) * Math.min(1, (now - x.smT) / 1200);
+      let v = raw, eased = false;
+      if (raw != null && x.sm != null && st0.running && Math.abs(raw - x.sm) < 0.1 * Math.abs(t.scale[1] - t.scale[0])) { v = x.sm + (raw - x.sm) * Math.min(1, (now - x.smT) / 1200); eased = true; }
       x.sm = v; x.smT = now;
       const measured = v != null && hidden?.has(t.hideKey);
       let sev, s;
-      if (v == null) { setText(x.val, '?'); s = 'Not measured'; sev = 'none'; x.hist.length = 0; }
+      if (v == null) { countTo(x.val, null); s = 'Not measured'; sev = 'none'; x.hist.length = 0; }
       else {
-        setText(x.val, fmt(v, t.d));
+        countTo(x.val, v, t.d, { eased });   // (a paused edit or a treatment rolls to the new number: P17)
         const vs = shownOf(v, t.d);   // (the word judges the number shown)
         s = measured ? 'Measured' : t.s(vs, m);
         sev = t.st(vs, m);
@@ -86,13 +85,15 @@ export function createReadoutsPane({ tiles, groups, vitals, readoutValue, onWhy,
       }
       tileEl.classList.toggle('hidden-val', v == null);
       const trend = v == null || measured ? '' : trendOf(x, v, now);
-      if (trend !== x.trend) { x.trend = trend; x.tr.textContent = trend === 'up' ? '▲' : trend === 'down' ? '▼' : ''; }
+      if (trend !== x.trend) { x.trend = trend; swapText(x.tr, trend === 'up' ? '▲' : trend === 'down' ? '▼' : ''); }
       // Compare: each tile reports its change from the pinned moment in place of the status word.
       if (A && v != null && !measured) {
         const d = v - t.v(A);
         const same = Math.abs(d) < Math.pow(10, -t.d) * 0.5;
-        x.cmp.textContent = same ? 'same as then' : `${d > 0 ? '+' : '−'}${fmt(Math.abs(d), t.d)} vs then`;
-        x.cmp.className = 'cmp ' + (same ? 'same' : d > 0 ? 'up' : 'down');
+        // (Written only when they change: each model frame rewrote every tile's.)
+        const ct = same ? 'same as then' : `${d > 0 ? '+' : '−'}${fmt(Math.abs(d), t.d)} vs then`, cc = 'cmp ' + (same ? 'same' : d > 0 ? 'up' : 'down');
+        if (x.cmp.textContent !== ct) x.cmp.textContent = ct;
+        if (x.cmp.className !== cc) x.cmp.className = cc;
         x.st.hidden = true;
       } else if (x.cmp.textContent) { x.cmp.textContent = ''; x.st.hidden = false; }
       // A new band must hold for a moment before the tile takes it, so a value on a cut-off does not flicker (paused: at once).
@@ -103,14 +104,14 @@ export function createReadoutsPane({ tiles, groups, vitals, readoutValue, onWhy,
           tileEl.dataset.sev = sev; x.sev = sev;
         }
       } else x.sevNext = null;
-      if (sev === x.sev && x.st.textContent !== s) { x.st.textContent = s; x.st.classList.toggle('unmeas', v == null); }
+      if (sev === x.sev) { const un = v == null; swapText(x.st, s, () => x.st.classList.toggle('unmeas', un)); }
       const aria = `${t.title || t.k}: ${v == null ? 'not measured' : `${fmt(v, t.d)} ${t.u}${t.ux || ''}, ${s}`}${x.trend ? `, ${x.trend === 'up' ? 'rising' : 'falling'}` : ''}`;
       if (aria !== x.ariaTxt) { x.ariaTxt = aria; tileEl.setAttribute('aria-label', aria); }
     }
     for (const x of vitEls) {
       const hid = hidden?.has(x.v.hideKey);
       const r = vitalReading(x, m, st0.running, now);
-      setText(x.val, hid ? '?' : fmt(r.v, x.v.d));
+      countTo(x.val, hid ? null : r.v, x.v.d, { eased: st0.running });
       const sev = !hid && r.bad ? 'danger' : 'ok';
       if (x.el.dataset.sev !== sev) x.el.dataset.sev = sev;
     }

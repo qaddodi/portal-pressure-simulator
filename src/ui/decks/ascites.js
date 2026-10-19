@@ -9,7 +9,7 @@ export const ASCITES = {
   objectives: ['Explain how sinusoidal pressure and lymph make ascites', 'Interpret the SAAG and ascitic protein', 'Explain why pre-hepatic and presinusoidal resistance rarely causes ascites', 'Tell cirrhosis from heart failure and Budd–Chiari by the tap'],
   checks: [
     ['What SAAG points to portal hypertension?', '1.1 g/dL or more.'],
-    ['A high SAAG with ascitic protein of 2.5 g/dL or more. Where is the problem?', 'Behind the liver: heart failure or Budd–Chiari syndrome. The sinusoid wall is still open and lets protein through.'],
+    ['A high SAAG with ascitic protein of 2.5 g/dL or more. Where is the problem?', 'Post-hepatic or cardiac: Budd–Chiari syndrome or heart failure. The sinusoid wall is still open and lets protein through.'],
     ['Why does portal vein thrombosis rarely cause ascites?', 'The sinusoids beyond the clot stay at normal pressure, and ascites comes from sinusoidal pressure.'],
   ],
   slides: [
@@ -18,7 +18,7 @@ export const ASCITES = {
       kicker: 'Ascites', site: 'sin', title: 'Ascites starts in the sinusoids',
       vignette: 'A 55-year-old woman with MASH cirrhosis comes for a routine visit. She feels well and has no ascites. Her platelets are 88,000/µL, and EGD shows small esophageal varices.',
       line: 'Sinusoidal pressure drives plasma into the space of Disse. Hepatic lymphatics drain it until they cannot keep up.',
-      notes: 'Ascites in portal hypertension is mostly lymph, from the liver and, to a lesser degree, the gut. Sinusoidal pressure drives plasma through the open sinusoid wall into the space of Disse, and the hepatic lymphatics return it to the blood through the thoracic duct. Hepatic lymph flow can rise many-fold; once it outruns the lymphatics, lymph weeps from the surface of the liver into the peritoneum. The patient has clinically significant portal hypertension, and the lymphatics still keep up. Ascites becomes possible from an HVPG of 10 mmHg, the CSPH threshold, and the risk rises with the gradient.',
+      notes: 'Ascites in portal hypertension is mostly lymph, from the liver and, to a lesser degree, the gut. Sinusoidal pressure drives plasma through the open sinusoid wall into the space of Disse, and the hepatic lymphatics return it to the blood through the thoracic duct. Hepatic lymph flow can rise many-fold; once it outruns the lymphatics, lymph weeps from the surface of the liver into the peritoneum. In this case there is clinically significant portal hypertension, and the lymphatics still keep up. Ascites becomes possible from an HVPG of 10 mmHg, the CSPH threshold, and the risk rises with the gradient.',
       ask: ['What carries the sinusoids\' filtrate away before ascites forms?', 'The hepatic lymphatics, to the thoracic duct.'],
     },
     {
@@ -27,6 +27,13 @@ export const ASCITES = {
       line: 'Gut capillaries hold back protein, so oncotic pressure limits filtration when their pressure rises. Sinusoids do not, so sinusoidal pressure drives ascites.',
       notes: 'Starling: filtration = Kf × [(capillary − tissue pressure) − σ × (plasma − tissue oncotic pressure)]. Gut capillaries hold back most protein (σ about 0.9), even where their lining is fenestrated, as in the intestinal mucosa: the plasma\'s oncotic pressure, about 25 mmHg, holds the fluid in, so a raised capillary pressure makes only a little more fluid, which the lymphatics carry away. In the sinusoid σ is near zero: oncotic pressure offers almost no opposition, and each rise in pressure adds to lymph flow. Capillarization in cirrhosis raises σ part of the way, which is why cirrhotic ascites is thin.',
       ask: ['What does a reflection coefficient (σ) near zero mean for the sinusoid wall?', 'Protein crosses freely, so oncotic pressure cannot hold the fluid back, and any rise in pressure becomes lymph.'],
+    },
+    {
+      id: 'lymph', terms: { 'space of Disse': 'lobule:sinusoid', lymphatics: 'lobule:lymph', 'portal tracts': 'lobule:triad' }, cam: 'lobule', layers: ['lymph'], data: 'tiles', tiles: ['sin', 'asc'], key: ['sin'],
+      kicker: 'Ascites', site: 'sin', title: 'Lymph leaves the liver along the portal tracts',
+      line: 'Fluid from the space of Disse runs back against the blood to lymphatics in the portal tracts. Here the sinusoids are at {sin}, and the lymphatics still carry it all, so no ascites forms.',
+      notes: 'Plasma filtered into the space of Disse flows toward the portal tracts, against the direction of the blood, and enters lymphatics that run with the portal vein branches to the hilum, then to the cisterna chyli and the thoracic duct. A smaller share leaves along the hepatic veins and under the capsule. The liver makes a quarter to a half of the body\'s lymph, and its flow rises with sinusoidal pressure. The lymphatics widen and carry many times their usual flow before they are overwhelmed; only then does lymph weep from the liver surface into the peritoneum.',
+      ask: ['Where does the fluid filtered in the sinusoids go before ascites forms?', 'Back along the space of Disse to lymphatics in the portal tracts, then to the thoracic duct.'],
     },
     {
       id: 'fill', days: 60, ramp: { cirrhosis: [0.6, 0.85], albumin: [4, 2.8] }, lapse: { seconds: 9 }, cam: 'fit', glow: ['liver'], tool: { kind: 'flowtime', clock: 'days', lines: ['sin', 'asc'], title: 'Sinusoids and ascites over the days' }, data: 'tiles', tiles: ['sin', 'asc', 'tp'], key: ['asc'], delta: true,

@@ -14,7 +14,7 @@ const ALLOWED = [
   /input\[type=range\]/, /\.switch/, /switch-vis/, /\.mt-sw/,            // switch knobs and slider thumbs
   /\.drug \.dot/, /\.oc-dot/,                                           // check circles (a tick appears inside)
   /\.info-i/,                                                           // the (i) button
-  /\.pzb-(now|was)/, /\.pzk-/, /\.tl-dot/,                             // a value's place on a scale or timeline
+  /\.pzb-(now|was)/, /\.pzk-/, /\.tl-dot/, /\.sl-start/,              // a value's place on a scale or timeline (sl-start: a what-if's starting value)
   /\.instr-tab\[data-slot/,                                             // the numbered 1 / 2 slot badge
   /\.pz-nm/,                                                            // the table's "none" ring (○)
 ];

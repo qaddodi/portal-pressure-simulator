@@ -94,6 +94,7 @@ export function keyIssues() {
     if (!shown(g)) continue;
     if ([...g.querySelectorAll('text')].some((t) => t.textContent.trim() && near(t.getBoundingClientRect()))) { out.push(`label "${g.textContent.trim().slice(0, 20)}" under the key or pill`); break; }
   }
-  for (const e of document.querySelectorAll('.cath-labels .cath-label, .lz-lab, .lz-zone, .lz-call, .sv-region')) if (shown(e) && near(e.getBoundingClientRect())) { out.push(`"${e.textContent.trim().slice(0, 20)}" under the key or pill`); break; }
+  // (A reading off the free space waits there faded out, its contents at opacity 0 and its glass hidden (app.css .cath-label.site.off): not under anything.)
+  for (const e of document.querySelectorAll('.cath-labels .cath-label:not(.site.off), .lz-lab:not(.lz-off), .lz-zone:not(.lz-off), .lz-call, .sv-region')) if (shown(e) && near(e.getBoundingClientRect())) { out.push(`"${e.textContent.trim().slice(0, 20)}" under the key or pill`); break; }
   return out;
 }

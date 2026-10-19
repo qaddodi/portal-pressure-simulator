@@ -4,9 +4,9 @@ import { EDGES, NODES, dMinOf } from '../engine/topology.js?v=4044766e96';
 import { dopplerVel } from './velNormal.js?v=181dda5594';
 import { DRUGS, PREGNANCY_INFO } from '../engine/scenario.js?v=1ee7733788';
 import { store, updateParams, hiddenNow } from './store.js?v=31ee79b6ab';
-import { h, fmt, fmtFlow, fp, ff, clamp, tooltipFor, infoButton, icon, svgIcon } from './util.js?v=0140acc352';
+import { h, fmt, fmtFlow, fp, ff, clamp, tooltipFor, infoButton, icon, svgIcon, paintRange } from './util.js?v=b6a40567da';
 import { liveBalance } from './balance-hold.js?v=ea4d9121d2';
-import { frameFor, cancelFrame } from './frame.js?v=5efaa2bcc9';
+import { frameFor, cancelFrame } from './frame.js?v=67ca200c87';
 const nextFrame = frameFor('inspector');
 
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
@@ -86,11 +86,13 @@ export function createInspector(root, { onWhy, onAction, onOpenTab, onScenarios,
     const reset = h('button', { class: 'reset-btn', title: 'Reset', 'aria-label': `Reset ${label}` }, icon('reset'));
     const wrap = h('div', { class: 'ctl' },
       h('div', { class: 'ctl-top' }, h('span', { class: 'ctl-label' }, label, info ? infoButton(info) : null, reset), val),
-      h('div', { class: 'range-wrap' }, normal ? h('span', { class: 'normal', title: 'Normal range', style: { left: `calc(${((normal[0] - min) / (max - min)) * 100}% + 2px)`, width: `calc(${((normal[1] - normal[0]) / (max - min)) * 100}% - 4px)` } }) : null, input),
+      // (The normal range is the tiles' green band on the track, placed on the thumb's own scale: its centre runs from half the
+      // thumb's width, --tw, to the far end less half of it.)
+      h('div', { class: 'range-wrap' }, normal ? h('span', { class: 'normal', title: 'Normal range', style: { left: `calc(var(--tw) / 2 + (100% - var(--tw)) * ${(normal[0] - min) / (max - min)})`, width: `calc((100% - var(--tw)) * ${(normal[1] - normal[0]) / (max - min)})` } }) : null, input),
       sub ? h('div', { class: 'ctl-sub' }, sub) : null);
     const paint = (v) => {
       input.value = v; val.textContent = format(v);
-      input.style.setProperty('--pct', `${((v - min) / (max - min)) * 100}%`);
+      paintRange(input, (v - min) / (max - min));
       wrap.classList.toggle('changed', def != null && Math.abs(v - def) > 1e-9);
     };
     let fresh = true;
@@ -163,6 +165,8 @@ export function createInspector(root, { onWhy, onAction, onOpenTab, onScenarios,
         h('div', { class: 'p-title' }, h('span', { class: 'kicker' }, kicker), h('h2', { title }, title))),
       extra);
   }
+  // A selected thing's readings open its panel under its name, with no heading of their own (17 Oct, V9).
+  const liveBlock = (...children) => h('div', { class: 'p-live' }, ...children);
   function stat(k, fn, wide) { return h('div', { class: 'stat' + (wide ? ' wide' : '') }, h('span', { class: 'k' }, k), h('span', { class: 'v' }, liveText(fn))); }
 
   function edgePanel(id) {
@@ -172,12 +176,12 @@ export function createInspector(root, { onWhy, onAction, onOpenTab, onScenarios,
     const fromN = NODES[NI[e.from]], toN = NODES[NI[e.to]];
     const isColl = e.kind === 'collateral', isArt = e.kind === 'arteriole' || e.kind === 'artery';
     const kicker = isColl ? `Collateral · ${e.code}` : isArt ? 'Artery' : e.kind === 'liver' ? 'Liver microcirculation' : e.kind === 'shunt' ? 'Shunt' : 'Vein';
-    const dirEl = h('div');
+    const dirEl = h('div', { class: 'p-state' });
     live.push([dirEl, (f) => {
       const q = f.Qf[k];
       const ref = store.get().healthy?.Q?.[k] ?? 1;
       const cls = Math.abs(q) < 0.05 ? ['warn', 'Stagnant'] : q < -Math.max(0.12, 0.02 * Math.abs(ref)) ? ['rev', 'Reversed flow'] : ['ok', 'Physiological direction'];
-      if (dirEl._c !== cls[1]) { dirEl.replaceChildren(h('span', { class: 'pill ' + cls[0] }, cls[1])); dirEl._c = cls[1]; }
+      if (dirEl._c !== cls[1]) { dirEl.replaceChildren(h('span', { class: 'st-word ' + cls[0] }, cls[1])); dirEl._c = cls[1]; }
       return null;
     }]);
     // (The smoothed pressures and flows, as the vessel card and the figure read them: the raw ones swing with each beat.)
@@ -186,7 +190,7 @@ export function createInspector(root, { onWhy, onAction, onOpenTab, onScenarios,
     const els = [
       selectionHead(kicker, e.label, dirEl),
       h('div', { class: 'p-body' },
-        section('live', 'Live values', null, null,
+        liveBlock(
           h('div', { class: 'stat-grid' },
             stat(`In · ${fromN.label}`, (f) => fp(P(f)[NI[e.from]]).join(' '), true),
             stat(`Out · ${toN.label}`, (f) => fp(P(f)[NI[e.to]]).join(' '), true),
@@ -213,7 +217,7 @@ export function createInspector(root, { onWhy, onAction, onOpenTab, onScenarios,
     return [
       selectionHead('Compartment', n.label),
       h('div', { class: 'p-body' },
-        section('live', 'Live values', null, null,
+        liveBlock(
           h('div', { class: 'stat-grid' },
             stat('Pressure', (f) => fp((f.Pf || f.P)[NI[id]]).join(' ')),
             stat('Healthy', () => { const v = store.get().healthy?.P?.[NI[id]]; return v != null ? `${fmt(v, 1)} mmHg` : '—'; }),
@@ -238,7 +242,7 @@ export function createInspector(root, { onWhy, onAction, onOpenTab, onScenarios,
     if (!o) return home();
     const [kicker, title, about, stats, why] = o;
     return [selectionHead(kicker, title), h('div', { class: 'p-body' },
-      section('live', 'Live values', null, null, h('div', { class: 'stat-grid' }, stats.map(([k, fn]) => stat(k, fn))), h('div', { class: 'btn-row' }, whyBtn(why))),
+      liveBlock(h('div', { class: 'stat-grid' }, stats.map(([k, fn]) => stat(k, fn))), h('div', { class: 'btn-row' }, whyBtn(why))),
       section('about', 'About', null, null, h('p', { class: 'sub', style: { margin: 0 } }, about)))];
   }
 

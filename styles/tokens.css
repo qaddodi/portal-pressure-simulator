@@ -28,7 +28,7 @@
   --accent-ink: #2442AE;
   --accent-soft: rgba(49, 85, 209, .09);
   --accent-line: rgba(49, 85, 209, .32);
-  --focus: #3B82F6;
+  --focus: #3155D1;   /* (the accent itself, not a UI kit's stock blue: DG3) */
 
   /* status (always paired with a label or icon) */
   --ok: #178A63;
@@ -95,7 +95,9 @@
 
   /* lens ramps (both themes): "#colour position" stops, interpolated in OKLab by colormap.js.
      Pressure positions are mmHg; the others run 0 to 1 along their scale. */
-  --ramp-pressure: #DCEBF7 0, #7CC4E4 5, #6A7FD8 10, #8E4FC4 12, #C0307A 20, #6E0B3A 30;
+  /* (pressure: lightness falls at every stop, so 12 and 20 mmHg differ on a projector or a printout as well as in hue;
+     they had the same OKLab lightness, .556 and .553. Round 2 review A7, Mohammad 18 Oct) */
+  --ramp-pressure: #DCEBF7 0, #99C2ED 5, #718EDF 10, #8671CF 12, #9B2B6A 20, #661030 30;
   --ramp-flow: #9CC7B5 0, #72BFA4 .25, #3EAA98 .5, #1E6F8C .75, #1B366A 1;
   /* velocity against each vessel's normal: sand below it, teal within it, violet above it (thirds of the scale) */
   --ramp-velocity: #C9973F 0, #E2CF9A .2, #5DB4A4 .5, #9A7ED6 .8, #4A2A8C 1;
@@ -208,7 +210,7 @@
   --lz-streak-shadow: rgba(60, 30, 50, .35); --lz-lymph: rgba(150, 186, 140, .42); --lz-albumin: var(--albumin); --lz-albumin-ring: rgba(255, 255, 255, .95);
   --lz-collagen: #966828; --lz-rbc: rgba(150, 18, 40, .8);
   /* sinusoid art (WebGL): cells, lymph by protein (low, mid, high), albumin */
-  --sv-gl-nucleus: #844664; --sv-gl-basement: #967646; --sv-gl-bile: var(--bile-duct); --sv-gl-endothelium: #B8B0CC;
+  --sv-gl-nucleus: #844664; --sv-gl-basement: #967646; --sv-gl-bile: var(--bile-duct); --sv-gl-endothelium: #B8B0CC; --sv-gl-endo-sheet: #D2CBE6; --sv-gl-endo-edge: #5A5082;
   --sv-gl-endo-nucleus: #8072A0; --sv-gl-hsc-quiet: #E0B896; --sv-gl-hsc-active: #BE805E;
   --sv-gl-hsc-nucleus: #925A42; --sv-gl-kupffer: #B296D6; --sv-gl-kupffer-nucleus: #6C509C;
   --sv-gl-kupffer-edge: #60468E; --sv-gl-rbc: #CC4A50; --sv-gl-albumin: var(--albumin); --sv-gl-albumin-edge: #8C4C00;
@@ -217,11 +219,16 @@
   --font-ui: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
   --font-num: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
   --font-display: 'Source Serif 4', 'Iowan Old Style', Georgia, 'Times New Roman', serif;
+  /* One capital-letter style (17 Oct) for tile names, the data card header, the deck tab, table heads, kickers and figure labels. */
+  --caps-w: 600; --caps-ls: .06em;
   --font-mono: 'JetBrains Mono', ui-monospace, 'SFMono-Regular', Menlo, Consolas, monospace;
   --ease: cubic-bezier(.2, .8, .2, 1);
   /* One clock for a lens switch or a selection: the organs and vessels ease together (stage.js LENS_FADE = PLATE_FADE, an ease in and out). */
   --view-fade: .3s; --ease-io: cubic-bezier(.455, .03, .515, .955);
   --t-fast: .16s; --t: .24s;
+  /* Leaving: starts gently and gets out of the way (the entering curve, --ease, is fastest in its first frame, so a close that
+     used it felt abrupt). Exits run a little quicker than entrances. */
+  --ease-in: cubic-bezier(.4, 0, 1, 1); --t-out: .2s;
 
   color-scheme: light;
 }
@@ -266,7 +273,7 @@
     --collagen: rgb(199, 186, 153); --lz-field-sin-pale: #2E1A26; --lz-septum: rgb(199, 186, 153); --lz-zone-line: rgba(255, 255, 255, .3); --lz-nodule-ink: rgba(30, 14, 28, .22); --lz-nodule-shadow: rgba(0, 0, 0, .5); --lz-plate-line: rgba(255, 255, 255, .1);
     --lz-duct-cell: #8E9150; --lz-duct-edge: rgba(36, 38, 16, .55); --lz-duct-nucleus: #3E4120; --lz-duct-lumen: #2C2F16;
     --lz-lymph: rgba(214, 236, 204, .42); --lz-albumin-ring: rgba(20, 14, 4, .9); --lz-collagen: #E8C48C; --lz-rbc: rgba(255, 120, 140, .9);
-    --sv-gl-nucleus: #281222; --sv-gl-basement: #CCBC8E; --bile-duct: #969C50; --sv-gl-endothelium: #7A749C;
+    --sv-gl-nucleus: #281222; --sv-gl-basement: #CCBC8E; --bile-duct: #969C50; --sv-gl-endothelium: #7A749C; --sv-gl-endo-sheet: #A39CCB; --sv-gl-endo-edge: #2C2650;
     --sv-gl-endo-nucleus: #544A78; --sv-gl-hsc-quiet: #B08666; --sv-gl-hsc-active: #A0664A;
     --sv-gl-hsc-nucleus: #60382A; --sv-gl-kupffer: #846AB0; --sv-gl-kupffer-nucleus: #4A3674;
     --sv-gl-kupffer-edge: #3A2A60; --sv-gl-rbc: #B03E48; --albumin: #F2B64A; --sv-gl-albumin-edge: #6E3A00;
@@ -313,7 +320,7 @@
   --collagen: rgb(199, 186, 153); --lz-field-sin-pale: #2E1A26; --lz-septum: rgb(199, 186, 153); --lz-zone-line: rgba(255, 255, 255, .3); --lz-nodule-ink: rgba(30, 14, 28, .22); --lz-nodule-shadow: rgba(0, 0, 0, .5); --lz-plate-line: rgba(255, 255, 255, .1);
   --lz-duct-cell: #8E9150; --lz-duct-edge: rgba(36, 38, 16, .55); --lz-duct-nucleus: #3E4120; --lz-duct-lumen: #2C2F16;
   --lz-lymph: rgba(214, 236, 204, .42); --lz-albumin-ring: rgba(20, 14, 4, .9); --lz-collagen: #E8C48C; --lz-rbc: rgba(255, 120, 140, .9);
-  --sv-gl-nucleus: #281222; --sv-gl-basement: #CCBC8E; --bile-duct: #969C50; --sv-gl-endothelium: #7A749C;
+  --sv-gl-nucleus: #281222; --sv-gl-basement: #CCBC8E; --bile-duct: #969C50; --sv-gl-endothelium: #7A749C; --sv-gl-endo-sheet: #A39CCB; --sv-gl-endo-edge: #2C2650;
   --sv-gl-endo-nucleus: #544A78; --sv-gl-hsc-quiet: #B08666; --sv-gl-hsc-active: #A0664A;
   --sv-gl-hsc-nucleus: #60382A; --sv-gl-kupffer: #846AB0; --sv-gl-kupffer-nucleus: #4A3674;
   --sv-gl-kupffer-edge: #3A2A60; --sv-gl-rbc: #B03E48; --albumin: #F2B64A; --sv-gl-albumin-edge: #6E3A00;
@@ -324,7 +331,7 @@
 /* Soft light: warm, low-glare paper with frosted cards and softer ink; organ colours unchanged. */
 :root[data-theme="soft"] {
   --bg: #E8DFD1; --stage-bg: #E8DFD1; --surface: #F6F0E6; --surface-2: #EBE2D4; --surface-3: #DDD2C0;
-  --ascites: #D2A02E; --ascites-a: .5;   /* a deeper amber so the fluid reads against the beige ground */
+  --ascites: #DCB95E; --ascites-a: .42;   /* a mid straw, between the old deep amber and Light's faint wash: visible against the beige ground, still translucent */
   --glass: rgba(246, 240, 230, .84); --frost: rgba(246, 240, 230, .36); --scrim: rgba(40, 32, 22, .34);
   --hairline: rgba(70, 52, 30, .11); --border: #D4C8B4; --border-strong: #B9AA92;
   --text: #221E18; --text-2: #4A443A; --text-3: #5E574B;

@@ -24,7 +24,7 @@ test('the stacked slide takes every bottom offset from --pz-sb', () => {
     assert.ok(r.includes('var(--pz-sb)'), `${sel} no longer uses --pz-sb`);
     assert.ok(!r.includes('safe-area-inset-bottom'), `${sel} still reads the safe area directly`);
   }
-  assert.match(rule('.pz-shade.stack'), /border-radius: 18px 18px var\(--pz-card-br\) var\(--pz-card-br\)/);
+  assert.match(rule('.pz-shade.stack'), /--pz-r: 18px;[^}]*border-radius: var\(--pz-r\) var\(--pz-r\) var\(--pz-card-br\) var\(--pz-card-br\)/);
 });
 
 test('the class is set only for an iPhone running as an installed app', () => {

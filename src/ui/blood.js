@@ -17,7 +17,8 @@
 
 // Display speed, world units per second, for a mean velocity in cm/s.
 export const SPEED_K = 9.5;
-export const displaySpeed = (v) => (Math.abs(v) < 0.25 ? 0 : Math.sign(v) * SPEED_K * Math.sqrt(Math.abs(v)));
+// (Below 0.25 cm/s it stands; up to 0.6 it rises from 0, so the blood and the chevrons' fade start from rest, never in a jump.)
+export const displaySpeed = (v) => { const a = Math.abs(v); return a < 0.25 ? 0 : Math.sign(v) * SPEED_K * Math.sqrt(a) * smoothstep(0.25, 0.6, a); };
 // Parcels per display second per mL/s of flow.
 export const KAPPA = 0.4;
 // Slot spacing along a lane (world units); the shader doubles it (×2, ×4) when zoomed out so
@@ -59,31 +60,63 @@ export function occupancy(qMlS, vDisp, n, spacing = SLOT) {
  * (cm/s), `vNow` the instantaneous one; with `phasic` the display follows breathing and the
  * heartbeat (amplified ×2 around the mean) instead of a smooth mean. `speed` scales motion;
  * `still` (reduced motion) keeps it in place, following the flow's direction at once.
+ * `rev` (optional): whether the vessel counts as reversed, the same signal that turns its colour (stage.js
+ * isReversed). Given, it alone sets which way the blood and its chevrons run, so both turn at the moment the
+ * colour does: the blood slows to a stop over REVERSE_SETTLE, stands still, then eases off the other way.
+ * Without it the stream turns when its eased mean crosses zero, which for a small reversed flow can be many
+ * seconds after the colour.
  */
-export function advanceStream(st, vMean, vNow, dt, { phasic = false, speed = 1, large = true, still = false } = {}) {
-  if (st.vSlow == null) { st.vSlow = vMean; st.vFast = vNow; st.D = (st.seed || 0) * 97 % PERIOD; st.hold = 0; }
+export function advanceStream(st, vMean, vNow, dt, { phasic = false, speed = 1, large = true, still = false, rev } = {}) {
+  if (st.vSlow == null) { st.vSlow = vMean; st.vFast = vNow; st.D = (st.seed || 0) * 97 % PERIOD; st.hold = 0; st.settle = 0; }
+  const ruled = rev != null, sgR = rev ? -1 : 1;
   // Reduced motion (still): nothing moves or eases; the stream stands where it is and points the way the flow goes now.
-  if (still) { st.vSlow = vMean; st.vFast = vNow; st.hold = 0; st.sgn = Math.sign(vMean) || st.sgn; dt = 0; }
+  if (still) { st.vSlow = vMean; st.vFast = vNow; st.hold = 0; st.settle = 0; st.sgn = ruled ? sgR : Math.sign(vMean) || st.sgn; dt = 0; }
   st.vSlow += (vMean - st.vSlow) * -Math.expm1(-dt / 1.5);
   st.vFast += (vNow - st.vFast) * -Math.expm1(-dt / 0.12);
   // When the mean flow turns round, the blood settles, stands still for REVERSE_HOLD seconds and then eases off the
   // other way (over REVERSE_RAMP), so the stop is seen (blueprint §6.2). The display alone holds: the model and its
   // numbers run on.
-  const sg = Math.sign(st.vSlow);
-  if (sg && st.sgn && sg !== st.sgn) st.hold = REVERSE_HOLD + REVERSE_RAMP;
+  const sg = ruled ? sgR : Math.sign(st.vSlow);
+  if (sg && st.sgn && sg !== st.sgn) {
+    st.hold = REVERSE_HOLD + REVERSE_RAMP;
+    // Ruled by the colour's signal: the shown blood slows from where it is, while the mean starts afresh from the
+    // new flow (shown only once the hold is over), instead of easing for seconds back through zero.
+    if (ruled) { st.settle = REVERSE_SETTLE; st.vOld = st.vm ?? st.vSlow; st.vSlow = vMean; st.vFast = vNow; }
+  }
   if (sg) st.sgn = sg;
+  if (st.settle > 0) {
+    st.settle = Math.max(0, st.settle - dt);
+    const f = smoothstep(0, 1, st.settle / REVERSE_SETTLE);
+    st.vm = st.v = f * st.vOld;
+    st.vd = f * displaySpeed(st.vOld);
+    st.D = (((st.D + st.vd * speed * dt) % PERIOD) + PERIOD) % PERIOD;
+    st.stasis = large ? 1 - f * smoothstep(2, 5.5, Math.abs(st.vOld)) : 0;
+    st.drift = drift(st, dt);
+    return st;
+  }
   let k = 1;
   if (st.hold > 0) {
     st.hold = Math.max(0, st.hold - dt);
     k = st.hold > REVERSE_RAMP ? 0 : smoothstep(0, 1, 1 - st.hold / REVERSE_RAMP);
   }
-  const v = phasic ? st.vSlow + (st.vFast - st.vSlow) * 2 : st.vSlow;
+  // (Ruled: a flow too small to count as reversed, running the other way, shows as standing; beats still swing it.)
+  const vm = ruled ? st.sgn * Math.max(0, st.sgn * st.vSlow) : st.vSlow;
+  const v = phasic ? vm + (st.vFast - st.vSlow) * 2 : vm;
+  st.vm = k * vm;
   st.v = k ? k * v : 0;
   st.vd = k ? k * displaySpeed(v) : 0;   // (eased on the display's own scale, which is steep near zero)
   st.D = (((st.D + st.vd * speed * dt) % PERIOD) + PERIOD) % PERIOD;
-  st.stasis = large ? 1 - k * smoothstep(2, 5.5, Math.abs(st.vSlow)) : 0;
+  st.stasis = large ? 1 - k * smoothstep(2, 5.5, Math.abs(vm)) : 0;
+  st.drift = drift(st, dt);
   return st;
 }
+/**
+ * How far a stream's stagnant blood (its smoke) has drifted, in shimmer cells: stasis × 0.06 cells a second, added up
+ * frame by frame and wrapped at the noise's 50-cell period (seamless). A change in stasis changes only the drift's speed;
+ * as stasis × clock it moved the whole pattern by Δstasis × clock, further the longer the app had run (round 2 review, B1).
+ */
+export const DRIFT_PERIOD = 50;
+export const drift = (st, dt) => ((st.drift || 0) + st.stasis * dt * 0.06) % DRIFT_PERIOD;
 /**
  * Reduced motion: still chevrons spaced by flow. The spacing level (0–3, continuous) for a flow q (mL/s, either way): 0, the
  * finest spacing, from 0.8 L/min; each halving of the flow doubles the spacing, up to 3 (eight times as far apart).
@@ -92,6 +125,33 @@ export const CHEV_Q_FULL = 0.8 / 0.06;   // 0.8 L/min in mL/s
 export const chevFlowLevel = (q) => Math.min(3, Math.max(0, Math.log2(CHEV_Q_FULL / Math.max(1e-3, Math.abs(q || 0)))));
 /** Seconds the displayed blood stands still when a vessel's mean flow turns round, and then takes to reach its speed. */
 export const REVERSE_HOLD = 0.6, REVERSE_RAMP = 0.5;
+/** Seconds the shown blood takes to slow to a stop when its vessel turns reversed (or back), before that hold. */
+export const REVERSE_SETTLE = 0.6;
+
+/**
+ * Reversal as shown, held for a breath (stage.js holdReversals): `n` flags that change only once a vessel's new direction has
+ * held for `breath` seconds of model time, or at once on a jump. step(raw, t, jump): raw(k) is the model's flag (0 or 1) now,
+ * t the model time; returns whether any shown flag turned. (Round 2 review, B3.)
+ */
+export function createReversalHold(n, breath = 4) {
+  const hold = new Uint8Array(n), pend = new Float64Array(n).fill(NaN);
+  return {
+    hold,
+    step(raw, t, jump) {
+      let flip = false;
+      for (let k = 0; k < n; k++) {
+        const r = raw(k);
+        if (r === hold[k]) { pend[k] = NaN; continue; }
+        if (!jump) {
+          if (!(pend[k] <= t)) pend[k] = t;
+          if (t - pend[k] < breath) continue;
+        }
+        hold[k] = r; pend[k] = NaN; flip = true;
+      }
+      return flip;
+    },
+  };
+}
 
 // Key chevrons only (Blood menu; always while presenting): chevrons keep to the portal story (the portal
 // inflow, the liver's beds, the hepatic veins, any open collateral or shunt); the rest fade.

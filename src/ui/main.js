@@ -1,44 +1,45 @@
 // Application bootstrap: wires the engine host to the four surfaces (figure + action card,
 // timeline, patient chart, instruments) and to Home, the command palette and the menus.
 
-import { startHost, host } from './host.js?v=5ea6b84e46';
+import { startHost, host } from './host.js?v=25be84943e';
 import { store, updateParams, replaceParams, bindParamSender, clearHistory, logAction, varicesPresent, hiddenNow } from './store.js?v=31ee79b6ab';
-import { createStage } from './stage.js?v=5f139ff82c';
-import { createCreditPlacer } from './credit.js?v=b780eae767';
-import { sinusoidSupported } from './sinusoid-view.js?v=be7cf93fb4';
-import { createInspector } from './inspector.js?v=958160ed1b';
-import { createDock, CUTOFFS } from './dock.js?v=2d150446b2';
-import { setHvpgStage } from './hvpg-proc.js?v=50c4e675b4';
-import { createWhy } from './why.js?v=68289b3706';
-import { createTimeline, LAPSES } from './timeline.js?v=bf25400356';
-import { createCompare } from './compare.js?v=d555638c31';
-import { createCard } from './card.js?v=efcfe06632';
-import { createChart } from './chart.js?v=5f9ce05bbe';
-import { createMenu } from './menu.js?v=10a35de051';
-import { caption } from './a11y.js?v=06858b3c4a';
+import { createStage } from './stage.js?v=dca42c4459';
+import { createCreditPlacer } from './credit.js?v=6c9e659d24';
+import { sinusoidSupported } from './sinusoid-view.js?v=93a2dc5de0';
+import { createInspector } from './inspector.js?v=9b4108ce3a';
+import { createDock, CUTOFFS } from './dock.js?v=22200559db';
+import { setHvpgStage } from './hvpg-proc.js?v=ca6b23e252';
+import { createWhy } from './why.js?v=0fec9c4e67';
+import { createTimeline, LAPSES } from './timeline.js?v=9413b4b53f';
+import { createCompare } from './compare.js?v=7ed97bee91';
+import { createCard } from './card.js?v=307f904f62';
+import { createChart } from './chart.js?v=b25fbbb782';
+import { createMenu } from './menu.js?v=cbf0caa018';
+import { caption } from './a11y.js?v=aa087cb199';
 import { startLMS } from './lms.js?v=284ef81e94';
-import { UPDATED, CONTENT_UPDATED, VALIDATION, AUTHOR, AUTHOR_URL } from '../version.js?v=6886ed4265';
-import { normalizeSel, shuntable, edgeValue, bedStats } from './actions.js?v=2502de316d';
-import { gradientCss, dropCss, PRESSURE_TICKS, flowCss, flowPos, velocityCss, heatCss, HEAT_MAX, oxygenCss, OXY_MIN } from './colormap.js?v=5c9a375f49';
+import { UPDATED, CONTENT_UPDATED, VALIDATION, AUTHOR, AUTHOR_URL, FEEDBACK_EMAIL } from '../version.js?v=1767318315';
+import { normalizeSel, shuntable, edgeValue, bedStats } from './actions.js?v=46de443924';
+import { gradientCss, dropCss, PRESSURE_TICKS, flowCss, flowPos, velocityCss, heatCss, HEAT_MAX, oxygenCss, OXY_MIN } from './colormap.js?v=dc071e3659';
 import { EDGES, PORTAL_TERRITORY } from '../engine/topology.js?v=4044766e96';
 import { dopplerVel } from './velNormal.js?v=181dda5594';
-import { $, $$, h, icon, fmt, fmtFlow, toast, tooltipFor, openModal, closeModal, isModalOpen, popover, closePopover, popoverOpen, repositionPopover, menuItem, svgIcon, uiScale, markGone, enterAfterGone, enhanceRanges, systemEdge, sinkTo, stopSink } from './util.js?v=0140acc352';
+import { $, $$, h, icon, afterExit, fmt, fmtFlow, toast, tooltipFor, openModal, closeModal, isModalOpen, popover, closePopover, popoverOpen, repositionPopover, menuItem, svgIcon, uiScale, isPhoneLayout, TABLET_UP_MQ, markGone, enterAfterGone, enhanceRanges, systemEdge, sinkTo, stopSink, swapFade, scrollBehavior, reconcile } from './util.js?v=b6a40567da';
 import { TEXT_STEPS } from './type-scale.js?v=d7cca3fb73';
 
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
 const app = $('#app');
 const view = $('#stageView');
-const isPhone = () => matchMedia('(max-width: 767px), (max-width: 1023px) and (max-height: 500px) and (orientation: landscape)').matches;
+const isPhone = isPhoneLayout;
 const SPEEDS = [0.25, 0.5, 1, 2, 4, 8];
 
 // Everything the learner does is a verb on the structure they click (actions.js, card.js); the
 // only armed gesture left is a shunt waiting for its target.
-import { debugOptions, debugOn, setDebug, initDebug } from './debug.js?v=da514a9b04';
-import { initTopbarMotion } from './topbar-motion.js?v=f095540bb8';
-import { ORIGINS } from './blood.js?v=1f05278710';
+import { debugOptions, debugOn, setDebug, initDebug } from './debug.js?v=ca5d58d8b9';
+import { initTopbarMotion } from './topbar-motion.js?v=9d25839df1';
+import { ORIGINS } from './blood.js?v=b0e8934683';
 import { parseShare, cleanShare } from './share-link.js?v=b6f8e0f909';
 import { deepMerge, sanitizeParams } from '../engine/scenario.js?v=1ee7733788';
-import { frameFor, perf as framePerf } from './frame.js?v=5efaa2bcc9';
+import { frameFor, cancelFrame, perf as framePerf } from './frame.js?v=67ca200c87';
+import { easeIO3, glideShift, pillState, foldPill, stopFold } from './pill-motion.js?v=0f61f910f1';
 const nextFrame = frameFor('main');
 
 // Color lenses: [title, what it shows, legend swatch].
@@ -141,7 +142,13 @@ async function main() {
     // Back from a selection's details: to the pinned comparison if there is one, else the panel closes.
     onBack: () => { if (store.get().compareSnap) store.set({ details: null }); else closePanel(); },
   });
-  store.on('details', (d) => { const el = $('#panelTitle span'); if (el) el.textContent = d?.type === 'advanced' ? 'Advanced physiology' : d ? 'Details' : 'Compare'; });
+  store.on('details', (d) => {
+    const el = $('#panelTitle span'); if (el) el.textContent = d?.type === 'advanced' ? 'Advanced physiology' : d ? 'Details' : 'Compare';
+    // A vessel, compartment or organ is the panel's title itself (its name, its kind small above it), so "Details" is
+    // left to screen readers there (17 Oct, V9).
+    const named = ['edge', 'node', 'organ'].includes(d?.type);
+    $('#panelTitle')?.classList.toggle('sr-only', named); $('#panel')?.classList.toggle('named', named);
+  });
   // The figure's labels the open menu covers are hidden while it is open: one tucked under its edge showed a sliver, the "S" of
   // Sinusoids R between the screen edge and the menu (sweep batches 02 and 04). The labels keep their places.
   function labelsUnderMenu(on) {
@@ -159,7 +166,7 @@ async function main() {
   dock = createDock({ strip: $('#strip'), head: $('#dockHead'), body: $('#dockBody'), onWhy: (m, el) => why.open(m, el), onAction: doAction, onProbe: (id) => { host.send({ type: 'probe', id }); logAction('probe', id); }, onReveal: revealDock, onLobule: () => zoomLobule('R'),
     onOpen: () => openPanel('instruments'), onClose: () => setPanelTab('chart'), onLayout: () => syncDoppler(), isVisible: () => app.classList.contains('dock-open'),
     marks: () => timeline.entries(), onBeat: () => sendBeat() });
-  presenterL = lazy(() => import('./presenter.js?v=4cd507a10b'), ({ createPresenter }) => createPresenter({ openSettings, loadPreset, updateParams, host, stage, dock, action: doAction,
+  presenterL = lazy(() => import('./presenter.js?v=86619d4cb9'), ({ createPresenter }) => createPresenter({ openSettings, loadPreset, updateParams, host, stage, dock, action: doAction,
     projectorOn: () => { if (!projector) toggleProjector(); }, projectorOff: () => { if (projector) toggleProjector(); },
     closeHome: () => mainMenu.close(), stashCards, rerenderHome: () => mainMenu.render() }));
   mainMenu = createMenu({
@@ -167,7 +174,7 @@ async function main() {
     onPreset: (id) => openInExplore(id), share, help: (a) => openHelpMenu(a),
     onToggle: (on, sheet) => { closePopover(); app.classList.toggle('menu-sheet-open', on && !!sheet); creditPlacer?.refresh(); labelsUnderMenu(on); },
   });
-  paletteL = lazy(() => import('./palette.js?v=1fb13fd42c'), ({ createPalette }) => createPalette({ ctx: {
+  paletteL = lazy(() => import('./palette.js?v=d87c53af20'), ({ createPalette }) => createPalette({ ctx: {
     select, action: doAction, probe: (id) => { host.send({ type: 'probe', id }); logAction('probe', id); }, showPane: (id) => dock.show(id, { reveal: true }),
     jump: (d, l) => timeline.jump(d, l), undo: () => timeline.undo(), pin: () => timeline.togglePin(), lenses: Object.fromEntries(Object.entries(LENSES).map(([k, v]) => [k, v])),
     zoomLobule: () => zoomLobule('R'), instruments: () => dock.toggle(),
@@ -212,7 +219,20 @@ async function main() {
   });
 
   // The Sinusoid button shows only in the Lobule view: it is one level further down.
-  const syncViewSeg = () => { const st = store.get(), cur = st.lobule && st.sinusoid ? 'sinusoid' : st.lobule ? 'lobule' : st.view; $$('#viewSeg button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.view === cur))); $('#viewSeg [data-view="sinusoid"]').hidden = !st.lobule || !sinusoidSupported(); app.classList.toggle('sin-focus', !!(st.lobule && st.sinusoid)); $('#btnSinPlay').hidden = !(st.lobule && st.sinusoid); const inSin = !!(st.lobule && st.sinusoid); $('#zoomIn').disabled = inSin; for (const [id, off, on] of [['#zoomOut', 'Zoom out', 'Back out to the lobule'], ['#zoomFit', 'Fit the figure to the view', 'Back out to the lobule']]) { $(id).title = inSin ? on : off; $(id).setAttribute('aria-label', inSin ? on : off); } };
+  // (Each change of its buttons plays as one move, pillChange: into or out of the sinusoid the bars slide away or back and the
+  // pill glides with them; with the lobule the Sinusoid button slides out of the pill or back into it.)
+  const syncViewSeg = () => {
+    const st = store.get(), cur = st.lobule && st.sinusoid ? 'sinusoid' : st.lobule ? 'lobule' : st.view, inSin = !!(st.lobule && st.sinusoid);
+    const sinBtn = $('#viewSeg [data-view="sinusoid"]'), sinHide = !st.lobule || !sinusoidSupported();
+    // (Out of the sinusoid also when the way back to the anatomy dropped its class first, stage.js: the pill is still in its sinusoid home.)
+    const sinWas = app.classList.contains('sin-focus') || $('#viewSeg').parentElement?.id === 'sinViews';
+    if (sinWas !== inSin || sinBtn.hidden !== sinHide) {
+      pillChange(() => { sinBtn.hidden = sinHide; app.classList.toggle('sin-focus', inSin); }, sinWas !== inSin ? (inSin ? 'in' : 'out') : sinHide ? 'up' : 'down');
+    }
+    $$('#viewSeg button[data-view]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.view === cur)));
+    $('#btnSinPlay').hidden = !inSin; $('#zoomIn').disabled = inSin;
+    for (const [id, off, on] of [['#zoomOut', 'Zoom out', 'Back out to the lobule'], ['#zoomFit', 'Fit the figure to the view', 'Back out to the lobule']]) { $(id).title = inSin ? on : off; $(id).setAttribute('aria-label', inSin ? on : off); }
+  };
   store.on('view', (v) => { stage.setView(v); syncViewSeg(); });
   store.on('lobule', syncViewSeg);
   // Without WebGL2 the Sinusoid button is hidden: say why, once, the first time the Lobule view opens.
@@ -239,8 +259,13 @@ async function main() {
   const COMPACT = { 'Acute portal vein thrombosis': 'Acute PVT', 'Schistosomiasis / NCPH': 'Schisto\u00ADsomiasis', 'Cirrhosis with gastrorenal shunt': 'Gastrorenal shunt', 'Sinusoidal obstruction syndrome': 'SOS' };
   const syncScenarioName = () => {
     const st = store.get(), name = presets.find((p) => p.id === st.presetId)?.label || 'Custom', short = shortName(name);
-    $('#scenarioName').replaceChildren(h('span', { class: 'sn-l' }, name), h('span', { class: 'sn-s' }, short), h('span', { class: 'sn-c' }, COMPACT[short] ?? short));
-    fitScenarioName();
+    // The new name crossfades in (it swapped in one frame, P8); the pill glides to its width as it lands (topbar-motion.js).
+    const el = $('#scenarioName');
+    if (el.querySelector('.sn-l')?.textContent === name) return;
+    swapFade(el, () => {
+      el.replaceChildren(h('span', { class: 'sn-l' }, name), h('span', { class: 'sn-s' }, short), h('span', { class: 'sn-c' }, COMPACT[short] ?? short));
+      fitScenarioName();
+    });
   };
   store.on('presetId', syncScenarioName);
   store.on('mode', syncScenarioName);
@@ -259,6 +284,7 @@ async function main() {
   inspector.render();
   const deep = await openDeepLink();
   if (!deep) firstRun();
+  armFeedbackAsk();
   // The default patient starts without loadPreset, so record what it came with: Treat > Changes then lists its
   // settings under About this patient, not as changes nobody made, and Clear all keeps them (review #18).
   if (!shared && !store.get().presetParams) store.set({ presetParams: { id: store.get().presetId, params: structuredClone(store.get().params) } });
@@ -320,29 +346,6 @@ function syncScanProbe() {
   if (store.get().mode !== 'explore') { scanOwned = false; return; }
   if (want !== scanOwned) { scanOwned = want; stage?.setScanProbe(want); }
 }
-// Settings no patient could live through (circulatory collapse): a plain warning over the figure, so nobody
-// reads numbers off an impossible patient. Hysteresis keeps it from flickering at the edge.
-const COLLAPSE = { on: (m) => m.map < 45 || m.co < 1.5, off: (m) => m.map > 50 && m.co > 1.8 };
-let collapseEl = null, collapsed = false, tippedBy = null;
-function syncCollapse(m) {
-  if (!m || !Number.isFinite(m.map) || !Number.isFinite(m.co)) return;
-  // Present (any deck) never shows it: the warning belongs to Patients, where the settings are the viewer's own.
-  const next = !store.get().presenting && (collapsed ? !COLLAPSE.off(m) : COLLAPSE.on(m));
-  if (!collapseEl) {
-    // A way out: undo the change that tipped it, or start this patient again.
-    const undoBtn = h('button', { class: 'btn sm cb-undo', onclick: () => doUndo() }, 'Undo last change');
-    collapseEl = h('div', { class: 'collapse-banner', role: 'status', 'aria-live': 'polite' }, h('b', {}, 'This patient would not survive these settings'), h('span', { class: 'cb-msg' }),
-      h('span', { class: 'cb-acts' }, undoBtn, h('button', { class: 'btn sm', onclick: () => restartPatient() }, 'Restart patient')));
-    document.getElementById('stageWrap')?.append(collapseEl);
-  }
-  if (next && !collapsed) tippedBy = timeline?.lastChangeLabel?.() || null;
-  if (next) {
-    const why = `Blood pressure ${fmt(m.map, 0)} mmHg and cardiac output ${fmt(m.co, 1)} L/min: the circulation has collapsed.`;
-    collapseEl.querySelector('.cb-msg').textContent = tippedBy ? `${why} Last change: ${tippedBy}.` : why;
-    collapseEl.querySelector('.cb-undo').hidden = !timeline?.canUndo?.();
-  }
-  if (next !== collapsed) { collapsed = next; collapseEl.classList.toggle('on', next); }
-}
 function onFrame(f) {
   if (f.params) replaceParams(f.params);
   if (f.events?.length) { const hid = store.get().hiddenEvents; const ev = hid ? f.events.filter((e) => !hid.has(e.id) && !(hid.has('COLL_*') && e.id.startsWith('COLL_'))) : f.events; if (ev.length) timeline.addEvents(ev); }
@@ -354,7 +357,6 @@ function onFrame(f) {
   const st0 = store.get();
   store.set({ frame: f, ...(st0.running !== f.running ? { running: f.running } : {}), ...(st0.clock !== f.clock ? { clock: f.clock } : {}), ...(f.clock === 'hemo' && st0.lapse ? { lapse: 0, speed: f.speed } : {}) });
   stage.update(viewFrame(f));
-  syncCollapse(f.metrics);
   card.update(f);
   dock.update(f);
   syncDoppler(f);
@@ -501,15 +503,18 @@ function renderPaintHint() {
   const done = (label, fn) => { const b = h('button', { class: 'btn sm' }, label); b.addEventListener('click', fn); return b; };
   if (st.shunting) {
     const only = st.shunting.only;
+    clearTimeout(hintT); el.classList.remove('leaving');
     el.hidden = false;
-    el.replaceChildren(h('div', { class: 'tc-title' }, icon('stent'), only === 'tips' ? 'Place the TIPS' : 'Make a shunt', h('span', { class: 'sp' }), done('Cancel', () => stage.cancelShunt())),
+    el.replaceChildren(h('div', { class: 'tc-title' }, icon('stent'), only === 'tips' ? 'Place the TIPS' : 'Make a shunt', h('span', { class: 'tc-sp' }), done('Cancel', () => stage.cancelShunt())),
       ...shuntHint(only));
     redraw();
     return;
   }
-  el.hidden = true;
+  // (It fades out where it stands, as it came in, rather than vanishing: P20.)
+  if (!el.hidden && !el.classList.contains('leaving')) { el.classList.add('leaving'); hintT = afterExit(el, 'leaving', () => { el.hidden = true; el.classList.remove('leaving'); }); }
   redraw();
 }
+let hintT = 0;
 // The Lobule view: a view of its own beside Anatomy and Circuit.
 function zoomLobule() { store.set({ lobule: true, sinusoid: false }); }
 
@@ -536,7 +541,6 @@ function buildHud() {
   store.on('lobule', (on) => { $('#btnLobuleLayers').hidden = !on; if (!on) closePopover(); });
   syncBloodBtn();
   renderLegend();
-  store.on('colorMode', () => { $('#colorModeLabel').textContent = COLOR_MODES[store.get().colorMode]; });
   enhanceRanges();
   tipEl = h('div', { class: 'hover-tip', 'aria-hidden': 'true' });
   view.append(tipEl);
@@ -565,9 +569,16 @@ function legendModel() {
   const ref = cmp ? st.compareSnap.when : 'healthy';
   return { m, ref, imaging };
 }
+// A new lens or reference crossfades the key and the lens name (swapFade) with the vessels' own .3 s crossfade, rather than
+// swapping them in one frame (motion review P11); the same key built again simply replaces itself.
+let legendKey = null;
 function renderLegend() {
   const { m, ref } = legendModel();
-  const el = $('#legend');
+  // (The key names only what the legend shows: the reference appears in the Congestion and Change keys alone, so turning
+  // Compare on or off no longer fades an unchanged key out and in; round 2 review, NP8.)
+  const el = $('#legend'), key = m === 'heat' || m === 'delta' ? `${m}|${ref}` : m, same = key === legendKey;
+  legendKey = key;
+  const put = (...kids) => swapFade(el, () => el.replaceChildren(...kids), { instant: same });
   // (Every number is centred on its tick; the scale stands in from its neighbours by half its end numbers' width (ch: a digit,
   // the scale's own font being the numbers'), so the first and last are never pulled in off their ticks: "30" had sat 7.5 px left of its tick.)
   const scale = (grad, nums, ticks = []) => h('div', { class: 'lg-scale', style: { marginLeft: `${String(nums[0]?.[1] ?? '').length / 2}ch`, marginRight: `${String(nums.at(-1)?.[1] ?? '').length / 2}ch` } }, h('div', { class: 'lg-bar', style: { background: grad } }),
@@ -577,46 +588,47 @@ function renderLegend() {
   const cap = (k, u) => h('div', { class: 'lg-cap', 'aria-hidden': 'true' }, k, h('small', {}, u));
   if (m === 'pressure' || m === 'drop') {
     const max = 30, at = (p) => (p / max) * 100;
-    el.replaceChildren(h('div', { class: 'lg-title' }, m === 'pressure' ? 'Mean venous pressure' : 'Pressure drop', h('small', {}, 'mmHg')), cap(m === 'pressure' ? 'Pressure' : 'Drop', 'mmHg'),
+    put(h('div', { class: 'lg-title' }, m === 'pressure' ? 'Mean venous pressure' : 'Pressure drop', h('small', {}, 'mmHg')), cap(m === 'pressure' ? 'Pressure' : 'Drop', 'mmHg'),
       m === 'pressure' ? scale(gradientCss('to right', max), PRESSURE_TICKS.map((p) => [at(p), String(p)]), PRESSURE_TICKS.map(at))
         : scale(dropCss('to right'), [[0, '0'], [100, '12+']]));
     el.setAttribute('aria-label', m === 'pressure' ? 'Legend: mean venous pressure at each vessel, 0 to 30 millimeters of mercury, pale blue to dark magenta' : 'Legend: pressure drop across each vessel, 0 to 12 or more millimeters of mercury, pale to deep green');
   } else if (m === 'flow') {
     const at = (v) => flowPos(v) * 100;
-    el.replaceChildren(h('div', { class: 'lg-title' }, 'Flow volume', h('small', {}, 'L/min · width ∝ √flow')), cap('Flow', 'L/min'),
+    put(h('div', { class: 'lg-title' }, 'Flow volume', h('small', {}, 'L/min · width ∝ √flow')), cap('Flow', 'L/min'),
       scale(flowCss('to right'), [[at(0.02), '0.02'], [at(0.5), '0.5'], [at(5), '5']], [at(0.5)]));
     el.setAttribute('aria-label', 'Legend: flow volume from 0.02 to 6 liters per minute on a log scale, pale mint to deep blue; line width grows with flow');
   } else if (m === 'velocity') {
-    el.replaceChildren(h('div', { class: 'lg-title' }, 'Velocity', h('small', {}, 'vs normal')), cap('Velocity', 'vs normal'),
+    put(h('div', { class: 'lg-title' }, 'Velocity', h('small', {}, 'vs normal')), cap('Velocity', 'vs normal'),
       scale(velocityCss('to right'), [[0, 'Slow'], [100, 'Fast']], [33.3, 66.7]));
     el.setAttribute('aria-label', 'Legend: each vessel\'s mean velocity against its normal range: a continuous scale from sand (slower than normal) through teal (normal) to violet (faster), stronger the further from normal; collaterals stay grey');
   } else if (m === 'heat') {
     const at = (v) => (v / HEAT_MAX) * 100;
-    el.replaceChildren(h('div', { class: 'lg-title' }, 'Congestion', h('small', {}, `mmHg above ${ref}`)), cap('Congestion', 'mmHg'),
+    put(h('div', { class: 'lg-title' }, 'Congestion', h('small', {}, `mmHg above ${ref}`)), cap('Congestion', 'mmHg'),
       scale(heatCss('to right'), [[at(0), '0'], [at(5), '5'], [at(10), '10', 1], [at(15), '15+']], []));
     el.setAttribute('aria-label', `Legend: pressure above ${ref}, 0 to 15 millimeters of mercury, grey to yellow to deep red, with a glow where congestion is highest`);
   } else if (m === 'oxygen') {
     const at = (p) => ((p / 100 - OXY_MIN) / (1 - OXY_MIN)) * 100;
-    el.replaceChildren(h('div', { class: 'lg-title' }, 'Oxygen saturation', h('small', {}, '%')), cap('Oxygen', '%'),
+    put(h('div', { class: 'lg-title' }, 'Oxygen saturation', h('small', {}, '%')), cap('Oxygen', '%'),
       scale(oxygenCss('to right'), [[at(60), '60'], [at(80), '80'], [at(100), '100']], [at(80)]));
     el.setAttribute('aria-label', 'Legend: oxygen saturation of the blood in each vessel, 60 to 100 percent, blue (hepatic venous blood, about 65) to red (arterial, 98); portal blood is about 85');
   } else if (m === 'direction') {
-    el.replaceChildren(h('div', { class: 'lg-cats' }, h('span', {}, h('i', { style: { background: 'var(--flow-normal)' } }), 'Physiological'), h('span', {}, h('i', { style: { background: 'var(--flow-reversed)' } }), 'Reversed')));
+    put(h('div', { class: 'lg-cats' }, h('span', {}, h('i', { style: { background: 'var(--flow-normal)' } }), 'Physiological'), h('span', {}, h('i', { style: { background: 'var(--flow-reversed)' } }), 'Reversed')));
     el.setAttribute('aria-label', 'Legend: teal is physiological flow direction, orange is reversed');
   } else if (m === 'origin') {
     // Dots and the short names (SMV, IMV, SV, Sys, HA), so the key always fits in the top bar.
-    el.replaceChildren(h('div', { class: 'lg-cats lg-dots' }, ...[0, 1, 2, 4, 3].map((i) => h('span', { title: ORIGINS[i][3] }, h('i', { style: { background: ORIGIN_CSS[i] } }), h('b', {}, ORIGINS[i][2])))));
+    put(h('div', { class: 'lg-cats lg-dots' }, ...[0, 1, 2, 4, 3].map((i) => h('span', { title: ORIGINS[i][3] }, h('i', { style: { background: ORIGIN_CSS[i] } }), h('b', {}, ORIGINS[i][2])))));
     el.setAttribute('aria-label', 'Legend: blood colored by where it comes from, as streams side by side: amber SMV (with the coronary vein), teal IMV, violet SV (splenic vein), slate blue Sys (systemic), crimson HA (hepatic artery)');
   } else if (m === 'neutral') {
-    el.replaceChildren(h('div', { class: 'lg-cats' }, h('span', {}, h('i', { style: { background: 'var(--vein-portal)' } }), 'Portal veins'), h('span', {}, h('i', { style: { background: 'var(--vein-systemic)' } }), 'Systemic veins'),
+    put(h('div', { class: 'lg-cats' }, h('span', {}, h('i', { style: { background: 'var(--vein-portal)' } }), 'Portal veins'), h('span', {}, h('i', { style: { background: 'var(--vein-systemic)' } }), 'Systemic veins'),
       h('span', { class: 'lg-note' }, svgIcon('info'), 'Pressures unmeasured')));
     el.setAttribute('aria-label', 'Legend: violet portal veins, blue systemic veins. Pressures are unmeasured in this case: investigate with the tools.');
   } else {
-    el.replaceChildren(h('div', { class: 'lg-title' }, `Change from ${ref}`, h('small', {}, 'mmHg')), cap('Change', 'mmHg'),
+    put(h('div', { class: 'lg-title' }, `Change from ${ref}`, h('small', {}, 'mmHg')), cap('Change', 'mmHg'),
       scale('linear-gradient(to right, var(--delta-low), var(--delta-mid), var(--delta-high))', [[0, '−12'], [50, '0'], [100, '+12']], [50]));
     el.setAttribute('aria-label', `Legend: change in pressure from ${ref}, blue lower, red higher, up to 12 millimeters of mercury`);
   }
-  $('#colorModeLabel').textContent = m === 'neutral' ? 'Anatomy' : m === 'delta' && st().compareSnap ? 'Change since then' : COLOR_MODES[m];
+  const lab = $('#colorModeLabel'), name = m === 'neutral' ? 'Anatomy' : m === 'delta' && st().compareSnap ? 'Change since then' : COLOR_MODES[m];
+  swapFade(lab, () => { lab.textContent = name; }, { instant: lab.textContent === name });
 }
 const st = () => store.get();
 // ── Moving blood ─────────────────────────────────────
@@ -778,15 +790,26 @@ function renderBanner() {
       b.addEventListener('click', () => store.set({ compareView: v }));
       return b;
     })));
-    const tbl = h('button', { class: 'btn sm cmp-table-btn', title: 'Every value, then and now, in a table', onclick: () => { openPanel(); $('.cmp-section')?.scrollIntoView({ block: 'start' }); } }, 'Differences');
+    const tbl = h('button', { class: 'btn sm cmp-table-btn', title: 'Every value, then and now, in a table', onclick: () => {
+      // (The table scrolls into view once the card has come in, not while it is still sliding: P22.)
+      const was = panelShown(); openPanel();
+      setTimeout(() => $('.cmp-section')?.scrollIntoView({ block: 'start', behavior: scrollBehavior() }), was ? 0 : 260);
+    } }, 'Differences');
     kids.push(tbl);
   }
-  el.replaceChildren(...kids);
+  // The switch fades in when a moment is pinned and out when it is let go (it popped: P20).
+  const had = !!el.firstChild;
+  if (had && !kids.length) swapFade(el, () => el.replaceChildren());
+  else { swapFade(el, () => el.replaceChildren(...kids), { instant: true }); if (!had && kids.length) el.animate?.([{ opacity: 0 }, { opacity: 1 }], { duration: 200, easing: 'cubic-bezier(.2, .8, .2, 1)' }); }
   app.classList.toggle('cmp-on', !!s0.compareSnap);
   // The switch's height, for views that place their own controls under it (the lobule's).
   app.style.setProperty('--cmp-h', s0.compareSnap ? `${$('#stageCenter').offsetHeight + 8}px` : '0px');
-  view.querySelector('.cmp-badge')?.remove();
-  if (s0.compareSnap && s0.compareView === 'A') view.append(h('div', { class: 'cmp-badge stage-blocker' }, `Showing ${s0.compareSnap.when}`));
+  // "Showing <then>" fades in and out (styles: .cmp-badge) instead of popping.
+  const badge = view.querySelector('.cmp-badge:not(.leaving)');
+  if (s0.compareSnap && s0.compareView === 'A') {
+    const t = `Showing ${s0.compareSnap.when}`;
+    if (badge) { if (badge.textContent !== t) badge.textContent = t; } else view.append(h('div', { class: 'cmp-badge stage-blocker' }, t));
+  } else if (badge) { badge.classList.add('leaving'); afterExit(badge, 'leaving', () => badge.remove()); }
   redraw();
 }
 
@@ -807,14 +830,16 @@ function wireTopbar() {
 // use it, what it is, and who made it).
 function openSettings(anchor, withSearch = false) {
   const cur = document.documentElement.getAttribute('data-theme') || 'system';
-  // While presenting, only what changes how the talk looks: appearance, full screen, text size, interface zoom.
+  // While presenting, only what changes how the talk looks (appearance, full screen, text size, interface zoom), and Send feedback.
   const talk = presenter.active();
   popover(anchor, [
-    // (From the thumb dock's Settings tab, Search and Help head the sheet: the dock has no More menu, and a touch keyboard has no ?.)
+    // (Send feedback heads the sheet in every mode and on every device, above the dock's Search and Help, talks included, so a tester reaches it in one tap from any Settings button.)
+    ...(FEEDBACK_EMAIL ? [menuItem('Send feedback', { icon: 'mail', onClick: () => { closePopover(); sendFeedback(); } })] : []),
+    // (From the thumb dock's Settings tab, Search and Help follow it: the dock has no More menu, and a touch keyboard has no ?.)
     ...(withSearch ? [menuItem('Search', { icon: 'search', onClick: () => { closePopover(); palette.open(); } }),
       menuItem('Help', { icon: 'help', onClick: () => { closePopover(); openHelpMenu(anchor, { place: 'above', align: 'end', cls: 'app-menu' }); } })] : []),
     h('div', { class: 'menu-title' }, 'Appearance'),
-    h('div', { class: 'seg full menu-seg' }, [['light', 'Light'], ['dark', 'Dark'], ['soft', 'Soft'], ['system', 'System']].map(([v, l]) => { const b = h('button', { 'aria-pressed': String(cur === v) }, l); b.addEventListener('click', () => { applyTheme(v === 'system' ? null : v, v === 'system'); b.parentElement.querySelectorAll('button').forEach((x) => x.setAttribute('aria-pressed', String(x === b))); }); return b; })),
+    h('div', { class: 'seg full menu-seg' }, [['light', 'Light'], ['dark', 'Dark'], ['soft', 'Soft'], ['system', 'System']].map(([v, l]) => { const b = h('button', { 'aria-pressed': String(cur === v) }, l); b.addEventListener('click', () => { switchTheme(v === 'system' ? null : v, v === 'system'); b.parentElement.querySelectorAll('button').forEach((x) => x.setAttribute('aria-pressed', String(x === b))); }); return b; })),
     fullscreenControl(),
     ...(talk ? presenterSettings() : []),
     h('div', { class: 'menu-title' }, 'Text size on the figure'),
@@ -929,17 +954,53 @@ function openHelpMenu(anchor, at = { align: 'start', cls: 'app-menu' }) {
       h('span', {}, 'Created by ', h('b', {}, AUTHOR)), h('span', { class: 'mc-link' }, 'All my tools ', icon('chev-right'))),
   ], at);
 }
+// Send feedback: a draft in the viewer's own email app, addressed to the author, with what a bug report needs underneath
+// (the build from the preview pill, the device, the screen and a link back to this exact view). The app itself sends
+// nothing, so the Privacy page stays true.
+function sendFeedback() {
+  try { localStorage.setItem(ASK_KEY, 'done'); } catch { /* storage unavailable */ }   // (sent once: the timed ask never comes)
+  const build = document.getElementById('preview-badge')?.textContent.trim() || 'Live site';
+  const theme = document.documentElement.getAttribute('data-theme') || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+  const body = ['What happened, and what did you expect to happen?', '', '', '',
+    'Please keep these details:', `Build: ${build}`, `Device: ${navigator.userAgent}`,
+    `Screen: ${innerWidth} × ${innerHeight} at ${devicePixelRatio}×, ${theme} theme`, `View: ${resumeUrl()}`].join('\n');
+  location.href = `mailto:${FEEDBACK_EMAIL}?subject=${encodeURIComponent('Portal Pressure Simulator feedback')}&body=${encodeURIComponent(body)}`;
+}
 function doUndo() { timeline.undo(); }
 function doRedo() { timeline.redo(); }
 function toggleTheme() {
   const cur = document.documentElement.getAttribute('data-theme') || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
-  applyTheme(cur === 'dark' ? 'light' : 'dark');
+  switchTheme(cur === 'dark' ? 'light' : 'dark');
 }
 function settle() { host.send({ type: 'settle' }); toast('Settled to equilibrium.'); }
 function setSpeed(v, lapse = false) {
   if (lapse) { store.set({ lapse: v }); host.send({ type: 'run', speed: v, clock: 'disease' }); }
   else { store.set({ speed: v, lapse: 0 }); host.send({ type: 'run', speed: v, clock: 'hemo' }); }
 }
+// A theme chosen in the app crossfades the whole page (.45 s): the old look is held as a still picture at full resolution and
+// fades over the live new one (View Transitions, styles/app.css). Where that is not supported it changes at once, as before
+// (motion review P1). Page load and a change of the device's own theme apply at once.
+function switchTheme(t, clear) {
+  if (!document.startViewTransition || document.hidden) { applyTheme(t, clear); return; }
+  crossfade(() => applyTheme(t, clear));
+}
+// While a crossfade plays, its pictures cover the page, so a tap would land on <html>: lost, and taken as a tap outside the
+// open Settings, which closed. Such a tap ends the crossfade and goes to whatever is under it once the live page shows again.
+// (A window capture listener added at startup runs before the popovers' own outside-tap listeners; motion review round 2, RF1.)
+let pageFade = null;
+function crossfade(fn) {
+  const vt = pageFade = document.startViewTransition(fn);
+  vt.finished.finally(() => { if (pageFade === vt) pageFade = null; });
+}
+addEventListener('pointerdown', (e) => {
+  const vt = pageFade;
+  if (!vt) return;
+  pageFade = null;
+  e.stopImmediatePropagation(); e.preventDefault();
+  const { clientX: x, clientY: y } = e;
+  vt.skipTransition();
+  vt.finished.finally(() => document.elementFromPoint(x, y)?.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, composed: true, clientX: x, clientY: y, view: window })));
+}, true);
 function applyTheme(t, clear) {
   if (t) document.documentElement.setAttribute('data-theme', t); else document.documentElement.removeAttribute('data-theme');
   try { if (t) localStorage.setItem('pps.theme', t); else if (clear) localStorage.removeItem('pps.theme'); } catch { /* storage unavailable */ }
@@ -971,7 +1032,7 @@ function readLS(k) { try { return localStorage.getItem(k); } catch { return null
 // while the layout already treats it as closed.
 function leave(el) {
   if (el.dataset.swiped) { delete el.dataset.swiped; return; }   // (swiped away: already slid out of sight behind the tab row)
-  if (matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  // (With Reduce Motion it fades where it stands: app.css turns the leaving keyframes into fades.)
   el.classList.remove('card-leaving'); void el.offsetWidth;
   el.classList.add('card-leaving');
   markGone(180);
@@ -1049,7 +1110,9 @@ function setPanelTab(tab) {
   if (instr && !was) dockSheet?.open();
   if (!instr && was) dockSheet?.closed();
   if (was !== instr) {
-    refitStage();
+    // Opening Tests frames the figure into the space left. Closing it (any way) fits again only a view that was fitted;
+    // one the learner zoomed or panned stays where it is, and a refit still pending from the open is dropped (Mohammad, 17 Oct).
+    if (instr || stage?.closeView()) refitStage(); else clearTimeout(refitT);
     const f = store.get().frame; if (f && instr) nextFrame(() => dock.update(f, true));
     setTimeout(() => dispatchEvent(new Event('resize')), 320);
   }
@@ -1082,10 +1145,13 @@ function wireFloating() {
     // hang below them: there the framing keeps 24 px.)
     const nbvPad = innerHeight <= 500 && innerWidth > innerHeight ? '24' : '12';
     if ($('#nbViews') && $('#nbViews').dataset.safePad !== nbvPad) $('#nbViews').dataset.safePad = nbvPad;
-    const nbv = $('#nbViews'), nbvH = nbv && nbv.offsetHeight ? Math.max(0, vd.getBoundingClientRect().top - nbv.getBoundingClientRect().top + 8) : 0;
-    if (!vd.classList.contains('mini') && vd.offsetHeight) vd.dataset.fullH = String(vd.offsetHeight + nbvH);
-    const vdTop = vd.offsetHeight ? $('#stageView').getBoundingClientRect().bottom - vd.getBoundingClientRect().top + nbvH : 0;
-    const vdock = vd.offsetHeight ? Math.max(vd.offsetHeight + nbvH, vdTop - gap) : 0, wide = !isPhone();
+    // (Its place at rest: less the shift of a glide into or out of the sinusoid, sinMotion.)
+    const nbv = $('#nbViews'), nbvH = nbv && nbv.offsetHeight ? Math.max(0, vd.getBoundingClientRect().top - nbv.getBoundingClientRect().top + (pillEl === nbv ? pillShiftY : 0) + 8) : 0;
+    // (The dock as it rests: none in the sinusoid view, also while it slides away; less its slide while it comes back.)
+    const vdH = app.classList.contains('sin-focus') ? 0 : vd.offsetHeight, vdSlide = +vd.dataset.slideY || 0;
+    if (!vd.classList.contains('mini') && vdH) vd.dataset.fullH = String(vdH + nbvH);
+    const vdTop = vdH ? $('#stageView').getBoundingClientRect().bottom - (vd.getBoundingClientRect().top - vdSlide) + nbvH : 0;
+    const vdock = vdH ? Math.max(vdH + nbvH, vdTop - gap) : 0, wide = !isPhone();
     // The top bar keeps one row when everything fits at its natural width (with a little to spare,
     // so it does not flip back and forth), else the view and legend move to a second row.
     // Off a phone the bar first compacts step by step (data-fit 1-3: shorter patient name, icon-only
@@ -1138,15 +1204,11 @@ function wireFloating() {
     // screen's bottom, since the sheets are fixed to it and the dock sits above the home indicator's safe area.)
     // The cards and sheets sit on the tab row's top edge, over the play bar (which they cover), and slide away behind
     // the tab row: --nb-occ from the app's bottom (the cards), --thumb-occ from the screen's (the menu sheets).
-    const nbR = thumb && vd.offsetHeight ? $('#thumbBar').getBoundingClientRect() : null;
-    // (8 px clear of it: the tab row is its own rounded piece while a card is up, 15 Oct.) The cards also take the tab row's
-    // left and right edges on a tablet (--nb-l, --nb-r), so Treat lines up with the bar instead of the screen's margin.
+    const nbR = thumb && vdH ? (({ x, y, width, height }) => new DOMRect(x, y - vdSlide, width, height))($('#thumbBar').getBoundingClientRect()) : null;
+    // (8 px clear of it: the tab row is its own rounded piece while a card is up, 15 Oct.)
     const ar = app.getBoundingClientRect();
     const nbOcc = px(nbR && nbR.height ? ar.bottom - nbR.top + 8 : 0);
     if (pubVals.nbOcc !== nbOcc) { pubVals.nbOcc = nbOcc; app.style.setProperty('--nb-occ', nbOcc); }
-    const nbL = px(nbR && nbR.height ? nbR.left - ar.left : 0), nbRt = px(nbR && nbR.height ? ar.right - nbR.right : 0);
-    if (pubVals.nbL !== nbL) { pubVals.nbL = nbL; app.style.setProperty('--nb-l', nbL); }
-    if (pubVals.nbR !== nbRt) { pubVals.nbR = nbRt; app.style.setProperty('--nb-r', nbRt); }
     const occ = px(nbR && nbR.height ? (innerHeight - nbR.top) / uiScale() + 8 : 0);
     if (pubVals.occ !== occ) { pubVals.occ = occ; document.documentElement.style.setProperty('--thumb-occ', occ); }
     // (and the top bar's foot, so a tall sheet stops under the view switch and leaves it in reach)
@@ -1158,6 +1220,7 @@ function wireFloating() {
   const pubVals = {};
   let pubSig = '';
   const soon = () => { if (!pubRaf) pubRaf = nextFrame(publish); };
+  publishNow = () => { if (pubRaf) { cancelFrame(pubRaf); publish(); } };
   const ro = new ResizeObserver(soon);
   for (const id of ['#topbar', '#vdock', '#dock', '#panel', '#treatCard', '.tb-id', '.top-right', '.topbar .sb-right', '#viewSeg']) ro.observe($(id));
   new MutationObserver(soon).observe(app, { attributes: true, attributeFilter: ['class'] });
@@ -1242,10 +1305,14 @@ function wireFloating() {
 // Over the thumb dock (an upright phone) a sheet has two heights, Half and Full, as shares of the room between the
 // top bar and the dock: the release is measured against that same room, so it lands where the finger left it.
 // No visible grabber over the thumb dock: a drag from anywhere moves the sheet (a tap on a tab still picks it); the hidden button toggles them from the keyboard.
+const tabletMQ = matchMedia(TABLET_UP_MQ);
 function sheetBehaviour(el, { handle, drag, onClose, active = () => true, fit = null, anywhere = false }) {
-  const SIZES = [0.32, 0.56, 0.9], THUMB = [0.62, 1];
+  const SIZES = [0.32, 0.56, 0.9], THUMB = [0.62, 1], TABLET = [0.45, 0.62];
   const thumb = () => app.classList.contains('thumb') && isPhone();
-  const stops = () => (thumb() ? THUMB : SIZES);
+  // (17 Oct, Mohammad: an upright iPad's cards open "proportional to the ipad proportions vertically" and never fill the whole
+  // screen: Half takes the share of the screen's height an iPhone's Half takes, 45 %, and Full stops at 62 %, the figure in view
+  // above it. As shares of the room, like the phone's, so a drag and its release are measured the same way.)
+  const stops = () => (!thumb() ? SIZES : tabletMQ.matches ? TABLET.map((s) => Math.min(1, (s * app.clientHeight) / (room() || app.clientHeight))) : THUMB);
   const half = () => stops().length - 2;
   // The room a thumb sheet may fill: the CSS cap (100% - top bar - tab row - 22 px, styles/app.css thumb block).
   const room = () => (thumb() ? app.clientHeight - (parseFloat(app.style.getPropertyValue('--top-safe')) || 0) - (parseFloat(app.style.getPropertyValue('--nb-occ')) || 0) - 22 : 0);
@@ -1380,7 +1447,97 @@ function syncThumb() {
   // centred at the bottom, level with the zoom group. While presenting it stays in the top bar.
   const pres = app.classList.contains('presenting');
   const seg = $('#viewSeg'), home = pres ? $('#stageTop .sb-left') : app.classList.contains('sin-focus') ? $('#sinViews') : $('#nbViews');
-  if (home && seg.parentElement !== home) home.append(seg);
+  if (home && seg.parentElement !== home) { if (pres) stopFold(); home.append(seg); }
+}
+// Into or out of the sinusoid the view pill changes home (above the dock, or centred at the bottom where the hidden dock was):
+// instead of jumping there it glides from where it was, on the sinusoid zoom's own clock and curve (lobule-zoom.js: 1150 ms in,
+// 950 out, a cubic ease in and out), and its selected button crossfades over the same time (17 Oct, Mohammad: the pill "should
+// transition as well nicely elegantly"). The bars go the same way (17 Oct, Mohammad: "the bars should probably slide out when
+// going into sinusoid and slide back in when going out", the pill gliding "with them same speed"): the dock slides down off the
+// screen as the zoom goes in, and back up into place as it comes out, on the same clock and curve, while Anatomy and Circuit fold
+// into the pill (pill-motion.js) and back out of it. The pill's new place is read every frame, less its own shift and the dock's,
+// so it eases onto where it rests even as the space it rests in is published a frame later.
+// (Both move by transform or translate on boxes no rule eases: on a phone or upright iPad the dock eases its parts' translate
+// over .24 s after a .1 s wait (a card sinking away), which held a glide written there still and let it jump after the zoom.)
+// The framing reads both at rest: the dock counts as gone from the moment it starts sliding away (vd-out), and while either
+// moves its shift on screen is in data-slide-y, which the published space (publish) and the figure's framing (stage.js) take off.
+const PILL_IN = 1150, PILL_OUT = 950;
+// (With the lobule the Sinusoid button slides out of the pill or back into it, 17 Oct, Mohammad: it "should slide out not just
+// appear snap"; the fold, there and into or out of the sinusoid, is pill-motion.js FOLD_MS, quicker than the zoom.)
+// (publishNow: the space the floating pieces leave, published at once if it waits for a frame, wireFloating.)
+let publishNow = () => {};
+let pillRaf = 0, pillEl = null, pillShiftY = 0;   // (pillShiftY: the glide's vertical shift now, in screen px)
+let barY = 0;   // (the dock's slide now, in its own px: 0 at rest, down is positive)
+const pillHome = () => { const b = $('#viewSeg')?.parentElement; return b && (b.id === 'nbViews' || b.id === 'sinViews') && b.offsetWidth ? b : null; };
+function viewPillRect() {
+  const box = pillHome();
+  if (!box) return null;
+  const r = box.getBoundingClientRect();
+  return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
+}
+// One change of the pill's buttons: kind 'in' / 'out' (into or out of the sinusoid), 'down' / 'up' (into or out of the lobule).
+// What the pill draws is read first, then the buttons change, then all of it plays from there to where it now rests.
+function pillChange(change, kind) {
+  const seg = $('#viewSeg'), reduce = matchMedia('(prefers-reduced-motion: reduce)').matches, sin = kind === 'in' || kind === 'out';
+  const box0 = pillHome(), before = reduce || !box0 ? null : pillState(seg, box0), from = sin ? viewPillRect() : null;
+  // (Into the sinusoid the dock stays shown, out of the framing, while it slides away.)
+  if (kind === 'in' && !reduce) $('#vdock').classList.add('vd-out');
+  change();
+  syncThumb();
+  const box1 = pillHome();
+  if (before && box1) foldPill(seg, box1, before);
+  else stopFold();
+  if (sin) { sinMotion(from, kind === 'in'); getComputedStyle(seg).color; }   // (styles settled in the new home before the pressed button changes, so it crossfades)
+}
+function sinMotion(from, intoSin) {
+  cancelFrame(pillRaf); pillRaf = 0;
+  if (pillEl) { pillEl.style.transform = ''; pillEl.classList.remove('vp-glide'); delete pillEl.dataset.slideY; pillEl = null; pillShiftY = 0; }
+  const vd = $('#vdock'), reduce = matchMedia('(prefers-reduced-motion: reduce)').matches, ms = intoSin ? PILL_IN : PILL_OUT, t0 = performance.now();
+  // The dock: from where it is drawn now (at rest, part way, or off the screen) to off the screen, or back to rest.
+  const leaving = vd.classList.contains('vd-out');
+  let bars = !reduce && !app.classList.contains('presenting') && vd.offsetHeight > 0, y0 = barY, y1 = 0, bz = 1;
+  if (bars) {
+    const r = vd.getBoundingClientRect();
+    bz = vd.currentCSSZoom || r.height / vd.offsetHeight || 1;
+    // (Its top, at rest, to past the screen's foot, with its shadow; never short of it, whichever px the interface zoom leaves.)
+    const left = innerHeight - (r.top - barY * bz), off = Math.max(left, left / bz) + 24;
+    if (intoSin) y1 = off; else if (!leaving) y0 = off;
+    if (!intoSin) vd.classList.remove('vd-out');
+  } else {
+    vd.classList.remove('vd-out'); barY = 0; vd.style.translate = ''; delete vd.dataset.slideY;
+  }
+  // The pill.
+  const box = from && !reduce ? pillHome() : null, inDock = !!box && vd.contains(box);
+  let shift = [0, 0];
+  if (box) { pillEl = box; box.style.setProperty('--vp-ms', `${ms}ms`); box.classList.add('vp-glide'); }
+  const step = (now) => {
+    const u = Math.min(1, (now - t0) / ms), e = easeIO3(u);
+    // (The sinusoid view's pill rests on the space the dock leaves, published on a frame of its own, asked for after this one: it
+    // is published first, here, so the pill is never drawn for a frame at the old space and then jumps, 17 Oct. Not in the change's
+    // own task, the first call: there the zoom's own listeners may not have run yet.)
+    if (now > t0) publishNow();
+    if (bars) {
+      barY = u >= 1 ? 0 : y0 + (y1 - y0) * e;
+      vd.style.translate = u >= 1 ? '' : `0 ${barY.toFixed(2)}px`;
+      if (u >= 1) delete vd.dataset.slideY; else vd.dataset.slideY = (barY * bz).toFixed(2);
+      if (u >= 1 && intoSin) vd.classList.remove('vd-out');   // (gone: the sinusoid view's rule hides it now)
+    }
+    const el = pillEl;
+    if (el) {
+      // (Where it lies now, less the glide's own shift and the dock's (read, not cleared, so no extra layout runs), drawn on its
+      // own path from where it was to where it rests, under the interface zoom: pill-motion.js glideShift.)
+      const r = el.getBoundingClientRect(), z = el.currentCSSZoom || (el.offsetWidth ? r.width / el.offsetWidth : 1) || 1;
+      if (u >= 1 || !r.width) { el.style.transform = ''; el.classList.remove('vp-glide'); delete el.dataset.slideY; pillEl = null; pillShiftY = 0; }
+      else {
+        const dock = inDock && bars ? barY * bz : 0, k = 1 - e;
+        shift = [glideShift(r.left + r.width / 2, shift[0], z, 0, from.x, k).shift, glideShift(r.top + r.height / 2, shift[1], z, dock, from.y, k).shift];
+        el.style.transform = `translate(${shift[0].toFixed(2)}px, ${shift[1].toFixed(2)}px)`; pillShiftY = shift[1] * z;
+        el.dataset.slideY = (pillShiftY + dock).toFixed(2);
+      }
+    }
+    if (u < 1 && (bars || pillEl)) pillRaf = nextFrame(step); else pillRaf = 0;
+  };
+  step(t0);
 }
 function wireThumbBar() {
   const tab = (id, ic, label, onclick) => h('button', { class: 'nb-tab', type: 'button', 'data-tab': id, onclick }, svgIcon(ic), h('span', { class: 'nb-l' }, label));
@@ -1402,9 +1559,9 @@ function wireThumbBar() {
   const layers = tab('layers', 'layers', 'Layers', menuTab(openLayersMenu));
   const more = tab('settings', 'gear', 'Settings', menuTab((a) => openSettings(a, true)));
   for (const b of [hist, layers, more]) b.setAttribute('aria-haspopup', 'dialog');
-  $('#vdock').prepend(h('div', { class: 'nb-views', id: 'nbViews', 'data-safe': 'bottom', 'data-safe-pad': '12' }));
+  $('#vdock').prepend(h('div', { class: 'nb-views', id: 'nbViews', 'data-safe': 'bottom', 'data-safe-pad': '12' }, h('span', { class: 'vp-face', 'aria-hidden': 'true' })));
   $('#vdock').append(h('nav', { class: 'thumb-bar', id: 'thumbBar', 'aria-label': 'Patient tools' }, treat, tests, hist, layers, more));
-  $('#stageView').append(h('div', { class: 'sin-views float-ui stage-blocker', id: 'sinViews' }));
+  $('#stageView').append(h('div', { class: 'sin-views float-ui stage-blocker', id: 'sinViews' }, h('span', { class: 'vp-face', 'aria-hidden': 'true' })));
   // The tabs follow the cards they open (and History's count), however those were opened or closed.
   const sync = () => {
     const t = String(treatOpen()), i = String(app.classList.contains('dock-open'));
@@ -1450,7 +1607,7 @@ function openTreat() {
   const [tabs, pane] = chart.treatBody(sync, () => {});
   const body = h('div', { class: 'tc-body' }, pane, chart.treatChanges(sync));
   const grab = el.querySelector('.sheet-grab');
-  el.replaceChildren(...[grab, h('div', { class: 'tc-head card-head' }, h('h2', { class: 'card-title' }, svgIcon('pill'), h('span', {}, 'Treat')), count,
+  el.replaceChildren(...[grab, h('div', { class: 'tc-head card-head' }, h('h2', { class: 'card-title' }, h('span', {}, 'Treat')), count,
     h('button', { class: 'ib card-close', 'aria-label': 'Close Treat', title: 'Close (Esc)', onclick: () => closeTreat({ focus: true }) }, icon('close'))), tabs, body].filter(Boolean));
   paintCount();
   treatOff?.();
@@ -1489,8 +1646,12 @@ function openHistory() {
   closeTreat(); closePopover();
   const el = $('#historyCard');
   const body = h('div', { class: 'tc-body' });
-  const paint = () => { const top = body.scrollTop; body.replaceChildren(timeline.historyBody()); body.scrollTop = top; };
-  el.replaceChildren(h('div', { class: 'tc-head card-head' }, h('h2', { class: 'card-title' }, svgIcon('clock'), h('span', {}, 'History')),
+  // (The list is updated in place: a new entry rises in at the top, the rest stay put, P18.)
+  const paint = () => {
+    const next = timeline.historyBody(), cur = body.firstElementChild;
+    if (cur?.classList.contains('tl-history')) reconcile(cur, [...next.children]); else body.replaceChildren(next);
+  };
+  el.replaceChildren(h('div', { class: 'tc-head card-head' }, h('h2', { class: 'card-title' }, h('span', {}, 'History')),
     h('button', { class: 'ib card-close', 'aria-label': 'Close History', title: 'Close (Esc)', onclick: () => closeHistory({ focus: true }) }, icon('close'))), body);
   paint();
   // (A change or an event adds a row; the count beside the button moves with every entry, including a finished snapshot.)
@@ -1592,7 +1753,14 @@ function wireKeyboard() {
 
 // ── Projector look while presenting (§4.4) ──────────
 let projector = false, bigEl = null, exitEl = null;
+// The switch crossfades the whole page, as a theme change does (the bars and cards came and went in one frame: P20);
+// where View Transitions are missing it switches at once.
 function toggleProjector() {
+  const want = !projector, go = () => { if (projector !== want) flipProjector(); };   // (asked twice before it ran: once)
+  if (!document.startViewTransition || document.hidden) { go(); return; }
+  crossfade(go);
+}
+function flipProjector() {
   projector = !projector;
   app.classList.toggle('projector', projector);
   if (projector) {
@@ -1710,6 +1878,7 @@ function openPrivacy() {
   openModal('Privacy', h('div', {},
     h('p', {}, 'The simulator runs entirely in your browser. It makes no requests to any other site: no analytics, no trackers, no advertising, no third-party fonts or scripts. There is no account and no server that stores anything about you.'),
     h('p', {}, 'What stays on this device, in your browser’s storage: your preferences (theme) and presenter scripts you create. It leaves the device only when you share it (a link or a script file).'),
+    FEEDBACK_EMAIL ? h('p', {}, 'Send feedback (in Settings) opens a draft in your own email app with your device, screen size and a link to the view you were on. Nothing is sent unless you send that email yourself.') : null,
     h('p', {}, 'For institutions: no personal data is processed by the publisher, which supports FERPA and GDPR compliance.'),
     h('p', { class: 'sub' }, keys.length ? `Stored now: ${keys.join(', ')}.` : 'Nothing is stored on this device yet.'),
     h('div', { class: 'btn-row' }, h('button', { class: 'btn', onclick: () => { if (!confirm('Delete everything this simulator has stored on this device?')) return; for (const k of keys) { try { localStorage.removeItem(k); } catch { /* storage unavailable */ } } closeModal(); toast('Your data on this device has been cleared.'); } }, 'Clear my data on this device'))));
@@ -1737,5 +1906,36 @@ function showFirstHint() {
     off = store.on('selection', (sel) => { if (sel) close(); });
   };
   if (window.ppsFigureReady) setTimeout(show, 600); else addEventListener('pps:figure-ready', () => setTimeout(show, 600), { once: true });
+}
+// The feedback ask: after FEEDBACK_ASK_MIN minutes of active use in one visit (the page visible and a touch, click, key or
+// scroll within the last minute), a message card asks for feedback, once per device; "Not now" (or dismissing it) asks once
+// more on a later visit, then never again. It waits out a drag, a talk and projector mode, and never pauses the model.
+const FEEDBACK_ASK_MIN = 10;
+const ASK_KEY = 'pps.feedbackAsk';   // (absent: never asked · 'later': asked once, once more on a later visit · 'done')
+function armFeedbackAsk() {
+  if (!FEEDBACK_EMAIL || navigator.webdriver) return;
+  let was = null;
+  try { was = localStorage.getItem(ASK_KEY); } catch { return; }   // (no storage: it could not remember, so it never asks)
+  if (was === 'done') return;
+  const TICK = 5000, IDLE = 60000;
+  let active = 0, lastInput = 0, last = performance.now(), down = 0, timer = 0;
+  const input = () => { lastInput = performance.now(); };
+  const press = () => { down++; input(); }, lift = () => { down = Math.max(0, down - 1); input(); };
+  for (const t of ['keydown', 'wheel', 'pointermove']) addEventListener(t, input, { capture: true, passive: true });
+  addEventListener('pointerdown', press, { capture: true, passive: true });
+  for (const t of ['pointerup', 'pointercancel']) addEventListener(t, lift, { capture: true, passive: true });
+  const tick = () => {
+    const now = performance.now(), dt = Math.min(now - last, TICK * 2);   // (a sleeping tab's gap is not counted)
+    last = now;
+    if (document.visibilityState === 'visible' && now - lastInput < IDLE) active += dt;
+    if (now - lastInput > 5000) down = 0;   // (a lift the page never heard, outside the window, does not hold the ask forever)
+    if (active < FEEDBACK_ASK_MIN * 60000 || down || presenter.active() || projector || document.getElementById('modalBack')?.classList.contains('show')) return;
+    clearInterval(timer);
+    const answer = (v) => { try { localStorage.setItem(ASK_KEY, v); } catch { /* storage unavailable */ } };
+    toast('Anything look wrong or confusing so far? A short email helps the author fix it.', '', { sticky: true,
+      actions: [['Send feedback', () => sendFeedback()], ['Not now', () => {}]],
+      onClose: () => { try { if (localStorage.getItem(ASK_KEY) !== 'done') answer(was === 'later' ? 'done' : 'later'); } catch { /* storage unavailable */ } } });
+  };
+  timer = setInterval(tick, TICK);
 }
 main().catch((err) => { console.error(err); document.body.append(h('pre', { style: { position: 'fixed', bottom: 0, left: 0, background: 'var(--white)', color: 'var(--critical)', padding: '8px', zIndex: 999 } }, String(err.stack || err))); });

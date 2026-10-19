@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { Engine } from '../src/engine/engine.js';
 import { EDGES, NODES } from '../src/engine/topology.js';
-import { displaySpeed, lanes, occupancy, advanceStream, originFractions, ORIGIN_N, createBolus, KAPPA, PERIOD, DYE_BINS, DYE_SECONDS, DYE_MAX_HOLD } from '../src/ui/blood.js';
+import { displaySpeed, lanes, occupancy, advanceStream, originFractions, ORIGIN_N, createBolus, KAPPA, PERIOD, DYE_BINS, DYE_SECONDS, DYE_MAX_HOLD, DRIFT_PERIOD, createReversalHold } from '../src/ui/blood.js';
 
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
 
@@ -150,4 +150,39 @@ test('dye injection: lasts DYE_SECONDS, a second press extends it, a hold goes o
   b.inject(EI.SMV_CONF, 0, { hold: true });
   for (let i = 0; i < (DYE_MAX_HOLD + 1) * 10; i++) b.step(1 / 10, net);
   assert.ok(!b.injecting, 'a hold never runs past DYE_MAX_HOLD');
+});
+
+test('stagnant blood drifts by a speed set by its stasis: a change in stasis never jumps the smoke, however long the app has run', () => {
+  const st = { seed: 3 };
+  advanceStream(st, 0.3, 0.3, 0);
+  // An hour of standing blood, then the flow picks up: the drift keeps moving on from where it is, a frame's worth at most.
+  for (let i = 0; i < 3600 * 60; i += 60) advanceStream(st, 0.3, 0.3, 1);
+  assert.ok(st.stasis > 0.9 && st.drift >= 0 && st.drift < DRIFT_PERIOD);
+  const at = st.drift;
+  advanceStream(st, 8, 8, 1 / 60);
+  const step = ((st.drift - at + DRIFT_PERIOD * 1.5) % DRIFT_PERIOD) - DRIFT_PERIOD / 2;
+  assert.ok(step >= 0 && step <= 0.06 / 60 + 1e-9, `step ${step}`);
+  // Paused (dt 0): it holds.
+  const held = st.drift; advanceStream(st, 8, 8, 0); assert.equal(st.drift, held);
+});
+
+test('B3: a reversal shows only once it has held for a breath; flapping with the breath never turns it; a jump turns it at once', () => {
+  const h = createReversalHold(1, 4);
+  const at = (raw, t, jump = false) => h.step(() => raw, t, jump);
+  // A flow swinging across the cut-off with every breath (2 s each way): never shown reversed.
+  for (let t = 0; t < 40; t += 0.1) at(Math.floor(t / 2) % 2, t);
+  assert.equal(h.hold[0], 0);
+  at(0, 45);
+  // Reversed for good: shown once it has held for 4 s of model time, not before.
+  assert.equal(at(1, 50), false);
+  assert.equal(at(1, 53.9), false);
+  assert.equal(h.hold[0], 0);
+  assert.equal(at(1, 54), true);
+  assert.equal(h.hold[0], 1);
+  // A jump (a new patient, a time jump) takes the new flag at once.
+  assert.equal(at(0, 54.1, true), true);
+  assert.equal(h.hold[0], 0);
+  // Paused (model time stands still): nothing turns.
+  at(1, 60); at(1, 60); at(1, 60);
+  assert.equal(h.hold[0], 0);
 });

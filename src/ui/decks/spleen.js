@@ -42,7 +42,7 @@ export const SPLEEN = {
     {
       id: 'screen', cam: 'liver', tool: { kind: 'fibroscan' }, data: 'tiles', tiles: ['lsm', 'plt'], key: ['lsm', 'plt'],
       kicker: 'The platelets', site: 'sin', title: 'Platelets and stiffness: who needs the scope',
-      line: 'Stiffness below 20 kPa with platelets of 150 or more spares the screening endoscopy. The patient has {lsm} and {plt}: CSPH is likely, so carvedilol starts and no scope is needed.',
+      line: 'Stiffness below 20 kPa with platelets of 150 or more spares the screening endoscopy. Here they are {lsm} and {plt}: CSPH is likely, so carvedilol starts and no scope is needed.',
       notes: 'These are the Baveno criteria for sparing a screening endoscopy in compensated advanced chronic liver disease; patients who meet them repeat the stiffness and the platelet count every year. The patient meets neither: a stiffness this high with platelets this low means clinically significant portal hypertension (the model\'s HVPG is above 10 mmHg). A patient with CSPH who can take a non-selective beta-blocker starts carvedilol and needs no screening endoscopy; only those who cannot take one, or in whom CSPH is uncertain (the gray zone), are scoped.',
       ask: ['Stiffness 14 kPa and platelets 190. Does this patient need a screening endoscopy?', 'No: below 20 kPa with platelets of 150 or more, repeat both tests in a year.'],
     },
@@ -63,7 +63,7 @@ export const SPLEEN = {
     {
       id: 'splenectomy', lens: 'velocity', terms: ['spleen', 'pv'], preset: 'csph', params: { splenicRx: 2 }, cam: 'splenic', data: 'tiles', tiles: ['plt', 'pv'], key: ['plt'],
       kicker: 'Treating the spleen', site: 'sin', title: 'Splenectomy raises platelets but can cause portal vein thrombosis',
-      line: 'With the spleen gone, platelets have nowhere to pool, and the count is {plt}. Blood can stagnate in the stump of the [splenic vein](sv), and the clot can spread into the portal vein. Colored by velocity, the splenic vein goes still.',
+      line: 'With the spleen gone, platelets have nowhere to pool, and the count is {plt}. Blood can stagnate in the [splenic vein](sv) stump, and the clot can spread into the portal vein. Colored by velocity, the splenic vein goes still.',
       notes: 'Splenectomy is now rare in cirrhosis: the operation carries real risk, and splenic and portal vein thrombosis is common after it. It keeps a place for bleeding gastric varices caused by splenic vein thrombosis, where the spleen is the source of the high pressure. On the figure, colored by velocity, the splenic vein goes still and the portal vein slows.',
       ask: ['Which complication of splenectomy do you look for in the weeks after it, and why is it likely here?', 'Splenic and portal vein thrombosis: blood stagnates in the stump of the splenic vein.'],
     },

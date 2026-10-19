@@ -4,12 +4,12 @@
 // are left out. The map is a continuously evolving reading: coherent speckle that morphs smoothly, one
 // dominant dark shear-wave band, and a slope that drifts gently around the model's value.
 
-import { h, fitCanvas, clamp, cssAlpha } from './util.js?v=0140acc352';
-import { FONT } from './charts.js?v=7e8a65ec45';
+import { h, fitCanvas, clamp, cssAlpha } from './util.js?v=b6a40567da';
+import { FONT } from './charts.js?v=75f52d4f49';
 import { simTime, isPaused, fibroReading } from './clock.js?v=520596240b';
 import { store } from './store.js?v=31ee79b6ab';
 import { elastogramGL } from './fibroscan-gl.js?v=c1e9f0f60b';
-import { frameFor, noteDraw, saver, paceMs } from './frame.js?v=5efaa2bcc9';
+import { frameFor, noteDraw, saver, paceMs } from './frame.js?v=67ca200c87';
 const nextFrame = frameFor('fibroscan');
 
 const WAVE_T0 = 8; // ms: the shear wave reaches the top of the window about 8 ms after the push
@@ -106,7 +106,13 @@ export function createFibroScan() {
   let N = 0, img = null;
   const cap = 300;
   let model = 10, running = false, shown = null, last = 0;
-  const sized = { w: 0, h: 0, cap: 11 };
+  const sized = { w: 0, h: 0, cap: 11, r: 1 };
+  // Whether the panel is on screen, as the browser reports it when it changes (read every frame, offsetParent laid the page out);
+  // coming on screen, it draws again at once. (No observer, as in a bare test page: read as before.)
+  let seen = false, fed = false;   // (fed: the model has given it a stiffness to show)
+  const io = typeof IntersectionObserver === 'function' ? new IntersectionObserver((es) => { const was = seen; seen = es[es.length - 1].isIntersecting; if (seen && !was && !running && fed) { running = true; nextFrame(loop); } }) : null;
+  io?.observe(cv);
+  const onScreen = () => cv.isConnected && (io ? seen : cv.offsetParent !== null);
 
   function paint(now) {
     const { ctx, w, h: hh } = fitCanvas(cv);
@@ -127,14 +133,15 @@ export function createFibroScan() {
     const side = !cv.closest('.pz-tool') && hh < 200 && w > hh * 2.2;
     // The panel's words are the size of the card's small words (the canvas's own font size, which a slide sets to the tiles'
     // small size), so the labels never look tiny beside the card: one size for the axes and the units.
-    if (w !== sized.w || hh !== sized.h) { sized.w = w; sized.h = hh; const fs = parseFloat(getComputedStyle(cv).fontSize) || 11; sized.cap = clamp(fs * (w / (cv.offsetWidth || w)), 10, 20); }
+    // (The box's ratio to its layout width is read with the size, when it changes: read every frame, it laid the page out mid-frame.)
+    if (w !== sized.w || hh !== sized.h) { sized.w = w; sized.h = hh; const fs = parseFloat(getComputedStyle(cv).fontSize) || 11; sized.cap = clamp(fs * (w / (cv.offsetWidth || w)), 10, 20); sized.r = w / cv.clientWidth || 1; }
     const CAP = side ? 10 : sized.cap, m = Math.round(CAP * 0.7);
     const ex = 0, top = 0, ew = w, ph = hh, bot = hh;
     if (ph < 50 || ew < 60) return;
     // Sample the map at about half the screen pixels (smooth, never blocky), always (it never shrinks itself when frames
     // run long). (Battery saver: a third of them.)
     const lo = saver();
-    const want = clamp(Math.round(Math.max(ew, ph) * (w / cv.clientWidth || 1) * (lo ? 0.5 : 0.75)), lo ? 100 : 140, lo ? Math.min(cap, 200) : cap);
+    const want = clamp(Math.round(Math.max(ew, ph) * sized.r * (lo ? 0.5 : 0.75)), lo ? 100 : 140, lo ? Math.min(cap, 200) : cap);
     if (want !== N) { N = want; off.width = off.height = N; img = octx.createImageData(N, N); }
     // The map: on the GPU (the same formula and noise, a fraction of a millisecond), else pixel by pixel here.
     const mapCv = elastogramGL(fields(), NB, WAVE_T0, N, c, t) || (drawElastogram(octx, img, N, c, t), off);
@@ -189,7 +196,7 @@ export function createFibroScan() {
   // While it plays the map is drawn on every frame the screen offers (15 a second in Battery saver), like the lobule's flow.
   let lastPaint = -1e9;
   function loop(now) {
-    if (!cv.isConnected || cv.offsetParent === null || document.hidden) { running = false; return; }
+    if (!onScreen() || document.hidden) { running = false; return; }
     const hold = REDUCED || isPaused();
     if (hold || now - lastPaint >= paceMs()) { paint(now); lastPaint = now; noteDraw('fibroscan'); }   // (paused: always drawn, so a change shows)
     if (hold) { running = false; return; }   // paused: hold this frame; resume restarts the loop
@@ -197,9 +204,9 @@ export function createFibroScan() {
   }
   let pinned = null;   // (the slide's settled stiffness, the tiles' and words' number; the live value swings with each beat)
   function update(f) {
-    model = pinned ?? f.metrics.lsm;
-    if (!running && cv.offsetParent !== null) { running = true; nextFrame(loop); }
+    model = pinned ?? f.metrics.lsm; fed = true;
+    if (!running && onScreen()) { running = true; nextFrame(loop); }
   }
-  const offRun = store.on('running', (on) => { if (on && !running && cv.offsetParent !== null) { running = true; nextFrame(loop); } });
+  const offRun = store.on('running', (on) => { if (on && !running && onScreen()) { running = true; nextFrame(loop); } });
   return { id: 'fibroscan', label: 'FibroScan', el, update, pin(fp) { pinned = fp?.lsm ?? null; if (pinned != null) model = pinned; }, dispose: offRun };
 }

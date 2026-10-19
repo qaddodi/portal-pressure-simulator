@@ -52,3 +52,16 @@ export function caseFlight(left, vx) {
   const t = (1.6 * left) / v;
   return Number.isFinite(t) ? Math.round(Math.min(FLIGHT_MAX, Math.max(FLIGHT_MIN, t))) : FLIGHT_MAX;
 }
+
+// Paging between tabs (the Tests card's tabs, the menu's Present and Patients): the open list follows the finger with the
+// next one beside it, and on release it goes on when let go past this share of the width, or after a quick flick.
+export const PAGE_FAR = 0.35;     // of the width
+export const PAGE_V = 0.4;        // px/ms over the whole drag
+export const PAGE_MIN = 40;       // px a flick must travel
+
+/** True when a sideways page drag of `dx` px over `ms` ms across a box `w` px wide goes on to the next tab; false springs back. */
+export function pageGo(dx, ms, w) {
+  const a = Math.abs(dx);
+  if (!Number.isFinite(a) || !(w > 0)) return false;
+  return a > w * PAGE_FAR || (a > PAGE_MIN && a / Math.max(1, ms) > PAGE_V);
+}

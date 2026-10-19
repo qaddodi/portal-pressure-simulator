@@ -39,3 +39,16 @@ test("the phone's nav pill is compact", () => {
   assert.match(css, /\.pz\.stack \.pz-bar \{[^}]*height: 38px;/);
   assert.match(css, /\.pz\.stack \.pz-bar \.ib \{ width: 44px;[^}]*margin: -4px -3px;/);   // (looks small, keeps its 44 px tap box)
 });
+
+// Mohammad, 17 Oct: "Unify the style of those pills" (the colour key beside the nav pill on an iPhone).
+test("the key's shell is the nav pill's: glass, outline, edge, shadow and corners, in every theme", () => {
+  const key = css.match(/\n\.pz-fk \{([^}]*)\}/)[1], bar = css.match(/\n\.pz\.stack \.pz-bar \{([^}]*)\}/)[1], barBase = css.match(/\n\.pz-bar \{([^}]*)\}/)[1];
+  const prop = (r, p) => r.match(new RegExp(`(?:^|;)\\s*${p}: ([^;]+);`))?.[1];
+  for (const p of ['background', 'backdrop-filter', '-webkit-backdrop-filter', 'border', 'border-radius', 'box-shadow']) assert.equal(prop(key, p), prop(bar, p), p);
+  for (const v of ['--pz-glass-edge', '--pz-glass-drop']) assert.equal(prop(key, v), prop(barBase, v), v);
+  assert.match(css, /:root\[data-theme="dark"\] :is\(\.pz-bar, \.pz-fk\) \{ --pz-glass-edge/);
+  assert.match(css, /:root:not\(\[data-theme="light"\]\):not\(\[data-theme="soft"\]\) :is\(\.pz-bar, \.pz-fk\) \{ --pz-glass-edge/);
+  assert.match(css, /\.app\.pz-hi \.pz-fk \{ background: color-mix\(in srgb, var\(--surface\) 92%, transparent\); border-color: color-mix\(in srgb, var\(--text\) 32%, transparent\); \}/);
+  assert.doesNotMatch(css, /\.pz-fk[^{]*\{[^}]*border-radius: (?:calc\(var\(--r-card\)|var\(--r-pill\))/, 'one corner radius, the pill\'s');
+  assert.doesNotMatch(css.match(/\n\.pz:not\(\.stack\) \.pz-fk \{([^}]*)\}/)[1], /background/, 'a wide screen keeps the same glass (and Blur off still reaches it)');
+});

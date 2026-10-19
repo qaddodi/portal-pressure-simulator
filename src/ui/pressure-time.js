@@ -6,9 +6,9 @@
 // a crosshair (hover, or drag on a touch screen) reads every trace at one moment.
 
 import { store, hiddenNow } from './store.js?v=31ee79b6ab';
-import { h, fmt, fitCanvas, cssVar, cssAlpha, clamp } from './util.js?v=0140acc352';
-import { FONT as FONT0, FONT } from './charts.js?v=7e8a65ec45';
-import { frameFor } from './frame.js?v=5efaa2bcc9';
+import { h, fmt, fitCanvas, cssVar, cssAlpha, clamp } from './util.js?v=b6a40567da';
+import { FONT as FONT0, FONT } from './charts.js?v=75f52d4f49';
+import { frameFor } from './frame.js?v=67ca200c87';
 import { tenthGap } from '../engine/gap.js?v=3a5947c552';
 import { firstAtOrAbove, firstAbove } from './sorted.js?v=662e543c85';
 import { limitLabelX as labelX } from './limit-label.js?v=52dcc41a1e';
@@ -211,13 +211,26 @@ export function createPressureTime({ marks = () => [] } = {}) {
   const yr = { pressure: null, hvpg: null }; // eased y ranges, so the axis glides instead of jumping
   // Sticky range: it only changes when the data leaves it (grow at once) or fills under 55% of it
   // (shrink), so the scale holds still while the trace scrolls.
+  // The axis drawn glides to that range (τ 0.15 s) instead of rescaling in one frame; while it glides, a paused chart draws
+  // itself again next frame (round 2 review, Over time y-axis).
+  const ys = { pressure: null, hvpg: null }, ysAt = { pressure: 0, hvpg: 0 };
+  let gliding = false, glideReq = false;
   function ease(key, lo, hi) {
     const r = yr[key];
     if (!r || lo < r[0] || hi > r[1] || hi - lo < (r[1] - r[0]) * 0.55) {
       const m = (hi - lo) * 0.08;
       yr[key] = [lo - m, hi + m];
     }
-    return yr[key];
+    const t = yr[key], now = performance.now();
+    let sh = ys[key];
+    if (!sh) sh = ys[key] = [t[0], t[1]];
+    else {
+      const k = -Math.expm1(-Math.min(0.1, (now - ysAt[key]) / 1000) / 0.15), snap = (t[1] - t[0]) * 0.002;
+      for (let i = 0; i < 2; i++) sh[i] = Math.abs(t[i] - sh[i]) <= snap ? t[i] : sh[i] + (t[i] - sh[i]) * k;
+      if (sh[0] !== t[0] || sh[1] !== t[1]) gliding = true;
+    }
+    ysAt[key] = now;
+    return sh;
   }
 
   function hiddenSet() {
@@ -250,6 +263,11 @@ export function createPressureTime({ marks = () => [] } = {}) {
   function wake() { if (!ticking && live()) { ticking = true; nextFrame(tickLoop); } }
 
   function draw() {
+    gliding = false;
+    drawNow();
+    if (gliding && !glideReq && !(ticking && live())) { glideReq = true; nextFrame(() => { glideReq = false; draw(); }); }
+  }
+  function drawNow() {
     const { ctx, w, h: hh } = fitCanvas(cv);
     ctx.clearRect(0, 0, w, hh);
     if (w < 10 || hh < 10 || !frame) return;
@@ -625,7 +643,9 @@ export function createPressureTime({ marks = () => [] } = {}) {
   }
 
   function update(f) { ingest(f); redraw(); }
-  function redraw() { if (!frame) return; updateHero(); draw(); }
+  // (Scrolling: its own loop draws the next frame. The canvas is drawn before the hero's text is written: setting a canvas
+  // font after a DOM write forced a style pass in the middle of the model's frame, 4–5 ms; round 2 review, P5.)
+  function redraw() { if (!frame) return; if (!(ticking && live())) draw(); updateHero(); }
   const offs = ['hiddenReadouts', 'hvpgMeasured', 'showHvpg'].map((k) => store.on(k, () => { yr.pressure = yr.hvpg = null; }));
   // A new patient (or the same one restarted) starts with empty traces.
   function clear() { clearHemo(); days = []; redraw(); }

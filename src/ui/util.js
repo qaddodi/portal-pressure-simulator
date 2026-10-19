@@ -1,11 +1,20 @@
 // DOM & formatting helpers.
-import { saver } from './frame.js?v=5efaa2bcc9';
+import { saver } from './frame.js?v=67ca200c87';
 
 // replaceChildren/append stringify null and arrays: flatten and drop empties instead.
 for (const m of ['replaceChildren', 'append', 'prepend']) {
   const orig = Element.prototype[m];
   Element.prototype[m] = function (...kids) { return orig.apply(this, kids.flat(Infinity).filter((k) => k != null && k !== false)); };
 }
+
+// The phone's layout: a phone held upright or on its side, and a tablet held upright (Mohammad, 17 Oct: the upright iPad takes
+// the phone's cards, sheets, bottom bar and menus). Every phone block in styles/app.css carries the same upright clause.
+export const UPRIGHT_MQ = '(max-width: 1100px) and (orientation: portrait)';
+export const PHONE_MQ = `(max-width: 767px), (max-width: 1023px) and (max-height: 500px) and (orientation: landscape), ${UPRIGHT_MQ}`;
+export const isPhoneLayout = () => matchMedia(PHONE_MQ).matches;
+// (A tablet held upright: the phone's layout, scaled to the tablet: its bottom bar and cards take 70 % of the width, centred, as
+// its deck cards do, and its cards the phone's share of the height, never the whole screen. styles/app.css, main.js sheetBehaviour.)
+export const TABLET_UP_MQ = '(min-width: 768px) and (max-width: 1100px) and (orientation: portrait)';
 
 export const $ = (sel, root = document) => root.querySelector(sel);
 export const $$ = (sel, root = document) => Array.from(root.querySelectorAll(sel));
@@ -81,14 +90,28 @@ export function uiScale() {
 // Messages show as a card at the top, below the bars, never over the bottom bar.
 // opts: actions, [[label, fn], …] as buttons after the words (a tap runs it and closes the card); sticky, stays until
 // dismissed; onClose, called once when it goes. Returns a function that closes it.
+// A toast that has played its way out leaves, and the ones below it glide up into its place (they jumped).
+function dropToast(t) {
+  const wrap = t.parentElement;
+  if (!wrap) return;
+  const others = [...wrap.children].filter((c) => c !== t), tops = others.map((c) => c.getBoundingClientRect().top);
+  t.remove();
+  if (wrap.classList.contains('docked') || reduceMotionMQ.matches) return;
+  others.forEach((c, i) => {
+    const dy = tops[i] - c.getBoundingClientRect().top;
+    if (Math.abs(dy) > 0.5) c.animate?.([{ translate: `0 ${dy}px` }, { translate: '0 0' }], { duration: 240, easing: 'cubic-bezier(.65, 0, .35, 1)' });
+  });
+}
 export function toast(msg, kind = '', { actions = null, sticky = false, onClose = null, present = false } = {}) {
   if (!msg) return () => {};
   // While presenting, the projected figure stays clear: only errors, cards with buttons and what the presenter asked for
   // (present: a link copied, a slide number typed) show.
   if (kind !== 'bad' && !actions?.length && !present && document.getElementById('app')?.classList.contains('presenting')) return () => {};
   const wrap = document.getElementById('toasts');
-  // One message at a time reads calmer than a growing stack.
-  while (wrap.children.length >= 2) wrap.firstChild.remove();
+  // One message at a time reads calmer than a growing stack. (The oldest leaves through its own close, so it fades out
+  // and the one left glides into its place, rather than vanishing mid-exit: P19.)
+  const stay = [...wrap.children].filter((c) => !c.classList.contains('leaving'));
+  while (stay.length >= 2) { const o = stay.shift(); if (o._close) o._close(); else o.remove(); }
   // A card slides down from behind the top bars and settles just below them (below every row on a phone).
   const bars = document.getElementById('topbar');
   const r = document.querySelector('.vdock')?.offsetParent && bars?.getBoundingClientRect();
@@ -99,7 +122,8 @@ export function toast(msg, kind = '', { actions = null, sticky = false, onClose 
   }
   const t = h('div', { class: 'toast ' + kind, role: 'status' }, h('span', { class: 'toast-msg' }, msg));
   let timer = 0, gone = false;
-  const close = () => { if (gone) return; gone = true; clearTimeout(timer); onClose?.(); t.classList.add('leaving'); setTimeout(() => t.remove(), 340); };
+  const close = () => { if (gone) return; gone = true; clearTimeout(timer); onClose?.(); t.classList.add('leaving'); setTimeout(() => dropToast(t), 340); };
+  t._close = close;
   if (actions?.length) {
     t.classList.add('has-acts');
     t.append(h('span', { class: 'toast-acts' }, ...actions.map(([label, fn]) => {
@@ -188,6 +212,8 @@ export function tooltipFor(el, text, side = 'right') {
 /** Floating menu/popover anchored to an element. Closes on outside click, Escape or re-open. */
 let openMenu = null;
 const reduceMotionMQ = matchMedia('(prefers-reduced-motion: reduce)');
+/** How a scroll the app makes on its own moves: smooth, or at once with Reduce Motion (as the menu's already did). */
+export const scrollBehavior = () => (reduceMotionMQ.matches ? 'auto' : 'smooth');
 // One card or menu at a time over the thumb dock: whatever opens while another is still playing its way out waits
 // until it has gone (--enter-delay, read by the thumb dock's entrance animations), so the two never overlap.
 let goneAt = 0;
@@ -201,8 +227,11 @@ export function enterAfterGone(el) { el.style.setProperty('--enter-delay', Math.
 export const visibleBottom = () => { const v = window.visualViewport; return v ? Math.min(innerHeight, v.offsetTop + v.height) : innerHeight; };
 export function popover(anchor, content, { cls = '', align = 'start', place = 'below', onClose, sheet = true } = {}) {
   if (openMenu) { const same = openMenu.anchor === anchor; closePopover(); if (same) return null; }
-  const asSheet = sheet && innerWidth < 768;
-  const el = h('div', { class: 'menu ' + cls + (asSheet ? ' as-sheet' : ''), role: 'dialog' }, content);
+  const asSheet = sheet && (innerWidth < 768 || matchMedia(UPRIGHT_MQ).matches);
+  // (from-dock: over the thumb dock a sheet, or a menu from the dock, rises from behind the tab row; one from the top bar,
+  // the Colored-by key on an upright iPad, pops in where it rests, as everywhere else, never sliding up from below it.)
+  const fromDock = asSheet || !!anchor.closest?.('.vdock');
+  const el = h('div', { class: 'menu ' + cls + (asSheet ? ' as-sheet' : '') + (fromDock ? ' from-dock' : ''), role: 'dialog' }, content);
   enterAfterGone(el);
   document.body.append(el);
   const put = () => {
@@ -211,19 +240,27 @@ export function popover(anchor, content, { cls = '', align = 'start', place = 'b
     let x = align === 'end' ? r.right - w0 : align === 'center' ? r.left + r.width / 2 - w0 / 2 : r.left;
     // A scrolling menu below its button may use all the room down to the 8 px margin, so it ends whole where it fits; never
     // over the bottom bar where the two meet (a phone held sideways: Settings had run 87 px over it; sweep 04 #01).
-    let barTop = null;
+    let barTop = null, at = place;
     if (place === 'below' && el.classList.contains('app-menu')) {
       const dock = document.getElementById('vdock'), d = dock?.offsetParent ? dock.getBoundingClientRect() : null, xl = clamp(x, 8, innerWidth - w0 - 8);
       if (d && d.height && d.left < xl + w0 && d.right > xl && d.top < visibleBottom()) barTop = d.top;
-      el.style.maxHeight = Math.max(160, (barTop ?? visibleBottom()) - r.bottom - 16) / z + 'px';
+      // A button low on the screen (the deck nav pill's gear on a Mac or iPad) opens it above, at its full height: below
+      // it the room was the 160 px floor, which cut Settings off at "Text size on the figure".
+      const below = (barTop ?? visibleBottom()) - r.bottom - 16;
+      if (below < el.scrollHeight * z && r.top - 16 > below) { at = 'above'; barTop = null; el.style.maxHeight = (r.top - 16) / z + 'px'; }
+      else el.style.maxHeight = Math.max(160, below) / z + 'px';
     }
+    // A menu from the thumb dock's tab row sits on the tab row's top edge, 8 px clear of it, over the play bar (which steps
+    // aside), like the cards and the phone's sheets: it rises from behind the tab row and is cut on its top line. (Above
+    // the whole dock, it had risen out of thin air over the faded play bar, its cut-off shadow left as a ghost there.)
+    const bar = anchor.closest('.thumb-bar'), tabTop = bar ? bar.getBoundingClientRect().top : null;
+    if (bar && /auto|scroll/.test(getComputedStyle(el).overflowY)) el.style.maxHeight = Math.max(160, tabTop - 16) / z + 'px';
     // Layout size, not the rectangle: the opening animation scales the menu for a moment.
     const mr = { width: el.offsetWidth * z, height: el.offsetHeight * z };
-    // (A menu from the thumb dock's tab row opens above the whole dock, so it never covers the play bar or HVPG and PPG.)
-    const top = anchor.closest('.thumb-bar') ? Math.min(r.top, anchor.closest('.vdock').getBoundingClientRect().top - 6) : r.top;
-    let y = place === 'above' ? top - mr.height - 8 : r.bottom + 8;
+    const top = bar ? tabTop : r.top;
+    let y = at === 'above' || bar ? top - mr.height - 8 : r.bottom + 8;
     const vb = visibleBottom();
-    if (y + mr.height > vb - 8) y = Math.max(8, r.top - mr.height - 8);
+    if (y + mr.height > vb - 8) y = Math.max(8, top - mr.height - 8);
     el.style.left = clamp(x, 8, innerWidth - mr.width - 8) / z + 'px';
     el.style.top = clamp(y, 8, vb - mr.height - 8) / z + 'px';
     barAt = barTop;
@@ -263,6 +300,159 @@ export function fadeWhileMore(el) {
   sync();
   return sync;
 }
+// One swap at a time per element: its newest content goes in when the old has faded.
+const fadeIns = new WeakMap();   // (swapFade: each element's fade-in, cancelled when the next swap lands)
+const swaps = new WeakMap();
+/** Changes what an element shows without a one-frame jump: the old content fades out (exit curve), fill() puts the new
+ *  in, and it fades in. instant: fill now (the content reads the same), unless a swap is still under way, which then
+ *  takes this fill instead. A hidden or empty element simply fills. */
+export function swapFade(el, fill, { instant = false, out = 120, inn = 180 } = {}) {
+  const job = swaps.get(el);
+  if (job) { job.fill = fill; return; }
+  if (instant || !el.animate || !el.isConnected || !el.firstChild || !el.getClientRects().length) { fill(); return; }
+  const me = { fill };
+  swaps.set(el, me);
+  // (From wherever the element is now: a fade-in still under way included, so a quick second swap never jumps to full.)
+  const a = el.animate([{ opacity: 0 }], { duration: out, easing: 'cubic-bezier(.4, 0, 1, 1)', fill: 'forwards' });
+  const done = () => {
+    if (swaps.get(el) !== me) return;
+    swaps.delete(el);
+    try { me.fill(); } finally { fadeIns.get(el)?.cancel(); a.cancel(); fadeIns.set(el, el.animate([{ opacity: 0 }, { opacity: 1 }], { duration: inn, easing: 'cubic-bezier(.2, .8, .2, 1)' })); }
+  };
+  a.finished.then(done, done);
+}
+/**
+ * For `ms` after a swap starts, the elements `sel` finds in `root` glide to wherever each resize of `root` (or of `also`)
+ * puts them, instead of jumping (FLIP, transform only). A swap can resize a bar more than once (its readings, then a fit a
+ * moment later), so every step is caught, each glide carrying on from where the last one had got to. Reduce Motion: no
+ * glide (the bar's readings still fade). (The play bar jumped 15-20 px sideways entering the lobule; round 2 review, RF4.)
+ */
+export function glideOnResize(root, sel, { ms = 520, dur = 220, also = [] } = {}) {
+  if (!root?.animate || reduceMotionMQ.matches || typeof ResizeObserver !== 'function') return;
+  const pos = (el) => { let x = 0, y = 0; for (let n = el; n && n !== document.body; n = n.offsetParent) { x += n.offsetLeft; y += n.offsetTop; } return [x, y]; };
+  const measure = () => new Map([...root.querySelectorAll(sel)].filter((el) => el.offsetParent).map((el) => [el, pos(el)]));
+  let prev = measure();
+  const ro = new ResizeObserver(() => {
+    const now = measure();
+    for (const [el, [x, y]] of now) {
+      const p = prev.get(el);
+      if (!p) continue;
+      let cx = 0, cy = 0;
+      for (const a of el.getAnimations()) if (a.id === 'glide') { const m = new DOMMatrixReadOnly(getComputedStyle(el).transform); cx = m.m41; cy = m.m42; a.cancel(); break; }
+      const dx = p[0] + cx - x, dy = p[1] + cy - y;
+      if (Math.abs(dx) < 1 && Math.abs(dy) < 1) continue;
+      el.animate([{ transform: `translate(${dx}px, ${dy}px)` }, { transform: 'none' }], { duration: dur, easing: 'cubic-bezier(.2, .8, .2, 1)' }).id = 'glide';
+    }
+    prev = now;
+  });
+  ro.observe(root);
+  for (const el of also) if (el) ro.observe(el);
+  setTimeout(() => ro.disconnect(), ms);
+}
+/**
+ * Runs `fn` once `el`'s exit has played: when the animations then running on it and inside it end, or at `backstop` ms at
+ * the latest, and only while it still carries `cls` (the leaving class: an element opened again meanwhile keeps it off, and
+ * a later exit starts its own wait). Returns the backstop's timer, for clearTimeout. A fixed timer had hidden closing cards
+ * before their fade ended (round 2 review, NP11).
+ */
+export function afterExit(el, cls, fn, backstop = 450) {
+  const tok = {};
+  el._exitTok = tok;
+  let ran = false;
+  const go = () => { if (ran || el._exitTok !== tok || !el.classList.contains(cls)) return; ran = true; fn(); };
+  const t = setTimeout(go, backstop);
+  const as = el.getAnimations?.({ subtree: true }) || [];
+  if (!as.length) setTimeout(go, 0);
+  else Promise.all(as.map((a) => a.finished.catch(() => {}))).then(go);
+  return t;
+}
+/** Updates a list in place from freshly built rows (MOTION_HEAT_REVIEW P18): a row whose data-row is already shown stays
+ *  (replaced where it stands if its data-sig changed), a new row rises in over .22 s, and a row no longer wanted fades and
+ *  folds away before it leaves. Rows without a key are simply replaced. The list was rebuilt whole, every row popping. */
+export function reconcile(list, rows) {
+  const old = new Map();
+  for (const c of list.children) if (c.dataset.row && !c.classList.contains('rc-out')) old.set(c.dataset.row, c);
+  const shown = !!list.isConnected && list.getClientRects().length > 0 && !!list.animate, still = reduceMotionMQ.matches;
+  const want = [], fresh = new Set();
+  for (const r of rows) {
+    const o = r.dataset.row ? old.get(r.dataset.row) : null;
+    if (o && o.dataset.sig === r.dataset.sig) { want.push(o); old.delete(r.dataset.row); }
+    else { want.push(r); if (o) { o.replaceWith(r); old.delete(r.dataset.row); } else fresh.add(r); }
+  }
+  const keep = new Set(want);
+  const going = [...list.children].filter((c) => !keep.has(c) && !c.classList.contains('rc-out'));
+  let cur = list.firstChild;
+  for (const e of want) {
+    while (cur && cur !== e && (going.includes(cur) || cur.classList?.contains('rc-out'))) cur = cur.nextSibling;
+    if (cur === e) { cur = cur.nextSibling; continue; }
+    list.insertBefore(e, cur);
+  }
+  for (const g of going) {
+    if (!shown || !g.dataset.row) { g.remove(); continue; }
+    g.classList.add('rc-out'); g.inert = true;
+    const cs = getComputedStyle(g), h0 = g.offsetHeight;
+    g.style.overflow = 'hidden';
+    const a = g.animate([{ opacity: 1, height: `${h0}px`, paddingTop: cs.paddingTop, paddingBottom: cs.paddingBottom, marginTop: cs.marginTop, marginBottom: cs.marginBottom },
+      { opacity: 0, height: '0px', paddingTop: '0px', paddingBottom: '0px', marginTop: '0px', marginBottom: '0px' }],
+    { duration: still ? 160 : 200, easing: 'cubic-bezier(.4, 0, 1, 1)', fill: 'forwards' });
+    a.finished.then(() => g.remove(), () => g.remove());
+  }
+  if (shown) {
+    for (const r of fresh) if (r.dataset.row) r.animate(still ? [{ opacity: 0 }, { opacity: 1 }] : [{ opacity: 0, transform: 'translateY(6px)' }, { opacity: 1, transform: 'none' }], { duration: 220, easing: 'cubic-bezier(.2, .8, .2, 1)', delay: going.length ? 80 : 0, fill: 'backwards' });
+  }
+}
+/** Text that crossfades when it changes (a status word, an arrow): swapFade, and a fade in from empty, so a word
+ *  that appears doesn't pop either. then: run with the new text in (a class that goes with it). */
+export function swapText(el, txt, then) {
+  const job = swaps.get(el);
+  if (job ? job.txt === txt : el.textContent === txt) return;
+  const fill = () => { el.textContent = txt; then?.(); };
+  if (!job && !el.firstChild && txt && el.animate && el.isConnected && el.getClientRects().length) {
+    fill(); el.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 180, easing: 'cubic-bezier(.2, .8, .2, 1)' }); return;
+  }
+  swapFade(el, fill);
+  const j = swaps.get(el); if (j) j.txt = txt;
+}
+/** A number that rolls to its new value instead of jumping (MOTION_HEAT_REVIEW P17): el shows fmt(v, d). eased: the caller
+ *  already moves this value gently (a running model's mean), so it follows at once, or carries a roll under way on to the
+ *  new value. Otherwise a change of at least the last digit counts from the number shown to v over about a third of a
+ *  second (ease out) and always ends on fmt(v, d). null shows "?" at once. Reduce Motion lands at once. */
+const counts = new WeakMap(), rolling = new Set();
+let rollRaf = 0;
+const COUNT_MS = 320;
+// Text that changes rewrites its text node in place: setting textContent replaces the node, which re-checks styles for the
+// element and, through :has() in the phone and iPad layouts, ~85 others a model frame (round 2 review, P7).
+export const putText = (el, t) => { const n = el.firstChild; if (n && n.nodeType === 3 && !n.nextSibling) { if (n.data !== t) n.data = t; } else if (el.textContent !== t) el.textContent = t; };
+const putNum = putText;
+function rollStep(now) {
+  rollRaf = 0;
+  for (const el of rolling) {
+    const c = counts.get(el);
+    // (A frame's time is when it began, which can be before the roll was asked for: below 0 the curve ran backwards, far past the
+    // number it started from, and a patient load showed an HVPG of -50 for a moment.)
+    const u = Math.max(0, Math.min(1, (now - c.t0) / COUNT_MS)), k = 1 - (1 - u) ** 3;
+    c.shown = u >= 1 ? c.to : c.from + (c.to - c.from) * k;
+    putNum(el, fmt(c.shown, c.d));
+    if (u >= 1 || !el.isConnected) { c.t0 = null; rolling.delete(el); }
+  }
+  if (rolling.size) rollRaf = requestAnimationFrame(rollStep);
+}
+export function countTo(el, v, d = 1, { eased = false } = {}) {
+  let c = counts.get(el);
+  if (!c) counts.set(el, c = { shown: null, from: 0, to: 0, t0: null, d });
+  c.d = d;
+  if (v == null || !Number.isFinite(v)) { rolling.delete(el); c.t0 = null; c.shown = null; putNum(el, '?'); return; }
+  if (c.t0 != null) {   // (a roll under way)
+    if (eased || reduceMotionMQ.matches) { if (reduceMotionMQ.matches) { rolling.delete(el); c.t0 = null; c.shown = v; putNum(el, fmt(v, d)); } else c.to = v; return; }
+    if (Math.abs(v - c.to) < Math.pow(10, -d) * 0.5) return;
+    c.from = c.shown; c.to = v; c.t0 = performance.now(); return;
+  }
+  const same = c.shown != null && fmt(c.shown, d) === fmt(v, d);
+  if (eased || same || c.shown == null || reduceMotionMQ.matches || !el.isConnected || !el.getClientRects().length) { c.shown = v; putNum(el, fmt(v, d)); return; }
+  c.from = c.shown; c.to = v; c.t0 = performance.now();
+  rolling.add(el);
+  if (!rollRaf) rollRaf = requestAnimationFrame(rollStep);
+}
 export const popoverOpen = () => !!openMenu;
 /** Places the open menu again, after something it is anchored to has moved or resized. */
 export function repositionPopover() { if (openMenu) { openMenu.el.style.left = openMenu.el.style.top = '0px'; openMenu.put(); } }
@@ -270,10 +460,10 @@ export function closePopover() {
   if (!openMenu) return;
   // The menu fades out (it is inert at once, so nothing under it waits), then leaves the page.
   const el = openMenu.el;
-  if (reduceMotionMQ.matches || !el.isConnected) el.remove();
+  if (!el.isConnected) el.remove();   // (with Reduce Motion it still fades: app.css turns popOut into a fade)
   // A sheet swiped away is already sliding down; it leaves when it is out of sight.
   // (Over the thumb dock it sinks behind the tab row, as the cards do: .2 s.)
-  else { const ms = document.documentElement.classList.contains('thumb-ui') ? 200 : 120; el.classList.add('leaving'); el.inert = true; markGone(el.dataset.swiped ? 0 : ms); setTimeout(() => el.remove(), el.dataset.swiped ? 240 : ms + 10); }
+  else { const ms = document.documentElement.classList.contains('thumb-ui') && el.classList.contains('from-dock') ? 200 : 120; el.classList.add('leaving'); el.inert = true; markGone(el.dataset.swiped ? 0 : ms); setTimeout(() => el.remove(), el.dataset.swiped ? 240 : ms + 10); }
   openMenu.anchor.setAttribute('aria-expanded', 'false'); openMenu.cleanup();
   openMenu = null;
 }
@@ -381,14 +571,18 @@ export function openModal(title, body, { wide = false, sub = null, bare = false 
   modal.setAttribute('aria-label', title || 'Dialog');
   const close = h('button', { class: 'ib', 'aria-label': 'Close', onclick: closeModal }, icon('close'));
   modal.append(h('header', {}, h('div', { style: { flex: 1, minWidth: 0 } }, bare ? null : h('h2', {}, title), sub ? h('div', { class: 'sub' }, sub) : null), close), h('div', { class: 'body' }, body));
+  clearTimeout(modalLeaveT); back.classList.remove('leaving');
   back.classList.add('show');
   back.onclick = (e) => { if (e.target === back) closeModal(); };
   (modal.querySelector('.body button, .body [tabindex]') || close).focus({ preventScroll: true });
 }
+let modalLeaveT = 0;
 export function closeModal() {
   const back = document.getElementById('modalBack');
   if (!back.classList.contains('show')) return;
-  back.classList.remove('show');
+  // (It fades out as it faded in, then is hidden: closed in one frame, Help, About and every dialog blinked out.)
+  back.classList.remove('show'); back.classList.add('leaving');
+  clearTimeout(modalLeaveT); modalLeaveT = setTimeout(() => back.classList.remove('leaving'), 220);
   modalReturn?.focus?.({ preventScroll: true });
 }
 export const isModalOpen = () => document.getElementById('modalBack').classList.contains('show');
@@ -453,6 +647,11 @@ export function fitCanvas(canvas) {
   return { ctx, w: r.width, h: r.height };
 }
 
+/** A slider's fill follows its value: the wrapper (.range-wrap, styles/app.css) draws them from --p, 0 to 1. */
+export function paintRange(input, f) {
+  input.parentElement?.style.setProperty('--p', String(Math.min(1, Math.max(0, f))));
+}
+
 /** Every range slider in the app, at once (call once):
  *  - a finger anywhere on the track moves the thumb there and drags it (iOS only lets the thumb itself be dragged);
  *  - Shift + arrow keys step ten times as far; the wheel adjusts a slider that has focus;
@@ -469,8 +668,9 @@ export function enhanceRanges(root = document) {
     input.dispatchEvent(new Event('input', { bubbles: true }));
     if (commit) input.dispatchEvent(new Event('change', { bubbles: true }));
   };
-  const fromX = (input, cx) => {
-    const r = input.getBoundingClientRect(), min = +input.min || 0, max = +(input.max || 100), th = 22;
+  // (th: the thumb's width, the slider's --tw, 18 px or 22 px on a phone: its centre runs from th / 2 to the far end less th / 2.)
+  const fromX = (input, cx, th) => {
+    const r = input.getBoundingClientRect(), min = +input.min || 0, max = +(input.max || 100);
     return min + clamp((cx - r.left - th / 2) / Math.max(1, r.width - th), 0, 1) * (max - min);
   };
   root.addEventListener('pointerdown', (e) => {
@@ -478,9 +678,10 @@ export function enhanceRanges(root = document) {
     if (e.pointerType !== 'touch' || !isRange(input)) return;
     e.preventDefault();
     input.focus({ preventScroll: true });
-    setTo(input, fromX(input, e.clientX));
+    const th = parseFloat(getComputedStyle(input).getPropertyValue('--tw')) || 18;
+    setTo(input, fromX(input, e.clientX, th));
     try { input.setPointerCapture(e.pointerId); } catch { /* gone */ }
-    const move = (ev) => { if (ev.pointerId === e.pointerId) setTo(input, fromX(input, ev.clientX)); };
+    const move = (ev) => { if (ev.pointerId === e.pointerId) setTo(input, fromX(input, ev.clientX, th)); };
     const up = (ev) => {
       if (ev.pointerId !== e.pointerId) return;
       input.removeEventListener('pointermove', move); input.removeEventListener('pointerup', up); input.removeEventListener('pointercancel', up);
@@ -534,6 +735,23 @@ export function createEaser(tau = 0.3) {
 /** A rounded axis top just above `max` (multiples of 5 mmHg, at least `min`). */
 export const axisTop = (max, min = 10) => Math.max(min, Math.ceil((max + 2) / 5) * 5);
 
+// The horizontal shift (layout px) an element's transform is on its way to: the end of a transform transition still under
+// way, else the shift it has now. (The zoom pill glides aside with a side card by a transform; a fit read mid-glide had the
+// circuit map dip and rise; round 2 review, RF2.)
+export function transformEndX(el) {
+  const now = getComputedStyle(el).transform;
+  let t = now;
+  const tr = el.getAnimations?.().find((a) => a.transitionProperty === 'transform');
+  if (tr) t = tr.effect?.getKeyframes?.().at(-1)?.transform ?? now;
+  try { return t && t !== 'none' ? new DOMMatrixReadOnly(t).e : 0; } catch { return 0; }
+}
+// An element's box with its horizontal transform at its end (see transformEndX).
+export function settledBox(el, q = el.getBoundingClientRect()) {
+  const t = getComputedStyle(el).transform, cur = t && t !== 'none' ? new DOMMatrixReadOnly(t).e : 0, end = transformEndX(el);
+  if (end === cur) return q;
+  const z = el.offsetWidth ? q.width / el.offsetWidth : 1;
+  return new DOMRect(q.x + (end - cur) * z, q.y, q.width, q.height);
+}
 // An element's box without its own transform (a card's entrance offset): where it rests.
 export function restBox(el, q = el.getBoundingClientRect()) {
   const t = getComputedStyle(el).transform;

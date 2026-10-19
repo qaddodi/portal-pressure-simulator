@@ -3,7 +3,8 @@
 // unit is never larger than its reading. Explore's four views at every text size step on a phone, at 100 % and 200 %
 // on an upright iPad and a desktop; the first slides of eight decks at 100 % (and one at 150 %) at each size, a phone on
 // its side included. A phone's slide words (its bottom panel, the title panel) are 1.7 times the roles' size upright, 1.4 times on its side (a77f314: the phone sizes; its summary table and level rail keep their own size).
-// The drawn slide charts (ladders, strip, SAAG map, walls, still column) are checked by tests/e2e/chart-type.mjs.
+// The drawn slide charts (ladders, strip, SAAG map, walls, still column) are checked by tests/e2e/chart-type.mjs. The deck's corner
+// tab is sized by the card's padding, never under 12 px (app.css .pz-tabname; tests/menu.test.js).
 // (A row of choices sets its own roles, unscaled by the phone's words, upright or on its side: app.css .pz-ab.)
 // Run alone: node tests/e2e/type-scale.mjs; also run by smoke.mjs (desktop run).
 import { chromium } from 'playwright';
@@ -27,9 +28,15 @@ export function offScale(roles) {
   const areas = [];
   const fig = document.querySelector('#stageView');
   if (fig) areas.push({ root: fig, name: 'figure', skip: '.pz, .float-ui, .stage-credit, .tool-card, .zoom-pill, .vdock, .sb-banner', sizes: (el) => { const host = el.closest('.sv, .lz-host') || fig; return roles.map((r) => probe(host, `calc(var(--t-${r}) * var(--label-scale, 1) * ${el.closest('.lz-zone') ? 'var(--zk, 1)' : 1})`)); } });
-  for (const pz of document.querySelectorAll('.pz')) areas.push({ root: pz, name: 'slide', skip: 'svg, .pz-bar, .pz-tool, .pzj, .pz-deck, .pz-outline svg', sizes: (el) => { const host = el.closest('.pz-table, .pz-grid, .pz-rail ol, .pz.low .pz-rail-liver, .pz.stack .pz-ab, .pz.low .pz-ab, .pz-text, .pz-panel, .pz-data.col') || pz; return [...roles.map((r) => probe(host, `var(--s-${r})`)),
+  for (const pz of document.querySelectorAll('.pz')) areas.push({ root: pz, name: 'slide', skip: 'svg, .pz-bar, .pz-tool, .pzj, .pz-deck, .pz-tabname, .pz-outline svg', sizes: (el) => { const host = el.closest('.pz-table, .pz-grid, .pz-rail ol, .pz.low .pz-rail-liver, .pz.stack .pz-ab, .pz.low .pz-ab, .pz-text, .pz-panel, .pz-data.col') || pz; return [...roles.map((r) => probe(host, `var(--s-${r})`)),
     // (A long title in the teaching card is the big role at the title's step, --pz-tk, as the title itself: presenter.js layout.)
     ...(host.matches('.pz-text') ? [probe(host, 'calc(var(--s-big) * var(--pz-tk, 1))')] : []),
+    // (A phone's title, upright or on its side, is the value role at its tight slide's step, --pz-ptk (f28b9ba): app.css .pz.low .pz-text .pz-h.)
+    ...(host.matches('.pz-text') && el.matches('.pz-text .pz-h') ? [probe(host, 'calc(var(--s-val) * var(--pz-ptk, 1))')] : []),
+    // (A phone's equation key and caveat under the words are four fifths of the label role, 12 px at least: app.css .pz.low .pz-eqk.)
+    ...(el.closest(':is(.pz.stack, .pz.low) .pz-text :is(.pz-eqk, .pz-caveat)') ? [probe(host, 'max(12px, calc(var(--s-lab) * .8))')] : []),
+    // (A colour key's words are nine tenths of the caption role (a gradient key's .78), 12 px at least: app.css .pz-fk.)
+    ...(el.closest('.pz-fk') ? [probe(el.closest('.pz-fk'), 'max(12px, calc(var(--s-cap) * .9))'), probe(el.closest('.pz-fk'), 'max(12px, calc(var(--s-cap) * .78))')] : []),
     // (A stacked data card's smallest words stay 11.5 px on the screen at its smaller steps, --pz-dk: app.css .pz-data.col.)
     ...(host.matches('.pz-data.col') ? [probe(host, 'calc(11.5px / var(--pz-dk, 1))')] : []),
     // (A data card beside the words has one small size for its tiles' names, units and scales, --pz-sm: app.css .pz-data.)
@@ -52,8 +59,12 @@ export function offScale(roles) {
       // (A tile's short name is its ::after, the full name kept at 0 px for readers: the short name's size is judged.)
       const fs = parseFloat(getComputedStyle(el).fontSize) || (el.dataset.s ? parseFloat(getComputedStyle(el, '::after').fontSize) : 0);
       const key = el.closest('.pz-site:not(.pz-case-tag)') || el.closest('.sv, .lz-host, .lz-zone, .pz-eq math, .pz-case, .pz-table, .pz-grid, .pz-rail ol, .pz.low .pz-rail-liver, .pz.stack .pz-ab, .pz.low .pz-ab, .pz-text, .pz-panel, .pz-data') || a.root;   // (a phone's site rows letter at their own roles, as the summary table does)
-      if (!cache.has(key)) cache.set(key, a.sizes(el));
-      const ok = cache.get(key);
+      // (A card's title, an equation key or caveat, and a colour key have sizes of their own: cached apart.)
+      const kind = el.matches('.pz-text .pz-h') ? 'h' : el.closest('.pz-eqk, .pz-caveat') ? 'q' : el.closest('.pz-fk') ? 'k' : '';
+      if (!cache.has(kind)) cache.set(kind, new Map());
+      const c = cache.get(kind);
+      if (!c.has(key)) c.set(key, a.sizes(el));
+      const ok = c.get(key);
       const what = `${a.name} ${el.tagName.toLowerCase()}.${[...el.classList].join('.')} "${n.textContent.trim().slice(0, 16)}" ${fs.toFixed(1)}px`;
       // (Figure text is never under 12 px, the floor for captions on a phone too; slide cards keep their own 11 px floor.)
       if (fs < (a.name === 'figure' ? 11.95 : 10.95)) out.push(`${what} under ${a.name === 'figure' ? 12 : 11} px`);

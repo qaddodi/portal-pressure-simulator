@@ -19,13 +19,13 @@
 // the sinusoid exactly over the lobule's one at every step: first the vessel itself, then the tissue
 // around it.
 
-import { h, fmt, clamp, lerp } from './util.js?v=0140acc352';
-import { pressureColor } from './colormap.js?v=5c9a375f49';
+import { h, fmt, clamp, lerp } from './util.js?v=b6a40567da';
+import { pressureColor } from './colormap.js?v=dc071e3659';
 import { isPaused } from './clock.js?v=520596240b';
 import { store } from './store.js?v=31ee79b6ab';
 import { sinusoidTargets } from './sinusoid-model.js?v=74f5d007ca';
-import { createSinusoidGL, poreAt, cellAt, cellEdge, SLOT, SEED, UM } from './sinusoid-gl.js?v=c449aa59c2';
-import { frameFor, noteDraw, saver, paceMs } from './frame.js?v=5efaa2bcc9';
+import { createSinusoidGL, poreAt, poreOpenness, cellAt, cellEdge, SLOT, SEED, UM } from './sinusoid-gl.js?v=7360dfe571';
+import { frameFor, noteDraw, saver, paceMs } from './frame.js?v=67ca200c87';
 import { softwareGL, softwareYield } from './sw-yield.js?v=e580a095b1';
 const nextFrame = frameFor('sinusoid-view');
 
@@ -251,7 +251,7 @@ export function createSinusoidView({ host }) {
       cNuc: t('--sv-gl-nucleus'),
       cCol: t('--collagen'), cBm: t('--sv-gl-basement'), aBm: dark ? 0.6 : 0.8,
       cBile: t('--sv-gl-bile'),
-      cEndo: t('--sv-gl-endothelium'), cEndoN: t('--sv-gl-endo-nucleus'),
+      cEndo: t('--sv-gl-endothelium'), cEndoS: t('--sv-gl-endo-sheet'), cEndoE: t('--sv-gl-endo-edge'), cEndoN: t('--sv-gl-endo-nucleus'),
       cHscQ: t('--sv-gl-hsc-quiet'), cHscA: t('--sv-gl-hsc-active'), cHscN: t('--sv-gl-hsc-nucleus'),
       cKup: t('--sv-gl-kupffer'), cKupN: t('--sv-gl-kupffer-nucleus'), cKupE: t('--sv-gl-kupffer-edge'),
       cRbc: t('--sv-gl-rbc'),
@@ -271,7 +271,7 @@ export function createSinusoidView({ host }) {
   const albs = [], movers = [];   // movers: { kind: 'a' albumin | 'b' albumin turned back, side, x, y (depth in Disse, 0…1), t, ph }
   const rnd = rng(17);
   { const R = rng(23); for (let i = 0; i < 150; i++) albs.push({ u: R(), y: R() * 1.9 - 0.95, ph: R() * Math.PI * 2 }); }
-  const poreW = (p) => p.w * smooth(p.th - 0.14, p.th + 0.14, S.por);
+  const poreW = (p) => p.w * poreOpenness(p.th, S.por);
   function pickPore(side, albumin) {
     const pores = geo.pores[side < 0 ? 0 : 1];
     let tot = 0;

@@ -32,9 +32,10 @@
 // createVeinsGL(canvas) returns null only when WebGL2 is unavailable altogether.
 
 import { CHEV_GLSL } from './chevron-glsl.js?v=96ec7c6666';
-import { SLOT, DYE_BINS } from './blood.js?v=1f05278710';
-import { cssRGB } from './util.js?v=0140acc352';
-import { CELL, ENT_W, binVeins, splitRows } from './veins-bin.js?v=2bc0d36839';
+import { SLOT, DYE_BINS } from './blood.js?v=b0e8934683';
+import { cssRGB } from './util.js?v=b6a40567da';
+import { CELL, ENT_W, binVeins, splitRows } from './veins-bin.js?v=0424cb9b35';
+import { gpuProbe } from './gpu-probe.js?v=d4aeccea90';
 
 export { binVeins };
 
@@ -48,7 +49,10 @@ export const ORIGIN_GREY = 0.62;       // the lumen's color while the blood is c
 const QUAD = new Float32Array([0, 0, 1, 0, 0, 1, 1, 1]);
 // The composite's per-frame uniform arrays, filled in place: it ran six `new Float32Array`s a frame. (Each is uploaded at once,
 // so one set serves every renderer.)
-const SCR = { world: new Float32Array(9), inv: new Float32Array(9), originCol: new Float32Array(15), be: new Float32Array(40), bb: new Float32Array(40), ncv: new Float32Array(48), hb: new Float32Array(64), hr: new Float32Array(16) };
+// The origin colours flattened once per palette (the palette is one object for the page's life), not every frame (P8).
+const OC = new WeakMap();
+const originColOf = (src) => { let a = OC.get(src); if (!a) OC.set(src, a = new Float32Array(src.flat())); return a; };
+const SCR = { world: new Float32Array(9), inv: new Float32Array(9), be: new Float32Array(40), bb: new Float32Array(40), ncv: new Float32Array(48), hb: new Float32Array(64), hr: new Float32Array(16) };
 const ORIGIN_WHITE = [[1, 1, 1], [1, 1, 1], [1, 1, 1], [1, 1, 1], [1, 1, 1]];
 const put = (dst, src) => { dst.set(src); return dst; };
 
@@ -360,7 +364,7 @@ void main() {
         int lt = int(stier[s] + 0.5);
         if (tierGroup[lt] == 2) continue;
         float shown = tierAlpha[lt] * (tierGroup[lt] == 0 ? 1.0 - occl : 1.0);
-        float aC = sa[s] * jf[j] * sa[t] * min(tierAlpha[ti], shown), aO = sa[s] * shown;
+        float aC = sa[s] * jf[j] * min(tierAlpha[ti], shown), aO = sa[s] * shown;
         if (aO > 1e-4) keep[s] = min(keep[s], clamp((1.0 - aC / aO) / max(1.0 - aC, 1e-4), 0.0, 1.0));
       }
     }
@@ -420,21 +424,20 @@ void main() {
     float pres[MAXS];
     int mem = 0;
     for (int s = 0; s < MAXS; s++) { pres[s] = 0.0; if (s < n && stier[s] == tt) { mem |= 1 << s; pres[s] = keep[s]; } }
-    // A copy is drawn as translucent as the vessel it copies shows in its own tier, and no
-    // more solid than this tier's own vessels are at the junction (one that fades into it).
+    // A copy is drawn as translucent as the vessel it copies shows in its own tier (a back vessel's copy into the
+    // network divided by the network's own dimming, which the tier applies again), never capped by the fade of the
+    // vessel joining it: a fading hepatic or renal vein must not thin the cava's lumen where it joins it.
     int base = mem;
     if (grp != 2) for (int j = 0; j < MAXJ; j++) {
       int own = jm[j] & base;
       if (j >= jn || own == 0 || jf[j] <= 0.0) continue;
-      float up = 0.0;
-      for (int s = 0; s < MAXS; s++) if ((own & (1 << s)) != 0) up = max(up, sa[s]);
       for (int s = 0; s < MAXS; s++) {
         if (s >= n || (jm[j] & (1 << s)) == 0 || stier[s] >= tt) continue;
         int lt = int(stier[s] + 0.5);
         if (tierGroup[lt] == 2) continue;
         mem |= 1 << s;
         float shown = tierAlpha[lt] * (tierGroup[lt] == 0 ? 1.0 - occl : 1.0);
-        pres[s] = max(pres[s], jf[j] * up * min(1.0, shown / max(tierAlpha[ti], 1e-3)));
+        pres[s] = max(pres[s], jf[j] * min(1.0, shown / max(tierAlpha[ti], 1e-3)) / (grp == 1 && tierGroup[lt] == 0 ? max(netAlpha, 1e-3) : 1.0));
       }
     }
     // The tier's shape: plain union, filleted between vessels that share a junction.
@@ -749,7 +752,7 @@ uniform sampler2D plate0, plate1;
 uniform vec4 plateRect0, plateRect1;
 uniform int plates;                    // bit 0: whole plate, bit 1: sharp view
 uniform float plateAlpha, plateSat;
-uniform sampler2D fluidMask;           // the peritoneal cavity (alpha), over fluidRect
+uniform highp sampler2D fluidMask;     // the peritoneal cavity: its half-width about the middle of fluidRect, row by row down it
 uniform vec4 fluidRect;
 uniform vec4 fluidS;                   // ascites: floor, height, ripple amplitude, ripple phase (world units, radians)
 uniform vec4 fluidInk;                 // its straw color (straight) and opacity at depth; a = 0: none
@@ -760,7 +763,9 @@ uniform int blood;                     // 1: draw the blood
 uniform int chev;                      // 1: flow chevrons on top (dark; orange where flow is reversed)
 uniform int still;                     // 1: reduced motion (the chevrons stand still, spaced by flow)
 uniform vec3 chevInk;
+uniform float cssPx;                   // canvas px per CSS px (stage.js vdpr, at most 2)
 uniform float flowA;                   // 0..1: how visible the moving blood and chevrons are (they fade in once the view is still)
+uniform vec3 blendA;                   // 0..1 each: the streaks, the chevrons and the origin colours fading in or out (switched on or off)
 uniform int look;                      // 0 parcels, 1 shimmer
 uniform int origin;                    // 1: color parcels by where their blood came from
 uniform int dyeOn;
@@ -845,8 +850,8 @@ vec4 bloodAt(int id, float s, float y, vec3 col) {
   vec3 vc = mix(texelFetch(tube, ivec2(0, id), 0).rgb, texelFetch(tube, ivec2(1, id), 0).rgb, clamp(s / len, 0.0, 1.0));
   float pale = origin == 0 ? smoothstep(0.58, 0.66, dot(vc, vec3(0.299, 0.587, 0.114))) : 0.0;   // the origin streams always take light ink
   // Parcels read as bright beads with a soft glow on a dark lumen, deep beads on a pale one.
-  vec3 core = mix(mix(col, inkLight, 0.86), mix(col, inkDark, 0.62), pale);
-  vec3 halo = mix(mix(col, inkLight, 0.45), mix(col, inkDark, 0.3), pale);
+  vec3 core = mix(mix(col, inkLight, 0.62), mix(col, inkDark, 0.45), pale);
+  vec3 halo = mix(mix(col, inkLight, 0.3), mix(col, inkDark, 0.2), pale);
   // Flow running backwards: the moving blood warms to orange (not over the origin streams, whose
   // amber it would be lost in).
   float rev = origin == 1 ? 0.0 : f1.w;
@@ -916,7 +921,7 @@ vec4 bloodAt(int id, float s, float y, vec3 col) {
   // Its scale follows the zoom without steps: the lane width from a continuous lane count, and the
   // cell size cross-fading between the parcel scales (1, 2, 4 slots) over a band of zoom, where the beads switch at once.
   float qy = y * R / max(0.55 * 1.6 * R / clamp(1.7 * R / Lg, 1.0, 7.0), 3.2 * pxW);
-  float drift = stasis * clock * 0.06;
+  float drift = texelFetch(flow, ivec2(3, id), 0).z;   // (added up per stream on the CPU: blood.js drift)
   float lx = clamp(log2(max(pxW, 1e-4) * 8.0 / SLOT), -1.0, 3.0);
   float li = smoothstep(-0.2, 0.2, lx) + smoothstep(0.8, 1.2, lx);   // 0 … 2
   float lb = min(floor(li), 1.0), lf = li - lb;
@@ -949,6 +954,11 @@ vec3 originAt(int id, float y, float R) {
   return c;
 }
 ${CHEV_GLSL}
+float radAt(int id, float s, float len) {
+  float ui = clamp(s / len, 0.0, 1.0) * ${N_SAMPLES - 1}.0;
+  int i0 = min(int(ui), ${N_SAMPLES - 2});
+  return max(mix(texelFetch(rad, ivec2(i0, id), 0).r, texelFetch(rad, ivec2(i0 + 1, id), 0).r, ui - float(i0)), 0.3);
+}
 // Flow arrowheads along the axis, pointing and moving with the mean flow: a slim filled head with
 // a notched back. Returns its coverage (x) and a soft rim just outside it (y).
 vec2 chevAt(int id, float s, float y) {
@@ -970,14 +980,15 @@ vec2 chevAt(int id, float s, float y) {
   float n = floor(lv), fr = lv - n;
   float P = 28.0 * exp2(n), Pc = 28.0 * exp2(lv);
   float x = mod(s - f0.x + 0.5 * P, P) - 0.5 * P, u = x * dir;
-  float Rs = max(texelFetch(rad, ivec2(clamp(int(clamp(s / len, 0.0, 1.0) * ${N_SAMPLES - 1}.0 + 0.5), 0, N_LAST), id), 0).r, 0.3);
-  float ay = abs(y) * Rs;
   float sc = s - x;
   float odd = mod(floor((sc - f0.x) / P + 0.5), 2.0);
   float keep = odd > 0.5 ? 1.0 - smoothstep(0.15, 0.85, fr) : 1.0;
-  // Sized to the lumen where the head sits, so none overhangs a narrowing vessel.
-  float Rl = max(texelFetch(rad, ivec2(clamp(int(clamp(sc / len, 0.0, 1.0) * ${N_SAMPLES - 1}.0 + 0.5), 0, N_LAST), id), 0).r, 0.3);
-  float hw = min(0.86 * R, 0.2 * Pc), L = 1.6 * hw;            // half width, length: one fixed shape per vessel, never stretched
+  float hw = min(0.8 * R, clamp(0.5 * R, 4.0 * cssPx * pxW, 8.0 * cssPx * pxW)), L = 1.6 * hw;            // half width, length: one fixed shape per vessel, never stretched
+  // Past the head and its soft rim along the course (|u| > 0.55 L + 0.19 hw + 3.4 px reaches nothing): no more reads.
+  if (abs(x) > 0.6 * L + 0.15 * hw + 4.0 * pxW) return vec2(0.0);
+  // Across, and the lumen where the head sits (so none overhangs a narrowing vessel), between the radius samples.
+  float ay = abs(y) * radAt(id, s, len);
+  float Rl = radAt(id, sc, len);
   // Toward either end a head fades out (and the next vessel's fade in), never cut by a join.
   float e = min(sc, len - sc);
   if (e < 0.6 * L) return vec2(0.0);
@@ -991,7 +1002,8 @@ vec2 chevAt(int id, float s, float y) {
 float dyeAt(int id, float s, float y) {
   float vd = texelFetch(flow, ivec2(0, id), 0).y;
   float len = max(texelFetch(tube, ivec2(5, id), 0).z, 1.0);
-  float R = max(texelFetch(rad, ivec2(clamp(int(clamp(s / len, 0.0, 1.0) * ${N_SAMPLES - 1}.0 + 0.5), 0, ${N_SAMPLES - 1}), id), 0).r, 0.3);
+  // (The caliber between its samples, as the chevrons take it: the nearest sample stepped the front's bullet at each one; B11.)
+  float R = radAt(id, s, len);
   float dir = vd < 0.0 ? -1.0 : 1.0;
   float sp = s - dir * (2.0 * (1.0 - y * y) - 1.0) * 1.4 * R;
   float u = clamp(sp / len, 0.0, 1.0);
@@ -1023,7 +1035,15 @@ void main() {
       float c = (w.x - 712.0) / 400.0;
       float s = fluidS.x - fluidS.y * (0.8 + 0.2 * c * c) + (sin(w.x / 38.0 + fluidS.w) * 0.7 + sin(w.x / 23.0 - fluidS.w * 1.3) * 0.3) * fluidS.z;
       float d = w.y - s;
-      float e = smoothstep(-pxW, pxW, d) * texture(fluidMask, fu).a;
+      // Inside the cavity: the row's half-width (between the two nearest rows) less the distance from the mirror line, over
+      // the edge's slope there to give the distance across it, smoothed over a world unit or a pixel, whichever is more
+      // (the raster it replaces was a world unit to the texel).
+      float nR = float(textureSize(fluidMask, 0).x), fy = fu.y * (nR - 1.0);
+      int r0 = int(min(floor(fy), nR - 2.0));
+      float h0 = texelFetch(fluidMask, ivec2(r0, 0), 0).r, h1 = texelFetch(fluidMask, ivec2(r0 + 1, 0), 0).r;
+      float sl = (h1 - h0) * (nR - 1.0) / fluidRect.w;
+      float cav = (mix(h0, h1, fy - float(r0)) - abs(w.x - fluidRect.x - 0.5 * fluidRect.z)) / sqrt(1.0 + sl * sl);
+      float e = smoothstep(-pxW, pxW, d) * clamp(0.5 + cav / max(pxW, 1.0), 0.0, 1.0);
       if (e > 0.0) {
         float a = fluidInk.a * (0.5 + 0.5 * clamp(d / max(fluidS.y, 1.0), 0.0, 1.0)) + fluidInk.a * 0.5 * exp(-d * d / 14.0);
         a = min(a, 1.0) * e;
@@ -1049,13 +1069,13 @@ void main() {
       // A vessel that carries no blood (origin fractions marked −1, e.g. a lymphatic) keeps its own color.
       vec3 oc = texelFetch(flow, ivec2(2, id1), 0).x < -0.5 ? col : min(originAt(id1, y1, max(texelFetch(rad, ivec2(N_LAST / 2, id1), 0).r, 0.3)) * shade, vec3(1.0));
       if (b > 0.004) oc = mix(oc, texelFetch(flow, ivec2(2, id2), 0).x < -0.5 ? col : min(originAt(id2, y2, max(texelFetch(rad, ivec2(N_LAST / 2, id2), 0).r, 0.3)) * shade, vec3(1.0)), b);
-      col = mix(col, oc, vis);
+      col = mix(col, oc, vis * blendA.z);
     }
     if (blood == 1) {
       // One streak field (the dominant lumen's), eased down toward the join, so two patterns never ghost over each other.
       vec4 A = bloodAt(id1, s1, y1, col);
       float a = A.a * (1.0 - 0.6 * smoothstep(0.02, 0.5, b));
-      if (a > 0.0) col = mix(col, A.rgb, clamp(a * vis * flowA, 0.0, 1.0));
+      if (a > 0.0) col = mix(col, A.rgb, clamp(a * vis * flowA * blendA.x, 0.0, 1.0));
     }
     if (dyeOn == 1) {
       float c = dyeAt(id1, s1, y1) * (1.0 - b) + (b > 0.004 ? dyeAt(id2, s2, y2) * b : 0.0);
@@ -1065,11 +1085,16 @@ void main() {
       float inLumen = 1.0 - smoothstep(0.6, 0.85, abs(y1));
       col = mix(col, dyeCol, clamp(c, 0.0, 1.0) * 0.9 * max(smoothstep(0.0, 0.2, vis), inLumen));
     }
-    bool hole = false;
-    for (int i = 0; i < 12; i++) { if (i >= noChevN) break; if (all(greaterThanEqual(w, noChev[i].xy)) && all(lessThanEqual(w, noChev[i].zw))) { hole = true; break; } }
-    if (chev == 1 && !hole) {
+    if (chev == 1) {
       vec2 c = chevAt(id1, s1, y1);
       c *= 1.0 - smoothstep(0.02, 0.25, b);   // none where another vessel joins
+      // None under a figure reading on its vessel (stage.js noChevBoxes): cut along the box's edge with a pixel of antialiasing,
+      // as the stent points' holes are, instead of a hard unantialiased edge through a head (round 2 review, B8).
+      for (int i = 0; i < 12; i++) {
+        if (i >= noChevN) break;
+        vec2 q = abs(w - (noChev[i].xy + noChev[i].zw) * 0.5) - (noChev[i].zw - noChev[i].xy) * 0.5;
+        c *= smoothstep(-pxW, pxW, length(max(q, 0.0)) + min(max(q.x, q.y), 0.0));
+      }
       // (none under a stent point's callout or round its dot: stage.js chevHoles)
       for (int i = 0; i < 16; i++) {
         if (i >= chevHoleN) break;
@@ -1082,8 +1107,13 @@ void main() {
       if (c.x + c.y > 0.0) {
         float rv = texelFetch(flow, ivec2(1, id1), 0).w;
         // A faint light rim lifts the head off the lumen; the head itself dark, or orange if reversed.
-        col = mix(col, inkLight, c.y * 0.75 * vis * flowA);
-        col = mix(col, mix(chevInk, revCol, rv), c.x * vis * flowA);
+        // The head keeps its dark core, tinted at most a fifth toward a deep shade of the vessel's own colour (more loses
+        // contrast on the faded cava and dark lumens), with the light rim as before.
+        float ln1 = max(texelFetch(tube, ivec2(5, id1), 0).z, 1.0);
+        vec3 vc = mix(texelFetch(tube, ivec2(0, id1), 0).rgb, texelFetch(tube, ivec2(1, id1), 0).rgb, clamp(s1 / ln1, 0.0, 1.0));
+        vec3 ink = mix(chevInk, vc * 0.3, 0.2);
+        col = mix(col, inkLight, c.y * 0.75 * vis * flowA * blendA.y);
+        col = mix(col, mix(ink, revCol, rv), c.x * vis * flowA * blendA.y);
       }
     }
     v = vec4(col * v.a, v.a);
@@ -1153,17 +1183,25 @@ void main() {
   o = vec4(col.rgb * a, a);
 }`;
 
-function compile(gl, vs, fs) {
+// A program is started (its shaders compiled and linked) and finished (its status read) apart: every program of a context is
+// started first, then each is finished, so with KHR_parallel_shader_compile the driver compiles them side by side instead of
+// one wait each; a shader object can be shared (the composite's fragment shader serves both of its programs, compiled once).
+// (The lobule's prewarm compile was a 2.4–3.6 s task; round 2 review, P10.)
+function shader(gl, type, src) {
+  const sh = gl.createShader(type);
+  gl.shaderSource(sh, src);
+  gl.compileShader(sh);
+  return sh;
+}
+function startProgram(gl, vs, fs) {
+  const sh = [typeof vs === 'string' ? shader(gl, gl.VERTEX_SHADER, vs) : vs, typeof fs === 'string' ? shader(gl, gl.FRAGMENT_SHADER, fs) : fs];
   const p = gl.createProgram();
-  for (const [type, src] of [[gl.VERTEX_SHADER, vs], [gl.FRAGMENT_SHADER, fs]]) {
-    const sh = gl.createShader(type);
-    gl.shaderSource(sh, src);
-    gl.compileShader(sh);
-    if (!gl.getShaderParameter(sh, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(sh));
-    gl.attachShader(p, sh);
-    gl.deleteShader(sh);   // freed with the program
-  }
+  for (const x of sh) gl.attachShader(p, x);
   gl.linkProgram(p);
+  return { p, sh };
+}
+function finishProgram(gl, { p, sh }) {
+  for (const x of sh) if (!gl.getShaderParameter(x, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(x));
   if (!gl.getProgramParameter(p, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(p));
   const u = {};
   const n = gl.getProgramParameter(p, gl.ACTIVE_UNIFORMS);
@@ -1185,14 +1223,22 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false }) {
   let gl = null;
   try { gl = canvas.getContext('webgl2', { alpha: true, premultipliedAlpha: true, antialias: false, depth: false, stencil: false, preserveDrawingBuffer: true, failIfMajorPerformanceCaveat: !force }); } catch { gl = null; }
   if (!gl) return null;
+  gl.getExtension('KHR_parallel_shader_compile');
+  let started;
+  try {
+    const compFS = shader(gl, gl.FRAGMENT_SHADER, COMP_FS());
+    started = { prog: startProgram(gl, VS, FS), comp: startProgram(gl, COMP_VS, compFS), compCell: startProgram(gl, COMP_CELL_VS, compFS), cath: startProgram(gl, CATH_VS, CATH_FS), line: startProgram(gl, LINE_VS, LINE_FS) };
+  } catch (e) { console.warn('Veins renderer: WebGL2 shaders failed, keeping the SVG tubes.', e); return null; }
+  // (Shaders are freed with the programs that hold them.)
+  const freeShaders = () => { for (const x of new Set(Object.values(started).flatMap((st) => st.sh))) gl.deleteShader(x); };
   let prog;
-  try { prog = compile(gl, VS, FS); } catch (e) { console.warn('Veins renderer: WebGL2 shaders failed, keeping the SVG tubes.', e); return null; }
+  try { prog = finishProgram(gl, started.prog); } catch (e) { console.warn('Veins renderer: WebGL2 shaders failed, keeping the SVG tubes.', e); freeShaders(); return null; }
   const { p, u } = prog;
   let comp, compCell;
-  try { comp = compile(gl, COMP_VS, COMP_FS()); compCell = compile(gl, COMP_CELL_VS, COMP_FS()); } catch (e) { console.warn('Veins renderer: composite shader failed.', e); return null; }
+  try { comp = finishProgram(gl, started.comp); compCell = finishProgram(gl, started.compCell); } catch (e) { console.warn('Veins renderer: composite shader failed.', e); freeShaders(); return null; }
   const plates = [null, null];   // [whole plate, sharp view] : { tex, rect }
   let cathP = null;
-  try { cathP = compile(gl, CATH_VS, CATH_FS); } catch (e) { console.warn('Veins renderer: catheter shader failed.', e); }
+  try { cathP = finishProgram(gl, started.cath); } catch (e) { console.warn('Veins renderer: catheter shader failed.', e); }
   const cathBuf = gl.createBuffer(), cathVAO = gl.createVertexArray();
   gl.bindVertexArray(cathVAO);
   gl.bindBuffer(gl.ARRAY_BUFFER, cathBuf);
@@ -1200,13 +1246,14 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false }) {
   gl.bindVertexArray(null);
   let cath = null, cathWas = false, cathCap = 0;   // cathCap: bytes the catheter's buffer holds (refilled in place while it fits)
   let lineP = null;
-  try { lineP = compile(gl, LINE_VS, LINE_FS); } catch (e) { console.warn('Veins renderer: outline shader failed.', e); }
+  try { lineP = finishProgram(gl, started.line); } catch (e) { console.warn('Veins renderer: outline shader failed.', e); }
+  freeShaders();
   const lineBuf = gl.createBuffer(), lineVAO = gl.createVertexArray();
   gl.bindVertexArray(lineVAO);
   gl.bindBuffer(gl.ARRAY_BUFFER, lineBuf);
   for (let i = 0; i < 3; i++) { gl.enableVertexAttribArray(i); gl.vertexAttribPointer(i, 2, gl.FLOAT, false, 24, i * 8); }
   gl.bindVertexArray(null);
-  let lines = null, linesWas = false, lineVer = 0, lineSig = '', lineKey = '', glowKey = '';
+  let lines = null, linesWas = false, lineVer = 0, lineSig = '', lineKey = '', glowKey = '', lastMk = '';
   // The outlines are drawn into a layer of their own when they change, and the composite lays it over the picture: the
   // cells-only pass then keeps them, so an open organ card no longer repaints the whole picture every frame. Glows
   // (draws marked soft) have a layer too, which the composite lays under the organs.
@@ -1280,7 +1327,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false }) {
   gl.bindBuffer(gl.ARRAY_BUFFER, fluidBuf);
   gl.enableVertexAttribArray(1); gl.vertexAttribPointer(1, 2, gl.FLOAT, false, 0, 0); gl.vertexAttribDivisor(1, 1);
   gl.bindVertexArray(null);
-  const fluidTex = dataTex(gl, gl.LINEAR);
+  const fluidTex = dataTex(gl);
   let fluidRect = null, nFluid = 0;
   const compVAO = gl.createVertexArray();
   gl.bindVertexArray(compVAO);
@@ -1557,7 +1604,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false }) {
     software = /SwiftShader|llvmpipe|softpipe|Software|Basic Render/i.test(String(gl.getParameter(ri ? ri.UNMASKED_RENDERER_WEBGL : gl.RENDERER)));
   } catch { software = false; }
 
-  return {
+  const api = {
     get lost() { return lost; },
     /** Whether the browser renders WebGL on the CPU. */
     software,
@@ -1596,20 +1643,34 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false }) {
       gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, bitmap);
       organRect = rect; fboOK = false;
     },
-    /** A plate raster (0: the whole plate, 1: a sharper one of the view) and the world rectangle it spans. */
-    setPlate(slot, source, rect) {
-      const t = plates[slot]?.tex || dataTex(gl, gl.LINEAR);
-      gl.bindTexture(gl.TEXTURE_2D, t);
-      gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, true);
-      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, source);
-      gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
-      plates[slot] = { tex: t, rect };
+    /**
+     * A plate raster on its way in (plate-upload.js): a W × H texture of its own, filled by plateRows and shown by setPlate.
+     * The texture shown meanwhile stays as it was.
+     */
+    plateJob(W, H) {
+      const tex = dataTex(gl, gl.LINEAR);
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, W, H, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+      return { tex, W };
     },
-    /** The peritoneal cavity as an alpha bitmap over a world rectangle (the ascites is drawn inside it). */
-    setFluidMask(source, rect) {
+    /** Rows y to y + rows of a plate raster on its way in: premultiplied RGBA pixels. */
+    plateRows(job, y, rows, pixels) {
+      gl.bindTexture(gl.TEXTURE_2D, job.tex);
+      gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, y, job.W, rows, gl.RGBA, gl.UNSIGNED_BYTE, pixels);
+    },
+    /** Shows a filled plate raster (0: the whole plate, 1: a sharper one of the view) over the world rectangle it spans. */
+    setPlate(slot, job, rect) {
+      if (plates[slot]) gl.deleteTexture(plates[slot].tex);
+      plates[slot] = { tex: job.tex, rect };
+    },
+    /** A plate raster given up on its way in. */
+    dropJob(job) { gl.deleteTexture(job.tex); },
+    /**
+     * The peritoneal cavity (the ascites is drawn inside it) over a world rectangle: its half-width about the rectangle's
+     * middle at rows evenly from its top to its bottom (anatomy.js cavityHalfWidths).
+     */
+    setFluidSpans(halfWidths, rect) {
       gl.bindTexture(gl.TEXTURE_2D, fluidTex);
-      gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
-      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, source);
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.R32F, halfWidths.length, 1, 0, gl.RED, gl.FLOAT, halfWidths);
       fluidRect = rect;
     },
     /** World origins (x, y pairs) of the cells the ascites surface ripples through. */
@@ -1702,15 +1763,21 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false }) {
       cathWas = !!cath;
       // The organ outlines (over the vessels) are a layer redrawn when they or the view change, with one whole repaint
       // then and once after they go. Under the catheter's passes they are drawn last, as before, over it.
-      const m = baseM;
-      const hard = hasHard(), glow = hasSoft(), layer = hard && !cath;
-      const vk = `${lineVer}|${m.join(',')}|${canvas.width}x${canvas.height}`;
+      const m = baseM, mk = m.join(',');
+      // While the view moves (a pan, a zoom, a slide's camera glide) every frame is a whole repaint anyway, so the outlines are drawn
+      // straight onto it, as under the catheter, instead of into their layer first: that was one more full-screen pass a frame. The
+      // layer is made again on the first frame the view holds still, and that frame is a whole repaint too.
+      const moving = mk !== lastMk;
+      lastMk = mk;
+      const hard = hasHard(), glow = hasSoft(), layer = hard && !cath && !moving;
+      const vk = `${lineVer}|${mk}|${canvas.width}x${canvas.height}`;
       if (layer) {
-        if (vk !== lineKey) { renderLayer(lineLayer, m, false); lineKey = vk; full = true; }
+        if (vk !== lineKey) { gpuProbe.time(gl, 'outline layer', () => renderLayer(lineLayer, m, false)); lineKey = vk; full = true; }
       } else if (!hard) { freeLayer(lineLayer); lineKey = ''; }
+      else if (moving) { lineKey = ''; full = true; }
       // (The glow lies behind the organs, so the catheter never draws over it: its layer holds whatever the catheter does.)
       if (glow) {
-        if (vk !== glowKey) { renderLayer(glowLayer, m, true); glowKey = vk; full = true; }
+        if (vk !== glowKey) { gpuProbe.time(gl, 'glow layer', () => renderLayer(glowLayer, m, true)); glowKey = vk; full = true; }
       } else { freeLayer(glowLayer); glowKey = ''; }
       if (linesWas && !lines) full = true;
       linesWas = !!lines;
@@ -1742,18 +1809,22 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false }) {
       gl.uniform4f(U.plateRect1, ...(plates[1]?.rect || [0, 0, 1, 1]));
       gl.uniform4f(U.fluidRect, ...(fluidRect || [0, 0, 1, 1]));
       gl.uniform4f(U.fluidS, ...(fl?.s || [0, 0, 0, 0]));
-      gl.uniform4f(U.fluidInk, ...(fl && pm ? fl.ink : [0, 0, 0, 0]));
+      // (The fluid is drawn here with the plate off too, the live organs showing under the canvas: one look while the plate is
+      // down for a slow fill and after it lands, where the page's SVG copy had a brighter surface line; Ascites slide 5, 17 Oct.)
+      gl.uniform4f(U.fluidInk, ...(fl ? fl.ink : [0, 0, 0, 0]));
       gl.uniform1i(U.blood, blood.on ? 1 : 0);
       gl.uniform1i(U.chev, blood.chev ? 1 : 0);
       gl.uniform1i(U.still, blood.still ? 1 : 0);
       gl.uniform1f(U.flowA, blood.alpha ?? 1);
+      gl.uniform3f(U.blendA, blood.streakA ?? 1, blood.chevA ?? 1, blood.originA ?? 1);
       gl.uniform3f(U.chevInk, ...(blood.chevInk || [0.08, 0.08, 0.1]));
+      gl.uniform1f(U.cssPx, blood.vdpr || 1);
       gl.uniform1i(U.look, blood.look === 'shimmer' ? 1 : 0);
       gl.uniform1i(U.origin, blood.origin ? 1 : 0);
       gl.uniform1i(U.dyeOn, dyeAny && blood.dye !== false ? 1 : 0);
       gl.uniform1f(U.clock, blood.clock || 0);
       gl.uniform1f(U.rows, nTubes);
-      { const oc = (blood.originCol || ORIGIN_WHITE).flat(); gl.uniform3fv(U.originCol, oc.length === 15 ? put(SCR.originCol, oc) : new Float32Array(oc)); }
+      gl.uniform3fv(U.originCol, originColOf(blood.originCol || ORIGIN_WHITE));
       gl.uniform3f(U.dyeCol, ...(blood.dyeCol || [0.8, 0.95, 0.2]));
       gl.uniform3f(U.revCol, ...(blood.revCol || [1, 0.55, 0.16]));
       gl.uniform3f(U.inkLight, ...(blood.inkLight || [1, 1, 1]));
@@ -1784,8 +1855,8 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false }) {
         if (fl?.ripple && nFluid) { gl.bindVertexArray(fluidVAO); gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, nFluid); }
       }
       gl.bindVertexArray(null);
-      if (cath) drawCath(m);
-      if (hard && !layer) drawLines(m, false);
+      if (cath) gpuProbe.time(gl, 'catheter', () => drawCath(m));
+      if (hard && !layer) gpuProbe.time(gl, 'outlines', () => drawLines(m, false));
     },
     /** Whether organ outlines can be drawn here (else stage.js keeps its SVG ones). */
     get canLines() { return !!lineP; },
@@ -1858,4 +1929,12 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false }) {
       lost = true;
     },
   };
+  // (Timed for the debug overlay's GPU readout: gpu-probe.js. Off, each call costs one check.)
+  const steps = { draw: 'vessels', drawRows: 'vessels', composite: 'picture', setGeometry: 'uploads', setRadii: 'uploads', setTubes: 'uploads',
+    setOrgans: 'uploads', plateJob: 'uploads', plateRows: 'uploads', setPlate: 'uploads', setFluidSpans: 'uploads', setFluidCells: 'uploads', setFlow: 'uploads', setDye: 'uploads' };
+  for (const [k, name] of Object.entries(steps)) {
+    const f = api[k];
+    api[k] = function (...a) { return gpuProbe.on ? gpuProbe.time(gl, name, () => f.apply(this, a)) : f.apply(this, a); };
+  }
+  return api;
 }

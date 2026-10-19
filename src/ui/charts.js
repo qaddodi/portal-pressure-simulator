@@ -1,11 +1,11 @@
 // Dock charts (blueprint §9.2): the pressure profile.
 
 import { NODES } from '../engine/topology.js?v=4044766e96';
-import { PROFILE_PATHS, SHORT } from './anatomy.js?v=0b72305f30';
-import { pressureColor } from './colormap.js?v=5c9a375f49';
+import { PROFILE_PATHS, SHORT } from './anatomy.js?v=8374d8e213';
+import { pressureColor } from './colormap.js?v=dc071e3659';
 import { store, hiddenNow } from './store.js?v=31ee79b6ab';
-import { h, fmt, fitCanvas, cssVar, cssAlpha, clamp, createEaser, axisTop } from './util.js?v=0140acc352';
-import { frameFor, cancelFrame, paceMs } from './frame.js?v=5efaa2bcc9';
+import { h, fmt, fitCanvas, cssVar, cssAlpha, clamp, createEaser, axisTop } from './util.js?v=b6a40567da';
+import { frameFor, cancelFrame, paceMs } from './frame.js?v=67ca200c87';
 import { tenthGap } from '../engine/gap.js?v=3a5947c552';
 import { shownOr } from './shown.js?v=82ef5e29ec';
 import { monotoneSegs, curveTester } from './curve-near.js?v=9ff15157e9';
@@ -71,7 +71,7 @@ export function createProfile() {
   function ease() {
     if (!Fraw) return;
     const src = Fraw.Pf || Fraw.P;
-    const { v: shown, moving: mP } = easeP.step(src);
+    const { v: shownP, moving: mP } = easeP.step(src);
     const path = curPath();
     const st = store.get();
     let top = 0;
@@ -85,7 +85,7 @@ export function createProfile() {
     // first does: those are already smooth, and the eased copy is drawn only before them. Its easing never settled while the
     // model ran, so it repainted the same picture on every display frame; only what the picture shows keeps the glide going.)
     const moving = glideMoving(!!Fraw.Pf, mP, mA);
-    F = { ...Fraw, P: shown };
+    F = { ...Fraw, P: shownP };
     draw();
     cancelFrame(easeRaf);
     // Model frames arrive about ten times a second; the glide runs between them on every frame the screen offers

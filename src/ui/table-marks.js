@@ -61,6 +61,9 @@ export const TILE = {
   salb: { t: 'Serum albumin', n: 'Albumin', s: 'Blood', u: 'g/dL', better: 1 },
   ivc: { t: 'IVC pressure', n: 'IVC', s: 'Pressure', u: 'mmHg', better: -1 },
   hb: { t: 'Hemoglobin', n: 'Hb', s: 'Blood', u: 'g/dL', better: 1 },
+  // (Unrated: in pregnancy both rise as they should, so neither is good or bad.)
+  co: { t: 'Cardiac output', n: 'Output', s: 'Heart', u: 'L/min' },
+  bv: { t: 'Blood volume', n: 'Volume', s: 'Whole blood', u: 'L', x: 0.001 },
 };
 export const rateOf = (k, f) => (RATE[k] && f && f[k] != null ? RATE[k](f[k], f) : [null, '']);
 // A value as its tile prints it (the tile's scale and decimals), back in the model's units: a tile's word judges the number it
@@ -79,10 +82,13 @@ export const SCALE = {
   varix: [0, 10, [2.5, 5]], gv: [0, 10, [2.5, 5]], spleen: [8, 22, [13, 16]], plt: [0, 300, [100, 150]],
   pvFlow: [-0.6, 2, [0]], pvVel: [0, 50, [9, 15]], liver: [0, 125, [55, 75]], shunt: [0, 100, [10, 30]], map: [40, 120, [65]],
   lsm: [0, 35, [10, 15, 25]], ra: [0, 20, [8]], ivc: [0, 20, [8]], salb: [1.5, 5.5, [3.5]], hb: [4, 18, [7, 12]], hr: [30, 200, [60, 100]],
+  // (Unrated, so a plain bar with no bands and no cut-off numbers: only the ring, before pregnancy, and the dot, now. Critique D4, 17 Oct.)
+  bv: [3, 9, []], co: [3, 12, []],
 };
 // A bar's bands: each from a to b (shown units), and m, its middle in the model's units (what the rating reads).
 export const bandsOf = (k) => {
   const s = SCALE[k]; if (!s) return null;
+  if (!s[2].length) return [];   // (no cut-offs: a plain track)
   const x = TILE[k]?.x ?? 1, e = [s[0], ...s[2], s[1]];
   return e.slice(0, -1).map((a, i) => ({ a, b: e[i + 1], m: (a + e[i + 1]) / 2 / x }));
 };

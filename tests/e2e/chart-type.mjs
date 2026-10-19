@@ -22,8 +22,9 @@ export function chartFaults(sel) {
   const slideRoles = rolesAt(pz);
   // (A data card's charts draw at the card's own sizes where it sets them, --ch-cap and --ch-lab: the tiles' small size and
   // one and a half times it; past the fit's last step its words zoom, --pz-z.)
+  // (And a big screen's site-ladder cell its own, app.css .pz-cell: the data card's chart size, 12 px at least.)
   // (A phone's stacked data card sets its own, larger roles, --s-cap and --s-lab at 1.15 times the slide's, 1.3 on a tablet: styles/app.css.)
-  const cardRoles = (svg) => { const d = svg.closest('.pz-data'); if (!d) return []; return ['ch-cap', 'ch-lab', 's-cap', 's-lab'].map((r) => { const p = document.createElement('span'); p.style.cssText = `position:absolute;visibility:hidden;font-size:var(--${r}, 0px)`; d.append(p); const v = parseFloat(getComputedStyle(p).fontSize); p.remove(); return v; }).filter((v) => v > 0); };
+  const cardRoles = (svg) => { const d = svg.closest('.pz-cell, .pz-data'); if (!d) return []; return ['ch-cap', 'ch-lab', 's-cap', 's-lab'].map((r) => { const p = document.createElement('span'); p.style.cssText = `position:absolute;visibility:hidden;font-size:var(--${r}, 0px)`; d.append(p); const v = parseFloat(getComputedStyle(p).fontSize); p.remove(); return v; }).filter((v) => v > 0); };
   const out = [];
   for (const svg of charts) {
     const grid = svg.closest('.pz-grid'), roles = grid ? rolesAt(grid) : slideRoles;

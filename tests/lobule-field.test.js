@@ -17,8 +17,9 @@ test('the dive fades the lobules away from the landing one, in and out, rising t
   assert.match(stage, /focus: smoothT\(0\.\d+, 0\.8, t\)/, 'focus follows the dive clock, so the rise out reverses it');
   assert.match(lz, /const f = clamp\(d\.focus \?\? d\.quiet, 0, 1\)/);
   // At focus 1 the clear circle is the lobule view's resting surround (rd × 1.1), so the landing has no jump.
-  assert.match(lz, /Math\.log\(Math\.min\(diag \* 0\.45, rd \* 1\.1\)\), f\)/);
-  assert.match(lz, /fieldFade\(c, shadeOf\(rgb01\(bg\), dark\), sx \* dpr, sy \* dpr, R \* V\.k \* dpr, 1,/, 'the resting view keeps the faded surround');
+  assert.match(lz, /Math\.log\(Math\.min\(Math\.hypot\(W, H\) \* dpr \* 0\.45, rd \* 1\.1\)\), f\)\)/);
+  assert.match(lz, /fieldFade\(c, shadeOf\(rgb01\(bg\), dark\), ox, oy, rdv, 1,/, 'the resting view keeps the faded surround');
+  assert.match(lz, /ox = ocx \* dpr, oy = ocy \* dpr, rdv = R \* V\.k \* dpr/, 'centred on the lobule, at its radius on screen');
 });
 
 test('the dive does no full-size redraws or hidden compositing mid-zoom', () => {
@@ -48,7 +49,7 @@ test('in dark mode the field lobules\' capillarized sinusoids are dark (they rec
 });
 
 test('every zoom into the lobule draws it first, for where it lands, then zooms; the anatomy returns after landing', () => {
-  assert.match(lz, /function stage\(\) \{\n\s+while \(warm\(\)\);[^\n]*\n\s+if \(fade > 0 \|\| !F\) return;\n\s+flowA = 0; flowT = 0; resetView\(\); staging = true;/);
+  assert.match(lz, /function stage\(\) \{\n\s+while \(warm\(\)\);[^\n]*\n\s+if \(fade > 0 \|\| !F\) return;\n\s+flowA = 0; flowT = 0; resetView\(\); staging = true; snapState\(\);/);
   assert.match(lz, /idleDrawn = ''; draw\(0\); diveDrawn = true; staged = api\.viewKey\(\); relLater = true;/);
   assert.match(lz, /if \(fade <= 0 && !staging\) return;/, 'update fills in the model while staging');
   // Both ways in (a tap or slide, and a pinch) draw it before their zoom's clock starts.
@@ -56,7 +57,7 @@ test('every zoom into the lobule draws it first, for where it lands, then zooms;
   assert.match(stage, /lz\.prewarm\(diveLand\.r\);\n\s+lz\.stage\(\);\n\s+cancelFrame\(vtAnim\);/);
   assert.ok(stage.indexOf('lz.stage();   //') < stage.indexOf('const t0 = !on && riseAt'), 'drawn before the zoom is timed');
   // The frame it starts to fade in draws nothing new when the framing still matches.
-  assert.match(lz, /if \(staged && staged === api\.viewKey\(\) && model\) \{ if \(!raf\) raf = nextFrame\(loop\); \} else \{ diveDrawn = false; if \(F\) update\(F\); \}/);
+  assert.match(lz, /if \(staged && staged === api\.viewKey\(\) && model\) \{ if \(!raf\) raf = nextFrame\(loop\); \} else \{ diveDrawn = false; snapState\(\); if \(F\) update\(F\); \}/);
   // Its memory is given back when the zoom returns to the anatomy (never mid-zoom); the idle preparation keeps nothing.
   assert.match(lz, /if \(was > 0\) \{ if \(diveScaled\) relLater = true; else release\(\); \}/);
   assert.match(lz, /if \(!diveScaled && fade <= 0\) \{ staged = ''; if \(relLater\) \{ relLater = false; release\(\); \} \}/);
@@ -78,4 +79,16 @@ test('the lobule\'s fibrous bands are a deeper tan in light and Soft, the collag
   assert.match(lz, /const COL = rgb01\(v\('--lz-septum'\)\);/);
   assert.match(lz, /const COLa = cssRGB01\('--lz-septum'\), edges/);
   assert.match(lz, /const DIS = rgb01\(v\('--collagen'\)\), col = \(a\) => css\(DIS, a\);/, 'the space of Disse lining is unchanged');
+});
+
+test('the dive\'s field fills each pixel only with the passes that change it (the same picture)', () => {
+  // The fade adds nothing inside its clear circle, and at full strength lays the page's colour whole past its outer edge.
+  assert.match(lz, /fieldFade\(c, shadeOf\(bg, dark\), fx0, fy0, rd, fq, field\.width, field\.height, r0, \[r0 - 1, far\]\);/);
+  assert.match(lz, /const fadeWhole = f > 0 && fq >= 1,/);
+  assert.match(lz, /if \(fadeWhole\) \{ c\.save\(\); c\.beginPath\(\); c\.arc\(fx0, fy0, r0 \* \(3\.2 \/ 1\.1\) \+ 2, 0, TAU\); c\.clip\(\); \}/);
+  // An opaque quieted tile at full strength covers the liver-toned one.
+  assert.match(lz, /if \(!\(d\.quiet >= 1\)\) fieldFill\(c, liverTile\(/);
+  // The emerging mask is whole inside rho × 0.35: it is applied only past that circle.
+  assert.match(lz, /c\.arc\(d\.ox \* dpr, d\.oy \* dpr, Math\.max\(0, rho \* 0\.35 - 1\), 0, TAU\); c\.clip\('evenodd'\);\n\s+c\.globalCompositeOperation = 'destination-in';/);
+  assert.match(lz, /mg\.addColorStop\(0, 'rgba\(0,0,0,1\)'\); mg\.addColorStop\(1, 'rgba\(0,0,0,0\)'\);/);
 });

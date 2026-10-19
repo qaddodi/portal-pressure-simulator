@@ -19,19 +19,19 @@
 // tapped (triad, inlet venule, sinusoid, arteriole, central vein, septum, hepatocytes).
 // Without WebGL2 the vessels are drawn flat on the tissue canvas.
 
-import { runFlick, FLICK } from './flick.js?v=c0226d6397';
+import { runFlick, FLICK } from './flick.js?v=3da45febf2';
 import { store } from './store.js?v=31ee79b6ab';
 import { radiiChanged, canvasPx, fxMoves } from './lobule-render-cache.js?v=99394e5079';
 import { softwareYield } from './sw-yield.js?v=e580a095b1';
-import { lobuleState, lymphRate, LOBE } from './lobule-model.js?v=1ff0bc103e';
+import { lobuleState, lymphRate, LOBE } from './lobule-model.js?v=59d4bf2a04';
 import { SIN_NARROW, cordTone, dullSinusoid, NEIGHBOUR_FLAT, neighbourBlur, blurWrapped, bandOutline } from './lobule-look.js?v=240bbb6cad';
-import { h, s, fmt, clamp, createEaser, systemEdge, bloodColors, cssVar, cssAlpha, cssRGB01 } from './util.js?v=0140acc352';
-import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatColor, oxygenColor } from './colormap.js?v=5c9a375f49';
+import { h, s, fmt, clamp, createEaser, systemEdge, bloodColors, cssVar, cssAlpha, cssRGB01 } from './util.js?v=b6a40567da';
+import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatColor, oxygenColor } from './colormap.js?v=dc071e3659';
 import { NODES, EDGES } from '../engine/topology.js?v=4044766e96';
-import { createVeinsGL, binVeins, N_SAMPLES, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_SPEC, F_EDGE, ORIGIN_GREY } from './veins-gl.js?v=fdd771b756';
-import { SLOT, PERIOD, originFractions, ORIGIN_N } from './blood.js?v=1f05278710';
-import { createSinusoidView } from './sinusoid-view.js?v=be7cf93fb4';
-import { frameFor, cancelFrame, noteDraw, saver, paceMs } from './frame.js?v=5efaa2bcc9';
+import { createVeinsGL, binVeins, N_SAMPLES, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_SPEC, F_EDGE, ORIGIN_GREY } from './veins-gl.js?v=e796165537';
+import { SLOT, PERIOD, originFractions, ORIGIN_N, DRIFT_PERIOD } from './blood.js?v=b0e8934683';
+import { createSinusoidView } from './sinusoid-view.js?v=93a2dc5de0';
+import { frameFor, cancelFrame, noteDraw, saver, paceMs } from './frame.js?v=67ca200c87';
 import { leaderEnd, runInside } from './leader-end.js?v=8e884700ab';
 const nextFrame = frameFor('lobule-zoom');
 
@@ -231,14 +231,23 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host) }
   store.on('lobuleLayers', () => syncLayers());
   // A presenter slide's pointer at the lesion (D4): { at: 'triad' | 'sin' | 'cv', label, kind: block | treat | note }.
   const callEl = h('div', { class: 'lz-call', 'aria-hidden': 'true' }), callLine = s('line', { class: 'lz-call-l' }), callRing = s('circle', { class: 'lz-call-r' });
-  let call = null;
+  let call = null, callWant = null, callSwap = 0;
   store.on('presentFp', () => { if (model) panel(); });   // (a slide's settled values arrive: the sinusoid label reads as its tile)
-  store.on('lobuleCallout', () => {
-    const c = store.get().lobuleCallout || null;
-    if (JSON.stringify(c) === JSON.stringify(call)) return;
+  // A pointer that changes while it shows (another spot, other words) fades out first, then fades in with its new words at its new
+  // spot: its ring, line and pill never jump there (17 Oct: "resistance and labels and callouts all snap").
+  const callSet = (c) => {
     call = c;
     if (c) { callEl.textContent = c.label; callEl.dataset.kind = callLine.dataset.kind = callRing.dataset.kind = c.kind || 'block'; }
     viewChanged();
+  };
+  store.on('lobuleCallout', () => {
+    const c = store.get().lobuleCallout || null;
+    if (JSON.stringify(c) === JSON.stringify(callWant)) return;
+    callWant = c;
+    const fading = !!callSwap;
+    clearTimeout(callSwap); callSwap = 0;
+    if (c && !reduce.matches && (fading || (call && callEl.classList.contains('on')))) { if (call) callSet(null); callSwap = setTimeout(() => { callSwap = 0; callSet(callWant); }, 500); return; }
+    callSet(c);
   });
 
   const phoneMQ = matchMedia('(max-width: 720px)');
@@ -383,7 +392,8 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host) }
   }
   // When the free space changes (a card opens, the readouts expand), a fitted lobule follows it.
   let refitLater = false;
-  function refit() { if (!geo || rubber || sinU > 0 || sinTo) { refitLater = !!geo; return; }   // not while in or on the way to the sinusoid: the zoom holds the lobule still
+  function refit() { if (geo && reaimOut()) return;
+    if (!geo || rubber || sinU > 0 || sinTo) { refitLater = !!geo; return; }   // not while in or on the way to the sinusoid: the zoom holds the lobule still
     // A new size: the lobule is built for it first (ensureGeo keeps the spot in view), so the framing below never mixes the old build with the new space.
     { const r = host.getBoundingClientRect(); if (r.width >= 2 && r.height >= 2) ensureGeo(Math.round(r.width), Math.round(r.height)); }
     // (Mid-glide to a station, the glide's target follows the new space: clampV would read the glide's first, still unzoomed frames as the fit
@@ -860,8 +870,19 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host) }
   const zoneOf = (q) => (q > 0.66 ? 1 : q > 0.36 ? 2 : 3);
 
   // ── Model → lobule ──
-  const easeP = createEaser();
+  let easeP = createEaser();
   let easeRaf = 0;
+  // Out of sight (closed, or drawn ahead for a dive): what the lobule showed on its last visit was never seen since, so nothing
+  // eases or crossfades from it. The pressures, the calibers and the tissue take the patient's state at once; otherwise a
+  // patient made cirrhotic in the anatomy dove into a healthy lobule (the dive only magnifies its first frame) that snapped
+  // to cirrhosis as it landed.
+  function snapState() {
+    easeP = createEaser(); rz = null;
+    xfT0 = 0; free(worldOld); free(xfCv); surOld = null; surT0 = 0; snapNext = true;
+  }
+  // (snapNext: reopened without a picture drawn ahead, the first frame is already fading in, but shows nothing seen before either.)
+  let snapNext = false;
+  const unseen = () => fade <= 0 || staging || snapNext;
   function update(f) {
     drawVersion++;
     F = f;
@@ -874,7 +895,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host) }
     noteLens(model.mode);
     cancelFrame(easeRaf);
     if (eased.moving) easeRaf = nextFrame(glideP);
-    const hs = getComputedStyle(host), cv = (n, d) => hs.getPropertyValue(n).trim() || d;
+    const hs = styles(), cv = (n, d) => hs.getPropertyValue(n).trim() || d;
     model.inks = { normal: cv('--flow-normal'), reversed: cv('--flow-reversed'), portal: cv('--vein-portal'), systemic: cv('--vein-systemic') };
     if (originOn() && originsF !== f) { origins = originFractions(EDGES, NODES, f.Qf || f.Q, f.Pf || f.P); originsF = f; }
     panel();
@@ -899,22 +920,28 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host) }
     if (eased.moving) easeRaf = nextFrame(glideP);
   }
 
+  let tissueSaid = '';
   function panel() {
     const m = model;
     // On a slide, once settled the sinusoids read the slide's own value, as its tile does (lobule and sinusoid labels agree with it).
     { const st = store.get(), fs = st.presenting && st.presentFp?.sin; if (Number.isFinite(fs) && Math.abs(m.P2 - fs) < 0.6) m.P2 = fs; }
-    tissue.setAttribute('aria-label', m.hide ? 'Liver lobule. Pressures not measured.'
-      : `Liver lobule: portal venule ${fmt(m.P1, 1)}, sinusoids ${fmt(m.P2, 1)}, central vein ${fmt(m.P3, 1)} millimeters of mercury; sinusoidal flow ${Math.round(m.flow * 100)} percent of normal.`);
+    // (Written only when its words change: the glide reaches here every frame.)
+    const said = m.hide ? 'Liver lobule. Pressures not measured.'
+      : m.mode === 'oxygen' && m.oxy ? `Liver lobule: oxygen saturation in the portal venule ${fmt(m.oxy[0] * 100, 0)}, sinusoids ${fmt(m.oxy[1] * 100, 0)}, central vein ${fmt(m.oxy[2] * 100, 0)} percent.`
+      : `Liver lobule: portal venule ${fmt(m.P1, 1)}, sinusoids ${fmt(m.P2, 1)}, central vein ${fmt(m.P3, 1)} millimeters of mercury; sinusoidal flow ${Math.round(m.flow * 100)} percent of normal.`;
+    if (said !== tissueSaid) { tissueSaid = said; tissue.setAttribute('aria-label', said); }
     // Station cards on the figure.
     // Labels as in the anatomy: the station, its pressure, and the change from healthy once it reaches
     // 5 mmHg; while comparing, every change from the pinned moment (shown at 1, dropped below 0.7).
     // In the Change view the bar takes the change's colour, as the vessels do.
     const mv = (key, v, r) => {
       if (m.hide) return ['?', '', '', null];
+      // (Colored by oxygen: the station's oxygen saturation, the value the lens colours it by.)
+      if (m.mode === 'oxygen' && m.oxy) { const sat = m.oxy[{ triad: 0, sin: 1, cv: 2 }[key]]; badges[key] = null; return [fmt(sat * 100, 0), '% O₂', '', oxygenColor(sat)]; }
       const d = r != null ? v - r : 0, on = m.cmp ? 1 : 5, off = m.cmp ? 0.7 : 4;
       const shown = Math.abs(d) >= on || (badges[key] === m.cmp && Math.abs(d) >= off);
       badges[key] = shown ? m.cmp : null;
-      return [fmt(v, 1), 'mmHg', shown ? `${d > 0 ? '▲' : '▼'} ${fmt(Math.abs(d), 0)}` : '', m.mode === 'delta' ? deltaColor(qP(d)) : pc(v)];
+      return [fmt(v, 1), 'mmHg', shown ? `${d > 0 ? '+' : '−'}${fmt(Math.abs(d), 0)}` : '', m.mode === 'delta' ? deltaColor(qP(d)) : pc(v)];
     };
     setLab('triad', 'Portal venule', 'Portal venule', ...mv('triad', m.P1, m.R[0]));
     setLab('sin', 'Sinusoids', 'Sinusoids', ...mv('sin', m.P2, m.R[1]));
@@ -947,6 +974,8 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host) }
     if (!L) {
       L = labs[key] = { el: h('button', { class: 'lz-lab', type: 'button', 'data-target': `lobule:${LZ_TARGET[key] || key}` }), line: s('line', { class: 'leader', 'data-target': `lobule:${LZ_TARGET[key] || key}` }), dotEl: s('circle', { class: 'leader-dot', r: 3, 'data-target': `lobule:${LZ_TARGET[key] || key}` }) };
       L.el.addEventListener('click', (ev) => { if (!geo || ev.detail !== 0) return; const q = anchorOf(key); if (L.el.classList.contains('edge')) centreOn(q); else select(hitKind(key), [q[0], q[1]]); });
+      // (Hidden until it is first placed, where it fades in: a label its slide does not name never shows at all.)
+      L.el.hidden = true;
       labels.append(L.el); leaders.append(L.line, L.dotEl);
     }
     const txt = `${name}|${v}|${u}|${d}|${col}`;
@@ -955,7 +984,9 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host) }
     // only when it takes more or fewer characters (the label is rebuilt only when its make-up changes). The same holds for
     // a figure inside the unit ('Protein 48%', which moves with the pulse): its digits are tabular, so a new figure with
     // as many digits leaves the label's size as it was.
-    const uk = u.replace(/\d/g, '0'), frame = `${name}|${short}|${uk}|${col}|${v === ''}|${!!d}`;
+    // (Its colour is only a style on the label: a new one, which the pressure glide brings every frame, rebuilds nothing.)
+    if (col !== L.col) { L.col = col; L.el.style.setProperty('--sw', col || 'var(--border-strong)'); }
+    const uk = u.replace(/\d/g, '0'), frame = `${name}|${short}|${uk}|${v === ''}|${!!d}`;
     if (L.frame === frame && L.b) {
       if (String(v).length !== L.b.textContent.length || (d && d.length !== L.dEl.textContent.length)) layoutKey = '';
       L.b.textContent = v;
@@ -963,7 +994,6 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host) }
       if (u !== L.u) { const [a, ...rest] = u.split(' · '); if (rest.length) { L.uEls[0].textContent = a; L.uEls[1].lastChild.textContent = rest.join(' · '); } else if (u) L.uEls[0].textContent = u; }
     } else {
       L.frame = frame;
-      L.el.style.setProperty('--sw', col || 'var(--border-strong)');
       L.b = v === '' ? null : h('b', {}, v);
       L.dEl = d ? h('span', { class: 'd' }, d) : null;
       L.uEls = unitParts(u);
@@ -973,7 +1003,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host) }
     }
     L.txt = txt; L.u = u;
     L.lk = `${name}|${short}|${uk}|${v === ''}|${!!d}`;   // what the layout depends on (a value of new length clears layoutKey above)
-    L.el.setAttribute('aria-label', `${name} ${v} ${u}${d ? `, ${d.startsWith('▲') ? 'up' : 'down'} ${d.slice(2)} ${model?.cmp ? 'since then' : 'from healthy'}` : ''}. Show details`);
+    L.el.setAttribute('aria-label', `${name} ${v} ${u}${d ? `, ${d.startsWith('+') ? 'up' : 'down'} ${d.slice(1)} ${model?.cmp ? 'since then' : 'from healthy'}` : ''}. Show details`);
   }
   // Which portal venule and which sinusoid carry the label: at first the left portal venule and the
   // sinusoid just below the middle of the left side; as the view is zoomed or panned, the label stays
@@ -1100,6 +1130,10 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host) }
     for (const e of [callEl, callLine, callRing]) e.classList.toggle('on', on);
     if (!on) return null;
     const { a, rr } = ring;
+    // (A phone on its side keeps the data card's whole column out of the free space, though the card stands at its top only: the
+    // pill may also stand below that card, clear of it, the key and the nav pill by their cost as cards. Kept to the free space's
+    // 80 px strip there, Sites 6 had no clear spot and set it on the nav pill.)
+    if (document.querySelector('.pz.low')) fr = { ...fr, r: Math.max(fr.r, geo.W - cssN('--right-occ') - 12) };
     // Never wider than the free space: a long line wraps instead of running off the screen.
     const fit = `${Math.max(120, Math.round(fr.r - fr.l - 20))}px`;
     if (callEl.style.maxWidth !== fit) callEl.style.maxWidth = fit;
@@ -1132,8 +1166,24 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host) }
   // once and only moved: re-making them at every layout (a value easing, a glide) restarted their lit pill each time,
   // which showed as a flash. Returns each name's box on screen (its pill included), for the other labels to keep clear of.
   const zoneEls = [];
+  // A label or zone name that goes fades out where it stands (app.css .lz-off, as the anatomy's labels do) and is hidden, taking no
+  // room and no taps, only once the fade is over; one that comes back fades in (app.css lz-in) or, caught mid-fade, turns back from
+  // where it is. Its leader and dot fade with it (.ld-gone). They used to cut out and pop in (P15).
+  const OFF_MS = 300;
+  function fadeOut(el, done) {
+    if (el.hidden) { done?.(); return; }
+    if (el.classList.contains('lz-off')) return;
+    const end = () => { el._lzOff = 0; el.hidden = true; el.classList.remove('lz-off', 'edge'); done?.(); };
+    if (reduce.matches) { end(); return; }
+    el.classList.add('lz-off');
+    clearTimeout(el._lzOff); el._lzOff = setTimeout(() => { if (el.classList.contains('lz-off')) end(); }, OFF_MS);
+  }
+  function fadeIn(el) { clearTimeout(el._lzOff); el._lzOff = 0; el.classList.remove('lz-off'); el.hidden = false; }
+  const gone = (el) => el.hidden || el.classList.contains('lz-off');
+  const leadOff = (L) => { L.line.classList.add('ld-gone'); L.dotEl.classList.add('ld-gone'); };
+  const leadOn = (L) => { L.line.classList.remove('ld-gone'); L.dotEl.classList.remove('ld-gone'); };
   function placeZones(fr0, hx, hy, lesion = null) {
-    if (!zonesOn) { while (zoneEls.length) zoneEls.pop().remove(); return []; }
+    if (!zonesOn) { while (zoneEls.length) { const z = zoneEls.pop(); fadeOut(z, () => z.remove()); } return []; }
     const { R, cx, cy } = geo, a = Math.PI / 2, ap = R * 0.866, boxes = [];
     [[0.83, 'Zone 1', 'periportal'], [0.51, 'Zone 2', 'midzonal'], [0.2, 'Zone 3', 'centrilobular']].forEach(([q, t, d], i) => {
       let z = zoneEls[i];
@@ -1157,8 +1207,8 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host) }
       // A zone's name never sits on the slide's lesion ring (the ring is what the slide points at): it takes another
       // spot on its band, or leaves the view for that slide.
       const at = tries.find((p) => !ringDepth(lesion, boxAt(p)));
-      z.hidden = !at;
-      if (!at) return;
+      if (!at) { fadeOut(z); return; }
+      fadeIn(z);
       z.style.left = `${at[0]}px`; z.style.top = `${at[1]}px`;
       // (A zone the slide's words leave unlit fades out: its spot is free for the labels.)
       if (!faded(`lobule:zone${i + 1}`)) boxes.push(boxAt(at));
@@ -1269,9 +1319,10 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host) }
     for (const k of ['cv', 'sin', 'triad', 'lymph', 'ha', 'bd']) {
       const L = labs[k];
       if (!L) continue;
-      if ((k === 'lymph' && !lymphOn) || ((k === 'ha' || k === 'bd') && !named(k))) { L.el.hidden = true; L.line.style.display = L.dotEl.style.display = 'none'; continue; }
-      if (faded(`lobule:${LZ_TARGET[k] || k}`)) { L.el.hidden = true; L.line.style.display = L.dotEl.style.display = 'none'; continue; }
-      L.el.hidden = false;
+      if ((k === 'lymph' && !lymphOn) || ((k === 'ha' || k === 'bd') && !named(k))) { fadeOut(L.el); leadOff(L); continue; }
+      if (faded(`lobule:${LZ_TARGET[k] || k}`)) { fadeOut(L.el); leadOff(L); continue; }
+      // (Shown to be measured; one that was hidden and stays out is hidden again before anything is drawn.)
+      L.peek = L.el.hidden; L.el.hidden = false;
       shown.push([k, L]);
     }
     // Too wide for the free space (large text, a narrow screen): the label stacks its second reading.
@@ -1279,7 +1330,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host) }
     // the theme, the window, the fonts): each read lays the page out, and two of them on every frame of a pinch were most
     // of what placing the lobule's labels cost. Otherwise the sizes last read are used, which are the same numbers.
     const env = sizeEnv(), fw = (fr.r - fr.l) * 0.32;
-    const keys = shown.map(([, L]) => `${env}|${L.el.className.replace(/(^| )stack( |$)/, '$1')}|${L.el.innerHTML}`);
+    const keys = shown.map(([, L]) => `${env}|${L.el.className.replace(/(^| )(stack|lz-off)(?= |$)/g, '')}|${L.el.innerHTML}`);
     let stack, sizes;
     if (shown.every(([, L], i) => L.sz?.key === keys[i] && (L.sz.w0 > fw && L.sz.u2 ? L.sz.s1 : L.sz.s0))) {
       stack = shown.map(([, L]) => L.sz.w0 > fw && L.sz.u2);
@@ -1305,9 +1356,9 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host) }
       const outside = k === 'lymph' ? a[0] < 0 || a[0] > g.W || a[1] < 0 || a[1] > g.H : a[0] < fr.l - 4 || a[0] > fr.r + 4 || a[1] < fr.t - 4 || a[1] > fr.b + 4;
       // What it names has left the screen: the label waits at the free space's edge, pointing the way (a tap brings it back into view).
       const chip = outside && k !== 'lymph';
-      L.el.hidden = (outside && !chip) || fr.r - fr.l < w + 16 || fr.b - fr.t < hh + 16;
-      L.el.classList.toggle('edge', chip && !L.el.hidden);
-      if (L.el.hidden) { L.line.style.display = L.dotEl.style.display = 'none'; continue; }
+      const off = (outside && !chip) || fr.r - fr.l < w + 16 || fr.b - fr.t < hh + 16;
+      if (off) { if (L.peek) { L.el.hidden = true; L.el.classList.remove('edge'); } else fadeOut(L.el); leadOff(L); continue; }
+      L.el.classList.toggle('edge', chip);
       let edge = null;
       if (chip) {
         const mx = (fr.l + fr.r) / 2, my = (fr.t + fr.b) / 2, dx = a[0] - mx, dy = a[1] - my, pad = 10;
@@ -1452,16 +1503,25 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host) }
       // (A line never drawn has no ends to put back: setting "null" logged an error per end on a small phone.)
       ['x1', 'y1', 'x2', 'y2'].forEach((k, i) => (c.line[i] == null ? callLine.removeAttribute(k) : callLine.setAttribute(k, c.line[i])));
     }
+    // A label waiting at the edge (what it names is off screen) never lies across another label's leader: its place is
+    // set by the way it points, so it gives way (at 200 % text on a phone the Central vein's chip covered the Sinusoids' node).
+    const itOf = (k) => items.find((it) => it.k === k);
+    const crossed = new Set(sol.res.filter((r) => !r.out && itOf(r.k).edge).filter((r) => {
+      const c = itOf(r.k), box = lettersOf(c.L, r.x - c.w / 2, r.y - c.hh / 2, c.w, c.hh);
+      return sol.res.some((o) => o !== r && !o.out && !itOf(o.k).edge && runInside(itOf(o.k).a, [o.x, o.y], box) > 0.5);
+    }).map((r) => r.k));
+    if (crossed.size) sol = { ...sol, res: sol.res.map((r) => (crossed.has(r.k) ? { ...r, out: true } : r)) };
     // (Every label's letters where it lands, for the leaders to keep off.)
     const inks = sol.res.filter((r) => !r.out).map(({ k, x, y }) => { const { L, w, hh } = items.find((it) => it.k === k); return lettersOf(L, x - w / 2, y - hh / 2, w, hh); });
     for (const { k, x, y, out } of sol.res) {
       const { L, w, hh, a, edge } = items.find((it) => it.k === k);
       L.el.dataset.at = `${r1(a[0])},${r1(a[1])}`;
-      if (out) { L.el.hidden = true; L.el.classList.remove('edge'); L.line.style.display = L.dotEl.style.display = 'none'; continue; }
+      if (out) { if (L.peek) { L.el.hidden = true; L.el.classList.remove('edge'); } else fadeOut(L.el); leadOff(L); continue; }
+      fadeIn(L.el);
       L.el.style.left = `${x - w / 2}px`; L.el.style.top = `${y - hh / 2}px`;
       L.el.classList.remove('left');
-      if (edge) { L.line.style.display = L.dotEl.style.display = 'none'; continue; }
-      L.line.style.display = L.dotEl.style.display = '';
+      if (edge) { leadOff(L); continue; }
+      leadOn(L);
       L.a = a;
       L.line.setAttribute('x1', a[0]); L.line.setAttribute('y1', a[1]);
       leadTo(L, lettersOf(L, x - w / 2, y - hh / 2, w, hh), inks);
@@ -1486,7 +1546,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host) }
   // it (one gliding past), the leader is hidden, and eases back once clear: a leader never runs across a label.
   function leadTo(L, ink, inks) {
     const e = leaderEnd(ink, L.a[0], L.a[1]);
-    if (!e) { L.line.style.display = 'none'; return; }
+    if (!e) { L.line.classList.add('ld-gone'); return; }
     L.line.setAttribute('x2', e.x); L.line.setAttribute('y2', e.y);
     L.line.classList.toggle('lz-hid', inks.some((o) => o.L !== L && runInside(L.a, [e.x, e.y], o) > 0.5));
   }
@@ -1501,10 +1561,10 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host) }
   // Each leader's end set from where its label is seen now (part way through a glide, or landed). True while one glides.
   function syncLeaders() {
     let moving = false;
-    const on = Object.values(labs).filter((L) => !L.el.hidden && L.el.offsetParent), inks = on.map((L) => lettersOf(L, L.el.offsetLeft, L.el.offsetTop, L.el.offsetWidth, L.el.offsetHeight));
+    const on = Object.values(labs).filter((L) => !gone(L.el) && L.el.offsetParent), inks = on.map((L) => lettersOf(L, L.el.offsetLeft, L.el.offsetTop, L.el.offsetWidth, L.el.offsetHeight));
     on.forEach((L, i) => {
-      if (!L.a || L.el.classList.contains('edge') || L.dotEl.style.display === 'none') return;
-      L.line.style.display = '';
+      if (!L.a || L.el.classList.contains('edge') || L.dotEl.classList.contains('ld-gone')) return;
+      L.line.classList.remove('ld-gone');
       leadTo(L, inks[i], inks);
       moving ||= L.el.getAnimations().some((an) => an.playState === 'running');
     });
@@ -1562,18 +1622,18 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host) }
     const scaled = diveScaled || sinU > 0;   // the dive, or the zoom on into a sinusoid
     if (scaled && diveDrawn && flowA <= 0) return false;   // magnified by the compositor: nothing is redrawn once the marks have faded
     diveDrawn = scaled;
-    const rect = host.getBoundingClientRect();
-    const W = Math.max(1, Math.round(rect.width)), H = Math.max(1, Math.round(rect.height));
+    const [W, H] = hostSize();
     ensureGeo(W, H);
     const dpr = Math.min(saver() ? 1 : 2, devicePixelRatio || 1);   // (Battery saver: one pixel per CSS pixel)
-    const dark = document.documentElement.dataset.theme === 'dark' || (!document.documentElement.dataset.theme && matchMedia('(prefers-color-scheme: dark)').matches);
+    const dark = isDark();
     // Keep watching for view/theme/size changes, but leave a settled paused picture alone.
     const idleKey = [W, H, dpr, dark, V.k, V.x, V.y, drawVersion, flowA.toFixed(2)].join('|');
     if (dt === 0 && idleKey === idleDrawn) return false;
     idleDrawn = dt === 0 ? idleKey : '';
-    const cs = getComputedStyle(host);
+    const cs = styles();   // (the stage's kept copy of its styles, read again when a class, theme or system setting changes)
     const g = ensureGL();
     paintTissue(W, H, dpr, dark, cs, !g);
+    snapNext = false;
     layoutLabels();
     if (g && !g.lost) drawGL(W, H, dpr, dark, cs, dt);
     paintFx(W, H, dpr, dark, dt, !g || g.lost);
@@ -1602,7 +1662,22 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host) }
     V.k = k; V.x = (f.l + f.r) / 2 - wx * k; V.y = (f.t + f.b) / 2 - wy * k;
     clampV();
   }
-  const isDark = () => document.documentElement.dataset.theme === 'dark' || (!document.documentElement.dataset.theme && matchMedia('(prefers-color-scheme: dark)').matches);
+  // The lobule's size, kept and read again only when it may have changed: read on every frame, it laid the page out mid-frame.
+  // A size change that lands after this frame's draw (a panel opening, the phone's toolbar) is drawn at once, before the screen shows it.
+  let hostWH = null;
+  function hostSize() {
+    if (!hostWH) { const r = host.getBoundingClientRect(); hostWH = [Math.max(1, Math.round(r.width)), Math.max(1, Math.round(r.height))]; }
+    return hostWH;
+  }
+  new ResizeObserver(() => {
+    const was = hostWH; hostWH = null;
+    if (!was || fade <= 0 || !model) return;
+    const [W, H] = hostSize();
+    if (W !== was[0] || H !== was[1]) { idleDrawn = ''; draw(0); }
+  }).observe(host, { box: 'border-box' });
+  addEventListener('resize', () => { hostWH = null; });
+  const darkMQ = matchMedia('(prefers-color-scheme: dark)');   // (one query kept, not a new one each frame)
+  const isDark = () => document.documentElement.dataset.theme === 'dark' || (!document.documentElement.dataset.theme && darkMQ.matches);
 
   // ── The dive's field ──
   // A flat-topped hexagonal tiling with the lobule view's own spacing (so the lobule it settles on, and
@@ -1616,7 +1691,14 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host) }
   // (With some hysteresis: a value wavering on a step boundary must not flip between two sets of tiles, redrawing them mid-dive.)
   const fsLast = {};
   const fsQ = (k, x) => { const v = x || 0, o = fsLast[k]; return o !== undefined && Math.abs(v - o) < 0.09 ? o : (fsLast[k] = Math.round(v * 8) / 8); };
-  const fieldState = () => { const m = model || (F ? lobuleState(F, store.get()) : null); return m ? { su: fsQ('su', m.septU), pre: fsQ('pre', m.fibPre), post: fsQ('post', m.fibPost), sin: fsQ('sin', m.fibSin), cong: fsQ('cong', m.congU) } : { su: 0, pre: 0, post: 0, sin: 0, cong: 0 }; };
+  // (Closed, the lobule's model is its last visit's, not this patient's: the field follows the latest frame instead.)
+  let fsM = null, fsKey = [];
+  const closedModel = () => {
+    const st = store.get(), k = [F, st.params, st.healthy, st.imaging];
+    if (k.some((x, i) => x !== fsKey[i])) { fsKey = k; fsM = lobuleState({ ...F, P: F.Pf || F.P }, st); }
+    return fsM;
+  };
+  const fieldState = () => { const m = !unseen() && model ? model : F ? closedModel() : model; return m ? { su: fsQ('su', m.septU), pre: fsQ('pre', m.fibPre), post: fsQ('post', m.fibPost), sin: fsQ('sin', m.fibSin), cong: fsQ('cong', m.congU) } : { su: 0, pre: 0, post: 0, sin: 0, cong: 0 }; };
   // later: the open lobule asks (#27). A tissue state that changes mid-animation (a time-lapse, a slide's morph) needs new tiles, each
   // tens of ms to draw: the open lobule keeps showing the last state's tile (its quiet surround changes slowly) while the new one is
   // drawn between frames, then redraws with it.
@@ -1813,10 +1895,13 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host) }
   // The surround fading into the page with distance from the lobule (q: 0..1, how far it has faded).
   // The surround fades into the page (light in light mode, dark in dark mode).
   const shadeOf = (bg) => bg;
-  function fieldFade(c, bg, x, y, rd, q, w, h, r0 = rd * 1.1) {
+  // ring: [inner, outer] radii, to fill only that annulus (where the fade changes anything; see paintTissue).
+  function fieldFade(c, bg, x, y, rd, q, w, h, r0 = rd * 1.1, ring = null) {
     const vg = c.createRadialGradient(x, y, r0, x, y, r0 * (3.2 / 1.1));
     vg.addColorStop(0, css(bg, 0)); vg.addColorStop(0.5, css(bg, 0.72 * q)); vg.addColorStop(1, css(bg, q));
-    c.fillStyle = vg; c.fillRect(0, 0, w, h);
+    c.fillStyle = vg;
+    if (!ring) { c.fillRect(0, 0, w, h); return; }
+    c.beginPath(); c.arc(x, y, ring[1], 0, TAU); if (ring[0] > 0) { c.moveTo(x + ring[0], y); c.arc(x, y, ring[0], 0, TAU); } c.fill('evenodd');
   }
   // d: { a: opacity 0..1, x, y: where the settling lobule's centre is (stage px), r: its radius on
   // screen, ox, oy: the point it emerges from, quiet: 0..1, the surround drained as the lobule view's is,
@@ -1842,23 +1927,33 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host) }
     const c = field.getContext('2d');
     c.setTransform(1, 0, 0, 1, 0, 0);
     c.globalCompositeOperation = 'source-over';
-    // The surrounding lobules start drained and tinted like the liver being zoomed into (its fill, in
-    // whichever theme), so the dive reads as one tissue; the lobule's own colours come in over it.
-    fieldFill(c, liverTile(t, cs, dark, bg), d.x * dpr, d.y * dpr, rd, field.width, field.height);
-    // Quieting: the pre-quieted tile laid over the plain one (two pattern fills, not a blend of the whole screen).
-    if (d.quiet > 0) { c.globalAlpha = d.quiet; fieldFill(c, quietTile(t, shadeOf(bg, dark)), d.x * dpr, d.y * dpr, rd, field.width, field.height); c.globalAlpha = 1; }
     // Focus: as the zoom goes on, the lobules away from the one being landed on fade into the page, the clear circle
     // closing in on it (from most of the screen to the lobule view's own surround, which it matches at focus 1).
-    const f = clamp(d.focus ?? d.quiet, 0, 1);
-    if (f > 0) { const diag = Math.hypot(W, H) * dpr, r0 = Math.exp(lerp(Math.log(diag * 0.45), Math.log(Math.min(diag * 0.45, rd * 1.1)), f)); fieldFade(c, shadeOf(bg, dark), d.x * dpr, d.y * dpr, rd, Math.max(f, d.quiet), field.width, field.height, r0); }
+    // (Each pixel gets only the passes that change it, as in paintTissue: the same picture. The fade adds nothing inside its
+    // clear circle; at full strength it lays the page's colour whole past its outer edge, so the tiles stop there; and an opaque
+    // quieted tile at full strength covers the liver-toned one.)
+    const f = clamp(d.focus ?? d.quiet, 0, 1), fq = Math.max(f, d.quiet), fx0 = d.x * dpr, fy0 = d.y * dpr;
+    const r0 = f > 0 ? Math.exp(lerp(Math.log(Math.hypot(W, H) * dpr * 0.45), Math.log(Math.min(Math.hypot(W, H) * dpr * 0.45, rd * 1.1)), f)) : 0;
+    const fadeWhole = f > 0 && fq >= 1, far = Math.hypot(field.width, field.height) + Math.hypot(fx0, fy0) + 4;
+    if (fadeWhole) { c.save(); c.beginPath(); c.arc(fx0, fy0, r0 * (3.2 / 1.1) + 2, 0, TAU); c.clip(); }
+    // The surrounding lobules start drained and tinted like the liver being zoomed into (its fill, in
+    // whichever theme), so the dive reads as one tissue; the lobule's own colours come in over it.
+    if (!(d.quiet >= 1)) fieldFill(c, liverTile(t, cs, dark, bg), fx0, fy0, rd, field.width, field.height);
+    // Quieting: the pre-quieted tile laid over the plain one (two pattern fills, not a blend of the whole screen).
+    if (d.quiet > 0) { c.globalAlpha = d.quiet; fieldFill(c, quietTile(t, shadeOf(bg, dark)), fx0, fy0, rd, field.width, field.height); c.globalAlpha = 1; }
+    if (fadeWhole) c.restore();
+    if (f > 0) fieldFade(c, shadeOf(bg, dark), fx0, fy0, rd, fq, field.width, field.height, r0, [r0 - 1, far]);
     // Emerging: the field spreads out from the dive point as it fades in.
     if (d.a < 1) {
       const diag = Math.hypot(W, H) * dpr, rho = diag * (0.2 + 1.1 * d.a + 2 * smooth(0.7, 1, d.a));   // (the last stretch spreads it past every corner, so dropping the mask at a = 1 changes nothing seen)
       const mg = c.createRadialGradient(d.ox * dpr, d.oy * dpr, rho * 0.35, d.ox * dpr, d.oy * dpr, rho);
       mg.addColorStop(0, 'rgba(0,0,0,1)'); mg.addColorStop(1, 'rgba(0,0,0,0)');   // colour-exempt: a mask
+      // (Only past the circle where the mask is still whole: inside it the mask keeps every pixel as it is.)
+      c.save(); c.beginPath(); c.rect(0, 0, field.width, field.height); c.moveTo(d.ox * dpr + rho * 0.35 - 1, d.oy * dpr); c.arc(d.ox * dpr, d.oy * dpr, Math.max(0, rho * 0.35 - 1), 0, TAU); c.clip('evenodd');
       c.globalCompositeOperation = 'destination-in';
       c.fillStyle = mg; c.fillRect(0, 0, field.width, field.height);
       c.globalCompositeOperation = 'source-over';
+      c.restore();
     }
     fieldOp = Math.min(1, d.a * 1.25);
     field.style.opacity = fieldOp.toFixed(3);
@@ -1903,6 +1998,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host) }
     }, null);
     q.push(() => {   // the landed lobule: its state, then the tissue, then one full frame
       const st = store.get();
+      snapState();
       model = lobuleState({ ...F, P: F.Pf || F.P }, st);
       const cv = (n, d) => cs.getPropertyValue(n).trim() || d;
       model.inks = { normal: cv('--flow-normal'), reversed: cv('--flow-reversed'), portal: cv('--vein-portal'), systemic: cv('--vein-systemic') };
@@ -1932,7 +2028,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host) }
   function stage() {
     while (warm());   // the dive's field tiles (built ahead while idle, so usually nothing left), the vessels' WebGL
     if (fade > 0 || !F) return;
-    flowA = 0; flowT = 0; resetView(); staging = true;
+    flowA = 0; flowT = 0; resetView(); staging = true; snapState();
     try { update(F); } finally { staging = false; }
     if (!model) return;
     idleDrawn = ''; draw(0); diveDrawn = true; staged = api.viewKey(); relLater = true;
@@ -2180,10 +2276,12 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host) }
       // Density and stasis ease the same way, so the shimmer thickens or thins instead of popping.
       sm.occ = sm.occ == null ? occ : sm.occ + (occ - sm.occ) * ease;
       sm.st = sm.st == null ? stasis : sm.st + (stasis - sm.st) * ease;
+      sm.drift = ((sm.drift || 0) + sm.st * dt * 0.06) % DRIFT_PERIOD;   // (the smoke's drift, as the anatomy's: blood.js drift)
       sm.rev += (rev - sm.rev) * ease;
       const o = t.id * FLOW_TEXELS * 4, Rm = t.maxR || G.rs0;
       flowData[o] = sm.D; flowData[o + 1] = sm.v; flowData[o + 2] = (sm.occ * Math.max(Math.abs(sm.v), 2) * sumK(Rm)) / s0; flowData[o + 3] = sm.st;
       flowData[o + 4] = f0; flowData[o + 5] = f1; flowData[o + 6] = strength; flowData[o + 7] = sm.rev;
+      flowData[o + 14] = sm.drift;
       flowData[o + 12] = 1;   // (each vessel's chevron weight, as the anatomy's: every lobule vessel shows them when they are on)
       if (origin && origins && !t.lymph) { const kk = EI[oe]; for (let c = 0; c < ORIGIN_N; c++) flowData[o + 8 + c] = origins[kk * ORIGIN_N + c]; }
     }
@@ -2197,7 +2295,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host) }
       ring: [...rgb01(cs.getPropertyValue('--accent').trim()), 0.4],
       netAlpha: 1, fx: true, tierAlpha: Array(MAX_TIERS).fill(1), tierGroup: Array(MAX_TIERS).fill(1),
     };
-    const blood = { alpha: flowA, on: bloodOn && flowA > 0.002, chev: chev && flowA > 0.002, look: b.look || 'shimmer', origin, clock, dye: false, bleed: [], ...bloodColors() };
+    const blood = { alpha: flowA, on: bloodOn && flowA > 0.002, chev: chev && flowA > 0.002, look: b.look || 'shimmer', origin, clock, dye: false, bleed: [], vdpr: k, ...bloodColors() };   // (vdpr: canvas px per CSS px, which the chevrons' size is set in)
     // A whole redraw of the vessel layer is by far the heaviest thing the lobule draws (about 150 plain fills of the
     // canvas); when only some vessels' attributes changed, only their cells are drawn again, to the same picture.
     const lsig = JSON.stringify(look);
@@ -2241,31 +2339,13 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host) }
     c.setTransform(dpr, 0, 0, dpr, 0, 0);
     const v = (n, d) => cs.getPropertyValue(n).trim() || d;
     const bg = v('--stage-bg', v('--bg'));
-    c.fillStyle = bg; c.fillRect(0, 0, W, H);
     const { R, cx, cy } = G;
-    // The neighbours are the dive's field, carried on: the same tissue, in the same state, fading into
-    // the page with distance from this lobule (so zooming out, they fade away completely).
-    {
-      c.setTransform(1, 0, 0, 1, 0, 0);
-      const [sx, sy] = toScreen([cx, cy]), rd = R * V.k * dpr;
-      // (Mid-glide, the tile it had is stretched rather than a larger one drawn; a new tissue state's tiles are built between frames, see fieldTile.)
-      const want = gliding && surRd ? surRd : rd * 0.55;
-      if (!gliding) surRd = rd * 0.55;
-      const t = fieldTile(cs, dark, want, true), q = quietTile(t, shadeOf(rgb01(bg), dark));
-      // (A new state's tiles fade in over the last state's; a new size of the same state just takes over: the same picture.)
-      if (surNow && t.set !== surNow.set && surNow.q.cv?.width) { surOld = surNow.q; surT0 = now; }
-      surNow = { set: t.set, q };
-      const su = surT0 ? xfU(surT0, now) : 1;
-      if (su >= 1) { surT0 = 0; surOld = null; }
-      fieldFill(c, q, sx * dpr, sy * dpr, rd, W * dpr, H * dpr);   // half resolution is plenty for the quiet surround
-      if (surOld?.cv?.width) { c.globalAlpha = 1 - su; fieldFill(c, surOld, sx * dpr, sy * dpr, rd, W * dpr, H * dpr); c.globalAlpha = 1; }
-    }
     const B = 1.3 * R, bx = cx - B, by = cy - B;
     if (wk !== worldKey) {
       // The tissue's state changed (not just the scale it is drawn at): the old picture stays under the new one as it fades in.
       // (A change while one is fading in redraws the incoming picture in place and lets the fade run on, so a state that keeps
       // moving, as the pressures glide after a new patient, never restarts it.)
-      if (worldState && ws !== worldState && worldGeo === G && worldCv.width && !(xfT0 && now - xfT0 < XF_MS)) { [worldOld, worldCv] = [worldCv, worldOld]; worldOldSc = worldSc; xfT0 = now; }
+      if (worldState && ws !== worldState && !unseen() && worldGeo === G && worldCv.width && !(xfT0 && now - xfT0 < XF_MS)) { [worldOld, worldCv] = [worldCv, worldOld]; worldOldSc = worldSc; xfT0 = now; }
       worldKey = wk; worldState = ws;
       worldSc = sc; worldGeo = G; worldDraws++;
       const n = Math.ceil(2 * B * sc);
@@ -2274,6 +2354,47 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host) }
       w.setTransform(1, 0, 0, 1, 0, 0); w.clearRect(0, 0, n, n);
       w.setTransform(sc, 0, 0, sc, -bx * sc, -by * sc);
       paintLobule(w, m, G, dark, cs, bg, v);
+    }
+    // Each pixel is filled only by the passes that can change it (a slide's camera gliding inside the lobule lagged: Safari
+    // draws these canvases on the CPU, so every full-screen pass costs tens of ms there). The same picture, pixel for pixel:
+    // past the focus fade's outer edge it lays the page's colour at full strength, so only the page's colour goes there; inside
+    // its inner edge it adds nothing, so it is not laid there; and the surround is not filled under the lobule's opaque middle,
+    // which the lobule's bitmap covers whole (kept a few pixels in from its edge, past any smoothing of the bitmap's edge).
+    // (Not mid-crossfade: two pictures mixed may leave its middle a hair short of opaque.)
+    const [ocx, ocy] = toScreen([cx, cy]), ox = ocx * dpr, oy = ocy * dpr, rdv = R * V.k * dpr, fIn = rdv * 1.1, fOut = rdv * 3.2;
+    const reach = Math.max(...[[0, 0], [tw, 0], [0, th], [tw, th]].map(([x, y]) => Math.hypot(x - ox, y - oy)));
+    c.setTransform(1, 0, 0, 1, 0, 0);
+    c.fillStyle = bg;
+    if (reach > fOut + 1) { c.beginPath(); c.rect(0, 0, tw, th); c.moveTo(ox + fOut + 1, oy); c.arc(ox, oy, fOut + 1, 0, TAU); c.fill('evenodd'); }
+    const crossfading = !!(xfT0 && now - xfT0 < XF_MS && worldOld.width && worldOldSc);
+    // The neighbours are the dive's field, carried on: the same tissue, in the same state, fading into
+    // the page with distance from this lobule (so zooming out, they fade away completely).
+    {
+      c.save();
+      c.beginPath(); c.arc(ox, oy, fOut + 2, 0, TAU);
+      if (!crossfading) {
+        // (The bitmap's pixels are 1/worldSc wide: a few of them in from its edge, as many screen pixels as they span, and 2 more.)
+        const mg = 2 + 3 * Math.max(1, (dpr * V.k) / worldSc);
+        G.lobules[0].corners.forEach(([x, y], i) => {
+          const [px, py] = toScreen([x, y]), dx = px * dpr - ox, dy = py * dpr - oy, d = Math.hypot(dx, dy) || 1, f = Math.max(0, 1 - mg / d);
+          c[i ? 'lineTo' : 'moveTo'](ox + dx * f, oy + dy * f);
+        });
+        c.closePath();
+      }
+      c.clip('evenodd');
+      const [sx, sy] = toScreen([cx, cy]), rd = R * V.k * dpr;
+      // (Mid-glide, the tile it had is stretched rather than a larger one drawn; a new tissue state's tiles are built between frames, see fieldTile.)
+      const want = gliding && surRd ? surRd : rd * 0.55;
+      if (!gliding) surRd = rd * 0.55;
+      const t = fieldTile(cs, dark, want, !unseen()), q = quietTile(t, shadeOf(rgb01(bg), dark));
+      // (A new state's tiles fade in over the last state's; a new size of the same state just takes over: the same picture.)
+      if (surNow && t.set !== surNow.set && surNow.q.cv?.width && !unseen()) { surOld = surNow.q; surT0 = now; }
+      surNow = { set: t.set, q };
+      const su = surT0 ? xfU(surT0, now) : 1;
+      if (su >= 1) { surT0 = 0; surOld = null; }
+      fieldFill(c, q, sx * dpr, sy * dpr, rd, W * dpr, H * dpr);   // half resolution is plenty for the quiet surround
+      if (surOld?.cv?.width) { c.globalAlpha = 1 - su; fieldFill(c, surOld, sx * dpr, sy * dpr, rd, W * dpr, H * dpr); c.globalAlpha = 1; }
+      c.restore();
     }
     c.setTransform(1, 0, 0, 1, 0, 0);
     {
@@ -2292,7 +2413,8 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host) }
       }
     }
     // Focus: the surround fades into the page (as the dive's field does at its end).
-    { c.setTransform(1, 0, 0, 1, 0, 0); const [sx, sy] = toScreen([cx, cy]); fieldFade(c, shadeOf(rgb01(bg), dark), sx * dpr, sy * dpr, R * V.k * dpr, 1, W * dpr, H * dpr); c.setTransform(dpr * V.k, 0, 0, dpr * V.k, dpr * V.x, dpr * V.y); }
+    // (Only between its inner edge and the outer one: inside it adds nothing, outside the page's colour is already there.)
+    { c.setTransform(1, 0, 0, 1, 0, 0); if (fIn - 1 < reach) fieldFade(c, shadeOf(rgb01(bg), dark), ox, oy, rdv, 1, W * dpr, H * dpr, fIn, [fIn - 1, fOut + 4]); c.setTransform(dpr * V.k, 0, 0, dpr * V.k, dpr * V.x, dpr * V.y); }
     if (flatVessels) paintFlatVessels(c, cs);
     if (diveRim) diveCopy();
   }
@@ -2494,7 +2616,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host) }
       }
       const nuc = new Path2D(), rn = rm, nr = hw * 0.34;   // diameter about a third of the cell's width
       for (let i = 0; i < NC; i++) { const a = ((i + 0.5) / NC) * TAU2 + tr.i, nx = x + Math.cos(a) * rn, ny = y + Math.sin(a) * rn; nuc.moveTo(nx + nr, ny); nuc.arc(nx, ny, nr, 0, TAU2); }
-      return { lumen, cells, nuc };
+      return { lumen, cells, nuc, disc: [x, y, rout] };
     });
     return (ductP = { G, key, duct });
   }
@@ -2565,9 +2687,10 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host) }
   const fxView = (W, H, dpr) => { if (fxAll) return [-Infinity, -Infinity, Infinity, Infinity]; const mg = 4 / (dpr * V.k); return [-V.x / V.k - mg, -V.y / V.k - mg, (W - V.x) / V.k + mg, (H - V.y) / V.k + mg]; };
   const meets = (b, v) => b[2] >= v[0] && b[0] <= v[2] && b[3] >= v[1] && b[1] <= v[3];
   let fxDrawn = '';
+  let fxBoxes = null;   // (device-pixel boxes round all the layer holds, when that is only the ductules; null: anything)
   function paintFx(W, H, dpr, dark, dt, flat) {
     const fw = canvasPx(W, dpr), fh = canvasPx(H, dpr);
-    if (fx.width !== fw || fx.height !== fh) { fx.width = fw; fx.height = fh; fxDrawn = ''; }
+    if (fx.width !== fw || fx.height !== fh) { fx.width = fw; fx.height = fh; fxDrawn = ''; fxBoxes = null; }
     const G = geo, m = model;
     // With nothing moving on this layer (no lymph, WebGL vessels), it holds only the ductules' epithelium: drawn again only when
     // the view, a caliber or the theme changes, not every frame (clearing and redrawing a full-screen canvas the screen then re-uploads).
@@ -2577,7 +2700,11 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host) }
     fxDrawn = fk;
     const c = fx.getContext('2d');
     c.setTransform(dpr, 0, 0, dpr, 0, 0);
-    c.clearRect(0, 0, W, H);
+    // Holding only the ductules (nothing moving), the layer is clear but for them: only where they were drawn is cleared, not the
+    // whole screen each frame a pan or a slide's camera moves (the same picture; any other layer drawn last clears it all).
+    if (fxBoxes) { c.setTransform(1, 0, 0, 1, 0, 0); for (const [x0, y0, x1, y1] of fxBoxes) c.clearRect(x0, y0, x1 - x0, y1 - y0); c.setTransform(dpr, 0, 0, dpr, 0, 0); }
+    else c.clearRect(0, 0, W, H);
+    fxBoxes = moving ? null : [];
     c.setTransform(dpr * V.k, 0, 0, dpr * V.k, dpr * V.x, dpr * V.y);
     if (!m.hide) {
       // The bile ductule is lined all round by a simple cuboidal epithelium: wedge-shaped cells side by side
@@ -2586,6 +2713,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host) }
       c.lineWidth = Math.max(0.3, G.R * 0.0013); c.strokeStyle = cellEdge; c.globalAlpha = 0.72;   // a little faded, so the ductule sits back in the tract
       // One ring of 16 cuboidal cells round each: as deep as they are wide, so each nucleus has room (a third of the cell's width).
       for (const d of fxDuct().duct) {
+        if (fxBoxes) { const [x, y, r] = d.disc, e = (r + c.lineWidth) * V.k * dpr + 3, X = (x * V.k + V.x) * dpr, Y = (y * V.k + V.y) * dpr; fxBoxes.push([Math.floor(X - e), Math.floor(Y - e), Math.ceil(X + e), Math.ceil(Y + e)]); }
         c.fillStyle = lumen; c.fill(d.lumen);
         c.fillStyle = cellFill;
         for (const p of d.cells) { c.fill(p); c.stroke(p); }
@@ -2805,10 +2933,11 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host) }
     }
     return { th, run };
   }
-  function diveGeometry() {
+  // (keep: an earlier geometry whose sinusoid end is kept, so only the lobule end moves.)
+  function diveGeometry(keep) {
     const G = geo, t = G.tubes[sinPick.tube], [, u] = distTo(t.pts, sinPick.w[0], sinPick.w[1]);
     const i = clamp(Math.round(u * (N - 1)), 1, N - 2), { th, run } = straightRun(t, i);
-    const p = toScreen(at(t.pts, u)), F = sv.frame();
+    const p = toScreen(at(t.pts, u)), F = keep ? { x: keep.c[0], y: keep.c[1], ang: keep.ang, k: keep.k, lumen: keep.lumen } : sv.frame();
     const rot = Math.atan2(Math.sin(F.ang - th), Math.cos(F.ang - th));
     const Z = clamp(F.lumen / Math.max(0.05, 2 * radiusAt(t, i) * V.k), 1.5, 400);
     // The zoom is one similarity, from the lobule as it is to the sinusoid view as it rests (p to the view's
@@ -2818,7 +2947,23 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host) }
     const bx = c[0] - (m * p[0] - n * p[1]), by = c[1] - (n * p[0] + m * p[1]);
     const a = 1 - m, b = n, det = a * a + b * b;   // (I − M) q = c − M p, with I − M = [a b; −b a]
     const q = [(a * bx - b * by) / det, (b * bx + a * by) / det];
-    return { p, c, q, rot, Z, run, k: F.k, ang: F.ang };
+    return { p, c, q, rot, Z, run, k: F.k, ang: F.ang, lumen: F.lumen };
+  }
+  // On the way back out, the space the lobule lands in opens just after the zoom starts (the dock, and on a phone or upright
+  // iPad the top bar's second row, come back as the sinusoid view closes, a frame later). The zoom is aimed afresh at the
+  // lobule's new framing then, keeping its sinusoid end, so it lands there in one move: it used to land on the old framing
+  // and then pan (and zoom) to the new one (17 Oct, Mohammad). (Early in the zoom the two paths nearly coincide: at its start
+  // both are the sinusoid view exactly, whatever the lobule's framing, so the switch is not seen.)
+  function reaimOut() {
+    if (sinTo !== 0 || sinU <= 0 || !sinDive || rubber) return false;
+    const r = host.getBoundingClientRect();
+    if (`${Math.max(1, Math.round(r.width))}x${Math.max(1, Math.round(r.height))}` !== geoKey) return false;   // a new size: built for it once the zoom has landed, as before
+    const F0 = fitV(); kFit = F0.k;
+    if (atFit) Object.assign(V, F0); else clampV();
+    sinDive = diveGeometry(sinDive);
+    // (The lobule is drawn once more at its new framing, still under the zoom's transform.)
+    diveDrawn = false; refitLater = false; viewChanged(); placeSinusoid();
+    return true;
   }
   function placeSinusoid() {
     const u = sinU, rm = reduce.matches;
@@ -2919,7 +3064,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host) }
       // (Its flow marks start faded and ease in once it has landed: left at full from an earlier visit, they made every frame of the
       // dive's first 0.3 s redraw the whole lobule at full size.)
       // (Drawn ahead in the dive (staged), and still framed the same: nothing more to draw, the loop just starts.)
-      if (fade > 0 && was === 0) { flowA = 0; flowT = 0; resetView(); relLater = false; if (staged && staged === api.viewKey() && model) { if (!raf) raf = nextFrame(loop); } else { diveDrawn = false; if (F) update(F); } staged = ''; }
+      if (fade > 0 && was === 0) { flowA = 0; flowT = 0; resetView(); relLater = false; if (staged && staged === api.viewKey() && model) { if (!raf) raf = nextFrame(loop); } else { diveDrawn = false; snapState(); if (F) update(F); } staged = ''; }
       // Leaving the lobule closes a part's card, so it is not waiting next time.
       if (was > 0.98 && fade <= 0.98) { stopInertia(); if (store.get().selection?.type === 'lobule') store.set({ selection: null }); }
       // (Mid-zoom out, the canvases are given back when the zoom ends: freeing them there is one more thing in a moving frame.)

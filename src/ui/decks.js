@@ -40,7 +40,7 @@
 //   monitor                  the catheter's pressure monitor (Measure › HVPG's tracing) under the slide's words: 'free', 'wedge' or 'result'
 //   tick                     a few words for what happened at this slide's time point, over its line, at 45°, on a talk trace (else its title)
 //   when                     the time point under that line, in words, when the days so far would repeat the one before (a drug started at the same visit)
-//   lapse                    { seconds, from?, to? }: the slide's days (ramp: { param: [from, to] } eased over them) play on the
+//   lapse                    { seconds, from?, to? }: the slide's days (ramp: { param: [from, to] } eased over them; a dotted param names a nested one, 'fibrosis.R.post') play on the
 //                            live figure as a time-lapse, from the slide before's state (from/to: words for the
 //                            start and end in place of a day counter, e.g. 'Fasting' and 'After a meal'; keep the
 //                            days at least the seconds, or the live clock runs sub-day and skips the ramp)
@@ -50,6 +50,9 @@
 //                            (SAAG × protein) or 'walls'; of: the rows, slide ids or { id | preset, name, title, note, blank: [columns] }
 //   compare                  [{ label, params, own? }]: buttons that switch the live model between treatments in real
 //                            time (params: each option's full set of the switched keys; own: the slide's own state);
+//                            or [{ label, preset, block? }, { label, own: true }]: buttons that ease the live model to another
+//                            patient (a preset, computed with the slide's states; block: its ladder's station block, none if
+//                            left out) and back to the slide's own state;
 //                            or [{ label, lens, own? }]: buttons that switch the figure's lens, the model untouched;
 //                            or [{ label, gate, own? }]: buttons that move a stent Doppler's gate (see tool), the model untouched
 //   fold                     false: the ladder card never folds its plot behind Show (Sites slide 7 folded on a laptop); its own zoom fits it
@@ -65,30 +68,32 @@
 // Every deck opens with an "Outline and objectives" slide built from its kicker groups and objectives
 // (withOverview below); a deck never writes that slide itself.
 
-import { CIRCULATION } from './decks/circulation.js?v=4e1c0762c5';
-import { SITES } from './decks/sites.js?v=1b05ba2a08';
-import { HVPG } from './decks/hvpg.js?v=cd919eeec5';
-import { ASCITES } from './decks/ascites.js?v=15bbff4e49';
-import { VARICES } from './decks/varices.js?v=243b1724a8';
-import { TREATMENT } from './decks/treatment.js?v=fd11e15e2e';
-import { STIFFNESS } from './decks/stiffness.js?v=f44a1aea03';
-import { ONE_YEAR } from './decks/one-year.js?v=2d269c2aad';
-import { LOBULE } from './decks/lobule.js?v=2179638d8f';
-import { SHUNTS } from './decks/shunts.js?v=0de4e9f8a1';
-import { TIPS_DOPPLER } from './decks/tips-doppler.js?v=461e9a8c10';
-import { TAP } from './decks/tap.js?v=04459c913c';
-import { CIRCUIT } from './decks/circuit.js?v=5b522232db';
-import { DOPPLER } from './decks/doppler.js?v=48cb959b74';
+import { CIRCULATION } from './decks/circulation.js?v=2f65734bbf';
+import { SITES } from './decks/sites.js?v=a5b326f03e';
+import { HVPG } from './decks/hvpg.js?v=a8f955db72';
+import { ASCITES } from './decks/ascites.js?v=bd86d17809';
+import { VARICES } from './decks/varices.js?v=b6bdf79a93';
+import { TREATMENT } from './decks/treatment.js?v=5117b0cceb';
+import { STIFFNESS } from './decks/stiffness.js?v=8dbf15924f';
+import { ONE_YEAR } from './decks/one-year.js?v=820df1fc81';
+import { LOBULE } from './decks/lobule.js?v=8689f3e7fc';
+import { SHUNTS } from './decks/shunts.js?v=f3ef62a6c6';
+import { TIPS_DOPPLER } from './decks/tips-doppler.js?v=f985122fa8';
+import { TAP } from './decks/tap.js?v=a8bc8891ac';
+import { CIRCUIT } from './decks/circuit.js?v=d5d6adc43b';
+import { DOPPLER } from './decks/doppler.js?v=a063be1593';
 import { ENDOSCOPY } from './decks/endoscopy.js?v=d72eb14fbd';
-import { PREHEPATIC } from './decks/prehepatic.js?v=54d30be36f';
-import { RIGHT_HEART } from './decks/right-heart.js?v=88b4b09ea2';
-import { BLEED } from './decks/variceal-bleed.js?v=304609cf19';
-import { TWO_INFLOWS } from './decks/two-inflows.js?v=d5912518e2';
-import { PVT_CIRRHOSIS } from './decks/pvt-cirrhosis.js?v=85211432b5';
-import { SPLEEN } from './decks/spleen.js?v=770109c14c';
-import { NCPH } from './decks/ncph.js?v=516acbd224';
-import { OUTFLOW } from './decks/outflow.js?v=6070db53bd';
-import { RECOMPENSATION } from './decks/recompensation.js?v=5b034d13e0';
+import { PREHEPATIC } from './decks/prehepatic.js?v=8d87483325';
+import { RIGHT_HEART } from './decks/right-heart.js?v=187834e4c3';
+import { BLEED } from './decks/variceal-bleed.js?v=efa65baad2';
+import { TWO_INFLOWS } from './decks/two-inflows.js?v=fe46038695';
+import { PVT_CIRRHOSIS } from './decks/pvt-cirrhosis.js?v=43096341d6';
+import { SPLEEN } from './decks/spleen.js?v=d17310ff56';
+import { NCPH } from './decks/ncph.js?v=6888d8cd3c';
+import { OUTFLOW } from './decks/outflow.js?v=420962f06a';
+import { RECOMPENSATION } from './decks/recompensation.js?v=5d88408232';
+import { WHERE } from './decks/where.js?v=bee116087f';
+import { PREGNANCY_DECK } from './decks/pregnancy.js?v=0cb3e90f9a';
 
 // Regions of the anatomy plate the camera frames (world units, x 300-1120, y 0-920).
 export const REGIONS = {
@@ -149,13 +154,16 @@ DECKS.push(STIFFNESS, ONE_YEAR, TAP, CIRCUIT, LOBULE, SHUNTS);
 DECKS.push(DOPPLER, ENDOSCOPY, TIPS_DOPPLER);
 DECKS.push(PREHEPATIC, RIGHT_HEART, BLEED);
 DECKS.push(TWO_INFLOWS, PVT_CIRRHOSIS, SPLEEN, NCPH, OUTFLOW, RECOMPENSATION);
+DECKS.push(WHERE);
+DECKS.push(PREGNANCY_DECK);
 
-// The unified menu lists the presentations by topic, in teaching order, under a short title (32 characters or fewer).
+// The unified menu lists the presentations by topic, in teaching order, under a short title (32 characters or fewer); the
+// third name is the deck's short name in the tab at each slide card's top right corner (presenter.js deckTab; 20 or fewer).
 export const TOPICS = [
-  ['foundations', 'Foundations', [['circulation', 'The portal circulation'], ['circuit', 'Portal pressure as a circuit'], ['two-inflows', 'The liver\'s two inflows'], ['hvpg', 'HVPG and PPG']]],
-  ['causes', 'Causes', [['sites', 'Sites and causes'], ['prehepatic', 'Pre-hepatic PH'], ['ncph', 'Presinusoidal PH'], ['right-heart', 'The right heart and the liver'], ['outflow', 'Hepatic venous outflow block'], ['lobule', 'Inside the lobule']]],
-  ['measuring', 'Measuring', [['doppler', 'Doppler of the portal system'], ['stiffness', 'Stiffness, spleen and platelets'], ['one-year', 'A year of compensated cirrhosis']]],
-  ['complications', 'Complications', [['varices', 'Collaterals and varices'], ['endoscopy', 'Endoscopy and the varix'], ['variceal-bleed', 'Acute variceal bleeding'], ['ascites', 'How ascites forms'], ['tap', 'Paracentesis and albumin'], ['spleen', 'The spleen: size and treatment'], ['pvt-cirrhosis', 'Portal vein clot in cirrhosis'], ['recompensation', 'Decompensation and recovery']]],
-  ['treatment', 'Treatment', [['treatment', 'Lowering portal pressure'], ['shunts', 'Spontaneous shunts and TIPS'], ['tips-doppler', 'Doppler after TIPS']]],
+  ['foundations', 'Foundations', [['circulation', 'The portal circulation', 'Circulation'], ['circuit', 'Portal pressure as a circuit', 'Circuit'], ['two-inflows', 'The liver\'s two inflows', 'Two inflows'], ['hvpg', 'HVPG and PPG', 'HVPG and PPG']]],
+  ['causes', 'Causes', [['sites', 'Sites and causes', 'Sites and causes'], ['prehepatic', 'Pre-hepatic PH', 'Pre-hepatic PH'], ['ncph', 'Presinusoidal PH', 'Presinusoidal PH'], ['right-heart', 'The right heart and the liver', 'Right heart'], ['outflow', 'Hepatic outflow obstruction', 'Outflow obstruction'], ['lobule', 'Inside the lobule', 'Lobule'], ['where-resistance', 'Where is the resistance?', 'Find the resistance']]],
+  ['measuring', 'Measuring', [['doppler', 'Doppler of the portal system', 'Doppler'], ['stiffness', 'Stiffness, spleen and platelets', 'Stiffness'], ['one-year', 'A year of compensated cirrhosis', 'One year']]],
+  ['complications', 'Complications', [['varices', 'Collaterals and varices', 'Varices'], ['endoscopy', 'Endoscopy and the varix', 'Endoscopy'], ['variceal-bleed', 'Acute variceal bleeding', 'Variceal bleed'], ['ascites', 'How ascites forms', 'Ascites'], ['tap', 'Paracentesis and albumin', 'Paracentesis'], ['spleen', 'The spleen: size and treatment', 'Spleen'], ['pvt-cirrhosis', 'Portal vein clot in cirrhosis', 'PVT in cirrhosis'], ['recompensation', 'Decompensation and recovery', 'Recompensation'], ['pregnancy', 'Cirrhosis in pregnancy', 'Pregnancy']]],
+  ['treatment', 'Treatment', [['treatment', 'Lowering portal pressure', 'Lowering pressure'], ['shunts', 'Spontaneous shunts and TIPS', 'Shunts and TIPS'], ['tips-doppler', 'Doppler after TIPS', 'TIPS Doppler']]],
 ];
-for (const [topic, , list] of TOPICS) for (const [id, short] of list) { const d = DECKS.find((x) => x.id === id); if (d) Object.assign(d, { topic, short }); }
+for (const [topic, , list] of TOPICS) for (const [id, short, head] of list) { const d = DECKS.find((x) => x.id === id); if (d) Object.assign(d, { topic, short, head }); }

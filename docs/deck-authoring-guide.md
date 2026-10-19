@@ -16,7 +16,7 @@ Contents: At a glance · 1 What a deck is · 2 Deck fields · 3 Slide fields · 
 * **The data card** holds the numbers: a pressure ladder, readout tiles, comparison tables, scales, and live instruments (Doppler, endoscopy scope, FibroScan, pressure traces, the abdomen, the varix wall, a flow-over-time chart), or a what-if slider and treatment buttons that act on the live model.
 * **Catheter choreography.** The HVPG measurement can be played step by step (route, free, wedge, result) with the live tracing.
 * **Case cards.** A slide that brings in a new patient can open with a centred frosted card holding a short clinical case (section 14).
-* **Deck furniture the app adds for you:** an Outline and objectives slide in front, site tags above titles in decks that cover more than one level, disease-name pills, the closing quick check (`checks`), speaker notes in the handout, the nav pill, the corner credit.
+* **Deck furniture the app adds for you:** an Outline and objectives slide in front, the deck's short name in a tab at each slide card's top right corner, site tags above titles in decks that cover more than one level, disease-name pills, the closing quick check (`checks`), speaker notes in the handout, the nav pill, the corner credit.
 * **The menu has two tabs:** *Present* (the decks, this guide) and *Patients* (the presets, free exploration). Instructors can also import a deck file in the app (section 13).
 
 ---
@@ -43,6 +43,7 @@ A slide is **one idea**: a standalone title, a one-sentence line, at most four c
 | `checks` | `[question, answer][]` | The closing quick check: 3 or 4 questions, added after the last slide over its patient. Each answer starts hidden and eases open when tapped. Do not write the slide itself. |
 | `sections` | `[name, [kickers or slide ids]][]` | Optional. 3 to 5 sections for the outline and the running head. Needed only when the deck has more than 5 distinct `kicker` values, or fewer than 3 (list slide `id`s then, as `circuit` does); with 3 to 5 kicker groups the sections are built from them automatically. A kicker `'Summary'` is left out of the outline. |
 | `short` | string | **Set by the menu table (`TOPICS` in `src/ui/decks.js`), not in the deck file** (see section 12). Max 32 characters. |
+| `head` | string | The deck's short name, in a tab at the top right corner of every slide's card. **Set by the menu table too**, its third entry. Max 20 characters, one or two words ("Ascites"). |
 | `topic` | string | Set by the menu table too (`foundations causes measuring complications treatment`). |
 
 ## 3. Slide fields
@@ -153,7 +154,7 @@ Use it where the colour is the point of the slide (a reversed branch on `'direct
 
 `labels: ['CONF', 'SIN_R', 'RHV', 'RA']`: the stations named on the anatomy figure (none shown if absent; **only the stations you list, plus those your terms point at, appear**). `tint: ['imv']` takes the colour of a target's station label although the line never names it (the label is on, in its station colour). Valid ids are node ids (section 8.4). Only labels the anatomy draws appear. On the circuit view the labels are the circuit's own.
 `VAR` (esophageal varices) is hidden when the patient has no varices; `GV` is hidden when there are no fundal varices.
-On ladder (`data: 'ladder'`) and catheter (`cath`) slides the figure automatically renames to "Sinusoids R · WHVP" and "RHV · FHVP".
+On ladder (`data: 'ladder'`) and catheter (`cath`) slides the figure automatically renames to "Right sinusoids · WHVP" and "Right hepatic vein · FHVP".
 
 ### 5.5 Glow, highlights and term pills
 
@@ -232,15 +233,15 @@ A term becomes a pill in its **station colour**; the station's figure label take
 | `sin` (`SIN_R`) | Sinusoids | liver outlined | wedge | sinusoid(s), sinusoidal pressure |
 | `whvp` | Sinusoids | liver outlined | wedge | WHVP, wedged pressure |
 | `fhvp` (`RHV`) | RHV | `RHV_IVC` | hv | FHVP, free pressure |
-| `hv` | RHV | `RHV_IVC`, `MHV_IVC`, `LHV_IVC` | hv | hepatic vein(s) |
+| `hv` | Right hepatic vein | `RHV_IVC`, `MHV_IVC`, `LHV_IVC` | hv | hepatic vein(s) |
 | `ivc` (`IVCS`) | IVC | `IVCS_RA`, `IVC_IS` | ivc | IVC, inferior vena cava |
-| `ra` (`RA`) | RA | whole heart lit by a soft glow (`heart`; `heart-ra` still names it) | ra | right atrium |
-| `varix` (`VAR`) | Esoph. varices | `C1a`, `C1b` | var | esophageal varices, varices, varix |
+| `ra` (`RA`) | Right atrium | whole heart lit by a soft glow (`heart`; `heart-ra` still names it) | ra | right atrium |
+| `varix` (`VAR`) | Varices | `C1a`, `C1b` | var | esophageal varices, varices, varix |
 | `gv` (`GV`) | Fundal varices | `C2` | var | gastric varices, fundal varices |
-| `lgv` (`LGV`) | L. gastric v. | `LGV_CONF`, `V_STO` | var | left gastric vein, coronary vein |
+| `lgv` (`LGV`) | Left gastric vein | `LGV_CONF`, `V_STO` | var | left gastric vein, coronary vein |
 | `azy` (`AZY`) | Azygos | `AZY_SVC` | var | azygos (vein) |
-| `lpv` (`LPV`) | L portal | `PVH_L` | pv | left portal vein |
-| `lrv` (`LRV`) | L renal v. | `LRV_IVC`, `V_KID_L` | ivc | left renal vein |
+| `lpv` (`LPV`) | Left portal vein | `PVH_L` | pv | left portal vein |
+| `lrv` (`LRV`) | Left renal vein | `LRV_IVC`, `V_KID_L` | ivc | left renal vein |
 | `spleen` | none | spleen outlined | sv | spleen |
 | `liver` | none | liver outlined | wedge | liver |
 | `heart` | none | heart outlined | ra | heart |
@@ -326,6 +327,8 @@ Visuals may also carry `cam` (how the dimmed figure is framed).
 
 `compare: [{ label, params, own? }, …]`: buttons switch the live model between treatments in real time. `params`: each option's **full set of the switched keys** (switch off the others: e.g. every drug flag), `own: true` marks the option that is the slide's own state. Use with `data` so the numbers update.
 
+A button can name another patient instead: `compare: [{ label: 'Normal heart', preset: 'healthy' }, { label: 'Failing heart', own: true }]`. The live model eases to that patient (computed with the slide's states), and the `own` button eases back to the slide's exact state. The ladder's station `block` shows only on the slide's own state, unless the patient option names its own `block` (Sites, Right heart failure).
+
 ---
 
 ## 8. Catalogue
@@ -409,27 +412,27 @@ Figure label text on the anatomy is the SHORT name. Station labels hidden on the
 | `STO` | Gastric bed | Stomach | bed |
 | `SMV` | Superior mesenteric vein | SMV | portal |
 | `IMV` | Inferior mesenteric vein | IMV | portal |
-| `SV` | Splenic vein | Splenic v. | portal |
-| `LGV` | Left gastric (coronary) vein | L. gastric v. | portal |
-| `CONF` | Portal vein (main) | Portal v. | portal |
-| `PVH` | Portal vein (hilum) | PV hilum | portal |
-| `RPV` | Right portal vein | R portal | portal |
-| `LPV` | Left portal vein | L portal | portal |
-| `VAR` | Esophageal varices | Esoph. varices | varix |
+| `SV` | Splenic vein | Splenic vein | portal |
+| `LGV` | Left gastric (coronary) vein | Left gastric vein | portal |
+| `CONF` | Portal vein (main) | Portal vein | portal |
+| `PVH` | Portal vein (hilum) | Hilar portal vein | portal |
+| `RPV` | Right portal vein | Right portal vein | portal |
+| `LPV` | Left portal vein | Left portal vein | portal |
+| `VAR` | Esophageal varices | Varices | varix |
 | `GV` | Gastric fundal varices | Fundal varices | varix |
-| `SIN_R` / `SIN_L` | Sinusoids, right / left lobe (inlet) | Sinusoids R / L | liver |
-| `CV_R` / `CV_L` | Central veins, right / left lobe | Central v. R / L | liver |
-| `W_R` `W_M` `W_L` | Wedge compartment (RHV, MHV, LHV) | Wedge R / M / L | wedge |
-| `RHV` `MHV` `LHV` | Right / middle / left hepatic vein | RHV / MHV / LHV | hepatic vein |
+| `SIN_R` / `SIN_L` | Sinusoids, right / left lobe (inlet) | Right / Left sinusoids | liver |
+| `CV_R` / `CV_L` | Central veins, right / left lobe | Right / Left central vein | liver |
+| `W_R` `W_M` `W_L` | Wedge compartment (RHV, MHV, LHV) | Right / Middle / Left wedge | wedge |
+| `RHV` `MHV` `LHV` | Right / middle / left hepatic vein | Right / Middle / Left hepatic vein | hepatic vein |
 | `IVCI` | IVC (renal level) | Lower IVC | vein |
 | `IVCS` | IVC (suprahepatic) | IVC | vein |
-| `RA` | Right atrium | RA | heart |
+| `RA` | Right atrium | Right atrium | heart |
 | `SVC` | Superior vena cava | SVC | vein |
 | `AZY` | Azygos vein | Azygos | vein |
-| `ILI` | Iliac veins | Iliac v. | vein |
+| `ILI` | Iliac veins | Iliac vein | vein |
 | `EPI` | Epigastric / umbilical veins | Umbilicus | vein |
-| `KID_L` | Left kidney | L kidney | bed |
-| `LRV` | Left renal vein | L renal v. | vein |
+| `KID_L` | Left kidney | Left kidney | bed |
+| `LRV` | Left renal vein | Left renal vein | vein |
 | `AO` `HA` `UPPV` `LOWV` `KID_R` `RRV` | Aorta, hepatic artery, upper-/lower-body veins, right kidney, right renal vein | (hidden on the anatomy) | |
 | `SVD` | Splenic vein (midway), where the splenorenal shunts leave | (hidden) | portal |
 
@@ -485,7 +488,7 @@ Key facts for text: normal HVPG 1–5; CSPH is HVPG ≥ 10; bleeding risk rises 
 
 1. **One idea per slide.** Title stands alone, one sentence in `line`, ≤ 4 `causes`, one card.
 2. **One name per station.** Use the vocabulary in section 6.3 (portal vein, sinusoids/WHVP, hepatic vein/FHVP, IVC, right atrium/RA). Do not rename a station within a deck.
-3. **No repeated pointer.** Never add a `note` mark or label that names what a station label already names on that slide (e.g. VAR is labelled "Esoph. varices", so no "Esophageal varices" pointer). `block` and `treat` marks say something new (Clot, Banded varices), so they stay.
+3. **No repeated pointer.** Never add a `note` mark or label that names what a station label already names on that slide (e.g. VAR is labelled "Varices", so no "Esophageal varices" pointer). `block` and `treat` marks say something new (Clot, Banded varices), so they stay.
 4. **Definitions are fixed:** **HVPG = WHVP − FHVP**, cut-offs **amber 5, red 10**. **PPG = portal vein − IVC**, cut-offs **amber 6, red 12**. In equations write `HVPG = WHVP − FHVP` and `PPG = P_portal vein − P_IVC`. Never define HVPG as portal minus hepatic or PPG as portal minus RA.
 5. **Endoscopy is esophagus-only.** The scope tool and any endoscopy words refer to the lower esophagus; do not add gastric endoscopy.
 6. **Use live values.** Say numbers through `{hvpg}` / `{ppg}` / `{pv}` etc. and rules through `{>=10 mmHg}`; do not type measured numbers that the model produces. Write cut-off words around the outlined pill ("above {>=5 mmHg}").
@@ -496,7 +499,7 @@ Key facts for text: normal HVPG 1–5; CSPH is HVPG ≥ 10; bleeding risk rises 
 11. **Every content slide has** `id`, `kicker`, `title`, `line`, `notes` (2–4 sentences a lecturer can read aloud) and `ask: [question, answer]`. The last slide is a `visual: 'table'` summary under `kicker: 'Summary'` with `of` rows naming the earlier slides, and the deck ends with `checks` (3 or 4 `[question, answer]` pairs; the app adds the quick-check slide).
 12. **Decks:** 6–12 slides, 3–4 `objectives`, ≥ 3 kicker groups or explicit `sections`, `level` one of foundation/core/advanced.
 13. **Style:** plain sentence case, no emoji, American spelling, numbers with units (`mmHg`, `g/dL`, `kPa`), clinically accurate (Baveno VIII, the latest, never Baveno VII; AASLD where US practice differs; US drug choices such as octreotide). Write for the learner, never the instructor, in full grammatical sentences that read like a clinician-teacher at the bedside (`docs/ai-humanizer.md`). Use proper clinical shorthand ("OCP use", never "on the pill"). Never write "our patient" or "the patient we just measured", and never an ambiguous "this patient": say "in this case, the HVPG is…" or use the case's own description. Say **resistance** (site labels and running prose), not "block" or "obstruction", for where pressure is lost; drug and procedure uses such as "blocks α1 receptors" stay. (The code's `kind: 'block'`, `block:` and `callout` names are fine; only learner-facing text is affected.) Word thresholds as rising risk, not a cliff.
-14. **No new furniture by hand.** The app adds the site tag above the title (decks covering more than one `site`), disease-name pills (list in `src/ui/diseases.js`), the Outline slide, the quick check and the corner credit. Do not write them into lines or titles.
+14. **No new furniture by hand.** The app adds the deck's name tab in the card's corner, the site tag above the title (decks covering more than one `site`), disease-name pills (list in `src/ui/diseases.js`), the Outline slide, the quick check and the corner credit. Do not write them into lines or titles.
 15. Presenter shows pressure unless a slide sets `lens` (section 5.2), and keeps the app's own N, S, L keys off while presenting; there are **no card or test-type fields on slides**: the nearest are `tool.kind` and `visual` (section 7).
 
 ---
@@ -629,10 +632,10 @@ export const CLOT_DEMO = {
      `import { CLOT_DEMO } from './decks/clot-demo.js?v=0000000000';`
    * Register it near the other `DECKS.push(...)` lines:
      `DECKS.push(CLOT_DEMO);`
-   * Add it to `TOPICS` (the unified menu) under exactly one topic, with a short title of **32 characters or fewer**:
-     `['causes', 'Causes', [ …, ['clot-demo', 'A clot in the portal vein'] ]]`.
+   * Add it to `TOPICS` (the unified menu) under exactly one topic, with a short title of **32 characters or fewer** and a short deck name of **20 or fewer**:
+     `['causes', 'Causes', [ …, ['clot-demo', 'A clot in the portal vein', 'Portal vein clot'] ]]`.
      Topics, in order: `foundations`, `causes`, `measuring`, `complications`, `treatment`. A deck missing from `TOPICS` fails the menu test.
-3. **Check it:** `npm run lint && npm test`. Among the tests that guard a deck: every deck is listed once under a topic with a short title (`menu`); every slide's `ask[0]` appears in the printed handout (`handout`); a term a slide gives is named by its line and no slide loses a pill (`deck-terms`); a line that sets a live HVPG or PPG beside a threshold matches the patient the slide shows (`deck-thresholds`, with a hand-checked exceptions list at its top); site tags and disease pills (`site-tags`, `disease-pills`); every case card is under 220 characters on a slide with a preset (`case-card`).
+3. **Check it:** `npm run lint && npm test`. Among the tests that guard a deck: every deck is listed once under a topic with a short title and its own short deck name (`menu`); every slide's `ask[0]` appears in the printed handout (`handout`); a term a slide gives is named by its line and no slide loses a pill (`deck-terms`); a line that sets a live HVPG or PPG beside a threshold matches the patient the slide shows (`deck-thresholds`, with a hand-checked exceptions list at its top); site tags and disease pills (`site-tags`, `disease-pills`); every case card is under 220 characters on a slide with a preset (`case-card`).
 4. **Stamp scripts:** `npm run stamp` rewrites the `?v=` hashes (required whenever a script file changed; a stale stamp fails the unit job and skips the deploy).
 5. **Optional deck-picker stills:** `node scripts/deck-stills.mjs <id>` writes `brand/decks/<id>-light.webp` and `-dark.webp` (200×250); run it after the deck exists.
 6. **Preview:** follow `AGENTS.md` (the single source of truth for the preview workflow). In short: pushing the integration branch `claude/settings-topbar-icon-flvft1` publishes `/preview/` at https://qaddodi.github.io/portal-pressure-simulator/preview/ . Rebase on the latest preview right before pushing, never force-push, grep for conflict markers, never push to `main` (the owner merges), and check the "Pages (live site + preview)" deploy job succeeded.

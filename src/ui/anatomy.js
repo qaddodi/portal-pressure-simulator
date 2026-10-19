@@ -468,6 +468,38 @@ export const BACKDROP = {
 export const flankPath = (b = 0) => `M336 470 C ${324 - b} 610 ${330 - b} 780 ${372 - b * 0.4} 954 C 470 1012 954 1012 ${1052 + b * 0.4} 954 C ${1094 + b} 780 ${1100 + b} 610 1088 470`;
 export const abdomenOutline = (b = 0) => `M336 440 L${flankPath(b).slice(1)} L1088 440 Z`;
 export const ABDOMEN_CLIP = abdomenOutline(0);
+
+// The same cavity as half-widths about x = 712 (its mirror line), one per row: n rows evenly from y0 to y0 + h. Each row
+// crosses it once (the flanks and both halves of the floor run steadily down), so a row's half-width is the whole shape:
+// the GPU fills the fluid from these at each bulge step, a few KB, where a raster of the outline was a slow upload in
+// Safari on every step of an ease. Rows above the top edge (y 440) or below the floor's lowest point hold the half-width
+// continued past the edge (negative), so the row between crosses zero where the outline does.
+export function cavityHalfWidths(b, y0, h, n) {
+  const cub = (p0, p1, p2, p3, t) => { const s = 1 - t; return s * s * s * p0 + 3 * s * s * t * p1 + 3 * s * t * t * p2 + t * t * t * p3; };
+  // The left half of the outline from the top of the flank down to the floor's lowest point (x 712): its flank cubic, then the
+  // first half of the floor's.
+  const xs = [], ys = [], K = 512;
+  for (let i = 0; i <= K; i++) { const t = i / K; xs.push(cub(336, 324 - b, 330 - b, 372 - b * 0.4, t)); ys.push(cub(470, 610, 780, 954, t)); }
+  for (let i = 1; i <= K; i++) { const t = 0.5 * i / K; xs.push(cub(372 - b * 0.4, 470, 954, 1052 + b * 0.4, t)); ys.push(cub(954, 1012, 1012, 954, t)); }
+  const yEnd = ys[ys.length - 1];
+  const out = new Float32Array(n);
+  let j = 0;
+  for (let i = 0; i < n; i++) {
+    const y = y0 + h * i / (n - 1);
+    if (y < 440) out[i] = 376 - 1e3 * (440 - y);
+    else if (y <= 470) out[i] = 376;
+    else if (y >= yEnd) {
+      // Past the lowest point, continued at the slope of the last stretch above it.
+      const k = ys.length - 1, sl = (xs[k] - xs[k - 1]) / (ys[k] - ys[k - 1]);
+      out[i] = (712 - xs[k]) - sl * (y - ys[k]);
+    } else {
+      while (ys[j + 1] < y) j++;
+      const f = (y - ys[j]) / (ys[j + 1] - ys[j]);
+      out[i] = 712 - (xs[j] + f * (xs[j + 1] - xs[j]));
+    }
+  }
+  return out;
+}
 export const ABDOMEN_FLOOR = 950;
 export const SPLEEN_CENTER = [1040, 362];
 
@@ -526,13 +558,19 @@ export const PROFILE_PATHS = [
       { k: 'PPG', hi: 'CONF', lo: 'IVCS', m: 'ppg', warn: 6, bad: 12 }] },
 ];
 
+// Figure callouts name each station in full, without abbreviations that end in a full stop (17 Oct design review: "Varices", not
+// "Esoph. varices"; "Right sinusoids", not "Sinusoids R"). SMV, IMV, IVC and SVC stay as the clinical names they are.
 export const SHORT = {
-  AO: 'Aorta', HA: 'Hep. artery', INT: 'Gut bed', COL: 'Colon', SPL: 'Spleen', STO: 'Stomach', SMV: 'SMV', IMV: 'IMV', SV: 'Splenic v.',
-  LGV: 'L. gastric v.', CONF: 'Portal v.', PVH: 'PV hilum', RPV: 'R portal', LPV: 'L portal', VAR: 'Esoph. varices', GV: 'Fundal varices',
-  SIN_R: 'Sinusoids R', SIN_L: 'Sinusoids L', CV_R: 'Central v. R', CV_L: 'Central v. L', W_R: 'Wedge R', W_M: 'Wedge M', W_L: 'Wedge L',
-  RHV: 'RHV', MHV: 'MHV', LHV: 'LHV', IVCI: 'Lower IVC', IVCS: 'IVC', RA: 'RA', SVC: 'SVC', AZY: 'Azygos', UPPV: 'Upper body',
-  LOWV: 'Lower body', ILI: 'Iliac v.', EPI: 'Umbilicus', KID_L: 'L kidney', KID_R: 'R kidney', LRV: 'L renal v.', RRV: 'R renal v.',
+  AO: 'Aorta', HA: 'Hepatic artery', INT: 'Gut bed', COL: 'Colon', SPL: 'Spleen', STO: 'Stomach', SMV: 'SMV', IMV: 'IMV', SV: 'Splenic vein',
+  LGV: 'Left gastric vein', CONF: 'Portal vein', PVH: 'Hilar portal vein', RPV: 'Right portal vein', LPV: 'Left portal vein', VAR: 'Varices', GV: 'Fundal varices',
+  SIN_R: 'Right sinusoids', SIN_L: 'Left sinusoids', CV_R: 'Right central vein', CV_L: 'Left central vein', W_R: 'Right wedge', W_M: 'Middle wedge', W_L: 'Left wedge',
+  RHV: 'Right hepatic vein', MHV: 'Middle hepatic vein', LHV: 'Left hepatic vein', IVCI: 'Lower IVC', IVCS: 'IVC', RA: 'Right atrium', SVC: 'SVC', AZY: 'Azygos', UPPV: 'Upper body',
+  LOWV: 'Lower body', ILI: 'Iliac vein', EPI: 'Umbilicus', KID_L: 'Left kidney', KID_R: 'Right kidney', LRV: 'Left renal vein', RRV: 'Right renal vein',
 };
+
+// Where a vessel's label is crowded it reads its clinical abbreviation first ("RPV 9.8" before it drops a number or hides), and
+// the full name returns once a zoom makes room (Mohammad, 18 Oct). No abbreviation ends in a full stop (17 Oct design review).
+export const ABBR = { CONF: 'PV', RPV: 'RPV', LPV: 'LPV', SV: 'SV', RHV: 'RHV', MHV: 'MHV', LHV: 'LHV' };
 
 // Chips shown by default (major vessels)
 export const CHIP_NODES = ['CONF', 'SV', 'SMV', 'SIN_R', 'RHV', 'IVCS', 'IVCI', 'RA', 'VAR'];

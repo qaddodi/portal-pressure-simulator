@@ -6,12 +6,12 @@
 import { EDGES, NODES, SHUNT_PORTAL, SHUNT_SYSTEMIC, dMinOf, edgePresent, isStent, stentSite } from '../engine/topology.js?v=4044766e96';
 import { dopplerVel } from './velNormal.js?v=181dda5594';
 import { store, updateParams, hiddenNow } from './store.js?v=31ee79b6ab';
-import { fmt, fmtFlow, clamp } from './util.js?v=0140acc352';
+import { fmt, fmtFlow, clamp } from './util.js?v=b6a40567da';
 import { PREGNANCY_INFO } from '../engine/scenario.js?v=1ee7733788';
-import { aboutVessel, aboutOrgan } from './about.js?v=e0bda4dfee';
-import { lobuleState } from './lobule-model.js?v=1ff0bc103e';
-import { oxygenFor } from './blood.js?v=1f05278710';
-import { LABEL_VESSEL, SIN_EDGES } from './anatomy.js?v=0b72305f30';
+import { aboutVessel, aboutOrgan } from './about.js?v=9bc8839da1';
+import { lobuleState } from './lobule-model.js?v=59d4bf2a04';
+import { oxygenFor } from './blood.js?v=b0e8934683';
+import { LABEL_VESSEL, SIN_EDGES } from './anatomy.js?v=8374d8e213';
 
 export const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
 export const NI = Object.fromEntries(NODES.map((n, i) => [n.id, i]));
@@ -75,7 +75,7 @@ export function cardFor(selIn, ctx) {
     get: (p) => p.thrombus[id] || 0, set: (p, v) => { if (v <= 0.004) delete p.thrombus[id]; else p.thrombus[id] = +v.toFixed(2); }, hist: `${e.label}: thrombus`,
     info: 'Occlusive thrombus. With anticoagulation it recanalizes slowly on the disease clock.' };
   const doppler = { type: 'button', id: 'doppler', label: 'Doppler', icon: 'doppler', run: () => { ctx.probe(id); ctx.showPane('doppler'); ctx.select(null); } };
-  const shunt = ctx.canShunt(id) ? { type: 'button', id: 'shunt', label: 'Create shunt…', icon: 'stent', run: () => ctx.startShunt(id) } : null;
+  const shunt = ctx.canShunt(id) ? { type: 'button', id: 'shunt', label: 'Add shunt', icon: 'stent', run: () => ctx.startShunt(id) } : null;
   let kicker, why = 'pv';
   if (isArt) {
     kicker = 'Artery';
@@ -138,7 +138,7 @@ export function cardFor(selIn, ctx) {
   verbs.unshift({ type: 'about', text: (f) => aboutVessel(e, f, store.get()) });
   return {
     key: 'e:' + id, sel, kicker, title: e.label, why, edge: id, verbs,
-    value: (f, lens, ref) => edgeValue(e, f, lens, ref),
+    value: (f, lens, ref) => edgeValue(e, f, lens, ref, true),
     status: (f) => {
       if (isArt) return null;
       const q = f.Qf ? f.Qf[k] : f.Q[k];
@@ -153,15 +153,18 @@ export function cardFor(selIn, ctx) {
 // A vessel that names a station on the figure (the portal vein names the confluence) reads that
 // station's pressure, as its label and the readouts do; any other vessel reads the mean of its ends.
 // Both use the breath-smoothed pressures the labels show, so the card never disagrees with them.
+// On the vessel card (range), a clotted or narrowed vessel reads in → out instead: across a clot the mean of
+// its ends is a pressure found nowhere in it.
 const STATION_OF = Object.fromEntries(Object.entries(LABEL_VESSEL).map(([n, e]) => [e, n]));
-export function edgeValue(e, f, lens, ref) {
+const signed = (d, txt) => `${d > 0 ? '+' : '−'}${txt}`;
+export function edgeValue(e, f, lens, ref, range = false) {
   const k = EI[e.id], PF = f.Pf || f.P, st = STATION_OF[e.id];
   const P1 = PF[NI[e.from]], P2 = PF[NI[e.to]], P = st ? PF[NI[st]] : (P1 + P2) / 2;
   const q = (f.Qf ? f.Qf[k] : f.Q[k]) * 0.06;
   if (lens === 'flow') {
     const r = store.get().healthy?.Q?.[k];
     const d = r != null && Math.abs(r) > 0.3 ? ((Math.abs(q) - Math.abs(r * 0.06)) / Math.abs(r * 0.06)) * 100 : null;
-    return { v: fmtFlow(Math.abs(q)), u: 'L/min', d: d != null && Math.abs(d) >= 5 ? `${d > 0 ? '▲' : '▼'} ${Math.round(Math.abs(d))} %` : null, up: d > 0 };
+    return { v: fmtFlow(Math.abs(q)), u: 'L/min', d: d != null && Math.abs(d) >= 5 ? signed(d, `${Math.round(Math.abs(d))} %`) : null, up: d > 0 };
   }
   if (lens === 'velocity' && e.kind === 'liver') return { v: '—', u: 'cm/s' };   // a lumped bed has no one velocity
   // Velocity reads as Doppler does (peak, see dopplerK), so it matches the figure callouts and the Doppler monitor.
@@ -174,8 +177,11 @@ export function edgeValue(e, f, lens, ref) {
     const a = o[up], b = e.kind === 'artery' || e.kind === 'arteriole' ? o[up] : o[dn];
     return { v: Math.abs(a - b) >= 0.005 ? `${pc(a)} → ${pc(b)}` : pc(b), u: '% O₂ saturation' };
   }
+  const p = store.get().params;
+  if (range && (p?.thrombus?.[e.id] > 0 || p?.stenosis?.[e.id] > 0)) return { v: `${fmt(P1, 1)} → ${fmt(P2, 1)}`, u: 'mmHg' };
+  // The change from the reference reads as the figure's callouts do: signed, one decimal, in the reading's colour.
   const r = ref ? (st ? ref[NI[st]] : (ref[NI[e.from]] + ref[NI[e.to]]) / 2) : null;
-  return { v: fmt(P, 1), u: 'mmHg', d: r != null && Math.abs(P - r) >= 1 ? `${P > r ? '▲' : '▼'} ${fmt(Math.abs(P - r), 0)}` : null, up: r != null && P > r };
+  return { v: fmt(P, 1), u: 'mmHg', d: r != null && Math.abs(P - r) >= 1 ? signed(P - r, fmt(Math.abs(P - r), 1)) : null, up: r != null && P > r };
 }
 
 // A capillary bed (each side's sinusoids) is lumped in the model: no one diameter or velocity, so it reads as its
@@ -201,7 +207,7 @@ function organCard(sel, ctx) {
   if (id === 'liver') {
     return {
       key: 'o:liver', sel, kicker: 'Organ', title: 'Liver', why: 'hvpg',
-      value: (f, lens, ref) => { const P = (f.Pf || f.P)[NI.SIN_R]; const r = ref?.[NI.SIN_R]; return { v: fmt(P, 1), u: 'mmHg sinusoids', d: r != null && Math.abs(P - r) >= 1 ? `${P > r ? '▲' : '▼'} ${fmt(Math.abs(P - r), 0)}` : null, up: r != null && P > r }; },
+      value: (f, lens, ref) => { const P = (f.Pf || f.P)[NI.SIN_R]; const r = ref?.[NI.SIN_R]; return { v: fmt(P, 1), u: 'mmHg sinusoids', d: r != null && Math.abs(P - r) >= 1 ? signed(P - r, fmt(Math.abs(P - r), 1)) : null, up: r != null && P > r }; },
       verbs: [
         { type: 'slider', id: 'cirrhosis', key: 'cirrhosis', label: 'Cirrhosis', icon: 'liver', min: 0, max: 1, step: 0.01, def: 0, format: pct, get: (p) => p.cirrhosis, set: (p, v) => { p.cirrhosis = v; }, hist: 'Cirrhosis',
           sub: '40 % compensated · 60 % CSPH · 85 % decompensated', info: 'Sinusoidal fibrosis, capillarization, a stiffer liver and arterioportal shunting. Jump months ahead on the timeline to watch collaterals open.' },
@@ -214,14 +220,14 @@ function organCard(sel, ctx) {
     const sl = (vid, key, label, min, max, def, info) => ({ type: 'slider', id: vid, key, label, min, max, step: 0.01, def, format: pct, get: (p) => p[key], set: (p, v) => { p[key] = v; }, hist: label, info });
     return {
       key: 'o:heart', sel, kicker: 'Organ', title: 'Right heart', why: 'ra',
-      value: (f, lens, ref) => { const P = (f.Pf || f.P)[NI.RA]; const r = ref?.[NI.RA]; return { v: fmt(P, 1), u: 'mmHg RA', d: r != null && Math.abs(P - r) >= 1 ? `${P > r ? '▲' : '▼'} ${fmt(Math.abs(P - r), 0)}` : null, up: r != null && P > r }; },
+      value: (f, lens, ref) => { const P = (f.Pf || f.P)[NI.RA]; const r = ref?.[NI.RA]; return { v: fmt(P, 1), u: 'mmHg RA', d: r != null && Math.abs(P - r) >= 1 ? signed(P - r, fmt(Math.abs(P - r), 1)) : null, up: r != null && P > r }; },
       verbs: [
         sl('contractility', 'contractility', 'Contractility', 0.15, 1.6, 1, 'Right-ventricular pump strength (Frank–Starling).'),
         sl('tr', 'tr', 'Tricuspid regurgitation', 0, 1, 0, 'Systolic backflow into the right atrium: large v-waves reach the liver.'),
         sl('pericardial', 'pericardial', 'Pericardial constraint', 0, 1, 0, 'Constrictive pericarditis limits filling.'),
-        // Only for a pregnant patient (or the pregnancy patient moved back to 0 weeks): every other heart card is as before.
+        // On every patient's heart card; it starts at Not pregnant (0 weeks), so no patient changes until it is moved.
         { type: 'slider', id: 'gestation', key: 'gestation', label: 'Pregnancy', min: 0, max: 40, step: 1, def: 0, format: weeks, get: (p) => p.gestation || 0, set: (p, v) => { p.gestation = v; }, hist: 'Pregnancy',
-          showIf: (p) => p.gestation > 0 || store.get().presetId === 'pregnancy', info: PREGNANCY_INFO },
+          info: PREGNANCY_INFO },
         stat('Cardiac output', (f) => `${fmt(f.metrics.co, 1)} L/min`),
       ],
     };
@@ -236,7 +242,7 @@ function organCard(sel, ctx) {
     else verbs.push({ type: 'link', label: 'Short gastric veins', run: () => ctx.select({ type: 'edge', id: 'C2' }) });
     return {
       key: 'o:' + id, sel, kicker: 'Collateral bed', title: eso ? 'Esophageal varices' : 'Fundal varices', why: 'varix', verbs,
-      value: (f, lens, ref) => { const n = NI[eso ? 'VAR' : 'GV']; const P = (f.Pf || f.P)[n]; const r = ref?.[n]; return { v: fmt(P, 1), u: 'mmHg', d: r != null && Math.abs(P - r) >= 1 ? `${P > r ? '▲' : '▼'} ${fmt(Math.abs(P - r), 0)}` : null, up: r != null && P > r }; },
+      value: (f, lens, ref) => { const n = NI[eso ? 'VAR' : 'GV']; const P = (f.Pf || f.P)[n]; const r = ref?.[n]; return { v: fmt(P, 1), u: 'mmHg', d: r != null && Math.abs(P - r) >= 1 ? signed(P - r, fmt(Math.abs(P - r), 1)) : null, up: r != null && P > r }; },
       status: (f) => (f.metrics.bleeding && (f.metrics.bleeding.site === 'GV') === !eso ? ['bad', 'Bleeding'] : vx(f).redWale ? ['warn', 'Red wale signs'] : null),
     };
   }
@@ -271,7 +277,7 @@ function lobuleCard(sel, ctx) {
   const L = (f) => lobuleState(f, store.get());
   const mm = (v) => `${fmt(v, 1)} mmHg`, pc = (v) => `${Math.round(v * 100)} %`;
   const stat = (label, value) => ({ type: 'stat', label, value: (f) => value(L(f), f) });
-  const pv = (v) => (f, lens, ref) => { const m = L(f); const x = v(m); const r = ref ? v({ P1: ref[NI.RPV], P2: ref[NI.SIN_R], P3: ref[NI.CV_R] }) : null; return { v: fmt(x, 1), u: 'mmHg', d: r != null && Math.abs(x - r) >= 1 ? `${x > r ? '▲' : '▼'} ${fmt(Math.abs(x - r), 0)}` : null, up: r != null && x > r }; };
+  const pv = (v) => (f, lens, ref) => { const m = L(f); const x = v(m); const r = ref ? v({ P1: ref[NI.RPV], P2: ref[NI.SIN_R], P3: ref[NI.CV_R] }) : null; return { v: fmt(x, 1), u: 'mmHg', d: r != null && Math.abs(x - r) >= 1 ? signed(x - r, fmt(Math.abs(x - r), 1)) : null, up: r != null && x > r }; };
   const about = (fn) => ({ type: 'about', text: (f) => (f ? fn(L(f)) : []) });
   // The lobule's parts have no page of their own in the side panel: no Details link.
   const base = { key: 'l:' + sel.part + ':' + (sel.tube ?? sel.tri ?? sel.zone ?? ''), sel, kicker: 'Lobule', why: 'hvpg', noDetails: true };
@@ -301,7 +307,7 @@ function lobuleCard(sel, ctx) {
       verbs: [about((m) => ['Oxygen-rich blood that empties into the first stretch of the sinusoids (zone 1).', m.art > 1.15 ? `Hepatic arterial buffer response: with less portal flow, less adenosine is washed out and the arteriole dilates (arterial flow ×${fmt(m.art, 1)}).` : ''].filter(Boolean))] };
     case 'bd': return { ...base, title: 'Bile ductule', value: () => ({ v: 'Bile', u: 'flows out to the triad' }),
       verbs: [about(() => ['Bile made by hepatocytes flows in canaliculi between them, toward the triad: against the blood. Not part of the circulation, but it marks the portal tract.'])] };
-    case 'lv': return { ...base, title: 'Lymphatic', value: (f) => { const m = L(f), d = m.lymph - m.lymphRef; return { v: fmt(m.lymph, 1), u: 'mL/min (whole liver)', d: m.lymphRef > 0 && Math.abs(d) / m.lymphRef >= 0.1 ? `${d > 0 ? '▲' : '▼'} ${Math.round(Math.abs(d) / m.lymphRef * 100)}%` : null, up: d > 0 }; },
+    case 'lv': return { ...base, title: 'Lymphatic', value: (f) => { const m = L(f), d = m.lymph - m.lymphRef; return { v: fmt(m.lymph, 1), u: 'mL/min (whole liver)', d: m.lymphRef > 0 && Math.abs(d) / m.lymphRef >= 0.1 ? signed(d, `${Math.round(Math.abs(d) / m.lymphRef * 100)}%`) : null, up: d > 0 }; },
       verbs: [about((m) => ['Lymph is plasma that leaks from the sinusoids into the space of Disse, drains out through the tissue to the portal tract and leaves the liver in its lymphatics. It carries the protein that escapes the sinusoids, and returns the fluid to the blood through the thoracic duct.',
         m.lymph > m.lymphRef * 1.25 ? 'Higher sinusoidal pressure forces more fluid out: lymph flow rises to compensate. Past the lymphatics’ capacity the rest weeps off the liver surface as ascites.' : '',
         m.lymph < m.lymphRef * 0.75 ? 'Less filtration than the comparison: lymph flow has fallen.' : ''].filter(Boolean)),

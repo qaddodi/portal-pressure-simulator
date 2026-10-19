@@ -1,5 +1,5 @@
 // U14: every "About this patient" fact a built-in patient comes with either opens a real vessel or organ, or is one of the
-// few that live elsewhere (drugs and diuretics in Treat, tones and pregnancy in Advanced physiology).
+// few that live elsewhere (drugs and diuretics in Treat, tones in Advanced physiology). Pregnancy opens the heart card.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -9,7 +9,7 @@ import { factTarget } from '../src/ui/fact-target.js';
 import { PRESETS } from '../src/engine/scenario.js';
 
 const ORGANS = new Set(['liver', 'spleen', 'varices', 'gastric', 'heart']);
-const ELSEWHERE = /^(drug:|albumin$|diuretics$|anticoag$|splTone$|sysTone$|habr$|apShunt$|gestation$)/;
+const ELSEWHERE = /^(drug:|albumin$|diuretics$|anticoag$|splTone$|sysTone$|habr$|apShunt$)/;
 // activeInterventions lives in inspector.js (needs a DOM to import): its keys are read from the source.
 const src = readFileSync(new URL('../src/ui/inspector.js', import.meta.url), 'utf8');
 const body = src.slice(src.indexOf('export function activeInterventions'), src.indexOf('\n}\n', src.indexOf('export function activeInterventions')));

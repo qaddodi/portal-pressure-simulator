@@ -33,7 +33,9 @@ test("Present's Doppler keeps plain tiles; its slide buttons own the gate", () =
 });
 
 test('the tiles show only on a stent', () => {
-  assert.match(src, /for \(const k of \['Proximal', 'Mid', 'Distal'\]\) statEls\[k\]\.wrap\.hidden = !isStent;/);
+  assert.match(src, /for \(const k of \['Proximal', 'Mid', 'Distal'\]\) showStat\(statEls\[k\]\.wrap, isStent\);/);
+  assert.match(src, /showStat\(statEls\.Trough\.wrap, !isStent\); showStat\(statEls\.Pulsatility\.wrap, !isStent\);/);
+  assert.match(src, /const showStat = \(wrap, on\) => \{\s*if \(wrap\.hidden !== on\) return;\s*wrap\.hidden = !on;/);
 });
 
 test("a card's bottom edge is tappable: the play bar's empty row takes no touches while a card is open", () => {

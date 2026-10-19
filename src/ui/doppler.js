@@ -5,11 +5,11 @@
 // full. It scrolls smoothly, one spectral line at a time, as the machine does.
 
 import { EDGES, dopplerK, stentSegments, stentSite, stentGate, stentCourse } from '../engine/topology.js?v=4044766e96';
-import { h, fmt, fitCanvas, clamp, icon, cssVar, cssAlpha } from './util.js?v=0140acc352';
-import { FONT } from './charts.js?v=7e8a65ec45';
+import { h, fmt, fitCanvas, clamp, icon, cssVar, cssAlpha } from './util.js?v=b6a40567da';
+import { FONT } from './charts.js?v=75f52d4f49';
 import { logAction, shownVel, store } from './store.js?v=31ee79b6ab';
-import { DOPPLER_MODES, dopplerColor, shadeColor, swatchGradient } from './dopplerColor.js?v=bc285aa69c';
-import { frameFor, noteDraw, paceMs } from './frame.js?v=5efaa2bcc9';
+import { DOPPLER_MODES, dopplerColor, shadeColor, swatchGradient } from './dopplerColor.js?v=bfb55a5bad';
+import { frameFor, noteDraw, paceMs } from './frame.js?v=67ca200c87';
 import { windowIndexFor, scaleFor } from './dopplerWindow.js?v=2067b803a2';
 import { velNormal, dopplerVel } from './velNormal.js?v=181dda5594';
 const nextFrame = frameFor('doppler');
@@ -128,6 +128,12 @@ export function createDoppler({ onProbe, pickGate = true }) {
   const patternEl = h('div', { class: 'dop-pattern' });
   const noteEl = h('p', { class: 'dop-note' });
   const statEls = {};
+  // A row that comes with the new vessel (the congestion index, a stent's three segments) fades in rather than popping (P23).
+  const showStat = (wrap, on) => {
+    if (wrap.hidden !== on) return;
+    wrap.hidden = !on;
+    if (on && wrap.isConnected && wrap.getClientRects().length) wrap.animate?.([{ opacity: 0 }, { opacity: 1 }], { duration: 180, easing: 'cubic-bezier(.2, .8, .2, 1)' });
+  };
   const stats = h('dl', { class: 'dop-stats' }, ['Peak', 'Trough', 'Pulsatility', 'CI', 'Proximal', 'Mid', 'Distal'].map((k) => {
     const dd = h('dd', {}, '—');
     const seg = SEGS.find(([, name]) => name === k)?.[0];
@@ -140,6 +146,17 @@ export function createDoppler({ onProbe, pickGate = true }) {
   const report = h('div', { class: 'dop-report' }, dirEl, h('div', { class: 'dop-velrow' }, velEl, patternEl), rangeEl, stats, noteEl);
   // The top strip's fitting steps (see fitStrip): [type scale, the direction's short form, the pattern on its own line].
   let stripKey = '', stripStep = 0, dirFull = '—', stripType = '', rng = null;
+  // Whether the monitor is on screen, and the widths the strip is fitted to, as the browser reports them when they change: read
+  // on every frame (offsetParent, clientWidth), they made the browser lay the page out mid-frame, after the figure's own writes.
+  // (No observers, as in a bare test page: read as before.)
+  let seen = false, repW = -1, cvW = -1;
+  const io = typeof IntersectionObserver === 'function' ? new IntersectionObserver((es) => { const was = seen; seen = es[es.length - 1].isIntersecting; if (seen && !was) redraw(); }) : null;
+  io?.observe(cv);
+  const shown = () => cv.isConnected && (io ? seen : !!cv.offsetParent);
+  const ro = typeof ResizeObserver === 'function' ? new ResizeObserver((es) => {
+    for (const e of es) { const w = e.borderBoxSize?.[0]?.inlineSize ?? e.contentRect.width; if (e.target === report) repW = w; else cvW = w; }
+  }) : null;
+  ro?.observe(report, { box: 'border-box' }); ro?.observe(cv, { box: 'border-box' });
   const STEPS = [[1, false, false], [0.9, false, false], [1, false, true], [0.9, false, true], [0.8, false, true], [0.9, true, true], [0.8, true, true]];
   const SHORT_DIR = { 'Portal → hepatic vein': 'PV → HV', 'Portal → IVC': 'PV → IVC', 'Portal → systemic': 'PV → systemic', 'Systemic → portal': 'Systemic → PV', 'Toward the heart': 'To the heart', 'Not available during time lapse': 'Paused in time lapse' };
   const el = h('div', { class: 'dop', 'data-pane': 'doppler' },
@@ -423,7 +440,7 @@ export function createDoppler({ onProbe, pickGate = true }) {
     setStat(statEls.Pulsatility.dd, fmt(it.pi, 2));
     // Congestion index (portal vein): cross-sectional area / mean velocity, about 0.07 cm·s in health, over 0.1 suggests portal hypertension
     const isPV = probe === 'PV_TRUNK';
-    statEls.CI.wrap.hidden = !isPV;
+    showStat(statEls.CI.wrap, isPV);
     if (isPV && frame) {
       const D = Math.max(0.5, frame.D[EI[probe]]) / 10, area = Math.PI * D * D / 4;
       const vm = Math.abs(r.mean) / dopplerK(EDGES[EI[probe]]);   // Moriyasu's index uses the mean across the lumen
@@ -431,8 +448,8 @@ export function createDoppler({ onProbe, pickGate = true }) {
     }
     // A stent: velocity at its portal end, middle and hepatic vein end, in place of trough and pulsatility.
     const isStent = p.kind === 'tips';
-    statEls.Trough.wrap.hidden = statEls.Pulsatility.wrap.hidden = isStent;
-    for (const k of ['Proximal', 'Mid', 'Distal']) statEls[k].wrap.hidden = !isStent;
+    showStat(statEls.Trough.wrap, !isStent); showStat(statEls.Pulsatility.wrap, !isStent);
+    for (const k of ['Proximal', 'Mid', 'Distal']) showStat(statEls[k].wrap, isStent);
     if (isStent) {
       // Each segment against the usual 90–190 cm/s, the gated one marked.
       const at = gateOf();
@@ -647,7 +664,7 @@ export function createDoppler({ onProbe, pickGate = true }) {
     return w + spare <= have && (!wrap || !p || p.width + 14 + spare <= have);
   }
   function fitStrip() {
-    const key = `${report.clientWidth}|${cv.clientWidth}|${stripType}|${dirFull}|${velEl.hidden ? '' : velEl.textContent}|${patternEl.textContent}`;
+    const key = `${ro ? repW : report.clientWidth}|${ro ? cvW : cv.clientWidth}|${stripType}|${dirFull}|${velEl.hidden ? '' : velEl.textContent}|${patternEl.textContent}`;
     if (key === stripKey) return;
     stripKey = key;
     // (the room is the monitor picture's, 12 px in from its right edge, where the report is wider than it: a phone held sideways)
@@ -695,7 +712,9 @@ export function createDoppler({ onProbe, pickGate = true }) {
     }
     if (ovOn) {
       const k0 = stripKey; fitStrip();
-      if (ovKey !== ovLast || stripKey !== k0) { rng ||= document.createRange(); const t = Math.ceil(stripRect().bottom - cv.getBoundingClientRect().top) + 4; if (ovKey !== ovLast || t > ovTop || t < ovTop - 4) ovTop = t; }
+      // (No word of the strip laid out yet gives no bottom: the strip keeps its last height. Taken as is, an infinite height made the
+      // trace's image fail to build, a monitor drawn while hidden.)
+      if (ovKey !== ovLast || stripKey !== k0) { rng ||= document.createRange(); const t = Math.ceil(stripRect().bottom - cv.getBoundingClientRect().top) + 4; if (Number.isFinite(t) && (ovKey !== ovLast || t > ovTop || t < ovTop - 4)) ovTop = t; }
     } else {
       ovTop = 26;
       if (stripStep) { stripStepSet(0); stripKey = ''; }   // (off the strip the words are always whole and full size)
@@ -703,7 +722,7 @@ export function createDoppler({ onProbe, pickGate = true }) {
     ovLast = ovKey;
     const padL = PAD_L, padR = PAD_R, padT = ovTop, padB = ovOn ? 34 : 20, yLab = ovOn ? hh - 11 : 13;
     const W = Math.max(1, Math.round(w - padL - padR)), H = Math.max(1, Math.round(hh - padT - padB));
-    if (w < 60 || hh < 60) return;
+    if (w < 60 || hh < 60 || !Number.isFinite(H) || !Number.isFinite(W)) return;
     if (pickNext) pickWindow();
     const label = probe ? probeName(meta()) + (isStentProbe() ? ` · ${SEGS.find(([v]) => v === gateOf())[1]}` : '') : '';
     ctx.font = FONT(600, 12); ctx.fillStyle = cssAlpha('--white', .86); ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
@@ -904,7 +923,7 @@ export function createDoppler({ onProbe, pickGate = true }) {
   let raf = 0, askedAt = 0, paintAt = 0, reportDue = false;
   function loop(now) {
     raf = 0;
-    if (!frame || !cv.isConnected || !cv.offsetParent) { if (reportDue) { reportDue = false; updateReport(); } return; }
+    if (!frame || !shown()) { if (reportDue) { reportDue = false; updateReport(); } return; }
     // The running trace scrolls on every frame the screen offers (15 a second in Battery saver). Its samples are the model's,
     // whatever the frame rate: each frame adds only the columns its elapsed time covers. A change while paused draws at once.
     if (live() && !labBusy && now - paintAt < paceMs()) { raf = nextFrame(loop); return; }
@@ -918,7 +937,7 @@ export function createDoppler({ onProbe, pickGate = true }) {
   function redraw() {
     if (!frame) return;
     reportDue = true;
-    if (!cv.isConnected || !cv.offsetParent) { reportDue = false; updateReport(); }
+    if (!shown()) { reportDue = false; updateReport(); }
     askedAt = performance.now();
     if (!raf) raf = nextFrame(loop);
   }

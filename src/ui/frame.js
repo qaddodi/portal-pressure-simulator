@@ -12,6 +12,7 @@
 //
 // window.pps.perf (see perf()) reports callbacks per second for each surface over the last second.
 
+import { gpuProbe } from './gpu-probe.js?v=d4aeccea90';
 let queue = new Map();   // id -> [tag, cb], in request order
 let current = null;      // the batch running now
 let next = 1, pending = 0;
@@ -28,7 +29,7 @@ function flush(now) {
       current.delete(id);
       counts.set(tag, (counts.get(tag) || 0) + 1); totals.asks[tag] = (totals.asks[tag] || 0) + 1;
       const t0 = performance.now();
-      try { cb(now); } catch (e) { setTimeout(() => { throw e; }); }   // one surface's error never stops the others
+      try { gpuProbe.time(null, `${tag} (script)`, () => cb(now)); } catch (e) { setTimeout(() => { throw e; }); }   // one surface's error never stops the others
       totals.ms[tag] = (totals.ms[tag] || 0) + performance.now() - t0;
     }
   } finally { current = null; }

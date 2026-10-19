@@ -41,3 +41,16 @@ test('the now dot and the start ring stay whole inside the track, even past eith
   assert.ok(js.includes(`p.now.style.left = \`clamp(${r}px, \${w}%, calc(100% - ${r}px))\``), 'the dot rests against the end, whole');
   assert.ok(js.includes(`p.was.style.left = \`clamp(${r0}px, \${w0}%, calc(100% - ${r0}px))\``), 'the ring rests against the end, whole');
 });
+
+test('a tile\'s number and unit always fit inside it, shrinking together, the unit never below 12 px (pregnancy deck, 17 Oct)', () => {
+  const js = readFileSync(new URL('../src/ui/presenter.js', import.meta.url), 'utf8');
+  const body = js.slice(js.indexOf('function bigTiles()'), js.indexOf('// The six levels along the route'));
+  const fit = body.slice(body.indexOf('function fit()'), body.indexOf('function build('));
+  assert.ok(fit.length > 0, 'bigTiles has a fit');
+  assert.match(fit, /12 \/ uf/, 'the unit stops at 12 px');
+  assert.match(fit, /Math\.max\(12,/, 'the number never goes below 12 px');
+  assert.match(fit, /lineHeight = vs\.lineHeight/, 'the line keeps its height, so the card never changes size');
+  assert.match(fit, /p\.fin/, 'measured with the number it counts to as well');
+  assert.match(body, /new ResizeObserver\(fitSoon\)\.observe\(el\)/, 'again when the row changes size');
+  assert.match(body, /p\.fin = tileVal\(p\.k, to\[p\.k\]\);\s*draw\(to, ms\);\s*fitSoon\(\);/, 'every set fits');
+});

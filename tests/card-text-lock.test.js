@@ -30,7 +30,7 @@ test('one margin, padding, gap and card width, all from the body size', () => {
   assert.match(css, /\.pz-bar\.pzb-pill \{[^}]*right: var\(--pz-cm\); bottom: max\(var\(--pz-cm\)/, 'the nav pill sits one margin from the right and the bottom');
   assert.match(js, /gap = Math\.round\(0\.6 \* sl\)/);
   assert.match(js, /const top0 = cardOn && t \? sl : 0;/, 'the cards start one margin from the top');
-  assert.match(js, /const lvl = cardOn && t \? \(d && !below \? d\.top - wr\.top : off\(dd\) \? Math\.max\(sl, \(H - t\.height - 2 \* pad\) \/ 2\) : top0 \+ shift\) \+ pad : null;/, 'a teaching card alone is centred top to bottom, at least one margin from each edge');
+  assert.match(js, /: cardOn && t \? \(d && !below \? d\.top - wr\.top : off\(dd\) \? Math\.max\(sl, \(H - t\.height - 2 \* pad\) \/ 2\) : top0 \+ shift\) \+ pad : null;/, 'a teaching card alone is centred top to bottom, at least one margin from each edge');
   assert.match(js, /shift = Math\.max\(0, Math\.min\(\(H - stackH\) \/ 2 - top0, foot - top0 - stackH\)\);/, 'the stacked pair shorter than the screen is centred as one, never past one margin or the controls');
 });
 
@@ -46,7 +46,7 @@ test('a slide Doppler card lays its readings two across so labels and values nev
 
 // iPad landscape (15 Oct): when the smallest steps still leave the pair too tall, the instrument folds behind Show, as on a phone.
 test('a pair that does not fit at the smallest steps folds the instrument behind Show on a wide screen', () => {
-  assert.match(js, /if \(!below && canFold\) \{ setFolds\(true\);[^\n]*below = title\(1\); if \(!below\) ladder\(\); \}/);
+  assert.match(js, /if \(!below && canFold && !held\) \{ setFolds\(true\);[^\n]*below = title\(1\); if \(!below\) ladder\(\); \}/);
   assert.match(js, /canFold = \(dd\.classList\.contains\('has-tool'\) \|\| \(!dd\.classList\.contains\('tiles-only'\) && ladderFold === foldKey\)\) && !dd\.classList\.contains\('tool-only'\) && !dd\.classList\.contains\('tool-lead'\)/);
   assert.match(js, /if \(lock\.folds\) setFolds\(true\);/, 'the fold is part of the slide\'s locked layout');
   assert.match(js, /folds: dd\.classList\.contains\('pz-folds'\)/);
@@ -64,6 +64,50 @@ test('a ladder card folds its plot only when its own fit fails, and shown it swa
 
 test('a phone keeps the words\' height cap while a what-if slider or compare button drives the live model', () => {
   // (Re-planned on each live reading, the cap stepped as the data card's numbers changed and the teaching card shook under the finger.)
-  assert.match(js, /if \(held && \(held\.fold \|\| gone \|\| liveOff\)\) \{ dd\.classList\.toggle\('pz-folds', held\.fold\); dd\.classList\.toggle\('pz-ftight', held\.tight\); phoneFoldH = held\.foldH; return held\.cap; \}/);
+  assert.match(js, /if \(held && \(held\.shut \|\| gone \|\| liveOff\)\) \{ phoneShut = held\.shut; return held\.cap; \}/);
   assert.match(js, /async function liveSet\(s, i, patch\) \{[^}]*liveOff = true;/);
+  assert.match(js, /async function livePatient\(s, i, o\) \{[\s\S]{0,250}liveOff = true;/);
+});
+
+// A phone held sideways (Mohammad, 17 Oct, I23): the words sit in the floating card as on every other screen, not a panel at the
+// edge; the data card stays its own card at the top right, never stacked under the words; the card fades out behind a case card.
+test('a sideways phone puts its words in the floating card, level with the data card, the tab clear of the title', () => {
+  assert.match(js, /const low = !p && W > H && H <= 500;/);
+  assert.match(js, /const cardOn = TEXT_CARD && !p;/);
+  assert.match(js, /ui\.root\.classList\.toggle\('low', low\); ui\.shade\.classList\.toggle\('low', low\);/);
+  assert.match(js, /if \(cardOn && !low && t && !off\(dd\)\) \{/, 'never stacked under the words: no height for that');
+  assert.match(js, /const lvl = cardOn && low && t \? \(d \? d\.top - wr\.top : Math\.max\(vm, \(H - t\.height - pad - padT\) \/ 2\)\) \+ padT/);
+  assert.match(js, /padT = Math\.max\(pad0, tab\?\.offsetHeight \? \(tab\.offsetHeight \+ 6\) \* k : 0\);/, 'the top padding holds the deck tab clear of the title');
+  assert.match(js, /ui\.shade\.style\.height = !p && cardOn && t \? `\$\{\(t\.height \+ pad \+ padT\) \/ k\}px` : '';/);
+  assert.match(css, /\.pz\.low \.pz-text, \.pz-shade\.low \{ --pz-cm: 10px; --pz-cp: 14px; --pz-cw: min\(340px, calc\(42vw \/ var\(--vz\) \+ 28px\)\); \}/);
+  assert.match(css, /\.pz-shade\.pz-card\.low \{ left: max\(10px, env\(safe-area-inset-left, 0px\)\); \}/, 'clear of the notch');
+  assert.match(css, /\.pz\.low \{ --pz-cp: 14px; \}/, 'the data card keeps its 14 px padding');
+  assert.match(css, /\.pz\.pz-card:not\(\.stack\):not\(\.low\) \.pz-text \{ --s-title:/, 'the wide sizes leave the sideways phone its own');
+  assert.match(css, /\.pz-shade\.pz-card\.pz-leave:not\(\.stack\) \{ opacity: 0 !important;/, 'it fades out whole, behind a case card too');
+});
+
+// Sites 9 on a Mac (17 Oct): a ladder card folded behind Show was unfolded and folded again on every layout pass until the slide
+// was shown, its foot row under the words made anew each time; the words fitted without the row and the next pass came at once,
+// so the data card flashed in and out and the teaching card jumped. A card folded for this slide at this size stays folded.
+test('a data card folded for the slide at this size stays folded until the words lock', () => {
+  assert.match(js, /const held = !lock && foldHeld === foldKey && dd\.classList\.contains\('pz-folds'\);/);
+  assert.match(js, /if \(!lock && !held && dd\.classList\.contains\('pz-folds'\)\) setFolds\(false\);/);
+  assert.match(js, /if \(held\) \{ step\(1\); footFold\(\); \}/);
+  assert.match(js, /if \(!below && canFold && !held\) \{ setFolds\(true\);/);
+  assert.match(js, /foldHeld = dd\.classList\.contains\('pz-folds'\) \? foldKey : null;/);
+  assert.doesNotMatch(js, /if \(!lock && dd\.classList\.contains\('pz-folds'\)\) setFolds\(false\);/, 'never unfolded unconditionally on an unlocked pass');
+});
+
+// iPad decks (Mohammad, 17 Oct): "the teaching card appears then it snaps to its size". The words' lock was keyed only once the
+// slide was shown, so every pass while the cards eased in measured afresh. It is now keyed from the cards' last unseen layout.
+test('the teaching card keeps the size it came in at: the lock starts with the last unseen layout', () => {
+  assert.match(js, /const at = shown \|\| entering, lockKey = at \? `\$\{at\.gen\}:\$\{at\.i\}:/);
+  assert.match(js, /function cardsIn\(at\) \{ if \(ui\) \{ if \(at\) \{ entering = at; layout\(\); \} reFit\(\);/, 'keyed before the cards show');
+  assert.match(js, /bare = false; cardsIn\(\{ i: to, gen: g \}\);/);
+  assert.match(js, /if \(!bare\) \{ await caseEnd\(cut\); if \(cut\(\)\) return; cardsIn\(\{ i: to, gen: g \}\); \}/);
+  assert.match(js, /shown = null; entering = null;\n/, 'a new slide starts unlocked');
+  assert.match(js, /if \(bare\) \{ bare = false; layout\(\); cardsIn\(\); \}/, 'a cut transition never locks the next slide early');
+  // (Until the slide is shown it may still fold: its strip, lettered again as the cards came in, overflowed by 40 px and stayed
+  // squeezed under 12 px, Recompensation 2 at 200 %.)
+  assert.match(js, /!dd\.classList\.contains\('pz-folds'\) && \(!lock \|\| !shown\) && \(\(\{ v, h \}\) => v > 1 \|\| h > 1\)\(overflowOf\(dd\)\)\) \{ ladderFold = foldKey;/, 'a ladder never folds once its slide is shown');
 });

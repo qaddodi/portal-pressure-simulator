@@ -11,10 +11,10 @@
 // switch, undo/redo/reset, the Findings list, the Log instrument and Compare mode.
 
 import { store, replaceParams, onParamChange } from './store.js?v=31ee79b6ab';
-import { host } from './host.js?v=5ea6b84e46';
-import { h, toast, announce, icon, svgIcon, popover, closePopover, tooltipFor, clamp } from './util.js?v=0140acc352';
-import { activeInterventions } from './inspector.js?v=958160ed1b';
-import { frameFor } from './frame.js?v=5efaa2bcc9';
+import { host } from './host.js?v=25be84943e';
+import { h, toast, announce, icon, svgIcon, popover, closePopover, tooltipFor, clamp, putText } from './util.js?v=b6a40567da';
+import { activeInterventions } from './inspector.js?v=9b4108ce3a';
+import { frameFor } from './frame.js?v=67ca200c87';
 const nextFrame = frameFor('timeline');
 
 const SEV = { critical: 'var(--critical)', danger: 'var(--danger)', caution: 'var(--caution)', info: 'var(--info)', ok: 'var(--ok)' };
@@ -169,7 +169,9 @@ export function createTimeline({ root, onPlay, onSpeed, onJump, onRestart, scena
     const t0 = performance.now();
     const tick = (now) => {
       const u = clamp((now - t0) / 900, 0, 1);
-      if (days !== 'event') timeLong.textContent = timeShort.textContent = `Day ${Math.round(d0 + days * (1 - (1 - u) ** 3))}`;
+      // (Written only when the day shown changes: most frames of the count keep it.)
+      const t = `Day ${Math.round(d0 + days * (1 - (1 - u) ** 3))}`;
+      if (days !== 'event' && (timeLong.textContent !== t || timeShort.textContent !== t)) timeLong.textContent = timeShort.textContent = t;
       if (u < 1) nextFrame(tick); else jumping = false;
     };
     nextFrame(tick);
@@ -261,16 +263,17 @@ export function createTimeline({ root, onPlay, onSpeed, onJump, onRestart, scena
       if (e.snap) act(i === liveIndex() && cursor < 0 ? 'Back to this moment' : 'Go back here', svgIcon('rewind', 'mi-ic'), 1, () => { closePopover(); goTo(i); });
       if (e.frame) act('Compare with now', svgIcon('camera', 'mi-ic'), 2, () => { closePopover(); pinFrom(e.frame, e.label, fmtClock(e.t, e.day)); toast(`Comparing with ${fmtClock(e.t, e.day)}: ${e.label}.`); });
       const future = cursor >= 0 && i > cursor;
-      return h('div', { class: `tl-pop-row${future ? ' future' : ''}` },
+      // (key and sig: the History card updates its list in place, main.js reconcile.)
+      return h('div', { class: `tl-pop-row${future ? ' future' : ''}`, 'data-row': `${e.t}|${e.day || 0}|${e.kind}|${e.label}`, 'data-sig': `${future}|${acts.map((b) => b.title).join(',')}|${e.detail || ''}` },
         h('div', { class: 'tl-pop-head' }, h('i', { class: `tl-dot ${e.kind}`, style: { background: e.kind === 'event' ? SEV[e.sev] || SEV.info : '' } }), h('b', {}, e.kind === 'start' ? `Patient: ${e.label}` : e.label), h('span', { class: 'when' }, e.kind === 'start' ? 'Start' : fmtClock(e.t, e.day)), h('span', { class: 'tl-pop-acts' }, acts)),
         e.detail ? h('div', { class: 'tl-pop-d' }, e.detail) : null);
     });
   }
-  let lastTime = '', lastRun = null, lastRunMode = null, lastSpeed = null;
+  let lastTime = '', lastRun = null, lastRunMode = null, lastSpeed = null, lastIcon = 'pause';
   function update(f) {
     if (!jumping) {
       const t = fmtClock(f.t, f.day);
-      if (t !== lastTime) { lastTime = t; timeLong.textContent = t; timeShort.textContent = f.day > 0 ? `Day ${f.day}` : t; }
+      if (t !== lastTime) { lastTime = t; putText(timeLong, t); putText(timeShort, f.day > 0 ? `Day ${f.day}` : t); }
     }
     if (f.running !== lastRun) { lastRun = f.running; playBtn.setAttribute('aria-label', f.running ? 'Pause' : 'Play'); }
     const st = store.get(), lp = st.lapse || 0, sp = lp ? `L${lp}` : st.speed;
@@ -279,7 +282,26 @@ export function createTimeline({ root, onPlay, onSpeed, onJump, onRestart, scena
       const lap = LAPSES.find((l) => l[0] === lp);
       speedBtn.textContent = lp ? (lap ? lap[1] : `${lp} d/s`) : `${st.speed}×`;
       for (const el of [playBtn, speedBtn, playBtn.parentElement]) el?.classList.toggle('lapse', !!lp);
-      playBtn.replaceChildren(icon(f.running ? 'pause' : (lp ? 'playlapse' : 'play')));
+      // A new icon grows in from the old one's place (.18 s) rather than swapping in one frame (motion review P14); with
+      // Reduce Motion it only fades. The old icon stays in the same grid cell and fades out under it, so the button is never
+      // empty for a frame (round 2 review, RF7).
+      const ic = f.running ? 'pause' : (lp ? 'playlapse' : 'play');
+      if (ic !== lastIcon) {
+        lastIcon = ic;
+        const nu = icon(ic), still = matchMedia('(prefers-reduced-motion: reduce)').matches;
+        const old = [...playBtn.children];
+        if (!nu.animate || !playBtn.isConnected) playBtn.replaceChildren(nu);
+        else {
+          playBtn.append(nu);
+          for (const o of old) {
+            if (o.dataset.going) continue;
+            o.dataset.going = '1';
+            const a = o.animate(still ? [{ opacity: 0 }] : [{ opacity: 0, transform: 'scale(.6)' }], { duration: 120, easing: 'cubic-bezier(.4, 0, 1, 1)', fill: 'forwards' });
+            a.finished.then(() => o.remove(), () => o.remove());
+          }
+          nu.animate(still ? [{ opacity: 0 }, { opacity: 1 }] : [{ opacity: 0, transform: 'scale(.6)' }, { opacity: 1, transform: 'none' }], { duration: 180, easing: 'cubic-bezier(.2, .8, .2, 1)' });
+        }
+      }
       playBtn.title = lp ? 'Play / pause (Space): time-lapse' : 'Play / pause (Space)';
     }
     render();

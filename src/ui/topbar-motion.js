@@ -7,7 +7,7 @@
 // frame). Positions are read from offsetLeft/offsetTop, which ignore transforms, so a measure taken while
 // a glide is still playing is the true layout and an interrupted glide continues from where it was.
 // Nothing moves on a window resize or with reduced motion: the bar just takes its new layout.
-import { frameFor } from './frame.js?v=5efaa2bcc9';
+import { frameFor } from './frame.js?v=67ca200c87';
 const nextFrame = frameFor('topbar-motion');
 
 const ITEMS = '.tb-id, .tb-id > *, .sb-left, .sb-right, #viewSeg, #viewSeg > button, .sb-right > *, .top-right, .top-right > *';
@@ -76,7 +76,13 @@ export function initTopbarMotion() {
         const frames = [];
         if (Math.abs(dx) >= 1.5 || Math.abs(dy) >= 1.5) frames.push({ transform: `translate(${dx}px, ${dy}px)` }, { transform: 'none' });
         if (frames.length) { const a = el.animate(frames, { duration: MOVE_MS, easing: EASE }); a.id = 'tbm'; }
-        if (t.dw < -2 && el.matches(GROW)) ghost(el, s, { own, tot, next }, true);
+        if (t.dw < -2 && el.matches(GROW)) {
+          // A pill with its own face (the patient pill) glides its face from the old width to the new; others leave the old,
+          // wider plate fading behind them.
+          const face = el.querySelector(':scope > .tb-face');
+          if (face) face.animate([{ width: `${s.w}px` }, { width: `${n.w}px` }], { duration: MOVE_MS, easing: EASE }).id = 'tbm';
+          else ghost(el, s, { own, tot, next }, true);
+        }
         if (t.dw > 2 && el.matches(GROW)) {
           const a = el.animate([{ clipPath: `inset(-32px ${t.dw}px -32px -32px)` }, { clipPath: 'inset(-32px -32px -32px -32px)' }], { duration: MOVE_MS, easing: EASE });
           a.id = 'tbm';
@@ -136,7 +142,9 @@ export function initTopbarMotion() {
   app._sin = app.classList.contains('sin-focus');
   mo.observe(bar, { attributes: true, subtree: true, attributeFilter: ['hidden', 'class', 'data-fit'], attributeOldValue: true });
   mo.observe(app, { attributes: true, attributeFilter: ['class'], attributeOldValue: true });
-  for (const id of ['scenarioName']) { const e = document.getElementById(id); if (e) mo.observe(e, { childList: true, characterData: true, subtree: true }); }
+  // (And the lens key and its name, which a new lens swaps: the Blood chip beside them jumped 11-36 px on every L; round 2
+  // review, RF4.)
+  for (const id of ['scenarioName', 'legend', 'colorModeLabel']) { const e = document.getElementById(id); if (e) mo.observe(e, { childList: true, characterData: true, subtree: true }); }
 
   // Layout that changes with no mutation of ours (fonts, a resize) is only recorded, never animated.
   const ro = new ResizeObserver(() => { if (snap) resnap(); });

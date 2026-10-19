@@ -4,11 +4,13 @@
 // entry in the timeline; nothing stays "armed".
 
 import { store, updateParams } from './store.js?v=31ee79b6ab';
-import { h, icon, svgIcon, clamp, infoButton, sinkTo, stopSink } from './util.js?v=0140acc352';
-import { cardFor, normalizeSel } from './actions.js?v=2502de316d';
-import { frameFor, cancelFrame } from './frame.js?v=5efaa2bcc9';
+import { h, icon, svgIcon, clamp, infoButton, sinkTo, stopSink, paintRange, isPhoneLayout, countTo, swapText, transformEndX, afterExit } from './util.js?v=b6a40567da';
+import { cardFor, normalizeSel } from './actions.js?v=46de443924';
+import { frameFor, cancelFrame } from './frame.js?v=67ca200c87';
 import { placeCard, coverCount, vesselPoints } from './card-place.js?v=4eb9859ce3';
 const nextFrame = frameFor('card');
+// A reading's printed number ("12.5", "−3.0"), with its decimals, or null for one that isn't a plain number.
+const numOf = (t) => { const s = String(t).replace('−', '-'); return /^-?\d+(\.\d+)?$/.test(s) ? { n: +s, d: (s.split('.')[1] || '').length } : null; };
 
 
 export function createCard({ view, stage, ctx, onWhy, onDetails }) {
@@ -73,10 +75,10 @@ export function createCard({ view, stage, ctx, onWhy, onDetails }) {
     stopSheetGesture();
     if (el.dataset.swiped) { delete el.dataset.swiped; el.hidden = true; el.style.removeProperty('--sink'); }   // (pulled away: already out of sight behind the tab row)
     if (!el.hidden && !el.classList.contains('ac-leaving')) {
-      if (isDocked() && !matchMedia('(prefers-reduced-motion: reduce)').matches) {
-        el.classList.add('ac-leaving');
-        closeTimer = setTimeout(() => { el.hidden = true; el.classList.remove('ac-leaving'); }, 180);
-      } else el.hidden = true;
+      // (Docked, it sinks away; a desktop card fades out where it stands: it had closed in one frame.)
+      // (With Reduce Motion both only fade: app.css turns the keyframes into fades.)
+      el.classList.add('ac-leaving');
+      closeTimer = afterExit(el, 'ac-leaving', () => { el.hidden = true; el.classList.remove('ac-leaving'); });
     }
     model = null; live = []; syncs = []; actionable = [];
     leader.replaceChildren(); placedFor = '';
@@ -100,20 +102,35 @@ export function createCard({ view, stage, ctx, onWhy, onDetails }) {
     el.dataset.card = (normalizeSel(sel) || sel).type || 'vessel';
     model = m; selRef = sel; live = []; syncs = []; actionable = [];
     const close = h('button', { class: 'ib ac-close', 'aria-label': 'Close', title: 'Close (Esc)', onclick: () => store.set({ selection: null }) }, icon('close'));
-    const valEl = h('div', { class: 'ac-value' });
-    const pillEl = h('div', { class: 'ac-status' });
+    // The reading, then its status as a coloured word (as the data card tiles' status words).
+    const numEl = h('span', { class: 'ac-num' }), pillEl = h('span', { class: 'ac-state' });
+    const valEl = h('div', { class: 'ac-value' }, numEl, pillEl);
     live.push(() => {
       const f = store.get().frame;
       if (!f) return;
-      if (lens() === 'neutral' && model.why !== 'spleen' && model.why !== 'ascites') { if (valEl._sig !== 'n') { valEl._sig = 'n'; valEl.replaceChildren(h('span', { class: 'ac-unmeasured' }, 'Pressure unmeasured')); } }
+      if (lens() === 'neutral' && model.why !== 'spleen' && model.why !== 'ascites') { if (valEl._sig !== 'n') { valEl._sig = 'n'; numEl.replaceChildren(h('span', { class: 'ac-unmeasured' }, 'Pressure unmeasured')); } }
       else {
         const v = m.value(f, lens(), refP());
         const sig = `${v.v}|${v.u}|${v.d || ''}|${v.up ? 1 : 0}`;
-        if (valEl._sig !== sig) { valEl._sig = sig; valEl.replaceChildren(h('b', {}, v.v), h('span', { class: 'unit' }, v.u), v.d ? h('span', { class: 'ac-delta ' + (v.up ? 'up' : 'down') }, v.d) : null); }
+        if (valEl._sig !== sig) {
+          // The same reading with a new number rolls to it, a paused edit or a treatment included (P17); anything else is
+          // drawn afresh.
+          const was = valEl._v, a = numOf(v.v), b = was && numOf(was.v), numB = numEl.firstChild;
+          if (a && b && a.d === b.d && was.u === v.u && !!was.d === !!v.d && numB?.tagName === 'B') {
+            countTo(numB, a.n, a.d, { eased: store.get().running });
+            const dl = numEl.querySelector('.ac-delta');
+            if (dl) { dl.textContent = v.d; dl.className = 'ac-delta ' + (v.up ? 'up' : 'down'); }
+          } else {
+            numEl.replaceChildren(h('b', {}, v.v), h('span', { class: 'unit' }, v.u), v.d ? h('span', { class: 'ac-delta ' + (v.up ? 'up' : 'down') }, v.d) : null);
+            if (a) countTo(numEl.firstChild, a.n, a.d);   // (its starting point for the next roll)
+          }
+          valEl._sig = sig; valEl._v = v;
+        }
       }
+      // The status word crossfades to a new one, its colour easing with it.
       const s = m.status?.(f);
-      if (s) { if (pillEl._s !== s.join()) { pillEl.replaceChildren(h('span', { class: 'pill ' + s[0] }, s[1])); pillEl._s = s.join(); } }
-      else if (pillEl._s) { pillEl.replaceChildren(); pillEl._s = ''; }
+      if (s) { if (pillEl._s !== s.join()) { const cls = 'ac-state st-word ' + s[0]; if (!pillEl._s) pillEl.className = cls; swapText(pillEl, s[1], () => { pillEl.className = cls; }); pillEl._s = s.join(); } }
+      else if (pillEl._s) { swapText(pillEl, '', () => { pillEl.className = 'ac-state'; }); pillEl._s = ''; }
     });
     const body = h('div', { class: 'ac-body' });
     // Readouts that follow one another sit side by side on a phone (a lone one takes the whole row).
@@ -134,19 +151,34 @@ export function createCard({ view, stage, ctx, onWhy, onDetails }) {
       } else { statRun = btnRun = null; body.append(node); }
     }
     // Why? and Details are written twice and shown once: in the header on a phone (where a row of their own would
-    // be a strip of wasted sheet) and at the foot on a desktop.
+    // be a strip of wasted sheet) and at the foot on a desktop. The phone header has one word link: Details when there
+    // is one (its "Why this value?" holds the Why), otherwise Why?.
     const mkFoot = (where) => h('div', { class: 'ac-foot ' + where },
-      h('button', { class: 'link', 'aria-label': 'Why?', title: 'Why?', onclick: (e) => onWhy(m.why, e.currentTarget) }, svgIcon('bulb', 'mi-ic'), h('span', { class: 'ac-link-text' }, 'Why?')),
+      where === 'in-head' && !m.noDetails ? null : h('button', { class: 'link', 'aria-label': 'Why?', title: 'Why?', onclick: (e) => onWhy(m.why, e.currentTarget) }, svgIcon('bulb', 'mi-ic'), h('span', { class: 'ac-link-text' }, 'Why?')),
       m.noDetails ? null : h('button', { class: 'link', 'aria-label': 'Details', title: 'Details', onclick: () => onDetails(selRef) }, h('span', { class: 'ac-link-text' }, 'Details'), svgIcon('chev-right', 'mi-ic')));
     const foot = mkFoot('at-foot');
     // One compact phone sheet: drag the header down to dismiss.
     const top = h('div', { class: 'ac-top' },
       h('header', { class: 'ac-head' }, h('div', { class: 'ac-titles' }, h('span', { class: 'ac-kicker' }, m.kicker), h('h3', {}, m.title)), mkFoot('in-head'), close),
-      h('div', { class: 'ac-readout' }, valEl, pillEl));
+      h('div', { class: 'ac-readout' }, valEl));
     wireSheet(top);
     const scroller = h('div', { class: 'ac-scroll' }, body);
     scroller.addEventListener('scroll', syncMore, { passive: true });
+    const swap = !el.hidden && !same && !!el.animate;
+    const was = swap ? [...el.children].filter((c) => !c.classList.contains('ac-ghost')) : [];
+    el.querySelector(':scope > .ac-ghost')?.remove();
     el.replaceChildren(top, scroller, foot);
+    // Another vessel picked while the card is open: its contents fade in, rather than the words changing in one frame, and
+    // the old ones fade out over them from a layer on top that takes no taps, instead of vanishing first (round 2 review, RF7).
+    if (swap) {
+      for (const c of el.children) c.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 200, easing: 'cubic-bezier(.2, .8, .2, 1)' });
+      if (was.length) {
+        const ghost = h('div', { class: 'ac-ghost', 'aria-hidden': 'true', inert: '' }, ...was);
+        el.append(ghost);
+        const a = ghost.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 140, easing: 'cubic-bezier(.4, 0, 1, 1)', fill: 'forwards' });
+        a.finished.then(() => ghost.remove(), () => ghost.remove());
+      }
+    }
     el.setAttribute('aria-label', `${m.title}: actions`);
     el.hidden = false;
     // Number keys trigger the verbs in order; show the number beside each.
@@ -212,7 +244,6 @@ export function createCard({ view, stage, ctx, onWhy, onDetails }) {
     if (v.type === 'about') {
       // What this is and what is happening to it now, in plain words (as the lobule's cards).
       const box = h('div', { class: 'ac-about' });
-      box.addEventListener('click', () => box.classList.toggle('full'));
       live.push(() => {
         const t = v.text(store.get().frame) || [], sig = t.join('\n');
         if (box._sig !== sig) { box._sig = sig; box.replaceChildren(t.map((x) => h('p', {}, x))); }
@@ -232,7 +263,7 @@ export function createCard({ view, stage, ctx, onWhy, onDetails }) {
       const lab = typeof v.label === 'function' ? v.label() : v.label;
       const input = h('input', { type: 'range', min: v.min, max: v.max, step: v.step, 'aria-label': lab, 'data-def': v.def ?? null });
       const val = h('span', { class: 'ctl-val' });
-      const paint = (x) => { input.value = x; val.textContent = v.format(x); input.style.setProperty('--pct', `${((x - v.min) / (v.max - v.min)) * 100}%`); row.classList.toggle('changed', v.def != null && Math.abs(x - v.def) > 1e-9); };
+      const paint = (x) => { input.value = x; val.textContent = v.format(x); paintRange(input, (x - v.min) / (v.max - v.min)); row.classList.toggle('changed', v.def != null && Math.abs(x - v.def) > 1e-9); };
       let fresh = true;
       input.addEventListener('pointerdown', () => { fresh = true; });
       input.addEventListener('keydown', () => { fresh = true; });
@@ -306,14 +337,15 @@ export function createCard({ view, stage, ctx, onWhy, onDetails }) {
     if (v.type === 'drain') {
       const vol = h('input', { type: 'range', min: 1, max: 10, step: 0.5, value: 5, 'aria-label': 'Volume to drain (L)' });
       const volLbl = h('span', { class: 'ctl-val' });
-      const paintVol = () => { volLbl.textContent = `${(+vol.value).toFixed(1)} L`; vol.style.setProperty('--pct', `${((+vol.value - 1) / 9) * 100}%`); };
+      const volWrap = h('div', { class: 'range-wrap' }, vol);
+      const paintVol = () => { volLbl.textContent = `${(+vol.value).toFixed(1)} L`; paintRange(vol, (+vol.value - 1) / 9); };
       vol.addEventListener('input', paintVol); paintVol();
       const alb = h('input', { type: 'checkbox', checked: true });
       const go = h('button', { class: 'ac-btn' }, svgIcon('needle', 'ac-ic'), h('span', { class: 'ac-bl' }, 'Drain'));
       go.addEventListener('click', () => ctx.action({ kind: 'paracentesis', mL: +vol.value * 1000, albumin: alb.checked }));
       actionable.push({ el: go, run: () => go.click(), focus: () => go.focus() });
       return h('div', { class: 'ac-drain' },
-        h('div', { class: 'ctl-top' }, h('span', { class: 'ac-label' }, svgIcon('needle', 'ac-ic'), 'Paracentesis'), volLbl), h('div', { class: 'range-wrap' }, vol),
+        h('div', { class: 'ctl-top' }, h('span', { class: 'ac-label' }, svgIcon('needle', 'ac-ic'), 'Paracentesis'), volLbl), volWrap,
         h('div', { class: 'ac-drain-row' }, h('label', { class: 'check-row' }, alb, 'Albumin 8 g/L'), go));
     }
     return null;
@@ -342,12 +374,12 @@ export function createCard({ view, stage, ctx, onWhy, onDetails }) {
     el.style.maxHeight = '';
     const pill = view.querySelector('.zoom-pill'), box = el.offsetParent;
     if (el.hidden || el.classList.contains('docked') || !box || !pill || pill.offsetParent !== box || !pill.offsetHeight) return;
-    const pt = pill.offsetTop, pl = pill.offsetLeft, top = el.offsetTop;
+    const pt = pill.offsetTop, pl = pill.offsetLeft + transformEndX(pill), top = el.offsetTop;   // (its glide aside is a transform: RF2)
     if (el.offsetLeft < pl + pill.offsetWidth && el.offsetLeft + el.offsetWidth > pl && top + el.offsetHeight > pt - 8) el.style.maxHeight = Math.max(200, pt - 8 - top) + 'px';
   }
   function position() {
     if (!model || el.hidden) return;
-    if (matchMedia('(max-width: 767px), (max-width: 1023px) and (max-height: 500px) and (orientation: landscape)').matches) {
+    if (isPhoneLayout()) {
       if (el.parentNode !== dockHost) dockHost.append(el);
       el.style.left = ''; el.style.top = ''; el.classList.add('docked'); leader.replaceChildren(); return;
     }
