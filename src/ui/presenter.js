@@ -93,6 +93,21 @@ export const slideLens = (s) => (!s?.visual && LENS_KEY[s?.lens] ? s.lens : 'pre
 const PRESSURE_KEY = ['pressure', () => gradientCss('to right', 30), 'Low', 'High'];
 const lensButtons = (s) => !!s.compare?.some((o) => o.lens);
 const gateButtons = (s) => !!s.compare?.some((o) => o.gate);
+/** What a compare slide's button k does. A lens button ({ label, lens }) crossfades the figure to that lens and a gate
+ *  button ({ label, gate }) moves the stent Doppler's gate, the model untouched. A patient button ({ label, preset, block? })
+ *  eases the live model to that patient, computed with the slide's states; the slide's own button eases back to the slide's
+ *  exact state when the row has a patient button or when it names no params of its own ({ label, own: true }: the slide's
+ *  state is its params, Mohammad, 19 Oct: "when i click no tips then tips again the tips doesn't come"). A normal heart is
+ *  then a healthy circulation (none of the failing heart's retained fluid or ascites is left behind), and the failing heart
+ *  is the slide's numbers exactly. Any other button patches the live model's params with its own.
+ *  → { kind: 'lens', lens } | { kind: 'gate', gate } | { kind: 'state' } | { kind: 'params', patch } */
+export function abChoice(compare, k) {
+  const o = compare[k];
+  if (o.lens) return { kind: 'lens', lens: o.lens };
+  if (o.gate) return { kind: 'gate', gate: o.gate };
+  if (o.preset || (o.own && (!o.params || compare.some((p) => p.preset)))) return { kind: 'state' };
+  return { kind: 'params', patch: o.params || {} };
+}
 // The key for the small pill on the figure (figure-key.js): the lens named, then its colour scale under it (a gradient has no end words; named swatches keep their names).
 // (The pressure-drop key also names its ends, "Low ▬▬ High", as the velocity key does: a bare green bar did not say which end was
 // which (17 Oct design review). The other scales keep the bar alone.)
@@ -1496,14 +1511,11 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   function abPick(s, i, k) {
     if (!deck || shown?.i !== i || slides[i] !== s) return;
     ui?.text.querySelectorAll('.pz-abb').forEach((b, j) => b.setAttribute('aria-pressed', String(j === k)));
-    if (s.compare[k].lens) { lensPick(s.compare[k].lens, s); return; }
-    // A gate button ({ label, gate }): the Doppler samples that third of the stent; the model is untouched.
-    if (s.compare[k].gate) { store.set({ dopGate: s.compare[k].gate }); return; }
-    // A patient button ({ label, preset, block? }): the live model eases to that patient, computed with the slide's states,
-    // and the slide's own button eases back to the slide's own state. A normal heart is then a healthy circulation (none of
-    // the failing heart's retained fluid or ascites is left behind), and the failing heart is the slide's numbers exactly.
-    if (s.compare[k].preset || (s.compare[k].own && s.compare.some((o) => o.preset))) { livePatient(s, i, s.compare[k]); return; }
-    liveSet(s, i, s.compare[k].params);
+    const c = abChoice(s.compare, k);
+    if (c.kind === 'lens') { lensPick(c.lens, s); return; }
+    if (c.kind === 'gate') { store.set({ dopGate: c.gate }); return; }
+    if (c.kind === 'state') { livePatient(s, i, s.compare[k]); return; }
+    liveSet(s, i, c.patch);
   }
   // The ladder's block on a station (block: 'ra') follows the button pressed: a patient button gives its own (none, unless it
   // names one), the slide's own button the slide's. Cleared when a slide is shown afresh, its own button pressed.
@@ -1551,7 +1563,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     if (!deck || shown?.i !== i || slides[i] !== s) return;
     const g = ++abGen, ref = refOf(s, i), mine = () => g === abGen && shown?.i === i && !!deck;
     liveOff = true;
-    replaceParams(merge(structuredClone(store.get().params), patch));
+    replaceParams(merge(structuredClone(store.get().params), patch || {}));
     host.send({ type: 'setParams', params: store.get().params, settle: false, ease: 1200 });
     host.send({ type: 'run', running: true, clock: 'hemo', speed: 1 });
     const keys = [...new Set([...tileKeys(s), ...(s.key || []), ...(s.data === 'ladder' ? ['pv', 'whvp', 'fhvp', 'ivc', 'ra', 'hvpg', 'ppg'] : [])])];

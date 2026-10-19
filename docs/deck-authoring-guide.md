@@ -382,7 +382,7 @@ Visuals may also carry `cam` (how the dimmed figure is framed).
 
 #### `compare`: live treatment buttons
 
-`compare: [{ label, params, own?, short? }, …]`: buttons switch the live model between treatments in real time. `params`: each option's **full set of the switched keys** (switch off the others: e.g. every drug flag), `own: true` marks the option that is the slide's own state. `short` is a compact label a phone uses where the full names would wrap (`'Prop.'`). Use with `data` so the numbers update.
+`compare: [{ label, params, own?, short? }, …]`: buttons switch the live model between treatments in real time. `params`: each option's **full set of the switched keys** (switch off the others: e.g. every drug flag), `own: true` marks the option that is the slide's own state. An `own` option may leave out `params`: it then eases back to the slide's exact state. `short` is a compact label a phone uses where the full names would wrap (`'Prop.'`). Use with `data` so the numbers update.
 
 On a stent Doppler slide, `{ label, gate, own? }` buttons move the Doppler's gate (`'proximal'`, `'mid'`, `'distal'`, `'site'`) without touching the model (TIPS Doppler).
 
