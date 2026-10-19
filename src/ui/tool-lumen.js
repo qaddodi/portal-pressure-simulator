@@ -91,6 +91,16 @@ export function lumenFacts({ thrombus = 0, stenosis = 0 }, stentD = null) {
 }
 const pct = (x) => `${Math.round(clamp(x, 0, 1) * 100)}`;
 
+/** Where the words in the circle sit for a filled share (0 to 1), in the 100-unit picture. Nothing filled: the name alone at
+ *  the centre, no number. As a clot appears (over the first 6 %, the clot's own fade) the name first eases up to its place
+ *  above the %, and only once it is there do the % and "occluded" fade in under it (in reverse as the clot leaves), so the
+ *  name and the number never overlap at any frame of the move. */
+export const LUMEN_NAME_Y = 35, LUMEN_NUM_Y = 52, LUMEN_WORD_Y = 68;
+export function lumenBlock(occlusion) {
+  const m = Math.max(0, occlusion) / 0.06;
+  return { nameY: 50 + (LUMEN_NAME_Y - 50) * smooth(0, 0.5, m), numOpacity: smooth(0.5, 1, m) };
+}
+
 const SVGNS = 'http://www.w3.org/2000/svg';
 const sv = (tag, attrs = {}) => { const el = document.createElementNS(SVGNS, tag); for (const [k, v] of Object.entries(attrs)) el.setAttribute(k, v); return el; };
 
@@ -105,11 +115,11 @@ export function createLumen() {
   // it reads over the open lumen and the clot alike; the clot fills in behind it. Nothing else under the picture: a deck that
   // wants the grade shows the "clot" tile on the data card.
   // The vessel's name, the number and the word under it are one block, centred on the vessel's centre; the word fades with
-  // the number, and the name stays at 0 %, so the circle always says which vessel it is. The block sits a little low, where
-  // the circle is wider, so "Proximal TIPS" fits inside the lumen at 12 px on a phone's 120 px picture.
-  const inName = sv('text', { class: 'gl-in gl-word gl-name', x: 50, y: 35, 'text-anchor': 'middle', 'dominant-baseline': 'central' });
-  const inNum = sv('text', { class: 'gl-in', x: 50, y: 52, 'text-anchor': 'middle', 'dominant-baseline': 'central' });
-  const inWord = sv('text', { class: 'gl-in gl-word', x: 50, y: 68, 'text-anchor': 'middle', 'dominant-baseline': 'central' });
+  // the number, and the name stays at 0 %, so the circle always says which vessel it is (centred then; lumenBlock). The block
+  // sits a little low, where the circle is wider, so "Proximal TIPS" fits inside the lumen at 12 px on a phone's 120 px picture.
+  const inName = sv('text', { class: 'gl-in gl-word gl-name', x: 50, y: 50, 'text-anchor': 'middle', 'dominant-baseline': 'central' });
+  const inNum = sv('text', { class: 'gl-in', x: 50, y: LUMEN_NUM_Y, 'text-anchor': 'middle', 'dominant-baseline': 'central' });
+  const inWord = sv('text', { class: 'gl-in gl-word', x: 50, y: LUMEN_WORD_Y, 'text-anchor': 'middle', 'dominant-baseline': 'central' });
   inWord.textContent = 'occluded';
   // Tissue narrowing a stent, in the clot's colour and edge so it reads at a glance against the open lumen.
   const tissue = sv('circle', { class: 'gl-clot gl-tissue', cx: 50, cy: 50, r: LUMEN_R - LUMEN_WALL });
@@ -128,8 +138,11 @@ export function createLumen() {
     tissue.style.display = STENTS.has(id) ? '' : 'none';
     tissue.style.opacity = Math.min(1, x.stenosis / 0.06).toFixed(3);
     set(inNum, `${pct(L.occlusion)} %`);
-    // With nothing filled there is no number; it fades in with the clot (the same ramp) and out as it leaves, never popping.
-    inWord.style.opacity = inNum.style.opacity = Math.min(1, L.occlusion / 0.06).toFixed(3);
+    // With nothing filled there is no number and the name sits at the centre; as the clot comes the name eases up and the
+    // number fades in under it once clear (and back as it leaves), following the easing picture, never popping.
+    const b = lumenBlock(L.occlusion);
+    inWord.style.opacity = inNum.style.opacity = b.numOpacity.toFixed(3);
+    inName.setAttribute('y', b.nameY.toFixed(2));
     pic.setAttribute('aria-label', `${lumenName(id)} in cross-section: ${pct(L.occlusion)}% of the lumen filled, clot ${pct(x.thrombus)}%, narrowing ${pct(x.stenosis)}%`);
   }
   function tick(now) {

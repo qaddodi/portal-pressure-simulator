@@ -9,7 +9,7 @@ import { readFileSync } from 'node:fs';
 import { Engine } from '../src/engine/engine.js';
 import { computeMetrics } from '../src/engine/metrics.js';
 import { createCore } from '../src/worker-core.js';
-import { lumenOf, lumenShape, lumenWords, lumenFacts, lumenLabel, lumenSite, clotPath, LUMEN_R, LUMEN_WALL } from '../src/ui/tool-lumen.js';
+import { lumenOf, lumenShape, lumenWords, lumenFacts, lumenLabel, lumenSite, lumenBlock, LUMEN_NAME_Y, LUMEN_NUM_Y, LUMEN_WORD_Y, clotPath, LUMEN_R, LUMEN_WALL } from '../src/ui/tool-lumen.js';
 import { fluidOf, fluidBars, fluidWords, sinusoidForces, pinnedForces } from '../src/ui/tool-fluid.js';
 import { pulsatility, caliperPick, caliperFrame, caliperGlide, CAL_GLIDE, CAL_SECS, pairOf, pairBand, pairScale, PAIR_GAP } from '../src/ui/doppler-marks.js';
 import ext from '../src/ui/ext-instruments.js';
@@ -197,7 +197,10 @@ test('V19: the % in the cross-section is large, and "100 %" still clears the inn
 
 test('V19: the % in the cross-section fades with the share filled, so nothing shows at 0 %', () => {
   const src = readFileSync(new URL('../src/ui/tool-lumen.js', import.meta.url), 'utf8');
-  assert.match(src, /inNum\.style\.opacity = Math\.min\(1, L\.occlusion \/ 0\.06\)/);
+  assert.match(src, /inWord\.style\.opacity = inNum\.style\.opacity = b\.numOpacity/);
+  assert.equal(lumenBlock(0).numOpacity, 0, 'nothing filled: no number');
+  assert.equal(lumenBlock(0.06).numOpacity, 1, 'shown in full by 6 %');
+  for (let o = 0; o < 0.06; o += 0.001) assert.ok(lumenBlock(o + 0.001).numOpacity >= lumenBlock(o).numOpacity, 'it fades in steadily');
 });
 
 test('V19: "occluded" sits under the % as one block, fades with it, and is never under 12 px on screen', () => {
@@ -205,8 +208,9 @@ test('V19: "occluded" sits under the % as one block, fades with it, and is never
   const css = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
   assert.match(src, /inWord\.textContent = 'occluded'/);
   assert.match(src, /inWord\.style\.opacity = inNum\.style\.opacity/);
-  const y = (re) => +src.match(re)[1];
-  const yn = y(/inNum = sv\('text'[^)]*y: (\d+)/), yw = y(/inWord = sv\('text'[^)]*y: (\d+)/);
+  assert.match(src, /inNum = sv\('text'[^)]*y: LUMEN_NUM_Y/);
+  assert.match(src, /inWord = sv\('text'[^)]*y: LUMEN_WORD_Y/);
+  const yn = LUMEN_NUM_Y, yw = LUMEN_WORD_Y;
   assert.ok(yw > yn + 12, 'the word is under the number');
   // The word's font: 12 px on screen (12 / px-per-unit units), held between 9 and 12 units; the number is 22 units.
   const rule = css.match(/^\.gl-word \{([^}]*)\}/m)[1];
@@ -220,12 +224,14 @@ test('V19: "occluded" sits under the % as one block, fades with it, and is never
 
 test('V19: the vessel\'s name sits above the % in the circle, stays at 0 %, fits inside the lumen, and a deck may set its own', () => {
   const src = readFileSync(new URL('../src/ui/tool-lumen.js', import.meta.url), 'utf8');
-  const y = (re) => +src.match(re)[1];
-  const ya = y(/inName = sv\('text'[^)]*y: (\d+)/), yn = y(/inNum = sv\('text'[^)]*y: (\d+)/), yw = y(/inWord = sv\('text'[^)]*y: (\d+)/);
+  const ya = LUMEN_NAME_Y, yn = LUMEN_NUM_Y, yw = LUMEN_WORD_Y;
   assert.ok(ya < yn - 12, 'the name is above the number');
   assert.ok(Math.abs((ya + yw) / 2 - 50) <= 2, 'name, number and word are one block centred on the vessel');
   assert.match(src, /inName = sv\('text', \{ class: 'gl-in gl-word gl-name'/, 'the name is the size of "occluded", so it keeps the 12 px floor');
   assert.doesNotMatch(src, /inName\.style\.opacity/, 'the name never fades: the circle always says what it is');
+  assert.match(src, /inName\.setAttribute\('y', b\.nameY/);
+  assert.equal(lumenBlock(0).nameY, 50, 'alone, the name sits at the vessel\'s centre');
+  assert.equal(lumenBlock(0.06).nameY, ya, 'with a clot it sits above the %');
   assert.equal(lumenLabel('PV_TRUNK'), 'Portal vein');
   assert.equal(lumenLabel('TIPS'), 'Distal TIPS');
   assert.equal(lumenLabel('TIPS', null, 'proximal'), 'Proximal TIPS');
@@ -244,5 +250,21 @@ test('V19: the vessel\'s name sits above the % in the circle, stays at 0 %, fits
   for (const fs of [9, 10]) for (const t of names) {
     const top = ya - fs / 2, chord = 2 * Math.sqrt((LUMEN_R - LUMEN_WALL) ** 2 - (top - 50) ** 2);
     assert.ok(em(t) * fs + 2 <= chord - 4, `"${t}" fits the circle at ${fs} units: ${(em(t) * fs + 2).toFixed(1)} of ${chord.toFixed(1)}`);
+  }
+});
+
+test('V19: the vessel\'s name and the % never overlap at any frame as a clot comes or goes, on phone, iPad and Mac', () => {
+  // The name's font is the word's: 12 px on screen, 9 units from 1.33 px per unit up (iPad, Mac), 10 at a phone's 1.2,
+  // 12 under 1 px per unit. Its box: 0.55 em each side of its centre (descenders too) plus half the 1.3 outline. The %'s
+  // digits: 0.727 em of 22 units tall about its centre, plus half its 1.9 outline.
+  const numTop = LUMEN_NUM_Y - 0.727 * 22 / 2 - 0.95;
+  for (const fs of [9, 10, 12]) {
+    let prevY = 50;
+    for (let i = 0; i <= 2000; i++) {
+      const o = i / 2000 * 0.1, b = lumenBlock(o), nameBottom = b.nameY + 0.55 * fs + 0.65;
+      if (b.numOpacity > 0) assert.ok(nameBottom <= numTop, `${fs} units, ${(o * 100).toFixed(2)} % filled: name ends at ${nameBottom.toFixed(2)}, % starts at ${numTop.toFixed(2)}`);
+      assert.ok(b.nameY <= prevY + 1e-12 && prevY - b.nameY < 0.1, 'the name glides up, never jumps');
+      prevY = b.nameY;
+    }
   }
 });
