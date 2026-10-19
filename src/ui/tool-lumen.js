@@ -17,10 +17,17 @@ const NAME = { PV_TRUNK: 'main portal vein', PVH_R: 'right portal vein', PVH_L: 
   SMV_CONF: 'superior mesenteric vein', RHV_IVC: 'right hepatic vein', MHV_IVC: 'middle hepatic vein', LHV_IVC: 'left hepatic vein', IVCS_RA: 'inferior vena cava', TIPS: 'TIPS', DIPS: 'DIPS' };
 export const lumenName = (id) => NAME[id] || EDGES.find((e) => e.id === id)?.label?.toLowerCase() || 'portal vein';
 // The name written in the circle above the %, short enough to fit inside the lumen at the 12 px floor (a deck may set its own,
-// tool.name, kept to about a dozen letters): "Right PV" and "Middle HV" abbreviate, as crowded vessel labels do.
+// tool.name, kept to about a dozen letters): "Right PV" and "Middle HV" abbreviate, as crowded vessel labels do. A stent is
+// named by where along it the section is cut, as the Doppler names its segments: proximal is the portal end, distal the
+// hepatic vein end ("Distal TIPS").
 const LABEL = { PV_TRUNK: 'Portal vein', PVH_R: 'Right PV', PVH_L: 'Left PV', SV_CONF: 'Splenic vein', SV_MID: 'Splenic vein', V_SPL: 'Splenic vein',
-  SMV_CONF: 'SMV', RHV_IVC: 'Right HV', MHV_IVC: 'Middle HV', LHV_IVC: 'Left HV', IVCS_RA: 'IVC', IVCI: 'IVC', IVCS: 'IVC', TIPS: 'TIPS stent', DIPS: 'DIPS stent' };
-export const lumenLabel = (id, name) => (typeof name === 'string' && name.trim()) || LABEL[id] || (([c, ...r]) => c.toUpperCase() + r.join(''))(lumenName(id));
+  SMV_CONF: 'SMV', RHV_IVC: 'Right HV', MHV_IVC: 'Middle HV', LHV_IVC: 'Left HV', IVCS_RA: 'IVC', IVCI: 'IVC', IVCS: 'IVC' };
+export const STENT_SITES = ['proximal', 'mid', 'distal'];
+/** Where along a stent the section is cut: the slide's tool.site, else the segment its narrowing sits in
+ *  (params.stenosisSite, distal if unset, as scenario.js and the Doppler take it). */
+export const lumenSite = (params, id, site) => STENT_SITES.includes(site) ? site : STENT_SITES.includes(params?.stenosisSite?.[id]) ? params.stenosisSite[id] : 'distal';
+export const lumenLabel = (id, name, site = 'distal') => (typeof name === 'string' && name.trim())
+  || (STENTS.has(id) ? `${site[0].toUpperCase()}${site.slice(1)} ${id}` : LABEL[id]) || (([c, ...r]) => c.toUpperCase() + r.join(''))(lumenName(id));
 
 /** A vessel's lumen from the model's params: clot and narrowing (0 to 1 each), combined as the engine combines them
  *  (engine.js occlusion: 1 − (1 − narrowing)(1 − clot)), and the open fraction of the lumen that is left. */
@@ -88,7 +95,7 @@ const SVGNS = 'http://www.w3.org/2000/svg';
 const sv = (tag, attrs = {}) => { const el = document.createElementNS(SVGNS, tag); for (const [k, v] of Object.entries(attrs)) el.setAttribute(k, v); return el; };
 
 export function createLumen() {
-  let id = 'PV_TRUNK';
+  let id = 'PV_TRUNK', tool = null;
   const wall = sv('circle', { class: 'gl-wall', cx: 50, cy: 50, r: LUMEN_R });
   const lumen = sv('circle', { class: 'gl-open', cx: 50, cy: 50 });
   const clot = sv('path', { class: 'gl-clot' });
@@ -98,10 +105,11 @@ export function createLumen() {
   // it reads over the open lumen and the clot alike; the clot fills in behind it. Nothing else under the picture: a deck that
   // wants the grade shows the "clot" tile on the data card.
   // The vessel's name, the number and the word under it are one block, centred on the vessel's centre; the word fades with
-  // the number, and the name stays at 0 %, so the circle always says which vessel it is.
-  const inName = sv('text', { class: 'gl-in gl-word gl-name', x: 50, y: 33, 'text-anchor': 'middle', 'dominant-baseline': 'central' });
-  const inNum = sv('text', { class: 'gl-in', x: 50, y: 50, 'text-anchor': 'middle', 'dominant-baseline': 'central' });
-  const inWord = sv('text', { class: 'gl-in gl-word', x: 50, y: 66, 'text-anchor': 'middle', 'dominant-baseline': 'central' });
+  // the number, and the name stays at 0 %, so the circle always says which vessel it is. The block sits a little low, where
+  // the circle is wider, so "Proximal TIPS" fits inside the lumen at 12 px on a phone's 120 px picture.
+  const inName = sv('text', { class: 'gl-in gl-word gl-name', x: 50, y: 35, 'text-anchor': 'middle', 'dominant-baseline': 'central' });
+  const inNum = sv('text', { class: 'gl-in', x: 50, y: 52, 'text-anchor': 'middle', 'dominant-baseline': 'central' });
+  const inWord = sv('text', { class: 'gl-in gl-word', x: 50, y: 68, 'text-anchor': 'middle', 'dominant-baseline': 'central' });
   inWord.textContent = 'occluded';
   // Tissue narrowing a stent, in the clot's colour and edge so it reads at a glance against the open lumen.
   const tissue = sv('circle', { class: 'gl-clot gl-tissue', cx: 50, cy: 50, r: LUMEN_R - LUMEN_WALL });
@@ -135,20 +143,23 @@ export function createLumen() {
     if (!done) raf = nextFrame(tick); else at = 0;
   }
   function update() {
-    const prm = store.get().params, L = lumenOf(prm, id);
+    const prm = store.get().params, L = lumenOf(prm, id), site = lumenSite(prm, id, tool?.site);
+    set(inName, lumenLabel(id, tool?.name, site));
+    // A stent cut away from its narrowed segment shows an open stent there (a clot fills the whole stent).
+    if (L.stent && site !== lumenSite(prm, id)) L.stenosis = 0;
     goal = { stenosis: L.stenosis, thrombus: L.thrombus };
     if (shown && !raf && goal.stenosis === shown.stenosis && goal.thrombus === shown.thrombus) paint(shown);
     if (!shown || reduce?.matches || !el.isConnected) { shown = { ...goal }; paint(shown); return; }
     if ((goal.stenosis !== shown.stenosis || goal.thrombus !== shown.thrombus) && !raf) raf = nextFrame(tick);
   }
-  /** The slide's vessel (tool.vessel) and the name written in it (tool.name, else the vessel's own). A new vessel is drawn
-   *  at once, in its own colour. */
+  /** The slide's vessel (tool.vessel), where along a stent it is cut (tool.site: 'proximal', 'mid' or 'distal'; else the
+   *  narrowing's segment) and the name written in it (tool.name, else the vessel's own). A new vessel is drawn at once. */
   function configure(t) {
     const v = t?.vessel || 'PV_TRUNK';
     if (v !== id || !shown) { id = v; shown = null; }
     el.dataset.vessel = SYSTEMIC.has(id) ? 'systemic' : id.startsWith('A_') ? 'artery' : 'portal';
     ring.style.display = STENTS.has(id) ? '' : 'none';
-    set(inName, lumenLabel(id, t?.name));
+    tool = t || null;
     update();
   }
   // The word is never under 12 px on screen: the picture scales with its card, so tell the style how many px one unit is.

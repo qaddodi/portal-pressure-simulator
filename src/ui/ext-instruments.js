@@ -2,8 +2,9 @@
 // What this package adds to slides, registered for slide-ext.js (see its header for each part's shape). A deck that sets
 // none of its fields is unchanged.
 //
-//   tool: { kind: 'lumen', vessel: 'PV_TRUNK', name? }   V19: the vessel in cross-section, its clot, narrowing or stent (tool-lumen.js);
-//                                                     name: the words in the circle above the % (default: the vessel's short name)
+//   tool: { kind: 'lumen', vessel: 'PV_TRUNK', site?, name? }   V19: the vessel in cross-section, its clot, narrowing or stent (tool-lumen.js);
+//                                                     site: where a stent is cut ('proximal' | 'mid' | 'distal'); name: the words in the
+//                                                     circle above the % (default: the vessel's short name, "Distal TIPS" for a stent)
 //   tool: { kind: 'fluid' }                          V27: lymph made against lymph drained (tool-fluid.js); forces: true adds
 //                                                    the forces across the sinusoid wall, caveat: true the no-kidneys line
 // And on the Doppler (doppler.js configure, its own options, read on every slide that shows it):
@@ -12,7 +13,7 @@
 //   tool: { kind: 'doppler', pair: true }            V29: the right hepatic vein's trace under the portal vein's (or the main
 //                                                    portal vein's under a hepatic vein's), beat for beat
 
-import { createLumen, lumenName } from './tool-lumen.js?v=4569a88cde';
+import { createLumen, lumenName } from './tool-lumen.js?v=626cc59edb';
 import { createFluid } from './tool-fluid.js?v=0515e4fe86';
 
 export default {
