@@ -958,21 +958,28 @@ export function createDoppler({ onProbe, pickGate = true }) {
     // on the trace now on screen)
     if (cal && (tNow < cal.at - 0.05 || Math.max(cal.hi[0], cal.lo[0]) > tNow + 0.05)) cal = null;
     const fresh = () => caliperPick(buf, tNow - CAL_SECS, tNow);
-    if (cal && !cal.out && (cal.sgn !== sgn || cal.gf !== gf || caliperStale(cal, fresh(), tNow - sweepSeconds + 0.35, tNow - cal.at))) cal.out = true;
+    // A pick that gives way glides to the new one (its marks move over 0.3 s, never blink out); only a trace with nothing left
+    // to measure fades them out.
+    if (cal && !cal.out && (cal.sgn !== sgn || cal.gf !== gf || caliperStale(cal, fresh(), tNow - sweepSeconds + 0.35, tNow - cal.at))) {
+      const c = cal.sgn === sgn && cal.gf === gf ? fresh() : null;
+      if (c) cal = { ...c, sgn, gf, at: tNow, alpha: cal.alpha, out: false, from: [markAt(cal, 'hi'), markAt(cal, 'lo')], move: 0 };
+      else cal.out = true;
+    }
     if (!cal || (cal.out && cal.alpha <= 0)) {
       const c = fresh();
-      cal = c ? { ...c, sgn, gf, at: tNow, alpha: cal ? 0 : 1, out: false } : null;   // (the first pick on a slide shows at once; a new one fades in)
+      cal = c ? { ...c, sgn, gf, at: tNow, alpha: cal ? 0 : 1, out: false } : null;   // (the first pick on a slide shows at once; one after a fade fades in)
     }
     if (!cal) return;
     cal.alpha = clamp(cal.alpha + (cal.out ? -1 : 1) * dt / 0.35, 0, 1);
-    if (cal.out ? cal.alpha > 0 : cal.alpha < 1) labBusy = true;
+    if (cal.from) { cal.move = Math.min(1, cal.move + dt / 0.3); if (cal.move >= 1) cal.from = null; }
+    if ((cal.out ? cal.alpha > 0 : cal.alpha < 1) || cal.from) labBusy = true;
     const A = cal.alpha * cal.alpha * (3 - 2 * cal.alpha);
     if (A <= 0) return;
     // (each mark on the spectrum's outline, where the reading's peak is read: the mean across the lumen times dopplerK)
     const at = ([t, v]) => [xAt(t), clamp(padT + baseY - sgn * v * k * gf * pxPerV, padT, padT + H)];
     // (a mark at the newest moment sits just inside the trace's right edge, never past it into the scale)
     const inX = (x) => clamp(x, padL + CAL_W / 2, padL + W - CAL_W / 2);
-    const [xh0, yh] = at(cal.hi), [xl0, yl] = at(cal.lo), xh = inX(xh0), xl = inX(xl0);
+    const [xh0, yh] = at(markAt(cal, 'hi')), [xl0, yl] = at(markAt(cal, 'lo')), xh = inX(xh0), xl = inX(xl0);
     ctx.save();
     ctx.strokeStyle = cssAlpha('--doppler', 0.75 * A); ctx.lineWidth = 1; ctx.setLineDash([3, 3]);
     ctx.beginPath(); ctx.moveTo(xh, yh); ctx.lineTo(xl, yl); ctx.stroke(); ctx.setLineDash([]);
@@ -981,6 +988,12 @@ export function createDoppler({ onProbe, pickGate = true }) {
       ctx.fillStyle = cssAlpha('--doppler', A); ctx.fillRect(Math.round(x - CAL_W / 2), Math.round(y) - 1, CAL_W, 2);
     }
     ctx.restore();
+  }
+  // (a mark where it is drawn: on its pick, or on its way there from the last one, eased)
+  function markAt(c, w) {
+    if (!c.from) return c[w];
+    const e = c.move * c.move * (3 - 2 * c.move), [t0, v0] = c.from[w === 'hi' ? 0 : 1], [t1, v1] = c[w];
+    return [t0 + (t1 - t0) * e, v0 + (v1 - v0) * e];
   }
   // (The index is read in the bottom strip, first after the probe's name, in the marks' colour: off the spectrum, always whole.)
   const calText = () => (calip && cal && cal.alpha > 0 ? `PI ${fmt(cal.pi, 2)}` : '');

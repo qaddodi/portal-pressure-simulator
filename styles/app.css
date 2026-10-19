@@ -6503,7 +6503,7 @@ html.thumb-ui .menu.from-dock { clip-path: inset(-64px -64px calc(var(--sink, 0p
 .gf-seg { flex: none; display: block; height: 100%; width: 0; transition: width .5s cubic-bezier(.2, .8, .2, 1); }
 .gf-liver { background: var(--gf-liver); } .gf-gut { background: var(--gf-gut); } .gf-carried { background: var(--gf-carried); }
 .gf-back { background: var(--gf-back); }
-/* (the build-up keeps the soft ascites colour, edged in a darker one so the overflow reads at 3:1 or more on the track) */
+/* (the build-up keeps the soft ascites colour, edged in it mixed toward the text colour (darker in light mode, lighter in dark) so the overflow reads at 3:1 or more on the track) */
 .gf-build { background: var(--gf-build); box-shadow: inset 0 0 0 1.5px var(--gf-build-edge); }
 .gf-sw.gf-build { box-shadow: inset 0 0 0 1.5px var(--gf-build-edge); }
 .gf-spare { box-sizing: border-box; border: 1.5px dashed var(--gf-carried); border-left: 0; border-radius: 0 5px 5px 0; }
