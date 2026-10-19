@@ -6424,6 +6424,10 @@ html.thumb-ui .menu.from-dock { clip-path: inset(-64px -64px calc(var(--sink, 0p
 .gl-wall { fill: color-mix(in srgb, var(--gl-v) 30%, var(--surface)); stroke: color-mix(in srgb, var(--gl-v) 75%, var(--text)); stroke-width: 1.5; }
 .gl-clot { fill: var(--thrombus); stroke: var(--thrombus-edge); stroke-width: .8; stroke-linejoin: round; }
 .gl-open { fill: var(--gl-v); transition: opacity .25s ease; }
+.gl-in { font-family: var(--font-ui); font-weight: 650; fill: var(--gl-in-ink); stroke: var(--gl-in-edge); stroke-width: .9; paint-order: stroke; font-variant-numeric: tabular-nums; opacity: 0; transition: opacity .3s ease; pointer-events: none; }
+.gl-in.on { opacity: 1; }
+.pz-tool[data-kind="lumen"] .gl-big > dd { transition: opacity .3s ease; }
+.pz-tool[data-kind="lumen"] .gl.gl-inside .gl-big > dd { opacity: 0; }
 .gl-stent { fill: none; stroke: var(--stent-metal); stroke-width: 2.2; stroke-dasharray: 4.6 2.2; }
 .pz-tool[data-kind="lumen"] .gl-read { min-width: 0; margin: 0; }
 .pz-tool[data-kind="lumen"] .gl-big { display: flex; flex-direction: column; align-items: center; gap: 4px; }

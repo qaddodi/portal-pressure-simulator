@@ -43,7 +43,7 @@ export function lumenShape({ stenosis = 0, thrombus = 0 }) {
  *  edge always sits at top, so the remnant lumen drawn is the one read out. */
 const smooth = (a, b, x) => { const u = clamp((x - a) / (b - a), 0, 1); return u * u * (3 - 2 * u); };
 export function clotPath(g) {
-  if (g.t < 0.005) return '';
+  if (g.t < 0.0005) return '';
   const { cx, cy, ri, top, bot, t } = g, N = 48;
   if (t > 0.995) return `M${cx - ri} ${cy}A${ri} ${ri} 0 1 0 ${cx + ri} ${cy}A${ri} ${ri} 0 1 0 ${cx - ri} ${cy}Z`;
   const level = smooth(0.32, 0.62, t), T = bot - top;
@@ -89,7 +89,11 @@ export function createLumen() {
   const clot = sv('path', { class: 'gl-clot' });
   const ring = sv('circle', { class: 'gl-stent', cx: 50, cy: 50, r: LUMEN_R - LUMEN_WALL });
   const pic = sv('svg', { class: 'gl-pic', viewBox: '0 0 100 100', role: 'img' });
-  pic.append(wall, lumen, clot, ring);
+  // The remnant lumen's number inside the open lumen, white with a dark outline (the instruments' reading style), centred in
+  // the open segment above the clot; when that segment is too small to hold it at 12 px with 4 px clear, it fades out and the
+  // same number fades in under the picture.
+  const inNum = sv('text', { class: 'gl-in', x: 50, 'text-anchor': 'middle', 'dominant-baseline': 'central' });
+  pic.append(wall, lumen, clot, ring, inNum);
   const big = h('b'), state = h('span', { class: 'gl-state' });
   // One reading: the open share and what closes it, with a line of facts the words leave out (lumenFacts).
   const facts = h('span', { class: 'gl-facts' });
@@ -105,6 +109,13 @@ export function createLumen() {
     const g = lumenShape(x), L = { ...x, occlusion: 1 - (1 - x.stenosis) * (1 - x.thrombus), stent: STENTS.has(id) };
     lumen.setAttribute('r', g.ri.toFixed(2));
     clot.setAttribute('d', clotPath(g));
+    // A clot appears and leaves by growing from the wall and fading, never popping in.
+    clot.style.opacity = Math.min(1, g.t / 0.06).toFixed(3);
+    const px = (pic.getBoundingClientRect?.().width || 0) / 100, room = g.top - (50 - g.ri);
+    const fs = Math.min(17, room * 0.5), fits = px > 0 && fs * px >= 12 && room - fs >= 2 * 4 / px && L.occlusion < 0.995;
+    if (fits) { inNum.setAttribute('y', ((50 - g.ri + g.top) / 2).toFixed(2)); inNum.setAttribute('font-size', fs.toFixed(2)); }
+    set(inNum, `${pct(1 - L.occlusion)} %`);
+    inNum.classList.toggle('on', fits); el.classList.toggle('gl-inside', fits);
     set(big, pct(1 - L.occlusion)); set(state, lumenWords(L));
     set(facts, lumenFacts(x, STENTS.has(id) ? stentD : null) || '\u00a0');
     pic.setAttribute('aria-label', `${lumenName(id)} in cross-section: ${pct(1 - L.occlusion)}% remnant lumen, clot ${pct(x.thrombus)}%, narrowing ${pct(x.stenosis)}%`);
