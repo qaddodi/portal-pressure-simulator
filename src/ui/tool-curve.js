@@ -149,11 +149,16 @@ export function segHits([x1, y1, x2, y2], [bx0, by0, bx1, by1]) {
   return true;
 }
 /** How badly a box [x0, y0, x1, y1] lands: on a horizontal line ({ y, x0, x1, w }) its weight w (1 if unset), on a data
- *  line's segment its weight w (2 if unset), on other words 3, outside the bounds 10. */
+ *  line's segment its weight w (2 if unset), on other words 3, outside the bounds 10. A line with side (the y of the ring
+ *  the word names) also costs 20 when the word's middle is across it from that ring: a value over a cut-off it is under
+ *  reads as the wrong side of it. */
 export function boxScore(b, { lines = [], segs = [], boxes = [], bounds = null }) {
   let n = 0;
   if (bounds && (b[0] < bounds[0] || b[1] < bounds[1] || b[2] > bounds[2] || b[3] > bounds[3])) n += 10;
-  for (const l of lines) if (l.y > b[1] - 3 && l.y < b[3] + 3 && l.x0 < b[2] && b[0] < l.x1) n += l.w ?? 1;   // (and 3 px clear of a line)
+  for (const l of lines) {
+    if (l.y > b[1] - 3 && l.y < b[3] + 3 && l.x0 < b[2] && b[0] < l.x1) n += l.w ?? 1;   // (and 3 px clear of a line)
+    if (l.side != null && ((b[1] + b[3]) / 2 - l.y) * (l.side - l.y) < 0) n += 20;
+  }
   for (const sg of segs) if (segHits(sg, b)) n += sg.w ?? 2;
   for (const o of boxes) if (hitBox(b, o)) n += 3;
   return n;
@@ -249,7 +254,7 @@ export function createCurve() {
     if (!ser) return [];
     return ser.ys.flatMap((ys, j) => { const Y = j ? YR : YL, out = [];
       for (let i = 1; i < ys.length; i++) if (Number.isFinite(ys[i - 1]) && Number.isFinite(ys[i])) out.push([X(ser.xs[i - 1]), Y(ys[i - 1]), X(ser.xs[i]), Y(ys[i])]);
-      return out.map((sg) => Object.assign(sg, { j })); });
+      return out; });
   }
   function build() {
     const { f, L, R, T, B, sL, sR, ls, ax, xt } = G, YL = Yof(sL), YR = sR ? Yof(sR) : null;
@@ -327,10 +332,9 @@ export function createCurve() {
         for (const dy of dys) for (const [anchor, dx] of sides) cands.push({ x: cx + dx, y: cy + dy * f, anchor });
       }
       for (const dy of [-1.2 * f, 2.1 * f]) cands.push({ x: cx, y: cy + dy, anchor: 'middle' });
-      // (Across its own line by its ring reads better than clear but far off: its own line counts half, and every f of
-      // distance half a crossing.)
-      const segs = ob.segs.map((sg) => (sg.j === j ? Object.assign([...sg], { w: 1 }) : sg));
-      const pl = placeWord(cands, 1.12 * cw(txt, fs, true), fs, { ...ob, segs, boxes }, { x: cx, y: cy, k: 0.5 / f });   // (measured wide, as the cut-offs' names)
+      // (Each f of distance from its ring costs half a crossing; it stays on its ring's side of every cut-off.)
+      const lines = ob.lines.map((l) => (l.w ? { ...l, side: cy } : l));
+      const pl = placeWord(cands, 1.12 * cw(txt, fs, true), fs, { ...ob, lines, boxes }, { x: cx, y: cy, k: 0.5 / f });   // (measured wide, as the cut-offs' names)
       boxes.push(pl.box);
       p.val.setAttribute('x', pl.x.toFixed(1)); p.val.setAttribute('y', pl.y.toFixed(1)); p.val.setAttribute('text-anchor', pl.anchor);
       p.val.classList.toggle('on', pl.n > 0);   // (no clear spot on a cramped chart: the lines stop round the words)

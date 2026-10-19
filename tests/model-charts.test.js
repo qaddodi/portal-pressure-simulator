@@ -156,6 +156,9 @@ test('a word beside a ring takes the first place clear of the lines, the cut-off
   const seg = [0, 80, 200, 80];
   const s = placeWord([{ x: 100, y: 55, anchor: 'start' }, { x: 100, y: 84, anchor: 'start' }], 40, 12, { lines: [{ ...cut, w: 5 }], segs: [seg], bounds: [0, 0, 200, 100] });
   assert.equal(s.y, 84);
+  // (A value stays on its ring's side of a cut-off: its ring at y 70 is under the line at 50.)
+  const u = placeWord([{ x: 100, y: 35, anchor: 'start' }, { x: 100, y: 99, anchor: 'start' }], 40, 12, { lines: [{ ...cut, w: 5, side: 70 }], bounds: [0, 0, 200, 100] });
+  assert.equal(u.y, 99);
 });
 
 test('with only the curve\'s setting moved, the case sits on the curve, read between its points', () => {
