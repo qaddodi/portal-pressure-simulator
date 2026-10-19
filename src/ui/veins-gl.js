@@ -33,7 +33,7 @@
 
 import { CHEV_GLSL } from './chevron-glsl.js?v=96ec7c6666';
 import { SLOT, DYE_BINS } from './blood.js?v=e668d01823';
-import { cssRGB } from './util.js?v=cbadfc09b2';
+import { cssRGB } from './util.js?v=8813192ea2';
 import { CELL, ENT_W, binVeins, splitRows } from './veins-bin.js?v=49af20dd7a';
 import { gpuProbe } from './gpu-probe.js?v=d4aeccea90';
 
@@ -775,9 +775,10 @@ uniform mat3 inv;                      // device pixels → world
 uniform float H;                       // canvas height, device pixels
 uniform float pxW;                     // world units per device pixel
 uniform int blood;                     // 1: draw the blood
-uniform int chev;                      // 1: flow chevrons on top (dark; orange where flow is reversed)
+uniform int chev;                      // 1: flow chevrons on top (dark; orange where flow is reversed, cream on an orange vessel)
 uniform int still;                     // 1: reduced motion (the chevrons stand still, spaced by flow)
 uniform vec3 chevInk;
+uniform vec3 chevLight;                // a reversed chevron's head on an orange vessel (near-white cream)
 uniform float cssPx;                   // canvas px per CSS px (stage.js vdpr, at most 2)
 uniform float flowA;                   // 0..1: how visible the moving blood and chevrons are (they fade in once the view is still)
 uniform vec3 blendA;                   // 0..1 each: the streaks, the chevrons and the origin colours fading in or out (switched on or off)
@@ -971,6 +972,11 @@ vec3 originAt(int id, float y, float R) {
   return c;
 }
 ${CHEV_GLSL}
+// How orange a vessel's colour is (0..1): a bright red channel well above the blue, with green between a red's and a
+// yellow's, eased at each edge (the reversed orange and the heat ramp's orange 1; teal, wine, red, yellow and grey 0).
+float chevOrange(vec3 c) {
+  return smoothstep(0.35, 0.55, c.r - c.b) * smoothstep(0.65, 0.8, c.r) * smoothstep(0.25, 0.35, c.g) * (1.0 - smoothstep(0.62, 0.78, c.g));
+}
 float radAt(int id, float s, float len) {
   float ui = clamp(s / len, 0.0, 1.0) * ${N_SAMPLES - 1}.0;
   int i0 = min(int(ui), ${N_SAMPLES - 2});
@@ -1129,8 +1135,12 @@ void main() {
         float ln1 = max(texelFetch(tube, ivec2(5, id1), 0).z, 1.0);
         vec3 vc = mix(texelFetch(tube, ivec2(0, id1), 0).rgb, texelFetch(tube, ivec2(1, id1), 0).rgb, clamp(s1 / ln1, 0.0, 1.0));
         vec3 ink = mix(chevInk, vc * 0.3, 0.2);
-        col = mix(col, inkLight, c.y * 0.75 * vis * flowA * blendA.y);
-        col = mix(col, mix(ink, revCol, rv), c.x * vis * flowA * blendA.y);
+        // An orange head is lost on an orange vessel (the Direction lens, an orange step of another lens's ramp): there a
+        // reversed head turns near-white cream and its rim a deep shade of the vessel, so it stands clear. By the vessel's own
+        // colour and the eased reversed flag, so it follows the vessel's colour as that eases, never popping.
+        float warm = rv * chevOrange(vc);
+        col = mix(col, mix(inkLight, vc * 0.45, warm), c.y * 0.75 * vis * flowA * blendA.y);
+        col = mix(col, mix(mix(ink, revCol, rv), chevLight, warm), c.x * vis * flowA * blendA.y);
       }
     }
     v = vec4(col * v.a, v.a);
@@ -1844,6 +1854,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false }) {
       gl.uniform1f(U.flowA, blood.alpha ?? 1);
       gl.uniform3f(U.blendA, blood.streakA ?? 1, blood.chevA ?? 1, blood.originA ?? 1);
       gl.uniform3f(U.chevInk, ...(blood.chevInk || [0.08, 0.08, 0.1]));
+      gl.uniform3f(U.chevLight, ...(blood.chevLight || [1, 0.93, 0.86]));
       gl.uniform1f(U.cssPx, blood.vdpr || 1);
       gl.uniform1i(U.look, blood.look === 'shimmer' ? 1 : 0);
       gl.uniform1i(U.origin, blood.origin ? 1 : 0);

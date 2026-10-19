@@ -628,7 +628,7 @@ let bloodCols = null;
 export const bloodColors = () => bloodCols || (bloodCols = {
   originCol: ['smv', 'imv', 'spleen', 'artery', 'systemic'].map((o) => cssRGB01(`--origin-${o}`)),
   dyeCol: cssRGB01('--blood-dye'), inkLight: cssRGB01('--blood-ink-light'), inkDark: cssRGB01('--blood-ink-dark'),
-  revCol: cssRGB01('--blood-reversed'), chevInk: cssRGB01('--blood-chevron'),
+  revCol: cssRGB01('--blood-reversed'), chevInk: cssRGB01('--blood-chevron'), chevLight: cssRGB01('--blood-chevron-light'),
 });
 
 /** Canvas sized to its box with device-pixel ratio. Returns ctx with CSS-pixel units. */
