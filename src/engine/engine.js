@@ -42,6 +42,8 @@ const pinchResistance = (wall, kq, s) => {
   return wall * PINCH * (stenosisFactor(s) - 1) + (kq / 1.5) * (1 / a - 1) * (1 / a - 1);
 };
 const BLOOD_BASE = 5000, HCT_BASE = 0.42;
+// How long the volumes a hidden relaxation moved take to come across to the live model (s): the worker's tick.
+const CARRY_S = 0.033;
 const HR_REST = 60;   // resting heart rate (/min); the contractility reference is scaled to it so cardiac output is unchanged
 // Compensation for blood loss, calibrated to the ATLS hemorrhage classes (ATLS 10th ed., 2018): under 15 % lost the
 // vital signs barely change, 15–30 % raises the heart rate with the pressure held, 30–40 % brings hypotension, and over
@@ -135,6 +137,7 @@ export class Engine {
     this.baro = 1; this.MAPf = 93; this.habr = 1;
     // Display filters start over from the new state (a non-finite run must not leak into the next patient).
     this.Pf = this.Qf = null; this.COf = this.pvQm = this.pvVm = undefined; this.vitM = null;
+    this._hiddenOn = false; this._carry = null;
     this.hr = HR_REST;
     this.slow = {
       d: Object.fromEntries(this.collaterals.map((k) => [EDGES[k].id, dMinOf(EDGES[k])])),
@@ -431,7 +434,7 @@ export class Engine {
   step(dt) {
     const N = this.N, A = this.A, b = this.b, P = this.P, p = this.params;
     this._drug = this.drugEffects();
-    if (!this._sub) this.pregnancyVolume(dt);
+    if (!this._sub) { this.carryVolume(dt); this.pregnancyVolume(dt); }
     const hs = this.heartState();
     this.hr = hs.hr;
     this.cyc = (this.cyc || 0) + dt * hs.hr / 60;
@@ -628,11 +631,7 @@ export class Engine {
     const ds = (target - (this.blood.shift || 0)) * Math.min(1, dt / R.tau);
     if (Math.abs(ds) > 1e-9) {
       this.blood.shift = (this.blood.shift || 0) + ds;
-      for (const id of ['UPPV', 'LOWV']) {
-        const i = this.ni[id], [Pk, Ps] = this.nodeK[i];
-        this.V[i] += ds / 2;
-        this.P[i] = this.ext[i] + ptmOf(this.V[i], this.nodeC[i], Pk, Ps);
-      }
+      for (const id of ['UPPV', 'LOWV']) this.shiftVolume(id, ds / 2);
     }
   }
 
@@ -705,6 +704,67 @@ export class Engine {
     const q = this.quiet, t = this.t, cyc = this.cyc; this.quiet = true;
     for (let i = 0; i < n; i++) this.step(dt);
     this.quiet = q; this.t = t; this.cyc = cyc;
+  }
+  /** relax() on a hidden copy of this model, this one taking only how far the copy moved: its volumes shifted by as much
+   *  as the copy's, its slow reflexes and averaged readings set to the copy's. A live change (a slider dragged, a button)
+   *  settles in about a second while this model's beat runs on untouched. (Relaxing this model itself, once a tick,
+   *  flattens its beat every time and the restart jolts the flow: a comb of spikes in the Doppler for as long as a slider
+   *  moves.) The copy is taken on the first call and followed until relaxDone(). It neither bleeds nor runs infusions:
+   *  this model does those at the bedside clock. */
+  relaxHidden() {
+    let h = this._hidden;
+    if (!this._hiddenOn) {
+      h = this._hidden ??= new Engine({ params: this.params });
+      h.restore(this.snapshot());
+      // (Restoring starts the copy's averages over from this instant of the beat: it takes this model's own instead.)
+      h.Pf = Float64Array.from(this.Pf || this.P); h.Qf = Float64Array.from(this.Qf || this.Q);
+      Object.assign(h, { COf: this.COf, pvQm: this.pvQm, pvVm: this.pvVm, vitM: this.vitM && [...this.vitM], vitM1: this.vitM1 && [...this.vitM1] });
+      h._paramsOf = null;
+      this._hiddenOn = true;
+    }
+    if (h._paramsOf !== this.params) { h.setParams(this.params); h._paramsOf = this.params; }
+    // The copy holds this model's blood (what bled or was given since the last call, and the accounts the reflexes read).
+    let dv = 0;
+    for (let i = 0; i < this.N; i++) dv += this.V[i] - h.V[i];
+    h.shiftVolume('UPPV', dv);
+    h.blood = structuredClone(this.blood);
+    h.bleed = { ...h.bleed, active: false }; h.infusions = [];
+    const V0 = h._V0 ??= new Float64Array(this.N);
+    V0.set(h.V);
+    h.relax();
+    // (Eased in over the next tick's steps, not all at once: see carryVolume.)
+    const c = this._carry ??= { dV: new Float64Array(this.N), left: 0 };
+    for (let i = 0; i < this.N; i++) c.dV[i] += h.V[i] - V0[i];
+    c.left = CARRY_S;
+    // (The venous reservoir and a pregnancy moved blood in the copy: those volumes come across with the rest, their accounts here.)
+    for (const k of ['shift', 'preg', 'ref', 'rbc']) if (h.blood[k] !== undefined) this.blood[k] = h.blood[k];
+    for (const k of ['baro', 'habr', 'MAPf', 'COf', 'pvQm', 'pvVm']) this[k] = h[k];
+    if (this.Pf) this.Pf.set(h.Pf);
+    if (this.Qf) this.Qf.set(h.Qf);
+    if (h.vitM) { this.vitM = [...h.vitM]; this.vitM1 = [...h.vitM1]; }
+  }
+  relaxDone() { this._hiddenOn = false; }
+  /** The volumes relaxHidden moved, added a share at each step over CARRY_S (one tick of the worker), so a tick's
+   *  move reaches the beat as a ramp rather than a step. */
+  carryVolume(dt) {
+    const c = this._carry;
+    if (!c || !(c.left > 0)) return;
+    const f = Math.min(1, dt / c.left);
+    for (let i = 0; i < this.N; i++) {
+      const d = c.dV[i] * f;
+      if (!d) continue;
+      const [Pk, Ps] = this.nodeK[i];
+      this.V[i] += d; c.dV[i] -= d;
+      this.P[i] = this.ext[i] + ptmOf(this.V[i], this.nodeC[i] * this.liverStiff(i), Pk, Ps);
+    }
+    c.left -= dt;
+    if (!(c.left > 0)) { c.dV.fill(0); c.left = 0; }
+  }
+  /** mL added to (or taken from) one node, its pressure following. */
+  shiftVolume(id, mL) {
+    const i = this.ni[id], [Pk, Ps] = this.nodeK[i];
+    this.V[i] += mL;
+    this.P[i] = this.ext[i] + ptmOf(this.V[i], this.nodeC[i], Pk, Ps);
   }
   settleQuick() {
     const q = this.quiet, t = this.t, cyc = this.cyc; this.quiet = true;
@@ -1086,6 +1146,7 @@ export class Engine {
     this.Pf = Float64Array.from(this.P);
     this.Qf = Float64Array.from(this.Q);
     this.pvQm = this.pvVm = undefined; this.vitM = null;
+    this._hiddenOn = false; this._carry = null;   // (a hidden copy being relaxed, and what it moved, belonged to the state before)
     this._drug = this.drugEffects();
     this.computeExt(this.t);
     this.computeG(this.P);

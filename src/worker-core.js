@@ -1,11 +1,11 @@
 // Simulation host: owns the Engine, runs the clocks, streams frames (blueprint §13.4).
 // Used inside a Web Worker (src/worker.js) or on the main thread as a fallback.
 
-import { Engine } from './engine/engine.js?v=fb8ce7b2ed';
+import { Engine } from './engine/engine.js?v=c0a0c4e609';
 import { computeMetrics } from './engine/metrics.js?v=e566c70621';
 import { tenthGap } from './engine/gap.js?v=3a5947c552';
 import { detectEvents } from './engine/events.js?v=582dd803a9';
-import { explain } from './engine/explain.js?v=5e3424c840';
+import { explain } from './engine/explain.js?v=0461f1d91c';
 import { deepMerge, sanitizeParams, PRESETS } from './engine/scenario.js?v=1ee7733788';
 
 const SAMPLE_NODES = ['RA', 'IVCS', 'RHV', 'CONF', 'SIN_R', 'VAR', 'AO', 'SV', 'SMV'];
@@ -115,7 +115,7 @@ export function createCore(post) {
   let lapse = null;
   // The presenter's eased change of patient on the live model: { from, to, t0, ms } (see 'morph').
   let morph = null;
-  // Until this time (ms) every tick also relaxes the model quietly, so a live change settles while the clock runs on.
+  // Until this time (ms) every tick also relaxes a hidden copy of the model quietly, so a live change settles while the clock runs on.
   let relaxUntil = 0;
   let beat = true; // the heartbeat always runs (the Over time trace is beat to beat from the start)
   const newSamples = () => ({ t: [], vel: [], pvVel: [], hvVel: [], whvp: [], hvpg: [], ...Object.fromEntries(SAMPLE_NODES.map((n) => [n, []])) });
@@ -192,7 +192,8 @@ export function createCore(post) {
       paramsDirty = true; frameDirty = true;
     } else if (running) {
       if (clock === 'hemo') {
-        if (now < relaxUntil) eng.relax();
+        // (On a hidden copy of the model: the beat runs on, so the Doppler and tracings stay smooth while a slider moves.)
+        if (now < relaxUntil) eng.relaxHidden(); else eng.relaxDone();
         const h = hemoStep(eng.params.pulsatile || beat, speed);
         let simDt = realDt * speed;
         let n = Math.min(Math.ceil(simDt / h), h < 0.02 ? 700 : 400);
