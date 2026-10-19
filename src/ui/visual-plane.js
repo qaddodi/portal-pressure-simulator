@@ -163,31 +163,53 @@ export function lineBoxes(pl, X, Y, fr) {
   }
   return out;
 }
+/** A cut-off line broken where a name sits across it, pad px clear of the name's box either side: the segments left to draw.
+ *  segs: { x1, y1, x2, y2 } (level or upright, as cutSegs); boxes: the names' boxes. */
+export function gapSegs(segs, boxes, pad = 4) {
+  const out = [];
+  for (const s of segs) {
+    const up = Math.abs(s.x2 - s.x1) < Math.abs(s.y2 - s.y1), at = up ? s.x1 : s.y1;
+    // (The stretches the names take along the line, merged, then the line drawn between them.)
+    let cut = boxes.filter((b) => (up ? b[0] - pad < at && b[2] + pad > at : b[1] - pad < at && b[3] + pad > at)).map((b) => (up ? [b[1] - pad, b[3] + pad] : [b[0] - pad, b[2] + pad]));
+    let lo = Math.min(up ? s.y1 : s.x1, up ? s.y2 : s.x2);
+    const hi = Math.max(up ? s.y1 : s.x1, up ? s.y2 : s.x2);
+    cut = cut.sort((a, b) => a[0] - b[0]);
+    const put = (a, b) => { if (b - a > 0.5) out.push(up ? { x1: at, x2: at, y1: a, y2: b } : { x1: a, x2: b, y1: at, y2: at }); };
+    for (const [a, b] of cut) { if (b <= lo) continue; put(lo, Math.min(a, hi)); lo = Math.max(lo, b); if (lo >= hi) break; }
+    put(lo, hi);
+  }
+  return out;
+}
 /** Each point's name placed beside it, clear of the other points and names and inside the plot: [{ x, y, anchor, lines }]
  *  (lines: the name, broken if it must be) or null for a name with nowhere to go. pts: [{ x, y, name, short? }] in px (short: a shorter name for when the full one has no room beside the point); avoid: other
- *  boxes [x0, y0, x1, y1] the names keep clear of (the zones' words). */
-export function placeNames(pts, fr, fs, r = 8, avoid = []) {
+ *  boxes [x0, y0, x1, y1] the names keep clear of (the zones' words). cross: the cut-off lines among them a name may sit across
+ *  where it has no room beside its point on its own side (the line then breaks behind it, gapSegs), so it stays right by its
+ *  point rather than going out on a long line (an iPhone's 0 to 5 mmHg column, some 45 px, holds no name: Mohammad, 19 Oct). */
+export function placeNames(pts, fr, fs, r = 8, avoid = [], cross = []) {
   // (When a round leaves a name out or sends one out on a line, others are tried: the round that names the most wins, then
-  // the one with the fewest lines, then the one whose names sit closest to their points.)
-  const score = (res) => [res.filter((o) => !o).length, res.filter((o) => o?.lead).length, res.reduce((s, o, i) => s + (o ? Math.hypot(...near2(o.box, pts[i])) : 0), 0)];
-  const better = (a, b) => a[0] < b[0] || (a[0] === b[0] && (a[1] < b[1] || (a[1] === b[1] && a[2] < b[2] - 0.5)));
-  let best = placeOnce(pts, fr, fs, r, avoid, null), bs = score(best), order = null;
-  for (let round = 0; (bs[0] || bs[1]) && round < 4; round++) {
-    // (A name left without a place, or on a line, goes first in the next round.)
-    const prev = order || pts.map((_, i) => i), res = round ? placeOnce(pts, fr, fs, r, avoid, prev) : best, out = (i) => !res[i] || res[i].lead;
-    order = [...prev.filter(out), ...prev.filter((i) => !out(i))];
-    const next = placeOnce(pts, fr, fs, r, avoid, order), sc = score(next);
+  // the one with the fewest lines, then the one whose names sit closest to their points, then the fewest across a cut-off.)
+  const score = (res) => [res.filter((o) => !o).length, res.filter((o) => o?.lead).length, res.reduce((s, o, i) => s + (o ? Math.hypot(...near2(o.box, pts[i])) : 0), 0), res.filter((o) => o?.across).length];
+  const better = (a, b) => a[0] < b[0] || (a[0] === b[0] && (a[1] < b[1] || (a[1] === b[1] && (a[2] < b[2] - 0.5 || (Math.abs(a[2] - b[2]) <= 0.5 && a[3] < b[3])))));
+  let best = placeOnce(pts, fr, fs, r, avoid, null, cross), bs = score(best), order = null;
+  for (let round = 0; (bs[0] || bs[1] || bs[3]) && round < 4; round++) {
+    // (A name left without a place, or on a line, goes first in the next round, then one sitting across a cut-off.)
+    const prev = order || pts.map((_, i) => i), res = round ? placeOnce(pts, fr, fs, r, avoid, prev, cross) : best, rank = (i) => (!res[i] || res[i].lead ? 0 : res[i].across ? 1 : 2);
+    order = [0, 1, 2].flatMap((k) => prev.filter((i) => rank(i) === k));
+    const next = placeOnce(pts, fr, fs, r, avoid, order, cross), sc = score(next);
     if (better(sc, bs)) best = next, bs = sc;
   }
   return best;
 }
 /** How far a name's box is from its point, across and down. */
 const near2 = (b, p) => [Math.max(b[0] - p.x, 0, p.x - b[2]), Math.max(b[1] - p.y, 0, p.y - b[3])];
-function placeOnce(pts, fr, fs, r, avoid, first) {
+function placeOnce(pts, fr, fs, r, avoid, first, cross = []) {
   // (A point keeps every name 4 px clear of its ring: its radius, its 1.5 px outline and the gap.)
   const boxes = [...pts.map((p) => [p.x - r - 6, p.y - r - 6, p.x + r + 6, p.y + r + 6]), ...avoid];
   const lh = fs * 1.2, gap = r + 6;
-  const hit = (b) => boxes.some((o) => b[0] < o[2] && b[2] > o[0] && b[1] < o[3] && b[3] > o[1]);
+  const meets = (b, o) => b[0] < o[2] && b[2] > o[0] && b[1] < o[3] && b[3] > o[1];
+  const hit = (b) => boxes.some((o) => meets(b, o));
+  // (Sitting across: clear of everything but the cut-off lines it may cross.)
+  const hitBut = (b) => boxes.some((o) => !cross.includes(o) && meets(b, o));
   const inside = (b) => b[0] >= fr.L + 2 && b[2] <= fr.R - 2 && b[1] >= fr.T && b[3] <= fr.B - 2;
   // (The lines among the boxes to avoid: a name beside its point stays on the point's side of each one.)
   const cutLines = avoid.filter((o) => Math.min(o[2] - o[0], o[3] - o[1]) <= 8);
@@ -203,8 +225,9 @@ function placeOnce(pts, fr, fs, r, avoid, first) {
     // (The name on one line, then broken into narrower and narrower columns, so it can sit beside its point between two lines.)
     const full = [[p.name], ...[Math.max(60, (fr.R - fr.L) / 3), 8 * fs, 6 * fs, 4 * fs].map((w) => fitWords(p.name, w, fs, 3))].filter(Boolean)
       .filter((ls, k, all) => all.findIndex((o) => o.join('\n') === ls.join('\n')) === k);
-    const beside = (forms) => {
-      let done = null;
+    // (over: the lines it may sit across are no bar, and the place crossing the fewest wins.)
+    const beside = (forms, over = false) => {
+      let done = null, fewest = Infinity;
       for (const lines of forms) {
         const w = Math.max(...lines.map((l) => est(l, fs, 0.62))), hgt = lines.length * lh;
         // (Right of the point, left of it, above, below, then the four corners.)
@@ -219,15 +242,17 @@ function placeOnce(pts, fr, fs, r, avoid, first) {
           // (and one beside a point near the top or bottom edge slides up or down to stay inside.)
           else top = clamp(top, fr.T, fr.B - 2 - hgt);
           const x0 = anchor === 'start' ? x : anchor === 'end' ? x - w : x - w / 2, b = [x0, top, x0 + w, top + hgt];
-          if (inside(b) && !hit(b) && sameSide(b, p)) { done = { x, y: top + fs * 0.85, anchor, lines, box: b }; break; }
+          if (!over) { if (inside(b) && !hit(b) && sameSide(b, p)) { done = { x, y: top + fs * 0.85, anchor, lines, box: b }; break; } continue; }
+          const n = cross.filter((o) => meets(b, o)).length;
+          if (n < fewest && inside(b) && !hitBut(b)) fewest = n, done = { x, y: top + fs * 0.85, anchor, lines, box: b, across: n > 0 };
         }
         if (done) break;
       }
       return done;
     };
     // (No room beside it: the name at the nearest clear place in the plot, joined to its point by a thin line that crosses no
-    // other point or name.)
-    const away = (forms) => {
+    // other point or name; over: it may sit across the cut-off lines.)
+    const away = (forms, over = false) => {
       let best = null;
       for (const ls of forms) {
         const w = Math.max(...ls.map((l) => est(l, fs, 0.62))), hgt = ls.length * lh;
@@ -235,7 +260,7 @@ function placeOnce(pts, fr, fs, r, avoid, first) {
           for (let top = fr.T; top + hgt <= fr.B; top += 2) {
             const b = [x0, top, x0 + w, top + hgt];
             const lx = clamp(p.x, b[0], b[2]), ly = clamp(p.y, b[1], b[3]), d = Math.hypot(lx - p.x, ly - p.y) + ls.length * 6;
-            if ((best && d >= best.d) || hit(b)) continue;
+            if ((best && d >= best.d) || (over ? hitBut(b) : hit(b))) continue;
             if (pts.some((q) => q !== p && crosses(p.x, p.y, lx, ly, [q.x - r - 2, q.y - r - 2, q.x + r + 2, q.y + r + 2]))) continue;
             if (named.some((o) => crosses(p.x, p.y, lx, ly, o))) continue;
             // (A leader across a cut-off counts against it, so a name stays on its point's side of the line if it can, and
@@ -243,19 +268,25 @@ function placeOnce(pts, fr, fs, r, avoid, first) {
             const dd = d + 2 * fs * cutLines.filter((o) => crosses(p.x, p.y, lx, ly, o)).length;
             if (best && dd >= best.d) continue;
             // (A place right by its point needs no line.)
-            best = { d: dd, x: x0, y: top + fs * 0.85, anchor: 'start', lines: ls, box: b, lead: Math.hypot(lx - p.x, ly - p.y) > gap + 2 || !sameSide(b, p) ? [lx, ly] : null };
+            const across = over && cross.some((o) => meets(b, o));
+            best = { d: dd, x: x0, y: top + fs * 0.85, anchor: 'start', lines: ls, box: b, across, lead: Math.hypot(lx - p.x, ly - p.y) > gap + 2 || (!across && !sameSide(b, p)) ? [lx, ly] : null };
           }
         }
       }
       return best;
     };
     // (The full name beside the point; else the full name a little way out on a thin line when that is close; else the short
-    // name beside it; else the full name or the short one further out, whichever lands much nearer.)
+    // name beside it; else the name beside its point across the cut-off lines it must cross; else the full name or the short
+    // one further out, whichever lands much nearer.)
     let done = beside(full);
     if (!done) {
       const sh = p.short ? beside([[p.short]]) : null, far = away(full);
       const shFar = !sh && p.short ? away([[p.short]]) : null;
-      done = sh && (!far || far.d > fs) ? sh : shFar && (!far || shFar.d + 2 * fs < far.d) ? shFar : far || shFar;
+      const over = !sh && cross.length && (!far || far.d > fs) ? beside(full, true) || (p.short ? beside([[p.short]], true) : null) : null;
+      // (Out on a line, the name may sit across a cut-off where that brings it much nearer.)
+      const farOver = !sh && !over && cross.length && (!far || far.d > fs) ? away(full, true) : null;
+
+      done = sh && (!far || far.d > fs) ? sh : over || (farOver && (!far || farOver.d + fs < far.d) ? farOver : shFar && (!far || shFar.d + 2 * fs < far.d) ? shFar : far || shFar);
     }
     if (done) boxes.push(done.box), named.push(done.box);
     out[i] = done;
@@ -334,8 +365,10 @@ export function placeZoneWords(pl, fr, X, Y, fs, used, dots, card = false, only 
  *  place first and the names are placed again around it, so every zone keeps its words and every point its name. */
 export function layoutPlane(pl, fr, X, Y, fs, at, card = false) {
   const rules = lineBoxes(pl, X, Y, fr), dots = at.map((p) => [p.x - 12, p.y - 12, p.x + 12, p.y + 12]);
+  // (The cut-off lines come first among the rules: a name may sit across one of those, the line broken behind it.)
+  const cross = rules.slice(0, cutSegs(pl, X, Y, fr).length);
   const boxesOf = (ns) => ns.filter(Boolean).map((n) => n.box);
-  let names = placeNames(at, fr, fs, 8, rules), words = placeZoneWords(pl, fr, X, Y, fs, [...boxesOf(names), ...rules], dots, card);
+  let names = placeNames(at, fr, fs, 8, rules, cross), words = placeZoneWords(pl, fr, X, Y, fs, [...boxesOf(names), ...rules], dots, card);
   const missing = (pl.key === false || pl.key === 'never') && !card ? pl.zones.filter((z) => !words.some((w) => w.z === z)) : [];
   if (missing.length) {
     // (Each of them where it leaves the names best placed: all of them named, the fewest out on a line, then the nearest.)
@@ -344,12 +377,12 @@ export function layoutPlane(pl, fr, X, Y, fs, at, card = false) {
     const chosen = [];
     const judge = (cands) => {
       let bi = 0, bs = null;
-      cands.forEach((b, i) => { const sc = score(placeNames(at, fr, fs, 8, [...rules, ...chosen, b])); if (!bs || better(sc, bs)) bi = i, bs = sc; });
+      cands.forEach((b, i) => { const sc = score(placeNames(at, fr, fs, 8, [...rules, ...chosen, b], cross)); if (!bs || better(sc, bs)) bi = i, bs = sc; });
       chosen.push(cands[bi]);
       return bi;
     };
     const first = placeZoneWords(pl, fr, X, Y, fs, rules, dots, card, missing, judge), held = first.map((w) => w.box);
-    const again = placeNames(at, fr, fs, 8, [...rules, ...held]);
+    const again = placeNames(at, fr, fs, 8, [...rules, ...held], cross);
     if (first.length && boxesOf(again).length >= boxesOf(names).length) {
       names = again;
       words = [...first, ...placeZoneWords(pl, fr, X, Y, fs, [...boxesOf(names), ...rules, ...held], dots, card, [...pl.zones.filter((z) => !missing.includes(z)), ...(pl.boxes || [])])];
@@ -467,7 +500,8 @@ export function planePlot(pl, { card = false } = {}) {
       kids.push(sv('text', { class: 'pze-zt ' + w.cls, 'data-tone': w.z.tone || 'none', x: w.x, y: w.y, 'text-anchor': w.anchor, style: `font-size:${fs}px` }, w.lines.map((l, i) => sv('tspan', { x: w.x, dy: i ? fs * 1.2 : null }, l))));
     }
     // The cut-off lines, the axes and their ticks.
-    for (const c of cutSegs(pl, X, Y, fr)) kids.push(sv('line', { class: 'pze-cut', ...c }));
+    // (Broken 4 px clear of a name that sits across one.)
+    for (const c of gapSegs(cutSegs(pl, X, Y, fr), names.filter((n) => n?.across).map((n) => n.box))) kids.push(sv('line', { class: 'pze-cut', ...c }));
     kids.push(sv('line', { class: 'pze-axis', x1: fr.L, x2: fr.R, y1: fr.B, y2: fr.B }), sv('line', { class: 'pze-axis', x1: fr.L, x2: fr.L, y1: fr.T, y2: fr.B }));
     const on = (a, v) => (pl.cuts?.[a] || []).includes(v);
     // (x ticks that would touch drop out, the cut-offs kept first)

@@ -1,14 +1,16 @@
 // The HVPG against PPG plane on Sites and causes' patients (Mohammad, 19 Oct): no key beside it on a Mac or an iPad, so
 // every zone keeps its words there (an iPhone keeps the key under the plot: a 0 to 5 mmHg column some 50 px wide holds no
 // zone's words); each name sits beside its own point, on the point's side of every cut-off line, and goes out on a thin
-// line only where it has no room beside its point. Checked at the plot sizes the panel takes on a Mac, an iPad and an iPhone
+// line only where it has no room beside its point. Where its own side of a cut-off has no room (an iPhone's 0 to 5 mmHg
+// column), it sits right beside its point across the line, which breaks 4 px clear of it, rather than far out on a long line
+// ("They should be closer to the dots", Mohammad 19 Oct). Checked at the plot sizes the panel takes on a Mac, an iPad and an iPhone
 // (upright and sideways).
 import './dom-shim.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { DECKS } from '../src/ui/decks.js';
 import { readFileSync } from 'node:fs';
-import { planeOf, frame, scaler, layoutPlane, crosses } from '../src/ui/visual-plane.js';
+import { planeOf, frame, scaler, layoutPlane, crosses, cutSegs, gapSegs } from '../src/ui/visual-plane.js';
 import { deckStates } from './deck-states.js';
 
 const touch = (a, o) => a[0] < o[2] && a[2] > o[0] && a[1] < o[3] && a[3] > o[1];
@@ -33,25 +35,32 @@ test('HVPG against PPG: no key, every zone named, names beside their points and 
     const pts = rows.map(([f, name, short]) => ({ x: X(f.hvpg), y: Y(f.ppg), name, short, f }));
     const { names, words: zw, rules, dots } = layoutPlane(pl, fr, X, Y, fs, pts);
     assert.ok(names.every(Boolean), `${where}: every point is named`);
+    // (The cut-off lines as drawn, broken where a name sits across one, as thin boxes 4 px either side.)
+    const drawn = gapSegs(cutSegs(pl, X, Y, fr), names.filter((n) => n.across).map((n) => n.box))
+      .map((c) => [Math.min(c.x1, c.x2) - 4, Math.min(c.y1, c.y2) - 4, Math.max(c.x1, c.x2) + 4, Math.max(c.y1, c.y2) + 4]);
     // (The screenshot's complaint: on a Mac every name sits beside its point, none out on a line across the cut-offs.)
     if (W >= 1180) assert.equal(names.filter((n) => n.lead).length, 0, `${where}: every name beside its point, no line out`);
     for (const [i, n] of names.entries()) {
       const p = pts[i];
       assert.ok(n.box[0] >= fr.L && n.box[2] <= fr.R && n.box[1] >= fr.T && n.box[3] <= fr.B, `${where}: ${p.name} inside the plot`);
-      assert.ok(!rules.some((o) => touch(n.box, o)), `${where}: ${p.name} keeps 4 px off every cut-off line`);
+      assert.ok(!drawn.some((o) => touch(n.box, o)), `${where}: ${p.name} keeps 4 px off every cut-off line drawn`);
+      if (!n.across) assert.ok(!rules.some((o) => touch(n.box, o)), `${where}: ${p.name} keeps off every line it does not sit across`);
       for (const q of pts) assert.ok(!touch(n.box, [q.x - 10, q.y - 10, q.x + 10, q.y + 10]), `${where}: ${p.name} covers no point`);
       for (const m of names.slice(i + 1)) assert.ok(!touch(n.box, m.box), `${where}: ${p.name} overlaps no other name`);
-      if (!n.lead) {
+      const gx = Math.max(n.box[0] - p.x, 0, p.x - n.box[2]), gy = Math.max(n.box[1] - p.y, 0, p.y - n.box[3]);
+      if (!n.lead && n.across) assert.ok(Math.hypot(gx, gy) <= 8 + 6 + fs, `${where}: ${p.name} across a line, right beside its point`);
+      else if (!n.lead) {
         // (Beside its point: on the point's side of every cut-off, and close.)
         for (const v of pl.cuts.x) assert.ok((p.x < X(v)) === (n.box[2] <= X(v)), `${where}: ${p.name} on its point's side of HVPG ${v}`);
         for (const v of pl.cuts.y) assert.ok((p.y < Y(v)) === (n.box[3] <= Y(v)), `${where}: ${p.name} on its point's side of PPG ${v}`);
-        const gx = Math.max(n.box[0] - p.x, 0, p.x - n.box[2]), gy = Math.max(n.box[1] - p.y, 0, p.y - n.box[3]);
         assert.ok(Math.hypot(gx, gy) <= 8 + 6 + fs, `${where}: ${p.name} right beside its point`);
       } else {
         // (A line out only where the name is wider than the room beside its point: it passes no other point and crosses only
         // the cut-offs it must.)
         for (const q of pts) if (q !== p) assert.ok(!crosses(p.x, p.y, n.lead[0], n.lead[1], [q.x - 10, q.y - 10, q.x + 10, q.y + 10]), `${where}: ${p.name}'s line passes no point`);
         assert.ok(rules.filter((o) => crosses(p.x, p.y, n.lead[0], n.lead[1], o)).length <= 2, `${where}: ${p.name}'s line crosses two cut-offs at most`);
+        // (and stays short: the name near its point, not across the plot.)
+        assert.ok(Math.hypot(n.lead[0] - p.x, n.lead[1] - p.y) <= 4 * fs, `${where}: ${p.name}'s line ${Math.round(Math.hypot(n.lead[0] - p.x, n.lead[1] - p.y))} px, short`);
       }
     }
     // Every zone keeps its words (where no key stands under the plot), clear of the names, the points and the lines.
@@ -98,4 +107,11 @@ test('the plane\'s green, amber and red zones: words 4.5:1 on their fills, light
   }
   assert.match(css, /@media \(prefers-color-scheme: dark\) \{ :root:not\(\[data-theme="light"\]\):not\(\[data-theme="soft"\]\) :is\(\.pze-plot, \.pze-ckey, \.pze-key\) \{\n {2}--pze-ok: color-mix\(in srgb, var\(--ok\) 42%, var\(--black\)\)/, 'the system dark theme matches');
   for (const k of ['ok', 'mid', 'hi']) assert.ok(css.includes(`.pze-key li[data-tone="${k}"] i { background: var(--pze-${k}); }`) && css.includes(`.pze-ckey li[data-tone="${k}"] i { background: var(--pze-${k}); }`), `${k}: the keys' swatches are the plot's fills`);
+});
+
+// A cut-off line breaks 4 px clear of a name sitting across it, and only there.
+test('a cut-off line breaks behind a name that sits across it', () => {
+  assert.deepEqual(gapSegs([{ x1: 50, x2: 50, y1: 0, y2: 100 }], [[30, 40, 80, 60]]), [{ x1: 50, x2: 50, y1: 0, y2: 36 }, { x1: 50, x2: 50, y1: 64, y2: 100 }]);
+  assert.deepEqual(gapSegs([{ x1: 0, x2: 100, y1: 20, y2: 20 }], [[30, 40, 80, 60]]), [{ x1: 0, x2: 100, y1: 20, y2: 20 }], 'a name clear of the line leaves it whole');
+  assert.deepEqual(gapSegs([{ x1: 0, x2: 100, y1: 50, y2: 50 }], [[10, 40, 30, 60], [20, 45, 50, 55]]), [{ x1: 0, x2: 6, y1: 50, y2: 50 }, { x1: 54, x2: 100, y1: 50, y2: 50 }]);
 });
