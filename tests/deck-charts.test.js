@@ -8,7 +8,7 @@ import { DECKS } from '../src/ui/decks.js';
 import { EXT } from '../src/ui/slide-ext.js';
 import { NODES } from '../src/engine/topology.js';
 import { portalSplit } from '../src/ui/table-marks.js';
-import { profileOf, STATIONS, axisTop, nameFit, profileGeo, valueSides, placeValues, curveRuns, labelPlacer, bracketLabel } from '../src/ui/tool-profile.js';
+import { profileOf, STATIONS, TIGHT_NAMES, NAME_GAP, axisTop, nameFit, profileGeo, valueSides, placeValues, curveRuns, labelPlacer, bracketLabel } from '../src/ui/tool-profile.js';
 import { flowParts, routeFlows, wholeShares, keyGrid, MAX_ROUTES } from '../src/ui/tool-flows.js';
 import { RX, bandKeys, bandRuns, bandSpan, namePlaces } from '../src/ui/rx-bands.js';
 import { deckStates, runSteps } from './deck-states.js';
@@ -36,9 +36,7 @@ test('the profile reads the tiles\' numbers and the network\'s own pressures', a
     assert.deepEqual([p.v[1], p.v[3], p.v[4], p.v[5], p.v[6], p.v[7]], [fp.pv, fp.sin, fp.cv, fp.fhvp, fp.ivc, fp.ra]);
     assert.ok(near(p.v[0], fp.int) && near(p.v[2], fp.at.P[NI.RPV], 1e-4));
     assert.equal(p.hvpg, fp.hvpg); assert.equal(p.ppg, fp.ppg);
-    // The HVPG's bracket stands on the wedged ring and the hepatic vein's dot: its number is their difference as written.
-    assert.equal(p.w, fp.whvp);
-    assert.equal(+(Math.round(p.w * 10) / 10 - Math.round(p.v[5] * 10) / 10).toFixed(1), +fp.hvpg.toFixed(1), 'HVPG = wedged − hepatic vein, as written');
+    assert.equal(p.w, undefined, 'no wedged ring (Mohammad, 19 Oct)');
     for (const v of p.v) assert.ok(Number.isFinite(v) && v >= -1 && v < 80, String(v));
   }
   // The healthy line falls gently; cirrhosis loses its pressure in the sinusoids, schistosomiasis before them.
@@ -53,13 +51,22 @@ test('the profile reads the tiles\' numbers and the network\'s own pressures', a
   assert.equal(axisTop({ v: [44] }), 50);
 });
 
-test('the station names fit their slots: full where there is room, the short names on a phone, never an ellipsis', () => {
+test('the station names fit their slots on one row: full where there is room, else abbreviated, never an ellipsis', () => {
   const f = 12, tw = approxW(f);
   assert.equal(nameFit(120, tw).names[2], 'Portal venule');
   assert.equal(nameFit(120, tw).rows, 1);
-  const phone = nameFit((358 - 40) / 8, tw);
-  for (const n of phone.names) assert.ok(!n.includes('…'));
-  assert.ok(Math.max(...phone.names.map(tw)) + 8 <= phone.rows * (358 - 40) / 8, 'the phone\'s names fit');
+  assert.equal(nameFit(60, tw).names[3], 'Sinusoid');
+  for (const n of Object.values(TIGHT_NAMES)) assert.ok(!/[….]/.test(n), n);
+  // (A phone, an upright iPad and a Mac card, at the sizes the demo deck draws them: one row, no two names closer than the gap.)
+  for (const [dev, ff, w] of [['phone', 13.8, 352], ['iPad', 15.6, 552], ['Mac', 12.02, 259], ['small phone', 13.8, 300]]) {
+    const t = approxW(ff), G = profileGeo(w, 240, ff, t);
+    assert.equal(G.fit.rows, 1, `${dev}: one row of names`);
+    G.fit.names.forEach((n, i) => {
+      assert.ok(ff >= 12, `${dev}: 12 px or more`);
+      if (i) assert.ok(G.x(i) - t(n) / 2 - (G.x(i - 1) + t(G.fit.names[i - 1]) / 2) >= NAME_GAP - 1e-9, `${dev}: ${G.fit.names[i - 1]} and ${n} apart`);
+    });
+    assert.ok(G.x(0) - t(G.fit.names[0]) / 2 >= 0 && G.x(7) + t(G.fit.names[7]) / 2 <= w, `${dev}: names inside the chart`);
+  }
   for (const w of [320, 358, 420, 520, 700]) for (const hh of [160, 240, 320]) {
     const G = profileGeo(w, hh, f, tw);
     assert.ok(G.B - G.T >= 3 * f, `${w}x${hh}: the plot keeps its room`);
@@ -102,23 +109,23 @@ test('a value goes under its dot only where the line is in the way above', () =>
 
 test('on the resistance profiles no value touches a line or a word, and each is clearly its own dot\'s', async () => {
   const [hl, schisto, csph, sos, comp] = (await runSteps([{ preset: 'healthy' }, { preset: 'schisto' }, { preset: 'csph' }, { preset: 'sos' }, { preset: 'cirr-comp' }])).map(profileOf);
-  const one = (v) => (Math.round(v * 10) / 10).toFixed(1), hv = STATIONS.indexOf('RHV');
+  const one = (v) => (Math.round(v * 10) / 10).toFixed(1);
   const off = [];
   // (A phone, an upright iPad and a Mac card, at the sizes the demo deck draws them.)
   for (const [dev, f, w, h] of [['phone', 13.8, 352, 260], ['iPad', 15.6, 552, 270], ['Mac', 12.02, 259, 229]]) {
     for (const [name, g, ref] of [['healthy', hl, null], ['schisto', schisto, null], ['cirrhosis', csph, schisto], ['SOS', sos, csph], ['compensated', comp, null]]) {
       const tw = approxW(f), G = profileGeo(w, h, f, tw), goal = { ...g, top: axisTop(g, hl, ref) };
       const y = (v) => G.B - (G.B - G.T) * Math.min(v, goal.top) / goal.top, P = (p) => p.v.map((v, i) => [G.x(i), y(v)]);
-      const pg = P(g), hasW = Number.isFinite(g.w), labels = [...g.v.map(one), ...(hasW ? [one(g.w)] : [])];
-      const all = [...pg, ...(hasW ? [[G.x(hv), y(g.w)]] : [])];
+      const pg = P(g), labels = g.v.map(one), all = pg;
       const s = placeValues(G, (t) => tw(t), goal, hl, ref);
       const lines = labelPlacer([...curveRuns([pg, P(hl), ...(ref ? [P(ref)] : [])]), [[0, G.B], [w, G.B]]], [], -1e9, 1e9, [4, 1, 1, 2]);
-      const words = [...s.map((v) => v.box), ...(s.hvpgAt ? [s.hvpgAt.box] : [])];
+      const words = s.map((v) => v.box);
       for (let i = 0; i < words.length; i++) for (let j = i + 1; j < words.length; j++) {
         const [a, b] = [words[i], words[j]];
         assert.ok(!(a[0] < b[1] && b[0] < a[1] && a[2] < b[3] && b[2] < a[3]), `${dev} ${name}: two words overlap`);
       }
-      s.forEach(({ box: b, tier }, i) => {
+      s.forEach(({ box: b, tier, across }, i) => {
+        assert.ok(!across, `${dev} ${name}: no other line between ${labels[i]} and its dot`);
         const [cx, cy] = [(b[0] + b[1]) / 2, (b[2] + b[3]) / 2], d = (p) => Math.hypot(cx - p[0], cy - p[1]);
         assert.ok(all.every((p, j) => j === i || d(all[i]) < d(p)), `${dev} ${name}: ${labels[i]} nearer its own dot`);
         if (tier || lines.lineCost(b)) off.push(`${dev} ${name} ${labels[i]}`);
@@ -126,9 +133,8 @@ test('on the resistance profiles no value touches a line or a word, and each is 
       });
     }
   }
-  // (On a Mac card the SOS portal vein sits between the Before line and its own with no clear place: it crosses the
-  // Before line, never a word.)
-  assert.deepEqual(off, ['Mac SOS 13.4']);
+  // (With the names on one row and no wedged ring, every value has a clear place, the Mac card's SOS too.)
+  assert.deepEqual(off, []);
 });
 
 test('whole percents keep their sum', () => {

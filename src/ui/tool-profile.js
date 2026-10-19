@@ -1,8 +1,7 @@
 // The pressure profile on a slide (deck visuals V1, package B): tool { kind: 'profile' } draws the slide's pressure from gut
 // to heart through the Patients chart's eight stations (anatomy.js PROFILE_PATHS), the healthy line dashed beneath it, the
-// liver's stations on a soft band, the PPG as a bracket under the names and the HVPG where it is measured: the wedged
-// hepatic vein pressure as a ring over the hepatic vein's own (free) dot, a bracket between them with its value. Where the
-// line drops steeply is where the resistance is, so presinusoidal, sinusoidal and postsinusoidal resistance look different.
+// liver's stations on a soft band, and the HVPG (sinusoid to hepatic vein) and the PPG (portal vein to IVC) as brackets
+// under the names (no wedged ring: Mohammad, 19 Oct, "No need for the wedge circle"). Where the line drops steeply is where the resistance is, so presinusoidal, sinusoidal and postsinusoidal resistance look different.
 // tool: { kind: 'profile', from: true } adds the state before this slide's as a faint dotted line ('slide id' for another).
 // Its numbers are the slide's own (its fingerprint, as the tiles read it: the same on every screen), easing to each new
 // state; a what-if slider or compare button moves it with the tiles. The Patients chart (charts.js) is not changed.
@@ -16,20 +15,22 @@ import { pressureColor } from './colormap.js?v=b2067d6101';
 const PATH = PROFILE_PATHS[0];
 export const STATIONS = PATH.nodes;
 const NI = Object.fromEntries(NODES.map((n, i) => [n.id, i]));
-// Phone names: the clinical short forms, never an ellipsis.
+// Short names where the full ones do not fit, then the shortest where those do not (a phone's or a Mac's card): clinical
+// short forms, never an ellipsis or a full stop.
 export const SHORT_NAMES = { INT: 'Gut', CONF: 'PV', RPV: 'Venule', SIN_R: 'Sinusoid', CV_R: 'CV', RHV: 'HV', IVCS: 'IVC', RA: 'RA' };
+export const TIGHT_NAMES = { INT: 'Gut', CONF: 'PV', RPV: 'Ven', SIN_R: 'Sin', CV_R: 'CV', RHV: 'HV', IVCS: 'IVC', RA: 'RA' };
 // A station's reading where the tiles have one (so its number is the tile's), else the node's own pressure.
 const AT_FP = { INT: 'int', CONF: 'pv', SIN_R: 'sin', CV_R: 'cv', RHV: 'fhvp', IVCS: 'ivc', RA: 'ra' };
 export const SPANS = [['hvpg', 'HVPG', 'SIN_R', 'RHV'], ['ppg', 'PPG', 'CONF', 'IVCS']];
 
-/** A fingerprint's profile: the eight stations' pressures (mmHg) in order, its HVPG and PPG as the tiles give them and the
- *  wedged hepatic vein pressure (w) the HVPG is measured from; null without a fingerprint. */
+/** A fingerprint's profile: the eight stations' pressures (mmHg) in order, and its HVPG and PPG as the tiles give them;
+ *  null without a fingerprint. */
 export function profileOf(fp) {
   if (!fp) return null;
   const P = fp.at?.P;
   const v = STATIONS.map((n) => { const k = AT_FP[n], x = k && Number.isFinite(fp[k]) ? fp[k] : P ? P[NI[n]] : NaN; return Number.isFinite(x) ? +x : NaN; });
   if (v.some((x) => !Number.isFinite(x))) return null;
-  return { v, hvpg: fp.hvpg, ppg: fp.ppg, w: Number.isFinite(fp.whvp) ? +fp.whvp : null };
+  return { v, hvpg: fp.hvpg, ppg: fp.ppg };
 }
 
 /** The axis's top: the highest point of the lines drawn, up to the next 5 (10 over 40), at least 15. */
@@ -39,13 +40,15 @@ export const axisTop = (...lines) => {
   return Math.ceil(top / step - 1e-9) * step;
 };
 
-/** How the station names fit slots px apart: full names on one row, else on two staggered rows, else the short names
- *  the same way. tw: a text's width in px. → { names, rows } */
+/** How the station names fit slots px apart, each centred under its own dot on one row: the full names, else the short
+ *  ones, else the shortest, each name at least NAME_GAP px from the next; two staggered rows only where even the shortest
+ *  touch (narrower than any card draws it). tw: a text's width in px. → { names, rows } */
+export const NAME_GAP = 6;
 export function nameFit(slot, tw) {
-  const full = STATIONS.map((n) => PATH.names[n]), short = STATIONS.map((n) => SHORT_NAMES[n]);
-  const widest = (ns) => Math.max(...ns.map(tw)) + 8;
-  for (const [names, rows] of [[full, 1], [full, 2], [short, 1], [short, 2]]) if (widest(names) <= rows * slot) return { names, rows };
-  return { names: short, rows: 2 };
+  const [full, short, tight] = [PATH.names, SHORT_NAMES, TIGHT_NAMES].map((m) => STATIONS.map((n) => m[n]));
+  const fits = (ns) => ns.every((n, i) => !i || (tw(ns[i - 1]) + tw(n)) / 2 + NAME_GAP <= slot);
+  for (const names of [full, short, tight]) if (fits(names)) return { names, rows: 1 };
+  return { names: tight, rows: 2 };
 }
 
 /** The chart's layout for w × h px in type f px: margins, the plot, the name rows and the two bracket rows. */
@@ -136,14 +139,15 @@ export function valueSides(pts, others, labels, f, tw, top, { bottom = Infinity,
       out.push({ s: 0, dx: sd * (r + 1 + wd + halo), by: 0.36 * f + k * st, pen: 0.4 * f });
       out.push({ s: 0, dx: sd * (r + 10 + wd + halo), by: 0.36 * f + k * st, pen: 0.8 * f });   // (past a mark beside it)
     }
-    // (A place with another line between the value and its dot reads as that line's, so it comes after every other.)
+    // (A place with another line between the value and its dot reads as that line's: never a clear place, and in the
+    // fallbacks after every other.)
     const across = (b) => { const [x, y] = all[i], [cx, cy] = mid(b), q = [Math.max(b[0], Math.min(x, b[1])), Math.max(b[2], Math.min(y, b[3]))];
       return cx === x && cy === y ? false : between.some((l) => l.slice(1).some((p, k) => segsCross(l[k], p, [x, y], q))); };
     return out.map((c) => ({ ...c, b: boxOf(i, c.dx, c.by) })).filter((c) => c.b[0] >= left && c.b[1] <= right)
-      .map((c) => ({ ...c, d: Math.hypot(...mid(c.b).map((v, k) => v - all[i][k])) + c.pen + (across(c.b) ? 10 * f : 0) })).sort((a, b) => a.d - b.d);
+      .map((c) => ({ ...c, x: across(c.b) })).map((c) => ({ ...c, d: Math.hypot(...mid(c.b).map((v, k) => v - all[i][k])) + c.pen + (c.x ? 10 * f : 0) })).sort((a, b) => a.d - b.d);
   };
   const C = all.map((_, i) => cands(i));
-  const ok = (i, c) => mine(i, c.b) && place.cost(c.b) === 0;
+  const ok = (i, c) => !c.x && mine(i, c.b) && place.cost(c.b) === 0;
   const S = C.map((cs, i) => cs.filter((c) => ok(i, c)).slice(0, 40));
   const order = all.map((_, i) => i).filter((i) => S[i].length).sort((a, b) => S[a].length - S[b].length || a - b);
   const rest = all.map((_, i) => i).filter((i) => !S[i].length);
@@ -151,35 +155,42 @@ export function valueSides(pts, others, labels, f, tw, top, { bottom = Infinity,
   // (First every value in a clear place at once: the fewest choices first, each nearest first, stepping back where a
   // later one finds none left.)
   let steps = 0;
-  const fit = (k) => {
+  const fit = (k, order) => {
     if (k === order.length) return true;
     const i = order[k];
     for (const c of S[i]) {
       if (++steps > 4000) return false;
       if (place.cost(c.b) !== 0) continue;
       place.take(c.b);
-      sides[i] = { s: c.s, dx: c.dx, by: c.by, box: c.b, tier: 0 };
-      if (fit(k + 1)) return true;
+      sides[i] = { s: c.s, dx: c.dx, by: c.by, box: c.b, tier: 0, across: c.x };
+      if (fit(k + 1, order)) return true;
       place.boxes.pop();
     }
     return false;
   };
-  const placed = fit(0);
-  if (!placed) place.boxes.length = 0;
-  for (const i of placed ? rest : [...order, ...rest]) {
+  let placed = fit(0, order), giveUp = [];
+  // (Where they cannot all have one, every value but one does, the one with the most choices given up first; it then takes
+  // the best place left.)
+  for (let j = order.length - 1; !placed && j >= 0; j--) {
+    place.boxes.length = 0; steps = 0;
+    if (fit(0, order.filter((_, k) => k !== j))) { placed = true; giveUp = [order[j]]; }
+  }
+  if (!placed) { place.boxes.length = 0; giveUp = order; }
+  for (const i of [...giveUp, ...rest]) {
     let c = C[i].find((c) => ok(i, c)), tier = 0;
     // (No clear place, as where three lines crowd a small chart: across its own line only, right by its dot; else across
     // the axis too, under its dot; else across another line, clear of every word; else the least crowded.)
-    const by = (c) => Math.hypot(...mid(c.b).map((v, k) => v - all[i][k])) < 1.9 * f && mine(i, c.b);
+    const by = (c) => !c.x && Math.hypot(...mid(c.b).map((v, k) => v - all[i][k])) < 1.9 * f && mine(i, c.b);
     if (!c) { tier = 1; c = C[i].find((c) => by(c) && place.cost(c.b) === 4); }
     if (!c) { tier = 2; c = C[i].find((c) => by(c) && [2, 6].includes(place.cost(c.b))); }
-    if (!c) { tier = 3; c = C[i].filter((c) => mine(i, c.b) && Number.isFinite(place.cost(c.b))).reduce((a, c) => (!a || place.cost(c.b) < place.cost(a.b) ? c : a), null); }
+    // (Across a line, clear of every word, on its own dot's side of the others: a value past another line reads as its.)
+    const far = (c) => place.cost(c.b) + (c.x ? 100 : 0);
+    if (!c) { tier = 3; c = C[i].filter((c) => mine(i, c.b) && Number.isFinite(place.cost(c.b))).reduce((a, c) => (!a || far(c) < far(a) ? c : a), null); }
     if (!c) tier = 4;
     c ??= C[i].reduce((a, c) => (place.crowd(c.b) + (mine(i, c.b) ? 0 : 1e7) + place.lineCost(c.b) * 1e6 < place.crowd(a.b) + (mine(i, a.b) ? 0 : 1e7) + place.lineCost(a.b) * 1e6 ? c : a), C[i][0]);
     place.take(c.b);
-    sides[i] = { s: c.s, dx: c.dx, by: c.by, box: c.b, tier };
+    sides[i] = { s: c.s, dx: c.dx, by: c.by, box: c.b, tier, across: c.x };
   }
-  sides.place = place;   // (for more labels to keep clear of these)
   return sides;
 }
 
@@ -216,49 +227,25 @@ const textW = (t, f, wt = 600) => {
 };
 
 /** The key's entries, and whether the unit fits on the key's row. */
-function keyFit(G, tw, hasBf, hasW) {
-  const key = [['Now', 'now'], ['Healthy', 'hl'], ...(hasBf ? [['Before', 'bf']] : []), ...(hasW ? [['Wedged', 'w']] : [])];
+function keyFit(G, tw, hasBf) {
+  const key = [['Now', 'now'], ['Healthy', 'hl'], ...(hasBf ? [['Before', 'bf']] : [])];
   const keyW = key.reduce((a, [t]) => a + tw(t, 500) + 30, 0);
   return { key, unitOnKey: G.R - keyW >= tw('mmHg', 500) + 6 };
 }
 
 /** Where the values go on the chart G (profileGeo) for the profile goal, with the healthy line hl and the earlier one bf
- *  (profiles or null): valueSides's answer, with hvpgAt, the HVPG's label beside its bracket ({ dy, anchor }) or null
- *  when it goes in the bracket row. tw(t, weight): a text's width in px. */
+ *  (profiles or null): valueSides's answer. tw(t, weight): a text's width in px. */
 export function placeValues(G, tw, goal, hl, bf) {
-  const { f } = G, dotR = Math.max(4, 0.36 * f), hv = STATIONS.indexOf('RHV'), hx = G.x(hv), hasW = Number.isFinite(goal.w);
+  const { f } = G, dotR = Math.max(4, 0.36 * f);
   const yg = (v) => G.B - (G.B - G.T) * Math.max(0, Math.min(v, goal.top)) / goal.top, ptsG = (p) => p.v.map((v, i) => [G.x(i), yg(v)]);
-  const i0 = STATIONS.indexOf(PATH.liver[0]), i1 = STATIONS.indexOf(PATH.liver[1]), { unitOnKey } = keyFit(G, tw, !!bf, hasW);
+  const i0 = STATIONS.indexOf(PATH.liver[0]), i1 = STATIONS.indexOf(PATH.liver[1]), { unitOnKey } = keyFit(G, tw, !!bf);
   // (The words over the plot a value keeps clear of: the liver's name, and the unit when the key needs its row.)
   const cap = 0.72 * f, word = (x0, x1, base) => [x0 - 2, x1 + 2, base - cap - 2, base + 2], lw = (tw('LIVER', 600) + 0.3 * f) / 2;   // (its letters spaced .06em)
   const overWords = [...(i0 >= 0 ? [word((G.x(i0) + G.x(i1)) / 2 - lw, (G.x(i0) + G.x(i1)) / 2 + lw, G.T - 0.35 * f)] : []),
     ...(unitOnKey ? [] : [word(0, tw('mmHg', 500), G.T - 0.95 * f)])];
-  const pg = ptsG(goal), y0 = hasW ? Math.min(yg(goal.w), pg[hv][1]) : 0, y1 = hasW ? Math.max(yg(goal.w), pg[hv][1]) : 0;
-  // (The HVPG's bracket goes right of the hepatic vein's column, or left where that leaves more values a clear place.)
-  const attempt = (k) => {
-    const bx = hx + k * (dotR + 6), mark = k > 0 ? [hx + dotR + 1, hx + dotR + 8, y0 - 2, y1 + 2] : [hx - dotR - 8, hx - dotR - 1, y0 - 2, y1 + 2];
-    const sides = valueSides(pg, [hl, bf].filter(Boolean).map(ptsG), [...goal.v.map(one), ...(hasW ? [one(goal.w)] : [])], f, (t) => tw(t), G.keyH + 0.2 * f,
-      { bottom: G.B, axis: G.B, left: G.L + 2, right: G.R + 8, dotR, obstacles: [...overWords, ...(hasW ? [mark] : [])], extra: hasW ? [[hx, yg(goal.w)]] : [], dots: [...pg.map(([x, yy]) => [x, yy, dotR + 1]), ...(hasW ? [[hx, yg(goal.w), dotR + 2.5]] : [])] });
-    Object.assign(sides, { hvpgAt: null, side: k, bx });
-    if (hasW) {
-      // (The HVPG's own label: beside its bracket, outside then across the column, at its middle or a little up or down;
-      // else in the bracket row under the hepatic vein.)
-      const wd = tw(`HVPG ${one(goal.hvpg)}`, 700), ym = (y0 + y1) / 2;
-      for (const dy of [0, -0.6, 0.6, -1.2, 1.2, -1.8].map((m) => m * f)) {
-        const yy = [ym + dy - 0.36 * f - 2, ym + dy + 0.36 * f + 2];
-        const out = k > 0 ? [[bx + 3, bx + 7 + wd, ...yy], bx + 5, 'start'] : [[bx - 7 - wd, bx - 3, ...yy], bx - 5, 'end'];
-        const across = k > 0 ? [[hx - dotR - 8 - wd, hx - dotR - 4, ...yy], hx - dotR - 6, 'end'] : [[hx + dotR + 4, hx + dotR + 8 + wd, ...yy], hx + dotR + 6, 'start'];
-        const hit = [out, across].find(([b]) => b[0] >= G.L && b[1] <= G.R + 8 && sides.place.free(b));
-        if (hit) { sides.place.take(hit[0]); sides.hvpgAt = { dy, x: hit[1], anchor: hit[2], box: hit[0] }; break; }
-      }
-    }
-    return sides;
-  };
-  const score = (s) => 10 * s.filter((v) => v.tier).length + (s.hvpgAt || !hasW ? 0 : 1);
-  const right = attempt(1);
-  if (!hasW || !score(right)) return right;
-  const left = attempt(-1);
-  return score(left) < score(right) ? left : right;
+  const pg = ptsG(goal);
+  return valueSides(pg, [hl, bf].filter(Boolean).map(ptsG), goal.v.map(one), f, (t) => tw(t), G.keyH + 0.2 * f,
+    { bottom: G.B, axis: G.B, left: G.L + 2, right: G.R + 8, dotR, obstacles: overWords, dots: pg.map(([x, yy]) => [x, yy, dotR + 1]) });
 }
 
 export function createProfileTool() {
@@ -292,28 +279,20 @@ export function createProfileTool() {
     const top = shown.top, y = (v) => G.B - (G.B - G.T) * Math.max(0, Math.min(v, top)) / top;
     const pts = (p) => p.v.map((v, i) => [G.x(i), y(v)]);
     const now = pts(shown), labels = shown.v.map(one), dotR = Math.max(4, 0.36 * f);
-    // The HVPG is measured in the hepatic vein: the wedged pressure (a ring) over the free one (the vein's own dot), the
-    // gradient a bracket between the two, so its number is the difference of the two values written beside them.
-    const hv = STATIONS.indexOf('RHV'), hasW = Number.isFinite(goal.w) && Number.isFinite(shown.w), hx = G.x(hv);
     // (Each value's place is settled once per state, from where the lines will end up, so it never flips while they glide.)
     const i0 = STATIONS.indexOf(PATH.liver[0]), i1 = STATIONS.indexOf(PATH.liver[1]);
-    const { key, unitOnKey } = keyFit(G, tw, !!bf, hasW);
+    const { key, unitOnKey } = keyFit(G, tw, !!bf);
     let kx = G.R;
     sides ??= placeValues(G, tw, goal, hl, bf);
     const step = top > 40 ? 10 : 5, every = (G.B - G.T) / (top / step) < 1.3 * f ? 2 * step : step;
     const col = (v) => pressureColor(v);
     const gid = `pzpg-${Math.random().toString(36).slice(2, 8)}`;
     const keyEls = key.slice().reverse().map(([t, c]) => { const tx = kx, gx = tx - tw(t, 500) - 6; kx -= tw(t, 500) + 30; return sv('g', { class: `ppf-key ${c}` },
-      c === 'w' ? sv('circle', { cx: gx - 6, cy: 0.75 * f, r: dotR }) : sv('line', { x1: gx - 18, x2: gx, y1: 0.75 * f, y2: 0.75 * f }),
+      sv('line', { x1: gx - 18, x2: gx, y1: 0.75 * f, y2: 0.75 * f }),
       sv('text', { x: tx, y: 0.75 * f + 0.36 * f, 'text-anchor': 'end' }, t)); });
     const valY = (cy, k) => cy + sides[k].by;
-    const yw = hasW ? y(shown.w) : 0, yf = now[hv]?.[1], k = sides.side || 1, bx = hx + k * (dotR + 6), hvRate = RATE.hvpg(shown.hvpg)[0];
-    const hvpgTxt = (x, yy, anchor) => sv('text', { x, y: yy, 'text-anchor': anchor }, sv('tspan', { class: 'k' }, 'HVPG '), one(shown.hvpg));
-    const vert = hasW ? sv('g', { class: 'ppf-br', 'data-rate': hvRate, 'data-k': 'hvpg' },
-      sv('path', { d: `M${bx - 3 * k} ${yw}H${bx}V${yf}H${bx - 3 * k}` }),
-      sides.hvpgAt ? hvpgTxt(sides.hvpgAt.x, (yw + yf) / 2 + sides.hvpgAt.dy + 0.36 * f, sides.hvpgAt.anchor) : null) : null;
     const svg = sv('svg', { viewBox: `0 0 ${w} ${hh}`, width: w, height: hh, role: 'img', style: `font-size: ${f.toFixed(2)}px`,
-      'aria-label': `Pressure from gut to heart: ${STATIONS.map((n, i) => `${PATH.names[n]} ${labels[i]}`).join(', ')} mmHg.${hasW ? ` Wedged hepatic vein ${one(shown.w)}.` : ''} HVPG ${one(shown.hvpg)}, PPG ${one(shown.ppg)}.` },
+      'aria-label': `Pressure from gut to heart: ${STATIONS.map((n, i) => `${PATH.names[n]} ${labels[i]}`).join(', ')} mmHg. HVPG ${one(shown.hvpg)}, PPG ${one(shown.ppg)}.` },
       sv('defs', {}, sv('linearGradient', { id: gid, gradientUnits: 'userSpaceOnUse', x1: G.x(0), x2: G.x(STATIONS.length - 1), y1: 0, y2: 0 },
         shown.v.map((v, i) => sv('stop', { offset: (i / (STATIONS.length - 1)).toFixed(3), 'stop-color': col(v) })))),
       // The liver's stations on a soft band, named over the plot.
@@ -329,22 +308,12 @@ export function createProfileTool() {
       sv('path', { class: 'ppf-fill', d: `${smoothD(now)}L${G.x(STATIONS.length - 1).toFixed(1)} ${G.B}L${G.x(0).toFixed(1)} ${G.B}Z`, style: `fill: url(#${gid})` }),
       sv('line', { class: 'ppf-axis', x1: G.L, x2: G.R, y1: G.B, y2: G.B }),
       sv('path', { class: 'ppf-line', d: smoothD(now), style: `stroke: url(#${gid})` }),
-      vert,
-      hasW ? sv('circle', { class: 'ppf-w', cx: hx, cy: yw, r: dotR + 1 }) : null,
       now.map(([cx, cy], i) => sv('circle', { class: 'ppf-dot', cx, cy, r: dotR, style: `fill: ${col(shown.v[i])}` })),
       now.map(([cx, cy], i) => sv('text', { class: 'ppf-v', x: cx + sides[i].dx, y: valY(cy, i), 'text-anchor': 'middle' }, labels[i])),
-      hasW ? sv('text', { class: 'ppf-v w', x: hx + sides[now.length].dx, y: valY(yw, now.length), 'text-anchor': 'middle' }, one(shown.w)) : null,
       STATIONS.map((n, i) => sv('text', { class: 'ppf-name', x: G.x(i), y: G.nameY(i), 'text-anchor': 'middle' }, G.fit.names[i])),
-      // The PPG (portal vein − IVC) as a bracket under the names, in its cut-off colours; the HVPG's too when it has no
-      // wedged reading to stand on, or its label no room beside its own bracket.
+      // The HVPG (sinusoid to hepatic vein) and the PPG (portal vein − IVC) as brackets under the names, in their cut-off colours.
       SPANS.map(([k, name, a, b], r) => {
         const v = shown[k], rate = RATE[k](v)[0];
-        if (hasW) r = k === 'ppg' ? 0 : 1;   // (the PPG takes the first row when the HVPG has its own bracket)
-        if (k === 'hvpg' && hasW) {
-          if (sides.hvpgAt) return null;
-          const yy = G.brY(r);
-          return sv('g', { class: 'ppf-br', 'data-rate': rate, 'data-k': k }, hvpgTxt(hx, yy + 0.36 * f, 'middle'));
-        }
         const x0 = G.x(STATIONS.indexOf(a)), x1 = G.x(STATIONS.indexOf(b)), yy = G.brY(r), txt = `${name} ${one(v)}`;
         const lb = bracketLabel(x0, x1, tw(txt, 700), G.R, G.L), bar = lb.gap ? `M${x0} ${yy}H${lb.gap[0]}M${lb.gap[1]} ${yy}H${x1}` : `M${x0} ${yy}H${x1}`;
         return sv('g', { class: 'ppf-br', 'data-rate': rate, 'data-k': k },
@@ -358,8 +327,7 @@ export function createProfileTool() {
     if (!goal) return;
     const k = reduceMQ.matches || !shown ? 1 : 0.2;
     const mix = (a, b) => lerp(a, b, k);
-    shown = shown ? { v: shown.v.map((x, i) => mix(x, goal.v[i])), hvpg: mix(shown.hvpg, goal.hvpg), ppg: mix(shown.ppg, goal.ppg), top: mix(shown.top, goal.top),
-      w: Number.isFinite(goal.w) ? mix(Number.isFinite(shown.w) ? shown.w : goal.w, goal.w) : null } : { ...goal };
+    shown = shown ? { v: shown.v.map((x, i) => mix(x, goal.v[i])), hvpg: mix(shown.hvpg, goal.hvpg), ppg: mix(shown.ppg, goal.ppg), top: mix(shown.top, goal.top) } : { ...goal };
     const done = shown.v.every((x, i) => Math.abs(x - goal.v[i]) < 0.02) && Math.abs(shown.top - goal.top) < 0.05;
     if (done) shown = { ...goal, v: goal.v.slice() };
     if (el.isConnected || !done) draw();
