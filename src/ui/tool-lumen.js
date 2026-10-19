@@ -93,7 +93,9 @@ export function createLumen() {
   // it reads over the open lumen and the clot alike; the clot fills in behind it. Nothing else under the picture: a deck that
   // wants the grade shows the "clot" tile on the data card.
   const inNum = sv('text', { class: 'gl-in', x: 50, y: 50, 'text-anchor': 'middle', 'dominant-baseline': 'central' });
-  pic.append(wall, lumen, clot, ring, inNum);
+  // Tissue narrowing a stent, in the clot's colour and edge so it reads at a glance against the open lumen.
+  const tissue = sv('circle', { class: 'gl-clot gl-tissue', cx: 50, cy: 50, r: LUMEN_R - LUMEN_WALL });
+  pic.append(wall, tissue, lumen, clot, ring, inNum);
   const el = h('div', { class: 'gl' }, h('div', { class: 'gl-stage' }, pic));
   const set = (n, t) => { if (n.textContent !== t) n.textContent = t; };
   const reduce = typeof matchMedia === 'function' ? matchMedia('(prefers-reduced-motion: reduce)') : null;
@@ -105,6 +107,8 @@ export function createLumen() {
     clot.setAttribute('d', clotPath(g));
     // A clot appears and leaves by growing from the wall and fading, never popping in.
     clot.style.opacity = Math.min(1, g.t / 0.06).toFixed(3);
+    tissue.style.display = STENTS.has(id) ? '' : 'none';
+    tissue.style.opacity = Math.min(1, x.stenosis / 0.06).toFixed(3);
     set(inNum, `${pct(L.occlusion)} %`);
     pic.setAttribute('aria-label', `${lumenName(id)} in cross-section: ${pct(L.occlusion)}% of the lumen filled, clot ${pct(x.thrombus)}%, narrowing ${pct(x.stenosis)}%`);
   }
