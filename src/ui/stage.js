@@ -2404,6 +2404,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       if (e.code === 'C1' && f.bands > 0 && t < 1) w *= 1 - 0.14 * Math.min(4, f.bands);
       // The periportal collaterals (cavernoma) are fine channels, thinner than the caliber their flow alone would draw.
       if (e.id === 'C8') w *= lerp(0.6, 1, t);
+      // The spontaneous splenorenal shunt never reads fatter than the splenic vein it leaves.
+      if (e.id === 'C6' && mode !== 'flow' && EI.V_SPL != null) w = Math.min(w, lerp(vesselPx(f.D[EI.V_SPL]), clamp(vesselPx(f.D[EI.V_SPL]) * 0.95, 6, 15) * circBoost, t));
       // The caudate vein hypertrophies when it becomes the liver's outflow (Budd–Chiari).
       if (e.id === 'CAUD' && t < 1) { const ref = store.get().healthy?.Q?.[k]; if (ref) w *= 0.8 * clamp(Math.sqrt(Math.abs(f.Qf ? f.Qf[k] : f.Q[k]) / Math.abs(ref)), 1, 1.8); }
       // A vessel leaving keeps its width. While the views morph, the width follows the morph frame by frame.
