@@ -43,9 +43,10 @@ export function bandSpan(run, n, X, L, R) {
 /** Where the bands' names go: each starts 6 px into its band, or ends at its row's maxX (a number, or one per row) where it
  *  would run past it; of the rows where it does not touch the name before it, the one where it starts nearest its band
  *  (a name that fits on none goes just after the name on the row that ends first). rows: how many there are room for;
- *  widthOf: a name's width in px; ends0: where each row is already taken up to (another label on it).
+ *  widthOf: a name's width in px; ends0: where each row is already taken up to (another label on it); grow: a name that fits
+ *  on no row before its maxX opens a row of its own instead (the caller counts the rows used).
  *  Returns [{ x, row }] in the runs' order. */
-export function namePlaces(spans, names, widthOf, { rows = 2, gap = 8, ends0 = [], maxX = Infinity } = {}) {
+export function namePlaces(spans, names, widthOf, { rows = 2, gap = 8, ends0 = [], maxX = Infinity, grow = false } = {}) {
   const ends = Array.from({ length: rows }, (_, r) => ends0[r] ?? -Infinity), out = [];
   const maxOf = (r) => (Array.isArray(maxX) ? maxX[r] ?? Infinity : maxX);
   for (const i of spans.map((_, k) => k).sort((a, b) => spans[a][0] - spans[b][0] || a - b)) {
@@ -56,6 +57,10 @@ export function namePlaces(spans, names, widthOf, { rows = 2, gap = 8, ends0 = [
       if (xq >= ends[q] + gap && xq > x + 0.5) { r = q; x = xq; }
     }
     // (No row free where it starts: on the row that frees first, just after the name there, never on top of it.)
+    // (Or, with grow, where that would run past the row's edge, on a new row below the rest, at its band or ending at its edge.)
+    if (r < 0 && grow && Math.min(...ends) + gap > maxOf(ends.indexOf(Math.min(...ends))) - widthOf(names[i])) {
+      r = ends.length; ends.push(-Infinity); x = Math.max(0, Math.min(spans[i][0] + 6, maxOf(r) - widthOf(names[i])));
+    }
     if (r < 0) { r = ends.indexOf(Math.min(...ends)); x = ends[r] + gap; }
     ends[r] = x + widthOf(names[i]);
     out[i] = { x, row: r };

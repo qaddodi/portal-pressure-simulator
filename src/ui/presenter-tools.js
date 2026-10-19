@@ -8,6 +8,8 @@
 //   tool: { kind: 'trace', range: 'talk' | 'beats' }
 //                                                   'talk' (default): portal, wedged and free hepatic pressures and the
 //                                                   HVPG at every slide so far, one point per state; 'beats': the live trace
+//   tool: { kind: 'trace', range: 'talk', since: '<slide id>' }
+//                                                   the talk trace from that slide on, its days counted from it (presenter.js chainTo)
 //   tool: { kind: 'abdomen' }                       the belly with its ascites and collaterals
 //   tool: { kind: 'wall' }                          the varix in cross-section, Laplace's T, r and w (the scope's Wall mechanics)
 //   tool: { kind: 'flowtime' }                      portal pressure and portal flow around a meal, the slide's time-lapse on a
@@ -28,10 +30,10 @@ import { EDGES } from '../engine/topology.js?v=4044766e96';
 import { createDoppler } from './doppler.js?v=3e5e7a8257';
 import { createFibroScan } from './fibroscan.js?v=7a27b85585';
 import { createPressureTime } from './pressure-time.js?v=63245ce098';
-import { createFlowTime } from './flow-time.js?v=2e3f89618c';
+import { createFlowTime } from './flow-time.js?v=2ddbf1d8e3';
 import { createEndoscopy, createAbdomen, createVarixWall } from './instruments.js?v=026ae36d01';
 import { frameFor } from './frame.js?v=67ca200c87';
-import { talkTrace } from './talk-trace.js?v=d615d9eb0d';
+import { talkTrace } from './talk-trace.js?v=d72e8c74c5';
 import { EXT, guard, safe } from './slide-ext.js?v=8cfbfb3579';
 const nextFrame = frameFor('presenter-tools');
 

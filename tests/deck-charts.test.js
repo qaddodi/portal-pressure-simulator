@@ -415,5 +415,10 @@ test('treatment bands: one run per stretch on, named once, the names on rows tha
   assert.ok(ph[0].row !== ph[1].row || ph[1].x >= ph[0].x + 72 + 8, JSON.stringify(ph));
   assert.equal(namePlaces([[280, 300]], ['Anticoagulation'], (t) => t.length * 7, { maxX: 300 })[0].x, 300 - 15 * 7, 'a name near the end ends at the plot\'s edge');
   for (const [k, a] of at.entries()) assert.ok(a.x + names[k].length * 7 <= 300);
+  // (grow: the phone's year chart from Dx, Anticoagulation after a name that leaves no room: a row of its own, inside the edge)
+  const g = namePlaces([[200, 290], [270, 300]], ['Carvedilol', 'Anticoagulation'], (t) => t.length * 7, { rows: 1, maxX: 300, grow: true });
+  assert.deepEqual(g.map((a) => a.row), [0, 1]);
+  assert.ok(g[1].x + 15 * 7 <= 300 && g[1].x >= 0, JSON.stringify(g));
+  assert.deepEqual(namePlaces([[200, 290], [270, 300]], ['Carvedilol', 'Anticoagulation'], (t) => t.length * 7, { rows: 1, maxX: 300 }).map((a) => a.row), [0, 0], 'without grow, the rows stay as asked');
   for (const k of Object.keys(RX)) assert.equal(typeof RX[k][1](undefined), 'boolean');
 });

@@ -8,7 +8,7 @@
 // The same chart plots a disease time-lapse (clock 'days'): two of the slide's own readings, one point per model day from
 // day 0 to its last, drawn as it plays (Ascites builds: ascites over sinusoidal pressure; varices: varix over HVPG).
 import { frameFor } from './frame.js?v=67ca200c87';
-import { RX, bandKeys } from './rx-bands.js?v=01873565ab';
+import { RX, bandKeys } from './rx-bands.js?v=51e83c7c59';
 const nextFrame = frameFor('flow-time');
 
 // (No imports: the series and scales load in Node for the unit tests. Every value here is positive.)

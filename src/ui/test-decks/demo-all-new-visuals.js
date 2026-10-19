@@ -373,6 +373,7 @@ export const DEMO_ALL = {
       "id": "start",
       "tick": "Diagnosis",
       "milestone": "Dx",
+      "when": "Month 0",
       "preset": "cirr-comp",
       "params": {
         "cirrhosis": 0.5
@@ -413,7 +414,7 @@ export const DEMO_ALL = {
       "id": "b-carv",
       "tick": "Carvedilol",
       "milestone": "Carvedilol",
-      "when": "On carvedilol",
+      "when": "Month 6",
       "params": {
         "drugs": {
           "carvedilol": true
@@ -457,7 +458,7 @@ export const DEMO_ALL = {
       "id": "clot",
       "tick": "Clot, anticoagulation",
       "milestone": "Clot",
-      "when": "Month 12",
+      "when": "Day 367",
       "days": 7,
       "params": {
         "thrombus": {
@@ -482,6 +483,7 @@ export const DEMO_ALL = {
       "tool": {
         "kind": "trace",
         "range": "talk",
+        "since": "start",
         "title": "The year on one chart",
         "style": "milestones",
         "bands": [
@@ -493,7 +495,7 @@ export const DEMO_ALL = {
       "site": "sin",
       "title": "Each treatment is shaded while it was on",
       "line": "Only the HVPG is drawn, in its cut-off colour. The milestones are named above it and the bands mark carvedilol and anticoagulation, so each change lines up with what caused it.",
-      "notes": "style: 'milestones' on a trace tool: the HVPG line alone, the slides marked milestone (Dx, Carvedilol, Clot) named over it, the bands beneath."
+      "notes": "since: 'start' on a trace tool starts the chart at that slide (Dx), so only this patient's year is drawn. style: 'milestones' on a trace tool: the HVPG line alone, the slides marked milestone (Dx, Carvedilol, Clot) named over it, the bands beneath."
     },
     {
       "id": "lapse",

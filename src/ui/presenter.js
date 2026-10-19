@@ -23,7 +23,7 @@ import { nb, listCase, plateletText } from './glue.js?v=5a0f63226b';
 import { DECKS, REGIONS, LEVELS, TOPICS, withOverview, siteTag, SITE_TAGS } from './decks.js?v=8b01c690f7';
 import { wholeGap, tenthGap } from '../engine/gap.js?v=3a5947c552';
 import { createHvpgMonitor } from './hvpg-proc.js?v=e37cb3f5c2';
-import { createTools } from './presenter-tools.js?v=30ae72d365';
+import { createTools } from './presenter-tools.js?v=f3635ecb7e';
 import { openHandout } from './handout.js?v=6e380115f5';
 import { noteResume, resumeFor } from './resume.js?v=f086f80ee8';
 import { parseDeckSource, checkDeck } from './deck-source.js?v=8395c650cd';
@@ -34,7 +34,7 @@ import { traceWhen } from './trace-labels.js?v=fc916a95c6';
 import { flowCss, heatCss, dropCss, gradientCss, oxygenCss } from './colormap.js?v=b2067d6101';
 import { EXT, expandIds, stepExtra, markLabel, figureHooks, safe } from './slide-ext.js?v=8cfbfb3579';
 import { citeText, focusOf, ladderFromOf, ladderFromName } from './teach-extras.js?v=d8224d9bb5';
-import { DEMO_ALL } from './test-decks/demo-all-new-visuals.js?v=5b164855e2';
+import { DEMO_ALL } from './test-decks/demo-all-new-visuals.js?v=658aa1d0e5';
 import { COMPACT, WIDE } from './card-type.js?v=f5dfdb80f2';
 const nextFrame = frameFor('presenter');
 
@@ -2104,12 +2104,14 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   // The talk so far, for a pressure trace: every state up to slide i, once each.
   // Each carries its time point (the deck's days so far) and what happened there (the first tick among its slides, else its title),
   // and its slide's id and its state's params (for a deck visuals package's chart).
-  const whenOf = (k) => {
-    const d = slides.slice(0, k + 1).reduce((a, s) => a + (s.days || 0), 0);
+  // (since: a slide's id, the trace's tool.since: the chart starts at that slide's state and counts its days from there, so a
+  // deck that moves on to a new patient charts only that patient's course.)
+  const whenOf = (k, f0 = -1) => {
+    const d = slides.slice(f0 + 1, k + 1).reduce((a, s) => a + (s.days || 0), 0);
     return d && d % 365 === 0 ? `Year ${d / 365}` : d <= 200 ? `Day ${d}` : `Month ${Math.round(d / 30.4)}`;
   };
   // (A state on the same day as the one before it, as a drug started at that visit, says so instead of repeating the day; a slide's `when` words it.)
-  const chainTo = (i) => { let before = null; return [...new Set(stateOf.slice(0, i + 1))].filter((k) => slides[k]?.visual !== 'outline').map((k) => { const w = whenOf(k), p = { n: k + 1, title: slides[k].title, tick: slides.find((x, j) => stateOf[j] === k && x.tick)?.tick || slides[k].title, mile: slides.find((x, j) => stateOf[j] === k && x.milestone)?.milestone, when: traceWhen(slides[k].when, w, before), fp: states[k]?.fp, id: slides[k].id, params: states[k]?.params }; before = w; return p; }); };
+  const chainTo = (i, since) => { let before = null; const f0 = since ? slides.findIndex((x, j) => j <= i && x.id === since) : -1, k0 = f0 >= 0 ? stateOf[f0] : -1; return [...new Set(stateOf.slice(0, i + 1))].filter((k) => k >= k0 && slides[k]?.visual !== 'outline').map((k) => { const w = whenOf(k, k0), p = { n: k + 1, title: slides[k].title, tick: slides.find((x, j) => stateOf[j] === k && x.tick)?.tick || slides[k].title, mile: slides.find((x, j) => stateOf[j] === k && x.milestone)?.milestone, when: traceWhen(slides[k].when, w, before), fp: states[k]?.fp, id: slides[k].id, params: states[k]?.params }; before = w; return p; }); };
   // The deck's short name in a tab at the card's top right corner (decks.js TOPICS; your own deck, its title when short):
   // a darker patch of the card's own glass, flush with its top and right edges, only its bottom left corner rounded. It sits in
   // the card's top padding, so it never meets the title. (Not read out on every slide: the outline and the slide list name the talk.)
@@ -2193,7 +2195,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       ui.dhT.textContent = cardTitle(s);
       ui.dhL.hidden = !lad;
       // (A flow-time chart over a time-lapse starts empty and draws as it plays.)
-      if (s.tool) ui.tools.show(s.tool, { slide: i, stateKey: stateOf[i], chain: chainTo(i), trail: states[stateOf[i]]?.trail ?? null, reveal: lap ? 0 : 1, ctx: ctxOf(s, i) }); else ui.tools.hide();
+      if (s.tool) ui.tools.show(s.tool, { slide: i, stateKey: stateOf[i], chain: chainTo(i, s.tool.kind === 'trace' ? s.tool.since : null), trail: states[stateOf[i]]?.trail ?? null, reveal: lap ? 0 : 1, ctx: ctxOf(s, i) }); else ui.tools.hide();
       if (s.tool) ui.tools.ghost(toolGhost(s, i));
       // (With a new patient the numbers are set at once, while the card is still out: it fades back in already showing them. So
       // too while the new cards wait, unseen, for the camera to land (bare): their count ran unseen beside the glide, a frame's

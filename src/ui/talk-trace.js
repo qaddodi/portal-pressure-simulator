@@ -5,7 +5,7 @@
 import { h, fmt, clamp } from './util.js?v=8813192ea2';
 import { traceLabel, traceLabelRoom } from './trace-labels.js?v=fc916a95c6';
 import { frameFor } from './frame.js?v=67ca200c87';
-import { bandKeys, bandRuns, bandSpan, namePlaces } from './rx-bands.js?v=01873565ab';
+import { bandKeys, bandRuns, bandSpan, namePlaces } from './rx-bands.js?v=51e83c7c59';
 const nextFrame = frameFor('presenter-tools');
 
 // ── The talk so far: PV, WHVP and FHVP at each state, the HVPG in its own lane with its cut-offs ──
@@ -123,7 +123,12 @@ export function talkTrace() {
     const R = W - Math.ceil(4 * 0.6 * vfs) - 14, n = Math.max(pts.length, 2), X = (i) => L + (R - L) * (pts.length < 2 ? 0.5 : i / (n - 1));
     const mi = pts.map((p, i) => (p.mile ? i : -1)).filter((i) => i >= 0);
     const { at, rows } = milePlaces(mi.map(X), mi.map((i) => textW(pts[i].mile, fs)), W);
-    const runs = bands.length ? bandRuns(pts.map((p) => p.params), bands) : [], bRows = runs.length ? (runs.length > 1 ? 2 : 1) : 0;
+    // (A band that starts at a milestone of its own name is named once, by the milestone; the rest are named on as many rows
+    // as keep them inside the chart and clear of each other and of the HVPG lane's name at the left of the lowest row.)
+    const runs = bands.length ? bandRuns(pts.map((p) => p.params), bands) : [], spans = runs.map((r) => bandSpan(r, pts.length, X, L, R));
+    const nameK = runs.map((r, k) => k).filter((k) => pts[runs[k].i0]?.mile !== runs[k].name);
+    const bat0 = namePlaces(nameK.map((k) => spans[k]), nameK.map((k) => runs[k].name), (t) => textW(t, fs), { rows: nameK.length > 1 ? 2 : 1, maxX: W - 4, grow: true, ends0: [L + textW('HVPG', fs) + 0.2 * fs] });
+    const bRows = nameK.length ? Math.max(...bat0.map((a) => a.row)) + 1 : 0;
     const rowH = fs + 6, nameY = (r) => 4 + fs + (rows - 1 - r) * rowH, T0 = 4 + rows * rowH, bandY = (r) => T0 + fs + (bRows - 1 - r) * (fs + 4);
     const T = T0 + bRows * (fs + 4) + 0.6 * fs + 6, B = HT - fs - 12;
     const gMax = Math.max(15, Math.ceil(Math.max(0, ...pts.map((p) => p.fp.hvpg || 0)) / 5) * 5), Y = (v) => B - (B - T) * clamp(v, 0, gMax) / gMax;
@@ -135,8 +140,6 @@ export function talkTrace() {
       const i = list[k], half = whenW(pts[i]) / 2;
       if (X(i) + half + 8 <= edge && X(i) - half >= 0) { named.add(i); edge = X(i) - half; }
     }
-    const spans = runs.map((r) => bandSpan(r, pts.length, X, L, R));
-    const bat = namePlaces(spans, runs.map((r) => r.name), (t) => textW(t, fs), { rows: bRows || 1, maxX: W - 4 });
     return sv('svg', { viewBox: `0 0 ${W} ${HT}`, role: 'img', 'aria-label': 'HVPG over the talk so far: ' + pts.map((p) => `${p.when || `slide ${p.n}`}${p.mile ? `, ${p.mile}` : ''}, ${fmt(p.fp.hvpg, 1)}`).join('; ')
       + runs.map((r) => `. ${r.name} from ${pts[r.i0].when || `slide ${pts[r.i0].n}`}`).join('') },
       runs.map((r, k) => sv('g', { class: 'ptk-band', 'data-rx': r.key, style: `--rx: var(${r.tone})` },
@@ -149,7 +152,7 @@ export function talkTrace() {
         p.mile ? sv('line', { x1: X(i), x2: X(i), y1: T0 - 2, y2: B + 4 }) : null,
         named.has(i) ? sv('text', { x: X(i), y: B + fs + 6, 'text-anchor': 'middle' }, p.when || String(p.n)) : null)),
       mi.map((i, k) => sv('text', { class: 'ptk-ms' + (i === last ? ' now' : ''), x: at[k].x, y: nameY(at[k].row), 'text-anchor': 'middle' }, pts[i].mile)),
-      runs.map((r, k) => sv('text', { class: 'ptk-band-n', style: `--rx: var(${r.tone})`, x: bat[k].x, y: bandY(bat[k].row) }, r.name)),
+      nameK.map((k, j) => sv('text', { class: 'ptk-band-n', style: `--rx: var(${runs[k].tone})`, x: bat0[j].x, y: bandY(bat0[j].row) }, runs[k].name)),
       // (Each stretch of the line in the colour of where it ends, the cut-offs' own.)
       pts.slice(1).map((p, k) => sv('path', { class: 'ptk-line hv', 'data-rate': sev(p.fp.hvpg), d: `M${X(k).toFixed(1)} ${Y(pts[k].fp.hvpg).toFixed(1)}L${X(k + 1).toFixed(1)} ${Y(p.fp.hvpg).toFixed(1)}` })),
       pts.map((p, i) => sv('circle', { class: 'ptk-pt', 'data-rate': sev(p.fp.hvpg), cx: X(i), cy: Y(p.fp.hvpg), r: i === last ? 6 : 4 })),
