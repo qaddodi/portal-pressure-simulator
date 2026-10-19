@@ -126,8 +126,21 @@ test('a time-lapse keeps the words where they came in: the phone\'s cap and the 
 test('a time-lapse slide in view never lays its cards out again as its readings change: only the data card refits in its own room', () => {
   // (Every reading that measured the data card a hair different ran the whole layout again, many times a second while the days ran,
   // and on an iPhone the teaching card vibrated: Endoscopy 3, 18 Oct.)
-  assert.match(js, /const lapseStill = \(\) => !!shown && shown\.i === want && !!slides\[want\]\?\.lapse && !!ui && !ui\.root\.classList\.contains\('pz-prep'\);/);
-  assert.match(js, /clearRO \|\|= new ResizeObserver\(\(\) => \{ cancelFrame\(paneRaf\); paneRaf = nextFrame\(\(\) => \{ if \(!ui\) return; if \(lapseStill\(\)\) fitCards\(ui\.data\); else layout\(\); \}\); soon\(\); \}\);/);
-  assert.match(js, /fitRaf = nextFrame\(\(\) => \{ if \(ui && lapseStill\(\)\) \{ fitCards\(ui\.data\); return; \}/);
-  assert.ok(js.indexOf('const lapseStill') < js.indexOf('function layout()'));
+  assert.match(js, /const cardsStill = \(\) => !!shown && shown\.i === want && \(liveOff \|\| !!slides\[want\]\?\.lapse\) && !!ui && !ui\.root\.classList\.contains\('pz-prep'\);/);
+  assert.match(js, /clearRO \|\|= new ResizeObserver\(\(\) => \{ cancelFrame\(paneRaf\); paneRaf = nextFrame\(\(\) => \{ if \(!ui\) return; if \(cardsStill\(\)\) fitCards\(ui\.data\); else layout\(\); \}\); soon\(\); \}\);/);
+  assert.match(js, /fitRaf = nextFrame\(\(\) => \{ if \(ui && cardsStill\(\)\) \{ fitCards\(ui\.data\); return; \}/);
+  assert.ok(js.indexOf('const cardsStill') < js.indexOf('function layout()'));
+});
+
+test('a what-if slider or compare button never lays the cards out again as the readings change: the teaching card holds still', () => {
+  // (Each reading that measured the data card a hair different ran the whole layout and fitted the words afresh, and on an iPhone
+  // the teaching card's text shook while Tricuspid leak moved, slide 60 of the test-all deck, 19 Oct.)
+  const still = js.match(/const cardsStill = \(\) => ([^;]+);/)?.[1] || '';
+  assert.match(still, /liveOff/, 'a slider or button driving the live model counts as readings only');
+  // (Both observers that lay the cards out after a resize hold the words while it does.)
+  assert.equal((js.match(/cardsStill\(\)\) (?:\{ )?fitCards\(ui\.data\)/g) || []).length, 2);
+  // (The slider drives the live model through liveSet, which sets liveOff before its first reading.)
+  const live = js.match(/async function liveSet\(s, i, patch\) \{[\s\S]*?\n {2}\}/)[0];
+  assert.ok(live.indexOf('liveOff = true') < live.indexOf('dataTo('));
+  assert.match(js, /if \(!raf\) raf = nextFrame\(\(\) => \{ raf = 0; liveSet\(s, i, patchOf\(\+input\.value\)\); \}\);/);
 });

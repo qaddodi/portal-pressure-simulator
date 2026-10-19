@@ -2779,14 +2779,17 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   // the card a hair different laid every card out again, so on an iPhone the teaching card vibrated as the days passed (Endoscopy 3,
   // 18 Oct). The data card is only fitted again in its own room; the words and their glass stay as they came in. (A resize, a turn or
   // a new text size still lays everything out afresh: onResize.)
-  const lapseStill = () => !!shown && shown.i === want && !!slides[want]?.lapse && !!ui && !ui.root.classList.contains('pz-prep');
+  // (The same while a what-if slider or a compare button drives the live model (liveOff): each reading that measured the data card a
+  // hair different laid the cards out again and fitted the words afresh, a pixel off each time, so the teaching card's text shook
+  // under the finger: Tricuspid leak on slide 60 of the test-all deck on an iPhone, 19 Oct.)
+  const cardsStill = () => !!shown && shown.i === want && (liveOff || !!slides[want]?.lapse) && !!ui && !ui.root.classList.contains('pz-prep');
   let shiftLock = null;   // (the stacked pair's centring, keyed as the words' lock: layout)
   let textLock = null, ladderFold = null, foldHeld = null;   // (foldHeld: the foldKey the data card was last folded for, layout)
   let fitRO = null, fitRaf = 0, clearRO = null, clearT = 0, paneRaf = 0, fitKids = [], clearFor = null;
   const fitWatch = () => {
     fitRO ||= new ResizeObserver(() => {
       cancelFrame(fitRaf);
-      fitRaf = nextFrame(() => { if (ui && lapseStill()) { fitCards(ui.data); return; } if (ui && [ui.text, ui.data, ui.panel].some((el) => !el.hidden && fitDone.get(el) !== fitSig(el) && (el.style.getPropertyValue('--pz-fit') || (({ v, h }) => v > 1 || h > 1)(overflowOf(el))))) layout(); });   // (a shrunk card is fitted again when it changes, so it can grow back)
+      fitRaf = nextFrame(() => { if (ui && cardsStill()) { fitCards(ui.data); return; } if (ui && [ui.text, ui.data, ui.panel].some((el) => !el.hidden && fitDone.get(el) !== fitSig(el) && (el.style.getPropertyValue('--pz-fit') || (({ v, h }) => v > 1 || h > 1)(overflowOf(el))))) layout(); });   // (a shrunk card is fitted again when it changes, so it can grow back)
     });
     // (Watched again only when the cards' children changed: observing a box reports it at once, so re-observing on every pass
     // ran the layout again every frame on a slide sitting still, Circuit 7 on an iPhone some four times a second.)
@@ -2797,7 +2800,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       if (cardSig() !== framedSig) reframe(400); };   // (only when the cards really changed: the camera framed them once; any slide, so a card that grew never covers its box)
     const soon = () => { clearTimeout(clearT); clearT = setTimeout(again, 120); };
     // (The words' glass pane and the figure's insets follow a card that grows after the layout, a chart arriving under the words.)
-    clearRO ||= new ResizeObserver(() => { cancelFrame(paneRaf); paneRaf = nextFrame(() => { if (!ui) return; if (lapseStill()) fitCards(ui.data); else layout(); }); soon(); });
+    clearRO ||= new ResizeObserver(() => { cancelFrame(paneRaf); paneRaf = nextFrame(() => { if (!ui) return; if (cardsStill()) fitCards(ui.data); else layout(); }); soon(); });
     if (clearFor !== ui) { clearRO.disconnect(); clearRO.observe(ui.data); clearRO.observe(ui.text); clearFor = ui; }
     ui.data.ontransitionend = ui.text.ontransitionend = soon;   // (a card slides into place: its edge is where it ends, not where it was measured)
   };
