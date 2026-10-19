@@ -11,7 +11,7 @@ import { computeMetrics } from '../src/engine/metrics.js';
 import { createCore } from '../src/worker-core.js';
 import { lumenOf, lumenShape, lumenWords, LUMEN_R, LUMEN_WALL } from '../src/ui/tool-lumen.js';
 import { fluidOf, fluidBars, fluidWords, sinusoidForces, pinnedForces } from '../src/ui/tool-fluid.js';
-import { pulsatility, caliperPick, caliperStale, pairOf, pairBand, pairScale, PAIR_GAP } from '../src/ui/doppler-marks.js';
+import { pulsatility, caliperPick, caliperFrame, CAL_SECS, pairOf, pairBand, pairScale, PAIR_GAP } from '../src/ui/doppler-marks.js';
 import ext from '../src/ui/ext-instruments.js';
 import { EXT } from '../src/ui/slide-ext.js';
 import { DECKS } from '../src/ui/decks.js';
@@ -101,7 +101,7 @@ test('V27: at rest the forces come from the slide\'s own state, the same on ever
   if (healthy.fp.hepLymph <= 0.5 + 1e-9) assert.equal(pinnedForces(healthy.fp, {}), null, 'lymph at its floor: the live frames show the push');
 });
 
-test('V21: the calipers read the window\'s extremes, at their latest moments, with the reading\'s own index', () => {
+test('V21: the calipers read the window\'s extremes, on their own samples, with the reading\'s own index', () => {
   const buf = [];
   for (let t = 0; t <= 6; t += 0.02) buf.push([+t.toFixed(2), 20 + 8 * Math.sin(2 * Math.PI * t)]);
   const c = caliperPick(buf, 3, 6);
@@ -109,15 +109,22 @@ test('V21: the calipers read the window\'s extremes, at their latest moments, wi
   near(c.pi, pulsatility(c.hi[1], c.lo[1]), 1e-12, 'its index');
   near(c.pi, 16 / 28, 0.01, 'the swing over the larger extreme');
   assert.ok(c.hi[0] > 5 && c.lo[0] > 5, 'both on the newest beat');
-  assert.equal(caliperStale(c, caliperPick(buf, 3.02, 6.02), 0.4), false, 'the same reading holds still');
-  assert.equal(caliperStale(c, c, Math.min(c.hi[0], c.lo[0]) + 0.01), true, 'a mark about to leave the trace gives way');
-  assert.equal(caliperStale(c, { ...c, pi: c.pi + 0.2 }, 0), true, 'a reading that moved on gives way');
-  assert.equal(caliperStale(c, { ...c, pi: c.pi + 0.2 }, 0, 1), false, 'but not in its first two seconds');
-  assert.equal(caliperStale(c, { ...c, hi: [6, c.hi[1] * 1.5] }, 0, 1), true, 'a trace running past a mark gives way at once');
-  assert.equal(caliperStale(c, { ...c, pi: c.pi + 0.05 }, 0), false, 'a breath\'s swing never moves it');
   assert.equal(caliperPick(buf.map(([t]) => [t, 0.2]), 3, 6), null, 'no flow, no calipers');
-  assert.equal(caliperStale(c, null, 0), true, 'no reading left in the window: the marks go');
-  assert.equal(caliperStale(c, null, 0, 1), false, 'but not in their first two seconds');
+  // A record scrolling past the window's edge, its beats growing and shrinking, on a phone's 3 s sweep and a 6 s one: every
+  // frame the marks sit inside the trace, on the window's own highest and lowest samples, and the index is theirs.
+  const rec = [];
+  for (let t = 0; t <= 30; t += 1 / 50) rec.push([t, 15 + (6 + 5 * Math.sin(t / 3)) * Math.sin(2 * Math.PI * t * 1.1) - (Math.abs((t % 7) - 3.5) < 0.05 ? 9 : 0)]);
+  for (const [sweep, W] of [[3, 280], [6, 560]]) {
+    for (let tNow = 6; tNow <= 30; tNow += 1 / 60) {
+      const f = caliperFrame(rec, tNow, sweep, W, 16), inWin = rec.filter(([t]) => t >= f.t0 && t <= f.t1);
+      const margin = (8 * sweep) / W;
+      assert.ok(f.t0 >= tNow - CAL_SECS - 1e-9 && f.t0 >= tNow - sweep + margin && f.t1 <= tNow - margin, 'the window lies on the trace, a whole mark from each edge');
+      for (const w of ['hi', 'lo']) assert.ok(f[w][0] >= f.t0 && f[w][0] <= f.t1 && rec.some((p) => p[0] === f[w][0] && p[1] === f[w][1]), `the ${w} mark is on a sample inside it`);
+      assert.equal(f.hi[1], Math.max(...inWin.map((p) => p[1])), 'on the highest sample');
+      assert.equal(f.lo[1], Math.min(...inWin.map((p) => p[1])), 'on the lowest sample');
+      assert.equal(f.pi, pulsatility(f.hi[1], f.lo[1]), 'the index from the same pick');
+    }
+  }
   // The reading's own formula (doppler.js interpret), read from its source.
   assert.match(DOP, /const pi = big > 0\.5 \? swing \/ big : 0;/);
 });

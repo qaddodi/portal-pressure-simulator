@@ -12,7 +12,7 @@ import { DOPPLER_MODES, dopplerColor, shadeColor, swatchGradient } from './doppl
 import { frameFor, noteDraw, paceMs } from './frame.js?v=67ca200c87';
 import { windowIndexFor, scaleFor } from './dopplerWindow.js?v=2067b803a2';
 import { velNormal, dopplerVel } from './velNormal.js?v=181dda5594';
-import { CAL_SECS, caliperPick, caliperStale, pairOf, pairBand, pairScale, PAIR_GAP } from './doppler-marks.js?v=93589e7f7b';
+import { caliperFrame, pairOf, pairBand, pairScale, PAIR_GAP } from './doppler-marks.js?v=1c54817818';
 const nextFrame = frameFor('doppler');
 
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
@@ -785,6 +785,9 @@ export function createDoppler({ onProbe, pickGate = true }) {
     const lw = ctx.measureText(label).width;
     ctx.font = FONT(500, 12); ctx.fillStyle = cssAlpha('--white', .5);
     // (The settings drop from the end, sweep first, where the strip is too narrow for all of them beside the units.)
+    // (this frame's time, and the calipers' pick from it, before the strip: the index there is the marks' own, this frame)
+    const tNow = buf.length >= 2 ? clockNow(now) : null;
+    calNow(tNow, W);
     const pi = calText();
     let x0 = padL + lw + 12;
     if (pi) {
@@ -803,7 +806,6 @@ export function createDoppler({ onProbe, pickGate = true }) {
     // Scale: the peak fills about 85% of its side, on the scanner's own velocity steps. Like a
     // sonographer, the display changes scale or baseline only when the signal would clip or has
     // stayed small for a few seconds, never continuously (a moving scale would smear the picture).
-    const tNow = clockNow(now);
     let pos = 0, neg = 0;
     const sgn = pol();
     for (const [t, v0] of buf) if (t >= tNow - sweepSeconds && t <= tNow) { const v = sgn * v0; if (v > pos) pos = v; if (-v > neg) neg = -v; }
@@ -935,8 +937,7 @@ export function createDoppler({ onProbe, pickGate = true }) {
       }
     } else { wl = null; }
     const xAt = (t) => padL + (RW - 1 - (cNow - Math.floor(t * g.cps))) / dpr;
-    if (calip) drawCalipers(ctx, { now, tNow, sgn, k, pxPerV, baseY, padT, padL, W, H, xAt });
-    else cal = calOld = null;
+    drawCalipers(ctx, { sgn, k, pxPerV, baseY, padT, H, xAt });
     if (PB) drawPair(ctx, { tNow, y0: padT + H + PAIR_GAP, PB, padL, W, xAt });
     // One tick a second along the bottom, scrolling with the trace
     ctx.fillStyle = cssAlpha('--white', .4);
@@ -947,66 +948,34 @@ export function createDoppler({ onProbe, pickGate = true }) {
     ctx.textBaseline = 'alphabetic';
   }
 
-  // ── A slide's calipers (V21): a flat mark at the highest and at the lowest velocity of the last 3 s, a thin line between
-  // them and the pulsatility index beside it, the number the pattern is named from. The pick holds still, scrolling with its
-  // beat, until a mark is about to leave the trace or the reading moves on; then it fades out and the newest pick fades in. ──
-  let calip = false, cal = null, calOld = null, calAt = 0;
-  // (a new pick comes in quickly and the old one trails out behind it, so the marks stay at full strength through a re-pick)
-  const CAL_W = 16, CAL_IN = 0.1, CAL_FADE = 0.25;
-  function drawCalipers(ctx, { now, tNow, sgn, k, pxPerV, baseY, padT, padL, W, H, xAt }) {
-    const dt = calAt ? Math.min(0.35, (now - calAt) / 1000) : 0; calAt = now;
-    // (a pick from another record, as after a slide change or a restarted clock, is dropped at once: the marks are only ever
-    // on the trace now on screen)
-    if (cal && (tNow < cal.at - 0.05 || Math.max(cal.hi[0], cal.lo[0]) > tNow + 0.05)) cal = null;
-    const fresh = () => caliperPick(buf, tNow - CAL_SECS, tNow);
-    // A pick gives way once one of its samples has left the reading's 3 s window (by half a second, so a pick whose extreme is
-    // the window's oldest sample is not taken again every frame), or the reading moves on: the new pick fades in on its own
-    // samples while the old one fades out on its own, so a mark is only ever drawn on the trace and never blinks out. Only a
-    // trace with nothing left to measure fades the marks away.
-    if (cal && !cal.out && (cal.sgn !== sgn || cal.gf !== gf || caliperStale(cal, fresh(), tNow - CAL_SECS - 0.5, tNow - cal.at))) {
-      const c = cal.sgn === sgn && cal.gf === gf ? fresh() : null;
-      // (the pick still most in view is the one that fades out)
-      if (c) {
-        if (!calOld || cal.alpha >= calOld.alpha) calOld = { ...cal, out: true };
-        // (a mark the new pick keeps, on the same sample, stays at full strength: only a mark that moves fades across)
-        const same = (w) => Math.abs(c[w][0] - calOld[w][0]) < 1e-6 && Math.abs(c[w][1] - calOld[w][1]) < 1e-6;
-        cal = { ...c, sgn, gf, at: tNow, alpha: 0, out: false, keep: { hi: same('hi'), lo: same('lo') } };
-      }
-      else cal.out = true;
-    }
-    if (!cal || (cal.out && cal.alpha <= 0)) {
-      const c = fresh();
-      cal = c ? { ...c, sgn, gf, at: tNow, alpha: cal ? 0 : 1, out: false } : null;   // (the first pick on a slide shows at once; one after a fade fades in)
-    }
-    if (calOld) { calOld.alpha = clamp(calOld.alpha - dt / CAL_FADE, 0, 1); if (calOld.alpha <= 0) calOld = null; }
+  // ── A slide's calipers (V21): a flat mark at the highest and at the lowest velocity of the last 3 s on the trace, a thin
+  // line between them and the pulsatility index in the strip, the number the pattern is named from. Each frame takes one pick
+  // (caliperFrame) for the marks and the index alike: a mark rides its sample as the trace sweeps and moves to the new one the
+  // moment a new extreme arrives or its sample leaves the window, so no mark is ever drawn anywhere but on the extreme. ──
+  let calip = false, cal = null;
+  const CAL_W = 16;
+  function calNow(tNow, W) {
+    cal = calip && tNow != null && probe ? caliperFrame(buf, tNow, sweepSeconds, W, CAL_W) : null;
+    if (cal) cal.gf = gateFactor();
+  }
+  function drawCalipers(ctx, { sgn, k, pxPerV, baseY, padT, H, xAt }) {
     if (!cal) return;
-    cal.alpha = clamp(cal.alpha + (cal.out ? -dt / CAL_FADE : dt / CAL_IN), 0, 1);
-    if ((cal.out ? cal.alpha > 0 : cal.alpha < 1) || calOld) labBusy = true;
-    // (each mark on the spectrum's outline, where the reading's peak is read: the mean across the lumen times dopplerK; a mark
-    // at the newest moment sits just inside the trace's right edge, never past it into the scale)
-    const at = ([t, v]) => [clamp(xAt(t), padL + CAL_W / 2, padL + W - CAL_W / 2), clamp(padT + baseY - sgn * v * k * gf * pxPerV, padT, padT + H)];
+    // (each mark on the spectrum's outline, where the reading's peak is read: the mean across the lumen times dopplerK; the
+    // window keeps every mark a whole mark inside the trace, so nothing is clamped to an edge)
+    const at = ([t, v], g) => [xAt(t), clamp(padT + baseY - sgn * v * k * g * pxPerV, padT, padT + H)];
+    const mark = ([x, y], A) => {
+      ctx.fillStyle = cssAlpha('--black', 0.8 * A); ctx.fillRect(Math.round(x - CAL_W / 2) - 1, Math.round(y) - 2, CAL_W + 2, 4);
+      ctx.fillStyle = cssAlpha('--doppler', A); ctx.fillRect(Math.round(x - CAL_W / 2), Math.round(y) - 1, CAL_W, 2);
+    };
     ctx.save();
-    const ease = (x) => x * x * (3 - 2 * x), kept = calOld && cal.keep && !cal.out ? cal.keep : {};
-    for (const c of [calOld, cal]) {
-      if (!c) continue;
-      const A = ease(c.alpha);
-      // (each mark's own strength: one both picks share is drawn once, at full; the line between takes the weaker of its ends)
-      const mA = (w) => (kept[w] ? (c === cal ? Math.max(A, ease(calOld.alpha)) : 0) : A);
-      const Ah = mA('hi'), Al = mA('lo'), [xh, yh] = at(c.hi), [xl, yl] = at(c.lo);
-      if (Math.min(Ah, Al) > 0 || (A > 0 && !kept.hi && !kept.lo)) {
-        ctx.strokeStyle = cssAlpha('--doppler', 0.75 * A); ctx.lineWidth = 1; ctx.setLineDash([3, 3]);
-        ctx.beginPath(); ctx.moveTo(xh, yh); ctx.lineTo(xl, yl); ctx.stroke(); ctx.setLineDash([]);
-      }
-      for (const [x, y, A] of [[xh, yh, Ah], [xl, yl, Al]]) {
-        if (A <= 0) continue;
-        ctx.fillStyle = cssAlpha('--black', 0.8 * A); ctx.fillRect(Math.round(x - CAL_W / 2) - 1, Math.round(y) - 2, CAL_W + 2, 4);
-        ctx.fillStyle = cssAlpha('--doppler', A); ctx.fillRect(Math.round(x - CAL_W / 2), Math.round(y) - 1, CAL_W, 2);
-      }
-    }
+    const h = at(cal.hi, cal.gf), l = at(cal.lo, cal.gf);
+    ctx.strokeStyle = cssAlpha('--doppler', 0.75); ctx.lineWidth = 1; ctx.setLineDash([3, 3]);
+    ctx.beginPath(); ctx.moveTo(...h); ctx.lineTo(...l); ctx.stroke(); ctx.setLineDash([]);
+    mark(h, 1); mark(l, 1);
     ctx.restore();
   }
   // (The index is read in the bottom strip, first after the probe's name, in the marks' colour: off the spectrum, always whole.)
-  const calText = () => (calip && cal && cal.alpha > 0 ? `PI ${fmt(cal.pi, 2)}` : '');
+  const calText = () => (cal ? `PI ${fmt(cal.pi, 2)}` : '');
 
   // ── A slide's paired trace (V29): the paired vessel's velocity over the same seconds as the main trace, beat for beat, as
   // the scanner would draw it (a hepatic vein's forward flow below its baseline), slim, in a band of its own under the main
@@ -1050,7 +1019,7 @@ export function createDoppler({ onProbe, pickGate = true }) {
   function configure(t = {}) {
     const m = MODE_OF[t?.mode] || 'spectrum';
     if (m !== mode) { mode = m; sync(); }
-    calip = !!t?.calipers; cal = calOld = null;   // (a new slide's calipers pick from its own trace)
+    calip = !!t?.calipers; cal = null;   // (a new slide's calipers pick from its own trace)
     if (pair !== !!t?.pair) { pair = !!t?.pair; pairSc = null; }
     redraw();
   }

@@ -13,37 +13,33 @@ export const pulsatility = (hi, lo) => { const big = Math.max(Math.abs(hi), Math
 export const CAL_SECS = 3;
 
 /** The caliper marks in a record buf ([[t, v], …], sorted by t) between t0 and t1: the highest and the lowest velocity there,
- *  each placed at its latest moment within 3% of the swing, so the marks sit on the newest beat that reaches them and the
- *  older one stays on screen as long as it can. { hi: [t, v], lo: [t, v], pi }, or null with too little record or no flow. */
+ *  each on its own sample (the newest, where beats tie), so a mark sits on the trace exactly where the extreme is drawn.
+ *  { hi: [t, v], lo: [t, v], pi }, or null with too little record or no flow. */
 export function caliperPick(buf, t0, t1) {
-  let hi = -Infinity, lo = Infinity, n = 0;
-  for (const p of buf) { if (p[0] < t0 || p[0] > t1) continue; n++; if (p[1] > hi) hi = p[1]; if (p[1] < lo) lo = p[1]; }
-  if (n < 8 || Math.max(Math.abs(hi), Math.abs(lo)) < 1) return null;
-  const tol = Math.max(0.03 * (hi - lo), 0.05);
-  let th = null, tl = null;
-  for (let i = buf.length - 1; i >= 0 && (th == null || tl == null); i--) {
-    const [t, v] = buf[i];
-    if (t > t1) continue;
-    if (t < t0) break;
-    if (th == null && v >= hi - tol) th = t;
-    if (tl == null && v <= lo + tol) tl = t;
+  let hi = null, lo = null, n = 0;
+  for (const p of buf) {
+    if (p[0] < t0) continue;
+    if (p[0] > t1) break;
+    n++;
+    if (!hi || p[1] >= hi[1]) hi = p;
+    if (!lo || p[1] <= lo[1]) lo = p;
   }
-  return { hi: [th, hi], lo: [tl, lo], pi: pulsatility(hi, lo) };
+  if (n < 8 || Math.max(Math.abs(hi[1]), Math.abs(lo[1])) < 1) return null;
+  return { hi: [hi[0], hi[1]], lo: [lo[0], lo[1]], pi: pulsatility(hi[1], lo[1]) };
 }
 
-/** Whether a held caliper pick should give way to a new one: a mark about to leave the trace's left edge, the trace on
- *  screen running well past a mark, or, once it has been up CAL_HOLD seconds (held is how long), a reading that has moved on
- *  (a what-if or a new state: the index differs by more than 0.1, or an extreme by more than 15% of the larger) or that has
- *  none (no flow left to measure). Breath to breath the extremes swing a little; that alone never moves the marks. */
-export const CAL_HOLD = 2;
-export function caliperStale(cal, now, edge, held = Infinity) {
-  if (Math.min(cal.hi[0], cal.lo[0]) < edge) return true;
-  const span = Math.max(Math.abs(cal.hi[1]), Math.abs(cal.lo[1]), 1);
-  // (the trace on screen running well past a mark gives way at once: the marks never sit inside the newest beats)
-  if (now && (now.hi[1] > cal.hi[1] + 0.15 * span || now.lo[1] < cal.lo[1] - 0.15 * span)) return true;
-  if (held < CAL_HOLD) return false;
-  if (!now) return true;   // (no reading left in the window: the marks go)
-  return Math.abs(now.pi - cal.pi) > 0.1 || Math.abs(now.hi[1] - cal.hi[1]) > 0.15 * span || Math.abs(now.lo[1] - cal.lo[1]) > 0.15 * span;
+/** The seconds the calipers read at tNow: the last 3 s, as the reading does, cut to the part of a sweep (seconds across W px)
+ *  where a whole mark (markPx wide, centred on its sample) fits on the trace, so a mark is never pinned to an edge. */
+export function caliperWindow(tNow, sweep, W, markPx) {
+  const half = (markPx / 2 + 1) * sweep / Math.max(1, W);
+  return [Math.max(tNow - CAL_SECS, tNow - sweep + half), tNow - half];
+}
+
+/** One frame's calipers: the marks, the index the strip shows beside them and the window they come from, all from one pick. */
+export function caliperFrame(buf, tNow, sweep, W, markPx) {
+  const [t0, t1] = caliperWindow(tNow, sweep, W, markPx);
+  const c = t1 > t0 ? caliperPick(buf, t0, t1) : null;
+  return c && { ...c, t0, t1 };
 }
 
 /** The vessel the paired trace shows: the right hepatic vein under a portal vein or anything else, the main portal vein under
