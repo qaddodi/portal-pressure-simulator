@@ -3030,8 +3030,20 @@ button.finding { cursor: pointer; }
 
 /* ── Pressure over time ─────────────────────────── */
 .instrument-view.pt { display: flex; flex-direction: column; align-items: stretch; gap: 10px; min-height: 100%; }
-.pt-head { display: flex; align-items: center; justify-content: space-between; gap: 12px 16px; flex-wrap: wrap; }
-.pt-hero { display: flex; align-items: baseline; gap: 6px 12px; flex-wrap: wrap; min-width: 0; }
+/* One row: HVPG, its number, the status over its trend, then Smooth and the range switch at the right. Where the
+   Tests card is too narrow for that (under 500 px inside), the switches move together to a second row, still at the
+   right. The choice follows the card's width only, never the words, so the header never jumps between the two. */
+.pt-head { display: flex; align-items: center; justify-content: space-between; gap: 8px 10px; flex-wrap: wrap; }
+.pt-hero { display: flex; align-items: baseline; gap: 6px 8px; flex-wrap: wrap; min-width: 0; }
+.pt-st { display: flex; flex-direction: column; align-self: center; gap: 2px; }
+.pt-ctl { display: flex; align-items: center; gap: 6px; flex: none; margin-left: auto; }
+@container tpane (max-width: 499.98px) { .pt-hero { flex-basis: 100%; } }
+@container tpane (min-width: 500px) {
+  .pt-head, .pt-hero { flex-wrap: nowrap; }
+  .pt-hero { flex: 0 1 auto; }
+  .pt-sev { white-space: nowrap; }
+  .pt-st { flex: 0 1 auto; min-width: calc(8.75 * var(--fs-12)); }   /* (room for "▲ 10.4 in 2 min" as the digits change; a longer trend, "Steady since day 730", wraps between words under it) */
+}
 .pt-k { font-size: var(--fs-12); font-weight: 600; color: var(--text-3); letter-spacing: .02em; }
 .pt-v { display: inline-flex; align-items: baseline; gap: 4px; }
 .pt-num { font-size: var(--fs-28); font-weight: 600; letter-spacing: -.02em; line-height: 1; color: var(--text); font-variant-numeric: tabular-nums; }
@@ -3039,12 +3051,12 @@ button.finding { cursor: pointer; }
 .pt-sev { display: inline-flex; align-items: center; gap: 6px; font-size: var(--fs-12); font-weight: 600; color: var(--text-2); }
 .pt-sev[data-sev="caution"] { color: color-mix(in srgb, var(--caution) 80%, var(--text)); }
 .pt-sev[data-sev="danger"] { color: var(--danger); }
-.pt-delta { font-size: var(--fs-12); line-height: 1.2; color: var(--text-3); font-variant-numeric: tabular-nums; flex: 1 1 0; min-width: min-content; min-height: 1.2em; }   /* (never cut with an ellipsis: where the row is short it wraps between words, "Steady in" over "2 min", inside the buttons' height) */
+.pt-delta { font-size: var(--fs-12); line-height: 1.2; color: var(--text-3); font-variant-numeric: tabular-nums; min-width: min-content; min-height: 1.2em; }   /* (never cut with an ellipsis; its line is kept while it is empty, so the header never jumps) */
 .pt-delta[data-dir="up"] { color: var(--danger); }
 .pt-delta[data-dir="down"] { color: var(--ok); }
 .pt-range { flex: none; }
 .pt-smooth { flex: none; }
-.pt-range button { min-height: 30px; padding-inline: 12px; }
+.pt-range button { min-height: 30px; padding-inline: 8px; }
 .instrument-workspace .instrument-view.pt .pt-box { flex: 1 1 0; height: auto; min-height: 180px; }
 .pt-box canvas { touch-action: pan-y; cursor: crosshair; }
 .pt-chips { display: flex; gap: 6px; flex-wrap: wrap; flex: none; }
@@ -3056,8 +3068,7 @@ button.finding { cursor: pointer; }
 @media (hover: hover) { .pt-chip:hover { border-color: var(--border-strong); } }
 @media (max-width: 767px), (max-width: 1100px) and (orientation: portrait) {
   .pt-num { font-size: var(--fs-28); }
-  .pt-hero { flex-basis: 100%; }
-  .pt-range button { min-height: 28px; padding-inline: 10px; }
+  .pt-range button { min-height: 28px; }
 }
 
 /* ── Doppler ────────────────────────────────────── */
@@ -5104,6 +5115,7 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
 :is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool, .pz.low .pz-data.has-tool) .pz-tool[data-kind="abdomen"] :is(.ab-trend, .ab-iap, .ab-tiles) { display: none; }
 /* (The beat-by-beat trace's Smooth switch is the Explore pane's, not a slide's.) */
 .pz-tool .pt-smooth { display: none; }
+.pz-tool .pt-ctl { display: none; } .pz-tool .pt-st { display: contents; }   /* (a slide's trace: the status and trend sit in its header as before) */
 /* (Beside an instrument the tile column is a little wider, so every tile's name stays on one line.) */
 .pz:not(.stack):not(.low) .pz-data.pz-beside { grid-template-columns: minmax(0, 1fr) max(160px, 36%); }
 .pz:not(.stack):not(.low) .pz-data.pz-beside .pz-tiles .pzt-k { white-space: nowrap; letter-spacing: .02em; }
