@@ -526,7 +526,7 @@ export const SITES = {
 
 // Organ captions: [text, x, y, anchor]
 export const ORGAN_LABELS = [
-  ['Liver', 432, 440], ['Stomach', 918, 432], ['Spleen', 1066, 250], ['Colon', 975, 860], ['Kidney', 978, 716],
+  ['Liver', 432, 440], ['Stomach', 918, 432], ['Spleen', 1066, 250], ['Colon', 960, 846], ['Kidney', 978, 716],
   ['Small bowel', 820, 800], ['Esophagus', 860, 40], ['Right atrium', 532, 118],
 ];
 

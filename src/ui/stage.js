@@ -2,7 +2,7 @@
 // over an SVG scene that holds the organ artwork, hit targets and overlays, and screen-space labels.
 
 import { EDGES, dopplerK, NODES, PORTAL_TERRITORY, dMinOf, edgePresent, isOccluded, SHUNT_PORTAL, SHUNT_SYSTEMIC, customShuntId, isStent, stentSite, STENT_SITES, STENT_SPANS, stentGate, stentSegments } from '../engine/topology.js?v=4044766e96';
-import { route as metroRoute, LABEL_VESSEL, TIP_FADE, TIP_CONNECT, VIEW, VB_ANAT, VB_CIRC, ATLAS_COLUMNS, HIDDEN_EDGES, HIDDEN_NODES, ANAT_HIDDEN, ANAT_HIDDEN_NODES, CAUDATE, CONTEXT_EDGES, BACK_EDGES, IVC_EDGES, NEEDS_C3, NODE_POS, EDGE_PATH, CIRCUIT_PATH, metroPath, ORGANS, SEAM_D, ORGAN_DETAIL, BACKDROP, LIVER_INNER, LIVER_EDGES, LANE_CAPTIONS, ABDOMEN_CLIP, ABDOMEN_FLOOR, flankPath, abdomenOutline, cavityHalfWidths, SPLEEN_CENTER, SITES, ORGAN_LABELS, ATLAS_LABELS, SHORT, ABBR, CHIP_NODES, LIVER_SPLIT_X, CIRCUIT_ZONES, CIRCUIT_LABELS, STRANDS, STRAND_FROM, SIN_EDGES, FEEDERS, fanFeeders, CIRCUIT_TREES } from './anatomy.js?v=54dcd965ad';
+import { route as metroRoute, LABEL_VESSEL, TIP_FADE, TIP_CONNECT, VIEW, VB_ANAT, VB_CIRC, ATLAS_COLUMNS, HIDDEN_EDGES, HIDDEN_NODES, ANAT_HIDDEN, ANAT_HIDDEN_NODES, CAUDATE, CONTEXT_EDGES, BACK_EDGES, IVC_EDGES, NEEDS_C3, NODE_POS, EDGE_PATH, CIRCUIT_PATH, metroPath, ORGANS, SEAM_D, ORGAN_DETAIL, BACKDROP, LIVER_INNER, LIVER_EDGES, LANE_CAPTIONS, ABDOMEN_CLIP, ABDOMEN_FLOOR, flankPath, abdomenOutline, cavityHalfWidths, SPLEEN_CENTER, SITES, ORGAN_LABELS, ATLAS_LABELS, SHORT, ABBR, CHIP_NODES, LIVER_SPLIT_X, CIRCUIT_ZONES, CIRCUIT_LABELS, STRANDS, STRAND_FROM, SIN_EDGES, FEEDERS, fanFeeders, CIRCUIT_TREES } from './anatomy.js?v=763af8341c';
 import { pressureColor, deltaColor, dropColor, flowColor, heatColor, velColorOf, velocityColor, oxygenColor } from './colormap.js?v=1092d36abc';
 import { forkJoins, sideEndScale } from './fork-joins.js?v=b678f7ba5a';
 import { STATION_VESSEL, meanVel, velNormal } from './velNormal.js?v=181dda5594';
@@ -44,7 +44,7 @@ import { fitPose, probeShapes, beamBoxes, gateBoxes, awayFromProbe, PROBE, PROBE
 import { organDimMatrix } from './organ-dim.js?v=7888276613';
 import { parseColor, greyOf, paintRef } from './organ-grey.js?v=e41d68222c';
 import { bandRing, dashRings, liftEnd, normalShown, rippleList, systemOf, SYSTEM_COLOR } from './highlight-math.js?v=e2c1816e25';
-import { organAnchor, spleenCaliper, acrossVessel, stepGroups, spanOf, spanPath, zoneBand, SPAN_TICK, insideBy, clearOf, besideLine } from './callout-math.js?v=20e8c7492e';
+import { organAnchor, spleenCaliper, acrossVessel, stepGroups, spanOf, spanPath, zoneBand, SPAN_TICK, insideBy, clearOf, besideLine } from './callout-math.js?v=007e5733ac';
 const nextFrame = frameFor('stage');
 
 const N_SAMPLES = 64;
@@ -2112,6 +2112,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     veins?.dispose();   // the lost instance's listener goes with it (one per restore otherwise)
     veins = createVeinsGL(vCanvas, { tubes: GL_ROWS, force: true });
     vBinKey = ''; binShown = null; bendShown = null; glOrgans = false; plateKey = ''; tubesShown = null;   // (a new context holds no vessels yet)
+    liverKey = '';   // (nor the liver's lower edge the ascites stops at: morphLiver sends it again)
     for (const x of EV) for (const o of [x, ...(x.strands || []), ...(x.feeders || [])]) { o.glRadKey = null; o.glRSent = null; }
     if (F) update(F);
   });
@@ -3497,9 +3498,10 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // The inlined copy of the backdrop and organs for the current state (plateStateKey), built with the whole-plate raster
   // and reused by the view rasters that follow it (a pan changes only the window): inlining every element's styles is
   // about 30 ms of each redraw. Made cheaper to draw on the way (plate-copy.js), with the same pixels.
-  // The diaphragm's cuts for the liver, stomach and spleen never touch it: the dome is their hull pushed out DIA_GAP (11)
-  // units, more than the cut's half-width (2.5) and the line's (3.5). The heart and esophagus cuts stay.
-  const DEAD_CUTS = ['liver', 'stomach', 'spleen'];
+  // The diaphragm's cuts for the stomach and spleen never touch it: the dome runs DIA_GAP (11) units above them, more than
+  // the cut's half-width (2.5) and the line's (3.5). The liver's stays: under the heart the dome passes below the liver's top
+  // (the heart rests on it), so the liver hides it there, in the copy as on the page. The heart and esophagus cuts stay too.
+  const DEAD_CUTS = ['stomach', 'spleen'];
   function plateBuild(key) {
     const was = plateOn();
     wrap.classList.remove('gl-plate');
@@ -4604,6 +4606,12 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       for (const [hx, hy] of outlinePts(diaCut.heart.getAttribute('d'), diaCut.heart)) {
         const i = Math.round(hx / 4);
         if (hy > (heartBase.get(i) ?? -Infinity)) heartBase.set(i, hy);
+      }
+      // (A column the outline's samples skipped, or caught only on its upper side, takes its neighbours' base: no notch.)
+      const ks = [...heartBase.keys()].sort((p, q) => p - q);
+      for (let k = ks[0]; k <= ks.at(-1); k++) {
+        const l = heartBase.get(k - 1), r = heartBase.get(k + 1), v = heartBase.get(k);
+        if (l != null && r != null && (v == null || v < Math.min(l, r) - 6)) heartBase.set(k, (l + r) / 2);
       }
     }
     const i = x / 4, a = heartBase.get(Math.floor(i)), b = heartBase.get(Math.ceil(i));

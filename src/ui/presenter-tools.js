@@ -27,14 +27,14 @@
 import { store } from './store.js?v=aaa74688dd';
 import { h } from './util.js?v=5814c6b396';
 import { EDGES } from '../engine/topology.js?v=4044766e96';
-import { createDoppler } from './doppler.js?v=14af17926c';
-import { createFibroScan } from './fibroscan.js?v=114c34b557';
-import { createPressureTime } from './pressure-time.js?v=7d851e81c2';
+import { createDoppler } from './doppler.js?v=cccd82d9ec';
+import { createFibroScan } from './fibroscan.js?v=6f239a78a7';
+import { createPressureTime } from './pressure-time.js?v=421f5688a1';
 import { createFlowTime } from './flow-time.js?v=81255fd534';
-import { createEndoscopy, createAbdomen, createVarixWall } from './instruments.js?v=d454c55ce5';
+import { createEndoscopy, createAbdomen, createVarixWall } from './instruments.js?v=510140a0fc';
 import { frameFor } from './frame.js?v=2ce59939b2';
 import { talkTrace } from './talk-trace.js?v=0ce7c3772c';
-import { EXT, guard, safe } from './slide-ext.js?v=4b3dc17af5';
+import { EXT, guard, safe } from './slide-ext.js?v=9e9d9776ae';
 const nextFrame = frameFor('presenter-tools');
 
 const VESSEL = { PV_TRUNK: 'main portal vein', PVH_R: 'right portal vein', PVH_L: 'left portal vein', SV_CONF: 'splenic vein', SV_MID: 'splenic vein', V_SPL: 'splenic vein, at the hilum',
