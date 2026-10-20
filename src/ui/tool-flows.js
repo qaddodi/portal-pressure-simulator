@@ -126,6 +126,12 @@ export function healthyOrder(hParts, nowBar, of = 'portal') {
   const own = barOrder(hParts, of), ids = nowBar.map((p) => p.id);
   return [...ids.map((id) => own.find((p) => p.id === id)).filter(Boolean), ...own.filter((p) => !ids.includes(p.id))];
 }
+/** Whether two splits read the same: the same parts with the same whole percents, in any order (what the card shows, so a
+ *  0.1% wobble in the model never counts). */
+export const sameShares = (a, b) => {
+  const key = (ps) => (ps || []).filter((p) => p.pct > 0).map((p) => `${p.id}:${p.pct}`).sort().join(',');
+  return !!a && !!b && key(a) === key(b);
+};
 /** How many rows of names fit under the Now bar in a card hh tall (one at least). */
 export const rowsFit = (hh, geo) => Math.max(1, Math.floor((hh - geo.head - geo.barH) / geo.step + 1e-6));
 /** The height the two bars and rows of names under them take. */
@@ -282,7 +288,9 @@ export function createFlowsTool() {
     if (memo?.key === key) return memo;
     const lay = flowLayout(goal, of, w, hh, f, textW, hGoal), bw = Math.max(1, w - lay.gut);
     const at = Object.fromEntries(lay.segs.map((s, i) => [s.id, [s, lay.labels[i]]]));
-    const hat = Object.fromEntries(lay.hsegs.map((s, i) => [s.id, [s, lay.hmode[i]]]));
+    // (With the Now bar gone, a Healthy segment too narrow for its name keeps the Now bar's name hanging under it, which
+    // already says the percent: the bar itself then carries no text there.)
+    const hat = Object.fromEntries(lay.hsegs.map((s, i) => [s.id, [s, hide && lay.hmode[i] === 'pct' ? 'none' : lay.hmode[i]]]));
     const want = Object.fromEntries(order().map((id) => {
       const [s, l] = at[id] || [], [h, hm] = hat[id] || [], o = shown?.[id], first = id === order()[0];
       // (The Healthy bar's segment: in the Now bar's order, eased like it; a part healthy lacks shrinks where it stood. hn,
@@ -294,8 +302,9 @@ export function createFlowsTool() {
       if (!s) return [id, { x: o ? o.x : (first ? 0 : 100), pct: 0, op: 0, lx: o?.lx ?? w / 2, ex: o?.ex ?? w / 2, row: o?.row ?? 0, ld: o?.ld ?? 0, dn: o?.dn ?? 0, ...hw }];
       return [id, { x: ((s.a - lay.gut) / bw) * 100, pct: s.pct, op: 1, lx: l.L + l.lw / 2, ex: l.ex, row: Math.max(0, l.row), ld: l.lead ? 1 : 0, dn: l.lead ? 1 : 0, ...hw }];
     }));
-    want._ = { top: lay.top, x: 0, pct: 0, op: 0, lx: 0, ex: 0, row: 0, ld: 0, dn: 0, hx: 0, hpct: 0, hop: hGoal ? 1 : 0, hn: 0, hv: 0 };
-    memo = { key, want, w, hh, f, geo: lay.geo, gut: lay.gut };
+    const hide = sameShares(goal, hGoal);
+    want._ = { top: lay.top, nowOp: hide ? 0 : 1, x: 0, pct: 0, op: 0, lx: 0, ex: 0, row: 0, ld: 0, dn: 0, hx: 0, hpct: 0, hop: hGoal ? 1 : 0, hn: 0, hv: 0 };
+    memo = { key, want, w, hh, f, geo: lay.geo, gut: lay.gut, hide };
     return memo;
   }
   function draw() {
@@ -329,7 +338,11 @@ export function createFlowsTool() {
             s.hv > 0.01 ? sv('text', { class: 'v', x: cx, y: vy, 'text-anchor': 'middle', style: `opacity: ${s.hv.toFixed(3)}` }, `${Math.round(s.hpct)}%`) : null);
         })));
     }
-    kids.push(rowName(barT, 'Now', 'now'), sv('g', { 'clip-path': `url(#${clip})` }, segRects('x', 'pct', 'op', barT)));
+    // The Now bar and its row name fade out when it reads the same as Healthy (the Healthy bar then stands alone, the Now
+    // row's space kept so nothing moves) and fade back in place when a slider or button makes it differ.
+    const nowOp = shown._.nowOp ?? 1, hB = hT + geo.barH, leadY = barB - (barB - hB) * (1 - nowOp);
+    const nowKids = [];
+    if (nowOp > 0.01) kids.push(sv('g', { class: 'pfl-now', style: `opacity: ${nowOp.toFixed(3)}` }, rowName(barT, 'Now', 'now'), sv('g', { 'clip-path': `url(#${clip})` }, segRects('x', 'pct', 'op', barT))));
     // Each segment's name, its percent under it: on the segment where they fit, else under the bar on a leader, a slant from
     // the segment's middle just under the bar, then straight down to the name.
     for (const id of ids) {
@@ -337,15 +350,19 @@ export function createFlowsTool() {
       const lw = Math.max(textW(name, f, 500), textW(v, f, 700)), lx = Math.min(Math.max(s.lx, lw / 2), w - lw / 2), L = lx - lw / 2;
       const ty = barB + geo.band + s.row * geo.step, cx = X(s.x + s.pct / 2), m = Math.min(g, lw / 2);
       const ex = Math.min(Math.max(s.ex, L + m), L + lw - m), dn = s.dn, y = (a, b) => a + (b - a) * dn;
-      kids.push(sv('g', { class: 'pfl-lab', 'data-part': id, style: `opacity: ${s.op.toFixed(3)}` },
-        s.ld > 0.01 ? sv('path', { class: 'pfl-lead', style: `opacity: ${s.ld.toFixed(3)}`, d: `M${cx.toFixed(1)} ${barB.toFixed(1)}L${ex.toFixed(1)} ${(barB + geo.band - g).toFixed(1)}V${(ty - g).toFixed(1)}` }) : null,
+      // (A name on the Now bar fades with it; one hanging under it stays, its leader now rising from the Healthy bar.)
+      const keep = 1 - (1 - nowOp) * (1 - s.dn);
+      if (s.op * keep <= 0.01) continue;
+      nowKids.push(sv('g', { class: 'pfl-lab', 'data-part': id, style: `opacity: ${(s.op * keep).toFixed(3)}` },
+        s.ld > 0.01 ? sv('path', { class: 'pfl-lead', style: `opacity: ${s.ld.toFixed(3)}`, d: `M${cx.toFixed(1)} ${leadY.toFixed(1)}L${ex.toFixed(1)} ${(barB + geo.band - g).toFixed(1)}V${(ty - g).toFixed(1)}` }) : null,
         sv('text', { class: 'n', x: y(cx, lx), y: y(barT + geo.n1, ty + 0.95 * f), 'text-anchor': 'middle' }, name),
         sv('text', { class: 'v', x: y(cx, lx), y: y(barT + geo.n2, ty + 2.15 * f), 'text-anchor': 'middle' }, v)));
     }
+    kids.push(...nowKids);
     const say = (ps) => barOrder(ps, of).map((p) => `${p.name} ${p.pct}%`).join(', ');
     const br = flowView(goal, of).bracket;
     el.replaceChildren(sv('svg', { viewBox: `0 0 ${w} ${hh}`, width: w, height: hh, role: 'img', style: `font-size: ${f.toFixed(2)}px`,
-      'aria-label': `${of === 'inflow' ? 'The liver\'s inflow' : 'Where the portal blood goes'}, now: ${say(goal)}${br ? `; ${br[0]} ${br[1]}%` : ''}${hGoal ? `; healthy: ${say(hGoal)}` : ''}` }, kids));
+      'aria-label': `${of === 'inflow' ? 'The liver\'s inflow' : 'Where the portal blood goes'}, ${memo.hide ? `healthy, and now the same: ${say(goal)}` : `now: ${say(goal)}${br ? `; ${br[0]} ${br[1]}%` : ''}${hGoal ? `; healthy: ${say(hGoal)}` : ''}`}` }, kids));
   }
   function tick() {
     raf = 0;
@@ -355,14 +372,14 @@ export function createFlowsTool() {
     const k = reduceMQ.matches || !shown ? 1 : 0.2, mix = (a, b) => a + (b - a) * k;
     // (A part that goes fades out faster than the others move; one that comes fades in where it will stay.)
     const fade = (a, b) => (k === 1 ? b : a + (b - a) * (b < a ? 0.4 : 0.2));
-    const KEYS = ['x', 'pct', 'lx', 'ex', 'row', 'top', 'dn', 'hx', 'hpct', 'hn', 'hv'];
+    const KEYS = ['x', 'pct', 'lx', 'ex', 'row', 'top', 'nowOp', 'dn', 'hx', 'hpct', 'hn', 'hv'];
     shown = Object.fromEntries(Object.keys(want).map((id) => {
       const w0 = want[id], s0 = shown?.[id] || { ...w0, op: 0, ld: 0, pct: 0 };
       const s = { op: fade(s0.op, w0.op), ld: fade(s0.ld, w0.ld), hop: fade(s0.hop ?? 0, w0.hop) };
       for (const key of KEYS) if (key in w0) s[key] = mix(s0[key] ?? w0[key], w0[key]);
       return [id, s];
     }));
-    const done = Object.keys(want).every((id) => ['x', 'pct', 'op', 'ld', 'row', 'top', 'dn', 'hx', 'hpct', 'hop', 'hn', 'hv'].every((key) => !(key in want[id]) || Math.abs(shown[id][key] - want[id][key]) < 0.01)
+    const done = Object.keys(want).every((id) => ['x', 'pct', 'op', 'ld', 'row', 'top', 'nowOp', 'dn', 'hx', 'hpct', 'hop', 'hn', 'hv'].every((key) => !(key in want[id]) || Math.abs(shown[id][key] - want[id][key]) < 0.01)
       && Math.abs(shown[id].lx - want[id].lx) < 0.2 && Math.abs(shown[id].ex - want[id].ex) < 0.2);
     if (done) shown = Object.fromEntries(Object.keys(want).map((id) => [id, { ...want[id] }]));
     draw();
