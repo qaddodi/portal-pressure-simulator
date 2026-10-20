@@ -8,6 +8,12 @@ export const ADOPTED = {
   'pvt-cirrhosis/carv': ['ripple'],
   'pvt-cirrhosis/anticoag': ['kind:lumen'],
   'pvt-cirrhosis/course': ['tool.bands'],
+  'shunts/own': ['kind:flows'],
+  'shunts/grs': ['kind:flows'],
+  'shunts/srs': ['kind:flows'],
+  'shunts/tips': ['calipers'],
+  'shunts/wide': ['kind:curve'],
+  'shunts/brto': ['kind:flows'],
 };
 
 /** Whether the slide d/s may use the field. */
