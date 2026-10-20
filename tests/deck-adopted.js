@@ -95,6 +95,10 @@ export const ADOPTED = {
   'sites/cardiac': ['kind:profile'],
   'beta-blockers/carv-sin': ['lens:since', 'sinceLabel'],
   'beta-blockers/carv-pre': ['lens:since', 'sinceLabel'],
+  'recompensation/ascites': ['kind:fluid'],
+  'recompensation/carv': ['ripple'],
+  'recompensation/recomp': ['cite'],
+  'recompensation/course': ['tool.bands'],
 };
 
 /** Whether the slide d/s may use the field. */
