@@ -3,7 +3,7 @@
 
 import { startHost, host } from './host.js?v=e7aa5cf8a7';
 import { store, updateParams, replaceParams, bindParamSender, clearHistory, logAction, varicesPresent, hiddenNow } from './store.js?v=31ee79b6ab';
-import { createStage } from './stage.js?v=1ef899f903';
+import { createStage } from './stage.js?v=d72428d945';
 import { createCreditPlacer } from './credit.js?v=a9ce1e8162';
 import { sinusoidSupported } from './sinusoid-view.js?v=98d1923b7c';
 import { createInspector } from './inspector.js?v=634e0b33c5';
@@ -1111,7 +1111,12 @@ function setPanelTab(tab) {
   if (was !== instr) {
     // Opening Tests frames the figure into the space left. Closing it (any way) fits again only a view that was fitted;
     // one the learner zoomed or panned stays where it is, and a refit still pending from the open is dropped (Mohammad, 17 Oct).
-    if (instr || stage?.closeView()) refitStage(); else clearTimeout(refitT);
+    // (Opening Tests keeps the camera where it is, outside a slide, which frames itself: stage.keepView, Mohammad 20 Oct.)
+    if (instr && !app.classList.contains('presenting')) { stage?.keepView(true); clearTimeout(refitT); }
+    else {
+      stage?.keepView(false);
+      if (instr || stage?.closeView()) refitStage(); else clearTimeout(refitT);
+    }
     const f = store.get().frame; if (f && instr) nextFrame(() => dock.update(f, true));
     setTimeout(() => dispatchEvent(new Event('resize')), 320);
   }

@@ -1347,7 +1347,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     return sp;
   }
   // (exact: the cards' real edges, with no softening: a slide that must keep its vessels clear of them, even where they leave a thin band.)
-  function safeInsets(exact = false) {
+  function safeInsets(exact = false, skip = null) {
     const wr = wrap.getBoundingClientRect(), W = wr.width, H = wr.height;
     const ins = { t: 0, b: 0, l: 0, r: 0, W, H }, cards = [];
     if (!W || !H) return ins;
@@ -1356,6 +1356,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     for (const el of document.querySelectorAll('[data-safe]')) {
       // (A card playing its way out no longer counts: the camera frames for what stays.)
       if (el.hidden || el.closest('[hidden]') || el.classList.contains('card-leaving') || el.classList.contains('vd-out')) continue;
+      if (skip && skip.includes(el)) continue;
       if (unseenCard(el)) continue;
       let q = slideRest(el, el.getBoundingClientRect());
       if (!q.width || !q.height) continue;
@@ -1497,6 +1498,25 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // panned: a pinch, a drag, the wheel or a zoom step clears it. The tools' own camera trips (the HVPG catheter's route and
   // close-up, there and back) leave it as it was, so a card closed after a measurement still fits (see closeView).
   let fitted = false;
+  // The Tests card opening leaves the camera where it is (Mohammad, 20 Oct): the pan and zoom stay as they were, under the card too.
+  // keepView(true) is called as the card opens and notes the space the other pieces leave (the card itself not counted); the
+  // refits that follow the card (the open's, the sheet settling, a tool's card changing height) and the home framing's own
+  // look then leave the view alone for as long as only the Tests card has changed that space. Another card coming or going,
+  // a turn of the device or a resize changes it, and the framing follows as ever; so do the Fit button and a slide's own
+  // framing (not kept while presenting).
+  let keptSpace = null;
+  const spaceSig = () => {
+    // (The vitals dock changes shape beside a side-docked Tests card, so it is not counted either.)
+    const i = safeInsets(false, [document.getElementById('dock'), document.getElementById('vdock')]);
+    return [i.W, i.H, i.t, i.b, i.l, i.r].map(Math.round).join();
+  };
+  // (Once the space has changed for another reason the view is no longer kept: the framing follows from then on.)
+  const keptNow = () => {
+    if (keptSpace === null) return false;
+    if (!store.get().presenting && keptSpace === spaceSig()) return true;
+    keptSpace = null;
+    return false;
+  };
   const fit = () => {
     // In the lobule view, Fit shows the whole lobule again (it never leaves the view). Inside the sinusoid it steps back out to the lobule.
     if (lobuleOn) { if (store.get().sinusoid) { store.set({ sinusoid: false }); return; } lz.fitView(); return; }
@@ -1514,7 +1534,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
 
   // A card or sheet opened or closed: glide to the framing for the space that is now free (not in the lobule, which refits itself).
   function refit() {
-    if (lobuleOn) return;
+    if (lobuleOn || keptNow()) return;
     const to = defaultVT(morphTarget === 1);
     if (morphTarget !== 1) homeAt = to;
     fitted = true;
@@ -2245,6 +2265,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     wasHome = home;
     if (home && now - homeCheck > 500 && watch.due()) {
       homeCheck = now;
+      if (keptNow()) return;   // (the Tests card alone has changed the space: see keepView)
       const d = defaultVT(false);
       if (!sameView(d, homeAt)) { homeAt = d; fitted = true; animateVT(d, 400); }
     }
@@ -8906,6 +8927,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       const c = freeCentre(); animZoomAt(c[0], c[1], 1 / 1.4);
     },
     fit, refit, closeView,
+    keepView(on) { keptSpace = on ? spaceSig() : null; },
     reveal, unreveal,
     /** Changes whenever what is drawn where changes (a pan, a zoom, the morph): a cheap key for "did anything move". */
     layoutKey: () => `${viewVersion}|${geometryVersion}` + (lz?.isOpen() ? '|' + lz.viewKey() : ''),
