@@ -38,10 +38,13 @@ test('the window widens with what the lymphatics can carry, and the overflow nev
   assert.ok(Math.abs(h.win - 3600 / WINDOW_TOP) < 1e-9 && c.win > h.win, 'one scale: the day-60 window is wider');
   assert.ok(Math.abs(h.fill - 790 / 3600) < 1e-9 && c.fill === 1, 'health fills a fifth; cirrhosis fills it');
   assert.ok(Math.abs(c.over - 1020 / WINDOW_TOP) < 1e-9);
+  assert.ok(Math.abs(c.back - 860 / WINDOW_TOP) < 1e-9, 'reabsorbed on the same scale as the overflow');
+  assert.ok(Math.abs(c.liver - 2330 / 5360) < 1e-9 && h.liver === 1, 'health is all liver');
   for (const f of [perMin(STATES.day60), { hep: 4, spl: 4, cap: 2, back: 0 }, { hep: 0, spl: 0, cap: 6, back: 0 }]) {
     const g = windowGeom(f);
     assert.ok(g.win + g.over <= 1 + 1e-9, 'window and overflow fit the bar');
     assert.ok(g.fill >= 0 && g.fill <= 1);
+    assert.ok(g.liver >= 0 && g.liver <= 1, 'the liver\'s part is a share of the fill');
   }
 });
 
@@ -58,5 +61,10 @@ test('only the Testing deck\'s four fluid slides draw the window, with their til
   const pres = readFileSync(new URL('../src/ui/presenter.js', import.meta.url), 'utf8');
   assert.match(pres, /!\(s\.tool\?\.kind === 'fluid' && s\.tool\.window\)/);
   const css = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
-  assert.match(css, /\.gw\[hidden\], \.gw-unit\[hidden\] \{ display: none; \}/, 'hidden really hides the grid and flex rows');
+  assert.match(css, /\.gw\[hidden\] \{ display: none; \}/, 'hidden really hides the flex rows');
+  const ext = readFileSync(new URL('../src/ui/ext-instruments.js', import.meta.url), 'utf8');
+  assert.match(ext, /'Fluid balance · mL\/day'/, 'the title carries the unit');
+  const src = readFileSync(new URL('../src/ui/tool-fluid.js', import.meta.url), 'utf8');
+  assert.match(src, /`Leaked \$\{/); assert.match(src, /`Reabsorbed \$\{/);
+  assert.doesNotMatch(src, /taken back:|mL a day · model rates/, 'no "taken back" words and no model sentence on the window');
 });

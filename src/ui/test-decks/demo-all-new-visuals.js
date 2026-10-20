@@ -1987,7 +1987,7 @@ export const DEMO_ALL = {
       "kicker": "Fluid balance",
       "title": "Diuretics raise what the belly takes back",
       "notes": "The model has no kidneys: diuretics act here only on the fluid the belly takes back.",
-      "line": "In the model, diuretics add to the fluid the belly takes back, so it outgrows the overflow and the ascites shrinks. The model has no kidneys, so this is its stand-in for what diuretics do through them."
+      "line": "In the model, diuretics add to the fluid the belly reabsorbs, so it outgrows what leaks and the ascites shrinks. The model has no kidneys, so this is its stand-in for what diuretics do through them."
     },
     {
       "id": "g-schisto",

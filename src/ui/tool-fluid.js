@@ -80,13 +80,15 @@ export function fluidDay(f) {
 }
 
 /** The window's geometry as shares of the bar's width, from continuous (eased) values in mL/min: the window is as wide as
- *  what the lymphatics can carry, filled (fill, a share of the window) with what they carry; the overflow runs past its edge.
+ *  what the lymphatics can carry, filled (fill, a share of the window) with what they carry, the liver's part first (liver, a
+ *  share of the fill); the overflow runs past its edge, and what the belly reabsorbs (back) is drawn on the same scale.
  *  One scale for every slide (5,600 mL a day across), so the window visibly widens as the lymphatics grow; it widens only
  *  when the lymph made or the capacity would not fit. */
 export const WINDOW_TOP = 5600;
 export function windowGeom(f) {
   const made = (f.hep + f.spl) * 1440, limit = f.cap * 1440, top = Math.max(WINDOW_TOP, made * 1.04, limit * 1.04);
-  return { win: limit / top, fill: limit > 0 ? Math.min(made, limit) / limit : 0, over: Math.max(0, made - limit) / top };
+  return { win: limit / top, fill: limit > 0 ? Math.min(made, limit) / limit : 0, over: Math.max(0, made - limit) / top,
+    back: Math.max(0, f.back) * 1440 / top, liver: made > 0 ? Math.max(0, f.hep) * 1440 / made : 1 };
 }
 
 /** A whole number of mL with its thousands comma (5,360), as the platelets print theirs. */
@@ -181,46 +183,61 @@ export function createFluid() {
   const fNet = h('span', { class: 'gf-unit' });
   const forces = h('div', { class: 'gf-forces' }, fsvg, fNet);
   const caveat = h('p', { class: 'gf-caveat' }, 'Model rates, not clinical figures.');
-  // The capacity window (window: true): the lymph made and its two sources; the lymphatics as a window as wide as what
-  // they can carry, filled with what they carry, the overflow running past its edge in the ascites colour; then the day's
-  // balance in the belly, overflow − taken back. The numbers swap in place; the window, its fill and the overflow ease.
+  // The capacity window (window: true; Mohammad's pick R2, 20 Oct): the lymph made and its two sources in one line; the
+  // lymphatics as a window as wide as what they can carry, filled with what they carry (the liver's part, then the gut's),
+  // the overflow running past its edge in the ascites colour; under it, on the same scale, the Ascites row: what leaked
+  // drops into a straw lane and what is reabsorbed is a blue lane against it, both ending under the overflow's end, so the
+  // longer one wins the day; then the day's change. The numbers swap in place; the window, its fill and the lanes ease.
   const num = () => h('b', {});
   const wMade = num(), wLiver = num(), wGut = num(), wState = h('span', { class: 'gw-state' });
-  const wOver = h('span', { class: 'gw-over' }), wFill = h('span', { class: 'gw-fill' }), wWin = h('span', { class: 'gw-win' }, wFill);
-  const wBar = h('div', { class: 'gw-bar' }, wOver, wWin);
-  const wCarried = h('span', { class: 'gw-carried' }), wCan = h('span', { class: 'gw-can' });
-  const eqO = num(), eqB = num(), eqN = h('b', { class: 'gw-net' });
-  const wUnit = h('p', { class: 'gw-unit' });
+  const wLiv = h('span', { class: 'gw-liv' }), wGutF = h('span', { class: 'gw-gut' });
+  const wOver = h('span', { class: 'gw-over' }), wFill = h('span', { class: 'gw-fill' }, wLiv, wGutF), wWin = h('span', { class: 'gw-win' }, wFill);
+  const wCarried = h('span', { class: 'gw-carried' });
+  const wDrop = h('span', { class: 'gw-drop' }), wIn = h('span', { class: 'gw-in' }), wBack = h('span', { class: 'gw-back' });
+  const wInL = h('span', { class: 'gw-inl' }), wBackL = h('span', { class: 'gw-backl' });
+  const wNone = h('span', { class: 'gw-none' }, 'Nothing runs over, so none collects.');
+  const wPic = h('div', { class: 'gw-pic' }, wDrop, wOver, wWin, wCarried, h('span', { class: 'gw-k gw-ak' }, 'Ascites'), wNone, wIn, wBack, wInL, wBackL);
+  const eqN = h('b', { class: 'gw-net' }), wWord = h('span', { class: 'gw-word' });
   const win = h('div', { class: 'gw' },
-    h('div', { class: 'gw-head' },
-      h('div', { class: 'gw-made' }, h('span', { class: 'gw-k' }, 'Lymph made'), wMade),
-      h('div', { class: 'gw-src' }, h('span', {}, h('span', {}, 'Liver'), wLiver), h('i', { 'aria-hidden': 'true' }, '+'), h('span', {}, h('span', {}, 'Gut'), wGut))),
+    h('div', { class: 'gw-lm' }, h('span', { class: 'gw-k' }, 'Lymph made'),
+      h('span', { class: 'gw-sum' }, 'Liver ', wLiver, ' + Gut ', wGut, ' = ', wMade)),
     h('div', { class: 'gw-lr' }, h('span', { class: 'gw-k' }, 'Lymphatics'), wState),
-    wBar,
-    h('div', { class: 'gw-caps' }, wCarried, wCan),
-    h('div', { class: 'gw-eq' },
-      h('span', {}, 'Overflow'), h('span', {}), h('span', {}, 'Taken back'), h('span', {}), h('span', {}, 'Each day'),
-      eqO, h('i', { 'aria-hidden': 'true' }, '−'), eqB, h('i', { 'aria-hidden': 'true' }, '='), eqN));
-  let capDirty = true, carW = 0, canW = 0;
-  const el = h('div', { class: 'gf', role: 'img' }, win, flow, unit, words, forces, wUnit, caveat);
+    wPic,
+    h('div', { class: 'gw-day' }, h('span', {}, 'Each day', wWord), eqN));
+  let capDirty = true, carW = 0, inLW = 0, backLW = 0, carSide = '', carFade = 0;
+  const el = h('div', { class: 'gf', role: 'img' }, win, flow, unit, words, forces, caveat);
   const set = (n, t) => { if (n.textContent === t) return false; n.textContent = t; return true; };
   let W = 0, FW = 0, goal = null, shown = null, fGoal = null, fShown = null, raf = 0, last = 0;
   // (everything eases: the drawn values follow the goal over about half a second; the numbers swap in place)
   const KEYS = ['hep', 'spl', 'made', 'cap', 'carried', 'spare', 'back', 'net', 'perDay'];
   function draw() {
     if (opts.window) {
-      if (shown) {
-        const g = windowGeom(shown), bw = wBar.clientWidth;
+      const bw = wPic.clientWidth;
+      if (shown && bw > 0) {
+        const g = windowGeom(shown), px = (v) => `${v.toFixed(2)}px`;
         wWin.style.width = `${(g.win * 100).toFixed(3)}%`;
         wFill.style.setProperty('--f', g.fill.toFixed(4));
+        wLiv.style.flexBasis = `${(g.liver * 100).toFixed(3)}%`;
+        wGutF.style.display = g.liver < 0.995 ? '' : 'none';
         wOver.style.display = g.over * bw > 0.5 ? '' : 'none';
         wOver.style.left = `calc(${(g.win * 100).toFixed(3)}% - 10px)`;
         wOver.style.width = `calc(${(g.over * 100).toFixed(3)}% + 10px)`;
-        // ("… can carry" ends under the window's edge, never closer than 12 px to "… carried", never past the bar)
-        if (bw > 0) {
-          if (capDirty) { carW = wCarried.offsetWidth; canW = wCan.offsetWidth; capDirty = false; }
-          wCan.style.left = `${Math.max(0, Math.min(bw - canW, Math.max(carW + 12, g.win * bw - canW)))}px`;
+        if (capDirty) { carW = wCarried.offsetWidth; inLW = wInL.offsetWidth; backLW = wBackL.offsetWidth; capDirty = false; }
+        // ("… carried" inside the fill when it fits, else just past its end; it fades, never jumps, when it changes side)
+        const fillEnd = 3 + g.fill * (g.win * bw - 6), side = carW + 20 <= fillEnd ? 'in' : 'out';
+        const carX = () => (carSide === 'in' ? 10 : Math.min(bw - carW, fillEnd + 8));
+        if (!carSide) carSide = side;
+        if (side !== carSide && !carFade) {
+          wCarried.style.opacity = '0';
+          carFade = setTimeout(() => { carFade = 0; carSide = side; wCarried.style.left = px(carX()); wCarried.style.opacity = ''; }, 180);
         }
+        if (!carFade) wCarried.style.left = px(carX());
+        // (the lanes end under the overflow's end; each label ends 8 px before its lane, never past the card's left edge)
+        const end = (g.win + g.over) * bw, inW = g.over * bw, backW = Math.min(g.back * bw, end);
+        const lane = (n, w) => { n.style.display = w > 0.5 ? '' : 'none'; n.style.left = px(end - w); n.style.width = px(w); };
+        lane(wDrop, inW); lane(wIn, inW); lane(wBack, backW);
+        wInL.style.right = px(Math.min(bw - (end - inW) + 8, bw - inLW));
+        wBackL.style.right = px(Math.min(bw - (end - backW) + 8, bw - backLW));
       }
     } else if (shown && W > 0) {
       const L = fluidFlows(shown, W);
@@ -277,11 +294,12 @@ export function createFluid() {
       const d = fluidDay(f), st = windowState(d), n0 = mlInt;
       set(wMade, n0(d.made)); set(wLiver, n0(d.liver)); set(wGut, n0(d.gut));
       set(wState, st.text); wState.dataset.rate = st.rate;
-      if (set(wCarried, `${n0(d.carried)} carried`) | set(wCan, `${n0(d.limit)} can carry`)) capDirty = true;
-      set(eqO, n0(d.over)); set(eqB, n0(d.back)); eqB.classList.toggle('on', d.back > 0);
+      if (set(wCarried, `${n0(d.carried)} carried`) | set(wInL, `Leaked ${n0(d.over)}`) | set(wBackL, `Reabsorbed ${n0(d.back)}`)) capDirty = true;
+      wPic.classList.toggle('on', d.over > 0); wPic.classList.toggle('back', d.back > 0);
       set(eqN, d.net === 0 ? '0' : `${d.net > 0 ? '▲' : '▼'} ${n0(Math.abs(d.net))}`);
       eqN.dataset.dir = d.net > 0 ? 'up' : d.net < 0 ? 'down' : '';
-      el.setAttribute('aria-label', `Fluid balance, per day: ${n0(d.made)} mL of lymph made (liver ${n0(d.liver)}, gut ${n0(d.gut)}); the lymphatics carry ${n0(d.carried)} of the ${n0(d.limit)} they can, ${st.text}. Overflow ${n0(d.over)} minus ${n0(d.back)} taken back: ${d.net === 0 ? 'no change' : `${d.net > 0 ? 'builds' : 'shrinks'} by ${n0(Math.abs(d.net))}`} a day.`);
+      set(wWord, ` · ${d.net > 0 ? 'ascites builds' : d.net < 0 ? 'ascites shrinks' : d.over > 0 ? 'steady' : 'no ascites'}`);
+      el.setAttribute('aria-label', `Fluid balance, mL a day: ${n0(d.made)} of lymph made (liver ${n0(d.liver)}, gut ${n0(d.gut)}); the lymphatics carry ${n0(d.carried)} of the ${n0(d.limit)} they can, ${st.text}. Ascites: ${n0(d.over)} leaked, ${n0(d.back)} reabsorbed: ${d.net === 0 ? 'no change' : `${d.net > 0 ? 'builds' : 'shrinks'} by ${n0(Math.abs(d.net))}`} a day.`);
       kick();
       return;
     }
@@ -321,12 +339,12 @@ export function createFluid() {
       opts = t || {};
       forces.hidden = !opts.forces;
       const cav = !!(opts.caveat || ctx?.params?.diuretics || ctx?.slide?.compare?.some?.((c) => c?.params?.diuretics));
-      // (window: true draws the capacity window in place of the flow picture; its unit line carries the caveat)
+      // (window: true draws the capacity window in place of the flow picture; its title carries the unit, and it has no
+      // caveat line: Mohammad removed it, 20 Oct)
       const wo = !!opts.window;
       el.classList.toggle('gf-window', wo);
       win.hidden = !wo; flow.style.display = wo ? 'none' : '';
-      unit.hidden = words.hidden = wo; wUnit.hidden = !wo;
-      set(wUnit, cav ? 'mL a day · model rates, not clinical figures.' : 'mL a day');
+      unit.hidden = words.hidden = wo;
       caveat.hidden = wo || !cav;
       capDirty = true;
       if (pinned) paint(pinned);

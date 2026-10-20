@@ -6469,43 +6469,45 @@ html.thumb-ui .menu.from-dock { clip-path: inset(-64px -64px calc(var(--sink, 0p
 .gf-words { margin: 2px 0; font: 600 var(--bs, 16px)/1.3 var(--font-ui); color: var(--text); }
 .gf-caveat { margin: 0; font-size: var(--fs-12); color: var(--text-3); }
 .gf-forces[hidden], .gf-caveat[hidden] { display: none; }
-/* window: true, the capacity window (tool-fluid.js): the lymph made and its sources; the lymphatics as a window as wide as
-   what they can carry, filled with what they carry, the overflow running past its edge in the ascites colour; then overflow −
-   taken back = each day. Labels sit in their own rows, so nothing moving ever runs under text. */
+/* window: true, the capacity window (tool-fluid.js; R2, 20 Oct): the lymph made and its sources in one line; the lymphatics as
+   a window as wide as what they can carry, filled with what they carry (the liver's part, then the gut's), the overflow running
+   past its edge in the ascites colour; under it the Ascites row, where what leaked (straw) and what is reabsorbed (blue) are
+   lanes on the same scale ending under the overflow's end; then the day's change. Fixed rows: the card never resizes. */
 .gw { display: flex; flex-direction: column; gap: 6px; min-width: 0; color: var(--text-2); font: 500 var(--fs-12)/1.25 var(--font-ui); font-variant-numeric: tabular-nums;
-  --gw-lymph: var(--sv-gl-lymph-hi); --gw-num: var(--pz-num, 26px); }
-:root[data-theme="dark"] .gw { --gw-lymph: color-mix(in srgb, var(--sv-gl-lymph-hi) 55%, var(--surface)); }
-@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]):not([data-theme="soft"]) .gw { --gw-lymph: color-mix(in srgb, var(--sv-gl-lymph-hi) 55%, var(--surface)); } }
-.gw[hidden], .gw-unit[hidden] { display: none; }
+  --gw-lymph: var(--sv-gl-lymph-hi); --gw-num: var(--pz-num, 26px); --gw-straw: color-mix(in srgb, var(--ascites) 58%, var(--text)); }
+:root[data-theme="dark"] .gw { --gw-lymph: color-mix(in srgb, var(--sv-gl-lymph-hi) 55%, var(--surface)); --gw-straw: var(--ascites); }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]):not([data-theme="soft"]) .gw { --gw-lymph: color-mix(in srgb, var(--sv-gl-lymph-hi) 55%, var(--surface)); --gw-straw: var(--ascites); } }
+.gw[hidden] { display: none; }
 .gw b { color: var(--text); font-weight: 600; }
 .gw-k { font: var(--caps-w) var(--fs-12)/1.2 var(--font-ui); letter-spacing: var(--caps-ls); text-transform: uppercase; color: var(--text-2); }
-.gw-head { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 4px 16px; }
-.gw-made { display: flex; flex-direction: column; gap: 2px; }
-.gw-made > b { font-size: var(--gw-num); line-height: 1.05; letter-spacing: -.02em; }
-.gw-src { display: flex; align-items: flex-end; gap: 10px; }
-.gw-src > span { display: flex; flex-direction: column; gap: 2px; }
-.gw-src b { font-size: var(--fs-14); line-height: 1.15; }
-.gw-src > i, .gw-eq > i { font-style: normal; color: var(--text-3); }
-.gw-src > i { font-size: var(--fs-14); line-height: 1.15; }
-.gw-lr { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-top: 6px; }
+.gw-lm, .gw-lr { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; white-space: nowrap; }
+.gw-sum b:last-child { font-size: var(--fs-14); }
+.gw-lr { margin-top: 4px; }
 .gw-state { font-weight: 600; white-space: nowrap; color: var(--ok); transition: color .4s var(--ease); }
 .gw-state[data-rate="mid"] { color: var(--caution); } .gw-state[data-rate="hi"] { color: var(--danger); }
 /* (one scale on every slide: the window widens as the lymphatics grow; the overflow tucks under its rounded end) */
-.gw-bar { position: relative; height: 26px; }
-.gw-win { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 9px; background: var(--surface); box-shadow: inset 0 0 0 1.5px var(--border-strong); }
-.gw-fill { position: absolute; left: 3px; top: 3px; bottom: 3px; width: calc((100% - 6px) * var(--f, 0)); border-radius: 6px; background: var(--gw-lymph); }
-.gw-over { position: absolute; top: 0; bottom: 0; border-radius: 0 9px 9px 0; background: color-mix(in srgb, var(--ascites) 80%, var(--surface)); }
-.gw-caps { position: relative; height: 1.3em; white-space: nowrap; }
-.gw-carried { position: absolute; left: 0; top: 0; }
-.gw-can { position: absolute; top: 0; color: var(--text-3); }
-.gw-eq { display: grid; grid-template-columns: auto auto auto auto minmax(0, 1fr); align-items: baseline; gap: 2px 0; margin-top: 8px; }
-.gw-eq > :nth-child(5n + 1), .gw-eq > :nth-child(5n + 3) { padding-right: 4px; }
-.gw-eq > :nth-child(5n + 2), .gw-eq > :nth-child(5n + 4) { padding: 0 clamp(10px, 4cqi, 22px); }
-.gw-eq > :nth-child(5n) { justify-self: end; text-align: right; }
-.gw-eq > b, .gw-eq > i { font-size: calc(var(--gw-num) * .76); line-height: 1.1; }
-.gw-eq > b.on { color: var(--vein-systemic); }
-.gw-net { white-space: nowrap; transition: color .4s var(--ease); }
+.gw-pic { position: relative; height: 96px; white-space: nowrap; }
+.gw-win { position: absolute; left: 0; top: 0; height: 26px; border-radius: 9px; background: var(--surface); box-shadow: inset 0 0 0 1.5px var(--border-strong); }
+.gw-fill { position: absolute; left: 3px; top: 3px; bottom: 3px; width: calc((100% - 6px) * var(--f, 0)); display: flex; gap: 2px; }
+.gw-liv, .gw-gut { border-radius: 6px; min-width: 0; }
+.gw-liv { flex: 0 0 auto; background: color-mix(in srgb, var(--gw-lymph) 62%, var(--surface)); }
+.gw-gut { flex: 1 1 0; background: var(--gw-lymph); }
+.gw-over { position: absolute; top: 0; height: 26px; border-radius: 0 9px 9px 0; background: color-mix(in srgb, var(--ascites) 80%, var(--surface)); }
+.gw-carried { position: absolute; left: 10px; top: 5px; color: var(--text); font-weight: 600; transition: opacity .18s var(--ease); }
+.gw-ak { position: absolute; left: 0; top: 40px; }
+.gw-none { position: absolute; left: 0; top: 60px; color: var(--text-2); transition: opacity .3s var(--ease); }
+.gw-drop, .gw-in, .gw-back, .gw-inl, .gw-backl { position: absolute; opacity: 0; transition: opacity .3s var(--ease); }
+.gw-drop { top: 26px; height: 36px; background: color-mix(in srgb, var(--ascites) 24%, transparent); }
+.gw-in, .gw-back { height: 14px; border-radius: 5px; }
+.gw-in { top: 62px; background: color-mix(in srgb, var(--ascites) 80%, var(--surface)); }
+.gw-back { top: 80px; background: color-mix(in srgb, var(--vein-systemic) 80%, var(--surface)); }
+.gw-inl, .gw-backl { font-weight: 600; line-height: 14px; }
+.gw-inl { top: 62px; color: var(--gw-straw); } .gw-backl { top: 80px; color: var(--vein-systemic); }
+.gw-pic.on .gw-none { opacity: 0; }
+.gw-pic.on :is(.gw-drop, .gw-in, .gw-inl), .gw-pic.on.back :is(.gw-back, .gw-backl) { opacity: 1; }
+.gw-day { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; padding-top: 8px; border-top: 1px solid var(--border); font-size: var(--fs-14); white-space: nowrap; }
+.gw-word { color: var(--text-3); font-size: var(--fs-12); }
+.gw-net { font-size: calc(var(--gw-num) * .84); line-height: 1.1; transition: color .4s var(--ease); }
 .gw-net[data-dir="up"] { color: var(--caution); } .gw-net[data-dir="down"] { color: var(--ok); }
-.gw-unit { margin: 2px 0 0; font-size: var(--fs-12); color: var(--text-3); text-align: center; }
 
 /* ── Package G: end ── */

@@ -16,11 +16,11 @@
 //                                                    portal vein's under a hepatic vein's), beat for beat
 
 import { createLumen, lumenName } from './tool-lumen.js?v=d03c7b3a1d';
-import { createFluid } from './tool-fluid.js?v=ddc505b8f4';
+import { createFluid } from './tool-fluid.js?v=fe03413aea';
 
 export default {
   tools: {
     lumen: { make: () => createLumen(), title: (t) => `The ${lumenName(t.vessel || 'PV_TRUNK')}, in cross-section`, short: () => 'Cross-section' },
-    fluid: { make: () => createFluid(), title: (t) => (t?.window ? 'Fluid balance' : 'Fluid balance: lymph made and drained'), short: () => 'Fluid balance' },
+    fluid: { make: () => createFluid(), title: (t) => (t?.window ? 'Fluid balance · mL/day' : 'Fluid balance: lymph made and drained'), short: (t) => (t?.window ? 'Fluid balance · mL/day' : 'Fluid balance') },
   },
 };
