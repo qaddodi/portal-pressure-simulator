@@ -119,3 +119,13 @@ test('a stacked card\'s cap grows with its readings while they slide, so its gla
   // (Fitted at rest, never mid-slide: fitCards' stacked fit runs only without .pz-sliding, so the grow is 0 there and the fit is as before.)
   assert.match(js, /const under = el === ui\.data && splitSheet\(el\) && !el\.classList\.contains\('tool-open'\) && !el\.classList\.contains\('pz-sliding'\);/);
 });
+
+// Mohammad, 20 Oct (iPhone, One year 8, the abdomen card): opening the stacked cards slowly, the readings' card flickered over the
+// instrument card and the ascites gauge hung past its foot. The header and readings zoomed with the fit while tucked but at full size
+// once let go to come out (.tool-open), and the slide's sums divided by the fit, right for one zoom only.
+test('a stacked card\'s header and readings keep one size tucked, sliding and out, and its slide sums use that size', () => {
+  assert.match(css, /\.pz\.stack\.stack \.pz-data\.pz-sheet\.pz-sheet > :not\(\.pz-tool\) \{ zoom: 1; \}/);
+  const sheet = css.split('\n').filter((l) => l.startsWith('.pz.stack.stack .pz-data.pz-sheet') || /^\s+(translate|--pz-cut|--pz-m):/.test(l)).join('\n');
+  assert.match(sheet, /--pz-cut:/);
+  assert.doesNotMatch(sheet, /var\(--pz-fit/, 'no sum in the stacked sheet divides by the fit');
+});

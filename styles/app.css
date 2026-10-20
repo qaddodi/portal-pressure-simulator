@@ -5224,6 +5224,11 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
    (.stack.stack: the weight the upright tablet's rules had, over the phone's own sheet rules.) */
 .pz.stack.stack .pz-data.pz-sheet.pz-sheet { --pz-u: 0; --pz-sr: 18px; --pz-in: 8px; background: none; -webkit-backdrop-filter: none; backdrop-filter: none; border-color: transparent; box-shadow: none; overflow: visible; isolation: isolate; }
 .pz.stack.stack .pz-data.pz-sheet.pz-sheet.tool-open { --pz-u: 1; }
+/* (Its header and readings keep their full size, tucked, sliding or out, as an opened instrument card's do (.tool-open above): the fit,
+   made with the readings out (presenter.js fitCards), shortens only the instrument. Zoomed by the fit only while tucked, the header and
+   readings changed size the moment the readings were let go to come out, and the slide's sums, worked out for one zoom, put the
+   readings' card over the instrument card's foot, on and off as the finger moved, One year 8 on an iPhone, 20 Oct.) */
+.pz.stack.stack .pz-data.pz-sheet.pz-sheet > :not(.pz-tool) { zoom: 1; }
 /* (Sliding with the readings not yet out for good, the card's height cap grows by what is out of them (presenter.js layout), so the
    card's box always holds the instrument whole: capped at its tucked height, the box came out shorter than the instrument mid-slide
    and the instrument card's glass cut through it, TIPS Doppler 3 on an iPhone, 20 Oct. At rest, and while being fitted, it is 0.) */
@@ -5243,11 +5248,11 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
 .pz.stack.stack .pz-data.pz-sheet.tool-open { padding-bottom: 10px; }
 /* (The readings move with their card: the margin moves them the card's whole travel, the shift gives back the 24 px of foot it keeps
    showing while tucked.) */
-.pz.stack.stack .pz-data.pz-sheet.pz-sheet > :is(.pz-tiles, .pz-strip) { max-height: none; overflow: visible; opacity: 1; margin-top: 0; margin-inline: calc(var(--pz-in) / var(--pz-fit, 1)); transition: opacity .26s var(--ease);
-  translate: 0 calc(24px * (1 - var(--pz-u)) / var(--pz-fit, 1));
-  --pz-cut: calc(((1 - var(--pz-u)) * (var(--pz-d, 0px) - 24px) + 10px - var(--pz-gap, 6px)) / var(--pz-fit, 1) - 14px - var(--pz-o, 0px));
+.pz.stack.stack .pz-data.pz-sheet.pz-sheet > :is(.pz-tiles, .pz-strip) { max-height: none; overflow: visible; opacity: 1; margin-top: 0; margin-inline: calc(var(--pz-in)); transition: opacity .26s var(--ease);
+  translate: 0 calc(24px * (1 - var(--pz-u)));
+  --pz-cut: calc(((1 - var(--pz-u)) * (var(--pz-d, 0px) - 24px) + 10px - var(--pz-gap, 6px)) - 14px - var(--pz-o, 0px));
   clip-path: polygon(-60px var(--pz-cut), calc(100% + 60px) var(--pz-cut), calc(100% + 60px) calc(100% + 60px), -60px calc(100% + 60px)); }
-.pz.stack.stack .pz-data.pz-sheet.pz-sheet.pz-sheet > .pz-strip, .pz.stack.stack .pz-data.pz-sheet.pz-sheet.tiles-only > .pz-tiles { margin-top: calc(14px - (1 - var(--pz-u)) * var(--pz-d, 0px) / var(--pz-fit, 1)); }
+.pz.stack.stack .pz-data.pz-sheet.pz-sheet.pz-sheet > .pz-strip, .pz.stack.stack .pz-data.pz-sheet.pz-sheet.tiles-only > .pz-tiles { margin-top: calc(14px - (1 - var(--pz-u)) * var(--pz-d, 0px)); }
 .pz.stack.stack .pz-data.pz-sheet.pz-sheet > .pz-tiles, .pz.stack.stack .pz-data.pz-sheet.pz-sheet > .pz-strip:has(+ .pz-tiles[data-n="0"]) { margin-bottom: 16px; }
 .pz.stack.stack .pz-data.pz-sheet.pz-sheet.pz-sheet.pz-sliding > :is(.pz-tiles, .pz-strip) { transition: none; }
 .pz.stack.stack .pz-data.pz-sheet.pz-sheet:not(.tool-open):not(.pz-sliding) > :is(.pz-tiles, .pz-strip) { visibility: hidden; }
