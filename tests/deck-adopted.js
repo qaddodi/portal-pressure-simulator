@@ -18,6 +18,10 @@ export const ADOPTED = {
   'doppler/hepatic': ['tool.mode'],
   'doppler/rhf': ['tool.pair', 'tool.calipers'],
   'doppler/summary': ['cols.wave', 'wave'],
+  'tips-doppler/shunted': ['kind:flows'],
+  'tips-doppler/alias': ['tool.scale'],
+  'tips-doppler/alias-fix': ['tool.scale', 'tool.baseline'],
+  'tips-doppler/where': ['tool.mode'],
 };
 
 /** Whether the slide d/s may use the field. */

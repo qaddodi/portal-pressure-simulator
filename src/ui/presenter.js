@@ -20,11 +20,16 @@ import { sinusoidSupported } from './sinusoid-view.js?v=98d1923b7c';
 import { NODES } from '../engine/topology.js?v=4044766e96';
 import { DISEASE_SRC, diseasePieces } from './diseases.js?v=fb8a5451c3';
 import { nb, listCase, plateletText } from './glue.js?v=5a0f63226b';
-import { DECKS, REGIONS, LEVELS, TOPICS, withOverview, siteTag, SITE_TAGS } from './decks.js?v=2957ee1987';
+import { DECKS, REGIONS, LEVELS, TOPICS, withOverview, siteTag, SITE_TAGS } from './decks.js?v=1e4c1abd39';
 import { wholeGap, tenthGap } from '../engine/gap.js?v=3a5947c552';
 import { createHvpgMonitor } from './hvpg-proc.js?v=3a8585d477';
-import { createTools } from './presenter-tools.js?v=7aff036b3e';
-import { openHandout } from './handout.js?v=57fd6d8bda';
+<<<<<<< HEAD
+import { createTools } from './presenter-tools.js?v=af3ed18eb7';
+import { openHandout } from './handout.js?v=4ec3a711fe';
+=======
+import { createTools } from './presenter-tools.js?v=af3ed18eb7';
+import { openHandout } from './handout.js?v=4ec3a711fe';
+>>>>>>> 103fe2d (TIPS Doppler talk: aliasing and its fix, variance at the jet, where the portal blood goes)
 import { noteResume, resumeFor } from './resume.js?v=f086f80ee8';
 import { parseDeckSource, checkDeck } from './deck-source.js?v=8395c650cd';
 import { NO_ASC, TILE, SCALE, bandsOf, rateOf, COLS, CUT, PRESS, fpv, dirAbs, dirRel, rateAbs, effOf, rateShown, tileShown, tipsGoal, liveSettled, shownSig } from './table-marks.js?v=1dc429fe31';
@@ -32,7 +37,11 @@ import { frameFor, cancelFrame } from './frame.js?v=2ce59939b2';
 import { createFigureKey } from './figure-key.js?v=7e170d78ce';
 import { traceWhen } from './trace-labels.js?v=fc916a95c6';
 import { flowCss, heatCss, dropCss, gradientCss, oxygenCss } from './colormap.js?v=1092d36abc';
-import { EXT, expandIds, stepExtra, markLabel, figureHooks, safe } from './slide-ext.js?v=1c5886f2c6';
+<<<<<<< HEAD
+import { EXT, expandIds, stepExtra, markLabel, figureHooks, safe } from './slide-ext.js?v=771dca3cc3';
+=======
+import { EXT, expandIds, stepExtra, markLabel, figureHooks, safe } from './slide-ext.js?v=771dca3cc3';
+>>>>>>> 103fe2d (TIPS Doppler talk: aliasing and its fix, variance at the jet, where the portal blood goes)
 import { citeText, focusOf, ladderFromOf, ladderFromName } from './teach-extras.js?v=d8224d9bb5';
 import { DEMO_ALL } from './test-decks/demo-all-new-visuals.js?v=9aeadbb887';
 import { COMPACT, WIDE } from './card-type.js?v=f5dfdb80f2';
