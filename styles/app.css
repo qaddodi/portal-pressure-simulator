@@ -2722,8 +2722,6 @@ button.finding { cursor: pointer; }
 .oc-wall, .oc-pouch { fill: var(--o2); fill-opacity: .49; stroke: var(--o3); stroke-width: .84; stroke-opacity: .42; stroke-linejoin: round; stroke-linecap: round; }
 .oc-pouch { fill-opacity: .42; }
 .oc-tail { fill: var(--o2); fill-opacity: .5; }
-/* The colon's edge where its tube is clipped to Mohammad's outline (organ-art.mjs). */
-.oc-edge { fill: none; stroke: var(--o3); stroke-width: 1; stroke-opacity: .5; stroke-linejoin: round; }
 .oc-line { fill: none; stroke: var(--o3); stroke-width: .84; stroke-opacity: .42; stroke-linejoin: round; stroke-linecap: round; }
 .oc-valve { fill: none; stroke: var(--o3); stroke-width: 1; stroke-opacity: .35; stroke-linejoin: round; stroke-linecap: round; }
 .oc-band { fill: var(--o1); stroke: var(--o3); stroke-width: .9; stroke-opacity: .45; stroke-linejoin: round; stroke-linecap: round; }

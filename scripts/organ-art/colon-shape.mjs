@@ -152,12 +152,12 @@ const lift = (P, k = 0.74, dx = -0.22, dy = -0.32) => {
 //   valves    the rectum's transverse folds, short creases from alternate walls
 //   band      the taenia (filled)
 //   tags      fat tags along the wall (filled), with tagsLit
-export function colonAtlas(limbs, { r = 31, lam = 30, band = 0.34, tags = 0, joints = COLON_JOINTS, elbow = false, sigmoid = SIGMOID, rectum = RECTUM } = {}) {
+export function colonAtlas(limbs, { r = 31, lam = 30, band = 0.34, tags = 0, joints = COLON_JOINTS, elbow = false } = {}) {
   const F = limbs.map((l) => frame(l.pts));
   const g0 = [0];
   for (let i = 1; i < F.length; i++) g0.push(g0[i - 1] + F[i - 1].L);
   const last = F[F.length - 1], gl = g0[F.length - 1];
-  const sSpl = gl, sSig = gl + last.near(sigmoid), sRec = gl + last.near(rectum), lr = gl + last.L - sRec;
+  const sSpl = gl, sSig = gl + last.near(SIGMOID), sRec = gl + last.near(RECTUM), lr = gl + last.L - sRec;
   // Width along the whole colon (g: arc length from the cecum): the cecum widest, the descending colon a little
   // narrower, the sigmoid narrower still, the rectum widening into its ampulla and narrowing to the anal canal.
   const width = (g) => r * (1 + 0.1 * (1 - smooth(g / 110)) - 0.05 * smooth((g - sSpl) / 80) - 0.17 * smooth((g - sSig) / 60)

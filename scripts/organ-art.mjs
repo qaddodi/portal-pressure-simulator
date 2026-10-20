@@ -3,13 +3,12 @@
 // drawn once here from their shapes (scripts/organ-art/) so the stage only appends the markup. Colours are classes
 // (styles/app.css, .oc-* .ob-* .du-*) that read the organ's tones, so every theme draws it in its own colours.
 // It also writes each organ's visible outline (the highlight ring): the bowel's whole pile as one outline, cut where
-// the colon, kidney, stomach, spleen and liver lie over it (the gut is hidden under those).
+// the colon, stomach, spleen and liver lie over it (the gut is hidden under those; the kidney lies on top of the colon).
 //
 //   node scripts/organ-art.mjs && npm run stamp
 
 import { writeFileSync } from 'node:fs';
-import { colonAtlas, colonD } from './organ-art/colon-shape.mjs';
-import { COLON_OUTLINE, BOWEL_OUTLINE } from './organ-art/outlines.mjs';
+import { COLON_LIMBS_FIG, COLON_JOINTS_FIG, colonAtlas, colonD } from './organ-art/colon-shape.mjs';
 import { bowelWander, WANDER_SPACE, DUODENUM, DUO_SPLIT } from './organ-art/bowel-shape.mjs';
 import { CALM } from './organ-art/bowel-points.mjs';
 import { ORGANS, SEAM_D } from '../src/ui/anatomy.js';
@@ -64,21 +63,16 @@ const path = (d, cls, extra = '') => (d ? `<path class="${cls}" d="${d}"${extra}
 const sw = (w) => ` stroke-width="${f1(w)}"`;
 
 // ── The colon: three limbs, the transverse in front at both flexures (colon-draw.js 'figure', quiet) ──
-// The colon's centre lines, read off Mohammad's outline (COLON_OUTLINE: the middle of each limb across his edges), in the
-// picked figure's three limbs; the tube is drawn a little wider (r) and clipped to his outline, so its edge is his line.
-// The descending colon runs on under the kidney, where his outline leaves it out.
-const COLON_LIMBS = [
-  { id: 'ascending', z: 1, start: 'cecum', end: 'hepatic', route: [
-    [468, 884], [467, 860], [464, 830], [462, 800], [459, 770], [457, 740], [457, 710], [459, 680], [460, 650], [463, 620], [465, 590], [466, 552]] },
-  { id: 'transverse', z: 2, start: 'hepatic', end: 'splenic', route: [
-    [466, 552], [500, 586], [530, 617], [560, 637], [590, 648], [620, 653], [650, 655], [680, 658], [710, 656], [740, 649], [770, 640],
-    [800, 628], [830, 611], [860, 595], [890, 580], [920, 563], [950, 542], [975, 522], [1000, 504]] },
-  { id: 'descending', z: 0, start: 'splenic', end: 'tail', route: [
-    [1020, 516], [1022, 545], [1018, 575], [1014, 610], [1011, 645], [1010, 680], [1013, 705], [1008, 735], [1003, 765], [993, 795],
-    [977, 825], [960, 850], [930, 863], [900, 871], [870, 875], [840, 876], [810, 882], [784, 896], [769, 918], [763, 940], [762, 960],
-    [768, 975], [775, 990]] },
-];
-const COLON_OPT = { joints: { hepatic: [[466, 552, 1.2]], splenic: [[1000, 504, 1], [1020, 516, 0.97]] }, r: 47, lam: 34, band: 0.3, sigmoid: [960, 850], rectum: [790, 892] };
+// The gut as picked, only narrower (Mohammad, 20 Oct: "smaller, not traced"): one squeeze across, about the rectum's line (x 786,
+// where the rectal veins end), applied alike to the colon, the small bowel's pile and its gap loops and the appendix, so every
+// shape and the room between them stay as picked. GUT_SX is also in anatomy.js (the appendix).
+const GUT_X = 786, GUT_SX = 0.9;
+const gutFit = ([x, y, ...r]) => [GUT_X + (x - GUT_X) * GUT_SX, y, ...r];
+// The mock's rectum ran on to the frame's bottom edge (y 1000), past the rectal veins' end (786 928, where the anorectal
+// varices sit). It ends sooner here: the centre line stops at y 916, so its rounded end meets the veins' end.
+const RECTUM_END = 916;
+const COLON_LIMBS = COLON_LIMBS_FIG.map((l) => ({ ...l, route: (l.end !== 'tail' ? l.route : [...l.route.filter((p) => p[1] < RECTUM_END - 8), [786, RECTUM_END]]).map(gutFit) }));
+const COLON_OPT = { joints: Object.fromEntries(Object.entries(COLON_JOINTS_FIG).map(([k, v]) => [k, v.map(gutFit)])), r: 36, lam: 34, band: 0.3 };
 const colonParts = colonAtlas(COLON_LIMBS.map((l) => ({ ...l, pts: sample(colonD([l]), 1.5)[0] })), COLON_OPT).parts;
 function colonArt() {
   const top = Math.max(...colonParts.map((p) => p.z));
@@ -95,8 +89,7 @@ function colonArt() {
     // Where it lies over the limbs behind, its own edge a little firmer.
     if (under) { defs += `<clipPath id="oc-under-${S.id}"><path d="${under}"/></clipPath>`; out += `<g clip-path="url(#oc-under-${S.id})">${path(S.wall, 'oc-fold')}</g>`; }
   }
-  defs += `<clipPath id="oc-his"><path d="${COLON_OUTLINE}"/></clipPath>`;
-  return `<defs>${defs}</defs>${path(COLON_OUTLINE, 'oc-ao')}<g clip-path="url(#oc-his)">${out}</g>${path(COLON_OUTLINE, 'oc-edge')}`;
+  return `<defs>${defs}</defs>${out}`;
 }
 
 // ── The small bowel: the pile laid in short pieces in order, later loops over earlier ones, over a deep-toned bed ──
@@ -119,9 +112,10 @@ function pileArt(P, space, { piece = 36, step = 2, back = 28 } = {}) {
 // Liver round 36 (his pick, option 2): a few loops of the same tube in the empty space by the kidney, under the pile.
 const GAP_SPACE0 = [[850, 640], [880, 606], [915, 586], [950, 572], [984, 566], [998, 604], [1000, 700], [996, 790], [958, 790], [930, 730], [900, 700], [860, 680]];
 const gap0 = bowelWander({ seed: 5, space: GAP_SPACE0, r: 13, bend: 22, fill: 1.3, cross: 2, jitter: 0.4, start: [890, 690], end: [[952, 772], [956, 782]] });
-// The picked pile and its gap loops, narrowed (GUT_SX about the rectum's line, x 786) and a little less tall (BOWEL_SY about y 600),
-// drawn over a bed that fills Mohammad's outline of the small bowel (BOWEL_OUTLINE) and clipped to it.
-const GUT_X = 786, GUT_SX = 0.9, BOWEL_SY = 0.9;
+// The picked pile and its gap loops take the same squeeze and a little less height (BOWEL_SY, about y 600), so the pile
+// sits in the colon's frame and never hangs below the sigmoid and rectum (Mohammad, 20 Oct); the pile's first stretch is eased
+// back onto the duodenum's end.
+const BOWEL_SY = 0.9;
 const bowelFit = ([x, y, ...r]) => [GUT_X + (x - GUT_X) * GUT_SX, 600 + (y - 600) * BOWEL_SY, ...r];
 function fitPath(P, from) {
   const Q = P.map(bowelFit);
@@ -182,9 +176,47 @@ function strokeLine(g, P, half, val = 1) {   // every cell within `half` of the 
     }
   }
 }
+// The outline loops of the set cells (marching squares), smoothed and simplified; loops enclosing less than minA are dropped.
+function contour(g, minA = 120) {
+  const at = (x, y) => (x >= 0 && y >= 0 && x < W && y < H ? g[y * W + x] : 0);
+  const segs = new Map(), key = (p) => p[0] * 100000 + p[1];
+  // Edge midpoints in doubled cell units; each square adds segments that keep the set cells on the left.
+  for (let y = -1; y < H; y++) for (let x = -1; x < W; x++) {
+    const a = at(x, y), b = at(x + 1, y), c = at(x + 1, y + 1), d = at(x, y + 1), m = a | (b << 1) | (c << 2) | (d << 3);
+    if (m === 0 || m === 15) continue;
+    const T = [2 * x + 1, 2 * y], R = [2 * x + 2, 2 * y + 1], B = [2 * x + 1, 2 * y + 2], Lf = [2 * x, 2 * y + 1];
+    const S = { 1: [[Lf, T]], 2: [[T, R]], 3: [[Lf, R]], 4: [[R, B]], 5: [[Lf, T], [R, B]], 6: [[T, B]], 7: [[Lf, B]], 8: [[B, Lf]], 9: [[B, T]], 10: [[T, R], [B, Lf]], 11: [[B, R]], 12: [[R, Lf]], 13: [[R, T]], 14: [[T, Lf]] }[m];
+    for (const [p, q] of S) segs.set(key(p), [p, q]);
+  }
+  const loops = [];
+  while (segs.size) {
+    const [k0, [p0]] = segs.entries().next().value;
+    const loop = [p0];
+    let k = k0;
+    for (;;) { const s = segs.get(k); if (!s) break; segs.delete(k); loop.push(s[1]); k = key(s[1]); if (k === k0) break; }
+    loops.push(loop.map(([x, y]) => [X0 + (x / 2) * RES, Y0 + (y / 2) * RES]));
+  }
+  const area = (P) => { let s = 0; for (let i = 0; i < P.length; i++) { const p = P[i], q = P[(i + 1) % P.length]; s += p[0] * q[1] - q[0] * p[1]; } return s / 2; };
+  const smooth = (P) => { for (let it = 0; it < 3; it++) P = P.map((p, i) => { const a = P[(i + P.length - 1) % P.length], b = P[(i + 1) % P.length]; return [(a[0] + 2 * p[0] + b[0]) / 4, (a[1] + 2 * p[1] + b[1]) / 4]; }); return P; };
+  const simplify = (P, eps) => {   // Douglas-Peucker on the open chain
+    if (P.length < 3) return P;
+    const [a, b] = [P[0], P[P.length - 1]], dx = b[0] - a[0], dy = b[1] - a[1], L = Math.hypot(dx, dy) || 1;
+    let bi = 0, bd = 0;
+    for (let i = 1; i < P.length - 1; i++) { const d = Math.abs((P[i][0] - a[0]) * dy - (P[i][1] - a[1]) * dx) / L; if (d > bd) { bd = d; bi = i; } }
+    return bd > eps ? [...simplify(P.slice(0, bi + 1), eps).slice(0, -1), ...simplify(P.slice(bi), eps)] : [a, b];
+  };
+  // (A closed loop is simplified as two chains, split at its point farthest from its start.)
+  return loops.filter((P) => Math.abs(area(P)) >= minA).map((P) => {
+    const S = smooth(P.slice(0, -1));
+    let far = 0;
+    S.forEach((p, i) => { if (Math.hypot(p[0] - S[0][0], p[1] - S[0][1]) > Math.hypot(S[far][0] - S[0][0], S[far][1] - S[0][1])) far = i; });
+    return [...simplify(S.slice(0, far + 1), 0.35).slice(0, -1), ...simplify([...S.slice(far), S[0]], 0.35).slice(0, -1)];
+  });
+}
+const ringD = (loops) => loops.map((P) => lineD(P) + 'Z').join('');
 const shapeRings = (d) => sample(d, 1).filter((R) => R.length > 2);
 const organD = (id) => ORGANS.find((o) => o.id === id).d;
-const OVER = [organD('liver'), SEAM_D, organD('spleen'), organD('kidney-l')];   // the gut is hidden under these
+const OVER = [organD('liver'), SEAM_D, organD('spleen')];   // the gut is hidden under these (the kidney lies on top of the colon, which runs whole under it)
 
 // The bowel's area: its bed (the deep stroke along the pile and the space it fills), the pile and the gap loops, less what lies over it.
 const bowelG = grid();
@@ -192,16 +224,11 @@ for (const B of [pile, gap]) strokeLine(bowelG, B.Q, (2 * B.rm + B.back) / 2);
 fillPoly(bowelG, [PILE_SPACE]); fillPoly(bowelG, [GAP_SPACE]);
 const colonG = grid();
 for (const S of colonParts) { for (const d of [S.wall, S.pouch, S.tail]) if (d) for (const R of shapeRings(d)) fillPoly(colonG, [R]); }
-const hisG = (d) => { const g = grid(); for (const R of shapeRings(d)) fillPoly(g, [R]); return g; };
-const fillRep = (art, his) => { let inHis = 0, miss = 0; for (let i = 0; i < his.length; i++) if (his[i]) { inHis++; if (!art[i]) miss++; } const at = {}; for (let i = 0; i < his.length; i++) if (his[i] && !art[i]) { const k = `${Math.round((X0 + (i % W) * RES) / 40) * 40},${Math.round((Y0 + Math.floor(i / W) * RES) / 40) * 40}`; at[k] = (at[k] || 0) + 1; }
-  return `${(100 * miss / inHis).toFixed(1)}% of the outline unfilled ` + Object.entries(at).filter(([, n]) => n > 40).map(([k, n]) => `${k}:${n}`).join(' '); };
-console.log('colon:', fillRep(colonG, hisG(COLON_OUTLINE)), '| bowel:', fillRep(bowelG, hisG(BOWEL_OUTLINE)));
 const cut = (g, by) => { for (let i = 0; i < g.length; i++) if (by[i]) g[i] = 0; };
 const overG = grid();
 for (const d of OVER) for (const R of shapeRings(d)) fillPoly(overG, [R]);
 cut(bowelG, colonG); cut(bowelG, overG); cut(colonG, overG);
-// The highlight rings are Mohammad's outlines as he drew them; the drawn areas only report how well the art fills them.
-const BOWEL_RING = BOWEL_OUTLINE, COLON_RING = COLON_OUTLINE;
+const BOWEL_RING = ringD(contour(bowelG)), COLON_RING = ringD(contour(colonG));
 
 const js = (s) => JSON.stringify(s);
 writeFileSync('src/ui/organ-art.js', `// Generated by scripts/organ-art.mjs: do not edit. The colon, small bowel and duodenum as picked in the organ
@@ -214,7 +241,7 @@ export const COLON_ART = ${js(colonArt())};
 /* The small bowel's visible outline: the whole pile as one (its highlight ring). */
 export const BOWEL_RING = ${js(BOWEL_RING)};
 /* The gap loops (under the pile), then the pile. */
-export const BOWEL_ART = ${js(`<defs><clipPath id="ob-his"><path d="${BOWEL_OUTLINE}"/></clipPath></defs><g clip-path="url(#ob-his)"><path class="ob-space" d="${BOWEL_OUTLINE}" stroke-width="0"/>${gap.svg + pile.svg}</g>`)};
+export const BOWEL_ART = ${js(gap.svg + pile.svg)};
 /* The duodenum's centre line, the organ's d. */
 export const DUO_D = ${js(lineD(DQ))};
 export const DUO_CLIPS = ${js(duoA.clip + duoB.clip)};
