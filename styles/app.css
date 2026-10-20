@@ -120,7 +120,7 @@ svg { flex: none; }
    over the liver and spleen, and with ascites the flank stretched it over the whole abdomen. The organs' copy for the GPU
    is cloned with the mask attributes, which this rule does not change, so the plate keeps them. */
 .stage-view.gl-plate :is(#backdrop, #backdrop [mask], #organs [mask], #ascites [mask], #ghosts [mask]) { mask: none; }
-.stage-view.gl-on #world :is(.v-shadow, .v-wallP, .v-lumenP, .v-wall, .v-lumen, .v-shade, .v-sheen, .v-select, .v-artery, .v-strand, .v-strand-wall, .v-heat) { display: none; }
+.stage-view.gl-on #world :is(.v-shadow, .v-wallP, .v-lumenP, .v-wall, .v-lumen, .v-shade, .v-sheen, .v-select, .v-artery, .v-strand, .v-strand-wall) { display: none; }
 .stage-view canvas { pointer-events: none; }
 .stage-view svg#labels { pointer-events: none; overflow: visible; }
 #overlay { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
@@ -562,11 +562,8 @@ div.vital { cursor: default; }
 .organ-heart-ra { color: color-mix(in srgb, var(--organ-heart) 80%, var(--shade-ink)); }
 /* Data layers and a selection step the anatomy back (#organs, #backdrop) with the GPU's values, eased on its clock: stage.js
    syncOrganDim, an SVG filter, since WebKit draws no CSS filter functions on SVG elements. */
-#heatGlow { opacity: 0; visibility: hidden; pointer-events: none; transition: opacity var(--view-fade) var(--ease-io), visibility 0s linear var(--view-fade); }
-.stage-view[data-layer="heat"] #heatGlow { opacity: 1; visibility: visible; transition: opacity var(--view-fade) var(--ease-io), visibility 0s; }
 /* A lens or a selection eases the anatomy back (no one-frame dim or grey). */
 #backEdges .vg { transition: filter var(--view-fade) var(--ease-io); }
-.v-heat { fill: none; stroke-linecap: round; stroke-linejoin: round; }
 .map-grid { opacity: .9; }
 .map-dot { fill: var(--map-dot); }
 /* Background plane: the diaphragm (no body-cavity shading). */

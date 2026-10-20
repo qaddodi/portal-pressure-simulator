@@ -9,7 +9,7 @@ import { STATION_VESSEL, meanVel, velNormal } from './velNormal.js?v=181dda5594'
 import { store, updateParams, varicesPresent, varixGrowth, shownVel } from './store.js?v=31ee79b6ab';
 import { fibroReading } from './clock.js?v=520596240b';
 import { s, h, fmt, fmtFlow, fp, clamp, lerp, toast, systemEdge, bloodColors, restBox, settledBox, putText } from './util.js?v=8813192ea2';
-import { createLobuleZoom } from './lobule-zoom.js?v=e8bd7620e6';
+import { createLobuleZoom } from './lobule-zoom.js?v=0d08fd4f2c';
 import { runFlick, FLICK } from './flick.js?v=3da45febf2';
 import { inlineStyles } from './svg-inline.js?v=fc17cb73fe';
 import { fluidTarget, poolFade } from './fluid-step.js?v=2742314765';
@@ -24,7 +24,7 @@ import { LIVER_GEO } from './liver-geo-data.js?v=d2bd9ee6b4';
 import { createRouter } from './circuit-router.js?v=0ee9e02fc6';
 import { gpuProbe } from './gpu-probe.js?v=d4aeccea90';
 import { plateStrips, premultiply } from './plate-upload.js?v=2dd6db2a18';
-import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, ORIGIN_GREY } from './veins-gl.js?v=e23a1d60df';
+import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, ORIGIN_GREY } from './veins-gl.js?v=06c2caf53b';
 import { varixBead, beadRadius } from './varix-bead.js?v=ac0e84fd89';
 import { advanceStream, createReversalHold, bleedShapes, stepBleedFade, fadeBleedShapes, chevFlowLevel, keyChevron, KEY_CHEV_LANES, originFractions, oxygenFor, ORIGIN_N, createBolus, DYE_BINS, KAPPA, STASIS_MIN_D, HIDDEN_SECONDS } from './blood.js?v=e668d01823';
 import { frameFor, cancelFrame, noteDraw, setSaver as setFrameSaver, paceMs } from './frame.js?v=67ca200c87';
@@ -468,7 +468,6 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     <pattern id="texRugae" width="40" height="12" patternUnits="userSpaceOnUse" patternTransform="rotate(-38)"><path class="tex" d="M0 6c7-4 13 4 20 0s13-4 20 0"/></pattern>
     <pattern id="texLobules" width="14" height="12" patternUnits="userSpaceOnUse"><path class="tex" d="M1 6a6 5 0 0 1 12 0M-6 12a6 5 0 0 1 12 0M8 12a6 5 0 0 1 12 0"/></pattern>
     <pattern id="texMuscle" width="30" height="10" patternUnits="userSpaceOnUse" patternTransform="rotate(24)"><path class="tex" d="M0 5c8-3 22 3 30 0"/></pattern>
-    <filter id="heatBlur" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="7"/></filter>
     <pattern id="mapGrid" width="20" height="20" patternUnits="userSpaceOnUse"><circle class="map-dot" cx="10" cy="10" r=".9"/></pattern>`;
   svg.append(defs);
   const world = s('g', { id: 'world' });
@@ -494,8 +493,6 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // same three tiers behind the organs.
   const gArt = s('g', { id: 'arteries' });
   const gShadowL = s('g', { id: 'vShadows' });
-  // Heat layer: a soft glow of congestion around the network, like a density map.
-  const gHeat = s('g', { id: 'heatGlow', filter: 'url(#heatBlur)' });
   const gCaseL = s('g', { id: 'vCasings' });
   const gEdges = s('g', { id: 'edges' });
   const gBackS = s('g'), gBackC = s('g'), gBackL = s('g'), gBackH = s('g');
@@ -514,7 +511,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const gTop = s('g', { id: 'focusNet' });
   const gTopS = s('g'), gTopC = s('g'), gTopL = s('g'), gTopH = s('g');
   gTop.append(gTopS, gTopC, gTopL, gTopH);
-  world.append(gBackdrop, gGrid, gBack, gOrgans, gGhost, gFocus, gHeat, gNet, gAscites, gTop, gOver, gNodes, gGuides);
+  world.append(gBackdrop, gGrid, gBack, gOrgans, gGhost, gFocus, gNet, gAscites, gTop, gOver, gNodes, gGuides);
   // The figure is drawn on the GPU (veins-gl.js): the plate, every vessel in both views and the
   // moving blood. The SVG below keeps the organ artwork (rasterized for the GPU), invisible hit
   // targets and focus for each vessel, and what is drawn above the vessels (lesions, stents,
@@ -878,8 +875,6 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       }
       gShadowL.append(gs); gCaseL.append(gc); gEdges.append(g); gHiMid.append(gh);
     }
-    const heat = isArt ? null : s('path', { class: 'v-heat' });
-    if (heat) gHeat.append(heat);
     if (FADE_IN[e.id]) for (const el of [shadow, wall, lumen, shade, sheen, wallP, lumenP]) el?.setAttribute('mask', `url(#cm-${e.id})`);
     if (SIN_FADE[e.id]) {
       // The SVG's own copy of the sinusoids' fade (the GPU draws it from SIN_FADE).
@@ -908,7 +903,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       for (const el of [shadow, wall, lumen, shade, sheen, wallP, lumenP, halo, sel]) el?.setAttribute('mask', `url(#tm-${e.id})`);
       tipFade = { tg, s0, frac: TIP_FADE[e.id], line: [0, 0, 1, 0], joined: false };
     }
-    E[e.id] = { e, g, gc, gs, gh, tipFade, groups: isArt ? [g] : [gs, gc, g, gh], heat, grad, st0, st1, halo, sel, shadow, wall, lumen, shade, sheen, wallP, lumenP, hit, strands, feeders, isArt, vis: true, width: 4, wallPx: 1, shadeKey: '' };
+    E[e.id] = { e, g, gc, gs, gh, tipFade, groups: isArt ? [g] : [gs, gc, g, gh], grad, st0, st1, halo, sel, shadow, wall, lumen, shade, sheen, wallP, lumenP, hit, strands, feeders, isArt, vis: true, width: 4, wallPx: 1, shadeKey: '' };
   }
   ALL_EDGES.forEach((e, i) => { E[e.id].row = i; });
   // (Every vessel, in E's order, as one list kept from here on: E is built once above and never gains or loses a key, so the
@@ -992,7 +987,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // (The same, checked against the element itself, for attributes other code writes too: the organs' each model update, and every
   // frame of a liver's or the fluid's ease, were written again with the values they had, and Safari repainted them each time.)
   const putA = (el, k, v) => { v = String(v); if (el.getAttribute(k) !== v) el.setAttribute(k, v); };
-  // While the GPU draws the vessels (gl-on), their SVG walls, strands, feeders, heat halos and selection rings are display:none
+  // While the GPU draws the vessels (gl-on), their SVG walls, strands, feeders and selection rings are display:none
   // (app.css): their widths and colours are held and written when the SVG shows them again (syncVeins, flushTubes). The lumens are
   // always written (credit.js reads a lit lumen's width), and so are the gradient stops.
   let tubesHidden = false;
@@ -2114,7 +2109,6 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       // While the GPU draws the tubes their SVG layers are hidden (gl-on): their paths catch up when the SVG shows them again (syncVeins).
       if (svgTubes) {
         x.sel.setAttribute('d', d); x.wall.setAttribute('d', d); x.shadow.setAttribute('d', d);
-        if (x.heat) x.heat.setAttribute('d', d);
         if (x.lumen) x.lumen.setAttribute('d', d);
       }
       g.lit = litNormals(pts);
@@ -2385,7 +2379,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       // flow, the way it drew on, and is hidden when it is done; it is held visible until then.
       if (x.reveal?.out) vis = true;
       else if (!vis && x.vis && wasDrawn && canFade(x) && !x.reveal && !x.g.classList.contains('coll-ghost') && !quietFx()) { startExit(x, f); vis = true; }
-      if (vis !== x.vis) { setStyle(x, 'display', vis ? '' : 'none'); if (x.heat) x.heat.style.display = vis ? '' : 'none'; x.vis = vis; }
+      if (vis !== x.vis) { setStyle(x, 'display', vis ? '' : 'none'); x.vis = vis; }
       if (!vis) { x.drawn = false; continue; }
       if (x.tipFade && TIP_CONNECT[e.id]) {
         // Drawn solid to its end while something attaches there; otherwise it fades.
@@ -2427,7 +2421,6 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       // no hover, no tap on them; it falls through to the organ. The sinusoids are a vessel of their own.
       cls(x, 'no-hit', LIVER_EDGES.has(e.id) && !SIN_EDGES.has(e.id) && t < 0.5);
       if (!x.isArt) {
-        x.pmid = (P1 + P2) / 2;
         const baseD = IVC_EDGES.has(e.id) ? E.IVC_IS.e.d : e.d || (e.dMax ? dMinOf(e) : 3);   // one wall thickness along the whole cava
         // The circuit is a map: a slightly wider border (drawn by the GPU, as one shape with filleted
         // joins) gives its lines their weight.
@@ -2455,8 +2448,6 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       }
       // Flow marks are white on dark lumens and ink on pale ones.
       x.inkDark = mode === 'pressure' ? luminance(pressureColor((P1 + P2) / 2)) > 0.36 : luminance(c1) > 0.36;
-      if (x.heat && mode === 'heat') { setT(x.heat, 'stroke', c1); setT(x.heat, 'stroke-width', (w + 15).toFixed(1)); const ho = mode === 'heat' && ref ? (0.67 * clamp((x.pmid - (ref[NI[e.from]] + ref[NI[e.to]]) / 2) / 8, 0, 1)).toFixed(2) : '0'; if (x.heat._op !== ho) { x.heat._op = ho; x.heat.style.opacity = ho; } }
-      x.heatA = x.heat && mode === 'heat' && ref ? clamp((x.pmid - (ref[NI[e.from]] + ref[NI[e.to]]) / 2) / 8, 0, 1) : 0; x.heatCol = c1;
       if (e.kind === 'collateral') {
         const fr = shownFrac(e.id, f);
         const qa = Math.abs(f.Qf ? f.Qf[k] : f.Q[k]);
@@ -2547,10 +2538,10 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   function syncRadiiOnly(t) {
     return gpuProbe.time(null, 'radius sync (script)', () => {
       if (glowSync || plateEasing() || !glowOnlyOk(t)) return false;
-      const m = glowMemo, items = m.items, heat = m.mode === 'heat';
+      const m = glowMemo, items = m.items;
       for (let i = 0; i < items.length; i++) if ((items[i].x.width >= 3.4) !== m.wide[i]) return false;
       sendRadii(items);
-      for (const it of items) if (Math.ceil((it.obj.glMaxR + (it.x.wallPx || 1) + 18 + (heat ? 30 : 0)) / 2) * 2 > (vBinReach.get(it.row) || 0)) return false;
+      for (const it of items) if (Math.ceil((it.obj.glMaxR + (it.x.wallPx || 1) + 18) / 2) * 2 > (vBinReach.get(it.row) || 0)) return false;
       // (A ligated vein's divided stretch is as long as the vein is wide (divideLen): its drawn start, tube texel 5, follows the width.)
       let lig = false;
       for (const it of items) {
@@ -2587,7 +2578,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const nowW = performance.now(), dt = Math.min(0.1, (nowW - (wAt || nowW)) / 1000);
     wAt = nowW; widthEasing = false;
     lvAt = nowW;   // (the liver's ease clock: a full update after width steps eases from this frame, not from the last full update)
-    const t = easeInOut(morph), mode = layerMode();
+    const t = easeInOut(morph);
     let moved = false, labels = !!sites.list || scan.on || !!camMove || !!E.TIPS?.vis || !!E.DIPS?.vis;
     for (const x of EV) {
       if (!x.vis || !followWidth(x, dt)) continue;
@@ -2596,7 +2587,6 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       const w = x.width;
       widthWrites(x, w, t, f, EI[x.e.id]);
       if (x.isArt) continue;
-      if (x.heat && mode === 'heat') setT(x.heat, 'stroke-width', (w + 15).toFixed(1));
       if (x.sel.classList.contains('on')) setT(x.sel, 'stroke-width', (w + 12).toFixed(1));
       x.dopW = w;
       if (!labels) { const sw = sigW.get(x.e.id); labels = sw == null || Math.abs(w - sw) >= 2; }
@@ -3057,7 +3047,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const m = glowMemo;
     if (!m || !veins || veins.lost || !vLook || tubesNew || lensFrom || !tubesShown || tubesShown.length !== tubeData.length) return false;
     if (m.t !== t || m.F !== F || m.geo !== geometryVersion || m.netA !== netA || m.cs !== wrapCS() || m.mode !== layerMode() || m.origin !== originOn()) return false;
-    if (m.selK !== selAKey() || m.cath !== cathTint || m.plate !== veins.hasPlate(0) || m.cls !== wrap.className || m.reach !== (m.mode === 'heat' ? 40 : glow.lit.size ? 20 : 11)) return false;
+    if (m.selK !== selAKey() || m.cath !== cathTint || m.plate !== veins.hasPlate(0) || m.cls !== wrap.className || m.reach !== (glow.lit.size ? 20 : 11)) return false;
     const b = glowBits(m.items);
     for (let i = 0; i < b.length; i++) if (b[i] !== m.bits[i] || b[i] & 64) return false;   // (a vessel drawing on changes with the clock: whole syncs)
     return true;
@@ -3174,7 +3164,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     }
     const items = glItems();
     const cs = wrapCS();
-    const mode = layerMode(), heat = mode === 'heat';
+    const mode = layerMode();
     // A jump in the model (a new patient, Undo or History, a time jump, Compare's Then and Now, Settle) recolours the vessels
     // through the same crossfade as a lens change, instead of in one frame (round 2 review, B6): a frame whose pressures moved
     // by more than JUMP_MMHG anywhere since the last one drawn. The running model's own steps (well under that) are drawn as
@@ -3188,8 +3178,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     shownCol = new Map();
     sendRadii(items);
     // Geometry: re-binned when the layout, the set of vessels or a vessel's reach grows.
-    const reachOf = (it) => Math.ceil((it.obj.glMaxR + (it.x.wallPx || 1) + 18 + (heat ? 30 : 0)) / 2) * 2;
-    const key = `${geometryVersion}|${heat}|` + items.map((it) => it.row).join(',');
+    const reachOf = (it) => Math.ceil((it.obj.glMaxR + (it.x.wallPx || 1) + 18) / 2) * 2;
+    const key = `${geometryVersion}|` + items.map((it) => it.row).join(',');
     const grew = key === vBinKey && items.some((it) => reachOf(it) > (vBinReach.get(it.row) || 0));
     if (key !== vBinKey || grew) {
       vBinKey = key;
@@ -3246,8 +3236,6 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       const spec = shade && !veil && kind !== 'f' && kind !== 'c' && !CONTEXT_EDGES.has(id) && !x.back && x.width >= 3.4;
       const flags = (shade ? F_DIFFUSE : 0) | (spec ? F_SPEC : 0) | (!x.back && !x.isArt && !ghost && !veil ? F_SHADOW : 0) | (ghost ? F_DOTTED : 0) | (x.isArt ? F_NOCASE : 0) | (veil ? F_VEIL : 0);
       const z = (kind === 'v' ? x.row + 0.5 : x.row) / GL_ROWS;
-      // No congestion halo on the IVC itself: its wide halo would spill onto the bowel beside it.
-      const heatA = kind === 'v' && heat && !IVC_EDGES.has(id) ? (x.heatA || 0) : 0;
       if (lensFrom) {
         const was = lensFrom.get(it.row), u = easeInOut(clamp((now - lensT0) / LENS_FADE, 0, 1));
         if (was) { c0 = mix3(was[0], c0, u); c1 = mix3(was[1], c1, u); }
@@ -3255,7 +3243,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       shownCol.set(it.row, [c0, c1]);
       // The sinusoids' strands are drawn faint and fine (sin-perfusion.js).
       if (sinStrand) alpha *= SIN_PERFUSION.fade;
-      tubeData.set([...c0, x.isArt ? 0 : x.wallPx, ...c1, alpha, tier, z, flags, heatA], o);
+      tubeData.set([...c0, x.isArt ? 0 : x.wallPx, ...c1, alpha, tier, z, flags, 0], o);
       // Fades, as the SVG masks: into an organ (TIP_FADE), out of the plate, into a deeper vein,
       // tributaries toward the bowel they drain.
       let fade = null;
@@ -3280,7 +3268,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         if (r.dir > 0) hi = 1 - off; else lo = off;
       }
       if (kind === 'v' && LIGATED.some((l) => l[1] === id)) lo = Math.max(lo, divideLen(id) / (it.len || geo[id].len || 1));
-      tubeData.set([lo, hi, kind === 's' ? obj.len : kind === 'f' ? arcLen(it.pts) || 1 : it.len || geo[id].len || 1, 0, ...(heatA ? toRGB(x.heatCol, cs) : [0, 0, 0]), 0], o + 20);
+      tubeData.set([lo, hi, kind === 's' ? obj.len : kind === 'f' ? arcLen(it.pts) || 1 : it.len || geo[id].len || 1, 0, 0, 0, 0, 0], o + 20);
       let tint = kind === 'v' && cathTint?.[id];
       if (ra && kind === 'v') {
         // On the cava drawn as one, each stretch's tint is placed along the whole.
@@ -3301,7 +3289,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (!tubesChanged) for (let i = 0; i < tubeData.length; i++) if (tubeData[i] !== tubesShown[i]) { tubesChanged = true; break; }
     if (tubesChanged) veins.setTubes(tubeData);
     vLook = {
-      shOff: [1.4, 2.8], light: LIGHT, reach: heat ? 40 : glow.lit.size ? 20 : 11, heat, organs: 1 - T0,
+      shOff: [1.4, 2.8], light: LIGHT, reach: glow.lit.size ? 20 : 11, organs: 1 - T0,
       casing: [...cssTriplet(cs, '--casing-rgb'), cssNum(cs, '--casing-a', 0.56)],
       shadow: [...cssTriplet(cs, '--shadow-rgb'), cssNum(cs, '--shadow-a', 0.15)],
       sheen: [...toRGB('var(--light-ink)', cs), cssNum(cs, '--tube-sheen', 0.42)],
@@ -3731,7 +3719,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // When the retraction ends: hide the vessel, or leave the dotted outline of a closed collateral.
   function finishExit(x) {
     if (!F) return;
-    if (!edgeVisible(x, F)) { setStyle(x, 'display', 'none'); if (x.heat) x.heat.style.display = 'none'; x.vis = false; }
+    if (!edgeVisible(x, F)) { setStyle(x, 'display', 'none'); x.vis = false; }
     else if (x.e.kind === 'collateral' && !collOpen(x.e.id, F)) cls(x, 'coll-ghost', true);
   }
   const REVEAL_PARTS = ['shadow', 'wall', 'lumen', 'shade', 'sheen'];

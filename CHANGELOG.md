@@ -2,6 +2,9 @@
 
 ## October 2026
 
+- **Congestion view: colour only.** The halo around backed-up veins is gone (on the GPU and in Lite graphics): it reached
+  full strength at 8 mmHg while the colour runs to 15, spread well past each vein and repeated what the colour says. The
+  veins' colour now carries congestion, as every other view carries its data, and the view draws a narrower band per vein.
 - **Send feedback.** Settings has a new Send feedback item at its top (in talks too): it opens a draft in the viewer's own email app,
   addressed to the author, with the build, device, screen size and a link back to the exact view; the app sends nothing
   itself (Privacy says so). After ten minutes of active use in one visit, a message card asks once for feedback (Send

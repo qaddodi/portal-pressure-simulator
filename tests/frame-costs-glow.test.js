@@ -84,7 +84,7 @@ test('under the GPU the hidden SVG tubes are written when they show again; lumen
   assert.match(stage, /setA\(x\.lumen, 'stroke-width', w\.toFixed\(1\)\)/);
   const css = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
   const hidden = css.match(/\.stage-view\.gl-on #world :is\(([^)]*)\) \{ display: none; \}/)[1];
-  for (const c of ['.v-wall', '.v-artery', '.v-strand', '.v-strand-wall', '.v-heat', '.v-select']) assert.ok(hidden.includes(c), `${c} is hidden under gl-on`);
+  for (const c of ['.v-wall', '.v-artery', '.v-strand', '.v-strand-wall', '.v-select']) assert.ok(hidden.includes(c), `${c} is hidden under gl-on`);
 });
 
 test('label widths are kept by their digit-normalised text, and the narrowings\' text by object', () => {

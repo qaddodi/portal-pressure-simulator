@@ -95,11 +95,11 @@ void main() {
 // Tube attributes, TUBE_TEXELS texels per vessel (row = vessel):
 //   0: color at the start (rgb), casing width (world)
 //   1: color at the end (rgb), alpha
-//   2: tier, z (draw order within a tier), flags, congestion glow alpha
+//   2: tier, z (draw order within a tier), flags, 0 (unused)
 //   3: fade: linear from (x, y) to (x, y), or radial: center (x, y), radius
 //   4: fade: offset, alpha at the start, alpha at the end (radial: at 45 %), mode (0 none, 1 linear, 2 radial, 3 linear with a dip: faintest at the offset, solid at the end)
 //   5: drawn part along the vessel (0–1): from, to; arc length (world); stream flags (F_UP, F_DN, F_REV)
-//   6: congestion glow color (rgb), streak course length (world)
+//   6: the casing's own color with F_EDGE (rgb), streak course length (world)
 //   7: flow streaks: phase at the upstream end, spacing (world), direction (±1, from → to), strength (0 off)
 //   8: a stretch recolored (the HVPG's wedged vein): color (rgb), amount (0 none)
 //   9: that stretch along the vessel (0–1): from, to; its soft edge (world); hover (0–1: the lumen a little brighter)
@@ -136,7 +136,6 @@ uniform vec4 ring;                     // selection ring: rgb, alpha
 uniform vec2 light;                    // unit direction toward the light (world)
 uniform float netAlpha;                // the network group's opacity (dimmed while a vessel is focused)
 uniform int fx;                        // 1: shading and shadows (off in the figure view)
-uniform int heat;                      // 1: congestion glow
 uniform float tierAlpha[${MAX_TIERS}];
 uniform int tierGroup[${MAX_TIERS}];   // 0 behind the organs, 1 the network, 2 lifted
 uniform int redraw;                    // 1: some cells drawn again over the last picture (drawRows), not cleared first: a pixel left empty is written empty
@@ -288,7 +287,7 @@ void main() {
 
   // ── Nothing to draw here: settled now, without the tiers below ──
   // Where every vessel in reach lies past what any of them draws, the tiers below would add nothing: no glow band (it ends
-  // 15.6 past a wall), no congestion halo (19 past it), and every tier skipped by its own test (D past 8 + 2 px, Ds past
+  // 15.6 past a wall), and every tier skipped by its own test (D past 8 + 2 px, Ds past
   // 6 + 2 px; a fillet pulls a shape in by at most a quarter of its width). The pixel is left empty, exactly as they
   // would leave it, at the cost of a few reads. (Zoomed in, most of the pixels the cells cover are like this.)
   {
@@ -299,7 +298,6 @@ void main() {
       if (s >= n) break;
       dMin = min(dMin, sd[s]); sMin = min(sMin, sh[s]);
       if (T(sid[s], 10).a > 0.0 && sd[s] - T(sid[s], 0).w < 15.7) lit = true;
-      if (heat == 1 && T(sid[s], 2).w > 0.0 && sd[s] < 19.1) lit = true;
     }
     if (!lit && dMin - pull > 8.01 + 2.0 * px && sMin - pull > 6.01 + 2.0 * px) {
       if (redraw == 1) { outColor = vec4(0.0); outFlow = uvec4(0u); outFlow2 = uvec4(0u); outDep = vec4(0.0); return; }
@@ -308,13 +306,13 @@ void main() {
   }
 
   // ── Per-vessel attributes ──
-  float stier[MAXS], sz[MAXS], sflag[MAXS], sa[MAXS], swall[MAXS], sheat[MAXS], shov[MAXS], ssel[MAXS];
-  vec3 scol[MAXS], shcol[MAXS], sedge[MAXS];
+  float stier[MAXS], sz[MAXS], sflag[MAXS], sa[MAXS], swall[MAXS], shov[MAXS], ssel[MAXS];
+  vec3 scol[MAXS], sedge[MAXS];
   float occl = useOrgan == 1 ? texture(organ, (p - organRect.xy) / organRect.zw).a * 0.5 * organK : 0.0;
   for (int s = 0; s < MAXS; s++) {
     if (s >= n) break;
     vec4 t0 = T(sid[s], 0), t1 = T(sid[s], 1), t2 = T(sid[s], 2), t3 = T(sid[s], 3), t4 = T(sid[s], 4);
-    stier[s] = t2.x; sz[s] = t2.y; sflag[s] = t2.z; swall[s] = t0.w; sheat[s] = t2.w;
+    stier[s] = t2.x; sz[s] = t2.y; sflag[s] = t2.z; swall[s] = t0.w;
     scol[s] = mix(t0.rgb, t1.rgb, clamp(su[s], 0.0, 1.0));
     vec4 tc = T(sid[s], 8);
     shov[s] = T(sid[s], 9).w;
@@ -333,7 +331,6 @@ void main() {
       float k = smoothstep(tr.x * Lv - tr.z, tr.x * Lv + tr.z, uu) * (1.0 - smoothstep(tr.y * Lv - tr.z, tr.y * Lv + tr.z, uu));
       scol[s] = mix(scol[s], tc.rgb, k * tc.w);
     }
-    shcol[s] = t2.w > 0.0 ? T(sid[s], 6).rgb : vec3(0.0);
     sedge[s] = (int(t2.z + 0.5) & ${F_EDGE}) != 0 ? T(sid[s], 6).rgb : vec3(0.0);
     float a = t1.w;
     if (t4.w > 2.5) {
@@ -361,14 +358,6 @@ void main() {
   // Whether a lumen colour (scol) reaches this pixel: through a lumen drawn here (aL > 0) or a glow in its vessel's
   // own colour. Where neither does, the colour comes from the casings, shadows, rings and inks alone.
   bool dep = false;
-  // ── Congestion glow: a soft halo under the network, strongest where pressure has backed up ──
-  vec4 glow = vec4(0.0);
-  if (heat == 1) for (int s = 0; s < MAXS; s++) {
-    if (s >= n || sheat[s] <= 0.0) continue;
-    float x = sd[s] + sr[s], hw = sr[s] + 7.0;
-    float gv = 0.58 * (1.0 - smoothstep(hw - 12.0, hw + 12.0, x)) * sheat[s] * sa[s];
-    if (gv > glow.a) glow = vec4(shcol[s] * gv, gv);
-  }
   // (A lit vessel's glow, the thin soft band hugging its wall, is laid down with its own tier below.)
 
   // ── Hand-off at a join across tiers ──
@@ -638,7 +627,7 @@ void main() {
     else if (topGrp == 1) accN = over(topC * min(1.0 / max(netAlpha, 1e-3), 1.0 / topC.a), accN);
     else accT = over(topC, accT);
   }
-  vec4 o = over(accT, over(accN * netAlpha, over(glow, accB)));
+  vec4 o = over(accT, over(accN * netAlpha, accB));
   if (o.a < 0.002) { if (redraw == 1) { outColor = vec4(0.0); outFlow = uvec4(0u); outFlow2 = uvec4(0u); outDep = vec4(0.0); return; } discard; }
   // Dither by up to a level (triangular noise, fixed per pixel) before the 8-bit layer: the colour and
   // alpha of a soft gradient (the glow's falloff) would round at different places and draw thin stripes.
@@ -1472,7 +1461,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false }) {
   // kept only while panning.
   const whole = (m) => (Number.isInteger(m[4]) && Number.isInteger(m[5]) ? m : [m[0], m[1], m[2], m[3], Math.round(m[4]), Math.round(m[5])]);
   // What the vessel pass reads from the look (anything else in it only matters to the composite).
-  const lookKey = (k) => JSON.stringify([k.reach, k.shOff, k.casing, k.shadow, k.sheen, k.shade, k.ring, k.light, k.netAlpha, k.fx, k.heat, k.tierAlpha, k.tierGroup, k.organs]);
+  const lookKey = (k) => JSON.stringify([k.reach, k.shOff, k.casing, k.shadow, k.sheen, k.shade, k.ring, k.light, k.netAlpha, k.fx, k.tierAlpha, k.tierGroup, k.organs]);
   let tubesNew = true, drawnLook = '';
   const spare = { fbo: gl.createFramebuffer(), base: dataTex(gl), g: dataTex(gl), g2: dataTex(gl), dep: dataTex(gl), w: 0, h: 0, timer: 0 };
   function spareSize(w, h) {
@@ -1627,7 +1616,6 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false }) {
     gl.uniform2f(u.light, ...look.light);
     gl.uniform1f(u.netAlpha, look.netAlpha);
     gl.uniform1i(u.fx, look.fx ? 1 : 0);
-    gl.uniform1i(u.heat, look.heat ? 1 : 0);
     gl.uniform1i(u.redraw, redraw ? 1 : 0);
     gl.uniform1i(u.tint, tint ? 1 : 0);
     gl.uniform1fv(u.tierAlpha, look.tierAlpha);
