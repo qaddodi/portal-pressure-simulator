@@ -161,6 +161,16 @@ float smin(float a, float b, float k) {
   return min(a, b) - h * h * k * 0.25;
 }
 vec4 over(vec4 top, vec4 under) { return top + under * (1.0 - top.a); }
+// How far two joined vessels make a corner at p (0 … 1): whether each one's centreline lies off the other's toward p.
+// On a trunk's far wall, opposite a tributary that ends inside it, the tributary's centreline ends on the trunk's own: 0
+// there, so that wall is the trunk's alone (no fillet swelling it, no blend of the tributary's caliber or shading); 1 in
+// the corners beside the tributary and inside it. (ga, gb: unit directions from each centreline to p; da, db: the
+// distances from each wall; ra, rb: the radii.)
+float corner(vec2 p, vec2 ga, float da, float ra, vec2 gb, float db, float rb) {
+  vec2 ca = p - ga * (da + ra), cb = p - gb * (db + rb);
+  float off = min(dot(cb - ca, ga), dot(ca - cb, gb)), rm = max(min(ra, rb), 0.5);
+  return smoothstep(0.25 * rm, 0.6 * rm, off);
+}
 
 void main() {
   // A colour-only redraw: a pixel no lumen colour reaches is left as drawn (its colour depends on none of them).
@@ -295,14 +305,6 @@ void main() {
       if (redraw == 1) { outColor = vec4(0.0); outFlow = uvec4(0u); outFlow2 = uvec4(0u); outDep = vec4(0.0); return; }
       discard;
     }
-  }
-
-  // How far past its drawn end (along its course, world units) each vessel's nearest point lies: 0 alongside it.
-  float se[MAXS];
-  for (int s = 0; s < MAXS; s++) {
-    if (s >= n) break;
-    vec4 c5 = T(sid[s], 5);
-    se[s] = max(max(c5.x - su[s], su[s] - c5.y), 0.0) * c5.z;
   }
 
   // ── Per-vessel attributes ──
@@ -465,9 +467,10 @@ void main() {
       }
     }
     // The tier's shape: plain union, filleted between vessels that share a junction. The fillet fills only the corners
-    // between them: past a vessel's own end (its round cap, inside the vessel it joins) it lets go, at twice the rate
-    // that end is passed, so a tributary's cap does not swell the trunk's far wall into a nub (the IMV and the
-    // splenorenal shunt on the splenic vein, the shunt on the renal vein).
+    // between them, where each vessel's centreline lies off the other's toward this pixel: on a trunk's far wall, opposite
+    // a tributary that ends inside it, the tributary's centreline ends on the trunk's own, so no fillet swells that wall into
+    // a nub (the IMV and the splenorenal shunt on the splenic vein, the shunt on the renal vein), and none swells the seam
+    // where one stretch of a vessel runs on into the next.
     float D = 1e9, Ds = 1e9;
     for (int s = 0; s < MAXS; s++) if ((mem & (1 << s)) != 0) { D = min(D, sd[s]); Ds = min(Ds, sh[s]); }
     for (int j = 0; j < MAXJ; j++) {
@@ -477,8 +480,9 @@ void main() {
         if ((jj & (1 << a)) == 0) continue;
         for (int b = a + 1; b < MAXS; b++) {
           if ((jj & (1 << b)) == 0) continue;
-          D = min(D, smin(sd[a] + 2.0 * se[a], sd[b] + 2.0 * se[b], jk[j] * js[j]));
-          Ds = min(Ds, smin(sh[a] + 2.0 * se[a], sh[b] + 2.0 * se[b], jk[j] * js[j]));
+          float kk = jk[j] * js[j] * corner(p, sg[a], sd[a], sr[a], sg[b], sd[b], sr[b]);
+          D = min(D, smin(sd[a], sd[b], kk));
+          Ds = min(Ds, smin(sh[a], sh[b], kk));
         }
       }
     }
@@ -513,7 +517,9 @@ void main() {
     // caliber and shading run on through the fillet.
     float m = 1e9;
     for (int s = 0; s < MAXS; s++) if ((conn & (1 << s)) != 0) m = min(m, sd[s]);
-    float tau = 0.3 * kc + 1e-3, W = 0.0, R = 0.0, wall = 0.0, alpha = 0.0;
+    // (The caliber, wall and shading blend only where the two make a corner (corner()): a trunk's far wall opposite a
+    // tributary's end is the trunk's own. The colour and alpha blend all through, so a lumen's colour still runs on.)
+    float tau = 0.3 * kc + 1e-3, W = 0.0, Wg = 0.0, R = 0.0, wall = 0.0, alpha = 0.0;
     vec3 col = vec3(0.0);
     vec2 g = vec2(0.0);
     for (int s = 0; s < MAXS; s++) {
@@ -521,9 +527,15 @@ void main() {
       float w = s == ow && kc <= 0.0 ? 1.0 : exp(-(sd[s] - m) / tau);
       for (int t = 0; t < MAXS; t++) if ((conn & (1 << t)) != 0 && t != s) w *= 1.0 - tin[t];
       w = max(w, tin[s]);
-      W += w; R += w * sr[s]; wall += w * swall[s]; alpha += w * sa[s] * pres[s]; col += w * scol[s]; g += w * sg[s];
+      // (Two stretches of one course running on into each other, joined with less than a full fillet, blend all through.)
+      bool run = false;
+      for (int j = 0; j < MAXJ; j++) if (j < jn && jk[j] > 0.0 && js[j] < 0.98 && (jm[j] & (1 << s)) != 0 && (jm[j] & (1 << ow)) != 0) run = true;
+      // (Deep in the lumens, away from every wall, they blend all through too, so the shading runs on into a tributary.)
+      float deep = 1.0 - smoothstep(-0.6 * sr[ow], -0.25 * sr[ow], max(sd[ow], sd[s]));
+      float wg = s == ow || run ? w : w * max(max(corner(p, sg[s], sd[s], sr[s], sg[ow], sd[ow], sr[ow]), deep), tin[s]);
+      W += w; Wg += wg; R += wg * sr[s]; wall += wg * swall[s]; alpha += w * sa[s] * pres[s]; col += w * scol[s]; g += wg * sg[s];
     }
-    R /= W; wall /= W; alpha /= W; col /= W;
+    R /= Wg; wall /= Wg; alpha /= W; col /= W;
     g = length(g) > 1e-5 ? normalize(g) : vec2(0.0);
     int flags = int(sflag[ow] + 0.5);
     bool sel = (flags & ${F_SEL}) != 0;

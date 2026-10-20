@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { forkJoins, sideEndScale } from '../src/ui/fork-joins.js';
+import { forkJoins, sideEndScale, SIDE_END_MIN } from '../src/ui/fork-joins.js';
 
 const unit = (x, y) => { const L = Math.hypot(x, y); return [x / L, y / L]; };
 // A pair of members, order-free.
@@ -51,38 +51,42 @@ const sample = (d, n = 200) => {
 };
 const distTo = (pts, q) => Math.min(...pts.map((p) => Math.hypot(p[0] - q[0], p[1] - q[1])));
 
-test('the splenorenal shunt leaves the splenic vein at its node and ends on the renal vein centreline', async () => {
+test('the splenorenal shunt leaves the splenic vein at its node and ends just inside the renal vein', async () => {
   const { EDGE_PATH } = await import('../src/ui/anatomy.js');
+  const spl = sample(EDGE_PATH.V_SPL), mid = sample(EDGE_PATH.SV_MID), lrv = sample(EDGE_PATH.V_KID_L);
+  // The renal vein's centreline height at x (it runs nearly level there).
+  const lrvY = (x) => lrv.reduce((b, p) => (Math.abs(p[0] - x) < Math.abs(b[0] - x) ? p : b))[1];
   for (const id of ['C6', 'S_DSR']) {
     const c = sample(EDGE_PATH[id]), start = c[0], end = c[c.length - 1];
-    const spl = sample(EDGE_PATH.V_SPL), mid = sample(EDGE_PATH.SV_MID), lrv = sample(EDGE_PATH.V_KID_L);
     assert.ok(Math.hypot(start[0] - spl[spl.length - 1][0], start[1] - spl[spl.length - 1][1]) < 0.01 && Math.hypot(start[0] - mid[0][0], start[1] - mid[0][1]) < 0.01, `${id} starts at the splenic node`);
-    const off = distTo(lrv, end);
-    assert.ok(off < 1, `${id} ends on the renal vein's centreline (${off.toFixed(2)} off)`);
-    // For any renal vein radius drawn (3–12), the shunt's end (at most the vein's own width, then halved) stays clear of
-    // the far wall by over a third of the radius, and its narrowing lies inside the vein.
-    for (let r = 3; r <= 12; r += 0.5) {
+    // dy: how far the end lies off the renal vein's centreline (negative: on the shunt's side, above it).
+    const dy = end[1] - lrvY(end[0]);
+    assert.ok(dy <= 0 && dy > -2.5, `${id} ends just above the renal centreline (${dy.toFixed(2)})`);
+    // For any renal vein radius drawn (4–12): the narrowed round end stays well clear of the far wall, lies inside the
+    // lumen, and the narrowing before it lies inside the vein too.
+    for (let r = 4; r <= 12; r += 0.5) {
       const capR = r * sideEndScale(0, r);
-      assert.ok(r - off - capR > 0.35 * r, `cap clear of the far wall at r ${r}`);
+      assert.ok(r - dy - capR > 0.5 * r, `cap clear of the far wall at r ${r}`);
+      assert.ok(r + dy > capR, `end inside the lumen at r ${r}`);
       let back = 0, k = c.length - 1;
-      while (k > 0 && back < 0.8 * r) { back += Math.hypot(c[k][0] - c[k - 1][0], c[k][1] - c[k - 1][1]); k--; }
-      assert.ok(distTo(lrv, c[k]) < r, `narrowing inside the renal vein at r ${r}`);
+      while (k > 0 && back < 0.6 * r) { back += Math.hypot(c[k][0] - c[k - 1][0], c[k][1] - c[k - 1][1]); k--; }
+      assert.ok(Math.abs(c[k][1] - lrvY(c[k][0])) < r, `narrowing inside the renal vein at r ${r}`);
     }
   }
   // The spontaneous shunt's start lies inside the splenic vein too.
-  const c6 = sample(EDGE_PATH.C6), trunk = [...sample(EDGE_PATH.V_SPL), ...sample(EDGE_PATH.SV_MID)];
-  for (let r = 3; r <= 12; r += 0.5) {
+  const c6 = sample(EDGE_PATH.C6), trunk = [...spl, ...mid];
+  for (let r = 4; r <= 12; r += 0.5) {
     let back = 0, k = 0;
-    while (k < c6.length - 1 && back < 0.8 * r) { back += Math.hypot(c6[k + 1][0] - c6[k][0], c6[k + 1][1] - c6[k][1]); k++; }
+    while (k < c6.length - 1 && back < 0.6 * r) { back += Math.hypot(c6[k + 1][0] - c6[k][0], c6[k + 1][1] - c6[k][1]); k++; }
     assert.ok(distTo(trunk, c6[k]) < r, `C6 narrowing inside the splenic vein at r ${r}`);
   }
 });
 
-test('a side shunt end narrows to half only inside the vein, smoothly', () => {
-  assert.equal(sideEndScale(0, 8), 0.5);
-  assert.equal(sideEndScale(6.4, 8), 1);
+test('a side shunt end narrows only inside the vein, smoothly', () => {
+  assert.equal(sideEndScale(0, 8), SIDE_END_MIN);
+  assert.equal(sideEndScale(4.8, 8), 1);
   assert.equal(sideEndScale(50, 8), 1);
   let last = 0;
-  for (let d = 0; d <= 7; d += 0.25) { const s = sideEndScale(d, 8); assert.ok(s >= last && s >= 0.5 && s <= 1); last = s; }
+  for (let d = 0; d <= 7; d += 0.25) { const s = sideEndScale(d, 8); assert.ok(s >= last && s >= SIDE_END_MIN && s <= 1); last = s; }
   assert.equal(sideEndScale(0, 0), 1);
 });

@@ -28,21 +28,23 @@ export function forkJoins(dirs) {
   }
   if (!best) return { groups: [all(1)], runOn: null };
   if (n === 2) return { groups: [all(best.fil)], runOn: [best.a, best.b] };
-  // The run-on pair joined as one course (with its own, lesser fillet), and each of its ends filleted to the rest.
+  // The run-on pair joined as one course with no fillet (its courses and calibers are eased to meet, so a fillet would
+  // only swell the seam), and each of its ends filleted to the rest.
   const rest = dirs.map((_, i) => i).filter((i) => i !== best.a && i !== best.b);
   return {
-    groups: [{ members: [best.a, best.b], fillet: best.fil }, { members: [best.a, ...rest], fillet: 1 }, { members: [best.b, ...rest], fillet: 1 }],
+    groups: [{ members: [best.a, best.b], fillet: 0 }, { members: [best.a, ...rest], fillet: 1 }, { members: [best.b, ...rest], fillet: 1 }],
     runOn: [best.a, best.b],
   };
 }
 
 // A shunt drawn onto the side of a vein (stage.js SIDE_HOSTS: the splenorenal shunt on the splenic and renal veins) ends
-// at the vein's centreline. Over its last stretch inside the vein its lumen narrows to half, so its round end sits well
-// inside the vein's walls and never shows past the far wall as a bump: the scale of its radius at distance d from that
-// end (world units), for a vein of radius hostR. The narrowing lies within the vein (0.8 of its radius), out of sight.
-export const SIDE_END_MIN = 0.5;
+// inside the vein, a little short of its centreline. Over its last stretch there its lumen narrows (to SIDE_END_MIN), so
+// its round end sits well inside the vein's walls and never shows past the far wall as a bump: the scale of its radius at
+// distance d from that end (world units), for a vein of radius hostR. The narrowing lies within the vein (0.6 of its
+// radius), out of sight.
+export const SIDE_END_MIN = 0.35;
 export function sideEndScale(d, hostR) {
-  const s = 0.8 * hostR;
+  const s = 0.6 * hostR;
   if (!(s > 0) || d >= s) return 1;
   const u = Math.max(0, d) / s;
   return SIDE_END_MIN + (1 - SIDE_END_MIN) * u * u * (3 - 2 * u);
