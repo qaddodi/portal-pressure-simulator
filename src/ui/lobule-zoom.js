@@ -24,7 +24,7 @@ import { store } from './store.js?v=aaa74688dd';
 import { radiiChanged, canvasPx, fxMoves, DIVE_RIM } from './lobule-render-cache.js?v=57ef9d0e5a';
 import { softwareYield } from './sw-yield.js?v=e580a095b1';
 import { lobuleState, lymphRate, sinceOf, LOBE } from './lobule-model.js?v=dfa2d35a11';
-import { SIN_NARROW, cordTone, dullSinusoid, NEIGHBOUR_FLAT, neighbourBlur, blurWrapped, bandOutline, FADE_MID, fadeOuter, padRect, padDpr } from './lobule-look.js?v=fa8ff2c81b';
+import { SIN_NARROW, cordTone, dullSinusoid, NEIGHBOUR_FLAT, neighbourBlur, blurWrapped, bandOutline, FADE_MID, fadeOuter, padRect, padDpr } from './lobule-look.js?v=eb73eb8a39';
 import { h, s, fmt, clamp, createEaser, systemEdge, bloodColors, cssVar, cssAlpha, cssRGB01 } from './util.js?v=5814c6b396';
 import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatColor, oxygenColor } from './colormap.js?v=1092d36abc';
 import { NODES, EDGES } from '../engine/topology.js?v=4044766e96';
@@ -412,7 +412,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host) }
   let easeT = 0;
   addEventListener('pps:labelscale', () => { labels.classList.add('lz-ease'); clearTimeout(easeT); easeT = setTimeout(easeEnd, 450); syncLeaders(); drawVersion++; viewVer++; layoutKey = ''; if (!raf && fade > 0) raf = nextFrame(loop); });
   let pacedVer = -1, viewVer = 0;   // viewVer: a pan, zoom, resize or label change, drawn without waiting
-  const viewChanged = () => { if (pad || diveScaled) { const [W, H] = hostSize(); setPad(padBox(W, H)); } drawVersion++; viewVer++; tissueKey = ''; layoutKey = ''; if (!raf && fade > 0) raf = nextFrame(loop); };
+  const viewChanged = () => { if ((pad || diveScaled) && !(diveScaled && diveDrawn && flowA <= 0)) { const [W, H] = hostSize(); setPad(padBox(W, H)); } drawVersion++; viewVer++; tissueKey = ''; layoutKey = ''; if (!raf && fade > 0) raf = nextFrame(loop); };
   const toWorld = (p) => [(p[0] - V.x) / V.k, (p[1] - V.y) / V.k];
   const toScreen = (p) => [p[0] * V.k + V.x, p[1] * V.k + V.y];
   function resetView() {
@@ -1646,7 +1646,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host) }
     if (pad && fade > 0.98 && !diveScaled) setPad(null);   // (the first frame after landing: the flow marks are fading in, so every layer is drawn now anyway)
     const W = pad ? pad.w : W0, H = pad ? pad.h : H0;   // (the layers' own size)
     const dpr0 = Math.min(saver() ? 1 : 2, devicePixelRatio || 1);   // (Battery saver: one pixel per CSS pixel)
-    const dpr = pad ? padDpr(dpr0, W0, H0, W, H) : dpr0;   // (padded: capped in area and memory, padDpr in lobule-look.js)
+    const dpr = pad ? padDpr(dpr0, W, H) : dpr0;   // (padded: the screen's own ratio, under the canvas limit; padDpr in lobule-look.js)
     const dark = isDark();
     // Keep watching for view/theme/size changes, but leave a settled paused picture alone.
     const idleKey = [W, H, dpr, dark, V.k, V.x, V.y, drawVersion, flowA.toFixed(2)].join('|');
@@ -3197,6 +3197,10 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host) }
       diveRim = rim ? { x: +x.toFixed(1), y: +y.toFixed(1), r: +r.toFixed(1) } : null;
       if (rim) diveCopy();
       else if (diveCv.width) { free(diveCv); free(rimCv); diveCopyKey = ''; }
+      // Diving in (nothing redrawn until it lands), the padded tissue and its rim layer are only the copy's source: given back once
+      // it is made, so the dive holds three large canvases, not five. Landed, the tissue is drawn again at once, before it shows.
+      if (rim && pad && diveCopyKey && diveDrawn && flowA <= 0 && tissue.width) { free(tissue); free(rimCv); tissueKey = ''; idleDrawn = ''; }
+      if (!diveScaled && fade > 0 && !tissue.width && model) draw(0);
       const show = rim && diveCopyKey ? diveCv : tissue;
       if (tissue.style.visibility !== (show === tissue ? '' : 'hidden')) { tissue.style.visibility = show === tissue ? '' : 'hidden'; diveCv.style.visibility = show === diveCv ? '' : 'hidden'; }
       for (const e of [tissue, diveCv, glCv, fx, leaders, labels]) {

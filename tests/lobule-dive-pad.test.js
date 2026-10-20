@@ -21,13 +21,14 @@ test('an aimed dive draws the whole lobule, not the landing screen\'s rectangle'
 
 test('landed, the layers return to the screen\'s size and pixel ratio on the first frame, and on release', () => {
   assert.match(lz, /if \(pad && fade > 0\.98 && !diveScaled\) setPad\(null\);/);
-  assert.match(lz, /const dpr = pad \? padDpr\(dpr0, W0, H0, W, H\) : dpr0;/);
+  assert.match(lz, /const dpr = pad \? padDpr\(dpr0, W, H\) : dpr0;/);
   assert.match(lz, /function release\(\) \{\n\s+setPad\(null\);/);
 });
 
 test('the rise out of a zoomed-in lobule is drawn whole too, and the box follows the view while it shrinks', () => {
   assert.match(lz, /if \(diveScaled && !wasScaled && !pad && fade > 0\.98\) \{ const \[W, H\] = hostSize\(\), p = padBox\(W, H\); if \(p\) \{ setPad\(p\); draw\(0\); \} \}/);
-  assert.match(lz, /const viewChanged = \(\) => \{ if \(pad \|\| diveScaled\) \{ const \[W, H\] = hostSize\(\); setPad\(padBox\(W, H\)\); \}/);
+  // (Not while the dive skips its redraws: a new box then would stretch the picture drawn for the old one.)
+  assert.match(lz, /const viewChanged = \(\) => \{ if \(\(pad \|\| diveScaled\) && !\(diveScaled && diveDrawn && flowA <= 0\)\) \{ const \[W, H\] = hostSize\(\); setPad\(padBox\(W, H\)\); \}/);
 });
 
 test('an unchanged box keeps what is drawn (no rebuild of the dive copy mid-dive)', () => {
@@ -49,18 +50,25 @@ test('the padded box covers the lobule wherever it reaches past the screen, and 
   }
 });
 
-test('the padded layers stay inside the pixel budget, at the screen\'s own ratio whenever they fit it', async () => {
-  const { padDpr, PAD_AREA, PAD_PX } = await import('../src/ui/lobule-look.js');
-  assert.ok(PAD_PX < 16.7e6 / 2, 'well under the iOS canvas limit');
-  for (const [W0, H0] of [[402, 817], [390, 844], [1376, 1032], [1032, 1376], [1512, 945], [2560, 1440]]) {
-    for (const grow of [1.2, 2, 4, 9]) {
-      for (const dpr of [1, 2]) {
-        const W = Math.round(W0 * Math.sqrt(grow)), H = Math.round(H0 * Math.sqrt(grow)), d = padDpr(dpr, W0, H0, W, H);
-        const px = W * H * d * d;
-        assert.ok(px <= Math.min(PAD_PX, PAD_AREA * W0 * H0 * dpr * dpr) * 1.0001, `${W0}×${H0} ×${grow} at ${dpr}x: ${(px / 1e6).toFixed(1)} M px`);
-        assert.ok(d <= dpr, 'never above the screen\'s ratio');
-        if (W * H * dpr * dpr <= Math.min(PAD_PX, PAD_AREA * W0 * H0 * dpr * dpr)) assert.equal(d, dpr, 'full ratio when it fits');
-      }
+test('the padded layers keep the screen\'s own pixel ratio on every phone and iPad, under the canvas limit', async () => {
+  const { padDpr, PAD_PX } = await import('../src/ui/lobule-look.js');
+  assert.ok(PAD_PX < 16777216, 'under the iOS limit for one canvas');
+  // The widest aimed dives measured in WebKit (20 Oct): 13" iPad landscape, deck 6/10 at 1.96× and 4/10 at 2.53× the screen;
+  // iPhone 6/10 at 2.14×. With room to spare: 2.6× for the iPad, 4× for the phones.
+  for (const [W0, H0, grow] of [[1376, 1032, 2.6], [1032, 1376, 2.6], [1180, 820, 3], [402, 874, 4], [390, 844, 4], [440, 956, 4]]) {
+    const W = Math.round(W0 * Math.sqrt(grow)), H = Math.round(H0 * Math.sqrt(grow));
+    assert.equal(padDpr(2, W, H), 2, `${W0}×${H0}, a box ${grow}× the screen: full detail`);
+  }
+  for (const [W, H] of [[3000, 2000], [4000, 3000], [5000, 4000]]) {
+    for (const dpr of [1, 2]) {
+      const d = padDpr(dpr, W, H);
+      assert.ok(W * H * d * d <= PAD_PX * 1.0001 && d <= dpr, `${W}×${H} at ${dpr}x stays drawable`);
+      if (W * H * dpr * dpr <= PAD_PX) assert.equal(d, dpr);
     }
   }
+});
+
+test('diving in, the tissue and its rim layer are given back once the copy is made, and the tissue drawn again on landing', () => {
+  assert.match(lz, /if \(rim && pad && diveCopyKey && diveDrawn && flowA <= 0 && tissue\.width\) \{ free\(tissue\); free\(rimCv\); tissueKey = ''; idleDrawn = ''; \}/);
+  assert.match(lz, /if \(!diveScaled && fade > 0 && !tissue\.width && model\) draw\(0\);/);
 });
