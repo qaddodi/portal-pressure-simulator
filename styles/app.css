@@ -2495,11 +2495,11 @@ button.finding { cursor: pointer; }
 .ptk-pt[data-rate="mid"] { stroke: var(--caution); fill: var(--caution); } .ptk-pt[data-rate="hi"] { stroke: var(--danger); fill: var(--danger); }
 .ptk-v { font: 700 22px var(--font-ui); fill: var(--text); font-variant-numeric: tabular-nums; }
 .ptk-v[data-rate="mid"] { fill: var(--caution); } .ptk-v[data-rate="hi"] { fill: var(--danger); }
-.pz.stack .pz-data.has-tool { max-height: 50%; }
+.pz.stack .pz-data.has-tool { --pz-cap: 50%; max-height: var(--pz-cap); }   /* (--pz-cap: the stacked card's tucked cap, read by presenter.js layout) */
 /* (With its readings out under it, the card's cap grows by their height (--pz-d, presenter.js measureUnder): the instrument card keeps
    the size it had with them tucked, never fitted smaller to make room for them (Mohammad, 19 Oct: "Need to maintain same card size
    whether open or semi open"). The words' room still caps it, presenter.js layout.) */
-.pz.stack.stack .pz-data.pz-sheet.has-tool.tool-open { max-height: calc(50% + var(--pz-d, 0px)); }
+.pz.stack.stack .pz-data.pz-sheet.has-tool.tool-open { max-height: calc(var(--pz-cap) + var(--pz-d, 0px)); }
 .pz.stack .pz-data > * { flex-shrink: 0; }   /* (parts keep their height, so a card too full reads as overflow and is fitted, not squeezed until a reading is cut) */
 .pz.stack .pz-tool[data-kind="doppler"] .dop-box { height: 140px; }
 .pz.stack .pz-tool[data-kind="fibroscan"] .fibroscan-box { height: 140px; }
@@ -5233,6 +5233,8 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
    card's box always holds the instrument whole: capped at its tucked height, the box came out shorter than the instrument mid-slide
    and the instrument card's glass cut through it, TIPS Doppler 3 on an iPhone, 20 Oct. At rest, and while being fitted, it is 0.) */
 .pz.stack.stack .pz-data.pz-sheet.pz-sheet.pz-sliding:not(.tool-open) { --pz-grow: calc(var(--pz-u) * var(--pz-d, 0px)); }
+/* (Out, by all of them: presenter.js layout caps the card at its tucked height in every state, so it is fitted one size open or tucked.) */
+.pz.stack.stack .pz-data.pz-sheet.pz-sheet.tool-open { --pz-grow: var(--pz-d, 0px); }
 .pz.stack.stack .pz-data.pz-sheet::before, .pz.stack.stack .pz-data.pz-sheet::after { content: ''; position: absolute; left: -1px; right: -1px; z-index: -1; box-sizing: border-box; border: 1px solid color-mix(in srgb, var(--text) 10%, transparent); border-radius: inherit;
   background: color-mix(in srgb, var(--surface) 58%, transparent); -webkit-backdrop-filter: blur(16px) saturate(1.15); backdrop-filter: blur(16px) saturate(1.15);
   box-shadow: inset 0 1px 0 var(--pz-glass-edge), 0 14px 34px -10px var(--pz-glass-drop), 0 2px 6px -1px var(--pz-glass-drop); pointer-events: none; }

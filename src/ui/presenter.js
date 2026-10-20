@@ -2711,6 +2711,10 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       // size whether the stack is open or closed, Mohammad, 20 Oct: "This data card is changing its size when I open the stack".)
       const under = el === ui.data && splitSheet(el) && !el.classList.contains('tool-open') && !el.classList.contains('pz-sliding');
       if (under) el.classList.add('tool-open');
+      // (Fitted against the tucked card's cap, open or tucked: its readings' share of the cap (--pz-grow) is left out while it is fitted,
+      // so the readings coming out never fit it again to a larger size, layout.)
+      const stacked = el === ui.data && splitSheet(el);
+      if (stacked) el.style.setProperty('--pz-grow', '0px');
       // (A tablet's narrow data card: its own grid changes, which a container query on the card cannot do.)
       if (el.classList.contains('pz-data')) el.classList.toggle('pz-narrow', el.offsetWidth > 0 && el.offsetWidth < 420);
       // (A tile's name in full when it fits on one line in its tile, else its short form: Liver flow, Protein ...)
@@ -2800,6 +2804,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       // (Closed again with no transition, so the answers start hidden and the card rests at its closed height.)
       if (all) { all.classList.remove('pzc-all'); void all.offsetHeight; all.classList.remove('pzc-still'); }
       if (under) { el.classList.remove('tool-open'); ui.lipMO?.takeRecords(); }
+      if (stacked) { el.style.removeProperty('--pz-grow'); ui.lipMO?.takeRecords(); }
       fitDone.set(el, fitSig(el));   // (as it rests once fitted: a folding part's height is part of it)
     }
   }
@@ -3043,8 +3048,16 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       // (An upright phone's stacked card grows by its readings' card as that slides out or back (--pz-grow, styles/app.css): capped
       // at its tucked height mid-slide, the card's box came out shorter than the instrument, so the instrument card's glass, which ends
       // the readings' travel above the box's foot, cut through the portal blood bar's names, Mohammad on an iPhone, TIPS Doppler 3, 20 Oct.)
-      const grow = splitSheet(dd) ? ' + var(--pz-grow, 0px)' : '';
-      if (room > 0) dd.style.maxHeight = cs.maxHeight === 'none' ? `calc(${room}px${grow})` : `calc(min(${cs.maxHeight}, ${room}px)${grow})`; }
+      // (Its cap is the tucked card's in every state, readings out or not, and the readings' share is added on top (--pz-grow), never
+      // past the room an opened card has: fitted against the opened card's larger room, the instrument came out bigger the moment the
+      // readings came out, and its chart snapped to the new size, Sites 3 on an iPhone, 20 Oct. fitCards fits it with --pz-grow at 0,
+      // so open or tucked it is fitted against one cap and keeps one size.)
+      if (splitSheet(dd)) {
+        const tuck = cs.getPropertyValue('--pz-cap').trim() || 'none';
+        const base = (t.top - wr.top) / k - (parseFloat(cs.top) || 0) - glassLift(k) - 8;
+        const roomT = Math.floor(base - LIP - (phoneCap != null && !phoneShut ? Math.max(0, phoneFig / k - LIP - 2) : 0)), roomO = Math.floor(base);
+        if (roomT > 0) dd.style.maxHeight = `min(calc(${tuck === 'none' ? `${roomT}px` : `min(${tuck}, ${roomT}px)`} + var(--pz-grow, 0px)), ${roomO}px)`;
+      } else if (room > 0) dd.style.maxHeight = cs.maxHeight === 'none' ? `${room}px` : `min(${cs.maxHeight}, ${room}px)`; }
     // (A wider screen: a data card at the top right ends 8 px above the colour key standing on the nav pill (a phone held sideways had covered it).)
     if (!p && !below && ui.fk.dataset.empty == null && !ui.bar.hidden) {
       const f = ui.fk, was = f.hidden; f.hidden = false; const q = f.getBoundingClientRect(); f.hidden = was;

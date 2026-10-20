@@ -106,7 +106,7 @@ test('pulling the readings out of a stacked card never closes the card', () => {
 // Mohammad, 20 Oct (iPhone, TIPS Doppler 9): the stacked card's monitor was taller with its readings tucked than out.
 test('a stacked card keeps one size with its readings tucked or out: it is fitted with them out', () => {
   assert.match(js, /const under = el === ui\.data && splitSheet\(el\) && !el\.classList\.contains\('tool-open'\) && !el\.classList\.contains\('pz-sliding'\);\n\s*if \(under\) el\.classList\.add\('tool-open'\);/);
-  assert.match(js, /if \(under\) \{ el\.classList\.remove\('tool-open'\); ui\.lipMO\?\.takeRecords\(\); \}\n\s*fitDone\.set\(el, fitSig\(el\)\);/);
+  assert.match(js, /if \(under\) \{ el\.classList\.remove\('tool-open'\); ui\.lipMO\?\.takeRecords\(\); \}\n\s*if \(stacked\) \{ el\.style\.removeProperty\('--pz-grow'\); ui\.lipMO\?\.takeRecords\(\); \}\n\s*fitDone\.set\(el, fitSig\(el\)\);/);
 });
 
 // Mohammad, 20 Oct (iPhone, TIPS Doppler 3, "With TIPS"): tucking the readings away, the instrument card's glass cut through the
@@ -114,10 +114,21 @@ test('a stacked card keeps one size with its readings tucked or out: it is fitte
 // was shorter than the instrument and the glass, which ends the readings' travel above the box's foot, ended inside the bar's names.
 test('a stacked card\'s cap grows with its readings while they slide, so its glass never cuts the instrument', () => {
   assert.match(css, /\.pz\.stack\.stack \.pz-data\.pz-sheet\.pz-sheet\.pz-sliding:not\(\.tool-open\) \{ --pz-grow: calc\(var\(--pz-u\) \* var\(--pz-d, 0px\)\); \}/, 'mid-slide the cap grows by the share of the readings that is out');
-  assert.doesNotMatch(css, /\.tool-open \{[^}]*--pz-grow/, 'open, the open cap already holds them');
-  assert.match(js, /const grow = splitSheet\(dd\) \? ' \+ var\(--pz-grow, 0px\)' : '';\n\s*if \(room > 0\) dd\.style\.maxHeight = cs\.maxHeight === 'none' \? `calc\(\$\{room\}px\$\{grow\}\)` : `calc\(min\(\$\{cs\.maxHeight\}, \$\{room\}px\)\$\{grow\}\)`;/, 'the phone\'s cap takes it');
-  // (Fitted at rest, never mid-slide: fitCards' stacked fit runs only without .pz-sliding, so the grow is 0 there and the fit is as before.)
+  assert.match(css, /\.pz\.stack\.stack \.pz-data\.pz-sheet\.pz-sheet\.tool-open \{ --pz-grow: var\(--pz-d, 0px\); \}/, 'out, by all of them');
+  assert.match(js, /if \(roomT > 0\) dd\.style\.maxHeight = `min\(calc\(\$\{tuck === 'none' \? `\$\{roomT\}px` : `min\(\$\{tuck\}, \$\{roomT\}px\)`\} \+ var\(--pz-grow, 0px\)\), \$\{roomO\}px\)`;/, 'the phone\'s cap takes it, never past the opened card\'s room');
+  // (Fitted at rest, never mid-slide: fitCards' stacked fit runs only without .pz-sliding.)
   assert.match(js, /const under = el === ui\.data && splitSheet\(el\) && !el\.classList\.contains\('tool-open'\) && !el\.classList\.contains\('pz-sliding'\);/);
+});
+
+// Mohammad, 20 Oct (iPhone, Sites 3): opening the stacked cards, the upper card grew and its chart snapped to the new size. Open, the
+// card was fitted against the opened card's room (no figure share, no sheet edge), tucked against the tucked card's, so the fit, and
+// with it the pressure profile's height, changed the moment the readings came out. Now both are fitted against the tucked cap.
+test('a stacked card is fitted against its tucked cap whether its readings are out or not, so opening never resizes it', () => {
+  assert.match(css, /\.pz\.stack \.pz-data\.has-tool \{ --pz-cap: 50%; max-height: var\(--pz-cap\); \}/);
+  assert.match(css, /\.pz\.stack\.stack \.pz-data\.pz-sheet\.has-tool\.tool-open \{ max-height: calc\(var\(--pz-cap\) \+ var\(--pz-d, 0px\)\); \}/);
+  assert.match(js, /const tuck = cs\.getPropertyValue\('--pz-cap'\)\.trim\(\) \|\| 'none';/);
+  assert.match(js, /const roomT = Math\.floor\(base - LIP - \(phoneCap != null && !phoneShut \? Math\.max\(0, phoneFig \/ k - LIP - 2\) : 0\)\), roomO = Math\.floor\(base\);/, 'the tucked room whatever state the readings are in');
+  assert.match(js, /const stacked = el === ui\.data && splitSheet\(el\);\n\s*if \(stacked\) el\.style\.setProperty\('--pz-grow', '0px'\);/, 'fitted with the readings\' share left out');
 });
 
 // Mohammad, 20 Oct (iPhone, One year 8, the abdomen card): opening the stacked cards slowly, the readings' card flickered over the
