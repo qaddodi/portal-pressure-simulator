@@ -61,6 +61,8 @@ export const ADOPTED = {
   'treatment/vs': ['lens:since', 'since', 'sinceLabel'],
   'circulation/inflow': ['kind:flows'],
   'circulation/series': ['kind:profile', 'steps'],
+  'pregnancy/weeks': ['kind:curve'],
+  'pregnancy/scope': ['calipers'],
 };
 
 /** Whether the slide d/s may use the field. */

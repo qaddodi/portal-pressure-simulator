@@ -32,6 +32,7 @@ export const PREGNANCY_DECK = {
     {
       id: 'weeks', params: { gestation: 24 }, cam: 'fit', labels: ['VAR', 'CONF'],
       whatIf: { label: 'Weeks pregnant', param: 'gestation', min: 0, max: 40, step: 1, unit: 'weeks' },
+      tool: { kind: 'curve', param: 'gestation', from: 0, to: 40, step: 2, lines: ['varix', 'hvpg'] },
       data: 'tiles', tiles: ['bv', 'co', 'varix'], key: ['bv', 'co'], delta: 'before',
       kicker: 'Pregnancy', site: 'sin', title: 'Pregnancy fills the circulation',
       line: 'At 24 weeks the blood volume is {bv} and the cardiac output {co}. Drag the weeks and watch the varix grow.',
@@ -47,7 +48,7 @@ export const PREGNANCY_DECK = {
       ask: ['Why does the same rise in flow raise the portal pressure more in cirrhosis?', 'The scarred liver has a fixed, high resistance, so pressure rises with flow.'],
     },
     {
-      id: 'scope', cam: 'gej', labels: ['VAR', 'LGV'], tool: { kind: 'scope', open: true },
+      id: 'scope', cam: 'gej', labels: ['VAR', 'LGV'], calipers: ['varix'], tool: { kind: 'scope', open: true },
       data: 'tiles', tiles: ['varix', 'hvpg'], key: ['varix'],
       kicker: 'Management', site: 'sin', title: 'A second-trimester endoscopy finds large varices',
       line: 'Without a scope in the year before conception, screen in the second trimester. The varix now measures {varix}, with red wale marks.',
