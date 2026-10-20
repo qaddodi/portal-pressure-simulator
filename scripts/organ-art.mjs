@@ -105,16 +105,87 @@ function pileArt(P, space, { piece = 36, step = 2, back = 28 } = {}) {
   const dir = (i) => { const a = Q[Math.max(0, i - 1)], b = Q[Math.min(n - 1, i + 1)], L = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1; return [(b[0] - a[0]) / L, (b[1] - a[1]) / L]; };
   const shade = offsetLine(Q, dir, 1.5, 3), hi = offsetLine(Q, dir, -2, -3.5);
   let rm = 0; for (const p of Q) rm += p[2]; rm /= n;
-  let out = path(lineD(Q), 'ob-ao', sw(2 * rm + back + 8)) + path(lineD(Q), 'ob-deep', sw(2 * rm + back))
+  const bed = path(lineD(Q), 'ob-ao', sw(2 * rm + back + 8)) + path(lineD(Q), 'ob-deep', sw(2 * rm + back))
     + path(`M${space.map((p) => p.join(' ')).join('L')}Z`, 'ob-space', sw(rm));
-  const per = k(piece);
+  const per = k(piece), pieces = [];
   for (let s = 0; s < n - 1; s += per) {
     const e = Math.min(n - 1, s + per), r = Q[Math.min(n - 1, s + (per >> 1))][2];
-    const sl = (A, x) => lineD(A.slice(Math.max(0, s - k(x)), Math.min(n, e + k(x) + 1)));
-    out += path(sl(Q, 2), 'ob-rim', sw(2 * r + 2.5)) + path(sl(Q, 2), 'ob-edge', sw(2 * r)) + path(sl(Q, 4), 'ob-wall', sw(2 * r * 19 / 21))
-      + path(sl(shade, 4), 'ob-shade', sw(2 * r * 11 / 21)) + path(sl(hi, 4), 'ob-hi', sw(3 * r / 10.5));
+    const sa = (A, x) => A.slice(Math.max(0, s - k(x)), Math.min(n, e + k(x) + 1)), sl = (A, x) => lineD(sa(A, x));
+    pieces.push({
+      svg: path(sl(Q, 2), 'ob-rim', sw(2 * r + 2.5)) + path(sl(Q, 2), 'ob-edge', sw(2 * r)) + path(sl(Q, 4), 'ob-wall', sw(2 * r * 19 / 21))
+        + path(sl(shade, 4), 'ob-shade', sw(2 * r * 11 / 21)) + path(sl(hi, 4), 'ob-hi', sw(3 * r / 10.5)),
+      // (its strokes as lines and half widths, for culling the pieces later loops hide: cullHidden)
+      strokes: [[sa(Q, 2), r + 1.25], [sa(Q, 4), r * 19 / 21], [sa(shade, 4), r * 11 / 21], [sa(hi, 4), 1.5 * r / 10.5]],
+    });
   }
-  return { svg: out, Q, rm, back };
+  // (the bed's opaque parts, drawn over every earlier layer's pieces: the deep-toned line and the space's fill)
+  return { bed, pieces, cover: { strokes: [[Q, rm + back / 2]], fill: space }, Q, rm, back };
+}
+// The pieces no one ever sees: every pixel of each lies under the opaque strokes and beds drawn after it (all of the pile's
+// strokes are solid colours; only ob-ao is see-through, and it covers nothing). The gut moves only as a whole (the ascites
+// lifts the bowel's group), so what lies under what never changes, and a hidden piece only made the browser paint the gut
+// longer on every repaint (the liver's ease repaints it each frame: its cut-out is the gut's mask). A piece counts as hidden
+// only if its whole footprint (round caps, a superset) lies at least CULL_M inside the later strokes (butt caps, round joins,
+// as drawn), so their anti-aliased edges, at any zoom down to 1 pixel per 3 units, never let it show.
+const CULL_M = 3, CULL_RES = 0.5;
+function cullHidden(layers) {
+  let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+  for (const L of layers) for (const [x, y] of L.Q) { x0 = Math.min(x0, x); y0 = Math.min(y0, y); x1 = Math.max(x1, x); y1 = Math.max(y1, y); }
+  x0 -= 60; y0 -= 60; x1 += 60; y1 += 60;
+  const W = Math.ceil((x1 - x0) / CULL_RES) + 1, H = Math.ceil((y1 - y0) / CULL_RES) + 1, cover = new Uint8Array(W * H);
+  const box = (ax, ay, bx, by, h, f) => {
+    for (let gy = Math.max(0, Math.floor((Math.min(ay, by) - h - y0) / CULL_RES)); gy <= Math.min(H - 1, Math.ceil((Math.max(ay, by) + h - y0) / CULL_RES)); gy++)
+      for (let gx = Math.max(0, Math.floor((Math.min(ax, bx) - h - x0) / CULL_RES)); gx <= Math.min(W - 1, Math.ceil((Math.max(ax, bx) + h - x0) / CULL_RES)); gx++)
+        if (f(x0 + gx * CULL_RES, y0 + gy * CULL_RES)) { if (f.stop) return false; else cover[gy * W + gx] = 1; }
+    return true;
+  };
+  // Cells inside a stroke: within h across a segment (butt ends) or of an inner vertex (round joins).
+  const addStroke = (P, h) => {
+    if (h <= 0) return;
+    for (let i = 1; i < P.length; i++) {
+      const [ax, ay] = P[i - 1], [bx, by] = P[i], dx = bx - ax, dy = by - ay, L2 = dx * dx + dy * dy;
+      if (L2 > 0) box(ax, ay, bx, by, h, (x, y) => { const t = ((x - ax) * dx + (y - ay) * dy) / L2; if (t < 0 || t > 1) return false; const ex = ax + dx * t - x, ey = ay + dy * t - y; return ex * ex + ey * ey <= h * h; });
+      if (i < P.length - 1) box(bx, by, bx, by, h, (x, y) => (x - bx) ** 2 + (y - by) ** 2 <= h * h);
+    }
+  };
+  // Cells inside a closed polygon by at least CULL_M (even-odd, then kept clear of its edges).
+  const addFill = (R) => {
+    const near = (x, y) => R.some(([ax, ay], i) => { const [bx, by] = R[(i + 1) % R.length], dx = bx - ax, dy = by - ay, L2 = dx * dx + dy * dy || 1, t = Math.max(0, Math.min(1, ((x - ax) * dx + (y - ay) * dy) / L2)); return (ax + dx * t - x) ** 2 + (ay + dy * t - y) ** 2 < CULL_M * CULL_M; });
+    for (let gy = 0; gy < H; gy++) {
+      const y = y0 + gy * CULL_RES, xs = [];
+      for (let i = 0; i < R.length; i++) { const [ax, ay] = R[i], [bx, by] = R[(i + 1) % R.length]; if ((ay > y) !== (by > y)) xs.push(ax + (y - ay) * (bx - ax) / (by - ay)); }
+      xs.sort((a, b) => a - b);
+      for (let q = 0; q + 1 < xs.length; q += 2) for (let gx = Math.max(0, Math.ceil((xs[q] - x0) / CULL_RES)); gx <= Math.min(W - 1, Math.floor((xs[q + 1] - x0) / CULL_RES)); gx++) {
+        const x = x0 + gx * CULL_RES;
+        if (!near(x, y)) cover[gy * W + gx] = 1;
+      }
+    }
+  };
+  // Is every cell within h of the line (round caps) covered?
+  const hidden = (P, h) => P.every(([px, py], i) => {
+    const [qx, qy] = P[Math.max(0, i - 1)];
+    const f = (x, y) => { const dx = px - qx, dy = py - qy, L2 = dx * dx + dy * dy || 1, t = Math.max(0, Math.min(1, ((x - qx) * dx + (y - qy) * dy) / L2)); return (qx + dx * t - x) ** 2 + (qy + dy * t - y) ** 2 <= h * h && !cover[Math.round((y - y0) / CULL_RES) * W + Math.round((x - x0) / CULL_RES)]; };
+    f.stop = true;
+    return box(qx, qy, px, py, h, f);
+  });
+  const kept = layers.map(() => []);
+  let dropped = 0;
+  for (let li = layers.length - 1; li >= 0; li--) {
+    const L = layers[li];
+    for (let pi = L.pieces.length - 1; pi >= 0; pi--) {
+      const pc = L.pieces[pi];
+      if (pc.strokes.every(([P, h]) => hidden(P, h))) { dropped++; continue; }
+      for (const [P, h] of pc.strokes) addStroke(P, h - CULL_M);
+      kept[li].unshift(pc);
+    }
+    // (this layer's bed lies over the earlier layers' pieces)
+    for (const [P, h] of L.cover.strokes) addStroke(P, h - CULL_M);
+    addFill(L.cover.fill);
+  }
+  // (the tubes' width as the stage's glow reads it, the middle of every piece's edge width, hidden ones included, so the
+  // glow keeps the radius it had with them drawn: stage.js warmR)
+  const ew = layers.flatMap((L) => L.pieces.map((pc) => +pc.svg.match(/class="ob-edge"[^>]* stroke-width="([\d.]+)"/)[1])).filter((w) => w > 0).sort((a, b) => a - b);
+  return { svg: layers.map((L, li) => L.bed + kept[li].map((pc) => pc.svg).join('')), edgeW: ew[ew.length >> 1], dropped, total: layers.reduce((a, L) => a + L.pieces.length, 0) };
 }
 // Liver round 36 (his pick, option 2): a few loops of the same tube in the empty space by the kidney, under the pile.
 const GAP_SPACE0 = [[850, 640], [880, 606], [915, 586], [950, 572], [984, 566], [998, 604], [1000, 700], [996, 790], [958, 790], [930, 730], [900, 700], [860, 680]];
@@ -140,6 +211,7 @@ const gap = pileArt(gapPts, GAP_SPACE), pile = pileArt(pilePts, PILE_SPACE);
 const HIS_SPACE = sample(BOWEL_OUTLINE, 4)[0].map(([x, y]) => [x, y]);
 const under0 = bowelWander({ seed: 9, space: HIS_SPACE, r: 13, bend: 22, fill: 1.1, cross: 2, jitter: 0.4, start: [972, 590], end: [[520, 900], [510, 910]] });
 const under = pileArt(taper(under0, 13, 12.4), HIS_SPACE);
+const bowelCull = cullHidden([under, gap, pile]);
 
 // ── The duodenum: one outlined tube whose width follows its points, split under the portal vein ──
 const DQ = resample(DUODENUM, 1.5);
@@ -214,7 +286,7 @@ export const COLON_ART = ${js(colonArt())};
 /* The small bowel's visible outline: the whole pile as one (its highlight ring). */
 export const BOWEL_RING = ${js(BOWEL_RING)};
 /* The gap loops (under the pile), then the pile. */
-export const BOWEL_ART = ${js(`<defs><clipPath id="ob-his"><path d="${BOWEL_OUTLINE}"/></clipPath></defs><g clip-path="url(#ob-his)"><path class="ob-space" d="${BOWEL_OUTLINE}" stroke-width="0"/>${under.svg + gap.svg + pile.svg}</g>`)};
+export const BOWEL_ART = ${js(`<defs><clipPath id="ob-his"><path d="${BOWEL_OUTLINE}"/></clipPath></defs><g clip-path="url(#ob-his)" data-edge-w="${bowelCull.edgeW}"><path class="ob-space" d="${BOWEL_OUTLINE}" stroke-width="0"/>${bowelCull.svg.join('')}</g>`)};
 /* The duodenum's centre line, the organ's d. */
 export const DUO_D = ${js(lineD(DQ))};
 export const DUO_CLIPS = ${js(duoA.clip + duoB.clip)};
@@ -222,4 +294,4 @@ export const DUO_CLIPS = ${js(duoA.clip + duoB.clip)};
 export const DUO_A = ${js(duoA.body)};
 export const DUO_B = ${js(duoB.body)};
 `);
-console.log('organ-art.js', [COLON_RING, BOWEL_RING].map((r) => (r.match(/M/g) || []).length + ' loops'), 'bytes', (gap.svg + pile.svg).length, colonArt().length);
+console.log('organ-art.js', [COLON_RING, BOWEL_RING].map((r) => (r.match(/M/g) || []).length + ' loops'), 'bytes', bowelCull.svg.join('').length, colonArt().length, 'bowel pieces hidden and left out', bowelCull.dropped, 'of', bowelCull.total);

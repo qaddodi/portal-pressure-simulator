@@ -6,7 +6,7 @@
 // only close the systemic loop (aorta, limb and head vessels, the right kidney) are part of
 // the model but are not drawn.
 
-import { COLON_D, COLON_RING, BOWEL_RING, DUO_D } from './organ-art.js?v=afd27c1572';
+import { COLON_D, COLON_RING, BOWEL_RING, DUO_D } from './organ-art.js?v=a1c08582e2';
 
 export const VIEW = { w: 1400, h: 1000 };
 export const VB_ANAT = [300, 0, 820, 920];
