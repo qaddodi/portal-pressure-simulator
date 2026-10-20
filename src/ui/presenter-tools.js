@@ -27,11 +27,11 @@
 import { store } from './store.js?v=31ee79b6ab';
 import { h } from './util.js?v=5814c6b396';
 import { EDGES } from '../engine/topology.js?v=4044766e96';
-import { createDoppler } from './doppler.js?v=c9e2c823d5';
-import { createFibroScan } from './fibroscan.js?v=6aedafa7c4';
-import { createPressureTime } from './pressure-time.js?v=af39261f0f';
+import { createDoppler } from './doppler.js?v=2fc7a1050d';
+import { createFibroScan } from './fibroscan.js?v=59e6b8cc24';
+import { createPressureTime } from './pressure-time.js?v=9db4e6e556';
 import { createFlowTime } from './flow-time.js?v=81255fd534';
-import { createEndoscopy, createAbdomen, createVarixWall } from './instruments.js?v=67947967c4';
+import { createEndoscopy, createAbdomen, createVarixWall } from './instruments.js?v=bddc12196b';
 import { frameFor } from './frame.js?v=2ce59939b2';
 import { talkTrace } from './talk-trace.js?v=0ce7c3772c';
 import { EXT, guard, safe } from './slide-ext.js?v=8912a7aa4d';
