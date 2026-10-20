@@ -39,7 +39,7 @@ import { layoutWatch } from './idle-keys.js?v=ea36a0b5c6';
 import { writeGlowTexels } from './glow-texels.js?v=e578794a92';
 import { SIN_PERFUSION, sinStrandRadius } from './sin-perfusion.js?v=25a8407fdd';
 import { wavePacks, paintWave } from './scan-waves.js?v=066db7aa38';
-import { probePose, probeShapes, beamBoxes, gateBoxes, awayFromProbe, PROBE, PROBE_SVG } from './dop-probe.js?v=b4993ea159';
+import { probePose, probeShapes, beamBoxes, gateBoxes, awayFromProbe, PROBE, PROBE_SVG } from './dop-probe.js?v=0ec55c57c9';
 import { organDimMatrix } from './organ-dim.js?v=7888276613';
 import { parseColor, greyOf, paintRef } from './organ-grey.js?v=e41d68222c';
 import { bandRing, dashRings, liftEnd, normalShown, rippleList, systemOf, SYSTEM_COLOR } from './highlight-math.js?v=e2c1816e25';
@@ -1157,7 +1157,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const dop = { id: null, want: null, pin: null, key: '', seg: '', points: false, all: false };
   const dopGateOf = (id) => (dop.id === id && dop.seg ? dop.seg : '');   // the third of a stent the Doppler samples ('' when it is elsewhere)
   // The Doppler probe on the figure (dprobePaint): live once the stage is built (dopApply runs before its pieces exist).
-  const dpr = { el: null, on: false, key: '', side: 0, reach: 0, rev: false, box: null, marks: [], swap: 0, shapes: '', at: '', ready: false, gate: null };
+  const dpr = { el: null, on: false, key: '', side: 0, reach: 0, rev: false, tilt: 0, box: null, marks: [], swap: 0, shapes: '', at: '', ready: false, gate: null };
   function dopApply() {
     let id = dop.pin ?? dop.want ?? null;
     if (id && !E[id]) id = null;
@@ -5250,9 +5250,32 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     for (const el of ov.clamps.querySelectorAll('.clamp-label')) if (el._box) out.push(el._box);
     return out;
   }
-  // Points along the vessels drawn (stage px, with their radius), near the gate: the probe stands where the figure is quieter.
+  // The organs' outlines (world units, every 4 or so along them), kept until an organ's shape or transform changes (olKey).
+  const dprOrgPts = new Map();
+  function dprOrgans() {
+    const out = [];
+    if (organMorphA < 0.5) return out;   // (faded out with the morph to the circuit)
+    for (const o of ORGANS) {
+      if (o.deco || o.circle || !organEls[o.id]?.getAttribute('d')) continue;
+      const k = olKey(o.id);
+      let c = dprOrgPts.get(o.id);
+      if (!c || c.k !== k) { c = { k, pts: olRings(o.id).flatMap((ring) => ring.filter((_, i) => i % 2 === 0)) }; dprOrgPts.set(o.id, c); }
+      out.push(c.pts);
+    }
+    return out;
+  }
+  // Points along the vessels drawn (stage px, with their radius), near the gate: the probe stands where the figure is quieter. The
+  // organs' outlines count too, at half a vessel's weight (Mohammad, 20 Oct: "less busy, where not a lot of drawings").
   function dprBusy(g, id) {
-    const out = [], sc = CTM?.sc || 1, R = PROBE.GAP + PROBE.LEN + 60;
+    const out = [], sc = CTM?.sc || 1, R = PROBE.GAP + PROBE.LEN + 140;   // (out to the farthest place, dop-probe.js FAR)
+    for (const pts of dprOrgans()) {
+      let last = null;
+      for (const [wx, wy] of pts) {
+        const p = worldToLocal(wx, wy);
+        if (Math.abs(p[0] - g[0]) >= R || Math.abs(p[1] - g[1]) >= R || (last && Math.hypot(p[0] - last[0], p[1] - last[1]) < 6)) continue;
+        out.push([p[0], p[1], 1, 0.5]); last = p;
+      }
+    }
     for (const x of EV) {
       if (!x.vis || x.g.classList.contains('coll-ghost') || x.e.id === id) continue;
       const pts = geo[x.e.id]?.cur, q = cathRadOf(x.e.id, 0.5) * sc;
@@ -5291,18 +5314,18 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const [wx, wy, tx, ty] = u == null ? arcMid(pts) : pointAt(pts, u);
     const [gx, gy] = worldToLocal(wx, wy), [ax, ay] = worldToLocal(wx + tx, wy + ty);
     const r = cathRadOf(id, u ?? 0.5) * (CTM?.sc || 1);
-    const pose = probePose({ g: [gx, gy], t: [ax - gx, ay - gy], r, away: awayFromProbe(id), w: wrapRect.width, h: wrapRect.height, cards: dprCards(), keep: key === dpr.key ? dpr.side : 0, keepReach: dpr.reach, keepRev: dpr.rev, avoid: dprAvoid(), busy: dprBusy([gx, gy], id) });
+    const pose = probePose({ g: [gx, gy], t: [ax - gx, ay - gy], r, away: awayFromProbe(id), w: wrapRect.width, h: wrapRect.height, cards: dprCards(), keep: key === dpr.key ? dpr.side : 0, keepReach: dpr.reach, keepRev: dpr.rev, keepTilt: dpr.tilt, avoid: dprAvoid(), busy: dprBusy([gx, gy], id) });
     // (No place on the slide's free space at any side or distance: it fades out, and fades in once one opens.)
     if (pose.none) { if (dpr.on) { dpr.on = false; dpr.el.classList.add('off'); } dpr.box = null; dpr.marks = []; dpr.key = ''; dpr.gate = null; dprDots(); return; }
-    if (dpr.on && (key !== dpr.key || pose.side !== dpr.side || pose.reach !== dpr.reach || pose.rev !== dpr.rev)) {
+    if (dpr.on && (key !== dpr.key || pose.side !== dpr.side || pose.reach !== dpr.reach || pose.rev !== dpr.rev || pose.tilt !== dpr.tilt)) {
       dpr.on = false; dpr.box = null; dpr.marks = []; dpr.el.classList.add('off'); dprDots();
       dpr.swap = setTimeout(() => { dpr.swap = 0; dpr.key = ''; dprobePaint(); }, reduceMotion.matches ? 0 : 380);
       return;
     }
-    const sh = `${Math.round(pose.D)}|${Math.round(r * 2)}|${pose.phi}`;
+    const sh = `${Math.round(pose.D)}|${Math.round(r * 2)}|${pose.phi}|${pose.tilt}`;
     if (sh !== dpr.shapes) {
       dpr.shapes = sh;
-      const p = probeShapes(pose.D, r, pose.phi), all = (c, k, v) => { for (const e of dpr.el.querySelectorAll(c)) e.setAttribute(k, v); };
+      const p = probeShapes(pose.D, r, pose.phi, pose.tilt), all = (c, k, v) => { for (const e of dpr.el.querySelectorAll(c)) e.setAttribute(k, v); };
       all('.dpr-wedge', 'd', p.wedge); all('.dpr-beam', 'd', p.beam); all('.dpr-axis', 'd', p.axis); all('.dpr-bars', 'd', p.gate); all('.dpr-head', 'transform', p.head);
       dpr.at = '';
     }
@@ -5311,7 +5334,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       dpr.at = at; const [tr, ro] = at.split('|');
       dpr.el.style.transform = tr; dpr.el.querySelector('.dpr-rot').setAttribute('transform', ro);
     }
-    dpr.key = key; dpr.side = pose.side; dpr.reach = pose.reach; dpr.rev = pose.rev; dpr.box = pose.box; dpr.marks = [...beamBoxes([gx, gy], pose.ang, pose.D, r), ...gateBoxes([gx, gy], pose.ang, pose.phi, r)];
+    dpr.key = key; dpr.side = pose.side; dpr.reach = pose.reach; dpr.rev = pose.rev; dpr.tilt = pose.tilt; dpr.box = pose.box; dpr.marks = [...beamBoxes([gx, gy], pose.ang, pose.D, r), ...gateBoxes([gx, gy], pose.ang, pose.phi, r)];
+    // (Only its marks fit clear of the cards: the head fades, as the FibroScan probe's does under a card (scanHead).)
+    dpr.el.classList.toggle('head-off', !!pose.headOff);
     dpr.gate = [gx, gy];
     if (!dpr.on) { dpr.on = true; dpr.el.classList.remove('off'); }
     dprDots();

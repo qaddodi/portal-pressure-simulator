@@ -286,3 +286,57 @@ test('a card hidden by visibility does not keep the probe off the figure (the cl
   assert.match(fn, /el\.classList\.contains\('vd-out'\) \|\| unseenCard\(el\)\) return null;/);
   assert.ok(stage.indexOf('const unseenCard = ') > 0 && stage.indexOf('const unseenCard = ') < stage.indexOf('function dprCards()'));
 });
+
+test('as the FibroScan probe turns, the Doppler probe\'s body turns on its face into a clearer spot, θ still 50° (Mohammad, 20 Oct)', () => {
+  const g = [600, 400], t = [1, 0], r = 8, cos = Math.cos(PROBE.ANGLE * Math.PI / 180);
+  const fill = (b) => { const out = []; for (let x = b.x0; x <= b.x1; x += 6) for (let y = b.y0; y <= b.y1; y += 6) out.push([x, y, 2]); return out; };
+  // Every straight place, at every distance, has vessels under its body: the body turns on its face instead.
+  const straight = [];
+  for (const rev of [false, true]) for (const s of [1, -1]) for (const D of [PROBE.GAP + r, 58 + r, 38 + r, 28 + r, 125 + r, 170 + r]) {
+    const p = probePose({ g, t, r, w: W, h: H, side: s, rev });
+    straight.push(...fill(bodyBox(g, p.ang, D)));
+  }
+  const p = probePose({ g, t, r, w: W, h: H, busy: straight });
+  assert.ok(p.tilt !== 0 && Math.abs(p.tilt) <= PROBE.TILT && PROBE.TILT <= 20, `turned ${p.tilt}°`);
+  const b = dirOf(p.ang);
+  assert.ok(Math.abs(Math.abs(b[0] * t[0] + b[1] * t[1]) - cos) < 1e-9, 'the line of sight still meets the flow at θ');
+  assert.ok(p.busy < probePose({ g, t, r, w: W, h: H, busy: straight, side: p.side, rev: p.rev }).busy);
+  // An empty figure keeps it straight, and the head turns on its face as drawn.
+  assert.equal(probePose({ g, t, r, w: W, h: H }).tilt, 0);
+  assert.match(probeShapes(90, r, 50, -10).head, /^translate\(90 0\) rotate\(-10\) scale\(/);
+  // A kept tilt stays while it is clear and no place is clearly quieter.
+  assert.equal(probePose({ g, t, r, w: W, h: H, busy: straight, keep: p.side, keepReach: p.reach, keepRev: p.rev, keepTilt: p.tilt }).tilt, p.tilt);
+  assert.match(stage, /keepTilt: dpr\.tilt/);
+  assert.match(stage, /pose\.tilt !== dpr\.tilt/);
+});
+
+test('organ outlines count as busy, at half a vessel\'s weight, and only while the organs show', () => {
+  const g = [600, 400], t = [1, 0], r = 8, p = probePose({ g, t, r, w: W, h: H, side: 1 });
+  const mid = [(p.box.x0 + p.box.x1) / 2, (p.box.y0 + p.box.y1) / 2];
+  const one = probePose({ g, t, r, w: W, h: H, side: 1, busy: [[...mid, 1]] }).busy, half = probePose({ g, t, r, w: W, h: H, side: 1, busy: [[...mid, 1, 0.5]] }).busy;
+  assert.equal(one, 1); assert.equal(half, 0.5);
+  assert.match(stage, /out\.push\(\[p\[0\], p\[1\], 1, 0\.5\]\)/);
+  assert.match(stage, /if \(organMorphA < 0\.5\) return out;/);
+});
+
+test('with no place for the whole probe, its marks stay and the head fades (as the FibroScan\'s does under a card); none only when the marks are covered too', () => {
+  const g = [600, 400], t = [1, 0], r = 8;
+  // A card a little way off the vessel on both sides covers every body, never the line of sight and gate.
+  const cards = [{ x0: 0, y0: 0, x1: W, y1: g[1] - 40 }, { x0: 0, y0: g[1] + 40, x1: W, y1: H }];
+  const p = probePose({ g, t, r, w: W, h: H, cards });
+  assert.ok(p.headOff && !p.none && !p.clear);
+  assert.ok(!p.none && [...beamBoxes(g, p.ang, p.D, r)].every((b) => !cards.some((c) => b.x0 < c.x1 && c.x0 < b.x1 && b.y0 < c.y1 && c.y0 < b.y1)), 'the line of sight is clear of the cards');
+  assert.ok(probePose({ g, t, r, w: W, h: H, cards: [{ x0: 0, y0: 0, x1: W, y1: H }] }).none);
+  assert.match(stage, /dpr\.el\.classList\.toggle\('head-off', !!pose\.headOff\);/);
+  assert.match(css, /\.dop-probe\.head-off \.dpr-head \{ opacity: 0; \}/);
+  assert.match(css, /\.dop-probe \.dpr-head \{ transition: opacity \.36s/);
+});
+
+test('a crowded figure near the vessel: the probe stands farther out, in the empty space beyond the drawings', () => {
+  const g = [600, 400], t = [1, 0], r = 8, busy = [];
+  for (let x = 400; x <= 800; x += 6) for (let y = 250; y <= 550; y += 6) if (Math.hypot(x - g[0], y - g[1]) < 130) busy.push([x, y, 2]);
+  const p = probePose({ g, t, r, w: W, h: H, busy });
+  assert.ok(p.reach < 0 && p.D > PROBE.GAP + r, `out at ${p.D}`);
+  assert.ok(p.busy < probePose({ g, t, r, w: W, h: H, busy, side: p.side, rev: p.rev }).busy);
+  assert.match(stage, /R = PROBE\.GAP \+ PROBE\.LEN \+ 140;/);
+});

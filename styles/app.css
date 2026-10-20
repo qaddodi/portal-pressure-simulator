@@ -2882,6 +2882,8 @@ button.finding { cursor: pointer; }
 .dop-probe .dpr-body { fill: var(--surface); stroke: var(--dop-mark); stroke-width: 1.6; stroke-linejoin: round; }
 .dop-probe .dpr-face { fill: none; stroke: var(--dop-mark); stroke-width: 3; }
 .dop-probe .dpr-light { fill: var(--dop-glow); }
+.dop-probe .dpr-head { transition: opacity .36s var(--ease); }
+.dop-probe.head-off .dpr-head { opacity: 0; }   /* (only the marks fit clear of the cards: the head fades, as the FibroScan probe's does under a card) */
 @media (prefers-reduced-motion: reduce) { .dop-probe { transition: none; } }
 /* Where portal blood goes: the share that bypasses the liver as the headline, over one bar split into the liver's share
    (portal pink) and the shunts' (plain, amber from the shunt tile's moderate cut, red from its large one), each share
