@@ -11,6 +11,7 @@ import { fibroReading } from './clock.js?v=8aa14cb690';
 import { s, h, fmt, fmtFlow, fp, clamp, lerp, toast, systemEdge, bloodColors, restBox, settledBox, putText } from './util.js?v=5814c6b396';
 import { createLobuleZoom } from './lobule-zoom.js?v=63e1d4ba97';
 import { sinceSource } from './since-ref.js?v=ef1a818c75';
+import { clipBox, mapBox } from './fit-box.js?v=d5d6d4c60f';
 import { runFlick, FLICK } from './flick.js?v=4bc709c801';
 import { inlineStyles } from './svg-inline.js?v=fc17cb73fe';
 import { fluidTarget, poolFade } from './fluid-step.js?v=2742314765';
@@ -1510,6 +1511,25 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   }
   // The whole map, in the space the cards leave and clear of the zoom pill.
   const circWhole = () => clearPill(insetVT({ k: 1, x: 0, y: 0 }, circVB()), circVB());
+  // The boxes the home framing fits: whole groups as drawn, and each gut organ (in its own transform) with every clipped
+  // part cut to its clip path's box.
+  function fitBoxes(whole, clipped) {
+    const out = [], box = (el) => { try { return el.getBBox(); } catch { return null; } };
+    for (const g of whole) { const b = box(g); if (b) out.push(b); }
+    for (const g of clipped) {
+      const parts = [];
+      for (const c of g.children) {
+        const b = box(c); if (!b || !b.width || !b.height) continue;
+        const id = /url\(#([^)]+)\)/.exec(c.getAttribute('clip-path') || '')?.[1];
+        const cp = id && svg.querySelector('#' + CSS.escape(id))?.firstElementChild;
+        const k = cp && box(cp);
+        parts.push(k ? clipBox(b, k) : b);
+      }
+      const m = g.transform?.baseVal?.consolidate()?.matrix;
+      for (const b of parts) if (b) out.push(m ? mapBox(b, m) : b);
+    }
+    return out;
+  }
   function defaultVT(circuit) {
     if (!circuit) {
       // Fit frames everything the plate draws: the heart and the veins above it, the organs, the
@@ -1522,8 +1542,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       // Only what holds still is measured: the abdomen, the organs and the ascites. The vessels morph (to and from
       // the circuit, and as the first frames lay them out), and measuring them made the framing land in one place
       // and then glide to another a second later.
-      for (const g of [gBackdrop, gOrgans, gAscites]) {
-        let b; try { b = g.getBBox(); } catch { continue; }
+      // (A box ignores clip paths, so the gut's art, drawn past Mohammad's outlines and clipped to them, is measured
+      // clipped: fitBoxes. Measured whole, its loose ends pushed the framing off centre.)
+      for (const b of fitBoxes([gBackdrop, ...[...gOrgans.children].filter((c) => c !== gGut), gAscites], gGut ? [...gGut.children] : [])) {
         if (!b.width || !b.height) continue;
         x0 = Math.min(x0, b.x); y0 = Math.min(y0, b.y); x1 = Math.max(x1, b.x + b.width); y1 = Math.max(y1, b.y + b.height);
       }
