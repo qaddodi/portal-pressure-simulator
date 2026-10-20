@@ -3253,11 +3253,11 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     // that size. Measured only at full size, Sites 3 on an iPhone came in closed, 20 px short, Mohammad, 20 Oct: "started closed".)
     const elastic = !gone && splitSheet(dd) && !!dd.querySelector(':scope > .pz-tool:is([data-kind="profile"], [data-kind="flows"])');
     const data = elastic && both - full < words ? Math.min(full, arriving(CHART_GIVE)) : full;
-    // (Short only by the glass's reach past the 16 px it once took (the deck's tab, glassLift), the figure lends it, down to FIG_REG,
-    // and the card arrives partly open as it did before: counted against the card, slides that fitted before 8aa5142 came in closed,
-    // Circulation 10 on an iPhone, Mohammad, 20 Oct: "the stacked cards started hidden".)
+    // (A card a little too tall beside the words borrows from the figure, down to FIG_REG, and arrives partly open: only past that
+    // does it come in closed. Shut on any shortfall, slides came in closed, Circulation 10 on an iPhone after 8aa5142's taller glass,
+    // and others still after fc4a6ab lent only that 14 px, Mohammad, 20 Oct: "the stacked cards started hidden".)
     const short = words - (both - data);
-    if (!gone && short > 0 && short <= Math.min(reach - 16 * k, FIG_MIN(H) - FIG_REG(H))) { both += short; phoneFig = FIG_MIN(H) - short; }
+    if (!gone && short > 0 && short <= FIG_MIN(H) - FIG_REG(H)) { both += short; phoneFig = FIG_MIN(H) - short; }
     const shut = !gone && (both - data < words || data - sheetLip > dmax + 0.5) && !!dd.querySelector(':scope > :not(.pz-dh):not(.pz-grip):not(.pz-lip)');
     phoneShut = shut;
     // (Words at Compact win over the figure's share and the 62 % cap when nothing else gives; they never reach the data card. Closed,
