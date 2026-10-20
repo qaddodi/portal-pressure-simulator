@@ -9,7 +9,7 @@ import { STATION_VESSEL, meanVel, velNormal } from './velNormal.js?v=181dda5594'
 import { store, updateParams, varicesPresent, varixGrowth, shownVel } from './store.js?v=31ee79b6ab';
 import { fibroReading } from './clock.js?v=520596240b';
 import { s, h, fmt, fmtFlow, fp, clamp, lerp, toast, systemEdge, bloodColors, restBox, settledBox, putText } from './util.js?v=5814c6b396';
-import { createLobuleZoom } from './lobule-zoom.js?v=221a4b56cb';
+import { createLobuleZoom } from './lobule-zoom.js?v=9252c37ff1';
 import { runFlick, FLICK } from './flick.js?v=4bc709c801';
 import { inlineStyles } from './svg-inline.js?v=fc17cb73fe';
 import { fluidTarget, poolFade } from './fluid-step.js?v=2742314765';
@@ -24,7 +24,7 @@ import { LIVER_GEO } from './liver-geo-data.js?v=d2bd9ee6b4';
 import { createRouter } from './circuit-router.js?v=0ee9e02fc6';
 import { gpuProbe } from './gpu-probe.js?v=d4aeccea90';
 import { plateStrips, premultiply } from './plate-upload.js?v=2dd6db2a18';
-import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, ORIGIN_GREY } from './veins-gl.js?v=17ee7b8e62';
+import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, ORIGIN_GREY } from './veins-gl.js?v=82e6747c67';
 import { varixBead, beadRadius } from './varix-bead.js?v=ac0e84fd89';
 import { advanceStream, createReversalHold, bleedShapes, stepBleedFade, fadeBleedShapes, chevFlowLevel, keyChevron, KEY_CHEV_LANES, originFractions, oxygenFor, ORIGIN_N, createBolus, DYE_BINS, KAPPA, STASIS_MIN_D, HIDDEN_SECONDS } from './blood.js?v=e668d01823';
 import { frameFor, cancelFrame, noteDraw, setSaver as setFrameSaver, paceMs } from './frame.js?v=2ce59939b2';
@@ -2818,11 +2818,19 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // binned on its own points again. (A vessel listed in a cell it does not reach draws nothing there: the 1.25 headroom of a
   // widening vein, below, lists such cells too.)
   const binFrom = new Map();
+  // How far a vessel's lumen can reach, for the cells the moving blood is drawn in each frame (binVeins' `blood`): the reach
+  // less the 18 it adds for the casing, shadow and glow (reachOf), plus BLOOD_PAD. A vessel whose widest radius (glMaxR) and
+  // wall outgrow its reach is binned again (syncVeins, syncRadiiOnly), so this is always at least glMaxR + its wall + BLOOD_PAD,
+  // past the lumen's edge, which antialiases half a pixel out (veins-gl aL): half a pixel is under 6 world units even for the
+  // whole circuit at its smallest zoom (K_MIN) in a small window on a 1x screen, drawn at half resolution (a software
+  // renderer). Elsewhere in its cells nothing changes from frame to frame.
+  const BLOOD_PAD = 6;
   function binTube(it, pts) {
     const reach = vBinReach.get(it.row), g = it.x.e.kind === 'collateral' ? geo[it.x.e.id] : null;   // (its strands and feeders too)
+    const core = reach - 18 + BLOOD_PAD;
     // (A collateral that never coils, spontaneous or straight, has no target: wigT stays unset, and a reach of
     // NaN from it spoilt the whole binning's bounds, so no vessel drew at all: the outflow talk's caval collateral, 18 Oct.)
-    if (!g || g.wigT == null || g.wig === g.wigT) { binFrom.delete(it.row); return { id: it.row, pts, reach }; }
+    if (!g || g.wigT == null || g.wig === g.wigT) { binFrom.delete(it.row); return { id: it.row, pts, reach, core }; }
     let a = binFrom.get(it.row);
     if (a && a.pts.length === pts.length) {
       let far = 0;
@@ -2830,7 +2838,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       if (far > a.m) a = null;
     } else a = null;
     if (!a) binFrom.set(it.row, a = { pts: pts.map((q) => q.slice()), m: Math.ceil(Math.abs(g.wigT - g.wig) * 2 + 1) / 2 });
-    return { id: it.row, pts, bin: a.pts, reach: reach + a.m };
+    return { id: it.row, pts, bin: a.pts, reach: reach + a.m, core: core + a.m };
   }
   let vBinKey = '', vBinReach = new Map(), veinsDirty = true, veinsDrawKey = '', vLook = null, glOrgans = false;
   const veinsRows = new Set();   // vessel rows whose attributes changed since the vessel layer was drawn (only those, while veinsDirty is false)

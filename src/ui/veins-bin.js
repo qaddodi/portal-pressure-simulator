@@ -17,20 +17,24 @@ function segDist2(px, py, ax, ay, bx, by) {
 const d2 = (x, y) => x * x + y * y;
 
 /**
- * Bins vessels into cells. `tubes`: [{ id (row), pts: [[x, y]] × N_SAMPLES, reach, bin }] where reach
- * is how far from the centerline the vessel can draw (radius, casing, shadow, fillet, glow);
- * `joins`: [{ x, y, reach, k, members: [row, …] (≤ 4) }]. Returns the entry texels and the cells.
+ * Bins vessels into cells. `tubes`: [{ id (row), pts: [[x, y]] × N_SAMPLES, reach, core, bin }] where reach
+ * is how far from the centerline the vessel can draw (radius, casing, shadow, fillet, glow), and `core` (optional) how far its
+ * lumen can reach (at most `reach`);
+ * `joins`: [{ x, y, reach, k, members: [row, …] (≤ 4) }]. Returns the entry texels and the cells,
+ * and `blood`: the cells (as `cells`, nBlood of them) a lumen can reach, those within `core` of a vessel (all of a vessel's
+ * cells without one) or listing a join, where the moving blood is drawn (veins-gl composite).
  * `bin` (optional): other points, within `reach` less the vessel's own of `pts` at every sample, that the cells are
  * tested against instead (a coiling vessel's points when its coil began: see stage.js syncVeins).
  */
 const same2 = (P, F) => F.length === P.length * 2 && P.every((q, i) => q[0] === F[i * 2] && q[1] === F[i * 2 + 1]);
+const sameArr = (a, b) => a.length === b.length && a.every((v, k) => v === b[k]);
 export function binVeins(tubes, joins, memo = null) {
   let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
   for (const t of tubes) {
     const P = t.bin || t.pts, r = t.reach;
     for (let i = 0; i < P.length; i++) { const x = P[i][0], y = P[i][1]; x0 = Math.min(x0, x - r); y0 = Math.min(y0, y - r); x1 = Math.max(x1, x + r); y1 = Math.max(y1, y + r); }
   }
-  if (!tubes.length) return { ent: new Float32Array(0), rows: 1, cells: new Float32Array(0), nCells: 0, nEnt: 0 };
+  if (!tubes.length) return { ent: new Float32Array(0), rows: 1, cells: new Float32Array(0), nCells: 0, nEnt: 0, blood: new Float32Array(0), nBlood: 0 };
   x0 = Math.floor(x0 / CELL) * CELL; y0 = Math.floor(y0 / CELL) * CELL;
   const nx = Math.max(1, Math.ceil((x1 - x0) / CELL)), ny = Math.max(1, Math.ceil((y1 - y0) / CELL));
   const HALF = CELL * Math.SQRT1_2;
@@ -54,29 +58,33 @@ export function binVeins(tubes, joins, memo = null) {
   const moved = [];
   const per = new Array(tubes.length);
   for (let ti = 0; ti < tubes.length; ti++) {
-    const { id, pts: drawn, reach } = tubes[ti], pts = tubes[ti].bin || drawn;
+    const { id, pts: drawn, reach, core } = tubes[ti], pts = tubes[ti].bin || drawn;
     const m = memo?.get(id);
-    if (m && m.reach === reach && same2(pts, m.pts)) {
+    if (m && m.reach === reach && m.core === core && same2(pts, m.pts)) {
       per[ti] = m;
       if (!same2(drawn, m.at)) { moved.push(ti); m.at = Float64Array.from(drawn.flat()); }
       continue;
     }
     nSeg = 0;
     fresh++;
-    const lim2 = (reach + HALF) ** 2;
+    const lim2 = (reach + HALF) ** 2, limC2 = core == null ? Infinity : (Math.min(core, reach) + HALF) ** 2;
+    const bc = [];   // (the cells its lumen can reach: see `blood`)
     for (let i = 0; i < pts.length - 1; i++) {
       const ax = pts[i][0], ay = pts[i][1], bx = pts[i + 1][0], by = pts[i + 1][1];
       const cx0 = Math.max(0, Math.floor((Math.min(ax, bx) - reach - x0) / CELL)), cx1 = Math.min(nx - 1, Math.floor((Math.max(ax, bx) + reach - x0) / CELL));
       const cy0 = Math.max(0, Math.floor((Math.min(ay, by) - reach - y0) / CELL)), cy1 = Math.min(ny - 1, Math.floor((Math.max(ay, by) + reach - y0) / CELL));
       for (let cy = cy0; cy <= cy1; cy++) for (let cx = cx0; cx <= cx1; cx++) {
-        if (segDist2(x0 + (cx + 0.5) * CELL, y0 + (cy + 0.5) * CELL, ax, ay, bx, by) > lim2) continue;
+        const dd = segDist2(x0 + (cx + 0.5) * CELL, y0 + (cy + 0.5) * CELL, ax, ay, bx, by);
+        if (dd > lim2) continue;
         push(cy * nx + cx, i);
+        if (dd <= limC2) bc.push(cy * nx + cx);
       }
     }
     const n = nSeg, cs = cellOf.slice(0, n), ss = segOf.slice(0, n);
-    if (m && m.reach === reach && m.n === n && cs.every((c, k) => c === m.cs[k]) && ss.every((q, k) => q === m.ss[k])) { moved.push(ti); freshMoved++; }
-    per[ti] = { n, cs, ss };
-    if (memo) memo.set(id, { reach, pts: Float64Array.from(pts.flat()), at: Float64Array.from(drawn.flat()), n, cs, ss });
+    // (Its lumen's cells must be the same too: a patch keeps the last result's blood cells.)
+    if (m && m.reach === reach && m.core === core && m.n === n && cs.every((c, k) => c === m.cs[k]) && ss.every((q, k) => q === m.ss[k]) && sameArr(bc, m.bc)) { moved.push(ti); freshMoved++; }
+    per[ti] = { n, cs, ss, bc };
+    if (memo) memo.set(id, { reach, core, pts: Float64Array.from(pts.flat()), at: Float64Array.from(drawn.flat()), n, cs, ss, bc });
   }
   const jCell = [];
   joins.forEach((j, ji) => {
@@ -183,15 +191,27 @@ export function binVeins(tubes, joins, memo = null) {
     writeJoin(ent, e, joins[jCell[k + 1]]);
     js?.[jCell[k + 1]].push(e);
   }
-  const cells = new Float32Array(nCells * 6);
+  // The cells a lumen can reach: within a vessel's core, or listing a join (its fillet and the lower tier's copy swell the
+  // lumens there). Elsewhere a cell draws only casings, shadows and the plate, which the moving blood never changes.
+  const wet = new Uint8Array(NC);
+  for (let ti = 0; ti < tubes.length; ti++) {
+    const { n, cs, bc } = per[ti];
+    if (tubes[ti].core == null) for (let k = 0; k < n; k++) wet[cs[k]] = 1;
+    else for (const c of bc) wet[c] = 1;
+  }
+  for (let k = 0; k < jCell.length; k += 2) wet[jCell[k]] = 1;
+  const cells = new Float32Array(nCells * 6), wetAt = [];
   let ci = 0;
   for (let c = 0; c < NC; c++) {
     if (!segCount[c]) continue;
     cells[ci] = x0 + (c % nx) * CELL; cells[ci + 1] = y0 + Math.floor(c / nx) * CELL;
     cells[ci + 2] = segStart[c]; cells[ci + 3] = segCount[c]; cells[ci + 4] = jStart[c]; cells[ci + 5] = jCount[c];
+    if (wet[c]) wetAt.push(ci);
     ci += 6;
   }
-  const out = { ent, rows, cells, nCells, nEnt };
+  const nBlood = wetAt.length, blood = new Float32Array(nBlood * 6);
+  wetAt.forEach((at, b) => blood.set(cells.subarray(at, at + 6), b * 6));
+  const out = { ent, rows, cells, nCells, nEnt, blood, nBlood };
   if (memo) {
     memo.last = out; memo.ids = tubes.map((t) => t.id).join(','); memo.jm = joins.map((j) => j.members.join('.')).join(';'); memo.jCell = jCell; memo.jv = jv;
     memo.place = { es: tubes.map((_, ti) => entOf.slice(tFrom[ti], tFrom[ti + 1])), hs, js };

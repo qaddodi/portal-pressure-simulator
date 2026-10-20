@@ -2,6 +2,11 @@
 
 ## October 2026
 
+- **Moving blood: less GPU work per frame, same picture.** A frame where only the blood moves now repaints just the squares
+  of the figure that a lumen can reach, instead of every square near a vessel (casings, shadows and the space around thin
+  vessels stay as the last frame left them, since the blood never changes them). A sicker patient opens far more vessels
+  (decompensated cirrhosis about 106 against 38 for a healthy one: collaterals, braided varices, caput medusae), so this cut
+  is largest there. Any frame where something else changed repaints every square as before. Tests: `tests/blood-cells.test.js`.
 - **Congestion view: colour only.** The halo around backed-up veins is gone (on the GPU and in Lite graphics): it reached
   full strength at 8 mmHg while the colour runs to 15, spread well past each vein and repeated what the colour says. The
   veins' colour now carries congestion, as every other view carries its data, and the view draws a narrower band per vein.

@@ -34,7 +34,7 @@
 import { CHEV_GLSL } from './chevron-glsl.js?v=96ec7c6666';
 import { SLOT, DYE_BINS } from './blood.js?v=e668d01823';
 import { cssRGB } from './util.js?v=5814c6b396';
-import { CELL, ENT_W, binVeins, splitRows } from './veins-bin.js?v=49af20dd7a';
+import { CELL, ENT_W, binVeins, splitRows } from './veins-bin.js?v=81a80b3a6d';
 import { gpuProbe } from './gpu-probe.js?v=d4aeccea90';
 
 export { binVeins };
@@ -1377,6 +1377,15 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false }) {
   gl.enableVertexAttribArray(1); gl.vertexAttribPointer(1, 2, gl.FLOAT, false, 24, 0); gl.vertexAttribDivisor(1, 1);
   gl.enableVertexAttribArray(2); gl.vertexAttribPointer(2, 4, gl.FLOAT, false, 24, 8); gl.vertexAttribDivisor(2, 1);
   gl.bindVertexArray(null);
+  // The cells a lumen can reach (binVeins' `blood`): a frame where only the blood moved repaints these alone (see composite).
+  const bloodVAO = gl.createVertexArray(), bloodBuf = gl.createBuffer();
+  gl.bindVertexArray(bloodVAO);
+  gl.bindBuffer(gl.ARRAY_BUFFER, quad);
+  gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
+  gl.bindBuffer(gl.ARRAY_BUFFER, bloodBuf);
+  gl.enableVertexAttribArray(1); gl.vertexAttribPointer(1, 2, gl.FLOAT, false, 24, 0); gl.vertexAttribDivisor(1, 1);
+  gl.bindVertexArray(null);
+  let nBlood = 0;
   // Some of those cells, for a redraw of only the vessels that changed (see drawRows).
   const partVAO = gl.createVertexArray(), partBuf = gl.createBuffer();
   gl.bindVertexArray(partVAO);
@@ -1684,6 +1693,9 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false }) {
       gl.bindBuffer(gl.ARRAY_BUFFER, cellBuf);
       gl.bufferData(gl.ARRAY_BUFFER, bins.cells, gl.STATIC_DRAW);
       nCells = bins.nCells;
+      gl.bindBuffer(gl.ARRAY_BUFFER, bloodBuf);
+      gl.bufferData(gl.ARRAY_BUFFER, bins.blood || bins.cells, gl.STATIC_DRAW);
+      nBlood = bins.blood ? bins.nBlood : bins.nCells;
       cellsCPU = bins.cells; entCPU = bins.ent; rowCells = null; fboOK = false;
     },
     /**
@@ -1825,7 +1837,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false }) {
       cellsPass(m, look, part);
       tintPass(m, look, tintPart);
       drawnNow();
-      this.composite(look, blood, full);
+      this.composite(look, blood, full, true);
       return true;
     },
     /** Cells redrawn by drawRows so far (whole, and recoloured only), and the cells of the whole layer (for the checks). */
@@ -1835,9 +1847,12 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false }) {
     /**
      * The picture from the last vessel layer: plate, vessels, blood, dye, bleed. Cheap; runs
      * every animation frame. `blood`: { on, look, origin, clock, originCol, dyeCol, inkLight,
-     * inkDark, bleed: [[x0, y0, x1, y1, r0, r1, alpha, kind]] (stage.js bleedSpray) }.
+     * inkDark, bleed: [[x0, y0, x1, y1, r0, r1, alpha, kind]] (stage.js bleedSpray) }. Not `full`, it repaints only the cells a
+     * lumen can reach (binVeins' `blood`): the moving blood, chevrons, dye and origin colours are drawn only in a lumen, and
+     * every other pixel of a vessel cell comes out as the last frame left it. `all`: every vessel cell, after the vessel layer
+     * changed under some of them (drawRows).
      */
-    composite(look, blood = {}, full = false) {
+    composite(look, blood = {}, full = false, all = false) {
       if (!baseM || fboW !== canvas.width || fboH !== canvas.height) return;
       // A bleed sprays outside the vessels: the whole picture is repainted while it lasts, and once after.
       const bleeding = !!blood.bleed?.length;
@@ -1937,7 +1952,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false }) {
         gl.bindVertexArray(compVAO);
         gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
       } else {
-        if (nCells) { gl.bindVertexArray(vao); gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, nCells); }
+        if (all ? nCells : nBlood) { gl.bindVertexArray(all ? vao : bloodVAO); gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, all ? nCells : nBlood); }
         if (fl?.ripple && nFluid) { gl.bindVertexArray(fluidVAO); gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, nFluid); }
       }
       gl.bindVertexArray(null);
@@ -1974,7 +1989,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false }) {
       if (cath.verts.byteLength <= cathCap) gl.bufferSubData(gl.ARRAY_BUFFER, 0, cath.verts);
       else { cathCap = cath.verts.byteLength * 2; gl.bufferData(gl.ARRAY_BUFFER, cathCap, gl.DYNAMIC_DRAW); gl.bufferSubData(gl.ARRAY_BUFFER, 0, cath.verts); }
     },
-    clear() { gl.bindFramebuffer(gl.FRAMEBUFFER, null); gl.viewport(0, 0, canvas.width, canvas.height); gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT); nCells = 0; baseM = null; fboOK = false; },
+    clear() { gl.bindFramebuffer(gl.FRAMEBUFFER, null); gl.viewport(0, 0, canvas.width, canvas.height); gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT); nCells = nBlood = 0; baseM = null; fboOK = false; },
     /** The current picture as a PNG data URL (call right after draw, in the same task). */
     snapshot() { return canvas.toDataURL('image/png'); },
     /**
@@ -2002,8 +2017,8 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false }) {
       canvas.removeEventListener('webglcontextlost', onLost);
       if (!lost) {
         for (const t of [entTex, radTex, bendTex, rmaxTex, tubeTex, organTex, flowTex, dyeTex, fluidTex, baseTex, gTex, gTex2, depTex, depNone, lineLayer.tex, glowLayer.tex, ...plates.map((x) => x?.tex)]) if (t) gl.deleteTexture(t);
-        for (const b of [quad, cellBuf, partBuf, fluidBuf, cathBuf, lineBuf]) gl.deleteBuffer(b);
-        for (const v of [vao, partVAO, fluidVAO, compVAO, cathVAO, lineVAO]) gl.deleteVertexArray(v);
+        for (const b of [quad, cellBuf, bloodBuf, partBuf, fluidBuf, cathBuf, lineBuf]) gl.deleteBuffer(b);
+        for (const v of [vao, bloodVAO, partVAO, fluidVAO, compVAO, cathVAO, lineVAO]) gl.deleteVertexArray(v);
         for (const x of [prog, comp, compCell, cathP, lineP]) if (x) gl.deleteProgram(x.p);
         clearTimeout(spare.timer);
         for (const t of [spare.base, spare.g, spare.g2, spare.dep]) gl.deleteTexture(t);
@@ -2011,7 +2026,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false }) {
         gl.deleteFramebuffer(fbo); gl.deleteFramebuffer(tintFbo); gl.deleteFramebuffer(lineLayer.fbo); gl.deleteFramebuffer(glowLayer.fbo);
         if (lose) gl.getExtension('WEBGL_lose_context')?.loseContext();
       }
-      plates[0] = plates[1] = null; lines = cath = null; nCells = nFluid = 0; baseM = null; fboW = fboH = 0;
+      plates[0] = plates[1] = null; lines = cath = null; nCells = nBlood = nFluid = 0; baseM = null; fboW = fboH = 0;
       lost = true;
     },
   };

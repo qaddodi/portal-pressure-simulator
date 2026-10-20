@@ -8,7 +8,7 @@ import { binVeins } from '../src/ui/veins-bin.js';
 const stage = readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8');
 
 test('binTube treats a collateral with no coil target as settled', () => {
-  assert.match(stage, /if \(!g \|\| g\.wigT == null \|\| g\.wig === g\.wigT\) \{ binFrom\.delete\(it\.row\); return \{ id: it\.row, pts, reach \}; \}/);
+  assert.match(stage, /if \(!g \|\| g\.wigT == null \|\| g\.wig === g\.wigT\) \{ binFrom\.delete\(it\.row\); return \{ id: it\.row, pts, reach, core \}; \}/);
 });
 
 test('one vessel with a NaN reach leaves binVeins with no cells (why the guard matters)', () => {

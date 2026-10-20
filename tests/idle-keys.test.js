@@ -106,7 +106,7 @@ test('the framing, the labels\' card boxes and the credit\'s poll go by the watc
 });
 
 test('the composite allocates no uniform arrays per frame', () => {
-  const gl = src('veins-gl.js'), body = gl.slice(gl.indexOf('    composite(look, blood = {}, full = false) {'), gl.indexOf('    /** Whether organ outlines can be drawn here'));
+  const gl = src('veins-gl.js'), body = gl.slice(gl.indexOf('    composite(look, blood = {}, full = false, all = false) {'), gl.indexOf('    /** Whether organ outlines can be drawn here'));
   assert.ok(body.length > 1000);
   assert.ok(!/new Float32Array\(\[/.test(body) && !/new Float32Array\(\d+\)/.test(body), 'a fresh Float32Array in the composite');
   assert.match(body, /SCR\.be\.fill\(0\)/);
