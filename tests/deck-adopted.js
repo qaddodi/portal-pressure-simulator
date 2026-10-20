@@ -2,9 +2,7 @@
 // review/deck-card-ideas/recs.md). Each package test that says "no built-in deck uses this" skips exactly these slides and
 // fields, so the guard stays as strict for every other slide; deck-adopted.test.js checks that every entry is still in
 // use, so the list never grows wider than the decks. Fields: 'kind:<tool kind>', 'tool.<option>', 'cols.<column>',
-// 'lens:<deck-only lens>', or a slide field.
-// use, so the list never grows wider than the decks. Fields: 'kind:<tool kind>', 'lens:<lens>', 'tool.<option>', 'cols.<column>',
-// or a slide field.
+// 'lens:<deck-only lens>', 'mark.<option>' (on the slide's mark or any of its marks), or a slide field.
 export const ADOPTED = {
   'circuit/ohm': ['span'],
   'circuit/where': ['zone'],
@@ -51,6 +49,10 @@ export const ADOPTED = {
   'tap/back': ['kind:fluid'],
   'tap/diuretics': ['kind:fluid'],
   'tap/tips': ['kind:fluid'],
+  'ascites/lymph': ['kind:fluid'],
+  'ascites/fill': ['kind:fluid', 'mark.organ'],
+  'ascites/pvt': ['kind:profile'],
+  'ascites/presin': ['kind:profile'],
   'spleen/grown': ['normalOutline', 'calipers'],
   'spleen/later': ['calipers'],
   'outflow/open': ['kind:lumen'],
@@ -100,5 +102,6 @@ export function uses(s, field) {
   if (kind === 'tool') return s.tool?.[name] !== undefined;
   if (kind === 'cols') return (s.cols || []).includes(name);
   if (kind === 'lens') return s.lens === name;
+  if (kind === 'mark') return [s.mark, ...(s.marks || [])].some((m) => m?.[name] !== undefined);
   return s[field] !== undefined;
 }
