@@ -48,7 +48,7 @@ test('closing the card leaves its edge and the sheet\'s at the top, and it opens
 
 test('a slide whose card does not fit comes in closed, and the next one that fits brings it back', () => {
   const auto = js.match(/function autoDock\(shut\) \{[\s\S]*?\n {2}\}/)?.[0] ?? '';
-  assert.match(auto, /if \(shut && dock\.to === 0 && dock\.autoKey !== key\) \{ dock\.autoKey = key; dock\.auto = true;/, 'once per slide: brought back by the reader, it stays');
+  assert.match(auto, /if \(shut && dock\.to === 0 && dock\.autoKey !== key && [^{]*\) \{ dock\.autoKey = key; dock\.auto = true;/, 'once per slide: brought back by the reader, it stays');
   assert.match(auto, /else if \(!shut && dock\.auto && dock\.to === 1\) \{ dock\.auto = false;/, 'a card the reader closed stays closed');
   assert.match(js, /const shut = !gone && \(both - data < words \|\| data - sheetLip > dmax \+ 0\.5\)/);
   assert.match(js, /if \(key\) phoneLock = \{ key, cap, shut, data \};/);
@@ -93,4 +93,12 @@ test('a sheet card waiting unseen for its entry still counts where it rests; a c
   }
   assert.equal((stage.match(/if \(unseenCard\(el\)\) continue;/g) || []).length, 2, 'both the camera (safeInsets) and the card space (cardSpace)');
   assert.doesNotMatch(stage, /^\s*if \(el\.checkVisibility \? !el\.checkVisibility\(\{ visibilityProperty: true \}\)/m);
+});
+
+// Mohammad, 20 Oct (iPhone): a stacked card that came in with its readings' card tucked closed itself when pulled down, instead of
+// bringing the readings out. Their pull grows the card, and the layout re-planned mid-pull found it too tall and closed it.
+test('pulling the readings out of a stacked card never closes the card', () => {
+  assert.match(js, /if \(held\) \{ if \(dd\.classList\.contains\('tool-open'\) \|\| dd\.classList\.contains\('pz-sliding'\) \|\| 'folding' in dd\.dataset \|\|/, 'the plan made as the slide came in holds while the readings move');
+  const auto = js.match(/function autoDock\(shut\) \{[\s\S]*?\n {2}\}/)?.[0] ?? '';
+  assert.match(auto, /if \(shut && dock\.to === 0 && dock\.autoKey !== key && !dock\.drag && !d\.classList\.contains\('pz-sliding'\) && !\('folding' in d\.dataset\)\)/, 'and the layout never closes a card under the finger');
 });

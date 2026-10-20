@@ -2574,7 +2574,8 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   // behind Show; the next slide that fits brings it back. (After the pass that asked: dockTo lays the cards out again.)
   function autoDock(shut) {
     const key = `${gen}:${want}`, d = ui.data, ms = d.classList.contains('pz-hide') || d.hidden ? 0 : 380;
-    if (shut && dock.to === 0 && dock.autoKey !== key) { dock.autoKey = key; dock.auto = true; queueMicrotask(() => ui && dockTo(1, ms)); }
+    // (Never while the reader's finger or a fold is moving the card: their pull opens the readings, it never closes the card.)
+    if (shut && dock.to === 0 && dock.autoKey !== key && !dock.drag && !d.classList.contains('pz-sliding') && !('folding' in d.dataset)) { dock.autoKey = key; dock.auto = true; queueMicrotask(() => ui && dockTo(1, ms)); }
     else if (!shut && dock.auto && dock.to === 1) { dock.auto = false; queueMicrotask(() => ui && dockTo(0, ms)); }
   }
   // A phone on its side: a table card's title that ends clear of the deck's tab stands level with it, the tab in the corner beside
@@ -3122,7 +3123,9 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     // the slide arrived: Doppler 5 on a 320 px iPhone was planned at 148 px and grew to 284, over the figure's share.)
     // (Not for an instrument the reader opened: that grows by choice, over the figure, and closes again.)
     const lip = lipOn(dd) ? LIP * k : 0;
-    if (held) { if (dd.classList.contains('tool-open') || natural(dd, ds) + lip <= held.data + 1) return held.cap; }
+    // (Nor while its readings' card is pulled or easing out: they grow the card on the way, and re-planned mid-pull the card came out
+    // too tall and closed itself under the finger instead of opening the readings, Mohammad on an iPhone, 20 Oct.)
+    if (held) { if (dd.classList.contains('tool-open') || dd.classList.contains('pz-sliding') || 'folding' in dd.dataset || natural(dd, ds) + lip <= held.data + 1) return held.cap; }
     const ts = ui.text.style, was = ts.maxHeight;
     ts.maxHeight = '';
     const css = getComputedStyle(ui.text), own = parseFloat(css.maxHeight) * (css.maxHeight.endsWith('%') ? H / 100 : 1), foot = (parseFloat(css.bottom) || 0) * k;
