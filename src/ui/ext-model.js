@@ -7,7 +7,7 @@
 //   tool: { kind: 'causes', metric: 'ppg' }   what raises the reading from healthy, a waterfall with a step per cause (tool-causes.js)
 
 import { createCurve, curveLines, lineMeta, axisMeta } from './tool-curve.js?v=a70cd588a4';
-import { createCauses, metricOf } from './tool-causes.js?v=c80a0f94db';
+import { createCauses, metricOf } from './tool-causes.js?v=b91433cc42';
 import { TILE } from './table-marks.js?v=1dc429fe31';
 
 const lc = (s) => (/^[A-Z]{2,}/.test(s) ? s : s.charAt(0).toLowerCase() + s.slice(1));

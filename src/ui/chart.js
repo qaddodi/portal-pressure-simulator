@@ -5,11 +5,11 @@
 //   Changes                              Treat card, closed until opened: what has been set, with values
 //   Advanced physiology                  side panel, from Settings
 
-import { store, updateParams } from './store.js?v=b36b18d30d';
+import { store, updateParams } from './store.js?v=aaa74688dd';
 import { h, icon, svgIcon, toast, reconcile } from './util.js?v=5814c6b396';
-import { DRUGS } from '../engine/scenario.js?v=a2af4e39b0';
-import { activeInterventions } from './inspector.js?v=13991032d8';
-import { DRUG_NOTE } from './actions.js?v=90e3384663';
+import { DRUGS } from '../engine/scenario.js?v=bf224c8b5c';
+import { activeInterventions } from './inspector.js?v=1049abb10f';
+import { DRUG_NOTE } from './actions.js?v=334f37945f';
 import { factTarget } from './fact-target.js?v=b7631940ce';
 
 

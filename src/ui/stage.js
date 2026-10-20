@@ -6,10 +6,10 @@ import { route as metroRoute, LABEL_VESSEL, TIP_FADE, TIP_CONNECT, VIEW, VB_ANAT
 import { pressureColor, deltaColor, dropColor, flowColor, heatColor, velColorOf, velocityColor, oxygenColor } from './colormap.js?v=1092d36abc';
 import { forkJoins, sideEndScale } from './fork-joins.js?v=b678f7ba5a';
 import { STATION_VESSEL, meanVel, velNormal } from './velNormal.js?v=181dda5594';
-import { store, updateParams, varicesPresent, varixGrowth, shownVel } from './store.js?v=b36b18d30d';
-import { fibroReading } from './clock.js?v=58cda3751d';
+import { store, updateParams, varicesPresent, varixGrowth, shownVel } from './store.js?v=aaa74688dd';
+import { fibroReading } from './clock.js?v=8aa14cb690';
 import { s, h, fmt, fmtFlow, fp, clamp, lerp, toast, systemEdge, bloodColors, restBox, settledBox, putText } from './util.js?v=5814c6b396';
-import { createLobuleZoom } from './lobule-zoom.js?v=edd525f933';
+import { createLobuleZoom } from './lobule-zoom.js?v=15c9db46e2';
 import { sinceSource } from './since-ref.js?v=ef1a818c75';
 import { runFlick, FLICK } from './flick.js?v=4bc709c801';
 import { inlineStyles } from './svg-inline.js?v=fc17cb73fe';

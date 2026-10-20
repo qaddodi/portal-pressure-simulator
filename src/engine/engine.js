@@ -6,7 +6,7 @@ import {
   clamp, tubeResistanceFactor, tubeArea, volumeOf, ptmOf, complianceAt, stenosisFactor,
   heartFlow, fillShape, systoleShape, raWave, iapFromAscites, makeRng,
 } from './physiology.js?v=6fc3ec393a';
-import { defaultParams, DRUGS, PRESETS, deepMerge } from './scenario.js?v=a2af4e39b0';
+import { defaultParams, DRUGS, PRESETS, deepMerge } from './scenario.js?v=bf224c8b5c';
 import { detectEvents } from './events.js?v=582dd803a9';
 
 const KNEE = { artery: [1e9, 1], bed: [14, 10], portal: [14, 10], vein: [14, 6], hepvein: [10, 3], heart: [10, 4], liver: [9, 2], wedge: [9, 5], varix: [30, 10] };
@@ -979,9 +979,9 @@ export class Engine {
     const p = this.params, P = this.P, s = p.cirrhosis;
     const iap = this.iap ?? 5;
     const pic = 25 * (p.albumin / 4.0);
-    // How capillarized the sinusoid wall is: as the cirrhosis has it, or the fenestrae's open share set on its own (a what-if:
-    // the pores opened or shut in the same liver, its scar and resistance unchanged).
-    const shut = p.fenestrae == null ? s : 1 - clamp(p.fenestrae, 0, 1);
+    // How capillarized the sinusoid wall is: as the cirrhosis has it, less the share of its closed pores opened again (fenestrae,
+    // a what-if: the pores opened in the same liver, its scar and resistance unchanged). A number at both ends, so a change eases.
+    const shut = s * (1 - clamp(p.fenestrae ?? 0, 0, 1));
     const sigH = 0.1 + 0.5 * shut;
     const piH = pic * (1 - sigH) * 0.9;
     const pMid = 0.6 * (0.7 * P[this.ni.SIN_R] + 0.3 * P[this.ni.CV_R]) + 0.4 * (0.7 * P[this.ni.SIN_L] + 0.3 * P[this.ni.CV_L]);

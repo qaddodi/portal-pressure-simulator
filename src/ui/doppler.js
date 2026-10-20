@@ -6,8 +6,8 @@
 
 import { EDGES, dopplerK, stentSegments, stentSite, stentGate, stentCourse } from '../engine/topology.js?v=4044766e96';
 import { h, fmt, fitCanvas, clamp, icon, cssVar, cssAlpha } from './util.js?v=5814c6b396';
-import { FONT } from './charts.js?v=834bf979b6';
-import { logAction, shownVel, store } from './store.js?v=b36b18d30d';
+import { FONT } from './charts.js?v=267ed83304';
+import { logAction, shownVel, store } from './store.js?v=aaa74688dd';
 import { DOPPLER_MODES, THETA, dopplerColor, shadeColor, swatchGradient } from './dopplerColor.js?v=7e1fbb62cd';
 import { frameFor, noteDraw, paceMs } from './frame.js?v=2ce59939b2';
 import { windowIndexFor, scaleFor, fitScale } from './dopplerWindow.js?v=1d34e63b32';
