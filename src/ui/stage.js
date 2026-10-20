@@ -9,6 +9,7 @@ import { STATION_VESSEL, meanVel, velNormal } from './velNormal.js?v=181dda5594'
 import { store, updateParams, varicesPresent, varixGrowth, shownVel } from './store.js?v=aaa74688dd';
 import { fibroReading } from './clock.js?v=8aa14cb690';
 import { s, h, fmt, fmtFlow, fp, clamp, lerp, toast, systemEdge, bloodColors, restBox, settledBox, putText } from './util.js?v=5814c6b396';
+import { riseCentre } from './rise-path.js?v=c039cb7b49';
 import { createLobuleZoom } from './lobule-zoom.js?v=63e1d4ba97';
 import { sinceSource } from './since-ref.js?v=ef1a818c75';
 import { clipBox, mapBox } from './fit-box.js?v=d5d6d4c60f';
@@ -1732,7 +1733,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // to the sinusoid's zoom (lobule-zoom.js sinChain), which eases out only; out, the other way round.
   // (diveClock: the dive's own start, span and ends, so the joint's moment is known exactly; riseAt: when the sinusoid finished
   // closing, the moment the rise that follows it begins, rather than when its callback happens to run.)
-  let riseFast = false, chainIn = false, chainOut = false, chainFired = false, chainAt = 0, zShift = 0, diveClock = null, riseAt = null;   // (zShift: for cameraZoom, the plate's zoom is reset unseen when the rise begins)
+  let riseLine = false, riseFast = false, chainIn = false, chainOut = false, chainFired = false, chainAt = 0, zShift = 0, diveClock = null, riseAt = null;   // (zShift: for cameraZoom, the plate's zoom is reset unseen when the rise begins)
   const RH = 24;   // a lobule's size on screen (px) as the liver's surface gives way to the field
   const LC = Math.log(5);   // the anatomy's share of the zoom (×5), the field's the rest
   const diveEls = () => [svg, wrap.querySelector('#stageOver'), wrap.querySelector('#labels'), vCanvas].filter(Boolean);
@@ -1820,8 +1821,11 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       // The detailed lobule comes in while the zoom is still settling, zooming with the field.
       const r = RH * Math.exp(z - LC);
       const [ox, oy] = diveAt;
-      const g = smoothT(LC - 0.5, lt, z);   // the zoom's centre drifts from the dive point to the lobule's place
-      const px = lerp(ox, diveLand.x, g), py = lerp(oy, diveLand.y, g);
+      // Going in, the zoom's centre drifts from the dive point to the lobule's place. Going out (riseLine), one straight pull-out:
+      // the lobule is scaled about one fixed point, so it leaves its place in step with the zoom and ends on the dive point, with
+      // no sideways pan across it first (rise-path.js).
+      const g = smoothT(LC - 0.5, lt, z);
+      const [px, py] = riseLine ? riseCentre([diveLand.x, diveLand.y], [ox, oy], Math.exp(-lt), Math.exp(z - lt)) : [lerp(ox, diveLand.x, g), lerp(oy, diveLand.y, g)];
       // The detailed lobule rides on the field's own lobule at that centre, so it grows out of it.
       lz.setDiveZoom(t >= 1 ? 1 : clamp(r / diveLand.r, 0.05, 1), diveLand.x, diveLand.y, px, py);
       lz.setDive(t <= 0 || t >= 1 ? null : {
@@ -1847,7 +1851,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     logMove({ t: performance.now(), kind: on ? 'dive' : 'rise' });
     cancelFrame(lobAnim);
     if (on && diveT === 0) {
-      riseFast = false;
+      riseFast = false; riseLine = false;
       if (chainIn && performance.now() - chainAt > 4000) chainIn = false;   // (asked for long ago and never begun)
       const w = diveTarget();
       if (w) {
@@ -1859,6 +1863,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       lz.prewarm(diveLand.r);
       lz.stage();   // the lobule is drawn now, for where it lands, and only then does the zoom start (its clock starts below)
     } else if (!on && diveT >= 1) {
+      riseLine = true;   // (kept through a reversal, so the lobule stays on the line it was on)
       riseFast = !chainOut;
       lz.stageRise();   // (out of a zoomed-in lobule: its whole copy is drawn now, before the rise's clock starts)
       diveLand = lz.current();
