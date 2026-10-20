@@ -56,6 +56,8 @@ test('as on the scanner: the line of sight runs through the vessel, the two bars
     const { at, half } = gateDims(r), chord = r / Math.sin(Math.PI / 3);
     assert.ok(half >= 5 && half <= 10);
     assert.ok(r < 6 || at < chord, `r ${r}: the bars sit inside the lumen along the line (${at} < ${chord})`);
+    // (the gate takes in the central half of the lumen, the Polish Ultrasound Society's setting: each bar halfway to the wall)
+    assert.ok(r < 7 || Math.abs(at - chord / 2) < 1e-9, `r ${r}: the gate spans the central half of the lumen (${at} vs ${chord / 2})`);
     for (const phi of [60, -60]) {
       const s = probeShapes(PROBE.GAP + r, r, phi);
       // The line of sight: from the probe's face straight through the gate and past the far wall.

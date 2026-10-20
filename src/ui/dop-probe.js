@@ -16,8 +16,9 @@ export const PROBE = { ANGLE: 60, GAP: 74, LEN: 62, HALF: 13, EDGE: 8 };
 
 const SIN = Math.sin(Math.PI / 3);   // the line of sight crosses a lumen of radius r over r / sin 60° either side of its middle
 /** The sample volume for a lumen of radius r (px on screen): two bars across the line of sight, each `at` px from the gate along
- *  it (three quarters of the way to the wall: inside the lumen), `half` px either side of it. */
-export const gateDims = (r) => ({ at: Math.max(4, (0.75 * Math.max(0, r)) / SIN), half: Math.min(10, Math.max(5, 0.5 * r)) });
+ *  it, halfway to the wall: the gate takes in the central half of the lumen, as the Polish Ultrasound Society's standard sets it
+ *  (Lechowicz and Elwertowski, J Ultrason 2015, p. 214), `half` px either side of it. */
+export const gateDims = (r) => ({ at: Math.max(4, (0.5 * Math.max(0, r)) / SIN), half: Math.min(10, Math.max(5, 0.5 * r)) });
 
 const rad = (d) => (d * Math.PI) / 180;
 const overlap = (a, b) => Math.max(0, Math.min(a.x1, b.x1) - Math.max(a.x0, b.x0)) * Math.max(0, Math.min(a.y1, b.y1) - Math.max(a.y0, b.y0));
