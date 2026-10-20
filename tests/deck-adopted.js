@@ -99,6 +99,15 @@ export const ADOPTED = {
   'recompensation/carv': ['ripple'],
   'recompensation/recomp': ['cite'],
   'recompensation/course': ['tool.bands'],
+  'one-year/d0': ['kind:plane', 'milestone'],
+  'one-year/cath': ['eq'],
+  'one-year/d90': ['cite'],
+  'one-year/d180': ['calipers', 'milestone'],
+  'one-year/d365': ['ladderFrom', 'ladderFromLabel'],
+  'one-year/belly': ['normalOutline', 'calipers', 'milestone'],
+  'one-year/carv': ['milestone', 'ladderFrom', 'ladderFromLabel'],
+  'one-year/plane': ['visual', 'plane', 'of'],
+  'one-year/summary': ['tool.style', 'tool.bands'],
 };
 
 /** Whether the slide d/s may use the field. */
