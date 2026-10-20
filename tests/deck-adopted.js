@@ -59,6 +59,8 @@ export const ADOPTED = {
   'treatment/tips': ['ripple', 'kind:flows', 'ladderFrom', 'ladderFromLabel'],
   'treatment/cost': ['kind:flows'],
   'treatment/vs': ['lens:since', 'since', 'sinceLabel'],
+  'circulation/inflow': ['kind:flows'],
+  'circulation/series': ['kind:profile', 'steps'],
 };
 
 /** Whether the slide d/s may use the field. */
