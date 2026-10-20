@@ -280,3 +280,9 @@ test('closer in counts when the usual distance is busy: the probe takes the empt
   assert.ok(Math.abs(Math.abs(b[0] * u[0] + b[1] * u[1]) - Math.cos(PROBE.ANGLE * Math.PI / 180)) < 1e-9);
   assert.ok(p.box.y0 >= 254 && p.box.x0 >= PROBE.EDGE);
 });
+
+test('a card hidden by visibility does not keep the probe off the figure (the closed Details sheet on a phone, Tests › Doppler)', () => {
+  const fn = stage.slice(stage.indexOf('function dprCards()'), stage.indexOf('function dprAvoid()'));
+  assert.match(fn, /el\.classList\.contains\('vd-out'\) \|\| unseenCard\(el\)\) return null;/);
+  assert.ok(stage.indexOf('const unseenCard = ') > 0 && stage.indexOf('const unseenCard = ') < stage.indexOf('function dprCards()'));
+});

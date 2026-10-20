@@ -5212,7 +5212,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     dprCardsAt = now;
     const wr = wrap.getBoundingClientRect();
     dprCardsList = [...scanCards(), ...[...document.querySelectorAll('[data-safe], .stage-blocker:not([hidden])')].map((el) => {
-      if (el.hidden || el.closest('[hidden]') || el.classList.contains('card-leaving') || el.classList.contains('vd-out')) return null;
+      // (A card hidden by visibility is not there, as the framing reads it (unseenCard): the closed Details sheet stays in place on
+      // a phone, invisible, as tall as it was last opened, and kept the probe off the whole figure in Tests › Doppler, 20 Oct.)
+      if (el.hidden || el.closest('[hidden]') || el.classList.contains('card-leaving') || el.classList.contains('vd-out') || unseenCard(el)) return null;
       const q = el.getBoundingClientRect();
       return q.width && q.height ? { x0: q.left - wr.left - 6, y0: q.top - wr.top - 6, x1: q.right - wr.left + 6, y1: q.bottom - wr.top + 6 } : null;
     }).filter(Boolean)];
