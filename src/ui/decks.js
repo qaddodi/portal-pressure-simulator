@@ -108,9 +108,9 @@ import { CAUSE_TREATED } from './decks/cause-treated.js?v=6141ad255c';
 // Regions of the anatomy plate the camera frames (world units, x 300-1120, y 0-920).
 export const REGIONS = {
   route: [380, 30, 900, 690],       // portal vein to heart
-  liver: [360, 155, 830, 575],      // the liver (its lower right lobe reaches y 560; organ picks, 20 Oct)
+  liver: [346, 155, 850, 522],      // the liver as resized (x 346 to 849, y 160 to 517; organ picks, 20 Oct)
   portal: [520, 360, 930, 710],     // confluence, trunk, splenic vein, SMV
-  gut: [440, 360, 940, 900],        // the portal system and the small bowel under it (a meal's gut glow)
+  gut: [450, 360, 990, 980],        // the portal system and the small bowel under it (a meal's gut glow)
   hepatic: [410, 40, 800, 340],     // hepatic veins, IVC, right atrium
   dips: [450, 220, 760, 480],       // the DIPS tract, portal bifurcation up through the caudate lobe to the IVC
   heart: [440, -20, 800, 300],

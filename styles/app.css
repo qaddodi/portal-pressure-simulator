@@ -2712,8 +2712,11 @@ button.finding { cursor: pointer; }
    colon (.oc-*), the small bowel's pile of loops (.ob-*) and the duodenum (.du-*), in the organ's own tones. One see-through
    group holds all three (--gut-a), so the colon covers the loops under it instead of showing them through. The organs' own
    paths stay, unpainted, as the target a highlight, a hit test and the vessels' cover read (.org-key-path). */
-#organs > .organ-gut { opacity: var(--gut-a); }
+#organs > .organ.organ-gut { opacity: var(--gut-a); }   /* (.organ.: over the organs' .55 below) */
 .org-key-path { fill: none; stroke: none; }
+/* The stomach's outline traced over the cirrhotic liver (stage.js): a line in the stomach's own tone, never a fill (unstyled,
+   it filled black and read as a dark patch on the liver: Mohammad, 20 Oct). */
+.org-ghost-line { fill: none; stroke: var(--og-stomach-3); stroke-width: 1.5; stroke-linejoin: round; }
 .oc-ao { fill: var(--og-ao); stroke: var(--og-ao); stroke-width: 8; stroke-linejoin: round; stroke-linecap: round; }
 .oc-o1 { fill: var(--o1); }
 .oc-wall, .oc-pouch { fill: var(--o2); fill-opacity: .49; stroke: var(--o3); stroke-width: .84; stroke-opacity: .42; stroke-linejoin: round; stroke-linecap: round; }

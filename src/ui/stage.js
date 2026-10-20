@@ -2,7 +2,7 @@
 // over an SVG scene that holds the organ artwork, hit targets and overlays, and screen-space labels.
 
 import { EDGES, dopplerK, NODES, PORTAL_TERRITORY, dMinOf, edgePresent, isOccluded, SHUNT_PORTAL, SHUNT_SYSTEMIC, customShuntId, isStent, stentSite, STENT_SITES, STENT_SPANS, stentGate, stentSegments } from '../engine/topology.js?v=4044766e96';
-import { route as metroRoute, LABEL_VESSEL, TIP_FADE, TIP_CONNECT, VIEW, VB_ANAT, VB_CIRC, ATLAS_COLUMNS, HIDDEN_EDGES, HIDDEN_NODES, ANAT_HIDDEN, ANAT_HIDDEN_NODES, CAUDATE, CONTEXT_EDGES, BACK_EDGES, IVC_EDGES, NEEDS_C3, NODE_POS, EDGE_PATH, CIRCUIT_PATH, metroPath, ORGANS, SEAM_D, ORGAN_DETAIL, BACKDROP, LIVER_INNER, LIVER_EDGES, LANE_CAPTIONS, ABDOMEN_CLIP, ABDOMEN_FLOOR, flankPath, abdomenOutline, cavityHalfWidths, SPLEEN_CENTER, SITES, ORGAN_LABELS, ATLAS_LABELS, SHORT, ABBR, CHIP_NODES, LIVER_SPLIT_X, CIRCUIT_ZONES, CIRCUIT_LABELS, STRANDS, STRAND_FROM, SIN_EDGES, FEEDERS, fanFeeders, CIRCUIT_TREES } from './anatomy.js?v=f539d1668f';
+import { route as metroRoute, LABEL_VESSEL, TIP_FADE, TIP_CONNECT, VIEW, VB_ANAT, VB_CIRC, ATLAS_COLUMNS, HIDDEN_EDGES, HIDDEN_NODES, ANAT_HIDDEN, ANAT_HIDDEN_NODES, CAUDATE, CONTEXT_EDGES, BACK_EDGES, IVC_EDGES, NEEDS_C3, NODE_POS, EDGE_PATH, CIRCUIT_PATH, metroPath, ORGANS, SEAM_D, ORGAN_DETAIL, BACKDROP, LIVER_INNER, LIVER_EDGES, LANE_CAPTIONS, ABDOMEN_CLIP, ABDOMEN_FLOOR, flankPath, abdomenOutline, cavityHalfWidths, SPLEEN_CENTER, SITES, ORGAN_LABELS, ATLAS_LABELS, SHORT, ABBR, CHIP_NODES, LIVER_SPLIT_X, CIRCUIT_ZONES, CIRCUIT_LABELS, STRANDS, STRAND_FROM, SIN_EDGES, FEEDERS, fanFeeders, CIRCUIT_TREES } from './anatomy.js?v=6f9f7a61dc';
 import { pressureColor, deltaColor, dropColor, flowColor, heatColor, velColorOf, velocityColor, oxygenColor } from './colormap.js?v=1092d36abc';
 import { forkJoins, sideEndScale } from './fork-joins.js?v=b678f7ba5a';
 import { STATION_VESSEL, meanVel, velNormal } from './velNormal.js?v=181dda5594';
@@ -21,8 +21,8 @@ import { gridHits, segHitsBox } from './seg-hits.js?v=e7cde76929';
 import { glassCallout } from './callout.js?v=d5524b6a11';
 import { TEXT_MIN, TEXT_MAX, rolePx, roleOf } from './type-scale.js?v=d7cca3fb73';
 import { seeded, strHash, nodularSites, nodularCells } from './liver-geo.js?v=46c842537a';
-import { LIVER_GEO } from './liver-geo-data.js?v=1dacf9ad20';
-import { COLON_ART, BOWEL_ART, DUO_CLIPS, DUO_A, DUO_B } from './organ-art.js?v=d7904ffabd';
+import { LIVER_GEO } from './liver-geo-data.js?v=e483978ae5';
+import { COLON_ART, BOWEL_ART, DUO_CLIPS, DUO_A, DUO_B } from './organ-art.js?v=ea820a572d';
 import { createRouter } from './circuit-router.js?v=0ee9e02fc6';
 import { gpuProbe } from './gpu-probe.js?v=d4aeccea90';
 import { plateStrips, premultiply } from './plate-upload.js?v=2dd6db2a18';
@@ -44,7 +44,7 @@ import { fitPose, probeShapes, beamBoxes, gateBoxes, awayFromProbe, PROBE, PROBE
 import { organDimMatrix } from './organ-dim.js?v=7888276613';
 import { parseColor, greyOf, paintRef } from './organ-grey.js?v=e41d68222c';
 import { bandRing, dashRings, liftEnd, normalShown, rippleList, systemOf, SYSTEM_COLOR } from './highlight-math.js?v=e2c1816e25';
-import { organAnchor, spleenCaliper, acrossVessel, stepGroups, spanOf, spanPath, zoneBand, SPAN_TICK, insideBy, clearOf, besideLine } from './callout-math.js?v=0ee21419bb';
+import { organAnchor, spleenCaliper, acrossVessel, stepGroups, spanOf, spanPath, zoneBand, SPAN_TICK, insideBy, clearOf, besideLine } from './callout-math.js?v=1389a8d493';
 const nextFrame = frameFor('stage');
 
 const N_SAMPLES = 64;
@@ -870,6 +870,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     // brown blotch; organ picks, round 26).
     liverFluidCut = smooth01(g / 0.5);
     ascLvCut.setAttribute('fill-opacity', liverFluidCut.toFixed(3));
+    // (Only while it cuts anything: an unused mask would still be rasterized with the fluid on every frame it eases.)
+    for (const el of [ascitesPath, ascitesLine]) if (liverFluidCut > 0.001) putA(el, 'mask', 'url(#ascLv)'); else el.removeAttribute('mask');
     // The liver lies in front of the stomach and esophagus, which show through it at .65; as cirrhosis comes in (the
     // shrunken liver leaves them in plain view) they come back to full strength under it, the liver goes lighter over them
     // and their outline is traced over it (organ picks, 20 Oct).
@@ -890,8 +892,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // Flanks: the outline of the abdominal wall, which bulges as ascites accumulates.
   const flank = s('path', { class: 'flank', d: '' });
   gOver.before(abdWall);
-  const ascitesPath = s('path', { class: 'ascites-fill', d: '', fill: 'url(#fluid)', mask: 'url(#ascLv)' });
-  const ascitesLine = s('path', { class: 'ascites-line', d: '', mask: 'url(#ascLv)' });
+  const ascitesPath = s('path', { class: 'ascites-fill', d: '', fill: 'url(#fluid)' });
+  const ascitesLine = s('path', { class: 'ascites-line', d: '' });
   gAscites.append(ascitesPath, ascitesLine);
   let fluidSurf = null;   // the ascites surface y(x) while there is fluid; a tap below it opens the Ascites view
   gBackdrop.append(flank);
@@ -4539,11 +4541,24 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
 
   // The diaphragm is drawn around the organs it covers, the way a plate shows it: one smooth dome a
   // little above the liver, the fundus and the spleen, bridging the dips between them, and down the
-  // flanks on both sides (where diaMask fades it out). It is the upper convex hull of their current
-  // outlines, pushed out a few units, so it follows a shrunken or congested liver and an enlarged
-  // spleen as they ease, and never crosses an organ.
+  // flanks on both sides (where diaMask fades it out). It runs along the top of their current outlines,
+  // pushed out a few units, so it follows a shrunken or congested liver and an enlarged spleen as they
+  // ease, and never crosses an organ; the heart rests on it.
   const diaEls = gBackdrop.querySelectorAll('.org-diaphragm');
-  const DIA_GAP = 11, DIA_FOOT = 420;
+  const DIA_GAP = 11, DIA_FOOT = 420, DIA_COL = 6;
+  // Just under the heart's base, column by column (or far above, beside it), for the diaphragm the heart rests on.
+  let heartBase = null;
+  function heartFloor(x) {
+    if (!heartBase) {
+      heartBase = new Map();
+      for (const [hx, hy] of outlinePts(diaCut.heart.getAttribute('d'), diaCut.heart)) {
+        const i = Math.round(hx / 4);
+        if (hy > (heartBase.get(i) ?? -Infinity)) heartBase.set(i, hy);
+      }
+    }
+    const i = x / 4, a = heartBase.get(Math.floor(i)), b = heartBase.get(Math.ceil(i));
+    return a == null || b == null ? -Infinity : a + (b - a) * (i - Math.floor(i)) + 3.5;
+  }
   let diaKey = '';
   // An outline's points: a polyline's own (the diseased liver), else sampled once along the curve.
   const outlineCache = new Map();
@@ -4564,17 +4579,20 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     add(diaCut.liver, 560, 350, shrink);
     add(diaCut.stomach, 0, 0, 1);
     add(diaCut.spleen, SPLEEN_CENTER[0], SPLEEN_CENTER[1], sc);
-    // Upper hull, left to right (monotone chain).
-    pts.sort((p, q) => p[0] - q[0] || p[1] - q[1]);
-    const hull = [];
-    for (const p of pts) {
-      while (hull.length > 1) {
-        const [o, a] = hull.slice(-2);
-        if ((a[0] - o[0]) * (p[1] - o[1]) - (a[1] - o[1]) * (p[0] - o[0]) > 0) break;
-        hull.pop();
-      }
-      hull.push(p);
+    // Along the top of the organs (Mohammad, 20 Oct: it runs on the liver's dome, and the heart rests on it): the highest
+    // organ point in each column, smoothed, never lower than the organs themselves.
+    const x0 = Math.min(...pts.map((p) => p[0])), x1 = Math.max(...pts.map((p) => p[0])), n = Math.ceil((x1 - x0) / DIA_COL) + 1;
+    const top = new Array(n).fill(Infinity);
+    for (const [x, y] of pts) { const i = Math.round((x - x0) / DIA_COL); if (y < top[i]) top[i] = y; }
+    for (let i = 0; i < n; i++) if (!Number.isFinite(top[i])) {   // (a column no organ reaches: across from its neighbours)
+      let a = i - 1, b = i + 1;
+      while (b < n && !Number.isFinite(top[b])) b++;
+      top[i] = b >= n ? top[a] : a < 0 ? top[b] : top[a] + (top[b] - top[a]) * (i - a) / (b - a);
     }
+    let sm = top;
+    for (let k = 0; k < 4; k++) sm = sm.map((v, i) => (sm[Math.max(0, i - 1)] + 2 * v + sm[Math.min(n - 1, i + 1)]) / 4);
+    const hull = sm.map((v, i) => [x0 + i * DIA_COL, Math.min(v, top[i])]);
+    hull[0][0] = x0; hull[n - 1][0] = x1;
     // A long straight run of the hull (across from the liver to the spleen) arches up a little, as
     // the left dome does over the fundus: tangent at both ends, highest in the middle.
     const arched = [hull[0]];
@@ -4593,7 +4611,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       const a = line[Math.max(0, i - 1)], b = line[Math.min(line.length - 1, i + 1)];
       const dx = b[0] - a[0], dy = b[1] - a[1], n = Math.hypot(dx, dy) || 1;
       return [p[0] + DIA_GAP * dy / n, p[1] - DIA_GAP * dx / n];
-    });
+    }).map(([x, y]) => [x, Math.max(y, heartFloor(x))]);   // (the heart rests on it: it passes just under the heart's base)
     // Through every point (Catmull-Rom as cubic Béziers).
     const f1 = (v) => v.toFixed(1);
     let d = `M${f1(out[0][0])} ${f1(out[0][1])}`;
@@ -4645,8 +4663,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     // it shows, and a fade in progress at that moment would be baked in (re-rastered over and
     // over, the tint flickered between mid-fade values).
     // (The congested liver takes the even dusk instead, so the tint's darker rim gives way to it as congestion comes in: organ
-    // picks, 20 Oct.)
-    liverTint.style.opacity = (lvT * k * (1 - smooth01(lvG / 0.05))).toFixed(3);
+    // picks, 20 Oct.) It hands over across the same range the dusk comes in by (morphLiver: g / 0.5), so a slightly raised
+    // pressure (after a TIPS) keeps some of the tint until the dusk is there to take its place.
+    liverTint.style.opacity = (lvT * k * (1 - smooth01(lvG / 0.5))).toFixed(3);
     if (lvT !== tT) widthEasing = organsEasing = true;
     const moving = lvC !== cT || lvG !== gT;
     // While it eases, the live drawing shows (a raster would move in steps); the plate is
@@ -4738,8 +4757,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       // 856 x 600 canvas into a texture took Safari about 220 ms, on nearly every frame of a fluid ease (a Timelines
       // recording of HVPG slide 8 to 9, 17 Oct).
       const R = FLUID_R;
-      veins.setFluidSpans(cavityHalfWidths(bulge, R[1], R[3], FLUID_COLS), R);
-      if (liverFloor) veins.setFluidLiver(liverFloor);
+      veins.setFluidSpans(cavityHalfWidths(bulge, R[1], R[3], FLUID_COLS), R);   // (its second row: the liver's edge, setFluidLiver)
     }
     putA(organG.bowel, 'transform', `translate(0 ${(-bulge / 34 * 26).toFixed(1)})`);
     // The fluid level rises on a compressed scale (u^0.6), so a grade 1–2 effusion is a visible pool, not a sliver. Near the
