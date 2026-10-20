@@ -1,8 +1,10 @@
 // Presenter talk: the liver's two inflows, the portal vein and the hepatic artery, and the arterial buffer
 // between them (the slide fields are described at the top of decks.js). The hepatic artery is modeled but not
-// drawn on the plate, so its Doppler in the data card stands in for it.
+// drawn on the plate, so its Doppler in the data card stands in for it. Where the question is the share, the inflow bars
+// (tool kind 'flows', of 'inflow') split the liver's blood between the two vessels.
 
 const HA = (delta) => ({ kind: 'doppler', vessel: 'A_HEP', title: 'Hepatic artery', ...(delta ? { delta } : {}) });
+const INFLOW = { kind: 'flows', of: 'inflow' };
 
 export const TWO_INFLOWS = {
   id: 'two-inflows', level: 'foundation', title: 'The liver\'s two inflows', minutes: 9,
@@ -20,10 +22,10 @@ export const TWO_INFLOWS = {
   summary: 'The portal vein and the hepatic artery share the liver\'s blood. The artery buffers every fall in portal flow, after a clot, a TIPS or in end-stage cirrhosis; nothing buffers a fall in arterial flow.',
   slides: [
     {
-      id: 'dual', lens: 'origin', preset: 'healthy', cam: 'liver', tool: HA(), data: 'tiles', tiles: ['pvFlow', 'liver'], key: ['pvFlow'],
+      id: 'dual', lens: 'origin', preset: 'healthy', cam: 'liver', tool: INFLOW, data: 'tiles', tiles: ['pvFlow', 'liver'], key: ['pvFlow'],
       kicker: 'Two inflows', title: 'Two vessels feed the liver',
       line: 'About three quarters of the liver\'s blood arrives by the [portal vein](pv), {pvFlow} here, and a quarter by the hepatic artery. Each brings about half of the oxygen. Colored by origin, the two inflows enter the liver separately.',
-      notes: 'Portal blood has already passed through the gut and the spleen, so it is partly deoxygenated but rich in absorbed nutrients and gut hormones. Arterial blood is fully saturated, so the artery supplies about half of the oxygen with only a quarter of the flow. The Doppler on the right is the hepatic artery: a low-resistance waveform with flow throughout diastole.',
+      notes: 'Portal blood has already passed through the gut and the spleen, so it is partly deoxygenated but rich in absorbed nutrients and gut hormones. Arterial blood is fully saturated, so the artery supplies about half of the oxygen with only a quarter of the flow. The bars show the two inflows against each other: the portal vein carries about three quarters of the flow and the artery the rest. Later slides show the hepatic artery\'s Doppler, a low-resistance waveform with flow throughout diastole.',
       ask: ['What share of the liver\'s oxygen comes from the portal vein?', 'About half, although it carries about three quarters of the flow.'],
     },
     {
@@ -42,7 +44,7 @@ export const TWO_INFLOWS = {
       ask: ['Why does acute portal vein thrombosis rarely cause a liver infarct?', 'The hepatic artery dilates (the buffer response) and keeps the liver perfused.'],
     },
     {
-      id: 'switch', pill: false, lens: 'flow', cam: 'portal', tool: HA('dual'), data: 'tiles', tiles: ['liver'], key: ['liver'], delta: 'dual',
+      id: 'switch', pill: false, lens: 'flow', cam: 'portal', tool: INFLOW, data: 'tiles', tiles: ['liver'], key: ['liver'], delta: 'dual',
       compare: [{ label: 'Buffer on', own: true, params: { habrStrength: 1 } }, { label: 'Buffer off', params: { habrStrength: 0 } }],
       kicker: 'The buffer', site: 'pre', title: 'Without the buffer the liver loses far more blood',
       line: 'The liver adjusts its arterial inflow to portal flow, never the reverse. With the buffer switched off, impossible in a patient, liver blood flow falls to about 40% of normal. Colored by flow, the hepatic artery and sinusoids thin.',
@@ -66,7 +68,7 @@ export const TWO_INFLOWS = {
       ask: ['Why does the hepatic artery velocity rise in advanced cirrhosis?', 'Portal inflow to the liver falls, and the buffer response dilates the artery.'],
     },
     {
-      id: 'tips', lens: 'origin', params: { tips: { on: true } }, cam: 'liver', sites: ['split'], mark: { edges: ['TIPS'], label: 'TIPS', kind: 'treat' }, tool: HA('cirr'), data: 'tiles', tiles: ['liver', 'shunt'], key: ['liver'], delta: 'cirr',
+      id: 'tips', lens: 'origin', params: { tips: { on: true } }, cam: 'liver', sites: ['split'], mark: { edges: ['TIPS'], label: 'TIPS', kind: 'treat' }, tool: INFLOW, data: 'tiles', tiles: ['liver', 'shunt'], key: ['liver'], delta: 'cirr',
       kicker: 'Cirrhosis and TIPS', site: 'sin', title: 'After TIPS, most liver inflow is arterial',
       line: 'Flow in the intrahepatic portal branches turns toward the stent, and hepatic artery velocity rises as the buffer response dilates the artery. Total liver blood flow falls to {liver} of normal. Colored by origin, the sinusoids carry only arterial blood.',
       notes: 'After a TIPS, flow in the intrahepatic portal branches usually turns toward the stent, and the hepatic artery velocity rises as the buffer responds. A liver with little reserve may not cope: a rising bilirubin and encephalopathy are the warning signs, and the reason TIPS is avoided in very advanced liver failure. On the figure, colored by origin, the sinusoids carry only arterial blood, while portal blood runs through the stent.',
@@ -81,7 +83,7 @@ export const TWO_INFLOWS = {
       ask: ['The portal vein Doppler signal lies below the baseline on a standard display. What does that mean?', 'Hepatofugal flow: blood leaves the liver by the portal vein, a sign of very advanced portal hypertension.'],
     },
     {
-      id: 'summary', visual: 'table', cols: ['pvFlow', 'liver', 'shunt'], asc: false, vs: 'first', rowHead: 'Patient',
+      id: 'summary', visual: 'table', cols: ['pvFlow', 'liver', 'shunt', 'wave'], wave: 'A_HEP', asc: false, vs: 'first', rowHead: 'Patient',
       of: [{ preset: 'healthy', kicker: 'Reference', title: 'Healthy', ref: true }, { id: 'clot', kicker: 'Portal vein', title: 'Portal vein clot' }, { id: 'artery', kicker: 'Artery', title: 'Hepatic artery clot' },
         { id: 'cirr', kicker: 'Cirrhosis', title: 'Decompensated' }, { id: 'tips', kicker: 'Cirrhosis', title: 'After TIPS' }, { id: 'fugal', kicker: 'Cirrhosis', title: 'Hepatofugal flow' }],
       kicker: 'Summary', title: 'Hepatic arterial buffer response',
