@@ -227,7 +227,25 @@ test('the Circulation meal slide glows the small bowel from the start of its tim
   const [x0, y0, x1, y1] = [Math.min(...pts.map((p) => p[0])), Math.min(...pts.map((p) => p[1])), Math.max(...pts.map((p) => p[0])), Math.max(...pts.map((p) => p[1]))];
   const reach = +/HEART_GLOW = \{ reach: (\d+)/.exec(STAGE)[1], [bx0, by0, bx1, by1] = REGIONS[s.cam];
   assert.ok(pts.length > 100 && x1 - x0 > 500, 'the real extent was read');
+  const [px0, py0, px1, py1] = REGIONS.portal;
+  assert.ok(bx0 <= px0 && by0 <= py0 && bx1 >= px1 && by1 >= py1, 'the portal system (confluence, trunk, splenic vein, SMV) stays in frame');
   assert.ok(bx0 <= x0 - reach && by0 <= y0 && bx1 >= x1 + reach && by1 >= y1 + reach, `the box ${REGIONS[s.cam]} holds the pile ${[x0, y0, x1, y1]} and ${reach} units of glow`);
+});
+
+test('Circulation 4/13 numbers each bed\'s vessels as a group, in a frame that holds every vessel and its leader', () => {
+  const circ = DECKS.find((d) => d.id === 'circulation'), s = circ.slides.find((x) => x.id === 'series');
+  assert.deepEqual(s.glow, [['V_INT', 'V_SPL', 'V_IMV'], ['SIN_RR', 'SIN_LL']]);
+  assert.ok(adopted(circ, s, 'glow:group'));
+  const [x0, y0, x1, y1] = s.cam;
+  // Each vessel's middle (and the solid stretch of one that fades out of its organ) lies inside the camera's box.
+  const paths = { V_INT: 'M756 800 C 752 758 700 716 690 660', V_SPL: 'M1034 360 C 1010 385 988 420 962 448', V_IMV: 'M932 690 C 925 620 905 560 880 505' };
+  for (const [id, d] of Object.entries(paths)) {
+    assert.equal(ORGANS.length > 0 && !!EDGES.find((e) => e.id === id), true);
+    const n = d.match(/-?[\d.]+/g).map(Number), at = (t) => { const [ax, ay, bx, by, cx, cy, dx, dy] = n.slice(-8), u = 1 - t; return [u * u * u * ax + 3 * u * u * t * bx + 3 * u * t * t * cx + t ** 3 * dx, u * u * u * ay + 3 * u * u * t * by + 3 * u * t * t * cy + t ** 3 * dy]; };
+    const [x, y] = at(id === 'V_SPL' ? 0.83 : 0.5);
+    assert.ok(x >= x0 && x <= x1 && y >= y0 && y <= y1, `${id} (${x.toFixed(0)}, ${y.toFixed(0)}) is in ${s.cam}`);
+  }
+  assert.match(STAGE, /arcMid\(geo\[x\]\.cur, TIP_FADE\[x\] > 0\.5 \? \(1 \+ TIP_FADE\[x\]\) \/ 2 : 0\.5\)/, 'a faded vein is aimed at on its solid stretch');
 });
 
 test('a lapse glow goes when the slide leaves, and is drawn from the pile\'s own live loops', () => {
@@ -238,6 +256,14 @@ test('a lapse glow goes when the slide leaves, and is drawn from the pile\'s own
   assert.match(STAGE, /if \(o\.kind === 'warm' && !warm\.has\(o\.id\)\) o\.on = false;/);
   // The warm layer reads the loops from the drawing itself (the pile's deep-tone tubes), not a copy of their path.
   assert.match(STAGE, /querySelectorAll\('\.ob-deep'\)/);
+  // The glow lies on the organs, under the vessels, after the plate's dimming (one strength with the plate up or down), and is
+  // read from the path's own text once (no measuring along it on a slide's start), and only where WebGL can draw it.
+  const GL = readFileSync(new URL('../src/ui/veins-gl.js', import.meta.url), 'utf8');
+  assert.match(GL, /if \(warmOn == 1\) pl = over\(texelFetch\(warmL, ip, 0\), pl\);/);
+  assert.ok(GL.indexOf('plateSat), pl.a) * plateAlpha') < GL.indexOf('warmOn == 1) pl'), 'after the dimming');
+  assert.match(STAGE, /soft: true, warm: true/);
+  assert.match(STAGE, /glLines && o\.warm/);
+  assert.match(STAGE, /const lines = warmLines\(d\) \|\| olRingsRaw\(/);
   assert.ok(readFileSync(new URL('../src/ui/organ-art.js', import.meta.url), 'utf8').includes('class=\\"ob-deep\\"'), 'the pile still draws .ob-deep tubes');
 });
 

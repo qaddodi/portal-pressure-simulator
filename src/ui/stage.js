@@ -9,7 +9,7 @@ import { STATION_VESSEL, meanVel, velNormal } from './velNormal.js?v=181dda5594'
 import { store, updateParams, varicesPresent, varixGrowth, shownVel } from './store.js?v=aaa74688dd';
 import { fibroReading } from './clock.js?v=8aa14cb690';
 import { s, h, fmt, fmtFlow, fp, clamp, lerp, toast, systemEdge, bloodColors, restBox, settledBox, putText } from './util.js?v=5814c6b396';
-import { createLobuleZoom } from './lobule-zoom.js?v=2cb788164b';
+import { createLobuleZoom } from './lobule-zoom.js?v=e6c7d28006';
 import { sinceSource } from './since-ref.js?v=ef1a818c75';
 import { runFlick, FLICK } from './flick.js?v=4bc709c801';
 import { inlineStyles } from './svg-inline.js?v=fc17cb73fe';
@@ -26,7 +26,7 @@ import { COLON_ART, BOWEL_ART, DUO_CLIPS, DUO_A, DUO_B } from './organ-art.js?v=
 import { createRouter } from './circuit-router.js?v=0ee9e02fc6';
 import { gpuProbe } from './gpu-probe.js?v=d4aeccea90';
 import { plateStrips, premultiply } from './plate-upload.js?v=2dd6db2a18';
-import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, ORIGIN_GREY } from './veins-gl.js?v=75eb7c8694';
+import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, ORIGIN_GREY } from './veins-gl.js?v=b720f81223';
 import { varixBead, beadRadius } from './varix-bead.js?v=ac0e84fd89';
 import { advanceStream, createReversalHold, bleedShapes, stepBleedFade, fadeBleedShapes, chevFlowLevel, keyChevron, KEY_CHEV_LANES, originFractions, oxygenFor, ORIGIN_N, createBolus, DYE_BINS, KAPPA, STASIS_MIN_D, HIDDEN_SECONDS } from './blood.js?v=e668d01823';
 import { frameFor, cancelFrame, noteDraw, setSaver as setFrameSaver, paceMs } from './frame.js?v=2ce59939b2';
@@ -431,14 +431,15 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const wedgeTip = (id) => { const c = geo[WEDGE_BRANCH[id]]?.cur; return c?.length > 1 ? headOf(c.slice().reverse(), 0.55).at(-1) : null; };
   const nodePos = (id, t) => { if (WEDGE_BRANCH[id]) { const w = wedgeTip(id); if (w) return w; } const [a, c] = NODE_POS[id]; return [lerp(a[0], c[0], t), lerp(a[1], c[1], t)]; };
   // The point half way along a drawn vessel, by length, and the direction it runs there.
-  function arcMid(pts) {
+  // (at: how far along, 0.5 by default: the middle.)
+  function arcMid(pts, at = 0.5) {
     let total = 0;
     for (let i = 1; i < pts.length; i++) total += Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]);
     let run = 0;
     for (let i = 1; i < pts.length; i++) {
       const seg = Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]);
-      if (run + seg >= total / 2 && seg > 0) {
-        const u = (total / 2 - run) / seg, dx = pts[i][0] - pts[i - 1][0], dy = pts[i][1] - pts[i - 1][1];
+      if (run + seg >= total * at && seg > 0) {
+        const u = (total * at - run) / seg, dx = pts[i][0] - pts[i - 1][0], dy = pts[i][1] - pts[i - 1][1];
         return [pts[i - 1][0] + dx * u, pts[i - 1][1] + dy * u, dx / seg, dy / seg];
       }
       run += seg;
@@ -4002,11 +4003,30 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const olKey = (id) => organEls[id].getAttribute('d') + '|' + (organG[id].getAttribute('transform') || '');
   // The small bowel's loops as they are drawn now: the centre line of each tube of its pile (the deep-tone stroke under the loops,
   // .ob-deep in organ-art.js), read from the live drawing, so a pile that is reshaped is followed without a copy of its path here.
-  // A warm layer (see WARM) is a soft glow along these, under the organs, so the loops themselves light up.
-  const WARM = { reach: 34, alpha: 0.45 };   // (half width in world units, and strength at the line)
-  const warmEls = new Map();   // (the drawing's tubes, found once: the key below is read every frame)
+  // A warm layer (see WARM) is a soft glow along these, on the organs and under the vessels, so the loops themselves light up.
+  // The tubes are plain polylines: their points are read from the path's own text once (cached by it), every other point, and each
+  // build is only the group's transform over them (no path measuring: the ascites moves the bowel, and each move builds again).
+  const WARM = { reach: 30, alpha: 0.34 };   // (half width in world units, and strength at the line)
+  const warmEls = new Map(), warmPts = new Map();   // (the drawing's tubes, found once: the key below is read every frame)
   const warmDs = (id) => (warmEls.get(id) || warmEls.set(id, [...organG[id].querySelectorAll('.ob-deep')]).get(id)).map((el) => el.getAttribute('d')).filter(Boolean);
-  const warmRings = (id) => warmDs(id).flatMap((d) => olRingsRaw(id, false, d, 4));
+  function warmLines(d) {
+    let r = warmPts.get(d);
+    if (!r) {
+      // (Only M and L: a path with curves in it is measured along instead.)
+      r = /^[ML\d.,\s-]+$/.test(d)
+        ? d.split('M').filter(Boolean).map((c) => { const n = c.match(/-?\d*\.?\d+/g).map(Number), pts = []; for (let i = 0; i + 1 < n.length; i += 4) pts.push([n[i], n[i + 1]]); if (n.length >= 4 && (n.length / 2 - 1) % 2) pts.push([n[n.length - 2], n[n.length - 1]]); return pts; })
+        : null;
+      warmPts.set(d, r);
+    }
+    return r;
+  }
+  function warmRings(id) {
+    const m = organG[id].transform.baseVal.consolidate()?.matrix;
+    return warmDs(id).flatMap((d) => {
+      const lines = warmLines(d) || olRingsRaw(id, true, d, 6);
+      return lines.filter((r) => r.length > 1).map((r) => (m ? r.map(([x, y]) => [m.a * x + m.c * y + m.e, m.b * x + m.d * y + m.f]) : r));
+    });
+  }
   const warmKey = (id) => olKey(id) + '|' + warmDs(id).map((d) => d.length + d.slice(-30)).join('|');
   const olRingsOf = (o) => (o.kind === 'warm' ? warmRings(o.id) : olRings(o.id));
   function olSet(kind, id) {
@@ -4036,7 +4056,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       if (o) { o.on = true; o.col = col(it.tone); o.glow = id === 'heart' || it.glow; o.fade = it.fade; } else if (organEls[id].getAttribute('d')) olList.push({ kind: 'pin', id, key: olKey(id), rings: olRings(id), a: 0, on: true, col: col(it.tone), glow: id === 'heart' || it.glow, fade: it.fade });
     }
     // (warm: the organ's loops lit from under, beside its outline's glow: the bowel's pile, eased with the same fade.)
-    const warm = new Map(items.filter((o) => o.warm && organEls[o.id]?.getAttribute('d') && warmDs(o.id).length).map((o) => [o.id, o]));
+    const warm = new Map(items.filter((o) => glLines && o.warm && organEls[o.id]?.getAttribute('d') && warmDs(o.id).length).map((o) => [o.id, o]));
     for (const o of olList) if (o.kind === 'warm' && !warm.has(o.id)) o.on = false;
     for (const [id, it] of warm) {
       const o = olList.find((x) => x.kind === 'warm' && x.id === id);
@@ -4194,7 +4214,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
             let tx = pb[0] - pa[0], ty = pb[1] - pa[1]; const l = Math.hypot(tx, ty) || 1; tx /= l; ty /= l;
             V.push(p[0], p[1], -ty, tx, -1, WARM.reach, p[0], p[1], -ty, tx, 1, WARM.reach);
           }
-          draws.push({ first, count: n * 2, col, alpha: WARM.alpha * ease, soft: true });
+          draws.push({ first, count: n * 2, col, alpha: WARM.alpha * ease, soft: true, warm: true });
           first += n * 2;
         }
         continue;
@@ -7808,7 +7828,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         } else {
           const ids = g.ids.filter((x) => geo[x]?.cur?.length > 1 && !E[x].g.classList.contains('coll-ghost'));
           if (!ids.length) continue;
-          const mids = ids.map((x) => worldToLocal(...arcMid(geo[x].cur)));
+          // (A vein that fades out of its organ (TIP_FADE) is aimed at in the middle of its solid stretch, not at its middle, which is faint.)
+          const mids = ids.map((x) => worldToLocal(...arcMid(geo[x].cur, TIP_FADE[x] > 0.5 ? (1 + TIP_FADE[x]) / 2 : 0.5)));
           // (A group's number stands between its vessels, on a leader to the middle of each: fans.)
           if (g.group && mids.length > 1) { fans = mids; ax = mids.reduce((a, p) => a + p[0], 0) / mids.length; ay = mids.reduce((a, p) => a + p[1], 0) / mids.length; near = 4; }
           else { [ax, ay] = mids[0]; near = 4 + ((E[ids[0]].width || 4) * k) / 2; }
