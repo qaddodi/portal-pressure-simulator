@@ -108,3 +108,14 @@ test('a stacked card keeps one size with its readings tucked or out: it is fitte
   assert.match(js, /const under = el === ui\.data && splitSheet\(el\) && !el\.classList\.contains\('tool-open'\) && !el\.classList\.contains\('pz-sliding'\);\n\s*if \(under\) el\.classList\.add\('tool-open'\);/);
   assert.match(js, /if \(under\) \{ el\.classList\.remove\('tool-open'\); ui\.lipMO\?\.takeRecords\(\); \}\n\s*fitDone\.set\(el, fitSig\(el\)\);/);
 });
+
+// Mohammad, 20 Oct (iPhone, TIPS Doppler 3, "With TIPS"): tucking the readings away, the instrument card's glass cut through the
+// portal blood bar's names. The card's box was capped at its tucked height while the readings were still partly out, so the box
+// was shorter than the instrument and the glass, which ends the readings' travel above the box's foot, ended inside the bar's names.
+test('a stacked card\'s cap grows with its readings while they slide, so its glass never cuts the instrument', () => {
+  assert.match(css, /\.pz\.stack\.stack \.pz-data\.pz-sheet\.pz-sheet\.pz-sliding:not\(\.tool-open\) \{ --pz-grow: calc\(var\(--pz-u\) \* var\(--pz-d, 0px\)\); \}/, 'mid-slide the cap grows by the share of the readings that is out');
+  assert.doesNotMatch(css, /\.tool-open \{[^}]*--pz-grow/, 'open, the open cap already holds them');
+  assert.match(js, /const grow = splitSheet\(dd\) \? ' \+ var\(--pz-grow, 0px\)' : '';\n\s*if \(room > 0\) dd\.style\.maxHeight = cs\.maxHeight === 'none' \? `calc\(\$\{room\}px\$\{grow\}\)` : `calc\(min\(\$\{cs\.maxHeight\}, \$\{room\}px\)\$\{grow\}\)`;/, 'the phone\'s cap takes it');
+  // (Fitted at rest, never mid-slide: fitCards' stacked fit runs only without .pz-sliding, so the grow is 0 there and the fit is as before.)
+  assert.match(js, /const under = el === ui\.data && splitSheet\(el\) && !el\.classList\.contains\('tool-open'\) && !el\.classList\.contains\('pz-sliding'\);/);
+});

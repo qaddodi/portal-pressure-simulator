@@ -3009,7 +3009,11 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     // 90-99 %, Endoscopy 4 on an iPhone. And 2 px more: the card's border and rounding had left it 99.6 %.)
     if (p && t) { const cs = getComputedStyle(dd), lip = lipOn(dd) ? LIP : 0, fig = phoneCap != null && !phoneShut && !dd.classList.contains('tool-open') && !('folding' in dd.dataset) ? Math.max(0, phoneFig / k - lip - 2) : 0;
       const room = Math.floor((t.top - wr.top) / k - (parseFloat(cs.top) || 0) - 16 - 8 - lip - fig);
-      if (room > 0) dd.style.maxHeight = cs.maxHeight === 'none' ? `${room}px` : `min(${cs.maxHeight}, ${room}px)`; }
+      // (An upright phone's stacked card grows by its readings' card as that slides out or back (--pz-grow, styles/app.css): capped
+      // at its tucked height mid-slide, the card's box came out shorter than the instrument, so the instrument card's glass, which ends
+      // the readings' travel above the box's foot, cut through the portal blood bar's names, Mohammad on an iPhone, TIPS Doppler 3, 20 Oct.)
+      const grow = splitSheet(dd) ? ' + var(--pz-grow, 0px)' : '';
+      if (room > 0) dd.style.maxHeight = cs.maxHeight === 'none' ? `calc(${room}px${grow})` : `calc(min(${cs.maxHeight}, ${room}px)${grow})`; }
     // (A wider screen: a data card at the top right ends 8 px above the colour key standing on the nav pill (a phone held sideways had covered it).)
     if (!p && !below && ui.fk.dataset.empty == null && !ui.bar.hidden) {
       const f = ui.fk, was = f.hidden; f.hidden = false; const q = f.getBoundingClientRect(); f.hidden = was;
