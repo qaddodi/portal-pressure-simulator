@@ -52,7 +52,7 @@ export const TIPS_DOPPLER = {
       // loses (its buffer response, with some arterioportal shunting): the patch stands for both, so the stent reads 90–190 cm/s,
       // the main portal vein over 30 cm/s and the left portal vein clearly reversed, as on a working TIPS.
       id: 'stent', params: { tips: { on: true, d: 9 }, splanchnicTone: 0.7, habrStrength: 1.5, apShunt: 0.5 }, days: 30, cam: 'liver', lens: 'flow', labels: ['CONF'],
-      mark: { edges: ['TIPS'], label: 'Covered stent', kind: 'treat' }, data: 'tiles', tiles: ['ppg', 'shunt'], key: ['ppg'], delta: 'before',
+      data: 'tiles', tiles: ['ppg', 'shunt'], key: ['ppg'], delta: 'before',
       kicker: 'A working TIPS', title: 'The stent carries most of the portal flow',
       line: 'A covered stent joins the [right portal vein](RPV) to the right hepatic vein. Colored by flow, it is the busiest vessel in the liver, and the PPG falls from {ppg@before} before the TIPS to {ppg}.',
       notes: 'A covered stent, here 9 mm wide, runs through the liver from the right portal vein to the right hepatic vein. The low-resistance path takes most of the portal blood straight to the heart, so the gradient falls. Colored by flow, each vessel shows how much blood it carries. A baseline Doppler is done in the first weeks after the procedure, and every later scan is compared with it.',
@@ -60,7 +60,7 @@ export const TIPS_DOPPLER = {
     },
     {
       // The gate moves along the stent with the buttons; its third glows (white on the dark themes) and the probe's gate sits on it.
-      id: 'jet', cam: 'liver', lens: 'velocity', mark: { edges: ['TIPS'], label: 'Covered stent', kind: 'treat' }, tool: { kind: 'doppler', vessel: 'TIPS', gate: 'mid', points: true },
+      id: 'jet', cam: 'liver', lens: 'velocity', tool: { kind: 'doppler', vessel: 'TIPS', gate: 'mid', points: true },
       compare: [{ label: 'Proximal', gate: 'proximal' }, { label: 'Mid', gate: 'mid', own: true }, { label: 'Distal', gate: 'distal' }],
       kicker: 'A working TIPS', title: 'The stent is sampled at three points',
       line: 'The Doppler reads the stent at its portal end (proximal), in the middle (mid) and at its hepatic vein end (distal). At any of them a velocity under {<90 cm/s} or over {>190 cm/s} suggests narrowing.',
