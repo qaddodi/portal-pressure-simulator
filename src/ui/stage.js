@@ -4721,9 +4721,15 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       while (b < n && !Number.isFinite(top[b])) b++;
       top[i] = b >= n ? top[a] : a < 0 ? top[b] : top[a] + (top[b] - top[a]) * (i - a) / (b - a);
     }
-    let sm = top;
+    // Narrow dips between organs (the gap between the stomach and the spleen) are bridged, so the dome passes over them
+    // instead of dropping into a V (Mohammad, 20 Oct): the profile raised to the highest point within DIA_BRIDGE columns,
+    // then lowered back to the lowest of those (never below an organ's top; broad shapes keep their form).
+    const DIA_BRIDGE = 12;
+    const win = (A, f) => A.map((_, i) => { let v = A[i]; for (let j = Math.max(0, i - DIA_BRIDGE); j <= Math.min(n - 1, i + DIA_BRIDGE); j++) v = f(v, A[j]); return v; });
+    const bridged = win(win(top, Math.min), Math.max);
+    let sm = bridged;
     for (let k = 0; k < 4; k++) sm = sm.map((v, i) => (sm[Math.max(0, i - 1)] + 2 * v + sm[Math.min(n - 1, i + 1)]) / 4);
-    const hull = sm.map((v, i) => [x0 + i * DIA_COL, Math.min(v, top[i])]);
+    const hull = sm.map((v, i) => [x0 + i * DIA_COL, Math.min(v, bridged[i])]);
     hull[0][0] = x0; hull[n - 1][0] = x1;
     // A long straight run of the hull (across from the liver to the spleen) arches up a little, as
     // the left dome does over the fundus: tangent at both ends, highest in the middle.
@@ -4736,8 +4742,25 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       }
       arched.push(b);
     }
-    // Down the sides to the foot, then pushed out along each point's normal.
-    const line = [[hull[0][0], Math.max(DIA_FOOT, hull[0][1])], ...arched, [hull.at(-1)[0], Math.max(DIA_FOOT, hull.at(-1)[1])]]
+    // Down the sides to the foot along the organs' own sides (the outermost point in each row, smoothed, never inside the
+    // organ), so the dome turns down round the liver's and the spleen's edges with no corner and no notch where it meets the
+    // drop (Mohammad, 20 Oct: the straight drop from the outermost point left a squared corner and a kink), then pushed out
+    // along each point's normal.
+    const side = (from, sgn) => {
+      const y0 = from[1], m = Math.max(0, Math.ceil((DIA_FOOT - y0) / DIA_COL));
+      if (!m) return [[from[0], DIA_FOOT]];
+      const xs = new Array(m + 1).fill(NaN);
+      for (const [x, y] of pts) {
+        const j = Math.round((y - y0) / DIA_COL);
+        if (j >= 1 && j <= m && !(sgn * x <= sgn * xs[j])) xs[j] = x;
+      }
+      xs[0] = from[0];
+      for (let j = 1; j <= m; j++) if (Number.isNaN(xs[j])) xs[j] = xs[j - 1];
+      let sx = xs;
+      for (let k = 0; k < 3; k++) sx = sx.map((v, j) => (j === 0 ? v : (sx[j - 1] + 2 * v + sx[Math.min(m, j + 1)]) / 4));
+      return sx.map((v, j) => [sgn > 0 ? Math.max(v, xs[j]) : Math.min(v, xs[j]), y0 + j * DIA_COL]).slice(1);
+    };
+    const line = [...side(hull[0], -1).reverse(), ...arched, ...side(hull.at(-1), 1)]
       .filter((p, i, a) => i === 0 || Math.hypot(p[0] - a[i - 1][0], p[1] - a[i - 1][1]) > 3);
     const out = line.map((p, i) => {
       const a = line[Math.max(0, i - 1)], b = line[Math.min(line.length - 1, i + 1)];
