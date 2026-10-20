@@ -20,11 +20,11 @@ import { sinusoidSupported } from './sinusoid-view.js?v=98d1923b7c';
 import { NODES } from '../engine/topology.js?v=4044766e96';
 import { DISEASE_SRC, diseasePieces } from './diseases.js?v=fb8a5451c3';
 import { nb, listCase, plateletText } from './glue.js?v=5a0f63226b';
-import { DECKS, REGIONS, LEVELS, TOPICS, withOverview, siteTag, SITE_TAGS } from './decks.js?v=9afbb7d25d';
+import { DECKS, REGIONS, LEVELS, TOPICS, withOverview, siteTag, SITE_TAGS } from './decks.js?v=c954d310de';
 import { wholeGap, tenthGap } from '../engine/gap.js?v=3a5947c552';
 import { createHvpgMonitor } from './hvpg-proc.js?v=3a8585d477';
-import { createTools } from './presenter-tools.js?v=05f7684a72';
-import { openHandout } from './handout.js?v=5627af7d58';
+import { createTools } from './presenter-tools.js?v=dc14bdd688';
+import { openHandout } from './handout.js?v=0fabfe6532';
 import { noteResume, resumeFor } from './resume.js?v=f086f80ee8';
 import { parseDeckSource, checkDeck } from './deck-source.js?v=8395c650cd';
 import { NO_ASC, TILE, SCALE, bandsOf, rateOf, COLS, CUT, PRESS, fpv, dirAbs, dirRel, rateAbs, effOf, rateShown, tileShown, tipsGoal, liveSettled, shownSig } from './table-marks.js?v=1dc429fe31';
@@ -32,7 +32,7 @@ import { frameFor, cancelFrame } from './frame.js?v=2ce59939b2';
 import { createFigureKey } from './figure-key.js?v=7e170d78ce';
 import { traceWhen } from './trace-labels.js?v=fc916a95c6';
 import { flowCss, heatCss, dropCss, gradientCss, oxygenCss } from './colormap.js?v=1092d36abc';
-import { EXT, expandIds, stepExtra, markLabel, figureHooks, safe } from './slide-ext.js?v=87d13838ee';
+import { EXT, expandIds, stepExtra, markLabel, figureHooks, safe } from './slide-ext.js?v=535e2a078b';
 import { clotWords } from './callout-math.js?v=896bf06ebe';
 import { citeText, focusOf, ladderFromOf, ladderFromName } from './teach-extras.js?v=d8224d9bb5';
 import { DEMO_ALL } from './test-decks/demo-all-new-visuals.js?v=9aeadbb887';
@@ -289,8 +289,8 @@ function lineRe(s = {}) {
 // A view the words name ("With the vessels colored by congestion"): the view's name is a pill in that view's own colour,
 // as its key on the figure draws it (Mohammad, 16 Oct). It points at nothing on the figure, so it lights nothing.
 export const LENS_WORDS = { 'pressure drop': 'drop', 'blood origin': 'origin', origin: 'origin', velocity: 'velocity', 'flow volume': 'flow',
-  flow: 'flow', direction: 'direction', congestion: 'heat', change: 'delta', oxygen: 'oxygen' };
-export const LENS_TONE = { velocity: '--vel-normal', flow: '--lens-flow', direction: '--flow-reversed', heat: '--lens-heat', drop: '--lens-drop', delta: '--delta-high', origin: '--origin-spleen', oxygen: '--lens-oxygen' };
+  flow: 'flow', direction: 'direction', congestion: 'heat', change: 'delta', 'vein system': 'system', oxygen: 'oxygen' };
+export const LENS_TONE = { velocity: '--vel-normal', flow: '--lens-flow', direction: '--flow-reversed', heat: '--lens-heat', drop: '--lens-drop', delta: '--delta-high', origin: '--origin-spleen', system: '--tr-var', oxygen: '--lens-oxygen' };
 const LENS_RE = String.raw`\b([Cc]olou?red by )(${Object.keys(LENS_WORDS).sort((a, b) => b.length - a.length).join('|')})\b`;
 function rich(t, s = {}, fp = null, tips = false) {
   const { re, tl } = lineRe(s);

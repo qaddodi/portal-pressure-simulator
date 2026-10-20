@@ -45,6 +45,10 @@ export const ADOPTED = {
   'tap/tips': ['kind:fluid'],
   'spleen/grown': ['normalOutline', 'calipers'],
   'spleen/later': ['calipers'],
+  'varices/collat': ['lens:system'],
+  'varices/lapse': ['calipers', 'normalOutline'],
+  'varices/eso': ['spot'],
+  'varices/umbilical': ['kind:flows'],
 };
 
 /** Whether the slide d/s may use the field. */
@@ -56,5 +60,6 @@ export function uses(s, field) {
   if (kind === 'kind') return s.tool?.kind === name;
   if (kind === 'tool') return s.tool?.[name] !== undefined;
   if (kind === 'cols') return (s.cols || []).includes(name);
+  if (kind === 'lens') return s.lens === name;
   return s[field] !== undefined;
 }

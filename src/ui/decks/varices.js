@@ -15,15 +15,15 @@ export const VARICES = {
   ],
   slides: [
     {
-      id: 'collat', lens: 'origin', preset: 'csph', cam: 'fit', glow: [{ id: 'lgv', soft: true }], data: 'tiles', tiles: ['hvpg', 'varix', 'spleen', 'plt'],
+      id: 'collat', lens: 'system', preset: 'csph', cam: 'fit', glow: [{ id: 'lgv', soft: true }], data: 'tiles', tiles: ['hvpg', 'varix', 'spleen', 'plt'],
       kicker: 'Collaterals', site: 'sin', title: 'Collaterals open where portal and systemic veins meet',
       vignette: 'A 59-year-old man with alcohol-associated cirrhosis keeps drinking. His platelets are 88,000/µL, and EGD shows small esophageal varices.',
-      line: 'They form at the gastroesophageal junction, the umbilicus, the rectum and the retroperitoneum, and as splenorenal and gastrorenal shunts, some by reopening existing channels and some as new vessels. Colored by origin, gut and splenic colors appear in them.',
-      notes: 'Portosystemic collaterals open where the portal and systemic venous beds meet: at the gastroesophageal junction (left gastric and short gastric veins to the azygos), the umbilicus (paraumbilical veins), the rectum (superior to middle and inferior rectal veins), the retroperitoneum (veins of Retzius), and through splenorenal and gastrorenal shunts. They form by reopening existing channels and by new vessel growth, driven by the portal-to-systemic gradient. Even large ones do not relieve portal hypertension: splanchnic inflow rises to fill them. On the figure, colored by origin, gut and splenic colors appear in the collaterals and the systemic veins they drain into.',
+      line: 'They form at the gastroesophageal junction, the umbilicus, the rectum and the retroperitoneum, and as splenorenal and gastrorenal shunts, some by reopening existing channels and some as new vessels. Colored by vein system, the collaterals stand out between the portal and systemic veins.',
+      notes: 'Portosystemic collaterals open where the portal and systemic venous beds meet: at the gastroesophageal junction (left gastric and short gastric veins to the azygos), the umbilicus (paraumbilical veins), the rectum (superior to middle and inferior rectal veins), the retroperitoneum (veins of Retzius), and through splenorenal and gastrorenal shunts. They form by reopening existing channels and by new vessel growth, driven by the portal-to-systemic gradient. Even large ones do not relieve portal hypertension: splanchnic inflow rises to fill them. On the figure, colored by vein system, the collaterals stand out in a color of their own between the portal veins and the systemic veins they drain into.',
       ask: ['Name four places where portosystemic collaterals form.', 'The gastroesophageal junction, the umbilicus, the rectum, the retroperitoneum (and splenorenal and gastrorenal shunts).'],
     },
     {
-      id: 'lapse', days: 180, ramp: { cirrhosis: [0.6, 0.85] }, lapse: { seconds: 10 }, cam: 'fit', tool: { kind: 'flowtime', clock: 'days', lines: ['hvpg', 'varix'], title: 'HVPG and varix over the days' }, data: 'tiles', tiles: ['hvpg', 'varix', 'spleen', 'plt'], delta: true,
+      id: 'lapse', days: 180, ramp: { cirrhosis: [0.6, 0.85] }, lapse: { seconds: 10 }, cam: 'fit', calipers: ['varix'], normalOutline: ['spleen'], tool: { kind: 'flowtime', clock: 'days', lines: ['hvpg', 'varix'], title: 'HVPG and varix over the days' }, data: 'tiles', tiles: ['hvpg', 'varix', 'spleen', 'plt'], delta: true,
       kicker: 'Collaterals', site: 'sin', title: 'Varices grow as the gradient climbs',
       line: 'Over six months the HVPG climbs from {hvpg@collat} to {hvpg}. Small varices become large, the spleen enlarges and platelets fall.',
       caveat: 'In patients this takes years: about 1 in 10 small varices become large each year.',
@@ -31,7 +31,7 @@ export const VARICES = {
       ask: ['Which tiles warn that varices are growing, without a scope?', 'The falling platelets and the growing spleen.'],
     },
     {
-      id: 'eso', lens: 'flow', cam: 'varices', labels: ['LGV', 'VAR', 'AZY'], terms: ['lgv', 'azy', 'varix'], mark: { edges: ['C1a', 'C1b'], label: 'Esophageal varices', kind: 'note' }, data: 'tiles', tiles: ['varix', 'hvpg'], key: ['varix'],
+      id: 'eso', lens: 'flow', cam: 'varices', spot: ['@esophageal'], labels: ['LGV', 'VAR', 'AZY'], terms: ['lgv', 'azy', 'varix'], mark: { edges: ['C1a', 'C1b'], label: 'Esophageal varices', kind: 'note' }, data: 'tiles', tiles: ['varix', 'hvpg'], key: ['varix'],
       kicker: 'Varices', site: 'sin', title: 'Esophageal varices drain to the azygos vein',
       line: 'The left gastric vein (the coronary vein) and the short gastric veins carry portal blood through the lower esophageal wall to the azygos; colored by flow, the varices there fill. Under 5 mm they are small; over 5 mm, large.',
       notes: 'Gastroesophageal varices are the collaterals that matter most, because they bleed. Blood runs from the left gastric (coronary) and short gastric veins through veins in the wall of the lower esophagus to the azygos system. Both layers enlarge: the palisade veins in the lamina propria, which the scope sees, and the submucosal veins beneath them. At endoscopy small varices are under 5 mm and large ones over 5 mm; red wale marks are thin spots in the wall. About half of patients have varices when cirrhosis is diagnosed. On the figure, colored by flow, the varices and the azygos vein carry blood they barely carry in health.',
@@ -62,7 +62,7 @@ export const VARICES = {
       ask: ['Gastric varices, a large spleen and normal liver tests after pancreatitis. Diagnosis and cure?', 'Splenic vein thrombosis; splenectomy, or splenic artery embolization.'],
     },
     {
-      id: 'umbilical', preset: 'cirr-decomp', cam: 'wall', labels: ['LPV'], terms: ['lpv', 'pv'], mark: { edges: ['C3'], label: 'Paraumbilical vein', kind: 'note' }, data: 'tiles', tiles: ['shunt', 'liver'],
+      id: 'umbilical', preset: 'cirr-decomp', cam: 'wall', labels: ['LPV'], terms: ['lpv', 'pv'], mark: { edges: ['C3'], label: 'Paraumbilical vein', kind: 'note' }, tool: { kind: 'flows' }, data: 'tiles', tiles: ['liver'],
       kicker: 'Other collaterals', site: 'sin', title: 'The paraumbilical vein reopens',
       line: 'It runs in the falciform ligament from the left portal vein to the abdominal wall. Dilated veins radiating from the navel are called caput medusae, and you may hear a venous hum over them.',
       notes: 'The paraumbilical veins run in the falciform ligament from the left portal vein to the abdominal wall. When they enlarge, blood flows away from the liver through them; dilated veins radiating from the umbilicus form a caput medusae, and a venous hum may be heard over them (Cruveilhier–Baumgarten). The flow runs away from the umbilicus, unlike the upward flow of IVC obstruction. These collaterals rarely bleed, but a large one steals portal blood from the liver.',

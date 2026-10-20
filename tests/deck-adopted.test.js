@@ -15,7 +15,7 @@ test('every adopted slide exists and uses each field it is allowed', () => {
 });
 
 test('the field names read as written', () => {
-  const s = { tool: { kind: 'lumen', bands: ['anticoag'] }, cols: ['pvFlow', 'wave'], ripple: true };
-  for (const f of ['kind:lumen', 'tool.bands', 'cols.wave', 'ripple']) assert.ok(uses(s, f), f);
-  for (const f of ['kind:flows', 'tool.mode', 'cols.liver', 'calipers']) assert.ok(!uses(s, f), f);
+  const s = { tool: { kind: 'lumen', bands: ['anticoag'] }, cols: ['pvFlow', 'wave'], ripple: true, lens: 'system' };
+  for (const f of ['kind:lumen', 'tool.bands', 'cols.wave', 'ripple', 'lens:system']) assert.ok(uses(s, f), f);
+  for (const f of ['kind:flows', 'tool.mode', 'cols.liver', 'calipers', 'lens:since']) assert.ok(!uses(s, f), f);
 });

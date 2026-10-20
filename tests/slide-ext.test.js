@@ -87,7 +87,7 @@ test('nothing a built-in deck produces changes: targets, glows, marks and steps'
       assert.ok(!newNames.has(id) && !EXT.organs.includes(id), `${at}: glow "${id}" would now be a package's target or organ`);
       assert.equal(merged[id], built[id], `${at}: glow "${id}" keeps its colour`);
     }
-    if (s.lens) assert.ok(BUILT.lenses.has(s.lens), `${at}: lens ${s.lens}`);
+    if (s.lens && !adopted(d, s, `lens:${s.lens}`)) assert.ok(BUILT.lenses.has(s.lens), `${at}: lens ${s.lens}`);
     if (s.visual && !adopted(d, s, 'visual')) assert.ok(BUILT.visuals.has(s.visual), `${at}: visual ${s.visual}`);
     if (s.tool && !adopted(d, s, `kind:${s.tool.kind}`)) assert.ok(BUILT.tools.has(s.tool.kind), `${at}: tool ${s.tool.kind}`);
   }

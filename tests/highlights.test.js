@@ -143,7 +143,7 @@ test('"the slide before" is the state the presenter shows for it, and the key na
 test('no built-in deck uses a package A field, so every talk looks as before', () => {
   for (const d of DECKS) for (const s of d.slides) {
     for (const k of ['spot', 'ripple', 'normalOutline', 'since', 'sinceLabel']) if (!adopted(d, s, k)) assert.equal(s[k], undefined, `${d.id}/${s.id}: ${k}`);
-    assert.ok(!['system', 'since'].includes(s.lens), `${d.id}/${s.id}: lens ${s.lens}`);
+    assert.ok(!['system', 'since'].includes(s.lens) || adopted(d, s, `lens:${s.lens}`), `${d.id}/${s.id}: lens ${s.lens}`);
     for (const g of s.glow || []) assert.ok(!String(typeof g === 'string' ? g : g.id).startsWith('@'), `${d.id}/${s.id}: glow set`);
   }
 });
