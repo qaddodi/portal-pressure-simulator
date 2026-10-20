@@ -44,7 +44,7 @@ test("a card's bottom edge is tappable: the play bar's empty row takes no touche
 });
 
 test('a new spot along a stent starts a new recording with its own scale, and the peak tile reads that spot', () => {
-  assert.match(src, /if \(g !== gateNow\) \{ gateNow = g; buf = \[\]; wl = null; synth = null; scale = null; steady\.probe = null; \}/);
+  assert.match(src, /if \(g !== gateNow\) \{ gateNow = g; buf = \[\]; wl = null; synth = null; scale = null; heldTo = null; steady\.probe = null; \}/);
   assert.match(src, /setStat\(statEls\.Peak\.dd, num\(pk \* gf\), 'cm\/s'\)/);
 });
 

@@ -1,11 +1,11 @@
 // Simulation host: owns the Engine, runs the clocks, streams frames (blueprint §13.4).
 // Used inside a Web Worker (src/worker.js) or on the main thread as a fallback.
 
-import { Engine } from './engine/engine.js?v=45634cdc12';
+import { Engine } from './engine/engine.js?v=d089088973';
 import { computeMetrics } from './engine/metrics.js?v=e566c70621';
 import { tenthGap } from './engine/gap.js?v=3a5947c552';
 import { detectEvents } from './engine/events.js?v=582dd803a9';
-import { explain } from './engine/explain.js?v=536bd1bedd';
+import { explain } from './engine/explain.js?v=55d466a3a5';
 import { deepMerge, sanitizeParams, PRESETS } from './engine/scenario.js?v=1ee7733788';
 
 const SAMPLE_NODES = ['RA', 'IVCS', 'RHV', 'CONF', 'SIN_R', 'VAR', 'AO', 'SV', 'SMV'];
@@ -143,6 +143,8 @@ export function createCore(post) {
       pulsing: !!(eng.params.pulsatile || eng.beat),
       resp: !!eng.params.respiration,
       morphing: !!morph,
+      // A live change still settling (a slider moving, a button, eased in and relaxed): the Doppler holds its scale until it ends.
+      settling: performance.now() < relaxUntil || eng.easing(),
       phase: eng.phase(),
       P: Float32Array.from(eng.P),
       Pf: Float32Array.from(eng.Pf || eng.P),
@@ -156,7 +158,7 @@ export function createCore(post) {
       bleed: eng.bleed,
       events: eng.newEvents.splice(0),
       samples,
-      params: paramsDirty ? eng.params : undefined,
+      params: paramsDirty ? eng.paramsTarget() : undefined,
     };
     paramsDirty = false;
     frameDirty = false;
@@ -234,7 +236,7 @@ export function createCore(post) {
   // ('sequence' with fine days), then back to bedside time once the days are done.
   function lapseDays(n) {
     for (let k = 0; k < n && lapse; k++) {
-      if (lapse.ramp) eng.setParams(deepMerge(eng.params, rampAt(lapse.ramp, lapse.total - lapse.left + 1, lapse.total)));
+      if (lapse.ramp) eng.setParams(deepMerge(eng.paramsTarget(), rampAt(lapse.ramp, lapse.total - lapse.left + 1, lapse.total)));
       eng.advanceDays(1, { noRupture: true, silent: true });
       if (--lapse.left <= 0) { lapse = null; eng.settle(); clock = 'hemo'; speed = 1; diseaseAcc = 0; }
     }
@@ -274,8 +276,8 @@ export function createCore(post) {
     setParams({ params, settle, ease }) {
       morph = null;
       // UI-originated: not echoed back (avoids overwriting in-flight edits).
-      eng.setParams(sanitizeParams(params));
-      if (settle) eng.settle();
+      // (Its numbers eased in over a fraction of a second, so a slider moves the model, and the Doppler, without steps.)
+      if (settle) { eng.setParams(sanitizeParams(params)); eng.settle(); } else eng.easeParams(sanitizeParams(params));
       // ease (ms): the presenter's live buttons and sliders, eased to the new steady state over that long (see tick).
       relaxUntil = ease > 0 ? performance.now() + ease : 0;
     },

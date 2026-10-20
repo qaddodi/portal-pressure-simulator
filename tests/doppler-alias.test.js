@@ -11,7 +11,10 @@ const doppler = readFileSync(new URL('../src/ui/doppler.js', import.meta.url), '
 
 test('a fixed scale holds the Nyquist limit either side of the baseline, the span twice the limit', () => {
   // (scale is the dominant side's reach, so pxPerV = (baseF ≥ 0.5 ? baseY : H − baseY) / scale = H / (2 × limit))
-  assert.match(doppler, /if \(fixed\) \{ baseF = fixed\.base; scale = 2 \* fixed\.nyq \* Math\.max\(baseF, 1 - baseF\); settleAt = tNow; \}/);
+  // (the scale's choice is fitScale, dopplerWindow.js, given the slide's fixed scale on every frame)
+  const win = readFileSync(new URL('../src/ui/dopplerWindow.js', import.meta.url), 'utf8');
+  assert.match(win, /if \(fixed\) \{ st\.baseF = fixed\.base; st\.scale = 2 \* fixed\.nyq \* Math\.max\(st\.baseF, 1 - st\.baseF\); st\.settleAt = tNow; \}/);
+  assert.match(doppler, /\(\{ scale, baseF, settleAt, refit \} = fitScale\(\{ scale, baseF, settleAt, refit \}, \{ fixed, holding, fits, target, tbF, tNow \}\)\);/);
   for (const base of [0.5, 0.15, 0.85]) {
     const nyq = 80, H = 300, scale = 2 * nyq * Math.max(base, 1 - base), baseY = H * base;
     const pxPerV = (base >= 0.5 ? baseY : H - baseY) / scale;

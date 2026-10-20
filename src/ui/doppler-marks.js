@@ -4,7 +4,7 @@
 //   pair (V29):     a second slim trace under the main one, the vessel the worker always samples beside it (the main portal
 //                   vein and the right hepatic vein, worker-core.js sample), drawn over the same seconds.
 
-import { scaleFor } from './dopplerWindow.js?v=2067b803a2';
+import { scaleFor } from './dopplerWindow.js?v=1d34e63b32';
 
 /** The pulsatility index the reading names the pattern from (doppler.js interpret): the swing over the larger extreme. */
 export const pulsatility = (hi, lo) => { const big = Math.max(Math.abs(hi), Math.abs(lo)); return big > 0.5 ? (hi - lo) / big : 0; };

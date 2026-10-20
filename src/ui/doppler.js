@@ -10,9 +10,9 @@ import { FONT } from './charts.js?v=ea8ada79e9';
 import { logAction, shownVel, store } from './store.js?v=31ee79b6ab';
 import { DOPPLER_MODES, THETA, dopplerColor, shadeColor, swatchGradient } from './dopplerColor.js?v=f7d9d1cd90';
 import { frameFor, noteDraw, paceMs } from './frame.js?v=2ce59939b2';
-import { windowIndexFor, scaleFor } from './dopplerWindow.js?v=2067b803a2';
+import { windowIndexFor, scaleFor, fitScale } from './dopplerWindow.js?v=1d34e63b32';
 import { velNormal, dopplerVel } from './velNormal.js?v=181dda5594';
-import { caliperFrame, caliperLevel, caliperX, CAL_FADE, pairOf, pairBand, pairScale, PAIR_GAP } from './doppler-marks.js?v=93a0a638e4';
+import { caliperFrame, caliperLevel, caliperX, CAL_FADE, pairOf, pairBand, pairScale, PAIR_GAP } from './doppler-marks.js?v=15fc499dcd';
 const nextFrame = frameFor('doppler');
 
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
@@ -215,10 +215,10 @@ export function createDoppler({ onProbe, pickGate = true }) {
   }
   function ingest(f) {
     frame = f;
-    if (f.probe !== probe) { buf = []; wl = null; tOff = 0; synth = null; scale = null; steady.probe = null; probe = f.probe; if (probeSel.value !== probe) probeSel.value = probe; }
+    if (f.probe !== probe) { buf = []; wl = null; tOff = 0; synth = null; scale = null; heldTo = null; steady.probe = null; probe = f.probe; if (probeSel.value !== probe) probeSel.value = probe; }
     // A new spot along a stent is a new recording, as a new vessel is: the trace starts over and finds its own scale.
     const g = isStentProbe() ? gateOf() : '';
-    if (g !== gateNow) { gateNow = g; buf = []; wl = null; synth = null; scale = null; steady.probe = null; }
+    if (g !== gateNow) { gateNow = g; buf = []; wl = null; synth = null; scale = null; heldTo = null; steady.probe = null; }
     const s = f.samples;
     if (f.clock === 'disease') {
       if (!synth && buf.length) synth = startSynth();
@@ -241,6 +241,7 @@ export function createDoppler({ onProbe, pickGate = true }) {
     }
     if (!buf.length) return;
     const tNow = buf[buf.length - 1][0];
+    if (f.settling) heldTo = tNow;
     let cut = 0; while (cut < buf.length && buf[cut][0] < tNow - KEEP) cut++;
     if (cut) buf.splice(0, cut);
   }
@@ -253,7 +254,9 @@ export function createDoppler({ onProbe, pickGate = true }) {
     const tNow = buf[buf.length - 1][0];
     if (tNow - buf[0][0] < SETTLE) return null;
     let sum = 0, n = 0, vmax = -Infinity, vmin = Infinity;
-    for (let i = buf.length - 1; i >= 0 && buf[i][0] >= tNow - 3; i--) {
+    // (Once a live change has settled for HOLD_AFTER, only what the settled model shows: the scale fits the same samples.)
+    const from = heldTo != null && tNow - heldTo >= HOLD_AFTER ? Math.max(tNow - 3, heldTo) : tNow - 3;
+    for (let i = buf.length - 1; i >= 0 && buf[i][0] >= from; i--) {
       const v = buf[i][1]; sum += v; n++;
       if (v > vmax) vmax = v; if (v < vmin) vmin = v;
     }
@@ -504,6 +507,11 @@ export function createDoppler({ onProbe, pickGate = true }) {
   let fixed = null;     // a slide's fixed scale: { nyq (cm/s), base (0–1 from the top) }, or null to fit the signal
   let baseF = null;     // baseline position (fraction of height)
   let settleAt = 0;     // when the signal last fitted the current scale
+  // A live change settling (a what-if slider moving, a compare button, a change in Patients): the scale and baseline hold
+  // still until the model has settled, then fit what it shows since, in one change (Mohammad, 20 Oct: "let it settle before
+  // changing the Doppler"). heldTo: the record's time when the model last said it was settling; refit: a hold has ended.
+  let heldTo = null, refit = false;
+  const HOLD_AFTER = SETTLE;   // s of the settled signal recorded before the scale fits it (and the reading reads only it)
   let tDisp = null;     // the display clock (model seconds)
   let wallLast = 0;
   let ovLast = '', ovAt = 0, ovOn = false, ovTop = 26;   // the report in the top strip (see draw)
@@ -829,7 +837,10 @@ export function createDoppler({ onProbe, pickGate = true }) {
     // stayed small for a few seconds, never continuously (a moving scale would smear the picture).
     let pos = 0, neg = 0;
     const sgn = pol();
-    for (const [t, v0] of buf) if (t >= tNow - sweepSeconds && t <= tNow) { const v = sgn * v0; if (v > pos) pos = v; if (-v > neg) neg = -v; }
+    // (After a hold, only what the settled model shows: the sweep still on screen from before it would fit the scale twice.)
+    const since = heldTo != null && tNow - heldTo < sweepSeconds ? heldTo : -Infinity;
+    const holding = scale != null && heldTo != null && tNow - heldTo < HOLD_AFTER;
+    for (const [t, v0] of buf) if (t >= Math.max(tNow - sweepSeconds, since) && t <= tNow) { const v = sgn * v0; if (v > pos) pos = v; if (-v > neg) neg = -v; }
     gf = gateFactor();
     const k = dopplerK(EDGES[EI[probe]]);
     pos *= k * gf; neg *= k * gf;
@@ -844,10 +855,7 @@ export function createDoppler({ onProbe, pickGate = true }) {
     const fits = scale != null && need <= scale && (pos >= neg) === (baseF >= 0.5 || baseF == null);
     // (A slide's fixed scale holds still whatever the signal: the Nyquist limit either side of a centred baseline, or the slide's
     // baseline with the same span, 2 × the limit, shared out; scale is the dominant side's reach, so pxPerV is span / H.)
-    if (fixed) { baseF = fixed.base; scale = 2 * fixed.nyq * Math.max(baseF, 1 - baseF); settleAt = tNow; }
-    else if (scale == null || !fits) { scale = target; baseF = tbF; settleAt = tNow; }
-    else if (target < scale || Math.abs(tbF - baseF) > 0.15) { if (tNow - settleAt > 3) { scale = target; baseF = tbF; settleAt = tNow; } }
-    else settleAt = tNow;
+    ({ scale, baseF, settleAt, refit } = fitScale({ scale, baseF, settleAt, refit }, { fixed, holding, fits, target, tbF, tNow }));
     const baseY = Math.round(H * baseF);
     // the scale belongs to the dominant side; the other side shows what fits
     const pxPerV = (baseF >= 0.5 ? baseY : H - baseY) / scale;
@@ -1133,7 +1141,7 @@ export function createDoppler({ onProbe, pickGate = true }) {
   function update(f) { ingest(f); redraw(); }
   function clear() { buf = []; wl = null; redraw(); }
   // (A new recording of the same vessel: as a new probe, the trace, its scale and its reading start over.)
-  function restart() { buf = []; wl = null; tOff = 0; synth = null; scale = null; steady.probe = null; redraw(); }
+  function restart() { buf = []; wl = null; tOff = 0; synth = null; scale = null; heldTo = null; steady.probe = null; redraw(); }
   /** A slide is showing this monitor: choose its window again from the width it is drawn at. (The trace already drawn
    *  stays: only a change of window redraws it, so a slide that keeps the window enters without a full repaint.) */
   function autoWindow() { manualSweep = false; pickNext = true; redraw(); }

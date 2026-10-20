@@ -44,6 +44,11 @@ const pinchResistance = (wall, kq, s) => {
 const BLOOD_BASE = 5000, HCT_BASE = 0.42;
 // How long the volumes a hidden relaxation moved take to come across to the live model (s): the worker's tick.
 const CARRY_S = 0.033;
+// A live change's numbers (a narrowing, a stent's width, a leak) ease in with this time constant (s) of model time, so a
+// slider that sends a new value every frame moves the model, and every Doppler trace, without a step at each frame.
+export const PARAM_EASE_S = 0.15;
+// Numbers that are choices, not amounts: they change at once.
+const NO_EASE = new Set(['seed', 'splenicRx', 'customShunts', 'catheter']);
 const HR_REST = 60;   // resting heart rate (/min); the contractility reference is scaled to it so cardiac output is unchanged
 // Compensation for blood loss, calibrated to the ATLS hemorrhage classes (ATLS 10th ed., 2018): under 15 % lost the
 // vital signs barely change, 15–30 % raises the heart rate with the pressure held, 30–40 % brings hypotension, and over
@@ -137,7 +142,7 @@ export class Engine {
     this.baro = 1; this.MAPf = 93; this.habr = 1;
     // Display filters start over from the new state (a non-finite run must not leak into the next patient).
     this.Pf = this.Qf = null; this.COf = this.pvQm = this.pvVm = undefined; this.vitM = null;
-    this._hiddenOn = false; this._carry = null;
+    this._hiddenOn = false; this._carry = null; this._ease = null;
     this.hr = HR_REST;
     this.slow = {
       d: Object.fromEntries(this.collaterals.map((k) => [EDGES[k].id, dMinOf(EDGES[k])])),
@@ -189,7 +194,49 @@ export class Engine {
   setParams(p) {
     const prev = this.params;
     this.params = structuredClone(p);
+    this._ease = null;
     if (prev.seed !== p.seed) this.rng = makeRng(p.seed);
+  }
+  /** setParams with the numbers that changed eased in over about PARAM_EASE_S of model time (switches and choices at once).
+   *  A number missing on one side (a narrowing added or taken away) counts as 0 there. */
+  easeParams(p) {
+    const from = this.params;
+    this.setParams(p);
+    const legs = [];
+    const walk = (a, b, path) => {
+      for (const k of new Set([...Object.keys(a || {}), ...Object.keys(b || {})])) {
+        if (NO_EASE.has(k)) continue;
+        const x = a?.[k], y = b?.[k];
+        if (y && typeof y === 'object') { if (!x || typeof x === 'object') walk(x, y, [...path, k]); continue; }
+        if (!(typeof x === 'number' || x === undefined) || !(typeof y === 'number' || y === undefined) || (x ?? 0) === (y ?? 0)) continue;
+        legs.push({ path, key: k, from: x ?? 0, to: y ?? 0, drop: y === undefined });
+      }
+    };
+    walk(from, this.params, []);
+    if (!legs.length) return;
+    this._ease = { legs, left: 1, to: structuredClone(this.params) };
+    this.easeStep(0);
+  }
+  easing() { return !!this._ease; }
+  /** The params a live change is easing toward (this.params once it has landed). */
+  paramsTarget() {
+    if (!this._ease) return this.params;
+    const p = structuredClone(this.params);
+    for (const l of this._ease.legs) { const o = l.path.reduce((q, k) => q[k], p); if (l.drop) delete o[l.key]; else o[l.key] = l.to; }
+    return p;
+  }
+  easeStep(dt) {
+    const e = this._ease;
+    if (!e) return;
+    e.left *= 1 - Math.min(1, dt / PARAM_EASE_S);
+    const done = e.left < 1e-3;
+    for (const l of e.legs) {
+      const o = l.path.reduce((q, k) => q?.[k], this.params);
+      if (!o) continue;
+      if (done && l.drop) delete o[l.key];
+      else o[l.key] = done ? l.to : l.to + (l.from - l.to) * e.left;
+    }
+    if (done) this._ease = null;
   }
 
   /** Load a preset: healthy reset, apply params, run the disease clock for its chronic days. */
@@ -434,7 +481,7 @@ export class Engine {
   step(dt) {
     const N = this.N, A = this.A, b = this.b, P = this.P, p = this.params;
     this._drug = this.drugEffects();
-    if (!this._sub) { this.carryVolume(dt); this.pregnancyVolume(dt); }
+    if (!this._sub) { this.easeStep(dt); this.carryVolume(dt); this.pregnancyVolume(dt); }
     const hs = this.heartState();
     this.hr = hs.hr;
     this.cyc = (this.cyc || 0) + dt * hs.hr / 60;
@@ -722,7 +769,9 @@ export class Engine {
       h._paramsOf = null;
       this._hiddenOn = true;
     }
-    if (h._paramsOf !== this.params) { h.setParams(this.params); h._paramsOf = this.params; }
+    // (The copy takes a change easing in on this model at once: it is where the change settles.)
+    const to = this._ease?.to ?? this.params;
+    if (h._paramsOf !== to) { h.setParams(to); h._paramsOf = to; }
     // The copy holds this model's blood (what bled or was given since the last call, and the accounts the reflexes read).
     let dv = 0;
     for (let i = 0; i < this.N; i++) dv += this.V[i] - h.V[i];
@@ -1128,7 +1177,7 @@ export class Engine {
   // ───────────────────────── snapshot ─────────────────────────
   snapshot() {
     return structuredClone({
-      params: this.params, V: Array.from(this.V), P: Array.from(this.P), Q: Array.from(this.Q), t: this.t, day: this.day,
+      params: this.paramsTarget(), V: Array.from(this.V), P: Array.from(this.P), Q: Array.from(this.Q), t: this.t, day: this.day,
       baro: this.baro, MAPf: this.MAPf, habr: this.habr, hr: this.hr, slow: this.slow, blood: this.blood,
       bleed: this.bleed, infusions: this.infusions, bands: this.bands, rng: this.rng.state(), iap: this.iap,
       valsalva: this.valsalva, evState: this.evState,
@@ -1147,7 +1196,7 @@ export class Engine {
     this.Pf = Float64Array.from(this.P);
     this.Qf = Float64Array.from(this.Q);
     this.pvQm = this.pvVm = undefined; this.vitM = null;
-    this._hiddenOn = false; this._carry = null;   // (a hidden copy being relaxed, and what it moved, belonged to the state before)
+    this._hiddenOn = false; this._carry = null; this._ease = null;   // (a hidden copy being relaxed, and what it moved, belonged to the state before)
     this._drug = this.drugEffects();
     this.computeExt(this.t);
     this.computeG(this.P);
