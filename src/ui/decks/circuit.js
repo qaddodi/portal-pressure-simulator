@@ -10,7 +10,7 @@ const C = 'circuit';
 const R = ['rLiver', 'rColl'];   // the resistors on the figure: the liver's, and the collaterals' once they open
 // Every collateral shut: the same advanced liver as 'parallel' without them, so its row changes only the parallel resistor.
 const NO_COLLATERALS = { C1a: 1, C1b: 1, C2: 1, C3: 1, C4: 1, C5: 1, C6: 1, C7: 1, C8: 1, C9: 1 };
-const MEAL = { days: 8, ramp: { splanchnicTone: [1, 0.72] }, lapse: { seconds: 6, from: 'Fasting', to: 'After a meal' } };
+const MEAL = { days: 8, ramp: { splanchnicTone: [1, 0.58] }, lapse: { seconds: 6, from: 'Fasting', to: 'After a meal' } };
 
 // 'resistance' and 'collaterals' in a line take their resistor's colour and light its zigzag on the figure.
 const POINTS = { resistance: 'rLiver', collaterals: 'rColl' };
@@ -52,7 +52,7 @@ export const CIRCUIT = withPoints({
       id: 'meal', ...MEAL, view: C, sites: R, span: [{ from: 'CONF', to: 'IVCS', label: 'PPG {ppg}' }], data: 'tiles', tiles: ['pvFlow', 'ppg'], delta: true,
       kicker: K, title: 'A meal raises portal flow but barely the gradient',
       line: 'A healthy liver has very little resistance, so even a large rise in flow adds little pressure (gradient = flow × resistance).',
-      caveat: 'In people portal flow can nearly double after a meal; the model shows a rise of about a quarter.',
+      caveat: 'In people portal flow rises by 40 to 80% after a meal; the model shows a rise of about half.',
       notes: 'The Q term. The rise in the gradient is the rise in flow times the hepatic resistance, and a healthy liver\'s resistance is small. The same meal on a cirrhotic liver comes back two slides on.',
       ask: ['Why does a meal barely change portal pressure in a healthy liver?', 'The extra flow crosses a very low resistance.'],
     },
@@ -67,7 +67,7 @@ export const CIRCUIT = withPoints({
     {
       id: 'both', ...MEAL, view: C, sites: R, span: [{ from: 'CONF', to: 'IVCS', label: 'PPG {ppg}' }], data: 'tiles', tiles: ['pvFlow', 'hvpg'], delta: true,
       kicker: K, site: 'sin', title: 'In cirrhosis the same meal raises the gradient more',
-      line: 'The rise is about twice as large, because the extra flow now crosses a higher resistance.',
+      line: 'The rise is more than twice as large, because the extra flow now crosses a higher resistance.',
       notes: 'In cirrhosis the splanchnic arterioles dilate for good (nitric oxide, glucagon, bacterial products), so the inflow stays high: the hyperdynamic circulation. A raised resistance and a raised inflow multiply. The rise is less than the resistance alone would predict: in cirrhosis the meal raises flow less, and part of it leaves through collaterals. Large transfusions raise the portal pressure the same way and can provoke a variceal bleed; meals may too.',
       ask: ['Why does the same meal raise the gradient more in cirrhosis?', 'The same extra flow crosses a higher resistance (ΔP = Q × R).'],
     },

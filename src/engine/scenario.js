@@ -61,11 +61,17 @@ export const PREGNANCY_INFO = 'Weeks of pregnancy. Blood volume and cardiac outp
 
 const P = (patch) => (p) => deepMerge(p, patch);
 
+// A meal's fall in splanchnic arteriolar tone: a healthy adult's portal flow rises about 50% (1.1 to 1.65 L/min) and the
+// velocity about 47%, within the 40 to 80% (flow) and 35 to 100% (velocity) that Doppler studies find at the 30-minute
+// peak. A deeper fall would take the healthy PPG to the amber 6 mmHg, the model's healthy resistance not recruiting
+// sinusoids as flow rises. Every meal slide ramps to this value (/mnt/project-files/review/meal-response/review.md).
+export const MEAL_TONE = 0.58;
+
 // Each preset: patch applied to defaultParams(), plus chronic days on the disease clock.
 export const PRESETS = [
   { id: 'healthy', group: 'Normal', label: 'Healthy', apply: P({}), days: 0,
     summary: 'Normal adult at rest. HVPG ≈ 3 mmHg, portal flow ≈ 1.1 L/min, no collateral flow.' },
-  { id: 'postprandial', group: 'Normal', label: 'Post-prandial', apply: P({ splanchnicTone: 0.72 }), days: 0,
+  { id: 'postprandial', group: 'Normal', label: 'Post-prandial', apply: P({ splanchnicTone: MEAL_TONE }), days: 0,
     summary: 'Meal-induced splanchnic vasodilation increases portal inflow and pressure slightly.' },
   { id: 'pvt-acute', group: 'Prehepatic', label: 'Acute portal vein thrombosis', apply: P({ thrombus: { PV_TRUNK: 1 } }), days: 0,
     summary: 'Occlusive clot in the main portal vein. Mesenteric congestion; no collaterals yet (they form over weeks). The hepatic artery buffer keeps the liver perfused. HVPG normal.' },

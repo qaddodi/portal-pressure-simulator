@@ -35,13 +35,12 @@ export const DOPPLER = {
     },
     {
       // (The same 8-day fall in splanchnic tone as the Circuit talk's meal, as a time-lapse from fasting, on the seconds clock so the Doppler records the rise.)
-      id: 'meal', params: { respiration: false }, days: 8, ramp: { splanchnicTone: [1, 0.72] }, lapse: { seconds: 6, from: 'Fasting', to: 'After a meal', clock: 'seconds' },
+      id: 'meal', params: { respiration: false }, days: 8, ramp: { splanchnicTone: [1, 0.58] }, lapse: { seconds: 6, from: 'Fasting', to: 'After a meal', clock: 'seconds' },
       cam: 'portal', labels: ['SMV', 'CONF'], tool: { kind: 'doppler', vessel: 'PV_TRUNK' },
       data: 'tiles', tiles: ['pvFlow', 'pv'], key: ['pvFlow'], delta: true,
       kicker: 'Doppler', title: 'Portal flow rises after a meal',
-      line: 'Within an hour of eating, the gut arterioles open and portal flow rises by 50% to more than 100%. Scan fasting, or you will overestimate the velocity and miss slow flow.',
-      caveat: 'The model shows a smaller rise in flow than patients do.',
-      notes: 'Digestion dilates the gut arterioles and portal flow rises by roughly 50 to over 100%, peaking 30 to 60 minutes after eating; the rise is blunted in cirrhosis. A normal liver takes the extra flow with little rise in pressure. Portal Doppler should be done fasting, or the velocity is overestimated and slow flow in early cirrhosis is missed. Liver stiffness also rises after a meal, which is why FibroScan is done fasting too.',
+      line: 'Within half an hour of eating, the gut arterioles open and portal flow rises by 40 to 80%. Scan fasting, or you will overestimate the velocity and miss slow flow.',
+      notes: 'Digestion dilates the gut arterioles. Portal flow rises by about 40 to 80% and the velocity by up to 100%, peaking about 30 minutes after eating and staying raised for two hours or more; the rise is blunted in cirrhosis. A normal liver takes the extra flow with little rise in pressure. Portal Doppler should be done fasting, or the velocity is overestimated and slow flow in early cirrhosis is missed. Liver stiffness also rises after a meal, which is why FibroScan is done fasting too.',
       ask: ['Why is portal Doppler done fasting?', 'A meal raises portal flow and velocity, which can hide the slow flow of portal hypertension.'],
     },
     {

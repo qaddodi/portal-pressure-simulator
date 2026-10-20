@@ -3,7 +3,7 @@
 export const PATH = [["INT","Gut"],["SMV","SMV"],["CONF","Portal v."],["SIN_R","Sinusoids"],["CV_R","Central v."],["RHV","Hepatic v."],["IVCS","IVC"],["RA","RA"]];
 export const SNAPSHOTS = {
   "healthy":{"P":[12,9,7.8,7,4.8,4.1,3.5,3],"hvpg":2.4,"pv":7.8,"pvFlow":1.09,"ascites":0,"fp":{"pv":7.8,"whvp":6.5,"fhvp":4.1,"ra":3,"ivc":3.5,"ppg":4.3,"hvpg":2.4,"asc":0,"saag":2.3,"tp":2.9,"lsm":5}},
-  "postprandial":{"P":[13.6,10,8.5,7.5,4.9,4.1,3.4,2.8],"hvpg":2.9,"pv":8.5,"pvFlow":1.41,"ascites":0,"fp":{"pv":8.5,"whvp":7,"fhvp":4.1,"ra":2.8,"ivc":3.4,"ppg":5.1,"hvpg":2.9,"asc":0,"saag":2.2,"tp":3,"lsm":5}},
+  "postprandial":{"P":[14.8,10.7,9,7.9,5,4.1,3.3,2.7],"hvpg":3.2,"pv":9,"pvFlow":1.65,"ascites":0,"fp":{"pv":9,"whvp":7.3,"fhvp":4.1,"ra":2.7,"ivc":3.3,"ppg":5.7,"hvpg":3.2,"asc":0,"saag":2.1,"tp":3.2,"lsm":5.4}},
   "pvt-acute":{"P":[29.7,29.1,28.8,5.1,3.1,2.5,2,1.5],"hvpg":2.2,"pv":28.8,"pvFlow":0,"ascites":0,"fp":{"pv":28.8,"whvp":4.7,"fhvp":2.5,"ra":1.5,"ivc":2,"ppg":26.8,"hvpg":2.2,"asc":0,"saag":3.2,"tp":1.3,"lsm":5}},
   "pvt-chronic":{"P":[22.8,20.4,19.5,7.8,5.8,5.2,4.7,4.1],"hvpg":2.2,"pv":19.5,"pvFlow":0,"ascites":0,"fp":{"pv":19.5,"whvp":7.4,"fhvp":5.2,"ra":4.1,"ivc":4.7,"ppg":14.8,"hvpg":2.2,"asc":0,"saag":2.7,"tp":2.2,"lsm":5}},
   "svt":{"P":[11.1,8.1,6.9,6.5,4.4,3.7,3.2,2.7],"hvpg":2.3,"pv":6.9,"pvFlow":0.66,"ascites":0,"fp":{"pv":6.9,"whvp":6,"fhvp":3.7,"ra":2.7,"ivc":3.2,"ppg":3.7,"hvpg":2.3,"asc":0,"saag":2.4,"tp":2.8,"lsm":5}},

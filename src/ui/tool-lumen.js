@@ -6,7 +6,7 @@
 
 import { h, clamp } from './util.js?v=5814c6b396';
 import { EDGES } from '../engine/topology.js?v=4044766e96';
-import { store } from './store.js?v=aaa74688dd';
+import { store } from './store.js?v=624d51968d';
 import { frameFor } from './frame.js?v=2ce59939b2';
 const nextFrame = frameFor('lumen');
 
