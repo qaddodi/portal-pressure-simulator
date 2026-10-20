@@ -115,7 +115,8 @@ test('a stacked card keeps one size with its readings tucked or out: it is fitte
 test('a stacked card\'s cap grows with its readings while they slide, so its glass never cuts the instrument', () => {
   assert.match(css, /\.pz\.stack\.stack \.pz-data\.pz-sheet\.pz-sheet\.pz-sliding:not\(\.tool-open\) \{ --pz-grow: calc\(var\(--pz-u\) \* var\(--pz-d, 0px\)\); \}/, 'mid-slide the cap grows by the share of the readings that is out');
   assert.match(css, /\.pz\.stack\.stack \.pz-data\.pz-sheet\.pz-sheet\.tool-open \{ --pz-grow: var\(--pz-d, 0px\); \}/, 'out, by all of them');
-  assert.match(js, /if \(roomT > 0\) dd\.style\.maxHeight = `min\(calc\(\$\{tuck === 'none' \? `\$\{roomT\}px` : `min\(\$\{tuck\}, \$\{roomT\}px\)`\} \+ var\(--pz-grow, 0px\)\), \$\{roomO\}px\)`;/, 'the phone\'s cap takes it, never past the opened card\'s room');
+  assert.match(js, /const capT = roomT > 0 \? \(tuck === 'none' \? `\$\{roomT\}px` : `min\(\$\{tuck\}, \$\{roomT\}px\)`\) : tuck;\n\s*if \(roomO > 0\) dd\.style\.maxHeight = capT === 'none' \? `\$\{roomO\}px` : `min\(calc\(\$\{capT\} \+ var\(--pz-grow, 0px\)\), \$\{roomO\}px\)`;/, 'the phone\'s cap takes it, never past the opened card\'s room, even with no tucked room left');
+  assert.doesNotMatch(js, /if \(roomT > 0\) dd\.style\.maxHeight/, 'an opened card is capped at its room whatever room the tucked card has');
   // (Fitted at rest, never mid-slide: fitCards' stacked fit runs only without .pz-sliding.)
   assert.match(js, /const under = el === ui\.data && splitSheet\(el\) && !el\.classList\.contains\('tool-open'\) && !el\.classList\.contains\('pz-sliding'\);/);
 });

@@ -3056,7 +3056,10 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
         const tuck = cs.getPropertyValue('--pz-cap').trim() || 'none';
         const base = (t.top - wr.top) / k - (parseFloat(cs.top) || 0) - glassLift(k) - 8;
         const roomT = Math.floor(base - LIP - (phoneCap != null && !phoneShut ? Math.max(0, phoneFig / k - LIP - 2) : 0)), roomO = Math.floor(base);
-        if (roomT > 0) dd.style.maxHeight = `min(calc(${tuck === 'none' ? `${roomT}px` : `min(${tuck}, ${roomT}px)`} + var(--pz-grow, 0px)), ${roomO}px)`;
+        // (No tucked room at all, a tiny screen or a very large text size: the tucked cap is the card's own, as before, and the opened card's
+        // room still caps it, so it never runs under the words. The same cap open or tucked either way, so the fit never changes on opening.)
+        const capT = roomT > 0 ? (tuck === 'none' ? `${roomT}px` : `min(${tuck}, ${roomT}px)`) : tuck;
+        if (roomO > 0) dd.style.maxHeight = capT === 'none' ? `${roomO}px` : `min(calc(${capT} + var(--pz-grow, 0px)), ${roomO}px)`;
       } else if (room > 0) dd.style.maxHeight = cs.maxHeight === 'none' ? `${room}px` : `min(${cs.maxHeight}, ${room}px)`; }
     // (A wider screen: a data card at the top right ends 8 px above the colour key standing on the nav pill (a phone held sideways had covered it).)
     if (!p && !below && ui.fk.dataset.empty == null && !ui.bar.hidden) {
