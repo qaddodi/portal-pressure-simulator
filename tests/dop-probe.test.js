@@ -1,13 +1,13 @@
 // The Doppler probe on the figure (19 Oct, Mohammad's pick "B1 + white"; marks as a scanner draws them, from his textbook reference
 // of 20 Oct): a small curved probe stands off the sampled vessel; its line of sight runs straight through the vessel, the sample
-// volume's two bars (white on a black rim) cross it inside the lumen, and the flow axis with the angle θ marks the gate, at the
+// volume's two bars (white on a black rim) cross it inside the lumen, and the flow axis marks the gate (no arc or θ on the figure: the monitor names θ), at the
 // vessel's middle or a stent's sampled third. The beam meets the flow at the monitor's θ 50°, from the side the
 // flow comes toward (away for the hepatic veins and the IVC, as the trace draws them). The vessel's glow turned from the
 // Doppler's green (which reads as "normal") to white on the dark themes and ink on the light ones.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { AWAY, probePose, probeShapes, gateDims, bodyBox, PROBE } from '../src/ui/dop-probe.js';
+import { AWAY, probePose, probeShapes, gateDims, bodyBox, PROBE, PROBE_SVG } from '../src/ui/dop-probe.js';
 
 const read = (p) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8');
 const stage = read('src/ui/stage.js'), doppler = read('src/ui/doppler.js'), css = read('styles/app.css'), tokens = read('styles/tokens.css');
@@ -69,11 +69,11 @@ test('as on the scanner: the line of sight runs through the vessel, the two bars
       // The bars: across the line (each at one x), either side of the gate.
       const xs = [...s.gate.matchAll(/[ML](-?[\d.]+) (-?[\d.]+)/g)].map((m) => +m[1]);
       assert.deepEqual([...new Set(xs)].sort((a, b) => a - b), [-at, at].map((v) => +v.toFixed(1)));
-      // The axis through the gate at phi from the line, its arc from the line to the axis, and the θ on the bisector.
-      const [ax, ay, bx, by] = s.axis.match(/^M(-?[\d.]+) (-?[\d.]+) L(-?[\d.]+) (-?[\d.]+)/).slice(1).map(Number);
+      // The axis through the gate at phi from the line, and nothing more: no arc and no θ on the figure (Mohammad, 20 Oct).
+      const [ax, ay, bx, by] = s.axis.match(/^M(-?[\d.]+) (-?[\d.]+) L(-?[\d.]+) (-?[\d.]+)$/).slice(1).map(Number);
       assert.ok(Math.abs(ax + bx) < 0.2 && Math.abs(ay + by) < 0.2, 'centred on the gate');
       assert.ok(Math.abs(Math.atan2(by, bx) * 180 / Math.PI - phi) < 1);
-      assert.ok(Math.abs(Math.atan2(s.theta[1], s.theta[0]) * 180 / Math.PI - phi / 2) < 1);
+      assert.equal(s.theta, undefined);
       assert.equal(s.head, `translate(${PROBE.GAP + r} 0)`);
     }
   }
@@ -104,12 +104,11 @@ test('the figure places the gate where the callout points (the middle of the ves
   assert.match(css, /\.dop-probe\.off \{ opacity: 0; \}/);
 });
 
-test('every mark and the probe are white-lined on a black rim, the θ upright; the glow and the light share the Doppler glow colour', () => {
+test('every mark and the probe are white-lined on a black rim, with no θ on the figure; the glow and the light share the Doppler glow colour', () => {
   assert.match(css, /\.dpr-gate-rim \{ fill: none; stroke: var\(--dop-rim\); stroke-width: 6;/);
   assert.match(css, /\.dpr-rim-l \{ fill: none; stroke: var\(--dop-rim\);/);
   assert.match(css, /\.dpr-line \{ fill: none; stroke: var\(--dop-mark\);/);
-  assert.match(css, /\.dpr-theta \{ font: 700 13px var\(--font-ui\); fill: var\(--dop-mark\); paint-order: stroke; stroke: var\(--dop-rim\);/);
-  assert.match(stage, /\.dpr-theta'\)\.setAttribute\('transform', `translate\(\$\{dpr\.theta\[0\]\} \$\{dpr\.theta\[1\]\}\) rotate\(\$\{\(-pose\.ang\)/);
+  for (const src of [css, stage, PROBE_SVG]) assert.doesNotMatch(src, /dpr-theta|θ<\/text>/);
   assert.match(css, /\.dpr-gate \{ fill: none; stroke: var\(--dop-mark\); stroke-width: 2\.8;/);
   assert.match(tokens, /--dop-mark: #FFFFFF; --dop-rim: #000000;/);
   assert.match(stage, /setGlowSrc\('dop', id \? \[\{ id, col: 'var\(--dop-glow\)'/);
@@ -119,12 +118,7 @@ test('every mark and the probe are white-lined on a black rim, the θ upright; t
   assert.match(tokens, /--dop-glow: #1F2433;/);
 });
 
-test('the θ sits as far off the line and the axis as it did at 60°, and the monitor names the probe\'s angle and gate', () => {
-  for (const r of [3, 10, 30]) {
-    const R = Math.min(14, Math.max(8, 0.6 * r)), s = probeShapes(PROBE.GAP + r, r, PROBE.ANGLE);
-    const off = Math.hypot(...s.theta) * Math.sin(PROBE.ANGLE * Math.PI / 360);
-    assert.ok(Math.abs(off - (R + 12) / 2) < 0.15, `r ${r}: θ ${off} px off the line, as at 60° (${(R + 12) / 2})`);
-  }
+test('the monitor names the probe\'s angle and gate', () => {
   assert.match(read('src/ui/dopplerColor.js'), /export const THETA = PROBE\.ANGLE;/);
   assert.match(doppler, /`θ \$\{THETA\}°`, `SV \$\{svMm\(\)\} mm`/);
   assert.match(doppler, /return clamp\(Math\.round\(d \/ 2\), 2, 15\);/);

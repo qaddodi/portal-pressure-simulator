@@ -2863,7 +2863,7 @@ button.finding { cursor: pointer; }
 .scan-probe.tap .sp-tip { animation: sp-tap .36s ease-in-out; }   /* only the tip vibrates, a little, along the probe's own 45° axis, once a second */
 @keyframes sp-tap { 0% { transform: none; } 20% { transform: translateX(2px); } 45% { transform: translateX(-1.2px); } 70% { transform: translateX(.6px); } 100% { transform: none; } }
 @media (prefers-reduced-motion: reduce) { .scan-probe.tap .sp-tip { animation: none; } }
-/* The Doppler probe (dop-probe.js, stage.js dprobePaint), drawn as a scanner marks it: placed at the sample volume, turned toward the probe; the line of sight, the flow axis with its θ, the sample volume's bars and the probe are white-lined on a black rim, so they read on every vessel colour and theme. */
+/* The Doppler probe (dop-probe.js, stage.js dprobePaint), drawn as a scanner marks it: placed at the sample volume, turned toward the probe; the line of sight, the flow axis, the sample volume's bars and the probe are white-lined on a black rim, so they read on every vessel colour and theme. */
 .dop-probe { position: absolute; left: 0; top: 0; width: 0; height: 0; transition: opacity .36s var(--ease); pointer-events: none; }
 .dop-probe.off { opacity: 0; }
 .dop-probe .dpr-svg { position: absolute; left: 0; top: 0; overflow: visible; }
@@ -2871,7 +2871,6 @@ button.finding { cursor: pointer; }
 .dop-probe .dpr-line { fill: none; stroke: var(--dop-mark); stroke-width: 1.4; stroke-linecap: round; stroke-linejoin: round; }
 .dop-probe .dpr-gate-rim { fill: none; stroke: var(--dop-rim); stroke-width: 6; stroke-linecap: round; }
 .dop-probe .dpr-gate { fill: none; stroke: var(--dop-mark); stroke-width: 2.8; stroke-linecap: round; }
-.dop-probe .dpr-theta { font: 700 13px var(--font-ui); fill: var(--dop-mark); paint-order: stroke; stroke: var(--dop-rim); stroke-width: 3px; stroke-linejoin: round; }
 .dop-probe .dpr-cable { fill: none; stroke: var(--text-3); stroke-width: 3; stroke-linecap: round; }
 .dop-probe .dpr-rim { fill: none; stroke: var(--dop-rim); stroke-width: 4; stroke-linejoin: round; }
 .dop-probe .dpr-body { fill: var(--surface); stroke: var(--dop-mark); stroke-width: 1.6; stroke-linejoin: round; }

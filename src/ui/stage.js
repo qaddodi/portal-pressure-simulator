@@ -38,7 +38,7 @@ import { layoutWatch } from './idle-keys.js?v=ea36a0b5c6';
 import { writeGlowTexels } from './glow-texels.js?v=e578794a92';
 import { SIN_PERFUSION, sinStrandRadius } from './sin-perfusion.js?v=25a8407fdd';
 import { wavePacks, paintWave } from './scan-waves.js?v=066db7aa38';
-import { probePose, probeShapes, awayFromProbe, PROBE_SVG } from './dop-probe.js?v=15306bf59e';
+import { probePose, probeShapes, awayFromProbe, PROBE_SVG } from './dop-probe.js?v=7be3089e92';
 import { organDimMatrix } from './organ-dim.js?v=7888276613';
 import { parseColor, greyOf, paintRef } from './organ-grey.js?v=e41d68222c';
 import { bandRing, dashRings, liftEnd, normalShown, rippleList, systemOf, SYSTEM_COLOR } from './highlight-math.js?v=e2c1816e25';
@@ -1156,7 +1156,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const dop = { id: null, want: null, pin: null, key: '', seg: '', points: false, all: false };
   const dopGateOf = (id) => (dop.id === id && dop.seg ? dop.seg : '');   // the third of a stent the Doppler samples ('' when it is elsewhere)
   // The Doppler probe on the figure (dprobePaint): live once the stage is built (dopApply runs before its pieces exist).
-  const dpr = { el: null, on: false, key: '', side: 0, box: null, swap: 0, shapes: '', at: '', theta: [0, 0], ready: false };
+  const dpr = { el: null, on: false, key: '', side: 0, box: null, swap: 0, shapes: '', at: '', ready: false };
   function dopApply() {
     let id = dop.pin ?? dop.want ?? null;
     if (id && !E[id]) id = null;
@@ -5186,7 +5186,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   }
   // ── The Doppler probe (dop-probe.js) ──
   // While the Doppler reads a vessel, a small probe stands off it, its line of sight runs straight through the vessel, and the sample
-  // volume's two bars and the flow axis with the angle θ mark the vessel's middle (where its callout points), or a stent's sampled third. It
+  // volume's two bars and the flow axis mark the vessel's middle (where its callout points), or a stent's sampled third. It
   // follows the camera with the labels; it fades out while the views morph and in the liver's own views. A new vessel or third, or
   // a card making it change sides, fades it out where it stood and back in at its new place (nothing jumps).
   let dprCardsList = [], dprCardsAt = -1e9;
@@ -5237,14 +5237,12 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       dpr.shapes = sh;
       const p = probeShapes(pose.D, r, pose.phi), all = (c, k, v) => { for (const e of dpr.el.querySelectorAll(c)) e.setAttribute(k, v); };
       all('.dpr-beam', 'd', p.beam); all('.dpr-axis', 'd', p.axis); all('.dpr-bars', 'd', p.gate); all('.dpr-head', 'transform', p.head);
-      dpr.theta = p.theta; dpr.at = '';
+      dpr.at = '';
     }
     const at = `translate(${gx.toFixed(1)}px, ${gy.toFixed(1)}px)|rotate(${pose.ang.toFixed(2)})`;
     if (at !== dpr.at) {
       dpr.at = at; const [tr, ro] = at.split('|');
       dpr.el.style.transform = tr; dpr.el.querySelector('.dpr-rot').setAttribute('transform', ro);
-      // (The θ turns back by the probe's angle, so it stands upright on the angle's bisector.)
-      dpr.el.querySelector('.dpr-theta').setAttribute('transform', `translate(${dpr.theta[0]} ${dpr.theta[1]}) rotate(${(-pose.ang).toFixed(2)})`);
     }
     dpr.key = key; dpr.side = pose.side; dpr.box = pose.box;
     if (!dpr.on) { dpr.on = true; dpr.el.classList.remove('off'); }

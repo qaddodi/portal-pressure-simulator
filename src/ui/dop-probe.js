@@ -63,26 +63,24 @@ export function probePose({ g, t, r = 0, away = false, w, h, cards = [], keep = 
 
 /** The marks in the probe's own frame, x running from the gate (0) toward the probe, whose face is at D: the line of sight from
  *  the face straight through the vessel and on past its far wall; the sample volume's two bars across it; the flow axis through
- *  the gate, at phi (±θ) from the line, with the angle's arc; theta: where the θ sits, on the angle's bisector beyond the arc,
- *  as far off the line and the axis as it sat at 60° (a narrower angle sets it further out). */
+ *  the gate, at phi (±θ) from the line. The angle itself is named only on the monitor (θ in its header): no arc and no θ on the
+ *  figure (Mohammad, 20 Oct). */
 export function probeShapes(D, r, phi = PROBE.ANGLE) {
   const { at, half } = gateDims(r), far = -(Math.max(0, r) / SIN + 22);
-  const L = Math.min(24, Math.max(8, 1.1 * r)), R = Math.min(14, Math.max(8, 0.6 * r)), p = rad(phi), c = Math.cos(p), s = Math.sin(p);
-  const T = ((R + 12) * Math.sin(Math.PI / 6)) / Math.abs(Math.sin(p / 2) || 1), f = (v) => +v.toFixed(1);
+  const L = Math.min(24, Math.max(8, 1.1 * r)), p = rad(phi), c = Math.cos(p), s = Math.sin(p), f = (v) => +v.toFixed(1);
   return {
     beam: `M${f(D)} 0 L${f(far)} 0`,
     gate: `M${f(-at)} ${f(-half)} L${f(-at)} ${f(half)} M${f(at)} ${f(-half)} L${f(at)} ${f(half)}`,
-    axis: `M${f(-L * c)} ${f(-L * s)} L${f(L * c)} ${f(L * s)} M${f(R)} 0 A${f(R)} ${f(R)} 0 0 ${phi > 0 ? 1 : 0} ${f(R * c)} ${f(R * s)}`,
-    theta: [f(T * Math.cos(p / 2)), f(T * Math.sin(p / 2))],
+    axis: `M${f(-L * c)} ${f(-L * s)} L${f(L * c)} ${f(L * s)}`,
     head: `translate(${f(D)} 0)`,
   };
 }
 
 // The probe's head: a convex face, a neck and a handle with a light in the glow's colour. Every mark is white-lined on a black
-// rim, so it reads on every vessel colour and theme; the θ stands upright (stage.js turns it back).
+// rim, so it reads on every vessel colour and theme.
 const BODY = 'M2 -11 Q-3 0 2 11 L10 11 L18 6 L42 6 Q48 6 48 0 Q48 -6 42 -6 L18 -6 L10 -11 Z';
 export const PROBE_SVG = '<svg class="dpr-svg" width="1" height="1" aria-hidden="true"><g class="dpr-rot">'
   + '<path class="dpr-rim-l dpr-beam"/><path class="dpr-line dpr-beam"/><path class="dpr-rim-l dpr-axis"/><path class="dpr-line dpr-axis"/>'
-  + '<path class="dpr-gate-rim dpr-bars"/><path class="dpr-gate dpr-bars"/><text class="dpr-theta" text-anchor="middle" dominant-baseline="central">θ</text>'
+  + '<path class="dpr-gate-rim dpr-bars"/><path class="dpr-gate dpr-bars"/>'
   + `<g class="dpr-head"><path class="dpr-cable" d="M47 0 L62 0"/><path class="dpr-rim" d="${BODY}"/><path class="dpr-body" d="${BODY}"/>`
   + '<path class="dpr-face" d="M2 -11 Q-3 0 2 11"/><circle class="dpr-light" cx="33" cy="0" r="3"/></g></g></svg>';
