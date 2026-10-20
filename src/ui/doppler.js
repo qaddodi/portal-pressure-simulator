@@ -146,7 +146,7 @@ export function createDoppler({ onProbe, pickGate = true }) {
   }));
   const report = h('div', { class: 'dop-report' }, dirEl, h('div', { class: 'dop-velrow' }, velEl, patternEl), rangeEl, stats, noteEl);
   // The top strip's fitting steps (see fitStrip): [type scale, the direction's short form, the pattern on its own line].
-  let stripKey = '', stripStep = 0, dirFull = '—', stripType = '', rng = null;
+  let stripKey = '', stripStep = 0, dirFull = '—', patFull = '', stripType = '', rng = null;
   // Whether the monitor is on screen, and the widths the strip is fitted to, as the browser reports them when they change: read
   // on every frame (offsetParent, clientWidth), they made the browser lay the page out mid-frame, after the figure's own writes.
   // (No observers, as in a bare test page: read as before.)
@@ -158,7 +158,10 @@ export function createDoppler({ onProbe, pickGate = true }) {
     for (const e of es) { const w = e.borderBoxSize?.[0]?.inlineSize ?? e.contentRect.width; if (e.target === report) repW = w; else cvW = w; }
   }) : null;
   ro?.observe(report, { box: 'border-box' }); ro?.observe(cv, { box: 'border-box' });
-  const STEPS = [[1, false, false], [0.9, false, false], [0.8, false, false], [0.9, true, false], [0.8, true, false], [1, false, true], [0.9, false, true], [0.8, false, true], [0.9, true, true], [0.8, true, true]];
+  // (Every step one line, Mohammad 20 Oct, "the top bar on Doppler should be one line": type 1, 0.9, 0.8, then the direction's short
+  // form, then the pattern's short form, then the unit dropped, which the monitor's axis already names. Never under 12 px, no ellipsis.)
+  const STEPS = [[1, false, 0], [0.9, false, 0], [0.8, false, 0], [0.9, true, 0], [0.8, true, 0], [0.8, true, 1], [0.8, true, 2]];
+  const SHORT_PAT = { 'Low velocity, jet': 'Slow, jet', 'Low velocity': 'Slow', 'High velocity': 'Fast', 'Phasic, with reversal': 'Phasic, reversal', 'Large reversal': 'Reversal', 'Open collateral': 'Open', 'Resistive index 0.00': 'RI 0.00' };
   const SHORT_DIR = { 'Portal → hepatic vein': 'PV → HV', 'Portal → IVC': 'PV → IVC', 'Portal → systemic': 'PV → systemic', 'Systemic → portal': 'Systemic → PV', 'Toward the heart': 'To the heart', 'Not available during time lapse': 'Paused in time lapse' };
   const el = h('div', { class: 'dop', 'data-pane': 'doppler' },
     h('div', { class: 'dop-head' }, probeSel, h('div', { class: 'dop-btns' }, modeBtn, invBtn, sweepBtn)), h('div', { class: 'dop-main' }, box, report));
@@ -446,7 +449,7 @@ export function createDoppler({ onProbe, pickGate = true }) {
     // (open: the open stent's velocity, from which the figure's callouts at a stent's three points read what its tiles read.)
     shownVel.set(probe, { v: Math.abs(mean), t: performance.now(), seg: isStentProbe() ? gateOf() : null, open });
     updateGauge(p, mean, it.expected);   // (the headline's own number: the marker read 23.5 under a headline of 22, sweep batch 04, shot 12)
-    set(patternEl, it.pattern);
+    patFull = it.pattern || ''; set(patternEl, STEPS[stripStep][2] ? shortPat(patFull) : patFull);
     // peak: the extreme farthest from zero, whichever the direction
     const [pk, tr] = Math.abs(r.vmax) >= Math.abs(r.vmin) ? [r.vmax, r.vmin] : [r.vmin, r.vmax];
     setStat(statEls.Peak.dd, num(pk * gf), 'cm/s');   // (a stent's peak at its gate)
@@ -683,23 +686,25 @@ export function createDoppler({ onProbe, pickGate = true }) {
     const s = STEPS[stripStep][1] ? SHORT_DIR[t] || t : t;
     if (dirEl.textContent !== s) dirEl.textContent = s;
   }
+  // (the pattern's short form; a resistive index keeps its own number)
+  const shortPat = (t) => SHORT_PAT[t] || (/^Resistive index /.test(t) ? t.replace('Resistive index', 'RI') : t);
   function stripStepSet(i) {
-    const [k, short, wrap] = STEPS[i];
+    const [k, short, tight] = STEPS[i];
     stripStep = i;
     if (report.style.getPropertyValue('--dop-k') !== String(k)) report.style.setProperty('--dop-k', String(k));
-    report.classList.toggle('dop-wrap', wrap);
+    report.classList.toggle('dop-nounit', tight > 1);
+    const ps = tight ? shortPat(patFull) : patFull;
+    if (patFull && patternEl.textContent !== ps) patternEl.textContent = ps;
     const s = short ? SHORT_DIR[dirFull] || dirFull : dirFull;
     if (dirEl.textContent !== s) dirEl.textContent = s;
   }
   function stripFits(i, have, spare) {
-    const wrap = STEPS[i][2], box = (e) => { if (e.hidden || !e.textContent) return null; rng.selectNodeContents(e); const q = rng.getBoundingClientRect(); return q.width ? q : null; };
-    const v = box(velEl), d = box(dirEl), p = box(patternEl), line = [v, d, wrap ? null : p].filter(Boolean);
+    const box = (e) => { if (e.hidden || !e.textContent) return null; rng.selectNodeContents(e); const q = rng.getBoundingClientRect(); return q.width ? q : null; };
+    const v = box(velEl), d = box(dirEl), p = box(patternEl), line = [v, d, p].filter(Boolean);
     if (!line.length) return true;
-    // (one row: with the pattern on its own line the strip may wrap, and the direction must not go down with it)
-    if (wrap && v && d && (d.top >= v.bottom - 2 || d.left < v.right)) return false;
     // (the union of the line's words, the dot before the pattern included; 14 px for its end, which Safari's ranges leave out)
-    const w = Math.max(...line.map((q) => q.right)) - Math.min(...line.map((q) => q.left)) + (p && !wrap ? 14 : 0);
-    return w + spare <= have && (!wrap || !p || p.width + 14 + spare <= have);
+    const w = Math.max(...line.map((q) => q.right)) - Math.min(...line.map((q) => q.left)) + (p ? 14 : 0);
+    return w + spare <= have;
   }
   // Puts the widest of some words in an element (measured at the current step) and gives back that word.
   function widest(e, words, map = (t) => t) {
@@ -727,7 +732,7 @@ export function createDoppler({ onProbe, pickGate = true }) {
       let base = STEPS.length - 1;
       for (let i = 0; i < STEPS.length; i++) {
         stripStepSet(i);
-        widest(velB, words.vels); widest(dirEl, words.dirs, (t) => (STEPS[i][1] ? SHORT_DIR[t] || t : t)); widest(patternEl, words.pats);
+        widest(velB, words.vels); widest(dirEl, words.dirs, (t) => (STEPS[i][1] ? SHORT_DIR[t] || t : t)); widest(patternEl, words.pats, (t) => (STEPS[i][2] ? shortPat(t) : t));
         if (stripFits(i, have * sc, 0)) { base = i; break; }
       }
       stripStepSet(base);
@@ -741,7 +746,7 @@ export function createDoppler({ onProbe, pickGate = true }) {
     }
     // The words shown now: the base step holds them, unless they are wider than any reading (a notice), which take the
     // first smaller step that does, and give it back once they are gone.
-    const wk = `${velEl.hidden ? '' : velB.textContent}|${dirFull}|${patternEl.textContent}`;
+    const wk = `${velEl.hidden ? '' : velB.textContent}|${dirFull}|${patFull}`;
     if (wk === stripWordsKey) return;
     stripWordsKey = wk;
     if (patternEl.hidden) patternEl.hidden = false;
