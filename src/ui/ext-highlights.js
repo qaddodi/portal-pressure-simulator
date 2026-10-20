@@ -12,7 +12,7 @@
 //   lens: 'since' (since: '<slide id>', sinceLabel: '…')   the Change colours against the slide before, or a named one (V11)
 //   lens: 'system'                     portal veins, systemic veins and the collaterals between them in three colours (V7)
 import { EDGES } from '../engine/topology.js?v=4044766e96';
-import { withOverview } from './decks.js?v=20a16beb36';
+import { withOverview } from './decks.js?v=3fa2d152de';
 import { SETS, ORGAN_TARGETS, NEW_ORGANS, spotOf, stateIndex, sinceWords } from './highlight-math.js?v=e2c1816e25';
 
 const VESSEL = new Set(EDGES.map((e) => e.id));
@@ -40,7 +40,7 @@ function fpBefore(ctx, ref) {
   return seen.fp.get(k) || (seen.slides[k]?.id ? ctx.fpOf?.(seen.slides[k].id) : null) || null;
 }
 const P = (fp) => fp?.at?.P || null;
-// A lapse glow's colour and its ease in and out (ms; glow: the organ's outline, warm: its loops lit from under): slow enough to read as a meal taking hold, the lapse itself being a few seconds.
+// A lapse glow's colour and its ease in and out (ms; glow: the organ's outline, warm: a glow along the edges of its loops): slow enough to read as a meal taking hold, the lapse itself being a few seconds.
 const LAPSE_GLOW = { tone: '--origin-smv', fade: 1400 };
 const lapseOrgans = (list) => (Array.isArray(list) ? list : [list]).map((id) => ORGAN_TARGETS[id]?.organ || (NEW_ORGANS.includes(id) ? id : null)).filter(Boolean).map((id) => ({ id, glow: true, warm: true, tone: LAPSE_GLOW.tone, ...(reduced() ? {} : { fade: LAPSE_GLOW.fade }) }));
 

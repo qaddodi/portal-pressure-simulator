@@ -9,7 +9,7 @@ import { STATION_VESSEL, meanVel, velNormal } from './velNormal.js?v=181dda5594'
 import { store, updateParams, varicesPresent, varixGrowth, shownVel } from './store.js?v=aaa74688dd';
 import { fibroReading } from './clock.js?v=8aa14cb690';
 import { s, h, fmt, fmtFlow, fp, clamp, lerp, toast, systemEdge, bloodColors, restBox, settledBox, putText } from './util.js?v=5814c6b396';
-import { createLobuleZoom } from './lobule-zoom.js?v=e6c7d28006';
+import { createLobuleZoom } from './lobule-zoom.js?v=9f0b76e498';
 import { sinceSource } from './since-ref.js?v=ef1a818c75';
 import { runFlick, FLICK } from './flick.js?v=4bc709c801';
 import { inlineStyles } from './svg-inline.js?v=fc17cb73fe';
@@ -26,7 +26,7 @@ import { COLON_ART, BOWEL_ART, DUO_CLIPS, DUO_A, DUO_B } from './organ-art.js?v=
 import { createRouter } from './circuit-router.js?v=0ee9e02fc6';
 import { gpuProbe } from './gpu-probe.js?v=d4aeccea90';
 import { plateStrips, premultiply } from './plate-upload.js?v=2dd6db2a18';
-import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, ORIGIN_GREY } from './veins-gl.js?v=b720f81223';
+import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, ORIGIN_GREY } from './veins-gl.js?v=61be8d8f99';
 import { varixBead, beadRadius } from './varix-bead.js?v=ac0e84fd89';
 import { advanceStream, createReversalHold, bleedShapes, stepBleedFade, fadeBleedShapes, chevFlowLevel, keyChevron, KEY_CHEV_LANES, originFractions, oxygenFor, ORIGIN_N, createBolus, DYE_BINS, KAPPA, STASIS_MIN_D, HIDDEN_SECONDS } from './blood.js?v=e668d01823';
 import { frameFor, cancelFrame, noteDraw, setSaver as setFrameSaver, paceMs } from './frame.js?v=2ce59939b2';
@@ -4011,10 +4011,11 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const olKey = (id) => organEls[id].getAttribute('d') + '|' + (organG[id].getAttribute('transform') || '');
   // The small bowel's loops as they are drawn now: the centre line of each tube of its pile (the deep-tone stroke under the loops,
   // .ob-deep in organ-art.js), read from the live drawing, so a pile that is reshaped is followed without a copy of its path here.
-  // A warm layer (see WARM) is a soft glow along these, on the organs and under the vessels, so the loops themselves light up.
+  // A warm layer (see WARM) is a soft glow along both edges of each tube, on the organs and under the vessels: the loops' outlines
+  // glow, the tubes' insides stay as drawn.
   // The tubes are plain polylines: their points are read from the path's own text once (cached by it), every other point, and each
   // build is only the group's transform over them (no path measuring: the ascites moves the bowel, and each move builds again).
-  const WARM = { reach: 30, alpha: 0.34 };   // (half width in world units, and strength at the line)
+  const WARM = { reach: 14, alpha: 0.46 };   // (how far the glow runs out from a tube's edge, in world units, and its strength on the edge)
   const warmEls = new Map(), warmPts = new Map();   // (the drawing's tubes, found once: the key below is read every frame)
   const warmDs = (id) => (warmEls.get(id) || warmEls.set(id, [...organG[id].querySelectorAll('.ob-deep')]).get(id)).map((el) => el.getAttribute('d')).filter(Boolean);
   function warmLines(d) {
@@ -4034,6 +4035,16 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       const lines = warmLines(d) || olRingsRaw(id, true, d, 6);
       return lines.filter((r) => r.length > 1).map((r) => (m ? r.map(([x, y]) => [m.a * x + m.c * y + m.e, m.b * x + m.d * y + m.f]) : r));
     });
+  }
+  // A tube's radius, from the drawing's own pieces (each .ob-edge is stroked 2r wide): the middle one, read once.
+  const warmRad = new Map();
+  function warmR(id) {
+    let r = warmRad.get(id);
+    if (r == null) {
+      const w = [...organG[id].querySelectorAll('.ob-edge')].map((el) => +el.getAttribute('stroke-width')).filter((x) => x > 0).sort((a, b) => a - b);
+      warmRad.set(id, r = w.length ? w[w.length >> 1] / 2 : 12.5);
+    }
+    return r;
   }
   const warmKey = (id) => olKey(id) + '|' + warmDs(id).map((d) => d.length + d.slice(-30)).join('|');
   const olRingsOf = (o) => (o.kind === 'warm' ? warmRings(o.id) : olRings(o.id));
@@ -4063,7 +4074,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       const o = olList.find((x) => x.kind === 'pin' && x.id === id);
       if (o) { o.on = true; o.col = col(it.tone); o.glow = id === 'heart' || it.glow; o.fade = it.fade; } else if (organEls[id].getAttribute('d')) olList.push({ kind: 'pin', id, key: olKey(id), rings: olRings(id), a: 0, on: true, col: col(it.tone), glow: id === 'heart' || it.glow, fade: it.fade });
     }
-    // (warm: the organ's loops lit from under, beside its outline's glow: the bowel's pile, eased with the same fade.)
+    // (warm: the organ's loops glow along their edges, beside its outline's glow: the bowel's pile, eased with the same fade.)
     const warm = new Map(items.filter((o) => glLines && o.warm && organEls[o.id]?.getAttribute('d') && warmDs(o.id).length).map((o) => [o.id, o]));
     for (const o of olList) if (o.kind === 'warm' && !warm.has(o.id)) o.on = false;
     for (const [id, it] of warm) {
@@ -4213,17 +4224,21 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     for (const o of olList) {
       const ease = o.a * o.a * (3 - 2 * o.a);
       const col = o.col || (o.kind === 'pin' ? olCol : orgTone(o.id));
-      // A warm layer: one soft strip along each centre line, strongest on it and easing out to either side.
+      // A warm layer: a soft glow along each side of every tube, strongest on its edge and easing out from it.
       if (o.kind === 'warm') {
+        const mt = V && organG[o.id].transform.baseVal.consolidate()?.matrix, rad = V ? warmR(o.id) * (mt ? Math.hypot(mt.a, mt.b) : 1) : 0;   // (only a build needs them)
         for (const r of o.rings) {
           const n = r.length;
-          if (V) for (let i = 0; i < n; i++) {
-            const p = r[i], pa = r[Math.max(0, i - 1)], pb = r[Math.min(n - 1, i + 1)];
-            let tx = pb[0] - pa[0], ty = pb[1] - pa[1]; const l = Math.hypot(tx, ty) || 1; tx /= l; ty /= l;
-            V.push(p[0], p[1], -ty, tx, -1, WARM.reach, p[0], p[1], -ty, tx, 1, WARM.reach);
+          for (const side of [-1, 1]) {
+            if (V) for (let i = 0; i < n; i++) {
+              const p = r[i], pa = r[Math.max(0, i - 1)], pb = r[Math.min(n - 1, i + 1)];
+              let tx = pb[0] - pa[0], ty = pb[1] - pa[1]; const l = Math.hypot(tx, ty) || 1; tx /= l; ty /= l;
+              const ex = p[0] - ty * rad * side, ey = p[1] + tx * rad * side;
+              V.push(ex, ey, -ty, tx, 0, WARM.reach, ex, ey, -ty, tx, side, WARM.reach);
+            }
+            draws.push({ first, count: n * 2, col, alpha: WARM.alpha * ease, soft: true, warm: true });
+            first += n * 2;
           }
-          draws.push({ first, count: n * 2, col, alpha: WARM.alpha * ease, soft: true, warm: true });
-          first += n * 2;
         }
         continue;
       }
@@ -8370,7 +8385,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const fSame = F === lastDrawF || (!lastAnim && !bloodOn() && !chevOn() && !originOn() && !F?.bleed?.active && sprayA <= 0);
     const key = still ? `${cathVer}|${morph}|${rotU}|${wrap.className}|${st.layers.flow}|${JSON.stringify(st.blood)}|${vCanvas.width}x${vCanvas.height}|${holesKey}` : null;
     // A plate raster that lands while the figure is still (paused, or reduced motion) marks the vessel layer dirty: draw it.
-    if (still && !veinsDirty && !glowSync && !olDirty && (!glLines || marksKey() === mk.key) && !olList.some((o) => o.a !== (o.on ? 1 : 0)) && !clampFading() && !widthEasing && !bloodEasing && !plateEasing() && !sprayFading() && !lensFrom && ascShown === ascTarget && morph === morphTarget && rotU === rotTarget && key === lastDrawKey && fSame && CTM === lastDrawCTM && !EV.some((x) => x.reveal)) { sleep(); return; }
+    if (still && !veinsDirty && !glowSync && !(glLines && olDirty) && (!glLines || marksKey() === mk.key) && !(glLines && olList.some((o) => o.a !== (o.on ? 1 : 0))) && !clampFading() && !widthEasing && !bloodEasing && !plateEasing() && !sprayFading() && !lensFrom && ascShown === ascTarget && morph === morphTarget && rotU === rotTarget && key === lastDrawKey && fSame && CTM === lastDrawCTM && !EV.some((x) => x.reveal)) { sleep(); return; }
     stepPlateEase();
     if (morph !== morphTarget) {
       morph = clamp(morph + Math.sign(morphTarget - morph) * dt / 0.6, 0, 1);
