@@ -96,7 +96,9 @@ export const DEMO_ALL = {
         "healthy",
         "fill",
         "diuretics",
-        "g-schisto"
+        "g-schisto",
+        "alias",
+        "alias-fix"
       ]
     ]
   ],
@@ -2005,6 +2007,43 @@ export const DEMO_ALL = {
       "kicker": "Fluid balance",
       "title": "Resistance before the sinusoids spares the lymph balance",
       "line": "The resistance sits in the portal venules, before the sinusoids, so the sinusoidal pressure rises less than in cirrhosis, to {sin}. At that pressure the lymphatics still carry all the lymph the liver and gut make, and no ascites builds."
+    },
+    {
+      "id": "alias",
+      "preset": "cirr-decomp",
+      "params": {
+        "tips": {
+          "on": true,
+          "d": 9
+        },
+        "splanchnicTone": 0.7,
+        "habrStrength": 1.5,
+        "apShunt": 0.5
+      },
+      "days": 30,
+      "cam": "liver",
+      "tool": {
+        "kind": "doppler",
+        "vessel": "TIPS",
+        "scale": 80
+      },
+      "kicker": "Doppler aliasing",
+      "title": "Flow faster than the scale wraps round",
+      "notes": "Velocities above the Nyquist limit, half the pulse repetition frequency, show in the opposite direction. Raising the scale, moving the baseline or using a lower-frequency probe removes it (Ferraioli, EFSUMB).",
+      "line": "The scale here reaches 80 cm/s each way. The stent's flow is faster, so the top of its spectrum wraps round and shows below the baseline. This is aliasing, not flow running backwards."
+    },
+    {
+      "id": "alias-fix",
+      "cam": "liver",
+      "tool": {
+        "kind": "doppler",
+        "vessel": "TIPS",
+        "scale": 80,
+        "baseline": 0.85
+      },
+      "kicker": "Doppler aliasing",
+      "title": "Moving the baseline down makes room",
+      "line": "The same scan with the baseline moved down. The scale now reaches further toward the probe, so the whole spectrum fits above the baseline. Raising the scale would fix it too."
     }
   ]
 };

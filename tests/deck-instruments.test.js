@@ -37,7 +37,7 @@ test('the package registers its two instruments, titled, and no built-in deck us
   for (const d of DECKS) for (const s of d.slides) {
     const t = s.tool || {};
     assert.ok(!['lumen', 'fluid'].includes(t.kind), `${d.id}/${s.id}: a new instrument`);
-    for (const k of ['mode', 'calipers', 'pair']) assert.equal(t[k], undefined, `${d.id}/${s.id}: tool.${k}`);
+    for (const k of ['mode', 'calipers', 'pair', 'scale', 'baseline']) assert.equal(t[k], undefined, `${d.id}/${s.id}: tool.${k}`);
   }
 });
 

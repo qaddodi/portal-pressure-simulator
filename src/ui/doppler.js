@@ -498,6 +498,7 @@ export function createDoppler({ onProbe, pickGate = true }) {
   // grain scrolls with the trace and never flickers. Only a faint noise floor is a separate layer
   // fixed to the screen, shimmering slowly in place, cleared at the baseline by the wall filter.
   let scale = null;     // velocity half-range (cm/s)
+  let fixed = null;     // a slide's fixed scale: { nyq (cm/s), base (0–1 from the top) }, or null to fit the signal
   let baseF = null;     // baseline position (fraction of height)
   let settleAt = 0;     // when the signal last fitted the current scale
   let tDisp = null;     // the display clock (model seconds)
@@ -610,21 +611,28 @@ export function createDoppler({ onProbe, pickGate = true }) {
       for (let ry = 0, q = x * 4; ry < RH; ry++, q += RW * 4) { D[q] = 0; D[q + 1] = 0; D[q + 2] = 0; D[q + 3] = 255; }
       return;
     }
+    // The signal's power at velocity u along the flow direction.
+    const power = (u) => {
+      if (u > P) { const z = (u - P) / sigHi; return 0.03 * Math.exp(-z * z); }
+      if (u >= L) {
+        const f = (u - L) / Math.max(1e-6, P - L);
+        // brightest just under the outline, where most of the blood moves (blunt flow), and
+        // greyer toward the baseline; a vein keeps a dimmer fill all the way down
+        const S = g.venous ? Math.min(1, 0.05 + 0.1 * f + 0.9 * Math.exp(-(((0.88 - f) / 0.16) ** 2))) : 0.16 + 0.84 * Math.pow(f, 1.3);
+        if (u > P - fadeV) { const z = (u - P + fadeV) / fadeV; return S * (1 - 0.985 * Math.sqrt(z)); }
+        return S;
+      }
+      if (u > 0) { const z = (L - u) / sigLo; return 0.16 * Math.exp(-z * z); }
+      return 0;
+    };
+    // A slide's fixed scale (aliasing): velocities past the scale's end wrap round to the other side, as a pulsed scanner samples
+    // them, so each row also shows the velocities one whole scale span (twice the Nyquist limit) above and below it. Only while
+    // the band reaches past an end; otherwise the line is drawn as before.
+    const span = g.span, wraps = span > 0 && P > (s > 0 ? g.topV : g.botV);
     for (let ry = 0; ry < RH; ry++) {
       const vel = (rBase - ry) / rPxPerV;
-      let S = 0;
-      if (has && av > 0.3) {
-        const u = vel * s;                                       // along the flow direction
-        if (u > P) { const z = (u - P) / sigHi; S = 0.03 * Math.exp(-z * z); }
-        else if (u >= L) {
-          const f = (u - L) / Math.max(1e-6, P - L);
-          // brightest just under the outline, where most of the blood moves (blunt flow), and
-          // greyer toward the baseline; a vein keeps a dimmer fill all the way down
-          S = g.venous ? Math.min(1, 0.05 + 0.1 * f + 0.9 * Math.exp(-(((0.88 - f) / 0.16) ** 2))) : 0.16 + 0.84 * Math.pow(f, 1.3);
-          if (u > P - fadeV) { const z = (u - P + fadeV) / fadeV; S *= 1 - 0.985 * Math.sqrt(z); }
-        }
-        else if (u > 0) { const z = (L - u) / sigLo; S = 0.16 * Math.exp(-z * z); }
-      }
+      let S = power(vel * s);                                   // along the flow direction
+      if (wraps) S += power((vel + span) * s) + power((vel - span) * s);
       const a = Math.abs(vel) / wf;
       const W = a >= 1 ? 1 : a * a * a;                        // wall filter clears the baseline
       const fb = ry / g.spkPx, b0 = fb | 0, f0 = fb - b0, f = f0 * f0 * (3 - 2 * f0);
@@ -829,7 +837,10 @@ export function createDoppler({ onProbe, pickGate = true }) {
     const tbRaw = pos + neg < 1 ? 0.5 : pos > 0 && neg < pos * 0.08 ? 0.88 : neg > 0 && pos < neg * 0.08 ? 0.12 : clamp(0.1 + 0.8 * (pos / (pos + neg)), 0.12, 0.88);
     const tbF = Math.round(tbRaw * 10) / 10;
     const fits = scale != null && need <= scale && (pos >= neg) === (baseF >= 0.5 || baseF == null);
-    if (scale == null || !fits) { scale = target; baseF = tbF; settleAt = tNow; }
+    // (A slide's fixed scale holds still whatever the signal: the Nyquist limit either side of a centred baseline, or the slide's
+    // baseline with the same span, 2 × the limit, shared out; scale is the dominant side's reach, so pxPerV is span / H.)
+    if (fixed) { baseF = fixed.base; scale = 2 * fixed.nyq * Math.max(baseF, 1 - baseF); settleAt = tNow; }
+    else if (scale == null || !fits) { scale = target; baseF = tbF; settleAt = tNow; }
     else if (target < scale || Math.abs(tbF - baseF) > 0.15) { if (tNow - settleAt > 3) { scale = target; baseF = tbF; settleAt = tNow; } }
     else settleAt = tNow;
     const baseY = Math.round(H * baseF);
@@ -838,7 +849,9 @@ export function createDoppler({ onProbe, pickGate = true }) {
 
     // Spectrum, at device resolution, newest line at the right edge.
     const RW = Math.max(1, Math.round(W * dpr)), RH = Math.max(1, Math.round(H * dpr));
-    const g = { RW, RH, rBase: baseY * dpr, rPxPerV: pxPerV * dpr, cps: RW / sweepSeconds, binPx: Math.max(1.5, RH / 200), spkPx: Math.max(2, RH / 110), spkMix: clamp(1 - 1 / dpr, 0.3, 0.65), pol: sgn, k, venous: meta().kind !== 'artery' && meta().kind !== 'tips' };
+    const g = { RW, RH, rBase: baseY * dpr, rPxPerV: pxPerV * dpr, cps: RW / sweepSeconds, binPx: Math.max(1.5, RH / 200), spkPx: Math.max(2, RH / 110), spkMix: clamp(1 - 1 / dpr, 0.3, 0.65), pol: sgn, k, venous: meta().kind !== 'artery' && meta().kind !== 'tips',
+      // (a fixed scale's span, and how far the display reaches above and below the baseline, cm/s: where the spectrum wraps)
+      span: fixed ? H / pxPerV : 0, topV: baseY / pxPerV, botV: (H - baseY) / pxPerV };
     const cNow = Math.floor(tNow * g.cps);
     const rest = `${scale}|${baseF}|${probe}|${sgn}|${sweepSeconds}|${mode}`, key = `${RW}x${RH}|${rest}`;
     if (!img || img.width !== RW || img.height !== RH) {
@@ -1045,6 +1058,11 @@ export function createDoppler({ onProbe, pickGate = true }) {
     if (m !== mode) { mode = m; sync(); }
     calip = !!t?.calipers; cal = null; calMk = {};   // (a new slide's calipers pick from its own trace)
     if (pair !== !!t?.pair) { pair = !!t?.pair; pairSc = null; }
+    // (scale: the velocity scale fixed at ± that many cm/s, the Nyquist limit, so faster flow aliases; baseline: where the
+    // baseline sits, 0 at the top of the trace to 1 at the bottom, 0.5 when not given. Without scale the display fits itself.)
+    const nyq = Number(t?.scale), b = Number(t?.baseline);
+    const next = nyq > 0 ? { nyq: clamp(nyq, 5, 400), base: Math.round(clamp(Number.isFinite(b) ? b : 0.5, 0.15, 0.85) * 100) / 100 } : null;
+    if (next?.nyq !== fixed?.nyq || next?.base !== fixed?.base) { fixed = next; scale = null; baseF = null; }
     redraw();
   }
 
