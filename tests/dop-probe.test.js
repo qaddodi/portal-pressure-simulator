@@ -62,10 +62,10 @@ test('as on the scanner: the line of sight runs through the vessel, the two bars
     assert.ok(r < 8 || Math.abs(2 * at - r) < 1e-9, `r ${r}: the gate is half the vessel's width (${2 * at} vs ${r})`);
     for (const phi of [PROBE.ANGLE, -PROBE.ANGLE]) {
       const s = probeShapes(PROBE.GAP + r, r, phi);
-      // The line of sight: from the probe's face straight through the gate and past the far wall.
+      // The line of sight: from the probe's face to the near gate bar (Mohammad, 20 Oct: it stops where the bars start).
       const [, x0, y0, x1, y1] = s.beam.match(/^M(-?[\d.]+) (-?[\d.]+) L(-?[\d.]+) (-?[\d.]+)$/).map(Number);
       assert.equal(x0, PROBE.GAP + r); assert.equal(y0, 0); assert.equal(y1, 0);
-      assert.ok(x1 < -chord - 10, 'it runs on past the far wall');
+      assert.ok(Math.abs(x1 - at) < 0.06, 'it stops at the near bar');
       // The bars: across the line (each at one x), either side of the gate.
       const xs = [...s.gate.matchAll(/[ML](-?[\d.]+) (-?[\d.]+)/g)].map((m) => +m[1]);
       assert.deepEqual([...new Set(xs)].sort((a, b) => a - b), [-at, at].map((v) => +v.toFixed(1)));
@@ -99,17 +99,17 @@ test('the figure places the gate where the callout points (the middle of the ves
   assert.equal((stage.match(/^\s*dprobePaint\(\);$/gm) || []).length, 4, 'view change, zoom glide, labels laid out, Doppler set');
   assert.match(stage, /if \(dpr\.on && dpr\.box\) out\.push\(dpr\.box, \.\.\.dpr\.marks\);/);
   // It hides while the views morph and in the liver's own views, and moves by fading out and back in.
-  assert.match(stage, /\(morph < 0\.01 \|\| morph > 0\.99\) && !st\.lobule && !st\.sinusoid && !lz\?\.isOpen\(\)/);
+  assert.match(stage, /\(morph < 0\.01 \|\| morph > 0\.99\) && !camMove && !st\.lobule && !st\.sinusoid && !lz\?\.isOpen\(\)/);
   assert.match(css, /\.dop-probe \{[^}]*transition: opacity \.36s var\(--ease\)/);
   assert.match(css, /\.dop-probe\.off \{ opacity: 0; \}/);
 });
 
 test('every mark and the probe are white-lined on a black rim, with no θ on the figure; the glow and the light share the Doppler glow colour', () => {
-  assert.match(css, /\.dpr-gate-rim \{ fill: none; stroke: var\(--dop-rim\); stroke-width: 6;/);
+  assert.match(css, /\.dpr-gate-rim \{ fill: none; stroke: var\(--dop-rim\); stroke-width: 3\.6;/);
   assert.match(css, /\.dpr-rim-l \{ fill: none; stroke: var\(--dop-rim\);/);
   assert.match(css, /\.dpr-line \{ fill: none; stroke: var\(--dop-mark\);/);
   for (const src of [css, stage, PROBE_SVG]) assert.doesNotMatch(src, /dpr-theta|θ<\/text>/);
-  assert.match(css, /\.dpr-gate \{ fill: none; stroke: var\(--dop-mark\); stroke-width: 2\.8;/);
+  assert.match(css, /\.dpr-gate \{ fill: none; stroke: var\(--dop-mark\); stroke-width: 1\.4;/);
   assert.match(tokens, /--dop-mark: #FFFFFF; --dop-rim: #000000;/);
   assert.match(stage, /setGlowSrc\('dop', id \? \[\{ id, col: 'var\(--dop-glow\)'/);
   assert.match(read('src/ui/presenter.js'), /glow\.set\(v, '--dop-glow'\)/);
@@ -153,4 +153,21 @@ test('the probe and its line of sight take the side clear of the labels and call
 test('in a deck the probe shows only once the zoom has settled: hidden while the camera moves, repainted when it lands', () => {
   assert.match(stage, /morph > 0\.99\) && !camMove && !st\.lobule/);
   assert.match(stage, /camMove = false;\s*if \(F\) updateLabels\(F\);/);
+});
+
+test('the line of sight stops at the near gate bar, the flow axis reaches past both bars, and the bars are thin', () => {
+  for (const r of [3, 10, 20]) {
+    const { at, half } = gateDims(r), p = probeShapes(90, r);
+    assert.equal(p.beam, `M90 0 L${+at.toFixed(1)} 0`);
+    const [x0, y0, x1, y1] = p.axis.match(/-?[\d.]+/g).map(Number);
+    assert.ok(Math.hypot(x1 - x0, y1 - y0) / 2 > Math.hypot(at, half) + 4, `axis longer than the bars reach at r ${r}`);
+  }
+  assert.match(css, /\.dpr-gate \{[^}]*stroke-width: 1\.4;/);
+});
+
+test('with neither side clear the probe comes in closer, and hides only when no place fits', () => {
+  const g = [600, 400], t = [1, 0], r = 8, far = (s) => probePose({ g, t, r, w: W, h: H, side: s }).box;
+  const p = probePose({ g, t, r, w: W, h: H, cards: [far(1), far(-1)].map((b) => ({ ...b, y0: b.y0, y1: b.y1, x0: b.x0, x1: b.x1 })).map((b) => ({ ...b, ...(b.y0 < g[1] ? { y1: Math.min(b.y1, b.y0 + 30) } : { y0: Math.max(b.y0, b.y1 - 30) }) })) });
+  assert.ok(p.reach > 0 && p.clear && !p.none);
+  assert.ok(probePose({ g, t, r, w: W, h: H, cards: [{ x0: 0, y0: 0, x1: W, y1: H }] }).none);
 });

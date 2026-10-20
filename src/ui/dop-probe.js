@@ -16,7 +16,6 @@ export const awayFromProbe = (id) => AWAY.has(id);
 // Abu-Yousef, RadioGraphics 2011, Fig 2; Ferraioli's EFSUMB slides; Lechowicz and Elwertowski, J Ultrason 2015, p. 214): 60° was the limit itself.
 export const PROBE = { ANGLE: 50, GAP: 74, LEN: 62, HALF: 13, EDGE: 8 };
 
-const SIN = Math.sin((PROBE.ANGLE * Math.PI) / 180);   // the line of sight crosses a lumen of radius r over r / sin θ either side of its middle
 /** The sample volume for a lumen of radius r (px on screen): two bars across the line of sight, each `at` px from the gate along
  *  it: the gate is half the vessel's width long, in its middle, as the Polish Ultrasound Society's standard sets it (Lechowicz and
  *  Elwertowski, J Ultrason 2015, p. 214), and the monitor's SV names it (doppler.js svMm); `half` px either side of it. */
@@ -34,11 +33,14 @@ export function bodyBox(g, ang, D) {
   return { x0: Math.min(...xs), y0: Math.min(...ys), x1: Math.max(...xs), y1: Math.max(...ys) };
 }
 
+/** Nearer distances (gate wall to face, px) the probe may come in to when neither side is clear at PROBE.GAP. */
+const REACH = [52, 34];
+
 /** Boxes along the probe's line of sight (stage px), from its face D px out along ang back through the gate g and past the
  *  vessel's far wall (as probeShapes draws it), each pad px either side of the line: what labels keep off, and what the probe
  *  weighs against the labels and callouts when it picks a side. */
 export function beamBoxes(g, ang, D, r = 0, pad = 4) {
-  const c = Math.cos(rad(ang)), s = Math.sin(rad(ang)), far = -(Math.max(0, r) / SIN + 22), out = [], n = Math.max(1, Math.ceil((D - far) / 8));
+  const c = Math.cos(rad(ang)), s = Math.sin(rad(ang)), far = gateDims(r).at, out = [], n = Math.max(1, Math.ceil((D - far) / 8));
   for (let i = 0; i <= n; i++) {
     const u = far + ((D - far) * i) / n, x = g[0] + u * c, y = g[1] + u * s;
     out.push({ x0: x - pad, y0: y - pad, x1: x + pad, y1: y + pad });
@@ -56,20 +58,28 @@ export function beamBoxes(g, ang, D, r = 0, pad = 4) {
  * Returns { side, ang (degrees, from the gate toward the probe), phi (the flow axis's θ ray, from the line of sight toward
  * the probe, degrees), D (gate to face, px), box (the body), clear }.
  */
-export function probePose({ g, t, r = 0, away = false, w, h, cards = [], keep = 0, side = 0, avoid = [] }) {
+export function probePose({ g, t, r = 0, away = false, w, h, cards = [], keep = 0, side = 0, avoid = [], keepReach = 0 }) {
   const base = Math.atan2(t[1], t[0]) * 180 / Math.PI, turn = away ? 180 - PROBE.ANGLE : PROBE.ANGLE;
-  const D = PROBE.GAP + Math.max(0, r);
-  const pose = (s) => {
+  const D0 = PROBE.GAP + Math.max(0, r);
+  const pose = (s, D = D0, reach = 0) => {
     const ang = base + s * turn, box = bodyBox(g, ang, D), e = PROBE.EDGE;
     // How much of the body lies off the stage or under a card (px²): 0 is clear.
     const off = (box.x1 - box.x0) * (box.y1 - box.y0) - overlap(box, { x0: e, y0: e, x1: w - e, y1: h - e });
     const hidden = cards.reduce((n, c) => n + overlap(box, c), 0);
     // (The flow runs at −s·θ from the line toward the probe (toward), or at 180° − s·(180° − θ) (away), whose reverse is s·θ.)
     const marks = [box, ...beamBoxes(g, ang, D, r)], lab = avoid.reduce((n, o) => n + marks.reduce((m, b) => m + overlap(b, o), 0), 0);
-    return { side: s, ang, lab, phi: (away ? s : -s) * PROBE.ANGLE, D, box, cost: off + hidden, clear: off + hidden === 0 };
+    return { side: s, reach, ang, lab, phi: (away ? s : -s) * PROBE.ANGLE, D, box, cost: off + hidden, clear: off + hidden === 0 };
   };
   if (side) return pose(side);
   const a = pose(1), b = pose(-1);
+  // Neither side clear at its usual distance (off the slide's free space or under a card): the probe comes in closer to the
+  // vessel, on either side, before it gives up; then none fits and it hides (Mohammad, 20 Oct: visible wherever there is room).
+  if (!a.clear && !b.clear) {
+    const near = REACH.map((n, i) => [pose(1, n + Math.max(0, r), i + 1), pose(-1, n + Math.max(0, r), i + 1)]).flat().filter((p) => p.clear);
+    if (!near.length) return { ...(a.cost <= b.cost ? a : b), none: true };
+    const k = keep && near.find((p) => p.side === keep && p.reach === keepReach);
+    return k && !(k.lab > 0 && near.some((p) => p.lab === 0)) ? k : near.reduce((m, p) => (p.lab < m.lab ? p : m));
+  }
   if (keep) {
     const k = keep === 1 ? a : b, o = keep === 1 ? b : a;
     if (!k.clear) return o.clear ? o : k;
@@ -88,10 +98,11 @@ export function probePose({ g, t, r = 0, away = false, w, h, cards = [], keep = 
  *  the gate, at phi (±θ) from the line. The angle itself is named only on the monitor (θ in its header): no arc and no θ on the
  *  figure (Mohammad, 20 Oct). */
 export function probeShapes(D, r, phi = PROBE.ANGLE) {
-  const { at, half } = gateDims(r), far = -(Math.max(0, r) / SIN + 22);
-  const L = Math.min(24, Math.max(8, 1.1 * r)), p = rad(phi), c = Math.cos(p), s = Math.sin(p), f = (v) => +v.toFixed(1);
+  // (The line of sight ends at the near gate bar, and the flow axis reaches a little past both bars: Mohammad, 20 Oct.)
+  const { at, half } = gateDims(r);
+  const L = Math.min(36, Math.max(16, 1.7 * r)), p = rad(phi), c = Math.cos(p), s = Math.sin(p), f = (v) => +v.toFixed(1);
   return {
-    beam: `M${f(D)} 0 L${f(far)} 0`,
+    beam: `M${f(D)} 0 L${f(at)} 0`,
     gate: `M${f(-at)} ${f(-half)} L${f(-at)} ${f(half)} M${f(at)} ${f(-half)} L${f(at)} ${f(half)}`,
     axis: `M${f(-L * c)} ${f(-L * s)} L${f(L * c)} ${f(L * s)}`,
     head: `translate(${f(D)} 0)`,

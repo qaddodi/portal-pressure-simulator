@@ -38,7 +38,7 @@ import { layoutWatch } from './idle-keys.js?v=ea36a0b5c6';
 import { writeGlowTexels } from './glow-texels.js?v=e578794a92';
 import { SIN_PERFUSION, sinStrandRadius } from './sin-perfusion.js?v=25a8407fdd';
 import { wavePacks, paintWave } from './scan-waves.js?v=066db7aa38';
-import { probePose, probeShapes, beamBoxes, awayFromProbe, PROBE_SVG } from './dop-probe.js?v=d3f9f16e5c';
+import { probePose, probeShapes, beamBoxes, awayFromProbe, PROBE_SVG } from './dop-probe.js?v=fcdbb27437';
 import { organDimMatrix } from './organ-dim.js?v=7888276613';
 import { parseColor, greyOf, paintRef } from './organ-grey.js?v=e41d68222c';
 import { bandRing, dashRings, liftEnd, normalShown, rippleList, systemOf, SYSTEM_COLOR } from './highlight-math.js?v=e2c1816e25';
@@ -1156,7 +1156,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const dop = { id: null, want: null, pin: null, key: '', seg: '', points: false, all: false };
   const dopGateOf = (id) => (dop.id === id && dop.seg ? dop.seg : '');   // the third of a stent the Doppler samples ('' when it is elsewhere)
   // The Doppler probe on the figure (dprobePaint): live once the stage is built (dopApply runs before its pieces exist).
-  const dpr = { el: null, on: false, key: '', side: 0, box: null, marks: [], swap: 0, shapes: '', at: '', ready: false };
+  const dpr = { el: null, on: false, key: '', side: 0, reach: 0, box: null, marks: [], swap: 0, shapes: '', at: '', ready: false };
   function dopApply() {
     let id = dop.pin ?? dop.want ?? null;
     if (id && !E[id]) id = null;
@@ -5246,8 +5246,10 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const [wx, wy, tx, ty] = u == null ? arcMid(pts) : pointAt(pts, u);
     const [gx, gy] = worldToLocal(wx, wy), [ax, ay] = worldToLocal(wx + tx, wy + ty);
     const r = cathRadOf(id, u ?? 0.5) * (CTM?.sc || 1);
-    const pose = probePose({ g: [gx, gy], t: [ax - gx, ay - gy], r, away: awayFromProbe(id), w: wrapRect.width, h: wrapRect.height, cards: dprCards(), keep: key === dpr.key ? dpr.side : 0, avoid: dprAvoid() });
-    if (dpr.on && (key !== dpr.key || pose.side !== dpr.side)) {
+    const pose = probePose({ g: [gx, gy], t: [ax - gx, ay - gy], r, away: awayFromProbe(id), w: wrapRect.width, h: wrapRect.height, cards: dprCards(), keep: key === dpr.key ? dpr.side : 0, keepReach: dpr.reach, avoid: dprAvoid() });
+    // (No place on the slide's free space at any side or distance: it fades out, and fades in once one opens.)
+    if (pose.none) { if (dpr.on) { dpr.on = false; dpr.el.classList.add('off'); } dpr.box = null; dpr.marks = []; dpr.key = ''; return; }
+    if (dpr.on && (key !== dpr.key || pose.side !== dpr.side || pose.reach !== dpr.reach)) {
       dpr.on = false; dpr.box = null; dpr.marks = []; dpr.el.classList.add('off');
       dpr.swap = setTimeout(() => { dpr.swap = 0; dpr.key = ''; dprobePaint(); }, reduceMotion.matches ? 0 : 380);
       return;
@@ -5264,7 +5266,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       dpr.at = at; const [tr, ro] = at.split('|');
       dpr.el.style.transform = tr; dpr.el.querySelector('.dpr-rot').setAttribute('transform', ro);
     }
-    dpr.key = key; dpr.side = pose.side; dpr.box = pose.box; dpr.marks = beamBoxes([gx, gy], pose.ang, pose.D, r);
+    dpr.key = key; dpr.side = pose.side; dpr.reach = pose.reach; dpr.box = pose.box; dpr.marks = beamBoxes([gx, gy], pose.ang, pose.D, r);
     if (!dpr.on) { dpr.on = true; dpr.el.classList.remove('off'); }
   }
   const CATH_IDS = ['SVC_RA', 'IVCS_RA', 'RHV_IVC', 'POST_R_RHV'];   // (and down the IVC_IS to the hepatic vein)
