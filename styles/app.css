@@ -2713,6 +2713,9 @@ button.finding { cursor: pointer; }
    group holds all three (--gut-a), so the colon covers the loops under it instead of showing them through. The organs' own
    paths stay, unpainted, as the target a highlight, a hit test and the vessels' cover read (.org-key-path). */
 #organs > .organ.organ-gut { opacity: var(--gut-a); }   /* (.organ.: over the organs' .55 below) */
+/* While the plate is down (an ease), the gut shows as its own picture (stage.js gutPic) under the same mask and opacity: its
+   drawn groups stay for picking and measuring, unpainted. */
+#organs > .organ-gut.gut-pic-on > .organ { visibility: hidden; }
 .org-key-path { fill: none; stroke: none; }
 /* The stomach's outline traced over the cirrhotic liver (stage.js): a line in the stomach's own tone, never a fill (unstyled,
    it filled black and read as a dark patch on the liver: Mohammad, 20 Oct). */

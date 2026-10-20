@@ -661,6 +661,20 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       gGut.append(g);
     } else gOrgans.append(g);
   }
+  // The gut's picture while the organs ease (gutPic), over its groups, under the gut's mask and opacity.
+  const gGutPics = s('g', { class: 'gut-pics', 'pointer-events': 'none', style: 'display:none' });
+  gGut?.append(gGutPics);
+  const gutKids = () => (gGut ? [...gGut.children].filter((c) => c !== gGutPics) : []);
+  const GUT_RECT = [320, 410, 800, 670];   // the gut's mask (#gutHide), in the groups' own frame (the bowel's float of 26 included)
+  const GUT_CAP = Math.min(4096 / GUT_RECT[2], 4096 / GUT_RECT[3], Math.sqrt(4.2e6 / (GUT_RECT[2] * GUT_RECT[3])));   // px per unit, at most
+  let gutPic = null, gutPicOn = false, gutPicSeq = 0, gutPicTimer = 0, gutMut = 0, gutLookAt = null, gutLookV = '';
+  const darkMq = matchMedia('(prefers-color-scheme: dark)');
+  const gutPicGrey = s('filter', { id: 'gutPicGrey', filterUnits: 'userSpaceOnUse', x: GUT_RECT[0], y: GUT_RECT[1] - 30, width: GUT_RECT[2], height: GUT_RECT[3] + 30, 'color-interpolation-filters': 'sRGB' });
+  const gutPicGreyFx = s('feColorMatrix', { type: 'matrix' });
+  gutPicGrey.append(gutPicGreyFx); defs.append(gutPicGrey);
+  // (A change in the drawn art, other than the bowel's float or the live grey, which the picture follows itself, retires it.)
+  const gutMo = new MutationObserver((ms) => { if (ms.some((m) => m.type === 'childList' || (m.attributeName !== 'style' && !(m.attributeName === 'transform' && m.target.parentNode === gGut)))) gutMut++; });
+  for (const k of gutKids()) gutMo.observe(k, { attributes: true, childList: true, subtree: true });
   // The stomach's outline traced over the liver where the liver covers it (cirrhosis only: morphLiver), after the liver.
   const ghost = s('g', { class: 'org-ghost', mask: 'url(#ghostM)', style: 'display:none' });
   ghost.append(s('path', { d: SEAM_D, class: 'org-ghost-line' }));
@@ -1545,7 +1559,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       // and then glide to another a second later.
       // (A box ignores clip paths, so the gut's art, drawn past Mohammad's outlines and clipped to them, is measured
       // clipped: fitBoxes. Measured whole, its loose ends pushed the framing off centre.)
-      for (const b of fitBoxes([gBackdrop, ...[...gOrgans.children].filter((c) => c !== gGut), gAscites], gGut ? [...gGut.children] : [])) {
+      for (const b of fitBoxes([gBackdrop, ...[...gOrgans.children].filter((c) => c !== gGut), gAscites], gGut ? gutKids() : [])) {
         if (!b.width || !b.height) continue;
         x0 = Math.min(x0, b.x); y0 = Math.min(y0, b.y); x1 = Math.max(x1, b.x + b.width); y1 = Math.max(y1, b.y + b.height);
       }
@@ -3438,6 +3452,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   /** Redraws the vessel layer (and the picture) if anything in it changed; true when it did. */
   let glM = null;   // the world → stage transform (CSS px) the vessels were last drawn in (for the tests)
   function drawVeins(fullComposite = false) {
+    syncGutPic();
     if (!veins || veins.lost || !vLook || !F) return false;
     if (!CTM) refreshCTM();
     const m = CTM;
@@ -3513,6 +3528,11 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         // y 420, the flank starts at 470), so it shows nothing; in the copy it only stretched the backdrop's mask, two
         // offscreen layers, from the dome over the liver and spleen to the whole abdomen.
         for (const el of c.querySelectorAll('.flank')) el.setAttribute('data-pc', 'drop');
+        // The gut's own picture (gutPic) is never part of the copy; its groups are marked so it can be made from the copy.
+        if (g === gOrgans) {
+          const gc = c.children[[...gOrgans.children].indexOf(gGut)];
+          if (gc) [...gc.children].forEach((k, i) => { if (gGut.children[i] === gGutPics) k.setAttribute('data-pc', 'drop'); else k.setAttribute('data-gut', i); });
+        }
         // (Shown for this copy by definition: the stage hides these groups only while the GPU draws them. A visibility read back
         // from the page here could be stale, as Chrome's was for descendants (d7d2314), and one stale "hidden" at the top hides
         // every organ in the copy and so in the figure.)
@@ -3538,7 +3558,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       // The nodules and islands are drawn in the liver's own frame (its shrink about a centre): the window is mapped into it.
       const t = organG.liver.getAttribute('transform') || '', m = t.match(/^translate\(([-\d.]+) ([-\d.]+)\) scale\(([-\d.]+)\) translate\([-\d.]+ [-\d.]+\)$/);
       const toLiver = !t ? (r) => r : m ? (r) => { const [cx, cy, k] = m.slice(1).map(Number); return [cx + (r[0] - cx) / k, cy + (r[1] - cy) / k, r[2] / k, r[3] / k]; } : null;
-      return { key, seq: plateSeq, head, parts, subs, toLiver };
+      const gut = parts.flatMap((c) => [...c.querySelectorAll('[data-gut]')]);
+      return { key, seq: plateSeq, head, parts, subs, toLiver, gut, gutMut };
     } finally { if (was) wrap.classList.add('gl-plate'); if (greyed) syncOrganDim(); }
   }
   function plateMarkup(rect, W, H, fresh) {
@@ -3645,7 +3666,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
             if (!drawVeins()) { wrap.classList.remove('gl-plate'); syncPlateLook(); }
           } else syncPlateLook();
           if (!plateOn()) plateKey = '';   // not shown (the liver moved meanwhile): raster again once it settles
-          schedulePlateView();
+          schedulePlateView(); gutPicSoon();
         }
       } catch (e) { console.warn('Plate raster failed; the SVG plate stays.', e); }
       plateBusy = false;
@@ -3658,6 +3679,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     clearTimeout(plateSettle);
     plateSettle = setTimeout(async () => {
       if (!veins || !plateOn() || !CTM) return;
+      gutPicSoon();
       const need = vdpr * CTM.sc;
       if (need <= PLATE_BASE * 1.2) { if (veins.hasPlate(1)) { veins.dropPlate(1); veinsDirty = true; } return; }
       // The view in world units (the anatomy is never turned), with a margin, within the plate.
@@ -3673,6 +3695,89 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       plateViewKey = key;
       try { if (await rasterPlate(1, [x0, y0, x1 - x0, y1 - y0], scale)) { plateView = [x0, y0, x1, y1, scale]; veinsDirty = true; } } catch { /* the whole-plate raster stays */ }
     }, 280);
+  }
+  // ── The gut's picture while the organs ease ─────────
+  // While the live drawing shows (the plate is down while the liver, the spleen or the fluid eases), the gut was repainted on
+  // every frame the liver changed, though nothing in it does: its mask (#gutHide) holds the liver's outline, and a mask that
+  // changes repaints everything it covers, the gut's 1,201 paths (Mohammad, 20 Oct: "why is it redrawing if there is nothing
+  // happening there"). So while the plate is down the gut shows as a picture of itself, made at rest from the plate's copy at
+  // the plate's resolution (as the GPU shows it at rest), under the gut's own live mask and opacity: the liver's cut still
+  // follows the liver each frame, over one image instead of the paths. The groups that move together are one image, placed with
+  // their transform (the small bowel floats on the fluid: a run of its own). A picture that no longer fits (the theme, a change
+  // in the art, a zoom past its resolution, groups of one run apart) is not used: the live paths show, as before.
+  // What the gut's colours are made of, read again only when the classes or the theme change.
+  const GUT_VARS = ['--og-gut-1', '--og-gut-2', '--og-gut-3', '--og-ao', '--og-light', '--og-hi', '--og-hi-k', '--gut-rim-k', '--organ-gut', '--stage-bg'];
+  function gutLook() {
+    const r = document.documentElement, at = `${wrap.className.replace(/\bgl-plate\b/, '')}|${r.className}|${r.dataset.theme || ''}|${darkMq.matches}`;
+    if (at !== gutLookAt) { const cs = getComputedStyle(gGut); gutLookAt = at; gutLookV = GUT_VARS.map((v) => cs.getPropertyValue(v).trim()).join('|'); }
+    return gutLookV;
+  }
+  function gutRuns() {
+    const runs = [];
+    let prev = null;
+    for (const k of gutKids()) { if (!runs.length || k === organG.bowel || prev === organG.bowel) runs.push([]); runs[runs.length - 1].push(k); prev = k; }
+    return runs;
+  }
+  const trOf = (el) => el.getAttribute('transform') || '';
+  function gutPicOk() {
+    if (!gutPic || plateOn() || !veins || veins.lost || !CTM || !glWanted(easeInOut(morph)) || gutPic.mut !== gutMut || gutPic.look !== gutLook()) return false;
+    const need = vdpr * CTM.sc;
+    if (gutPic.k * 1.15 < need || gutPic.k > need * 2) return false;
+    return gutPic.runs.every((r) => r.kids.every((k) => trOf(k) === trOf(r.kids[0])));
+  }
+  function syncGutPic() {
+    if (!gGut) return;
+    const on = gutPicOk();
+    if (on) {
+      for (const r of gutPic.runs) { const t = trOf(r.kids[0]); if (t) putA(r.img, 'transform', t); else r.img.removeAttribute('transform'); }
+      // The live grey is each paint's own colour made grey (greyOn): the same grey over the picture, a linear map, as the same.
+      const grey = !!greyList && plateSat < 1;
+      if (grey) putA(gutPicGreyFx, 'values', organDimMatrix(1, plateSat));
+      if (grey) putA(gGutPics, 'filter', 'url(#gutPicGrey)'); else gGutPics.removeAttribute('filter');
+    }
+    if (on === gutPicOn) return;
+    gutPicOn = on;
+    gGutPics.style.display = on ? '' : 'none';
+    gGut.classList.toggle('gut-pic-on', on);
+  }
+  function gutPicSoon() { clearTimeout(gutPicTimer); gutPicTimer = setTimeout(() => { makeGutPic().catch(() => { /* the live paths stay */ }); }, 350); }
+  async function makeGutPic() {
+    if (!gGut || !plateOn() || !CTM || !plateCopy?.gut?.length || plateCopy.key !== plateStateKey() || plateCopy.gutMut !== gutMut) return;
+    const need = vdpr * CTM.sc;
+    if (need > GUT_CAP * 1.15) return;   // (zoomed in past what it can hold: the live paths show)
+    const k = Math.min(need, GUT_CAP), look = gutLook(), mut = gutMut;
+    if (gutPic && gutPic.mut === mut && gutPic.look === look && Math.abs(gutPic.k - k) <= k * 0.1) return;
+    const seq = ++gutPicSeq, W = Math.max(1, Math.round(GUT_RECT[2] * k)), H = Math.max(1, Math.round(GUT_RECT[3] * k));
+    const ser = new XMLSerializer(), copies = plateCopy.gut, head = plateCopy.head, runs = [];
+    try {
+      for (const kids of gutRuns()) {
+        const body = kids.map((kid) => { const i = String([...gGut.children].indexOf(kid)), c = copies.find((el) => el.getAttribute('data-gut') === i)?.cloneNode(true); if (!c) throw new Error('gut copy'); c.removeAttribute('transform'); c.removeAttribute('data-gut'); return ser.serializeToString(c); }).join('');
+        const src = URL.createObjectURL(new Blob([`<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="${W}" height="${H}" viewBox="${GUT_RECT.join(' ')}" preserveAspectRatio="none">${head}${body}</svg>`], { type: 'image/svg+xml' }));
+        let blob;
+        try {
+          const img = new Image();
+          await new Promise((res, rej) => { img.onload = res; img.onerror = rej; img.src = src; });
+          const cv = document.createElement('canvas');
+          cv.width = W; cv.height = H;
+          cv.getContext('2d').drawImage(img, 0, 0, W, H);
+          blob = await new Promise((res) => cv.toBlob(res, 'image/png'));
+          cv.width = cv.height = 0;
+        } finally { URL.revokeObjectURL(src); }
+        if (!blob) throw new Error('gut picture');
+        const url = URL.createObjectURL(blob);
+        runs.push({ kids, url });
+        // Decoded before it can show, so the first frame of an ease does not wait for it.
+        const keep = new Image(); keep.src = url; await keep.decode();
+        runs[runs.length - 1].keep = keep;
+        if (seq !== gutPicSeq || mut !== gutMut) throw new Error('overtaken');
+      }
+    } catch (e) { for (const r of runs) URL.revokeObjectURL(r.url); throw e; }
+    const old = gutPic;
+    gutPic = { k, look, mut, runs: runs.map(({ kids, url, keep }) => ({ kids, url, keep, img: s('image', { href: url, x: GUT_RECT[0], y: GUT_RECT[1], width: GUT_RECT[2], height: GUT_RECT[3], preserveAspectRatio: 'none' }) })) };
+    gGutPics.replaceChildren(...gutPic.runs.map((r) => r.img));
+    if (old) for (const r of old.runs) URL.revokeObjectURL(r.url);
+    gutPicOn = false; gGutPics.style.display = 'none'; gGut.classList.remove('gut-pic-on');
+    syncGutPic();
   }
   function clientToWorldFast(cx, cy) {
     if (!CTM) refreshCTM();
@@ -3691,7 +3796,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     return [(sel ? SEL_DIM : 1) * (dataLayer ? 0.72 : 1), dataLayer ? 0.12 : 1, own ? 0.42 : sel ? SPOT_NET : 1];
   };
   function syncPlateLook() {
-    syncOrganDim();
+    syncOrganDim(); syncGutPic();
     if (!vLook) return;
     if (plateDim == null || reduceMotion.matches) [plateDim, plateSat, netA] = plateTargets();
     vLook.plate = plateOn() ? { alpha: (1 - easeInOut(morph)) * plateDim, sat: plateSat } : null;
