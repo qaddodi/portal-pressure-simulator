@@ -3467,7 +3467,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // The backdrop, organs and ascites are rasterized from the live SVG (styles inlined) into
   // textures the vessel layer draws first: one of the whole plate, and, once a pan or zoom has
   // settled, a sharper one of the view. The SVG is rasterized again only when what it shows
-  // changes (cirrhosis, spleen size, ascites, congestion tint, theme, a selected organ); dimming
+  // changes (cirrhosis, spleen size, ascites, congestion tint, theme); dimming
   // for a selection or a data layer is applied on the GPU. The SVG groups stay, hidden, for
   // picking organs and for exports.
   const PLATE_RECT = [200, -200, 1020, 1320];
@@ -3578,7 +3578,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       } finally { if (job && !v.lost) v.dropJob(job); c.width = c.height = 0; }
     } finally { URL.revokeObjectURL(url); }
   }
-  // What the plate shows, in coarse steps: re-rasterize when it changes.
+  // What the plate shows, in coarse steps: re-rasterize when it changes. A selected organ is not part of it: its outline is drawn
+  // outside the organs (gSelO, or on the GPU) and its dim on the GPU, and its .org-sel class styles nothing, so the picture was
+  // the same; drawing it again made every highlight and unhighlight lag (Mohammad, 20 Oct: "even highlighting the liver is laggy").
   let tintQ = 0;
   function plateStateKey() {
     const cs = wrapCS();
@@ -3588,7 +3590,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (Math.abs(tq - tintQ) > 1.5 || (tq === 0 && tintQ !== 0)) tintQ = Math.round(tq);
     return [liverKey, organG.liver.getAttribute('transform')?.replace(/(\d\.\d\d\d)\d*/g, '$1'), organG.spleen.getAttribute('transform')?.replace(/(\d\.\d\d)\d*/g, '$1'), diaKey,
       tintQ,
-      organG.bowel.getAttribute('transform'), (flank.getAttribute('d') || '').slice(0, 24), selOKey, organEls.umbilicus?.getAttribute('opacity'),
+      organG.bowel.getAttribute('transform'), (flank.getAttribute('d') || '').slice(0, 24), organEls.umbilicus?.getAttribute('opacity'),
       cs.getPropertyValue('--stage-bg'), cs.getPropertyValue('--organ-liver'), wrap.classList.contains('imaging')].join('|');
   }
   // Hidden (the home page over the app), every organ would rasterize invisible: wait until the figure shows.

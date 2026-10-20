@@ -39,3 +39,11 @@ test('an ease that outgrows the plate shows on the live drawing, and the plate i
   const poke = stage.slice(stage.indexOf('function platePoke'), stage.indexOf('const key = plateStateKey();', stage.indexOf('function platePoke')));
   assert.match(poke, /if \(lvMoving \|\| fluidEasing\(\)\) \{ if \(plateKey && veins\.hasPlate\(0\) && plateStateKey\(\) !== plateKey\) hidePlate\(\); return; \}/);
 });
+
+test('highlighting an organ never draws the organ picture again (its look is the same, and the redraw lagged)', () => {
+  const key = stage.slice(stage.indexOf('function plateStateKey'), stage.indexOf('const figureHidden'));
+  assert.doesNotMatch(key, /selOKey/);
+  // (Safe only while the selected organ's class styles nothing: its outline and dim are drawn outside the picture.)
+  const css = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
+  assert.doesNotMatch(css, /\.org-sel(?![-\w])/);
+});
