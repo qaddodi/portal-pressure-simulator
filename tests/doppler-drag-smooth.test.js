@@ -124,3 +124,14 @@ test('the Doppler\'s scale and baseline hold while a change settles, then fit it
   fitScale(st, { fixed: { nyq: 80, base: 0.5 }, holding: true, fits: false, target: 200, tbF: 0.9, tNow: 10 });
   assert.deepEqual([st.scale, st.baseF], [80, 0.5]);
 });
+
+// (Its flow stepped tenfold at the collapse point: about 40 cm/s from one sample to the next, every beat.)
+for (const web of [0.65, 0.7]) test(`an IVC web at ${web * 100}% gives a smooth IVC trace: the cava at the heart collapses and reopens with the beat without a step`, (t) => {
+  const { advance, jump, probe } = drive(t, 'ivc-web', { stenosis: { IVCS_RA: web } });
+  probe('IVCS_RA');
+  for (let k = 0; k < 90; k++) advance(33);
+  jump();
+  for (let k = 0; k < 150; k++) advance(33);
+  const j = jump();
+  assert.ok(j < 15, `the IVC trace steps ${j.toFixed(1)} cm/s between samples`);
+});

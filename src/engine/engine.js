@@ -44,6 +44,8 @@ const pinchResistance = (wall, kq, s) => {
 const BLOOD_BASE = 5000, HCT_BASE = 0.42;
 // How long the volumes a hidden relaxation moved take to come across to the live model (s): the worker's tick.
 const CARRY_S = 0.033;
+// How far (mmHg) below the outside pressure a vein's downstream end goes before its flow is wholly the collapsed vein's.
+const WF_BAND = 1;
 // A live change's numbers (a narrowing, a stent's width, a leak) ease in with this time constant (s) of model time, so a
 // slider that sends a new value every frame moves the model, and every Doppler trace, without a step at each frame.
 export const PARAM_EASE_S = 0.15;
@@ -105,6 +107,8 @@ export class Engine {
     this.Cn = new Float64Array(this.N);
     this.wf = new Int8Array(this.E);     // waterfall flag: +1 f→t, −1 t→f
     this.wfx = new Float64Array(this.E); // waterfall external pressure
+    this.wfw = new Float64Array(this.E); // near the collapse point: the collapsed share of the flow (see computeG)
+    this.wfo = new Float64Array(this.E); // and the open vein's conductance over the collapsed one's
     this.vx = new Float64Array(this.E);  // a vein's external pressure (set by computeG)
     this.wfPrev = new Int8Array(this.E); // the waterfall state of the step before
 
@@ -409,9 +413,16 @@ export class Engine {
           const up = P[f] >= P[t] ? f : t, dn = up === f ? t : f;
           // Starling resistor: downstream end collapsed → flow set by upstream − external pressure.
           if (P[dn] - x < 0 && P[up] - x > 0.5) {
-            R *= tubeResistanceFactor(P[up] - x, P[up] - x, this.Pbase[up], this.Pbase[up], KD[e.kind] ?? 0.03);
+            const kd = KD[e.kind] ?? 0.03, fc = tubeResistanceFactor(P[up] - x, P[up] - x, this.Pbase[up], this.Pbase[up], kd);
+            R *= fc;
             this.wf[k] = up === f ? 1 : -1;
             this.wfx[k] = x;
+            // Within WF_BAND of the collapse point the open vein's flow hands over to the collapsed one's gradually (wfw: the
+            // collapsed share; wfo: the open vein's conductance over the collapsed one's), so the flow never steps as the
+            // downstream pressure crosses the outside pressure (it jumped tenfold there, every beat at an IVC web's middle).
+            const w = Math.min(1, (x - P[dn]) / WF_BAND);
+            this.wfw[k] = w;
+            if (w < 1) this.wfo[k] = fc / tubeResistanceFactor(P[f] - x, P[t] - x, this.Pbase[f], this.Pbase[t], kd);
           } else {
             R *= tubeResistanceFactor(P[f] - x, P[t] - x, this.Pbase[f], this.Pbase[t], KD[e.kind] ?? 0.03);
           }
@@ -537,9 +548,10 @@ export class Engine {
         if (shut[k]) g *= 0.002;
         this.G[k] = g;
         if (this.wf[k]) {
-          const up = this.wf[k] > 0 ? f : t, dn = up === f ? t : f, x = this.wfx[k];
-          A[up * N + up] += g; b[up] += g * x;
-          A[dn * N + up] -= g; b[dn] -= g * x;
+          const up = this.wf[k] > 0 ? f : t, dn = up === f ? t : f, x = this.wfx[k], w = this.wfw[k], gc = g * w, go = g * (1 - w) * this.wfo[k];
+          A[up * N + up] += gc; b[up] += gc * x;
+          A[dn * N + up] -= gc; b[dn] -= gc * x;
+          if (go > 0) { A[f * N + f] += go; A[t * N + t] += go; A[f * N + t] -= go; A[t * N + f] -= go; }
           continue;
         }
         A[f * N + f] += g; A[t * N + t] += g;
@@ -584,8 +596,11 @@ export class Engine {
       const g = this.G[k];
       const f = this.edgeF[k], t = this.edgeT[k];
       let q;
-      if (this.wf[k]) q = this.wf[k] > 0 ? g * (Pn[f] - this.wfx[k]) : -g * (Pn[t] - this.wfx[k]);
-      else q = g * (Pn[f] - Pn[t]);
+      if (this.wf[k]) {
+        const w = this.wfw[k];
+        q = (this.wf[k] > 0 ? g * (Pn[f] - this.wfx[k]) : -g * (Pn[t] - this.wfx[k])) * w;
+        if (w < 1) q += g * (1 - w) * this.wfo[k] * (Pn[f] - Pn[t]);
+      } else q = g * (Pn[f] - Pn[t]);
       this.Q[k] = q;
       net[f] -= q; net[t] += q;
     }
