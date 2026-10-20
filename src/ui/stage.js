@@ -4226,7 +4226,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       // held short of the bend's centre (its reach follows the room there) and dropped where there is none, so it never folds back.
       if (o.kind === 'warm') {
         if (V) {
-          const mt = gMatrix(organG[o.id]), rad = warmR(o.id) * (mt ? Math.hypot(mt.a, mt.b) : 1), reachMax = Math.min(WARM.reach, 0.8 * rad);   // (under the tube's half width, whatever the drawing)
+          const mt = gMatrix(organG[o.id]), rad = warmR(o.id) * (mt ? Math.hypot(mt.a, mt.b) : 1), reachMax = Math.min(63, WARM.reach, 0.8 * rad);   // (under the tube's half width, whatever the drawing)
           const cm = o.id === 'colon' ? null : gMatrix(organG.colon), inv = cm?.inverse(), grid = o.id === 'colon' ? null : colonGrid();
           const underColon = (x, y) => {
             if (!grid) return false;
@@ -4263,11 +4263,28 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
                 }
                 run = [];
               };
+              // The glow at a point along the line, between points i0 and i1 (t from 0 to 1): its place, its direction and its reach,
+              // and whether it is shown (the colon is not over it and the reach is room enough).
+              const at = (i0, i1, t) => {
+                const a = r[i0], b = r[i1];
+                let tx = tg[i0][0] * (1 - t) + tg[i1][0] * t, ty = tg[i0][1] * (1 - t) + tg[i1][1] * t; const l = Math.hypot(tx, ty) || 1; tx /= l; ty /= l;
+                const Rv = 1 / Math.max((1 - t) / R[i0] + t / R[i1], 1e-9);
+                const ex = a[0] + (b[0] - a[0]) * t - ty * rad * side, ey = a[1] + (b[1] - a[1]) * t + tx * rad * side;
+                const reach = (t < 0.5 ? cs[i0] : cs[i1]) === side ? Math.min(reachMax, (Rv - rad) * 0.85) : reachMax;
+                return { v: [ex, ey, tx, ty, reach], ok: !(reach < 2.5 || underColon(ex, ey)) };
+              };
+              // Where a run starts or stops falls exactly on its cut (found between the last point on one side and the first on the
+              // other), so its length, and with it the fade, moves smoothly as the cut does, not a whole point at a time.
+              const cut = (i, wasOk) => {
+                let lo = 0, hi = 1;
+                for (let k = 0; k < 6; k++) { const m = (lo + hi) / 2; if (at(i - 1, i, m).ok === wasOk) lo = m; else hi = m; }
+                return at(i - 1, i, wasOk ? lo : hi).v;
+              };
+              let prevOk = false;
               for (let i = 0; i < n; i++) {
-                const p = r[i], [tx, ty] = tg[i], ex = p[0] - ty * rad * side, ey = p[1] + tx * rad * side;
-                const reach = cs[i] === side ? Math.min(reachMax, (R[i] - rad) * 0.85) : reachMax;
-                if (reach < 2.5 || underColon(ex, ey)) { end(); continue; }
-                run.push([ex, ey, tx, ty, reach]);
+                const c = at(i, i, 0);
+                if (c.ok) { if (i > 0 && !prevOk) run.push(cut(i, false)); run.push(c.v); } else { if (prevOk) run.push(cut(i, true)); end(); }
+                prevOk = c.ok;
               }
               end();
             }

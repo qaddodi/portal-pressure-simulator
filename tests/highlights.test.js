@@ -278,13 +278,12 @@ test('a lapse glow goes when the slide leaves, and is drawn from the pile\'s own
   assert.match(GLSRC, /if \(warm\) \{ gl\.blendEquation\(gl\.MAX\)/);
   assert.match(GLSRC, /if \(warm\) gl\.blendEquation\(gl\.FUNC_ADD\)/);
   assert.match(STAGE, /underColon\(ex, ey\)/);
-  assert.match(STAGE, /\(R\[i\] - rad\) \* 0\.85/);
+  assert.match(STAGE, /\(Rv - rad\) \* 0\.85/);
   assert.ok(!/function warmRings[\s\S]{0,120}consolidate/.test(STAGE) && !/function olRingsRaw[\s\S]{0,120}consolidate/.test(STAGE), 'the loop outlines read the transform without consolidate()');
   // A redrawn pile is noticed: the cached tubes and their radius are dropped when the old ones leave the page, and the radius is
   // read again when the bed's stroke width changes; it comes from the pieces' own stroke-width attribute (.ob-edge).
   assert.match(STAGE, /!l\[0\]\.isConnected/);
   assert.match(STAGE, /c\.sw !== sw/);
-  assert.match(STAGE, /Math\.min\(WARM\.reach, 0\.8 \* rad\)/, 'the reach follows the measured tube radius');
   assert.match(STAGE, /gone\(t\) \|\| gone\(e\)/, 'a redrawn piece is noticed too');
   // The colon cut is a grid look-up (filled once by scanlines), not a ring test per point; each run's reach eases off at both ends.
   assert.match(STAGE, /grid\.bits\[j \* grid\.w \+ i\] === 1/);
@@ -294,6 +293,12 @@ test('a lapse glow goes when the slide leaves, and is drawn from the pile\'s own
   assert.match(GLSRC, /a = col\.a \* vF \* exp\(/, 'the fade multiplies the alpha, so an end is not a thin full-strength line');
   assert.match(GLSRC, /gl\.uniform1f\(U\.pack, warm \? 1 : 0\)/);
   assert.match(STAGE, /64 \* Math\.round\(e \* 63\)/);
+  assert.ok(+/const WARM = \{ reach: (\d+)/.exec(STAGE)[1] < 64, 'the reach fits under the fade packing (64 x the fade + the width)');
+  assert.match(STAGE, /Math\.min\(63, WARM\.reach, 0\.8 \* rad\)/, 'the reach follows the measured tube radius');
+  // A run starts and stops exactly on its cut (the colon's, or too little room on a bend), found between two points, so the fade moves smoothly.
+  assert.match(STAGE, /const cut = \(i, wasOk\) => \{/);
+  assert.match(STAGE, /if \(i > 0 && !prevOk\) run\.push\(cut\(i, false\)\)/);
+  assert.match(STAGE, /if \(prevOk\) run\.push\(cut\(i, true\)\)/);
   assert.ok(!/baseVal\.consolidate\(\)/.test(STAGE), 'no transform is consolidated: the keys stay the same across builds');
   assert.match(STAGE, /el\.getAttribute\('stroke-width'\)/);
   assert.ok(readFileSync(new URL('../src/ui/organ-art.js', import.meta.url), 'utf8').includes('ob-edge\\" d=\\"') && /class=\\"ob-edge\\" d=\\"[^"]*\\" stroke-width=\\"[\d.]+\\"/.test(readFileSync(new URL('../src/ui/organ-art.js', import.meta.url), 'utf8')), 'the pieces carry a stroke-width attribute');
