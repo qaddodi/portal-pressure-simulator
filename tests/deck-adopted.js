@@ -67,6 +67,10 @@ export const ADOPTED = {
   'endoscopy/large': ['calipers'],
   'endoscopy/bleed': ['ripple'],
   'endoscopy/transfuse': ['ripple', 'cite'],
+  'variceal-bleed/before': ['calipers'],
+  'variceal-bleed/oct': ['ripple'],
+  'variceal-bleed/blood': ['cite'],
+  'variceal-bleed/tips': ['ripple', 'cite'],
 };
 
 /** Whether the slide d/s may use the field. */

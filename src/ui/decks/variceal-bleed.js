@@ -23,7 +23,7 @@ export const BLEED = {
   summary: 'One bleed from tear to TIPS: early shock with a normal hemoglobin, octreotide and volume before the scope, restrictive transfusion, banding and a pre-emptive TIPS.',
   slides: [
     {
-      id: 'before', terms: ['varix'], preset: 'cirr-decomp', cam: 'varices', labels: ['VAR', 'AZY'], mark: { edges: ['C1a', 'C1b'], label: 'Large varix', kind: 'note' }, tool: BEATS, data: 'tiles', tiles: ['pv', 'varix'], key: ['varix'],
+      id: 'before', terms: ['varix'], preset: 'cirr-decomp', cam: 'varices', labels: ['VAR', 'AZY'], mark: { edges: ['C1a', 'C1b'], label: 'Large varix', kind: 'note' }, calipers: ['varix'], tool: BEATS, data: 'tiles', tiles: ['pv', 'varix'], key: ['varix'],
       kicker: 'Before', site: 'sin', title: 'Large varices under pressure',
       vignette: 'A 54-year-old man with alcohol-associated cirrhosis has ascites on spironolactone and furosemide and large esophageal varices. He was prescribed carvedilol but stopped taking it.',
       line: 'Decompensated cirrhosis with a varix of {varix} and a portal pressure of {pv}. The wall is thin and the tension high.',
@@ -45,7 +45,7 @@ export const BLEED = {
       ask: ['A hemoglobin of 13.5 g/dL in a patient vomiting blood with a pulse of 140. Is the bleed small?', 'No: the hemoglobin lags. The pulse says the bleed is large.'],
     },
     {
-      id: 'oct', params: { drugs: { octreotide: true } }, action: [UNIT, SALINE], cam: 'portal', labels: ['SMV', 'CONF'], tool: BEATS, data: 'tiles', tiles: ['pv', 'map'], key: ['pv'], delta: true,
+      id: 'oct', params: { drugs: { octreotide: true } }, action: [UNIT, SALINE], cam: 'portal', labels: ['SMV', 'CONF'], ripple: true, tool: BEATS, data: 'tiles', tiles: ['pv', 'map'], key: ['pv'], delta: true,
       kicker: 'Before the scope', site: 'sin', title: 'Octreotide and volume start together',
       line: 'Start octreotide, a 50 µg bolus then 50 µg an hour, with ceftriaxone 1 g a day. The first unit and a liter of fluid run in, but the bleed still outpaces them and the blood pressure falls to {map}.',
       notes: 'Start the vasoactive drug, the first unit and the first fluid together, as soon as a variceal bleed is suspected. Octreotide, a somatostatin analogue: a 50 microgram bolus, then 50 micrograms an hour for 2 to 5 days. Give ceftriaxone 1 g a day as well, for up to 5 days (AASLD stops it at discharge if that comes sooner): antibiotics lower infection, rebleeding and death. Erythromycin 250 mg IV, 30 to 90 minutes before the scope, clears the stomach of blood. Baveno VIII allows stopping the vasoactive drug as early as 24 hours after successful banding once a beta-blocker starts, and a shorter antibiotic course, or none, in Child–Pugh A. Outside the US, terlipressin or somatostatin are used in its place. The portal pressure here falls with the blood loss too; in the model octreotide adds about 1 mmHg of that fall.',
@@ -53,6 +53,7 @@ export const BLEED = {
     },
     {
       id: 'blood', action: [UNIT], cam: 'varices', tool: BEATS, data: 'tiles', tiles: ['map', 'hb'], key: ['map'], delta: true,
+      cite: 'Baveno VIII 5.4',
       kicker: 'Volume', site: 'sin', title: 'Transfuse to a hemoglobin of 7 to 8',
       line: 'A second unit brings the blood pressure up to {map}. The hemoglobin has barely moved, because it lags the bleed. Once the circulation is stable, transfuse only below 7 g/dL, to a target of 7 to 8.',
       notes: 'A restrictive transfusion strategy (transfusing below 7 g/dL, to a target of 7 to 9 in the trial, 7 to 8 in Baveno VIII and about 7 in AASLD guidance) lowered rebleeding and death compared with a liberal one (transfusing below 9 g/dL, to a target of 9 to 11). It applies once the patient is stable, and the trial excluded massive bleeding. Volume beyond what the circulation needs pushes the portal pressure back toward its level before the bleed, which makes an early rebleed more likely; it also worsens ascites and can cause pulmonary edema. In cirrhosis saline adds sodium, so a balanced crystalloid, given with care, is a common choice. Patients with heart disease or ongoing massive bleeding may need more. Fresh frozen plasma and platelet transfusion to correct the INR or the count are not advised; they add volume without proven benefit.',
@@ -66,7 +67,8 @@ export const BLEED = {
       ask: ['What bridges a bleed that banding cannot control?', 'A covered esophageal stent (preferred) or a balloon tube, as a bridge to a rescue TIPS.'],
     },
     {
-      id: 'tips', params: { tips: { on: true } }, cam: 'liver', tool: BEATS, data: 'tiles', tiles: ['ppg', 'varix'], key: ['ppg'], delta: true,
+      id: 'tips', params: { tips: { on: true } }, cam: 'liver', ripple: true, tool: BEATS, data: 'tiles', tiles: ['ppg', 'varix'], key: ['ppg'], delta: true,
+      cite: 'Baveno VIII 5.31',
       kicker: 'After the scope', site: 'sin', title: 'High-risk patients get a TIPS within 72 hours',
       causesHead: 'Who gets it', causes: ['Child–Pugh C, 10 to 13 points', 'Child–Pugh B, over 7, with active bleeding at endoscopy', 'HVPG 20 mmHg or more, where measured'],
       line: 'In this case, bilirubin 3.2 mg/dL, INR 1.9, albumin 2.8 g/dL and ascites give Child–Pugh C 10, so he qualifies. A covered TIPS, ideally within 24 hours, lowers the PPG to {ppg} and reduces rebleeding and death.',
