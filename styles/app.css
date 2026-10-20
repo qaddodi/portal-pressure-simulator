@@ -5496,6 +5496,7 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
 .pz-tile .pzt-bar { position: relative; display: block; align-self: stretch; width: auto; height: calc(15px + 1.05em); margin-top: .3em; flex: none; font: 500 var(--s-cap)/1.2 var(--font-ui); font-variant-numeric: tabular-nums; letter-spacing: 0; color: var(--text-3); }
 .pz:not(.stack) .pz-data .pz-tiles .pzt-bar { font-size: var(--pz-sm); }
 .pz.stack .pz-data .pz-tiles .pzt-bar { font-size: var(--pz-psm); margin-top: .25em; }
+.pz.stack .pz-data .pz-tiles.pzb-nonum .pzt-bar { height: 15px; }   /* (no cut-off number shows in the row: no empty row kept for them, presenter.js fitCards) */
 .pzt-bar.empty { visibility: hidden; }
 .pzt-bar [hidden] { display: none; }
 /* (The dot, 12 px with its 2 px ring, overhangs the 6 px track by 5 px above and below: the track sits 4 px into the bar and the

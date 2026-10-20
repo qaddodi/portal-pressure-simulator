@@ -129,3 +129,12 @@ test('a stacked card\'s header and readings keep one size tucked, sliding and ou
   assert.match(sheet, /--pz-cut:/);
   assert.doesNotMatch(sheet, /var\(--pz-fit/, 'no sum in the stacked sheet divides by the fit');
 });
+
+// Mohammad, 20 Oct (iPhone, Sites 3): the stacked cards ran into the words. HVPG's bar shows none of its cut-off numbers (5 and 10
+// too close), yet every tile in the row kept an empty row for them under its bar. A row whose bars show no number keeps none.
+test('a stacked row of tiles whose bars show no cut-off number keeps no empty row for them', () => {
+  assert.match(css, /\.pz\.stack \.pz-data \.pz-tiles\.pzb-nonum \.pzt-bar \{ height: 15px; \}/);
+  assert.match(js, /row\.classList\.toggle\('pzb-nonum', !bars\.some\(\(b\) => \[\.\.\.b\.querySelectorAll\('\.pzb-l'\)\]\.some\(\(l\) => !l\.classList\.contains\('off'\) && l\.getBoundingClientRect\(\)\.width\)\)\);/);
+  assert.match(js, /if \(!bars\.length \|\| bars\.some\(\(b\) => !b\.getBoundingClientRect\(\)\.width\)\) continue;/, 'decided only once the bars are laid out');
+  assert.match(js, /el\.classList\.remove\('pzb-nonum'\);/, 'new bars keep the row until fitted');
+});

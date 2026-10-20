@@ -920,6 +920,7 @@ function bigTiles() {
       return { k, T, tile, v, u, r, d, S, bands, zs, link, was, now, zr: '' };
     });
     el.replaceChildren(...parts.map((p) => p.tile));
+    el.classList.remove('pzb-nonum');   // (new bars keep their numbers' row until the card's fit has seen them: fitCards)
     el.dataset.n = String(parts.length);
     draw = tweener((f) => parts.forEach((p) => {
       const [cls, word] = ratedShown(p.k, f), none = cls == null && (p.k === 'saag' || p.k === 'tp');
@@ -2732,6 +2733,14 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
           if (r.left < end + 8) clash = true; else end = r.right;
         }
         if (clash) for (const l of ls) l.classList.add('off');
+      }
+      // (A row of tiles whose bars show no cut-off number keeps no empty row for them under the bars: on a phone that row stood empty
+      // under HVPG's bar (5 and 10 too close to number) and, the tiles one height, under WHVP's and FHVP's too, Sites 3 on an iPhone,
+      // 20 Oct, where the stacked cards ran into the words. Decided by the bars' widths only, so a tile never resizes as its numbers change.)
+      for (const row of el.querySelectorAll('.pz-tiles')) {
+        const bars = [...row.querySelectorAll('.pzt-bar')];
+        if (!bars.length || bars.some((b) => !b.getBoundingClientRect().width)) continue;
+        row.classList.toggle('pzb-nonum', !bars.some((b) => [...b.querySelectorAll('.pzb-l')].some((l) => !l.classList.contains('off') && l.getBoundingClientRect().width)));
       }
       fitHeads(el);
       // (A quick check is fitted with every answer open: its words keep one size however many are revealed.)
