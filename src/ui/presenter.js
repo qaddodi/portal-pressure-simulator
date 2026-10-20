@@ -23,7 +23,7 @@ import { nb, listCase, plateletText } from './glue.js?v=5a0f63226b';
 import { DECKS, REGIONS, LEVELS, TOPICS, withOverview, siteTag, SITE_TAGS } from './decks.js?v=6c8debf87e';
 import { wholeGap, tenthGap } from '../engine/gap.js?v=3a5947c552';
 import { createHvpgMonitor } from './hvpg-proc.js?v=3a8585d477';
-import { createTools } from './presenter-tools.js?v=1a12c6146a';
+import { createTools } from './presenter-tools.js?v=c10d93d3d0';
 import { openHandout } from './handout.js?v=862f23055a';
 import { noteResume, resumeFor } from './resume.js?v=f086f80ee8';
 import { parseDeckSource, checkDeck } from './deck-source.js?v=8395c650cd';
@@ -2690,6 +2690,10 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       if (fitDone.get(el) === sig) continue;
       const was = parseFloat(el.style.getPropertyValue('--pz-fit')) || 1;
       el.style.removeProperty('--pz-fit'); el.style.removeProperty('--pz-z');
+      // (An upright phone's stacked card is fitted with its readings' card out, and keeps that fit tucked: the instrument holds one
+      // size whether the stack is open or closed, Mohammad, 20 Oct: "This data card is changing its size when I open the stack".)
+      const under = el === ui.data && splitSheet(el) && !el.classList.contains('tool-open') && !el.classList.contains('pz-sliding');
+      if (under) el.classList.add('tool-open');
       // (A tablet's narrow data card: its own grid changes, which a container query on the card cannot do.)
       if (el.classList.contains('pz-data')) el.classList.toggle('pz-narrow', el.offsetWidth > 0 && el.offsetWidth < 420);
       // (A tile's name in full when it fits on one line in its tile, else its short form: Liver flow, Protein ...)
@@ -2770,6 +2774,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       fitEquations(el);
       // (Closed again with no transition, so the answers start hidden and the card rests at its closed height.)
       if (all) { all.classList.remove('pzc-all'); void all.offsetHeight; all.classList.remove('pzc-still'); }
+      if (under) { el.classList.remove('tool-open'); ui.lipMO?.takeRecords(); }
       fitDone.set(el, fitSig(el));   // (as it rests once fitted: a folding part's height is part of it)
     }
   }

@@ -102,3 +102,9 @@ test('pulling the readings out of a stacked card never closes the card', () => {
   const auto = js.match(/function autoDock\(shut\) \{[\s\S]*?\n {2}\}/)?.[0] ?? '';
   assert.match(auto, /if \(shut && dock\.to === 0 && dock\.autoKey !== key && !dock\.drag && !d\.classList\.contains\('pz-sliding'\) && !\('folding' in d\.dataset\)\)/, 'and the layout never closes a card under the finger');
 });
+
+// Mohammad, 20 Oct (iPhone, TIPS Doppler 9): the stacked card's monitor was taller with its readings tucked than out.
+test('a stacked card keeps one size with its readings tucked or out: it is fitted with them out', () => {
+  assert.match(js, /const under = el === ui\.data && splitSheet\(el\) && !el\.classList\.contains\('tool-open'\) && !el\.classList\.contains\('pz-sliding'\);\n\s*if \(under\) el\.classList\.add\('tool-open'\);/);
+  assert.match(js, /if \(under\) \{ el\.classList\.remove\('tool-open'\); ui\.lipMO\?\.takeRecords\(\); \}\n\s*fitDone\.set\(el, fitSig\(el\)\);/);
+});
