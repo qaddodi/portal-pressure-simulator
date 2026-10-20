@@ -9,7 +9,7 @@ import { STATION_VESSEL, meanVel, velNormal } from './velNormal.js?v=181dda5594'
 import { store, updateParams, varicesPresent, varixGrowth, shownVel } from './store.js?v=aaa74688dd';
 import { fibroReading } from './clock.js?v=8aa14cb690';
 import { s, h, fmt, fmtFlow, fp, clamp, lerp, toast, systemEdge, bloodColors, restBox, settledBox, putText } from './util.js?v=5814c6b396';
-import { createLobuleZoom } from './lobule-zoom.js?v=9f0b76e498';
+import { createLobuleZoom } from './lobule-zoom.js?v=ace7202d88';
 import { sinceSource } from './since-ref.js?v=ef1a818c75';
 import { runFlick, FLICK } from './flick.js?v=4bc709c801';
 import { inlineStyles } from './svg-inline.js?v=fc17cb73fe';
@@ -26,7 +26,7 @@ import { COLON_ART, BOWEL_ART, DUO_CLIPS, DUO_A, DUO_B } from './organ-art.js?v=
 import { createRouter } from './circuit-router.js?v=0ee9e02fc6';
 import { gpuProbe } from './gpu-probe.js?v=d4aeccea90';
 import { plateStrips, premultiply } from './plate-upload.js?v=2dd6db2a18';
-import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, ORIGIN_GREY } from './veins-gl.js?v=61be8d8f99';
+import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, ORIGIN_GREY } from './veins-gl.js?v=8362e1cf78';
 import { varixBead, beadRadius } from './varix-bead.js?v=ac0e84fd89';
 import { advanceStream, createReversalHold, bleedShapes, stepBleedFade, fadeBleedShapes, chevFlowLevel, keyChevron, KEY_CHEV_LANES, originFractions, oxygenFor, ORIGIN_N, createBolus, DYE_BINS, KAPPA, STASIS_MIN_D, HIDDEN_SECONDS } from './blood.js?v=e668d01823';
 import { frameFor, cancelFrame, noteDraw, setSaver as setFrameSaver, paceMs } from './frame.js?v=2ce59939b2';
@@ -3990,8 +3990,11 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     }
     return rings;
   }
+  // A group's transform as one matrix, read without consolidate() (which rewrites the attribute as a matrix(), and the group's own
+  // writer puts translate() back, so the outline keys would change at every build).
+  const gMatrix = (g) => { const l = g.transform.baseVal; let m = null; for (let i = 0; i < l.numberOfItems; i++) { const t = l.getItem(i).matrix; m = m ? m.multiply(t) : t; } return m; };
   function olRingsRaw(id, bare, d = null, stride = 2) {
-    const m = bare ? null : organG[id].transform.baseVal.consolidate()?.matrix;
+    const m = bare ? null : gMatrix(organG[id]);
     if (!olPath) { olPath = s('path'); defs.append(olPath); }
     const el = olPath;
     el.setAttribute('d', d || RING_OF[id] || organEls[id].getAttribute('d'));
@@ -4015,9 +4018,14 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // glow, the tubes' insides stay as drawn.
   // The tubes are plain polylines: their points are read from the path's own text once (cached by it), every other point, and each
   // build is only the group's transform over them (no path measuring: the ascites moves the bowel, and each move builds again).
-  const WARM = { reach: 14, alpha: 0.46 };   // (how far the glow runs out from a tube's edge, in world units, and its strength on the edge)
-  const warmEls = new Map(), warmPts = new Map();   // (the drawing's tubes, found once: the key below is read every frame)
-  const warmDs = (id) => (warmEls.get(id) || warmEls.set(id, [...organG[id].querySelectorAll('.ob-deep')]).get(id)).map((el) => el.getAttribute('d')).filter(Boolean);
+  const WARM = { reach: 10, alpha: 0.46 };   // (how far the glow runs out from a tube's edge, in world units (under the tube's own half width, so a tube's middle stays clear), and its strength on the edge)
+  const warmEls = new Map(), warmPts = new Map();   // (the drawing's tubes, found again if the pile is redrawn: the key below is read every frame)
+  const warmTubes = (id) => {
+    let t = warmEls.get(id);
+    if (!t || !t[0]?.isConnected) { t = [...organG[id].querySelectorAll('.ob-deep')]; warmEls.set(id, t); warmRad.delete(id); }
+    return t;
+  };
+  const warmDs = (id) => warmTubes(id).map((el) => el.getAttribute('d')).filter(Boolean);
   function warmLines(d) {
     let r = warmPts.get(d);
     if (!r) {
@@ -4030,23 +4038,30 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     return r;
   }
   function warmRings(id) {
-    const m = organG[id].transform.baseVal.consolidate()?.matrix;
+    const m = gMatrix(organG[id]);
     return warmDs(id).flatMap((d) => {
       const lines = warmLines(d) || olRingsRaw(id, true, d, 6);
       return lines.filter((r) => r.length > 1).map((r) => (m ? r.map(([x, y]) => [m.a * x + m.c * y + m.e, m.b * x + m.d * y + m.f]) : r));
     });
   }
-  // A tube's radius, from the drawing's own pieces (each .ob-edge is stroked 2r wide): the middle one, read once.
+  // A tube's radius, from the drawing's own pieces (each .ob-edge is stroked 2r wide): the middle one, read again when the
+  // deep-toned bed under the tubes (stroked wider as the tubes are) changes, so a refitted pile is followed.
   const warmRad = new Map();
+  const warmSw = (id) => warmTubes(id).map((el) => el.getAttribute('stroke-width')).join(',');
   function warmR(id) {
-    let r = warmRad.get(id);
-    if (r == null) {
+    const sw = warmSw(id);
+    let c = warmRad.get(id);
+    if (!c || c.sw !== sw) {
       const w = [...organG[id].querySelectorAll('.ob-edge')].map((el) => +el.getAttribute('stroke-width')).filter((x) => x > 0).sort((a, b) => a - b);
-      warmRad.set(id, r = w.length ? w[w.length >> 1] / 2 : 12.5);
+      warmRad.set(id, c = { sw, r: w.length ? w[w.length >> 1] / 2 : 12.5 });
     }
-    return r;
+    return c.r;
   }
-  const warmKey = (id) => olKey(id) + '|' + warmDs(id).map((d) => d.length + d.slice(-30)).join('|');
+  // The colon's drawn outline (its limbs, closed), from the ring's own text once: the glow is left off where the colon lies over the pile.
+  let colonPolys = null;
+  const colonArea = () => colonPolys || (colonPolys = (RING_OF.colon || '').split('M').filter(Boolean).map((c) => { const n = c.match(/-?\d*\.?\d+/g).map(Number), r = []; for (let i = 0; i + 1 < n.length; i += 2) r.push([n[i], n[i + 1]]); return r; }));
+  const inRing = (x, y, r) => { let o = false; for (let i = 0, j = r.length - 1; i < r.length; j = i++) if ((r[i][1] > y) !== (r[j][1] > y) && x < (r[j][0] - r[i][0]) * (y - r[i][1]) / (r[j][1] - r[i][1]) + r[i][0]) o = !o; return o; };
+  const warmKey = (id) => olKey(id) + '|' + (organG.colon?.getAttribute('transform') || '') + '|' + warmSw(id) + '|' + warmDs(id).map((d) => d.length + d.slice(-30)).join('|');
   const olRingsOf = (o) => (o.kind === 'warm' ? warmRings(o.id) : olRings(o.id));
   function olSet(kind, id) {
     for (const o of olList) if (o.kind === kind && o.id !== id) o.on = false;
@@ -4224,22 +4239,39 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     for (const o of olList) {
       const ease = o.a * o.a * (3 - 2 * o.a);
       const col = o.col || (o.kind === 'pin' ? olCol : orgTone(o.id));
-      // A warm layer: a soft glow along each side of every tube, strongest on its edge and easing out from it.
+      // A warm layer: a soft glow along each side of every tube, strongest on its edge and easing out from it (strips are laid with MAX,
+      // so where two meet they never stack). Left off where the colon lies over the pile; on the inside of a tight bend the glow is
+      // held short of the bend's centre (its reach follows the room there) and dropped where there is none, so it never folds back.
       if (o.kind === 'warm') {
-        const mt = V && organG[o.id].transform.baseVal.consolidate()?.matrix, rad = V ? warmR(o.id) * (mt ? Math.hypot(mt.a, mt.b) : 1) : 0;   // (only a build needs them)
-        for (const r of o.rings) {
-          const n = r.length;
-          for (const side of [-1, 1]) {
-            if (V) for (let i = 0; i < n; i++) {
-              const p = r[i], pa = r[Math.max(0, i - 1)], pb = r[Math.min(n - 1, i + 1)];
-              let tx = pb[0] - pa[0], ty = pb[1] - pa[1]; const l = Math.hypot(tx, ty) || 1; tx /= l; ty /= l;
-              const ex = p[0] - ty * rad * side, ey = p[1] + tx * rad * side;
-              V.push(ex, ey, -ty, tx, 0, WARM.reach, ex, ey, -ty, tx, side, WARM.reach);
+        if (V) {
+          const mt = gMatrix(organG[o.id]), rad = warmR(o.id) * (mt ? Math.hypot(mt.a, mt.b) : 1);
+          const cm = gMatrix(organG.colon), cp = o.id === 'colon' ? [] : colonArea().map((r) => { const q = cm ? r.map(([x, y]) => [cm.a * x + cm.c * y + cm.e, cm.b * x + cm.d * y + cm.f]) : r; return { q, x0: Math.min(...q.map((t) => t[0])), x1: Math.max(...q.map((t) => t[0])), y0: Math.min(...q.map((t) => t[1])), y1: Math.max(...q.map((t) => t[1])) }; });
+          const underColon = (x, y) => cp.some((c) => x >= c.x0 && x <= c.x1 && y >= c.y0 && y <= c.y1 && inRing(x, y, c.q));
+          o.runs = [];
+          for (const r of o.rings) {
+            const n = r.length, R = new Float32Array(n), cs = new Int8Array(n), tg = [];
+            for (let i = 0; i < n; i++) {
+              const pa = r[Math.max(0, i - 1)], pb = r[Math.min(n - 1, i + 1)];
+              let tx = pb[0] - pa[0], ty = pb[1] - pa[1]; const l = Math.hypot(tx, ty) || 1; tx /= l; ty /= l; tg.push([tx, ty]);
+              const i0 = Math.max(0, i - 2), i1 = Math.min(n - 1, i + 2), ax = r[i][0] - r[i0][0], ay = r[i][1] - r[i0][1], bx = r[i1][0] - r[i][0], by = r[i1][1] - r[i][1];
+              const la = Math.hypot(ax, ay), lb = Math.hypot(bx, by), th = Math.atan2(ax * by - ay * bx, ax * bx + ay * by);
+              R[i] = la < 0.5 || lb < 0.5 || Math.abs(th) < 1e-3 ? 1e9 : (la + lb) / 2 / Math.abs(th);
+              cs[i] = th > 0 ? 1 : -1;   // (the side the bend turns toward)
             }
-            draws.push({ first, count: n * 2, col, alpha: WARM.alpha * ease, soft: true, warm: true });
-            first += n * 2;
+            for (const side of [-1, 1]) {
+              let run = 0;
+              const end = () => { if (run > 1) { o.runs.push(run * 2); } else if (run === 1) V.length -= 12; run = 0; };
+              for (let i = 0; i < n; i++) {
+                const p = r[i], [tx, ty] = tg[i], ex = p[0] - ty * rad * side, ey = p[1] + tx * rad * side;
+                const reach = cs[i] === side ? Math.min(WARM.reach, (R[i] - rad) * 0.85) : WARM.reach;
+                if (reach < 2.5 || underColon(ex, ey)) { end(); continue; }
+                V.push(ex, ey, -ty, tx, 0, reach, ex, ey, -ty, tx, side, reach); run++;
+              }
+              end();
+            }
           }
         }
+        for (const c of o.runs || []) { draws.push({ first, count: c, col, alpha: WARM.alpha * ease, soft: true, warm: true }); first += c; }
         continue;
       }
       // The passes: a glow alone (the heart a slide points at), a glow under the line (a selected organ), or the line.

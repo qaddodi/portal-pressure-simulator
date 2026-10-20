@@ -1369,7 +1369,8 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false }) {
     gl.uniform2f(U.size, canvas.width, canvas.height);
     gl.uniform1f(U.soft, soft ? 1 : 0);
     gl.enable(gl.BLEND);
-    gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
+    // The warm glow's strips take the strongest where they meet (one colour, so max is exact on premultiplied output): overlaps never stack.
+    if (warm) { gl.blendEquation(gl.MAX); gl.blendFunc(gl.ONE, gl.ONE); } else gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
     gl.bindVertexArray(lineVAO);
     for (const d of lines.draws) {
       if (d.alpha <= 0 || !!d.soft !== !!soft || !!d.warm !== warm) continue;
@@ -1377,6 +1378,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false }) {
       gl.drawArrays(d.tri ? gl.TRIANGLES : gl.TRIANGLE_STRIP, d.first, d.count);
     }
     gl.bindVertexArray(null);
+    if (warm) gl.blendEquation(gl.FUNC_ADD);
     gl.disable(gl.BLEND);
   }
 
