@@ -51,7 +51,7 @@ test('a slide whose card does not fit comes in closed, and the next one that fit
   assert.match(auto, /if \(shut && dock\.to === 0 && dock\.autoKey !== key && [^{]*\) \{ dock\.autoKey = key; dock\.auto = true;/, 'once per slide: brought back by the reader, it stays');
   assert.match(auto, /else if \(!shut && dock\.auto && dock\.to === 1\) \{ dock\.auto = false;/, 'a card the reader closed stays closed');
   assert.match(js, /const shut = !gone && \(both - data < words \|\| data - sheetLip > dmax \+ 0\.5\)/);
-  assert.match(js, /if \(key\) phoneLock = \{ key, cap, shut, data, fig: phoneFig \};/);
+  assert.match(js, /if \(key\) phoneLock = \{ key, cap, shut, data: full, fig: phoneFig \};/);
   // (Brought back, it may cover the figure, never the words: the figure's share is kept only while it fits.)
   assert.match(js, /!phoneShut && !dd\.classList\.contains\('tool-open'\)/);
 });
@@ -129,7 +129,7 @@ test('a stacked card is fitted against its tucked cap whether its readings are o
   assert.match(css, /\.pz\.stack\.stack \.pz-data\.pz-sheet\.has-tool\.tool-open \{ max-height: calc\(var\(--pz-cap\) \+ var\(--pz-d, 0px\)\); \}/);
   assert.match(js, /const tuck = cs\.getPropertyValue\('--pz-cap'\)\.trim\(\) \|\| 'none';/);
   assert.match(js, /const roomT = Math\.floor\(base - LIP - \(phoneCap != null && !phoneShut \? Math\.max\(0, phoneFig \/ k - LIP - 2\) : 0\)\), roomO = Math\.floor\(base\);/, 'the tucked room whatever state the readings are in');
-  assert.match(js, /const stacked = el === ui\.data && splitSheet\(el\);\n\s*if \(stacked\) el\.style\.setProperty\('--pz-grow', '0px'\);/, 'fitted with the readings\' share left out');
+  assert.match(js, /const stacked = el === ui\.data && splitSheet\(el\);\n\s*if \(stacked\) el\.style\.setProperty\('--pz-grow', 'var\(--pz-d, 0px\)'\);/, 'fitted against the cap it has with the readings out, in either state');
 });
 
 // Mohammad, 20 Oct (iPhone, One year 8, the abdomen card): opening the stacked cards slowly, the readings' card flickered over the
@@ -160,4 +160,14 @@ test('a phone\'s data card and the words\' plan leave room for the glass as far 
   assert.match(js, /const room = H - foot - reach - 8, mine/);
   assert.match(js, /const lift = p && t \? glassLift\(k\) : 16;/, 'the glass itself is placed by the same reach');
   assert.doesNotMatch(js, /- 16 - 8\b/);
+});
+
+// Mohammad, 20 Oct (iPhone, Sites 3/12): "started closed". The plan measured the card at full size, its pressure profile 20 px too
+// tall to sit beside the figure's share and the words, though the card's own fit shortens that chart (only its height) anyway.
+test('a phone\'s card whose chart only shortens comes in half-open with the chart given way, before it would come in closed', () => {
+  assert.match(js, /const CHART_GIVE = 0\.8;/);
+  assert.match(js, /const elastic = !gone && splitSheet\(dd\) && !!dd\.querySelector\(':scope > \.pz-tool:is\(\[data-kind="profile"\], \[data-kind="flows"\]\)'\);/, 'only charts whose words keep their size');
+  assert.match(js, /const data = elastic && both - full < words \? Math\.min\(full, arriving\(CHART_GIVE\)\) : full;/, 'only where full size would close it');
+  assert.match(js, /if \(key\) phoneLock = \{ key, cap, shut, data: full, fig: phoneFig \};/, 'the plan is kept against the card at full size, as the check measures it');
+  assert.match(js, /if \(fit\) st\.setProperty\('--pz-fit', String\(fit\)\);/);
 });

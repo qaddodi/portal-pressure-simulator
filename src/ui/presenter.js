@@ -2711,10 +2711,13 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       // size whether the stack is open or closed, Mohammad, 20 Oct: "This data card is changing its size when I open the stack".)
       const under = el === ui.data && splitSheet(el) && !el.classList.contains('tool-open') && !el.classList.contains('pz-sliding');
       if (under) el.classList.add('tool-open');
-      // (Fitted against the tucked card's cap, open or tucked: its readings' share of the cap (--pz-grow) is left out while it is fitted,
-      // so the readings coming out never fit it again to a larger size, layout.)
+      // (Fitted against the cap it has with its readings out, open or tucked: the tucked card's cap with the readings' share on top
+      // (--pz-grow), never past the opened card's room (layout), so the readings coming out never fit it again to another size. The
+      // instrument card alone then fits the tucked cap and, out, the readings fit under it. With the share left out, the instrument and
+      // the readings both had to fit the tucked cap, and where the figure keeps its share the chart was squeezed to its smallest and the
+      // readings' words zoomed under their size: Sites 3 on an iPhone came in at 0.5, Mohammad, 20 Oct.)
       const stacked = el === ui.data && splitSheet(el);
-      if (stacked) el.style.setProperty('--pz-grow', '0px');
+      if (stacked) el.style.setProperty('--pz-grow', 'var(--pz-d, 0px)');
       // (A tablet's narrow data card: its own grid changes, which a container query on the card cannot do.)
       if (el.classList.contains('pz-data')) el.classList.toggle('pz-narrow', el.offsetWidth > 0 && el.offsetWidth < 420);
       // (A tile's name in full when it fits on one line in its tile, else its short form: Liver flow, Protein ...)
@@ -3173,6 +3176,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   // Compact and leave that room empty: PVT in cirrhosis 5 on an iPhone came in at Compact over 100 px of bare figure, Mohammad, 20 Oct:
   // "This teaching card could be larger with larger text".)
   const FIG_REG = (H) => Math.round(Math.max(170, 0.25 * H));
+  const CHART_GIVE = 0.8;   // (how far a phone's elastic chart may be shortened rather than its card come in closed: phoneTextCap)
   let phoneLock = null, phoneShut = false, phoneFig = 0;   // (phoneFig: the figure's share the slide's plan keeps, screen px)   // (phoneShut: the slide's data card comes in closed (autoDock), too tall beside the words and the figure)
   function phoneTextCap(key, H, k) {
     const dd = ui.data, ds = dd.style, gone = dd.hidden || 'gone' in dd.dataset;
@@ -3185,9 +3189,10 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     // bounced as the days passed, Endoscopy 3 on an iPhone, 18 Oct.)
     if (held && (held.shut || gone || readingsOnly())) { phoneShut = held.shut; phoneFig = held.fig; return held.cap; }
     phoneShut = false; phoneFig = FIG_MIN(H);
-    const natural = (el, st) => {   // (as it stands unfitted and uncapped)
+    const natural = (el, st, fit = 0) => {   // (as it stands unfitted and uncapped; or at that fit)
       const sv = [st.maxHeight, st.getPropertyValue('--pz-fit'), st.getPropertyValue('--pz-z')];
       st.maxHeight = 'none'; st.removeProperty('--pz-fit'); st.removeProperty('--pz-z');
+      if (fit) st.setProperty('--pz-fit', String(fit));
       const v = el.offsetHeight * k;
       st.maxHeight = sv[0]; if (sv[1]) st.setProperty('--pz-fit', sv[1]); if (sv[2]) st.setProperty('--pz-z', sv[2]);
       return v;
@@ -3231,15 +3236,20 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     const reach = glassLift(k) * k, both = H - foot - reach - 8 - dtop - FIG_MIN(H);
     // (Measured as the slide arrives, partly open with its sheet's edge below it, whatever the reader opened: the part's ease held
     // back so the measure sees where it rests.)
-    const arriving = () => {
+    const arriving = (fit = 0) => {
       const p = dd.classList.contains('pz-sheet') && dd.classList.contains('tool-open') ? ui.partOf() : null;
-      if (!p) return natural(dd, ds) + lip;
+      if (!p) return natural(dd, ds, fit) + lip;
       const tr = p.style.transition; p.style.transition = 'none'; dd.classList.remove('tool-open');
-      const v = natural(dd, ds) + LIP * k;
+      const v = natural(dd, ds, fit) + LIP * k;
       dd.classList.add('tool-open'); void p.offsetHeight; p.style.transition = tr;
       return v;
     };
-    const data = gone ? 0 : arriving(), sheetLip = dd.classList.contains('pz-sheet') ? LIP * k : 0;
+    const full = gone ? 0 : arriving(), sheetLip = dd.classList.contains('pz-sheet') ? LIP * k : 0;
+    // (A chart that the card's fit only shortens, never its words (the pressure profile, the portal blood bar: styles/app.css), gives
+    // way to CHART_GIVE before the card comes in closed: the card's own fit shortens it there anyway, and opened, it stands at about
+    // that size. Measured only at full size, Sites 3 on an iPhone came in closed, 20 px short, Mohammad, 20 Oct: "started closed".)
+    const elastic = !gone && splitSheet(dd) && !!dd.querySelector(':scope > .pz-tool:is([data-kind="profile"], [data-kind="flows"])');
+    const data = elastic && both - full < words ? Math.min(full, arriving(CHART_GIVE)) : full;
     const shut = !gone && (both - data < words || data - sheetLip > dmax + 0.5) && !!dd.querySelector(':scope > :not(.pz-dh):not(.pz-grip):not(.pz-lip)');
     phoneShut = shut;
     // (Words at Compact win over the figure's share and the 62 % cap when nothing else gives; they never reach the data card. Closed,
@@ -3252,7 +3262,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     const cap = Math.max(120, shut
       ? Math.min(room - GRIP * k, Math.max(Math.min(mine, room - dtop - Math.min(data, dmax + sheetLip)), compact))
       : reg ? regular : Math.min(room - dtop - data, Math.max(Math.min(mine, both - data), compact))) / k;
-    if (key) phoneLock = { key, cap, shut, data, fig: phoneFig };
+    if (key) phoneLock = { key, cap, shut, data: full, fig: phoneFig };   // (data: at full size, as the check above measures it)
     return cap;
   }
   // The free area: the open rectangles of the figure the words, the data card (where it comes to rest) and the controls leave,
