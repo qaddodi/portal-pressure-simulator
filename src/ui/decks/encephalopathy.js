@@ -29,7 +29,7 @@ export const ENCEPHALOPATHY = {
       ask: ['A young adult with a normal liver and a congenital portosystemic shunt is confused. Why?', 'Gut blood reaches the brain without passing through the liver, which would have cleared its ammonia.'],
     },
     {
-      id: 'collat', preset: 'cirr-decomp', cam: 'fit', lens: 'origin', sites: ['split'], data: 'tiles', tiles: ['shunt', 'liver'], key: ['shunt'], delta: 'firstpass',
+      id: 'collat', preset: 'cirr-decomp', cam: 'fit', lens: 'origin', sites: ['split'], tool: { kind: 'flows' }, data: 'tiles', tiles: ['liver'], key: ['liver'], delta: 'firstpass',
       kicker: 'Collaterals', site: 'sin', title: 'Collaterals carry gut blood around a scarred liver',
       vignette: 'A 69-year-old taxi driver with hepatitis C cirrhosis, cured 2 years ago, has had two minor car crashes this year. His wife finds him slower, and EGD shows large varices.',
       line: 'Colored by origin, collaterals now carry {shunt} of the portal blood around the liver, and the scarred liver clears less of what still reaches it.',
@@ -38,16 +38,16 @@ export const ENCEPHALOPATHY = {
     },
     {
       id: 'srs', preset: 'cirr-decomp', params: { spontaneous: { C6: true }, diuretics: false }, days: 30, cam: 'splenic', lens: 'direction', mark: { edges: ['C6'], label: 'Splenorenal shunt', kind: 'note' },
-      tool: { kind: 'doppler', vessel: 'SV_CONF' }, data: 'tiles', tiles: ['liver', 'ppg'], key: ['liver'], delta: 'collat',
+      tool: { kind: 'flows' }, data: 'tiles', tiles: ['liver', 'ppg'], key: ['liver'], delta: 'collat',
       kicker: 'Spontaneous shunts', site: 'sin', title: 'A large splenorenal shunt keeps encephalopathy coming back',
       vignette: 'A 58-year-old man with hepatitis B cirrhosis on entecavir has been admitted four times in 8 months with confusion while taking lactulose and rifaximin. He has no ascites or varices.',
       line: 'Colored by direction, the portal and splenic veins now run away from the liver into the shunt, and flow through the liver falls to {liver}.',
       causesHead: 'Look first for', causes: ['Infection or bleeding', 'Constipation or missed lactulose', 'Sedatives or opioids', 'Low sodium or potassium, or dehydration'],
-      notes: 'Overt encephalopathy is treated in order: find and treat the precipitant, give lactulose to two or three soft stools a day, and add rifaximin after a recurrence. When it keeps coming back despite both, look for a large spontaneous shunt on contrast CT or MRI. A large shunt lowers the portal pressure but sends gut blood straight to the systemic veins, and the Doppler in the splenic vein shows its flow running away from the liver.',
+      notes: 'Overt encephalopathy is treated in order: find and treat the precipitant, give lactulose to two or three soft stools a day, and add rifaximin after a recurrence. When it keeps coming back despite both, look for a large spontaneous shunt on contrast CT or MRI. A large shunt lowers the portal pressure but sends gut blood straight to the systemic veins. The bars show the splenorenal shunt carrying the portal blood, and flow in the splenic vein running away from the liver.',
       ask: ['Four admissions despite lactulose and rifaximin. What do you look for?', 'Missed precipitants first, then a large spontaneous shunt on contrast CT or MRI.'],
     },
     {
-      id: 'embolize', cam: 'fit', lens: 'flow', mark: { edges: ['C6'], label: 'Splenorenal shunt', kind: 'note' }, data: 'tiles', tiles: ['liver', 'ppg'], key: ['liver'],
+      id: 'embolize', cam: 'fit', lens: 'flow', mark: { edges: ['C6'], label: 'Splenorenal shunt', kind: 'note' }, tool: { kind: 'flows' }, data: 'tiles', tiles: ['liver', 'ppg'], key: ['liver'],
       compare: [{ label: 'Shunt open', own: true, params: { occluded: { C6: false } } }, { label: 'Shunt embolized', short: 'Embolized', params: { occluded: { C6: true } } }],
       kicker: 'Spontaneous shunts', site: 'sin', title: 'Closing the shunt sends blood back through the liver',
       line: 'Colored by flow, the shunt empties once it is embolized, and portal blood returns to the liver as the PPG climbs.',
@@ -65,7 +65,7 @@ export const ENCEPHALOPATHY = {
       ask: ['What do you check after a shunt is closed?', 'Varices on endoscopy and ascites on ultrasound, because the portal pressure rises.'],
     },
     {
-      id: 'tips', preset: 'cirr-decomp', params: { tips: { on: true, d: 8 } }, cam: 'liver', lens: 'origin', sites: ['split'], mark: STENT,
+      id: 'tips', preset: 'cirr-decomp', params: { tips: { on: true, d: 8 } }, cam: 'liver', lens: 'origin', sites: ['split'], mark: STENT, tool: { kind: 'flows' },
       compare: [{ label: '8 mm', own: true, params: { tips: { on: true, d: 8 } } }, { label: '10 mm', params: { tips: { on: true, d: 10 } } }],
       data: 'tiles', tiles: ['ppg', 'liver'], key: ['liver'],
       kicker: 'After TIPS', site: 'sin', title: 'A wider stent takes more portal blood from the liver',
@@ -75,7 +75,7 @@ export const ENCEPHALOPATHY = {
       ask: ['He has never been confused. What lowers his risk of encephalopathy after the TIPS?', 'The narrowest stent that reaches the target gradient, and rifaximin started about 2 weeks before.'],
     },
     {
-      id: 'narrow', cam: 'liver', mark: STENT, data: 'tiles', tiles: ['liver', 'ppg'], key: ['ppg'],
+      id: 'narrow', cam: 'liver', mark: STENT, tool: { kind: 'flows' }, data: 'tiles', tiles: ['liver', 'ppg'], key: ['ppg'],
       compare: [{ label: '8 mm', own: true, params: { tips: { on: true, d: 8 } } }, { label: 'Narrowed to 6 mm', short: '6 mm', params: { tips: { on: true, d: 6 } } }, { label: 'Occluded', params: { tips: { on: false } } }],
       kicker: 'After TIPS', site: 'sin', title: 'When encephalopathy persists, narrow the stent',
       line: 'Narrowing the stent gives the liver back portal blood, and the PPG climbs toward the level the TIPS was placed to treat.',
