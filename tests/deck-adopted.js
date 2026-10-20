@@ -1,8 +1,8 @@
 // Built-in slides that took up an opt-in deck visual on Mohammad's pick (20 Oct 2026, "Do all except #1":
 // review/deck-card-ideas/recs.md). Each package test that says "no built-in deck uses this" skips exactly these slides and
 // fields, so the guard stays as strict for every other slide; deck-adopted.test.js checks that every entry is still in
-// use, so the list never grows wider than the decks. Fields: 'kind:<tool kind>', 'tool.<option>', 'cols.<column>', or a
-// slide field.
+// use, so the list never grows wider than the decks. Fields: 'kind:<tool kind>', 'tool.<option>', 'cols.<column>',
+// 'lens:<deck-only lens>', or a slide field.
 export const ADOPTED = {
   'circuit/ohm': ['span'],
   'circuit/where': ['zone'],
@@ -50,6 +50,11 @@ export const ADOPTED = {
   'varices/lapse': ['calipers', 'normalOutline'],
   'varices/eso': ['spot'],
   'varices/umbilical': ['kind:flows'],
+  'treatment/prop': ['ladderFrom', 'ladderFromLabel'],
+  'treatment/carv': ['ladderFrom', 'ladderFromLabel'],
+  'treatment/tips': ['ripple', 'kind:flows', 'ladderFrom', 'ladderFromLabel'],
+  'treatment/cost': ['kind:flows'],
+  'treatment/vs': ['lens:since', 'since', 'sinceLabel'],
 };
 
 /** Whether the slide d/s may use the field. */

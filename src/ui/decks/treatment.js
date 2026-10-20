@@ -20,7 +20,7 @@ export const TREATMENT = {
       ask: ['Name a treatment that cuts the inflow and one that lowers the resistance.', 'Inflow: propranolol, octreotide, terlipressin. Resistance: carvedilol, treating the cause; TIPS goes around it.'],
     },
     {
-      id: 'prop', lens: 'flow', params: { drugs: { propranolol: true } }, cam: 'portal', labels: ['SMV', 'CONF'], data: 'ladder', key: ['pv', 'hvpg'], tiles: ['hr'], delta: 'target',
+      id: 'prop', lens: 'flow', params: { drugs: { propranolol: true } }, cam: 'portal', labels: ['SMV', 'CONF'], data: 'ladder', key: ['pv', 'hvpg'], tiles: ['hr'], delta: 'target', ladderFrom: 'target', ladderFromLabel: 'No Rx',
       kicker: 'Non-selective beta-blocker', site: 'sin', title: 'Propranolol lowers portal inflow',
       line: 'β1 blockade lowers cardiac output. β2 blockade removes the gut arterioles\' dilating tone, so they constrict. Portal inflow falls to {pvFlow}, and HVPG falls with it. Colored by flow, the gut veins and the portal vein thin.',
       notes: 'Propranolol (or nadolol) is titrated to a resting heart rate of 55 to 60 a minute, keeping systolic pressure above 90 mmHg. It prevents a first bleed from large varices and, with banding, a second one. About a third to a half of patients reach a protective fall in HVPG. In refractory ascites with low blood pressure or kidney injury the dose is reduced or stopped. The model shows a modest fall.',
@@ -28,7 +28,7 @@ export const TREATMENT = {
     },
     {
       id: 'carv', lens: 'drop', params: { drugs: { propranolol: false, carvedilol: true } }, cam: 'liver', glow: ['liver'],
-      compare: [{ label: 'Propranolol', params: { drugs: { propranolol: true, carvedilol: false } } }, { label: 'Carvedilol', own: true, params: { drugs: { propranolol: false, carvedilol: true } } }], data: 'ladder', key: ['whvp', 'hvpg'], tiles: ['map'], delta: 'target',
+      compare: [{ label: 'Propranolol', params: { drugs: { propranolol: true, carvedilol: false } } }, { label: 'Carvedilol', own: true, params: { drugs: { propranolol: false, carvedilol: true } } }], data: 'ladder', key: ['whvp', 'hvpg'], tiles: ['map'], delta: 'target', ladderFrom: 'target', ladderFromLabel: 'No Rx',
       kicker: 'Non-selective beta-blocker', site: 'sin', title: 'Carvedilol also lowers resistance in the liver',
       line: 'It also blocks α1 receptors, relaxing stellate cells in the sinusoids. HVPG falls further, but blood pressure falls too. Colored by pressure drop, the sinusoids pale a little as their resistance falls.',
       notes: 'Carvedilol 6.25 to 12.5 mg a day. Its α1 blockade relaxes the contracted stellate cells and lowers the resistance inside the liver, so it lowers HVPG more than propranolol and brings about half of propranolol non-responders to a protective fall. Baveno VIII recommends a non-selective beta-blocker, preferably carvedilol, in compensated cirrhosis with clinically significant portal hypertension, to prevent decompensation. Watch the blood pressure, especially with ascites.',
@@ -59,7 +59,7 @@ export const TREATMENT = {
       ask: ['Why combine banding with a beta-blocker after a bleed?', 'Banding removes the varices, not the high pressure that makes new ones; the beta-blocker lowers it.'],
     },
     {
-      id: 'tips', params: { tips: { on: true } }, cam: 'liver', terms: { sinusoids: 'sin', 'portal vein': 'pv', 'hepatic vein': 'hv' }, mark: { edges: ['TIPS'], label: 'Covered stent', kind: 'treat' }, data: 'ladder', key: ['pv', 'ppg'], tiles: ['varix'], delta: 'target',
+      id: 'tips', params: { tips: { on: true } }, ripple: true, cam: 'liver', terms: { sinusoids: 'sin', 'portal vein': 'pv', 'hepatic vein': 'hv' }, mark: { edges: ['TIPS'], label: 'Covered stent', kind: 'treat' }, tool: { kind: 'flows' }, data: 'ladder', key: ['pv', 'ppg'], tiles: ['varix'], delta: 'target', ladderFrom: 'target', ladderFromLabel: 'No Rx',
       kicker: 'Shunt', site: 'sin', title: 'TIPS lowers the gradient by bypassing the liver',
       line: 'A needle passes from the right hepatic vein into the right portal vein, and a covered stent, usually 8 mm, lines the tract so portal blood bypasses the sinusoids. The PPG falls to {ppg}, below the 12 mmHg bleeding target.',
       notes: 'Transjugular intrahepatic portosystemic shunt: from the jugular vein, a needle is passed from the right hepatic vein through the liver into the right portal vein, and the tract is lined with a covered stent, usually 8 mm wide. The portal pressure gradient is measured before and after; for bleeding the aim is below 12 mmHg. Indications: pre-emptive TIPS in high-risk variceal bleeding, rescue when bleeding cannot be controlled, recurrent bleeding, and recurrent or refractory ascites.',
@@ -73,14 +73,14 @@ export const TREATMENT = {
       ask: ['Name two benefits of TIPS besides stopping a bleed.', 'The ascites clears as the kidneys excrete sodium again, and the low gradient keeps varices from rebleeding.'],
     },
     {
-      id: 'cost', lens: 'origin', cam: 'liver', sites: ['split'], mark: { edges: ['TIPS'], label: 'Covered stent', kind: 'treat' }, data: 'tiles', tiles: ['liver', 'shunt'], delta: 'target',
+      id: 'cost', lens: 'origin', cam: 'liver', sites: ['split'], mark: { edges: ['TIPS'], label: 'Covered stent', kind: 'treat' }, tool: { kind: 'flows', of: 'inflow' }, data: 'tiles', tiles: ['liver'], delta: 'target',
       kicker: 'After TIPS', site: 'sin', title: 'Liver perfusion and encephalopathy',
-      line: 'Less portal blood reaches the sinusoids, and gut toxins pass straight into the systemic circulation. About a third of patients develop encephalopathy. Colored by origin, the sinusoids carry only arterial blood, and gut blood runs through the stent.',
+      line: 'Less portal blood reaches the sinusoids, and gut toxins pass straight into the systemic circulation. About a third of patients develop encephalopathy. Colored by origin, the sinusoids carry mostly arterial blood, and gut blood runs through the stent.',
       notes: 'After TIPS, overt hepatic encephalopathy develops in about a third of patients, mostly in the first months; older age, earlier encephalopathy and a wider stent raise the risk, and an 8 mm covered stent lowers it. The heart receives more venous return and the liver less portal blood, so TIPS is avoided in heart failure, severe pulmonary hypertension, advanced liver failure (a high MELD) and recurrent encephalopathy. Lactulose and rifaximin treat encephalopathy; the shunt can be narrowed if it persists.',
       ask: ['Name two contraindications to TIPS.', 'Heart failure or severe pulmonary hypertension; advanced liver failure (high MELD); recurrent severe encephalopathy.'],
     },
     {
-      id: 'vs', cam: 'liver', data: 'ladder', key: ['ppg'], tiles: ['liver'], delta: 'target',
+      id: 'vs', lens: 'since', since: 'target', sinceLabel: 'no Rx', cam: 'liver', data: 'ladder', key: ['ppg'], tiles: ['liver'], delta: 'target',
       // (short: the compact label a phone's one row of buttons takes where the full names would wrap; presenter.js abShort.)
       compare: [
         { label: 'TIPS', own: true, params: { tips: { on: true }, drugs: { propranolol: false, carvedilol: false, octreotide: false, terlipressin: false } } },
@@ -90,7 +90,7 @@ export const TREATMENT = {
         { label: 'Terlipressin', short: 'Terl.', params: { tips: { on: false }, drugs: { propranolol: false, carvedilol: false, octreotide: false, terlipressin: true } } },
       ],
       kicker: 'Compared', site: 'sin', title: 'TIPS versus drug therapy',
-      line: 'Drugs lower the gradient by a few mmHg. TIPS lowers it to {ppg}, but diverts the liver\'s portal blood.',
+      line: 'Drugs lower the gradient by a few mmHg. TIPS lowers it to {ppg}, but diverts the liver\'s portal blood. Colored by change against no treatment, pressure falls most with TIPS and a little with each drug.',
       caveat: 'The model\'s drugs lower the gradient less than they do in patients.',
       notes: 'The same patient, switched between TIPS and each drug alone. In the model the drugs lower the PPG by 1 to 2 mmHg, carvedilol most, which is less than they do in patients (carvedilol lowers the HVPG by about a fifth); TIPS brings it below 12 mmHg but halves the blood reaching the sinusoids. The bands from the earlier slide stay in place throughout.',
       ask: ['Why does TIPS lower the gradient so much more than any drug?', 'The drugs trim the inflow or the tone; TIPS gives portal blood a low-resistance path around the sinusoids.'],
