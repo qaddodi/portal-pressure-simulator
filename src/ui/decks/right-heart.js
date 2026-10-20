@@ -32,14 +32,14 @@ export const RIGHT_HEART = {
       ask: ['What happens to the S wave of the hepatic vein in severe tricuspid regurgitation?', 'It reverses: flow goes back toward the liver in systole.'],
     },
     {
-      id: 'pulse', terms: ['pv'], cam: 'portal', labels: ['CONF'], glow: ['heart', 'ivc', 'hv', 'sin', 'pv'], glowSeq: 550, tool: { kind: 'doppler', vessel: 'PV_TRUNK' },
+      id: 'pulse', terms: ['pv'], cam: 'portal', labels: ['CONF'], glow: ['heart', 'ivc', 'hv', 'sin', 'pv'], glowSeq: 550, tool: { kind: 'doppler', vessel: 'PV_TRUNK', pair: true, calipers: true },
       kicker: 'Heart failure', site: 'cardiac', title: 'A high atrial pressure makes the portal vein pulse',
       line: 'With no resistance in the sinusoids, right atrial pressure passes back to the portal vein. A pulsatile portal flow usually points to the heart, not the liver.',
       notes: 'Normal portal flow is steady, with a small change on breathing. When the right atrial pressure is high and the sinusoids are normal, its swings reach the portal vein: the trace pulses with each beat and may briefly reverse. In cirrhosis the stiff sinusoids damp these swings, so a pulsatile portal vein argues against cirrhosis. The pulsatility index falls as the heart failure is treated.',
       ask: ['A pulsatile portal vein on ultrasound. Where do you look next?', 'The right heart: tricuspid regurgitation or a raised right atrial pressure.'],
     },
     {
-      id: 'cath', cath: 'result', data: 'ladder', block: 'ra', key: ['ra', 'hvpg'],
+      id: 'cath', cath: 'result', tool: { kind: 'profile' }, data: 'ladder', block: 'ra', key: ['ra', 'hvpg'],
       kicker: 'Heart failure', site: 'cardiac', title: 'Catheter readings in heart failure',
       line: 'Every station from the portal vein to the atrium sits near {ra}. The HVPG and the PPG are both normal.',
       notes: 'The gradients subtract what the stations share, so a high right atrial pressure raises the wedged and the free readings together. Portal pressure is high, but collaterals do not open because the systemic veins they would drain into are just as high; varices are rare. The liver congests, stiffens and leaks a protein-rich ascites. Treating the heart (diuretics, and the cause) lowers every station.',
@@ -54,7 +54,7 @@ export const RIGHT_HEART = {
       ask: ['Ascites with a high SAAG and high protein, a JVP that rises on inspiration and a normal ejection fraction. What is the likely cause, and how do you confirm it?', 'Constrictive pericarditis: a thick pericardium on CT or MRI.'],
     },
     {
-      id: 'web', lens: 'heat', terms: ['hv', 'ivc', 'ra'], preset: 'ivc-web', cam: 'hepatic', whatIf: { label: 'Web narrowing', param: 'stenosis.IVCS_RA', min: 0, max: 0.9, step: 0.05, ends: ['Open', 'Tight'] }, labels: ['RHV'], sites: ['web', 'ra'], mark: { edges: ['IVCS_RA'], label: 'Web in the IVC' }, tool: { kind: 'doppler', vessel: 'IVCS_RA' }, data: 'tiles', tiles: ['ivc', 'ra'], key: ['ivc'],
+      id: 'web', lens: 'heat', terms: ['hv', 'ivc', 'ra'], preset: 'ivc-web', cam: 'hepatic', whatIf: { label: 'Web narrowing', param: 'stenosis.IVCS_RA', min: 0, max: 0.9, step: 0.05, ends: ['Open', 'Tight'] }, labels: ['RHV'], sites: ['web', 'ra'], mark: { edges: ['IVCS_RA'], label: 'Web in the IVC' }, tool: { kind: 'lumen', vessel: 'IVCS_RA' }, data: 'tiles', tiles: ['ivc', 'ra'], key: ['ivc'],
       kicker: 'The IVC', site: 'post', title: 'An IVC web congests the liver while the atrium stays normal',
       vignette: 'A 36-year-old man who grew up in Nepal has ascites, leg swelling and dilated veins over his back and flanks. His JVP is normal.',
       line: 'A membrane in the IVC above the hepatic veins adds resistance to outflow. Below it the pressure is {ivc}, and the right atrium is {ra}. Colored by congestion, the veins below the web are backed up.',
@@ -62,7 +62,7 @@ export const RIGHT_HEART = {
       ask: ['Congested liver, ascites, normal JVP and a normal echocardiogram. Where does the resistance lie?', 'Between the liver and the heart: the hepatic veins or the IVC.'],
     },
     {
-      id: 'summary', visual: 'table', cols: ['ra', 'ivc', 'hvpg', 'lsm'], asc: false, rowHead: 'Patient',
+      id: 'summary', visual: 'table', cols: ['ra', 'ivc', 'hvpg', 'lsm', 'wave'], wave: 'RHV_IVC', asc: false, rowHead: 'Patient',
       of: [{ preset: 'healthy', kicker: 'Reference', title: 'Healthy', ref: true }, { id: 'tr', kicker: 'Cardiac', title: 'Heart failure with TR' }, { id: 'constrict', kicker: 'Cardiac', title: 'Constriction' }, { id: 'web', kicker: 'Post-hepatic', title: 'IVC web' }],
       kicker: 'Summary', title: 'Heart failure, constriction or IVC web',
       line: 'Right atrial pressure separates heart failure and constriction from an IVC web. HVPG is normal in all three.',
