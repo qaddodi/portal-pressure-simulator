@@ -24,6 +24,7 @@ import { seeded, strHash, nodularSites, nodularCells } from './liver-geo.js?v=97
 import { CIRR, smooth01, liverField, liverShrink, outlineNormals, contourNodules, morphOutline } from './liver-morph.js?v=d56529d6e9';
 import { LIVER_GEO } from './liver-geo-data.js?v=41a20a25ac';
 import { COLON_ART, BOWEL_ART, DUO_CLIPS, DUO_A, DUO_B } from './organ-art.js?v=afd27c1572';
+import { warmVisible, ringGrid, inGrid } from './warm-vis.js?v=ccf4f6f71b';
 import { createRouter } from './circuit-router.js?v=0ee9e02fc6';
 import { gpuProbe } from './gpu-probe.js?v=d4aeccea90';
 import { plateStrips, premultiply } from './plate-upload.js?v=2dd6db2a18';
@@ -3979,6 +3980,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // glow, the tubes' insides stay as drawn.
   // The tubes are plain polylines: their points are read from the path's own text once (cached by it), every other point, and each
   // build is only the group's transform over them (no path measuring: the ascites moves the bowel, and each move builds again).
+  const GLOW_SPAN = 4;   // (points either side an outline's glow takes its direction from: the rings are read every 2 units)
   const WARM = { reach: 10, alpha: 0.46, taper: 20 };   // (how far the glow runs out from a tube's edge, in world units (under the tube's own half width, so a tube's middle stays clear), and its strength on the edge)
   const warmEls = new Map(), warmEdges = new Map(), warmPts = new Map();   // (the drawing's tubes, found again if the pile is redrawn: the key below is read every frame)
   const warmTubes = (id) => {
@@ -4003,12 +4005,23 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     }
     return r;
   }
+  // (the tubes' lines in the drawing's own coordinates, in drawing order)
+  const warmLocal = (id) => warmDs(id).flatMap((d) => { const lines = warmLines(d) || olRingsRaw(id, true, d, 6); return lines.filter((r) => r.length > 1); });
   function warmRings(id) {
     const m = gMatrix(organG[id]);
-    return warmDs(id).flatMap((d) => {
-      const lines = warmLines(d) || olRingsRaw(id, true, d, 6);
-      return lines.filter((r) => r.length > 1).map((r) => (m ? r.map(([x, y]) => [m.a * x + m.c * y + m.e, m.b * x + m.d * y + m.f]) : r));
-    });
+    return warmLocal(id).map((r) => (m ? r.map(([x, y]) => [m.a * x + m.c * y + m.e, m.b * x + m.d * y + m.f]) : r));
+  }
+  // Which of the loops' edges can be seen (warm-vis.js): not under a loop drawn over it, and inside the organ's own outline (the
+  // glow is not clipped as the drawing is). Per tube and point, side -1 then 1; worked out once per drawing (its key below).
+  const warmSeen = new Map();
+  function warmVis(id) {
+    const k = warmDs(id).map((d) => d.length + d.slice(-30)).join('|') + '|' + warmR(id) + '|' + (organEls[id].getAttribute('d') || '').length;
+    let c = warmSeen.get(id);
+    if (!c || c.k !== k) {
+      const g = ringGrid(olRingsRaw(id, true));
+      warmSeen.set(id, c = { k, vis: warmVisible(warmLocal(id), warmR(id), { inside: g ? (x, y) => inGrid(g, x, y) : null }) });
+    }
+    return c.vis;
   }
   // A tube's radius, from the drawing's own pieces (each .ob-edge is stroked 2r wide): the middle one, read again when the
   // deep-toned bed under the tubes (stroked wider as the tubes are) changes, so a refitted pile is followed.
@@ -4222,7 +4235,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       const ease = o.a * o.a * (3 - 2 * o.a);
       const col = o.col || (o.kind === 'pin' ? olCol : orgTone(o.id));
       // A warm layer: a soft glow along each side of every tube, strongest on its edge and easing out from it (strips are laid with MAX,
-      // so where two meet they never stack). Left off where the colon lies over the pile; on the inside of a tight bend the glow is
+      // so where two meet they never stack). Only a loop's edge that shows is lit: not where a loop drawn over it lies on it, nor
+      // outside the organ's outline (warmVis). Left off where the colon lies over the pile; on the inside of a tight bend the glow is
       // held short of the bend's centre (its reach follows the room there) and dropped where there is none, so it never folds back.
       if (o.kind === 'warm') {
         if (V) {
@@ -4234,7 +4248,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
             return i >= 0 && j >= 0 && i < grid.w && j < grid.h && grid.bits[j * grid.w + i] === 1;
           };
           o.runs = [];
-          for (const r of o.rings) {
+          const seen = warmVis(o.id);
+          for (const [ri, r] of o.rings.entries()) {
+            const vis = seen[ri];
             const n = r.length, R = new Float32Array(n), cs = new Int8Array(n), tg = [];
             for (let i = 0; i < n; i++) {
               const pa = r[Math.max(0, i - 1)], pb = r[Math.min(n - 1, i + 1)];
@@ -4271,7 +4287,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
                 const Rv = 1 / Math.max((1 - t) / R[i0] + t / R[i1], 1e-9);
                 const ex = a[0] + (b[0] - a[0]) * t - ty * rad * side, ey = a[1] + (b[1] - a[1]) * t + tx * rad * side;
                 const reach = (t < 0.5 ? cs[i0] : cs[i1]) === side ? Math.min(reachMax, (Rv - rad) * 0.85) : reachMax;
-                return { v: [ex, ey, tx, ty, reach], ok: !(reach < 2.5 || underColon(ex, ey)) };
+                return { v: [ex, ey, tx, ty, reach], ok: !(reach < 2.5 || (vis && !vis[2 * (t < 0.5 ? i0 : i1) + (side > 0 ? 1 : 0)]) || underColon(ex, ey)) };
               };
               // Where a run starts or stops falls exactly on its cut (found between the last point on one side and the first on the
               // other), so its length, and with it the fade, moves smoothly as the cut does, not a whole point at a time.
@@ -4305,8 +4321,10 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
           let out = 1;
           if (glow) { let ar = 0; for (let i = 0; i < n; i++) { const p = pts[i], q = pts[(i + 1) % n]; ar += p[0] * q[1] - q[0] * p[1]; } out = ar > 0 ? -1 : 1; }
           if (V) for (let i = 0; i <= n - (closed ? 0 : 1); i++) {
-            const k = i % n, p = pts[k];
-            const pa = pts[closed ? (k - 1 + n) % n : Math.max(0, k - 1)], pb = pts[closed ? (k + 1) % n : Math.min(n - 1, k + 1)];
+            // (A glow's direction is taken across a few points either side (GLOW_SPAN, about 8 units): along a hand-drawn line with
+            // small wobbles, the next points alone turn it back and forth, and its strips fan out into ticks.)
+            const k = i % n, p = pts[k], sp = glow ? Math.min(GLOW_SPAN, (n - 1) >> 1) : 1;
+            const pa = pts[closed ? (k - sp + n) % n : Math.max(0, k - sp)], pb = pts[closed ? (k + sp) % n : Math.min(n - 1, k + sp)];
             let tx = pb[0] - pa[0], ty = pb[1] - pa[1]; const l = Math.hypot(tx, ty) || 1; tx /= l; ty /= l;
             if (glow) V.push(p[0], p[1], -ty, tx, 0, w, p[0], p[1], -ty, tx, out, w);
             else V.push(p[0], p[1], -ty, tx, 1, h, p[0], p[1], -ty, tx, -1, h);
