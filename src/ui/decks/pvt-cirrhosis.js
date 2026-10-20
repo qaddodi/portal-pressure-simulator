@@ -28,7 +28,7 @@ export const PVT_CIRRHOSIS = {
       ask: ['Does a high INR protect a patient with cirrhosis from portal vein thrombosis?', 'No: the anticoagulant proteins fall too, so clotting is rebalanced.'],
     },
     {
-      id: 'clot', tick: 'Partial clot', params: { thrombus: { PV_TRUNK: 0.6 } }, whatIf: { label: 'Clot size', param: 'thrombus.PV_TRUNK', min: 0, max: 1, step: 0.05, ends: ['None', 'Occlusive'] }, cam: 'portal', terms: ['pv'], mark: { edges: ['PV_TRUNK'], label: 'Partial clot' },
+      id: 'clot', tick: 'Partial clot', params: { thrombus: { PV_TRUNK: 0.6 } }, whatIf: { label: 'Clot size', param: 'thrombus.PV_TRUNK', min: 0, max: 1, step: 0.05, ends: ['None', 'Occlusive'] }, cam: 'portal', terms: ['pv'], mark: { edges: ['PV_TRUNK'], clot: true },
       tool: { kind: 'lumen', vessel: 'PV_TRUNK' }, data: 'tiles', tiles: ['pv'], key: ['pv'],
       kicker: 'The clot', site: 'pre', title: 'A partial clot in the portal vein',
       line: 'The clot fills more than half of the portal vein. Blood speeds through the channel that is left, and the pressure behind it rises to {pv}.',

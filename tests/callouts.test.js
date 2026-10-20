@@ -145,3 +145,22 @@ test('a reading\'s pill stands 12 px inside the stage, clear of drawn shapes by 
   assert.deepEqual(besideLine([100, 100], [140, 100]).slice(0, 2), ['S', 'N'], 'a level line: above or below its middle');
   assert.equal(new Set(besideLine([0, 0], [1, 1])).size, 8, 'every direction, once');
 });
+
+// ── A clot mark that follows the clot (mark.clot) ──
+test('clot mark: words follow the cross-section card, gone with no clot', async () => {
+  const { clotWords } = await import('../src/ui/callout-math.js');
+  assert.equal(clotWords(0), null);
+  assert.equal(clotWords(undefined), null);
+  assert.equal(clotWords(0.004), null);
+  assert.equal(clotWords(0.05), 'Nonocclusive clot');
+  assert.equal(clotWords(0.6), 'Nonocclusive clot');
+  assert.equal(clotWords(0.99), 'Nonocclusive clot');
+  assert.equal(clotWords(0.995), 'Occlusive clot');
+  assert.equal(clotWords(1), 'Occlusive clot');
+});
+test('clot mark: the PVT talk\'s clot slide names the clot live, never "partial"', async () => {
+  const fs = await import('node:fs');
+  const src = fs.readFileSync(new URL('../src/ui/decks/pvt-cirrhosis.js', import.meta.url), 'utf8');
+  assert.match(src, /mark: \{ edges: \['PV_TRUNK'\], clot: true \}/);
+  assert.doesNotMatch(src, /label: 'Partial clot'/);
+});

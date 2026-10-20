@@ -20,11 +20,11 @@ import { sinusoidSupported } from './sinusoid-view.js?v=98d1923b7c';
 import { NODES } from '../engine/topology.js?v=4044766e96';
 import { DISEASE_SRC, diseasePieces } from './diseases.js?v=fb8a5451c3';
 import { nb, listCase, plateletText } from './glue.js?v=5a0f63226b';
-import { DECKS, REGIONS, LEVELS, TOPICS, withOverview, siteTag, SITE_TAGS } from './decks.js?v=ec0e82552e';
+import { DECKS, REGIONS, LEVELS, TOPICS, withOverview, siteTag, SITE_TAGS } from './decks.js?v=e63125da72';
 import { wholeGap, tenthGap } from '../engine/gap.js?v=3a5947c552';
 import { createHvpgMonitor } from './hvpg-proc.js?v=3a8585d477';
-import { createTools } from './presenter-tools.js?v=12f035ff88';
-import { openHandout } from './handout.js?v=3b8912f062';
+import { createTools } from './presenter-tools.js?v=42713a8268';
+import { openHandout } from './handout.js?v=2d75492857';
 import { noteResume, resumeFor } from './resume.js?v=f086f80ee8';
 import { parseDeckSource, checkDeck } from './deck-source.js?v=8395c650cd';
 import { NO_ASC, TILE, SCALE, bandsOf, rateOf, COLS, CUT, PRESS, fpv, dirAbs, dirRel, rateAbs, effOf, rateShown, tileShown, tipsGoal, liveSettled, shownSig } from './table-marks.js?v=1dc429fe31';
@@ -32,7 +32,8 @@ import { frameFor, cancelFrame } from './frame.js?v=2ce59939b2';
 import { createFigureKey } from './figure-key.js?v=7e170d78ce';
 import { traceWhen } from './trace-labels.js?v=fc916a95c6';
 import { flowCss, heatCss, dropCss, gradientCss, oxygenCss } from './colormap.js?v=1092d36abc';
-import { EXT, expandIds, stepExtra, markLabel, figureHooks, safe } from './slide-ext.js?v=3c26a0342c';
+import { EXT, expandIds, stepExtra, markLabel, figureHooks, safe } from './slide-ext.js?v=f90f6ee5e9';
+import { clotWords } from './callout-math.js?v=896bf06ebe';
 import { citeText, focusOf, ladderFromOf, ladderFromName } from './teach-extras.js?v=d8224d9bb5';
 import { DEMO_ALL } from './test-decks/demo-all-new-visuals.js?v=9aeadbb887';
 import { COMPACT, WIDE } from './card-type.js?v=f5dfdb80f2';
@@ -1510,6 +1511,11 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   let lapseOn = false, lapseLeft = 0, lastAt = -1;   // (lapseLeft: days still to run; 0 once Next has sped it up; lastAt: the slide last shown)
   // A compare slide's buttons switch the live model's params (liveOff: it no longer shows the slide's computed state).
   let liveOff = false, abGen = 0;
+  // The slide's marks as it landed (markBase), and those marks for the params now: a mark with clot: true names the clot in its
+  // first vessel as the model has it (callout-math clotWords), so the what-if slider changes its words, and with no clot it goes.
+  let markBase = null;
+  const clotMarks = (marks, params) => marks.flatMap((m) => { if (!m.clot) return [m]; const t = clotWords(params?.thrombus?.[m.edges[0]]); return t ? [{ ...m, label: t }] : []; });
+  const markFocus = (marks) => (marks.length ? { ...marks[0], marks } : null);
   const merge = (a, b) => { for (const [k, v] of Object.entries(b)) a[k] = v && typeof v === 'object' && !Array.isArray(v) ? merge({ ...(a[k] || {}) }, v) : v; return a; };
   function abSlow() { abGen++; }
   // The new treatment takes effect on the live figure at real time (a faster clock would make the Doppler and tracings
@@ -1570,6 +1576,11 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     const g = ++abGen, ref = refOf(s, i), mine = () => g === abGen && shown?.i === i && !!deck;
     liveOff = true;
     replaceParams(merge(structuredClone(store.get().params), patch || {}));
+    // (A clot mark takes its new words at once, as the slider moves; the stage fades them in, and fades the mark out at no clot.)
+    if (markBase?.i === i && markBase.marks.some((m) => m.clot)) {
+      const ms = clotMarks(markBase.marks, store.get().params);
+      if (ms.map((m) => m.label).join('|') !== (store.get().focus?.marks || []).map((m) => m.label).join('|')) store.set({ focus: markFocus(ms) });
+    }
     host.send({ type: 'setParams', params: store.get().params, settle: false, ease: 1200 });
     host.send({ type: 'run', running: true, clock: 'hemo', speed: 1 });
     const keys = [...new Set([...tileKeys(s), ...(s.key || []), ...(s.data === 'ladder' ? ['pv', 'whvp', 'fhvp', 'ivc', 'ra', 'hvpg', 'ppg'] : [])])];
@@ -1862,6 +1873,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     const outAt = performance.now(), outMs = wordsOut(s);
     if (outMs) { await painted(); await painted(); }
     // Words out, and the marks: they belong to the slide that is leaving.
+    markBase = null;
     store.set({ focus: null, presentLabels: [], presentTerms: null, lobuleCallout: null, presentFp: null }); stage.setSites(null); stage.setGlow(null); stage.pinOrgans(null);
     figureHooks('clear');   // (and what a deck visuals package put on the figure: slide-ext.js)
     // The slide's lens: the figure crossfades to its colours (stage.js) while the old words leave. A question, or a
@@ -1977,7 +1989,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       // The slide's marks, labels, the stations its terms name (in their colours) and its glows (see slideTargets).
       const tg = slideTargets(s), xc = ctxOf(s, to);
       // (A mark's edges may name a package's set, '@name', and its label goes through the packages' label hooks: slide-ext.js.)
-      let marks = (s.marks || (s.mark ? [s.mark] : [])).map((m) => ({ edges: [...expandIds(m.edges)], label: markLabel(m.label, m, xc), kind: m.kind || 'block', free: !!m.free, ...(m.seg ? { seg: m.seg } : {}) }));
+      let marks = (s.marks || (s.mark ? [s.mark] : [])).map((m) => ({ edges: [...expandIds(m.edges)], label: markLabel(m.label, m, xc), kind: m.kind || 'block', free: !!m.free, ...(m.seg ? { seg: m.seg } : {}), ...(m.clot ? { clot: true } : {}) }));
       // A note mark is a pointer: its vessel glows in its station's colour. Where a station label on the slide already
       // names that vessel, the pointer would only repeat it, so it goes (the glow stays).
       if (tg) {
@@ -1987,9 +1999,11 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       }
       // (A site the label stands in for lends it its station colour, so the label is the slide's highlight.)
       if (tg) for (const k of s.sites || []) if (SITE_NODE[k] && [...(s.labels || []), ...tg.labels].includes(SITE_NODE[k])) tg.terms[SITE_NODE[k]] ||= TARGETS[k]?.tone || VAL_TONE[k];
+      markBase = { i: to, marks };
+      marks = clotMarks(marks, st?.params || store.get().params);
       store.set({ presentLabels: [...new Set([...(s.labels || []), ...tg.labels])], presentTerms: tg.terms || null,
         presentNames: s.data === 'ladder' || !!s.cath, presentFp: st?.fp || null,
-        focus: marks.length ? { ...marks[0], marks } : null, lobuleCallout: !s.callout ? null : { kind: 'block', ...s.callout } });
+        focus: markFocus(marks), lobuleCallout: !s.callout ? null : { kind: 'block', ...s.callout } });
       if (tg) { stage.setGlow(tg.glow); stage.pinOrgans(tg.organs.map((o) => (o.id === 'spleen' && st?.fp ? { id: o.id, tone: rateTone('spleen', st.fp) } : o))); stage.setResGlow(tg.res); }
       app.dataset.lit = tg?.lit.join(' ') || '';
       figureHooks('show', xc);   // (a deck visuals package's own marks on the figure: slide-ext.js)

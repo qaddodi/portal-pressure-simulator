@@ -84,6 +84,16 @@ export function organAnchor(id, spleenScale = 1) {
   return id === 'spleen' ? { at: a.at, half: [a.half[0] * spleenScale, a.half[1] * spleenScale] } : a;
 }
 
+// ── A clot mark that follows the clot ──
+// mark: { edges: ['PV_TRUNK'], clot: true } names the clot in its first vessel as the model has it, so a what-if slider that grows
+// or clears it changes the words. The cut-off is the cross-section card's own rounding (tool-lumen.js): "100 % occluded" reads
+// "Occlusive clot", anything above "0 %" "Nonocclusive clot", and "0 %" no mark at all.
+/** The words for a clot that fills v (0..1) of its vessel, or null when there is none to point at. */
+export function clotWords(v) {
+  const n = Math.round(Math.min(1, Math.max(0, +v || 0)) * 100);
+  return n <= 0 ? null : n >= 100 ? 'Occlusive clot' : 'Nonocclusive clot';
+}
+
 // ── V9: calipers ──
 // The spleen's long axis at its normal size (anatomy.js ORGANS: its top and bottom), measured as the model's spleen length,
 // and scaled about SPLEEN_CENTER as the figure draws the organ.

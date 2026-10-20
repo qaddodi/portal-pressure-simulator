@@ -180,7 +180,8 @@ On ladder (`data: 'ladder'`) and catheter (`cath`) slides the figure automatical
 
 ### 5.6 Marks (callouts on a vessel)
 
-`mark: { edges, label, kind, seg?, free? }` or `marks: [ … ]` (several). `edges` = vessel ids (section 8.5). Only labelled marks get a callout box. `free: true` sets the label on its own with no leader line, for one name over several vessels (the three hepatic veins). `seg` on a stent (`'proximal'` | `'mid'` | `'distal'` | `'site'`, the third that holds its narrowing) lights and points at that third only.
+`mark: { edges, label, kind, seg?, free?, clot? }` or `marks: [ … ]` (several). `edges` = vessel ids (section 8.5). Only labelled marks get a callout box. `free: true` sets the label on its own with no leader line, for one name over several vessels (the three hepatic veins). `seg` on a stent (`'proximal'` | `'mid'` | `'distal'` | `'site'`, the third that holds its narrowing) lights and points at that third only.
+`clot: true` (opt-in, in place of `label`) names the clot in the mark's first vessel as the model has it, so a what-if slider on the clot changes the words: "Nonocclusive clot", "Occlusive clot" once the cross-section card reads 100 %, and no mark at all at 0 %. The new words fade in place.
 
 | `kind` | Look | Use for |
 |---|---|---|
