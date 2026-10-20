@@ -399,7 +399,14 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host) }
     { const r = host.getBoundingClientRect(); if (r.width >= 2 && r.height >= 2) ensureGeo(Math.round(r.width), Math.round(r.height)); }
     // (Mid-glide to a station, the glide's target follows the new space: clampV would read the glide's first, still unzoomed frames as the fit
     // and send the lobule back there, so a slide's zoom never arrived.)
-    refitLater = false; const F0 = fitV(); kFit = F0.k; if (atFit) glideTo(F0); else if (camAim) Object.assign(camAim.to, framing(camAim.part, camAim.zoom)); else if (aimed && fade <= 0.98) glideTo(framing(aimed.part, aimed.zoom)); else { clampV(); viewChanged(); } }
+    refitLater = false; const F0 = fitV(); kFit = F0.k; if (atFit) glideTo(F0); else if (camAim) Object.assign(camAim.to, framing(camAim.part, camAim.zoom)); else if (aimed && fade <= 0.98) glideTo(framing(aimed.part, aimed.zoom)); else reclamp(); }
+  // Zoomed in (a presenter's station, or a hand's pan) when the free space changes: the new framing is glided to, never jumped to.
+  // (A presenter slide's cards change the space as the next slide comes in: on the way out of the lobule from a central-vein close-up
+  // the clamp used to snap the lobule sideways before the zoom out began, 20 Oct, Mohammad.)
+  function reclamp() {
+    const saved = { ...V }, wasFit = atFit; clampV(); const to = { ...V }, fit = atFit; Object.assign(V, saved); atFit = wasFit;
+    if (Math.abs(to.k - V.k) + Math.abs(to.x - V.x) + Math.abs(to.y - V.y) > 0.5) { glideTo(to, 420); atFit = fit; } else { clampV(); viewChanged(); }
+  }
   addEventListener('pps:occ', () => { if (fade > 0) { layoutKey = ''; refit(); } });
   // A new text size: the labels glide to their new places instead of jumping.
   let easeT = 0;
