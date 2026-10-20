@@ -147,3 +147,19 @@ export function bandOutline(c, P, N, Wd, k, kEnd = k) {
   c.arc(P[0][0], P[0][1], h(0), ang(0) + Math.PI, ang(0), true);
   c.closePath();
 }
+
+// A dive aimed at a station draws the lobule's layers over its whole box (lobule-zoom.js, padBox): the box around the lobule's
+// centre (x, y) out to r, past the screen W × H wherever it reaches beyond it, or null when the lobule is on screen already.
+export function padRect(x, y, r, W, H) {
+  const l = Math.max(0, Math.ceil(r - x)), t = Math.max(0, Math.ceil(r - y)), rr = Math.max(0, Math.ceil(x + r - W)), b = Math.max(0, Math.ceil(y + r - H));
+  if (!(l || t || rr || b)) return null;
+  return { l, t, w: W + l + rr, h: H + t + b };
+}
+// The padded layers' pixel ratio: the screen's own, unless the box would hold more than PAD_AREA × the screen's pixels (or
+// PAD_PX in all, under iOS's ~16.7 M px canvas limit). Seen only scaled down through the zoom, where the lower ratio still gives
+// at least a screen pixel's worth; the layers are back at the screen's size and ratio from the first frame after landing.
+export const PAD_AREA = 2.25, PAD_PX = 6e6;
+export function padDpr(dpr, W0, H0, W, H) {
+  const px = W * H * dpr * dpr, cap = Math.min(PAD_PX, PAD_AREA * W0 * H0 * dpr * dpr);
+  return px <= cap ? dpr : dpr * Math.sqrt(cap / px);
+}

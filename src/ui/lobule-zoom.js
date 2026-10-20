@@ -24,7 +24,7 @@ import { store } from './store.js?v=aaa74688dd';
 import { radiiChanged, canvasPx, fxMoves, DIVE_RIM } from './lobule-render-cache.js?v=57ef9d0e5a';
 import { softwareYield } from './sw-yield.js?v=e580a095b1';
 import { lobuleState, lymphRate, sinceOf, LOBE } from './lobule-model.js?v=dfa2d35a11';
-import { SIN_NARROW, cordTone, dullSinusoid, NEIGHBOUR_FLAT, neighbourBlur, blurWrapped, bandOutline, FADE_MID, fadeOuter } from './lobule-look.js?v=71638381b6';
+import { SIN_NARROW, cordTone, dullSinusoid, NEIGHBOUR_FLAT, neighbourBlur, blurWrapped, bandOutline, FADE_MID, fadeOuter, padRect, padDpr } from './lobule-look.js?v=fa8ff2c81b';
 import { h, s, fmt, clamp, createEaser, systemEdge, bloodColors, cssVar, cssAlpha, cssRGB01 } from './util.js?v=5814c6b396';
 import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatColor, oxygenColor } from './colormap.js?v=1092d36abc';
 import { NODES, EDGES } from '../engine/topology.js?v=4044766e96';
@@ -412,7 +412,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host) }
   let easeT = 0;
   addEventListener('pps:labelscale', () => { labels.classList.add('lz-ease'); clearTimeout(easeT); easeT = setTimeout(easeEnd, 450); syncLeaders(); drawVersion++; viewVer++; layoutKey = ''; if (!raf && fade > 0) raf = nextFrame(loop); });
   let pacedVer = -1, viewVer = 0;   // viewVer: a pan, zoom, resize or label change, drawn without waiting
-  const viewChanged = () => { if (pad) { const [W, H] = hostSize(); setPad(padBox(W, H)); } drawVersion++; viewVer++; tissueKey = ''; layoutKey = ''; if (!raf && fade > 0) raf = nextFrame(loop); };
+  const viewChanged = () => { if (pad || diveScaled) { const [W, H] = hostSize(); setPad(padBox(W, H)); } drawVersion++; viewVer++; tissueKey = ''; layoutKey = ''; if (!raf && fade > 0) raf = nextFrame(loop); };
   const toWorld = (p) => [(p[0] - V.x) / V.k, (p[1] - V.y) / V.k];
   const toScreen = (p) => [p[0] * V.k + V.x, p[1] * V.k + V.y];
   function resetView() {
@@ -1643,9 +1643,10 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host) }
     const [W0, H0] = hostSize();
     ensureGeo(W0, H0);
     // Landed from a dive aimed at a station, with the flow marks in: the layers go back to the screen's own size (the same picture).
-    if (pad && fade > 0.98 && !diveScaled && flowA >= 1) setPad(null);
+    if (pad && fade > 0.98 && !diveScaled) setPad(null);   // (the first frame after landing: the flow marks are fading in, so every layer is drawn now anyway)
     const W = pad ? pad.w : W0, H = pad ? pad.h : H0;   // (the layers' own size)
-    const dpr = Math.min(saver() ? 1 : 2, devicePixelRatio || 1);   // (Battery saver: one pixel per CSS pixel)
+    const dpr0 = Math.min(saver() ? 1 : 2, devicePixelRatio || 1);   // (Battery saver: one pixel per CSS pixel)
+    const dpr = pad ? padDpr(dpr0, W0, H0, W, H) : dpr0;   // (padded: capped in area and memory, padDpr in lobule-look.js)
     const dark = isDark();
     // Keep watching for view/theme/size changes, but leave a settled paused picture alone.
     const idleKey = [W, H, dpr, dark, V.k, V.x, V.y, drawVersion, flowA.toFixed(2)].join('|');
@@ -1676,14 +1677,14 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host) }
   let pad = null;   // { l, t, w, h }: the layers' box in stage px, from (−l, −t), w × h
   const PAD_LAYERS = [tissue, diveCv, glCv, fx];
   function padBox(W, H) {
-    if (!geo || atFit) return null;
-    const [x, y] = toScreen([geo.cx, geo.cy]), r = geo.R * V.k * 1.35;
-    const l = Math.max(0, Math.ceil(r - x)), t = Math.max(0, Math.ceil(r - y)), rr = Math.max(0, Math.ceil(x + r - W)), b = Math.max(0, Math.ceil(y + r - H));
-    if (!(l || t || rr || b)) return null;
-    return { l, t, w: W + l + rr, h: H + t + b };
+    // (At rest at the fit the lobule is drawn whole on screen; a rise out often glides there while it shrinks, so it is padded then.)
+    if (!geo || (atFit && !gliding && !diveScaled)) return null;
+    const [x, y] = toScreen([geo.cx, geo.cy]);
+    return padRect(x, y, geo.R * V.k * 1.35, W, H);
   }
   function setPad(p) {
-    if (!p && !pad) return;
+    // (An unchanged box keeps everything drawn: a view change mid-dive rebuilt the dive copy for nothing.)
+    if (p === pad || (p && pad && p.l === pad.l && p.t === pad.t && p.w === pad.w && p.h === pad.h)) return;
     pad = p;
     for (const e of PAD_LAYERS) {
       e.style.left = p ? `${-p.l}px` : ''; e.style.top = p ? `${-p.t}px` : '';
@@ -3181,7 +3182,11 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host) }
     covers: () => fade > 0.98 || fieldOp >= 0.999,
     /** During the dive: the tissue (not its card) still zooming in, by k (≤ 1) about the stage point x, y. */
     setDiveZoom(k, x, y, tx = x, ty = y) {
+      const wasScaled = diveScaled;
       diveScaled = k < 0.9999; if (!diveScaled) diveDrawn = false;
+      // The rise out of a lobule framed zoomed in: its layers are drawn over its whole box first, as for the dive in (padBox), or
+      // the zoom out shrank the screen's rectangle, a box with the lobule cut off at its edges. (One drawing, as the rise starts.)
+      if (diveScaled && !wasScaled && !pad && fade > 0.98) { const [W, H] = hostSize(), p = padBox(W, H); if (p) { setPad(p); draw(0); } }
       if (!diveScaled && fade <= 0) { staged = ''; if (relLater) { relLater = false; release(); } }   // the dive is over with the lobule unseen
       // Landed with a Sinusoid tap waiting (made during the dive): on into the sinusoid now.
       sinOnLanding();
