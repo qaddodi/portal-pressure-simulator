@@ -3,17 +3,17 @@
 
 import { NODES } from '../engine/topology.js?v=4044766e96';
 import { wallRead } from '../engine/wall-read.js?v=09449acd01';
-import { pressureColor } from './colormap.js?v=b2067d6101';
-import { h, fmt, fitCanvas, cssVar, cssAlpha, clamp, icon } from './util.js?v=8813192ea2';
+import { pressureColor } from './colormap.js?v=1092d36abc';
+import { h, fmt, fitCanvas, cssVar, cssAlpha, clamp, icon } from './util.js?v=5814c6b396';
 import { simTime, isPaused } from './clock.js?v=520596240b';
-import { createEndoGL } from './endo-gl.js?v=05d48a2ddc';
-import { renderEndo } from './endo-render.js?v=7dc2d6ede3';
+import { createEndoGL } from './endo-gl.js?v=61d88186cb';
+import { renderEndo } from './endo-render.js?v=cf6154d7e7';
 import { endoGrow } from './endo-size.js?v=824631d0bc';
 import { DEFLATE_MS, BAND_MS, BAND_DELAY_MS, fadeIn, glide } from './endo-motion.js?v=fdca92fc81';
-import { FONT } from './charts.js?v=1eaf71e70b';
+import { FONT } from './charts.js?v=ea8ada79e9';
 import { store, updateParams, varicesPresent } from './store.js?v=31ee79b6ab';
 import { balanceHold, balanceLine } from './balance-hold.js?v=1792704e7a';
-import { frameFor, cancelFrame } from './frame.js?v=67ca200c87';
+import { frameFor, cancelFrame } from './frame.js?v=2ce59939b2';
 const nextFrame = frameFor('instruments');
 
 const NI = Object.fromEntries(NODES.map((n, i) => [n.id, i]));

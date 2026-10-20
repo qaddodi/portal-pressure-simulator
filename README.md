@@ -102,12 +102,11 @@ presinusoidal, sinusoidal, postsinusoidal, posthepatic and cardiac).
 - **Phones and upright tablets.** The view switch and the actions move to the bottom bar. Cards rise from
   behind it; pull down once to halve a card and again to close it.
 - **Settings.** Appearance (light, dark, soft or the device's), text size on the figure, *Blur effect* (frosted
-  glass; off gives solid cards, lighter on a hot device), *Battery saver* (off by default: 15 frames
-  a second at lower resolution), *Advanced physiology*, and *Reset everything*.
+  glass; off gives solid cards, lighter on a hot device), *Advanced physiology*, and *Reset everything*.
 - **Search (Ctrl/⌘ K).** Everything, by name. **?** lists every keyboard shortcut.
 
 The figure always draws at full resolution and moves at the display's own rate (60, 120 Hz or
-more); only Battery saver lowers either. See [docs/PERFORMANCE.md](docs/PERFORMANCE.md).
+more). See [docs/PERFORMANCE.md](docs/PERFORMANCE.md).
 
 ### Teaching
 

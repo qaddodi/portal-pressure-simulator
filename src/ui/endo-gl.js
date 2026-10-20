@@ -6,7 +6,7 @@
 // the four columns a deflation (0 engorged .. 1 strangulated) and up to four knuckle strengths
 // (0 none .. 1 a cinched band with its dusky knuckle).
 
-import { cssRGB } from './util.js?v=8813192ea2';
+import { cssRGB } from './util.js?v=5814c6b396';
 
 const TAU = Math.PI * 2;
 const NCOL = 4;

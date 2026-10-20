@@ -35,11 +35,10 @@ What changed:
   `syncGlowOnly` in `stage.js` writes those texels alone, with the helper the whole sync uses
   (`glow-texels.js`), and only the changed rows are drawn again; otherwise the whole sync runs.
   The same tube data, so the same picture (`tests/frame-costs-glow.test.js`).
-- **Full detail, always.** Outside Battery saver the figure, the lobule and the FibroScan never
+- **Full detail, always.** The figure, the lobule and the FibroScan never
   lower their own resolution or frame rate: no governor steps them down when frames run long, and
   zooming in keeps every pixel. Levels older builds stored (`pps.quality`, `pps.q`) are removed at
-  start. Two explicit steps remain: Battery saver (15 frames a second, 0.6 of the pixels on the
-  figure, one pixel per CSS pixel in the lobule and sinusoid) and a software renderer (WebGL drawn on
+  start. One step remains: a software renderer (WebGL drawn on
   the CPU: SwiftShader, llvmpipe), which starts and stays at 8 frames a second at half resolution so
   the rest of the page keeps the CPU it needs. The stage exposes `data-veins`, `data-renderer`
   (`gpu` or `software`), `data-quality` (0 full, 1 saver, 2 software) and `data-res` (vessel canvas
