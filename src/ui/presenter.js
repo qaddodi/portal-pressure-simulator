@@ -3053,7 +3053,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       // the readings' travel above the box's foot, cut through the portal blood bar's names, Mohammad on an iPhone, TIPS Doppler 3, 20 Oct.)
       // (Its cap is the tucked card's in every state, readings out or not, and the readings' share is added on top (--pz-grow), never
       // past the room an opened card has: fitted against the opened card's larger room, the instrument came out bigger the moment the
-      // readings came out, and its chart snapped to the new size, Sites 3 on an iPhone, 20 Oct. fitCards fits it with --pz-grow at 0,
+      // readings came out, and its chart snapped to the new size, Sites 3 on an iPhone, 20 Oct. fitCards fits it with --pz-grow at the readings' share (--pz-d),
       // so open or tucked it is fitted against one cap and keeps one size.)
       if (splitSheet(dd)) {
         const tuck = cs.getPropertyValue('--pz-cap').trim() || 'none';
@@ -3194,7 +3194,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       st.maxHeight = 'none'; st.removeProperty('--pz-fit'); st.removeProperty('--pz-z');
       if (fit) st.setProperty('--pz-fit', String(fit));
       const v = el.offsetHeight * k;
-      st.maxHeight = sv[0]; if (sv[1]) st.setProperty('--pz-fit', sv[1]); if (sv[2]) st.setProperty('--pz-z', sv[2]);
+      st.maxHeight = sv[0]; if (sv[1]) st.setProperty('--pz-fit', sv[1]); else st.removeProperty('--pz-fit'); if (sv[2]) st.setProperty('--pz-z', sv[2]);
       return v;
     };
     // (Kept while the slide shows, unless its data card grew past what was planned for it, an instrument or chart built after

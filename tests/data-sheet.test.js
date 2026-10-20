@@ -171,3 +171,11 @@ test('a phone\'s card whose chart only shortens comes in half-open with the char
   assert.match(js, /if \(key\) phoneLock = \{ key, cap, shut, data: full, fig: phoneFig \};/, 'the plan is kept against the card at full size, as the check measures it');
   assert.match(js, /if \(fit\) st\.setProperty\('--pz-fit', String\(fit\)\);/);
 });
+
+// Review of d4c53ae: measured at CHART_GIVE, a card that had no fit before kept that fit after the measure.
+test('a phone\'s plan measuring a card at a given fit puts the card\'s own fit back, none included', () => {
+  const nat = js.match(/const natural = \(el, st, fit = 0\) => \{[\s\S]*?\n {4}\};/)?.[0] ?? '';
+  assert.match(nat, /if \(sv\[1\]\) st\.setProperty\('--pz-fit', sv\[1\]\); else st\.removeProperty\('--pz-fit'\);/);
+  // (The readings' share it is fitted with never changes with the fit: the readings keep their size in every state.)
+  assert.match(css, /\.pz\.stack\.stack \.pz-data\.pz-sheet\.pz-sheet > :not\(\.pz-tool\) \{ zoom: 1; \}/);
+});
