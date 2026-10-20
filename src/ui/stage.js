@@ -21,7 +21,7 @@ import { gridHits, segHitsBox } from './seg-hits.js?v=e7cde76929';
 import { glassCallout } from './callout.js?v=d5524b6a11';
 import { TEXT_MIN, TEXT_MAX, rolePx, roleOf } from './type-scale.js?v=d7cca3fb73';
 import { seeded, strHash, nodularSites, nodularCells } from './liver-geo.js?v=977185f80a';
-import { CIRR, smooth01, liverField, liverShrink, outlineNormals, contourNodules, morphOutline } from './liver-morph.js?v=d56529d6e9';
+import { CIRR, smooth01, liverField, liverShrink, outlineNormals, contourNodules, morphOutline, fix1 } from './liver-morph.js?v=ed778ce6c3';
 import { LIVER_GEO } from './liver-geo-data.js?v=41a20a25ac';
 import { COLON_ART, BOWEL_ART, DUO_CLIPS, DUO_A, DUO_B } from './organ-art.js?v=afd27c1572';
 import { warmVisible, ringGrid, inGrid } from './warm-vis.js?v=ccf4f6f71b';
@@ -781,9 +781,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       const [x, y] = liverField(vx, vy, c), dx = x - sx, dy = y - sy, l = Math.hypot(dx, dy) || 1, k = Math.max(0.35, 1 - w / l);
       return [sx + dx * k, sy + dy * k];
     });
-    const n = p.length, m = (j) => { const a = p[j % n], q = p[(j + 1) % n]; return `${((a[0] + q[0]) / 2).toFixed(1)} ${((a[1] + q[1]) / 2).toFixed(1)}`; };
+    const n = p.length, m = (j) => { const a = p[j % n], q = p[(j + 1) % n]; return `${fix1((a[0] + q[0]) / 2)} ${fix1((a[1] + q[1]) / 2)}`; };
     let d = 'M' + m(n - 1);
-    for (let j = 0; j < n; j++) d += `Q${p[j][0].toFixed(1)} ${p[j][1].toFixed(1)} ${m(j)}`;
+    for (let j = 0; j < n; j++) d += `Q${fix1(p[j][0])} ${fix1(p[j][1])} ${m(j)}`;
     return d + 'Z';
   }
   // A closed smooth blob (quadratics through the edge midpoints) of radius r at (x, y).
@@ -817,7 +817,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (!baseLiver) { try { baseLiver = sampleLiver(); } catch { return; } if (!baseLiver.pts.length) { baseLiver = null; return; } }
     liverKey = key;
     const { out, dome } = morphOutline(baseLiver, c, g);
-    const f1 = (v) => v.toFixed(1);
+    const f1 = fix1;
     const d = c + g > 0 ? 'M' + out.map(([x, y]) => `${f1(x)} ${f1(y)}`).join(' L') + ' Z' : liverD;
     for (const el of liverPaths) el.setAttribute('d', d);
     liverDome = c + g > 0 ? dome : null;

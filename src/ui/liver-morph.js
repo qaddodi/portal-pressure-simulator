@@ -11,6 +11,15 @@ export const smooth01 = (v) => { const t = clamp(v, 0, 1); return t * t * (3 - 2
 // much in cirrhosis, to keep the vessels inside it"): the vessels never move, and the edge keeps KEEP clear of them.
 export const CIRR = { field: 0.5, scale: 0.8, nod: 5.5, lam: 1.4, sep: 1.6 };
 
+/** v.toFixed(1), the same text, about five times faster (the nodules' path is written with it on every frame of the ease):
+ * built from the rounded tenths, except near a tie, a negative or a large value, where toFixed itself decides. */
+export function fix1(v) {
+  const t = v * 10, f = t - Math.floor(t);
+  if (!(v >= 0 && v < 1e9) || Math.abs(f - 0.5) < 1e-6) return v.toFixed(1);
+  const r = Math.round(t);
+  return `${(r - r % 10) / 10}.${r % 10}`;
+}
+
 /** The liver's scale about (560, 350): a cirrhotic liver shrinks a little; a congested one swells. */
 export const liverShrink = (c, g) => 1 - 0.035 * c * CIRR.scale + 0.035 * g;
 
@@ -95,18 +104,33 @@ export function liverKeepOut() {
   }
   return keepOut;
 }
+// The keep-out points binned in KEEP_CELL squares (keyed x * 4096 + y), built once.
+const KEEP_CELL = 60;
+let keepCells = null;
+function keepGrid() {
+  if (keepCells) return keepCells;
+  keepCells = new Map();
+  for (const p of liverKeepOut()) {
+    const key = Math.floor(p[0] / KEEP_CELL) * 4096 + Math.floor(p[1] / KEEP_CELL);
+    if (keepCells.has(key)) keepCells.get(key).push(p); else keepCells.set(key, [p]);
+  }
+  return keepCells;
+}
 // How far out each edge point must be held so the vessels keep their clearance: measured on the edge as drawn (world frame:
 // after liverShrink), eased along the edge (a plateau, then a soft shoulder: no corner, no flat spot), so it reads as part of
 // the lobe. The sampled edge runs about 2.3 apart, so 1.5 covers the stretch between two points.
 function holdBack(out, nm, k) {
-  const K = liverKeepOut(), n = out.length, hold = new Float64Array(n);
+  const n = out.length, hold = new Float64Array(n);
   for (let i = 0; i < n; i++) {
     const x = 560 + (out[i][0] - 560) * k, y = 350 + (out[i][1] - 350) * k, [nx, ny] = nm[i];
     let h = 0;
-    for (let j = 0; j < K.length; j++) {
+    // (Only the points in the 3 x 3 grid cells round this one can be within 60 of it: the same points the test below keeps,
+    // so the hold is exactly what a pass over all of them gives, without that pass on every frame of the ease.)
+    const gx = Math.floor(x / KEEP_CELL), gy = Math.floor(y / KEEP_CELL);
+    for (let ci = gx - 1; ci <= gx + 1; ci++) for (let cj = gy - 1; cj <= gy + 1; cj++) for (const K of keepGrid().get(ci * 4096 + cj) || []) {
       // The point's offset from this edge point, out along the edge's normal (a) and along the edge (t): the edge here must move
       // out to a plus what is left of the clearance across t.
-      const need = K[j][2] + 1.5, dx = K[j][0] - x, dy = K[j][1] - y;
+      const need = K[2] + 1.5, dx = K[0] - x, dy = K[1] - y;
       if (Math.abs(dx) > 60 || Math.abs(dy) > 60) continue;
       const a = dx * nx + dy * ny, t = Math.abs(dx * ny - dy * nx);
       if (t >= need || a < -need) continue;

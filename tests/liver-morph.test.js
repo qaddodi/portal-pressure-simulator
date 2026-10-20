@@ -4,7 +4,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { ORGANS } from '../src/ui/anatomy.js';
 import { LIVER_GEO } from '../src/ui/liver-geo-data.js';
-import { outlineNormals, contourNodules, morphOutline, liverShrink } from '../src/ui/liver-morph.js';
+import { outlineNormals, contourNodules, morphOutline, liverShrink, fix1 } from '../src/ui/liver-morph.js';
 
 const pts = [];
 for (let i = 0; i < LIVER_GEO.pts.length; i += 2) pts.push([LIVER_GEO.pts[i], LIVER_GEO.pts[i + 1]]);
@@ -42,4 +42,12 @@ test("the heart's base stays on the diaphragm over the liver's top at every cirr
     }
   }
   assert.deepEqual(over.slice(0, 8), []);
+});
+
+// The nodules' and the liver's paths are written with fix1 on every frame of the ease: the very text toFixed(1) gives.
+test('fix1 writes exactly what toFixed(1) does', () => {
+  const r = (() => { let s = 1; return () => (s = (s * 16807) % 2147483647) / 2147483647; })();
+  const vals = [0, -0, 0.05, 0.15, 0.25, 0.35, 1.45, 2.55, 999.95, -3.25, 1e12, NaN, Infinity];
+  for (let i = 0; i < 20000; i++) vals.push(r() * 1200, i / 20, i / 100 + 0.05, -r() * 50);
+  for (const v of vals) assert.equal(fix1(v), v.toFixed(1), String(v));
 });
