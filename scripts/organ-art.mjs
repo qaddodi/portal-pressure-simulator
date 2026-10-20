@@ -66,8 +66,10 @@ const sw = (w) => ` stroke-width="${f1(w)}"`;
 // The gut as picked, only narrower (Mohammad, 20 Oct: "smaller, not traced"): one squeeze across, about the rectum's line (x 786,
 // where the rectal veins end), applied alike to the colon, the small bowel's pile and its gap loops and the appendix, so every
 // shape and the room between them stay as picked. GUT_SX is also in anatomy.js (the appendix).
-const GUT_X = 786, GUT_SX = 0.9;
-const gutFit = ([x, y, ...r]) => [GUT_X + (x - GUT_X) * GUT_SX, y, ...r];
+// The colon and the small bowel are a little taller, stretched downward about the hepatic flexure's level (GUT_Y; Mohammad, 20 Oct):
+// GUT_SY here and in anatomy.js (the appendix and the gut's covers).
+const GUT_X = 786, GUT_SX = 0.9, GUT_Y = 560, GUT_SY = 1.06;
+const gutFit = ([x, y, ...r]) => [GUT_X + (x - GUT_X) * GUT_SX, GUT_Y + (y - GUT_Y) * GUT_SY, ...r];
 // The mock's rectum ran on to the frame's bottom edge (y 1000), past the rectal veins' end (786 928, where the anorectal
 // varices sit). It ends sooner here: the centre line stops at y 916, so its rounded end meets the veins' end.
 const RECTUM_END = 916;
@@ -112,10 +114,10 @@ function pileArt(P, space, { piece = 36, step = 2, back = 28 } = {}) {
 // Liver round 36 (his pick, option 2): a few loops of the same tube in the empty space by the kidney, under the pile.
 const GAP_SPACE0 = [[850, 640], [880, 606], [915, 586], [950, 572], [984, 566], [998, 604], [1000, 700], [996, 790], [958, 790], [930, 730], [900, 700], [860, 680]];
 const gap0 = bowelWander({ seed: 5, space: GAP_SPACE0, r: 13, bend: 22, fill: 1.3, cross: 2, jitter: 0.4, start: [890, 690], end: [[952, 772], [956, 782]] });
-// The picked pile and its gap loops take the same squeeze and a little less height (BOWEL_SY, about y 600), so the pile
+// The picked pile and its gap loops take the same squeeze and a little less height (BOWEL_SY, about y 600; then the gut's stretch), so the pile
 // sits in the colon's frame and never hangs below the sigmoid and rectum (Mohammad, 20 Oct); the pile's first stretch is eased
 // back onto the duodenum's end.
-const BOWEL_SY = 0.9;
+const BOWEL_SY = 0.9 * GUT_SY;
 const bowelFit = ([x, y, ...r]) => [GUT_X + (x - GUT_X) * GUT_SX, 600 + (y - 600) * BOWEL_SY, ...r];
 function fitPath(P, from) {
   const Q = P.map(bowelFit);
