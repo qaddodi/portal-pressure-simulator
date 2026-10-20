@@ -41,6 +41,7 @@ export const LOBULE = {
     },
     {
       id: 'cirr', terms: { 'space of Disse': 'sinusoid:disse', fenestrae: 'sinusoid:fenestrae', 'stellate cells': 'sinusoid:stellate', sinusoid: 'sinusoid:lumen' }, preset: 'cirr-decomp', cam: 'sinusoid', callout: { at: 'sin', label: 'Resistance' }, data: 'tiles', tiles: ['sin', 'hvpg'],
+      compare: [{ label: 'Fenestrae open', short: 'Open', params: { fenestrae: 1 } }, { label: 'As in cirrhosis', short: 'Cirrhosis', own: true }],
       kicker: 'Sinusoidal', site: 'sin', title: 'Cirrhosis narrows the sinusoid',
       vignette: 'A 61-year-old woman with MASH cirrhosis has ascites despite spironolactone and furosemide. Her albumin is 2.8 g/dL, and her platelets are 57,000/µL.',
       line: 'Collagen fills the space of Disse, the fenestrae close, and stellate cells contract around the sinusoid.',

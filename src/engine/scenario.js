@@ -36,6 +36,7 @@ export function defaultParams() {
     balloonGas: false,
     anticoag: false,
     diuretics: false,             // spironolactone + furosemide: renal sodium/water loss offsets ascites
+    fenestrae: null,              // the sinusoid lining's open share 0..1 in place of the one cirrhosis sets (null: as the disease has it); see starling()
     drugs: { propranolol: false, carvedilol: false, terlipressin: false, octreotide: false },
     catheter: { vein: null, wedged: false },
     bleeding: false,              // spontaneous variceal rupture (off: varices swell but never tear on their own)
@@ -128,6 +129,7 @@ export function sanitizeParams(p) {
   for (const k of ['tips', 'dips']) { out[k].on = !!out[k].on; out[k].d = num(out[k].d, 6, 12, 8); }
   for (const id of Object.keys(out.customShunts)) if (out.customShunts[id]) out.customShunts[id] = num(out.customShunts[id], 4, 16, 10);
   for (const k of Object.keys(out.drugs)) out.drugs[k] = !!out.drugs[k];
+  out.fenestrae = out.fenestrae == null ? null : num(out.fenestrae, 0, 1, null);
   out.seed = num(out.seed, 0, 2 ** 31, 1);
   return out;
 }

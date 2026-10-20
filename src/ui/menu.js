@@ -4,7 +4,7 @@
 // same content as a bottom sheet. Hovering a row (or focusing it with the arrow keys) previews it beside
 // the panel; on touch, the ⓘ at a presentation's end opens the same preview under its row.
 
-import { store } from './store.js?v=31ee79b6ab';
+import { store } from './store.js?v=b36b18d30d';
 import { h, icon, svgIcon, uiScale, clamp, swipeSheet, visibleBottom, fadeWhileMore, PHONE_MQ } from './util.js?v=5814c6b396';
 import { SNAPSHOTS } from './snapshots.js?v=f018995b4c';
 import { pressureColor } from './colormap.js?v=1092d36abc';

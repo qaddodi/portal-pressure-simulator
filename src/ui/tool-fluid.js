@@ -8,7 +8,7 @@
 
 import { h, fmt, clamp } from './util.js?v=5814c6b396';
 import { NODES } from '../engine/topology.js?v=4044766e96';
-import { store } from './store.js?v=31ee79b6ab';
+import { store } from './store.js?v=b36b18d30d';
 
 const NI = Object.fromEntries(NODES.map((n, i) => [n.id, i]));
 const num = (x) => (Number.isFinite(+x) ? +x : null);

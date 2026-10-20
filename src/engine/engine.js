@@ -6,7 +6,7 @@ import {
   clamp, tubeResistanceFactor, tubeArea, volumeOf, ptmOf, complianceAt, stenosisFactor,
   heartFlow, fillShape, systoleShape, raWave, iapFromAscites, makeRng,
 } from './physiology.js?v=6fc3ec393a';
-import { defaultParams, DRUGS, PRESETS, deepMerge } from './scenario.js?v=1ee7733788';
+import { defaultParams, DRUGS, PRESETS, deepMerge } from './scenario.js?v=a2af4e39b0';
 import { detectEvents } from './events.js?v=582dd803a9';
 
 const KNEE = { artery: [1e9, 1], bed: [14, 10], portal: [14, 10], vein: [14, 6], hepvein: [10, 3], heart: [10, 4], liver: [9, 2], wedge: [9, 5], varix: [30, 10] };
@@ -979,7 +979,10 @@ export class Engine {
     const p = this.params, P = this.P, s = p.cirrhosis;
     const iap = this.iap ?? 5;
     const pic = 25 * (p.albumin / 4.0);
-    const sigH = 0.1 + 0.5 * s;
+    // How capillarized the sinusoid wall is: as the cirrhosis has it, or the fenestrae's open share set on its own (a what-if:
+    // the pores opened or shut in the same liver, its scar and resistance unchanged).
+    const shut = p.fenestrae == null ? s : 1 - clamp(p.fenestrae, 0, 1);
+    const sigH = 0.1 + 0.5 * shut;
     const piH = pic * (1 - sigH) * 0.9;
     const pMid = 0.6 * (0.7 * P[this.ni.SIN_R] + 0.3 * P[this.ni.CV_R]) + 0.4 * (0.7 * P[this.ni.SIN_L] + 0.3 * P[this.ni.CV_L]);
     // Hepatic lymph: 0.5 mL/min at baseline, rising with sinusoidal filtration pressure.
@@ -993,7 +996,7 @@ export class Engine {
     // Protein: what crosses each bed (sieving by the wall's reflection coefficient, more complete the faster
     // the filtration), then the overflow's mix of liver and gut lymph.
     const alb = p.albumin, glob = 3 + 0.8 * s;          // plasma, g/dL (globulins rise in cirrhosis)
-    const sA = PROT.sigHep0 + PROT.sigHepCirr * s, sG = Math.min(0.95, sA + PROT.sigGlob);
+    const sA = PROT.sigHep0 + PROT.sigHepCirr * shut, sG = Math.min(0.95, sA + PROT.sigGlob);
     const jg = spl + PROT.gutBase, gA = sieve(PROT.sigGut, jg, PROT.psGut), gG = sieve(Math.min(0.97, PROT.sigGut + 0.05), jg, PROT.psGut);
     const hA = sieve(sA, hep, PROT.psHep) * alb, hG = sieve(sG, hep, PROT.psHep) * glob;
     const wH = PROT.hepWeep * hep, wS = jg;
