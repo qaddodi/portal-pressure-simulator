@@ -3255,7 +3255,8 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     // (A chart that the card's fit only shortens, never its words (the pressure profile, the portal blood bar: styles/app.css), gives
     // way to CHART_GIVE before the card comes in closed: the card's own fit shortens it there anyway, and opened, it stands at about
     // that size. Measured only at full size, Sites 3 on an iPhone came in closed, 20 px short, Mohammad, 20 Oct: "started closed".)
-    const elastic = !gone && splitSheet(dd) && !!dd.querySelector(':scope > .pz-tool:is([data-kind="profile"], [data-kind="flows"])');
+    // (The after-meal chart too, flow-time.js redrawing to its box: left out, Circulation 10 on an iPhone came in closed, Mohammad, 20 Oct.)
+    const elastic = !gone && splitSheet(dd) && !!dd.querySelector(':scope > .pz-tool:is([data-kind="profile"], [data-kind="flows"], [data-kind="flowtime"])');
     const data = elastic && both - full < words ? Math.min(full, arriving(CHART_GIVE)) : full;
     // (A card a little too tall beside the words borrows from the figure, down to FIG_REG, and arrives partly open: only past that
     // does it come in closed. Shut on any shortfall, slides came in closed, Circulation 10 on an iPhone after 8aa5142's taller glass,
