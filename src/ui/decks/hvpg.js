@@ -83,6 +83,14 @@ export const HVPG = {
       ask: ['Why can the HVPG not be measured here, and what shows the resistance instead?', 'The catheter cannot enter the clotted veins; Doppler and CT or MR show the resistance.'],
     },
     {
+      id: 'plane', visual: 'plane', plane: 'hvpg-ppg',
+      of: [{ preset: 'healthy', name: 'Healthy' }, { id: 'hvpg', name: 'Cirrhosis' }, { id: 'presin', name: 'Schistosomiasis' }, { id: 'ppg', name: 'Portal vein thrombosis', short: 'PVT' }, { id: 'heart', name: 'Heart failure' }, { id: 'bc', name: 'Budd–Chiari' }],
+      kicker: 'Where HVPG misleads', title: 'Two gradients, six patients',
+      line: 'Schistosomiasis, a portal vein clot and Budd–Chiari raise the PPG and leave the HVPG low. Cirrhosis raises both. In right heart failure every pressure is high, so neither gradient is.',
+      notes: 'Each point is one patient from this talk, placed by the HVPG across and the PPG up, with the app\'s cut-offs (HVPG 5 and 10, PPG 6 and 12). Schistosomiasis, a portal vein clot and Budd–Chiari sit high on the PPG with a low HVPG, because the wedge reads only what lies downstream of the resistance. Cirrhosis raises both gradients. In right heart failure every station rises together, so both gradients stay low although the absolute pressures are high.',
+      ask: ['A patient has varices and an HVPG of 3 mmHg. Which reading do you take next?', 'The PPG, read in the portal vein; it is high when the resistance lies before the sinusoids or in the hepatic veins.'],
+    },
+    {
       id: 'summary', visual: 'table', cols: ['pv', 'whvp', 'fhvp', 'ivc', 'ra', 'hvpg', 'ppg'], asc: false, note: 'What HVPG shows', rowHead: 'Patient',
       of: [{ preset: 'healthy', kicker: 'Reference', title: 'Healthy', note: 'Normal', ref: true }, { id: 'hvpg', title: 'Cirrhosis', note: 'Reliable' }, { id: 'presin', title: 'Schistosomiasis', note: 'Normal despite the resistance' },
         { id: 'ppg', title: 'Portal vein thrombosis', note: 'Normal despite the resistance' }, { id: 'heart', title: 'Right heart failure', note: 'Normal, all pressures high' }, { id: 'bc', title: 'Budd–Chiari', note: 'Cannot be measured', blank: ['whvp', 'fhvp', 'hvpg'] }],

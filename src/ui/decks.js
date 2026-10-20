@@ -76,7 +76,7 @@
 
 import { CIRCULATION } from './decks/circulation.js?v=80df40f3bc';
 import { SITES } from './decks/sites.js?v=8941d4ef2b';
-import { HVPG } from './decks/hvpg.js?v=8e33a15aff';
+import { HVPG } from './decks/hvpg.js?v=35654d5bef';
 import { ASCITES } from './decks/ascites.js?v=bd86d17809';
 import { VARICES } from './decks/varices.js?v=5e92da46f8';
 import { TREATMENT } from './decks/treatment.js?v=eb1d810d42';

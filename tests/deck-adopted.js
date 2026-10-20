@@ -45,6 +45,7 @@ export const ADOPTED = {
   'right-heart/cath': ['kind:profile'],
   'right-heart/web': ['kind:lumen'],
   'right-heart/summary': ['cols.wave', 'wave'],
+  'hvpg/plane': ['visual', 'plane'],
   'tap/back': ['kind:fluid'],
   'tap/diuretics': ['kind:fluid'],
   'tap/tips': ['kind:fluid'],
