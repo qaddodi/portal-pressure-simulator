@@ -3261,7 +3261,11 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     // does it come in closed. Shut on any shortfall, slides came in closed, Circulation 10 on an iPhone after 8aa5142's taller glass,
     // and others still after fc4a6ab lent only that 14 px, Mohammad, 20 Oct: "the stacked cards started hidden".)
     const short = words - (both - data);
-    if (!gone && short > 0 && short <= FIG_MIN(H) - FIG_REG(H)) { both += short; phoneFig = FIG_MIN(H) - short; }
+    // (Lent for the words at Compact, the size they then take, not at 12 px: lent only the 12 px room, the words took Compact
+    // anyway, stood higher than planned and the card came in at a smaller fit, then grew to full size on a later pass, Circulation 4
+    // on an iPhone, Mohammad, 20 Oct: "appears in small version then ... pops further to become larger".)
+    const lim = FIG_MIN(H) - FIG_REG(H), lent = Math.min(lim, Math.max(short, compact - (both - data)));
+    if (!gone && short > 0 && short <= lim) { both += lent; phoneFig = FIG_MIN(H) - lent; }
     const shut = !gone && (both - data < words || data - sheetLip > dmax + 0.5) && !!dd.querySelector(':scope > :not(.pz-dh):not(.pz-grip):not(.pz-lip)');
     phoneShut = shut;
     // (Words at Compact win over the figure's share and the 62 % cap when nothing else gives; they never reach the data card. Closed,

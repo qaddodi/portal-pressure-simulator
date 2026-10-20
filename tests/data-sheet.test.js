@@ -158,7 +158,9 @@ test('a phone\'s data card and the words\' plan leave room for the glass as far 
   assert.match(js, /\(parseFloat\(cs\.top\) \|\| 0\) - glassLift\(k\) - 8 - lip - fig\);/, 'the data card\'s room');
   assert.match(js, /const reach = glassLift\(k\) \* k;\s+let both = H - foot - reach - 8 - dtop - FIG_MIN\(H\);/, 'the words\' plan');
   // A stacked card a little too tall arrives partly open: the figure lends it, never under FIG_REG.
-  assert.match(js, /if \(!gone && short > 0 && short <= FIG_MIN\(H\) - FIG_REG\(H\)\) \{ both \+= short; phoneFig = FIG_MIN\(H\) - short; \}\s+const shut = !gone && \(both - data < words/, 'the card starts half-open, not hidden');
+  assert.match(js, /const lim = FIG_MIN\(H\) - FIG_REG\(H\), lent = Math\.min\(lim, Math\.max\(short, compact - \(both - data\)\)\);\s+if \(!gone && short > 0 && short <= lim\) \{ both \+= lent; phoneFig = FIG_MIN\(H\) - lent; \}\s+const shut = !gone && \(both - data < words/, 'the card starts half-open, not hidden');
+  // Its landing size is its final size: the room is lent for the words at Compact, the size the cap then gives them.
+  assert.match(js, /lent = Math\.min\(lim, Math\.max\(short, compact - \(both - data\)\)\)/, 'lent for the words as they will stand');
   assert.match(js, /lend <= phoneFig - FIG_REG\(H\)[^\n]*\n\s+if \(reg\) phoneFig -= lend;/, 'Regular words lend from what the figure still keeps');
   assert.match(js, /const room = H - foot - reach - 8, mine/);
   assert.match(js, /const lift = p && t \? glassLift\(k\) : 16;/, 'the glass itself is placed by the same reach');
