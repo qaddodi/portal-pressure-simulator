@@ -287,6 +287,7 @@ export function createFlowsTool() {
     const [w, hh, f] = sizeNow(), key = `${of}|${Math.round(w)}|${Math.round(hh)}|${f}|${pk(goal)}|${pk(hGoal)}`;
     if (memo?.key === key) return memo;
     const lay = flowLayout(goal, of, w, hh, f, textW, hGoal), bw = Math.max(1, w - lay.gut);
+    const hide = sameShares(goal, hGoal);
     const at = Object.fromEntries(lay.segs.map((s, i) => [s.id, [s, lay.labels[i]]]));
     // (With the Now bar gone, a Healthy segment too narrow for its name keeps the Now bar's name hanging under it, which
     // already says the percent: the bar itself then carries no text there.)
@@ -302,7 +303,6 @@ export function createFlowsTool() {
       if (!s) return [id, { x: o ? o.x : (first ? 0 : 100), pct: 0, op: 0, lx: o?.lx ?? w / 2, ex: o?.ex ?? w / 2, row: o?.row ?? 0, ld: o?.ld ?? 0, dn: o?.dn ?? 0, ...hw }];
       return [id, { x: ((s.a - lay.gut) / bw) * 100, pct: s.pct, op: 1, lx: l.L + l.lw / 2, ex: l.ex, row: Math.max(0, l.row), ld: l.lead ? 1 : 0, dn: l.lead ? 1 : 0, ...hw }];
     }));
-    const hide = sameShares(goal, hGoal);
     want._ = { top: lay.top, nowOp: hide ? 0 : 1, x: 0, pct: 0, op: 0, lx: 0, ex: 0, row: 0, ld: 0, dn: 0, hx: 0, hpct: 0, hop: hGoal ? 1 : 0, hn: 0, hv: 0 };
     memo = { key, want, w, hh, f, geo: lay.geo, gut: lay.gut, hide };
     return memo;
