@@ -156,6 +156,7 @@ For preparing a class, `window.pps` in the browser console exposes `loadPreset`,
 |------|----------------|
 | [AGENTS.md](AGENTS.md) | Working rules for coding agents: preview branch, Pages deploys, the test loop |
 | [CHANGELOG.md](CHANGELOG.md) | What changed, release by release |
+| [docs/deck-authoring-quick-guide.md](docs/deck-authoring-quick-guide.md) | The short guide to writing a deck: every feature in plain words, one example each |
 | [docs/deck-authoring-guide.md](docs/deck-authoring-guide.md) | How to write a presentation deck |
 | [docs/ai-humanizer.md](docs/ai-humanizer.md) | Style rules for slide wording |
 | [docs/design-humanizer.md](docs/design-humanizer.md) | Visual rules that keep the interface from looking machine-made |

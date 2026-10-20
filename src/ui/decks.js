@@ -61,7 +61,7 @@
 //   whatIf                   { label, param, min, max, step?, ends?: [low, high], unit? }: a slider that drags one parameter
 //                            (a dotted path, e.g. 'tips.d', or an array of paths moved together, e.g. both lobes' fibrosis)
 //                            of the live model; the figure and the data card follow it
-//   opt-in visuals (deck visuals packages; no built-in deck uses them; docs/deck-authoring-guide.md 5.9, 6.4, 7):
+//   opt-in visuals (deck visuals packages; a built-in slide uses one only when tests/deck-adopted.js lists it; docs/deck-authoring-guide.md 5.9, 6.4, 7):
 //                            figure: spot, normalOutline, ripple, lens 'system' | 'since' (since, sinceLabel), calipers,
 //                            steps (with glowSeq), span, zone, mark { organ } and {tokens} in a mark's label, '@sets' in glow/spot/edges;
 //                            words: cite; card: ladderFrom, ladderFromLabel, tool kinds 'profile', 'flows', 'curve', 'causes',
