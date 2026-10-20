@@ -149,3 +149,8 @@ test('the probe and its line of sight take the side clear of the labels and call
   assert.match(stage, /labelSvg\.before\(el\); dpr\.el = el/);
   assert.match(stage, /avoid: dprAvoid\(\)/);
 });
+
+test('in a deck the probe shows only once the zoom has settled: hidden while the camera moves, repainted when it lands', () => {
+  assert.match(stage, /morph > 0\.99\) && !camMove && !st\.lobule/);
+  assert.match(stage, /camMove = false;\s*if \(F\) updateLabels\(F\);/);
+});

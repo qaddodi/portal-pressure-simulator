@@ -5224,10 +5224,12 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (cath.made && !cath.labels.hidden) for (const el of cath.made.values()) if (el._box) out.push(el._box);
     return out;
   }
+  // (In a deck it waits for the slide's zoom to settle: it fades out as a camera move starts and back in once it lands (camSettle
+  // lays the labels out, which paints it): Mohammad, 20 Oct.)
   function dprobePaint() {
     if (!dpr.ready) return;
     const st = store.get(), id = dop.id, pts = id && geo[id]?.cur;
-    const show = !!(pts?.length > 1 && E[id]?.vis && (morph < 0.01 || morph > 0.99) && !st.lobule && !st.sinusoid && !lz?.isOpen());
+    const show = !!(pts?.length > 1 && E[id]?.vis && (morph < 0.01 || morph > 0.99) && !camMove && !st.lobule && !st.sinusoid && !lz?.isOpen());
     if (!show) {
       if (dpr.on) { dpr.on = false; dpr.el.classList.add('off'); }
       dpr.box = null; dpr.marks = []; dpr.key = '';
