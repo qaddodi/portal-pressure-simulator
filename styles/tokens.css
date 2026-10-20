@@ -58,7 +58,7 @@
   /* the gut's lit strip (organ picks, 20 Oct): the light tone mixed in by --og-light's own strength (x .4), as a solid colour */
   --og-hi: rgb(255 255 255); --og-hi-k: 22%; --gut-rim-k: 64%;
   /* the gut's see-through strength (colon, small bowel, duodenum) */
-  --gut-a: .28;
+  --gut-a: .55;   /* as strong as the other organs (.55): at .28 it was too close to the background (Mohammad, 20 Oct) */
   /* the congested liver's nutmeg (organ picks, 20 Oct: "even dusk", faintest islands): an even dusky tone, pale islands */
   --lv-cong-base: #6E1F38; --lv-cong-base-a: .44; --lv-cong-isl: #E3C0A0; --lv-cong-isl-a: .11;
   --knockout: rgba(251, 250, 247, .75);
@@ -344,7 +344,7 @@
 
 /* Soft light: warm, low-glare paper with frosted cards and softer ink; organ colours unchanged. */
 :root[data-theme="soft"] {
-  --gut-a: .43;   /* the gut a little stronger on the cream paper (organ picks, 20 Oct) */
+  --gut-a: .7;   /* the gut a little stronger on the cream paper (organ picks, 20 Oct; raised with the rest, 20 Oct) */
   --bg: #E8DFD1; --stage-bg: #E8DFD1; --surface: #F6F0E6; --surface-2: #EBE2D4; --surface-3: #DDD2C0;
   --ascites: #DCB95E; --ascites-a: .42;   /* a mid straw, between the old deep amber and Light's faint wash: visible against the beige ground, still translucent */
   --glass: rgba(246, 240, 230, .84); --frost: rgba(246, 240, 230, .36); --scrim: rgba(40, 32, 22, .34);
