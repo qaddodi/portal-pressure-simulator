@@ -6401,7 +6401,9 @@ html.thumb-ui .menu.from-dock { clip-path: inset(-64px -64px calc(var(--sink, 0p
 
 /* V16, the table column (col-wave.js). */
 .pz-table td.pze-wcell { padding-block: .2em; vertical-align: middle; }
-.pze-wbox { display: block; width: 6.5em; max-width: 100%; min-width: 4em; height: 2.2em; margin-inline: auto; }
+.pz-table.pz-table td.pze-wcell { padding-inline: max(.5em, 6px); }
+.pz-table.pz-table td.pze-wcell { padding-right: max(.75em, 10px); }   /* (the trace ends clear of the table's edge, as far in as the row names start on the left, on every size) */
+.pze-wbox { display: block; width: 6.5em; max-width: 100%; min-width: min(4em, 100%); height: 2.2em; margin-inline: auto; }
 .pze-wbox.pze-in { animation: pz-fade .5s var(--ease) both; }
 .pze-wave { display: block; width: 100%; height: 100%; overflow: visible; }
 .pze-wb { stroke: var(--text-3); stroke-width: 1; vector-effect: non-scaling-stroke; }
