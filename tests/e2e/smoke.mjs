@@ -4213,10 +4213,11 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
         out.push(...await page.evaluate((at) => {
           const bad = [], rect = (e) => e.getBoundingClientRect(), hit = (a, b, m = 1) => Math.min(a.right, b.right) - Math.max(a.left, b.left) > m && Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top) > m;
           const shown = (e) => { const st = getComputedStyle(e); return st.display !== 'none' && st.visibility !== 'hidden' && rect(e).width > 1; };
-          // A phone keeps the figure a fixed share of its height between the data card and the words' glass (presenter.js FIG_MIN).
-          const sh = document.querySelector('.pz-shade.stack'), dc = document.querySelector('.pz-data');
+          // A phone keeps the figure a fixed share of its height between the data card and the words' glass (presenter.js FIG_MIN),
+          // or a little less (FIG_REG) where that keeps the words at Regular.
+          const sh = document.querySelector('.pz-shade.stack'), dc = document.querySelector('.pz-data'), reg = !document.querySelector('.pz-text')?.style.getPropertyValue('--pz-fit');
           if (sh && dc && shown(dc) && !dc.classList.contains('pz-hide') && +getComputedStyle(sh).opacity > 0.5) {
-            const room = rect(sh).top - rect(dc).bottom, need = Math.round(Math.max(170, 0.3 * innerHeight)) - 2;
+            const room = rect(sh).top - rect(dc).bottom, need = Math.round(Math.max(170, (reg ? 0.25 : 0.3) * innerHeight)) - 2;
             if (room < need) bad.push(`${at}: the cards leave ${Math.round(room)} px of figure (at least ${Math.round(need + 2)})`);
           }
           // A phone's words never fit below 12 px (their body size times the card's fit).

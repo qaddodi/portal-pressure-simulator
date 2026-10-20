@@ -2,6 +2,10 @@
 
 ## October 2026
 
+- **Phone teaching card: Regular where there is room.** On a phone or an upright iPad, words that need a little more than their
+  share now take it from the figure (which keeps at least a quarter of the screen's height, 170 px at least) instead of dropping a
+  whole step to Compact and leaving that room empty: PVT in cirrhosis slide 5 on an iPhone had come in at Compact over a large bare
+  figure. Words that would take more than that still go to Compact, with the figure's full share. Tests: `tests/card-type.test.js`.
 - **Moving blood: less GPU work per frame, same picture.** A frame where only the blood moves now repaints just the squares
   of the figure that a lumen can reach, instead of every square near a vessel (casings, shadows and the space around thin
   vessels stay as the last frame left them, since the blood never changes them). A sicker patient opens far more vessels

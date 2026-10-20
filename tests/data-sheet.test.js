@@ -51,7 +51,7 @@ test('a slide whose card does not fit comes in closed, and the next one that fit
   assert.match(auto, /if \(shut && dock\.to === 0 && dock\.autoKey !== key && [^{]*\) \{ dock\.autoKey = key; dock\.auto = true;/, 'once per slide: brought back by the reader, it stays');
   assert.match(auto, /else if \(!shut && dock\.auto && dock\.to === 1\) \{ dock\.auto = false;/, 'a card the reader closed stays closed');
   assert.match(js, /const shut = !gone && \(both - data < words \|\| data - sheetLip > dmax \+ 0\.5\)/);
-  assert.match(js, /if \(key\) phoneLock = \{ key, cap, shut, data \};/);
+  assert.match(js, /if \(key\) phoneLock = \{ key, cap, shut, data, fig: phoneFig \};/);
   // (Brought back, it may cover the figure, never the words: the figure's share is kept only while it fits.)
   assert.match(js, /!phoneShut && !dd\.classList\.contains\('tool-open'\)/);
 });

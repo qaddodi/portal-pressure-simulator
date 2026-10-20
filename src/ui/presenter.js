@@ -2992,7 +2992,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     // its share only while closed: brought back by the reader it may cover the figure, never the words.)
     // (The sheet's edge comes out of the figure's share, not the card's: taken from the card, it shrank the instrument and tiles to
     // 90-99 %, Endoscopy 4 on an iPhone. And 2 px more: the card's border and rounding had left it 99.6 %.)
-    if (p && t) { const cs = getComputedStyle(dd), lip = lipOn(dd) ? LIP : 0, fig = phoneCap != null && !phoneShut && !dd.classList.contains('tool-open') && !('folding' in dd.dataset) ? Math.max(0, FIG_MIN(H) / k - lip - 2) : 0;
+    if (p && t) { const cs = getComputedStyle(dd), lip = lipOn(dd) ? LIP : 0, fig = phoneCap != null && !phoneShut && !dd.classList.contains('tool-open') && !('folding' in dd.dataset) ? Math.max(0, phoneFig / k - lip - 2) : 0;
       const room = Math.floor((t.top - wr.top) / k - (parseFloat(cs.top) || 0) - 16 - 8 - lip - fig);
       if (room > 0) dd.style.maxHeight = cs.maxHeight === 'none' ? `${room}px` : `min(${cs.maxHeight}, ${room}px)`; }
     // (A wider screen: a data card at the top right ends 8 px above the colour key standing on the nav pill (a phone held sideways had covered it).)
@@ -3105,7 +3105,11 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   // Where the figure's share, the data card and the words at 12 px or more cannot all fit, the data card folds to its header
   // behind Show (the button that already folds a phone's instrument): the card takes its folded size at once, never easing in view.
   const FIG_MIN = (H) => Math.round(Math.max(170, 0.3 * H));
-  let phoneLock = null, phoneShut = false;   // (phoneShut: the slide's data card comes in closed (autoDock), too tall beside the words and the figure)
+  // (Words that would fit at Regular with a little of the figure's share take it, down to FIG_REG, rather than drop a whole step to
+  // Compact and leave that room empty: PVT in cirrhosis 5 on an iPhone came in at Compact over 100 px of bare figure, Mohammad, 20 Oct:
+  // "This teaching card could be larger with larger text".)
+  const FIG_REG = (H) => Math.round(Math.max(170, 0.25 * H));
+  let phoneLock = null, phoneShut = false, phoneFig = 0;   // (phoneFig: the figure's share the slide's plan keeps, screen px)   // (phoneShut: the slide's data card comes in closed (autoDock), too tall beside the words and the figure)
   function phoneTextCap(key, H, k) {
     const dd = ui.data, ds = dd.style, gone = dd.hidden || 'gone' in dd.dataset;
     const held = key && phoneLock?.key === key ? phoneLock : null;
@@ -3115,8 +3119,8 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     // (And through a time-lapse, while it plays and once it has ended: its data card changes only its readings as the days run, a
     // varix appearing on the scope, and re-planned whenever one measured a pixel taller, the words' cap stepped and the teaching card
     // bounced as the days passed, Endoscopy 3 on an iPhone, 18 Oct.)
-    if (held && (held.shut || gone || readingsOnly())) { phoneShut = held.shut; return held.cap; }
-    phoneShut = false;
+    if (held && (held.shut || gone || readingsOnly())) { phoneShut = held.shut; phoneFig = held.fig; return held.cap; }
+    phoneShut = false; phoneFig = FIG_MIN(H);
     const natural = (el, st) => {   // (as it stands unfitted and uncapped)
       const sv = [st.maxHeight, st.getPropertyValue('--pz-fit'), st.getPropertyValue('--pz-z')];
       st.maxHeight = 'none'; st.removeProperty('--pz-fit'); st.removeProperty('--pz-z');
@@ -3130,7 +3134,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     const lip = lipOn(dd) ? LIP * k : 0;
     // (Nor while its readings' card is pulled or easing out: they grow the card on the way, and re-planned mid-pull the card came out
     // too tall and closed itself under the finger instead of opening the readings, Mohammad on an iPhone, 20 Oct.)
-    if (held) { if (dd.classList.contains('tool-open') || dd.classList.contains('pz-sliding') || 'folding' in dd.dataset || natural(dd, ds) + lip <= held.data + 1) return held.cap; }
+    if (held) { if (dd.classList.contains('tool-open') || dd.classList.contains('pz-sliding') || 'folding' in dd.dataset || natural(dd, ds) + lip <= held.data + 1) { phoneFig = held.fig; return held.cap; } }
     const ts = ui.text.style, was = ts.maxHeight;
     ts.maxHeight = '';
     const css = getComputedStyle(ui.text), own = parseFloat(css.maxHeight) * (css.maxHeight.endsWith('%') ? H / 100 : 1), foot = (parseFloat(css.bottom) || 0) * k;
@@ -3177,10 +3181,14 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     // (Words at Compact win over the figure's share and the 62 % cap when nothing else gives; they never reach the data card. Closed,
     // the card leaves them all but its edge (GRIP) at the top, and brought back it stands over the figure down to the words.)
     const room = H - foot - 16 - 8, mine = Number.isFinite(own) ? own : 0.62 * H;
+    // (Regular, where it needs more than its share but no more than the figure can lend: the figure keeps what is left, at least FIG_REG.)
+    const regular = shut ? Infinity : at(1), lend = regular - (both - data);
+    const reg = lend > 0 && lend <= FIG_MIN(H) - FIG_REG(H) && regular <= mine && regular <= room - dtop - data;
+    if (reg) phoneFig = FIG_MIN(H) - lend;
     const cap = Math.max(120, shut
       ? Math.min(room - GRIP * k, Math.max(Math.min(mine, room - dtop - Math.min(data, dmax + sheetLip)), compact))
-      : Math.min(room - dtop - data, Math.max(Math.min(mine, both - data), compact))) / k;
-    if (key) phoneLock = { key, cap, shut, data };
+      : reg ? regular : Math.min(room - dtop - data, Math.max(Math.min(mine, both - data), compact))) / k;
+    if (key) phoneLock = { key, cap, shut, data, fig: phoneFig };
     return cap;
   }
   // The free area: the open rectangles of the figure the words, the data card (where it comes to rest) and the controls leave,
