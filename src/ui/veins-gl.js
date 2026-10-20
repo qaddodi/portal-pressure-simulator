@@ -775,6 +775,7 @@ uniform usampler2D gbuf2;              // near a join, the lumen it joins and it
 uniform highp sampler2D flow;          // per vessel: FLOW_TEXELS texels
 uniform highp sampler2D rad;
 uniform highp sampler2D tube;
+uniform highp sampler2D bend;          // per vessel: the axis's signed curvature at each sample (setBend)
 uniform sampler2D dye;                 // per vessel: dye concentration along the course
 uniform sampler2D plate0, plate1;
 uniform vec4 plateRect0, plateRect1;
@@ -997,6 +998,12 @@ float radAt(int id, float s, float len) {
 }
 // Flow arrowheads along the axis, pointing and moving with the mean flow: a slim filled head with
 // a notched back. Returns its coverage (x) and a soft rim just outside it (y).
+// The axis's signed curvature at arc length s (1 / world units; positive turning toward +y).
+float bendAt(int id, float s, float len) {
+  float ui = clamp(s / len, 0.0, 1.0) * ${N_SAMPLES - 1}.0;
+  int i0 = min(int(ui), ${N_SAMPLES - 2});
+  return mix(texelFetch(bend, ivec2(i0, id), 0).r, texelFetch(bend, ivec2(i0 + 1, id), 0).r, ui - float(i0));
+}
 vec2 chevAt(int id, float s, float y) {
   vec4 f0 = texelFetch(flow, ivec2(0, id), 0), f1 = texelFetch(flow, ivec2(1, id), 0);
   if (f1.z <= 0.0) return vec2(0.0);
@@ -1023,8 +1030,12 @@ vec2 chevAt(int id, float s, float y) {
   // Past the head and its soft rim along the course (|u| > 0.55 L + 0.19 hw + 3.4 px reaches nothing): no more reads.
   if (abs(x) > 0.6 * L + 0.15 * hw + 4.0 * pxW) return vec2(0.0);
   // Across, and the lumen where the head sits (so none overhangs a narrowing vessel), between the radius samples.
-  float ay = abs(y) * radAt(id, s, len);
+  float yd = y * radAt(id, s, len), ay = abs(yd);
   float Rl = radAt(id, sc, len);
+  // On a bend the arc length runs along the axis, so off it the same span of s is shorter on the inside and longer on
+  // the outside: measured in s alone a head squashes and bends with the vessel. Its true distance along, at yd across,
+  // is the span of s times (1 − κ yd), so the head keeps its one straight shape wherever it sits.
+  u *= clamp(1.0 - bendAt(id, sc, len) * yd, 0.25, 2.5);
   // Toward either end a head fades out (and the next vessel's fade in), never cut by a join.
   float e = min(sc, len - sc);
   if (e < 0.6 * L) return vec2(0.0);
@@ -1259,6 +1270,22 @@ function dataTex(gl, filter) {
   return t;
 }
 
+/**
+ * Signed curvature of a polyline at each of its N_SAMPLES points into out (1 / world units), positive turning toward the
+ * side the shader's across coordinate calls +y (cross(along, offset) > 0); lightly smoothed, the ends copy their neighbours.
+ */
+export function bendCurvature(pts, out = new Float32Array(N_SAMPLES)) {
+  const n = Math.min(pts?.length || 0, N_SAMPLES), k = new Float32Array(N_SAMPLES);
+  for (let i = 1; i < n - 1; i++) {
+    const ax = pts[i][0] - pts[i - 1][0], ay = pts[i][1] - pts[i - 1][1], bx = pts[i + 1][0] - pts[i][0], by = pts[i + 1][1] - pts[i][1];
+    const ds = 0.5 * (Math.hypot(ax, ay) + Math.hypot(bx, by));
+    k[i] = ds > 1e-6 ? Math.atan2(ax * by - ay * bx, ax * bx + ay * by) / ds : 0;
+  }
+  if (n > 2) { k[0] = k[1]; k[n - 1] = k[n - 2]; }
+  for (let i = 0; i < N_SAMPLES; i++) out[i] = i < n ? (k[Math.max(0, i - 1)] + 2 * k[i] + k[Math.min(n - 1, i + 1)]) / 4 : 0;
+  return out;
+}
+
 export function createVeinsGL(canvas, { tubes: nTubes, force = false }) {
   let gl = null;
   try { gl = canvas.getContext('webgl2', { alpha: true, premultipliedAlpha: true, antialias: false, depth: false, stencil: false, preserveDrawingBuffer: true, failIfMajorPerformanceCaveat: !force }); } catch { gl = null; }
@@ -1384,7 +1411,10 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false }) {
   gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA32F, TUBE_TEXELS, nTubes, 0, gl.RGBA, gl.FLOAT, null);
   gl.bindTexture(gl.TEXTURE_2D, organTex);
   gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array(4));
-  const radRow = new Float32Array(N_SAMPLES * 2), rmaxOne = new Float32Array(1);
+  const bendTex = dataTex(gl);
+  gl.bindTexture(gl.TEXTURE_2D, bendTex);
+  gl.texImage2D(gl.TEXTURE_2D, 0, gl.R32F, N_SAMPLES, nTubes, 0, gl.RED, gl.FLOAT, new Float32Array(N_SAMPLES * nTubes));
+  const radRow = new Float32Array(N_SAMPLES * 2), rmaxOne = new Float32Array(1), bendRow = new Float32Array(N_SAMPLES);
   // Per-vessel blood (FLOW_TEXELS texels a row) and dye (DYE_BINS along the course).
   const flowTex = dataTex(gl), dyeTex = dataTex(gl, gl.LINEAR);
   gl.bindTexture(gl.TEXTURE_2D, flowTex);
@@ -1677,6 +1707,12 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false }) {
       // for a whole draw when it is given this row.)
       radRows.add(row);
     },
+    /** A vessel's axis (N_SAMPLES points, as binned): its signed curvature at each sample, for the flow arrowheads. */
+    setBend(row, pts) {
+      bendCurvature(pts, bendRow);
+      gl.bindTexture(gl.TEXTURE_2D, bendTex);
+      gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, row, N_SAMPLES, 1, gl.RED, gl.FLOAT, bendRow);
+    },
     /** Every vessel's attributes: nTubes × TUBE_TEXELS × 4 floats. */
     setTubes(data) {
       tubesNew = true;
@@ -1896,6 +1932,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false }) {
       bind(5, dyeTex, 'dye'); bind(6, plates[0]?.tex || baseTex, 'plate0'); bind(7, plates[1]?.tex || baseTex, 'plate1'); bind(8, gTex2, 'gbuf2'); bind(9, fluidTex, 'fluidMask');
       bind(10, lineLayer.tex, 'lineL'); gl.uniform1i(U.lineOn, layer ? 1 : 0);
       bind(11, glowLayer.tex, 'glowL'); gl.uniform1i(U.glowOn, glow ? 1 : 0);
+      bind(12, bendTex, 'bend');
       if (full) {
         gl.bindVertexArray(compVAO);
         gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
@@ -1964,7 +2001,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false }) {
     dispose({ lose = false } = {}) {
       canvas.removeEventListener('webglcontextlost', onLost);
       if (!lost) {
-        for (const t of [entTex, radTex, rmaxTex, tubeTex, organTex, flowTex, dyeTex, fluidTex, baseTex, gTex, gTex2, depTex, depNone, lineLayer.tex, glowLayer.tex, ...plates.map((x) => x?.tex)]) if (t) gl.deleteTexture(t);
+        for (const t of [entTex, radTex, bendTex, rmaxTex, tubeTex, organTex, flowTex, dyeTex, fluidTex, baseTex, gTex, gTex2, depTex, depNone, lineLayer.tex, glowLayer.tex, ...plates.map((x) => x?.tex)]) if (t) gl.deleteTexture(t);
         for (const b of [quad, cellBuf, partBuf, fluidBuf, cathBuf, lineBuf]) gl.deleteBuffer(b);
         for (const v of [vao, partVAO, fluidVAO, compVAO, cathVAO, lineVAO]) gl.deleteVertexArray(v);
         for (const x of [prog, comp, compCell, cathP, lineP]) if (x) gl.deleteProgram(x.p);
