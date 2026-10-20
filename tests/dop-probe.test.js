@@ -165,8 +165,9 @@ test('the line of sight stops at the near gate bar, the flow axis reaches past b
   const w = (sel) => +css.match(new RegExp(`\\.dop-probe \\.${sel} \\{[^}]*stroke-width: ([\\d.]+)`))[1];
   assert.ok(w('dpr-gate') > w('dpr-line') && w('dpr-gate') <= 2 * w('dpr-line'), 'bars a bit thicker than the axis line');
   assert.ok(w('dpr-gate-rim') > w('dpr-gate'));
-  // The axis line is drawn over the bars, so it stays visible through them.
-  assert.ok(PROBE_SVG.indexOf('dpr-bars') < PROBE_SVG.indexOf('dpr-axis'), 'bars first, the flow axis over them');
+  // The bars are drawn on top of the flow axis and the line of sight (Mohammad, 20 Oct), under the probe's head.
+  assert.ok(PROBE_SVG.lastIndexOf('dpr-axis') < PROBE_SVG.indexOf('dpr-gate-rim') && PROBE_SVG.lastIndexOf('dpr-beam') < PROBE_SVG.indexOf('dpr-gate-rim'), 'axis and line of sight first, the bars over them');
+  assert.ok(PROBE_SVG.indexOf('dpr-bars') < PROBE_SVG.indexOf('dpr-head'));
 });
 
 test('the station dot under the gate fades with the probe: out while it shows on that vessel, back when it goes; the reading and leader stay', () => {
@@ -194,7 +195,7 @@ test('the faded ultrasound beam is back: a narrow wedge from the probe\'s face p
     assert.ok(x1 < 0 && x1 === x2 && y1 === -y2 && y2 > 0, 'ends past the far wall, symmetric about the line of sight');
     assert.ok(Math.atan(y2 / (90 - x1)) * 180 / Math.PI <= PROBE.BEAM_DEG + 0.5, 'narrow');
   }
-  assert.ok(PROBE_SVG.indexOf('dpr-wedge"/>') < PROBE_SVG.indexOf('dpr-gate-rim'), 'drawn first, under the marks');
+  assert.ok(PROBE_SVG.indexOf('dpr-wedge"/>') < PROBE_SVG.indexOf('dpr-rim-l'), 'drawn first, under the marks');
   assert.match(PROBE_SVG, /<stop offset="1" stop-color="var\(--dop-glow\)" stop-opacity="0"\/>/, 'fades to nothing');
   assert.match(css, /\.dop-probe \.dpr-wedge \{ fill: url\(#dpr-wedge\); \}/);
   assert.match(stage, /all\('\.dpr-wedge', 'd', p\.wedge\)/);
@@ -209,4 +210,23 @@ test('the probe stands clear of a narrowing\'s "60 %": its flow axis counts with
   assert.ok(side.lab === 0 || side.side !== a.side, 'the side whose axis crosses the label is left when the other is clear');
   assert.match(stage, /querySelectorAll\('\.clamp-label'\)\) if \(el\._box\) out\.push\(el\._box\);/);
   assert.match(stage, /dpr\.marks = \[\.\.\.beamBoxes\(\[gx, gy\], pose\.ang, pose\.D, r\), \.\.\.gateBoxes\(\[gx, gy\], pose\.ang, pose\.phi, r\)\];/);
+});
+
+test('a "60 %" the probe would cover steps out to a clear spot on a leader line, fading out and in, and comes back when the probe goes', () => {
+  assert.match(stage, /const clampMv = new Map\(\);/);
+  // It tests the label at its usual spot against the probe's body, line of sight, bars and flow axis (dpr.box, dpr.marks)...
+  assert.match(stage, /const probe = dpr\.on && dpr\.box \? \[dpr\.box, \.\.\.dpr\.marks\] : \[\]/);
+  assert.match(stage, /if \(probe\.some\(\(q\) => hits\(boxAt\(16, 0\), q\)\)\) \{/);
+  // ...and takes the nearest spot clear of the probe, the vessels, the credit and the screen's edge, keeping one that still works.
+  assert.match(stage, /free = \(b\) => b && !probe\.some\(\(q\) => hits\(b, q\)\) && within\(b, view\) && lineHits\(b, 6, id\) < 1 && !\(creditBox && hits\(b, creditBox\)\)/);
+  assert.match(stage, /if \(cur && free\(boxAt\(cur\.d, cur\.t\)\)\) want = cur;/);
+  // The move fades out where it stands and in at the new place, never a jump; the leader joins the clamp's outer tip to the label.
+  assert.match(stage, /function clampStep\(id, want\)/);
+  assert.match(stage, /\{ opacity: getComputedStyle\(el\)\.opacity \}, \{ opacity: 0 \}/);
+  assert.match(stage, /k: 'cl:' \+ c\.id, tag: 'path', at: \{ class: 'leader'/);
+  assert.match(stage, /c\.x \+ c\.nx \* \(c\.off \+ 8\), c\.y \+ c\.ny \* \(c\.off \+ 8\)/);
+  assert.match(stage, /mv = c\.id !== clampFor \? clampMv\.get\(c\.id\)\?\.cur : null/);
+  // The gate bars are in the boxes labels and the probe keep off.
+  const g = [300, 300], b = gateBoxes(g, 0, 50, 8)[0];
+  assert.ok(b.x0 < 300 - 5 && b.x1 > 300 + 5 && b.y0 < 300 - 5 && b.y1 > 300 + 5);
 });

@@ -49,11 +49,12 @@ export function beamBoxes(g, ang, D, r = 0, pad = 4) {
   return out;
 }
 
-/** Boxes along the flow axis through the gate (stage px), as probeShapes draws it, 4 px either side: the axis runs `phi` degrees from
+/** Boxes over the gate bars and along the flow axis through the gate (stage px), as probeShapes draws it, 4 px either side: the axis runs `phi` degrees from
  *  the line of sight at ang and reaches a little past the gate bars. Labels (the narrowing's "60 %" too) keep off it, and the probe
  *  weighs it with the line of sight when it picks a side. */
 export function gateBoxes(g, ang, phi, r = 0, pad = 4) {
-  const L = Math.min(36, Math.max(16, 1.7 * r)), a = rad(ang + phi), c = Math.cos(a), s = Math.sin(a), out = [];
+  const L = Math.min(36, Math.max(16, 1.7 * r)), a = rad(ang + phi), c = Math.cos(a), s = Math.sin(a), { at, half } = gateDims(r), q = Math.hypot(at, half) + pad;
+  const out = [{ x0: g[0] - q, y0: g[1] - q, x1: g[0] + q, y1: g[1] + q }];   // (the two bars)
   for (let u = -L; u <= L + 0.01; u += 8) out.push({ x0: g[0] + u * c - pad, y0: g[1] + u * s - pad, x1: g[0] + u * c + pad, y1: g[1] + u * s + pad });
   return out;
 }
@@ -122,14 +123,14 @@ export function probeShapes(D, r, phi = PROBE.ANGLE) {
   };
 }
 
-// (The bars are drawn first and the flow axis over them, so the axis stays visible through the thicker bars.)
+// (The gate bars are drawn last, on top of the line of sight and the flow axis: Mohammad, 20 Oct.)
 // The probe's head: a convex face, a neck and a handle with a light in the glow's colour. Every mark is white-lined on a black
 // rim, so it reads on every vessel colour and theme.
 const BODY = 'M2 -11 Q-3 0 2 11 L10 11 L18 6 L42 6 Q48 6 48 0 Q48 -6 42 -6 L18 -6 L10 -11 Z';
 export const PROBE_SVG = '<svg class="dpr-svg" width="1" height="1" aria-hidden="true"><defs><linearGradient id="dpr-wedge" x1="1" y1="0" x2="0" y2="0">'
   + '<stop offset="0" stop-color="var(--dop-glow)" stop-opacity=".46"/><stop offset=".8" stop-color="var(--dop-glow)" stop-opacity=".22"/>'
   + '<stop offset="1" stop-color="var(--dop-glow)" stop-opacity="0"/></linearGradient></defs><g class="dpr-rot"><path class="dpr-wedge"/>'
-  + '<path class="dpr-gate-rim dpr-bars"/><path class="dpr-gate dpr-bars"/>'
   + '<path class="dpr-rim-l dpr-beam"/><path class="dpr-line dpr-beam"/><path class="dpr-rim-l dpr-axis"/><path class="dpr-line dpr-axis"/>'
+  + '<path class="dpr-gate-rim dpr-bars"/><path class="dpr-gate dpr-bars"/>'
   + `<g class="dpr-head"><path class="dpr-cable" d="M47 0 L62 0"/><path class="dpr-rim" d="${BODY}"/><path class="dpr-body" d="${BODY}"/>`
   + '<path class="dpr-face" d="M2 -11 Q-3 0 2 11"/><circle class="dpr-light" cx="33" cy="0" r="3"/></g></g></svg>';

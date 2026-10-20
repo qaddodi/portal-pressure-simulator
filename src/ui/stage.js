@@ -38,7 +38,7 @@ import { layoutWatch } from './idle-keys.js?v=ea36a0b5c6';
 import { writeGlowTexels } from './glow-texels.js?v=e578794a92';
 import { SIN_PERFUSION, sinStrandRadius } from './sin-perfusion.js?v=25a8407fdd';
 import { wavePacks, paintWave } from './scan-waves.js?v=066db7aa38';
-import { probePose, probeShapes, beamBoxes, gateBoxes, awayFromProbe, PROBE_SVG } from './dop-probe.js?v=dedc4ecddd';
+import { probePose, probeShapes, beamBoxes, gateBoxes, awayFromProbe, PROBE_SVG } from './dop-probe.js?v=6a69e02003';
 import { organDimMatrix } from './organ-dim.js?v=7888276613';
 import { parseColor, greyOf, paintRef } from './organ-grey.js?v=e41d68222c';
 import { bandRing, dashRings, liftEnd, normalShown, rippleList, systemOf, SYSTEM_COLOR } from './highlight-math.js?v=e2c1816e25';
@@ -5738,6 +5738,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   let ptSide = null, clampAway = null, clampFor = null;
   // (The flow's arrowheads stay out from under a stent's called-out points: world boxes [x0, y0, x1, y1, r], round by r; see bloodLook.)
   let chevHoles = [], holesKey = '';
+  // A narrowing's "60 %" the Doppler probe would cover (its body, line of sight, bars or flow axis) steps out to the nearest clear spot on
+  // a leader line, by stenosis: cur is where it stands now, busy while it fades out and in at its new place (Mohammad, 20 Oct).
+  const clampMv = new Map();
   const clampD = new Map();   // (a column's "60 %": how far out it stands, by stenosis, kept across the overlay's rebuilds)
   // (A new slide (the presenter clears its mark first) starts the stent's column afresh: its callouts, its mark, their side and the
   // "60 %" are solved for this slide alone, as on a fresh load, never held from the slide before: Review 16 Oct.)
@@ -5752,11 +5755,29 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // (Its halo a constant 7 px wide on screen, whatever the zoom: wide enough to fill the counters of "6", "0" and "%" too, so
   // the figure never shows through inside a digit: Review 16 Oct.)
   const clampFontAt = (el) => { el.style.fontSize = CTM.sc > 0 && CTM.sc < 1 ? `calc(var(--fs-12) / ${CTM.sc.toFixed(3)})` : ''; el.style.strokeWidth = CTM.sc > 0 ? `${(7 / CTM.sc).toFixed(2)}px` : ''; };
+  // Moves a "60 %" to `want` ({ d, t } or null: back where it belongs): it fades out where it stands, then in at the new place.
+  function clampStep(id, want) {
+    const m = clampMv.get(id) || { cur: null, want: null, busy: false }, same = (a, b) => (a ? !!b && a.d === b.d && a.t === b.t : !b);
+    clampMv.set(id, m);
+    if (m.busy) return;
+    m.want = want;
+    if (same(m.cur, want)) return;
+    const els = () => [...ov.clamps.querySelectorAll(`.clamp-label[data-id="${id}"]`)];
+    m.busy = true;
+    const dur = reduceMotion.matches ? 0 : 260;
+    for (const el of els()) el.animate?.([{ opacity: getComputedStyle(el).opacity }, { opacity: 0 }], { duration: dur, fill: 'forwards' });
+    setTimeout(() => {
+      m.cur = m.want; m.busy = false;
+      for (const el of els()) { el.getAnimations?.().forEach((a) => a.cancel()); clampLabelAt(el); el.animate?.([{ opacity: 0 }, { opacity: getComputedStyle(el).opacity }], { duration: dur }); }
+      if (F) updateLabels(F);
+    }, dur);
+  }
   function clampLabelAt(el) {
     const c = el._c;
     if (!c) return;
     const away = c.id === clampFor ? clampAway : null;
-    const kept = c.id === clampFor ? clampD.get(c.id) : null, d = c.off + (el._d ?? kept?.d ?? 16), t = el._d != null ? el._t ?? 0 : kept?.t ?? 0;
+    const kept = c.id === clampFor ? clampD.get(c.id) : null, mv = c.id !== clampFor ? clampMv.get(c.id)?.cur : null;
+    const d = c.off + (el._d ?? mv?.d ?? kept?.d ?? 16), t = el._d != null ? el._t ?? 0 : mv?.t ?? kept?.t ?? 0;
     const pos = [1, -1].map((sg) => [c.x + c.nx * sg * d - c.ny * t, c.y + c.ny * sg * d + c.nx * t]);   // (t: slid along the vessel)
     const k = away && (away === 'W') !== (worldToLocal(...pos[0])[0] < worldToLocal(...pos[1])[0]) ? 1 : 0, left = away === 'W';
     el.setAttribute('x', pos[k][0] + (left ? -4 : 4)); el.setAttribute('y', pos[k][1] + 4);
@@ -6858,6 +6879,41 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     }
     // (The clamps' "60 %" again on its own: a station inside the clamp's box above may send a long leader out, but never through it,
     // and no leader passes nearer than 2 px to its halo: Review 15 Oct.)
+    // The "60 %" the probe would cover steps out on a leader line (its fade out and in: clampStep); the leader is drawn from the
+    // clamp's outer tip (clampLeads, below).
+    if (solve && !isImaging()) {
+      const probe = dpr.on && dpr.box ? [dpr.box, ...dpr.marks] : [], seen = new Set(), k = 1 / Math.max(CTM.sc, 1e-3);
+      for (const el of ov.clamps.querySelectorAll('.clamp-label')) {
+        const c = el._c, id = c?.id, m = clampMv.get(id);
+        if (!c || id === clampFor || (!probe.length && !m?.cur)) continue;   // (a column's "60 %" has its own spot: clampD)
+        seen.add(id);
+        buildLines();
+        // (The box at the usual spot once, then shifted: a move of d out and t along the vessel is the same move on screen.)
+        el._d = 16; el._t = 0; clampLabelAt(el);
+        const base = boxOfEl(el, 5), o = worldToLocal(c.x, c.y);
+        el._d = el._t = undefined;
+        const boxAt = (d, t) => {
+          const [bx, by] = worldToLocal(c.x + c.nx * (d - 16) - c.ny * t, c.y + c.ny * (d - 16) + c.nx * t);
+          return base && { x0: base.x0 + bx - o[0], y0: base.y0 + by - o[1], x1: base.x1 + bx - o[0], y1: base.y1 + by - o[1] };
+        };
+        const free = (b) => b && !probe.some((q) => hits(b, q)) && within(b, view) && lineHits(b, 6, id) < 1 && !(creditBox && hits(b, creditBox));
+        let want = null;
+        if (probe.some((q) => hits(boxAt(16, 0), q))) {
+          const cur = m?.want;
+          if (cur && free(boxAt(cur.d, cur.t))) want = cur;   // (a spot that still works is kept: nothing hops while the probe stays)
+          else {
+            const steps = [];
+            for (let px = 0; px <= 80; px += 8) for (let tp = -88; tp <= 88; tp += 8) if (px || tp) steps.push([px, tp]);
+            steps.sort((u, v) => Math.hypot(...u) - Math.hypot(...v));
+            const hit = steps.find(([px, tp]) => free(boxAt(16 + px * k, tp * k)));
+            if (hit) want = { d: 16 + hit[0] * k, t: hit[1] * k };
+          }
+        }
+        clampStep(id, want);
+        clampLabelAt(el);
+      }
+      for (const [id, m] of clampMv) if (!seen.has(id) && !m.busy) clampMv.delete(id);
+    }
     if (solve && !isImaging()) for (const el of ov.clamps.querySelectorAll('.clamp-label')) { const b = boxOfEl(el, 6); if (b) placed.push(el._box = { ...b, lab: true }); }
     // (The column's narrowing arrows, for the slide's mark: its leader keeps 6 px off them, as drawn (their triangles, not their
     // boxes, so a leader straight up between them still passes): Review 16 Oct.)
@@ -7680,6 +7736,13 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       const cx = it.ax.toFixed(1), cy = it.ay.toFixed(1);
       if (it.point) dots.push({ k: 'h:' + it.key, tag: 'circle', at: { class: 'leader-dot-halo', cx, cy, r: String(DISC) } });
       if (!circuit || it.mid) dots.push({ k: 'd:' + it.key, tag: 'circle', at: { class: 'leader-dot', cx, cy, r: '2.4' } });
+    }
+    // (A moved "60 %": its leader runs from the clamp's outer tip to the label, fading with it.)
+    if (solve && !isImaging()) for (const el of ov.clamps.querySelectorAll('.clamp-label')) {
+      const c = el._c, m = c && clampMv.get(c.id);
+      if (!m?.cur || m.busy || !el._box) continue;
+      const [ax, ay] = worldToLocal(c.x + c.nx * (c.off + 8), c.y + c.ny * (c.off + 8)), le = leaderEnd(el._box, ax, ay, 1);
+      if (Math.hypot(le.x - ax, le.y - ay) > 4) leaders.push({ k: 'cl:' + c.id, tag: 'path', at: { class: 'leader', d: `M${ax.toFixed(1)} ${ay.toFixed(1)} L${le.x.toFixed(1)} ${le.y.toFixed(1)}` } });
     }
     leaders.push(...dots);
     // (The flow's arrowheads keep out from under the points' callouts, within 17 px of their dots, and 5 px either side of

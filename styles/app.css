@@ -2876,7 +2876,7 @@ button.finding { cursor: pointer; }
 .dop-probe .dpr-rim-l { fill: none; stroke: var(--dop-rim); stroke-width: 3.6; stroke-linecap: round; stroke-linejoin: round; }
 .dop-probe .dpr-line { fill: none; stroke: var(--dop-mark); stroke-width: 1.4; stroke-linecap: round; stroke-linejoin: round; }
 .dop-probe .dpr-gate-rim { fill: none; stroke: var(--dop-rim); stroke-width: 4.6; stroke-linecap: round; }
-.dop-probe .dpr-gate { fill: none; stroke: var(--dop-mark); stroke-width: 2.4; stroke-linecap: round; }   /* (a bit thicker than the 1.4 axis line, which is drawn over it) */
+.dop-probe .dpr-gate { fill: none; stroke: var(--dop-mark); stroke-width: 2.4; stroke-linecap: round; }   /* (a bit thicker than the 1.4 axis line; drawn on top of the axis and the line of sight) */
 .dop-probe .dpr-cable { fill: none; stroke: var(--text-3); stroke-width: 3; stroke-linecap: round; }
 .dop-probe .dpr-rim { fill: none; stroke: var(--dop-rim); stroke-width: 4; stroke-linejoin: round; }
 .dop-probe .dpr-body { fill: var(--surface); stroke: var(--dop-mark); stroke-width: 1.6; stroke-linejoin: round; }
