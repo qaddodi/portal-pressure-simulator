@@ -2,7 +2,7 @@
 // over an SVG scene that holds the organ artwork, hit targets and overlays, and screen-space labels.
 
 import { EDGES, dopplerK, NODES, PORTAL_TERRITORY, dMinOf, edgePresent, isOccluded, SHUNT_PORTAL, SHUNT_SYSTEMIC, customShuntId, isStent, stentSite, STENT_SITES, STENT_SPANS, stentGate, stentSegments } from '../engine/topology.js?v=4044766e96';
-import { route as metroRoute, LABEL_VESSEL, TIP_FADE, TIP_CONNECT, VIEW, VB_ANAT, VB_CIRC, ATLAS_COLUMNS, HIDDEN_EDGES, HIDDEN_NODES, ANAT_HIDDEN, ANAT_HIDDEN_NODES, CAUDATE, CONTEXT_EDGES, BACK_EDGES, IVC_EDGES, NEEDS_C3, NODE_POS, EDGE_PATH, CIRCUIT_PATH, metroPath, ORGANS, SEAM_D, ORGAN_DETAIL, BACKDROP, LIVER_INNER, LIVER_EDGES, LANE_CAPTIONS, ABDOMEN_CLIP, ABDOMEN_FLOOR, flankPath, abdomenOutline, cavityHalfWidths, SPLEEN_CENTER, SITES, ORGAN_LABELS, ATLAS_LABELS, SHORT, ABBR, CHIP_NODES, LIVER_SPLIT_X, CIRCUIT_ZONES, CIRCUIT_LABELS, STRANDS, STRAND_FROM, SIN_EDGES, FEEDERS, fanFeeders, CIRCUIT_TREES } from './anatomy.js?v=763af8341c';
+import { route as metroRoute, LABEL_VESSEL, TIP_FADE, TIP_CONNECT, VIEW, VB_ANAT, VB_CIRC, ATLAS_COLUMNS, HIDDEN_EDGES, HIDDEN_NODES, ANAT_HIDDEN, ANAT_HIDDEN_NODES, CAUDATE, CONTEXT_EDGES, BACK_EDGES, IVC_EDGES, NEEDS_C3, NODE_POS, EDGE_PATH, CIRCUIT_PATH, metroPath, ORGANS, SEAM_D, ORGAN_DETAIL, BACKDROP, LIVER_INNER, LIVER_EDGES, LANE_CAPTIONS, ABDOMEN_CLIP, ABDOMEN_FLOOR, flankPath, abdomenOutline, cavityHalfWidths, SPLEEN_CENTER, SITES, ORGAN_LABELS, ATLAS_LABELS, SHORT, ABBR, CHIP_NODES, LIVER_SPLIT_X, CIRCUIT_ZONES, CIRCUIT_LABELS, STRANDS, STRAND_FROM, SIN_EDGES, FEEDERS, fanFeeders, CIRCUIT_TREES } from './anatomy.js?v=60dfca1d6c';
 import { pressureColor, deltaColor, dropColor, flowColor, heatColor, velColorOf, velocityColor, oxygenColor } from './colormap.js?v=1092d36abc';
 import { forkJoins, sideEndScale } from './fork-joins.js?v=b678f7ba5a';
 import { STATION_VESSEL, meanVel, velNormal } from './velNormal.js?v=181dda5594';
@@ -20,9 +20,9 @@ import { subpathsIn, foldOpacity, dropInvisible, mergeClipRuns } from './plate-c
 import { gridHits, segHitsBox } from './seg-hits.js?v=e7cde76929';
 import { glassCallout } from './callout.js?v=d5524b6a11';
 import { TEXT_MIN, TEXT_MAX, rolePx, roleOf } from './type-scale.js?v=d7cca3fb73';
-import { seeded, strHash, nodularSites, nodularCells } from './liver-geo.js?v=ce60e7ccd3';
-import { LIVER_GEO } from './liver-geo-data.js?v=4dc6e5a6d7';
-import { COLON_ART, BOWEL_ART, DUO_CLIPS, DUO_A, DUO_B } from './organ-art.js?v=20782a6f73';
+import { seeded, strHash, nodularSites, nodularCells } from './liver-geo.js?v=977185f80a';
+import { LIVER_GEO } from './liver-geo-data.js?v=be7daabfdc';
+import { COLON_ART, BOWEL_ART, DUO_CLIPS, DUO_A, DUO_B } from './organ-art.js?v=754aec606d';
 import { createRouter } from './circuit-router.js?v=0ee9e02fc6';
 import { gpuProbe } from './gpu-probe.js?v=d4aeccea90';
 import { plateStrips, premultiply } from './plate-upload.js?v=2dd6db2a18';
@@ -44,7 +44,7 @@ import { fitPose, probeShapes, beamBoxes, gateBoxes, awayFromProbe, PROBE, PROBE
 import { organDimMatrix } from './organ-dim.js?v=7888276613';
 import { parseColor, greyOf, paintRef } from './organ-grey.js?v=e41d68222c';
 import { bandRing, dashRings, liftEnd, normalShown, rippleList, systemOf, SYSTEM_COLOR } from './highlight-math.js?v=e2c1816e25';
-import { organAnchor, spleenCaliper, acrossVessel, stepGroups, spanOf, spanPath, zoneBand, SPAN_TICK, insideBy, clearOf, besideLine } from './callout-math.js?v=007e5733ac';
+import { organAnchor, spleenCaliper, acrossVessel, stepGroups, spanOf, spanPath, zoneBand, SPAN_TICK, insideBy, clearOf, besideLine } from './callout-math.js?v=3a02dacabd';
 const nextFrame = frameFor('stage');
 
 const N_SAMPLES = 64;
@@ -719,6 +719,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // nodules are larger (liver-geo.js NODULE_SIZE), with their gaps in step (sep).
   const CIRR = { field: 1.35, scale: 1.6, nod: 5.5, lam: 1.4, sep: 1.6 };
   let baseLiver = null, liverKey = '';
+  // The diseased liver's outline without its nodular bulges and notches, for the diaphragm: one smooth dome the nodules
+  // never dent (Mohammad, 20 Oct: it was "morphing to the nodules of the liver"). null while the liver is healthy.
+  let liverDome = null;
   const smooth01 = (v) => { const t = clamp(v, 0, 1); return t * t * (3 - 2 * t); };
   function sampleLiver() {
     // The outline and the nodules' sites, computed ahead for this artwork (liver-geo.js); live if the outline changed.
@@ -839,6 +842,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (!baseLiver) { try { baseLiver = sampleLiver(); } catch { return; } if (!baseLiver.pts.length) { baseLiver = null; return; } }
     liverKey = key;
     const { pts, nm, nod } = baseLiver;
+    const dome = [];
     const out = pts.map((p0, i) => {
       let [x, y] = liverField(p0[0], p0[1], c);
       const [nx, ny] = nm[i], inf = clamp(ny, 0, 1);
@@ -847,6 +851,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       let push = -8 * c * inf + 5 * c * tip;
       // Congestion: the organ swells, most along its free inferior edge, and its tip rounds.
       push += g * (5 + 9 * inf + 4 * tip);
+      dome[i] = [x + nx * push, y + ny * push];
       // Nodular contour: rounded bulges with notches between them (a cusp at each notch).
       const [u, a] = nod[i];
       push += (Math.pow(Math.sin(Math.PI * u), 0.5) - 0.72) * CIRR.nod * a * smooth01(c / 0.7) * (0.45 + 0.55 * c);
@@ -855,6 +860,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const f1 = (v) => v.toFixed(1);
     const d = c + g > 0 ? 'M' + out.map(([x, y]) => `${f1(x)} ${f1(y)}`).join(' L') + ' Z' : liverD;
     for (const el of liverPaths) el.setAttribute('d', d);
+    liverDome = c + g > 0 ? dome : null;
     liverFloor = lowerEdge(c + g > 0 ? out : pts);
     if (veins && !veins.lost) veins.setFluidLiver(liverFloor);
     lv.gloss.style.opacity = (1 - 0.75 * smooth01(c / 0.6)).toFixed(3);
@@ -4634,7 +4640,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const add = (el, cx, cy, k) => {
       for (const [x, y] of outlinePts(el.getAttribute('d'), el)) pts.push([cx + (x - cx) * k, cy + (y - cy) * k]);
     };
-    add(diaCut.liver, 560, 350, shrink);
+    // (The liver's smooth dome, never its nodular edge: the nodules stand out about 2 at most, inside the gap.)
+    if (liverDome) for (const [x, y] of liverDome) pts.push([560 + (x - 560) * shrink, 350 + (y - 350) * shrink]);
+    else add(diaCut.liver, 560, 350, shrink);
     add(diaCut.stomach, 0, 0, 1);
     add(diaCut.spleen, SPLEEN_CENTER[0], SPLEEN_CENTER[1], sc);
     // Along the top of the organs (Mohammad, 20 Oct: it runs on the liver's dome, and the heart rests on it): the highest

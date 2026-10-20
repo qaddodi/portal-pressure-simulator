@@ -1,3 +1,4 @@
+import { DUODENUM_LINE } from './outlines.mjs';
 // The small bowel and duodenum as centre lines (pure: no DOM, runs in Node and the browser).
 //
 // Coiled small bowel: the loops fill the space the colon frames, packed side by side like the atlas figures. The centre
@@ -144,17 +145,19 @@ export function bowelCoils({ seed = 7, mask = COILS_MASK, grid = COILS_GRID, end
 // the last two mostly behind the transverse colon. r is the tube half width at each point (the bulb a little wider).
 // The duodenum (round 5, his ask: a seamless join to the stomach and a rounder curve, not straight down): it begins
 // inside the stomach's pyloric tip at the antrum's width, narrows at the pylorus, swells into the bulb and turns down
-// in one round C (half an ellipse round the pancreatic head, rx 58, ry 80), then runs right to the duodenojejunal
-// flexure behind the transverse colon. Points are [x, y, half width].
-const C0 = [702, 588], RX = 58, RY = 80;
+// in one round C round the pancreatic head, then runs right to the duodenojejunal flexure behind the transverse colon
+// (his line since 20 Oct). Points are [x, y, half width].
 export const DUODENUM = (() => {
-  const P = [[732, 509, 14.2], [722, 508.5, 12.8], [712, 508.2, 11.8], [704, 508, 11.6]];
-  for (let deg = -96; deg >= -268; deg -= 6) {
-    const t = deg * Math.PI / 180, r = deg > -126 ? 11.6 + 3.6 * (-96 - deg) / 30 : deg > -165 ? 15.2 : deg > -200 ? 15.2 - 1.7 * (-165 - deg) / 35 : 13.5;
-    P.push([C0[0] + RX * Math.cos(t), C0[1] + RY * Math.sin(t), Math.min(15.2, r)]);
-  }
-  P.push([736, 667, 13.5], [766, 663, 13.5], [790, 657, 13.5], [806, 652, 13.5]);
-  return P.map(([x, y, r]) => [Math.round(x * 10) / 10, Math.round(y * 10) / 10, Math.round(r * 10) / 10]);
+  // His line (Organ Outline Studio, 20 Oct): the bulb's widths up to the pylorus, then along the C as before (widening
+  // to 15.2 round the pancreatic head, back to 13.5), 13.5 on to the flexure.
+  const L = [0];
+  for (let i = 1; i < DUODENUM_LINE.length; i++) L.push(L[i - 1] + Math.hypot(DUODENUM_LINE[i][0] - DUODENUM_LINE[i - 1][0], DUODENUM_LINE[i][1] - DUODENUM_LINE[i - 1][1]));
+  const bulb = [14.2, 12.8, 11.8, 11.6], c0 = L[3], c1 = L.at(-1) * 0.62;
+  return DUODENUM_LINE.map(([x, y], i) => {
+    const t = (L[i] - c0) / (c1 - c0);
+    const r = i < 4 ? bulb[i] : t < 0.17 ? 11.6 + 3.6 * t / 0.17 : t < 0.4 ? 15.2 : t < 0.6 ? 15.2 - 1.7 * (t - 0.4) / 0.2 : 13.5;
+    return [x, y, Math.round(r * 10) / 10];
+  });
 })();
 // The duodenum is split where the portal vein crosses it, along the vein's own line, so the join is hidden under the
 // vein: the first part is drawn in the stomach's group (over the stomach's tip, fading into it), the rest with the
