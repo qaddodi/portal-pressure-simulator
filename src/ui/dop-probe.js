@@ -2,7 +2,7 @@
 // its marks drawn as a scanner shows them, from his textbook reference of 20 Oct, "The Doppler angle and sample volume"): a small
 // curved probe off the vessel, its line of sight running straight through the vessel, the sample volume's two short bars across
 // the line inside the lumen, and the flow axis through the gate with the Doppler angle θ between it and the line, at the vessel's
-// middle (a stent: the third the Doppler samples). The line meets the flow at the monitor's θ 60°, from the side the flow comes
+// middle (a stent: the third the Doppler samples). The line meets the flow at the monitor's θ 50°, from the side the flow comes
 // toward (the trace above the baseline), or away from for the hepatic veins and the IVC, as doppler.js draws them. Pure geometry
 // and markup here; stage.js places it (dprobePaint).
 
@@ -12,13 +12,15 @@ export const awayFromProbe = (id) => AWAY.has(id);
 
 // The probe's shape, in CSS px along its axis from its face: the body reaches 48 px back and its cable stub on to 62; 11 px
 // either side (13 with the outline). GAP: from the vessel's wall to the probe's face.
-export const PROBE = { ANGLE: 60, GAP: 74, LEN: 62, HALF: 13, EDGE: 8 };
+// ANGLE: the Doppler angle θ, the monitor's too (dopplerColor.js THETA reads it). Under 60° as the papers ask (McNaughton and
+// Abu-Yousef, RadioGraphics 2011, Fig 2; Ferraioli's EFSUMB slides; Lechowicz and Elwertowski, J Ultrason 2015, p. 214): 60° was the limit itself.
+export const PROBE = { ANGLE: 50, GAP: 74, LEN: 62, HALF: 13, EDGE: 8 };
 
-const SIN = Math.sin(Math.PI / 3);   // the line of sight crosses a lumen of radius r over r / sin 60° either side of its middle
+const SIN = Math.sin((PROBE.ANGLE * Math.PI) / 180);   // the line of sight crosses a lumen of radius r over r / sin θ either side of its middle
 /** The sample volume for a lumen of radius r (px on screen): two bars across the line of sight, each `at` px from the gate along
- *  it, halfway to the wall: the gate takes in the central half of the lumen, as the Polish Ultrasound Society's standard sets it
- *  (Lechowicz and Elwertowski, J Ultrason 2015, p. 214), `half` px either side of it. */
-export const gateDims = (r) => ({ at: Math.max(4, (0.5 * Math.max(0, r)) / SIN), half: Math.min(10, Math.max(5, 0.5 * r)) });
+ *  it: the gate is half the vessel's width long, in its middle, as the Polish Ultrasound Society's standard sets it (Lechowicz and
+ *  Elwertowski, J Ultrason 2015, p. 214), and the monitor's SV names it (doppler.js svMm); `half` px either side of it. */
+export const gateDims = (r) => ({ at: Math.max(4, 0.5 * Math.max(0, r)), half: Math.min(10, Math.max(5, 0.5 * r)) });
 
 const rad = (d) => (d * Math.PI) / 180;
 const overlap = (a, b) => Math.max(0, Math.min(a.x1, b.x1) - Math.max(a.x0, b.x0)) * Math.max(0, Math.min(a.y1, b.y1) - Math.max(a.y0, b.y0));
@@ -36,7 +38,7 @@ export function bodyBox(g, ang, D) {
  * Where the probe stands. g: the gate (stage px); t: the vessel's direction there, as its blood normally runs (any length);
  * r: the lumen's radius (px); away: the flow runs away from the probe; w, h: the stage; cards: boxes the probe keeps off;
  * keep: the side it stood on (1 or −1; 0: none), kept unless only the other side is clear; side: a side to use outright.
- * Returns { side, ang (degrees, from the gate toward the probe), phi (the flow axis's 60° ray, from the line of sight toward
+ * Returns { side, ang (degrees, from the gate toward the probe), phi (the flow axis's θ ray, from the line of sight toward
  * the probe, degrees), D (gate to face, px), box (the body), clear }.
  */
 export function probePose({ g, t, r = 0, away = false, w, h, cards = [], keep = 0, side = 0 }) {
@@ -47,7 +49,7 @@ export function probePose({ g, t, r = 0, away = false, w, h, cards = [], keep = 
     // How much of the body lies off the stage or under a card (px²): 0 is clear.
     const off = (box.x1 - box.x0) * (box.y1 - box.y0) - overlap(box, { x0: e, y0: e, x1: w - e, y1: h - e });
     const hidden = cards.reduce((n, c) => n + overlap(box, c), 0);
-    // (The flow runs at −s·60° from the line toward the probe (toward), or at 180° − s·120° (away), whose reverse is s·60°.)
+    // (The flow runs at −s·θ from the line toward the probe (toward), or at 180° − s·(180° − θ) (away), whose reverse is s·θ.)
     return { side: s, ang, phi: (away ? s : -s) * PROBE.ANGLE, D, box, cost: off + hidden, clear: off + hidden === 0 };
   };
   if (side) return pose(side);
@@ -61,16 +63,17 @@ export function probePose({ g, t, r = 0, away = false, w, h, cards = [], keep = 
 
 /** The marks in the probe's own frame, x running from the gate (0) toward the probe, whose face is at D: the line of sight from
  *  the face straight through the vessel and on past its far wall; the sample volume's two bars across it; the flow axis through
- *  the gate, at phi (±60°) from the line, with the angle's arc; theta: where the θ sits, on the angle's bisector beyond the arc. */
+ *  the gate, at phi (±θ) from the line, with the angle's arc; theta: where the θ sits, on the angle's bisector beyond the arc,
+ *  as far off the line and the axis as it sat at 60° (a narrower angle sets it further out). */
 export function probeShapes(D, r, phi = PROBE.ANGLE) {
   const { at, half } = gateDims(r), far = -(Math.max(0, r) / SIN + 22);
   const L = Math.min(24, Math.max(8, 1.1 * r)), R = Math.min(14, Math.max(8, 0.6 * r)), p = rad(phi), c = Math.cos(p), s = Math.sin(p);
-  const f = (v) => +v.toFixed(1);
+  const T = ((R + 12) * Math.sin(Math.PI / 6)) / Math.abs(Math.sin(p / 2) || 1), f = (v) => +v.toFixed(1);
   return {
     beam: `M${f(D)} 0 L${f(far)} 0`,
     gate: `M${f(-at)} ${f(-half)} L${f(-at)} ${f(half)} M${f(at)} ${f(-half)} L${f(at)} ${f(half)}`,
     axis: `M${f(-L * c)} ${f(-L * s)} L${f(L * c)} ${f(L * s)} M${f(R)} 0 A${f(R)} ${f(R)} 0 0 ${phi > 0 ? 1 : 0} ${f(R * c)} ${f(R * s)}`,
-    theta: [f((R + 12) * Math.cos(p / 2)), f((R + 12) * Math.sin(p / 2))],
+    theta: [f(T * Math.cos(p / 2)), f(T * Math.sin(p / 2))],
     head: `translate(${f(D)} 0)`,
   };
 }

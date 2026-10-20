@@ -8,7 +8,7 @@ import { EDGES, dopplerK, stentSegments, stentSite, stentGate, stentCourse } fro
 import { h, fmt, fitCanvas, clamp, icon, cssVar, cssAlpha } from './util.js?v=8813192ea2';
 import { FONT } from './charts.js?v=1eaf71e70b';
 import { logAction, shownVel, store } from './store.js?v=31ee79b6ab';
-import { DOPPLER_MODES, dopplerColor, shadeColor, swatchGradient } from './dopplerColor.js?v=98b4f1adeb';
+import { DOPPLER_MODES, THETA, dopplerColor, shadeColor, swatchGradient } from './dopplerColor.js?v=30face2872';
 import { frameFor, noteDraw, paceMs } from './frame.js?v=67ca200c87';
 import { windowIndexFor, scaleFor } from './dopplerWindow.js?v=2067b803a2';
 import { velNormal, dopplerVel } from './velNormal.js?v=181dda5594';
@@ -259,6 +259,14 @@ export function createDoppler({ onProbe, pickGate = true }) {
     return { mean: k * sum / n, vmax: vmax * k, vmin: vmin * k, vmaxMean: vmax, vminMean: vmin };
   }
   const meta = () => PROBES.find((p) => p.id === probe) || PROBES[0];
+  // The sample volume's length (mm): half the vessel's width, in its middle, as the figure's gate is drawn (dop-probe.js gateDims; the
+  // Polish Ultrasound Society's setting, J Ultrason 2015, p. 214), within the 2–15 mm a scanner offers (Meola et al., J Vasc Access
+  // 2021, p. 22). From the vessel's usual width (the trunk the probe sees for a lumped bundle), so it holds still while the vessel
+  // swells and shrinks with the beat; a stent or collateral, which has none, reads its own.
+  const svMm = () => {
+    const e = EDGES[EI[probe]], d = e?.vd || e?.d || frame?.D?.[EI[probe]] || 0;
+    return clamp(Math.round(d / 2), 2, 15);
+  };
   // A stent's proximal, mid and distal velocities from the open stent's velocity v: the narrowed segment runs faster.
   const stentReads = (v) => {
     const prm = store.get().params, s = 1 - (1 - (prm?.stenosis?.[probe] || 0)) * (1 - (prm?.thrombus?.[probe] || 0));
@@ -288,7 +296,7 @@ export function createDoppler({ onProbe, pickGate = true }) {
     let dir, sev, pattern, note;
     if (a < 1 && big < 2 && p.kind !== 'collateral') {
       dir = 'No flow'; sev = 'critical'; pattern = 'No signal';
-      note = p.kind === 'tips' ? 'No flow in the stent: occluded.' : 'No detectable flow: the vessel is occluded, as in thrombosis.';
+      note = p.kind === 'tips' ? 'No flow in the stent: occluded.' : 'No detectable flow: a clot, or flow too slow to detect.';
     } else if (p.kind === 'portal') {
       // A stent draws the intrahepatic branches toward it: the left branch (and with a DIPS, which leaves the bifurcation,
       // the right too) runs back toward it, often slowly, so slow reversed flow there is still a direction, not stasis.
@@ -310,7 +318,7 @@ export function createDoppler({ onProbe, pickGate = true }) {
       note = dir === 'Hepatofugal' ? 'Flow runs away from the liver: portal blood is leaving through collaterals.'
         : dir === 'To-and-fro' ? 'Flow swings both ways each cycle, on the way to reversal.'
         : dir === 'Stasis' ? 'Almost no net flow: a setting for portal vein thrombosis.'
-        : pattern === 'Pulsatile' ? 'A pulsatile portal vein suggests right-heart pressure transmitted back (heart failure, tricuspid regurgitation).'
+        : pattern === 'Pulsatile' ? 'A pulsatile portal vein suggests right-heart pressure transmitted back (heart failure, tricuspid regurgitation) or an arterioportal shunt.'
         : a < normal[0] ? (stent ? `Slower than expected with a ${stent}: it suggests the stent is narrowing.` : 'Toward the liver but slow: typical of portal hypertension.')
         : pattern === 'Monophasic' ? 'Normal: toward the liver, steady.'
         : 'Normal: toward the liver with gentle phasicity.';
@@ -794,7 +802,7 @@ export function createDoppler({ onProbe, pickGate = true }) {
       ctx.font = FONT(700, 12); ctx.fillStyle = cssAlpha('--doppler', 1); ctx.fillText(pi, x0, yLab);
       x0 += ctx.measureText(pi).width + 12; ctx.font = FONT(500, 12); ctx.fillStyle = cssAlpha('--white', .5);
     }
-    const parts = [mode === 'spectrum' ? 'PW' : 'PW + CD', 'θ 60°', 'SV 3 mm', `${sweepSeconds} s`], room = w - padR - x0 - 6;
+    const parts = [mode === 'spectrum' ? 'PW' : 'PW + CD', `θ ${THETA}°`, `SV ${svMm()} mm`, `${sweepSeconds} s`], room = w - padR - x0 - 6;
     while (parts.length > 1 && ctx.measureText(parts.join('  ·  ')).width > room) parts.pop();
     if (ctx.measureText(parts.join('  ·  ')).width <= room) ctx.fillText(parts.join('  ·  '), x0, yLab);
     if (buf.length < 2) {
