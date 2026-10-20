@@ -43,7 +43,7 @@ import { probePose, probeShapes, beamBoxes, gateBoxes, awayFromProbe, PROBE, PRO
 import { organDimMatrix } from './organ-dim.js?v=7888276613';
 import { parseColor, greyOf, paintRef } from './organ-grey.js?v=e41d68222c';
 import { bandRing, dashRings, liftEnd, normalShown, rippleList, systemOf, SYSTEM_COLOR } from './highlight-math.js?v=e2c1816e25';
-import { organAnchor, spleenCaliper, acrossVessel, stepGroups, spanOf, spanPath, zoneBand, SPAN_TICK, insideBy, clearOf, besideLine } from './callout-math.js?v=896bf06ebe';
+import { organAnchor, spleenCaliper, acrossVessel, stepGroups, spanOf, spanPath, zoneBand, SPAN_TICK, insideBy, clearOf, besideLine } from './callout-math.js?v=c14eba2378';
 const nextFrame = frameFor('stage');
 
 const N_SAMPLES = 64;
@@ -7069,6 +7069,20 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         const V = viewOf(it), inside = within(r, V), held = !moved && !!prev && !prev.drop && prev.dir === dir && prev.pi === pi && (inside || !within({ x0: it.ax, y0: it.ay, x1: it.ax, y1: it.ay }, V));
         // (edge: px inside the stage it keeps; avoid: drawn shapes (an organ, a lit outline) it keeps off, by pad px.)
         if ((ps.edge && !insideBy(r, V, ps.edge)) || (ps.avoid && !clearOf(r, ps.avoid, ps.pad ?? 0))) return;
+        // (fans: the targets of a numbered step's group, V10. Each of its leaders, from its target to the box, runs through no label and
+        // crosses no other leader, a group's own included.)
+        if (ps.fans) {
+          const segs = out.flatMap((o) => [...(o.leader && !o.live ? [(() => { const e = leaderEnd(rectOf(o), o.ax, o.ay); return [o.ax, o.ay, e.x, e.y]; })()] : []), ...(o.fans || []).map(([fx, fy]) => { const e = leaderEnd(rectOf(o), fx, fy); return [fx, fy, e.x, e.y]; })]);
+          if (ps.fans.some(([fx, fy]) => {
+            const le = leaderEnd(r, fx, fy), L = Math.hypot(le.x - fx, le.y - fy);
+            if (segs.some((sg) => segsCross(sg, [fx, fy, le.x, le.y]))) return true;
+            for (let u = 6; u < L - 2; u += 3) {
+              const px = fx + ((le.x - fx) * u) / L, py = fy + ((le.y - fy) * u) / L;
+              if (placed.some((p) => !p.dot && hits({ x0: px - 3, y0: py - 3, x1: px + 3, y1: py + 3 }, p))) return true;
+            }
+            return false;
+          })) return;
+        }
         const om = ps.strict ? 10 : 0;
         if ((ps.inView && !inside) || ((ps.inView || ps.strict) && obstacles.some((o) => !(o.zone && ps.strict) && hits(r, { x0: o.x0 - om, y0: o.y0 - om, x1: o.x1 + om, y1: o.y1 + om })))) return;   // (in the free space: inside the stage, 10 px from any card, the margin a hidden label needs to show again)
         let onLine = 0;
@@ -7606,22 +7620,26 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         placeMulti(it, besideLine(p0, p1), [...beside, ...out, ...nearFar(24)]);
       });
       if (fx.steps) for (const g of stepGroups(slideGlow.filter((x) => E[x.id]?.vis), fx.steps)) {
-        // A step's number by the middle of its vessel (the first of its group drawn), or on its organ, lit as its glow lights (V10).
-        let ax, ay, near;
+        // A step's number by the middle of its vessel (the first of its vessels drawn), or on its organ, lit as its glow lights (V10).
+        let ax, ay, near, fans = null;
         if (g.organ) {
           const a = !circuit && organEls[g.organ] && organAnchor(g.organ, (f.slow?.spleen ?? 11) / 11);
           if (!a) continue;
           [ax, ay] = worldToLocal(...a.at); near = 4;
         } else {
-          const id = g.ids.find((x) => geo[x]?.cur?.length > 1 && !E[x].g.classList.contains('coll-ghost'));
-          if (!id) continue;
-          const [wx, wy] = arcMid(geo[id].cur);
-          [ax, ay] = worldToLocal(wx, wy); near = 4 + ((E[id].width || 4) * k) / 2;
+          const ids = g.ids.filter((x) => geo[x]?.cur?.length > 1 && !E[x].g.classList.contains('coll-ghost'));
+          if (!ids.length) continue;
+          const mids = ids.map((x) => worldToLocal(...arcMid(geo[x].cur)));
+          // (A group's number stands between its vessels, on a leader to the middle of each: fans.)
+          if (g.group && mids.length > 1) { fans = mids; ax = mids.reduce((a, p) => a + p[0], 0) / mids.length; ay = mids.reduce((a, p) => a + p[1], 0) / mids.length; near = 4; }
+          else { [ax, ay] = mids[0]; near = 4 + ((E[ids[0]].width || 4) * k) / 2; }
         }
         const it = { key: 'fxs:' + g.n, cls: 'fx-step', lines: [[{ t: String(g.n), size: 11.5, weight: 750, cls: 'lb-step' }]], align: 'middle', bg: true, pill: true, padX: 5, padY: 2, ax, ay, pri: 20, delay: g.at, free: true, label: `Step ${g.n}` };   // (free: no dot on the vessel, only a leader when it stands off)
         it.h = LINE_H(it.lines[0]); it.w = Math.max(lineW(it.lines[0]), it.h - 4);
         buildLines();
-        placeMulti(it, ['NE', 'NW', 'SE', 'SW', 'N', 'S', 'E', 'W'], nearFar(near));
+        // (A group's spots keep its leaders clear first; where none does, it takes the usual ones, so the number never vanishes.)
+        if (fans) it.fans = fans;
+        placeMulti(it, ['NE', 'NW', 'SE', 'SW', 'N', 'S', 'E', 'W'], fans ? [...nearFar(near).map((ps) => ({ ...ps, fans })), ...nearFar(24).map((ps) => ({ ...ps, fans })), ...nearFar(near)] : nearFar(near));
       }
       if (circuit) fx.spans.forEach((sp, i) => {
         // A bracket's reading, under its middle (above it where the stage ends first).
@@ -7774,6 +7792,14 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     for (const it of out) {
       if (it.hide || it.live || it.cls === 'organ' || it.cls === 'lane' || it.key === 'scan') continue;
       let r = rectOf(it);
+      // (A numbered step's group: a leader from each of its vessels to the number, none to the point between them.)
+      if (it.fans) {
+        it.fans.forEach(([fx, fy], j) => {
+          const le = leaderEnd(r, fx, fy, 6);
+          if (Math.hypot(le.x - fx, le.y - fy) > 4) leaders.push({ k: `lf:${it.key}:${j}`, tag: 'path', at: { class: 'leader', 'data-k': it.key, d: `M${fx.toFixed(1)} ${fy.toFixed(1)} L${le.x.toFixed(1)} ${le.y.toFixed(1)}` }, fanOf: it });
+        });
+        continue;
+      }
       // (A Circuit reading's leader reaches its text: the nearer of its lines, as wide as that line's words, not the block's box.)
       if (circuit && it.key.startsWith('n:')) {
         let y = it.y, best = null;
@@ -7859,6 +7885,13 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     }
     glass.hidden = !out.some((it) => it.key === 'liver' && !it.hide);
     paintLeaders(leaders);
+    // (A group's leaders come in with its number, as its vessels light.)
+    for (const w of leaders) {
+      const el = w.fanOf && leadEls.get(w.k), wait = el && w.fanOf.delay - (performance.now() - glowSetAt);
+      if (!el || el.fxIn) continue;
+      el.fxIn = true;
+      if (wait > 0 && !reduceMotion.matches) el.animate?.([{ opacity: 0 }, { opacity: 1 }], { duration: 350, delay: wait, easing: 'ease-out', fill: 'backwards' });
+    }
     return true;
   }
   const nodeVisible = (id) => !(ANAT_HIDDEN_NODES.has(id) && morph < 0.5) && ALL_EDGES.some((e) => (e.from === id || e.to === id) && E[e.id]?.vis);

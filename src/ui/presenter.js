@@ -20,11 +20,11 @@ import { sinusoidSupported } from './sinusoid-view.js?v=98d1923b7c';
 import { NODES } from '../engine/topology.js?v=4044766e96';
 import { DISEASE_SRC, diseasePieces } from './diseases.js?v=fb8a5451c3';
 import { nb, listCase, plateletText } from './glue.js?v=5a0f63226b';
-import { DECKS, REGIONS, LEVELS, TOPICS, withOverview, siteTag, SITE_TAGS } from './decks.js?v=b66e52b785';
+import { DECKS, REGIONS, LEVELS, TOPICS, withOverview, siteTag, SITE_TAGS } from './decks.js?v=aa1e67d904';
 import { wholeGap, tenthGap } from '../engine/gap.js?v=3a5947c552';
 import { createHvpgMonitor } from './hvpg-proc.js?v=dee34d2593';
-import { createTools } from './presenter-tools.js?v=9c82f375c4';
-import { openHandout } from './handout.js?v=aa6523382c';
+import { createTools } from './presenter-tools.js?v=49f180119f';
+import { openHandout } from './handout.js?v=aa4a75878c';
 import { noteResume, resumeFor } from './resume.js?v=f086f80ee8';
 import { parseDeckSource, checkDeck } from './deck-source.js?v=8395c650cd';
 import { NO_ASC, TILE, SCALE, bandsOf, rateOf, COLS, CUT, PRESS, fpv, dirAbs, dirRel, rateAbs, effOf, rateShown, tileShown, tipsGoal, liveSettled, shownSig } from './table-marks.js?v=1dc429fe31';
@@ -32,8 +32,8 @@ import { frameFor, cancelFrame } from './frame.js?v=2ce59939b2';
 import { createFigureKey } from './figure-key.js?v=7e170d78ce';
 import { traceWhen } from './trace-labels.js?v=fc916a95c6';
 import { flowCss, heatCss, dropCss, gradientCss, oxygenCss } from './colormap.js?v=1092d36abc';
-import { EXT, expandIds, stepExtra, markLabel, figureHooks, safe } from './slide-ext.js?v=8912a7aa4d';
-import { clotWords } from './callout-math.js?v=896bf06ebe';
+import { EXT, expandIds, stepExtra, markLabel, figureHooks, safe } from './slide-ext.js?v=0dc3c857bf';
+import { clotWords } from './callout-math.js?v=c14eba2378';
 import { citeText, focusOf, ladderFromOf, ladderFromName } from './teach-extras.js?v=d8224d9bb5';
 import { DEMO_ALL } from './test-decks/demo-all-new-visuals.js?v=9aeadbb887';
 import { COMPACT, WIDE } from './card-type.js?v=f5dfdb80f2';
@@ -249,14 +249,15 @@ export function slideTargets(s, line = s.line || '') {
   for (const k of s.tint || []) { const t = TARGETS[k]; if (t?.node) terms[t.node] = t.tone; }   // (a label the line does not name, in its colour all the same)
   // glowSeq (ms): the glow field lights in its order, one step apart (pressure passing back from the heart, D6).
   const at = new Map();
-  expandIds(s.glow || []).forEach((g, i) => {   // ('@name': a deck visuals package's named set, slide-ext.js)
+  // (An entry may be a list of vessels, a step's group (V10): they light together, at the entry's moment.)
+  expandIds(s.glow || []).forEach((g0, i) => { for (const g of Array.isArray(g0) ? expandIds(g0) : [g0]) {   // ('@name': a deck visuals package's named set, slide-ext.js)
     const id = typeof g === 'string' ? g : g.id, tone = typeof g === 'string' ? null : g.tone, ms = s.glowSeq ? i * s.glowSeq : 0;
     // { id, soft: true }: a supporting vessel, lit more gently than the one the slide is about.
     const add = (e, tn) => { glow.delete(e); glow.set(e, tn); if (ms) at.set(e, ms); if (g.soft) soft.add(e); else soft.delete(e); };
     if (TARGETS[id]) { const t = TARGETS[id]; if (t.lit) lit.add(id); if (t.res) res.set(t.res, tone || t.tone); for (const e of t.edges || []) add(e, tone || t.tone); if (t.organ) organs.set(t.organ, tone || t.tone); }
     else if (ORGANS.has(id)) organs.set(id, tone || TARGETS[id]?.tone);
     else add(id, tone || EDGE_TONE[id] || 'accent');
-  });
+  } });
   // A lobule slide that lights the portal venule's or the central vein's reading lights the sinusoids' as well: the
   // sinusoidal pressure sits between the two, and the other labels are faded out (Mohammad, 16 Oct).
   if (lit.has('lobule:central') || lit.has('lobule:triad')) lit.add('lobule:sinusoid');

@@ -6,11 +6,12 @@
 //                                                       duodenum, kidney, or the ascites) (V8)
 //   calipers: ['spleen'], ['varix'], ['TIPS']          a dimension line across the spleen, a varix or a vessel, with its reading (V9)
 //   steps: true (beside glowSeq)                       each step of the glow's order keeps its number (V10)
+//   glow: [['V_INT', 'V_SPL', 'V_IMV'], 'PV_TRUNK']    with steps: a list in the glow is one step, its number on a leader to each
 //   span: [{ from: 'CONF', to: 'IVCS', label: 'PPG {ppg}' }]   on the circuit view, a bracket from one station to another (V25)
 //   zone: 'liver'                                      on the circuit view, one of its five zone bands lit softly (V25)
 import { EDGES } from '../engine/topology.js?v=4044766e96';
 import { SETS } from './highlight-math.js?v=e2c1816e25';
-import { parseLive, liveRuns, widestRuns, runsText, ORGAN_MARKS, ORGAN_ANCHOR, caliperOf, caliperText, stepPlan, zoneIndex, spanOf } from './callout-math.js?v=896bf06ebe';
+import { parseLive, liveRuns, widestRuns, runsText, ORGAN_MARKS, ORGAN_ANCHOR, caliperOf, caliperText, stepPlan, zoneIndex, spanOf } from './callout-math.js?v=c14eba2378';
 
 const EI = new Map(EDGES.map((e, i) => [e.id, i]));
 const list = (v) => (v == null ? [] : Array.isArray(v) ? v : [v]);
@@ -30,7 +31,7 @@ function plan(s) {
   for (const sp of list(s.span)) { const at = sp && spanOf(sp.from, sp.to); if (at) spans.push({ from: sp.from, to: sp.to, runs: parseLive(sp.label) || [{ t: String(sp.label || ''), sp: false }] }); }
   const calipers = [...new Set(list(s.calipers).filter((x) => typeof x === 'string'))].map(caliperOf).filter((c) => c.organ || EI.has(c.edge));
   // (The glow as the presenter lights it: each '@set' stands for its vessels, each lit one step after the one before.)
-  const steps = s.steps && s.glowSeq > 0 ? stepPlan(list(s.glow).flatMap((g) => expand([typeof g === 'string' ? g : g?.id])), s.glowSeq, (id) => EI.has(id), (id) => !!ORGAN_ANCHOR[id]) : null;
+  const steps = s.steps && s.glowSeq > 0 ? stepPlan(list(s.glow).flatMap((g) => (Array.isArray(g) ? [expand(g.map((x) => (typeof x === 'string' ? x : x?.id)))] : expand([typeof g === 'string' ? g : g?.id]))), s.glowSeq, (id) => EI.has(id), (id) => !!ORGAN_ANCHOR[id]) : null;
   const zone = s.zone != null ? zoneIndex(s.zone) : -1;
   return live.length || organs.length || spans.length || calipers.length || steps?.length || zone >= 0 ? { live, organs, spans, calipers, steps: steps?.length ? steps : null, zone } : null;
 }

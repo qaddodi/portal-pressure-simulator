@@ -18,10 +18,10 @@ export const SITES = {
   slides: [
     {
       id: 'overview', preset: 'healthy', lens: 'system', cam: 'fit', labels: ['CONF', 'SIN_R', 'RHV', 'RA'], rail: 'all',
-      glow: ['V_INT', 'PV_TRUNK', 'SIN_RR', 'RHV_IVC', 'IVCS_RA'], glowSeq: 550, steps: true,
+      glow: [['V_INT', 'V_SPL', 'V_IMV'], ['PVH_R', 'PVH_L'], 'SIN_RR', 'RHV_IVC', 'IVCS_RA'], glowSeq: 550, steps: true,   // (1: the gut and spleen's veins; 2: the portal vein into both lobes)
       kicker: 'Portal hypertension', title: 'Portal hypertension is named for the site of resistance',
       line: 'Blood runs from the gut through the portal veins and the liver to the systemic veins and the heart. Resistance at any point raises the pressure upstream of it.',
-      notes: 'The figure is colored by vein system: portal veins in one colour, systemic veins in another, collaterals and shunts in a third. The numbered vessels light in turn along the route: gut veins, portal vein, sinusoids, hepatic vein, IVC to the heart. Portal hypertension is named for the level of resistance. Two levels lie before the sinusoids (pre-hepatic and presinusoidal), one is the sinusoids themselves, and three come after them (postsinusoidal, post-hepatic and cardiac). The level decides which pressures rise, what HVPG shows, whether varices form and whether ascites follows. Portal hypertension is a portal pressure gradient above 5 mmHg; 10 mmHg or more is clinically significant.',
+      notes: 'The figure is colored by vein system: portal veins in one colour, systemic veins in another, collaterals and shunts in a third. The numbers light in turn along the route: the veins of the gut and spleen (the SMV, splenic vein and IMV), the portal vein into both lobes, the sinusoids, the hepatic vein, and the IVC to the heart. Portal hypertension is named for the level of resistance. Two levels lie before the sinusoids (pre-hepatic and presinusoidal), one is the sinusoids themselves, and three come after them (postsinusoidal, post-hepatic and cardiac). The level decides which pressures rise, what HVPG shows, whether varices form and whether ascites follows. Portal hypertension is a portal pressure gradient above 5 mmHg; 10 mmHg or more is clinically significant.',
       ask: ['Name one cause of portal hypertension at each level.', 'Portal vein thrombosis; schistosomiasis; cirrhosis; sinusoidal obstruction syndrome; Budd–Chiari syndrome; right heart failure.'],
     },
     {

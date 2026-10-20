@@ -2,6 +2,7 @@
 // on organs, calipers, numbered steps and the circuit's brackets and lit zone. All opt-in: no built-in slide uses a field.
 import './dom-shim.js';
 import { test } from 'node:test';
+import { readFileSync } from 'node:fs';
 import assert from 'node:assert/strict';
 import { EDGES } from '../src/engine/topology.js';
 import { NODE_POS, SPLEEN_CENTER, CIRCUIT_ZONES } from '../src/ui/anatomy.js';
@@ -102,12 +103,26 @@ test('no built-in slide uses a package F field, and the label hook leaves every 
   const hook = F.labels[0];
   for (const d of DECKS) for (const s of d.slides) {
     for (const k of ['calipers', 'steps', 'span', 'zone']) if (!adopted(d, s, k)) assert.equal(s[k], undefined, `${d.id}: ${s.title} sets ${k}`);
+    if (!adopted(d, s, 'glow:group')) assert.ok(!(s.glow || []).some(Array.isArray), `${d.id}: ${s.title} groups its glow`);
     for (const m of [s.mark, ...(s.marks || [])].filter(Boolean)) {
       if (adopted(d, s, 'mark.organ')) continue;
       assert.equal(m.organ, undefined, `${d.id}: ${s.title}`);
       if (m.label) assert.equal(hook(m.label, m, { fp: FP }), m.label, `${d.id}: ${s.title}`);
     }
   }
+});
+
+test('a list in a numbered glow is one step: its vessels light together and its number takes a leader to each', () => {
+  const got = [];
+  const slide = { glow: [['V_INT', 'V_SPL', 'V_IMV'], ['PVH_R', 'PVH_L'], 'SIN_RR'], glowSeq: 550, steps: true };
+  F.figure[0].show({ slide, stage: { callouts: (sp) => got.push(sp) }, fp: FP, params: {}, shown: () => true });
+  assert.deepEqual(got.at(-1).steps.map((p) => [p.n, p.at, p.ids, !!p.group]), [[1, 0, ['V_INT', 'V_SPL', 'V_IMV'], true], [2, 550, ['PVH_R', 'PVH_L'], true], [3, 1100, ['SIN_RR'], false]]);
+  const P = readFileSync(new URL('../src/ui/presenter.js', import.meta.url), 'utf8');
+  assert.match(P, /forEach\(\(g0, i\) => \{ for \(const g of Array\.isArray\(g0\) \? expandIds\(g0\) : \[g0\]\)/, 'the presenter lights a group at its entry\'s moment');
+  const S = readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8');
+  assert.match(S, /if \(g\.group && mids\.length > 1\) \{ fans = mids;/, 'a group\'s number stands between its vessels');
+  assert.match(S, /\.\.\.nearFar\(near\)\.map\(\(ps\) => \(\{ \.\.\.ps, fans \}\)\)[^\n]*\.\.\.nearFar\(near\)\]/, 'its leaders keep clear first, and it never vanishes');
+  assert.match(S, /k: `lf:\$\{it\.key\}:\$\{j\}`/, 'one leader to each vessel');
 });
 
 test('the figure hook hands the stage a slide\'s callouts, fills them as the model moves, and clears them', () => {

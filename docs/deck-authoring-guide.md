@@ -233,7 +233,7 @@ All figure-only (no `visual`). Organ outlines, the normal spleen, organ marks, c
 * **Live readings in a mark**: a mark's `label` may hold any tile `{token}` (`'Varix {varix}'`), printed as its tile prints it and in its rating colour on a plain pill; it follows sliders, buttons and time-lapses without jumping. Do not repeat a reading a station label already shows.
 * **Marks on organs**: `mark: { organ: 'spleen', label: 'Spleen {spleen}' }`; organs `liver spleen heart stomach esophagus bowel colon duodenum kidney ascites`. `kind` defaults to `note`.
 * **`calipers: ['spleen' | 'varix' | 'TIPS' | <vessel id>]`**: a dimension line with its reading (spleen length, varix diameter, stent width in whole mm, any other vessel's modelled diameter).
-* **`steps: true`** with `glowSeq`: a small round number by each glow entry as it lights.
+* **`steps: true`** with `glowSeq`: a small round number by each glow entry as it lights. A list inside the glow is one step: its vessels light together and its number stands between them on a leader to each (`glow: [['V_INT', 'V_SPL', 'V_IMV'], ['PVH_R', 'PVH_L'], 'SIN_RR']`); its leaders keep off every label and other leader where they can.
 * **`span: [{ from, to, label }]`** (circuit station ids; the label may hold tokens): a bracket under the circuit with its reading. **`zone: 'splanchnic' | 'portal' | 'liver' | 'hepatic' | 'heart'`** fills that part of the circuit softly.
 * Every reading pill keeps clear of vessels, lines, organs and the cards, at 12 px or more.
 

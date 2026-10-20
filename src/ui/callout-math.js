@@ -127,11 +127,13 @@ export function caliperText(c, fp, params, ei) {
 // ── V10: numbered steps ──
 /** A glowSeq slide's steps, one for each entry of its glow, in order: { n, at, ids, organ }. The presenter lights entry i at
  *  i × glowSeq ms; a vessel id or '@set' (already expanded) gives its own vessels, an organ its organ, and a target key (which only
- *  the presenter can read) null: the stage then takes the vessels lit at that moment. */
+ *  the presenter can read) null: the stage then takes the vessels lit at that moment. A list of vessels is one step, a group: its number
+ *  takes a leader to each of them. */
 export function stepPlan(glow, seq, isVessel, isOrgan) {
   return (glow || []).map((g, i) => {
     const ids = (Array.isArray(g) ? g : [g]).map((x) => (typeof x === 'string' ? x : x?.id)).filter(Boolean);
-    return { n: i + 1, at: i * seq, ids: ids.every(isVessel) && ids.length ? ids : null, organ: ids.length === 1 && isOrgan(ids[0]) ? ids[0] : null };
+    const vessels = ids.every(isVessel) && ids.length ? ids : null;
+    return { n: i + 1, at: i * seq, ids: vessels, organ: ids.length === 1 && isOrgan(ids[0]) ? ids[0] : null, ...(Array.isArray(g) && vessels?.length > 1 ? { group: true } : {}) };
   });
 }
 /** Each step's vessels as the figure lit them (glow: [{ id, at }]): its own where it names them, else the ones lit at its moment

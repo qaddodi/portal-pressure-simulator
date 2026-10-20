@@ -85,7 +85,7 @@ export const ADOPTED = {
   'variceal-bleed/oct': ['ripple'],
   'variceal-bleed/blood': ['cite'],
   'variceal-bleed/tips': ['ripple', 'cite'],
-  'sites/overview': ['lens:system', 'steps'],
+  'sites/overview': ['lens:system', 'steps', 'glow:group'],
   'sites/healthy': ['kind:profile'],
   'sites/pvt': ['kind:profile'],
   'sites/presin': ['kind:profile'],
@@ -120,6 +120,7 @@ export function uses(s, field) {
   if (kind === 'tool') return s.tool?.[name] !== undefined;
   if (kind === 'cols') return (s.cols || []).includes(name);
   if (kind === 'lens') return s.lens === name;
+  if (kind === 'glow') return (s.glow || []).some(Array.isArray);
   if (kind === 'mark') return [s.mark, ...(s.marks || [])].some((m) => m?.[name] !== undefined);
   return s[field] !== undefined;
 }
