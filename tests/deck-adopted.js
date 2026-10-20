@@ -22,6 +22,9 @@ export const ADOPTED = {
   'tips-doppler/alias': ['tool.scale'],
   'tips-doppler/alias-fix': ['tool.scale', 'tool.baseline'],
   'tips-doppler/where': ['tool.mode'],
+  'tap/back': ['kind:fluid'],
+  'tap/diuretics': ['kind:fluid'],
+  'tap/tips': ['kind:fluid'],
 };
 
 /** Whether the slide d/s may use the field. */
