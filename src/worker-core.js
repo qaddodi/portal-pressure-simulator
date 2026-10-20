@@ -140,6 +140,7 @@ export function createCore(post) {
       type: 'frame',
       changed: frameDirty,
       t: eng.t, day: eng.day, running, speed, clock, probe,
+      lapseDay: lapse?.bedside ? lapse.total - lapse.left : undefined,
       pulsing: !!(eng.params.pulsatile || eng.beat),
       resp: !!eng.params.respiration,
       morphing: !!morph,
@@ -194,6 +195,7 @@ export function createCore(post) {
       paramsDirty = true; frameDirty = true;
     } else if (running) {
       if (clock === 'hemo') {
+        if (lapse?.bedside) bedsideStep(now);
         // (On a hidden copy of the model: the beat runs on, so the Doppler and tracings stay smooth while a slider moves.)
         if (now < relaxUntil) eng.relaxHidden(); else eng.relaxDone();
         const h = hemoStep(eng.params.pulsatile || beat, speed);
@@ -241,6 +243,18 @@ export function createCore(post) {
       if (--lapse.left <= 0) { lapse = null; eng.settle(); clock = 'hemo'; speed = 1; diseaseAcc = 0; }
     }
     paramsDirty = true;
+  }
+
+  // A bedside time-lapse (lapse.clock 'seconds'): the ramp eased over real seconds on the seconds clock, the beat running,
+  // so the Doppler keeps sampling as it plays (a meal). Its progress is reported in the slide's days (frame.lapseDay).
+  function bedsideStep(now) {
+    const b = lapse.bedside, k = Math.min(1, (now - b.t0) / b.ms);
+    if (lapse.ramp) eng.setParams(deepMerge(eng.paramsTarget(), rampAt(lapse.ramp, k, 1)));
+    // (Settled as it goes, as a slider is, on a hidden copy: the flow climbs with the ramp, not tens of seconds behind it.)
+    relaxUntil = now + 1200;
+    lapse.left = lapse.total * (1 - k);
+    paramsDirty = true;
+    if (k >= 1) lapse = null;
   }
 
   function start() {
@@ -294,10 +308,17 @@ export function createCore(post) {
     },
     // The presenter's time-lapse: days on the disease clock at speed days a second, ramp's params eased over
     // them ({ key: [from, to] }); days 0 stops one under way.
-    lapse({ days, speed: s, ramp }) {
+    // bedside: the ramp plays over the slide's seconds on the seconds clock instead (see bedsideStep).
+    lapse({ days, speed: s, ramp, bedside }) {
       morph = null;
-      lapse = days > 0 ? { left: days, total: days, ramp: ramp ? Object.entries(ramp) : null } : null;
-      running = true; clock = lapse ? 'disease' : 'hemo'; speed = lapse ? s : 1; diseaseAcc = 0;
+      lapse = days > 0 ? { left: days, total: days, ramp: ramp ? Object.entries(ramp) : null, bedside: bedside ? { t0: performance.now(), ms: (days / s) * 1000 } : null } : null;
+      running = true; clock = lapse && !bedside ? 'disease' : 'hemo'; speed = lapse && !bedside ? s : 1; diseaseAcc = 0;
+    },
+    // Next during a bedside time-lapse: what is left of it runs in ms.
+    lapseFast({ ms }) {
+      if (!lapse?.bedside) return;
+      const now = performance.now(), b = lapse.bedside, k = Math.min(1, (now - b.t0) / b.ms);
+      b.ms = ms / Math.max(1e-6, 1 - k); b.t0 = now - k * b.ms;
     },
     // The presenter's slide that turns breathing off stops it on the live model as the slide begins (only that switch;
     // a morph under way keeps easing to its own state).

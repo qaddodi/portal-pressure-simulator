@@ -20,11 +20,11 @@ import { sinusoidSupported } from './sinusoid-view.js?v=d08eee58a9';
 import { NODES } from '../engine/topology.js?v=4044766e96';
 import { DISEASE_SRC, diseasePieces } from './diseases.js?v=fb8a5451c3';
 import { nb, listCase, plateletText } from './glue.js?v=5a0f63226b';
-import { DECKS, REGIONS, LEVELS, TOPICS, withOverview, siteTag, SITE_TAGS } from './decks.js?v=a9a05775a3';
+import { DECKS, REGIONS, LEVELS, TOPICS, withOverview, siteTag, SITE_TAGS } from './decks.js?v=0a6cd7cd48';
 import { wholeGap, tenthGap } from '../engine/gap.js?v=3a5947c552';
 import { createHvpgMonitor } from './hvpg-proc.js?v=9f3a76d28d';
-import { createTools } from './presenter-tools.js?v=66c9f4afeb';
-import { openHandout } from './handout.js?v=a8d3be7c55';
+import { createTools } from './presenter-tools.js?v=2befcff4c7';
+import { openHandout } from './handout.js?v=3a8ec5fdf2';
 import { noteResume, resumeFor } from './resume.js?v=f086f80ee8';
 import { parseDeckSource, checkDeck } from './deck-source.js?v=8395c650cd';
 import { NO_ASC, TILE, SCALE, bandsOf, rateOf, COLS, CUT, PRESS, fpv, dirAbs, dirRel, rateAbs, effOf, rateShown, tileShown, tipsGoal, liveSettled, shownSig } from './table-marks.js?v=1dc429fe31';
@@ -32,7 +32,7 @@ import { frameFor, cancelFrame } from './frame.js?v=2ce59939b2';
 import { createFigureKey } from './figure-key.js?v=7e170d78ce';
 import { traceWhen } from './trace-labels.js?v=fc916a95c6';
 import { flowCss, heatCss, dropCss, gradientCss, oxygenCss } from './colormap.js?v=1092d36abc';
-import { EXT, expandIds, stepExtra, markLabel, figureHooks, safe } from './slide-ext.js?v=02a10de912';
+import { EXT, expandIds, stepExtra, markLabel, figureHooks, safe } from './slide-ext.js?v=bc8761c00a';
 import { clotWords } from './callout-math.js?v=039dddefca';
 import { citeText, focusOf, ladderFromOf, ladderFromName } from './teach-extras.js?v=d8224d9bb5';
 import { DEMO_ALL } from './test-decks/demo-all-new-visuals.js?v=9aeadbb887';
@@ -1178,7 +1178,7 @@ function makeCalc() {
   };
   const ready = (async () => {
     try {
-      const w = new Worker(new URL('../worker.js?v=e315a0790f', import.meta.url), { type: 'module' });
+      const w = new Worker(new URL('../worker.js?v=7685f855e2', import.meta.url), { type: 'module' });
       await new Promise((res, rej) => {
         const t = setTimeout(() => rej(new Error('worker timeout')), 15000);   // (long: a slow load still gets the worker; host.js)
         w.onmessage = (e) => { if (e.data?.type === 'presets') { clearTimeout(t); res(); } };
@@ -1191,7 +1191,7 @@ function makeCalc() {
       post = (m) => w.postMessage(m); kill = () => w.terminate();
     } catch {
       try {
-        const { createCore } = await import('../worker-core.js?v=69a2f0ff94');
+        const { createCore } = await import('../worker-core.js?v=c7f1386988');
         const core = createCore((m) => setTimeout(() => onMsg(m), 0));
         core.handle({ type: 'visibility', visible: false }); core.handle({ type: 'run', running: false });
         post = (m) => core.handle(structuredClone(m)); kill = () => core.dispose();
@@ -1637,7 +1637,13 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   }
   function stopLapse() { if (!lapseOn) return; lapseOn = false; host.send({ type: 'lapse', days: 0 }); shownState = -1; paintChrome(); }
   // Next during a time-lapse runs the days that are left in about 600 ms (the clock speeds up, the ramp is unchanged) and stops on its end.
-  function skipLapse() { if (!lapseOn || lapseLeft < 1) return; host.send({ type: 'run', speed: Math.max(1, lapseLeft / 0.6) }); lapseLeft = 0; paintChrome(); }
+  function skipLapse() {
+    if (!lapseOn || lapseLeft < 1) return;
+    host.send(bedside(slides[want]) ? { type: 'lapseFast', ms: 600 } : { type: 'run', speed: Math.max(1, lapseLeft / 0.6) });
+    lapseLeft = 0; paintChrome();
+  }
+  // (A bedside time-lapse, lapse.clock 'seconds': the ramp plays on the seconds clock, so an instrument such as the Doppler keeps recording.)
+  const bedside = (s) => s?.lapse?.clock === 'seconds';
   const lapseWords = (n) => (n >= 60 && n % 30 === 0 ? `${n / 30} months` : `${n} days`);
   const lapseText = (s, d, n, done) => (s.lapse.to ? (done ? s.lapse.to : `${s.lapse.from} → ${s.lapse.to}`) : done ? `${lapseWords(n)} later` : `Day ${Math.round(d)} of ${n}`);
   function paintLapse(s, d, n, done = false) {
@@ -1663,14 +1669,18 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     if (!end || cut()) return;
     const days = s.days, d0 = store.get().frame?.day ?? 0, ref = refOf(s, to);
     lapseOn = true; lapseLeft = days;
+    let seen = false;
     ui?.tools.progress(0, end.trail);
-    host.send({ type: 'lapse', days, speed: days / (s.lapse.seconds || 8), ramp: s.ramp || null });
+    host.send({ type: 'lapse', days, speed: days / (s.lapse.seconds || 8), ramp: s.ramp || null, bedside: bedside(s) });
     paintChrome();
     figureHooks('lapse', s);   // (a deck visuals package's glow from the days' start: slide-ext.js)
     while (lapseOn && !cut()) {
       const fast = lapseLeft === 0;
       await wait(fast ? 60 : 150);
-      const fr = store.get().frame, d = clamp((fr?.day ?? d0) - d0, 0, days);
+      const fr = store.get().frame;
+      // (A bedside lapse counts its days in lapseDay, which frames from before it started lack, and frames after it ended lack again.)
+      if (fr?.lapseDay != null) seen = true;
+      const d = clamp(bedside(s) ? fr?.lapseDay ?? (seen ? days : 0) : (fr?.day ?? d0) - d0, 0, days);
       if (lapseLeft) lapseLeft = days - d;
       paintLapse(s, d, days);
       ui?.tools.progress(d / days);

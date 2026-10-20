@@ -43,7 +43,8 @@
 //   lapse                    { seconds, from?, to? }: the slide's days (ramp: { param: [from, to] } eased over them; a dotted param names a nested one, 'fibrosis.R.post') play on the
 //                            live figure as a time-lapse, from the slide before's state (from/to: words for the
 //                            start and end in place of a day counter, e.g. 'Fasting' and 'After a meal'; keep the
-//                            days at least the seconds, or the live clock runs sub-day and skips the ramp)
+//                            days at least the seconds, or the live clock runs sub-day and skips the ramp; clock: 'seconds'
+//                            plays the ramp over the seconds on the bedside clock instead, so a Doppler keeps recording, e.g. a meal)
 //   visual                   over the dimmed figure: 'ladders', 'table' (cols, asc: SAAG and protein columns, note: a text column's heading or several, vs: 'first' to show arrows against the first row,
 //                            foot: one sentence after the legend, which is built from the table; a row's ref: true keeps its numbers, its vs: a slide id
 //                            compares it with that row instead, its note: the text column's words, or an array of them), 'scale' (scale), 'quadrant'
@@ -88,7 +89,7 @@ import { SHUNTS } from './decks/shunts.js?v=fdf4deb758';
 import { TIPS_DOPPLER } from './decks/tips-doppler.js?v=a6771b69c6';
 import { TAP } from './decks/tap.js?v=3a7bc5955a';
 import { CIRCUIT } from './decks/circuit.js?v=f6283358ee';
-import { DOPPLER } from './decks/doppler.js?v=9dfa6b809a';
+import { DOPPLER } from './decks/doppler.js?v=01cd95e928';
 import { ENDOSCOPY } from './decks/endoscopy.js?v=2361b5b0bf';
 import { PREHEPATIC } from './decks/prehepatic.js?v=a47ac55e34';
 import { RIGHT_HEART } from './decks/right-heart.js?v=bf279fe549';

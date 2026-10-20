@@ -34,8 +34,8 @@ export const DOPPLER = {
       ask: ['What causes the brief reversal in the normal hepatic vein waveform?', 'Atrial contraction (the a wave).'],
     },
     {
-      // (The same 8-day fall in splanchnic tone as the Circuit talk's meal, as a time-lapse from fasting.)
-      id: 'meal', params: { respiration: false }, days: 8, ramp: { splanchnicTone: [1, 0.72] }, lapse: { seconds: 6, from: 'Fasting', to: 'After a meal' },
+      // (The same 8-day fall in splanchnic tone as the Circuit talk's meal, as a time-lapse from fasting, on the seconds clock so the Doppler records the rise.)
+      id: 'meal', params: { respiration: false }, days: 8, ramp: { splanchnicTone: [1, 0.72] }, lapse: { seconds: 6, from: 'Fasting', to: 'After a meal', clock: 'seconds' },
       cam: 'portal', labels: ['SMV', 'CONF'], tool: { kind: 'doppler', vessel: 'PV_TRUNK' },
       data: 'tiles', tiles: ['pvFlow', 'pv'], key: ['pvFlow'], delta: true,
       kicker: 'Doppler', title: 'Portal flow rises after a meal',
