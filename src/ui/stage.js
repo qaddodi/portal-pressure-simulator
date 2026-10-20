@@ -22,6 +22,7 @@ import { gridHits, segHitsBox } from './seg-hits.js?v=e7cde76929';
 import { glassCallout } from './callout.js?v=d5524b6a11';
 import { TEXT_MIN, TEXT_MAX, rolePx, roleOf } from './type-scale.js?v=d7cca3fb73';
 import { seeded, strHash, nodularSites, nodularCells } from './liver-geo.js?v=977185f80a';
+import { diaphragmLine, diaphragmD } from './diaphragm.js?v=8012ab6b28';
 import { CIRR, smooth01, liverField, liverShrink, outlineNormals, contourNodules, morphOutline, fix1 } from './liver-morph.js?v=665b344a68';
 import { LIVER_GEO } from './liver-geo-data.js?v=41a20a25ac';
 import { COLON_ART, BOWEL_ART, DUO_CLIPS, DUO_A, DUO_B } from './organ-art.js?v=a1c08582e2';
@@ -3486,7 +3487,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // The inlined copy of the backdrop and organs for the current state (plateStateKey), built with the whole-plate raster
   // and reused by the view rasters that follow it (a pan changes only the window): inlining every element's styles is
   // about 30 ms of each redraw. Made cheaper to draw on the way (plate-copy.js), with the same pixels.
-  // The diaphragm's cut for the spleen never touches it: the dome runs DIA_GAP (11) units above it, more than the cut's
+  // The diaphragm's cut for the spleen never touches it: the dome runs DIA.gap (11, diaphragm.js) units above it, more than the cut's
   // half-width (2.5) and the line's (3.5). The stomach's stays (its upper right comes within a few units of the dome, and
   // crosses it with a large spleen; 20 Oct review), and so does the liver's: under the heart the dome passes below the liver's top
   // (the heart rests on it), so the liver hides it there, in the copy as on the page. The heart and esophagus cuts stay too.
@@ -4710,7 +4711,6 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // pushed out a few units, so it follows a shrunken or congested liver and an enlarged spleen as they
   // ease, and never crosses an organ; the heart rests on it.
   const diaEls = gBackdrop.querySelectorAll('.org-diaphragm');
-  const DIA_GAP = 11, DIA_FOOT = 420, DIA_COL = 6;
   // Just under the heart's base, column by column (or far above, beside it), for the diaphragm the heart rests on.
   let heartBase = null;
   function heartFloor(x) {
@@ -4743,79 +4743,13 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     return outlineCache.get(d);
   }
   function diaphragmPath(shrink, sc) {
-    const pts = [];
-    const add = (el, cx, cy, k) => {
-      for (const [x, y] of outlinePts(el.getAttribute('d'), el)) pts.push([cx + (x - cx) * k, cy + (y - cy) * k]);
-    };
+    const at = (P, cx, cy, k) => P.map(([x, y]) => [cx + (x - cx) * k, cy + (y - cy) * k]);
     // (The liver's smooth dome, never its nodular edge: the nodules stand out about 2 at most, inside the gap.)
-    if (liverDome) for (const [x, y] of liverDome) pts.push([560 + (x - 560) * shrink, 350 + (y - 350) * shrink]);
-    else add(diaCut.liver, 560, 350, shrink);
-    add(diaCut.stomach, 0, 0, 1);
-    add(diaCut.spleen, SPLEEN_CENTER[0], SPLEEN_CENTER[1], sc);
-    // Along the top of the organs (Mohammad, 20 Oct: it runs on the liver's dome, and the heart rests on it): the highest
-    // organ point in each column, smoothed, never lower than the organs themselves.
-    const x0 = Math.min(...pts.map((p) => p[0])), x1 = Math.max(...pts.map((p) => p[0])), n = Math.ceil((x1 - x0) / DIA_COL) + 1;
-    const top = new Array(n).fill(Infinity);
-    for (const [x, y] of pts) { const i = Math.round((x - x0) / DIA_COL); if (y < top[i]) top[i] = y; }
-    for (let i = 0; i < n; i++) if (!Number.isFinite(top[i])) {   // (a column no organ reaches: across from its neighbours)
-      let a = i - 1, b = i + 1;
-      while (b < n && !Number.isFinite(top[b])) b++;
-      top[i] = b >= n ? top[a] : a < 0 ? top[b] : top[a] + (top[b] - top[a]) * (i - a) / (b - a);
-    }
-    // Narrow dips between organs (the gap between the stomach and the spleen) are bridged, so the dome passes over them
-    // instead of dropping into a V (Mohammad, 20 Oct): the profile raised to the highest point within DIA_BRIDGE columns,
-    // then lowered back to the lowest of those (never below an organ's top; broad shapes keep their form).
-    const DIA_BRIDGE = 12;
-    const win = (A, f) => A.map((_, i) => { let v = A[i]; for (let j = Math.max(0, i - DIA_BRIDGE); j <= Math.min(n - 1, i + DIA_BRIDGE); j++) v = f(v, A[j]); return v; });
-    const bridged = win(win(top, Math.min), Math.max);
-    let sm = bridged;
-    for (let k = 0; k < 4; k++) sm = sm.map((v, i) => (sm[Math.max(0, i - 1)] + 2 * v + sm[Math.min(n - 1, i + 1)]) / 4);
-    const hull = sm.map((v, i) => [x0 + i * DIA_COL, Math.min(v, bridged[i])]);
-    hull[0][0] = x0; hull[n - 1][0] = x1;
-    // A long straight run of the hull (across from the liver to the spleen) arches up a little, as
-    // the left dome does over the fundus: tangent at both ends, highest in the middle.
-    const arched = [hull[0]];
-    for (let i = 1; i < hull.length; i++) {
-      const a = hull[i - 1], b = hull[i], dx = b[0] - a[0], dy = b[1] - a[1], len = Math.hypot(dx, dy);
-      if (len > 60) {
-        const n = Math.ceil(len / 20), h = 0.1 * len;
-        for (let j = 1; j < n; j++) { const t = j / n, up = h * Math.sin(Math.PI * t) ** 1.5; arched.push([a[0] + dx * t + (up * dy) / len, a[1] + dy * t - (up * dx) / len]); }
-      }
-      arched.push(b);
-    }
-    // Down the sides to the foot along the organs' own sides (the outermost point in each row, smoothed, never inside the
-    // organ), so the dome turns down round the liver's and the spleen's edges with no corner and no notch where it meets the
-    // drop (Mohammad, 20 Oct: the straight drop from the outermost point left a squared corner and a kink), then pushed out
-    // along each point's normal.
-    const side = (from, sgn) => {
-      const y0 = from[1], m = Math.max(0, Math.ceil((DIA_FOOT - y0) / DIA_COL));
-      if (!m) return [[from[0], DIA_FOOT]];
-      const xs = new Array(m + 1).fill(NaN);
-      for (const [x, y] of pts) {
-        const j = Math.round((y - y0) / DIA_COL);
-        if (j >= 1 && j <= m && !(sgn * x <= sgn * xs[j])) xs[j] = x;
-      }
-      xs[0] = from[0];
-      for (let j = 1; j <= m; j++) if (Number.isNaN(xs[j])) xs[j] = xs[j - 1];
-      let sx = xs;
-      for (let k = 0; k < 3; k++) sx = sx.map((v, j) => (j === 0 ? v : (sx[j - 1] + 2 * v + sx[Math.min(m, j + 1)]) / 4));
-      return sx.map((v, j) => [sgn > 0 ? Math.max(v, xs[j]) : Math.min(v, xs[j]), y0 + j * DIA_COL]).slice(1);
-    };
-    const line = [...side(hull[0], -1).reverse(), ...arched, ...side(hull.at(-1), 1)]
-      .filter((p, i, a) => i === 0 || Math.hypot(p[0] - a[i - 1][0], p[1] - a[i - 1][1]) > 3);
-    const out = line.map((p, i) => {
-      const a = line[Math.max(0, i - 1)], b = line[Math.min(line.length - 1, i + 1)];
-      const dx = b[0] - a[0], dy = b[1] - a[1], n = Math.hypot(dx, dy) || 1;
-      return [p[0] + DIA_GAP * dy / n, p[1] - DIA_GAP * dx / n];
-    }).map(([x, y]) => [x, Math.max(y, heartFloor(x))]);   // (the heart rests on it: it passes just under the heart's base)
-    // Through every point (Catmull-Rom as cubic Béziers).
-    const f1 = (v) => v.toFixed(1);
-    let d = `M${f1(out[0][0])} ${f1(out[0][1])}`;
-    for (let i = 0; i < out.length - 1; i++) {
-      const p0 = out[Math.max(0, i - 1)], p1 = out[i], p2 = out[i + 1], p3 = out[Math.min(out.length - 1, i + 2)];
-      d += ` C${f1(p1[0] + (p2[0] - p0[0]) / 6)} ${f1(p1[1] + (p2[1] - p0[1]) / 6)} ${f1(p2[0] - (p3[0] - p1[0]) / 6)} ${f1(p2[1] - (p3[1] - p1[1]) / 6)} ${f1(p2[0])} ${f1(p2[1])}`;
-    }
-    return d;
+    const liver = at(liverDome || outlinePts(diaCut.liver.getAttribute('d'), diaCut.liver), 560, 350, shrink);
+    const stomach = outlinePts(diaCut.stomach.getAttribute('d'), diaCut.stomach);
+    const spleen = at(outlinePts(diaCut.spleen.getAttribute('d'), diaCut.spleen), SPLEEN_CENTER[0], SPLEEN_CENTER[1], sc);
+    // One smooth dome over them (diaphragm.js); the heart rests on it, just under its base.
+    return diaphragmD(diaphragmLine([liver, stomach, spleen], heartFloor));
   }
   function liftDiaphragm(shrink, sc) {
     // The spleen in steps of 1% (as the plate key reads it): the running model's slow drift must not

@@ -15,7 +15,7 @@ function outline(c, g) {
 }
 const STATES = [[0, 0], [0.6, 0], [0.85, 0], [0.95, 0], [1, 0], [0, 0.5], [0, 1], [0.6, 0.5]];
 
-// The heart rests on the diaphragm, which runs 11 over the liver's top (stage.js DIA_GAP) and is drawn under the heart's base
+// The heart rests on the diaphragm, which runs 11 over the liver's top (diaphragm.js DIA.gap) and is drawn under the heart's base
 // with 3.5 to spare (heartFloor): the liver's top, swollen or shrunken, never rises into the heart (20 Oct review).
 test("the heart's base stays on the diaphragm over the liver's top at every cirrhosis and congestion", () => {
   const H = [];
