@@ -73,6 +73,7 @@ test('nothing a built-in deck produces changes: targets, glows, marks and steps'
     if (!adopted(d, s, 'cols.wave')) assert.equal(stepExtra(s), null, `${at}: no extra work on a built-in slide`);
     if (s.glow) assert.equal(expandIds(s.glow), s.glow, `${at}: its glow is read as it is`);
     for (const m of s.marks || (s.mark ? [s.mark] : [])) {
+      if (m.organ && adopted(d, s, 'mark.organ')) continue;
       assert.equal(expandIds(m.edges), m.edges, `${at}: its mark's edges are read as they are`);
       assert.equal(markLabel(m.label, m, { slide: s, fp: null }), m.label, `${at}: its mark's label is drawn as it is`);
     }

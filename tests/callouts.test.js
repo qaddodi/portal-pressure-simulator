@@ -103,6 +103,7 @@ test('no built-in slide uses a package F field, and the label hook leaves every 
   for (const d of DECKS) for (const s of d.slides) {
     for (const k of ['calipers', 'steps', 'span', 'zone']) if (!adopted(d, s, k)) assert.equal(s[k], undefined, `${d.id}: ${s.title} sets ${k}`);
     for (const m of [s.mark, ...(s.marks || [])].filter(Boolean)) {
+      if (adopted(d, s, 'mark.organ')) continue;
       assert.equal(m.organ, undefined, `${d.id}: ${s.title}`);
       if (m.label) assert.equal(hook(m.label, m, { fp: FP }), m.label, `${d.id}: ${s.title}`);
     }

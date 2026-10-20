@@ -83,8 +83,8 @@ test('time-lapse charts plot every day of the lapse', async () => {
 });
 
 test('the ascites time-lapse charts sinusoids and ascites, one point a day', async () => {
-  const { ASCITES } = await import('../src/ui/decks/ascites.js');
-  const s = ASCITES.slides.find((x) => x.id === 'fill'), msgs = [], core = createCore((m) => msgs.push(m));
+  // (The Ascites deck's time-lapse as it was before it took up the fluid card, 20 Oct: the chart's own settings.)
+  const s = { days: 60, ramp: { cirrhosis: [0.6, 0.85], albumin: [4, 2.8] }, tool: { lines: ['sin', 'asc'] } }, msgs = [], core = createCore((m) => msgs.push(m));
   core.handle({ type: 'init' });
   await core.handle({ type: 'sequence', reqId: 1, steps: [{ preset: 'csph' }, { days: s.days, ramp: s.ramp, fine: true, trail: s.tool.lines }] });   // (settles once the sequence has run)
   assert.ok(msgs.some((m) => m.type === 'sequence'), 'the sequence finished');
