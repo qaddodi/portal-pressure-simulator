@@ -110,7 +110,7 @@ export const REGIONS = {
   route: [380, 30, 900, 690],       // portal vein to heart
   liver: [360, 155, 830, 575],      // the liver (its lower right lobe reaches y 560; organ picks, 20 Oct)
   portal: [520, 360, 930, 710],     // confluence, trunk, splenic vein, SMV
-  gut: [440, 360, 940, 900],        // the portal system and the small bowel under it (a meal's gut glow)
+  gut: [360, 360, 1070, 1000],      // the portal system and the whole small bowel (x 419-1013, y 548-942) with its glow's reach around it
   hepatic: [410, 40, 800, 340],     // hepatic veins, IVC, right atrium
   dips: [450, 220, 760, 480],       // the DIPS tract, portal bifurcation up through the caudate lobe to the IVC
   heart: [440, -20, 800, 300],
