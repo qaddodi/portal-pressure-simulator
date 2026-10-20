@@ -3981,14 +3981,14 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     }
     return rings;
   }
-  function olRingsRaw(id, bare) {
+  function olRingsRaw(id, bare, d = null, stride = 2) {
     const m = bare ? null : organG[id].transform.baseVal.consolidate()?.matrix;
     if (!olPath) { olPath = s('path'); defs.append(olPath); }
     const el = olPath;
-    el.setAttribute('d', RING_OF[id] || organEls[id].getAttribute('d'));
+    el.setAttribute('d', d || RING_OF[id] || organEls[id].getAttribute('d'));
     let L;
     try { L = el.getTotalLength(); } catch { return []; }
-    const n = Math.max(48, Math.ceil(L / 2)), step = L / n, rings = [];
+    const n = Math.max(48, Math.ceil(L / stride)), step = L / n, rings = [];
     let cur = [], prev = null;
     for (let i = 0; i <= n; i++) {
       const q = el.getPointAtLength(i * step);
@@ -4000,6 +4000,15 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     return rings;
   }
   const olKey = (id) => organEls[id].getAttribute('d') + '|' + (organG[id].getAttribute('transform') || '');
+  // The small bowel's loops as they are drawn now: the centre line of each tube of its pile (the deep-tone stroke under the loops,
+  // .ob-deep in organ-art.js), read from the live drawing, so a pile that is reshaped is followed without a copy of its path here.
+  // A warm layer (see WARM) is a soft glow along these, under the organs, so the loops themselves light up.
+  const WARM = { reach: 34, alpha: 0.45 };   // (half width in world units, and strength at the line)
+  const warmEls = new Map();   // (the drawing's tubes, found once: the key below is read every frame)
+  const warmDs = (id) => (warmEls.get(id) || warmEls.set(id, [...organG[id].querySelectorAll('.ob-deep')]).get(id)).map((el) => el.getAttribute('d')).filter(Boolean);
+  const warmRings = (id) => warmDs(id).flatMap((d) => olRingsRaw(id, false, d, 4));
+  const warmKey = (id) => olKey(id) + '|' + warmDs(id).map((d) => d.length + d.slice(-30)).join('|');
+  const olRingsOf = (o) => (o.kind === 'warm' ? warmRings(o.id) : olRings(o.id));
   function olSet(kind, id) {
     for (const o of olList) if (o.kind === kind && o.id !== id) o.on = false;
     if (id && organEls[id]?.getAttribute('d') && !olList.some((o) => o.kind === kind && o.id === id && (o.on = true))) {
@@ -4016,7 +4025,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   let pinList = [];
   function pinOrgans(list, more) {
     if (!more) pinList = list || [];
-    const items = [...pinList, ...(more || [])].map((o) => (typeof o === 'string' ? { id: o } : o)).map((o) => ({ id: PIN_ID(o.id), tone: o.tone || null, glow: !!o.glow, fade: o.fade || 0 }));
+    const items = [...pinList, ...(more || [])].map((o) => (typeof o === 'string' ? { id: o } : o)).map((o) => ({ id: PIN_ID(o.id), tone: o.tone || null, glow: !!o.glow, warm: !!o.warm, fade: o.fade || 0 }));
     const ids = items.map((o) => o.id);
     caud.show(ids.includes('caudate') || ids.includes('caudate-lobe'), ids.includes('caudate'));
     const want = new Map(items.filter((o) => organEls[o.id]).map((o) => [o.id, o]));
@@ -4025,6 +4034,13 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     for (const [id, it] of want) {
       const o = olList.find((x) => x.kind === 'pin' && x.id === id);
       if (o) { o.on = true; o.col = col(it.tone); o.glow = id === 'heart' || it.glow; o.fade = it.fade; } else if (organEls[id].getAttribute('d')) olList.push({ kind: 'pin', id, key: olKey(id), rings: olRings(id), a: 0, on: true, col: col(it.tone), glow: id === 'heart' || it.glow, fade: it.fade });
+    }
+    // (warm: the organ's loops lit from under, beside its outline's glow: the bowel's pile, eased with the same fade.)
+    const warm = new Map(items.filter((o) => o.warm && organEls[o.id]?.getAttribute('d') && warmDs(o.id).length).map((o) => [o.id, o]));
+    for (const o of olList) if (o.kind === 'warm' && !warm.has(o.id)) o.on = false;
+    for (const [id, it] of warm) {
+      const o = olList.find((x) => x.kind === 'warm' && x.id === id);
+      if (o) { o.on = true; o.col = col(it.tone); o.fade = it.fade; } else olList.push({ kind: 'warm', id, key: warmKey(id), rings: warmRings(id), a: 0, on: true, col: col(it.tone), fade: it.fade });
     }
     olDirty = true; olLast = performance.now();
   }
@@ -4138,7 +4154,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   }
   // The organ was redrawn (a reshaped liver, a larger spleen): the outlines follow it.
   function olGeom() {
-    for (const o of olList) { if (o.kind === 'normal') continue; const k = olKey(o.id); if (k !== o.key) { o.key = k; o.rings = olRings(o.id); o.verts = null; olDirty = true; } }
+    for (const o of olList) { if (o.kind === 'normal') continue; const k = o.kind === 'warm' ? warmKey(o.id) : olKey(o.id); if (k !== o.key) { o.key = k; o.rings = olRingsOf(o); o.verts = null; olDirty = true; } }
   }
   // Eases each outline toward shown or gone and hands them to the GPU; true while anything is changing.
   function olStep(now) {
@@ -4169,6 +4185,20 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     for (const o of olList) {
       const ease = o.a * o.a * (3 - 2 * o.a);
       const col = o.col || (o.kind === 'pin' ? olCol : orgTone(o.id));
+      // A warm layer: one soft strip along each centre line, strongest on it and easing out to either side.
+      if (o.kind === 'warm') {
+        for (const r of o.rings) {
+          const n = r.length;
+          if (V) for (let i = 0; i < n; i++) {
+            const p = r[i], pa = r[Math.max(0, i - 1)], pb = r[Math.min(n - 1, i + 1)];
+            let tx = pb[0] - pa[0], ty = pb[1] - pa[1]; const l = Math.hypot(tx, ty) || 1; tx /= l; ty /= l;
+            V.push(p[0], p[1], -ty, tx, -1, WARM.reach, p[0], p[1], -ty, tx, 1, WARM.reach);
+          }
+          draws.push({ first, count: n * 2, col, alpha: WARM.alpha * ease, soft: true });
+          first += n * 2;
+        }
+        continue;
+      }
       // The passes: a glow alone (the heart a slide points at), a glow under the line (a selected organ), or the line.
       const passes = o.glow ? [[true, HEART_GLOW.reach, HEART_GLOW.alpha]] : [...(o.kind === 'sel' ? [[true, SEL_GLOW.reach, SEL_GLOW.alpha]] : []), [false, ...OL_LOOK[o.kind]]];
       for (const [glow, w, alpha] of passes) {

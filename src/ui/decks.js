@@ -63,7 +63,7 @@
 //                            of the live model; the figure and the data card follow it
 //   opt-in visuals (deck visuals packages; a built-in slide uses one only when tests/deck-adopted.js lists it; docs/deck-authoring-guide.md 5.9, 6.4, 7):
 //                            figure: spot, normalOutline, ripple, lens 'system' | 'since' (since, sinceLabel), calipers,
-//                            lapseGlow ['bowel'] (those organs glow while the time-lapse runs), steps (with glowSeq), span, zone,
+//                            lapseGlow ['bowel'] (those organs glow from the time-lapse's start, while the slide is up), steps (with glowSeq), span, zone,
 //                            mark { organ } and {tokens} in a mark's label, '@sets' in glow/spot/edges;
 //                            words: cite; card: ladderFrom, ladderFromLabel, tool kinds 'profile', 'flows', 'curve', 'causes',
 //                            'plane', 'lumen', 'fluid', Doppler mode/calipers/pair, bands on trace and flowtime;
@@ -75,7 +75,7 @@
 // Every deck opens with an "Outline and objectives" slide built from its kicker groups and objectives
 // (withOverview below); a deck never writes that slide itself.
 
-import { CIRCULATION } from './decks/circulation.js?v=cc993dbbaf';
+import { CIRCULATION } from './decks/circulation.js?v=a458534d67';
 import { SITES } from './decks/sites.js?v=a2b34883fe';
 import { HVPG } from './decks/hvpg.js?v=35654d5bef';
 import { ASCITES } from './decks/ascites.js?v=f0f10925b6';
@@ -110,7 +110,7 @@ export const REGIONS = {
   route: [380, 30, 900, 690],       // portal vein to heart
   liver: [346, 155, 850, 522],      // the liver as resized (x 346 to 849, y 160 to 517; organ picks, 20 Oct)
   portal: [520, 360, 930, 710],     // confluence, trunk, splenic vein, SMV
-  gut: [450, 360, 990, 980],        // the portal system and the small bowel under it (a meal's gut glow)
+  gut: [360, 360, 1070, 1030],      // the portal system and the whole small bowel (x 459-985, y 556-977) with its glow's reach around it
   hepatic: [410, 40, 800, 340],     // hepatic veins, IVC, right atrium
   dips: [450, 220, 760, 480],       // the DIPS tract, portal bifurcation up through the caudate lobe to the IVC
   heart: [440, -20, 800, 300],

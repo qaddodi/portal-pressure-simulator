@@ -193,40 +193,52 @@ test('a slide\'s fields reach the figure: spotlight, outline, ripple going forwa
   assert.equal(calls.filter((c) => c[0] === 'ripple').length, 1, 'once');
 });
 
-test('a lapse glow eases the named organs in as the time-lapse starts and out as it ends, and a lapse without one touches nothing', () => {
+test('a lapse glow eases the named organs in when the time-lapse starts and stays; a lapse without one touches nothing', () => {
   const calls = [];
   const stage = new Proxy({}, { get: (_, k) => (...a) => calls.push([k, ...a]) });
   const deck = { id: 't3', mine: true, slides: [{ id: 'a', title: 'a', preset: 'healthy' }, { id: 'b', title: 'b', days: 8, lapse: { seconds: 6 }, lapseGlow: ['bowel', 'nothing'] }, { id: 'c', title: 'c', days: 8, lapse: {} }] };
   const ctx = (i) => ({ slide: deck.slides[i], index: i, deck, stage, fp: { at: { P: [i] } }, state: null, fpOf: () => null });
   const h = A.figure[0];
   h.show(ctx(1));
-  assert.deepEqual(calls, [], 'nothing while the slide is only shown: the glow waits for the lapse');
-  h.lapse(deck.slides[1], true);
+  assert.deepEqual(calls, [], 'nothing while the slide is only shown: the glow waits for the lapse (or the presenter\'s call for a slide shown after it)');
+  h.lapse(deck.slides[1]);
   assert.equal(calls.length, 1);
   assert.equal(calls[0][0], 'glowOrgans');
   assert.deepEqual(calls[0][1].map((o) => [o.id, o.glow, o.tone, o.fade > 800]), [['bowel', true, '--origin-smv', true]], 'the small bowel only, glowing, slowly');
-  h.lapse(deck.slides[1], false);
-  assert.deepEqual(calls[1], ['glowOrgans', null]);
+  assert.equal(calls[0][1][0].warm, true, 'its loops light up too, not only its outline');
+  h.update(deck.slides[1].fp);
+  h.lapse(deck.slides[1]);
+  assert.ok(calls.every((c) => c[0] === 'glowOrgans' && c[1]), 'the glow is never asked off by the hook: it goes when the slide leaves');
   calls.length = 0;
-  h.show(ctx(2)); h.lapse(deck.slides[2], true); h.lapse(deck.slides[2], false); h.lapse(null, false);
+  h.show(ctx(2)); h.lapse(deck.slides[2]); h.lapse(null);
   assert.deepEqual(calls, [], 'a lapse without lapseGlow leaves the figure alone');
-  h.lapse(deck.slides[1], true); h.lapse(null, false);
-  assert.deepEqual(calls.map((c) => c[1] && c[1].length), [1, null], 'a stopped lapse ends the glow too');
-  calls.length = 0; h.lapse(deck.slides[1], true); h.clear(); h.lapse(null, false);
-  assert.equal(calls.filter((c) => c[0] === 'glowOrgans').length, 1, 'the slide leaving ends it (the presenter drops the pins), so no second call');
   const pres = readFileSync(new URL('../src/ui/presenter.js', import.meta.url), 'utf8');
-  assert.match(pres, /figureHooks\('lapse', s, true\)/);
-  assert.match(pres, /figureHooks\('lapse', s, false\)/);
-  assert.match(pres, /figureHooks\('lapse', null, false\)/);
+  assert.match(pres, /figureHooks\('lapse', s\); {3}\/\/ \(a deck visuals package's glow from the days' start/);
+  assert.match(pres, /else if \(s\.lapse\) figureHooks\('lapse', s\);/);
   assert.match(STAGE, /glowOrgans\(list\) \{ pinOrgans\(null, list \|\| \[\]\); \}/);
 });
 
-test('the Circulation meal slide glows the small bowel through its time-lapse, framed so the bowel is in view', () => {
+test('the Circulation meal slide glows the small bowel from the start of its time-lapse, framed so the whole pile and its glow are in view', () => {
   const circ = DECKS.find((d) => d.id === 'circulation'), s = circ.slides.find((x) => x.id === 'flow');
   assert.deepEqual(s.lapseGlow, ['bowel']);
   assert.ok(s.lapse && adopted(circ, s, 'lapseGlow'));
-  const bowel = ORGANS.find((o) => o.id === 'bowel'), [, y0, , y1] = REGIONS[s.cam];
-  assert.ok(y1 >= 880 && y0 <= 400, 'the box reaches from the portal system to the bowel: ' + bowel.id);
+  // The pile as drawn (its outline ring is the whole pile as one), and the outline glow's reach (stage.js HEART_GLOW) around it.
+  const ring = ORGANS.find((o) => o.id === 'bowel').d, pts = (ring.match(/-?[\d.]+[ ,]-?[\d.]+/g) || []).map((t) => t.split(/[ ,]/).map(Number));
+  const [x0, y0, x1, y1] = [Math.min(...pts.map((p) => p[0])), Math.min(...pts.map((p) => p[1])), Math.max(...pts.map((p) => p[0])), Math.max(...pts.map((p) => p[1]))];
+  const reach = +/HEART_GLOW = \{ reach: (\d+)/.exec(STAGE)[1], [bx0, by0, bx1, by1] = REGIONS[s.cam];
+  assert.ok(pts.length > 100 && x1 - x0 > 500, 'the real extent was read');
+  assert.ok(bx0 <= x0 - reach && by0 <= y0 && bx1 >= x1 + reach && by1 >= y1 + reach, `the box ${REGIONS[s.cam]} holds the pile ${[x0, y0, x1, y1]} and ${reach} units of glow`);
+});
+
+test('a lapse glow goes when the slide leaves, and is drawn from the pile\'s own live loops', () => {
+  const pres = readFileSync(new URL('../src/ui/presenter.js', import.meta.url), 'utf8');
+  // The leaving slide's pins go first (the glow's own fade carries it out), and every pin not asked for again goes off.
+  assert.match(pres, /stage\.setGlow\(null\); stage\.pinOrgans\(null\);\s*\n\s*figureHooks\('clear'\)/);
+  assert.match(STAGE, /if \(o\.kind === 'pin' && !want\.has\(o\.id\)\) o\.on = false;/);
+  assert.match(STAGE, /if \(o\.kind === 'warm' && !warm\.has\(o\.id\)\) o\.on = false;/);
+  // The warm layer reads the loops from the drawing itself (the pile's deep-tone tubes), not a copy of their path.
+  assert.match(STAGE, /querySelectorAll\('\.ob-deep'\)/);
+  assert.ok(readFileSync(new URL('../src/ui/organ-art.js', import.meta.url), 'utf8').includes('class=\\"ob-deep\\"'), 'the pile still draws .ob-deep tubes');
 });
 
 // A spotlit vessel (the shunts on the demo deck's spotlight slide) fades out along its course at both ends, into the dimmed
