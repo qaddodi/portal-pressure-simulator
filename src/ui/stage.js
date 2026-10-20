@@ -9,7 +9,7 @@ import { STATION_VESSEL, meanVel, velNormal } from './velNormal.js?v=181dda5594'
 import { store, updateParams, varicesPresent, varixGrowth, shownVel } from './store.js?v=aaa74688dd';
 import { fibroReading } from './clock.js?v=8aa14cb690';
 import { s, h, fmt, fmtFlow, fp, clamp, lerp, toast, systemEdge, bloodColors, restBox, settledBox, putText } from './util.js?v=5814c6b396';
-import { createLobuleZoom } from './lobule-zoom.js?v=d4e306bf77';
+import { createLobuleZoom } from './lobule-zoom.js?v=3889f97f67';
 import { sinceSource } from './since-ref.js?v=ef1a818c75';
 import { runFlick, FLICK } from './flick.js?v=4bc709c801';
 import { inlineStyles } from './svg-inline.js?v=fc17cb73fe';
@@ -27,7 +27,7 @@ import { COLON_ART, BOWEL_ART, DUO_CLIPS, DUO_A, DUO_B } from './organ-art.js?v=
 import { createRouter } from './circuit-router.js?v=0ee9e02fc6';
 import { gpuProbe } from './gpu-probe.js?v=d4aeccea90';
 import { plateStrips, premultiply } from './plate-upload.js?v=2dd6db2a18';
-import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, ORIGIN_GREY } from './veins-gl.js?v=8362e1cf78';
+import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, ORIGIN_GREY } from './veins-gl.js?v=54f41b3cee';
 import { varixBead, beadRadius } from './varix-bead.js?v=ac0e84fd89';
 import { advanceStream, createReversalHold, bleedShapes, stepBleedFade, fadeBleedShapes, chevFlowLevel, keyChevron, KEY_CHEV_LANES, originFractions, oxygenFor, ORIGIN_N, createBolus, DYE_BINS, KAPPA, STASIS_MIN_D, HIDDEN_SECONDS } from './blood.js?v=e668d01823';
 import { frameFor, cancelFrame, noteDraw, setSaver as setFrameSaver, paceMs } from './frame.js?v=2ce59939b2';
@@ -3979,11 +3979,13 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // glow, the tubes' insides stay as drawn.
   // The tubes are plain polylines: their points are read from the path's own text once (cached by it), every other point, and each
   // build is only the group's transform over them (no path measuring: the ascites moves the bowel, and each move builds again).
-  const WARM = { reach: 10, alpha: 0.46, taper: 5 };   // (how far the glow runs out from a tube's edge, in world units (under the tube's own half width, so a tube's middle stays clear), and its strength on the edge)
+  const WARM = { reach: 10, alpha: 0.46, taper: 20 };   // (how far the glow runs out from a tube's edge, in world units (under the tube's own half width, so a tube's middle stays clear), and its strength on the edge)
   const warmEls = new Map(), warmEdges = new Map(), warmPts = new Map();   // (the drawing's tubes, found again if the pile is redrawn: the key below is read every frame)
   const warmTubes = (id) => {
-    let t = warmEls.get(id);
-    if (!t || t.some((el) => !el.isConnected) || warmEdges.get(id)?.some((el) => !el.isConnected)) {
+    let t = warmEls.get(id), e = warmEdges.get(id);
+    // (the first and last of the drawing's pieces stand for them all: a redrawn pile replaces the lot; an empty list is looked for again)
+    const gone = (l) => !l || !l.length || !l[0].isConnected || !l[l.length - 1].isConnected;
+    if (gone(t) || gone(e)) {
       t = [...organG[id].querySelectorAll('.ob-deep')]; warmEls.set(id, t);
       warmEdges.set(id, [...organG[id].querySelectorAll('.ob-edge')]);
     }
@@ -4243,14 +4245,18 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
               cs[i] = th > 0 ? 1 : -1;   // (the side the bend turns toward)
             }
             for (const side of [-1, 1]) {
-              // A run is held until it ends, then laid down with its reach eased to almost nothing over its last few points at each
-              // end (a blunt start or stop would read as a cut): WARM.taper points.
+              // A run is held until it ends, then laid down fading out to nothing over its first and last WARM.taper units of length (a
+              // blunt start or stop would read as a cut). It goes by length, not by points, so a run's profile stays steady as the
+              // colon's cut or a bend moves it by a point. The fade rides in the width (64 x its 63 steps + the width; see LINE_VS).
               let run = [];
               const end = () => {
                 const len = run.length;
                 if (len > 1) {
+                  const dist = [0];
+                  for (let k = 1; k < len; k++) dist.push(dist[k - 1] + Math.hypot(run[k][0] - run[k - 1][0], run[k][1] - run[k - 1][1]));
+                  const L = dist[len - 1];
                   run.forEach(([ex, ey, tx, ty, reach], k) => {
-                    const f = Math.min(1, Math.min(k, len - 1 - k) / WARM.taper), w = reach * (0.12 + 0.88 * f * f * (3 - 2 * f));
+                    const f = Math.min(1, Math.min(dist[k], L - dist[k]) / WARM.taper), e = f * f * (3 - 2 * f), w = reach * (0.5 + 0.5 * e) + 64 * Math.round(e * 63);
                     V.push(ex, ey, -ty, tx, 0, w, ex, ey, -ty, tx, side, w);
                   });
                   o.runs.push(len * 2);

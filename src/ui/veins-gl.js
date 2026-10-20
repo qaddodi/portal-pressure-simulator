@@ -1219,12 +1219,17 @@ layout(location=1) in vec2 nrm;
 layout(location=2) in vec2 sideW;   // side (−1 or 1), half width (world units); a fill's edge fringe: (0 or 1, −1)
 uniform mat3 world;
 uniform vec2 size;
+uniform float pack;   // 1: a warm glow, whose half width carries its fade too (64 x the fade in 63 steps + the width), so a run's ends can fade out
 out float vD;
 out float vW;
+out float vF;
 void main() {
   vec2 n = (world * vec3(nrm, 0.0)).xy;
   float k = max(length(n), 1e-6);
-  vW = sideW.y * k;
+  float w = sideW.y;
+  vF = 1.0;
+  if (pack > 0.5 && w > 0.0) { float c = floor(w / 64.0); vF = c / 63.0; w -= 64.0 * c; }
+  vW = w * k;
   float e = max(vW, 0.5) + 1.0;
   if (sideW.y < 0.0) { vW = 0.5; e = 1.0; }   // fading from the fill's edge to nothing one device pixel out
   vec2 d = (world * vec3(pos, 1.0)).xy + n / k * sideW.x * e;
@@ -1235,6 +1240,7 @@ const LINE_FS = `#version 300 es
 precision highp float;
 in float vD;
 in float vW;
+in float vF;
 uniform vec4 col;   // rgb, alpha
 uniform float soft;   // 1: a glow, strongest on the edge and easing out as a Gaussian over its width (vD runs 0 to the full reach)
 out vec4 o;
@@ -1242,7 +1248,7 @@ void main() {
   float a;
   if (soft > 0.5) {
     float t = clamp(abs(vD) / (vW + 1.0), 0.0, 1.0);
-    a = col.a * exp(-4.5 * t * t) * (1.0 - smoothstep(0.55, 1.0, t));
+    a = col.a * vF * exp(-4.5 * t * t) * (1.0 - smoothstep(0.55, 1.0, t));
     // A hair of noise, so a long faint ramp does not step in 8-bit colour.
     a = max(a + (fract(sin(dot(gl_FragCoord.xy, vec2(12.9898, 78.233))) * 43758.5453) - 0.5) / 255.0, 0.0) * step(0.0005, a);
   } else a = col.a * clamp(max(vW, 0.5) + 0.5 - abs(vD), 0.0, 1.0) * min(1.0, vW * 2.0);
@@ -1368,6 +1374,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false }) {
     gl.uniformMatrix3fv(U.world, false, new Float32Array([m[0], m[1], 0, m[2], m[3], 0, m[4], m[5], 1]));
     gl.uniform2f(U.size, canvas.width, canvas.height);
     gl.uniform1f(U.soft, soft ? 1 : 0);
+    gl.uniform1f(U.pack, warm ? 1 : 0);
     gl.enable(gl.BLEND);
     // The warm glow's strips take the strongest where they meet (one colour, so max is exact on premultiplied output): overlaps never stack.
     if (warm) { gl.blendEquation(gl.MAX); gl.blendFunc(gl.ONE, gl.ONE); } else gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
