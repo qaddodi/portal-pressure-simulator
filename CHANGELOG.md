@@ -2,6 +2,9 @@
 
 ## October 2026
 
+- **Phone colour key beside the pill, on two lines.** A key too long for one line beside the nav pill now flows its name and
+  swatches over two lines there, then tries the swatches' short names (blood origin: SMV, IMV, SV, HA, Sys), before taking a row
+  of its own above the pill, which had cost the words a whole line and left the room beside the pill empty (TIPS Doppler 3 on an iPhone).
 - **Phone teaching card: Regular where there is room.** On a phone or an upright iPad, words that need a little more than their
   share now take it from the figure (which keeps at least a quarter of the screen's height, 170 px at least) instead of dropping a
   whole step to Compact and leaving that room empty: PVT in cirrhosis slide 5 on an iPhone had come in at Compact over a large bare

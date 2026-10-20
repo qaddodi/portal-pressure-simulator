@@ -90,7 +90,7 @@ const LENS_KEY = {
   drop: ['pressure drop', () => dropCss('to right'), 'Low', 'High'],
   delta: ['change', () => 'linear-gradient(to right, var(--delta-low), var(--delta-mid), var(--delta-high))', 'Lower', 'Higher'],
   oxygen: ['oxygen', () => oxygenCss('to right'), 'Low', 'High'],
-  origin: ['origin', [['--origin-smv', 'SMV'], ['--origin-imv', 'IMV'], ['--origin-spleen', 'Spleen'], ['--origin-artery', 'Artery'], ['--origin-systemic', 'Systemic']]],
+  origin: ['origin', [['--origin-smv', 'SMV'], ['--origin-imv', 'IMV'], ['--origin-spleen', 'Spleen', 'SV'], ['--origin-artery', 'Artery', 'HA'], ['--origin-systemic', 'Systemic', 'Sys']]],   // (the short names blood.js ORIGINS uses: a phone's key beside the pill, fitKey)
 };
 // (A deck visuals package's lenses (slide-ext.js) after the app's own; a key whose words depend on the slide is a function of it.)
 for (const [k, v] of Object.entries(EXT.lenses)) if (!LENS_KEY[k]) LENS_KEY[k] = v;
@@ -128,7 +128,8 @@ function keyNodes(k, s) {
     ...(typeof bar === 'function' ? [KEY_ENDS.has(k) ? h('span', { class: 'pz-lens-ends' }, h('span', {}, lo), scale(), h('span', {}, hi)) : scale()]
       // (The named swatches travel as one group: a key that wraps sets its name on one line and all its swatches on the next, never
       // one swatch left alone under the others: Mohammad, 17 Oct, "Reversed" had dropped under "Direction · Usual".)
-      : [h('span', { class: 'pz-lens-items' }, ...bar.map(([v, t]) => h('span', { class: 'pz-lens-k' }, sw(v), h('span', {}, t))))])];
+      // (A swatch may carry a short name, [var, name, short]: a phone's key takes them only to fit beside the pill, fitKey.)
+      : [h('span', { class: 'pz-lens-items' }, ...bar.map(([v, t, sh]) => h('span', { class: 'pz-lens-k', title: sh ? t : null }, sw(v), h('span', { class: sh ? 'pz-lk-l' : null }, t), sh ? h('span', { class: 'pz-lk-s', 'aria-hidden': 'true' }, sh) : null)))])];
 }
 // A string with its disease names set in a pill (see diseases.js).
 const diseaseNodes = (t) => diseasePieces(t).map(([x, dz]) => (dz ? h('span', { class: 'pz-dz' }, x) : x));
@@ -3433,7 +3434,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   // beside it (fk-two, as tall as the pill's row); else on its own row just above the pill's row (fk-up; a 320 px phone), one line,
   // shrunk to the card's width if even that is too narrow. The words end above whatever the key takes (--pz-fkrow).
   function fitKey() {
-    const fk = ui.fk, root = ui.root, set = (two, up, wrap = false) => { root.classList.toggle('fk-two', two); root.classList.toggle('fk-up', up); root.classList.toggle('fk-wrap', wrap); };
+    const fk = ui.fk, root = ui.root, set = (two, up, wrap = false, flow = false, short = false) => { root.classList.toggle('fk-two', two); root.classList.toggle('fk-up', up); root.classList.toggle('fk-wrap', wrap); root.classList.toggle('fk-flow', flow); root.classList.toggle('fk-short', short); };
     const on = phone() && !ui.text.hidden && fk.dataset.empty == null;
     if (!on) { set(false, false); return; }
     const was = fk.hidden; fk.hidden = false; set(false, false);
@@ -3453,10 +3454,14 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       if (w > full) balanceKey(fk, full);
       row = Math.ceil(fk.offsetHeight) + 12;
     } else {
-      fk.style.setProperty('--pz-fk-room', `${Math.floor(room)}px`); set(true, false);
-      const w2 = fk.scrollWidth, h2 = fk.offsetHeight;
-      if (w2 <= room + .5 && h2 <= barH + 1.5) {   // (two lines inside the pill's own height, the two read as one row)
-        balanceKey(fk, room); row = Math.max(0, h2 - barH) + 2; }
+      // (Two lines inside the pill's own height, the two read as one row: its name over its swatches; else name and swatches flowing
+      // over both lines; else the same with the swatches' short names (SV, HA, Sys). Only then a row of its own above the pill, which
+      // took a whole line from the words and left the room beside the pill empty: Mohammad, 20 Oct, TIPS Doppler 3 on an iPhone,
+      // "The legend of the lens could be on two lines ... Can use abbreviations".)
+      const sh = !!fk.querySelector('.pz-lk-s');
+      const two = (flow, short) => { set(true, false, false, flow, short); fk.style.setProperty('--pz-fk-room', `${Math.floor(room)}px`); return fk.scrollWidth <= room + .5 && fk.offsetHeight <= barH + 1.5; };
+      if (two(false, false) || two(true, false) || (sh && (two(false, true) || two(true, true)))) {
+        balanceKey(fk, room); row = Math.max(0, fk.offsetHeight - barH) + 2; }
       else {
         // (Wider than the card too: wrapped to its width, at its own size; it had been scaled down, its words under 12 px.)
         if (w > full) fk.style.setProperty('--pz-fk-room', `${Math.floor(full)}px`);

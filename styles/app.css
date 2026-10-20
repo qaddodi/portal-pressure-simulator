@@ -1627,6 +1627,10 @@ button.finding { cursor: pointer; }
 .pz.stack:is(.fk-two, .fk-wrap) .pz-fk:not(.grad) .pz-lens-items { flex-wrap: wrap; row-gap: .1em; flex-basis: 100%; }
 .pz-lens-ends { display: inline-flex; align-items: center; gap: .4em; white-space: nowrap; }   /* ("Low ▬▬ High": the pressure-drop key's ends, at the key's own size, 12 px or more) */
 .pz-lens-k + .pz-lens-k { margin-left: .15em; }
+.pz-lk-s { display: none; }   /* (a swatch's short name, shown only where a phone's key needs it beside the pill: presenter.js fitKey) */
+.pz.stack.fk-short .pz-fk .pz-lk-l { display: none; }
+.pz.stack.fk-short .pz-fk .pz-lk-s { display: inline; }
+.pz.stack.fk-two.fk-flow .pz-fk:not(.grad) .pz-lens-items { display: contents; }   /* (name and swatches flow over the two lines together) */
 .pz-fk.col .pz-lens-k + .pz-lens-k { margin-left: 0; }
 @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) { .pz-fk { background: color-mix(in srgb, var(--surface) 96%, transparent); } }
 @media (prefers-reduced-transparency: reduce) { .pz-fk { background: color-mix(in srgb, var(--surface) 96%, transparent); -webkit-backdrop-filter: none; backdrop-filter: none; } }
