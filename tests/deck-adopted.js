@@ -63,6 +63,10 @@ export const ADOPTED = {
   'circulation/series': ['kind:profile', 'steps'],
   'pregnancy/weeks': ['kind:curve'],
   'pregnancy/scope': ['calipers'],
+  'endoscopy/screen': ['cite'],
+  'endoscopy/large': ['calipers'],
+  'endoscopy/bleed': ['ripple'],
+  'endoscopy/transfuse': ['ripple', 'cite'],
 };
 
 /** Whether the slide d/s may use the field. */

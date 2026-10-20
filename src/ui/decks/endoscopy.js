@@ -25,6 +25,7 @@ export const ENDOSCOPY = {
     {
       id: 'screen', preset: 'cirr-comp', cam: 'gej', labels: ['VAR', 'LGV'], tool: { kind: 'scope', open: true },
       data: 'tiles', tiles: ['hvpg'], key: ['hvpg'],
+      cite: 'Baveno VIII 1.19',
       kicker: 'Endoscopy', site: 'sin', title: 'Not every patient needs a screening scope',
       vignette: 'A 49-year-old woman with MASH cirrhosis feels well. Her platelets are 159,000/µL, and her liver stiffness is 12.5 kPa. She takes no beta-blocker.',
       line: 'A scope is needed only when no beta-blocker is given and stiffness and platelets do not spare it. In compensated cirrhosis the esophagus is often still normal.',
@@ -40,7 +41,7 @@ export const ENDOSCOPY = {
       ask: ['Below what HVPG are new varices uncommon?', '10 mmHg.'],
     },
     {
-      id: 'large', terms: ['varix'], preset: 'cirr-decomp', cam: 'gej', labels: ['VAR', 'LGV'], mark: { edges: ['C1a'], label: 'Large varices', kind: 'note' }, tool: { kind: 'scope', open: true },
+      id: 'large', terms: ['varix'], preset: 'cirr-decomp', cam: 'gej', labels: ['VAR', 'LGV'], mark: { edges: ['C1a'], label: 'Large varices', kind: 'note' }, calipers: ['varix'], tool: { kind: 'scope', open: true },
       data: 'tiles', tiles: ['hvpg'], key: ['hvpg'],
       kicker: 'Endoscopy', site: 'sin', title: 'Size and red signs predict the first bleed',
       line: 'Varices over 5 mm bulge into the lumen and do not flatten with air; this one is {varix}. Red wale marks show where the wall has thinned.',
@@ -57,7 +58,7 @@ export const ENDOSCOPY = {
       ask: ['Using Laplace\'s law, name two ways to lower the tension in a varix wall.', 'Lower the pressure in it, or its radius.'],
     },
     {
-      id: 'bleed', params: {}, action: [{ kind: 'hemorrhage', mL: 1000 }], cam: 'feeder', labels: ['VAR', 'CONF'],
+      id: 'bleed', params: {}, action: [{ kind: 'hemorrhage', mL: 1000 }], cam: 'feeder', labels: ['VAR', 'CONF'], ripple: true,
       data: 'tiles', tiles: ['map', 'pv', 'hvpg'], key: ['map', 'pv'], delta: true,
       kicker: 'Variceal bleeding', site: 'sin', title: 'A bleed lowers the portal pressure for a while',
       line: 'A liter is lost. The blood pressure falls to {map}, and the portal pressure to {pv} with the volume.',
@@ -73,8 +74,9 @@ export const ENDOSCOPY = {
       ask: ['In the US, which vasoactive drug is started when a variceal bleed is suspected?', 'Octreotide, from the first suspicion and for 2 to 5 days.'],
     },
     {
-      id: 'transfuse', params: {}, action: UNITS, cam: 'feeder', labels: ['VAR', 'CONF'],
+      id: 'transfuse', params: {}, action: UNITS, cam: 'feeder', labels: ['VAR', 'CONF'], ripple: true,
       data: 'tiles', tiles: ['pv', 'hvpg', 'map'], key: ['pv'], delta: true,
+      cite: 'Baveno VIII 5.4',
       kicker: 'Variceal bleeding', site: 'sin', title: 'Over-transfusion raises the portal pressure again',
       line: 'Extra volume raises portal flow, and portal pressure climbs back to {pv}, raising the risk of rebleeding. Transfuse to a hemoglobin of 7 to 8 g/dL.',
       notes: 'A restrictive transfusion strategy (a threshold of 7 g/dL, with a target of 7 to 9 in the trial by Villanueva and colleagues) lowered rebleeding and death compared with a liberal one; Baveno VIII sets the target at 7 to 8, and AASLD at about 7. Over-transfusion raises the portal pressure back to where it was before the bleed. Patients with heart disease or ongoing massive bleeding are the exceptions.',
