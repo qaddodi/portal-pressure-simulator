@@ -29,7 +29,7 @@ export const PVT_CIRRHOSIS = {
     },
     {
       id: 'clot', tick: 'Partial clot', params: { thrombus: { PV_TRUNK: 0.6 } }, whatIf: { label: 'Clot size', param: 'thrombus.PV_TRUNK', min: 0, max: 1, step: 0.05, ends: ['None', 'Occlusive'] }, cam: 'portal', terms: ['pv'], mark: { edges: ['PV_TRUNK'], label: 'Partial clot' },
-      tool: { kind: 'doppler', vessel: 'PV_TRUNK', delta: 'base' }, data: 'tiles', tiles: ['pv', 'varix'], key: ['pv'],
+      tool: { kind: 'lumen', vessel: 'PV_TRUNK' }, data: 'tiles', tiles: ['pv'], key: ['pv'],
       kicker: 'The clot', site: 'pre', title: 'A partial clot in the portal vein',
       line: 'The clot fills more than half of the portal vein. Blood speeds through the channel that is left, and the pressure behind it rises to {pv}.',
       notes: 'On ultrasound the clot is echogenic material in the vein, with color flow around it and a faster jet through the narrowing; an occlusive clot shows no flow at all. Contrast CT or MR comes next: first to rule out tumor thrombus from a liver cancer, which enhances in the arterial phase and expands the vein, then to show how far it extends into the splenic and superior mesenteric veins, which guides treatment. The varices enlarge as the pressure behind the clot rises.',
@@ -51,7 +51,7 @@ export const PVT_CIRRHOSIS = {
       ask: ['Should anticoagulation wait for an endoscopy?', 'No: variceal prophylaxis is needed, but it must not delay anticoagulation.'],
     },
     {
-      id: 'carv', tick: 'Carvedilol', params: { drugs: { carvedilol: true } }, cam: 'portal', terms: ['pv'], data: 'tiles', tiles: ['pv', 'hr'], key: ['pv'], delta: true,
+      id: 'carv', tick: 'Carvedilol', params: { drugs: { carvedilol: true } }, ripple: true, cam: 'portal', terms: ['pv'], data: 'tiles', tiles: ['pv', 'hr'], key: ['pv'], delta: true,
       kicker: 'Before anticoagulation', site: 'sin', title: 'Carvedilol, then anticoagulation without delay',
       line: 'Carvedilol lowers the portal pressure to {pv} and protects against a first bleed, so anticoagulation starts without waiting for a course of banding.',
       notes: 'Carvedilol treats the portal hypertension and needs no endoscopy to start. Banding, for a patient who cannot take a beta-blocker, takes several sessions and leaves ulcers that can bleed on an anticoagulant. For the anticoagulant, low molecular weight heparin or a vitamin K antagonist can be used, and a direct oral anticoagulant in Child–Pugh A, with caution in B, and not in C.',
@@ -59,14 +59,14 @@ export const PVT_CIRRHOSIS = {
     },
     {
       id: 'anticoag', tick: 'Anticoagulation', params: { anticoag: true }, days: 180, lapse: { seconds: 8 }, cam: 'portal', terms: ['pv'],
-      tool: { kind: 'doppler', vessel: 'PV_TRUNK', delta: 'clot' }, data: 'tiles', tiles: ['pv', 'ppg'], key: ['pv'], delta: 'clot',
+      tool: { kind: 'lumen', vessel: 'PV_TRUNK' }, data: 'tiles', tiles: ['pv', 'ppg'], key: ['pv'], delta: 'clot',
       kicker: 'Anticoagulation', site: 'sin', title: 'Months of anticoagulation reopen the vein',
       line: 'About 7 in 10 patients recanalize on anticoagulation. Here the clot clears over six months, the portal vein flows again and its pressure falls back to {pv}.',
       notes: 'Baveno VIII advises anticoagulation for transplant candidates with any portal vein clot, and considers it for a recent partial or complete clot of the main portal vein and for any clot that causes symptoms. The vein reopens in many patients, more often when treatment starts early. It continues for at least six months, and until transplant in candidates; the clot can recur after it stops. Without treatment many partial clots clear too, and whether a partial clot worsens the outlook is uncertain.',
       ask: ['What makes it more likely that anticoagulation reopens the portal vein?', 'Starting it early, soon after the clot forms.'],
     },
     {
-      id: 'course', cam: 'fit', tool: { kind: 'trace', range: 'talk', title: 'The course on one chart' },
+      id: 'course', cam: 'fit', tool: { kind: 'trace', range: 'talk', title: 'The course on one chart', bands: ['carvedilol', 'anticoag'] },
       kicker: 'Anticoagulation', site: 'sin', title: 'Portal pressure followed the clot while HVPG stayed flat',
       line: 'The gap between the portal and wedged pressure lines is the clot. Recanalization is checked by imaging about every three months, not by the HVPG.',
       notes: 'The chart plots the portal, wedged and free pressures and the HVPG at each step. The gap that opens between the portal and the wedged lines is the clot. Recanalization is followed by imaging, Doppler or CT about every three months, not by the HVPG.',

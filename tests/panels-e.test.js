@@ -7,6 +7,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { EXT } from '../src/ui/slide-ext.js';
 import { DECKS } from '../src/ui/decks.js';
+import { adopted } from './deck-adopted.js';
 import { holds, rangeOf, planeOf, zoneOf, zoneRect, PLANES, fitWords, placeNames, est, frame, scaler, lineBoxes, crosses } from '../src/ui/visual-plane.js';
 import { wavePath, waveVessel } from '../src/ui/col-wave.js';
 import { runSteps } from './deck-states.js';
@@ -24,9 +25,9 @@ test('package E registers its visuals, instruments and columns', () => {
 
 test('no built-in deck uses the new fields, so every talk is unchanged', () => {
   for (const d of DECKS) for (const s of d.slides) {
-    for (const k of ['plane', 'chain', 'flow', 'case', 'wave', 'waveMax']) assert.ok(!(k in s), `${d.id}/${s.id} sets ${k}`);
+    for (const k of ['plane', 'chain', 'flow', 'case', 'wave', 'waveMax']) assert.ok(!(k in s) || adopted(d, s, k), `${d.id}/${s.id} sets ${k}`);
     assert.ok(!['plane', 'chain', 'flowchart'].includes(s.visual) && !['plane', 'chain', 'flowchart'].includes(s.tool?.kind), `${d.id}/${s.id}`);
-    assert.ok(!(s.cols || []).some((c) => c === 'wave'), `${d.id}/${s.id} cols`);
+    assert.ok(!(s.cols || []).some((c) => c === 'wave') || adopted(d, s, 'cols.wave'), `${d.id}/${s.id} cols`);
   }
 });
 

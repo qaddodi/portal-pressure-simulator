@@ -8,6 +8,7 @@ import { readFileSync } from 'node:fs';
 import { EXT, PACKAGES, mergeExt, expandIds, stepExtra, markLabel, safe, guard, STEP_EXTRAS } from '../src/ui/slide-ext.js';
 import { COLS } from '../src/ui/table-marks.js';
 import { DECKS } from '../src/ui/decks.js';
+import { adopted } from './deck-adopted.js';
 import { createCore } from '../src/worker-core.js';
 
 const read = (p) => readFileSync(new URL(`../src/${p}`, import.meta.url), 'utf8');
@@ -69,7 +70,7 @@ test('nothing a built-in deck produces changes: targets, glows, marks and steps'
   const newNames = new Set([...Object.keys(EXT.targets), ...Object.values(EXT.targets).map((t) => t.node).filter(Boolean)]);
   for (const d of DECKS) for (const s of d.slides) {
     const at = `${d.id}/${s.id}`;
-    assert.equal(stepExtra(s), null, `${at}: no extra work on a built-in slide`);
+    if (!adopted(d, s, 'cols.wave')) assert.equal(stepExtra(s), null, `${at}: no extra work on a built-in slide`);
     if (s.glow) assert.equal(expandIds(s.glow), s.glow, `${at}: its glow is read as it is`);
     for (const m of s.marks || (s.mark ? [s.mark] : [])) {
       assert.equal(expandIds(m.edges), m.edges, `${at}: its mark's edges are read as they are`);
@@ -88,7 +89,7 @@ test('nothing a built-in deck produces changes: targets, glows, marks and steps'
     }
     if (s.lens) assert.ok(BUILT.lenses.has(s.lens), `${at}: lens ${s.lens}`);
     if (s.visual) assert.ok(BUILT.visuals.has(s.visual), `${at}: visual ${s.visual}`);
-    if (s.tool) assert.ok(BUILT.tools.has(s.tool.kind), `${at}: tool ${s.tool.kind}`);
+    if (s.tool && !adopted(d, s, `kind:${s.tool.kind}`)) assert.ok(BUILT.tools.has(s.tool.kind), `${at}: tool ${s.tool.kind}`);
   }
 });
 

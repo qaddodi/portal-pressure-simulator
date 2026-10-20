@@ -5,6 +5,7 @@ import './dom-shim.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { DECKS } from '../src/ui/decks.js';
+import { adopted } from './deck-adopted.js';
 import { EXT } from '../src/ui/slide-ext.js';
 import { NODES } from '../src/engine/topology.js';
 import { portalSplit } from '../src/ui/table-marks.js';
@@ -24,8 +25,8 @@ test('package B registers its two tools, and no built-in deck uses them or the b
   assert.equal(EXT.tools.flows.title({ of: 'inflow' }), 'Blood into the liver');
   assert.equal(EXT.tools.profile.short({}), 'Gut to heart');
   for (const d of DECKS) for (const s of d.slides) {
-    assert.ok(!['profile', 'flows'].includes(s.tool?.kind), `${d.id}/${s.id}`);
-    assert.equal(s.tool?.bands, undefined, `${d.id}/${s.id} sets bands`);
+    assert.ok(!['profile', 'flows'].includes(s.tool?.kind) || adopted(d, s, `kind:${s.tool.kind}`), `${d.id}/${s.id}`);
+    if (!adopted(d, s, 'tool.bands')) assert.equal(s.tool?.bands, undefined, `${d.id}/${s.id} sets bands`);
   }
 });
 

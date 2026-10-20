@@ -8,6 +8,7 @@ import { readFileSync } from 'node:fs';
 import { EDGES, NODES, PORTAL_TERRITORY } from '../src/engine/topology.js';
 import { ORGANS } from '../src/ui/anatomy.js';
 import { DECKS, withOverview } from '../src/ui/decks.js';
+import { adopted } from './deck-adopted.js';
 import { EXT, expandIds } from '../src/ui/slide-ext.js';
 import A from '../src/ui/ext-highlights.js';
 import { SETS, ORGAN_TARGETS, NEW_ORGANS, spotOf, liftEnd, bandRing, dashRings, normalShown, NORMAL_ON, NORMAL_OFF, rippleList, RIPPLE_MAX, systemOf, SYSTEM_COLOR, stateIndex, sinceWords } from '../src/ui/highlight-math.js';
@@ -141,7 +142,7 @@ test('"the slide before" is the state the presenter shows for it, and the key na
 
 test('no built-in deck uses a package A field, so every talk looks as before', () => {
   for (const d of DECKS) for (const s of d.slides) {
-    for (const k of ['spot', 'ripple', 'normalOutline', 'since', 'sinceLabel']) assert.equal(s[k], undefined, `${d.id}/${s.id}: ${k}`);
+    for (const k of ['spot', 'ripple', 'normalOutline', 'since', 'sinceLabel']) if (!adopted(d, s, k)) assert.equal(s[k], undefined, `${d.id}/${s.id}: ${k}`);
     assert.ok(!['system', 'since'].includes(s.lens), `${d.id}/${s.id}: lens ${s.lens}`);
     for (const g of s.glow || []) assert.ok(!String(typeof g === 'string' ? g : g.id).startsWith('@'), `${d.id}/${s.id}: glow set`);
   }

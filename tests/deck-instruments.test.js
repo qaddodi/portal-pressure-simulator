@@ -15,6 +15,7 @@ import { pulsatility, caliperPick, caliperFrame, caliperEase, caliperLevel, cali
 import ext from '../src/ui/ext-instruments.js';
 import { EXT } from '../src/ui/slide-ext.js';
 import { DECKS } from '../src/ui/decks.js';
+import { adopted } from './deck-adopted.js';
 
 const DOP = readFileSync(new URL('../src/ui/doppler.js', import.meta.url), 'utf8');
 const near = (a, b, tol, msg) => assert.ok(Math.abs(a - b) <= tol, `${msg}: ${a} vs ${b}`);
@@ -36,8 +37,8 @@ test('the package registers its two instruments, titled, and no built-in deck us
   assert.equal(ext.tools.fluid.short(), 'Fluid balance');
   for (const d of DECKS) for (const s of d.slides) {
     const t = s.tool || {};
-    assert.ok(!['lumen', 'fluid'].includes(t.kind), `${d.id}/${s.id}: a new instrument`);
-    for (const k of ['mode', 'calipers', 'pair', 'scale', 'baseline']) assert.equal(t[k], undefined, `${d.id}/${s.id}: tool.${k}`);
+    assert.ok(!['lumen', 'fluid'].includes(t.kind) || adopted(d, s, `kind:${t.kind}`), `${d.id}/${s.id}: a new instrument`);
+    for (const k of ['mode', 'calipers', 'pair', 'scale', 'baseline']) if (!adopted(d, s, `tool.${k}`)) assert.equal(t[k], undefined, `${d.id}/${s.id}: tool.${k}`);
   }
 });
 
