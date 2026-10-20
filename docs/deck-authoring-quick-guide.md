@@ -101,6 +101,7 @@ These are optional extras. Each shows only on the slides that ask for it.
 - **Named groups of vessels.** `@esophageal`, `@collaterals`, `@shunts`, `@hepatic-veins` and others stand for a whole set in `glow`, `spot` and marks.
 - **Normal spleen outline.** `normalOutline: ['spleen']` draws a dashed line at the normal size inside an enlarged spleen.
 - **Calipers.** `calipers: ['spleen']` draws a measuring line with its reading. It also works for `'varix'`, `'TIPS'` or any vessel.
+- **Gut glow in a time-lapse.** `lapseGlow: ['bowel']` on a slide with `lapse` glows those organs while the days run, easing in and out. Use `cam: 'gut'` so the bowel is in frame.
 - **Pressure ripple.** `ripple: true` makes the vessels whose pressure moved glow warm or cool for a moment as the slide lands. Use it on the slide where a drug or a TIPS starts.
 - **Live numbers in a callout.** A mark's label can hold a live value: `mark: { organ: 'spleen', label: 'Spleen {spleen}' }`.
 - **Numbered steps.** `steps: true` with `glowSeq` numbers each glow as it lights, for a route the eye should follow in order.

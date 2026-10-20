@@ -20,11 +20,11 @@ import { sinusoidSupported } from './sinusoid-view.js?v=d08eee58a9';
 import { NODES } from '../engine/topology.js?v=4044766e96';
 import { DISEASE_SRC, diseasePieces } from './diseases.js?v=fb8a5451c3';
 import { nb, listCase, plateletText } from './glue.js?v=5a0f63226b';
-import { DECKS, REGIONS, LEVELS, TOPICS, withOverview, siteTag, SITE_TAGS } from './decks.js?v=1e80eea255';
+import { DECKS, REGIONS, LEVELS, TOPICS, withOverview, siteTag, SITE_TAGS } from './decks.js?v=8b17cead4b';
 import { wholeGap, tenthGap } from '../engine/gap.js?v=3a5947c552';
 import { createHvpgMonitor } from './hvpg-proc.js?v=8193b966cd';
-import { createTools } from './presenter-tools.js?v=eed98257f3';
-import { openHandout } from './handout.js?v=12cb9b6488';
+import { createTools } from './presenter-tools.js?v=b367fe805d';
+import { openHandout } from './handout.js?v=b5b44208e1';
 import { noteResume, resumeFor } from './resume.js?v=f086f80ee8';
 import { parseDeckSource, checkDeck } from './deck-source.js?v=8395c650cd';
 import { NO_ASC, TILE, SCALE, bandsOf, rateOf, COLS, CUT, PRESS, fpv, dirAbs, dirRel, rateAbs, effOf, rateShown, tileShown, tipsGoal, liveSettled, shownSig } from './table-marks.js?v=1dc429fe31';
@@ -32,7 +32,7 @@ import { frameFor, cancelFrame } from './frame.js?v=2ce59939b2';
 import { createFigureKey } from './figure-key.js?v=7e170d78ce';
 import { traceWhen } from './trace-labels.js?v=fc916a95c6';
 import { flowCss, heatCss, dropCss, gradientCss, oxygenCss } from './colormap.js?v=1092d36abc';
-import { EXT, expandIds, stepExtra, markLabel, figureHooks, safe } from './slide-ext.js?v=67c62723c6';
+import { EXT, expandIds, stepExtra, markLabel, figureHooks, safe } from './slide-ext.js?v=f70666032b';
 import { clotWords } from './callout-math.js?v=0ee21419bb';
 import { citeText, focusOf, ladderFromOf, ladderFromName } from './teach-extras.js?v=d8224d9bb5';
 import { DEMO_ALL } from './test-decks/demo-all-new-visuals.js?v=9aeadbb887';
@@ -1631,7 +1631,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       h('div', { class: 'pzi-t' }, w.ends ? h('span', { class: 'pzi-e' }, w.ends[0]) : null, track, w.ends ? h('span', { class: 'pzi-e' }, w.ends[1]) : null),
       w.unit ? out : null);
   }
-  function stopLapse() { if (!lapseOn) return; lapseOn = false; host.send({ type: 'lapse', days: 0 }); shownState = -1; paintChrome(); }
+  function stopLapse() { if (!lapseOn) return; lapseOn = false; host.send({ type: 'lapse', days: 0 }); shownState = -1; paintChrome(); figureHooks('lapse', null, false); }
   // Next during a time-lapse runs the days that are left in about 600 ms (the clock speeds up, the ramp is unchanged) and stops on its end.
   function skipLapse() { if (!lapseOn || lapseLeft < 1) return; host.send({ type: 'run', speed: Math.max(1, lapseLeft / 0.6) }); lapseLeft = 0; paintChrome(); }
   const lapseWords = (n) => (n >= 60 && n % 30 === 0 ? `${n / 30} months` : `${n} days`);
@@ -1662,6 +1662,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     ui?.tools.progress(0, end.trail);
     host.send({ type: 'lapse', days, speed: days / (s.lapse.seconds || 8), ramp: s.ramp || null });
     paintChrome();
+    figureHooks('lapse', s, true);   // (a deck visuals package's glow while the days run: slide-ext.js)
     while (lapseOn && !cut()) {
       const fast = lapseLeft === 0;
       await wait(fast ? 60 : 150);
@@ -1676,6 +1677,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     }
     if (!lapseOn || cut()) { stopLapse(); return; }
     lapseOn = false; paintChrome();
+    figureHooks('lapse', s, false);
     paintLapse(s, days, days, true);
     ui?.tools.progress(1);
     // (The live days land a hair off the computed end: the last step eases there too.)

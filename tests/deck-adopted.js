@@ -75,6 +75,7 @@ export const ADOPTED = {
   'treatment/vs': ['lens:since', 'since', 'sinceLabel'],
   'circulation/inflow': ['kind:flows'],
   'circulation/series': ['kind:profile', 'steps'],
+  'circulation/flow': ['lapseGlow'],
   'pregnancy/weeks': ['kind:curve'],
   'pregnancy/scope': ['calipers'],
   'endoscopy/screen': ['cite'],

@@ -4008,17 +4008,21 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // A presenter slide's organs, outlined and held (several at once): eased in and out like the hover outline.
   // Each in its station's colour ([{ id, tone }], --tr-<tone>).
   // The right atrium's slides light the whole heart (the atrium is one chamber of it), so both ids come to 'heart'.
+  // (An item may also ask for the soft glow the heart gets, glow: true, and its own fade in ms, fade: a meal's gut glow swells and
+  // eases off over a second or more, where an outline's own fade is 160 ms. glowOrgans adds such items to the slide's pins.)
   const PIN_ID = (id) => (id === 'heart-ra' ? 'heart' : id);
-  function pinOrgans(list) {
-    const items = (list || []).map((o) => (typeof o === 'string' ? { id: o } : o)).map((o) => ({ id: PIN_ID(o.id), tone: o.tone || null }));
+  let pinList = [];
+  function pinOrgans(list, more) {
+    if (!more) pinList = list || [];
+    const items = [...pinList, ...(more || [])].map((o) => (typeof o === 'string' ? { id: o } : o)).map((o) => ({ id: PIN_ID(o.id), tone: o.tone || null, glow: !!o.glow, fade: o.fade || 0 }));
     const ids = items.map((o) => o.id);
     caud.show(ids.includes('caudate') || ids.includes('caudate-lobe'), ids.includes('caudate'));
-    const want = new Map(items.filter((o) => organEls[o.id]).map((o) => [o.id, o.tone]));
+    const want = new Map(items.filter((o) => organEls[o.id]).map((o) => [o.id, o]));
     const cs = getComputedStyle(svg), col = (tone) => (tone ? [...toRGB(`var(${tone.startsWith('--') ? tone : `--tr-${tone}`})`, cs)].slice(0, 3) : null);
-    for (const o of olList) if (o.kind === 'pin' && !want.has(o.id)) o.on = false;
-    for (const [id, tone] of want) {
+    for (const o of olList) if (o.kind === 'pin' && !want.has(o.id)) o.on = false;   // (it keeps its own fade on the way out)
+    for (const [id, it] of want) {
       const o = olList.find((x) => x.kind === 'pin' && x.id === id);
-      if (o) { o.on = true; o.col = col(tone); } else if (organEls[id].getAttribute('d')) olList.push({ kind: 'pin', id, key: olKey(id), rings: olRings(id), a: 0, on: true, col: col(tone), glow: id === 'heart' });
+      if (o) { o.on = true; o.col = col(it.tone); o.glow = id === 'heart' || it.glow; o.fade = it.fade; } else if (organEls[id].getAttribute('d')) olList.push({ kind: 'pin', id, key: olKey(id), rings: olRings(id), a: 0, on: true, col: col(it.tone), glow: id === 'heart' || it.glow, fade: it.fade });
     }
     olDirty = true; olLast = performance.now();
   }
@@ -4146,11 +4150,11 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     }
     if (glLines && marksKey() !== mk.key) marksBuild();
     if (!glLines || (!olDirty && !olList.length && !mk.dirty && !clampMoved)) return false;
-    const du = Math.min(1, (now - olLast) / OL_FADE);
+    const dt = now - olLast;
     olLast = now;
     let moving = false;
     for (const o of olList) {
-      const t = o.on ? 1 : 0;
+      const t = o.on ? 1 : 0, du = Math.min(1, dt / (o.fade || OL_FADE));
       if (o.a !== t) { o.a = t > o.a ? Math.min(1, o.a + du) : Math.max(0, o.a - du); moving = true; }
     }
     // (An outline that has faded out leaves the list: the rest are laid out again, or each would draw from its old place.)
@@ -9039,6 +9043,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     setGlow(list) { setGlow(list); },
     setResGlow(list) { resLit = new Map((list || []).map((r) => [r.id, r.tone])); if (sites.list) sitesPaint(); },
     pinOrgans(list) { pinOrgans(list); },
+    // Organs eased in or out beside the slide's own pins (null: out): { id, tone, glow, fade } (ext-highlights.js, a meal's gut glow).
+    glowOrgans(list) { pinOrgans(null, list || []); },
     // Deck visuals, package A (ext-highlights.js): a slide's spotlight ({ edges, organs: [{ id, tone }] } or null, V2), the
     // normal spleen's outline (['spleen'] or null, V18), its change ripple (two networks' node pressures, V6) and the network a
     // "change since" slide counts from (node pressures or null, V11).

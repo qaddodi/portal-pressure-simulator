@@ -7,7 +7,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { EDGES, NODES, PORTAL_TERRITORY } from '../src/engine/topology.js';
 import { ORGANS } from '../src/ui/anatomy.js';
-import { DECKS, withOverview } from '../src/ui/decks.js';
+import { DECKS, REGIONS, withOverview } from '../src/ui/decks.js';
 import { adopted } from './deck-adopted.js';
 import { EXT, expandIds } from '../src/ui/slide-ext.js';
 import A from '../src/ui/ext-highlights.js';
@@ -142,7 +142,7 @@ test('"the slide before" is the state the presenter shows for it, and the key na
 
 test('no built-in deck uses a package A field, so every talk looks as before', () => {
   for (const d of DECKS) for (const s of d.slides) {
-    for (const k of ['spot', 'ripple', 'normalOutline', 'since', 'sinceLabel']) if (!adopted(d, s, k)) assert.equal(s[k], undefined, `${d.id}/${s.id}: ${k}`);
+    for (const k of ['spot', 'ripple', 'normalOutline', 'lapseGlow', 'since', 'sinceLabel']) if (!adopted(d, s, k)) assert.equal(s[k], undefined, `${d.id}/${s.id}: ${k}`);
     assert.ok(!['system', 'since'].includes(s.lens) || adopted(d, s, `lens:${s.lens}`), `${d.id}/${s.id}: lens ${s.lens}`);
     for (const g of s.glow || []) assert.ok(!String(typeof g === 'string' ? g : g.id).startsWith('@'), `${d.id}/${s.id}: glow set`);
   }
@@ -191,6 +191,42 @@ test('a slide\'s fields reach the figure: spotlight, outline, ripple going forwa
   assert.deepEqual(calls.filter((c) => c[0] === 'ripple').map((c) => c.slice(1)), [[[9], [4]]], 'once it lands, from its own start');
   h.update(fps[3]);
   assert.equal(calls.filter((c) => c[0] === 'ripple').length, 1, 'once');
+});
+
+test('a lapse glow eases the named organs in as the time-lapse starts and out as it ends, and a lapse without one touches nothing', () => {
+  const calls = [];
+  const stage = new Proxy({}, { get: (_, k) => (...a) => calls.push([k, ...a]) });
+  const deck = { id: 't3', mine: true, slides: [{ id: 'a', title: 'a', preset: 'healthy' }, { id: 'b', title: 'b', days: 8, lapse: { seconds: 6 }, lapseGlow: ['bowel', 'nothing'] }, { id: 'c', title: 'c', days: 8, lapse: {} }] };
+  const ctx = (i) => ({ slide: deck.slides[i], index: i, deck, stage, fp: { at: { P: [i] } }, state: null, fpOf: () => null });
+  const h = A.figure[0];
+  h.show(ctx(1));
+  assert.deepEqual(calls, [], 'nothing while the slide is only shown: the glow waits for the lapse');
+  h.lapse(deck.slides[1], true);
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0][0], 'glowOrgans');
+  assert.deepEqual(calls[0][1].map((o) => [o.id, o.glow, o.tone, o.fade > 800]), [['bowel', true, '--origin-smv', true]], 'the small bowel only, glowing, slowly');
+  h.lapse(deck.slides[1], false);
+  assert.deepEqual(calls[1], ['glowOrgans', null]);
+  calls.length = 0;
+  h.show(ctx(2)); h.lapse(deck.slides[2], true); h.lapse(deck.slides[2], false); h.lapse(null, false);
+  assert.deepEqual(calls, [], 'a lapse without lapseGlow leaves the figure alone');
+  h.lapse(deck.slides[1], true); h.lapse(null, false);
+  assert.deepEqual(calls.map((c) => c[1] && c[1].length), [1, null], 'a stopped lapse ends the glow too');
+  calls.length = 0; h.lapse(deck.slides[1], true); h.clear(); h.lapse(null, false);
+  assert.equal(calls.filter((c) => c[0] === 'glowOrgans').length, 1, 'the slide leaving ends it (the presenter drops the pins), so no second call');
+  const pres = readFileSync(new URL('../src/ui/presenter.js', import.meta.url), 'utf8');
+  assert.match(pres, /figureHooks\('lapse', s, true\)/);
+  assert.match(pres, /figureHooks\('lapse', s, false\)/);
+  assert.match(pres, /figureHooks\('lapse', null, false\)/);
+  assert.match(STAGE, /glowOrgans\(list\) \{ pinOrgans\(null, list \|\| \[\]\); \}/);
+});
+
+test('the Circulation meal slide glows the small bowel through its time-lapse, framed so the bowel is in view', () => {
+  const circ = DECKS.find((d) => d.id === 'circulation'), s = circ.slides.find((x) => x.id === 'flow');
+  assert.deepEqual(s.lapseGlow, ['bowel']);
+  assert.ok(s.lapse && adopted(circ, s, 'lapseGlow'));
+  const bowel = ORGANS.find((o) => o.id === 'bowel'), [, y0, , y1] = REGIONS[s.cam];
+  assert.ok(y1 >= 880 && y0 <= 400, 'the box reaches from the portal system to the bowel: ' + bowel.id);
 });
 
 // A spotlit vessel (the shunts on the demo deck's spotlight slide) fades out along its course at both ends, into the dimmed
