@@ -38,7 +38,7 @@ import { layoutWatch } from './idle-keys.js?v=ea36a0b5c6';
 import { writeGlowTexels } from './glow-texels.js?v=e578794a92';
 import { SIN_PERFUSION, sinStrandRadius } from './sin-perfusion.js?v=25a8407fdd';
 import { wavePacks, paintWave } from './scan-waves.js?v=066db7aa38';
-import { probePose, probeShapes, beamBoxes, awayFromProbe, PROBE_SVG } from './dop-probe.js?v=fcdbb27437';
+import { probePose, probeShapes, beamBoxes, gateBoxes, awayFromProbe, PROBE_SVG } from './dop-probe.js?v=dedc4ecddd';
 import { organDimMatrix } from './organ-dim.js?v=7888276613';
 import { parseColor, greyOf, paintRef } from './organ-grey.js?v=e41d68222c';
 import { bandRing, dashRings, liftEnd, normalShown, rippleList, systemOf, SYSTEM_COLOR } from './highlight-math.js?v=e2c1816e25';
@@ -1156,7 +1156,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const dop = { id: null, want: null, pin: null, key: '', seg: '', points: false, all: false };
   const dopGateOf = (id) => (dop.id === id && dop.seg ? dop.seg : '');   // the third of a stent the Doppler samples ('' when it is elsewhere)
   // The Doppler probe on the figure (dprobePaint): live once the stage is built (dopApply runs before its pieces exist).
-  const dpr = { el: null, on: false, key: '', side: 0, reach: 0, box: null, marks: [], swap: 0, shapes: '', at: '', ready: false };
+  const dpr = { el: null, on: false, key: '', side: 0, reach: 0, box: null, marks: [], swap: 0, shapes: '', at: '', ready: false, gate: null };
   function dopApply() {
     let id = dop.pin ?? dop.want ?? null;
     if (id && !E[id]) id = null;
@@ -5222,6 +5222,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const out = [...lbRects];
     for (const el of sites.made.values()) if (el._box && !el.classList.contains('cath-pre')) out.push(el._box);
     if (cath.made && !cath.labels.hidden) for (const el of cath.made.values()) if (el._box) out.push(el._box);
+    // (A narrowing's "60 %" too: the probe stands on the side whose line of sight and flow axis keep off it: Mohammad, 20 Oct.)
+    for (const el of ov.clamps.querySelectorAll('.clamp-label')) if (el._box) out.push(el._box);
     return out;
   }
   // (In a deck it waits for the slide's zoom to settle: it fades out as a camera move starts and back in once it lands (camSettle
@@ -5232,7 +5234,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const show = !!(pts?.length > 1 && E[id]?.vis && (morph < 0.01 || morph > 0.99) && !camMove && !st.lobule && !st.sinusoid && !lz?.isOpen());
     if (!show) {
       if (dpr.on) { dpr.on = false; dpr.el.classList.add('off'); }
-      dpr.box = null; dpr.marks = []; dpr.key = '';
+      dpr.box = null; dpr.marks = []; dpr.key = ''; dpr.gate = null; dprDots();
       return;
     }
     if (!dpr.el) {
@@ -5248,9 +5250,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const r = cathRadOf(id, u ?? 0.5) * (CTM?.sc || 1);
     const pose = probePose({ g: [gx, gy], t: [ax - gx, ay - gy], r, away: awayFromProbe(id), w: wrapRect.width, h: wrapRect.height, cards: dprCards(), keep: key === dpr.key ? dpr.side : 0, keepReach: dpr.reach, avoid: dprAvoid() });
     // (No place on the slide's free space at any side or distance: it fades out, and fades in once one opens.)
-    if (pose.none) { if (dpr.on) { dpr.on = false; dpr.el.classList.add('off'); } dpr.box = null; dpr.marks = []; dpr.key = ''; return; }
+    if (pose.none) { if (dpr.on) { dpr.on = false; dpr.el.classList.add('off'); } dpr.box = null; dpr.marks = []; dpr.key = ''; dpr.gate = null; dprDots(); return; }
     if (dpr.on && (key !== dpr.key || pose.side !== dpr.side || pose.reach !== dpr.reach)) {
-      dpr.on = false; dpr.box = null; dpr.marks = []; dpr.el.classList.add('off');
+      dpr.on = false; dpr.box = null; dpr.marks = []; dpr.el.classList.add('off'); dprDots();
       dpr.swap = setTimeout(() => { dpr.swap = 0; dpr.key = ''; dprobePaint(); }, reduceMotion.matches ? 0 : 380);
       return;
     }
@@ -5258,7 +5260,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (sh !== dpr.shapes) {
       dpr.shapes = sh;
       const p = probeShapes(pose.D, r, pose.phi), all = (c, k, v) => { for (const e of dpr.el.querySelectorAll(c)) e.setAttribute(k, v); };
-      all('.dpr-beam', 'd', p.beam); all('.dpr-axis', 'd', p.axis); all('.dpr-bars', 'd', p.gate); all('.dpr-head', 'transform', p.head);
+      all('.dpr-wedge', 'd', p.wedge); all('.dpr-beam', 'd', p.beam); all('.dpr-axis', 'd', p.axis); all('.dpr-bars', 'd', p.gate); all('.dpr-head', 'transform', p.head);
       dpr.at = '';
     }
     const at = `translate(${gx.toFixed(1)}px, ${gy.toFixed(1)}px)|rotate(${pose.ang.toFixed(2)})`;
@@ -5266,8 +5268,21 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       dpr.at = at; const [tr, ro] = at.split('|');
       dpr.el.style.transform = tr; dpr.el.querySelector('.dpr-rot').setAttribute('transform', ro);
     }
-    dpr.key = key; dpr.side = pose.side; dpr.reach = pose.reach; dpr.box = pose.box; dpr.marks = beamBoxes([gx, gy], pose.ang, pose.D, r);
+    dpr.key = key; dpr.side = pose.side; dpr.reach = pose.reach; dpr.box = pose.box; dpr.marks = [...beamBoxes([gx, gy], pose.ang, pose.D, r), ...gateBoxes([gx, gy], pose.ang, pose.phi, r)];
+    dpr.gate = [gx, gy];
     if (!dpr.on) { dpr.on = true; dpr.el.classList.remove('off'); }
+    dprDots();
+  }
+  // The station dot under the gate (where the reading's leader starts) fades out while the probe shows on that vessel, and back as it
+  // goes: the reading and its leader stay. Every dot within 6 px of the gate, at the same 0.36 s as the probe (.dpr-hid, styles/app.css).
+  // Called as the probe's state changes and as the leaders are painted (paintLeaders), so a dot that comes in under the probe never shows.
+  function dprDots() {
+    const g = (dpr.on || dpr.swap) && dpr.gate;   // (a probe changing sides keeps the dot away: it fades out and in again with the probe)
+    for (const [k, el] of leadEls) {
+      if (!/^(d|h):/.test(k)) continue;
+      const a = el._a, hide = !!g && !el._gone && Math.hypot(+a.cx - g[0], +a.cy - g[1]) < 6;
+      if (hide !== !!el._dprHid) { el._dprHid = hide; el.classList.toggle('dpr-hid', hide); }
+    }
   }
   const CATH_IDS = ['SVC_RA', 'IVCS_RA', 'RHV_IVC', 'POST_R_RHV'];   // (and down the IVC_IS to the hepatic vein)
   const lenTo = (pts) => { const c = [0]; for (let i = 1; i < pts.length; i++) c.push(c[i - 1] + Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1])); return c; };
@@ -6011,6 +6026,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     }
     // (A new one goes in just before the next one wanted that is already in, so every line still lies under every dot.)
     for (let i = els.length - 1, next = null; i >= 0; i--) { if (!els[i].isConnected) gLeaders.insertBefore(els[i], next); next = els[i]; }
+    dprDots();
     for (const [k, el] of leadEls) {
       if (keep.has(k) || el._gone) continue;
       if (reduceMotion.matches) { el.remove(); leadEls.delete(k); continue; }

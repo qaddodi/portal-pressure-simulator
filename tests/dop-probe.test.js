@@ -7,7 +7,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { AWAY, probePose, probeShapes, gateDims, bodyBox, beamBoxes, PROBE, PROBE_SVG } from '../src/ui/dop-probe.js';
+import { AWAY, probePose, probeShapes, gateDims, bodyBox, beamBoxes, gateBoxes, PROBE, PROBE_SVG } from '../src/ui/dop-probe.js';
 
 const read = (p) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8');
 const stage = read('src/ui/stage.js'), doppler = read('src/ui/doppler.js'), css = read('styles/app.css'), tokens = read('styles/tokens.css');
@@ -105,11 +105,11 @@ test('the figure places the gate where the callout points (the middle of the ves
 });
 
 test('every mark and the probe are white-lined on a black rim, with no θ on the figure; the glow and the light share the Doppler glow colour', () => {
-  assert.match(css, /\.dpr-gate-rim \{ fill: none; stroke: var\(--dop-rim\); stroke-width: 3\.6;/);
+  assert.match(css, /\.dpr-gate-rim \{ fill: none; stroke: var\(--dop-rim\); stroke-width: 4\.6;/);
   assert.match(css, /\.dpr-rim-l \{ fill: none; stroke: var\(--dop-rim\);/);
   assert.match(css, /\.dpr-line \{ fill: none; stroke: var\(--dop-mark\);/);
   for (const src of [css, stage, PROBE_SVG]) assert.doesNotMatch(src, /dpr-theta|θ<\/text>/);
-  assert.match(css, /\.dpr-gate \{ fill: none; stroke: var\(--dop-mark\); stroke-width: 1\.4;/);
+  assert.match(css, /\.dpr-gate \{ fill: none; stroke: var\(--dop-mark\); stroke-width: 2\.4;/);
   assert.match(tokens, /--dop-mark: #FFFFFF; --dop-rim: #000000;/);
   assert.match(stage, /setGlowSrc\('dop', id \? \[\{ id, col: 'var\(--dop-glow\)'/);
   assert.match(read('src/ui/presenter.js'), /glow\.set\(v, '--dop-glow'\)/);
@@ -155,14 +155,28 @@ test('in a deck the probe shows only once the zoom has settled: hidden while the
   assert.match(stage, /camMove = false;\s*if \(F\) updateLabels\(F\);/);
 });
 
-test('the line of sight stops at the near gate bar, the flow axis reaches past both bars, and the bars are thin', () => {
+test('the line of sight stops at the near gate bar, the flow axis reaches past both bars, and the bars are a bit thicker than the axis line', () => {
   for (const r of [3, 10, 20]) {
     const { at, half } = gateDims(r), p = probeShapes(90, r);
     assert.equal(p.beam, `M90 0 L${+at.toFixed(1)} 0`);
     const [x0, y0, x1, y1] = p.axis.match(/-?[\d.]+/g).map(Number);
     assert.ok(Math.hypot(x1 - x0, y1 - y0) / 2 > Math.hypot(at, half) + 4, `axis longer than the bars reach at r ${r}`);
   }
-  assert.match(css, /\.dpr-gate \{[^}]*stroke-width: 1\.4;/);
+  const w = (sel) => +css.match(new RegExp(`\\.dop-probe \\.${sel} \\{[^}]*stroke-width: ([\\d.]+)`))[1];
+  assert.ok(w('dpr-gate') > w('dpr-line') && w('dpr-gate') <= 2 * w('dpr-line'), 'bars a bit thicker than the axis line');
+  assert.ok(w('dpr-gate-rim') > w('dpr-gate'));
+  // The axis line is drawn over the bars, so it stays visible through them.
+  assert.ok(PROBE_SVG.indexOf('dpr-bars') < PROBE_SVG.indexOf('dpr-axis'), 'bars first, the flow axis over them');
+});
+
+test('the station dot under the gate fades with the probe: out while it shows on that vessel, back when it goes; the reading and leader stay', () => {
+  assert.match(css, /\.lb-leaders > \.dpr-hid \{ opacity: 0; transition-duration: \.36s; \}/);
+  assert.match(stage, /dpr\.gate = \[gx, gy\];\n\s+if \(!dpr\.on\) \{ dpr\.on = true; dpr\.el\.classList\.remove\('off'\); \}\n\s+dprDots\(\);/);
+  assert.match(stage, /const g = \(dpr\.on \|\| dpr\.swap\) && dpr\.gate;/);
+  assert.match(stage, /if \(!\/\^\(d\|h\):\/\.test\(k\)\) continue;/, 'only the anchor dots and their discs, never a leader');
+  assert.match(stage, /Math\.hypot\(\+a\.cx - g\[0\], \+a\.cy - g\[1\]\) < 6/);
+  assert.match(stage, /\n\s+dprDots\(\);\n\s+for \(const \[k, el\] of leadEls\) \{\n\s+if \(keep\.has\(k\)/, 'leaders painted: dots read the probe state');
+  assert.equal((stage.match(/dpr\.gate = null; dprDots\(\);/g) || []).length, 2, 'hidden probe: the dot returns');
 });
 
 test('with neither side clear the probe comes in closer, and hides only when no place fits', () => {
@@ -170,4 +184,29 @@ test('with neither side clear the probe comes in closer, and hides only when no 
   const p = probePose({ g, t, r, w: W, h: H, cards: [far(1), far(-1)].map((b) => ({ ...b, y0: b.y0, y1: b.y1, x0: b.x0, x1: b.x1 })).map((b) => ({ ...b, ...(b.y0 < g[1] ? { y1: Math.min(b.y1, b.y0 + 30) } : { y0: Math.max(b.y0, b.y1 - 30) }) })) });
   assert.ok(p.reach > 0 && p.clear && !p.none);
   assert.ok(probePose({ g, t, r, w: W, h: H, cards: [{ x0: 0, y0: 0, x1: W, y1: H }] }).none);
+});
+
+test('the faded ultrasound beam is back: a narrow wedge from the probe\'s face past the vessel, under every mark, fading out', () => {
+  for (const r of [3, 10, 20]) {
+    const [m, ...pts] = probeShapes(90, r).wedge.match(/-?[\d.]+/g).map(Number);
+    assert.equal(m, 90, 'starts at the probe\'s face');
+    const [x1, y1, x2, y2] = pts.slice(1);
+    assert.ok(x1 < 0 && x1 === x2 && y1 === -y2 && y2 > 0, 'ends past the far wall, symmetric about the line of sight');
+    assert.ok(Math.atan(y2 / (90 - x1)) * 180 / Math.PI <= PROBE.BEAM_DEG + 0.5, 'narrow');
+  }
+  assert.ok(PROBE_SVG.indexOf('dpr-wedge"/>') < PROBE_SVG.indexOf('dpr-gate-rim'), 'drawn first, under the marks');
+  assert.match(PROBE_SVG, /<stop offset="1" stop-color="var\(--dop-glow\)" stop-opacity="0"\/>/, 'fades to nothing');
+  assert.match(css, /\.dop-probe \.dpr-wedge \{ fill: url\(#dpr-wedge\); \}/);
+  assert.match(stage, /all\('\.dpr-wedge', 'd', p\.wedge\)/);
+});
+
+test('the probe stands clear of a narrowing\'s "60 %": its flow axis counts with the line of sight, and the label is one the probe weighs', () => {
+  const g = [600, 400], t = [1, 0], r = 8;
+  const a = probePose({ g, t, r, w: W, h: H, side: 1 }), axis = gateBoxes(g, a.ang, a.phi, r);
+  assert.ok(axis.length > 3 && axis.every((b) => Math.hypot((b.x0 + b.x1) / 2 - g[0], (b.y0 + b.y1) / 2 - g[1]) <= 36 + 1));
+  const label = { ...axis[0], x0: axis[0].x0 + 1, y0: axis[0].y0 + 1 };
+  const side = probePose({ g, t, r, w: W, h: H, avoid: [label] });
+  assert.ok(side.lab === 0 || side.side !== a.side, 'the side whose axis crosses the label is left when the other is clear');
+  assert.match(stage, /querySelectorAll\('\.clamp-label'\)\) if \(el\._box\) out\.push\(el\._box\);/);
+  assert.match(stage, /dpr\.marks = \[\.\.\.beamBoxes\(\[gx, gy\], pose\.ang, pose\.D, r\), \.\.\.gateBoxes\(\[gx, gy\], pose\.ang, pose\.phi, r\)\];/);
 });

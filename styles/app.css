@@ -189,6 +189,7 @@ svg { flex: none; }
 #labels .lb.lb-off { opacity: 0; pointer-events: none; }
 .lb-leaders > * { transition: opacity .3s var(--ease); animation: pz-fade .3s var(--ease) both; }
 .lb-leaders > .ld-gone { opacity: 0; }
+.lb-leaders > .dpr-hid { opacity: 0; transition-duration: .36s; }   /* (the station dot under the Doppler's gate fades with the probe, stage.js dprDots) */
 @media (prefers-reduced-motion: reduce) { #labels .lb, .lb-leaders > * { transition: none; animation: none; } }
 /* The halo grows with the text (--lbk: the labels' size, set by the stage), so large text still reads over the art. */
 #labels text { font-family: var(--font-ui); font-variant-numeric: tabular-nums; paint-order: stroke; stroke: var(--label-halo); stroke-width: max(2px, calc(3px * var(--lbk, 1))); stroke-linejoin: round; }
@@ -2871,10 +2872,11 @@ button.finding { cursor: pointer; }
 .dop-probe { position: absolute; left: 0; top: 0; width: 0; height: 0; transition: opacity .36s var(--ease); pointer-events: none; }
 .dop-probe.off { opacity: 0; }
 .dop-probe .dpr-svg { position: absolute; left: 0; top: 0; overflow: visible; }
+.dop-probe .dpr-wedge { fill: url(#dpr-wedge); }   /* (the faded ultrasound beam, in the Doppler glow's colour, under every mark) */
 .dop-probe .dpr-rim-l { fill: none; stroke: var(--dop-rim); stroke-width: 3.6; stroke-linecap: round; stroke-linejoin: round; }
 .dop-probe .dpr-line { fill: none; stroke: var(--dop-mark); stroke-width: 1.4; stroke-linecap: round; stroke-linejoin: round; }
-.dop-probe .dpr-gate-rim { fill: none; stroke: var(--dop-rim); stroke-width: 3.6; stroke-linecap: round; }
-.dop-probe .dpr-gate { fill: none; stroke: var(--dop-mark); stroke-width: 1.4; stroke-linecap: round; }
+.dop-probe .dpr-gate-rim { fill: none; stroke: var(--dop-rim); stroke-width: 4.6; stroke-linecap: round; }
+.dop-probe .dpr-gate { fill: none; stroke: var(--dop-mark); stroke-width: 2.4; stroke-linecap: round; }   /* (a bit thicker than the 1.4 axis line, which is drawn over it) */
 .dop-probe .dpr-cable { fill: none; stroke: var(--text-3); stroke-width: 3; stroke-linecap: round; }
 .dop-probe .dpr-rim { fill: none; stroke: var(--dop-rim); stroke-width: 4; stroke-linejoin: round; }
 .dop-probe .dpr-body { fill: var(--surface); stroke: var(--dop-mark); stroke-width: 1.6; stroke-linejoin: round; }
