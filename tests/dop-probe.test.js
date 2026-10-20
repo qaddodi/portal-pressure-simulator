@@ -7,7 +7,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { AWAY, probePose, probeShapes, gateDims, bodyBox, beamBoxes, gateBoxes, PROBE, PROBE_SVG } from '../src/ui/dop-probe.js';
+import { AWAY, probePose, fitPose, SIZES, QUIET, ZOOMED_OUT, probeShapes, gateDims, bodyBox, beamBoxes, gateBoxes, PROBE, PROBE_SVG } from '../src/ui/dop-probe.js';
 
 const read = (p) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8');
 const stage = read('src/ui/stage.js'), doppler = read('src/ui/doppler.js'), css = read('styles/app.css'), tokens = read('styles/tokens.css');
@@ -262,7 +262,7 @@ test('the probe turns to the quieter part of the figure: any of the four places 
     assert.equal(kept.side, -plain.side);
   }
   assert.match(stage, /busy: dprBusy\(\[gx, gy\], id\)/);
-  assert.match(stage, /pose\.rev !== dpr\.rev/);
+  assert.match(stage, /keepRev: dpr\.rev,/);
 });
 
 test('closer in counts when the usual distance is busy: the probe takes the empty place beside the vessel (iPhone, Sinusoidal 5/13)', () => {
@@ -287,27 +287,23 @@ test('a card hidden by visibility does not keep the probe off the figure (the cl
   assert.ok(stage.indexOf('const unseenCard = ') > 0 && stage.indexOf('const unseenCard = ') < stage.indexOf('function dprCards()'));
 });
 
-test('as the FibroScan probe turns, the Doppler probe\'s body turns on its face into a clearer spot, θ still 50° (Mohammad, 20 Oct)', () => {
-  const g = [600, 400], t = [1, 0], r = 8, cos = Math.cos(PROBE.ANGLE * Math.PI / 180);
-  const fill = (b) => { const out = []; for (let x = b.x0; x <= b.x1; x += 6) for (let y = b.y0; y <= b.y1; y += 6) out.push([x, y, 2]); return out; };
-  // Every straight place, at every distance, has vessels under its body: the body turns on its face instead.
-  const straight = [];
-  for (const rev of [false, true]) for (const s of [1, -1]) for (const D of [PROBE.GAP + r, 58 + r, 38 + r, 28 + r, 125 + r, 170 + r]) {
-    const p = probePose({ g, t, r, w: W, h: H, side: s, rev });
-    straight.push(...fill(bodyBox(g, p.ang, D)));
+test('the line of sight always leaves the probe square, the body in line with it; the probe swings round the gate to a new place (Mohammad, 20 Oct)', () => {
+  const g = [600, 400], t = [0.6, 0.8], r = 8;
+  for (const side of [1, -1]) for (const rev of [false, true]) {
+    const p = probePose({ g, t, r, w: W, h: H, side, rev }), b = bodyBox(g, p.ang, p.D);
+    // The body's box is centred on the line of sight, out past the face.
+    const mid = [(b.x0 + b.x1) / 2, (b.y0 + b.y1) / 2], d = dirOf(p.ang), u = (mid[0] - g[0]) * d[0] + (mid[1] - g[1]) * d[1];
+    assert.ok(Math.abs((mid[0] - g[0]) * -d[1] + (mid[1] - g[1]) * d[0]) < 1e-6 && u > p.D, 'the body lies on the line of sight');
   }
-  const p = probePose({ g, t, r, w: W, h: H, busy: straight });
-  assert.ok(p.tilt !== 0 && Math.abs(p.tilt) <= PROBE.TILT && PROBE.TILT <= 20, `turned ${p.tilt}°`);
-  const b = dirOf(p.ang);
-  assert.ok(Math.abs(Math.abs(b[0] * t[0] + b[1] * t[1]) - cos) < 1e-9, 'the line of sight still meets the flow at θ');
-  assert.ok(p.busy < probePose({ g, t, r, w: W, h: H, busy: straight, side: p.side, rev: p.rev }).busy);
-  // An empty figure keeps it straight, and the head turns on its face as drawn.
-  assert.equal(probePose({ g, t, r, w: W, h: H }).tilt, 0);
-  assert.match(probeShapes(90, r, 50, -10).head, /^translate\(90 0\) rotate\(-10\) scale\(/);
-  // A kept tilt stays while it is clear and no place is clearly quieter.
-  assert.equal(probePose({ g, t, r, w: W, h: H, busy: straight, keep: p.side, keepReach: p.reach, keepRev: p.rev, keepTilt: p.tilt }).tilt, p.tilt);
-  assert.match(stage, /keepTilt: dpr\.tilt/);
-  assert.match(stage, /pose\.tilt !== dpr\.tilt/);
+  assert.match(probeShapes(90, r, 50).head, /^translate\(90 0\) scale\([\d.]+\)$/, 'no turn on its face');
+  assert.doesNotMatch(read('src/ui/dop-probe.js'), /tilt/i);
+  // In the figure: only a new vessel fades it out and in; a new place on the same vessel swings it round the gate (the short way),
+  // its distance and size easing too, the flow axis held along the flow.
+  assert.match(stage, /if \(dpr\.on && key !== dpr\.key\) \{/);
+  assert.match(stage, /else dpr\.cur\.ang = tgt\.ang \+ angTo\(tgt\.ang, dpr\.cur\.ang\);/);
+  assert.match(stage, /q\.ang \+= \(g\.ang - q\.ang\) \* f; q\.d \+= \(g\.d - q\.d\) \* f; q\.k \+= \(g\.k - q\.k\) \* f;/);
+  assert.match(stage, /probeShapes\(D, t\.r, angTo\(c\.ang, t\.ax\), c\.k\)/);
+  assert.match(stage, /ax: pose\.ang \+ pose\.phi/);
 });
 
 test('organ outlines count as busy, at half a vessel\'s weight, and only while the organs show', () => {
@@ -339,4 +335,45 @@ test('a crowded figure near the vessel: the probe stands farther out, in the emp
   assert.ok(p.reach < 0 && p.D > PROBE.GAP + r, `out at ${p.D}`);
   assert.ok(p.busy < probePose({ g, t, r, w: W, h: H, busy, side: p.side, rev: p.rev }).busy);
   assert.match(stage, /R = PROBE\.GAP \+ PROBE\.LEN \+ 140;/);
+});
+
+test('"Smaller there" (Mohammad, 20 Oct): in a crowded view the probe shrinks until it fits clear; wherever it fits it stays full size', () => {
+  const g = [600, 400], t = [1, 0], r = 3;
+  assert.equal(fitPose({ g, t, r, w: W, h: H }).k, 1, 'an empty figure: full size');
+  assert.deepEqual(SIZES, [...SIZES].sort((a, b) => b - a)); assert.equal(SIZES[0], 1); assert.ok(SIZES.at(-1) >= 0.5);
+  // Drawings everywhere past 75 px from the gate (a zoomed-out phone, the cards close in): only a smaller probe fits between.
+  const busy = [];
+  for (let x = 300; x <= 900; x += 6) for (let y = 100; y <= 700; y += 6) if (Math.hypot(x - g[0], y - g[1]) > 75) busy.push([x, y, 1]);
+  const full = probePose({ g, t, r, w: W, h: H, busy });
+  assert.ok(full.body > QUIET, 'full size does not fit clear');
+  assert.equal(fitPose({ g, t, r, w: W, h: H, busy }).k, 1, 'zoomed in: always full size');
+  assert.equal(fitPose({ g, t, r, w: W, h: H, busy, sc: ZOOMED_OUT }).k, 1);
+  const p = fitPose({ g, t, r, w: W, h: H, busy, sc: 0.3 });
+  assert.ok(p.k < 1 && p.body <= QUIET && p.lab === 0 && !p.headOff, `shrunk to ${p.k}, ${p.body} points`);
+  // The largest size that fits: one step bigger does not.
+  const i = SIZES.indexOf(p.k);
+  assert.ok(probePose({ g, t, r, w: W, h: H, busy, k: SIZES[i - 1] }).body > QUIET);
+  // Its body and distance shrink with it, θ unchanged.
+  assert.ok(p.D < PROBE.GAP + r && p.box.x1 - p.box.x0 < full.box.x1 - full.box.x0 + 1);
+  assert.match(probeShapes(p.D, r, p.phi, p.k).head, new RegExp(`scale\\(${+(PROBE.SCALE * p.k).toFixed(3)}\\)`));
+  // In the figure: chosen with its size kept, and eased in place (never popped) to a new size.
+  assert.match(stage, /const pose = fitPose\(\{/);
+  assert.match(stage, /keepK: dpr\.k, sc: CTM\?\.sc \|\| 1,/);
+  assert.ok(ZOOMED_OUT > 0.3 && ZOOMED_OUT < 0.7, 'a phone\'s whole body shrinks it; a phone slide on the vessel and the Mac\'s whole figure do not');
+  assert.match(stage, /const tgt = \{ ang: pose\.ang, d: pose\.D - Math\.max\(0, r\), k: pose\.k,/);
+  // A smaller size it stands at is kept while it still fits (the labels make way for it, and it swung between two sizes).
+  const kept = fitPose({ g, t, r, w: W, h: H, busy, sc: 0.3, keep: p.side, keepReach: p.reach, keepRev: p.rev, keepK: p.k });
+  assert.equal(kept.k, p.k);
+  if (i < SIZES.length - 1) {
+    const small = fitPose({ g, t, r, w: W, h: H, busy, sc: 0.3, keepK: SIZES.at(-1), ...(() => { const q = probePose({ g, t, r, w: W, h: H, busy, k: SIZES.at(-1) }); return { keep: q.side, keepReach: q.reach, keepRev: q.rev }; })() });
+    assert.ok(small.k === SIZES.at(-1) || small.k === 1, 'kept small unless full size fits');
+  }
+});
+
+test('a vessel crossing only the line of sight (Sinusoidal 5/13 on a phone) keeps the probe full size', () => {
+  const g = [600, 400], t = [1, 0], r = 6, p = probePose({ g, t, r, w: W, h: H, side: 1 });
+  const busy = beamBoxes(g, p.ang, p.D, r).slice(2, 6).map((b) => [(b.x0 + b.x1) / 2, (b.y0 + b.y1) / 2, 3]);
+  for (const s of [-1]) { const o = probePose({ g, t, r, w: W, h: H, side: s }); busy.push(...beamBoxes(g, o.ang, o.D, r).slice(2, 6).map((b) => [(b.x0 + b.x1) / 2, (b.y0 + b.y1) / 2, 3])); }
+  const f = fitPose({ g, t, r, w: W, h: H, busy, sc: 0.3 });
+  assert.equal(f.k, 1); assert.equal(f.body, 0);
 });

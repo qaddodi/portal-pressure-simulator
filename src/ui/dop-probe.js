@@ -16,11 +16,9 @@ export const awayFromProbe = (id) => AWAY.has(id);
 // BEAM_DEG: the faded ultrasound beam's half-angle (the first probe's narrow beam, which Mohammad missed, 20 Oct).
 // ANGLE: the Doppler angle θ, the monitor's too (dopplerColor.js THETA reads it). Under 60° as the papers ask (McNaughton and
 // Abu-Yousef, RadioGraphics 2011, Fig 2; Ferraioli's EFSUMB slides; Lechowicz and Elwertowski, J Ultrason 2015, p. 214): 60° was the limit itself.
-// TILT: how far the probe's body may turn on its face away from the line of sight (degrees, steps of 10), the way a linear probe
-// steers its Doppler beam (a steered line leaves the face at up to about 20°): θ to the flow stays 50° while the body turns into a
-// clearer part of the figure, as the FibroScan probe turns (stage.js scanTurn) (Mohammad, 20 Oct: "The fibro probe is much better").
-export const PROBE = { ANGLE: 50, GAP: 80, SCALE: 1.35, LEN: 84, HALF: 17.5, EDGE: 8, BEAM_DEG: 7, TILT: 20 };
-const TILTS = [0, 10, -10, 20, -20].filter((b) => Math.abs(b) <= PROBE.TILT);
+// The line of sight always leaves the probe's face square, the body in line with it (Mohammad, 20 Oct: "The axis line of the Doppler
+// should always be perpendicular to the probe"): the probe turns by swinging round the gate (stage.js eases it there).
+export const PROBE = { ANGLE: 50, GAP: 80, SCALE: 1.35, LEN: 84, HALF: 17.5, EDGE: 8, BEAM_DEG: 7 };
 
 /** The sample volume for a lumen of radius r (px on screen): two bars across the line of sight, each `at` px from the gate along
  *  it: the gate is half the vessel's width long, in its middle, as the Polish Ultrasound Society's standard sets it (Lechowicz and
@@ -30,12 +28,11 @@ export const gateDims = (r) => ({ at: Math.max(4, 0.5 * Math.max(0, r)), half: M
 const rad = (d) => (d * Math.PI) / 180;
 const overlap = (a, b) => Math.max(0, Math.min(a.x1, b.x1) - Math.max(a.x0, b.x0)) * Math.max(0, Math.min(a.y1, b.y1) - Math.max(a.y0, b.y0));
 
-/** The probe's body box (stage px) with its face D px from the gate g, along the direction ang (degrees), the body turned tilt
- *  degrees on its face away from the line of sight. */
-export function bodyBox(g, ang, D, tilt = 0) {
-  const c = Math.cos(rad(ang)), s = Math.sin(rad(ang)), fx = g[0] + D * c, fy = g[1] + D * s, xs = [], ys = [];
-  const cb = Math.cos(rad(ang + tilt)), sb = Math.sin(rad(ang + tilt));
-  for (const [u, v] of [[-3, -PROBE.HALF], [-3, PROBE.HALF], [PROBE.LEN, -PROBE.HALF], [PROBE.LEN, PROBE.HALF]]) {
+/** The probe's body box (stage px) with its face D px from the gate g, along the direction ang (degrees), at size k. */
+export function bodyBox(g, ang, D, k = 1) {
+  const cb = Math.cos(rad(ang)), sb = Math.sin(rad(ang)), fx = g[0] + D * cb, fy = g[1] + D * sb, xs = [], ys = [];
+  const L = PROBE.LEN * k, H = PROBE.HALF * k;
+  for (const [u, v] of [[-3, -H], [-3, H], [L, -H], [L, H]]) {
     xs.push(fx + u * cb - v * sb); ys.push(fy + u * sb + v * cb);
   }
   return { x0: Math.min(...xs), y0: Math.min(...ys), x1: Math.max(...xs), y1: Math.max(...ys) };
@@ -71,15 +68,15 @@ export function gateBoxes(g, ang, phi, r = 0, pad = 4) {
 
 /** How busy the figure is under a pose (Mohammad, 20 Oct: "in an area that's less busy, where not a lot of drawings"): busy holds
  *  points along the vessels and the organs' outlines drawn, [x, y, radius, weight (1: a vessel)] in stage px; each one under the
- *  probe's body counts its weight, under its line of sight half that. The body turned tilt degrees on its face (bodyBox). */
-export function busyAt(g, ang, D, r, busy, tilt = 0) {
+ *  probe's body counts its weight, under its line of sight half that (bodyOnly: the body's alone). At size `size` (bodyBox). */
+export function busyAt(g, ang, D, r, busy, size = 1, bodyOnly = false) {
   if (!busy?.length) return 0;
   const c = Math.cos(rad(ang)), s = Math.sin(rad(ang)), far = gateDims(r).at, fx = g[0] + D * c, fy = g[1] + D * s;
-  const cb = Math.cos(rad(ang + tilt)), sb = Math.sin(rad(ang + tilt));
   let n = 0;
   for (const [x, y, q = 0, k = 1] of busy) {
-    const bx = x - fx, by = y - fy, bu = bx * cb + by * sb, bv = Math.abs(-bx * sb + by * cb);
-    if (bu >= -3 - q && bu <= PROBE.LEN + q && bv <= PROBE.HALF + q + 3) { n += k; continue; }
+    const bx = x - fx, by = y - fy, bu = bx * c + by * s, bv = Math.abs(-bx * s + by * c);
+    if (bu >= -3 - q && bu <= PROBE.LEN * size + q && bv <= PROBE.HALF * size + q + 3) { n += k; continue; }
+    if (bodyOnly) continue;
     const dx = x - g[0], dy = y - g[1], u = dx * c + dy * s, v = Math.abs(-dx * s + dy * c);
     if (u > far + Math.max(0, r) + q && u < D && v <= 4 + q) n += 0.5 * k;
   }
@@ -96,64 +93,91 @@ export function busyAt(g, ang, D, r, busy, tilt = 0) {
  * Four places hold θ to the flow: either side of the vessel, and either way along it (rev: the probe looks at the flow from its
  * other end, the monitor's convention's mirror), the usual end first; rev only for a clearly quieter spot (Mohammad, 20 Oct:
  * "have the US probe rotate and be in an area that's less busy").
- * The body may also turn on its face, up to PROBE.TILT, keeping the line of sight (and θ): tilt, kept as keepTilt.
- * Returns { side, rev, reach, tilt, ang (degrees, from the gate toward the probe), phi (the flow axis's θ ray, from the line of sight
+ * k: the probe's size (fitPose), its body and its distances shrinking with it.
+ * Returns { side, rev, reach, k, ang (degrees, from the gate toward the probe), phi (the flow axis's θ ray, from the line of sight
  * toward the probe, degrees), D (gate to face, px), box (the body), lab, busy, clear, headOff (only the marks fit: the head fades) }.
  */
-export function probePose({ g, t, r = 0, away = false, w, h, cards = [], keep = 0, side = 0, avoid = [], keepReach = 0, keepRev = false, keepTilt = 0, busy = [], rev = false }) {
+export function probePose({ g, t, r = 0, away = false, w, h, cards = [], keep = 0, side = 0, avoid = [], keepReach = 0, keepRev = false, busy = [], rev = false, k = 1 }) {
   const base = Math.atan2(t[1], t[0]) * 180 / Math.PI;
-  const D0 = PROBE.GAP + Math.max(0, r), e = PROBE.EDGE;
+  const D0 = PROBE.GAP * k + Math.max(0, r), e = PROBE.EDGE;
   const inStage = (b) => b.x0 >= e && b.y0 >= e && b.x1 <= w - e && b.y1 <= h - e;
   const under = (b) => cards.some((c) => overlap(b, c) > 0);
-  // The poses at one side, end and distance: the body straight on the line of sight, then turned on its face (TILTS). The line of
-  // sight, gate and axis are the same for every tilt, so their label overlap is counted once.
-  const poses = (s, D = D0, reach = 0, rev = false, tilts = TILTS) => {
+  // The pose at one side, end and distance.
+  const pose = (s, D = D0, reach = 0, rev = false) => {
     const aw = away !== rev, ang = base + s * (aw ? 180 - PROBE.ANGLE : PROBE.ANGLE);
     // (The flow runs at −s·θ from the line toward the probe (toward), or at 180° − s·(180° − θ) (away), whose reverse is s·θ.)
     const phi = (aw ? s : -s) * PROBE.ANGLE, lines = [...beamBoxes(g, ang, D, r), ...gateBoxes(g, ang, phi, r)];
     const labOf = (bs) => avoid.reduce((n, o) => n + bs.reduce((m, b) => m + overlap(b, o), 0), 0);
     const labL = labOf(lines), seen = inStage({ x0: Math.min(...lines.map((b) => b.x0)), y0: Math.min(...lines.map((b) => b.y0)), x1: Math.max(...lines.map((b) => b.x1)), y1: Math.max(...lines.map((b) => b.y1)) }) && !lines.some(under);
-    return tilts.map((tilt) => {
-      const box = bodyBox(g, ang, D, tilt);
-      // How much of the body lies off the stage or under a card (px²): 0 is clear.
-      const off = (box.x1 - box.x0) * (box.y1 - box.y0) - overlap(box, { x0: e, y0: e, x1: w - e, y1: h - e });
-      const hidden = cards.reduce((n, c) => n + overlap(box, c), 0);
-      return { side: s, rev, reach, tilt, ang, lab: labL + labOf([box]), busy: busyAt(g, ang, D, r, busy, tilt), phi, D, box, cost: off + hidden, clear: off + hidden === 0, seen };
-    });
+    const box = bodyBox(g, ang, D, k);
+    // How much of the body lies off the stage or under a card (px²): 0 is clear.
+    const off = (box.x1 - box.x0) * (box.y1 - box.y0) - overlap(box, { x0: e, y0: e, x1: w - e, y1: h - e });
+    const hidden = cards.reduce((n, c) => n + overlap(box, c), 0);
+    return { side: s, rev, reach, ang, lab: labL + labOf([box]), busy: busyAt(g, ang, D, r, busy, k), body: busyAt(g, ang, D, r, busy, k, true), phi, D, box, k, cost: off + hidden, clear: off + hidden === 0, seen };
   };
-  if (side) return poses(side, D0, 0, rev, [0])[0];
-  const at = (D, reach) => [1, -1].flatMap((s) => [...poses(s, D, reach), ...poses(s, D, reach, true)]);
+  if (side) return pose(side, D0, 0, rev);
+  const at = (D, reach) => [1, -1].flatMap((s) => [pose(s, D, reach), pose(s, D, reach, true)]);
   // Every place clear of the slide's free space and the cards, at its usual distance or closer in (Mohammad, 20 Oct: visible
-  // wherever there is room), the body straight or turned on its face; none fits and it hides. Closer in counts too where the usual distance is busy: on a phone the only
+  // wherever there is room), or farther out past a crowded figure; none fits and it hides. Closer in counts too where the usual distance is busy: on a phone the only
   // places clear of the card at the usual distance can be the busiest (Sinusoidal 5/13: it stood on two vessels with an empty
   // spot beside the vessel just closer in, 20 Oct).
-  const all = [...at(D0, 0), ...REACH.flatMap((n, i) => at(n + Math.max(0, r), i + 1)), ...FAR.flatMap((n, i) => at(n + Math.max(0, r), -(i + 1)))];
-  const score = (p) => p.busy + (p.rev ? 3 : 0) + 2 * Math.abs(p.reach) + 0.15 * Math.abs(p.tilt);
+  const all = [...at(D0, 0), ...REACH.flatMap((n, i) => at(n * k + Math.max(0, r), i + 1)), ...FAR.flatMap((n, i) => at(n * k + Math.max(0, r), -(i + 1)))];
+  const score = (p) => p.busy + (p.rev ? 3 : 0) + 2 * Math.abs(p.reach);
   const pool = all.filter((p) => p.clear);
   if (!pool.length) {
     // No place for the whole probe: as the FibroScan probe does under a card (stage.js scanHead), the marks stay where they are on
     // screen and clear of the cards, and the head fades (headOff), the least of it covered; only with no such place does it hide.
     const marks = all.filter((p) => p.seen);
     if (marks.length) return { ...marks.reduce((m, p) => (p.cost !== m.cost ? (p.cost < m.cost ? p : m) : score(p) < score(m) ? p : m)), headOff: true };
-    const a = poses(1, D0, 0, false, [0])[0], b = poses(-1, D0, 0, false, [0])[0];
+    const a = pose(1), b = pose(-1);
     return { ...(a.cost <= b.cost ? a : b), none: true };
   }
-  // (Fewer labels crossed first; then the quieter figure, the usual end, distance and a straight body weighing a little (score);
+  // (Fewer labels crossed first; then the quieter figure, the usual end and distance weighing a little (score);
   // a tie stands above the vessel, where the camera leaves more room.) quieter: clearly so, crossing no more labels, so a kept place
   // never flips over a point or two.
   const better = (p, m) => (p.lab !== m.lab ? p.lab < m.lab : score(p) !== score(m) ? score(p) < score(m) : p.reach !== m.reach ? Math.abs(p.reach) < Math.abs(m.reach) : p.box.y0 + p.box.y1 < m.box.y0 + m.box.y1);
   const quieter = (p, m) => p.lab <= m.lab && score(p) < 0.6 * score(m) - 2;
   const best = pool.reduce((m, p) => (better(p, m) ? p : m));
-  const k = keep && pool.find((p) => p.side === keep && p.reach === keepReach && p.rev === !!keepRev && p.tilt === (keepTilt || 0));
-  if (!k) return best;
-  return (k.lab > 0 && best.lab === 0) || quieter(best, k) ? best : k;
+  const kept = keep && pool.find((p) => p.side === keep && p.reach === keepReach && p.rev === !!keepRev);
+  if (!kept) return best;
+  return (kept.lab > 0 && best.lab === 0) || quieter(best, kept) ? best : kept;
+}
+
+/** The sizes the probe may shrink to (its body, its distance from the vessel and its head), largest first: Mohammad's pick, 20 Oct,
+ *  "Smaller there": in a crowded zoomed-out view only, it shrinks until it fits clear; everywhere it fits it stays full size. */
+export const SIZES = [1, 0.85, 0.7, 0.55];
+/** Fits clear: on the free space, its head showing, crossing no label, and its body over at most QUIET points of the drawings (its
+ *  line of sight must cross what lies between it and the vessel at any size). */
+export const QUIET = 4;
+const fits = (p) => !p.none && !p.headOff && p.lab === 0 && p.body <= QUIET;
+
+/** The figure's scale (screen px per world unit) under which a view counts as zoomed out: a phone's whole-body view is about 0.3;
+ *  a phone slide on the portal vein about 0.9, and a Mac's whole figure about 0.7, keep the full-size probe. */
+export const ZOOMED_OUT = 0.6;
+/** probePose at the largest size that fits clear (SIZES), the place kept only at the size it stood at (keepK); with none that fits,
+ *  the size whose place is quietest (full size on a tie). Only in a zoomed-out view (sc < ZOOMED_OUT); elsewhere always full size.
+ *  A smaller size it stands at is kept while its place still fits, unless full size fits: the labels make way for the probe, so
+ *  the size one step up could fit only while it stands smaller, and it swung between the two (iPhone, Tests › Doppler, 20 Oct).
+ *  Returns the pose with k, its size. */
+export function fitPose({ sc = 1, ...o }) {
+  const at = (k) => probePose({ ...o, k, ...(k === (o.keepK || 1) ? {} : { keep: 0 }) });
+  const full = at(1);
+  if (!(sc < ZOOMED_OUT) || fits(full)) return full;
+  if (o.keep && o.keepK < 1 && SIZES.includes(o.keepK)) { const p = at(o.keepK); if (fits(p) && p.side === o.keep && p.reach === o.keepReach && p.rev === !!o.keepRev) return p; }
+  let best = full;
+  for (const k of SIZES.slice(1)) {
+    const p = at(k);
+    if (fits(p)) return p;
+    if (!p.none && (best.none || (!p.headOff && best.headOff) || (p.headOff === best.headOff && p.lab + p.busy < best.lab + best.busy))) best = p;
+  }
+  return best;
 }
 
 /** The marks in the probe's own frame, x running from the gate (0) toward the probe, whose face is at D: the line of sight from
  *  the face straight through the vessel and on past its far wall; the sample volume's two bars across it; the flow axis through
  *  the gate, at phi (±θ) from the line. The angle itself is named only on the monitor (θ in its header): no arc and no θ on the
  *  figure (Mohammad, 20 Oct). */
-export function probeShapes(D, r, phi = PROBE.ANGLE, tilt = 0) {
+export function probeShapes(D, r, phi = PROBE.ANGLE, size = 1) {
   // (The line of sight ends at the near gate bar, and the flow axis reaches a little past both bars: Mohammad, 20 Oct.)
   const { at, half } = gateDims(r);
   const L = Math.min(36, Math.max(16, 1.7 * r)), p = rad(phi), c = Math.cos(p), s = Math.sin(p), f = (v) => +v.toFixed(1);
@@ -164,7 +188,7 @@ export function probeShapes(D, r, phi = PROBE.ANGLE, tilt = 0) {
     beam: `M${f(D)} 0 L${f(at)} 0`,
     gate: `M${f(-at)} ${f(-half)} L${f(-at)} ${f(half)} M${f(at)} ${f(-half)} L${f(at)} ${f(half)}`,
     axis: `M${f(-L * c)} ${f(-L * s)} L${f(L * c)} ${f(L * s)}`,
-    head: `translate(${f(D)} 0)${tilt ? ` rotate(${tilt})` : ''} scale(${PROBE.SCALE})`,
+    head: `translate(${f(D)} 0) scale(${size === 1 ? PROBE.SCALE : +(PROBE.SCALE * size).toFixed(3)})`,
   };
 }
 
