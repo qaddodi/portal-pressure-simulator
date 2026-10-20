@@ -34,6 +34,8 @@ test('a bedside lapse runs time on the seconds clock, ramps the meal, keeps samp
   assert.equal(mid.clock, 'hemo', 'the seconds clock: the Doppler records');
   assert.ok(mid.lapseDay > 3 && mid.lapseDay < 5, `halfway through its days (${mid.lapseDay})`);
   assert.ok(core.engine().params.splanchnicTone < 0.9 && core.engine().params.splanchnicTone > 0.8);
+  const during = msgs.filter((m) => m.type === 'frame' && m.lapseDay != null);
+  assert.ok(during.length > 50 && during.every((m) => !m.settling), 'the Doppler never holds its scale during the meal: it follows the rise');
   assert.ok(mid.samples?.t.length || msgs.some((m) => m.type === 'frame' && m.samples?.t.length > 0), 'the trace keeps sampling');
   advance(4000);
   const end = msgs.filter((m) => m.type === 'frame').at(-1);

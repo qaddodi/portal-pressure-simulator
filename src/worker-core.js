@@ -145,7 +145,8 @@ export function createCore(post) {
       resp: !!eng.params.respiration,
       morphing: !!morph,
       // A live change still settling (a slider moving, a button, eased in and relaxed): the Doppler holds its scale until it ends.
-      settling: performance.now() < relaxUntil || eng.easing(),
+      // (Not a bedside time-lapse's own relaxing: its meal is what the trace is there to show, so the scale follows it.)
+      settling: (performance.now() < relaxUntil && !lapse?.bedside) || eng.easing(),
       phase: eng.phase(),
       P: Float32Array.from(eng.P),
       Pf: Float32Array.from(eng.Pf || eng.P),
