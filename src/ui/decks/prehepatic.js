@@ -27,7 +27,7 @@ export const PREHEPATIC = {
       ask: ['What does Doppler show in an acute portal vein clot?', 'No flow in the trunk; a fresh clot can be nearly anechoic, so the missing color signal matters more than the gray scale.'],
     },
     {
-      id: 'cath', cath: 'result', data: 'ladder', key: ['hvpg', 'ppg'],
+      id: 'cath', cath: 'result', tool: { kind: 'profile' }, data: 'ladder', key: ['hvpg', 'ppg'],
       kicker: 'Acute thrombosis', site: 'pre', title: 'HVPG is normal with a portal vein clot',
       eq: [mi('PPG') + mo('=') + sub(mi('P'), 'portal vein') + mo('−') + sub(mi('P'), 'IVC')],
       line: 'The clot is before the liver, so wedged and free pressures stay normal and the HVPG is {hvpg}. The PPG of {ppg} shows the resistance.',
@@ -35,7 +35,7 @@ export const PREHEPATIC = {
       ask: ['Varices, a large spleen and an HVPG of 3 mmHg. What does the HVPG tell you?', 'The resistance is not sinusoidal: look before the sinusoids, in the portal vein or the portal tracts.'],
     },
     {
-      id: 'cavernoma', lens: 'flow', preset: 'pvt-chronic', cam: 'portal', labels: ['CONF'], mark: { edges: ['PV_TRUNK'], label: 'Occluded portal vein' }, data: 'tiles', tiles: ['varix', 'spleen', 'plt'], key: ['varix'],
+      id: 'cavernoma', lens: 'flow', preset: 'pvt-chronic', cam: 'portal', labels: ['CONF'], mark: { edges: ['PV_TRUNK'], label: 'Occluded portal vein' }, tool: { kind: 'lumen' }, data: 'tiles', tiles: ['varix', 'spleen', 'plt'], key: ['varix'],
       kicker: 'Months later', site: 'pre', title: 'Months later, collaterals grow around the clot',
       line: 'A cavernoma, a web of small collaterals, grows around the clotted vein. Colored by flow, it carries the blood the trunk cannot. Varices form and the spleen enlarges.',
       notes: 'Cavernous transformation is a web of collaterals around the occluded portal vein, seen within weeks to months. It does not carry enough blood to bring the portal pressure down, so varices, a large spleen and low platelets follow. Screen for varices with endoscopy and treat them as in cirrhosis: a non-selective beta-blocker or banding. Long-term anticoagulation is advised when a thrombophilia persists. Large collaterals around the bile duct can narrow it (portal cholangiopathy). In children the clot often follows umbilical vein catheterization or sepsis in infancy.',
@@ -57,7 +57,7 @@ export const PREHEPATIC = {
       ask: ['Isolated gastric varices after pancreatitis. What is the cause and the cure?', 'Splenic vein thrombosis; splenectomy or splenic artery embolization, which removes the inflow that fills the varices.'],
     },
     {
-      id: 'summary', visual: 'table', cols: ['pv', 'hvpg', 'ppg', 'plt'], asc: false, rowHead: 'Patient',
+      id: 'summary', visual: 'table', cols: ['pv', 'hvpg', 'ppg', 'plt', 'wave'], wave: 'PV_TRUNK', asc: false, rowHead: 'Patient',
       of: [{ preset: 'healthy', kicker: 'Reference', title: 'Healthy', ref: true }, { id: 'clot', kicker: 'Portal vein', title: 'Acute thrombosis' }, { id: 'cavernoma', kicker: 'Portal vein', title: 'Cavernoma' }, { id: 'svt', kicker: 'Splenic vein', title: 'Splenic vein thrombosis' }],
       kicker: 'Summary', title: 'HVPG in pre-hepatic resistance',
       line: 'The HVPG stays normal in all three; the PPG rises only when the portal vein itself carries the resistance.',
