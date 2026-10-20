@@ -4,6 +4,12 @@
 // use, so the list never grows wider than the decks. Fields: 'kind:<tool kind>', 'tool.<option>', 'cols.<column>', or a
 // slide field.
 export const ADOPTED = {
+  'circuit/ohm': ['span'],
+  'circuit/where': ['zone'],
+  'circuit/meal': ['span'],
+  'circuit/resist': ['zone', 'span'],
+  'circuit/both': ['span'],
+  'circuit/parallel': ['kind:flows'],
   'pvt-cirrhosis/clot': ['kind:lumen'],
   'pvt-cirrhosis/carv': ['ripple'],
   'pvt-cirrhosis/anticoag': ['kind:lumen'],

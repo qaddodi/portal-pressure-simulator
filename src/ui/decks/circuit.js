@@ -34,7 +34,7 @@ export const CIRCUIT = withPoints({
   summary: 'Portal hypertension as a circuit: more flow, more resistance, collaterals in parallel, TIPS and the drugs, each read as ΔP = Q × R.',
   slides: [
     {
-      id: 'ohm', preset: 'healthy', view: C, sites: R, data: 'tiles', tiles: ['pvFlow', 'ppg'],
+      id: 'ohm', preset: 'healthy', view: C, sites: R, span: [{ from: 'CONF', to: 'IVCS', label: 'PPG {ppg}' }], data: 'tiles', tiles: ['pvFlow', 'ppg'],
       kicker: K, title: 'Pressure falls in proportion to flow and resistance',
       eq: [dP + mo('=') + mi('Q') + mo('×') + '<mi class="eq-wedge">R</mi>', 'ΔP pressure drop · Q flow · R resistance'],
       line: 'The pressure drop across any segment equals the flow through it times its resistance (ΔP = Q × R). In portal hypertension the drop across the liver is larger because flow or resistance has risen, usually both.',
@@ -42,14 +42,14 @@ export const CIRCUIT = withPoints({
       ask: ['Name the two ways the pressure drop across the liver can rise.', 'More flow through it, or more resistance to that flow.'],
     },
     {
-      id: 'where', lens: 'drop', view: C, sites: [...R, 'rGut'], terms: ['rGut'], data: 'ladder', key: ['pv', 'hvpg'],
+      id: 'where', lens: 'drop', view: C, zone: 'splanchnic', sites: [...R, 'rGut'], terms: ['rGut'], data: 'ladder', key: ['pv', 'hvpg'],
       kicker: K, title: 'Most of the pressure drop is across the gut arterioles',
       line: 'The gut arterioles take most of the arterial pressure, so little is left by the time blood reaches the portal vein. A healthy liver drops it only a few mmHg more. Colored by pressure drop, the gut arterioles are darkest.',
       notes: 'Mean arterial pressure is about 90 mmHg; the portal vein is under 10. The splanchnic arterioles are the largest resistance in the circuit and they set the portal inflow. Normal sinusoids are wide and many, so the HVPG is 1 to 5 mmHg.',
       ask: ['Which resistance sets the portal inflow?', 'The splanchnic (gut) arterioles: they are the largest resistance before the portal vein.'],
     },
     {
-      id: 'meal', ...MEAL, view: C, sites: R, data: 'tiles', tiles: ['pvFlow', 'ppg'], delta: true,
+      id: 'meal', ...MEAL, view: C, sites: R, span: [{ from: 'CONF', to: 'IVCS', label: 'PPG {ppg}' }], data: 'tiles', tiles: ['pvFlow', 'ppg'], delta: true,
       kicker: K, title: 'A meal raises portal flow but barely the gradient',
       line: 'A healthy liver has very little resistance, so even a large rise in flow adds little pressure (gradient = flow × resistance).',
       caveat: 'In people portal flow can nearly double after a meal; the model shows a rise of about a quarter.',
@@ -57,7 +57,7 @@ export const CIRCUIT = withPoints({
       ask: ['Why does a meal barely change portal pressure in a healthy liver?', 'The extra flow crosses a very low resistance.'],
     },
     {
-      id: 'resist', preset: 'csph', view: C, sites: R, data: 'tiles', tiles: ['pvFlow', 'hvpg', 'ppg'], delta: 'ohm',
+      id: 'resist', preset: 'csph', view: C, zone: 'liver', sites: R, span: [{ from: 'CONF', to: 'IVCS', label: 'PPG {ppg}' }], data: 'tiles', tiles: ['pvFlow', 'hvpg', 'ppg'], delta: 'ohm',
       whatIf: { label: 'Scarring', param: 'cirrhosis', min: 0, max: 1, step: 0.05, ends: ['None', 'Severe'] },
       kicker: K, site: 'sin', title: 'Cirrhosis raises the resistance in the liver',
       line: 'Scarring raises the resistance several-fold. Part of the rise is vascular tone, which drugs can relax.',
@@ -65,14 +65,14 @@ export const CIRCUIT = withPoints({
       ask: ['What part of the intrahepatic resistance can drugs lower?', 'The dynamic part, stellate cell and vascular tone; scar and nodules do not relax.'],
     },
     {
-      id: 'both', ...MEAL, view: C, sites: R, data: 'tiles', tiles: ['pvFlow', 'hvpg'], delta: true,
+      id: 'both', ...MEAL, view: C, sites: R, span: [{ from: 'CONF', to: 'IVCS', label: 'PPG {ppg}' }], data: 'tiles', tiles: ['pvFlow', 'hvpg'], delta: true,
       kicker: K, site: 'sin', title: 'In cirrhosis the same meal raises the gradient more',
       line: 'The rise is about twice as large, because the extra flow now crosses a higher resistance.',
       notes: 'In cirrhosis the splanchnic arterioles dilate for good (nitric oxide, glucagon, bacterial products), so the inflow stays high: the hyperdynamic circulation. A raised resistance and a raised inflow multiply. The rise is less than the resistance alone would predict: in cirrhosis the meal raises flow less, and part of it leaves through collaterals. Large transfusions raise the portal pressure the same way and can provoke a variceal bleed; meals may too.',
       ask: ['Why does the same meal raise the gradient more in cirrhosis?', 'The same extra flow crosses a higher resistance (ΔP = Q × R).'],
     },
     {
-      id: 'parallel', lens: 'flow', preset: 'cirr-decomp', view: C, sites: [...R, 'split'], data: 'tiles', tiles: ['shunt', 'liver', 'ppg'], delta: false,
+      id: 'parallel', lens: 'flow', preset: 'cirr-decomp', view: C, sites: [...R, 'split'], tool: { kind: 'flows' }, data: 'tiles', tiles: ['liver', 'ppg'], delta: false,
       kicker: K, site: 'sin', title: 'Collaterals divert flow without normalizing the gradient',
       eq: [frac('<mn>1</mn>', sub(mi('R'), 'total')) + mo('=') + frac('<mn>1</mn>', '<msub class="eq-wedge"><mi>R</mi><mtext>liver</mtext></msub>') + mo('+') + frac('<mn>1</mn>', '<msub class="eq-var"><mi>R</mi><mtext>collaterals</mtext></msub>'), 'Resistances in parallel: the total is lower than either'],
       line: 'Collaterals run in parallel with the liver. Colored by flow, they take a large share of the portal blood, yet the rest still crosses the liver\'s high resistance, and total inflow rises as they open.',
