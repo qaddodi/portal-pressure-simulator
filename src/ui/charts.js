@@ -470,6 +470,7 @@ export function createProfile() {
       items.push({ d, a, b, col, txt, num, tw1, tw, x0, x1, ty: best.yy, tx: best.lx, base });
     });
     // (No clear spot inside the plot: the brackets take their band under the names, drawn on the next frame.)
+    if (fail && !predict?.on && g.band) { toStrip(); return; }   // (already in the band and a value still has no clear spot: the strip, never a loop)
     if (fail && !predict?.on) { formLock.band = true; bandFade(); draw(); return; }
     setForm(false);
     // eased positions: [row, left edge] per span
