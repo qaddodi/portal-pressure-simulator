@@ -3235,7 +3235,8 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     // (The cap with the readings tucked: out, it grows by their height, styles/app.css .pz-sheet.has-tool.tool-open.)
     const dmax = (() => { const sv = ds.maxHeight; ds.maxHeight = ''; const m = getComputedStyle(dd).maxHeight; ds.maxHeight = sv; if (m === 'none') return Infinity; let v = 0; m.replace(/(-?[\d.]+)(%|px)/g, (_, n, u) => { v += u === '%' ? n * H / 100 : n * k; }); return v; })()
       - (splitSheet(dd) && dd.classList.contains('tool-open') && dd.classList.contains('has-tool') ? (parseFloat(ds.getPropertyValue('--pz-d')) || 0) * k : 0);
-    const reach = glassLift(k) * k, both = H - foot - reach - 8 - dtop - FIG_MIN(H);
+    const reach = glassLift(k) * k;
+    let both = H - foot - reach - 8 - dtop - FIG_MIN(H);
     // (Measured as the slide arrives, partly open with its sheet's edge below it, whatever the reader opened: the part's ease held
     // back so the measure sees where it rests.)
     const arriving = (fit = 0) => {
@@ -3252,6 +3253,11 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     // that size. Measured only at full size, Sites 3 on an iPhone came in closed, 20 px short, Mohammad, 20 Oct: "started closed".)
     const elastic = !gone && splitSheet(dd) && !!dd.querySelector(':scope > .pz-tool:is([data-kind="profile"], [data-kind="flows"])');
     const data = elastic && both - full < words ? Math.min(full, arriving(CHART_GIVE)) : full;
+    // (Short only by the glass's reach past the 16 px it once took (the deck's tab, glassLift), the figure lends it, down to FIG_REG,
+    // and the card arrives partly open as it did before: counted against the card, slides that fitted before 8aa5142 came in closed,
+    // Circulation 10 on an iPhone, Mohammad, 20 Oct: "the stacked cards started hidden".)
+    const short = words - (both - data);
+    if (!gone && short > 0 && short <= Math.min(reach - 16 * k, FIG_MIN(H) - FIG_REG(H))) { both += short; phoneFig = FIG_MIN(H) - short; }
     const shut = !gone && (both - data < words || data - sheetLip > dmax + 0.5) && !!dd.querySelector(':scope > :not(.pz-dh):not(.pz-grip):not(.pz-lip)');
     phoneShut = shut;
     // (Words at Compact win over the figure's share and the 62 % cap when nothing else gives; they never reach the data card. Closed,
@@ -3259,8 +3265,8 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     const room = H - foot - reach - 8, mine = Number.isFinite(own) ? own : 0.62 * H;
     // (Regular, where it needs more than its share but no more than the figure can lend: the figure keeps what is left, at least FIG_REG.)
     const regular = shut ? Infinity : at(1), lend = regular - (both - data);
-    const reg = lend > 0 && lend <= FIG_MIN(H) - FIG_REG(H) && regular <= mine && regular <= room - dtop - data;
-    if (reg) phoneFig = FIG_MIN(H) - lend;
+    const reg = lend > 0 && lend <= phoneFig - FIG_REG(H) && regular <= mine && regular <= room - dtop - data;
+    if (reg) phoneFig -= lend;
     const cap = Math.max(120, shut
       ? Math.min(room - GRIP * k, Math.max(Math.min(mine, room - dtop - Math.min(data, dmax + sheetLip)), compact))
       : reg ? regular : Math.min(room - dtop - data, Math.max(Math.min(mine, both - data), compact))) / k;

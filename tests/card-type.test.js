@@ -43,7 +43,7 @@ test('the fit has two sizes: Regular, else Compact for the whole card; the title
   assert.match(js, /: reg \? regular : Math\.min\(room - dtop - data, Math\.max\(Math\.min\(mine, both - data\), compact\)\)\) \/ k;/);
   // (Regular borrows from the figure's share, down to FIG_REG, before the words drop a whole step to Compact.)
   assert.match(js, /const FIG_REG = \(H\) => Math\.round\(Math\.max\(170, 0\.25 \* H\)\);/);
-  assert.match(js, /const reg = lend > 0 && lend <= FIG_MIN\(H\) - FIG_REG\(H\) && regular <= mine && regular <= room - dtop - data;/);
+  assert.match(js, /const reg = lend > 0 && lend <= phoneFig - FIG_REG\(H\) && regular <= mine && regular <= room - dtop - data;/);
   assert.match(js, /Math\.max\(0, phoneFig \/ k - lip - 2\)/);
 });
 

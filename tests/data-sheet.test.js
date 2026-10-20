@@ -156,7 +156,10 @@ test('a stacked row of tiles whose bars show no cut-off number keeps no empty ro
 test('a phone\'s data card and the words\' plan leave room for the glass as far as it really reaches, tab included', () => {
   assert.match(js, /const glassLift = \(k\) => \{/);
   assert.match(js, /\(parseFloat\(cs\.top\) \|\| 0\) - glassLift\(k\) - 8 - lip - fig\);/, 'the data card\'s room');
-  assert.match(js, /const reach = glassLift\(k\) \* k, both = H - foot - reach - 8 - dtop - FIG_MIN\(H\);/, 'the words\' plan');
+  assert.match(js, /const reach = glassLift\(k\) \* k;\s+let both = H - foot - reach - 8 - dtop - FIG_MIN\(H\);/, 'the words\' plan');
+  // A stacked card short only by the glass's reach past 16 px arrives partly open: the figure lends it, never under FIG_REG.
+  assert.match(js, /if \(!gone && short > 0 && short <= Math\.min\(reach - 16 \* k, FIG_MIN\(H\) - FIG_REG\(H\)\)\) \{ both \+= short; phoneFig = FIG_MIN\(H\) - short; \}\s+const shut = !gone && \(both - data < words/, 'the card starts half-open, not hidden');
+  assert.match(js, /lend <= phoneFig - FIG_REG\(H\)[^\n]*\n\s+if \(reg\) phoneFig -= lend;/, 'Regular words lend from what the figure still keeps');
   assert.match(js, /const room = H - foot - reach - 8, mine/);
   assert.match(js, /const lift = p && t \? glassLift\(k\) : 16;/, 'the glass itself is placed by the same reach');
   assert.doesNotMatch(js, /- 16 - 8\b/);
