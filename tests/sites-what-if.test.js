@@ -67,9 +67,9 @@ test('the controls teach their slides: portal pressure follows the clot and the 
   for (let j = 1; j < lad.length; j++) assert.ok(lad[j - 1] - lad[j] <= 4, `no block between stations ${j - 1} and ${j} (${lad})`);
 });
 
-test('Sites slide 7 (sinusoidal obstruction syndrome) never folds its ladder behind Show; every other slide keeps the fold', () => {
-  assert.equal(slide('postsin').fold, false);
-  for (const s of SITES.slides) if (s.id !== 'postsin') assert.equal(s.fold, undefined, s.id);
+test('Sites level slides show the pressure profile, not a ladder, so none folds a ladder behind Show', () => {
+  for (const id of ['healthy', 'pvt', 'presin', 'sin', 'postsin', 'post', 'cardiac']) assert.equal(slide(id).tool?.kind, 'profile', id);
+  for (const s of SITES.slides) assert.ok(s.data !== 'ladder' && s.fold === undefined, s.id);
   const src = readFileSync(new URL('../src/ui/presenter.js', import.meta.url), 'utf8');
   assert.match(src, /ladderFold !== foldKey && slides\[want\]\?\.fold !== false/);
 });

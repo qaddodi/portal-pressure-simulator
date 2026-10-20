@@ -3,6 +3,8 @@
 // fields, so the guard stays as strict for every other slide; deck-adopted.test.js checks that every entry is still in
 // use, so the list never grows wider than the decks. Fields: 'kind:<tool kind>', 'tool.<option>', 'cols.<column>',
 // 'lens:<deck-only lens>', or a slide field.
+// use, so the list never grows wider than the decks. Fields: 'kind:<tool kind>', 'lens:<lens>', 'tool.<option>', 'cols.<column>',
+// or a slide field.
 export const ADOPTED = {
   'circuit/ohm': ['span'],
   'circuit/where': ['zone'],
@@ -72,6 +74,14 @@ export const ADOPTED = {
   'variceal-bleed/oct': ['ripple'],
   'variceal-bleed/blood': ['cite'],
   'variceal-bleed/tips': ['ripple', 'cite'],
+  'sites/overview': ['lens:system', 'steps'],
+  'sites/healthy': ['kind:profile'],
+  'sites/pvt': ['kind:profile'],
+  'sites/presin': ['kind:profile'],
+  'sites/sin': ['kind:profile'],
+  'sites/postsin': ['kind:profile'],
+  'sites/post': ['kind:profile'],
+  'sites/cardiac': ['kind:profile'],
 };
 
 /** Whether the slide d/s may use the field. */
