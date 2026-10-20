@@ -7,6 +7,8 @@
 //                                                     circle above the % (default: the vessel's short name, "Distal TIPS" for a stent)
 //   tool: { kind: 'fluid' }                          V27: lymph made against lymph drained (tool-fluid.js); forces: true adds
 //                                                    the forces across the sinusoid wall, caveat: true the no-kidneys line
+//                                                    window: true draws the capacity window instead (per day: lymph made, the
+//                                                    lymphatics as a window filled to what they carry, overflow − taken back)
 // And on the Doppler (doppler.js configure, its own options, read on every slide that shows it):
 //   tool: { kind: 'doppler', mode: 'color' | 'variance' }   V20: the display mode (the next slide is Spectrum unless it names one)
 //   tool: { kind: 'doppler', calipers: true }        V21: peak and trough marked on the trace, the pulsatility index between them
@@ -14,11 +16,11 @@
 //                                                    portal vein's under a hepatic vein's), beat for beat
 
 import { createLumen, lumenName } from './tool-lumen.js?v=d03c7b3a1d';
-import { createFluid } from './tool-fluid.js?v=bf56d0bb01';
+import { createFluid } from './tool-fluid.js?v=ddc505b8f4';
 
 export default {
   tools: {
     lumen: { make: () => createLumen(), title: (t) => `The ${lumenName(t.vessel || 'PV_TRUNK')}, in cross-section`, short: () => 'Cross-section' },
-    fluid: { make: () => createFluid(), title: () => 'Fluid balance: lymph made and drained', short: () => 'Fluid balance' },
+    fluid: { make: () => createFluid(), title: (t) => (t?.window ? 'Fluid balance' : 'Fluid balance: lymph made and drained'), short: () => 'Fluid balance' },
   },
 };

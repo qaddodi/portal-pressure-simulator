@@ -23,7 +23,7 @@ import { nb, listCase, plateletText } from './glue.js?v=5a0f63226b';
 import { DECKS, REGIONS, LEVELS, TOPICS, withOverview, siteTag, SITE_TAGS } from './decks.js?v=6c8debf87e';
 import { wholeGap, tenthGap } from '../engine/gap.js?v=3a5947c552';
 import { createHvpgMonitor } from './hvpg-proc.js?v=3a8585d477';
-import { createTools } from './presenter-tools.js?v=02b14397ef';
+import { createTools } from './presenter-tools.js?v=1a12c6146a';
 import { openHandout } from './handout.js?v=862f23055a';
 import { noteResume, resumeFor } from './resume.js?v=f086f80ee8';
 import { parseDeckSource, checkDeck } from './deck-source.js?v=8395c650cd';
@@ -32,9 +32,9 @@ import { frameFor, cancelFrame } from './frame.js?v=2ce59939b2';
 import { createFigureKey } from './figure-key.js?v=7e170d78ce';
 import { traceWhen } from './trace-labels.js?v=fc916a95c6';
 import { flowCss, heatCss, dropCss, gradientCss, oxygenCss } from './colormap.js?v=1092d36abc';
-import { EXT, expandIds, stepExtra, markLabel, figureHooks, safe } from './slide-ext.js?v=91cb8bb7ac';
+import { EXT, expandIds, stepExtra, markLabel, figureHooks, safe } from './slide-ext.js?v=683e7967c0';
 import { citeText, focusOf, ladderFromOf, ladderFromName } from './teach-extras.js?v=d8224d9bb5';
-import { DEMO_ALL } from './test-decks/demo-all-new-visuals.js?v=917060c5ee';
+import { DEMO_ALL } from './test-decks/demo-all-new-visuals.js?v=9c49b469fc';
 import { COMPACT, WIDE } from './card-type.js?v=f5dfdb80f2';
 const nextFrame = frameFor('presenter');
 
@@ -2186,7 +2186,8 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       data.classList.remove('strip');   // (a squashed ladder's strip lasts one slide)
       // (The portal blood bar takes the card's full width, its tiles under it: beside them its column was too narrow for the
       // segments' names, a 320 px card left it about 120 px, tool-flows.js.)
-      data.classList.toggle('pz-beside', (!!s.tool || lad) && !!s.data && tileKeys(s).length > 0 && s.tool?.kind !== 'flows');
+      // (The fluid balance's capacity window too: its rows of numbers need the card's width; tool-fluid.js.)
+      data.classList.toggle('pz-beside', (!!s.tool || lad) && !!s.data && tileKeys(s).length > 0 && s.tool?.kind !== 'flows' && !(s.tool?.kind === 'fluid' && s.tool.window));
       data.toggleAttribute('data-beside', data.classList.contains('pz-beside'));
       data.classList.remove('pz-folds', 'pz-footfold');   // (Mac and iPad landscape: folded behind Show only when the pair would not fit, set in layout)
       data.dataset.tn = tileKeys(s).length;   // (Mac and iPad landscape: every instrument with tiles has them stacked beside it; its own readings fold to a short list under its picture)

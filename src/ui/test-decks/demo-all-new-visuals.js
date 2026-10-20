@@ -1903,7 +1903,8 @@ export const DEMO_ALL = {
         "liver"
       ],
       "tool": {
-        "kind": "fluid"
+        "kind": "fluid",
+        "window": true
       },
       "data": "tiles",
       "tiles": [
@@ -1915,7 +1916,7 @@ export const DEMO_ALL = {
       ],
       "kicker": "Fluid balance",
       "title": "In health the lymphatics carry all the lymph",
-      "line": "The liver and gut make lymph, and the lymphatics carry it all away. The dashed outline is the room they still have, so no ascites builds."
+      "line": "The liver and gut make lymph, and the lymphatics carry it all away. The empty part of the window is the room they still have, so no ascites builds."
     },
     {
       "id": "fill",
@@ -1940,6 +1941,7 @@ export const DEMO_ALL = {
       ],
       "tool": {
         "kind": "fluid",
+        "window": true,
         "forces": true,
         "caveat": true
       },
@@ -1972,7 +1974,8 @@ export const DEMO_ALL = {
         "liver"
       ],
       "tool": {
-        "kind": "fluid"
+        "kind": "fluid",
+        "window": true
       },
       "data": "tiles",
       "tiles": [
@@ -1984,7 +1987,7 @@ export const DEMO_ALL = {
       "kicker": "Fluid balance",
       "title": "Diuretics raise what the belly takes back",
       "notes": "The model has no kidneys: diuretics act here only on the fluid the belly takes back.",
-      "line": "In the model, diuretics add to the fluid the belly takes back, so the drained bar grows past the made bar and the ascites shrinks. The model has no kidneys, so this is its stand-in for what diuretics do through them."
+      "line": "In the model, diuretics add to the fluid the belly takes back, so it outgrows the overflow and the ascites shrinks. The model has no kidneys, so this is its stand-in for what diuretics do through them."
     },
     {
       "id": "g-schisto",
@@ -1994,7 +1997,8 @@ export const DEMO_ALL = {
         "liver"
       ],
       "tool": {
-        "kind": "fluid"
+        "kind": "fluid",
+        "window": true
       },
       "data": "tiles",
       "tiles": [

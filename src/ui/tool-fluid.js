@@ -69,6 +69,35 @@ export function fluidWords(f) {
   return f.over > 0.005 ? 'Ascites holds steady: the belly takes back the overflow.' : 'No ascites builds: the lymphatics carry it all.';
 }
 
+/** The capacity window's numbers (window: true), per day: each part rounded to 10 mL from the model's mL/min, then the
+ *  sums taken from those parts, so every printed sum is exact (made = liver + gut; overflow = made beyond what the lymphatics
+ *  can carry; each day = overflow − taken back). room is what the lymphatics could still take (negative once they are full). */
+export function fluidDay(f) {
+  const r = (x) => Math.round((Math.max(0, x) * 1440) / 10) * 10;
+  const liver = r(f.hep), gut = r(f.spl), limit = r(f.cap), back = r(f.back);
+  const made = liver + gut, carried = Math.min(made, limit), over = made - carried;
+  return { liver, gut, made, limit, carried, over, back, net: over - back, room: limit - made };
+}
+
+/** The window's geometry as shares of the bar's width, from continuous (eased) values in mL/min: the window is as wide as
+ *  what the lymphatics can carry, filled (fill, a share of the window) with what they carry; the overflow runs past its edge.
+ *  One scale for every slide (5,600 mL a day across), so the window visibly widens as the lymphatics grow; it widens only
+ *  when the lymph made or the capacity would not fit. */
+export const WINDOW_TOP = 5600;
+export function windowGeom(f) {
+  const made = (f.hep + f.spl) * 1440, limit = f.cap * 1440, top = Math.max(WINDOW_TOP, made * 1.04, limit * 1.04);
+  return { win: limit / top, fill: limit > 0 ? Math.min(made, limit) / limit : 0, over: Math.max(0, made - limit) / top };
+}
+
+/** A whole number of mL with its thousands comma (5,360), as the platelets print theirs. */
+export const mlInt = (v) => Math.round(Math.max(0, v)).toLocaleString('en-US');
+
+/** The Lymphatics row's word: the room left, or how much runs over. */
+export function windowState(d) {
+  if (d.room > 0) return { text: `${mlInt(d.room)} to spare`, rate: d.room >= 500 ? 'ok' : 'mid' };
+  return d.over > 0 ? { text: `Full, ${mlInt(d.over)} over`, rate: 'hi' } : { text: 'Full', rate: 'mid' };
+}
+
 const mlMin = (x) => fmt(Math.max(0, x), x < 10 ? 1 : 0);
 
 /** The flow picture's geometry for a width W (px, the card's own, so text stays at its CSS size): the liver's and the gut's
@@ -152,13 +181,48 @@ export function createFluid() {
   const fNet = h('span', { class: 'gf-unit' });
   const forces = h('div', { class: 'gf-forces' }, fsvg, fNet);
   const caveat = h('p', { class: 'gf-caveat' }, 'Model rates, not clinical figures.');
-  const el = h('div', { class: 'gf', role: 'img' }, flow, unit, words, forces, caveat);
-  const set = (n, t) => { if (n.textContent !== t) n.textContent = t; };
+  // The capacity window (window: true): the lymph made and its two sources; the lymphatics as a window as wide as what
+  // they can carry, filled with what they carry, the overflow running past its edge in the ascites colour; then the day's
+  // balance in the belly, overflow − taken back. The numbers swap in place; the window, its fill and the overflow ease.
+  const num = () => h('b', {});
+  const wMade = num(), wLiver = num(), wGut = num(), wState = h('span', { class: 'gw-state' });
+  const wOver = h('span', { class: 'gw-over' }), wFill = h('span', { class: 'gw-fill' }), wWin = h('span', { class: 'gw-win' }, wFill);
+  const wBar = h('div', { class: 'gw-bar' }, wOver, wWin);
+  const wCarried = h('span', { class: 'gw-carried' }), wCan = h('span', { class: 'gw-can' });
+  const eqO = num(), eqB = num(), eqN = h('b', { class: 'gw-net' });
+  const wUnit = h('p', { class: 'gw-unit' });
+  const win = h('div', { class: 'gw' },
+    h('div', { class: 'gw-head' },
+      h('div', { class: 'gw-made' }, h('span', { class: 'gw-k' }, 'Lymph made'), wMade),
+      h('div', { class: 'gw-src' }, h('span', {}, h('span', {}, 'Liver'), wLiver), h('i', { 'aria-hidden': 'true' }, '+'), h('span', {}, h('span', {}, 'Gut'), wGut))),
+    h('div', { class: 'gw-lr' }, h('span', { class: 'gw-k' }, 'Lymphatics'), wState),
+    wBar,
+    h('div', { class: 'gw-caps' }, wCarried, wCan),
+    h('div', { class: 'gw-eq' },
+      h('span', {}, 'Overflow'), h('span', {}), h('span', {}, 'Taken back'), h('span', {}), h('span', {}, 'Each day'),
+      eqO, h('i', { 'aria-hidden': 'true' }, '−'), eqB, h('i', { 'aria-hidden': 'true' }, '='), eqN));
+  let capDirty = true, carW = 0, canW = 0;
+  const el = h('div', { class: 'gf', role: 'img' }, win, flow, unit, words, forces, wUnit, caveat);
+  const set = (n, t) => { if (n.textContent === t) return false; n.textContent = t; return true; };
   let W = 0, FW = 0, goal = null, shown = null, fGoal = null, fShown = null, raf = 0, last = 0;
   // (everything eases: the drawn values follow the goal over about half a second; the numbers swap in place)
   const KEYS = ['hep', 'spl', 'made', 'cap', 'carried', 'spare', 'back', 'net', 'perDay'];
   function draw() {
-    if (shown && W > 0) {
+    if (opts.window) {
+      if (shown) {
+        const g = windowGeom(shown), bw = wBar.clientWidth;
+        wWin.style.width = `${(g.win * 100).toFixed(3)}%`;
+        wFill.style.setProperty('--f', g.fill.toFixed(4));
+        wOver.style.display = g.over * bw > 0.5 ? '' : 'none';
+        wOver.style.left = `calc(${(g.win * 100).toFixed(3)}% - 10px)`;
+        wOver.style.width = `calc(${(g.over * 100).toFixed(3)}% + 10px)`;
+        // ("… can carry" ends under the window's edge, never closer than 12 px to "… carried", never past the bar)
+        if (bw > 0) {
+          if (capDirty) { carW = wCarried.offsetWidth; canW = wCan.offsetWidth; capDirty = false; }
+          wCan.style.left = `${Math.max(0, Math.min(bw - canW, Math.max(carW + 12, g.win * bw - canW)))}px`;
+        }
+      }
+    } else if (shown && W > 0) {
       const L = fluidFlows(shown, W);
       for (const id in bandEls) bandEls[id].setAttribute('d', '');
       for (const b of L.bands) bandEls[`${b.from}-${b.to}`].setAttribute('d', band(L.xL + L.NW, b.ly, L.xR, b.ry, b.t));
@@ -197,7 +261,7 @@ export function createFluid() {
   }
   const kick = () => { if (!raf && typeof requestAnimationFrame === 'function') raf = requestAnimationFrame(tick); };
   if (typeof ResizeObserver === 'function') {
-    new ResizeObserver(() => { W = flow.getBoundingClientRect().width; FW = fsvg.getBoundingClientRect().width; draw(); }).observe(el);
+    new ResizeObserver(() => { W = flow.getBoundingClientRect().width; FW = fsvg.getBoundingClientRect().width; capDirty = true; draw(); }).observe(el);
   }
   let opts = {}, pinned = null;
   function paint(f) {
@@ -209,6 +273,18 @@ export function createFluid() {
     set(textEls.back.v, mlMin(f.back));
     set(textEls.build.v, f.net < 0 ? `−${mlMin(-f.net)}` : mlMin(Math.max(0, into - Math.min(f.back, into))));
     set(words, fluidWords(f));
+    if (opts.window) {
+      const d = fluidDay(f), st = windowState(d), n0 = mlInt;
+      set(wMade, n0(d.made)); set(wLiver, n0(d.liver)); set(wGut, n0(d.gut));
+      set(wState, st.text); wState.dataset.rate = st.rate;
+      if (set(wCarried, `${n0(d.carried)} carried`) | set(wCan, `${n0(d.limit)} can carry`)) capDirty = true;
+      set(eqO, n0(d.over)); set(eqB, n0(d.back)); eqB.classList.toggle('on', d.back > 0);
+      set(eqN, d.net === 0 ? '0' : `${d.net > 0 ? '▲' : '▼'} ${n0(Math.abs(d.net))}`);
+      eqN.dataset.dir = d.net > 0 ? 'up' : d.net < 0 ? 'down' : '';
+      el.setAttribute('aria-label', `Fluid balance, per day: ${n0(d.made)} mL of lymph made (liver ${n0(d.liver)}, gut ${n0(d.gut)}); the lymphatics carry ${n0(d.carried)} of the ${n0(d.limit)} they can, ${st.text}. Overflow ${n0(d.over)} minus ${n0(d.back)} taken back: ${d.net === 0 ? 'no change' : `${d.net > 0 ? 'builds' : 'shrinks'} by ${n0(Math.abs(d.net))}`} a day.`);
+      kick();
+      return;
+    }
     el.setAttribute('aria-label', `Fluid balance: ${mlMin(f.made)} mL/min of lymph made (liver ${mlMin(f.hep)}, gut ${mlMin(f.spl)}); the lymphatics carry ${mlMin(f.carried)} of the ${mlMin(f.cap)} they can, the belly takes back ${mlMin(f.back)}. ${fluidWords(f)}`);
     kick();
   }
@@ -244,7 +320,16 @@ export function createFluid() {
     configure(t, ctx) {
       opts = t || {};
       forces.hidden = !opts.forces;
-      caveat.hidden = !(opts.caveat || ctx?.params?.diuretics || ctx?.slide?.compare?.some?.((c) => c?.params?.diuretics));
+      const cav = !!(opts.caveat || ctx?.params?.diuretics || ctx?.slide?.compare?.some?.((c) => c?.params?.diuretics));
+      // (window: true draws the capacity window in place of the flow picture; its unit line carries the caveat)
+      const wo = !!opts.window;
+      el.classList.toggle('gf-window', wo);
+      win.hidden = !wo; flow.style.display = wo ? 'none' : '';
+      unit.hidden = words.hidden = wo; wUnit.hidden = !wo;
+      set(wUnit, cav ? 'mL a day · model rates, not clinical figures.' : 'mL a day');
+      caveat.hidden = wo || !cav;
+      capDirty = true;
+      if (pinned) paint(pinned);
     },
   };
 }
