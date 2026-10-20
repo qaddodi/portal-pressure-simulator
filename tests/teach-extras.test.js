@@ -5,6 +5,7 @@ import assert from 'node:assert/strict';
 import { readdirSync, readFileSync } from 'node:fs';
 import { citeOk, citeText, focusOf, ladderFromOf, ladderFromName } from '../src/ui/teach-extras.js';
 import { handoutHTML } from '../src/ui/handout.js';
+import { adopted } from './deck-adopted.js';
 
 const DIR = new URL('../src/ui/decks/', import.meta.url);
 const decks = async () => {
@@ -18,7 +19,7 @@ const decks = async () => {
 
 test('no built-in deck uses package D fields yet', async () => {
   for (const d of await decks()) for (const s of d.slides) {
-    for (const k of ['cite', 'ladderFrom', 'ladderFromLabel', 'focusRow']) assert.equal(s[k], undefined, `${d.id}/${s.id} sets ${k}`);
+    for (const k of ['cite', 'ladderFrom', 'ladderFromLabel', 'focusRow']) if (!adopted(d, s, k)) assert.equal(s[k], undefined, `${d.id}/${s.id} sets ${k}`);
   }
 });
 
