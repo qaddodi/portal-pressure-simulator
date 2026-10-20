@@ -352,21 +352,16 @@ export function createSinusoidView({ host }) {
   }
 
   // ── Labels ──
-  // The fenestrae's state with the share open, read as a value beneath the name (eased with S.por, so it counts rather than jumps).
-  const fenWord = () => (S.por > 0.85 ? 'Open' : S.por > 0.15 ? 'Closing' : 'Closed');
-  const fenTxt = () => `${fenWord()}~${Math.round(S.por * 100)}%`;
-  // Every frame: the share counts by single percents with S.por, and a new state word cross-fades in (never a swap).
-  let fenFade = 0;
+  // The fenestrae's open share, read as a value beneath the name, "16% open" up to "100% open" (Mohammad, 20 Oct: the word
+  // and the number agree; no "Closing" for a wall at rest). It counts by single percents with S.por, so it eases, never jumps.
+  const fenPct = () => `${Math.round(S.por * 100)}%`;
+  const fenTxt = () => `${fenPct()}~open`;
+  // Every frame: the share counts with S.por (the caption itself is built once; see caption).
   function fenTick() {
-    const b = regions.fen?.el.querySelector('.v b'), u = b?.nextSibling;
+    const b = regions.fen?.el.querySelector('.v b');
     if (!b) return;
-    const pct = ` ${Math.round(S.por * 100)}%`;
-    if (u && u.nodeValue !== pct) u.nodeValue = pct;
-    const w = fenWord();
-    if (b.textContent !== w && !fenFade) {
-      b.style.opacity = '0';
-      fenFade = setTimeout(() => { b.textContent = w; b.style.opacity = ''; fenFade = 0; }, 260);
-    }
+    const pct = fenPct();
+    if (b.textContent !== pct) b.textContent = pct;
   }
   // The fenestra a callout points at: of the upper lining's pores near x, the one that stays open longest (by place
   // only, so the line does not hop as the pores close).
@@ -644,7 +639,7 @@ export function createSinusoidView({ host }) {
       const n = sprites();
       // Paused and settled (nothing eases, no zoom): the same picture as last frame, so the two full-screen passes are skipped.
       const gk = go === 0 && !dive ? canvas.width + 'x' + canvas.height + '|' + n + '|' + JSON.stringify(u) : '';
-      if (!gk || gk !== gpuKey) { gpu.draw(u, pts, n); noteDraw('sinusoid-view'); svYield?.drew(performance.now()); } else settled = !fenFade;
+      if (!gk || gk !== gpuKey) { gpu.draw(u, pts, n); noteDraw('sinusoid-view'); svYield?.drew(performance.now()); } else settled = true;
       gpuKey = gk;
     }
     const dk = [Math.round(S.por * 4), S.col > 0.15, S.act > 0.4, model.hide, model.P2.toFixed(0), model.lymph.toFixed(1), Math.round(model.lyProt * 100)].join('|');
