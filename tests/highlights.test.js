@@ -267,7 +267,7 @@ test('a lapse glow goes when the slide leaves, and is drawn from the pile\'s own
   // Only the edges glow (Mohammad, 20 Oct: "just the outline glows"): a strip along each side of every tube, starting on the tube's
   // edge (its radius out from the centre line, read from the drawing's own pieces) and easing outward, none over the tube itself.
   assert.match(STAGE, /for \(const side of \[-1, 1\]\)/);
-  assert.match(STAGE, /ex, ey, -ty, tx, 0, reach, ex, ey, -ty, tx, side, reach/);
+  assert.match(STAGE, /ex, ey, -ty, tx, 0, w, ex, ey, -ty, tx, side, w/);
   assert.match(STAGE, /querySelectorAll\('\.ob-edge'\)/);
   assert.ok(!/ -ty, tx, -1, WARM\.reach/.test(STAGE), 'no centred strip: the tubes\' insides are not filled');
   // The glow's reach stays under a tube's own half width (about 12.5), so a tube's middle is clear of its neighbours' glow.
@@ -282,8 +282,15 @@ test('a lapse glow goes when the slide leaves, and is drawn from the pile\'s own
   assert.ok(!/function warmRings[\s\S]{0,120}consolidate/.test(STAGE) && !/function olRingsRaw[\s\S]{0,120}consolidate/.test(STAGE), 'the loop outlines read the transform without consolidate()');
   // A redrawn pile is noticed: the cached tubes and their radius are dropped when the old ones leave the page, and the radius is
   // read again when the bed's stroke width changes; it comes from the pieces' own stroke-width attribute (.ob-edge).
-  assert.match(STAGE, /!t\[0\]\?\.isConnected/);
+  assert.match(STAGE, /t\.some\(\(el\) => !el\.isConnected\)/);
   assert.match(STAGE, /c\.sw !== sw/);
+  assert.match(STAGE, /Math\.min\(WARM\.reach, 0\.8 \* rad\)/, 'the reach follows the measured tube radius');
+  assert.match(STAGE, /warmEdges\.get\(id\)\?\.some\(\(el\) => !el\.isConnected\)/, 'a redrawn piece is noticed too');
+  // The colon cut is a grid look-up (filled once by scanlines), not a ring test per point; each run's reach eases off at both ends.
+  assert.match(STAGE, /grid\.bits\[j \* grid\.w \+ i\] === 1/);
+  assert.ok(!/inRing/.test(STAGE), 'no per-point ring test');
+  assert.match(STAGE, /Math\.min\(k, len - 1 - k\) \/ WARM\.taper/);
+  assert.ok(!/baseVal\.consolidate\(\)/.test(STAGE), 'no transform is consolidated: the keys stay the same across builds');
   assert.match(STAGE, /el\.getAttribute\('stroke-width'\)/);
   assert.ok(readFileSync(new URL('../src/ui/organ-art.js', import.meta.url), 'utf8').includes('ob-edge\\" d=\\"') && /class=\\"ob-edge\\" d=\\"[^"]*\\" stroke-width=\\"[\d.]+\\"/.test(readFileSync(new URL('../src/ui/organ-art.js', import.meta.url), 'utf8')), 'the pieces carry a stroke-width attribute');
   assert.ok(readFileSync(new URL('../src/ui/organ-art.js', import.meta.url), 'utf8').includes('class=\\"ob-deep\\"'), 'the pile still draws .ob-deep tubes');

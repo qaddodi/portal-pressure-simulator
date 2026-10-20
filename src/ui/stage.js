@@ -4018,11 +4018,14 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // glow, the tubes' insides stay as drawn.
   // The tubes are plain polylines: their points are read from the path's own text once (cached by it), every other point, and each
   // build is only the group's transform over them (no path measuring: the ascites moves the bowel, and each move builds again).
-  const WARM = { reach: 10, alpha: 0.46 };   // (how far the glow runs out from a tube's edge, in world units (under the tube's own half width, so a tube's middle stays clear), and its strength on the edge)
-  const warmEls = new Map(), warmPts = new Map();   // (the drawing's tubes, found again if the pile is redrawn: the key below is read every frame)
+  const WARM = { reach: 10, alpha: 0.46, taper: 5 };   // (how far the glow runs out from a tube's edge, in world units (under the tube's own half width, so a tube's middle stays clear), and its strength on the edge)
+  const warmEls = new Map(), warmEdges = new Map(), warmPts = new Map();   // (the drawing's tubes, found again if the pile is redrawn: the key below is read every frame)
   const warmTubes = (id) => {
     let t = warmEls.get(id);
-    if (!t || !t[0]?.isConnected) { t = [...organG[id].querySelectorAll('.ob-deep')]; warmEls.set(id, t); warmRad.delete(id); }
+    if (!t || t.some((el) => !el.isConnected) || warmEdges.get(id)?.some((el) => !el.isConnected)) {
+      t = [...organG[id].querySelectorAll('.ob-deep')]; warmEls.set(id, t);
+      warmEdges.set(id, [...organG[id].querySelectorAll('.ob-edge')]);
+    }
     return t;
   };
   const warmDs = (id) => warmTubes(id).map((el) => el.getAttribute('d')).filter(Boolean);
@@ -4047,20 +4050,36 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // A tube's radius, from the drawing's own pieces (each .ob-edge is stroked 2r wide): the middle one, read again when the
   // deep-toned bed under the tubes (stroked wider as the tubes are) changes, so a refitted pile is followed.
   const warmRad = new Map();
-  const warmSw = (id) => warmTubes(id).map((el) => el.getAttribute('stroke-width')).join(',');
+  // (its signature: the bed's stroke widths and a few of the pieces' own, cheap enough to read every frame)
+  const warmSw = (id) => { const e = (warmTubes(id), warmEdges.get(id)), at = (i) => e[i]?.getAttribute('stroke-width'); return warmTubes(id).map((el) => el.getAttribute('stroke-width')).join(',') + '|' + e.length + ',' + at(0) + ',' + at(e.length >> 1) + ',' + at(e.length - 1); };
   function warmR(id) {
     const sw = warmSw(id);
     let c = warmRad.get(id);
     if (!c || c.sw !== sw) {
-      const w = [...organG[id].querySelectorAll('.ob-edge')].map((el) => +el.getAttribute('stroke-width')).filter((x) => x > 0).sort((a, b) => a - b);
+      const w = warmEdges.get(id).map((el) => +el.getAttribute('stroke-width')).filter((x) => x > 0).sort((a, b) => a - b);
       warmRad.set(id, c = { sw, r: w.length ? w[w.length >> 1] / 2 : 12.5 });
     }
     return c.r;
   }
   // The colon's drawn outline (its limbs, closed), from the ring's own text once: the glow is left off where the colon lies over the pile.
-  let colonPolys = null;
-  const colonArea = () => colonPolys || (colonPolys = (RING_OF.colon || '').split('M').filter(Boolean).map((c) => { const n = c.match(/-?\d*\.?\d+/g).map(Number), r = []; for (let i = 0; i + 1 < n.length; i += 2) r.push([n[i], n[i + 1]]); return r; }));
-  const inRing = (x, y, r) => { let o = false; for (let i = 0, j = r.length - 1; i < r.length; j = i++) if ((r[i][1] > y) !== (r[j][1] > y) && x < (r[j][0] - r[i][0]) * (y - r[i][1]) / (r[j][1] - r[i][1]) + r[i][0]) o = !o; return o; };
+  // (As a coarse grid in the colon's own coordinates, filled once by scanlines: a point is then one transform and one look-up,
+  // where testing it against the ring made each build cost ten times more, and builds run every frame while the ascites eases.)
+  const COLON_CELL = 3;
+  let colonMask = null;
+  function colonGrid() {
+    if (colonMask) return colonMask;
+    const rings = (RING_OF.colon || '').split('M').filter(Boolean).map((c) => { const n = c.match(/-?\d*\.?\d+/g).map(Number), r = []; for (let i = 0; i + 1 < n.length; i += 2) r.push([n[i], n[i + 1]]); return r; });
+    const all = rings.flat(), x0 = Math.min(...all.map((q) => q[0])), y0 = Math.min(...all.map((q) => q[1])), w = Math.ceil((Math.max(...all.map((q) => q[0])) - x0) / COLON_CELL) + 1, h = Math.ceil((Math.max(...all.map((q) => q[1])) - y0) / COLON_CELL) + 1;
+    const bits = new Uint8Array(w * h);
+    for (const r of rings) for (let j = 0; j < h; j++) {
+      const y = y0 + (j + 0.5) * COLON_CELL, xs = [];
+      for (let i = 0, k = r.length - 1; i < r.length; k = i++) if ((r[i][1] > y) !== (r[k][1] > y)) xs.push(r[i][0] + (y - r[i][1]) * (r[k][0] - r[i][0]) / (r[k][1] - r[i][1]));
+      xs.sort((u, v) => u - v);
+      for (let m = 0; m + 1 < xs.length; m += 2) for (let i = Math.max(0, Math.ceil((xs[m] - x0) / COLON_CELL - 0.5)); i <= Math.min(w - 1, Math.floor((xs[m + 1] - x0) / COLON_CELL - 0.5)); i++) bits[j * w + i] = 1;
+    }
+    return (colonMask = { x0, y0, w, h, bits });
+  }
+  (typeof requestIdleCallback === 'function' ? (f) => requestIdleCallback(f, { timeout: 5000 }) : (f) => setTimeout(f, 3000))(() => { try { colonGrid(); } catch { /* it is made when a glow first needs it */ } });   // (made while idle, so a slide's start does not pay for it)
   const warmKey = (id) => olKey(id) + '|' + (organG.colon?.getAttribute('transform') || '') + '|' + warmSw(id) + '|' + warmDs(id).map((d) => d.length + d.slice(-30)).join('|');
   const olRingsOf = (o) => (o.kind === 'warm' ? warmRings(o.id) : olRings(o.id));
   function olSet(kind, id) {
@@ -4244,9 +4263,13 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       // held short of the bend's centre (its reach follows the room there) and dropped where there is none, so it never folds back.
       if (o.kind === 'warm') {
         if (V) {
-          const mt = gMatrix(organG[o.id]), rad = warmR(o.id) * (mt ? Math.hypot(mt.a, mt.b) : 1);
-          const cm = gMatrix(organG.colon), cp = o.id === 'colon' ? [] : colonArea().map((r) => { const q = cm ? r.map(([x, y]) => [cm.a * x + cm.c * y + cm.e, cm.b * x + cm.d * y + cm.f]) : r; return { q, x0: Math.min(...q.map((t) => t[0])), x1: Math.max(...q.map((t) => t[0])), y0: Math.min(...q.map((t) => t[1])), y1: Math.max(...q.map((t) => t[1])) }; });
-          const underColon = (x, y) => cp.some((c) => x >= c.x0 && x <= c.x1 && y >= c.y0 && y <= c.y1 && inRing(x, y, c.q));
+          const mt = gMatrix(organG[o.id]), rad = warmR(o.id) * (mt ? Math.hypot(mt.a, mt.b) : 1), reachMax = Math.min(WARM.reach, 0.8 * rad);   // (under the tube's half width, whatever the drawing)
+          const cm = o.id === 'colon' ? null : gMatrix(organG.colon), inv = cm?.inverse(), grid = o.id === 'colon' ? null : colonGrid();
+          const underColon = (x, y) => {
+            if (!grid) return false;
+            const lx = inv ? inv.a * x + inv.c * y + inv.e : x, ly = inv ? inv.b * x + inv.d * y + inv.f : y, i = Math.floor((lx - grid.x0) / COLON_CELL), j = Math.floor((ly - grid.y0) / COLON_CELL);
+            return i >= 0 && j >= 0 && i < grid.w && j < grid.h && grid.bits[j * grid.w + i] === 1;
+          };
           o.runs = [];
           for (const r of o.rings) {
             const n = r.length, R = new Float32Array(n), cs = new Int8Array(n), tg = [];
@@ -4259,13 +4282,25 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
               cs[i] = th > 0 ? 1 : -1;   // (the side the bend turns toward)
             }
             for (const side of [-1, 1]) {
-              let run = 0;
-              const end = () => { if (run > 1) { o.runs.push(run * 2); } else if (run === 1) V.length -= 12; run = 0; };
+              // A run is held until it ends, then laid down with its reach eased to almost nothing over its last few points at each
+              // end (a blunt start or stop would read as a cut): WARM.taper points.
+              let run = [];
+              const end = () => {
+                const len = run.length;
+                if (len > 1) {
+                  run.forEach(([ex, ey, tx, ty, reach], k) => {
+                    const f = Math.min(1, Math.min(k, len - 1 - k) / WARM.taper), w = reach * (0.12 + 0.88 * f * f * (3 - 2 * f));
+                    V.push(ex, ey, -ty, tx, 0, w, ex, ey, -ty, tx, side, w);
+                  });
+                  o.runs.push(len * 2);
+                }
+                run = [];
+              };
               for (let i = 0; i < n; i++) {
                 const p = r[i], [tx, ty] = tg[i], ex = p[0] - ty * rad * side, ey = p[1] + tx * rad * side;
-                const reach = cs[i] === side ? Math.min(WARM.reach, (R[i] - rad) * 0.85) : WARM.reach;
+                const reach = cs[i] === side ? Math.min(reachMax, (R[i] - rad) * 0.85) : reachMax;
                 if (reach < 2.5 || underColon(ex, ey)) { end(); continue; }
-                V.push(ex, ey, -ty, tx, 0, reach, ex, ey, -ty, tx, side, reach); run++;
+                run.push([ex, ey, tx, ty, reach]);
               }
               end();
             }
@@ -9275,7 +9310,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
           b = b ? [Math.min(b[0], X), Math.min(b[1], Y), Math.max(b[2], X), Math.max(b[3], Y)] : [X, Y, X, Y];
         }
       };
-      for (const id of organs) if (organEls[id]?.getAttribute('d')) add(organEls[id], organG[id]?.transform.baseVal.consolidate()?.matrix);
+      for (const id of organs) if (organEls[id]?.getAttribute('d')) add(organEls[id], organG[id] && gMatrix(organG[id]));
       // (A vessel's wall is hidden while the GPU draws the vessels, so its drawn centreline gives the box.)
       for (const id of edges) {
         const P = geo[id]?.cur;
