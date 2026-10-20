@@ -102,7 +102,7 @@ import { WHERE } from './decks/where.js?v=bee116087f';
 import { PREGNANCY_DECK } from './decks/pregnancy.js?v=716febcf30';
 import { BETA_BLOCKERS } from './decks/beta-blockers.js?v=d89f547b45';
 import { ENCEPHALOPATHY } from './decks/encephalopathy.js?v=9218c6becd';
-import { CAUSE_TREATED } from './decks/cause-treated.js?v=9c13230207';
+import { CAUSE_TREATED } from './decks/cause-treated.js?v=6141ad255c';
 
 // Regions of the anatomy plate the camera frames (world units, x 300-1120, y 0-920).
 export const REGIONS = {

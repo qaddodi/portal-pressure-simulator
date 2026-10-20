@@ -4,6 +4,10 @@
 // (engine.js), so the time-lapses show the cure alone, and a caveat says so.
 
 const SCAN = { kind: 'fibroscan' };
+// The stiffness and platelets plane on the cure slide: the dot crosses into No CSPH as the lapse plays. The words keep the
+// slide's own cut-off (under 10 kPa); the plane's zones are the rule for untreated disease, and both agree here. The
+// obese MASLD slide keeps its FibroScan, where the 25 kPa rule does not strictly apply (Baveno VIII 1.16).
+const PLANE = { kind: 'plane', plane: 'csph' };
 const HCV = 'Hepatitis C cured', HIGH = 'A higher start', MASLD = 'MASLD';
 const OFF_BB = 'The model shows the patient off carvedilol, so the changes that follow come from treating the cause alone.';
 
@@ -42,7 +46,7 @@ export const CAUSE_TREATED = {
       ask: ['The stiffness falls fast in the first year after cure. Has the fibrosis regressed as fast?', 'No: much of the early fall is inflammation settling, so the stiffness overstates the regression.'],
     },
     {
-      id: 'year2', days: 365, ramp: { cirrhosis: [0.45, 0.32] }, lapse: { seconds: 8, from: 'One year', to: 'Two years after cure' }, cam: 'liver', tool: SCAN,
+      id: 'year2', days: 365, ramp: { cirrhosis: [0.45, 0.32] }, lapse: { seconds: 8, from: 'One year', to: 'Two years after cure' }, cam: 'liver', tool: PLANE,
       data: 'tiles', tiles: ['lsm', 'plt', 'hvpg'], key: ['lsm'], delta: 'before',
       kicker: HCV, site: 'sin', title: 'Two years after cure, CSPH has resolved',
       line: 'Two years after cure the stiffness reads {lsm}, under {<10 kPa}, and the platelets {plt}: by Baveno VIII, CSPH has resolved.',

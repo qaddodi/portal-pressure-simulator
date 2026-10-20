@@ -10,6 +10,7 @@ export const ADOPTED = {
   'circuit/resist': ['zone', 'span'],
   'circuit/both': ['span'],
   'circuit/parallel': ['kind:flows'],
+  'cause-treated/year2': ['kind:plane'],
   'pvt-cirrhosis/clot': ['kind:lumen'],
   'pvt-cirrhosis/carv': ['ripple'],
   'pvt-cirrhosis/anticoag': ['kind:lumen'],

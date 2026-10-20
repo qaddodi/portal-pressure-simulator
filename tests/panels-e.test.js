@@ -26,7 +26,7 @@ test('package E registers its visuals, instruments and columns', () => {
 test('no built-in deck uses the new fields, so every talk is unchanged', () => {
   for (const d of DECKS) for (const s of d.slides) {
     for (const k of ['plane', 'chain', 'flow', 'case', 'wave', 'waveMax']) assert.ok(!(k in s) || adopted(d, s, k), `${d.id}/${s.id} sets ${k}`);
-    assert.ok(adopted(d, s, 'plane') || (!['plane', 'chain', 'flowchart'].includes(s.visual) && !['plane', 'chain', 'flowchart'].includes(s.tool?.kind)), `${d.id}/${s.id}`);
+    assert.ok(adopted(d, s, 'plane') || adopted(d, s, 'kind:plane') || (!['plane', 'chain', 'flowchart'].includes(s.visual) && !['plane', 'chain', 'flowchart'].includes(s.tool?.kind)), `${d.id}/${s.id}`);
     assert.ok(!(s.cols || []).some((c) => c === 'wave') || adopted(d, s, 'cols.wave'), `${d.id}/${s.id} cols`);
   }
 });
