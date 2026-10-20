@@ -7,7 +7,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { AWAY, probePose, fitPose, SIZES, QUIET, ZOOMED_OUT, probeShapes, gateDims, bodyBox, beamBoxes, gateBoxes, PROBE, PROBE_SVG } from '../src/ui/dop-probe.js';
+import { AWAY, probePose, fitPose, SIZES, QUIET, ZOOMED_OUT, probeShapes, probeJumps, JUMP_DEG, JUMP_PX, gateDims, bodyBox, beamBoxes, gateBoxes, PROBE, PROBE_SVG } from '../src/ui/dop-probe.js';
 
 const read = (p) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8');
 const stage = read('src/ui/stage.js'), doppler = read('src/ui/doppler.js'), css = read('styles/app.css'), tokens = read('styles/tokens.css');
@@ -376,4 +376,20 @@ test('a vessel crossing only the line of sight (Sinusoidal 5/13 on a phone) keep
   for (const s of [-1]) { const o = probePose({ g, t, r, w: W, h: H, side: s }); busy.push(...beamBoxes(g, o.ang, o.D, r).slice(2, 6).map((b) => [(b.x0 + b.x1) / 2, (b.y0 + b.y1) / 2, 3])); }
   const f = fitPose({ g, t, r, w: W, h: H, busy, sc: 0.3 });
   assert.equal(f.k, 1); assert.equal(f.body, 0);
+});
+
+test('a far move round the gate or in distance fades the probe rather than flying it across (Outflow 3→4)', () => {
+  assert.equal(probeJumps({ ang: 0, d: 40 }, { ang: 180, d: 40 }), true);
+  assert.equal(probeJumps({ ang: 350, d: 40 }, { ang: 10, d: 40 }), false);   // (the short way round: 20°)
+  assert.equal(probeJumps({ ang: 0, d: 40 }, { ang: JUMP_DEG - 1, d: 40 + JUMP_PX - 1 }), false);
+  assert.equal(probeJumps({ ang: 0, d: 40 }, { ang: 0, d: 40 + JUMP_PX + 1 }), true);
+  assert.equal(probeJumps(null, { ang: 0, d: 0 }), false);
+});
+
+test('stage: a probe shown afresh starts at its place, and a jump fades out and in', () => {
+  const src = readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8');
+  assert.match(src, /if \(!dpr\.on \|\| !dpr\.cur \|\| reduceMotion\.matches\) dpr\.cur = \{ ang: tgt\.ang, d: tgt\.d, k: tgt\.k \}/);
+  assert.match(src, /if \(dpr\.on && dpr\.cur && probeJumps\(dpr\.cur, tgt\)\) \{\s*dpr\.on = false;[^}]*dpr\.swap = setTimeout/);
+  assert.ok(src.indexOf('probeJumps(dpr.cur, tgt)') < src.indexOf('if (!dpr.on || !dpr.cur || reduceMotion.matches) dpr.cur'));
+  assert.doesNotMatch(readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8'), /\.dop-probe \{[^}]*transition:[^;}]*transform/);
 });

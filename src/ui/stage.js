@@ -44,7 +44,7 @@ import { layoutWatch } from './idle-keys.js?v=ea36a0b5c6';
 import { writeGlowTexels } from './glow-texels.js?v=e578794a92';
 import { SIN_PERFUSION, sinStrandRadius } from './sin-perfusion.js?v=25a8407fdd';
 import { wavePacks, paintWave } from './scan-waves.js?v=066db7aa38';
-import { fitPose, probeShapes, beamBoxes, gateBoxes, awayFromProbe, PROBE, PROBE_SVG } from './dop-probe.js?v=e0c3a88541';
+import { fitPose, probeJumps, probeShapes, beamBoxes, gateBoxes, awayFromProbe, PROBE, PROBE_SVG } from './dop-probe.js?v=1ade397040';
 import { organDimMatrix } from './organ-dim.js?v=7888276613';
 import { parseColor, greyOf, paintRef } from './organ-grey.js?v=e41d68222c';
 import { bandRing, dashRings, liftEnd, normalShown, rippleList, systemOf, SYSTEM_COLOR } from './highlight-math.js?v=e2c1816e25';
@@ -5687,6 +5687,12 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     // 20 Oct: "I'm okay with the probe rotating in real time as I move around"); the flow axis stays along the flow. Shown afresh,
     // it starts at its place. (dprShape draws it, a frame at a time.)
     const tgt = { ang: pose.ang, d: pose.D - Math.max(0, r), k: pose.k, ax: pose.ang + pose.phi, r };
+    // (A place far round the gate or far nearer: it fades out and in there rather than flying across (probeJumps).)
+    if (dpr.on && dpr.cur && probeJumps(dpr.cur, tgt)) {
+      dpr.on = false; dpr.box = null; dpr.marks = []; dpr.el.classList.add('off'); dprDots();
+      dpr.swap = setTimeout(() => { dpr.swap = 0; dpr.key = ''; dprobePaint(); }, reduceMotion.matches ? 0 : 380);
+      return;
+    }
     if (!dpr.on || !dpr.cur || reduceMotion.matches) dpr.cur = { ang: tgt.ang, d: tgt.d, k: tgt.k };
     else dpr.cur.ang = tgt.ang + angTo(tgt.ang, dpr.cur.ang);   // (the short way round)
     dpr.k = pose.k; dpr.tgt = tgt;

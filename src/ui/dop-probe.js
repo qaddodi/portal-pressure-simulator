@@ -173,6 +173,17 @@ export function fitPose({ sc = 1, ...o }) {
   return best;
 }
 
+/** Whether moving the probe from pose a to pose b ({ ang, d }: its direction from the gate, degrees, and its face's distance from
+ *  the wall, px) is too far to swing there: past JUMP_DEG round the gate or JUMP_PX nearer or farther, an ease reads as the probe
+ *  flying across the figure (Outflow 3→4, a card landing after it showed sent it round to the far side, Mohammad, 20 Oct), so it
+ *  fades out where it stood and in at the new place. Smaller moves (a drag, a label making way) still swing in real time. */
+export const JUMP_DEG = 75, JUMP_PX = 48;
+export function probeJumps(a, b) {
+  if (!a || !b) return false;
+  const da = Math.abs(((((b.ang - a.ang) % 360) + 540) % 360) - 180);
+  return da > JUMP_DEG || Math.abs(b.d - a.d) > JUMP_PX;
+}
+
 /** The marks in the probe's own frame, x running from the gate (0) toward the probe, whose face is at D: the line of sight from
  *  the face straight through the vessel and on past its far wall; the sample volume's two bars across it; the flow axis through
  *  the gate, at phi (±θ) from the line. The angle itself is named only on the monitor (θ in its header): no arc and no θ on the
