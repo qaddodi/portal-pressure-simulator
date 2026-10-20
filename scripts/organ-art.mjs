@@ -8,7 +8,7 @@
 //   node scripts/organ-art.mjs && npm run stamp
 
 import { writeFileSync } from 'node:fs';
-import { colonAtlas, colonD } from './organ-art/colon-shape.mjs';
+import { COLON_LIMBS_FIG, COLON_JOINTS_FIG, colonAtlas, colonD } from './organ-art/colon-shape.mjs';
 import { bowelWander, WANDER_SPACE, DUODENUM, DUO_SPLIT } from './organ-art/bowel-shape.mjs';
 import { CALM } from './organ-art/bowel-points.mjs';
 import { ORGANS, SEAM_D } from '../src/ui/anatomy.js';
@@ -63,21 +63,16 @@ const path = (d, cls, extra = '') => (d ? `<path class="${cls}" d="${d}"${extra}
 const sw = (w) => ` stroke-width="${f1(w)}"`;
 
 // ── The colon: three limbs, the transverse in front at both flexures (colon-draw.js 'figure', quiet) ──
-// The picked colon (COLON_LIMBS_FIG) in a narrower frame (Mohammad's drawing, 20 Oct): the ascending colon moved in toward the
-// middle, its hepatic flexure tucked under the smaller liver's lower edge, the transverse colon across under the liver up to a
-// high splenic flexure under the spleen, the descending colon straight down the left flank (clear of the splenorenal shunts),
-// the sigmoid sweeping in to the rectum, which ends where the rectal veins end (786 928, the anorectal varices).
-const COLON_LIMBS = [
-  { id: 'ascending', z: 1, start: 'cecum', end: 'hepatic', route: [
-    [464, 872], [462, 840], [460, 800], [459, 756], [459, 712], [460, 668], [463, 626], [466, 592], [470, 566]] },
-  { id: 'transverse', z: 2, start: 'hepatic', end: 'splenic', route: [
-    [470, 566], [494, 592], [524, 612], [562, 626], [606, 634], [654, 638], [702, 638], [750, 632], [796, 620], [840, 602],
-    [880, 580], [916, 556], [946, 534], [970, 516], [990, 504]] },
-  { id: 'descending', z: 0, start: 'splenic', end: 'tail', route: [
-    [1012, 516], [1015, 556], [1016, 606], [1015, 658], [1012, 712], [1006, 764], [994, 808], [974, 842], [946, 866], [910, 880],
-    [872, 886], [838, 890], [812, 898], [796, 908], [788, 916]] },
-];
-const COLON_OPT = { joints: { hepatic: [[470, 566, 1]], splenic: [[990, 504, 1], [1012, 516, 0.97]] }, r: 36, lam: 34, band: 0.3 };
+// The gut as picked, only narrower (Mohammad, 20 Oct: "smaller, not traced"): one squeeze across, about the rectum's line (x 786,
+// where the rectal veins end), applied alike to the colon, the small bowel's pile and its gap loops and the appendix, so every
+// shape and the room between them stay as picked. GUT_SX is also in anatomy.js (the appendix).
+const GUT_X = 786, GUT_SX = 0.9;
+const gutFit = ([x, y, ...r]) => [GUT_X + (x - GUT_X) * GUT_SX, y, ...r];
+// The mock's rectum ran on to the frame's bottom edge (y 1000), past the rectal veins' end (786 928, where the anorectal
+// varices sit). It ends sooner here: the centre line stops at y 916, so its rounded end meets the veins' end.
+const RECTUM_END = 916;
+const COLON_LIMBS = COLON_LIMBS_FIG.map((l) => ({ ...l, route: (l.end !== 'tail' ? l.route : [...l.route.filter((p) => p[1] < RECTUM_END - 8), [786, RECTUM_END]]).map(gutFit) }));
+const COLON_OPT = { joints: Object.fromEntries(Object.entries(COLON_JOINTS_FIG).map(([k, v]) => [k, v.map(gutFit)])), r: 36, lam: 34, band: 0.3 };
 const colonParts = colonAtlas(COLON_LIMBS.map((l) => ({ ...l, pts: sample(colonD([l]), 1.5)[0] })), COLON_OPT).parts;
 function colonArt() {
   const top = Math.max(...colonParts.map((p) => p.z));
@@ -117,20 +112,21 @@ function pileArt(P, space, { piece = 36, step = 2, back = 28 } = {}) {
 // Liver round 36 (his pick, option 2): a few loops of the same tube in the empty space by the kidney, under the pile.
 const GAP_SPACE0 = [[850, 640], [880, 606], [915, 586], [950, 572], [984, 566], [998, 604], [1000, 700], [996, 790], [958, 790], [930, 730], [900, 700], [860, 680]];
 const gap0 = bowelWander({ seed: 5, space: GAP_SPACE0, r: 13, bend: 22, fill: 1.3, cross: 2, jitter: 0.4, start: [890, 690], end: [[952, 772], [956, 782]] });
-// The picked pile (and its gap loops) in the narrower colon frame: the same loops, narrower and a little taller (BOWEL_FIT), its
-// start still at the duodenum's end and its end eased into the cecum where the colon now sits.
-const BOWEL_FIT = { x0: 698, y0: 617, x1: 735, y1: 630, sx: 0.8, sy: 1.075 };
-const fit = ([x, y, ...r]) => [BOWEL_FIT.x1 + (x - BOWEL_FIT.x0) * BOWEL_FIT.sx, BOWEL_FIT.y1 + (y - BOWEL_FIT.y0) * BOWEL_FIT.sy, ...r];
-function fitPath(P, from, to) {   // fit, then ease the first and last stretch back onto the given ends
-  const Q = P.map(fit);
+// The picked pile and its gap loops take the same squeeze and a little less height (BOWEL_SY, about y 600), so the pile
+// sits in the colon's frame and never hangs below the sigmoid and rectum (Mohammad, 20 Oct); the pile's first stretch is eased
+// back onto the duodenum's end.
+const BOWEL_SY = 0.9;
+const bowelFit = ([x, y, ...r]) => [GUT_X + (x - GUT_X) * GUT_SX, 600 + (y - 600) * BOWEL_SY, ...r];
+function fitPath(P, from) {
+  const Q = P.map(bowelFit);
   let L = 0; const acc = Q.map((p, i) => (L += i ? Math.hypot(p[0] - Q[i - 1][0], p[1] - Q[i - 1][1]) : 0));
   const sm = (t) => (t <= 0 ? 0 : t >= 1 ? 1 : t * t * (3 - 2 * t));
-  const d0 = from ? [from[0] - Q[0][0], from[1] - Q[0][1]] : [0, 0], d1 = to ? [to[0] - Q.at(-1)[0], to[1] - Q.at(-1)[1]] : [0, 0];
-  return Q.map((p, i) => { const a = 1 - sm(acc[i] / 70), b = 1 - sm((L - acc[i]) / 90); return [p[0] + d0[0] * a + d1[0] * b, p[1] + d0[1] * a + d1[1] * b, ...p.slice(2)]; });
+  const d0 = from ? [from[0] - Q[0][0], from[1] - Q[0][1]] : [0, 0];
+  return Q.map((p, i) => { const a = 1 - sm(acc[i] / 70); return [p[0] + d0[0] * a, p[1] + d0[1] * a, ...p.slice(2)]; });
 }
-const GAP_SPACE = GAP_SPACE0.map(fit), PILE_SPACE = WANDER_SPACE.map(fit);
+const GAP_SPACE = GAP_SPACE0.map(bowelFit), PILE_SPACE = WANDER_SPACE.map(bowelFit);
 const gapPts = taper(fitPath(gap0), 13, 13);
-const pilePts = taper(fitPath(CALM, CALM[0], [CALM.at(-1)[0] + 40, CALM.at(-1)[1]]), 13, 11.8);
+const pilePts = taper(fitPath(CALM, CALM[0]), 13, 11.8);
 const gap = pileArt(gapPts, GAP_SPACE), pile = pileArt(pilePts, PILE_SPACE);
 
 // ── The duodenum: one outlined tube whose width follows its points, split under the portal vein ──
