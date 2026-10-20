@@ -41,14 +41,14 @@ export const OUTFLOW = {
       ask: ['What is the first imaging test for suspected Budd–Chiari syndrome?', 'Doppler ultrasound of the hepatic veins and the IVC: it is quick, at the bedside, and shows absent or reversed flow.'],
     },
     {
-      id: 'open', terms: ['hv'], params: { thrombus: { RHV_IVC: 0 } }, days: 60, lapse: { seconds: 7 }, cam: 'hepatic', mark: { edges: ['RHV_IVC'], label: 'Stent', kind: 'treat' }, data: 'tiles', tiles: ['pv', 'asc'], key: ['asc'], delta: 'bcs',
+      id: 'open', terms: ['hv'], params: { thrombus: { RHV_IVC: 0 } }, days: 60, lapse: { seconds: 7 }, cam: 'hepatic', mark: { edges: ['RHV_IVC'], label: 'Stent', kind: 'treat' }, tool: { kind: 'lumen', vessel: 'RHV_IVC' }, data: 'tiles', tiles: ['pv', 'asc'], key: ['asc'], delta: 'bcs',
       kicker: 'Opening the outflow', site: 'post', title: 'One open hepatic vein is enough',
       line: 'Angioplasty and a stent reopen the right hepatic vein. Two months later the portal pressure is {pv} and the ascites has gone.',
       notes: 'Treatment is stepwise. Every patient is anticoagulated, unless it is contraindicated, and the cause is treated. A short narrowing of a hepatic vein or of the IVC is opened by angioplasty, usually with a stent, and one good hepatic vein can drain the whole liver, as here. Patients who still worsen go on to a shunt, and those with liver failure to transplantation.',
       ask: ['When is angioplasty enough, and when is a shunt chosen?', 'Angioplasty, with a stent if the vein narrows again, for a short stenosis; a TIPS or DIPS when no vein can be opened or the patient does not improve.'],
     },
     {
-      id: 'dips', lens: 'flow', preset: 'budd-chiari', params: { dips: { on: true } }, days: 60, cam: 'dips', terms: ['pv', 'ivc', 'caudateLobe'], mark: { edges: ['DIPS'], label: 'DIPS', kind: 'treat' }, data: 'tiles', tiles: ['pv', 'asc', 'liver'], key: ['pv'], delta: 'bcs',
+      id: 'dips', lens: 'flow', preset: 'budd-chiari', params: { dips: { on: true } }, days: 60, cam: 'dips', terms: ['pv', 'ivc', 'caudateLobe'], mark: { edges: ['DIPS'], label: 'DIPS', kind: 'treat' }, tool: { kind: 'flows' }, data: 'tiles', tiles: ['pv', 'asc', 'liver'], key: ['pv'], delta: 'bcs',
       kicker: 'Opening the outflow', site: 'post', title: 'When no vein opens, a DIPS drains the liver into the IVC',
       line: 'A direct intrahepatic portosystemic shunt (DIPS) runs from the portal vein through the caudate lobe into the IVC. Colored by flow, it carries most liver outflow. Two months on, portal pressure is {pv} and the ascites has nearly gone.',
       notes: 'A standard TIPS runs from a hepatic vein to the portal vein, so when all three hepatic veins are clotted the stent is placed from the IVC through the liver to the portal vein instead (a direct intrahepatic portosystemic shunt). The portal vein becomes the liver\'s outflow, and the congestion and ascites resolve. Like any shunt it diverts portal blood from the liver, so encephalopathy is watched for. On the figure, colored by flow, the shunt carries most of the liver’s outflow.',
@@ -64,7 +64,7 @@ export const OUTFLOW = {
       ask: ['Two weeks after a stem cell transplant a patient has gained 5 kg and has a tender liver. What is the likely diagnosis?', 'Sinusoidal obstruction syndrome: weight gain, a tender liver and the timing after conditioning fit it.'],
     },
     {
-      id: 'soswedge', cath: 'result', data: 'ladder', key: ['whvp', 'hvpg'], brackets: { hvpg: 'works' },
+      id: 'soswedge', cath: 'result', tool: { kind: 'profile' }, data: 'ladder', key: ['whvp', 'hvpg'], brackets: { hvpg: 'works' },
       kicker: 'Sinusoidal obstruction', site: 'postsin', title: 'In sinusoidal obstruction the HVPG can be measured',
       line: 'The hepatic veins are open, and the resistance sits upstream of the free reading, so the wedged pressure rises: the HVPG is {hvpg}. After a transplant, a gradient of 10 mmHg or more strongly supports the diagnosis.',
       notes: 'In sinusoidal obstruction a transjugular catheter can enter the hepatic veins and wedge, and the resistance lies between the wedged and the free readings, so the HVPG rises. After a stem cell transplant an HVPG of 10 mmHg or more strongly supports the diagnosis. A transjugular liver biopsy can be taken at the same time, without crossing the liver capsule, which matters with low platelets and ascites.',
