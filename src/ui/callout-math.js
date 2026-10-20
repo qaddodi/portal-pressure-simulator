@@ -2,7 +2,7 @@
 // unit tests can load them (review/deck-visuals-recs.md §9). Nothing here touches the page.
 import { TILE, rateShown, tileShown, tipsGoal } from './table-marks.js?v=1dc429fe31';
 import { plateletText } from './glue.js?v=5a0f63226b';
-import { ORGANS, NODE_POS, SPLEEN_CENTER, CIRCUIT_ZONES } from './anatomy.js?v=c8fe939e72';
+import { ORGANS, NODE_POS, SPLEEN_CENTER, CIRCUIT_ZONES } from './anatomy.js?v=54dcd965ad';
 
 // (util.js fmt, which needs the page to load: a value to d decimals, with a true minus and never "−0".)
 const fmt = (v, d = 1) => { if (v == null || !Number.isFinite(v)) return '—'; const t = v.toFixed(d); return /^-0(\.0+)?$/.test(t) ? t.slice(1) : t.replace('-', '−'); };

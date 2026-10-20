@@ -16,8 +16,8 @@ export function strHash(str) {
 // Spacing of the grid the sites are bucketed in.
 const G = 13;
 // The nodules' size (organ picks, 20 Oct: "a little bit larger cells"): every site's spacing scaled by it. Changing it
-// changes the sites: run scripts/liver-geo.mjs again.
-export const NODULE_SIZE = 1.4;
+// changes the sites: run scripts/liver-geo.mjs again. (1.4 on the picked liver; 1.34 on the smaller one, so it keeps about as many.)
+export const NODULE_SIZE = 1.34;
 // Regenerative nodules as a packing of irregular polygons (a Voronoi diagram of dart-thrown
 // sites, each with its own random spacing, so nodule sizes mix evenly over the whole
 // liver). These are the sites, [[x, y]], inside (or just outside) the outline.
