@@ -9,7 +9,8 @@ import { STATION_VESSEL, meanVel, velNormal } from './velNormal.js?v=181dda5594'
 import { store, updateParams, varicesPresent, varixGrowth, shownVel } from './store.js?v=31ee79b6ab';
 import { fibroReading } from './clock.js?v=520596240b';
 import { s, h, fmt, fmtFlow, fp, clamp, lerp, toast, systemEdge, bloodColors, restBox, settledBox, putText } from './util.js?v=5814c6b396';
-import { createLobuleZoom } from './lobule-zoom.js?v=78ca27a633';
+import { createLobuleZoom } from './lobule-zoom.js?v=52c59e2dfa';
+import { sinceSource } from './since-ref.js?v=ef1a818c75';
 import { runFlick, FLICK } from './flick.js?v=4bc709c801';
 import { inlineStyles } from './svg-inline.js?v=fc17cb73fe';
 import { fluidTarget, poolFade } from './fluid-step.js?v=2742314765';
@@ -6184,6 +6185,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // (changeRef), and until that is set the one the figure showed as the lens came in, so the colours move as the change lands.
   // It never touches Patients' pinned moment (compareSnap). A new reference recolours through the lens crossfade, as a jump does.
   const sinceRef = () => { if (!sinceP && F) sinceP = Float32Array.from(F.Pf || F.P); return sinceP || store.get().healthy?.P; };
+  sinceSource(sinceRef);   // (the lobule's colours count from the same reference: since-ref.js)
   function changeRef(P) {
     const was = sinceP;
     sinceP = P ? Float32Array.from(P) : null;

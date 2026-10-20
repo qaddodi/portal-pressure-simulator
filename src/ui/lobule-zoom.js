@@ -23,7 +23,7 @@ import { runFlick, FLICK } from './flick.js?v=4bc709c801';
 import { store } from './store.js?v=31ee79b6ab';
 import { radiiChanged, canvasPx, fxMoves, DIVE_RIM } from './lobule-render-cache.js?v=57ef9d0e5a';
 import { softwareYield } from './sw-yield.js?v=e580a095b1';
-import { lobuleState, lymphRate, LOBE } from './lobule-model.js?v=169bc804e6';
+import { lobuleState, lymphRate, sinceOf, LOBE } from './lobule-model.js?v=dfa2d35a11';
 import { SIN_NARROW, cordTone, dullSinusoid, NEIGHBOUR_FLAT, neighbourBlur, blurWrapped, bandOutline, FADE_MID, fadeOuter } from './lobule-look.js?v=71638381b6';
 import { h, s, fmt, clamp, createEaser, systemEdge, bloodColors, cssVar, cssAlpha, cssRGB01 } from './util.js?v=5814c6b396';
 import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatColor, oxygenColor } from './colormap.js?v=1092d36abc';
@@ -879,13 +879,22 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host) }
 
   // ── Model → lobule ──
   let easeP = createEaser();
+  // A change-since slide's reference (lens 'since', see lobule-model.js sinceOf), eased as the pressures are, so a new slide's
+  // reference recolours the vessels over a moment instead of snapping them. Null where no slide counts one.
+  let easeS = createEaser();
+  const sinceStep = (st) => {
+    const t = sinceOf(st);
+    if (t) return easeS.step(t);
+    easeS = createEaser();
+    return { v: null, moving: false };
+  };
   let easeRaf = 0;
   // Out of sight (closed, or drawn ahead for a dive): what the lobule showed on its last visit was never seen since, so nothing
   // eases or crossfades from it. The pressures, the calibers and the tissue take the patient's state at once; otherwise a
   // patient made cirrhotic in the anatomy dove into a healthy lobule (the dive only magnifies its first frame) that snapped
   // to cirrhosis as it landed.
   function snapState() {
-    easeP = createEaser(); rz = null;
+    easeP = createEaser(); easeS = createEaser(); rz = null;
     xfT0 = 0; free(worldOld); free(xfCv); surOld = null; surT0 = 0; snapNext = true;
   }
   // (snapNext: reopened without a picture drawn ahead, the first frame is already fading in, but shows nothing seen before either.)
@@ -898,11 +907,11 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host) }
     const st = store.get();
     // Pressures ease toward the model's beat-filtered values (shared with the Pressure card), so the
     // ladder, labels and colors glide rather than jump, every display frame between model frames.
-    const eased = easeP.step(f.Pf || f.P);
-    model = lobuleState({ ...f, P: eased.v }, st);
+    const eased = easeP.step(f.Pf || f.P), since = sinceStep(st);
+    model = lobuleState({ ...f, P: eased.v }, st, since.v);
     noteLens(model.mode);
     cancelFrame(easeRaf);
-    if (eased.moving) easeRaf = nextFrame(glideP);
+    if (eased.moving || since.moving) easeRaf = nextFrame(glideP);
     const hs = styles(), cv = (n, d) => hs.getPropertyValue(n).trim() || d;
     model.inks = { normal: cv('--flow-normal'), reversed: cv('--flow-reversed'), portal: cv('--vein-portal'), systemic: cv('--vein-systemic') };
     if (originOn() && originsF !== f) { origins = originFractions(EDGES, NODES, f.Qf || f.Q, f.Pf || f.P); originsF = f; }
@@ -918,14 +927,14 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host) }
     // runs, so this glide never stops.
     if (now - glideAt < paceMs()) { easeRaf = nextFrame(glideP); return; }
     glideAt = now;
-    const eased = easeP.step(F.Pf || F.P);
+    const st = store.get(), eased = easeP.step(F.Pf || F.P), since = sinceStep(st);
     const inks = model.inks;
     drawVersion++;
-    model = lobuleState({ ...F, P: eased.v }, store.get());
+    model = lobuleState({ ...F, P: eased.v }, st, since.v);
     noteLens(model.mode);
     model.inks = inks;
     panel();
-    if (eased.moving) easeRaf = nextFrame(glideP);
+    if (eased.moving || since.moving) easeRaf = nextFrame(glideP);
   }
 
   let tissueSaid = '';
@@ -949,7 +958,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host) }
       const d = r != null ? v - r : 0, on = m.cmp ? 1 : 5, off = m.cmp ? 0.7 : 4;
       const shown = Math.abs(d) >= on || (badges[key] === m.cmp && Math.abs(d) >= off);
       badges[key] = shown ? m.cmp : null;
-      return [fmt(v, 1), 'mmHg', shown ? `${d > 0 ? '+' : '−'}${fmt(Math.abs(d), 0)}` : '', m.mode === 'delta' ? deltaColor(qP(d)) : pc(v)];
+      return [fmt(v, 1), 'mmHg', shown ? `${d > 0 ? '+' : '−'}${fmt(Math.abs(d), 0)}` : '', m.mode === 'delta' || m.mode === 'since' ? deltaColor(qP(d)) : pc(v)];
     };
     setLab('triad', 'Portal venule', 'Portal venule', ...mv('triad', m.P1, m.R[0]));
     setLab('sin', 'Sinusoids', 'Sinusoids', ...mv('sin', m.P2, m.R[1]));
@@ -1011,7 +1020,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host) }
     }
     L.txt = txt; L.u = u;
     L.lk = `${name}|${short}|${uk}|${v === ''}|${!!d}`;   // what the layout depends on (a value of new length clears layoutKey above)
-    L.el.setAttribute('aria-label', `${name} ${v} ${u}${d ? `, ${d.startsWith('+') ? 'up' : 'down'} ${d.slice(1)} ${model?.cmp ? 'since then' : 'from healthy'}` : ''}. Show details`);
+    L.el.setAttribute('aria-label', `${name} ${v} ${u}${d ? `, ${d.startsWith('+') ? 'up' : 'down'} ${d.slice(1)} ${model?.cmp ? 'since then' : model?.since ? 'since the slide before' : 'from healthy'}` : ''}. Show details`);
   }
   // Which portal venule and which sinusoid carry the label: at first the left portal venule and the
   // sinusoid just below the middle of the left side; as the view is zoomed or panned, the label stays
@@ -2128,10 +2137,11 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host) }
   }
   function inkOf(M, seg, w) {
     const m = model;
-    if (M === 'pressure' || M === 'delta' || M === 'heat') {
+    // ('since': a slide's Change colours, the same scale as 'delta', counted from the slide's own reference: lobule-model.js m.dP.)
+    if (M === 'pressure' || M === 'delta' || M === 'since' || M === 'heat') {
       const V = M === 'pressure' ? [m.P1, m.P2, m.P3].map(qP) : m.dP;
       const v = seg === 'pv' ? V[0] : seg === 'in' ? lerp(V[0], V[1], 0.6 * w) : seg === 'cv' ? V[2] : V[2] + (V[1] - V[2]) * w;
-      return M === 'pressure' ? pressureColor(qP(v)) : M === 'delta' ? deltaColor(qP(v)) : heatColor(qP(v));
+      return M === 'pressure' ? pressureColor(qP(v)) : M === 'heat' ? heatColor(qP(v)) : deltaColor(qP(v));
     }
     if (M === 'oxygen') {
       const [a, b, c] = m.oxy || [1, 1, 1];

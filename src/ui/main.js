@@ -3,22 +3,22 @@
 
 import { startHost, host } from './host.js?v=e7aa5cf8a7';
 import { store, updateParams, replaceParams, bindParamSender, clearHistory, logAction, varicesPresent, hiddenNow } from './store.js?v=31ee79b6ab';
-import { createStage } from './stage.js?v=2b6258485a';
+import { createStage } from './stage.js?v=c56e710413';
 import { createCreditPlacer } from './credit.js?v=a9ce1e8162';
 import { sinusoidSupported } from './sinusoid-view.js?v=98d1923b7c';
 import { createInspector } from './inspector.js?v=634e0b33c5';
-import { createDock, CUTOFFS } from './dock.js?v=7618ca93de';
+import { createDock, CUTOFFS } from './dock.js?v=ffa7d4db8e';
 import { setHvpgStage } from './hvpg-proc.js?v=3a8585d477';
 import { createWhy } from './why.js?v=3565d7235e';
 import { createTimeline, LAPSES } from './timeline.js?v=4463426299';
 import { createCompare } from './compare.js?v=e0c5b10c9a';
-import { createCard } from './card.js?v=c80822380c';
-import { createChart } from './chart.js?v=4639f13d09';
+import { createCard } from './card.js?v=dce756fb03';
+import { createChart } from './chart.js?v=1aa950ed46';
 import { createMenu } from './menu.js?v=622d96a62b';
 import { caption } from './a11y.js?v=7203bcccf2';
 import { startLMS } from './lms.js?v=284ef81e94';
 import { UPDATED, CONTENT_UPDATED, VALIDATION, AUTHOR, AUTHOR_URL, FEEDBACK_EMAIL } from '../version.js?v=1767318315';
-import { normalizeSel, shuntable, edgeValue, bedStats } from './actions.js?v=0031a10746';
+import { normalizeSel, shuntable, edgeValue, bedStats } from './actions.js?v=e8d77b78c4';
 import { gradientCss, dropCss, PRESSURE_TICKS, flowCss, flowPos, velocityCss, heatCss, HEAT_MAX, oxygenCss, OXY_MIN } from './colormap.js?v=1092d36abc';
 import { EDGES, PORTAL_TERRITORY } from '../engine/topology.js?v=4044766e96';
 import { dopplerVel } from './velNormal.js?v=181dda5594';
@@ -166,7 +166,7 @@ async function main() {
   dock = createDock({ strip: $('#strip'), head: $('#dockHead'), body: $('#dockBody'), onWhy: (m, el) => why.open(m, el), onAction: doAction, onProbe: (id) => { host.send({ type: 'probe', id }); logAction('probe', id); }, onReveal: revealDock, onLobule: () => zoomLobule('R'),
     onOpen: () => openPanel('instruments'), onClose: () => setPanelTab('chart'), onLayout: () => syncDoppler(), isVisible: () => app.classList.contains('dock-open'),
     marks: () => timeline.entries(), onBeat: () => sendBeat() });
-  presenterL = lazy(() => import('./presenter.js?v=c7151eaef2'), ({ createPresenter }) => createPresenter({ openSettings, loadPreset, updateParams, host, stage, dock, action: doAction,
+  presenterL = lazy(() => import('./presenter.js?v=d4d05c5bc1'), ({ createPresenter }) => createPresenter({ openSettings, loadPreset, updateParams, host, stage, dock, action: doAction,
     projectorOn: () => { if (!projector) toggleProjector(); }, projectorOff: () => { if (projector) toggleProjector(); },
     closeHome: () => mainMenu.close(), stashCards, rerenderHome: () => mainMenu.render() }));
   mainMenu = createMenu({

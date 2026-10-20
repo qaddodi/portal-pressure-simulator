@@ -2,6 +2,10 @@
 
 ## October 2026
 
+- **Change since, in the lobule.** A slide that colours by change since an earlier slide (`lens: 'since'`) now does so in the
+  lobule and sinusoid-zoom views too, where it used to fall back to plain pressure colours under a "Change vs …" key. The lobule's
+  vessels and its three readings count from the same reference as the figure's vessels, and ease to a new one instead of snapping. Every other lens and
+  Patients are untouched. Used on Propranolol or carvedilol? slides 4 and 7 (carvedilol against propranolol). Tests: `tests/lobule-since.test.js`.
 - **Phone colour key beside the pill, on two lines.** A key too long for one line beside the nav pill now flows its name and
   swatches over two lines there, then tries the swatches' short names (blood origin: SMV, IMV, SV, HA, Sys), before taking a row
   of its own above the pill, which had cost the words a whole line and left the room beside the pill empty (TIPS Doppler 3 on an iPhone).

@@ -93,6 +93,8 @@ export const ADOPTED = {
   'sites/postsin': ['kind:profile'],
   'sites/post': ['kind:profile'],
   'sites/cardiac': ['kind:profile'],
+  'beta-blockers/carv-sin': ['lens:since', 'sinceLabel'],
+  'beta-blockers/carv-pre': ['lens:since', 'sinceLabel'],
 };
 
 /** Whether the slide d/s may use the field. */
