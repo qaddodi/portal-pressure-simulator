@@ -63,7 +63,7 @@
 //                            of the live model; the figure and the data card follow it
 //   opt-in visuals (deck visuals packages; a built-in slide uses one only when tests/deck-adopted.js lists it; docs/deck-authoring-guide.md 5.9, 6.4, 7):
 //                            figure: spot, normalOutline, ripple, lens 'system' | 'since' (since, sinceLabel), calipers,
-//                            lapseGlow ['bowel'] (those organs glow while the time-lapse runs), steps (with glowSeq), span, zone,
+//                            lapseGlow ['bowel'] (those organs glow from the time-lapse's start, while the slide is up), steps (with glowSeq), span, zone,
 //                            mark { organ } and {tokens} in a mark's label, '@sets' in glow/spot/edges;
 //                            words: cite; card: ladderFrom, ladderFromLabel, tool kinds 'profile', 'flows', 'curve', 'causes',
 //                            'plane', 'lumen', 'fluid', Doppler mode/calipers/pair, bands on trace and flowtime;

@@ -193,35 +193,31 @@ test('a slide\'s fields reach the figure: spotlight, outline, ripple going forwa
   assert.equal(calls.filter((c) => c[0] === 'ripple').length, 1, 'once');
 });
 
-test('a lapse glow eases the named organs in as the time-lapse starts and out as it ends, and a lapse without one touches nothing', () => {
+test('a lapse glow eases the named organs in when the time-lapse starts and stays; a lapse without one touches nothing', () => {
   const calls = [];
   const stage = new Proxy({}, { get: (_, k) => (...a) => calls.push([k, ...a]) });
   const deck = { id: 't3', mine: true, slides: [{ id: 'a', title: 'a', preset: 'healthy' }, { id: 'b', title: 'b', days: 8, lapse: { seconds: 6 }, lapseGlow: ['bowel', 'nothing'] }, { id: 'c', title: 'c', days: 8, lapse: {} }] };
   const ctx = (i) => ({ slide: deck.slides[i], index: i, deck, stage, fp: { at: { P: [i] } }, state: null, fpOf: () => null });
   const h = A.figure[0];
   h.show(ctx(1));
-  assert.deepEqual(calls, [], 'nothing while the slide is only shown: the glow waits for the lapse');
-  h.lapse(deck.slides[1], true);
+  assert.deepEqual(calls, [], 'nothing while the slide is only shown: the glow waits for the lapse (or the presenter\'s call for a slide shown after it)');
+  h.lapse(deck.slides[1]);
   assert.equal(calls.length, 1);
   assert.equal(calls[0][0], 'glowOrgans');
   assert.deepEqual(calls[0][1].map((o) => [o.id, o.glow, o.tone, o.fade > 800]), [['bowel', true, '--origin-smv', true]], 'the small bowel only, glowing, slowly');
-  h.lapse(deck.slides[1], false);
-  assert.deepEqual(calls[1], ['glowOrgans', null]);
+  h.update(deck.slides[1].fp);
+  h.lapse(deck.slides[1]);
+  assert.ok(calls.every((c) => c[0] === 'glowOrgans' && c[1]), 'the glow is never asked off by the hook: it goes when the slide leaves');
   calls.length = 0;
-  h.show(ctx(2)); h.lapse(deck.slides[2], true); h.lapse(deck.slides[2], false); h.lapse(null, false);
+  h.show(ctx(2)); h.lapse(deck.slides[2]); h.lapse(null);
   assert.deepEqual(calls, [], 'a lapse without lapseGlow leaves the figure alone');
-  h.lapse(deck.slides[1], true); h.lapse(null, false);
-  assert.deepEqual(calls.map((c) => c[1] && c[1].length), [1, null], 'a stopped lapse ends the glow too');
-  calls.length = 0; h.lapse(deck.slides[1], true); h.clear(); h.lapse(null, false);
-  assert.equal(calls.filter((c) => c[0] === 'glowOrgans').length, 1, 'the slide leaving ends it (the presenter drops the pins), so no second call');
   const pres = readFileSync(new URL('../src/ui/presenter.js', import.meta.url), 'utf8');
-  assert.match(pres, /figureHooks\('lapse', s, true\)/);
-  assert.match(pres, /figureHooks\('lapse', s, false\)/);
-  assert.match(pres, /figureHooks\('lapse', null, false\)/);
+  assert.match(pres, /figureHooks\('lapse', s\); {3}\/\/ \(a deck visuals package's glow from the days' start/);
+  assert.match(pres, /else if \(s\.lapse\) figureHooks\('lapse', s\);/);
   assert.match(STAGE, /glowOrgans\(list\) \{ pinOrgans\(null, list \|\| \[\]\); \}/);
 });
 
-test('the Circulation meal slide glows the small bowel through its time-lapse, framed so the bowel is in view', () => {
+test('the Circulation meal slide glows the small bowel from the start of its time-lapse, framed so the bowel is in view', () => {
   const circ = DECKS.find((d) => d.id === 'circulation'), s = circ.slides.find((x) => x.id === 'flow');
   assert.deepEqual(s.lapseGlow, ['bowel']);
   assert.ok(s.lapse && adopted(circ, s, 'lapseGlow'));
