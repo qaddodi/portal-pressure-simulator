@@ -478,29 +478,24 @@ div.vital { cursor: default; }
 .ghost-layer { opacity: .34; }
 .ghost:not(.btn) { pointer-events: none; }   /* the figure's ghost layer; never the ghost buttons */
 .org-heart-groove { fill: none; stroke: var(--organ-heart); stroke-opacity: .45; stroke-width: 1; stroke-linecap: round; }
-.org-bowel.band-edge { stroke: color-mix(in srgb, var(--organ-gut) 80%, var(--shade-ink)); stroke-width: 21; stroke-opacity: .5; }
-.org-bowel.band-body { stroke: color-mix(in srgb, var(--organ-gut) 22%, var(--stage-bg)); stroke-width: 19; }
 .org-lobe-line.faint { stroke-opacity: .22; stroke-dasharray: 4 5; }
 .org-lobe-line { fill: none; stroke: var(--organ-liver); stroke-opacity: .45; stroke-width: 1; stroke-linecap: round; }
 .band-edge, .band-body { fill: none; stroke-linecap: round; stroke-linejoin: round; }
-.org-colon.band-edge { stroke: color-mix(in srgb, var(--organ-gut) 80%, var(--shade-ink)); stroke-width: 27; stroke-opacity: .45; }
-.org-colon.band-body { stroke: color-mix(in srgb, var(--organ-gut) 26%, var(--stage-bg)); stroke-width: 24.6; }
-.org-haustra { fill: none; stroke: var(--organ-gut); stroke-opacity: .38; stroke-width: 1; stroke-linecap: round; }
-.org-duodenum.band-edge { stroke: var(--organ-stomach); stroke-width: 21; stroke-opacity: .5; }
-.org-duodenum.band-body { stroke: color-mix(in srgb, var(--organ-stomach) 22%, var(--stage-bg)); stroke-width: 18.8; }
 .org-diaphragm.band-edge { stroke: var(--diaphragm); stroke-width: 7; stroke-opacity: .22; }
 .org-diaphragm.band-body { stroke: var(--diaphragm); stroke-width: 1.3; stroke-opacity: .7; }
 .org-umbilicus { fill: var(--stage-bg); stroke: var(--text-3); stroke-width: 1.2; stroke-opacity: .7; }
 .cg-in { stop-color: var(--path-congestion); stop-opacity: 0; } .cg-out { stop-color: var(--path-congestion); stop-opacity: .55; }
-.lv-nut { fill: var(--path-nutmeg); fill-opacity: .07; }
-.lv-nut-net { fill: none; stroke: var(--path-nutmeg); stroke-opacity: .05; stroke-linecap: round; }
+/* Congestion (organ picks, 20 Oct, "even dusk"): an even dusky tone over the liver and the pale islands round the portal tracts. */
+.lv-cong { fill: var(--lv-cong-base); fill-opacity: var(--lv-cong-base-a); }
+.lv-isl { fill: var(--lv-cong-isl); fill-opacity: var(--lv-cong-isl-a); }
 .lv-sh0 { stop-color: var(--light-ink); stop-opacity: .85; } .lv-sh1 { stop-color: var(--light-ink); stop-opacity: .28; } .lv-sh2 { stop-color: var(--light-ink); stop-opacity: 0; }
-.lv-sep { fill: var(--lv-sep); fill-opacity: .5; }
-.lv-nod { fill: var(--lv-nod); fill-opacity: .32; }
-:root[data-theme="dark"] .lv-sep { fill-opacity: .42; } :root[data-theme="dark"] .lv-nod { fill-opacity: .3; }
+/* Cirrhosis (organ picks, 20 Oct): larger nodules (x 1.35), the pattern at half strength ("faintest"). */
+.lv-sep { fill: var(--lv-sep); fill-opacity: .25; }
+.lv-nod { fill: var(--lv-nod); fill-opacity: .216; }
+:root[data-theme="dark"] .lv-sep { fill-opacity: .21; } :root[data-theme="dark"] .lv-nod { fill-opacity: .2025; }
 :root[data-theme="dark"] .lv-sh0 { stop-opacity: .14; } :root[data-theme="dark"] .lv-sh1 { stop-opacity: .04; }
 @media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]):not([data-theme="soft"]) .lv-sep { fill-opacity: .42; } :root:not([data-theme="light"]):not([data-theme="soft"]) .lv-nod { fill-opacity: .3; }
+  :root:not([data-theme="light"]):not([data-theme="soft"]) .lv-sep { fill-opacity: .21; } :root:not([data-theme="light"]):not([data-theme="soft"]) .lv-nod { fill-opacity: .2025; }
   :root:not([data-theme="light"]):not([data-theme="soft"]) .lv-sh0 { stop-opacity: .14; } :root:not([data-theme="light"]):not([data-theme="soft"]) .lv-sh1 { stop-opacity: .04; }
 }
 .fl-top { stop-color: var(--ascites); stop-opacity: calc(var(--ascites-a) * .5); } .fl-bot { stop-color: var(--ascites); stop-opacity: var(--ascites-a); }
@@ -569,7 +564,6 @@ div.vital { cursor: default; }
 .map-dot { fill: var(--map-dot); }
 /* Background plane: the diaphragm (no body-cavity shading). */
 #backdrop { pointer-events: none; transition: opacity .5s var(--ease); }
-.band-sheen { fill: none; stroke: var(--light-ink); stroke-opacity: calc(var(--tube-sheen) * .55); stroke-width: 5; stroke-linecap: round; stroke-linejoin: round; }
 .tex { fill: none; stroke: currentColor; stroke-width: .8; }
 .tex-dot { fill: currentColor; }
 .org-form { stroke: none; }
@@ -2625,7 +2619,6 @@ button.finding { cursor: pointer; }
    faint form gradient. No cast shadows, blurred rims or decorative tissue textures: depth comes
    from layering. Texture appears only as a sign of disease (nodular cirrhosis, nutmeg congestion,
    the congested vignette), so a healthy patient looks clean and a sick one visibly changes. */
-.band-sheen { display: none; }
 .org-form { opacity: .55; }
 #labels .lb.inline.bare text { stroke: var(--label-halo); stroke-width: max(2.5px, calc(4px * var(--lbk, 1))); }
 /* A reading with no clear spot near its station sits on its vessel (stage.js layoutLabels, onVessel): a wide halo in the stage's
@@ -2715,11 +2708,35 @@ button.finding { cursor: pointer; }
 /* Tubes */
 .band-ao { fill: none; stroke: var(--og-ao); stroke-linecap: round; stroke-linejoin: round; }
 .band-under { fill: none; stroke: var(--o2); stroke-opacity: .75; stroke-linecap: round; stroke-linejoin: round; }
-.organ .band-sheen { display: inline; fill: none; stroke: var(--og-light); stroke-width: 3.5; stroke-opacity: .9; stroke-linecap: round; stroke-linejoin: round; }
-.org-colon.band-ao { stroke-width: 35; } .org-colon.band-edge { stroke: var(--o3); stroke-width: 27; stroke-opacity: .6; } .org-colon.band-body { stroke: var(--o1); stroke-width: 25; } .org-colon.band-under { stroke-width: 15; }
-.org-bowel.band-ao { stroke-width: 29; } .org-bowel.band-edge { stroke: var(--o3); stroke-width: 21; stroke-opacity: .6; } .org-bowel.band-body { stroke: var(--o1); stroke-width: 19; } .org-bowel.band-under { stroke-width: 11; }
-.org-duodenum.band-ao { stroke-width: 29; } .org-duodenum.band-edge { stroke: var(--o3); stroke-width: 21; stroke-opacity: .6; } .org-duodenum.band-body { stroke: var(--o1); stroke-width: 19; } .org-duodenum.band-under { stroke-width: 11; }
-.org-haustra { stroke: var(--og-gut-3); stroke-opacity: .5; stroke-width: 1; }
+/* The gut as picked in the organ mock-ups (20 Oct; stage.js draws organ-art.js, made by scripts/organ-art.mjs): the folded
+   colon (.oc-*), the small bowel's pile of loops (.ob-*) and the duodenum (.du-*), in the organ's own tones. One see-through
+   group holds all three (--gut-a), so the colon covers the loops under it instead of showing them through. The organs' own
+   paths stay, unpainted, as the target a highlight, a hit test and the vessels' cover read (.org-key-path). */
+#organs > .organ-gut { opacity: var(--gut-a); }
+.org-key-path { fill: none; stroke: none; }
+.oc-ao { fill: var(--og-ao); stroke: var(--og-ao); stroke-width: 8; stroke-linejoin: round; stroke-linecap: round; }
+.oc-o1 { fill: var(--o1); }
+.oc-wall, .oc-pouch { fill: var(--o2); fill-opacity: .49; stroke: var(--o3); stroke-width: .84; stroke-opacity: .42; stroke-linejoin: round; stroke-linecap: round; }
+.oc-pouch { fill-opacity: .42; }
+.oc-tail { fill: var(--o2); fill-opacity: .5; }
+.oc-line { fill: none; stroke: var(--o3); stroke-width: .84; stroke-opacity: .42; stroke-linejoin: round; stroke-linecap: round; }
+.oc-valve { fill: none; stroke: var(--o3); stroke-width: 1; stroke-opacity: .35; stroke-linejoin: round; stroke-linecap: round; }
+.oc-band { fill: var(--o1); stroke: var(--o3); stroke-width: .9; stroke-opacity: .45; stroke-linejoin: round; stroke-linecap: round; }
+.oc-band-lit { fill: var(--og-light); fill-opacity: .32; }
+.oc-shade { fill: var(--o3); stroke: var(--o3); stroke-width: 16; stroke-linejoin: round; stroke-linecap: round; }
+.oc-fold { fill: none; stroke: var(--o3); stroke-width: 1.6; stroke-opacity: .7; stroke-linejoin: round; stroke-linecap: round; }
+/* The loops in the app's tube shading, mixed to solid tones so overlapping pieces join without seams. */
+:is(.ob-ao, .ob-deep, .ob-rim, .ob-edge, .ob-wall, .ob-shade, .ob-hi) { fill: none; stroke-linecap: butt; stroke-linejoin: round; }
+.ob-ao { stroke: var(--og-ao); }
+.ob-deep, .ob-space { stroke: color-mix(in srgb, var(--o1) 40%, var(--o2)); }
+.ob-space { fill: color-mix(in srgb, var(--o1) 40%, var(--o2)); stroke-linejoin: round; }
+.ob-rim { stroke: color-mix(in srgb, var(--o1) var(--gut-rim-k), var(--o3)); }
+.ob-edge { stroke: color-mix(in srgb, var(--o1) 58%, var(--o3)); }
+.ob-wall { stroke: var(--o1); }
+.ob-shade { stroke: color-mix(in srgb, var(--o1) 50%, var(--o2)); }
+.ob-hi { stroke: color-mix(in srgb, var(--o1), var(--og-hi) var(--og-hi-k)); }
+.du-ao { fill: var(--og-ao); stroke: var(--og-ao); stroke-width: 8; stroke-linejoin: round; }
+.du-wall { fill: var(--o1); stroke: color-mix(in srgb, var(--o1) 58%, var(--o3)); stroke-width: 2; stroke-linejoin: round; }
 /* Vessels are cut out of the tissue beneath them by a thin paper-colored edge, so a pressure
    color never merges with an organ's tone. */
 .v-shadow { fill: var(--knockout); stroke: var(--knockout); stroke-width: 3.2; stroke-linejoin: round; transform: none; }
@@ -2732,8 +2749,7 @@ button.finding { cursor: pointer; }
 .organ .org-shade { stroke-width: 16; stroke-opacity: .45; }
 .organ .org-rimlight { stroke-width: 3; stroke-opacity: .45; }
 .organ .org-line { stroke-width: 1; stroke-opacity: .7; }
-.organ .band-sheen { stroke-width: 3; stroke-opacity: .45; }
-.org-appendix.band-ao { stroke-width: 11; } .org-appendix.band-edge { stroke: var(--o3); stroke-width: 7.5; stroke-opacity: .6; } .org-appendix.band-body { stroke: var(--o1); stroke-width: 6; } .org-appendix.band-under { stroke-width: 2; } .org-appendix.band-sheen { display: none; }
+.org-appendix.band-ao { stroke-width: 11; } .org-appendix.band-edge { stroke: var(--o3); stroke-width: 7.5; stroke-opacity: .6; } .org-appendix.band-body { stroke: var(--o1); stroke-width: 6; } .org-appendix.band-under { stroke-width: 2; }
 .band-body, .band-edge, .band-ao, .band-under { fill: none; stroke-linecap: round; stroke-linejoin: round; }
 .organ .org-shade { stroke-opacity: 1; }
 .organ .org-shade.s1 { stroke-width: 30; stroke-opacity: .16; }

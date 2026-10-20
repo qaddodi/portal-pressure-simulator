@@ -785,6 +785,7 @@ uniform highp sampler2D fluidMask;     // the peritoneal cavity: its half-width 
 uniform vec4 fluidRect;
 uniform vec4 fluidS;                   // ascites: floor, height, ripple amplitude, ripple phase (world units, radians)
 uniform vec4 fluidInk;                 // its straw color (straight) and opacity at depth; a = 0: none
+uniform vec2 fluidLv;                  // the liver's scale about 560 350, and how far the fluid is kept off it (its lower edge: fluidMask row 1)
 uniform mat3 inv;                      // device pixels → world
 uniform float H;                       // canvas height, device pixels
 uniform float pxW;                     // world units per device pixel
@@ -1091,6 +1092,15 @@ void main() {
       float sl = (h1 - h0) * (nR - 1.0) / fluidRect.w;
       float cav = (mix(h0, h1, fy - float(r0)) - abs(w.x - fluidRect.x - 0.5 * fluidRect.z)) / sqrt(1.0 + sl * sl);
       float e = smoothstep(-pxW, pxW, d) * clamp(0.5 + cav / max(pxW, 1.0), 0.0, 1.0);
+      // Off the congested liver (organ picks, 20 Oct): above its lower edge, column by column across fluidRect in the
+      // liver's own frame, the fluid is cut by fluidLv.y.
+      if (fluidLv.y > 0.0 && e > 0.0) {
+        vec2 lu = (w - vec2(560.0, 350.0)) / fluidLv.x + vec2(560.0, 350.0);
+        float lx = clamp((lu.x - fluidRect.x) / fluidRect.z, 0.0, 1.0) * (nR - 1.0);
+        int l0 = int(min(floor(lx), nR - 2.0));
+        float lb = mix(texelFetch(fluidMask, ivec2(l0, 1), 0).r, texelFetch(fluidMask, ivec2(l0 + 1, 1), 0).r, lx - float(l0));
+        e *= 1.0 - fluidLv.y * (1.0 - smoothstep(-pxW, pxW, lu.y - lb));
+      }
       if (e > 0.0) {
         float a = fluidInk.a * (0.5 + 0.5 * clamp(d / max(fluidS.y, 1.0), 0.0, 1.0)) + fluidInk.a * 0.5 * exp(-d * d / 14.0);
         a = min(a, 1.0) * e;
@@ -1404,7 +1414,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false }) {
   gl.enableVertexAttribArray(1); gl.vertexAttribPointer(1, 2, gl.FLOAT, false, 0, 0); gl.vertexAttribDivisor(1, 1);
   gl.bindVertexArray(null);
   const fluidTex = dataTex(gl);
-  let fluidRect = null, nFluid = 0;
+  let fluidRect = null, nFluid = 0, fluidN = 0, fluidLiver = null;
   const compVAO = gl.createVertexArray();
   gl.bindVertexArray(compVAO);
   gl.bindBuffer(gl.ARRAY_BUFFER, quad);
@@ -1765,9 +1775,19 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false }) {
      * middle at rows evenly from its top to its bottom (anatomy.js cavityHalfWidths).
      */
     setFluidSpans(halfWidths, rect) {
+      const n = halfWidths.length, rows = new Float32Array(n * 2).fill(-1e4);
+      rows.set(halfWidths);
+      if (fluidLiver?.length === n) rows.set(fluidLiver, n);
       gl.bindTexture(gl.TEXTURE_2D, fluidTex);
-      gl.texImage2D(gl.TEXTURE_2D, 0, gl.R32F, halfWidths.length, 1, 0, gl.RED, gl.FLOAT, halfWidths);
-      fluidRect = rect;
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.R32F, n, 2, 0, gl.RED, gl.FLOAT, rows);
+      fluidRect = rect; fluidN = n;
+    },
+    /** The liver's lower edge (in its own frame, before its scale) at the same number of columns evenly across the cavity's rectangle. */
+    setFluidLiver(bottoms) {
+      fluidLiver = bottoms;
+      if (fluidN !== bottoms.length) return;
+      gl.bindTexture(gl.TEXTURE_2D, fluidTex);
+      gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 1, fluidN, 1, gl.RED, gl.FLOAT, bottoms);
     },
     /** World origins (x, y pairs) of the cells the ascites surface ripples through. */
     setFluidCells(cells) {
@@ -1911,6 +1931,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false }) {
       // (The fluid is drawn here with the plate off too, the live organs showing under the canvas: one look while the plate is
       // down for a slow fill and after it lands, where the page's SVG copy had a brighter surface line; Ascites slide 5, 17 Oct.)
       gl.uniform4f(U.fluidInk, ...(fl ? fl.ink : [0, 0, 0, 0]));
+      gl.uniform2f(U.fluidLv, ...(fl?.lv || [1, 0]));
       gl.uniform1i(U.blood, blood.on ? 1 : 0);
       gl.uniform1i(U.chev, blood.chev ? 1 : 0);
       gl.uniform1i(U.still, blood.still ? 1 : 0);

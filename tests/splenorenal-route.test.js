@@ -80,12 +80,14 @@ test('the figure ties off the same vessels the engine closes for each surgical s
 // their course and ease into the renal vein heading toward the cava; the spontaneous one is never wider than the splenic vein.
 test('splenorenal shunts keep clear of the descending colon and ease into the renal vein', async () => {
   const { ORGANS } = await import('../src/ui/anatomy.js');
-  const colon = sample(ORGANS.find((o) => o.id === 'colon').d).filter((p) => p[0] > 975 && p[1] > 500 && p[1] < 640);
+  // (The colon's d is its three limbs, cecum to splenic flexure to rectum, as separate subpaths: the descending colon is the last.)
+  const colon = sample(ORGANS.find((o) => o.id === 'colon').d.split(/(?=M)/).at(-1)).filter((p) => p[0] > 975 && p[1] > 500 && p[1] < 640);
+  assert.ok(colon.length > 20, 'the descending colon runs down the left flank past the shunts');
   const kid = sample(EDGE_PATH.V_KID_L);
   for (const id of ['C6', 'S_DSR']) {
     const P = sample(EDGE_PATH[id]);
-    // Centre to centre: the colon's half width (13.5) and the shunt's (about 6) and a clear gap.
-    for (const q of P.filter((q) => q[1] > 520)) assert.ok(dist(colon, q) > 28, `${id} at ${q.map(Math.round)} keeps clear of the colon`);
+    // Centre to centre: the colon's half width (36, the folded colon of 20 Oct) and the shunt's (about 6) and a clear gap.
+    for (const q of P.filter((q) => q[1] > 520)) assert.ok(dist(colon, q) > 50, `${id} at ${q.map(Math.round)} keeps clear of the colon`);
     // The last stretch heads down and toward the cava (left), as the renal vein flows, not straight down onto it.
     const [a, b] = [P[P.length - 6], P[P.length - 1]];
     assert.ok(b[0] < a[0] - 2 && b[1] > a[1], `${id} turns toward the cava as it joins`);
