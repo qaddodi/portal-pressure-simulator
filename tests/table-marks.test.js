@@ -47,6 +47,7 @@ test('every summary-table arrow matches its row\'s model state', async () => {
         const isRef = r.ref || (rel && !r.vs && n === 0);
         for (const k of t.cols || []) {
           if (isRef || (r.blank || []).includes(k)) continue;
+          if (k === 'wave') continue;   // (a small Doppler trace, panels-e.test.js; no arrow)
           if (k === 'spleen' && !(r.f.spleen > 0)) continue;   // (splenectomy: "Removed")
           const got = rel ? dirRel(k, r.f, r.vs ? fpOf(r.vs) : rows[0].f) : dirAbs(k, r.f);
           let want;
@@ -78,7 +79,7 @@ test('tables that cannot be measured or have no organ say so', async () => {
   const t = OUTFLOW.slides.find((s) => s.visual === 'table');
   assert.deepEqual(t.of.find((o) => o.id === 'bcs').blank, ['whvp', 'fhvp', 'hvpg'], 'clotted hepatic veins cannot be wedged');
   const { DOPPLER } = await import(new URL('doppler.js', DIR));
-  for (const o of DOPPLER.slides.find((s) => s.visual === 'table').of) assert.ok(o.note.every(Boolean), `Doppler row ${o.title} has an empty cell`);
+  for (const o of DOPPLER.slides.find((s) => s.visual === 'table').of) assert.ok([o.note].flat().every(Boolean), `Doppler row ${o.title} has an empty cell`);
 });
 
 test('every tile rating is a word or two, short enough for one line in a phone tile', async () => {

@@ -14,6 +14,10 @@ export const ADOPTED = {
   'shunts/tips': ['calipers'],
   'shunts/wide': ['kind:curve'],
   'shunts/brto': ['kind:flows'],
+  'doppler/probe': ['tool.mode'],
+  'doppler/hepatic': ['tool.mode'],
+  'doppler/rhf': ['tool.pair', 'tool.calipers'],
+  'doppler/summary': ['cols.wave', 'wave'],
 };
 
 /** Whether the slide d/s may use the field. */
