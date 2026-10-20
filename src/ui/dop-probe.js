@@ -10,12 +10,13 @@
 export const AWAY = new Set(['RHV_IVC', 'MHV_IVC', 'LHV_IVC', 'IVCS_RA']);
 export const awayFromProbe = (id) => AWAY.has(id);
 
-// The probe's shape, in CSS px along its axis from its face: the body reaches 48 px back and its cable stub on to 62; 11 px
-// either side (13 with the outline). GAP: from the vessel's wall to the probe's face.
+// The probe's shape, in CSS px along its axis from its face: drawn at SCALE (1.35: a bit bigger, Mohammad, 20 Oct), the body
+// reaches 48 × 1.35 ≈ 65 px back and its cable stub on to 62 × 1.35 ≈ 84; 11 × 1.35 ≈ 15 px either side (17.5 with the outline).
+// GAP: from the vessel's wall to the probe's face.
 // BEAM_DEG: the faded ultrasound beam's half-angle (the first probe's narrow beam, which Mohammad missed, 20 Oct).
 // ANGLE: the Doppler angle θ, the monitor's too (dopplerColor.js THETA reads it). Under 60° as the papers ask (McNaughton and
 // Abu-Yousef, RadioGraphics 2011, Fig 2; Ferraioli's EFSUMB slides; Lechowicz and Elwertowski, J Ultrason 2015, p. 214): 60° was the limit itself.
-export const PROBE = { ANGLE: 50, GAP: 74, LEN: 62, HALF: 13, EDGE: 8, BEAM_DEG: 7 };
+export const PROBE = { ANGLE: 50, GAP: 80, SCALE: 1.35, LEN: 84, HALF: 17.5, EDGE: 8, BEAM_DEG: 7 };
 
 /** The sample volume for a lumen of radius r (px on screen): two bars across the line of sight, each `at` px from the gate along
  *  it: the gate is half the vessel's width long, in its middle, as the Polish Ultrasound Society's standard sets it (Lechowicz and
@@ -35,7 +36,7 @@ export function bodyBox(g, ang, D) {
 }
 
 /** Nearer distances (gate wall to face, px) the probe may come in to when neither side is clear at PROBE.GAP. */
-const REACH = [52, 34];
+const REACH = [58, 38];
 
 /** Boxes along the probe's line of sight (stage px), from its face D px out along ang back through the gate g and past the
  *  vessel's far wall (as probeShapes draws it), each pad px either side of the line: what labels keep off, and what the probe
@@ -59,49 +60,62 @@ export function gateBoxes(g, ang, phi, r = 0, pad = 4) {
   return out;
 }
 
+/** How busy the figure is under a pose (Mohammad, 20 Oct: "in an area that's less busy, where not a lot of drawings"): busy holds
+ *  points along the vessels drawn, [x, y, radius] in stage px; each one under the probe's body counts 1, under its line of sight ½. */
+export function busyAt(g, ang, D, r, busy) {
+  if (!busy?.length) return 0;
+  const c = Math.cos(rad(ang)), s = Math.sin(rad(ang)), far = gateDims(r).at;
+  let n = 0;
+  for (const [x, y, q = 0] of busy) {
+    const dx = x - g[0], dy = y - g[1], u = dx * c + dy * s, v = Math.abs(-dx * s + dy * c);
+    if (u >= D - 3 - q && u <= D + PROBE.LEN + q && v <= PROBE.HALF + q + 3) n += 1;
+    else if (u > far + Math.max(0, r) + q && u < D && v <= 4 + q) n += 0.5;
+  }
+  return n;
+}
+
 /**
  * Where the probe stands. g: the gate (stage px); t: the vessel's direction there, as its blood normally runs (any length);
  * r: the lumen's radius (px); away: the flow runs away from the probe; w, h: the stage; cards: boxes the probe keeps off;
- * keep: the side it stood on (1 or −1; 0: none), kept unless only the other side is clear; side: a side to use outright.
- * avoid: the labels' and callouts' boxes: between two sides clear of the cards, the one whose body and line of sight cross
- * fewer of them (a kept side moves only when it crosses one and the other side crosses none: Mohammad, 20 Oct, the probe's
- * line had crossed "TIPS 110 cm/s" and a callout).
- * Returns { side, ang (degrees, from the gate toward the probe), phi (the flow axis's θ ray, from the line of sight toward
- * the probe, degrees), D (gate to face, px), box (the body), clear }.
+ * keep: the side it stood on (1 or −1; 0: none), with keepReach and keepRev, kept unless a better place is clearly better;
+ * side (with rev): a place to use outright. avoid: the labels' and callouts' boxes: of the places clear of the cards, the one whose body and
+ * line of sight cross fewer of them (a kept place moves when it crosses one and another crosses none: Mohammad, 20 Oct, the
+ * probe's line had crossed "TIPS 110 cm/s" and a callout). busy: points along the vessels drawn (busyAt): then the quieter place.
+ * Four places hold θ to the flow: either side of the vessel, and either way along it (rev: the probe looks at the flow from its
+ * other end, the monitor's convention's mirror), the usual end first; rev only for a clearly quieter spot (Mohammad, 20 Oct:
+ * "have the US probe rotate and be in an area that's less busy").
+ * Returns { side, rev, reach, ang (degrees, from the gate toward the probe), phi (the flow axis's θ ray, from the line of sight
+ * toward the probe, degrees), D (gate to face, px), box (the body), lab, busy, clear }.
  */
-export function probePose({ g, t, r = 0, away = false, w, h, cards = [], keep = 0, side = 0, avoid = [], keepReach = 0 }) {
-  const base = Math.atan2(t[1], t[0]) * 180 / Math.PI, turn = away ? 180 - PROBE.ANGLE : PROBE.ANGLE;
+export function probePose({ g, t, r = 0, away = false, w, h, cards = [], keep = 0, side = 0, avoid = [], keepReach = 0, keepRev = false, busy = [], rev = false }) {
+  const base = Math.atan2(t[1], t[0]) * 180 / Math.PI;
   const D0 = PROBE.GAP + Math.max(0, r);
-  const pose = (s, D = D0, reach = 0) => {
-    const ang = base + s * turn, box = bodyBox(g, ang, D), e = PROBE.EDGE;
+  const pose = (s, D = D0, reach = 0, rev = false) => {
+    const aw = away !== rev, ang = base + s * (aw ? 180 - PROBE.ANGLE : PROBE.ANGLE), box = bodyBox(g, ang, D), e = PROBE.EDGE;
     // How much of the body lies off the stage or under a card (px²): 0 is clear.
     const off = (box.x1 - box.x0) * (box.y1 - box.y0) - overlap(box, { x0: e, y0: e, x1: w - e, y1: h - e });
     const hidden = cards.reduce((n, c) => n + overlap(box, c), 0);
     // (The flow runs at −s·θ from the line toward the probe (toward), or at 180° − s·(180° − θ) (away), whose reverse is s·θ.)
-    const phi = (away ? s : -s) * PROBE.ANGLE, marks = [box, ...beamBoxes(g, ang, D, r), ...gateBoxes(g, ang, phi, r)], lab = avoid.reduce((n, o) => n + marks.reduce((m, b) => m + overlap(b, o), 0), 0);
-    return { side: s, reach, ang, lab, phi, D, box, cost: off + hidden, clear: off + hidden === 0 };
+    const phi = (aw ? s : -s) * PROBE.ANGLE, marks = [box, ...beamBoxes(g, ang, D, r), ...gateBoxes(g, ang, phi, r)], lab = avoid.reduce((n, o) => n + marks.reduce((m, b) => m + overlap(b, o), 0), 0);
+    return { side: s, rev, reach, ang, lab, busy: busyAt(g, ang, D, r, busy), phi, D, box, cost: off + hidden, clear: off + hidden === 0 };
   };
-  if (side) return pose(side);
-  const a = pose(1), b = pose(-1);
-  // Neither side clear at its usual distance (off the slide's free space or under a card): the probe comes in closer to the
+  if (side) return pose(side, D0, 0, rev);
+  const at = (D, reach) => [1, -1].flatMap((s) => [pose(s, D, reach), pose(s, D, reach, true)]);
+  // Not one place clear at its usual distance (off the slide's free space or under a card): the probe comes in closer to the
   // vessel, on either side, before it gives up; then none fits and it hides (Mohammad, 20 Oct: visible wherever there is room).
-  if (!a.clear && !b.clear) {
-    const near = REACH.map((n, i) => [pose(1, n + Math.max(0, r), i + 1), pose(-1, n + Math.max(0, r), i + 1)]).flat().filter((p) => p.clear);
-    if (!near.length) return { ...(a.cost <= b.cost ? a : b), none: true };
-    const k = keep && near.find((p) => p.side === keep && p.reach === keepReach);
-    return k && !(k.lab > 0 && near.some((p) => p.lab === 0)) ? k : near.reduce((m, p) => (p.lab < m.lab ? p : m));
-  }
-  if (keep) {
-    const k = keep === 1 ? a : b, o = keep === 1 ? b : a;
-    if (!k.clear) return o.clear ? o : k;
-    return o.clear && k.lab > 0 && o.lab === 0 ? o : k;
-  }
-  // (First showing: the clear side, else the less covered one; then the one crossing fewer labels; a tie stands above the
-  // vessel, where the camera leaves more room.)
-  if (a.clear !== b.clear) return a.clear ? a : b;
-  if (a.cost !== b.cost) return a.cost < b.cost ? a : b;
-  if (a.lab !== b.lab) return a.lab < b.lab ? a : b;
-  return (a.box.y0 + a.box.y1) <= (b.box.y0 + b.box.y1) ? a : b;
+  let pool = at(D0, 0).filter((p) => p.clear);
+  if (!pool.length) pool = REACH.flatMap((n, i) => at(n + Math.max(0, r), i + 1)).filter((p) => p.clear);
+  if (!pool.length) { const a = pose(1), b = pose(-1); return { ...(a.cost <= b.cost ? a : b), none: true }; }
+  // (Fewer labels crossed, then the quieter figure, then the usual distance; a tie stands above the vessel, where the camera
+  // leaves more room.) quieter: clearly so, crossing no more labels, so a place never flips over a point or two.
+  const better = (p, m) => (p.lab !== m.lab ? p.lab < m.lab : p.busy !== m.busy ? p.busy < m.busy : p.reach !== m.reach ? p.reach < m.reach : p.box.y0 + p.box.y1 < m.box.y0 + m.box.y1);
+  const least = (l) => (l.length ? l.reduce((m, p) => (better(p, m) ? p : m)) : null);
+  const quieter = (p, m) => p.lab <= m.lab && p.busy < 0.6 * m.busy - 2;
+  const usual = least(pool.filter((p) => !p.rev)), mirror = least(pool.filter((p) => p.rev));
+  const best = !usual || (mirror && quieter(mirror, usual)) ? mirror : usual;
+  const k = keep && pool.find((p) => p.side === keep && p.reach === keepReach && p.rev === !!keepRev);
+  if (!k) return best;
+  return (k.lab > 0 && best.lab === 0) || quieter(best, k) ? best : k;
 }
 
 /** The marks in the probe's own frame, x running from the gate (0) toward the probe, whose face is at D: the line of sight from
@@ -119,7 +133,7 @@ export function probeShapes(D, r, phi = PROBE.ANGLE) {
     beam: `M${f(D)} 0 L${f(at)} 0`,
     gate: `M${f(-at)} ${f(-half)} L${f(-at)} ${f(half)} M${f(at)} ${f(-half)} L${f(at)} ${f(half)}`,
     axis: `M${f(-L * c)} ${f(-L * s)} L${f(L * c)} ${f(L * s)}`,
-    head: `translate(${f(D)} 0)`,
+    head: `translate(${f(D)} 0) scale(${PROBE.SCALE})`,
   };
 }
 

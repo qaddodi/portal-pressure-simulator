@@ -74,7 +74,7 @@ test('as on the scanner: the line of sight runs through the vessel, the two bars
       assert.ok(Math.abs(ax + bx) < 0.2 && Math.abs(ay + by) < 0.2, 'centred on the gate');
       assert.ok(Math.abs(Math.atan2(by, bx) * 180 / Math.PI - phi) < 1);
       assert.equal(s.theta, undefined);
-      assert.equal(s.head, `translate(${PROBE.GAP + r} 0)`);
+      assert.equal(s.head, `translate(${PROBE.GAP + r} 0) scale(${PROBE.SCALE})`);
     }
   }
   const b = bodyBox([0, 0], 0, 80);
@@ -105,11 +105,11 @@ test('the figure places the gate where the callout points (the middle of the ves
 });
 
 test('every mark and the probe are white-lined on a black rim, with no θ on the figure; the glow and the light share the Doppler glow colour', () => {
-  assert.match(css, /\.dpr-gate-rim \{ fill: none; stroke: var\(--dop-rim\); stroke-width: 4\.6;/);
+  assert.match(css, /\.dpr-gate-rim \{ fill: none; stroke: var\(--dop-rim\); stroke-width: 5\.6;/);
   assert.match(css, /\.dpr-rim-l \{ fill: none; stroke: var\(--dop-rim\);/);
   assert.match(css, /\.dpr-line \{ fill: none; stroke: var\(--dop-mark\);/);
   for (const src of [css, stage, PROBE_SVG]) assert.doesNotMatch(src, /dpr-theta|θ<\/text>/);
-  assert.match(css, /\.dpr-gate \{ fill: none; stroke: var\(--dop-mark\); stroke-width: 2\.4;/);
+  assert.match(css, /\.dpr-gate \{ fill: none; stroke: var\(--dop-mark\); stroke-width: 3;/);
   assert.match(tokens, /--dop-mark: #FFFFFF; --dop-rim: #000000;/);
   assert.match(stage, /setGlowSrc\('dop', id \? \[\{ id, col: 'var\(--dop-glow\)'/);
   assert.match(read('src/ui/presenter.js'), /glow\.set\(v, '--dop-glow'\)/);
@@ -181,8 +181,8 @@ test('the station dot under the gate fades with the probe: out while it shows on
 });
 
 test('with neither side clear the probe comes in closer, and hides only when no place fits', () => {
-  const g = [600, 400], t = [1, 0], r = 8, far = (s) => probePose({ g, t, r, w: W, h: H, side: s }).box;
-  const p = probePose({ g, t, r, w: W, h: H, cards: [far(1), far(-1)].map((b) => ({ ...b, y0: b.y0, y1: b.y1, x0: b.x0, x1: b.x1 })).map((b) => ({ ...b, ...(b.y0 < g[1] ? { y1: Math.min(b.y1, b.y0 + 30) } : { y0: Math.max(b.y0, b.y1 - 30) }) })) });
+  const g = [600, 400], t = [1, 0], r = 8, far = (s, rev) => probePose({ g, t, r, w: W, h: H, side: s, rev }).box;
+  const p = probePose({ g, t, r, w: W, h: H, cards: [far(1), far(-1), far(1, true), far(-1, true)].map((b) => ({ ...b, y0: b.y0, y1: b.y1, x0: b.x0, x1: b.x1 })).map((b) => ({ ...b, ...(b.y0 < g[1] ? { y1: Math.min(b.y1, b.y0 + 30) } : { y0: Math.max(b.y0, b.y1 - 30) }) })) });
   assert.ok(p.reach > 0 && p.clear && !p.none);
   assert.ok(probePose({ g, t, r, w: W, h: H, cards: [{ x0: 0, y0: 0, x1: W, y1: H }] }).none);
 });
@@ -229,4 +229,38 @@ test('a "60 %" the probe would cover steps out to a clear spot on a leader line,
   // The gate bars are in the boxes labels and the probe keep off.
   const g = [300, 300], b = gateBoxes(g, 0, 50, 8)[0];
   assert.ok(b.x0 < 300 - 5 && b.x1 > 300 + 5 && b.y0 < 300 - 5 && b.y1 > 300 + 5);
+});
+
+test('a bit bigger probe, thicker lines (Mohammad, 20 Oct), the body box matching the drawn head', () => {
+  assert.ok(PROBE.SCALE >= 1.3);
+  assert.ok(Math.abs(PROBE.LEN - 62 * PROBE.SCALE) < 1 && Math.abs(PROBE.HALF - 13 * PROBE.SCALE) < 0.5, 'LEN and HALF follow the scaled head');
+  const w = (sel) => +css.match(new RegExp(`\\.dop-probe \\.${sel} \\{[^}]*stroke-width: ([\\d.]+)`))[1];
+  assert.ok(w('dpr-line') >= 2 && w('dpr-rim-l') > w('dpr-line') + 2);
+});
+
+test('the probe turns to the quieter part of the figure: any of the four places holding θ, the usual end unless the other is clearly quieter', () => {
+  const g = [600, 400], t = [1, 0], r = 8, cos = Math.cos(PROBE.ANGLE * Math.PI / 180);
+  const fill = (p) => { const out = []; for (let x = p.box.x0; x <= p.box.x1; x += 6) for (let y = p.box.y0; y <= p.box.y1; y += 6) out.push([x, y, 2]); return out; };
+  for (const away of [false, true]) {
+    const plain = probePose({ g, t, r, away, w: W, h: H });
+    assert.equal(plain.rev, false, 'an empty figure: the usual end');
+    // Vessels drawn under the usual place: it takes the other side.
+    const busy1 = fill(plain);
+    const p1 = probePose({ g, t, r, away, w: W, h: H, busy: busy1 });
+    assert.equal(p1.busy, 0); assert.equal(p1.side, -plain.side); assert.equal(p1.rev, false);
+    // Both usual places busy: it looks from the flow's other end, θ still 50° (the flow line at ±θ to the line of sight).
+    const busy2 = [...busy1, ...fill(probePose({ g, t, r, away, w: W, h: H, side: -plain.side }))];
+    const p2 = probePose({ g, t, r, away, w: W, h: H, busy: busy2 });
+    assert.equal(p2.rev, true); assert.equal(p2.busy, 0);
+    const b = dirOf(p2.ang);
+    assert.ok(Math.abs(Math.abs(b[0] * t[0] + b[1] * t[1]) - cos) < 1e-9);
+    const ray = dirOf(p2.ang + p2.phi);
+    assert.ok(Math.abs(Math.abs(ray[0] * t[0] + ray[1] * t[1]) - 1) < 1e-9, 'the flow axis lies along the flow');
+    // Kept: a point or two more never moves it; a clearly quieter place does.
+    assert.equal(probePose({ g, t, r, away, w: W, h: H, busy: busy1.slice(0, 2), keep: plain.side }).side, plain.side);
+    const kept = probePose({ g, t, r, away, w: W, h: H, busy: busy1, keep: plain.side });
+    assert.equal(kept.side, -plain.side);
+  }
+  assert.match(stage, /busy: dprBusy\(\[gx, gy\], id\)/);
+  assert.match(stage, /pose\.rev !== dpr\.rev/);
 });
