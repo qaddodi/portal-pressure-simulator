@@ -40,7 +40,7 @@ function fpBefore(ctx, ref) {
   return seen.fp.get(k) || (seen.slides[k]?.id ? ctx.fpOf?.(seen.slides[k].id) : null) || null;
 }
 const P = (fp) => fp?.at?.P || null;
-// A lapse glow's colour and its ease in and out (ms; glow: the organ's outline, warm: its loops lit from under): slow enough to read as a meal taking hold, the lapse itself being a few seconds.
+// A lapse glow's colour and its ease in and out (ms; glow: the organ's outline, warm: a glow along the edges of its loops): slow enough to read as a meal taking hold, the lapse itself being a few seconds.
 const LAPSE_GLOW = { tone: '--origin-smv', fade: 1400 };
 const lapseOrgans = (list) => (Array.isArray(list) ? list : [list]).map((id) => ORGAN_TARGETS[id]?.organ || (NEW_ORGANS.includes(id) ? id : null)).filter(Boolean).map((id) => ({ id, glow: true, warm: true, tone: LAPSE_GLOW.tone, ...(reduced() ? {} : { fade: LAPSE_GLOW.fade }) }));
 

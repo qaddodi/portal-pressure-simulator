@@ -264,6 +264,12 @@ test('a lapse glow goes when the slide leaves, and is drawn from the pile\'s own
   assert.match(STAGE, /soft: true, warm: true/);
   assert.match(STAGE, /glLines && o\.warm/);
   assert.match(STAGE, /const lines = warmLines\(d\) \|\| olRingsRaw\(/);
+  // Only the edges glow (Mohammad, 20 Oct: "just the outline glows"): a strip along each side of every tube, starting on the tube's
+  // edge (its radius out from the centre line, read from the drawing's own pieces) and easing outward, none over the tube itself.
+  assert.match(STAGE, /for \(const side of \[-1, 1\]\)/);
+  assert.match(STAGE, /ex, ey, -ty, tx, 0, WARM\.reach, ex, ey, -ty, tx, side, WARM\.reach/);
+  assert.match(STAGE, /querySelectorAll\('\.ob-edge'\)/);
+  assert.ok(!/ -ty, tx, -1, WARM\.reach/.test(STAGE), 'no centred strip: the tubes\' insides are not filled');
   assert.ok(readFileSync(new URL('../src/ui/organ-art.js', import.meta.url), 'utf8').includes('class=\\"ob-deep\\"'), 'the pile still draws .ob-deep tubes');
 });
 

@@ -818,7 +818,7 @@ uniform sampler2D lineL;               // the organ outlines, drawn once per cha
 uniform int lineOn;
 uniform sampler2D glowL;               // soft glows behind the plate (an organ a slide points at), same drawing
 uniform int glowOn;
-uniform sampler2D warmL;               // warm glows over the plate and under the vessels (a lit organ's inside), same drawing
+uniform sampler2D warmL;               // warm glows over the plate and under the vessels (the edges of a lit organ's loops), same drawing
 uniform int warmOn;
 out vec4 outColor;
 
@@ -1995,7 +1995,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false }) {
     get canLines() { return !!lineP; },
     /**
      * Organ outlines, or null: { verts: Float32Array (x, y, normal x, y, side, half width per vertex; world units),
-     * draws: [{ first, count, col: [r, g, b], alpha, tri (a fill: triangles, half width 1e4, side 0), soft (a glow behind the organs: side 0 on the edge and ±1 at the reach, half width = the reach), warm (with soft: the same strip on the organs and under the vessels, centred on its line: sides −1 and 1) }] }.
+     * draws: [{ first, count, col: [r, g, b], alpha, tri (a fill: triangles, half width 1e4, side 0), soft (a glow behind the organs: side 0 on the edge and ±1 at the reach, half width = the reach), warm (with soft: the same glow on the organs and under the vessels instead of behind them) }] }.
      * Alphas may change without new verts.
      */
     setLines(spec) {
