@@ -6943,9 +6943,26 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
             const gapPx = Math.hypot(Math.max(r.x0 - it.ax, 0, it.ax - r.x1), Math.max(r.y0 - it.ay, 0, it.ay - r.y1));
             if (gapPx > 10) {
               if (others.some((sg) => segsCross(sg, [it.ax, it.ay, ex, ey]))) return;
+              // (A zone title's column that the station itself stands at the edge of (VAR beside "Portal veins" on a phone) does not
+              // stop its leader: it starts there.)
+              const own = (p) => p.zone && it.ax > p.x0 - 4 && it.ax < p.x1 + 4 && it.ay > p.y0 - 4 && it.ay < p.y1 + 4;
               for (let u = ps.strict || ps.resc ? 0 : 8, q = ps.strict || ps.resc ? 3 : 2; u < L - 2; u += ps.strict || ps.resc ? 2 : 3) {   // (rescued: from its station's ring on, the ring too kept clear)
                 const px = it.ax + ((ex - it.ax) * u) / L, py = it.ay + ((ey - it.ay) * u) / L, pr = { x0: px - q, y0: py - q, x1: px + q, y1: py + q };
-                if ((ps.ring === 'clean' && lineHits(pr, 0)) || placed.some((p) => !p.dot && hits(pr, p))) return;   // (a leader may pass a station's dot, never a reading)
+                if ((ps.ring === 'clean' && lineHits(pr, 0)) || placed.some((p) => !p.dot && !own(p) && hits(pr, p))) return;   // (a leader may pass a station's dot, never a reading)
+              }
+            }
+          } else if (circuit && it.key.startsWith('n:')) {
+            // (Beside its station too (passes 0-2), a Circuit reading sits on no other reading's leader, and where it stands far
+            // enough out to take a leader (past 18 px: see below), its leader runs through no reading: on a sideways iPad, IVC's
+            // leader had run through RA's.)
+            const others = out.filter((o) => o !== it && o.leader && !o.live).map((o) => { const e = leaderEnd(rectOf(o), o.ax, o.ay); return { x0: o.ax, y0: o.ay, x1: e.x, y1: e.y }; });
+            if (others.some((sg) => segHitsBox(sg, r, 2))) return;
+            const gapPx = Math.hypot(Math.max(r.x0 - it.ax, 0, it.ax - r.x1), Math.max(r.y0 - it.ay, 0, it.ay - r.y1));
+            if (gapPx > 18) {
+              const le = leaderEnd(r, it.ax, it.ay), L = Math.hypot(le.x - it.ax, le.y - it.ay);
+              for (let u = 8; u < L - 2; u += 3) {
+                const px = it.ax + ((le.x - it.ax) * u) / L, py = it.ay + ((le.y - it.ay) * u) / L;
+                if (placed.some((p) => !p.dot && !p.zone && hits({ x0: px - 2, y0: py - 2, x1: px + 2, y1: py + 2 }, p))) return;
               }
             }
           }
@@ -7266,10 +7283,13 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         const outer = [90, 104, 118].map((g) => g + half);
         const far = [...passes.slice(3), ...outer.map((gap) => ({ gap, dirs: RING_DIRS, ring: 'clean', clear: true, inView: true })), ...outer.map((gap) => ({ gap, dirs: RING_DIRS, ring: 'any', clear: true, inView: true }))].map((ps) => ({ ...ps, callGap: 12, resc: true }));
         const near = [...passes.slice(0, 3), { gap: passes[2].gap + 10 }, { gap: passes[2].gap + 18 }].map((ps) => ({ ...ps, clear: false, strict: true, inView: true, callGap: 12, resc: true }));
-        const ok = [far, near, near.map((ps) => ({ ...ps, overZones: true }))].some((R) => {
+        // (Then out on the same rings over a vessel, with the solid halo: on a phone the free space round VAR is all vessels, and
+        // nearer than the rings there is no room.)
+        const farOn = far.map((ps) => ({ ...ps, clear: false, ring: 'any' }));
+        const ok = [far, near, farOn, near.map((ps) => ({ ...ps, overZones: true }))].some((R) => {
           Object.assign(it, { lines: it._full.lines, w: it._full.w, h: it._full.h, short: it._full.short, abbr: it._full.abbr, one: false });   // (whole again for each try)
           return placeMulti(it, dirs, R, 0, R.length, false, 1);
-        }) || [0, 1].some((sh) => [far, near, far.map((ps) => ({ ...ps, overZones: true })), near.map((ps) => ({ ...ps, overZones: true }))].some((R) => {
+        }) || [0, 1].some((sh) => [far, near, farOn, far.map((ps) => ({ ...ps, overZones: true })), near.map((ps) => ({ ...ps, overZones: true }))].some((R) => {
           // (Else on one line, name then value (then without its units): a station at the top of the free space, RA under a phone's
           // data card, has room beside it only for a reading one line tall.)
           Object.assign(it, { lines: it._full.lines, w: it._full.w, h: it._full.h, short: it._full.short, abbr: it._full.abbr, one: false });
