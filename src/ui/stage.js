@@ -9,7 +9,7 @@ import { STATION_VESSEL, meanVel, velNormal } from './velNormal.js?v=181dda5594'
 import { store, updateParams, varicesPresent, varixGrowth, shownVel } from './store.js?v=aaa74688dd';
 import { fibroReading } from './clock.js?v=8aa14cb690';
 import { s, h, fmt, fmtFlow, fp, clamp, lerp, toast, systemEdge, bloodColors, restBox, settledBox, putText } from './util.js?v=5814c6b396';
-import { createLobuleZoom } from './lobule-zoom.js?v=3889f97f67';
+import { createLobuleZoom } from './lobule-zoom.js?v=63e1d4ba97';
 import { sinceSource } from './since-ref.js?v=ef1a818c75';
 import { runFlick, FLICK } from './flick.js?v=4bc709c801';
 import { inlineStyles } from './svg-inline.js?v=fc17cb73fe';
@@ -4055,7 +4055,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     }
     return (colonMask = { x0, y0, w, h, bits });
   }
-  (typeof requestIdleCallback === 'function' ? (f) => requestIdleCallback(f, { timeout: 5000 }) : (f) => setTimeout(f, 3000))(() => { try { colonGrid(); } catch { /* it is made when a glow first needs it */ } });   // (made while idle, so a slide's start does not pay for it)
+  (typeof requestIdleCallback === 'function' ? (f) => requestIdleCallback(f, { timeout: 5000 }) : (f) => setTimeout(f, 3000))(() => { try { colonGrid(); if (organG.bowel && warmDs('bowel').length) warmVis('bowel'); } catch { /* each is made when a glow first needs it */ } });   // (made while idle, so a slide's start does not pay for them)
   const warmKey = (id) => olKey(id) + '|' + (organG.colon?.getAttribute('transform') || '') + '|' + warmSw(id) + '|' + warmDs(id).map((d) => d.length + d.slice(-30)).join('|');
   const olRingsOf = (o) => (o.kind === 'warm' ? warmRings(o.id) : olRings(o.id));
   function olSet(kind, id) {

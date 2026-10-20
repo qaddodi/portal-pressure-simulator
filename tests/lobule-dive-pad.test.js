@@ -59,12 +59,17 @@ test('landed, the copy goes and the layers show as drawn; a softer copy fades in
 test('the rise out of a zoomed-in lobule shrinks it whole, whichever way out', () => {
   // A presenter's next slide: the lobule glides to its whole view and the rise waits for it (the central-vein close-up included).
   const pz = readFileSync(new URL('../src/ui/presenter.js', import.meta.url), 'utf8');
-  assert.match(pz, /if \(stage\.lobuleOpen\(\)\) \{ const ms = reduce\.matches \|\| booting \? 0 : 900; if \(stage\.lobuleFocus\('fit', \{ ms \}\)\) await wait\(ms\); \}\n\s+if \(next && !reduce\.matches && !booting\) stage\.riseTo\(next\.box, next\.kMax, next\.clear\);[^\n]*\n\s+store\.set\(\{ lobule: false \}\);/);
-  assert.match(lz, /focusOn\(part, \{ zoom = 2, ms = 1400 \} = \{\}\) \{[\s\S]*?const moved = [^\n]*> 0\.5;[\s\S]*?return moved;/, 'it waits whenever the view moves');
+  assert.match(pz, /if \(stage\.lobuleOpen\(\)\) \{ const ms = reduce\.matches \|\| booting \? 0 : RISE_FIT_MS; if \(stage\.lobuleFocus\('fit', \{ ms, ease: 'in' \}\)\) await wait\(ms\); \}\n\s+if \(next && !reduce\.matches && !booting\) stage\.riseTo\(next\.box, next\.kMax, next\.clear\);[^\n]*\n\s+store\.set\(\{ lobule: false \}\);/);
+  assert.match(lz, /focusOn\(part, \{ zoom = 2, ms = 1400, ease = 'inOut' \} = \{\}\) \{[\s\S]*?const moved = [^\n]*> 0\.5;[\s\S]*?return moved;/, 'it waits whenever the view moves');
   // Every other way out (back to healthy, the view buttons, a key) from a zoomed-in view: the whole copy, before the rise's clock.
   const st = readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8');
   assert.ok(st.indexOf('lz.stageRise();') > 0 && st.indexOf('lz.stageRise();') < st.indexOf('const t0 = !on && riseAt'), 'built before the rise is timed');
   assert.match(st, /riseFast = !chainOut;\n\s+lz\.stageRise\(\);/);
+  // The way back to the fit reaches it still moving (eased in only, Mohammad 20 Oct: Circulation 9 to 10 stopped midway), quick enough
+  // to meet the rise at about its own speed, and the rise moves from its first frame.
+  assert.ok(+/const RISE_FIT_MS = (\d+);/.exec(pz)[1] <= 600, 'the zoom to the fit is short');
+  assert.match(lz, /e = ease === 'in' \? u \* u : /);
+  assert.match(st, /const fast = chainIn \|\| chainOut \|\| riseFast;/);
   const sr = lz.match(/function stageRise\(\) \{[\s\S]*?\n {2}\}/)[0];
   assert.match(sr, /const \[W, H\] = hostSize\(\), box = padBox\(W, H\);\n\s+if \(!box\) return;/);
   assert.match(sr, /const wd = buildWide\(W, H, box\);\n\s+idleDrawn = ''; draw\(0\);\n\s+wide = wideChecked\(wd\);/);

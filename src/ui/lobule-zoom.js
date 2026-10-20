@@ -361,7 +361,8 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host) }
     if (fade > 0 && geo) layoutLabels();
     nextFrame(() => { if (camMove) return; el.classList.remove('lz-cam'); el.classList.add('lz-cam-in'); clearTimeout(camInT); camInT = setTimeout(() => el.classList.remove('lz-cam-in'), 400); });
   }
-  function glideTo(to, ms = 260, cam = false, aim = null) {
+  // (ease 'in': from rest and still at speed where it lands, for a glide another move carries on from: the way out to the rise.)
+  function glideTo(to, ms = 260, cam = false, aim = null, ease = 'inOut') {
     stopInertia();
     cancelFrame(glide); gliding = false;
     camAim = aim;   // (any other glide, or a hand on the lobule, replaces the presenter's)
@@ -370,7 +371,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host) }
     if (reduce.matches || !fade) { camAim = null; Object.assign(V, to); viewChanged(); camSettle(); return; }
     if (cam && Math.abs(from.k - to.k) + Math.abs(from.x - to.x) + Math.abs(from.y - to.y) > 0.5) { camMove = true; camUntil = t0 + ms + 50; el.classList.remove('lz-cam-in'); el.classList.add('lz-cam'); setTimeout(() => { if (camMove && performance.now() >= camUntil) camSettle(); }, ms + 80); } else camSettle();
     const step = (now) => {
-      const u = clamp((now - t0) / ms, 0, 1), e = u < 0.5 ? 2 * u * u : 1 - (-2 * u + 2) ** 2 / 2;
+      const u = clamp((now - t0) / ms, 0, 1), e = ease === 'in' ? u * u : u < 0.5 ? 2 * u * u : 1 - (-2 * u + 2) ** 2 / 2;
       const k = from.k * Math.pow(to.k / from.k, e), a = (k - from.k) / ((to.k - from.k) || 1);
       V.k = k; V.x = from.x + (to.x - from.x) * (to.k === from.k ? e : a); V.y = from.y + (to.y - from.y) * (to.k === from.k ? e : a);
       viewChanged();
@@ -3309,12 +3310,12 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host) }
     zoomBy, fitView,
     /** The presenter's camera: glide to the whole lobule ('fit') or close in on a portal tract ('triad'), the
      *  sinusoids between it and the centre ('sinusoid') or the central vein ('central'), zoom × the framing. */
-    focusOn(part, { zoom = 2, ms = 1400 } = {}) {
+    focusOn(part, { zoom = 2, ms = 1400, ease = 'inOut' } = {}) {
       if (!geo || sinTo) return false;
       const F0 = fitV(); kFit = F0.k;
       const to = !part || part === 'fit' ? F0 : framing(part, zoom);
       const moved = Math.abs(V.k - to.k) + Math.abs(V.x - to.x) + Math.abs(V.y - to.y) > 0.5;
-      atFit = !part || part === 'fit'; camHeld = false; glideTo(to, ms, true, atFit ? null : { part, zoom, to });
+      atFit = !part || part === 'fit'; camHeld = false; glideTo(to, ms, true, atFit ? null : { part, zoom, to }, ease);
       return moved;
     },
     /** Before (or during) the dive into the lobule: where a presenter slide will want it, so the dive lands there

@@ -1340,12 +1340,16 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   function figureIn() { view.classList.remove('pz-out'); loading(false); }
   // (next: the slide being moved to, if it frames the plate, so the way out of the lobule lands on that framing
   // in one zoom rather than stopping at the fit first.)
+  const RISE_FIT_MS = 450;   // (the zoom back to the whole lobule before a rise: about the rise's own speed where they meet)
   async function toAnatomy(next) {
     const st = store.get();
     if (!st.lobule && !st.sinusoid) return;
     // Out of the sinusoid, then back to the lobule's normal framing, and only then out of the lobule: three steps, never one zoom through them.
     if (st.sinusoid) { store.set({ sinusoid: false }); await wait(60); await until(() => !stage.sinBusy() && !stage.sinusoidOpen(), 4000); }
-    if (stage.lobuleOpen()) { const ms = reduce.matches || booting ? 0 : 900; if (stage.lobuleFocus('fit', { ms })) await wait(ms); }
+    // (The way back to the fit eases in only: it reaches the fit still moving and the rise, which moves from its first frame, carries
+    // straight on. Eased out as well, the zoom came to rest at the whole lobule and set off again: it stopped midway (Mohammad, 20 Oct,
+    // Circulation 9 to 10).)
+    if (stage.lobuleOpen()) { const ms = reduce.matches || booting ? 0 : RISE_FIT_MS; if (stage.lobuleFocus('fit', { ms, ease: 'in' })) await wait(ms); }
     if (next && !reduce.matches && !booting) stage.riseTo(next.box, next.kMax, next.clear);   // (box: a function, asked for when the rise begins)
     store.set({ lobule: false });
     await until(() => stage.lobuleSettled(), 6000); await wait(80);
