@@ -9,7 +9,7 @@ import { STATION_VESSEL, meanVel, velNormal } from './velNormal.js?v=181dda5594'
 import { store, updateParams, varicesPresent, varixGrowth, shownVel } from './store.js?v=aaa74688dd';
 import { fibroReading } from './clock.js?v=8aa14cb690';
 import { s, h, fmt, fmtFlow, fp, clamp, lerp, toast, systemEdge, bloodColors, restBox, settledBox, putText } from './util.js?v=5814c6b396';
-import { createLobuleZoom } from './lobule-zoom.js?v=ace7202d88';
+import { createLobuleZoom } from './lobule-zoom.js?v=d4e306bf77';
 import { sinceSource } from './since-ref.js?v=ef1a818c75';
 import { runFlick, FLICK } from './flick.js?v=4bc709c801';
 import { inlineStyles } from './svg-inline.js?v=fc17cb73fe';
@@ -1823,6 +1823,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       lz.stage();   // the lobule is drawn now, for where it lands, and only then does the zoom start (its clock starts below)
     } else if (!on && diveT >= 1) {
       riseFast = !chainOut;
+      lz.stageRise();   // (out of a zoomed-in lobule: its whole copy is drawn now, before the rise's clock starts)
       diveLand = lz.current();
       // The anatomy is covered by the lobule at this point: take it to its fit framing now, unseen, so the way out is one
       // continuous zoom from the lobule's fit to the anatomy's fit, with no correction after it lands.

@@ -156,23 +156,27 @@ export function padRect(x, y, r, W, H) {
   return { l, t, w: W + l + rr, h: H + t + b };
 }
 // The wide copy's pixel ratio (lobule-zoom.js, buildWide): always the screen's own, unless the whole box would pass the budget for
-// it: WIDE_PX_TOUCH on an iPhone or iPad, where WebKit refuses 2D canvases past about 384 MB in all (26 M px is 104 MB, and
-// with the layers, the lobule's bitmap and the field the dive stays near 250 MB at most); WIDE_PX on a computer. Every phone and
-// iPad keeps full detail, the widest iPad dive measured (13", landscape, no slide text) needing 25.3 M px.
-export const WIDE_PX_TOUCH = 26e6, WIDE_PX = 64e6, WIDE_TILE = 11.5e6;
+// it: WIDE_PX_TOUCH on an iPhone or iPad, where WebKit refuses 2D canvases past about 384 MB in all (30 M px is 120 MB; with the
+// layers, the lobule's bitmap, the field and its tiles the dive stays under 300 MB); WIDE_PX on a computer. Every phone and iPad
+// keeps full detail: the widest iPad dive measured (13", landscape, no slide text) needs 25.3 M px.
+export const WIDE_PX_TOUCH = 30e6, WIDE_PX = 64e6, WIDE_TILE = 8.35e6;
 export function wideDpr(dpr, W, H, touch) {
   const px = W * H * dpr * dpr, cap = touch ? WIDE_PX_TOUCH : WIDE_PX;
   return px <= cap ? dpr : dpr * Math.sqrt(cap / px);
 }
-// The copy's tiles, at most WIDE_TILE device pixels each (under the 16.7 M px one canvas may hold; one tile on every phone and on
-// an iPad with a slide's text, where the copy needs no seam at all), cut on whole device pixels: { x, y, w, h } in CSS px.
+// The copy's tiles, at most WIDE_TILE device pixels each (half the 16.7 M px one canvas may hold), cut on whole device pixels:
+// { x, y, w, h } in CSS px within the box.
 export function wideTiles(W, H, dpr) {
-  const DW = Math.round(W * dpr), DH = Math.round(H * dpr), n = Math.max(1, Math.ceil((DW * DH) / WIDE_TILE));
-  const cols = Math.max(1, Math.min(n, Math.round(Math.sqrt((n * DW) / DH)))), rows = Math.ceil(n / cols);
-  const tw = Math.ceil(DW / cols), th = Math.ceil(DH / rows), out = [];
-  for (let j = 0; j < rows; j++) for (let i = 0; i < cols; i++) {
-    const x0 = i * tw, y0 = j * th, x1 = Math.min(DW, x0 + tw), y1 = Math.min(DH, y0 + th);
-    if (x1 > x0 && y1 > y0) out.push({ x: x0 / dpr, y: y0 / dpr, w: (x1 - x0) / dpr, h: (y1 - y0) / dpr });
+  const DW = Math.round(W * dpr), DH = Math.round(H * dpr);
+  for (let n = Math.max(1, Math.ceil((DW * DH) / WIDE_TILE)); ; n++) {
+    const cols = Math.max(1, Math.min(n, Math.round(Math.sqrt((n * DW) / DH)))), rows = Math.ceil(n / cols);
+    const tw = Math.ceil(DW / cols), th = Math.ceil(DH / rows);
+    if (tw * th > WIDE_TILE) continue;
+    const out = [];
+    for (let j = 0; j < rows; j++) for (let i = 0; i < cols; i++) {
+      const x0 = i * tw, y0 = j * th, x1 = Math.min(DW, x0 + tw), y1 = Math.min(DH, y0 + th);
+      if (x1 > x0 && y1 > y0) out.push({ x: x0 / dpr, y: y0 / dpr, w: (x1 - x0) / dpr, h: (y1 - y0) / dpr });
+    }
+    return out;
   }
-  return out;
 }
