@@ -32,6 +32,8 @@ export const ADOPTED = {
   'tap/back': ['kind:fluid'],
   'tap/diuretics': ['kind:fluid'],
   'tap/tips': ['kind:fluid'],
+  'spleen/grown': ['normalOutline', 'calipers'],
+  'spleen/later': ['calipers'],
 };
 
 /** Whether the slide d/s may use the field. */

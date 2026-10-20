@@ -25,7 +25,7 @@ export const SPLEEN = {
       ask: ['What share of the body\'s platelets sits in a normal spleen?', 'About a third.'],
     },
     {
-      id: 'grown', days: 730, ramp: { cirrhosis: [0, 0.6] }, lapse: { seconds: 10, from: 'MASLD', to: 'Cirrhosis' }, cam: 'splenic', terms: ['spleen'], data: 'tiles', tiles: ['pv', 'spleen', 'plt'], key: ['spleen'], delta: 'normal',
+      id: 'grown', days: 730, ramp: { cirrhosis: [0, 0.6] }, lapse: { seconds: 10, from: 'MASLD', to: 'Cirrhosis' }, cam: 'splenic', terms: ['spleen'], normalOutline: ['spleen'], calipers: ['spleen'], data: 'tiles', tiles: ['pv', 'spleen', 'plt'], key: ['spleen'], delta: 'normal',
       kicker: 'A growing spleen', site: 'sin', title: 'The spleen grows with the portal pressure',
       line: 'After two years of cirrhosis, portal pressure is {pv}, the spleen is {spleen} and platelets are {plt}.',
       notes: 'The spleen enlarges partly from congestion, as the high portal pressure backs up into the splenic vein, and partly because its pulp grows, with more splenic arterial flow. Splenomegaly is one of the commonest signs of portal hypertension, but its size follows the pressure only loosely.',
@@ -54,7 +54,7 @@ export const SPLEEN = {
       ask: ['What is the commonest problem after partial splenic embolization?', 'Pain and fever for a few days (post-embolization syndrome).'],
     },
     {
-      id: 'later', days: 180, lapse: { seconds: 6 }, cam: 'splenic', terms: ['spleen'], data: 'tiles', tiles: ['plt', 'spleen'], key: ['plt'], delta: 'grown',
+      id: 'later', days: 180, lapse: { seconds: 6 }, cam: 'splenic', terms: ['spleen'], calipers: ['spleen'], data: 'tiles', tiles: ['plt', 'spleen'], key: ['plt'], delta: 'grown',
       kicker: 'Treating the spleen', site: 'sin', title: 'Platelets rise as the spleen shrinks',
       line: 'With less working pulp, the spleen traps fewer platelets. Six months on, platelets are {plt} and the spleen is {spleen}. The count can fall again if the remaining spleen regrows.',
       notes: 'With less working pulp, fewer platelets are pooled and the count rises over the following weeks. The rise can fade as the remaining spleen grows back. Embolization is used for severe thrombocytopenia or hypersplenism in centers with experience.',
