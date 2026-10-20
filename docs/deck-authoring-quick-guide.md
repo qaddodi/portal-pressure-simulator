@@ -89,7 +89,7 @@ Full guide: section 5.1 to 5.8.
 Two lenses are for decks only:
 
 - **Vein systems.** `lens: 'system'` colours portal veins, systemic veins and shunts in three colours. The Varices deck uses it on its collaterals slide.
-- **Change since.** `lens: 'since'` colours each vessel by how much its pressure moved since the slide before. `since: 'norx'` compares with another slide instead, and `sinceLabel: 'no Rx'` names it in the key. The Lowering pressure deck uses it to show what each treatment changes.
+- **Change since.** `lens: 'since'` colours each vessel by how much its pressure moved since the slide before. `since: 'norx'` compares with another slide instead, and `sinceLabel: 'no Rx'` names it in the key. The Lowering pressure deck uses it to show what each treatment changes. It works inside the liver lobule too: the lobule's vessels and readings take the same colours, so the Propranolol or carvedilol deck can show what carvedilol adds there.
 
 Full guide: section 5.2 and section 5.9.
 
