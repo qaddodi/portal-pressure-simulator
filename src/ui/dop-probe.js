@@ -34,14 +34,29 @@ export function bodyBox(g, ang, D) {
   return { x0: Math.min(...xs), y0: Math.min(...ys), x1: Math.max(...xs), y1: Math.max(...ys) };
 }
 
+/** Boxes along the probe's line of sight (stage px), from its face D px out along ang back through the gate g and past the
+ *  vessel's far wall (as probeShapes draws it), each pad px either side of the line: what labels keep off, and what the probe
+ *  weighs against the labels and callouts when it picks a side. */
+export function beamBoxes(g, ang, D, r = 0, pad = 4) {
+  const c = Math.cos(rad(ang)), s = Math.sin(rad(ang)), far = -(Math.max(0, r) / SIN + 22), out = [], n = Math.max(1, Math.ceil((D - far) / 8));
+  for (let i = 0; i <= n; i++) {
+    const u = far + ((D - far) * i) / n, x = g[0] + u * c, y = g[1] + u * s;
+    out.push({ x0: x - pad, y0: y - pad, x1: x + pad, y1: y + pad });
+  }
+  return out;
+}
+
 /**
  * Where the probe stands. g: the gate (stage px); t: the vessel's direction there, as its blood normally runs (any length);
  * r: the lumen's radius (px); away: the flow runs away from the probe; w, h: the stage; cards: boxes the probe keeps off;
  * keep: the side it stood on (1 or −1; 0: none), kept unless only the other side is clear; side: a side to use outright.
+ * avoid: the labels' and callouts' boxes: between two sides clear of the cards, the one whose body and line of sight cross
+ * fewer of them (a kept side moves only when it crosses one and the other side crosses none: Mohammad, 20 Oct, the probe's
+ * line had crossed "TIPS 110 cm/s" and a callout).
  * Returns { side, ang (degrees, from the gate toward the probe), phi (the flow axis's θ ray, from the line of sight toward
  * the probe, degrees), D (gate to face, px), box (the body), clear }.
  */
-export function probePose({ g, t, r = 0, away = false, w, h, cards = [], keep = 0, side = 0 }) {
+export function probePose({ g, t, r = 0, away = false, w, h, cards = [], keep = 0, side = 0, avoid = [] }) {
   const base = Math.atan2(t[1], t[0]) * 180 / Math.PI, turn = away ? 180 - PROBE.ANGLE : PROBE.ANGLE;
   const D = PROBE.GAP + Math.max(0, r);
   const pose = (s) => {
@@ -50,14 +65,21 @@ export function probePose({ g, t, r = 0, away = false, w, h, cards = [], keep = 
     const off = (box.x1 - box.x0) * (box.y1 - box.y0) - overlap(box, { x0: e, y0: e, x1: w - e, y1: h - e });
     const hidden = cards.reduce((n, c) => n + overlap(box, c), 0);
     // (The flow runs at −s·θ from the line toward the probe (toward), or at 180° − s·(180° − θ) (away), whose reverse is s·θ.)
-    return { side: s, ang, phi: (away ? s : -s) * PROBE.ANGLE, D, box, cost: off + hidden, clear: off + hidden === 0 };
+    const marks = [box, ...beamBoxes(g, ang, D, r)], lab = avoid.reduce((n, o) => n + marks.reduce((m, b) => m + overlap(b, o), 0), 0);
+    return { side: s, ang, lab, phi: (away ? s : -s) * PROBE.ANGLE, D, box, cost: off + hidden, clear: off + hidden === 0 };
   };
   if (side) return pose(side);
   const a = pose(1), b = pose(-1);
-  if (keep) { const k = keep === 1 ? a : b, o = keep === 1 ? b : a; return k.clear || !o.clear ? k : o; }
-  // (First showing: the clear side, else the less covered one; a tie stands above the vessel, where the camera leaves more room.)
+  if (keep) {
+    const k = keep === 1 ? a : b, o = keep === 1 ? b : a;
+    if (!k.clear) return o.clear ? o : k;
+    return o.clear && k.lab > 0 && o.lab === 0 ? o : k;
+  }
+  // (First showing: the clear side, else the less covered one; then the one crossing fewer labels; a tie stands above the
+  // vessel, where the camera leaves more room.)
   if (a.clear !== b.clear) return a.clear ? a : b;
   if (a.cost !== b.cost) return a.cost < b.cost ? a : b;
+  if (a.lab !== b.lab) return a.lab < b.lab ? a : b;
   return (a.box.y0 + a.box.y1) <= (b.box.y0 + b.box.y1) ? a : b;
 }
 

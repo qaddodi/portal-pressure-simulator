@@ -7,7 +7,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { AWAY, probePose, probeShapes, gateDims, bodyBox, PROBE, PROBE_SVG } from '../src/ui/dop-probe.js';
+import { AWAY, probePose, probeShapes, gateDims, bodyBox, beamBoxes, PROBE, PROBE_SVG } from '../src/ui/dop-probe.js';
 
 const read = (p) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8');
 const stage = read('src/ui/stage.js'), doppler = read('src/ui/doppler.js'), css = read('styles/app.css'), tokens = read('styles/tokens.css');
@@ -97,7 +97,7 @@ test('the figure places the gate where the callout points (the middle of the ves
   assert.match(stage, /u == null \? arcMid\(pts\) : pointAt\(pts, u\)/);
   // It follows the camera with the labels, and the labels keep clear of its body.
   assert.equal((stage.match(/^\s*dprobePaint\(\);$/gm) || []).length, 4, 'view change, zoom glide, labels laid out, Doppler set');
-  assert.match(stage, /if \(dpr\.on && dpr\.box\) out\.push\(dpr\.box\);/);
+  assert.match(stage, /if \(dpr\.on && dpr\.box\) out\.push\(dpr\.box, \.\.\.dpr\.marks\);/);
   // It hides while the views morph and in the liver's own views, and moves by fading out and back in.
   assert.match(stage, /\(morph < 0\.01 \|\| morph > 0\.99\) && !st\.lobule && !st\.sinusoid && !lz\?\.isOpen\(\)/);
   assert.match(css, /\.dop-probe \{[^}]*transition: opacity \.36s var\(--ease\)/);
@@ -122,4 +122,30 @@ test('the monitor names the probe\'s angle and gate', () => {
   assert.match(read('src/ui/dopplerColor.js'), /export const THETA = PROBE\.ANGLE;/);
   assert.match(doppler, /`θ \$\{THETA\}°`, `SV \$\{svMm\(\)\} mm`/);
   assert.match(doppler, /return clamp\(Math\.round\(d \/ 2\), 2, 15\);/);
+});
+
+test('the probe and its line of sight take the side clear of the labels and callouts, and sit beneath them where none is', () => {
+  const hit = (a, b) => a.x0 < b.x1 && b.x0 < a.x1 && a.y0 < b.y1 && b.y0 < a.y1;
+  const g = [600, 400], t = [1, 0], r = 10;
+  for (const s of [1, -1]) {
+    // A label on one side's marks (its line of sight, then its body): the probe takes the other side, whose marks touch no label.
+    const first = probePose({ g, t, r, w: W, h: H, side: s });
+    for (const lab of [beamBoxes(g, first.ang, first.D, r)[Math.round(beamBoxes(g, first.ang, first.D, r).length * 0.6)], first.box]) {
+      const label = { x0: lab.x0 - 2, y0: lab.y0 - 2, x1: lab.x1 + 2, y1: lab.y1 + 2 };
+      const p = probePose({ g, t, r, w: W, h: H, avoid: [label] });
+      assert.equal(p.side, -s);
+      assert.ok(![p.box, ...beamBoxes(g, p.ang, p.D, r)].some((b) => hit(b, label)), 'no mark under the label');
+      // A kept side moves off a label when the other side is clear, and stays when both are crossed.
+      assert.equal(probePose({ g, t, r, w: W, h: H, avoid: [label], keep: s }).side, -s);
+      const other = probePose({ g, t, r, w: W, h: H, side: -s }).box;
+      assert.equal(probePose({ g, t, r, w: W, h: H, avoid: [label, other], keep: s }).side, s);
+    }
+  }
+  // Cards still come first: a side clear of the cards wins over one clear of the labels.
+  const up = probePose({ g, t, r, w: W, h: H, side: 1 }), down = probePose({ g, t, r, w: W, h: H, side: -1 });
+  assert.equal(probePose({ g, t, r, w: W, h: H, cards: [up.box], avoid: [down.box] }).side, -1);
+  // The labels keep off the line of sight too, and the probe is drawn beneath the labels' layer (and the callouts above it).
+  assert.match(stage, /out\.push\(dpr\.box, \.\.\.dpr\.marks\)/);
+  assert.match(stage, /labelSvg\.before\(el\); dpr\.el = el/);
+  assert.match(stage, /avoid: dprAvoid\(\)/);
 });

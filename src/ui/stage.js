@@ -38,7 +38,7 @@ import { layoutWatch } from './idle-keys.js?v=ea36a0b5c6';
 import { writeGlowTexels } from './glow-texels.js?v=e578794a92';
 import { SIN_PERFUSION, sinStrandRadius } from './sin-perfusion.js?v=25a8407fdd';
 import { wavePacks, paintWave } from './scan-waves.js?v=066db7aa38';
-import { probePose, probeShapes, awayFromProbe, PROBE_SVG } from './dop-probe.js?v=7be3089e92';
+import { probePose, probeShapes, beamBoxes, awayFromProbe, PROBE_SVG } from './dop-probe.js?v=d3f9f16e5c';
 import { organDimMatrix } from './organ-dim.js?v=7888276613';
 import { parseColor, greyOf, paintRef } from './organ-grey.js?v=e41d68222c';
 import { bandRing, dashRings, liftEnd, normalShown, rippleList, systemOf, SYSTEM_COLOR } from './highlight-math.js?v=e2c1816e25';
@@ -1156,7 +1156,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const dop = { id: null, want: null, pin: null, key: '', seg: '', points: false, all: false };
   const dopGateOf = (id) => (dop.id === id && dop.seg ? dop.seg : '');   // the third of a stent the Doppler samples ('' when it is elsewhere)
   // The Doppler probe on the figure (dprobePaint): live once the stage is built (dopApply runs before its pieces exist).
-  const dpr = { el: null, on: false, key: '', side: 0, box: null, swap: 0, shapes: '', at: '', ready: false };
+  const dpr = { el: null, on: false, key: '', side: 0, box: null, marks: [], swap: 0, shapes: '', at: '', ready: false };
   function dopApply() {
     let id = dop.pin ?? dop.want ?? null;
     if (id && !E[id]) id = null;
@@ -5191,7 +5191,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // volume's two bars and the flow axis mark the vessel's middle (where its callout points), or a stent's sampled third. It
   // follows the camera with the labels; it fades out while the views morph and in the liver's own views. A new vessel or third, or
   // a card making it change sides, fades it out where it stood and back in at its new place (nothing jumps).
-  let dprCardsList = [], dprCardsAt = -1e9;
+  let dprCardsList = [], dprCardsAt = -1e9, lbRects = [];
   // The cards and bars it keeps off: the slide's cards, and the docked instruments and bars. Read at most four times a second, and
   // only while one may have moved (layoutWatch), as the labels' blockers are: each read forces a layout among the model's frames.
   const dprStale = () => { dprCardsAt = -1e9; };
@@ -5209,28 +5209,36 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     }).filter(Boolean)];
     return dprCardsList;
   }
+  // The labels and callouts showing (stage px), which the probe and its line of sight keep off where a side allows.
+  function dprAvoid() {
+    const out = [...lbRects];
+    for (const el of sites.made.values()) if (el._box && !el.classList.contains('cath-pre')) out.push(el._box);
+    if (cath.made && !cath.labels.hidden) for (const el of cath.made.values()) if (el._box) out.push(el._box);
+    return out;
+  }
   function dprobePaint() {
     if (!dpr.ready) return;
     const st = store.get(), id = dop.id, pts = id && geo[id]?.cur;
     const show = !!(pts?.length > 1 && E[id]?.vis && (morph < 0.01 || morph > 0.99) && !st.lobule && !st.sinusoid && !lz?.isOpen());
     if (!show) {
       if (dpr.on) { dpr.on = false; dpr.el.classList.add('off'); }
-      dpr.box = null; dpr.key = '';
+      dpr.box = null; dpr.marks = []; dpr.key = '';
       return;
     }
     if (!dpr.el) {
       const el = document.createElement('div');
       el.className = 'dop-probe off'; el.setAttribute('aria-hidden', 'true'); el.innerHTML = PROBE_SVG;
-      sites.el.append(el); dpr.el = el; void el.offsetWidth;
+      // (Beneath the figure's labels and the callouts, above the figure: where no side is clear of them, they read over its marks.)
+      labelSvg.before(el); dpr.el = el; void el.offsetWidth;
     }
     if (dpr.swap) return;   // (fading out to move: it comes back at its new place)
     const key = `${id}|${dop.seg}`, u = dop.seg ? STENT_SITES[dop.seg] : null;
     const [wx, wy, tx, ty] = u == null ? arcMid(pts) : pointAt(pts, u);
     const [gx, gy] = worldToLocal(wx, wy), [ax, ay] = worldToLocal(wx + tx, wy + ty);
     const r = cathRadOf(id, u ?? 0.5) * (CTM?.sc || 1);
-    const pose = probePose({ g: [gx, gy], t: [ax - gx, ay - gy], r, away: awayFromProbe(id), w: wrapRect.width, h: wrapRect.height, cards: dprCards(), keep: key === dpr.key ? dpr.side : 0 });
+    const pose = probePose({ g: [gx, gy], t: [ax - gx, ay - gy], r, away: awayFromProbe(id), w: wrapRect.width, h: wrapRect.height, cards: dprCards(), keep: key === dpr.key ? dpr.side : 0, avoid: dprAvoid() });
     if (dpr.on && (key !== dpr.key || pose.side !== dpr.side)) {
-      dpr.on = false; dpr.box = null; dpr.el.classList.add('off');
+      dpr.on = false; dpr.box = null; dpr.marks = []; dpr.el.classList.add('off');
       dpr.swap = setTimeout(() => { dpr.swap = 0; dpr.key = ''; dprobePaint(); }, reduceMotion.matches ? 0 : 380);
       return;
     }
@@ -5246,7 +5254,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       dpr.at = at; const [tr, ro] = at.split('|');
       dpr.el.style.transform = tr; dpr.el.querySelector('.dpr-rot').setAttribute('transform', ro);
     }
-    dpr.key = key; dpr.side = pose.side; dpr.box = pose.box;
+    dpr.key = key; dpr.side = pose.side; dpr.box = pose.box; dpr.marks = beamBoxes([gx, gy], pose.ang, pose.D, r);
     if (!dpr.on) { dpr.on = true; dpr.el.classList.remove('off'); }
   }
   const CATH_IDS = ['SVC_RA', 'IVCS_RA', 'RHV_IVC', 'POST_R_RHV'];   // (and down the IVC_IS to the hepatic vein)
@@ -6380,7 +6388,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const out = [];
     for (const el of sites.made.values()) if (el._box && !el.classList.contains('cath-pre')) out.push(el._box);
     if (cath.made && !cath.labels.hidden) for (const el of cath.made.values()) if (el._box) out.push(el._box);
-    if (dpr.on && dpr.box) out.push(dpr.box);   // (the Doppler probe's body)
+    if (dpr.on && dpr.box) out.push(dpr.box, ...dpr.marks);   // (the Doppler probe's body and its line of sight)
     return out;
   }
   // What the labels' slots depend on: which readings show and how big they are (where they stand follows the camera, which
@@ -7661,6 +7669,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const hk = holes.map((h) => h.map((v) => v.toFixed(1)).join(',')).join(';');
     if (hk !== holesKey) { holesKey = hk; chevHoles = holes; }
     for (const it of out) renderBlock(it);
+    lbRects = out.filter((it) => !it.hide && it.w && it.h).map((it) => it._r || rectOf(it));
     // (A step's number comes in as its vessel lights, deck visuals V10; with reduced motion all at once.)
     for (const it of out) {
       if (it.delay == null || it.hide) continue;
