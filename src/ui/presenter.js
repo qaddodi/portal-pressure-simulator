@@ -2855,6 +2855,27 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     const b = row.lastChild;
     b.textContent = open ? 'Hide' : 'Show'; b.setAttribute('aria-expanded', String(open));
   }
+  // How far a phone's glass reaches above the words (page px): 16 px, or the deck's tab and 8 px more, so the tab never meets
+  // the title. The data card and the words' plan leave room for that reach (layout, phoneTextCap): counted as 16 px, an opened
+  // stacked card ended 6 px into the glass, under its tab, Sites 3 on an iPhone, 20 Oct.
+  // (The level's tab and the deck's share the glass's top edge; where they would come within 8 px of each other, the deck's gives way.)
+  // (Judged with the deck's tab shown, as the layout does below: a tight class left from the last pass hides it.)
+  const tabsTight = (k) => {
+    const tabEl = ui.shade.querySelector('.pz-tabname'), stab = ui.shade.querySelector('.pz-sitetab:not([hidden])'), was = ui.shade.classList.contains('pz-tabs-tight');
+    if (was) ui.shade.classList.remove('pz-tabs-tight');
+    const tight = !!(stab && tabEl && stab.getBoundingClientRect().right + 8 * k > tabEl.getBoundingClientRect().left);
+    if (was) ui.shade.classList.add('pz-tabs-tight');
+    return tight;
+  };
+  const glassLift = (k) => {
+    const tabEl = ui.shade.querySelector('.pz-tabname'), stab = ui.shade.querySelector('.pz-sitetab:not([hidden])'), tight = tabsTight(k);
+    if (!tabEl && !stab) return 16;
+    const was = ui.shade.classList.contains('pz-tabs-tight');
+    if (was) ui.shade.classList.remove('pz-tabs-tight');
+    const tabH = Math.max(tabEl && !tight ? tabEl.offsetHeight : 0, stab?.offsetHeight || 0);
+    if (was) ui.shade.classList.add('pz-tabs-tight');
+    return Math.max(16, tabH + 8);
+  };
   function layout() {
     if (!ui) return;
     // Under interface zoom the page is scaled by k: rects are screen px, inline sizes are the page's own (screen / k).
@@ -3011,14 +3032,14 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     dd.style.maxWidth = cw ? 'none' : '';   // (no per-content cap: tiles, an instrument or a chart never make it narrower)
     dd.style.top = below ? `${(y / k).toFixed(1)}px` : '';
     dd.style.maxHeight = below ? `${((foot - y) / k).toFixed(1)}px` : '';
-    // (A phone: the data card ends 8 px short of the teaching card (16 px above the words), however much it holds: an opened instrument had grown over the words.)
+    // (A phone: the data card ends 8 px short of the teaching card (where its glass begins, glassLift), however much it holds: an opened instrument had grown over the words.)
     // (And leaves the figure its share: FIG_MIN between the two cards.)
     // (Partly open, its sheet's edge (LIP) stands below it in that room too. A card that came in closed (phoneShut) leaves the figure
     // its share only while closed: brought back by the reader it may cover the figure, never the words.)
     // (The sheet's edge comes out of the figure's share, not the card's: taken from the card, it shrank the instrument and tiles to
     // 90-99 %, Endoscopy 4 on an iPhone. And 2 px more: the card's border and rounding had left it 99.6 %.)
     if (p && t) { const cs = getComputedStyle(dd), lip = lipOn(dd) ? LIP : 0, fig = phoneCap != null && !phoneShut && !dd.classList.contains('tool-open') && !('folding' in dd.dataset) ? Math.max(0, phoneFig / k - lip - 2) : 0;
-      const room = Math.floor((t.top - wr.top) / k - (parseFloat(cs.top) || 0) - 16 - 8 - lip - fig);
+      const room = Math.floor((t.top - wr.top) / k - (parseFloat(cs.top) || 0) - glassLift(k) - 8 - lip - fig);
       // (An upright phone's stacked card grows by its readings' card as that slides out or back (--pz-grow, styles/app.css): capped
       // at its tucked height mid-slide, the card's box came out shorter than the instrument, so the instrument card's glass, which ends
       // the readings' travel above the box's foot, cut through the portal blood bar's names, Mohammad on an iPhone, TIPS Doppler 3, 20 Oct.)
@@ -3086,11 +3107,9 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     // (A phone's glass reaches 16 px above the words, or the deck's tab and 8 px more: the tab never meets the title.)
     // (The level's tab and the deck's share the glass's top edge; where they would come within 8 px of each other, a long deck
     // name on a narrow phone, the deck's gives way: the level is what the slide teaches.)
-    const tabEl = ui.shade.querySelector('.pz-tabname'), stab = ui.shade.querySelector('.pz-sitetab:not([hidden])');
     ui.shade.classList.remove('pz-tabs-tight');
-    if (t && stab && tabEl && stab.getBoundingClientRect().right + 8 * k > tabEl.getBoundingClientRect().left) ui.shade.classList.add('pz-tabs-tight');
-    const tabH = Math.max(tabEl && !ui.shade.classList.contains('pz-tabs-tight') ? tabEl.offsetHeight : 0, stab?.offsetHeight || 0);
-    const lift = p && t ? Math.max(16, tabH + 8) : 16;
+    if (t && tabsTight(k)) ui.shade.classList.add('pz-tabs-tight');
+    const lift = p && t ? glassLift(k) : 16;
     ui.shade.style.top = p && t ? `${ui.text.offsetTop - lift}px` : cardOn && t ? `${(t.top - wr.top - padT) / k}px` : '';
     ui.shade.style.opacity = t ? '1' : '0';
     ui.safe.hidden = !t;
@@ -3183,7 +3202,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     // (words: at 12 px, whether the data card can stay open beside them, as before; compact: at Compact, the room the words take,
     // from the figure's share when they need it: the figure gives way before the words drop under Compact.)
     const floor = body > 12 ? Math.ceil(12 / body * 1000) / 1000 : 1, words = at(floor), compact = at(Math.max(COMPACT, floor));
-    // (The words' glass starts 16 px above them, the data card ends 8 px above that and stands its own top (8 px) from the
+    // (The words' glass starts 16 px above them or higher, glassLift, the data card ends 8 px above that and stands its own top (8 px) from the
     // screen's top: the same room the layout gives it below.) The data card shows at full size or comes in closed: never shrunk to fit.
     // It comes in closed (autoDock, its edge and handle at the top) where it and the words at 12 px cannot both fit beside the figure's
     // share, or where it is taller than its own cap (styles/app.css max-height). (Capped at 45 % of the shared room before, its own fit
@@ -3193,7 +3212,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     // (The cap with the readings tucked: out, it grows by their height, styles/app.css .pz-sheet.has-tool.tool-open.)
     const dmax = (() => { const sv = ds.maxHeight; ds.maxHeight = ''; const m = getComputedStyle(dd).maxHeight; ds.maxHeight = sv; if (m === 'none') return Infinity; let v = 0; m.replace(/(-?[\d.]+)(%|px)/g, (_, n, u) => { v += u === '%' ? n * H / 100 : n * k; }); return v; })()
       - (splitSheet(dd) && dd.classList.contains('tool-open') && dd.classList.contains('has-tool') ? (parseFloat(ds.getPropertyValue('--pz-d')) || 0) * k : 0);
-    const both = H - foot - 16 - 8 - dtop - FIG_MIN(H);
+    const reach = glassLift(k) * k, both = H - foot - reach - 8 - dtop - FIG_MIN(H);
     // (Measured as the slide arrives, partly open with its sheet's edge below it, whatever the reader opened: the part's ease held
     // back so the measure sees where it rests.)
     const arriving = () => {
@@ -3209,7 +3228,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     phoneShut = shut;
     // (Words at Compact win over the figure's share and the 62 % cap when nothing else gives; they never reach the data card. Closed,
     // the card leaves them all but its edge (GRIP) at the top, and brought back it stands over the figure down to the words.)
-    const room = H - foot - 16 - 8, mine = Number.isFinite(own) ? own : 0.62 * H;
+    const room = H - foot - reach - 8, mine = Number.isFinite(own) ? own : 0.62 * H;
     // (Regular, where it needs more than its share but no more than the figure can lend: the figure keeps what is left, at least FIG_REG.)
     const regular = shut ? Infinity : at(1), lend = regular - (both - data);
     const reg = lend > 0 && lend <= FIG_MIN(H) - FIG_REG(H) && regular <= mine && regular <= room - dtop - data;

@@ -138,3 +138,14 @@ test('a stacked row of tiles whose bars show no cut-off number keeps no empty ro
   assert.match(js, /if \(!bars\.length \|\| bars\.some\(\(b\) => !b\.getBoundingClientRect\(\)\.width\)\) continue;/, 'decided only once the bars are laid out');
   assert.match(js, /el\.classList\.remove\('pzb-nonum'\);/, 'new bars keep the row until fitted');
 });
+
+// Mohammad, 20 Oct (iPhone, Sites 3, readings out): the stacked cards ended under the teaching card's glass. The glass reaches the
+// deck's tab and 8 px above the words (about 30 px), but the data card's room and the words' plan counted 16 px.
+test('a phone\'s data card and the words\' plan leave room for the glass as far as it really reaches, tab included', () => {
+  assert.match(js, /const glassLift = \(k\) => \{/);
+  assert.match(js, /\(parseFloat\(cs\.top\) \|\| 0\) - glassLift\(k\) - 8 - lip - fig\);/, 'the data card\'s room');
+  assert.match(js, /const reach = glassLift\(k\) \* k, both = H - foot - reach - 8 - dtop - FIG_MIN\(H\);/, 'the words\' plan');
+  assert.match(js, /const room = H - foot - reach - 8, mine/);
+  assert.match(js, /const lift = p && t \? glassLift\(k\) : 16;/, 'the glass itself is placed by the same reach');
+  assert.doesNotMatch(js, /- 16 - 8\b/);
+});
