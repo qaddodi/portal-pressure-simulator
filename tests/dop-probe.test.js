@@ -1,6 +1,7 @@
-// The Doppler probe on the figure (19 Oct, Mohammad's pick "B1 + white"): a small curved probe stands off the sampled vessel and
-// looks at it along a narrow beam; the sample gate (two white bars on a black rim) sits across the beam in the middle of the
-// lumen, at the vessel's middle or a stent's sampled third. The beam meets the flow at the monitor's θ 60°, from the side the
+// The Doppler probe on the figure (19 Oct, Mohammad's pick "B1 + white"; marks as a scanner draws them, from his textbook reference
+// of 20 Oct): a small curved probe stands off the sampled vessel; its line of sight runs straight through the vessel, the sample
+// volume's two bars (white on a black rim) cross it inside the lumen, and the flow axis with the angle θ marks the gate, at the
+// vessel's middle or a stent's sampled third. The beam meets the flow at the monitor's θ 60°, from the side the
 // flow comes toward (away for the hepatic veins and the IVC, as the trace draws them). The vessel's glow turned from the
 // Doppler's green (which reads as "normal") to white on the dark themes and ink on the light ones.
 import { test } from 'node:test';
@@ -50,17 +51,41 @@ test('the probe takes the side that is on screen and clear of the cards, and kee
   assert.equal(probePose({ g: [600, 400], t, r: 12, w: W, h: H, side: -1 }).side, -1);
 });
 
-test('the gate straddles the middle of the lumen across the beam; the beam runs from the probe face past the far wall', () => {
+test('as on the scanner: the line of sight runs through the vessel, the two bars cross it inside the lumen, the axis meets it at θ', () => {
   for (const r of [3, 10, 30]) {
-    const { half, gap } = gateDims(r), s = probeShapes(PROBE.GAP + r, r);
-    assert.ok(half >= 6 && half <= 12 && gap >= 5 && gap <= 10);
-    const xs = [...s.gate.matchAll(/[ML](-?[\d.]+) (-?[\d.]+)/g)].map((m) => +m[1]);
-    assert.deepEqual([...new Set(xs)].sort((a, b) => a - b), [-gap / 2, gap / 2].map((v) => +v.toFixed(1)));
-    assert.match(s.beam, new RegExp(`^M${PROBE.GAP + r} 0 L-${r + 10} `));
-    assert.equal(s.head, `translate(${PROBE.GAP + r} 0)`);
+    const { at, half } = gateDims(r), chord = r / Math.sin(Math.PI / 3);
+    assert.ok(half >= 5 && half <= 10);
+    assert.ok(r < 6 || at < chord, `r ${r}: the bars sit inside the lumen along the line (${at} < ${chord})`);
+    for (const phi of [60, -60]) {
+      const s = probeShapes(PROBE.GAP + r, r, phi);
+      // The line of sight: from the probe's face straight through the gate and past the far wall.
+      const [, x0, y0, x1, y1] = s.beam.match(/^M(-?[\d.]+) (-?[\d.]+) L(-?[\d.]+) (-?[\d.]+)$/).map(Number);
+      assert.equal(x0, PROBE.GAP + r); assert.equal(y0, 0); assert.equal(y1, 0);
+      assert.ok(x1 < -chord - 10, 'it runs on past the far wall');
+      // The bars: across the line (each at one x), either side of the gate.
+      const xs = [...s.gate.matchAll(/[ML](-?[\d.]+) (-?[\d.]+)/g)].map((m) => +m[1]);
+      assert.deepEqual([...new Set(xs)].sort((a, b) => a - b), [-at, at].map((v) => +v.toFixed(1)));
+      // The axis through the gate at phi from the line, its arc from the line to the axis, and the θ on the bisector.
+      const [ax, ay, bx, by] = s.axis.match(/^M(-?[\d.]+) (-?[\d.]+) L(-?[\d.]+) (-?[\d.]+)/).slice(1).map(Number);
+      assert.ok(Math.abs(ax + bx) < 0.2 && Math.abs(ay + by) < 0.2, 'centred on the gate');
+      assert.ok(Math.abs(Math.atan2(by, bx) * 180 / Math.PI - phi) < 1);
+      assert.ok(Math.abs(Math.atan2(s.theta[1], s.theta[0]) * 180 / Math.PI - phi / 2) < 1);
+      assert.equal(s.head, `translate(${PROBE.GAP + r} 0)`);
+    }
   }
   const b = bodyBox([0, 0], 0, 80);
   assert.deepEqual([b.x0, b.x1, b.y0, b.y1], [77, 80 + PROBE.LEN, -PROBE.HALF, PROBE.HALF]);
+});
+
+test('the angle marked is the one between the line of sight and the flow axis, on either side and for flow away', () => {
+  const t = [0.612, 0.791];
+  for (const away of [false, true]) for (const side of [1, -1]) {
+    const p = probePose({ g: [600, 400], t, r: 12, away, w: W, h: H, side });
+    // The axis ray at phi from the line (in the probe's frame) is the flow direction, or its reverse, 60° from the line on screen.
+    const ray = dirOf(p.ang + p.phi), flow = unit(t), dot = ray[0] * flow[0] + ray[1] * flow[1];
+    assert.ok(Math.abs(Math.abs(dot) - 1) < 1e-9, `away ${away}, side ${side}: the marked ray lies along the flow`);
+    assert.equal(Math.abs(p.phi), 60);
+  }
 });
 
 test('the figure places the gate where the callout points (the middle of the vessel) or on the stent\'s sampled third', () => {
@@ -75,8 +100,12 @@ test('the figure places the gate where the callout points (the middle of the ves
   assert.match(css, /\.dop-probe\.off \{ opacity: 0; \}/);
 });
 
-test('the gate and the probe are white-lined on a black rim; the glow, beam and light share the Doppler glow colour', () => {
+test('every mark and the probe are white-lined on a black rim, the θ upright; the glow and the light share the Doppler glow colour', () => {
   assert.match(css, /\.dpr-gate-rim \{ fill: none; stroke: var\(--dop-rim\); stroke-width: 6;/);
+  assert.match(css, /\.dpr-rim-l \{ fill: none; stroke: var\(--dop-rim\);/);
+  assert.match(css, /\.dpr-line \{ fill: none; stroke: var\(--dop-mark\);/);
+  assert.match(css, /\.dpr-theta \{ font: 700 13px var\(--font-ui\); fill: var\(--dop-mark\); paint-order: stroke; stroke: var\(--dop-rim\);/);
+  assert.match(stage, /\.dpr-theta'\)\.setAttribute\('transform', `translate\(\$\{dpr\.theta\[0\]\} \$\{dpr\.theta\[1\]\}\) rotate\(\$\{\(-pose\.ang\)/);
   assert.match(css, /\.dpr-gate \{ fill: none; stroke: var\(--dop-mark\); stroke-width: 2\.8;/);
   assert.match(tokens, /--dop-mark: #FFFFFF; --dop-rim: #000000;/);
   assert.match(stage, /setGlowSrc\('dop', id \? \[\{ id, col: 'var\(--dop-glow\)'/);
