@@ -2738,6 +2738,8 @@ button.finding { cursor: pointer; }
 .ob-wall { stroke: var(--o1); }
 .ob-shade { stroke: color-mix(in srgb, var(--o1) 50%, var(--o2)); }
 .ob-hi { stroke: color-mix(in srgb, var(--o1), var(--og-hi) var(--og-hi-k)); }
+/* Soft only: the small bowel's lightest tone leans toward the middle one, so the loops are not so white on the cream paper (Mohammad, 20 Oct). The colon (.oc-*) and the other themes keep the organ's own tones. */
+:root[data-theme="soft"] :is(.ob-deep, .ob-space, .ob-rim, .ob-edge, .ob-wall, .ob-shade, .ob-hi) { --o1: color-mix(in srgb, var(--og-gut-1) 65%, var(--og-gut-2)); }
 .du-ao { fill: var(--og-ao); stroke: var(--og-ao); stroke-width: 8; stroke-linejoin: round; }
 .du-wall { fill: var(--o1); stroke: color-mix(in srgb, var(--o1) 58%, var(--o3)); stroke-width: 2; stroke-linejoin: round; }
 /* Vessels are cut out of the tissue beneath them by a thin paper-colored edge, so a pressure
