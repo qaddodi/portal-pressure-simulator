@@ -99,7 +99,7 @@ test('the figure places the gate where the callout points (the middle of the ves
   assert.equal((stage.match(/^\s*dprobePaint\(\);$/gm) || []).length, 4, 'view change, zoom glide, labels laid out, Doppler set');
   assert.match(stage, /if \(dpr\.on && dpr\.box\) out\.push\(dpr\.box, \.\.\.dpr\.marks\);/);
   // It hides while the views morph and in the liver's own views, and moves by fading out and back in.
-  assert.match(stage, /\(morph < 0\.01 \|\| morph > 0\.99\) && !camMove && !st\.lobule && !st\.sinusoid && !lz\?\.isOpen\(\)/);
+  assert.match(stage, /\(morph < 0\.01 \|\| morph > 0\.99\) && !camMove && !dpr\.hold && dprMonitorOn\(\) && !st\.lobule && !st\.sinusoid && !lz\?\.isOpen\(\)/);
   assert.match(css, /\.dop-probe \{[^}]*transition: opacity \.36s var\(--ease\)/);
   assert.match(css, /\.dop-probe\.off \{ opacity: 0; \}/);
 });
@@ -151,7 +151,7 @@ test('the probe and its line of sight take the side clear of the labels and call
 });
 
 test('in a deck the probe shows only once the zoom has settled: hidden while the camera moves, repainted when it lands', () => {
-  assert.match(stage, /morph > 0\.99\) && !camMove && !st\.lobule/);
+  assert.match(stage, /morph > 0\.99\) && !camMove && !dpr\.hold && dprMonitorOn\(\) && !st\.lobule/);
   assert.match(stage, /camMove = false;\s*if \(F\) updateLabels\(F\);/);
 });
 
@@ -392,4 +392,22 @@ test('stage: a probe shown afresh starts at its place, and a jump fades out and 
   assert.match(src, /if \(dpr\.on && dpr\.cur && probeJumps\(dpr\.cur, tgt\)\) \{\s*dpr\.on = false;[^}]*dpr\.swap = setTimeout/);
   assert.ok(src.indexOf('probeJumps(dpr.cur, tgt)') < src.indexOf('if (!dpr.on || !dpr.cur || reduceMotion.matches) dpr.cur'));
   assert.doesNotMatch(readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8'), /\.dop-probe \{[^}]*transition:[^;}]*transform/);
+});
+
+test('stage: on a slide the probe waits, hidden, for the slide\'s camera to settle (Doppler 2)', () => {
+  const src = readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8');
+  assert.match(src, /if \(id && store\.get\(\)\.presenting\) dprHold\(\);/);
+  assert.match(src, /const show = [^;]*!camMove && !dpr\.hold/);
+  const av = src.slice(src.indexOf('function animateVT('), src.indexOf('const step = (now)', src.indexOf('function animateVT(')));
+  assert.ok(av.indexOf('camMove = true') < av.lastIndexOf('dprLet()'), 'the hold lets go only once the move has hidden it');
+});
+
+test('stage: no Doppler screen in sight, no probe; shown afresh it waits for its place to hold still, then fades in there', () => {
+  const src = readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8');
+  assert.match(src, /const show = [^;]*dprMonitorOn\(\)/);
+  const mon = src.slice(src.indexOf('function dprMonitorOn('), src.indexOf('function dprobePaint('));
+  for (const k of ["'[hidden], .card-leaving, .vd-out, [data-folding]'", 'checkVisibility', 'elementFromPoint']) assert.ok(mon.includes(k), k);
+  const paint = src.slice(src.indexOf('function dprobePaint('), src.indexOf('function dprShape('));
+  assert.ok(paint.indexOf('if (sig !== dpr.pend)') < paint.indexOf('dpr.cur = { ang: tgt.ang'), 'a fresh probe waits before it is placed');
+  assert.match(paint, /if \(now - dpr\.pendAt < 200\) return;/);
 });
