@@ -3621,11 +3621,25 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   }
   // Hidden (the home page over the app), every organ would rasterize invisible: wait until the figure shows.
   const figureHidden = () => wrapCS().getPropertyValue('visibility') === 'hidden';
+  // The circuit's own colours (.cmap) in the dark theme: it sets its own --stage-bg, which the organs' fills mix with. They come
+  // on halfway through the switch, when the organs are half faded, and read as a theme change: the picture was dropped, every
+  // organ drawn live for the rest of the fade (the gut's 1,201 paths), and the picture drawn again mid-switch, in the circuit's
+  // colours, then once more on the way back (Mohammad, 20 Oct: "switching from anatomy to circuit lags mid switch and back").
+  // While they are on the organs are fading out or gone, so the picture in the anatomy's colours stays; a change made in the
+  // circuit is drawn once the anatomy's colours are back. (In the light themes the circuit keeps the stage's colour: no change.)
+  let anatBg = null, cmapSeen = false;
+  function circuitInk() {
+    const on = stageWrap.classList.contains('cmap');
+    if (on !== cmapSeen) { cmapSeen = on; csSnap = null; }   // (the style snapshot is dropped by an observer, a beat after the class)
+    const bg = wrapCS().getPropertyValue('--stage-bg');
+    if (!on) { anatBg = bg; return false; }
+    return anatBg !== null && bg !== anatBg;
+  }
   let plateStale = false;
   function platePoke() {
     // Not while diving into the lobule (the anatomy is only magnified, then covered): once landed, under the lobule.
     if (lobuleOn && !lz?.isOpen()) return;
-    if (!veins || veins.lost || !glWanted(easeInOut(morph)) || figureHidden()) return;
+    if (!veins || veins.lost || !glWanted(easeInOut(morph)) || figureHidden() || circuitInk()) return;
     // An ease that outgrows the plate (a fill played over days, a liver that changes in small steps) shows on the live drawing
     // as it goes, and the plate is drawn again once it settles: held, the organs inside it stood still while their outlines
     // moved, then jumped to the new shape at the end (Ascites deck slide 5, 17 Oct).
@@ -3651,7 +3665,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const wait = themed ? 0 : Math.max(0, 500 - (performance.now() - plateLast), 400 - (performance.now() - lvStillAt), 400 - (performance.now() - spleenMv.stillAt()));
     clearTimeout(plateTimer);
     plateTimer = setTimeout(async () => {
-      if (figureHidden() || lvMoving || fluidEasing() || spleenMoving() || (lobuleOn && !lz?.isOpen())) return;   // hidden, moving or diving meanwhile: a later poke rasterizes
+      if (figureHidden() || lvMoving || fluidEasing() || spleenMoving() || (lobuleOn && !lz?.isOpen()) || circuitInk()) return;   // hidden, moving or diving meanwhile: a later poke rasterizes
       const k = plateStateKey();
       if (k === plateKey && veins?.hasPlate(0)) return;   // it changed and changed back
       plateBusy = true; plateLast = performance.now();
@@ -4907,7 +4921,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     // (The congested liver takes the even dusk instead, so the tint's darker rim gives way to it as congestion comes in: organ
     // picks, 20 Oct.) It hands over across the same range the dusk comes in by (morphLiver: g / 0.5), so a slightly raised
     // pressure (after a TIPS) keeps some of the tint until the dusk is there to take its place.
-    liverTint.style.opacity = (lvT * k * (1 - smooth01(lvG / 0.5))).toFixed(3);
+    // (Not faded with the switch to the circuit: the organs' group fades it there, and a tint stepping down with the switch
+    // changed the picture's key, so the organs' picture was drawn again every half second of the fade.)
+    liverTint.style.opacity = (lvT * (1 - smooth01(lvG / 0.5))).toFixed(3);
     if (lvT !== tT) widthEasing = organsEasing = true;
     const moving = lvC !== cT || lvG !== gT;
     // While it eases, the live drawing shows (a raster would move in steps); the plate is
