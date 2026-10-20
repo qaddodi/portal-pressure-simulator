@@ -36,7 +36,7 @@ export function bodyBox(g, ang, D) {
 }
 
 /** Nearer distances (gate wall to face, px) the probe may come in to when neither side is clear at PROBE.GAP. */
-const REACH = [58, 38];
+const REACH = [58, 38, 28];
 
 /** Boxes along the probe's line of sight (stage px), from its face D px out along ang back through the gate g and past the
  *  vessel's far wall (as probeShapes draws it), each pad px either side of the line: what labels keep off, and what the probe
@@ -101,18 +101,19 @@ export function probePose({ g, t, r = 0, away = false, w, h, cards = [], keep = 
   };
   if (side) return pose(side, D0, 0, rev);
   const at = (D, reach) => [1, -1].flatMap((s) => [pose(s, D, reach), pose(s, D, reach, true)]);
-  // Not one place clear at its usual distance (off the slide's free space or under a card): the probe comes in closer to the
-  // vessel, on either side, before it gives up; then none fits and it hides (Mohammad, 20 Oct: visible wherever there is room).
-  let pool = at(D0, 0).filter((p) => p.clear);
-  if (!pool.length) pool = REACH.flatMap((n, i) => at(n + Math.max(0, r), i + 1)).filter((p) => p.clear);
+  // Every place clear of the slide's free space and the cards, at its usual distance or closer in (Mohammad, 20 Oct: visible
+  // wherever there is room); none fits and it hides. Closer in counts too where the usual distance is busy: on a phone the only
+  // places clear of the card at the usual distance can be the busiest (Sinusoidal 5/13: it stood on two vessels with an empty
+  // spot beside the vessel just closer in, 20 Oct).
+  const pool = [...at(D0, 0), ...REACH.flatMap((n, i) => at(n + Math.max(0, r), i + 1))].filter((p) => p.clear);
   if (!pool.length) { const a = pose(1), b = pose(-1); return { ...(a.cost <= b.cost ? a : b), none: true }; }
-  // (Fewer labels crossed, then the quieter figure, then the usual distance; a tie stands above the vessel, where the camera
-  // leaves more room.) quieter: clearly so, crossing no more labels, so a place never flips over a point or two.
-  const better = (p, m) => (p.lab !== m.lab ? p.lab < m.lab : p.busy !== m.busy ? p.busy < m.busy : p.reach !== m.reach ? p.reach < m.reach : p.box.y0 + p.box.y1 < m.box.y0 + m.box.y1);
-  const least = (l) => (l.length ? l.reduce((m, p) => (better(p, m) ? p : m)) : null);
-  const quieter = (p, m) => p.lab <= m.lab && p.busy < 0.6 * m.busy - 2;
-  const usual = least(pool.filter((p) => !p.rev)), mirror = least(pool.filter((p) => p.rev));
-  const best = !usual || (mirror && quieter(mirror, usual)) ? mirror : usual;
+  // (Fewer labels crossed first; then the quieter figure, the usual end and distance weighing a little (score); a tie stands
+  // above the vessel, where the camera leaves more room.) quieter: clearly so, crossing no more labels, so a kept place never
+  // flips over a point or two.
+  const score = (p) => p.busy + (p.rev ? 3 : 0) + 2 * p.reach;
+  const better = (p, m) => (p.lab !== m.lab ? p.lab < m.lab : score(p) !== score(m) ? score(p) < score(m) : p.reach !== m.reach ? p.reach < m.reach : p.box.y0 + p.box.y1 < m.box.y0 + m.box.y1);
+  const quieter = (p, m) => p.lab <= m.lab && score(p) < 0.6 * score(m) - 2;
+  const best = pool.reduce((m, p) => (better(p, m) ? p : m));
   const k = keep && pool.find((p) => p.side === keep && p.reach === keepReach && p.rev === !!keepRev);
   if (!k) return best;
   return (k.lab > 0 && best.lab === 0) || quieter(best, k) ? best : k;

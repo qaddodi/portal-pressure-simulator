@@ -135,10 +135,10 @@ test('the probe and its line of sight take the side clear of the labels and call
       const p = probePose({ g, t, r, w: W, h: H, avoid: [label] });
       assert.equal(p.side, -s);
       assert.ok(![p.box, ...beamBoxes(g, p.ang, p.D, r)].some((b) => hit(b, label)), 'no mark under the label');
-      // A kept side moves off a label when the other side is clear, and stays when both are crossed.
+      // A kept side moves off a label when another place is clear, and stays when every place is crossed.
       assert.equal(probePose({ g, t, r, w: W, h: H, avoid: [label], keep: s }).side, -s);
-      const other = probePose({ g, t, r, w: W, h: H, side: -s }).box;
-      assert.equal(probePose({ g, t, r, w: W, h: H, avoid: [label, other], keep: s }).side, s);
+      const kept = probePose({ g, t, r, w: W, h: H, avoid: [label, { x0: 0, y0: 0, x1: W, y1: H }], keep: s });
+      assert.equal(kept.side, s); assert.equal(kept.reach, 0); assert.equal(kept.rev, false);
     }
   }
   // Cards still come first: a side clear of the cards wins over one clear of the labels.
@@ -263,4 +263,20 @@ test('the probe turns to the quieter part of the figure: any of the four places 
   }
   assert.match(stage, /busy: dprBusy\(\[gx, gy\], id\)/);
   assert.match(stage, /pose\.rev !== dpr\.rev/);
+});
+
+test('closer in counts when the usual distance is busy: the probe takes the empty place beside the vessel (iPhone, Sinusoidal 5/13)', () => {
+  const g = [131, 368], t = [-0.65, -0.76], r = 8, w = 390, h = 700;
+  // The card over the top and the stage's left edge leave only the mirrored places clear at the usual distance; vessels cross both.
+  const cards = [{ x0: 0, y0: 0, x1: w, y1: 254 }];
+  const far = [0, 1].flatMap((rev) => [1, -1].map((s) => probePose({ g, t, r, w, h, cards, side: s, rev: !!rev }))).filter((p) => p.clear && p.reach === 0);
+  assert.ok(far.length && far.every((p) => p.rev), 'only the mirrored places are clear at the usual distance');
+  const busy = far.flatMap((p) => { const out = []; for (let x = p.box.x0; x <= p.box.x1; x += 6) for (let y = p.box.y0; y <= p.box.y1; y += 6) out.push([x, y, 3]); return out; });
+  const p = probePose({ g, t, r, w, h, cards, busy });
+  assert.ok(p.clear && !p.none && p.reach > 0, 'it comes in closer');
+  assert.ok(p.busy < 0.5 * Math.min(...far.map((q) => probePose({ g, t, r, w, h, cards, busy, side: q.side, rev: q.rev }).busy)));
+  // Still at 50° to the flow, and clear of the card and the stage's edge.
+  const b = dirOf(p.ang), u = unit(t);
+  assert.ok(Math.abs(Math.abs(b[0] * u[0] + b[1] * u[1]) - Math.cos(PROBE.ANGLE * Math.PI / 180)) < 1e-9);
+  assert.ok(p.box.y0 >= 254 && p.box.x0 >= PROBE.EDGE);
 });
