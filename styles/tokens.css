@@ -49,7 +49,7 @@
   --og-eso-1: #F0D2C6; --og-eso-2: #D9A898; --og-eso-3: #A5766A;
   --og-spleen-1: #D8BDD0; --og-spleen-2: #A9829D; --og-spleen-3: #7A566F;
   --og-panc-1: #F5E3BA; --og-panc-2: #DDBF86; --og-panc-3: #A88A52;
-  --og-kidney-1: #E6BBAA; --og-kidney-2: #C08672; --og-kidney-3: #8E5A4A;
+  --og-kidney-1: #DDB0C6; --og-kidney-2: #A86C8E; --og-kidney-3: #6E3E5C;
   --og-gb-1: #D6E0B4; --og-gb-2: #A5B87E; --og-gb-3: #6F8450;
   --og-gut-1: #F5DDD0; --og-gut-2: #E1B8A5; --og-gut-3: #AC8470;
   --og-heart-1: #EDB8B0; --og-heart-2: #CC8479; --og-heart-3: #97554D;
@@ -69,7 +69,7 @@
   --organ-gut: #AE8F7E;
   --organ-stomach: #AB857A;
   --organ-heart: #A06469;
-  --organ-kidney: #957466;
+  --organ-kidney: #8E6A82;
   --organ-lung: #AFC0D2;
   --organ-pancreas: #B09E78;
   --organ-gb: #849077;
@@ -261,7 +261,7 @@
     --og-eso-1: #7A5559; --og-eso-2: #523544; --og-eso-3: #B88A90;
     --og-spleen-1: #6E4F78; --og-spleen-2: #483456; --og-spleen-3: #A98BB6;
     --og-panc-1: #7D6C4C; --og-panc-2: #544938; --og-panc-3: #BCA878;
-    --og-kidney-1: #7E4F52; --og-kidney-2: #54343F; --og-kidney-3: #BC8A8C;
+    --og-kidney-1: #7A4766; --og-kidney-2: #4E2C46; --og-kidney-3: #D9B3CC;
     --og-gb-1: #56704A; --og-gb-2: #3A4C3A; --og-gb-3: #93B07E;
     --og-gut-1: #7C5D5F; --og-gut-2: #553F47; --og-gut-3: #B79A9A;
     --og-heart-1: #8E4A52; --og-heart-2: #5E2E3C; --og-heart-3: #CE8C92;
@@ -272,7 +272,7 @@
     --knockout: rgba(11, 17, 32, .7);
     --organ-body: #1A2238; --organ-body-line: #2C3756;
     --organ-liver: #A88C82; --organ-spleen: #93889A; --organ-gut: #A8948A; --organ-stomach: #A99088; --organ-heart: #AE8387;
-    --organ-kidney: #A08A80; --organ-lung: #5A6E90; --organ-pancreas: #AFA286; --organ-gb: #8C9A7E; --organ-aorta: #6E6470; --organ-a: .3; --organ-tint: 20%; --diaphragm: #9C8C84;
+    --organ-kidney: #A07E8E; --organ-lung: #5A6E90; --organ-pancreas: #AFA286; --organ-gb: #8C9A7E; --organ-aorta: #6E6470; --organ-a: .3; --organ-tint: 20%; --diaphragm: #9C8C84;
     --artery: #E4606C; --casing-rgb: 214 222 246; --casing-a: .34; --vessel-casing: rgb(var(--casing-rgb) / var(--casing-a)); --ascites: #EADB9C; --ascites-a: .24; --stage-grid: rgba(160, 180, 255, .05); --leader: rgba(200, 212, 240, .42); --vein-portal: var(--tour-portal); --vein-systemic: var(--tour-sys); --arrow-ink: rgba(233, 237, 246, .82); --label-halo: rgba(11, 17, 32, .9); --doppler: #3EE0A5; --dop-glow: #F4F6FF; --vel-ink: 72%;
     --s1: #3987e5; --s2: #d95926; --s3: #199e70; --s4: #c98500; --s5: #d55181; --s6: #008300; --s7: #9085e9; --s8: #e66767;
     --grid: #1F2840; --axis: #34405E;
@@ -310,7 +310,7 @@
   --og-eso-1: #7A5559; --og-eso-2: #523544; --og-eso-3: #B88A90;
   --og-spleen-1: #6E4F78; --og-spleen-2: #483456; --og-spleen-3: #A98BB6;
   --og-panc-1: #7D6C4C; --og-panc-2: #544938; --og-panc-3: #BCA878;
-  --og-kidney-1: #7E4F52; --og-kidney-2: #54343F; --og-kidney-3: #BC8A8C;
+  --og-kidney-1: #7A4766; --og-kidney-2: #4E2C46; --og-kidney-3: #D9B3CC;
   --og-gb-1: #56704A; --og-gb-2: #3A4C3A; --og-gb-3: #93B07E;
   --og-gut-1: #7C5D5F; --og-gut-2: #553F47; --og-gut-3: #B79A9A;
   --og-heart-1: #8E4A52; --og-heart-2: #5E2E3C; --og-heart-3: #CE8C92;
@@ -321,7 +321,7 @@
   --knockout: rgba(11, 17, 32, .7);
   --organ-body: #1A2238; --organ-body-line: #2C3756;
   --organ-liver: #A88C82; --organ-spleen: #93889A; --organ-gut: #A8948A; --organ-stomach: #A99088; --organ-heart: #AE8387;
-  --organ-kidney: #A08A80; --organ-lung: #5A6E90; --organ-pancreas: #AFA286; --organ-gb: #8C9A7E; --organ-aorta: #6E6470; --organ-a: .3; --organ-tint: 20%; --diaphragm: #9C8C84;
+  --organ-kidney: #A07E8E; --organ-lung: #5A6E90; --organ-pancreas: #AFA286; --organ-gb: #8C9A7E; --organ-aorta: #6E6470; --organ-a: .3; --organ-tint: 20%; --diaphragm: #9C8C84;
   --artery: #E4606C; --casing-rgb: 214 222 246; --casing-a: .34; --vessel-casing: rgb(var(--casing-rgb) / var(--casing-a)); --ascites: #EADB9C; --ascites-a: .24; --stage-grid: rgba(160, 180, 255, .05); --leader: rgba(200, 212, 240, .42); --vein-portal: var(--tour-portal); --vein-systemic: var(--tour-sys); --arrow-ink: rgba(233, 237, 246, .82); --label-halo: rgba(11, 17, 32, .9); --doppler: #3EE0A5; --dop-glow: #F4F6FF; --vel-ink: 72%;
   --s1: #3987e5; --s2: #d95926; --s3: #199e70; --s4: #c98500; --s5: #d55181; --s6: #008300; --s7: #9085e9; --s8: #e66767;
   --grid: #1F2840; --axis: #34405E;

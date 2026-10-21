@@ -2774,6 +2774,8 @@ button.finding { cursor: pointer; }
 .organ-heart-ra .org-shade.s1, .organ-heart-ra .org-shade.s2, .organ-heart-ra .org-shade.s3 { stroke-opacity: .05; }
 /* Organs recede behind the vessels: the plate is context, the circulation is the subject. */
 #organs > .organ { opacity: .55; }
+#organs > .organ.organ-kidney-l { opacity: .85; }   /* the kidney in plum, fuller and outlined so it reads against the warm gut (Mohammad, 21 Oct) */
+.organ-kidney-l .org-line { stroke-width: 1.4; stroke-opacity: .95; }
 #backdrop { opacity: .7; }
 .organ .org-shade.s1, .organ .org-shade.s2, .organ .org-shade.s3 { stroke-opacity: .12; }
 .organ .org-line { stroke-opacity: .5; }
