@@ -49,6 +49,7 @@ export const ADOPTED = {
   'tap/back': ['kind:fluid'],
   'tap/diuretics': ['kind:fluid'],
   'tap/tips': ['kind:fluid'],
+  'ascites/start': ['scales'],
   'ascites/lymph': ['kind:fluid'],
   'ascites/fill': ['kind:fluid', 'mark.organ'],
   'ascites/pvt': ['kind:profile'],

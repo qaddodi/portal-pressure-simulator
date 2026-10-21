@@ -85,7 +85,7 @@ Every field is optional unless marked. Fields are grouped by what they do. Unkno
 
 ### 3.3 The figure (section 5)
 
-`view`, `cam`, `kMax`, `zoom`, `clear`, `lens`, `labels`, `tint`, `terms`, `glow`, `glowSeq`, `mark`, `marks`, `sites`, `layers`, `callout`, `cath`, `monitor`; opt-in (5.9): `spot`, `normalOutline`, `ripple`, `lapseGlow`, `since`, `sinceLabel`, `calipers`, `steps`, `span`, `zone`.
+`view`, `cam`, `scales` (5.10), `kMax`, `zoom`, `clear`, `lens`, `labels`, `tint`, `terms`, `glow`, `glowSeq`, `mark`, `marks`, `sites`, `layers`, `callout`, `cath`, `monitor`; opt-in (5.9): `spot`, `normalOutline`, `ripple`, `lapseGlow`, `since`, `sinceLabel`, `calipers`, `steps`, `span`, `zone`.
 
 ### 3.4 The data card (section 7)
 
@@ -228,6 +228,7 @@ All figure-only (no `visual`). Organ outlines, the normal spleen, organ marks, c
 * **`spot: [ids]`**: a spotlight. The named vessels, `@sets` and organs stay at full strength and glow softly; the rest of the network eases back and the organ picture dims. Compare buttons and sliders keep it. Without WebGL only the organs dim.
 * **`normalOutline: ['spleen']`**: a thin dashed line at the normal spleen's size inside an enlarged one; it shows once the spleen is 8% over normal and grows into view through a time-lapse.
 * **`lapseGlow: ['bowel']`**: with `lapse`, the named organs (`bowel`, `colon`, `duodenum`, `kidney`) glow softly in the gut's amber from the time-lapse's start: the glow swells in over about 1.4 s and stays while the slide shows its end state (also coming back to it), then eases off as the slide leaves. Choose a `cam` that frames the organ (`'gut'` takes in the portal system and the small bowel). With reduce motion the glow uses the usual short fade.
+* **`scales`: the scale switch (Anatomy / Lobule / Sinusoid).** One pill with Explore's words and order lets the presenter flip the figure to other scales of the same patient and back. Each scale can be set up as a view of its own: where the camera goes, how close, and what it calls out. See **5.10** for the full field.
 * **`ripple: true | '<slide id>'`**: as the slide lands, vessels whose pressure moved 2 mmHg or more glow warm (up) or cool (down) for about 1.6 s. Forward only; none with reduce motion.
 * **`lens: 'system'`**: portal veins, systemic veins and shunts (collaterals included) in three colours, keyed Portal, Systemic, Shunts (also a compare button: `{ label: 'Vein system', lens: 'system' }`). Not in Explore.
 * **`lens: 'since'`**: the Change colours against the slide before, or `since: '<slide id>'`; `sinceLabel: 'no Rx'` names the reference in the key ("Change vs no Rx"; else "Change vs last slide" or "Change vs earlier"). Compare buttons keep the reference, so two treatments read on one scale. In a lobule view (`cam: 'lobule…'`) the lens colours the lobule's vessels and its three readings from the same reference, eased as it changes, so the figure and the key agree there too.
@@ -237,6 +238,68 @@ All figure-only (no `visual`). Organ outlines, the normal spleen, organ marks, c
 * **`steps: true`** with `glowSeq`: a small round number by each glow entry as it lights. A list inside the glow is one step: its vessels light together and its number stands between them on a leader to each (`glow: [['V_INT', 'V_SPL', 'V_IMV'], ['PVH_R', 'PVH_L'], 'SIN_RR']`); its leaders keep off every label and other leader where they can.
 * **`span: [{ from, to, label }]`** (circuit station ids; the label may hold tokens): a bracket under the circuit with its reading. **`zone: 'splanchnic' | 'portal' | 'liver' | 'hepatic' | 'heart'`** fills that part of the circuit softly.
 * Every reading pill keeps clear of vessels, lines, organs and the cards, at 12 px or more.
+
+### 5.10 The scale switch: `scales`
+
+A slide with `scales` shows a pill with **Anatomy, Lobule, Sinusoid** (Explore's words, always in that order; only the scales the slide offers). The slide opens on its own scale, the one its `cam` shows: anatomy unless `cam` starts with `lobule` or is `sinusoid`. That scale is selected in the pill. A tap flips the figure to another scale of the same patient. The flip uses the moves the slides already make: the dive into the lobule, the zoom into the wall, the rise back out. So it always eases, and the vessels never move. The words, the data card, sliders, compare buttons and a running time-lapse carry on untouched.
+
+**Two forms.** The short form lists the scales offered, each with an optional landing spot:
+
+```js
+scales: ['lobule', 'anatomy:fit']          // 'anatomy:<region>' (or 'fit'); 'lobule:<station>' (fit, triad, sinusoid, central)
+```
+
+The full form gives each scale its own view, so the slide knows where the camera goes and what to call out at every level:
+
+```js
+scales: {
+  anatomy:  { cam: 'portal', kMax: 3, labels: ['CONF', 'SV'], mark: { edges: ['PV_TRUNK'], label: 'Clot' }, sites: ['pv'] },
+  lobule:   { cam: 'lobule:triad', zoom: 2.6, glow: ['lobule:triad'], callout: { at: 'triad', label: 'Resistance' } },
+  sinusoid: {},
+}
+```
+
+A scale's view may set these fields, which work as the slide fields of the same name do:
+
+| Field | At which scale | What it does |
+|---|---|---|
+| `cam` | anatomy: a region, `'fit'` or `[x0, y0, x1, y1]`; lobule: `'lobule:fit'`, `'lobule:triad'`, `'lobule:sinusoid'`, `'lobule:central'` | Where the camera lands. Defaults: the liver for the anatomy, the whole lobule for the lobule. The sinusoid always shows the wall. |
+| `zoom` | lobule | How close the lobule station is framed (× its framing, default 2.3). |
+| `kMax`, `clear` | anatomy | The anatomy's closest zoom and its clear framing, as on a slide. |
+| `labels` | anatomy | The stations named on the anatomy. |
+| `mark`, `marks` | anatomy | Callouts on vessels or organs (5.6). |
+| `sites` | anatomy | Readings on the figure (5.7). |
+| `glow`, `glowSeq` | anatomy, lobule | Glowing vessels on the anatomy. In the lobule, `'lobule:triad'`, `'lobule:sinusoid'` and `'lobule:central'` light those readings. |
+| `callout` | lobule | The lobule's callout (5.3). |
+| `layers` | lobule | `['zones']`: the zone bands. |
+
+**What carries over.** The slide's own scale always shows the slide exactly as written. Another scale starts bare: none of the slide's own camera or callouts (`zoom`, `kMax`, `clear`, `labels`, `mark`, `marks`, `sites`, `glow`, `callout`) follows it there, and only that scale's view adds its own. The words' term pills still light their stations at every scale. Package extras (`spot`, `normalOutline`, `ripple`, `lapseGlow`) stay as the slide set them. Each flip takes the old scale's callouts away before the camera moves and brings the new scale's in after it lands, with the liver's labels fading out and in as they do on a slide change.
+
+**Next, Back and jump.** A flip is a detour and is never remembered. Next, Back and a jump open every slide on its own scale, and so does coming back to the flipped slide later. A reload, a shared link and the printed notes also show the slide's own scale. Leaving mid-flip needs nothing special: the next slide's camera starts from wherever the figure is.
+
+**When a tap works.** Only once the slide has landed (cards in, any case card lifted). A tap during a flip turns it to the new scale when the current step ends. Next or Back during a flip cuts it.
+
+**Sinusoid.** The wall view draws pressure colours only, so Sinusoid is offered only on a pressure-lens slide (no `lens`, or `lens: 'pressure'`). It is also left out on a device that can't draw it (no WebGL2). There, a sinusoid slide opens on the lobule and the pill selects Lobule.
+
+**Never on:** question slides (a flip would give the answer away), catheter slides (`cath`), Doppler-probe slides, calipers slides, Circuit slides (`view: 'circuit'`) or visuals. The code refuses the last five even if the field is set (scale-switch.js).
+
+**Where the pill sits.** On Mac and iPad landscape it sits in the slide counter's row, 8 px left of the counter pill, at the same 44 px height. On a phone or an upright iPad it is centred 8 px above the teaching card, and the camera frames the figure above it. It comes in and leaves with the teaching card, in the card's fade, and the figure's labels, the colour key and the credit keep clear of it. The text is 14 px (12 px on a 320 px phone). The selected word sits in a soft inner pill that eases from word to word.
+
+**House rules.** Adopt a run of slides together (all of Sites 4 to 9, all of Ascites 2 to 5), so the pill doesn't come and go from one slide to the next. Give the other scale something to show when the bare view would look empty: at least the readings the slide talks about. Built-in slides that use `scales` are listed in `tests/deck-adopted.js`, and `tests/scale-switch.test.js` checks every list.
+
+**Worked example** (Sites 5, schistosomiasis: opens in the portal tract, flips out to the body):
+
+```js
+{
+  id: 'presin', preset: 'schisto', cam: 'lobule:triad', lens: 'drop', callout: { at: 'triad', label: 'Resistance' },
+  scales: {
+    anatomy: { cam: 'liver', labels: ['CONF', 'SIN_R'], glow: ['PV_TRUNK'] },
+  },
+  kicker: 'Presinusoidal', title: 'Schistosomiasis', line: '...',
+}
+```
+
+The slide opens in the portal tract with its Resistance callout. **Anatomy** rises to the liver, names the portal confluence and the sinusoids, and lights the portal trunk. **Lobule** dives back and brings the callout back. There is no Sinusoid, because the lens is pressure drop.
 
 ## 6. The words
 

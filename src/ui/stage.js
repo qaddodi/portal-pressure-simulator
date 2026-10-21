@@ -5643,7 +5643,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (now - kpAt < 500) return kpBox;
     kpAt = now; kpBox = null;
     const wb = stageBox();
-    for (const q of document.querySelectorAll('.pz:not(.stack) .pz-fk:not([hidden]):not([data-empty]), .pz-bar.pzb-pill')) {
+    for (const q of document.querySelectorAll('.pz:not(.stack) .pz-fk:not([hidden]):not([data-empty]), .pz-bar.pzb-pill, .pz:not(.stack) .pz-scales:not([hidden])')) {
       const r = q.getBoundingClientRect();
       if (!r.width) continue;
       const o = { l: r.left - wb.left, t: r.top - wb.top, r: r.right - wb.left, b: r.bottom - wb.top };

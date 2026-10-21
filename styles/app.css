@@ -2031,6 +2031,25 @@ button.finding { cursor: pointer; }
 .pz-bar.pzb-pill > :last-child, .pz.stack .pz-bar > :last-child { margin-right: -1px; }
 .pz-bar.idle { opacity: 0; pointer-events: none; transform: translateY(8px); }
 .pz-bar .pzb-n { min-width: 5.4em; text-align: center; padding: 0 4px; font: 600 var(--fs-14) var(--font-ui); font-variant-numeric: tabular-nums; color: var(--text-2); white-space: nowrap; }
+/* The scale switch (a slide's scales; presenter.js paintScales): Explore's three words on the bar's frosted glass, the slide's own scale in a
+   soft inner pill that eases from word to word. Mac and iPad landscape: in the counter's row, 8 px left of the counter pill. A phone and an
+   upright iPad (.stack): centred 8 px above the teaching card's glass. It comes in and leaves with the teaching card, in its fade. */
+.pz-scales { --pz-glass-edge: color-mix(in srgb, var(--white) 45%, transparent); --pz-glass-drop: rgb(var(--black-rgb) / .14); position: absolute; right: calc(var(--pz-cm) + var(--pzs-r, 236px) + 8px); bottom: max(var(--pz-cm), calc(env(safe-area-inset-bottom, 0px) + 8px)); display: flex; align-items: stretch; height: 44px; box-sizing: border-box; padding: 4px; background: color-mix(in srgb, var(--surface) 58%, transparent); -webkit-backdrop-filter: blur(16px) saturate(1.15); backdrop-filter: blur(16px) saturate(1.15); border: 1px solid color-mix(in srgb, var(--text) 10%, transparent); border-radius: var(--r-sheet); box-shadow: inset 0 1px 0 var(--pz-glass-edge), 0 14px 34px -10px var(--pz-glass-drop), 0 2px 6px -1px var(--pz-glass-drop); pointer-events: auto; opacity: 1; transition: opacity .5s var(--ease) .12s; }
+.pz-scales.pz-leave { opacity: 0; pointer-events: none; transition: opacity .32s var(--ease); }
+.pz-scales[hidden] { display: none; }
+.pz-scales > button { position: relative; z-index: 1; border: 0; background: none; padding: 0 14px; border-radius: calc(var(--r-sheet) - 4px); font: 500 14px/1 var(--font-ui); color: var(--text-2); white-space: nowrap; cursor: pointer; transition: color .25s var(--ease); -webkit-tap-highlight-color: transparent; }
+@media (hover: hover) { .pz-scales > button:hover { color: var(--text); } }
+.pz-scales > button[aria-pressed="true"] { color: var(--text); }
+.pz-scales > .pzs-thumb { position: absolute; top: 4px; bottom: 4px; left: 0; width: var(--pzs-w, 0px); translate: var(--pzs-x, 0px) 0; border-radius: calc(var(--r-sheet) - 4px); background: var(--surface); box-shadow: var(--shadow-1); transition: translate .35s var(--ease), width .35s var(--ease); pointer-events: none; }
+.pz-scales.pzs-new > .pzs-thumb { transition: none; }
+.pz.stack .pz-scales { right: auto; left: var(--pzs-cx, 50%); bottom: var(--pzs-b, 50%); translate: -50% 0; }
+@media (max-width: 340px) { .pz-scales > button { font-size: 12px; padding: 0 10px; } }
+:root[data-theme="dark"] .pz-scales { --pz-glass-edge: color-mix(in srgb, var(--white) 12%, transparent); --pz-glass-drop: rgb(var(--black-rgb) / .45); }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]):not([data-theme="soft"]) .pz-scales { --pz-glass-edge: color-mix(in srgb, var(--white) 12%, transparent); --pz-glass-drop: rgb(var(--black-rgb) / .45); } }
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) { .pz-scales { background: color-mix(in srgb, var(--surface) 96%, transparent); } }
+@media (prefers-reduced-transparency: reduce) { .pz-scales { background: color-mix(in srgb, var(--surface) 96%, transparent); -webkit-backdrop-filter: none; backdrop-filter: none; } }
+.app.pz-hi .pz-scales { background: color-mix(in srgb, var(--surface) 92%, transparent); border-color: color-mix(in srgb, var(--text) 32%, transparent); }
+.app.pz-hi .pz-scales > button { color: var(--text); }
 .pz-black { position: fixed; inset: 0; z-index: var(--z-toast); background: var(--black); opacity: 0; pointer-events: none; transition: opacity .4s var(--ease); }
 .pz-black.on { opacity: 1; pointer-events: auto; cursor: none; }
 /* (On a phone the words sit at the bottom over the Back/Next bar, on a glass pane rising from the bottom edge; the data card is at the top.) */
@@ -5724,7 +5743,7 @@ html.thumb-ui .menu.from-dock { clip-path: inset(-64px -64px calc(var(--sink, 0p
    moving figure every frame. Cards turn solid; the figure's label pills glow in their own colour instead. */
 :root[data-noglass] *, :root[data-noglass] *::before, :root[data-noglass] *::after { -webkit-backdrop-filter: none !important; backdrop-filter: none !important; }
 :root[data-noglass] :is(.lb-glass, .sv-legend, .pz-fk, .pz .pz-fk.pz-fk, .toast) { background: var(--surface); }
-:root[data-noglass] :is(.pz-shade, .pz-shade.pz-card, .pz-shade.stack, .pz-data.pz-data, .pz-case, .pz-bar, .pz.stack .pz-bar, .cl-glass) { background: var(--surface); }
+:root[data-noglass] :is(.pz-shade, .pz-shade.pz-card, .pz-shade.stack, .pz-data.pz-data, .pz-case, .pz-bar, .pz.stack .pz-bar, .pz-scales, .cl-glass) { background: var(--surface); }
 /* (The upright split sheet's two glass pieces: its own fill is none, the pieces carry the glass, so they turn solid with the rest.) */
 :root[data-noglass] .pz.stack.stack .pz-data.pz-sheet::before, :root[data-noglass] .pz.stack.stack .pz-data.pz-sheet::after { background: var(--surface); }
 /* (Settings › Blur effect off.) Labels lose their pill and glow in their own colour instead. The lit lobule and sinusoid names: the

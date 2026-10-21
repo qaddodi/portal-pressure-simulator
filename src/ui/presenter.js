@@ -18,14 +18,15 @@ import { h, toast, svgIcon, icon, fmt, clamp, openModal, closeModal, isModalOpen
 import { titleParts } from './title-units.js?v=c8d5ce1f26';
 import { swipeDir, ownsSideways, ownsTouch, cardSwipe, caseFling, caseFlight } from './swipe.js?v=ca9148ab7d';
 import { sinusoidSupported } from './sinusoid-view.js?v=b6fb3c592b';
+import { SCALE_NAME, offeredScales, scaleView, pickedScale } from './scale-switch.js?v=1b0e3acd65';
 import { NODES } from '../engine/topology.js?v=4044766e96';
 import { DISEASE_SRC, diseasePieces } from './diseases.js?v=fb8a5451c3';
 import { nb, listCase, plateletText } from './glue.js?v=5a0f63226b';
-import { DECKS, REGIONS, LEVELS, TOPICS, withOverview, siteTag, SITE_TAGS } from './decks.js?v=09c5766181';
+import { DECKS, REGIONS, LEVELS, TOPICS, withOverview, siteTag, SITE_TAGS } from './decks.js?v=095fb8313a';
 import { tenthGap } from '../engine/gap.js?v=3a5947c552';
 import { createHvpgMonitor } from './hvpg-proc.js?v=c4a99373f7';
-import { createTools } from './presenter-tools.js?v=842f560fac';
-import { openHandout } from './handout.js?v=1b5d3cb95d';
+import { createTools } from './presenter-tools.js?v=396176db3c';
+import { openHandout } from './handout.js?v=6bfa2297cd';
 import { noteResume, resumeFor } from './resume.js?v=f086f80ee8';
 import { parseDeckSource, checkDeck } from './deck-source.js?v=8395c650cd';
 import { NO_ASC, TILE, SCALE, bandsOf, rateOf, COLS, CUT, PRESS, fpv, dirAbs, dirRel, rateAbs, effOf, rateShown, tileShown, tipsGoal, liveSettled, shownSig } from './table-marks.js?v=1dc429fe31';
@@ -33,7 +34,7 @@ import { frameFor, cancelFrame } from './frame.js?v=50a3fdb73c';
 import { createFigureKey } from './figure-key.js?v=7dc0629c03';
 import { traceWhen } from './trace-labels.js?v=fc916a95c6';
 import { flowCss, heatCss, dropCss, gradientCss, oxygenCss } from './colormap.js?v=f08f4b9604';
-import { EXT, expandIds, stepExtra, markLabel, figureHooks, safe } from './slide-ext.js?v=1602c7781a';
+import { EXT, expandIds, stepExtra, markLabel, figureHooks, safe } from './slide-ext.js?v=4b290108b8';
 import { clotWords } from './callout-math.js?v=0c960d54d3';
 import { citeText, focusOf, oneLadder } from './teach-extras.js?v=5f5248f5a7';
 import { createProfileTool } from './tool-profile.js?v=9674e55b42';
@@ -1501,6 +1502,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     const g = gen, s = slides[to], cut = () => !deck || want !== to || gen !== g;
     // The slide on screen is leaving, so a move cut short never counts as showing it: going back and forward again to that
     // slide (summary table included) draws it afresh instead of leaving the half-changed screen.
+    scalePick = null;   // (a flip of the scale is a detour: every slide opens on its own scale)
     shown = null; entering = null;
     const cam = s.visual ? s.cam || null : s.cam || 'fit';
     // Leaving the lobule: the organs' picture for the way out is begun at once, while the old words leave and the new ones come in,
@@ -1539,6 +1541,8 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     // (Nothing in the liver changes until its labels are gone.)
     if (hushed) { await wait(Math.max(0, HUSH_OUT - (performance.now() - hushAt))); await eased(['--lab-o'], 600); if (cut()) return; }
     if (cut()) return;
+    // (A flip of the scale still moving stops at its next step, cut by this slide: its camera is let finish before the slide's own.)
+    if (flipping) { await until(() => !flipping, 9000); if (cut()) return; }
     slideLayers(s);
     // The catheter leaves with its slides (with a new patient, the figure's fade takes it).
     if (cath.on && (!ct || si !== shownState)) { await cathOut(si !== shownState && shownState >= 0); if (cut()) return; }
@@ -1638,6 +1642,28 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     }
     // The slide's state has landed: the Doppler starts its trace from the left now, never with the leaving state's flow.
     ui?.tools.hold(false);
+    paintOverlays(s, to, st);
+    lastCam = cam; framedSig = cardSig();
+    await unhush(cut);
+    if (cut()) return;
+    shown = { i: to, gen: g }; lastAt = to;
+    // A lobule slide whose next slide leaves the lobule: once it has settled, the organs' picture for the way out is made ahead,
+    // unseen under the lobule, so Next goes straight out with no wait (see toAnatomy).
+    { const nx = slides[to + 1], nCam = nx ? (nx.visual ? nx.cam || null : nx.cam || 'fit') : null;
+      if (nx && LOBULE_CAM.test(cam || '') && !LOBULE_CAM.test(nCam || '')) { clearTimeout(prepAheadT); prepAheadT = setTimeout(() => { if (shown?.i === to && shown.gen === g && gen === g) stage.prepRise?.(); }, RISE_AHEAD_MS); } }
+    // (One pass keyed to the slide now shown, so its fold and words' room are kept from here on: a tap on Show or Hide then
+    // eases the card it planned, not one measured afresh with the instrument open. The pass changes nothing on screen.)
+    if (ui && phone()) layout();
+    paintChrome();
+    if (s.lapse && to > 0 && back) paintLapse(s, s.days, s.days, true);
+    if (booting) await coverDown();
+    if (lap) await playLapse(s, to, cut);
+    else if (s.lapse) figureHooks('lapse', s);   // (back or jumped to the slide: it shows where its days ended, the glow with it)
+  }
+
+  // What a slide calls out on the figure once it has landed (or a scale's view of it, after a flip: flipMove): its marks, labels,
+  // the stations its terms name (in their colours), its glows, the lobule's callout and its readings (see slideTargets).
+  function paintOverlays(s, to, st, hooks = true) {
     if (!s.visual) {
       // The slide's marks, labels, the stations its terms name (in their colours) and its glows (see slideTargets).
       const tg = slideTargets(s), xc = ctxOf(s, to);
@@ -1659,38 +1685,21 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
         focus: markFocus(marks), lobuleCallout: !s.callout ? null : { kind: 'block', ...s.callout } });
       if (tg) { stage.setGlow(tg.glow); stage.pinOrgans(tg.organs.map((o) => (o.id === 'spleen' && st?.fp ? { id: o.id, tone: rateTone('spleen', st.fp) } : o))); stage.setResGlow(tg.res); }
       app.dataset.lit = tg?.lit.join(' ') || '';
-      figureHooks('show', xc);   // (a deck visuals package's own marks on the figure: slide-ext.js)
+      if (hooks) figureHooks('show', xc);   // (a deck visuals package's own marks on the figure: slide-ext.js; a flip leaves them as they are)
     }
     // A site whose station label is already on the slide is not called out twice: the label carries the one reading,
     // in its station's colour, and the pill stays only where no label stands.
     { const named = new Set(store.get().presentLabels || []);
       const ss = !s.visual ? [...new Set([...(s.sites || []), ...slideTargets(s).sites])].filter((k) => !named.has(SITE_NODE[k])) : [];
-      if (ss.length) stage.setSites(ss, st.fp); }
-    lastCam = cam; framedSig = cardSig();
-    await unhush(cut);
-    if (cut()) return;
-    shown = { i: to, gen: g }; lastAt = to;
-    // A lobule slide whose next slide leaves the lobule: once it has settled, the organs' picture for the way out is made ahead,
-    // unseen under the lobule, so Next goes straight out with no wait (see toAnatomy).
-    { const nx = slides[to + 1], nCam = nx ? (nx.visual ? nx.cam || null : nx.cam || 'fit') : null;
-      if (nx && LOBULE_CAM.test(cam || '') && !LOBULE_CAM.test(nCam || '')) { clearTimeout(prepAheadT); prepAheadT = setTimeout(() => { if (shown?.i === to && shown.gen === g && gen === g) stage.prepRise?.(); }, RISE_AHEAD_MS); } }
-    // (One pass keyed to the slide now shown, so its fold and words' room are kept from here on: a tap on Show or Hide then
-    // eases the card it planned, not one measured afresh with the instrument open. The pass changes nothing on screen.)
-    if (ui && phone()) layout();
-    paintChrome();
-    if (s.lapse && to > 0 && back) paintLapse(s, s.days, s.days, true);
-    if (booting) await coverDown();
-    if (lap) await playLapse(s, to, cut);
-    else if (s.lapse) figureHooks('lapse', s);   // (back or jumped to the slide: it shows where its days ended, the glow with it)
+      if (ss.length && st) stage.setSites(ss, st.fp); }
   }
-
   // The fonts in and two frames for the cards' charts and refits to run, then one last fit; then the cards show (eased in).
   // (The cards were fitted unseen; once in place, every chart is lettered again for its size, before the next paint.)
   const reFit = () => fitted.forEach(fitNow);
   // (at: the slide coming in. Its last layout, here while it is still unseen, keys the words' lock, so the size the cards come in
   // at is the size they keep: keyed only once the slide was shown, the passes while the cards eased in measured afresh, and on a
   // tight iPad a reading settling or a chart lettered stepped the title or folded the ladder, so the card came in and then snapped.)
-  function cardsIn(at) { if (ui) { if (at) { entering = at; layout(); } reFit(); if (!bare) { ui.text.classList.remove('pz-leave'); delete ui.root.dataset.bare; } ui.root.classList.remove('pz-prep'); ui.panel.classList.remove('pz-leave'); if (ui.data.dataset.prep && !('hold' in ui.data.dataset)) { delete ui.data.dataset.prep; ui.data.classList.remove('pz-hide'); } } }
+  function cardsIn(at) { if (ui) { if (at) { entering = at; layout(); } reFit(); if (!bare) { ui.text.classList.remove('pz-leave'); ui.scl.classList.remove('pz-leave'); delete ui.root.dataset.bare; } ui.root.classList.remove('pz-prep'); ui.panel.classList.remove('pz-leave'); if (ui.data.dataset.prep && !('hold' in ui.data.dataset)) { delete ui.data.dataset.prep; ui.data.classList.remove('pz-hide'); } } }
   // The last refits that used to run as the cards came in (a ladder's strip given back its plot, the charts lettered again, the
   // layout their new sizes call for, a frame later) run while the cards are still unseen, so they come in at their final size and
   // never snap to it in view (an upright iPad's teaching card did). cardsIn's own reFit then finds nothing left to change.
@@ -1730,6 +1739,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     // never left standing while the words go, nor changed in place.
     const dataOut = !data.hidden && !data.classList.contains('pz-hide');
     if (dataOut) { data.classList.add('pz-hide'); delete data.dataset.colswap; }
+    ui.scl.classList.add('pz-leave');   // (the scale switch leaves with the words, in their fade)
     // Leaving a visual for the figure: the veil lifts with the panel, not after it.
     if (!next?.visual) ui.veil.classList.remove('on');
     if (!dataOut && out.every((el) => el.hidden || !el.childElementCount)) return 0;
@@ -1809,6 +1819,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   function wordsIn(s, st, i, fresh = false, lap = false, now = st) {
     if (!ui) return;
     const { text, panel, data } = ui;
+    paintScales(s, i);
     // The slide's level (Presinusoidal, Cardiac...) is a tab in the glass's top left corner, the deck tab's mirror in the level's
     // colour (17 Oct), not a pill over the title: set with the words, gone on a visual slide.
     // (A slide with a level rail names its level on the rail, which a phone held upright hides: there the tab names it instead.)
@@ -3044,7 +3055,97 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     if (!ui) return;
     if (phone() && ui.bar.offsetWidth && ui.bar.offsetWidth !== pillW) { pillW = ui.bar.offsetWidth; app.style.setProperty('--pz-pill-w', `${pillW}px`); }
     clearPill();
+    placeScales();
   }
+
+  // ── The scale switch (slide field scales; scale-switch.js) ──
+  // One pill, Anatomy, Lobule, Sinusoid, on a slide that offers more than its own scale. A tap flips the figure to that scale of the
+  // same patient with the moves the slides already make (camera: the dive, the sinusoid, the rise), so it eases and the vessels stay
+  // where they are; the words, the data card and anything playing go on. Never remembered: Next, Back and a jump open each slide on
+  // its own scale (transitionRun clears the pick). Mac and iPad landscape: in the counter's row, 8 px left of it. A phone and an
+  // upright iPad: centred 8 px above the teaching card, where the camera keeps clear of it.
+  let scalePick = null, flipping = false;
+  const scalesOf = (s) => offeredScales(s, { lens: slideLens(s), sinusoid: sinusoidSupported() });
+  function paintScales(s, i) {
+    if (!ui) return;
+    const el = ui.scl, ks = s && !s.visual ? scalesOf(s) : [];
+    el.hidden = !ks.length;
+    if (!ks.length) { el.replaceChildren(); delete el.dataset.sig; return; }
+    const sig = ks.join(' ');
+    if (el.dataset.sig !== sig) {
+      el.dataset.sig = sig;
+      el.replaceChildren(h('i', { class: 'pzs-thumb', 'aria-hidden': 'true' }),
+        ...ks.map((k) => h('button', { type: 'button', 'data-scale': k, 'aria-pressed': 'false', onclick: () => flipScale(k) }, SCALE_NAME[k])));
+      el.classList.add('pzs-new');   // (a new set of words: the thumb takes its place without easing across)
+    }
+    paintScaleSel(pickedScale(scalePick, i, s));
+    placeScales();
+  }
+  // The selected word, and the soft inner pill eased under it (as Explore's selection eases from one word to the next).
+  function paintScaleSel(k) {
+    const el = ui?.scl;
+    if (!el || el.hidden) return;
+    let on = null;
+    // (A sinusoid slide on a device that cannot draw the wall shows the lobule: camera(). Its pill selects Lobule.)
+    const want = k === 'sinusoid' && !el.querySelector('[data-scale="sinusoid"]') ? 'lobule' : k;
+    for (const b of el.querySelectorAll('button')) { const yes = b.dataset.scale === want; b.setAttribute('aria-pressed', String(yes)); if (yes) on = b; }
+    if (on) { el.style.setProperty('--pzs-x', `${on.offsetLeft}px`); el.style.setProperty('--pzs-w', `${on.offsetWidth}px`); }
+    if (el.classList.contains('pzs-new')) requestAnimationFrame(() => requestAnimationFrame(() => el.classList.remove('pzs-new')));
+  }
+  function placeScales() {
+    const el = ui?.scl;
+    if (!el || el.hidden) return;
+    const p = phone();
+    // (A phone's pill stands over the figure, above the teaching card: the camera frames above it, as above the card.)
+    el.toggleAttribute('data-safe', p); if (p) el.dataset.safe = 'bottom';
+    if (p) {
+      const wr = wrap.getBoundingClientRect(), k = wr.width / (wrap.clientWidth || wr.width) || 1, r = restRect(ui.shade);
+      if (r.width) {
+        el.style.setProperty('--pzs-b', `${Math.max(0, (wr.bottom - r.top) / k + 8).toFixed(1)}px`);
+        el.style.setProperty('--pzs-cx', `${((r.left + r.width / 2 - wr.left) / k).toFixed(1)}px`);
+      }
+    } else if (ui.bar.offsetWidth) el.style.setProperty('--pzs-r', `${ui.bar.offsetWidth}px`);
+    const on = el.querySelector('[aria-pressed="true"]');
+    if (on) { el.style.setProperty('--pzs-x', `${on.offsetLeft}px`); el.style.setProperty('--pzs-w', `${on.offsetWidth}px`); }
+  }
+  // A tap on the pill: once the slide has landed (cards in, any case card lifted), and while it shows. A tap while a flip moves
+  // turns it to the new scale once its present step ends; Next, Back or a jump cuts it.
+  async function flipScale(k) {
+    if (!deck || !ui || caseCard || !shown || shown.i !== want || shown.gen !== gen) return;
+    const i = shown.i, s = slides[i];
+    if (!scalesOf(s).includes(k)) return;
+    scalePick = { i, scale: k }; paintScaleSel(k);
+    if (flipping) return;
+    flipping = true;
+    creditHolds++; clearTimeout(creditT); app.classList.add('pz-moving');
+    try {
+      for (let at = null; deck && want === i && shown?.i === i && scalePick?.i === i && scalePick.scale !== at;) {
+        at = scalePick.scale;
+        const k0 = at, cut = () => !deck || want !== i || shown?.i !== i || scalePick?.scale !== k0;
+        await flipMove(s, i, k0, cut);
+      }
+    } finally {
+      flipping = false;
+      creditHolds--; clearTimeout(creditT);
+      creditT = setTimeout(() => { if (!creditHolds) app.classList.remove('pz-moving'); }, 120);
+    }
+  }
+  // One flip: the scale's call-outs leave (all the liver's labels out first, as on a slide change), the camera makes the scale's move,
+  // then that scale's view calls out what it names (scale-switch.js scaleView: the slide's own at its own scale).
+  async function flipMove(s, i, k, cut) {
+    const v = scaleView(s, k), cam = v.cam;
+    if ((store.get().lobule || store.get().sinusoid) && !booting) hush();
+    markBase = null;
+    store.set({ focus: null, presentLabels: [], presentTerms: null, lobuleCallout: null }); stage.setSites(null); stage.setGlow(null); stage.pinOrgans(null);
+    if (hushed) { await wait(Math.max(0, HUSH_OUT - (performance.now() - hushAt))); await eased(['--lab-o'], 600); if (cut()) return; }
+    stage.holdHome(true);
+    try { await camera(cam, v, cut); } finally { stage.holdHome(false); }
+    lastCam = cam;
+    if (cut()) return;
+    paintOverlays(v, i, states[stateOf[i]] || null, false);
+    await unhush(cut);
+  }
+
   // The words' last shown block keeps clear of a phone's pill: a line of words (or the station key) ends with a gap the pill's
   // width and as tall as the pill reaches into the words (--pz-reach, measured), on its own line if the last line is too long
   // for it; so the pill only ever meets that last line. A box (buttons, a monitor, a diagram) ends just above the pill instead.
@@ -3636,14 +3737,17 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     const vcase = h('section', { class: 'pz-case stage-blocker', hidden: true, 'aria-live': 'polite', onclick: () => { if (performance.now() - caseDragAt > 400) caseLift?.(); } });
     // The slide's colour key, small on the figure (src/ui/figure-key.js fades it in; its words are set by figKey). The figure's labels keep clear of it (stage-blocker).
     const fk = h('div', { class: 'pz-fk stage-blocker', role: 'img', hidden: true, 'data-empty': '' });
-    const root = h('div', { class: 'pz' }, safe, veil, load, fk, text, data, lip, panel, vcase, prog, bar, jump, blackEl);
+    // The slide's scale switch (slide field scales): Anatomy, Lobule, Sinusoid, as Explore's pill. It comes and goes with the
+    // teaching card; the figure's labels keep clear of it, and on a phone the camera frames above it (data-safe, set in placeScales).
+    const scl = h('div', { class: 'pz-scales stage-blocker pz-leave', role: 'group', 'aria-label': 'Scale', hidden: true });
+    const root = h('div', { class: 'pz' }, safe, veil, load, fk, text, data, lip, panel, vcase, prog, scl, bar, jump, blackEl);
     wrap.insertBefore(shade, wrap.querySelector('.stage-credit'));
     // The teaching card's glass is the card itself: it leaves and arrives with the words, never resizing in view.
     new MutationObserver(() => shade.classList.toggle('pz-leave', text.classList.contains('pz-leave'))).observe(text, { attributes: true, attributeFilter: ['class'] });
     wrap.append(root);
     // (It comes in with the teaching card, in the card's own fade, once the card is fitted (pz-prep gone), and leaves with it.)
     const figKey = createFigureKey({ el: fk, app, watch: [text, root], ready: () => !text.hidden && !text.classList.contains('pz-leave') && !root.classList.contains('pz-prep') });
-    return { root, shade, safe, load, text, data, lip, lipRO, lipMO, cardTouch, setFold, partOf, vcase, fk, figKey, dhT, tiles, tools, veil, panel, prog, bar, black: blackEl, jump };
+    return { root, shade, safe, load, text, data, lip, lipRO, lipMO, cardTouch, setFold, partOf, vcase, fk, figKey, dhT, tiles, tools, veil, panel, prog, scl, bar, black: blackEl, jump };
   }
   // The start's cover (see start). While it is up (booting) the camera cuts instead of gliding.
   let cover = null, booting = false, coverT = 0, noCase = false;   // (noCase: the slide a start lands on, a reload's included, does not play its case card)

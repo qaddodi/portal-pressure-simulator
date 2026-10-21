@@ -14,7 +14,7 @@ export const ASCITES = {
   ],
   slides: [
     {
-      id: 'start', terms: { 'space of Disse': 'sinusoid:disse', lymphatics: 'sinusoid:lymph' }, glow: ['sinusoid:lumen'], preset: 'csph', cam: 'sinusoid', data: 'tiles', tiles: ['sin', 'asc'], key: ['sin'],
+      id: 'start', terms: { 'space of Disse': 'sinusoid:disse', lymphatics: 'sinusoid:lymph' }, glow: ['sinusoid:lumen'], preset: 'csph', cam: 'sinusoid', scales: { lobule: { glow: ['lobule:sinusoid'] }, anatomy: { cam: 'fit' } }, data: 'tiles', tiles: ['sin', 'asc'], key: ['sin'],
       kicker: 'Ascites', site: 'sin', title: 'Ascites starts in the sinusoids',
       vignette: 'A 55-year-old woman with MASH cirrhosis comes for a routine visit. She feels well and has no ascites. Her platelets are 88,000/µL, and EGD shows small esophageal varices.',
       line: 'Sinusoidal pressure drives plasma into the space of Disse. Hepatic lymphatics drain it until they cannot keep up.',

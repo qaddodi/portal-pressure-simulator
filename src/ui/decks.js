@@ -55,6 +55,13 @@
 //                            patient (a preset, computed with the slide's states) and back to the slide's own state;
 //                            or [{ label, lens, own? }]: buttons that switch the figure's lens, the model untouched;
 //                            or [{ label, gate, own? }]: buttons that move a stent Doppler's gate (see tool), the model untouched
+//   scales                   the scale switch: an Anatomy / Lobule / Sinusoid pill that flips the figure to other scales of the same patient
+//                            and back; the slide opens on its own scale (its cam), and every slide does again on Next, Back or a jump.
+//                            ['lobule', 'anatomy:fit']: the scales offered, each with where it lands; or one view per scale,
+//                            { anatomy: { cam, kMax, clear, labels, mark, marks, sites, glow }, lobule: { cam: 'lobule:triad', zoom, glow,
+//                            callout, layers }, sinusoid: {} }: where its camera goes and what it calls out (the slide's own call-outs stay at
+//                            its own scale). Sinusoid only on a pressure-lens slide; never on a question, catheter, Doppler, calipers or Circuit
+//                            slide (scale-switch.js; guide 5.10). Built-in slides list it in tests/deck-adopted.js
 //   caveat                   one short sentence in small print under the line, where the model differs from patients
 //   notes, ask               speaker notes, and [question, expected answer] for the room
 //   whatIf                   { label, param, min, max, step?, ends?: [low, high], unit? }: a slider that drags one parameter
@@ -77,7 +84,7 @@
 import { CIRCULATION } from './decks/circulation.js?v=2271df5c84';
 import { SITES } from './decks/sites.js?v=eb53f904c1';
 import { HVPG } from './decks/hvpg.js?v=1f1f96d516';
-import { ASCITES } from './decks/ascites.js?v=fa27e7731c';
+import { ASCITES } from './decks/ascites.js?v=cc667d83ea';
 import { VARICES } from './decks/varices.js?v=5e92da46f8';
 import { TREATMENT } from './decks/treatment.js?v=dbbc67154c';
 import { STIFFNESS } from './decks/stiffness.js?v=65532f1056';
