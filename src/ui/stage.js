@@ -3586,6 +3586,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const W = Math.max(1, Math.round(rect[2] * scale)), H = Math.max(1, Math.round(rect[3] * scale));
     const seq = plateSeq, drops = plateDrops;
     const url = URL.createObjectURL(new Blob([gpuProbe.time(null, 'organ picture: copy (script)', () => plateMarkup(rect, W, H, slot === 0))], { type: 'image/svg+xml' }));
+    const drawnAs = plateCopy?.key;
     try {
       const img = new Image();
       await new Promise((res, rej) => { img.onload = res; img.onerror = rej; img.src = url; });
@@ -3604,6 +3605,11 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
           if (seq !== plateSeq || drops !== plateDrops || v !== veins || v.lost) return false;
           v.plateRows(job, y, rows, gpuProbe.time(null, 'organ picture: read', () => premultiply(g.getImageData(0, y, W, rows).data)));
         }
+        // A picture of a state that ended while it was on its way in is given up (the one shown stays). Above all the colours: an
+        // iPhone or iPad turns the page light and back while it takes the app switcher's pictures, and a picture begun then
+        // finished on the way back to the app, in the light theme's colours (the organs mixed with its white stage: almost
+        // white), until the next one replaced it (Mohammad, 21 Oct: "overly bright almost white then it goes back").
+        if (drawnAs !== plateStateKey()) return false;
         v.setPlate(slot, job, rect); job = null;
         return true;
       } finally { if (job && !v.lost) v.dropJob(job); c.width = c.height = 0; }
@@ -3650,7 +3656,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     // Not while diving into the lobule (the anatomy is only magnified, then covered): once landed, under the lobule.
     if (lobuleOn && !lz?.isOpen()) return;
     if (rising()) { plateAfterRise = true; return; }
-    if (!veins || veins.lost || !glWanted(easeInOut(morph)) || figureHidden() || circuitInk()) return;
+    if (!veins || veins.lost || !glWanted(easeInOut(morph)) || figureHidden() || document.hidden || circuitInk()) return;
     // An ease that outgrows the plate (a fill played over days, a liver that changes in small steps) shows on the live drawing
     // as it goes, and the plate is drawn again once it settles: held, the organs inside it stood still while their outlines
     // moved, then jumped to the new shape at the end (Ascites deck slide 5, 17 Oct).
@@ -3677,7 +3683,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     clearTimeout(plateTimer);
     plateTimer = setTimeout(async () => {
       if (rising()) { plateAfterRise = true; return; }
-      if (figureHidden() || lvMoving || fluidEasing() || spleenMoving() || (lobuleOn && !lz?.isOpen()) || circuitInk()) return;   // hidden, moving or diving meanwhile: a later poke rasterizes
+      if (figureHidden() || lvMoving || fluidEasing() || spleenMoving() || (lobuleOn && !lz?.isOpen()) || circuitInk() || document.hidden) return;   // hidden, moving or diving meanwhile: a later poke rasterizes
       const k = plateStateKey();
       if (k === plateKey && veins?.hasPlate(0)) return;   // it changed and changed back
       plateBusy = true; plateLast = performance.now();
@@ -3698,12 +3704,15 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
           } else syncPlateLook();
           if (!plateOn()) plateKey = '';   // not shown (the liver moved meanwhile): raster again once it settles
           schedulePlateView(); gutPicSoon();
-        }
+        } else if (plateStateKey() !== k) plateAgain = true;   // (given up as out of date: drawn again for the state now)
       } catch (e) { console.warn('Plate raster failed; the SVG plate stays.', e); }
       plateBusy = false;
       if (plateAgain) { plateAgain = false; platePoke(); }
     }, wait);
   }
+  // In the background nothing is drawn again (the page's colours can change and change back meanwhile, as above): back in
+  // view, the picture is checked against the state now, and drawn again only if that differs.
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) platePoke(); });
   // After a pan or zoom settles, a raster of the view at the screen's resolution (when the
   // whole-plate raster would look soft there).
   function schedulePlateView() {
@@ -3724,7 +3733,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       if (key === plateViewKey) return;
       if (plateView && x0 >= plateView[0] && y0 >= plateView[1] && x1 <= plateView[2] && y1 <= plateView[3] && scale <= plateView[4] * 1.05) return;
       plateViewKey = key;
-      try { if (await rasterPlate(1, [x0, y0, x1 - x0, y1 - y0], scale)) { plateView = [x0, y0, x1, y1, scale]; veinsDirty = true; } } catch { /* the whole-plate raster stays */ }
+      try { if (await rasterPlate(1, [x0, y0, x1 - x0, y1 - y0], scale)) { plateView = [x0, y0, x1, y1, scale]; veinsDirty = true; } else if (plateViewKey === key) plateViewKey = ''; } catch { /* the whole-plate raster stays */ }
     }, 280);
   }
   // ── The gut's picture while the organs ease ─────────
