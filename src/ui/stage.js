@@ -1144,7 +1144,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // from its pressures like the vessels, a sheen) that fades into the IVC's wall instead of ending on it.
   const caud = (() => {
     const [ax, ay] = CAUDATE.anchor, W = CAUDATE.wall;
-    const g = s('g', { class: 'caud', style: `transform-origin:${ax}px ${ay}px` });
+    const g = s('g', { class: 'caud gone', style: `transform-origin:${ax}px ${ay}px` });
     let defsHtml = '<radialGradient id="caudDome"><stop offset="0" class="caud-d0"/><stop offset=".55" class="caud-d1"/><stop offset="1" class="caud-d2"/></radialGradient>'
       + `<linearGradient id="caudFade" gradientUnits="userSpaceOnUse" x1="${W - 1}" y1="0" x2="${W + 4}" y2="0"><stop offset="0" stop-color="#fff"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient>`
       + `<mask id="caudMask" maskUnits="userSpaceOnUse" x="0" y="0" width="${VIEW.w}" height="${VIEW.h}"><rect x="0" y="0" width="${VIEW.w}" height="${VIEW.h}" fill="url(#caudFade)"/></mask>`;
@@ -1177,9 +1177,14 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const lumens = [...veinsG.querySelectorAll('.caud-lumen')];
     g.append(lobe, veinsG);
     gOver.prepend(g);
-    let cols = '', grow = '';
+    let cols = '', grow = '', goneT = 0;
     return {
-      show(on, veins) { g.classList.toggle('on', !!on); if (on) g.classList.toggle('lobe-only', !veins); },
+      // (Once faded out, hidden, its veins' mask is off (.gone): a hidden group's mask is still built on every repaint.)
+      show(on, veins) {
+        g.classList.toggle('on', !!on); if (on) g.classList.toggle('lobe-only', !veins);
+        clearTimeout(goneT);
+        if (on) g.classList.remove('gone'); else goneT = setTimeout(() => g.classList.add('gone'), 760);
+      },
       // Colored from the pressure they drain at (the IVC's: the lobe keeps its outflow); sized by its share of it.
       sync(c, kq) {
         if (c !== cols) { cols = c; for (const el of lumens) el.setAttribute('fill', c); }

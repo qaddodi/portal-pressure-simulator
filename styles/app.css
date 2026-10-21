@@ -2658,6 +2658,7 @@ button.finding { cursor: pointer; }
 /* The caudate lobe and its veins (stage.js caud): only on a slide about them, eased in and out; never in the circuit. */
 .caud { opacity: 0; visibility: hidden; pointer-events: none; transition: opacity .7s ease, transform 1.6s ease, visibility 0s .7s; }   /* (hidden once faded: not drawn when off) */
 .caud.on { opacity: 1; visibility: visible; transition-delay: 0s; }
+.caud.gone .caud-veins { mask: none; }   /* (faded out and hidden, .7 s after .on comes off: stage.js caud.show) */
 .caud-veins { transition: opacity .7s ease; }
 .caud.lobe-only .caud-veins { opacity: 0; }
 #stageOver.circuit .caud { opacity: 0; }
