@@ -2,8 +2,8 @@
 
 import { EDGES, NODES, dMinOf } from '../engine/topology.js?v=4044766e96';
 import { dopplerVel } from './velNormal.js?v=181dda5594';
-import { DRUGS, PREGNANCY_INFO } from '../engine/scenario.js?v=e70d420cac';
-import { store, updateParams, hiddenNow } from './store.js?v=624d51968d';
+import { DRUGS, PREGNANCY_INFO } from '../engine/scenario.js?v=fa99b897ff';
+import { store, updateParams, hiddenNow } from './store.js?v=d6648af441';
 import { h, fmt, fmtFlow, fp, ff, clamp, tooltipFor, infoButton, icon, svgIcon, paintRange } from './util.js?v=5814c6b396';
 import { liveBalance } from './balance-hold.js?v=1792704e7a';
 import { frameFor, cancelFrame } from './frame.js?v=2ce59939b2';
@@ -325,6 +325,7 @@ export function activeInterventions(p) {
   if (p.balloonGas) add('balloonGas', 'Gastric balloon', (q) => { q.balloonGas = false; });
   for (const id of Object.keys(p.occluded)) add('occ:' + id, `${id === 'C5' ? 'BRTO (gastrorenal shunt occluded)' : lab(id) + ' occluded'}`, (q) => { delete q.occluded[id]; });
   if (p.splanchnicTone !== 1) add('splTone', `Splanchnic tone ×${p.splanchnicTone.toFixed(2)}`, (q) => { q.splanchnicTone = 1; });
+  if (p.meal > 0) add('meal', 'After a meal', (q) => { q.meal = 0; });
   if (p.systemicTone !== 1) add('sysTone', `Systemic tone ×${p.systemicTone.toFixed(2)}`, (q) => { q.systemicTone = 1; });
   if (p.contractility !== 1) add('contractility', `RV contractility ${Math.round(p.contractility * 100)} %`, (q) => { q.contractility = 1; });
   if (p.tr > 0) add('tr', `Tricuspid regurgitation ${Math.round(p.tr * 100)} %`, (q) => { q.tr = 0; });

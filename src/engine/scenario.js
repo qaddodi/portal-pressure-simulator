@@ -12,6 +12,7 @@ export function defaultParams() {
     thrombus: {},                 // edgeId → 0..1 occlusion
     splenicRx: 0,                 // 0 none · 1 partial splenic artery embolization · 2 splenectomy
     splanchnicTone: 1,            // arteriolar resistance multiplier (<1 = vasodilated)
+    meal: 0,                      // how far a meal has taken hold, 0..1 (0 fasting); see MEAL_TONE
     systemicTone: 1,
     contractility: 1,
     tr: 0,                        // tricuspid regurgitation 0..1
@@ -61,17 +62,21 @@ export const PREGNANCY_INFO = 'Weeks of pregnancy. Blood volume and cardiac outp
 
 const P = (patch) => (p) => deepMerge(p, patch);
 
-// A meal's fall in splanchnic arteriolar tone: a healthy adult's portal flow rises about 50% (1.1 to 1.65 L/min) and the
-// velocity about 47%, within the 40 to 80% (flow) and 35 to 100% (velocity) that Doppler studies find at the 30-minute
-// peak. A deeper fall would take the healthy PPG to the amber 6 mmHg, the model's healthy resistance not recruiting
-// sinusoids as flow rises. Every meal slide ramps to this value (/mnt/project-files/review/meal-response/review.md).
-export const MEAL_TONE = 0.58;
+// A meal's fall in splanchnic arteriolar tone (params.meal 1): a healthy adult's portal flow rises about 50% (1.1 to 1.65
+// L/min) and the velocity about 47%, within the 40 to 80% (flow) and 35 to 100% (velocity) that Doppler studies find at
+// the 30-minute peak. A deeper fall would take the healthy PPG to the amber 6 mmHg, the model's healthy resistance not
+// recruiting sinusoids as flow rises. Gut arterioles that cirrhosis has already dilated (slow.splTone) have less left to
+// give, so the meal is blunted by MEAL_BLUNT for each step of that dilation: CSPH's flow rises about 28% and its HVPG
+// about 15% (Sabbà 1991, Albillos 2007), compensated cirrhosis's flow about 40%. A stronger blunting would leave the
+// cirrhotic gradient rising less than the healthy one. Every meal slide ramps meal 0 to 1
+// (/mnt/project-files/review/meal-response/review.md, engine-options.md).
+export const MEAL_TONE = 0.58, MEAL_BLUNT = 1.36;
 
 // Each preset: patch applied to defaultParams(), plus chronic days on the disease clock.
 export const PRESETS = [
   { id: 'healthy', group: 'Normal', label: 'Healthy', apply: P({}), days: 0,
     summary: 'Normal adult at rest. HVPG ≈ 3 mmHg, portal flow ≈ 1.1 L/min, no collateral flow.' },
-  { id: 'postprandial', group: 'Normal', label: 'Post-prandial', apply: P({ splanchnicTone: MEAL_TONE }), days: 0,
+  { id: 'postprandial', group: 'Normal', label: 'Post-prandial', apply: P({ meal: 1 }), days: 0,
     summary: 'Meal-induced splanchnic vasodilation increases portal inflow and pressure slightly.' },
   { id: 'pvt-acute', group: 'Prehepatic', label: 'Acute portal vein thrombosis', apply: P({ thrombus: { PV_TRUNK: 1 } }), days: 0,
     summary: 'Occlusive clot in the main portal vein. Mesenteric congestion; no collaterals yet (they form over weeks). The hepatic artery buffer keeps the liver perfused. HVPG normal.' },
@@ -112,7 +117,7 @@ export const PRESETS = [
 const RANGES = {
   cirrhosis: [0, 1], splenicRx: [0, 2], splanchnicTone: [0.4, 2.5], systemicTone: [0.4, 2.5],
   contractility: [0.15, 1.6], tr: [0, 1], pericardial: [0, 1], albumin: [1.5, 5], habrStrength: [0, 2],
-  apShunt: [0, 1], respDepth: [0, 3], gestation: [0, 40], fenestrae: [0, 1],
+  apShunt: [0, 1], respDepth: [0, 3], gestation: [0, 40], fenestrae: [0, 1], meal: [0, 1],
 };
 const num = (v, lo, hi, def) => (typeof v === 'number' && Number.isFinite(v) ? Math.min(hi, Math.max(lo, v)) : def);
 

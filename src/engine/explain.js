@@ -2,9 +2,9 @@
 // Each factor that differs from the healthy state is reverted in isolation on a scratch engine;
 // its contribution is (current − reverted). Contributions are approximate: they need not sum exactly.
 
-import { Engine } from './engine.js?v=42ad2fbbf7';
+import { Engine } from './engine.js?v=fa5dce94ed';
 import { computeMetrics } from './metrics.js?v=e566c70621';
-import { defaultParams, DRUGS } from './scenario.js?v=e70d420cac';
+import { defaultParams, DRUGS } from './scenario.js?v=fa99b897ff';
 import { EDGES, dMinOf } from './topology.js?v=4044766e96';
 import { wallRead } from './wall-read.js?v=09449acd01';
 
@@ -49,6 +49,7 @@ function factors(eng, metricId) {
   for (const [id, v] of Object.entries(p.thrombus)) if (v > 0) add(`Clot in ${edgeLabel(id)} ${Math.round(v * 100)} %`, `the clot in the ${lc(edgeLabel(id))}`, (e) => { delete e.params.thrombus[id]; });
   if (p.splenicRx) add(p.splenicRx === 2 ? 'Splenectomy' : 'Partial splenic embolization', p.splenicRx === 2 ? 'the splenectomy' : 'the partial splenic embolization', (e) => { e.params.splenicRx = 0; });
   if (p.splanchnicTone !== 1) add(p.splanchnicTone < 1 ? 'Splanchnic vasodilation, set' : 'Splanchnic vasoconstriction, set', p.splanchnicTone < 1 ? 'the splanchnic vasodilation you set' : 'the splanchnic vasoconstriction you set', (e) => { e.params.splanchnicTone = 1; });
+  if (p.meal > 0) add('Splanchnic vasodilation after a meal', 'the meal', (e) => { e.params.meal = 0; });
   if (Math.abs(s.splTone - 1) > 0.01) add('Chronic splanchnic vasodilation', 'the chronic splanchnic vasodilation', (e) => { e.slow.splTone = 1; });
   if (p.systemicTone !== 1) add('Systemic arteriolar tone', 'the systemic arteriolar tone', (e) => { e.params.systemicTone = 1; });
   if (p.contractility !== 1) add('Right-heart contractility', 'the right-heart contractility', (e) => { e.params.contractility = 1; });

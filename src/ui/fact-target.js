@@ -7,7 +7,7 @@ const ORGAN = {
   cirrhosis: 'liver', splenicRx: 'spleen', balloonEso: 'varices', balloonGas: 'gastric', C5: 'gastric',
   tr: 'heart', contractility: 'heart', pericardial: 'heart', gestation: 'heart',
 };
-const EDGE = { tips: 'TIPS', dips: 'DIPS', portocaval: 'S_PC', dsrs: 'S_DSR', mesocaval: 'S_MC', C6: 'C6' };
+const EDGE = { tips: 'TIPS', dips: 'DIPS', portocaval: 'S_PC', dsrs: 'S_DSR', mesocaval: 'S_MC', C6: 'C6', meal: 'A_SMA' };   // (a meal: the gut's artery it opens)
 
 /** The selection a patient fact opens, or null. */
 export function factTarget(key) {

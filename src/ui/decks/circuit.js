@@ -10,7 +10,7 @@ const C = 'circuit';
 const R = ['rLiver', 'rColl'];   // the resistors on the figure: the liver's, and the collaterals' once they open
 // Every collateral shut: the same advanced liver as 'parallel' without them, so its row changes only the parallel resistor.
 const NO_COLLATERALS = { C1a: 1, C1b: 1, C2: 1, C3: 1, C4: 1, C5: 1, C6: 1, C7: 1, C8: 1, C9: 1 };
-const MEAL = { days: 8, ramp: { splanchnicTone: [1, 0.58] }, lapse: { seconds: 6, from: 'Fasting', to: 'After a meal' } };
+const MEAL = { days: 8, ramp: { meal: [0, 1] }, lapse: { seconds: 6, from: 'Fasting', to: 'After a meal' } };
 
 // 'resistance' and 'collaterals' in a line take their resistor's colour and light its zigzag on the figure.
 const POINTS = { resistance: 'rLiver', collaterals: 'rColl' };
@@ -28,7 +28,7 @@ export const CIRCUIT = withPoints({
   ],
   checks: [
     ['How does pressure relate to flow and resistance?', 'The pressure drop equals flow times resistance: ΔP = Q × R.'],
-    ['Why does a meal raise the gradient more in cirrhosis?', 'The extra flow crosses a higher resistance, so the same rise in flow adds more pressure.'],
+    ['Why does a meal raise the gradient more in cirrhosis?', 'The extra flow crosses a higher resistance, so even a smaller rise in flow adds more pressure.'],
     ['Why does a TIPS lower the gradient when collaterals do not?', 'The stent has far less resistance than the sinusoids or any collateral, so most portal blood goes through it.'],
   ],
   summary: 'Portal hypertension as a circuit: more flow, more resistance, collaterals in parallel, TIPS and the drugs, each read as ΔP = Q × R.',
@@ -67,9 +67,9 @@ export const CIRCUIT = withPoints({
     {
       id: 'both', ...MEAL, view: C, sites: R, span: [{ from: 'CONF', to: 'IVCS', label: 'PPG {ppg}' }], data: 'tiles', tiles: ['pvFlow', 'hvpg'], delta: true,
       kicker: K, site: 'sin', title: 'In cirrhosis the same meal raises the gradient more',
-      line: 'The rise is more than twice as large, because the extra flow now crosses a higher resistance.',
+      line: 'The gradient rises more even though the flow rises less, because the extra flow now crosses a higher resistance.',
       notes: 'In cirrhosis the splanchnic arterioles dilate for good (nitric oxide, glucagon, bacterial products), so the inflow stays high: the hyperdynamic circulation. A raised resistance and a raised inflow multiply. The rise is less than the resistance alone would predict: in cirrhosis the meal raises flow less, and part of it leaves through collaterals. Large transfusions raise the portal pressure the same way and can provoke a variceal bleed; meals may too.',
-      ask: ['Why does the same meal raise the gradient more in cirrhosis?', 'The same extra flow crosses a higher resistance (ΔP = Q × R).'],
+      ask: ['Why does the same meal raise the gradient more in cirrhosis?', 'The extra flow, though smaller, crosses a higher resistance (ΔP = Q × R).'],
     },
     {
       id: 'parallel', lens: 'flow', preset: 'cirr-decomp', view: C, sites: [...R, 'split'], tool: { kind: 'flows' }, data: 'tiles', tiles: ['liver', 'ppg'], delta: false,

@@ -52,10 +52,10 @@ export const STIFFNESS = {
       ask: ['Stiffness 13 kPa, platelets 180. Is CSPH present, and is a scope needed?', 'No CSPH (15 or less with 150 or more), and no scope (under 20 with 150 or more): repeat both in a year.'],
     },
     {
-      id: 'meal', preset: 'cirr-comp', params: { splanchnicTone: 1 }, days: 8, ramp: { splanchnicTone: [1, 0.58] }, lapse: { seconds: 6, from: 'Fasting', to: 'After a meal' }, cam: 'liver', tool: { kind: 'fibroscan' }, data: 'tiles', tiles: ['lsm', 'hvpg'], key: ['lsm'], delta: 'fibrosis',
+      id: 'meal', preset: 'cirr-comp', params: { splanchnicTone: 1 }, days: 8, ramp: { meal: [0, 1] }, lapse: { seconds: 6, from: 'Fasting', to: 'After a meal' }, cam: 'liver', tool: { kind: 'fibroscan' }, data: 'tiles', tiles: ['lsm', 'hvpg'], key: ['lsm'], delta: 'fibrosis',
       kicker: 'Where stiffness misleads', site: 'sin', title: 'Stiffness rises after a meal',
       line: 'Stiffness stays raised for up to two to three hours after eating, so scan fasting.',
-      notes: 'After eating, the gut arterioles dilate, portal inflow rises and the liver swells with blood; stiffness can rise by a fifth or more for up to two to three hours. Scan after at least two hours of fasting. The model shows the same patient fasting and after a meal: the HVPG rises by about 2 mmHg, the stiffness by about 4 kPa.',
+      notes: 'After eating, the gut arterioles dilate, portal inflow rises and the liver swells with blood; stiffness can rise by a fifth or more for up to two to three hours. Scan after at least two hours of fasting. The model shows the same patient fasting and after a meal: the HVPG rises by about 1.5 mmHg, the stiffness by about 3 kPa.',
       ask: ['Why scan fasting?', 'A meal raises portal inflow and the stiffness reading for up to two to three hours.'],
     },
     {

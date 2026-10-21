@@ -6,7 +6,7 @@ import {
   clamp, tubeResistanceFactor, tubeArea, volumeOf, ptmOf, complianceAt, stenosisFactor,
   heartFlow, fillShape, systoleShape, raWave, iapFromAscites, makeRng,
 } from './physiology.js?v=6fc3ec393a';
-import { defaultParams, DRUGS, PRESETS, deepMerge } from './scenario.js?v=e70d420cac';
+import { defaultParams, DRUGS, PRESETS, deepMerge, MEAL_TONE, MEAL_BLUNT } from './scenario.js?v=fa99b897ff';
 import { detectEvents } from './events.js?v=582dd803a9';
 
 const KNEE = { artery: [1e9, 1], bed: [14, 10], portal: [14, 10], vein: [14, 6], hepvein: [10, 3], heart: [10, 4], liver: [9, 2], wedge: [9, 5], varix: [30, 10] };
@@ -383,7 +383,9 @@ export class Engine {
     const p = this.params, s = p.cirrhosis, d = this._drug;
     const visc = this.viscosity();
     const pg = pregnancyLevel(p.gestation);
-    const spl = p.splanchnicTone * (1 - PREGNANCY.spl * pg) * this.slow.splTone * d.spl * Math.pow(this.baro, 0.6);
+    // (A meal dilates the gut arterioles less the more cirrhosis has dilated them already: scenario.js, MEAL_TONE.)
+    const meal = 1 - (1 - MEAL_TONE) * (p.meal || 0) * clamp(1 - MEAL_BLUNT * (1 - this.slow.splTone), 0, 1);
+    const spl = p.splanchnicTone * meal * (1 - PREGNANCY.spl * pg) * this.slow.splTone * d.spl * Math.pow(this.baro, 0.6);
     // Chronic portal hypertension dilates systemic arterioles too (nitric oxide spill-over), not only the
     // splanchnic bed: SVR falls and, with the expanded plasma volume, cardiac output rises (hyperdynamic circulation).
     const sys = p.systemicTone * (1 - PREGNANCY.sys * pg) * d.sys * this.baro * (1 - SYS_DILATION * (1 - this.slow.splTone));
