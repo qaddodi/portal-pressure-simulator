@@ -1909,6 +1909,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         setDiveScale(1); lz.setDiveZoom(1, 0, 0); diveLand = null;
         zShift = 0;
         if (chainOut) { chainOut = false; lz.setSinChain(null, false); }
+        if (plateAfterRise) { plateAfterRise = false; platePoke(); }   // (the organs' picture, held through the rise, catches up now)
         // Out of the lobule the anatomy always ends on its full fit, not where the dive began (often the liver close-up).
         // (Already taken to its fit when the way out began; measuring it again here read the floating pieces mid-change and sent the view down, then back.)
         if (riseUsed) riseUsed = false;   // (the rise already landed on the slide's own framing)
@@ -3639,10 +3640,16 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (!on) { anatBg = bg; return false; }
     return anatBg !== null && bg !== anatBg;
   }
-  let plateStale = false;
+  let plateStale = false, plateAfterRise = false;
+  // On the way out of the lobule the figure is a compositor zoom of what was there (setDiveScale), several times its size at first.
+  // The organs' picture stays through it and is brought up to date once the rise has landed: dropped there (the patient's eases
+  // went on under the lobule, so it reads as stale), the live drawing showed, and Safari does not draw a masked group (the stomach,
+  // the gut) scaled up that far, so they were missing and popped in partway down the zoom (Mohammad, 20 Oct, HVPG 7 to 8).
+  const rising = () => !lobuleOn && diveT > 0;
   function platePoke() {
     // Not while diving into the lobule (the anatomy is only magnified, then covered): once landed, under the lobule.
     if (lobuleOn && !lz?.isOpen()) return;
+    if (rising()) { plateAfterRise = true; return; }
     if (!veins || veins.lost || !glWanted(easeInOut(morph)) || figureHidden() || circuitInk()) return;
     // An ease that outgrows the plate (a fill played over days, a liver that changes in small steps) shows on the live drawing
     // as it goes, and the plate is drawn again once it settles: held, the organs inside it stood still while their outlines
@@ -3669,6 +3676,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const wait = themed ? 0 : Math.max(0, 500 - (performance.now() - plateLast), 400 - (performance.now() - lvStillAt), 400 - (performance.now() - spleenMv.stillAt()));
     clearTimeout(plateTimer);
     plateTimer = setTimeout(async () => {
+      if (rising()) { plateAfterRise = true; return; }
       if (figureHidden() || lvMoving || fluidEasing() || spleenMoving() || (lobuleOn && !lz?.isOpen()) || circuitInk()) return;   // hidden, moving or diving meanwhile: a later poke rasterizes
       const k = plateStateKey();
       if (k === plateKey && veins?.hasPlate(0)) return;   // it changed and changed back
