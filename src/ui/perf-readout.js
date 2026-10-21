@@ -4,9 +4,17 @@
 // (gpu-probe.js cpuOnly: no waiting for the GPU), every frame gap over 20 ms in the window is listed with the steps that ran
 // in it, and so is each long task the browser reports (Chrome; Safari reports none, its frame gaps still show). The panel is
 // written only when a window closes, never during a gesture, and the last five gestures stay listed with a Copy button.
-import { gpuProbe } from './gpu-probe.js?v=55e394c081';
+import { gpuProbe } from './gpu-probe.js?v=26aafb5fae';
 
 const WINDOW = 2000, GAP = 20, KEEP = 5;
+const HIDES = ['', 'no live organs', 'no figure SVG', 'no labels', 'no GPU picture'];
+// (What each leaves out, by CSS: the page then neither lays out nor paints it.)
+const HIDE_CSS = {
+  'no live organs': '#stageView svg#stage :is(#backdrop, #organs, #ascites, #ghosts) { visibility: hidden !important; }',
+  'no figure SVG': '#stageView :is(svg#stage, svg#stageOver) { visibility: hidden !important; }',
+  'no labels': '#stageView svg#labels { visibility: hidden !important; }',
+};
+let hideAt = 0;
 // Notes counted frame by frame over a window (veins-gl.js composite): a frame that redrew the whole picture, a frame with the organ
 // picture down (the live organs drawn by the page, as while the liver, the spleen or the fluid eases).
 const TALLY = ['whole picture', 'organ picture down', 'gut live', 'gut picture', 'liver easing', 'fluid easing', 'spleen easing',
@@ -31,7 +39,7 @@ export function gapLine(g) {
 
 /** A gesture's report as text. */
 export function gestureText(r) {
-  const head = `#${r.n} ${r.kind} in ${r.view}, zoom ${r.zoom}, ${r.frames} frames in ${((r.win || WINDOW) / 1000).toFixed(0)} s, worst ${r.worst.toFixed(0)} ms${r.gpu ? ', GPU timed' : ''}`;
+  const head = `#${r.n} ${r.kind} in ${r.view}, zoom ${r.zoom}, ${r.frames} frames in ${((r.win || WINDOW) / 1000).toFixed(0)} s, worst ${r.worst.toFixed(0)} ms${r.gpu ? ', GPU timed' : ''}${r.hide ? `, TEST: ${r.hide}` : ''}`;
   const gauges = Object.entries(r.gauges || {}).filter(([, v]) => v).map(([k, v]) => `  ${k}: ${v}`);
   // (Frames counted by what they drew, over the whole window: the whole picture redrawn, the organ picture down.)
   const tally = Object.entries(r.tally || {}).map(([k, n]) => `${k} in ${n} of ${r.frames} frames`);
@@ -64,7 +72,7 @@ export function startPerfReadout({ zoom = () => '?' } = {}) {
   };
   const begin = (kind, win = WINDOW) => {
     const was = !!cur;
-    cur = { n: ++n, kind, win, tally: {}, view: view(), zoom: (+zoom() || 0).toFixed(2), t0: performance.now(), frames: 0, worst: 0, gaps: [], tasks: [], gauges: {}, gpu: !gpuProbe.cpuOnly };
+    cur = { n: ++n, kind, win, tally: {}, view: view(), zoom: (+zoom() || 0).toFixed(2), t0: performance.now(), frames: 0, worst: 0, gaps: [], tasks: [], gauges: {}, gpu: !gpuProbe.cpuOnly, hide: HIDES[hideAt] };
     gpuProbe.take(); gpuProbe.takeNotes(); gpuProbe.takeGauges();
     if (!was && !beatT) { beatAt = performance.now(); busy = 0; beatT = setTimeout(beat, 0); }
   };
@@ -130,17 +138,32 @@ export function startPerfReadout({ zoom = () => '?' } = {}) {
   gpuLabel();
   // Record: 6 s from the tap, for a change that runs by itself (a slide stepping healthy to cirrhosis, the fluid filling, a
   // preset easing in; Mohammad, 21 Oct: "very laggy" while the ascites fills and the varices grow). Tap, then start the change.
+  // Test switch, for a recording only: leave out the live organs (the page's own drawing of them, shown while the organ picture is
+  // down), the whole figure's SVG, its labels, or the GPU's picture (the vessels' screen frames are skipped), to see which one the slow frames are. The figure looks wrong
+  // while one is on; a tap goes on to the next, back to "Test: none". (External review, 21 Oct: tell the page's painting from the
+  // GPU's by leaving each out.)
+  const hide = document.createElement('button');
+  const hideStyle = document.createElement('style');
+  const hideLabel = () => { hide.textContent = `Test: ${HIDES[hideAt] || 'none'}`; };
+  hide.onclick = () => {
+    hideAt = (hideAt + 1) % HIDES.length;
+    hideStyle.textContent = HIDE_CSS[HIDES[hideAt]] || '';
+    if (!hideStyle.isConnected) document.head.append(hideStyle);
+    gpuProbe.skipGL = HIDES[hideAt] === 'no GPU picture';
+    hideLabel();
+  };
+  hideLabel();
   const rec = document.createElement('button');
   rec.textContent = 'Record 6 s';
   rec.onclick = () => { begin('recording', 6000); rec.textContent = 'Recording…'; setTimeout(() => { rec.textContent = 'Record 6 s'; }, 6000); };
-  for (const b of [title, rest, rec, gpu, copy]) b.style.cssText = 'font:inherit;color:#fff;background:rgb(255 255 255 / .16);border:0;border-radius:6px;padding:4px 8px;min-height:28px';   // colour-exempt
+  for (const b of [title, rest, rec, hide, gpu, copy]) b.style.cssText = 'font:inherit;color:#fff;background:rgb(255 255 255 / .16);border:0;border-radius:6px;padding:4px 8px;min-height:28px';   // colour-exempt
   title.textContent = 'Lag after gestures (tap to fold)';
   copy.textContent = 'Copy';
   rest.textContent = 'At rest';
   rest.onclick = () => { rest.textContent = 'Wait 3 s'; setTimeout(() => { begin('at rest'); setTimeout(() => { rest.textContent = 'At rest'; }, 2000); }, 1000); };
   const body = document.createElement('div');
   body.textContent = 'Pan, pinch or scroll-zoom the figure, then let go and wait 2 s.';
-  bar.append(title, rest, rec, gpu, copy); el.append(bar, body);
+  bar.append(title, rest, rec, hide, gpu, copy); el.append(bar, body);
   let folded = false;
   title.onclick = () => { folded = !folded; body.style.display = folded ? 'none' : ''; };
   const text = () => [`${navigator.userAgent}`, `screen ${innerWidth}x${innerHeight} @${devicePixelRatio}x, ${location.pathname}${document.getElementById('preview-badge') ? ` ${document.getElementById('preview-badge').textContent.trim()}` : ''}`, ...reports.map(gestureText)].join('\n\n');

@@ -33,9 +33,9 @@
 
 import { CHEV_GLSL } from './chevron-glsl.js?v=96ec7c6666';
 import { SLOT, DYE_BINS } from './blood.js?v=e668d01823';
-import { cssRGB } from './util.js?v=d2ab488e61';
+import { cssRGB } from './util.js?v=0ac8f4f6fa';
 import { CELL, ENT_W, binVeins, splitRows } from './veins-bin.js?v=81a80b3a6d';
-import { gpuProbe } from './gpu-probe.js?v=55e394c081';
+import { gpuProbe } from './gpu-probe.js?v=26aafb5fae';
 
 export { binVeins };
 
@@ -1353,6 +1353,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false }) {
   for (let i = 0; i < 3; i++) { gl.enableVertexAttribArray(i); gl.vertexAttribPointer(i, 2, gl.FLOAT, false, 24, i * 8); }
   gl.bindVertexArray(null);
   const lineVers = [0, 0, 0], lineSigs = ['', '', ''];
+  let skipped = false;
   let lines = null, linesWas = false, lineKey = '', glowKey = '', warmKey = '', lastMk = '';
   // The outlines are drawn into a layer of their own when they change, and the composite lays it over the picture: the
   // cells-only pass then keeps them, so an open organ card no longer repaints the whole picture every frame. Glows
@@ -1920,6 +1921,9 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false }) {
      */
     composite(look, blood = {}, full = false, part = 0) {
       if (!baseM || fboW !== canvas.width || fboH !== canvas.height) return;
+      // (The ?perf test switch "no GPU picture": no frame is drawn while it is on, and the first one after is whole.)
+      if (gpuProbe.skipGL) { skipped = true; return; }
+      if (skipped) { skipped = false; full = true; }
       // A bleed sprays outside the vessels: the whole picture is repainted while it lasts, and once after.
       const bleeding = !!blood.bleed?.length;
       if (bleeding || wasBleeding) full = true;

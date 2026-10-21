@@ -3,26 +3,26 @@
 
 import { startHost, host } from './host.js?v=e06757c916';
 import { store, updateParams, replaceParams, bindParamSender, clearHistory, logAction, varicesPresent, hiddenNow } from './store.js?v=d6648af441';
-import { createStage } from './stage.js?v=646fb8739f';
-import { createCreditPlacer } from './credit.js?v=66fd12be0d';
-import { sinusoidSupported } from './sinusoid-view.js?v=f9659c4957';
-import { createInspector } from './inspector.js?v=b7676c6f55';
-import { createDock, CUTOFFS } from './dock.js?v=14567e9647';
-import { setHvpgStage } from './hvpg-proc.js?v=031491bbd9';
-import { createWhy } from './why.js?v=3e442df351';
-import { createTimeline, LAPSES } from './timeline.js?v=5b09b8adc2';
-import { createCompare } from './compare.js?v=d4ca73b460';
-import { createCard } from './card.js?v=116248f65e';
-import { createChart } from './chart.js?v=a538e5c643';
-import { createMenu } from './menu.js?v=3163d00787';
-import { caption } from './a11y.js?v=124f84520a';
+import { createStage } from './stage.js?v=2c665728ae';
+import { createCreditPlacer } from './credit.js?v=43c724b11f';
+import { sinusoidSupported } from './sinusoid-view.js?v=b12daf2ad5';
+import { createInspector } from './inspector.js?v=41b19490b6';
+import { createDock, CUTOFFS } from './dock.js?v=2f5a38afd6';
+import { setHvpgStage } from './hvpg-proc.js?v=f221babd87';
+import { createWhy } from './why.js?v=2d92dfe24f';
+import { createTimeline, LAPSES } from './timeline.js?v=ceaf3ad083';
+import { createCompare } from './compare.js?v=399850f347';
+import { createCard } from './card.js?v=e341bc7f5b';
+import { createChart } from './chart.js?v=d1f751272e';
+import { createMenu } from './menu.js?v=3de8296832';
+import { caption } from './a11y.js?v=dc028557e4';
 import { startLMS } from './lms.js?v=284ef81e94';
 import { UPDATED, CONTENT_UPDATED, VALIDATION, AUTHOR, AUTHOR_URL, FEEDBACK_EMAIL } from '../version.js?v=1767318315';
-import { normalizeSel, shuntable, edgeValue, bedStats } from './actions.js?v=ccdb6cde8c';
-import { gradientCss, dropCss, PRESSURE_TICKS, flowCss, flowPos, velocityCss, heatCss, HEAT_MAX, oxygenCss, OXY_MIN } from './colormap.js?v=20b26c02af';
+import { normalizeSel, shuntable, edgeValue, bedStats } from './actions.js?v=601d0a3910';
+import { gradientCss, dropCss, PRESSURE_TICKS, flowCss, flowPos, velocityCss, heatCss, HEAT_MAX, oxygenCss, OXY_MIN } from './colormap.js?v=cef87888ec';
 import { EDGES, PORTAL_TERRITORY } from '../engine/topology.js?v=4044766e96';
 import { dopplerVel } from './velNormal.js?v=181dda5594';
-import { $, $$, h, icon, afterExit, fmt, fmtFlow, toast, tooltipFor, openModal, closeModal, isModalOpen, popover, closePopover, popoverOpen, repositionPopover, menuItem, svgIcon, uiScale, isPhoneLayout, TABLET_UP_MQ, markGone, enterAfterGone, enhanceRanges, systemEdge, sinkTo, stopSink, swapFade, scrollBehavior, reconcile } from './util.js?v=d2ab488e61';
+import { $, $$, h, icon, afterExit, fmt, fmtFlow, toast, tooltipFor, openModal, closeModal, isModalOpen, popover, closePopover, popoverOpen, repositionPopover, menuItem, svgIcon, uiScale, isPhoneLayout, TABLET_UP_MQ, markGone, enterAfterGone, enhanceRanges, systemEdge, sinkTo, stopSink, swapFade, scrollBehavior, reconcile } from './util.js?v=0ac8f4f6fa';
 import { TEXT_STEPS } from './type-scale.js?v=d7cca3fb73';
 
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
@@ -35,12 +35,12 @@ const SPEEDS = [0.25, 0.5, 1, 2, 4, 8];
 
 // Everything the learner does is a verb on the structure they click (actions.js, card.js); the
 // only armed gesture left is a shunt waiting for its target.
-import { debugOptions, debugOn, setDebug, initDebug } from './debug.js?v=b5199cc5e4';
-import { initTopbarMotion } from './topbar-motion.js?v=03748cedb1';
+import { debugOptions, debugOn, setDebug, initDebug } from './debug.js?v=424d246c8a';
+import { initTopbarMotion } from './topbar-motion.js?v=0553aca0c9';
 import { ORIGINS } from './blood.js?v=e668d01823';
 import { parseShare, cleanShare } from './share-link.js?v=b6f8e0f909';
 import { deepMerge, sanitizeParams } from '../engine/scenario.js?v=fa99b897ff';
-import { frameFor, cancelFrame, perf as framePerf } from './frame.js?v=4500d7e538';
+import { frameFor, cancelFrame, perf as framePerf } from './frame.js?v=d30cce11fe';
 import { easeIO3, glideShift, pillState, foldPill, stopFold } from './pill-motion.js?v=0f61f910f1';
 const nextFrame = frameFor('main');
 
@@ -168,7 +168,7 @@ async function main() {
   dock = createDock({ strip: $('#strip'), head: $('#dockHead'), body: $('#dockBody'), onWhy: (m, el) => why.open(m, el), onAction: doAction, onProbe: (id) => { host.send({ type: 'probe', id }); logAction('probe', id); }, onReveal: revealDock, onLobule: () => zoomLobule('R'),
     onOpen: () => openPanel('instruments'), onClose: () => setPanelTab('chart'), onLayout: () => syncDoppler(), isVisible: () => app.classList.contains('dock-open'),
     marks: () => timeline.entries(), onBeat: () => sendBeat() });
-  presenterL = lazy(() => import('./presenter.js?v=4f4db8619b'), ({ createPresenter }) => createPresenter({ openSettings, loadPreset, updateParams, host, stage, dock, action: doAction,
+  presenterL = lazy(() => import('./presenter.js?v=bff953f647'), ({ createPresenter }) => createPresenter({ openSettings, loadPreset, updateParams, host, stage, dock, action: doAction,
     projectorOn: () => { if (!projector) toggleProjector(); }, projectorOff: () => { if (projector) toggleProjector(); },
     closeHome: () => mainMenu.close(), stashCards, rerenderHome: () => mainMenu.render() }));
   mainMenu = createMenu({
@@ -176,7 +176,7 @@ async function main() {
     onPreset: (id) => openInExplore(id), share, help: (a) => openHelpMenu(a),
     onToggle: (on, sheet) => { closePopover(); app.classList.toggle('menu-sheet-open', on && !!sheet); creditPlacer?.refresh(); labelsUnderMenu(on); },
   });
-  paletteL = lazy(() => import('./palette.js?v=cf9eafa2d1'), ({ createPalette }) => createPalette({ ctx: {
+  paletteL = lazy(() => import('./palette.js?v=e2ea24f181'), ({ createPalette }) => createPalette({ ctx: {
     select, action: doAction, probe: (id) => { host.send({ type: 'probe', id }); logAction('probe', id); }, showPane: (id) => dock.show(id, { reveal: true }),
     jump: (d, l) => timeline.jump(d, l), undo: () => timeline.undo(), pin: () => timeline.togglePin(), lenses: Object.fromEntries(Object.entries(LENSES).map(([k, v]) => [k, v])),
     zoomLobule: () => zoomLobule('R'), instruments: () => dock.toggle(),
@@ -819,7 +819,7 @@ function renderBanner() {
 function wireTopbar() {
   initDebug(() => stage.zoomLevel());
   // ?perf in the address: the readout of what blocks frames after a pan or pinch (perf-readout.js). Without it, never loaded.
-  if (new URLSearchParams(location.search).has('perf')) import('./perf-readout.js?v=6f9163a209').then(({ startPerfReadout }) => startPerfReadout({ zoom: () => stage.zoomLevel() })).catch(() => { /* a measuring aid only */ });
+  if (new URLSearchParams(location.search).has('perf')) import('./perf-readout.js?v=67b4010465').then(({ startPerfReadout }) => startPerfReadout({ zoom: () => stage.zoomLevel() })).catch(() => { /* a measuring aid only */ });
   $('#btnMenu').addEventListener('click', () => mainMenu.toggle());
   $('#btnSettings').addEventListener('click', (e) => openSettings(e.currentTarget));
   $('#btnPalette').addEventListener('click', () => palette.open());

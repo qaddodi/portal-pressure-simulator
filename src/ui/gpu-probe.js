@@ -6,6 +6,7 @@ export const gpuProbe = {
   on: false,
   // Script time only (the ?perf readout, perf-readout.js): no wait for the GPU, so the page runs as it does for everyone.
   cpuOnly: false,
+  skipGL: false,   // (the ?perf test switch: the vessels' screen picture is not drawn)
   parts: {},
   stack: [],
   /** Runs f as the step `name` and returns its result; a step inside another counts only toward its own name. */

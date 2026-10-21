@@ -73,3 +73,14 @@ test('a running change names its parts in the readout: the vessel sync and the u
     assert.match(src, new RegExp(`gpuProbe\\.time\\(null, '${name}', \\(\\) => `), name);
   }
 });
+
+test('the ?perf test switch leaves out the live organs or the GPU picture for a recording, and says so in its report', () => {
+  const src = readFileSync(new URL('../src/ui/perf-readout.js', import.meta.url), 'utf8');
+  assert.match(src, /const HIDES = \['', 'no live organs', 'no figure SVG', 'no labels', 'no GPU picture'\];/);
+  assert.match(src, /hideStyle\.textContent = HIDE_CSS\[HIDES\[hideAt\]\] \|\| '';/);
+  assert.match(src, /hide: HIDES\[hideAt\] \};/);
+  assert.match(src, /\$\{r\.hide \? `, TEST: \$\{r\.hide\}` : ''\}/);
+  assert.match(src, /gpuProbe\.skipGL = HIDES\[hideAt\] === 'no GPU picture';/);
+  const gl = readFileSync(new URL('../src/ui/veins-gl.js', import.meta.url), 'utf8');
+  assert.match(gl, /if \(gpuProbe\.skipGL\) \{ skipped = true; return; \}\n\s+if \(skipped\) \{ skipped = false; full = true; \}/, 'whole again after');
+});
