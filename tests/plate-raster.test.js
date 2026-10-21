@@ -12,9 +12,12 @@ test('a plate raster draws into a canvas of its own and sends it as pixel strips
   assert.match(stage, /const c = document\.createElement\('canvas'\);\n\s+c\.width = W; c\.height = H;\n\s+const g = c\.getContext\('2d', \{ willReadFrequently: true \}\);/);
   const body = stage.slice(stage.indexOf('async function rasterPlate'), stage.indexOf('function plateStateKey'));
   // Each strip is drawn in its own frame too, just before it is read: the whole picture drawn at once was one long frame after
-  // every zoomed pan or pinch (21 Oct). Same scale, cut at whole rows: the same pixels.
-  assert.match(body, /for \(const \[y, rows\] of plateStrips\(W, H\)\) \{\n\s+if \(y\) await new Promise\(\(res\) => nextFrame\(res\)\);\n\s+if \(seq !== plateSeq \|\| drops !== plateDrops \|\| v !== veins \|\| v\.lost\) return false;\n\s+gpuProbe\.time\(null, 'organ picture: draw', \(\) => g\.drawImage\(img, 0, y, W, rows, 0, y, W, rows\)\);/, 'a raster overtaken on its way in is given up');
-  assert.doesNotMatch(body, /drawImage\(img, 0, 0, W, H\)/, 'never the whole picture in one frame');
+  // every zoomed pan or pinch (21 Oct). The view's picture is a picture per strip, of only the shapes that meet it, so its
+  // markup, its parse and its drawing are a strip's too. Same scale, cut at whole rows: the same pixels.
+  assert.match(body, /for \(const \[y, rows\] of plateStrips\(W, H\)\) \{\n\s+if \(y\) await new Promise\(\(res\) => nextFrame\(res\)\);\n\s+if \(seq !== plateSeq \|\| drops !== plateDrops \|\| v !== veins \|\| v\.lost\) return false;\n\s+if \(banded\) \{/, 'a raster overtaken on its way in is given up');
+  assert.match(body, /if \(seq !== plateSeq \|\| drops !== plateDrops \|\| v !== veins \|\| v\.lost \|\| plateCopy\?\.key !== drawnAs\) return false;\n\s+gpuProbe\.time\(null, 'organ picture: draw', \(\) => g\.drawImage\(band, 0, y, W, rows\)\);/, 'a strip whose copy changed state is given up');
+  assert.match(body, /\} else gpuProbe\.time\(null, 'organ picture: draw', \(\) => g\.drawImage\(whole, 0, y, W, rows, 0, y, W, rows\)\);/);
+  assert.doesNotMatch(body, /drawImage\([a-z]+, 0, 0, W, H\)/, 'never the whole picture in one frame');
   assert.match(body, /v\.plateRows\(job, y, rows, gpuProbe\.time\(null, 'organ picture: read', \(\) => premultiply\(g\.getImageData\(0, y, W, rows\)\.data\)\)\);/);
   assert.match(body, /v\.setPlate\(slot, job, rect\); job = null;/, 'shown only once every strip is in');
   assert.match(body, /finally \{ if \(job && !v\.lost\) v\.dropJob\(job\); c\.width = c\.height = 0; \}/);

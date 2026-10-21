@@ -16,8 +16,10 @@ const body = (name) => {
 
 test('an organ picture whose state changed on its way in is given up, not shown', () => {
   const r = body('rasterPlate');
-  const keep = r.indexOf('const drawnAs = plateCopy?.key'), check = r.indexOf('if (drawnAs !== plateStateKey()) return false;'), show = r.indexOf('v.setPlate(slot, job, rect)');
+  const keep = r.indexOf('const drawnAs = banded ? plateStateKey() : plateCopy?.key'), check = r.indexOf('if (drawnAs !== plateStateKey()) return false;'), show = r.indexOf('v.setPlate(slot, job, rect)');
   assert.ok(keep > 0 && r.indexOf('plateMarkup(') < keep, 'the key the copy was drawn for is kept as the copy is made');
+  // (The view's strips: the state now, and every strip's copy must still be of it.)
+  assert.ok(r.indexOf('plateCopy?.key !== drawnAs) return false;') > keep, 'a strip drawn from a copy of another state is given up');
   assert.ok(check > 0 && check < show, 'the key is checked again before the picture is shown');
 });
 

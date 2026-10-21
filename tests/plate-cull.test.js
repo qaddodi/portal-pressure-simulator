@@ -39,7 +39,9 @@ test('the painted box holds every point the stroke can paint, through any transf
 
 const src = readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8');
 test('only the view picture is trimmed, the copy is put back whole, and shapes that could reach further are kept', () => {
-  assert.match(src, /plateMarkup\(rect, W, H, slot === 0, slot === 1\)/, 'the whole-plate picture (slot 0) is never trimmed');
+  assert.match(src, /const banded = slot === 1;\n\s+const whole = banded \? null : await svgPicture\(gpuProbe\.time\(null, 'organ picture: copy \(script\)', \(\) => plateMarkup\(rect, W, H, true, false\)\)\);/, 'the whole-plate picture (slot 0) is never trimmed');
+  // (The view's picture, slot 1, a strip at a time: each strip trimmed to its own rows, same scale.)
+  assert.match(src, /plateMarkup\(\[rect\[0\], rect\[1\] \+ y \/ sy, rect\[2\], rows \/ sy\], W, rows, false, true\)/);
   assert.match(src, /finally \{ for \(let i = out0\.length - 1; i >= 0; i--\) \{ const \[c, p, n\] = out0\[i\]; p\.insertBefore\(c, n\); \} \}/);
   const pb = src.slice(src.indexOf('function plateBoxes('), src.indexOf('function plateMarkup('));
   for (const re of [/clipPath\|mask\|pattern\|marker\|symbol\|defs/, /getAttribute\?\.\('filter'\)/, /subs\.has\(c\) \|\| c\.id/, /objectBoundingBox/, /marker-end/]) assert.match(pb, re);
