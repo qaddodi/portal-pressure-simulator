@@ -2544,7 +2544,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       if (g.wigT == null || Math.abs(w - g.wigT) > 0.6) g.wigT = w;
       if (g.wig !== g.wigT) { const d = g.wigT - g.wig; g.wig = Math.abs(d) < 0.03 ? g.wigT : g.wig + d * kW; coiling.push(x); if (g.wig !== g.wigT) widthEasing = coilEasing = true; }
     }
-    updateGeometry(false, coiling);
+    gpuProbe.time(null, 'update: geometry', () => updateGeometry(false, coiling));
 
     for (const x of EV) {
       const e = x.e;
@@ -2666,21 +2666,21 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     // dashed stroke from its first frame (never first as a full tube that then vanishes).
     trackChanges(f, p);
     stepReveals(performance.now());
-    for (const x of EV) if (x.vis && !x.isArt) renderTube(x, p, t, J);
+    gpuProbe.time(null, 'update: tubes', () => { for (const x of EV) if (x.vis && !x.isArt) renderTube(x, p, t, J); });
     if (glWanted(t)) clearJoins(); else updateJoins(t);
     // A selected vessel stays bright while the rest of the network recedes.
     wrap.classList.toggle('has-sel', st.selection?.type === 'edge' && !!E[st.selection.id]?.vis);
     syncLift();
     syncVeins(t);
     updateOrganSel(st.selection, t);
-    updateNodesCircuit(f);
-    updateOverlays(f, p, gain, t);
+    gpuProbe.time(null, 'update: nodes', () => updateNodesCircuit(f));
+    gpuProbe.time(null, 'update: overlays', () => updateOverlays(f, p, gain, t));
     updateFocus();
     dopApply();
-    updateBridges(t);
-    updateLabels(f);
-    updateOrgans(f, p, t);
-    fxSync(f, t);
+    gpuProbe.time(null, 'update: bridges', () => updateBridges(t));
+    gpuProbe.time(null, 'update: labels', () => updateLabels(f));
+    gpuProbe.time(null, 'update: organs', () => updateOrgans(f, p, t));
+    gpuProbe.time(null, 'update: slide marks', () => fxSync(f, t));
     widthF = f; widthVer = storeVer; widthCTM = CTM;
   }
 
@@ -3345,7 +3345,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       veins.setOrgans(c, [0, 0, VIEW.w, VIEW.h]);
       glOrgans = true; tubesNew = true;
     }
-    const items = glItems();
+    const items = gpuProbe.time(null, 'vessel sync: list', () => glItems());
     const cs = wrapCS();
     const mode = layerMode();
     // A jump in the model (a new patient, Undo or History, a time jump, Compare's Then and Now, Settle) recolours the vessels
@@ -3359,12 +3359,12 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     lensMode = mode;
     if (lensFrom && !lensFading()) lensFrom = null;
     shownCol = new Map();
-    sendRadii(items);
+    gpuProbe.time(null, 'vessel sync: radii', () => sendRadii(items));
     // Geometry: re-binned when the layout, the set of vessels or a vessel's reach grows.
     const reachOf = (it) => Math.ceil((it.obj.glMaxR + (it.x.wallPx || 1) + 18) / 2) * 2;
     const key = `${geometryVersion}|` + items.map((it) => it.row).join(',');
     const grew = key === vBinKey && items.some((it) => reachOf(it) > (vBinReach.get(it.row) || 0));
-    if (key !== vBinKey || grew) {
+    if (key !== vBinKey || grew) gpuProbe.time(null, 'vessel sync: binning', () => {
       vBinKey = key;
       // A vessel that outgrows its reach gets a quarter more room than it needs: a widening vein (a congested IVC easing
       // in over a slide) was re-binned and its geometry uploaded again at every 2 px of growth, about 4 MB each time, a
@@ -3380,7 +3380,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       // (Each axis's curvature with it, so the flow arrowheads keep their shape on a bend: veins-gl chevAt.)
       if (bins !== bendShown) { bendShown = bins; for (const it of items) veins.setBend(it.row, smooth.get(it.row) || it.pts); }
       tubesNew = true;
-    }
+    });
     // Attributes, every frame.
     const T0 = easeInOut(morph), now = performance.now();
     const artery = toRGB('var(--artery)', cs);
@@ -3390,7 +3390,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     // Hovering or selecting any part of the IVC shows it whole: no veil, and no fades on it or on the tributaries joining it.
     let ivcOn = false;
     for (const id of IVC_EDGES) { const g = E[id]?.g; if (g && (g.classList.contains('is-sel') || g.classList.contains('hl') || vh.selA.get(id) > 0)) ivcOn = true; }
-    for (const it of items) {
+    gpuProbe.time(null, 'vessel sync: colours', () => { for (const it of items) {
       const { x, kind, obj } = it, id = x.e.id, o = it.row * TUBE_TEXELS * 4;
       const ghost = x.g.classList.contains('coll-ghost');
       const ra = it.ra;
@@ -3468,7 +3468,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       // eases back into the network; a free end, or one into the rest of the selection, stays at full.
       const sa = tier < TIER_LIFT && !x.back && !SIN_EDGES.has(id) ? vh.selA.get(id) || 0 : 0;
       if (sa > 0) tubeData.set(kind === 'v' ? [easeInOut(sa), selEnd(id, x.e.from), selEnd(id, x.e.to), 0] : [easeInOut(sa), 0, 0, 0], o + 48);
-    }
+    } });
     // (Uploaded only when some vessel's attributes changed: most model frames in a steady state change none.)
     let tubesChanged = !tubesShown || tubesShown.length !== tubeData.length;
     if (!tubesChanged) for (let i = 0; i < tubeData.length; i++) if (tubeData[i] !== tubesShown[i]) { tubesChanged = true; break; }

@@ -66,3 +66,10 @@ test('a recording runs 6 s and counts the frames that redrew the whole picture o
   const gl = readFileSync(new URL('../src/ui/veins-gl.js', import.meta.url), 'utf8');
   assert.match(gl, /if \(gpuProbe\.on\) \{ if \(full\) gpuProbe\.note\('whole picture'\); if \(!look\.plate\) gpuProbe\.note\('organ picture down'\); \}/);
 });
+
+test('a running change names its parts in the readout: the vessel sync and the update are split by job', () => {
+  const src = readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8');
+  for (const name of ['vessel sync: list', 'vessel sync: radii', 'vessel sync: binning', 'vessel sync: colours', 'update: geometry', 'update: tubes', 'update: overlays', 'update: bridges', 'update: labels', 'update: organs', 'update: slide marks', 'update: nodes']) {
+    assert.match(src, new RegExp(`gpuProbe\\.time\\(null, '${name}', \\(\\) => `), name);
+  }
+});
