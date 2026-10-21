@@ -41,3 +41,10 @@ test('only the bowel floats on the fluid, so it is a run of its own', () => {
   assert.match(fn('gutRuns'), /k === organG\.bowel \|\| prev === organG\.bowel/);
   assert.match(stage, /putA\(organG\.bowel, 'transform', `translate\(0 \$\{/);
 });
+
+test('the rectum fades out at its end through the gut mask, so the plate copy, the GPU raster and the gut picture all show it', () => {
+  assert.match(stage, /<mask id="gutHide"[^>]*height="660"><rect [^>]*height="660" fill="url\(#gutEndFadeG\)"\/>/);
+  assert.match(stage, /<linearGradient id="gutEndFadeG"[^>]*y1="990"[^>]*y2="1075"><stop offset="0" stop-color="#fff"\/><stop offset="1" stop-color="#fff" stop-opacity="0"\/>/);
+  const rect = stage.match(/const GUT_RECT = \[(\d+), (\d+), (\d+), (\d+)\]/).slice(1).map(Number);
+  assert.ok(rect[1] + rect[3] >= 1075, 'the gut picture reaches the end of the fade');
+});

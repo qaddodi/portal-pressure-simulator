@@ -595,7 +595,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const MASK_BOX = 'x="200" y="-200" width="1020" height="1320"';   // (the plate's rectangle, PLATE_RECT)
   defs.insertAdjacentHTML('beforeend', `${DUO_CLIPS}`
     // colour-exempt: masks (white shows, black hides)
-    + `<mask id="gutHide" maskUnits="userSpaceOnUse" x="320" y="420" width="800" height="620"><rect x="320" y="420" width="800" height="620" fill="#fff"/>${GUT_HIDE.map((id) => `<path data-gut-cut="${id}" d="${id === 'stomach' ? SEAM_D : ORGANS.find((o) => o.id === id).d}" fill="#000"/>`).join('')}</mask>`
+    // The rectum runs down out of the frame and fades away over its last 85 units, as the esophagus does at the top (esoFadeG).
+    + '<linearGradient id="gutEndFadeG" gradientUnits="userSpaceOnUse" x1="0" y1="990" x2="0" y2="1075"><stop offset="0" stop-color="#fff"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient>'
+    + `<mask id="gutHide" maskUnits="userSpaceOnUse" x="320" y="420" width="800" height="660"><rect x="320" y="420" width="800" height="660" fill="url(#gutEndFadeG)"/>${GUT_HIDE.map((id) => `<path data-gut-cut="${id}" d="${id === 'stomach' ? SEAM_D : ORGANS.find((o) => o.id === id).d}" fill="#000"/>`).join('')}</mask>`
     // The duodenum's first part fades in over the stomach's tip, from inside it (x 730) to just past it (x 712).
     + '<linearGradient id="duFadeG" gradientUnits="userSpaceOnUse" x1="712" y1="0" x2="730" y2="0"><stop offset="0" stop-color="#fff"/><stop offset="1" stop-color="#000"/></linearGradient><mask id="duFade" maskUnits="userSpaceOnUse" x="500" y="400" width="400" height="400"><rect x="500" y="400" width="400" height="400" fill="url(#duFadeG)"/></mask>'
     // The esophagus and stomach as one shape: the stomach's tones as one ramp over both, and the esophagus's own tone fading
