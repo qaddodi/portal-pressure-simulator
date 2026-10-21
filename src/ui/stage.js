@@ -3817,6 +3817,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     return anatBg !== null && bg !== anatBg;
   }
   let plateStale = false;
+  let plateMiss = 0, fluidStillAt = 0, fluidWas = false;   // (pictures given up in a row; when the fluid last stopped)
   function platePoke() {
     // Not while diving into the lobule (the anatomy is only magnified, then covered): once landed, under the lobule.
     if (lobuleOn && !lz?.isOpen()) return;
@@ -3851,7 +3852,12 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     }
     if (plateBusy) { plateAgain = true; return; }
     // (A liver that just settled may be pausing mid time-lapse: give it a moment.)
-    const wait = themed ? 0 : Math.max(0, 500 - (performance.now() - plateLast), 400 - (performance.now() - lvStillAt), 400 - (performance.now() - spleenMv.stillAt()));
+    // A picture that came too late (the change moved on before it landed, so it was given up) waits longer the next time, 0.8 s,
+    // then 1.6, then 3.2 after the liver or the fluid last moved: a time-lapse that pauses between steps began a whole organ picture in each pause
+    // and threw it away, a frame of a quarter of a second each time on an iPhone (Mohammad's ?perf recording, 21 Oct). The live
+    // drawing shows meanwhile, as it does now; once one lands the wait is as before.
+    const still = plateMiss ? Math.min(3200, 400 * 2 ** plateMiss) : 400;
+    const wait = themed ? 0 : Math.max(0, 500 - (performance.now() - plateLast), still - (performance.now() - lvStillAt), 400 - (performance.now() - spleenMv.stillAt()), still - (performance.now() - fluidStillAt));
     clearTimeout(plateTimer);
     plateTimer = setTimeout(async () => {
       if (figureHidden() || lvMoving || fluidEasing() || spleenMoving() || (lobuleOn && !lz?.isOpen()) || circuitInk() || document.hidden) return;   // hidden, moving or diving meanwhile: a later poke rasterizes
@@ -3873,10 +3879,12 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
             wrap.classList.add('gl-plate'); syncPlateLook();
             if (!drawVeins()) { wrap.classList.remove('gl-plate'); syncPlateLook(); }
           } else syncPlateLook();
+          plateMiss = plateOn() ? 0 : Math.min(3, plateMiss + 1);
           if (!plateOn()) plateKey = '';   // not shown (the liver moved meanwhile): raster again once it settles
           else if (risePrep) { risePrep = false; clearTimeout(risePrepT); }   // (made for the way out: the anatomy under the lobule rests again)
           schedulePlateView(); gutPicSoon();
         } else if (plateStateKey() !== k) plateAgain = true;   // (given up as out of date: drawn again for the state now)
+        if (plateAgain && !plateOn()) plateMiss = Math.min(3, plateMiss + 1);   // (and the next one waits longer for the change to rest)
       } catch (e) { console.warn('Plate raster failed; the SVG plate stays.', e); }
       plateBusy = false;
       if (plateAgain) { plateAgain = false; platePoke(); }
@@ -8857,6 +8865,14 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (F) stepBlood(dt);
     stepSpray(dt);
     const fluidMoved = stepFluid(dt, st, easeDt);
+    { const fe = fluidEasing(); if (fluidWas && !fe) fluidStillAt = now; fluidWas = fe; }
+    // (For the ?perf readout: what eases while the organ picture is down, and whether the gut shows as its picture or its paths.)
+    if (gpuProbe.on && !plateOn()) {
+      gpuProbe.note(gutPicOn ? 'gut picture' : 'gut live');
+      if (lvMoving) gpuProbe.note('liver easing');
+      if (fluidWas) gpuProbe.note('fluid easing');
+      if (spleenMoving()) gpuProbe.note('spleen easing');
+    }
     // The vessel layer is redrawn only when something in it changed; the blood every frame.
     if (glowSync && !syncGlowOnly(easeInOut(morph))) syncVeins(easeInOut(morph));
     olStep(now);

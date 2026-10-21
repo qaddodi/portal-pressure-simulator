@@ -72,3 +72,12 @@ test('a theme the user picks in the app still crossfades', () => {
   assert.match(s, /if \(!document\.startViewTransition \|\| document\.hidden\) \{ applyTheme\(t, clear\); return; \}/);
   assert.match(s, /crossfade\(\(\) => applyTheme\(t, clear\)\)/);
 });
+
+test('an organ picture given up because the change moved on makes the next one wait longer, and one that lands resets it', () => {
+  const src = readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8');
+  // (Mohammad's iPhone ?perf recording, 21 Oct: a time-lapse began a whole organ picture in each pause and threw it away.)
+  assert.match(src, /const still = plateMiss \? Math\.min\(3200, 400 \* 2 \*\* plateMiss\) : 400;/);
+  assert.match(src, /still - \(performance\.now\(\) - lvStillAt\), 400 - \(performance\.now\(\) - spleenMv\.stillAt\(\)\), still - \(performance\.now\(\) - fluidStillAt\)\);/);
+  assert.match(src, /plateMiss = plateOn\(\) \? 0 : Math\.min\(3, plateMiss \+ 1\);\n\s*if \(!plateOn\(\)\) plateKey = '';/);
+  assert.match(src, /\} else if \(plateStateKey\(\) !== k\) plateAgain = true;[^\n]*\n\s*if \(plateAgain && !plateOn\(\)\) plateMiss = Math\.min\(3, plateMiss \+ 1\);/);
+});
