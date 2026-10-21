@@ -1353,6 +1353,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     // The anatomy under the lobule is brought up to the patient now and its organs' picture made, unseen (begun in camera() as the
     // new cards come in); the rise waits for it (stage.js prepRise), so the organs fade in as they are, never swapped in one frame at landing.
     stage.prepRise?.();
+    stage.lobuleHold?.(true);   // (the lobule's framing stays where the leaving slide left it: the way out only zooms out, see transitionRun)
     // (Waited for before the glide, at rest: the glide runs straight on into the rise, never stopping at the whole lobule.)
     if (stage.riseReady && !booting) await until(() => stage.riseReady(), RISE_READY_MS);
     // (The way back to the fit eases in only: it reaches the fit still moving and the rise, which moves from its first frame, carries
@@ -1367,6 +1368,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   async function camera(cam, s, cut) {
     const ms = reduce.matches || booting ? 0 : 1500;
     if (LOBULE_CAM.test(cam)) {
+      stage.lobuleHold?.(false);   // (a way out called off: the lobule follows this slide's cards again)
       // (A slide's layers: ['zones'] shows the lobule's zone bands; any other lobule slide has them off.)
       const zonesWant = !!s.layers?.includes('zones');
       if (!!store.get().lobuleLayers?.zones !== zonesWant) store.set({ lobuleLayers: { ...store.get().lobuleLayers, zones: zonesWant } });
@@ -1887,6 +1889,9 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     // Leaving the lobule: the organs' picture for the way out is begun at once, while the old words leave and the new ones come in,
     // so the rise does not wait for it (stage.js prepRise; it does nothing outside a landed lobule).
     if (!LOBULE_CAM.test(cam || '')) stage.prepRise?.();
+    // And the lobule's framing is held in the space the leaving slide's cards left, before the new cards change it: they come in
+    // before the rise, and a lobule that followed them zoomed in and down before going out (Mohammad, 21 Oct, Ascites 4 to 5).
+    if ((!s.visual && s.cath) || (cam && !LOBULE_CAM.test(cam))) stage.lobuleHold?.(true);
     // A time-lapse starts from the slide before's state; a catheter slide drives its own camera.
     // Coming back to it from a later slide shows its end at once: it plays only going forward.
     const back = to < lastAt, lap = !!s.lapse && to > 0 && !back, ct = !s.visual ? s.cath || null : null;
@@ -4210,6 +4215,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     pillW = 0; ui?.tools.dispose(); ui?.figKey.dispose(); ui?.lipRO?.disconnect(); ui?.root.remove(); ui?.shade.remove(); ui = null; app.classList.remove('pz-blacked');
     view.classList.remove('pz-out');
     for (const k of ['--pz-l', '--pz-r', '--pz-t', '--pz-b']) app.style.removeProperty(k);
+    stage.lobuleHold?.(false);   // (a way out of the lobule left unfinished: the lobule follows the free space again)
     stage.setProjection(false);
     document.documentElement.style.setProperty('--label-k', String(stage.labelEff())); document.documentElement.style.setProperty('--label-scale', String(stage.labelScale()));
     dispatchEvent(new Event('pps:labelscale'));

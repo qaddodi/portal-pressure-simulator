@@ -10,7 +10,7 @@ import { store, updateParams, varicesPresent, varixGrowth, shownVel } from './st
 import { fibroReading } from './clock.js?v=e011dfc3e7';
 import { s, h, fmt, fmtFlow, fp, clamp, lerp, toast, systemEdge, bloodColors, restBox, settledBox, putText } from './util.js?v=5814c6b396';
 import { riseCentre } from './rise-path.js?v=c039cb7b49';
-import { createLobuleZoom } from './lobule-zoom.js?v=b12957bc90';
+import { createLobuleZoom } from './lobule-zoom.js?v=3860b83de9';
 import { sinceSource } from './since-ref.js?v=ef1a818c75';
 import { clipBox, mapBox } from './fit-box.js?v=d5d6d4c60f';
 import { runFlick, FLICK } from './flick.js?v=4bc709c801';
@@ -9636,6 +9636,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     lobuleFocus: (part, opts) => !!lz?.focusOn(part, opts),
     /** Where the presenter's next lobule framing will be, so a dive lands on it in one move (see lobule-zoom aim). */
     lobuleAim: (part, opts) => lz?.aim(part, opts),
+    /** The way out of the lobule begins (true: its framing stays in the space the leaving slide's cards left) or is called off (false). */
+    lobuleHold: (on) => lz?.holdFrame(on),
     /** The dive into the lobule (or back out) has finished: the view is wholly the lobule, or wholly the anatomy. */
     lobuleSettled: () => !chainOut && !(lz?.sinBusy()) && (lobuleOn ? diveT >= 1 : diveT <= 0),
     /** From the anatomy to the sinusoid view in two zooms: into the lobule's normal framing, then into the sinusoid. In the lobule already, just the sinusoid. */

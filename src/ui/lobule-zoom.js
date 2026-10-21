@@ -270,7 +270,16 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host) }
   let camAim = null;
   const appStyle = document.getElementById('app')?.style;
   const cssN = (k) => parseFloat(appStyle?.getPropertyValue(k)) || 0;
+  // On the way out of the lobule (a slide that leaves it, asked for by the presenter as the change begins), the free space is held as
+  // the leaving slide's cards left it: the next slide's cards come in before the rise, and a lobule that followed their space glided in
+  // and down toward its bottom before it zoomed out (Mohammad, 21 Oct, Ascites 4 to 5 on a phone). Held, the way out only ever zooms out.
+  // (Kept for this stage size only; given back when the lobule is framed for a slide again or has gone.)
+  let heldFree = null;
   function freeRect() {
+    if (heldFree && heldFree.W === geo.W && heldFree.H === geo.H) return heldFree.f;
+    return liveFree();
+  }
+  function liveFree() {
     const W = geo.W, H = geo.H, phone = phoneMQ.matches;
     // (--pz-l, --pz-r, --pz-b: the room a presenter slide's text and data take.)
     let t = cssN('--top-safe') + cssN('--cmp-h') + cssN('--pz-t') + 8, b = H - (cssN('--bot-occ') || 100) - cssN('--pz-b') - 8, l = 12 + cssN('--pz-l'), r = W - cssN('--right-occ') - cssN('--pz-r') - 12;
@@ -3231,7 +3240,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host) }
       // (Mid-zoom out, the canvases are given back when the zoom ends: freeing them there is one more thing in a moving frame.)
       if (fade === 0) { cancelFrame(raf); raf = 0; last = 0; if (was > 0) { if (diveScaled) relLater = true; else release(); } }
       // Out of the lobule: a presenter's aim is spent (the next way in frames the whole lobule).
-      if (fade === 0 && was > 0) { aimed = null; camHeld = false; if (camMove) { camMove = false; el.classList.remove('lz-cam'); } }
+      if (fade === 0 && was > 0) { aimed = null; camHeld = false; heldFree = null; if (camMove) { camMove = false; el.classList.remove('lz-cam'); } }
       // Leaving the lobule view from inside a sinusoid: the sinusoid fades out with it.
       if (sinU > 0) { if (fade === 0) resetSinusoid(); else placeSinusoid(); }
     },
@@ -3310,6 +3319,14 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host) }
     zoomBy, fitView,
     /** The presenter's camera: glide to the whole lobule ('fit') or close in on a portal tract ('triad'), the
      *  sinusoids between it and the centre ('sinusoid') or the central vein ('central'), zoom × the framing. */
+    /** The way out of the lobule begins (on) or is called off (off): see heldFree. Called off with the lobule still up, it follows the
+     *  space the cards leave now, gliding. */
+    holdFrame(on) {
+      if (on) { if (geo && !heldFree && fade > 0) heldFree = { W: geo.W, H: geo.H, f: liveFree() }; return; }
+      if (!heldFree) return;
+      heldFree = null;
+      if (geo && fade > 0) refit();
+    },
     focusOn(part, { zoom = 2, ms = 1400, ease = 'inOut' } = {}) {
       if (!geo || sinTo) return false;
       const F0 = fitV(); kFit = F0.k;
