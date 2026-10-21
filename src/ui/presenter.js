@@ -25,7 +25,7 @@ import { nb, listCase, plateletText } from './glue.js?v=5a0f63226b';
 import { DECKS, REGIONS, LEVELS, TOPICS, withOverview, siteTag, SITE_TAGS } from './decks.js?v=6beb4ed97f';
 import { tenthGap } from '../engine/gap.js?v=3a5947c552';
 import { createHvpgMonitor } from './hvpg-proc.js?v=c4a99373f7';
-import { createTools } from './presenter-tools.js?v=feb821f4a0';
+import { createTools } from './presenter-tools.js?v=4b6873925c';
 import { openHandout } from './handout.js?v=8901a1cc12';
 import { noteResume, resumeFor } from './resume.js?v=f086f80ee8';
 import { parseDeckSource, checkDeck } from './deck-source.js?v=8395c650cd';
@@ -34,10 +34,10 @@ import { frameFor, cancelFrame } from './frame.js?v=50a3fdb73c';
 import { createFigureKey } from './figure-key.js?v=7dc0629c03';
 import { traceWhen } from './trace-labels.js?v=fc916a95c6';
 import { flowCss, heatCss, dropCss, gradientCss, oxygenCss } from './colormap.js?v=f08f4b9604';
-import { EXT, expandIds, stepExtra, markLabel, figureHooks, safe } from './slide-ext.js?v=1a53c68b94';
+import { EXT, expandIds, stepExtra, markLabel, figureHooks, safe } from './slide-ext.js?v=1cbe4a345f';
 import { clotWords } from './callout-math.js?v=0c960d54d3';
 import { citeText, focusOf, oneLadder } from './teach-extras.js?v=5f5248f5a7';
-import { createProfileTool } from './tool-profile.js?v=9674e55b42';
+import { createProfileTool, createProfileStrip } from './tool-profile.js?v=a00ae3cdce';
 import { DEMO_ALL } from './test-decks/demo-all-new-visuals.js?v=97600471a5';
 import { COMPACT, WIDE } from './card-type.js?v=f5dfdb80f2';
 const nextFrame = frameFor('presenter');
@@ -1943,26 +1943,33 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     }).filter(Boolean);
   }
   // The six levels side by side (visual: 'ladders'), each patient's Gut to heart profile in a cell of its own, the healthy line named
-  // on each (one chart everywhere: Mohammad, 21 Oct, "Gut to heart is good, unify it"). Its HVPG pill reads as its bracket does.
-  // (A phone, upright or sideways, has no room for six full charts: each is only as tall as it needs, and only the bottom row names
-  // the stations under its axis, the others sharing those names, as small multiples do. A wider screen's cells fill their room.)
-  const gridOwn = (el) => !!el.closest('.pz.stack, .pz.low');
-  const gridNames = (el) => {
-    const c = el.closest('.pz-cell'), last = c?.parentElement?.lastElementChild;
-    return !gridOwn(el) || !c || c.offsetTop >= last.offsetTop - 2;
+  // on each and the resistance hatched red (one chart everywhere: Mohammad, 21 Oct, "Gut to heart is good, unify it"). Each cell's
+  // first row names the site and the cause; no HVPG pill, its chart's bracket shows it (Mohammad, 21 Oct: "fit the name of the cause in
+  // the first row ... and get rid of the HVPG, because it's on the graph!").
+  // (A phone, upright or sideways, draws each case on one line instead, its readings with the red blocks, the stations named once over
+  // them: Mohammad, 21 Oct, "for phone, we should just make it one line with the red block of course, similar to what we had before".
+  // Two copies of the names, for a phone on its side's two columns.)
+  // (The first row's cause steps down to fit beside the site, never under 12 px, never wrapped or cut: fitRow.)
+  const fitRow = (k) => {
+    const t = k.lastElementChild;
+    if (!t) return;
+    t.style.removeProperty('font-size');
+    const over = k.scrollWidth - k.clientWidth, fs = parseFloat(getComputedStyle(t).fontSize) || 12;
+    if (over > 0.5 && t.offsetWidth) t.style.fontSize = `${Math.max(12, fs * (t.offsetWidth - over) / t.offsetWidth).toFixed(2)}px`;
   };
+  const rowRO = typeof ResizeObserver === 'function' ? new ResizeObserver((es) => es.forEach((e) => fitRow(e.target))) : null;
   function laddersGrid(s) {
     const grid = h('div', { class: 'pz-grid' });
+    grid.append(h('div', { class: 'pz-grid-head', 'aria-hidden': 'true' }, createProfileStrip(true).el, createProfileStrip(true).el));
     for (const r of rowsOf(s)) {
       if (!r.f) continue;
-      const P = createProfileTool();
-      P.configure({ kind: 'profile', names: gridNames, own: gridOwn }, { fp: r.f, healthy: () => base });
-      const hv = Math.round(r.f.hvpg);
-      const cell = h('div', { class: 'pz-cell' },
-        h('div', { class: 'pz-cell-k' }, h('div', { class: 'pz-kick', 'data-site': r.site || 'none' }, r.kicker.replace('Intrahepatic · ', '')),
-          Number.isFinite(hv) ? h('span', { class: 'pz-cell-pill', 'data-rate': rateOf('hvpg', { hvpg: hv })[0] }, 'HVPG ', h('b', {}, String(hv))) : null),
-        h('div', { class: 'pz-cell-t' }, r.title), P.el);
-      grid.append(cell);
+      const P = createProfileTool(), S = createProfileStrip();
+      P.configure({ kind: 'profile' }, { fp: r.f, healthy: () => base });
+      S.set(r.f, () => base);
+      const k = h('div', { class: 'pz-cell-k' }, h('div', { class: 'pz-kick', 'data-site': r.site || 'none' }, r.kicker.replace('Intrahepatic · ', '')),
+        h('div', { class: 'pz-cell-t' }, r.title));
+      rowRO?.observe(k);
+      grid.append(h('div', { class: 'pz-cell' }, k, P.el, S.el));
     }
     return grid;
   }
