@@ -1714,6 +1714,7 @@ button.finding { cursor: pointer; }
 .pz-data.pz-hide { opacity: 0; transform: translateX(18px); }
 .pz.pz-card:not(.stack) .pz-data { padding: var(--pz-cp); }   /* (the same padding as the teaching card, so the two cards' text edges line up) */
 .pz-dh { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: center; text-align: center; gap: 4px 12px; font: var(--caps-w) var(--s-cap)/1.25 var(--font-ui); letter-spacing: var(--caps-ls); text-transform: uppercase; color: var(--text-3); }
+.pz-unit { text-transform: none; letter-spacing: normal; }   /* (a unit in a title: "mL/day", never "ML/DAY"; title-units.js) */
 .pz-lg { display: inline-flex; align-items: center; gap: .45em; letter-spacing: 0; text-transform: none; font-weight: 500; }
 .pz-lg i.now { width: 1.4em; height: 3px; border-radius: 2px; background: linear-gradient(90deg, var(--tour-portal), var(--tour-sys)); }
 .pz-lg i.base { width: 1.4em; border-top: 2px dashed var(--text-3); margin-left: .5em; }

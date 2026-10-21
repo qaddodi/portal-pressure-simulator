@@ -15,6 +15,7 @@
 import { store, replaceParams } from './store.js?v=d6648af441';
 import { download } from './download.js?v=3564e5bf8c';
 import { h, toast, svgIcon, icon, fmt, clamp, openModal, closeModal, isModalOpen, restBox, paintRange, cssVar, swapText } from './util.js?v=5814c6b396';
+import { titleParts } from './title-units.js?v=c8d5ce1f26';
 import { swipeDir, ownsSideways, ownsTouch, cardSwipe, caseFling, caseFlight } from './swipe.js?v=ca9148ab7d';
 import { sinusoidSupported } from './sinusoid-view.js?v=50d29e3b64';
 import { NODES } from '../engine/topology.js?v=4044766e96';
@@ -2150,6 +2151,8 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     const t = fullTitle(s), small = phone() || (innerWidth > innerHeight && innerHeight <= 500);
     return (small && t.length > 20 ? SHORT_TITLE[t] || (s?.tool && ui.tools.short(s.tool, t)) || t.replace(/ over the (days|year|talk)$/, '').replace(/,.*$/, '') : t).replace(/-/g, '\u2011');
   };
+  // (A unit in a title keeps its own case, in a span the style leaves alone: "mL/day", not "ML/DAY".)
+  const unitSpans = (el) => { const p = titleParts(el.textContent); if (p.length < 2) return; el.textContent = ''; p.forEach((t, i) => { if (t) el.append(i % 2 ? h('span', { class: 'pz-unit' }, t) : t); }); };
   // The talk so far, for a pressure trace: every state up to slide i, once each.
   // Each carries its time point (the deck's days so far) and what happened there (the first tick among its slides, else its title),
   // and its slide's id and its state's params (for a deck visuals package's chart).
@@ -2242,7 +2245,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       data.dataset.tn = tileKeys(s).length;   // (Mac and iPad landscape: every instrument with tiles has them stacked beside it; its own readings fold to a short list under its picture)
       data.classList.toggle('tool-lead', !!s.tool?.open && !!s.data);   // (a phone keeps this instrument open and folds the tiles instead)
       data.dataset.tool = ui.tools.sig(s.tool);
-      ui.dhT.textContent = cardTitle(s);
+      ui.dhT.textContent = cardTitle(s); unitSpans(ui.dhT);
       ui.dhL.hidden = !lad;
       // (A flow-time chart over a time-lapse starts empty and draws as it plays.)
       if (s.tool) ui.tools.show(s.tool, { slide: i, stateKey: stateOf[i], chain: chainTo(i, s.tool.kind === 'trace' ? s.tool.since : null), trail: states[stateOf[i]]?.trail ?? null, reveal: lap ? 0 : 1, ctx: ctxOf(s, i) }); else ui.tools.hide();
@@ -2891,7 +2894,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       row = h('p', { class: 'pz-tfold' }, h('span', { class: 'pz-sub' }), b);
       ui.text.append(row);
     }
-    row.firstChild.textContent = ui.dhT.textContent;
+    row.firstChild.textContent = ui.dhT.textContent; unitSpans(row.firstChild);
     const b = row.lastChild;
     b.textContent = open ? 'Hide' : 'Show'; b.setAttribute('aria-expanded', String(open));
   }

@@ -126,3 +126,25 @@ test('ghost parts: the card draws each ghost and keys the fill\'s greens', () =>
   const sizes = [...css.matchAll(/\.gw[\w-]*[^{}]*\{[^}]*font-size: (\d+(?:\.\d+)?)px/g)].map((m) => +m[1]);
   assert.ok(sizes.every((n) => n >= 12), 'no text under 12 px in the card');
 });
+
+// The card's title is set in capitals by its style; "mL/day" keeps its own case (Mohammad's pick on 20 Oct: "mL/day", not "ML/DAY").
+test('a unit in a card title is split out, so the style leaves its case alone', async () => {
+  const { titleParts } = await import('../src/ui/title-units.js');
+  assert.deepEqual(titleParts('Fluid balance · mL/day'), ['Fluid balance · ', 'mL/day', '']);
+  assert.deepEqual(titleParts('Liver stiffness (kPa), FibroScan'), ['Liver stiffness (', 'kPa', '), FibroScan']);
+  assert.deepEqual(titleParts('Flow, L/min, and speed, cm/s'), ['Flow, ', 'L/min', ', and speed, ', 'cm/s', '']);
+  assert.deepEqual(titleParts('Pressure, portal vein to heart'), ['Pressure, portal vein to heart'], 'no unit, no split');
+  assert.deepEqual(titleParts('Millimetres and mLs'), ['Millimetres and mLs'], 'a unit is a whole word');
+  const ext = (await import('../src/ui/ext-instruments.js')).default.tools.fluid;
+  for (const t of [ext.title({ window: true }), ext.short({ window: true })]) assert.equal(titleParts(t)[1], 'mL/day', `"${t}": the unit is split out, long title and short`);
+});
+test('the data card sets its title and the footer\'s copy of it through the unit split, and the style keeps the unit as typed', () => {
+  const js = readFileSync(new URL('../src/ui/presenter.js', import.meta.url), 'utf8');
+  assert.match(js, /ui\.dhT\.textContent = cardTitle\(s\); unitSpans\(ui\.dhT\);/, 'the card header');
+  assert.match(js, /row\.firstChild\.textContent = ui\.dhT\.textContent; unitSpans\(row\.firstChild\);/, 'the folded title under the words (Mac and iPad)');
+  assert.match(js, /h\('span', \{ class: 'pz-unit' \}, t\)/);
+  const css = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
+  assert.match(css, /\.pz-unit \{ text-transform: none; letter-spacing: normal; \}/, 'the unit is not upper-cased and takes no caps spacing');
+  assert.match(css, /\.pz-dh \{[^}]*text-transform: uppercase/, 'the rest of the header stays in capitals');
+  assert.match(css, /\.pz-sub \{[^}]*text-transform: uppercase/, '(and the folded title)');
+});

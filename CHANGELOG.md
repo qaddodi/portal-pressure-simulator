@@ -2,6 +2,10 @@
 
 ## October 2026
 
+- **Card titles keep a unit's case.** The data card's header is set in capitals, which turned "Fluid balance · mL/day" into "ML/DAY".
+  A unit in a title (mmHg, kPa, mL, mL/day, mL/min, L/min, cm/s, m/s) now sits in its own span that the style leaves as typed, on the card's
+  header and on the copy of it that folds under the words on a Mac or iPad. Only the Fluid balance title has a unit today; the rest of
+  the header is unchanged.
 - **Fluid balance card: ghost parts.** Every part of the capacity window is now always drawn: a part with nothing in it is a
   dashed outline in its own colour that the solid part grows out of (the room left in the window, the overflow's cap and drop,
   the Leaked and Reabsorbed lanes, the gut's swatch), so nothing pops in or out as a time-lapse moves the numbers, and 10 mL a day
