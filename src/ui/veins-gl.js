@@ -1352,7 +1352,8 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false }) {
   gl.bindBuffer(gl.ARRAY_BUFFER, lineBuf);
   for (let i = 0; i < 3; i++) { gl.enableVertexAttribArray(i); gl.vertexAttribPointer(i, 2, gl.FLOAT, false, 24, i * 8); }
   gl.bindVertexArray(null);
-  let lines = null, linesWas = false, lineVer = 0, lineSig = '', lineKey = '', glowKey = '', warmKey = '', lastMk = '';
+  const lineVers = [0, 0, 0], lineSigs = ['', '', ''];
+  let lines = null, linesWas = false, lineKey = '', glowKey = '', warmKey = '', lastMk = '';
   // The outlines are drawn into a layer of their own when they change, and the composite lays it over the picture: the
   // cells-only pass then keeps them, so an open organ card no longer repaints the whole picture every frame. Glows
   // (draws marked soft) have a layer too, which the composite lays under the organs.
@@ -1934,19 +1935,20 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false }) {
       const moving = mk !== lastMk;
       lastMk = mk;
       const hard = hasHard(), glow = hasSoft(), layer = hard && !cath && !moving;
-      const vk = `${lineVer}|${mk}|${canvas.width}x${canvas.height}`;
+      // (Each layer has its own version: an outline's change redraws the outline layer alone, a glow's the glow's. External review, 21 Oct.)
+      const at = `|${mk}|${canvas.width}x${canvas.height}`, vk = lineVers[0] + at;
       if (layer) {
         if (vk !== lineKey) { gpuProbe.time(gl, 'outline layer', () => renderLayer(lineLayer, m, false)); lineKey = vk; full = true; }
       } else if (!hard) { freeLayer(lineLayer); lineKey = ''; }
       else if (moving) { lineKey = ''; full = true; }
       // (The glow lies behind the organs, so the catheter never draws over it: its layer holds whatever the catheter does.)
       if (glow) {
-        if (vk !== glowKey) { gpuProbe.time(gl, 'glow layer', () => renderLayer(glowLayer, m, true)); glowKey = vk; full = true; }
+        if (lineVers[1] + at !== glowKey) { gpuProbe.time(gl, 'glow layer', () => renderLayer(glowLayer, m, true)); glowKey = lineVers[1] + at; full = true; }
       } else { freeLayer(glowLayer); glowKey = ''; }
       // (The warm glow lies on the organs: no catheter draws under it either.)
       const warm = hasWarm();
       if (warm) {
-        if (vk !== warmKey) { gpuProbe.time(gl, 'warm layer', () => renderLayer(warmLayer, m, true, true)); warmKey = vk; full = true; }
+        if (lineVers[2] + at !== warmKey) { gpuProbe.time(gl, 'warm layer', () => renderLayer(warmLayer, m, true, true)); warmKey = lineVers[2] + at; full = true; }
       } else { freeLayer(warmLayer); warmKey = ''; }
       if (linesWas && !lines) full = true;
       linesWas = !!lines;
@@ -2052,8 +2054,10 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false }) {
       const fresh = spec && spec.verts !== lines?.verts;
       lines = lineP && spec?.draws?.length ? spec : null;
       if (!lines) return;
-      const sig = lines.draws.map((d) => `${d.first},${d.count},${d.alpha},${d.col},${d.tri ? 1 : 0},${d.soft ? 1 : 0},${d.warm ? 1 : 0},${d.endFade ? 1 : 0}`).join(';');
-      if (fresh || sig !== lineSig) { lineSig = sig; lineVer++; }
+      // (Per layer: the outlines (0), the glow behind the organs (1) and the warm glow on them (2), as drawLines sorts the draws.)
+      const sigs = [[], [], []];
+      for (const d of lines.draws) sigs[d.warm ? 2 : d.soft ? 1 : 0].push(`${d.first},${d.count},${d.alpha},${d.col},${d.tri ? 1 : 0},${d.endFade ? 1 : 0}`);
+      for (let i = 0; i < 3; i++) { const sig = sigs[i].join(';'); if (fresh || sig !== lineSigs[i]) { lineSigs[i] = sig; lineVers[i]++; } }
       if (!fresh) return;
       gl.bindBuffer(gl.ARRAY_BUFFER, lineBuf);
       gl.bufferData(gl.ARRAY_BUFFER, lines.verts, gl.DYNAMIC_DRAW);
