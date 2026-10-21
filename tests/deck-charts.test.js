@@ -122,6 +122,21 @@ test('the station names fit their slots on one row: full where there is room, el
   }
 });
 
+// Mohammad, 21 Oct (iPhone, Ascites 8/13): "better compaction or less wasted space on top". The key row over the plot is gone: the plot starts
+// 1.5 em under the chart's top, the liver band rises 1.3 em over it and carries its name, and the layouts' boxes (styles/app.css) are 1.6 em
+// shorter, so the plot keeps its old height and the card is that much shorter.
+test('the ladder keeps no empty row over its plot: the liver band and its name fill the strip above it', () => {
+  for (const [w, h, f] of [[335, 250, 12], [352, 270, 13.8], [552, 300, 15.6], [259, 200, 12.02]]) {
+    const tw = approxW(f), G = profileGeo(w, h, f, tw, true), word = [G.T - 0.35 * f - 0.72 * f, G.T - 0.35 * f], bandTop = G.T - 1.3 * f;
+    assert.equal(G.T, 1.5 * f, `${w}x${h}: the plot starts 1.5 em down`);
+    assert.ok(bandTop >= 0 && word[0] > bandTop, `${w}x${h}: the band starts inside the chart and LIVER stands in it`);
+    assert.equal(G.keyH, undefined, 'no key row');
+    // (The plot's height at a box 1.6 em shorter than the old layout's: what it was with the key row's 1.6 em kept.)
+    const old = profileGeo(w, h + 1.6 * f, f, tw, true);
+    assert.ok(Math.abs((old.B - 3.1 * f) - (G.B - G.T)) < 1e-9, `${w}x${h}: the plot as tall as before`);
+  }
+});
+
 test('a value goes under its dot only where the line is in the way above', () => {
   const f = 12, tw = approxW(f);
   // A flat line: every value above. A steep drop into a point: its value under it when the line before covers the top.
@@ -254,8 +269,9 @@ test('on the resistance profiles no value touches a line or a word, and each is 
   const [hl, schisto, csph, sos, comp] = (await runSteps([{ preset: 'healthy' }, { preset: 'schisto' }, { preset: 'csph' }, { preset: 'sos' }, { preset: 'cirr-comp' }])).map(profileOf);
   const one = (v) => (Math.round(v * 10) / 10).toFixed(1);
   const off = [];
-  // (A phone, an upright iPad and a Mac card, at the sizes the demo deck draws them.)
-  for (const [dev, f, w, h] of [['phone', 13.8, 352, 260], ['iPad', 15.6, 552, 270], ['Mac', 12.02, 259, 229]]) {
+  // (A phone, an upright iPad and a Mac card, at the sizes the demo deck draws them: each box 1.6 em shorter than it was, now the chart keeps no key row.)
+  for (const [dev, f, w, h0] of [['phone', 13.8, 352, 260], ['iPad', 15.6, 552, 270], ['Mac', 12.02, 259, 229]]) {
+    const h = h0 - 1.6 * f;
     for (const [name, g, ref] of [['healthy', hl, null], ['schisto', schisto, null], ['cirrhosis', csph, schisto], ['SOS', sos, csph], ['compensated', comp, null]]) {
       const tw = approxW(f), G = profileGeo(w, h, f, tw), goal = { ...g, top: axisTop(g, hl, ref) };
       const y = (v) => G.Z - (G.Z - G.T) * Math.min(v, goal.top) / goal.top, P = (p) => p.v.map((v, i) => [G.x(i), y(v)]);
@@ -285,7 +301,8 @@ test('the HVPG and PPG brackets stand inside the plot, 4 px clear of every line,
   const [hl, schisto, csph, sos, comp, pvt] = (await runSteps([{ preset: 'healthy' }, { preset: 'schisto' }, { preset: 'csph' }, { preset: 'sos' }, { preset: 'cirr-comp' }, { preset: 'pvt-chronic' }])).map(profileOf);
   const inside = [], under = [];
   const gap = (a, b) => Math.max(b[0] - a[1], a[0] - b[1], b[2] - a[3], a[2] - b[3]);
-  for (const [dev, f, w, h] of [['phone', 13.8, 352, 260], ['iPad', 15.6, 552, 270], ['Mac', 12.02, 259, 229], ['Mac wide', 12.02, 600, 150], ['Mac beside', 12, 335, 300], ['phone sideways', 12, 300, 170]]) {
+  for (const [dev, f, w, h0] of [['phone', 13.8, 352, 260], ['iPad', 15.6, 552, 270], ['Mac', 12.02, 259, 229], ['Mac wide', 12.02, 600, 150], ['Mac beside', 12, 335, 300], ['phone sideways', 12, 300, 170]]) {
+    const h = h0 - 1.6 * f;   // (each box 1.6 em shorter than it was: the chart keeps no key row, so its plot is as tall as before)
     for (const [name, g, ref] of [['healthy', hl, null], ['schisto', schisto, null], ['cirrhosis', csph, schisto], ['SOS', sos, csph], ['compensated', comp, null], ['PVT', pvt, null]]) {
       if (!g) continue;
       // (As the chart plans it: inside the plot where both have room, else in the band at its foot.)

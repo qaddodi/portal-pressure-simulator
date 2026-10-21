@@ -6225,11 +6225,13 @@ html.thumb-ui .menu.from-dock { clip-path: inset(-64px -64px calc(var(--sink, 0p
    small size; the card's fit shortens the chart, never its words. */
 .pz-tool .pz-inst:is(.pz-prof, .pz-flows) { display: grid; font-size: var(--pz-sm, var(--pz-psm, 12px)); }
 /* (One size per layout, never the card's fit (Mohammad, 21 Oct, Sites 5 on a Mac: "bouncing between large and small card ... vibrating"): shortened
-   by the fit, the ladder pushed its brackets into a band, asked for a taller box (tool-profile.js min-height), the card re-fitted, and round again.) */
+   by the fit, the ladder pushed its brackets into a band, asked for a taller box (tool-profile.js min-height), the card re-fitted, and round again.
+   Each box is 1.6 em shorter than it was: the chart no longer keeps a key row over its plot (tool-profile.js profileGeo), so the plot is as tall as
+   before and the card is that much shorter: "less wasted space on top", Mohammad, 21 Oct.) */
 .pz-prof { height: var(--prof-h, 250px); min-height: 11em; }
-.pz:not(.stack) .pz-tool[data-kind="profile"] .pz-prof { --prof-h: min(62cqi, calc(40 * var(--pzh))); }
-.pz.stack .pz-prof { --prof-h: min(74cqi, 270px); }
-.pz.low .pz-data.has-tool .pz-prof { --prof-h: min(44cqi, 170px); }
+.pz:not(.stack) .pz-tool[data-kind="profile"] .pz-prof { --prof-h: calc(min(62cqi, calc(40 * var(--pzh))) - 1.6em); }
+.pz.stack .pz-prof { --prof-h: calc(min(74cqi, 270px) - 1.6em); }
+.pz.low .pz-data.has-tool .pz-prof { --prof-h: calc(min(44cqi, 170px) - 1.6em); }
 .pz:not(.stack):not(.low) .pz-data > .pz-tool[data-kind="profile"], .pz:not(.stack):not(.low) .pz-data > .pz-tool[data-kind="flows"] { container-type: inline-size; }
 .pz-prof svg, .pz-flows svg { grid-area: 1 / 1; width: 100%; height: 100%; overflow: visible; }
 /* (The card's fit shortens these charts, never their width or their words: they keep the card's full width and are not zoomed with
@@ -6599,7 +6601,7 @@ html.thumb-ui .menu.from-dock { clip-path: inset(-64px -64px calc(var(--sink, 0p
 /* A phone's charts have ONE size on every slide, never shortened by the card's fit (Mohammad, 21 Oct, the Gut to heart ladder "bouncing
    between small version and large version": "Just make it one version everywhere"). The after-meal chart's is the one it used to give way to,
    so Circulation 10 still arrives partly open; the ladder keeps its full size; a card too tall borrows from the figure. */
-.pz.stack.stack .pz-prof { --prof-h: min(74cqi, 270px); height: var(--prof-h); }   /* (its full size: at 216 px the brackets left the plot for a band at its foot, the chart grew by its min-height after landing and the card cut off its sinusoidal brace and handle, Sites 4, Mohammad, 21 Oct) */
+.pz.stack.stack .pz-prof { --prof-h: calc(min(74cqi, 270px) - 1.6em); height: var(--prof-h); }   /* (its full size: at 216 px the brackets left the plot for a band at its foot, the chart grew by its min-height after landing and the card cut off its sinusoidal brace and handle, Sites 4, Mohammad, 21 Oct) */
 .pz.stack.stack .pz-flows { height: 9.25em; }
 .pz.stack.stack .pz-flowtime { --ft-h: min(43cqi, 144px); height: var(--ft-h); }
 .pz.stack.stack .pz-flowtime.has-bands { height: calc(var(--ft-h) + var(--band-room, 0em)); }

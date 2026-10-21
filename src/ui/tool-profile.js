@@ -95,8 +95,11 @@ export function nameFit(slot, tw) {
  *  its plot at its smallest, the band kept. */
 export function profileGeo(w, h, f, tw, inside = false) {
   const L = Math.ceil(tw('30') + 12), R = w - 10, slot = (R - L) / STATIONS.length, fit = nameFit(slot, tw);
-  // (The strip over the plot holds the card title above it and the liver's name in it; no key: the healthy line is named on itself, the unit sits in the bottom row (Mohammad, 21 Oct).)
-  const keyH = 1.6 * f, T = keyH + 1.5 * f, nameH = fit.rows * 1.25 * f + 0.4 * f;
+  // (The plot starts 1.5 em under the chart's top: the liver's band rises 1.3 em over it and carries its name, the card title stands above
+  // the chart in the card's header, and no key row is kept (the healthy line is named on itself, the unit sits in the bottom row).
+  // Mohammad, 21 Oct: "better compaction or less wasted space on top". The layouts' box heights (styles/app.css --prof-h) are shorter by
+  // the 1.6 em this gave back, so the plot keeps its height.)
+  const T = 1.5 * f, nameH = fit.rows * 1.25 * f + 0.4 * f;
   const brFit = SPANS.map(([, name, a, b]) => bracketFit(slot * (STATIONS.indexOf(b) - STATIONS.indexOf(a)), name, tw, f));
   const brMode = brFit.map((q) => q.mode), brFs = brFit.map((q) => q.fs);
   const half = brMode.map((m) => (m === 'stack' ? 0.91 : 0.36) * f + 1), bandH = 3 * BR_PAD + 2 * (half[0] + half[1]), band = inside ? 0 : bandH;
@@ -104,7 +107,7 @@ export function profileGeo(w, h, f, tw, inside = false) {
   const braceH = 1.85 * f;
   const B = Math.max(T + 3 * f + band, h - nameH - braceH - 0.5 * f), y1 = B - BR_PAD - half[1];
   const x = (i) => L + slot * (i + 0.5);
-  return { w, h, f, L, R, T, B, Z: B - band, slot, x, fit, keyH, brMode, brFs, inside, need: T + 3 * f + bandH + nameH + braceH + 0.5 * f,
+  return { w, h, f, L, R, T, B, Z: B - band, slot, x, fit, brMode, brFs, inside, need: T + 3 * f + bandH + nameH + braceH + 0.5 * f,
     braceY: B + nameH - 0.1 * f,
     nameX: (i) => x(i) + fit.dx[i], nameY: (i) => B + 1.05 * f + (fit.low[i] ? 1.25 * f : 0),
     brY: (k) => (k ? y1 : y1 - half[1] - BR_PAD - half[0]) };
@@ -326,7 +329,7 @@ export function placeValues(G, tw, goal, hl, bf) {
   const i0 = STATIONS.indexOf(PATH.liver[0]), i1 = STATIONS.indexOf(PATH.liver[1]), cap = 0.72 * f, lw = (tw('LIVER', 600) + 0.3 * f) / 2;
   const overWords = i0 >= 0 ? [[(G.x(i0) + G.x(i1)) / 2 - lw - 2, (G.x(i0) + G.x(i1)) / 2 + lw + 2, G.T - 0.35 * f - cap - 2, G.T - 0.35 * f + 2]] : [];
   const pg = ptsG(goal);
-  return valueSides(pg, [hl, bf].filter(Boolean).map(ptsG), goal.v.map(one), f, (t) => tw(t), G.keyH + 0.2 * f,
+  return valueSides(pg, [hl, bf].filter(Boolean).map(ptsG), goal.v.map(one), f, (t) => tw(t), G.T - 1.3 * f,
     { bottom: G.Z, axis: G.Z, left: G.L + 2, right: G.R + 8, dotR, obstacles: overWords, dots: pg.map(([x, yy]) => [x, yy, dotR + 1]) });
 }
 

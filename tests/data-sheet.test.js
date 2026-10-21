@@ -172,7 +172,7 @@ test('every chart in a phone\'s card has one size on every slide: none gives way
   assert.doesNotMatch(js, /CHART_GIVE|elastic/, 'no shrink path');
   assert.match(js, /const data = full;/);
   assert.match(js, /if \(key\) phoneLock = \{ key, cap, shut, data: full, fig: phoneFig \};/, 'the plan is kept against the card at its one size');
-  for (const [sel, h] of [['pz-prof', /--prof-h: min\(74cqi, 270px\); height: var\(--prof-h\);/], ['pz-flows', /height: 9\.25em;/], ['pz-flowtime', /--ft-h: min\(43cqi, 144px\); height: var\(--ft-h\);/], ['pz-flowtime\\.has-bands', /height: calc\(var\(--ft-h\) \+ var\(--band-room, 0em\)\);/]]) {
+  for (const [sel, h] of [['pz-prof', /--prof-h: calc\(min\(74cqi, 270px\) - 1\.6em\); height: var\(--prof-h\);/], ['pz-flows', /height: 9\.25em;/], ['pz-flowtime', /--ft-h: min\(43cqi, 144px\); height: var\(--ft-h\);/], ['pz-flowtime\\.has-bands', /height: calc\(var\(--ft-h\) \+ var\(--band-room, 0em\)\);/]]) {
     const rule = css.match(new RegExp(`\\.pz\\.stack\\.stack \\.${sel} \\{([^}]*)\\}`))?.[1] ?? '';
     assert.match(rule, h, sel);
     assert.doesNotMatch(rule, /--pz-fit/, `${sel} never follows the fit`);
@@ -198,7 +198,7 @@ test('Circulation 10 (after a meal) lands partly open on a phone: its flowtime c
 // Mohammad, 21 Oct (iPhone, Sites 4/12): the ladder's sinusoidal brace, x-axis row and the card's handle were cut off.
 test('a phone\'s ladder keeps its full size, so its brackets stay inside the plot and nothing grows the card after it lands', () => {
   const rule = css.match(/\.pz\.stack\.stack \.pz-prof \{([^}]*)\}/)?.[1] ?? '';
-  assert.match(rule, /min\(74cqi, 270px\)/, 'not the 216 px that pushed the brackets into a band at its foot');
+  assert.match(rule, /calc\(min\(74cqi, 270px\) - 1\.6em\)/, 'its 270 px less the 1.6 em the key row no longer takes: the plot is as tall as at 270, not the 216 px that pushed the brackets into a band at its foot');
   assert.doesNotMatch(css, /\.pz\.stack[^{]*\.pz-prof[^{]*\{[^}]*(overflow: hidden|max-height)/, 'never clipped');
 });
 
@@ -215,12 +215,19 @@ test('every ladder shows its card title and the LIVER word, with no key, mmHg in
   assert.match(prof, /got = got \|\| best;/, 'named even where no place is clear: the least crowded one inside the plot');
 });
 
+// Mohammad, 21 Oct: "less wasted space on top": every layout's box is 1.6 em shorter, the chart's plot the same (tool-profile.js profileGeo).
+test('the ladder\'s box is 1.6 em shorter on every layout, as the chart no longer keeps a key row over its plot', () => {
+  const rules = [...css.matchAll(/[^}\n]*\.pz-prof[^{]*\{[^}]*--prof-h:[^}]*\}/g)].map((m) => m[0]);
+  assert.equal(rules.length, 4, 'Mac and iPad, upright phone, phone on its side, the phone\'s full size');
+  for (const r of rules) assert.match(r, /--prof-h: calc\(min\([^;]*\) - 1\.6em\)/, r.trim());
+});
+
 // (The title row and the LIVER strip add no size of their own: the ladder keeps its one size per layout, so the card's fit can never feed back into it.)
 test('the ladder\'s size per layout does not depend on its title', () => {
   const rule = css.match(/\.pz-prof \{[^}]*\}/)?.[0] ?? '';
   assert.match(rule, /height: var\(--prof-h, 250px\)/, 'fixed by the layout\'s own --prof-h');
   assert.doesNotMatch(rule, /--pz-fit/, 'never the card\'s fit');
-  assert.match(css, /\.pz\.stack\.stack \.pz-prof \{ --prof-h: min\(74cqi, 270px\); height: var\(--prof-h\); \}/, 'the phone\'s ladder: 270 px, with its title');
+  assert.match(css, /\.pz\.stack\.stack \.pz-prof \{ --prof-h: calc\(min\(74cqi, 270px\) - 1\.6em\); height: var\(--prof-h\); \}/, 'the phone\'s ladder: one size, with its title above');
 });
 
 // Mohammad, 21 Oct (Mac, Sites 5): the ladder card bounced between a large and a small size, the slide vibrating.
