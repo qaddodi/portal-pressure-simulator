@@ -30,7 +30,7 @@ import { COLON_ART, BOWEL_ART, DUO_CLIPS, DUO_A, DUO_B } from './organ-art.js?v=
 import { warmVisible, ringGrid, inGrid } from './warm-vis.js?v=ccf4f6f71b';
 import { createRouter } from './circuit-router.js?v=0ee9e02fc6';
 import { gpuProbe } from './gpu-probe.js?v=d4aeccea90';
-import { plateStrips, premultiply } from './plate-upload.js?v=2dd6db2a18';
+import { plateStrips, premultiply, gutStep, viewReuse } from './plate-upload.js?v=5d40dd9f83';
 import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, ORIGIN_GREY } from './veins-gl.js?v=930d5d8534';
 import { varixBead, beadRadius } from './varix-bead.js?v=ac0e84fd89';
 import { advanceStream, createReversalHold, bleedShapes, stepBleedFade, fadeBleedShapes, chevFlowLevel, keyChevron, KEY_CHEV_LANES, originFractions, oxygenFor, ORIGIN_N, createBolus, DYE_BINS, KAPPA, STASIS_MIN_D, HIDDEN_SECONDS } from './blood.js?v=e668d01823';
@@ -2340,6 +2340,15 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // (no touch, wheel or key for 0.7 s), so it never lands in the middle of a pan, a pinch or a tap's response.
   let inputAt = -1e9;
   for (const ev of ['pointerdown', 'pointermove', 'wheel', 'keydown']) addEventListener(ev, (e) => { if (ev !== 'pointermove' || e.buttons) inputAt = performance.now(); }, { passive: true, capture: true });
+  // A finger or button still down, held still or not: the pictures made after a pan or pinch wait until it lifts (Mohammad, 21 Oct:
+  // "hitch as soon as I stop panning", finger still down). (A mouse let go outside the window is seen on its next move; a press
+  // held over 5 s with no input stops counting, so nothing waits for a lost release.)
+  const pressed = new Set();
+  addEventListener('pointerdown', (e) => pressed.add(e.pointerId), { passive: true, capture: true });
+  for (const ev of ['pointerup', 'pointercancel']) addEventListener(ev, (e) => pressed.delete(e.pointerId), { passive: true, capture: true });
+  addEventListener('pointermove', (e) => { if (!e.buttons) pressed.delete(e.pointerId); }, { passive: true, capture: true });
+  addEventListener('blur', () => pressed.clear());
+  const leftAlone = (ms) => !(pressed.size && performance.now() - inputAt < 5000) && performance.now() - inputAt >= ms;
   const prepIdle = (fn) => {
     const go = () => (performance.now() - inputAt < 700 ? setTimeout(go, 400) : window.requestIdleCallback ? requestIdleCallback(fn, { timeout: 600 }) : setTimeout(fn, 50));
     setTimeout(go, 0);
@@ -3522,6 +3531,10 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const PLATE_RECT = [200, -200, 1020, 1320];
   const PLATE_BASE = 1.2;          // px per world unit of the whole-plate raster
   let plateTheme = null, plateKey = '', plateSeq = 0, plateBusy = false, plateAgain = false, plateLast = 0, plateTimer = 0, plateView = null, plateViewKey = '', plateSettle = 0, plateCopy = null;
+  // The last sharp picture of the view, kept in memory (its canvas, its world rect, size and scale, and the state it shows): a pan
+  // at the same scale takes the pixels the two views share from it and draws only what the pan uncovered (viewReuse).
+  let viewKeep = null, viewSeq = 0;
+  function dropViewKeep() { if (viewKeep) { viewKeep.c.width = viewKeep.c.height = 0; viewKeep = null; } }
   const plateOn = () => wrap.classList.contains('gl-plate');
   // Drops the plate rasters and shows the live SVG organs. The vessel layer is redrawn in the same
   // task (after the model update in progress), so no frame shows the SVG organs over the old GPU
@@ -3529,7 +3542,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   let plateRedraw = false, plateDrops = 0;
   function hidePlate() {
     plateDrops++;   // (a raster still on its way in is of the state before: rasterPlate gives it up)
-    veins.dropPlate(0); veins.dropPlate(1); plateView = null; plateViewKey = ''; plateCopy = null;
+    veins.dropPlate(0); veins.dropPlate(1); plateView = null; plateViewKey = ''; plateCopy = null; dropViewKeep();
     wrap.classList.remove('gl-plate'); veinsDirty = true; syncPlateLook();
     if (inUpdate) plateRedraw = true; else drawVeins();
   }
@@ -3666,21 +3679,32 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const whole = banded ? null : await svgPicture(gpuProbe.time(null, 'organ picture: copy (script)', () => plateMarkup(rect, W, H, true, false)));
     const drawnAs = banded ? plateStateKey() : plateCopy?.key;   // (the strips' copy is made, if need be, with the first strip)
     if (seq !== plateSeq || !veins || veins.lost) return false;
+    // Only the newest view picture goes on (an older one, overtaken by a later pan, is given up), and after a pan at the same
+    // scale, of the same state, it takes the pixels the two views share from the last one: its rect starts on the scale's pixel
+    // grid (schedulePlateView), so the views sit a whole number of pixels apart and the pixels are the same. Only the strip of
+    // organs the pan uncovered is drawn from the shapes (Mohammad, 21 Oct: "the lag after stopping panning or zooming").
+    const vseq = banded ? ++viewSeq : 0;
+    const prev = banded && viewKeep && viewKeep.seq === seq && viewKeep.drops === drops && viewKeep.key === drawnAs && viewKeep.scale === scale ? viewKeep : null;
+    const ox = prev ? Math.round((rect[0] - prev.rect[0]) * scale) : 0, oy = prev ? Math.round((rect[1] - prev.rect[1]) * scale) : 0;
     // Drawn into a canvas kept in memory and sent as pixels, a strip per frame (plate-upload.js): a canvas handed to the
     // GPU stalled Safari for up to 750 ms. The raster shown meanwhile stays until the last strip is in.
-    const c = document.createElement('canvas');
+    let c = document.createElement('canvas');
     c.width = W; c.height = H;
     const g = c.getContext('2d', { willReadFrequently: true });
-    const v = veins, sy = H / rect[3];
+    const v = veins, sx = W / rect[2], sy = H / rect[3];
     let job = v.plateJob(W, H);
     try {
       for (const [y, rows] of plateStrips(W, H)) {
         if (y) await new Promise((res) => nextFrame(res));
-        if (seq !== plateSeq || drops !== plateDrops || v !== veins || v.lost) return false;
+        if (seq !== plateSeq || drops !== plateDrops || v !== veins || v.lost || vseq !== (banded ? viewSeq : 0)) return false;
         if (banded) {
-          const band = await svgPicture(gpuProbe.time(null, 'organ picture: copy (script)', () => plateMarkup([rect[0], rect[1] + y / sy, rect[2], rows / sy], W, rows, false, true)));
-          if (seq !== plateSeq || drops !== plateDrops || v !== veins || v.lost || plateCopy?.key !== drawnAs) return false;
-          gpuProbe.time(null, 'organ picture: draw', () => g.drawImage(band, 0, y, W, rows));
+          const { copy, draw } = prev ? viewReuse(W, H, prev.W, prev.H, ox, oy, y, rows) : { copy: null, draw: [[0, y, W, rows]] };
+          if (copy) gpuProbe.time(null, 'organ picture: reuse', () => g.drawImage(prev.c, copy[0] + ox, copy[1] + oy, copy[2], copy[3], copy[0], copy[1], copy[2], copy[3]));
+          for (const [px, py, pw, ph] of draw) {
+            const band = await svgPicture(gpuProbe.time(null, 'organ picture: copy (script)', () => plateMarkup([rect[0] + px / sx, rect[1] + py / sy, pw / sx, ph / sy], pw, ph, false, true)));
+            if (seq !== plateSeq || drops !== plateDrops || v !== veins || v.lost || plateCopy?.key !== drawnAs || vseq !== viewSeq) return false;
+            gpuProbe.time(null, 'organ picture: draw', () => g.drawImage(band, px, py, pw, ph));
+          }
         } else gpuProbe.time(null, 'organ picture: draw', () => g.drawImage(whole, 0, y, W, rows, 0, y, W, rows));
         v.plateRows(job, y, rows, gpuProbe.time(null, 'organ picture: read', () => premultiply(g.getImageData(0, y, W, rows).data)));
       }
@@ -3690,8 +3714,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       // white), until the next one replaced it (Mohammad, 21 Oct: "overly bright almost white then it goes back").
       if (drawnAs !== plateStateKey()) return false;
       v.setPlate(slot, job, rect); job = null;
+      if (banded) { dropViewKeep(); viewKeep = { c, rect, W, H, scale, seq, drops, key: drawnAs }; c = null; }   // (kept for the next pan)
       return true;
-    } finally { if (job && !v.lost) v.dropJob(job); c.width = c.height = 0; }
+    } finally { if (job && !v.lost) v.dropJob(job); if (c) c.width = c.height = 0; }
   }
   // What the plate shows, in coarse steps: re-rasterize when it changes. A selected organ is not part of it: its outline is drawn
   // outside the organs (gSelO, or on the GPU) and its dim on the GPU, and its .org-sel class styles nothing, so the picture was
@@ -3772,7 +3797,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
           plateKey = k;
           // The sharp view raster stays until its replacement lands (dropping it first would show
           // the softer whole plate for a beat: the textures would blur, then sharpen).
-          plateView = null; plateViewKey = '';
+          plateView = null; plateViewKey = ''; dropViewKeep();   // (a picture of the state before: nothing to take from it)
           veinsDirty = true;
           if (!plateOn() && glWanted(easeInOut(morph)) && !lvMoving && !spleenMoving()) {
             // The raster lands outside an animation frame (and the next frames may be paced out):
@@ -3797,7 +3822,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // whole-plate raster would look soft there).
   function schedulePlateView() {
     clearTimeout(plateSettle);
-    plateSettle = setTimeout(async () => {
+    plateSettle = setTimeout(async function settled() {
+      // (Not with a finger or button still down, nor within 0.28 s of the last input: it is begun once the figure is let go.)
+      if (!leftAlone(280)) { plateSettle = setTimeout(settled, 120); return; }
       if (!veins || !plateOn() || !CTM) return;
       gutPicSoon();
       const need = vdpr * CTM.sc;
@@ -3805,10 +3832,14 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       // The view in world units (the anatomy is never turned), with a margin, within the plate.
       const r = stageBox(), [ax, ay] = clientToWorldFast(r.left, r.top), [bx, by] = clientToWorldFast(r.right, r.bottom);
       const mx = (bx - ax) * 0.15, my = (by - ay) * 0.15;
-      const x0 = Math.max(PLATE_RECT[0], ax - mx), y0 = Math.max(PLATE_RECT[1], ay - my);
-      const x1 = Math.min(PLATE_RECT[0] + PLATE_RECT[2], bx + mx), y1 = Math.min(PLATE_RECT[1] + PLATE_RECT[3], by + my);
+      let x0 = Math.max(PLATE_RECT[0], ax - mx), y0 = Math.max(PLATE_RECT[1], ay - my);
+      let x1 = Math.min(PLATE_RECT[0] + PLATE_RECT[2], bx + mx), y1 = Math.min(PLATE_RECT[1] + PLATE_RECT[3], by + my);
       if (x1 <= x0 || y1 <= y0) return;
-      const scale = Math.min(need, 4096 / (x1 - x0), 4096 / (y1 - y0), Math.sqrt(4.2e6 / ((x1 - x0) * (y1 - y0))));
+      // (4094: the rect grows by up to a pixel each way below, and a texture side stays within 4096.)
+      const scale = Math.min(need, 4094 / (x1 - x0), 4094 / (y1 - y0), Math.sqrt(4.2e6 / ((x1 - x0) * (y1 - y0))));
+      // On the scale's pixel grid (grown outward to whole pixels): two views at one scale sit whole pixels apart, so the next pan
+      // can take the pixels they share (rasterPlate).
+      x0 = Math.floor(x0 * scale) / scale; y0 = Math.floor(y0 * scale) / scale; x1 = Math.ceil(x1 * scale) / scale; y1 = Math.ceil(y1 * scale) / scale;
       const key = `${plateKey}|${x0.toFixed(0)},${y0.toFixed(0)},${x1.toFixed(0)},${y1.toFixed(0)}|${scale.toFixed(2)}`;
       if (key === plateViewKey) return;
       if (plateView && x0 >= plateView[0] && y0 >= plateView[1] && x1 <= plateView[2] && y1 <= plateView[3] && scale <= plateView[4] * 1.05) return;
@@ -3860,13 +3891,19 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     gGutPics.style.display = on ? '' : 'none';
     gGut.classList.toggle('gut-pic-on', on);
   }
-  function gutPicSoon() { clearTimeout(gutPicTimer); gutPicTimer = setTimeout(() => { makeGutPic().catch(() => { /* the live paths stay */ }); }, 350); }
+  // (Begun once the figure has been left alone for a second, finger lifted: it is a long piece of work, and it was made 0.6 s after
+  // each pinch, as the menus faded back in.)
+  function gutPicSoon() {
+    clearTimeout(gutPicTimer);
+    const go = () => { if (!leftAlone(1000)) { gutPicTimer = setTimeout(go, 250); return; } makeGutPic().catch(() => { /* the live paths stay */ }); };
+    gutPicTimer = setTimeout(go, 350);
+  }
   async function makeGutPic() {
     if (!gGut || !plateOn() || !CTM || !plateCopy?.gut?.length || plateCopy.key !== plateStateKey() || plateCopy.gutMut !== gutMut) return;
     const need = vdpr * CTM.sc;
     if (need > GUT_CAP * 1.15) return;   // (zoomed in past what it can hold: the live paths show)
-    const k = Math.min(need, GUT_CAP), look = gutLook(), mut = gutMut;
-    if (gutPic && gutPic.mut === mut && gutPic.look === look && Math.abs(gutPic.k - k) <= k * 0.1) return;
+    const k = gutStep(need, GUT_CAP), look = gutLook(), mut = gutMut;   // (the next fixed step at or above the view's: never stretched)
+    if (gutPic && gutPic.mut === mut && gutPic.look === look && gutPic.k === k) return;
     const seq = ++gutPicSeq, W = Math.max(1, Math.round(GUT_RECT[2] * k)), H = Math.max(1, Math.round(GUT_RECT[3] * k));
     const ser = new XMLSerializer(), copies = plateCopy.gut, head = plateCopy.head, runs = [];
     try {
