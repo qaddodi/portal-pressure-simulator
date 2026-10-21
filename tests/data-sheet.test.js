@@ -167,14 +167,16 @@ test('a phone\'s data card and the words\' plan leave room for the glass as far 
   assert.doesNotMatch(js, /- 16 - 8\b/);
 });
 
-// Mohammad, 20 Oct (iPhone, Sites 3/12): "started closed". The plan measured the card at full size, its pressure profile 20 px too
-// tall to sit beside the figure's share and the words, though the card's own fit shortens that chart (only its height) anyway.
-test('a phone\'s card whose chart only shortens comes in half-open with the chart given way, before it would come in closed', () => {
-  assert.match(js, /const CHART_GIVE = 0\.8;/);
-  assert.match(js, /const elastic = !gone && splitSheet\(dd\) && !!dd\.querySelector\(':scope > \.pz-tool:is\(\[data-kind="profile"\], \[data-kind="flows"\], \[data-kind="flowtime"\]\)'\);/, 'only charts whose words keep their size');
-  assert.match(js, /const data = elastic && both - full < words \? Math\.min\(full, arriving\(CHART_GIVE\)\) : full;/, 'only where full size would close it');
-  assert.match(js, /if \(key\) phoneLock = \{ key, cap, shut, data: full, fig: phoneFig \};/, 'the plan is kept against the card at full size, as the check measures it');
-  assert.match(js, /if \(fit\) st\.setProperty\('--pz-fit', String\(fit\)\);/);
+// Mohammad, 21 Oct (iPhone, Sites 3/12): the Gut to heart ladder bounced between a small and a large version. "Just make it one version everywhere."
+test('every chart in a phone\'s card has one size on every slide: none gives way to fit, none follows the card\'s fit', () => {
+  assert.doesNotMatch(js, /CHART_GIVE|elastic/, 'no shrink path');
+  assert.match(js, /const data = full;/);
+  assert.match(js, /if \(key\) phoneLock = \{ key, cap, shut, data: full, fig: phoneFig \};/, 'the plan is kept against the card at its one size');
+  for (const [sel, h] of [['pz-prof', /--prof-h: min\(59cqi, 216px\); height: var\(--prof-h\);/], ['pz-flows', /height: 9\.25em;/], ['pz-flowtime', /--ft-h: min\(43cqi, 144px\); height: var\(--ft-h\);/], ['pz-flowtime\\.has-bands', /height: calc\(var\(--ft-h\) \+ var\(--band-room, 0em\)\);/]]) {
+    const rule = css.match(new RegExp(`\\.pz\\.stack\\.stack \\.${sel} \\{([^}]*)\\}`))?.[1] ?? '';
+    assert.match(rule, h, sel);
+    assert.doesNotMatch(rule, /--pz-fit/, `${sel} never follows the fit`);
+  }
 });
 
 // Review of d4c53ae: measured at CHART_GIVE, a card that had no fit before kept that fit after the measure.
@@ -185,14 +187,10 @@ test('a phone\'s plan measuring a card at a given fit puts the card\'s own fit b
   assert.match(css, /\.pz\.stack\.stack \.pz-data\.pz-sheet\.pz-sheet > :not\(\.pz-tool\) \{ zoom: 1; \}/);
 });
 
-test('Circulation 10 (after a meal) lands partly open on a phone: its flowtime chart gives way before the card comes in closed', async () => {
-  const { readFileSync } = await import('node:fs');
-  const js = readFileSync(new URL('../src/ui/presenter.js', import.meta.url), 'utf8');
-  const css = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
+test('Circulation 10 (after a meal) lands partly open on a phone: its flowtime chart has its one size, the figure lending any room', async () => {
   const deck = Object.values(await import('../src/ui/decks/circulation.js')).find((d) => d?.slides);
   const s = deck.slides[8];   // (on-screen 10)
   assert.equal(s.tool?.kind, 'flowtime');
-  const sel = js.match(/const elastic = [^\n]*:is\(([^)]*)\)/)[1];
-  assert.ok(sel.includes(`[data-kind="${s.tool.kind}"]`), 'its chart is elastic');
-  assert.match(css, /\.pz\.stack \.pz-data\.pz-data\.pz-data\.pz-data > \.pz-tool\[data-kind="flowtime"\] \{ width: 100%; zoom: 1; \}/, 'shortened, not zoomed');
+  assert.match(css, /\.pz\.stack\.stack \.pz-flowtime \{ --ft-h: min\(43cqi, 144px\); height: var\(--ft-h\); \}/, 'the size it used to give way to, for good');
+  assert.match(css, /\.pz\.stack \.pz-data\.pz-data\.pz-data\.pz-data > \.pz-tool\[data-kind="flowtime"\] \{ width: 100%; zoom: 1; \}/, 'never zoomed with the card');
 });

@@ -2459,7 +2459,7 @@ button.finding { cursor: pointer; }
 .pz-flowtime { display: grid; }
 .pz:not(.stack) .pz-data.has-tool:has(.pz-tool[data-kind="flowtime"] .pz-flowtime:not(.days)) { width: clamp(340px, 44vw, 480px); }   /* (wide enough for its words on an iPad held upright; a disease time-lapse's short names keep the card's own width) */
 .pz-flowtime svg { grid-area: 1 / 1; width: 100%; height: auto; overflow: visible; transition: opacity .42s var(--ease); }
-@media (max-height: 960px) { .pz.stack .pz-flowtime svg { max-height: 160px; } }/* (A phone's after-meal chart gives way to CHART_GIVE before its card comes in closed: presenter.js phoneTextCap.) */
+@media (max-height: 960px) { .pz.stack .pz-flowtime svg { max-height: 160px; } }/* (A phone's after-meal chart keeps one size: .pz.stack.stack .pz-flowtime.) */
 .pz-flowtime svg.in { opacity: 0; }
 .pft-key line { stroke-width: 4; stroke-linecap: round; }
 .pft-key text:not(.ptk-ax) { font: 700 calc(17px * var(--svk, 1)) var(--font-ui); }
@@ -6568,3 +6568,11 @@ html.thumb-ui .menu.from-dock { clip-path: inset(-64px -64px calc(var(--sink, 0p
 .gw-net[data-dir="up"] { color: var(--caution); } .gw-net[data-dir="down"] { color: var(--ok); }
 
 /* ── Package G: end ── */
+
+/* A phone's charts have ONE size on every slide, never shortened by the card's fit (Mohammad, 21 Oct, the Gut to heart ladder "bouncing
+   between small version and large version": "Just make it one version everywhere"). The size is the one they used to give way to, so
+   cards that fitted only at it still arrive partly open (Circulation 10, Sites 3); a card too tall even so borrows from the figure. */
+.pz.stack.stack .pz-prof { --prof-h: min(59cqi, 216px); height: var(--prof-h); }
+.pz.stack.stack .pz-flows { height: 9.25em; }
+.pz.stack.stack .pz-flowtime { --ft-h: min(43cqi, 144px); height: var(--ft-h); }
+.pz.stack.stack .pz-flowtime.has-bands { height: calc(var(--ft-h) + var(--band-room, 0em)); }

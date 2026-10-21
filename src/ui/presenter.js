@@ -3199,7 +3199,6 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   // Compact and leave that room empty: PVT in cirrhosis 5 on an iPhone came in at Compact over 100 px of bare figure, Mohammad, 20 Oct:
   // "This teaching card could be larger with larger text".)
   const FIG_REG = (H) => Math.round(Math.max(170, 0.25 * H));
-  const CHART_GIVE = 0.8;   // (how far a phone's elastic chart may be shortened rather than its card come in closed: phoneTextCap)
   let phoneLock = null, phoneShut = false, phoneFig = 0;   // (phoneFig: the figure's share the slide's plan keeps, screen px)   // (phoneShut: the slide's data card comes in closed (autoDock), too tall beside the words and the figure)
   function phoneTextCap(key, H, k) {
     const dd = ui.data, ds = dd.style, gone = dd.hidden || 'gone' in dd.dataset;
@@ -3269,12 +3268,10 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       return v;
     };
     const full = gone ? 0 : arriving(), sheetLip = dd.classList.contains('pz-sheet') ? LIP * k : 0;
-    // (A chart that the card's fit only shortens, never its words (the pressure profile, the portal blood bar: styles/app.css), gives
-    // way to CHART_GIVE before the card comes in closed: the card's own fit shortens it there anyway, and opened, it stands at about
-    // that size. Measured only at full size, Sites 3 on an iPhone came in closed, 20 px short, Mohammad, 20 Oct: "started closed".)
-    // (The after-meal chart too, flow-time.js redrawing to its box: left out, Circulation 10 on an iPhone came in closed, Mohammad, 20 Oct.)
-    const elastic = !gone && splitSheet(dd) && !!dd.querySelector(':scope > .pz-tool:is([data-kind="profile"], [data-kind="flows"], [data-kind="flowtime"])');
-    const data = elastic && both - full < words ? Math.min(full, arriving(CHART_GIVE)) : full;
+    // (Every chart in a phone's card has one size on every slide (styles/app.css .pz.stack .pz-prof, .pz-flows, .pz-flowtime): never
+    // given way to 80 % to fit, which drew the Gut to heart ladder small on one slide and large on the next, Mohammad, 21 Oct: "Just
+    // make it one version everywhere". A card too tall beside the words borrows from the figure instead, below.)
+    const data = full;
     // (A card a little too tall beside the words borrows from the figure, down to FIG_REG, and arrives partly open: only past that
     // does it come in closed. Shut on any shortfall, slides came in closed, Circulation 10 on an iPhone after 8aa5142's taller glass,
     // and others still after fc4a6ab lent only that 14 px, Mohammad, 20 Oct: "the stacked cards started hidden".)
