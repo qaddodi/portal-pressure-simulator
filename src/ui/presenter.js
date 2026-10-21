@@ -15,7 +15,7 @@
 import { store, replaceParams } from './store.js?v=624d51968d';
 import { download } from './download.js?v=3564e5bf8c';
 import { h, toast, svgIcon, icon, fmt, clamp, openModal, closeModal, isModalOpen, restBox, paintRange, cssVar, swapText } from './util.js?v=5814c6b396';
-import { swipeDir, ownsSideways, caseFling, caseFlight } from './swipe.js?v=60b2fc909b';
+import { swipeDir, ownsSideways, ownsTouch, cardSwipe, caseFling, caseFlight } from './swipe.js?v=ca9148ab7d';
 import { sinusoidSupported } from './sinusoid-view.js?v=f78c8566bd';
 import { NODES } from '../engine/topology.js?v=4044766e96';
 import { DISEASE_SRC, diseasePieces } from './diseases.js?v=fb8a5451c3';
@@ -3767,6 +3767,49 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     if (d > 0) next(); else if (d < 0) prev();
   }, { passive: true, capture: true });
 
+  // ── A swipe up or down anywhere else on an upright slide (the figure, the teaching card, the space around them) works the
+  // data card exactly as a drag on its handle does: down pulls it open, up pushes it shut, following the finger, and it eases the
+  // rest of the way on release (Mohammad, 21 Oct: "Swiping down or up anywhere on the slide should trigger as if I'm holding the
+  // handle"). The card's own touch handlers (foldTouch, dockTouch) are fed the same touch, from where the finger first came down.
+  // Only once the move is clearly up or down (cardSwipe); a sideways move stays the slide swipe, a second finger lets the card
+  // ease back to where it was going, and a touch that starts on a control (a button, tab, slider, chart) stays the control's
+  // (ownsTouch). Upright only: where the card docks sideways its handle is a sideways drag. The figure is read-only while
+  // presenting, so its vertical drags are free. (Touch events only, as the slide swipe: a mouse never drags the card.) ──
+  let far = null;
+  const farFeed = (type, x, y) => {
+    let stopped = false, kept = false;
+    const t = { clientX: x, clientY: y }, live = type === 'touchstart' || type === 'touchmove';
+    const e = { type, target: ui.data, touches: live ? [t] : [], changedTouches: [t], cancelable: true,
+      preventDefault: () => { kept = true; }, stopImmediatePropagation: () => { stopped = true; } };
+    for (const hs of ui.cardTouch) { hs[type]?.(e); if (stopped) break; }
+    return kept;
+  };
+  const farLet = (type, x, y) => { const g = far; far = null; if (g?.on && ui) farFeed(type, x ?? g.lx, y ?? g.ly); };
+  wrap.addEventListener('touchstart', (e) => {
+    if (far) { farLet('touchcancel'); return; }   // (a second finger: a pinch, not a swipe)
+    const d = ui?.data;
+    if (!deck || !d || e.touches.length !== 1 || !phone() || d.hidden || d.classList.contains('pz-hide') || !ui.cardTouch
+      || d.contains(e.target) || ui.lip.contains(e.target) || caseOn(e) || ownsTouch(e.target, { stop: wrap })) return;
+    const t = e.touches[0];
+    far = { x: t.clientX, y: t.clientY, lx: t.clientX, ly: t.clientY, on: false };
+  }, { passive: true, capture: true });
+  wrap.addEventListener('touchmove', (e) => {
+    if (!far) return;
+    if (e.touches.length !== 1 || !ui) { farLet('touchcancel'); return; }
+    const t = e.touches[0];
+    if (!far.on) {
+      const k = cardSwipe(t.clientX - far.x, t.clientY - far.y);
+      if (k < 0) { far = null; return; }
+      if (!k) return;
+      far.on = true; sw = null;   // (up or down: not a slide change)
+      farFeed('touchstart', far.x, far.y);
+    }
+    far.lx = t.clientX; far.ly = t.clientY;
+    if (farFeed('touchmove', t.clientX, t.clientY) && e.cancelable) e.preventDefault();
+  }, { passive: false, capture: true });
+  wrap.addEventListener('touchend', (e) => { if (far && !e.touches.length) farLet('touchend'); }, { passive: true, capture: true });
+  wrap.addEventListener('touchcancel', () => { if (far) farLet('touchcancel'); }, { passive: true, capture: true });
+
   // ── Hands off: while presenting, the figure only points (hover glow); taps, drags, pans and zooms that would
   // move it off the slide's script are swallowed. The swipe above uses touch events, so it still works. ──
   const offFig = (e) => deck && e.target.closest?.('#stageView') && !e.target.closest('#overlay');
@@ -3816,7 +3859,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   function dockTouch(el, ...more) {   // (more: the card's sheet edge, its sibling, takes the same touch)
     let g = null;
     const reset = () => { g = null; dock.drag = false; };
-    const on = (type, fn, opts) => { for (const t of [el, ...more]) t.addEventListener(type, fn, opts); };
+    const hs = {}, on = (type, fn, opts) => { hs[type] = fn; for (const t of [el, ...more]) t.addEventListener(type, fn, opts); };   // (hs: a swipe elsewhere on the slide is fed the same, farTouch)
     on('touchstart', (e) => {
       if (e.touches.length !== 1 || !deck) { reset(); return; }
       const t = e.touches[0], vec = dockVec(), k = wrap.getBoundingClientRect().width / (wrap.clientWidth || 1) || 1;
@@ -3863,6 +3906,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       } else if (dock.to === 1 && dt < 500) { dock.auto = false; dock.tapAt = performance.now(); dockTo(0); }   // (tapAt: the click that follows is this tap's, .pz-lip)
     }, { passive: true });
     on('touchcancel', () => { if (g?.on) dockTo(dock.to, 300); if (g?.pull) sheetPull.settle(g.pull, false); reset(); }, { passive: true });
+    return hs;
   }
 
   // A phone's foldable card also opens and closes by a swipe anywhere on it: down pulls the folded part open, up pushes it
@@ -3873,7 +3917,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   // away first, and a pull down on the closed card carried on past its rest brings them out in the same pull, splitSheet.)
   function foldTouch(el, btn, setFold, part, hold, ...more) {
     let g = null;
-    const on = (type, fn, opts) => { for (const t of [el, ...more]) t.addEventListener(type, fn, opts); };
+    const hs = {}, on = (type, fn, opts) => { hs[type] = fn; for (const t of [el, ...more]) t.addEventListener(type, fn, opts); };   // (hs: a swipe elsewhere on the slide is fed the same, farTouch)
     // (Upright, the readings' card follows the finger over the whole of its travel, from wherever it is: an ease the finger catches
     // is taken up where it stands.)
     const grab = (x, y, open) => {
@@ -3931,6 +3975,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     };
     on('touchend', end, { passive: true });
     on('touchcancel', end, { passive: true });
+    return hs;
   }
 
   // ── Start and stop ──
@@ -3993,8 +4038,9 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     } });
     const data = h('section', { class: 'pz-data stage-blocker pz-hide', 'data-safe': 'right', 'data-safe-rest': '', 'data-safe-waits': '', 'data-gone': '', hidden: true, 'aria-label': 'The numbers' },
       h('div', { class: 'pz-dh' }, dhT, dhL, fold), tools.el, ladder.el, ladder.strip, tiles.el, h('span', { class: 'pz-grip', 'aria-hidden': 'true' }));
-    foldTouch(data, fold, setFold, partOf, (on) => { if (on) { clearTimeout(foldT); data.dataset.folding = ''; } else foldT = setTimeout(foldStill, reduce.matches ? 0 : 450); }, lip);
-    dockTouch(data, lip);
+    const foldHs = foldTouch(data, fold, setFold, partOf, (on) => { if (on) { clearTimeout(foldT); data.dataset.folding = ''; } else foldT = setTimeout(foldStill, reduce.matches ? 0 : 450); }, lip);
+    const dockHs = dockTouch(data, lip);
+    const cardTouch = [foldHs, dockHs];   // (fold first: it stops the dock drag when it takes a move, as on the card)
     // (Shown with the sheet only, and kept at the card's foot as the card grows or shrinks, a part easing open included.)
     const lipMO = new MutationObserver(() => { lip.hidden = data.hidden || !data.classList.contains('pz-sheet'); placeLip(); });
     lipMO.observe(data, { attributes: true, attributeFilter: ['class', 'hidden', 'style'] });
@@ -4027,7 +4073,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     wrap.append(root);
     // (It comes in with the teaching card, in the card's own fade, once the card is fitted (pz-prep gone), and leaves with it.)
     const figKey = createFigureKey({ el: fk, app, watch: [text, root], ready: () => !text.hidden && !text.classList.contains('pz-leave') && !root.classList.contains('pz-prep') });
-    return { root, shade, safe, load, text, data, lip, lipRO, lipMO, setFold, partOf, vcase, fk, figKey, dhT, dhL, ladder, tiles, tools, veil, panel, prog, bar, black: blackEl, jump };
+    return { root, shade, safe, load, text, data, lip, lipRO, lipMO, cardTouch, setFold, partOf, vcase, fk, figKey, dhT, dhL, ladder, tiles, tools, veil, panel, prog, bar, black: blackEl, jump };
   }
   // The start's cover (see start). While it is up (booting) the camera cuts instead of gliding.
   let cover = null, booting = false, coverT = 0, noCase = false;   // (noCase: the slide a start lands on, a reload's included, does not play its case card)

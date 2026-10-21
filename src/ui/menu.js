@@ -8,7 +8,7 @@ import { store } from './store.js?v=624d51968d';
 import { h, icon, svgIcon, uiScale, clamp, swipeSheet, visibleBottom, fadeWhileMore, PHONE_MQ } from './util.js?v=5814c6b396';
 import { SNAPSHOTS } from './snapshots.js?v=a2adb5dd32';
 import { pressureColor } from './colormap.js?v=1092d36abc';
-import { ownsSideways, pageGo } from './swipe.js?v=60b2fc909b';
+import { ownsSideways, pageGo } from './swipe.js?v=ca9148ab7d';
 import { frameFor } from './frame.js?v=2ce59939b2';
 const nextFrame = frameFor('menu');
 

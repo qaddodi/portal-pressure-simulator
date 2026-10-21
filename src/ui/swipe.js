@@ -27,6 +27,31 @@ export function ownsSideways(el, { stop = null, cardSideways = false } = {}) {
   return false;
 }
 
+// A swipe up or down anywhere else on an upright slide (the figure, the teaching card) works the data card as its handle does
+// (Mohammad, 21 Oct: "Swiping down or up anywhere on the slide should trigger as if I'm holding the handle"). It counts once it
+// is clearly up or down; a move that goes sideways first is left to the slide swipe.
+export const CARD_SWIPE_MIN = 10;     // px up or down before it counts
+export const CARD_SWIPE_RATIO = 1.5;  // up or down must beat sideways by this much
+
+/** +1 once a move is a clear swipe up or down, -1 once it is clearly something else (sideways or diagonal), 0 while undecided. */
+export function cardSwipe(dx, dy) {
+  const ax = Math.abs(dx), ay = Math.abs(dy);
+  if (!Number.isFinite(ax) || !Number.isFinite(ay)) return -1;
+  if (ay >= CARD_SWIPE_MIN && ay > CARD_SWIPE_RATIO * ax) return 1;
+  if (ax >= CARD_SWIPE_MIN || ay >= CARD_SWIPE_MIN * 3) return -1;
+  return 0;
+}
+
+// Controls that keep a touch for themselves: buttons, tabs, sliders, fields, links, and charts drawn on a canvas (their draggable points).
+const OWN_TOUCH = 'button, a[href], input, select, textarea, label, canvas, [role="slider"], [role="tab"], [role="button"], [contenteditable=""], [contenteditable="true"], .range-wrap, .pz-jump, .pz-bar, .pz-case';
+
+/** True when a touch that starts on `el` belongs to a control (or the slide list, the bar, the case card), so a swipe up or down
+ *  from it never works the data card. */
+export function ownsTouch(el, { stop = null } = {}) {
+  for (let n = el; n && n !== stop && n.nodeType === 1; n = n.parentElement) if (n.matches?.(OWN_TOUCH)) return true;
+  return false;
+}
+
 // The case card follows a finger sideways and flies off when let go far enough out or with a quick flick, either way.
 export const FLING_FAR = 0.33;    // of the card's width: let go past this and it flies off
 export const FLING_V = 0.45;      // px/ms: a flick this fast flies it off from a short drag
