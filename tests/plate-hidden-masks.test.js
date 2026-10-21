@@ -53,3 +53,10 @@ test('under gl-on the vessel groups, whose drawn strokes are off and whose hit s
   assert.match(css, /\.stage-view\.gl-on #world \.vg:not\(:focus-within\) \{ mask: none; \}/);
   assert.match(stage, /g\.append\(lumen, lumenP, hit\);/, 'the hit stroke sits in the masked group');
 });
+
+test('the liver\'s disease layers are hidden while faded to 0 (a clipped path at opacity 0 still drew its layer)', () => {
+  assert.match(stage, /const lvFade = \(el, a\) => \{ const o = a\.toFixed\(3\), v = \+o > 0 \? '' : 'hidden'; el\.style\.opacity = o; if \(el\.style\.visibility !== v\) el\.style\.visibility = v; \};/);
+  for (const k of ['cong', 'isl', 'sep', 'nod']) assert.match(stage, new RegExp(`${k}: s\\('path', \\{[^\\n]*class: 'lv-${k}', 'clip-path': 'url\\(#clip-liver\\)', style: 'opacity:0;visibility:hidden' \\}\\)`));
+  assert.match(stage, /lvFade\(lv\.sep, cn\); lvFade\(lv\.nod, cn\);/);
+  assert.match(stage, /const gn = smooth01\(g \/ 0\.5\); lvFade\(lv\.cong, gn\); lvFade\(lv\.isl, gn\);/);
+});

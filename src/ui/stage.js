@@ -725,12 +725,15 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // field, so every state blends continuously into the next.
   const liverD = ORGANS.find((o) => o.id === 'liver').d;
   const liverTint = s('path', { d: liverD, fill: 'url(#congest)', class: 'liver-tint' });
+  // The liver's nodules, septa and congestion fade in with the disease; at 0 they are hidden too: at opacity 0 a clipped path
+  // was still drawn into its own layer, the liver's size, on every repaint (the same pixels).
+  const lvFade = (el, a) => { const o = a.toFixed(3), v = +o > 0 ? '' : 'hidden'; el.style.opacity = o; if (el.style.visibility !== v) el.style.visibility = v; };
   const lv = {
     gloss: s('g', { class: 'lv-gloss', 'clip-path': 'url(#clip-liver)' }),
-    cong: s('path', { d: liverD, class: 'lv-cong', 'clip-path': 'url(#clip-liver)', style: 'opacity:0' }),
-    isl: s('path', { class: 'lv-isl', 'clip-path': 'url(#clip-liver)', style: 'opacity:0' }),
-    sep: s('path', { d: liverD, class: 'lv-sep', 'clip-path': 'url(#clip-liver)', style: 'opacity:0' }),
-    nod: s('path', { class: 'lv-nod', 'clip-path': 'url(#clip-liver)', style: 'opacity:0' }),
+    cong: s('path', { d: liverD, class: 'lv-cong', 'clip-path': 'url(#clip-liver)', style: 'opacity:0;visibility:hidden' }),
+    isl: s('path', { class: 'lv-isl', 'clip-path': 'url(#clip-liver)', style: 'opacity:0;visibility:hidden' }),
+    sep: s('path', { d: liverD, class: 'lv-sep', 'clip-path': 'url(#clip-liver)', style: 'opacity:0;visibility:hidden' }),
+    nod: s('path', { class: 'lv-nod', 'clip-path': 'url(#clip-liver)', style: 'opacity:0;visibility:hidden' }),
   };
   // The capsule's sheen: broad soft reflections on the domes of both lobes.
   // The organs' dim and grey on the live drawing (syncOrganDim), over the plate's rectangle (PLATE_RECT), as the GPU copy has it.
@@ -870,10 +873,10 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const cn = smooth01(c / 0.5) * (0.55 + 0.45 * c);
     const nod = gpuProbe.time(null, 'liver: nodules (maths)', () => (cn > 0.01 ? baseLiver.cells.map((cl) => cellPath(cl, c, (0.3 + 0.45 * c) * CIRR.sep)).join('') : ''));
     gpuProbe.time(null, 'liver: writes', () => lv.nod.setAttribute('d', nod));
-    lv.sep.style.opacity = lv.nod.style.opacity = cn.toFixed(3);
+    lvFade(lv.sep, cn); lvFade(lv.nod, cn);
     // Nutmeg: the even dusky tone and its pale islands, fading in as congestion deepens.
     lv.isl.setAttribute('d', g > 0.01 ? baseLiver.isl : '');
-    lv.cong.style.opacity = lv.isl.style.opacity = smooth01(g / 0.5).toFixed(3);
+    const gn = smooth01(g / 0.5); lvFade(lv.cong, gn); lvFade(lv.isl, gn);
     // The ascites is kept off the liver as its congestion shows (over the dusky liver its straw turned the lower lobe into a
     // brown blotch; organ picks, round 26).
     liverFluidCut = smooth01(g / 0.5);
