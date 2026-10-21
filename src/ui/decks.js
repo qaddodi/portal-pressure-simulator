@@ -102,7 +102,7 @@ import { OUTFLOW } from './decks/outflow.js?v=58f7342c52';
 import { RECOMPENSATION } from './decks/recompensation.js?v=39f5a8ede1';
 import { WHERE } from './decks/where.js?v=bee116087f';
 import { PREGNANCY_DECK } from './decks/pregnancy.js?v=a65817a8f2';
-import { BETA_BLOCKERS } from './decks/beta-blockers.js?v=a9a3829adf';
+import { BETA_BLOCKERS } from './decks/beta-blockers.js?v=520a936fa7';
 import { ENCEPHALOPATHY } from './decks/encephalopathy.js?v=9218c6becd';
 import { CAUSE_TREATED } from './decks/cause-treated.js?v=6141ad255c';
 
