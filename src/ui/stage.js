@@ -4052,8 +4052,11 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     } catch (e) { for (const r of runs) URL.revokeObjectURL(r.url); throw e; }
     gutPic = { k, look, mut, runs: runs.map(({ kids, url, keep }) => ({ kids, url, keep, img: s('image', { href: url, x: GUT_RECT[0], y: GUT_RECT[1], width: GUT_RECT[2], height: GUT_RECT[3], preserveAspectRatio: 'none' }) })) };
     gGutPics.replaceChildren(...gutPic.runs.map((r) => r.img));
-    // (The three before are kept if they are of the same art and colours, for the zooms out (gutPicsOut) or one it may come back to.)
-    const kept = gutPics.filter((p) => p.mut === mut && p.look === look && p.k !== k).slice(-3);
+    // (Those before are kept if they are of the same art and colours, for the zooms out (gutPicsOut) or one it may come back to: up to
+    // seven, every step from the cap down to an eleventh of it, so the chain gutPicsOut makes never pushes out the picture of the zoom
+    // it began at (it kept three: external review, 21 Oct). Each step has half the pixels of the one above, so all of them together
+    // are less than twice the largest.)
+    const kept = gutPics.filter((p) => p.mut === mut && p.look === look && p.k !== k).slice(-7);
     for (const p of gutPics) if (!kept.includes(p)) for (const r of p.runs) URL.revokeObjectURL(r.url);
     gutPics = [...kept, gutPic];
     gutPicOn = false; gGutPics.style.display = 'none'; gGut.classList.remove('gut-pic-on');

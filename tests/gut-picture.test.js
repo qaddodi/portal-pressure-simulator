@@ -22,9 +22,9 @@ test('the picture is used only while the plate is down, in the look and art it w
   assert.match(ok, /const pic = gutPicFor\(vdpr \* CTM\.sc\);\n\s+if \(!pic\) return false;/);
   // Each kept picture: of the art and colours now, near its resolution (never more than 1.15x softer or 2x sharper).
   assert.match(pick, /if \(p\.mut !== gutMut \|\| p\.look !== gutLook\(\) \|\| p\.k \* 1\.15 < need \|\| p\.k > need \* 2\) continue;/);
-  // Four are kept at most: the new one and the three before, of the same art and colours (the rest are let go).
+  // Eight are kept at most: the new one and the seven before, of the same art and colours (the rest are let go): every zoom step.
   const mk = fn('makeGutPic');
-  assert.match(mk, /const kept = gutPics\.filter\(\(p\) => p\.mut === mut && p\.look === look && p\.k !== k\)\.slice\(-3\);/);
+  assert.match(mk, /const kept = gutPics\.filter\(\(p\) => p\.mut === mut && p\.look === look && p\.k !== k\)\.slice\(-7\);/);
   assert.match(mk, /for \(const p of gutPics\) if \(!kept\.includes\(p\)\) for \(const r of p\.runs\) URL\.revokeObjectURL\(r\.url\);\n\s+gutPics = \[\.\.\.kept, gutPic\];/);
   assert.match(fn('syncGutPic'), /const pic = gutPicFor\(vdpr \* CTM\.sc\);\n\s+if \(pic !== gutPic\) \{ gutPic = pic; gGutPics\.replaceChildren\(\.\.\.pic\.runs\.map\(\(r\) => r\.img\)\); \}/);
   assert.match(ok, /r\.kids\.every\(\(k\) => trOf\(k\) === trOf\(r\.kids\[0\]\)\)/, 'groups drawn as one image move together');
