@@ -82,5 +82,5 @@ test("each strip carries only the definitions the organs use, through any chain 
 test('the ?perf readout can measure 2 s with the figure left alone', () => {
   const src = readFileSync(new URL('../src/ui/perf-readout.js', import.meta.url), 'utf8');
   assert.match(src, /rest\.onclick = \(\) => \{ rest\.textContent = 'Wait 3 s'; setTimeout\(\(\) => \{ begin\('at rest'\);/);
-  assert.match(src, /bar\.append\(title, rest, copy\);/);
+  assert.match(src, /bar\.append\(title, rest, gpu, copy\);/);
 });

@@ -12,7 +12,7 @@
 //
 // window.pps.perf (see perf()) reports callbacks per second for each surface over the last second.
 
-import { gpuProbe } from './gpu-probe.js?v=a675ea62f9';
+import { gpuProbe } from './gpu-probe.js?v=55e394c081';
 let queue = new Map();   // id -> [tag, cb], in request order
 let current = null;      // the batch running now
 let next = 1, pending = 0;

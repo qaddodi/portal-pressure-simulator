@@ -102,3 +102,20 @@ test('the figure bins each vessel with a core and repaints every cell after a pa
   assert.match(gl, /drawnNow\(\);\n\s*this\.composite\(look, blood, full, true\);/);
   assert.match(gl, /if \(all \? nCells : nBlood\)/);
 });
+
+test('a frame where only the blood moved leaves the pixels with no lumen as drawn, and every other pass draws them all', () => {
+  const gl = readFileSync(new URL('../src/ui/veins-gl.js', import.meta.url), 'utf8');
+  // (Mohammad's Mac at rest, zoom 4.24, 21 Oct: the blood squares' other pixels were most of each frame's GPU work.)
+  const main = gl.slice(gl.indexOf('void main() {\n  ivec2 ip = ivec2(gl_FragCoord.xy);\n  uvec4 g'));
+  // The lumen test comes first, before the plate, glows and fluid are read, and is the same lumen the blood, dye and origin need.
+  assert.match(main, /^void main\(\) \{\n {2}ivec2 ip = ivec2\(gl_FragCoord\.xy\);\n {2}uvec4 g = texelFetch\(gbuf, ip, 0\);\n(?: {2}\/\/.*\n)+ {2}if \(bloodOnly == 1 && g\.x == 0u\) discard;\n/);
+  assert.match(main, /float vis = g\.x > 0u \?/);
+  assert.match(main, /\(vis > 0\.005 \|\| \(dyeOn == 1 && g\.x > 0u\)\)/);
+  assert.equal((main.match(/uvec4 g = /g) || []).length, 1);
+  // Set to 1 only around the blood squares' own draw; the whole picture, the redraw after drawRows (all) and the fluid's cells
+  // (its ripple moves every pixel of them) draw every pixel.
+  const comp = gl.slice(gl.indexOf('    composite(look, blood = {}, full = false, all = false) {'), gl.indexOf('    /** Whether organ outlines can be drawn here'));
+  assert.match(comp, /if \(full\) \{\n\s*gl\.uniform1i\(U\.bloodOnly, 0\);/);
+  assert.match(comp, /gl\.uniform1i\(U\.bloodOnly, all \? 0 : 1\);\n\s*if \(all \? nCells : nBlood\) \{[^\n]*\}\n\s*gl\.uniform1i\(U\.bloodOnly, 0\);\n\s*if \(fl\?\.ripple && nFluid\)/);
+  assert.equal((comp.match(/U\.bloodOnly/g) || []).length, 3);
+});

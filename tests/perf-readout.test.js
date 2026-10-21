@@ -44,3 +44,16 @@ test('a gesture reads as one line per slow frame, with its steps largest first a
   const t = gestureText({ n: 3, kind: 'pan', view: 'circuit', zoom: '1.25', frames: 110, worst: 64.2, gaps: [], tasks: [{ at: 300, dt: 70, src: 'syncVeins stage.js 50 ms' }] });
   assert.equal(t, '#3 pan in circuit, zoom 1.25, 110 frames in 2 s, worst 64 ms\n  no frame over 20 ms\n  long task +300 ms: 70 ms (syncVeins stage.js 50 ms)');
 });
+
+test('a window lists what it measured as it stood (the blood squares a frame repaints) and says when it was GPU timed', () => {
+  const t = gestureText({ n: 4, kind: 'at rest', view: 'anatomy', zoom: '4.24', frames: 86, worst: 50, gaps: [], tasks: [], gpu: true, gauges: { 'blood squares on screen': '310 of 1031, 5.7 MP of 8.6, 136 px each', empty: '' } });
+  assert.equal(t, '#4 at rest in anatomy, zoom 4.24, 86 frames in 2 s, worst 50 ms, GPU timed\n  blood squares on screen: 310 of 1031, 5.7 MP of 8.6, 136 px each\n  no frame over 20 ms');
+  try {
+    gpuProbe.on = false; gpuProbe.gauge('x', 1); assert.deepEqual(gpuProbe.takeGauges(), {}, 'off, nothing is kept');
+    gpuProbe.on = true; gpuProbe.gauge('x', 1); gpuProbe.gauge('x', 2); assert.deepEqual(gpuProbe.takeGauges(), { x: 2 });
+    assert.deepEqual(gpuProbe.takeGauges(), {});
+  } finally { gpuProbe.on = false; gpuProbe.takeGauges(); }
+  // The GPU switch starts off: the readout times script only until it is turned on.
+  const src = readFileSync(new URL('../src/ui/perf-readout.js', import.meta.url), 'utf8');
+  assert.match(src, /gpu\.onclick = \(\) => \{ gpuProbe\.cpuOnly = !gpuProbe\.cpuOnly; gpuLabel\(\); \};/);
+});

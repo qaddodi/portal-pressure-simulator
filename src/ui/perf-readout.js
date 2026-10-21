@@ -4,7 +4,7 @@
 // (gpu-probe.js cpuOnly: no waiting for the GPU), every frame gap over 20 ms in the window is listed with the steps that ran
 // in it, and so is each long task the browser reports (Chrome; Safari reports none, its frame gaps still show). The panel is
 // written only when a window closes, never during a gesture, and the last five gestures stay listed with a Copy button.
-import { gpuProbe } from './gpu-probe.js?v=a675ea62f9';
+import { gpuProbe } from './gpu-probe.js?v=55e394c081';
 
 const WINDOW = 2000, GAP = 20, KEEP = 5;
 
@@ -27,10 +27,11 @@ export function gapLine(g) {
 
 /** A gesture's report as text. */
 export function gestureText(r) {
-  const head = `#${r.n} ${r.kind} in ${r.view}, zoom ${r.zoom}, ${r.frames} frames in 2 s, worst ${r.worst.toFixed(0)} ms`;
+  const head = `#${r.n} ${r.kind} in ${r.view}, zoom ${r.zoom}, ${r.frames} frames in 2 s, worst ${r.worst.toFixed(0)} ms${r.gpu ? ', GPU timed' : ''}`;
+  const gauges = Object.entries(r.gauges || {}).filter(([, v]) => v).map(([k, v]) => `  ${k}: ${v}`);
   const gaps = r.gaps.length ? r.gaps.map(gapLine) : ['  no frame over 20 ms'];
   const tasks = r.tasks.map((t) => `  long task +${t.at.toFixed(0)} ms: ${t.dt.toFixed(0)} ms${t.src ? ` (${t.src})` : ''}`);
-  return [head, ...gaps, ...tasks].join('\n');
+  return [head, ...gauges, ...gaps, ...tasks].join('\n');
 }
 
 export function startPerfReadout({ zoom = () => '?' } = {}) {
@@ -56,8 +57,8 @@ export function startPerfReadout({ zoom = () => '?' } = {}) {
   };
   const begin = (kind) => {
     const was = !!cur;
-    cur = { n: ++n, kind, view: view(), zoom: (+zoom() || 0).toFixed(2), t0: performance.now(), frames: 0, worst: 0, gaps: [], tasks: [] };
-    gpuProbe.take(); gpuProbe.takeNotes();
+    cur = { n: ++n, kind, view: view(), zoom: (+zoom() || 0).toFixed(2), t0: performance.now(), frames: 0, worst: 0, gaps: [], tasks: [], gauges: {}, gpu: !gpuProbe.cpuOnly };
+    gpuProbe.take(); gpuProbe.takeNotes(); gpuProbe.takeGauges();
     if (!was && !beatT) { beatAt = performance.now(); busy = 0; beatT = setTimeout(beat, 0); }
   };
   addEventListener('pointerdown', (e) => { if (!onStage(e)) return; down.set(e.pointerId, [e.clientX, e.clientY]); maxDown = Math.max(maxDown, down.size); if (down.size === 1) moved = false; }, { capture: true, passive: true });
@@ -88,7 +89,8 @@ export function startPerfReadout({ zoom = () => '?' } = {}) {
   } catch { /* not reported by this browser (Safari): the frame gaps still are */ }
 
   const tick = (t) => {
-    const parts = gpuProbe.take(), notes = gpuProbe.takeNotes(), was = busy;
+    const parts = gpuProbe.take(), notes = gpuProbe.takeNotes(), gauges = gpuProbe.takeGauges(), was = busy;
+    if (cur) Object.assign(cur.gauges, gauges);
     busy = 0; frameAt = t;
     if (cur && prevT && t >= cur.t0) {
       const dt = t - prevT, at = prevT - cur.t0;
@@ -106,21 +108,27 @@ export function startPerfReadout({ zoom = () => '?' } = {}) {
   el.id = 'perfReadout';
   el.style.cssText = 'position:fixed;left:max(8px, env(safe-area-inset-left));top:calc(56px + env(safe-area-inset-top));z-index:2147483000;max-width:min(560px, calc(100vw - 16px));max-height:40vh;overflow:auto;padding:6px 8px;border-radius:8px;background:rgb(0 0 0 / .72);color:#fff;font:600 12px/1.4 ui-monospace,Menlo,monospace;white-space:pre-wrap;overflow-wrap:anywhere;-webkit-user-select:text;user-select:text';   // colour-exempt: a measuring panel
   const bar = document.createElement('div');
-  bar.style.cssText = 'display:flex;gap:8px;align-items:center';
+  bar.style.cssText = 'display:flex;flex-wrap:wrap;gap:8px;align-items:center';
   const title = document.createElement('button');
   const copy = document.createElement('button');
   // A window with no gesture before it, begun a second after the tap: what every frame costs with the figure left alone, to
   // tell a gesture's after-effects from the view's own cost (his Mac at zoom 7.5, 21 Oct: about 30 ms of page work a frame,
   // still there 2 s after the scroll).
   const rest = document.createElement('button');
-  for (const b of [title, rest, copy]) b.style.cssText = 'font:inherit;color:#fff;background:rgb(255 255 255 / .16);border:0;border-radius:6px;padding:4px 8px;min-height:28px';   // colour-exempt
+  // GPU timing: each timed step then waits for the GPU before and after it (gpu-probe.js), so "picture" (the blood's frame) and
+  // "vessels" show their GPU time, not just the moment they were queued. That slows the page a little, so it starts off.
+  const gpu = document.createElement('button');
+  const gpuLabel = () => { gpu.textContent = gpuProbe.cpuOnly ? 'GPU timing off' : 'GPU timing on'; };
+  gpu.onclick = () => { gpuProbe.cpuOnly = !gpuProbe.cpuOnly; gpuLabel(); };
+  gpuLabel();
+  for (const b of [title, rest, gpu, copy]) b.style.cssText = 'font:inherit;color:#fff;background:rgb(255 255 255 / .16);border:0;border-radius:6px;padding:4px 8px;min-height:28px';   // colour-exempt
   title.textContent = 'Lag after gestures (tap to fold)';
   copy.textContent = 'Copy';
   rest.textContent = 'At rest';
   rest.onclick = () => { rest.textContent = 'Wait 3 s'; setTimeout(() => { begin('at rest'); setTimeout(() => { rest.textContent = 'At rest'; }, 2000); }, 1000); };
   const body = document.createElement('div');
   body.textContent = 'Pan, pinch or scroll-zoom the figure, then let go and wait 2 s.';
-  bar.append(title, rest, copy); el.append(bar, body);
+  bar.append(title, rest, gpu, copy); el.append(bar, body);
   let folded = false;
   title.onclick = () => { folded = !folded; body.style.display = folded ? 'none' : ''; };
   const text = () => [`${navigator.userAgent}`, `screen ${innerWidth}x${innerHeight} @${devicePixelRatio}x, ${location.pathname}${document.getElementById('preview-badge') ? ` ${document.getElementById('preview-badge').textContent.trim()}` : ''}`, ...reports.map(gestureText)].join('\n\n');

@@ -33,9 +33,9 @@
 
 import { CHEV_GLSL } from './chevron-glsl.js?v=96ec7c6666';
 import { SLOT, DYE_BINS } from './blood.js?v=e668d01823';
-import { cssRGB } from './util.js?v=bd1f2204ba';
+import { cssRGB } from './util.js?v=d2ab488e61';
 import { CELL, ENT_W, binVeins, splitRows } from './veins-bin.js?v=81a80b3a6d';
-import { gpuProbe } from './gpu-probe.js?v=a675ea62f9';
+import { gpuProbe } from './gpu-probe.js?v=55e394c081';
 
 export { binVeins };
 
@@ -820,6 +820,7 @@ uniform sampler2D glowL;               // soft glows behind the plate (an organ 
 uniform int glowOn;
 uniform sampler2D warmL;               // warm glows over the plate and under the vessels (the edges of a lit organ's loops), same drawing
 uniform int warmOn;
+uniform int bloodOnly;                // 1: a frame where only the blood moved (composite): a pixel with no lumen is left as drawn
 out vec4 outColor;
 
 const float SLOT = ${SLOT_W}.0;
@@ -1062,6 +1063,12 @@ float dyeAt(int id, float s, float y) {
 
 void main() {
   ivec2 ip = ivec2(gl_FragCoord.xy);
+  uvec4 g = texelFetch(gbuf, ip, 0);
+  // Between whole redraws a pixel with no lumen comes out as the last frame left it: everything it is made of (the plate, the
+  // glows, the vessel layer, still fluid, the outlines) is unchanged, and the blood, chevrons, dye and origin colours are drawn
+  // only where a lumen is (g.x > 0). So it is not drawn again: the blood squares' other pixels were most of each frame's work
+  // zoomed in (Mohammad's Mac at rest, zoom 4.24, 21 Oct: 86 frames in 2 s against 121 at 3.08), for the same picture.
+  if (bloodOnly == 1 && g.x == 0u) discard;
   vec2 w = (inv * vec3(gl_FragCoord.x, H - gl_FragCoord.y, 1.0)).xy;
   // The plate: the sharp view raster where it lies, else the whole-plate one.
   vec4 pl = vec4(0.0);
@@ -1115,7 +1122,6 @@ void main() {
   }
 
   vec4 v = texelFetch(base, ip, 0);
-  uvec4 g = texelFetch(gbuf, ip, 0);
   float vis = g.x > 0u ? clamp(float(g.w) / 65535.0 / max(v.a, 1e-3), 0.0, 1.0) : 0.0;
   if ((blood == 1 || dyeOn == 1 || chev == 1 || origin == 1) && (vis > 0.005 || (dyeOn == 1 && g.x > 0u)) && v.a > 0.01) {
     vec3 col = v.rgb / v.a;
@@ -1590,7 +1596,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false }) {
   }
   // The binned cells on the CPU, and (built when first asked) each vessel row's cells: a row's attributes can change
   // only the pixels of the cells that list it, since each pixel is drawn from its own cell's list alone.
-  let cellsCPU = null, entCPU = null, rowCells = null;
+  let cellsCPU = null, entCPU = null, rowCells = null, bloodCPU = null;
   // The rows whose radii changed since the layer was last drawn: a partial redraw has to include them all.
   const radRows = new Set();
   const radCovered = (rows) => !radRows.size || (!!rows && [...radRows].every((r) => rows.includes(r)));
@@ -1712,6 +1718,20 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false }) {
     software = /SwiftShader|llvmpipe|softpipe|Software|Basic Render/i.test(String(gl.getParameter(ri ? ri.UNMASKED_RENDERER_WEBGL : gl.RENDERER)));
   } catch { software = false; }
 
+  // For the ?perf readout (gpuProbe on): how much of the canvas the squares a frame repaints cover (cells: 6 floats each, the
+  // square's corner first; m: world → device pixels).
+  function squaresOnScreen(cells, n, m) {
+    if (!cells) return '';
+    const W = canvas.width, H = canvas.height, sx = Math.abs(m[0]) + Math.abs(m[2]), sy = Math.abs(m[1]) + Math.abs(m[3]);
+    let px = 0, k = 0;
+    for (let c = 0; c < n; c++) {
+      const x = m[0] * cells[c * 6] + m[2] * cells[c * 6 + 1] + m[4], y = m[1] * cells[c * 6] + m[3] * cells[c * 6 + 1] + m[5];
+      const x0 = Math.min(x, x + m[0] * CELL, x + m[2] * CELL, x + (m[0] + m[2]) * CELL), y0 = Math.min(y, y + m[1] * CELL, y + m[3] * CELL, y + (m[1] + m[3]) * CELL);
+      const w = Math.min(W, x0 + sx * CELL) - Math.max(0, x0), h = Math.min(H, y0 + sy * CELL) - Math.max(0, y0);
+      if (w > 0 && h > 0) { px += w * h; k++; }
+    }
+    return `${k} of ${n}, ${(px / 1e6).toFixed(1)} MP of ${(W * H / 1e6).toFixed(1)}, ${Math.round(sx * CELL)} px each`;
+  }
   const api = {
     get lost() { return lost; },
     /** Whether the browser renders WebGL on the CPU. */
@@ -1726,6 +1746,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false }) {
       gl.bindBuffer(gl.ARRAY_BUFFER, bloodBuf);
       gl.bufferData(gl.ARRAY_BUFFER, bins.blood || bins.cells, gl.STATIC_DRAW);
       nBlood = bins.blood ? bins.nBlood : bins.nCells;
+      bloodCPU = bins.blood || bins.cells;
       cellsCPU = bins.cells; entCPU = bins.ent; rowCells = null; fboOK = false;
     },
     /**
@@ -1996,10 +2017,17 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false }) {
       bind(13, warmLayer.tex, 'warmL'); gl.uniform1i(U.warmOn, warm ? 1 : 0);
       bind(12, bendTex, 'bend');
       if (full) {
+        gl.uniform1i(U.bloodOnly, 0);
+        if (gpuProbe.on) gpuProbe.gauge('blood squares on screen', 'whole picture');
         gl.bindVertexArray(compVAO);
         gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
       } else {
+        if (gpuProbe.on) gpuProbe.gauge('blood squares on screen', squaresOnScreen(all ? cellsCPU : bloodCPU, all ? nCells : nBlood, m));
+        // (Only the blood's own frame skips the pixels with no lumen: after drawRows (`all`) the vessel layer under them changed,
+        // and the fluid's ripple moves the whole of its cells.)
+        gl.uniform1i(U.bloodOnly, all ? 0 : 1);
         if (all ? nCells : nBlood) { gl.bindVertexArray(all ? vao : bloodVAO); gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, all ? nCells : nBlood); }
+        gl.uniform1i(U.bloodOnly, 0);
         if (fl?.ripple && nFluid) { gl.bindVertexArray(fluidVAO); gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, nFluid); }
       }
       gl.bindVertexArray(null);

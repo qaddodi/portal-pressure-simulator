@@ -32,4 +32,9 @@ export const gpuProbe = {
   note(name, v = 0) { if (!this.on) return; const n = this.notes[name] || (this.notes[name] = [0, 0]); n[0]++; n[1] += v; },
   /** The notes since the last take: name → [count, sum]. */
   takeNotes() { const n = this.notes; this.notes = {}; return n; },
+  // Things measured as they stand rather than summed (how much of the screen a frame repaints): the latest value of each.
+  gauges: {},
+  gauge(name, v) { if (this.on) this.gauges[name] = v; },
+  /** The gauges since the last take: name → latest value. */
+  takeGauges() { const g = this.gauges; this.gauges = {}; return g; },
 };
