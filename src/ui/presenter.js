@@ -1341,11 +1341,17 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   // (next: the slide being moved to, if it frames the plate, so the way out of the lobule lands on that framing
   // in one zoom rather than stopping at the fit first.)
   const RISE_FIT_MS = 450;   // (the zoom back to the whole lobule before a rise: about the rise's own speed where they meet)
+  const RISE_READY_MS = 2500;   // (the longest the rise waits for the organs' picture: past it, the live drawing shows, as before)
   async function toAnatomy(next) {
     const st = store.get();
     if (!st.lobule && !st.sinusoid) return;
     // Out of the sinusoid, then back to the lobule's normal framing, and only then out of the lobule: three steps, never one zoom through them.
     if (st.sinusoid) { store.set({ sinusoid: false }); await wait(60); await until(() => !stage.sinBusy() && !stage.sinusoidOpen(), 4000); }
+    // The anatomy under the lobule is brought up to the patient now and its organs' picture made, unseen (begun in camera() as the
+    // new cards come in); the rise waits for it (stage.js prepRise), so the organs fade in as they are, never swapped in one frame at landing.
+    stage.prepRise?.();
+    // (Waited for before the glide, at rest: the glide runs straight on into the rise, never stopping at the whole lobule.)
+    if (stage.riseReady && !booting) await until(() => stage.riseReady(), RISE_READY_MS);
     // (The way back to the fit eases in only: it reaches the fit still moving and the rise, which moves from its first frame, carries
     // straight on. Eased out as well, the zoom came to rest at the whole lobule and set off again: it stopped midway (Mohammad, 20 Oct,
     // Circulation 9 to 10).)
@@ -1387,6 +1393,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     // (The rise lands where the box fits the space the cards leave, measured as it begins: the new slide's cards are let come in
     // first, or they would settle a little larger after it and the camera would glide again to the fit they leave.)
     if ((store.get().lobule || store.get().sinusoid) && ms > 0) {
+      if (!store.get().sinusoid) stage.prepRise?.();   // (begun now, while the cards come in: see toAnatomy)
       const t0 = performance.now();
       await until(() => cut() || !cardsEntering(), 1200);
       // (And their size has stopped moving: a chart or a wrapped line that lands during the rise would change the fit it was aimed at.

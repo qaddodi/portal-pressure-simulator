@@ -1844,8 +1844,26 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     // The joint: the lobule has landed under the dive, and the sinusoid's zoom takes over at the speed the dive has.
     if (chainIn && !chainFired && t >= 0.88) { chainFired = true; store.set({ sinusoid: true }); }
   }
+  // Before the way out of a landed lobule (prepRise, asked for by the presenter as the slide changes): the anatomy under it, still
+  // covered, follows the model again and its organs' picture is made for the patient now, so the rise fades in a current picture.
+  // (Left as it was under the lobule, the picture held the patient from before the dive: shown through the rise and swapped at
+  // landing, the organs changed in one frame; dropped as the rise began, the live drawing showed, scaled up by the zoom, and
+  // Safari lost its masked groups, the stomach and gut, until partway down: Mohammad, 20 Oct, HVPG 7 to 8.)
+  let risePrep = false, risePrepT = 0;
+  function prepRise() {
+    if (!lobuleOn || diveT < 1 || morphTarget !== 0 || risePrep) return;
+    risePrep = true; clearTimeout(risePrepT); risePrepT = setTimeout(() => { risePrep = false; }, 6000);   // (never left on in the lobule)
+    if (F && !inUpdate) update(F);
+    platePoke();
+  }
+  // The organs' picture is made for the patient now (prepRise is done: it ends when that picture lands), or there is none to wait for.
+  function riseReady() {
+    if (!risePrep || !F || !veins || veins.lost || !glWanted(easeInOut(morph)) || figureHidden() || !lobuleOn) return true;
+    return plateOn() && !plateBusy && !lvMoving && !fluidEasing() && !spleenMoving() && plateKey === plateStateKey();
+  }
   function setLobule(on) {
     if (on && morphTarget !== 0) return;
+    risePrep = false; clearTimeout(risePrepT);
     const from0 = diveT;
     scrubS = 0; cancelFrame(scrubAnim); diveOut = !on;
     if (on) { riseBox = null; riseUsed = false; chainOut = false; chainFired = false; } else chainIn = false;
@@ -1909,7 +1927,6 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         setDiveScale(1); lz.setDiveZoom(1, 0, 0); diveLand = null;
         zShift = 0;
         if (chainOut) { chainOut = false; lz.setSinChain(null, false); }
-        if (plateAfterRise) { plateAfterRise = false; platePoke(); }   // (the organs' picture, held through the rise, catches up now)
         // Out of the lobule the anatomy always ends on its full fit, not where the dive began (often the liver close-up).
         // (Already taken to its fit when the way out began; measuring it again here read the floating pieces mid-change and sent the view down, then back.)
         if (riseUsed) riseUsed = false;   // (the rise already landed on the slide's own framing)
@@ -2452,7 +2469,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     // In the lobule, or diving into it (the anatomy is only magnified, then covered), the plate is left as it is
     // (reading the cards' boxes and restyling it each model frame stalled the zoom); it catches up on the way out,
     // with its eases already where they have got to (followHidden).
-    const under = (lobuleOn || lz?.isOpen()) && !catchUp;
+    const under = (lobuleOn || lz?.isOpen()) && !catchUp && !risePrep;
     // The cards' boxes, read at most every 100 ms (each read forces a layout in the middle of the model's frames);
     // a card that opens, closes or moves announces itself (pps:occ, resize) and is read at once.
     // (And only while one of them may have moved: layoutWatch.)
@@ -3646,16 +3663,10 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (!on) { anatBg = bg; return false; }
     return anatBg !== null && bg !== anatBg;
   }
-  let plateStale = false, plateAfterRise = false;
-  // On the way out of the lobule the figure is a compositor zoom of what was there (setDiveScale), several times its size at first.
-  // The organs' picture stays through it and is brought up to date once the rise has landed: dropped there (the patient's eases
-  // went on under the lobule, so it reads as stale), the live drawing showed, and Safari does not draw a masked group (the stomach,
-  // the gut) scaled up that far, so they were missing and popped in partway down the zoom (Mohammad, 20 Oct, HVPG 7 to 8).
-  const rising = () => !lobuleOn && diveT > 0;
+  let plateStale = false;
   function platePoke() {
     // Not while diving into the lobule (the anatomy is only magnified, then covered): once landed, under the lobule.
     if (lobuleOn && !lz?.isOpen()) return;
-    if (rising()) { plateAfterRise = true; return; }
     if (!veins || veins.lost || !glWanted(easeInOut(morph)) || figureHidden() || document.hidden || circuitInk()) return;
     // An ease that outgrows the plate (a fill played over days, a liver that changes in small steps) shows on the live drawing
     // as it goes, and the plate is drawn again once it settles: held, the organs inside it stood still while their outlines
@@ -3682,7 +3693,6 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const wait = themed ? 0 : Math.max(0, 500 - (performance.now() - plateLast), 400 - (performance.now() - lvStillAt), 400 - (performance.now() - spleenMv.stillAt()));
     clearTimeout(plateTimer);
     plateTimer = setTimeout(async () => {
-      if (rising()) { plateAfterRise = true; return; }
       if (figureHidden() || lvMoving || fluidEasing() || spleenMoving() || (lobuleOn && !lz?.isOpen()) || circuitInk() || document.hidden) return;   // hidden, moving or diving meanwhile: a later poke rasterizes
       const k = plateStateKey();
       if (k === plateKey && veins?.hasPlate(0)) return;   // it changed and changed back
@@ -3703,6 +3713,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
             if (!drawVeins()) { wrap.classList.remove('gl-plate'); syncPlateLook(); }
           } else syncPlateLook();
           if (!plateOn()) plateKey = '';   // not shown (the liver moved meanwhile): raster again once it settles
+          else if (risePrep) { risePrep = false; clearTimeout(risePrepT); }   // (made for the way out: the anatomy under the lobule rests again)
           schedulePlateView(); gutPicSoon();
         } else if (plateStateKey() !== k) plateAgain = true;   // (given up as out of date: drawn again for the state now)
       } catch (e) { console.warn('Plate raster failed; the SVG plate stays.', e); }
@@ -9507,7 +9518,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     },
     cameraZoom: () => ((diveT <= 0 || diveT >= 1) && !chainOut && !lz?.sinBusy() ? null : (refreshCTM(), Math.log(CTM.sc) + diveZ + lz.sinZoom() + zShift)),
     /** The next way out of the lobule lands on this box of the plate (or the fit, for null or 'fit'): one zoom, no stop between. */
-    riseTo, holdHome,
+    riseTo, holdHome, prepRise, riseReady,
     fitSlow(ms = 1300) { if (lobuleOn) return; const to = defaultVT(morphTarget === 1); if (morphTarget !== 1) homeAt = to; fitted = true; if (!sameView(to, vtGliding ? vtTarget : vt)) animateVT(to, ms); },
     /** The anatomy/circuit camera (where it is headed, if gliding), and a glide back to one saved earlier (the presenter puts the view back). */
     cameraState: () => ({ ...(vtGliding && vtTarget ? vtTarget : vt) }),
