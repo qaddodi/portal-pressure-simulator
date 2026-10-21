@@ -41,6 +41,7 @@ test('the test deck shows aliasing on a stent and its fix with the baseline move
   assert.deepEqual([by.alias.tool.scale, by.alias.tool.baseline], [80, undefined]);
   assert.deepEqual([by['alias-fix'].tool.scale, by['alias-fix'].tool.baseline], [80, 0.85]);
   for (const id of ['alias', 'alias-fix']) assert.equal(by[id].tool.vessel, 'TIPS');
-  assert.ok(DEMO_ALL.sections.at(-1)[1].slice(-2).join() === 'alias,alias-fix', 'added at the end, so no earlier slide number moves');
-  assert.equal(DEMO_ALL.slides.at(-1).id, 'alias-fix');
+  // (added at the end of the Instruments section, slides 66 and 67 on screen; later slides go after them, so no earlier slide number moves)
+  assert.ok(DEMO_ALL.sections.find((x) => x[0] === 'Instruments')[1].slice(-2).join() === 'alias,alias-fix');
+  assert.deepEqual(['alias', 'alias-fix'].map((id) => DEMO_ALL.slides.findIndex((s) => s.id === id)), [64, 65]);
 });

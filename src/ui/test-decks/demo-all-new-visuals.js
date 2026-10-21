@@ -100,6 +100,12 @@ export const DEMO_ALL = {
         "alias",
         "alias-fix"
       ]
+    ],
+    [
+      "Scale switch",
+      [
+        "scales"
+      ]
     ]
   ],
   "slides": [
@@ -2048,6 +2054,19 @@ export const DEMO_ALL = {
       "kicker": "Doppler aliasing",
       "title": "Moving the baseline down makes room",
       "line": "The same scan with the baseline moved down. The scale now reaches further toward the probe, so the whole spectrum fits above the baseline. Raising the scale would fix it too."
+    },
+    {
+      "id": "scales",
+      "preset": "cirr-decomp",
+      "cam": "liver",
+      "labels": ["CONF", "SIN_R"],
+      "scales": {
+        "lobule": { "cam": "lobule:sinusoid", "zoom": 2.4, "glow": ["lobule:sinusoid"] },
+        "sinusoid": {}
+      },
+      "kicker": "Scale switch",
+      "title": "One patient at three scales",
+      "line": "Tap Lobule to dive into the liver with the sinusoid reading lit, or Sinusoid to see the scarred wall. Next opens the next slide on its own scale."
     }
   ]
 };

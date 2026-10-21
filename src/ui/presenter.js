@@ -38,7 +38,7 @@ import { EXT, expandIds, stepExtra, markLabel, figureHooks, safe } from './slide
 import { clotWords } from './callout-math.js?v=0c960d54d3';
 import { citeText, focusOf, oneLadder } from './teach-extras.js?v=5f5248f5a7';
 import { createProfileTool, createProfileStrip } from './tool-profile.js?v=a00ae3cdce';
-import { DEMO_ALL } from './test-decks/demo-all-new-visuals.js?v=97600471a5';
+import { DEMO_ALL } from './test-decks/demo-all-new-visuals.js?v=994d9ba268';
 import { COMPACT, WIDE } from './card-type.js?v=f5dfdb80f2';
 const nextFrame = frameFor('presenter');
 
