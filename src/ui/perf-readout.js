@@ -9,7 +9,8 @@ import { gpuProbe } from './gpu-probe.js?v=55e394c081';
 const WINDOW = 2000, GAP = 20, KEEP = 5;
 // Notes counted frame by frame over a window (veins-gl.js composite): a frame that redrew the whole picture, a frame with the organ
 // picture down (the live organs drawn by the page, as while the liver, the spleen or the fluid eases).
-const TALLY = ['whole picture', 'organ picture down', 'gut live', 'gut picture', 'liver easing', 'fluid easing', 'spleen easing'];
+const TALLY = ['whole picture', 'organ picture down', 'gut live', 'gut picture', 'liver easing', 'fluid easing', 'spleen easing',
+  ...['no picture', 'art changed', 'colours changed', 'zoomed past it', 'zoomed out past it', 'moved apart'].map((w) => `gut live: ${w}`)];
 
 /**
  * One frame gap as a line: when after the gesture ended, how long, and the steps in it, largest first. What no step of the

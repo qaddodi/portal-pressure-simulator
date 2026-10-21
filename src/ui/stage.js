@@ -3955,6 +3955,16 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (gutPic.k * 1.15 < need || gutPic.k > need * 2) return false;
     return gutPic.runs.every((r) => r.kids.every((k) => trOf(k) === trOf(r.kids[0])));
   }
+  // (For the ?perf readout: why the gut shows its live paths while the organ picture is down.)
+  function gutLiveWhy() {
+    if (!gutPic) return 'no picture';
+    if (gutPic.mut !== gutMut) return 'art changed';
+    if (gutPic.look !== gutLook()) return 'colours changed';
+    const need = vdpr * (CTM?.sc || 0);
+    if (gutPic.k * 1.15 < need) return 'zoomed past it';
+    if (gutPic.k > need * 2) return 'zoomed out past it';
+    return 'moved apart';
+  }
   function syncGutPic() {
     if (!gGut) return;
     const on = gutPicOk();
@@ -8869,6 +8879,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     // (For the ?perf readout: what eases while the organ picture is down, and whether the gut shows as its picture or its paths.)
     if (gpuProbe.on && !plateOn()) {
       gpuProbe.note(gutPicOn ? 'gut picture' : 'gut live');
+      if (!gutPicOn) gpuProbe.note(`gut live: ${gutLiveWhy()}`);
       if (lvMoving) gpuProbe.note('liver easing');
       if (fluidWas) gpuProbe.note('fluid easing');
       if (spleenMoving()) gpuProbe.note('spleen easing');
