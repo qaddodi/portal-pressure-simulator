@@ -1,11 +1,12 @@
 // No stray dots in the circuit: a station's marker (dot, label, Δ ring) shows only while a vessel is drawn at it, and the dot
-// really fades when it must (the stylesheet's "show every circuit dot" rule used to win over the one that hides it).
+// really fades when it must (the stylesheet's "show every circuit dot" rule used to win over the one that hides it). And no reading
+// sits on a dot: every visible dot, with a reading beside it or not, has a box the readings keep out of.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { EDGES, NODES } from '../src/engine/topology.js';
-import { HIDDEN_EDGES, HIDDEN_NODES, NEEDS_C3 } from '../src/ui/anatomy.js';
-import { nodeEnds, nodeDrawn, drawnAt, leadEnd } from '../src/ui/circuit-nodes.js';
+import { HIDDEN_EDGES, HIDDEN_NODES, NEEDS_C3, NODE_POS } from '../src/ui/anatomy.js';
+import { nodeEnds, nodeDrawn, drawnAt, leadEnd, dotRadius, dotBox, bareDots } from '../src/ui/circuit-nodes.js';
 
 const read = (p) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8');
 const ALL = EDGES.filter((e) => e.kind !== 'wedge' && !HIDDEN_EDGES.has(e.id));
@@ -93,4 +94,44 @@ test('the stage keeps no dot of a station without a drawn vessel: starts off, fo
   assert.match(src, /const nodeVisible = \(id\) => [^;]*nodeDrawn\(NODE_ENDS\[id\]\);/);
   assert.match(src, /const ne = nodeEls\[n\.id\], off = !nodeVisible\(n\.id\);/);
   assert.match(src, /\|\| !NODE_POS\[n\.id\] \|\| !nodeVisible\(n\.id\)\) continue;/);
+});
+
+const hits = (a, b) => a.x0 < b.x1 && a.x1 > b.x0 && a.y0 < b.y1 && a.y1 > b.y0;
+const SCALES = [0.3, 0.45, 0.8, 1, 1.4, 2.5];
+
+test('a dot\'s keep-clear box holds the dot as drawn, and a reading beside it stands 4 px or more from its edge', () => {
+  for (const kind of ['bed', 'portal', 'liver', 'hepvein', 'vein', 'heart']) for (const sc of SCALES) {
+    const R = (dotRadius(kind) + 0.8) * sc, b = dotBox(100, 100, kind, sc, 7, 5);
+    for (const [side, v] of Object.entries({ left: 100 - b.x0, right: b.x1 - 100, up: 100 - b.y0, down: b.y1 - 100 })) assert.ok(v >= R + 2 - 1e-9, `${kind} at ${sc}: ${side} clears the dot's edge by 2 px`);
+    // A station's reading box: 3 px round its words sideways, 2 px up and down (stage.js nodeItem padX, padY); it may touch the dot's box.
+    assert.ok(b.x1 - 100 + 3 - R >= 4 - 1e-9 && b.y1 - 100 + 2 - R >= 4 - 1e-9, `${kind} at ${sc}: the words stand 4 px off the dot`);
+  }
+  assert.deepEqual(dotBox(0, 0, 'vein', 0.3, 7, 5), { x0: -7, y0: -5, x1: 7, y1: 5 }, 'never smaller than a station\'s ring');
+});
+
+test('every visible dot without a reading gets a box (the colon bed under the spleen\'s reading, the portal bifurcation)', () => {
+  const rec = records(), ends = nodeEnds(ALL, (e) => rec[e.id]);
+  const sc = 0.8, circ = (id) => NODE_POS[id][1].map((v) => v * sc);
+  // The circuit zoomed out, readings at the key level: only the major stations (priority 5 and up) have one.
+  const labelled = new Set(['INT', 'SPL', 'SMV', 'SV', 'LGV', 'CONF', 'RPV', 'LPV', 'SIN_R', 'RHV', 'LHV', 'IVCI', 'IVCS', 'RA', 'AZY']);
+  const stations = NODES.filter((n) => STATIONS.includes(n.id));
+  const bare = bareDots(stations, { labelled, shown: (id) => nodeDrawn(ends[id]), at: circ, scale: sc, minX: 7, minY: 5 });
+  const ids = bare.map((d) => d.id);
+  assert.ok(ids.includes('COL') && ids.includes('PVH') && ids.includes('IMV'), 'stations with no reading beside them');
+  for (const id of ['STO', 'GV', 'VAR', 'EPI']) assert.ok(!ids.includes(id), `${id}: no vessel drawn, so no dot, so no box`);
+  for (const id of labelled) assert.ok(!ids.includes(id), `${id} keeps the ring its reading sets`);
+  // The case that showed: the spleen's reading set below its station (S, 7 px off) lands on the colon bed's dot; its box now rules the spot out.
+  const [sx, sy] = circ('SPL'), col = bare.find((d) => d.id === 'COL');
+  const reading = { x0: sx - 52, x1: sx + 52, y0: sy + 7, y1: sy + 7 + 44 };
+  assert.ok(hits(reading, col.box), 'the spot the spleen\'s reading took is over the colon bed\'s dot');
+  assert.deepEqual([col.x, col.y], circ('COL'));
+});
+
+test('the stage gives every dot without a reading its box, and draws each dot at the size the box assumes', () => {
+  const src = read('src/ui/stage.js');
+  assert.match(src, /r: dotRadius\(n\.kind\), class: 'node-dot circuit-only off'/);
+  assert.match(src, /const labelled = new Set\(nodes\.map\(\(it\) => it\.node\)\);/);
+  assert.match(src, /bareDots\(NODES\.filter\(\(n\) => nodeEls\[n\.id\]\), \{ labelled, shown: nodeVisible, at: \(id\) => worldToLocal\(\.\.\.nodePos\(id, t\)\), scale: CTM\.sc, minX: ringRX, minY: ringR \}\)/);
+  assert.match(src, /placed\.push\(\{ \.\.\.d\.box, dot: true \}\); ringXY\.push\(\[d\.x, d\.y, ringRX\]\);/);
+  assert.match(read('styles/app.css'), /\.node-dot \{[^}]*stroke-width: 1\.6;/, 'the outline width the box allows for');
 });

@@ -4135,11 +4135,12 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
             const reach = Math.min(...ownBoxes.map((b) => Math.hypot(Math.max(b.left - e.x, 0, e.x - b.right), Math.max(b.top + b.height * 0.15 - e.y, 0, e.y - b.top - b.height * 0.85))));
             if (own.length && ownBoxes.length && reach > 4) bad.push(`${at}: the leader of ${own[0]} stops ${Math.round(reach)} px short of its text`);
           }
-          // No reading's halo covers a station's ring (its own too), 2 px clear of the ring's 4 px radius.
+          // No reading's halo covers a station's ring (its own too), 2 px clear of the ring's 4 px radius. (Every visible dot has one in the list,
+          // a station without a reading beside it too: the colon bed's, under the spleen's reading.)
           for (const xy of (document.querySelector('#labels .lb-blocks')?.dataset.rings || '').split(' ').filter(Boolean)) {
             const [x, y] = xy.split(',').map(Number), lr = document.querySelector('#labels').getBoundingClientRect(), cx = lr.left + x, cy = lr.top + y;
             const on = boxes.filter((b) => Math.hypot(Math.max(b.x0 - cx, 0, cx - b.x1), Math.max(b.y0 - cy, 0, cy - b.y1)) < 4).map((b) => b.k);
-            if (on.length) bad.push(`${at}: ${[...new Set(on)].join(', ')} covers the station ring at (${Math.round(cx)},${Math.round(cy)})`);
+            if (on.length) bad.push(`${at}: ${[...new Set(on)].join(', ')} covers the station ring or dot at (${Math.round(cx)},${Math.round(cy)})`);
           }
           return { bad, miss };
         }, `${w}x${hgt} Circuit ${n}`);
