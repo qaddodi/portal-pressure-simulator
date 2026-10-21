@@ -35,7 +35,7 @@ test('without the readout the probe is off and never waits for the GPU; with it,
   // The panel is written only when a gesture's window closes, never on each frame.
   const tick = src.slice(src.indexOf('const tick'), src.indexOf('requestAnimationFrame(tick);\n  };'));
   assert.equal((tick.match(/paint\(\)/g) || []).length, 1);
-  assert.match(tick, /if \(t - cur\.t0 >= WINDOW\) \{ reports\.unshift\(cur\); reports\.length = Math\.min\(reports\.length, KEEP\); cur = null; paint\(\); \}/);
+  assert.match(tick, /if \(t - cur\.t0 >= cur\.win\) \{ reports\.unshift\(cur\); reports\.length = Math\.min\(reports\.length, KEEP\); cur = null; paint\(\); \}/);
 });
 
 test('a gesture reads as one line per slow frame, with its steps largest first and the rest of the page', () => {
@@ -56,4 +56,13 @@ test('a window lists what it measured as it stood (the blood squares a frame rep
   // The GPU switch starts off: the readout times script only until it is turned on.
   const src = readFileSync(new URL('../src/ui/perf-readout.js', import.meta.url), 'utf8');
   assert.match(src, /gpu\.onclick = \(\) => \{ gpuProbe\.cpuOnly = !gpuProbe\.cpuOnly; gpuLabel\(\); \};/);
+});
+
+test('a recording runs 6 s and counts the frames that redrew the whole picture or had the organ picture down', () => {
+  const t = gestureText({ n: 5, kind: 'recording', view: 'anatomy', zoom: '0.84', win: 6000, frames: 300, worst: 90, gaps: [], tasks: [], tally: { 'whole picture': 120, 'organ picture down': 200 } });
+  assert.equal(t, '#5 recording in anatomy, zoom 0.84, 300 frames in 6 s, worst 90 ms\n  whole picture in 120 of 300 frames, organ picture down in 200 of 300 frames\n  no frame over 20 ms');
+  const src = readFileSync(new URL('../src/ui/perf-readout.js', import.meta.url), 'utf8');
+  assert.match(src, /rec\.onclick = \(\) => \{ begin\('recording', 6000\);/);
+  const gl = readFileSync(new URL('../src/ui/veins-gl.js', import.meta.url), 'utf8');
+  assert.match(gl, /if \(gpuProbe\.on\) \{ if \(full\) gpuProbe\.note\('whole picture'\); if \(!look\.plate\) gpuProbe\.note\('organ picture down'\); \}/);
 });

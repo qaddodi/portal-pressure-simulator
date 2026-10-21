@@ -1949,6 +1949,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false }) {
       wasBleeding = bleeding;
       const fl = look.fluid && fluidRect ? look.fluid : null;
       if (!full && !nCells && !(fl?.ripple && nFluid)) return;
+      if (gpuProbe.on) { if (full) gpuProbe.note('whole picture'); if (!look.plate) gpuProbe.note('organ picture down'); }
       const det = m[0] * m[3] - m[1] * m[2] || 1e-9;
       // device → world: the inverse of [a c e; b d f].
       const ia = m[3] / det, ib = -m[1] / det, ic = -m[2] / det, id = m[0] / det;

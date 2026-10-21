@@ -7,6 +7,9 @@
 import { gpuProbe } from './gpu-probe.js?v=55e394c081';
 
 const WINDOW = 2000, GAP = 20, KEEP = 5;
+// Notes counted frame by frame over a window (veins-gl.js composite): a frame that redrew the whole picture, a frame with the organ
+// picture down (the live organs drawn by the page, as while the liver, the spleen or the fluid eases).
+const TALLY = ['whole picture', 'organ picture down'];
 
 /**
  * One frame gap as a line: when after the gesture ended, how long, and the steps in it, largest first. What no step of the
@@ -27,8 +30,11 @@ export function gapLine(g) {
 
 /** A gesture's report as text. */
 export function gestureText(r) {
-  const head = `#${r.n} ${r.kind} in ${r.view}, zoom ${r.zoom}, ${r.frames} frames in 2 s, worst ${r.worst.toFixed(0)} ms${r.gpu ? ', GPU timed' : ''}`;
+  const head = `#${r.n} ${r.kind} in ${r.view}, zoom ${r.zoom}, ${r.frames} frames in ${((r.win || WINDOW) / 1000).toFixed(0)} s, worst ${r.worst.toFixed(0)} ms${r.gpu ? ', GPU timed' : ''}`;
   const gauges = Object.entries(r.gauges || {}).filter(([, v]) => v).map(([k, v]) => `  ${k}: ${v}`);
+  // (Frames counted by what they drew, over the whole window: the whole picture redrawn, the organ picture down.)
+  const tally = Object.entries(r.tally || {}).map(([k, n]) => `${k} in ${n} of ${r.frames} frames`);
+  if (tally.length) gauges.push(`  ${tally.join(', ')}`);
   const gaps = r.gaps.length ? r.gaps.map(gapLine) : ['  no frame over 20 ms'];
   const tasks = r.tasks.map((t) => `  long task +${t.at.toFixed(0)} ms: ${t.dt.toFixed(0)} ms${t.src ? ` (${t.src})` : ''}`);
   return [head, ...gauges, ...gaps, ...tasks].join('\n');
@@ -55,9 +61,9 @@ export function startPerfReadout({ zoom = () => '?' } = {}) {
     beatAt = b;
     beatT = cur ? setTimeout(beat, 0) : 0;
   };
-  const begin = (kind) => {
+  const begin = (kind, win = WINDOW) => {
     const was = !!cur;
-    cur = { n: ++n, kind, view: view(), zoom: (+zoom() || 0).toFixed(2), t0: performance.now(), frames: 0, worst: 0, gaps: [], tasks: [], gauges: {}, gpu: !gpuProbe.cpuOnly };
+    cur = { n: ++n, kind, win, tally: {}, view: view(), zoom: (+zoom() || 0).toFixed(2), t0: performance.now(), frames: 0, worst: 0, gaps: [], tasks: [], gauges: {}, gpu: !gpuProbe.cpuOnly };
     gpuProbe.take(); gpuProbe.takeNotes(); gpuProbe.takeGauges();
     if (!was && !beatT) { beatAt = performance.now(); busy = 0; beatT = setTimeout(beat, 0); }
   };
@@ -90,13 +96,13 @@ export function startPerfReadout({ zoom = () => '?' } = {}) {
 
   const tick = (t) => {
     const parts = gpuProbe.take(), notes = gpuProbe.takeNotes(), gauges = gpuProbe.takeGauges(), was = busy;
-    if (cur) Object.assign(cur.gauges, gauges);
+    if (cur) { Object.assign(cur.gauges, gauges); for (const k of TALLY) if (notes[k]) cur.tally[k] = (cur.tally[k] || 0) + 1; }
     busy = 0; frameAt = t;
     if (cur && prevT && t >= cur.t0) {
       const dt = t - prevT, at = prevT - cur.t0;
       cur.frames++; cur.worst = Math.max(cur.worst, dt);
       if (dt > GAP) cur.gaps.push({ at: Math.max(0, at), dt, parts, notes, busy: was });
-      if (t - cur.t0 >= WINDOW) { reports.unshift(cur); reports.length = Math.min(reports.length, KEEP); cur = null; paint(); }
+      if (t - cur.t0 >= cur.win) { reports.unshift(cur); reports.length = Math.min(reports.length, KEEP); cur = null; paint(); }
     }
     prevT = t;
     requestAnimationFrame(tick);
@@ -121,14 +127,19 @@ export function startPerfReadout({ zoom = () => '?' } = {}) {
   const gpuLabel = () => { gpu.textContent = gpuProbe.cpuOnly ? 'GPU timing off' : 'GPU timing on'; };
   gpu.onclick = () => { gpuProbe.cpuOnly = !gpuProbe.cpuOnly; gpuLabel(); };
   gpuLabel();
-  for (const b of [title, rest, gpu, copy]) b.style.cssText = 'font:inherit;color:#fff;background:rgb(255 255 255 / .16);border:0;border-radius:6px;padding:4px 8px;min-height:28px';   // colour-exempt
+  // Record: 6 s from the tap, for a change that runs by itself (a slide stepping healthy to cirrhosis, the fluid filling, a
+  // preset easing in; Mohammad, 21 Oct: "very laggy" while the ascites fills and the varices grow). Tap, then start the change.
+  const rec = document.createElement('button');
+  rec.textContent = 'Record 6 s';
+  rec.onclick = () => { begin('recording', 6000); rec.textContent = 'Recording…'; setTimeout(() => { rec.textContent = 'Record 6 s'; }, 6000); };
+  for (const b of [title, rest, rec, gpu, copy]) b.style.cssText = 'font:inherit;color:#fff;background:rgb(255 255 255 / .16);border:0;border-radius:6px;padding:4px 8px;min-height:28px';   // colour-exempt
   title.textContent = 'Lag after gestures (tap to fold)';
   copy.textContent = 'Copy';
   rest.textContent = 'At rest';
   rest.onclick = () => { rest.textContent = 'Wait 3 s'; setTimeout(() => { begin('at rest'); setTimeout(() => { rest.textContent = 'At rest'; }, 2000); }, 1000); };
   const body = document.createElement('div');
   body.textContent = 'Pan, pinch or scroll-zoom the figure, then let go and wait 2 s.';
-  bar.append(title, rest, gpu, copy); el.append(bar, body);
+  bar.append(title, rest, rec, gpu, copy); el.append(bar, body);
   let folded = false;
   title.onclick = () => { folded = !folded; body.style.display = folded ? 'none' : ''; };
   const text = () => [`${navigator.userAgent}`, `screen ${innerWidth}x${innerHeight} @${devicePixelRatio}x, ${location.pathname}${document.getElementById('preview-badge') ? ` ${document.getElementById('preview-badge').textContent.trim()}` : ''}`, ...reports.map(gestureText)].join('\n\n');
