@@ -56,9 +56,9 @@ test('the glow texels are written exactly as the whole vessel sync wrote them, o
 test('a glow ease runs the glow-only sync, which falls back to the whole sync unless nothing else changed', () => {
   assert.match(stage, /if \(glowSync && !syncGlowOnly\(easeInOut\(morph\)\)\) syncVeins\(easeInOut\(morph\)\);/);
   assert.match(stage, /writeGlowTexels\(tubeData, o, kind, id, ra\?\.e\.id, obj\.len, glow\.lit, vh\.amt, rgbCs, easeInOut\);/, 'the whole sync writes them with the same helper');
-  assert.match(stage, /glowMemo = \{ items, t, netA, cs, mode, origin: originMode, cath: cathTint, F, geo: geometryVersion, plate: veins\.hasPlate\(0\), cls: wrap\.className, bits: glowBits\(items\), reach: vLook\.reach \};/);
+  assert.match(stage, /glowMemo = \{ items, t, netA, cs, mode, origin: originMode, cath: cathTint, F, geo: geometryVersion, plate: veins\.hasPlate\(0\), cls: gestureFree\(wrap\.className\), bits: glowBits\(items\), reach: vLook\.reach \};/);
   const ok = stage.slice(stage.indexOf('function glowOnlyOk'), stage.indexOf('function syncGlowOnly'));
-  for (const c of ['tubesNew', 'lensFrom', 'm.t !== t', 'm.F !== F', 'm.geo !== geometryVersion', 'm.netA !== netA', 'm.cs !== wrapCS()', 'm.mode !== layerMode()', 'm.origin !== originOn()', 'm.cath !== cathTint', 'm.plate !== veins.hasPlate(0)', 'm.cls !== wrap.className', 'm.reach !==', 'b[i] !== m.bits[i]', 'b[i] & 64']) assert.ok(ok.includes(c), `checks ${c}`);
+  for (const c of ['tubesNew', 'lensFrom', 'm.t !== t', 'm.F !== F', 'm.geo !== geometryVersion', 'm.netA !== netA', 'm.cs !== wrapCS()', 'm.mode !== layerMode()', 'm.origin !== originOn()', 'm.cath !== cathTint', 'm.plate !== veins.hasPlate(0)', 'm.cls !== gestureFree(wrap.className)', 'm.reach !==', 'b[i] !== m.bits[i]', 'b[i] & 64']) assert.ok(ok.includes(c), `checks ${c}`);
   for (const c of ["'is-sel'", "'hl'", "'coll-ghost'", 'it.x.lifted', 'it.x.reveal']) assert.ok(stage.slice(stage.indexOf('function glowBits'), stage.indexOf('function glowOnlyOk')).includes(c), `bits hold ${c}`);
 });
 
@@ -110,4 +110,22 @@ test('fonts and brand art come from the cache at once and are refreshed behind i
   assert.deepEqual(puts.at(-1), ['https://x.test/fonts/inter-latin.woff2', 'fresh:https://x.test/fonts/inter-latin.woff2']);
   const miss = await run('https://x.test/preview/brand/mark.svg');
   assert.equal(miss.url, 'https://x.test/preview/brand/mark.svg', 'a miss waits on the network');
+});
+
+test("a pan or pinch's own classes never count as a change of the stage's look", () => {
+  // (panning, stage-busy and figure-focus come on as a gesture starts and off as it ends, and stage-busy 0.6 s later, as the menus
+  // fade back in. Each dropped the stage's style snapshot and the glow-only, marks and gut-look memos: a style pass and a whole
+  // vessel sync, the marks read again from the SVG, at every one (Mohammad, 21 Oct: "still lag after i pan or zoom").)
+  assert.match(stage, /const gestureFree = \(c\) => \(c \|\| ''\)\.replace\(\/\(\?:\^\|\\s\)\(\?:panning\|stage-busy\|figure-focus\)\(\?=\\s\|\$\)\/g, ''\);/);
+  const obs = stage.slice(stage.indexOf('const drop = () => { csSnap = null; };'), stage.indexOf("addEventListener('resize', drop)"));
+  assert.match(obs, /if \(r\.attributeName === 'class'\) \{ const c = gestureFree\(r\.target\.getAttribute\('class'\)\); if \(seen\.get\(r\.target\) === c\) continue; seen\.set\(r\.target, c\); \}\n\s+drop\(\); return;/);
+  assert.match(stage, /const marksKey = \(\) => `\$\{mk\.ver\}\|\$\{gestureFree\(wrap\.className\)\}\|/);
+  assert.match(stage, /const greyDeps = \(\) => \{ const r = document\.documentElement; return `\$\{gestureFree\(wrap\.className\)\}\|/);
+  assert.match(stage, /at = `\$\{gestureFree\(wrap\.className\)\.replace\(\/\\bgl-plate\\b\/, ''\)\}\|/);
+  // Safe only while those classes set no custom property and nothing the figure draws: the cursor, and the floating pieces.
+  const css = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
+  for (const m of css.matchAll(/([^{}]*\.(?:panning|stage-busy|figure-focus)\b[^{}]*)\{([^{}]*)\}/g)) {
+    assert.doesNotMatch(m[2], /--[\w-]+\s*:/, `${m[1].trim()} sets no custom property`);
+    assert.doesNotMatch(m[1], /#organs|#veins|#stage\s+\S|\.organ|\.v-/, `${m[1].trim()} styles nothing in the figure`);
+  }
 });

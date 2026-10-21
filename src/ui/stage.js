@@ -83,6 +83,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // setting, a resize, or a new text size.
   // (A settings change reaches its listeners only at the next frame: a read between, from a timer or an idle moment, checks them itself.)
   let csSnap = null, csMq = null;
+  // A class list less the classes a pan or pinch puts on and takes off, which change no colour or look the stage draws.
+  const gestureFree = (c) => (c || '').replace(/(?:^|\s)(?:panning|stage-busy|figure-focus)(?=\s|$)/g, '');
   const MQ = ['(prefers-color-scheme: dark)', '(prefers-reduced-motion: reduce)', '(prefers-reduced-transparency: reduce)', '(hover: hover)', '(pointer: coarse)', 'print'].map((q) => matchMedia(q));
   function wrapCS() {
     if (csSnap && MQ.some((q, i) => q.matches !== csMq[i])) csSnap = null;
@@ -95,8 +97,17 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   }
   {
     const drop = () => { csSnap = null; };
-    const mo = new MutationObserver(drop);
-    for (let el = wrap; el; el = el.parentElement) mo.observe(el, { attributes: true, attributeFilter: ['class', 'style', 'hidden', 'data-theme', 'data-noglass', 'data-mode'] });
+    // (Not for the classes of a gesture alone: panning (the cursor), stage-busy (the menus' fade) and figure-focus (the phone's
+    // top bar and dock) set no colour the stage reads. Dropped, the snapshot forced a style pass and a whole vessel sync as a
+    // pan began, as it ended and again as the menus faded back in, 0.6 s after (Mohammad, 21 Oct: "still lag after i pan or zoom").)
+    const seen = new Map();
+    const mo = new MutationObserver((recs) => {
+      for (const r of recs) {
+        if (r.attributeName === 'class') { const c = gestureFree(r.target.getAttribute('class')); if (seen.get(r.target) === c) continue; seen.set(r.target, c); }
+        drop(); return;
+      }
+    });
+    for (let el = wrap; el; el = el.parentElement) { seen.set(el, gestureFree(el.getAttribute('class'))); mo.observe(el, { attributes: true, attributeFilter: ['class', 'style', 'hidden', 'data-theme', 'data-noglass', 'data-mode'] }); }
     // (The settings the style sheets ask about; the sizes come with a resize, as does a turn of the device or a page zoom.)
     for (const q of MQ) q.addEventListener?.('change', drop);
     addEventListener('resize', drop); addEventListener('orientationchange', drop); addEventListener('pps:labelscale', drop);
@@ -3216,7 +3227,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const m = glowMemo;
     if (!m || !veins || veins.lost || !vLook || tubesNew || lensFrom || !tubesShown || tubesShown.length !== tubeData.length) return false;
     if (m.t !== t || m.F !== F || m.geo !== geometryVersion || m.netA !== netA || m.cs !== wrapCS() || m.mode !== layerMode() || m.origin !== originOn()) return false;
-    if (m.selK !== selAKey() || m.cath !== cathTint || m.plate !== veins.hasPlate(0) || m.cls !== wrap.className || m.reach !== (glow.lit.size ? 20 : 11)) return false;
+    if (m.selK !== selAKey() || m.cath !== cathTint || m.plate !== veins.hasPlate(0) || m.cls !== gestureFree(wrap.className) || m.reach !== (glow.lit.size ? 20 : 11)) return false;
     const b = glowBits(m.items);
     for (let i = 0; i < b.length; i++) if (b[i] !== m.bits[i] || b[i] & 64) return false;   // (a vessel drawing on changes with the clock: whole syncs)
     return true;
@@ -3486,7 +3497,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       }
     }
     tubesNew = false;
-    glowMemo = { items, t, netA, cs, mode, origin: originMode, cath: cathTint, F, geo: geometryVersion, plate: veins.hasPlate(0), cls: wrap.className, bits: glowBits(items), reach: vLook.reach };
+    glowMemo = { items, t, netA, cs, mode, origin: originMode, cath: cathTint, F, geo: geometryVersion, plate: veins.hasPlate(0), cls: gestureFree(wrap.className), bits: glowBits(items), reach: vLook.reach };
     glowMemo.selK = selAKey();   // (the selection's ease sets the vessels' alpha, which the glow-only sync does not write)
     glowMemo.wide = items.map((it) => it.x.width >= 3.4);   // (the sheen's width: syncRadiiOnly)
     // The SVG organs just hid for the GPU plate: draw it now, so no frame shows neither.
@@ -3826,6 +3837,10 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       // (Not with a finger or button still down, nor within 0.28 s of the last input: it is begun once the figure is let go.)
       if (!leftAlone(280)) { plateSettle = setTimeout(settled, 120); return; }
       if (!veins || !plateOn() || !CTM) return;
+      // (Not in the circuit, or on the way to it: the organs are faded out there, and their sharp picture and the gut's were
+      // drawn after every pan and pinch for nothing (Mohammad, 21 Oct: the lag "also happens in circuit view"). The way back to
+      // the anatomy moves the view on every frame, so the last of them, at the anatomy, schedules them again.)
+      if (morphTarget !== 0 || morph > 0) return;
       gutPicSoon();
       const need = vdpr * CTM.sc;
       if (need <= PLATE_BASE * 1.2) { if (veins.hasPlate(1)) { veins.dropPlate(1); veinsDirty = true; } return; }
@@ -3859,7 +3874,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // What the gut's colours are made of, read again only when the classes or the theme change.
   const GUT_VARS = ['--og-gut-1', '--og-gut-2', '--og-gut-3', '--og-ao', '--og-light', '--og-hi', '--og-hi-k', '--gut-rim-k', '--organ-gut', '--stage-bg'];
   function gutLook() {
-    const r = document.documentElement, at = `${wrap.className.replace(/\bgl-plate\b/, '')}|${r.className}|${r.dataset.theme || ''}|${darkMq.matches}`;
+    const r = document.documentElement, at = `${gestureFree(wrap.className).replace(/\bgl-plate\b/, '')}|${r.className}|${r.dataset.theme || ''}|${darkMq.matches}`;
     if (at !== gutLookAt) { const cs = getComputedStyle(gGut); gutLookAt = at; gutLookV = GUT_VARS.map((v) => cs.getPropertyValue(v).trim()).join('|'); }
     return gutLookV;
   }
@@ -3899,7 +3914,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     gutPicTimer = setTimeout(go, 350);
   }
   async function makeGutPic() {
-    if (!gGut || !plateOn() || !CTM || !plateCopy?.gut?.length || plateCopy.key !== plateStateKey() || plateCopy.gutMut !== gutMut) return;
+    if (!gGut || !plateOn() || !CTM || morphTarget !== 0 || morph > 0 || !plateCopy?.gut?.length || plateCopy.key !== plateStateKey() || plateCopy.gutMut !== gutMut) return;
     const need = vdpr * CTM.sc;
     if (need > GUT_CAP * 1.15) return;   // (zoomed in past what it can hold: the live paths show)
     const k = gutStep(need, GUT_CAP), look = gutLook(), mut = gutMut;   // (the next fixed step at or above the view's: never stretched)
@@ -4021,7 +4036,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     for (const g of greyList) g.el.style.setProperty(g.p, greyOf(g.c, sat), 'important');
   }
   // The colours are read again when what they depend on changes (the theme, the stage's classes), before the next paint.
-  const greyDeps = () => { const r = document.documentElement; return `${wrap.className}|${r.className}|${r.dataset.theme || ''}|${matchMedia('(prefers-color-scheme: dark)').matches}`; };
+  const greyDeps = () => { const r = document.documentElement; return `${gestureFree(wrap.className)}|${r.className}|${r.dataset.theme || ''}|${matchMedia('(prefers-color-scheme: dark)').matches}`; };
   let greyAt = '';
   const greyStale = () => { if (greyList && greyDeps() !== greyAt) { greyClear(); organDimKey = ''; syncOrganDim(); } };
   new MutationObserver(greyStale).observe(wrap, { attributes: true, attributeFilter: ['class'] });
@@ -4649,7 +4664,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // fills; the SVG copy stays, hidden (data-gl), and shows again wherever the GPU cannot draw.
   const mk = { key: '', ver: 0, verts: new Float32Array(0), draws: [], all: null, dirty: false };
   const darkMQ = matchMedia('(prefers-color-scheme: dark)');
-  const marksKey = () => `${mk.ver}|${wrap.className}|${document.documentElement.dataset.theme}|${darkMQ.matches}`;
+  const marksKey = () => `${mk.ver}|${gestureFree(wrap.className)}|${document.documentElement.dataset.theme}|${darkMQ.matches}`;
   // Subpaths of an absolute M/L/H/V/C/Q/Z path as point lists (curves sampled); null for anything else.
   function pathRings(d) {
     const tok = d.match(/[a-zA-Z]|-?(?:\d+\.?\d*|\.\d+)(?:e[-+]?\d+)?/g) || [];

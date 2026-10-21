@@ -91,3 +91,9 @@ test("the gut picture is made at fixed zoom steps, never stretched, so an ordina
   assert.match(body, /const k = gutStep\(need, GUT_CAP\), look = gutLook\(\), mut = gutMut;/);
   assert.match(body, /if \(gutPic && gutPic\.mut === mut && gutPic\.look === look && gutPic\.k === k\) return;/);
 });
+
+test('in the circuit, where the organs are faded out, no organ picture is made after a pan or pinch', () => {
+  // (Mohammad, 21 Oct: the lag after a pan or zoom "also happens in circuit view".)
+  const sched = stage.slice(stage.indexOf('function schedulePlateView'), stage.indexOf('async function makeGutPic'));
+  assert.match(sched, /if \(!veins \|\| !plateOn\(\) \|\| !CTM\) return;\n(?:\s+\/\/.*\n)+\s+if \(morphTarget !== 0 \|\| morph > 0\) return;\n\s+gutPicSoon\(\);/);
+});

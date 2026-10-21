@@ -29,7 +29,7 @@ test('the picture is used only while the plate is down, in the look and art it w
 
 test('the picture is made at rest from the plate copy, never baked into the plate, and never measured by Fit', () => {
   const mk = fn('makeGutPic');
-  assert.match(mk, /if \(!gGut \|\| !plateOn\(\) \|\| !CTM \|\| !plateCopy\?\.gut\?\.length \|\| plateCopy\.key !== plateStateKey\(\) \|\| plateCopy\.gutMut !== gutMut\) return;/);
+  assert.match(mk, /if \(!gGut \|\| !plateOn\(\) \|\| !CTM \|\| morphTarget !== 0 \|\| morph > 0 \|\| !plateCopy\?\.gut\?\.length \|\| plateCopy\.key !== plateStateKey\(\) \|\| plateCopy\.gutMut !== gutMut\) return;/);
   assert.match(mk, /await keep\.decode\(\);/, 'decoded before it can show');
   const build = fn('plateBuild');
   assert.match(build, /if \(gGut\.children\[i\] === gGutPics\) k\.setAttribute\('data-pc', 'drop'\); else k\.setAttribute\('data-gut', i\);/);
