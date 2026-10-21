@@ -201,3 +201,12 @@ test('a phone\'s ladder keeps its full size, so its brackets stay inside the plo
   assert.match(rule, /min\(74cqi, 270px\)/, 'not the 216 px that pushed the brackets into a band at its foot');
   assert.doesNotMatch(css, /\.pz\.stack[^{]*\.pz-prof[^{]*\{[^}]*(overflow: hidden|max-height)/, 'never clipped');
 });
+
+// Mohammad, 21 Oct: the ladder card loses its title, the LIVER word and the key; mmHg moves to the bottom row; "Healthy" on its line.
+test('the ladder: no title, no LIVER word, no key, mmHg in the bottom row, the healthy line always named on itself', () => {
+  const prof = readFileSync(new URL('../src/ui/tool-profile.js', import.meta.url), 'utf8');
+  assert.doesNotMatch(prof, /'LIVER'\)\)|keyFit|ppf-key/, 'no LIVER word drawn, no key');
+  assert.match(prof, /sv\('text', \{ class: 'ptk-unit', x: 0, y: G\.braceY \+ 1\.55 \* f \}, 'mmHg'\)/, 'mmHg level with the brace\'s name');
+  assert.match(js, /ui\.dhT\.textContent = s\.tool\?\.kind === 'profile' \? '' : cardTitle\(s\);/, 'no title');
+  assert.match(prof, /got = got \|\| best;/, 'named even where no place is clear: the least crowded one inside the plot');
+});

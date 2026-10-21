@@ -6235,11 +6235,8 @@ html.thumb-ui .menu.from-dock { clip-path: inset(-64px -64px calc(var(--sink, 0p
 .ppf-liver rect { fill: var(--chart-liver-band); }
 .ppf-liver text { font: 600 1em var(--font-ui); letter-spacing: .06em; fill: var(--text-3); }
 .pz-prof :is(.ptk-grid text, .ptk-unit) { font-size: 1em; }
-.ppf-key line { stroke-width: 2.5; stroke-linecap: round; }
-.ppf-key text { font: 500 1em var(--font-ui); fill: var(--text-2); }
-.ppf-key.now line { stroke: var(--text); }
-.ppf-key.hl line, .ppf-hl { stroke: var(--text-3); stroke-dasharray: 4 5; }
-.ppf-key.bf line, .ppf-bf { stroke: var(--text-2); stroke-dasharray: 1.5 4.5; }
+.ppf-hl { stroke: var(--text-3); stroke-dasharray: 4 5; }
+.ppf-bf { stroke: var(--text-2); stroke-dasharray: 1.5 4.5; }
 .ppf-lname { font: 500 1em var(--font-ui); fill: var(--text-2); }
 .ppf-hl, .ppf-bf { fill: none; stroke-width: 1.75; stroke-linecap: round; }
 .ppf-fill { opacity: .16; }

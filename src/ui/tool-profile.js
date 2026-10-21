@@ -95,6 +95,7 @@ export function nameFit(slot, tw) {
  *  its plot at its smallest, the band kept. */
 export function profileGeo(w, h, f, tw, inside = false) {
   const L = Math.ceil(tw('30') + 12), R = w - 10, slot = (R - L) / STATIONS.length, fit = nameFit(slot, tw);
+  // (No key and no title over the plot any more: the healthy line is named on itself, the unit sits in the bottom row (Mohammad, 21 Oct).)
   const keyH = 1.6 * f, T = keyH + 1.5 * f, nameH = fit.rows * 1.25 * f + 0.4 * f;
   const brFit = SPANS.map(([, name, a, b]) => bracketFit(slot * (STATIONS.indexOf(b) - STATIONS.indexOf(a)), name, tw, f));
   const brMode = brFit.map((q) => q.mode), brFs = brFit.map((q) => q.fs);
@@ -316,23 +317,15 @@ const textW = (t, f, wt = 600) => {
   return mctx.measureText(t).width;
 };
 
-/** The key's entries, and whether the unit fits on the key's row. */
-function keyFit(G, tw, hasBf) {
-  const key = [['Now', 'now'], ['Healthy', 'hl'], ...(hasBf ? [['Before', 'bf']] : [])];
-  const keyW = key.reduce((a, [t]) => a + tw(t, 500) + 30, 0);
-  return { key, unitOnKey: G.R - keyW >= tw('mmHg', 500) + 6 };
-}
-
 /** Where the values go on the chart G (profileGeo) for the profile goal, with the healthy line hl and the earlier one bf
  *  (profiles or null): valueSides's answer. tw(t, weight): a text's width in px. */
 export function placeValues(G, tw, goal, hl, bf) {
   const { f } = G, dotR = Math.max(4, 0.36 * f);
   const yg = (v) => G.Z - (G.Z - G.T) * Math.max(0, Math.min(v, goal.top)) / goal.top, ptsG = (p) => p.v.map((v, i) => [G.x(i), yg(v)]);
-  const i0 = STATIONS.indexOf(PATH.liver[0]), i1 = STATIONS.indexOf(PATH.liver[1]), { unitOnKey } = keyFit(G, tw, !!bf);
-  // (The words over the plot a value keeps clear of: the liver's name, and the unit when the key needs its row.)
-  const cap = 0.72 * f, word = (x0, x1, base) => [x0 - 2, x1 + 2, base - cap - 2, base + 2], lw = (tw('LIVER', 600) + 0.3 * f) / 2;   // (its letters spaced .06em)
-  const overWords = [...(i0 >= 0 ? [word((G.x(i0) + G.x(i1)) / 2 - lw, (G.x(i0) + G.x(i1)) / 2 + lw, G.T - 0.35 * f)] : []),
-    ...(unitOnKey ? [] : [word(0, tw('mmHg', 500), G.T - 0.95 * f)])];
+  // (The strip over the liver's band where its name stood stays clear of values, though the name is gone (the brace names the liver,
+  // Mohammad, 21 Oct): left open, values moved up into it and others lost their clear places.)
+  const i0 = STATIONS.indexOf(PATH.liver[0]), i1 = STATIONS.indexOf(PATH.liver[1]), cap = 0.72 * f, lw = (tw('LIVER', 600) + 0.3 * f) / 2;
+  const overWords = i0 >= 0 ? [[(G.x(i0) + G.x(i1)) / 2 - lw - 2, (G.x(i0) + G.x(i1)) / 2 + lw + 2, G.T - 0.35 * f - cap - 2, G.T - 0.35 * f + 2]] : [];
   const pg = ptsG(goal);
   return valueSides(pg, [hl, bf].filter(Boolean).map(ptsG), goal.v.map(one), f, (t) => tw(t), G.keyH + 0.2 * f,
     { bottom: G.Z, axis: G.Z, left: G.L + 2, right: G.R + 8, dotR, obstacles: overWords, dots: pg.map(([x, yy]) => [x, yy, dotR + 1]) });
@@ -364,21 +357,25 @@ export function placeLineNames(G, tw, goal, hl, bf, sides, brk) {
   for (const [x, y] of pg) place.take([x - dotR - 1, x + dotR + 1, y - dotR - 1, y + dotR + 1]);
   for (const v of sides || []) if (v?.box) place.take(v.box);
   for (const r of [0, 1]) place.take(bracketBox(G, r, brk ? brk[r] : G.brY(r)));
-  const i0 = STATIONS.indexOf(PATH.liver[0]), i1 = STATIONS.indexOf(PATH.liver[1]);
-  if (i0 >= 0) { const m = (G.x(i0) + G.x(i1)) / 2, lw = (tw('LIVER', 600) + 0.3 * f) / 2; place.take([m - lw - 2, m + lw + 2, G.T - 0.35 * f - cap - 2, G.T - 0.35 * f + 2]); }
   const out = [];
   for (const [, t, c] of named) {
     const run = runs[1 + out.length], w = tw(t, 500);
-    let got = null;
+    let got = null, best = null;
     for (let q = run.length - 1; q >= 0 && !got; q--) {
       const [x, y] = run[q], cx = Math.max(G.L + w / 2 + 2, Math.min(G.R - w / 2, x));
       for (const base of [y - BR_PAD - 1.5, y + BR_PAD + 1.5 + cap]) {
         const b = [cx - w / 2, cx + w / 2, base - cap, base + 0.2 * f];
-        if (place.cost(b) === 0) { got = { t, c, x: cx, y: base }; place.take(b); break; }
+        if (place.cost(b) === 0) { got = { t, c, x: cx, y: base, b }; break; }
+        // (Never a key instead (Mohammad, 21 Oct: "Put healthy on the dashed line and then no need for a legend"): where no place is
+        // clear, the least crowded one beside its own line, inside the plot.)
+        const k = place.crowd(b) + 1e4 * place.lineCost(b);
+        if (b[2] >= G.T && b[3] <= G.Z && (!best || k < best.k)) best = { t, c, x: cx, y: base, b, k };
       }
     }
-    if (!got) return null;
-    out.push(got);
+    got = got || best;
+    if (!got) continue;
+    place.take(got.b);
+    out.push({ t: got.t, c: got.c, x: got.x, y: got.y });
   }
   return out;
 }
@@ -402,8 +399,6 @@ export function placeBrackets(G, tw, goal, hl, bf, sides, prev = null) {
   const place = labelPlacer(runs, [], G.T, G.Z - BR_PAD, [], [BR_PAD, BR_PAD], BR_PAD);
   for (const [x, y] of pg) place.take([x - dotR - 1, x + dotR + 1, y - dotR - 1, y + dotR + 1]);
   for (const v of sides || []) if (v?.box) place.take(v.box);
-  const i0 = STATIONS.indexOf(PATH.liver[0]), i1 = STATIONS.indexOf(PATH.liver[1]);
-  if (i0 >= 0) { const m = (G.x(i0) + G.x(i1)) / 2, lw = (tw('LIVER', 600) + 0.3 * f) / 2; place.take([m - lw - 2, m + lw + 2, G.T - 0.35 * f - 0.72 * f - 2, G.T - 0.35 * f + 2]); }
   // (Every clear height for each, then the pair standing lowest that keeps the two apart: under the curve where it has room,
   // else over it.)
   const ys = [0, 1].map((r) => {
@@ -503,14 +498,9 @@ export function createProfileTool() {
     const pts = (p) => p.v.map((v, i) => [G.x(i), y(v)]);
     const now = pts(shown), labels = shown.v.map(whole);
     const i0 = STATIONS.indexOf(PATH.liver[0]), i1 = STATIONS.indexOf(PATH.liver[1]);
-    const { key, unitOnKey } = keyFit(G, tw, !!bf);
-    let kx = G.R;
     const step = top > 40 ? 10 : 5, every = (G.Z - G.T) / (top / step) < 1.3 * f ? 2 * step : step;
     const col = (v) => pressureColor(v);
     const gid = `pzpg-${Math.random().toString(36).slice(2, 8)}`;
-    const keyEls = key.slice().reverse().map(([t, c]) => { const tx = kx, gx = tx - tw(t, 500) - 6; kx -= tw(t, 500) + 30; return sv('g', { class: `ppf-key ${c}` },
-      sv('line', { x1: gx - 18, x2: gx, y1: 0.75 * f, y2: 0.75 * f }),
-      sv('text', { x: tx, y: 0.75 * f + 0.36 * f, 'text-anchor': 'end' }, t)); });
     const valY = (cy, k) => cy + sides[k].by, t = performance.now();
     const svg = sv('svg', { viewBox: `0 0 ${w} ${hh}`, width: w, height: hh, role: 'img', style: `font-size: ${f.toFixed(2)}px`,
       'aria-label': `Pressure from gut to heart: ${STATIONS.map((n, i) => `${SPOKEN[n]} ${labels[i]}`).join(', ')} mmHg. HVPG ${whole(shown.hvpg)}, PPG ${whole(shown.ppg)}.` },
@@ -520,15 +510,12 @@ export function createProfileTool() {
         sv('mask', { id: `${gid}-m`, maskUnits: 'userSpaceOnUse', x: 0, y: 0, width: w, height: hh },
           sv('rect', { x: 0, y: 0, width: w, height: hh, fill: '#fff' }),   // colour-exempt: a mask
           now.map(([cx, cy], i) => { const hw = tw(labels[i], 700) / 2; return sv('rect', { x: cx - hw - NUM_PAD, y: cy - 0.36 * f - NUM_PAD, width: 2 * (hw + NUM_PAD), height: 0.72 * f + 2 * NUM_PAD, rx: NUM_PAD, fill: '#000' }); }))),   // colour-exempt: a mask
-      // The liver's stations on a soft band, named over the plot.
-      i0 >= 0 ? sv('g', { class: 'ppf-liver' }, sv('rect', { x: G.x(i0) - G.slot / 2, width: G.slot * (i1 - i0 + 1), y: G.T - 1.3 * f, height: G.B - G.T + 1.3 * f }),
-        sv('text', { x: (G.x(i0) + G.x(i1)) / 2, y: G.T - 0.35 * f, 'text-anchor': 'middle' }, 'LIVER')) : null,
+      // The liver's stations on a soft band (named by the Sinusoidal brace under them, no LIVER over it: Mohammad, 21 Oct).
+      i0 >= 0 ? sv('g', { class: 'ppf-liver' }, sv('rect', { x: G.x(i0) - G.slot / 2, width: G.slot * (i1 - i0 + 1), y: G.T - 1.3 * f, height: G.B - G.T + 1.3 * f })) : null,
       Array.from({ length: Math.floor(top / every) + 1 }, (_, k) => sv('g', { class: 'ptk-grid' }, sv('line', { x1: G.L, x2: G.R, y1: y(k * every), y2: y(k * every) }),
         sv('text', { x: G.L - 6, y: y(k * every) + 0.35 * f, 'text-anchor': 'end' }, String(k * every)))),
-      // (The unit at the top left, on the key's row; over the axis's numbers when the key needs the row.)
-      sv('text', { class: 'ptk-unit', x: 0, y: unitOnKey ? 0.75 * f + 0.36 * f : G.T - 0.95 * f }, 'mmHg'),
-      // (The lines named on the drawing; the key only where a name finds no clear place.)
-      plan.names ? null : keyEls,
+      // (The unit in the bottom row, at the left, level with the brace's name: Mohammad, 21 Oct, "Remove mmHg from above put it below".)
+      sv('text', { class: 'ptk-unit', x: 0, y: G.braceY + 1.55 * f }, 'mmHg'),
       hl ? sv('path', { class: 'ppf-hl', d: smoothD(pts(hl)), mask: `url(#${gid}-m)` }) : null,
       bf ? sv('path', { class: 'ppf-bf', d: smoothD(pts(bf)), mask: `url(#${gid}-m)` }) : null,
       sv('path', { class: 'ppf-fill', d: `${smoothD(now)}L${G.x(STATIONS.length - 1).toFixed(1)} ${G.Z}L${G.x(0).toFixed(1)} ${G.Z}Z`, style: `fill: url(#${gid})` }),
