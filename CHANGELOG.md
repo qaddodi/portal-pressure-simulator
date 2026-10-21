@@ -2,6 +2,15 @@
 
 ## October 2026
 
+- **Fluid balance card: one strip.** The card is redrawn for the slides that opt in with `window: true` (Ascites 4 and 5, Tap, Recompensation,
+  the Testing deck). It leads with the answer ("Each day · ascites builds ▲ 160"), then the lymph made with its Liver and Gut, then one strip
+  that splits the day on one scale: what the lymphatics carry (named inside the bar, with "full" once they can carry no more, or the room left
+  as a dashed outline), what the belly reabsorbs and what builds, with a bracket over what leaked. Under it the forces are one strip too:
+  the push and the pull as two arrows meeting at the wall, named inside. Every size is em from one text size, so the card scales as one, and
+  that size holds 12 px on the screen after the card's zoom (an iPhone on Ascites 5 had come down to about 10.8 px); the block now fills
+  the card's width instead of shrinking with the zoom. Parts with nothing in them are dashed swatches or outlines, and every part eases.
+  Same numbers as before; Liver and Gut are no longer keyed by colour on the strip (they are printed in the line above it). The flow
+  picture (no `window`) keeps its own drawing but takes the new forces strip. Tests: `tests/fluid-window.test.js`.
 - **No stray dots in the circuit.** A station's dot used to show whether or not a vessel was drawn at it: in health, four hollow dots
   floated alone (the gastric bed, the fundal varices, the esophageal varices and the epigastric veins, whose vessels are left out or
   still closed), because the stylesheet's "show every circuit dot" rule outranked the one that fades a dot out. A dot, its label and
