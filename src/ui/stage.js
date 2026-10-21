@@ -3999,12 +3999,20 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // each pinch, as the menus faded back in.)
   function gutPicSoon() {
     clearTimeout(gutPicTimer);
-    const go = () => { if (!leftAlone(1000)) { gutPicTimer = setTimeout(go, 250); return; } makeGutPic().catch(() => { /* the live paths stay */ }); };
+    const go = () => { if (!leftAlone(1000)) { gutPicTimer = setTimeout(go, 250); return; } makeGutPic().then(gutPicsOut).catch(() => { /* the live paths stay */ }); };
     gutPicTimer = setTimeout(go, 350);
   }
-  async function makeGutPic() {
+  // The gut's pictures for the zooms further out, down to the whole figure (its home framing, or the whole plate if that is
+  // further out): a slide's camera often glides out while the organs ease, and the picture of the close-up was then too sharp
+  // for it, so the gut drew its live paths in every frame of the change (Mohammad's iPhone ?perf recording, 21 Oct:
+  // "zoomed out past it", 95-300 ms frames). Each step down is half the pixels of the one above, so they cost little.
+  async function gutPicsOut() {
+    if (!CTM || !(vt.k > 0)) return;
+    const lo = gutStep(vdpr * CTM.sc / vt.k * Math.min(1, homeAt?.k ?? 1), GUT_CAP);
+    for (let k = gutStep(vdpr * CTM.sc, GUT_CAP) / Math.SQRT2; k >= lo * 0.99; k /= Math.SQRT2) { if (!leftAlone(1000)) return; await makeGutPic(k / 1.01); }   // (not under a finger: a later rest makes them)
+  }
+  async function makeGutPic(need = vdpr * (CTM?.sc || 0)) {
     if (!gGut || !plateOn() || !CTM || morphTarget !== 0 || morph > 0 || !plateCopy?.gut?.length || plateCopy.key !== plateStateKey() || plateCopy.gutMut !== gutMut) return;
-    const need = vdpr * CTM.sc;
     if (need > GUT_CAP * 1.15) return;   // (zoomed in past what it can hold: the live paths show)
     const k = gutStep(need, GUT_CAP), look = gutLook(), mut = gutMut;   // (the next fixed step at or above the view's: never stretched)
     if (gutPics.some((p) => p.mut === mut && p.look === look && p.k === k)) return;
@@ -4041,8 +4049,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     } catch (e) { for (const r of runs) URL.revokeObjectURL(r.url); throw e; }
     gutPic = { k, look, mut, runs: runs.map(({ kids, url, keep }) => ({ kids, url, keep, img: s('image', { href: url, x: GUT_RECT[0], y: GUT_RECT[1], width: GUT_RECT[2], height: GUT_RECT[3], preserveAspectRatio: 'none' }) })) };
     gGutPics.replaceChildren(...gutPic.runs.map((r) => r.img));
-    // (The one before is kept if it is of the same art and colours, for a zoom it may come back to; any other goes.)
-    const kept = gutPics.filter((p) => p.mut === mut && p.look === look && p.k !== k).slice(-1);
+    // (The three before are kept if they are of the same art and colours, for the zooms out (gutPicsOut) or one it may come back to.)
+    const kept = gutPics.filter((p) => p.mut === mut && p.look === look && p.k !== k).slice(-3);
     for (const p of gutPics) if (!kept.includes(p)) for (const r of p.runs) URL.revokeObjectURL(r.url);
     gutPics = [...kept, gutPic];
     gutPicOn = false; gGutPics.style.display = 'none'; gGut.classList.remove('gut-pic-on');
