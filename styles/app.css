@@ -595,6 +595,7 @@ div.vital { cursor: default; }
 .circuit-only { opacity: 0; transition: opacity .4s; }
 :is(#grid, #nodes).gone { visibility: hidden; transition: opacity .4s, visibility 0s .4s; }   /* (at opacity 0, after the fade: stage.js setViewBox) */
 .circuit .circuit-only { opacity: 1; }
+.circuit .node-dot.off { opacity: 0; pointer-events: none; }   /* (one class more than the line above: a station with no vessel drawn at it shows no dot in the circuit either, faded as the vessels are) */
 .band-ring { fill: none; stroke: var(--text); stroke-width: 2.4; }
 .balloon-shape { fill: var(--balloon); fill-opacity: .8; stroke: var(--balloon-line); stroke-width: 1.4; }
 .ascites-fill { stroke: none; opacity: var(--fluid-fade, 1); }

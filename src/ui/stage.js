@@ -5,6 +5,7 @@ import { EDGES, dopplerK, NODES, PORTAL_TERRITORY, dMinOf, edgePresent, isOcclud
 import { route as metroRoute, RECTUM_FADE, LABEL_VESSEL, TIP_FADE, TIP_CONNECT, VIEW, VB_ANAT, VB_CIRC, ATLAS_COLUMNS, HIDDEN_EDGES, HIDDEN_NODES, ANAT_HIDDEN, ANAT_HIDDEN_NODES, CAUDATE, CONTEXT_EDGES, BACK_EDGES, IVC_EDGES, NEEDS_C3, NODE_POS, EDGE_PATH, CIRCUIT_PATH, metroPath, ORGANS, SEAM_D, ORGAN_DETAIL, BACKDROP, LIVER_INNER, LIVER_EDGES, LANE_CAPTIONS, ABDOMEN_CLIP, ABDOMEN_FLOOR, flankPath, abdomenOutline, cavityHalfWidths, SPLEEN_CENTER, SITES, ORGAN_LABELS, ATLAS_LABELS, SHORT, ABBR, CHIP_NODES, LIVER_SPLIT_X, CIRCUIT_ZONES, CIRCUIT_LABELS, STRANDS, STRAND_FROM, SIN_EDGES, FEEDERS, fanFeeders, CIRCUIT_TREES } from './anatomy.js?v=c3c8976b67';
 import { pressureColor, deltaColor, dropColor, flowColor, heatColor, velColorOf, velocityColor, oxygenColor } from './colormap.js?v=a1cb13e886';
 import { forkJoins, sideEndScale } from './fork-joins.js?v=b678f7ba5a';
+import { nodeEnds, nodeDrawn } from './circuit-nodes.js?v=550231eeae';
 import { STATION_VESSEL, meanVel, velNormal } from './velNormal.js?v=181dda5594';
 import { store, updateParams, varicesPresent, varixGrowth, shownVel } from './store.js?v=d6648af441';
 import { fibroReading } from './clock.js?v=e011dfc3e7';
@@ -1109,12 +1110,14 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   };
 
   // Nodes (circuit view)
+  // (Each dot starts off, and comes in with the first vessel drawn at its station (updateNodesCircuit): none shows on the
+  // first frame before the model says which vessels are drawn.)
   const nodeEls = {};
   for (const n of NODES) {
     if (n.kind === 'wedge' || HIDDEN_NODES.has(n.id)) continue;
-    const c = s('circle', { r: n.kind === 'heart' ? 7 : n.kind === 'bed' ? 5.5 : 4.5, class: 'node-dot circuit-only' });
+    const c = s('circle', { r: n.kind === 'heart' ? 7 : n.kind === 'bed' ? 5.5 : 4.5, class: 'node-dot circuit-only off' });
     gNodes.append(c);
-    nodeEls[n.id] = { c };
+    nodeEls[n.id] = { c, off: true };
   }
   // Resistance of each liver compartment, per lobe (read out in the circuit's liver header).
   const liverR = {};
@@ -4180,7 +4183,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (quietFx() || !f.P) return;
     const cand = [];
     for (const n of NODES) {
-      if (n.kind === 'wedge' || HIDDEN_NODES.has(n.id) || !NODE_POS[n.id]) continue;
+      // (A ring marks a place on a drawn vessel: none over a station with nothing drawn at it, as no dot is.)
+      if (n.kind === 'wedge' || HIDDEN_NODES.has(n.id) || !NODE_POS[n.id] || !nodeVisible(n.id)) continue;
       const d = f.P[NI[n.id]] - base[NI[n.id]];
       if (Math.abs(d) >= 1) cand.push([n.id, d]);
     }
@@ -8514,7 +8518,11 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     }
     return true;
   }
-  const nodeVisible = (id) => !(ANAT_HIDDEN_NODES.has(id) && morph < 0.5) && ALL_EDGES.some((e) => (e.from === id || e.to === id) && E[e.id]?.vis);
+  // A station's marker (its dot, its label, the Δ ring) shows only while a vessel is drawn at it (circuit-nodes.js): a vessel the
+  // plate leaves out, or one still closed, leaves no dot floating where it would end, and one that draws on or retracts brings
+  // its far end's marker in once it has arrived and takes it away as it withdraws.
+  const NODE_ENDS = nodeEnds(ALL_EDGES, (e) => E[e.id]);
+  const nodeVisible = (id) => !(ANAT_HIDDEN_NODES.has(id) && morph < 0.5) && nodeDrawn(NODE_ENDS[id]);
 
   // ── Moving blood ──────────────────────────────────
   // What is kept true, and what is exaggerated, is set out in blood.js. Every model vessel has a

@@ -2,6 +2,12 @@
 
 ## October 2026
 
+- **No stray dots in the circuit.** A station's dot used to show whether or not a vessel was drawn at it: in health, four hollow dots
+  floated alone (the gastric bed, the fundal varices, the esophageal varices and the epigastric veins, whose vessels are left out or
+  still closed), because the stylesheet's "show every circuit dot" rule outranked the one that fades a dot out. A dot, its label and
+  the Δ ring after a change now show only while a vessel is drawn at that station, in every deck, preset and mode, on every device.
+  A collateral or shunt that draws on brings its far end's dot in once it has arrived, and one that retracts takes it away as it
+  withdraws; each dot fades, never snaps, and none shows on the first frame. Tests: `tests/circuit-nodes.test.js`.
 - **Card titles keep a unit's case.** The data card's header is set in capitals, which turned "Fluid balance · mL/day" into "ML/DAY".
   A unit in a title (mmHg, kPa, mL, mL/day, mL/min, L/min, cm/s, m/s) now sits in its own span that the style leaves as typed, on the card's
   header and on the copy of it that folds under the words on a Mac or iPad. Only the Fluid balance title has a unit today; the rest of
