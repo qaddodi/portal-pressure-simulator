@@ -72,7 +72,7 @@ export const SITES = {
       ask: ['Why does HVPG rise here but not in schistosomiasis?', 'Here the resistance is in the sinusoids and central veins the wedge reads; in schistosomiasis it is in the portal tracts, upstream of them.'],
     },
     {
-      id: 'post', lens: 'drop', preset: 'budd-chiari', cam: 'hepatic', scales: { lobule: { cam: 'lobule:central', glow: ['lobule:central'] } }, labels: ['RHV', 'RA'], mark: { edges: ['RHV_IVC', 'MHV_IVC', 'LHV_IVC'], label: 'Clot in hepatic veins', free: true },
+      id: 'post', lens: 'drop', preset: 'budd-chiari', cam: 'hepatic', scales: { lobule: { cam: 'lobule:central', zoom: 1.5, glow: ['lobule:central'] } }, labels: ['RHV', 'RA'], mark: { edges: ['RHV_IVC', 'MHV_IVC', 'LHV_IVC'], label: 'Clot in hepatic veins', free: true },
       tool: PROFILE, key: ['fhvp', 'ra', 'hvpg'], rail: true,
       kicker: 'Post-hepatic', site: 'post', title: 'Budd–Chiari syndrome',
       vignette: 'A 29-year-old woman taking OCPs has had RUQ pain for 2 months and now has tense ascites. Paracentesis shows a SAAG of 1.4 and a total protein of 4.3 g/dL.',
@@ -82,7 +82,7 @@ export const SITES = {
       ask: ['Why is HVPG near zero although the portal pressure is about 26 mmHg?', 'Where the catheter reaches behind the resistance, both the wedged and the free pressures are measured there, so both are high and their difference is small.'],
     },
     {
-      id: 'cardiac', lens: 'drop', terms: ['hv', 'sin'], preset: 'rhf', cam: 'heart', scales: { lobule: { cam: 'lobule:central', glow: ['lobule:central'] } }, labels: ['RHV', 'IVCS', 'RA'], glow: ['ivc', 'hv'], glowSeq: 550,
+      id: 'cardiac', lens: 'drop', terms: ['hv', 'sin'], preset: 'rhf', cam: 'heart', scales: { lobule: { cam: 'lobule:central', zoom: 1.5, glow: ['lobule:central'] } }, labels: ['RHV', 'IVCS', 'RA'], glow: ['ivc', 'hv'], glowSeq: 550,
       compare: [{ label: 'Normal heart', preset: 'healthy' }, { label: 'Failing heart', own: true }],
       tool: PROFILE, key: ['fhvp', 'hvpg', 'ppg'], rail: true,
       kicker: 'Cardiac', site: 'cardiac', title: 'Right heart failure',
