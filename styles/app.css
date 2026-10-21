@@ -5101,7 +5101,7 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
 .pz:not(.stack):not(.low) .pz-data.pz-beside .pz-tool[data-kind="fibroscan"] .fibroscan-box { flex: 1 0 auto; height: calc(var(--fh, 78cqi) * var(--pz-fit, 1)); aspect-ratio: auto; }
 .pz:not(.stack):not(.low) .pz-data.pz-beside:is([data-tn="3"], [data-tn="4"]) .pz-tool[data-kind="fibroscan"] .fibroscan-box { --fh: 92cqi; }
 .pz:not(.stack):not(.low) .pz-data.pz-beside .pz-tool[data-kind="flowtime"] .pz-flowtime { flex: 1 1 auto; align-content: center; }
-.pz:not(.stack):not(.low) .pz-data.pz-beside .pz-tool[data-kind="flowtime"] .pz-flowtime svg { width: calc(100% * var(--pz-fit, 1)); justify-self: center; }
+.pz:not(.stack):not(.low) .pz-data.pz-beside .pz-tool[data-kind="flowtime"] .pz-flowtime svg { width: 100%; justify-self: center; }
 .pz:not(.stack):not(.low) .pz-data.pz-beside > .pz-tool > .pz-inst { flex: 1 1 auto; display: flex; flex-direction: column; gap: 6px; min-height: 0; }
 .pz:not(.stack):not(.low) .pz-data.pz-beside > .pz-tool > .pz-ghost { display: none; }
 .pz:not(.stack):not(.low) .pz-data.pz-beside > .pz-tiles:not([data-n="0"]) { overflow: clip; }
@@ -5501,7 +5501,7 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
 :is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool, .pz.low .pz-data.has-tool) .pz-tool[data-kind="doppler"] .dop-mean { display: none; }   /* (the reading is the mean: "cm/s" alone, so its state never runs into it) */
 .pz.stack .pz-dh > span:first-child { min-width: 0; hyphens: manual; text-wrap: balance; }   /* (a phone's title: one short line where it fits, else two balanced lines, never cut with an ellipsis (a 320 px phone had shown "DOPPLER, THE ...")) */
 /* The over-time chart is drawn at its own size in pixels, in the card's small type: its box sets the size (shorter as the card fits). */
-.pz-flowtime { font-size: var(--pz-sm, var(--pz-psm, 12px)); height: calc(var(--ft-h, max(60cqi, 15em)) * var(--pz-fit, 1)); min-height: 9em; }
+.pz-flowtime { font-size: var(--pz-sm, var(--pz-psm, 12px)); height: var(--ft-h, max(60cqi, 15em)); min-height: 9em; }
 .pz.stack .pz-flowtime { --ft-h: min(54cqi, 180px); }
 .pz.low .pz-data.has-tool .pz-flowtime { --ft-h: min(48cqi, 140px); min-height: 0; }   /* (a phone on its side: short enough to sit with its tiles, all shown) */
 .pz-flowtime svg, .pz:not(.stack):not(.low) .pz-data.pz-beside .pz-tool[data-kind="flowtime"] .pz-flowtime svg { width: 100%; height: 100%; max-height: none; }
@@ -6221,7 +6221,9 @@ html.thumb-ui .menu.from-dock { clip-path: inset(-64px -64px calc(var(--sink, 0p
 /* The pressure profile and the portal blood bar (tool-profile.js, tool-flows.js): drawn at their own pixels in the cards' one
    small size; the card's fit shortens the chart, never its words. */
 .pz-tool .pz-inst:is(.pz-prof, .pz-flows) { display: grid; font-size: var(--pz-sm, var(--pz-psm, 12px)); }
-.pz-prof { height: calc(var(--prof-h, 250px) * var(--pz-fit, 1)); min-height: 11em; }
+/* (One size per layout, never the card's fit (Mohammad, 21 Oct, Sites 5 on a Mac: "bouncing between large and small card ... vibrating"): shortened
+   by the fit, the ladder pushed its brackets into a band, asked for a taller box (tool-profile.js min-height), the card re-fitted, and round again.) */
+.pz-prof { height: var(--prof-h, 250px); min-height: 11em; }
 .pz:not(.stack) .pz-tool[data-kind="profile"] .pz-prof { --prof-h: min(62cqi, calc(40 * var(--pzh))); }
 .pz.stack .pz-prof { --prof-h: min(74cqi, 270px); }
 .pz.low .pz-data.has-tool .pz-prof { --prof-h: min(44cqi, 170px); }
@@ -6256,7 +6258,7 @@ html.thumb-ui .menu.from-dock { clip-path: inset(-64px -64px calc(var(--sink, 0p
    the Now bar, whatever the slide holds, the inflow's bars too: the card never resizes from slide to slide, and the drawing
    centres itself in it, tool-flows.js. The bars take the card's full width, its tiles under them, presenter.js. Names and
    percents on the bars carry a halo in the card's colour, so they read on every segment.) */
-.pz-flows { height: calc(var(--flows-h, 9.25em) * var(--pz-fit, 1)); min-height: 9.25em; }
+.pz-flows { height: var(--flows-h, 9.25em); min-height: 9.25em; }
 .pfl-seg { fill: color-mix(in srgb, var(--tone) 70%, transparent); }
 .pfl-lab text { font: 500 1em var(--font-ui); fill: var(--text); font-variant-numeric: tabular-nums; paint-order: stroke; stroke: var(--surface); stroke-width: 3px; stroke-linejoin: round; }
 .pfl-lab .v { font-weight: 700; }
@@ -6274,7 +6276,7 @@ html.thumb-ui .menu.from-dock { clip-path: inset(-64px -64px calc(var(--sink, 0p
 .pz-talk .ptk-ms.now { fill: var(--text); }
 .pz-talk.miles .ptk-line.hv[data-rate="mid"] { stroke: var(--caution); } .pz-talk.miles .ptk-line.hv[data-rate="hi"] { stroke: var(--danger); }
 .pft-band { fill: color-mix(in oklab, var(--rx) 70%, var(--text)); }   /* (a deeper shade on a light card: 3:1 for every treatment) */
-.pz-flowtime.has-bands { height: calc((var(--ft-h, max(60cqi, 15em)) + var(--band-room, 0em)) * var(--pz-fit, 1)); }
+.pz-flowtime.has-bands { height: calc(var(--ft-h, max(60cqi, 15em)) + var(--band-room, 0em)); }
 @media (max-height: 960px) { .pz.stack .pz-flowtime.has-bands svg { max-height: calc(160px + var(--band-room, 0em)); } }   /* (a phone's cap, by as much) */
 :is(.ptk-band-n, .pft-band-n tspan) { font: 600 1em var(--font-ui); fill: color-mix(in oklab, var(--rx) 62%, var(--text)); }
 .ptk-band-n { paint-order: stroke; stroke: var(--surface); stroke-width: 3px; stroke-linejoin: round; }

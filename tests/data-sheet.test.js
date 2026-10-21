@@ -210,3 +210,12 @@ test('the ladder: no title, no LIVER word, no key, mmHg in the bottom row, the h
   assert.match(js, /ui\.dhT\.textContent = s\.tool\?\.kind === 'profile' \? '' : cardTitle\(s\);/, 'no title');
   assert.match(prof, /got = got \|\| best;/, 'named even where no place is clear: the least crowded one inside the plot');
 });
+
+// Mohammad, 21 Oct (Mac, Sites 5): the ladder card bounced between a large and a small size, the slide vibrating.
+test('no data-card chart follows the card\'s fit on any layout, so its size can never feed back into the fit', () => {
+  for (const sel of ['pz-prof', 'pz-flows', 'pz-flowtime']) {
+    const rules = [...css.matchAll(new RegExp(`[^}]*\\.${sel}[^{]*\\{([^}]*)\\}`, 'g'))].map((m) => m[1]);
+    assert.ok(rules.length, sel);
+    for (const r of rules) assert.doesNotMatch(r, /--pz-fit/, `${sel}: ${r.trim()}`);
+  }
+});
