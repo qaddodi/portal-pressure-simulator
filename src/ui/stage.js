@@ -18,7 +18,7 @@ import { inlineStyles } from './svg-inline.js?v=fc17cb73fe';
 import { fluidTarget, poolFade } from './fluid-step.js?v=2742314765';
 import { easeTo, fluidSpring, fluidSpringFor } from './organ-ease.js?v=4ebb648131';
 import { spleenMotion } from './spleen-motion.js?v=4e87db0dbb';
-import { subpathsIn, foldOpacity, dropInvisible, mergeClipRuns } from './plate-copy.js?v=8a7456e9fc';
+import { subpathsIn, foldOpacity, dropInvisible, mergeClipRuns, boxOutside, paintBox } from './plate-copy.js?v=70e92e8a8d';
 import { gridHits, segHitsBox } from './seg-hits.js?v=e7cde76929';
 import { glassCallout } from './callout.js?v=d5524b6a11';
 import { TEXT_MIN, TEXT_MAX, rolePx, roleOf } from './type-scale.js?v=d7cca3fb73';
@@ -3540,13 +3540,14 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     // (The copy takes the organs' own colours, as the GPU greys and dims it itself: the live grey comes off for it.)
     const greyed = !!greyList;
     if (greyed) { greyClear(); organDimKey = ''; }
-    const ser = new XMLSerializer(), parts = [], subs = [];
+    const ser = new XMLSerializer(), parts = [], subs = [], live = new Map();
     try {
       const dc = defs.cloneNode(true); inlineStyles(defs, dc);
       for (const id of DEAD_CUTS) dc.querySelector(`[data-cut="${id}"]`)?.remove();
       const head = ser.serializeToString(dc);
       for (const g of [gBackdrop, gOrgans]) {   // the ascites is drawn on the GPU over the plate (see fluidLook)
         const c = g.cloneNode(true);
+        { const lv = g.querySelectorAll(CULL_TAGS), cv = c.querySelectorAll(CULL_TAGS); for (let i = 0; i < cv.length; i++) live.set(cv[i], lv[i]); }   // (for plateCull: the same tree, in the same order)
         // Marked while the classes are still on (inlineStyles takes them off).
         for (const el of c.querySelectorAll('.lv-nod, .lv-isl')) el.setAttribute('data-pc', 'sub fold');
         for (const el of c.querySelectorAll('.lv-sep, .lv-cong, .liver-tint')) el.setAttribute('data-pc', 'fold');
@@ -3586,23 +3587,61 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       const t = organG.liver.getAttribute('transform') || '', m = t.match(/^translate\(([-\d.]+) ([-\d.]+)\) scale\(([-\d.]+)\) translate\([-\d.]+ [-\d.]+\)$/);
       const toLiver = !t ? (r) => r : m ? (r) => { const [cx, cy, k] = m.slice(1).map(Number); return [cx + (r[0] - cx) / k, cy + (r[1] - cy) / k, r[2] / k, r[3] / k]; } : null;
       const gut = parts.flatMap((c) => [...c.querySelectorAll('[data-gut]')]);
-      return { key, seq: plateSeq, head, parts, subs, toLiver, gut, gutMut };
+      return { key, seq: plateSeq, head, parts, subs, toLiver, gut, gutMut, live, boxes: null };
     } finally { if (was) wrap.classList.add('gl-plate'); if (greyed) syncOrganDim(); }
   }
-  function plateMarkup(rect, W, H, fresh) {
+  // The sharp picture of the view (slot 1) leaves out every shape that paints nothing inside it: zoomed in, most of the
+  // organs' 1 MB of shapes lay outside the view, and writing them out, reading them back and drawing them all, in one go
+  // after each pan settled, was the hitch half a second after a zoomed pan stopped (Mohammad, 21 Oct). The same pixels: a
+  // shape is left out only when its whole painted box (its outline through every transform, its stroke at the widest a
+  // miter reaches, and a margin) misses the view. Kept whole: whatever sits in a clip, mask, pattern or marker, under a
+  // filter (a blur spreads past the box), or under a clip or mask sized to its group (its group's box would change), and
+  // anything with an id another element could point at; the nodules are trimmed to the window on their own (subpathsIn).
+  const CULL_TAGS = 'path, circle, ellipse, rect, polygon, polyline, line';
+  function plateBoxes(copy) {
+    const roots = new Set(copy.parts), subs = new Set(copy.subs.map((sp) => sp.el)), out = [];
+    const bboxRef = (v) => { const id = v && v.match(/#([^)"']+)/)?.[1], d = id && defs.querySelector(`#${CSS.escape(id)}`); return !!d && (d.getAttribute('maskContentUnits') === 'objectBoundingBox' || d.getAttribute('clipPathUnits') === 'objectBoundingBox'); };
+    const base = gOrgans.parentNode.getCTM?.();
+    if (!base) return out;
+    const inv = base.inverse();
+    for (const [c, el] of copy.live) {
+      if (subs.has(c) || c.id) continue;
+      let ok = true, top = c;
+      for (let a = c; a; a = a.parentNode) {
+        top = a;
+        if (a !== c && /^(clipPath|mask|pattern|marker|symbol|defs)$/.test(a.localName)) { ok = false; break; }
+        if (a.getAttribute?.('filter') || (a !== c && (bboxRef(a.getAttribute?.('mask')) || bboxRef(a.getAttribute?.('clip-path'))))) { ok = false; break; }
+      }
+      if (!ok || !roots.has(top) || c.hasAttribute('marker-start') || c.hasAttribute('marker-mid') || c.hasAttribute('marker-end')) continue;
+      try {
+        const bb = el.getBBox(), m = el.getCTM();
+        if (!m || !(bb.width || bb.height)) continue;
+        out.push([c, paintBox(bb, inv.multiply(m), parseFloat(c.getAttribute('stroke-width')) || 0)]);
+      } catch { /* not measurable: kept */ }
+    }
+    return out;
+  }
+  function plateMarkup(rect, W, H, fresh, cull = false) {
     const key = plateStateKey();
     if (fresh || !plateCopy || plateCopy.key !== key || plateCopy.seq !== plateSeq) plateCopy = plateBuild(key);
     // Only the nodules and nutmeg islands that meet this window (the others add nothing to it).
     const lr = plateCopy.toLiver?.(rect);
     for (const sp of plateCopy.subs) sp.el.setAttribute('d', lr ? subpathsIn(sp.d, lr) : sp.d);
-    const ser = new XMLSerializer();
-    const out = plateCopy.head + plateCopy.parts.map((c) => ser.serializeToString(c)).join('');
+    const ser = new XMLSerializer(), out0 = [];
+    if (cull) {
+      plateCopy.boxes ??= plateBoxes(plateCopy);
+      for (const [c, b] of plateCopy.boxes) if (boxOutside(b, rect)) out0.push([c, c.parentNode, c.nextSibling]);
+      for (const [c] of out0) c.remove();
+    }
+    let out;
+    try { out = plateCopy.head + plateCopy.parts.map((c) => ser.serializeToString(c)).join(''); }
+    finally { for (let i = out0.length - 1; i >= 0; i--) { const [c, p, n] = out0[i]; p.insertBefore(c, n); } }   // (the copy stays whole: the next view, the gut's picture)
     return `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="${W}" height="${H}" viewBox="${rect.join(' ')}" preserveAspectRatio="none">${out}</svg>`;
   }
   async function rasterPlate(slot, rect, scale) {
     const W = Math.max(1, Math.round(rect[2] * scale)), H = Math.max(1, Math.round(rect[3] * scale));
     const seq = plateSeq, drops = plateDrops;
-    const url = URL.createObjectURL(new Blob([gpuProbe.time(null, 'organ picture: copy (script)', () => plateMarkup(rect, W, H, slot === 0))], { type: 'image/svg+xml' }));
+    const url = URL.createObjectURL(new Blob([gpuProbe.time(null, 'organ picture: copy (script)', () => plateMarkup(rect, W, H, slot === 0, slot === 1))], { type: 'image/svg+xml' }));
     const drawnAs = plateCopy?.key;
     try {
       const img = new Image();
