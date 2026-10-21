@@ -45,7 +45,7 @@ import { layoutWatch } from './idle-keys.js?v=ea36a0b5c6';
 import { writeGlowTexels } from './glow-texels.js?v=e578794a92';
 import { SIN_PERFUSION, sinStrandRadius } from './sin-perfusion.js?v=25a8407fdd';
 import { wavePacks, paintWave } from './scan-waves.js?v=066db7aa38';
-import { fitPose, probeJumps, probeShapes, beamBoxes, gateBoxes, awayFromProbe, PROBE, PROBE_SVG } from './dop-probe.js?v=1ade397040';
+import { fitPose, probeShapes, beamBoxes, gateBoxes, awayFromProbe, createProbeMind, NONE_MS, SLACK, PROBE, PROBE_SVG } from './dop-probe.js?v=c9d8367fdb';
 import { organDimMatrix } from './organ-dim.js?v=7888276613';
 import { parseColor, greyOf, paintRef } from './organ-grey.js?v=e41d68222c';
 import { bandRing, dashRings, liftEnd, normalShown, rippleList, systemOf, SYSTEM_COLOR } from './highlight-math.js?v=e2c1816e25';
@@ -1232,7 +1232,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const dop = { id: null, want: null, pin: null, key: '', seg: '', points: false, all: false };
   const dopGateOf = (id) => (dop.id === id && dop.seg ? dop.seg : '');   // the third of a stent the Doppler samples ('' when it is elsewhere)
   // The Doppler probe on the figure (dprobePaint): live once the stage is built (dopApply runs before its pieces exist).
-  const dpr = { el: null, on: false, key: '', side: 0, reach: 0, rev: false, k: 1, cur: null, tgt: null, hold: 0, mon: false, pend: '', pendAt: 0, eRaf: 0, eAt: 0, box: null, marks: [], swap: 0, shapes: '', at: '', ready: false, gate: null };
+  const dpr = { el: null, on: false, key: '', side: 0, reach: 0, rev: false, k: 1, cur: null, tgt: null, hold: 0, mon: false, noneT: 0, headOff: false, eRaf: 0, eAt: 0, box: null, marks: [], swap: 0, shapes: '', at: '', ready: false, gate: null };
   function dopApply() {
     let id = dop.pin ?? dop.want ?? null;
     if (id && !E[id]) id = null;
@@ -5805,13 +5805,17 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const on = dprMonitorOn();
     if (on !== dpr.mon || (on && !dpr.on && !dpr.swap)) { dpr.mon = on; dprobePaint(); }
   }, 200);
+  // What the probe remembers between frames: the places it has left on this layout, and how long a fresh place has held still
+  // (dop-probe.js createProbeMind: the cure for the probe flashing on and off, Right heart 6 on an iPhone, 21 Oct).
+  const dprMind = createProbeMind();
+  const dprHide = () => { if (dpr.on) { dpr.on = false; dpr.el.classList.add('off'); } dpr.box = null; dpr.marks = []; dpr.key = ''; dpr.gate = null; dprDots(); };
   function dprobePaint() {
     if (!dpr.ready) return;
     const st = store.get(), id = dop.id, pts = id && geo[id]?.cur;
     const show = !!(pts?.length > 1 && E[id]?.vis && (morph < 0.01 || morph > 0.99) && !camMove && !dpr.hold && dprMonitorOn() && !st.lobule && !st.sinusoid && !lz?.isOpen());
     if (!show) {
-      if (dpr.on) { dpr.on = false; dpr.el.classList.add('off'); }
-      dpr.box = null; dpr.marks = []; dpr.key = ''; dpr.gate = null; dprDots();
+      dprMind.hide();
+      dprHide();
       return;
     }
     if (!dpr.el) {
@@ -5824,13 +5828,17 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const key = `${id}|${dop.seg}`, u = dop.seg ? STENT_SITES[dop.seg] : null;
     const [wx, wy, tx, ty] = u == null ? arcMid(pts) : pointAt(pts, u);
     const [gx, gy] = worldToLocal(wx, wy), [ax, ay] = worldToLocal(wx + tx, wy + ty);
-    const r = cathRadOf(id, u ?? 0.5) * (CTM?.sc || 1);
-    const pose = fitPose({ g: [gx, gy], t: [ax - gx, ay - gy], r, away: awayFromProbe(id), w: wrapRect.width, h: wrapRect.height, cards: dprCards(), keep: key === dpr.key ? dpr.side : 0, keepReach: dpr.reach, keepRev: dpr.rev, keepK: dpr.k, sc: CTM?.sc || 1, avoid: dprAvoid(), busy: dprBusy([gx, gy], id) });
-    // (No place on the slide's free space at any side or distance: it fades out, and fades in once one opens.)
-    if (pose.none) { if (dpr.on) { dpr.on = false; dpr.el.classList.add('off'); } dpr.box = null; dpr.marks = []; dpr.key = ''; dpr.gate = null; dprDots(); return; }
+    const r = cathRadOf(id, u ?? 0.5) * (CTM?.sc || 1), cards = dprCards();
+    // (What its place is worked out for: the vessel, the camera, the stage, the gate and the cards, a little coarsely. While it holds,
+    // the places the probe has left stay left; a change forgets them.)
+    dprMind.sync([key, CTM ? `${CTM.a.toFixed(2)},${CTM.b.toFixed(2)},${Math.round(CTM.e / 12)},${Math.round(CTM.f / 12)}` : '', Math.round(wrapRect.width / 8), Math.round(wrapRect.height / 8), Math.round(gx / 12), Math.round(gy / 12),
+      cards.map((c) => [c.x0, c.y0, c.x1, c.y1].map((v) => Math.round(v / 16)).join()).join(';')].join('|'));
+    // (Its place keeps its fit through a few px of give, unless only its marks fit: back to the head's fade, it needs the whole room.)
+    const pose = fitPose({ g: [gx, gy], t: [ax - gx, ay - gy], r, away: awayFromProbe(id), w: wrapRect.width, h: wrapRect.height, cards, keep: key === dpr.key ? dpr.side : 0, keepReach: dpr.reach, keepRev: dpr.rev, keepK: dpr.k, sc: CTM?.sc || 1, avoid: dprAvoid(), busy: dprBusy([gx, gy], id),
+      ban: dprMind.banned(), lock: dprMind.locked(), slack: dpr.headOff ? 0 : SLACK });
     // A new vessel or third: it fades out where it stood and in at the new place.
     if (dpr.on && key !== dpr.key) {
-      dpr.on = false; dpr.box = null; dpr.marks = []; dpr.el.classList.add('off'); dprDots();
+      dpr.on = false; dpr.box = null; dpr.marks = []; dpr.el.classList.add('off'); dprDots(); dprMind.hide();
       dpr.swap = setTimeout(() => { dpr.swap = 0; dpr.key = ''; dprobePaint(); }, reduceMotion.matches ? 0 : 380);
       return;
     }
@@ -5839,14 +5847,17 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     // it starts at its place. (dprShape draws it, a frame at a time.)
     const tgt = { ang: pose.ang, d: pose.D - Math.max(0, r), k: pose.k, ax: pose.ang + pose.phi, r };
     // (Shown afresh, it waits till its place holds still for 0.2 s, the late cards and labels landed, then fades in already there
-    // and turned to it, so it never arrives and then swings into place (Mohammad, 20 Oct).)
-    if (!dpr.on && !reduceMotion.matches) {
-      const sig = `${key}|${pose.side}|${pose.reach}|${+pose.rev}|${pose.k}|${Math.round(pose.ang / 5)}|${Math.round(gx / 4)},${Math.round(gy / 4)}`, now = performance.now();
-      if (sig !== dpr.pend) { dpr.pend = sig; dpr.pendAt = now; dprStale(); return; }
-      if (now - dpr.pendAt < 200) return;
-    }
-    // (A place far round the gate or far nearer: it fades out and in there rather than flying across (probeJumps).)
-    if (dpr.on && dpr.cur && probeJumps(dpr.cur, tgt)) {
+    // and turned to it, so it never arrives and then swings into place (Mohammad, 20 Oct). A place far round the gate or far nearer:
+    // it fades out and in there rather than flying across. No place: it holds a moment before it fades. dprMind decides.)
+    const sig = `${key}|${pose.side}|${pose.reach}|${+pose.rev}|${pose.k}|${Math.round(pose.ang / 5)}|${Math.round(gx / 4)},${Math.round(gy / 4)}`;
+    const act = dprMind.act({ pose, tgt, on: dpr.on, cur: dpr.cur, sig, now: performance.now(), instant: reduceMotion.matches });
+    if (act !== 'hold' && dpr.noneT) { clearTimeout(dpr.noneT); dpr.noneT = 0; }
+    // (No place on the slide's free space at any side or distance, for good: it fades out, and fades in once one opens.)
+    if (act === 'hide') { dprHide(); return; }
+    if (act === 'hold') { dpr.noneT ||= setTimeout(() => { dpr.noneT = 0; dprobePaint(); }, NONE_MS + 30); return; }
+    if (act === 'restart') { dprStale(); return; }
+    if (act === 'wait') return;
+    if (act === 'jump') {
       dpr.on = false; dpr.box = null; dpr.marks = []; dpr.el.classList.add('off'); dprDots();
       dpr.swap = setTimeout(() => { dpr.swap = 0; dpr.key = ''; dprobePaint(); }, reduceMotion.matches ? 0 : 380);
       return;
@@ -5859,7 +5870,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (at !== dpr.at) { dpr.at = at; dpr.el.style.transform = at; }
     dpr.key = key; dpr.side = pose.side; dpr.reach = pose.reach; dpr.rev = pose.rev; dpr.box = pose.box; dpr.marks = [...beamBoxes([gx, gy], pose.ang, pose.D, r), ...gateBoxes([gx, gy], pose.ang, pose.phi, r)];
     // (Only its marks fit clear of the cards: the head fades, as the FibroScan probe's does under a card (scanHead).)
-    dpr.el.classList.toggle('head-off', !!pose.headOff);
+    dpr.headOff = !!pose.headOff;
+    dpr.el.classList.toggle('head-off', dpr.headOff);
     dpr.gate = [gx, gy];
     if (!dpr.on) { dpr.on = true; dpr.el.classList.remove('off'); }
     dprDots();

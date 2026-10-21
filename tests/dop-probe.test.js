@@ -7,7 +7,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { AWAY, probePose, fitPose, SIZES, QUIET, ZOOMED_OUT, probeShapes, probeJumps, JUMP_DEG, JUMP_PX, gateDims, bodyBox, beamBoxes, gateBoxes, PROBE, PROBE_SVG } from '../src/ui/dop-probe.js';
+import { AWAY, probePose, fitPose, SIZES, QUIET, ZOOMED_OUT, probeShapes, probeJumps, JUMP_DEG, JUMP_PX, gateDims, bodyBox, beamBoxes, gateBoxes, PROBE, PROBE_SVG, placeId, createProbeMind, SLACK, NONE_MS, PEND_MS, LEAVES } from '../src/ui/dop-probe.js';
 
 const read = (p) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8');
 const stage = read('src/ui/stage.js'), doppler = read('src/ui/doppler.js'), css = read('styles/app.css'), tokens = read('styles/tokens.css');
@@ -177,7 +177,9 @@ test('the station dot under the gate fades with the probe: out while it shows on
   assert.match(stage, /if \(!\/\^\(d\|h\):\/\.test\(k\)\) continue;/, 'only the anchor dots and their discs, never a leader');
   assert.match(stage, /Math\.hypot\(\+a\.cx - g\[0\], \+a\.cy - g\[1\]\) < 6/);
   assert.match(stage, /\n\s+dprDots\(\);\n\s+for \(const \[k, el\] of leadEls\) \{\n\s+if \(keep\.has\(k\)/, 'leaders painted: dots read the probe state');
-  assert.equal((stage.match(/dpr\.gate = null; dprDots\(\);/g) || []).length, 2, 'hidden probe: the dot returns');
+  // (Every way the probe hides goes through dprHide, which clears the gate and lets the dot back.)
+  assert.match(stage, /const dprHide = \(\) => \{ if \(dpr\.on\) \{ dpr\.on = false; dpr\.el\.classList\.add\('off'\); \} dpr\.box = null; dpr\.marks = \[\]; dpr\.key = ''; dpr\.gate = null; dprDots\(\); \};/);
+  assert.equal((stage.match(/\bdprHide\(\);/g) || []).length, 2, 'no show, and no place: the dot returns');
 });
 
 test('with neither side clear the probe comes in closer, and hides only when no place fits', () => {
@@ -323,7 +325,7 @@ test('with no place for the whole probe, its marks stay and the head fades (as t
   assert.ok(p.headOff && !p.none && !p.clear);
   assert.ok(!p.none && [...beamBoxes(g, p.ang, p.D, r)].every((b) => !cards.some((c) => b.x0 < c.x1 && c.x0 < b.x1 && b.y0 < c.y1 && c.y0 < b.y1)), 'the line of sight is clear of the cards');
   assert.ok(probePose({ g, t, r, w: W, h: H, cards: [{ x0: 0, y0: 0, x1: W, y1: H }] }).none);
-  assert.match(stage, /dpr\.el\.classList\.toggle\('head-off', !!pose\.headOff\);/);
+  assert.match(stage, /dpr\.headOff = !!pose\.headOff;\s*dpr\.el\.classList\.toggle\('head-off', dpr\.headOff\);/);
   assert.match(css, /\.dop-probe\.head-off \.dpr-head \{ opacity: 0; \}/);
   assert.match(css, /\.dop-probe \.dpr-head \{ transition: opacity \.36s/);
 });
@@ -389,8 +391,10 @@ test('a far move round the gate or in distance fades the probe rather than flyin
 test('stage: a probe shown afresh starts at its place, and a jump fades out and in', () => {
   const src = readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8');
   assert.match(src, /if \(!dpr\.on \|\| !dpr\.cur \|\| reduceMotion\.matches\) dpr\.cur = \{ ang: tgt\.ang, d: tgt\.d, k: tgt\.k \}/);
-  assert.match(src, /if \(dpr\.on && dpr\.cur && probeJumps\(dpr\.cur, tgt\)\) \{\s*dpr\.on = false;[^}]*dpr\.swap = setTimeout/);
-  assert.ok(src.indexOf('probeJumps(dpr.cur, tgt)') < src.indexOf('if (!dpr.on || !dpr.cur || reduceMotion.matches) dpr.cur'));
+  assert.match(src, /if \(act === 'jump'\) \{\s*dpr\.on = false;[^}]*dpr\.swap = setTimeout/);
+  assert.ok(src.indexOf("act === 'jump'") < src.indexOf('if (!dpr.on || !dpr.cur || reduceMotion.matches) dpr.cur'));
+  // (the jump itself is decided in dop-probe.js, from where the probe is drawn and where it would stand)
+  assert.match(readFileSync(new URL('../src/ui/dop-probe.js', import.meta.url), 'utf8'), /if \(on && cur && probeJumps\(cur, tgt\)\) \{ at = ''; pend = ''; return 'jump'; \}/);
   assert.doesNotMatch(readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8'), /\.dop-probe \{[^}]*transition:[^;}]*transform/);
 });
 
@@ -408,6 +412,177 @@ test('stage: no Doppler screen in sight, no probe; shown afresh it waits for its
   const mon = src.slice(src.indexOf('function dprMonitorOn('), src.indexOf('function dprobePaint('));
   for (const k of ["'[hidden], .card-leaving, .vd-out, [data-folding]'", 'checkVisibility', 'elementFromPoint']) assert.ok(mon.includes(k), k);
   const paint = src.slice(src.indexOf('function dprobePaint('), src.indexOf('function dprShape('));
-  assert.ok(paint.indexOf('if (sig !== dpr.pend)') < paint.indexOf('dpr.cur = { ang: tgt.ang'), 'a fresh probe waits before it is placed');
-  assert.match(paint, /if \(now - dpr\.pendAt < 200\) return;/);
+  assert.ok(paint.indexOf("act === 'wait'") < paint.indexOf('dpr.cur = { ang: tgt.ang'), 'a fresh probe waits before it is placed');
+  assert.ok(paint.indexOf("act === 'restart'") < paint.indexOf("act === 'wait'"));
+  assert.equal(PEND_MS, 200, 'its place holds still for 0.2 s');
+});
+
+// ── The probe flashing on and off (Right heart 6, iPhone, 21 Oct) ──
+// The probe and the figure's labels each make way for the other, and on a phone slide with a data card above and the teaching card
+// below there are only a few px of room: a place that fit one frame did not the next, the probe fled to another side with a fade,
+// the labels re-laid out around it, the old place fit again, and it went round for as long as the slide stood.
+
+// The stage's dprobePaint, a tick at a time: fitPose, then dprMind decides (dop-probe.js createProbeMind), then the picture follows.
+// memory: false is the probe as it was (no places left, no lock, no give, a moment of "no place" hides it at once).
+function drive({ ticks = 400, dt = 100, g = [200, 580], t = [1, 0], away = true, w = 390, h = 700, cards, rOf = () => 8, labelsOf = () => [], memory = true }) {
+  const mind = createProbeMind(), st = { on: false, key: '', side: 0, reach: 0, rev: false, k: 1, cur: null, swap: 0, headOff: false };
+  const out = { hides: [], shows: 0, moves: 0 };
+  for (let i = 0; i < ticks; i++) {
+    const now = i * dt, r = rOf(i);
+    if (st.swap && now >= st.swap) { st.swap = 0; st.key = ''; }
+    if (st.swap) continue;
+    mind.sync('one layout');
+    const pose = fitPose({ g, t, r, away, w, h, cards: cards(i), keep: st.key === 'v' ? st.side : 0, keepReach: st.reach, keepRev: st.rev, keepK: st.k, sc: 1, avoid: labelsOf(i, st), busy: [],
+      ...(memory ? { ban: mind.banned(), lock: mind.locked(), slack: st.headOff ? 0 : SLACK } : {}) });
+    const tgt = { ang: pose.ang, d: pose.D - Math.max(0, r), k: pose.k, ax: pose.ang + pose.phi, r };
+    const sig = `v|${pose.side}|${pose.reach}|${+pose.rev}|${pose.k}|${Math.round(pose.ang / 5)}`;
+    let act = mind.act({ pose, tgt, on: st.on, cur: st.cur, sig, now, instant: false });
+    if (!memory && act === 'hold') act = 'hide';
+    if (act === 'hide') { if (st.on) { st.on = false; out.hides.push(now); } st.key = ''; continue; }
+    if (act === 'jump') { st.on = false; out.hides.push(now); st.swap = now + 380; continue; }
+    if (act !== 'go') continue;
+    if (!st.on || !st.cur) st.cur = { ang: tgt.ang, d: tgt.d, k: tgt.k };
+    else { const f = 1 - Math.exp(-dt / 1000 / 0.1); st.cur.ang += (tgt.ang - st.cur.ang) * f; st.cur.d += (tgt.d - st.cur.d) * f; }
+    if (st.side && st.side !== pose.side) out.moves++;
+    st.key = 'v'; st.side = pose.side; st.reach = pose.reach; st.rev = pose.rev; st.k = pose.k; st.headOff = !!pose.headOff;
+    if (!st.on) { st.on = true; out.shows++; }
+    out.now = { on: st.on, id: placeId(pose) };
+  }
+  out.mind = mind;
+  return out;
+}
+
+// The phone slide's room: the data card ends at 446 and the teaching card starts at 585 (its top 591, less the 6 px pad); the gate
+// sits 5 px above it, the stage 390 × 700.
+const tight = () => [{ x0: 0, y0: 0, x1: 390, y1: 446 }, { x0: 0, y0: 585, x1: 390, y1: 700 }];
+const hitBox = (a, b) => a.x0 < b.x1 && b.x0 < a.x1 && a.y0 < b.y1 && b.y0 < a.y1;
+// The probe's boxes at the place it stands (body, line of sight, bars and axis), as the labels keep off them.
+function marksAt(st, g = [200, 580], r = 8) {
+  const D = (st.reach === 0 ? PROBE.GAP : st.reach > 0 ? [58, 38, 28][st.reach - 1] : [125, 170][-st.reach - 1]) + r, aw = !st.rev, ang = 0 + st.side * (aw ? 180 - PROBE.ANGLE : PROBE.ANGLE), phi = (aw ? st.side : -st.side) * PROBE.ANGLE;
+  return [bodyBox(g, ang, D, st.k || 1), ...beamBoxes(g, ang, D, r), ...gateBoxes(g, ang, phi, r)];
+}
+// Two labels, each with three spots (the vessel's own and the atrium's; stage px). A label stands at its first spot clear of the probe
+// while it shows (3 px to spare, as layoutLabels keeps), else at its first: it makes way, and there is little room to make way to.
+const SPOTS = [
+  [{ x0: 87, y0: 511, x1: 218, y1: 527 }, { x0: 300, y0: 522, x1: 444, y1: 538 }, { x0: 144, y0: 497, x1: 240, y1: 513 }],
+  [{ x0: 272, y0: 481, x1: 385, y1: 497 }, { x0: 222, y0: 582, x1: 344, y1: 598 }, { x0: 204, y0: 583, x1: 323, y1: 599 }],
+];
+const labelsMakeWay = (_i, st) => {
+  const probe = st.on ? marksAt(st).map((b) => ({ x0: b.x0 - 3, y0: b.y0 - 3, x1: b.x1 + 3, y1: b.y1 + 3 })) : [];
+  return SPOTS.map((spots) => spots.find((s) => !probe.some((b) => hitBox(s, b))) || spots[0]);
+};
+
+test('the flashing, replayed: the probe and the labels each making way for the other went round for as long as the slide stood', () => {
+  const was = drive({ cards: tight, labelsOf: labelsMakeWay, memory: false });
+  assert.ok(was.hides.length >= 20, `it faded out ${was.hides.length} times in 40 s`);
+  assert.ok(was.hides.at(-1) > 38000, 'and was still going at the end');
+});
+
+test('the same slide now: it settles after at most LEAVES moves and then holds, labels or not', () => {
+  const now = drive({ cards: tight, labelsOf: labelsMakeWay });
+  assert.ok(now.hides.length <= LEAVES, `faded out ${now.hides.length} times`);
+  assert.ok(now.hides.every((ms) => ms < 5000), 'only at the start, never again');
+  assert.ok(now.now.on, 'standing at the end');
+  assert.ok(now.mind.locked() || now.hides.length < LEAVES);
+});
+
+test('whichever way the labels would send it, a layout holds the probe to a few moves (every label spot tried, 60 slides)', () => {
+  let seed = 7;
+  const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+  for (let n = 0; n < 60; n++) {
+    const labs = Array.from({ length: 2 + Math.floor(rnd() * 3) }, () => Array.from({ length: 3 }, () => { const x = 80 + rnd() * 240, y = 460 + rnd() * 150, ww = 60 + rnd() * 90; return { x0: x, y0: y, x1: x + ww, y1: y + 16 }; }));
+    const way = (_i, st) => { const p = st.on ? marksAt(st).map((b) => ({ x0: b.x0 - 3, y0: b.y0 - 3, x1: b.x1 + 3, y1: b.y1 + 3 })) : []; return labs.map((s) => s.find((b) => !p.some((q) => hitBox(b, q))) || s[0]); };
+    const run = drive({ cards: tight, labelsOf: way });
+    assert.ok(run.hides.length <= LEAVES, `slide ${n}: faded out ${run.hides.length} times`);
+    assert.ok(run.hides.length === 0 || run.hides.at(-1) < 10000, `slide ${n}: still moving at ${run.hides.at(-1)} ms`);
+  }
+});
+
+test('a card edge breathing a few px no longer fades the probe out and in (the place it stands at keeps its fit)', () => {
+  const breathe = (amp) => (i) => [{ x0: 0, y0: 0, x1: 390, y1: 470 + amp * Math.sin(i * 0.1 * 2 * Math.PI / 1.5) }, { x0: 0, y0: 585, x1: 390, y1: 700 }];
+  const was = drive({ cards: breathe(8), memory: false }), now = drive({ cards: breathe(8) });
+  assert.ok(was.hides.length >= 20, `it faded ${was.hides.length} times before`);
+  assert.equal(now.hides.length, 0);
+  // (an edge that really comes over the probe, and stays, still takes it off)
+  const over = drive({ cards: (i) => [{ x0: 0, y0: 0, x1: 390, y1: i < 100 ? 446 : 700 }, { x0: 0, y0: 585, x1: 390, y1: 700 }] });
+  assert.equal(over.hides.length, 1); assert.ok(over.hides[0] > 10000 + NONE_MS - 1);
+});
+
+test('a place the probe has left is not gone back to on the same layout, and a new layout forgets it', () => {
+  const m = createProbeMind(), pose = (side) => ({ side, reach: 0, rev: false, k: 1, ang: side * 130, phi: 50 });
+  const tgt = (p) => ({ ang: p.ang, d: 80, k: 1 });
+  m.sync('a');
+  assert.equal(m.act({ pose: pose(1), tgt: tgt(pose(1)), on: false, cur: null, sig: 's', now: 0 }), 'restart');
+  assert.equal(m.act({ pose: pose(1), tgt: tgt(pose(1)), on: false, cur: null, sig: 's', now: 100 }), 'wait');
+  assert.equal(m.act({ pose: pose(1), tgt: tgt(pose(1)), on: false, cur: null, sig: 's', now: 250 }), 'go', 'a place that held still for 0.2 s');
+  // It moves to the other side: a swing of 100° round the gate is a jump (fade), and the place it left is remembered.
+  assert.equal(m.act({ pose: pose(-1), tgt: tgt(pose(-1)), on: true, cur: { ang: 130, d: 80, k: 1 }, sig: 's2', now: 300 }), 'jump');
+  assert.deepEqual(m.banned(), [placeId(pose(1))]);
+  assert.equal(m.locked(), false);
+  m.sync('a');   // (the same layout: nothing forgotten)
+  assert.equal(m.banned().length, 1);
+  m.sync('b');
+  assert.deepEqual(m.banned(), [], 'the camera, the cards or the vessel changed');
+  // A hidden probe is not "leaving" anywhere, and a fresh show waits again.
+  m.hide();
+  assert.equal(m.act({ pose: pose(-1), tgt: tgt(pose(-1)), on: false, cur: null, sig: 's2', now: 1000 }), 'restart');
+  // LEAVES places left on one layout and it holds still.
+  const n = createProbeMind();
+  n.sync('x');
+  const at = (side, reach) => ({ side, reach, rev: false, k: 1, ang: 0, phi: 50 });
+  for (let i = 0; i <= LEAVES; i++) n.act({ pose: at(1, i), tgt: { ang: 0, d: 80, k: 1 }, on: true, cur: { ang: 0, d: 80, k: 1 }, sig: 's', now: i });
+  assert.equal(n.locked(), true);
+});
+
+test('probePose: a banned place is skipped while another is clear, a lock keeps the stood place whatever the labels do, give keeps a stood place clear', () => {
+  const g = [600, 400], t = [1, 0], r = 10, base = { g, t, r, w: W, h: H };
+  const first = probePose(base), id = placeId(first);
+  const next = probePose({ ...base, ban: [id] });
+  assert.notEqual(placeId(next), id, 'the place it left is skipped');
+  // With every clear place banned they all count again, so it still stands somewhere.
+  const ids = [1, -1].flatMap((s) => [false, true].map((rev) => placeId(probePose({ ...base, side: s, rev }))));
+  assert.ok(probePose({ ...base, ban: ids }).clear);
+  assert.equal(probePose({ ...base, ban: ids }).none, undefined);
+  // A label over the place it stands at moves it, unless it is locked.
+  const label = { ...first.box, x0: first.box.x0 + 1 };
+  const keep = { keep: first.side, keepReach: first.reach, keepRev: first.rev };
+  assert.notEqual(placeId(probePose({ ...base, ...keep, avoid: [label] })), id);
+  assert.equal(placeId(probePose({ ...base, ...keep, avoid: [label], lock: true })), id);
+  // A card's edge over the place by 3 px: not clear at first sight, clear for the place it stands at, but not by 5 px.
+  const over = (px) => [{ x0: first.box.x0, y0: first.box.y0 - 200, x1: first.box.x1, y1: first.box.y0 + px }];
+  assert.equal(placeId(probePose({ ...base, ...keep, cards: over(3), slack: SLACK })), id, 'give: it stays');
+  assert.notEqual(placeId(probePose({ ...base, ...keep, cards: over(SLACK + 2), slack: SLACK })), id, 'but only so much');
+  assert.notEqual(placeId(probePose({ ...base, cards: over(3), slack: SLACK })), id, 'a fresh place gets none');
+  assert.notEqual(placeId(probePose({ ...base, ...keep, cards: over(3) })), id, 'none unless asked');
+  // (A card thinner than the give still counts where it crosses the whole body.)
+  const thin = [{ x0: first.box.x0 - 5, y0: first.box.y0 - 5, x1: first.box.x1 + 5, y1: first.box.y1 + 5 }];
+  assert.notEqual(placeId(probePose({ ...base, ...keep, cards: thin, slack: SLACK })), id);
+});
+
+test('no place for a moment holds the probe (NONE_MS), and only a lack that lasts fades it', () => {
+  const m = createProbeMind(), none = { none: true }, tgt = { ang: 0, d: 80, k: 1 };
+  assert.ok(NONE_MS >= 300 && NONE_MS <= 600);
+  assert.equal(m.act({ pose: none, tgt, on: true, cur: tgt, sig: 's', now: 0 }), 'hold');
+  assert.equal(m.act({ pose: none, tgt, on: true, cur: tgt, sig: 's', now: NONE_MS - 1 }), 'hold');
+  assert.equal(m.act({ pose: none, tgt, on: true, cur: tgt, sig: 's', now: NONE_MS }), 'hide');
+  // A place back in between starts the count again.
+  const n = createProbeMind(), ok = { side: 1, reach: 0, rev: false, k: 1, ang: 0, phi: 50 };
+  n.act({ pose: none, tgt, on: true, cur: tgt, sig: 's', now: 0 });
+  assert.equal(n.act({ pose: ok, tgt, on: true, cur: tgt, sig: 's', now: 300 }), 'go');
+  assert.equal(n.act({ pose: none, tgt, on: true, cur: tgt, sig: 's', now: 400 }), 'hold');
+  assert.equal(n.act({ pose: none, tgt, on: true, cur: tgt, sig: 's', now: 400 + NONE_MS - 1 }), 'hold');
+  // Hidden already, no place is at once no probe.
+  assert.equal(createProbeMind().act({ pose: none, tgt, on: false, cur: null, sig: 's', now: 0 }), 'hide');
+});
+
+test('stage: the probe\'s memory is in the loop (layout signature, banned places, lock, give, a held "no place", hides forget)', () => {
+  const paint = stage.slice(stage.indexOf('function dprobePaint('), stage.indexOf('function dprShape('));
+  assert.match(stage, /const dprMind = createProbeMind\(\);/);
+  assert.match(paint, /dprMind\.sync\(\[key, CTM \?/, 'a new layout (vessel, camera, stage, gate, cards) forgets the places left');
+  assert.match(paint, /ban: dprMind\.banned\(\), lock: dprMind\.locked\(\), slack: dpr\.headOff \? 0 : SLACK/);
+  assert.match(paint, /if \(!show\) \{\s*dprMind\.hide\(\);\s*dprHide\(\);/);
+  assert.match(paint, /dprDots\(\); dprMind\.hide\(\);\s*dpr\.swap = setTimeout/, 'a new vessel or third: it is no longer "leaving" a place');
+  assert.match(paint, /if \(act === 'hold'\) \{ dpr\.noneT \|\|= setTimeout\(\(\) => \{ dpr\.noneT = 0; dprobePaint\(\); \}, NONE_MS \+ 30\); return; \}/, 'a held "no place" looks again when it has lasted');
+  assert.ok(paint.indexOf('dprMind.act(') > paint.indexOf('const tgt = '));
+  assert.ok(paint.indexOf('dprMind.sync(') < paint.indexOf('const pose = fitPose('));
 });

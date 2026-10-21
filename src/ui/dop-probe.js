@@ -27,6 +27,11 @@ export const gateDims = (r) => ({ at: Math.max(4, 0.5 * Math.max(0, r)), half: M
 
 const rad = (d) => (d * Math.PI) / 180;
 const overlap = (a, b) => Math.max(0, Math.min(a.x1, b.x1) - Math.max(a.x0, b.x0)) * Math.max(0, Math.min(a.y1, b.y1) - Math.max(a.y0, b.y0));
+/** overlap, but a box that reaches over an edge by no more than `give` px (its thinner side) does not count as over it. */
+const overlapGive = (give) => (a, b) => {
+  const w = Math.min(a.x1, b.x1) - Math.max(a.x0, b.x0), h = Math.min(a.y1, b.y1) - Math.max(a.y0, b.y0);
+  return w > 0 && h > 0 && Math.min(w, h) > give ? w * h : 0;
+};
 
 /** The probe's body box (stage px) with its face D px from the gate g, along the direction ang (degrees), at size k. */
 export function bodyBox(g, ang, D, k = 1) {
@@ -94,16 +99,23 @@ export function busyAt(g, ang, D, r, busy, size = 1, bodyOnly = false) {
  * other end, the monitor's convention's mirror), the usual end first; rev only for a clearly quieter spot (Mohammad, 20 Oct:
  * "have the US probe rotate and be in an area that's less busy").
  * k: the probe's size (fitPose), its body and its distances shrinking with it.
+ * ban: places (placeId) the probe has left on this layout and must not go back to while another is clear (createProbeMind); lock: it
+ * holds the place it stands at while that is clear of the cards, whatever the labels do; slack: px a stood place may sit over a
+ * card's edge or the stage's before it counts as covered (a card's edge easing, a vessel breathing: hysteresis).
  * Returns { side, rev, reach, k, ang (degrees, from the gate toward the probe), phi (the flow axis's θ ray, from the line of sight
  * toward the probe, degrees), D (gate to face, px), box (the body), lab, busy, clear, headOff (only the marks fit: the head fades) }.
  */
-export function probePose({ g, t, r = 0, away = false, w, h, cards = [], keep = 0, side = 0, avoid = [], keepReach = 0, keepRev = false, busy = [], rev = false, k = 1 }) {
+export function probePose({ g, t, r = 0, away = false, w, h, cards = [], keep = 0, side = 0, avoid = [], keepReach = 0, keepRev = false, busy = [], rev = false, k = 1, ban = [], lock = false, slack = 0 }) {
   const base = Math.atan2(t[1], t[0]) * 180 / Math.PI;
   const D0 = PROBE.GAP * k + Math.max(0, r), e = PROBE.EDGE;
-  const inStage = (b) => b.x0 >= e && b.y0 >= e && b.x1 <= w - e && b.y1 <= h - e;
-  const under = (b) => cards.some((c) => overlap(b, c) > 0);
+  // (The place it stands at is measured against cards and an edge drawn in by `slack`: it stays clear through a few px of give.)
+  const held = (s, reach, rev) => slack > 0 && !!keep && s === keep && reach === keepReach && rev === !!keepRev;
+  const given = overlapGive(slack);
   // The pose at one side, end and distance.
   const pose = (s, D = D0, reach = 0, rev = false) => {
+    const own = held(s, reach, rev), over = own ? given : overlap, ee = own ? e - slack : e;
+    const inStage = (b) => b.x0 >= ee && b.y0 >= ee && b.x1 <= w - ee && b.y1 <= h - ee;
+    const under = (b) => cards.some((c) => over(b, c) > 0);
     const aw = away !== rev, ang = base + s * (aw ? 180 - PROBE.ANGLE : PROBE.ANGLE);
     // (The flow runs at −s·θ from the line toward the probe (toward), or at 180° − s·(180° − θ) (away), whose reverse is s·θ.)
     const phi = (aw ? s : -s) * PROBE.ANGLE, lines = [...beamBoxes(g, ang, D, r), ...gateBoxes(g, ang, phi, r)];
@@ -111,8 +123,8 @@ export function probePose({ g, t, r = 0, away = false, w, h, cards = [], keep = 
     const labL = labOf(lines), seen = inStage({ x0: Math.min(...lines.map((b) => b.x0)), y0: Math.min(...lines.map((b) => b.y0)), x1: Math.max(...lines.map((b) => b.x1)), y1: Math.max(...lines.map((b) => b.y1)) }) && !lines.some(under);
     const box = bodyBox(g, ang, D, k);
     // How much of the body lies off the stage or under a card (px²): 0 is clear.
-    const off = (box.x1 - box.x0) * (box.y1 - box.y0) - overlap(box, { x0: e, y0: e, x1: w - e, y1: h - e });
-    const hidden = cards.reduce((n, c) => n + overlap(box, c), 0);
+    const off = (box.x1 - box.x0) * (box.y1 - box.y0) - overlap(box, { x0: ee, y0: ee, x1: w - ee, y1: h - ee });
+    const hidden = cards.reduce((n, c) => n + over(box, c), 0);
     return { side: s, rev, reach, ang, lab: labL + labOf([box]), busy: busyAt(g, ang, D, r, busy, k), body: busyAt(g, ang, D, r, busy, k, true), phi, D, box, k, cost: off + hidden, clear: off + hidden === 0, seen };
   };
   if (side) return pose(side, D0, 0, rev);
@@ -123,7 +135,9 @@ export function probePose({ g, t, r = 0, away = false, w, h, cards = [], keep = 
   // spot beside the vessel just closer in, 20 Oct).
   const all = [...at(D0, 0), ...REACH.flatMap((n, i) => at(n * k + Math.max(0, r), i + 1)), ...FAR.flatMap((n, i) => at(n * k + Math.max(0, r), -(i + 1)))];
   const score = (p) => p.busy + (p.rev ? 3 : 0) + 2 * Math.abs(p.reach);
-  const pool = all.filter((p) => p.clear);
+  const clear = all.filter((p) => p.clear), left = new Set(ban), fresh = clear.filter((p) => !left.has(placeId(p)));
+  // (A place the probe has left on this layout is not gone back to while another is clear; with every clear place left, they all count.)
+  const pool = fresh.length ? fresh : clear;
   if (!pool.length) {
     // No place for the whole probe: as the FibroScan probe does under a card (stage.js scanHead), the marks stay where they are on
     // screen and clear of the cards, and the head fades (headOff), the least of it covered; only with no such place does it hide.
@@ -140,6 +154,7 @@ export function probePose({ g, t, r = 0, away = false, w, h, cards = [], keep = 
   const best = pool.reduce((m, p) => (better(p, m) ? p : m));
   const kept = keep && pool.find((p) => p.side === keep && p.reach === keepReach && p.rev === !!keepRev);
   if (!kept) return best;
+  if (lock) return kept;
   return (kept.lab > 0 && best.lab === 0) || quieter(best, kept) ? best : kept;
 }
 
@@ -182,6 +197,56 @@ export function probeJumps(a, b) {
   if (!a || !b) return false;
   const da = Math.abs(((((b.ang - a.ang) % 360) + 540) % 360) - 180);
   return da > JUMP_DEG || Math.abs(b.d - a.d) > JUMP_PX;
+}
+
+/** A place's name (probePose's side, reach, end and size), for remembering the ones the probe has left. */
+export const placeId = (p) => `${p.side}|${p.reach}|${p.rev ? 1 : 0}|${p.k ?? 1}`;
+
+/** Why the probe flashed on and off (Right heart 6, iPhone, 21 Oct): the probe and the figure's labels each make way for the other, and
+ *  here a card above and another below leave it a few px of room, so a place that fit one frame did not the next (a label settling, a
+ *  vessel breathing, a card's edge). Each miss hid it or sent it to another side with a fade; the labels re-laid out around the new
+ *  place; the old one fit again. Nothing in that loop ever settled, so it faded out and in for as long as the slide stood.
+ *  The remedies, each a hysteresis: a place it stands at keeps its fit through SLACK px of give; "no place" for under NONE_MS never
+ *  hides it; a place it has left stays left (a fade in or out at it is never repeated) until the layout (the camera, the cards, the
+ *  vessel) changes; and after LEAVES such moves on one layout it holds still, whatever the labels do. */
+export const SLACK = 4, NONE_MS = 450, PEND_MS = 200, LEAVES = 2;
+
+/** What the probe remembers between frames, and what it does with each pose (probeAct); stage.js carries the pictures out. */
+export function createProbeMind() {
+  const left = new Set();
+  let sig = null, at = '', noneAt = null, pend = '', pendAt = 0;
+  return {
+    /** The layout the poses are worked out for (vessel, camera, stage, gate, cards): a different one forgets the places left. */
+    sync(s) { if (s !== sig) { sig = s; left.clear(); } },
+    /** The places to keep off (probePose ban) and whether it holds still (lock). */
+    banned: () => [...left],
+    locked: () => left.size >= LEAVES,
+    /** It is hidden, or on another vessel: the place it stood at is no longer one it could leave. A fresh show waits again. */
+    hide() { at = ''; pend = ''; noneAt = null; },
+    /**
+     * pose: from fitPose; tgt: where it would stand ({ ang, d, k, ax, r }); on, cur: whether it shows and where it is drawn; sig: what a
+     * fresh show waits to see hold still; now (ms); instant: no waiting (reduced motion).
+     * 'hide' (no place: fade out), 'hold' (no place yet: it stays as it is), 'restart' and 'wait' (hidden: its place has not held
+     * still for PEND_MS), 'jump' (fade out, and in again at the new place) or 'go' (show it, or ease it to its place).
+     */
+    act({ pose, tgt, on, cur, sig: seen, now, instant = false }) {
+      if (pose.none) {
+        if (on) { if (noneAt === null) noneAt = now; if (now - noneAt < NONE_MS) return 'hold'; }
+        this.hide();
+        return 'hide';
+      }
+      noneAt = null;
+      if (!on && !instant) {
+        if (seen !== pend) { pend = seen; pendAt = now; return 'restart'; }
+        if (now - pendAt < PEND_MS) return 'wait';
+      }
+      const id = placeId(pose);
+      if (on && at && at !== id) left.add(at);
+      if (on && cur && probeJumps(cur, tgt)) { at = ''; pend = ''; return 'jump'; }
+      at = id;
+      return 'go';
+    },
+  };
 }
 
 /** The marks in the probe's own frame, x running from the gate (0) toward the probe, whose face is at D: the line of sight from
