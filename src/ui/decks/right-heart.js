@@ -39,7 +39,7 @@ export const RIGHT_HEART = {
       ask: ['A pulsatile portal vein on ultrasound. Where do you look next?', 'The right heart: tricuspid regurgitation or a raised right atrial pressure.'],
     },
     {
-      id: 'cath', cath: 'result', tool: { kind: 'profile' }, data: 'ladder', block: 'ra', key: ['ra', 'hvpg'],
+      id: 'cath', cath: 'result', tool: { kind: 'profile' }, key: ['ra', 'hvpg'],
       kicker: 'Heart failure', site: 'cardiac', title: 'Catheter readings in heart failure',
       line: 'Every station from the portal vein to the atrium sits near {ra}. The HVPG and the PPG are both normal.',
       notes: 'The gradients subtract what the stations share, so a high right atrial pressure raises the wedged and the free readings together. Portal pressure is high, but collaterals do not open because the systemic veins they would drain into are just as high; varices are rare. The liver congests, stiffens and leaks a protein-rich ascites. Treating the heart (diuretics, and the cause) lowers every station.',

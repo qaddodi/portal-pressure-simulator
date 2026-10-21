@@ -16,7 +16,7 @@ test('a slide that names a block station shows the ladder and names one of its f
 });
 
 test('every heart failure ladder puts its block on the right atrium node', () => {
-  for (const [f, id] of [['right-heart.js', 'cath'], ['hvpg.js', 'heart']]) {
+  for (const [f, id] of [['hvpg.js', 'heart']]) {   // (Right heart 5 shows the Gut to heart profile alone: see below)
     const s = slides.find((x) => x.f === f && x.id === id);
     assert.equal(s?.block, 'ra', `${f} ${id}`);
   }
@@ -39,4 +39,21 @@ test('the Sites summary ladders carry each slide\'s block, so the heart failure 
   assert.match(src, /L\.set\(r\.f, \{ block: r\.block \}\)/, 'laddersGrid draws it');
   const lad = slides.find((x) => x.f === 'sites.js' && x.visual === 'ladders');
   assert.ok(lad.of.some((r) => (r.id ?? r) === 'cardiac'), 'the summary includes the heart failure slide');
+});
+
+test('no data card shows both ladders: a Gut to heart profile slide has no old ladder (Pre-hepatic 3, Mohammad, 21 Oct: "just use the one we decided on")', () => {
+  const both = slides.filter((x) => x.tool?.kind === 'profile' && x.data === 'ladder').map((x) => `${x.f} ${x.id}`);
+  assert.deepEqual(both, []);
+  for (const [f, id] of [['ncph.js', 'wedge'], ['outflow.js', 'soswedge'], ['prehepatic.js', 'cath'], ['right-heart.js', 'cath']]) {
+    const s = slides.find((x) => x.f === f && x.id === id);
+    assert.equal(s?.tool?.kind, 'profile', `${f} ${id}`);
+    assert.ok(!s.data && !s.block && !s.brackets, `${f} ${id}: no ladder fields left`);
+  }
+});
+
+test('the profile\'s HVPG and PPG brackets are the difference of the whole readings drawn at their ends', () => {
+  const src = readFileSync(new URL('../src/ui/tool-profile.js', import.meta.url), 'utf8');
+  assert.match(src, /import \{ wholeGap \} from '\.\.\/engine\/gap\.js/);
+  assert.match(src, /const v = gapOf\(k\), rate = RATE\[k\]\(v\)\[0\];/);
+  assert.match(src, /wholeGap\(shown\.v\[STATIONS\.indexOf\(a\)\], shown\.v\[STATIONS\.indexOf\(b\)\], shown\[k\]\)/);
 });

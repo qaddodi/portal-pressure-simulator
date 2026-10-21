@@ -13,6 +13,7 @@ import { NODES } from '../engine/topology.js?v=4044766e96';
 import { RATE } from './table-marks.js?v=1dc429fe31';
 import { monotoneSegs } from './curve-near.js?v=9ff15157e9';
 import { pressureColor } from './colormap.js?v=f08f4b9604';
+import { wholeGap } from '../engine/gap.js?v=3a5947c552';
 
 const PATH = PROFILE_PATHS[0];
 export const STATIONS = PATH.nodes;
@@ -512,13 +513,16 @@ export function createProfileTool() {
     const top = shown.top, y = (v) => G.Z - (G.Z - G.T) * Math.max(0, Math.min(v, top)) / top;
     const pts = (p) => p.v.map((v, i) => [G.x(i), y(v)]);
     const now = pts(shown), labels = shown.v.map(whole);
+    // (Each bracket reads the difference of the two whole readings it spans, as drawn, so the card never shows Intra- 16 and HV 5
+    // with an HVPG of 12: the old ladder's rule (engine/gap.js), Pre-hepatic 3, Mohammad, 21 Oct.)
+    const gapOf = (k) => { const [, , a, b] = SPANS.find((q) => q[0] === k); return wholeGap(shown.v[STATIONS.indexOf(a)], shown.v[STATIONS.indexOf(b)], shown[k]); };
     const i0 = STATIONS.indexOf(PATH.liver[0]), i1 = STATIONS.indexOf(PATH.liver[1]);
     const step = top > 40 ? 10 : 5, every = (G.Z - G.T) / (top / step) < 1.3 * f ? 2 * step : step;
     const col = (v) => pressureColor(v);
     const gid = `pzpg-${Math.random().toString(36).slice(2, 8)}`;
     const valY = (cy, k) => cy + sides[k].by, t = performance.now();
     const svg = sv('svg', { viewBox: `0 0 ${w} ${hh}`, width: w, height: hh, role: 'img', style: `font-size: ${f.toFixed(2)}px`,
-      'aria-label': `Pressure from gut to heart: ${STATIONS.map((n, i) => `${SPOKEN[n]} ${labels[i]}`).join(', ')} mmHg. HVPG ${whole(shown.hvpg)}, PPG ${whole(shown.ppg)}.` },
+      'aria-label': `Pressure from gut to heart: ${STATIONS.map((n, i) => `${SPOKEN[n]} ${labels[i]}`).join(', ')} mmHg. HVPG ${whole(gapOf('hvpg'))}, PPG ${whole(gapOf('ppg'))}.` },
       sv('defs', {}, sv('linearGradient', { id: gid, gradientUnits: 'userSpaceOnUse', x1: G.x(0), x2: G.x(STATIONS.length - 1), y1: 0, y2: 0 },
         shown.v.map((v, i) => sv('stop', { offset: (i / (STATIONS.length - 1)).toFixed(3), 'stop-color': col(v) }))),
         // (The lines stop NUM_PAD px short of each number written on them.)
@@ -546,7 +550,7 @@ export function createProfileTool() {
       // The HVPG (sinusoid to hepatic vein) and the PPG (portal vein − IVC) as brackets inside the plot (else in a band at its foot), in
       // their cut-off colours, each label inside its own bracket.
       SPANS.flatMap(([k, name, a, b], r) => {
-        const v = shown[k], rate = RATE[k](v)[0];
+        const v = gapOf(k), rate = RATE[k](v)[0];
         const x0 = G.x(STATIONS.indexOf(a)), x1 = G.x(STATIONS.indexOf(b)), val = whole(v);
         // (Laid out as the geometry planned the row: one line, at its own type size where the chart's would not fit, or the name over
         // the value. On one line, the gap in the bar follows the label's own width; the bar is left out only where this value leaves

@@ -27,7 +27,7 @@ export const PREHEPATIC = {
       ask: ['What does Doppler show in an acute portal vein clot?', 'No flow in the trunk; a fresh clot can be nearly anechoic, so the missing color signal matters more than the gray scale.'],
     },
     {
-      id: 'cath', cath: 'result', tool: { kind: 'profile' }, data: 'ladder', key: ['hvpg', 'ppg'],
+      id: 'cath', cath: 'result', tool: { kind: 'profile' }, key: ['hvpg', 'ppg'],
       kicker: 'Acute thrombosis', site: 'pre', title: 'HVPG is normal with a portal vein clot',
       eq: [mi('PPG') + mo('=') + sub(mi('P'), 'portal vein') + mo('−') + sub(mi('P'), 'IVC')],
       line: 'The clot is before the liver, so wedged and free pressures stay normal and the HVPG is {hvpg}. The PPG of {ppg} shows the resistance.',
