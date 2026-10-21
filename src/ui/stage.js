@@ -855,10 +855,11 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (key === liverKey) return;
     if (!baseLiver) { try { baseLiver = sampleLiver(); } catch { return; } if (!baseLiver.pts.length) { baseLiver = null; return; } }
     liverKey = key;
-    const { out, dome } = morphOutline(baseLiver, c, g);
+    // (?perf: the outline and nodules worked out, apart from writing them into the page: the browser's own work on them comes later.)
+    const { out, dome } = gpuProbe.time(null, 'liver: outline (maths)', () => morphOutline(baseLiver, c, g));
     const f1 = fix1;
     const d = c + g > 0 ? 'M' + out.map(([x, y]) => `${f1(x)} ${f1(y)}`).join(' L') + ' Z' : liverD;
-    for (const el of liverPaths) el.setAttribute('d', d);
+    gpuProbe.time(null, 'liver: writes', () => { for (const el of liverPaths) el.setAttribute('d', d); });
     liverDome = c + g > 0 ? dome : null;
     liverFloor = lowerEdge(c + g > 0 ? out : baseLiver.pts);
     if (veins && !veins.lost) veins.setFluidLiver(liverFloor);
@@ -867,7 +868,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     // septa (the liver shows through the gaps, lightened). Flat, no shading; the septa widen and
     // the contrast firms with severity.
     const cn = smooth01(c / 0.5) * (0.55 + 0.45 * c);
-    lv.nod.setAttribute('d', cn > 0.01 ? baseLiver.cells.map((cl) => cellPath(cl, c, (0.3 + 0.45 * c) * CIRR.sep)).join('') : '');
+    const nod = gpuProbe.time(null, 'liver: nodules (maths)', () => (cn > 0.01 ? baseLiver.cells.map((cl) => cellPath(cl, c, (0.3 + 0.45 * c) * CIRR.sep)).join('') : ''));
+    gpuProbe.time(null, 'liver: writes', () => lv.nod.setAttribute('d', nod));
     lv.sep.style.opacity = lv.nod.style.opacity = cn.toFixed(3);
     // Nutmeg: the even dusky tone and its pale islands, fading in as congestion deepens.
     lv.isl.setAttribute('d', g > 0.01 ? baseLiver.isl : '');
@@ -5250,7 +5252,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (lvMoving && !moving) lvStillAt = performance.now();
     lvMoving = moving;
     if (moving) widthEasing = organsEasing = true;
-    morphLiver(lvC, lvG, moving);
+    gpuProbe.time(null, 'organs: liver', () => morphLiver(lvC, lvG, moving));
     for (const el of [lv.cong, lv.isl, lv.gloss]) if (el.style.visibility !== (imaging ? 'hidden' : '')) el.style.visibility = imaging ? 'hidden' : '';
     // A cirrhotic liver shrinks a little; a congested one swells.
     const shrink = liverShrink(lvC, lvG);
@@ -5262,7 +5264,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       // The caudate lobe grows as its veins carry the liver's outflow: from twice their normal flow, fully at four times.
       const hq = store.get().healthy?.Q?.[EI.CAUD], PA2 = f.Pf || f.P;
       caudK = stepHeld(caudK, hq ? clamp((Math.abs((f.Qf || f.Q)[EI.CAUD] / hq) - 2) / 2, 0, 1) : 0, 0.05);
-      caud.sync(pressureColor(qP(PA2[NI.IVCS] + 0.5)), caudK);
+      gpuProbe.time(null, 'organs: caudate', () => caud.sync(pressureColor(qP(PA2[NI.IVCS] + 0.5)), caudK));
     }
     const c3 = recruitFrac('C3', f);
     putA(abdWall, 'opacity', (clamp((c3 - 0.1) / 0.4, 0, 1) * 0.9 * k).toFixed(2));
@@ -5278,7 +5280,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     // Growing, the plate (a picture of the organs at one size) gives way to the live drawing, which follows this size each frame.
     if (spleenMv.see(sc, performance.now()) && veins && !veins.lost && veins.hasPlate(0)) hidePlate();
     putA(organG.spleen, 'transform', `translate(${SPLEEN_CENTER[0]} ${SPLEEN_CENTER[1]}) scale(${sc.toFixed(3)}) translate(${-SPLEEN_CENTER[0]} ${-SPLEEN_CENTER[1]})`);
-    syncOrganMasks(shrink, organG.spleen.getAttribute('transform'));
+    gpuProbe.time(null, 'organs: masks', () => syncOrganMasks(shrink, organG.spleen.getAttribute('transform')));
     if (organG.spleen.style.opacity !== (p.splenicRx === 2 ? '0.14' : '')) organG.spleen.style.opacity = p.splenicRx === 2 ? '0.14' : '';
     liftDiaphragm(shrink, sc);
     syncSelLine();
@@ -5287,9 +5289,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const asc = fluidTarget(ascTarget, f.slow.ascites);
     if (ascTarget === null) ascShown = asc;
     ascTarget = asc;
-    drawAscites();
+    gpuProbe.time(null, 'organs: fluid', () => drawAscites());
     syncSelFluid();
-    platePoke();
+    gpuProbe.time(null, 'organs: plate poke', () => platePoke());
   }
 
   // Ascites collects in the flanks and the pelvis first (supine patient, frontal view), so its
