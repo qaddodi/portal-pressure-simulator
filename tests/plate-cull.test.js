@@ -41,7 +41,7 @@ const src = readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8')
 test('only the view picture is trimmed, the copy is put back whole, and shapes that could reach further are kept', () => {
   assert.match(src, /const banded = slot === 1;\n\s+const whole = banded \? null : await svgPicture\(gpuProbe\.time\(null, 'organ picture: copy \(script\)', \(\) => plateMarkup\(rect, W, H, true, false\)\)\);/, 'the whole-plate picture (slot 0) is never trimmed');
   // (The view's picture, slot 1, a strip at a time: each piece of a strip it draws trimmed to its own pixels, same scale.)
-  assert.match(src, /plateMarkup\(\[rect\[0\] \+ px \/ sx, rect\[1\] \+ py \/ sy, pw \/ sx, ph \/ sy\], pw, ph, false, true\)/);
+  assert.match(src, /plateMarkup\(\[rect\[0\] \+ qx \/ sx, rect\[1\] \+ qy \/ sy, qw \/ sx, qh \/ sy\], qw, qh, false, true\)/);
   assert.match(src, /const v = veins, sx = W \/ rect\[2\], sy = H \/ rect\[3\];/);
   assert.match(src, /finally \{ for \(let i = out0\.length - 1; i >= 0; i--\) \{ const \[c, p, n\] = out0\[i\]; p\.insertBefore\(c, n\); \} \}/);
   const pb = src.slice(src.indexOf('function plateBoxes('), src.indexOf('function plateMarkup('));

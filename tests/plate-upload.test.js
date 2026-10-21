@@ -59,3 +59,15 @@ test('a view after a pan: the pixels it takes over and the rects it draws cover 
     assert.ok(seen.every((v) => v === 1), 'every pixel exactly once');
   }
 });
+
+test('a block of pixels is copied row by row to its place, and nothing else is touched', async () => {
+  const { copyPixels } = await import('../src/ui/plate-upload.js');
+  const sW = 5, sH = 4, src = new Uint8ClampedArray(sW * sH * 4).map((_, i) => i % 251);
+  const dW = 6, dH = 5, dst = new Uint8ClampedArray(dW * dH * 4).fill(7);
+  copyPixels(dst, dW, 2, 1, src, sW, 1, 2, 3, 2);
+  for (let y = 0; y < dH; y++) for (let x = 0; x < dW; x++) for (let c = 0; c < 4; c++) {
+    const inside = x >= 2 && x < 5 && y >= 1 && y < 3;
+    const want = inside ? src[((y - 1 + 2) * sW + (x - 2 + 1)) * 4 + c] : 7;
+    assert.equal(dst[(y * dW + x) * 4 + c], want, `${x},${y}`);
+  }
+});

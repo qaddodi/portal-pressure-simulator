@@ -55,3 +55,12 @@ export function viewReuse(W, H, pw, ph, ox, oy, y, rows) {
   if (y1 < y + rows) draw.push([0, y1, W, y + rows - y1]);
   return { copy: [x0, y0, x1 - x0, y1 - y0], draw };
 }
+
+/** Copies a w × h block of RGBA pixels from src (sW wide, at sx, sy) into dst (dW wide, at dx, dy), row by row. */
+export function copyPixels(dst, dW, dx, dy, src, sW, sx, sy, w, h) {
+  for (let r = 0; r < h; r++) {
+    const s = ((sy + r) * sW + sx) * 4;
+    dst.set(src.subarray(s, s + w * 4), ((dy + r) * dW + dx) * 4);
+  }
+  return dst;
+}

@@ -9,21 +9,24 @@ import { readFileSync } from 'node:fs';
 const stage = readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8');
 
 test('a plate raster draws into a canvas of its own and sends it as pixel strips, one per frame', () => {
-  assert.match(stage, /let c = document\.createElement\('canvas'\);\n\s+c\.width = W; c\.height = H;\n\s+const g = c\.getContext\('2d', \{ willReadFrequently: true \}\);/);
   const body = stage.slice(stage.indexOf('async function rasterPlate'), stage.indexOf('function plateStateKey'));
+  // Every piece is drawn into a small canvas of its own and read back from it: read back from one canvas the size of the whole
+  // picture, each strip took Safari longer than the one above (25 ms to over 200 ms; Mohammad's ?perf readout, Mac, 21 Oct).
+  assert.match(body, /const piece = \(w, h, paint\) => \{\n\s+const pc = document\.createElement\('canvas'\);\n\s+pc\.width = w; pc\.height = h;\n\s+const pg = pc\.getContext\('2d', \{ willReadFrequently: true \}\);\n\s+gpuProbe\.time\(null, 'organ picture: draw', \(\) => paint\(pg\)\);\n\s+try \{ return gpuProbe\.time\(null, 'organ picture: read', \(\) => premultiply\(pg\.getImageData\(0, 0, w, h\)\.data\)\); \} finally \{ pc\.width = pc\.height = 0; \}/);
+  assert.doesNotMatch(body, /getImageData\(0, y,/, 'never read from a canvas the size of the whole picture');
   // Each strip is drawn in its own frame too, just before it is read: the whole picture drawn at once was one long frame after
   // every zoomed pan or pinch (21 Oct). The view's picture is a picture per strip, of only the shapes that meet it, so its
   // markup, its parse and its drawing are a strip's too. Same scale, cut at whole rows: the same pixels.
   assert.match(body, /for \(const \[y, rows\] of plateStrips\(W, H\)\) \{\n\s+if \(y\) await new Promise\(\(res\) => nextFrame\(res\)\);\n\s+if \(seq !== plateSeq \|\| drops !== plateDrops \|\| v !== veins \|\| v\.lost \|\| vseq !== \(banded \? viewSeq : 0\)\) return false;\n\s+if \(banded\) \{/, 'a raster overtaken on its way in is given up (a view picture, by a newer view picture too)');
-  assert.match(body, /if \(seq !== plateSeq \|\| drops !== plateDrops \|\| v !== veins \|\| v\.lost \|\| plateCopy\?\.key !== drawnAs \|\| vseq !== viewSeq\) return false;\n\s+gpuProbe\.time\(null, 'organ picture: draw', \(\) => g\.drawImage\(band, px, py, pw, ph\)\);/, 'a strip whose copy changed state is given up');
-  assert.match(body, /\} else gpuProbe\.time\(null, 'organ picture: draw', \(\) => g\.drawImage\(whole, 0, y, W, rows, 0, y, W, rows\)\);/);
+  assert.match(body, /if \(seq !== plateSeq \|\| drops !== plateDrops \|\| v !== veins \|\| v\.lost \|\| plateCopy\?\.key !== drawnAs \|\| vseq !== viewSeq\) return false;\n\s+copyPixels\(px, W, qx, qy, piece\(qw, qh, \(pg\) => pg\.drawImage\(band, 0, 0, qw, qh\)\), qw, 0, 0, qw, qh\);/, 'a strip whose copy changed state is given up');
+  assert.match(body, /v\.plateRows\(job, y, rows, px\.subarray\(y \* W \* 4, \(y \+ rows\) \* W \* 4\)\);/);
+  assert.match(body, /\} else v\.plateRows\(job, y, rows, piece\(W, rows, \(pg\) => pg\.drawImage\(whole, 0, y, W, rows, 0, 0, W, rows\)\)\);/);
   assert.doesNotMatch(body, /drawImage\([a-z]+, 0, 0, W, H\)/, 'never the whole picture in one frame');
-  assert.match(body, /v\.plateRows\(job, y, rows, gpuProbe\.time\(null, 'organ picture: read', \(\) => premultiply\(g\.getImageData\(0, y, W, rows\)\.data\)\)\);/);
   assert.match(body, /v\.setPlate\(slot, job, rect\); job = null;/, 'shown only once every strip is in');
-  assert.match(body, /finally \{ if \(job && !v\.lost\) v\.dropJob\(job\); if \(c\) c\.width = c\.height = 0; \}/);
-  // (Only the view picture that was shown is kept, for the next pan; the one before is freed, and so is the kept one when the plate drops.)
-  assert.match(body, /v\.setPlate\(slot, job, rect\); job = null;\n\s+if \(banded\) \{ dropViewKeep\(\); viewKeep = \{ c, rect, W, H, scale, seq, drops, key: drawnAs \}; c = null; \}/);
-  assert.match(stage, /function dropViewKeep\(\) \{ if \(viewKeep\) \{ viewKeep\.c\.width = viewKeep\.c\.height = 0; viewKeep = null; \} \}/);
+  assert.match(body, /finally \{ if \(job && !v\.lost\) v\.dropJob\(job\); px = null; \}/);
+  // (Only the view picture that was shown is kept, for the next pan; the one before is let go, and so is the kept one when the plate drops.)
+  assert.match(body, /v\.setPlate\(slot, job, rect\); job = null;\n\s+if \(banded\) \{ dropViewKeep\(\); viewKeep = \{ px, rect, W, H, scale, seq, drops, key: drawnAs \}; px = null; \}/);
+  assert.match(stage, /function dropViewKeep\(\) \{ viewKeep = null; \}/);
   assert.match(stage, /plateCopy = null; dropViewKeep\(\);\n/);
   assert.doesNotMatch(stage, /veins\.setPlate\(slot, c,/);
   assert.match(stage, /function hidePlate\(\) \{\n\s+plateDrops\+\+;/, 'a dropped plate gives up the raster on its way in');
@@ -69,7 +72,7 @@ test('after a pan at the same scale, of the same state, the view picture takes t
   const body = stage.slice(stage.indexOf('async function rasterPlate'), stage.indexOf('function plateStateKey'));
   assert.match(body, /const prev = banded && viewKeep && viewKeep\.seq === seq && viewKeep\.drops === drops && viewKeep\.key === drawnAs && viewKeep\.scale === scale \? viewKeep : null;/, 'only from a picture of the same state, at the same scale');
   assert.match(body, /const \{ copy, draw \} = prev \? viewReuse\(W, H, prev\.W, prev\.H, ox, oy, y, rows\) : \{ copy: null, draw: \[\[0, y, W, rows\]\] \};/);
-  assert.match(body, /g\.drawImage\(prev\.c, copy\[0\] \+ ox, copy\[1\] \+ oy, copy\[2\], copy\[3\], copy\[0\], copy\[1\], copy\[2\], copy\[3\]\)/, 'copied pixel for pixel, never scaled');
+  assert.match(body, /copyPixels\(px, W, copy\[0\], copy\[1\], prev\.px, prev\.W, copy\[0\] \+ ox, copy\[1\] \+ oy, copy\[2\], copy\[3\]\)/, 'copied pixel for pixel, never scaled');
   // The views sit whole pixels apart: each rect starts and ends on the scale's pixel grid.
   const sched = stage.slice(stage.indexOf('function schedulePlateView'), stage.indexOf('async function makeGutPic'));
   assert.match(sched, /x0 = Math\.floor\(x0 \* scale\) \/ scale; y0 = Math\.floor\(y0 \* scale\) \/ scale; x1 = Math\.ceil\(x1 \* scale\) \/ scale; y1 = Math\.ceil\(y1 \* scale\) \/ scale;/);
