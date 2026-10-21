@@ -96,8 +96,8 @@ test('the pictures made after a pan or pinch wait until the figure is let go', (
 
 test("the gut picture is made at fixed zoom steps, never stretched, so an ordinary pinch needs no new one", () => {
   const body = stage.slice(stage.indexOf('async function makeGutPic'), stage.indexOf('function clientToWorldFast'));
-  assert.match(body, /const k = gutStep\(need, GUT_CAP\), look = gutLook\(\), mut = gutMut;/);
-  assert.match(body, /if \(gutPics\.some\(\(p\) => p\.mut === mut && p\.look === look && p\.k === k\)\) return;/);
+  assert.match(body, /const k = win \? win\.k : gutStep\(need, GUT_CAP\), look = gutLook\(\), mut = gutMut;/);
+  assert.match(body, /if \(!win && gutPics\.some\(\(p\) => !p\.win && p\.mut === mut && p\.look === look && p\.k === k\)\) return;/);
 });
 
 test('in the circuit, where the organs are faded out, no organ picture is made after a pan or pinch', () => {

@@ -3964,11 +3964,38 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // "zoomed out past it", 95-120 ms frames with the gut's live paths) still finds the picture made at the zoom it comes back to.
   function gutPicFor(need) {
     let best = null;
+    // (Zoomed in past the whole gut's sharpest picture, one of the view's part of it (gutWin) stands in: as sharp as the organs'
+    // own picture of that view at rest, and only while every run's place still lies inside it.)
+    const win = need > GUT_CAP * 1.15 ? gutWin(0) : null;
     for (const p of gutPics) {
-      if (p.mut !== gutMut || p.look !== gutLook() || p.k * 1.15 < need || p.k > need * 2) continue;
+      if (p.mut !== gutMut || p.look !== gutLook()) continue;
+      if (p.win) { if (!win || p.k * 1.15 < win.scale || p.k > need * 2 || !gutWinHolds(p, win)) continue; }
+      else if (p.k * 1.15 < need || p.k > need * 2) continue;
       if (!best || Math.abs(Math.log(p.k / need)) < Math.abs(Math.log(best.k / need))) best = p;
     }
     return best;
+  }
+  // The view's part of the gut, in the world, for a picture past GUT_CAP: the view with `margin` of its size around it, within the
+  // gut's rect, at the scale the organs' sharp picture of such a view has (schedulePlateView: the screen's, within 4.2 MP).
+  function gutWin(margin = 0.15) {
+    if (!CTM) return null;
+    const r = stageBox(), [ax, ay] = clientToWorldFast(r.left, r.top), [bx, by] = clientToWorldFast(r.right, r.bottom);
+    const mx = (bx - ax) * margin, my = (by - ay) * margin;
+    const x0 = Math.max(GUT_RECT[0], ax - mx), y0 = Math.max(GUT_RECT[1], ay - my);
+    const x1 = Math.min(GUT_RECT[0] + GUT_RECT[2], bx + mx), y1 = Math.min(GUT_RECT[1] + GUT_RECT[3], by + my);
+    if (x1 <= x0 || y1 <= y0) return null;
+    const w = x1 - x0, h = y1 - y0, need = vdpr * CTM.sc;
+    return { rect: [x0, y0, w, h], scale: Math.min(need, 4094 / w, 4094 / h, Math.sqrt(4.2e6 / (w * h))) };
+  }
+  // Whether a picture of part of the gut still holds the view (`win`, no margin) for every run, each in its own frame (the bowel
+  // floats: its run is moved by its translate).
+  function gutWinHolds(p, win) {
+    const [vx, vy, vw, vh] = win.rect, [px, py, pw, ph] = p.win;
+    return p.runs.every((r) => {
+      const t = trOf(r.kids[0]), m = t.match(/^translate\(([-\d.]+)[ ,]+([-\d.]+)\)$/), [tx, ty] = !t ? [0, 0] : m ? [+m[1], +m[2]] : [NaN, NaN];
+      const x = vx - tx, y = vy - ty;
+      return x >= px - 0.5 && y >= py - 0.5 && x + vw <= px + pw + 0.5 && y + vh <= py + ph + 0.5;
+    });
   }
   // (For the ?perf readout: why the gut shows its live paths while the organ picture is down.)
   function gutLiveWhy() {
@@ -3977,6 +4004,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (!pics.length) return 'art changed';
     const looks = pics.filter((p) => p.look === gutLook());
     if (!looks.length) return 'colours changed';
+    if (need > GUT_CAP * 1.15) return looks.some((p) => p.win) ? 'moved off its part' : 'zoomed past it';
     if (looks.every((p) => p.k * 1.15 < need)) return 'zoomed past it';
     if (!gutPicFor(need)) return 'zoomed out past it';
     return 'moved apart';
@@ -4012,19 +4040,33 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   async function gutPicsOut() {
     if (!CTM || !(vt.k > 0)) return;
     const lo = gutStep(vdpr * CTM.sc / vt.k * Math.min(1, homeAt?.k ?? 1), GUT_CAP);
-    for (let k = gutStep(vdpr * CTM.sc, GUT_CAP) / Math.SQRT2; k >= lo * 0.99; k /= Math.SQRT2) { if (!leftAlone(1000)) return; await makeGutPic(k / 1.01); }   // (not under a finger: a later rest makes them)
+    const top = vdpr * CTM.sc > GUT_CAP * 1.15 ? GUT_CAP * Math.SQRT2 : gutStep(vdpr * CTM.sc, GUT_CAP);   // (past the cap: the view's part was made, the whole from the cap down)
+    for (let k = top / Math.SQRT2; k >= lo * 0.99; k /= Math.SQRT2) { if (!leftAlone(1000)) return; await makeGutPic(k / 1.01); }   // (not under a finger: a later rest makes them)
   }
   async function makeGutPic(need = vdpr * (CTM?.sc || 0)) {
     if (!gGut || !plateOn() || !CTM || morphTarget !== 0 || morph > 0 || !plateCopy?.gut?.length || plateCopy.key !== plateStateKey() || plateCopy.gutMut !== gutMut) return;
-    if (need > GUT_CAP * 1.15) return;   // (zoomed in past what it can hold: the live paths show)
-    const k = gutStep(need, GUT_CAP), look = gutLook(), mut = gutMut;   // (the next fixed step at or above the view's: never stretched)
-    if (gutPics.some((p) => p.mut === mut && p.look === look && p.k === k)) return;
-    const seq = ++gutPicSeq, W = Math.max(1, Math.round(GUT_RECT[2] * k)), H = Math.max(1, Math.round(GUT_RECT[3] * k));
+    // Zoomed in past what a picture of the whole gut can hold, the picture is of the view's part of it, with a margin (and the
+    // bowel's float of 26 above and below), at the organs' own sharpness for the view (Mohammad's Mac ?perf, zoom 3.06, 21 Oct:
+    // "gut live: zoomed past it", 160-220 ms frames while the liver eased).
+    let win = null;
+    if (need > GUT_CAP * 1.15) {
+      const g = gutWin(0.15);
+      if (!g) return;
+      const y0 = Math.max(GUT_RECT[1], g.rect[1] - 28), y1 = Math.min(GUT_RECT[1] + GUT_RECT[3], g.rect[1] + g.rect[3] + 28), w = g.rect[2], h = y1 - y0;
+      const k = Math.min(g.scale, 4094 / w, 4094 / h, Math.sqrt(4.2e6 / (w * h)));
+      win = { rect: [g.rect[0], y0, w, h], k };
+      const w0 = gutWin(0);
+      if (w0 && gutPics.some((p) => p.win && p.mut === gutMut && p.look === gutLook() && p.k * 1.15 >= w0.scale && gutWinHolds(p, w0))) return;
+    }
+    const R = win ? win.rect : GUT_RECT;
+    const k = win ? win.k : gutStep(need, GUT_CAP), look = gutLook(), mut = gutMut;   // (the next fixed step at or above the view's: never stretched)
+    if (!win && gutPics.some((p) => !p.win && p.mut === mut && p.look === look && p.k === k)) return;
+    const seq = ++gutPicSeq, W = Math.max(1, Math.round(R[2] * k)), H = Math.max(1, Math.round(R[3] * k));
     const ser = new XMLSerializer(), copies = plateCopy.gut, head = plateCopy.head, runs = [];
     try {
       for (const kids of gutRuns()) {
         const body = kids.map((kid) => { const i = String([...gGut.children].indexOf(kid)), c = copies.find((el) => el.getAttribute('data-gut') === i)?.cloneNode(true); if (!c) throw new Error('gut copy'); c.removeAttribute('transform'); c.removeAttribute('data-gut'); return ser.serializeToString(c); }).join('');
-        const src = URL.createObjectURL(new Blob([`<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="${W}" height="${H}" viewBox="${GUT_RECT.join(' ')}" preserveAspectRatio="none">${head}${body}</svg>`], { type: 'image/svg+xml' }));
+        const src = URL.createObjectURL(new Blob([`<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="${W}" height="${H}" viewBox="${R.join(' ')}" preserveAspectRatio="none">${head}${body}</svg>`], { type: 'image/svg+xml' }));
         let blob;
         try {
           const img = new Image();
@@ -4050,13 +4092,14 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         if (seq !== gutPicSeq || mut !== gutMut) throw new Error('overtaken');
       }
     } catch (e) { for (const r of runs) URL.revokeObjectURL(r.url); throw e; }
-    gutPic = { k, look, mut, runs: runs.map(({ kids, url, keep }) => ({ kids, url, keep, img: s('image', { href: url, x: GUT_RECT[0], y: GUT_RECT[1], width: GUT_RECT[2], height: GUT_RECT[3], preserveAspectRatio: 'none' }) })) };
+    gutPic = { k, look, mut, win: win ? R : null, runs: runs.map(({ kids, url, keep }) => ({ kids, url, keep, img: s('image', { href: url, x: R[0], y: R[1], width: R[2], height: R[3], preserveAspectRatio: 'none' }) })) };
     gGutPics.replaceChildren(...gutPic.runs.map((r) => r.img));
     // (Those before are kept if they are of the same art and colours, for the zooms out (gutPicsOut) or one it may come back to: up to
     // seven, every step from the cap down to an eleventh of it, so the chain gutPicsOut makes never pushes out the picture of the zoom
     // it began at (it kept three: external review, 21 Oct). Each step has half the pixels of the one above, so all of them together
     // are less than twice the largest.)
-    const kept = gutPics.filter((p) => p.mut === mut && p.look === look && p.k !== k).slice(-7);
+    // (Of the view's part, only the newest is kept: each is up to 4.2 MP.)
+    const kept = gutPics.filter((p) => p.mut === mut && p.look === look && (p.win ? !win : p.k !== k)).slice(-7);
     for (const p of gutPics) if (!kept.includes(p)) for (const r of p.runs) URL.revokeObjectURL(r.url);
     gutPics = [...kept, gutPic];
     gutPicOn = false; gGutPics.style.display = 'none'; gGut.classList.remove('gut-pic-on');
@@ -8916,6 +8959,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (gpuProbe.on && !plateOn()) {
       gpuProbe.note(gutPicOn ? 'gut picture' : 'gut live');
       if (!gutPicOn) gpuProbe.note(`gut live: ${gutLiveWhy()}`);
+      // (The scale the view needs, the pictures kept and the cap: the external review asked for them, 21 Oct.)
+      if (!gutPicOn) gpuProbe.gauge('gut pictures', `view needs ${(vdpr * (CTM?.sc || 0)).toFixed(2)} px/unit, cap ${GUT_CAP.toFixed(2)}, kept ${gutPics.filter((p) => p.mut === gutMut).map((p) => `${p.k.toFixed(2)}${p.win ? ' (view part)' : ''}`).join(', ') || 'none'}`);
       if (lvMoving) gpuProbe.note('liver easing');
       if (fluidWas) gpuProbe.note('fluid easing');
       if (spleenMoving()) gpuProbe.note('spleen easing');
