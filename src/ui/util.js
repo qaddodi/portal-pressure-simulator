@@ -757,6 +757,24 @@ export function settledBox(el, q = el.getBoundingClientRect()) {
   const z = el.offsetWidth ? q.width / el.offsetWidth : 1;
   return new DOMRect(q.x + (end - cur) * z, q.y, q.width, q.height);
 }
+// A CSS translate value ("12px -40px", "12px", "none") as [x, y] layout px.
+export function parseTranslate(t) {
+  if (!t || t === 'none') return [0, 0];
+  const [x = 0, y = 0] = String(t).trim().split(/\s+/).map((v) => parseFloat(v) || 0);
+  return [x, y];
+}
+// An element's box with its translate property at the shift it is gliding to (data-rest-translate, "x y" layout px), not the shift
+// it has this frame. The phone's data card opens and closes by a translate set frame by frame (presenter.js dockTo): the camera
+// framed 60 ms into that glide counted the card where it stood then, so the figure sat high under a card opening and low under one
+// closing, off the middle of the room between the cards (Ascites 8 on an iPhone, 21 Oct).
+export function translateRest(el, q = el.getBoundingClientRect()) {
+  const rest = el.dataset?.restTranslate;
+  if (rest == null) return q;
+  const [cx, cy] = parseTranslate(getComputedStyle(el).translate), [ex, ey] = parseTranslate(rest);
+  if (cx === ex && cy === ey) return q;
+  const z = el.offsetHeight ? q.height / el.offsetHeight : 1;
+  return new DOMRect(q.x + (ex - cx) * z, q.y + (ey - cy) * z, q.width, q.height);
+}
 // An element's box without its own transform (a card's entrance offset): where it rests.
 export function restBox(el, q = el.getBoundingClientRect()) {
   const t = getComputedStyle(el).transform;

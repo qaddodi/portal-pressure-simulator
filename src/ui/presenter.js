@@ -14,17 +14,17 @@
 
 import { store, replaceParams } from './store.js?v=d6648af441';
 import { download } from './download.js?v=3564e5bf8c';
-import { h, toast, svgIcon, icon, fmt, clamp, openModal, closeModal, isModalOpen, restBox, paintRange, cssVar, swapText } from './util.js?v=5814c6b396';
+import { h, toast, svgIcon, icon, fmt, clamp, openModal, closeModal, isModalOpen, restBox, paintRange, cssVar, swapText } from './util.js?v=5bfd846c50';
 import { titleParts } from './title-units.js?v=c8d5ce1f26';
 import { swipeDir, ownsSideways, ownsTouch, cardSwipe, caseFling, caseFlight } from './swipe.js?v=ca9148ab7d';
-import { sinusoidSupported } from './sinusoid-view.js?v=50d29e3b64';
+import { sinusoidSupported } from './sinusoid-view.js?v=2ce9befeb5';
 import { NODES } from '../engine/topology.js?v=4044766e96';
 import { DISEASE_SRC, diseasePieces } from './diseases.js?v=fb8a5451c3';
 import { nb, listCase, plateletText } from './glue.js?v=5a0f63226b';
 import { DECKS, REGIONS, LEVELS, TOPICS, withOverview, siteTag, SITE_TAGS } from './decks.js?v=594e633cd3';
 import { wholeGap, tenthGap } from '../engine/gap.js?v=3a5947c552';
-import { createHvpgMonitor } from './hvpg-proc.js?v=2792a09696';
-import { createTools } from './presenter-tools.js?v=1904922086';
+import { createHvpgMonitor } from './hvpg-proc.js?v=7cbfe1e0c1';
+import { createTools } from './presenter-tools.js?v=502a04b607';
 import { openHandout } from './handout.js?v=fa56ce3e2a';
 import { noteResume, resumeFor } from './resume.js?v=f086f80ee8';
 import { parseDeckSource, checkDeck } from './deck-source.js?v=8395c650cd';
@@ -32,8 +32,8 @@ import { NO_ASC, TILE, SCALE, bandsOf, rateOf, COLS, CUT, PRESS, fpv, dirAbs, di
 import { frameFor, cancelFrame } from './frame.js?v=2ce59939b2';
 import { createFigureKey } from './figure-key.js?v=7e170d78ce';
 import { traceWhen } from './trace-labels.js?v=fc916a95c6';
-import { flowCss, heatCss, dropCss, gradientCss, oxygenCss } from './colormap.js?v=1092d36abc';
-import { EXT, expandIds, stepExtra, markLabel, figureHooks, safe } from './slide-ext.js?v=280a65539b';
+import { flowCss, heatCss, dropCss, gradientCss, oxygenCss } from './colormap.js?v=a1cb13e886';
+import { EXT, expandIds, stepExtra, markLabel, figureHooks, safe } from './slide-ext.js?v=266b30d96a';
 import { clotWords } from './callout-math.js?v=0c960d54d3';
 import { citeText, focusOf, ladderFromOf, ladderFromName } from './teach-extras.js?v=d8224d9bb5';
 import { DEMO_ALL } from './test-decks/demo-all-new-visuals.js?v=9aeadbb887';
@@ -2575,6 +2575,8 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     if (!ui) return;
     const [x, y] = dockVec();
     ui.data.style.translate = dock.lvl ? `${(x * dock.lvl).toFixed(1)}px ${(y * dock.lvl).toFixed(1)}px` : '';
+    // (Where the glide ends: the camera frames for the card there, util.js translateRest, never where it stands this frame.)
+    ui.data.dataset.restTranslate = `${(x * dock.to).toFixed(1)} ${(y * dock.to).toFixed(1)}`;
     ui.data.classList.toggle('docked', dock.to === 1);
     dockFade(dock.to === 1);
     placeLip();
@@ -2604,7 +2606,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     const u = sliding ? parseFloat(d.style.getPropertyValue('--pz-u')) || 0 : 0;
     // (Sliding, at the readings' card's foot to the fraction of a px: the card's own box height is whole px.)
     l.style.left = px(d.offsetLeft); l.style.width = px(d.offsetWidth); l.style.top = px(d.offsetTop + (sliding && slip.h0 != null ? slip.h0 + u * slip.d : d.offsetHeight));
-    l.style.translate = d.style.translate;
+    l.style.translate = d.style.translate; l.dataset.restTranslate = d.dataset.restTranslate ?? '0 0';
     if (sliding) l.style.setProperty('--pz-u', u.toFixed(4)); else l.style.removeProperty('--pz-u');
     const say = dock.to === 1 ? 'Open the card' : open ? (split ? 'Hide the readings' : 'Close the card') : split && dock.down === want ? 'Close the card' : 'Show the rest of the card';
     if (l.getAttribute('aria-label') !== say) l.setAttribute('aria-label', say);
@@ -3073,6 +3075,9 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     }
     if (below !== isCol) { dd.style.transition = 'none'; dd.classList.toggle('col', below); }
     if (off(dd) || below) delete dd.dataset.safe; else dd.dataset.safe = p ? 'top' : 'right';
+    // (The sheet's edge under the card is part of it for the camera: left out, the room between the cards was taken 24 px taller
+    // than it is, and the figure sat that much high.)
+    if (dd.dataset.safe) ui.lip.dataset.safe = dd.dataset.safe; else delete ui.lip.dataset.safe;
     const y = top0 + t?.height + 2 * pad + gap;
     dd.style.left = below ? `${(sl / k).toFixed(1)}px` : '';
     // (One width on every slide: stacked or at the top right, the data card is always the teaching card's width, whatever it holds.)
@@ -4048,7 +4053,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     const fold = h('button', { class: 'pz-fold', type: 'button', 'aria-expanded': 'false', onclick: () => setFold(!data.classList.contains('tool-open')) }, 'Show');
     // A phone's sheet under the card (.pz-sheet, dockVec): its edge carries the handle. A tap steps through the three states, as the
     // card's own pulls and pushes do: partly open, fully open, closed to its edge at the top, partly open again.
-    const lip = h('button', { class: 'pz-lip stage-blocker', type: 'button', hidden: true, 'aria-label': 'Show the rest of the card', onclick: () => {
+    const lip = h('button', { class: 'pz-lip stage-blocker', type: 'button', hidden: true, 'data-safe-rest': '', 'aria-label': 'Show the rest of the card', onclick: () => {
       if (performance.now() - (dock.tapAt || 0) < 700) return;   // (a touch that already opened the closed card, dockTouch)
       // (Upright: partly open, fully open, partly open (its readings' card tucked away), closed, partly open again.)
       const split = splitSheet(data);

@@ -25,16 +25,16 @@
 // (Doppler) carries on from slide to slide while the patient stays the same.
 
 import { store } from './store.js?v=d6648af441';
-import { h } from './util.js?v=5814c6b396';
+import { h } from './util.js?v=5bfd846c50';
 import { EDGES } from '../engine/topology.js?v=4044766e96';
-import { createDoppler } from './doppler.js?v=69f3210357';
-import { createFibroScan } from './fibroscan.js?v=176a94c9ea';
-import { createPressureTime } from './pressure-time.js?v=b3964ef0a8';
+import { createDoppler } from './doppler.js?v=86666a711d';
+import { createFibroScan } from './fibroscan.js?v=21a3fac094';
+import { createPressureTime } from './pressure-time.js?v=77ff44fbca';
 import { createFlowTime } from './flow-time.js?v=81255fd534';
-import { createEndoscopy, createAbdomen, createVarixWall } from './instruments.js?v=1ae82be371';
+import { createEndoscopy, createAbdomen, createVarixWall } from './instruments.js?v=7762ce96cf';
 import { frameFor } from './frame.js?v=2ce59939b2';
-import { talkTrace } from './talk-trace.js?v=0ce7c3772c';
-import { EXT, guard, safe } from './slide-ext.js?v=280a65539b';
+import { talkTrace } from './talk-trace.js?v=682ddb8e07';
+import { EXT, guard, safe } from './slide-ext.js?v=266b30d96a';
 const nextFrame = frameFor('presenter-tools');
 
 const VESSEL = { PV_TRUNK: 'main portal vein', PVH_R: 'right portal vein', PVH_L: 'left portal vein', SV_CONF: 'splenic vein', SV_MID: 'splenic vein', V_SPL: 'splenic vein, at the hilum',
