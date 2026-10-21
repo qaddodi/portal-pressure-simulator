@@ -3569,8 +3569,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // (the heart rests on it), so the liver hides it there, in the copy as on the page. The heart and esophagus cuts stay too.
   const DEAD_CUTS = ['spleen'];
   function plateBuild(key) {
-    const was = plateOn();
-    wrap.classList.remove('gl-plate');
+    // (The plate's class stays on: it only hides the groups and turns their masks off, and the copy takes neither (every group is
+    // copied as shown, below, and the mask attributes are cloned). Taking it off and on again restyled and laid out the whole figure
+    // at the next read, up to 714 ms in one frame on the Mac (Mohammad's ?perf, 21 Oct), each time a copy was made while it was up.)
     // (The copy takes the organs' own colours, as the GPU greys and dims it itself: the live grey comes off for it.)
     const greyed = !!greyList;
     if (greyed) { greyClear(); organDimKey = ''; }
@@ -3640,7 +3641,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       const toLocal = (el) => { try { const k = el.getCTM?.(); return inv && k ? inv.multiply(k).inverse() : null; } catch { return null; } };
       const maskT = used.length ? { head: ser.serializeToString(dc), masks: used.map((m) => ({ r: m.r, toLocal: refs.filter((x) => x[2] === m.id).map((x) => toLocal(x[1])) })) } : null;
       return { key, seq: plateSeq, head, parts, subs, toLiver, gut, gutMut, live, boxes: null, maskT };
-    } finally { if (was) wrap.classList.add('gl-plate'); if (greyed) syncOrganDim(); }
+    } finally { if (greyed) syncOrganDim(); }
   }
   // The sharp picture of the view (slot 1) leaves out every shape that paints nothing inside it: zoomed in, most of the
   // organs' 1 MB of shapes lay outside the view, and writing them out, reading them back and drawing them all, in one go

@@ -42,7 +42,9 @@ test('the live organs grey through their own colours and dim through the groups\
   assert.doesNotMatch(app, /#backdrop[^{,]*\{[^}]*filter:/);
   assert.match(stage, /c\.removeAttribute\('filter'\);/, 'the GPU copy is cloned without it (dimmed there instead)');
   assert.match(stage, /const greyed = !!greyList;\n\s+if \(greyed\) \{ greyClear\(\); organDimKey = ''; \}/, 'the GPU copy takes the organs\' own colours');
-  assert.match(stage, /\} finally \{ if \(was\) wrap\.classList\.add\('gl-plate'\); if \(greyed\) syncOrganDim\(\); \}/);
+  assert.match(stage, /\} finally \{ if \(greyed\) syncOrganDim\(\); \}/);
+  const build = stage.slice(stage.indexOf('function plateBuild('), stage.indexOf('function plateBoxes('));
+  assert.doesNotMatch(build, /classList\.(remove|add|toggle)\('gl-plate'/, 'the copy is made with the plate class left as it is (a flip restyles the whole figure)');
 });
 
 test('greying each colour, then the group\'s opacity, is the same picture as the filter on the whole group', () => {
