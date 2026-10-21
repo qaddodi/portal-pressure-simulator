@@ -39,3 +39,13 @@ test('the rise waits for it at rest in the lobule, then glides straight on and o
   const poke = st.match(/function platePoke\(\) \{[\s\S]*?\n {2}\}\n/)[0];
   assert.ok(poke.indexOf('if (key === plateKey && veins.hasPlate(0)) return;') < poke.indexOf('if ((themed || stale) && veins.hasPlate(0))'));
 });
+
+test('the picture for the way out is begun early, so Next goes straight out: ahead on a settled lobule slide, and as the change begins', () => {
+  // As soon as a slide change that leaves the lobule begins (before the words leave and the new ones come in).
+  assert.match(pz, /const cam = s\.visual \? s\.cam \|\| null : s\.cam \|\| 'fit';\n(?:\s+\/\/[^\n]*\n)*\s+if \(!LOBULE_CAM\.test\(cam \|\| ''\)\) stage\.prepRise\?\.\(\);/);
+  // Ahead, once a lobule slide whose next slide leaves the lobule has settled; only if it is still the slide shown.
+  assert.match(pz, /if \(nx && LOBULE_CAM\.test\(cam \|\| ''\) && !LOBULE_CAM\.test\(nCam \|\| ''\)\) \{ clearTimeout\(prepAheadT\); prepAheadT = setTimeout\(\(\) => \{ if \(shown\?\.i === to && shown\.gen === g && gen === g\) stage\.prepRise\?\.\(\); \}, RISE_AHEAD_MS\); \}/);
+  assert.ok(+/const RISE_AHEAD_MS = (\d+);/.exec(pz)[1] <= 2000);
+  // Made ahead and nothing changed since: ready at once (its key still matches), so the wait in toAnatomy costs nothing.
+  assert.match(st, /if \(key === plateKey && veins\.hasPlate\(0\)\) return;/);
+});

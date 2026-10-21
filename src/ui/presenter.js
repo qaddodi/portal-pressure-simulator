@@ -1341,6 +1341,8 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   // (next: the slide being moved to, if it frames the plate, so the way out of the lobule lands on that framing
   // in one zoom rather than stopping at the fit first.)
   const RISE_FIT_MS = 450;   // (the zoom back to the whole lobule before a rise: about the rise's own speed where they meet)
+  const RISE_AHEAD_MS = 1200;   // (a lobule slide settled this long: its way out's organ picture is made ahead)
+  let prepAheadT = 0;
   const RISE_READY_MS = 2500;   // (the longest the rise waits for the organs' picture: past it, the live drawing shows, as before)
   async function toAnatomy(next) {
     const st = store.get();
@@ -1881,6 +1883,9 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     // slide (summary table included) draws it afresh instead of leaving the half-changed screen.
     shown = null; entering = null;
     const cam = s.visual ? s.cam || null : s.cam || 'fit';
+    // Leaving the lobule: the organs' picture for the way out is begun at once, while the old words leave and the new ones come in,
+    // so the rise does not wait for it (stage.js prepRise; it does nothing outside a landed lobule).
+    if (!LOBULE_CAM.test(cam || '')) stage.prepRise?.();
     // A time-lapse starts from the slide before's state; a catheter slide drives its own camera.
     // Coming back to it from a later slide shows its end at once: it plays only going forward.
     const back = to < lastAt, lap = !!s.lapse && to > 0 && !back, ct = !s.visual ? s.cath || null : null;
@@ -2042,6 +2047,10 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     await unhush(cut);
     if (cut()) return;
     shown = { i: to, gen: g }; lastAt = to;
+    // A lobule slide whose next slide leaves the lobule: once it has settled, the organs' picture for the way out is made ahead,
+    // unseen under the lobule, so Next goes straight out with no wait (see toAnatomy).
+    { const nx = slides[to + 1], nCam = nx ? (nx.visual ? nx.cam || null : nx.cam || 'fit') : null;
+      if (nx && LOBULE_CAM.test(cam || '') && !LOBULE_CAM.test(nCam || '')) { clearTimeout(prepAheadT); prepAheadT = setTimeout(() => { if (shown?.i === to && shown.gen === g && gen === g) stage.prepRise?.(); }, RISE_AHEAD_MS); } }
     // (One pass keyed to the slide now shown, so its fold and words' room are kept from here on: a tap on Show or Hide then
     // eases the card it planned, not one measured afresh with the instrument open. The pass changes nothing on screen.)
     if (ui && phone()) layout();
