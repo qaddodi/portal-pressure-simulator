@@ -45,3 +45,11 @@ test('the caudate\'s veins build no mask once the lobe has faded out and hidden,
   assert.match(stage, /clearTimeout\(goneT\);\n\s+if \(on\) g\.classList\.remove\('gone'\); else goneT = setTimeout\(\(\) => g\.classList\.add\('gone'\), 760\);/);
   assert.match(stage, /const veinsG = s\('g', \{ mask: 'url\(#caudMask\)', class: 'caud-veins' \}\);/);
 });
+
+test('under gl-on the vessel groups, whose drawn strokes are off and whose hit strokes are transparent, build no mask unless focused', () => {
+  assert.match(css, /\.stage-view\.gl-on #world :is\(\.v-shadow, \.v-wallP, \.v-lumenP, \.v-wall, \.v-lumen, \.v-shade, \.v-sheen, \.v-select, \.v-artery, \.v-strand, \.v-strand-wall\) \{ display: none; \}/);
+  assert.match(css, /\.v-halo \{ display: none; \}/);
+  assert.match(css, /#world \.v-hit \{ fill: none; stroke: transparent;/);
+  assert.match(css, /\.stage-view\.gl-on #world \.vg:not\(:focus-within\) \{ mask: none; \}/);
+  assert.match(stage, /g\.append\(lumen, lumenP, hit\);/, 'the hit stroke sits in the masked group');
+});

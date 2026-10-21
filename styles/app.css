@@ -125,6 +125,9 @@ svg { flex: none; }
    is cloned with the mask attributes, which this rule does not change, so the plate keeps them. */
 .stage-view.gl-plate :is(#backdrop, #backdrop [mask], #organs [mask], #ascites [mask], #ghosts [mask]) { mask: none; }
 .stage-view.gl-on #world :is(.v-shadow, .v-wallP, .v-lumenP, .v-wall, .v-lumen, .v-shade, .v-sheen, .v-select, .v-artery, .v-strand, .v-strand-wall) { display: none; }
+/* Their groups' masks (a vein's fade into the vessel it joins, a tip's fade) were still built for the hit strokes, which are
+   transparent, on every repaint of the figure: off under gl-on, the same pixels. A focused vessel keeps its mask, for its ring. */
+.stage-view.gl-on #world .vg:not(:focus-within) { mask: none; }
 .stage-view canvas { pointer-events: none; }
 .stage-view svg#labels { pointer-events: none; overflow: visible; }
 #overlay { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
