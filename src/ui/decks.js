@@ -86,7 +86,7 @@ import { SITES } from './decks/sites.js?v=00ba7b86f4';
 import { HVPG } from './decks/hvpg.js?v=1f1f96d516';
 import { ASCITES } from './decks/ascites.js?v=68ab0bb495';
 import { VARICES } from './decks/varices.js?v=5e92da46f8';
-import { TREATMENT } from './decks/treatment.js?v=dbbc67154c';
+import { TREATMENT } from './decks/treatment.js?v=dad79c0a5d';
 import { STIFFNESS } from './decks/stiffness.js?v=65532f1056';
 import { ONE_YEAR } from './decks/one-year.js?v=3c2cfc459c';
 import { LOBULE } from './decks/lobule.js?v=8807c872dc';
@@ -99,7 +99,7 @@ import { ENDOSCOPY } from './decks/endoscopy.js?v=2361b5b0bf';
 import { PREHEPATIC } from './decks/prehepatic.js?v=5cf3ae28fd';
 import { RIGHT_HEART } from './decks/right-heart.js?v=804d9b4428';
 import { BLEED } from './decks/variceal-bleed.js?v=efcd021e27';
-import { TWO_INFLOWS } from './decks/two-inflows.js?v=6eb9e84e09';
+import { TWO_INFLOWS } from './decks/two-inflows.js?v=0e9eb9f46d';
 import { PVT_CIRRHOSIS } from './decks/pvt-cirrhosis.js?v=6e8a9589f9';
 import { SPLEEN } from './decks/spleen.js?v=212c72bb98';
 import { NCPH } from './decks/ncph.js?v=420bd9336a';
@@ -108,7 +108,7 @@ import { RECOMPENSATION } from './decks/recompensation.js?v=e78b9f0f5e';
 import { WHERE } from './decks/where.js?v=01b05110ba';
 import { PREGNANCY_DECK } from './decks/pregnancy.js?v=a65817a8f2';
 import { BETA_BLOCKERS } from './decks/beta-blockers.js?v=520a936fa7';
-import { ENCEPHALOPATHY } from './decks/encephalopathy.js?v=9218c6becd';
+import { ENCEPHALOPATHY } from './decks/encephalopathy.js?v=f72dc3c10f';
 import { CAUSE_TREATED } from './decks/cause-treated.js?v=0da183adb0';
 
 // Regions of the anatomy plate the camera frames (world units, x 300-1120, y 0-920).

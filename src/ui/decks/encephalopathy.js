@@ -21,7 +21,7 @@ export const ENCEPHALOPATHY = {
   summary: 'How shunted gut blood reaches the brain: covert encephalopathy, a large splenorenal shunt and what closing it costs, and the stent width and rifaximin that lower encephalopathy after a TIPS.',
   slides: [
     {
-      id: 'firstpass', preset: 'healthy', cam: 'liver', lens: 'origin', sites: ['split'], data: 'tiles', tiles: ['shunt', 'liver'], key: ['shunt'],
+      id: 'firstpass', preset: 'healthy', cam: 'liver', scales: { lobule: {} }, lens: 'origin', sites: ['split'], data: 'tiles', tiles: ['shunt', 'liver'], key: ['shunt'],
       kicker: 'First pass', site: 'sin', title: 'In health, all gut blood passes through the liver',
       line: 'Colored by origin, gut and spleen blood fills the sinusoids, so the liver clears what the gut absorbs, and {shunt} of the portal blood bypasses it.',
       caveat: 'The model has no ammonia or brain; the share of portal blood that skips the liver stands in for the risk.',

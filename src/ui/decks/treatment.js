@@ -73,7 +73,7 @@ export const TREATMENT = {
       ask: ['Name two benefits of TIPS besides stopping a bleed.', 'The ascites clears as the kidneys excrete sodium again, and the low gradient keeps varices from rebleeding.'],
     },
     {
-      id: 'cost', lens: 'origin', cam: 'liver', sites: ['split'], mark: { edges: ['TIPS'], label: 'Covered stent', kind: 'treat' }, tool: { kind: 'flows', of: 'inflow' }, data: 'tiles', tiles: ['liver'], delta: 'target',
+      id: 'cost', lens: 'origin', cam: 'liver', scales: { lobule: {} }, sites: ['split'], mark: { edges: ['TIPS'], label: 'Covered stent', kind: 'treat' }, tool: { kind: 'flows', of: 'inflow' }, data: 'tiles', tiles: ['liver'], delta: 'target',
       kicker: 'After TIPS', site: 'sin', title: 'Liver perfusion and encephalopathy',
       line: 'Less portal blood reaches the sinusoids, and gut toxins pass straight into the systemic circulation. About a third of patients develop encephalopathy. Colored by origin, the sinusoids carry mostly arterial blood, and gut blood runs through the stent.',
       notes: 'After TIPS, overt hepatic encephalopathy develops in about a third of patients, mostly in the first months; older age, earlier encephalopathy and a wider stent raise the risk, and an 8 mm covered stent lowers it. The heart receives more venous return and the liver less portal blood, so TIPS is avoided in heart failure, severe pulmonary hypertension, advanced liver failure (a high MELD) and recurrent encephalopathy. Lactulose and rifaximin treat encephalopathy; the shunt can be narrowed if it persists.',
