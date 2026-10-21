@@ -151,7 +151,7 @@ test('a unit in a card title is split out, so the style leaves its case alone', 
 test('the data card sets its title and the footer\'s copy of it through the unit split, and the style keeps the unit as typed', () => {
   const js = readFileSync(new URL('../src/ui/presenter.js', import.meta.url), 'utf8');
   assert.match(js, /ui\.dhT\.textContent = cardTitle\(s\); unitSpans\(ui\.dhT\);/, 'the card header');
-  assert.match(js, /row\.firstChild\.textContent = ui\.dhT\.textContent; unitSpans\(row\.firstChild\);/, 'the folded title under the words (Mac and iPad)');
+  assert.doesNotMatch(js, /pz-tfold/, 'no copy of the title under the words is left (the folded ladder\'s, gone with the ladder on 21 Oct)');
   assert.match(js, /h\('span', \{ class: 'pz-unit' \}, t\)/);
   const css = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
   assert.match(css, /\.pz-unit \{ text-transform: none; letter-spacing: normal; \}/, 'the unit is not upper-cased and takes no caps spacing');

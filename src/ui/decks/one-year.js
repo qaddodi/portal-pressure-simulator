@@ -52,10 +52,10 @@ export const ONE_YEAR = {
       ask: ['What do small varices tell you about the HVPG?', 'That CSPH is present: Baveno VIII reads any varices as CSPH. Below 10 mmHg varices are uncommon, not impossible.'],
     },
     {
-      id: 'd365', tick: 'Catheter, Doppler', days: 185, ramp: ramp(0.58, 0.66), cath: 'result', data: 'ladder', key: ['whvp', 'fhvp', 'hvpg'], delta: 'd0', ladderFrom: 'd0', ladderFromLabel: 'Day 0',
+      id: 'd365', tick: 'Catheter, Doppler', days: 185, ramp: ramp(0.58, 0.66), cath: 'result', tool: { kind: 'profile', from: 'd0', fromLabel: 'Day 0' }, key: ['whvp', 'fhvp', 'hvpg'], delta: 'd0',
       kicker: 'Day 365', site: 'sin', title: 'At one year, HVPG is above 12',
       line: 'The HVPG is {hvpg}, up from 8.8 a year ago. From about 12, the risk of a variceal bleed rises steeply.',
-      notes: 'A year on, the gradient has risen by about 4 mmHg. On a Mac or iPad the grey line behind the ladder is day 0, labelled Day 0. Above about 12 mmHg a variceal bleed becomes more likely, and the risk of ascites and other decompensation rises with each mmHg. Repeat catheter studies are not routine; in practice the stiffness, the platelets and the scope track this rise.',
+      notes: 'A year on, the gradient has risen by about 4 mmHg. The faint line on the ladder, labelled Day 0, is day 0. Above about 12 mmHg a variceal bleed becomes more likely, and the risk of ascites and other decompensation rises with each mmHg. Repeat catheter studies are not routine; in practice the stiffness, the platelets and the scope track this rise.',
       ask: ['The HVPG is now 13. What does that change?', 'The varices are now more likely to bleed; below about 12 mmHg bleeding is rare.'],
     },
     {
@@ -73,10 +73,10 @@ export const ONE_YEAR = {
       ask: ['How is grade 1 ascites detected?', 'On ultrasound only; it cannot be found by examination.'],
     },
     {
-      id: 'carv', tick: 'Carvedilol started', milestone: 'Carvedilol', when: 'On carvedilol', params: { drugs: { carvedilol: true } }, cam: 'liver', data: 'ladder', key: ['hvpg'], tiles: ['map', 'hr'], delta: true, ladderFrom: 'd365', ladderFromLabel: 'No Rx',
+      id: 'carv', tick: 'Carvedilol started', milestone: 'Carvedilol', when: 'On carvedilol', params: { drugs: { carvedilol: true } }, cam: 'liver', tool: { kind: 'profile', from: 'd365', fromLabel: 'No Rx' }, data: 'tiles', key: ['hvpg'], tiles: ['map', 'hr'], delta: true,
       kicker: 'Day 365', site: 'sin', title: 'Carvedilol lowers the gradient',
       line: 'Baveno VIII recommends a non-selective beta-blocker, preferably carvedilol, before a first bleed or decompensation. It lowers the gradient by about a fifth, and in most patients it replaces screening endoscopy. Check the blood pressure.',
-      notes: 'Baveno VIII: in compensated cirrhosis with CSPH, a non-selective beta-blocker, preferably carvedilol (6.25 mg, then 12.5 mg a day), to prevent decompensation, as in the PREDESCI trial. It replaces screening endoscopy for most patients who take it. A fall in HVPG of 10% or more on drugs predicts benefit in compensated patients. Watch the blood pressure. On a Mac or iPad the grey line behind the ladder, labelled No Rx, is the patient just before carvedilol.',
+      notes: 'Baveno VIII: in compensated cirrhosis with CSPH, a non-selective beta-blocker, preferably carvedilol (6.25 mg, then 12.5 mg a day), to prevent decompensation, as in the PREDESCI trial. It replaces screening endoscopy for most patients who take it. A fall in HVPG of 10% or more on drugs predicts benefit in compensated patients. Watch the blood pressure. The faint line on the ladder, labelled No Rx, is the patient just before carvedilol.',
       ask: ['Why start carvedilol before any bleed?', 'In compensated cirrhosis with CSPH it lowers the risk of decompensation (ascites, bleeding).'],
     },
     {

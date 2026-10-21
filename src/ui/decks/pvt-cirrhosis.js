@@ -36,7 +36,7 @@ export const PVT_CIRRHOSIS = {
       ask: ['What does a contrast CT add to the Doppler?', 'First, whether the clot is tumor: an HCC thrombus enhances in the arterial phase and expands the vein. Then how far it extends into the splenic and mesenteric veins, and how much of the lumen it fills.'],
     },
     {
-      id: 'gradients', lens: 'drop', cam: 'route', labels: ['CONF', 'SIN_R', 'RHV', 'IVCS'], data: 'ladder', key: ['hvpg', 'ppg'], brackets: { hvpg: 'misleads', ppg: 'works' }, delta: 'base',
+      id: 'gradients', lens: 'drop', cam: 'route', labels: ['CONF', 'SIN_R', 'RHV', 'IVCS'], tool: { kind: 'profile' }, key: ['hvpg', 'ppg'], delta: 'base',
       eq: [mi('PPG') + mo('=') + sub(mi('P'), 'portal vein') + mo('−') + sub(mi('P'), 'IVC')],
       kicker: 'The clot', site: 'pre', title: 'HVPG stays flat while PPG rises',
       line: 'The wedge reads the sinusoids, beyond the clot, so the HVPG barely moves at {hvpg}. The PPG rises to {ppg}. Colored by pressure drop, a second large drop appears at the clot, before the sinusoids.',

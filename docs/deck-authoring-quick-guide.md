@@ -113,11 +113,11 @@ Full guide: section 5.9.
 
 ### Ladder and tiles
 
-- `data: 'ladder'` shows the pressure ladder from the portal vein to the heart, with the HVPG and PPG brackets.
+- `tool: { kind: 'profile' }` shows the pressure ladder, the Gut to heart chart, with the HVPG and PPG brackets. (An old `data: 'ladder'` is read as this chart.)
 - `data: 'tiles', tiles: ['hvpg', 'plt']` shows readout tiles. Each tile has a coloured scale with a dot for now and a ring for where it started.
 - `key: ['hvpg']` highlights a tile and bolds its name in the words.
 - `delta: true` shows each tile's change from the slide before.
-- `ladderFrom: 'norx', ladderFromLabel: 'No Rx'` draws an earlier state as a grey line behind the ladder, to show what a treatment changed.
+- `tool: { kind: 'profile', from: 'norx', fromLabel: 'No Rx' }` draws an earlier state as a faint dotted line on the chart, to show what a treatment changed.
 
 Full guide: section 7.1 and the tile list in section 8.6.
 
@@ -168,7 +168,7 @@ Full guide: section 7.2.
 `visual` replaces the words and the figure with a panel, with the figure dimmed behind. Use it for a summary or a comparison.
 
 - `visual: 'table'` with `of: ['clot', 'cavernoma']` puts earlier slides in a table, one row each. `cols` picks the columns. A `wave` column adds a small Doppler trace to each row, and `focusRow: 'clot'` highlights one row.
-- `visual: 'ladders'` puts several ladders side by side.
+- `visual: 'ladders'` puts several ladders (Gut to heart charts) side by side.
 - `visual: 'scale'` puts several patients on one banded scale.
 - `visual: 'plane'` puts several patients on a two-reading plane (`plane: 'hvpg-ppg'` or `'csph'`).
 - `visual: 'quadrant'` sorts ascites by SAAG and protein, and `visual: 'walls'` compares the gut capillary wall with the sinusoid wall.

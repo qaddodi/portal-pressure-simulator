@@ -93,10 +93,10 @@ export const SITES = {
       ask: ['Why are varices rare in heart failure despite a portal pressure of about 20 mmHg?', 'Varices need a portal-to-systemic gradient; the systemic veins are high too, so the gradient (PPG) is normal.'],
     },
     {
-      id: 'ladders', cam: 'fit', visual: 'ladders', of: [...SIX.slice(0, 5), { id: 'cardiac', block: 'ra' }],   // the level slides show the profile, so the heart failure row names its RA block here
+      id: 'ladders', cam: 'fit', visual: 'ladders', of: SIX,
       kicker: 'How to tell them apart', title: 'The biggest pressure drop shows where the resistance is',
       line: 'HVPG reads only the drop across the sinusoids.',
-      notes: 'Read each ladder from left to right. Pre-hepatic and presinusoidal: the fall is between the portal vein and the wedge, so HVPG is normal and only a direct portal pressure (or the PPG) shows it. Sinusoidal and postsinusoidal: the fall is between the wedged and the free pressures, exactly what HVPG measures. Post-hepatic: the fall is between the free hepatic vein and the right atrium. Cardiac: there is no fall at all; every station is high.',
+      notes: 'Read each ladder from left to right. Pre-hepatic and presinusoidal: the fall comes before the sinusoids the wedge reads, so HVPG is normal and only a direct portal pressure (or the PPG) shows it. Sinusoidal and postsinusoidal: the fall lies inside the HVPG bracket, exactly what HVPG measures. Post-hepatic: the fall comes after the hepatic vein. Cardiac: there is no fall at all; every station is high.',
       ask: ['Which two levels raise the HVPG?', 'Sinusoidal and postsinusoidal: only there does the resistance lie between the wedge and the free reading.'],
     },
     {

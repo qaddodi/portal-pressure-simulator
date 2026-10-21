@@ -3,7 +3,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readdirSync, readFileSync } from 'node:fs';
-import { citeOk, citeText, focusOf, ladderFromOf, ladderFromName } from '../src/ui/teach-extras.js';
+import { citeOk, citeText, focusOf, oneLadder } from '../src/ui/teach-extras.js';
 import { handoutHTML } from '../src/ui/handout.js';
 import { adopted } from './deck-adopted.js';
 
@@ -35,12 +35,16 @@ test('cite: Baveno VIII, EASL 2025 or AASLD 2024, never Baveno VII', () => {
 test('table and ladder fields read only their own values', () => {
   assert.equal(focusOf({ focusRow: 'tips' }), 'tips');
   assert.equal(focusOf({ focusRow: '' }), null);
-  assert.deepEqual(ladderFromOf({ ladderFrom: true }), { prev: true });
-  assert.deepEqual(ladderFromOf({ ladderFrom: 'base' }), { id: 'base' });
-  assert.equal(ladderFromOf({}), null);
-  assert.equal(ladderFromOf({ ladderFrom: false }), null);
-  assert.equal(ladderFromName({ ladderFrom: true }), 'Before');
-  assert.equal(ladderFromName({ ladderFrom: true, ladderFromLabel: ' No Rx ' }), 'No Rx');
+  // (The old ladder card's fields become the Gut to heart profile's, every one accounted for.)
+  assert.deepEqual(oneLadder({ id: 'a', data: 'ladder', key: ['hvpg'] }), { id: 'a', key: ['hvpg'], tool: { kind: 'profile' } });
+  assert.deepEqual(oneLadder({ data: 'ladder', ladderFrom: true }), { tool: { kind: 'profile', from: true } });
+  assert.deepEqual(oneLadder({ data: 'ladder', ladderFrom: 'base', ladderFromLabel: ' No Rx ', tiles: ['hr'] }), { tiles: ['hr'], tool: { kind: 'profile', from: 'base', fromLabel: 'No Rx' }, data: 'tiles' });
+  assert.deepEqual(oneLadder({ data: 'ladder', ladderFrom: false, ladderFromLabel: 'X', brackets: { hvpg: 'works' }, block: 'ra' }), { tool: { kind: 'profile' } });
+  assert.deepEqual(oneLadder({ data: 'ladder', tool: { kind: 'doppler' }, tiles: ['ppg'] }), { tool: { kind: 'doppler' }, tiles: ['ppg'], data: 'tiles' });
+  assert.deepEqual(oneLadder({ data: 'ladder', tool: { kind: 'doppler' } }), { tool: { kind: 'doppler' } });
+  const t = { data: 'tiles', tiles: ['pv'] };
+  assert.equal(oneLadder(t), t);
+  assert.equal(oneLadder(null), null);
 });
 
 test('the handout prints the source line', () => {
@@ -52,5 +56,10 @@ test('the handout prints the source line', () => {
 test('presenter wiring: the cite line and the ladder\'s earlier state are drawn', () => {
   const src = readFileSync(new URL('../src/ui/presenter.js', import.meta.url), 'utf8');
   assert.equal((src.match(/citeEl\(s\)/g) || []).length, 2, 'the cite line on the words card and on a panel slide');
-  assert.match(src, /if \(lad\) ladderFromTo\(s, i\);/);
+  assert.match(src, /slides = \(d\.mine \? d\.slides : withOverview\(d\)\.slides\)\.map\(oneLadder\);/, 'an old ladder slide is read as the chart');
+  assert.match(src, /slide: s, index: i, deck: d, slides, stage,/, 'the chart finds the earlier slide in the slides as shown');
+  const prof = readFileSync(new URL('../src/ui/tool-profile.js', import.meta.url), 'utf8');
+  assert.match(prof, /const slides = ctx0\.slides \|\| ctx0\.deck\?\.slides \|\| \[\];/);
+  assert.match(prof, /fromLabel: typeof t\?\.fromLabel === 'string' && t\.fromLabel\.trim\(\) \? t\.fromLabel\.trim\(\) : 'Before'/);
+  assert.match(prof, /placeLineNames\(g, tw, goal, hl, bf, s, brk, cfg\.fromLabel\)/, 'the faint line is named as the slide asks');
 });

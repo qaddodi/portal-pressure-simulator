@@ -48,19 +48,20 @@ test('a slide Doppler card lays its readings two across so labels and values nev
 // iPad landscape (15 Oct): when the smallest steps still leave the pair too tall, the instrument folds behind Show, as on a phone.
 test('a pair that does not fit at the smallest steps folds the instrument behind Show on a wide screen', () => {
   assert.match(js, /if \(!below && canFold && !held\) \{ setFolds\(true\);[^\n]*below = title\(\); if \(!below\) ladder\(\); \}/);
-  assert.match(js, /canFold = \(dd\.classList\.contains\('has-tool'\) \|\| \(!dd\.classList\.contains\('tiles-only'\) && ladderFold === foldKey\)\) && !dd\.classList\.contains\('tool-only'\) && !dd\.classList\.contains\('tool-lead'\)/);
+  assert.match(js, /canFold = dd\.classList\.contains\('has-tool'\) && !dd\.classList\.contains\('tool-only'\) && !dd\.classList\.contains\('tool-lead'\);/);
   assert.match(js, /if \(lock\.folds\) setFolds\(true\);/, 'the fold is part of the slide\'s locked layout');
   assert.match(js, /folds: dd\.classList\.contains\('pz-folds'\)/);
   assert.match(css, /\.pz:not\(\.stack\):not\(\.low\) \.pz-data\.pz-folds:not\(\.tool-open\) > \.pz-tool \{ max-height: 0; opacity: 0;/);
   assert.match(css, /\.pz:not\(\.stack\):not\(\.low\) \.pz-data\.pz-folds \.pz-dh > \.pz-fold \{ display: inline-flex;/);
 });
 
-// Treatment slide 2 at 200% text (15 Oct, option B): a ladder card folds its plot only once its own zoom has failed to fit it,
-// so at 100% text, where the zoom always fits, it never folds; folded, the plot and key hide, and shown, the plot takes the tiles' place.
-test('a ladder card folds its plot only when its own fit fails, and shown it swaps plot for tiles', () => {
-  assert.match(js, /fitCards\(ui\.data, ui\.panel\);[\s\S]{0,400}ladderFold !== foldKey[\s\S]{0,400}\(overflowOf\(dd\)\)\) \{ ladderFold = foldKey; textLock = null; layout\(\); return; \}/);
-  assert.match(css, /\.pz-data\.pz-folds:not\(\.has-tool\):not\(\.tool-open\) > :is\(\.pz-ladder, \.pz-strip\)/);
-  assert.match(css, /\.pz-data\.pz-folds\.tool-open:not\(\.has-tool\) > \.pz-tiles \{ display: none; \}/);
+// One chart (Mohammad, 21 Oct): the Gut to heart chart is an instrument, so a card folds only as an instrument card does; the old
+// ladder card's own fold (its plot behind Show once its zoom failed, Treatment 2 at 200 % text) went with the ladder.
+test('only an instrument card folds behind Show: no ladder fold is left', () => {
+  assert.doesNotMatch(js, /ladderFold|footFold|pz-foldstrip|pz-footfold/);
+  assert.doesNotMatch(css, /pz-ladder|pz-strip|pz-footfold|pz-foldstrip|pz-tfold/);
+  assert.doesNotMatch(css, /\.pz-data\.pz-folds[^{]*:not\(\.has-tool\)/, 'no fold rule for a card without an instrument');
+  assert.match(js, /data\.classList\.toggle\('has-tool', !!s\.tool\);/);
 });
 
 test('a phone keeps the words\' height cap while a what-if slider or compare button drives the live model', () => {
@@ -94,7 +95,7 @@ test('a sideways phone puts its words in the floating card, level with the data 
 test('a data card folded for the slide at this size stays folded until the words lock', () => {
   assert.match(js, /const held = !lock && foldHeld === foldKey && dd\.classList\.contains\('pz-folds'\);/);
   assert.match(js, /if \(!lock && !held && dd\.classList\.contains\('pz-folds'\)\) setFolds\(false\);/);
-  assert.match(js, /if \(held\) \{ step\(1\); footFold\(\); \}/);
+  assert.match(js, /if \(held\) step\(1\);/);
   assert.match(js, /if \(!below && canFold && !held\) \{ setFolds\(true\);/);
   assert.match(js, /foldHeld = dd\.classList\.contains\('pz-folds'\) \? foldKey : null;/);
   assert.doesNotMatch(js, /if \(!lock && dd\.classList\.contains\('pz-folds'\)\) setFolds\(false\);/, 'never unfolded unconditionally on an unlocked pass');
@@ -109,9 +110,9 @@ test('the teaching card keeps the size it came in at: the lock starts with the l
   assert.match(js, /if \(!bare\) \{ await caseEnd\(cut\); if \(cut\(\)\) return; cardsIn\(\{ i: to, gen: g \}\); \}/);
   assert.match(js, /shown = null; entering = null;\n/, 'a new slide starts unlocked');
   assert.match(js, /if \(bare\) \{ bare = false; layout\(\); cardsIn\(\); \}/, 'a cut transition never locks the next slide early');
-  // (Until the slide is shown it may still fold: its strip, lettered again as the cards came in, overflowed by 40 px and stayed
-  // squeezed under 12 px, Recompensation 2 at 200 %.)
-  assert.match(js, /!dd\.classList\.contains\('pz-folds'\) && \(!lock \|\| !shown\) && \(\(\{ v, h \}\) => v > 1 \|\| h > 1\)\(overflowOf\(dd\)\)\) \{ ladderFold = foldKey;/, 'a ladder never folds once its slide is shown');
+  // (The one fold left is the instrument's, decided in the locked layout: nothing folds after the fit once the slide is shown.)
+  assert.doesNotMatch(js, /layout\(\); return; \}\s*if \(beside && !tabBeside\(\)\)/, 'no second layout pass after the fit');
+  assert.match(js, /fitCards\(ui\.data, ui\.panel\);\s*if \(beside && !tabBeside\(\)\)/);
 });
 
 test('a time-lapse keeps the words where they came in: the phone\'s cap and the stacked pair\'s centring hold while its days run and after', () => {

@@ -129,7 +129,7 @@ test('"the slide before" is the state the presenter shows for it, and the key na
   // (As the presenter's own stateOf, which counts the overview slide first on a built-in deck.)
   const pres = readFileSync(new URL('../src/ui/presenter.js', import.meta.url), 'utf8');
   assert.match(pres, /const changes = \(s\) => !!\(s\.preset \|\| s\.params \|\| s\.action \|\| s\.days\);/);
-  assert.match(pres, /slides = d\.mine \? d\.slides : withOverview\(d\)\.slides/);
+  assert.match(pres, /slides = \(d\.mine \? d\.slides : withOverview\(d\)\.slides\)\.map\(oneLadder\);/);   // (oneLadder keeps every slide's place)
   for (const d of DECKS.slice(0, 3)) assert.equal(stateIndex(withOverview(d).slides).length, withOverview(d).slides.length);
   assert.equal(sinceWords({}), 'change vs last slide');
   assert.equal(sinceWords({ since: 'pre' }), 'change vs earlier');

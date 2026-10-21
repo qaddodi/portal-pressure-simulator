@@ -22,11 +22,11 @@
 //                            the kicker, and the line is a sentence of its own. In the line, {braces} mark the one value to set
 //                            in a pill (else the first value with a unit; pill: false for none); bold: extra key terms to bold
 //   rail                     true: the six levels with this slide's site marked; 'all': every level named
-//   data                     'ladder': the pressure ladder and tiles; 'tiles': tiles only (tiles: which, key: what
-//                            to highlight, delta: true or a slide id to show each tile's change from that state; a slide that
-//                            changes the same patient (no preset) counts from the slide before unless it says delta: false;
-//                            brackets: { hvpg | ppg: 'misleads' | 'works' } colours the ladder's bracket red or green, its number in it;
-//                            block: a station ('pv' | 'whvp' | 'fhvp' | 'ivc' | 'ra') carrying the block itself, hatched on its node)
+//   data                     'tiles': the tiles (tiles: which, key: what to highlight, delta: true or a slide id to show each
+//                            tile's change from that state; a slide that changes the same patient (no preset) counts from the
+//                            slide before unless it says delta: false). The pressure chart is tool { kind: 'profile' }, Gut to heart,
+//                            the one chart on every card; an older deck's data: 'ladder' (with brackets, block, ladderFrom and
+//                            ladderFromLabel) shows that profile instead (teach-extras.js oneLadder)
 //   tool                     an instrument in the data card, reading the live model (presenter-tools.js): { kind: 'doppler',
 //                            vessel, gate?, points? } (gate: on a stent, the third it samples, 'proximal' | 'mid' (default) | 'distal' | 'site';
 //                            points: true calls out the stent's velocity at all three points on the figure, the sampled one in green), { kind: 'scope' }, { kind: 'fibroscan' }, { kind: 'trace', range: 'talk' | 'beats' },
@@ -45,18 +45,16 @@
 //                            start and end in place of a day counter, e.g. 'Fasting' and 'After a meal'; keep the
 //                            days at least the seconds, or the live clock runs sub-day and skips the ramp; clock: 'seconds'
 //                            plays the ramp over the seconds on the bedside clock instead, so a Doppler keeps recording, e.g. a meal)
-//   visual                   over the dimmed figure: 'ladders', 'table' (cols, asc: SAAG and protein columns, note: a text column's heading or several, vs: 'first' to show arrows against the first row,
+//   visual                   over the dimmed figure: 'ladders' (each row's Gut to heart profile, six in a grid), 'table' (cols, asc: SAAG and protein columns, note: a text column's heading or several, vs: 'first' to show arrows against the first row,
 //                            foot: one sentence after the legend, which is built from the table; a row's ref: true keeps its numbers, its vs: a slide id
 //                            compares it with that row instead, its note: the text column's words, or an array of them), 'scale' (scale), 'quadrant'
 //                            (SAAG × protein) or 'walls' (gut capillary wall vs sinusoid); of: the rows, slide ids or { id | preset, name, title, note, blank: [columns] }
 //   compare                  [{ label, params, own? }]: buttons that switch the live model between treatments in real
 //                            time (params: each option's full set of the switched keys; own: the slide's own state);
-//                            or [{ label, preset, block? }, { label, own: true }]: buttons that ease the live model to another
-//                            patient (a preset, computed with the slide's states; block: its ladder's station block, none if
-//                            left out) and back to the slide's own state;
+//                            or [{ label, preset }, { label, own: true }]: buttons that ease the live model to another
+//                            patient (a preset, computed with the slide's states) and back to the slide's own state;
 //                            or [{ label, lens, own? }]: buttons that switch the figure's lens, the model untouched;
 //                            or [{ label, gate, own? }]: buttons that move a stent Doppler's gate (see tool), the model untouched
-//   fold                     false: the ladder card never folds its plot behind Show (Sites slide 7 folded on a laptop); its own zoom fits it
 //   caveat                   one short sentence in small print under the line, where the model differs from patients
 //   notes, ask               speaker notes, and [question, expected answer] for the room
 //   whatIf                   { label, param, min, max, step?, ends?: [low, high], unit? }: a slider that drags one parameter
@@ -66,7 +64,7 @@
 //                            figure: spot, normalOutline, ripple, lens 'system' | 'since' (since, sinceLabel), calipers,
 //                            lapseGlow ['bowel'] (those organs glow from the time-lapse's start, while the slide is up), steps (with glowSeq), span, zone,
 //                            mark { organ } and {tokens} in a mark's label, '@sets' in glow/spot/edges;
-//                            words: cite; card: ladderFrom, ladderFromLabel, tool kinds 'profile', 'flows', 'curve', 'causes',
+//                            words: cite; card: tool kinds 'profile' (from, fromLabel), 'flows', 'curve', 'causes',
 //                            'plane', 'lumen', 'fluid', Doppler mode/calipers/pair, bands on trace and flowtime;
 //                            panels: visual 'plane', table col 'wave', focusRow
 //
@@ -76,35 +74,35 @@
 // Every deck opens with an "Outline and objectives" slide built from its kicker groups and objectives
 // (withOverview below); a deck never writes that slide itself.
 
-import { CIRCULATION } from './decks/circulation.js?v=5a968e537a';
-import { SITES } from './decks/sites.js?v=a2b34883fe';
-import { HVPG } from './decks/hvpg.js?v=35654d5bef';
+import { CIRCULATION } from './decks/circulation.js?v=2271df5c84';
+import { SITES } from './decks/sites.js?v=eb53f904c1';
+import { HVPG } from './decks/hvpg.js?v=1f1f96d516';
 import { ASCITES } from './decks/ascites.js?v=fa27e7731c';
 import { VARICES } from './decks/varices.js?v=5e92da46f8';
-import { TREATMENT } from './decks/treatment.js?v=eb1d810d42';
+import { TREATMENT } from './decks/treatment.js?v=dbbc67154c';
 import { STIFFNESS } from './decks/stiffness.js?v=65532f1056';
-import { ONE_YEAR } from './decks/one-year.js?v=b7f9df5006';
-import { LOBULE } from './decks/lobule.js?v=9d712c2a75';
+import { ONE_YEAR } from './decks/one-year.js?v=3c2cfc459c';
+import { LOBULE } from './decks/lobule.js?v=8807c872dc';
 import { SHUNTS } from './decks/shunts.js?v=fdf4deb758';
 import { TIPS_DOPPLER } from './decks/tips-doppler.js?v=a6771b69c6';
 import { TAP } from './decks/tap.js?v=3a7bc5955a';
-import { CIRCUIT } from './decks/circuit.js?v=f0c5c99cf4';
+import { CIRCUIT } from './decks/circuit.js?v=424f33dee3';
 import { DOPPLER } from './decks/doppler.js?v=2c9442fba9';
 import { ENDOSCOPY } from './decks/endoscopy.js?v=2361b5b0bf';
 import { PREHEPATIC } from './decks/prehepatic.js?v=5cf3ae28fd';
 import { RIGHT_HEART } from './decks/right-heart.js?v=804d9b4428';
 import { BLEED } from './decks/variceal-bleed.js?v=efcd021e27';
 import { TWO_INFLOWS } from './decks/two-inflows.js?v=6eb9e84e09';
-import { PVT_CIRRHOSIS } from './decks/pvt-cirrhosis.js?v=115eaef20e';
+import { PVT_CIRRHOSIS } from './decks/pvt-cirrhosis.js?v=6e8a9589f9';
 import { SPLEEN } from './decks/spleen.js?v=212c72bb98';
 import { NCPH } from './decks/ncph.js?v=420bd9336a';
-import { OUTFLOW } from './decks/outflow.js?v=0bb3b883e0';
-import { RECOMPENSATION } from './decks/recompensation.js?v=39f5a8ede1';
-import { WHERE } from './decks/where.js?v=bee116087f';
+import { OUTFLOW } from './decks/outflow.js?v=6839de7d56';
+import { RECOMPENSATION } from './decks/recompensation.js?v=e78b9f0f5e';
+import { WHERE } from './decks/where.js?v=01b05110ba';
 import { PREGNANCY_DECK } from './decks/pregnancy.js?v=a65817a8f2';
 import { BETA_BLOCKERS } from './decks/beta-blockers.js?v=520a936fa7';
 import { ENCEPHALOPATHY } from './decks/encephalopathy.js?v=9218c6becd';
-import { CAUSE_TREATED } from './decks/cause-treated.js?v=6141ad255c';
+import { CAUSE_TREATED } from './decks/cause-treated.js?v=0da183adb0';
 
 // Regions of the anatomy plate the camera frames (world units, x 300-1120, y 0-920).
 export const REGIONS = {

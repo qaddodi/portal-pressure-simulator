@@ -38,7 +38,7 @@ export const HVPG = {
       ask: ['How do you check that the balloon has truly wedged the vein?', 'Inject a little contrast: it stays in the vein with no washout, and the tracing loses its pulse.'],
     },
     {
-      id: 'hvpg', cath: 'result', monitor: 'result', data: 'ladder', key: ['whvp', 'fhvp', 'hvpg'],
+      id: 'hvpg', cath: 'result', monitor: 'result', tool: { kind: 'profile' }, data: 'tiles', tiles: ['whvp', 'fhvp'], key: ['whvp', 'fhvp', 'hvpg'],
       kicker: 'Measuring portal pressure', site: 'sin', title: 'HVPG measures the pressure drop across the sinusoids',
       eq: [mi('HVPG') + mo('=') + '<mi class="eq-wedge">WHVP</mi>' + mo('−') + '<mi class="eq-hv">FHVP</mi>'],
       line: 'In this case the HVPG is {hvpg}: clinically significant portal hypertension.',
@@ -54,14 +54,14 @@ export const HVPG = {
       ask: ['At what HVPG can varices bleed?', 'The risk climbs steeply from about 12 mmHg, though varices can bleed below it.'],
     },
     {
-      id: 'presin', lens: 'drop', terms: ['lobule:triad', 'lobule:sinusoid'], preset: 'schisto', cam: 'lobule:triad', callout: { at: 'triad', label: 'Resistance' }, data: 'ladder', key: ['pv', 'whvp', 'hvpg'], brackets: { hvpg: 'misleads', ppg: 'works' },
+      id: 'presin', lens: 'drop', terms: ['lobule:triad', 'lobule:sinusoid'], preset: 'schisto', cam: 'lobule:triad', callout: { at: 'triad', label: 'Resistance' }, tool: { kind: 'profile' }, key: ['pv', 'whvp', 'hvpg'],
       kicker: 'Where HVPG misleads', site: 'presin', title: 'Normal HVPG, high portal pressure',
       line: 'In schistosomiasis the resistance is in the portal tracts, upstream of the sinusoids. HVPG is {hvpg} while the portal pressure is {pv}. Colored by pressure drop, the large drop sits in the portal venules, before the wedge can see it.',
       notes: 'The wedged catheter reads only what lies downstream of resistance. In presinusoidal disease (schistosomiasis, porto-sinusoidal vascular disorder, early primary biliary cholangitis) the sinusoids are near normal, so the WHVP and the HVPG are normal or only mildly raised and underestimate the portal pressure. A normal HVPG in a patient with varices or a large spleen points to a presinusoidal or pre-hepatic cause.',
       ask: ['A 30-year-old from Egypt has varices and a normal HVPG. What is the likely cause?', 'Schistosomiasis: presinusoidal resistance that the wedge does not see.'],
     },
     {
-      id: 'ppg', lens: 'drop', terms: ['pv', 'sin'], preset: 'pvt-chronic', cam: 'route', labels: [], sites: ['pv', 'ivc'], mark: { edges: ['PV_TRUNK'], label: 'Clot' }, data: 'ladder', key: ['pv', 'ivc'], brackets: { hvpg: 'misleads', ppg: 'works' },
+      id: 'ppg', lens: 'drop', terms: ['pv', 'sin'], preset: 'pvt-chronic', cam: 'route', labels: [], sites: ['pv', 'ivc'], mark: { edges: ['PV_TRUNK'], label: 'Clot' }, tool: { kind: 'profile' }, key: ['pv', 'ivc'],
       kicker: 'Where HVPG misleads', site: 'pre', title: 'The PPG finds resistance the HVPG misses',
       eq: [mi('PPG') + mo('=') + '<msub class="eq-pv"><mi>P</mi><mtext>portal vein</mtext></msub>' + mo('−') + '<msub class="eq-ivc"><mi>P</mi><mtext>IVC</mtext></msub>'],
       line: 'This portal vein clot lies before the sinusoids, so only a direct portal reading shows it. The PPG is {ppg}. Colored by pressure drop, the large drop sits at the clot, not in the sinusoids.',
@@ -69,7 +69,7 @@ export const HVPG = {
       ask: ['A patient with varices has a normal HVPG. Which reading finds the resistance, and where is it taken?', 'The PPG, read in the portal vein itself (at TIPS, transhepatically, or by an EUS-guided needle), upstream of the resistance.'],
     },
     {
-      id: 'heart', lens: 'heat', preset: 'rhf', cam: 'heart', labels: ['RHV', 'IVCS', 'RA'], data: 'ladder', block: 'ra', key: ['fhvp', 'ra', 'hvpg'],
+      id: 'heart', lens: 'heat', preset: 'rhf', cam: 'heart', labels: ['RHV', 'IVCS', 'RA'], tool: { kind: 'profile' }, data: 'tiles', tiles: ['whvp', 'fhvp'], key: ['fhvp', 'ra', 'hvpg'],
       kicker: 'Where HVPG misleads', site: 'cardiac', title: 'In heart failure every pressure is high',
       line: '[Wedged](whvp) {whvp} and [free](fhvp) {fhvp} pressures are both high, so HVPG is normal. The raised free pressure points to the heart. Colored by congestion, every vein from the heart back to the gut is backed up.',
       notes: 'HVPG is a difference, so it cancels whatever the wedged and the free readings share. In right heart failure and constrictive pericarditis every station from the portal vein to the right atrium is high: the HVPG and the PPG are normal, but the absolute pressures are not. Always read the free hepatic and the right atrial pressures as well. The same pattern with a normal right atrial pressure points to resistance between the hepatic veins and the heart, such as an IVC web.',

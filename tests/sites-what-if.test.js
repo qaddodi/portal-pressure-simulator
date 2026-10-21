@@ -67,11 +67,12 @@ test('the controls teach their slides: portal pressure follows the clot and the 
   for (let j = 1; j < lad.length; j++) assert.ok(lad[j - 1] - lad[j] <= 4, `no block between stations ${j - 1} and ${j} (${lad})`);
 });
 
-test('Sites level slides show the pressure profile, not a ladder, so none folds a ladder behind Show', () => {
+test('Sites level slides show the Gut to heart chart, and no slide has a ladder fold left to put behind Show', () => {
   for (const id of ['healthy', 'pvt', 'presin', 'sin', 'postsin', 'post', 'cardiac']) assert.equal(slide(id).tool?.kind, 'profile', id);
   for (const s of SITES.slides) assert.ok(s.data !== 'ladder' && s.fold === undefined, s.id);
   const src = readFileSync(new URL('../src/ui/presenter.js', import.meta.url), 'utf8');
-  assert.match(src, /ladderFold !== foldKey && slides\[want\]\?\.fold !== false/);
+  assert.doesNotMatch(src, /ladderFold|\.fold !== false/);
+  assert.match(src, /const canFold = dd\.classList\.contains\('has-tool'\) && !dd\.classList\.contains\('tool-only'\) && !dd\.classList\.contains\('tool-lead'\);/, 'only an instrument card folds');
 });
 
 test('on a phone a what-if slider takes a full line under its label', () => {
@@ -80,12 +81,11 @@ test('on a phone a what-if slider takes a full line under its label', () => {
   assert.match(css, /\.pz-wi \{[^}]*flex-wrap: wrap/);
 });
 
-test('a patient compare button eases the live model to its computed patient and back; the ladder\'s station block follows it', () => {
+test('a patient compare button eases the live model to its computed patient and back; the chart reads the live patient, with no station block to follow', () => {
   const src = readFileSync(new URL('../src/ui/presenter.js', import.meta.url), 'utf8');
   assert.match(src, /\.\.\.\(s\.compare \|\| \[\]\)\.filter\(\(o\) => o\.preset\)/);
   assert.match(src, /stateReady\(o\.preset \? extraOf\.get\(xKey\(o\)\) : stateOf\[i\]\)/);
-  assert.match(src, /abBlk = \{ s, block: o\.preset \? o\.block \?\? null : s\.block \}/);
-  assert.match(src, /block: blockOf\(s\)/);
+  assert.doesNotMatch(src, /abBlk|blockOf/);
 });
 
 test('the slide count is not left grey (as if the list were open) on a slide picked from the slide list', () => {

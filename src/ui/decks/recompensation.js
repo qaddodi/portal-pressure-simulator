@@ -20,7 +20,7 @@ export const RECOMPENSATION = {
   summary: 'One patient over two years: CSPH, the first ascites, diuretics and carvedilol, then the cause removed and the liver recompensates. The portal pressure falls, but recompensation is not a cure.',
   slides: [
     {
-      id: 'csph', tick: 'CSPH', preset: 'csph', cam: 'liver', data: 'ladder', key: ['hvpg'], tiles: ['varix'],
+      id: 'csph', tick: 'CSPH', preset: 'csph', cam: 'liver', tool: { kind: 'profile' }, data: 'tiles', key: ['hvpg'], tiles: ['varix'],
       kicker: 'Compensated', site: 'sin', title: 'Compensated, with CSPH',
       vignette: 'A 47-year-old man with alcohol-associated cirrhosis drinks about eight drinks a day. He has never had ascites or bleeding, and his platelets are 88,000/µL.',
       line: 'In alcohol-associated cirrhosis, an HVPG of {hvpg} is 10 mmHg or more. There is no ascites or bleeding yet, but both are now possible, and the risk rises with the HVPG.',
@@ -42,7 +42,7 @@ export const RECOMPENSATION = {
       ask: ['What are the maximum daily doses of spironolactone and furosemide?', '400 mg of spironolactone and 160 mg of furosemide.'],
     },
     {
-      id: 'carv', tick: 'Carvedilol', params: { drugs: { carvedilol: true } }, ripple: true, milestone: 'Carvedilol', cam: 'liver', data: 'ladder', key: ['hvpg'], tiles: ['map'],
+      id: 'carv', tick: 'Carvedilol', params: { drugs: { carvedilol: true } }, ripple: true, milestone: 'Carvedilol', cam: 'liver', tool: { kind: 'profile' }, data: 'tiles', key: ['hvpg'], tiles: ['map'],
       compare: [{ label: 'No beta-blocker', params: { drugs: OFF } }, { label: 'Carvedilol', own: true, params: { drugs: { carvedilol: true } } }],
       kicker: 'Decompensation', site: 'sin', title: 'Carvedilol once ascites is present',
       line: 'Carvedilol lowers the HVPG to {hvpg}. With ascites, lower the dose or stop it if the blood pressure stays low or the kidneys fail.',

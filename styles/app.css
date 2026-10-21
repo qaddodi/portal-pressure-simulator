@@ -1554,8 +1554,8 @@ button.finding { cursor: pointer; }
 .pz.low .pz-text :is(.pz-line, .pz-kick, .pz-check) { font-size: var(--s-lab); }
 .pz.low .pz-text .pz-eq math { font-size: calc(var(--s-lab) * 1.1 * var(--eq-k, 1)); }
 @media (orientation: landscape) and (max-height: 500px) { .pz:not(.stack) .pz-data { top: 8px; max-height: calc(100% - 8px - max(var(--pz-cm), calc(env(safe-area-inset-bottom, 0px) + 8px)) - 44px - 4px); max-width: calc(58vw - 50px); }
-  .pz.low .pz-data.pz-sheet:not(.tool-open) { max-height: calc(100% - 8px - max(var(--pz-cm), calc(env(safe-area-inset-bottom, 0px) + 8px)) - 44px - 4px - 24px); }   /* (partly open: its sheet's edge below it, .pz-lip) */
-  .pz:not(.stack) .pz-data > .pz-ladder { display: none; } .pz:not(.stack) .pz-data:not(.tiles-only):not(.tool-only) > .pz-strip { display: block; } }   /* (beside the words, never over them; the phone's pressure strip, not the tall ladder) *//* (Except the summary table: its five to seven columns only fit a phone at the roles' own size.) */
+  .pz.low .pz-data.pz-sheet:not(.tool-open) { max-height: calc(100% - 8px - max(var(--pz-cm), calc(env(safe-area-inset-bottom, 0px) + 8px)) - 44px - 4px - 24px); } }   /* (partly open: its sheet's edge below it, .pz-lip) */
+/* (Except the summary table: its five to seven columns only fit a phone at the roles' own size.) */
 .pz.stack .pz-table { --s-cap: calc(var(--t-cap) * var(--ts, 1)); --s-lab: calc(var(--t-lab) * var(--ts, 1)); --s-body: calc(var(--t-body) * var(--ts, 1)); --s-val: calc(var(--t-val) * var(--ts, 1)); }
 @media (orientation: landscape) and (max-height: 500px) { .pz .pz-table { --s-cap: calc(clamp(12px, calc(1.733 * var(--pzh) / var(--vz)), 21px) * var(--ts, 1)); --s-lab: calc(clamp(14px, calc(2.022 * var(--pzh) / var(--vz)), 24.5px) * var(--ts, 1));
   --s-body: calc(clamp(17px, calc(2.311 * var(--pzh) / var(--vz)), 28px) * var(--ts, 1)); --s-val: calc(clamp(20px, calc(3.178 * var(--pzh) / var(--vz)), 38.5px) * var(--ts, 1)); } }
@@ -1716,31 +1716,8 @@ button.finding { cursor: pointer; }
 .pz.pz-card:not(.stack) .pz-data { padding: var(--pz-cp); }   /* (the same padding as the teaching card, so the two cards' text edges line up) */
 .pz-dh { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: center; text-align: center; gap: 4px 12px; font: var(--caps-w) var(--s-cap)/1.25 var(--font-ui); letter-spacing: var(--caps-ls); text-transform: uppercase; color: var(--text-3); }
 .pz-unit { text-transform: none; letter-spacing: normal; }   /* (a unit in a title: "mL/day", never "ML/DAY"; title-units.js) */
-.pz-lg { display: inline-flex; align-items: center; gap: .45em; letter-spacing: 0; text-transform: none; font-weight: 500; }
-.pz-lg i.now { width: 1.4em; height: 3px; border-radius: 2px; background: linear-gradient(90deg, var(--tour-portal), var(--tour-sys)); }
-.pz-lg i.base { width: 1.4em; border-top: 2px dashed var(--text-3); margin-left: .5em; }
-.pz-ladder { display: block; width: 100%; height: auto; overflow: visible; }
-.pzl-grid line { stroke: var(--hairline); stroke-width: 1.2; }
-.pzl-grid text { fill: var(--text-3); font: 500 13px var(--font-ui); }
-.pzl-base { fill: none; stroke: var(--text-3); stroke-width: 2; stroke-dasharray: 5 5; opacity: .75; }
-.pzl-line { fill: none; stroke-width: 5; stroke-linecap: round; stroke-linejoin: round; }
-.pzl-pt circle { fill: var(--surface); stroke: var(--text-2); stroke-width: 2.6; }
-.pzl-pt.key circle { fill: var(--accent); stroke: var(--surface); stroke-width: 3; }
-.pzl-v { fill: var(--text); font: 600 25px var(--font-ui); font-variant-numeric: tabular-nums; paint-order: stroke; stroke: var(--surface); stroke-width: 5px; stroke-linejoin: round; }
-.pzl-pt.key .pzl-v { fill: var(--accent); }
-.pzl-k { fill: var(--text-2); font: 700 18px var(--font-ui); }
-.pzl-drop rect { stroke: var(--danger); stroke-width: 2; stroke-opacity: .7; }
-.pzl-nb { stroke: var(--danger); stroke-width: 2; stroke-opacity: .7; transition: opacity .4s var(--ease); }
-.pzs-nb { stroke: var(--danger); stroke-width: 1.2; stroke-opacity: .7; transition: opacity .4s var(--ease); }
-.pzs-pt.blk .pzs-v, .pzs-pt.blk.key .pzs-v { fill: var(--text); stroke: none; }   /* (a blocked reading: plain text, no outline, so the hatching shows whole) */
 .pz-hb { fill: color-mix(in srgb, var(--danger) 10%, transparent); }
 .pz-hs { fill: var(--danger); fill-opacity: .55; }
-.pzl-bg { --c: var(--ok); transition: opacity .4s var(--ease); }
-.pzl-bg[data-rate="mid"] { --c: var(--caution); } .pzl-bg[data-rate="hi"] { --c: var(--danger); }
-.pzl-br { fill: none; stroke: var(--c); stroke-width: 1.9; stroke-linecap: round; transition: stroke .4s var(--ease); }
-.pz-strip .pzl-br { stroke-width: 1.5; }
-.pzl-lead { fill: none; stroke: var(--c); stroke-width: 1; vector-effect: non-scaling-stroke; opacity: .6; transition: stroke .4s var(--ease); }
-.pzl-bk { fill: var(--c); font: 700 15px var(--font-ui); letter-spacing: .06em; transition: fill .4s var(--ease); }
 .pz-tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(0, 1fr)); gap: clamp(8px, calc(1.2 * var(--pzh) / var(--vz)), 14px); }
 .pz-tiles[data-n="0"] { display: none; }   /* (a ladder alone: its brackets give the HVPG and PPG) */
 .pz-tile { display: flex; flex-direction: column; align-items: center; text-align: center; gap: .2em; container-type: inline-size; padding: clamp(10px, calc(1.5 * var(--pzh) / var(--vz)), 18px) clamp(12px, calc(1.6 * var(--pzh) / var(--vz)), 20px); border-radius: clamp(12px, calc(1.6 * var(--pzh) / var(--vz)), 18px); background: var(--surface-2); border: 2px solid transparent; min-width: 0; transition: border-color .4s var(--ease), background-color .4s var(--ease), box-shadow .4s var(--ease); }
@@ -1759,7 +1736,6 @@ button.finding { cursor: pointer; }
 .pz-tile[data-rate="mid"] .pzt-r { color: color-mix(in srgb, var(--caution) 85%, var(--text)); }
 .pz-tile[data-rate="none"] .pzt-v { color: var(--text-3); }
 /* Tiles alone (no ladder), bigger; a tile's change from an earlier slide; the time-lapse counter. */
-.pz-data.tiles-only .pz-ladder, .pz-data.tiles-only .pz-strip, .pz-data.tiles-only .pz-lg { display: none; }
 .pz-data.tiles-only .pz-tiles { grid-template-columns: minmax(0, 1fr); }
 .pz-data.tiles-only .pz-tiles[data-n="4"] { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .pz-data.tiles-only .pzt-v { font-size: var(--s-title); }
@@ -1859,9 +1835,6 @@ button.finding { cursor: pointer; }
 .pz.stack .pz-panel[data-visual="outline"] .pz-ph { align-items: stretch; text-align: left; padding-top: 0; }
 .pz.stack .pz-panel[data-visual="outline"] .pz-kick { justify-content: flex-start; margin-top: 0; }
 .pz.stack .pz-panel .pz-dtitle::after { margin-left: 0; }
-.pz-grid-key { grid-column: 1 / -1; margin: 0; font: 500 var(--s-cap) var(--font-ui); color: var(--text-3); font-variant-numeric: tabular-nums; }
-.pz-grid-key i { display: inline-block; width: 22px; margin-right: 8px; vertical-align: middle; border-top: 2px dashed var(--text-3); }
-.pz.stack .pz-grid-key, .pz-grid:has(> .pz-cell.strip) .pz-grid-key { display: none; }   /* (the phone's strips draw no dashed healthy line, so its legend goes too) */
 .pz-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: clamp(10px, calc(2 * var(--pzh) / var(--vz)), 26px); }
 .pz-cell { display: flex; flex-direction: column; gap: clamp(4px, calc(.8 * var(--pzh) / var(--vz)), 10px); padding: clamp(10px, calc(1.6 * var(--pzh) / var(--vz)), 20px) clamp(12px, calc(1.6 * var(--pzh) / var(--vz)), 20px) clamp(6px, calc(1 * var(--pzh) / var(--vz)), 12px); border-radius: clamp(12px, calc(1.8 * var(--pzh) / var(--vz)), 20px); background: var(--surface-2); min-width: 0; }
 /* (A long site name, POSTSINUSOIDAL, in a narrow cell steps its size down to fit the cell rather than run out of it.) */
@@ -1884,8 +1857,9 @@ button.finding { cursor: pointer; }
 .pz-panel.fill { height: calc(100% - 2 * clamp(16px, calc(4 * var(--pzh) / var(--vz)), 56px)); }
 .pz-panel.fill .pz-grid { flex: 1; min-height: 0; grid-template-rows: repeat(2, minmax(0, 1fr)); }
 .pz-panel.fill .pz-cell { min-height: 0; }
+.pz-cell > .pz-prof { flex: 1 1 0; min-height: 0; height: auto; font-size: var(--ch-cap, 12px); }   /* (each case's Gut to heart chart takes its cell's room under the title, lettered at the data card's chart size) */
+:is(.pz.stack, .pz.low) .pz-cell > .pz-prof { display: block; flex: none; margin-top: 4px; }   /* (a phone's: as tall as it needs, set by the chart, tool-profile.js own) */
 .pz:not(.stack) .pz-cell { --ch-cap: max(12px, calc(var(--s-cap) * .74)); --ch-lab: calc(max(12px, calc(var(--s-cap) * .74)) * 1.5); }   /* (a big screen's six ladders letter at the data card's chart size, so the plots fit their cells) */
-.pz-panel.fill .pz-cell .pz-ladder { flex: 1 1 0; min-height: 0; }
 .pz-table { overflow: auto; border: 1px solid var(--border); border-radius: clamp(12px, calc(1.8 * var(--pzh) / var(--vz)), 20px); }
 .pz-table table { width: 100%; border-collapse: collapse; font: 500 var(--s-body)/1.25 var(--font-ui); }
 .pz-table th, .pz-table td { padding: .55em .75em; text-align: left; vertical-align: middle; }
@@ -2098,28 +2072,14 @@ button.finding { cursor: pointer; }
    card (.pz-sheet, below), never behind Show (Mohammad, 17 Oct: "I thought the Doppler will show first with an indication for a
    card under it?"). The scope sits as a compact row there, the view beside its grade and size, so the figure keeps most of the screen. */
 .pz.stack .pz-data:is(.tool-lead, .pz-sheet) > .pz-tiles { max-height: 40vh; overflow: hidden; transition: max-height .36s var(--ease), opacity .26s var(--ease), margin .36s var(--ease); }
-.pz.stack .pz-data:is(.tool-lead, .pz-sheet) > .pz-strip { max-height: 40vh; transition: max-height .36s var(--ease), opacity .26s var(--ease), margin .36s var(--ease); }
-.pz.stack .pz-data:is(.tool-lead, .pz-sheet):not(.tool-open) > :is(.pz-tiles, .pz-strip) { max-height: 0; opacity: 0; margin-top: -6px; overflow: hidden; }
+.pz.stack .pz-data:is(.tool-lead, .pz-sheet):not(.tool-open) > .pz-tiles { max-height: 0; opacity: 0; margin-top: -6px; overflow: hidden; }
 .pz.stack .pz-data:is(.tool-lead, .pz-sheet) .pz-tool[data-kind="scope"] .pz-inst { flex-direction: row; align-items: center; gap: 12px; }
 .pz.stack .pz-data:is(.tool-lead, .pz-sheet) .pz-tool[data-kind="scope"] .endo-stage { flex: none; width: 42%; min-height: 0; }
 .pz.stack .pz-data:is(.tool-lead, .pz-sheet) .pz-tool[data-kind="scope"] .chart-box.square { width: 100%; height: auto; aspect-ratio: 1; max-width: none; }
 .pz.stack .pz-data:is(.tool-lead, .pz-sheet) .pz-tool[data-kind="scope"] .chart-side { flex: 1; min-width: 0; }
 .pz.stack .pz-data:is(.tool-lead, .pz-sheet) .pz-tool[data-kind="scope"] .endo-pos { display: none; }
 /* A phone's pressure card: the ladder becomes a strip (one row of stations, no axis or gridlines), shorter than the chart. */
-.pz-strip { display: none; width: 100%; height: auto; overflow: visible; }
-.pz.stack .pz-data > .pz-ladder { display: none; }
-.pz.stack .pz-data > .pz-strip { display: block; }
-.pz.stack .pz-data.tiles-only > .pz-strip, .pz.stack .pz-data.tool-only > .pz-strip { display: none; }
-.pzs-c { stroke-width: 6; stroke-linecap: round; }
 .pzs-drop { stroke: var(--danger); stroke-width: 1.2; stroke-opacity: .7; transition: opacity .4s var(--ease); }
-.pzs-v { fill: var(--text); font: 700 15px var(--font-ui); font-variant-numeric: tabular-nums; transition: fill .4s var(--ease); }
-.pzs-pt.key .pzs-v { fill: var(--accent); }
-.pzs-k { fill: var(--text-2); font: 700 11px var(--font-ui); letter-spacing: .02em; }
-.pzs-u { fill: var(--text-3); font: 500 11px var(--font-ui); }
-.pzs-bl { fill: var(--text); font: 600 11px var(--font-ui); font-variant-numeric: tabular-nums; letter-spacing: -.04em; }
-.pzs-bn, .pzs-bv { fill: var(--c); font-weight: 700; transition: fill .4s var(--ease); }
-.pz.stack .pz-data:not(.tiles-only):not(.tool-only) .pz-lg { display: none; }
-.pz.stack .pz-data:not(.tiles-only):not(.tool-only):not(.has-tool) .pz-tiles[data-compact="1"] { display: none; }
 .pz.stack .pz-tile { padding: 6px 10px; }
 .pz.stack .pzt-v { font-size: var(--s-title); }
 /* (Centred in the figure above the controls' pill: top and bottom set, its own height, auto margins.) */
@@ -2149,37 +2109,22 @@ button.finding { cursor: pointer; }
 .pz.stack .pz-grid { grid-template-columns: minmax(0, 1fr); grid-template-rows: none; }   /* (a phone stacks the six site ladders in one column, each a full-width row, so the readings need no tilted names) */
 .pz.stack .pz-panel.fill { height: fit-content; }
 .pz.stack .pz-panel.fill .pz-grid { flex: none; }   /* (the six ladders keep their height; the card scrolls instead of the charts spilling out of their cells) */
-.pz.stack .pz-panel.fill .pz-cell .pz-ladder { flex: none; }
 /* A phone's site ladders, or a cell too short for a plot at a large text size, read as strips (two to a row on a phone). */
-.pz-cell > .pz-strip { display: none; }
-.lad-swap :is(.pz-data, .pz-cell) > :is(.pz-ladder, .pz-strip) { animation: pz-fade .35s var(--ease) both; }   /* (a ladder switching plot and strip on a resize fades in) */
-.pz-data.strip > .pz-ladder, .pz-data.strip .pz-lg { display: none; } .pz-data.strip:not(.tiles-only):not(.tool-only) > .pz-strip { display: block; }   /* (a ladder card too short for its plot shows the compact strip) */
-:is(.pz.stack .pz-cell, .pz-cell.strip) > .pz-strip { display: block; }
-:is(.pz.stack .pz-cell, .pz-cell.strip) > .pz-ladder { display: none; }
-.pz-cell > .pz-strip { margin-top: auto; }   /* (the pressure row sits on the tile's bottom edge, so the six line up whatever the title's length) */
-.pz.stack .pz-cell > .pz-strip .pzl-bg { display: none; }   /* (a cell's kicker carries its HVPG) */
 /* A phone's six site ladders (Sites 10, Mohammad's option A, 15 Oct): the station names once at the top, then one slim row
    per site: its tag, the disease and the HVPG on one line (the disease wraps under the tag when long), its five readings
    under them, the biggest drop shaded. The grid letters at the roles' own size times 1.15, as a phone's data card does, not
    the panel's 1.7: at 1.7 the card zoomed itself to half (the title 13.6 px, the subtitles 10.2 px, the readings 27). */
-.pz-grid-head { display: none; }
 :is(.pz.stack, .pz.low) .pz-grid { --pk: 1.15; --s-cap: calc(var(--t-cap) * var(--ts, 1) * var(--pk)); --s-lab: calc(var(--t-lab) * var(--ts, 1) * var(--pk)); --s-body: calc(var(--t-body) * var(--ts, 1) * var(--pk)); --s-val: calc(var(--t-val) * var(--ts, 1) * var(--pk)); --s-big: calc(var(--t-big) * var(--ts, 1) * var(--pk)); gap: 6px; }
-:is(.pz.stack, .pz.low) .pz-grid-head { display: grid; grid-column: 1 / -1; grid-template-columns: minmax(0, 1fr); gap: 6px; }
-:is(.pz.stack, .pz.low) .pz-grid-head > div { position: relative; height: 1.4em; margin: 0 12px; font: 700 var(--s-cap)/1.4 var(--font-ui); letter-spacing: .02em; color: var(--text-2); }
-:is(.pz.stack, .pz.low) .pz-grid-head span { position: absolute; top: 0; translate: -50% 0; white-space: nowrap; }
 :is(.pz.stack, .pz.low) .pz-cell { display: block; padding: 7px 12px 4px; border-radius: 12px; line-height: 1.25; --ch-cap: var(--s-cap); --ch-lab: var(--s-lab); }
 :is(.pz.stack, .pz.low) .pz-cell-k { display: contents; }
 :is(.pz.stack, .pz.low) .pz-cell .pz-cell-k .pz-kick { display: inline; margin-right: .45em; font-size: var(--s-cap); letter-spacing: .06em; white-space: normal; }
 :is(.pz.stack, .pz.low) .pz-cell-pill { float: right; margin: -1px 0 0 8px; font-size: var(--s-cap); }
 :is(.pz.stack, .pz.low) .pz-cell-t { display: inline; font: 600 var(--s-lab)/1.25 var(--font-display); color: var(--text-2); }
-:is(.pz.stack, .pz.low) .pz-cell > .pz-strip { display: block; clear: both; margin-top: 2px; }
-:is(.pz.stack, .pz.low) .pz-cell > .pz-ladder, .pz.low .pz-grid-key, .pz.low .pz-cell > .pz-strip .pzl-bg { display: none; }
 /* (Sideways the six rows stand in two columns of three, under a row of names each, and the card wraps them: it had given the
    ladders no height at all, so a phone held sideways showed six empty cells.) */
 .pz.low .pz-grid { --pk: 1; }   /* (sideways, the roles' own size: two rows of three and the slide's title share 390 px) */
-.pz.low .pz-grid, .pz.low .pz-grid-head { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-.pz.stack .pz-grid-head > div + div, .pz.low .pz-grid-head > div:nth-child(n + 4) { display: none; }
-@media (max-width: 759px) { .pz.low .pz-grid, .pz.low .pz-grid-head { grid-template-columns: repeat(2, minmax(0, 1fr)); } .pz.low .pz-grid-head > div:nth-child(3) { display: none; } }   /* (an iPhone SE on its side: three columns ran its names together) */
+.pz.low .pz-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+@media (max-width: 759px) { .pz.low .pz-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }   /* (an iPhone SE on its side: three columns ran its names together) */
 :is(.pz.stack, .pz.low) .pz-cell-t { overflow-wrap: normal; }   /* (a long name moves to the next line whole: Schistosomiasis had broken mid-word) */
 .pz.low .pz-panel.fill { height: auto; }
 .pz.low .pz-panel.fill .pz-grid { flex: none; grid-template-rows: none; }
@@ -2188,11 +2133,8 @@ button.finding { cursor: pointer; }
 .pz.stack .pz-panel > .pz-grid { zoom: max(var(--pz-fit, 1), .87); }
 .pz.low .pz-panel > .pz-grid { zoom: 1; }
 @media (max-width: 759px) { .pz.low .pz-grid { --pk: 1.15; gap: 4px; } .pz.low .pz-panel > .pz-grid { zoom: max(var(--pz-fit, 1), .87); } .pz.low .pz-cell { padding: 4px 10px 1px; line-height: 1.15; } .pz.low .pz-cell-t { line-height: 1.15; } }   /* (an SE on its side has room only when the rows may step down too, to the same 12 px floor) */
-.pz.stack .pz-grid.big { grid-template-columns: minmax(0, 1fr); }
 /* (A cell that turned strip at a large text size: the rows take the strips' own height instead of the card's, and on a
    narrower screen two to a row, so no reading, fall or bracket runs out of its cell or into its neighbour.) */
-.pz-panel.fill .pz-grid:has(> .pz-cell.strip) { flex: none; grid-template-rows: none; }
-@media (max-width: 1100px) { .pz-grid:has(> .pz-cell.strip) { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 .pz.stack .pz-bar { left: auto; right: 21px; top: auto; bottom: calc(21px + var(--pz-sb)); translate: none; max-width: none; height: 38px; gap: 0; padding: 0; overflow: visible; background: color-mix(in srgb, var(--surface) 58%, transparent); -webkit-backdrop-filter: blur(16px) saturate(1.15); backdrop-filter: blur(16px) saturate(1.15); border: 1px solid color-mix(in srgb, var(--text) 10%, transparent); border-radius: var(--r-sheet); box-shadow: inset 0 1px 0 var(--pz-glass-edge), 0 14px 34px -10px var(--pz-glass-drop), 0 2px 6px -1px var(--pz-glass-drop); transition: opacity .2s var(--ease); }
 .app.pz-hi .pz.stack .pz-bar { background: color-mix(in srgb, var(--surface) 92%, transparent); border-color: color-mix(in srgb, var(--text) 32%, transparent); }
 @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) { .pz.stack .pz-bar { background: color-mix(in srgb, var(--surface) 96%, transparent); } }
@@ -2367,7 +2309,7 @@ button.finding { cursor: pointer; }
 .pz-ghost.on { opacity: 1; max-height: 3em; }
 .pz-ghost span { letter-spacing: .06em; text-transform: uppercase; font-size: max(.85em, calc(11.5px / var(--pz-dk, 1))); }
 .pz-ghost b { color: var(--text-2); opacity: .7; font-variant-numeric: tabular-nums; }
-.pz-data.tool-only .pz-tiles, .pz-data.tool-only .pz-ladder, .pz-data.tool-only .pz-strip, .pz-data.tool-only .pz-lg { display: none; }
+.pz-data.tool-only .pz-tiles { display: none; }
 .pz-tool .ab-main { display: block; }
 /* The card's own section gap between the readout, the pressure bar and the lab tiles, the same as above the tiles below. */
 .pz-tool .ab-read { gap: var(--pz-gap, 10px); }
@@ -2566,7 +2508,7 @@ button.finding { cursor: pointer; }
 .pz-data > .pz-tool:is([data-kind="doppler"], [data-kind="fibroscan"], [data-kind="beats"]) { width: 100%; }   /* (an instrument; a ladder sets its own lettering to its width, so it keeps the card's) */
 /* (The fluid balance's strip the same: its text is set to the card's zoom (tool-fluid.js), so a narrower block only crowded it.) */
 .pz-data > .pz-tool[data-kind="fluid"] { width: 100%; }
-.pz-data.col > :is(.pz-ladder, .pz-strip, .pz-quad, .pz-tool:not([data-kind="abdomen"]):not([data-kind="doppler"]):not([data-kind="fibroscan"]):not([data-kind="beats"]):not([data-kind="fluid"])) { width: calc(100% * var(--pz-fit, 1) * var(--pz-dk, 1)); margin-inline: auto; }   /* (a chart drawn to the card's width: narrower by the same step, so it is smaller in height too, not only its zoom) */
+.pz-data.col > :is(.pz-quad, .pz-tool:not([data-kind="abdomen"]):not([data-kind="doppler"]):not([data-kind="fibroscan"]):not([data-kind="beats"]):not([data-kind="fluid"])) { width: calc(100% * var(--pz-fit, 1) * var(--pz-dk, 1)); margin-inline: auto; }   /* (a chart drawn to the card's width: narrower by the same step, so it is smaller in height too, not only its zoom) */
 /* A phone's opened (or only) instrument is the one part that gives way when it is taller than the card: the header and tiles stay full size. */
 .pz.stack .pz-data:is(.tool-open, .tool-only) > :not(.pz-tool) { zoom: 1; }
 /* A slide whose card is the instrument alone gets more of the phone's height, so the instrument stays near full size. */
@@ -2604,7 +2546,6 @@ button.finding { cursor: pointer; }
 .pz.stack .pz-panel[data-visual="outline"] .pz-dtitle { font-size: calc(var(--s-big) * .85); }
 .pz.stack .pzo-obj { padding: 12px 14px; border-radius: 14px; }
 .pz-panel[data-visual="outline"] { width: min(1180px, calc(100% - 2 * clamp(16px, calc(3vw / var(--vz)), 64px))); }
-.app.pz-hi .pzl-lead { opacity: .85; }
 .app.pz-hi .pzt-r { align-self: center; padding: .22em .7em; border-radius: var(--r-pill); background: var(--text-2); color: var(--surface); transition: background-color .4s var(--ease), color .4s var(--ease); }
 .app.pz-hi .pz-tile[data-rate="hi"] .pzt-r { background: var(--danger); color: var(--stage-bg); }
 .app.pz-hi .pz-tile[data-rate="mid"] .pzt-r { background: var(--caution); color: var(--on-caution); }
@@ -5284,14 +5225,14 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
 .pz.stack.stack .pz-data.pz-sheet.tool-open { padding-bottom: 10px; }
 /* (The readings move with their card: the margin moves them the card's whole travel, the shift gives back the 24 px of foot it keeps
    showing while tucked.) */
-.pz.stack.stack .pz-data.pz-sheet.pz-sheet > :is(.pz-tiles, .pz-strip) { max-height: none; overflow: visible; opacity: 1; margin-top: 0; margin-inline: calc(var(--pz-in)); transition: opacity .26s var(--ease);
+.pz.stack.stack .pz-data.pz-sheet.pz-sheet > .pz-tiles { max-height: none; overflow: visible; opacity: 1; margin-top: 0; margin-inline: calc(var(--pz-in)); transition: opacity .26s var(--ease);
   translate: 0 calc(24px * (1 - var(--pz-u)));
   --pz-cut: calc(((1 - var(--pz-u)) * (var(--pz-d, 0px) - 24px) + 10px - var(--pz-gap, 6px)) - 14px - var(--pz-o, 0px));
   clip-path: polygon(-60px var(--pz-cut), calc(100% + 60px) var(--pz-cut), calc(100% + 60px) calc(100% + 60px), -60px calc(100% + 60px)); }
-.pz.stack.stack .pz-data.pz-sheet.pz-sheet.pz-sheet > .pz-strip, .pz.stack.stack .pz-data.pz-sheet.pz-sheet.tiles-only > .pz-tiles { margin-top: calc(14px - (1 - var(--pz-u)) * var(--pz-d, 0px)); }
-.pz.stack.stack .pz-data.pz-sheet.pz-sheet > .pz-tiles, .pz.stack.stack .pz-data.pz-sheet.pz-sheet > .pz-strip:has(+ .pz-tiles[data-n="0"]) { margin-bottom: 16px; }
-.pz.stack.stack .pz-data.pz-sheet.pz-sheet.pz-sheet.pz-sliding > :is(.pz-tiles, .pz-strip) { transition: none; }
-.pz.stack.stack .pz-data.pz-sheet.pz-sheet:not(.tool-open):not(.pz-sliding) > :is(.pz-tiles, .pz-strip) { visibility: hidden; }
+.pz.stack.stack .pz-data.pz-sheet.pz-sheet.tiles-only > .pz-tiles { margin-top: calc(14px - (1 - var(--pz-u)) * var(--pz-d, 0px)); }
+.pz.stack.stack .pz-data.pz-sheet.pz-sheet > .pz-tiles { margin-bottom: 16px; }
+.pz.stack.stack .pz-data.pz-sheet.pz-sheet.pz-sheet.pz-sliding > .pz-tiles { transition: none; }
+.pz.stack.stack .pz-data.pz-sheet.pz-sheet:not(.tool-open):not(.pz-sliding) > .pz-tiles { visibility: hidden; }
 /* (The handle rides in the readings' card's foot, tucked or out: --pz-u is copied to it by presenter.js placeLip, frame by frame.) */
 .pz.stack .pz-data.pz-sheet + .pz-lip::before { content: none; }
 .pz.stack .pz-data.pz-sheet.pz-sliding + .pz-lip { margin-top: calc(-24px * var(--pz-u, 0)); transition: opacity .5s var(--ease) .12s, transform .5s var(--ease) .12s; }
@@ -5301,18 +5242,17 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
 .pz.stack.stack .pz-data.pz-sheet:not(.pz-hide) { visibility: visible; transition: transform .5s var(--ease) .12s, visibility 0s linear 0s; }
 .pz.stack.stack .pz-data.pz-sheet::before, .pz.stack.stack .pz-data.pz-sheet::after, .pz.stack.stack .pz-data.pz-sheet > :is(.pz-dh, .pz-tool) { transition: opacity .32s var(--ease); }
 .pz.stack.stack .pz-data.pz-sheet:not(.pz-hide)::before, .pz.stack.stack .pz-data.pz-sheet:not(.pz-hide)::after, .pz.stack.stack .pz-data.pz-sheet:not(.pz-hide) > :is(.pz-dh, .pz-tool) { transition-duration: .5s; transition-delay: .12s; }
-.pz.stack.stack .pz-data.pz-sheet.pz-hide::before, .pz.stack.stack .pz-data.pz-sheet.pz-hide::after, .pz.stack.stack .pz-data.pz-sheet.pz-hide > :is(.pz-dh, .pz-tool, .pz-tiles, .pz-strip) { opacity: 0; }
-.pz.pz-turning .pz-data.pz-sheet::before, .pz.pz-turning .pz-data.pz-sheet::after, .pz.pz-turning .pz-data.pz-sheet > :is(.pz-dh, .pz-strip) { transition: none !important; }
+.pz.stack.stack .pz-data.pz-sheet.pz-hide::before, .pz.stack.stack .pz-data.pz-sheet.pz-hide::after, .pz.stack.stack .pz-data.pz-sheet.pz-hide > :is(.pz-dh, .pz-tool, .pz-tiles) { opacity: 0; }
+.pz.pz-turning .pz-data.pz-sheet::before, .pz.pz-turning .pz-data.pz-sheet::after, .pz.pz-turning .pz-data.pz-sheet > .pz-dh { transition: none !important; }
 @media (prefers-reduced-motion: reduce) {
   .pz.stack.stack > .pz-data.pz-sheet.pz-hide { transition: visibility 0s linear .3s !important; }
-  .pz.stack.stack > .pz-data.pz-sheet::before, .pz.stack.stack > .pz-data.pz-sheet::after, .pz.stack.stack > .pz-data.pz-sheet > :is(.pz-dh, .pz-tool, .pz-tiles, .pz-strip) { transition: opacity .3s var(--ease) !important; }
+  .pz.stack.stack > .pz-data.pz-sheet::before, .pz.stack.stack > .pz-data.pz-sheet::after, .pz.stack.stack > .pz-data.pz-sheet > :is(.pz-dh, .pz-tool, .pz-tiles) { transition: opacity .3s var(--ease) !important; }
 }
 @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) { .pz.stack.stack .pz-data.pz-sheet::before, .pz.stack.stack .pz-data.pz-sheet::after { background: color-mix(in srgb, var(--surface) 96%, transparent); } }
 @media (prefers-reduced-transparency: reduce) { .pz.stack.stack .pz-data.pz-sheet::before, .pz.stack.stack .pz-data.pz-sheet::after { background: var(--surface-2); -webkit-backdrop-filter: none; backdrop-filter: none; } }
 /* Mac and iPad landscape: when even the smallest steps leave the pair too tall, the instrument folds behind Show as on a phone
    (presenter.js layout, pz-folds), its tiles in a row at the card's full width; Show fades it in, Hide out. */
 .pz:not(.stack):not(.low) .pz-data.pz-folds .pz-dh { position: relative; padding-inline: max(64px, calc(var(--pz-chip-em, 0) * 1em + 24px / var(--pz-z, 1) + 10px)); }   /* (the chip's own width, its words (presenter.js chipRoom), padding and edge, and 8 px) */
-.pz:not(.stack):not(.low) .pz-data.pz-folds:not(.has-tool) { padding-block: calc(var(--pz-cp) / 2); }   /* (a ladder folded at a larger text size: half the padding above and below, so its strip has the room when shown) */
 .pz:not(.stack):not(.low) .pz-data.pz-folds .pz-dh > .pz-fold { display: inline-flex; align-items: center; position: absolute; right: -2px; top: 50%; translate: 0 -50%; min-height: 24px; margin: 0; padding: 0 10px; border: 1px solid var(--border); border-radius: 999px; background: var(--surface); color: var(--accent); font: inherit; letter-spacing: .05em; cursor: pointer; }
 /* (Show and Hide on a wide screen: the nav pill's frosted glass, ink text, 28 px tall as drawn whatever the header's zoom, a 44 px target.) */
 .pz:not(.stack):not(.low) .pz-data.pz-folds .pz-dh > .pz-fold { --pz-glass-edge: color-mix(in srgb, var(--white) 45%, transparent); --pz-glass-drop: rgb(var(--black-rgb) / .14);
@@ -5326,35 +5266,15 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
 .app.pz-hi .pz:not(.stack):not(.low) .pz-data.pz-folds .pz-dh > .pz-fold { background: color-mix(in srgb, var(--surface) 92%, transparent); border-color: color-mix(in srgb, var(--text) 32%, transparent); }
 /* (A folded ladder card with nothing else in it: its name and Show in the teaching card's foot (presenter.js footFold), the card itself
    out of view until it is opened, and then without a chip of its own: the foot's button reads Hide. Critique A7, 17 Oct.) */
-.pz:not(.stack):not(.low) .pz-data.pz-folds.pz-footfold:not(.tool-open) { opacity: 0 !important; pointer-events: none; }
-.pz-data.pz-folds.pz-foldstrip:not(.tool-open) > :is(.pz-strip, .pz-ladder, .pz-lg) { display: none; }   /* (its strip too small to read beside a folded instrument: Show opens both, presenter.js layout) */
-.pz:not(.stack):not(.low) .pz-data.pz-folds.pz-footfold .pz-dh > .pz-fold { display: none; }
-.pz:not(.stack):not(.low) .pz-data.pz-folds.pz-footfold .pz-dh { padding-inline: 0; }
-.pz-tfold { display: none; }
-.pz:not(.stack):not(.low) .pz-text > .pz-tfold { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 0; }
-.pz-tfold .pz-sub { margin: 0; }
-.pz-tfold-b { position: relative; flex: none; display: inline-flex; align-items: center; min-height: 28px; padding: 0 12px; border: 1px solid var(--border); border-radius: 999px; background: var(--surface); color: var(--accent); font: 600 max(12px, var(--s-cap))/1 var(--font-ui); cursor: pointer; -webkit-tap-highlight-color: transparent; transition: background-color .22s var(--ease); }
-.pz-tfold-b::before { content: ''; position: absolute; inset: -8px -4px; }   /* (a 44 px target round a 28 px chip) */
-@media (hover: hover) { .pz-tfold-b:hover { background: var(--surface-2); } }
-.app.pz-hi .pz-tfold-b { color: var(--text); border-color: color-mix(in srgb, var(--text) 32%, transparent); }
 .pz:not(.stack):not(.low) .pz-data.pz-folds > .pz-tool { overflow: hidden; transition: opacity .26s var(--ease); }   /* (the card takes its new size at once, a solid object, never easing its size in view; the instrument fades in) */
 .pz:not(.stack):not(.low) .pz-data.pz-folds:not(.tool-open) > .pz-tool { max-height: 0; opacity: 0; margin-bottom: calc(-1 * var(--pz-gap)); }
 /* (A ladder card folds its plot (or strip) and key the same way, at once: its tiles stay in a row under the header with the readings.
    Shown, the plot takes the tiles' place, as a phone's lead instrument does: the room holds one or the other, never both squeezed.) */
-.pz:not(.stack):not(.low) .pz-data.pz-folds:not(.has-tool):not(.tool-open) > :is(.pz-ladder, .pz-strip), .pz:not(.stack):not(.low) .pz-data.pz-folds:not(.has-tool):not(.tool-open) .pz-lg { display: none; }
-.pz:not(.stack):not(.low) .pz-data.pz-folds.tool-open:not(.has-tool) > .pz-tiles { display: none; }
-.pz:not(.stack):not(.low) .pz-data.pz-folds.tool-open:not(.has-tool) > .pz-strip { width: 100%; zoom: 1; }   /* (the strip at the card's full width, its words in one row: squeezed by the fit, it stood its labels on end and grew taller) */
 /* (Shown on a wide screen: the unit goes in the header, so it never drops to the brackets' row away from its readings; the drop
    lines are solid hairlines, not rows of dots.) */
-.pz:not(.stack):not(.low) .pz-data.pz-folds.tool-open:not(.has-tool) .pzs-u, .pz.stack .pz-data:not(.tiles-only):not(.tool-only) > .pz-strip .pzs-u { display: none; }
-.pz:not(.stack):not(.low) .pz-data.pz-folds.tool-open:not(.has-tool) .pz-dh > span:first-child::after,
-.pz.stack .pz-data:not(.tiles-only):not(.tool-only):has(> .pz-strip) .pz-dh > span:first-child::after { content: ' (mmHg)'; text-transform: none; letter-spacing: normal; }   /* (a phone's strip too: its unit had sat alone on a line at the right) */
 /* (A phone on its side shows the compact strip too, which draws no dashed healthy line: no Patient/Healthy key, and its unit in the
    header as upright, not alone under RA. Critique I8, 17 Oct.) */
-.pz.low .pz-data:not(.tiles-only):not(.tool-only):not(.has-tool) .pz-lg, .pz.low .pz-data:not(.tiles-only):not(.tool-only):not(.has-tool) > .pz-strip .pzs-u { display: none; }
-.pz.low .pz-data:not(.tiles-only):not(.tool-only):not(.has-tool) .pz-dh > span:first-child::after { content: ' (mmHg)'; text-transform: none; letter-spacing: normal; }
 /* (Folded, the tile at the card's full width keeps its scale bar 12 px from its sides and 8 px under its numbers, as drawn.) */
-.pz:not(.stack):not(.low) .pz-data.pz-folds:not(.has-tool):not(.tool-open) > .pz-tiles .pz-tile:has(.pzt-bar) { padding-inline: calc(13px / var(--pz-z, 1)); padding-bottom: calc(10px / var(--pz-z, 1)); }
 /* (An instrument alone, or over a ladder, is the same screen at the card's full width.) */
 .pz:not(.stack):not(.low) .pz-data.has-tool > .pz-tool { --bs: var(--pz-sm); container-type: inline-size; }
 .pz:not(.stack):not(.low) .pz-data.has-tool:not(.pz-beside) > .pz-tool > .pz-ghost { display: none; }
@@ -5371,14 +5291,8 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
 /* A ladder card on a laptop or tablet: the ladder's words at the cards' sizes (presenter.js fitNow reads --ch-<role>), never
    zoomed; the ladder takes the card's width and the fit shortens only its plot (presenter.js LADDER_FILL). With a tile, the
    tile stands beside it, as beside an instrument; with an instrument, the instrument above it. */
-.pz:not(.stack):not(.low) .pz-data:not(.tiles-only) { container: pzd / inline-size; --ch-cap: var(--pz-sm); --ch-lab: calc(var(--pz-sm) * 1.5); }
-.pz:not(.stack):not(.low) .pz-data:not(.tiles-only) > * { zoom: var(--pz-z, 1); }
-.pz:not(.stack):not(.low) .pz-data:not(.tiles-only) > .pz-ladder.pz-ladder.pz-ladder { width: 100%; height: calc(var(--lad-fixed, 130px) + var(--lp, 34cqi) * var(--pz-fit, 1) * var(--pz-fit, 1)); margin-inline: 0; }   /* (the lettering's height, then the plot: the plot alone shortens, faster than the fit) */
-.pz:not(.stack):not(.low) .pz-data.has-tool:not(.tiles-only) > .pz-ladder { --lp: 26cqi; }
-.pz:not(.stack):not(.low) .pz-data.pz-beside > .pz-ladder { grid-column: 1 / 2; grid-row: 2; align-self: center; --lp: 28cqi; }
 .pz:not(.stack):not(.low) .pz-data > .pz-dh { font-size: var(--pz-sm); }   /* (a card's title and its key at the cards' one small size, on one line where it fits) */
 .pz:not(.stack):not(.low) .pz-data > .pz-dh { zoom: var(--pz-z, 1); }   /* (every card's title at one size) */
-.pz:not(.stack) .pz-panel.fill:has(> .pz-grid > .pz-cell.strip) { height: auto; }   /* (six ladders drawn as strips: the panel wraps them, no empty half under the grid) */
 .pz:not(.stack):not(.low) .pz-data.pz-beside > .pz-tool:not([data-kind]) { display: none; }   /* (a ladder with its tile: no instrument, so its empty slot takes no room) */
 /* The talk-so-far chart: drawn at its own pixels in the cards' one small size (presenter-tools.js talkTrace); the card's fit
    shortens the chart, never its words. */
@@ -5389,9 +5303,6 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
 .pz:not(.stack) .pz-tool[data-kind="talk"] .pz-talk { --talk-h: min(80cqi, calc(46 * var(--pzh))); }
 .pz:not(.stack):not(.low) .pz-data > .pz-tool[data-kind="talk"] { zoom: var(--pz-z, 1); container-type: inline-size; }
 .pz:not(.stack):not(.low) .pz-data.pz-beside[data-tn="1"] > .pz-tiles:not([data-n="0"]) { align-self: center; grid-auto-rows: auto; }   /* (one tile beside a picture: its own height, centred on it, not a tall empty box) */
-.pz:not(.stack):not(.low) .pz-data.pz-beside:not(.tiles-only):not(.has-tool) { grid-template-columns: minmax(0, 1fr) max(104px, 28%); }   /* (a ladder's tile column a little narrower: the ladder keeps its station names on one row) */
-.pz:not(.stack):not(.low) .pz-data.pz-beside:not(.tiles-only):not(.has-tool) .pz-tiles .pzt-k { white-space: normal; text-wrap: balance; }
-.pz:not(.stack):not(.low) .pz-data.has-tool:not(.tiles-only):not(.pz-beside) > .pz-tool[data-kind="doppler"] .dop-box { min-height: calc((34cqi + var(--dop-free, 0px)) * var(--pz-fit, 1)); }   /* (a Doppler over a ladder: its trace stays a trace) */
 .pz:not(.stack):not(.low) .pz-data.pz-beside > .pz-grip { grid-area: auto; }   /* (placed on the grid, an absolute part takes its grid area as its box: the grip sat inside the tiles; auto puts it at the card's own edge) */
 /* (The reading, the flow's direction and the waveform's name sit in the monitor's top strip, as a scanner shows its
    measurements: "28 cm/s  ● Hepatopetal · Phasic". The trace takes the rows they used to fill (--dop-free); doppler.js reads
@@ -6369,10 +6280,6 @@ html.thumb-ui .menu.from-dock { clip-path: inset(-64px -64px calc(var(--sink, 0p
 .pz-cite { margin: .4em 0 0; font: 400 var(--s-cap)/1.4 var(--font-ui); color: var(--text-3); text-wrap: pretty; }
 .pz:is(.stack, .low) .pz-text .pz-cite { font-size: max(12px, calc(var(--s-lab) * .8)); }
 /* V24: the ladder's earlier state, a faint solid line behind the patient's (the healthy line is dashed), named "Before". */
-.pzl-from { fill: none; stroke: var(--text-3); stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round; stroke-opacity: .8; transition: opacity .4s var(--ease); }   /* (3:1 or more on the card in every theme, thinner than the patient's) */
-.pz-lg-from { display: inline-flex; align-items: center; gap: .45em; }
-.pz-lg-from[hidden] { display: none; }
-.pz-lg i.from { width: 1.4em; height: 2.5px; border-radius: 2px; margin-left: .5em; background: color-mix(in srgb, var(--text-3) 80%, transparent); }
 /* V15: one row in focus (focusRow). */
 /* (The other rows recede in colour, never below 4.5:1: their names and numbers in the third text colour; the row in focus keeps full ink on a tint.) */
 .pz-table.pzv-focused tbody tr:not(.pzv-focus) :is(.tn, td.num) { color: var(--text-3); }

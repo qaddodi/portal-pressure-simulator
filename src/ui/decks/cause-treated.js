@@ -54,7 +54,7 @@ export const CAUSE_TREATED = {
       ask: ['Does he still need liver cancer surveillance?', 'Yes, every 6 months: cirrhosis was present before the cure, and the cancer risk remains.'],
     },
     {
-      id: 'high', preset: 'csph', params: { cirrhosis: 0.75 }, days: 365, cam: 'liver', data: 'ladder', key: ['hvpg'], tiles: ['varix', 'asc'],
+      id: 'high', preset: 'csph', params: { cirrhosis: 0.75 }, days: 365, cam: 'liver', tool: { kind: 'profile' }, data: 'tiles', key: ['hvpg'], tiles: ['varix', 'asc'],
       kicker: HIGH, site: 'sin', title: 'A higher HVPG before cure',
       vignette: 'A 58-year-old woman with hepatitis C cirrhosis from a transfusion in 1987 starts sofosbuvir and velpatasvir. EGD shows large varices, and ultrasound shows a little ascites she has not noticed.',
       line: 'With an HVPG of {hvpg}, large varices and fluid seen only on ultrasound, she starts carvedilol with the antivirals.',
@@ -63,7 +63,7 @@ export const CAUSE_TREATED = {
       ask: ['Ascites seen only on ultrasound: is she decompensated?', 'No: only clinically evident ascites marks decompensation, though even a little fluid on ultrasound carries a worse outlook.'],
     },
     {
-      id: 'high2', days: 730, ramp: { cirrhosis: [0.75, 0.57] }, lapse: { seconds: 10, from: 'Cure', to: 'Two years later' }, cam: 'liver', data: 'ladder', key: ['hvpg'], tiles: ['lsm', 'varix'], delta: 'high',
+      id: 'high2', days: 730, ramp: { cirrhosis: [0.75, 0.57] }, lapse: { seconds: 10, from: 'Cure', to: 'Two years later' }, cam: 'liver', tool: { kind: 'profile' }, data: 'tiles', key: ['hvpg'], tiles: ['lsm', 'varix'], delta: 'high',
       kicker: HIGH, site: 'sin', title: 'Two years after cure, CSPH persists',
       line: 'Two years after cure the HVPG is still {hvpg}, at or above {>=10 mmHg}, so CSPH persists and she keeps carvedilol.',
       notes: 'When the HVPG starts well above 10 mmHg, CSPH often persists after cure, and so does the risk of decompensation. She keeps carvedilol and liver cancer surveillance every 6 months. Her stiffness, still in the gray zone, cannot tell on its own whether CSPH has gone.',

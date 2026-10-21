@@ -13,7 +13,7 @@ const source = ['index.html', ...walk('src').filter((f) => f.endsWith('.js')), .
 
 // Built from a prefix in the code: stage.js (organ-, tone-, od-), sinusoid-view.js (sv-region-, sv-lead-), lobule-zoom.js
 // (z1–z3), main.js (tool-), stage.js labels (k-), presenter.js (pzs-).
-const BUILT = [/^organ-/, /^tone-/, /^od-/, /^sv-region-/, /^sv-lead-/, /^z\d$/, /^tool-/, /^k-/, /^pzs-/];
+const BUILT = [/^organ-/, /^tone-/, /^od-/, /^sv-region-/, /^sv-lead-/, /^z\d$/, /^tool-/, /^k-/];
 // Named by the browser checks and kept with them.
 const KEPT = new Set(['hv-main', 'pz-deck', 'pzb-go']);
 

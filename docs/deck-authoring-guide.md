@@ -89,7 +89,7 @@ Every field is optional unless marked. Fields are grouped by what they do. Unkno
 
 ### 3.4 The data card (section 7)
 
-`data`, `tiles`, `key`, `delta`, `brackets`, `block`, `fold`, `dataTitle`, `tool`, `visual` (+ `cols`, `asc`, `rowHead`, `note`, `vs`, `foot`, `calm`, `of`, `scale`), `compare`, `whatIf`; opt-in: `ladderFrom`, `ladderFromLabel` (7.1), `wave`, `waveMax`, `focusRow` (7.3).
+`data`, `tiles`, `key`, `delta`, `dataTitle`, `tool`, `visual` (+ `cols`, `asc`, `rowHead`, `note`, `vs`, `foot`, `calm`, `of`, `scale`), `compare`, `whatIf`; opt-in: `wave`, `waveMax`, `focusRow` (7.3).
 
 ### Slide order and carry-over
 
@@ -173,7 +173,7 @@ Use it where the colour is the point of the slide (a reversed branch on `'direct
 
 `labels: ['CONF', 'SIN_R', 'RHV', 'RA']`: the stations named on the anatomy figure (none shown if absent; **only the stations you list, plus those your terms point at, appear**). `tint: ['imv']` takes the colour of a target's station label although the line never names it (the label is on, in its station colour). Valid ids are node ids (section 8.4). Only labels the anatomy draws appear. On the circuit view the labels are the circuit's own.
 `VAR` (esophageal varices) is hidden when the patient has no varices; `GV` is hidden when there are no fundal varices.
-On ladder (`data: 'ladder'`) and catheter (`cath`) slides the figure automatically renames to "Right sinusoids · WHVP" and "Right hepatic vein · FHVP".
+On Gut to heart chart (`tool: { kind: 'profile' }`) and catheter (`cath`) slides the figure automatically renames to "Right sinusoids · WHVP" and "Right hepatic vein · FHVP".
 
 ### 5.5 Glow, highlights and term pills
 
@@ -242,7 +242,7 @@ All figure-only (no `visual`). Organ outlines, the normal spleen, organ marks, c
 
 ### 6.1 Live values: `{token}`
 
-`{pv}` in a `line` is replaced by the model's **live reading for that slide**, in a pill, with its tile's decimals (one for pressures). This holds on ladder slides too: the ladder reads whole mmHg and its brackets are the difference of the whole readings, so `{pv}` can read "18.3 mmHg" beside a rung of 18, and `{hvpg}` can differ from the bracket by a little. On a time-lapse slide a token reads the end state (section 4). The pill takes the station colour where one exists (`pv`, `whvp`, `sin`, `fhvp`, `ivc`, `ra`); sizes (`spleen`, `varix`, `gv`) take their status colour (amber/red). Prefer a live token over a typed number so it cannot drift.
+`{pv}` in a `line` is replaced by the model's **live reading for that slide**, in a pill, with its tile's decimals (one for pressures). This holds on chart slides too: the chart reads whole mmHg and its brackets round the true HVPG and PPG, so `{pv}` can read "18.3 mmHg" beside a reading of 18, and a bracket can be 1 off the difference of the two whole readings it spans. On a time-lapse slide a token reads the end state (section 4). The pill takes the station colour where one exists (`pv`, `whvp`, `sin`, `fhvp`, `ivc`, `ra`); sizes (`spleen`, `varix`, `gv`) take their status colour (amber/red). Prefer a live token over a typed number so it cannot drift.
 
 Valid tokens (the tile keys, section 8.6): `hvpg ppg pv sin whvp fhvp saag tp asc varix gv spleen plt pvFlow pvVel liver shunt map hr lsm ra salb ivc hb co bv`. `{ppg@before}` reads the value at another slide of the deck (here the slide with `id: 'before'`), for "the PPG falls from {ppg@before} to {ppg}". A typed `{6 to 8 g}` is drawn as an outlined rule pill, never as the patient: for the patient's number use a live token.
 
@@ -325,15 +325,11 @@ Inside the liver (the view's own label takes the colour with a soft glow; use wi
 
 ### 7.1 `data`
 
-* `data: 'ladder'`: the pressure ladder (portal vein → WHVP → FHVP → IVC → RA) with HVPG and PPG brackets and the station key. Use `key: ['hvpg','ppg']` to highlight rungs/brackets.
+* The pressure ladder is the Gut to heart chart, `tool: { kind: 'profile' }` (section 7.2): one chart on every card since 21 Oct. An old `data: 'ladder'` slide (an imported or captured deck) is read as that chart, its `ladderFrom`/`ladderFromLabel` as the chart's `from`/`fromLabel`; `brackets` and `block` are dropped. `key: ['hvpg','ppg']` still bolds those names in the words.
 * `data: 'tiles'`: readout tiles only. `tiles: [..]` picks them (section 8.6); `key: [..]` highlights tiles (and bolds their words in the line).
 * `delta`: shows each tile's change from another state: `true` (from the slide before), `false` (none), or **a slide `id`** (change from that slide's state). A slide that changes the same patient (no `preset`) counts from the slide before unless it says `delta: false`.
-* `brackets: { hvpg | ppg: 'misleads' | 'works' }`: colours the ladder's bracket red (misleads) or green (works). Used for "the HVPG misses it" / "the PPG finds it".
-* `block: 'pv' | 'whvp' | 'fhvp' | 'ivc' | 'ra'` on a ladder slide marks the station where pressure is lost with the ladder's bold red diagonal hatching on that node (no text). Heart-failure slides use `block: 'ra'`. Leave it off ladders of a healthy or sinusoidal patient.
-* `tiles` and `key` can also accompany `data: 'ladder'` (a slide with `data: 'ladder'` and `tiles` shows both).
-* `dataTitle` renames the tiles or instrument card ("Circulation at 24 weeks"); a ladder card is always "Pressure, portal vein to heart".
-* `ladderFrom: true | '<slide id>'` on a ladder slide draws that state as a solid grey line behind the patient's (Mac and iPad; the phone's strip draws no lines); `ladderFromLabel: 'No Rx'` names it in the legend (default "Before").
-* `fold: false` on a ladder slide: the ladder never folds its plot away behind Show (Sites uses it on its postsinusoidal slide).
+* A chart slide can carry tiles too: `tool: { kind: 'profile' }, data: 'tiles', tiles: [..]` puts the tiles beside it. Leave HVPG and PPG out: the chart's brackets show them.
+* `dataTitle` renames the tiles or instrument card ("Circulation at 24 weeks"); the chart's card is "Pressure, gut to heart".
 * Each tile has a scale bar coloured by its rating, a ring where it started and a dot where it is now, with "from X" or "No change" when it shows a change. After TIPS the PPG tile reads "Target met" (below 12 mmHg) or "Above target" instead of its usual rating.
 
 ### 7.2 `tool`: an instrument in the card (above the tiles if `data` is also set)
@@ -354,7 +350,7 @@ Inside the liver (the view's own label takes the colour with a soft glow; use wi
 | `style: 'milestones'` on `trace` (`range: 'talk'`) | opt-in: the HVPG line alone in its cut-off colours, with the slides that set `milestone: 'Dx'` (a short name: `'Carvedilol'`, `'TIPS'`, `'Clot'`) named over it |
 | `since: '<slide id>'` on `trace` (`range: 'talk'`) | opt-in: the chart starts at that slide's state and counts its days from there, so a deck that moves on to a new patient charts only that patient (a slide's `when` words its time point) |
 | `bands: [keys]` on `trace` (`range: 'talk'`) or `flowtime` | opt-in: a soft band per treatment while it was on, named once. Keys `carvedilol propranolol terlipressin octreotide anticoag diuretics tips dips` |
-| `{ kind: 'profile', from? }` | opt-in: the pressure from gut to heart through eight stations (the liver's three named Pre, Intra and Post under one "Sinusoidal" brace; Intra shows the wedged pressure), the healthy line dashed, HVPG and PPG brackets inside the plot in their cut-off colours, each label inside its bracket. The chart keeps the card's full width and 12 px type; the card's fit only shortens it. `from: true` (the slide before) or a slide id adds a dotted "Before" line |
+| `{ kind: 'profile', from? }` | opt-in: the pressure from gut to heart through eight stations (the liver's three named Pre, Intra and Post under one "Sinusoidal" brace; Intra shows the wedged pressure), the healthy line dashed, HVPG and PPG brackets inside the plot in their cut-off colours, each label inside its bracket. The chart keeps the card's full width and 12 px type; the card's fit only shortens it. `from: true` (the slide before) or a slide id adds a dotted "Before" line; `fromLabel: 'No Rx'` names it otherwise |
 | `{ kind: 'flows', of? }` | opt-in: two bars close together, each named at its left. "Now" is all the portal blood: the liver's segment first, then one segment per bypass route in its vessel colour, largest first. "Healthy", just above it and as tall, is the healthy model's split (the same baseline as the profile's dashed line) in the same order and colours, so each segment compares straight down. Each segment's name and percent sit on the segment in text with a halo; a Now name too wide for its segment hangs under the bar on a short leader, never touching another name or leader, and a Healthy segment too narrow for its name shows its percent alone. No colour key; the liver part is 100 less the Shunted tile. The bars take the data card's full width, the slide's tiles under them (never beside them). On a card too narrow for every name (a large text size), the smallest routes join Other until the names fit. While Now reads the same as Healthy (the same routes with the same whole percents) the Now bar and its name fade out and Healthy stands alone; Now fades back in as soon as a slider, button or time-lapse makes it differ. `of: 'inflow'` draws the same pair of bars for the liver's inflow, portal vein then hepatic artery |
 | `{ kind: 'curve', param, from, to, step?, lines, also?, label?, unit?, against? }` | opt-in: one setting across its range against one or two readings (`lines: ['ppg', 'liver']`), cut-offs dashed, a ring where the slide sits; a what-if slider on the same setting moves the rings. `against: { label: 'Carvedilol', params: { drugs: { carvedilol: true } }, own: 'No drug' }` draws the first reading twice on one scale, the slide's own sweep and the same sweep with those params, each named on its line (a key at the top when the card is too small), a ring on each (no marks where the lines cross a cut-off) |
 | `{ kind: 'causes', metric? }` | opt-in: a waterfall of what raises the reading (`metric`: `'ppg'` default, `'hvpg'`, `'pv'`), read top to bottom across the card: a "Healthy" bar at the healthy reading, one step per cause from the running total (right for a rise, left for a fall, its signed mmHg at the step's end, coloured by mechanism: resistance, inflow, heart, shunts, drugs; no key), a grey "Causes together" step for what the causes add only together (and the smaller ones left out), and a "Now" bar at the case's reading in its tile's rating colour. Dashed lines mark the cut-offs (PPG 6 and 12, HVPG 5 and 10, portal 10 and 15), numbered under the chart. At most five causes, fewer when the card is too short for their rows (the rest join "Causes together"); the printed numbers always add up to the tile's. Steps ease to new places when a compare button or what-if slider moves the model. Word the line for steps, not bars ("a step to the left takes pressure off"). The shares are the model's own: no line may quote them without the owner's OK and a source |
@@ -368,7 +364,7 @@ Inside the liver (the view's own label takes the colour with a soft glow; use wi
 | `visual` | Extra fields |
 |---|---|
 | `'outline'` | **Never write this**; added automatically. |
-| `'ladders'` | `of`: the rows to draw as ladders (slide ids). |
+| `'ladders'` | `of`: the rows to draw, each as its own Gut to heart chart (slide ids). On a phone only the bottom row names the stations. |
 | `'table'` | `cols` (columns), `asc` (show SAAG and protein columns: `true`/`false`; default true only if `cols` is absent), `rowHead` (first column heading, default `'Level'`), `note` (heading of a text column, or an array of headings), `vs: 'first'` (arrows against the first row), `foot` (one sentence after the legend), `calm: [cols]` (changes in those columns are neither better nor worse: no green or red, as a meal's small PPG rise), `of` (rows). Pressures print in whole mmHg. A tap on a row goes to its slide; a tap on a heading shows its cut-offs. |
 | `'scale'` | `scale: { key, max, low, marks: [[value, words, shortName?], …], sub?, rules? }`. One number on a banded axis, each row a numbered dot. `max` defaults to 20; `low` names the first band and each mark's `shortName` (else its `words`) the band above it. `sub` adds readings under each row (a tile key or a list, `['hvpg', 'plt']`). `rules: [..]` prints each band's rule in words under the axis (Stiffness). |
 | `'quadrant'` | SAAG × protein quadrant (`of`: rows; a row with no ascites is left out). |
@@ -379,7 +375,7 @@ Opt-in table column: `wave` (about two beats of each row's Doppler, `wave: 'PV_T
 
 Table column keys (`cols`): `pv whvp fhvp ivc ra hvpg ppg sin varix asc liver shunt saag tp plt lsm spleen map hr hb pvFlow res` (the keys of `COLS` in `src/ui/table-marks.js`). Any other key prints its raw name as the heading with no cut-offs, and `tests/deck-review-bugs.test.js` fails it: give every column a `COLS` heading. Default `cols`: `['pv','whvp','fhvp','ivc','ra','hvpg','ppg']`.
 
-**`of` rows** are slide ids (strings, or `{ id, title?, kicker?, note?, … }` to relabel a row) or patients no slide shows: `{ preset, title, kicker?, note?, blank?: [columns], ref?: true }`. `title` labels a row in tables and ladders; `name` labels it on a scale or quadrant (default: its title). `ref: true` marks a reference row (keeps its numbers); a row's `vs` (a slide id, or another row's `key`) compares it with that row instead; `note` is the text column's words (string, or array for several note columns); `blank: [cols]` shows "not measurable" for those columns; `calm: [cols]` as on the slide, for that row only; `site` colours the row label (default: the slide's); `block` hatches a station on that row's ladder (default: the slide's). Extra patients can also carry `params` and `days`.
+**`of` rows** are slide ids (strings, or `{ id, title?, kicker?, note?, … }` to relabel a row) or patients no slide shows: `{ preset, title, kicker?, note?, blank?: [columns], ref?: true }`. `title` labels a row in tables and ladders; `name` labels it on a scale or quadrant (default: its title). `ref: true` marks a reference row (keeps its numbers); a row's `vs` (a slide id, or another row's `key`) compares it with that row instead; `note` is the text column's words (string, or array for several note columns); `blank: [cols]` shows "not measurable" for those columns; `calm: [cols]` as on the slide, for that row only; `site` colours the row label (default: the slide's). Extra patients can also carry `params` and `days`.
 
 Visuals may also carry `cam` (how the dimmed figure is framed).
 
@@ -393,7 +389,7 @@ Visuals may also carry `cam` (how the dimmed figure is framed).
 
 On a stent Doppler slide, `{ label, gate, own? }` buttons move the Doppler's gate (`'proximal'`, `'mid'`, `'distal'`, `'site'`) without touching the model (TIPS Doppler).
 
-A button can name another patient instead: `compare: [{ label: 'Normal heart', preset: 'healthy' }, { label: 'Failing heart', own: true }]`. The live model eases to that patient (computed with the slide's states), and the `own` button eases back to the slide's exact state. The ladder's station `block` shows only on the slide's own state, unless the patient option names its own `block` (Sites, Right heart failure).
+A button can name another patient instead: `compare: [{ label: 'Normal heart', preset: 'healthy' }, { label: 'Failing heart', own: true }]`. The live model eases to that patient (computed with the slide's states), and the `own` button eases back to the slide's exact state.
 
 ---
 
@@ -621,7 +617,7 @@ export const MYDECK = {
       // glow: ['liver', 'C3'], glowSeq: 550,
       // mark: { edges: ['PV_TRUNK'], label: 'Clot', kind: 'block' },   // 'block' | 'treat' | 'note'
       // sites: ['pv'], cath: 'result', monitor: 'result',
-      data: 'tiles', tiles: ['pv', 'hvpg'], key: ['pv'], // or data: 'ladder', key: ['hvpg', 'ppg']
+      data: 'tiles', tiles: ['pv', 'hvpg'], key: ['pv'], // or tool: { kind: 'profile' }, key: ['hvpg', 'ppg']
       // delta: true, tool: { kind: 'doppler', vessel: 'PV_TRUNK' }, whatIf: { label: 'Clot size', param: 'thrombus.PV_TRUNK', min: 0, max: 1, step: 0.05, ends: ['None', 'Occluded'] },
       kicker: 'Group name', site: 'pre', title: 'A headline that stands alone',
       line: 'Under 45 words with [portal vein](pv) pointing at the figure and the live value {pv}, above {>=10 mmHg} the rule.',
@@ -679,7 +675,7 @@ export const CLOT_DEMO = {
       ask: ['What is the first treatment?', 'Anticoagulation, started at once.'],
     },
     {
-      id: 'cath', cath: 'result', data: 'ladder', key: ['hvpg', 'ppg'], tiles: ['hvpg', 'ppg'], brackets: { hvpg: 'misleads', ppg: 'works' },
+      id: 'cath', cath: 'result', tool: { kind: 'profile' }, key: ['hvpg', 'ppg'],
       eq: [mi('PPG') + mo('=') + sub(mi('P'), 'portal vein') + mo('−') + sub(mi('P'), 'IVC'), 'Portal pressure gradient: the whole fall from the portal vein to the IVC'],
       kicker: 'Acute thrombosis', site: 'pre', title: 'The HVPG misses it',
       line: 'The resistance is before the liver, so the wedged and free hepatic pressures stay normal and the HVPG reads {hvpg}. The PPG, {ppg}, finds it.',
@@ -758,7 +754,7 @@ Script file (`*.pps-script.json`):
 ```
 
 * Only those step fields are read (`preset presetDays params action days view cam kicker title line causes site notes ask key`; `tell` works as an alias of `notes`). Everything else is **dropped silently**: `labels terms glow mark tiles tool visual compare lapse ramp cath sites layers callout eq delta` and the `{live value}` / `[term](target)` markup (shown as plain text).
-* Every imported slide shows the pressure ladder (`data: 'ladder'`) beside the figure, and the camera is `'fit'` on the circuit view.
+* Every imported slide shows the pressure ladder (the Gut to heart chart) beside the figure, and the camera is `'fit'` on the circuit view.
 * Import adds a copy each time with a new id (`my-…`) and never overwrites; "Export" in the same menu writes this format. The deck's Outline slide is added automatically, as for built-in decks.
 
 **Therefore:** paste or choose a deck `.js` to present it in full without changing the app; add it as a code deck (section 12) only to make it built in for everyone.

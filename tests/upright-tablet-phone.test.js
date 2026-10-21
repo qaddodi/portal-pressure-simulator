@@ -66,7 +66,7 @@ test('an upright phone\'s or tablet\'s deck instrument card opens its readings o
   assert.doesNotMatch(css, /pz-sheet:not\(\.tool-open\):not\(\.pz-sliding\)::after \{ visibility: hidden; \}/, 'tucked, its foot is the edge under the card');
   assert.match(css, /\.pz\.stack \.pz-data\.pz-sheet \+ \.pz-lip::before \{ content: none; \}/, 'the handle\'s button draws only the handle');
   // (The readings move with their card and are cut at the instrument card's foot while behind it.)
-  assert.match(css, /> \.pz-strip, \.pz\.stack\.stack \.pz-data\.pz-sheet\.pz-sheet\.tiles-only > \.pz-tiles \{ margin-top: calc\(14px - \(1 - var\(--pz-u\)\) \* var\(--pz-d, 0px\)\); \}/);
+  assert.match(css, /\.pz\.stack\.stack \.pz-data\.pz-sheet\.pz-sheet\.tiles-only > \.pz-tiles \{ margin-top: calc\(14px - \(1 - var\(--pz-u\)\) \* var\(--pz-d, 0px\)\); \}/);
   assert.match(css, /translate: 0 calc\(24px \* \(1 - var\(--pz-u\)\)\);/);
   assert.match(css, /--pz-cut: calc\(\(\(1 - var\(--pz-u\)\) \* \(var\(--pz-d, 0px\) - 24px\) \+ 10px - var\(--pz-gap, 6px\)\) - 14px - var\(--pz-o, 0px\)\);/, 'cut at the instrument card\'s foot');
   assert.match(css, /\.pz\.stack\.stack \.pz-data\.pz-sheet\.tool-open \{ padding-bottom: 10px; \}/, 'the padding never changes');
@@ -80,7 +80,8 @@ test('an upright phone\'s or tablet\'s deck instrument card opens its readings o
   assert.match(js, /l\.style\.top = px\(d\.offsetTop \+ \(sliding && slip\.h0 != null \? slip\.h0 \+ u \* slip\.d : d\.offsetHeight\)\);/);
   // A glass piece inside a fading card loses its blur: the card stays opaque and its parts fade.
   assert.match(css, /\.pz\.stack\.stack \.pz-data\.pz-sheet\.pz-hide \{ opacity: 1; visibility: hidden; transition: transform \.32s var\(--ease\), visibility 0s linear \.32s; \}/);
-  assert.match(css, /\.pz\.stack\.stack \.pz-data\.pz-sheet\.pz-hide::before, \.pz\.stack\.stack \.pz-data\.pz-sheet\.pz-hide::after, \.pz\.stack\.stack \.pz-data\.pz-sheet\.pz-hide > :is\(\.pz-dh, \.pz-tool, \.pz-tiles, \.pz-strip\) \{ opacity: 0; \}/);
+  assert.match(css, /\.pz\.stack\.stack \.pz-data\.pz-sheet\.pz-hide::before, \.pz\.stack\.stack \.pz-data\.pz-sheet\.pz-hide::after, \.pz\.stack\.stack \.pz-data\.pz-sheet\.pz-hide > :is\(\.pz-dh, \.pz-tool, \.pz-tiles\) \{ opacity: 0; \}/);
+  assert.doesNotMatch(css, /pz-strip/, 'no phone ladder strip left to fade');
 });
 
 test('the first close tucks the readings\' card away, the next closes the instrument card', () => {

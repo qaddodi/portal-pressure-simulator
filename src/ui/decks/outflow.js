@@ -34,7 +34,7 @@ export const OUTFLOW = {
       ask: ['Why does the caudate lobe enlarge in Budd–Chiari syndrome?', 'Its veins drain straight into the IVC, below the resistance, so it keeps its outflow and grows.'],
     },
     {
-      id: 'nowedge', terms: ['hv'], cam: 'hepatic', tool: { kind: 'doppler', vessel: 'RHV_IVC' }, data: 'ladder', key: ['ppg'], brackets: { hvpg: 'misleads', ppg: 'works' },
+      id: 'nowedge', terms: ['hv'], cam: 'hepatic', tool: { kind: 'doppler', vessel: 'RHV_IVC' }, data: 'tiles', tiles: ['pv', 'ppg'], key: ['ppg'],
       kicker: 'Hepatic veins', site: 'post', title: 'No hepatic vein to wedge',
       line: 'Doppler shows absent or reversed hepatic vein flow, intrahepatic collaterals and a large caudate lobe. At venography the veins cannot be entered, or they show a spider-web pattern, so the HVPG cannot be measured. Portal pressure is {pv}.',
       notes: 'Doppler ultrasound is the first test: absent or reversed flow in the hepatic veins, intrahepatic collaterals and a large caudate lobe. CT or MR shows the extent and the state of the IVC. At venography the hepatic veins either cannot be entered or show a spider-web pattern of collaterals, so the HVPG cannot be measured in the usual way.',

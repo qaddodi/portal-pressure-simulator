@@ -11,8 +11,16 @@ export const citeOk = (c) => !!citeText(c) && !/\bBaveno\s+VII(?!I)\b/i.test(c);
 /** focusRow: '<slide id>' lights that row; the rest recede. */
 export const focusOf = (s) => (typeof s?.focusRow === 'string' && s.focusRow ? s.focusRow : null);
 
-// ── V24: the ladder's earlier state ─────────────────────────────────────────
-// ladderFrom: true (the slide before) or '<slide id>'. Returns { prev: true } or { id }, or null when the slide does not ask.
-export const ladderFromOf = (s) => (s?.ladderFrom === true ? { prev: true } : typeof s?.ladderFrom === 'string' && s.ladderFrom ? { id: s.ladderFrom } : null);
-/** The legend's name for that line: ladderFromLabel (a few words, such as 'No Rx'), else "Before". */
-export const ladderFromName = (s) => (typeof s?.ladderFromLabel === 'string' && s.ladderFromLabel.trim() ? s.ladderFromLabel.trim() : 'Before');
+// ── One pressure chart ──────────────────────────────────────────────────────
+// A slide written for the old five-station ladder card (data: 'ladder', with brackets, block, ladderFrom: true or '<slide id>' and
+// ladderFromLabel) shows the Gut to heart profile instead, everywhere (Mohammad, 21 Oct: "Gut to heart is good, unify it"): its
+// earlier line becomes the profile's from (named fromLabel, else "Before"), and its tiles stay. A slide that also has an instrument
+// keeps the instrument, with its tiles. Any other slide comes back as it is.
+export function oneLadder(s) {
+  if (s?.data !== 'ladder') return s;
+  const { data, brackets, block, ladderFrom, ladderFromLabel, ...r } = s;   // eslint-disable-line no-unused-vars
+  const from = ladderFrom === true || (typeof ladderFrom === 'string' && ladderFrom) ? ladderFrom : null;
+  const label = typeof ladderFromLabel === 'string' && ladderFromLabel.trim() ? ladderFromLabel.trim() : null;
+  const tool = r.tool || { kind: 'profile', ...(from ? { from } : {}), ...(from && label ? { fromLabel: label } : {}) };
+  return { ...r, tool, ...(r.tiles?.length ? { data: 'tiles' } : {}) };
+}

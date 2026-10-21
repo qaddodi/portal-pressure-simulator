@@ -42,7 +42,7 @@ export const CIRCUIT = withPoints({
       ask: ['Name the two ways the pressure drop across the liver can rise.', 'More flow through it, or more resistance to that flow.'],
     },
     {
-      id: 'where', lens: 'drop', view: C, zone: 'splanchnic', sites: [...R, 'rGut'], terms: ['rGut'], data: 'ladder', key: ['pv', 'hvpg'],
+      id: 'where', lens: 'drop', view: C, zone: 'splanchnic', sites: [...R, 'rGut'], terms: ['rGut'], tool: { kind: 'profile' }, key: ['pv', 'hvpg'],
       kicker: K, title: 'Most of the pressure drop is across the gut arterioles',
       line: 'The gut arterioles take most of the arterial pressure, so little is left by the time blood reaches the portal vein. A healthy liver drops it only a few mmHg more. Colored by pressure drop, the gut arterioles are darkest.',
       notes: 'Mean arterial pressure is about 90 mmHg; the portal vein is under 10. The splanchnic arterioles are the largest resistance in the circuit and they set the portal inflow. Normal sinusoids are wide and many, so the HVPG is 1 to 5 mmHg.',

@@ -11,9 +11,9 @@ test('a phone instrument card shows the instrument first, its readings on a shee
   assert.match(js, /const dd0 = ui\.data, sheet = p && dd0\.classList\.contains\('has-tool'\) && !dd0\.classList\.contains\('tool-only'\);/, 'upright only: on its side the card shows everything');
   assert.match(js, /dd0\.classList\.toggle\('pz-sheet', sheet\);/);
   assert.match(js, /if \(sheet && dd0\.classList\.contains\('tool-open'\) && dd0\.dataset\.openFor !== String\(want\)\) \{ stopUnder\(\); dd0\.classList\.remove\('tool-open'\); \}/, 'each slide arrives partly open');
-  // (Mohammad, 17 Oct: "I thought the Doppler will show first": the sheet holds the tiles, or the strip, never the instrument.)
-  assert.match(js, /\(data\.classList\.contains\('pz-sheet'\) && !data\.classList\.contains\('tool-only'\)\) \? \(tiles\.el\.querySelector\('\.pz-tile'\) \? tiles\.el : ladder\.strip\) : tools\.el\);/);
-  assert.match(css, /\.pz\.stack \.pz-data:is\(\.tool-lead, \.pz-sheet\):not\(\.tool-open\) > :is\(\.pz-tiles, \.pz-strip\) \{ max-height: 0; opacity: 0;/);
+  // (Mohammad, 17 Oct: "I thought the Doppler will show first": the sheet holds the tiles, never the instrument.)
+  assert.match(js, /\(data\.classList\.contains\('pz-sheet'\) && !data\.classList\.contains\('tool-only'\)\) \? tiles\.el : tools\.el\);/);
+  assert.match(css, /\.pz\.stack \.pz-data:is\(\.tool-lead, \.pz-sheet\):not\(\.tool-open\) > \.pz-tiles \{ max-height: 0; opacity: 0;/);
   assert.doesNotMatch(css, /\.pz:is\(\.stack, \.low\) \.pz-data\.has-tool:not\(\.tool-only\):not\(\.tool-open\) \.pz-tool \{ max-height: 0/, 'the instrument never folds away on a phone');
   assert.doesNotMatch(css, /tool-only:has\(\.pz-tool\[data-kind="flowtime"\]\):not\(\.tool-open\) \.pz-tool/, 'nor the after-meal chart alone');
   // (The edge is the card's sibling, kept at its foot: inside the card, its glass clipped it away on an iPhone.)
@@ -62,7 +62,7 @@ test('a sideways phone shows the compact instrument and its tiles together, no s
   assert.match(css, /, \.pz\.stack \.pz-data\.has-tool, \.pz\.low \.pz-data\.has-tool\) \.pz-tool\[data-kind="doppler"\] \.dop-report \{ display: contents; \}/);
   assert.match(css, /\.pz\.low\.low \.pz-data\.has-tool\.has-tool \.pz-tool\[data-kind="doppler"\] \.dop-box \{ min-height: 0; height: 120px; \}/);
   assert.match(css, /\.pz\.low\.low \.pz-data\.has-tool\.has-tool \.pz-tool\[data-kind="beats"\] \.pt-box \{ height: 96px; min-height: 0; \}/);
-  assert.match(css, /\.pz\.stack \.pz-data:is\(\.tool-lead, \.pz-sheet\):not\(\.tool-open\) > :is\(\.pz-tiles, \.pz-strip\)/, 'the tiles fold only upright');
+  assert.match(css, /\.pz\.stack \.pz-data:is\(\.tool-lead, \.pz-sheet\):not\(\.tool-open\) > \.pz-tiles \{/, 'the tiles fold only upright');
 });
 
 // (An upright phone's sheet card waits for its entry hidden by visibility, not opacity, while the slide's camera frames: it still
@@ -224,7 +224,7 @@ test('the ladder\'s box is 1.6 em shorter on every layout, as the chart no longe
 
 // (The title row and the LIVER strip add no size of their own: the ladder keeps its one size per layout, so the card's fit can never feed back into it.)
 test('the ladder\'s size per layout does not depend on its title', () => {
-  const rule = css.match(/\.pz-prof \{[^}]*\}/)?.[0] ?? '';
+  const rule = css.match(/^\.pz-prof \{[^}]*\}/m)?.[0] ?? '';   // (the chart's own rule, not a six-chart grid cell's)
   assert.match(rule, /height: var\(--prof-h, 250px\)/, 'fixed by the layout\'s own --prof-h');
   assert.doesNotMatch(rule, /--pz-fit/, 'never the card\'s fit');
   assert.match(css, /\.pz\.stack\.stack \.pz-prof \{ --prof-h: calc\(min\(74cqi, 270px\) - 1\.6em\); height: var\(--prof-h\); \}/, 'the phone\'s ladder: one size, with its title above');

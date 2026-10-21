@@ -52,13 +52,12 @@ test('a card title never breaks at its hyphen, and a sideways phone takes the sh
   assert.match(ct, /innerHeight <= 500/);
 });
 
-test('the ladder\'s PPG label sits in its first stretch, apart from the HVPG\'s (A6)', () => {
-  assert.match(js, /if \(b\.i0 === 0 && b\.i1 - b\.i0 > 2 && X\(1\) - X\(0\) - w >= 20\) b\.mid = \(X\(0\) \+ X\(1\)\) \/ 2;/);
-});
-
-test('a lone folded ladder moves its Show into the teaching card\'s foot (A7)', () => {
-  assert.match(js, /function footFold\(\)/);
-  assert.match(css, /\.pz-data\.pz-folds\.pz-footfold:not\(\.tool-open\) \{ opacity: 0 !important; pointer-events: none; \}/);
+// (A6 and A7 were the old ladder's: its PPG label's stretch and a lone folded ladder's Show in the teaching card's foot. Both went
+// with the ladder on 21 Oct, one chart everywhere; the Gut to heart chart labels its brackets inside them (tests/deck-charts.test.js)
+// and folds only as an instrument does.)
+test('the old ladder\'s A6 and A7 fixes left nothing behind', () => {
+  assert.doesNotMatch(js, /b\.i0 === 0 && b\.i1 - b\.i0 > 2|function footFold\(\)|pz-tfold/);
+  assert.doesNotMatch(css, /pz-footfold|pz-tfold/);
 });
 
 test('what-if: a label naming the unit shows the bare number, on the label\'s row on a phone (C1, C2)', () => {
