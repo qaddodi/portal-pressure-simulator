@@ -84,3 +84,9 @@ test('the ?perf test switch leaves out the live organs or the GPU picture for a 
   const gl = readFileSync(new URL('../src/ui/veins-gl.js', import.meta.url), 'utf8');
   assert.match(gl, /if \(gpuProbe\.skipGL\) \{ skipped = true; return; \}\n\s+if \(skipped\) \{ skipped = false; full = true; \}/, 'whole again after');
 });
+
+test('a frame interval is timed by the clock when the readout runs, so the steps listed with it ran inside it', () => {
+  const src = readFileSync(new URL('../src/ui/perf-readout.js', import.meta.url), 'utf8');
+  // (External review, 21 Oct: with the frame's shared timestamp a 24 ms frame was listed with 139 ms of Doppler.)
+  assert.match(src, /const tick = \(\) => \{\n\s+const t = performance\.now\(\);\n\s+const parts = gpuProbe\.take\(\)/);
+});

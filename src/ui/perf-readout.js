@@ -103,7 +103,11 @@ export function startPerfReadout({ zoom = () => '?' } = {}) {
     }).observe({ type: PerformanceObserver.supportedEntryTypes?.includes('long-animation-frame') ? 'long-animation-frame' : 'longtask', buffered: false });
   } catch { /* not reported by this browser (Safari): the frame gaps still are */ }
 
-  const tick = (t) => {
+  // (Timed by the clock when this callback runs, not by the frame's shared timestamp: the steps taken here ran since the last call,
+  // so they fall inside the interval they are listed with. With the timestamp, work in other callbacks of a frame was set against
+  // the wrong interval: a 24 ms frame with 139 ms of Doppler in it (external review, 21 Oct).)
+  const tick = () => {
+    const t = performance.now();
     const parts = gpuProbe.take(), notes = gpuProbe.takeNotes(), gauges = gpuProbe.takeGauges(), was = busy;
     if (cur) { Object.assign(cur.gauges, gauges); for (const k of TALLY) if (notes[k]) cur.tally[k] = (cur.tally[k] || 0) + 1; }
     busy = 0; frameAt = t;
