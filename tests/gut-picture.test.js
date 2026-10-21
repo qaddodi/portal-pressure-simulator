@@ -17,11 +17,16 @@ test('the gut picture sits inside the gut group, under its mask and opacity, and
 });
 
 test('the picture is used only while the plate is down, in the look and art it was made from, near its resolution', () => {
-  const ok = fn('gutPicOk');
+  const ok = fn('gutPicOk'), pick = fn('gutPicFor');
   assert.match(ok, /plateOn\(\)/);
-  assert.match(ok, /gutPic\.mut !== gutMut/);
-  assert.match(ok, /gutPic\.look !== gutLook\(\)/);
-  assert.match(ok, /if \(gutPic\.k \* 1\.15 < need \|\| gutPic\.k > need \* 2\) return false;/);
+  assert.match(ok, /const pic = gutPicFor\(vdpr \* CTM\.sc\);\n\s+if \(!pic\) return false;/);
+  // Each kept picture: of the art and colours now, near its resolution (never more than 1.15x softer or 2x sharper).
+  assert.match(pick, /if \(p\.mut !== gutMut \|\| p\.look !== gutLook\(\) \|\| p\.k \* 1\.15 < need \|\| p\.k > need \* 2\) continue;/);
+  // Two are kept at most: the new one and the one before, of the same art and colours (the rest are let go).
+  const mk = fn('makeGutPic');
+  assert.match(mk, /const kept = gutPics\.filter\(\(p\) => p\.mut === mut && p\.look === look && p\.k !== k\)\.slice\(-1\);/);
+  assert.match(mk, /for \(const p of gutPics\) if \(!kept\.includes\(p\)\) for \(const r of p\.runs\) URL\.revokeObjectURL\(r\.url\);\n\s+gutPics = \[\.\.\.kept, gutPic\];/);
+  assert.match(fn('syncGutPic'), /const pic = gutPicFor\(vdpr \* CTM\.sc\);\n\s+if \(pic !== gutPic\) \{ gutPic = pic; gGutPics\.replaceChildren\(\.\.\.pic\.runs\.map\(\(r\) => r\.img\)\); \}/);
   assert.match(ok, /r\.kids\.every\(\(k\) => trOf\(k\) === trOf\(r\.kids\[0\]\)\)/, 'groups drawn as one image move together');
   assert.match(fn('syncGutPic'), /organDimMatrix\(1, plateSat\)/, 'the live grey of a lens is applied to the picture too');
   for (const f of ['drawVeins', 'syncPlateLook']) assert.match(fn(f), /syncGutPic\(\)/, f);

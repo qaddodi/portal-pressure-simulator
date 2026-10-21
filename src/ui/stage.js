@@ -685,7 +685,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const gutKids = () => (gGut ? [...gGut.children].filter((c) => c !== gGutPics) : []);
   const GUT_RECT = [320, 410, 800, 670];   // the gut's mask (#gutHide), in the groups' own frame (the bowel's float of 26 included)
   const GUT_CAP = Math.min(4096 / GUT_RECT[2], 4096 / GUT_RECT[3], Math.sqrt(4.2e6 / (GUT_RECT[2] * GUT_RECT[3])));   // px per unit, at most
-  let gutPic = null, gutPicOn = false, gutPicSeq = 0, gutPicTimer = 0, gutMut = 0, gutLookAt = null, gutLookV = '';
+  let gutPic = null, gutPics = [], gutPicOn = false, gutPicSeq = 0, gutPicTimer = 0, gutMut = 0, gutLookAt = null, gutLookV = '';
   const darkMq = matchMedia('(prefers-color-scheme: dark)');
   const gutPicGrey = s('filter', { id: 'gutPicGrey', filterUnits: 'userSpaceOnUse', x: GUT_RECT[0], y: GUT_RECT[1] - 30, width: GUT_RECT[2], height: GUT_RECT[3] + 30, 'color-interpolation-filters': 'sRGB' });
   const gutPicGreyFx = s('feColorMatrix', { type: 'matrix' });
@@ -3950,25 +3950,40 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   }
   const trOf = (el) => el.getAttribute('transform') || '';
   function gutPicOk() {
-    if (!gutPic || plateOn() || !veins || veins.lost || !CTM || !glWanted(easeInOut(morph)) || gutPic.mut !== gutMut || gutPic.look !== gutLook()) return false;
-    const need = vdpr * CTM.sc;
-    if (gutPic.k * 1.15 < need || gutPic.k > need * 2) return false;
-    return gutPic.runs.every((r) => r.kids.every((k) => trOf(k) === trOf(r.kids[0])));
+    if (plateOn() || !veins || veins.lost || !CTM || !glWanted(easeInOut(morph))) return false;
+    const pic = gutPicFor(vdpr * CTM.sc);
+    if (!pic) return false;
+    return pic.runs.every((r) => r.kids.every((k) => trOf(k) === trOf(r.kids[0])));
+  }
+  // The picture for this zoom among those kept: of the art and colours now, at most 1.15x softer and 2x sharper than the
+  // screen, the closest. Two are kept (the one before stays when a new zoom has one made), so a slide whose camera glides back
+  // out while the organs ease (an ascites slide from a close-up to the whole figure, Mohammad's iPhone ?perf recording, 21 Oct:
+  // "zoomed out past it", 95-120 ms frames with the gut's live paths) still finds the picture made at the zoom it comes back to.
+  function gutPicFor(need) {
+    let best = null;
+    for (const p of gutPics) {
+      if (p.mut !== gutMut || p.look !== gutLook() || p.k * 1.15 < need || p.k > need * 2) continue;
+      if (!best || Math.abs(Math.log(p.k / need)) < Math.abs(Math.log(best.k / need))) best = p;
+    }
+    return best;
   }
   // (For the ?perf readout: why the gut shows its live paths while the organ picture is down.)
   function gutLiveWhy() {
-    if (!gutPic) return 'no picture';
-    if (gutPic.mut !== gutMut) return 'art changed';
-    if (gutPic.look !== gutLook()) return 'colours changed';
-    const need = vdpr * (CTM?.sc || 0);
-    if (gutPic.k * 1.15 < need) return 'zoomed past it';
-    if (gutPic.k > need * 2) return 'zoomed out past it';
+    const pics = gutPics.filter((p) => p.mut === gutMut), need = vdpr * (CTM?.sc || 0);
+    if (!gutPics.length) return 'no picture';
+    if (!pics.length) return 'art changed';
+    const looks = pics.filter((p) => p.look === gutLook());
+    if (!looks.length) return 'colours changed';
+    if (looks.every((p) => p.k * 1.15 < need)) return 'zoomed past it';
+    if (!gutPicFor(need)) return 'zoomed out past it';
     return 'moved apart';
   }
   function syncGutPic() {
     if (!gGut) return;
     const on = gutPicOk();
     if (on) {
+      const pic = gutPicFor(vdpr * CTM.sc);
+      if (pic !== gutPic) { gutPic = pic; gGutPics.replaceChildren(...pic.runs.map((r) => r.img)); }
       for (const r of gutPic.runs) { const t = trOf(r.kids[0]); if (t) putA(r.img, 'transform', t); else r.img.removeAttribute('transform'); }
       // The live grey is each paint's own colour made grey (greyOn): the same grey over the picture, a linear map, as the same.
       const grey = !!greyList && plateSat < 1;
@@ -3992,7 +4007,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const need = vdpr * CTM.sc;
     if (need > GUT_CAP * 1.15) return;   // (zoomed in past what it can hold: the live paths show)
     const k = gutStep(need, GUT_CAP), look = gutLook(), mut = gutMut;   // (the next fixed step at or above the view's: never stretched)
-    if (gutPic && gutPic.mut === mut && gutPic.look === look && gutPic.k === k) return;
+    if (gutPics.some((p) => p.mut === mut && p.look === look && p.k === k)) return;
     const seq = ++gutPicSeq, W = Math.max(1, Math.round(GUT_RECT[2] * k)), H = Math.max(1, Math.round(GUT_RECT[3] * k));
     const ser = new XMLSerializer(), copies = plateCopy.gut, head = plateCopy.head, runs = [];
     try {
@@ -4024,10 +4039,12 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         if (seq !== gutPicSeq || mut !== gutMut) throw new Error('overtaken');
       }
     } catch (e) { for (const r of runs) URL.revokeObjectURL(r.url); throw e; }
-    const old = gutPic;
     gutPic = { k, look, mut, runs: runs.map(({ kids, url, keep }) => ({ kids, url, keep, img: s('image', { href: url, x: GUT_RECT[0], y: GUT_RECT[1], width: GUT_RECT[2], height: GUT_RECT[3], preserveAspectRatio: 'none' }) })) };
     gGutPics.replaceChildren(...gutPic.runs.map((r) => r.img));
-    if (old) for (const r of old.runs) URL.revokeObjectURL(r.url);
+    // (The one before is kept if it is of the same art and colours, for a zoom it may come back to; any other goes.)
+    const kept = gutPics.filter((p) => p.mut === mut && p.look === look && p.k !== k).slice(-1);
+    for (const p of gutPics) if (!kept.includes(p)) for (const r of p.runs) URL.revokeObjectURL(r.url);
+    gutPics = [...kept, gutPic];
     gutPicOn = false; gGutPics.style.display = 'none'; gGut.classList.remove('gut-pic-on');
     syncGutPic();
   }
