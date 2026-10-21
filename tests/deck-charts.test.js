@@ -5,6 +5,7 @@ import './dom-shim.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { DECKS } from '../src/ui/decks.js';
+import { SITES } from '../src/ui/decks/sites.js';
 import { adopted } from './deck-adopted.js';
 import { EXT } from '../src/ui/slide-ext.js';
 import { NODES } from '../src/engine/topology.js';
@@ -27,6 +28,18 @@ test('package B registers its two tools, and no built-in deck uses them or the b
   for (const d of DECKS) for (const s of d.slides) {
     assert.ok(!['profile', 'flows'].includes(s.tool?.kind) || adopted(d, s, `kind:${s.tool.kind}`), `${d.id}/${s.id}`);
     if (!adopted(d, s, 'tool.bands')) assert.equal(s.tool?.bands, undefined, `${d.id}/${s.id} sets bands`);
+  }
+});
+
+test('only Sites 5 opts its profile into the card title and liver label', () => {
+  const presin = SITES.slides.find((s) => s.id === 'presin');
+  assert.equal(presin.tool.title, 'Pressure, gut to heart');
+  assert.equal(presin.tool.liverLabel, true);
+  assert.ok(adopted(SITES, presin, 'tool.liverLabel'));
+  for (const deck of DECKS) for (const slide of deck.slides) if (slide.tool?.kind === 'profile') {
+    const target = deck.id === 'sites' && slide.id === 'presin';
+    assert.equal(!!slide.tool.title, target, `${deck.id}/${slide.id} title`);
+    assert.equal(!!slide.tool.liverLabel, target, `${deck.id}/${slide.id} liver label`);
   }
 });
 

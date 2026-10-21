@@ -4,7 +4,8 @@
 // inside the plot, each label inside its bracket (in a band at the plot's foot where it has no clear room) (no wedged ring: Mohammad, 19 Oct, "No need for the wedge circle"). The sinusoid's station shows the wedged
 // pressure (WHVP), the reading the HVPG is taken from, so the HVPG bracket is that point less the hepatic vein's (Mohammad,
 // 19 Oct); it lies a little under the sinusoid's own pressure, the leak to the central vein (engine.js hvpgTrue). Where the line drops steeply is where the resistance is, so presinusoidal, sinusoidal and postsinusoidal resistance look different.
-// tool: { kind: 'profile', from: true } adds the state before this slide's as a faint dotted line ('slide id' for another).
+// tool: { kind: 'profile', from: true } adds the state before this slide's as a faint dotted line ('slide id' for another);
+// liverLabel: true names the liver's band at its top on that slide.
 // Its numbers are the slide's own (its fingerprint, as the tiles read it: the same on every screen), easing to each new
 // state; a what-if slider or compare button moves it with the tiles. The Patients chart (charts.js) is not changed.
 
@@ -519,8 +520,9 @@ export function createProfileTool() {
         sv('mask', { id: `${gid}-m`, maskUnits: 'userSpaceOnUse', x: 0, y: 0, width: w, height: hh },
           sv('rect', { x: 0, y: 0, width: w, height: hh, fill: '#fff' }),   // colour-exempt: a mask
           now.map(([cx, cy], i) => { const hw = tw(labels[i], 700) / 2; return sv('rect', { x: cx - hw - NUM_PAD, y: cy - 0.36 * f - NUM_PAD, width: 2 * (hw + NUM_PAD), height: 0.72 * f + 2 * NUM_PAD, rx: NUM_PAD, fill: '#000' }); }))),   // colour-exempt: a mask
-      // The liver's stations on a soft band (named by the Sinusoidal brace under them, no LIVER over it: Mohammad, 21 Oct).
-      i0 >= 0 ? sv('g', { class: 'ppf-liver' }, sv('rect', { x: G.x(i0) - G.slot / 2, width: G.slot * (i1 - i0 + 1), y: G.T - 1.3 * f, height: G.B - G.T + 1.3 * f })) : null,
+      // The liver's stations on a soft band; an opted-in slide names it at the top.
+      i0 >= 0 ? sv('g', { class: 'ppf-liver' }, sv('rect', { x: G.x(i0) - G.slot / 2, width: G.slot * (i1 - i0 + 1), y: G.T - 1.3 * f, height: G.B - G.T + 1.3 * f }),
+        cfg.liverLabel ? sv('text', { x: (G.x(i0) + G.x(i1)) / 2, y: G.T - 0.35 * f, 'text-anchor': 'middle' }, 'LIVER') : null) : null,
       Array.from({ length: Math.floor(top / every) + 1 }, (_, k) => sv('g', { class: 'ptk-grid' }, sv('line', { x1: G.L, x2: G.R, y1: y(k * every), y2: y(k * every) }),
         sv('text', { x: G.L - 6, y: y(k * every) + 0.35 * f, 'text-anchor': 'end' }, String(k * every)))),
       // (The unit in the bottom row, at the left, level with the brace's name: Mohammad, 21 Oct, "Remove mmHg from above put it below".)
@@ -587,7 +589,7 @@ export function createProfileTool() {
   return {
     el,
     /** The slide's options and context (presenter-tools.js show), before its numbers. */
-    configure(t, ctx) { cfg = { from: t?.from ?? null }; ctx0 = ctx || null; if (ctx?.fp) aim(ctx.fp); },
+    configure(t, ctx) { cfg = { from: t?.from ?? null, liverLabel: !!t?.liverLabel }; ctx0 = ctx || null; if (ctx?.fp) aim(ctx.fp); },
     /** The numbers the slide's tiles show: the slide's state, or a what-if slider's or a compare button's. */
     pin(fp) { if (el.isConnected && fp) aim(fp); },
     clear() {},

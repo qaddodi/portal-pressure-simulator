@@ -4,6 +4,7 @@
 //   tool: { kind: 'profile' }                    the pressure from gut to heart, eight stations, healthy dashed beneath,
 //                                                HVPG and PPG brackets (tool-profile.js); from: true adds the state before
 //                                                as a faint dotted line ('<slide id>' for that slide's)
+//   tool: { kind: 'profile', liverLabel: true }  names the liver band at the top of that slide's chart
 //   tool: { kind: 'flows' }                      where the portal blood goes: one bar, the liver's segment and then each
 //                                                shunt route's, largest first, names on the segments, a Healthy bar just
 //                                                above it for comparison (tool-flows.js)
@@ -12,7 +13,7 @@
 //                                                talk-trace.js and flow-time.js themselves
 //   style: 'milestones' on a trace tool ('talk')  the HVPG line alone in its cut-off colours, the slides that set milestone:
 //                                                'Dx' (a short name) named level above their points (talk-trace.js)
-import { createProfileTool } from './tool-profile.js?v=314b5277dc';
+import { createProfileTool } from './tool-profile.js?v=a1d5ae3c79';
 import { createFlowsTool } from './tool-flows.js?v=04b152c98c';
 
 export default {

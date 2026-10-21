@@ -20,11 +20,11 @@ import { sinusoidSupported } from './sinusoid-view.js?v=50d29e3b64';
 import { NODES } from '../engine/topology.js?v=4044766e96';
 import { DISEASE_SRC, diseasePieces } from './diseases.js?v=fb8a5451c3';
 import { nb, listCase, plateletText } from './glue.js?v=5a0f63226b';
-import { DECKS, REGIONS, LEVELS, TOPICS, withOverview, siteTag, SITE_TAGS } from './decks.js?v=594e633cd3';
+import { DECKS, REGIONS, LEVELS, TOPICS, withOverview, siteTag, SITE_TAGS } from './decks.js?v=624bd9b2b1';
 import { wholeGap, tenthGap } from '../engine/gap.js?v=3a5947c552';
 import { createHvpgMonitor } from './hvpg-proc.js?v=8674c0971c';
-import { createTools } from './presenter-tools.js?v=a664acdef2';
-import { openHandout } from './handout.js?v=fa56ce3e2a';
+import { createTools } from './presenter-tools.js?v=7631512734';
+import { openHandout } from './handout.js?v=fc5d886f7f';
 import { noteResume, resumeFor } from './resume.js?v=f086f80ee8';
 import { parseDeckSource, checkDeck } from './deck-source.js?v=8395c650cd';
 import { NO_ASC, TILE, SCALE, bandsOf, rateOf, COLS, CUT, PRESS, fpv, dirAbs, dirRel, rateAbs, effOf, rateShown, tileShown, tipsGoal, liveSettled, shownSig } from './table-marks.js?v=1dc429fe31';
@@ -32,7 +32,7 @@ import { frameFor, cancelFrame } from './frame.js?v=2ce59939b2';
 import { createFigureKey } from './figure-key.js?v=7e170d78ce';
 import { traceWhen } from './trace-labels.js?v=fc916a95c6';
 import { flowCss, heatCss, dropCss, gradientCss, oxygenCss } from './colormap.js?v=1092d36abc';
-import { EXT, expandIds, stepExtra, markLabel, figureHooks, safe } from './slide-ext.js?v=cc44171c12';
+import { EXT, expandIds, stepExtra, markLabel, figureHooks, safe } from './slide-ext.js?v=fb9156e557';
 import { clotWords } from './callout-math.js?v=039dddefca';
 import { citeText, focusOf, ladderFromOf, ladderFromName } from './teach-extras.js?v=d8224d9bb5';
 import { DEMO_ALL } from './test-decks/demo-all-new-visuals.js?v=9aeadbb887';
@@ -2242,7 +2242,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       data.dataset.tn = tileKeys(s).length;   // (Mac and iPad landscape: every instrument with tiles has them stacked beside it; its own readings fold to a short list under its picture)
       data.classList.toggle('tool-lead', !!s.tool?.open && !!s.data);   // (a phone keeps this instrument open and folds the tiles instead)
       data.dataset.tool = ui.tools.sig(s.tool);
-      ui.dhT.textContent = s.tool?.kind === 'profile' ? '' : cardTitle(s);   // (the ladder needs no title: Mohammad, 21 Oct, "Remove GUt to heART title no need")
+      ui.dhT.textContent = s.tool?.kind === 'profile' && !s.tool.title ? '' : cardTitle(s);   // (profiles stay untitled unless a slide opts in)
       ui.dhL.hidden = !lad;
       // (A flow-time chart over a time-lapse starts empty and draws as it plays.)
       if (s.tool) ui.tools.show(s.tool, { slide: i, stateKey: stateOf[i], chain: chainTo(i, s.tool.kind === 'trace' ? s.tool.since : null), trail: states[stateOf[i]]?.trail ?? null, reveal: lap ? 0 : 1, ctx: ctxOf(s, i) }); else ui.tools.hide();
