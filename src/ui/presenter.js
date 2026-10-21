@@ -1064,7 +1064,7 @@ function quadrantVisual(rows) {
     const near = pts.find((p) => Math.abs(p.saag - r.f.saag) < 0.3 && Math.abs(p.tp - r.f.tp) < 0.5);   // (labels that would overlap)
     if (near) near.names.push(r.name); else pts.push({ saag: r.f.saag, tp: r.f.tp, names: [r.name], site: r.site });
   }
-  const quads = QUADS.map((q) => { const rect = sv('rect'), n = sv('text', { class: 'pzq-n', 'text-anchor': 'start' }, String(q.n)); return { q, rect, n, g: sv('g', { class: 'pzq-q', 'data-portal': q.x ? 'y' : 'n' }, rect, n) }; });
+  const quads = QUADS.map((q) => { const rect = sv('rect'), n = sv('text', { class: 'pzq-n', 'text-anchor': 'start' }, String(q.n)); return { q, rect, n, g: sv('g', { class: 'pzq-q', 'data-q': String(q.n) }, rect, n) }; });
   const cuts = [sv('line', { class: 'pzq-cut' }), sv('line', { class: 'pzq-cut' })], axes = [sv('line', { class: 'pzq-axis' }), sv('line', { class: 'pzq-axis' })];
   const xt = [[0, '0'], [1.1, '1.1'], [2, '2'], [3, '3']].map(([v, t]) => ({ v, el: sv('text', { class: 'pzq-t' + (v === 1.1 ? ' on' : ''), 'text-anchor': 'middle' }, t) }));
   const yt = [[0, '0'], [2.5, '2.5'], [5, '5']].map(([v, t]) => ({ v, el: sv('text', { class: 'pzq-t' + (v === 2.5 ? ' on' : ''), 'text-anchor': 'end' }, t) }));
@@ -1120,7 +1120,7 @@ function quadrantVisual(rows) {
   lay({ cap: 25, lab: 29, val: 42 });
   fitChart(svg, lay);
   return h('div', { class: 'pz-visual pz-quadwrap' }, svg,
-    h('ol', { class: 'pz-quads' }, QUADS.map((q) => h('li', { 'data-portal': q.x ? 'y' : 'n' },
+    h('ol', { class: 'pz-quads' }, QUADS.map((q) => h('li', { 'data-q': String(q.n) },
       h('span', { class: 'qn' }, String(q.n)), h('span', { class: 'qt' }, q.t), h('span', { class: 'qc' }, q.c)))));
 }
 
