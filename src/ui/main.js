@@ -3,8 +3,8 @@
 
 import { startHost, host } from './host.js?v=e06757c916';
 import { store, updateParams, replaceParams, bindParamSender, clearHistory, logAction, varicesPresent, hiddenNow } from './store.js?v=d6648af441';
-import { createStage } from './stage.js?v=2cc1eb9076';
-import { createCreditPlacer } from './credit.js?v=a9ce1e8162';
+import { createStage } from './stage.js?v=b62b36fa3c';
+import { createCreditPlacer } from './credit.js?v=0a887beaab';
 import { sinusoidSupported } from './sinusoid-view.js?v=50d29e3b64';
 import { createInspector } from './inspector.js?v=9dd9c3b653';
 import { createDock, CUTOFFS } from './dock.js?v=5db298f25d';
@@ -27,6 +27,8 @@ import { TEXT_STEPS } from './type-scale.js?v=d7cca3fb73';
 
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
 const app = $('#app');
+// The app's classes less stage-busy (the floating pieces' fade while the figure moves: opacity only, nothing to place again).
+const appClass = () => app.className.replace(/(?:^|\s)stage-busy(?=\s|$)/g, '');
 const view = $('#stageView');
 const isPhone = isPhoneLayout;
 const SPEEDS = [0.25, 0.5, 1, 2, 4, 8];
@@ -1218,7 +1220,7 @@ function wireFloating() {
     // (and the top bar's foot, so a tall sheet stops under the view switch and leaves it in reach)
     const topOcc = px(thumb ? tb.getBoundingClientRect().bottom / uiScale() : 0);
     if (pubVals.topOcc !== topOcc) { pubVals.topOcc = topOcc; document.documentElement.style.setProperty('--thumb-top', topOcc); }
-    const sig = `${app.className}|${tb.className}|${tb.dataset.fit}`;
+    const sig = `${appClass()}|${tb.className}|${tb.dataset.fit}`;
     if (changed || sig !== pubSig) { pubSig = sig; dispatchEvent(new Event('pps:occ')); }
   };
   const pubVals = {};
@@ -1227,7 +1229,11 @@ function wireFloating() {
   publishNow = () => { if (pubRaf) { cancelFrame(pubRaf); publish(); } };
   const ro = new ResizeObserver(soon);
   for (const id of ['#topbar', '#vdock', '#dock', '#panel', '#treatCard', '.tb-id', '.top-right', '.topbar .sb-right', '#viewSeg']) ro.observe($(id));
-  new MutationObserver(soon).observe(app, { attributes: true, attributeFilter: ['class'] });
+  // (Not for stage-busy, the floating pieces' fade while the figure moves: it changes only their opacity. Announced, every
+  // card, the credit, the labels' blockers and the framing were measured and placed again as the menus faded back in, a
+  // beat after each pan or pinch, and the figure hitched (Mohammad, 21 Oct: "the hitch syncs with the menu fading back in").)
+  let appCls = appClass();
+  new MutationObserver(() => { const c = appClass(); if (c !== appCls) { appCls = c; soon(); } }).observe(app, { attributes: true, attributeFilter: ['class'] });
   new MutationObserver(soon).observe($('#treatCard'), { attributes: true, attributeFilter: ['hidden'] });
   new MutationObserver(soon).observe($('#historyCard'), { attributes: true, attributeFilter: ['hidden'] });
   new MutationObserver(soon).observe($('#dock'), { attributes: true, attributeFilter: ['class', 'data-state'] });

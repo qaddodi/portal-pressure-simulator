@@ -447,7 +447,11 @@ export function createCreditPlacer(credit, { keptStyle = null } = {}) {
   const settled = (e) => { if (!e.target.classList?.contains('rb-fill')) soon(); };
   addEventListener('transitionend', settled, true);
   addEventListener('animationend', settled, true);
-  if (app) new MutationObserver(soon).observe(app, { attributes: true, attributeFilter: ['class'] });
+  // (Not for stage-busy alone: the floating pieces' fade while the figure moves changes only their opacity, and a look then,
+  // as the menus faded back in after each pan or pinch, added to that beat's hitch.)
+  const appCls = () => app.className.replace(/(?:^|\s)stage-busy(?=\s|$)/g, '');
+  let appWas = app ? appCls() : '';
+  if (app) new MutationObserver(() => { const c = appCls(); if (c !== appWas) { appWas = c; soon(); } }).observe(app, { attributes: true, attributeFilter: ['class'] });
   // Cards open, close and resize in many ways; a light poll catches the ones no event announces. (It looks only when something
   // the look measures may have changed: a card or bar moved, sized or changed state (layoutWatch), the labels were laid out
   // again or the camera moved, or labels came or went. In the lobule and the sinusoid, whose own labels move by themselves, it

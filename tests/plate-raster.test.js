@@ -9,10 +9,12 @@ import { readFileSync } from 'node:fs';
 const stage = readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8');
 
 test('a plate raster draws into a canvas of its own and sends it as pixel strips, one per frame', () => {
-  assert.match(stage, /const c = document\.createElement\('canvas'\);\n\s+c\.width = W; c\.height = H;\n\s+const g = c\.getContext\('2d', \{ willReadFrequently: true \}\);\n\s+gpuProbe\.time\(null, 'organ picture: draw', \(\) => g\.drawImage\(img, 0, 0, W, H\)\);/);
+  assert.match(stage, /const c = document\.createElement\('canvas'\);\n\s+c\.width = W; c\.height = H;\n\s+const g = c\.getContext\('2d', \{ willReadFrequently: true \}\);/);
   const body = stage.slice(stage.indexOf('async function rasterPlate'), stage.indexOf('function plateStateKey'));
-  assert.match(body, /for \(const \[y, rows\] of plateStrips\(W, H\)\) \{\n\s+if \(y\) await new Promise\(\(res\) => nextFrame\(res\)\);/);
-  assert.match(body, /if \(seq !== plateSeq \|\| drops !== plateDrops \|\| v !== veins \|\| v\.lost\) return false;/, 'a raster overtaken on its way in is given up');
+  // Each strip is drawn in its own frame too, just before it is read: the whole picture drawn at once was one long frame after
+  // every zoomed pan or pinch (21 Oct). Same scale, cut at whole rows: the same pixels.
+  assert.match(body, /for \(const \[y, rows\] of plateStrips\(W, H\)\) \{\n\s+if \(y\) await new Promise\(\(res\) => nextFrame\(res\)\);\n\s+if \(seq !== plateSeq \|\| drops !== plateDrops \|\| v !== veins \|\| v\.lost\) return false;\n\s+gpuProbe\.time\(null, 'organ picture: draw', \(\) => g\.drawImage\(img, 0, y, W, rows, 0, y, W, rows\)\);/, 'a raster overtaken on its way in is given up');
+  assert.doesNotMatch(body, /drawImage\(img, 0, 0, W, H\)/, 'never the whole picture in one frame');
   assert.match(body, /v\.plateRows\(job, y, rows, gpuProbe\.time\(null, 'organ picture: read', \(\) => premultiply\(g\.getImageData\(0, y, W, rows\)\.data\)\)\);/);
   assert.match(body, /v\.setPlate\(slot, job, rect\); job = null;/, 'shown only once every strip is in');
   assert.match(body, /finally \{ if \(job && !v\.lost\) v\.dropJob\(job\); c\.width = c\.height = 0; \}/);
@@ -46,4 +48,10 @@ test('highlighting an organ never draws the organ picture again (its look is the
   // (Safe only while the selected organ's class styles nothing: its outline and dim are drawn outside the picture.)
   const css = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
   assert.doesNotMatch(css, /\.org-sel(?![-\w])/);
+});
+
+test("the gut's picture is drawn a strip per frame too", () => {
+  const body = stage.slice(stage.indexOf('async function makeGutPic'), stage.indexOf('function clientToWorldFast'));
+  assert.match(body, /for \(const \[y, rows\] of plateStrips\(W, H\)\) \{\n\s+if \(y\) await new Promise\(\(res\) => nextFrame\(res\)\);\n\s+if \(seq !== gutPicSeq\) throw new Error\('overtaken'\);\n\s+cg\.drawImage\(img, 0, y, W, rows, 0, y, W, rows\);/);
+  assert.doesNotMatch(body, /drawImage\(img, 0, 0, W, H\)/);
 });

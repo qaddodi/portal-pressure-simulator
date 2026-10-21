@@ -3649,16 +3649,19 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       if (seq !== plateSeq || !veins || veins.lost) return false;
       // Drawn into a canvas kept in memory and sent as pixels, a strip per frame (plate-upload.js): a canvas handed to the
       // GPU stalled Safari for up to 750 ms. The raster shown meanwhile stays until the last strip is in.
+      // Each strip is also drawn in its own frame, just before it is read: the picture's own drawing (thousands of shapes, up
+      // to 4.2 million pixels) took one long frame a beat after every zoomed pan or pinch (Mohammad, 21 Oct: "still there's a
+      // hitch after I stop panning while zoomed"). The same picture at the same scale, cut at whole pixel rows: the same pixels.
       const c = document.createElement('canvas');
       c.width = W; c.height = H;
       const g = c.getContext('2d', { willReadFrequently: true });
-      gpuProbe.time(null, 'organ picture: draw', () => g.drawImage(img, 0, 0, W, H));
       const v = veins;
       let job = v.plateJob(W, H);
       try {
         for (const [y, rows] of plateStrips(W, H)) {
           if (y) await new Promise((res) => nextFrame(res));
           if (seq !== plateSeq || drops !== plateDrops || v !== veins || v.lost) return false;
+          gpuProbe.time(null, 'organ picture: draw', () => g.drawImage(img, 0, y, W, rows, 0, y, W, rows));
           v.plateRows(job, y, rows, gpuProbe.time(null, 'organ picture: read', () => premultiply(g.getImageData(0, y, W, rows).data)));
         }
         // A picture of a state that ended while it was on its way in is given up (the one shown stays). Above all the colours: an
@@ -3849,7 +3852,13 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
           await new Promise((res, rej) => { img.onload = res; img.onerror = rej; img.src = src; });
           const cv = document.createElement('canvas');
           cv.width = W; cv.height = H;
-          cv.getContext('2d').drawImage(img, 0, 0, W, H);
+          // (A strip per frame, as the plate's picture: drawn whole, the gut's 1,201 paths took one long frame after a pinch.)
+          const cg = cv.getContext('2d');
+          for (const [y, rows] of plateStrips(W, H)) {
+            if (y) await new Promise((res) => nextFrame(res));
+            if (seq !== gutPicSeq) throw new Error('overtaken');
+            cg.drawImage(img, 0, y, W, rows, 0, y, W, rows);
+          }
           blob = await new Promise((res) => cv.toBlob(res, 'image/png'));
           cv.width = cv.height = 0;
         } finally { URL.revokeObjectURL(src); }
