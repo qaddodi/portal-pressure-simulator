@@ -5,11 +5,11 @@
 // the panel; on touch, the ⓘ at a presentation's end opens the same preview under its row.
 
 import { store } from './store.js?v=d6648af441';
-import { h, icon, svgIcon, uiScale, clamp, swipeSheet, visibleBottom, fadeWhileMore, PHONE_MQ } from './util.js?v=acbadad1c5';
+import { h, icon, svgIcon, uiScale, clamp, swipeSheet, visibleBottom, fadeWhileMore, PHONE_MQ } from './util.js?v=bd1f2204ba';
 import { SNAPSHOTS } from './snapshots.js?v=a2adb5dd32';
-import { pressureColor } from './colormap.js?v=48548b23d5';
+import { pressureColor } from './colormap.js?v=f08f4b9604';
 import { ownsSideways, pageGo } from './swipe.js?v=ca9148ab7d';
-import { frameFor } from './frame.js?v=22467f9d04';
+import { frameFor } from './frame.js?v=50a3fdb73c';
 const nextFrame = frameFor('menu');
 
 // Where each group's resistance sits along the pathway from the gut to the heart.

@@ -82,3 +82,35 @@ export function paintBox(bb, m, sw, pad = 6) {
   const k = Math.sqrt(Math.abs(m.a * m.d - m.b * m.c)) || 1, g = (2 * (sw || 0) + 2) * k + pad;
   return [Math.min(...xs) - g, Math.min(...ys) - g, Math.max(...xs) + g, Math.max(...ys) + g];
 }
+
+// Safari draws a mask into a layer as big as everything the mask covers, at the picture's scale, however little of it the
+// picture shows: zoomed in, the gut's cut, the rectum's fade and the diaphragm's were each a layer of up to 16 million pixels,
+// made again for every strip of the view's sharp picture, and the strip's read stalled for 70–130 ms (Mohammad's ?perf
+// readout, Mac Safari, 21 Oct). A mask's region (its x, y, width, height) bounds that layer, so each strip's copy of a mask
+// has its region cut to the strip and a margin: nothing outside the strip shows in it, so the strip's pixels are the same.
+
+/**
+ * A mask's region [x, y, w, h] (in the user space of the elements using it) cut to a strip's world rect `band` [x, y, w, h],
+ * given the world → user-space matrix ({a..f}) of each element using the mask. Unknown (an empty list or a null matrix):
+ * the whole region stays. A strip the region misses gives an empty region (the masked shapes show nothing there).
+ */
+export function maskRegionIn(r, band, toLocal) {
+  if (!toLocal.length || toLocal.some((m) => !m)) return r;
+  let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+  for (const m of toLocal) {
+    for (const [x, y] of [[band[0], band[1]], [band[0] + band[2], band[1]], [band[0], band[1] + band[3]], [band[0] + band[2], band[1] + band[3]]]) {
+      const u = m.a * x + m.c * y + m.e, v = m.b * x + m.d * y + m.f;
+      if (u < x0) x0 = u; if (u > x1) x1 = u; if (v < y0) y0 = v; if (v > y1) y1 = v;
+    }
+  }
+  const ax = Math.max(r[0], x0), ay = Math.max(r[1], y0), bx = Math.min(r[0] + r[2], x1), by = Math.min(r[1] + r[3], y1);
+  return bx > ax && by > ay ? [ax, ay, bx - ax, by - ay] : [ax, ay, 0, 0];
+}
+
+/** The placeholder written for a mask's region attribute in the copy's defs (fillMaskHead puts the strip's numbers in). */
+export const maskSlot = (i, k) => `__pcm${i}_${k}__`;
+
+/** The defs' markup with each mask's region filled in from `regions` (index → [x, y, w, h]). */
+export function fillMaskHead(head, regions) {
+  return head.replace(/__pcm(\d+)_([xywh])__/g, (_, i, k) => String(+regions[+i]['xywh'.indexOf(k)].toFixed(3)));
+}

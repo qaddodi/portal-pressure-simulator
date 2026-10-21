@@ -27,4 +27,9 @@ export const gpuProbe = {
   add(name, ms) { this.parts[name] = (this.parts[name] || 0) + ms; },
   /** The time per step since the last take. */
   take() { const p = this.parts; this.parts = {}; return p; },
+  // Things that happened, with no time of their own to give (an organ SVG the browser read in, its size): counted and summed.
+  notes: {},
+  note(name, v = 0) { if (!this.on) return; const n = this.notes[name] || (this.notes[name] = [0, 0]); n[0]++; n[1] += v; },
+  /** The notes since the last take: name → [count, sum]. */
+  takeNotes() { const n = this.notes; this.notes = {}; return n; },
 };

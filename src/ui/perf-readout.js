@@ -4,16 +4,25 @@
 // (gpu-probe.js cpuOnly: no waiting for the GPU), every frame gap over 20 ms in the window is listed with the steps that ran
 // in it, and so is each long task the browser reports (Chrome; Safari reports none, its frame gaps still show). The panel is
 // written only when a window closes, never during a gesture, and the last five gestures stay listed with a Copy button.
-import { gpuProbe } from './gpu-probe.js?v=3b01ed5294';
+import { gpuProbe } from './gpu-probe.js?v=a675ea62f9';
 
 const WINDOW = 2000, GAP = 20, KEEP = 5;
 
-/** One frame gap as a line: when after the gesture ended, how long, and the steps in it, largest first. */
+/**
+ * One frame gap as a line: when after the gesture ended, how long, and the steps in it, largest first. What no step of the
+ * app's accounts for is split, when the main thread's busy time is known (g.busy, from the heartbeat below), into the
+ * browser's own work on the main thread ("page busy": style, layout, paint, reading an SVG, other script) and the time the
+ * main thread sat free while the frame still had not come ("waiting (GPU/screen)": the GPU, or Safari's painting off the
+ * main thread). Notes (g.notes: name → [count, KB]) follow, such as the organ SVGs read in that frame.
+ */
 export function gapLine(g) {
   const named = Object.entries(g.parts).filter(([, v]) => v >= 0.5).sort((a, b) => b[1] - a[1]);
-  const sum = Object.values(g.parts).reduce((a, b) => a + b, 0);
-  const steps = [...named.map(([k, v]) => `${k} ${v.toFixed(0)}`), `rest of page ${Math.max(0, g.dt - sum).toFixed(0)}`].join(', ');
-  return `  +${g.at.toFixed(0)} ms: frame took ${g.dt.toFixed(0)} ms (${steps})`;
+  const sum = Object.values(g.parts).reduce((a, b) => a + b, 0), rest = Math.max(0, g.dt - sum);
+  const page = g.busy == null ? null : Math.min(rest, Math.max(0, g.busy - sum));
+  const tail = page == null ? [`rest of page ${rest.toFixed(0)}`] : [`page busy ${page.toFixed(0)}`, `waiting (GPU/screen) ${(rest - page).toFixed(0)}`];
+  const steps = [...named.map(([k, v]) => `${k} ${v.toFixed(0)}`), ...tail].join(', ');
+  const notes = Object.entries(g.notes || {}).map(([k, [n, kb]]) => `${k} ×${n}${kb ? ` (${kb.toFixed(0)} KB)` : ''}`).join(', ');
+  return `  +${g.at.toFixed(0)} ms: frame took ${g.dt.toFixed(0)} ms (${steps})${notes ? `; ${notes}` : ''}`;
 }
 
 /** A gesture's report as text. */
@@ -32,9 +41,23 @@ export function startPerfReadout({ zoom = () => '?' } = {}) {
   let maxDown = 0, moved = false;
   const onStage = (e) => !!e.target?.closest?.('#stageView');
   const view = () => (document.querySelector('.cmap') ? 'circuit' : 'anatomy');
+  // A heartbeat on the main thread while a gesture's window is open: a message posted to itself, again as soon as it arrives.
+  // A beat that comes late shows the main thread was busy that long (the browser's own work included, which no step of the
+  // app's can time); beats arriving on time while a frame is late show the main thread was free, waiting for the GPU or the
+  // screen. Only during the 2 s window, and only with ?perf.
+  const hb = new MessageChannel();
+  let beatAt = 0, busy = 0, frameAt = 0;
+  hb.port1.onmessage = () => {
+    const b = performance.now(), gap = b - beatAt;
+    if (gap > 4) busy += Math.max(0, Math.min(gap, b - frameAt) - 1);   // (the part of the stall since this frame began)
+    beatAt = b;
+    if (cur) hb.port2.postMessage(0);
+  };
   const begin = (kind) => {
+    const was = !!cur;
     cur = { n: ++n, kind, view: view(), zoom: (+zoom() || 0).toFixed(2), t0: performance.now(), frames: 0, worst: 0, gaps: [], tasks: [] };
-    gpuProbe.take();
+    gpuProbe.take(); gpuProbe.takeNotes();
+    if (!was) { beatAt = performance.now(); busy = 0; hb.port2.postMessage(0); }
   };
   addEventListener('pointerdown', (e) => { if (!onStage(e)) return; down.set(e.pointerId, [e.clientX, e.clientY]); maxDown = Math.max(maxDown, down.size); if (down.size === 1) moved = false; }, { capture: true, passive: true });
   addEventListener('pointermove', (e) => { const p = down.get(e.pointerId); if (p && Math.hypot(e.clientX - p[0], e.clientY - p[1]) > 8) moved = true; }, { capture: true, passive: true });
@@ -64,11 +87,12 @@ export function startPerfReadout({ zoom = () => '?' } = {}) {
   } catch { /* not reported by this browser (Safari): the frame gaps still are */ }
 
   const tick = (t) => {
-    const parts = gpuProbe.take();
+    const parts = gpuProbe.take(), notes = gpuProbe.takeNotes(), was = busy;
+    busy = 0; frameAt = t;
     if (cur && prevT && t >= cur.t0) {
       const dt = t - prevT, at = prevT - cur.t0;
       cur.frames++; cur.worst = Math.max(cur.worst, dt);
-      if (dt > GAP) cur.gaps.push({ at: Math.max(0, at), dt, parts });
+      if (dt > GAP) cur.gaps.push({ at: Math.max(0, at), dt, parts, notes, busy: was });
       if (t - cur.t0 >= WINDOW) { reports.unshift(cur); reports.length = Math.min(reports.length, KEEP); cur = null; paint(); }
     }
     prevT = t;

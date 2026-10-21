@@ -12,18 +12,23 @@ test('a plate raster draws into a canvas of its own and sends it as pixel strips
   const body = stage.slice(stage.indexOf('async function rasterPlate'), stage.indexOf('function plateStateKey'));
   // Every piece is drawn into a small canvas of its own and read back from it: read back from one canvas the size of the whole
   // picture, each strip took Safari longer than the one above (25 ms to over 200 ms; Mohammad's ?perf readout, Mac, 21 Oct).
-  assert.match(body, /const piece = \(w, h, paint\) => \{\n\s+const pc = document\.createElement\('canvas'\);\n\s+pc\.width = w; pc\.height = h;\n\s+const pg = pc\.getContext\('2d', \{ willReadFrequently: true \}\);\n\s+gpuProbe\.time\(null, 'organ picture: draw', \(\) => paint\(pg\)\);\n\s+try \{ return gpuProbe\.time\(null, 'organ picture: read', \(\) => premultiply\(pg\.getImageData\(0, 0, w, h\)\.data\)\); \} finally \{ pc\.width = pc\.height = 0; \}/);
+  assert.match(body, /const drawn = \(w, h, paint\) => \{\n\s+const pc = document\.createElement\('canvas'\);\n\s+pc\.width = w; pc\.height = h;\n\s+const pg = pc\.getContext\('2d', \{ willReadFrequently: true \}\), p = \{ pc, pg, w, h \};\n\s+pend\.push\(p\);\n\s+gpuProbe\.time\(null, 'organ picture: draw', \(\) => paint\(pg\)\);/);
+  assert.match(body, /const readBack = \(p\) => \{\n\s+try \{ return gpuProbe\.time\(null, 'organ picture: read', \(\) => premultiply\(p\.pg\.getImageData\(0, 0, p\.w, p\.h\)\.data\)\); \} finally \{ p\.pc\.width = p\.pc\.height = 0; pend\.splice\(pend\.indexOf\(p\), 1\); \}/);
   assert.doesNotMatch(body, /getImageData\(0, y,/, 'never read from a canvas the size of the whole picture');
-  // Each strip is drawn in its own frame too, just before it is read: the whole picture drawn at once was one long frame after
-  // every zoomed pan or pinch (21 Oct). The view's picture is a picture per strip, of only the shapes that meet it, so its
-  // markup, its parse and its drawing are a strip's too. Same scale, cut at whole rows: the same pixels.
-  assert.match(body, /for \(const \[y, rows\] of plateStrips\(W, H\)\) \{\n\s+if \(y\) await new Promise\(\(res\) => nextFrame\(res\)\);\n\s+if \(seq !== plateSeq \|\| drops !== plateDrops \|\| v !== veins \|\| v\.lost \|\| vseq !== \(banded \? viewSeq : 0\)\) return false;\n\s+if \(banded\) \{/, 'a raster overtaken on its way in is given up (a view picture, by a newer view picture too)');
-  assert.match(body, /if \(seq !== plateSeq \|\| drops !== plateDrops \|\| v !== veins \|\| v\.lost \|\| plateCopy\?\.key !== drawnAs \|\| vseq !== viewSeq\) return false;\n\s+copyPixels\(px, W, qx, qy, piece\(qw, qh, \(pg\) => pg\.drawImage\(band, 0, 0, qw, qh\)\), qw, 0, 0, qw, qh\);/, 'a strip whose copy changed state is given up');
+  // Each strip is drawn in its own frame too: the whole picture drawn at once was one long frame after every zoomed pan or
+  // pinch (21 Oct). The view's picture is a picture per strip, of only the shapes that meet it, so its markup, its parse and
+  // its drawing are a strip's too. Same scale, cut at whole rows: the same pixels. A strip is read back a frame after it is
+  // drawn (Safari paints a canvas's drawing on its own: read at once, the read waited out the painting, 70–130 ms a strip in
+  // his ?perf readout, 21 Oct), and the next strip follows in that frame, never two strips' reads in one.
+  assert.match(body, /const gone = \(\) => seq !== plateSeq \|\| drops !== plateDrops \|\| v !== veins \|\| v\.lost \|\| vseq !== \(banded \? viewSeq : 0\);/);
+  assert.match(body, /for \(const \[y, rows\] of plateStrips\(W, H\)\) \{\n\s+if \(y && !waited\) await new Promise\(\(res\) => nextFrame\(res\)\);\n\s+waited = false;\n\s+if \(gone\(\)\) return false;\n\s+if \(banded\) \{/, 'a raster overtaken on its way in is given up (a view picture, by a newer view picture too)');
+  assert.match(body, /if \(gone\(\) \|\| plateCopy\?\.key !== drawnAs\) return false;\n\s+mine\.push\(\[qx, qy, drawn\(qw, qh, \(pg\) => pg\.drawImage\(band, 0, 0, qw, qh\)\)\]\);/, 'a strip whose copy changed state is given up');
+  assert.match(body, /if \(mine\.length\) \{ await new Promise\(\(res\) => nextFrame\(res\)\); waited = true; if \(gone\(\)\) return false; \}\n\s+for \(const \[qx, qy, p\] of mine\) copyPixels\(px, W, qx, qy, readBack\(p\), p\.w, 0, 0, p\.w, p\.h\);/, 'read a frame after it is drawn, and given up if overtaken meanwhile');
   assert.match(body, /v\.plateRows\(job, y, rows, px\.subarray\(y \* W \* 4, \(y \+ rows\) \* W \* 4\)\);/);
-  assert.match(body, /\} else v\.plateRows\(job, y, rows, piece\(W, rows, \(pg\) => pg\.drawImage\(whole, 0, y, W, rows, 0, 0, W, rows\)\)\);/);
+  assert.match(body, /const p = drawn\(W, rows, \(pg\) => pg\.drawImage\(whole, 0, y, W, rows, 0, 0, W, rows\)\);\n\s+await new Promise\(\(res\) => nextFrame\(res\)\); waited = true;\n\s+if \(gone\(\)\) return false;\n\s+v\.plateRows\(job, y, rows, readBack\(p\)\);/);
   assert.doesNotMatch(body, /drawImage\([a-z]+, 0, 0, W, H\)/, 'never the whole picture in one frame');
   assert.match(body, /v\.setPlate\(slot, job, rect\); job = null;/, 'shown only once every strip is in');
-  assert.match(body, /finally \{ if \(job && !v\.lost\) v\.dropJob\(job\); px = null; \}/);
+  assert.match(body, /finally \{ if \(job && !v\.lost\) v\.dropJob\(job\); px = null; for \(const p of pend\) p\.pc\.width = p\.pc\.height = 0; \}/, 'a canvas drawn and not yet read is let go when the picture is given up');
   // (Only the view picture that was shown is kept, for the next pan; the one before is let go, and so is the kept one when the plate drops.)
   assert.match(body, /v\.setPlate\(slot, job, rect\); job = null;\n\s+if \(banded\) \{ dropViewKeep\(\); viewKeep = \{ px, rect, W, H, scale, seq, drops, key: drawnAs \}; px = null; \}/);
   assert.match(stage, /function dropViewKeep\(\) \{ viewKeep = null; \}/);

@@ -1,8 +1,8 @@
 // The corner credit finds a free spot on the figure: never on or touching a card, a sheet, a bar or a menu.
 // It keeps its corner while that corner stays free and is never animated (no glide, no fade): any move hides it at once,
 // holds it hidden only until the cards have settled (a slide change lifts its hold 120 ms after the camera move; a move off a spot a card now covers is hidden for 80 ms), then shows it at once at the new spot; with no figure left anywhere it stays hidden.
-import { frameFor } from './frame.js?v=22467f9d04';
-import { gpuProbe } from './gpu-probe.js?v=3b01ed5294';
+import { frameFor } from './frame.js?v=50a3fdb73c';
+import { gpuProbe } from './gpu-probe.js?v=a675ea62f9';
 import { layoutWatch } from './idle-keys.js?v=ea36a0b5c6';
 const nextFrame = frameFor('credit');
 
@@ -212,11 +212,16 @@ export function organTest(wr, ring = null) {
         if (!m || !r.width) continue;   // (drawn as a bitmap plate, the shapes stay in place but hidden: they still count)
         const cs = getComputedStyle(el);
         if (cs.display === 'none') continue;
+        const w = parseFloat(cs.strokeWidth) || 0;
+        // A shape wholly off the grid paints nothing in it, and is not drawn: zoomed in, most of the organs' shapes are off
+        // screen, and drawing them all took 28 ms after each pan or zoom (Mohammad's ?perf readout, Mac, 21 Oct). (Its box is
+        // the fill's: grown by the most its stroke reaches, a miter at the default limit, twice the stroke width, and a cell.)
+        const g = 2 * w * Math.max(Math.hypot(m.a, m.b), Math.hypot(m.c, m.d)) + CELL;
+        if (r.right + g < wr.left || r.left - g > wr.left + cols * CELL || r.bottom + g < wr.top || r.top - g > wr.top + rows * CELL) continue;
         // One canvas pixel per cell: cell (i, j) covers wrap px [i * CELL, (i + 1) * CELL).
         ctx.setTransform(m.a / CELL, m.b / CELL, m.c / CELL, m.d / CELL, (m.e - wr.left) / CELL, (m.f - wr.top) / CELL);
         const path = shapePath(el);
         if (asDrawn ? cs.fill !== 'none' : !vessel || (cs.fill !== 'none' && !el.classList.contains('v-hit'))) ctx.fill(path);
-        const w = parseFloat(cs.strokeWidth) || 0;
         if (w > 0 && (asDrawn ? cs.stroke !== 'none' : !vessel || cs.stroke !== 'none' || el.classList.contains('v-hit'))) { ctx.lineWidth = el.classList.contains('v-hit') ? w * 0.7 : w; ctx.lineCap = cs.strokeLinecap || 'butt'; ctx.lineJoin = cs.strokeLinejoin || 'miter'; ctx.stroke(path); }
       }
       const px = ctx.getImageData(0, 0, cols, rows).data;

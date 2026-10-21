@@ -3,23 +3,23 @@
 
 import { EDGES, dopplerK, NODES, PORTAL_TERRITORY, dMinOf, edgePresent, isOccluded, SHUNT_PORTAL, SHUNT_SYSTEMIC, customShuntId, isStent, stentSite, STENT_SITES, STENT_SPANS, stentGate, stentSegments } from '../engine/topology.js?v=4044766e96';
 import { route as metroRoute, RECTUM_FADE, LABEL_VESSEL, TIP_FADE, TIP_CONNECT, VIEW, VB_ANAT, VB_CIRC, ATLAS_COLUMNS, HIDDEN_EDGES, HIDDEN_NODES, ANAT_HIDDEN, ANAT_HIDDEN_NODES, CAUDATE, CONTEXT_EDGES, BACK_EDGES, IVC_EDGES, NEEDS_C3, NODE_POS, EDGE_PATH, CIRCUIT_PATH, metroPath, ORGANS, SEAM_D, ORGAN_DETAIL, BACKDROP, LIVER_INNER, LIVER_EDGES, LANE_CAPTIONS, ABDOMEN_CLIP, ABDOMEN_FLOOR, flankPath, abdomenOutline, cavityHalfWidths, SPLEEN_CENTER, SITES, ORGAN_LABELS, ATLAS_LABELS, SHORT, ABBR, CHIP_NODES, LIVER_SPLIT_X, CIRCUIT_ZONES, CIRCUIT_LABELS, STRANDS, STRAND_FROM, SIN_EDGES, FEEDERS, fanFeeders, CIRCUIT_TREES } from './anatomy.js?v=c3c8976b67';
-import { pressureColor, deltaColor, dropColor, flowColor, heatColor, velColorOf, velocityColor, oxygenColor } from './colormap.js?v=48548b23d5';
+import { pressureColor, deltaColor, dropColor, flowColor, heatColor, velColorOf, velocityColor, oxygenColor } from './colormap.js?v=f08f4b9604';
 import { forkJoins, sideEndScale } from './fork-joins.js?v=b678f7ba5a';
 import { nodeEnds, nodeDrawn, dotRadius, bareDots } from './circuit-nodes.js?v=1040ba0ec4';
 import { STATION_VESSEL, meanVel, velNormal } from './velNormal.js?v=181dda5594';
 import { store, updateParams, varicesPresent, varixGrowth, shownVel } from './store.js?v=d6648af441';
 import { fibroReading } from './clock.js?v=e011dfc3e7';
-import { s, h, fmt, fmtFlow, fp, clamp, lerp, toast, systemEdge, bloodColors, restBox, translateRest, settledBox, putText } from './util.js?v=acbadad1c5';
+import { s, h, fmt, fmtFlow, fp, clamp, lerp, toast, systemEdge, bloodColors, restBox, translateRest, settledBox, putText } from './util.js?v=bd1f2204ba';
 import { riseCentre } from './rise-path.js?v=c039cb7b49';
-import { createLobuleZoom } from './lobule-zoom.js?v=6336f31e4c';
+import { createLobuleZoom } from './lobule-zoom.js?v=c2df315266';
 import { sinceSource } from './since-ref.js?v=ef1a818c75';
 import { clipBox, mapBox } from './fit-box.js?v=d5d6d4c60f';
-import { runFlick, FLICK } from './flick.js?v=3c933d4c2a';
+import { runFlick, FLICK } from './flick.js?v=ce38afd110';
 import { inlineStyles } from './svg-inline.js?v=fc17cb73fe';
 import { fluidTarget, poolFade } from './fluid-step.js?v=2742314765';
 import { easeTo, fluidSpring, fluidSpringFor } from './organ-ease.js?v=4ebb648131';
 import { spleenMotion } from './spleen-motion.js?v=4e87db0dbb';
-import { subpathsIn, foldOpacity, dropInvisible, mergeClipRuns, boxOutside, paintBox } from './plate-copy.js?v=70e92e8a8d';
+import { subpathsIn, foldOpacity, dropInvisible, mergeClipRuns, boxOutside, paintBox, maskRegionIn, maskSlot, fillMaskHead } from './plate-copy.js?v=2d8938e03a';
 import { gridHits, segHitsBox } from './seg-hits.js?v=e7cde76929';
 import { glassCallout } from './callout.js?v=d5524b6a11';
 import { TEXT_MIN, TEXT_MAX, rolePx, roleOf } from './type-scale.js?v=d7cca3fb73';
@@ -30,12 +30,12 @@ import { LIVER_GEO } from './liver-geo-data.js?v=41a20a25ac';
 import { COLON_ART, BOWEL_ART, DUO_CLIPS, DUO_A, DUO_B } from './organ-art.js?v=a1c08582e2';
 import { warmVisible, ringGrid, inGrid } from './warm-vis.js?v=ccf4f6f71b';
 import { createRouter } from './circuit-router.js?v=0ee9e02fc6';
-import { gpuProbe } from './gpu-probe.js?v=3b01ed5294';
+import { gpuProbe } from './gpu-probe.js?v=a675ea62f9';
 import { plateStrips, premultiply, gutStep, viewReuse, copyPixels } from './plate-upload.js?v=5fc45556a1';
-import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, ORIGIN_GREY } from './veins-gl.js?v=063a4ee9c1';
+import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, ORIGIN_GREY } from './veins-gl.js?v=debc6b840a';
 import { varixBead, beadRadius } from './varix-bead.js?v=ac0e84fd89';
 import { advanceStream, createReversalHold, bleedShapes, stepBleedFade, fadeBleedShapes, chevFlowLevel, keyChevron, KEY_CHEV_LANES, originFractions, oxygenFor, ORIGIN_N, createBolus, DYE_BINS, KAPPA, STASIS_MIN_D, HIDDEN_SECONDS } from './blood.js?v=e668d01823';
-import { frameFor, cancelFrame, noteDraw, setSaver as setFrameSaver, paceMs } from './frame.js?v=22467f9d04';
+import { frameFor, cancelFrame, noteDraw, setSaver as setFrameSaver, paceMs } from './frame.js?v=50a3fdb73c';
 import { softwareYield } from './sw-yield.js?v=e580a095b1';
 import { portalSplit } from './table-marks.js?v=1dc429fe31';
 import { hashSeed, clotSide, clotSpan, clotRadius, clotShift, clotLayers, CLOT_EDGE } from './clot-shape.js?v=415ba6b9c0';
@@ -3579,8 +3579,16 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       const dc = defs.cloneNode(true); inlineStyles(defs, dc);
       for (const id of DEAD_CUTS) dc.querySelector(`[data-cut="${id}"]`)?.remove();
       const head = ser.serializeToString(dc);
+      // The masks, for the view's strips: each strip's copy has their regions cut to the strip (maskHead). The elements that use
+      // them are found in the copy now, with their page counterparts (for their transforms), while the two trees still match.
+      const masks = [], maskRefs = [];
+      for (const m of dc.querySelectorAll('mask')) {
+        const r = ['x', 'y', 'width', 'height'].map((a) => parseFloat(m.getAttribute(a)));
+        if (m.id && m.getAttribute('maskUnits') === 'userSpaceOnUse' && r.every(Number.isFinite)) masks.push({ id: m.id, el: m, r });
+      }
       for (const g of [gBackdrop, gOrgans]) {   // the ascites is drawn on the GPU over the plate (see fluidLook)
         const c = g.cloneNode(true);
+        { const lm = [g, ...g.querySelectorAll('[mask]')], cm = [c, ...c.querySelectorAll('[mask]')]; for (let i = 0; i < cm.length; i++) if (cm[i].getAttribute('mask')) maskRefs.push([cm[i], lm[i], cm[i].getAttribute('mask').match(/#([^)"']+)/)?.[1]]); }
         { const lv = g.querySelectorAll(CULL_TAGS), cv = c.querySelectorAll(CULL_TAGS); for (let i = 0; i < cv.length; i++) live.set(cv[i], lv[i]); }   // (for plateCull: the same tree, in the same order)
         // Marked while the classes are still on (inlineStyles takes them off).
         for (const el of c.querySelectorAll('.lv-nod, .lv-isl')) el.setAttribute('data-pc', 'sub fold');
@@ -3621,7 +3629,15 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       const t = organG.liver.getAttribute('transform') || '', m = t.match(/^translate\(([-\d.]+) ([-\d.]+)\) scale\(([-\d.]+)\) translate\([-\d.]+ [-\d.]+\)$/);
       const toLiver = !t ? (r) => r : m ? (r) => { const [cx, cy, k] = m.slice(1).map(Number); return [cx + (r[0] - cx) / k, cy + (r[1] - cy) / k, r[2] / k, r[3] / k]; } : null;
       const gut = parts.flatMap((c) => [...c.querySelectorAll('[data-gut]')]);
-      return { key, seq: plateSeq, head, parts, subs, toLiver, gut, gutMut, live, boxes: null };
+      // (Only the masks the copy's own elements use get a strip's region; one used from elsewhere keeps its own.)
+      const refs = maskRefs.filter(([ce]) => parts.some((p) => p.contains(ce)));
+      const used = masks.filter((m) => refs.some((x) => x[2] === m.id));
+      used.forEach((m, i) => { for (const [a, k] of [['x', 'x'], ['y', 'y'], ['width', 'w'], ['height', 'h']]) m.el.setAttribute(a, maskSlot(i, k)); });
+      // (Each user's world → user-space matrix, read now, while the page and the copy are the same state.)
+      const base = gOrgans.parentNode.getCTM?.(), inv = base?.inverse();
+      const toLocal = (el) => { try { const k = el.getCTM?.(); return inv && k ? inv.multiply(k).inverse() : null; } catch { return null; } };
+      const maskT = used.length ? { head: ser.serializeToString(dc), masks: used.map((m) => ({ r: m.r, toLocal: refs.filter((x) => x[2] === m.id).map((x) => toLocal(x[1])) })) } : null;
+      return { key, seq: plateSeq, head, parts, subs, toLiver, gut, gutMut, live, boxes: null, maskT };
     } finally { if (was) wrap.classList.add('gl-plate'); if (greyed) syncOrganDim(); }
   }
   // The sharp picture of the view (slot 1) leaves out every shape that paints nothing inside it: zoomed in, most of the
@@ -3655,6 +3671,14 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     }
     return out;
   }
+  // The copy's defs for a strip of the view: each mask the organs use has its region cut to the strip and 4 pixels round it
+  // (plate-copy.js maskRegionIn: Safari's layer for a mask is as big as its region lets it be).
+  function maskHead(copy, rect, W) {
+    const t = copy.maskT;
+    if (!t) return copy.head;
+    const g = 4 * rect[2] / W, band = [rect[0] - g, rect[1] - g, rect[2] + 2 * g, rect[3] + 2 * g];
+    return fillMaskHead(t.head, t.masks.map((m) => maskRegionIn(m.r, band, m.toLocal)));
+  }
   function plateMarkup(rect, W, H, fresh, cull = false) {
     const key = plateStateKey();
     if (fresh || !plateCopy || plateCopy.key !== key || plateCopy.seq !== plateSeq) plateCopy = plateBuild(key);
@@ -3668,7 +3692,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       for (const [c] of out0) c.remove();
     }
     let out;
-    try { out = plateCopy.head + plateCopy.parts.map((c) => ser.serializeToString(c)).join(''); }
+    try { out = (cull ? maskHead(plateCopy, rect, W) : plateCopy.head) + plateCopy.parts.map((c) => ser.serializeToString(c)).join(''); }
     finally { for (let i = out0.length - 1; i >= 0; i--) { const [c, p, n] = out0[i]; p.insertBefore(c, n); } }   // (the copy stays whole: the next view, the gut's picture)
     return `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="${W}" height="${H}" viewBox="${rect.join(' ')}" preserveAspectRatio="none">${out}</svg>`;
   }
@@ -3678,6 +3702,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     try {
       const img = new Image();
       await new Promise((res, rej) => { img.onload = res; img.onerror = rej; img.src = url; });
+      gpuProbe.note('organ SVG read', markup.length / 1024);   // (its parse is the browser's: the ?perf readout notes it in its frame)
       return img;
     } finally { URL.revokeObjectURL(url); }
   }
@@ -3705,30 +3730,48 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     // the last strip is in. (Read back from one canvas the size of the whole picture, each strip took Safari longer than the
     // one above it: 25 ms for the first, over 200 ms for the last, on every pan and pinch: Mohammad's ?perf readout, Mac,
     // 21 Oct. A canvas per piece is read in the time its own pixels take.) The view's pixels stay in memory, for the next pan.
+    // Each piece is read a frame after it is drawn: Safari only records a drawing on a canvas and paints it on its own, so a
+    // read straight after the draw waited out the whole painting, the 70–130 ms "organ picture: read" of his readout. A
+    // frame later the painting has had that frame to get done, and the strip's pixels are the same.
     let px = banded ? new Uint8ClampedArray(W * H * 4) : null;
-    const piece = (w, h, paint) => {
+    const pend = [];
+    const drawn = (w, h, paint) => {
       const pc = document.createElement('canvas');
       pc.width = w; pc.height = h;
-      const pg = pc.getContext('2d', { willReadFrequently: true });
+      const pg = pc.getContext('2d', { willReadFrequently: true }), p = { pc, pg, w, h };
+      pend.push(p);
       gpuProbe.time(null, 'organ picture: draw', () => paint(pg));
-      try { return gpuProbe.time(null, 'organ picture: read', () => premultiply(pg.getImageData(0, 0, w, h).data)); } finally { pc.width = pc.height = 0; }
+      return p;
+    };
+    const readBack = (p) => {
+      try { return gpuProbe.time(null, 'organ picture: read', () => premultiply(p.pg.getImageData(0, 0, p.w, p.h).data)); } finally { p.pc.width = p.pc.height = 0; pend.splice(pend.indexOf(p), 1); }
     };
     const v = veins, sx = W / rect[2], sy = H / rect[3];
-    let job = v.plateJob(W, H);
+    const gone = () => seq !== plateSeq || drops !== plateDrops || v !== veins || v.lost || vseq !== (banded ? viewSeq : 0);
+    let job = v.plateJob(W, H), waited = false;
     try {
       for (const [y, rows] of plateStrips(W, H)) {
-        if (y) await new Promise((res) => nextFrame(res));
-        if (seq !== plateSeq || drops !== plateDrops || v !== veins || v.lost || vseq !== (banded ? viewSeq : 0)) return false;
+        if (y && !waited) await new Promise((res) => nextFrame(res));
+        waited = false;
+        if (gone()) return false;
         if (banded) {
           const { copy, draw } = prev ? viewReuse(W, H, prev.W, prev.H, ox, oy, y, rows) : { copy: null, draw: [[0, y, W, rows]] };
           if (copy) gpuProbe.time(null, 'organ picture: reuse', () => copyPixels(px, W, copy[0], copy[1], prev.px, prev.W, copy[0] + ox, copy[1] + oy, copy[2], copy[3]));
+          const mine = [];
           for (const [qx, qy, qw, qh] of draw) {
             const band = await svgPicture(gpuProbe.time(null, 'organ picture: copy (script)', () => plateMarkup([rect[0] + qx / sx, rect[1] + qy / sy, qw / sx, qh / sy], qw, qh, false, true)));
-            if (seq !== plateSeq || drops !== plateDrops || v !== veins || v.lost || plateCopy?.key !== drawnAs || vseq !== viewSeq) return false;
-            copyPixels(px, W, qx, qy, piece(qw, qh, (pg) => pg.drawImage(band, 0, 0, qw, qh)), qw, 0, 0, qw, qh);
+            if (gone() || plateCopy?.key !== drawnAs) return false;
+            mine.push([qx, qy, drawn(qw, qh, (pg) => pg.drawImage(band, 0, 0, qw, qh))]);
           }
+          if (mine.length) { await new Promise((res) => nextFrame(res)); waited = true; if (gone()) return false; }
+          for (const [qx, qy, p] of mine) copyPixels(px, W, qx, qy, readBack(p), p.w, 0, 0, p.w, p.h);
           v.plateRows(job, y, rows, px.subarray(y * W * 4, (y + rows) * W * 4));
-        } else v.plateRows(job, y, rows, piece(W, rows, (pg) => pg.drawImage(whole, 0, y, W, rows, 0, 0, W, rows)));
+        } else {
+          const p = drawn(W, rows, (pg) => pg.drawImage(whole, 0, y, W, rows, 0, 0, W, rows));
+          await new Promise((res) => nextFrame(res)); waited = true;
+          if (gone()) return false;
+          v.plateRows(job, y, rows, readBack(p));
+        }
       }
       // A picture of a state that ended while it was on its way in is given up (the one shown stays). Above all the colours: an
       // iPhone or iPad turns the page light and back while it takes the app switcher's pictures, and a picture begun then
@@ -3738,7 +3781,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       v.setPlate(slot, job, rect); job = null;
       if (banded) { dropViewKeep(); viewKeep = { px, rect, W, H, scale, seq, drops, key: drawnAs }; px = null; }   // (kept for the next pan)
       return true;
-    } finally { if (job && !v.lost) v.dropJob(job); px = null; }
+    } finally { if (job && !v.lost) v.dropJob(job); px = null; for (const p of pend) p.pc.width = p.pc.height = 0; }
   }
   // What the plate shows, in coarse steps: re-rasterize when it changes. A selected organ is not part of it: its outline is drawn
   // outside the organs (gSelO, or on the GPU) and its dim on the GPU, and its .org-sel class styles nothing, so the picture was
