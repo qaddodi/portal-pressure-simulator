@@ -75,7 +75,7 @@ export const ADOPTED = {
   'treatment/cost': ['kind:flows'],
   'treatment/vs': ['lens:since', 'since', 'sinceLabel', 'kind:profile'],
   'circulation/inflow': ['kind:flows'],
-  'circulation/series': ['kind:profile', 'steps', 'glow:group'],
+  'circulation/series': ['scales', 'kind:profile', 'steps', 'glow:group'],
   'circulation/flow': ['lapseGlow'],
   'pregnancy/weeks': ['kind:curve'],
   'pregnancy/scope': ['calipers'],
@@ -111,7 +111,7 @@ export const ADOPTED = {
   'one-year/plane': ['visual', 'plane', 'of'],
   'one-year/summary': ['tool.style', 'tool.bands'],
   // One chart everywhere (Mohammad, 21 Oct: "Gut to heart is good, unify it"): every slide that had the old ladder card.
-  'circulation/ladder': ['kind:profile'],
+  'circulation/ladder': ['scales', 'kind:profile'],
   'circulation/define': ['kind:profile'],
   'hvpg/hvpg': ['kind:profile'],
   'hvpg/presin': ['kind:profile'],

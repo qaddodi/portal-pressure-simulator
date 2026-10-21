@@ -81,7 +81,7 @@
 // Every deck opens with an "Outline and objectives" slide built from its kicker groups and objectives
 // (withOverview below); a deck never writes that slide itself.
 
-import { CIRCULATION } from './decks/circulation.js?v=2271df5c84';
+import { CIRCULATION } from './decks/circulation.js?v=ed5243683d';
 import { SITES } from './decks/sites.js?v=00ba7b86f4';
 import { HVPG } from './decks/hvpg.js?v=1f1f96d516';
 import { ASCITES } from './decks/ascites.js?v=68ab0bb495';

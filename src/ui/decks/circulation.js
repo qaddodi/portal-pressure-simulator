@@ -28,14 +28,14 @@ export const CIRCULATION = {
       ask: ['Which coloring would show a portal vein flowing away from the liver?', 'Direction: the reversed vein changes color.'],
     },
     {
-      id: 'series', cam: [380, 30, 1010, 745], labels: ['CONF', 'SIN_R', 'RHV', 'RA'], terms: { sinusoids: 'sin', heart: 'heart' }, glow: [['V_INT', 'V_SPL', 'V_IMV'], ['SIN_RR', 'SIN_LL']], glowSeq: 550, steps: true, tool: { kind: 'profile' },   // (1: the gut's and spleen's veins, the first bed; 2: both lobes' sinusoids, the second)
+      id: 'series', cam: [380, 30, 1010, 745], scales: { lobule: { glow: ['lobule:sinusoid'] }, sinusoid: {} }, labels: ['CONF', 'SIN_R', 'RHV', 'RA'], terms: { sinusoids: 'sin', heart: 'heart' }, glow: [['V_INT', 'V_SPL', 'V_IMV'], ['SIN_RR', 'SIN_LL']], glowSeq: 550, steps: true, tool: { kind: 'profile' },   // (1: the gut's and spleen's veins, the first bed; 2: both lobes' sinusoids, the second)
       kicker: 'The portal circulation', title: 'Gut blood crosses two capillary beds in series',
       line: 'The first bed is the capillaries of the gut and spleen. The second is the liver\'s sinusoids. Because they are in series, resistance in the liver or between it and the heart raises pressure in every vein upstream.',
       notes: 'A portal system is a set of veins running between two capillary beds. The first bed is in the gut and spleen, the second is the hepatic sinusoids. Because the beds are in series, anything that raises resistance in the liver, or beyond it, raises the pressure in every vein upstream: the portal vein, the splenic vein and the veins of the gut.',
       ask: ['What makes a circulation a portal system?', 'Blood passes through two capillary beds in series before it returns to the heart.'],
     },
     {
-      id: 'ladder', lens: 'drop', cam: 'route', labels: ['CONF', 'SIN_R', 'RHV', 'RA'], tool: { kind: 'profile' }, key: ['hvpg', 'ppg'],
+      id: 'ladder', lens: 'drop', cam: 'route', scales: { lobule: { glow: ['lobule:triad', 'lobule:central'] } }, labels: ['CONF', 'SIN_R', 'RHV', 'RA'], tool: { kind: 'profile' }, key: ['hvpg', 'ppg'],
       kicker: 'The portal circulation', title: 'Normal pressures from the portal vein to the right atrium',
       line: 'About {pv} in the [portal vein](pv) and {ra} in the [right atrium](ra). Healthy [sinusoids](sin) barely resist, so the portal pressure gradient is only {ppg}. Colored by pressure drop, every vein stays pale.',
       notes: 'The ladder runs from the gut to the right atrium, through the portal vein, the liver\'s three stations and the hepatic vein; the wedged hepatic vein reads the sinusoids. The dashed line is the healthy reference, used on every slide. In health the whole fall from the portal vein to the IVC, the portal pressure gradient (PPG), is 5 mmHg or less, and the hepatic venous pressure gradient (HVPG), the fall across the sinusoids, is 1 to 5 mmHg. The wedge is a balloon reading of the sinusoids; the HVPG and PPG deck explains it.',
