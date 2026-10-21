@@ -20,7 +20,7 @@ test('a plate raster draws into a canvas of its own and sends it as pixel strips
   // its drawing are a strip's too. Same scale, cut at whole rows: the same pixels. A strip is read back a frame after it is
   // drawn (Safari paints a canvas's drawing on its own: read at once, the read waited out the painting, 70–130 ms a strip in
   // his ?perf readout, 21 Oct), and the next strip follows in that frame, never two strips' reads in one.
-  assert.match(body, /const gone = \(\) => seq !== plateSeq \|\| drops !== plateDrops \|\| v !== veins \|\| v\.lost \|\| vseq !== \(banded \? viewSeq : 0\);/);
+  assert.match(body, /const gone = \(\) => seq !== plateSeq \|\| drops !== plateDrops \|\| v !== veins \|\| v\.lost \|\| vseq !== \(banded \? viewSeq : 0\) \|\| drawnAs !== plateStateKey\(\);/);
   assert.match(body, /for \(const \[y, rows\] of plateStrips\(W, H\)\) \{\n\s+if \(y && !waited\) await new Promise\(\(res\) => nextFrame\(res\)\);\n\s+waited = false;\n\s+if \(gone\(\)\) return false;\n\s+if \(banded\) \{/, 'a raster overtaken on its way in is given up (a view picture, by a newer view picture too)');
   assert.match(body, /if \(gone\(\) \|\| plateCopy\?\.key !== drawnAs\) return false;\n\s+mine\.push\(\[qx, qy, drawn\(qw, qh, \(pg\) => pg\.drawImage\(band, 0, 0, qw, qh\)\)\]\);/, 'a strip whose copy changed state is given up');
   assert.match(body, /if \(mine\.length\) \{ await new Promise\(\(res\) => nextFrame\(res\)\); waited = true; if \(gone\(\)\) return false; \}\n\s+for \(const \[qx, qy, p\] of mine\) copyPixels\(px, W, qx, qy, readBack\(p\), p\.w, 0, 0, p\.w, p\.h\);/, 'read a frame after it is drawn, and given up if overtaken meanwhile');

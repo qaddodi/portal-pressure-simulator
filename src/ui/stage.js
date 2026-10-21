@@ -3750,7 +3750,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       try { return gpuProbe.time(null, 'organ picture: read', () => premultiply(p.pg.getImageData(0, 0, p.w, p.h).data)); } finally { p.pc.width = p.pc.height = 0; pend.splice(pend.indexOf(p), 1); }
     };
     const v = veins, sx = W / rect[2], sy = H / rect[3];
-    const gone = () => seq !== plateSeq || drops !== plateDrops || v !== veins || v.lost || vseq !== (banded ? viewSeq : 0);
+    // (A state that changed on the way is given up at the next strip, not after every strip is drawn, read back and uploaded: with the
+    // plate already down, another organ change hides nothing, so plateDrops does not move for it. External review, 21 Oct.)
+    const gone = () => seq !== plateSeq || drops !== plateDrops || v !== veins || v.lost || vseq !== (banded ? viewSeq : 0) || drawnAs !== plateStateKey();
     let job = v.plateJob(W, H), waited = false;
     try {
       for (const [y, rows] of plateStrips(W, H)) {

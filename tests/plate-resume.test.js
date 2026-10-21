@@ -19,7 +19,7 @@ test('an organ picture whose state changed on its way in is given up, not shown'
   const keep = r.indexOf('const drawnAs = banded ? plateStateKey() : plateCopy?.key'), check = r.indexOf('if (drawnAs !== plateStateKey()) return false;'), show = r.indexOf('v.setPlate(slot, job, rect)');
   assert.ok(keep > 0 && r.indexOf('plateMarkup(') < keep, 'the key the copy was drawn for is kept as the copy is made');
   // (The view's strips: the state now, and every strip's copy must still be of it.)
-  assert.ok(r.indexOf('if (gone() || plateCopy?.key !== drawnAs) return false;') > keep && /const gone = \(\) => [^\n]*vseq !== \(banded \? viewSeq : 0\);/.test(r), 'a strip drawn from a copy of another state is given up');
+  assert.ok(r.indexOf('if (gone() || plateCopy?.key !== drawnAs) return false;') > keep && /const gone = \(\) => [^\n]*vseq !== \(banded \? viewSeq : 0\) \|\| drawnAs !== plateStateKey\(\);/.test(r), 'a strip drawn from a copy of another state is given up');
   assert.ok(check > 0 && check < show, 'the key is checked again before the picture is shown');
 });
 
@@ -80,4 +80,15 @@ test('an organ picture given up because the change moved on makes the next one w
   assert.match(src, /still - \(performance\.now\(\) - lvStillAt\), 400 - \(performance\.now\(\) - spleenMv\.stillAt\(\)\), still - \(performance\.now\(\) - fluidStillAt\)\);/);
   assert.match(src, /plateMiss = plateOn\(\) \? 0 : Math\.min\(3, plateMiss \+ 1\);\n\s*if \(!plateOn\(\)\) plateKey = '';/);
   assert.match(src, /\} else if \(plateStateKey\(\) !== k\) plateAgain = true;[^\n]*\n\s*if \(plateAgain && !plateOn\(\)\) plateMiss = Math\.min\(3, plateMiss \+ 1\);/);
+});
+
+test('an organ picture whose state moved on stops at the next strip, before drawing, reading back or uploading more', () => {
+  const src = readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8');
+  const at = src.indexOf('async function rasterPlate(');
+  const body = src.slice(at, src.indexOf('\n  }\n', at));
+  // (External review, 21 Oct: with the plate already down, a further organ change moves no counter, so every strip was still sent.)
+  assert.match(body, /const gone = \(\) => [^\n]*\|\| drawnAs !== plateStateKey\(\);/);
+  // Checked before every strip (the first included) and after each wait for a frame.
+  assert.match(body, /for \(const \[y, rows\] of plateStrips\(W, H\)\) \{\n\s*if \(y && !waited\) await new Promise\(\(res\) => nextFrame\(res\)\);\n\s*waited = false;\n\s*if \(gone\(\)\) return false;/);
+  assert.match(body, /await new Promise\(\(res\) => nextFrame\(res\)\); waited = true;\n\s*if \(gone\(\)\) return false;\n\s*v\.plateRows\(job, y, rows, readBack\(p\)\);/);
 });
