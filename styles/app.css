@@ -6532,7 +6532,8 @@ html.thumb-ui .menu.from-dock { clip-path: inset(-64px -64px calc(var(--sink, 0p
    past its edge in the ascites colour; under it the Ascites row, where what leaked (straw) and what is reabsorbed (blue) are
    lanes on the same scale ending under the overflow's end; then the day's change. Fixed rows: the card never resizes. */
 .gw { display: flex; flex-direction: column; gap: 6px; min-width: 0; color: var(--text-2); font: 500 var(--fs-12)/1.25 var(--font-ui); font-variant-numeric: tabular-nums;
-  --gw-lymph: var(--sv-gl-lymph-hi); --gw-num: var(--pz-num, 26px); --gw-straw: color-mix(in srgb, var(--ascites) 58%, var(--text)); }
+  --gw-lymph: var(--sv-gl-lymph-hi); --gw-num: var(--pz-num, 26px); --gw-straw: color-mix(in srgb, var(--ascites) 58%, var(--text));
+  position: relative; --gw-vcol: calc(2.9em + 10px); --gw-dash-lymph: color-mix(in srgb, var(--gw-lymph) 40%, var(--text-2)); --gw-dash-straw: var(--gw-straw); --gw-dash-blue: var(--vein-systemic); }
 :root[data-theme="dark"] .gw { --gw-lymph: color-mix(in srgb, var(--sv-gl-lymph-hi) 55%, var(--surface)); --gw-straw: var(--ascites); }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]):not([data-theme="soft"]) .gw { --gw-lymph: color-mix(in srgb, var(--sv-gl-lymph-hi) 55%, var(--surface)); --gw-straw: var(--ascites); } }
 .gw[hidden] { display: none; }
@@ -6540,11 +6541,21 @@ html.thumb-ui .menu.from-dock { clip-path: inset(-64px -64px calc(var(--sink, 0p
 .gw-k { font: var(--caps-w) var(--fs-12)/1.2 var(--font-ui); letter-spacing: var(--caps-ls); text-transform: uppercase; color: var(--text-2); }
 .gw-lm, .gw-lr { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; white-space: nowrap; }
 .gw-sum b:last-child { font-size: var(--fs-14); }
+/* (Ghost parts, 21 Oct: a swatch keys each green of the fill to its source's number; dashed while that source makes none. They go
+   when the widest sum would crowd the row's name, the same on every slide: tool-fluid.js sets .gw-nosw from the unseen .gw-ref.) */
+.gw-sw { display: inline-block; box-sizing: border-box; width: 9px; height: 9px; margin: 0 4px 0 0; border-radius: 3px; vertical-align: -1px; border: 1px solid color-mix(in srgb, var(--text) 14%, transparent); }
+.gw-sw-l { background: color-mix(in srgb, var(--gw-lymph) 62%, var(--surface)); }
+.gw-sw-g { background: var(--gw-lymph); }
+.gw-sw.none { background: none; border: 1.5px dashed var(--gw-dash-lymph); }
+.gw-nosw .gw-sum:not(.gw-ref) > .gw-sw { display: none; }
+.gw-ref { position: absolute; left: 0; top: 0; visibility: hidden; pointer-events: none; white-space: nowrap; }
 .gw-lr { margin-top: 4px; }
 .gw-state { font-weight: 600; white-space: nowrap; color: var(--ok); transition: color .4s var(--ease); }
 .gw-state[data-rate="mid"] { color: var(--caution); } .gw-state[data-rate="hi"] { color: var(--danger); }
 /* (one scale on every slide: the window widens as the lymphatics grow; the overflow tucks under its rounded end) */
 .gw-pic { position: relative; height: 96px; white-space: nowrap; }
+/* (the track is the picture less the number column on its right: the window, the overflow and both lanes share its one scale) */
+.gw-track { position: absolute; left: 0; top: 0; bottom: 0; right: var(--gw-vcol); }
 .gw-win { position: absolute; left: 0; top: 0; height: 26px; border-radius: 9px; background: var(--surface); box-shadow: inset 0 0 0 1.5px var(--border-strong); }
 .gw-fill { position: absolute; left: 3px; top: 3px; bottom: 3px; width: calc((100% - 6px) * var(--f, 0)); display: flex; gap: 2px; }
 .gw-liv, .gw-gut { border-radius: 6px; min-width: 0; }
@@ -6553,16 +6564,30 @@ html.thumb-ui .menu.from-dock { clip-path: inset(-64px -64px calc(var(--sink, 0p
 .gw-over { position: absolute; top: 0; height: 26px; border-radius: 0 9px 9px 0; background: color-mix(in srgb, var(--ascites) 80%, var(--surface)); }
 .gw-carried { position: absolute; left: 10px; top: 5px; color: var(--text); font-weight: 600; transition: opacity .18s var(--ease); }
 .gw-ak { position: absolute; left: 0; top: 40px; }
-.gw-none { position: absolute; left: 0; top: 60px; color: var(--text-2); transition: opacity .3s var(--ease); }
-.gw-drop, .gw-in, .gw-back, .gw-inl, .gw-backl { position: absolute; opacity: 0; transition: opacity .3s var(--ease); }
+/* (Ghost parts: the dashed outline of a part with nothing in it, drawn where its solid part will grow; the opacity is set from the
+   part's size in tool-fluid.js windowParts, so it fades as the solid part reaches it, never pops. The window covers the overflow
+   ghost's first 10 px, as it does the cap's.) */
+.gw-ghost { position: absolute; box-sizing: border-box; pointer-events: none; border: 1.5px dashed var(--gw-dash-lymph); }
+.gw-spare { top: 3px; bottom: 3px; left: calc(5px + (100% - 6px) * var(--f, 0)); right: 3px; border-radius: 6px; }
+.gw-overg { top: 0; height: 26px; border-radius: 0 9px 9px 0; border-color: var(--gw-dash-straw); }
+.gw-slot { width: 22px; height: 14px; border-radius: 5px; }
+.gw-slot-in { top: 62px; border-color: var(--gw-dash-straw); } .gw-slot-back { top: 80px; border-color: var(--gw-dash-blue); }
+.gw-drop, .gw-in, .gw-back { position: absolute; opacity: 0; transition: opacity .3s var(--ease); }
 .gw-drop { top: 26px; height: 36px; background: color-mix(in srgb, var(--ascites) 24%, transparent); }
+.gw-dropg { position: absolute; top: 28px; height: 33px; box-sizing: border-box; border-inline: 1px dotted var(--gw-dash-straw); opacity: .7; transition: opacity .3s var(--ease); }
 .gw-in, .gw-back { height: 14px; border-radius: 5px; }
 .gw-in { top: 62px; background: color-mix(in srgb, var(--ascites) 80%, var(--surface)); }
 .gw-back { top: 80px; background: color-mix(in srgb, var(--vein-systemic) 80%, var(--surface)); }
-.gw-inl, .gw-backl { font-weight: 600; line-height: 14px; }
-.gw-inl { top: 62px; color: var(--gw-straw); } .gw-backl { top: 80px; color: var(--vein-systemic); }
-.gw-pic.on .gw-none { opacity: 0; }
-.gw-pic.on :is(.gw-drop, .gw-in, .gw-inl), .gw-pic.on.back :is(.gw-back, .gw-backl) { opacity: 1; }
+/* (the lanes' names on the left, their numbers on the card's right edge with the sum's and the day's, a dotted leader between) */
+.gw-ln, .gw-lv { position: absolute; line-height: 14px; }
+.gw-ln { left: 0; color: var(--text-2); }
+.gw-lv { right: 0; font-weight: 600; color: var(--text-3); transition: color .3s var(--ease); }
+.gw-ln-in, .gw-lv-in { top: 62px; } .gw-ln-back, .gw-lv-back { top: 80px; }
+.gw-ld { position: absolute; height: 0; border-top: 1.5px dotted color-mix(in srgb, var(--text-3) 55%, transparent); opacity: 0; }
+.gw-ld-in { top: 69px; } .gw-ld-back { top: 87px; }
+.gw-pic.on :is(.gw-drop, .gw-in), .gw-pic.back .gw-back { opacity: 1; }
+.gw-pic.on .gw-dropg { opacity: 0; }
+.gw-pic.on .gw-lv-in { color: var(--gw-straw); } .gw-pic.back .gw-lv-back { color: var(--vein-systemic); }
 .gw-day { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; padding-top: 8px; border-top: 1px solid var(--border); font-size: var(--fs-14); white-space: nowrap; }
 .gw-word { color: var(--text-3); font-size: var(--fs-12); }
 .gw-net { font-size: calc(var(--gw-num) * .84); line-height: 1.1; transition: color .4s var(--ease); }

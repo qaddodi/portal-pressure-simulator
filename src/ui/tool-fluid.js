@@ -100,6 +100,22 @@ export function windowState(d) {
   return d.over > 0 ? { text: `Full, ${mlInt(d.over)} over`, rate: 'hi' } : { text: 'Full', rate: 'mid' };
 }
 
+/** Every part of the window is always there: a part with nothing in it is a dashed outline (a "ghost") that the solid part grows
+ *  out of, so nothing pops in or out. GHOST is the ghost's length (px) at the end of the overflow and of each lane; SLIVER is the
+ *  least the overflow cap shows once any runs over (LANE_MIN the least a lane shows), so 10 mL a day is still a mark. Both are
+ *  continuous in the value (the ghost fades as the solid part reaches its length), so an eased value never makes a step.
+ *  bw is the track's width in px (the card less the number column); nameW the width of the Reabsorbed name, which the lane keeps clear of.
+ *  Returns px: win (window), cap (overflow cap), end (where the overflow and both lanes end), inW and backW (the lanes), the ghosts'
+ *  opacity (capGhost, inGhost, backGhost) and spare (the dashed room left inside the window: 0 under 6 px, 1 from 14 px). */
+export const GHOST = 22, SLIVER = 2.5, LANE_MIN = 2;
+export function windowParts(g, bw, nameW = 0) {
+  const sliver = (px, least) => px + least * clamp(px / 0.5, 0, 1);
+  const win = g.win * bw, overPx = g.over * bw, cap = sliver(overPx, SLIVER), ghostW = clamp(bw - win, 0, GHOST), end = Math.min(bw, win + Math.max(cap, ghostW));
+  const inW = sliver(overPx, LANE_MIN), backW = Math.min(sliver(g.back * bw, LANE_MIN), Math.max(0, end - nameW - 8));
+  const fade = (w) => 1 - clamp(w / Math.max(ghostW, 1), 0, 1);
+  return { win, cap, end, ghostW, inW, backW, capGhost: fade(cap), inGhost: fade(inW), backGhost: fade(backW), spare: clamp(((1 - g.fill) * (win - 6) - 6) / 8, 0, 1) };
+}
+
 const mlMin = (x) => fmt(Math.max(0, x), x < 10 ? 1 : 0);
 
 /** The flow picture's geometry for a width W (px, the card's own, so text stays at its CSS size): the liver's and the gut's
@@ -188,23 +204,39 @@ export function createFluid() {
   // the overflow running past its edge in the ascites colour; under it, on the same scale, the Ascites row: what leaked
   // drops into a straw lane and what is reabsorbed is a blue lane against it, both ending under the overflow's end, so the
   // longer one wins the day; then the day's change. The numbers swap in place; the window, its fill and the lanes ease.
+  // Ghost parts (Mohammad's pick A, 21 Oct): every part is always drawn; one with nothing in it is a dashed outline (the room
+  // left in the window, the overflow's cap, the drop, each lane) that the solid part grows out of, and its number reads 0. The
+  // liver's and the gut's swatches key the two greens of the fill (the gut's is dashed while it makes none). Names sit on the
+  // left, every number on the card's right edge, a dotted leader from each lane to its number. windowParts (above) has the sizes.
   const num = () => h('b', {});
   const wMade = num(), wLiver = num(), wGut = num(), wState = h('span', { class: 'gw-state' });
+  const wLiverSw = h('i', { class: 'gw-sw gw-sw-l' }), wGutSw = h('i', { class: 'gw-sw gw-sw-g' });
   const wLiv = h('span', { class: 'gw-liv' }), wGutF = h('span', { class: 'gw-gut' });
-  const wOver = h('span', { class: 'gw-over' }), wFill = h('span', { class: 'gw-fill' }, wLiv, wGutF), wWin = h('span', { class: 'gw-win' }, wFill);
+  const wOver = h('span', { class: 'gw-over' }), wOverG = h('span', { class: 'gw-ghost gw-overg' });
+  const wSpare = h('span', { class: 'gw-ghost gw-spare' }), wFill = h('span', { class: 'gw-fill' }, wLiv, wGutF), wWin = h('span', { class: 'gw-win' }, wFill, wSpare);
   const wCarried = h('span', { class: 'gw-carried' });
-  const wDrop = h('span', { class: 'gw-drop' }), wIn = h('span', { class: 'gw-in' }), wBack = h('span', { class: 'gw-back' });
-  const wInL = h('span', { class: 'gw-inl' }), wBackL = h('span', { class: 'gw-backl' });
-  const wNone = h('span', { class: 'gw-none' }, 'Nothing runs over, so none collects.');
-  const wPic = h('div', { class: 'gw-pic' }, wDrop, wOver, wWin, wCarried, h('span', { class: 'gw-k gw-ak' }, 'Ascites'), wNone, wIn, wBack, wInL, wBackL);
+  const wDrop = h('span', { class: 'gw-drop' }), wDropG = h('span', { class: 'gw-dropg' }), wIn = h('span', { class: 'gw-in' }), wBack = h('span', { class: 'gw-back' });
+  const wSlotIn = h('span', { class: 'gw-ghost gw-slot gw-slot-in' }), wSlotBack = h('span', { class: 'gw-ghost gw-slot gw-slot-back' });
+  const wInN = h('span', { class: 'gw-ln gw-ln-in' }, 'Leaked'), wBackN = h('span', { class: 'gw-ln gw-ln-back' }, 'Reabsorbed');
+  const wInV = h('span', { class: 'gw-lv gw-lv-in' }), wBackV = h('span', { class: 'gw-lv gw-lv-back' });
+  const wInLd = h('span', { class: 'gw-ld gw-ld-in' }), wBackLd = h('span', { class: 'gw-ld gw-ld-back' });
+  // (the track is the picture less the number column: the window, the overflow and the lanes are drawn on its one scale)
+  const wTrack = h('span', { class: 'gw-track' }, wDropG, wDrop, wOverG, wOver, wWin, wCarried, wSlotIn, wSlotBack, wIn, wBack);
+  const wPic = h('div', { class: 'gw-pic' }, wTrack, h('span', { class: 'gw-k gw-ak' }, 'Ascites'), wInN, wBackN, wInV, wBackV, wInLd, wBackLd);
   const eqN = h('b', { class: 'gw-net' }), wWord = h('span', { class: 'gw-word' });
+  // (the swatches show when the sum's widest form — four digits each — leaves 14 px beside the row's name; the same on every
+  // slide of a card, so they never come and go as the numbers grow. wRef is that widest form, unseen.)
+  const refB = () => h('b', {}, '0,000');
+  const wLmName = h('span', { class: 'gw-k' }, 'Lymph made');
+  const wRef = h('span', { class: 'gw-sum gw-ref', 'aria-hidden': 'true' }, h('i', { class: 'gw-sw' }), 'Liver ', refB(), ' + ', h('i', { class: 'gw-sw' }), 'Gut ', refB(), ' = ', refB());
+  const wLm = h('div', { class: 'gw-lm' }, wLmName, h('span', { class: 'gw-sum' }, wLiverSw, 'Liver ', wLiver, ' + ', wGutSw, 'Gut ', wGut, ' = ', wMade));
   const win = h('div', { class: 'gw' },
-    h('div', { class: 'gw-lm' }, h('span', { class: 'gw-k' }, 'Lymph made'),
-      h('span', { class: 'gw-sum' }, 'Liver ', wLiver, ' + Gut ', wGut, ' = ', wMade)),
+    wLm,
     h('div', { class: 'gw-lr' }, h('span', { class: 'gw-k' }, 'Lymphatics'), wState),
     wPic,
-    h('div', { class: 'gw-day' }, h('span', {}, 'Each day', wWord), eqN));
-  let capDirty = true, carW = 0, inLW = 0, backLW = 0, carSide = '', carFade = 0;
+    h('div', { class: 'gw-day' }, h('span', {}, 'Each day', wWord), eqN),
+    wRef);
+  let capDirty = true, carW = 0, backNW = 0, inVW = 0, backVW = 0, carSide = '', carFade = 0;
   const el = h('div', { class: 'gf', role: 'img' }, win, flow, unit, words, forces, caveat);
   const set = (n, t) => { if (n.textContent === t) return false; n.textContent = t; return true; };
   let W = 0, FW = 0, goal = null, shown = null, fGoal = null, fShown = null, raf = 0, last = 0;
@@ -212,17 +244,26 @@ export function createFluid() {
   const KEYS = ['hep', 'spl', 'made', 'cap', 'carried', 'spare', 'back', 'net', 'perDay'];
   function draw() {
     if (opts.window) {
-      const bw = wPic.clientWidth;
+      const bw = wTrack.clientWidth, outer = wPic.clientWidth;
       if (shown && bw > 0) {
         const g = windowGeom(shown), px = (v) => `${v.toFixed(2)}px`;
-        wWin.style.width = `${(g.win * 100).toFixed(3)}%`;
-        wFill.style.setProperty('--f', g.fill.toFixed(4));
+        if (capDirty) {
+          carW = wCarried.offsetWidth; backNW = wBackN.offsetWidth; inVW = wInV.offsetWidth; backVW = wBackV.offsetWidth; capDirty = false;
+          win.classList.toggle('gw-nosw', wLm.clientWidth - wLmName.offsetWidth - wRef.offsetWidth < 14);
+        }
+        const P = windowParts(g, bw, backNW), winPct = `${(g.win * 100).toFixed(3)}%`, opa = (n, v) => { n.style.opacity = v.toFixed(3); };
+        wWin.style.width = winPct;
+        wWin.style.setProperty('--f', g.fill.toFixed(4));
         wLiv.style.flexBasis = `${(g.liver * 100).toFixed(3)}%`;
         wGutF.style.display = g.liver < 0.995 ? '' : 'none';
-        wOver.style.display = g.over * bw > 0.5 ? '' : 'none';
-        wOver.style.left = `calc(${(g.win * 100).toFixed(3)}% - 10px)`;
-        wOver.style.width = `calc(${(g.over * 100).toFixed(3)}% + 10px)`;
-        if (capDirty) { carW = wCarried.offsetWidth; inLW = wInL.offsetWidth; backLW = wBackL.offsetWidth; capDirty = false; }
+        opa(wSpare, P.spare);
+        // (the overflow's cap, solid from the first mark, and its ghost, which fades as the cap grows to the ghost's length)
+        wOver.style.display = P.cap > 0.05 ? '' : 'none';
+        wOver.style.left = `calc(${winPct} - 10px)`;
+        wOver.style.width = `calc(${px(P.cap)} + 10px)`;
+        wOverG.style.left = `calc(${winPct} - 10px)`;
+        wOverG.style.width = px(P.ghostW + 10);
+        opa(wOverG, P.capGhost);
         // ("… carried" inside the fill when it fits, else just past its end; it fades, never jumps, when it changes side)
         const fillEnd = 3 + g.fill * (g.win * bw - 6), side = carW + 20 <= fillEnd ? 'in' : 'out';
         const carX = () => (carSide === 'in' ? 10 : Math.min(bw - carW, fillEnd + 8));
@@ -232,12 +273,16 @@ export function createFluid() {
           carFade = setTimeout(() => { carFade = 0; carSide = side; wCarried.style.left = px(carX()); wCarried.style.opacity = ''; }, 180);
         }
         if (!carFade) wCarried.style.left = px(carX());
-        // (the lanes end under the overflow's end; each label ends 8 px before its lane, never past the card's left edge)
-        const end = (g.win + g.over) * bw, inW = g.over * bw, backW = Math.min(g.back * bw, end);
-        const lane = (n, w) => { n.style.display = w > 0.5 ? '' : 'none'; n.style.left = px(end - w); n.style.width = px(w); };
-        lane(wDrop, inW); lane(wIn, inW); lane(wBack, backW);
-        wInL.style.right = px(Math.min(bw - (end - inW) + 8, bw - inLW));
-        wBackL.style.right = px(Math.min(bw - (end - backW) + 8, bw - backLW));
+        // (the lanes and the drop end under the overflow's end; each lane keeps clear of the Reabsorbed name; a dashed slot marks
+        // the lane's end until its solid part reaches the slot's length)
+        const lane = (n, x, w) => { n.style.left = px(x); n.style.width = px(w); };
+        lane(wDrop, P.end - P.inW, P.inW); lane(wDropG, P.end - P.ghostW, P.ghostW);
+        lane(wIn, P.end - P.inW, P.inW); lane(wBack, P.end - P.backW, P.backW);
+        lane(wSlotIn, P.end - P.ghostW, P.ghostW); lane(wSlotBack, P.end - P.ghostW, P.ghostW);
+        opa(wSlotIn, P.inGhost); opa(wSlotBack, P.backGhost);
+        // (the dotted leaders run from the lanes' end to their numbers on the card's right edge, fading while there is no room)
+        const leader = (n, vw) => { const x0 = P.end + 8, len = outer - vw - 8 - x0; n.style.left = px(x0); n.style.width = px(Math.max(0, len)); opa(n, clamp((len - 6) / 8, 0, 1)); };
+        leader(wInLd, inVW); leader(wBackLd, backVW);
       }
     } else if (shown && W > 0) {
       const L = fluidFlows(shown, W);
@@ -294,8 +339,10 @@ export function createFluid() {
       const d = fluidDay(f), st = windowState(d), n0 = mlInt;
       set(wMade, n0(d.made)); set(wLiver, n0(d.liver)); set(wGut, n0(d.gut));
       set(wState, st.text); wState.dataset.rate = st.rate;
-      if (set(wCarried, `${n0(d.carried)} carried`) | set(wInL, `Leaked ${n0(d.over)}`) | set(wBackL, `Reabsorbed ${n0(d.back)}`)) capDirty = true;
+      if (set(wCarried, `${n0(d.carried)} carried`) | set(wInV, n0(d.over)) | set(wBackV, n0(d.back))) capDirty = true;
       wPic.classList.toggle('on', d.over > 0); wPic.classList.toggle('back', d.back > 0);
+      // (a swatch is dashed while its part makes none: the gut's, in health)
+      wLiverSw.classList.toggle('none', d.liver === 0); wGutSw.classList.toggle('none', d.gut === 0);
       set(eqN, d.net === 0 ? '0' : `${d.net > 0 ? '▲' : '▼'} ${n0(Math.abs(d.net))}`);
       eqN.dataset.dir = d.net > 0 ? 'up' : d.net < 0 ? 'down' : '';
       set(wWord, ` · ${d.net > 0 ? 'ascites builds' : d.net < 0 ? 'ascites shrinks' : d.over > 0 ? 'steady' : 'no ascites'}`);

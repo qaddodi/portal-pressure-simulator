@@ -2,6 +2,13 @@
 
 ## October 2026
 
+- **Fluid balance card: ghost parts.** Every part of the capacity window is now always drawn: a part with nothing in it is a
+  dashed outline in its own colour that the solid part grows out of (the room left in the window, the overflow's cap and drop,
+  the Leaked and Reabsorbed lanes, the gut's swatch), so nothing pops in or out as a time-lapse moves the numbers, and 10 mL a day
+  still leaves a mark. Two swatches key the fill's two greens to Liver and Gut (they give way on a card too narrow for them). The
+  lanes' names sit on the left and their numbers on the card's right edge with the sum's and the day's, a dotted leader between;
+  "Nothing runs over, so none collects" is replaced by the dashed lanes reading 0. The Reabsorbed lane now shows whenever something
+  is reabsorbed, not only while something also leaks. Same height as before. Tests: `tests/fluid-window.test.js`.
 - **Change since, in the lobule.** A slide that colours by change since an earlier slide (`lens: 'since'`) now does so in the
   lobule and sinusoid-zoom views too, where it used to fall back to plain pressure colours under a "Change vs …" key. The lobule's
   vessels and its three readings count from the same reference as the figure's vessels, and ease to a new one instead of snapping. Every other lens and

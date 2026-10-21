@@ -5,7 +5,7 @@ import './dom-shim.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { fluidDay, windowGeom, windowState, WINDOW_TOP } from '../src/ui/tool-fluid.js';
+import { fluidDay, windowGeom, windowState, windowParts, WINDOW_TOP, GHOST, SLIVER, LANE_MIN } from '../src/ui/tool-fluid.js';
 
 const perMin = (d) => ({ hep: d.liver / 1440, spl: d.gut / 1440, cap: d.limit / 1440, back: d.back / 1440 });
 const STATES = {
@@ -65,6 +65,64 @@ test('only the Testing deck\'s four fluid slides draw the window, with their til
   const ext = readFileSync(new URL('../src/ui/ext-instruments.js', import.meta.url), 'utf8');
   assert.match(ext, /'Fluid balance · mL\/day'/, 'the title carries the unit');
   const src = readFileSync(new URL('../src/ui/tool-fluid.js', import.meta.url), 'utf8');
-  assert.match(src, /`Leaked \$\{/); assert.match(src, /`Reabsorbed \$\{/);
+  assert.match(src, /'Leaked'/); assert.match(src, /'Reabsorbed'/);
+  assert.match(src, /set\(wInV, n0\(d\.over\)\)/); assert.match(src, /set\(wBackV, n0\(d\.back\)\)/);
   assert.doesNotMatch(src, /taken back:|mL a day · model rates/, 'no "taken back" words and no model sentence on the window');
+});
+
+// Ghost parts (Mohammad's pick A, 21 Oct): every part is always drawn, a dashed outline while it has nothing in it, and the solid
+// part grows out of it, so no part pops in or out and a number never floats without its mark.
+const BW = 300, NAME = 70;
+const parts = (st, nameW = NAME) => windowParts(windowGeom(perMin(st)), BW, nameW);
+test('ghost parts: health shows every ghost, cirrhosis none, and the lanes end together', () => {
+  const h = parts(STATES.healthy);
+  assert.equal(h.cap, 0); assert.equal(h.capGhost, 1); assert.equal(h.inGhost, 1); assert.equal(h.backGhost, 1);
+  assert.equal(h.spare, 1, 'health has room left in the window: dashed');
+  assert.ok(Math.abs(h.end - (h.win + GHOST)) < 1e-9, 'with nothing over, the lanes end at the ghost\'s end');
+  const c = parts(STATES.day60), d = parts(STATES.diuretics);
+  for (const x of [c, d]) { assert.equal(x.capGhost, 0); assert.equal(x.inGhost, 0); assert.equal(x.backGhost, 0); assert.equal(x.spare, 0, 'the window is full'); }
+  assert.ok(Math.abs(c.end - (c.win + c.cap)) < 1e-9 && c.end === d.end, 'the lanes end under the overflow\'s end');
+  assert.ok(d.backW > c.backW && c.inW === d.inW, 'the diuretics slide\'s Reabsorbed lane is the longer one');
+});
+test('ghost parts: ten mL a day over still leaves a mark (the Ascites 4/13 slide)', () => {
+  const t = parts({ liver: 2850, gut: 760, limit: 3600, back: 0 });
+  assert.ok(t.cap >= SLIVER && t.inW >= LANE_MIN, 'a cap and a lane you can see');
+  assert.equal(t.backW, 0, 'no Reabsorbed lane, only its ghost');
+  assert.ok(t.inGhost > 0.5 && t.backGhost === 1, 'the ghosts still show beside the marks');
+});
+test('ghost parts: eased values make no step (nothing pops in or out)', () => {
+  let prev = null;
+  for (let over = 0; over <= 2200; over++) {
+    const p = windowParts(windowGeom({ hep: (3600 + over) / 1440, spl: 0, cap: 3600 / 1440, back: over / 3 / 1440 }), BW, NAME);
+    if (prev) for (const k of ['cap', 'end', 'inW', 'backW', 'capGhost', 'inGhost', 'backGhost']) assert.ok(Math.abs(p[k] - prev[k]) < 0.4, `${k} steps by ${Math.abs(p[k] - prev[k])} at ${over} mL over`);
+    prev = p;
+  }
+  prev = null;
+  for (let made = 0; made <= 3600; made += 5) {
+    const p = windowParts(windowGeom({ hep: made / 1440, spl: 0, cap: 3600 / 1440, back: 0 }), BW, NAME);
+    assert.ok(p.spare >= 0 && p.spare <= 1);
+    if (prev) assert.ok(Math.abs(p.spare - prev.spare) < 0.2, 'the dashed room fades out as the window fills');
+    prev = p;
+  }
+});
+test('ghost parts: a lane keeps clear of the name, and nothing leaves the track', () => {
+  for (const back of [0, 860, 2160, 5000, 9000]) {
+    const p = parts({ liver: 2330, gut: 3030, limit: 4340, back }, 80);
+    assert.ok(p.end - p.backW >= 80 + 8 - 1e-9, `Reabsorbed ${back} stays 8 px clear of its name`);
+    assert.ok(p.end <= BW + 1e-9 && p.win + p.cap <= BW + SLIVER, 'the overflow ends inside the track');
+  }
+  const wide = windowParts(windowGeom({ hep: 3, spl: 0, cap: 3.8, back: 0 }), BW, NAME);
+  assert.ok(wide.end <= BW && wide.ghostW <= GHOST, 'a very wide window leaves the ghost less room, never past the track');
+});
+test('ghost parts: the card draws each ghost and keys the fill\'s greens', () => {
+  const src = readFileSync(new URL('../src/ui/tool-fluid.js', import.meta.url), 'utf8');
+  for (const cls of ['gw-spare', 'gw-overg', 'gw-dropg', 'gw-slot-in', 'gw-slot-back', 'gw-sw-l', 'gw-sw-g', 'gw-ld-in', 'gw-ld-back']) assert.ok(src.includes(cls), `${cls} is built`);
+  assert.match(src, /gw-nosw/, 'the swatches give way on a card too narrow for them, the same on every slide');
+  assert.doesNotMatch(src, /Nothing runs over|gw-none/, 'the dashed lanes say it; no sentence');
+  const css = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
+  assert.match(css, /\.gw-ghost \{[^}]*dashed/);
+  assert.match(css, /\.gw-sw\.none \{[^}]*dashed/);
+  assert.match(css, /\.gw-pic\.back \.gw-back \{ opacity: 1; \}|\.gw-pic\.back \.gw-back, /, 'the Reabsorbed lane shows whenever something is reabsorbed');
+  const sizes = [...css.matchAll(/\.gw[\w-]*[^{}]*\{[^}]*font-size: (\d+(?:\.\d+)?)px/g)].map((m) => +m[1]);
+  assert.ok(sizes.every((n) => n >= 12), 'no text under 12 px in the card');
 });
