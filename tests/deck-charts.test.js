@@ -31,16 +31,21 @@ test('package B registers its two tools, and no built-in deck uses them or the b
   }
 });
 
-test('only Sites 5 opts its profile into the card title and liver label', () => {
-  const presin = SITES.slides.find((s) => s.id === 'presin');
-  assert.equal(presin.tool.title, 'Pressure, gut to heart');
-  assert.equal(presin.tool.liverLabel, true);
-  assert.ok(adopted(SITES, presin, 'tool.liverLabel'));
+// Mohammad, 21 Oct: every ladder carries the title "Gut to heart" and the LIVER word (a phone says "Gut to heart"), whichever deck or slide:
+// no slide switches either off or names its own.
+test('every profile slide in every deck gets the one ladder title and the LIVER word, none with an option of its own', () => {
+  assert.equal(EXT.tools.profile.title({}), 'Pressure, gut to heart');
+  assert.equal(EXT.tools.profile.short({}), 'Gut to heart');
+  let n = 0;
   for (const deck of DECKS) for (const slide of deck.slides) if (slide.tool?.kind === 'profile') {
-    const target = deck.id === 'sites' && slide.id === 'presin';
-    assert.equal(!!slide.tool.title, target, `${deck.id}/${slide.id} title`);
-    assert.equal(!!slide.tool.liverLabel, target, `${deck.id}/${slide.id} liver label`);
+    n++;
+    assert.equal(slide.tool.title, undefined, `${deck.id}/${slide.id} names its own title`);
+    assert.equal(slide.tool.liverLabel, undefined, `${deck.id}/${slide.id} sets a liver label option`);
+    assert.ok(!adopted(deck, slide, 'tool.liverLabel'), `${deck.id}/${slide.id} still lists the option`);
   }
+  assert.ok(n >= 10, `${n} ladder slides found`);
+  const presin = SITES.slides.find((s) => s.id === 'presin');
+  assert.equal(presin.tool.kind, 'profile', 'Sites 5 is a plain ladder like the rest');
 });
 
 test('the profile reads the tiles\' numbers and the network\'s own pressures', async () => {

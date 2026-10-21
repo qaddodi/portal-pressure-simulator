@@ -77,7 +77,7 @@
 // (withOverview below); a deck never writes that slide itself.
 
 import { CIRCULATION } from './decks/circulation.js?v=5a968e537a';
-import { SITES } from './decks/sites.js?v=29183c7863';
+import { SITES } from './decks/sites.js?v=a2b34883fe';
 import { HVPG } from './decks/hvpg.js?v=35654d5bef';
 import { ASCITES } from './decks/ascites.js?v=f0f10925b6';
 import { VARICES } from './decks/varices.js?v=5e92da46f8';

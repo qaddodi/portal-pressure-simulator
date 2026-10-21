@@ -4,8 +4,7 @@
 // inside the plot, each label inside its bracket (in a band at the plot's foot where it has no clear room) (no wedged ring: Mohammad, 19 Oct, "No need for the wedge circle"). The sinusoid's station shows the wedged
 // pressure (WHVP), the reading the HVPG is taken from, so the HVPG bracket is that point less the hepatic vein's (Mohammad,
 // 19 Oct); it lies a little under the sinusoid's own pressure, the leak to the central vein (engine.js hvpgTrue). Where the line drops steeply is where the resistance is, so presinusoidal, sinusoidal and postsinusoidal resistance look different.
-// tool: { kind: 'profile', from: true } adds the state before this slide's as a faint dotted line ('slide id' for another);
-// liverLabel: true names the liver's band at its top on that slide.
+// tool: { kind: 'profile', from: true } adds the state before this slide's as a faint dotted line ('slide id' for another).
 // Its numbers are the slide's own (its fingerprint, as the tiles read it: the same on every screen), easing to each new
 // state; a what-if slider or compare button moves it with the tiles. The Patients chart (charts.js) is not changed.
 
@@ -96,7 +95,7 @@ export function nameFit(slot, tw) {
  *  its plot at its smallest, the band kept. */
 export function profileGeo(w, h, f, tw, inside = false) {
   const L = Math.ceil(tw('30') + 12), R = w - 10, slot = (R - L) / STATIONS.length, fit = nameFit(slot, tw);
-  // (No key and no title over the plot any more: the healthy line is named on itself, the unit sits in the bottom row (Mohammad, 21 Oct).)
+  // (The strip over the plot holds the card title above it and the liver's name in it; no key: the healthy line is named on itself, the unit sits in the bottom row (Mohammad, 21 Oct).)
   const keyH = 1.6 * f, T = keyH + 1.5 * f, nameH = fit.rows * 1.25 * f + 0.4 * f;
   const brFit = SPANS.map(([, name, a, b]) => bracketFit(slot * (STATIONS.indexOf(b) - STATIONS.indexOf(a)), name, tw, f));
   const brMode = brFit.map((q) => q.mode), brFs = brFit.map((q) => q.fs);
@@ -323,8 +322,7 @@ const textW = (t, f, wt = 600) => {
 export function placeValues(G, tw, goal, hl, bf) {
   const { f } = G, dotR = Math.max(4, 0.36 * f);
   const yg = (v) => G.Z - (G.Z - G.T) * Math.max(0, Math.min(v, goal.top)) / goal.top, ptsG = (p) => p.v.map((v, i) => [G.x(i), yg(v)]);
-  // (The strip over the liver's band where its name stood stays clear of values, though the name is gone (the brace names the liver,
-  // Mohammad, 21 Oct): left open, values moved up into it and others lost their clear places.)
+  // (The strip over the liver's band, where its name stands, stays clear of values.)
   const i0 = STATIONS.indexOf(PATH.liver[0]), i1 = STATIONS.indexOf(PATH.liver[1]), cap = 0.72 * f, lw = (tw('LIVER', 600) + 0.3 * f) / 2;
   const overWords = i0 >= 0 ? [[(G.x(i0) + G.x(i1)) / 2 - lw - 2, (G.x(i0) + G.x(i1)) / 2 + lw + 2, G.T - 0.35 * f - cap - 2, G.T - 0.35 * f + 2]] : [];
   const pg = ptsG(goal);
@@ -358,6 +356,8 @@ export function placeLineNames(G, tw, goal, hl, bf, sides, brk) {
   for (const [x, y] of pg) place.take([x - dotR - 1, x + dotR + 1, y - dotR - 1, y + dotR + 1]);
   for (const v of sides || []) if (v?.box) place.take(v.box);
   for (const r of [0, 1]) place.take(bracketBox(G, r, brk ? brk[r] : G.brY(r)));
+  const i0 = STATIONS.indexOf(PATH.liver[0]), i1 = STATIONS.indexOf(PATH.liver[1]);
+  if (i0 >= 0) { const m = (G.x(i0) + G.x(i1)) / 2, lw = (tw('LIVER', 600) + 0.3 * f) / 2; place.take([m - lw - 2, m + lw + 2, G.T - 0.35 * f - cap - 2, G.T - 0.35 * f + 2]); }
   const out = [];
   for (const [, t, c] of named) {
     const run = runs[1 + out.length], w = tw(t, 500);
@@ -400,6 +400,8 @@ export function placeBrackets(G, tw, goal, hl, bf, sides, prev = null) {
   const place = labelPlacer(runs, [], G.T, G.Z - BR_PAD, [], [BR_PAD, BR_PAD], BR_PAD);
   for (const [x, y] of pg) place.take([x - dotR - 1, x + dotR + 1, y - dotR - 1, y + dotR + 1]);
   for (const v of sides || []) if (v?.box) place.take(v.box);
+  const i0 = STATIONS.indexOf(PATH.liver[0]), i1 = STATIONS.indexOf(PATH.liver[1]);
+  if (i0 >= 0) { const m = (G.x(i0) + G.x(i1)) / 2, lw = (tw('LIVER', 600) + 0.3 * f) / 2; place.take([m - lw - 2, m + lw + 2, G.T - 0.35 * f - 0.72 * f - 2, G.T - 0.35 * f + 2]); }
   // (Every clear height for each, then the pair standing lowest that keeps the two apart: under the curve where it has room,
   // else over it.)
   const ys = [0, 1].map((r) => {
@@ -520,9 +522,9 @@ export function createProfileTool() {
         sv('mask', { id: `${gid}-m`, maskUnits: 'userSpaceOnUse', x: 0, y: 0, width: w, height: hh },
           sv('rect', { x: 0, y: 0, width: w, height: hh, fill: '#fff' }),   // colour-exempt: a mask
           now.map(([cx, cy], i) => { const hw = tw(labels[i], 700) / 2; return sv('rect', { x: cx - hw - NUM_PAD, y: cy - 0.36 * f - NUM_PAD, width: 2 * (hw + NUM_PAD), height: 0.72 * f + 2 * NUM_PAD, rx: NUM_PAD, fill: '#000' }); }))),   // colour-exempt: a mask
-      // The liver's stations on a soft band; an opted-in slide names it at the top.
+      // The liver's stations on a soft band, named over the plot (every ladder, every deck: Mohammad, 21 Oct, "return the word liver").
       i0 >= 0 ? sv('g', { class: 'ppf-liver' }, sv('rect', { x: G.x(i0) - G.slot / 2, width: G.slot * (i1 - i0 + 1), y: G.T - 1.3 * f, height: G.B - G.T + 1.3 * f }),
-        cfg.liverLabel ? sv('text', { x: (G.x(i0) + G.x(i1)) / 2, y: G.T - 0.35 * f, 'text-anchor': 'middle' }, 'LIVER') : null) : null,
+        sv('text', { x: (G.x(i0) + G.x(i1)) / 2, y: G.T - 0.35 * f, 'text-anchor': 'middle' }, 'LIVER')) : null,
       Array.from({ length: Math.floor(top / every) + 1 }, (_, k) => sv('g', { class: 'ptk-grid' }, sv('line', { x1: G.L, x2: G.R, y1: y(k * every), y2: y(k * every) }),
         sv('text', { x: G.L - 6, y: y(k * every) + 0.35 * f, 'text-anchor': 'end' }, String(k * every)))),
       // (The unit in the bottom row, at the left, level with the brace's name: Mohammad, 21 Oct, "Remove mmHg from above put it below".)
@@ -589,7 +591,7 @@ export function createProfileTool() {
   return {
     el,
     /** The slide's options and context (presenter-tools.js show), before its numbers. */
-    configure(t, ctx) { cfg = { from: t?.from ?? null, liverLabel: !!t?.liverLabel }; ctx0 = ctx || null; if (ctx?.fp) aim(ctx.fp); },
+    configure(t, ctx) { cfg = { from: t?.from ?? null }; ctx0 = ctx || null; if (ctx?.fp) aim(ctx.fp); },
     /** The numbers the slide's tiles show: the slide's state, or a what-if slider's or a compare button's. */
     pin(fp) { if (el.isConnected && fp) aim(fp); },
     clear() {},

@@ -89,7 +89,7 @@ export const ADOPTED = {
   'sites/overview': ['lens:system', 'steps', 'glow:group'],
   'sites/healthy': ['kind:profile'],
   'sites/pvt': ['kind:profile'],
-  'sites/presin': ['kind:profile', 'tool.liverLabel'],
+  'sites/presin': ['kind:profile'],
   'sites/sin': ['kind:profile'],
   'sites/postsin': ['kind:profile'],
   'sites/post': ['kind:profile'],

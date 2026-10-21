@@ -202,15 +202,25 @@ test('a phone\'s ladder keeps its full size, so its brackets stay inside the plo
   assert.doesNotMatch(css, /\.pz\.stack[^{]*\.pz-prof[^{]*\{[^}]*(overflow: hidden|max-height)/, 'never clipped');
 });
 
-// Mohammad, 21 Oct: the profile card has no key; Sites 5 opts back into the title and LIVER label.
-test('a profile title and LIVER label appear only when the slide opts in', () => {
+// Mohammad, 21 Oct: "Gut to heart" and the word LIVER are back on every ladder (he had asked them away at 8:48 PM, then wanted them back);
+// the card still has no key (mmHg in the bottom row, "Healthy" named on its dashed line).
+test('every ladder shows its card title and the LIVER word, with no key, mmHg in the bottom row and Healthy named on its line', () => {
   const prof = readFileSync(new URL('../src/ui/tool-profile.js', import.meta.url), 'utf8');
   assert.doesNotMatch(prof, /keyFit|ppf-key/, 'no key');
   assert.match(prof, /sv\('text', \{ class: 'ptk-unit', x: 0, y: G\.braceY \+ 1\.55 \* f \}, 'mmHg'\)/, 'mmHg level with the brace\'s name');
-  assert.match(prof, /cfg = \{ from: t\?\.from \?\? null, liverLabel: !!t\?\.liverLabel \}/, 'the label is a slide option');
-  assert.match(prof, /cfg\.liverLabel \? sv\('text', \{ x: \(G\.x\(i0\) \+ G\.x\(i1\)\) \/ 2, y: G\.T - 0\.35 \* f, 'text-anchor': 'middle' \}, 'LIVER'\) : null/);
-  assert.match(js, /ui\.dhT\.textContent = s\.tool\?\.kind === 'profile' && !s\.tool\.title \? '' : cardTitle\(s\);/, 'only an opted-in profile restores the title');
+  assert.doesNotMatch(prof, /liverLabel/, 'no per-slide option: one look on every ladder');
+  assert.match(prof, /sv\('text', \{ x: \(G\.x\(i0\) \+ G\.x\(i1\)\) \/ 2, y: G\.T - 0\.35 \* f, 'text-anchor': 'middle' \}, 'LIVER'\)\) : null/, 'LIVER drawn over the band, always');
+  assert.match(js, /ui\.dhT\.textContent = cardTitle\(s\);/, 'every card, the ladder\'s too, shows its title');
+  assert.doesNotMatch(js, /kind === 'profile' && !s\.tool\.title/, 'the title is never switched off for a profile');
   assert.match(prof, /got = got \|\| best;/, 'named even where no place is clear: the least crowded one inside the plot');
+});
+
+// (The title row and the LIVER strip add no size of their own: the ladder keeps its one size per layout, so the card's fit can never feed back into it.)
+test('the ladder\'s size per layout does not depend on its title', () => {
+  const rule = css.match(/\.pz-prof \{[^}]*\}/)?.[0] ?? '';
+  assert.match(rule, /height: var\(--prof-h, 250px\)/, 'fixed by the layout\'s own --prof-h');
+  assert.doesNotMatch(rule, /--pz-fit/, 'never the card\'s fit');
+  assert.match(css, /\.pz\.stack\.stack \.pz-prof \{ --prof-h: min\(74cqi, 270px\); height: var\(--prof-h\); \}/, 'the phone\'s ladder: 270 px, with its title');
 });
 
 // Mohammad, 21 Oct (Mac, Sites 5): the ladder card bounced between a large and a small size, the slide vibrating.

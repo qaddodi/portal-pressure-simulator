@@ -4,7 +4,6 @@ const mi = (x) => `<mi>${x}</mi>`, mo = (x) => `<mo>${x}</mo>`;
 const HVPG_EQ = mi('HVPG') + mo('=') + '<mi class="eq-wedge">WHVP</mi>' + mo('−') + '<mi class="eq-hv">FHVP</mi>';
 const SIX = ['pvt', 'presin', 'sin', 'postsin', 'post', 'cardiac'];   // the six levels of portal hypertension, one patient each
 const PROFILE = { kind: 'profile' };   // the pressure from gut to heart, in place of the ladders
-const PRESIN_PROFILE = { ...PROFILE, title: 'Pressure, gut to heart', liverLabel: true };   // Sites 5/12 names the liver band and keeps the chart title
 
 export const SITES = {
   id: 'sites', level: 'core', title: 'Sites and causes of portal hypertension', minutes: 15,
@@ -45,7 +44,7 @@ export const SITES = {
       ask: ['Why is HVPG normal when the portal pressure is about 20 mmHg?', 'The wedge reads the sinusoids, which lie downstream of the clot and are at normal pressure.'],
     },
     {
-      id: 'presin', lens: 'drop', terms: { 'portal venules': 'lobule:triad', sinusoids: 'lobule:sinusoid' }, preset: 'schisto', cam: 'lobule:triad', tool: PRESIN_PROFILE, key: ['pv', 'hvpg', 'ppg'], callout: { at: 'triad', label: 'Resistance' }, rail: true,
+      id: 'presin', lens: 'drop', terms: { 'portal venules': 'lobule:triad', sinusoids: 'lobule:sinusoid' }, preset: 'schisto', cam: 'lobule:triad', tool: PROFILE, key: ['pv', 'hvpg', 'ppg'], callout: { at: 'triad', label: 'Resistance' }, rail: true,
       whatIf: { label: 'Periportal fibrosis', param: ['fibrosis.R.pre', 'fibrosis.L.pre'], min: 1, max: 80, step: 1, ends: ['None', 'Severe'] },
       kicker: 'Intrahepatic · presinusoidal', site: 'presin', title: 'Schistosomiasis',
       vignette: 'A 26-year-old man who grew up in the Nile Delta presents with hematemesis. EGD shows large esophageal varices. His spleen is enlarged, his liver tests are normal, and there is no ascites.',
