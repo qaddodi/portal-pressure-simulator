@@ -92,3 +92,10 @@ test('an organ picture whose state moved on stops at the next strip, before draw
   assert.match(body, /for \(const \[y, rows\] of plateStrips\(W, H\)\) \{\n\s*if \(y && !waited\) await new Promise\(\(res\) => nextFrame\(res\)\);\n\s*waited = false;\n\s*if \(gone\(\)\) return false;/);
   assert.match(body, /await new Promise\(\(res\) => nextFrame\(res\)\); waited = true;\n\s*if \(gone\(\)\) return false;\n\s*v\.plateRows\(job, y, rows, readBack\(p\)\);/);
 });
+
+test('a fluid level that moves while the fluid is drawn at no opacity asks for no whole repaint', () => {
+  const src = readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8');
+  assert.match(src, /const seen = fluidLook\.ink\[3\] > 0, was = fluidSeen;\n\s+fluidSeen = seen;\n\s+return moved && \(seen \|\| was\);/);
+  const gl = readFileSync(new URL('../src/ui/veins-gl.js', import.meta.url), 'utf8');
+  assert.match(gl, /if \(fluidInk\.a > 0\.0\) \{/, 'the shader draws no fluid at ink 0');
+});

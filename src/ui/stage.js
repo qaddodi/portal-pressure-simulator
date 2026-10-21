@@ -5336,8 +5336,13 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     fluidLook.ripple = run && fluidFade() > 0 && k > 0;
     fluidLook.lv = [liverScale, liverFluidCut];
     if (vLook) vLook.fluid = fluidLook;
-    return moved;
+    // (A level that moves under fluid drawn at no opacity changes no pixel (the shader draws none at ink 0): no whole repaint for it,
+    // only for the frame it fades to nothing. External review, 21 Oct.)
+    const seen = fluidLook.ink[3] > 0, was = fluidSeen;
+    fluidSeen = seen;
+    return moved && (seen || was);
   }
+  let fluidSeen = false;
   function readFluidInk(cs) {
     const hex = cs.getPropertyValue('--ascites').trim().replace('#', ''), a = parseFloat(cs.getPropertyValue('--ascites-a')) || 0.4;
     if (hex.length === 6) fluidInkRGBA = [0, 2, 4].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255).concat(a);
