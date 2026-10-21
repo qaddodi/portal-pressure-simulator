@@ -22,11 +22,11 @@ import { SCALE_NAME, offeredScales, scaleView, pickedScale } from './scale-switc
 import { NODES } from '../engine/topology.js?v=4044766e96';
 import { DISEASE_SRC, diseasePieces } from './diseases.js?v=fb8a5451c3';
 import { nb, listCase, plateletText } from './glue.js?v=5a0f63226b';
-import { DECKS, REGIONS, LEVELS, TOPICS, withOverview, siteTag, SITE_TAGS } from './decks.js?v=5b5d119c41';
+import { DECKS, REGIONS, LEVELS, TOPICS, withOverview, siteTag, SITE_TAGS } from './decks.js?v=78ecc8665c';
 import { tenthGap } from '../engine/gap.js?v=3a5947c552';
 import { createHvpgMonitor } from './hvpg-proc.js?v=031491bbd9';
-import { createTools } from './presenter-tools.js?v=37a189b6f3';
-import { openHandout } from './handout.js?v=7954623226';
+import { createTools } from './presenter-tools.js?v=4019f94427';
+import { openHandout } from './handout.js?v=43d53528d6';
 import { noteResume, resumeFor } from './resume.js?v=f086f80ee8';
 import { parseDeckSource, checkDeck } from './deck-source.js?v=8395c650cd';
 import { NO_ASC, TILE, SCALE, bandsOf, rateOf, COLS, CUT, PRESS, fpv, dirAbs, dirRel, rateAbs, effOf, rateShown, tileShown, tipsGoal, liveSettled, shownSig } from './table-marks.js?v=1dc429fe31';
@@ -34,10 +34,10 @@ import { frameFor, cancelFrame } from './frame.js?v=4500d7e538';
 import { createFigureKey } from './figure-key.js?v=86d4d15f05';
 import { traceWhen } from './trace-labels.js?v=fc916a95c6';
 import { flowCss, heatCss, dropCss, gradientCss, oxygenCss } from './colormap.js?v=20b26c02af';
-import { EXT, expandIds, stepExtra, markLabel, figureHooks, safe } from './slide-ext.js?v=c2b25367ca';
+import { EXT, expandIds, stepExtra, markLabel, figureHooks, safe } from './slide-ext.js?v=3a59ddb849';
 import { clotWords } from './callout-math.js?v=0c960d54d3';
 import { citeText, focusOf, oneLadder } from './teach-extras.js?v=5f5248f5a7';
-import { createProfileTool, createProfileStrip } from './tool-profile.js?v=dfa14ecece';
+import { createProfileTool, createProfileStrip } from './tool-profile.js?v=0223759914';
 import { DEMO_ALL } from './test-decks/demo-all-new-visuals.js?v=994d9ba268';
 import { COMPACT, WIDE } from './card-type.js?v=f5dfdb80f2';
 const nextFrame = frameFor('presenter');
@@ -1957,7 +1957,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     const over = k.scrollWidth - k.clientWidth, fs = parseFloat(getComputedStyle(t).fontSize) || 12;
     if (over > 0.5 && t.offsetWidth) t.style.fontSize = `${Math.max(12, fs * (t.offsetWidth - over) / t.offsetWidth).toFixed(2)}px`;
   };
-  const rowRO = typeof ResizeObserver === 'function' ? new ResizeObserver((es) => es.forEach((e) => fitRow(e.target))) : null;
+  const rowRO = typeof ResizeObserver === 'function' ? new ResizeObserver((es) => es.forEach((e) => fitRow(e.target.closest('.pz-cell-k')))) : null;
   function laddersGrid(s) {
     const grid = h('div', { class: 'pz-grid' });
     grid.append(h('div', { class: 'pz-grid-head', 'aria-hidden': 'true' }, createProfileStrip(true).el, createProfileStrip(true).el));
@@ -1968,7 +1968,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       S.set(r.f, () => base);
       const k = h('div', { class: 'pz-cell-k' }, h('div', { class: 'pz-kick', 'data-site': r.site || 'none' }, r.kicker.replace('Intrahepatic · ', '')),
         h('div', { class: 'pz-cell-t' }, r.title));
-      rowRO?.observe(k);
+      rowRO?.observe(k); rowRO?.observe(k.lastElementChild);   // (and the cause itself: its font loading late widens it, not the row)
       grid.append(h('div', { class: 'pz-cell' }, k, P.el, S.el));
     }
     return grid;

@@ -55,3 +55,22 @@ test('the line shares the chart\'s stations, names, colours and blocks, and is l
   assert.match(strip, /'stop-color': pressureColor\(v\)/);
   assert.match(strip, /x\(i\) \+ hw\[i\] \+ pad\)\.toFixed\(1\)\} \$\{cy\}H\$\{\(x\(i \+ 1\) - hw\[i \+ 1\] - pad\)/, 'the line stops short of each reading');
 });
+
+test('the cause is fitted again when its own width changes (its font loading late), not only the row\'s', () => {
+  assert.match(grid, /rowRO\?\.observe\(k\); rowRO\?\.observe\(k\.lastElementChild\);/);
+  assert.match(js, /new ResizeObserver\(\(es\) => es\.forEach\(\(e\) => fitRow\(e\.target\.closest\('\.pz-cell-k'\)\)\)\)/);
+});
+
+test('a phone\'s station names carry the sinusoidal brace over Pre-, Intra- and Post-; each line has the LIVER tint behind those three readings', () => {
+  const strip = prof.slice(prof.indexOf('export function createProfileStrip'));
+  assert.match(strip, /sv\('g', \{ class: 'ppf-brace' \}, sv\('path', \{ d: braceD\(x\(i0\) - 0\.42 \* slot, x\(i1\) \+ 0\.42 \* slot, 0, 0\.55 \* f\), transform: `translate\(0 \$\{ends\.toFixed\(2\)\}\) scale\(1 -1\)` \}\),\n\s*sv\('text', \{ x: \(x\(i0\) \+ x\(i1\)\) \/ 2, y: 0\.95 \* f, 'text-anchor': 'middle' \}, BRACE_NAME\)\)/);
+  assert.match(strip, /const fit = nameFit\(slot, tw\), ends = 1\.85 \* f, base = ends \+ 1\.05 \* f,/, 'the names stand under the brace, clear of it');
+  // (Drawn first: under the blocks, the line and the numbers.)
+  assert.match(strip, /i0 >= 0 \? sv\('g', \{ class: 'ppf-liver' \}, sv\('rect', \{ x: x\(i0\) - slot \/ 2, y: 0, width: slot \* \(i1 - i0 \+ 1\), height: hh, rx: 4 \}\)\) : null,\n(\s*\/\/[^\n]*\n)*\s*blocksOf\(p, hl\)/);
+  assert.match(css, /\.ppf-liver rect \{ fill: var\(--chart-liver-band\); \}/);
+});
+
+test('Sites 10 has no line over the grid (Mohammad, 21 Oct: "get rid of that sentence above everything")', () => {
+  const sites = readFileSync(new URL('../src/ui/decks/sites.js', import.meta.url), 'utf8');
+  assert.doesNotMatch(sites, /HVPG reads only the drop across the sinusoids/);
+});

@@ -665,11 +665,16 @@ export function createProfileStrip(namesOnly = false) {
     if (!w) return;
     const f = Math.max(12, parseFloat(getComputedStyle(el).fontSize) || 12), tw = (t, wt) => textW(t, f, wt), { slot, x } = xOf(w);
     size = String(Math.round(w));
+    const i0 = STATIONS.indexOf(PATH.liver[0]), i1 = STATIONS.indexOf(PATH.liver[1]);
     if (namesOnly) {
-      const fit = nameFit(slot, tw), hh = Math.ceil(fit.rows * 1.25 * f + 0.3 * f);
+      // (Over the liver's three names, the chart's curly brace named sinusoidal, turned to open down onto them (Mohammad, 21 Oct: "pre,
+      // intra, post should have the curly bracket that says sinusoidal on top of it").)
+      const fit = nameFit(slot, tw), ends = 1.85 * f, base = ends + 1.05 * f, hh = Math.ceil(base + (fit.rows - 1) * 1.25 * f + 0.3 * f);
       el.style.height = `${hh}px`;
       el.replaceChildren(sv('svg', { viewBox: `0 0 ${w} ${hh}`, width: w, height: hh, style: `font-size: ${f.toFixed(2)}px` },
-        STATIONS.map((n, i) => sv('text', { class: n in LIVER_NAMES ? 'ppf-name liv' : 'ppf-name', x: x(i) + fit.dx[i], y: (fit.low[i] ? 2.05 : 0.95) * f, 'text-anchor': 'middle' }, fit.names[i]))));
+        i0 >= 0 ? sv('g', { class: 'ppf-brace' }, sv('path', { d: braceD(x(i0) - 0.42 * slot, x(i1) + 0.42 * slot, 0, 0.55 * f), transform: `translate(0 ${ends.toFixed(2)}) scale(1 -1)` }),
+          sv('text', { x: (x(i0) + x(i1)) / 2, y: 0.95 * f, 'text-anchor': 'middle' }, BRACE_NAME)) : null,
+        STATIONS.map((n, i) => sv('text', { class: n in LIVER_NAMES ? 'ppf-name liv' : 'ppf-name', x: x(i) + fit.dx[i], y: base + (fit.low[i] ? 1.25 * f : 0), 'text-anchor': 'middle' }, fit.names[i]))));
       return;
     }
     const p = profileOf(fp);
@@ -683,6 +688,9 @@ export function createProfileStrip(namesOnly = false) {
       'aria-label': `Pressure from gut to heart: ${STATIONS.map((s, i) => `${SPOKEN[s]} ${labels[i]}`).join(', ')} mmHg.` },
       sv('defs', {}, hatchDef(`${gid}-h`, 7), sv('linearGradient', { id: gid, gradientUnits: 'userSpaceOnUse', x1: x(0), x2: x(n), y1: 0, y2: 0 },
         p.v.map((v, i) => sv('stop', { offset: (i / n).toFixed(3), 'stop-color': pressureColor(v) })))),
+      // (The liver's three readings on the chart's LIVER tint, across the line's full height, so each case shows where the sinusoids are:
+      // Mohammad, 21 Oct, "every graph has a background behind the pre, intra, and post numbers". Under the blocks, the line and the numbers.)
+      i0 >= 0 ? sv('g', { class: 'ppf-liver' }, sv('rect', { x: x(i0) - slot / 2, y: 0, width: slot * (i1 - i0 + 1), height: hh, rx: 4 })) : null,
       blocksOf(p, hl).map((i) => { const [x0, x1] = box(i); return sv('rect', { class: 'ppf-blk', x: x0, y: 1, width: x1 - x0, height: hh - 2, rx: Math.min(4, (x1 - x0) / 2), fill: `url(#${gid}-h)` }); }),
       // (The line stops NUM_PAD px short of each reading, as on the chart.)
       sv('path', { class: 'pps-line', style: `stroke: url(#${gid})`, d: p.v.slice(0, n).map((_, i) => `M${(x(i) + hw[i] + pad).toFixed(1)} ${cy}H${(x(i + 1) - hw[i + 1] - pad).toFixed(1)}`).join('') }),
