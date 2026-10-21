@@ -24,3 +24,9 @@ test("the plate copy keeps the diaphragm's mask", () => {
   assert.match(stage, /const c = g\.cloneNode\(true\);/, 'the copy is a clone of the live group');
   assert.ok(!/removeAttribute\('mask'\)[^\n]*gBackdrop|gBackdrop[^\n]*removeAttribute\('mask'\)/.test(stage), 'the live mask attribute is never removed');
 });
+
+test('the page\'s own ascites, hidden while the GPU draws the fluid, builds no clip or mask either', () => {
+  const css = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
+  assert.match(css, /\.stage-view\.gl-on #ascites \{ visibility: hidden; \}/);
+  assert.match(css, /\.stage-view\.gl-on :is\(#ascites, #ascites \[mask\]\) \{ mask: none; clip-path: none; \}/);
+});
