@@ -9,6 +9,9 @@
 import { COLON_D, COLON_RING, BOWEL_RING, DUO_D } from './organ-art.js?v=a1c08582e2';
 
 export const VIEW = { w: 1400, h: 1000 };
+// Where the rectum, which runs on down out of the frame, fades away (y: clear above the first, gone at the second): the colon's mask
+// (stage.js rectFade) and the outlines and glows drawn over it (veins-gl.js endFade) use the same span.
+export const RECTUM_FADE = [990, 1075];
 export const VB_ANAT = [300, 0, 820, 920];
 export const VB_CIRC = [30, 30, 1360, 730];
 // World x of the margins the atlas labels hang from (left, right).
