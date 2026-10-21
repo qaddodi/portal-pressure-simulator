@@ -33,7 +33,7 @@ export const SITES = {
       ask: ['What does the wedged pressure measure?', 'The sinusoidal pressure: with the vein occluded, the still column of blood reads the pressure upstream.'],
     },
     {
-      id: 'pvt', lens: 'drop', preset: 'pvt-chronic', cam: 'portal', labels: ['CONF', 'SV'], terms: { 'portal pressure': 'pv', 'wedged pressure': 'whvp' }, mark: { edges: ['PV_TRUNK'], label: 'Clot' },
+      id: 'pvt', lens: 'drop', preset: 'pvt-chronic', cam: 'portal', scales: { lobule: { glow: ['lobule:triad'] } }, labels: ['CONF', 'SV'], terms: { 'portal pressure': 'pv', 'wedged pressure': 'whvp' }, mark: { edges: ['PV_TRUNK'], label: 'Clot' },
       whatIf: { label: 'Clot size', param: 'thrombus.PV_TRUNK', min: 0, max: 1, step: 0.05, ends: ['None', 'Occlusive'] },
       tool: PROFILE, key: ['hvpg', 'ppg'], rail: true,
       kicker: 'Pre-hepatic', site: 'pre', title: 'Portal vein thrombosis',
@@ -44,7 +44,7 @@ export const SITES = {
       ask: ['Why is HVPG normal when the portal pressure is about 20 mmHg?', 'The wedge reads the sinusoids, which lie downstream of the clot and are at normal pressure.'],
     },
     {
-      id: 'presin', lens: 'drop', terms: { 'portal venules': 'lobule:triad', sinusoids: 'lobule:sinusoid' }, preset: 'schisto', cam: 'lobule:triad', tool: PROFILE, key: ['pv', 'hvpg', 'ppg'], callout: { at: 'triad', label: 'Resistance' }, rail: true,
+      id: 'presin', lens: 'drop', terms: { 'portal venules': 'lobule:triad', sinusoids: 'lobule:sinusoid' }, preset: 'schisto', cam: 'lobule:triad', scales: { anatomy: { cam: 'liver', labels: ['CONF', 'SIN_R'] } }, tool: PROFILE, key: ['pv', 'hvpg', 'ppg'], callout: { at: 'triad', label: 'Resistance' }, rail: true,
       whatIf: { label: 'Periportal fibrosis', param: ['fibrosis.R.pre', 'fibrosis.L.pre'], min: 1, max: 80, step: 1, ends: ['None', 'Severe'] },
       kicker: 'Intrahepatic · presinusoidal', site: 'presin', title: 'Schistosomiasis',
       vignette: 'A 26-year-old man who grew up in the Nile Delta presents with hematemesis. EGD shows large esophageal varices. His spleen is enlarged, his liver tests are normal, and there is no ascites.',
@@ -54,7 +54,7 @@ export const SITES = {
       ask: ['A patient bleeds from varices. Doppler shows an open portal vein; the HVPG is 3 mmHg and the free hepatic and right atrial pressures are normal. Where does the resistance lie?', 'Presinusoidal, in the portal tracts (schistosomiasis or porto-sinusoidal vascular disorder): the wedge reads normal sinusoids, and the normal free and atrial pressures rule out an outflow or cardiac cause.'],
     },
     {
-      id: 'sin', lens: 'drop', terms: { sinusoids: 'lobule:sinusoid' }, preset: 'cirr-decomp', cam: 'lobule:sinusoid', callout: { at: 'sin', label: 'Resistance' }, tool: PROFILE, key: ['whvp', 'hvpg'], rail: true,
+      id: 'sin', lens: 'drop', terms: { sinusoids: 'lobule:sinusoid' }, preset: 'cirr-decomp', cam: 'lobule:sinusoid', scales: { anatomy: { cam: 'liver', labels: ['CONF', 'SIN_R', 'RHV'] } }, callout: { at: 'sin', label: 'Resistance' }, tool: PROFILE, key: ['whvp', 'hvpg'], rail: true,
       kicker: 'Intrahepatic · sinusoidal', site: 'sin', title: 'Cirrhosis',
       vignette: 'A 58-year-old man with alcohol-associated cirrhosis has ascites despite spironolactone and furosemide. His albumin is 2.8 g/dL, his platelets are 57,000/µL, and EGD shows large esophageal varices.',
       line: 'Fibrosis, nodules and stellate cell contraction narrow the sinusoids. The wedged pressure reflects sinusoidal pressure, so HVPG rises with portal pressure. Colored by pressure drop, the large drop moves into the sinusoids.',
@@ -63,7 +63,7 @@ export const SITES = {
       ask: ['Why does the wedged pressure track the portal pressure in cirrhosis?', 'The resistance lies in the sinusoids the wedge reads, so the wedged pressure rises with the portal pressure.'],
     },
     {
-      id: 'postsin', lens: 'drop', terms: { 'central veins': 'lobule:central', sinusoids: 'lobule:sinusoid' }, preset: 'sos', cam: 'lobule:central', callout: { at: 'cv', label: 'Resistance' }, tool: PROFILE, key: ['whvp', 'hvpg'], rail: true,
+      id: 'postsin', lens: 'drop', terms: { 'central veins': 'lobule:central', sinusoids: 'lobule:sinusoid' }, preset: 'sos', cam: 'lobule:central', scales: { anatomy: { cam: 'hepatic', labels: ['SIN_R', 'RHV', 'RA'] } }, callout: { at: 'cv', label: 'Resistance' }, tool: PROFILE, key: ['whvp', 'hvpg'], rail: true,
       kicker: 'Intrahepatic · postsinusoidal', site: 'postsin', title: 'Sinusoidal obstruction syndrome',
       vignette: 'A 45-year-old woman, 21 days after myeloablative conditioning for allogeneic HSCT, has tender hepatomegaly, a 4% weight gain and new ascites. Her bilirubin is 2.1 mg/dL.',
       line: 'Damaged endothelium raises resistance in the sinusoids and small central veins, upstream of the catheter tip, so the wedged pressure and HVPG rise. Colored by pressure drop, the large drop sits at the central veins.',
@@ -72,7 +72,7 @@ export const SITES = {
       ask: ['Why does HVPG rise here but not in schistosomiasis?', 'Here the resistance is in the sinusoids and central veins the wedge reads; in schistosomiasis it is in the portal tracts, upstream of them.'],
     },
     {
-      id: 'post', lens: 'drop', preset: 'budd-chiari', cam: 'hepatic', labels: ['RHV', 'RA'], mark: { edges: ['RHV_IVC', 'MHV_IVC', 'LHV_IVC'], label: 'Clot in hepatic veins', free: true },
+      id: 'post', lens: 'drop', preset: 'budd-chiari', cam: 'hepatic', scales: { lobule: { cam: 'lobule:central', glow: ['lobule:central'] } }, labels: ['RHV', 'RA'], mark: { edges: ['RHV_IVC', 'MHV_IVC', 'LHV_IVC'], label: 'Clot in hepatic veins', free: true },
       tool: PROFILE, key: ['fhvp', 'ra', 'hvpg'], rail: true,
       kicker: 'Post-hepatic', site: 'post', title: 'Budd–Chiari syndrome',
       vignette: 'A 29-year-old woman taking OCPs has had RUQ pain for 2 months and now has tense ascites. Paracentesis shows a SAAG of 1.4 and a total protein of 4.3 g/dL.',
@@ -82,7 +82,7 @@ export const SITES = {
       ask: ['Why is HVPG near zero although the portal pressure is about 26 mmHg?', 'Where the catheter reaches behind the resistance, both the wedged and the free pressures are measured there, so both are high and their difference is small.'],
     },
     {
-      id: 'cardiac', lens: 'drop', terms: ['hv', 'sin'], preset: 'rhf', cam: 'heart', labels: ['RHV', 'IVCS', 'RA'], glow: ['ivc', 'hv'], glowSeq: 550,
+      id: 'cardiac', lens: 'drop', terms: ['hv', 'sin'], preset: 'rhf', cam: 'heart', scales: { lobule: { cam: 'lobule:central', glow: ['lobule:central'] } }, labels: ['RHV', 'IVCS', 'RA'], glow: ['ivc', 'hv'], glowSeq: 550,
       compare: [{ label: 'Normal heart', preset: 'healthy' }, { label: 'Failing heart', own: true }],
       tool: PROFILE, key: ['fhvp', 'hvpg', 'ppg'], rail: true,
       kicker: 'Cardiac', site: 'cardiac', title: 'Right heart failure',
