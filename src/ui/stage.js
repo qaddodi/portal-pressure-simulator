@@ -2366,7 +2366,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     stageWake();
     inUpdate = true;
     try { gpuProbe.time(null, 'update (script)', () => updateInner(f)); } finally { inUpdate = false; fxAt = null; }
-    if (plateRedraw) { plateRedraw = false; drawVeins(); }
+    // (Hidden, no animation frame comes to draw the vessels again: they are drawn now, so the canvas never keeps colours the
+    // page no longer has, as after a change of the device's light or dark setting in the background.)
+    if (plateRedraw || (document.hidden && veinsDirty)) { plateRedraw = false; drawVeins(); }
     // The first framing waits for the patient (the first frames are drawn before it has loaded, without its
     // ascites or spleen), and the figure stays hidden until it is framed, so it appears once, in place.
     firstFrame();
@@ -3709,6 +3711,14 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   function platePoke() {
     // Not while diving into the lobule (the anatomy is only magnified, then covered): once landed, under the lobule.
     if (lobuleOn && !lz?.isOpen()) return;
+    // In the background no picture is begun (below), but one in colours the page no longer has is dropped at once, for the live
+    // drawing (already in the colours now, drawn in the same task): the system turns the page light for the app switcher's
+    // pictures and dark again while it is hidden, and the light picture stayed on the canvas until the next one replaced it, so
+    // coming back showed the organs almost white first (Mohammad, 21 Oct: "the flash when I switch to the app ... still happens").
+    if (document.hidden && veins && !veins.lost && plateTheme !== null && veins.hasPlate(0) && !circuitInk()) {
+      const theme = wrapCS().getPropertyValue('--stage-bg');
+      if (theme !== plateTheme) { plateTheme = theme; hidePlate(); }
+    }
     if (!veins || veins.lost || !glWanted(easeInOut(morph)) || figureHidden() || document.hidden || circuitInk()) return;
     // An ease that outgrows the plate (a fill played over days, a liver that changes in small steps) shows on the live drawing
     // as it goes, and the plate is drawn again once it settles: held, the organs inside it stood still while their outlines

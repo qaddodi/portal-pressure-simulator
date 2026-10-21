@@ -35,3 +35,38 @@ test('a GPU restore drops the old picture and draws it again (no picture from th
   assert.match(r, /plateKey = ''/);
   assert.match(r, /if \(F\) update\(F\)/);
 });
+
+// Still on 21 Oct ("the flash when I switch to the app from bright to dark still happens"): the page was turned light for the
+// app switcher's pictures while showing, and dark again once hidden, where nothing was drawn again, so the light picture stayed
+// on the canvas until after the return. A change of the light or dark setting now redraws the figure at once, hidden or not.
+const main = readFileSync(new URL('../src/ui/main.js', import.meta.url), 'utf8');
+
+test('a picture in colours the page no longer has is dropped while hidden, and none is begun there', () => {
+  const p = body('platePoke');
+  const drop = p.indexOf('if (document.hidden && veins'), guard = p.split('\n').findIndex((l) => l.includes('glWanted(easeInOut(morph))'));
+  assert.ok(drop > 0, 'platePoke checks the shown picture against the colours now while hidden');
+  const branch = p.slice(drop, p.indexOf('\n    }', drop));
+  assert.match(branch, /theme !== plateTheme\) \{ plateTheme = theme; hidePlate\(\); \}/, 'a picture of other colours gives way to the live drawing');
+  assert.doesNotMatch(branch, /rasterPlate|plateTimer/, 'nothing is drawn into a new picture while hidden');
+  assert.ok(p.slice(0, drop).split('\n').length - 1 < guard, 'the drop comes before the guard that keeps a hidden page from drawing a picture');
+});
+
+test('hidden, the vessel layer is drawn in the same task as the update (no animation frame comes)', () => {
+  const u = body('update');
+  assert.match(u, /if \(plateRedraw \|\| \(document\.hidden && veinsDirty\)\) \{ plateRedraw = false; drawVeins\(\); \}/);
+});
+
+test('a change of the device light or dark setting redraws the figure at once, with no crossfade', () => {
+  const at = main.indexOf("matchMedia('(prefers-color-scheme: dark)').addEventListener('change'");
+  assert.ok(at > 0);
+  const h = main.slice(at, main.indexOf('\n});', at));
+  assert.match(h, /stage\?\.update\(viewFrame\(f\)\)/, 'the stage is updated in the colours now');
+  assert.doesNotMatch(h, /crossfade|startViewTransition|switchTheme/, 'no eased fade from the old colours');
+});
+
+test('a theme the user picks in the app still crossfades', () => {
+  const at = main.indexOf('function switchTheme(');
+  const s = main.slice(at, main.indexOf('\n}', at));
+  assert.match(s, /if \(!document\.startViewTransition \|\| document\.hidden\) \{ applyTheme\(t, clear\); return; \}/);
+  assert.match(s, /crossfade\(\(\) => applyTheme\(t, clear\)\)/);
+});

@@ -3,7 +3,7 @@
 
 import { startHost, host } from './host.js?v=e06757c916';
 import { store, updateParams, replaceParams, bindParamSender, clearHistory, logAction, varicesPresent, hiddenNow } from './store.js?v=d6648af441';
-import { createStage } from './stage.js?v=b62b36fa3c';
+import { createStage } from './stage.js?v=2129dac82c';
 import { createCreditPlacer } from './credit.js?v=0a887beaab';
 import { sinusoidSupported } from './sinusoid-view.js?v=50d29e3b64';
 import { createInspector } from './inspector.js?v=9dd9c3b653';
@@ -1021,7 +1021,13 @@ function syncStatusBar() {
   }
   if (m.content !== c) m.content = c;
 }
-matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => syncStatusBar());
+// A change of the device's light or dark setting applies at once (no crossfade), and the figure is drawn again in the same task,
+// hidden or not: an iPhone or iPad turns the page light and back while it takes the app switcher's pictures, often with the
+// page in the background and the model paused, so no frame came to redraw the organs and vessels in the colours now.
+matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
+  const f = store.get().frame; if (f) stage?.update(viewFrame(f));
+  syncStatusBar();
+});
 // (again once the figure's background has finished its .5 s fade)
 new MutationObserver(() => { syncStatusBar(); setTimeout(syncStatusBar, 600); }).observe(document.getElementById('app'), { attributes: true, attributeFilter: ['class'] });
 function readLS(k) { try { return localStorage.getItem(k); } catch { return null; } }
