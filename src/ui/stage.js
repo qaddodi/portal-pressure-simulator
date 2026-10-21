@@ -3731,9 +3731,10 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     // meet it: one picture of the whole view was built, read in and laid out by the browser in one long frame 0.28 s after
     // the view stopped, finger still down or not (Mohammad, 21 Oct: "still hitch as soon as I stop panning"). Each strip is
     // the same world rows at the same scale (its view box starts at its first row: rows are whole pixels), so the same pixels.
-    // The whole plate (slot 0) is one picture, drawn and sent a strip per frame.
+    // The whole plate (slot 0) is made the same way, a strip per frame, from a fresh copy: as one picture it was read in and laid out
+    // by the browser in one go at its first strip, the 100-185 ms frames as the plate came back after a change (Mohammad's ?perf).
     const banded = slot === 1;
-    const whole = banded ? null : await svgPicture(gpuProbe.time(null, 'organ picture: copy (script)', () => plateMarkup(rect, W, H, true, false)));
+    if (!banded) gpuProbe.time(null, 'organ picture: copy (script)', () => { plateCopy = plateBuild(plateStateKey()); });
     const drawnAs = banded ? plateStateKey() : plateCopy?.key;   // (the strips' copy is made, if need be, with the first strip)
     if (seq !== plateSeq || !veins || veins.lost) return false;
     // Only the newest view picture goes on (an older one, overtaken by a later pan, is given up), and after a pan at the same
@@ -3787,7 +3788,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
           for (const [qx, qy, p] of mine) copyPixels(px, W, qx, qy, readBack(p), p.w, 0, 0, p.w, p.h);
           v.plateRows(job, y, rows, px.subarray(y * W * 4, (y + rows) * W * 4));
         } else {
-          const p = drawn(W, rows, (pg) => pg.drawImage(whole, 0, y, W, rows, 0, 0, W, rows));
+          const band = await svgPicture(gpuProbe.time(null, 'organ picture: copy (script)', () => plateMarkup([rect[0], rect[1] + y / sy, rect[2], rows / sy], W, rows, false, true)));
+          if (gone() || plateCopy?.key !== drawnAs) return false;
+          const p = drawn(W, rows, (pg) => pg.drawImage(band, 0, 0, W, rows));
           await new Promise((res) => nextFrame(res)); waited = true;
           if (gone()) return false;
           v.plateRows(job, y, rows, readBack(p));

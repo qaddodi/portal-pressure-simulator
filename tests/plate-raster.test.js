@@ -25,7 +25,7 @@ test('a plate raster draws into a canvas of its own and sends it as pixel strips
   assert.match(body, /if \(gone\(\) \|\| plateCopy\?\.key !== drawnAs\) return false;\n\s+mine\.push\(\[qx, qy, drawn\(qw, qh, \(pg\) => pg\.drawImage\(band, 0, 0, qw, qh\)\)\]\);/, 'a strip whose copy changed state is given up');
   assert.match(body, /if \(mine\.length\) \{ await new Promise\(\(res\) => nextFrame\(res\)\); waited = true; if \(gone\(\)\) return false; \}\n\s+for \(const \[qx, qy, p\] of mine\) copyPixels\(px, W, qx, qy, readBack\(p\), p\.w, 0, 0, p\.w, p\.h\);/, 'read a frame after it is drawn, and given up if overtaken meanwhile');
   assert.match(body, /v\.plateRows\(job, y, rows, px\.subarray\(y \* W \* 4, \(y \+ rows\) \* W \* 4\)\);/);
-  assert.match(body, /const p = drawn\(W, rows, \(pg\) => pg\.drawImage\(whole, 0, y, W, rows, 0, 0, W, rows\)\);\n\s+await new Promise\(\(res\) => nextFrame\(res\)\); waited = true;\n\s+if \(gone\(\)\) return false;\n\s+v\.plateRows\(job, y, rows, readBack\(p\)\);/);
+  assert.match(body, /if \(gone\(\) \|\| plateCopy\?\.key !== drawnAs\) return false;\n\s+const p = drawn\(W, rows, \(pg\) => pg\.drawImage\(band, 0, 0, W, rows\)\);\n\s+await new Promise\(\(res\) => nextFrame\(res\)\); waited = true;\n\s+if \(gone\(\)\) return false;\n\s+v\.plateRows\(job, y, rows, readBack\(p\)\);/);
   assert.doesNotMatch(body, /drawImage\([a-z]+, 0, 0, W, H\)/, 'never the whole picture in one frame');
   assert.match(body, /v\.setPlate\(slot, job, rect\); job = null;/, 'shown only once every strip is in');
   assert.match(body, /finally \{ if \(job && !v\.lost\) v\.dropJob\(job\); px = null; for \(const p of pend\) p\.pc\.width = p\.pc\.height = 0; \}/, 'a canvas drawn and not yet read is let go when the picture is given up');
