@@ -1898,7 +1898,11 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false }) {
       cellsPass(m, look, part);
       tintPass(m, look, tintPart);
       drawnNow();
-      this.composite(look, blood, full, true);
+      // (Only the cells drawn again are composited whole; every other cell's pixels outside a lumen read what they read last frame, so
+      // the blood's own frame does for them. It was every vessel cell whole for one changed cell. External review, 21 Oct.)
+      const both = part.k + tintPart.k;
+      if (both) { const mark = part.mark; for (let c = 0; c < nCells; c++) if (tintPart.mark[c]) mark[c] = 1; uploadPart({ mark, k: both }); }
+      this.composite(look, blood, full, both);
       return true;
     },
     /** Cells redrawn by drawRows so far (whole, and recoloured only), and the cells of the whole layer (for the checks). */
@@ -1910,10 +1914,10 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false }) {
      * every animation frame. `blood`: { on, look, origin, clock, originCol, dyeCol, inkLight,
      * inkDark, bleed: [[x0, y0, x1, y1, r0, r1, alpha, kind]] (stage.js bleedSpray) }. Not `full`, it repaints only the cells a
      * lumen can reach (binVeins' `blood`): the moving blood, chevrons, dye and origin colours are drawn only in a lumen, and
-     * every other pixel of a vessel cell comes out as the last frame left it. `all`: every vessel cell, after the vessel layer
-     * changed under some of them (drawRows).
+     * every other pixel of a vessel cell comes out as the last frame left it. `part`: that many cells of partVAO first, whole: the
+     * cells drawRows drew again (the vessel layer changed under them).
      */
-    composite(look, blood = {}, full = false, all = false) {
+    composite(look, blood = {}, full = false, part = 0) {
       if (!baseM || fboW !== canvas.width || fboH !== canvas.height) return;
       // A bleed sprays outside the vessels: the whole picture is repainted while it lasts, and once after.
       const bleeding = !!blood.bleed?.length;
@@ -2023,11 +2027,13 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false }) {
         gl.bindVertexArray(compVAO);
         gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
       } else {
-        if (gpuProbe.on) gpuProbe.gauge('blood squares on screen', squaresOnScreen(all ? cellsCPU : bloodCPU, all ? nCells : nBlood, m));
-        // (Only the blood's own frame skips the pixels with no lumen: after drawRows (`all`) the vessel layer under them changed,
-        // and the fluid's ripple moves the whole of its cells.)
-        gl.uniform1i(U.bloodOnly, all ? 0 : 1);
-        if (all ? nCells : nBlood) { gl.bindVertexArray(all ? vao : bloodVAO); gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, all ? nCells : nBlood); }
+        if (gpuProbe.on) gpuProbe.gauge('blood squares on screen', squaresOnScreen(bloodCPU, nBlood, m));
+        // (The blood's own frame skips the pixels with no lumen; the cells drawRows drew again (`part`) and the fluid's ripple, which
+        // moves the whole of its cells, are drawn whole. A pixel drawn twice comes out the same: no blending, and from its own inputs.)
+        gl.uniform1i(U.bloodOnly, 0);
+        if (part) { gl.bindVertexArray(partVAO); gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, part); }
+        gl.uniform1i(U.bloodOnly, 1);
+        if (nBlood) { gl.bindVertexArray(bloodVAO); gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, nBlood); }
         gl.uniform1i(U.bloodOnly, 0);
         if (fl?.ripple && nFluid) { gl.bindVertexArray(fluidVAO); gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, nFluid); }
       }

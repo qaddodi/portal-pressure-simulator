@@ -91,16 +91,17 @@ test('a remembered binning (a coil patched in place) has the same blood cells as
   assert.deepEqual(Array.from(p.blood), Array.from(f.blood));
 });
 
-test('the figure bins each vessel with a core and repaints every cell after a partial vessel redraw', () => {
+test('the figure bins each vessel with a core and repaints the redrawn cells whole after a partial vessel redraw', () => {
   const stage = readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8');
   const gl = readFileSync(new URL('../src/ui/veins-gl.js', import.meta.url), 'utf8');
   // The core: the reach less the 18 reachOf adds for casing, shadow and glow, plus a pad.
   assert.match(stage, /const reachOf = \(it\) => Math\.ceil\(\(it\.obj\.glMaxR \+ \(it\.x\.wallPx \|\| 1\) \+ 18\) \/ 2\) \* 2;/);
   assert.match(stage, /const core = reach - 18 \+ BLOOD_PAD;/);
   assert.match(stage, /reach: reach \+ a\.m, core: core \+ a\.m/);
-  // drawRows changed the vessel layer under some cells: its composite repaints them all.
-  assert.match(gl, /drawnNow\(\);\n\s*this\.composite\(look, blood, full, true\);/);
-  assert.match(gl, /if \(all \? nCells : nBlood\)/);
+  // drawRows changed the vessel layer under some cells: its composite repaints those cells whole (shape and tint both), the rest as the
+  // blood's frame does (external review, 21 Oct: one changed cell repainted every cell).
+  assert.match(gl, /const both = part\.k \+ tintPart\.k;\n\s*if \(both\) \{ const mark = part\.mark; for \(let c = 0; c < nCells; c\+\+\) if \(tintPart\.mark\[c\]\) mark\[c\] = 1; uploadPart\(\{ mark, k: both \}\); \}\n\s*this\.composite\(look, blood, full, both\);/);
+  assert.match(gl, /if \(part\) \{ gl\.bindVertexArray\(partVAO\); gl\.drawArraysInstanced\(gl\.TRIANGLE_STRIP, 0, 4, part\); \}/);
 });
 
 test('a frame where only the blood moved leaves the pixels with no lumen as drawn, and every other pass draws them all', () => {
@@ -114,8 +115,8 @@ test('a frame where only the blood moved leaves the pixels with no lumen as draw
   assert.equal((main.match(/uvec4 g = /g) || []).length, 1);
   // Set to 1 only around the blood squares' own draw; the whole picture, the redraw after drawRows (all) and the fluid's cells
   // (its ripple moves every pixel of them) draw every pixel.
-  const comp = gl.slice(gl.indexOf('    composite(look, blood = {}, full = false, all = false) {'), gl.indexOf('    /** Whether organ outlines can be drawn here'));
+  const comp = gl.slice(gl.indexOf('    composite(look, blood = {}, full = false, part = 0) {'), gl.indexOf('    /** Whether organ outlines can be drawn here'));
   assert.match(comp, /if \(full\) \{\n\s*gl\.uniform1i\(U\.bloodOnly, 0\);/);
-  assert.match(comp, /gl\.uniform1i\(U\.bloodOnly, all \? 0 : 1\);\n\s*if \(all \? nCells : nBlood\) \{[^\n]*\}\n\s*gl\.uniform1i\(U\.bloodOnly, 0\);\n\s*if \(fl\?\.ripple && nFluid\)/);
-  assert.equal((comp.match(/U\.bloodOnly/g) || []).length, 3);
+  assert.match(comp, /gl\.uniform1i\(U\.bloodOnly, 0\);\n\s*if \(part\) \{[^\n]*\}\n\s*gl\.uniform1i\(U\.bloodOnly, 1\);\n\s*if \(nBlood\) \{ gl\.bindVertexArray\(bloodVAO\);[^\n]*\}\n\s*gl\.uniform1i\(U\.bloodOnly, 0\);\n\s*if \(fl\?\.ripple && nFluid\)/);
+  assert.equal((comp.match(/U\.bloodOnly/g) || []).length, 4);
 });

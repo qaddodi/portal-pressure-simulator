@@ -11,7 +11,7 @@ import { store, updateParams, varicesPresent, varixGrowth, shownVel } from './st
 import { fibroReading } from './clock.js?v=e011dfc3e7';
 import { s, h, fmt, fmtFlow, fp, clamp, lerp, toast, systemEdge, bloodColors, restBox, translateRest, settledBox, putText } from './util.js?v=d2ab488e61';
 import { riseCentre } from './rise-path.js?v=c039cb7b49';
-import { createLobuleZoom } from './lobule-zoom.js?v=baf3107efe';
+import { createLobuleZoom } from './lobule-zoom.js?v=987b1709fc';
 import { sinceSource } from './since-ref.js?v=ef1a818c75';
 import { clipBox, mapBox } from './fit-box.js?v=d5d6d4c60f';
 import { runFlick, FLICK } from './flick.js?v=bfdea93ea0';
@@ -32,7 +32,7 @@ import { warmVisible, ringGrid, inGrid } from './warm-vis.js?v=ccf4f6f71b';
 import { createRouter } from './circuit-router.js?v=0ee9e02fc6';
 import { gpuProbe } from './gpu-probe.js?v=55e394c081';
 import { plateStrips, premultiply, gutStep, viewReuse, copyPixels } from './plate-upload.js?v=5fc45556a1';
-import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, ORIGIN_GREY } from './veins-gl.js?v=81e0b74c29';
+import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, ORIGIN_GREY } from './veins-gl.js?v=84092428c2';
 import { varixBead, beadRadius } from './varix-bead.js?v=ac0e84fd89';
 import { advanceStream, createReversalHold, bleedShapes, stepBleedFade, fadeBleedShapes, chevFlowLevel, keyChevron, KEY_CHEV_LANES, originFractions, oxygenFor, ORIGIN_N, createBolus, DYE_BINS, KAPPA, STASIS_MIN_D, HIDDEN_SECONDS } from './blood.js?v=e668d01823';
 import { frameFor, cancelFrame, noteDraw, setSaver as setFrameSaver, paceMs } from './frame.js?v=4500d7e538';
