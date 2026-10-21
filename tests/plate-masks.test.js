@@ -78,3 +78,9 @@ test("each strip carries only the definitions the organs use, through any chain 
   assert.deepEqual(kids.map((k) => k.id), ['a', 'g1', 'g2', ''], 'the unused one goes, the rest stay');
   assert.match(stage, /pruneDefs\(dc, parts\.map\(\(c\) => ser\.serializeToString\(c\)\)\.join\(''\)\);\n\s+const head = ser\.serializeToString\(dc\);/, 'pruned before the head is written, for every picture made from the copy');
 });
+
+test('the ?perf readout can measure 2 s with the figure left alone', () => {
+  const src = readFileSync(new URL('../src/ui/perf-readout.js', import.meta.url), 'utf8');
+  assert.match(src, /rest\.onclick = \(\) => \{ rest\.textContent = 'Wait 3 s'; setTimeout\(\(\) => \{ begin\('at rest'\);/);
+  assert.match(src, /bar\.append\(title, rest, copy\);/);
+});

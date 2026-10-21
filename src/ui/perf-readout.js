@@ -109,12 +109,18 @@ export function startPerfReadout({ zoom = () => '?' } = {}) {
   bar.style.cssText = 'display:flex;gap:8px;align-items:center';
   const title = document.createElement('button');
   const copy = document.createElement('button');
-  for (const b of [title, copy]) b.style.cssText = 'font:inherit;color:#fff;background:rgb(255 255 255 / .16);border:0;border-radius:6px;padding:4px 8px;min-height:28px';   // colour-exempt
+  // A window with no gesture before it, begun a second after the tap: what every frame costs with the figure left alone, to
+  // tell a gesture's after-effects from the view's own cost (his Mac at zoom 7.5, 21 Oct: about 30 ms of page work a frame,
+  // still there 2 s after the scroll).
+  const rest = document.createElement('button');
+  for (const b of [title, rest, copy]) b.style.cssText = 'font:inherit;color:#fff;background:rgb(255 255 255 / .16);border:0;border-radius:6px;padding:4px 8px;min-height:28px';   // colour-exempt
   title.textContent = 'Lag after gestures (tap to fold)';
   copy.textContent = 'Copy';
+  rest.textContent = 'At rest';
+  rest.onclick = () => { rest.textContent = 'Wait 3 s'; setTimeout(() => { begin('at rest'); setTimeout(() => { rest.textContent = 'At rest'; }, 2000); }, 1000); };
   const body = document.createElement('div');
   body.textContent = 'Pan, pinch or scroll-zoom the figure, then let go and wait 2 s.';
-  bar.append(title, copy); el.append(bar, body);
+  bar.append(title, rest, copy); el.append(bar, body);
   let folded = false;
   title.onclick = () => { folded = !folded; body.style.display = folded ? 'none' : ''; };
   const text = () => [`${navigator.userAgent}`, `screen ${innerWidth}x${innerHeight} @${devicePixelRatio}x, ${location.pathname}${document.getElementById('preview-badge') ? ` ${document.getElementById('preview-badge').textContent.trim()}` : ''}`, ...reports.map(gestureText)].join('\n\n');
