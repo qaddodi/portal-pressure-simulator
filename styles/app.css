@@ -6570,9 +6570,9 @@ html.thumb-ui .menu.from-dock { clip-path: inset(-64px -64px calc(var(--sink, 0p
 /* ── Package G: end ── */
 
 /* A phone's charts have ONE size on every slide, never shortened by the card's fit (Mohammad, 21 Oct, the Gut to heart ladder "bouncing
-   between small version and large version": "Just make it one version everywhere"). The size is the one they used to give way to, so
-   cards that fitted only at it still arrive partly open (Circulation 10, Sites 3); a card too tall even so borrows from the figure. */
-.pz.stack.stack .pz-prof { --prof-h: min(59cqi, 216px); height: var(--prof-h); }
+   between small version and large version": "Just make it one version everywhere"). The after-meal chart's is the one it used to give way to,
+   so Circulation 10 still arrives partly open; the ladder keeps its full size; a card too tall borrows from the figure. */
+.pz.stack.stack .pz-prof { --prof-h: min(74cqi, 270px); height: var(--prof-h); }   /* (its full size: at 216 px the brackets left the plot for a band at its foot, the chart grew by its min-height after landing and the card cut off its sinusoidal brace and handle, Sites 4, Mohammad, 21 Oct) */
 .pz.stack.stack .pz-flows { height: 9.25em; }
 .pz.stack.stack .pz-flowtime { --ft-h: min(43cqi, 144px); height: var(--ft-h); }
 .pz.stack.stack .pz-flowtime.has-bands { height: calc(var(--ft-h) + var(--band-room, 0em)); }

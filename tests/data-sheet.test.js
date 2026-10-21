@@ -172,7 +172,7 @@ test('every chart in a phone\'s card has one size on every slide: none gives way
   assert.doesNotMatch(js, /CHART_GIVE|elastic/, 'no shrink path');
   assert.match(js, /const data = full;/);
   assert.match(js, /if \(key\) phoneLock = \{ key, cap, shut, data: full, fig: phoneFig \};/, 'the plan is kept against the card at its one size');
-  for (const [sel, h] of [['pz-prof', /--prof-h: min\(59cqi, 216px\); height: var\(--prof-h\);/], ['pz-flows', /height: 9\.25em;/], ['pz-flowtime', /--ft-h: min\(43cqi, 144px\); height: var\(--ft-h\);/], ['pz-flowtime\\.has-bands', /height: calc\(var\(--ft-h\) \+ var\(--band-room, 0em\)\);/]]) {
+  for (const [sel, h] of [['pz-prof', /--prof-h: min\(74cqi, 270px\); height: var\(--prof-h\);/], ['pz-flows', /height: 9\.25em;/], ['pz-flowtime', /--ft-h: min\(43cqi, 144px\); height: var\(--ft-h\);/], ['pz-flowtime\\.has-bands', /height: calc\(var\(--ft-h\) \+ var\(--band-room, 0em\)\);/]]) {
     const rule = css.match(new RegExp(`\\.pz\\.stack\\.stack \\.${sel} \\{([^}]*)\\}`))?.[1] ?? '';
     assert.match(rule, h, sel);
     assert.doesNotMatch(rule, /--pz-fit/, `${sel} never follows the fit`);
@@ -193,4 +193,11 @@ test('Circulation 10 (after a meal) lands partly open on a phone: its flowtime c
   assert.equal(s.tool?.kind, 'flowtime');
   assert.match(css, /\.pz\.stack\.stack \.pz-flowtime \{ --ft-h: min\(43cqi, 144px\); height: var\(--ft-h\); \}/, 'the size it used to give way to, for good');
   assert.match(css, /\.pz\.stack \.pz-data\.pz-data\.pz-data\.pz-data > \.pz-tool\[data-kind="flowtime"\] \{ width: 100%; zoom: 1; \}/, 'never zoomed with the card');
+});
+
+// Mohammad, 21 Oct (iPhone, Sites 4/12): the ladder's sinusoidal brace, x-axis row and the card's handle were cut off.
+test('a phone\'s ladder keeps its full size, so its brackets stay inside the plot and nothing grows the card after it lands', () => {
+  const rule = css.match(/\.pz\.stack\.stack \.pz-prof \{([^}]*)\}/)?.[1] ?? '';
+  assert.match(rule, /min\(74cqi, 270px\)/, 'not the 216 px that pushed the brackets into a band at its foot');
+  assert.doesNotMatch(css, /\.pz\.stack[^{]*\.pz-prof[^{]*\{[^}]*(overflow: hidden|max-height)/, 'never clipped');
 });
