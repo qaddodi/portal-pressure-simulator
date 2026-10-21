@@ -51,9 +51,10 @@ test('no data card shows both ladders: a Gut to heart profile slide has no old l
   }
 });
 
-test('the profile\'s HVPG and PPG brackets are the difference of the whole readings drawn at their ends', () => {
+test('the profile\'s HVPG and PPG brackets round the true values, never the difference of the drawn readings (Mohammad\'s pick: they may be 1 off it)', () => {
   const src = readFileSync(new URL('../src/ui/tool-profile.js', import.meta.url), 'utf8');
-  assert.match(src, /import \{ wholeGap \} from '\.\.\/engine\/gap\.js/);
-  assert.match(src, /const v = gapOf\(k\), rate = RATE\[k\]\(v\)\[0\];/);
-  assert.match(src, /wholeGap\(shown\.v\[STATIONS\.indexOf\(a\)\], shown\.v\[STATIONS\.indexOf\(b\)\], shown\[k\]\)/);
+  assert.doesNotMatch(src, /wholeGap/);
+  assert.match(src, /const v = shown\[k\], rate = RATE\[k\]\(v\)\[0\];/);
+  assert.match(src, /HVPG \$\{whole\(shown\.hvpg\)\}, PPG \$\{whole\(shown\.ppg\)\}/);
+  assert.match(src, /return \{ v, hvpg: fp\.hvpg, ppg: fp\.ppg \};/);
 });
