@@ -65,3 +65,16 @@ test("the credit's art grid skips shapes wholly off it", () => {
   const src = readFileSync(new URL('../src/ui/credit.js', import.meta.url), 'utf8');
   assert.match(src, /const g = 2 \* w \* Math\.max\(Math\.hypot\(m\.a, m\.b\), Math\.hypot\(m\.c, m\.d\)\) \+ CELL;\n\s+if \(r\.right \+ g < wr\.left \|\| r\.left - g > wr\.left \+ cols \* CELL \|\| r\.bottom \+ g < wr\.top \|\| r\.top - g > wr\.top \+ rows \* CELL\) continue;/);
 });
+
+test("each strip carries only the definitions the organs use, through any chain of them", async () => {
+  const { refsIn } = await import('../src/ui/plate-copy.js');
+  // (Serialized styles quote their urls, and the quotes come out as entities.)
+  assert.deepEqual(refsIn('fill="url(&quot;#esoFadeG&quot;)" clip-path="url(#clip-liver)" href="#q" xlink:href="#r"'), ['esoFadeG', 'clip-liver', 'q', 'r']);
+  const { pruneDefs } = await import('../src/ui/plate-copy.js');
+  const kid = (id, html) => { const k = { id, outerHTML: html, remove() { kids.splice(kids.indexOf(k), 1); } }; return k; };
+  const kids = [kid('a', '<mask id="a"><rect fill="url(#g1)"/></mask>'), kid('g1', '<linearGradient id="g1" href="#g2"/>'), kid('g2', '<linearGradient id="g2"/>'), kid('vessel', '<linearGradient id="vessel"/>'), kid('', '<style/>')];
+  const keep = pruneDefs({ get children() { return kids; } }, '<g mask="url(&quot;#a&quot;)"/>');
+  assert.deepEqual([...keep].sort(), ['a', 'g1', 'g2']);
+  assert.deepEqual(kids.map((k) => k.id), ['a', 'g1', 'g2', ''], 'the unused one goes, the rest stay');
+  assert.match(stage, /pruneDefs\(dc, parts\.map\(\(c\) => ser\.serializeToString\(c\)\)\.join\(''\)\);\n\s+const head = ser\.serializeToString\(dc\);/, 'pruned before the head is written, for every picture made from the copy');
+});

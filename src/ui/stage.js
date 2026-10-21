@@ -19,7 +19,7 @@ import { inlineStyles } from './svg-inline.js?v=fc17cb73fe';
 import { fluidTarget, poolFade } from './fluid-step.js?v=2742314765';
 import { easeTo, fluidSpring, fluidSpringFor } from './organ-ease.js?v=4ebb648131';
 import { spleenMotion } from './spleen-motion.js?v=4e87db0dbb';
-import { subpathsIn, foldOpacity, dropInvisible, mergeClipRuns, boxOutside, paintBox, maskRegionIn, maskSlot, fillMaskHead } from './plate-copy.js?v=2d8938e03a';
+import { subpathsIn, foldOpacity, dropInvisible, mergeClipRuns, boxOutside, paintBox, maskRegionIn, maskSlot, fillMaskHead, pruneDefs } from './plate-copy.js?v=c41fedbdb1';
 import { gridHits, segHitsBox } from './seg-hits.js?v=e7cde76929';
 import { glassCallout } from './callout.js?v=d5524b6a11';
 import { TEXT_MIN, TEXT_MAX, rolePx, roleOf } from './type-scale.js?v=d7cca3fb73';
@@ -3578,7 +3578,6 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     try {
       const dc = defs.cloneNode(true); inlineStyles(defs, dc);
       for (const id of DEAD_CUTS) dc.querySelector(`[data-cut="${id}"]`)?.remove();
-      const head = ser.serializeToString(dc);
       // The masks, for the view's strips: each strip's copy has their regions cut to the strip (maskHead). The elements that use
       // them are found in the copy now, with their page counterparts (for their transforms), while the two trees still match.
       const masks = [], maskRefs = [];
@@ -3629,6 +3628,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       const t = organG.liver.getAttribute('transform') || '', m = t.match(/^translate\(([-\d.]+) ([-\d.]+)\) scale\(([-\d.]+)\) translate\([-\d.]+ [-\d.]+\)$/);
       const toLiver = !t ? (r) => r : m ? (r) => { const [cx, cy, k] = m.slice(1).map(Number); return [cx + (r[0] - cx) / k, cy + (r[1] - cy) / k, r[2] / k, r[3] / k]; } : null;
       const gut = parts.flatMap((c) => [...c.querySelectorAll('[data-gut]')]);
+      // (Only the definitions the organs use go with them: the defs hold the vessels' too, a third of each strip's markup.)
+      pruneDefs(dc, parts.map((c) => ser.serializeToString(c)).join(''));
+      const head = ser.serializeToString(dc);
       // (Only the masks the copy's own elements use get a strip's region; one used from elsewhere keeps its own.)
       const refs = maskRefs.filter(([ce]) => parts.some((p) => p.contains(ce)));
       const used = masks.filter((m) => refs.some((x) => x[2] === m.id));

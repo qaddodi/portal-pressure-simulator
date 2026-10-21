@@ -114,3 +114,33 @@ export const maskSlot = (i, k) => `__pcm${i}_${k}__`;
 export function fillMaskHead(head, regions) {
   return head.replace(/__pcm(\d+)_([xywh])__/g, (_, i, k) => String(+regions[+i]['xywh'.indexOf(k)].toFixed(3)));
 }
+
+/**
+ * The ids a piece of markup points at: url(#id) in any paint, clip, mask or filter, and href="#id" (a gradient built on
+ * another, a use).
+ */
+export function refsIn(s) {
+  return [...s.matchAll(/url\(\s*["']?[^)"'#]*#([^)"'\s&]+)|href="#([^"]+)"/g)].map((m) => m[1] || m[2]);
+}
+
+/**
+ * Removes from the copy's defs (`defs`, an element) every child with an id that nothing in `parts` (the serialized organs)
+ * points at, directly or through other defs: the page's defs also hold the vessels' gradients and masks, about a third of a
+ * megabyte once their styles are written out, and each strip of the view's picture was read in with all of it (headless
+ * WebKit, 21 Oct: 57 ms a strip with them, 35 ms without). An unused definition paints nothing: the same pixels.
+ */
+export function pruneDefs(defs, parts) {
+  const byId = new Map();
+  for (const k of [...defs.children]) if (k.id) byId.set(k.id, k);
+  const keep = new Set(), todo = refsIn(parts);
+  for (const k of defs.children) if (!k.id) todo.push(...refsIn(k.outerHTML ?? ''));
+  while (todo.length) {
+    const id = todo.pop();
+    if (keep.has(id) || !byId.has(id)) continue;
+    keep.add(id);
+    const el = byId.get(id);
+    todo.push(...refsIn(el.outerHTML ?? ''));
+  }
+  for (const [id, el] of byId) if (!keep.has(id)) el.remove();
+  return keep;
+}
