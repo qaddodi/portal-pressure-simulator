@@ -9,7 +9,7 @@ import { store, updateParams } from './store.js?v=d6648af441';
 import { h, icon, svgIcon, toast, reconcile } from './util.js?v=5814c6b396';
 import { DRUGS } from '../engine/scenario.js?v=fa99b897ff';
 import { activeInterventions } from './inspector.js?v=9dd9c3b653';
-import { DRUG_NOTE } from './actions.js?v=acbac54755';
+import { DRUG_NOTE } from './actions.js?v=dfa612476a';
 import { factTarget } from './fact-target.js?v=50935889f6';
 
 

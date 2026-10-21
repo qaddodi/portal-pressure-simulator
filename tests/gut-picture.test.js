@@ -42,9 +42,20 @@ test('only the bowel floats on the fluid, so it is a run of its own', () => {
   assert.match(stage, /putA\(organG\.bowel, 'transform', `translate\(0 \$\{/);
 });
 
-test('the rectum fades out at its end through the gut mask, so the plate copy, the GPU raster and the gut picture all show it', () => {
-  assert.match(stage, /<mask id="gutHide"[^>]*height="660"><rect [^>]*height="660" fill="url\(#gutEndFadeG\)"\/>/);
-  assert.match(stage, /<linearGradient id="gutEndFadeG"[^>]*y1="990"[^>]*y2="1075"><stop offset="0" stop-color="#fff"\/><stop offset="1" stop-color="#fff" stop-opacity="0"\/>/);
+test('the rectum fades out at its end through a mask on the colon\'s own group, so the plate copy, the GPU raster and the gut picture all show it', () => {
+  // (As the esophagus's esoFade: the mask rides on the organ's group, so every copy of the group carries it.)
+  assert.match(stage, /<linearGradient id="rectFadeG" gradientUnits="userSpaceOnUse" x1="0" y1="\$\{RECTUM_FADE\[0\]\}" x2="0" y2="\$\{RECTUM_FADE\[1\]\}"><stop offset="0" stop-color="#fff"\/><stop offset="1" stop-color="#fff" stop-opacity="0"\/>/);
+  assert.match(stage, /<mask id="rectFade" maskUnits="userSpaceOnUse" x="0" y="0" width="\$\{VIEW\.w\}" height="1100"><rect [^>]*fill="url\(#rectFadeG\)"\/>/);
+  assert.match(stage, /if \(o\.id === 'colon'\) g\.setAttribute\('mask', 'url\(#rectFade\)'\);/);
+  // The gut's mask no longer cuts the rectum off at 1040: it runs to 1080, past the end of the art and the fade.
+  assert.match(stage, /<mask id="gutHide"[^>]*height="660"><rect [^>]*height="660" fill="#fff"\/>/);
   const rect = stage.match(/const GUT_RECT = \[(\d+), (\d+), (\d+), (\d+)\]/).slice(1).map(Number);
-  assert.ok(rect[1] + rect[3] >= 1075, 'the gut picture reaches the end of the fade');
+  const [, y1] = readFileSync(new URL('../src/ui/anatomy.js', import.meta.url), 'utf8').match(/RECTUM_FADE = \[(\d+), (\d+)\]/).slice(1).map(Number);
+  assert.equal(y1, 1075);
+  assert.ok(rect[1] + rect[3] >= y1, 'the gut picture reaches the end of the fade');
+  // the outlines and glows over the rectum fade on the same span: every organ outline draw carries it, and the shader reads it
+  assert.equal((stage.match(/endFade: RECTUM_FADE/g) || []).length, 2, 'warm glow, and the outline and glow passes');
+  const gl = readFileSync(new URL('../src/ui/veins-gl.js', import.meta.url), 'utf8');
+  assert.match(gl, /uniform vec2 endFade;/);
+  assert.match(gl, /gl\.uniform2f\(U\.endFade, d\.endFade \? d\.endFade\[0\] : 0/);
 });

@@ -1223,7 +1223,9 @@ uniform float pack;   // 1: a warm glow, whose half width carries its fade too (
 out float vD;
 out float vW;
 out float vF;
+out float vY;
 void main() {
+  vY = pos.y;
   vec2 n = (world * vec3(nrm, 0.0)).xy;
   float k = max(length(n), 1e-6);
   float w = sideW.y;
@@ -1241,17 +1243,20 @@ precision highp float;
 in float vD;
 in float vW;
 in float vF;
+in float vY;
 uniform vec4 col;   // rgb, alpha
+uniform vec2 endFade;   // an outline or glow fades out between these two heights (the rectum's end: (0, 0) for none)
 uniform float soft;   // 1: a glow, strongest on the edge and easing out as a Gaussian over its width (vD runs 0 to the full reach)
 out vec4 o;
 void main() {
   float a;
+  float fe = (endFade.y > endFade.x ? clamp((endFade.y - vY) / (endFade.y - endFade.x), 0.0, 1.0) : 1.0);
   if (soft > 0.5) {
     float t = clamp(abs(vD) / (vW + 1.0), 0.0, 1.0);
-    a = col.a * vF * exp(-4.5 * t * t) * (1.0 - smoothstep(0.55, 1.0, t));
+    a = col.a * vF * exp(-4.5 * t * t) * (1.0 - smoothstep(0.55, 1.0, t)) * fe;
     // A hair of noise, so a long faint ramp does not step in 8-bit colour.
     a = max(a + (fract(sin(dot(gl_FragCoord.xy, vec2(12.9898, 78.233))) * 43758.5453) - 0.5) / 255.0, 0.0) * step(0.0005, a);
-  } else a = col.a * clamp(max(vW, 0.5) + 0.5 - abs(vD), 0.0, 1.0) * min(1.0, vW * 2.0);
+  } else a = col.a * clamp(max(vW, 0.5) + 0.5 - abs(vD), 0.0, 1.0) * min(1.0, vW * 2.0) * fe;
   o = vec4(col.rgb * a, a);
 }`;
 
@@ -1382,6 +1387,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false }) {
     for (const d of lines.draws) {
       if (d.alpha <= 0 || !!d.soft !== !!soft || !!d.warm !== warm) continue;
       gl.uniform4f(U.col, ...d.col, d.alpha);
+      gl.uniform2f(U.endFade, d.endFade ? d.endFade[0] : 0, d.endFade ? d.endFade[1] : 0);
       gl.drawArrays(d.tri ? gl.TRIANGLES : gl.TRIANGLE_STRIP, d.first, d.count);
     }
     gl.bindVertexArray(null);
@@ -2011,7 +2017,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false }) {
       const fresh = spec && spec.verts !== lines?.verts;
       lines = lineP && spec?.draws?.length ? spec : null;
       if (!lines) return;
-      const sig = lines.draws.map((d) => `${d.first},${d.count},${d.alpha},${d.col},${d.tri ? 1 : 0},${d.soft ? 1 : 0},${d.warm ? 1 : 0}`).join(';');
+      const sig = lines.draws.map((d) => `${d.first},${d.count},${d.alpha},${d.col},${d.tri ? 1 : 0},${d.soft ? 1 : 0},${d.warm ? 1 : 0},${d.endFade ? 1 : 0}`).join(';');
       if (fresh || sig !== lineSig) { lineSig = sig; lineVer++; }
       if (!fresh) return;
       gl.bindBuffer(gl.ARRAY_BUFFER, lineBuf);
