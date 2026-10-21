@@ -18,3 +18,10 @@ test('the flank lies wholly below the diaphragm fade, at every bulge', () => {
     assert.ok(Math.min(...ys) - 1.4 / 2 > clearFrom, `bulge ${b}: top at ${Math.min(...ys)}`);
   }
 });
+
+test('the diaphragm mask ends where its fade is clear, so the page never builds it over the whole abdomen', () => {
+  const stage = readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8');
+  assert.match(stage, /<linearGradient id="diaFadeG" gradientUnits="userSpaceOnUse" x1="0" y1="300" x2="0" y2="420">/, 'clear from 420 down');
+  assert.match(stage, /const DIA_MASK_H = 422 \+ 150;/);
+  assert.match(stage, /<mask id="diaMask" maskUnits="userSpaceOnUse" x="0" y="-150" width="\$\{VIEW\.w\}" height="\$\{DIA_MASK_H\}"><rect x="0" y="-150" width="\$\{VIEW\.w\}" height="\$\{DIA_MASK_H\}" fill="url\(#diaFadeG\)"\/><\/mask>/);
+});

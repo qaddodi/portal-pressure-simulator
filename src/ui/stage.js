@@ -468,6 +468,11 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const defs = s('defs');
   // Organ fills: a light top-to-bottom falloff in the organ's own hue.
   const grad = (id, varName, a0, a1) => `<linearGradient id="${id}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" style="stop-color:var(${varName});stop-opacity:calc(var(--organ-a) * ${a0})"/><stop offset="1" style="stop-color:var(${varName});stop-opacity:calc(var(--organ-a) * ${a1})"/></linearGradient>`;
+  // The diaphragm's mask ends where its fade does (diaFadeG: clear from y 420 down, padded clear past it): the same pixels, as below it
+  // the mask hid everything anyway. Ending at the bottom of the view, its region made the page build a mask the size of the whole
+  // backdrop on every frame the organs were drawn live (the flank, drawn with ascites, stretched the backdrop over the abdomen), as
+  // the liver eased (Mohammad's iPhone ?perf, 21 Oct: 35-50 ms frames with the live organs left out, 60-140 with them; 16 Oct notes).
+  const DIA_MASK_H = 422 + 150;
   defs.innerHTML = `
     ${grad('gLiver', '--organ-liver', 0.8, 1.05)}${grad('gStomach', '--organ-stomach', 0.75, 1)}${grad('gSpleen', '--organ-spleen', 0.8, 1.05)}
     ${grad('gKidney', '--organ-kidney', 0.75, 1)}${grad('gGut', '--organ-gut', 0.6, 0.85)}${grad('gHeart', '--organ-heart', 0.8, 1.05)}${grad('gPancreas', '--organ-pancreas', 0.8, 1)}
@@ -479,7 +484,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     <linearGradient id="esoFadeG" gradientUnits="userSpaceOnUse" x1="0" y1="40" x2="0" y2="-40"><stop offset="0" stop-color="#fff"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient>
     <mask id="esoFade" maskUnits="userSpaceOnUse" x="0" y="-150" width="${VIEW.w}" height="${VIEW.h + 150}"><rect x="0" y="-150" width="${VIEW.w}" height="${VIEW.h + 150}" fill="url(#esoFadeG)"/></mask>
     <linearGradient id="diaFadeG" gradientUnits="userSpaceOnUse" x1="0" y1="300" x2="0" y2="420"><stop offset="0" stop-color="#fff"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient>
-    <mask id="diaMask" maskUnits="userSpaceOnUse" x="0" y="-150" width="${VIEW.w}" height="${VIEW.h + 150}"><rect x="0" y="-150" width="${VIEW.w}" height="${VIEW.h + 150}" fill="url(#diaFadeG)"/></mask>
+    <mask id="diaMask" maskUnits="userSpaceOnUse" x="0" y="-150" width="${VIEW.w}" height="${DIA_MASK_H}"><rect x="0" y="-150" width="${VIEW.w}" height="${DIA_MASK_H}" fill="url(#diaFadeG)"/></mask>
     <linearGradient id="rectFadeG" gradientUnits="userSpaceOnUse" x1="0" y1="${RECTUM_FADE[0]}" x2="0" y2="${RECTUM_FADE[1]}"><stop offset="0" stop-color="#fff"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient>
     <mask id="rectFade" maskUnits="userSpaceOnUse" x="0" y="0" width="${VIEW.w}" height="1100"><rect x="0" y="0" width="${VIEW.w}" height="1100" fill="url(#rectFadeG)"/></mask>
     <clipPath id="abdomenClip"><path d="${ABDOMEN_CLIP}"/></clipPath>
