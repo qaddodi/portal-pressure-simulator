@@ -56,7 +56,8 @@ test('the ?perf readout splits the rest of the page into page busy and waiting, 
   gpuProbe.note('y', 1);
   assert.deepEqual(gpuProbe.takeNotes(), {}, 'off: nothing kept');
   const src = readFileSync(new URL('../src/ui/perf-readout.js', import.meta.url), 'utf8');
-  assert.match(src, /if \(cur\) hb\.port2\.postMessage\(0\);/, 'the heartbeat runs only while a window is open');
+  assert.match(src, /beatT = cur \? setTimeout\(beat, 0\) : 0;/, 'the heartbeat runs only while a window is open');
+  assert.doesNotMatch(src, /MessageChannel/, 'a timer, never a message loop that keeps the main thread busy');
   assert.match(stage, /gpuProbe\.note\('organ SVG read', markup\.length \/ 1024\);/);
 });
 

@@ -41,23 +41,24 @@ export function startPerfReadout({ zoom = () => '?' } = {}) {
   let maxDown = 0, moved = false;
   const onStage = (e) => !!e.target?.closest?.('#stageView');
   const view = () => (document.querySelector('.cmap') ? 'circuit' : 'anatomy');
-  // A heartbeat on the main thread while a gesture's window is open: a message posted to itself, again as soon as it arrives.
-  // A beat that comes late shows the main thread was busy that long (the browser's own work included, which no step of the
-  // app's can time); beats arriving on time while a frame is late show the main thread was free, waiting for the GPU or the
-  // screen. Only during the 2 s window, and only with ?perf.
-  const hb = new MessageChannel();
-  let beatAt = 0, busy = 0, frameAt = 0;
-  hb.port1.onmessage = () => {
+  // A heartbeat on the main thread while a gesture's window is open: a timer set again each time it fires. A beat that comes
+  // late shows the main thread was busy that long (the browser's own work included, which no step of the app's can time);
+  // beats on time while a frame is late show the main thread was free, waiting for the GPU or the screen. A timer, not a
+  // message posted to itself as fast as it arrives: that kept the main thread always busy, and on a Mac the frames came at
+  // 7 a second while it ran (his readout on 2679f67, 21 Oct), so it may have slowed what it measured. A nested timer fires
+  // every 4 ms or so: a beat counts as late past 8 ms, less the 4 ms it would have waited anyway.
+  let beatAt = 0, busy = 0, frameAt = 0, beatT = 0;
+  const beat = () => {
     const b = performance.now(), gap = b - beatAt;
-    if (gap > 4) busy += Math.max(0, Math.min(gap, b - frameAt) - 1);   // (the part of the stall since this frame began)
+    if (gap > 8) busy += Math.max(0, Math.min(gap, b - frameAt) - 4);   // (the part of the stall since this frame began)
     beatAt = b;
-    if (cur) hb.port2.postMessage(0);
+    beatT = cur ? setTimeout(beat, 0) : 0;
   };
   const begin = (kind) => {
     const was = !!cur;
     cur = { n: ++n, kind, view: view(), zoom: (+zoom() || 0).toFixed(2), t0: performance.now(), frames: 0, worst: 0, gaps: [], tasks: [] };
     gpuProbe.take(); gpuProbe.takeNotes();
-    if (!was) { beatAt = performance.now(); busy = 0; hb.port2.postMessage(0); }
+    if (!was && !beatT) { beatAt = performance.now(); busy = 0; beatT = setTimeout(beat, 0); }
   };
   addEventListener('pointerdown', (e) => { if (!onStage(e)) return; down.set(e.pointerId, [e.clientX, e.clientY]); maxDown = Math.max(maxDown, down.size); if (down.size === 1) moved = false; }, { capture: true, passive: true });
   addEventListener('pointermove', (e) => { const p = down.get(e.pointerId); if (p && Math.hypot(e.clientX - p[0], e.clientY - p[1]) > 8) moved = true; }, { capture: true, passive: true });

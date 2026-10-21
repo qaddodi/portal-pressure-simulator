@@ -819,7 +819,7 @@ function renderBanner() {
 function wireTopbar() {
   initDebug(() => stage.zoomLevel());
   // ?perf in the address: the readout of what blocks frames after a pan or pinch (perf-readout.js). Without it, never loaded.
-  if (new URLSearchParams(location.search).has('perf')) import('./perf-readout.js?v=cb605af56c').then(({ startPerfReadout }) => startPerfReadout({ zoom: () => stage.zoomLevel() })).catch(() => { /* a measuring aid only */ });
+  if (new URLSearchParams(location.search).has('perf')) import('./perf-readout.js?v=70910433af').then(({ startPerfReadout }) => startPerfReadout({ zoom: () => stage.zoomLevel() })).catch(() => { /* a measuring aid only */ });
   $('#btnMenu').addEventListener('click', () => mainMenu.toggle());
   $('#btnSettings').addEventListener('click', (e) => openSettings(e.currentTarget));
   $('#btnPalette').addEventListener('click', () => palette.open());
