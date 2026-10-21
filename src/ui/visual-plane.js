@@ -41,7 +41,8 @@ export function rangeOf(when, key, min, max) {
 // AASLD 2024 uses the same rule-out and rule-in.
 // HVPG against PPG: the app's fixed cut-offs (HVPG 5 and 10, PPG 6 and 12), the words naming the readings only, not a cause.
 // Only 'Both normal' takes a rating colour (both under their amber cut-offs, as the tiles rate them); the zones where one or
-// both are raised are tinted plainly, since a zone spans readings the tiles rate amber and red alike.
+// both are raised each take a colour of the pressure ramp instead, since a zone spans readings the tiles rate amber and red alike:
+// blue for PPG only, violet for HVPG only, wine for both, so the four zones and their four swatches all differ.
 export const PLANES = {
   csph: {
     x: { key: 'lsm', min: 0, max: 40, ticks: [0, 10, 15, 20, 25, 40], name: 'Liver stiffness, kPa', short: 'Stiffness, kPa' },
@@ -63,9 +64,9 @@ export const PLANES = {
     y: { key: 'ppg', min: 0, max: 30, ticks: [0, 6, 12, 20, 30], name: 'PPG, mmHg', short: 'PPG' },
     zones: [
       { when: [['hvpg', '<', 5], ['ppg', '<', 6]], t: 'Both normal', short: 'Both normal', tone: 'ok', note: 'HVPG under 5, PPG under 6 mmHg' },
-      { when: [['hvpg', '<', 5]], t: 'PPG raised, HVPG normal', short: 'PPG only', tone: 'info', note: 'The wedge misses the resistance' },
-      { when: [['ppg', '<', 6]], t: 'HVPG raised, PPG normal', short: 'HVPG only', tone: 'info', at: [20, 3], note: 'HVPG 5 or more, PPG under 6 mmHg' },
-      { t: 'Both raised', short: 'Both raised', at: [20, 24], note: 'HVPG 5 or more, PPG 6 or more mmHg' },
+      { when: [['hvpg', '<', 5]], t: 'PPG raised, HVPG normal', short: 'PPG only', tone: 'ppg', note: 'The wedge misses the resistance' },
+      { when: [['ppg', '<', 6]], t: 'HVPG raised, PPG normal', short: 'HVPG only', tone: 'hvpg', at: [20, 3], note: 'HVPG 5 or more, PPG under 6 mmHg' },
+      { t: 'Both raised', short: 'Both raised', tone: 'both', at: [20, 24], note: 'HVPG 5 or more, PPG 6 or more mmHg' },
     ],
     cuts: { x: [5, 10], y: [6, 12] },
     source: '',
