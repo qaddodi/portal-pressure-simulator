@@ -438,6 +438,8 @@ export function createProfileTool() {
   // must move fades out where it was as it fades in where it goes, so it never sweeps across the line or the numbers.)
   const rows = [null, null];
   let fading = false;
+  // (Where each line's name stands, and where it glides from: a name that must move eases there, never jumps (Mohammad's NEVER SNAP).)
+  const nameAt = {};
   // (The numbers drawn: the goal's, eased; the healthy and earlier lines as they are.)
   const healthy = () => profileOf(ctx0?.healthy?.());
   function before() {
@@ -477,6 +479,13 @@ export function createProfileTool() {
       const brk = old && !old.inside ? null : placeBrackets(g, tw, goal, hl, bf, s, old?.brk);
       if (!brk) { g = profileGeo(w, hh, f, tw); s = numberSides(g, tw, goal); }   // (the band at the plot's foot)
       plan = { size, inside: !!brk, sides: s, brk, names: placeLineNames(g, tw, goal, hl, bf, s, brk) };
+      for (const n of plan.names || []) {
+        const cur = nameAt[n.c], t1 = performance.now();
+        if (!cur || !old || reduceMQ.matches) { nameAt[n.c] = { x: n.x, y: n.y, fx: n.x, fy: n.y, t0: 0 }; continue; }
+        if (Math.abs(cur.x - n.x) < 0.01 && Math.abs(cur.y - n.y) < 0.01) continue;
+        const [px, py] = glideAt(cur, t1);
+        nameAt[n.c] = { x: n.x, y: n.y, fx: px, fy: py, t0: t1 };
+      }
       stale = false;
       const now = performance.now();
       SPANS.forEach((_, r) => {
@@ -522,7 +531,7 @@ export function createProfileTool() {
       sv('line', { class: 'ppf-axis', x1: G.L, x2: G.R, y1: G.B, y2: G.B }),
       sv('path', { class: 'ppf-line', d: smoothD(now), style: `stroke: url(#${gid})`, mask: `url(#${gid}-m)` }),
       now.map(([cx, cy], i) => sv('text', { class: 'ppf-v', x: cx, y: valY(cy, i), 'text-anchor': 'middle' }, labels[i])),
-      (plan.names || []).map((n) => sv('text', { class: `ppf-lname ${n.c}`, x: n.x, y: n.y, 'text-anchor': 'middle' }, n.t)),
+      (plan.names || []).map((n) => { const [nx, ny] = glideAt(nameAt[n.c] || { x: n.x, y: n.y, fx: n.x, fy: n.y, t0: 0 }, t); return sv('text', { class: `ppf-lname ${n.c}`, x: nx, y: ny, 'text-anchor': 'middle' }, n.t); }),
       STATIONS.map((n, i) => sv('text', { class: n in LIVER_NAMES ? 'ppf-name liv' : 'ppf-name', x: G.nameX(i), y: G.nameY(i), 'text-anchor': 'middle' }, G.fit.names[i])),
       // (One brace under Pre, Intra and Post, inside the liver's band, named Sinusoidal under its tip.)
       i0 >= 0 ? sv('g', { class: 'ppf-brace' }, sv('path', { d: braceD(G.x(i0) - 0.42 * G.slot, G.x(i1) + 0.42 * G.slot, G.braceY, 0.55 * f) }),
@@ -550,9 +559,10 @@ export function createProfileTool() {
         if (row.from != null && e >= 1) row.from = null;
         return row.from == null ? [brk1(row.y, 1)] : [brk1(row.from, 1 - e), brk1(row.y, e)];
       }));
-    fading = rows.some((row) => row?.from != null);
+    fading = rows.some((row) => row?.from != null) || Object.values(nameAt).some((a) => t - a.t0 < FADE_MS);
     el.replaceChildren(svg);
   }
+  const glideAt = (a, now) => { const e = 0.5 - 0.5 * Math.cos(Math.PI * Math.min(1, Math.max(0, (now - a.t0) / FADE_MS))); return [lerp(a.fx, a.x, e), lerp(a.fy, a.y, e)]; };
   const fadeK = (row, now) => (row.from == null ? 1 : 0.5 - 0.5 * Math.cos(Math.PI * Math.min(1, Math.max(0, (now - row.t0) / FADE_MS))));
   function tick() {
     raf = 0;

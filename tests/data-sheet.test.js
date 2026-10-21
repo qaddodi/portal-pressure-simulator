@@ -219,3 +219,11 @@ test('no data-card chart follows the card\'s fit on any layout, so its size can 
     for (const r of rules) assert.doesNotMatch(r, /--pz-fit/, `${sel}: ${r.trim()}`);
   }
 });
+
+// NEVER SNAP: the healthy line's name glides to a new place when the patient changes.
+test('the ladder\'s Healthy name eases to a new place, never jumps', () => {
+  const prof = readFileSync(new URL('../src/ui/tool-profile.js', import.meta.url), 'utf8');
+  assert.match(prof, /nameAt\[n\.c\] = \{ x: n\.x, y: n\.y, fx: px, fy: py, t0: t1 \};/, 'from where it shows now');
+  assert.match(prof, /const \[nx, ny\] = glideAt\(/, 'drawn where the glide has it');
+  assert.match(prof, /Object\.values\(nameAt\)\.some\(\(a\) => t - a\.t0 < FADE_MS\)/, 'frames keep coming while it glides');
+});
