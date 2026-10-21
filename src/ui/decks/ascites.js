@@ -29,7 +29,7 @@ export const ASCITES = {
       ask: ['What does a reflection coefficient (σ) near zero mean for the sinusoid wall?', 'Protein crosses freely, so oncotic pressure cannot hold the fluid back, and any rise in pressure becomes lymph.'],
     },
     {
-      id: 'lymph', terms: { 'space of Disse': 'lobule:sinusoid', lymphatics: 'lobule:lymph', 'portal tracts': 'lobule:triad' }, cam: 'lobule', layers: ['lymph'],
+      id: 'lymph', terms: { 'space of Disse': 'lobule:sinusoid', lymphatics: 'lobule:lymph', 'portal tracts': 'lobule:triad' }, cam: 'lobule', scales: { sinusoid: {}, anatomy: { cam: 'fit' } }, layers: ['lymph'],
       tool: { kind: 'fluid', window: true }, data: 'tiles', tiles: ['sin', 'asc'], key: ['sin'],
       kicker: 'Ascites', site: 'sin', title: 'Lymph leaves the liver along the portal tracts',
       line: 'Fluid from the space of Disse runs back against the blood to lymphatics in the portal tracts. Here the sinusoids are at {sin}, and the lymphatics carry almost all of it, so almost no ascites forms.',
@@ -37,7 +37,7 @@ export const ASCITES = {
       ask: ['Where does the fluid filtered in the sinusoids go before ascites forms?', 'Back along the space of Disse to lymphatics in the portal tracts, then to the thoracic duct.'],
     },
     {
-      id: 'fill', days: 60, ramp: { cirrhosis: [0.6, 0.85], albumin: [4, 2.8] }, lapse: { seconds: 9 }, cam: 'fit', glow: ['liver'], mark: { organ: 'ascites', label: 'Ascites {asc}' }, tool: { kind: 'fluid', window: true, forces: true }, data: 'tiles', tiles: ['sin', 'asc', 'tp'], key: ['asc'], delta: true,
+      id: 'fill', days: 60, ramp: { cirrhosis: [0.6, 0.85], albumin: [4, 2.8] }, lapse: { seconds: 9 }, cam: 'fit', scales: { lobule: { glow: ['lobule:sinusoid'] }, sinusoid: {} }, glow: ['liver'], mark: { organ: 'ascites', label: 'Ascites {asc}' }, tool: { kind: 'fluid', window: true, forces: true }, data: 'tiles', tiles: ['sin', 'asc', 'tp'], key: ['asc'], delta: true,
       kicker: 'Ascites', site: 'sin', title: 'Ascites builds over two months',
       line: 'As fibrosis advances, sinusoidal pressure rises and lymph outruns the lymphatics. The fluid spills into the peritoneum, and the kidneys, retaining sodium and water, keep replacing it.',
       caveat: 'The model builds the fluid from pressure and albumin; it does not model the kidneys.',
