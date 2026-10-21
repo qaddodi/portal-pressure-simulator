@@ -2684,6 +2684,10 @@ button.finding { cursor: pointer; }
 /* While the plate is down (an ease), the gut shows as its own picture (stage.js gutPic) under the same mask and opacity: its
    drawn groups stay for picking and measuring, unpainted. */
 #organs > .organ-gut.gut-pic-on > .organ { visibility: hidden; }
+/* Hidden like that, their own masks and clips (the rectum's fade, the width of the figure, the duodenum's) were still built on
+   every repaint of an ease, as the plate's were (plate-hidden-masks): off while the picture shows, the same pixels. The picture is
+   drawn from the plate's copy, cloned with the mask and clip attributes, which this rule does not change. */
+#organs > .organ-gut.gut-pic-on > .organ, #organs > .organ-gut.gut-pic-on > .organ :is([mask], [clip-path]) { mask: none; clip-path: none; }
 .org-key-path { fill: none; stroke: none; }
 /* The stomach's outline traced over the cirrhotic liver (stage.js): a line in the stomach's own tone, never a fill (unstyled,
    it filled black and read as a dark patch on the liver: Mohammad, 20 Oct). */
