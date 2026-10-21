@@ -6,7 +6,7 @@ const LENS = [{ label: 'Pressure', lens: 'pressure', own: true }, { label: 'Pres
 const ROUTE = ['CONF', 'SIN_R', 'RHV', 'IVCS', 'RA'];
 // The six answers in the order of the levels, from the portal vein to the heart.
 const SIX = [{ id: 'a2', kicker: 'Case 2', title: 'Portal vein thrombosis' }, { id: 'a5', kicker: 'Case 5', title: 'Schistosomiasis' },
-  { id: 'a1', kicker: 'Case 1', title: 'Cirrhosis' }, { id: 'a4', kicker: 'Case 4', title: 'Sinusoidal obstruction' },
+  { id: 'a1', kicker: 'Case 1', title: 'Cirrhosis' }, { id: 'a4', kicker: 'Case 4', title: 'Sinusoidal obstruction', name: 'Sinusoidal obstr. synd.' },
   { id: 'a6', kicker: 'Case 6', title: 'IVC web' }, { id: 'a3', kicker: 'Case 3', title: 'Constrictive pericarditis' }];
 
 export const WHERE = {

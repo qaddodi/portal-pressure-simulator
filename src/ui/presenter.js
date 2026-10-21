@@ -22,11 +22,11 @@ import { SCALE_NAME, offeredScales, scaleView, pickedScale } from './scale-switc
 import { NODES } from '../engine/topology.js?v=4044766e96';
 import { DISEASE_SRC, diseasePieces } from './diseases.js?v=fb8a5451c3';
 import { nb, listCase, plateletText } from './glue.js?v=5a0f63226b';
-import { DECKS, REGIONS, LEVELS, TOPICS, withOverview, siteTag, SITE_TAGS } from './decks.js?v=78ecc8665c';
+import { DECKS, REGIONS, LEVELS, TOPICS, withOverview, siteTag, SITE_TAGS } from './decks.js?v=96a49beb22';
 import { tenthGap } from '../engine/gap.js?v=3a5947c552';
 import { createHvpgMonitor } from './hvpg-proc.js?v=031491bbd9';
-import { createTools } from './presenter-tools.js?v=4019f94427';
-import { openHandout } from './handout.js?v=43d53528d6';
+import { createTools } from './presenter-tools.js?v=c3282c69b1';
+import { openHandout } from './handout.js?v=6731b60487';
 import { noteResume, resumeFor } from './resume.js?v=f086f80ee8';
 import { parseDeckSource, checkDeck } from './deck-source.js?v=8395c650cd';
 import { NO_ASC, TILE, SCALE, bandsOf, rateOf, COLS, CUT, PRESS, fpv, dirAbs, dirRel, rateAbs, effOf, rateShown, tileShown, tipsGoal, liveSettled, shownSig } from './table-marks.js?v=1dc429fe31';
@@ -34,10 +34,11 @@ import { frameFor, cancelFrame } from './frame.js?v=4500d7e538';
 import { createFigureKey } from './figure-key.js?v=86d4d15f05';
 import { traceWhen } from './trace-labels.js?v=fc916a95c6';
 import { flowCss, heatCss, dropCss, gradientCss, oxygenCss } from './colormap.js?v=20b26c02af';
-import { EXT, expandIds, stepExtra, markLabel, figureHooks, safe } from './slide-ext.js?v=3a59ddb849';
+import { EXT, expandIds, stepExtra, markLabel, figureHooks, safe } from './slide-ext.js?v=34f2e4e556';
 import { clotWords } from './callout-math.js?v=0c960d54d3';
 import { citeText, focusOf, oneLadder } from './teach-extras.js?v=5f5248f5a7';
 import { createProfileTool, createProfileStrip } from './tool-profile.js?v=0223759914';
+import { causeFit } from './cause-fit.js?v=830a6835a5';
 import { DEMO_ALL } from './test-decks/demo-all-new-visuals.js?v=994d9ba268';
 import { COMPACT, WIDE } from './card-type.js?v=f5dfdb80f2';
 const nextFrame = frameFor('presenter');
@@ -1949,13 +1950,20 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   // (A phone, upright or sideways, draws each case on one line instead, its readings with the red blocks, the stations named once over
   // them: Mohammad, 21 Oct, "for phone, we should just make it one line with the red block of course, similar to what we had before".
   // Two copies of the names, for a phone on its side's two columns.)
-  // (The first row's cause steps down to fit beside the site, never under 12 px, never wrapped or cut: fitRow.)
+  // (The first row's cause steps down to fit beside the site, never under 12 px on the screen, never wrapped or cut. fitRow measures the
+  // laid-out row, the site's width and the gap against the cause's own, not an estimate; a cause that still does not fit at 12 px goes
+  // under the site, whole, so no case's cause runs out of its card: causeFit. Mohammad, 21 Oct: "SOS doesn't fit text wise".)
   const fitRow = (k) => {
-    const t = k.lastElementChild;
-    if (!t) return;
-    t.style.removeProperty('font-size');
-    const over = k.scrollWidth - k.clientWidth, fs = parseFloat(getComputedStyle(t).fontSize) || 12;
-    if (over > 0.5 && t.offsetWidth) t.style.fontSize = `${Math.max(12, fs * (t.offsetWidth - over) / t.offsetWidth).toFixed(2)}px`;
+    const t = k?.lastElementChild, tag = k?.firstElementChild;
+    if (!t || !tag) return;
+    t.style.removeProperty('font-size'); k.classList.remove('under');
+    if (!t.offsetWidth) return;
+    // (z: the row's zoom on the screen, so the floor is 12 px there; the room is what the row holds, less 1 px for the three widths' rounding)
+    const z = Math.min(2, Math.max(0.5, k.getBoundingClientRect().width / k.offsetWidth || 1)), fs = parseFloat(getComputedStyle(t).fontSize) || 12;
+    const room = k.clientWidth - tag.offsetWidth - (parseFloat(getComputedStyle(k).columnGap) || 0) - 1;
+    const fit = causeFit(fs, t.offsetWidth, room, 12 / z);
+    if (fit.size !== fs) t.style.fontSize = `${fit.size.toFixed(2)}px`;
+    k.classList.toggle('under', fit.under);
   };
   const rowRO = typeof ResizeObserver === 'function' ? new ResizeObserver((es) => es.forEach((e) => fitRow(e.target.closest('.pz-cell-k')))) : null;
   function laddersGrid(s) {
@@ -1967,8 +1975,8 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       P.configure({ kind: 'profile' }, { fp: r.f, healthy: () => base });
       S.set(r.f, () => base);
       const k = h('div', { class: 'pz-cell-k' }, h('div', { class: 'pz-kick', 'data-site': r.site || 'none' }, r.kicker.replace('Intrahepatic · ', '')),
-        h('div', { class: 'pz-cell-t' }, r.title));
-      rowRO?.observe(k); rowRO?.observe(k.lastElementChild);   // (and the cause itself: its font loading late widens it, not the row)
+        h('div', { class: 'pz-cell-t' }, r.name));   // (a row's `name` where its title is too long for the first row: Sites 10 "Sinusoidal obstr. synd.")
+      rowRO?.observe(k); rowRO?.observe(k.firstElementChild); rowRO?.observe(k.lastElementChild);   // (and the site and the cause themselves: a font loading late widens them, not the row)
       grid.append(h('div', { class: 'pz-cell' }, k, P.el, S.el));
     }
     return grid;

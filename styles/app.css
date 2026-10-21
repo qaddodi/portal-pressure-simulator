@@ -1844,6 +1844,7 @@ button.finding { cursor: pointer; }
 .pz-cell-k { display: flex; align-items: baseline; gap: 0 .6em; flex-wrap: nowrap; }   /* (the site and the cause on one row, the cause stepping down to fit: presenter.js fitRow) */
 .pz-cell-k .pz-kick { flex: none; white-space: nowrap; font-size: min(var(--s-cap), 6.4cqi); }
 .pz-cell-k .pz-cell-t { flex: none; white-space: nowrap; }
+.pz-cell-k.under { flex-wrap: wrap; }   /* (a cause too wide for the room beside its site even at 12 px goes under it, whole, rather than out of the card: presenter.js fitRow) */
 .pz.stack .pz-cell-k .pz-kick { font-size: min(var(--s-lab), 6.4cqi); letter-spacing: .05em; }
 /* (The HVPG is a pill, top right of every tile: it never wraps under the site tag; both shrink with the tile.) */
 .pz-cell-t { font: 600 var(--s-body)/1.15 var(--font-display); color: var(--text); }

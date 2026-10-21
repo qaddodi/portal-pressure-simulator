@@ -82,7 +82,7 @@
 // (withOverview below); a deck never writes that slide itself.
 
 import { CIRCULATION } from './decks/circulation.js?v=ed5243683d';
-import { SITES } from './decks/sites.js?v=541163607d';
+import { SITES } from './decks/sites.js?v=6b6bfd0d9a';
 import { HVPG } from './decks/hvpg.js?v=1f1f96d516';
 import { ASCITES } from './decks/ascites.js?v=68ab0bb495';
 import { VARICES } from './decks/varices.js?v=5e92da46f8';
@@ -105,7 +105,7 @@ import { SPLEEN } from './decks/spleen.js?v=212c72bb98';
 import { NCPH } from './decks/ncph.js?v=420bd9336a';
 import { OUTFLOW } from './decks/outflow.js?v=6839de7d56';
 import { RECOMPENSATION } from './decks/recompensation.js?v=e78b9f0f5e';
-import { WHERE } from './decks/where.js?v=01b05110ba';
+import { WHERE } from './decks/where.js?v=07764393d5';
 import { PREGNANCY_DECK } from './decks/pregnancy.js?v=a65817a8f2';
 import { BETA_BLOCKERS } from './decks/beta-blockers.js?v=520a936fa7';
 import { ENCEPHALOPATHY } from './decks/encephalopathy.js?v=f72dc3c10f';

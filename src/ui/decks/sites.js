@@ -2,7 +2,9 @@
 
 const mi = (x) => `<mi>${x}</mi>`, mo = (x) => `<mo>${x}</mo>`;
 const HVPG_EQ = mi('HVPG') + mo('=') + '<mi class="eq-wedge">WHVP</mi>' + mo('−') + '<mi class="eq-hv">FHVP</mi>';
-const SIX = ['pvt', 'presin', 'sin', 'postsin', 'post', 'cardiac'];   // the six levels of portal hypertension, one patient each
+// (The six-case grid's first row holds the site and the cause on one line, 12 px or more: sinusoidal obstruction syndrome is `name`d short there, in full
+// on its own slide, the table and every other line.)
+const SIX = ['pvt', 'presin', 'sin', { id: 'postsin', name: 'Sinusoidal obstr. synd.' }, 'post', 'cardiac'];   // the six levels of portal hypertension, one patient each
 const PROFILE = { kind: 'profile' };   // the pressure from gut to heart, in place of the ladders
 
 export const SITES = {
