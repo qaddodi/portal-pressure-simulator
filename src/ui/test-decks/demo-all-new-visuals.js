@@ -1916,7 +1916,7 @@ export const DEMO_ALL = {
       ],
       "kicker": "Fluid balance",
       "title": "In health the lymphatics carry all the lymph",
-      "line": "The liver and gut make lymph, and the lymphatics carry it all away. The empty part of the window is the room they still have, so no ascites builds."
+      "line": "The liver and gut make lymph, and the lymphatics carry it all away. The dashed part of the strip is the room they still have to spare, so no ascites builds."
     },
     {
       "id": "fill",
@@ -1947,7 +1947,7 @@ export const DEMO_ALL = {
       },
       "kicker": "Fluid balance",
       "title": "Ascites builds when the lymph made outruns the lymph drained",
-      "line": "Over two months the sinusoidal pressure rises and the albumin falls. The liver makes more lymph than the lymphatics carry, and the overflow, in the ascites color, builds up as {asc} of ascites."
+      "line": "Over two months the sinusoidal pressure rises and the albumin falls. The liver and gut make more lymph than the lymphatics carry, and the leak the belly does not take back, in amber, builds up as {asc} of ascites."
     },
     {
       "id": "diuretics",
