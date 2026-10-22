@@ -3,8 +3,8 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
 // Mac and iPad landscape get the phone's stacked data card (Mohammad, 22 Oct: "is there a way to build something similar for mac and
-// ipad, stacked card to show the main card and the stacked card behind it"; "You can make the teaching card move up a little bit to
-// make room if the bottom doesn't fit"): the instrument's card in front, the readings' card behind it.
+// ipad, stacked card to show the main card and the stacked card behind it"; "make so I open the stacked card untuck it to the TOP not to the
+// bottom. Cuz that's easier to pull up and the teaching card goes up"): the instrument's card in front, the readings' card behind it.
 const read = (p) => readFileSync(new URL(p, import.meta.url), 'utf8');
 const css = read('../styles/app.css');
 const js = read('../src/ui/presenter.js');
@@ -18,11 +18,18 @@ test('a wide screen stacks its instrument card under the words as two cards, a G
   assert.match(js, /if \(!p\) dd0\.classList\.toggle\('pz-beside', !sheet && dd0\.hasAttribute\('data-beside'\) && !dd0\.classList\.contains\('pz-folds'\)\);/);
 });
 
-test('each slide brings the readings out; the reader\'s tuck is kept on that slide; a card that is no stack lets go of it', () => {
-  assert.match(js, /else if \(sheet && !p && dd0\.dataset\.openFor !== String\(want\)\) \{ stopUnder\(\); dd0\.classList\.add\('tool-open'\); dd0\.dataset\.openFor = String\(want\); dd0\.dataset\.wideOpen = ''; \}/);
-  assert.match(js, /else if \(!sheet && 'wideOpen' in dd0\.dataset\) \{ delete dd0\.dataset\.wideOpen; if \(!p\) dd0\.classList\.remove\('tool-open'\); \}/);
+test('each slide comes in with the readings tucked; the card starts in its place and never closes to the side', () => {
+  assert.match(js, /if \(sheet && dd0\.classList\.contains\('tool-open'\) && dd0\.dataset\.openFor !== String\(want\)\) \{ stopUnder\(\); dd0\.classList\.remove\('tool-open'\); \}/);
+  assert.doesNotMatch(js, /wideOpen/);
   // (Never folded behind Show: tucking the readings is its smaller state.)
   assert.match(js, /const canFold = [^\n]*&& !dd\.classList\.contains\('pz-sheet'\);/);
+  // (Its glass is opaque while it is hidden, so whether it is showing is read from pz-hide: it slides in from the left, never from the right.)
+  assert.match(js, /\(dd\.classList\.contains\('pz-sheet'\) \? !dd\.classList\.contains\('pz-hide'\) : \+getComputedStyle\(dd\)\.opacity > 0\.05\)/);
+  // (Mohammad, 22 Oct: "shouldn't be able to close the card to the left".)
+  assert.match(js, /if \(e\.touches\.length !== 1 \|\| !deck \|\| ui\?\.root\.classList\.contains\('pz-wide'\)\) \{ reset\(\); return; \}/);
+  // (A pull up brings the readings out, a push down tucks them.)
+  assert.match(js, /g\.dir = wideSheet\(el\) \? -1 : 1;/);
+  assert.match(js, /follow\(g, dy \* g\.dir\);/);
 });
 
 test('the instrument is fitted to the tucked room; readings that need more room lift the pair, frame by frame, and it comes back down', () => {
@@ -32,18 +39,16 @@ test('the instrument is fitted to the tucked room; readings that need more room 
   assert.match(col, /d\.className = sv\[0\]; ds\.width = sv\[1\];/, 'put back as it was');
   assert.match(col, /d\.classList\.add\('col'\); if \(dk < 1\) ds\.setProperty\('--pz-dk', dk\);/, 'measured at the step asked');
   // (The cap: the tucked room, grown by what is out of the readings; fitted, as an upright phone's, with them out against it.)
-  assert.match(js, /const capOf = \(d, room\) => \(wideSheet\(d\) \? `calc\(\$\{\(room - LIP\)\.toFixed\(1\)\}px \+ var\(--pz-grow, 0px\)\)` : `\$\{room\.toFixed\(1\)\}px`\);/);
+  assert.match(js, /const capOf = \(d, room\) => \(wideSheet\(d\) \? `calc\(\$\{room\.toFixed\(1\)\}px \+ var\(--pz-grow, 0px\)\)` : `\$\{room\.toFixed\(1\)\}px`\);/);
   assert.match(js, /const under = el === ui\.data && splitSheet\(el\) && !el\.classList\.contains\('tool-open'\) && !el\.classList\.contains\('pz-sliding'\);/);
-  // (Centred for the tucked card; the rise is what the readings would reach past the foot, at most the words' card and the gap.)
+  // (Centred for the tucked card, its handle above it; the readings come out upward, the pair rising by their whole travel.)
   assert.match(js, /const tuckH = ws \? dd\.offsetHeight - underU\(dd\) \* dpx \+ LIP : dd\.offsetHeight;/);
-  assert.match(js, /if \(ws\) slip\.lift = Math\.max\(0, Math\.min\(top0 \+ shift \+ t\.height \+ 2 \* pad \+ gap \+ \(tuckH - LIP \+ dpx\) \* k - foot, t\.height \+ 2 \* pad \+ gap\)\) \/ k;/);
+  assert.match(js, /if \(ws\) slip\.lift = dpx;/);
   // (Moved with the readings' card every frame, by the finger or the ease, and put back when it rests.)
   assert.match(js, /d\.style\.setProperty\('--pz-u', u\.toFixed\(4\)\); liftTo\(u\); slip\.raf = nextFrame\(step\);/);
   assert.match(js, /ui\.data\.classList\.remove\('pz-sliding'\); liftTo\(underU\(ui\.data\)\);/);
   assert.match(js, /el\.style\.setProperty\('--pz-u', u\.toFixed\(4\)\); liftTo\(u\); return;/);
   assert.ok(css.includes('.pz.pz-wide .pz-text, .pz.pz-wide .pz-data.col, .pz.pz-wide .pz-lip, .pz-shade.pz-card:not(.stack):not(.low) { translate: 0 calc(-1 * var(--pz-lift, 0px)); }'), 'the words, their glass, the card and its handle rise together');
-  // (A slide whose readings would lift the words comes in with them tucked, its words whole.)
-  assert.match(js, /else if \(slip\.lift > 0\.5 && dd\.dataset\.wideOpen === '' && dd\.classList\.contains\('tool-open'\) && \(off\(dd\) \|\| dd\.classList\.contains\('pz-hide'\) \|\| ui\.root\.classList\.contains\('pz-prep'\)\)\) \{ stopUnder\(\); dd\.classList\.remove\('tool-open'\); dd\.dataset\.wideOpen = 'tucked'; \}/);
 });
 
 test('the handle only brings the readings out or tucks them away, eased; it never closes the card', () => {
@@ -53,15 +58,16 @@ test('the handle only brings the readings out or tucks them away, eased; it neve
   assert.match(js, /if \(splitSheet\(data\)\) \{\n\s*const u0 = underU\(data\);/);
 });
 
-test('the wide stack draws the phone\'s two pieces of glass with the wide card\'s corners', () => {
+test('the wide stack draws the phone\'s two pieces of glass upside down, the readings\' card behind the instrument card\'s top', () => {
   const W = '.pz.pz-wide.pz-wide .pz-data.pz-sheet';
-  assert.ok(css.includes(`${W}.pz-sheet { --pz-u: 0; --pz-sr: clamp(16px, calc(2.2 * var(--pzh) / var(--vz)), 28px); --pz-in: 8px; background: none;`), 'its corners are the wide card\'s');
+  assert.ok(css.includes(`${W}.pz-sheet { --pz-u: 0; --pz-sr: clamp(16px, calc(2.2 * var(--pzh) / var(--vz)), 28px); --pz-in: 8px; padding-top: 10px; background: none;`), 'its corners are the wide card\'s');
   assert.ok(css.includes(`${W}.pz-sheet.tool-open { --pz-u: 1; }`));
-  assert.ok(css.includes(`${W}::before { top: -1px; height: calc(100% + 1px - var(--pz-u) * var(--pz-d, 0px)); }`), 'the instrument\'s card');
-  assert.ok(css.includes(`${W}::after { z-index: -2; left: calc(var(--pz-in) - 1px); right: calc(var(--pz-in) - 1px); bottom: calc(-1px - 24px * (1 - var(--pz-u)));`), 'the readings\' card, behind it and narrower');
-  assert.ok(css.includes(`${W}.pz-sheet.tiles-only > .pz-tiles { margin-top: calc(14px - (1 - var(--pz-u)) * var(--pz-d, 0px)); }`));
+  assert.ok(css.includes(`${W}::before { top: calc(var(--pz-u) * var(--pz-d, 0px) - 1px); bottom: -1px; }`), 'the instrument\'s card, below what is out');
+  assert.ok(css.includes(`${W}::after { z-index: -2; left: calc(var(--pz-in) - 1px); right: calc(var(--pz-in) - 1px); top: calc(-1px - 24px * (1 - var(--pz-u)));`), 'the readings\' card, above it, behind it and narrower');
+  assert.ok(css.includes(`${W}.pz-sheet > .pz-tiles { order: -1;`), 'the readings stand above the instrument');
   assert.ok(css.includes(`${W}.pz-sheet > :not(.pz-tool) { zoom: 1; }`), 'its words keep their size; the picture shrinks instead');
   assert.ok(css.includes('.pz.pz-wide .pz-lip:not([hidden]) { display: block;'), 'the handle shows');
+  assert.ok(css.includes('.pz.pz-wide .pz-data > .pz-grip { display: none; }'), 'no edge handle: it never docks to the side');
   // (It comes and goes whole, its glass opaque while its parts fade, the old card's top glide kept.)
   assert.ok(css.includes(`${W}.pz-hide { opacity: 1; visibility: hidden; transition: transform .32s var(--ease), visibility 0s linear .32s; }`));
   assert.ok(css.includes(`${W}:not(.pz-hide) { visibility: visible; transition: transform .5s var(--ease) .12s, top .45s var(--ease), visibility 0s linear 0s; }`));

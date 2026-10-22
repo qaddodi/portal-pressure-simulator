@@ -11,7 +11,7 @@ test('a phone instrument card shows the instrument first, its readings on a shee
   assert.match(js, /const dd0 = ui\.data, sheet = \(p \|\| \(wide && !dd0\.hasAttribute\('data-ladder'\)\)\) && dd0\.classList\.contains\('has-tool'\) && !dd0\.classList\.contains\('tool-only'\);/, 'upright, and stacked under the words on a wide screen: on its side the card shows everything');
   assert.match(js, /const wide = cardOn && !low;/, 'never a phone on its side');
   assert.match(js, /dd0\.classList\.toggle\('pz-sheet', sheet\);/);
-  assert.match(js, /if \(sheet && p && dd0\.classList\.contains\('tool-open'\) && dd0\.dataset\.openFor !== String\(want\)\) \{ stopUnder\(\); dd0\.classList\.remove\('tool-open'\); \}/, 'each slide arrives partly open');
+  assert.match(js, /if \(sheet && dd0\.classList\.contains\('tool-open'\) && dd0\.dataset\.openFor !== String\(want\)\) \{ stopUnder\(\); dd0\.classList\.remove\('tool-open'\); \}/, 'each slide arrives partly open');
   // (Mohammad, 17 Oct: "I thought the Doppler will show first": the sheet holds the tiles, never the instrument.)
   assert.match(js, /\(data\.classList\.contains\('pz-sheet'\) && !data\.classList\.contains\('tool-only'\)\) \? tiles\.el : tools\.el\);/);
   assert.match(css, /\.pz\.stack \.pz-data:is\(\.tool-lead, \.pz-sheet\):not\(\.tool-open\) > \.pz-tiles \{ max-height: 0; opacity: 0;/);
@@ -19,7 +19,7 @@ test('a phone instrument card shows the instrument first, its readings on a shee
   assert.doesNotMatch(css, /tool-only:has\(\.pz-tool\[data-kind="flowtime"\]\):not\(\.tool-open\) \.pz-tool/, 'nor the after-meal chart alone');
   // (The edge is the card's sibling, kept at its foot: inside the card, its glass clipped it away on an iPhone.)
   assert.match(js, /fk, text, data, lip, panel,/);
-  assert.match(js, /l\.style\.left = px\(d\.offsetLeft\); l\.style\.width = px\(d\.offsetWidth\); l\.style\.top = px\(d\.offsetTop \+ \(sliding && slip\.h0 != null \? slip\.h0 \+ u \* slip\.d : d\.offsetHeight\)\);/);
+  assert.match(js, /l\.style\.left = px\(d\.offsetLeft\); l\.style\.width = px\(d\.offsetWidth\); l\.style\.top = px\(wideSheet\(d\) \? d\.offsetTop - LIP \* \(1 - ut\) : d\.offsetTop \+ \(sliding && slip\.h0 != null \? slip\.h0 \+ u \* slip\.d : d\.offsetHeight\)\);/);
   assert.match(js, /l\.style\.translate = d\.style\.translate;/, 'it moves with the card');
   assert.match(js, /dockTouch\(data, lip\);/, 'and takes the card\'s own pulls and pushes');
   const edge = css.match(/\.pz:is\(\.stack, \.low\) \.pz-lip::before \{[^}]*\}/)?.[0] ?? '';

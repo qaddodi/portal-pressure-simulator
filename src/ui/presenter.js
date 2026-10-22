@@ -2192,8 +2192,9 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   // readings' card out after it (dockTouch, sheetPull: "if I keep sliding I can open both in one swipe").
   // (Mac and iPad landscape too, the data card stacked under the words (pz-wide): the same two cards, its readings' card out as a slide
   // comes in (Mohammad, 22 Oct: "is there a way to build something similar for mac and ipad, stacked card to show the main card and the
-  // stacked card behind it"). The instrument keeps one size open or tucked; where the readings need more room than the screen has, the pair
-  // rises as they come out and comes back down as they tuck away (slip.lift, liftTo).)
+  // stacked card behind it"). There the readings' card is tucked behind the instrument card's top edge, its handle on top, and comes out
+  // upward: the words' card rises with it and comes back down as it tucks away (Mohammad, 22 Oct: "make so I open the stacked card untuck
+  // it to the TOP not to the bottom. Cuz that's easier to pull up and the teaching card goes up"; slip.lift, liftTo).)
   const splitSheet = (d) => !!ui && (ui.root.classList.contains('stack') || ui.root.classList.contains('pz-wide')) && d.classList.contains('pz-sheet');
   const wideSheet = (d) => !!ui?.root.classList.contains('pz-wide') && d.classList.contains('pz-sheet');
   // The readings' card slides out from behind the instrument card and back under it, one solid piece (Mohammad, 17 Oct: "The secondary
@@ -2202,12 +2203,12 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   // pieces of glass, the readings' place and where they are cut at the instrument card's foot from it. (d: how far it travels, the
   // readings' share of the card's height; h0: the card's height with them tucked, css px; raf: the ease running.)
   const slip = { d: null, h0: null, raf: 0, lift: 0 };
-  // (Mac and iPad landscape: the stacked card's height cap is the room under the words less its readings' card's foot, grown by what is
-  // out of the readings (--pz-grow, styles/app.css), so the instrument is fitted to the tucked room and keeps that size open or tucked.)
-  const capOf = (d, room) => (wideSheet(d) ? `calc(${(room - LIP).toFixed(1)}px + var(--pz-grow, 0px))` : `${room.toFixed(1)}px`);
-  // (The pair's rise, frame by frame with the readings' card: u of the way out lifts the words' card, its glass and the data card by u of
-  // slip.lift, the room the readings need below (layout), and tucking them brings the pair back down the same way. A translate, never
-  // their top, which eases on its own.)
+  // (Mac and iPad landscape: the stacked card's height cap is the room under the words and its readings' card's tucked edge, grown by what
+  // is out of the readings (--pz-grow, styles/app.css), so the instrument is fitted to the tucked room and keeps that size open or tucked.)
+  const capOf = (d, room) => (wideSheet(d) ? `calc(${room.toFixed(1)}px + var(--pz-grow, 0px))` : `${room.toFixed(1)}px`);
+  // (The rise, frame by frame with the readings' card: u of the way out lifts the words' card, its glass and the data card's box by u of
+  // slip.lift, the readings' travel (layout), so the instrument card stays where it is and the readings come out above it; tucking them
+  // brings everything back down the same way. A translate, never their top, which eases on its own.)
   const liftTo = (u) => { const v = slip.lift > 0.5 && u > 0 ? (u * slip.lift).toFixed(1) : ''; if (wrap.style.getPropertyValue('--pz-lift') !== (v && `${v}px`)) { if (v) wrap.style.setProperty('--pz-lift', `${v}px`); else wrap.style.removeProperty('--pz-lift'); } };
   const underU = (d) => (d.classList.contains('pz-sliding') ? parseFloat(d.style.getPropertyValue('--pz-u')) || 0 : d.classList.contains('tool-open') ? 1 : 0);
   function slideUnder(from, to, ms = 360) {
@@ -2239,7 +2240,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     // for the measure, so its watcher is not told: told, it measured again, for ever.)
     const was = parts.map((c) => c.style.cssText), cap = d.style.maxHeight;
     d.style.maxHeight = 'none';
-    parts[0].style.marginTop = '14px';   // (out: styles/app.css)
+    parts[0].style.marginTop = wideSheet(d) ? '16px' : '14px';   // (out: styles/app.css)
     const h1 = hh(), z = (parseFloat(getComputedStyle(parts[0]).zoom) || 1) * kw;
     const o = parts[1] ? (parts[1].getBoundingClientRect().top - parts[0].getBoundingClientRect().top) / z : 0;
     for (const c of parts) c.style.display = 'none';
@@ -2294,7 +2295,9 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     if (split && !sliding && dock.lvl === dock.to) measureUnder(d);
     const u = sliding ? parseFloat(d.style.getPropertyValue('--pz-u')) || 0 : 0;
     // (Sliding, at the readings' card's foot to the fraction of a px: the card's own box height is whole px.)
-    l.style.left = px(d.offsetLeft); l.style.width = px(d.offsetWidth); l.style.top = px(d.offsetTop + (sliding && slip.h0 != null ? slip.h0 + u * slip.d : d.offsetHeight));
+    // (Mac and iPad landscape: over the card's top, in the readings' card's top edge, tucked or out; the rise, --pz-lift, carries it up.)
+    const ut = wideSheet(d) ? (sliding ? u : open ? 1 : 0) : 0;
+    l.style.left = px(d.offsetLeft); l.style.width = px(d.offsetWidth); l.style.top = px(wideSheet(d) ? d.offsetTop - LIP * (1 - ut) : d.offsetTop + (sliding && slip.h0 != null ? slip.h0 + u * slip.d : d.offsetHeight));
     l.style.translate = d.style.translate; l.dataset.restTranslate = d.dataset.restTranslate ?? '0 0';
     if (sliding) l.style.setProperty('--pz-u', u.toFixed(4)); else l.style.removeProperty('--pz-u');
     const say = dock.to === 1 ? 'Open the card' : wideSheet(d) ? (open ? 'Hide the readings' : 'Show the readings') : open ? (split ? 'Hide the readings' : 'Close the card') : split && dock.down === want ? 'Close the card' : 'Show the rest of the card';
@@ -2689,11 +2692,8 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     dd0.classList.toggle('pz-sheet', sheet);
     if (!p) dd0.classList.toggle('pz-beside', !sheet && dd0.hasAttribute('data-beside') && !dd0.classList.contains('pz-folds'));   // (the readings' card holds the tiles: none beside the instrument)
     if ((p || low) && dd0.classList.contains('pz-folds')) dd0.classList.remove('pz-folds');   // (a wider screen's fold, left by a window made narrow)
-    if (sheet && p && dd0.classList.contains('tool-open') && dd0.dataset.openFor !== String(want)) { stopUnder(); dd0.classList.remove('tool-open'); }
-    // (Mac and iPad landscape: each slide's stacked card comes in with its readings out (tucked instead where they would lift the words,
-    // below); tucked away or brought out by the reader, they stay so on that slide. A card that is no stack lets go of the opening it was given here: a fold behind Show is its own.)
-    else if (sheet && !p && dd0.dataset.openFor !== String(want)) { stopUnder(); dd0.classList.add('tool-open'); dd0.dataset.openFor = String(want); dd0.dataset.wideOpen = ''; }
-    else if (!sheet && 'wideOpen' in dd0.dataset) { delete dd0.dataset.wideOpen; if (!p) dd0.classList.remove('tool-open'); }
+    // (Mac and iPad landscape too: each slide comes in with its readings tucked, the words whole; they come out on a pull or a tap.)
+    if (sheet && dd0.classList.contains('tool-open') && dd0.dataset.openFor !== String(want)) { stopUnder(); dd0.classList.remove('tool-open'); }
     const phoneCap = p ? phoneTextCap(lockKey, H, k) : null;
     if (phoneCap != null) ui.text.style.maxHeight = `${phoneCap.toFixed(1)}px`;
     if (p) autoDock(phoneShut); else if (!low) autoDock(false);
@@ -2784,7 +2784,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       // (Not after its fade (swapNow: it moves now, though a slow frame left it not quite faded; it had stayed stacked under the
       // words for good when an iPad was turned upright), nor on a resize or a turn, where everything moves at once: faded there,
       // it showed over the words' card for a moment while the words had already moved.)
-      else if (!swapNow && !ui.root.classList.contains('pz-turning') && !dd.hidden && !reduce.matches && +getComputedStyle(dd).opacity > 0.05) {
+      else if (!swapNow && !ui.root.classList.contains('pz-turning') && !dd.hidden && !reduce.matches && (dd.classList.contains('pz-sheet') ? !dd.classList.contains('pz-hide') : +getComputedStyle(dd).opacity > 0.05)) {
         below = isCol;
         if (!dd.classList.contains('pz-hide')) {
           dd.classList.add('pz-hide'); dd.dataset.colswap = '';
@@ -2797,7 +2797,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     // (The sheet's edge under the card is part of it for the camera: left out, the room between the cards was taken 24 px taller
     // than it is, and the figure sat that much high.)
     if (dd.dataset.safe) ui.lip.dataset.safe = dd.dataset.safe; else delete ui.lip.dataset.safe;
-    const y = top0 + t?.height + 2 * pad + gap;
+    const y = top0 + t?.height + 2 * pad + gap + (below && wideSheet(dd) ? LIP * k : 0);   // (a wide stacked card: its readings' card's tucked edge above it)
     dd.style.left = below ? `${(sl / k).toFixed(1)}px` : '';
     // (One width on every slide: stacked or at the top right, the data card is always the teaching card's width, whatever it holds.)
     dd.style.width = cw ? `${(cw / k).toFixed(1)}px` : '';
@@ -2855,15 +2855,11 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       // it came in at, so the words never ride up and down with a reading that measured a pixel taller.)
       if (lockKey && shiftLock?.key === lockKey && readingsOnly()) shift = shiftLock.v; else if (lockKey) shiftLock = { key: lockKey, v: shift };
       if (shift > 0.5) { dd.style.top = `${((y + shift) / k).toFixed(1)}px`; dd.style.maxHeight = capOf(dd, (foot - y - shift) / k); } else shift = 0;
-      // (How far the pair rises with the readings all out (Mohammad, 22 Oct: "You can make the teaching card move up a little bit to make
-      // room if the bottom doesn't fit. It's ok if the top of the teaching card slips behind upper part of the screen"): what their card
-      // would reach past the controls or the screen's foot, never more than the words' card and the gap, so the data card stops at the top.)
-      if (ws) slip.lift = Math.max(0, Math.min(top0 + shift + t.height + 2 * pad + gap + (tuckH - LIP + dpx) * k - foot, t.height + 2 * pad + gap)) / k;
+      // (How far the words rise with the readings all out: the readings' whole travel, so the instrument card never moves (Mohammad, 22 Oct:
+      // "It's ok if the top of the teaching card slips behind upper part of the screen as the info below is more pertinent").)
+      if (ws) slip.lift = dpx;
     }
     if (!(below && t && wideSheet(dd))) slip.lift = 0;
-    // (A slide whose readings would lift the words comes in with them tucked, as an upright phone's does, its words whole; they come out
-    // on a tap. One that has the room comes in with them out.)
-    else if (slip.lift > 0.5 && dd.dataset.wideOpen === '' && dd.classList.contains('tool-open') && (off(dd) || dd.classList.contains('pz-hide') || ui.root.classList.contains('pz-prep'))) { stopUnder(); dd.classList.remove('tool-open'); dd.dataset.wideOpen = 'tucked'; }
     liftTo(underU(dd));
     fitWatch();
     const dv = ui.data.hidden ? [0, 0] : dockVec();
@@ -3706,7 +3702,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     const reset = () => { g = null; dock.drag = false; };
     const hs = {}, on = (type, fn, opts) => { hs[type] = fn; for (const t of [el, ...more]) t.addEventListener(type, fn, opts); };   // (hs: a swipe elsewhere on the slide is fed the same, farTouch)
     on('touchstart', (e) => {
-      if (e.touches.length !== 1 || !deck) { reset(); return; }
+      if (e.touches.length !== 1 || !deck || ui?.root.classList.contains('pz-wide')) { reset(); return; }   // (Mac and iPad landscape: the card never closes to the side, Mohammad, 22 Oct)
       const t = e.touches[0], vec = dockVec(), k = wrap.getBoundingClientRect().width / (wrap.clientWidth || 1) || 1;
       g = { x: t.clientX, y: t.clientY, t: performance.now(), lvl0: dock.lvl, vec, k, on: false, last: 0 };
     }, { passive: true });
@@ -3795,18 +3791,19 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       if (e.touches.length !== 1 || (!btn.offsetWidth && !sheet) || (sheet && open && !split) || dock.lvl > 0 || btn.contains(e.target)) return;
       const t = e.touches[0];
       g = grab(t.clientX, t.clientY, open);
+      g.dir = wideSheet(el) ? -1 : 1;   // (Mac and iPad landscape: the readings come out upward, a pull up; a push down tucks them)
     }, { passive: true });
     on('touchmove', (e) => {
       if (!g) return;
       const t = e.touches[0], dy = t.clientY - g.y, dx = t.clientX - g.x;
       if (!g.on) {
         if (Math.abs(dy) < 8) return;
-        if (Math.abs(dx) > Math.abs(dy) || (dy > 0) === g.shown) { g = null; return; }   // (sideways, or nothing to fold that way)
+        if (Math.abs(dx) > Math.abs(dy) || (dy * g.dir > 0) === g.shown) { g = null; return; }   // (sideways, or nothing to fold that way)
         take(g);
       }
       e.stopImmediatePropagation();
       if (e.cancelable) e.preventDefault();
-      follow(g, dy);
+      follow(g, dy * g.dir);
     }, { passive: false });
     const end = (e) => {
       const gg = g; g = null;

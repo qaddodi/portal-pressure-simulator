@@ -72,13 +72,13 @@ test('an upright phone\'s or tablet\'s deck instrument card opens its readings o
   assert.match(css, /--pz-cut: calc\(\(\(1 - var\(--pz-u\)\) \* \(var\(--pz-d, 0px\) - 24px\) \+ 10px - var\(--pz-gap, 6px\)\) - 14px - var\(--pz-o, 0px\)\);/, 'cut at the instrument card\'s foot');
   assert.match(css, /\.pz\.stack\.stack \.pz-data\.pz-sheet\.tool-open \{ padding-bottom: 10px; \}/, 'the padding never changes');
   // (Measured in the card's own px, without its height cap; frame by frame, never a CSS transition: the card is frosted glass.)
-  assert.match(js, /d\.style\.maxHeight = 'none';\n\s*parts\[0\]\.style\.marginTop = '14px';/);
+  assert.match(js, /d\.style\.maxHeight = 'none';\n\s*parts\[0\]\.style\.marginTop = wideSheet\(d\) \? '16px' : '14px';/);
   assert.match(js, /d\.style\.maxHeight = cap; ui\.lipMO\?\.takeRecords\(\);/, 'its own measure never sets it measuring again');
   assert.match(js, /if \(t < 1\) \{ const u = from \+ \(to - from\) \* \(1 - \(1 - t\) \*\* 3\); d\.style\.setProperty\('--pz-u', u\.toFixed\(4\)\); liftTo\(u\); slip\.raf = nextFrame\(step\); \}/);
   assert.doesNotMatch(css + js, /--pz-top|sheetTop|tabMargins/, 'no measure of the instrument\'s own box');
   // (The handle rides in the readings' card's foot.)
   assert.match(css, /\.pz\.stack \.pz-data\.pz-sheet\.pz-sliding \+ \.pz-lip \{ margin-top: calc\(-24px \* var\(--pz-u, 0\)\);/);
-  assert.match(js, /l\.style\.top = px\(d\.offsetTop \+ \(sliding && slip\.h0 != null \? slip\.h0 \+ u \* slip\.d : d\.offsetHeight\)\);/);
+  assert.match(js, /l\.style\.top = px\(wideSheet\(d\) \? d\.offsetTop - LIP \* \(1 - ut\) : d\.offsetTop \+ \(sliding && slip\.h0 != null \? slip\.h0 \+ u \* slip\.d : d\.offsetHeight\)\);/);
   // A glass piece inside a fading card loses its blur: the card stays opaque and its parts fade.
   assert.match(css, /\.pz\.stack\.stack \.pz-data\.pz-sheet\.pz-hide \{ opacity: 1; visibility: hidden; transition: transform \.32s var\(--ease\), visibility 0s linear \.32s; \}/);
   assert.match(css, /\.pz\.stack\.stack \.pz-data\.pz-sheet\.pz-hide::before, \.pz\.stack\.stack \.pz-data\.pz-sheet\.pz-hide::after, \.pz\.stack\.stack \.pz-data\.pz-sheet\.pz-hide > :is\(\.pz-dh, \.pz-tool, \.pz-tiles\) \{ opacity: 0; \}/);

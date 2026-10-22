@@ -5286,53 +5286,57 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
 @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) { .pz.stack.stack .pz-data.pz-sheet::before, .pz.stack.stack .pz-data.pz-sheet::after { background: color-mix(in srgb, var(--surface) 96%, transparent); } }
 @media (prefers-reduced-transparency: reduce) { .pz.stack.stack .pz-data.pz-sheet::before, .pz.stack.stack .pz-data.pz-sheet::after { background: var(--surface-2); -webkit-backdrop-filter: none; backdrop-filter: none; } }
 /* Mac and iPad landscape: the same two stacked cards under the words (presenter.js splitSheet, pz-wide; Mohammad, 22 Oct: "the phone data
-   cards look better than the mac because of the stacked card situation; is there a way to build something similar for mac and ipad").
-   The instrument's card in front at the teaching card's width, the readings' card behind it --pz-in narrower on each side; each slide
-   brings them out, and a click or tap on the handle in its foot tucks them away (24 px of foot left showing) or brings them out again.
-   The pair is laid out and fitted with them out, so they come and go without the words or the instrument moving or changing size. Its
-   corners are the wide card's own (16-28 px). A Gut to heart chart keeps its tiles beside it, one card (data-ladder). */
+   cards look better than the mac because of the stacked card situation"), turned upside down: the instrument's card at the teaching card's
+   width, the readings' card behind it --pz-in narrower on each side, tucked behind its TOP edge, 24 px of it and the handle showing above
+   ("make so I open the stacked card untuck it to the TOP not to the bottom. Cuz that's easier to pull up and the teaching card goes up").
+   Pulled up or tapped, it comes out above the instrument card, which stays where it is: the card's box grows upward by the readings'
+   travel (--pz-u of --pz-d) and rises by as much (--pz-lift, presenter.js liftTo), the words' card with it, their top behind the screen's
+   top if need be; tucked, everything comes back down. Each slide comes in tucked. Its corners are the wide card's own (16-28 px). A Gut
+   to heart chart keeps its tiles beside it, one card (data-ladder). The card never docks to the side here, so it has no edge handle. */
+.pz.pz-wide .pz-data > .pz-grip { display: none; }
 .pz.pz-wide .pz-lip:not([hidden]) { display: block; position: absolute; height: 24px; margin: 0; padding: 0; border: 0; background: none; pointer-events: auto; touch-action: none;
-  cursor: pointer; -webkit-tap-highlight-color: transparent; transition: opacity .5s var(--ease) .12s, transform .5s var(--ease) .12s, margin-top .36s var(--ease); }
+  cursor: pointer; -webkit-tap-highlight-color: transparent; transition: opacity .5s var(--ease) .12s, transform .5s var(--ease) .12s; }
 .pz.pz-wide .pz-lip::after { content: ''; position: absolute; left: 50%; top: 50%; width: 34px; height: 4px; translate: -50% -50%; border-radius: 2px; background: color-mix(in srgb, var(--text) 32%, transparent); }
-.pz.pz-wide .pz-data.tool-open + .pz-lip { margin-top: -24px; }
 .pz.pz-wide .pz-data.pz-hide + .pz-lip { transform: translateX(-18px); }   /* (as the card leaves, .pz-data.col) */
-.pz.pz-wide .pz-data.pz-sheet > .pz-grip { top: calc((100% - var(--pz-u) * var(--pz-d, 0px)) / 2); }   /* (the card's own edge handle, halfway down the instrument's card) */
-.pz.pz-wide .pz-data.pz-sheet:not(.tool-open) { padding-bottom: 10px; }
-.pz.pz-wide.pz-wide .pz-data.pz-sheet.pz-sheet { --pz-u: 0; --pz-sr: clamp(16px, calc(2.2 * var(--pzh) / var(--vz)), 28px); --pz-in: 8px; background: none; -webkit-backdrop-filter: none; backdrop-filter: none; border-color: transparent; box-shadow: none; overflow: visible; isolation: isolate; }
+.pz.pz-wide.pz-wide .pz-data.pz-sheet.pz-sheet { --pz-u: 0; --pz-sr: clamp(16px, calc(2.2 * var(--pzh) / var(--vz)), 28px); --pz-in: 8px; padding-top: 10px; background: none; -webkit-backdrop-filter: none; backdrop-filter: none; border-color: transparent; box-shadow: none; overflow: visible; isolation: isolate; }
 .pz.pz-wide.pz-wide .pz-data.pz-sheet.pz-sheet.tool-open { --pz-u: 1; }
 .pz.pz-wide.pz-wide .pz-data.pz-sheet.pz-sheet > :not(.pz-tool) { zoom: 1; }
 .pz.pz-wide.pz-wide .pz-data.pz-sheet.pz-sheet.pz-sliding:not(.tool-open) { --pz-grow: calc(var(--pz-u) * var(--pz-d, 0px)); }
 .pz.pz-wide.pz-wide .pz-data.pz-sheet.pz-sheet.tool-open { --pz-grow: var(--pz-d, 0px); }
+/* (The instrument card's header stands the card's padding under its top edge, as before: the box's own top padding is the readings' card's.) */
+.pz.pz-wide.pz-wide .pz-data.pz-sheet.pz-sheet > .pz-dh { margin-top: calc(var(--pz-cp) - 10px); }
 .pz.pz-wide.pz-wide .pz-data.pz-sheet::before, .pz.pz-wide.pz-wide .pz-data.pz-sheet::after { content: ''; position: absolute; left: -1px; right: -1px; z-index: -1; box-sizing: border-box; border: 1px solid color-mix(in srgb, var(--text) 10%, transparent); border-radius: inherit;
   background: color-mix(in srgb, var(--surface) 58%, transparent); -webkit-backdrop-filter: blur(16px) saturate(1.15); backdrop-filter: blur(16px) saturate(1.15);
   box-shadow: inset 0 1px 0 var(--pz-glass-edge), 0 14px 34px -10px var(--pz-glass-drop), 0 2px 6px -1px var(--pz-glass-drop); pointer-events: none; }
-.pz.pz-wide.pz-wide .pz-data.pz-sheet::before { top: -1px; height: calc(100% + 1px - var(--pz-u) * var(--pz-d, 0px)); }
-.pz.pz-wide.pz-wide .pz-data.pz-sheet::after { z-index: -2; left: calc(var(--pz-in) - 1px); right: calc(var(--pz-in) - 1px); bottom: calc(-1px - 24px * (1 - var(--pz-u))); height: calc(var(--pz-d, 0px) + 23px); border-top-left-radius: 0; border-top-right-radius: 0; box-shadow: 0 14px 34px -10px var(--pz-glass-drop), 0 2px 6px -1px var(--pz-glass-drop);
-  --pz-m: calc(22px - var(--pz-sr) + (1 - var(--pz-u)) * (var(--pz-d, 0px) - 24px));
-  -webkit-mask: linear-gradient(#000 0 0) 0 calc(var(--pz-m) + var(--pz-sr)) / 100% 100% no-repeat, radial-gradient(circle at 100% 0, transparent calc(var(--pz-sr) - .5px), #000 var(--pz-sr)) calc(0px - var(--pz-in)) var(--pz-m) / var(--pz-sr) var(--pz-sr) no-repeat, radial-gradient(circle at 0 0, transparent calc(var(--pz-sr) - .5px), #000 var(--pz-sr)) calc(100% + var(--pz-in)) var(--pz-m) / var(--pz-sr) var(--pz-sr) no-repeat;
-  mask: linear-gradient(#000 0 0) 0 calc(var(--pz-m) + var(--pz-sr)) / 100% 100% no-repeat, radial-gradient(circle at 100% 0, transparent calc(var(--pz-sr) - .5px), #000 var(--pz-sr)) calc(0px - var(--pz-in)) var(--pz-m) / var(--pz-sr) var(--pz-sr) no-repeat, radial-gradient(circle at 0 0, transparent calc(var(--pz-sr) - .5px), #000 var(--pz-sr)) calc(100% + var(--pz-in)) var(--pz-m) / var(--pz-sr) var(--pz-sr) no-repeat; }
-.pz.pz-wide.pz-wide .pz-data.pz-sheet.tool-open { padding-bottom: 10px; }
-.pz.pz-wide.pz-wide .pz-data.pz-sheet.pz-sheet > .pz-tiles { max-height: none; overflow: visible; opacity: 1; margin-top: 0; margin-inline: calc(var(--pz-in)); transition: opacity .26s var(--ease);
-  translate: 0 calc(24px * (1 - var(--pz-u)));
-  --pz-cut: calc(((1 - var(--pz-u)) * (var(--pz-d, 0px) - 24px) + 10px - var(--pz-gap, 6px)) - 14px - var(--pz-o, 0px));
-  clip-path: polygon(-60px var(--pz-cut), calc(100% + 60px) var(--pz-cut), calc(100% + 60px) calc(100% + 60px), -60px calc(100% + 60px)); }
-.pz.pz-wide.pz-wide .pz-data.pz-sheet.pz-sheet.tiles-only > .pz-tiles { margin-top: calc(14px - (1 - var(--pz-u)) * var(--pz-d, 0px)); }
-.pz.pz-wide.pz-wide .pz-data.pz-sheet.pz-sheet > .pz-tiles { margin-bottom: 16px; }
+/* (The instrument's card: the box below what is out of the readings.) */
+.pz.pz-wide.pz-wide .pz-data.pz-sheet::before { top: calc(var(--pz-u) * var(--pz-d, 0px) - 1px); bottom: -1px; }
+/* (The readings' card, behind it and narrower: its top 24 px over the box while tucked, 22 px of its foot under the instrument card's top
+   edge. Only what lies outside the instrument card shows: above its edge (--pz-e from this card's top), and behind its two rounded corners.) */
+.pz.pz-wide.pz-wide .pz-data.pz-sheet::after { z-index: -2; left: calc(var(--pz-in) - 1px); right: calc(var(--pz-in) - 1px); top: calc(-1px - 24px * (1 - var(--pz-u))); height: calc(var(--pz-d, 0px) + 23px); border-bottom-left-radius: 0; border-bottom-right-radius: 0; box-shadow: 0 -6px 20px -10px var(--pz-glass-drop);
+  --pz-e: calc(var(--pz-u) * var(--pz-d, 0px) + 24px * (1 - var(--pz-u)));
+  -webkit-mask: linear-gradient(#000 0 0) 0 0 / 100% var(--pz-e) no-repeat, radial-gradient(circle at 100% 100%, transparent calc(var(--pz-sr) - .5px), #000 var(--pz-sr)) calc(0px - var(--pz-in)) var(--pz-e) / var(--pz-sr) var(--pz-sr) no-repeat, radial-gradient(circle at 0 100%, transparent calc(var(--pz-sr) - .5px), #000 var(--pz-sr)) calc(100% + var(--pz-in)) var(--pz-e) / var(--pz-sr) var(--pz-sr) no-repeat;
+  mask: linear-gradient(#000 0 0) 0 0 / 100% var(--pz-e) no-repeat, radial-gradient(circle at 100% 100%, transparent calc(var(--pz-sr) - .5px), #000 var(--pz-sr)) calc(0px - var(--pz-in)) var(--pz-e) / var(--pz-sr) var(--pz-sr) no-repeat, radial-gradient(circle at 0 100%, transparent calc(var(--pz-sr) - .5px), #000 var(--pz-sr)) calc(100% + var(--pz-in)) var(--pz-e) / var(--pz-sr) var(--pz-sr) no-repeat; }
+/* (The readings stand first, in the readings' card, 26 px under its top where the handle sits and 10 px over the instrument card's edge.
+   Their margin takes back what is still tucked, so the box grows by what is out; the shift keeps them riding with their card, and what
+   would lie behind the instrument card is cut away at its edge.) */
+.pz.pz-wide.pz-wide .pz-data.pz-sheet.pz-sheet > .pz-tiles { order: -1; max-height: none; overflow: visible; opacity: 1; margin-inline: calc(var(--pz-in)); margin-top: calc(16px - (1 - var(--pz-u)) * var(--pz-d, 0px)); margin-bottom: calc(20px - var(--pz-gap, 6px)); transition: opacity .26s var(--ease);
+  translate: 0 calc((1 - var(--pz-u)) * (var(--pz-d, 0px) - 24px));
+  --pz-cut: calc(var(--pz-u) * var(--pz-d, 0px) - 26px + 24px * (1 - var(--pz-u)));
+  clip-path: polygon(-60px -60px, calc(100% + 60px) -60px, calc(100% + 60px) var(--pz-cut), -60px var(--pz-cut)); }
 .pz.pz-wide.pz-wide .pz-data.pz-sheet.pz-sheet.pz-sheet.pz-sliding > .pz-tiles { transition: none; }
 .pz.pz-wide.pz-wide .pz-data.pz-sheet.pz-sheet:not(.tool-open):not(.pz-sliding) > .pz-tiles { visibility: hidden; }
-.pz.pz-wide .pz-data.pz-sheet.pz-sliding + .pz-lip { margin-top: calc(-24px * var(--pz-u, 0)); transition: opacity .5s var(--ease) .12s, transform .5s var(--ease) .12s; }
 .pz.pz-wide.pz-wide .pz-data.pz-sheet.pz-hide { opacity: 1; visibility: hidden; transition: transform .32s var(--ease), visibility 0s linear .32s; }
 .pz.pz-wide.pz-wide .pz-data.pz-sheet:not(.pz-hide) { visibility: visible; transition: transform .5s var(--ease) .12s, top .45s var(--ease), visibility 0s linear 0s; }
-.pz.pz-wide.pz-wide .pz-data.pz-sheet::before, .pz.pz-wide.pz-wide .pz-data.pz-sheet::after, .pz.pz-wide.pz-wide .pz-data.pz-sheet > :is(.pz-dh, .pz-tool, .pz-grip) { transition: opacity .32s var(--ease); }
-.pz.pz-wide.pz-wide .pz-data.pz-sheet:not(.pz-hide)::before, .pz.pz-wide.pz-wide .pz-data.pz-sheet:not(.pz-hide)::after, .pz.pz-wide.pz-wide .pz-data.pz-sheet:not(.pz-hide) > :is(.pz-dh, .pz-tool, .pz-grip) { transition-duration: .5s; transition-delay: .12s; }
-.pz.pz-wide.pz-wide .pz-data.pz-sheet.pz-hide::before, .pz.pz-wide.pz-wide .pz-data.pz-sheet.pz-hide::after, .pz.pz-wide.pz-wide .pz-data.pz-sheet.pz-hide > :is(.pz-dh, .pz-tool, .pz-tiles, .pz-grip) { opacity: 0; }
+.pz.pz-wide.pz-wide .pz-data.pz-sheet::before, .pz.pz-wide.pz-wide .pz-data.pz-sheet::after, .pz.pz-wide.pz-wide .pz-data.pz-sheet > :is(.pz-dh, .pz-tool) { transition: opacity .32s var(--ease); }
+.pz.pz-wide.pz-wide .pz-data.pz-sheet:not(.pz-hide)::before, .pz.pz-wide.pz-wide .pz-data.pz-sheet:not(.pz-hide)::after, .pz.pz-wide.pz-wide .pz-data.pz-sheet:not(.pz-hide) > :is(.pz-dh, .pz-tool) { transition-duration: .5s; transition-delay: .12s; }
+.pz.pz-wide.pz-wide .pz-data.pz-sheet.pz-hide::before, .pz.pz-wide.pz-wide .pz-data.pz-sheet.pz-hide::after, .pz.pz-wide.pz-wide .pz-data.pz-sheet.pz-hide > :is(.pz-dh, .pz-tool, .pz-tiles) { opacity: 0; }
 @media (prefers-reduced-motion: reduce) {
   .pz.pz-wide.pz-wide > .pz-data.pz-sheet.pz-hide { transition: visibility 0s linear .3s !important; }
-  .pz.pz-wide.pz-wide > .pz-data.pz-sheet::before, .pz.pz-wide.pz-wide > .pz-data.pz-sheet::after, .pz.pz-wide.pz-wide > .pz-data.pz-sheet > :is(.pz-dh, .pz-tool, .pz-tiles, .pz-grip) { transition: opacity .3s var(--ease) !important; }
+  .pz.pz-wide.pz-wide > .pz-data.pz-sheet::before, .pz.pz-wide.pz-wide > .pz-data.pz-sheet::after, .pz.pz-wide.pz-wide > .pz-data.pz-sheet > :is(.pz-dh, .pz-tool, .pz-tiles) { transition: opacity .3s var(--ease) !important; }
 }
-/* (Brought out where the screen is too short for them, the readings lift the pair, frame by frame with their card (presenter.js liftTo,
-   --pz-lift on the stage): the words' card, its glass, the data card and the handle rise together, the words' top behind the screen's top
-   if need be, and come back down as the readings tuck away. A translate: their tops ease on their own.) */
+/* (The rise, frame by frame with the readings' card (presenter.js liftTo, --pz-lift on the stage): the words' card, its glass, the data
+   card's box and the handle rise together, the words' top behind the screen's top if need be, and come back down as the readings tuck
+   away. A translate: their tops ease on their own.) */
 .pz.pz-wide .pz-text, .pz.pz-wide .pz-data.col, .pz.pz-wide .pz-lip, .pz-shade.pz-card:not(.stack):not(.low) { translate: 0 calc(-1 * var(--pz-lift, 0px)); }
 @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) { .pz.pz-wide.pz-wide .pz-data.pz-sheet::before, .pz.pz-wide.pz-wide .pz-data.pz-sheet::after { background: color-mix(in srgb, var(--surface) 96%, transparent); } }
 @media (prefers-reduced-transparency: reduce) { .pz.pz-wide.pz-wide .pz-data.pz-sheet::before, .pz.pz-wide.pz-wide .pz-data.pz-sheet::after { background: var(--surface-2); -webkit-backdrop-filter: none; backdrop-filter: none; } }
