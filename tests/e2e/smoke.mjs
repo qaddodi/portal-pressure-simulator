@@ -620,7 +620,7 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     await page.waitForTimeout(1500);
     await page.evaluate(() => window.pps.store.set({ lobule: false }));
     await page.waitForFunction(() => window.pps.stage.lobuleSettled() && !window.pps.stage.lobuleOpen(), null, { timeout: 60000 });
-    await page.waitForTimeout(500);
+    await page.waitForTimeout(1500);   // (the next dive's idle preparation redraws the world bitmap and a canvas 0.4 to 0.9 s after the lobule is left: read after it)
     const left = await page.evaluate(() => window.pps.stage.lobuleMem(true));
     const MB = (o) => JSON.stringify(Object.fromEntries(Object.entries(o).map(([k, v]) => [k, +(v / 1e6).toFixed(1)])));
     if (left.canvases > 0 || left.tiles > Math.max(landed.tiles, 1) * 1.05 || left.world > Math.max(landed.world, 1) * 1.05) throw new Error(`after a close zoom the anatomy still holds the lobule's bitmaps: landed ${MB(landed)}, zoomed ${MB(zoomed)}, after leaving ${MB(left)} (MB)`);
@@ -629,11 +629,13 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     await page.waitForFunction(() => (window.pps.store.get().frame?.slow?.ascites || 0) > 800, null, { timeout: 60000 });
     await page.evaluate(() => window.pps.store.set({ running: false }));
     await page.waitForTimeout(4000);
-    await page.evaluate(() => { window.__svg = 0; const c = URL.createObjectURL; URL.createObjectURL = function (b) { if (b?.type === 'image/svg+xml') window.__svg++; return c.call(this, b); }; });
+    const rasters0 = await page.evaluate(() => window.pps.stage.plateRasters());
     await page.evaluate(() => window.pps.host.send({ type: 'action', action: { kind: 'paracentesis', mL: 6000, albumin: true } }));
     await page.evaluate(() => window.pps.store.set({ running: true })); await page.waitForTimeout(1500); await page.evaluate(() => window.pps.store.set({ running: false }));
     await page.waitForTimeout(9000);
-    const n = await page.evaluate(() => window.__svg);
+    // (Counted as passes over the plate, not as pictures: a pass is a picture a strip at a time, and with the organs drawn on the GPU a
+    // picture per organ layer too, so 14 pictures were two passes there, and 4 to 10 on the single picture.)
+    const n = (await page.evaluate(() => window.pps.stage.plateRasters())) - rasters0;
     if (n > 2) throw new Error(`draining the ascites rasterized the organ plate ${n} times while the fluid eased (once, plus the view's sharper copy, is enough)`);
   });
 
