@@ -629,6 +629,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host) }
   store.on('*', (keys) => { if (!Array.isArray(keys) || keys.some((k) => !UNSEEN.has(k))) { drawVersion++; if (!raf && fade > 0) raf = nextFrame(loop); } });
   let lzYield = null;
   let layoutV = '', gl = null, glTried = false, binKey = '', binReach = [], radKey = [], radAll = '', attrKey = '', drawKey = '', glDirty = true, tissueKey = '', worldKey = '', layoutKey = '';
+  const pills = new Map();   // (a lit label's pill insets, read once per label layout, not on every frame of a glide: each read restyles the page)
   let worldCv = document.createElement('canvas');   // the lobule's tissue in world space (see paintTissue)
   // A new patient (or any change to the tissue's state) crossfades into the lobule instead of snapping: the bitmap it replaces
   // is kept (worldOld, swapped rather than copied) and laid under the new one as it fades in, and the surround's tiles the
@@ -1267,6 +1268,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host) }
     const fr0 = freeRect(), g = geo, bKey = `${g.W}x${g.H}|${Object.values(labs).map((l) => l.lk).join('|')}|${zonesOn}|${lymphOn}|${named('ha')}${named('bd')}|${call ? call.at + call.label : ''}|${fr0.t},${fr0.b},${fr0.l},${fr0.r}`,
       key = `${bKey}|${V.k},${V.x},${V.y}`;
     if (key === layoutKey) return;
+    pills.clear();   // (a fresh layout reads each lit label's pill once more)
     // While a hand pans the lobule (a drag, its flick, a trackpad scroll), the labels ride with the picture as one
     // layer: placing them again every frame (measuring each, then trying hundreds of spots and orders) is what made
     // panning lag on a phone. They are placed again, gliding to their new spots, once the hand lets go.
@@ -1564,8 +1566,13 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host) }
   // the leader stops on the pill's outline.
   const lettersOf = (L, l, t, w, hh) => {
     if ((document.getElementById('app')?.dataset.lit || '').split(' ').includes(L.el.dataset.target)) {
-      const p = getComputedStyle(L.el, '::before'), px = (v) => parseFloat(v) || 0;
-      return { x0: l + px(p.left), y0: t + px(p.top), x1: l + w - px(p.right), y1: t + hh - px(p.bottom), r: px(p.borderTopLeftRadius), L };
+      let q = pills.get(L);
+      if (!q) {
+        const p = getComputedStyle(L.el, '::before'), px = (v) => parseFloat(v) || 0;
+        q = [px(p.left), px(p.top), px(p.right), px(p.bottom), px(p.borderTopLeftRadius)];
+        pills.set(L, q);
+      }
+      return { x0: l + q[0], y0: t + q[1], x1: l + w - q[2], y1: t + hh - q[3], r: q[4], L };
     }
     const [pl, pr, pt, pb] = L.pad || [0, 0, 0, 0];
     return { x0: l + pl, y0: t + pt, x1: l + w - pr, y1: t + hh - pb, L };

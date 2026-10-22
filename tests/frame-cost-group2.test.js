@@ -26,3 +26,12 @@ test('item 36: the data-card plane skips a redraw whose size, font, points, read
   assert.match(draw, /\$\{sizeWas\}\|\$\{was \?/);
   assert.match(src, /set\(points, r = ring\) \{ pts = points \|\| \[\]; ptsVer\+\+;/);
 });
+
+test("item 39: a lit lobule label's pill is read once per layout, not on every frame of its leaders' glide", () => {
+  const src = read('../src/ui/lobule-zoom.js');
+  const lo = src.slice(src.indexOf('const lettersOf = '), src.indexOf('function leadTo('));
+  assert.match(lo, /let q = pills\.get\(L\);\s*if \(!q\) \{/);
+  assert.equal(lo.match(/getComputedStyle/g).length, 1);
+  const lay = src.slice(src.indexOf('function layoutLabels()'), src.indexOf('function layoutLabels()') + 900);
+  assert.match(lay, /if \(key === layoutKey\) return;\s*pills\.clear\(\);/);
+});
