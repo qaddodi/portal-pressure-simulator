@@ -14,7 +14,7 @@
 // so it counts as liver.
 
 import { EDGES, PORTOSYSTEMIC_EDGES, SPLANCHNIC_ARTERIES } from '../engine/topology.js?v=4044766e96';
-import { portalSplit } from './table-marks.js?v=58a52c530c';
+import { portalSplit } from './table-marks.js?v=4dd1ebf72f';
 
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
 const STENTS = new Set(['TIPS', 'DIPS']);

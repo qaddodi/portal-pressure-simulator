@@ -16,7 +16,7 @@ import { shownOr } from './shown.js?v=82ef5e29ec';
 import { T, ease, k01, balloonAt, timeOfBalloon, pressureAt as pAt } from './hvpg-clock.js?v=553551a92a';
 import { frameFor, cancelFrame } from './frame.js?v=74867bd42b';
 import { traceRoom, TRACE_MIN } from './trace-room.js?v=b4c0aaa97f';
-import { rateOf } from './table-marks.js?v=58a52c530c';
+import { rateOf } from './table-marks.js?v=4dd1ebf72f';
 const nextFrame = frameFor('hvpg-proc');
 
 let stageRef = null;

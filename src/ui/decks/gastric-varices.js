@@ -1,0 +1,103 @@
+// Presenter talk: gastric varices, from the Sarin classes through carvedilol, the bleed, TIPS and BRTO, to the
+// clotted splenic vein that a splenectomy cures (the slide fields are described at the top of decks.js).
+
+const BEATS = { kind: 'trace', range: 'beats' };
+
+export const GASTRIC = {
+  id: 'gastric-varices', level: 'core', title: 'Gastric varices', minutes: 9,
+  objectives: [
+    'Name the four Sarin classes of gastric varices',
+    'Start carvedilol for fundal varices that have not bled',
+    'Explain why a TIPS is preferred after a fundal bleed, and what BRTO does to the portal pressure',
+    'Recognize left-sided portal hypertension and treat it at the spleen',
+  ],
+  checks: [
+    ['Which gastric varices are managed like esophageal varices?', 'GOV1, which run down the lesser curve from the esophagus.'],
+    ['What is the first treatment for fundal varices that have never bled?', 'A non-selective beta-blocker, preferably carvedilol. Glue, BRTO or a TIPS is not used to prevent a first bleed; glue is kept for high-risk varices when a beta-blocker cannot be taken.'],
+    ['What can happen to the esophageal varices after BRTO, and why?', 'They can grow. Closing the gastrorenal shunt keeps its blood in the portal system, so the portal pressure rises.'],
+    ['Fundal varices, a normal liver and a large spleen: what do you look for, and what treats it?', 'A clotted splenic vein on contrast CT. Splenectomy, a splenic vein stent or splenic artery embolization treats it.'],
+  ],
+  summary: 'The Sarin classes, carvedilol before a first bleed, glue and TIPS after one, what BRTO does to the portal pressure, and the clotted splenic vein that a splenectomy cures.',
+  slides: [
+    {
+      id: 'classes', preset: 'gastric-varix', cam: 'fundus', terms: ['gv'], data: 'tiles', tiles: ['gv', 'varix'], key: ['gv'],
+      vignette: 'A 58-year-old woman with cirrhosis from primary biliary cholangitis has a 9 mm fundal varix and no esophageal varices on screening EGD. She has never bled. Her platelets are 63,000/µL.',
+      cite: 'Baveno VIII 5.38; AASLD 2024',
+      kicker: 'Where they lie', site: 'sin', title: 'Four kinds of gastric varices',
+      causesHead: 'Sarin classes', causes: ['GOV1, down the lesser curve', 'GOV2, toward the fundus', 'IGV1, isolated in the fundus', 'IGV2, elsewhere in the stomach'],
+      line: 'Gastric varices are sorted by where they lie and whether they continue from the esophagus. In this case an isolated fundal varix (IGV1) measures {gv}, and there are no esophageal varices.',
+      notes: 'Baveno VIII recommends the Sarin classification for every gastric varix, to report them the same way, judge the bleeding risk and choose the treatment. GOV1 run down the lesser curve from the esophagus and are managed like esophageal varices. GOV2 and IGV1 are the cardiofundal varices: they bleed less often than esophageal varices, but when they bleed, treatment fails, rebleeding and death are more common. Gastric varices are commoner in pre-hepatic portal hypertension, above all with a clotted splenic vein, so finding one calls for contrast CT or MRI. Endoscopy in this app stays in the esophagus; the fundal varix is read from its tile.',
+      ask: ['Which gastric varices behave like esophageal varices?', 'GOV1, along the lesser curve.'],
+    },
+    {
+      id: 'shunt', lens: 'flow', cam: 'fundus', terms: ['gv', 'lrv'], mark: { edges: ['C5'], label: 'Gastrorenal shunt', kind: 'note' }, tool: { kind: 'flows' }, data: 'tiles', tiles: ['gv', 'liver'], key: ['gv'],
+      cite: 'AASLD 2024',
+      kicker: 'Where they lie', site: 'sin', title: 'Fundal varices drain through a shunt',
+      line: 'Most fundal varices drain through a gastrorenal shunt into the [left renal vein](lrv). They grow and bleed at a lower portal pressure than esophageal varices. Colored by flow, the shunt takes much of the portal blood; the liver gets {liver} of normal.',
+      notes: 'The short and posterior gastric veins feed the fundal varices, and a spontaneous gastrorenal shunt, often by way of the left inferior phrenic vein, drains them into the left renal vein. AASLD notes that gastric varices form and bleed at a lower portal pressure than esophageal varices, and that this system competes with the portal vein for blood. The wide varix has a high wall tension even at a modest gradient. A large shunt also takes portal blood away from the liver, which raises the risk of encephalopathy. The shunt is the route BRTO uses, later in this talk.',
+      ask: ['Into which vein does a gastrorenal shunt drain?', 'The left renal vein.'],
+    },
+    {
+      id: 'nsbb', params: { drugs: { carvedilol: true } }, cam: 'fundus', terms: ['gv'], data: 'tiles', tiles: ['ppg', 'map', 'hr'], key: ['ppg'], delta: true,
+      cite: 'Baveno VIII 3.21; AASLD 40 to 42',
+      kicker: 'Before a bleed', site: 'sin', title: 'Carvedilol before any bleed',
+      line: 'Gastric varices mean CSPH, so carvedilol comes first. It lowers the PPG to {ppg} and slows the heart to {hr}. Adding glue, BRTO or a TIPS before a first bleed has little evidence behind it.',
+      notes: 'Baveno VIII: patients with gastric varices have CSPH and benefit from a non-selective beta-blocker, particularly carvedilol, to prevent decompensation. Local therapy (endoscopic glue, EUS-guided therapy or transvenous obliteration) may be considered for high-risk GOV2 or IGV1 varices only when a beta-blocker cannot be taken, in centers with expertise; there is little evidence for adding it to a beta-blocker. AASLD calls a cardiofundal varix high risk at 10 mm or more, with red wale signs, or in Child–Pugh B or C, and recommends neither TIPS nor BRTO to prevent a first bleed. In the model the varix shrinks with the gradient within seconds; in patients it does not, so this slide shows the pressures.',
+      ask: ['A 12 mm fundal varix has never bled, and carvedilol is well tolerated. Should glue be added?', 'No. Baveno VIII finds little evidence for adding local therapy to a beta-blocker before a first bleed.'],
+    },
+    {
+      id: 'bleed', action: { kind: 'rupture', site: 'GV', tear: 0.4 }, cam: 'fundus', mark: { edges: ['C2'], label: 'Bleeding fundal varix' }, tool: BEATS, data: 'tiles', tiles: ['hr', 'map'], key: ['map'], delta: true,
+      cite: 'Baveno VIII 5.39; AASLD 43, 44',
+      kicker: 'After a bleed', site: 'sin', title: 'A fundal varix bleeds',
+      line: 'The first hours follow the care of any variceal bleed: octreotide, ceftriaxone, restrictive transfusion and a scope within 12 hours. Carvedilol blunts the heart rate at {hr}, while the blood pressure falls to {map}.',
+      notes: 'Baveno VIII calls a bleed from GOV2 or IGV1 a high-risk event that needs a team: one phase stops the bleeding, the other gives lasting control, and the two start in parallel or as close together as possible. Hold the beta-blocker while the bleed is active. AASLD adds contrast CT or MRI to map the shunts and look for a clot, which guides the choice of treatment. If the first measures fail, a gastric balloon (Linton–Nachlas or the gastric balloon of a Minnesota tube) bridges to definitive treatment.',
+      ask: ['Why image the abdomen with contrast after a fundal variceal bleed?', 'To map the shunts and look for a clot in the portal or splenic vein; the anatomy decides between TIPS and BRTO.'],
+    },
+    {
+      id: 'tips', preset: 'gastric-varix', params: { tips: { on: true } }, cam: 'liver', terms: ['gv'], tool: { kind: 'flows' }, data: 'tiles', tiles: ['ppg', 'gv', 'liver'], key: ['ppg'], delta: 'classes',
+      cite: 'Baveno VIII 5.40, 5.41',
+      kicker: 'After a bleed', site: 'sin', title: 'Glue stops the bleeding, a TIPS keeps it stopped',
+      line: 'Glue at endoscopy, or EUS-guided coils with glue, controls the bleeding. A TIPS, placed as soon as possible, gives lasting control: the PPG falls to {ppg} and the fundal varix to {gv}.',
+      notes: 'Baveno VIII: conventional cyanoacrylate injection and EUS-guided therapy stop the bleeding about equally well; EUS-guided coils with glue may close more varices and cut late rebleeding in experienced centers. A TIPS, with or without embolization of the varix, as soon as possible, is the preferred definitive treatment. Embolizing the varix at the same time lowers rebleeding and encephalopathy (AASLD). Once the PPG is under 12 mmHg the beta-blocker is not needed. The price is the liver\'s portal blood: the liver flow tile falls to about a quarter of normal, the reason encephalopathy follows some shunts.',
+      ask: ['After a TIPS that brings the PPG under 12 mmHg, is a beta-blocker still needed?', 'No, according to AASLD.'],
+    },
+    {
+      id: 'brto', lens: 'flow', preset: 'gastric-varix', params: { occluded: { C5: true } }, cam: 'fundus', terms: ['gv'], mark: { edges: ['C5'], label: 'Shunt closed', kind: 'treat' }, tool: { kind: 'flows' },
+      compare: [{ label: 'Shunt open', short: 'Open', params: { occluded: { C5: false } } }, { label: 'Shunt closed', short: 'Closed', own: true, params: { occluded: { C5: true } } }],
+      data: 'tiles', tiles: ['gv', 'varix', 'ppg'], key: ['gv'], delta: 'classes',
+      cite: 'Baveno VIII 5.41; AASLD 45',
+      kicker: 'After a bleed', site: 'sin', title: 'BRTO closes the shunt from below',
+      line: 'A balloon in the [left renal vein](lrv) plugs the shunt, and sclerosant fills the fundal varix, which shrinks to {gv}. The shunted blood stays in the portal system: the PPG rises to {ppg} and esophageal varices grow to {varix}.',
+      notes: 'In balloon-occluded retrograde transvenous obliteration (BRTO) the shunt and the varices behind it thrombose. Baveno VIII keeps transvenous obliteration for patients in whom a TIPS is contraindicated; AASLD lists it with glue and TIPS as a first-line option and prefers it with encephalopathy, a MELD-Na over 20 or a high FIPS score. Closing the shunt raises the portal pressure, so ascites and esophageal varices can worsen and a surveillance endoscopy follows. The buttons compare the shunt open and closed.',
+      ask: ['A patient with encephalopathy bleeds from IGV1 that drains through a gastrorenal shunt. Which treatment fits, and what do you watch for afterwards?', 'BRTO; then worsening ascites and growing esophageal varices.'],
+    },
+    {
+      id: 'svt', lens: 'origin', preset: 'svt', cam: 'splenic', terms: ['sv', 'gv', 'spleen'], mark: { edges: ['SV_CONF'], label: 'Clot' }, data: 'tiles', tiles: ['gv', 'pv', 'plt'], key: ['gv'],
+      vignette: 'A 36-year-old man with a pancreatic pseudocyst after gallstone pancreatitis bleeds from a fundal varix. His liver stiffness is 5 kPa, and CT shows a clotted splenic vein and a large spleen.',
+      cite: 'AASLD 40, 47',
+      kicker: 'A clotted splenic vein', site: 'pre', title: 'Left-sided portal hypertension',
+      line: 'With the [splenic vein](sv) clotted, blood from the spleen detours through the short gastric veins and the fundal varices, which reach {gv}. Colored by origin, the spleen\'s blood fills them. The portal vein pressure stays {pv}.',
+      notes: 'Pancreatitis, a pseudocyst or a pancreatic tumor can clot the splenic vein. Only the splenic side of the portal system is under pressure, so this is called left-sided or sinistral portal hypertension: fundal varices with a normal liver, a normal portal vein pressure and often no esophageal varices. AASLD advises looking for a clot whenever gastric varices are found.',
+      ask: ['Fundal varices with a liver stiffness of 5 kPa. What is the likely cause?', 'A clotted splenic vein (left-sided portal hypertension).'],
+    },
+    {
+      id: 'splenectomy', params: { splenicRx: 2 }, cam: 'splenic', terms: ['gv'],
+      compare: [{ label: 'Spleen in place', short: 'None', params: { splenicRx: 0 } }, { label: 'Partial embolization', short: 'Embolized', params: { splenicRx: 1 } }, { label: 'Splenectomy', short: 'Removed', own: true, params: { splenicRx: 2 } }],
+      data: 'tiles', tiles: ['gv', 'plt'], key: ['gv'], delta: 'svt',
+      cite: 'AASLD 47',
+      kicker: 'A clotted splenic vein', site: 'pre', title: 'Treat the spleen, and the varices empty',
+      line: 'With the spleen removed, nothing feeds the fundal varices: they shrink to {gv}, and the platelets rise to {plt}. A splenic vein stent or splenic artery embolization are the alternatives.',
+      notes: 'AASLD: bleeding gastric varices from an isolated splenic vein clot should be considered for splenectomy, a splenic vein stent or splenic artery embolization. The pressure comes from the spleen\'s own outflow, so a TIPS, which decompresses the portal vein, does not reach it. The buttons compare the spleen in place, partial embolization and splenectomy.',
+      ask: ['Why does a TIPS not help a fundal bleed caused by a clotted splenic vein?', 'The portal vein pressure is normal; the high pressure is on the splenic side of the clot, which a TIPS does not decompress.'],
+    },
+    {
+      id: 'summary', visual: 'table', cols: ['gv', 'varix', 'ppg', 'liver', 'plt'], asc: false, rowHead: 'Patient',
+      of: [{ preset: 'healthy', kicker: 'Reference', title: 'Healthy', ref: true }, { id: 'classes', kicker: 'Cirrhosis', title: 'Fundal varices' }, { id: 'nsbb', kicker: 'Cirrhosis', title: 'Carvedilol' },
+        { id: 'tips', kicker: 'Cirrhosis', title: 'TIPS' }, { id: 'brto', kicker: 'Cirrhosis', title: 'BRTO' }, { id: 'svt', kicker: 'Splenic vein', title: 'Splenic vein clot', site: 'pre' }, { id: 'splenectomy', kicker: 'Splenic vein', title: 'Splenectomy', site: 'pre' }],
+      kicker: 'Summary', title: 'Gastric varices, treatment by treatment',
+      line: 'Carvedilol comes first for fundal varices that have not bled. After a bleed, glue stops it and a TIPS keeps it stopped; BRTO closes the varix but raises the portal pressure. A clotted splenic vein is treated at the spleen.',
+      notes: 'The class of the varix and the anatomy of its shunt decide the treatment. GOV1 follow the esophageal rules. Cardiofundal varices take a beta-blocker before a bleed, and glue then a TIPS after one, with BRTO when a TIPS is not suitable. A normal liver with fundal varices points to the splenic vein.',
+      ask: ['Which treatment raises the portal pressure, and which lowers it?', 'BRTO raises it; a TIPS lowers it.'],
+    },
+  ],
+};
