@@ -44,7 +44,7 @@ import { hashSeed, clotSide, clotSpan, clotRadius, clotShift, clotLayers, CLOT_E
 import { leaderEnd as edgeOf, leaderEndRects as edgeOfRects } from './leader-end.js?v=8e884700ab';
 import { balloonRy, balloonOutline, routeRadii } from './hvpg-balloon.js?v=35d7bb162c';
 import { outlineBox, placeSummary } from './cath-place.js?v=b5835a19ca';
-import { layoutWatch } from './idle-keys.js?v=ea36a0b5c6';
+import { layoutWatch } from './idle-keys.js?v=4b46e6a6ef';
 import { writeGlowTexels } from './glow-texels.js?v=e578794a92';
 import { SIN_PERFUSION, sinStrandRadius } from './sin-perfusion.js?v=25a8407fdd';
 import { wavePacks, paintWave } from './scan-waves.js?v=066db7aa38';
@@ -126,7 +126,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   document.addEventListener('visibilitychange', watch.touch);
   document.fonts?.addEventListener?.('loadingdone', watch.touch);
   for (const q of MQ) q.addEventListener?.('change', watch.touch);
-  store.on('*', (keys) => { if (keys.some((k) => k !== 'frame')) watch.touch(); });
+  // (Not the model's frames, nor its parameters: a slide's time-lapse sets them several times a second for minutes, which kept the
+  // cards' boxes read ten times a second through the slide; a card that grows with a new reading is seen by its own size watch.)
+  store.on('*', (keys) => { if (keys.some((k) => k !== 'frame' && k !== 'params')) watch.touch(); });
   svg.setAttribute('viewBox', `0 0 ${VIEW.w} ${VIEW.h}`);
   svg.setAttribute('preserveAspectRatio', 'xMidYMid meet');
 

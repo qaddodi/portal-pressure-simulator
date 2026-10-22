@@ -3,7 +3,7 @@
 // holds it hidden only until the cards have settled (a slide change lifts its hold 120 ms after the camera move; a move off a spot a card now covers is hidden for 80 ms), then shows it at once at the new spot; with no figure left anywhere it stays hidden.
 import { frameFor } from './frame.js?v=19b3f2915c';
 import { gpuProbe } from './gpu-probe.js?v=e82dc07b45';
-import { layoutWatch, PLACED } from './idle-keys.js?v=ea36a0b5c6';
+import { layoutWatch, PLACED } from './idle-keys.js?v=4b46e6a6ef';
 const nextFrame = frameFor('credit');
 
 // Corners in order of preference. A bottom corner rises above whatever covers it (up to the middle of the figure);

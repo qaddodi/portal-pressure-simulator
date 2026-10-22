@@ -6,7 +6,7 @@
 
 import { EDGES, dopplerK, stentSegments, stentSite, stentGate, stentCourse } from '../engine/topology.js?v=4044766e96';
 import { h, fmt, fitCanvas, clamp, icon, cssVar, cssAlpha } from './util.js?v=9a45134198';
-import { FONT, textW } from './charts.js?v=f304681955';
+import { FONT, textW } from './charts.js?v=83d60c2ce9';
 import { logAction, shownVel, store } from './store.js?v=67f4341802';
 import { DOPPLER_MODES, THETA, dopplerColor, shadeColor, swatchGradient } from './dopplerColor.js?v=db91b02cc3';
 import { frameFor, noteDraw, paceMs, cancelFrame } from './frame.js?v=19b3f2915c';
@@ -733,6 +733,7 @@ export function createDoppler({ onProbe, pickGate = true }) {
   }
   // (stripFit: the width, type sizes and vessel kind the base step was chosen for; stripKey, read by draw(), changes with the step.)
   let stripFit = '', stripFull = 0, stripBase = 0, stripHave = 0, stripSc = 1, stripWordsKey = '';
+  const stripSteps = new Map();   // (the step each shape of the words took, for this fit)
   function fitStrip() {
     const velB = velEl.firstChild;
     const key = `${ro ? repW : report.clientWidth}|${ro ? cvW : cv.clientWidth}|${stripType}|${meta().kind}`;
@@ -760,7 +761,7 @@ export function createDoppler({ onProbe, pickGate = true }) {
       const slot = widest(velB, words.vels).width / sc / (parseFloat(getComputedStyle(velB).fontSize) || 1);
       velB.style.minWidth = `${Math.ceil(slot * 100) / 100}em`;
       velB.textContent = was.v; patternEl.textContent = was.p; velEl.hidden = was.vh; patternEl.hidden = was.ph;
-      stripBase = base; stripHave = have; stripSc = sc; stripWordsKey = '';
+      stripBase = base; stripHave = have; stripSc = sc; stripWordsKey = ''; stripSteps.clear();
     }
     // The words shown now: the base step holds them, unless they are wider than any reading (a notice), which take the
     // first smaller step that does, and give it back once they are gone.
@@ -768,8 +769,14 @@ export function createDoppler({ onProbe, pickGate = true }) {
     if (wk === stripWordsKey) return;
     stripWordsKey = wk;
     if (patternEl.hidden) patternEl.hidden = false;
-    let i = stripBase;
-    for (; i < STEPS.length - 1; i++) { stripStepSet(i); if (stripFits(i, stripHave * stripSc, 0)) break; }
+    // (The step is remembered by the words' shape: the reading's digits are tabular, so −18 and −23 are the same width to the
+    // pixel, and a new number measured the three words again, a forced layout on most model frames of a slide.)
+    const shape = `${velEl.hidden ? '' : velB.textContent.replace(/\d/g, '0')}|${dirFull}|${patFull}`;
+    let i = stripSteps.get(shape);
+    if (i == null) {
+      for (i = stripBase; i < STEPS.length - 1; i++) { stripStepSet(i); if (stripFits(i, stripHave * stripSc, 0)) break; }
+      stripSteps.set(shape, i);
+    }
     stripStepSet(i);
     stripKey = `${stripFit}#${i}`;
   }
@@ -819,7 +826,7 @@ export function createDoppler({ onProbe, pickGate = true }) {
       if (ovKey !== ovLast || stripKey !== k0) { rng ||= document.createRange(); const t = Math.max(Math.ceil(stripRect().bottom - cv.getBoundingClientRect().top) + 4, stripStep === stripBase ? stripFull : 0); if (Number.isFinite(t) && (ovKey !== ovLast || t > ovTop || t < ovTop - 4)) ovTop = t; }
     } else {
       ovTop = 26;
-      if (stripFit) { stripStepSet(0); stripKey = stripFit = stripWordsKey = ''; velEl.firstChild.style.minWidth = ''; }   // (off the strip the words are always whole and full size, the number its own width)
+      if (stripFit) { stripStepSet(0); stripKey = stripFit = stripWordsKey = ''; stripSteps.clear(); velEl.firstChild.style.minWidth = ''; }   // (off the strip the words are always whole and full size, the number its own width)
     }
     ovLast = ovKey;
     const padL = PAD_L, padR = PAD_R, padT = ovTop, padB = ovOn ? 34 : 20, yLab = ovOn ? hh - 11 : 13;

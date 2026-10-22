@@ -14,7 +14,10 @@ test('the strip is sized by width, type sizes and vessel kind, not by the words 
   assert.match(key, /meta\(\)\.kind/);
   for (const shown of ['dirFull', 'patternEl', 'velEl', 'textContent']) assert.ok(!key.includes(shown), `fit key reads ${shown}: ${key}`);
   // (the shown words only ever take a smaller step than the base, never a bigger one)
-  assert.match(fit, /let i = stripBase;\n\s*for \(; i < STEPS\.length - 1; i\+\+\)/);
+  assert.match(fit, /for \(i = stripBase; i < STEPS\.length - 1; i\+\+\)/);
+  // (and the step is remembered by the words' shape, the reading's digits all one width: a new number measures nothing)
+  assert.match(fit, /stripSteps\.get\(shape\)/);
+  assert.match(fit, /velB\.textContent\.replace\(\/\\d\/g, '0'\)/);
   // (the number keeps a slot as wide as its widest reading)
   assert.match(fit, /velB\.style\.minWidth = `\$\{[^`]+\}em`/);
 });
