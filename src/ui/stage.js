@@ -6879,8 +6879,18 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // Its spot is d past the clamp's arrows on one side of the vessel and t along it (the layout's, or 16 and 0), the text reading
   // outward from there, ending at the spot on the clamp's left on screen and starting there on its right, level whatever the turn.
   function clampLabelAt(el) {
+    const q = clampLabelPos(el);
+    if (!q) return;
+    const { x, y, left, gap, deg } = q;
+    el.setAttribute('x', x.toFixed(2)); el.setAttribute('y', y.toFixed(2));
+    el.setAttribute('dx', (left ? -gap : gap).toFixed(2)); el.setAttribute('dy', gap.toFixed(2));
+    if (left) el.setAttribute('text-anchor', 'end'); else el.removeAttribute('text-anchor');
+    if (deg) el.setAttribute('transform', `rotate(${(-deg).toFixed(2)} ${x.toFixed(2)} ${y.toFixed(2)})`); else el.removeAttribute('transform');
+  }
+  // Where clampLabelAt puts a clamp's percentage (its spot, which side its text runs and its offset), without writing it.
+  function clampLabelPos(el) {
     const c = el._c;
-    if (!c) return;
+    if (!c) return null;
     const away = c.id === clampFor ? clampAway : null;
     const kept = c.id === clampFor ? clampD.get(c.id) : null, mv = c.id !== clampFor ? clampMv.get(c.id)?.cur : null;
     const d = c.off + (el._d ?? mv?.d ?? kept?.d ?? 16), t = el._d != null ? el._t ?? 0 : mv?.t ?? kept?.t ?? 0;
@@ -6888,10 +6898,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const xs = pos.map((q) => worldToLocal(...q)[0]);
     const k = away && (away === 'W') !== (xs[0] < xs[1]) ? 1 : 0, left = xs[k] < xs[1 - k] - 0.5, [x, y] = pos[k];
     const gap = (6 * clampBase) / 12 / Math.max(CTM?.sc || 1, 1e-3), deg = rotDeg();   // (6 px on screen at 12 px text, the text's own offset from its spot, in step with the text's size)
-    el.setAttribute('x', x.toFixed(2)); el.setAttribute('y', y.toFixed(2));
-    el.setAttribute('dx', (left ? -gap : gap).toFixed(2)); el.setAttribute('dy', gap.toFixed(2));
-    if (left) el.setAttribute('text-anchor', 'end'); else el.removeAttribute('text-anchor');
-    if (deg) el.setAttribute('transform', `rotate(${(-deg).toFixed(2)} ${x.toFixed(2)} ${y.toFixed(2)})`); else el.removeAttribute('transform');
+    return { x, y, left, gap, deg };
   }
   // A quantized value that only moves once the input has clearly left its step (so a varix whose
   // diameter pulses across a rounding boundary is not rebuilt on every beat).
@@ -7960,10 +7967,22 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         // and then the "60 %" moves to the nearest of them that frees it (see the focus callout).)
         const markOn = (st.focus ? st.focus.marks || [st.focus] : []).some((m) => m.edges?.[0] === col);
         clampAlts = [];
+        // (Its box is measured once for each way its text can run; every other step only moves it, so the box moves by the
+        // same amount: up to 289 forced layouts in one search had been one per step. Review item 24.)
+        const measured = [null, null];
         for (const [px, tp] of steps) {
           if (best && !best.n && (!markOn || clampAlts.length >= 12)) break;
-          el._d = 16 + px * k; el._t = tp * k; clampLabelAt(el);
-          let bb; try { bb = el.getBBox(); } catch { break; }
+          el._d = 16 + px * k; el._t = tp * k;
+          const q = clampLabelPos(el);
+          if (!q) break;
+          const qx = +q.x.toFixed(2), qy = +q.y.toFixed(2), ref = measured[+q.left];
+          let bb;
+          if (ref) bb = { x: ref.bb.x + (qx - ref.x), y: ref.bb.y + (qy - ref.y), width: ref.bb.width, height: ref.bb.height };
+          else {
+            clampLabelAt(el);
+            try { bb = el.getBBox(); } catch { break; }
+            measured[+q.left] = { x: qx, y: qy, bb: { x: bb.x, y: bb.y, width: bb.width, height: bb.height } };
+          }
           const cs = [[bb.x, bb.y], [bb.x + bb.width, bb.y + bb.height]].map(([x, y]) => worldToLocal(x, y));
           const r = { x0: Math.min(cs[0][0], cs[1][0]), y0: Math.min(cs[0][1], cs[1][1]), x1: Math.max(cs[0][0], cs[1][0]), y1: Math.max(cs[0][1], cs[1][1]) };
           const n = lineHits(r, 8, col) + (within(r, view) ? 0 : 1e3) + (creditBox && hits(r, creditBox) ? 100 : 0) + (inLane(r) ? 0.5 : 0);   // (its 3.5 px halo and 2 px of air past it, and a pixel and a half to spare)

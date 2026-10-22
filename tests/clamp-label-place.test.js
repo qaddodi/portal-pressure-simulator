@@ -37,3 +37,15 @@ test('a "60 %" that stands off from its arrows, on the column\'s side or moved o
   assert.doesNotMatch(lead, /if \(solve/, 'read from the label as it stands, so a carried layout keeps the line');
   assert.match(lead, /k: 'cl:' \+ c\.id, tag: 'path', at: \{ class: 'leader'/);
 });
+
+// Review item 24: the search for the "60 %" spot measures the label once for each way its text runs and moves that box with
+// the spot (one rule, clampLabelPos, gives both), instead of writing and measuring it at every one of up to 289 steps.
+test('the clamp label search measures once per text direction', () => {
+  const at = body('function clampLabelAt(el) {', '// A quantized value');
+  assert.match(at, /const q = clampLabelPos\(el\);\n\s+if \(!q\) return;\n\s+const \{ x, y, left, gap, deg \} = q;/);
+  assert.match(at, /return \{ x, y, left, gap, deg \};/);
+  const search = body('const measured = [null, null];', 'clampAlts = clampAlts.filter');
+  assert.match(search, /const qx = \+q\.x\.toFixed\(2\), qy = \+q\.y\.toFixed\(2\), ref = measured\[\+q\.left\];/);
+  assert.match(search, /if \(ref\) bb = \{ x: ref\.bb\.x \+ \(qx - ref\.x\), y: ref\.bb\.y \+ \(qy - ref\.y\), width: ref\.bb\.width, height: ref\.bb\.height \};/);
+  assert.equal((search.match(/getBBox\(\)/g) || []).length, 1, 'one measuring call, taken only without a reference');
+});
