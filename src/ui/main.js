@@ -7,7 +7,7 @@ import { createStage } from './stage.js?v=e117a0869f';
 import { createCreditPlacer } from './credit.js?v=dc0666dc54';
 import { sinusoidSupported } from './gl-support.js?v=94ad2a7ff1';
 import { createInspector } from './inspector.js?v=de4d896c8a';
-import { createDock, CUTOFFS } from './dock.js?v=03bd083b34';
+import { createDock, CUTOFFS, savedInstruments } from './dock.js?v=ea4a6fe880';
 import { setHvpgStage } from './hvpg-proc.js?v=c5062d69aa';
 import { createWhy } from './why.js?v=ae1a756099';
 import { createTimeline, LAPSES } from './timeline.js?v=44519880f9';
@@ -66,12 +66,12 @@ let stage, inspector, dock, why, timeline, compare, card, chart, mainMenu;
 // on first use, so the first paint only waits for the model, the figure and the chart.
 function lazy(load, make) {
   let inst = null, pending = null;
-  const get = () => (pending ||= load().then((m) => (inst = make(m))));
+  const get = () => (pending ||= load().then((m) => (inst = make(m))).catch((err) => { pending = null; throw err; }));   // (a failed load is tried again on the next ask)
   // Fetching the module (without creating the surface) once the app is idle keeps it cached for
   // offline use and makes the first open instant.
   return { get, now: () => inst, warm: () => load().catch(() => {}) };
 }
-let paletteL, presenterL;
+let paletteL, presenterL, dopplerL, fibroL;
 const palette = {
   open: () => paletteL.get().then((p) => p.open()),
   close: () => paletteL.now()?.close(),
@@ -99,6 +99,13 @@ async function main() {
   try { localStorage.removeItem('pps.role'); } catch { /* storage unavailable */ }
   // Language selection was removed too (English only, to come back later): drop an old saved choice.
   try { localStorage.removeItem('pps.lang'); } catch { /* storage unavailable */ }
+  // The Doppler and the FibroScan load after the first paint (the dock holds their panes meanwhile, dock.js load). One left open when the
+  // app was last used is asked for now, so it is there with the dock.
+  const probeTo = (id) => { host.send({ type: 'probe', id }); logAction('probe', id); };
+  dopplerL = lazy(() => import('./doppler.js?v=36b0580d92'), ({ createDoppler }) => createDoppler({ onProbe: probeTo }));
+  fibroL = lazy(() => import('./fibroscan.js?v=30bd218345'), ({ createFibroScan }) => createFibroScan());
+  const wasOpen = savedInstruments().open;
+  if (Array.isArray(wasOpen)) for (const [id, l] of [['doppler', dopplerL], ['fibroscan', fibroL]]) if (wasOpen.includes(id)) l.get().catch(() => {});
   const kind = await startHost();
   console.info(`Engine running in ${kind === 'worker' ? 'a Web Worker' : 'the main thread'}.`);
   // (In learner words: no background worker means the model and the drawing share one thread.)
@@ -165,7 +172,7 @@ async function main() {
       }
     });
   }
-  dock = createDock({ strip: $('#strip'), head: $('#dockHead'), body: $('#dockBody'), onWhy: (m, el) => why.open(m, el), onAction: doAction, onProbe: (id) => { host.send({ type: 'probe', id }); logAction('probe', id); }, onReveal: revealDock, onLobule: () => zoomLobule('R'),
+  dock = createDock({ strip: $('#strip'), head: $('#dockHead'), body: $('#dockBody'), onWhy: (m, el) => why.open(m, el), onAction: doAction, onProbe: probeTo, lazy: { doppler: dopplerL, fibroscan: fibroL }, onReveal: revealDock, onLobule: () => zoomLobule('R'),
     onOpen: () => openPanel('instruments'), onClose: () => setPanelTab('chart'), onLayout: () => syncDoppler(), isVisible: () => app.classList.contains('dock-open'),
     marks: () => timeline.entries(), onBeat: () => sendBeat() });
   presenterL = lazy(() => import('./presenter.js?v=ab98749523'), ({ createPresenter }) => createPresenter({ openSettings, loadPreset, updateParams, host, stage, dock, action: doAction,
@@ -299,7 +306,7 @@ async function main() {
     if (window.ppsFigureReady) reg(); else addEventListener('pps:figure-ready', reg, { once: true });
   }
   const idle = window.requestIdleCallback || ((fn) => setTimeout(fn, 1500));
-  setTimeout(() => idle(() => { paletteL.warm(); presenterL.warm(); }), 3000);
+  setTimeout(() => idle(() => { paletteL.warm(); presenterL.warm(); idle(() => dock.load()); }), 3000);
 }
 // Deep links, for an LMS or a syllabus: ?script=<id> (&slide=<n>), ?preset=<id>,
 // ?home=explore|present (the menu, open at Patients or Present). They open straight into that activity.

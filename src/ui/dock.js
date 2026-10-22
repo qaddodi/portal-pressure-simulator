@@ -7,9 +7,8 @@ import { h, fmt, svgIcon, closePopover, clamp, shownOf, isPhoneLayout, SIDEWAYS_
 import { lobuleFlows } from './lobule-model.js?v=19726077d2';
 import { createProfile } from './charts.js?v=f7eeb75791';
 import { createPressureTime } from './pressure-time.js?v=c1311289ad';
-import { createFibroScan } from './fibroscan.js?v=30bd218345';
 import { createHvpgProcedure } from './hvpg-proc.js?v=c5062d69aa';
-import { createDoppler } from './doppler.js?v=36b0580d92';
+import { lazyPane } from './lazy-pane.js?v=2cc4659df2';
 import { ownsSideways, pageGo } from './swipe.js?v=ca9148ab7d';
 import { createEndoscopy, createVarixWall, createAbdomen } from './instruments.js?v=0576ebae61';
 import { createReadoutsPane } from './readouts-pane.js?v=2cd4b9fa35';
@@ -130,7 +129,14 @@ export function readoutValue(t, m, hidden) {
 // Legacy pane names in content: flow and perfusion live in the readout strip, the pressure profile is the closest pane.
 const ALIAS = { flow: 'profile', perfusion: 'profile', chart: 'profile' };
 
-export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReveal, onLobule, onOpen, onClose, isVisible, marks, onBeat, onLayout }) {
+/** What this device last had open in the Instruments card (and its size): { open, h, w }, or {} when nothing is saved. */
+export const savedInstruments = () => { try { return JSON.parse(localStorage.getItem('pps.instruments') || 'null') || {}; } catch { return {}; } };
+
+// What the Doppler's trace reads of a frame it is only keeping for later (the Doppler loads after the first paint, lazy-pane.js).
+const dopplerSlim = (f) => ({ probe: f.probe, clock: f.clock, resp: f.resp, running: f.running, settling: f.settling, samples: f.samples });
+
+/** `lazy`: the Doppler's and the FibroScan's loads (main.js lazy(): { doppler, fibroscan }), which come after the first paint. */
+export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReveal, onLobule, onOpen, onClose, isVisible, marks, onBeat, onLayout, lazy }) {
   // One app-wide relayout for a burst of changes (a mode change also changes the lobule): every resize
   // listener (the figure, the timeline, the presenter) runs once, not once per key.
   let rzT = 0;
@@ -301,7 +307,10 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
     pressure, createPressureTime({ marks }),
     // On a sheet (phone, portrait tablet) the procedure folds the card down so the anatomy shows it.
     createHvpgProcedure(),
-    createDoppler({ onProbe }), endoscopy, createAbdomen({ onAction }), createFibroScan(), readouts,
+    lazyPane({ id: 'doppler', label: 'Doppler', handle: lazy.doppler, cls: 'dop', history: 2000, slim: dopplerSlim, onReady: () => { fitHeight(); queueRefresh(); } }),
+    endoscopy, createAbdomen({ onAction }),
+    lazyPane({ id: 'fibroscan', label: 'FibroScan', handle: lazy.fibroscan, onReady: () => { fitHeight(); queueRefresh(); } }),
+    readouts,
   ];
   const panes = instruments.map((p) => {
     p.el.classList.remove('dock-pane'); p.el.classList.add('instrument-view');
@@ -331,9 +340,10 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
   // small switch inside it; 'scope' stays a pane of its own, so the Presenter still reaches it.
   const TABS = ORDER.filter((id) => id !== 'scope');
   const tabOf = (id) => (id === 'scope' ? 'profile' : id);
-  const saved = (() => { try { return JSON.parse(localStorage.getItem('pps.instruments') || 'null') || {}; } catch { return {}; } })();
+  const saved = savedInstruments();
   let open = Array.isArray(saved.open) && saved.open.every((id) => byId[id]) && saved.open.length ? saved.open.slice(0, 2) : ['profile'];
   let frame = null, state = 'open', resizeFrame = 0, picking = false;
+  for (const id of open) byId[id].need?.();   // (an instrument left open comes in at once; the others when the app is idle, or when their tab is first shown)
   let heightRatio = typeof saved.h === 'number' ? saved.h : null, widthPx = typeof saved.w === 'number' ? saved.w : null;
   const remember = () => { try { localStorage.setItem('pps.instruments', JSON.stringify({ open, h: heightRatio, w: widthPx })); } catch { /* storage unavailable */ } };
   // A phone held sideways (667x375 and up) docks on the right too, like a narrow iPad: the figure keeps the full height.
@@ -648,6 +658,7 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
     const revealWall = id === 'varixwall';
     if (revealWall) { setEndoSub('wall'); id = 'endoscopy'; }
     if (!byId[id]) return;
+    byId[id].need?.();
     endPick();
     if (alongside && open.length === 1 && tabOf(open[0]) !== tabOf(id) && canSplit()) open = [open[0], id];
     else if (!open.includes(id)) open = [id];
@@ -762,8 +773,10 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
   function clearTraces() { byId.scope.clear(); byId.doppler.clear(); }
   addEventListener('resize', () => { updateSize(); layout(); });
   setState('open'); updateSize(); layout();
+  /** Bring in the instruments that load after the first paint (main.js calls it when the app is idle). */
+  function load() { for (const p of panes) p.need?.(); }
   return {
-    update, ingest, clearTraces, show, toggle, close, ensure, openGrid, profile,
+    update, ingest, clearTraces, show, toggle, close, ensure, openGrid, profile, load,
     pane: (id) => id === 'landscape' ? profile : id === 'varixwall' ? wall : byId[id],
     isOpen: (id) => isVisible() && open.includes(id === 'landscape' ? 'profile' : id === 'varixwall' ? 'endoscopy' : id),
     setState,
