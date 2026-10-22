@@ -2,6 +2,12 @@
 
 ## October 2026
 
+- **Cardiac output reads 8 L/min as the top of normal everywhere, and the Hyperdynamic deck's words follow.** Mohammad's call (22 Oct):
+  the tile's "Normal up to 8 L/min" stands. The bottom bar's own flag for the output (a strip no screen shows) moves from 6.5 to 8, and
+  Tests › Readouts already rates it as the tile does, so nothing flags a 6.6 or 6.7 L/min output. The Hyperdynamic deck no longer calls a
+  normal output "high": its objective, summary, quick check and the slide "More output, less resistance" say the output, the heart rate
+  and the arterial pressure are higher or lower than in health, and the speaker notes say both numbers can sit inside their normal ranges
+  while the resistance has still fallen. Tests: `tests/readouts-tab.test.js`.
 - **The author guides are up to date again.** Both deck guides (`docs/deck-authoring-guide.md` and the quick guide) were checked against
   the code on 22 Oct. New in them: the bedside time-lapse (`lapse.clock: 'seconds'`) and the `meal` and `fenestrae` settings (a meal is
   ramped with `meal`, not `splanchnicTone`), the `gut` camera region, patient buttons that carry `params` and `days`, `procedure`

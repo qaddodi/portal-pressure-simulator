@@ -31,3 +31,12 @@ test('the systemic values carry their data card tile\'s bar, scale, cut-offs, wo
   assert.match(pane, /RATE\[x\.v\.id\]\(shownOf\(r\.v, x\.v\.d\), \{\}\)/, 'the word and colour are the tile\'s, judging the number as shown');
   assert.match(pane, /h\('span', \{ class: 'rb', 'aria-hidden': 'true' \}, fill, S\[2\]\.map/, 'a bar with a tick at each cut-off, as the other readouts have');
 });
+
+test('cardiac output is flagged at one number everywhere: 8 L/min, the data card tile\'s top of normal (Mohammad, 22 Oct), and the Hyperdynamic deck never calls a normal output "high"', async () => {
+  const { RATE } = await import('../src/ui/table-marks.js');
+  assert.match(dock, /id: 'co',[^\n]*cut: 8, hys: 0\.2/);
+  assert.equal(RATE.co(8)[0], 'ok'); assert.equal(RATE.co(8.1)[0], 'info');
+  assert.doesNotMatch(dock, /id: 'co',[^\n]*cut: 6\.5/);
+  const deck = readFileSync(new URL('../src/ui/decks/hyperdynamic.js', import.meta.url), 'utf8');
+  assert.doesNotMatch(deck, /a high cardiac output|High output, low resistance|A high output/, 'the output is higher than in health, not abnormal against its tile');
+});

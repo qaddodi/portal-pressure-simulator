@@ -118,7 +118,7 @@ import { CAUSE_TREATED } from './decks/cause-treated.js?v=0da183adb0';
 import { NEXT_BLEED } from './decks/next-bleed.js?v=f31959bf21';
 import { GASTRIC } from './decks/gastric-varices.js?v=c5e6a19ef7';
 import { READ_DOPPLER } from './decks/read-doppler.js?v=148f0ab0d0';
-import { HYPERDYNAMIC } from './decks/hyperdynamic.js?v=5603f677ec';
+import { HYPERDYNAMIC } from './decks/hyperdynamic.js?v=1277cfc437';
 import { CHOOSE_TREATMENT } from './decks/choose-treatment.js?v=0d59f78349';
 import { BLOOD_VOLUME } from './decks/blood-volume.js?v=44a23e2e25';
 

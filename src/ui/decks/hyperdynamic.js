@@ -6,7 +6,7 @@ const mi = (x) => `<mi>${x}</mi>`, mo = (x) => `<mo>${x}</mo>`;
 export const HYPERDYNAMIC = {
   id: 'hyperdynamic', level: 'foundation', title: 'The hyperdynamic circulation', minutes: 8,
   objectives: [
-    'Describe the hyperdynamic circulation: a high cardiac output, a fast heart and a low arterial pressure',
+    'Describe the hyperdynamic circulation: a higher cardiac output, a faster heart and a lower arterial pressure than in health',
     'Explain how splanchnic vasodilation adds inflow to the portal system',
     'Link arterial underfilling to salt and water retention',
     'Predict what propranolol, carvedilol and terlipressin do to the circulation',
@@ -16,7 +16,7 @@ export const HYPERDYNAMIC = {
     ['How does splanchnic vasodilation raise the portal pressure?', 'Wide gut arteries pour more blood into the portal veins, and more inflow through a high resistance keeps the pressure up.'],
     ['When should carvedilol be reduced or stopped?', 'When the systolic pressure stays under 90 mmHg or the mean arterial pressure under 65 mmHg, or with HRS-AKI.'],
   ],
-  summary: 'Why cirrhosis brings a high cardiac output, a fast heart and a low arterial pressure, how the wide gut arteries feed the portal pressure, and what beta-blockers and terlipressin change.',
+  summary: 'Why cirrhosis raises the cardiac output and the heart rate and lowers the arterial pressure, how the wide gut arteries feed the portal pressure, and what beta-blockers and terlipressin change.',
   slides: [
     {
       id: 'rest', preset: 'healthy', cam: 'fit', data: 'tiles', tiles: ['co', 'hr', 'map', 'bv'], key: ['co', 'map'],
@@ -33,15 +33,15 @@ export const HYPERDYNAMIC = {
       kicker: 'Cirrhosis', site: 'sin', title: 'Cirrhosis opens the arteries',
       line: 'As cirrhosis advances, nitric oxide and other vasodilators open the splanchnic and systemic arteries. A year on, the mean arterial pressure has fallen to {map}, while the heart beats at {hr} and pumps {co}.',
       notes: 'In cirrhosis the gut and the systemic arteries make and meet more vasodilators, nitric oxide first among them, and respond less to vasoconstrictors. The arterial pressure falls, the baroreflex speeds the heart, and the cardiac output rises: the hyperdynamic circulation that AASLD describes once portal hypertension is clinically significant. The tiles compare with the healthy circulation at the start of the talk.',
-      ask: ['Name the three findings of the hyperdynamic circulation.', 'A high cardiac output, a fast heart rate and a low arterial pressure.'],
+      ask: ['Name the three findings of the hyperdynamic circulation.', 'A higher cardiac output, a faster heart rate and a lower arterial pressure than in health.'],
     },
     {
       id: 'resist', cam: 'fit', data: 'tiles', tiles: ['map', 'co'], key: ['map', 'co'], delta: 'rest',
       eq: [mi('MAP') + mo('=') + mi('CO') + mo('×') + mi('SVR'), 'Mean arterial pressure: cardiac output times systemic vascular resistance'],
-      kicker: 'Cirrhosis', site: 'sin', title: 'High output, low resistance',
+      kicker: 'Cirrhosis', site: 'sin', title: 'More output, less resistance',
       line: 'The output has risen to {co}, yet the mean arterial pressure is {map}, lower than in health. With more flow and less pressure, the resistance of the arteries must have fallen by even more.',
-      notes: 'Rearranged, SVR = MAP ÷ CO. In health that is about 93 ÷ 5; in this case about 82 ÷ 6.6, roughly a third lower. A high output with a low pressure is the signature of wide arteries, as in sepsis or pregnancy, and the opposite of heart failure, where the output is low and the arteries tight.',
-      ask: ['A patient with cirrhosis has a mean arterial pressure of 75 mmHg and a cardiac output of 7 L/min. Is the heart failing?', 'No. A high output with a low pressure means low systemic resistance, the hyperdynamic circulation.'],
+      notes: 'Rearranged, SVR = MAP ÷ CO. In health that is about 93 ÷ 5; in this case about 82 ÷ 6.6, roughly a third lower. An output that climbs while the pressure falls is the signature of wide arteries, as in sepsis or pregnancy, and the opposite of heart failure, where the output is low and the arteries tight. Both numbers can still sit inside their normal ranges (4 to 8 L/min, and a mean pressure of 65 mmHg or more): what counts is the change from this patient\'s own healthy circulation, not a cut-off.',
+      ask: ['A patient with cirrhosis has a mean arterial pressure of 75 mmHg and a cardiac output of 7 L/min. Is the heart failing?', 'No. An output that is up while the pressure is down means low systemic resistance, the hyperdynamic circulation.'],
     },
     {
       id: 'volume', cam: 'fit', data: 'tiles', tiles: ['bv', 'asc'], key: ['bv'], delta: 'rest',
