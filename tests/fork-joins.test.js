@@ -90,3 +90,17 @@ test('a side shunt end narrows only inside the vein, smoothly', () => {
   for (let d = 0; d <= 7; d += 0.25) { const s = sideEndScale(d, 8); assert.ok(s >= last && s >= SIDE_END_MIN && s <= 1); last = s; }
   assert.equal(sideEndScale(0, 0), 1);
 });
+
+test('a fork names the end that runs on as the trunk of each group that fillets the others to it, and no other group a trunk', () => {
+  const y = forkJoins([unit(1, -1), unit(-1, 1), unit(0, 1)]);
+  const filleted = y.groups.filter((g) => g.fillet === 1);
+  assert.equal(filleted.length, 2);
+  for (const g of filleted) assert.ok(g.trunk != null && g.trunk === g.members[0] && y.runOn.includes(g.trunk), 'the run-on end leads its group and is the trunk');
+  assert.ok(y.groups.every((g) => g.fillet === 1 || g.trunk == null), 'the run-on pair itself has none');
+  const four = forkJoins([unit(0, -1), unit(0, 1), unit(1, 0.2), unit(-1, 0.3)]);
+  assert.deepEqual(four.groups.filter((g) => g.trunk != null).map((g) => g.trunk).sort(), [0, 1]);
+  // Nothing at a join with no run-on pair, a pair alone, or a crowd (the hepatic veins at the cava).
+  assert.ok(forkJoins([unit(1, 0), unit(-0.5, 0.87), unit(-0.5, -0.87)]).groups.every((g) => g.trunk == null));
+  assert.ok(forkJoins([unit(1, 0), unit(-1, 0.01)]).groups.every((g) => g.trunk == null));
+  assert.ok(forkJoins([unit(0, 1), null]).groups.every((g) => g.trunk == null));
+});

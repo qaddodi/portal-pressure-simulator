@@ -20,8 +20,8 @@ const d2 = (x, y) => x * x + y * y;
  * Bins vessels into cells. `tubes`: [{ id (row), pts: [[x, y]] × N_SAMPLES, reach, core, bin }] where reach
  * is how far from the centerline the vessel can draw (radius, casing, shadow, fillet, glow), and `core` (optional) how far its
  * lumen can reach (at most `reach`);
- * `joins`: [{ x, y, reach, k, members: [row, …] (≤ 4), trunk?: row }] (trunk: the member the others' ends lie on, when one
- * of them is). Returns the entry texels and the cells,
+ * `joins`: [{ x, y, reach, k, members: [row, …] (≤ 4), trunk?: row, fork?: bool }] (trunk: the member the others' ends lie on, when
+ * one of them is; fork: it runs on into the rest of its course at this join). Returns the entry texels and the cells,
  * and `blood`: the cells (as `cells`, nBlood of them) a lumen can reach, those within `core` of a vessel (all of a vessel's
  * cells without one) or listing a join, where the moving blood is drawn (veins-gl composite).
  * `bin` (optional): other points, within `reach` less the vessel's own of `pts` at every sample, that the cells are
@@ -100,13 +100,13 @@ export function binVeins(tubes, joins, memo = null) {
   // The layout (which entries go where) is the last result's when the vessels are the same, each lists the same segments
   // in the same cells, and each join has the same members and cells; then only values in entries can have changed.
   const sameLayout = memo?.last && memo.place && !(fresh - freshMoved) && memo.ids === tubes.map((t) => t.id).join(',') &&
-    memo.jm === joins.map((j) => j.members.join('.') + (j.trunk != null ? 't' + j.trunk : '')).join(';') && memo.jCell.length === jCell.length && jCell.every((v, k) => v === memo.jCell[k]);
-  const jv = memo && Float64Array.from(joins.flatMap((j) => [j.x, j.y, j.reach, j.k, j.fillet ?? 1, j.trunk ?? -1]));
+    memo.jm === joins.map((j) => j.members.join('.') + (j.trunk != null ? 't' + j.trunk + (j.fork ? 'f' : '') : '')).join(';') && memo.jCell.length === jCell.length && jCell.every((v, k) => v === memo.jCell[k]);
+  const jv = memo && Float64Array.from(joins.flatMap((j) => [j.x, j.y, j.reach, j.k, j.fillet ?? 1, j.trunk ?? -1, j.fork ? 1 : 0]));
   if (sameLayout) {
     // Nothing changed since the last call (same vessels, points, reaches and joins): the last result itself, so the caller
     // can skip the upload.
     const jMoved = [];
-    for (let ji = 0; ji < joins.length; ji++) for (let f = 0; f < 6; f++) if (jv[ji * 6 + f] !== memo.jv[ji * 6 + f]) { jMoved.push(ji); break; }
+    for (let ji = 0; ji < joins.length; ji++) for (let f = 0; f < 7; f++) if (jv[ji * 7 + f] !== memo.jv[ji * 7 + f]) { jMoved.push(ji); break; }
     if (!moved.length && !jMoved.length) return memo.last;
     // Only moved vessels or joins that keep their cells: the same entries in the same places, so the vessels' points are
     // written over the last result's and their heads and runs fitted again (as below), the joins written again, and only the
@@ -214,7 +214,7 @@ export function binVeins(tubes, joins, memo = null) {
   wetAt.forEach((at, b) => blood.set(cells.subarray(at, at + 6), b * 6));
   const out = { ent, rows, cells, nCells, nEnt, blood, nBlood };
   if (memo) {
-    memo.last = out; memo.ids = tubes.map((t) => t.id).join(','); memo.jm = joins.map((j) => j.members.join('.') + (j.trunk != null ? 't' + j.trunk : '')).join(';'); memo.jCell = jCell; memo.jv = jv;
+    memo.last = out; memo.ids = tubes.map((t) => t.id).join(','); memo.jm = joins.map((j) => j.members.join('.') + (j.trunk != null ? 't' + j.trunk + (j.fork ? 'f' : '') : '')).join(';'); memo.jCell = jCell; memo.jv = jv;
     memo.place = { es: tubes.map((_, ti) => entOf.slice(tFrom[ti], tFrom[ti + 1])), hs, js };
   }
   return out;
@@ -223,8 +223,9 @@ export function binVeins(tubes, joins, memo = null) {
 function writeJoin(ent, e, j) {
   const q = e * 8;
   ent[q] = j.x; ent[q + 1] = j.y; ent[q + 2] = j.reach; ent[q + 3] = Math.round(j.k * 100) + 0.99 * Math.min(1, Math.max(0, j.fillet ?? 1));   // the blend width, and (as the fraction) how much of it rounds the shape
-  // (A member that is the trunk the others end on has a quarter added to its row: the shader reads the row as int(v + 0.5).)
-  for (let m = 0; m < 4; m++) ent[q + 4 + m] = j.members[m] == null ? -1 : j.members[m] + (j.trunk === j.members[m] ? 0.25 : 0);
+  // (A member that is the trunk the others end on has a quarter added to its row, three eighths at a fork, where it runs on into
+  // the rest of its course: the shader reads the row as int(v + 0.5).)
+  for (let m = 0; m < 4; m++) ent[q + 4 + m] = j.members[m] == null ? -1 : j.members[m] + (j.trunk === j.members[m] ? (j.fork ? 0.375 : 0.25) : 0);
 }
 
 // A radius that holds every point measured, nudged past float32 rounding (the shader reads it as float32).

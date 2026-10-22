@@ -29,10 +29,13 @@ export function forkJoins(dirs) {
   if (!best) return { groups: [all(1)], runOn: null };
   if (n === 2) return { groups: [all(best.fil)], runOn: [best.a, best.b] };
   // The run-on pair joined as one course with no fillet (its courses and calibers are eased to meet, so a fillet would
-  // only swell the seam), and each of its ends filleted to the rest.
+  // only swell the seam), and each of its ends filleted to the rest. In those two the run-on end is the trunk the rest
+  // end on (`trunk`: its member), so the shader asks of each pair only whether the tributary lies off the trunk's
+  // straight course toward the pixel, not also which way the tributary's own nearest segment runs (the azygos arch's
+  // bend, onto the cava above the heart, flipped that between its short segments and the fillet came in saw-teeth).
   const rest = dirs.map((_, i) => i).filter((i) => i !== best.a && i !== best.b);
   return {
-    groups: [{ members: [best.a, best.b], fillet: 0 }, { members: [best.a, ...rest], fillet: 1 }, { members: [best.b, ...rest], fillet: 1 }],
+    groups: [{ members: [best.a, best.b], fillet: 0 }, { members: [best.a, ...rest], fillet: 1, trunk: best.a }, { members: [best.b, ...rest], fillet: 1, trunk: best.b }],
     runOn: [best.a, best.b],
   };
 }
