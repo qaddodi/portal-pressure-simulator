@@ -7,7 +7,7 @@ import { createStage } from './stage.js?v=e3312adb5f';
 import { createCreditPlacer } from './credit.js?v=dc0666dc54';
 import { sinusoidSupported } from './gl-support.js?v=94ad2a7ff1';
 import { createInspector } from './inspector.js?v=de4d896c8a';
-import { createDock, CUTOFFS, savedInstruments } from './dock.js?v=ea4a6fe880';
+import { createDock, CUTOFFS, savedInstruments } from './dock.js?v=1b6a5145fb';
 import { setHvpgStage } from './hvpg-proc.js?v=c5062d69aa';
 import { createWhy } from './why.js?v=ae1a756099';
 import { createTimeline, LAPSES } from './timeline.js?v=44519880f9';
@@ -99,13 +99,14 @@ async function main() {
   try { localStorage.removeItem('pps.role'); } catch { /* storage unavailable */ }
   // Language selection was removed too (English only, to come back later): drop an old saved choice.
   try { localStorage.removeItem('pps.lang'); } catch { /* storage unavailable */ }
-  // The Doppler and the FibroScan load after the first paint (the dock holds their panes meanwhile, dock.js load). One left open when the
-  // app was last used is asked for now, so it is there with the dock.
+  // The Doppler and the FibroScan load after the first paint (a tab for one that has not come waits for it, dock.js). One left open when the
+  // app was last used is asked for now and waited for with the model's first answers, so its pane is whole with the dock.
   const probeTo = (id) => { host.send({ type: 'probe', id }); logAction('probe', id); };
   dopplerL = lazy(() => import('./doppler.js?v=36b0580d92'), ({ createDoppler }) => createDoppler({ onProbe: probeTo }));
   fibroL = lazy(() => import('./fibroscan.js?v=30bd218345'), ({ createFibroScan }) => createFibroScan());
   const wasOpen = savedInstruments().open;
-  if (Array.isArray(wasOpen)) for (const [id, l] of [['doppler', dopplerL], ['fibroscan', fibroL]]) if (wasOpen.includes(id)) l.get().catch(() => {});
+  const openAtStart = [];
+  if (Array.isArray(wasOpen)) for (const [id, l] of [['doppler', dopplerL], ['fibroscan', fibroL]]) if (wasOpen.includes(id)) openAtStart.push(l.get().catch(() => {}));
   const kind = await startHost();
   console.info(`Engine running in ${kind === 'worker' ? 'a Web Worker' : 'the main thread'}.`);
   // (In learner words: no background worker means the model and the drawing share one thread.)
@@ -116,7 +117,7 @@ async function main() {
   bindParamSender((params, settle) => host.send({ type: 'setParams', params, settle }));
 
   // Both asked at once: one round trip to the engine before any UI, not two.
-  const [healthy, { presets }] = await Promise.all([host.request('healthyProfile'), host.request('presets')]);
+  const [healthy, { presets }] = await Promise.all([host.request('healthyProfile'), host.request('presets'), ...openAtStart]);
   store.set({ healthy: { P: healthy.P, Q: healthy.Q, D: healthy.D, metrics: healthy.metrics } });
   store.set({ presetList: presets });
 

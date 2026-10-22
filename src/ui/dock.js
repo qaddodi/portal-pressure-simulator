@@ -8,7 +8,7 @@ import { lobuleFlows } from './lobule-model.js?v=19726077d2';
 import { createProfile } from './charts.js?v=f7eeb75791';
 import { createPressureTime } from './pressure-time.js?v=c1311289ad';
 import { createHvpgProcedure } from './hvpg-proc.js?v=c5062d69aa';
-import { lazyPane } from './lazy-pane.js?v=2cc4659df2';
+import { lazyPane, holdUntilLoaded } from './lazy-pane.js?v=ef4bbd331e';
 import { ownsSideways, pageGo } from './swipe.js?v=ca9148ab7d';
 import { createEndoscopy, createVarixWall, createAbdomen } from './instruments.js?v=0576ebae61';
 import { createReadoutsPane } from './readouts-pane.js?v=2cd4b9fa35';
@@ -359,6 +359,8 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
   workspace.prepend(divider);
   head.classList.add('card-head', 'tabbed');
   head.append(titleEl, live, closeBtn);
+  // A tab for an instrument that has not arrived (lazy-pane.js) waits for it: the pane it leaves stays up, so a pane never shows empty.
+  const afterLoad = holdUntilLoaded((id) => byId[id]);
   // The tabs: one per instrument, with its live reading.
   const tabEls = {};
   const tabs = h('div', { class: 'instr-tabs ws-tabs', role: 'tablist', 'aria-label': 'Tests' }, TABS.map((id) => {
@@ -367,6 +369,7 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
       svgIcon(INFO[id][0]), h('span', { class: 'it-t' }, h('b', {}, h('span', { class: 'it-full' }, SHORT[id] || byId[id].label), h('span', { class: 'it-short' }, TINY[id] || SHORT[id] || byId[id].label)), val));
     b.title = byId[id].label;
     b.addEventListener('click', () => pick(id));
+    for (const ev of ['pointerenter', 'pointerdown', 'focus']) b.addEventListener(ev, () => byId[id].need?.());   // (asked for as a finger or the pointer arrives)
     tabEls[id] = { b, val };
     return b;
   }));
@@ -421,7 +424,7 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
     }
     if (e.cancelable) e.preventDefault();
     const d = dx < 0 ? 1 : -1, j = sw.i + d;
-    const nb = j >= 0 && j < TABS.length ? paneFor(TABS[j]) : null;
+    const nb = j >= 0 && j < TABS.length && !byId[TABS[j]].need?.() ? paneFor(TABS[j]) : null;   // (an instrument still on its way is not slid in empty)
     if (nb !== sw.nb) { clearSwipe([sw.nb]); sw.nb = nb; sw.j = j; if (nb) nb.classList.add('swipe-peer'); }
     sw.dx = nb ? dx : dx / 3;   // (past the first or last tab it gives a little and springs back)
     sw.cur.style.transform = `translateX(${sw.dx}px)`;
@@ -631,6 +634,9 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
     a.finished.then(done, () => el.classList.remove('pane-out'));
   }
   function pick(id) {
+    if (!afterLoad(id, () => pickNow(id))) pickNow(id);
+  }
+  function pickNow(id) {
     if (picking && id !== tabOf(open[0])) { open = [open[0], id]; endPick(); layout(); return; }
     endPick();
     // A tab shows that instrument alone (the Pressure tab keeps the view it was on).
@@ -652,13 +658,14 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
     if (alongside && canSplit() && open.length === 1) toggleSecond();
     else tabEls[tabOf(open[0])].b.focus();
   }
-  function show(id, { open: doOpen = true, reveal = false, alongside = false } = {}) {
+  function show(id, opts = {}) {
     if (id === 'lobule') { onLobule?.(); return; }
     if (id === 'landscape' || ALIAS[id]) id = ALIAS[id] || 'profile';
-    const revealWall = id === 'varixwall';
-    if (revealWall) { setEndoSub('wall'); id = 'endoscopy'; }
+    if (id === 'varixwall') { setEndoSub('wall'); id = 'endoscopy'; }
     if (!byId[id]) return;
-    byId[id].need?.();
+    if (!afterLoad(id, () => showNow(id, opts))) showNow(id, opts);
+  }
+  function showNow(id, { open: doOpen = true, reveal = false, alongside = false } = {}) {
     endPick();
     if (alongside && open.length === 1 && tabOf(open[0]) !== tabOf(id) && canSplit()) open = [open[0], id];
     else if (!open.includes(id)) open = [id];
@@ -760,7 +767,9 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
     const on = isVisible() && state !== 'peek' && open.some((id) => id === 'scope' || id === 'doppler');
     if (on !== beat) { beat = on; onBeat?.(on); }
   }
+  let preloaded = false;
   function update(f, force) {
+    if (!preloaded && isVisible()) { preloaded = true; load(); }   // (the card is open: the Doppler and the FibroScan are asked for before a tab is reached)
     // (The traces are fed by main.js as each frame arrives: this frame may be an older, repainted one.)
     frame = f; updateStrip(f); updateHeader(); syncBeat();
     if (!force && !isVisible()) return;

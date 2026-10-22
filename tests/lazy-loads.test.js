@@ -143,9 +143,11 @@ test('a pane waits for its instrument, keeps the frames it is fed, and the instr
   assert.ok(pane.el.classList.contains('instrument-view') && pane.el.classList.contains('dop'), 'the empty pane lays out as the real one will');
   for (let n = 1; n <= 5; n++) pane.ingest({ n, big: new Float32Array(8) });
   pane.redraw();   // (nothing to draw yet)
-  pane.need(); pane.need();
-  assert.equal(handle.loads, 1, 'asked for once');
-  release(); await tick();
+  const wait = pane.need();
+  assert.ok(wait instanceof Promise && pane.need() === wait, 'asked for once: the same promise');
+  assert.equal(handle.loads, 1);
+  release(); await wait;
+  assert.equal(pane.need(), null, 'null once it is in');
   assert.equal(section.children[0], real.el, 'the instrument is in the pane');
   assert.ok(real.el.classList.contains('instrument-view') && !real.el.classList.contains('dock-pane'), 'dressed as the dock dresses its instruments');
   assert.deepEqual(real.log.map(([k, f]) => [k, f.n, 'big' in f]), [['ingest', 3, false], ['ingest', 4, false], ['ingest', 5, true]], 'the last three frames, the latest whole');
@@ -159,11 +161,11 @@ test('what is cleared before the instrument arrives is not given to it, and the 
   const real = instrument(), handle = handleOf(async () => real);
   const trace = lazyPane({ id: 'doppler', label: 'Doppler', handle, history: 10, slim: (f) => f });
   trace.ingest({ n: 1 }); trace.ingest({ n: 2 }); trace.clear(); trace.ingest({ n: 3 });
-  trace.need(); await tick();
+  await trace.need();
   assert.deepEqual(real.log.map(([k, f]) => [k, f.n]), [['ingest', 3]]);
   const gauge = instrument(), fibro = lazyPane({ id: 'fibroscan', label: 'FibroScan', handle: handleOf(async () => gauge) });
   fibro.update({ n: 1 }); fibro.update({ n: 2 });
-  fibro.need(); await tick();
+  await fibro.need();
   assert.deepEqual(gauge.log.map(([k, f]) => [k, f.n]), [['update', 2]]);
 });
 
@@ -178,24 +180,53 @@ test('an instrument loaded ahead is the pane itself, and a load that fails leave
   try {
     const pane = lazyPane({ id: 'fibroscan', label: 'FibroScan', handle: flaky });
     const section = new Fake('section'); section.append(pane.el);
-    pane.need(); await tick();
+    await pane.need();   // (a failed load settles too: it never leaves the dock waiting)
     assert.match(pane.el.textContent, /FibroScan did not load\. Tap its tab to try again\./);
-    pane.need(); await tick();
+    await pane.need();
     assert.equal(section.children[0], real.el, 'the second try brings it in');
   } finally { console.warn = warn; }
 });
 
-test('the dock holds the two panes, loads them when shown, when left open and when idle, and refits around them', () => {
+test('a tab for an instrument still on its way waits for it, and the latest tab wins', async () => {
+  const { holdUntilLoaded } = await import('../src/ui/lazy-pane.js');
+  const releases = {}, panes = {
+    ready: { need: () => null },
+    slow: { need: () => (releases.slow ||= Promise.withResolvers()).promise },
+    slower: { need: () => (releases.slower ||= Promise.withResolvers()).promise },
+    plain: {},
+  };
+  const afterLoad = holdUntilLoaded((id) => panes[id]), went = [];
+  assert.equal(afterLoad('ready', () => went.push('ready')), false, 'already in: the caller goes on at once');
+  assert.equal(afterLoad('plain', () => went.push('plain')), false, 'an instrument that is never lazy');
+  assert.equal(afterLoad('nothing', () => went.push('nothing')), false);
+  assert.deepEqual(went, [], 'go is not called when the caller goes on itself');
+  assert.equal(afterLoad('slow', () => went.push('slow')), true);
+  assert.equal(afterLoad('slower', () => went.push('slower')), true, 'a second tab before the first has come');
+  releases.slow.resolve(); releases.slower.resolve(); await tick();
+  assert.deepEqual(went, ['slower'], 'only the latest tab is shown');
+  assert.equal(afterLoad('slow', () => went.push('again')), true);
+  assert.equal(afterLoad('ready', () => went.push('x')), false, 'a tab that needs no wait replaces the one that was waiting');
+  releases.slow.resolve(); await tick();
+  assert.deepEqual(went, ['slower'], 'and the one that was waiting does not come back over it');
+});
+
+test('the dock holds the two panes, loads them when the card opens, a tab is touched or shown, and when idle, and never shows one empty', () => {
   const dock = read('dock.js'), main = read('main.js');
   assert.doesNotMatch(dock, /from '\.\/(doppler|fibroscan)\.js/);
   assert.match(dock, /lazyPane\(\{ id: 'doppler', label: 'Doppler', handle: lazy\.doppler, cls: 'dop', history: 2000, slim: dopplerSlim, onReady: \(\) => \{ fitHeight\(\); queueRefresh\(\); \} \}\)/);
   assert.match(dock, /lazyPane\(\{ id: 'fibroscan', label: 'FibroScan', handle: lazy\.fibroscan, onReady: \(\) => \{ fitHeight\(\); queueRefresh\(\); \} \}\)/);
   assert.match(dock, /for \(const id of open\) byId\[id\]\.need\?\.\(\);/, 'an instrument left open comes in with the dock');
-  assert.match(dock, /if \(!byId\[id\]\) return;\s*\n\s*byId\[id\]\.need\?\.\(\);/, 'a tab shown for the first time asks at once');
+  assert.match(dock, /const afterLoad = holdUntilLoaded\(\(id\) => byId\[id\]\);/);
+  assert.match(dock, /function pick\(id\) \{\s*\n\s*if \(!afterLoad\(id, \(\) => pickNow\(id\)\)\) pickNow\(id\);/, 'a tapped or swiped-to tab waits for its instrument');
+  assert.match(dock, /if \(!afterLoad\(id, \(\) => showNow\(id, opts\)\)\) showNow\(id, opts\);/, 'so does show() (a button, the palette, a card)');
+  assert.match(dock, /!byId\[TABS\[j\]\]\.need\?\.\(\) \? paneFor\(TABS\[j\]\) : null/, 'a swipe does not slide an unfinished pane in');
+  assert.match(dock, /if \(!preloaded && isVisible\(\)\) \{ preloaded = true; load\(\); \}/, 'asked for as the card opens');
+  assert.match(dock, /for \(const ev of \['pointerenter', 'pointerdown', 'focus'\]\) b\.addEventListener\(ev, \(\) => byId\[id\]\.need\?\.\(\)\);/, 'and as a tab is reached');
   assert.match(dock, /function load\(\) \{ for \(const p of panes\) p\.need\?\.\(\); \}/);
   assert.match(main, /idle\(\(\) => dock\.load\(\)\)/, 'the rest when the app is idle');
   assert.match(main, /lazy: \{ doppler: dopplerL, fibroscan: fibroL \}/);
-  assert.match(main, /if \(wasOpen\.includes\(id\)\) l\.get\(\)\.catch/, 'one left open last time is asked for before the dock is built');
+  assert.match(main, /if \(wasOpen\.includes\(id\)\) openAtStart\.push\(l\.get\(\)\.catch/, 'one left open last time is asked for at the start');
+  assert.match(main, /Promise\.all\(\[host\.request\('healthyProfile'\), host\.request\('presets'\), \.\.\.openAtStart\]\)/, 'and waited for with the model\'s first answers, so its pane is whole with the dock');
   // The Doppler's trace reads only these of a frame it is given (a kept frame is cut down to them):
   const slim = dock.match(/const dopplerSlim = \(f\) => \(\{ ([^}]*) \}\);/)[1];
   assert.equal(slim, 'probe: f.probe, clock: f.clock, resp: f.resp, running: f.running, settling: f.settling, samples: f.samples');
