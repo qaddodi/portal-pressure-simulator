@@ -33,8 +33,8 @@ export const HVPG = {
       id: 'wedge', cath: 'wedge', monitor: 'wedge',
       kicker: 'Measuring portal pressure', title: 'The wedged pressure reads the sinusoids',
       terms: { sinusoids: 'whvp' },
-      line: 'Inflating the balloon stops flow, so the column of blood ahead of it settles at the pressure of the sinusoids that feed it. Record it once the tracing is stable, after at least 40 seconds.',
-      notes: 'With the balloon inflated, flow in the hepatic vein stops and the still column of blood carries the pressure of the sinusoids that feed it. A little contrast confirms the wedge: it stays still, with no washout through collaterals. The wedged hepatic venous pressure (WHVP) is read once stable, after at least 40 seconds. In cirrhosis the sinusoids no longer communicate freely with each other, so the WHVP closely matches the portal pressure.',
+      line: 'Inflating the balloon stops flow, so the column of blood ahead of it settles at the pressure of the sinusoids that feed it. Record it once the tracing is stable, after at least 1 minute.',
+      notes: 'With the balloon inflated, flow in the hepatic vein stops and the still column of blood carries the pressure of the sinusoids that feed it. A little contrast confirms the wedge: it stays still, with no washout through collaterals. The wedged hepatic venous pressure (WHVP) is read once stable, after at least 1 minute, on the last 20 to 30 seconds of the tracing. In cirrhosis the sinusoids no longer communicate freely with each other, so the WHVP closely matches the portal pressure.',
       ask: ['How do you check that the balloon has truly wedged the vein?', 'Inject a little contrast: it stays in the vein with no washout, and the tracing loses its pulse.'],
     },
     {
