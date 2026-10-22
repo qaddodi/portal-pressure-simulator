@@ -29,7 +29,7 @@ export const SHUNTS = {
       ask: ['Why do collaterals fail to bring the portal pressure down?', 'Portal inflow rises as they open, and they are not wide enough to carry it all at a low gradient.'],
     },
     {
-      id: 'grs', lens: 'flow', terms: ['gv', 'lrv'], preset: 'gastric-varix', cam: 'fundus', mark: { edges: ['C5'], label: 'Gastrorenal shunt', kind: 'note' }, tool: { kind: 'flows' }, data: 'tiles', tiles: ['gv', 'ppg'],
+      id: 'grs', lens: 'flow', terms: ['gv', 'lrv'], preset: 'gastric-varix', cam: 'fundus', spot: ['@gastrorenal'], mark: { edges: ['C5'], label: 'Gastrorenal shunt', kind: 'note' }, tool: { kind: 'flows' }, data: 'tiles', tiles: ['gv', 'ppg'],
       kicker: 'Spontaneous', site: 'sin', title: 'Gastrorenal shunt',
       vignette: 'A 63-year-old man with hepatitis C cirrhosis has a large fundal varix on surveillance EGD. He has never bled, and his albumin is 3.0 g/dL.',
       line: 'Fundal varices drain through the gastrorenal shunt to the left renal vein. Colored by flow, the shunt carries much of the splenic blood.',
@@ -46,7 +46,7 @@ export const SHUNTS = {
       ask: ['A patient with cirrhosis has recurrent encephalopathy despite lactulose and rifaximin. What should you look for?', 'A large spontaneous portosystemic shunt, such as a splenorenal shunt, on CT.'],
     },
     {
-      id: 'tips', terms: ['pv', 'hv'], preset: 'cirr-decomp', params: { tips: { on: true, d: 8 } }, whatIf: { label: 'Stent width', param: 'tips.d', min: 6, max: 12, step: 1, unit: 'mm' }, cam: 'liver', sites: ['split'], mark: { edges: ['TIPS'], label: 'Covered stent', kind: 'treat' }, calipers: ['TIPS'],
+      id: 'tips', terms: ['pv', 'hv'], preset: 'cirr-decomp', params: { tips: { on: true, d: 8 } }, whatIf: { label: 'Stent width', param: 'tips.d', min: 6, max: 12, step: 1, unit: 'mm' }, cam: 'liver', sites: ['split'], mark: { edges: ['TIPS'], label: 'Covered stent', kind: 'treat' }, calipers: ['TIPS'], spot: ['TIPS', 'PV_TRUNK', 'PVH_R', 'RHV_IVC'],
       tool: { kind: 'doppler', vessel: 'TIPS' }, data: 'tiles', tiles: ['ppg', 'shunt', 'liver'], delta: 'own',
       kicker: 'Placed shunts', site: 'sin', title: 'TIPS',
       line: 'A covered stent, 8 to 10 mm, from a hepatic vein to the portal vein. The PPG falls to {ppg}, below 12 mmHg.',
