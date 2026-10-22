@@ -117,3 +117,13 @@ test("item 18: +, − and Fit wait for the dive into the lobule to land", () => 
   const zb = src.slice(src.indexOf('function zoomBy(factor)'), src.indexOf('function zoomBy(factor)') + 400);
   assert.match(zb, /if \(fade < 0\.98 \|\| diveScaled\) return;/);
 });
+
+test('item 51: the presenter announces "Slide N of M: title" once, its cards carry no live region, an empty key is hidden', () => {
+  const pz = read('../src/ui/presenter.js'), fk = read('../src/ui/figure-key.js');
+  assert.equal((pz.match(/'aria-live'/g) || []).length, 1, 'one live region');
+  assert.match(pz, /const say = h\('p', \{ class: 'sr-only', 'aria-live': 'polite', 'aria-atomic': 'true' \}\);/);
+  assert.match(pz, /`Slide \$\{i \+ 1\} of \$\{n\}\$\{slides\[i\]\?\.title \? `: \$\{slides\[i\]\.title\}` : ''\}`/);
+  assert.match(pz, /'data-empty': '', 'aria-hidden': 'true' \}\);/);
+  assert.match(fk, /el\.dataset\.empty = ''; el\.setAttribute\('aria-hidden', 'true'\);/);
+  assert.match(fk, /delete el\.dataset\.empty; el\.removeAttribute\('aria-hidden'\);/);
+});

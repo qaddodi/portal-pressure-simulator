@@ -30,7 +30,7 @@ import { noteResume, resumeFor } from './resume.js?v=f086f80ee8';
 import { parseDeckSource, checkDeck } from './deck-source.js?v=8395c650cd';
 import { NO_ASC, TILE, SCALE, bandsOf, rateOf, COLS, CUT, PRESS, fpv, dirAbs, dirRel, rateAbs, effOf, rateShown, tileShown, tipsGoal, liveSettled, shownSig } from './table-marks.js?v=8d52d1e713';
 import { frameFor, cancelFrame } from './frame.js?v=19b3f2915c';
-import { createFigureKey } from './figure-key.js?v=185e1448c8';
+import { createFigureKey } from './figure-key.js?v=8bbf7a41ed';
 import { traceWhen } from './trace-labels.js?v=fc916a95c6';
 import { flowCss, heatCss, dropCss, gradientCss, oxygenCss } from './colormap.js?v=287019881f';
 import { EXT, expandIds, stepExtra, markLabel, figureHooks, safe } from './slide-ext.js?v=1b12b94b9a';
@@ -2095,7 +2095,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     const legend = [key, rows.some((r) => r.blank.length) ? '○ not measurable' : '', units.length && rows.some((r, n) => isRef(r, n)) ? `Top row: ${units.join(', ')}` : '', s.foot || '']
       .filter(Boolean).map((x) => x.replace(/\.$/, '')).join('. ') + '.';
     // A heading's cut-offs: its tooltip on hover, and a line under the legend on a tap (a touch screen shows no tooltip).
-    const cutLine = h('span', { class: 'pz-cutl', 'aria-live': 'polite' });
+    const cutLine = h('span', { class: 'pz-cutl' });
     const showCut = (k) => (e) => { if (e.type === 'click' || e.key === 'Enter' || e.key === ' ') { e.preventDefault?.(); e.stopPropagation?.(); cutLine.replaceChildren(h('b', {}, `${COLS[k] || colExt(k)?.heading || k}: `), ...withArrows((CUT[k] ?? colExt(k)?.cut) + '.')); } };
     const cutTh = (k, label, cut) => h('th', { class: 'num', title: cut || null, ...(cut ? { tabindex: '0', onclick: showCut(k), onkeydown: showCut(k) } : {}) }, label);
     const go1 = (r) => (e) => { if (e.type === 'click' || e.key === 'Enter' || e.key === ' ') { e.preventDefault?.(); go(r.i); } };
@@ -3355,6 +3355,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     if (!ui) return;
     const n = slides.length, i = want;
     ui.prog.style.setProperty('--p', String((i + 1) / n));
+    { const t = `Slide ${i + 1} of ${n}${slides[i]?.title ? `: ${slides[i].title}` : ''}`; if (ui.say.textContent !== t) ui.say.textContent = t; }
     const ph = phone(), skip = lapseOn && lapseLeft > 0, last = i === n - 1 && !skip;
     // The count opens the slide list (G).
     // (A list still fading out after a pick counts as closed: the count must not stay grey, as if the list were open, on the slide picked.)
@@ -3743,7 +3744,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   // ── Start and stop ──
   function build() {
     const tiles = bigTiles();
-    const text = h('section', { class: 'pz-text stage-blocker', 'aria-live': 'polite' });
+    const text = h('section', { class: 'pz-text stage-blocker' });
     const dhT = h('span', {}, 'The patient');
     const tools = createTools({ host, stage });
     // On a phone an instrument above tiles folds away (the tiles keep the reading), so the figure is not a strip between
@@ -3810,7 +3811,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     lipRO?.observe(data, { box: 'border-box' });
     // A part that has finished folding or unfolding: fit the card again from full size (a fit taken mid-fold kept the tiles small).
     data.addEventListener('transitionend', (e) => { if (e.propertyName === 'max-height' && e.target.parentElement === data) { if ('folding' in data.dataset) foldStill(); else { fitDone.delete(data); onResize(); } } });
-    const veil = h('div', { class: 'pz-veil' }), panel = h('section', { class: 'pz-panel stage-blocker', hidden: true, 'aria-live': 'polite' });
+    const veil = h('div', { class: 'pz-veil' }), panel = h('section', { class: 'pz-panel stage-blocker', hidden: true });
     const prog = h('div', { class: 'pz-prog', 'aria-hidden': 'true' }, h('i'));
     const bar = h('div', { class: 'pz-bar stage-blocker', role: 'toolbar', 'aria-label': 'Presenter' });
     bar.addEventListener('focusin', wake);
@@ -3824,20 +3825,23 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     const idle = (e) => { if (e.target === load && e.propertyName === 'opacity' && !load.classList.contains('on')) load.classList.add('idle'); };
     const load = h('div', { class: 'pz-load idle', 'aria-hidden': 'true', ontransitionend: idle, ontransitioncancel: idle }, h('i'));
     const jump = h('nav', { class: 'pz-jump stage-blocker', hidden: true, 'aria-label': 'Slides' });
-    const vcase = h('section', { class: 'pz-case stage-blocker', hidden: true, 'aria-live': 'polite', onclick: () => { if (performance.now() - caseDragAt > 400) caseLift?.(); } });
+    const vcase = h('section', { class: 'pz-case stage-blocker', hidden: true, onclick: () => { if (performance.now() - caseDragAt > 400) caseLift?.(); } });
     // The slide's colour key, small on the figure (src/ui/figure-key.js fades it in; its words are set by figKey). The figure's labels keep clear of it (stage-blocker).
-    const fk = h('div', { class: 'pz-fk stage-blocker', role: 'img', hidden: true, 'data-empty': '' });
+    const fk = h('div', { class: 'pz-fk stage-blocker', role: 'img', hidden: true, 'data-empty': '', 'aria-hidden': 'true' });
+    // One announcement per slide for a screen reader ("Slide 3 of 12: its title"), not the whole card and panel read out each
+    // time they are rewritten (they carry no live region of their own).
+    const say = h('p', { class: 'sr-only', 'aria-live': 'polite', 'aria-atomic': 'true' });
     // The slide's scale switch (slide field scales): Anatomy, Lobule, Sinusoid, as Explore's pill. It comes and goes with the
     // teaching card; the figure's labels keep clear of it, and on a phone the camera frames above it (data-safe, set in placeScales).
     const scl = h('div', { class: 'pz-scales stage-blocker pz-leave', role: 'group', 'aria-label': 'Scale', hidden: true });
-    const root = h('div', { class: 'pz' }, safe, veil, load, fk, text, data, lip, panel, vcase, prog, scl, bar, jump, blackEl);
+    const root = h('div', { class: 'pz' }, safe, veil, load, fk, text, data, lip, panel, vcase, prog, scl, bar, jump, blackEl, say);
     wrap.insertBefore(shade, wrap.querySelector('.stage-credit'));
     // The teaching card's glass is the card itself: it leaves and arrives with the words, never resizing in view.
     new MutationObserver(() => shade.classList.toggle('pz-leave', text.classList.contains('pz-leave'))).observe(text, { attributes: true, attributeFilter: ['class'] });
     wrap.append(root);
     // (It comes in with the teaching card, in the card's own fade, once the card is fitted (pz-prep gone), and leaves with it.)
     const figKey = createFigureKey({ el: fk, app, watch: [text, root], ready: () => !text.hidden && !text.classList.contains('pz-leave') && !root.classList.contains('pz-prep') });
-    return { root, shade, safe, load, text, data, lip, lipRO, lipMO, cardTouch, setFold, partOf, vcase, fk, figKey, dhT, tiles, tools, veil, panel, prog, scl, bar, black: blackEl, jump };
+    return { root, shade, safe, load, text, data, lip, lipRO, lipMO, cardTouch, setFold, partOf, vcase, fk, figKey, dhT, tiles, tools, veil, panel, prog, scl, bar, black: blackEl, jump, say };
   }
   // The start's cover (see start). While it is up (booting) the camera cuts instead of gliding.
   let cover = null, booting = false, coverT = 0, noCase = false;   // (noCase: the slide a start lands on, a reload's included, does not play its case card)

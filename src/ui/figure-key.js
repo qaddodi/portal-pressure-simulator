@@ -38,8 +38,9 @@ export function createFigureKey({ el, app, ready = null, watch = [] }) {
     // fill() writes the new words: at once when the key is out of sight, else once it has faded.
     set(has, fill) {
       clearTimeout(swapT);
-      if (!has) { el.dataset.empty = ''; off(); return; }
-      delete el.dataset.empty;
+      // (An empty key is an image with no words: hidden from a screen reader.)
+      if (!has) { el.dataset.empty = ''; el.setAttribute('aria-hidden', 'true'); off(); return; }
+      delete el.dataset.empty; el.removeAttribute('aria-hidden');
       if (!on) { fill?.(); soon(); return; }
       off();
       swapT = setTimeout(() => { fill?.(); soon(); }, 200);
