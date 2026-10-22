@@ -15,7 +15,7 @@
 
 import { store, replaceParams } from './store.js?v=67f4341802';
 import { download } from './download.js?v=3564e5bf8c';
-import { h, toast, svgIcon, icon, fmt, clamp, openModal, closeModal, isModalOpen, restBox, paintRange, cssVar, swapText, STACK_MQ, SHORT_SIDE_MQ, TABLET_UP_MQ } from './util.js?v=be12b8e102';
+import { h, toast, svgIcon, icon, fmt, clamp, openModal, closeModal, isModalOpen, restBox, paintRange, cssVar, swapText, STACK_MQ, SHORT_SIDE_MQ, TABLET_UP_MQ } from './util.js?v=d2c95a1b16';
 import { titleParts } from './title-units.js?v=c8d5ce1f26';
 import { swipeDir, ownsSideways, ownsTouch, cardSwipe, caseFling, caseFlight, wheelFinger, wheelGesture, ownsWheel } from './swipe.js?v=3ad619631e';
 import { sinusoidSupported } from './gl-support.js?v=94ad2a7ff1';
@@ -24,8 +24,8 @@ import { DISEASE_SRC, diseasePieces } from './diseases.js?v=fb8a5451c3';
 import { nb, listCase, plateletText } from './glue.js?v=5a0f63226b';
 import { DECKS, REGIONS, LEVELS, TOPICS, withOverview, siteTag, SITE_TAGS } from './decks.js?v=d87e28f67c';
 import { fingerprintOf } from '../engine/fingerprint.js?v=8faea80b59';
-import { createHvpgMonitor } from './hvpg-proc.js?v=d0fe646e47';
-import { createTools } from './presenter-tools.js?v=47a1cad76c';
+import { createHvpgMonitor } from './hvpg-proc.js?v=56cec3f3ba';
+import { createTools } from './presenter-tools.js?v=d0a0234be3';
 import { openHandout } from './handout.js?v=3b09e978ce';
 import { noteResume, resumeFor } from './resume.js?v=f086f80ee8';
 import { parseDeckSource, checkDeck } from './deck-source.js?v=8395c650cd';
@@ -33,11 +33,11 @@ import { NO_ASC, TILE, SCALE, bandsOf, rateOf, COLS, CUT, PRESS, fpv, dirAbs, di
 import { frameFor, cancelFrame } from './frame.js?v=19b3f2915c';
 import { createFigureKey } from './figure-key.js?v=8bbf7a41ed';
 import { traceWhen } from './trace-labels.js?v=fc916a95c6';
-import { flowCss, heatCss, dropCss, gradientCss, oxygenCss } from './colormap.js?v=287019881f';
-import { EXT, expandIds, stepExtra, markLabel, figureHooks, safe } from './slide-ext.js?v=6325859b17';
+import { flowCss, heatCss, dropCss, gradientCss, oxygenCss } from './colormap.js?v=cdcf6a2f55';
+import { EXT, expandIds, stepExtra, markLabel, figureHooks, safe } from './slide-ext.js?v=ae8cd14b2b';
 import { clotWords } from './callout-math.js?v=d92ff7722e';
 import { citeText, focusOf, oneLadder } from './teach-extras.js?v=5f5248f5a7';
-import { createProfileTool, createProfileStrip } from './tool-profile.js?v=6aa1573cc9';
+import { createProfileTool, createProfileStrip } from './tool-profile.js?v=89735b7668';
 import { causeFit } from './cause-fit.js?v=830a6835a5';
 import { COMPACT, WIDE } from './card-type.js?v=f5dfdb80f2';
 import { PROCS, procBlocked, playProcedure } from './proc-anim.js?v=b92ccb3a81';
@@ -2647,8 +2647,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   };
   function layout() {
     if (!ui) return;
-    // Under interface zoom the page is scaled by k: rects are screen px, inline sizes are the page's own (screen / k).
-    // The --pz-* insets stay in screen px, the figure's own units (the stage view undoes the zoom).
+    // k: screen px per CSS px of the figure's box (1 unless the page is scaled): rects are screen px, inline sizes are the page's own (screen / k).
     const p = phone(), wr = wrap.getBoundingClientRect(), W = wr.width, H = wr.height, k = wr.width / (wrap.clientWidth || wr.width) || 1;
     ui.root.classList.toggle('stack', p); ui.shade.classList.toggle('stack', p);
     ui.root.classList.toggle('tab', p && tabUp()); ui.shade.classList.toggle('tab', p && tabUp());
@@ -3493,7 +3492,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     ui.bar._pill = { sig, count: countBtn, prev: pb, next: nxb };
     placeBar();
   }
-  // Settings while presenting (appearance, text size, interface zoom, full screen): the app's own sheet, opened from the bar.
+  // Settings while presenting (appearance, text size, full screen): the app's own sheet, opened from the bar.
   const gear = () => (openSettings ? h('button', { class: 'ib', 'aria-label': 'Settings', 'aria-haspopup': 'dialog', title: 'Settings', onclick: (e) => openSettings(e.currentTarget) }, svgIcon('gear')) : null);
   let idleT = 0;
   function wake() {

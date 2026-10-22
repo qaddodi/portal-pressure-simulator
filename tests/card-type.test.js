@@ -28,8 +28,8 @@ test('the stylesheet sets the card sizes the sums below use', () => {
   }
   assert.equal(AB_COMPACT, 13 / 14); assert.equal(AB_FLOOR, 12 / 14); assert.equal(COMPACT, 0.8);
   // (A laptop's card: title and words each one step, the buttons with the words.)
-  assert.match(css, /\.pz\.pz-card:not\(\.stack\):not\(\.low\) \.pz-text \{ --s-title: calc\(clamp\(32px, calc\(5\.546 \* var\(--pzh\) \/ var\(--vz\)\), 67px\) \* var\(--ts, 1\) \* var\(--pk, 1\) \* var\(--pz-tk, 1\)\);/);
-  assert.match(css, /--s-body: calc\(clamp\(17px, calc\(2\.311 \* var\(--pzh\) \/ var\(--vz\)\), 28px\) \* var\(--ts, 1\) \* var\(--pk, 1\) \* var\(--pz-bk, 1\)\); --s-lab: calc\(clamp\(14px, calc\(2\.022 \* var\(--pzh\) \/ var\(--vz\)\), 24\.5px\) \* var\(--ts, 1\) \* var\(--pk, 1\) \* var\(--pz-bk, 1\)\);/);
+  assert.match(css, /\.pz\.pz-card:not\(\.stack\):not\(\.low\) \.pz-text \{ --s-title: calc\(clamp\(32px, calc\(5\.546 \* var\(--pzh\)\), 67px\) \* var\(--ts, 1\) \* var\(--pk, 1\) \* var\(--pz-tk, 1\)\);/);
+  assert.match(css, /--s-body: calc\(clamp\(17px, calc\(2\.311 \* var\(--pzh\)\), 28px\) \* var\(--ts, 1\) \* var\(--pk, 1\) \* var\(--pz-bk, 1\)\); --s-lab: calc\(clamp\(14px, calc\(2\.022 \* var\(--pzh\)\), 24\.5px\) \* var\(--ts, 1\) \* var\(--pk, 1\) \* var\(--pz-bk, 1\)\);/);
   assert.match(css, /\.pz-abb \{[^}]*font: 600 var\(--s-lab\)\/1\.1 var\(--font-ui\);/);
 });
 

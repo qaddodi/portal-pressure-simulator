@@ -23,9 +23,9 @@ test('the teaching and data cards keep one width on every slide: the column neve
 
 // The card layout follows one body size B (audit/card-layout-recs.md): one margin on every edge, a gap of 0.6 margin, one padding.
 test('one margin, padding, gap and card width, all from the body size', () => {
-  assert.match(css, /--pz-cm: clamp\(16px, min\(calc\(2\.6vw \/ var\(--vz\)\), calc\(1\.8 \* var\(--pz-b\)\)\), 60px\)/);
+  assert.match(css, /--pz-cm: clamp\(16px, min\(2\.6vw, calc\(1\.8 \* var\(--pz-b\)\)\), 60px\)/);
   assert.match(css, /--pz-cp: clamp\(18px, calc\(1\.4 \* var\(--pz-b\)\), 40px\)/);
-  assert.match(css, /--pz-cw: min\(calc\(clamp\(340px, min\(calc\(38vw \/ var\(--vz\)\), calc\(23\.5 \* var\(--pz-b\)\)\), 640px\)/);
+  assert.match(css, /--pz-cw: min\(calc\(clamp\(340px, min\(38vw, calc\(23\.5 \* var\(--pz-b\)\)\), 640px\)/);
   assert.match(css, /\.pz\.pz-card:not\(\.stack\) \.pz-data \{ padding: var\(--pz-cp\); \}/, 'both cards share one padding');
   assert.match(css, /\.pz-bar\.pzb-pill \{[^}]*right: var\(--pz-cm\); bottom: max\(var\(--pz-cm\)/, 'the nav pill sits one margin from the right and the bottom');
   assert.match(js, /gap = Math\.round\(0\.6 \* sl\)/);
@@ -82,7 +82,7 @@ test('a sideways phone puts its words in the floating card, level with the data 
   assert.match(js, /const lvl = cardOn && low && t \? \(d \? d\.top - wr\.top : Math\.max\(vm, \(H - t\.height - pad - padT\) \/ 2\)\) \+ padT/);
   assert.match(js, /padT = Math\.max\(pad0, tab\?\.offsetHeight \? \(tab\.offsetHeight \+ 6\) \* k : 0\);/, 'the top padding holds the deck tab clear of the title');
   assert.match(js, /ui\.shade\.style\.height = !p && cardOn && t \? `\$\{\(t\.height \+ pad \+ padT\) \/ k\}px` : '';/);
-  assert.match(css, /\.pz\.low \.pz-text, \.pz-shade\.low \{ --pz-cm: 10px; --pz-cp: 14px; --pz-cw: min\(340px, calc\(42vw \/ var\(--vz\) \+ 28px\)\); \}/);
+  assert.match(css, /\.pz\.low \.pz-text, \.pz-shade\.low \{ --pz-cm: 10px; --pz-cp: 14px; --pz-cw: min\(340px, calc\(42vw \+ 28px\)\); \}/);
   assert.match(css, /\.pz-shade\.pz-card\.low \{ left: max\(10px, env\(safe-area-inset-left, 0px\)\); \}/, 'clear of the notch');
   assert.match(css, /\.pz\.low \{ --pz-cp: 14px; \}/, 'the data card keeps its 14 px padding');
   assert.match(css, /\.pz\.pz-card:not\(\.stack\):not\(\.low\) \.pz-text \{ --s-title:/, 'the wide sizes leave the sideways phone its own');

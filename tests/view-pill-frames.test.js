@@ -1,7 +1,7 @@
 // The view pill never leaves the screen or blinks into and out of the sinusoid (17 Oct, Mohammad on 7da46e6: "going from lobule
 // to sinusoid the pill flashes off and then on ... going from sinusoid to lobule the pill disappears completely then reappears
 // by folding out and glides up"). Every frame of both moves is stepped through here, in the order main.js sinMotion runs them,
-// at 60 and 120 Hz and under an interface zoom: the pill is drawn on its own path from where it was to where it rests, in view
+// at 60 and 120 Hz: the pill is drawn on its own path from where it was to where it rests, in view
 // and whole all the way, and its fold never hides the buttons that stay.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -22,7 +22,7 @@ const sinRest = (botOcc) => H - (botOcc + 8) - PILL / 2;            // the sinus
 // The frames of one move, as sinMotion draws them: the space is published first (publishNow), the dock placed, then the pill's
 // box read (its resting place, its shift and the dock's slide in it) and its new shift written. Returns each frame's pill centre
 // on screen and the dock's top. (publishFirst false: the order before the fix, for contrast.)
-function play({ into, hz, z, publishFirst = true }) {
+function play({ into, hz, publishFirst = true }) {
   const ms = into ? PILL_IN : PILL_OUT, frames = [];
   const from = into ? lobuleRest(0) : sinRest(GAP);
   let botOcc = into ? H - DOCK + 8 + PILL + GAP : GAP, pending = into, shift = 0;   // (into: the space with the dock gone is still to publish)
@@ -31,10 +31,10 @@ function play({ into, hz, z, publishFirst = true }) {
     if (pending && n > 0 && publishFirst) { botOcc = GAP; pending = false; }
     const dock = into ? OFF * e : OFF * (1 - e);                    // (into: sliding away, out: rising from past the foot)
     const rest = into ? sinRest(botOcc) : lobuleRest(0), slide = into ? 0 : dock;
-    const at = rest + slide + shift * z;                             // where its box is drawn now (getBoundingClientRect)
-    shift = u >= 1 ? 0 : glideShift(at, shift, z, slide, from, 1 - e).shift;
+    const at = rest + slide + shift;                                 // where its box is drawn now (getBoundingClientRect)
+    shift = u >= 1 ? 0 : glideShift(at, shift, slide, from, 1 - e).shift;
     if (pending && n > 0 && !publishFirst) { botOcc = GAP; pending = false; }   // (published after the pill's frame, before the paint)
-    const drawn = (into ? sinRest(botOcc) : lobuleRest(0)) + slide + shift * z;   // (as painted: its box where the space put it)
+    const drawn = (into ? sinRest(botOcc) : lobuleRest(0)) + slide + shift;   // (as painted: its box where the space put it)
     frames.push({ u, e, drawn, dockTop: DOCK + dock, want: from + ((into ? sinRest(GAP) : lobuleRest(0)) - from) * e });
     if (u >= 1) return frames;
   }
@@ -42,30 +42,28 @@ function play({ into, hz, z, publishFirst = true }) {
 
 for (const into of [true, false]) {
   for (const hz of [60, 120]) {
-    for (const z of [1, 1.25]) {
-      test(`${into ? 'into' : 'out of'} the sinusoid at ${hz} Hz, zoom ${z}: the pill glides on its own path, in view every frame`, () => {
-        const f = play({ into, hz, z });
-        for (const [i, fr] of f.entries()) {
-          assert.ok(Math.abs(fr.drawn - fr.want) < 1e-6, `frame ${i}: drawn at ${fr.drawn.toFixed(1)}, its path is at ${fr.want.toFixed(1)}`);
-          assert.ok(fr.drawn - PILL / 2 >= 0 && fr.drawn + PILL / 2 <= H - 8, `frame ${i}: whole on the screen`);
-          if (!into) assert.ok(fr.drawn + PILL / 2 <= fr.dockTop - 8 + 1e-6, `frame ${i}: above the rising dock`);
-          if (i) assert.ok(Math.abs(fr.drawn - f[i - 1].drawn) < 40 * 60 / hz, `frame ${i}: no jump`);
-        }
-        assert.equal(f[0].drawn, into ? lobuleRest(0) : sinRest(GAP), 'it starts where it was');
-        assert.equal(f.at(-1).drawn, into ? sinRest(GAP) : lobuleRest(0), 'and lands where it rests, as the zoom lands');
-      });
-    }
+    test(`${into ? 'into' : 'out of'} the sinusoid at ${hz} Hz: the pill glides on its own path, in view every frame`, () => {
+      const f = play({ into, hz });
+      for (const [i, fr] of f.entries()) {
+        assert.ok(Math.abs(fr.drawn - fr.want) < 1e-6, `frame ${i}: drawn at ${fr.drawn.toFixed(1)}, its path is at ${fr.want.toFixed(1)}`);
+        assert.ok(fr.drawn - PILL / 2 >= 0 && fr.drawn + PILL / 2 <= H - 8, `frame ${i}: whole on the screen`);
+        if (!into) assert.ok(fr.drawn + PILL / 2 <= fr.dockTop - 8 + 1e-6, `frame ${i}: above the rising dock`);
+        if (i) assert.ok(Math.abs(fr.drawn - f[i - 1].drawn) < 40 * 60 / hz, `frame ${i}: no jump`);
+      }
+      assert.equal(f[0].drawn, into ? lobuleRest(0) : sinRest(GAP), 'it starts where it was');
+      assert.equal(f.at(-1).drawn, into ? sinRest(GAP) : lobuleRest(0), 'and lands where it rests, as the zoom lands');
+    });
   }
 }
 
 test('the two faults Mohammad saw, reproduced: without them taken off, the pill left the screen or jumped', () => {
   // Out of the sinusoid, leaving the dock's slide in drew the pill on the dock, past the screen's foot, until the dock rose.
-  const z = 1, from = sinRest(GAP), rest = lobuleRest(0);
+  const from = sinRest(GAP), rest = lobuleRest(0);
   const old = (dock, k) => (from - rest) * k;                        // (the shift 7da46e6 wrote: its resting place less only its own shift)
-  assert.ok(rest + OFF + old(OFF, 1) * z - PILL / 2 > H, 'drawn off the screen at the start');
-  assert.equal(rest + OFF + glideShift(rest + OFF, 0, z, OFF, from, 1).shift * z, from, 'now drawn where it was');
+  assert.ok(rest + OFF + old(OFF, 1) - PILL / 2 > H, 'drawn off the screen at the start');
+  assert.equal(rest + OFF + glideShift(rest + OFF, 0, OFF, from, 1).shift, from, 'now drawn where it was');
   // Into the sinusoid, the space was published after the pill's frame: one frame drawn against the old space, then a jump.
-  const late = play({ into: true, hz: 60, z: 1, publishFirst: false });
+  const late = play({ into: true, hz: 60, publishFirst: false });
   assert.ok(late.some((fr) => Math.abs(fr.drawn - fr.want) > 50), 'the old order drew a frame far off its path');
 });
 

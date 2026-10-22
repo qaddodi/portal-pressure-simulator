@@ -86,13 +86,6 @@ export const units = { pressure: 'mmHg', flow: 'L/min' };
 export function fp(v) { const c = unitConv.pressure[units.pressure]; return [fmt(c.f(v), c.d), c.u]; }
 export function ff(v) { const c = unitConv.flow[units.flow]; return [units.flow === 'L/min' ? fmtFlow(v) : fmt(c.f(v), c.d), c.u]; }
 
-// Interface zoom (Settings): screen pixels per CSS pixel of the zoomed page, measured rather than
-// read from the setting so browsers that report rectangles either way both place menus right.
-export function uiScale() {
-  const b = document.body, w = b?.offsetWidth;
-  return w ? b.getBoundingClientRect().width / w || 1 : 1;
-}
-
 // Messages show as a card at the top, below the bars, never over the bottom bar.
 // opts: actions, [[label, fn], …] as buttons after the words (a tap runs it and closes the card); sticky, stays until
 // dismissed; onClose, called once when it goes, with 'pushed' when newer messages pushed it out (else 'user': the
@@ -124,8 +117,8 @@ export function toast(msg, kind = '', { actions = null, sticky = false, onClose 
   const r = document.querySelector('.vdock')?.offsetParent && bars?.getBoundingClientRect();
   wrap.classList.toggle('docked', !!(r && r.height));
   if (r && r.height) {
-    const z = uiScale(), W = innerWidth / z, w = Math.min(W - 24, 560);
-    Object.assign(wrap.style, { left: `${(W - w) / 2 - 20}px`, width: `${w + 40}px`, top: `${r.bottom / z}px`, bottom: 'auto', height: '', maxWidth: 'none' });
+    const W = innerWidth, w = Math.min(W - 24, 560);
+    Object.assign(wrap.style, { left: `${(W - w) / 2 - 20}px`, width: `${w + 40}px`, top: `${r.bottom}px`, bottom: 'auto', height: '', maxWidth: 'none' });
   }
   const t = h('div', { class: 'toast ' + kind, role: 'status' }, h('span', { class: 'toast-msg' }, msg));
   let timer = 0, gone = false;
@@ -205,8 +198,7 @@ export function tooltipFor(el, text, side = 'right') {
       x = r.right + 10; y = r.top + r.height / 2 - tr.height / 2;
       if (x + tr.width > innerWidth - 8) x = r.left - tr.width - 10;
     }
-    const z = uiScale();
-    tip.style.left = clamp(x, 8, innerWidth - tr.width - 8) / z + 'px'; tip.style.top = clamp(y, 8, innerHeight - tr.height - 8) / z + 'px';
+    tip.style.left = clamp(x, 8, innerWidth - tr.width - 8) + 'px'; tip.style.top = clamp(y, 8, innerHeight - tr.height - 8) + 'px';
   };
   const hide = () => tip.classList.remove('show');
   el.addEventListener('pointerenter', (e) => { if (e.pointerType !== 'touch') show(); });
@@ -243,7 +235,7 @@ export function popover(anchor, content, { cls = '', align = 'start', place = 'b
   document.body.append(el);
   const put = () => {
     if (asSheet) return;
-    const r = anchor.getBoundingClientRect(), z = uiScale(), w0 = el.offsetWidth * z;
+    const r = anchor.getBoundingClientRect(), w0 = el.offsetWidth;
     let x = align === 'end' ? r.right - w0 : align === 'center' ? r.left + r.width / 2 - w0 / 2 : r.left;
     // A scrolling menu below its button may use all the room down to the 8 px margin, so it ends whole where it fits; never
     // over the bottom bar where the two meet (a phone held sideways: Settings had run 87 px over it; sweep 04 #01).
@@ -254,22 +246,22 @@ export function popover(anchor, content, { cls = '', align = 'start', place = 'b
       // A button low on the screen (the deck nav pill's gear on a Mac or iPad) opens it above, at its full height: below
       // it the room was the 160 px floor, which cut Settings off at "Text size on the figure".
       const below = (barTop ?? visibleBottom()) - r.bottom - 16;
-      if (below < el.scrollHeight * z && r.top - 16 > below) { at = 'above'; barTop = null; el.style.maxHeight = (r.top - 16) / z + 'px'; }
-      else el.style.maxHeight = Math.max(160, below) / z + 'px';
+      if (below < el.scrollHeight && r.top - 16 > below) { at = 'above'; barTop = null; el.style.maxHeight = (r.top - 16) + 'px'; }
+      else el.style.maxHeight = Math.max(160, below) + 'px';
     }
     // A menu from the thumb dock's tab row sits on the tab row's top edge, 8 px clear of it, over the play bar (which steps
     // aside), like the cards and the phone's sheets: it rises from behind the tab row and is cut on its top line. (Above
     // the whole dock, it had risen out of thin air over the faded play bar, its cut-off shadow left as a ghost there.)
     const bar = anchor.closest('.thumb-bar'), tabTop = bar ? bar.getBoundingClientRect().top : null;
-    if (bar && /auto|scroll/.test(getComputedStyle(el).overflowY)) el.style.maxHeight = Math.max(160, tabTop - 16) / z + 'px';
+    if (bar && /auto|scroll/.test(getComputedStyle(el).overflowY)) el.style.maxHeight = Math.max(160, tabTop - 16) + 'px';
     // Layout size, not the rectangle: the opening animation scales the menu for a moment.
-    const mr = { width: el.offsetWidth * z, height: el.offsetHeight * z };
+    const mr = { width: el.offsetWidth, height: el.offsetHeight };
     const top = bar ? tabTop : r.top;
     let y = at === 'above' || bar ? top - mr.height - 8 : r.bottom + 8;
     const vb = visibleBottom();
     if (y + mr.height > vb - 8) y = Math.max(8, top - mr.height - 8);
-    el.style.left = clamp(x, 8, innerWidth - mr.width - 8) / z + 'px';
-    el.style.top = clamp(y, 8, vb - mr.height - 8) / z + 'px';
+    el.style.left = clamp(x, 8, innerWidth - mr.width - 8) + 'px';
+    el.style.top = clamp(y, 8, vb - mr.height - 8) + 'px';
     barAt = barTop;
     clipBar();
   };
@@ -277,8 +269,8 @@ export function popover(anchor, content, { cls = '', align = 'start', place = 'b
   // review). Measured from the menu as laid out (its height settles after it opens), again whenever it resizes.
   let barAt = null;
   const clipBar = () => {
-    const z = uiScale(), gap = barAt == null ? 0 : barAt - (parseFloat(el.style.top) + el.offsetHeight) * z;
-    el.style.clipPath = barAt == null ? '' : `inset(-64px -64px ${(-Math.max(0, gap) / z).toFixed(2)}px -64px)`;
+    const gap = barAt == null ? 0 : barAt - (parseFloat(el.style.top) + el.offsetHeight);
+    el.style.clipPath = barAt == null ? '' : `inset(-64px -64px ${(-Math.max(0, gap)).toFixed(2)}px -64px)`;
   };
   if (el.classList.contains('app-menu')) { const ro = new ResizeObserver(() => { if (!el.isConnected) ro.disconnect(); else clipBar(); }); ro.observe(el); }
   put();

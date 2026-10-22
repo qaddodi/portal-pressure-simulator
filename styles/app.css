@@ -9,7 +9,7 @@ html, body { height: 100%; }
 :root { --safe-top: env(safe-area-inset-top, 0px);
   /* The phone's teaching card and its controls sit above the bottom safe area; installed to the Home Screen on an iPhone (class `iphone-app`, set in src/ui/main.js)
      the card drops to 8 px above the screen's edge instead, its bottom corners concentric with the screen's (iOS gives pages no corner radius: 55 px is the iPhone 14 Pro to 16 size). */
-  --pz-sb: env(safe-area-inset-bottom, 0px); --pz-card-br: 18px; --screen-r: 55px; --vz: var(--ui-zoom, 1); /* viewport units under interface zoom */ }
+  --pz-sb: env(safe-area-inset-bottom, 0px); --pz-card-br: 18px; --screen-r: 55px; }
 /* The presenter sizes its type by the screen height; an upright tablet is tall and narrow, so there it follows the width (as tall as a landscape screen of that width), or the words outgrow their column. A phone (< 700 px) keeps its own stack layout. */
 :root { --pzh: 1vh; }
 @media (orientation: portrait) and (min-width: 700px) { :root { --pzh: min(1vh, .75vw); } }
@@ -46,7 +46,7 @@ svg { flex: none; }
   /* Fixed to the viewport, like the start screen: iOS 26 keeps a fixed header sharp under the
      status bar but blurs ordinary page content that sits there. */
   position: fixed; inset: 0;
-  display: grid; height: calc(100dvh / var(--vz)); width: 100%;
+  display: grid; height: 100dvh; width: 100%;
   grid-template-columns: minmax(0, 1fr);
   grid-template-rows: minmax(0, 1fr);
   grid-template-areas: "stage";
@@ -103,10 +103,6 @@ svg { flex: none; }
 .sb-banner { display: flex; min-width: 0; justify-content: center; align-items: center; gap: 8px; }
 .sb-banner:empty { display: none; }
 .stage-view { position: relative; flex: 1; min-height: 0; touch-action: none; overflow: hidden; }
-/* Interface zoom (Settings) scales the page; the figure undoes it and keeps its own zoom, while the
-   controls floating on it scale with the rest. */
-.stage-view { zoom: calc(1 / var(--ui-zoom, 1)); --vz: 1; }
-.stage-view > .float-ui { zoom: var(--ui-zoom, 1); --vz: var(--ui-zoom, 1); }
 .stage-view svg#stage, .stage-view svg#stageOver, .stage-view canvas, .stage-view svg#labels { position: absolute; inset: 0; width: 100%; height: 100%; }
 /* Vessels on the GPU (veins-gl.js): in the anatomy the WebGL2 layer draws the tubes; their SVG hit strokes stay. */
 .stage-view svg#stageOver { pointer-events: none; }
@@ -400,7 +396,7 @@ div.vital { cursor: default; }
 .dock-body { flex: 1; min-height: 0; position: relative; overflow: hidden; border-top: 1px solid var(--hairline); }
 .dock-pane { position: absolute; inset: 0; display: none; padding: 12px 16px 20px; overflow: auto; }
 .dock-pane.active { display: flex; flex-direction: column; gap: 16px; }
-.dock-pane .chart-box { flex: none; height: clamp(240px, calc(42vh / var(--vz)), 420px); }
+.dock-pane .chart-box { flex: none; height: clamp(240px, 42vh, 420px); }
 .chart-box.square { max-width: 420px; }
 .dock-pane .chart-box.square { max-width: none; }
 .dock-pane .chart-side { width: auto; overflow: visible; }
@@ -748,7 +744,7 @@ input[type=range]:focus-visible::-moz-range-thumb { box-shadow: 0 0 0 3px var(--
 .tooltip.show { opacity: 1; }
 .tooltip kbd { font: 500 var(--fs-12) var(--font-mono); opacity: .7; margin-left: 8px; }
 .menu {
-  position: fixed; z-index: var(--z-popover); min-width: 180px; max-width: calc(100vw / var(--vz) - 16px); padding: 8px; border-radius: var(--r-sheet); background: var(--surface); box-shadow: var(--shadow-3), 0 0 0 1px var(--hairline);
+  position: fixed; z-index: var(--z-popover); min-width: 180px; max-width: calc(100vw - 16px); padding: 8px; border-radius: var(--r-sheet); background: var(--surface); box-shadow: var(--shadow-3), 0 0 0 1px var(--hairline);
   display: flex; flex-direction: column; gap: 1px; animation: pop .16s var(--ease);
 }
 .menu-title { font-size: var(--fs-12); font-weight: 600; color: var(--text-3); padding: 8px 12px 4px; }
@@ -758,7 +754,7 @@ input[type=range]:focus-visible::-moz-range-thumb { box-shadow: 0 0 0 3px var(--
 .menu-item svg { width: var(--ic-s); height: var(--ic-s); flex: none; stroke: currentColor; fill: none; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; color: var(--text-2); }
 .menu-item .mi-check { width: var(--ic-s); height: var(--ic-s); stroke: var(--accent); stroke-width: 2.4; fill: none; opacity: 0; }
 .menu-item .mi-trail { margin-left: auto; }
-.layers-pop { width: min(360px, calc(calc(100vw / var(--vz)) - 16px)); }
+.layers-pop { width: min(360px, calc(100vw - 16px)); }
 .layers-pop .menu-title { display: flex; align-items: baseline; justify-content: space-between; }
 .layers-pop .menu-title .kb { font-size: var(--fs-12); font-weight: 500; letter-spacing: 0; text-transform: none; color: var(--text-3); }
 .lens-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; padding: 2px 8px 8px; }
@@ -793,7 +789,7 @@ input[type=range]:focus-visible::-moz-range-thumb { box-shadow: 0 0 0 3px var(--
 .menu.as-sheet .lens-d { white-space: normal; }
 @keyframes popOut { to { opacity: 0; transform: translateY(-4px) scale(.98); } }
 
-.why-pop { position: fixed; z-index: var(--z-popover); width: min(440px, calc(calc(100vw / var(--vz)) - 24px)); background: var(--surface); border-radius: var(--r-sheet); box-shadow: var(--shadow-3), 0 0 0 1px var(--hairline); padding: 16px 16px 16px; display: none; }
+.why-pop { position: fixed; z-index: var(--z-popover); width: min(440px, calc(100vw - 24px)); background: var(--surface); border-radius: var(--r-sheet); box-shadow: var(--shadow-3), 0 0 0 1px var(--hairline); padding: 16px 16px 16px; display: none; }
 .why-pop.show { display: block; animation: pop .18s var(--ease); }
 .why-pop.leaving { display: block; pointer-events: none; animation: popOut var(--t-out) var(--ease-in) forwards; }
 .why-pop header { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; margin-bottom: 8px; }
@@ -822,7 +818,7 @@ input[type=range]:focus-visible::-moz-range-thumb { box-shadow: 0 0 0 3px var(--
 /* A theme chosen in the app (main.js switchTheme): the old page, held as a still, fades over the new one. */
 ::view-transition-old(root), ::view-transition-new(root) { animation-duration: .45s; animation-timing-function: cubic-bezier(.2, .8, .2, 1); }
 @keyframes fade { from { opacity: 0; } }
-.modal { background: var(--surface); border-radius: var(--r-sheet); box-shadow: var(--shadow-3); width: min(720px, 100%); max-height: min(calc(88dvh / var(--vz)), 900px); overflow: auto; animation: pop .22s var(--ease); }
+.modal { background: var(--surface); border-radius: var(--r-sheet); box-shadow: var(--shadow-3); width: min(720px, 100%); max-height: min(88dvh, 900px); overflow: auto; animation: pop .22s var(--ease); }
 .modal > header { padding: 20px 24px 16px; display: flex; align-items: flex-start; gap: 12px; position: sticky; top: 0; background: var(--surface); z-index: var(--z-figure); }
 .modal > header h2 { margin: 0; font-size: var(--fs-20); font-weight: 600; letter-spacing: -.015em; flex: 1; }
 .modal > header .sub { margin-top: 4px; }
@@ -841,7 +837,7 @@ input[type=range]:focus-visible::-moz-range-thumb { box-shadow: 0 0 0 3px var(--
 .keys div { display: flex; justify-content: space-between; gap: 12px; padding: 8px 0; border-bottom: 1px solid var(--hairline); font-size: var(--fs-14); color: var(--text-2); }
 .keys kbd { font: 500 var(--fs-12) var(--font-mono); color: var(--text); background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--r-control); padding: 1px 8px; white-space: nowrap; }
 .toast-wrap { position: fixed; left: calc(50% - 180px); bottom: 28px; transform: translateX(-50%); z-index: var(--z-toast); display: flex; flex-direction: column; gap: 8px; align-items: center; pointer-events: none; }
-.toast { background: var(--text); color: var(--stage-bg); padding: 8px 16px; border-radius: var(--r-card); box-shadow: var(--shadow-3); font-size: var(--fs-14); line-height: 1.45; max-width: min(520px, calc(92vw / var(--vz))); animation: fadeDown .22s var(--ease); pointer-events: none; }
+.toast { background: var(--text); color: var(--stage-bg); padding: 8px 16px; border-radius: var(--r-card); box-shadow: var(--shadow-3); font-size: var(--fs-14); line-height: 1.45; max-width: min(520px, 92vw); animation: fadeDown .22s var(--ease); pointer-events: none; }
 .toast.bad { background: var(--danger); color: var(--on-status); }
 .toast.leaving { animation: fadeOut var(--t-out) var(--ease-in) forwards; }
 
@@ -917,9 +913,9 @@ input[type=range]:focus-visible::-moz-range-thumb { box-shadow: 0 0 0 3px var(--
   .stage-bar .lg-note { display: none; }
 
   .readouts { border-top: 1px solid var(--hairline); }
-  .app .panel, .app.dock-open .panel { width: min(440px, calc(100vw / var(--vz)) - 44px); padding-bottom: env(safe-area-inset-bottom); }
+  .app .panel, .app.dock-open .panel { width: min(440px, 100vw - 44px); padding-bottom: env(safe-area-inset-bottom); }
   .dock-head .ib { display: none; }   /* no floating windows on a phone */
-  .dock-pane .chart-box { height: clamp(220px, calc(38vh / var(--vz)), 340px); }
+  .dock-pane .chart-box { height: clamp(220px, 38vh, 340px); }
   .modal > header { padding: 16px 20px 12px; }
   .modal > .body { padding: 4px 20px 20px; }
   .entry-grid { grid-template-columns: 1fr; }
@@ -942,8 +938,8 @@ input[type=range]:focus-visible::-moz-range-thumb { box-shadow: 0 0 0 3px var(--
   .lg-scale { width: 110px; }
   .toolbar { justify-self: end; }
   .readouts { display: none; }
-  .app .panel, .app.dock-open .panel { width: min(420px, calc(62vw / var(--vz))); }
-  .dock-pane .chart-box { height: clamp(200px, calc(60vh / var(--vz)), 300px); }
+  .app .panel, .app.dock-open .panel { width: min(420px, 62vw); }
+  .dock-pane .chart-box { height: clamp(200px, 60vh, 300px); }
 }
 
 /* Reduce Motion takes the movement out and keeps the fades (MOTION_HEAT_REVIEW P3): nothing glides, slides, grows or turns,
@@ -979,10 +975,10 @@ input[type=range]:focus-visible::-moz-range-thumb { box-shadow: 0 0 0 3px var(--
   padding: 0; animation: acIn .24s var(--ease); font-size: var(--fs-14); transition: left .18s var(--ease), top .18s var(--ease);
 }
 /* One fixed size per kind of card, whatever text it holds: the header and foot keep their place, the controls scroll inside. */
-.action-card { height: min(600px, calc(calc(100vh / var(--vz)) - 150px)); max-height: none; }
+.action-card { height: min(600px, calc(100vh - 150px)); max-height: none; }
 /* On a short desktop window the card leaves room above the vitals dock (a 600 px card ran 4 px into it at 1180x820). */
-@media (min-width: 1024px) { .action-card:not(.docked) { height: min(600px, calc(calc(100vh / var(--vz)) - 260px)); } }
-.action-card[data-card=organ], .action-card[data-card=lobule] { height: min(570px, calc(calc(100vh / var(--vz)) - 150px)); }
+@media (min-width: 1024px) { .action-card:not(.docked) { height: min(600px, calc(100vh - 260px)); } }
+.action-card[data-card=organ], .action-card[data-card=lobule] { height: min(570px, calc(100vh - 150px)); }
 .action-card.docked { height: min(46%, 400px); max-height: min(46%, 400px); }
 /* The last vessel's contents fading out over the new ones (card.js, RF7): laid out as the card is, taking no taps. */
 .action-card > .ac-ghost { position: absolute; inset: 0; display: flex; flex-direction: column; pointer-events: none; }
@@ -1071,10 +1067,10 @@ input[type=range]:focus-visible::-moz-range-thumb { box-shadow: 0 0 0 3px var(--
 .action-card.docked.peek .ac-top { padding-bottom: 12px; }
 /* With Measure / Instruments open on a phone the info card does not hide under it: it rises above the sheet with its
    controls (they scroll inside it), and the sheet takes less height while a card is open so both can be used at once. */
-.app.dock-open:not(.instrument-focus) .action-card.docked { bottom: var(--bot-occ, 0px); height: auto; max-height: min(calc(36dvh / var(--vz)), calc(100% - var(--bot-occ, 0px) - var(--top-safe, 0px) - 8px)); border-radius: var(--r-sheet); }
+.app.dock-open:not(.instrument-focus) .action-card.docked { bottom: var(--bot-occ, 0px); height: auto; max-height: min(36dvh, calc(100% - var(--bot-occ, 0px) - var(--top-safe, 0px) - 8px)); border-radius: var(--r-sheet); }
 .app.dock-open:not(.instrument-focus) .action-card.docked .ac-top { padding-bottom: 10px; }
 /* The sheet may grow as far as the screen allows with the card above it: its tallest size leaves room for a full card. */
-.app.dock-open:not(.instrument-focus):has(.action-card.docked:not([hidden])) .instrument-workspace.float-ui:not(.side) { max-height: calc(100% - var(--top-safe, 0px) - calc(36dvh / var(--vz)) - 8px); }
+.app.dock-open:not(.instrument-focus):has(.action-card.docked:not([hidden])) .instrument-workspace.float-ui:not(.side) { max-height: calc(100% - var(--top-safe, 0px) - 36dvh - 8px); }
 .action-card.docked .ac-top { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; column-gap: 2px; align-items: center; padding: 2px 12px 4px; touch-action: none; cursor: grab; user-select: none; -webkit-user-select: none; }
 .action-card.docked .ac-head, .action-card.docked .ac-titles, .action-card.docked .ac-readout { display: contents; }
 /* The header is one grid. Line 1: the kind, the two links and the close button. Line 2: the name, with the reading at the
@@ -1168,7 +1164,7 @@ input[type=range]:focus-visible::-moz-range-thumb { box-shadow: 0 0 0 3px var(--
 .tl-pin { flex: none; display: inline-flex; align-items: center; gap: 6px; height: 32px; padding: 0 10px; border: 1px solid var(--border); border-radius: var(--r-card); background: var(--surface); color: var(--text); font: 600 var(--fs-12) var(--font-ui); cursor: pointer; white-space: nowrap; }
 @media (hover: hover) { .tl-pin:hover { border-color: var(--border-strong); background: var(--surface-2); } }
 .tl-pin[aria-pressed="true"] { background: var(--text); color: var(--stage-bg); border-color: transparent; }
-.tl-pop { display: flex; flex-direction: column; gap: 0; width: min(320px, calc(calc(100vw / var(--vz)) - 24px)); max-height: 360px; overflow: auto; }
+.tl-pop { display: flex; flex-direction: column; gap: 0; width: min(320px, calc(100vw - 24px)); max-height: 360px; overflow: auto; }
 .tl-pop-row { padding: 4px 6px 5px; border-bottom: 1px solid var(--hairline); display: flex; flex-direction: column; gap: 2px; }
 .tl-pop-row:last-child { border-bottom: 0; }
 .tl-pop-head { display: grid; grid-template-columns: auto minmax(0, 1fr) auto 50px; align-items: center; gap: 6px; font-size: var(--fs-14); line-height: 1.25; }
@@ -1228,7 +1224,7 @@ input[type=range]:focus-visible::-moz-range-thumb { box-shadow: 0 0 0 3px var(--
 .app.home-open { visibility: hidden; }
 
 /* Command palette */
-.pal-back { position: fixed; inset: 0; z-index: var(--z-dialog); background: var(--scrim); display: flex; justify-content: center; align-items: flex-start; padding: calc(calc(12vh / var(--vz)) + var(--safe-top)) 16px 16px; }
+.pal-back { position: fixed; inset: 0; z-index: var(--z-dialog); background: var(--scrim); display: flex; justify-content: center; align-items: flex-start; padding: calc(12vh + var(--safe-top)) 16px 16px; }
 .pal-back[hidden] { display: none; }
 .pal-back { animation: fadeIn .16s var(--ease); }
 .pal-back.leaving { pointer-events: none; animation: fadeOut var(--t-out) var(--ease-in) forwards; }
@@ -1237,7 +1233,7 @@ input[type=range]:focus-visible::-moz-range-thumb { box-shadow: 0 0 0 3px var(--
 .pal-top { display: flex; align-items: center; gap: 12px; padding: 12px 16px; border-bottom: 1px solid var(--hairline); }
 .pal-ic { width: var(--ic-m); height: var(--ic-m); stroke: var(--text-3); fill: none; stroke-width: 1.7; }
 .pal-input { flex: 1; border: 0; outline: none; background: transparent; font-size: var(--fs-16); color: var(--text); }
-.pal-list { max-height: min(calc(56vh / var(--vz)), 440px); overflow: auto; padding: 8px; }
+.pal-list { max-height: min(56vh, 440px); overflow: auto; padding: 8px; }
 .pal-item { display: grid; grid-template-columns: 72px 1fr; gap: 2px 12px; width: 100%; padding: 8px 12px; border: 0; border-radius: var(--r-card); background: transparent; text-align: left; cursor: pointer; color: var(--text); }
 .pal-item.on { background: var(--accent-soft); }
 .pal-g { font-size: var(--fs-12); font-weight: 600; color: var(--text-3); padding-top: 2px; }
@@ -1478,11 +1474,11 @@ button.finding { cursor: pointer; }
 @media (prefers-reduced-transparency: reduce) { .pz-shade { background: color-mix(in srgb, var(--stage-bg) 94%, transparent); } }
 /* The words' card (presenter.js TEXT_CARD): on a laptop or tablet the glass is a floating card like the data card, the same
    margin from the screen's edge as the data card, and the words sit inside it. */
-:root { --pz-b: calc(clamp(17px, calc(2.311 * var(--pzh) / var(--vz)), 28px) * var(--ts, 1));   /* (B: the teaching card's body text on a wide screen; the cards' geometry follows it) */
-  --pz-cm: clamp(16px, min(calc(2.6vw / var(--vz)), calc(1.8 * var(--pz-b))), 60px);   /* (one margin: sides, top, bottom and the nav pill) */
+:root { --pz-b: calc(clamp(17px, calc(2.311 * var(--pzh)), 28px) * var(--ts, 1));   /* (B: the teaching card's body text on a wide screen; the cards' geometry follows it) */
+  --pz-cm: clamp(16px, min(2.6vw, calc(1.8 * var(--pz-b))), 60px);   /* (one margin: sides, top, bottom and the nav pill) */
   --pz-cp: clamp(18px, calc(1.4 * var(--pz-b)), 40px);   /* (one padding, both cards) */
-  --pz-cw: min(calc(clamp(340px, min(calc(38vw / var(--vz)), calc(23.5 * var(--pz-b))), 640px) * var(--pz-wk, 1)), calc(42vw / var(--vz))); }   /* (one card width, about 40 characters of body text) */
-.pz-shade.pz-card:not(.stack) { --pz-glass-drop: rgb(var(--black-rgb) / .14); --pz-r: clamp(16px, calc(2.2 * var(--pzh) / var(--vz)), 28px); left: var(--pz-cm); top: var(--pz-cm); bottom: var(--pz-cm); background: color-mix(in srgb, var(--surface) 58%, transparent); border: 1px solid color-mix(in srgb, var(--text) 22%, transparent); border-radius: var(--pz-r); box-shadow: 0 14px 34px -10px var(--pz-glass-drop), 0 2px 6px -1px var(--pz-glass-drop); }
+  --pz-cw: min(calc(clamp(340px, min(38vw, calc(23.5 * var(--pz-b))), 640px) * var(--pz-wk, 1)), 42vw); }   /* (one card width, about 40 characters of body text) */
+.pz-shade.pz-card:not(.stack) { --pz-glass-drop: rgb(var(--black-rgb) / .14); --pz-r: clamp(16px, calc(2.2 * var(--pzh)), 28px); left: var(--pz-cm); top: var(--pz-cm); bottom: var(--pz-cm); background: color-mix(in srgb, var(--surface) 58%, transparent); border: 1px solid color-mix(in srgb, var(--text) 22%, transparent); border-radius: var(--pz-r); box-shadow: 0 14px 34px -10px var(--pz-glass-drop), 0 2px 6px -1px var(--pz-glass-drop); }
 :root[data-theme="dark"] .pz-shade.pz-card:not(.stack) { --pz-glass-drop: rgb(var(--black-rgb) / .45); }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]):not([data-theme="soft"]) .pz-shade.pz-card:not(.stack) { --pz-glass-drop: rgb(var(--black-rgb) / .45); } }
 @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) { .pz-shade.pz-card:not(.stack) { background: color-mix(in srgb, var(--surface) 96%, transparent); } }
@@ -1501,7 +1497,7 @@ button.finding { cursor: pointer; }
    clear of it (presenter.js layout, padT). The data card stays a card of its own at the top right: there is no height to
    stack it under the words. */
 .pz.low { --pz-cp: 14px; }
-.pz.low .pz-text, .pz-shade.low { --pz-cm: 10px; --pz-cp: 14px; --pz-cw: min(340px, calc(42vw / var(--vz) + 28px)); }
+.pz.low .pz-text, .pz-shade.low { --pz-cm: 10px; --pz-cp: 14px; --pz-cw: min(340px, calc(42vw + 28px)); }
 .pz-shade.pz-card.low { left: max(10px, env(safe-area-inset-left, 0px)); }
 .pz.pz-card.low .pz-text { left: calc(max(10px, env(safe-area-inset-left, 0px)) + var(--pz-cp)); }
 .pz-shade.low { --pz-tabh: calc(var(--pz-tabf) * 1.6); }
@@ -1520,7 +1516,7 @@ button.finding { cursor: pointer; }
 @media (prefers-reduced-transparency: reduce) { .pz-data.pz-data { background: color-mix(in srgb, var(--surface) 96%, transparent); -webkit-backdrop-filter: none; backdrop-filter: none; } .pz-data.pz-data { background: var(--surface-2); } .pz-data .pz-tile, .pz-data .pz-tool .endo-read > div { background: var(--surface); } }
 .pz-safe { position: absolute; left: 0; top: 0; bottom: 0; width: 0; opacity: 0; pointer-events: none; }
 .pz.stack .pz-safe { right: 0; top: auto; bottom: 0; width: auto; }
-.pz-text { position: absolute; left: clamp(20px, calc(3.4vw / var(--vz)), 76px); top: clamp(20px, calc(8 * var(--pzh) / var(--vz)), 110px); bottom: clamp(20px, calc(8 * var(--pzh) / var(--vz)), 110px); height: fit-content; margin-block: auto; width: min(calc(clamp(300px, calc(29vw / var(--vz)), 600px) * var(--pz-wk, 1)), calc(42vw / var(--vz))); max-height: calc(100% - 2 * clamp(20px, calc(8 * var(--pzh) / var(--vz)), 110px)); display: flex; flex-direction: column; gap: clamp(10px, calc(2.3 * var(--pzh) / var(--vz)), 30px); transition: opacity .32s var(--ease), transform .32s var(--ease), filter .4s var(--ease); }
+.pz-text { position: absolute; left: clamp(20px, 3.4vw, 76px); top: clamp(20px, calc(8 * var(--pzh)), 110px); bottom: clamp(20px, calc(8 * var(--pzh)), 110px); height: fit-content; margin-block: auto; width: min(calc(clamp(300px, 29vw, 600px) * var(--pz-wk, 1)), 42vw); max-height: calc(100% - 2 * clamp(20px, calc(8 * var(--pzh)), 110px)); display: flex; flex-direction: column; gap: clamp(10px, calc(2.3 * var(--pzh)), 30px); transition: opacity .32s var(--ease), transform .32s var(--ease), filter .4s var(--ease); }
 .pz-panel.pz-leave { opacity: 0; transform: translateY(-6px); }
 /* The teaching card leaves and arrives like the data card: a fade with a short slide toward its own edge, same timing. */
 .pz-text.pz-leave { opacity: 0; transform: translateX(-18px); }
@@ -1536,14 +1532,14 @@ button.finding { cursor: pointer; }
 /* Slide text: the six roles (tokens.css --t-*) at a slide's size: on a wide screen they follow the screen's height
    (a laptop at 900 px: caption 15.6 · label 18.2 · body 20.8 · value 28.6 · big 41.6 · title 57.2); a phone's stacked
    slide uses the roles as they are. Both times the text size setting (--ts). */
-.pz, .pz-text, .pz-panel { --s-cap: calc(clamp(12px, calc(1.733 * var(--pzh) / var(--vz)), 21px) * var(--ts, 1) * var(--pk, 1)); --s-lab: calc(clamp(14px, calc(2.022 * var(--pzh) / var(--vz)), 24.5px) * var(--ts, 1) * var(--pk, 1));
-  --s-body: calc(clamp(17px, calc(2.311 * var(--pzh) / var(--vz)), 28px) * var(--ts, 1) * var(--pk, 1)); --s-val: calc(clamp(20px, calc(3.178 * var(--pzh) / var(--vz)), 38.5px) * var(--ts, 1) * var(--pk, 1));
-  --s-big: calc(clamp(28px, calc(4.622 * var(--pzh) / var(--vz)), 56px) * var(--ts, 1) * var(--pk, 1)); --s-title: calc(clamp(32px, calc(6.356 * var(--pzh) / var(--vz)), 77px) * var(--ts, 1) * var(--pk, 1)); }
+.pz, .pz-text, .pz-panel { --s-cap: calc(clamp(12px, calc(1.733 * var(--pzh)), 21px) * var(--ts, 1) * var(--pk, 1)); --s-lab: calc(clamp(14px, calc(2.022 * var(--pzh)), 24.5px) * var(--ts, 1) * var(--pk, 1));
+  --s-body: calc(clamp(17px, calc(2.311 * var(--pzh)), 28px) * var(--ts, 1) * var(--pk, 1)); --s-val: calc(clamp(20px, calc(3.178 * var(--pzh)), 38.5px) * var(--ts, 1) * var(--pk, 1));
+  --s-big: calc(clamp(28px, calc(4.622 * var(--pzh)), 56px) * var(--ts, 1) * var(--pk, 1)); --s-title: calc(clamp(32px, calc(6.356 * var(--pzh)), 77px) * var(--ts, 1) * var(--pk, 1)); }
 /* (A wide screen's card; a phone held sideways keeps the phone's sizes, .pz.low below, in its card too.) */
-.pz.pz-card:not(.stack):not(.low) .pz-text { --s-title: calc(clamp(32px, calc(5.546 * var(--pzh) / var(--vz)), 67px) * var(--ts, 1) * var(--pk, 1) * var(--pz-tk, 1));
-  --s-cap: max(12px, calc(clamp(12px, calc(1.733 * var(--pzh) / var(--vz)), 21px) * var(--ts, 1) * var(--pk, 1) * var(--pz-bk, 1)));
-  --s-body: calc(clamp(17px, calc(2.311 * var(--pzh) / var(--vz)), 28px) * var(--ts, 1) * var(--pk, 1) * var(--pz-bk, 1)); --s-lab: calc(clamp(14px, calc(2.022 * var(--pzh) / var(--vz)), 24.5px) * var(--ts, 1) * var(--pk, 1) * var(--pz-bk, 1));
-  --s-val: calc(clamp(20px, calc(3.178 * var(--pzh) / var(--vz)), 38.5px) * var(--ts, 1) * var(--pk, 1) * var(--pz-bk, 1)); }
+.pz.pz-card:not(.stack):not(.low) .pz-text { --s-title: calc(clamp(32px, calc(5.546 * var(--pzh)), 67px) * var(--ts, 1) * var(--pk, 1) * var(--pz-tk, 1));
+  --s-cap: max(12px, calc(clamp(12px, calc(1.733 * var(--pzh)), 21px) * var(--ts, 1) * var(--pk, 1) * var(--pz-bk, 1)));
+  --s-body: calc(clamp(17px, calc(2.311 * var(--pzh)), 28px) * var(--ts, 1) * var(--pk, 1) * var(--pz-bk, 1)); --s-lab: calc(clamp(14px, calc(2.022 * var(--pzh)), 24.5px) * var(--ts, 1) * var(--pk, 1) * var(--pz-bk, 1));
+  --s-val: calc(clamp(20px, calc(3.178 * var(--pzh)), 38.5px) * var(--ts, 1) * var(--pk, 1) * var(--pz-bk, 1)); }
 .pz.stack, .pz.stack .pz-text, .pz.stack .pz-panel { --s-cap: calc(var(--t-cap) * var(--ts, 1) * var(--pk, 1)); --s-lab: calc(var(--t-lab) * var(--ts, 1) * var(--pk, 1)); --s-body: calc(var(--t-body) * var(--ts, 1) * var(--pk, 1));
   --s-val: calc(var(--t-val) * var(--ts, 1) * var(--pk, 1)); --s-big: calc(var(--t-big) * var(--ts, 1) * var(--pk, 1)); --s-title: calc(var(--t-title) * var(--ts, 1) * var(--pk, 1)); }
 /* A phone: the slide's words (its bottom panel, and the title panel) 1.45 times the roles' size upright: a 17.4 px body and a
@@ -1564,8 +1560,8 @@ button.finding { cursor: pointer; }
   .pz.low .pz-data.pz-sheet:not(.tool-open) { max-height: calc(100% - 8px - max(var(--pz-cm), calc(env(safe-area-inset-bottom, 0px) + 8px)) - 44px - 4px - 24px); } }   /* (partly open: its sheet's edge below it, .pz-lip) */
 /* (Except the summary table: its five to seven columns only fit a phone at the roles' own size.) */
 .pz.stack .pz-table { --s-cap: calc(var(--t-cap) * var(--ts, 1)); --s-lab: calc(var(--t-lab) * var(--ts, 1)); --s-body: calc(var(--t-body) * var(--ts, 1)); --s-val: calc(var(--t-val) * var(--ts, 1)); }
-@media (orientation: landscape) and (max-height: 500px) { .pz .pz-table { --s-cap: calc(clamp(12px, calc(1.733 * var(--pzh) / var(--vz)), 21px) * var(--ts, 1)); --s-lab: calc(clamp(14px, calc(2.022 * var(--pzh) / var(--vz)), 24.5px) * var(--ts, 1));
-  --s-body: calc(clamp(17px, calc(2.311 * var(--pzh) / var(--vz)), 28px) * var(--ts, 1)); --s-val: calc(clamp(20px, calc(3.178 * var(--pzh) / var(--vz)), 38.5px) * var(--ts, 1)); } }
+@media (orientation: landscape) and (max-height: 500px) { .pz .pz-table { --s-cap: calc(clamp(12px, calc(1.733 * var(--pzh)), 21px) * var(--ts, 1)); --s-lab: calc(clamp(14px, calc(2.022 * var(--pzh)), 24.5px) * var(--ts, 1));
+  --s-body: calc(clamp(17px, calc(2.311 * var(--pzh)), 28px) * var(--ts, 1)); --s-val: calc(clamp(20px, calc(3.178 * var(--pzh)), 38.5px) * var(--ts, 1)); } }
 .pz-kick { display: flex; align-items: center; gap: .55em; font: var(--caps-w) var(--s-cap)/1.2 var(--font-ui); letter-spacing: var(--caps-ls); text-transform: uppercase; color: var(--site, var(--text-3)); }
 /* The site tag above a slide's title: which level the block sits at, a quiet pill in the level's colour, smaller than any text on the card. */
 .pz-site { align-self: flex-start; display: inline-flex; align-items: center; gap: .45em; margin-bottom: -.15em; padding: .2em .6em; border-radius: var(--r-pill); font: 600 max(9px, calc(var(--s-cap) * .75))/1.1 var(--font-ui); letter-spacing: .05em; text-transform: uppercase; white-space: nowrap; color: color-mix(in srgb, var(--site) 80%, var(--text)); background: color-mix(in srgb, var(--site) 13%, transparent); }
@@ -1582,14 +1578,14 @@ button.finding { cursor: pointer; }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]):not([data-theme="soft"]) :is(.pz-shade, .pz-panel) { --pz-tab-bg: rgb(var(--black-rgb) / .26); } }
 .pz-tabname { position: absolute; top: 0; right: 0; z-index: 1; height: var(--pz-tabh); display: flex; align-items: center; padding: 0 calc(var(--pz-tabh) * .55 - .05em) 0 calc(var(--pz-tabh) * .55); border-radius: 0 var(--pz-tab-ro, 0px) 0 calc(var(--pz-tabh) * .5); background: var(--pz-tab-bg); font: var(--caps-w) var(--pz-tabf)/1 var(--font-ui); letter-spacing: var(--caps-ls); text-transform: uppercase; white-space: nowrap; color: var(--text-2); pointer-events: none; user-select: none; }
 .pz-panel > .pz-tabname { zoom: 1; }   /* (the panel's corner clips it to its curve; its fit zoom never shrinks the tab under 12 px) */
-.pz-panel.tabbed { padding-top: max(clamp(18px, calc(3.4 * var(--pzh) / var(--vz)), 44px), calc(var(--pz-tabh) + 10px)); }
+.pz-panel.tabbed { padding-top: max(clamp(18px, calc(3.4 * var(--pzh)), 44px), calc(var(--pz-tabh) + 10px)); }
 .pz.stack .pz-panel.tabbed { padding-top: calc(var(--pz-tabh) + 10px); }
 /* (A phone on its side: the deck's tab is the teaching card's, its height and 6 px under it (presenter.js padT); a title that ends
    clear of it stands level with it, so the six site rows of Sites 10 stay whole at 667 x 375: under the table's own tab the last
    row was cut by 14 px.) */
 .pz.low .pz-panel { --pz-tabh: calc(var(--pz-tabf) * 1.6); }
-.pz.low .pz-panel.tabbed { padding-top: max(clamp(18px, calc(3.4 * var(--pzh) / var(--vz)), 44px), calc(var(--pz-tabh) + 6px)); }
-.pz.low .pz-panel.tabbed.tab-beside { padding-top: clamp(18px, calc(3.4 * var(--pzh) / var(--vz)), 44px); }   /* (its title clear of the tab: level with it, presenter.js tabBeside) */
+.pz.low .pz-panel.tabbed { padding-top: max(clamp(18px, calc(3.4 * var(--pzh)), 44px), calc(var(--pz-tabh) + 6px)); }
+.pz.low .pz-panel.tabbed.tab-beside { padding-top: clamp(18px, calc(3.4 * var(--pzh)), 44px); }   /* (its title clear of the tab: level with it, presenter.js tabBeside) */
 .app.pz-hi .pz-tabname { color: var(--text); }
 /* The slide's level (presenter.js wordsIn): the deck tab's mirror in the glass's top left corner, flush with its top and left
    edges, only its bottom right corner rounded, the same height and words, tinted in the level's own colour. */
@@ -1718,16 +1714,16 @@ button.finding { cursor: pointer; }
 .pz.low .pz-rail.one li.on:first-child .n { left: 0; translate: none; }
 .pz.low .pz-rail.one li.on:last-child .n { left: auto; right: 0; translate: none; }
 /* The data card: the pressure ladder and its tiles. */
-.pz-data { position: absolute; right: var(--pz-cm); top: var(--pz-cm); width: min(calc(clamp(300px, calc(29vw / var(--vz)), 600px) * var(--pz-wk, 1)), calc(42vw / var(--vz))); max-height: calc(100% - 2 * var(--pz-cm)); --pz-gap: clamp(8px, calc(1.6 * var(--pzh) / var(--vz)), 20px); display: flex; flex-direction: column; gap: var(--pz-gap); padding: clamp(14px, calc(2.1 * var(--pzh) / var(--vz)), 28px); background: color-mix(in srgb, var(--surface) 96%, transparent); border: 1px solid var(--border); border-radius: clamp(16px, calc(2.2 * var(--pzh) / var(--vz)), 28px); box-shadow: var(--shadow-3); transition: opacity .32s var(--ease), transform .32s var(--ease); }
+.pz-data { position: absolute; right: var(--pz-cm); top: var(--pz-cm); width: min(calc(clamp(300px, 29vw, 600px) * var(--pz-wk, 1)), 42vw); max-height: calc(100% - 2 * var(--pz-cm)); --pz-gap: clamp(8px, calc(1.6 * var(--pzh)), 20px); display: flex; flex-direction: column; gap: var(--pz-gap); padding: clamp(14px, calc(2.1 * var(--pzh)), 28px); background: color-mix(in srgb, var(--surface) 96%, transparent); border: 1px solid var(--border); border-radius: clamp(16px, calc(2.2 * var(--pzh)), 28px); box-shadow: var(--shadow-3); transition: opacity .32s var(--ease), transform .32s var(--ease); }
 .pz-data.pz-hide { opacity: 0; transform: translateX(18px); }
 .pz.pz-card:not(.stack) .pz-data { padding: var(--pz-cp); }   /* (the same padding as the teaching card, so the two cards' text edges line up) */
 .pz-dh { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: center; text-align: center; gap: 4px 12px; font: var(--caps-w) var(--s-cap)/1.25 var(--font-ui); letter-spacing: var(--caps-ls); text-transform: uppercase; color: var(--text-3); }
 .pz-unit { text-transform: none; letter-spacing: normal; }   /* (a unit in a title: "mL/day", never "ML/DAY"; title-units.js) */
 .pz-hb { fill: color-mix(in srgb, var(--danger) 10%, transparent); }
 .pz-hs { fill: var(--danger); fill-opacity: .55; }
-.pz-tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(0, 1fr)); gap: clamp(8px, calc(1.2 * var(--pzh) / var(--vz)), 14px); }
+.pz-tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(0, 1fr)); gap: clamp(8px, calc(1.2 * var(--pzh)), 14px); }
 .pz-tiles[data-n="0"] { display: none; }   /* (a ladder alone: its brackets give the HVPG and PPG) */
-.pz-tile { display: flex; flex-direction: column; align-items: center; text-align: center; gap: .2em; container-type: inline-size; padding: clamp(10px, calc(1.5 * var(--pzh) / var(--vz)), 18px) clamp(12px, calc(1.6 * var(--pzh) / var(--vz)), 20px); border-radius: clamp(12px, calc(1.6 * var(--pzh) / var(--vz)), 18px); background: var(--surface-2); border: 2px solid transparent; min-width: 0; transition: border-color .4s var(--ease), background-color .4s var(--ease), box-shadow .4s var(--ease); }
+.pz-tile { display: flex; flex-direction: column; align-items: center; text-align: center; gap: .2em; container-type: inline-size; padding: clamp(10px, calc(1.5 * var(--pzh)), 18px) clamp(12px, calc(1.6 * var(--pzh)), 20px); border-radius: clamp(12px, calc(1.6 * var(--pzh)), 18px); background: var(--surface-2); border: 2px solid transparent; min-width: 0; transition: border-color .4s var(--ease), background-color .4s var(--ease), box-shadow .4s var(--ease); }
 /* No tile is marked as the one a slide is about (17 Oct, Mohammad): every tile looks the same, the sentence's pill points at it.
    (A ring read as "selected", a top accent line as stock generated design, greying the others he did not like.) */
 .pz-tile .pzt-r { transition: color .4s var(--ease); }
@@ -1747,7 +1743,7 @@ button.finding { cursor: pointer; }
 .pz-data.tiles-only .pz-tiles[data-n="4"] { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .pz-data.tiles-only .pzt-v { font-size: var(--s-title); }
 /* Under the words (beside a sinusoid): the left column, the tiles two by two. */
-.pz-data.under { left: clamp(20px, calc(3.4vw / var(--vz)), 76px); right: auto; width: clamp(300px, calc(29vw / var(--vz)), 600px); }
+.pz-data.under { left: clamp(20px, 3.4vw, 76px); right: auto; width: clamp(300px, 29vw, 600px); }
 .pz-data.under.pz-hide { transform: translateY(14px); }
 .pz-data.under.tiles-only .pz-tiles, .pz-data.col.tiles-only .pz-tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 /* On a laptop or tablet the data card can stack under the words' card (presenter.js layout sets its left, top and width):
@@ -1761,7 +1757,7 @@ button.finding { cursor: pointer; }
 /* Tiles alone, beside the words: the card is as wide as its tiles need (never wider than its old width). The tiles
    drop their size container, which would make them measure as zero wide; the number keeps a width for four characters
    so a changing number does not nudge the card. Two tiles go side by side when the screen is wide. */
-.pz:not(.stack) .pz-data.tiles-only:not(.under):not(.col):not(.has-tool) { width: fit-content; max-width: clamp(300px, calc(25vw / var(--vz)), 500px); }
+.pz:not(.stack) .pz-data.tiles-only:not(.under):not(.col):not(.has-tool) { width: fit-content; max-width: clamp(300px, 25vw, 500px); }
 .pz:not(.stack) .pz-data.tiles-only:not(.under):not(.col):not(.has-tool) .pz-tile { container-type: normal; }
 .pz:not(.stack) .pz-data.tiles-only:not(.under):not(.col):not(.has-tool) .pzt-v { font-size: var(--s-big); }
 .pz:not(.stack) .pz-data.tiles-only:not(.under):not(.col):not(.has-tool) .pzt-v { font-size: var(--s-title); min-width: 3.6ch; text-align: right; }   /* (its room held for the counting number, which sits at the right of it so the unit follows it straight on: "75%", never "75 … %", I5 17 Oct) */
@@ -1811,7 +1807,7 @@ button.finding { cursor: pointer; }
 }
 /* The case card: a new patient's case, centred on the slide in the cards' glass, just big enough for its words (the figure shows above and below).
    It enters and leaves whole (a fade and a short rise), never changing size. */
-.pz-case { --pz-glass-edge: color-mix(in srgb, var(--white) 45%, transparent); --pz-glass-drop: rgb(var(--black-rgb) / .14); position: absolute; inset: 0; margin: auto; width: min(calc(100% - 32px), 920px); height: fit-content; max-height: calc(100% - 2 * max(84px, 11vh)); box-sizing: border-box; display: flex; flex-direction: column; align-items: flex-start; gap: clamp(10px, calc(1.6 * var(--pzh) / var(--vz)), 20px); padding: clamp(20px, 4vw, 44px); overflow: hidden; background: color-mix(in srgb, var(--surface) 58%, transparent); -webkit-backdrop-filter: blur(16px) saturate(1.15); backdrop-filter: blur(16px) saturate(1.15); border: 1px solid color-mix(in srgb, var(--text) 10%, transparent); border-radius: clamp(16px, calc(2.2 * var(--pzh) / var(--vz)), 28px); box-shadow: inset 0 1px 0 var(--pz-glass-edge), 0 14px 34px -10px var(--pz-glass-drop), 0 2px 6px -1px var(--pz-glass-drop); pointer-events: auto; cursor: pointer; opacity: 0; transform: translateY(14px); transition: opacity .45s var(--ease), transform .45s var(--ease); }
+.pz-case { --pz-glass-edge: color-mix(in srgb, var(--white) 45%, transparent); --pz-glass-drop: rgb(var(--black-rgb) / .14); position: absolute; inset: 0; margin: auto; width: min(calc(100% - 32px), 920px); height: fit-content; max-height: calc(100% - 2 * max(84px, 11vh)); box-sizing: border-box; display: flex; flex-direction: column; align-items: flex-start; gap: clamp(10px, calc(1.6 * var(--pzh)), 20px); padding: clamp(20px, 4vw, 44px); overflow: hidden; background: color-mix(in srgb, var(--surface) 58%, transparent); -webkit-backdrop-filter: blur(16px) saturate(1.15); backdrop-filter: blur(16px) saturate(1.15); border: 1px solid color-mix(in srgb, var(--text) 10%, transparent); border-radius: clamp(16px, calc(2.2 * var(--pzh)), 28px); box-shadow: inset 0 1px 0 var(--pz-glass-edge), 0 14px 34px -10px var(--pz-glass-drop), 0 2px 6px -1px var(--pz-glass-drop); pointer-events: auto; cursor: pointer; opacity: 0; transform: translateY(14px); transition: opacity .45s var(--ease), transform .45s var(--ease); }
 .pz-case.on { opacity: 1; transform: none; }
 .pz-case:not(.on) { pointer-events: none; }   /* (lifted and fading while the patient still loads behind it: touches and clicks pass through) */
 .pz.stack .pz-case { border-radius: 18px; }
@@ -1828,22 +1824,22 @@ button.finding { cursor: pointer; }
 .pz-case-p { margin: 0; text-align: center; font: 500 calc(var(--s-body) * var(--case-k, var(--case-max)))/1.25 var(--font-display); letter-spacing: -.01em; color: var(--text); text-wrap: pretty; }
 .pz-veil { position: absolute; inset: 0; background: color-mix(in srgb, var(--stage-bg) 92%, transparent); opacity: 0; transition: opacity .5s var(--ease); }
 .pz-veil.on { opacity: 1; }
-.pz-panel { position: absolute; left: 50%; top: 50%; translate: -50% -50%; width: min(1560px, calc(100% - 2 * clamp(16px, calc(3vw / var(--vz)), 64px))); max-height: calc(100% - 2 * clamp(16px, calc(4 * var(--pzh) / var(--vz)), 56px)); overflow: clip; display: flex; flex-direction: column; gap: clamp(12px, calc(2.4 * var(--pzh) / var(--vz)), 32px); padding: clamp(18px, calc(3.4 * var(--pzh) / var(--vz)), 44px) clamp(20px, calc(3vw / var(--vz)), 52px); background: var(--surface); border: 1px solid var(--border); border-radius: clamp(18px, calc(2.6 * var(--pzh) / var(--vz)), 32px); box-shadow: var(--shadow-3); pointer-events: auto; animation: pz-in .55s var(--ease) both; transition: opacity .22s var(--ease), transform .22s var(--ease); }
-.pz-panel .pz-ph { display: flex; flex-direction: column; gap: clamp(6px, calc(1.2 * var(--pzh) / var(--vz)), 14px); }
+.pz-panel { position: absolute; left: 50%; top: 50%; translate: -50% -50%; width: min(1560px, calc(100% - 2 * clamp(16px, 3vw, 64px))); max-height: calc(100% - 2 * clamp(16px, calc(4 * var(--pzh)), 56px)); overflow: clip; display: flex; flex-direction: column; gap: clamp(12px, calc(2.4 * var(--pzh)), 32px); padding: clamp(18px, calc(3.4 * var(--pzh)), 44px) clamp(20px, 3vw, 52px); background: var(--surface); border: 1px solid var(--border); border-radius: clamp(18px, calc(2.6 * var(--pzh)), 32px); box-shadow: var(--shadow-3); pointer-events: auto; animation: pz-in .55s var(--ease) both; transition: opacity .22s var(--ease), transform .22s var(--ease); }
+.pz-panel .pz-ph { display: flex; flex-direction: column; gap: clamp(6px, calc(1.2 * var(--pzh)), 14px); }
 .pz-panel .pz-h { font-size: var(--s-big); }
 .pz-panel .pz-line { max-width: 70ch; }
 /* The opening slide: the deck's own title, centred and large, a short hairline under it; the slide's running head and heading are quieter below. It fades in with the slide. */
-.pz-panel[data-visual="outline"] .pz-ph { align-items: center; text-align: center; gap: clamp(8px, calc(1.4 * var(--pzh) / var(--vz)), 16px); padding-top: clamp(4px, calc(1.6 * var(--pzh) / var(--vz)), 22px); }
+.pz-panel[data-visual="outline"] .pz-ph { align-items: center; text-align: center; gap: clamp(8px, calc(1.4 * var(--pzh)), 16px); padding-top: clamp(4px, calc(1.6 * var(--pzh)), 22px); }
 .pz-panel .pz-dtitle { margin: 0; max-width: 20ch; font: 540 var(--s-title)/1.05 var(--font-display); letter-spacing: -.022em; text-wrap: balance; color: var(--text); animation: pz-in .6s var(--ease) both; }
 .pz-panel .pz-dtitle::after { content: ""; display: block; width: 3rem; height: 2px; margin: .42em auto 0; border-radius: 1px; background: var(--accent); opacity: .55; }
-.pz-panel[data-visual="outline"] .pz-kick { justify-content: center; margin-top: clamp(6px, calc(1.6 * var(--pzh) / var(--vz)), 22px); }
+.pz-panel[data-visual="outline"] .pz-kick { justify-content: center; margin-top: clamp(6px, calc(1.6 * var(--pzh)), 22px); }
 .pz-panel[data-visual="outline"] .pz-ph .pz-h { padding-bottom: 0; font-size: var(--s-body); font-weight: 500; color: var(--text-2); }
 .pz.stack .pz-panel .pz-dtitle { font-size: var(--s-big); text-wrap: wrap; max-width: none; }
 .pz.stack .pz-panel[data-visual="outline"] .pz-ph { align-items: stretch; text-align: left; padding-top: 0; }
 .pz.stack .pz-panel[data-visual="outline"] .pz-kick { justify-content: flex-start; margin-top: 0; }
 .pz.stack .pz-panel .pz-dtitle::after { margin-left: 0; }
-.pz-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: clamp(10px, calc(2 * var(--pzh) / var(--vz)), 26px); }
-.pz-cell { display: flex; flex-direction: column; gap: clamp(4px, calc(.8 * var(--pzh) / var(--vz)), 10px); padding: clamp(10px, calc(1.6 * var(--pzh) / var(--vz)), 20px) clamp(12px, calc(1.6 * var(--pzh) / var(--vz)), 20px) clamp(6px, calc(1 * var(--pzh) / var(--vz)), 12px); border-radius: clamp(12px, calc(1.8 * var(--pzh) / var(--vz)), 20px); background: var(--surface-2); min-width: 0; }
+.pz-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: clamp(10px, calc(2 * var(--pzh)), 26px); }
+.pz-cell { display: flex; flex-direction: column; gap: clamp(4px, calc(.8 * var(--pzh)), 10px); padding: clamp(10px, calc(1.6 * var(--pzh)), 20px) clamp(12px, calc(1.6 * var(--pzh)), 20px) clamp(6px, calc(1 * var(--pzh)), 12px); border-radius: clamp(12px, calc(1.8 * var(--pzh)), 20px); background: var(--surface-2); min-width: 0; }
 /* (A long site name, POSTSINUSOIDAL, in a narrow cell steps its size down to fit the cell rather than run out of it.) */
 .pz-cell { container-type: inline-size; }
 .pz-cell .pz-kick { font-size: min(var(--s-cap), 8.4cqi); }
@@ -1856,7 +1852,7 @@ button.finding { cursor: pointer; }
 /* (The HVPG is a pill, top right of every tile: it never wraps under the site tag; both shrink with the tile.) */
 .pz-cell-t { font: 600 var(--s-body)/1.15 var(--font-display); color: var(--text); }
 /* The six ladders fill the panel: two rows share its height and each chart shrinks to its cell. */
-.pz-panel.fill { height: calc(100% - 2 * clamp(16px, calc(4 * var(--pzh) / var(--vz)), 56px)); }
+.pz-panel.fill { height: calc(100% - 2 * clamp(16px, calc(4 * var(--pzh)), 56px)); }
 .pz-panel.fill .pz-grid { flex: 1; min-height: 0; grid-template-rows: repeat(2, minmax(0, 1fr)); }
 .pz-panel.fill .pz-cell { min-height: 0; }
 .pz-cell > .pz-prof { flex: 1 1 0; min-height: 0; height: auto; font-size: var(--ch-cap, 12px); }   /* (each case's Gut to heart chart takes its cell's room under the title, lettered at the data card's chart size) */
@@ -1867,7 +1863,7 @@ button.finding { cursor: pointer; }
 :is(.pz.stack, .pz.low) .pz-grid-head > .pz-pstrip { display: block; width: auto; margin: 0 12px; font-size: var(--s-cap); }
 .pz.stack .pz-grid-head > :nth-child(2) { display: none; }
 .pz:not(.stack) .pz-cell { --ch-cap: max(12px, calc(var(--s-cap) * .74)); --ch-lab: calc(max(12px, calc(var(--s-cap) * .74)) * 1.5); }   /* (a big screen's six ladders letter at the data card's chart size, so the plots fit their cells) */
-.pz-table { overflow: auto; border: 1px solid var(--border); border-radius: clamp(12px, calc(1.8 * var(--pzh) / var(--vz)), 20px); }
+.pz-table { overflow: auto; border: 1px solid var(--border); border-radius: clamp(12px, calc(1.8 * var(--pzh)), 20px); }
 .pz-table table { width: 100%; border-collapse: collapse; font: 500 var(--s-body)/1.25 var(--font-ui); }
 .pz-table th, .pz-table td { padding: .55em .75em; text-align: left; vertical-align: middle; }
 .pz-table thead th { background: var(--surface-2); font: var(--caps-w) var(--s-cap)/1.2 var(--font-ui); letter-spacing: var(--caps-ls); text-transform: uppercase; color: var(--text-3); white-space: nowrap; }
@@ -1954,8 +1950,8 @@ button.finding { cursor: pointer; }
 .pz-table tr[data-arrived] td { animation: pz-fade .5s var(--ease) both; }
 /* The visuals: a scale with thresholds, SAAG × protein, the two capillary walls. */
 .pz-visual { min-height: 0; display: flex; justify-content: center; }
-.pz-quadwrap { display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr); gap: clamp(16px, calc(3vw / var(--vz)), 52px); align-items: center; }
-.pz-quad { display: block; width: 100%; height: auto; max-height: calc(58 * var(--pzh) / var(--vz)); }
+.pz-quadwrap { display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr); gap: clamp(16px, 3vw, 52px); align-items: center; }
+.pz-quad { display: block; width: 100%; height: auto; max-height: calc(58 * var(--pzh)); }
 /* (Four quadrants, four quiet tints, the HVPG against PPG plane's family: the two non-portal quadrants cool (1 green, 3 blue), the
    two portal ones warm (2 violet, 4 wine). A numbered row beside the plot takes its quadrant's tint. Tints of --surface, so they
    follow every theme.) */
@@ -1971,13 +1967,13 @@ button.finding { cursor: pointer; }
 .pzq-pt { animation: pz-in .6s var(--ease) both; animation-delay: calc(var(--i, 0) * 180ms + 300ms); }
 .pzq-pt circle { fill: var(--site); stroke: var(--surface); stroke-width: 5; }
 .pzq-pt text { font: 700 29px var(--font-ui); fill: var(--text); }
-.pz-quads { display: flex; flex-direction: column; gap: clamp(8px, calc(1.6 * var(--pzh) / var(--vz)), 20px); margin: 0; padding: 0; list-style: none; }
-.pz-quads li { display: grid; grid-template-columns: auto minmax(0, 1fr); column-gap: .8em; row-gap: .2em; align-items: baseline; padding: .65em .9em; border-radius: clamp(12px, calc(1.6 * var(--pzh) / var(--vz)), 18px); background: var(--surface-2); }
+.pz-quads { display: flex; flex-direction: column; gap: clamp(8px, calc(1.6 * var(--pzh)), 20px); margin: 0; padding: 0; list-style: none; }
+.pz-quads li { display: grid; grid-template-columns: auto minmax(0, 1fr); column-gap: .8em; row-gap: .2em; align-items: baseline; padding: .65em .9em; border-radius: clamp(12px, calc(1.6 * var(--pzh)), 18px); background: var(--surface-2); }
 .pz-quads li[data-q="1"] { background: var(--pzq-1); } .pz-quads li[data-q="2"] { background: var(--pzq-2); } .pz-quads li[data-q="3"] { background: var(--pzq-3); } .pz-quads li[data-q="4"] { background: var(--pzq-4); }
 .pz-quads .qn { grid-row: span 2; font: 700 var(--s-val)/1 var(--font-display); color: var(--text-3); }
 .pz-quads .qt { font: 600 var(--s-lab)/1.2 var(--font-ui); color: var(--text); }
 .pz-quads .qc { font: 400 var(--s-cap)/1.3 var(--font-ui); color: var(--text-2); }
-.pz-walls { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: clamp(16px, calc(3vw / var(--vz)), 52px); align-items: start; }
+.pz-walls { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: clamp(16px, 3vw, 52px); align-items: start; }
 .pz.stack .pz-walls { grid-template-columns: minmax(0, 1fr); gap: 0; }
 .pz.stack .pzw-panel.sin { margin-top: 6px; padding-top: 14px; border-top: 1px solid var(--border); }
 .pz.stack .pzw-art { margin: .15em 0; }
@@ -2019,7 +2015,7 @@ button.finding { cursor: pointer; }
 .app.pz-hi .pz-bar .ib { color: var(--text); }
 .pz-bar.pzb-pill { left: auto; right: var(--pz-cm); bottom: max(var(--pz-cm), calc(env(safe-area-inset-bottom, 0px) + 8px)); translate: none; max-width: none; height: 44px; gap: 0; padding: 0; overflow: visible; border-radius: var(--r-sheet); }   /* (a wide screen: the phone's pill at the lower right, with back and next) */
 .pz-bar.pzb-pill .ib { width: 44px; height: 44px; }
-.pz-bar.pzb-pill .pzb-n { font-size: clamp(14px, calc(1.6 * var(--pzh) / var(--vz)), 17px); }
+.pz-bar.pzb-pill .pzb-n { font-size: clamp(14px, calc(1.6 * var(--pzh)), 17px); }
 /* The pill's hover, pressed and current highlights follow its curve: each button's box is the pill's 44 px (its tap target, 1 px over the border on each side), a 4 px clear border keeps the highlight 4 px inside the pill's edge, and the highlight's radius is the pill's less that 4 (concentric), so it never touches or crosses the curve. */
 .pz-bar.pzb-pill > :is(.ib, button.pzb-n), .pz.stack .pz-bar > :is(.ib, button.pzb-n) { border: 4px solid transparent; background-clip: padding-box !important; border-radius: var(--r-sheet); }   /* (!important: the buttons' background shorthands would reset the clip) */
 /* One quiet tint for hover, press and the open list, so every button in the pill reads the same: soft on hover, a touch deeper while pressed (touch screens too), easing in and out. */
@@ -2067,7 +2063,7 @@ button.finding { cursor: pointer; }
 .pz.stack .pz-text.pz-leave, .pz.stack .pz-text > .pz-leave { transform: translateY(18px); }
 @keyframes pz-in-y { from { opacity: 0; transform: translateY(18px); } }
 .pz.stack .pz-text.pz-enter > * { animation-name: pz-in-y; }
-.pz.stack .pz-text { --pz-lh: calc(1.38 * clamp(14px, calc(1.9 * var(--pzh) / var(--vz)), 20px)); left: 21px; right: 21px; top: auto; bottom: calc(max(26px, 65px - var(--pz-lh)) + var(--pz-sb)); margin-block: 0; width: auto; max-height: 62%; gap: 6px; }/* (With a data card under the words, the pair keeps to the top so the card has room.) */
+.pz.stack .pz-text { --pz-lh: calc(1.38 * clamp(14px, calc(1.9 * var(--pzh)), 20px)); left: 21px; right: 21px; top: auto; bottom: calc(max(26px, 65px - var(--pz-lh)) + var(--pz-sb)); margin-block: 0; width: auto; max-height: 62%; gap: 6px; }/* (With a data card under the words, the pair keeps to the top so the card has room.) */
 .pz:not(.stack):has(.pz-data.under:not(.pz-hide)) .pz-text { bottom: auto; margin-block: 0; }
 .pz.stack .pz-kick { font-size: var(--s-lab); }
 /* (A phone's title: Regular or Compact with its words, never stepped down alone: src/ui/card-type.js.) */
@@ -2273,14 +2269,14 @@ button.finding { cursor: pointer; }
 .pz:not(.stack):not(.port) .pz-data.has-tool:not(.tool-only) { width: clamp(320px, 27vw, 540px); }
 /* Tiles under a chart (desktop and iPad): the reading is the small value size, and the change says only "▲ 7.9 from 16.9"
    (as on a phone), so it takes one or two lines. The grid itself is the data card's one tile grid (below). */
-.pz:not(.stack) .pz-data.has-tool:not(.tool-only) .pz-tile { gap: .15em; padding: clamp(8px, calc(1.1 * var(--pzh) / var(--vz)), 14px) clamp(9px, calc(1.1 * var(--pzh) / var(--vz)), 14px); }
+.pz:not(.stack) .pz-data.has-tool:not(.tool-only) .pz-tile { gap: .15em; padding: clamp(8px, calc(1.1 * var(--pzh)), 14px) clamp(9px, calc(1.1 * var(--pzh)), 14px); }
 .pz:not(.stack) .pz-data.has-tool:not(.tool-only) .pzt-k { letter-spacing: .04em; overflow-wrap: normal; }
 /* One tile grid in every data card (Mac and iPad landscape). Tiles and the scope's readings are laid on columns that span the
    card's full inner width, at one gap, one padding and one corner; every row fills the width (no tile alone, centred or leaving
    a row half empty) and a row's tiles share one height. One to three tiles take one row, four go two by two; three drop to two
    over one (the last across) only on a card too narrow to hold three names whole. The scope's readings: grade, diameter, wall
    thickness, then bands and red signs (the signs across two columns); two columns on a narrow card. Names never break mid-word. */
-.pz:not(.stack) .pz-data:is(.col, .under, .has-tool) { container: pzd / inline-size; --pz-tg: clamp(8px, calc(1.2 * var(--pzh) / var(--vz)), 14px); }
+.pz:not(.stack) .pz-data:is(.col, .under, .has-tool) { container: pzd / inline-size; --pz-tg: clamp(8px, calc(1.2 * var(--pzh)), 14px); }
 .pz:not(.stack) .pz-data:is(.col, .under, .has-tool) .pz-tiles { gap: var(--pz-tg); }
 .pz:not(.stack) .pz-data:is(.col, .under, .has-tool) .pz-tiles[data-n="1"] { grid-template-columns: minmax(0, 1fr); }
 .pz:not(.stack) .pz-data:is(.col, .under, .has-tool) .pz-tiles:is([data-n="2"], [data-n="4"]) { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -2288,7 +2284,7 @@ button.finding { cursor: pointer; }
 .pz:not(.stack) .pz-data:is(.col, .under, .has-tool) .pz-tiles[data-n="3"] .pzt-k { min-height: 2.4em; display: flex; align-items: flex-end; justify-content: center; }
 .pz:not(.stack) .pz-data:is(.col, .under, .has-tool) .pzt-k { overflow-wrap: normal; hyphens: manual; }
 .pz:not(.stack) .pz-tool[data-kind="scope"] .endo-read { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--pz-tg, 8px); }
-.pz:not(.stack) .pz-data .pz-tool[data-kind="scope"] .endo-read > div { align-items: center; justify-content: flex-start; gap: .25em; text-align: center; padding: clamp(8px, calc(1.1 * var(--pzh) / var(--vz)), 14px) clamp(9px, calc(1.1 * var(--pzh) / var(--vz)), 14px); border-radius: clamp(12px, calc(1.6 * var(--pzh) / var(--vz)), 18px); }
+.pz:not(.stack) .pz-data .pz-tool[data-kind="scope"] .endo-read > div { align-items: center; justify-content: flex-start; gap: .25em; text-align: center; padding: clamp(8px, calc(1.1 * var(--pzh)), 14px) clamp(9px, calc(1.1 * var(--pzh)), 14px); border-radius: clamp(12px, calc(1.6 * var(--pzh)), 18px); }
 .pz:not(.stack) .pz-data .pz-tool[data-kind="scope"] .endo-read dt { overflow-wrap: normal; hyphens: manual; }
 .pz:not(.stack) .pz-data .pz-tool[data-kind="scope"] :is(.endo-num, .endo-grade) { justify-content: center; }
 .pz:not(.stack) .pz-data .pz-tool[data-kind="scope"] .endo-read > div > dd { margin-top: auto; }   /* (values share one line across a row, whatever the names' lines) */
@@ -2296,7 +2292,7 @@ button.finding { cursor: pointer; }
    the name, the number with its unit, the status ("● Raised"), the change ("▲ 7.5 from 5.0"). Two sizes only: the number, and
    one small size (--pz-sm) for everything else, the instruments' own labels included. Only the name may take a second line. */
 .pz:not(.stack) .pz-data { --pz-sm: max(12px, calc(var(--s-cap) * .74)); --pz-num: calc(var(--s-val) * 1.08); }
-.pz:not(.stack) .pz-data .pz-tiles .pz-tile { display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; gap: .2em; padding: clamp(10px, calc(1.2 * var(--pzh) / var(--vz)), 16px) clamp(8px, calc(1 * var(--pzh) / var(--vz)), 14px); }
+.pz:not(.stack) .pz-data .pz-tiles .pz-tile { display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; gap: .2em; padding: clamp(10px, calc(1.2 * var(--pzh)), 16px) clamp(8px, calc(1 * var(--pzh)), 14px); }
 .pz:not(.stack) .pz-data .pz-tiles .pzt-k { font-size: var(--pz-sm); letter-spacing: .05em; min-height: 0; margin: 0 0 .15em; text-wrap: balance; }
 .pz:not(.stack) .pz-data .pz-tiles .pzt-v { font-size: min(var(--pz-num), 26cqi); }
 .pz:not(.stack) .pz-data .pz-tiles .pzt-vu small { font-size: var(--pz-sm); }
@@ -2359,8 +2355,8 @@ button.finding { cursor: pointer; }
 .pz-data.has-tool { pointer-events: auto; }
 /* One block style beside a tool: the scope's readings and the key tile are all tiles of the data card (fill set above), laid out
    two across with the grade on its own row, so no row is half empty. A reading's emphasis is its value colour; the key tile adds only the thicker edge. */
-.pz-tool .endo-read { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: clamp(6px, calc(1 * var(--pzh) / var(--vz)), 10px); }
-.pz-tool .endo-read > div { display: flex; flex-direction: column; justify-content: space-between; gap: .2em; min-width: 0; padding: clamp(8px, calc(1.1 * var(--pzh) / var(--vz)), 12px) clamp(10px, calc(1.4 * var(--pzh) / var(--vz)), 16px); border-radius: clamp(12px, calc(1.6 * var(--pzh) / var(--vz)), 18px); border: 2px solid transparent; }
+.pz-tool .endo-read { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: clamp(6px, calc(1 * var(--pzh)), 10px); }
+.pz-tool .endo-read > div { display: flex; flex-direction: column; justify-content: space-between; gap: .2em; min-width: 0; padding: clamp(8px, calc(1.1 * var(--pzh)), 12px) clamp(10px, calc(1.4 * var(--pzh)), 16px); border-radius: clamp(12px, calc(1.6 * var(--pzh)), 18px); border: 2px solid transparent; }
 .pz-tool .endo-read dt { font: 600 var(--s-cap)/1.2 var(--font-ui); letter-spacing: .06em; text-transform: uppercase; color: var(--text-2); white-space: normal; overflow-wrap: break-word; }
 .pz-tool .endo-num, .pz-tool .endo-chip-v, .pz-tool .endo-grade, .pz-tool .endo-grade span, .pz-tool .endo-grade b { font: 600 var(--s-body)/1.1 var(--font-ui); letter-spacing: -.02em; }
 .pz-tool .endo-num { display: flex; flex-wrap: nowrap; align-items: baseline; gap: 0 .3em; }   /* (a long value must not push its unit to a new line: that grows the tile) */
@@ -2517,7 +2513,7 @@ button.finding { cursor: pointer; }
 .pz-text > *, .pz-data > *, .pz-panel > * { zoom: var(--pz-fit, 1); }
 .pz-data.col > * { zoom: calc(var(--pz-fit, 1) * var(--pz-dk, 1)); }   /* (stacked under the words when the pair would not fit: the data card's blocks at one of a few fixed smaller sizes, presenter.js DK) */
 /* (The card's smallest words, a heading, a tile's name, stay 11.5 px or more on the screen at every step; a chart keeps its own scale.) */
-.pz-data.col > :not(svg) { --s-cap: max(calc(clamp(12px, calc(1.733 * var(--pzh) / var(--vz)), 21px) * var(--ts, 1) * var(--pk, 1)), calc(11.5px / var(--pz-dk, 1))); }
+.pz-data.col > :not(svg) { --s-cap: max(calc(clamp(12px, calc(1.733 * var(--pzh)), 21px) * var(--ts, 1) * var(--pk, 1)), calc(11.5px / var(--pz-dk, 1))); }
 /* (An instrument drawn to the card's width shrinks with the card's fit too: zoomed alone it was drawn wider by as much, so it kept
    its size on the screen and the fit squeezed only the readings and tiles below it, to half size on a sideways phone.) */
 .pz-data > .pz-tool:not([data-kind="abdomen"]):not([data-kind="doppler"]):not([data-kind="fibroscan"]):not([data-kind="beats"]):not([data-kind="fluid"]) { width: calc(100% * var(--pz-fit, 1)); margin-inline: auto; }
@@ -2544,7 +2540,7 @@ button.finding { cursor: pointer; }
 .app.pz-hi .pz-text { filter: contrast(1.3); }
 /* The opening slide: the talk's plan as a numbered run of sections, its objectives on a tinted card beside it
    (under it on a narrow screen). One type size for both lists; the numbers and ticks in the accent colour. */
-.pz-outline { --pzo-fs: var(--s-body); display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 340px), 1fr)); align-items: start; gap: clamp(18px, calc(3.2 * var(--pzh) / var(--vz)), 44px) clamp(24px, 3.6vw, 60px); }
+.pz-outline { --pzo-fs: var(--s-body); display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 340px), 1fr)); align-items: start; gap: clamp(18px, calc(3.2 * var(--pzh)), 44px) clamp(24px, 3.6vw, 60px); }
 .pz-outline section { min-width: 0; display: flex; flex-direction: column; }
 .pz-outline h2.pz-sub { display: flex; align-items: center; gap: .8em; margin: 0 0 .7em; }
 .pz-outline h2.pz-sub::after { content: ""; flex: 1; height: 1px; background: var(--border); }
@@ -2553,7 +2549,7 @@ button.finding { cursor: pointer; }
 .pz-outline ol li { counter-increment: pzo; display: grid; grid-template-columns: 2.1em minmax(0, 1fr); align-items: baseline; padding: .5em 0; border-top: 1px solid color-mix(in srgb, var(--text) 8%, transparent); }
 .pz-outline ol li:first-child { border-top: 0; padding-top: .1em; }
 .pz-outline ol li::before { content: counter(pzo, decimal-leading-zero); font: 600 .74em/1 var(--font-num); font-variant-numeric: tabular-nums; letter-spacing: .04em; color: var(--accent); }
-.pzo-obj { padding: clamp(14px, calc(2.2 * var(--pzh) / var(--vz)), 26px) clamp(16px, calc(2.2 * var(--pzh) / var(--vz)), 28px); border-radius: clamp(14px, calc(1.8 * var(--pzh) / var(--vz)), 22px); background: color-mix(in srgb, var(--accent) 6%, transparent); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 14%, transparent); }
+.pzo-obj { padding: clamp(14px, calc(2.2 * var(--pzh)), 26px) clamp(16px, calc(2.2 * var(--pzh)), 28px); border-radius: clamp(14px, calc(1.8 * var(--pzh)), 22px); background: color-mix(in srgb, var(--accent) 6%, transparent); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 14%, transparent); }
 .pzo-obj h2.pz-sub::after { background: color-mix(in srgb, var(--accent) 18%, transparent); }
 .pz-outline ul { gap: .75em; }
 .pz-outline ul li { position: relative; padding-left: 1.7em; }
@@ -2561,7 +2557,7 @@ button.finding { cursor: pointer; }
 .pz.stack .pz-outline { --pzo-fs: calc(var(--s-body) * .85); gap: 14px; }   /* (a phone: the outline's words a little smaller) */
 .pz.stack .pz-panel[data-visual="outline"] .pz-dtitle { font-size: calc(var(--s-big) * .85); }
 .pz.stack .pzo-obj { padding: 12px 14px; border-radius: 14px; }
-.pz-panel[data-visual="outline"] { width: min(1180px, calc(100% - 2 * clamp(16px, calc(3vw / var(--vz)), 64px))); }
+.pz-panel[data-visual="outline"] { width: min(1180px, calc(100% - 2 * clamp(16px, 3vw, 64px))); }
 .app.pz-hi .pzt-r { align-self: center; padding: .22em .7em; border-radius: var(--r-pill); background: var(--text-2); color: var(--surface); transition: background-color .4s var(--ease), color .4s var(--ease); }
 .app.pz-hi .pz-tile[data-rate="hi"] .pzt-r { background: var(--danger); color: var(--stage-bg); }
 .app.pz-hi .pz-tile[data-rate="mid"] .pzt-r { background: var(--caution); color: var(--on-caution); }
@@ -3026,7 +3022,7 @@ button.finding { cursor: pointer; }
   .instrument-workspace.side .instrument-view[data-pane="hvpg"] .hvpg-note { display: none; }   /* (its room goes to the procedure buttons) */
 }
 @media (max-width: 600px) {
-  .instrument-view[data-pane="hvpg"] .chart-box { height: clamp(170px, calc(26vh / var(--vz)), 220px); }
+  .instrument-view[data-pane="hvpg"] .chart-box { height: clamp(170px, 26vh, 220px); }
   .hvpg-bar { gap: 8px 12px; }
   .hvpg-bar .btn { padding-inline: 12px; }
   .hvpg-kv { gap: 12px; }
@@ -3153,7 +3149,7 @@ button.finding { cursor: pointer; }
 }
 @container (max-width: 619px) or style(--one-col: 1) {
   .dop-main { flex: none; gap: 12px; }
-  .instrument-workspace .instrument-view.dop .dop-box { height: clamp(180px, calc(30vh / var(--vz)), 260px); flex: none; }
+  .instrument-workspace .instrument-view.dop .dop-box { height: clamp(180px, 30vh, 260px); flex: none; }
   .dop-stats { grid-template-columns: repeat(4, minmax(0, 1fr)); }
   .dop-vessel { flex: 0 1 180px; max-width: 180px; }
 }
@@ -3170,7 +3166,7 @@ button.finding { cursor: pointer; }
 /* Moving blood: the Blood menu beside the lens, and the origin key in the figure. */
 #btnBlood.off svg:first-child { color: var(--text-3); }
 #btnBlood.off span { color: var(--text-3); text-decoration: line-through; text-decoration-thickness: 1px; }
-.blood-pop { width: min(340px, calc(calc(100vw / var(--vz)) - 24px)); }
+.blood-pop { width: min(340px, calc(100vw - 24px)); }
 .blood-pop .menu-item small { display: block; color: var(--text-2); font-size: var(--fs-12); line-height: 1.4; margin-top: 2px; font-weight: 400; }
 @media (max-width: 600px) { #btnBlood > span, #btnBlood .chev { display: none; } }
 
@@ -3228,7 +3224,7 @@ button.finding { cursor: pointer; }
 }
 .vdock .stage-bar.bottom { grid-area: tl; height: 60px; background: transparent; padding: 0 8px 0 12px; display: flex; min-width: 0; z-index: auto; }
 .vdock .timeline { flex: 1; }
-.vdock .readouts { grid-area: ro; width: clamp(360px, calc(33vw / var(--vz)), 470px); border-left: 1px solid var(--hairline); }
+.vdock .readouts { grid-area: ro; width: clamp(360px, 33vw, 470px); border-left: 1px solid var(--hairline); }
 .vdock:has(.readouts.all) { grid-template-columns: minmax(0, 1fr); grid-template-areas: "ro" "tl"; }
 .vdock .readouts.all { width: auto; border-left: 0; border-bottom: 1px solid var(--hairline); }
 /* Four key readouts until the chevron opens the rest. */
@@ -3259,7 +3255,7 @@ button.finding { cursor: pointer; }
    vessel's Details). On a phone it is a bottom sheet. */
 .panel {
   position: absolute; top: calc(var(--top-safe) + 4px); right: calc(env(safe-area-inset-right) + var(--gap)); bottom: calc(var(--vdock-h) + var(--gap) + 8px);
-  width: min(380px, calc(calc(100vw / var(--vz)) - 2 * var(--gap))); border-radius: var(--r-sheet); box-shadow: var(--shadow-3), inset 0 0 0 1px var(--hairline);
+  width: min(380px, calc(100vw - 2 * var(--gap))); border-radius: var(--r-sheet); box-shadow: var(--shadow-3), inset 0 0 0 1px var(--hairline);
   transform: translateX(calc(100% + 24px)); visibility: hidden; transition: transform .28s var(--ease), visibility .28s, opacity .28s;
 }
 .app.panel-open .panel { transform: none; visibility: visible; }
@@ -3269,7 +3265,7 @@ button.finding { cursor: pointer; }
 /* Treat: one card with the drugs, fluids and procedures, under its button. */
 .treat-card {
   position: absolute; z-index: var(--z-panel); top: calc(var(--top-safe) + 4px); right: calc(env(safe-area-inset-right) + var(--gap));
-  width: min(400px, calc(calc(100vw / var(--vz)) - 2 * var(--gap))); max-height: calc(100% - var(--top-safe) - var(--vdock-h) - 2 * var(--gap) - 12px);
+  width: min(400px, calc(100vw - 2 * var(--gap))); max-height: calc(100% - var(--top-safe) - var(--vdock-h) - 2 * var(--gap) - 12px);
   display: flex; flex-direction: column; overflow: hidden; background: var(--surface); border-radius: var(--r-sheet); box-shadow: var(--shadow-3), inset 0 0 0 1px var(--hairline);
   animation: acIn .14s var(--ease);
 }
@@ -3292,7 +3288,7 @@ button.finding { cursor: pointer; }
   bottom: calc(var(--vdock-h) + var(--gap) + 8px); width: auto; max-width: none;
   border: 0; border-radius: var(--r-sheet); box-shadow: var(--shadow-3), inset 0 0 0 1px var(--hairline);
 }
-.app.panel-open .instrument-workspace.float-ui { right: calc(env(safe-area-inset-right) + var(--gap) * 2 + min(380px, calc(100vw / var(--vz)) - 2 * var(--gap))); }
+.app.panel-open .instrument-workspace.float-ui { right: calc(env(safe-area-inset-right) + var(--gap) * 2 + min(380px, 100vw - 2 * var(--gap))); }
 .instrument-workspace .workspace-divider { border-radius: var(--r-sheet) var(--r-sheet) 0 0; }
 .app.instrument-focus .instrument-workspace.float-ui { top: calc(var(--top-safe) + 4px); height: auto; }
 .app.instrument-focus .stage-view { display: block; visibility: hidden; }
@@ -3338,9 +3334,9 @@ button.finding { cursor: pointer; }
   .instrument-workspace.float-ui:not(.side).dragging { transition: none; }
   /* FibroScan on the sheet: the map takes the height left under the header and the note (not a fixed height), so its x labels stay inside the sheet. */
   .instrument-workspace.float-ui:not(.side) .dock-pane[data-pane="fibroscan"] { padding-top: 10px; padding-bottom: 12px; }
-  /* The map fills the sheet's height; the note flows below it and is only seen when the sheet is opened fully (the map stops at calc(58vh / var(--vz))). */
+  /* The map fills the sheet's height; the note flows below it and is only seen when the sheet is opened fully (the map stops at 58vh). */
   .instrument-workspace.float-ui:not(.side) .instrument-view[data-pane="fibroscan"] { display: block; flex: 1 1 0; min-height: 0; }
-  .instrument-workspace.float-ui:not(.side) .instrument-view[data-pane="fibroscan"] .chart-box { height: min(100%, calc(58vh / var(--vz))); min-height: 200px; }
+  .instrument-workspace.float-ui:not(.side) .instrument-view[data-pane="fibroscan"] .chart-box { height: min(100%, 58vh); min-height: 200px; }
   .instrument-workspace.float-ui:not(.side) .instrument-view[data-pane="fibroscan"] > .ctl-sub { margin: 10px 0 0; }
   .instrument-workspace:not(.side) .workspace-divider { display: none !important; }
   .instrument-workspace.side .sheet-grab { display: none; }
@@ -3373,8 +3369,8 @@ button.finding { cursor: pointer; }
 /* The one menu (menu.js): search, Present and Patients side by side, footer. A popover under the menu
    button from 768 px; a bottom sheet on a phone. */
 .umenu {
-  position: fixed; z-index: var(--z-popover); display: flex; flex-direction: column; width: min(460px, calc(100vw / var(--vz) - 24px));
-  height: min(640px, calc(100dvh / var(--vz) - 76px)); background: var(--surface); border-radius: var(--r-card); box-shadow: var(--shadow-menu), 0 0 0 1px var(--hairline);
+  position: fixed; z-index: var(--z-popover); display: flex; flex-direction: column; width: min(460px, calc(100vw - 24px));
+  height: min(640px, calc(100dvh - 76px)); background: var(--surface); border-radius: var(--r-card); box-shadow: var(--shadow-menu), 0 0 0 1px var(--hairline);
   overflow: hidden; animation: pop .16s var(--ease); transform-origin: top left;
 }
 .umenu.still { animation: none; }
@@ -3448,7 +3444,7 @@ button.finding { cursor: pointer; }
 .um-esc { margin-left: auto; padding-right: 8px; font-size: var(--fs-12); color: var(--text-3); }
 .um-g li.um-new > .um-row { background: var(--accent-soft); }
 /* The preview beside the panel (mouse) and under a row (touch). */
-.um-pv { position: fixed; z-index: var(--z-popover); width: 360px; max-width: calc(100vw / var(--vz) - 16px); background: var(--surface); border-radius: var(--r-card); box-shadow: var(--shadow-menu), 0 0 0 1px var(--hairline); overflow: hidden; opacity: 0; transition: opacity .12s var(--ease), height .12s var(--ease), top .12s var(--ease); }
+.um-pv { position: fixed; z-index: var(--z-popover); width: 360px; max-width: calc(100vw - 16px); background: var(--surface); border-radius: var(--r-card); box-shadow: var(--shadow-menu), 0 0 0 1px var(--hairline); overflow: hidden; opacity: 0; transition: opacity .12s var(--ease), height .12s var(--ease), top .12s var(--ease); }
 .um-pv.on { opacity: 1; }
 .um-pv-in { padding: 0 0 12px; animation: fadeIn .12s var(--ease); }
 .um-pv-old { position: absolute; left: 0; right: 0; top: 0; animation: umFade .12s var(--ease) forwards; }
@@ -3482,7 +3478,7 @@ button.finding { cursor: pointer; }
 /* Phone: the same content as a bottom sheet, one column, the column headings sticking. */
 .um-scrim { position: fixed; inset: 0; z-index: var(--z-popover); background: var(--scrim-menu); animation: fadeIn .28s var(--ease); }
 .um-scrim.out { animation: umFade .28s var(--ease) forwards; }
-.umenu.sheet { left: 0 !important; right: 0; top: auto !important; bottom: 0; width: auto; height: calc(88dvh / var(--vz)); max-height: none; border-radius: var(--r-sheet) var(--r-sheet) 0 0; animation: sheetUp .28s var(--ease); padding-bottom: env(safe-area-inset-bottom, 0px); }
+.umenu.sheet { left: 0 !important; right: 0; top: auto !important; bottom: 0; width: auto; height: 88dvh; max-height: none; border-radius: var(--r-sheet) var(--r-sheet) 0 0; animation: sheetUp .28s var(--ease); padding-bottom: env(safe-area-inset-bottom, 0px); }
 .umenu.sheet.still { animation: none; }
 .umenu.sheet.out { animation: sheetDown .28s var(--ease) forwards; }
 /* Upright (over the thumb dock) the shared sheet swipe moves it by --sink (util.js swipeSheet): it follows the finger down. */
@@ -3501,7 +3497,7 @@ html.thumb-ui .umenu.sheet { translate: 0 var(--sink, 0px); }
 }
 /* While the phone's menu sheet is up there is no figure left for the corner credit. */
 .app.menu-sheet-open .stage-credit { opacity: 0; }
-.app-menu { max-height: calc(calc(100vh / var(--vz)) - 80px); overflow-y: auto; }
+.app-menu { max-height: calc(100vh - 80px); overflow-y: auto; }
 
 /* The top row: menu + patient · view · blood and legend · Findings, Treat, Measure, Search. */
 .topbar { gap: 8px; }
@@ -3813,7 +3809,7 @@ input[type="range"] { touch-action: none; }
 /* ── Timeline and readouts, readable at a glance ──────────────────
    The timeline keeps every change and event behind History. The readouts name each value plainly, with
    its unit, and only an abnormal status is spelled out in color. */
-@media (min-width: 1100px) { .vdock .readouts:not(.all) { width: clamp(400px, calc(34vw / var(--vz)), 500px); } }
+@media (min-width: 1100px) { .vdock .readouts:not(.all) { width: clamp(400px, 34vw, 500px); } }
 .tl-hist {
   flex: none; display: inline-flex; align-items: center; gap: 6px; height: 32px; padding: 0 10px; border: 1px solid var(--border); border-radius: var(--r-card);
   background: var(--surface); color: var(--text); font: 600 var(--fs-12) var(--font-ui); cursor: pointer; white-space: nowrap;
@@ -3825,12 +3821,12 @@ input[type="range"] { touch-action: none; }
 /* Events: a colored flag standing on the rail, so they read apart from the learner's changes. */
 .tl-pop-empty { margin: 0; padding: 8px; font-size: var(--fs-14); color: var(--text-2); }
 .tl-pop-row.future { opacity: .5; }
-.tl-history { max-height: min(320px, calc(45vh / var(--vz))); }
+.tl-history { max-height: min(320px, 45vh); }
 .menu.as-sheet .tl-history { max-height: none; }
 /* History reads as a vertical timeline: a rail joins the markers, each marker sits on the first line
    of its row, and the list scrolls inside soft top and bottom edges instead of being cut at the card's
    edge. On a phone the list scrolls inside the sheet (the sheet still pulls down from the list's top). */
-.tl-pop.tl-history { width: min(360px, calc(calc(100vw / var(--vz)) - 24px)); padding: 10px 2px; overscroll-behavior: contain;
+.tl-pop.tl-history { width: min(360px, calc(100vw - 24px)); padding: 10px 2px; overscroll-behavior: contain;
   -webkit-mask-image: linear-gradient(to bottom, transparent, #000 12px, #000 calc(100% - 12px), transparent);
   mask-image: linear-gradient(to bottom, transparent, #000 12px, #000 calc(100% - 12px), transparent); }
 .menu.as-sheet .tl-pop.tl-history { max-height: calc(75dvh - 24px); overflow: auto; }
@@ -3978,7 +3974,7 @@ input, textarea, select, [contenteditable]:not([contenteditable="false"]),
    landed on each other). It keeps just the colour scale, sized to the room that is left, with the chevron; the numbers are in the menu. */
 @media (max-width: 479px) {
   #app:not(.sin-focus):not(.thumb) .topbar:has(#viewSeg > [data-view="sinusoid"]:not([hidden])) :is(.lg-cap, .lg-num) { display: none; }
-  #app:not(.sin-focus):not(.thumb) .topbar:has(#viewSeg > [data-view="sinusoid"]:not([hidden])) .lg-scale { width: clamp(12px, calc(100vw / var(--vz) - 341px), 56px); height: 16px; }
+  #app:not(.sin-focus):not(.thumb) .topbar:has(#viewSeg > [data-view="sinusoid"]:not([hidden])) .lg-scale { width: clamp(12px, calc(100vw - 341px), 56px); height: 16px; }
   #app:not(.sin-focus):not(.thumb) .topbar:has(#viewSeg > [data-view="sinusoid"]:not([hidden])) .legend { gap: 0; }
 }
 
@@ -4069,7 +4065,7 @@ input, textarea, select, [contenteditable]:not([contenteditable="false"]),
 
 /* Change messages: a light, translucent pill above the play bar; click, swipe or x to dismiss. */
 .toast-wrap { transform: translateX(-50%); }
-.toast { display: flex; align-items: center; gap: 8px; padding: 5px 6px 5px 12px; background: var(--glass); color: var(--text); border-radius: var(--r-sheet); box-shadow: var(--shadow-2), inset 0 0 0 1px var(--hairline); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); font-size: var(--fs-12); line-height: 1.4; max-width: min(440px, calc(92vw / var(--vz))); pointer-events: auto; cursor: pointer; touch-action: pan-x; }
+.toast { display: flex; align-items: center; gap: 8px; padding: 5px 6px 5px 12px; background: var(--glass); color: var(--text); border-radius: var(--r-sheet); box-shadow: var(--shadow-2), inset 0 0 0 1px var(--hairline); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); font-size: var(--fs-12); line-height: 1.4; max-width: min(440px, 92vw); pointer-events: auto; cursor: pointer; touch-action: pan-x; }
 .toast.bad { background: var(--glass); color: var(--danger); }
 .toast-x { flex: none; display: inline-grid; place-items: center; width: 22px; height: 22px; padding: 0; border: 0; border-radius: 50%; background: transparent; color: var(--text-2); cursor: pointer; }
 @media (hover: hover) { .toast-x:hover { background: var(--surface-3); color: var(--text); } }
@@ -4293,7 +4289,7 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
 .pz-cover i { width: 30px; height: 30px; border-radius: 50%; border: 2px solid color-mix(in srgb, var(--text) 12%, transparent); border-top-color: color-mix(in srgb, var(--text) 52%, transparent); opacity: 0; animation: pz-spin 1.1s linear infinite, pz-cover-i .4s var(--ease) .9s forwards; }
 @keyframes pz-cover-i { to { opacity: 1; } }
 @media (prefers-reduced-motion: reduce) { .pz-cover, .pz-cover.on { transition: none; } .pz-cover i { animation: pz-cover-i .01s 1.2s forwards; } }
-.pz-load { position: absolute; left: calc(var(--pz-l, 0px) / var(--ui-zoom, 1)); right: calc(var(--pz-r, 0px) / var(--ui-zoom, 1)); top: calc(var(--pz-t, 0px) / var(--ui-zoom, 1)); bottom: calc(var(--pz-b, 0px) / var(--ui-zoom, 1)); display: grid; place-items: center; pointer-events: none; opacity: 0; transition: opacity .45s var(--ease); }
+.pz-load { position: absolute; left: var(--pz-l, 0px); right: var(--pz-r, 0px); top: var(--pz-t, 0px); bottom: var(--pz-b, 0px); display: grid; place-items: center; pointer-events: none; opacity: 0; transition: opacity .45s var(--ease); }
 .pz-load.on { opacity: 1; transition-delay: .12s; }
 .pz-load i { width: 30px; height: 30px; border-radius: 50%; border: 2px solid color-mix(in srgb, var(--text) 12%, transparent); border-top-color: color-mix(in srgb, var(--text) 52%, transparent); animation: pz-spin 1.1s linear infinite; }
 @keyframes pz-spin { to { transform: rotate(360deg); } }
@@ -5060,7 +5056,7 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
 .vdock .timeline { gap: 8px; }
 .vdock .tl-time { flex: none; min-width: 3.4em; font-size: var(--fs-14); font-weight: 600; color: var(--text-2); text-align: right; }
 /* Readouts: wide enough that a unit never clips. */
-@media (min-width: 1100px) { .vdock .readouts:not(.all) { width: clamp(440px, calc(38vw / var(--vz)), 580px); } }
+@media (min-width: 1100px) { .vdock .readouts:not(.all) { width: clamp(440px, 38vw, 580px); } }
 .metric .v .unit { flex: none; overflow: visible; }
 .metric .v { overflow: hidden; }
 /* Event flags: a slightly smaller dot. */
@@ -5299,7 +5295,7 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
   cursor: pointer; -webkit-tap-highlight-color: transparent; transition: opacity .5s var(--ease) .12s, transform .5s var(--ease) .12s; }
 .pz.pz-wide .pz-lip::after { content: ''; position: absolute; left: 50%; top: 50%; width: 34px; height: 4px; translate: -50% -50%; border-radius: 2px; background: color-mix(in srgb, var(--text) 32%, transparent); }
 .pz.pz-wide .pz-data.pz-hide + .pz-lip { transform: translateX(-18px); }   /* (as the card leaves, .pz-data.col) */
-.pz.pz-wide.pz-wide .pz-data.pz-sheet.pz-sheet { --pz-u: 0; --pz-sr: clamp(16px, calc(2.2 * var(--pzh) / var(--vz)), 28px); --pz-in: 8px; padding-top: 10px; background: none; -webkit-backdrop-filter: none; backdrop-filter: none; border-color: transparent; box-shadow: none; overflow: visible; isolation: isolate; }
+.pz.pz-wide.pz-wide .pz-data.pz-sheet.pz-sheet { --pz-u: 0; --pz-sr: clamp(16px, calc(2.2 * var(--pzh)), 28px); --pz-in: 8px; padding-top: 10px; background: none; -webkit-backdrop-filter: none; backdrop-filter: none; border-color: transparent; box-shadow: none; overflow: visible; isolation: isolate; }
 .pz.pz-wide.pz-wide .pz-data.pz-sheet.pz-sheet.tool-open { --pz-u: 1; }
 .pz.pz-wide.pz-wide .pz-data.pz-sheet.pz-sheet > :not(.pz-tool) { zoom: 1; }
 .pz.pz-wide.pz-wide .pz-data.pz-sheet.pz-sheet.pz-sliding:not(.tool-open) { --pz-grow: calc(var(--pz-u) * var(--pz-d, 0px)); }
@@ -6175,7 +6171,7 @@ html.thumb-ui .menu.from-dock { clip-path: inset(-64px -64px calc(var(--sink, 0p
   .app.thumb .topbar .stage-bar.top { container-type: normal; }
   /* (Both give way, down to what they need: the name its longest word, the key its caption and a 48 px scale with its end numbers.) */
   .app.thumb .topbar :is(.stage-bar.top, .sb-right, .lens-btn, .legend) { flex: 0 1 auto; min-width: min-content; overflow: visible; }
-  .app.thumb .topbar .lg-scale { flex: none; width: clamp(48px, calc(100vw / var(--vz, 1) - 302px), 88px); }   /* (88 px from a 390 px phone up, 48 at 320: an empty box adds only its width to the bar's size, so it is set by the screen) */
+  .app.thumb .topbar .lg-scale { flex: none; width: clamp(48px, calc(100vw - 302px), 88px); }   /* (88 px from a 390 px phone up, 48 at 320: an empty box adds only its width to the bar's size, so it is set by the screen) */
   .app.thumb .topbar .legend { gap: 13px; }   /* (9 px between the caption and the first number, which hangs past the scale's end by half its width) */
   .app.thumb .topbar .tb-id { flex: 0 1 auto; min-width: min-content; margin-right: auto; }
   .topbar .lg-cats:not(.lg-dots) { display: grid; gap: 1px 0; line-height: 1.25; }   /* (Physiological over Reversed) */
@@ -6432,12 +6428,12 @@ html.thumb-ui .menu.from-dock { clip-path: inset(-64px -64px calc(var(--sink, 0p
   --pze-ppg: color-mix(in srgb, var(--tr-hv) 45%, var(--black)); --pze-hvpg: color-mix(in srgb, var(--ramp-violet) 55%, var(--black)); --pze-both: color-mix(in srgb, var(--ramp-wine) 55%, var(--black));
   --pze-ppg-ink: var(--text); --pze-hvpg-ink: var(--text); --pze-both-ink: var(--text);
 }
-.pze-planewrap { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr); gap: clamp(16px, calc(3vw / var(--vz)), 48px); align-items: center; width: 100%; }
+.pze-planewrap { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr); gap: clamp(16px, 3vw, 48px); align-items: center; width: 100%; }
 .pz.stack .pze-planewrap { grid-template-columns: minmax(0, 1fr); gap: 12px; }
 .pze-planewrap.pze-nokey { grid-template-columns: minmax(0, 1fr); }   /* (a plane whose zones name themselves: the plot takes the key's width too) */
 .pze-planewrap.pze-nokey > .pze-key { display: none; }
 .pz.stack .pze-planewrap.pze-nokey > .pze-key { display: block; }   /* (an iPhone's plot is too narrow for every zone's words: the key stays under it) */
-.pze-plot { position: relative; width: 100%; height: calc(52 * var(--pzh) / var(--vz)); min-height: 240px; font-size: var(--s-cap); }
+.pze-plot { position: relative; width: 100%; height: calc(52 * var(--pzh)); min-height: 240px; font-size: var(--s-cap); }
 .pz.stack .pze-plot { height: auto; aspect-ratio: 1.15; min-height: 0; }
 .pze-plot.pze-incard { height: clamp(200px, calc(30 * var(--pzh)), 360px); min-height: 0; font-size: var(--ch-cap, var(--s-cap)); }
 .pz.stack .pze-plot.pze-incard { height: 168px; aspect-ratio: auto; }

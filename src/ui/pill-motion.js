@@ -18,14 +18,14 @@ export const FOLD_MS = 420, FOLD_EASE = 'cubic-bezier(.2, .8, .2, 1)';
 
 /**
  * One frame of the pill's glide (main.js sinMotion), on one axis, all in screen px. at: the pill's centre as drawn now, which
- * holds its own shift (shift × z: its transform, in its own px, under the interface zoom z) and the slide of the dock it sits on
+ * holds its own shift (its transform) and the slide of the dock it sits on
  * (dock); from: where it was when the move began; k: the share of the way still to go (1 − ease). Its resting place is what is
  * left; the shift returned draws it at from + (rest − from)(1 − k), whatever the dock under it is doing. (The dock's slide is taken
  * off too: the pill rides on it, so leaving it in drew the pill off the screen with the dock, out of the sinusoid, 17 Oct.)
  */
-export function glideShift(at, shift, z, dock, from, k) {
-  const rest = at - shift * z - dock;
-  return { rest, shift: ((from - rest) * k - dock) / z };
+export function glideShift(at, shift, dock, from, k) {
+  const rest = at - shift - dock;
+  return { rest, shift: (from - rest) * k - dock };
 }
 
 /**

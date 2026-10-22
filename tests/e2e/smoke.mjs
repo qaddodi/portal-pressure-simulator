@@ -1399,7 +1399,7 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
   // lists the presentations and no error is thrown. (chart.js used to throw on a bad pps.chartOpen3 before anything drew.)
   if (device === 'desktop') await check(device, 'damaged saved settings do not stop the app from starting', async (page) => {
     await page.addInitScript(() => {
-      const bad = { 'pps.chartOpen3': '{', 'pps.scripts': '{"id":1}', 'pps.instruments': '[', 'pps.blood2': '"x"', 'pps.theme': 'nope', 'pps.labelScale': 'big', 'pps.quality': 'x', 'pps.uiZoom': 'x', 'pps.labels': '7' };
+      const bad = { 'pps.chartOpen3': '{', 'pps.scripts': '{"id":1}', 'pps.instruments': '[', 'pps.blood2': '"x"', 'pps.theme': 'nope', 'pps.labelScale': 'big', 'pps.quality': 'x', 'pps.labels': '7' };
       try { for (const [k, v] of Object.entries(bad)) localStorage.setItem(k, v); } catch { /* no storage on this frame */ }
     });
     await open(page, '?home=present');
@@ -1408,6 +1408,16 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     await page.waitForTimeout(600);
     if (!(await page.evaluate((t) => window.pps.store.get().frame.t > t, t1))) throw new Error('the model clock did not advance');
     if (await page.evaluate(() => document.documentElement.getAttribute('data-theme'))) throw new Error('an unknown saved theme was applied');
+  });
+
+  // The Interface zoom setting is gone: a value saved by it is dropped, and the page keeps its default size.
+  if (device === 'desktop') await check(device, 'a saved interface zoom no longer applies', async (page) => {
+    await page.addInitScript(() => { try { localStorage.setItem('pps.uiZoom', '1.4'); } catch { /* no storage on this frame */ } });
+    await open(page, '?home=present');
+    await page.waitForSelector('.umenu .um-row[data-k="d:hvpg"]');
+    const st = await page.evaluate(() => ({ zoom: document.documentElement.style.zoom, prop: document.documentElement.style.getPropertyValue('--ui-zoom'), saved: localStorage.getItem('pps.uiZoom') }));
+    if (st.zoom || st.prop) throw new Error(`the saved interface zoom was applied: ${JSON.stringify(st)}`);
+    if (st.saved !== null) throw new Error(`the saved interface zoom was kept: ${st.saved}`);
   });
 
   // A page left open across an update: its presentation engine's files no longer load (here the worker never answers and

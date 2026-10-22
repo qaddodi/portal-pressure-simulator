@@ -1,5 +1,5 @@
 // Text floor: no piece of text on screen is drawn under 12 px, as the eye sees it: the font size times every scale on its
-// way to the screen (a card scaled to fit, an SVG drawn into a smaller box, the interface zoom). HTML and SVG text are
+// way to the screen (a card scaled to fit, an SVG drawn into a smaller box). HTML and SVG text are
 // measured; canvas text is held to the floor where it is set (tests/text-floor.test.js reads the sources).
 // (Sweep batches 02–04: FibroScan scale numbers about 7 px at 320 px, a title card scaled to 8 px on a phone held sideways,
 // the circuit table's sublabels at 10 px, the bottom bar's HVPG and PPG at 9.6 px on a 320 px phone.)

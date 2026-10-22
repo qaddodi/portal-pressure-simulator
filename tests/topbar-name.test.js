@@ -37,7 +37,7 @@ test('a phone never squeezes the top-bar colour key: it keeps a scale of 48 px o
   assert.match(css, /\n\.lg-scale \{ flex: none; \}/);
   assert.match(css, /\.app\.thumb \.topbar \.stage-bar\.top \{ container-type: normal; \}/, 'a size container is zero wide: the key would take no room');
   assert.match(css, /\.app\.thumb \.topbar :is\(\.stage-bar\.top, \.sb-right, \.lens-btn, \.legend\) \{ flex: 0 1 auto; min-width: min-content;/);
-  assert.match(css, /\.app\.thumb \.topbar \.lg-scale \{ flex: none; width: clamp\(48px, calc\(100vw \/ var\(--vz, 1\) - 302px\), 88px\); \}/);
+  assert.match(css, /\.app\.thumb \.topbar \.lg-scale \{ flex: none; width: clamp\(48px, calc\(100vw - 302px\), 88px\); \}/);
   assert.match(css, /#app:not\(\.thumb\) \.topbar :is\(\.sb-right, \.lens-btn, \.legend\) \{ min-width: min-content; \}/, 'sideways: the bar sees the key whole');
   assert.doesNotMatch(block, /\.topbar \.lg-title, \.topbar \.lg-num \{ display: none; \}/, 'sideways the numbers were hidden');
 });

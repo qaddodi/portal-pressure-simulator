@@ -125,7 +125,7 @@ more). See [docs/PERFORMANCE.md](docs/PERFORMANCE.md).
 - **LMS.** `npm run scorm` builds a SCORM 1.2 package (optionally of one script)
   for the LMS. Deep links (`?script=sites`, `?preset=csph`) open straight into an activity. See [docs/LMS.md](docs/LMS.md).
 - **Accessibility.** Keyboard access to every structure, a live one-line description of the
-  patient, interface zoom, reduced motion, color always paired with a second cue. See
+  patient, reduced motion, color always paired with a second cue. See
   [docs/ACCESSIBILITY.md](docs/ACCESSIBILITY.md).
 - **Privacy.** No trackers, no third-party requests (fonts are self-hosted), nothing stored off
   the device. See [docs/PRIVACY.md](docs/PRIVACY.md).

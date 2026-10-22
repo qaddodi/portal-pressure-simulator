@@ -4,8 +4,8 @@
 // entry in the timeline; nothing stays "armed".
 
 import { store, updateParams } from './store.js?v=67f4341802';
-import { h, icon, svgIcon, clamp, infoButton, sinkTo, stopSink, paintRange, isPhoneLayout, countTo, swapText, transformEndX, afterExit } from './util.js?v=be12b8e102';
-import { cardFor, normalizeSel } from './actions.js?v=d34e9d5a51';
+import { h, icon, svgIcon, clamp, infoButton, sinkTo, stopSink, paintRange, isPhoneLayout, countTo, swapText, transformEndX, afterExit } from './util.js?v=d2c95a1b16';
+import { cardFor, normalizeSel } from './actions.js?v=50d62ceb53';
 import { frameFor, cancelFrame } from './frame.js?v=19b3f2915c';
 import { placeCard, coverCount, vesselPoints } from './card-place.js?v=4eb9859ce3';
 const nextFrame = frameFor('card');

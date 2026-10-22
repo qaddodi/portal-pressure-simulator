@@ -3,26 +3,26 @@
 
 import { startHost, host } from './host.js?v=fc0bcc6ac3';
 import { store, updateParams, replaceParams, bindParamSender, clearHistory, logAction, varicesPresent, hiddenNow } from './store.js?v=67f4341802';
-import { createStage } from './stage.js?v=b8f4a509c2';
+import { createStage } from './stage.js?v=cfc7095e51';
 import { createCreditPlacer } from './credit.js?v=dc0666dc54';
 import { sinusoidSupported } from './gl-support.js?v=94ad2a7ff1';
-import { createInspector } from './inspector.js?v=de4d896c8a';
-import { createDock, CUTOFFS, savedInstruments } from './dock.js?v=fa6b02c298';
-import { setHvpgStage } from './hvpg-proc.js?v=d0fe646e47';
-import { createWhy } from './why.js?v=ae1a756099';
-import { createTimeline, LAPSES } from './timeline.js?v=44519880f9';
-import { createCompare } from './compare.js?v=3337a316aa';
-import { createCard } from './card.js?v=929872f831';
-import { createChart } from './chart.js?v=018dead5c8';
-import { createMenu } from './menu.js?v=24531e1688';
-import { caption } from './a11y.js?v=ab9151399e';
+import { createInspector } from './inspector.js?v=6eaadd6e9c';
+import { createDock, CUTOFFS, savedInstruments } from './dock.js?v=62d1eff5a7';
+import { setHvpgStage } from './hvpg-proc.js?v=56cec3f3ba';
+import { createWhy } from './why.js?v=fd826e67fc';
+import { createTimeline, LAPSES } from './timeline.js?v=40d350fe08';
+import { createCompare } from './compare.js?v=f5afbc04f1';
+import { createCard } from './card.js?v=af049a5c73';
+import { createChart } from './chart.js?v=651d19fa2c';
+import { createMenu } from './menu.js?v=1ace137b3f';
+import { caption } from './a11y.js?v=a6b70a2169';
 import { startLMS } from './lms.js?v=284ef81e94';
 import { UPDATED, CONTENT_UPDATED, VALIDATION, AUTHOR, AUTHOR_URL, FEEDBACK_EMAIL } from '../version.js?v=1767318315';
-import { normalizeSel, shuntable, edgeValue, bedStats } from './actions.js?v=d34e9d5a51';
-import { gradientCss, dropCss, PRESSURE_TICKS, flowCss, flowPos, velocityCss, heatCss, HEAT_MAX, oxygenCss, OXY_MIN } from './colormap.js?v=287019881f';
+import { normalizeSel, shuntable, edgeValue, bedStats } from './actions.js?v=50d62ceb53';
+import { gradientCss, dropCss, PRESSURE_TICKS, flowCss, flowPos, velocityCss, heatCss, HEAT_MAX, oxygenCss, OXY_MIN } from './colormap.js?v=cdcf6a2f55';
 import { EDGES, PORTAL_TERRITORY } from '../engine/topology.js?v=4044766e96';
 import { dopplerVel } from './velNormal.js?v=97920ddf3f';
-import { $, $$, h, icon, afterExit, fmt, fmtFlow, toast, tooltipFor, openModal, closeModal, isModalOpen, popover, closePopover, popoverOpen, repositionPopover, menuItem, svgIcon, uiScale, isPhoneLayout, TABLET_UP_MQ, markGone, enterAfterGone, enhanceRanges, systemEdge, sinkTo, stopSink, swapFade, scrollBehavior, reconcile } from './util.js?v=be12b8e102';
+import { $, $$, h, icon, afterExit, fmt, fmtFlow, toast, tooltipFor, openModal, closeModal, isModalOpen, popover, closePopover, popoverOpen, menuItem, svgIcon, isPhoneLayout, TABLET_UP_MQ, markGone, enterAfterGone, enhanceRanges, systemEdge, sinkTo, stopSink, swapFade, scrollBehavior, reconcile } from './util.js?v=d2c95a1b16';
 import { TEXT_STEPS } from './type-scale.js?v=d7cca3fb73';
 
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
@@ -35,13 +35,13 @@ const SPEEDS = [0.25, 0.5, 1, 2, 4, 8];
 
 // Everything the learner does is a verb on the structure they click (actions.js, card.js); the
 // only armed gesture left is a shunt waiting for its target.
-import { debugOptions, debugOn, setDebug, initDebug } from './debug.js?v=35b2f2b009';
+import { debugOptions, debugOn, setDebug, initDebug } from './debug.js?v=d5936820a0';
 import { initTopbarMotion } from './topbar-motion.js?v=1eab6ec512';
 import { ORIGINS } from './blood.js?v=e668d01823';
 import { parseShare, cleanShare } from './share-link.js?v=b6f8e0f909';
 import { deepMerge, sanitizeParams } from '../engine/scenario.js?v=d7d3ea5b70';
 import { frameFor, cancelFrame, perf as framePerf } from './frame.js?v=19b3f2915c';
-import { easeIO3, glideShift, pillState, foldPill, stopFold } from './pill-motion.js?v=0f61f910f1';
+import { easeIO3, glideShift, pillState, foldPill, stopFold } from './pill-motion.js?v=ea522a5215';
 const nextFrame = frameFor('main');
 
 // Color lenses: [title, what it shows, legend swatch].
@@ -102,8 +102,8 @@ async function main() {
   // The Doppler and the FibroScan load after the first paint (a tab for one that has not come waits for it, dock.js). One left open when the
   // app was last used is asked for now and waited for with the model's first answers, so its pane is whole with the dock.
   const probeTo = (id) => { host.send({ type: 'probe', id }); logAction('probe', id); };
-  dopplerL = lazy(() => import('./doppler.js?v=36b0580d92'), ({ createDoppler }) => createDoppler({ onProbe: probeTo }));
-  fibroL = lazy(() => import('./fibroscan.js?v=30bd218345'), ({ createFibroScan }) => createFibroScan());
+  dopplerL = lazy(() => import('./doppler.js?v=693f8c30ba'), ({ createDoppler }) => createDoppler({ onProbe: probeTo }));
+  fibroL = lazy(() => import('./fibroscan.js?v=629363c47c'), ({ createFibroScan }) => createFibroScan());
   const wasOpen = savedInstruments().open;
   const openAtStart = [];
   if (Array.isArray(wasOpen)) for (const [id, l] of [['doppler', dopplerL], ['fibroscan', fibroL]]) if (wasOpen.includes(id)) openAtStart.push(l.get().catch(() => {}));
@@ -176,7 +176,7 @@ async function main() {
   dock = createDock({ strip: $('#strip'), head: $('#dockHead'), body: $('#dockBody'), onWhy: (m, el) => why.open(m, el), onAction: doAction, onProbe: probeTo, lazy: { doppler: dopplerL, fibroscan: fibroL }, onReveal: revealDock, onLobule: () => zoomLobule('R'),
     onOpen: () => openPanel('instruments'), onClose: () => setPanelTab('chart'), onLayout: () => syncDoppler(), isVisible: () => app.classList.contains('dock-open'),
     marks: () => timeline.entries(), onBeat: () => sendBeat() });
-  presenterL = lazy(() => import('./presenter.js?v=0567e4cd5a'), ({ createPresenter }) => createPresenter({ openSettings, loadPreset, updateParams, host, stage, dock, action: doAction,
+  presenterL = lazy(() => import('./presenter.js?v=7495c66725'), ({ createPresenter }) => createPresenter({ openSettings, loadPreset, updateParams, host, stage, dock, action: doAction,
     projectorOn: () => { if (!projector) toggleProjector(); }, projectorOff: () => { if (projector) toggleProjector(); },
     closeHome: () => mainMenu.close(), stashCards, rerenderHome: () => mainMenu.render() }));
   mainMenu = createMenu({
@@ -184,7 +184,7 @@ async function main() {
     onPreset: (id) => openInExplore(id), share, help: (a) => openHelpMenu(a),
     onToggle: (on, sheet) => { closePopover(); app.classList.toggle('menu-sheet-open', on && !!sheet); creditPlacer?.refresh(); labelsUnderMenu(on); },
   });
-  paletteL = lazy(() => import('./palette.js?v=208a8d6c3c'), ({ createPalette }) => createPalette({ ctx: {
+  paletteL = lazy(() => import('./palette.js?v=b1287e6a24'), ({ createPalette }) => createPalette({ ctx: {
     select, action: doAction, probe: (id) => { host.send({ type: 'probe', id }); logAction('probe', id); }, showPane: (id) => dock.show(id, { reveal: true }),
     jump: (d, l) => timeline.jump(d, l), undo: () => timeline.undo(), pin: () => timeline.togglePin(), lenses: Object.fromEntries(Object.entries(LENSES).map(([k, v]) => [k, v])),
     zoomLobule: () => zoomLobule('R'), instruments: () => dock.toggle(),
@@ -842,7 +842,7 @@ function wireTopbar() {
 // use it, what it is, and who made it).
 function openSettings(anchor, withSearch = false) {
   const cur = document.documentElement.getAttribute('data-theme') || 'system';
-  // While presenting, only what changes how the talk looks (appearance, full screen, text size, interface zoom), and Send feedback.
+  // While presenting, only what changes how the talk looks (appearance, full screen, text size), and Send feedback.
   const talk = presenter.active();
   popover(anchor, [
     // (Send feedback heads the sheet in every mode and on every device, above the dock's Search and Help, talks included, so a tester reaches it in one tap from any Settings button.)
@@ -856,8 +856,6 @@ function openSettings(anchor, withSearch = false) {
     ...(talk ? presenterSettings() : []),
     h('div', { class: 'menu-title' }, 'Text size on the figure'),
     textSizeControl(),
-    h('div', { class: 'menu-title' }, 'Interface zoom'),
-    uiZoomControl(),
     ...(talk ? [] : [
       h('div', { class: 'menu-title' }, 'Accessibility'),
       menuToggle(!document.documentElement.hasAttribute('data-noglass'), 'layers', 'Blur effect', 'Frosted glass behind cards and labels. Off: solid cards and glowing labels, lighter on a hot device', (on) => {
@@ -922,36 +920,6 @@ function fullscreenControl() {
   return b;
 }
 let fsSync = null, fsListening = false;
-// Interface zoom: scales the bars, dock, sheets and menus (the figure keeps its own zoom and text size).
-// The page applies the saved value before it paints (index.html); --ui-zoom undoes it on the figure.
-const UI_ZOOM_STEPS = [0.8, 0.9, 1, 1.1, 1.2, 1.3, 1.4];
-function setUiZoom(z) {
-  const root = document.documentElement;
-  root.style.zoom = z === 1 ? '' : String(z);
-  root.style.setProperty('--ui-zoom', String(z));
-  try { localStorage.setItem('pps.uiZoom', String(z)); } catch { /* storage unavailable */ }
-  dispatchEvent(new Event('resize'));
-}
-function uiZoomControl() {
-  const cur = () => parseFloat(document.documentElement.style.zoom) || 1;
-  const at = () => UI_ZOOM_STEPS.reduce((b, v, i) => (Math.abs(v - cur()) < Math.abs(UI_ZOOM_STEPS[b] - cur()) ? i : b), 0);
-  const smaller = h('button', { class: 'ts-a ts-sm', 'aria-label': 'Zoom out the interface', title: 'Zoom out the interface' }, '−');
-  const reset = h('button', { class: 'ts-reset', 'aria-label': 'Reset interface zoom', title: 'Reset interface zoom' });
-  const larger = h('button', { class: 'ts-a ts-lg', 'aria-label': 'Zoom in the interface', title: 'Zoom in the interface' }, '+');
-  const paint = () => {
-    const i = at();
-    smaller.disabled = i === 0; larger.disabled = i === UI_ZOOM_STEPS.length - 1;
-    reset.textContent = `${Math.round(cur() * 100)}%`;
-    reset.setAttribute('aria-pressed', String(i === UI_ZOOM_STEPS.indexOf(1)));
-  };
-  // The sheet stays open and re-anchors to the zoomed gear button.
-  const apply = (z) => { setUiZoom(z); paint(); nextFrame(repositionPopover); };
-  smaller.addEventListener('click', () => apply(UI_ZOOM_STEPS[Math.max(0, at() - 1)]));
-  larger.addEventListener('click', () => apply(UI_ZOOM_STEPS[Math.min(UI_ZOOM_STEPS.length - 1, at() + 1)]));
-  reset.addEventListener('click', () => apply(1));
-  paint();
-  return h('div', { class: 'seg full menu-seg text-size ui-zoom', role: 'group', 'aria-label': 'Interface zoom' }, smaller, reset, larger);
-}
 function openHelpMenu(anchor, at = { align: 'start', cls: 'app-menu' }) {
   popover(anchor, [
     h('div', { class: 'menu-title' }, 'Help'),
@@ -1231,10 +1199,10 @@ function wireFloating() {
     const ar = app.getBoundingClientRect();
     const nbOcc = px(nbR && nbR.height ? ar.bottom - nbR.top + 8 : 0);
     if (pubVals.nbOcc !== nbOcc) { pubVals.nbOcc = nbOcc; app.style.setProperty('--nb-occ', nbOcc); }
-    const occ = px(nbR && nbR.height ? (innerHeight - nbR.top) / uiScale() + 8 : 0);
+    const occ = px(nbR && nbR.height ? innerHeight - nbR.top + 8 : 0);
     if (pubVals.occ !== occ) { pubVals.occ = occ; document.documentElement.style.setProperty('--thumb-occ', occ); }
     // (and the top bar's foot, so a tall sheet stops under the view switch and leaves it in reach)
-    const topOcc = px(thumb ? tb.getBoundingClientRect().bottom / uiScale() : 0);
+    const topOcc = px(thumb ? tb.getBoundingClientRect().bottom : 0);
     if (pubVals.topOcc !== topOcc) { pubVals.topOcc = topOcc; document.documentElement.style.setProperty('--thumb-top', topOcc); }
     const sig = `${appClass()}|${tb.className}|${tb.dataset.fit}`;
     if (changed || sig !== pubSig) { pubSig = sig; dispatchEvent(new Event('pps:occ')); }
@@ -1521,12 +1489,11 @@ function sinMotion(from, intoSin) {
   const vd = $('#vdock'), reduce = matchMedia('(prefers-reduced-motion: reduce)').matches, ms = intoSin ? PILL_IN : PILL_OUT, t0 = performance.now();
   // The dock: from where it is drawn now (at rest, part way, or off the screen) to off the screen, or back to rest.
   const leaving = vd.classList.contains('vd-out');
-  let bars = !reduce && !app.classList.contains('presenting') && vd.offsetHeight > 0, y0 = barY, y1 = 0, bz = 1;
+  let bars = !reduce && !app.classList.contains('presenting') && vd.offsetHeight > 0, y0 = barY, y1 = 0;
   if (bars) {
     const r = vd.getBoundingClientRect();
-    bz = vd.currentCSSZoom || r.height / vd.offsetHeight || 1;
-    // (Its top, at rest, to past the screen's foot, with its shadow; never short of it, whichever px the interface zoom leaves.)
-    const left = innerHeight - (r.top - barY * bz), off = Math.max(left, left / bz) + 24;
+    // (Its top, at rest, to past the screen's foot, with its shadow.)
+    const off = innerHeight - (r.top - barY) + 24;
     if (intoSin) y1 = off; else if (!leaving) y0 = off;
     if (!intoSin) vd.classList.remove('vd-out');
   } else {
@@ -1545,19 +1512,19 @@ function sinMotion(from, intoSin) {
     if (bars) {
       barY = u >= 1 ? 0 : y0 + (y1 - y0) * e;
       vd.style.translate = u >= 1 ? '' : `0 ${barY.toFixed(2)}px`;
-      if (u >= 1) delete vd.dataset.slideY; else vd.dataset.slideY = (barY * bz).toFixed(2);
+      if (u >= 1) delete vd.dataset.slideY; else vd.dataset.slideY = barY.toFixed(2);
       if (u >= 1 && intoSin) vd.classList.remove('vd-out');   // (gone: the sinusoid view's rule hides it now)
     }
     const el = pillEl;
     if (el) {
       // (Where it lies now, less the glide's own shift and the dock's (read, not cleared, so no extra layout runs), drawn on its
-      // own path from where it was to where it rests, under the interface zoom: pill-motion.js glideShift.)
-      const r = el.getBoundingClientRect(), z = el.currentCSSZoom || (el.offsetWidth ? r.width / el.offsetWidth : 1) || 1;
+      // own path from where it was to where it rests: pill-motion.js glideShift.)
+      const r = el.getBoundingClientRect();
       if (u >= 1 || !r.width) { el.style.transform = ''; el.classList.remove('vp-glide'); delete el.dataset.slideY; pillEl = null; pillShiftY = 0; }
       else {
-        const dock = inDock && bars ? barY * bz : 0, k = 1 - e;
-        shift = [glideShift(r.left + r.width / 2, shift[0], z, 0, from.x, k).shift, glideShift(r.top + r.height / 2, shift[1], z, dock, from.y, k).shift];
-        el.style.transform = `translate(${shift[0].toFixed(2)}px, ${shift[1].toFixed(2)}px)`; pillShiftY = shift[1] * z;
+        const dock = inDock && bars ? barY : 0, k = 1 - e;
+        shift = [glideShift(r.left + r.width / 2, shift[0], 0, from.x, k).shift, glideShift(r.top + r.height / 2, shift[1], dock, from.y, k).shift];
+        el.style.transform = `translate(${shift[0].toFixed(2)}px, ${shift[1].toFixed(2)}px)`; pillShiftY = shift[1];
         el.dataset.slideY = (pillShiftY + dock).toFixed(2);
       }
     }
