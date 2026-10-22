@@ -396,6 +396,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host) }
   function zoomBy(factor) {
     if (!geo) return;
     if (sinTo) return;   // in the sinusoid: only the view switch goes back up to the lobule
+    if (fade < 0.98 || diveScaled) return;   // (the dive still on its way: see fitView)
     handsOff();
     const f = freeRect(), px = (f.l + f.r) / 2, py = (f.t + f.b) / 2;
     const k = clamp(V.k * factor, kFit, kFit * KMAX), r = k / V.k;
@@ -462,7 +463,8 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host) }
     Object.assign(V, { k: V.k, x: (f.l + f.r) / 2 - w[0] * V.k, y: (f.t + f.b) / 2 - w[1] * V.k }); clampV();
     const to = { ...V }; Object.assign(V, saved); glideTo(to, 380);
   }
-  function fitView() { if (sinTo) return; handsOff(); atFit = true; const F0 = fitV(); kFit = F0.k; glideTo(F0); }
+  // (Not while the dive is still on its way in or out: a glide begun on its first frames re-staged or popped the framing at landing.)
+  function fitView() { if (sinTo || fade < 0.98 || diveScaled) return; handsOff(); atFit = true; const F0 = fitV(); kFit = F0.k; glideTo(F0); }
   // A button (Fit, + or −) wins over the scroll that was under way when it was pressed: a Mac trackpad's momentum goes on
   // for a second or more after the fingers lift, and each of its events cancelled the button's glide (Fit did nothing).
   // That scroll is ignored until it stops; a stretch or rubber band it left springs back as part of the glide.

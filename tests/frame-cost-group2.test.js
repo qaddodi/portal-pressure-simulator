@@ -110,3 +110,10 @@ test('item 18 (lobule side): the sinusoid zoom stops a flick or glide first; a h
   assert.match(src, /box = reduce\.matches \? null : padBox\(W, H\), wd = box \? buildWide/);
   assert.match(src, /if \(wide \|\| fade <= 0\.98 \|\| !model \|\| reduce\.matches\) return;/);
 });
+
+test("item 18: +, − and Fit wait for the dive into the lobule to land", () => {
+  const src = read('../src/ui/lobule-zoom.js');
+  assert.match(src, /function fitView\(\) \{ if \(sinTo \|\| fade < 0\.98 \|\| diveScaled\) return;/);
+  const zb = src.slice(src.indexOf('function zoomBy(factor)'), src.indexOf('function zoomBy(factor)') + 400);
+  assert.match(zb, /if \(fade < 0\.98 \|\| diveScaled\) return;/);
+});
