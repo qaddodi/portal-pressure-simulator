@@ -45,7 +45,7 @@ void main() {
 
 import { createShapeGL } from './shape-gl.js?v=c4003c5526';
 import { createOrganPaint, mul } from './organ-paint.js?v=7bcc7ef138';
-import { netChanged } from './idle-keys.js?v=ea36a0b5c6';
+import { netChanged } from './idle-keys.js?v=4b46e6a6ef';
 
 function program(gl, vs, fs) {
   const p = gl.createProgram();
