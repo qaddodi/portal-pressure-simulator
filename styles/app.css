@@ -4751,7 +4751,7 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
 .instrument-workspace :is(.dop-box, .hvpg-box, .fibroscan-box) { --ar: 1.6; container-type: size; aspect-ratio: var(--ar); height: auto !important; flex: 0 1 auto !important; min-height: 0 !important; max-height: 100%; background: none; }
 .instrument-workspace .fibroscan-box { --ar: 1.25; }   /* the Tests panel's FibroScan map: a fifth shorter than square (the reading and tick spacing are unchanged) */
 .instrument-workspace :is(.dop-box, .hvpg-box, .fibroscan-box) > canvas { inset: 0; margin: auto; width: min(100cqw, 100cqh * var(--ar)); height: min(100cqh, 100cqw / var(--ar)); border-radius: var(--r-card); }
-.instrument-workspace .dop-box > canvas { background: var(--scope-bg); }
+.instrument-workspace .dop-box > canvas:first-child { background: var(--scope-bg); }   /* (the lowest canvas: the GPU's trace sits under the 2D one) */
 .instrument-workspace .hvpg-box > canvas { background: var(--mon-bg); }
 /* Phone sheet: Doppler and FibroScan fill the card's width and the height left under their header, so the
    picture uses the whole card at every sheet height (both draw to any shape); the shapes above stay for wider cards. */
