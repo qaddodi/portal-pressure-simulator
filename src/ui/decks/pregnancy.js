@@ -17,7 +17,7 @@ export const PREGNANCY_DECK = {
     ['When is a variceal bleed most likely in pregnancy?', 'In the second trimester, as the blood volume rises toward its peak, and during labor, when pushing raises the portal pressure.'],
     ['When is the screening endoscopy done?', 'In the second trimester, unless one was done in the year before conception.'],
     ['Which beta-blocker is used in pregnancy, and what is watched?', 'Propranolol. Fetal growth is followed, and the newborn is watched for bradycardia and hypoglycemia.'],
-    ['Which vasoactive drugs are avoided in a variceal bleed during pregnancy?', 'Vasopressin and terlipressin, which can cause uterine ischemia. Octreotide is used.'],
+    ['Which vasoactive drug is avoided in a variceal bleed during pregnancy?', 'Terlipressin, because it stimulates uterine contraction. Octreotide or somatostatin is used instead.'],
   ],
   slides: [
     {
@@ -50,6 +50,7 @@ export const PREGNANCY_DECK = {
     {
       id: 'scope', cam: 'gej', labels: ['VAR', 'LGV'], calipers: ['varix'], tool: { kind: 'scope', open: true },
       data: 'tiles', tiles: ['varix', 'hvpg'], key: ['varix'],
+      cite: 'Baveno VIII 8.17; AASLD 2024 55, 56',
       kicker: 'Management', site: 'sin', title: 'A second-trimester endoscopy finds large varices',
       line: 'Without a scope in the year before conception, screen in the second trimester. The varix now measures {varix}, with red wale marks.',
       notes: 'An endoscopy in the second trimester is safe with light sedation and comes after organogenesis but before the volume peaks and before labor. Large varices, or small ones with red signs, need prophylaxis. Varices can grow quickly, so a scope that was clear before pregnancy does not settle the question.',
@@ -59,6 +60,7 @@ export const PREGNANCY_DECK = {
       id: 'propranolol', params: ON, cam: 'gej', labels: ['VAR'],
       compare: [{ label: 'No beta-blocker', params: OFF }, { label: 'Propranolol', params: ON, own: true }],
       data: 'tiles', tiles: ['hvpg', 'hr'], key: ['hvpg'], delta: true,
+      cite: 'Baveno VIII 8.18; AASLD 2024, portal hypertension in pregnancy',
       kicker: 'Management', site: 'sin', title: 'Propranolol is the beta-blocker in pregnancy',
       line: 'Propranolol lowers the HVPG to {hvpg} and the heart rate to {hr}. Band ligation is the choice when propranolol cannot be taken.',
       causesHead: 'Watch for', causes: ['Fetal growth restriction', 'Neonatal bradycardia', 'Neonatal hypoglycemia'],
@@ -68,10 +70,11 @@ export const PREGNANCY_DECK = {
     {
       id: 'delivery', params: { gestation: 38 }, cam: 'varices', labels: ['VAR'],
       data: 'tiles', tiles: ['varix', 'hvpg'], key: ['varix'], delta: 'propranolol',
+      cite: 'Baveno VIII 8.19',
       kicker: 'Delivery and after', site: 'sin', title: 'A vaginal delivery with a short second stage',
       line: 'Pushing strains against a closed glottis and raises the pressure in the varices, so the second stage is kept short and assisted.',
       causesHead: 'At delivery', causes: ['Propranolol continues', 'Cesarean for obstetric reasons only', 'Check platelets before a neuraxial block'],
-      notes: 'Labor is the second time of highest risk for a variceal bleed. Repeated Valsalva strain raises the abdominal and portal pressure, so the second stage is shortened with forceps or vacuum. Cesarean delivery cuts through abdominal wall collaterals and can bleed heavily, so it is kept for obstetric reasons. If a varix bleeds, octreotide and banding are used; vasopressin and terlipressin are avoided because they can cause uterine ischemia.',
+      notes: 'Labor is the second time of highest risk for a variceal bleed. Repeated Valsalva strain raises the abdominal and portal pressure, so the second stage is shortened with forceps or vacuum. Cesarean delivery cuts through abdominal wall collaterals and can bleed heavily, so it is kept for obstetric reasons. If a varix bleeds, octreotide or somatostatin and banding are used; AASLD 2024 advises avoiding terlipressin in pregnancy because it stimulates uterine contraction.',
       ask: ['Why is the second stage of labor kept short?', 'Repeated straining raises the portal pressure and the varix may bleed.'],
     },
     {
