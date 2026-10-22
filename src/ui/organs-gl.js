@@ -44,7 +44,7 @@ void main() {
 }`;
 
 import { createShapeGL } from './shape-gl.js?v=c4003c5526';
-import { createOrganPaint, mul } from './organ-paint.js?v=c8d9d9670a';
+import { createOrganPaint, mul } from './organ-paint.js?v=afafbac9dd';
 
 function program(gl, vs, fs) {
   const p = gl.createProgram();
@@ -92,6 +92,10 @@ export function createOrganStack(gl) {
   for (const [k, v] of [[gl.TEXTURE_MIN_FILTER, gl.NEAREST], [gl.TEXTURE_MAG_FILTER, gl.NEAREST], [gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE], [gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE]]) gl.texParameteri(gl.TEXTURE_2D, k, v);
   gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
   let w = 0, h = 0, ver = 0, drawnKey = '';
+  // The live groups and cuts as last drawn (name → [{ sig, ops: [[sig, box]] }], organ-paint describe) and the view they were drawn
+  // in: a render with the same view draws again only the boxes of the ops that changed (a liver ease moves the liver's own box, not
+  // the whole screen). `liveVer` moves with setLive; `ver` with anything that needs the whole stack drawn again.
+  let liveVer = 0, drawnAt = '', drawnDesc = new Map();
   // The live organs (name → [{ spec (organ-paint readGroup), m (its frame → world) }]) and the layers' live masks (name → { spec, m }).
   let liveOrgans = new Map(), cuts = new Map(), painter = null;
   try { painter = createOrganPaint(gl, createShapeGL(gl)); } catch (e) { console.warn('Organ stack: the live painter failed; the organs stay pictures.', e); }
@@ -122,22 +126,61 @@ export function createOrganStack(gl) {
      * The organs painted live, by layer name (each a list of { spec, m }), and the layers' live masks (name → { spec, m }), in
      * place of what was set before; null for none. Drawn at the next render.
      */
-    setLive(organs, masks) { liveOrgans = organs || new Map(); cuts = masks || new Map(); ver++; },
+    setLive(organs, masks) { liveOrgans = organs || new Map(); cuts = masks || new Map(); liveVer++; },
     /** A layer gathered under a cut (its `under`) now at dy world units down (drawn at its `at`), as of the next render. */
     shift(name, dy) {
-      for (const c of cuts.values()) for (const u of c.under || []) if (u.name === name && u.dy !== dy) { u.dy = dy; ver++; }
+      for (const c of cuts.values()) for (const u of c.under || []) if (u.name === name && u.dy !== dy) { u.dy = dy; liveVer++; }
     },
     /** The names the stack lays, back to front (the layers' and the live organs'). */
     setOrder(names) { order = names.slice(); ver++; },
     drop(slot) { if (live[slot].size) { free(live[slot]); ver++; } free(staged[slot]); },
     has: (slot) => live[slot].size > 0,
     /** Whether a render at transform m and this size would draw something new (a pan, a zoom, a new set). */
-    stale: (m, cw, ch) => drawnKey !== `${ver}|${m.join(',')}|${cw}x${ch}`,
-    /** The stack drawn for transform m (world → device px) into its texture, the canvas's size; returns the texture. */
+    stale: (m, cw, ch) => drawnKey !== `${ver}|${liveVer}|${m.join(',')}|${cw}x${ch}`,
+    /**
+     * The stack drawn for transform m (world → device px) into its texture, the canvas's size. Returns what changed in it: true for
+     * the whole (the view or the layers changed), a device box [x0, y0, x1, y1] when only live groups changed (their boxes, old and new),
+     * or null when nothing on it changed.
+     */
     render(m, cw, ch) {
-      const key = `${ver}|${m.join(',')}|${cw}x${ch}`;
-      if (key === drawnKey) return stackTex;
+      const key = `${ver}|${liveVer}|${m.join(',')}|${cw}x${ch}`;
+      if (key === drawnKey) return null;
       drawnKey = key;
+      const at = `${ver}|${m.join(',')}|${cw}x${ch}`, same = at === drawnAt && !!painter;
+      drawnAt = at;
+      // Every live group and cut described as it is now (its ops' strings and boxes); against the last drawing, the box that changed.
+      let dirty = null, whole = !same;
+      const desc = new Map();
+      if (painter) {
+        for (const n of order) {
+          const lv = liveOrgans.get(n), cut = cuts.get(n);
+          if (lv) desc.set(n, lv.map((o) => painter.describe(o.spec, mul(m, o.m))));
+          else if (cut && live[0].get(n)) {
+            const d = painter.describe(cut.spec, mul(m, cut.m));
+            d.sig += `|${cut.opacity ?? 1}|${(cut.under || []).map((u) => `${u.name}:${u.dy || 0}`).join()}`;
+            desc.set(n, [d]);
+          }
+        }
+        if (!whole) {
+          const add = (b) => { if (b) dirty = dirty ? [Math.min(dirty[0], b[0]), Math.min(dirty[1], b[1]), Math.max(dirty[2], b[2]), Math.max(dirty[3], b[3])] : b.slice(); };
+          const all = (list) => { for (const d of list || []) for (const [, b] of d.ops) add(b); };
+          for (const n of new Set([...desc.keys(), ...drawnDesc.keys()])) {
+            const a = drawnDesc.get(n), b = desc.get(n);
+            if (!a || !b || a.length !== b.length) { all(a); all(b); continue; }
+            for (let i = 0; i < a.length; i++) {
+              if (a[i].sig !== b[i].sig || a[i].ops.length !== b[i].ops.length) { all([a[i]]); all([b[i]]); continue; }
+              for (let k = 0; k < a[i].ops.length; k++) if (a[i].ops[k][0] !== b[i].ops[k][0]) { add(a[i].ops[k][1]); add(b[i].ops[k][1]); }
+            }
+          }
+          // (A cut's box is its layer's: a change in it is drawn over that box, cut to the ops that changed.)
+          if (dirty) dirty = [Math.max(0, Math.floor(dirty[0])), Math.max(0, Math.floor(dirty[1])), Math.min(cw, Math.ceil(dirty[2])), Math.min(ch, Math.ceil(dirty[3]))];
+          if (dirty && !(dirty[2] > dirty[0] && dirty[3] > dirty[1])) dirty = null;
+        }
+      }
+      drawnDesc = desc;
+      if (!whole && !dirty) { painter?.endFrame(); return null; }
+      const within = whole ? null : dirty;
+      const clip = () => { if (within) { gl.enable(gl.SCISSOR_TEST); gl.scissor(within[0], ch - within[3], within[2] - within[0], within[3] - within[1]); } else gl.disable(gl.SCISSOR_TEST); };
       if (w !== cw || h !== ch) {
         w = cw; h = ch;
         gl.bindTexture(gl.TEXTURE_2D, stackTex);
@@ -147,10 +190,14 @@ export function createOrganStack(gl) {
       }
       gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
       gl.viewport(0, 0, w, h);
+      clip();
       gl.clearBufferfv(gl.COLOR, 0, [0, 0, 0, 0]);
+      gl.disable(gl.SCISSOR_TEST);
       mat.set([m[0], m[1], 0, m[2], m[3], 0, m[4], m[5], 1]);
-      const drawLayer = (L0, L1, mm = mat) => {
+      // (A layer's quad within the box being drawn: `b` for one laid under a cut, else the stack's.)
+      const drawLayer = (L0, L1, mm = mat, b = within) => {
         const U = layerP.u;
+        if (b) { gl.enable(gl.SCISSOR_TEST); gl.scissor(b[0], h - b[3], b[2] - b[0], b[3] - b[1]); } else gl.disable(gl.SCISSOR_TEST);
         gl.useProgram(layerP.p);
         gl.uniformMatrix3fv(U.world, false, mm);
         gl.uniform2f(U.size, w, h);
@@ -162,12 +209,12 @@ export function createOrganStack(gl) {
         gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, L0.tex);
         gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, L1 ? L1.tex : L0.tex);
         gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
-        gl.disable(gl.BLEND);
+        gl.disable(gl.BLEND); gl.disable(gl.SCISSOR_TEST);
       };
       const dev = (r) => { const xs = [r[0], r[0] + r[2]].map((x) => m[0] * x + m[4]), ys = [r[1], r[1] + r[3]].map((y) => m[3] * y + m[5]); return [Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys)]; };
       for (const n of order) {
         const lv = painter && liveOrgans.get(n);
-        if (lv) { for (const o of lv) painter.paintGroup(o.spec, mul(m, o.m), w, h, fbo); continue; }
+        if (lv) { for (const o of lv) painter.paintGroup(o.spec, mul(m, o.m), w, h, fbo, within); continue; }
         const L0 = live[0].get(n), L1 = live[1].get(n);
         if (!L0) continue;
         const cut = painter && cuts.get(n);
@@ -183,22 +230,22 @@ export function createOrganStack(gl) {
             box[0] = Math.min(box[0], b[0]); box[1] = Math.min(box[1], b[1] + dy); box[2] = Math.max(box[2], b[2]); box[3] = Math.max(box[3], b[3] + dy);
             under.push([U0, U1 && U1.at === U0.at ? U1 : null, mm]);   // (the view's picture only if drawn where the whole one was)
           }
-          painter.layMasked(() => { gl.viewport(0, 0, w, h); for (const [U0, U1, mm] of under) drawLayer(U0, U1, mm); drawLayer(L0, L1); }, box, cut.spec, mul(m, cut.m), w, h, fbo, cut.opacity ?? 1);
+          painter.layMasked((_, b) => { gl.viewport(0, 0, w, h); for (const [U0, U1, mm] of under) drawLayer(U0, U1, mm, b); drawLayer(L0, L1, mat, b); }, box, cut.spec, mul(m, cut.m), w, h, fbo, cut.opacity ?? 1, within);
         }
         else { gl.bindFramebuffer(gl.FRAMEBUFFER, fbo); gl.viewport(0, 0, w, h); drawLayer(L0, L1); }
       }
       painter?.endFrame();
       gl.bindVertexArray(null);
-      gl.disable(gl.BLEND);
+      gl.disable(gl.BLEND); gl.disable(gl.SCISSOR_TEST);
       gl.activeTexture(gl.TEXTURE0);
       gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-      return stackTex;
+      return whole ? true : dirty;
     },
     get texture() { return stackTex; },
     /** Gives back the stack's canvas-sized texture while nothing is shown (the next render makes it again). */
     trim() {
       if (!w) return;
-      w = h = 0; drawnKey = '';
+      w = h = 0; drawnKey = ''; drawnAt = ''; drawnDesc = new Map();
       painter?.trim();
       gl.bindTexture(gl.TEXTURE_2D, stackTex);
       gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);

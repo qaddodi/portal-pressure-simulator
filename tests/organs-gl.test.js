@@ -56,7 +56,32 @@ test('the bowel is a picture at rest gathered under the gut, moved by its float 
   assert.match(stage, /unmasked\.push\(\[k, 'opacity', k\.getAttribute\('opacity'\)\]\); k\.removeAttribute\('opacity'\);/);
   // On the GPU: moved by whole device pixels, drawn under the gut's picture, laid with the gut's opacity.
   assert.match(gl, /const dy = Math\.round\(\(\(u\.dy \|\| 0\) - U0\.at\) \* m\[3\]\), mm = mat\.slice\(\);\n\s+mm\[7\] \+= dy;/);
-  assert.match(gl, /for \(const \[U0, U1, mm\] of under\) drawLayer\(U0, U1, mm\); drawLayer\(L0, L1\); \}, box, cut\.spec, mul\(m, cut\.m\), w, h, fbo, cut\.opacity \?\? 1\);/);
+  assert.match(gl, /for \(const \[U0, U1, mm\] of under\) drawLayer\(U0, U1, mm, b\); drawLayer\(L0, L1, mat, b\); \}, box, cut\.spec, mul\(m, cut\.m\), w, h, fbo, cut\.opacity \?\? 1, within\);/);
+});
+
+// A live organ's ease changes its own box, not the screen: the stack is drawn again only there (the boxes of the ops whose outline,
+// frame or paint changed, old and new), and the composite draws the cells over that box, as the ascites pool's. A view change or a
+// new layer set still draws the whole. (Performance review after the GPU organs, 22 Oct, item 1.)
+test('a live organ that changed is drawn again within its box, and only its cells are composited', () => {
+  const gl = readFileSync(new URL('../src/ui/organs-gl.js', import.meta.url), 'utf8');
+  const paint = readFileSync(new URL('../src/ui/organ-paint.js', import.meta.url), 'utf8');
+  const veins = readFileSync(new URL('../src/ui/veins-gl.js', import.meta.url), 'utf8');
+  assert.match(gl, /setLive\(organs, masks\) \{ liveOrgans = organs \|\| new Map\(\); cuts = masks \|\| new Map\(\); liveVer\+\+; \}/, 'a live change moves its own version');
+  assert.match(gl, /stale: \(m, cw, ch\) => drawnKey !== `\$\{ver\}\|\$\{liveVer\}\|/);
+  assert.match(gl, /const at = `\$\{ver\}\|\$\{m\.join\(','\)\}\|\$\{cw\}x\$\{ch\}`, same = at === drawnAt && !!painter;/, 'the same view and layers: only what changed');
+  assert.match(gl, /if \(a\[i\]\.ops\[k\]\[0\] !== b\[i\]\.ops\[k\]\[0\]\) \{ add\(a\[i\]\.ops\[k\]\[1\]\); add\(b\[i\]\.ops\[k\]\[1\]\); \}/, "an op's old and new boxes");
+  assert.match(gl, /if \(!whole && !dirty\) \{ painter\?\.endFrame\(\); return null; \}/, 'nothing changed: nothing drawn');
+  assert.match(gl, /return whole \? true : dirty;/);
+  assert.match(gl, /painter\.paintGroup\(o\.spec, mul\(m, o\.m\), w, h, fbo, within\)/);
+  assert.match(gl, /cut\.opacity \?\? 1, within\);/);
+  // The painter: every op's box is the one it paints within, so a signature's box covers its pixels.
+  assert.match(paint, /function paintOps\(spec, m, into, within = null\)/);
+  assert.match(paint, /const at = opAt\(op, m\), \{ om, sh, cm, csh \} = at;\n\s+let b = within \? meet\(at\.b, within\) : at\.b;/);
+  assert.match(paint, /for \(const op of spec\.ops\) ops\.push\(\[opSig\(op, m\), opAt\(op, m\)\.b\]\);/);
+  assert.match(paint, /const b = meet\(groupBox\(spec, m\), within \|\| \[0, 0, w, h\]\);/);
+  // The composite: the box's cells, not the whole picture, unless the whole stack was drawn.
+  assert.match(veins, /if \(r === true\) full = true;\n\s+else if \(r\) \{ dirtCells\(r, m\); dirt = nDirt;/);
+  assert.match(veins, /if \(dirt\) \{ gl\.bindVertexArray\(dirtVAO\); gl\.drawArraysInstanced\(gl\.TRIANGLE_STRIP, 0, 4, dirt\); \}/);
 });
 
 // On by default (Mohammad, 22 Oct 00:17Z: "Do the GPU draw for everything"), off with ?gpuorgans=0 or the ?perf switch; never on

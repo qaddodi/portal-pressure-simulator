@@ -14,6 +14,7 @@
 // keeps the organ's picture.
 
 import { flattenPath, ellipsePoly, polyBox, polyMesh } from './shape-gl.js?v=c4003c5526';
+import { strHash } from './liver-geo.js?v=977185f80a';
 
 const ID = [1, 0, 0, 1, 0, 0];
 /** a ∘ b: b applied first (SVG matrices [a, b, c, d, e, f]). */
@@ -276,9 +277,13 @@ export function createOrganPaint(gl, shape) {
   }
   // Meshes by shape and tolerance: an outline written to several paths (the liver's fill, its shades, its clip) is cut once a frame.
   let meshes = new Map(), meshesOld = new Map();
+  // (A path's `d` named by its hash and length, worked out once a frame: the liver's is thousands of characters, the nodules'
+  // tens of thousands, and an outline written to several paths is hashed once.)
+  let dKeys = new Map();
+  const dKey = (d) => { let k = dKeys.get(d); if (!k) { k = `${d.length}:${strHash(d)}`; dKeys.set(d, k); } return k; };
   function meshOf(geom, cap, tol) {
     const d = geom.d ? geom.el.getAttribute('d') || '' : null;
-    const key = geom.d ? `${tol}|${cap}|${d}` : geom;
+    const key = geom.d ? `${tol}|${cap}|${dKey(d)}` : geom;
     let r = meshes.get(key) || meshesOld.get(key);
     if (!r) {
       const polys = geom.d ? flattenPath(d, tol) : geom.poly;
@@ -302,24 +307,29 @@ export function createOrganPaint(gl, shape) {
   const mat = new Float32Array(9), stopO = new Float32Array(8), stopC = new Float32Array(32);
   const drawQuad = () => { gl.bindVertexArray(vao); gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4); };
 
-  /** Paints the ops of a group into the bound target (cleared by the caller), under m. */
-  function paintOps(spec, m, into) {
+  const meet = (a, c) => { if (!a || !c) return null; const r = [Math.max(a[0], c[0]), Math.max(a[1], c[1]), Math.min(a[2], c[2]), Math.min(a[3], c[3])]; return r[2] > r[0] && r[3] > r[1] ? r : null; };
+  const join = (a, c) => (a && c ? [Math.min(a[0], c[0]), Math.min(a[1], c[1]), Math.max(a[2], c[2]), Math.max(a[3], c[3])] : a || c);
+  // An op under m: its mesh, its clip's, and the device box it paints within (with its stroke, its clip), or null for none.
+  function opAt(op, m) {
+    // (The tolerance in powers of two, a fifth of a pixel or finer: a pinch reuses the meshes until the zoom doubles.)
+    const om = mul(m, op.m), sc = scaleOf(om), tol = Math.min(0.5, 2 ** Math.floor(Math.log2(0.2 / sc)));
+    const sh = meshOf(op.geom, op.kind === 'stroke' ? op.cap : 0, tol);
+    const grow = op.kind === 'stroke' ? (op.w / 2) * sc + 2 : 2;
+    let b = devBox(sh.box, om, grow), cm = null, csh = null;
+    if (op.clip) {
+      cm = mul(m, op.clip.m);
+      csh = meshOf(op.clip.geom, 0, Math.min(0.5, 0.2 / scaleOf(cm)));
+      b = meet(b, devBox(csh.box, cm, 2));
+    }
+    return { om, sh, cm, csh, b };
+  }
+  /** Paints the ops of a group into the bound target (cleared by the caller), under m; only within `within` (a device box) if given. */
+  function paintOps(spec, m, into, within = null) {
     const sz = [W, H];
     let clipKey = null;
     for (const op of spec.ops) {
-      // (The tolerance in powers of two, a fifth of a pixel or finer: a pinch reuses the meshes until the zoom doubles.)
-      const om = mul(m, op.m), sc = scaleOf(om), tol = Math.min(0.5, 2 ** Math.floor(Math.log2(0.2 / sc)));
-      const sh = meshOf(op.geom, op.kind === 'stroke' ? op.cap : 0, tol);
-      const grow = op.kind === 'stroke' ? (op.w / 2) * sc + 2 : 2;
-      let b = devBox(sh.box, om, grow);
-      let cm = null, csh = null;
-      if (op.clip) {
-        cm = mul(m, op.clip.m);
-        csh = meshOf(op.clip.geom, 0, Math.min(0.5, 0.2 / scaleOf(cm)));
-        const cb = devBox(csh.box, cm, 2);
-        b = b && cb && [Math.max(b[0], cb[0]), Math.max(b[1], cb[1]), Math.min(b[2], cb[2]), Math.min(b[3], cb[3])];
-        if (b && !(b[2] > b[0] && b[3] > b[1])) b = null;
-      }
+      const at = opAt(op, m), { om, sh, cm, csh } = at;
+      let b = within ? meet(at.b, within) : at.b;
       if (!b) continue;
       // The shape's coverage into the scratch's red, its clip's into green (kept while the next op has the same clip).
       gl.bindFramebuffer(gl.FRAMEBUFFER, scratch.fbo);
@@ -373,12 +383,22 @@ export function createOrganPaint(gl, shape) {
   /** The device box of everything a group paints under m (with its strokes), or null. */
   function groupBox(spec, m) {
     let u = null;
-    for (const op of spec.ops) {
-      const om = mul(m, op.m), sh = meshOf(op.geom, op.kind === 'stroke' ? op.cap : 0, Math.min(0.5, 0.2 / scaleOf(om)));
-      const b = devBox(sh.box, om, op.kind === 'stroke' ? (op.w / 2) * scaleOf(om) + 2 : 2);
-      if (b) u = u ? [Math.min(u[0], b[0]), Math.min(u[1], b[1]), Math.max(u[2], b[2]), Math.max(u[3], b[3])] : b;
-    }
+    for (const op of spec.ops) u = join(u, opAt(op, m).b);
     return u;
+  }
+  // What an op paints, as a string: what it is painted with (fixed while the spec lives: kept on the op) and where (its outline's
+  // `d` and its frame, read now). Two frames with the same string paint the same pixels in the same box.
+  const paintKey = (op) => op.pk || (op.pk = JSON.stringify([op.kind, op.alpha, op.w, op.cap, op.m, op.paint, op.clip && op.clip.m]));
+  const opSig = (op, m) => `${paintKey(op)}|${m.join(',')}|${op.geom.d ? dKey(op.geom.el.getAttribute('d') || '') : ''}|${op.clip ? (op.clip.geom.d ? dKey(op.clip.geom.el.getAttribute('d') || '') : '') : ''}`;
+  /**
+   * The group under m described for a change check: its own string (opacity, whether masked) and, per op (the mask's after its
+   * own), [string, device box]. The meshes it will paint are touched (kept for the frame).
+   */
+  function describe(spec, m) {
+    const ops = [];
+    for (const op of spec.ops) ops.push([opSig(op, m), opAt(op, m).b]);
+    if (spec.mask) for (const op of spec.mask.ops) ops.push([`mask|${opSig(op, m)}`, opAt(op, m).b]);
+    return { sig: `${spec.opacity}|${spec.mask ? 1 : 0}`, ops };
   }
 
   // The group's layer (and the mask's) cleared within b.
@@ -409,34 +429,38 @@ export function createOrganPaint(gl, shape) {
   }
   return {
     /** Lays the group `spec` (readGroup) under m over framebuffer `fbo` of size w × h, with its opacity and mask. */
-    paintGroup(spec, m, w, h, fbo) {
+    paintGroup(spec, m, w, h, fbo, within = null) {
       size(w, h);
-      const b = groupBox(spec, m);
+      const b = meet(groupBox(spec, m), within || [0, 0, w, h]);
       if (!b) return;
       clearIn(b, !!spec.mask);
-      paintOps(spec, m, layers[0].fbo);
+      paintOps(spec, m, layers[0].fbo, b);
       // (A mask's content is in the user space of the element it masks: the group's frame.)
-      if (spec.mask) paintOps(spec.mask, m, layers[1].fbo);
+      if (spec.mask) paintOps(spec.mask, m, layers[1].fbo, b);
       lay(b, spec.opacity, !!spec.mask, fbo);
     },
+    /** The group's device box under m (groupBox), and its description (describe), for the stack's change check. */
+    box: (spec, m) => groupBox(spec, m),
+    describe,
     /**
      * A layer drawn by `draw(fbo)` (a picture of some organs, under its own program) laid over framebuffer `fbo` (w × h) times the
      * luminance of a mask group painted under m: the gut's cut and the stomach's see-through, made live while the layer stays a
      * picture. `box`: the layer's device box [x0, y0, x1, y1] (y down); `opacity`: the group's own, laid with the mask.
      */
-    layMasked(draw, box, maskSpec, m, w, h, fbo, opacity = 1) {
+    layMasked(draw, box, maskSpec, m, w, h, fbo, opacity = 1, within = null) {
       size(w, h);
-      const b = [Math.max(0, Math.floor(box[0])), Math.max(0, Math.floor(box[1])), Math.min(W, Math.ceil(box[2])), Math.min(H, Math.ceil(box[3]))];
-      if (!(b[2] > b[0] && b[3] > b[1])) return;
+      let b = [Math.max(0, Math.floor(box[0])), Math.max(0, Math.floor(box[1])), Math.min(W, Math.ceil(box[2])), Math.min(H, Math.ceil(box[3]))];
+      if (within) b = meet(b, within);
+      if (!b || !(b[2] > b[0] && b[3] > b[1])) return;
       clearIn(b, true);
       gl.bindFramebuffer(gl.FRAMEBUFFER, layers[0].fbo);
       gl.viewport(0, 0, W, H);
-      draw(layers[0].fbo);
-      paintOps(maskSpec, m, layers[1].fbo);
+      draw(layers[0].fbo, b);
+      paintOps(maskSpec, m, layers[1].fbo, b);
       lay(b, opacity, true, fbo);
     },
     /** Ends a frame of painting: meshes not used in it are let go. */
-    endFrame() { meshesOld = meshes; meshes = new Map(); },
+    endFrame() { meshesOld = meshes; meshes = new Map(); dKeys = new Map(); },
     trim() { if (!W) return; W = H = 0; for (const t of [scratch, ...layers]) { gl.bindTexture(gl.TEXTURE_2D, t.tex); gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, null); } gl.bindRenderbuffer(gl.RENDERBUFFER, stencil); gl.renderbufferStorage(gl.RENDERBUFFER, gl.STENCIL_INDEX8, 1, 1); },
     dispose() {
       for (const t of [scratch, ...layers]) { gl.deleteTexture(t.tex); gl.deleteFramebuffer(t.fbo); }

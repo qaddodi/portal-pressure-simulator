@@ -36,7 +36,7 @@ import { SLOT, DYE_BINS } from './blood.js?v=e668d01823';
 import { cssRGB } from './util.js?v=9e70912a09';
 import { CELL, ENT_W, binVeins, splitRows } from './veins-bin.js?v=81a80b3a6d';
 import { gpuProbe } from './gpu-probe.js?v=e82dc07b45';
-import { createOrganStack } from './organs-gl.js?v=6430827cd6';
+import { createOrganStack } from './organs-gl.js?v=47a0abc9ec';
 
 export { binVeins };
 
@@ -1455,6 +1455,29 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false }) {
   gl.bindBuffer(gl.ARRAY_BUFFER, poolBuf);
   gl.enableVertexAttribArray(1); gl.vertexAttribPointer(1, 2, gl.FLOAT, false, 0, 0); gl.vertexAttribDivisor(1, 1);
   gl.bindVertexArray(null);
+  // The box of the organ stack that changed (a live organ's ease, organs-gl render): its cells composited whole once, as the pool's.
+  const dirtBuf = gl.createBuffer(), dirtVAO = gl.createVertexArray();
+  gl.bindVertexArray(dirtVAO);
+  gl.bindBuffer(gl.ARRAY_BUFFER, quad);
+  gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
+  gl.bindBuffer(gl.ARRAY_BUFFER, dirtBuf);
+  gl.enableVertexAttribArray(1); gl.vertexAttribPointer(1, 2, gl.FLOAT, false, 0, 0); gl.vertexAttribDivisor(1, 1);
+  gl.bindVertexArray(null);
+  let nDirt = 0;
+  // The cells (world origins on the CELL grid) that cover a device box under m, into dirtBuf.
+  function dirtCells(b, m) {
+    const det = m[0] * m[3] - m[1] * m[2] || 1e-9, ia = m[3] / det, ib = -m[1] / det, ic = -m[2] / det, id = m[0] / det;
+    let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+    for (const [px, py] of [[b[0], b[1]], [b[2], b[1]], [b[0], b[3]], [b[2], b[3]]]) {
+      const dx = px - m[4], dy = py - m[5], x = ia * dx + ic * dy, y = ib * dx + id * dy;
+      x0 = Math.min(x0, x); y0 = Math.min(y0, y); x1 = Math.max(x1, x); y1 = Math.max(y1, y);
+    }
+    const cells = [];
+    for (let y = Math.floor(y0 / CELL) * CELL; y < y1; y += CELL) for (let x = Math.floor(x0 / CELL) * CELL; x < x1; x += CELL) cells.push(x, y);
+    gl.bindBuffer(gl.ARRAY_BUFFER, dirtBuf);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(cells), gl.DYNAMIC_DRAW);
+    nDirt = cells.length / 2;
+  }
   const fluidTex = dataTex(gl);
   let fluidRect = null, nFluid = 0, fluidN = 0, fluidLiver = null, nPool = 0;
   const compVAO = gl.createVertexArray();
@@ -2005,11 +2028,18 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false }) {
       wasBleeding = bleeding;
       // The organs' layers drawn into their texture when the view or the layers changed: the whole picture is drawn then.
       const useStack = !!(look.plate?.stack && stack?.has(0));
-      if (useStack && stack.stale(m, canvas.width, canvas.height)) { gpuProbe.time(gl, 'organ layers', () => stack.render(m, canvas.width, canvas.height)); full = true; }
+      // (Only a live organ's own box changed: the cells over it are composited again, as the pool's are; the rest of the picture is as it was.)
+      let dirt = 0;
+      if (useStack && stack.stale(m, canvas.width, canvas.height)) {
+        const r = gpuProbe.time(gl, 'organ layers', () => stack.render(m, canvas.width, canvas.height));
+        if (r === true) full = true;
+        else if (r) { dirtCells(r, m); dirt = nDirt; if (gpuProbe.on) gpuProbe.gauge('organ layers: box', `${r[2] - r[0]}×${r[3] - r[1]} px, ${dirt} cells`); }
+      }
+      if (full) dirt = 0;
       const fl = look.fluid && fluidRect ? look.fluid : null;
       const pool = full ? 0 : nPool;
       nPool = 0;
-      if (!full && !nCells && !(fl?.ripple && nFluid) && !pool) return;
+      if (!full && !nCells && !(fl?.ripple && nFluid) && !pool && !dirt) return;
       if (gpuProbe.on) { if (full) gpuProbe.note('whole picture'); if (!look.plate) gpuProbe.note('organ picture down'); }
       const det = m[0] * m[3] - m[1] * m[2] || 1e-9;
       // device → world: the inverse of [a c e; b d f].
@@ -2095,6 +2125,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false }) {
         gl.uniform1i(U.bloodOnly, 0);
         if (fl?.ripple && nFluid) { gl.bindVertexArray(fluidVAO); gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, nFluid); }
         if (pool) { gl.bindVertexArray(poolVAO); gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, pool); }
+        if (dirt) { gl.bindVertexArray(dirtVAO); gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, dirt); }
       }
       gl.bindVertexArray(null);
       if (cath) gpuProbe.time(gl, 'catheter', () => drawCath(m));
@@ -2161,8 +2192,8 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false }) {
       canvas.removeEventListener('webglcontextlost', onLost);
       if (!lost) {
         for (const t of [entTex, radTex, bendTex, rmaxTex, tubeTex, organTex, flowTex, dyeTex, fluidTex, baseTex, gTex, gTex2, depTex, depNone, lineLayer.tex, glowLayer.tex, warmLayer.tex, ...plates.map((x) => x?.tex)]) if (t) gl.deleteTexture(t);
-        for (const b of [quad, cellBuf, bloodBuf, partBuf, fluidBuf, poolBuf, cathBuf, lineBuf]) gl.deleteBuffer(b);
-        for (const v of [vao, bloodVAO, partVAO, fluidVAO, poolVAO, compVAO, cathVAO, lineVAO]) gl.deleteVertexArray(v);
+        for (const b of [quad, cellBuf, bloodBuf, partBuf, fluidBuf, poolBuf, dirtBuf, cathBuf, lineBuf]) gl.deleteBuffer(b);
+        for (const v of [vao, bloodVAO, partVAO, fluidVAO, poolVAO, dirtVAO, compVAO, cathVAO, lineVAO]) gl.deleteVertexArray(v);
         for (const x of [prog, comp, compCell, cathP, lineP]) if (x) gl.deleteProgram(x.p);
         stack?.dispose();
         clearTimeout(spare.timer);
