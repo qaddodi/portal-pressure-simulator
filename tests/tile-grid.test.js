@@ -92,5 +92,5 @@ test('the FibroScan names its depths and times at even gaps, and the probe\'s he
   assert.match(src, /bx = c0 \+ i \* \(c1 - c0\) \/ \(tks\.length - 1\)/);
   const stage = readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8');
   assert.match(stage, /classList\.toggle\('head-off', hit\)/);
-  assert.match(css, /\.scan-probe\.head-off \.sp-head \{ opacity: 0; \}/);
+  assert.match(css, /\.scan-probe\.head-off :is\(\.sp-head, \.sp-cable\) \{ opacity: 0; \}/);
 });
