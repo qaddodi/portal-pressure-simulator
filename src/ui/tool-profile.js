@@ -424,10 +424,47 @@ export function numberSides(G, tw, goal) {
   });
 }
 
+/** The two readings as pills in the plot's top right (Mohammad, 22 Oct: "add two pills HVPG and PPG ... on top right for each card"):
+ *  "HVPG 4" and "PPG 16", each as wide as its name and the widest value (00), so a number changing never moves an edge. → { w: [HVPG's,
+ *  PPG's], h, pad } in px. */
+export const PILL_GAP = 4;
+export function pillSize(G, tw) {
+  const { f } = G, pad = 0.6 * f;
+  return { w: SPANS.map(([, name]) => tw(`${name} 00`, 700) + 2 * pad), h: 1.5 * f, pad };
+}
+/** Where the two pills stand on the chart G for the goal profile (hl, bf: the healthy and the earlier line; sides: numberSides; brk: the
+ *  brackets' rows, where they are settled first): the nearest place to the plot's top right corner (the slide left plus the slide down, a
+ *  row of the two before a column of them) that keeps BR_PAD px clear of every line, dot, reading, block, zone name and bracket. The brackets
+ *  and the lines' names then keep clear of them. → [HVPG's box, PPG's box] ([x0, x1, y0, y1]), or null where the plot has no such place. */
+export function placePills(G, tw, goal, hl, bf, sides, brk = null) {
+  const { f } = G, dotR = Math.max(4, 0.36 * f), { w, h } = pillSize(G, tw);
+  const yg = (v) => G.Z - (G.Z - G.T) * Math.max(0, Math.min(v, goal.top)) / goal.top, ptsG = (p) => p.v.map((v, i) => [G.x(i), yg(v)]);
+  const pg = ptsG(goal), runs = curveRuns([pg, ...[hl, bf].filter(Boolean).map(ptsG)]);
+  const place = labelPlacer(runs, [], G.T, G.Z - BR_PAD, [], [BR_PAD, BR_PAD], BR_PAD);
+  for (const [x, y] of pg) place.take([x - dotR - 1, x + dotR + 1, y - dotR - 1, y + dotR + 1]);
+  for (const v of sides || []) if (v?.box) place.take(v.box);
+  for (const i of blocksOf(goal, hl)) place.take(blockBox(G, tw, goal, i));
+  for (const b of zoneBoxes(G, tw)) place.take(b);
+  if (brk) for (const r of [0, 1]) place.take(bracketBox(G, r, brk[r]));
+  const row = (x1, y) => [[x1 - w[1] - PILL_GAP - w[0], x1 - w[1] - PILL_GAP, y, y + h], [x1 - w[1], x1, y, y + h]];
+  const col = (x1, y) => [[x1 - w[0], x1, y, y + h], [x1 - w[1], x1, y + h + PILL_GAP, y + 2 * h + PILL_GAP]];
+  // (The nearest clear place to the corner: the distance is the slide left plus the slide down, a row before a column at the same distance.)
+  let best = null;
+  for (let dx = 0; dx <= G.R - G.L - Math.min(w[0], w[1]) && (!best || dx < best.d); dx += 3) {
+    for (let y = G.T + 3; y <= G.Z - h - 3 && (!best || dx + y - G.T < best.d); y += 2) {
+      for (const mk of [row, col]) {
+        const bs = mk(G.R - dx, y), d = dx + (y - G.T) + (mk === col ? 0.5 : 0);
+        if ((!best || d < best.d) && bs.every((b) => b[0] >= G.L && b[3] <= G.Z - 3 && place.cost(b) === 0)) best = { d, bs };
+      }
+    }
+  }
+  return best ? best.bs : null;
+}
+
 /** The healthy and earlier lines named on the drawing, not in a key (Mohammad, 19 Oct): each name just over or under its own
  *  line, nearest the line's right end, BR_PAD px clear of every line, dot, value, bracket and the liver's name.
  *  → [{ t, c, x, y }] (x the middle, y the baseline), or null where one has no such place (the key then shows). */
-export function placeLineNames(G, tw, goal, hl, bf, sides, brk, bfName = 'Before') {
+export function placeLineNames(G, tw, goal, hl, bf, sides, brk, bfName = 'Before', pills = []) {
   const named = [[hl, 'Healthy', 'hl'], [bf, bfName, 'bf']].filter(([p]) => p);
   if (!named.length) return [];
   const { f } = G, dotR = Math.max(4, 0.36 * f), cap = 0.72 * f;
@@ -439,6 +476,7 @@ export function placeLineNames(G, tw, goal, hl, bf, sides, brk, bfName = 'Before
   for (const i of blocksOf(goal, hl)) place.take(blockBox(G, tw, goal, i));   // (clear of the red blocks)
   for (const r of [0, 1]) place.take(bracketBox(G, r, brk ? brk[r] : G.brY(r)));
   for (const b of zoneBoxes(G, tw)) place.take(b);
+  for (const b of pills) place.take(b);
   const out = [];
   for (const [, t, c] of named) {
     const run = runs[1 + out.length], w = tw(t, 500);
@@ -471,10 +509,10 @@ export function bracketBox(G, r, yy) {
 
 /** Where the HVPG and the PPG brackets stand inside the plot (Mohammad, 19 Oct: "put the HVPG and PPG brackets INSIDE the chart"):
  *  each as low as it can go, at least BR_PAD px from every line (the slide's, the healthy one, the earlier one), dot, value
- *  (sides: placeValues's answer), the zones' names, the axis and each other.
+ *  (sides: placeValues's answer), the zones' names, the pills (given), the axis and each other.
  *  → [yy of the HVPG's bar, yy of the PPG's], or null where the two have no such places (the plot then keeps a band for them). */
 export const BR_PAD = 4;
-export function placeBrackets(G, tw, goal, hl, bf, sides, prev = null) {
+export function placeBrackets(G, tw, goal, hl, bf, sides, prev = null, pills = []) {
   const { f } = G, dotR = Math.max(4, 0.36 * f);
   const yg = (v) => G.Z - (G.Z - G.T) * Math.max(0, Math.min(v, goal.top)) / goal.top, ptsG = (p) => p.v.map((v, i) => [G.x(i), yg(v)]);
   const pg = ptsG(goal), runs = curveRuns([pg, ...[hl, bf].filter(Boolean).map(ptsG)]);
@@ -483,6 +521,7 @@ export function placeBrackets(G, tw, goal, hl, bf, sides, prev = null) {
   for (const v of sides || []) if (v?.box) place.take(v.box);
   for (const i of blocksOf(goal, hl)) place.take(blockBox(G, tw, goal, i));   // (clear of the red blocks)
   for (const b of zoneBoxes(G, tw)) place.take(b);
+  for (const b of pills) place.take(b);
   // (Every clear height for each, then the pair standing lowest that keeps the two apart: under the curve where it has room,
   // else over it.)
   const ys = [0, 1].map((r) => {
@@ -524,6 +563,8 @@ export function createProfileTool() {
   let fading = false;
   // (Where each line's name stands, and where it glides from: a name that must move eases there, never jumps (Mohammad's NEVER SNAP).)
   const nameAt = {};
+  // (The same for each pill: where it stands, where it glides from, and when it began.)
+  const pillAt = [null, null], pillK = { a: 0, from: 0, t0: 0, boxes: null };
   // (Each block as it fades: its goal, 1 shown or 0 gone, the opacity it fades from, and when it began. A block comes and goes with
   // an ease, never at once.)
   const blk = new Map();
@@ -563,10 +604,28 @@ export function createProfileTool() {
     // once the plot has needed it, so the plot never changes height under a what-if slider.)
     if (!plan || stale) {
       const old = plan && plan.size === size ? plan : null;
-      let g = profileGeo(w, hh, f, tw, true), s = numberSides(g, tw, goal);
-      const brk = old && !old.inside ? null : placeBrackets(g, tw, goal, hl, bf, s, old?.brk);
-      if (!brk) { g = profileGeo(w, hh, f, tw); s = numberSides(g, tw, goal); }   // (the band at the plot's foot)
-      plan = { size, inside: !!brk, sides: s, brk, names: placeLineNames(g, tw, goal, hl, bf, s, brk, cfg.fromLabel) };
+      const band = !!old && !old.inside;
+      let g = profileGeo(w, hh, f, tw, true), s = numberSides(g, tw, goal), pl = placePills(g, tw, goal, hl, bf, s);
+      let brk = band ? null : placeBrackets(g, tw, goal, hl, bf, s, old?.brk, pl || []);
+      // (Where the pills cost the brackets their place in the plot, the brackets keep it and the pills take the nearest clear place left, or stand
+      // down where there is none: they repeat the brackets' numbers, and the plot keeps its height.)
+      if (!brk && !band) { brk = placeBrackets(g, tw, goal, hl, bf, s, old?.brk, []); pl = brk ? placePills(g, tw, goal, hl, bf, s, brk) : null; }
+      if (!brk) { g = profileGeo(w, hh, f, tw); s = numberSides(g, tw, goal); pl = placePills(g, tw, goal, hl, bf, s); }   // (the band at the plot's foot)
+      plan = { size, inside: !!brk, sides: s, brk, pills: pl, names: placeLineNames(g, tw, goal, hl, bf, s, brk, cfg.fromLabel, pl || []) };
+      // (The pills fade in and out as a block does, and where they stand they glide from where they stood: they never jump.)
+      const t1 = performance.now(), had = pillK.a;
+      if (pl) {
+        pl.forEach(([px0, , py0], k) => {
+          const cur = pillAt[k];
+          if (!cur || !old || reduceMQ.matches || !had) { pillAt[k] = { x: px0, y: py0, fx: px0, fy: py0, t0: 0 }; return; }
+          if (Math.abs(cur.x - px0) < 0.01 && Math.abs(cur.y - py0) < 0.01) return;
+          const [gx, gy] = glideAt(cur, t1);
+          pillAt[k] = { x: px0, y: py0, fx: gx, fy: gy, t0: t1 };
+        });
+        pillK.boxes = pl;
+      }
+      if (had !== (pl ? 1 : 0)) Object.assign(pillK, { from: !old || reduceMQ.matches ? (pl ? 1 : 0) : blkOp(pillK, t1), a: pl ? 1 : 0, t0: t1 });
+      else if (!old) Object.assign(pillK, { from: pillK.a, t0: 0 });
       for (const n of plan.names || []) {
         const cur = nameAt[n.c], t1 = performance.now();
         if (!cur || !old || reduceMQ.matches) { nameAt[n.c] = { x: n.x, y: n.y, fx: n.x, fy: n.y, t0: 0 }; continue; }
@@ -659,9 +718,15 @@ export function createProfileTool() {
         const row = rows[r] || { y: plan.inside ? plan.brk[r] : G.brY(r), from: null }, e = fadeK(row, t);
         if (row.from != null && e >= 1) row.from = null;
         return row.from == null ? [brk1(row.y, 1)] : [brk1(row.from, 1 - e), brk1(row.y, e)];
+      }),
+      // The two readings as pills in the plot's top right, tinted as the brackets rate them, over everything else (the plan keeps them clear).
+      !pillK.boxes || blkOp(pillK, t) < 0.005 ? null : pillK.boxes.map(([px0, px1, py0, py1], k) => {
+        const [key, name] = SPANS[k], v = shown[key], rate = RATE[key](v)[0], [gx, gy] = glideAt(pillAt[k] || { x: px0, y: py0, fx: px0, fy: py0, t0: 0 }, t), op = blkOp(pillK, t);
+        return sv('g', { class: 'ppf-pill', 'data-rate': rate, 'data-k': key, opacity: op < 0.995 ? op.toFixed(3) : null }, sv('rect', { x: gx, y: gy, width: px1 - px0, height: py1 - py0, rx: (py1 - py0) / 2 }),
+          sv('text', { x: gx + (px1 - px0) / 2, y: gy + (py1 - py0) / 2 + 0.36 * f, 'text-anchor': 'middle' }, sv('tspan', { class: 'k' }, `${name} `), whole(v)));
       }));
     for (const [i, b] of blk) if (!b.a && t - b.t0 >= FADE_MS) blk.delete(i);
-    fading = rows.some((row) => row?.from != null) || Object.values(nameAt).some((a) => t - a.t0 < FADE_MS) || [...blk.values()].some((b) => t - b.t0 < FADE_MS);
+    fading = rows.some((row) => row?.from != null) || Object.values(nameAt).some((a) => t - a.t0 < FADE_MS) || pillAt.some((a) => a && t - a.t0 < FADE_MS) || t - pillK.t0 < FADE_MS || [...blk.values()].some((b) => t - b.t0 < FADE_MS);
     el.replaceChildren(svg);
   }
   const glideAt = (a, now) => { const e = 0.5 - 0.5 * Math.cos(Math.PI * Math.min(1, Math.max(0, (now - a.t0) / FADE_MS))); return [lerp(a.fx, a.x, e), lerp(a.fy, a.y, e)]; };

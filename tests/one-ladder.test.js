@@ -54,7 +54,7 @@ test('the earlier line keeps its name: No Rx before treatment, Day 0 a year back
   assert.deepEqual(at('one-year.js', 'carv').tool, { kind: 'profile', from: 'd365', fromLabel: 'No Rx' });
   const prof = readFileSync(new URL('../src/ui/tool-profile.js', import.meta.url), 'utf8');
   assert.match(prof, /fromLabel: typeof t\?\.fromLabel === 'string' && t\.fromLabel\.trim\(\) \? t\.fromLabel\.trim\(\) : 'Before'/);
-  assert.match(prof, /placeLineNames\(g, tw, goal, hl, bf, s, brk, cfg\.fromLabel\)/);
+  assert.match(prof, /placeLineNames\(g, tw, goal, hl, bf, s, brk, cfg\.fromLabel, pl \|\| \[\]\)/);
   assert.match(prof, /\[bf, bfName, 'bf'\]/);
 });
 

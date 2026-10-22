@@ -6219,6 +6219,12 @@ html.thumb-ui .menu.from-dock { clip-path: inset(-64px -64px calc(var(--sink, 0p
 .ppf-br text .k { font-weight: 600; fill: var(--text-2); }
 .ppf-br[data-rate="mid"] path { stroke: var(--caution); } .ppf-br[data-rate="mid"] text { fill: var(--caution); }
 .ppf-br[data-rate="hi"] path { stroke: var(--danger); } .ppf-br[data-rate="hi"] text { fill: var(--danger); }
+/* (The two readings as pills in the plot's top right, tinted as the brackets rate them: green, amber or red, like the app's rated pills (.pz-val.tone).) */
+.ppf-pill { --tone: var(--ok); }
+.ppf-pill[data-rate="mid"] { --tone: var(--caution); } .ppf-pill[data-rate="hi"] { --tone: var(--danger); }
+.ppf-pill rect { fill: color-mix(in srgb, var(--tone) 15%, var(--surface)); stroke: color-mix(in srgb, var(--tone) 50%, transparent); stroke-width: 1; }
+.ppf-pill text { font: 700 1em var(--font-ui); font-variant-numeric: tabular-nums; fill: color-mix(in srgb, var(--tone) 82%, var(--text)); }
+.ppf-pill text .k { font-weight: 600; }
 /* (The Healthy bar and the Now bar, as tall and close together, each named at its left, and room for one row of names under
    the Now bar, whatever the slide holds, the inflow's bars too: the card never resizes from slide to slide, and the drawing
    centres itself in it, tool-flows.js. The bars take the card's full width, its tiles under them, presenter.js. Names and

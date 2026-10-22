@@ -78,7 +78,7 @@ test('the block is drawn under the axis line, the line and the readings, which k
 });
 
 test('every bracket and the healthy line\'s name keep clear of the blocks; a block eases in and out, hatched as the old ladder\'s', () => {
-  assert.equal((prof.match(/for \(const i of blocksOf\(goal, hl\)\) place\.take\(blockBox\(G, tw, goal, i\)\);/g) || []).length, 2);
+  assert.equal((prof.match(/for \(const i of blocksOf\(goal, hl\)\) place\.take\(blockBox\(G, tw, goal, i\)\);/g) || []).length, 3, 'the brackets, the lines\' names and the pills');
   assert.match(prof, /if \(!b \|\| b\.a !== a\) blk\.set\(i, \{ a, from: reduceMQ\.matches \? a : b \? blkOp\(b, t\) : 0, t0: t \}\);/);
   assert.match(prof, /\|\| \[\.\.\.blk\.values\(\)\]\.some\(\(b\) => t - b\.t0 < FADE_MS\);/);
   assert.match(prof, /sv\('rect', \{ class: 'pz-hb', width: s, height: s \}\), sv\('rect', \{ class: 'pz-hs', width: s \/ 2, height: s \}\)/);

@@ -10,6 +10,15 @@
   HVPG deck, One year), on phone, iPad and Mac. A WHVP or FHVP written into a slide's words (`{whvp}`, `{fhvp}`), a figure pill or a
   callout now takes the same green, amber or red, and in Explore and Patients the two readings of Tests › HVPG take it too (easing,
   never snapping). Tests: `tests/tile-bar.test.js`, `tests/pill-rating-tone.test.js`.
+- **Ladder: HVPG and PPG pills in the plot's top right.** Every Gut to heart ladder (the data cards, the slides' charts, each case of the
+  six-case grids on Mac and iPad) shows the two readings as two small pills, "HVPG 5" and "PPG 16", in the plot's top right corner, in the
+  same whole numbers and the same green, amber and red as the brackets (HVPG amber from 5, red from 10; PPG amber from 6, red from 12).
+  Each pill is as wide as its name and the widest value, so a number changing never moves an edge. They stand in a row, or one over the
+  other where the row does not fit, in the nearest place to the corner that keeps 4 px clear of every line, reading, block, zone name and
+  bracket; a new state eases them there (never jumping), and where a place appears or disappears they fade. Where a chart is too crowded
+  for pills that clear all that (the narrow six-case cells on Mac and iPad, some phone and iPad states), they stand down and the brackets
+  keep the same two numbers: the brackets and the plot's height never give way for them. The phone's one-line cases and the app's own
+  Pressure panel in Explore and Patients are not changed. Tests: `tests/ladder-pills.test.js`.
 - **Ladder: three zones, three tints.** The Gut to heart ladder's one LIVER band becomes three soft tints, each named over the plot in full:
   PRE-HEPATIC over Gut and PV (a cool blue), INTRAHEPATIC over the liver's Pre-, Intra- and Post- columns (the warm tint the LIVER band
   had) and POST-HEPATIC over HV, IVC and RA (a green); the written-out words never read as the Pre- and Post- stations under the axis.
