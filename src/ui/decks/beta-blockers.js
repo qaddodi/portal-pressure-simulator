@@ -75,6 +75,7 @@ export const BETA_BLOCKERS = {
     },
     {
       id: 'choose', cam: 'fit', data: 'tiles', tiles: ['map', 'pv'], key: ['map'], delta: 'schisto',
+      cite: 'Baveno VIII 3.15, 4.6, 8.8, 8.9',
       kicker: 'Choosing', title: 'Where the resistance sits guides the choice of beta-blocker',
       line: 'In cirrhosis carvedilol lowers the HVPG more than propranolol, at the cost of a lower blood pressure. In presinusoidal disease the model shows carvedilol adding little.',
       causesHead: 'In practice', causes: ['Cirrhosis with CSPH: carvedilol preferred', 'PSVD: beta-blocker or banding, no drug preferred', 'Low blood pressure or AKI: reduce or stop'],

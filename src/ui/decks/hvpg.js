@@ -42,6 +42,7 @@ export const HVPG = {
       compare: [{ label: 'Healthy', preset: 'healthy' }, { label: 'Compensated', preset: 'cirr-comp' }, { label: 'This case', own: true }, { label: 'Decompensated', short: 'Decomp.', preset: 'cirr-decomp' }],
       kicker: 'Measuring portal pressure', site: 'sin', title: 'HVPG measures the pressure drop across the sinusoids',
       eq: [mi('HVPG') + mo('=') + '<mi class="eq-wedge">WHVP</mi>' + mo('−') + '<mi class="eq-hv">FHVP</mi>'],
+      cite: 'AASLD 2024 3, 4; Baveno VIII Table 3',
       line: 'In this case the HVPG is {hvpg}: clinically significant portal hypertension.',
       notes: 'The hepatic venous pressure gradient is the pressure drop across the sinusoids. In this case the HVPG is about 12 mmHg, which is clinically significant. HVPG predicts outcome: from 10 mmHg varices and decompensation become possible, and the risk rises with the gradient; variceal bleeding is rare below about 12. After a variceal bleed, a fall on treatment to below 12 mmHg, or by 20% or more, protects against rebleeding. Before any bleed, a fall of 10% or more already predicts benefit. Without a catheter, liver stiffness (25 kPa or more) rules clinically significant portal hypertension in; stiffness of 15 kPa or less with platelets of 150 or more rules it out.',
       ask: ['After a variceal bleed, on carvedilol, the HVPG falls from 18 to 13 mmHg. Is that a response?', 'Yes: a fall of 20% or more protects against rebleeding even above 12. Before any bleed, a fall of 10% already predicts benefit.'],

@@ -93,6 +93,7 @@ export const TIPS_DOPPLER = {
     },
     {
       id: 'left', cam: 'liver', lens: 'direction', labels: ['LPV'], terms: ['lpv'], tool: { kind: 'doppler', vessel: 'PVH_L' },
+      cite: 'Lechowicz 2015, Polish Ultrasound Society standards',
       kicker: 'A working TIPS', title: 'The left portal vein flows toward the stent',
       line: 'With a working TIPS, every branch flows toward the stent. The [left portal vein](lpv) turns hepatofugal, drawn below the baseline and in the reversed color.',
       notes: 'The stent is the easiest way out of the liver, so blood in the left portal vein, much of it hepatic arterial blood that has entered the sinusoids, runs back to the bifurcation and into the stent. Before the TIPS this branch flowed toward the liver. Here hepatofugal flow is the expected finding, a sign that the stent is working, not a sign of advanced disease. Colored by direction, reversed flow is orange.',

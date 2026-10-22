@@ -56,6 +56,7 @@ export const SHUNTS = {
     {
       id: 'wide', params: { tips: { d: 12 } }, whatIf: { label: 'Stent width', param: 'tips.d', min: 6, max: 12, step: 1, unit: 'mm' }, cam: 'liver', sites: ['split'], mark: { edges: ['TIPS'], label: 'Stent at 12 mm', kind: 'treat' },
       tool: { kind: 'curve', param: 'tips.d', from: 6, to: 12, step: 1, lines: ['ppg', 'liver'] }, data: 'tiles', tiles: ['ppg', 'liver'],
+      cite: 'Baveno VIII 6.5',
       kicker: 'Placed shunts', site: 'sin', title: 'A 12 mm stent diverts too much portal flow',
       line: 'The gradient falls further, but the liver loses more portal blood; encephalopathy is more common, and liver failure is a risk when reserve is poor. Many centers use 8 mm stents. Along the curve, each extra millimeter lowers the PPG a little less.',
       notes: 'The same patient with the stent opened to 12 mm. The gradient falls further, but the liver loses more of its portal blood. Encephalopathy after TIPS is commoner with wider stents, older age and earlier encephalopathy; liver failure is the feared complication when reserve is poor. Many centers place an 8 mm stent, or a stent that is under-dilated and can be widened later if the gradient stays high. Persistent encephalopathy can be treated by narrowing the stent. Under-dilated standard stent grafts tend to widen partly toward their full size over about six months; controlled-expansion grafts are designed to hold the set width. On the figure, colored by flow, the stent carries far more blood than the sinusoids.',
