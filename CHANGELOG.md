@@ -2,6 +2,16 @@
 
 ## October 2026
 
+- **Cardiac output and Blood volume tiles get their normal bands.** They were the only two data card tiles left with a bare gray track and
+  no word. Each now has coloured bands with its cut-off numbers, a dot for now, a ring for the start and a rating word, in Heart rate's
+  style (Mohammad, 22 Oct: any tile should always have its normal where it can). The guideline files give no numbers for either, so these
+  are the standard physiology ranges: a resting adult's cardiac output is 4 to 8 L/min (cardiac index 2.5 to 4 L/min/m²), and the blood
+  volume is about 70 mL/kg, 4.5 to 5.5 L for the model's 70 kg adult (±10% of its 5.0 L). A low one is red ("Low"); a high one (output over
+  8 L/min, volume over 5.5 L) is gray "High", not a warning, as a slow heart rate is, because pregnancy and the hyperdynamic circulation of
+  cirrhosis raise both on their own. The same rating now colours the {co} and {bv} pills and callouts, the cut-off lines on a curve of either, and a
+  summary table read against normal flags only a low one (↓↓). Every tile in every deck, in Present, Patients and Explore and on every
+  device takes it. A new test fails for any tile left bare. Code only, not looked at on screen. Tests: `tests/tile-bar.test.js`,
+  `tests/callouts.test.js`, `tests/model-charts.test.js`.
 - **The stent's three callouts keep their places when a point is picked.** On the TIPS Doppler slides the middle callout could jump to the
   far side of the stent (or the whole column land there) when Proximal, Mid or Distal was picked, depending on whether the Doppler probe
   or the callouts reached the screen first: the probe's body and line of sight counted as obstacles to the callouts, and its place was

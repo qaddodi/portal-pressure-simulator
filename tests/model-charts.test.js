@@ -117,7 +117,7 @@ test('scales: a pressure from zero up to a close cut-off, the second line on the
   assert.equal(r.ticks.length, l.ticks.length); assert.ok(r.min <= 22.7 && r.max >= 40.9);
   assert.deepEqual(cutsOf('ppg'), [{ v: 6, rate: 'mid' }, { v: 12, rate: 'hi' }]);
   assert.deepEqual(cutsOf('liver'), [{ v: 55, rate: 'hi' }, { v: 75, rate: 'mid' }]);
-  assert.deepEqual(cutsOf('bv'), []);
+  assert.deepEqual(cutsOf('bv'), [{ v: 4.5, rate: 'hi' }], 'a low volume is the one cut-off; a high one is gray information');
   const xt = xTicks(6, 12, 7);
   assert.ok(xt[0] === 6 && xt.at(-1) === 12 && xt.length <= 7);
 });

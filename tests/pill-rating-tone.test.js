@@ -42,7 +42,6 @@ test('the wedged and free pressures are rated like their tiles (22 Oct): the por
 });
 
 test('an unrated value keeps its station colour; no reading, no rating colour', () => {
-  assert.ok(!RATE.co);
   assert.equal(valTone('whvp', null), 'wedge');
   assert.equal(valTone('fhvp', null), 'hv');
   assert.equal(valTone('pv', null), 'pv');

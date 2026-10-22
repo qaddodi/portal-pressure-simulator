@@ -33,8 +33,8 @@ test('a scale bar shows all its cut-off numbers or none (D2)', () => {
   assert.match(pass, /if \(clash\) for \(const l of ls\) l\.classList\.add\('off'\)/);
 });
 
-test('Volume and Output get a plain bar: no bands, no cut-offs (D4)', () => {
-  for (const k of ['bv', 'co']) { assert.ok(SCALE[k], k); assert.deepEqual(SCALE[k][2], []); assert.deepEqual(bandsOf(k), []); }
+test('Volume and Output carry their normal bands now (D4 gave them a plain bar on 17 Oct; Mohammad, 22 Oct: any tile should have its normal)', () => {
+  for (const k of ['bv', 'co']) { assert.ok(SCALE[k], k); assert.deepEqual(SCALE[k][2].length, 2, `${k}: low, normal and high`); assert.equal(bandsOf(k).length, 3); }
 });
 
 test('cards of tiles alone drop their header on every screen, folded cards keep it (D1, DG2)', () => {

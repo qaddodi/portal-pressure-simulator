@@ -42,6 +42,13 @@ export const RATE = {
   // Portal vein clot, the share of the lumen it fills, in EASL 2025's grades (Table 4): minimal up to half, partial past it, complete.
   clot: (v) => (v >= 0.995 ? ['hi', 'Complete'] : v > 0.5 ? ['hi', 'Partial'] : v >= 0.05 ? ['mid', 'Minimal'] : ['ok', 'None']),
   hb: (v) => (v < 7 ? ['hi', 'Severe'] : v < 12 ? ['mid', 'Low'] : ['ok', 'Normal']),
+  // Cardiac output and blood volume (22 Oct, Mohammad: any tile should show its normal where it can). The guideline files give no numbers for
+  // either, so these are the standard physiology ranges: a resting adult's cardiac output is 4 to 8 L/min (cardiac index 2.5 to 4 L/min/m²), and
+  // the blood volume is about 70 mL/kg, 4.5 to 5.5 L for the model's 70 kg adult (±10% of its 5.0 L). Low is the warning (red). High is only
+  // information (gray, like a slow heart rate): pregnancy, fever or cirrhosis's hyperdynamic circulation raise both without anything being wrong
+  // with the tile's reading itself, so it never reads as a fault.
+  co: (v) => (v < 4 ? ['hi', 'Low'] : v > 8 ? ['info', 'High'] : ['ok', 'Normal']),
+  bv: (v) => (v < 4500 ? ['hi', 'Low'] : v > 5500 ? ['info', 'High'] : ['ok', 'Normal']),
 };
 // Each tile: its name (n: a short one for a narrow tile, three in a row on a tablet or phone), what it is, the unit, the decimals (1 unless d), a scale (x) and which way is better
 // (−1 lower, 1 higher) for the colour of a change.
@@ -71,7 +78,6 @@ export const TILE = {
   salb: { t: 'Serum albumin', n: 'Albumin', s: 'Blood', u: 'g/dL', better: 1 },
   ivc: { t: 'IVC pressure', n: 'IVC', s: 'Pressure', u: 'mmHg', better: -1 },
   hb: { t: 'Hemoglobin', n: 'Hb', s: 'Blood', u: 'g/dL', better: 1 },
-  // (Unrated: in pregnancy both rise as they should, so neither is good or bad.)
   co: { t: 'Cardiac output', n: 'Output', s: 'Heart', u: 'L/min' },
   bv: { t: 'Blood volume', n: 'Volume', s: 'Whole blood', u: 'L', x: 0.001 },
 };
@@ -88,15 +94,18 @@ export const tileShown = (k, v) => {
 };
 export const rateShown = (k, f) => (f && f[k] != null ? rateOf(k, { ...f, [k]: tileShown(k, f[k]) }) : rateOf(k, f));
 // Each tile's scale bar, in the units the tile shows: [from, to, the cut-offs between its coloured bands]. The bands take their
-// colour from the tile's own rating, so the bar and the status word always agree. (No bands where nothing is rated: cardiac output, blood volume.)
+// colour from the tile's own rating, so the bar and the status word always agree. (Every tile has its bands: a tile is left bare only where no normal exists.)
 export const SCALE = {
   hvpg: [0, 25, [5, 10]], ppg: [0, 25, [6, 12]], pv: [0, 30, [10, 15]], sin: [0, 20, [9, 12]], whvp: [0, 30, [10, 15]], fhvp: [0, 20, [8]],
   saag: [0, 3, [1.1]], tp: [0, 5, [1.5, 2.5]], asc: [0, 8, [0.15, 1.5, 5]],
   varix: [0, 10, [2.5, 5]], gv: [0, 10, [2.5, 5]], spleen: [8, 22, [13, 16]], plt: [0, 300, [100, 150]],
   pvFlow: [-0.6, 2, [0]], pvVel: [0, 50, [FLOW_CUTS.stasis, 15]], liver: [0, 125, [55, 75]], shunt: [0, 100, [10, 30]], map: [40, 120, [65]],
   lsm: [0, 35, [10, 15, 25]], clot: [0, 100, [5, 50]], ra: [0, 20, [8]], ivc: [0, 20, [8]], salb: [1.5, 5.5, [3.5]], hb: [4, 18, [7, 12]], hr: [30, 200, [60, 100]],
-  // (Unrated, so a plain bar with no bands and no cut-off numbers: only the ring, before pregnancy, and the dot, now. Critique D4, 17 Oct.)
-  bv: [3, 9, []], co: [3, 12, []],
+  // (Volume and output were a plain bar until 22 Oct. The model's patients run from 3.0 to 8.4 L/min, which the output's scale holds. The volume's
+  // 4.5 and 5.5 are three characters wide and the tile's bar is 88 px on a phone with three tiles in a row, so its scale is kept tight: just
+  // over a third of the bar between them, and the first well clear of the bar's start, or the two numbers would crowd each other out (the bars
+  // drop them within 8 px). A pregnancy's 7.1 L rests against the end, as a platelet count of 380 does.)
+  bv: [4.1, 7, [4.5, 5.5]], co: [2, 11, [4, 8]],
 };
 // A bar's bands: each from a to b (shown units), and m, its middle in the model's units (what the rating reads).
 export const bandsOf = (k) => {
@@ -116,7 +125,7 @@ export const COLS = { pv: 'PV', whvp: 'WHVP', fhvp: 'FHVP', ivc: 'IVC', ra: 'RA'
 // Each column's cut-offs (the same as the readouts' status colors), shown on its heading (hover, or a tap under the table) so the legend can stay short.
 export const CUT = { pv: '↑ over 10, ↑↑ 15 or more mmHg', whvp: '↑ over 10, ↑↑ 15 or more mmHg', fhvp: '↑ over 8, ↑↑ over 16 mmHg', ivc: '↑ over 8, ↑↑ over 16 mmHg', ra: '↑ over 8, ↑↑ over 16 mmHg',
   hvpg: '↑ 5 or more, ↑↑ 10 or more mmHg', ppg: '↑ 6 or more, ↑↑ 12 or more mmHg', sin: '↑ 9 or more, ↑↑ 12 or more mmHg', varix: '↑ 2.5 to 5 mm, ↑↑ 5 mm or more', gv: '↑ 2.5 to 5 mm, ↑↑ 5 mm or more (fundal varix)',
-  plt: '↓ under 150, ↓↓ under 100 × 10³/µL', lsm: '↑ 10 to 25, ↑↑ 25 kPa or more', spleen: '↑ over 13, ↑↑ over 16 cm', liver: '↓ 75% or less, ↓↓ 55% or less', shunt: '↑ 10% or more, ↑↑ 30% or more', map: '↓↓ under 65 mmHg', hr: '↑↑ over 100 beats/min (slow, under 60, is not flagged)', hb: '↓ under 12, ↓↓ under 7 g/dL', co: 'unrated: ↑ ↓ compare with the reference row', bv: 'unrated: ↑ ↓ compare with the reference row',
+  plt: '↓ under 150, ↓↓ under 100 × 10³/µL', lsm: '↑ 10 to 25, ↑↑ 25 kPa or more', spleen: '↑ over 13, ↑↑ over 16 cm', liver: '↓ 75% or less, ↓↓ 55% or less', shunt: '↑ 10% or more, ↑↑ 30% or more', map: '↓↓ under 65 mmHg', hr: '↑↑ over 100 beats/min (slow, under 60, is not flagged)', hb: '↓ under 12, ↓↓ under 7 g/dL', co: '↓↓ under 4 L/min (high, over 8, is not flagged)', bv: '↓↓ under 4.5 L (high, over 5.5, is not flagged)',
   asc: '↑ grade 1, ↑↑ grade 2 or 3', saag: '↑ 1.1 g/dL or more: portal hypertension; ↓ under 1.1', tp: '↑ 2.5 g/dL or more, ↓ under 2.5 (ascites protein)', pvFlow: '↓ under 0.9 L/min, ↓↓ stasis or reversed; ↑ over 1.3 L/min (fasting normal)' };
 // Raw pressures, in whole mmHg: ↑ over the first, ↑↑ over the second. PV and WHVP follow the portal pressure readout (normal 10 or less, high from 15).
 export const RAW = { pv: [10, 14], whvp: [10, 14], fhvp: [8, 16], ivc: [8, 16], ra: [8, 16] };
@@ -132,6 +141,8 @@ export function dirAbs(k, f) {
   // Portal flow: reduced under 0.9 L/min; stasis (under 9 cm/s) or reversed is past the red line; above the fasting range after a meal or a TIPS.
   if (k === 'pvFlow') return v < -0.02 || (f.pvVel != null && Math.abs(f.pvVel) < FLOW_CUTS.stasis) ? -2 : v < 0.9 ? -1 : v > 1.3 ? 1 : 0;
   if (k === 'asc') return v < NO_ASC ? 0 : rateOf(k, f)[0] === 'hi' ? 2 : 1;
+  // Output and volume: only a low one is flagged (↓↓); a high one is information, as its tile's gray reads it, like a slow heart rate.
+  if (k === 'co' || k === 'bv') return rateOf(k, { ...f, [k]: tileShown(k, fpv(k, f)) })[0] === 'hi' ? -2 : 0;
   const r = rateOf(k, { ...f, [k]: v })[0], sign = UP_GOOD.has(k) ? -1 : 1;
   return r === 'hi' ? 2 * sign : r === 'mid' ? sign : 0;
 }

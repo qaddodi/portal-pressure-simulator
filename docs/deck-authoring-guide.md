@@ -613,10 +613,12 @@ The ratings mirror `RATE` in `src/ui/table-marks.js` exactly; each judges the va
 | `lsm` | Liver stiffness (FibroScan) | kPa | under 10 | 10 or more "cACLD", 15 or more "Borderline" | 25 or more "CSPH" |
 | `salb` | Serum albumin | g/dL | 3.5 or more | under 3.5 "Low" | |
 | `hb` | Hemoglobin | g/dL | 12 or more | under 12 "Low" | under 7 "Severe" |
-| `co` | Cardiac output | L/min | unrated, plain bar | | |
-| `bv` | Blood volume | L | unrated, plain bar | | |
+| `co` | Cardiac output | L/min | 4 to 8 (resting adult); over 8 "High" is gray, not a warning | | under 4 "Low" |
+| `bv` | Blood volume | L | 4.5 to 5.5 (about 70 mL/kg); over 5.5 "High" is gray, not a warning | | under 4.5 "Low" |
 
 Status words: Normal, then High (or Low), then Severe, except where the table names others (HVPG Mild/CSPH, PPG High/Bleed risk, stiffness cACLD/Borderline/CSPH, varices None/Small/Large, shunt Small/Moderate/Large). The spleen reads Large in amber and in red. SAAG and protein read "No ascites", uncolored, when there is under 0.15 L of ascites.
+
+Every tile has its normal bands (a tile that cannot have a sensible normal would be the only exception; there is none today). A high output or volume reads "High" in gray, like a slow heart rate: pregnancy and the hyperdynamic circulation of cirrhosis raise both without it being a fault. A new tile key gets its rating, cut-offs and scale together (`RATE`, `SCALE`, `CUT` in `table-marks.js`); `tests/tile-bar.test.js` fails for a tile left bare.
 
 Key facts for text: normal HVPG 1–5; CSPH is HVPG ≥ 10; bleeding risk rises steeply from an HVPG of about 12 (rising risk, not a cut-off: varices can bleed below it); PPG normal ≤ 5; Baveno VIII stiffness: < 10 kPa normal, ≤ 15 with platelets ≥ 150 rules CSPH out, 15–25 gray zone (ANTICIPATE ≥ 75% or spleen stiffness ≥ 55 kPa rules it in), ≥ 25 CSPH.
 

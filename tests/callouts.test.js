@@ -32,7 +32,9 @@ test('values print as their tiles print them, in their rating colours', () => {
   assert.equal(valueText('plt', FP), '88,000/µL');
   assert.equal(valueTone('ppg', FP), '--danger');
   assert.equal(valueTone('ppg', { ppg: 10.4 }, true), '--ok', 'after TIPS the PPG is read against its target');
-  assert.equal(valueTone('co', { co: 5 }), null, 'an unrated reading has no colour');
+  assert.equal(valueTone('co', { co: 5 }), '--ok', 'output and volume are rated now: their normal reads green');
+  assert.equal(valueTone('bv', { bv: 3900 }), '--danger', 'a low volume is the warning');
+  assert.equal(valueTone('bv', { bv: 6800 }), null, 'a high volume is information, as a slow heart rate is: no colour');
 });
 
 test('a callout keeps room for its widest value', () => {
