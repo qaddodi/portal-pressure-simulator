@@ -2869,9 +2869,8 @@ button.finding { cursor: pointer; }
 .scan-probe .sp-screen { fill: var(--fibroscan); }   /* the probe's own display: the live stiffness, along its 45° axis */
 .scan-probe .sp-read { font: 700 12px Inter, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; font-variant-numeric: tabular-nums; fill: color-mix(in srgb, var(--fibroscan) 12%, black); }
 .scan-probe .sp-unit { font-size: 12px; font-weight: 600; fill: color-mix(in srgb, var(--fibroscan) 30%, black); }
-.scan-probe :is(.sp-head, .sp-cable) { transition: opacity .3s var(--ease); }
-.scan-probe.head-off :is(.sp-head, .sp-cable) { opacity: 0; }   /* (a card over the probe's body: its waves stay, no stub pokes out from under the card) */
-.scan-probe .sp-cable { fill: none; stroke: var(--text-3); stroke-width: 3; stroke-linecap: round; }
+.scan-probe .sp-head { transition: opacity .3s var(--ease); }
+.scan-probe.head-off .sp-head { opacity: 0; }   /* (a card over the probe's body: its waves stay) */
 .scan-probe .sp-beam { fill: url(#sp-beam); filter: blur(5px); }
 .scan-probe .sp-waves > g { opacity: 0; }
 .scan-probe .sp-waves path { fill: none; stroke: var(--scan); stroke-linecap: round; }
@@ -2889,7 +2888,6 @@ button.finding { cursor: pointer; }
 .dop-probe .dpr-line { fill: none; stroke: var(--dop-mark); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 .dop-probe .dpr-gate-rim { fill: none; stroke: var(--dop-rim); stroke-width: 5.6; stroke-linecap: round; }
 .dop-probe .dpr-gate { fill: none; stroke: var(--dop-mark); stroke-width: 3; stroke-linecap: round; }   /* (a bit thicker than the 2 px axis line (both thickened, Mohammad, 20 Oct); drawn on top of the axis and the line of sight) */
-.dop-probe .dpr-cable { fill: none; stroke: var(--text-3); stroke-width: 3; stroke-linecap: round; }
 .dop-probe .dpr-rim { fill: none; stroke: var(--dop-rim); stroke-width: 4; stroke-linejoin: round; }
 .dop-probe .dpr-body { fill: var(--surface); stroke: var(--dop-mark); stroke-width: 1.6; stroke-linejoin: round; }
 .dop-probe .dpr-face { fill: none; stroke: var(--dop-mark); stroke-width: 3; }

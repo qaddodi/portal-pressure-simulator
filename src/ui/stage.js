@@ -48,7 +48,7 @@ import { layoutWatch } from './idle-keys.js?v=ea36a0b5c6';
 import { writeGlowTexels } from './glow-texels.js?v=e578794a92';
 import { SIN_PERFUSION, sinStrandRadius } from './sin-perfusion.js?v=25a8407fdd';
 import { wavePacks, paintWave } from './scan-waves.js?v=066db7aa38';
-import { fitPose, probeShapes, beamBoxes, gateBoxes, awayFromProbe, createProbeMind, NONE_MS, SLACK, PROBE, PROBE_SVG } from './dop-probe.js?v=c9d8367fdb';
+import { fitPose, probeShapes, beamBoxes, gateBoxes, awayFromProbe, createProbeMind, NONE_MS, SLACK, PROBE, PROBE_SVG } from './dop-probe.js?v=333917e0dc';
 import { pathPieces, piecesLength, pointsAlong } from './path-pieces.js?v=e486672c9b';
 import { organDimMatrix } from './organ-dim.js?v=7888276613';
 import { parseColor, greyOf, paintRef } from './organ-grey.js?v=e41d68222c';
@@ -6069,7 +6069,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const p = (t) => `${(cx + r * Math.cos(t)).toFixed(1)} ${(cy + r * Math.sin(t)).toFixed(1)}`;
     return `M${p(-h)} A${r.toFixed(1)} ${r.toFixed(1)} 0 0 1 ${p(h)}`;
   }
-  // The probe's body and cable lie up and to the left of its tip, turned 45°: where a card covers any of that, the head fades out and the
+  // The probe's body lies up and to the left of its tip, turned 45°: where a card covers any of that, the head fades out and the
   // waves stay, so no stub pokes out from under the card. (The box is the head's four corners, 90 px back along the axis, 13 px to either side.)
   function scanHead() {
     const tip = scan.el && scanTipLocal();
@@ -6163,7 +6163,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   }
   function scanTurn(tx, y = Infinity) {
     const r = (d) => d * Math.PI / 180, left = (d) => tx - 92 * Math.cos(r(d)) - 13 * Math.sin(r(d)) >= SCAN_EDGE, top = (d) => y - 76 * Math.sin(r(d)) - 13.8 * Math.cos(r(d)) >= 4;
-    const bodyLeft = (d) => tx - 76 * Math.cos(r(d)) - 13.8 * Math.sin(r(d)) >= 4;   // (only the body must stay on screen; the cable is a short stub)
+    const bodyLeft = (d) => tx - 76 * Math.cos(r(d)) - 13.8 * Math.sin(r(d)) >= 4;   // (only the body must stay on screen; it has no cable: Mohammad, 22 Oct)
     let deg = 45;
     while (deg < 80 && !left(deg)) deg += 5;
     if (left(deg)) while (deg > 10 && !top(deg) && bodyLeft(deg - 5)) deg -= 5;
@@ -6177,8 +6177,6 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       if (alt.length) deg = alt.sort((a, b) => Math.abs(a - deg) - Math.abs(b - deg) || b - a)[0];
     }
     if (deg !== scan.deg) { scan.deg = deg; scan.el.style.setProperty('--sp-turn', `${deg}deg`); }
-    // (The cable stays a short stub behind the body at every angle: laid flatter it used to run on to the screen's edge, a long
-    // straight wire across the stage and under the cards, 18 Oct.)
   }
   function scanPaint() {
     if (!scan.el) {
@@ -6188,7 +6186,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         + '<stop offset="0" stop-color="var(--scan)" stop-opacity=".22"/><stop offset="1" stop-color="var(--scan)" stop-opacity="0"/></radialGradient></defs>'
         + '<path class="sp-beam" d="M66 48 L197.6 -23.9 A150 150 0 0 1 197.6 119.9 Z"/><g class="sp-waves">'
         + '<g><path class="sp-rip"/><path class="sp-front"/><path class="sp-rip"/></g>'.repeat(SCAN_N) + '</g>'
-        + '<path class="sp-cable" d="M-26 48 C-18 48 -14 48 -8 48"/><g class="sp-head"><rect class="sp-body" x="-10" y="35" width="68" height="26" rx="11"/>'
+        + '<g class="sp-head"><rect class="sp-body" x="-10" y="35" width="68" height="26" rx="11"/>'
         + '<rect class="sp-tip" x="54" y="39" width="10" height="18" rx="3"/><rect class="sp-screen" x="-3" y="39.5" width="54" height="17" rx="4"/>'
         + '<text class="sp-read" x="24" y="52.3" text-anchor="middle"><tspan class="sp-val">5.0</tspan><tspan class="sp-unit" dx="2">kPa</tspan></text></g></svg>';   // (constant markup; the screen on the body shows the live stiffness)
       sites.el.append(el); scan.el = el; scan.deg = 45;

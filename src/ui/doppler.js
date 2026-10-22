@@ -8,7 +8,7 @@ import { EDGES, dopplerK, stentSegments, stentSite, stentGate, stentCourse } fro
 import { h, fmt, fitCanvas, clamp, icon, cssVar, cssAlpha } from './util.js?v=9e70912a09';
 import { FONT } from './charts.js?v=5c5cc11eeb';
 import { logAction, shownVel, store } from './store.js?v=05dd788e72';
-import { DOPPLER_MODES, THETA, dopplerColor, shadeColor, swatchGradient } from './dopplerColor.js?v=01c6d18c36';
+import { DOPPLER_MODES, THETA, dopplerColor, shadeColor, swatchGradient } from './dopplerColor.js?v=15fef27f5e';
 import { frameFor, noteDraw, paceMs, cancelFrame } from './frame.js?v=74867bd42b';
 import { windowIndexFor, scaleFor, fitScale } from './dopplerWindow.js?v=1d34e63b32';
 import { velNormal, dopplerVel } from './velNormal.js?v=181dda5594';

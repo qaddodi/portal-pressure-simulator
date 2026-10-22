@@ -11,7 +11,7 @@ export const AWAY = new Set(['RHV_IVC', 'MHV_IVC', 'LHV_IVC', 'IVCS_RA']);
 export const awayFromProbe = (id) => AWAY.has(id);
 
 // The probe's shape, in CSS px along its axis from its face: drawn at SCALE (1.35: a bit bigger, Mohammad, 20 Oct), the body
-// reaches 48 × 1.35 ≈ 65 px back and its cable stub on to 62 × 1.35 ≈ 84; 11 × 1.35 ≈ 15 px either side (17.5 with the outline).
+// reaches 48 × 1.35 ≈ 65 px back (no cable: Mohammad, 22 Oct, "remove the wire sticking out"; the room kept for it, 62 × 1.35 ≈ 84, stays, so the probe stands where it did); 11 × 1.35 ≈ 15 px either side (17.5 with the outline).
 // GAP: from the vessel's wall to the probe's face.
 // BEAM_DEG: the faded ultrasound beam's half-angle (the first probe's narrow beam, which Mohammad missed, 20 Oct).
 // ANGLE: the Doppler angle θ, the monitor's too (dopplerColor.js THETA reads it). Under 60° as the papers ask (McNaughton and
@@ -277,5 +277,5 @@ export const PROBE_SVG = '<svg class="dpr-svg" width="1" height="1" aria-hidden=
   + '<stop offset="1" stop-color="var(--dop-glow)" stop-opacity="0"/></linearGradient></defs><g class="dpr-rot"><path class="dpr-wedge"/>'
   + '<path class="dpr-rim-l dpr-beam"/><path class="dpr-line dpr-beam"/><path class="dpr-rim-l dpr-axis"/><path class="dpr-line dpr-axis"/>'
   + '<path class="dpr-gate-rim dpr-bars"/><path class="dpr-gate dpr-bars"/>'
-  + `<g class="dpr-head"><path class="dpr-cable" d="M47 0 L62 0"/><path class="dpr-rim" d="${BODY}"/><path class="dpr-body" d="${BODY}"/>`
+  + `<g class="dpr-head"><path class="dpr-rim" d="${BODY}"/><path class="dpr-body" d="${BODY}"/>`
   + '<path class="dpr-face" d="M2 -11 Q-3 0 2 11"/><circle class="dpr-light" cx="33" cy="0" r="3"/></g></g></svg>';
