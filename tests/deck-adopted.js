@@ -135,6 +135,12 @@ export const ADOPTED = {
   'where-resistance/a6': ['kind:profile'],
   'cause-treated/high': ['kind:profile'],
   'cause-treated/high2': ['kind:profile'],
+  'next-bleed/after': ['cite'],
+  'next-bleed/bands': ['cite'],
+  'next-bleed/slough': ['cite'],
+  'next-bleed/nsbb': ['cite'],
+  'next-bleed/both': ['cite'],
+  'next-bleed/tips': ['cite', 'kind:flows'],
 };
 
 /** Whether the slide d/s may use the field. */
