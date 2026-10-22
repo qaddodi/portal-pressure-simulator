@@ -11,7 +11,7 @@ export const STIFFNESS = {
     'Recognize when stiffness misleads: presinusoidal resistance, congestion, a meal',
   ],
   checks: [
-    ['Which stiffness means CSPH in compensated cirrhosis under Baveno VIII?', '25 kPa or more.'],
+    ['Which stiffness means CSPH in compensated cirrhosis under Baveno VIII?', '25 kPa or more rules CSPH in, in viral, alcohol-related and non-obese MASLD cirrhosis. In obese MASLD, the ANTICIPATE model decides instead.'],
     ['Which stiffness and platelet count rule CSPH out?', 'Stiffness of 15 kPa or less with platelets of 150 or more.'],
     ['Name two situations where stiffness misleads.', 'A recent meal and heart failure congestion raise it. Presinusoidal resistance, such as schistosomiasis, keeps it low despite high portal pressure.'],
   ],
@@ -50,7 +50,7 @@ export const STIFFNESS = {
       kicker: 'Baveno VIII', title: 'Stiffness and platelets rule CSPH in or out',
       line: '25 kPa or more means CSPH in viral, alcohol-related and non-obese MASLD cirrhosis; 15 or less with platelets of 150 or more rules it out. The second case, at {lsm@spleen} with an HVPG of {hvpg@spleen}, falls between. The third is above 25.',
       notes: 'The rule of five: 10, 15, 20 and 25 kPa. At or below 15 kPa with platelets of 150 or more, CSPH is ruled out (sensitivity and negative predictive value over 90%). A separate rule decides the scope: under 20 kPa with platelets of 150 or more spares the screening endoscopy. At 25 kPa or more, CSPH is ruled in (in viral and alcohol-related disease, and in non-obese MASLD). In the gray zone between, Baveno VIII uses a validated model (ANTICIPATE, from the stiffness and the platelets; with BMI in obese MASLD) and calls CSPH present at a probability of 75% or more. A spleen stiffness above 55 kPa on the 100 Hz probe also rules CSPH in. In obese MASLD the 25 kPa rule does not apply; the model decides. The model\'s compensated patient with CSPH (HVPG 12 mmHg, platelets 88) sits at 24 kPa, in the gray zone: a reminder that the zone is common, and that there the catheter or the platelets decide.',
-      ask: ['Stiffness 13 kPa, platelets 180. Is CSPH present, and is a scope needed?', 'No CSPH (15 or less with 150 or more), and no scope (under 20 with 150 or more): repeat both in a year.'],
+      ask: ['Stiffness 13 kPa, platelets 180. Is CSPH present, and is a scope needed?', 'No CSPH (15 or less with 150 or more), and no scope (under 20 with 150 or more): repeat both in a year. Only 25 kPa or more would rule CSPH in.'],
     },
     {
       id: 'meal', preset: 'cirr-comp', params: { splanchnicTone: 1 }, days: 8, ramp: { meal: [0, 1] }, lapse: { seconds: 6, from: 'Fasting', to: 'After a meal' }, cam: 'liver', tool: { kind: 'fibroscan' }, data: 'tiles', tiles: ['lsm', 'hvpg'], key: ['lsm'], delta: 'fibrosis',
