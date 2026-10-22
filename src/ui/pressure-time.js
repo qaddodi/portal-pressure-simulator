@@ -524,9 +524,9 @@ export function createPressureTime({ marks = () => [] } = {}) {
       const ch = 12 + rowH * (crossRows.length + 1);
       let bx = cx + 14; if (bx + cw > L + plotW) bx = cx - 14 - cw;
       const by = clamp(lanes[0].top, 4, hh - ch - 4);
-      ctx.fillStyle = surface; ctx.shadowColor = cssAlpha('--black', 0.14); ctx.shadowBlur = 16; ctx.shadowOffsetY = 4;
+      drawShadow(ctx, bx, by, cw, ch);
+      ctx.fillStyle = surface;
       ctx.beginPath(); ctx.roundRect ? ctx.roundRect(bx, by, cw, ch, 10) : ctx.rect(bx, by, cw, ch); ctx.fill();
-      ctx.shadowColor = 'transparent'; ctx.shadowBlur = 0; ctx.shadowOffsetY = 0;
       ctx.strokeStyle = grid; ctx.stroke();
       ctx.textAlign = 'left'; ctx.fillStyle = muted; ctx.font = FONT(600, 12); ctx.fillText(when, bx + padX, by + 18);
       crossRows.forEach((r, i) => {
@@ -536,6 +536,29 @@ export function createPressureTime({ marks = () => [] } = {}) {
         ctx.fillStyle = text; ctx.font = FONT(650, 12); ctx.textAlign = 'right'; ctx.fillText(fmt(r.v, 1), bx + cw - padX, yy); ctx.textAlign = 'left';
       });
     }
+  }
+
+  // The readout card's shadow: a blur drawn once per card size and screen density into a small picture and laid under the
+  // card, instead of the browser blurring it again on every frame the crosshair shows while the model runs (shadowBlur is the
+  // one costly 2D call in this chart). The card's own fill, edge and words are still drawn live. The picture is laid at the
+  // card's fractional place, so a blur may land a fraction of a pixel off its old rendering; the card itself is unchanged.
+  const SH_PAD = 40, shadows = new Map();
+  function drawShadow(ctx, bx, by, cw, ch) {
+    const m = ctx.getTransform(), dpr = m.a || 1, key = `${cw}|${ch}|${dpr}`;
+    let pic = shadows.get(key);
+    if (!pic) {
+      if (shadows.size > 24) shadows.clear();
+      const W = Math.ceil((cw + 2 * SH_PAD) * dpr), H = Math.ceil((ch + 2 * SH_PAD) * dpr);
+      pic = typeof OffscreenCanvas !== 'undefined' ? new OffscreenCanvas(W, H) : Object.assign(document.createElement('canvas'), { width: W, height: H });
+      const c = pic.getContext('2d');
+      c.setTransform(dpr, 0, 0, dpr, 0, 0);
+      // (the card itself is drawn a picture's width to the left, outside it, and only its shadow lands in it: the same blur and
+      // offset as before, in a canvas with the same transform; offsets are not scaled by it)
+      c.fillStyle = cssAlpha('--black', 0.14); c.shadowColor = cssAlpha('--black', 0.14); c.shadowBlur = 16; c.shadowOffsetX = W; c.shadowOffsetY = 4;
+      c.beginPath(); c.roundRect ? c.roundRect(SH_PAD - W / dpr, SH_PAD, cw, ch, 10) : c.rect(SH_PAD - W / dpr, SH_PAD, cw, ch); c.fill();
+      shadows.set(key, pic);
+    }
+    ctx.drawImage(pic, 0, 0, pic.width, pic.height, bx - SH_PAD, by - SH_PAD, pic.width / dpr, pic.height / dpr);
   }
 
   // Markers a few pixels apart (several changes made at once) share one dot and one label ("… +2").
