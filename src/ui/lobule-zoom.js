@@ -628,7 +628,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host) }
   const UNSEEN = new Set(['frame', 'historyTick', 'details', 'found', 'presetLoading', 'presetList', 'lastHVPG', 'speed', 'lapse', 'tool', 'hiddenReadouts', 'hiddenEvents', 'booted']);
   store.on('*', (keys) => { if (!Array.isArray(keys) || keys.some((k) => !UNSEEN.has(k))) { drawVersion++; if (!raf && fade > 0) raf = nextFrame(loop); } });
   let lzYield = null;
-  let layoutV = '', gl = null, glTried = false, binKey = '', binReach = [], radKey = [], radAll = '', attrKey = '', drawKey = '', glDirty = true, tissueKey = '', worldKey = '', layoutKey = '';
+  let layoutV = '', gl = null, glTried = false, binKey = '', binReach = [], radKey = [], radAll = '', radCal = '', radNow = [], inkWas = [], attrKey = '', drawKey = '', glDirty = true, tissueKey = '', worldKey = '', layoutKey = '';
   const pills = new Map();   // (a lit label's pill insets, read once per label layout, not on every frame of a glide: each read restyles the page)
   let worldCv = document.createElement('canvas');   // the lobule's tissue in world space (see paintTissue)
   // A new patient (or any change to the tissue's state) crossfades into the lobule instead of snapping: the bitmap it replaces
@@ -658,7 +658,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host) }
     return gl;
   }
   // (Registered once: one per ensureGL would add another handler on every restore.)
-  glCv.addEventListener('webglcontextrestored', () => { glTried = false; gl = null; binKey = ''; radKey = []; radAll = ''; attrKey = ''; ensureGL(); if (F) update(F); });
+  glCv.addEventListener('webglcontextrestored', () => { glTried = false; gl = null; binKey = ''; radKey = []; radAll = ''; radCal = ''; attrKey = ''; ensureGL(); if (F) update(F); });
   // Closed: the full-screen canvases and the vessels' GPU buffers are given back (they are sized again on the way in).
   // The world bitmap, the field's tiles and the uploaded network stay, so the next dive has nothing heavy to build.
   const free = (cv) => { if (cv.width || cv.height) { cv.width = 0; cv.height = 0; } };
@@ -1792,7 +1792,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host) }
     // Zoomed in, the spot at the middle of the free space, in lobule radii from its centre, and the zoom against the framing:
     // the lobule is built again for the new size, so the view keeps both (its screen numbers alone would show another spot).
     const keep = geo && !atFit && !camAim && !(aimed && fade <= 0.98) ? viewSpot() : null;
-    geo = build(W, H); geoKey = key; binKey = ''; binReach = []; binCache.clear(); radKey = []; radAll = ''; tissueKey = ''; layoutKey = '';
+    geo = build(W, H); geoKey = key; binKey = ''; binReach = []; binCache.clear(); radKey = []; radAll = ''; radCal = ''; tissueKey = ''; layoutKey = '';
     if (atFit || (aimed && fade <= 0.98)) resetView();
     else if (camAim) { kFit = fitV().k; Object.assign(camAim.to, framing(camAim.part, camAim.zoom)); }
     else if (keep) toSpot(keep);
@@ -2339,9 +2339,12 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host) }
       lastSurface = now;
       // Radii, re-sent when a tube's caliber changed (they follow only these few model values).
       let reachGrew = false;
-      const rk0 = Object.values(rzOf()).map((x) => x.toFixed(4)).join('|') + '|' + G.W + 'x' + G.H + '|' + lymphOn + '|' + (k * V.k).toFixed(3);
+      const rkC = Object.values(rzOf()).map((x) => x.toFixed(4)).join('|') + '|' + G.W + 'x' + G.H + '|' + lymphOn, rk0 = rkC + '|' + (k * V.k).toFixed(3);
+      // (A tube's radii follow only its calibers, not the zoom: worked out again only when those change. The zoom sets only
+      // how small a change is still sent, so a zoom frame compares the kept radii with what was sent.)
+      if (rkC !== radCal) { radCal = rkC; radNow = []; }
       if (rk0 !== radAll) for (const t of live) {
-        const r = Array.from({ length: N }, (_, i) => radiusAt(t, i));
+        const r = radNow[t.id] || (radNow[t.id] = Array.from({ length: N }, (_, i) => radiusAt(t, i)));
         t.maxR = Math.max(...r);
         // (A vessel's new radii change only the cells that list it, as a colour change does: those cells alone are drawn
         // again, or the layer moved on a pan, never the whole layer for it. A reach that outgrows its cells re-bins below.)
@@ -2366,8 +2369,12 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host) }
       // Attributes, re-sent when they change (pressures in half-mmHg steps).
       const selIdsN = selIds();
       const lk = lensK(), inks = new Map(live.map((t) => [t.id, [tubeRGB(t, 0, lk), tubeRGB(t, 1, lk)]]));
-      const ak = [m.mode, [...inks.values()].flat(2).map((x) => x.toFixed(3)).join(','), m.hide, origin, lymphOn, lyProt(m).toFixed(2), lyF(m).toFixed(2), [...selIdsN].join('.'), dark, cs.getPropertyValue('--artery')].join('|');
-      if (ak !== attrKey) {
+      // (The inks, about 1,700 numbers, compared to a thousandth as numbers, not built into a string on every pan or zoom frame.)
+      let inkMoved = false, n = 0;
+      for (const pair of inks.values()) for (const c of pair) for (const x of c) { const q = Math.round(x * 1000); if (inkWas[n] !== q) { inkMoved = true; inkWas[n] = q; } n++; }
+      if (inkWas.length !== n) { inkWas.length = n; inkMoved = true; }
+      const ak = [m.mode, m.hide, origin, lymphOn, lyProt(m).toFixed(2), lyF(m).toFixed(2), [...selIdsN].join('.'), dark, cs.getPropertyValue('--artery')].join('|');
+      if (inkMoved || ak !== attrKey) {
         attrKey = ak;
         tubeData.fill(0);
         const art = rgb01(cs.getPropertyValue('--artery').trim()), grey = [ORIGIN_GREY, ORIGIN_GREY, ORIGIN_GREY];
@@ -2435,19 +2442,13 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host) }
       if (origin && origins && !t.lymph) { const kk = EI[oe]; for (let c = 0; c < ORIGIN_N; c++) flowData[o + 8 + c] = origins[kk * ORIGIN_N + c]; }
     }
     g.setFlow(flowData);
-    const look = {
-      shOff: [1.2, 2.2], light: LIGHT, reach: 11, organs: 0,
-      casing: [...triplet(cs, '--casing-rgb'), num(cs, '--casing-a', 0.56) * 0.8],
-      shadow: [...triplet(cs, '--shadow-rgb'), num(cs, '--shadow-a', 0.15)],
-      sheen: [...rgb01(cs.getPropertyValue('--light-ink').trim()), num(cs, '--tube-sheen', 0.42)],
-      shade: [...rgb01(cs.getPropertyValue('--tube-shade-ink').trim()), num(cs, '--tube-shade', 0.2)],
-      ring: [...rgb01(cs.getPropertyValue('--accent').trim()), 0.4],
-      netAlpha: 1, fx: true, tierAlpha: Array(MAX_TIERS).fill(1), tierGroup: Array(MAX_TIERS).fill(1),
-    };
+    // (The look comes only from the styles: built and written out once per copy of them, the stage's kept copy changing
+    // only with a class, the theme or a system setting, not on every frame.)
+    if (cs !== lookCs) { lookCs = cs; lookNow = lookOf(cs); lookSig = JSON.stringify(lookNow); }
+    const look = lookNow, lsig = lookSig;
     const blood = { alpha: flowA, on: bloodOn && flowA > 0.002, chev: chev && flowA > 0.002, look: b.look || 'shimmer', origin, clock, dye: false, bleed: [], vdpr: k, ...bloodColors() };   // (vdpr: canvas px per CSS px, which the chevrons' size is set in)
     // A whole redraw of the vessel layer is by far the heaviest thing the lobule draws (about 150 plain fills of the
     // canvas); when only some vessels' attributes changed, only their cells are drawn again, to the same picture.
-    const lsig = JSON.stringify(look);
     if (glDirty || dk !== drawKey || lsig !== glLook) {
       // (Moved with only some vessels' attributes changed: those are named, so the drawn layer is moved, not drawn whole.)
       const rows = glDirty || lsig !== glLook ? null : [...glRows];
@@ -2457,10 +2458,23 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host) }
     else g.composite(look, blood);
   }
   const num = (cs, n, d) => { const v = parseFloat(cs.getPropertyValue(n)); return Number.isFinite(v) ? v : d; };
+  let lookCs = null, lookNow = null, lookSig = '';
+  const lookOf = (cs) => ({
+    shOff: [1.2, 2.2], light: LIGHT, reach: 11, organs: 0,
+    casing: [...triplet(cs, '--casing-rgb'), num(cs, '--casing-a', 0.56) * 0.8],
+    shadow: [...triplet(cs, '--shadow-rgb'), num(cs, '--shadow-a', 0.15)],
+    sheen: [...rgb01(cs.getPropertyValue('--light-ink').trim()), num(cs, '--tube-sheen', 0.42)],
+    shade: [...rgb01(cs.getPropertyValue('--tube-shade-ink').trim()), num(cs, '--tube-shade', 0.2)],
+    ring: [...rgb01(cs.getPropertyValue('--accent').trim()), 0.4],
+    netAlpha: 1, fx: true, tierAlpha: Array(MAX_TIERS).fill(1), tierGroup: Array(MAX_TIERS).fill(1),
+  });
   const triplet = (cs, n) => { const k = cs.getPropertyValue(n).trim().split(/[\s,/]+/).map(Number); return k.length >= 3 && k.every(Number.isFinite) ? k.slice(0, 3).map((v) => v / 255) : [0, 0, 0]; };
 
   // ── Tissue: plates, collagen, zones, congestion (repainted only when the model changes it) ──
-  let worldSc = 0, worldGeo = null, surRd = 0, worldDraws = 0;
+  let worldSc = 0, worldGeo = null, surRd = 0, worldDraws = 0, holdT = 0;
+  // The hand let go of a held picture: drawn once more at the sharpness its zoom wants.
+  const holdSoon = () => { if (!holdT) holdT = setTimeout(holdEnd, 140); };
+  function holdEnd() { holdT = 0; if (handOn()) { holdSoon(); return; } viewChanged(); }
   // Congestion enters the lobule's picture only past congU 0.04 (the nutmeg; dead cells past 0.12), and the picture is drawn again once
   // the venous pressure moves 0.25 mmHg from the one it was drawn at. (Keyed on half-mmHg steps, a pressure wavering on a step's edge
   // while the model runs redrew the whole bitmap, up to 3600 px square, over and over, mid-glide too: 20 times in 45 s in compensated
@@ -2476,7 +2490,9 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host) }
     // (#27) Mid-glide (+, −, Fit, a presenter's camera) the bitmap keeps the scale it was drawn at and is only placed larger or smaller:
     // redrawing it at each √2 step (up to 3600 px square) stalled the glide. It is drawn sharp once the glide lands.
     let sc = Math.min(2 ** (Math.ceil(Math.log2(Math.max(0.05, dpr * V.k)) * 2) / 2), 3600 / (2.6 * G.R));
-    if (gliding && worldSc && worldCv.width && worldGeo === G) sc = worldSc;
+    // (A hand's pinch, wheel or flick holds it the same way, and it is drawn sharp once the hand lets go: holdEnd.)
+    const hand = !gliding && handOn(), held = gliding || hand;
+    if (held && worldSc && worldCv.width && worldGeo === G) { if (hand && sc !== worldSc) holdSoon(); sc = worldSc; }
     const ws = [G.W, G.H, dark, qi(inkOf(m.mode, 'pv')), m.zone.pre.toFixed(2), m.zone.sin.toFixed(2), m.zone.post.toFixed(2), m.s.toFixed(2), congKey(m), m.hide, zonesOn, cs.getPropertyValue('--bg')].join('|'), wk = sc.toFixed(3) + '|' + ws;
     const now = performance.now(), fading = tissueFading(now);
     const key = [W, H, dpr, wk, fading ? `${xfU(xfT0, now).toFixed(3)},${xfU(surT0, now).toFixed(3)}` : '', flatVessels ? [ink('sin', 1), ink('sin', 0), ink('pv'), ink('cv'), m.art.toFixed(2), [...selIds()].join('.')] : '', Object.values(fieldState()).join(','), V.k.toFixed(3), V.x.toFixed(1), V.y.toFixed(1)].join('|');
@@ -2534,8 +2550,9 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host) }
       c.clip('evenodd');
       const [sx, sy] = toScreen([cx, cy]), rd = R * V.k * dpr;
       // (Mid-glide, the tile it had is stretched rather than a larger one drawn; a new tissue state's tiles are built between frames, see fieldTile.)
-      const want = gliding && surRd ? surRd : rd * 0.55;
-      if (!gliding) surRd = rd * 0.55;
+      const want = held && surRd ? surRd : rd * 0.55;
+      if (hand && want !== rd * 0.55) holdSoon();
+      if (!held) surRd = rd * 0.55;
       const t = fieldTile(cs, dark, want, !unseen()), q = quietTile(t, shadeOf(rgb01(bg), dark));
       // (A new state's tiles fade in over the last state's; a new size of the same state just takes over: the same picture.)
       if (surNow && t.set !== surNow.set && surNow.q.cv?.width && !unseen()) { surOld = surNow.q; surT0 = now; }

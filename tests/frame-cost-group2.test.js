@@ -55,3 +55,24 @@ test('item 34: sinusoid uniforms are sent only when they change, and the second 
   const t = src.slice(src.indexOf('const tissue = '), src.indexOf('return {', src.indexOf('const tissue = ')));
   assert.match(t, /if \(pass === 0\) \{[\s\S]*for \(const k in u\)[\s\S]*\}\s*set\(T\.U, 'uPass', pass\);/);
 });
+
+test("item 32: the lobule's world bitmap and surround keep their scale under a hand too, drawn sharp once it lets go", () => {
+  const src = read('../src/ui/lobule-zoom.js');
+  const pt = src.slice(src.indexOf('function paintTissue('), src.indexOf('fieldFill(c, q,'));
+  assert.match(pt, /const hand = !gliding && handOn\(\), held = gliding \|\| hand;/);
+  assert.match(pt, /if \(held && worldSc && worldCv\.width && worldGeo === G\) \{ if \(hand && sc !== worldSc\) holdSoon\(\); sc = worldSc; \}/);
+  assert.match(pt, /const want = held && surRd \? surRd : rd \* 0\.55;/);
+  assert.match(src, /function holdEnd\(\) \{ holdT = 0; if \(handOn\(\)\) \{ holdSoon\(\); return; \} viewChanged\(\); \}/);
+});
+
+test("item 31: lobule pan and zoom frames reuse each tube's radii, compare inks as numbers and keep the look per style copy", () => {
+  const src = read('../src/ui/lobule-zoom.js');
+  const gl = src.slice(src.indexOf('function drawGL('), src.indexOf('const num = (cs, n, d)'));
+  // (Radii worked out only when the calibers change; the zoom only re-checks them against what was sent.)
+  assert.match(gl, /if \(rkC !== radCal\) \{ radCal = rkC; radNow = \[\]; \}/);
+  assert.match(gl, /const r = radNow\[t\.id\] \|\| \(radNow\[t\.id\] = Array\.from/);
+  assert.doesNotMatch(gl, /flat\(2\)\.map\(\(x\) => x\.toFixed\(3\)\)/);
+  assert.match(gl, /if \(inkMoved \|\| ak !== attrKey\)/);
+  assert.match(gl, /if \(cs !== lookCs\) \{ lookCs = cs; lookNow = lookOf\(cs\); lookSig = JSON\.stringify\(lookNow\); \}/);
+  assert.doesNotMatch(gl, /const lsig = JSON\.stringify\(look\)/);
+});
