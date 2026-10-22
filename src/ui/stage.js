@@ -4046,7 +4046,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
           // The sharp view raster stays until its replacement lands (dropping it first would show
           // the softer whole plate for a beat: the textures would blur, then sharpen).
           plateView = null; plateViewKey = ''; dropViewKeep();   // (a picture of the state before: nothing to take from it)
-          veinsDirty = true;
+          veinsDirty = true; stageWake();
           if (!plateOn() && glWanted(easeInOut(morph)) && (liveOn() || (!lvMoving && !spleenMoving()))) {
             // The raster lands outside an animation frame (and the next frames may be paced out):
             // hide the SVG organs only together with a GPU draw that shows the plate, or a frame
@@ -4084,7 +4084,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       if (morphTarget !== 0 || morph > 0) return;
       if (!liveOn()) gutPicSoon();
       const need = vdpr * CTM.sc;
-      if (need <= PLATE_BASE * 1.2) { if (veins.hasPlate(1)) { veins.dropPlate(1); veinsDirty = true; } return; }
+      if (need <= PLATE_BASE * 1.2) { if (veins.hasPlate(1)) { veins.dropPlate(1); veinsDirty = true; stageWake(); } return; }
       // The view in world units (the anatomy is never turned), with a margin, within the plate.
       const r = stageBox(), [ax, ay] = clientToWorldFast(r.left, r.top), [bx, by] = clientToWorldFast(r.right, r.bottom);
       const mx = (bx - ax) * 0.15, my = (by - ay) * 0.15;
@@ -4100,7 +4100,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       if (key === plateViewKey) return;
       if (plateView && x0 >= plateView[0] && y0 >= plateView[1] && x1 <= plateView[2] && y1 <= plateView[3] && scale <= plateView[4] * 1.05) return;
       plateViewKey = key;
-      try { if (await (gpuOrgansOn() ? rasterLayers : rasterPlate)(1, [x0, y0, x1 - x0, y1 - y0], scale)) { plateView = [x0, y0, x1, y1, scale]; veinsDirty = true; } else if (plateViewKey === key) plateViewKey = ''; } catch { /* the whole-plate raster stays */ }
+      try { if (await (gpuOrgansOn() ? rasterLayers : rasterPlate)(1, [x0, y0, x1 - x0, y1 - y0], scale)) { plateView = [x0, y0, x1, y1, scale]; veinsDirty = true; stageWake(); } else if (plateViewKey === key) plateViewKey = ''; } catch { /* the whole-plate raster stays */ }
     }, 280);
   }
   // ── The gut's picture while the organs ease ─────────
@@ -9203,7 +9203,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     // A new model frame changes the figure only through the vessel layer (checked by syncVeins), or through the blood's
     // own data (flow, origin streams) and a bleed, while those are shown.
     const fSame = F === lastDrawF || (!lastAnim && !bloodOn() && !chevOn() && !originOn() && !F?.bleed?.active && sprayA <= 0);
-    const key = still ? `${cathVer}|${morph}|${rotU}|${wrap.className}|${st.layers.flow}|${JSON.stringify(st.blood)}|${vCanvas.width}x${vCanvas.height}|${holesKey}` : null;
+    if (still && bloodKeyVer !== storeVer) { bloodKey = JSON.stringify(st.blood); bloodKeyVer = storeVer; }   // (the store sets blood whole: its text changes only with a store write)
+    const key = still ? `${cathVer}|${morph}|${rotU}|${wrap.className}|${st.layers.flow}|${bloodKey}|${vCanvas.width}x${vCanvas.height}|${holesKey}` : null;
     // A plate raster that lands while the figure is still (paused, or reduced motion) marks the vessel layer dirty: draw it.
     if (still && !veinsDirty && !glowSync && !(glLines && olDirty) && (!glLines || marksKey() === mk.key) && !(glLines && olList.some((o) => o.a !== (o.on ? 1 : 0))) && !clampFading() && !widthEasing && !bloodEasing && !plateEasing() && !sprayFading() && !lensFrom && ascShown === ascTarget && morph === morphTarget && rotU === rotTarget && key === lastDrawKey && fSame && CTM === lastDrawCTM && !EV.some((x) => x.reveal)) { sleep(); return; }
     stepPlateEase();
@@ -9243,8 +9244,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   }
   nextFrame(animate);
   // Nothing to draw: the loop stops asking for frames (so the screen can idle) until something changes, and looks
-  // again a few times a second in case a change came by a path that does not wake it.
-  let sleeping = false, sleepTimer = 0;
+  // again once a second in case a change came by a path that does not wake it. (The store, the page's visibility, the
+  // figure's classes, the camera, the glows and the organ pictures landing all wake it themselves.)
+  let sleeping = false, sleepTimer = 0, bloodKey = '', bloodKeyVer = -1;
   // The figure is not shown (the page hidden, the home screen, or the lobule fully over it): the vessel framebuffer, the
   // outline layers and the organ stack (about 58 bytes a pixel of GPU memory) are given back; the first draw on the way
   // back makes them again, whole (veins-gl.js trim: ensureFBO and the layer keys). Once per sleep; the plates stay.
@@ -9253,7 +9255,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (veinsTrimmed || !veins || veins.lost || glowSync) return;
     veins.trim(); veinsTrimmed = true; veinsDirty = true;
   }
-  function sleep() { sleeping = true; clearTimeout(sleepTimer); sleepTimer = setTimeout(wake, 250); }
+  function sleep() { sleeping = true; clearTimeout(sleepTimer); sleepTimer = setTimeout(wake, 1000); }
   function wake() { if (!sleeping) return; sleeping = false; clearTimeout(sleepTimer); nextFrame(animate); }
   stageWake = wake;
   store.on('*', wake);
