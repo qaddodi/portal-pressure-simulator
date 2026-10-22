@@ -100,7 +100,7 @@ export function playProcedure(stage, kind, { apply = null, onFrame = null, onEnd
     const t = performance.now() - t0, f = procFrame(kind, t, stops);
     const s = P.steps[f.step];
     // The step's word on the tip, while the catheter is in (it goes as the catheter starts out).
-    const labels = s && t < P.T.back + 600 ? [{ key: s[0], at: 'tip', kicker: P.name, text: s[1], unit: '', cls: 'step' }] : [];
+    const labels = s && t < P.T.back + 600 ? [{ key: s[0], at: 'side', kicker: P.name, text: s[1], unit: '', cls: 'step' }] : [];
     stage.setCatheter({ route: kind, u: f.u, balloon: f.balloon, balloonSpan: P.balloonSpan, column: f.column, columnColor: 'var(--tr-scler)',
       ring: null, clock: t, opacity: f.opacity, labels });
     stops ||= stage.cathStops?.() || null;

@@ -6804,7 +6804,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       const k = document.createElement('small'); k.textContent = l.kicker || ''; el.append(k);
       const b = document.createElement('b'); b.textContent = l.text; el.append(b);
       if (l.unit) { const u = document.createElement('span'); u.textContent = l.unit; el.append(u); }
-      el._glass = glassCallout(el);
+      // (A treatment's step stands beside the tip with a thin leader to it, never over it: no pointer of its own.)
+      el._glass = glassCallout(el, { pointer: l.at !== 'side' });
+      if (l.at === 'side') el.append(document.createElement('i'));
       return el;
     };
     const fill = (el, l) => { const sm = el.querySelector('small'); if (sm.textContent !== l.kicker) sm.textContent = l.kicker || ''; const b = el.querySelector('b'); if (b.textContent !== l.text) b.textContent = l.text; };
@@ -6843,6 +6845,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const fEl = made.get('f'), fW = fEl ? (size.get(fEl) || [fEl.offsetWidth])[0] : 0;
     for (const [el] of pills) {
       const [w, h] = size.get(el);
+      if (el.dataset.at === 'side') { cathSide(el, w, h, W, Math.max(8, sp.t + 8), lim - 8); continue; }
       const p = el.dataset.at === 'ahead' ? at.ahead : at.tip;
       const [x, y] = worldToLocal(p[0], p[1]);
       // A reading that hangs below its point goes above it when the bottom is covered (decided once, so it never jumps).
@@ -6912,6 +6915,37 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         el._from = null; nextFrame(() => el.classList.remove('cath-travel'));
       }
     });
+  }
+  // A treatment's step callout (proc-anim.js): beside the catheter's tip, across its course (never over the tip or the shaft
+  // running into it), on the side with room inside the free space, with a thin leader that stops short of the tip. It keeps its
+  // side while that one has room (it changes only for one clearly better, then glides there, as every reading does).
+  const SIDE_GAP = 30;
+  function cathSide(el, w, h, W, top, bot) {
+    const at = cath.at, [tx, ty] = worldToLocal(at.tip[0], at.tip[1]), [qx, qy] = worldToLocal(at.tip[0] + at.nx * 10, at.tip[1] + at.ny * 10);
+    const nl = Math.hypot(qx - tx, qy - ty) || 1, nx = (qx - tx) / nl, ny = (qy - ty) / nl;
+    const ext = Math.abs(nx) * w / 2 + Math.abs(ny) * h / 2;   // (the box's half reach across the course)
+    // (The cards and the slide's glass, read at most four times a second: the step moves its callout every frame.)
+    const now = performance.now();
+    if (!cath.blk || now - cath.blkT > 250) { cath.blk = readBlockers(); cath.blkT = now; }
+    const blk = cath.blk;
+    const spot = (k) => {
+      const cx = tx + nx * k * (SIDE_GAP + ext), cy = ty + ny * k * (SIDE_GAP + ext);
+      const x = clamp(cx, Math.min(w / 2 + 8, W / 2), Math.max(W - w / 2 - 8, W / 2)), y = clamp(cy, Math.min(top + h / 2, (top + bot) / 2), Math.max(bot - h / 2, (top + bot) / 2));
+      // (How far the screen's edges push it off its place, and how much of it a card or the slide's glass would cover.)
+      const over = blk.reduce((n, r) => n + Math.max(0, Math.min(x + w / 2, r.x1) - Math.max(x - w / 2, r.x0)) * Math.max(0, Math.min(y + h / 2, r.y1) - Math.max(y - h / 2, r.y0)), 0);
+      return { x, y, cost: Math.hypot(x - cx, y - cy) + over / Math.max(w, h) };
+    };
+    const a = spot(1), b = spot(-1);
+    // (The side is the procedure's, kept from step to step, so each new step's words come in where the last ones were.)
+    if (cath.side == null || (cath.side > 0 ? a : b).cost > (cath.side > 0 ? b : a).cost + 20) cath.side = a.cost <= b.cost ? 1 : -1;
+    const c = cath.side > 0 ? a : b, [cx, cy] = cathGlide(el, c.x, c.y, tx, ty);
+    el.style.transform = `translate(${cx.toFixed(1)}px, ${cy.toFixed(1)}px)`;
+    el._box = { x0: cx - w / 2, y0: cy - h / 2, x1: cx + w / 2, y1: cy + h / 2 };
+    // The leader: from the box's edge toward the tip, ending 6 px short of it.
+    const dx = tx - cx, dy = ty - cy, d = Math.hypot(dx, dy) || 1, ux = dx / d, uy = dy / d;
+    const e = Math.min(Math.abs(ux) > 1e-6 ? w / 2 / Math.abs(ux) : Infinity, Math.abs(uy) > 1e-6 ? h / 2 / Math.abs(uy) : Infinity);
+    const ld = el.lastElementChild, len = Math.max(0, d - e - 6);
+    ld.style.cssText = `left:${(w / 2 + ux * e).toFixed(1)}px;top:${(h / 2 + uy * e).toFixed(1)}px;width:${len.toFixed(1)}px;transform:rotate(${Math.atan2(uy, ux).toFixed(4)}rad)`;
   }
   // The camera for the procedure: the route, the tip close up, then back where it was.
   // both: the close-up holds the tip and the vein ahead of it, where the wedged reading hangs, inside the free space.
@@ -10152,7 +10186,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       else if (cathFade || !cath.st) { cath.st = null; return; }
       cath.st = st; wrap.classList.toggle('cath-on', !!st);
       if (st && (st.route || 'hvpg') !== cath.kind) { cath.kind = st.route || 'hvpg'; cath.route = null; cath.rc = 0; }
-      if (!st) { cath.rc = 0; cath.route = null; cathVer++; if (cathTint) { cathTint = null; cath.tintKey = ''; syncVeins(easeInOut(morph)); } cath.at = null; cathFadeOut(); return; }
+      if (!st) { cath.rc = 0; cath.route = null; cath.side = null; cathVer++; if (cathTint) { cathTint = null; cath.tintKey = ''; syncVeins(easeInOut(morph)); } cath.at = null; cathFadeOut(); return; }
       cathPaint();
     },
     /** A presenter slide's measuring sites, e.g. ['pv', 'ivc'] (see SITE_DEF), read from fp (the slide's numbers, so they

@@ -2845,6 +2845,9 @@ button.finding { cursor: pointer; }
 /* A treatment's step on its catheter tip (proc-anim.js): the procedure's name over the step, in words, not a reading's big number. */
 .cath-label.step { --c: var(--text-2); }
 .cath-label.step b { font-size: 17px; color: var(--text); white-space: nowrap; }
+/* Beside the tip, centred on its spot (stage.js cathSide), with a thin leader to the tip that stops short of it. */
+.cath-label[data-at="side"] { translate: -50% -50%; }
+.cath-label[data-at="side"] > i { position: absolute; height: 1.5px; margin-top: -.75px; transform-origin: 0 50%; background: var(--text-2); border-radius: 1px; pointer-events: none; }
 .cath-label.ghost { --lo: .5; }
 /* The presenter's measuring sites (PPG: portal vein and IVC), in the tracing colours; one off the free space waits hidden. */
 .cath-label.site { transition: scale .6s var(--ease) .35s, box-shadow .6s var(--ease) .35s, translate .45s var(--ease); } .cath-label.site > * { transition: opacity .6s var(--ease) .35s; }

@@ -23,7 +23,7 @@ import { DISEASE_SRC, diseasePieces } from './diseases.js?v=fb8a5451c3';
 import { nb, listCase, plateletText } from './glue.js?v=5a0f63226b';
 import { DECKS, REGIONS, LEVELS, TOPICS, withOverview, siteTag, SITE_TAGS } from './decks.js?v=d87e28f67c';
 import { fingerprintOf } from '../engine/fingerprint.js?v=8faea80b59';
-import { createHvpgMonitor } from './hvpg-proc.js?v=7da6f2a3db';
+import { createHvpgMonitor } from './hvpg-proc.js?v=d0fe646e47';
 import { createTools } from './presenter-tools.js?v=47a1cad76c';
 import { openHandout } from './handout.js?v=3b09e978ce';
 import { noteResume, resumeFor } from './resume.js?v=f086f80ee8';
@@ -39,7 +39,7 @@ import { citeText, focusOf, oneLadder } from './teach-extras.js?v=5f5248f5a7';
 import { createProfileTool, createProfileStrip } from './tool-profile.js?v=6aa1573cc9';
 import { causeFit } from './cause-fit.js?v=830a6835a5';
 import { COMPACT, WIDE } from './card-type.js?v=f5dfdb80f2';
-import { PROCS, procBlocked, playProcedure } from './proc-anim.js?v=ee29e7b3c9';
+import { PROCS, procBlocked, playProcedure } from './proc-anim.js?v=b92ccb3a81';
 const nextFrame = frameFor('presenter');
 
 const KEY = 'pps.scripts';
