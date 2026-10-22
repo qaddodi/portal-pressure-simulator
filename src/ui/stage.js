@@ -6176,7 +6176,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // volume's two bars and the flow axis mark the vessel's middle (where its callout points), or a stent's sampled third. It
   // follows the camera with the labels; it fades out while the views morph and in the liver's own views. A new vessel or third, or
   // a card making it change sides, fades it out where it stood and back in at its new place (nothing jumps).
-  let dprCardsList = [], dprCardsAt = -1e9, lbRects = [];
+  let dprCardsList = [], dprCardsAt = -1e9, lbRects = [], colShown = false, colWaitAt = 0;   // colShown: a stent's three point callouts stand (the probe keeps off them, so it waits for them)
   // The cards and bars it keeps off: the slide's cards, and the docked instruments and bars. Read at most four times a second, and
   // only while one may have moved (layoutWatch), as the labels' blockers are: each read forces a layout among the model's frames.
   const dprStale = () => { dprCardsAt = -1e9; };
@@ -6300,7 +6300,12 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   function dprobePaint() {
     if (!dpr.ready) return;
     const st = store.get(), id = dop.id, pts = id && geo[id]?.cur;
-    const show = !!(pts?.length > 1 && E[id]?.vis && (morph < 0.01 || morph > 0.99) && !camMove && !dpr.hold && dprMonitorOn() && !st.lobule && !st.sinusoid && !lz?.isOpen());
+    // (On a stent called out at its three points, the probe waits for the column: it keeps off the callouts, which never move for it,
+    // so it must know where they stand before it picks its side: Mohammad, 22 Oct, the mid callout hopped to the far side on a pick.
+    // Where they never show, it waits four seconds and stands anyway.)
+    if (!dop.all || colShown) colWaitAt = 0; else colWaitAt ||= performance.now();
+    const waitCol = !dpr.on && !dpr.swap && dop.all && !colShown && performance.now() - colWaitAt < 4000;
+    const show = !!(pts?.length > 1 && E[id]?.vis && (morph < 0.01 || morph > 0.99) && !camMove && !dpr.hold && dprMonitorOn() && !st.lobule && !st.sinusoid && !lz?.isOpen() && !waitCol);
     if (!show) {
       dprMind.hide();
       dprHide();
@@ -6971,7 +6976,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   store.on('focus', (foc) => {
     if (foc) return;
     for (const k of [...labelSol.keys()]) if (/^(n:TIPS:|n:DIPS:|focus)/.test(k)) labelSol.delete(k);
-    ptSide = null; clampD.clear();
+    ptSide = null; colShown = false; clampD.clear();
   });
   // How far a point's callout stands from its dot: clear of the stent's body, its leader 16 px at most.
   const colGap = (sid) => Math.min(16, ((E[sid]?.width || 4) * CTM.sc) / 2 + 7);
@@ -7682,7 +7687,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const out = [];
     for (const el of sites.made.values()) if (el._box && !el.classList.contains('cath-pre')) out.push(el._box);
     if (cath.made && !cath.labels.hidden) for (const el of cath.made.values()) if (el._box) out.push(el._box);
-    if (dpr.on && dpr.box) out.push(dpr.box, ...dpr.marks);   // (the Doppler probe's body and its line of sight)
+    if (dpr.on && dpr.box) out.push(...[dpr.box, ...dpr.marks].map((b) => ({ ...b, probe: true })));   // (the Doppler probe's body and its line of sight)
     return out;
   }
   // What the labels' slots depend on: which readings show and how big they are (where they stand follows the camera, which
@@ -8008,7 +8013,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const blockers = blockerBoxes || readBlockers();
     const callouts = calloutBoxes();
     const obstacles = [...blockers, ...callouts];   // what can hide a label this frame
-    const placed = solve ? callouts.map((b) => ({ x0: b.x0 - 3, y0: b.y0 - 3, x1: b.x1 + 3, y1: b.y1 + 3, call: true })) : [];
+    const placed = solve ? callouts.map((b) => ({ x0: b.x0 - 3, y0: b.y0 - 3, x1: b.x1 + 3, y1: b.y1 + 3, call: true, probe: !!b.probe })) : [];
     // (A slide's calipers and brackets (package F) are lines no label may sit on, their own readings included: boxes along each.)
     if (solve && fx) {
       const segBoxes = (p, q, pad) => {
@@ -8054,7 +8059,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         const score = (side) => ['proximal', 'mid', 'distal'].reduce((n, pt) => {
           const [ax, ay] = worldToLocal(...pointAt(geo[col].cur, STENT_SITES[pt]));
           const r = rectOf({ x: side === 'E' ? ax + G : ax - G - wT, y: ay - h / 2, w: wT, h, padX: tpl.padX || 0, padY: tpl.padY || 0 });
-          return n + (within(r, view) ? 0 : 1e3) + (obstacles.some((o) => hits(r, o)) ? 1e3 : 0) + lineHits(r, 2) * 10;
+          return n + (within(r, view) ? 0 : 1e3) + (obstacles.some((o) => !o.probe && hits(r, o)) ? 1e3 : 0) + lineHits(r, 2) * 10;
         }, 0);
         const e = score('E'), w = score('W');
         ptSide = clampFor === col && ptSide === 'W' ? (e + 5 < w ? 'E' : 'W') : (w + 5 < e ? 'W' : 'E');   // (a near tie keeps the side it had)
@@ -8235,15 +8240,15 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
           const cx = Math.max(ptView.x0 - r.x0, Math.min(0, ptView.x1 - r.x1)), cy = Math.max(ptView.y0 - r.y0, Math.min(0, ptView.y1 - r.y1));
           if (cx || cy) { dx += cx; dy += cy; r = rectOf({ ...probe, x: it.ax + dx, y: it.ay + dy }); }
         }
-        if (placed.some((p) => (ps.callGap && p.call ? hits(r, { ...p, x0: p.x0 - ps.callGap, x1: p.x1 + ps.callGap }) : hits(r, p)) && !(ps.overZones && p.zone))) return;
+        if (placed.some((p) => !(it.point && p.probe) && (ps.callGap && p.call ? hits(r, { ...p, x0: p.x0 - ps.callGap, x1: p.x1 + ps.callGap }) : hits(r, p)) && !(ps.overZones && p.zone))) return;
         if (ps.credit && creditBox && hits(r, creditBox)) return;
         // (A stent's point, or the slide's mark beside it, never takes a spot a card covers, where it would only hide: the next spot that
         // shows is better.)
         // (It keeps 4 px off a card: with 10, a point near the card's edge was slid off its dot's line: Review 16 Oct.)
-        if ((it.point || (dop.all && /^focus/.test(it.key))) && obstacles.some((o) => hits(r, { x0: o.x0 - 4, y0: o.y0 - 4, x1: o.x1 + 4, y1: o.y1 + 4 }))) return;
+        if ((it.point || (dop.all && /^focus/.test(it.key))) && obstacles.some((o) => !(it.point && o.probe) && hits(r, { x0: o.x0 - 4, y0: o.y0 - 4, x1: o.x1 + 4, y1: o.y1 + 4 }))) return;
         // (A long leader may not run through another label: only boxes clear of its own station count, by 8 px, so a clamp's arrows at
         // the station do not.)
-        if (ps.uncrossed && placed.some((p) => (p.lab || !(it.ax >= p.x0 - 8 && it.ax <= p.x1 + 8 && it.ay >= p.y0 - 8 && it.ay <= p.y1 + 8)) && crosses(it.ax, it.ay, (r.x0 + r.x1) / 2, (r.y0 + r.y1) / 2, p))) return;
+        if (ps.uncrossed && placed.some((p) => !(it.point && p.probe) && (p.lab || !(it.ax >= p.x0 - 8 && it.ax <= p.x1 + 8 && it.ay >= p.y0 - 8 && it.ay <= p.y1 + 8)) && crosses(it.ax, it.ay, (r.x0 + r.x1) / 2, (r.y0 + r.y1) / 2, p))) return;
         // (...nor, the slide's mark's, pass within 18 px of another of the stent's dots: Review 15 Oct.)
         if (markDots && /^focus/.test(it.key) && !ps.loose) {
           const le = leaderEnd(r, it.ax, it.ay), ex = le.x - it.ax, ey = le.y - it.ay, L2 = ex * ex + ey * ey || 1;
@@ -8268,13 +8273,13 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
             if (segs.some((sg) => segsCross(sg, [fx, fy, le.x, le.y]))) return true;
             for (let u = 6; u < L - 2; u += 3) {
               const px = fx + ((le.x - fx) * u) / L, py = fy + ((le.y - fy) * u) / L;
-              if (placed.some((p) => !p.dot && hits({ x0: px - 3, y0: py - 3, x1: px + 3, y1: py + 3 }, p))) return true;
+              if (placed.some((p) => !(it.point && p.probe) && !p.dot && hits({ x0: px - 3, y0: py - 3, x1: px + 3, y1: py + 3 }, p))) return true;
             }
             return false;
           })) return;
         }
         const om = ps.strict ? 10 : 0;
-        if ((ps.inView && !inside) || ((ps.inView || ps.strict) && obstacles.some((o) => !(o.zone && ps.strict) && hits(r, { x0: o.x0 - om, y0: o.y0 - om, x1: o.x1 + om, y1: o.y1 + om })))) return;   // (in the free space: inside the stage, 10 px from any card, the margin a hidden label needs to show again)
+        if ((ps.inView && !inside) || ((ps.inView || ps.strict) && obstacles.some((o) => !(o.zone && ps.strict) && !(it.point && o.probe) && hits(r, { x0: o.x0 - om, y0: o.y0 - om, x1: o.x1 + om, y1: o.y1 + om })))) return;   // (in the free space: inside the stage, 10 px from any card, the margin a hidden label needs to show again)
         let onLine = 0;
         if (useLines) {
           // (A clear pass only asks whether any vessel is in the way. The slide's mark beside a stent's three points keeps 2 px off every
@@ -8294,7 +8299,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
             // (No reading sits on another's leader: 2 px clear of its halo.)
             const others = out.filter((o) => o !== it && o.leader && !o.live).map((o) => { const e = leaderEnd(rectOf(o), o.ax, o.ay); return [o.ax, o.ay, e.x, e.y]; });
             if (others.some((sg) => segHitsBox({ x0: sg[0], y0: sg[1], x1: sg[2], y1: sg[3] }, r, ps.strict || ps.resc ? 5 : 2))) return;
-            if (ps.inView && placed.some((p) => !p.dot && hits(r, { x0: p.x0 - 4, y0: p.y0 - 4, x1: p.x1 + 4, y1: p.y1 + 4 }))) return;
+            if (ps.inView && placed.some((p) => !(it.point && p.probe) && !p.dot && hits(r, { x0: p.x0 - 4, y0: p.y0 - 4, x1: p.x1 + 4, y1: p.y1 + 4 }))) return;
             const le = leaderEnd(r, it.ax, it.ay), ex = le.x, ey = le.y, L = Math.hypot(ex - it.ax, ey - it.ay);
             const gapPx = Math.hypot(Math.max(r.x0 - it.ax, 0, it.ax - r.x1), Math.max(r.y0 - it.ay, 0, it.ay - r.y1));
             if (gapPx > 10) {
@@ -8304,7 +8309,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
               const own = (p) => p.zone && it.ax > p.x0 - 4 && it.ax < p.x1 + 4 && it.ay > p.y0 - 4 && it.ay < p.y1 + 4;
               for (let u = ps.strict || ps.resc ? 0 : 8, q = ps.strict || ps.resc ? 3 : 2; u < L - 2; u += ps.strict || ps.resc ? 2 : 3) {   // (rescued: from its station's ring on, the ring too kept clear)
                 const px = it.ax + ((ex - it.ax) * u) / L, py = it.ay + ((ey - it.ay) * u) / L, pr = { x0: px - q, y0: py - q, x1: px + q, y1: py + q };
-                if ((ps.ring === 'clean' && lineHits(pr, 0)) || placed.some((p) => !p.dot && !own(p) && hits(pr, p))) return;   // (a leader may pass a station's dot, never a reading)
+                if ((ps.ring === 'clean' && lineHits(pr, 0)) || placed.some((p) => !(it.point && p.probe) && !p.dot && !own(p) && hits(pr, p))) return;   // (a leader may pass a station's dot, never a reading)
               }
             }
           } else if (circuit && it.key.startsWith('n:')) {
@@ -8318,7 +8323,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
               const le = leaderEnd(r, it.ax, it.ay), L = Math.hypot(le.x - it.ax, le.y - it.ay);
               for (let u = 8; u < L - 2; u += 3) {
                 const px = it.ax + ((le.x - it.ax) * u) / L, py = it.ay + ((le.y - it.ay) * u) / L;
-                if (placed.some((p) => !p.dot && !p.zone && hits({ x0: px - 2, y0: py - 2, x1: px + 2, y1: py + 2 }, p))) return;
+                if (placed.some((p) => !(it.point && p.probe) && !p.dot && !p.zone && hits({ x0: px - 2, y0: py - 2, x1: px + 2, y1: py + 2 }, p))) return;
               }
             }
           }
@@ -8918,7 +8923,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       const r = it.rot ? rectOf({ ...it, w: it.h, h: it.w }) : rectOf(it), was = labelVis.get(it.key) !== false, m = was ? 0 : it.point || (dop.all && /^focus/.test(it.key)) ? 4 : 10;   // (a turned caption: its box turned too; a stent's point or its mark was placed 4 px off the cards)
       // A zone title is a label too: a reading is never hidden by one (the overlap pass below settles any
       // clash, and a reading outranks a zone title); other labels give way to it only where they truly overlap.
-      it.hide = !hits(r, stage) || obstacles.some((o) => (o.zone ? !it.key.startsWith('n:') && hits(r, o) : hits(r, { x0: o.x0 - m, y0: o.y0 - m, x1: o.x1 + m, y1: o.y1 + m })));
+      it.hide = !hits(r, stage) || obstacles.some((o) => !(it.point && o.probe) && (o.zone ? !it.key.startsWith('n:') && hits(r, o) : hits(r, { x0: o.x0 - m, y0: o.y0 - m, x1: o.x1 + m, y1: o.y1 + m })));
       // (A stent's point, or the slide's mark beside it, that the figure's move carried under a card is placed again rather than hidden
       // (nothing of the column hides: Review 16 Oct); at most every quarter second, so a card still easing cannot keep it searching.)
       if (it.hide && !solve && dop.all && (it.point || /^focus/.test(it.key)) && performance.now() - colResolve > 250) { colResolve = performance.now(); return false; }
@@ -9059,6 +9064,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (hk !== holesKey) { holesKey = hk; chevHoles = holes; }
     for (const it of out) renderBlock(it);
     lbRects = out.filter((it) => !it.hide && it.w && it.h).map((it) => it._r || rectOf(it));
+    colShown = out.some((it) => it.point && !it.hide && it.w && it.h);
     // (A step's number comes in as its vessel lights, deck visuals V10; with reduced motion all at once.)
     for (const it of out) {
       if (it.delay == null || it.hide) continue;

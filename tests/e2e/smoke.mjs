@@ -3464,8 +3464,15 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
   await check(device, 'presenter TIPS Doppler: the stent slides call out all three points, matching the Doppler tiles', async (page) => {
     // (On a phone, each slide twice: as it opens, and with its data card's monitor open, which moves the figure: a point slid off its
     // dot's line by the open card got past the check once: Review 16 Oct.)
-    for (const n of [5, 9, 10, 13]) for (const unfold of device === 'phone' ? [false, true] : [false]) {
+    // (The slides are found by name: their numbers went stale when two slides were added before them (the check then stood on slides with
+    // no points and found nothing to fail on), and the presenter's buttons are waited for, as they arrive after the figure.)
+    const { DECKS, withOverview } = await import(new URL('../../src/ui/decks.js', import.meta.url));
+    const tips = withOverview(DECKS.find((d) => d.id === 'tips-doppler'));
+    for (const id of ['jet', 'narrow', 'where', 'fix']) for (const unfold of device === 'phone' ? [false, true] : [false]) {
+      const n = tips.slides.findIndex((s) => s.id === id) + 1;
+      if (!n) throw new Error(`TIPS Doppler has no slide "${id}"`);
       await open(page, `?script=tips-doppler&slide=${n}`);
+      await page.waitForFunction(() => document.querySelectorAll('.pz-abb').length > 0, null, { timeout: 60000 });
       if (unfold) {
         const folded = await page.evaluate(() => { const f = document.querySelector('.pz-data:not(.pz-hide):not([hidden]) .pz-fold'); if (!f?.getClientRects().length || f.getAttribute('aria-expanded') !== 'false') return false; f.click(); return true; });
         if (!folded) continue;
@@ -3483,7 +3490,9 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
             .map((d) => [d.querySelector('dt').textContent.trim().toLowerCase(), parseFloat(d.querySelector('dd').textContent)]));
           const shown = [...document.querySelectorAll('#labels g.lb[data-key^="n:TIPS:"]')].filter((g) => g.style.display !== 'none' && !g.classList.contains('lb-off'));
           if (shown.length !== 3 || shown.filter((g) => g.querySelector('.lb-gate')).length !== 1) return false;
-          if (phone && !Object.keys(tiles).length) return true;
+          // (Where no tiles show (a phone's folded card; the Mac's and iPad's card now shows the monitor alone) there is nothing to match them to, and
+          // the callouts are only counted, once the green one is the point just picked; the monitor's own number is matched to it below.)
+          if (!Object.keys(tiles).length) { const st = window.pps.store.get(), gate = st.dopGate === 'site' ? st.params.stenosisSite?.TIPS || 'distal' : st.dopGate; return !!shown.find((g) => g.querySelector('.lb-gate'))?.dataset.key.endsWith(gate); }
           // (A phone names them short: "Prox 99 cm/s".)
           const names = { tipsproximal: 'proximal', tipsmid: 'mid', tipsdistal: 'distal', prox: 'proximal', mid: 'mid', dist: 'distal' };
           return shown.every((g) => { const m = g.textContent.match(/^(TIPS ?(?:proximal|mid|distal)|Prox|Mid|Dist)\s*([\d.]+)/); return m && tiles[names[m[1].replace(/ /g, '').toLowerCase()]] === parseFloat(m[2]); });
@@ -3505,7 +3514,8 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
           const rs = Object.fromEntries(Object.entries(pts).map(([p, e]) => [p, box(e)]));
           const others = [...document.querySelectorAll('#labels g.lb:not(.lb-off)')].filter((e) => !e.dataset.key?.startsWith('n:TIPS:') && e.style.display !== 'none' && !e.dataset.key?.startsWith('o:'));
           const clamps = [...document.querySelectorAll('.clamp-label')];
-          const dots = [...document.querySelectorAll('.leader-dot:not(.ld-gone)')].map((d) => { const r = box(d); return [(r.left + r.right) / 2, (r.top + r.bottom) / 2]; });
+          // (The figure's own leader dots: the lobule view's, hidden behind it, stand wherever its labels would and are none of the stent's.)
+          const dots = [...document.querySelectorAll('.lb-leaders .leader-dot:not(.ld-gone)')].map((d) => { const r = box(d); return [(r.left + r.right) / 2, (r.top + r.bottom) / 2]; });
           const far = (r) => Math.min(...dots.map(([x, y]) => Math.hypot(Math.max(r.left - x, 0, x - r.right), Math.max(r.top - y, 0, y - r.bottom))));
           const err = [], list = Object.values(rs), cx = (r) => (r.left + r.right) / 2;
           if (list.some((a, i) => list.some((b, j) => j > i && meet(a, b)))) err.push('two callouts overlap');
@@ -3513,9 +3523,10 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
           const own = (r) => dots.reduce((m, d) => (Math.hypot(Math.max(r.left - d[0], 0, d[0] - r.right), Math.max(r.top - d[1], 0, d[1] - r.bottom)) < Math.hypot(Math.max(r.left - m[0], 0, m[0] - r.right), Math.max(r.top - m[1], 0, m[1] - r.bottom)) ? d : m), dots[0] || [0, 0]);
           const sides = list.map((r) => Math.sign(cx(r) - own(r)[0]));
           if (new Set(sides).size > 1) err.push('the callouts are not all on one side of the stent');
-          // (Only the jet may stand farther, just past its narrowing's arrow on its dot's line: 8 px beyond the arrow at most.)
+          // (Only the jet may stand farther, just past its narrowing's arrow on its dot's line: 8 px beyond the arrow at most. An arrow's box
+          // reaches the dot's line from one side, so it counts within 2 px of it.)
           const arrows = [...document.querySelectorAll('path.clamp')].map(box);
-          const reach = (r) => { const [x, y] = own(r); return Math.max(16.5, ...arrows.filter((a) => a.top <= y && y <= a.bottom && (cx(r) > x ? a.left >= x - 2 && a.left < r.left : a.right <= x + 2 && a.right > r.right)).map((a) => (cx(r) > x ? a.right - x : x - a.left) + 8)); };
+          const reach = (r) => { const [x, y] = own(r); return Math.max(16.5, ...arrows.filter((a) => a.top - 2 <= y && y <= a.bottom + 2 && (cx(r) > x ? a.left >= x - 2 && a.left < r.left : a.right <= x + 2 && a.right > r.right)).map((a) => (cx(r) > x ? a.right - x : x - a.left) + 8)); };
           for (const [p, r] of Object.entries(rs)) if (far(r) > reach(r)) err.push(`${p} stands ${Math.round(far(r))} px from its dot`);
           // (Level with its own dot, where the dots stand far enough apart for three level callouts.)
           const ys = list.map((r) => own(r)[1]).sort((a, b) => a - b);
@@ -3523,9 +3534,6 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
           // (The slide's mark (Narrowing, Stent) still shows, moved off the column, not dropped or under a card.)
           const mk = [...document.querySelectorAll('#labels g.lb[data-key^="focus"]')].filter((e) => e.style.display !== 'none');
           if (st.focus && !mk.some((e) => !e.classList.contains('lb-off'))) err.push("the slide's mark is not shown");
-          // (The monitor's number is the green callout's.)
-          const mon = document.querySelector('.pz-data .dop-vel > b');
-          if (mon?.getClientRects().length && g && Math.abs(parseFloat(mon.textContent.replace('−', '-'))) !== parseFloat(g.querySelector('.lb-val')?.textContent)) err.push(`the monitor reads ${mon.textContent}, the green callout ${g.textContent}`);
           for (const [p, r] of Object.entries(rs)) for (const o of [...others, ...clamps]) if (meet(r, box(o))) err.push(`${p} covers "${o.textContent.trim().slice(0, 16)}"`);
           for (const c of clamps) if (box(c).height && parseFloat(getComputedStyle(c).fontSize) * (c.getScreenCTM()?.a || 1) < 11.5) err.push('the "60 %" reads under 12 px');
           if (!g.dataset.key.endsWith(gate)) err.push(`the green callout (${g.textContent}) is not the sampled ${gate}`);
@@ -3537,9 +3545,14 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
           }
           return { err, at: Object.fromEntries(Object.entries(rs).map(([p, r]) => [p, [Math.round(r.left), Math.round(r.top)]])) };
         });
+        // (The monitor's number is the green callout's. Both follow the live trace and tick a moment apart, so they are read until they agree
+        // at one reading, ten seconds at most, then no longer.)
+        const agree = () => { const mon = document.querySelector('.pz-data .dop-vel > b'), g = document.querySelector('#labels g.lb[data-key^="n:TIPS:"] .lb-gate')?.closest('g.lb'); return !mon?.getClientRects().length || !g || Math.abs(parseFloat(mon.textContent.replace('−', '-'))) === parseFloat(g.querySelector('.lb-val')?.textContent); };
+        const apart = await page.waitForFunction(agree, null, { polling: 'raf', timeout: 10000 }).then(() => '', () => page.evaluate(() => `the monitor reads ${document.querySelector('.pz-data .dop-vel > b').textContent}, the green callout ${document.querySelector('#labels g.lb[data-key^="n:TIPS:"] .lb-gate').closest('g.lb').textContent}`));
+        if (apart) got.err.push(apart);
         if (got.err.length) throw new Error(`TIPS Doppler ${at}, button ${k + 1}: ${[...new Set(got.err)].join('; ')}`);
-        // (Slides 10 and 13 move or open the narrowing itself with the pick; elsewhere only the sampled point changes, and nothing moves.)
-        if (n !== 10 && n !== 13 && k && Object.entries(got.at).some(([p, [x, y]]) => Math.abs(x - first[p][0]) > 2 || Math.abs(y - first[p][1]) > 2)) throw new Error(`TIPS Doppler ${at}, button ${k + 1}: a callout moved when another point was picked (${JSON.stringify(first)} → ${JSON.stringify(got.at)})`);
+        // (The "where" and "fix" slides move or open the narrowing itself with the pick; elsewhere only the sampled point changes, and nothing moves.)
+        if (id !== 'where' && id !== 'fix' && k && Object.entries(got.at).some(([p, [x, y]]) => Math.abs(x - first[p][0]) > 2 || Math.abs(y - first[p][1]) > 2)) throw new Error(`TIPS Doppler ${at}, button ${k + 1}: a callout moved when another point was picked (${JSON.stringify(first)} → ${JSON.stringify(got.at)})`);
         if (!k) first = got.at;
       }
     }

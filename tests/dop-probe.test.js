@@ -97,7 +97,7 @@ test('the figure places the gate where the callout points (the middle of the ves
   assert.match(stage, /u == null \? arcMid\(pts\) : pointAt\(pts, u\)/);
   // It follows the camera with the labels, and the labels keep clear of its body.
   assert.equal((stage.match(/^\s*dprobePaint\(\);$/gm) || []).length, 4, 'view change, zoom glide, labels laid out, Doppler set');
-  assert.match(stage, /if \(dpr\.on && dpr\.box\) out\.push\(dpr\.box, \.\.\.dpr\.marks\);/);
+  assert.match(stage, /if \(dpr\.on && dpr\.box\) out\.push\(\.\.\.\[dpr\.box, \.\.\.dpr\.marks\]\.map\(\(b\) => \(\{ \.\.\.b, probe: true \}\)\)\);/);
   // It hides while the views morph and in the liver's own views, and moves by fading out and back in.
   assert.match(stage, /\(morph < 0\.01 \|\| morph > 0\.99\) && !camMove && !dpr\.hold && dprMonitorOn\(\) && !st\.lobule && !st\.sinusoid && !lz\?\.isOpen\(\)/);
   assert.match(css, /\.dop-probe \{[^}]*transition: opacity \.36s var\(--ease\)/);
@@ -145,7 +145,7 @@ test('the probe and its line of sight take the side clear of the labels and call
   const up = probePose({ g, t, r, w: W, h: H, side: 1 }), down = probePose({ g, t, r, w: W, h: H, side: -1 });
   assert.equal(probePose({ g, t, r, w: W, h: H, cards: [up.box], avoid: [down.box] }).side, -1);
   // The labels keep off the line of sight too, and the probe is drawn beneath the labels' layer (and the callouts above it).
-  assert.match(stage, /out\.push\(dpr\.box, \.\.\.dpr\.marks\)/);
+  assert.match(stage, /out\.push\(\.\.\.\[dpr\.box, \.\.\.dpr\.marks\]\.map\(/);
   assert.match(stage, /labelSvg\.before\(el\); dpr\.el = el/);
   assert.match(stage, /avoid: dprAvoid\(\)/);
 });

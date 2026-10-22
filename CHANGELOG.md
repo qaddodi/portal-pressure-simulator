@@ -2,6 +2,17 @@
 
 ## October 2026
 
+- **The stent's three callouts keep their places when a point is picked.** On the TIPS Doppler slides the middle callout could jump to the
+  far side of the stent (or the whole column land there) when Proximal, Mid or Distal was picked, depending on whether the Doppler probe
+  or the callouts reached the screen first: the probe's body and line of sight counted as obstacles to the callouts, and its place was
+  worked out before they stood. The three now ignore the probe (the column's side, its spots and whether it shows are the stent's and
+  the screen's alone, as the layout's own comment always said), the probe waits until they show (four seconds at most) and keeps off
+  them, and the callouts stay level with their dots, 16 px away, on every pick, on every slide and device that calls out a stent's
+  points (the TIPS Doppler deck, Read the Doppler). The browser check "the stent slides call out all three points" had been passing
+  without testing anything (its slide numbers had gone stale and it read the pick buttons before they drew); it now finds the slides
+  by name, waits for the buttons and the pick, counts only the figure's own leader dots (the lobule view's hidden ones fell under the
+  callouts), reads the monitor and the green callout together once the live trace has ticked them to the same number, and passes on
+  desktop and phone with its rules unchanged. Tests: `tests/tips-doppler-points.test.js`, `tests/dop-probe.test.js`.
 - **A narrowing's "60 %" fits.** On the TIPS Doppler slides with a narrowing (the narrowed stent, where it narrows), the "60 %" stood
   between its arrow and the distal callout with its "%" under "TIPS". A redraw of the figure's marks had put it back on the vessel's own
   side, undoing the side the layout chose (the one the stent's column of callouts leaves free). One rule now places the "60 %" wherever it
