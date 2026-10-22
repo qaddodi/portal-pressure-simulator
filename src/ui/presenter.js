@@ -39,7 +39,6 @@ import { clotWords } from './callout-math.js?v=dd0645efe5';
 import { citeText, focusOf, oneLadder } from './teach-extras.js?v=5f5248f5a7';
 import { createProfileTool, createProfileStrip } from './tool-profile.js?v=45d2def14e';
 import { causeFit } from './cause-fit.js?v=830a6835a5';
-import { DEMO_ALL } from './test-decks/demo-all-new-visuals.js?v=994d9ba268';
 import { COMPACT, WIDE } from './card-type.js?v=f5dfdb80f2';
 const nextFrame = frameFor('presenter');
 
@@ -49,7 +48,9 @@ const readMine = () => { try { const v = JSON.parse(localStorage.getItem(KEY) ||
 // Test decks: on the /preview/ copy only (never the live site), listed under "Testing" in Present. Each plays exactly as
 // if imported (an "Outline and objectives" slide in front, so its slide numbers match the imported file's).
 const PREVIEW = typeof location !== 'undefined' && /\/preview\//.test(location.pathname);
-const TESTING = PREVIEW ? [DEMO_ALL].map((d) => ({ id: 'test-' + d.id, title: d.title, summary: d.summary || '', deck: checkDeck(d), test: true })) : [];
+// (Loaded only there: the live site's bundle carried the 53 KB deck for nothing. The menu reads TESTING when it opens, long after.)
+let TESTING = [];
+const testingLoad = PREVIEW ? import('./test-decks/demo-all-new-visuals.js?v=994d9ba268').then(({ DEMO_ALL }) => { TESTING = [DEMO_ALL].map((d) => ({ id: 'test-' + d.id, title: d.title, summary: d.summary || '', deck: checkDeck(d), test: true })); }).catch(() => { /* the preview's test deck only */ }) : Promise.resolve();
 const writeMine = (list) => { try { localStorage.setItem(KEY, JSON.stringify(list)); } catch { /* storage unavailable */ } };
 const enc = (o) => btoa(unescape(encodeURIComponent(JSON.stringify(o)))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 const dec = (s) => JSON.parse(decodeURIComponent(escape(atob(s.replace(/-/g, '+').replace(/_/g, '/')))));
@@ -3853,6 +3854,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     leaving = null; healthyGen++;
     const want0 = Math.max(0, (parseInt(at, 10) || 0));
     const d = typeof id === 'object' ? id : all().find((x) => x.id === (ALIAS[id] || id));
+    if (!d && typeof id === 'string' && id.startsWith('test-') && !TESTING.length) return testingLoad.then(() => start(id, at));   // (a ?script= link to the preview's test deck, asked before it loaded)
     if (!d?.slides?.length) { toast('That presentation could not be found.', 'bad'); return; }
     // The start is one composed reveal: a calm cover fades over the screen, the projector layout, the first patient and
     // the first slide are all set up under it, and the cover fades away once nothing behind it is still moving.
