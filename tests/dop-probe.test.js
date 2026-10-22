@@ -578,7 +578,10 @@ test('no place for a moment holds the probe (NONE_MS), and only a lack that last
 test('stage: the probe\'s memory is in the loop (layout signature, banned places, lock, give, a held "no place", hides forget)', () => {
   const paint = stage.slice(stage.indexOf('function dprobePaint('), stage.indexOf('function dprShape('));
   assert.match(stage, /const dprMind = createProbeMind\(\);/);
-  assert.match(paint, /dprMind\.sync\(\[key, CTM \?/, 'a new layout (vessel, camera, stage, gate, cards) forgets the places left');
+  assert.match(paint, /const syncKey = \[key, CTM \?/, 'a new layout (vessel, camera, stage, gate, cards) forgets the places left');
+  assert.match(paint, /dprMind\.sync\(syncKey\);/);
+  // (Asked on every model frame, the search runs at most every 150 ms while the layout holds and the probe shows; a new layout runs it at once.)
+  assert.match(paint, /if \(syncKey === dpr\.syncKey && dpr\.on && tNow - dpr\.searchAt < 150\) return;\s*dpr\.syncKey = syncKey; dpr\.searchAt = tNow;\s*dprMind\.sync\(syncKey\);/);
   assert.match(paint, /ban: dprMind\.banned\(\), lock: dprMind\.locked\(\), slack: dpr\.headOff \? 0 : SLACK/);
   assert.match(paint, /if \(!show\) \{\s*dprMind\.hide\(\);\s*dprHide\(\);/);
   assert.match(paint, /dprDots\(\); dprMind\.hide\(\);\s*dpr\.swap = setTimeout/, 'a new vessel or third: it is no longer "leaving" a place');

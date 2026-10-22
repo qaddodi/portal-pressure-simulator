@@ -1278,7 +1278,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const dop = { id: null, want: null, pin: null, key: '', seg: '', points: false, all: false };
   const dopGateOf = (id) => (dop.id === id && dop.seg ? dop.seg : '');   // the third of a stent the Doppler samples ('' when it is elsewhere)
   // The Doppler probe on the figure (dprobePaint): live once the stage is built (dopApply runs before its pieces exist).
-  const dpr = { el: null, on: false, key: '', side: 0, reach: 0, rev: false, k: 1, cur: null, tgt: null, hold: 0, mon: false, noneT: 0, headOff: false, eRaf: 0, eAt: 0, box: null, marks: [], swap: 0, shapes: '', at: '', ready: false, gate: null };
+  const dpr = { el: null, on: false, key: '', side: 0, reach: 0, rev: false, k: 1, cur: null, tgt: null, hold: 0, mon: false, noneT: 0, headOff: false, eRaf: 0, eAt: 0, box: null, marks: [], swap: 0, shapes: '', at: '', ready: false, gate: null, monAt: 0, syncKey: '', searchAt: 0 };
   function dopApply() {
     let id = dop.pin ?? dop.want ?? null;
     if (id && !E[id]) id = null;
@@ -6209,9 +6209,12 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (organMorphA < 0.5) return out;   // (faded out with the morph to the circuit)
     for (const o of ORGANS) {
       if (o.deco || o.circle || !organEls[o.id]?.getAttribute('d')) continue;
-      const k = olKey(o.id);
+      const k = olKey(o.id), now = performance.now();
       let c = dprOrgPts.get(o.id);
-      if (!c || c.k !== k) { c = { k, pts: olRings(o.id).flatMap((ring) => ring.filter((_, i) => i % 2 === 0)) }; dprOrgPts.set(o.id, c); }
+      // (While a shape eases (the liver to cirrhosis) its key changes every frame: the outline is read again (getPointAtLength along
+      // it, the costliest step of a Doppler slide's frame) at most every 300 ms, a few px stale through an ease, for a count that
+      // only weighs how busy a place is.)
+      if (!c || (c.k !== k && now - c.at > 300)) { c = { k, at: now, pts: olRings(o.id).flatMap((ring) => ring.filter((_, i) => i % 2 === 0)) }; dprOrgPts.set(o.id, c); }
       out.push(c.pts);
     }
     return out;
@@ -6257,6 +6260,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // folded, leaving, off screen or covered (the case card over it) leaves the probe hidden. Checked a few times a second while a
   // vessel is chosen, since those changes come from the cards, not the figure.
   function dprMonitorOn() {
+    const now = performance.now();
+    if (now - dpr.monAt < 200) return dpr.mon;   // (asked on every model frame: the answer of the last 200 ms, the pace it is watched at anyway)
+    dpr.monAt = now;
     const W = innerWidth, H = innerHeight;
     for (const cv of document.querySelectorAll('canvas[aria-label^="Spectral Doppler"]')) {
       if (cv.closest('[hidden], .card-leaving, .vd-out, [data-folding]')) continue;
@@ -6271,6 +6277,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   }
   setInterval(() => {
     if (!dpr.ready || !dop.id) return;
+    dpr.monAt = 0;
     const on = dprMonitorOn();
     if (on !== dpr.mon || (on && !dpr.on && !dpr.swap)) { dpr.mon = on; dprobePaint(); }
   }, 200);
@@ -6300,8 +6307,15 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const r = cathRadOf(id, u ?? 0.5) * (CTM?.sc || 1), cards = dprCards();
     // (What its place is worked out for: the vessel, the camera, the stage, the gate and the cards, a little coarsely. While it holds,
     // the places the probe has left stay left; a change forgets them.)
-    dprMind.sync([key, CTM ? `${CTM.a.toFixed(2)},${CTM.b.toFixed(2)},${Math.round(CTM.e / 12)},${Math.round(CTM.f / 12)}` : '', Math.round(wrapRect.width / 8), Math.round(wrapRect.height / 8), Math.round(gx / 12), Math.round(gy / 12),
-      cards.map((c) => [c.x0, c.y0, c.x1, c.y1].map((v) => Math.round(v / 16)).join()).join(';')].join('|'));
+    const syncKey = [key, CTM ? `${CTM.a.toFixed(2)},${CTM.b.toFixed(2)},${Math.round(CTM.e / 12)},${Math.round(CTM.f / 12)}` : '', Math.round(wrapRect.width / 8), Math.round(wrapRect.height / 8), Math.round(gx / 12), Math.round(gy / 12),
+      cards.map((c) => [c.x0, c.y0, c.x1, c.y1].map((v) => Math.round(v / 16)).join()).join(';')].join('|');
+    // (Asked on every model frame, the search below (every place's busyness over the vessels' and organs' points, the labels' boxes)
+    // runs at most every 150 ms while its inputs hold; a change of vessel, camera, gate or cards runs it at once. The probe's place is
+    // decided with 0.2 s of stillness and eases over 0.3 s, so nothing it does is timed finer than that.)
+    const tNow = performance.now();
+    if (syncKey === dpr.syncKey && dpr.on && tNow - dpr.searchAt < 150) return;
+    dpr.syncKey = syncKey; dpr.searchAt = tNow;
+    dprMind.sync(syncKey);
     // (Its place keeps its fit through a few px of give, unless only its marks fit: back to the head's fade, it needs the whole room.)
     const pose = fitPose({ g: [gx, gy], t: [ax - gx, ay - gy], r, away: awayFromProbe(id), w: wrapRect.width, h: wrapRect.height, cards, keep: key === dpr.key ? dpr.side : 0, keepReach: dpr.reach, keepRev: dpr.rev, keepK: dpr.k, sc: CTM?.sc || 1, avoid: dprAvoid(), busy: dprBusy([gx, gy], id),
       ban: dprMind.banned(), lock: dprMind.locked(), slack: dpr.headOff ? 0 : SLACK });
