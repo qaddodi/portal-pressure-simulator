@@ -1447,8 +1447,16 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false }) {
   gl.bindBuffer(gl.ARRAY_BUFFER, fluidBuf);
   gl.enableVertexAttribArray(1); gl.vertexAttribPointer(1, 2, gl.FLOAT, false, 0, 0); gl.vertexAttribDivisor(1, 1);
   gl.bindVertexArray(null);
+  // The pool below a level that moved (fluidPool): its cells composited whole once, instead of the whole picture.
+  const poolBuf = gl.createBuffer(), poolVAO = gl.createVertexArray();
+  gl.bindVertexArray(poolVAO);
+  gl.bindBuffer(gl.ARRAY_BUFFER, quad);
+  gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
+  gl.bindBuffer(gl.ARRAY_BUFFER, poolBuf);
+  gl.enableVertexAttribArray(1); gl.vertexAttribPointer(1, 2, gl.FLOAT, false, 0, 0); gl.vertexAttribDivisor(1, 1);
+  gl.bindVertexArray(null);
   const fluidTex = dataTex(gl);
-  let fluidRect = null, nFluid = 0, fluidN = 0, fluidLiver = null;
+  let fluidRect = null, nFluid = 0, fluidN = 0, fluidLiver = null, nPool = 0;
   const compVAO = gl.createVertexArray();
   gl.bindVertexArray(compVAO);
   gl.bindBuffer(gl.ARRAY_BUFFER, quad);
@@ -1839,6 +1847,20 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false }) {
       gl.bindTexture(gl.TEXTURE_2D, fluidTex);
       gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 1, fluidN, 1, gl.RED, gl.FLOAT, bottoms);
     },
+    /**
+     * The ascites level moved (or its ink faded): the next composite draws again, whole, the cells of the cavity from world row `top`
+     * down, the only pixels the fluid can change (its surface, and its depth shading below it), and no whole picture for it. False
+     * without a cavity: the caller repaints the whole picture.
+     */
+    fluidPool(top) {
+      if (!fluidRect) return false;
+      const [x0, y0, w, h] = fluidRect, cells = [];
+      for (let y = Math.max(y0, top) - CELL; y < y0 + h + CELL; y += CELL) for (let x = x0 - CELL; x < x0 + w + CELL; x += CELL) cells.push(x, y);
+      gl.bindBuffer(gl.ARRAY_BUFFER, poolBuf);
+      gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(cells), gl.DYNAMIC_DRAW);
+      nPool = cells.length / 2;
+      return true;
+    },
     /** World origins (x, y pairs) of the cells the ascites surface ripples through. */
     setFluidCells(cells) {
       gl.bindBuffer(gl.ARRAY_BUFFER, fluidBuf);
@@ -1979,7 +2001,9 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false }) {
       const useStack = !!(look.plate?.stack && stack?.has(0));
       if (useStack && stack.stale(m, canvas.width, canvas.height)) { gpuProbe.time(gl, 'organ layers', () => stack.render(m, canvas.width, canvas.height)); full = true; }
       const fl = look.fluid && fluidRect ? look.fluid : null;
-      if (!full && !nCells && !(fl?.ripple && nFluid)) return;
+      const pool = full ? 0 : nPool;
+      nPool = 0;
+      if (!full && !nCells && !(fl?.ripple && nFluid) && !pool) return;
       if (gpuProbe.on) { if (full) gpuProbe.note('whole picture'); if (!look.plate) gpuProbe.note('organ picture down'); }
       const det = m[0] * m[3] - m[1] * m[2] || 1e-9;
       // device → world: the inverse of [a c e; b d f].
@@ -2064,6 +2088,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false }) {
         if (nBlood) { gl.bindVertexArray(bloodVAO); gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, nBlood); }
         gl.uniform1i(U.bloodOnly, 0);
         if (fl?.ripple && nFluid) { gl.bindVertexArray(fluidVAO); gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, nFluid); }
+        if (pool) { gl.bindVertexArray(poolVAO); gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, pool); }
       }
       gl.bindVertexArray(null);
       if (cath) gpuProbe.time(gl, 'catheter', () => drawCath(m));
@@ -2130,8 +2155,8 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false }) {
       canvas.removeEventListener('webglcontextlost', onLost);
       if (!lost) {
         for (const t of [entTex, radTex, bendTex, rmaxTex, tubeTex, organTex, flowTex, dyeTex, fluidTex, baseTex, gTex, gTex2, depTex, depNone, lineLayer.tex, glowLayer.tex, warmLayer.tex, ...plates.map((x) => x?.tex)]) if (t) gl.deleteTexture(t);
-        for (const b of [quad, cellBuf, bloodBuf, partBuf, fluidBuf, cathBuf, lineBuf]) gl.deleteBuffer(b);
-        for (const v of [vao, bloodVAO, partVAO, fluidVAO, compVAO, cathVAO, lineVAO]) gl.deleteVertexArray(v);
+        for (const b of [quad, cellBuf, bloodBuf, partBuf, fluidBuf, poolBuf, cathBuf, lineBuf]) gl.deleteBuffer(b);
+        for (const v of [vao, bloodVAO, partVAO, fluidVAO, poolVAO, compVAO, cathVAO, lineVAO]) gl.deleteVertexArray(v);
         for (const x of [prog, comp, compCell, cathP, lineP]) if (x) gl.deleteProgram(x.p);
         stack?.dispose();
         clearTimeout(spare.timer);

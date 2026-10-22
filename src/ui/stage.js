@@ -11,7 +11,7 @@ import { store, updateParams, varicesPresent, varixGrowth, shownVel } from './st
 import { fibroReading } from './clock.js?v=e011dfc3e7';
 import { s, h, fmt, fmtFlow, fp, clamp, lerp, toast, systemEdge, bloodColors, restBox, translateRest, settledBox, putText } from './util.js?v=54c2d6673a';
 import { riseCentre } from './rise-path.js?v=c039cb7b49';
-import { createLobuleZoom } from './lobule-zoom.js?v=2e9b35e395';
+import { createLobuleZoom } from './lobule-zoom.js?v=6a7d4616ce';
 import { sinceSource } from './since-ref.js?v=ef1a818c75';
 import { clipBox, mapBox } from './fit-box.js?v=d5d6d4c60f';
 import { runFlick, FLICK } from './flick.js?v=800d62a715';
@@ -33,7 +33,7 @@ import { createRouter } from './circuit-router.js?v=0ee9e02fc6';
 import { gpuProbe } from './gpu-probe.js?v=2e30f04b4d';
 import { plateStrips, premultiply, gutStep, viewReuse, copyPixels } from './plate-upload.js?v=5fc45556a1';
 import { cropToGrid } from './organs-gl.js?v=909b82809e';
-import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, ORIGIN_GREY } from './veins-gl.js?v=f759f7a390';
+import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, ORIGIN_GREY } from './veins-gl.js?v=79c5598cc8';
 import { varixBead, beadRadius } from './varix-bead.js?v=ac0e84fd89';
 import { advanceStream, createReversalHold, bleedShapes, stepBleedFade, fadeBleedShapes, chevFlowLevel, keyChevron, KEY_CHEV_LANES, originFractions, oxygenFor, ORIGIN_N, createBolus, DYE_BINS, KAPPA, STASIS_MIN_D, HIDDEN_SECONDS } from './blood.js?v=e668d01823';
 import { frameFor, cancelFrame, noteDraw, setSaver as setFrameSaver, paceMs } from './frame.js?v=a83f37af2f';
@@ -5515,6 +5515,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (ascTarget === null) return false;
     let moved = false;
     if (ascShown !== ascTarget) {
+      fluidFrom ??= fluidH;
       // A large change shows the live drawing while it eases, as the liver's does: the wall and bowel move with the fluid, and the plate
       // is rasterized once it settles (held under the plate, the wall would jump by the whole change when it landed).
       const held = fluidEasing();
@@ -5538,9 +5539,17 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     // only for the frame it fades to nothing. External review, 21 Oct.)
     const seen = fluidLook.ink[3] > 0, was = fluidSeen;
     fluidSeen = seen;
-    return moved && (seen || was);
+    const from = fluidFrom ?? fluidH;
+    fluidFrom = null;
+    if (!(moved && (seen || was))) return false;
+    // Only the pool's cells are composited again, from above the higher of the two levels (the surface, its ripple and its light
+    // band) down: the rest of the picture does not change with it. It was the whole screen on every frame of a fill or a drain
+    // (Fable's lag review, item 4). A whole repaint where there is no cavity to bound it.
+    const pool = !!(veins && !veins.lost && veins.fluidPool(ABDOMEN_FLOOR + 5 - Math.max(from, fluidH) - fluidAmp - 6));
+    if (pool) poolFrames++;
+    return !pool;
   }
-  let fluidSeen = false;
+  let fluidSeen = false, fluidFrom = null, poolFrames = 0;
   function readFluidInk(cs) {
     const hex = cs.getPropertyValue('--ascites').trim().replace('#', ''), a = parseFloat(cs.getPropertyValue('--ascites-a')) || 0.4;
     if (hex.length === 6) fluidInkRGBA = [0, 2, 4].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255).concat(a);
@@ -9978,6 +9987,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
      *  (PNG data URLs; equal when nothing on screen is stale, undrawn or softer), or null without the GPU figure. */
     /** For the checks: the organs' picture as the plate (one SVG of the whole plate) and as the layers the GPU draws instead
      *  (each layer's SVG, over its cropped rect on the plate's pixel grid), both of the state now (tests/e2e/plate-layers.mjs). */
+    /** For the checks (tests/e2e/fluid-pool.mjs): frames that composited only the fluid's pool, and whether the level is easing. */
+    poolFrames: () => poolFrames, fluidEasing: () => fluidEasing(),
     organLayersShown: () => plateOn() && gpuOrgansOn() && !!veins?.organs?.has(0),
     /** The ?perf switch "GPU organs", for the checks: true, false, or 'force' (on the software renderer too). */
     gpuOrgans(v) { gpuProbe.gpuOrgans = v; gpuProbe.onOrgans?.(); },
@@ -9992,9 +10003,11 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       }
       return { W, H, plate, layers };
     },
-    veinsCheck() {
+    veinsCheck(compositeOnly = false) {
       if (!veins || veins.lost || !vLook || !F) return null;
       const now = veins.snapshot();
+      // (compositeOnly: the picture composited again whole from the same vessel layer and look, as a partial composite stands in for.)
+      if (compositeOnly) { veins.composite(vLook, bloodLook(), true); return { now, whole: veins.snapshot() }; }
       veinsDirty = true; drawVeins();
       return { now, whole: veins.snapshot() };
     },

@@ -96,7 +96,18 @@ test('an organ picture whose state moved on stops at the next strip, before draw
 
 test('a fluid level that moves while the fluid is drawn at no opacity asks for no whole repaint', () => {
   const src = readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8');
-  assert.match(src, /const seen = fluidLook\.ink\[3\] > 0, was = fluidSeen;\n\s+fluidSeen = seen;\n\s+return moved && \(seen \|\| was\);/);
+  assert.match(src, /const seen = fluidLook\.ink\[3\] > 0, was = fluidSeen;\n\s+fluidSeen = seen;\n[^\n]*\n[^\n]*\n\s+if \(!\(moved && \(seen \|\| was\)\)\) return false;/);
   const gl = readFileSync(new URL('../src/ui/veins-gl.js', import.meta.url), 'utf8');
   assert.match(gl, /if \(fluidInk\.a > 0\.0\) \{/, 'the shader draws no fluid at ink 0');
+});
+
+test('a fluid level that moves composites only the pool, from above the higher level down, never the whole screen', () => {
+  const src = readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8');
+  assert.match(src, /const pool = !!\(veins && !veins\.lost && veins\.fluidPool\(ABDOMEN_FLOOR \+ 5 - Math\.max\(from, fluidH\) - fluidAmp - 6\)\);\n\s+if \(pool\) poolFrames\+\+;\n\s+return !pool;/, 'a whole repaint only where there is no cavity to bound it');
+  assert.match(src, /if \(ascShown !== ascTarget\) \{\n\s+fluidFrom \?\?= fluidH;/, 'the level before the step, for a drain');
+  const gl = readFileSync(new URL('../src/ui/veins-gl.js', import.meta.url), 'utf8');
+  // The cavity's rect from `top` down, a cell's margin round it; drawn whole once, by the next composite that is not whole anyway.
+  assert.match(gl, /for \(let y = Math\.max\(y0, top\) - CELL; y < y0 \+ h \+ CELL; y \+= CELL\) for \(let x = x0 - CELL; x < x0 \+ w \+ CELL; x \+= CELL\) cells\.push\(x, y\);/);
+  assert.match(gl, /const pool = full \? 0 : nPool;\n\s+nPool = 0;\n\s+if \(!full && !nCells && !\(fl\?\.ripple && nFluid\) && !pool\) return;/);
+  assert.match(gl, /if \(pool\) \{ gl\.bindVertexArray\(poolVAO\); gl\.drawArraysInstanced\(gl\.TRIANGLE_STRIP, 0, 4, pool\); \}/);
 });
