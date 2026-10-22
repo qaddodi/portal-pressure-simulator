@@ -8,6 +8,9 @@
 //   SMOKE_DEVICE=phone SMOKE_SHARD=1/2 one device, and one share of its checks (CI runs shards in parallel)
 //   SMOKE_RETRIES=0                    no second try (default 1: a check that failed only by timing
 //                                       out on a slow runner gets one more try; any other failure counts)
+//   SMOKE_GPUORGANS=force              every page opens with ?gpuorgans=force: the organs drawn as GPU layers, which a
+//                                       software renderer (CI's) otherwise never does (the "gpu-organs" job in ci.yml and checks.yml)
+//   SMOKE_MATCH=<regex>                only the checks whose name matches it (with SMOKE_GPUORGANS and no SMOKE_MATCH: the figure's own, FIGURE_CHECKS)
 //
 // Needs a Chromium for Playwright (`npx playwright install chromium`; the Claude Code cloud
 // image ships one).
@@ -27,6 +30,23 @@ const shots = process.env.SHOTS;
 if (shots) mkdirSync(shots, { recursive: true });
 const server = await serve(dir);
 const browser = await chromium.launch(process.env.CHROMIUM ? { executablePath: process.env.CHROMIUM } : {});
+// SMOKE_GPUORGANS=force (see the header): every page of every context, the checks' own as well as the shared ones, opens with ?gpuorgans=force.
+const GPU_ORGANS = process.env.SMOKE_GPUORGANS;
+// The checks that draw or move the figure itself (about 25 minutes on a desktop runner): what SMOKE_GPUORGANS runs when no SMOKE_MATCH names others.
+// The rest judge cards, words and charts, which the organs' path does not touch.
+const FIGURE_CHECKS = 'moving blood on the GPU|Fit always|pan and pinch|presenter in the liver|leaders reach|zooming out|vessels and plate|liver lobule: GPU|lobule: a Fit glide|lobule zoom is continuous: (Explore|lobule slide 1|tap slide 8)';
+if (GPU_ORGANS) {
+  const newContext = browser.newContext.bind(browser);
+  browser.newContext = async (o) => {
+    const ctx = await newContext(o), newPage = ctx.newPage.bind(ctx);
+    ctx.newPage = async () => {
+      const page = await newPage(), go = page.goto.bind(page);
+      page.goto = (url, opts) => { const [path, hash] = url.split('#'); return go(`${path}${path.includes('?') ? '&' : '?'}gpuorgans=${GPU_ORGANS}${hash ? '#' + hash : ''}`, opts); };
+      return page;
+    };
+    return ctx;
+  };
+}
 let failed = 0;
 
 const TYPE_SCALE_SIZES = TYPE_SIZES.map((s) => s.name), CHART_TEXT_SIZES = CHART_SIZES_ALL.map((s) => s.name);
@@ -4840,7 +4860,7 @@ if (!process.env.SMOKE_DEVICE || process.env.SMOKE_DEVICE === 'desktop') check('
 const SLOW = ['responsive instrument workspace', 'pressure over time and Doppler', 'action card is a compact sheet that keeps the vessel in view', 'circuit view, selection card, lenses'];
 const weight = (name) => { const i = SLOW.indexOf(name); return i < 0 ? 0 : SLOW.length - i; };
 queue.sort((a, b) => weight(b[1]) - weight(a[1]));
-if (process.env.SMOKE_MATCH) { const match = new RegExp(process.env.SMOKE_MATCH, 'i'); for (let i = queue.length - 1; i >= 0; i--) if (!match.test(queue[i][1])) queue.splice(i, 1); }
+if (process.env.SMOKE_MATCH || GPU_ORGANS) { const match = new RegExp(process.env.SMOKE_MATCH || FIGURE_CHECKS, 'i'); for (let i = queue.length - 1; i >= 0; i--) if (!match.test(queue[i][1])) queue.splice(i, 1); }
 // Shards are filled by expected time, longest first, each check going to the least-loaded share.
 // The times are each check's own on CI runners (tests/e2e/check-times.json, seconds, by device and name: a failing check counted
 // with its retry, as it costs that much until it is fixed); refresh them with node scripts/check-times.mjs <job logs>.

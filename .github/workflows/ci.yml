@@ -191,6 +191,41 @@ jobs:
           if-no-files-found: ignore
           retention-days: 1
 
+  # The organs drawn as GPU layers, as every GPU device draws them (since 22 Oct, on by default). A software renderer, which these runners
+  # have, keeps the one picture unless the address says ?gpuorgans=force, so no other job here ever ran that path. Three checks of it: the
+  # layers make the picture the plate does, the organs painted live match the browser's drawing of their SVG, and the figure's own browser
+  # checks (SMOKE_GPUORGANS=force: every page opens with the switch, see tests/e2e/smoke.mjs FIGURE_CHECKS) pass with the organs on the GPU.
+  gpu-organs:
+    runs-on: ubuntu-24.04
+    needs: quick
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup-browser
+      - name: Production build (made once, in quick)
+        uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist
+      - name: The layers draw the plate's picture, and the screen with the organs live is the one without
+        run: npm run smoke:layers
+      - name: The organs painted on the GPU match the browser's drawing of their SVG
+        run: npm run smoke:paint
+      - name: The figure's browser checks, organs on the GPU
+        env:
+          SHOTS: gpu-organs-shots
+          SMOKE_GPUORGANS: force
+          SMOKE_DEVICE: desktop
+          SMOKE_WORKERS: 1
+        run: npm run smoke -- dist
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: gpu-organs-shots
+          path: gpu-organs-shots/
+          if-no-files-found: ignore
+          retention-days: 1
+
   # The presenter's words on an iPhone's engine (WebKit): they show once, at their final size.
   webkit:
     runs-on: ubuntu-24.04
