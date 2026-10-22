@@ -2067,6 +2067,33 @@ export const DEMO_ALL = {
       "kicker": "Scale switch",
       "title": "One patient at three scales",
       "line": "Tap Lobule to dive into the liver with the sinusoid reading lit, or Sinusoid to see the scarred wall. Next opens the next slide on its own scale."
+    },
+    {
+      "id": "proc-tips",
+      "preset": "cirr-decomp",
+      "cam": "liver",
+      "procedure": "tips",
+      "kicker": "Catheter animation",
+      "title": "A TIPS, placed on the anatomy",
+      "line": "Tap Play TIPS. The catheter comes in from the neck to the right hepatic vein, a needle crosses the liver into the portal vein, and a stent holds the tract open. The model then has the TIPS."
+    },
+    {
+      "id": "proc-brto",
+      "preset": "gastric-varix",
+      "cam": "fundus",
+      "procedure": { "kind": "brto", "auto": true },
+      "kicker": "Catheter animation",
+      "title": "BRTO closes the shunt from below",
+      "line": "This one plays as the slide lands. The catheter comes up from the femoral vein into the left renal vein and the gastrorenal shunt, a balloon blocks it, and sclerosant fills it back to the varices."
+    },
+    {
+      "id": "proc-bato",
+      "preset": "gastric-varix",
+      "cam": "fundus",
+      "procedure": "bato",
+      "kicker": "Catheter animation",
+      "title": "BATO closes the varices from the portal side",
+      "line": "Tap Play BATO. The catheter crosses the liver into the portal vein and runs along the splenic vein into the short gastric veins, where a balloon stops the inflow and sclerosant fills the varices."
     }
   ]
 };

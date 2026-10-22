@@ -89,7 +89,7 @@ Every field is optional unless marked. Fields are grouped by what they do. Unkno
 
 ### 3.4 The data card (section 7)
 
-`data`, `tiles`, `key`, `delta`, `dataTitle`, `tool`, `visual` (+ `cols`, `asc`, `rowHead`, `note`, `vs`, `foot`, `calm`, `of`, `scale`), `compare`, `whatIf`; opt-in: `wave`, `waveMax`, `focusRow` (7.3).
+`data`, `tiles`, `key`, `delta`, `dataTitle`, `tool`, `visual` (+ `cols`, `asc`, `rowHead`, `note`, `vs`, `foot`, `calm`, `of`, `scale`), `compare`, `whatIf`, `procedure` (7.4); opt-in: `wave`, `waveMax`, `focusRow` (7.3).
 
 ### Slide order and carry-over
 
@@ -445,6 +445,8 @@ Visuals may also carry `cam` (how the dimmed figure is framed).
 ### 7.4 `compare` and `whatIf`: acting on the live model
 
 `whatIf: { label, param, min, max, step?, ends?: [low, high], unit? }` puts a slider on the slide that drags one parameter of the live model (`param` is a dotted path: `'cirrhosis'`, `'tips.d'`, `'thrombus.PV_TRUNK'`, or an array of paths moved together, such as both lobes' fibrosis). The figure, ladder and tiles follow it; it starts at the slide's own value (the first path's), a ring marks where it started, and the slide's computed state returns whenever the slide is shown again. `step` defaults to a twentieth of the range. `ends` names the two ends of the slider (`['None', 'Severe']`). The value is printed only when `unit` is set; a label that starts with the unit ("Weeks pregnant", `unit: 'weeks'`) prints the bare number. Put it on key slides only, where the student can try the change.
+
+`procedure: 'tips' | 'brto' | 'bato'` (or `{ kind, auto: true }`) puts a Play button on the teaching card that plays that catheter procedure on the figure, on the real vessels: a TIPS from the right internal jugular vein through the right hepatic vein, with a needle across the liver into the right portal vein; BRTO up from the femoral vein through the left renal vein into the gastrorenal shunt; BATO through the liver into the portal vein and along the splenic vein into the short gastric feeder. The camera follows the catheter, closes in on the balloon, the sclerosant or the stent, and goes back. When it ends, the live model takes the change, as a `compare` button does: the TIPS is on (8 mm), or the gastrorenal shunt is closed. With `auto: true` it plays as the slide lands, going forward only. The slide's patient must not have had the procedure yet and must have the vessels it uses (a gastrorenal shunt for BRTO and BATO, the `gastric-varix` preset for example); otherwise the button is dimmed and says why. Opt-in: a built-in slide uses it only when `tests/deck-adopted.js` lists it. The same three play from the buttons under Tests › HVPG.
 
 #### `compare`: live treatment buttons
 

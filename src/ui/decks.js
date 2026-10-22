@@ -68,6 +68,10 @@
 //   whatIf                   { label, param, min, max, step?, ends?: [low, high], unit? }: a slider that drags one parameter
 //                            (a dotted path, e.g. 'tips.d', or an array of paths moved together, e.g. both lobes' fibrosis)
 //                            of the live model; the figure and the data card follow it
+//   procedure                'tips' | 'brto' | 'bato', or { kind, auto: true }: a Play button on the teaching card plays that catheter
+//                            procedure on the figure (proc-anim.js; auto: as the slide lands, going forward), and the live model takes
+//                            the change when it ends, as a compare button does. Opt-in: a built-in slide uses it only when
+//                            tests/deck-adopted.js lists it. Its patient must not have had it yet (else the button is dimmed and says why)
 //   opt-in visuals (deck visuals packages; a built-in slide uses one only when tests/deck-adopted.js lists it; docs/deck-authoring-guide.md 5.9, 6.4, 7):
 //                            figure: spot, normalOutline, ripple, lens 'system' | 'since' (since, sinceLabel), calipers,
 //                            lapseGlow ['bowel'] (those organs glow from the time-lapse's start, while the slide is up), steps (with glowSeq), span, zone,

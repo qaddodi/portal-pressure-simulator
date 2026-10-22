@@ -21,11 +21,11 @@ import { sinusoidSupported } from './sinusoid-view.js?v=738da21430';
 import { SCALE_NAME, offeredScales, scaleView, pickedScale } from './scale-switch.js?v=1b0e3acd65';
 import { DISEASE_SRC, diseasePieces } from './diseases.js?v=fb8a5451c3';
 import { nb, listCase, plateletText } from './glue.js?v=5a0f63226b';
-import { DECKS, REGIONS, LEVELS, TOPICS, withOverview, siteTag, SITE_TAGS } from './decks.js?v=7dfb0e1a7c';
+import { DECKS, REGIONS, LEVELS, TOPICS, withOverview, siteTag, SITE_TAGS } from './decks.js?v=5ae7e873e8';
 import { fingerprintOf } from '../engine/fingerprint.js?v=8faea80b59';
-import { createHvpgMonitor } from './hvpg-proc.js?v=064373e23d';
-import { createTools } from './presenter-tools.js?v=48294ae1d2';
-import { openHandout } from './handout.js?v=34105f9c80';
+import { createHvpgMonitor } from './hvpg-proc.js?v=0d4eb25ac0';
+import { createTools } from './presenter-tools.js?v=0fa79f307b';
+import { openHandout } from './handout.js?v=3d15578f66';
 import { noteResume, resumeFor } from './resume.js?v=f086f80ee8';
 import { parseDeckSource, checkDeck } from './deck-source.js?v=8395c650cd';
 import { NO_ASC, TILE, SCALE, bandsOf, rateOf, COLS, CUT, PRESS, fpv, dirAbs, dirRel, rateAbs, effOf, rateShown, tileShown, tipsGoal, liveSettled, shownSig } from './table-marks.js?v=8d52d1e713';
@@ -33,12 +33,13 @@ import { frameFor, cancelFrame } from './frame.js?v=19b3f2915c';
 import { createFigureKey } from './figure-key.js?v=185e1448c8';
 import { traceWhen } from './trace-labels.js?v=fc916a95c6';
 import { flowCss, heatCss, dropCss, gradientCss, oxygenCss } from './colormap.js?v=912ddb2a2a';
-import { EXT, expandIds, stepExtra, markLabel, figureHooks, safe } from './slide-ext.js?v=8f3047ad5e';
+import { EXT, expandIds, stepExtra, markLabel, figureHooks, safe } from './slide-ext.js?v=6f2cc72c59';
 import { clotWords } from './callout-math.js?v=e42e679867';
 import { citeText, focusOf, oneLadder } from './teach-extras.js?v=5f5248f5a7';
 import { createProfileTool, createProfileStrip } from './tool-profile.js?v=60cc370621';
 import { causeFit } from './cause-fit.js?v=830a6835a5';
 import { COMPACT, WIDE } from './card-type.js?v=f5dfdb80f2';
+import { PROCS, procBlocked, playProcedure } from './proc-anim.js?v=8dae1a3cf6';
 const nextFrame = frameFor('presenter');
 
 const KEY = 'pps.scripts';
@@ -49,7 +50,7 @@ const readMine = () => { try { const v = JSON.parse(localStorage.getItem(KEY) ||
 const PREVIEW = typeof location !== 'undefined' && /\/preview\//.test(location.pathname);
 // (Loaded only there: the live site's bundle carried the 53 KB deck for nothing. The menu reads TESTING when it opens, long after.)
 let TESTING = [];
-const testingLoad = PREVIEW ? import('./test-decks/demo-all-new-visuals.js?v=994d9ba268').then(({ DEMO_ALL }) => { TESTING = [DEMO_ALL].map((d) => ({ id: 'test-' + d.id, title: d.title, summary: d.summary || '', deck: checkDeck(d), test: true })); }).catch(() => { /* the preview's test deck only */ }) : Promise.resolve();
+const testingLoad = PREVIEW ? import('./test-decks/demo-all-new-visuals.js?v=75316cbb3a').then(({ DEMO_ALL }) => { TESTING = [DEMO_ALL].map((d) => ({ id: 'test-' + d.id, title: d.title, summary: d.summary || '', deck: checkDeck(d), test: true })); }).catch(() => { /* the preview's test deck only */ }) : Promise.resolve();
 const writeMine = (list) => { try { localStorage.setItem(KEY, JSON.stringify(list)); } catch { /* storage unavailable */ } };
 const enc = (o) => btoa(unescape(encodeURIComponent(JSON.stringify(o)))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 const dec = (s) => JSON.parse(decodeURIComponent(escape(atob(s.replace(/-/g, '+').replace(/_/g, '/')))));
@@ -1094,6 +1095,32 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     if (cath.on) { stage.setCatheter(null); stage.cathForget(); }
     Object.assign(cath, { on: false, v: { u: 0, balloon: 0, column: 0, opacity: 1 }, tr: {}, show: [], ring: null, ostium: false, probeT0: 0, follow: false, cam: null, fp: null });
   }
+  // ── A slide's procedure (proc-anim.js): TIPS, BRTO or BATO played on the live figure from the teaching card's Play button, or
+  // as the slide lands going forward (auto: true). When it ends the live model takes the change, as a treatment button does
+  // (liveSet), unless the slide's patient already has it. Leaving the slide stops it where it is; the next slide's camera takes over.
+  let procRun = null;
+  const procKind = (s) => (typeof s.procedure === 'string' ? s.procedure : s.procedure?.kind) || null;
+  function procStop() { if (!procRun) return; const r = procRun; procRun = null; r.stop({ home: false }); stage.cathForget(); procPaint(); }
+  function procPaint() { ui?.text.querySelectorAll('.pz-proc').forEach((b) => { b.disabled = !!procRun || !!b.dataset.why; b.setAttribute('aria-pressed', String(!!procRun)); }); }
+  async function procPlay(s, i) {
+    const kind = procKind(s), mine = () => !!deck && shown?.i === i && slides[i] === s;
+    if (!PROCS[kind] || !mine() || procRun || cath.on) return;
+    if (lapseOn) stopLapse();
+    await toAnatomy();
+    if (store.get().view !== 'anatomic') { store.set({ view: 'anatomic' }); await wait(700); }
+    if (!mine() || procRun) return;
+    const run = procRun = playProcedure(stage, kind, {
+      apply: () => { if (procRun === run && mine() && !procBlocked(kind, store.get().params)) liveSet(s, i, PROCS[kind].apply(structuredClone(store.get().params))); },
+      onEnd: () => { if (procRun === run) { procRun = null; procPaint(); } },
+    });
+    procPaint();
+  }
+  function procEl(s, i, st) {
+    const kind = procKind(s), why = PROCS[kind] ? procBlocked(kind, st?.params || store.get().params) : 'Unknown procedure.';
+    return h('div', { class: 'pz-ab pz-procs', role: 'group', 'aria-label': 'Play the procedure on the figure' },
+      h('button', { type: 'button', class: 'pz-abb pz-proc', 'aria-pressed': 'false', ...(why ? { disabled: '', 'data-why': why, title: why } : {}), onclick: () => procPlay(s, i) },
+        `Play ${PROCS[kind]?.name || kind}`));
+  }
   // Out: the readings go, the balloon goes down and the catheter fades (at once when the figure is fading anyway).
   async function cathOut(fading) {
     if (!cath.on) return;
@@ -1538,7 +1565,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     // visual over the figure, keeps the colours already showing: they change only when a slide's lens does.
     if (!s.visual) { const lens = slideLens(s); if (store.get().colorMode !== lens) store.set({ colorMode: lens }); }
     if (!hushed) delete app.dataset.lit;   // (hushed, the lit set goes straight to the next slide's: a label on both keeps its pill)
-    stopLapse(); abSlow();
+    stopLapse(); procStop(); abSlow();
     const si = lap ? stateOf[to - 1] : stateOf[to];
     await wait(Math.max(0, outMs - (performance.now() - outAt)));
     // (Nothing in the liver changes until its labels are gone.)
@@ -1662,6 +1689,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     if (booting) await coverDown();
     if (lap) await playLapse(s, to, cut);
     else if (s.lapse) figureHooks('lapse', s);   // (back or jumped to the slide: it shows where its days ended, the glow with it)
+    if (s.procedure?.auto && !back && !cut()) procPlay(s, to);   // (like a time-lapse, it plays only going forward)
   }
 
   // What a slide calls out on the figure once it has landed (or a scale's view of it, after a flip: flipMove): its marks, labels,
@@ -1851,6 +1879,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
           s.line ? h('p', { class: 'pz-line' }, rich(s.line, s, st?.fp, !!st?.params?.tips?.on)) : null, s.caveat ? h('p', { class: 'pz-caveat' }, s.caveat) : null, citeEl(s),
           s.compare ? h('div', { class: 'pz-ab', role: 'group', 'aria-label': lensButtons(s) ? 'Color the vessels by' : gateButtons(s) ? 'Sample the stent at' : s.compare.some((o) => o.params && 'fenestrae' in o.params) ? 'Open or close the fenestrae on the live model' : 'Switch treatment on the live model' },
             s.compare.map((o, k) => h('button', { type: 'button', class: 'pz-abb', 'aria-pressed': String(!!o.own), ...(o.short ? { 'data-full': o.label, 'data-short': o.short, 'aria-label': o.label, title: o.label } : {}), onclick: () => abPick(s, i, k) }, o.label))) : null,
+          s.procedure ? procEl(s, i, st) : null,
           s.whatIf ? whatIfEl(s, i, st) : null,
           s.column ? wedgeColumn() : null,
           s.lapse && i > 0 ? h('div', { class: 'pz-lapse', role: 'status' }, h('span', { class: 'pzl-bar' }, h('i')), h('span', { class: 'pzl-t' }, lapseText(s, 0, s.days, false))) : null,
@@ -3911,7 +3940,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     leaving = null;
     if (!deck) return;
     if (cover) coverDown(true);
-    stopLapse(); cathStop(); abSlow(); liveOff = false;   // (before deck is cleared: stopping a time-lapse repaints the bar)
+    stopLapse(); procStop(); cathStop(); abSlow(); liveOff = false;   // (before deck is cleared: stopping a time-lapse repaints the bar)
     deck = null; shown = null; entering = null; want = 0;
     for (const w of waiters) w.res(null);
     waiters = [];

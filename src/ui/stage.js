@@ -5699,7 +5699,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const labels = document.createElement('div');
     labels.className = 'cath-labels'; labels.setAttribute('aria-hidden', 'true');
     wrap.append(labels);
-    return { g, column, column2, shadow, body, balloon, ring, tip, labels, st: null, at: null, saved: null };
+    return { g, column, column2, shadow, body, balloon, ring, tip, labels, st: null, at: null, saved: null, kind: 'hvpg' };
   })();
   // A presenter slide's measuring sites (the PPG's portal vein and IVC): a pointer on each station with its reading,
   // drawn like the catheter's WHVP and FHVP callouts. It fades in, follows the camera and stays in the figure's free space.
@@ -6408,33 +6408,13 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const x = clamp(f, 0, 1) * (R.length - 1), i = Math.min(R.length - 2, Math.floor(x));
     return lerp(R[i], R[i + 1], x - i);
   };
-  function cathRoute() {
-    if (morph > 0.01 || CATH_IDS.some((id) => !geo[id]?.cur?.length || !E[id])) return null;
-    if (cath.route) return cath.route;
-    const radOf = cathRadOf;
-    const svc = geo.SVC_RA.cur, top = svc[0], pts = [], rad = [], src = [], marks = [];
-    const at = (id, f) => { src.push([id, f]); return radOf(id, f); };
-    const add = (id, rev) => {
-      const P = rev ? geo[id].cur.slice().reverse() : geo[id].cur, c = lenTo(P), n = c[c.length - 1] || 1;
-      marks.push(pts.length);
-      for (let i = 1; i < P.length; i++) { pts.push(P[i]); rad.push(at(id, rev ? 1 - c[i] / n : c[i] / n)); }
-    };
-    marks.push(0);
-    for (const q of [[top[0] - 6, top[1] - 150], [top[0] - 2, top[1] - 60], top]) { pts.push(q); rad.push(at('SVC_RA', 0)); }
-    add('SVC_RA', false); add('IVCS_RA', true);
-    // On down the middle of the IVC to the level where the right hepatic vein opens into it.
-    const ost = geo.RHV_IVC.cur[geo.RHV_IVC.cur.length - 1];
-    if (geo.IVC_IS?.cur?.length && E.IVC_IS) {
-      const P = geo.IVC_IS.cur.slice().reverse(), c = lenTo(P), n = c[c.length - 1] || 1;
-      for (let i = 1; i < P.length && P[i][1] < ost[1] - 4; i++) { pts.push(P[i]); rad.push(at('IVC_IS', 1 - c[i] / n)); }
-    }
-    add('RHV_IVC', true); add('POST_R_RHV', true);
-    // The vessels' courses meet at corners (the IVC turns into the hepatic vein at its side): the
-    // catheter bends through them as a wire does. Resampled evenly, then smoothed with a window as wide
-    // as the vein there, so the curve stays inside the lumen.
+  // The vessels' courses meet at corners (the IVC turns into the hepatic vein at its side): the
+  // catheter bends through them as a wire does. Resampled evenly, then smoothed with a window as wide
+  // as the vein there, so the curve stays inside the lumen. (marks: where each part starts, as indices into pts.)
+  function smoothRoute(pts, rad, marks) {
     const c0 = lenTo(pts), H = 1.2, n = Math.max(2, Math.ceil(c0[c0.length - 1] / H) + 1);
-    let P = [], Rr = [], j = 1;
-    const map = [];   // each resampled point's two source points and the mix between them
+    let P = [], j = 1;
+    const Rr = [], map = [];   // (map: each resampled point's two source points and the mix between them)
     for (let i = 0; i < n; i++) {
       const d = (c0[c0.length - 1] * i) / (n - 1);
       while (j < c0.length - 1 && c0[j] < d) j++;
@@ -6453,11 +6433,109 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       }
       P = Q;
     }
+    return { P, raw, Rr, map, idx };
+  }
+  function cathRoute() {
+    const kind = cath.st?.route || cath.kind || 'hvpg';
+    if (kind !== 'hvpg') return procRoute(kind);
+    if (morph > 0.01 || CATH_IDS.some((id) => !geo[id]?.cur?.length || !E[id])) return null;
+    if (cath.route?.kind === 'hvpg') return cath.route;
+    const radOf = cathRadOf;
+    const svc = geo.SVC_RA.cur, top = svc[0], pts = [], rad = [], src = [], marks = [];
+    const at = (id, f) => { src.push([id, f]); return radOf(id, f); };
+    const add = (id, rev) => {
+      const P = rev ? geo[id].cur.slice().reverse() : geo[id].cur, c = lenTo(P), n = c[c.length - 1] || 1;
+      marks.push(pts.length);
+      for (let i = 1; i < P.length; i++) { pts.push(P[i]); rad.push(at(id, rev ? 1 - c[i] / n : c[i] / n)); }
+    };
+    marks.push(0);
+    for (const q of [[top[0] - 6, top[1] - 150], [top[0] - 2, top[1] - 60], top]) { pts.push(q); rad.push(at('SVC_RA', 0)); }
+    add('SVC_RA', false); add('IVCS_RA', true);
+    // On down the middle of the IVC to the level where the right hepatic vein opens into it.
+    const ost = geo.RHV_IVC.cur[geo.RHV_IVC.cur.length - 1];
+    if (geo.IVC_IS?.cur?.length && E.IVC_IS) {
+      const P = geo.IVC_IS.cur.slice().reverse(), c = lenTo(P), n = c[c.length - 1] || 1;
+      for (let i = 1; i < P.length && P[i][1] < ost[1] - 4; i++) { pts.push(P[i]); rad.push(at('IVC_IS', 1 - c[i] / n)); }
+    }
+    add('RHV_IVC', true); add('POST_R_RHV', true);
+    const { P, raw, Rr, map, idx } = smoothRoute(pts, rad, marks);
     const cum = lenTo(P), L = (i) => cum[Math.min(idx[i], cum.length - 1)];
     // The tip reads in the trunk of the right hepatic vein, about two thirds of the way out from the IVC.
     const hv0 = L(3), hv1 = L(4);
-    const r = { pts: P, raw, rad: Rr.slice(), src, map, refs: null, cum, total: cum[cum.length - 1], start: L(1) * 0.55, free: hv0 + (hv1 - hv0) * 0.62, hv0, hvEnd: hv1 };
+    const r = { kind: 'hvpg', pts: P, raw, rad: Rr.slice(), src, map, refs: null, cum, total: cum[cum.length - 1], start: L(1) * 0.55, free: hv0 + (hv1 - hv0) * 0.62, hv0, hvEnd: hv1 };
     if (E.RHV_IVC.glR?.length) cath.route = r;
+    return r;
+  }
+  // The treatment catheters (proc-anim.js plays them, from Tests › HVPG or a slide's procedure), each on the real vessels as
+  // the HVPG catheter is: TIPS in from the neck to the right hepatic vein, a needle across the liver along the TIPS tract into
+  // the right portal vein and on into the trunk; BRTO up from the femoral vein, the IVC and the left renal vein into the
+  // gastrorenal shunt; BATO through the liver into the right portal vein, along the portal and splenic veins into the short
+  // gastric feeder of the fundal varices. build lays the legs in the order the catheter travels (see procRoute); tip: where
+  // the tip stops (a leg's name and how far along it); focus: the legs the close-up frames; start: how far along the lead-in
+  // the tip sits before it moves.
+  const PROC_ROUTES = {
+    tips: { ids: ['SVC_RA', 'IVCS_RA', 'IVC_IS', 'RHV_IVC', 'TIPS', 'PVH_R', 'PV_TRUNK'], start: 0.55, tip: ['trunk', 0.45], focus: ['hv', 'trunk'],
+      build(B) {
+        const top = geo.SVC_RA.cur[0], ost = geo.RHV_IVC.cur[geo.RHV_IVC.cur.length - 1];
+        B.pts([[top[0] - 6, top[1] - 150], [top[0] - 2, top[1] - 60], top], 'SVC_RA', 0);
+        B.vessel('SVC_RA'); B.vessel('IVCS_RA', { rev: true });
+        B.vessel('IVC_IS', { rev: true, until: (q) => q[1] >= ost[1] - 4 });
+        // Out along the right hepatic vein to where the tract leaves it, then the needle's path through the liver (the tract,
+        // as wide as the stent will be) into the right portal vein, and the wire on into the portal trunk.
+        B.vessel('RHV_IVC', { rev: true, near: geo.TIPS.cur[geo.TIPS.cur.length - 1], name: 'hv' });
+        B.vessel('TIPS', { rev: true, name: 'tract', r: cathRadOf('PVH_R', 0.5) * 0.8 });
+        B.vessel('PVH_R', { rev: true }); B.vessel('PV_TRUNK', { rev: true, b: 0.6, name: 'trunk' });
+      } },
+    brto: { ids: ['ILI_IVC', 'IVC_IS', 'LRV_IVC', 'C5'], start: 0.55, tip: ['shunt', 0.3], focus: ['lrv', 'shunt'],
+      build(B) {
+        const bot = geo.ILI_IVC.cur[0], lrv = geo.LRV_IVC.cur[geo.LRV_IVC.cur.length - 1];
+        B.pts([[bot[0] + 4, bot[1] + 150], [bot[0] + 1, bot[1] + 60], bot], 'ILI_IVC', 0);
+        B.vessel('ILI_IVC'); B.vessel('IVC_IS', { until: (q) => q[1] <= lrv[1] + 4 });
+        B.vessel('LRV_IVC', { rev: true, name: 'lrv' }); B.vessel('C5', { rev: true, name: 'shunt' });
+      } },
+    bato: { ids: ['PVH_R', 'PV_TRUNK', 'SV_CONF', 'C2'], start: 0.1, tip: ['feeder', 0.35], focus: ['splenic', 'feeder'],
+      build(B) {
+        const rpv = geo.PVH_R.cur[geo.PVH_R.cur.length - 1];
+        B.pts([[rpv[0] - 215, rpv[1] + 34], [rpv[0] - 120, rpv[1] + 16], rpv], 'PVH_R', 1);
+        B.vessel('PVH_R', { rev: true }); B.vessel('PV_TRUNK', { rev: true });
+        B.vessel('SV_CONF', { rev: true, name: 'splenic' }); B.vessel('C2', { name: 'feeder' });
+      } },
+  };
+  // A leg's lumen radius: a vessel's drawn caliber there, or a fixed one ('=r', a tract through the liver).
+  const procRadOf = (id, f) => (id[0] === '=' ? +id.slice(1) : cathRadOf(id, f));
+  function procRoute(kind) {
+    const spec = PROC_ROUTES[kind];
+    if (!spec || morph > 0.01 || spec.ids.some((id) => !geo[id]?.cur?.length || !E[id])) return null;
+    if (cath.route?.kind === kind) return cath.route;
+    const pts = [], rad = [], src = [], marks = [], parts = [];
+    const at = (id, f) => { src.push([id, f]); return procRadOf(id, f); };
+    const B = {
+      // Loose points (a lead-in from outside the plate), with the lumen radius of vessel id at f; the last one is where the next leg starts.
+      pts(list, id, f) { marks.push(pts.length); parts.push({ id: null, name: 'lead' }); for (const q of list) { pts.push(q); rad.push(at(id, f)); } },
+      // A vessel, whole or in part, the way the catheter travels it (rev: against its drawn course): from a to b of the
+      // way, or until a point meets until(q), or to the point nearest `near`. r: a fixed lumen radius instead of its caliber.
+      vessel(id, { rev = false, a = 0, b = 1, until = null, near = null, name = id, r = 0 } = {}) {
+        const P0 = rev ? geo[id].cur.slice().reverse() : geo[id].cur, c = lenTo(P0), n = c[c.length - 1] || 1;
+        if (near) { let best = Infinity; P0.forEach((q, i) => { const dd = Math.hypot(q[0] - near[0], q[1] - near[1]); if (dd < best) { best = dd; b = c[i] / n; } }); }
+        if (until) { const i = P0.findIndex((q, k) => k > 0 && until(q)); if (i > 0) b = c[i - 1] / n; }
+        const seg = cutLen(P0, c, a * n, b * n), own = (f) => (rev ? 1 - f : f);
+        marks.push(pts.length); parts.push({ id, name, fa: own(a), fb: own(b) });
+        for (let i = a === 0 && pts.length ? 1 : 0, run = a * n; i < seg.length; i++) {
+          if (i) run += Math.hypot(seg[i][0] - seg[i - 1][0], seg[i][1] - seg[i - 1][1]);
+          pts.push(seg[i]); rad.push(r ? at('=' + r.toFixed(3), 0) : at(id, own(run / n)));
+        }
+      },
+    };
+    spec.build(B);
+    const { P, raw, Rr, map, idx } = smoothRoute(pts, rad, marks);
+    const cum = lenTo(P), total = cum[cum.length - 1], L = (i) => (i < idx.length ? cum[Math.min(idx[i], cum.length - 1)] : total);
+    parts.forEach((q, i) => { q.d0 = L(i); q.d1 = L(i + 1); });
+    const span = (name) => parts.find((q) => q.name === name);
+    const tp = span(spec.tip[0]), free = tp.d0 + (tp.d1 - tp.d0) * spec.tip[1];
+    const spans = Object.fromEntries(parts.filter((q) => q.name !== 'lead').map((q) => [q.name, [q.d0, q.d1]]));
+    const r = { kind, pts: P, raw, rad: Rr.slice(), src, map, refs: null, radOf: procRadOf, cum, total, parts, spans,
+      start: parts[1].d0 * spec.start, free, hv0: free, hvEnd: total, focus: [span(spec.focus[0]).d0, span(spec.focus[1]).d1] };
+    if (E[spec.ids[spec.ids.length - 1]].glR?.length) cath.route = r;
     return r;
   }
   // The route's lumen radii from the vessels' drawn caliber now, so the balloon and the still column hug the
@@ -6466,7 +6544,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const ids = [...new Set(r.src.map((q) => q[0]))], refs = ids.map((id) => E[id]?.glR);
     if (r.refs && refs.every((R, i) => R === r.refs[i])) return;
     r.refs = refs;
-    routeRadii(r.src, r.map, cathRadOf, r.rad);
+    routeRadii(r.src, r.map, r.radOf || cathRadOf, r.rad);
   }
   /** The point, direction, the vein's own centre (w) and lumen radius at length d along the route. */
   function cathAt(r, d) {
@@ -6501,14 +6579,26 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     // pressure's color in the vessel's own rendering, filling outward as the column settles.
     let tint = null;
     const col = clamp(st.column || 0, 0, 1);
-    if (gpu && col > 0.001) {
+    if (gpu && col > 0.001 && r.parts) {
+      // A treatment's sclerosant: from the tip on to the route's end, each vessel it reaches tinted over the part it covers
+      // (an end where it runs on into the next vessel left open, so the joins show no edge).
+      const a = tipD, reach = a + (r.total - a) * col;
+      tint = { col: st.columnColor || 'var(--tr-wedge)', soft: Rf * 2.6 };
+      for (const q of r.parts) {
+        if (!q.id || q.d1 <= a || q.d0 >= reach) continue;
+        const f = (d) => q.fa + (q.fb - q.fa) * clamp((d - q.d0) / (q.d1 - q.d0 || 1), 0, 1), open = (fe) => (fe === 0 ? -1 : fe === 1 ? 2 : fe);
+        const lo = a < q.d0 - 0.5 ? open(q.fa) : f(a), hi = reach > q.d1 + 0.5 ? open(q.fb) : f(reach);
+        tint[q.id] = [Math.min(lo, hi), Math.max(lo, hi)];
+      }
+    } else if (gpu && col > 0.001) {
       const a = tipD - rc * 4.2, reach = a + (r.total - a) * col, soft = Rf * 2.6;   // (a long fade where it meets moving blood)
       const hv = (d) => 1 - (d - r.hv0) / (r.hvEnd - r.hv0), br = (d) => 1 - (d - r.hvEnd) / (r.total - r.hvEnd);
       tint = { col: st.columnColor || 'var(--tr-wedge)', soft, RHV_IVC: [hv(Math.min(reach, r.hvEnd)), hv(a)] };
       if (reach >= r.hvEnd) tint.RHV_IVC[0] = -1;   // runs on into the branch: no edge at the join
       if (reach > r.hvEnd) tint.POST_R_RHV = [br(reach), 2];
     }
-    const tk = tint ? `${tint.col}|${tint.RHV_IVC.map((v) => v.toFixed(3))}|${tint.POST_R_RHV?.[0].toFixed(3) ?? ''}` : '';
+    const tk = !tint ? '' : r.parts ? Object.entries(tint).map(([k, v]) => (Array.isArray(v) ? `${k}:${v.map((x) => x.toFixed(3))}` : k === 'col' ? v : '')).join('|')
+      : `${tint.col}|${tint.RHV_IVC.map((v) => v.toFixed(3))}|${tint.POST_R_RHV?.[0].toFixed(3) ?? ''}`;
     if (tk !== cath.tintKey) { cath.tintKey = tk; cathTint = tint; if (!inUpdate) syncVeins(easeInOut(morph)); }
     if (gpu) cathGL(st, r, tipD, rc);
     else cathSVG(st, r, tipD, rc * 2, Rf * 2);
@@ -6546,8 +6636,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const bl = clamp(st.balloon || 0, 0, 1);
     cath.balBox = null;
     if (bl > 0.001) {
-      const gap = rc * 4.2, Rb = cathAt(r, tipD - gap - rFree(r) * 1.6).r;
-      const rx = lerp(rc * 3.4, Rb * 1.6, bl), dC = tipD - gap - rx;
+      const gap = rc * 4.2, Rb = cathAt(r, tipD - gap - rFree(r) * 1.6).r, sp = r.spans?.[st.balloonSpan];
+      // (A TIPS's angioplasty balloon lies along the tract it opens, its whole length; the others sit just behind the tip.)
+      const rx = sp ? (sp[1] - sp[0]) * 0.45 : lerp(rc * 3.4, Rb * 1.6, bl), dC = sp ? (sp[0] + sp[1]) / 2 : tipD - gap - rx;
       const at = (d) => cathAt(r, d), ry0 = balloonRy(at, dC, rx, rc * 1.35, { floor: rc * 1.05 });
       // Bent with the vein: a strip whose sides are the outline, its local coords on the unit circle at the
       // sides so it shades and edges as the latex disc does.
@@ -6607,7 +6698,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     cath.ring.setAttribute('r', (cw * (1.8 + 0.8 * (st.pulse || 0))).toFixed(2)); cath.ring.style.display = st.ring ? '' : 'none';
     cath.ring.style.stroke = st.ring || '';
     // The balloon: inflated, it lies along the vein and fills it wall to wall (see balloonOutline).
-    const bl = clamp(st.balloon || 0, 0, 1), rx = wHV * (0.45 + 0.35 * bl), dC = tipD - rx - cw * 1.5, at = (d) => cathAt(r, d);
+    const sp = r.spans?.[st.balloonSpan], bl = clamp(st.balloon || 0, 0, 1), at = (d) => cathAt(r, d);
+    const rx = sp ? (sp[1] - sp[0]) * 0.45 : wHV * (0.45 + 0.35 * bl), dC = sp ? (sp[0] + sp[1]) / 2 : tipD - rx - cw * 1.5;
     const ry0 = balloonRy(at, dC, rx, cw * 0.65, { floor: cw * 0.55 }), ol = balloonOutline(at, dC, rx, ry0, bl, { floor: cw * 0.55 });
     const side = (k) => ol.map((o) => [o.c[0] - o.t[1] * o.h * k, o.c[1] + o.t[0] * o.h * k]);
     cath.balBox = bl > 0 ? outlineBox(ol) : null;   // (the readings keep clear of it)
@@ -6784,7 +6876,12 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const wr = wrap.getBoundingClientRect(), ins = safeInsets();
     const [fx0, fy0] = clientToVB(wr.left + ins.l, wr.top + ins.t), [fx1, fy1] = clientToVB(wr.left + ins.W - ins.r, wr.top + ins.H - ins.b);
     let cx, cy, k, cyScreen = (fy0 + fy1) / 2;
-    if (mode === 'tip') {
+    if (mode === 'tip' && r.focus) {
+      // A treatment: the stretch it works on (the tract and the portal vein, the shunt, the feeder), whole and close.
+      const seg = cutLen(r.pts, r.cum, r.focus[0], r.focus[1]);
+      const xs = seg.map((q) => q[0]), ys = seg.map((q) => q[1]), x0 = Math.min(...xs) - 24, x1 = Math.max(...xs) + 24, y0 = Math.min(...ys) - 24, y1 = Math.max(...ys) + 24;
+      cx = (x0 + x1) / 2; cy = (y0 + y1) / 2; k = clamp(Math.min((fx1 - fx0) / (x1 - x0), (fy1 - fy0) / (y1 - y0)) * 0.85, 1, 5);
+    } else if (mode === 'tip') {
       const tp = cutLen(r.pts, r.cum, 0, r.free).at(-1);
       cx = tp[0]; cy = tp[1]; k = 6.2;
       if (both) {
@@ -9998,11 +10095,13 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     labelScale: () => labelScale,
     labelEff: () => labelScale * deskK(),   // what the figure shows outside a presentation (a desktop's baseline included)
     /** The HVPG catheter: null removes it; else { u (0..1 of the way in), balloon, column (0..1), columnColor, ring, pulse,
-     *  opacity, labels: [{ key, at: 'tip' | 'ahead', kicker, text, unit, cls }] }. */
+     *  opacity, labels: [{ key, at: 'tip' | 'ahead', kicker, text, unit, cls }] }. route: 'tips' | 'brto' | 'bato' takes a
+     *  treatment's route instead (PROC_ROUTES), where column is its sclerosant and balloonSpan names the stretch a long balloon fills. */
     setCatheter(st) {
       if (st) cathFade?.done();
       else if (cathFade || !cath.st) { cath.st = null; return; }
       cath.st = st; wrap.classList.toggle('cath-on', !!st);
+      if (st && (st.route || 'hvpg') !== cath.kind) { cath.kind = st.route || 'hvpg'; cath.route = null; cath.rc = 0; }
       if (!st) { cath.rc = 0; cath.route = null; cathVer++; if (cathTint) { cathTint = null; cath.tintKey = ''; syncVeins(easeInOut(morph)); } cath.at = null; cathFadeOut(); return; }
       cathPaint();
     },
@@ -10037,6 +10136,13 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     setSites(list, fp = null) { sites.list = list?.length ? [...list] : null; sites.fp = fp; if (fp) slideFp = fp; if (!sites.list) for (const k of [...resMade.keys()]) resPaint(k, SITE_DEF[k], null); if (!sites.list) for (const [k, el] of [...sites.made]) siteLeave(k, el); else { refreshCTM(); sitesPaint(); } },
     /** Frame the catheter's route ('route'), its tip close up ('tip'), or go back to the view before ('home'). */
     cathFocus,
+    /** A treatment route's named stretches as u (0..1 of the way in, as setCatheter takes it): { tract: [u0, u1], … }, or null. */
+    cathStops() {
+      const r = cathRoute();
+      if (!r?.spans) return null;
+      const u = (d) => (d - r.start) / (r.free - r.start || 1);
+      return Object.fromEntries(Object.entries(r.spans).map(([k, [a, b]]) => [k, [u(a), u(b)]]));
+    },
     cathFollow,
     /** Forget the view cathFocus would go back to (the presenter moves its own camera on). */
     cathForget() { cath.saved = null; cath.k0 = 0; },

@@ -2851,6 +2851,9 @@ button.finding { cursor: pointer; }
 .cath-label b + span { color: var(--text-3); font-size: 12px; font-weight: 600; margin-top: -2px; }
 .cath-label.free { --c: var(--tr-hv); }
 .cath-label.wedge { --c: var(--tr-wedge); }
+/* A treatment's step on its catheter tip (proc-anim.js): the procedure's name over the step, in words, not a reading's big number. */
+.cath-label.step { --c: var(--text-2); }
+.cath-label.step b { font-size: 17px; color: var(--text); white-space: nowrap; }
 .cath-label.ghost { --lo: .5; }
 /* The presenter's measuring sites (PPG: portal vein and IVC), in the tracing colours; one off the free space waits hidden. */
 .cath-label.site { transition: scale .6s var(--ease) .35s, box-shadow .6s var(--ease) .35s, translate .45s var(--ease); } .cath-label.site > * { transition: opacity .6s var(--ease) .35s; }
@@ -3011,6 +3014,14 @@ button.finding { cursor: pointer; }
 .hvpg-steps li[data-state="done"]::before { content: '✓'; background: var(--accent-soft); border-color: transparent; color: var(--accent-ink); }
 .hvpg-caption { min-height: 3em; margin: 0; }
 .hvpg-note { margin: 0; font-size: 12px; }
+/* The treatments played on the same anatomy (proc-anim.js): a row of small buttons under the caption; one the patient cannot
+   have is dimmed (a tap says why), the one playing is pressed. */
+.hvpg-procs { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 8px; }
+.hvpg-procs-k { font-size: 12px; font-weight: 600; letter-spacing: .05em; color: var(--text-3); }
+.hvpg-proc-btn { gap: 6px; }
+.hvpg-proc-btn svg { width: 12px; height: 12px; }
+.hvpg-proc-btn.off:not(:disabled) { opacity: .55; }
+.hvpg-proc-btn[aria-pressed="true"]:disabled { opacity: 1; cursor: default; }
 /* A phone held sideways (a short side card): the rows sit a little closer, so the monitor keeps its least height and the
    description under it ends at least 8 px above the card's foot (sweep 2 review item 6: cut after its second line). */
 @container (max-height: 300px) {
@@ -3018,6 +3029,7 @@ button.finding { cursor: pointer; }
   .instrument-workspace.side .instrument-view[data-pane="hvpg"] > .hvpg-bar { row-gap: 6px; }
   .instrument-workspace.side .instrument-view[data-pane="hvpg"] > .chart-side { gap: 4px; }
   .instrument-workspace.side .instrument-view[data-pane="hvpg"] .hvpg-caption { min-height: 0; line-height: 16px; }
+  .instrument-workspace.side .instrument-view[data-pane="hvpg"] .hvpg-note { display: none; }   /* (its room goes to the procedure buttons) */
 }
 @media (max-width: 600px) {
   .instrument-view[data-pane="hvpg"] .chart-box { height: clamp(170px, calc(26vh / var(--vz)), 220px); }
