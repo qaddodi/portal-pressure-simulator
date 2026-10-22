@@ -11,7 +11,7 @@
 // switch, undo/redo/reset, the Findings list, the Log instrument and Compare mode.
 
 import { store, replaceParams, onParamChange } from './store.js?v=05dd788e72';
-import { host } from './host.js?v=369d03d124';
+import { host } from './host.js?v=2568292895';
 import { h, toast, announce, icon, svgIcon, popover, closePopover, tooltipFor, clamp, putText } from './util.js?v=9e70912a09';
 import { activeInterventions } from './inspector.js?v=fc8fc6fc2c';
 import { frameFor } from './frame.js?v=74867bd42b';

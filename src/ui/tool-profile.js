@@ -246,9 +246,11 @@ export function labelPlacer(runs, obstacles, top, bottom, weights = [], [gx, gy]
  *  by under it. */
 export function valueSides(pts, others, labels, f, tw, top, { bottom = Infinity, left = -Infinity, right = Infinity, extra = [], dots = [], dotR = 0.36 * f, obstacles = [], axis = null } = {}) {
   const lines = [...curveRuns([pts, ...others]), ...(axis == null ? [] : [[[left - 50, axis], [right + 50, axis]]])];
-  const place = labelPlacer(lines, [...dots.map(([x, y, r]) => [x - r + 1, x + r - 1, y - r + 1, y + r - 1]), ...obstacles], top, bottom,
-    [4, ...others.map(() => 1), 2]);
+  // (The ceiling holds the digits' ink: their 2 px halo, which draws nothing, may cross it. A value whose dot stands at the
+  // very top of the plot (schistosomiasis' gut, 24.1 of 25, on the Mac card) keeps its place over the dot.)
   const all = [...pts, ...extra], cap = 0.72 * f, halo = 2, between = curveRuns(others);
+  const place = labelPlacer(lines, [...dots.map(([x, y, r]) => [x - r + 1, x + r - 1, y - r + 1, y + r - 1]), ...obstacles], top - halo, bottom,
+    [4, ...others.map(() => 1), 2]);
   // (A word's box: its digits' ink and halo, the baseline by under the point.)
   const boxOf = (i, dx, by) => { const [x, y] = all[i], wd = tw(labels[i]) / 2; return [x + dx - wd - halo, x + dx + wd + halo, y + by - cap - halo, y + by + halo]; };
   const mid = (b) => [(b[0] + b[1]) / 2, (b[2] + b[3]) / 2];
@@ -257,7 +259,9 @@ export function valueSides(pts, others, labels, f, tw, top, { bottom = Infinity,
     return all.every(([ox, oy], j) => j === i || d <= 0.8 * Math.hypot(cx - ox, cy - oy)); };
   const cands = (i) => {
     const wd = tw(labels[i]) / 2, r = dotR + 1.8, st = 0.3 * f, out = [];
-    for (let k = 0; k <= 5; k++) for (const sx of [0, ...[1, 2, 3, 4, 5, 6, 8, 10, 12].flatMap((m) => [m / 8, -m / 8])]) {
+    // (Shifted along in sixteenths of its width: on the Mac card's cirrhosis patient the confluence value clears the right
+    // portal vein's by 3.7 px at nine sixteenths and misses it by 0.1 px at a half.)
+    for (let k = 0; k <= 5; k++) for (const sx of [0, ...[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 14, 16, 18, 20, 22, 24].flatMap((m) => [m / 16, -m / 16])]) {
       out.push({ s: -1, dx: sx * wd, by: -r - halo - k * st, pen: 0 });
       out.push({ s: 1, dx: sx * wd, by: r + cap + halo + k * st, pen: 0.25 * f });
     }
@@ -274,7 +278,7 @@ export function valueSides(pts, others, labels, f, tw, top, { bottom = Infinity,
   };
   const C = all.map((_, i) => cands(i));
   const ok = (i, c) => !c.x && mine(i, c.b) && place.cost(c.b) === 0;
-  const S = C.map((cs, i) => cs.filter((c) => ok(i, c)).slice(0, 40));
+  const S = C.map((cs, i) => cs.filter((c) => ok(i, c)).slice(0, 80));
   const order = all.map((_, i) => i).filter((i) => S[i].length).sort((a, b) => S[a].length - S[b].length || a - b);
   const rest = all.map((_, i) => i).filter((i) => !S[i].length);
   const sides = [];
@@ -285,9 +289,12 @@ export function valueSides(pts, others, labels, f, tw, top, { bottom = Infinity,
     if (k === order.length) return true;
     const i = order[k];
     for (const c of S[i]) {
-      if (++steps > 4000) return false;
+      if (++steps > 20000) return false;
       if (place.cost(c.b) !== 0) continue;
       place.take(c.b);
+      // (A place that leaves a later value no clear place of its own is not tried further: on a Mac card where three lines
+      // meet at the right, a value over its dot can hem in its three neighbours, and the search ran out of steps finding out.)
+      if (order.slice(k + 1).some((j) => !S[j].some((o) => place.cost(o.b) === 0))) { place.boxes.pop(); continue; }
       sides[i] = { s: c.s, dx: c.dx, by: c.by, box: c.b, tier: 0, across: c.x };
       if (fit(k + 1, order)) return true;
       place.boxes.pop();

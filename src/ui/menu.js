@@ -6,7 +6,7 @@
 
 import { store } from './store.js?v=05dd788e72';
 import { h, icon, svgIcon, uiScale, clamp, swipeSheet, visibleBottom, fadeWhileMore, PHONE_MQ } from './util.js?v=9e70912a09';
-import { SNAPSHOTS } from './snapshots.js?v=bba8df0ae7';
+import { SNAPSHOTS } from './snapshots.js?v=4ca084eda3';
 import { pressureColor } from './colormap.js?v=e438260a0d';
 import { ownsSideways, pageGo } from './swipe.js?v=ca9148ab7d';
 import { frameFor } from './frame.js?v=74867bd42b';

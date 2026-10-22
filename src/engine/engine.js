@@ -7,7 +7,7 @@ import {
   heartFlow, fillShape, systoleShape, raWave, iapFromAscites, makeRng,
 } from './physiology.js?v=6fc3ec393a';
 import { defaultParams, DRUGS, PRESETS, deepMerge, MEAL_TONE, MEAL_BLUNT } from './scenario.js?v=fda1eda5ff';
-import { detectEvents } from './events.js?v=d8f8510e8d';
+import { detectEvents } from './events.js?v=2a09df9cec';
 
 const KNEE = { artery: [1e9, 1], bed: [14, 10], portal: [14, 10], vein: [14, 6], hepvein: [10, 3], heart: [10, 4], liver: [9, 2], wedge: [9, 5], varix: [30, 10] };
 const KD = { vein: 0.03, diode: 0.03, collateral: 0.08 };
@@ -76,7 +76,12 @@ const sieve = (sig, jv, ps) => (1 - sig) / (1 - sig * Math.exp(-Math.max(0, jv) 
 /** Splenic artery resistance multiplier: none, partial embolization (about 60 % infarct), splenectomy (no inflow). */
 const SPLENIC_RX_R = [1, 2.5, 80];
 /** Systemic share of the chronic splanchnic vasodilation (fraction of the splanchnic tone drop). */
-const SYS_DILATION = 0.5;
+const SYS_DILATION = 1.0;
+// The arterial pressure the baroreflex defends, and how far it gives way to the chronic vasodilation of portal hypertension:
+// the reflex is reset to the lower pressure of the hyperdynamic circulation (MAP in the low 80s in decompensated cirrhosis,
+// about 88 compensated; AASLD 2024 portal hypertension guidance, hyperdynamic circulation) rather than restoring 93 mmHg
+// whatever the disease. Bleeds, fluids and drugs move the pressure from that lower baseline.
+const MAP_SET = 93, MAP_DROP = 14;
 // Pregnancy (params.gestation, weeks; 0 = not pregnant, and then none of this applies). At its full extent, from about
 // 30 weeks: splanchnic and systemic arteriolar tone fall by a quarter and 30 %, the heart pumps 20 % harder and beats
 // 15 /min faster (the rate only, as the chronic drive in cirrhosis), and blood volume grows by about 1.8 L (30–50 % in
@@ -385,7 +390,10 @@ export class Engine {
     const pg = pregnancyLevel(p.gestation);
     // (A meal dilates the gut arterioles less the more cirrhosis has dilated them already: scenario.js, MEAL_TONE.)
     const meal = 1 - (1 - MEAL_TONE) * (p.meal || 0) * clamp(1 - MEAL_BLUNT * (1 - this.slow.splTone), 0, 1);
-    const spl = p.splanchnicTone * meal * (1 - PREGNANCY.spl * pg) * this.slow.splTone * d.spl * Math.pow(this.baro, 0.6);
+    // (The lower arterial pressure of the hyperdynamic circulation (mapSetOf) drives the gut arteries less: their tone falls with
+    // it, a little more than in proportion, so the splanchnic inflow, the portal pressures and the slow portal vein of a disease
+    // stay those tuned at 93 mmHg: decompensated cirrhosis 0.76 L/min and 14.8 cm/s against 0.74 and 14.2 before.)
+    const spl = p.splanchnicTone * meal * (1 - PREGNANCY.spl * pg) * this.slow.splTone * d.spl * Math.pow(this.baro, 0.6) * (this.mapSetOf() / MAP_SET) ** 1.25;
     // Chronic portal hypertension dilates systemic arterioles too (nitric oxide spill-over), not only the
     // splanchnic bed: SVR falls and, with the expanded plasma volume, cardiac output rises (hyperdynamic circulation).
     const sys = p.systemicTone * (1 - PREGNANCY.sys * pg) * d.sys * this.baro * (1 - SYS_DILATION * (1 - this.slow.splTone));
@@ -678,11 +686,14 @@ export class Engine {
     // cardiac output 5.6 to 7.1 and the MAP 91 to 96 in decompensated cirrhosis, and a screen's frames sample that too
     // sparsely to average it out themselves.
     // (Two 4 s stages: one leaves the output wandering ±0.07 L/min, right across its 6.5 cut-off in that patient.)
-    const vNow = [this.COf * 0.06, this.MAPf, this.hr, this.P[this.ni.RA]], av4 = Math.min(1, dt / 4);
+    // (The fifth is the esophageal varix's wall index: the breath swings the pressure around it by a third in schistosomiasis,
+    // so the red-wale flag (events.js) reads this mean, as the vitals' flags do, and fires once.)
+    const vNow = [this.COf * 0.06, this.MAPf, this.hr, this.P[this.ni.RA], this.refP ? this.varix('VAR').ratio : NaN], av4 = Math.min(1, dt / 4);
     if (!this.vitM || !this.vitM.every(Number.isFinite)) { this.vitM = vNow; this.vitM1 = [...vNow]; }
-    else for (let i = 0; i < 4; i++) { this.vitM1[i] += (vNow[i] - this.vitM1[i]) * av4; this.vitM[i] += (this.vitM1[i] - this.vitM[i]) * av4; }
+    else for (let i = 0; i < vNow.length; i++) { this.vitM1[i] += (vNow[i] - this.vitM1[i]) * av4; this.vitM[i] += (this.vitM1[i] - this.vitM[i]) * av4; }
     const def = this.volumeDeficit();
-    const bt = clamp(1 + 4 * (93 - this.MAPf) / 93, 0.5, 2.5);
+    const mapSet = this.mapSetOf();
+    const bt = clamp(1 + 4 * (mapSet - this.MAPf) / mapSet, 0.5, 2.5);
     this.baro += (bt - this.baro) * Math.min(0.25, dt / (15 + dt));
     const Qp = this.portalInflow();
     const kh = 2.0 * (1 - 0.5 * p.cirrhosis) * p.habrStrength;
@@ -1163,6 +1174,9 @@ export class Engine {
     const grown = clamp(VARIX.r0Healthy + (site === 'GV' ? VARIX.kGV : VARIX.k) * Math.max(0, ex0 - (site === 'GV' ? VARIX.openGV : VARIX.open)), VARIX.r0Healthy, VARIX.r0Healthy + mature * (VARIX.rMax - VARIX.r0Healthy));
     return site === 'VAR' ? VARIX.r0Healthy + (grown - VARIX.r0Healthy) * Math.pow(0.6, this.bands) : grown;
   }
+
+  /** The arterial pressure the baroreflex defends in this patient: 93 mmHg, less the reset of the hyperdynamic circulation. */
+  mapSetOf() { return MAP_SET - MAP_DROP * clamp((1 - this.slow.splTone) / 0.45, 0, 1); }
 
   /** How far the channel feeding a varix has remodeled (0 at the onset of a block, 1 once established). */
   varixMature(site) {

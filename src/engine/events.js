@@ -1,6 +1,6 @@
 // Event detectors with hysteresis (blueprint §10.3). Pure functions of engine state.
 
-import { computeMetrics } from './metrics.js?v=e566c70621';
+import { computeMetrics } from './metrics.js?v=b2aa701b11';
 
 const COLLATERAL_NAMES = {
   C1b: ['Esophageal varices', 'VAR'], C3: ['Paraumbilical vein (caput medusae)', 'C3'], C4: ['Anorectal varices', 'C4'],
@@ -29,7 +29,7 @@ function defs(m, eng) {
       title: 'HVPG ≥ 12 mmHg', detail: 'Bleeding becomes more likely at higher gradients, but 12 is not a threshold: varices can bleed below it.' },
     { id: 'VARIX_LARGE', on: m.varix.d >= 5, off: m.varix.d < 4.5, severity: 'caution', anchor: 'VAR',
       title: 'Large esophageal varices', detail: 'Diameter ≥ 5 mm: high-risk varices.' },
-    { id: 'RED_WALE', on: m.varix.ratio > 0.7, off: m.varix.ratio < 0.65, severity: 'danger', anchor: 'VAR',
+    { id: 'RED_WALE', on: m.varix.ratioMean > 0.7, off: m.varix.ratioMean < 0.65, severity: 'danger', anchor: 'VAR',
       title: 'Red wale signs', detail: 'Modeled wall stress is approaching its rupture point (index = ΔP·r / w).' },
     { id: 'ASCITES_FORMING', on: m.ascites.ratePerDay > 80 && m.ascites.volume > 150, off: m.ascites.ratePerDay < -50, severity: 'caution', anchor: 'PERITONEUM',
       title: 'Ascites forming', detail: 'Filtration has overwhelmed lymphatic drainage.' },
