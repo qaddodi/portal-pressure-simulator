@@ -1,11 +1,17 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { DIVE_RIM, rimKeep, diveRimMix } from '../src/ui/lobule-render-cache.js';
+import { DIVE_RIM } from '../src/ui/lobule-render-cache.js';
 
 const lz = readFileSync(new URL('../src/ui/lobule-zoom.js', import.meta.url), 'utf8');
 // A over B for premultiplied pixels.
 const over = (a, b) => a.map((x, i) => x + (1 - a[3]) * b[i]);
+// The rim's maths as diveCopy's composite does it (the app draws it with canvas operations; these are its model):
+// how much of the tissue (surround and all) the dive keeps at rho lobule radii from the lobule's centre,
+const rimKeep = (rho) => Math.min(1, Math.max(0, (DIVE_RIM.clear - rho) / (DIVE_RIM.clear - DIVE_RIM.solid)));
+// and one premultiplied [r, g, b, a] pixel of the dive's copy: the tissue (the lobule's own drawing over the surround) × keep, plus the
+// lobule's own drawing × (1 − keep). That is the lobule's drawing over the surround faded by keep: the drawing itself is never faded.
+const diveRimMix = (tissue, own, keep) => tissue.map((t, i) => keep * t + (1 - keep) * own[i]);
 
 test('a fibrotic portal tract reaches into the dive rim, where the surround is faded', () => {
   // As paintLobule draws it at full portal fibrosis: tract radius G.rt (0.1 R) × (0.8 + 0.9), cuff out to 1.08 of it with its

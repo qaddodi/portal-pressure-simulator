@@ -92,3 +92,12 @@ test('item 6: a short lobule glide carries the labels with their spots and lays 
   // The lit terms are split once per change, not queried for every candidate spot.
   assert.match(src, /const named = \(k\) => litOf\(\)\.has\(/);
 });
+
+test('item 43 (lobule parts): the anatomy-to-sinusoid chain, the zoom-out hand-over and setLobe stay deleted', () => {
+  const src = read('../src/ui/lobule-zoom.js'), rc = read('../src/ui/lobule-render-cache.js');
+  for (const dead of ['sinChain', 'chainEase', 'chromeHold', 'sinClosedCb', 'onSinClosed', 'setSinChain', 'outHandler', 'onZoomOut', 'wheelOutOK', 'setLobe']) {
+    assert.doesNotMatch(src, new RegExp(`\\b${dead}\\b`), dead);
+  }
+  assert.doesNotMatch(src, /the neighbours' triads, drawn flat/);
+  assert.doesNotMatch(rc, /rimKeep|diveRimMix/);
+});

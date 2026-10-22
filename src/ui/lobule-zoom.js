@@ -21,7 +21,7 @@
 
 import { runFlick, FLICK } from './flick.js?v=9602697f46';
 import { store } from './store.js?v=67f4341802';
-import { radiiChanged, canvasPx, fxMoves, DIVE_RIM } from './lobule-render-cache.js?v=57ef9d0e5a';
+import { radiiChanged, canvasPx, fxMoves, DIVE_RIM } from './lobule-render-cache.js?v=84bf4c2222';
 import { softwareYield } from './sw-yield.js?v=e580a095b1';
 import { lobuleState, lymphRate, sinceOf, LOBE } from './lobule-model.js?v=2e7174b4a2';
 import { SIN_NARROW, cordTone, dullSinusoid, NEIGHBOUR_FLAT, neighbourBlur, blurWrapped, bandOutline, FADE_MID, fadeOuter, padRect, wideDpr, wideTiles } from './lobule-look.js?v=0ebfdaec61';
@@ -389,12 +389,10 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host) }
     gliding = true;
     glide = nextFrame(step);
   }
-  let outHandler = null;
   function zoomBy(factor) {
     if (!geo) return;
     if (sinTo) return;   // in the sinusoid: only the view switch goes back up to the lobule
     handsOff();
-    if (factor < 1 && V.k <= kFit * 1.001 && outHandler) { outHandler(factor, true); return; }
     const f = freeRect(), px = (f.l + f.r) / 2, py = (f.t + f.b) / 2;
     const k = clamp(V.k * factor, kFit, kFit * KMAX), r = k / V.k;
     const to = { k, x: px - (px - V.x) * r, y: py - (py - V.y) * r };
@@ -472,15 +470,13 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host) }
   // ── Gestures: wheel and pinch zoom, drag pans, a tap selects; out past 1× returns to the liver ──
   // As on the anatomy: a mouse wheel zooms about the pointer; a trackpad's two-finger scroll pans (once zoomed in)
   // and its pinch (ctrlKey) zooms; Ctrl/⌘ + wheel always zooms. A gesture is classified once, as it starts.
-  let wheelKind = null, wheelAt = 0, wheelOutOK = false, wheelDir = 0, wheelMute = false;
+  let wheelKind = null, wheelAt = 0, wheelMute = false;
   el.addEventListener('wheel', (ev) => {
     ev.preventDefault();
     if (wheelMute) { const now = performance.now(); if (now - wheelAt < 250) { wheelAt = now; return; } wheelMute = false; }
     stopInertia();
     cancelFrame(glide); gliding = false;   // a button's glide never fights the hand
     const u = ev.deltaMode === 1 ? 16 : ev.deltaMode === 2 ? el.clientHeight : 1, dx = ev.deltaX * u, dy = ev.deltaY * u, now = performance.now();
-    if (now - wheelAt > 250 || Math.sign(dy) !== wheelDir) wheelOutOK = V.k <= kFit * 1.001;
-    wheelDir = Math.sign(dy);   // only a gesture that begins at the framing may carry on out to the anatomy
     if (now - wheelAt > 250) wheelKind = ev.ctrlKey || ev.metaKey ? 'pinch' : ev.deltaMode === 0 && (dx !== 0 || ev.wheelDeltaY == null || Math.abs(Math.abs(ev.wheelDeltaY) - Math.abs(ev.deltaY) * 3) < 1) ? 'pad' : 'wheel';
     wheelAt = now;
     if (wheelKind === 'pad' && !ev.ctrlKey && !ev.metaKey) {
@@ -498,8 +494,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host) }
     }
     const f = ev.ctrlKey || ev.metaKey ? Math.exp(-clamp(dy, -50, 50) * 0.01) : Math.exp(-clamp(dy, -120, 120) * 0.0015);
     if (V.k <= kFit * 1.001 && f < 1) {
-      if (wheelOutOK && outHandler) { outHandler(f); return; }   // a new zoom-out at its framing hands over to the stage, which scrubs the dive back
-      const p = local(ev); stretchBy(p[0], p[1], f); clearTimeout(stretchT); stretchT = setTimeout(endStretch, 220); return;   // one that arrived from deeper in stretches and springs back
+      const p = local(ev); stretchBy(p[0], p[1], f); clearTimeout(stretchT); stretchT = setTimeout(endStretch, 220); return;   // a zoom-out at its framing stretches and springs back
     }
     if (rawK && f > 1) { const p = local(ev); stretchBy(p[0], p[1], f); clearTimeout(stretchT); stretchT = setTimeout(endStretch, 220); return; }
     const p = local(ev);
@@ -520,7 +515,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host) }
     try { el.setPointerCapture(ev.pointerId); } catch { /* gone */ }
     if (touches.size === 2) {
       const [a, b] = pts2();
-      pinch = { atFit: V.k <= kFit * 1.001, d: Math.hypot(a[0] - b[0], a[1] - b[1]) || 1, k: V.k, m: [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2] };
+      pinch = { d: Math.hypot(a[0] - b[0], a[1] - b[1]) || 1, k: V.k, m: [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2] };
       down = null; drag = null;
     } else { down = { x: ev.clientX, y: ev.clientY, t: performance.now(), label: labelOf(ev) }; drag = { p: local(ev), trail: [[performance.now(), V.x, V.y]] }; }
   });
@@ -532,7 +527,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host) }
         V.x += m[0] - pinch.m[0]; V.y += m[1] - pinch.m[1]; pinch.m = m;
         const dl = pinch.dl || pinch.d; pinch.dl = d;
         if (rawK || (V.k <= kFit * 1.001 && d < dl)) {
-          if (pinch.atFit && !rawK && outHandler) outHandler(d / dl); else stretchBy(m[0], m[1], d / dl);
+          stretchBy(m[0], m[1], d / dl);
           return;
         }
         zoomAround(m[0], m[1], (pinch.k * d / pinch.d) / V.k);
@@ -2791,11 +2786,12 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host) }
     }
     // Portal tracts (connective tissue), thicker with portal fibrosis.
     const seen = new Set();
+    c.globalAlpha = 1;
     for (const [x, y] of lobules[0].corners) {
       const kk = Math.round(x) + ',' + Math.round(y);
       if (seen.has(kk)) continue; seen.add(kk);
-      const gp = scarGrowth(m.fibPre), near = Math.hypot(x - cx, y - cy) < R * 1.05, rt = G.rt * (0.8 + 0.9 * gp);
-      c.globalAlpha = near ? 1 : 0.5;
+      // (Only this lobule's own corners: every one is a near triad, drawn whole.)
+      const gp = scarGrowth(m.fibPre), rt = G.rt * (0.8 + 0.9 * gp);
       // Collagen expands asymmetrically around all three structures, continuous with the septa; in presinusoidal
       // disease a denser, deeper-toned periportal collar (pipestem) rings the tract, clear of the orchid sinusoids.
       if (m.fibPre > 0.03) {
@@ -2803,10 +2799,6 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host) }
           900 + lobules[0].corners.findIndex((p) => p[0] === x && p[1] === y) * 71);
         fibrousCuff(c, x, y, rt * 0.62, rt * 1.08, PRE, gp);
       }
-      if (!near) {   // the neighbours' triads, drawn flat
-        c.fillStyle = css(rgb01(inkOf(m.mode, 'pv')), 0.55); c.beginPath(); c.ellipse(x, y, G.rt * 0.42, G.rt * 0.32, 0.4, 0, TAU); c.fill();
-      }
-      c.globalAlpha = 1;
     }
     // Central vein wall: wavy collagen bundles, continuous with the portal-central bridges.
     if (m.fibPost > 0.05) {
@@ -3117,8 +3109,6 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host) }
     while (t?.parent != null) { out.add(t.parent); t = geo.tubes[t.parent]; }
     return out;
   }
-  // The stage still passes the lobe it zoomed toward; one lobule stands for both.
-  const setLobe = () => {};
 
   // ── One level deeper: into a sinusoid (sinusoid-view.js) ──
   // "Zoom into the sinusoid" on a sinusoid's card plays one continuous zoom, gentle at both ends: the
@@ -3127,10 +3117,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host) }
   // covers it. Zooming out (the zoom buttons, a pinch, the wheel), its back button or Escape reverse it.
   const sv = createSinusoidView({ host });
   let sinU = 0, sinTo = 0, sinRaf = 0, sinDive = null, sinPick = null, quietSin = false, sinPending = false;
-  // A zoom that runs on through the lobule without stopping in it (stage.js: anatomy to sinusoid, or back): the stage hands over
-  // the speed (log scale per ms) its own zoom has at the joint, and this zoom's ease then starts (or ends) at that speed instead of at rest.
-  let sinChain = null, chromeHold = false, sinClosedCb = null, sinZ = 0;   // (sinZ: the sinusoid zoom's log scale so far, for the tests)
-  const chainEase = (s, a) => a * s + (3 - 2 * a) * s * s + (a - 2) * s * s * s;   // 0 to 1, a slope at 0 and none at 1
+  let sinZ = 0;   // (sinZ: the sinusoid zoom's log scale so far, for the tests)
   const easeIO = (u) => (u < 0.5 ? 4 * u * u * u : 1 - (-2 * u + 2) ** 3 / 2);
   // Which sinusoid, and where on it: the one whose card is open, else the one carrying the label.
   function sinusoidPick() {
@@ -3218,7 +3205,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host) }
     // zoom starts (and the credit line slides down), so the frame they free settles early in the zoom, which then
     // lands on it, with no second move after it. (On the way out it is kept, so the lobule is reached as it was.)
     if (D && sinTo === 1 && u > 0 && u < 1 && !rm) D = sinDive = diveGeometry();
-    const g = rm ? 1 : sinChain ? chainEase(u, clamp(sinChain.speed * (sinTo === 1 ? 1150 : 950) / Math.max(0.2, Math.log(D.Z)), 0.2, 3)) : easeIO(u);
+    const g = rm ? 1 : easeIO(u);
     sinZ = Math.log(D.Z) * g;
     // The lobule: turned and grown about the zoom's fixed point.
     el.style.transformOrigin = rm ? '' : `${D.q[0].toFixed(2)}px ${D.q[1].toFixed(2)}px`;
@@ -3234,14 +3221,14 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host) }
   }
   function applyChrome() {
     const ch = clamp((fade - 0.55) / 0.45, 0, 1);
-    el.style.setProperty('--lz-chrome', chromeHold ? '0' : (ch * ch * (3 - 2 * ch)).toFixed(3));
+    el.style.setProperty('--lz-chrome', (ch * ch * (3 - 2 * ch)).toFixed(3));
   }
   function resetSinusoid() { cancelFrame(sinRaf); sinU = 0; sinTo = 0; sinDive = null; placeSinusoid(); }
   function diveSinusoid(on) {
     if (quietSin) { sinTo = 0; cancelFrame(sinRaf); return; }   // the lobule view is closing: the sinusoid fades out with it
     // Asked for while the dive into the lobule is still on its way: it carries on into the sinusoid once the dive lands (setDiveZoom).
     if (on && fade < 0.98 && sv.available && store.get().lobule) sinPending = true;
-    if (on && (!geo || fade < 0.98 || !model || !sv.available)) { sinChain = null; if (chromeHold) { chromeHold = false; applyChrome(); } queueMicrotask(() => { if (store.get().sinusoid && !sinTo) store.set({ sinusoid: false }); }); return; }
+    if (on && (!geo || fade < 0.98 || !model || !sv.available)) { queueMicrotask(() => { if (store.get().sinusoid && !sinTo) store.set({ sinusoid: false }); }); return; }
     const to = on ? 1 : 0;
     if (to === sinTo && sinU === to) return;
     sinTo = to;
@@ -3263,20 +3250,15 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host) }
     if (!raf && fade > 0) raf = nextFrame(loop);
     // (Lite mode: no zoom into or out of the sinusoid; it fades in.)
     const from = sinU, ms = (reduce.matches ? 280 : on ? 1150 : 950) * Math.abs(to - from);
-    // Carried on from the dive, the zoom is timed from the moment the dive reached the joint (see stage.js diveFrame).
-    const t0 = on && from === 0 && sinChain?.at != null ? Math.min(performance.now(), sinChain.at) : performance.now();
+    const t0 = performance.now();
     cancelFrame(sinRaf);
     const step = (now) => {
       const t = ms > 0 ? clamp((now - t0) / ms, 0, 1) : 1;
       sinU = lerp(from, to, t); placeSinusoid();
       if (t < 1) sinRaf = nextFrame(step);
-      else {
-        sinChain = null;
-        if (on) { if (chromeHold) { chromeHold = false; applyChrome(); } }
-        else { sinDive = null; drawVersion++; if (!raf && fade > 0) raf = nextFrame(loop); if (refitLater) refit(); const cb = sinClosedCb; sinClosedCb = null; cb?.(t0 + ms); }
-      }
+      else if (!on) { sinDive = null; drawVersion++; if (!raf && fade > 0) raf = nextFrame(loop); if (refitLater) refit(); }
     };
-    if (on && from === 0 && sinChain?.now != null && sinChain.now >= t0) step(sinChain.now); else sinRaf = nextFrame(step);
+    sinRaf = nextFrame(step);
   }
   store.on('sinusoid', (on) => diveSinusoid(!!on));
   // (Checked when the zoom lands and when the lobule is fully in, whichever comes last: a slow frame can do both at once.)
@@ -3332,14 +3314,9 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host) }
       return { x, y, r: geo.R * V.k };
     },
     setDive: paintField,
-    /** The zoom into or out of the sinusoid carries on at this speed (see sinChain); hold: the lobule's own labels and card stay away meanwhile. */
-    setSinChain(info, hold = false) { sinChain = info; if (hold !== chromeHold) { chromeHold = hold; applyChrome(); } },
-    /** Called once when the sinusoid view has finished closing to the lobule. */
-    onSinClosed(fn) { sinClosedCb = fn; },
     sinBusy: () => sinTo === 1 ? sinU < 1 : sinU > 0,
     sinusoidOpen: () => sv.isOpen(),
     sinZoom: () => sinZ,
-    onZoomOut(fn) { outHandler = fn; },
     prewarm, warm, stage, stageRise, preparePieces, prepareRun,
     /** True once the dive's field (or the lobule) covers the anatomy, which then need not be drawn. */
     covers: () => fade > 0.98 || fieldOp >= 0.999,
@@ -3472,7 +3449,6 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host) }
       }
       return out;
     },
-    setLobe,
   };
   return api;
 }
