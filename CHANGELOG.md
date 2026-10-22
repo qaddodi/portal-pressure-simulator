@@ -2,6 +2,14 @@
 
 ## October 2026
 
+- **A Mac trackpad works the stack and the slides like a finger; an iPad on its side swipes the stack anywhere.** (Mohammad, 22 Oct.) In a
+  talk, a two-finger swipe up on the trackpad anywhere on the slide (or a mouse-wheel notch up) brings the readings' card out, a swipe down
+  tucks it away, a swipe left goes on and a swipe right goes back, or throws a case card off the way the fingers go. One action a gesture, eased
+  like the finger's, whatever the Mac's scroll direction setting says (it follows the fingers); a pinch stays the figure's, and a box that scrolls
+  itself keeps its wheel. A sideways glide never ends the talk on its last slide. On an iPad held sideways a swipe up or down anywhere on the
+  figure or the words opens and tucks the stack as on an iPhone, and a sideways swipe over the data card moves the slide (the card no longer
+  docks to the side there). Checked headless with real wheel and touch events on a 1280×800 window and a 1180×820 touch window; nobody has
+  tried it on a Mac trackpad or an iPad. Tests: `tests/wheel-gesture.test.js`, `tests/card-swipe-anywhere.test.js`.
 - **The Gut to heart chart stacks on Mac and iPad landscape like every other instrument.** It was the one chart left with its tiles beside
   it (Mohammad, 22 Oct: "every stacked should be stacked"). Its card now sits under the words with the readings' card tucked behind its
   top, in every deck, as on a phone. The chart is drawn at its own size and never zoomed by the fit, so where the words are so tall that the

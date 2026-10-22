@@ -16,7 +16,7 @@ import { store, replaceParams } from './store.js?v=67f4341802';
 import { download } from './download.js?v=3564e5bf8c';
 import { h, toast, svgIcon, icon, fmt, clamp, openModal, closeModal, isModalOpen, restBox, paintRange, cssVar, swapText, STACK_MQ, SHORT_SIDE_MQ, TABLET_UP_MQ } from './util.js?v=be12b8e102';
 import { titleParts } from './title-units.js?v=c8d5ce1f26';
-import { swipeDir, ownsSideways, ownsTouch, cardSwipe, caseFling, caseFlight } from './swipe.js?v=ca9148ab7d';
+import { swipeDir, ownsSideways, ownsTouch, cardSwipe, caseFling, caseFlight, wheelFinger, wheelGesture, ownsWheel } from './swipe.js?v=502bb1b8e3';
 import { sinusoidSupported } from './gl-support.js?v=94ad2a7ff1';
 import { SCALE_NAME, offeredScales, scaleView, pickedScale } from './scale-switch.js?v=1b0e3acd65';
 import { DISEASE_SRC, diseasePieces } from './diseases.js?v=fb8a5451c3';
@@ -3565,7 +3565,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   let sw = null;
   wrap.addEventListener('touchstart', (e) => {
     const t = e.touches[0];
-    sw = deck && e.touches.length === 1 && !caseOn(e) && !ownsSideways(e.target, { stop: wrap, cardSideways: ui && !ui.data.hidden && !phone() })
+    sw = deck && e.touches.length === 1 && !caseOn(e) && !ownsSideways(e.target, { stop: wrap, cardSideways: ui && !ui.data.hidden && !phone() && !ui.root.classList.contains('pz-wide') })
       ? { x: t.clientX, y: t.clientY, t: performance.now() } : null;
   }, { passive: true, capture: true });
 
@@ -3641,7 +3641,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   wrap.addEventListener('touchstart', (e) => {
     if (far) { farLet('touchcancel'); return; }   // (a second finger: a pinch, not a swipe)
     const d = ui?.data;
-    if (!deck || !d || e.touches.length !== 1 || !phone() || d.hidden || d.classList.contains('pz-hide') || !ui.cardTouch
+    if (!deck || !d || e.touches.length !== 1 || !(phone() || wideSheet(d)) || d.hidden || d.classList.contains('pz-hide') || !ui.cardTouch
       || d.contains(e.target) || ui.lip.contains(e.target) || caseOn(e) || ownsTouch(e.target, { stop: wrap })) return;
     const t = e.touches[0];
     far = { x: t.clientX, y: t.clientY, lx: t.clientX, ly: t.clientY, on: false };
@@ -3662,6 +3662,31 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   }, { passive: false, capture: true });
   wrap.addEventListener('touchend', (e) => { if (far && !e.touches.length) farLet('touchend'); }, { passive: true, capture: true });
   wrap.addEventListener('touchcancel', () => { if (far) farLet('touchcancel'); }, { passive: true, capture: true });
+
+  // ── A trackpad or wheel on a Mac works the slide as a finger does (Mohammad, 22 Oct): fingers up anywhere bring the stacked card's
+  // readings out (a swipe up), fingers down tuck them away, fingers sideways go on or back, or throw a case card off that way. One action
+  // a gesture, eased as the finger's are (setFold, caseFly, go); a box that scrolls itself keeps its wheel (ownsWheel), and a pinch
+  // (ctrl) stays the figure's. The deck's last slide is not left by a sideways glide: only a swipe or Next ends the talk. ──
+  let wheelG = null;
+  wrap.addEventListener('wheel', (e) => {
+    if (!deck || !ui || e.ctrlKey || e.metaKey || leaving || !ui.jump.hidden || isModalOpen()) return;
+    const [fx, fy] = wheelFinger(e.deltaX, e.deltaY, e.deltaMode, e.webkitDirectionInvertedFromDevice, innerHeight);
+    if (ownsWheel(e.target, Math.abs(fx) > Math.abs(fy) ? 'x' : 'y', { stop: wrap })) { wheelG = null; return; }
+    if (e.cancelable) e.preventDefault();   // (the browser's own back and forward glide, and the page's scroll, stay out of the talk)
+    const r = wheelGesture(wheelG, fx, fy, performance.now());
+    wheelG = r.g;
+    const a = r.act;
+    if (!a) return;
+    const card = caseCard && !caseCard.flown ? caseCard : null;
+    if (a.axis === 'x') {
+      if (card) caseFly(card, a.dir, 1.2);   // (fingers right: off to the right)
+      else if (a.dir < 0) { if (caseLift || want < slides.length - 1) next(); }
+      else prev();
+    } else if (!card && wideSheet(ui.data) && !ui.data.hidden && !ui.data.classList.contains('pz-hide')) {
+      const open = a.dir < 0;   // (fingers up: the readings come out, as a swipe up does)
+      if (open !== ui.data.classList.contains('tool-open')) ui.setFold(open);
+    }
+  }, { passive: false, capture: true });
 
   // ── Hands off: while presenting, the figure only points (hover glow); taps, drags, pans and zooms that would
   // move it off the slide's script are swallowed. The swipe above uses touch events, so it still works. ──

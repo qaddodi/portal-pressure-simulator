@@ -90,3 +90,52 @@ export function pageGo(dx, ms, w) {
   if (!Number.isFinite(a) || !(w > 0)) return false;
   return a > w * PAGE_FAR || (a > PAGE_MIN && a / Math.max(1, ms) > PAGE_V);
 }
+
+// A trackpad (or a wheel) works the slide as a finger does (Mohammad, 22 Oct: "use the touch pad on the mac to move slides just like on ipad
+// and to open the stack and close it (scroll up opens it anywhere ..., scroll down closes it, scroll right and left move slides/throws
+// away case card)"). A gesture is a run of wheel events with no more than WHEEL_QUIET ms between them, the tail of a trackpad's glide
+// after the fingers lift included: it locks to one axis, acts once, and is spent until a fresh push (stronger than the tail it
+// follows, or turned back) or a quiet gap starts the next one.
+export const WHEEL_X = 80;        // px of fingers moving sideways before it moves a slide
+export const WHEEL_Y = 30;        // px of fingers moving up or down before it opens or closes the stack
+export const WHEEL_QUIET = 200;   // ms without a wheel event ends a gesture
+
+/** The fingers' own movement, positive to the right and down, from a wheel event's deltas. A trackpad on Mac reports the page's movement,
+ *  the opposite of the fingers' when natural scrolling is on (webkitDirectionInvertedFromDevice; assumed on where a browser does not say). */
+export function wheelFinger(dx, dy, mode = 0, inverted = true, page = 800) {
+  const m = mode === 1 ? 16 : mode === 2 ? page : 1, sg = inverted === false ? 1 : -1;
+  return [sg * dx * m, sg * dy * m];
+}
+
+/** Takes one wheel event's finger movement (fx, fy) at time `now`; gives the gesture so far and what it did: act is null while undecided or
+ *  spent, else { axis: 'x' | 'y', dir: +1 | -1 } with dir the fingers' direction (right / down positive). */
+export function wheelGesture(g, fx, fy, now) {
+  const fresh = () => ({ x: 0, y: 0, lock: '', spent: false, dir: 0, prev: 0, t: now });
+  let s = g && now - g.t <= WHEEL_QUIET ? { ...g, t: now } : fresh();
+  if (!Number.isFinite(fx) || !Number.isFinite(fy)) return { g: s, act: null };
+  if (s.spent) {
+    const along = s.lock === 'x' ? fx : fy, mag = Math.abs(along);
+    if (mag > s.prev * 1.6 + 6 || (mag > 12 && Math.sign(along) === -s.dir)) s = fresh();
+    else return { g: { ...s, prev: mag }, act: null };
+  }
+  s.x += fx; s.y += fy;
+  const ax = Math.abs(s.x), ay = Math.abs(s.y);
+  if (!s.lock) {
+    if (ax + ay >= 10) s.lock = ax > 1.5 * ay ? 'x' : ay > 1.5 * ax ? 'y' : ax + ay >= 80 ? (ax >= ay ? 'x' : 'y') : '';
+  }
+  s.prev = Math.abs(s.lock === 'x' ? fx : fy);
+  if (s.lock === 'x' && ax >= WHEEL_X) { s.spent = true; s.dir = Math.sign(s.x); return { g: s, act: { axis: 'x', dir: s.dir } }; }
+  if (s.lock === 'y' && ay >= WHEEL_Y) { s.spent = true; s.dir = Math.sign(s.y); return { g: s, act: { axis: 'y', dir: s.dir } }; }
+  return { g: s, act: null };
+}
+
+/** True when a wheel over `el` belongs to a box that scrolls that way itself: the slide list, a field, or an overflowing box. */
+export function ownsWheel(el, axis, { stop = null } = {}) {
+  for (let n = el; n && n !== stop && n.nodeType === 1; n = n.parentElement) {
+    if (n.matches?.('.pz-jump, textarea, select')) return true;
+    const cs = n.ownerDocument?.defaultView?.getComputedStyle(n);
+    if (!cs) continue;
+    if (axis === 'y' ? n.scrollHeight > n.clientHeight + 1 && /auto|scroll/.test(cs.overflowY) : n.scrollWidth > n.clientWidth + 1 && /auto|scroll/.test(cs.overflowX)) return true;
+  }
+  return false;
+}

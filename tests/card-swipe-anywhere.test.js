@@ -69,7 +69,7 @@ test('the swipe elsewhere feeds the card\'s own handle handlers, fold first, fro
 
 test('it never takes a touch on the card itself, a control, the case card, or a sideways-docking layout', () => {
   const start = pz.slice(pz.indexOf('let far = null;'), pz.indexOf('// ── Hands off'));
-  assert.match(start, /!phone\(\)/);
+  assert.match(start, /!\(phone\(\) \|\| wideSheet\(d\)\)/, 'an upright phone or tablet, and a wide screen\'s stacked card (Mohammad, 22 Oct)');
   assert.match(start, /d\.contains\(e\.target\) \|\| ui\.lip\.contains\(e\.target\) \|\| caseOn\(e\) \|\| ownsTouch\(e\.target, \{ stop: wrap \}\)/);
   assert.match(start, /if \(k < 0\) \{ far = null; return; \}/);
   // A second finger hands the card back to its own ease (touchcancel eases to where it was going), never leaves it mid-way.
