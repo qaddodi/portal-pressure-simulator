@@ -72,7 +72,7 @@ test('Sites level slides show the Gut to heart chart, and no slide has a ladder 
   for (const s of SITES.slides) assert.ok(s.data !== 'ladder' && s.fold === undefined, s.id);
   const src = readFileSync(new URL('../src/ui/presenter.js', import.meta.url), 'utf8');
   assert.doesNotMatch(src, /ladderFold|\.fold !== false/);
-  assert.match(src, /const canFold = dd\.classList\.contains\('has-tool'\) && !dd\.classList\.contains\('tool-only'\) && !dd\.classList\.contains\('tool-lead'\);/, 'only an instrument card folds');
+  assert.match(src, /const canFold = dd\.classList\.contains\('has-tool'\) && !dd\.classList\.contains\('tool-only'\) && !dd\.classList\.contains\('tool-lead'\) && !dd\.classList\.contains\('pz-sheet'\);/, 'only an instrument card folds, never a stacked one');
 });
 
 test('on a phone a what-if slider takes a full line under its label', () => {

@@ -48,7 +48,7 @@ test('a slide Doppler card lays its readings two across so labels and values nev
 // iPad landscape (15 Oct): when the smallest steps still leave the pair too tall, the instrument folds behind Show, as on a phone.
 test('a pair that does not fit at the smallest steps folds the instrument behind Show on a wide screen', () => {
   assert.match(js, /if \(!below && canFold && !held\) \{ setFolds\(true\);[^\n]*below = title\(\); if \(!below\) ladder\(\); \}/);
-  assert.match(js, /canFold = dd\.classList\.contains\('has-tool'\) && !dd\.classList\.contains\('tool-only'\) && !dd\.classList\.contains\('tool-lead'\);/);
+  assert.match(js, /canFold = dd\.classList\.contains\('has-tool'\) && !dd\.classList\.contains\('tool-only'\) && !dd\.classList\.contains\('tool-lead'\) && !dd\.classList\.contains\('pz-sheet'\);/);
   assert.match(js, /if \(lock\.folds\) setFolds\(true\);/, 'the fold is part of the slide\'s locked layout');
   assert.match(js, /folds: dd\.classList\.contains\('pz-folds'\)/);
   assert.match(css, /\.pz:not\(\.stack\):not\(\.low\) \.pz-data\.pz-folds:not\(\.tool-open\) > \.pz-tool \{ max-height: 0; opacity: 0;/);

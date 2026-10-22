@@ -49,14 +49,14 @@ test('an upright tablet\'s Tests card keeps the phone\'s one column, its picture
 
 test('an upright phone\'s or tablet\'s deck instrument card opens its readings on a card of their own under it', () => {
   // (Mohammad, 17 Oct: the iPhone too; a phone on its side keeps its compact card, everything shown: not .stack.)
-  assert.match(js, /const splitSheet = \(d\) => !!ui\?\.root\.classList\.contains\('stack'\) && d\.classList\.contains\('pz-sheet'\);/, 'every upright phone and tablet');
+  assert.match(js, /const splitSheet = \(d\) => !!ui && \(ui\.root\.classList\.contains\('stack'\) \|\| ui\.root\.classList\.contains\('pz-wide'\)\) && d\.classList\.contains\('pz-sheet'\);/, 'every upright phone and tablet, and a wide screen\'s card stacked under the words');
   assert.doesNotMatch(js, /tabSheet\(/);
   assert.doesNotMatch(css, /\.pz\.stack\.tab \.pz-data\.pz-sheet/, 'no rule left for the tablet alone');
   // (Two stacked cards: the instrument's in front, the readings' behind it, its top never seen (Mohammad, 17 Oct: "it's as if they are
   // TWO cards ... should remain attached to the card above it and we never see the top of the tiles card").)
   assert.match(css, /\.pz\.stack\.stack \.pz-data\.pz-sheet\.pz-sheet \{ --pz-u: 0; --pz-sr: 18px; --pz-in: 8px; background: none; -webkit-backdrop-filter: none; backdrop-filter: none; border-color: transparent; box-shadow: none; overflow: visible; isolation: isolate; \}/);
   assert.match(css, /\.pz\.stack\.stack \.pz-data\.pz-sheet\.pz-sheet\.tool-open \{ --pz-u: 1; \}/, 'at rest the class says where the readings are');
-  assert.match(js, /if \(sheet !== dd0\.classList\.contains\('pz-sheet'\) && p && dd0\.classList\.contains\('pz-hide'\)\) \{/, 'its glass never shows fading between two slides');
+  assert.match(js, /if \(sheet !== dd0\.classList\.contains\('pz-sheet'\) && \(p \|\| wide\) && dd0\.classList\.contains\('pz-hide'\)\) \{/, 'its glass never shows fading between two slides');
   // (The instrument's glass ends where the card ends with the readings tucked, whatever share of them is out.)
   assert.match(css, /\.pz\.stack\.stack \.pz-data\.pz-sheet::before \{ top: -1px; height: calc\(100% \+ 1px - var\(--pz-u\) \* var\(--pz-d, 0px\)\); \}/);
   // (The readings' card behind it, 22 px of its top under the instrument card's foot, its foot 24 px out while tucked; shown only under
@@ -74,7 +74,7 @@ test('an upright phone\'s or tablet\'s deck instrument card opens its readings o
   // (Measured in the card's own px, without its height cap; frame by frame, never a CSS transition: the card is frosted glass.)
   assert.match(js, /d\.style\.maxHeight = 'none';\n\s*parts\[0\]\.style\.marginTop = '14px';/);
   assert.match(js, /d\.style\.maxHeight = cap; ui\.lipMO\?\.takeRecords\(\);/, 'its own measure never sets it measuring again');
-  assert.match(js, /if \(t < 1\) \{ d\.style\.setProperty\('--pz-u', \(from \+ \(to - from\) \* \(1 - \(1 - t\) \*\* 3\)\)\.toFixed\(4\)\); slip\.raf = nextFrame\(step\); \}/);
+  assert.match(js, /if \(t < 1\) \{ const u = from \+ \(to - from\) \* \(1 - \(1 - t\) \*\* 3\); d\.style\.setProperty\('--pz-u', u\.toFixed\(4\)\); liftTo\(u\); slip\.raf = nextFrame\(step\); \}/);
   assert.doesNotMatch(css + js, /--pz-top|sheetTop|tabMargins/, 'no measure of the instrument\'s own box');
   // (The handle rides in the readings' card's foot.)
   assert.match(css, /\.pz\.stack \.pz-data\.pz-sheet\.pz-sliding \+ \.pz-lip \{ margin-top: calc\(-24px \* var\(--pz-u, 0\)\);/);
@@ -110,7 +110,7 @@ test('a pull down on the closed card brings out the instrument card, and carried
   // (The same follow and settle as the readings' own pull: margins, fade and the eased rest, setFold.)
   assert.match(js, /sheetPull = \{ begin: \(\) => \{ const gg = grab\(0, 0, false\); take\(gg\); return gg; \}, follow, settle \};/);
   assert.match(js, /const u = clamp\(gg\.u0 \* gg\.full \+ dy, 0, gg\.full\) \/ \(gg\.full \|\| 1\);/, 'from wherever the readings stand');
-  assert.match(js, /if \(gg\.split\) \{ el\.classList\.add\('pz-sliding'\); el\.style\.setProperty\('--pz-u', u\.toFixed\(4\)\); return; \}/, 'the whole readings\' card follows the finger');
+  assert.match(js, /if \(gg\.split\) \{ el\.classList\.add\('pz-sliding'\); el\.style\.setProperty\('--pz-u', u\.toFixed\(4\)\); liftTo\(u\); return; \}/, 'the whole readings\' card follows the finger');
   // (Closing stays two steps: a push up from fully open is the readings' own, a push up from partly open the card's.)
   assert.match(js, /\|\| dock\.lvl > 0 \|\|/, 'the readings\' pull never starts on a closed card: the card\'s drag owns it');
 });

@@ -1917,6 +1917,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       // (The fluid balance's capacity window too: its rows of numbers need the card's width; tool-fluid.js.)
       data.classList.toggle('pz-beside', !!s.tool && !!s.data && tileKeys(s).length > 0 && s.tool?.kind !== 'flows' && !(s.tool?.kind === 'fluid' && s.tool.window));
       data.toggleAttribute('data-beside', data.classList.contains('pz-beside'));
+      data.toggleAttribute('data-ladder', s.tool?.kind === 'profile');   // (Mac and iPad landscape: the Gut to heart chart keeps its tiles beside it, no stack; layout)
       data.classList.remove('pz-folds');   // (Mac and iPad landscape: folded behind Show only when the pair would not fit, set in layout)
       data.dataset.tn = tileKeys(s).length;   // (Mac and iPad landscape: every instrument with tiles has them stacked beside it; its own readings fold to a short list under its picture)
       data.classList.toggle('tool-lead', !!s.tool?.open && !!s.data);   // (a phone keeps this instrument open and folds the tiles instead)
@@ -2189,23 +2190,35 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   // instrument's and the readings'. A push up, or a tap on the handle, from fully open tucks the readings' card away; the next closes
   // the instrument card. A pull down on the closed card brings the instrument card out, and the same pull carried on brings the
   // readings' card out after it (dockTouch, sheetPull: "if I keep sliding I can open both in one swipe").
-  const splitSheet = (d) => !!ui?.root.classList.contains('stack') && d.classList.contains('pz-sheet');
+  // (Mac and iPad landscape too, the data card stacked under the words (pz-wide): the same two cards, its readings' card out as a slide
+  // comes in (Mohammad, 22 Oct: "is there a way to build something similar for mac and ipad, stacked card to show the main card and the
+  // stacked card behind it"). The instrument keeps one size open or tucked; where the readings need more room than the screen has, the pair
+  // rises as they come out and comes back down as they tuck away (slip.lift, liftTo).)
+  const splitSheet = (d) => !!ui && (ui.root.classList.contains('stack') || ui.root.classList.contains('pz-wide')) && d.classList.contains('pz-sheet');
+  const wideSheet = (d) => !!ui?.root.classList.contains('pz-wide') && d.classList.contains('pz-sheet');
   // The readings' card slides out from behind the instrument card and back under it, one solid piece (Mohammad, 17 Oct: "The secondary
   // card should actually be hidden underneath the other card not just pop into existence"): --pz-u on the card is how far out it is,
   // set frame by frame by the finger or here, never by a CSS transition (the card is frosted glass); styles/app.css works out both
   // pieces of glass, the readings' place and where they are cut at the instrument card's foot from it. (d: how far it travels, the
   // readings' share of the card's height; h0: the card's height with them tucked, css px; raf: the ease running.)
-  const slip = { d: null, h0: null, raf: 0 };
+  const slip = { d: null, h0: null, raf: 0, lift: 0 };
+  // (Mac and iPad landscape: the stacked card's height cap is the room under the words less its readings' card's foot, grown by what is
+  // out of the readings (--pz-grow, styles/app.css), so the instrument is fitted to the tucked room and keeps that size open or tucked.)
+  const capOf = (d, room) => (wideSheet(d) ? `calc(${(room - LIP).toFixed(1)}px + var(--pz-grow, 0px))` : `${room.toFixed(1)}px`);
+  // (The pair's rise, frame by frame with the readings' card: u of the way out lifts the words' card, its glass and the data card by u of
+  // slip.lift, the room the readings need below (layout), and tucking them brings the pair back down the same way. A translate, never
+  // their top, which eases on its own.)
+  const liftTo = (u) => { const v = slip.lift > 0.5 && u > 0 ? (u * slip.lift).toFixed(1) : ''; if (wrap.style.getPropertyValue('--pz-lift') !== (v && `${v}px`)) { if (v) wrap.style.setProperty('--pz-lift', `${v}px`); else wrap.style.removeProperty('--pz-lift'); } };
   const underU = (d) => (d.classList.contains('pz-sliding') ? parseFloat(d.style.getPropertyValue('--pz-u')) || 0 : d.classList.contains('tool-open') ? 1 : 0);
   function slideUnder(from, to, ms = 360) {
     const d = ui.data;
     cancelFrame(slip.raf);
     if (reduce.matches) ms = 0; else ms *= Math.max(0.4, Math.abs(to - from));
-    d.classList.add('pz-sliding'); d.style.setProperty('--pz-u', from.toFixed(4));
+    d.classList.add('pz-sliding'); d.style.setProperty('--pz-u', from.toFixed(4)); liftTo(from);
     const t0 = performance.now();
     const step = (now) => {
       const t = ms ? clamp((now - t0) / ms, 0, 1) : 1;
-      if (t < 1) { d.style.setProperty('--pz-u', (from + (to - from) * (1 - (1 - t) ** 3)).toFixed(4)); slip.raf = nextFrame(step); }
+      if (t < 1) { const u = from + (to - from) * (1 - (1 - t) ** 3); d.style.setProperty('--pz-u', u.toFixed(4)); liftTo(u); slip.raf = nextFrame(step); }
       else stopUnder();
     };
     slip.raf = nextFrame(step);
@@ -2214,7 +2227,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   function stopUnder() {
     cancelFrame(slip.raf);
     if (!ui?.data.classList.contains('pz-sliding')) return;
-    ui.data.style.removeProperty('--pz-u'); ui.data.classList.remove('pz-sliding');
+    ui.data.style.removeProperty('--pz-u'); ui.data.classList.remove('pz-sliding'); liftTo(underU(ui.data));
   }
   // How far the readings' card travels: the card's height with them out less its height without them, read in the card's own px (its
   // parts are zoomed by the fit, so their own boxes are not read). (--pz-o: a second part's place under the first, for its cut.)
@@ -2248,7 +2261,9 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   const dockPaint = () => {
     if (!ui) return;
     const [x, y] = dockVec();
-    ui.data.style.translate = dock.lvl ? `${(x * dock.lvl).toFixed(1)}px ${(y * dock.lvl).toFixed(1)}px` : '';
+    // (A wide screen's stacked pair keeps its rise, --pz-lift, while the card docks: styles/app.css.)
+    const ly = wideSheet(ui.data) ? ' - var(--pz-lift, 0px)' : '';
+    ui.data.style.translate = dock.lvl ? `${(x * dock.lvl).toFixed(1)}px ${ly ? `calc(${(y * dock.lvl).toFixed(1)}px${ly})` : `${(y * dock.lvl).toFixed(1)}px`}` : '';
     // (Where the glide ends: the camera frames for the card there, util.js translateRest, never where it stands this frame.)
     ui.data.dataset.restTranslate = `${(x * dock.to).toFixed(1)} ${(y * dock.to).toFixed(1)}`;
     ui.data.classList.toggle('docked', dock.to === 1);
@@ -2282,7 +2297,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     l.style.left = px(d.offsetLeft); l.style.width = px(d.offsetWidth); l.style.top = px(d.offsetTop + (sliding && slip.h0 != null ? slip.h0 + u * slip.d : d.offsetHeight));
     l.style.translate = d.style.translate; l.dataset.restTranslate = d.dataset.restTranslate ?? '0 0';
     if (sliding) l.style.setProperty('--pz-u', u.toFixed(4)); else l.style.removeProperty('--pz-u');
-    const say = dock.to === 1 ? 'Open the card' : open ? (split ? 'Hide the readings' : 'Close the card') : split && dock.down === want ? 'Close the card' : 'Show the rest of the card';
+    const say = dock.to === 1 ? 'Open the card' : wideSheet(d) ? (open ? 'Hide the readings' : 'Show the readings') : open ? (split ? 'Hide the readings' : 'Close the card') : split && dock.down === want ? 'Close the card' : 'Show the rest of the card';
     if (l.getAttribute('aria-label') !== say) l.setAttribute('aria-label', say);
   }
   function dockTo(to, ms = 380) {
@@ -2661,16 +2676,24 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     // (Before the words are measured for the phone's cap: measured with the full names on two rows, the card kept 12 px it no longer needed.)
     abShort(ui.text, p || ui.root.classList.contains('low'));   // (a phone, upright or on its side; a wider card may take two rows of full names)
     // (A phone's card with a second part keeps that part on its sheet (.pz-lip, dockVec); each slide arrives partly open.)
-    const dd0 = ui.data, sheet = p && dd0.classList.contains('has-tool') && !dd0.classList.contains('tool-only');
+    // (Mac and iPad landscape: the same, stacked under the words, except a Gut to heart chart, which keeps its tiles beside it: pz-wide.)
+    const wide = cardOn && !low;
+    ui.root.classList.toggle('pz-wide', wide);
+    const dd0 = ui.data, sheet = (p || (wide && !dd0.hasAttribute('data-ladder'))) && dd0.classList.contains('has-tool') && !dd0.classList.contains('tool-only');
     // (An upright phone's or tablet's sheet stays opaque while it is out and fades its parts instead, styles/app.css: a card that
     // becomes one, or stops being one, while it is out takes its new state at once, so its glass never shows, fading, between two slides.)
-    if (sheet !== dd0.classList.contains('pz-sheet') && p && dd0.classList.contains('pz-hide')) {
+    if (sheet !== dd0.classList.contains('pz-sheet') && (p || wide) && dd0.classList.contains('pz-hide')) {
       const was = dd0.style.transition;
       dd0.style.transition = 'none'; dd0.classList.toggle('pz-sheet', sheet); void dd0.offsetWidth; dd0.style.transition = was;
     }
     dd0.classList.toggle('pz-sheet', sheet);
+    if (!p) dd0.classList.toggle('pz-beside', !sheet && dd0.hasAttribute('data-beside') && !dd0.classList.contains('pz-folds'));   // (the readings' card holds the tiles: none beside the instrument)
     if ((p || low) && dd0.classList.contains('pz-folds')) dd0.classList.remove('pz-folds');   // (a wider screen's fold, left by a window made narrow)
-    if (sheet && dd0.classList.contains('tool-open') && dd0.dataset.openFor !== String(want)) { stopUnder(); dd0.classList.remove('tool-open'); }
+    if (sheet && p && dd0.classList.contains('tool-open') && dd0.dataset.openFor !== String(want)) { stopUnder(); dd0.classList.remove('tool-open'); }
+    // (Mac and iPad landscape: each slide's stacked card comes in with its readings out (tucked instead where they would lift the words,
+    // below); tucked away or brought out by the reader, they stay so on that slide. A card that is no stack lets go of the opening it was given here: a fold behind Show is its own.)
+    else if (sheet && !p && dd0.dataset.openFor !== String(want)) { stopUnder(); dd0.classList.add('tool-open'); dd0.dataset.openFor = String(want); dd0.dataset.wideOpen = ''; }
+    else if (!sheet && 'wideOpen' in dd0.dataset) { delete dd0.dataset.wideOpen; if (!p) dd0.classList.remove('tool-open'); }
     const phoneCap = p ? phoneTextCap(lockKey, H, k) : null;
     if (phoneCap != null) ui.text.style.maxHeight = `${phoneCap.toFixed(1)}px`;
     if (p) autoDock(phoneShut); else if (!low) autoDock(false);
@@ -2699,7 +2722,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       gap = Math.round(0.6 * sl); cw = t.right - wr.left + pad - sl;
       // (Folding the instrument behind Show is the last step, below: each new measure starts unfolded. It snaps while the card is
       // measured, so the measure sees where it rests; a tap on Show or Hide then eases it.)
-      const canFold = dd.classList.contains('has-tool') && !dd.classList.contains('tool-only') && !dd.classList.contains('tool-lead');
+      const canFold = dd.classList.contains('has-tool') && !dd.classList.contains('tool-only') && !dd.classList.contains('tool-lead') && !dd.classList.contains('pz-sheet');   // (a stacked card tucks its readings instead)
       const setFolds = (on) => {
         if (dd.classList.contains('pz-folds') === on) return;   // (unchanged: a pass mid-ease must not cut a Show or Hide short)
         if (on) dd.classList.remove('pz-lt', 'pz-lt2');   // (folded, the compact layout's steps run again from the loosest)
@@ -2780,7 +2803,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     dd.style.width = cw ? `${(cw / k).toFixed(1)}px` : '';
     dd.style.maxWidth = cw ? 'none' : '';   // (no per-content cap: tiles, an instrument or a chart never make it narrower)
     dd.style.top = below ? `${(y / k).toFixed(1)}px` : '';
-    dd.style.maxHeight = below ? `${((foot - y) / k).toFixed(1)}px` : '';
+    dd.style.maxHeight = below ? capOf(dd, (foot - y) / k) : '';
     // (A phone: the data card ends 8 px short of the teaching card (where its glass begins, glassLift), however much it holds: an opened instrument had grown over the words.)
     // (And leaves the figure its share: FIG_MIN between the two cards.)
     // (Partly open, its sheet's edge (LIP) stands below it in that room too. A card that came in closed (phoneShut) leaves the figure
@@ -2820,13 +2843,28 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     // to the top or the controls); a pair that fills the screen stays where it is. Set here, before the cards come in, so nothing moves after.
     let shift = 0;
     if (below && t && !off(dd)) {
-      const stackH = t.height + 2 * pad + gap + dd.offsetHeight * k;
+      // (A stacked card counts with its readings tucked and their card's foot under it, whatever share of them is out: the pair is centred
+      // for the tucked card, and rises from there only as far as the readings need, slip.lift.)
+      const ws = wideSheet(dd);
+      if (ws && !dd.classList.contains('pz-sliding')) measureUnder(dd);   // (their travel as fitted now: the last slide's had been left on the card)
+      const dpx = ws ? parseFloat(dd.style.getPropertyValue('--pz-d')) || 0 : 0;
+      const tuckH = ws ? dd.offsetHeight - underU(dd) * dpx + LIP : dd.offsetHeight;
+      const stackH = t.height + 2 * pad + gap + tuckH * k;
       shift = Math.max(0, Math.min((H - stackH) / 2 - top0, foot - top0 - stackH));
       // (Centred once per slide: while only the data card's readings change (a time-lapse, a what-if slider), the pair keeps the place
       // it came in at, so the words never ride up and down with a reading that measured a pixel taller.)
       if (lockKey && shiftLock?.key === lockKey && readingsOnly()) shift = shiftLock.v; else if (lockKey) shiftLock = { key: lockKey, v: shift };
-      if (shift > 0.5) { dd.style.top = `${((y + shift) / k).toFixed(1)}px`; dd.style.maxHeight = `${((foot - y - shift) / k).toFixed(1)}px`; } else shift = 0;
+      if (shift > 0.5) { dd.style.top = `${((y + shift) / k).toFixed(1)}px`; dd.style.maxHeight = capOf(dd, (foot - y - shift) / k); } else shift = 0;
+      // (How far the pair rises with the readings all out (Mohammad, 22 Oct: "You can make the teaching card move up a little bit to make
+      // room if the bottom doesn't fit. It's ok if the top of the teaching card slips behind upper part of the screen"): what their card
+      // would reach past the controls or the screen's foot, never more than the words' card and the gap, so the data card stops at the top.)
+      if (ws) slip.lift = Math.max(0, Math.min(top0 + shift + t.height + 2 * pad + gap + (tuckH - LIP + dpx) * k - foot, t.height + 2 * pad + gap)) / k;
     }
+    if (!(below && t && wideSheet(dd))) slip.lift = 0;
+    // (A slide whose readings would lift the words comes in with them tucked, as an upright phone's does, its words whole; they come out
+    // on a tap. One that has the room comes in with them out.)
+    else if (slip.lift > 0.5 && dd.dataset.wideOpen === '' && dd.classList.contains('tool-open') && (off(dd) || dd.classList.contains('pz-hide') || ui.root.classList.contains('pz-prep'))) { stopUnder(); dd.classList.remove('tool-open'); dd.dataset.wideOpen = 'tucked'; }
+    liftTo(underU(dd));
     fitWatch();
     const dv = ui.data.hidden ? [0, 0] : dockVec();
     const d = below ? null : r(ui.data);
@@ -2856,7 +2894,9 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     ui.shade.classList.remove('pz-tabs-tight');
     if (t && tabsTight(k)) ui.shade.classList.add('pz-tabs-tight');
     const lift = p && t ? glassLift(k) : 16;
-    ui.shade.style.top = p && t ? `${ui.text.offsetTop - lift}px` : cardOn && t ? `${(t.top - wr.top - padT) / k}px` : '';
+    // (The words' rect carries the stacked pair's rise, --pz-lift, which the glass takes by its own translate: read back without it.)
+    const lf = (parseFloat(wrap.style.getPropertyValue('--pz-lift')) || 0) * k;
+    ui.shade.style.top = p && t ? `${ui.text.offsetTop - lift}px` : cardOn && t ? `${(t.top - wr.top - padT + lf) / k}px` : '';
     ui.shade.style.opacity = t ? '1' : '0';
     ui.safe.hidden = !t;
     ui.safe.dataset.safe = p ? 'bottom' : 'left';
@@ -3026,10 +3066,16 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   function colHeight(w, dk = 1) {
     // (Unfitted, its zoom (--pz-z) cleared with the fit: kept, the card measured at the last fit's zoom, so the words' step depended on
     // what was fitted before (a live text-size change took a larger title than a fresh load at that size).)
-    const d = ui.data, ds = d.style, sv = [d.className, ds.width, ds.maxHeight, ds.getPropertyValue('--pz-fit'), ds.getPropertyValue('--pz-dk'), ds.getPropertyValue('--pz-z')];
+    const d = ui.data, ds = d.style, sv = [d.className, ds.width, ds.maxHeight, ds.getPropertyValue('--pz-fit'), ds.getPropertyValue('--pz-dk'), ds.getPropertyValue('--pz-z'), ds.getPropertyValue('--pz-u')];
     d.classList.add('col'); if (dk < 1) ds.setProperty('--pz-dk', dk); else ds.removeProperty('--pz-dk'); ds.width = `${w}px`; ds.maxHeight = 'none'; ds.removeProperty('--pz-fit'); ds.removeProperty('--pz-z');
-    const hh = d.offsetHeight;
-    d.className = sv[0]; ds.width = sv[1]; ds.maxHeight = sv[2]; if (sv[3]) ds.setProperty('--pz-fit', sv[3]); if (sv[4]) ds.setProperty('--pz-dk', sv[4]); else ds.removeProperty('--pz-dk'); if (sv[5]) ds.setProperty('--pz-z', sv[5]);
+    // (A stacked card with its readings tucked, their card's foot below it: the room it keeps; brought out, the pair rises to make room for
+    // them where the screen is short, slip.lift.)
+    const sheet = d.classList.contains('pz-sheet'), parts = sheet ? [...d.children].filter((c) => c.matches('.pz-tiles')) : [], was = parts.map((c) => c.style.display);
+    if (sheet) { d.classList.remove('tool-open', 'pz-sliding'); ds.removeProperty('--pz-u'); for (const c of parts) c.style.display = 'none'; }
+    const hh = d.offsetHeight + (sheet ? LIP : 0);
+    parts.forEach((c, i) => { c.style.display = was[i]; });
+    d.className = sv[0]; ds.width = sv[1]; ds.maxHeight = sv[2]; if (sv[3]) ds.setProperty('--pz-fit', sv[3]); if (sv[4]) ds.setProperty('--pz-dk', sv[4]); else ds.removeProperty('--pz-dk'); if (sv[5]) ds.setProperty('--pz-z', sv[5]); if (sv[6]) ds.setProperty('--pz-u', sv[6]);
+    ui.lipMO?.takeRecords();
     return hh;
   }
   function freeRects() {
@@ -3728,7 +3774,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     const follow = (gg, dy) => {
       const u = clamp(gg.u0 * gg.full + dy, 0, gg.full) / (gg.full || 1);
       gg.u = u; gg.pts.push([performance.now(), dy]);
-      if (gg.split) { el.classList.add('pz-sliding'); el.style.setProperty('--pz-u', u.toFixed(4)); return; }
+      if (gg.split) { el.classList.add('pz-sliding'); el.style.setProperty('--pz-u', u.toFixed(4)); liftTo(u); return; }
       gg.p.style.maxHeight = `${(u * gg.full).toFixed(1)}px`; gg.p.style.opacity = u.toFixed(3);
     };
     // (From where the finger left it to the class's own state: the part's transition, or the readings' card's slide, eases the
@@ -3831,6 +3877,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       // (Upright: partly open, fully open, partly open (its readings' card tucked away), closed, partly open again.)
       const split = splitSheet(data);
       if (dock.to === 1) { dock.auto = false; dockTo(0); }
+      else if (wideSheet(data)) setFold(!data.classList.contains('tool-open'));   // (Mac and iPad landscape: the handle only brings the readings out or tucks them away)
       else if (data.classList.contains('tool-open')) { if (split) { dock.down = want; setFold(false); } else { dock.auto = false; dockTo(1); } }
       else if (split && dock.down === want) { dock.auto = false; dockTo(1); }
       else setFold(true);

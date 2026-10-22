@@ -5285,6 +5285,57 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
 }
 @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) { .pz.stack.stack .pz-data.pz-sheet::before, .pz.stack.stack .pz-data.pz-sheet::after { background: color-mix(in srgb, var(--surface) 96%, transparent); } }
 @media (prefers-reduced-transparency: reduce) { .pz.stack.stack .pz-data.pz-sheet::before, .pz.stack.stack .pz-data.pz-sheet::after { background: var(--surface-2); -webkit-backdrop-filter: none; backdrop-filter: none; } }
+/* Mac and iPad landscape: the same two stacked cards under the words (presenter.js splitSheet, pz-wide; Mohammad, 22 Oct: "the phone data
+   cards look better than the mac because of the stacked card situation; is there a way to build something similar for mac and ipad").
+   The instrument's card in front at the teaching card's width, the readings' card behind it --pz-in narrower on each side; each slide
+   brings them out, and a click or tap on the handle in its foot tucks them away (24 px of foot left showing) or brings them out again.
+   The pair is laid out and fitted with them out, so they come and go without the words or the instrument moving or changing size. Its
+   corners are the wide card's own (16-28 px). A Gut to heart chart keeps its tiles beside it, one card (data-ladder). */
+.pz.pz-wide .pz-lip:not([hidden]) { display: block; position: absolute; height: 24px; margin: 0; padding: 0; border: 0; background: none; pointer-events: auto; touch-action: none;
+  cursor: pointer; -webkit-tap-highlight-color: transparent; transition: opacity .5s var(--ease) .12s, transform .5s var(--ease) .12s, margin-top .36s var(--ease); }
+.pz.pz-wide .pz-lip::after { content: ''; position: absolute; left: 50%; top: 50%; width: 34px; height: 4px; translate: -50% -50%; border-radius: 2px; background: color-mix(in srgb, var(--text) 32%, transparent); }
+.pz.pz-wide .pz-data.tool-open + .pz-lip { margin-top: -24px; }
+.pz.pz-wide .pz-data.pz-hide + .pz-lip { transform: translateX(-18px); }   /* (as the card leaves, .pz-data.col) */
+.pz.pz-wide .pz-data.pz-sheet > .pz-grip { top: calc((100% - var(--pz-u) * var(--pz-d, 0px)) / 2); }   /* (the card's own edge handle, halfway down the instrument's card) */
+.pz.pz-wide .pz-data.pz-sheet:not(.tool-open) { padding-bottom: 10px; }
+.pz.pz-wide.pz-wide .pz-data.pz-sheet.pz-sheet { --pz-u: 0; --pz-sr: clamp(16px, calc(2.2 * var(--pzh) / var(--vz)), 28px); --pz-in: 8px; background: none; -webkit-backdrop-filter: none; backdrop-filter: none; border-color: transparent; box-shadow: none; overflow: visible; isolation: isolate; }
+.pz.pz-wide.pz-wide .pz-data.pz-sheet.pz-sheet.tool-open { --pz-u: 1; }
+.pz.pz-wide.pz-wide .pz-data.pz-sheet.pz-sheet > :not(.pz-tool) { zoom: 1; }
+.pz.pz-wide.pz-wide .pz-data.pz-sheet.pz-sheet.pz-sliding:not(.tool-open) { --pz-grow: calc(var(--pz-u) * var(--pz-d, 0px)); }
+.pz.pz-wide.pz-wide .pz-data.pz-sheet.pz-sheet.tool-open { --pz-grow: var(--pz-d, 0px); }
+.pz.pz-wide.pz-wide .pz-data.pz-sheet::before, .pz.pz-wide.pz-wide .pz-data.pz-sheet::after { content: ''; position: absolute; left: -1px; right: -1px; z-index: -1; box-sizing: border-box; border: 1px solid color-mix(in srgb, var(--text) 10%, transparent); border-radius: inherit;
+  background: color-mix(in srgb, var(--surface) 58%, transparent); -webkit-backdrop-filter: blur(16px) saturate(1.15); backdrop-filter: blur(16px) saturate(1.15);
+  box-shadow: inset 0 1px 0 var(--pz-glass-edge), 0 14px 34px -10px var(--pz-glass-drop), 0 2px 6px -1px var(--pz-glass-drop); pointer-events: none; }
+.pz.pz-wide.pz-wide .pz-data.pz-sheet::before { top: -1px; height: calc(100% + 1px - var(--pz-u) * var(--pz-d, 0px)); }
+.pz.pz-wide.pz-wide .pz-data.pz-sheet::after { z-index: -2; left: calc(var(--pz-in) - 1px); right: calc(var(--pz-in) - 1px); bottom: calc(-1px - 24px * (1 - var(--pz-u))); height: calc(var(--pz-d, 0px) + 23px); border-top-left-radius: 0; border-top-right-radius: 0; box-shadow: 0 14px 34px -10px var(--pz-glass-drop), 0 2px 6px -1px var(--pz-glass-drop);
+  --pz-m: calc(22px - var(--pz-sr) + (1 - var(--pz-u)) * (var(--pz-d, 0px) - 24px));
+  -webkit-mask: linear-gradient(#000 0 0) 0 calc(var(--pz-m) + var(--pz-sr)) / 100% 100% no-repeat, radial-gradient(circle at 100% 0, transparent calc(var(--pz-sr) - .5px), #000 var(--pz-sr)) calc(0px - var(--pz-in)) var(--pz-m) / var(--pz-sr) var(--pz-sr) no-repeat, radial-gradient(circle at 0 0, transparent calc(var(--pz-sr) - .5px), #000 var(--pz-sr)) calc(100% + var(--pz-in)) var(--pz-m) / var(--pz-sr) var(--pz-sr) no-repeat;
+  mask: linear-gradient(#000 0 0) 0 calc(var(--pz-m) + var(--pz-sr)) / 100% 100% no-repeat, radial-gradient(circle at 100% 0, transparent calc(var(--pz-sr) - .5px), #000 var(--pz-sr)) calc(0px - var(--pz-in)) var(--pz-m) / var(--pz-sr) var(--pz-sr) no-repeat, radial-gradient(circle at 0 0, transparent calc(var(--pz-sr) - .5px), #000 var(--pz-sr)) calc(100% + var(--pz-in)) var(--pz-m) / var(--pz-sr) var(--pz-sr) no-repeat; }
+.pz.pz-wide.pz-wide .pz-data.pz-sheet.tool-open { padding-bottom: 10px; }
+.pz.pz-wide.pz-wide .pz-data.pz-sheet.pz-sheet > .pz-tiles { max-height: none; overflow: visible; opacity: 1; margin-top: 0; margin-inline: calc(var(--pz-in)); transition: opacity .26s var(--ease);
+  translate: 0 calc(24px * (1 - var(--pz-u)));
+  --pz-cut: calc(((1 - var(--pz-u)) * (var(--pz-d, 0px) - 24px) + 10px - var(--pz-gap, 6px)) - 14px - var(--pz-o, 0px));
+  clip-path: polygon(-60px var(--pz-cut), calc(100% + 60px) var(--pz-cut), calc(100% + 60px) calc(100% + 60px), -60px calc(100% + 60px)); }
+.pz.pz-wide.pz-wide .pz-data.pz-sheet.pz-sheet.tiles-only > .pz-tiles { margin-top: calc(14px - (1 - var(--pz-u)) * var(--pz-d, 0px)); }
+.pz.pz-wide.pz-wide .pz-data.pz-sheet.pz-sheet > .pz-tiles { margin-bottom: 16px; }
+.pz.pz-wide.pz-wide .pz-data.pz-sheet.pz-sheet.pz-sheet.pz-sliding > .pz-tiles { transition: none; }
+.pz.pz-wide.pz-wide .pz-data.pz-sheet.pz-sheet:not(.tool-open):not(.pz-sliding) > .pz-tiles { visibility: hidden; }
+.pz.pz-wide .pz-data.pz-sheet.pz-sliding + .pz-lip { margin-top: calc(-24px * var(--pz-u, 0)); transition: opacity .5s var(--ease) .12s, transform .5s var(--ease) .12s; }
+.pz.pz-wide.pz-wide .pz-data.pz-sheet.pz-hide { opacity: 1; visibility: hidden; transition: transform .32s var(--ease), visibility 0s linear .32s; }
+.pz.pz-wide.pz-wide .pz-data.pz-sheet:not(.pz-hide) { visibility: visible; transition: transform .5s var(--ease) .12s, top .45s var(--ease), visibility 0s linear 0s; }
+.pz.pz-wide.pz-wide .pz-data.pz-sheet::before, .pz.pz-wide.pz-wide .pz-data.pz-sheet::after, .pz.pz-wide.pz-wide .pz-data.pz-sheet > :is(.pz-dh, .pz-tool, .pz-grip) { transition: opacity .32s var(--ease); }
+.pz.pz-wide.pz-wide .pz-data.pz-sheet:not(.pz-hide)::before, .pz.pz-wide.pz-wide .pz-data.pz-sheet:not(.pz-hide)::after, .pz.pz-wide.pz-wide .pz-data.pz-sheet:not(.pz-hide) > :is(.pz-dh, .pz-tool, .pz-grip) { transition-duration: .5s; transition-delay: .12s; }
+.pz.pz-wide.pz-wide .pz-data.pz-sheet.pz-hide::before, .pz.pz-wide.pz-wide .pz-data.pz-sheet.pz-hide::after, .pz.pz-wide.pz-wide .pz-data.pz-sheet.pz-hide > :is(.pz-dh, .pz-tool, .pz-tiles, .pz-grip) { opacity: 0; }
+@media (prefers-reduced-motion: reduce) {
+  .pz.pz-wide.pz-wide > .pz-data.pz-sheet.pz-hide { transition: visibility 0s linear .3s !important; }
+  .pz.pz-wide.pz-wide > .pz-data.pz-sheet::before, .pz.pz-wide.pz-wide > .pz-data.pz-sheet::after, .pz.pz-wide.pz-wide > .pz-data.pz-sheet > :is(.pz-dh, .pz-tool, .pz-tiles, .pz-grip) { transition: opacity .3s var(--ease) !important; }
+}
+/* (Brought out where the screen is too short for them, the readings lift the pair, frame by frame with their card (presenter.js liftTo,
+   --pz-lift on the stage): the words' card, its glass, the data card and the handle rise together, the words' top behind the screen's top
+   if need be, and come back down as the readings tuck away. A translate: their tops ease on their own.) */
+.pz.pz-wide .pz-text, .pz.pz-wide .pz-data.col, .pz.pz-wide .pz-lip, .pz-shade.pz-card:not(.stack):not(.low) { translate: 0 calc(-1 * var(--pz-lift, 0px)); }
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) { .pz.pz-wide.pz-wide .pz-data.pz-sheet::before, .pz.pz-wide.pz-wide .pz-data.pz-sheet::after { background: color-mix(in srgb, var(--surface) 96%, transparent); } }
+@media (prefers-reduced-transparency: reduce) { .pz.pz-wide.pz-wide .pz-data.pz-sheet::before, .pz.pz-wide.pz-wide .pz-data.pz-sheet::after { background: var(--surface-2); -webkit-backdrop-filter: none; backdrop-filter: none; } }
 /* Mac and iPad landscape: when even the smallest steps leave the pair too tall, the instrument folds behind Show as on a phone
    (presenter.js layout, pz-folds), its tiles in a row at the card's full width; Show fades it in, Hide out. */
 .pz:not(.stack):not(.low) .pz-data.pz-folds .pz-dh { position: relative; padding-inline: max(64px, calc(var(--pz-chip-em, 0) * 1em + 24px / var(--pz-z, 1) + 10px)); }   /* (the chip's own width, its words (presenter.js chipRoom), padding and edge, and 8 px) */
@@ -5778,6 +5829,7 @@ html.thumb-ui .menu.from-dock { clip-path: inset(-64px -64px calc(var(--sink, 0p
 :root[data-noglass] :is(.pz-shade, .pz-shade.pz-card, .pz-shade.stack, .pz-data.pz-data, .pz-case, .pz-bar, .pz.stack .pz-bar, .pz-scales, .cl-glass) { background: var(--surface); }
 /* (The upright split sheet's two glass pieces: its own fill is none, the pieces carry the glass, so they turn solid with the rest.) */
 :root[data-noglass] .pz.stack.stack .pz-data.pz-sheet::before, :root[data-noglass] .pz.stack.stack .pz-data.pz-sheet::after { background: var(--surface); }
+:root[data-noglass] .pz.pz-wide.pz-wide .pz-data.pz-sheet::before, :root[data-noglass] .pz.pz-wide.pz-wide .pz-data.pz-sheet::after { background: var(--surface); }
 /* (Settings › Blur effect off.) Labels lose their pill and glow in their own colour instead. The lit lobule and sinusoid names: the
    text glows in the term's colour, faded in and out with the pill's own --pill-o. */
 :root[data-noglass] :is(.lz-lab, .lz-zone, .sv-region)::before { inset: calc(-1 * var(--pill-y) - 9px) calc(-1 * var(--pill-x) - 20px); border-radius: 50%; background: radial-gradient(closest-side, color-mix(in srgb, var(--term-c, var(--accent)) 62%, transparent) 15%, transparent 100%) !important; box-shadow: none !important; }   /* (a soft cloud, not a pill: it fades with the label's own --pill-o, so it eases in and out with the pill's timing) */

@@ -8,9 +8,10 @@ const css = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
 const js = readFileSync(new URL('../src/ui/presenter.js', import.meta.url), 'utf8');
 
 test('a phone instrument card shows the instrument first, its readings on a sheet whose edge carries the handle', () => {
-  assert.match(js, /const dd0 = ui\.data, sheet = p && dd0\.classList\.contains\('has-tool'\) && !dd0\.classList\.contains\('tool-only'\);/, 'upright only: on its side the card shows everything');
+  assert.match(js, /const dd0 = ui\.data, sheet = \(p \|\| \(wide && !dd0\.hasAttribute\('data-ladder'\)\)\) && dd0\.classList\.contains\('has-tool'\) && !dd0\.classList\.contains\('tool-only'\);/, 'upright, and stacked under the words on a wide screen: on its side the card shows everything');
+  assert.match(js, /const wide = cardOn && !low;/, 'never a phone on its side');
   assert.match(js, /dd0\.classList\.toggle\('pz-sheet', sheet\);/);
-  assert.match(js, /if \(sheet && dd0\.classList\.contains\('tool-open'\) && dd0\.dataset\.openFor !== String\(want\)\) \{ stopUnder\(\); dd0\.classList\.remove\('tool-open'\); \}/, 'each slide arrives partly open');
+  assert.match(js, /if \(sheet && p && dd0\.classList\.contains\('tool-open'\) && dd0\.dataset\.openFor !== String\(want\)\) \{ stopUnder\(\); dd0\.classList\.remove\('tool-open'\); \}/, 'each slide arrives partly open');
   // (Mohammad, 17 Oct: "I thought the Doppler will show first": the sheet holds the tiles, never the instrument.)
   assert.match(js, /\(data\.classList\.contains\('pz-sheet'\) && !data\.classList\.contains\('tool-only'\)\) \? tiles\.el : tools\.el\);/);
   assert.match(css, /\.pz\.stack \.pz-data:is\(\.tool-lead, \.pz-sheet\):not\(\.tool-open\) > \.pz-tiles \{ max-height: 0; opacity: 0;/);
@@ -40,7 +41,7 @@ test('closing the card leaves its edge and the sheet\'s at the top, and it opens
   assert.match(js, /if \(to === 1 && ui\?\.data\.classList\.contains\('pz-sheet'\) && ui\.data\.classList\.contains\('tool-open'\)\) ui\.setFold\(false\);/);
   // (The handle's tap steps through the three states: partly, fully, closed, then partly again.)
   // (Upright, the readings' card tucks away first: tests/upright-tablet-phone.test.js.)
-  assert.match(js, /if \(dock\.to === 1\) \{ dock\.auto = false; dockTo\(0\); \}\n\s*else if \(data\.classList\.contains\('tool-open'\)\) \{ if \(split\) \{ dock\.down = want; setFold\(false\); \} else \{ dock\.auto = false; dockTo\(1\); \} \}\n\s*else if \(split && dock\.down === want\) \{ dock\.auto = false; dockTo\(1\); \}\n\s*else setFold\(true\);/);
+  assert.match(js, /if \(dock\.to === 1\) \{ dock\.auto = false; dockTo\(0\); \}\n\s*else if \(wideSheet\(data\)\) setFold\(!data\.classList\.contains\('tool-open'\)\);[^\n]*\n\s*else if \(data\.classList\.contains\('tool-open'\)\) \{ if \(split\) \{ dock\.down = want; setFold\(false\); \} else \{ dock\.auto = false; dockTo\(1\); \} \}\n\s*else if \(split && dock\.down === want\) \{ dock\.auto = false; dockTo\(1\); \}\n\s*else setFold\(true\);/);
   assert.match(js, /if \(performance\.now\(\) - \(dock\.tapAt \|\| 0\) < 700\) return;/, 'a touch that already opened it is not taken twice');
   // (A pull down on a partly open card brings the sheet out; a push up from either open state is the dock drag.)
   assert.match(js, /\(!btn\.offsetWidth && !sheet\) \|\| \(sheet && open && !split\)/, 'a phone\'s open sheet: the push up is the dock drag');
