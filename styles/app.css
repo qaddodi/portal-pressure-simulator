@@ -2407,6 +2407,9 @@ button.finding { cursor: pointer; }
 /* The Doppler monitor fills its card's width with rounded corners; a tight card shortens it (--pz-dk), never narrows it. */
 .pz-tool[data-kind="doppler"] .dop-box { width: 100%; height: calc(clamp(150px, calc(24 * var(--pzh)), 300px) * var(--pz-dk, 1)); border-radius: 12px; overflow: hidden; }
 .pz-tool[data-kind="doppler"] .dop-box > canvas { width: 100%; height: 100%; border-radius: inherit; }
+/* (On a slide the monitor sits in a frosted-glass card: its box is kept on a layer of its own, so a frame of the trace repaints the
+   box alone and not the card, its words and its glass round it. Nothing moves; the same pixels.) */
+.pz-data .pz-tool[data-kind="doppler"] .dop-box { will-change: transform; contain: paint; }
 .pz-tool[data-kind="fibroscan"] .fibroscan-box { width: 100%; height: clamp(250px, calc(42 * var(--pzh)), 480px); }   /* (the shear-wave map needs height to read) */
 /* The scope's view sits in .endo-stage, a size container in the Tests card; here the stage takes the view's own height. */
 .pz-tool:is([data-kind="scope"], [data-kind="wall"]) .endo-stage { container-type: normal; min-height: 0; }
