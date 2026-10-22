@@ -160,6 +160,13 @@ export const ADOPTED = {
   'read-doppler/a3': ['cite'],
   'read-doppler/a4': ['tool.pair', 'tool.calipers'],
   'read-doppler/summary': ['cols.wave', 'wave'],
+  'choose-treatment/a1': ['cite'],
+  'choose-treatment/q2': ['kind:fluid'],
+  'choose-treatment/a2': ['cite', 'kind:fluid'],
+  'choose-treatment/a3': ['cite'],
+  'choose-treatment/q4': ['kind:lumen'],
+  'choose-treatment/a4': ['cite', 'kind:lumen'],
+  'choose-treatment/a5': ['cite'],
 };
 
 /** Whether the slide d/s may use the field. */

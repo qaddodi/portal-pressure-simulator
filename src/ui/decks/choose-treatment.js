@@ -1,0 +1,127 @@
+// Presenter talk: choosing the treatment (Advanced), a capstone for the treatment talks. Five cases, each shown twice: first
+// the case with its real options as buttons that switch the live model, then the choice the guidelines make and why
+// (Baveno VIII; AASLD 2024; EASL 2025 for the vascular liver diseases). The slide fields are described at the top of
+// decks.js.
+
+const BAND = { kind: 'band' };
+const CARV = { drugs: { carvedilol: true } };
+
+export const CHOOSE_TREATMENT = {
+  id: 'choose-treatment', level: 'advanced', title: 'Choose the treatment', minutes: 12,
+  objectives: [
+    'Apply the pre-emptive TIPS criteria after a variceal bleed',
+    'Choose between repeated paracentesis and TIPS for refractory ascites',
+    'Explain why a TIPS does not help bleeding from splenic vein thrombosis',
+    'Start anticoagulation in portal vein thrombosis and Budd–Chiari syndrome, and know what follows it',
+  ],
+  checks: [
+    ['Child–Pugh B 8, variceal bleed controlled by bands, no active bleeding at endoscopy. Pre-emptive TIPS?', 'No. Child–Pugh B qualifies only with active bleeding at endoscopy (or an HVPG of 20 mmHg or more). She gets carvedilol and repeat banding.'],
+    ['Fundal varices bleed with a normal PPG and a clotted splenic vein. Why not a TIPS?', 'The portal pressure is normal; the high pressure is on the splenic side. Splenectomy, splenic vein stenting or splenic artery embolization treats it.'],
+    ['How long does anticoagulation continue after a recent portal vein clot without cirrhosis?', 'At least 6 months, and longer when a lasting prothrombotic cause is found.'],
+    ['In Budd–Chiari syndrome, what follows anticoagulation when the ascites does not respond?', 'Angioplasty of a short stenosis if there is one, then a TIPS (often a DIPS straight to the IVC), then transplant.'],
+  ],
+  sections: [['Bleeding', ['Bleeding']], ['Ascites', ['Ascites']], ['Clots', ['Clots']], ['Outflow', ['Outflow']]],
+  summary: 'Five cases with their real options as live buttons: a variceal bleed, refractory ascites, splenic vein thrombosis, a recent portal vein clot and Budd–Chiari syndrome, each followed by the choice the guidelines make.',
+  slides: [
+    {
+      id: 'q1', preset: 'cirr-decomp', action: BAND, cam: 'liver', labels: ['CONF', 'VAR'], data: 'tiles', tiles: ['ppg', 'liver'], key: ['ppg'],
+      vignette: 'A 61-year-old woman with alcohol-associated cirrhosis vomited blood yesterday. One band controlled it, with no active bleeding at endoscopy. She is Child–Pugh B 8.',
+      compare: [{ label: 'Bands so far', short: 'Bands', own: true }, { label: 'Carvedilol', short: 'Carv.', params: { drugs: { carvedilol: true }, tips: { on: false } } }, { label: 'Pre-emptive TIPS', short: 'TIPS', params: { drugs: { carvedilol: false }, tips: { on: true } } }],
+      kicker: 'Bleeding', site: 'sin', title: 'Case 1: after the first bleed',
+      line: 'The bleeding has stopped and the PPG is {ppg}. Try carvedilol and a pre-emptive TIPS. Which does she meet the criteria for?',
+      notes: 'Both options lower the pressure: the TIPS much more, at the cost of the liver\'s portal flow. The question is not which lowers the pressure most but which she qualifies for after this bleed.',
+      ask: ['Does a Child–Pugh B 8 patient with no active bleeding at endoscopy qualify for a pre-emptive TIPS?', 'No. Child–Pugh B qualifies only with active bleeding at endoscopy.'],
+    },
+    {
+      id: 'a1', params: CARV, cam: 'liver', labels: ['CONF', 'VAR'], data: 'tiles', tiles: ['ppg', 'hr'], key: ['ppg'], delta: 'q1',
+      cite: 'Baveno VIII 4.8, 5.31',
+      causesHead: 'Pre-emptive TIPS', causes: ['Child–Pugh C 10 to 13', 'Child–Pugh B over 7 with active bleeding at endoscopy', 'HVPG 20 mmHg or more'],
+      kicker: 'Bleeding', site: 'sin', title: 'Carvedilol and bands, not a pre-emptive TIPS',
+      line: 'Child–Pugh B 8 without active bleeding at endoscopy misses the criteria. She starts carvedilol, which lowers the PPG to {ppg}, with banding every 2 to 4 weeks.',
+      notes: 'A pre-emptive TIPS, placed within 72 hours and ideally within 24, lowers rebleeding and death only in the highest-risk patients. Everyone else gets secondary prophylaxis: a non-selective beta-blocker, carvedilol preferred, with banding until the varices are gone. A TIPS follows if she bleeds again despite both. The Preventing the next bleed talk follows this plan step by step.',
+      ask: ['Name the three criteria for a pre-emptive TIPS.', 'Child–Pugh C 10 to 13; Child–Pugh B over 7 with active bleeding at endoscopy; an HVPG of 20 mmHg or more.'],
+    },
+    {
+      id: 'q2', preset: 'cirr-decomp', params: { diuretics: true }, days: 120, ramp: { albumin: [2.8, 2.4] }, cam: 'fit', tool: { kind: 'fluid', window: true }, data: 'tiles', tiles: ['asc', 'sin'], key: ['asc'],
+      vignette: 'A 57-year-old man with MASH cirrhosis needs a 6 L paracentesis every two weeks despite full-dose diuretics and a low-salt diet. Bilirubin 1.8 mg/dL, no encephalopathy.',
+      compare: [{ label: 'Diuretics', own: true }, { label: 'TIPS', params: { tips: { on: true } } }],
+      kicker: 'Ascites', site: 'sin', title: 'Case 2: ascites that keeps coming back',
+      line: 'Two weeks after his last tap, {asc} has built up again. Paracentesis with albumin drains it but leaves its cause. Switch to TIPS and watch the leak from the sinusoids.',
+      notes: 'Refractory ascites returns within four weeks despite the highest diuretic doses and a low-salt diet, or the diuretics cannot be given. Large-volume paracentesis with albumin, 6 to 8 g for each liter drained, treats it but must be repeated. The fluid comes from the sinusoids, so lowering the sinusoidal pressure stops it at its source.',
+      ask: ['What makes ascites refractory?', 'It returns within four weeks despite the highest diuretic doses and a low-salt diet, or the diuretics cannot be given.'],
+    },
+    {
+      id: 'a2', params: { tips: { on: true } }, days: 28, lapse: { seconds: 7 }, cam: 'liver', mark: { edges: ['TIPS'], label: 'Covered stent', kind: 'treat' }, tool: { kind: 'fluid', window: true }, data: 'tiles', tiles: ['asc', 'liver'], key: ['asc'], delta: 'q2',
+      cite: 'Baveno VIII 6.3 to 6.5',
+      kicker: 'Ascites', site: 'sin', title: 'TIPS for recurrent ascites',
+      line: 'He has no encephalopathy and his bilirubin is low, so he gets a TIPS. Four weeks on the ascites is down to {asc}, but the liver gets {liver} of its normal flow. Transplant is discussed at the same time.',
+      notes: 'Baveno VIII: patients with recurrent or refractory ascites should be considered for a TIPS, discussed together with liver transplant. The stent may be dilated to the smallest diameter that controls the ascites, to lower the risk of encephalopathy and heart failure. Past encephalopathy, a high bilirubin, heart failure or pulmonary hypertension weigh against a TIPS.',
+      ask: ['What lowers the risk of encephalopathy after a TIPS for ascites?', 'The smallest stent diameter that controls the ascites, rifaximin in selected patients, and choosing patients without past encephalopathy.'],
+    },
+    {
+      id: 'q3', preset: 'svt', cam: 'splenic', lens: 'heat', labels: ['SV', 'GV', 'CONF'], data: 'tiles', tiles: ['ppg', 'plt'], key: ['ppg'],
+      vignette: 'A 49-year-old man had necrotizing pancreatitis last year. He now bleeds from fundal varices. His liver tests are normal and his spleen is large.',
+      compare: [{ label: 'No treatment', short: 'None', own: true }, { label: 'Carvedilol', short: 'Carv.', params: { drugs: { carvedilol: true }, tips: { on: false }, splenicRx: 0 } },
+        { label: 'TIPS', params: { drugs: { carvedilol: false }, tips: { on: true }, splenicRx: 0 } }, { label: 'Splenectomy', short: 'Splen.', params: { drugs: { carvedilol: false }, tips: { on: false }, splenicRx: 2 } }],
+      kicker: 'Clots', site: 'pre', title: 'Case 3: fundal varices with a normal PPG',
+      line: 'The splenic vein is clotted and the PPG is only {ppg}. Colored by congestion, the high pressure sits on the splenic side. Try each option: which one empties the fundal varices?',
+      notes: 'Pancreatitis is the commonest cause of an isolated splenic vein clot. The spleen drains through the short gastric veins into the fundus, so fundal varices form with a normal portal pressure: left-sided, or sinistral, portal hypertension. Watch which button takes the congestion off the splenic side.',
+      ask: ['Why is the PPG normal in splenic vein thrombosis?', 'The portal vein itself is open; the high pressure sits upstream, in the splenic vein and the veins draining the spleen.'],
+    },
+    {
+      id: 'a3', params: { splenicRx: 2 }, days: 30, lapse: { seconds: 7, from: 'Before surgery', to: 'A month after splenectomy' }, cam: 'splenic', labels: ['SV', 'CONF'], data: 'tiles', tiles: ['gv', 'plt'], key: ['gv'], delta: 'q3',
+      cite: 'AASLD 2024 statement 47',
+      kicker: 'Clots', site: 'pre', title: 'Splenectomy, not a TIPS',
+      line: 'A TIPS lowers a portal pressure that was never high. Taking the spleen away removes the blood that fills the fundal varices: a month on they are {gv} and the platelets {plt}.',
+      notes: 'AASLD 2024: patients with bleeding gastric varices from isolated splenic vein thrombosis should be evaluated for splenectomy, splenic vein stenting or splenic artery embolization. Each one cuts the splenic outflow into the fundus. A TIPS decompresses the portal vein, which here is normal, and carvedilol lowers the splenic inflow only partly.',
+      ask: ['Which treatments fit bleeding fundal varices from an isolated splenic vein clot?', 'Splenectomy, splenic vein stenting or splenic artery embolization.'],
+    },
+    {
+      id: 'q4', preset: 'pvt-acute', cam: 'portal', labels: ['CONF', 'SMV'], mark: { edges: ['PV_TRUNK'], label: 'Clot' }, tool: { kind: 'lumen' }, data: 'tiles', tiles: ['ppg', 'pvFlow'], key: ['ppg'],
+      vignette: 'A 39-year-old woman with factor V Leiden who takes an OCP has had 4 days of constant periumbilical pain. CT shows a fresh clot in the portal vein. Her liver is normal.',
+      causesHead: 'Options', causes: ['Anticoagulation now', 'Watch and repeat the scan', 'Thrombolysis', 'TIPS'],
+      kicker: 'Clots', site: 'pre', title: 'Case 4: a fresh clot in the portal vein',
+      line: 'The clot fills the portal vein, the PPG is {ppg} and no portal blood reaches the liver. The bowel is not yet ischemic. What comes first?',
+      notes: 'A recent portal vein clot without cirrhosis threatens the bowel, through spreading clot in the mesenteric veins, and the liver\'s portal supply. The OCP is stopped. The question is how soon to treat and with what.',
+      ask: ['What two harms does early treatment of a recent portal vein clot prevent?', 'Bowel ischemia from spreading clot, and a chronic occlusion with a cavernoma and portal hypertension.'],
+    },
+    {
+      id: 'a4', params: { anticoag: true }, days: 180, lapse: { seconds: 8, from: 'Anticoagulation starts', to: '6 months later' }, cam: 'portal', labels: ['CONF', 'SMV'], tool: { kind: 'lumen' }, data: 'tiles', tiles: ['ppg', 'pvFlow'], key: ['ppg'], delta: 'q4',
+      cite: 'EASL 2025, recent portal vein thrombosis',
+      kicker: 'Clots', site: 'pre', title: 'Anticoagulate at once, for at least 6 months',
+      line: 'Anticoagulation starts at once. Six months on the portal vein has reopened, portal flow is back to {pvFlow} and the PPG is {ppg}.',
+      caveat: 'In the model the clot always dissolves on anticoagulation; in patients the vein reopens in only some.',
+      notes: 'EASL 2025: in recent portal vein thrombosis, anticoagulation starts as soon as possible, because early treatment lowers the risk of bowel ischemia and raises the chance that the vein reopens, and it continues for at least 6 months. Thrombolysis is kept for severe disease that does not respond. A lasting prothrombotic cause, such as a myeloproliferative neoplasm, calls for long-term anticoagulation.',
+      ask: ['How long is anticoagulation given after a recent portal vein clot?', 'At least 6 months, and long term when a lasting prothrombotic cause is found.'],
+    },
+    {
+      id: 'q5', preset: 'budd-chiari', cam: 'hepatic', labels: ['RHV', 'IVCS', 'RA'], mark: { edges: ['RHV_IVC', 'MHV_IVC', 'LHV_IVC'], label: 'Clot in hepatic veins', free: true }, data: 'tiles', tiles: ['ppg', 'asc'], key: ['ppg'],
+      vignette: 'A 35-year-old woman with polycythemia vera has had Budd–Chiari syndrome for 2 months. Despite anticoagulation and diuretics her ascites is tense. Venography found no short stenosis.',
+      compare: [{ label: 'Medical only', short: 'Medical', own: true }, { label: 'TIPS', params: { tips: { on: true }, dips: { on: false } } }, { label: 'DIPS', params: { tips: { on: false }, dips: { on: true } } }],
+      kicker: 'Outflow', site: 'post', title: 'Case 5: Budd–Chiari that does not respond',
+      line: 'All three hepatic veins are clotted and the PPG is {ppg}. Try a TIPS through the right hepatic vein, then a DIPS straight from the portal vein to the IVC. Which one decompresses the liver?',
+      notes: 'Treatment of Budd–Chiari syndrome is stepwise: anticoagulation for everyone, angioplasty or a stent for a short stenosis, a shunt when the patient does not respond, and transplant when the shunt fails or the liver fails acutely. Here the first two steps are done or not possible.',
+      ask: ['What is the stepwise treatment of Budd–Chiari syndrome?', 'Anticoagulation, then angioplasty of a short stenosis, then a TIPS, then liver transplant.'],
+    },
+    {
+      id: 'a5', params: { dips: { on: true } }, days: 60, lapse: { seconds: 8, from: 'DIPS placed', to: '2 months later' }, cam: 'dips', mark: { edges: ['DIPS'], label: 'Covered stent', kind: 'treat' }, data: 'tiles', tiles: ['ppg', 'asc'], key: ['asc'], delta: 'q5',
+      cite: 'EASL 2025, Budd–Chiari syndrome',
+      caveat: 'The model leaves the anticoagulant off here, so the change is the shunt\'s alone.',
+      kicker: 'Outflow', site: 'post', title: 'A shunt straight to the IVC',
+      line: 'A stent through the clotted right hepatic vein has nowhere to drain, so the shunt goes from the portal vein through the caudate lobe to the IVC. Two months on the PPG is {ppg} and the ascites {asc}.',
+      notes: 'EASL 2025: in Budd–Chiari syndrome the shunt is made through a hepatic vein stump or directly through the IVC wall (a direct intrahepatic portosystemic shunt, DIPS), in an experienced centre. Shunt dysfunction is common but can usually be treated by angioplasty. Anticoagulation continues for life unless there is a major contraindication.',
+      ask: ['Why is a DIPS often needed in Budd–Chiari syndrome?', 'The hepatic veins are clotted, so a standard TIPS has no vein to drain into; the DIPS drains straight into the IVC.'],
+    },
+    {
+      id: 'summary', visual: 'table', cols: ['ppg', 'asc', 'liver'], asc: false, note: 'Choice', rowHead: 'Case',
+      of: [{ preset: 'healthy', kicker: 'Reference', title: 'Healthy', note: 'None', ref: true },
+        { id: 'a1', kicker: 'Bleeding', title: 'Bleed, Child–Pugh B 8', note: 'Carvedilol and bands', vs: 'q1' }, { id: 'a2', kicker: 'Ascites', title: 'Refractory ascites', note: 'TIPS', vs: 'q2' },
+        { id: 'a3', kicker: 'Clots', title: 'Splenic vein clot', note: 'Splenectomy', vs: 'q3' }, { id: 'a4', kicker: 'Clots', title: 'Portal vein clot', note: 'Anticoagulation', vs: 'q4' },
+        { id: 'a5', kicker: 'Outflow', title: 'Budd–Chiari', note: 'DIPS', vs: 'q5' }],
+      kicker: 'Summary', title: 'Match the treatment to where the pressure is',
+      line: 'The right choice follows the case: the criteria after a bleed, the source of the fluid, which side of the clot carries the pressure, and where a shunt can drain.',
+      notes: 'Each row shows the case after its treatment, with arrows against the same case before it. Each choice treats the place where the pressure builds. A TIPS that drains a normal portal vein, or into a clotted hepatic vein, lowers nothing; a splenectomy or a DIPS reaches the right place.',
+      ask: ['Which two cases show a TIPS that would not help, and why?', 'Splenic vein thrombosis, where the portal pressure is normal, and Budd–Chiari syndrome, where the hepatic veins it would drain into are clotted.'],
+    },
+  ],
+};
