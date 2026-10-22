@@ -2016,13 +2016,6 @@ button.finding { cursor: pointer; }
 @media (hover: hover) { .pz-bar .ib:hover { background: color-mix(in srgb, var(--text) 8%, transparent); } }
 .pz-bar .ib.pzb-next:not(:disabled) { color: var(--accent); }
 @media (hover: hover) { .pz-bar .ib.pzb-next:not(:disabled):hover { background: var(--accent-soft); color: var(--accent-ink); } }
-.pz-bar .pzb-go { gap: 6px; border-color: transparent; background: transparent; color: var(--text-2); font-weight: 600; transition: background-color .25s var(--ease), border-color .25s var(--ease), color .25s var(--ease), opacity .25s var(--ease); }
-@media (hover: hover) { .pz-bar .pzb-go:hover { background: color-mix(in srgb, var(--text) 8%, transparent); border-color: transparent; color: var(--text); } }
-.pz-bar .pzb-go:disabled { opacity: .4; cursor: default; background: transparent; }
-.pz-bar .pzb-go.pzb-next { background: var(--accent-soft); border-color: var(--accent-line); color: var(--accent); }
-@media (hover: hover) { .pz-bar .pzb-go.pzb-next:hover { background: color-mix(in srgb, var(--accent) 20%, transparent); color: var(--accent-ink); } }
-.app.pz-hi .pz-bar .pzb-go { color: var(--text); }
-.app.pz-hi .pz-bar .pzb-go.pzb-next { background: color-mix(in srgb, var(--accent) 22%, transparent); border-color: var(--accent); color: var(--text); }
 .app.pz-hi .pz-bar .ib { color: var(--text); }
 .pz-bar.pzb-pill { left: auto; right: var(--pz-cm); bottom: max(var(--pz-cm), calc(env(safe-area-inset-bottom, 0px) + 8px)); translate: none; max-width: none; height: 44px; gap: 0; padding: 0; overflow: visible; border-radius: var(--r-sheet); }   /* (a wide screen: the phone's pill at the lower right, with back and next) */
 .pz-bar.pzb-pill .ib { width: 44px; height: 44px; }
@@ -2395,7 +2388,7 @@ button.finding { cursor: pointer; }
 .pz-tool .dop-note { grid-column: 1 / -1 !important; margin: 6px 0 0; font-size: var(--fs-14); color: var(--text-2); }
 .pz-tool .dop-vel b { font-size: var(--s-big); }
 .pz-tool .pz-inst { display: flex; flex-direction: column; gap: 10px; padding: 0; overflow: visible; }
-.pz-tool .pz-inst > *, .pz-tool .hv-main, .pz-tool .chart-box { flex: none; }
+.pz-tool .pz-inst > *, .pz-tool .chart-box { flex: none; }
 .pz-tool select,
 .pz-tool .dop-btns,
 .pz-tool .btn,
@@ -2547,8 +2540,6 @@ button.finding { cursor: pointer; }
   .pz > :is(.pz-text, .pz-data, .pz-panel), .pz-text > .pz-leave, .pz-shade { transform: none !important; }
 }
 /* Menu › Present: the presentations and your scripts. */
-.pz-deck { position: relative; display: flex; flex-direction: column; gap: 10px; padding: 14px 16px; border: 1px solid var(--border); border-radius: var(--r-sheet); background: var(--surface); overflow: hidden; }
-.pz-deck h3 { margin: 0; font: 600 var(--fs-20, 20px)/1.2 var(--font-display); letter-spacing: -.01em; color: var(--text); }
 /* High contrast (P while presenting, or Settings): colour only, never a size. Stronger words, ratings as filled chips, a deeper shade. Organ art unchanged. */
 .app.pz-hi .pz-text { filter: contrast(1.3); }
 /* The opening slide: the talk's plan as a numbered run of sections, its objectives on a tinted card beside it
@@ -3171,13 +3162,6 @@ button.finding { cursor: pointer; }
 
 /* ── HVPG ───────────────────────────────────────── */
 .instrument-view.hv { display: flex; flex-direction: column; align-items: stretch; gap: 10px; min-height: 100%; }
-.hv-main { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; flex: 1 1 0; min-height: 0; }
-@container (min-width: 620px) {
-  .hv-main { grid-template-columns: minmax(0, 1fr) 232px; }
-}
-@container (max-width: 619px) or style(--one-col: 1) {
-  .hv-main { flex: none; gap: 12px; }
-}
 
 
 /* Moving blood: the Blood menu beside the lens, and the origin key in the figure. */
@@ -4784,14 +4768,14 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
 @media (orientation: landscape) and (max-height: 500px) { .pz-tool .dop-dir { font-size: var(--s-body); } .pz-tool .dop-vel b { font-size: var(--s-val); } }
 /* The side card keeps one column at every width: widening it grows the pictures, it never splits them off. */
 .instrument-workspace.side { --one-col: 1; }
-.instrument-workspace.side :is(.instrument-view, .dop-main, .hv-main, .ab-main) { grid-template-columns: minmax(0, 1fr); }
+.instrument-workspace.side :is(.instrument-view, .dop-main, .ab-main) { grid-template-columns: minmax(0, 1fr); }
 .instrument-workspace.side .instrument-view > .chart-side { grid-column: auto; }
 /* An upright tablet's Tests card is the phone's sheet, so it keeps the phone's one column at its greater width (Mohammad, 17 Oct:
    "replicate the phone cards"): each picture runs the card's width with its readings under it, as on an iPhone, never a small
    picture beside a column of readings. (The iPhone's sheet is under 620 px, so it is one column already.) */
 @media (min-width: 768px) and (max-width: 1100px) and (orientation: portrait) {
   .app.thumb .instrument-workspace.float-ui:not(.side) { --one-col: 1; }
-  .app.thumb .instrument-workspace.float-ui:not(.side) :is(.instrument-view, .dop-main, .hv-main, .ab-main) { grid-template-columns: minmax(0, 1fr); }
+  .app.thumb .instrument-workspace.float-ui:not(.side) :is(.instrument-view, .dop-main, .ab-main) { grid-template-columns: minmax(0, 1fr); }
   .app.thumb .instrument-workspace.float-ui:not(.side) .instrument-view > .chart-side { grid-column: auto; }
   .app.thumb .instrument-workspace.float-ui:not(.side) .ab-read { padding-right: 0; }
   .app.thumb .instrument-workspace.float-ui:not(.side) .ab-ctl { margin-top: var(--ab-g); padding: calc(var(--ab-g) - 5px) 0 0; border-top: 1px solid var(--hairline); border-left: 0; align-content: start; }

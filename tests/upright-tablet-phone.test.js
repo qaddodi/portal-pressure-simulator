@@ -43,7 +43,7 @@ test('every phone block in the stylesheet takes in the upright tablet, and every
 test('an upright tablet\'s Tests card keeps the phone\'s one column, its picture the card\'s width', () => {
   const m = css.match(/@media \(min-width: 768px\) and \(max-width: 1100px\) and \(orientation: portrait\) \{\n {2}\.app\.thumb \.instrument-workspace\.float-ui:not\(\.side\) \{ --one-col: 1; \}[\s\S]*?\n\}/)?.[0] ?? '';
   assert.ok(m, 'the block');
-  assert.match(m, /:is\(\.instrument-view, \.dop-main, \.hv-main, \.ab-main\) \{ grid-template-columns: minmax\(0, 1fr\); \}/, 'Doppler\'s monitor no longer shares its row with a column of readings');
+  assert.match(m, /:is\(\.instrument-view, \.dop-main, \.ab-main\) \{ grid-template-columns: minmax\(0, 1fr\); \}/, 'Doppler\'s monitor no longer shares its row with a column of readings');
   assert.match(m, /\.ab-ctl \{ margin-top: var\(--ab-g\);[^}]*border-left: 0;/, 'Ascites stacks its controls under the belly');
 });
 
