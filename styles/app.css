@@ -1701,7 +1701,7 @@ button.finding { cursor: pointer; }
    own caption would not fit under six bars.) */
 @container (max-width: 470px) {
   .pz-rail ol { --s-cap: calc(var(--t-cap) * var(--ts, 1)); --s-lab: calc(var(--t-lab) * var(--ts, 1)); --s-body: calc(var(--t-body) * var(--ts, 1)); --s-val: calc(var(--t-val) * var(--ts, 1)); --s-big: calc(var(--t-big) * var(--ts, 1)); --s-title: calc(var(--t-title) * var(--ts, 1)); }
-  .pz-rail li { position: relative; min-height: 6.4em; }
+  .pz-rail li { position: relative; min-height: 7.8em; }
   .pz-rail .n { position: absolute; top: 1.1em; right: 50%; font-size: var(--s-cap); transform-origin: 100% 0; rotate: -60deg; }
 }
 /* (A phone on its side: the bars at the Mac size, and the
