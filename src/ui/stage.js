@@ -11,7 +11,6 @@ import { store, updateParams, varicesPresent, varixGrowth, shownVel } from './st
 import { fibroReading } from './clock.js?v=6a1f89a5c2';
 import { s, h, fmt, fmtFlow, fp, clamp, lerp, toast, systemEdge, bloodColors, restBox, translateRest, settledBox, putText, UPRIGHT_MQ } from './util.js?v=be12b8e102';
 import { riseCentre } from './rise-path.js?v=c039cb7b49';
-import { createLobuleZoom } from './lobule-zoom.js?v=30f1b81930';
 import { sinceSource } from './since-ref.js?v=ef1a818c75';
 import { clipBox, mapBox } from './fit-box.js?v=d5d6d4c60f';
 import { runFlick, FLICK } from './flick.js?v=9602697f46';
@@ -1331,7 +1330,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const VB_CIRC_R = [CIRC_C[0] - VB_CIRC[3] / 2, CIRC_C[1] - VB_CIRC[2] / 2, VB_CIRC[3], VB_CIRC[2]];
   // Degrees the world is turned by right now (blended in with the view morph).
   const rotDeg = () => -90 * rotEase(rotU) * Math.max(0, lastMorph);
-  let lz = null;   // the lobule view's layer
+  let lz = null;   // the lobule view's layer (built when its code has arrived: lobuleReady)
+  let lzCode = null, lzLoad = null, lzWaiting = false, lzSoon = false, aimWait = null;
   let geometryVersion = 0;
   let netBox = null, netBoxFor = -1;
   // Everything drawn in screen space (labels, leaders, organ names, the flow marks, the action
@@ -2085,6 +2085,14 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // only from the view switch, never by zooming out. The anatomy underneath keeps its framing.
   function openLobule(tries = 0) {
     if (morphTarget !== 0) store.set({ view: 'anatomic' });
+    // The lobule's code loads after the first paint (lobuleReady): a dive asked for before it is there goes on once it is.
+    if (!lz) {
+      if (!lzWaiting) {
+        lzWaiting = true;
+        lobuleReady().then(() => { lzWaiting = false; if (store.get().lobule) openLobule(); }, (err) => { lzWaiting = false; console.error(err); store.set({ lobule: false, sinusoid: false }); });
+      }
+      return;
+    }
     // Right after loading the liver may not be laid out yet: try again shortly.
     // From the circuit, ease into the anatomy first, then dive.
     if (!liverBox() || morphTarget !== 0 || morph > 0.02) { if (tries < 40) setTimeout(() => { if (store.get().lobule) openLobule(tries + 1); }, 120); return; }
@@ -2095,7 +2103,22 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   function closeLobule() { setLobule(false); }
   store.on('lobule', (on) => (on ? openLobule() : closeLobule()));
   const zoomLobule = () => store.set({ lobule: true });
-  lz = createLobuleZoom({ host: wrap, styles: wrapCS });
+  // The lobule's layer (the zoom, the sinusoid view under it) is built when its code has arrived, which the stage asks for once the
+  // figure is on screen and the page has a moment (prepLobule), or at once when a dive is asked for. It takes the place in the page it
+  // always had (the anchor), so the layers stack as they did, and reads the frame and the store as they stand. What a presenter slide
+  // asked of it before then (lobuleAim) is kept for it.
+  const lzAnchor = document.createComment('lobule');
+  wrap.append(lzAnchor);
+  // (The code is fetched as soon as the figure is shown; the layer is built a moment later, when the page is quiet, or at once for a dive.)
+  const lobuleCode = () => (lzCode ||= import('./lobule-zoom.js?v=af7cf4a7ee').catch((err) => { lzCode = null; throw err; }));
+  function lobuleReady() {
+    return (lzLoad ||= lobuleCode().then(({ createLobuleZoom }) => {
+      lz = createLobuleZoom({ host: wrap, styles: wrapCS, before: lzAnchor });
+      if (aimWait) { lz.aim(...aimWait); aimWait = null; }
+      if (F) lz.update(F);
+      return lz;
+    }, (err) => { lzLoad = null; throw err; }));
+  }
 
   // ── Detail ────────────────────────────────────────
   // Detail: the moving blood is drawn on every frame the screen offers (fps 0: 60, 120 or more a second; a frame of it
@@ -2336,8 +2359,12 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     setTimeout(go, 0);
   };
   function prepLobule() {
+    if (!lz) {   // (the lobule's code comes once the figure is on screen and the page is quiet; the first dive is prepared as soon as it is built)
+      if (figureShown && !lzLoad && !lzSoon) { lzSoon = true; lobuleCode().catch(() => {}); prepIdle(() => lobuleReady().then(() => prepLobule(), (err) => console.warn('The lobule view did not load.', err))); }
+      return;
+    }
     const now = performance.now();
-    if (prepBusy || !lz || !figureShown || now - prepAt < 1000) return;
+    if (prepBusy || !figureShown || now - prepAt < 1000) return;
     prepAt = now;
     const calm = () => morphTarget === 0 && morph < 0.02 && !lobuleOn && diveT === 0 && !vtGliding;
     if (!calm() || figureHidden()) return;
@@ -10293,7 +10320,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     /** The presenter's camera in the lobule: the whole lobule ('fit'), a portal tract ('triad'), the sinusoids ('sinusoid') or the central vein ('central'). */
     lobuleFocus: (part, opts) => !!lz?.focusOn(part, opts),
     /** Where the presenter's next lobule framing will be, so a dive lands on it in one move (see lobule-zoom aim). */
-    lobuleAim: (part, opts) => lz?.aim(part, opts),
+    lobuleAim: (part, opts) => { if (lz) lz.aim(part, opts); else { aimWait = [part, opts]; lobuleReady().catch(() => {}); } },
     /** The way out of the lobule begins (true: its framing stays in the space the leaving slide's cards left) or is called off (false). */
     lobuleHold: (on) => lz?.holdFrame(on),
     /** The dive into the lobule (or back out) has finished: the view is wholly the lobule, or wholly the anatomy. */

@@ -27,19 +27,16 @@ import { sinusoidTargets } from './sinusoid-model.js?v=74f5d007ca';
 import { createSinusoidGL, poreAt, poreOpenness, cellAt, cellEdge, SLOT, SEED, UM } from './sinusoid-gl.js?v=43f77a6997';
 import { frameFor, noteDraw, saver, paceMs } from './frame.js?v=19b3f2915c';
 import { softwareGL, softwareYield } from './sw-yield.js?v=e580a095b1';
+import { noteSinusoidSupport } from './gl-support.js?v=94ad2a7ff1';
 const nextFrame = frameFor('sinusoid-view');
 
 const smooth = (a, b, x) => { const t = clamp((x - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };
 function rng(seed) { let q = seed >>> 0; return () => { q = (q * 1664525 + 1013904223) >>> 0; return q / 4294967296; }; }
 
-let glSupport = null;
-/** Whether this browser can draw the sinusoid view (WebGL2). */
-export function sinusoidSupported() {
-  if (glSupport == null) { try { glSupport = !!document.createElement('canvas').getContext('webgl2'); } catch { glSupport = false; } }
-  return glSupport;
-}
+export { sinusoidSupported } from './gl-support.js?v=94ad2a7ff1';
 
-export function createSinusoidView({ host }) {
+/** `before`: a node of `host` to sit ahead of (the lobule layer, built late, takes the place it would have had). */
+export function createSinusoidView({ host, before = null }) {
   const reduce = matchMedia('(prefers-reduced-motion: reduce)');
   const phoneMQ = matchMedia('(max-width: 720px)');
   const canvas = h('canvas', { class: 'sv-canvas', role: 'img', 'aria-label': 'A sinusoid, cut along its length' });
@@ -103,9 +100,9 @@ export function createSinusoidView({ host }) {
     dot.setAttribute('cx', tx.toFixed(1)); dot.setAttribute('cy', ty.toFixed(1)); dot.setAttribute('r', '1.8');
   }
   const el = h('div', { class: 'sv', 'aria-hidden': 'true' }, canvas, leaders, labels, legend);
-  host.append(el);
+  host.insertBefore(el, before);
   const gpu = createSinusoidGL(canvas);
-  glSupport = !!gpu;   // (answered by this view's own context: sinusoidSupported need not make a throwaway one)
+  noteSinusoidSupport(!!gpu);   // (answered by this view's own context: sinusoidSupported need not make a throwaway one)
   // (A software renderer only: a frame of the view waits for the last to finish on the GPU and gives the page as long again,
   // as the anatomy's vessels do; see sw-yield.js. On a GPU there is no yield.)
   const swGL = gpu ? canvas.getContext('webgl2') : null, svYield = swGL && softwareGL(swGL) ? softwareYield(true, swGL) : null;

@@ -30,7 +30,7 @@ import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatCol
 import { NODES, EDGES } from '../engine/topology.js?v=4044766e96';
 import { createVeinsGL, binVeins, laneSum, N_SAMPLES, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_SPEC, F_EDGE, ORIGIN_GREY } from './veins-gl.js?v=cf5d85d779';
 import { SLOT, PERIOD, originFractions, ORIGIN_N, DRIFT_PERIOD } from './blood.js?v=e668d01823';
-import { createSinusoidView } from './sinusoid-view.js?v=32a69ad0dc';
+import { createSinusoidView } from './sinusoid-view.js?v=673235c550';
 import { frameFor, cancelFrame, noteDraw, saver, paceMs } from './frame.js?v=19b3f2915c';
 import { leaderEnd, runInside } from './leader-end.js?v=8e884700ab';
 const nextFrame = frameFor('lobule-zoom');
@@ -208,7 +208,10 @@ function fibrousCuff(c, cx, cy, inner, outer, rgb, fibrosis) {
   c.restore();
 }
 
-export function createLobuleZoom({ host, styles = () => getComputedStyle(host) }) {
+/** `before`: a node of `host` the layer sits ahead of. The stage builds the layer after the first paint, and in the page it takes the
+ *  place it always had (a layer of the same z-index drawn later would otherwise cover the labels the stage adds after it). With the
+ *  layer built late, what the store already holds (a slide's callout, the sinusoid asked for) is read once it exists. */
+export function createLobuleZoom({ host, styles = () => getComputedStyle(host), before = null }) {
   const reduce = matchMedia('(prefers-reduced-motion: reduce)');
   const tissue = h('canvas', { class: 'lz-canvas', role: 'img', 'aria-label': 'Liver lobule microcirculation' });
   const glCv = h('canvas', { class: 'lz-canvas lz-gl', 'aria-hidden': 'true' });
@@ -240,7 +243,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host) }
     if (c) { callEl.textContent = c.label; callEl.dataset.kind = callLine.dataset.kind = callRing.dataset.kind = c.kind || 'block'; }
     viewChanged();
   };
-  store.on('lobuleCallout', () => {
+  const onCallout = () => {
     const c = store.get().lobuleCallout || null;
     if (JSON.stringify(c) === JSON.stringify(callWant)) return;
     callWant = c;
@@ -248,7 +251,8 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host) }
     clearTimeout(callSwap); callSwap = 0;
     if (c && !reduce.matches && (fading || (call && callEl.classList.contains('on')))) { if (call) callSet(null); callSwap = setTimeout(() => { callSwap = 0; callSet(callWant); }, 500); return; }
     callSet(c);
-  });
+  };
+  store.on('lobuleCallout', onCallout);
 
   const phoneMQ = matchMedia('(max-width: 720px)');
   // While the dive shows the tissue scaled down, a copy of it with everything past the lobule's rim cleared is shown in its place (see
@@ -259,7 +263,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host) }
   const el = h('div', { class: 'lz', 'aria-hidden': 'true' }, tissue, diveCv, glCv, fx, leaders, labels);
   // The dive's field (below the view): the liver's lobules, few and large, that the camera falls through (those away from the landing lobule fade as it nears).
   const field = h('canvas', { class: 'lz-canvas lz-field', 'aria-hidden': 'true' });
-  host.append(field, el);
+  host.insertBefore(field, before); host.insertBefore(el, before);
 
   // ── The view: the lobule framed in the space the floating pieces leave (top bar, dock, cards and
   // its own card), free zoom up to 5× that, the pan held to this lobule. Zooming out stops at the framing.
@@ -3122,7 +3126,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host) }
   // lobule grows about that sinusoid, turning it to lie along the screen and carrying it to where the
   // sinusoid view draws its own; as the zoom lands the sinusoid view, at the same size and angle, resolves in and
   // covers it. Zooming out (the zoom buttons, a pinch, the wheel), its back button or Escape reverse it.
-  const sv = createSinusoidView({ host });
+  const sv = createSinusoidView({ host, before });
   let sinU = 0, sinTo = 0, sinRaf = 0, sinDive = null, sinPick = null, quietSin = false, sinPending = false;
   let sinZ = 0;   // (sinZ: the sinusoid zoom's log scale so far, for the tests)
   const easeIO = (u) => (u < 0.5 ? 4 * u * u * u : 1 - (-2 * u + 2) ** 3 / 2);
@@ -3458,5 +3462,8 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host) }
       return out;
     },
   };
+  // (Built late, the store has already had its say on these: read what it holds now. Nothing is set when the layer is built at start-up.)
+  onCallout();
+  if (store.get().sinusoid) diveSinusoid(true);
   return api;
 }
