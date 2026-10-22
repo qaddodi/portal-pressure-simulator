@@ -27,7 +27,11 @@ test('the stage splits the organs into the layers in the SVG order, and shows a 
   assert.match(stage, /const ORGAN_LAYERS = \['back', 'behind', 'gut', 'kidney', 'spleen', 'stomach', 'liver', 'front'\];/);
   // (An organ the list does not name goes with the layer before it: the SVG's order is always kept.)
   assert.match(stage, /for \(const k of gOrgans\.children\) \{ last = by\.get\(k\) \|\| last; out\.set\(k, last\); \}/);
-  assert.match(stage, /if \(!\(await rasterPlate\(slot, r, scale, L, false\)\) \|\| v !== veins \|\| !v\.organs\) return false;/, 'a layer given up gives up the set');
+  assert.match(stage, /if \(!\(await rasterPlate\(slot, r, scale, L, false, live\)\) \|\| v !== veins \|\| !v\.organs\) return false;/, 'a layer given up gives up the set');
+  // (With the changing organs painted live, their layers are not made, and the gut and the stomach are made without their masks.)
+  assert.match(stage, /if \(live && LIVE_LAYERS\.has\(L\)\) continue;/);
+  assert.match(stage, /const LIVE_LAYERS = new Set\(\['back', 'spleen', 'liver', 'front'\]\);/);
+  assert.match(stage, /const MASK_OF = \{ gut: '#gutHide', stomach: '#frontM' \};/);
   assert.match(stage, /v\.organs\.commit\(slot, names\);/);
   assert.match(stage, /\(!SOFTWARE \|\| gpuProbe\.gpuOrgans === 'force'\)/, 'off on a software renderer unless forced');
   const gl = readFileSync(new URL('../src/ui/organs-gl.js', import.meta.url), 'utf8');

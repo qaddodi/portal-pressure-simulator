@@ -54,7 +54,10 @@ test('the GPU fills a plate texture of its own and swaps it in whole', () => {
 test('an ease that outgrows the plate shows on the live drawing, and the plate is drawn again once it settles', () => {
   // (Held, the organs inside the plate stood still while their outlines moved through a fill played over days, then jumped.)
   const poke = stage.slice(stage.indexOf('function platePoke'), stage.indexOf('const key = plateStateKey();', stage.indexOf('function platePoke')));
-  assert.match(poke, /if \(lvMoving \|\| fluidEasing\(\)\) \{ if \(plateKey && veins\.hasPlate\(0\) && plateStateKey\(\) !== plateKey\) hidePlate\(\); return; \}/);
+  assert.match(poke, /if \(!live && \(lvMoving \|\| fluidEasing\(\)\)\) \{ if \(plateKey && veins\.hasPlate\(0\) && plateStateKey\(\) !== plateKey\) hidePlate\(\); return; \}/);
+  // (Unless the changing organs are painted live: then nothing is dropped, and the pictures under them hold none of them.)
+  assert.match(poke, /const live = liveOn\(\);/);
+  assert.match(stage, /if \(liveOn\(\)\) return \['live', organG\.bowel\.getAttribute\('transform'\)/);
 });
 
 test('highlighting an organ never draws the organ picture again (its look is the same, and the redraw lagged)', () => {

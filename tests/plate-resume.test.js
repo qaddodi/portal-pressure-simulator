@@ -26,7 +26,7 @@ test('an organ picture whose state changed on its way in is given up, not shown'
 test('no organ picture is begun or shown while the page is in the background, and the state is checked on return', () => {
   const p = body('platePoke');
   assert.match(p.split('\n').find((l) => l.includes('glWanted(easeInOut(morph))')), /document\.hidden/, 'platePoke waits while hidden');
-  assert.match(p.split('\n').find((l) => l.includes('figureHidden() ||') && l.includes('lvMoving')), /document\.hidden/, 'the delayed raster waits while hidden');
+  assert.match(p.split('\n').find((l) => l.includes('figureHidden() ||') && l.includes('moving')), /document\.hidden/, 'the delayed raster waits while hidden');
   assert.match(p, /else if \(plateStateKey\(\) !== k\) plateAgain = true/, 'a picture given up is drawn again for the state now');
   assert.match(src, /addEventListener\('visibilitychange', \(\) => \{ if \(!document\.hidden\) platePoke\(\); \}\)/);
 });

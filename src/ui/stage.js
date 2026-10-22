@@ -11,7 +11,7 @@ import { store, updateParams, varicesPresent, varixGrowth, shownVel } from './st
 import { fibroReading } from './clock.js?v=e011dfc3e7';
 import { s, h, fmt, fmtFlow, fp, clamp, lerp, toast, systemEdge, bloodColors, restBox, translateRest, settledBox, putText } from './util.js?v=54c2d6673a';
 import { riseCentre } from './rise-path.js?v=c039cb7b49';
-import { createLobuleZoom } from './lobule-zoom.js?v=6a7d4616ce';
+import { createLobuleZoom } from './lobule-zoom.js?v=cb6465d421';
 import { sinceSource } from './since-ref.js?v=ef1a818c75';
 import { clipBox, mapBox } from './fit-box.js?v=d5d6d4c60f';
 import { runFlick, FLICK } from './flick.js?v=800d62a715';
@@ -32,8 +32,9 @@ import { warmVisible, ringGrid, inGrid } from './warm-vis.js?v=ccf4f6f71b';
 import { createRouter } from './circuit-router.js?v=0ee9e02fc6';
 import { gpuProbe } from './gpu-probe.js?v=2e30f04b4d';
 import { plateStrips, premultiply, gutStep, viewReuse, copyPixels } from './plate-upload.js?v=5fc45556a1';
-import { cropToGrid } from './organs-gl.js?v=909b82809e';
-import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, ORIGIN_GREY } from './veins-gl.js?v=79c5598cc8';
+import { cropToGrid } from './organs-gl.js?v=aa092ee112';
+import { readGroup } from './organ-paint.js?v=ef382296bf';
+import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, ORIGIN_GREY } from './veins-gl.js?v=57a31d5c7c';
 import { varixBead, beadRadius } from './varix-bead.js?v=ac0e84fd89';
 import { advanceStream, createReversalHold, bleedShapes, stepBleedFade, fadeBleedShapes, chevFlowLevel, keyChevron, KEY_CHEV_LANES, originFractions, oxygenFor, ORIGIN_N, createBolus, DYE_BINS, KAPPA, STASIS_MIN_D, HIDDEN_SECONDS } from './blood.js?v=e668d01823';
 import { frameFor, cancelFrame, noteDraw, setSaver as setFrameSaver, paceMs } from './frame.js?v=a83f37af2f';
@@ -3565,6 +3566,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   /** Redraws the vessel layer (and the picture) if anything in it changed; true when it did. */
   let glM = null;   // the world → stage transform (CSS px) the vessels were last drawn in (for the tests)
   function drawVeins(fullComposite = false) {
+    if (liveSet || liveOn()) syncLiveOrgans();
     syncGutPic();
     if (!veins || veins.lost || !vLook || !F) return false;
     if (!CTM) refreshCTM();
@@ -3615,6 +3617,13 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // The organs drawn as layers on the GPU (organs-gl.js) instead of one flattened picture: the ?perf switch "GPU organs" for now.
   // (Not on a software renderer: CI's browser checks keep the one picture; ?gpuorgans=force turns it on there, for its own check.)
   const gpuOrgansOn = () => !!(gpuProbe.gpuOrgans && veins?.organs && (!SOFTWARE || gpuProbe.gpuOrgans === 'force'));
+  // With it, the organs that change (the liver, the spleen, the diaphragm, the falciform line: LIVE_LAYERS) are painted live on
+  // the GPU from their own SVG at each frame they change (syncLiveOrgans), so their picture is never dropped while they ease; the
+  // gut's and the stomach's masks, which follow the liver and the spleen, are painted live over pictures made without them.
+  // (Off when an organ could not be read for painting: the organs are then all pictures, as above.)
+  const LIVE_LAYERS = new Set(['back', 'spleen', 'liver', 'front']);
+  let liveFailed = false;
+  const liveOn = () => gpuOrgansOn() && !!veins.organs.canLive && !liveFailed;
   // Drops the plate rasters and shows the live SVG organs. The vessel layer is redrawn in the same
   // task (after the model update in progress), so no frame shows the SVG organs over the old GPU
   // plate: the two, and the ascites, would add up to a bright flash.
@@ -3768,7 +3777,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const g = 4 * rect[2] / W, band = [rect[0] - g, rect[1] - g, rect[2] + 2 * g, rect[3] + 2 * g];
     return fillMaskHead(t.head, t.masks.map((m) => maskRegionIn(m.r, band, m.toLocal)));
   }
-  function plateMarkup(rect, W, H, fresh, cull = false, layer = null) {
+  function plateMarkup(rect, W, H, fresh, cull = false, layer = null, unmask = false) {
     const key = plateStateKey();
     if (fresh || !plateCopy || plateCopy.key !== key || plateCopy.seq !== plateSeq) plateCopy = plateBuild(key);
     // Only the nodules and nutmeg islands that meet this window (the others add nothing to it).
@@ -3782,15 +3791,21 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     }
     // One layer of the organs: the backdrop alone, or only the organs' groups marked with it (plateBuild).
     const parts = layer ? plateCopy.parts.filter((c) => (c.getAttribute('data-layer') === 'back') === (layer === 'back')) : plateCopy.parts;
+    const unmasked = [];
     if (layer && layer !== 'back') {
       const off = [];
       for (const c of parts) for (const k of c.children) if (k.getAttribute('data-layer') !== layer) off.push([k, c, k.nextSibling]);
       for (const [k] of off) k.remove();
       out0.push(...off);
+      // (Painted live, its mask is left out of the picture: syncLiveOrgans paints it over the picture.)
+      if (unmask) for (const c of parts) for (const k of c.children) if (k.getAttribute('mask')) { unmasked.push([k, k.getAttribute('mask')]); k.removeAttribute('mask'); }
     }
     let out;
     try { out = (cull ? maskHead(plateCopy, rect, W) : plateCopy.head) + parts.map((c) => ser.serializeToString(c)).join(''); }
-    finally { for (let i = out0.length - 1; i >= 0; i--) { const [c, p, n] = out0[i]; p.insertBefore(c, n); } }   // (the copy stays whole: the next view, the gut's picture)
+    finally {
+      for (let i = out0.length - 1; i >= 0; i--) { const [c, p, n] = out0[i]; p.insertBefore(c, n); }   // (the copy stays whole: the next view, the gut's picture)
+      for (const [k, v] of unmasked) k.setAttribute('mask', v);
+    }
     return `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="${W}" height="${H}" viewBox="${rect.join(' ')}" preserveAspectRatio="none">${out}</svg>`;
   }
   // An SVG picture of the given markup, loaded (its parse is the browser's, in one go: so each one is kept small).
@@ -3803,7 +3818,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       return img;
     } finally { URL.revokeObjectURL(url); }
   }
-  async function rasterPlate(slot, rect, scale, layer = null, fresh = true) {
+  async function rasterPlate(slot, rect, scale, layer = null, fresh = true, unmask = false) {
     const W = Math.max(1, Math.round(rect[2] * scale)), H = Math.max(1, Math.round(rect[3] * scale));
     const seq = plateSeq, drops = plateDrops;
     // The view's sharp picture (slot 1) is made a strip at a time, each strip a picture of its own from only the shapes that
@@ -3860,7 +3875,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
           if (copy) gpuProbe.time(null, 'organ picture: reuse', () => copyPixels(px, W, copy[0], copy[1], prev.px, prev.W, copy[0] + ox, copy[1] + oy, copy[2], copy[3]));
           const mine = [];
           for (const [qx, qy, qw, qh] of draw) {
-            const band = await svgPicture(gpuProbe.time(null, 'organ picture: copy (script)', () => plateMarkup([rect[0] + qx / sx, rect[1] + qy / sy, qw / sx, qh / sy], qw, qh, false, true, layer)));
+            const band = await svgPicture(gpuProbe.time(null, 'organ picture: copy (script)', () => plateMarkup([rect[0] + qx / sx, rect[1] + qy / sy, qw / sx, qh / sy], qw, qh, false, true, layer, unmask)));
             if (gone() || plateCopy?.key !== drawnAs) return false;
             mine.push([qx, qy, drawn(qw, qh, (pg) => pg.drawImage(band, 0, 0, qw, qh))]);
           }
@@ -3868,7 +3883,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
           for (const [qx, qy, p] of mine) copyPixels(px, W, qx, qy, readBack(p), p.w, 0, 0, p.w, p.h);
           v.plateRows(job, y, rows, px.subarray(y * W * 4, (y + rows) * W * 4));
         } else {
-          const band = await svgPicture(gpuProbe.time(null, 'organ picture: copy (script)', () => plateMarkup([rect[0], rect[1] + y / sy, rect[2], rows / sy], W, rows, false, true, layer)));
+          const band = await svgPicture(gpuProbe.time(null, 'organ picture: copy (script)', () => plateMarkup([rect[0], rect[1] + y / sy, rect[2], rows / sy], W, rows, false, true, layer, unmask)));
           if (gone() || plateCopy?.key !== drawnAs) return false;
           const p = drawn(W, rows, (pg) => pg.drawImage(band, 0, 0, W, rows));
           await new Promise((res) => nextFrame(res)); waited = true;
@@ -3909,19 +3924,62 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     return by;
   }
   async function rasterLayers(slot, rect, scale) {
-    const v = veins, boxes = layerBoxes(), names = [];
+    const v = veins, boxes = layerBoxes(), names = [], live = liveOn();
     if (slot === 0) gpuProbe.time(null, 'organ picture: copy (script)', () => { plateCopy = plateBuild(plateStateKey()); });
     try {
       for (const L of ORGAN_LAYERS) {
+        if (live && LIVE_LAYERS.has(L)) continue;
         const box = boxes ? boxes.get(L) : EVERYWHERE;
         const r = box && cropToGrid(rect, box, scale);
         if (!r) continue;
-        if (!(await rasterPlate(slot, r, scale, L, false)) || v !== veins || !v.organs) return false;
+        if (!(await rasterPlate(slot, r, scale, L, false, live)) || v !== veins || !v.organs) return false;
         names.push(L);
       }
       v.organs.commit(slot, names);
+      if (live) { syncLiveOrgans(true); v.organs.setOrder(ORGAN_LAYERS); }
       return true;
     } finally { if (v === veins && !v.lost) v.organs?.dropStaged(slot); }
+  }
+  // The live organs' specs (organ-paint readGroup) read again whenever what they draw may have changed (liveKey), for the next
+  // render of the stack. Their outlines are read from the page at the render itself.
+  const matOfEl = (el) => { const t = el?.transform?.baseVal; if (!t || !t.numberOfItems) return [1, 0, 0, 1, 0, 0]; const k = t.consolidate().matrix; return [k.a, k.b, k.c, k.d, k.e, k.f]; };
+  const MASK_OF = { gut: '#gutHide', stomach: '#frontM' };
+  let liveKeyWas = '', liveSet = false;
+  function liveKey() {
+    const cs = wrapCS();
+    return [liverKey, organG.liver.getAttribute('transform'), organG.spleen.getAttribute('transform'), organG.spleen.style.opacity, diaKey, liverTint.style.opacity,
+      ghost.style.display, ghost.style.opacity, frontCut?.getAttribute('fill-opacity'), thinCut?.getAttribute('fill-opacity'), organEls.umbilicus?.getAttribute('opacity'),
+      organG.falciform?.getAttribute('transform'), cs.getPropertyValue('--stage-bg'), cs.getPropertyValue('--organ-liver'), wrap.classList.contains('imaging'), document.documentElement.dataset.theme || ''].join('|');
+  }
+  function syncLiveOrgans(force = false) {
+    const v = veins;
+    if (!v || v.lost || !v.organs) return;
+    if (!liveOn()) { if (liveSet) { v.organs.setLive(null, null); liveSet = false; liveKeyWas = ''; } return; }
+    const key = liveKey();
+    if (!force && key === liveKeyWas) return;
+    // (The organs' own colours: a lens's grey on the live SVG (only while the plate is off) would be read as theirs.)
+    if (greyList) return;
+    liveKeyWas = key;
+    const organs = new Map(), masks = new Map();
+    let ok = true;
+    const add = (L, el) => {
+      if (getComputedStyle(el).display === 'none') return;
+      const spec = readGroup(el);
+      if (!spec) { ok = false; console.warn('Organs on the GPU: not readable for painting, the organs stay pictures:', el); return; }
+      if (!organs.has(L)) organs.set(L, []);
+      organs.get(L).push({ spec, m: matOfEl(el) });
+    };
+    add('back', gBackdrop);
+    for (const [k, L] of organLayers()) if (LIVE_LAYERS.has(L)) add(L, k);
+    for (const [L, sel] of Object.entries(MASK_OF)) {
+      const el = defs.querySelector(sel), g = L === 'gut' ? gGut : organG.stomach;
+      const spec = el && readGroup(el);
+      if (!spec) { ok = false; continue; }
+      masks.set(L, { spec, m: matOfEl(g) });
+    }
+    if (!ok) { liveFailed = true; v.organs.setLive(null, null); liveSet = false; hidePlate(); platePoke(); return; }
+    // (The next composite renders the stack again for it (its version moved): the vessels themselves need no redraw.)
+    v.organs.setLive(organs, masks); liveSet = true;
   }
   // What the plate shows, in coarse steps: re-rasterize when it changes. A selected organ is not part of it: its outline is drawn
   // outside the organs (gSelO, or on the GPU) and its dim on the GPU, and its .org-sel class styles nothing, so the picture was
@@ -3933,6 +3991,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     // while the model runs must not re-rasterize the plate over and over.
     const tq = (parseFloat(liverTint.style.opacity) || 0) * 40;
     if (Math.abs(tq - tintQ) > 1.5 || (tq === 0 && tintQ !== 0)) tintQ = Math.round(tq);
+    // (With the changing organs painted live, the pictures hold none of them: only the rest is the pictures' state.)
+    if (liveOn()) return ['live', organG.bowel.getAttribute('transform'), cs.getPropertyValue('--stage-bg'), cs.getPropertyValue('--organ-liver'), wrap.classList.contains('imaging')].join('|');
     return [liverKey, organG.liver.getAttribute('transform')?.replace(/(\d\.\d\d\d)\d*/g, '$1'), organG.spleen.getAttribute('transform')?.replace(/(\d\.\d\d)\d*/g, '$1'), diaKey,
       tintQ,
       organG.bowel.getAttribute('transform'), (flank.getAttribute('d') || '').slice(0, 24), organEls.umbilicus?.getAttribute('opacity'),
@@ -3971,9 +4031,12 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     // An ease that outgrows the plate (a fill played over days, a liver that changes in small steps) shows on the live drawing
     // as it goes, and the plate is drawn again once it settles: held, the organs inside it stood still while their outlines
     // moved, then jumped to the new shape at the end (Ascites deck slide 5, 17 Oct).
-    if (lvMoving || fluidEasing()) { if (plateKey && veins.hasPlate(0) && plateStateKey() !== plateKey) hidePlate(); return; }
+    // (With the changing organs painted live (liveOn) nothing is held or dropped: the pictures under them hold no liver, spleen or
+    // diaphragm, and are made again while the fluid eases, a strip a frame, the one shown staying until the new one is in.)
+    const live = liveOn();
+    if (!live && (lvMoving || fluidEasing())) { if (plateKey && veins.hasPlate(0) && plateStateKey() !== plateKey) hidePlate(); return; }
     // (A growing spleen: no new size may come once it stops, so a later poke rasterizes it once it has settled.)
-    if (spleenMoving()) { if (plateKey && veins.hasPlate(0) && plateStateKey() !== plateKey) hidePlate(); clearTimeout(spleenTimer); spleenTimer = setTimeout(platePoke, 320); return; }
+    if (!live && spleenMoving()) { if (plateKey && veins.hasPlate(0) && plateStateKey() !== plateKey) hidePlate(); clearTimeout(spleenTimer); spleenTimer = setTimeout(platePoke, 320); return; }
     const stale = plateStale; plateStale = false;
     const key = plateStateKey();
     if (key === plateKey && veins.hasPlate(0)) return;
@@ -3998,10 +4061,11 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     // given up costs a strip, and the waits of up to 3.2 s kept the live organs up, every pan or zoom a repaint of all of them, for
     // seconds after a change: external review, 22 Oct.)
     const still = plateMiss ? 800 : 400;
-    const wait = themed ? 0 : Math.max(0, 500 - (performance.now() - plateLast), still - (performance.now() - lvStillAt), 400 - (performance.now() - spleenMv.stillAt()), still - (performance.now() - fluidStillAt));
+    const wait = themed ? 0 : live ? Math.max(0, 500 - (performance.now() - plateLast)) : Math.max(0, 500 - (performance.now() - plateLast), still - (performance.now() - lvStillAt), 400 - (performance.now() - spleenMv.stillAt()), still - (performance.now() - fluidStillAt));
     clearTimeout(plateTimer);
     plateTimer = setTimeout(async () => {
-      if (figureHidden() || lvMoving || fluidEasing() || spleenMoving() || (lobuleOn && !lz?.isOpen()) || circuitInk() || document.hidden) return;   // hidden, moving or diving meanwhile: a later poke rasterizes
+      const moving = !liveOn() && (lvMoving || fluidEasing() || spleenMoving());
+      if (figureHidden() || moving || (lobuleOn && !lz?.isOpen()) || circuitInk() || document.hidden) return;   // hidden, moving or diving meanwhile: a later poke rasterizes
       const k = plateStateKey();
       if (k === plateKey && veins?.hasPlate(0)) return;   // it changed and changed back
       plateBusy = true; plateLast = performance.now();
@@ -4013,7 +4077,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
           // the softer whole plate for a beat: the textures would blur, then sharpen).
           plateView = null; plateViewKey = ''; dropViewKeep();   // (a picture of the state before: nothing to take from it)
           veinsDirty = true;
-          if (!plateOn() && glWanted(easeInOut(morph)) && !lvMoving && !spleenMoving()) {
+          if (!plateOn() && glWanted(easeInOut(morph)) && (liveOn() || (!lvMoving && !spleenMoving()))) {
             // The raster lands outside an animation frame (and the next frames may be paced out):
             // hide the SVG organs only together with a GPU draw that shows the plate, or a frame
             // would show neither (a flash of the dark stage through the organs).
@@ -4035,7 +4099,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // view, the picture is checked against the state now, and drawn again only if that differs.
   document.addEventListener('visibilitychange', () => { if (!document.hidden) platePoke(); });
   // The ?perf switch "GPU organs": the picture shown now is dropped (the live drawing shows for a beat) and made again the other way.
-  gpuProbe.onOrgans = () => { plateKey = ''; if (veins && !veins.lost) hidePlate(); platePoke(); };
+  gpuProbe.onOrgans = () => { plateKey = ''; liveFailed = false; if (veins && !veins.lost) { hidePlate(); syncLiveOrgans(); } platePoke(); };
   // After a pan or zoom settles, a raster of the view at the screen's resolution (when the
   // whole-plate raster would look soft there).
   function schedulePlateView() {
@@ -5393,7 +5457,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     // it settles: swapping to the live drawing and back every few seconds would flash the organs.
     const retarget = lvMoving && (cT !== lvCT || gT !== lvGTo);
     lvCT = cT; lvGTo = gT;
-    if (moving && (retarget || Math.max(Math.abs(cT - lvC), Math.abs(gT - lvG)) > 0.08) && veins && !veins.lost && veins.hasPlate(0)) hidePlate();
+    if (moving && (retarget || Math.max(Math.abs(cT - lvC), Math.abs(gT - lvG)) > 0.08) && veins && !veins.lost && veins.hasPlate(0) && !liveOn()) hidePlate();
     if (lvMoving && !moving) lvStillAt = performance.now();
     lvMoving = moving;
     if (moving) widthEasing = organsEasing = true;
@@ -5423,7 +5487,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const sc = f.slow.spleen / 11;
     normalSync(sc);
     // Growing, the plate (a picture of the organs at one size) gives way to the live drawing, which follows this size each frame.
-    if (spleenMv.see(sc, performance.now()) && veins && !veins.lost && veins.hasPlate(0)) hidePlate();
+    if (spleenMv.see(sc, performance.now()) && veins && !veins.lost && veins.hasPlate(0) && !liveOn()) hidePlate();
     putA(organG.spleen, 'transform', `translate(${SPLEEN_CENTER[0]} ${SPLEEN_CENTER[1]}) scale(${sc.toFixed(3)}) translate(${-SPLEEN_CENTER[0]} ${-SPLEEN_CENTER[1]})`);
     gpuProbe.time(null, 'organs: masks', () => syncOrganMasks(shrink, organG.spleen.getAttribute('transform')));
     if (organG.spleen.style.opacity !== (p.splenicRx === 2 ? '0.14' : '')) organG.spleen.style.opacity = p.splenicRx === 2 ? '0.14' : '';
@@ -5519,7 +5583,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       // A large change shows the live drawing while it eases, as the liver's does: the wall and bowel move with the fluid, and the plate
       // is rasterized once it settles (held under the plate, the wall would jump by the whole change when it landed).
       const held = fluidEasing();
-      if (held && Math.abs(clamp(ascTarget / 8500, 0, 1) * 34 - bulgeQ) > 3 && veins && !veins.lost && veins.hasPlate(0)) hidePlate();
+      if (held && Math.abs(clamp(ascTarget / 8500, 0, 1) * 34 - bulgeQ) > 3 && veins && !veins.lost && veins.hasPlate(0) && !liveOn()) hidePlate();
       // A critically damped spring on the drawn scale (volume^0.6), so the fluid fills in from the pelvis and
       // drains out smoothly, starting and stopping gently, instead of jumping in or out of existence.
       ({ shown: ascShown, vel: ascVel } = easeDt > 0.05 ? fluidSpringFor(ascShown, ascVel, ascTarget, easeDt) : fluidSpring(ascShown, ascVel, ascTarget, easeDt));

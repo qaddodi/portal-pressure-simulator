@@ -36,7 +36,7 @@ import { SLOT, DYE_BINS } from './blood.js?v=e668d01823';
 import { cssRGB } from './util.js?v=54c2d6673a';
 import { CELL, ENT_W, binVeins, splitRows } from './veins-bin.js?v=81a80b3a6d';
 import { gpuProbe } from './gpu-probe.js?v=2e30f04b4d';
-import { createOrganStack } from './organs-gl.js?v=909b82809e';
+import { createOrganStack } from './organs-gl.js?v=aa092ee112';
 
 export { binVeins };
 
@@ -1879,6 +1879,10 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false }) {
       },
       dropStaged: (slot) => stack.dropStaged(slot),
       has: (slot) => stack.has(slot),
+      /** Organs painted live in the stack, and layers' live masks (organs-gl setLive); the names it lays, in order. */
+      get canLive() { return stack.canLive; },
+      setLive: (organs, masks) => stack.setLive(organs, masks),
+      setOrder: (names) => stack.setOrder(names),
     },
     /** Per-vessel blood: nTubes × FLOW_TEXELS × 4 floats (see stage.js). */
     setFlow(data) {

@@ -32,10 +32,10 @@ test('a growing spleen shows on the live drawing every frame it grows, and the p
 
 test('the live spleen is drawn at the eased size each frame: the size written is the size the outline is taken from', () => {
   const body = stage.slice(stage.indexOf('function updateOrgans'), stage.indexOf('liftDiaphragm(shrink, sc);', stage.indexOf('function updateOrgans')));
-  assert.match(body, /const sc = f\.slow\.spleen \/ 11;\n\s+normalSync\(sc\);\n[^\n]*\n\s+if \(spleenMv\.see\(sc, performance\.now\(\)\) && veins && !veins\.lost && veins\.hasPlate\(0\)\) hidePlate\(\);\n\s+putA\(organG\.spleen, 'transform', `translate\(\$\{SPLEEN_CENTER\[0\]\} \$\{SPLEEN_CENTER\[1\]\}\) scale\(\$\{sc\.toFixed\(3\)\}\)/);
+  assert.match(body, /const sc = f\.slow\.spleen \/ 11;\n\s+normalSync\(sc\);\n[^\n]*\n\s+if \(spleenMv\.see\(sc, performance\.now\(\)\) && veins && !veins\.lost && veins\.hasPlate\(0\) && !liveOn\(\)\) hidePlate\(\);\n\s+putA\(organG\.spleen, 'transform', `translate\(\$\{SPLEEN_CENTER\[0\]\} \$\{SPLEEN_CENTER\[1\]\}\) scale\(\$\{sc\.toFixed\(3\)\}\)/);
   const poke = stage.slice(stage.indexOf('function platePoke'), stage.indexOf('const key = plateStateKey();', stage.indexOf('function platePoke')));
-  assert.match(poke, /if \(spleenMoving\(\)\) \{ if \(plateKey && veins\.hasPlate\(0\) && plateStateKey\(\) !== plateKey\) hidePlate\(\); clearTimeout\(spleenTimer\); spleenTimer = setTimeout\(platePoke, 320\); return; \}/);
-  assert.match(stage, /if \(figureHidden\(\) \|\| lvMoving \|\| fluidEasing\(\) \|\| spleenMoving\(\) \|\|/, 'no picture is drawn while it grows');
+  assert.match(poke, /if \(!live && spleenMoving\(\)\) \{ if \(plateKey && veins\.hasPlate\(0\) && plateStateKey\(\) !== plateKey\) hidePlate\(\); clearTimeout\(spleenTimer\); spleenTimer = setTimeout\(platePoke, 320\); return; \}/);
+  assert.match(stage, /const moving = !liveOn\(\) && \(lvMoving \|\| fluidEasing\(\) \|\| spleenMoving\(\)\);\n\s+if \(figureHidden\(\) \|\| moving \|\|/, 'no picture is drawn while it grows (unless it is painted live)');
   assert.match(stage, /400 - \(performance\.now\(\) - spleenMv\.stillAt\(\)\)/);
 });
 
