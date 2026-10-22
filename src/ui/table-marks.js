@@ -2,6 +2,8 @@
 // each column's cut-offs (CUT, the same as the readouts' status colors), the direction a cell's arrow points against
 // normal (dirAbs) or against a reference patient (dirRel), and the colour that goes with it.
 
+import { FLOW_CUTS } from '../engine/flow-cuts.js?v=1c97536e9e';
+
 export const NO_ASC = 150;   // mL: below it there is no ascites to tap (ultrasound grade 1 starts here)
 export const vSize = (v) => (v < 2.5 ? ['ok', 'None'] : v < 5 ? ['mid', 'Small'] : ['hi', 'Large']);
 
@@ -25,7 +27,7 @@ export const RATE = {
   // (A flow that reads 0.0 is no flow, as with a clotted portal vein: it has no direction.)
   pvFlow: (v) => (v < 0 ? ['hi', 'Hepatofugal'] : v === 0 ? ['hi', 'No flow'] : [null, 'Hepatopetal']),
   // Main portal vein velocity on Doppler: 15 cm/s or more normal, slower is slow, under 9 stasis, below zero reversed.
-  pvVel: (v) => (v < 0 ? ['hi', 'Reversed'] : v < 9 ? ['hi', 'Stasis'] : v < 15 ? ['mid', 'Slow'] : ['ok', 'Normal']),
+  pvVel: (v) => (v < 0 ? ['hi', 'Reversed'] : v < FLOW_CUTS.stasis ? ['hi', 'Stasis'] : v < 15 ? ['mid', 'Slow'] : ['ok', 'Normal']),
   liver: (v) => (v <= 55 ? ['hi', 'Severe'] : v <= 75 ? ['mid', 'Low'] : ['ok', 'Normal']),
   shunt: (v) => (v >= 0.3 ? ['hi', 'Large'] : v >= 0.1 ? ['mid', 'Moderate'] : ['ok', 'Small']),
   map: (v) => (v < 65 ? ['hi', 'Low'] : ['ok', 'Normal']),
@@ -91,7 +93,7 @@ export const SCALE = {
   hvpg: [0, 25, [5, 10]], ppg: [0, 25, [6, 12]], pv: [0, 30, [10, 15]], sin: [0, 20, [9, 12]], whvp: [0, 30, [10, 15]], fhvp: [0, 20, [8]],
   saag: [0, 3, [1.1]], tp: [0, 5, [1.5, 2.5]], asc: [0, 8, [0.15, 1.5, 5]],
   varix: [0, 10, [2.5, 5]], gv: [0, 10, [2.5, 5]], spleen: [8, 22, [13, 16]], plt: [0, 300, [100, 150]],
-  pvFlow: [-0.6, 2, [0]], pvVel: [0, 50, [9, 15]], liver: [0, 125, [55, 75]], shunt: [0, 100, [10, 30]], map: [40, 120, [65]],
+  pvFlow: [-0.6, 2, [0]], pvVel: [0, 50, [FLOW_CUTS.stasis, 15]], liver: [0, 125, [55, 75]], shunt: [0, 100, [10, 30]], map: [40, 120, [65]],
   lsm: [0, 35, [10, 15, 25]], clot: [0, 100, [5, 50]], ra: [0, 20, [8]], ivc: [0, 20, [8]], salb: [1.5, 5.5, [3.5]], hb: [4, 18, [7, 12]], hr: [30, 200, [60, 100]],
   // (Unrated, so a plain bar with no bands and no cut-off numbers: only the ring, before pregnancy, and the dot, now. Critique D4, 17 Oct.)
   bv: [3, 9, []], co: [3, 12, []],
@@ -128,7 +130,7 @@ export function dirAbs(k, f) {
   const v = atShown(k, fpv(k, f));
   if (RAW[k]) return v > RAW[k][1] ? 2 : v > RAW[k][0] ? 1 : 0;
   // Portal flow: reduced under 0.9 L/min; stasis (under 9 cm/s) or reversed is past the red line; above the fasting range after a meal or a TIPS.
-  if (k === 'pvFlow') return v < -0.02 || (f.pvVel != null && Math.abs(f.pvVel) < 9) ? -2 : v < 0.9 ? -1 : v > 1.3 ? 1 : 0;
+  if (k === 'pvFlow') return v < -0.02 || (f.pvVel != null && Math.abs(f.pvVel) < FLOW_CUTS.stasis) ? -2 : v < 0.9 ? -1 : v > 1.3 ? 1 : 0;
   if (k === 'asc') return v < NO_ASC ? 0 : rateOf(k, f)[0] === 'hi' ? 2 : 1;
   const r = rateOf(k, { ...f, [k]: v })[0], sign = UP_GOOD.has(k) ? -1 : 1;
   return r === 'hi' ? 2 * sign : r === 'mid' ? sign : 0;

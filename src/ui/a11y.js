@@ -5,6 +5,7 @@
 import { store, hiddenNow } from './store.js?v=67f4341802';
 import { fmt } from './util.js?v=9a45134198';
 import { EDGES } from '../engine/topology.js?v=4044766e96';
+import { judgeFlow } from './velNormal.js?v=97920ddf3f';
 
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
 
@@ -22,7 +23,10 @@ export function caption(f, { scenario = true } = {}) {
   if (!hidden?.has('trueHVPG')) p.push(`HVPG ${fmt(m.hvpg, 0)}`);
   if (p.length) parts.push(p.join(', ') + '.');
   const q = (f.Qf || f.Q)[EI.PV_TRUNK];
-  const flow = q < -0.05 ? 'flow reversed, away from the liver' : Math.abs(m.pvVel) < 9 ? 'sluggish portal flow' : 'flow toward the liver';
+  // (The same cut-offs as the Doppler's reading and the figure's labels, velNormal.js judgeFlow: a screen-reader listener keeps the direction of a slow flow.)
+  const jf = judgeFlow(m.pvVel, q, null, { ref: st.healthy?.Q?.[EI.PV_TRUNK] });
+  const flow = jf.none ? 'no portal flow' : jf.stasis ? (jf.reversed ? 'sluggish, reversed portal flow' : 'sluggish portal flow')
+    : jf.reversed ? 'flow reversed, away from the liver' : 'flow toward the liver';
   const e = [];
   if (m.varix.d >= 2.5) e.push(`${m.varix.grade.label.toLowerCase()} varices${m.varix.redWale ? ' with red wale signs' : ''}`);
   if (m.ascites.grade > 0) e.push(`${fmt(m.ascites.volume / 1000, 1)} L ascites`);

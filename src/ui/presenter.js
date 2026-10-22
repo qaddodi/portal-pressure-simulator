@@ -17,27 +17,27 @@ import { download } from './download.js?v=3564e5bf8c';
 import { h, toast, svgIcon, icon, fmt, clamp, openModal, closeModal, isModalOpen, restBox, paintRange, cssVar, swapText } from './util.js?v=9a45134198';
 import { titleParts } from './title-units.js?v=c8d5ce1f26';
 import { swipeDir, ownsSideways, ownsTouch, cardSwipe, caseFling, caseFlight } from './swipe.js?v=ca9148ab7d';
-import { sinusoidSupported } from './sinusoid-view.js?v=57ea3444ac';
+import { sinusoidSupported } from './sinusoid-view.js?v=738da21430';
 import { SCALE_NAME, offeredScales, scaleView, pickedScale } from './scale-switch.js?v=1b0e3acd65';
 import { NODES } from '../engine/topology.js?v=4044766e96';
 import { DISEASE_SRC, diseasePieces } from './diseases.js?v=fb8a5451c3';
 import { nb, listCase, plateletText } from './glue.js?v=5a0f63226b';
 import { DECKS, REGIONS, LEVELS, TOPICS, withOverview, siteTag, SITE_TAGS } from './decks.js?v=3f38949fcd';
 import { tenthGap } from '../engine/gap.js?v=3aabfbb29b';
-import { createHvpgMonitor } from './hvpg-proc.js?v=3161213055';
-import { createTools } from './presenter-tools.js?v=256f5a00fd';
-import { openHandout } from './handout.js?v=006aab2dd3';
+import { createHvpgMonitor } from './hvpg-proc.js?v=17d014a745';
+import { createTools } from './presenter-tools.js?v=23b9d42383';
+import { openHandout } from './handout.js?v=141d7c8d3c';
 import { noteResume, resumeFor } from './resume.js?v=f086f80ee8';
 import { parseDeckSource, checkDeck } from './deck-source.js?v=8395c650cd';
-import { NO_ASC, TILE, SCALE, bandsOf, rateOf, COLS, CUT, PRESS, fpv, dirAbs, dirRel, rateAbs, effOf, rateShown, tileShown, tipsGoal, liveSettled, shownSig } from './table-marks.js?v=2ab3be51bb';
+import { NO_ASC, TILE, SCALE, bandsOf, rateOf, COLS, CUT, PRESS, fpv, dirAbs, dirRel, rateAbs, effOf, rateShown, tileShown, tipsGoal, liveSettled, shownSig } from './table-marks.js?v=8d52d1e713';
 import { frameFor, cancelFrame } from './frame.js?v=19b3f2915c';
 import { createFigureKey } from './figure-key.js?v=185e1448c8';
 import { traceWhen } from './trace-labels.js?v=fc916a95c6';
-import { flowCss, heatCss, dropCss, gradientCss, oxygenCss } from './colormap.js?v=d32badf1a7';
-import { EXT, expandIds, stepExtra, markLabel, figureHooks, safe } from './slide-ext.js?v=c66fbb6323';
-import { clotWords } from './callout-math.js?v=29870932a8';
+import { flowCss, heatCss, dropCss, gradientCss, oxygenCss } from './colormap.js?v=912ddb2a2a';
+import { EXT, expandIds, stepExtra, markLabel, figureHooks, safe } from './slide-ext.js?v=616edb7450';
+import { clotWords } from './callout-math.js?v=e42e679867';
 import { citeText, focusOf, oneLadder } from './teach-extras.js?v=5f5248f5a7';
-import { createProfileTool, createProfileStrip } from './tool-profile.js?v=06fc6deced';
+import { createProfileTool, createProfileStrip } from './tool-profile.js?v=60cc370621';
 import { causeFit } from './cause-fit.js?v=830a6835a5';
 import { COMPACT, WIDE } from './card-type.js?v=f5dfdb80f2';
 const nextFrame = frameFor('presenter');
@@ -809,7 +809,7 @@ function makeCalc() {
   };
   const ready = (async () => {
     try {
-      const w = new Worker(new URL('../worker.js?v=c2b4181f90', import.meta.url), { type: 'module' });
+      const w = new Worker(new URL('../worker.js?v=d871e7be89', import.meta.url), { type: 'module' });
       await new Promise((res, rej) => {
         const t = setTimeout(() => rej(new Error('worker timeout')), 15000);   // (long: a slow load still gets the worker; host.js)
         w.onmessage = (e) => { if (e.data?.type === 'presets') { clearTimeout(t); res(); } };
@@ -822,7 +822,7 @@ function makeCalc() {
       post = (m) => w.postMessage(m); kill = () => w.terminate();
     } catch {
       try {
-        const { createCore } = await import('../worker-core.js?v=5b6f8a4fc3');
+        const { createCore } = await import('../worker-core.js?v=696ec7289d');
         const core = createCore((m) => setTimeout(() => onMsg(m), 0));
         core.handle({ type: 'visibility', visible: false }); core.handle({ type: 'run', running: false });
         post = (m) => core.handle(structuredClone(m)); kill = () => core.dispose();

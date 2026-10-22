@@ -5,6 +5,7 @@
 import { EDGES, NODES, dMinOf } from '../engine/topology.js?v=4044766e96';
 import { fmt, clamp } from './util.js?v=9a45134198';
 import { LABEL_VESSEL } from './anatomy.js?v=1f28084c15';
+import { judgeFlow } from './velNormal.js?v=97920ddf3f';
 
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
 const NI = Object.fromEntries(NODES.map((n, i) => [n.id, i]));
@@ -71,8 +72,9 @@ export function aboutVessel(e, f, st) {
   const q = f.Qf ? f.Qf[k] : f.Q[k], ref = st.healthy?.Q?.[k] ?? 1;
   const isArt = e.kind === 'artery' || e.kind === 'arteriole';
   if (!isArt) {
-    if (Math.abs(q) < 0.05 && Math.abs(ref) > 0.3) out.push('Flow here has almost stopped: stagnant blood can clot.');
-    else if (q < -Math.max(0.12, 0.02 * Math.abs(ref))) out.push(e.kind === 'collateral' ? 'Blood runs the other way from usual in this collateral.' : 'Flow is reversed (hepatofugal for a portal vein): blood leaves the way it normally comes in.');
+    const jf = judgeFlow(null, q, null, { ref });
+    if (jf.still) out.push('Flow here has almost stopped: stagnant blood can clot.');
+    else if (jf.reversed) out.push(e.kind === 'collateral' ? 'Blood runs the other way from usual in this collateral.' : 'Flow is reversed (hepatofugal for a portal vein): blood leaves the way it normally comes in.');
   }
   if (e.kind === 'collateral') {
     const d = f.slow.dEff?.[e.id] ?? f.slow.d[e.id], r = clamp((d - dMinOf(e)) / (e.dMax - dMinOf(e)), 0, 1);

@@ -7,7 +7,7 @@
 import { store } from './store.js?v=67f4341802';
 import { h, icon, svgIcon, uiScale, clamp, swipeSheet, visibleBottom, fadeWhileMore, PHONE_MQ } from './util.js?v=9a45134198';
 import { SNAPSHOTS } from './snapshots.js?v=4ca084eda3';
-import { pressureColor } from './colormap.js?v=d32badf1a7';
+import { pressureColor } from './colormap.js?v=912ddb2a2a';
 import { ownsSideways, pageGo } from './swipe.js?v=ca9148ab7d';
 import { frameFor } from './frame.js?v=19b3f2915c';
 const nextFrame = frameFor('menu');

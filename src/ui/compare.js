@@ -6,7 +6,7 @@
 import { store } from './store.js?v=67f4341802';
 import { h, fmt, svgIcon } from './util.js?v=9a45134198';
 import { liveBalance } from './balance-hold.js?v=1792704e7a';
-import { activeInterventions } from './inspector.js?v=3898712124';
+import { activeInterventions } from './inspector.js?v=f96c030b7f';
 
 const ROWS = [
   ['HVPG', (m) => m.hvpg, 1, 'mmHg'], ['Portal pressure', (m) => m.pv, 1, 'mmHg'], ['PPG (portal vein − IVC)', (m) => m.ppg, 1, 'mmHg'], ['Portal flow', (m) => m.pvFlow, 1, 'L/min'],

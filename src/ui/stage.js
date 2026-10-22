@@ -3,15 +3,15 @@
 
 import { EDGES, dopplerK, NODES, PORTAL_TERRITORY, dMinOf, edgePresent, isOccluded, SHUNT_PORTAL, SHUNT_SYSTEMIC, customShuntId, isStent, stentSite, STENT_SITES, STENT_SPANS, stentGate, stentSegments } from '../engine/topology.js?v=4044766e96';
 import { route as metroRoute, RECTUM_FADE, LABEL_VESSEL, TIP_FADE, TIP_CONNECT, VIEW, VB_ANAT, VB_CIRC, ATLAS_COLUMNS, HIDDEN_EDGES, HIDDEN_NODES, ANAT_HIDDEN, ANAT_HIDDEN_NODES, CAUDATE, CONTEXT_EDGES, BACK_EDGES, IVC_EDGES, NEEDS_C3, NODE_POS, EDGE_PATH, CIRCUIT_PATH, metroPath, ORGANS, SEAM_D, ORGAN_DETAIL, BACKDROP, LIVER_INNER, LIVER_EDGES, LANE_CAPTIONS, ABDOMEN_CLIP, ABDOMEN_FLOOR, flankPath, abdomenOutline, cavityHalfWidths, SPLEEN_CENTER, SITES, ORGAN_LABELS, ATLAS_LABELS, SHORT, ABBR, CHIP_NODES, LIVER_SPLIT_X, CIRCUIT_ZONES, CIRCUIT_LABELS, STRANDS, STRAND_FROM, SIN_EDGES, FEEDERS, fanFeeders, CIRCUIT_TREES } from './anatomy.js?v=1f28084c15';
-import { pressureColor, deltaColor, dropColor, flowColor, heatColor, velColorOf, velocityColor, oxygenColor } from './colormap.js?v=d32badf1a7';
+import { pressureColor, deltaColor, dropColor, flowColor, heatColor, velColorOf, velocityColor, oxygenColor } from './colormap.js?v=912ddb2a2a';
 import { forkJoins, sideEndScale } from './fork-joins.js?v=b678f7ba5a';
 import { nodeEnds, nodeDrawn, dotRadius, bareDots } from './circuit-nodes.js?v=1040ba0ec4';
-import { STATION_VESSEL, meanVel, velNormal } from './velNormal.js?v=181dda5594';
+import { STATION_VESSEL, meanVel, velNormal, judgeFlow } from './velNormal.js?v=97920ddf3f';
 import { store, updateParams, varicesPresent, varixGrowth, shownVel } from './store.js?v=67f4341802';
 import { fibroReading } from './clock.js?v=6a1f89a5c2';
 import { s, h, fmt, fmtFlow, fp, clamp, lerp, toast, systemEdge, bloodColors, restBox, translateRest, settledBox, putText } from './util.js?v=9a45134198';
 import { riseCentre } from './rise-path.js?v=c039cb7b49';
-import { createLobuleZoom } from './lobule-zoom.js?v=3b58aa3c1f';
+import { createLobuleZoom } from './lobule-zoom.js?v=c421c1b99b';
 import { sinceSource } from './since-ref.js?v=ef1a818c75';
 import { clipBox, mapBox } from './fit-box.js?v=d5d6d4c60f';
 import { runFlick, FLICK } from './flick.js?v=9602697f46';
@@ -39,7 +39,7 @@ import { varixBead, beadRadius } from './varix-bead.js?v=ac0e84fd89';
 import { advanceStream, createReversalHold, bleedShapes, stepBleedFade, fadeBleedShapes, chevFlowLevel, keyChevron, KEY_CHEV_LANES, originFractions, oxygenFor, ORIGIN_N, createBolus, DYE_BINS, KAPPA, STASIS_MIN_D, HIDDEN_SECONDS } from './blood.js?v=e668d01823';
 import { frameFor, cancelFrame, noteDraw, setSaver as setFrameSaver, paceMs } from './frame.js?v=19b3f2915c';
 import { softwareYield } from './sw-yield.js?v=e580a095b1';
-import { portalSplit } from './table-marks.js?v=2ab3be51bb';
+import { portalSplit } from './table-marks.js?v=8d52d1e713';
 import { hashSeed, clotSide, clotSpan, clotRadius, clotShift, clotLayers, CLOT_EDGE } from './clot-shape.js?v=415ba6b9c0';
 import { leaderEnd as edgeOf, leaderEndRects as edgeOfRects } from './leader-end.js?v=8e884700ab';
 import { balloonRy, balloonOutline, routeRadii } from './hvpg-balloon.js?v=35d7bb162c';
@@ -53,7 +53,7 @@ import { pathPieces, piecesLength, pointsAlong } from './path-pieces.js?v=e48667
 import { organDimMatrix } from './organ-dim.js?v=7888276613';
 import { parseColor, greyOf, paintRef } from './organ-grey.js?v=e41d68222c';
 import { bandRing, dashRings, liftEnd, normalShown, rippleList, systemOf, SYSTEM_COLOR } from './highlight-math.js?v=e2c1816e25';
-import { organAnchor, spleenCaliper, acrossVessel, stepGroups, spanOf, spanPath, zoneBand, SPAN_TICK, insideBy, clearOf, besideLine } from './callout-math.js?v=29870932a8';
+import { organAnchor, spleenCaliper, acrossVessel, stepGroups, spanOf, spanPath, zoneBand, SPAN_TICK, insideBy, clearOf, besideLine } from './callout-math.js?v=e42e679867';
 const nextFrame = frameFor('stage');
 
 const N_SAMPLES = 64;
@@ -7395,8 +7395,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     // collaterals carries no flow at all (not stasis in an open vessel).
     if (!tubes) return { runs: [{ ...unit, t: bed ? 'microcirculation' : 'collaterals closed', gap: 0 }], color: 'var(--lens-neutral)' };
     const runs = [{ ...big, t: fmt(best, 0) }, { ...unit, t: 'cm/s' }];
-    // (Named as the Doppler names it: under 1 cm/s no flow, under 9 stasis.)
-    if (best < 9) runs.push({ t: best < 1 ? 'no flow' : 'stasis', size: 10.5, weight: 650, cls: 'lb-alert', gap: 6 });
+    // (Named as the Doppler names it: velNormal.js judgeFlow, under 1 cm/s no flow, under 9 stasis.)
+    const jf = judgeFlow(best, null, null);
+    if (jf.none || jf.stasis) runs.push({ t: jf.none ? 'no flow' : 'stasis', size: 10.5, weight: 650, cls: 'lb-alert', gap: 6 });
     return { runs, color: velColorOf(f, bestK, store.get().healthy) };
   }
 
@@ -7500,7 +7501,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     // (A phone's three points read short, "Prox 99 cm/s", so the column fits beside a small stent.)
     const name = point && stageBox().width < 700 ? { proximal: 'Prox', mid: 'Mid', distal: 'Dist' }[point] : sid + seg;
     // (An occluded stent reads "No flow", as the Doppler's strip does, not "0 cm/s": under 2 cm/s the Doppler calls a stent occluded.)
-    const none = Math.abs(vel) < 2;
+    const none = judgeFlow(vel, null, null, { stent: true }).none;
     // (A stent's point: its number in the velocity colours against the stent's own normal, sand slow, teal normal, violet fast
     // (c8e89a6), drawn toward the text colour (--vel-ink) so it reads on the label's halo, 4.5:1 at least on the light stage; the point sampled is named in bold: Review 15 Oct.)
     const nv = point ? velNormal(EI[sid], f) : null, tint = nv && !none ? `color-mix(in srgb, ${velocityColor(vel, nv)} var(--vel-ink), var(--text))` : '';

@@ -6,12 +6,12 @@
 
 import { EDGES, dopplerK, stentSegments, stentSite, stentGate, stentCourse } from '../engine/topology.js?v=4044766e96';
 import { h, fmt, fitCanvas, clamp, icon, cssVar, cssAlpha } from './util.js?v=9a45134198';
-import { FONT, textW } from './charts.js?v=69607abb69';
+import { FONT, textW } from './charts.js?v=f304681955';
 import { logAction, shownVel, store } from './store.js?v=67f4341802';
 import { DOPPLER_MODES, THETA, dopplerColor, shadeColor, swatchGradient } from './dopplerColor.js?v=db91b02cc3';
 import { frameFor, noteDraw, paceMs, cancelFrame } from './frame.js?v=19b3f2915c';
 import { windowIndexFor, scaleFor, fitScale } from './dopplerWindow.js?v=1d34e63b32';
-import { velNormal, dopplerVel } from './velNormal.js?v=181dda5594';
+import { velNormal, dopplerVel, judgeFlow } from './velNormal.js?v=97920ddf3f';
 import { caliperFrame, caliperLevel, caliperX, CAL_FADE, pairOf, pairBand, pairScale, PAIR_GAP } from './doppler-marks.js?v=15fc499dcd';
 import { createDopplerGL } from './doppler-gl.js?v=6ef76c6bca';
 const nextFrame = frameFor('doppler');
@@ -305,8 +305,10 @@ export function createDoppler({ onProbe, pickGate = true }) {
     const big = Math.max(Math.abs(r.vmaxMean), Math.abs(r.vminMean));
     const pi = big > 0.5 ? swing / big : 0;
     const reverses = r.vminMean < -1.5 && r.vmaxMean > 1.5;
+    // (The cut-offs for no flow, stasis and slow flow are velNormal.js's judgeFlow, read the same here as in the figure's labels, the Details sentences and the summary tables.)
+    const j = judgeFlow(r.mean, null, normal, { swings: reverses }), js = p.kind === 'tips' ? judgeFlow(r.mean, null, normal, { stent: true }) : j;
     let dir, sev, pattern, note;
-    if (a < 1 && big < 2 && p.kind !== 'collateral') {
+    if (j.none && big < 2 && p.kind !== 'collateral') {
       dir = 'No flow'; sev = 'critical'; pattern = 'No signal';
       note = p.kind === 'tips' ? 'No flow in the stent: occluded.' : 'No detectable flow: a clot, or flow too slow to detect.';
     } else if (p.kind === 'portal') {
@@ -322,16 +324,16 @@ export function createDoppler({ onProbe, pickGate = true }) {
         note = toStent < 0 ? `Expected with a ${stent}: flow runs back toward the stent.` : 'Expected with a TIPS: the segment before the stent flows hepatopetal into it; beyond the stent the right branches are hepatofugal.';
         return { dir, sev, pattern, note, pi, expected: true };
       }
-      if (a < 9 && !reverses) { dir = 'Stasis'; sev = 'danger'; }
+      if (!reverses && (j.none || j.stasis)) { dir = 'Stasis'; sev = 'danger'; }
       else if (reverses && Math.abs(r.mean) < swing * 0.35) { dir = 'To-and-fro'; sev = 'danger'; }
       else if (r.mean < 0) { dir = 'Hepatofugal'; sev = 'critical'; }
-      else { dir = 'Hepatopetal'; sev = a < normal[0] ? 'caution' : 'ok'; }
+      else { dir = 'Hepatopetal'; sev = j.slow ? 'caution' : 'ok'; }
       pattern = pi > 0.5 ? 'Pulsatile' : pi > 0.15 ? 'Phasic' : 'Monophasic';
       note = dir === 'Hepatofugal' ? 'Flow runs away from the liver: portal blood is leaving through collaterals.'
         : dir === 'To-and-fro' ? 'Flow swings both ways each cycle, on the way to reversal.'
         : dir === 'Stasis' ? 'Almost no net flow: a setting for portal vein thrombosis.'
         : pattern === 'Pulsatile' ? 'A pulsatile portal vein suggests right-heart pressure transmitted back (heart failure, tricuspid regurgitation) or an arterioportal shunt.'
-        : a < normal[0] ? (stent ? `Slower than expected with a ${stent}: it suggests the stent is narrowing.` : 'Toward the liver but slow: typical of portal hypertension.')
+        : j.slow ? (stent ? `Slower than expected with a ${stent}: it suggests the stent is narrowing.` : 'Toward the liver but slow: typical of portal hypertension.')
         : pattern === 'Monophasic' ? 'Normal: toward the liver, steady.'
         : 'Normal: toward the liver with gentle phasicity.';
       // Flow toward the liver in a branch that a working stent would reverse: the stent no longer draws it, as when it narrows.
@@ -353,19 +355,19 @@ export function createDoppler({ onProbe, pickGate = true }) {
       pattern = `Resistive index ${fmt(ri, 2)}`;
       note = 'The hepatic artery buffers falling portal inflow by dilating (the hepatic arterial buffer response).';
     } else if (p.kind === 'tips') {
-      dir = a < 2 ? 'No flow' : r.mean < 0 ? 'Reversed' : p.id === 'DIPS' ? 'Portal → IVC' : 'Portal → hepatic vein'; sev = a < 2 || r.mean < 0 ? 'critical' : a < 90 || a > 190 ? 'caution' : 'ok';
+      dir = js.none ? 'No flow' : r.mean < 0 ? 'Reversed' : p.id === 'DIPS' ? 'Portal → IVC' : 'Portal → hepatic vein'; sev = js.none || r.mean < 0 ? 'critical' : js.slow || js.fast ? 'caution' : 'ok';
       const jet = Math.max(a, ...stentReads(open));   // the fastest segment: a narrowing's jet
-      pattern = a < 2 ? 'Occluded' : a < 90 ? (jet > 190 ? 'Low velocity, jet' : 'Low velocity') : jet > 190 ? 'High velocity' : 'Patent';
+      pattern = js.none ? 'Occluded' : js.slow ? (jet > 190 ? 'Low velocity, jet' : 'Low velocity') : jet > 190 ? 'High velocity' : 'Patent';
       if (sev === 'ok' && jet > 190) sev = 'caution';
-      note = a < 2 ? 'No flow in the stent: occluded.' : 'Stent velocities under 90 or over 190 cm/s, or a change of more than 50 cm/s from the baseline scan, suggest stenosis.';
+      note = js.none ? 'No flow in the stent: occluded.' : 'Stent velocities under 90 or over 190 cm/s, or a change of more than 50 cm/s from the baseline scan, suggest stenosis.';
     } else if (p.kind === 'ivc') {
       dir = r.mean < 0 ? 'Reversed' : 'Toward the heart'; sev = r.mean < 0 ? 'danger' : 'ok';
       pattern = r.vminMean < -1 ? 'Phasic, with reversal' : pi > 0.3 ? 'Phasic' : 'Continuous';
       note = 'The IVC follows the right atrium: respiratory and cardiac phasicity.';
     } else {
-      dir = a < 1 ? 'No flow' : r.mean > 0 ? 'Portal → systemic' : 'Systemic → portal'; sev = a < 1 ? 'ok' : 'caution';
-      pattern = a < 1 ? 'Closed' : 'Open collateral';
-      note = a < 1 ? 'This collateral carries no flow.' : 'Portal blood is bypassing the liver through this collateral.';
+      dir = j.none ? 'No flow' : r.mean > 0 ? 'Portal → systemic' : 'Systemic → portal'; sev = j.none ? 'ok' : 'caution';
+      pattern = j.none ? 'Closed' : 'Open collateral';
+      note = j.none ? 'This collateral carries no flow.' : 'Portal blood is bypassing the liver through this collateral.';
     }
     return { dir, sev, pattern, note, pi };
   }

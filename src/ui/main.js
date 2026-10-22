@@ -1,27 +1,27 @@
 // Application bootstrap: wires the engine host to the four surfaces (figure + action card,
 // timeline, patient chart, instruments) and to Home, the command palette and the menus.
 
-import { startHost, host } from './host.js?v=bbd14c2417';
+import { startHost, host } from './host.js?v=0fb18aab84';
 import { store, updateParams, replaceParams, bindParamSender, clearHistory, logAction, varicesPresent, hiddenNow } from './store.js?v=67f4341802';
-import { createStage } from './stage.js?v=b90c96971b';
+import { createStage } from './stage.js?v=aa33f689ec';
 import { createCreditPlacer } from './credit.js?v=bce3a26d05';
-import { sinusoidSupported } from './sinusoid-view.js?v=57ea3444ac';
-import { createInspector } from './inspector.js?v=3898712124';
-import { createDock, CUTOFFS } from './dock.js?v=2d476bf8af';
-import { setHvpgStage } from './hvpg-proc.js?v=3161213055';
-import { createWhy } from './why.js?v=def0f9e1d5';
-import { createTimeline, LAPSES } from './timeline.js?v=f4b17d503c';
-import { createCompare } from './compare.js?v=9f405bd77a';
-import { createCard } from './card.js?v=08f08eb369';
-import { createChart } from './chart.js?v=8a8e1c4759';
-import { createMenu } from './menu.js?v=0254fd988e';
-import { caption } from './a11y.js?v=2bc3f212e9';
+import { sinusoidSupported } from './sinusoid-view.js?v=738da21430';
+import { createInspector } from './inspector.js?v=f96c030b7f';
+import { createDock, CUTOFFS } from './dock.js?v=f2ee0d8a69';
+import { setHvpgStage } from './hvpg-proc.js?v=17d014a745';
+import { createWhy } from './why.js?v=890917e1e1';
+import { createTimeline, LAPSES } from './timeline.js?v=84d2f0e709';
+import { createCompare } from './compare.js?v=f971e27fc4';
+import { createCard } from './card.js?v=66324c9665';
+import { createChart } from './chart.js?v=f6ebe27020';
+import { createMenu } from './menu.js?v=f0e97333ff';
+import { caption } from './a11y.js?v=8fc70063c1';
 import { startLMS } from './lms.js?v=284ef81e94';
 import { UPDATED, CONTENT_UPDATED, VALIDATION, AUTHOR, AUTHOR_URL, FEEDBACK_EMAIL } from '../version.js?v=1767318315';
-import { normalizeSel, shuntable, edgeValue, bedStats } from './actions.js?v=d6d991ae9e';
-import { gradientCss, dropCss, PRESSURE_TICKS, flowCss, flowPos, velocityCss, heatCss, HEAT_MAX, oxygenCss, OXY_MIN } from './colormap.js?v=d32badf1a7';
+import { normalizeSel, shuntable, edgeValue, bedStats } from './actions.js?v=c652ca42e5';
+import { gradientCss, dropCss, PRESSURE_TICKS, flowCss, flowPos, velocityCss, heatCss, HEAT_MAX, oxygenCss, OXY_MIN } from './colormap.js?v=912ddb2a2a';
 import { EDGES, PORTAL_TERRITORY } from '../engine/topology.js?v=4044766e96';
-import { dopplerVel } from './velNormal.js?v=181dda5594';
+import { dopplerVel } from './velNormal.js?v=97920ddf3f';
 import { $, $$, h, icon, afterExit, fmt, fmtFlow, toast, tooltipFor, openModal, closeModal, isModalOpen, popover, closePopover, popoverOpen, repositionPopover, menuItem, svgIcon, uiScale, isPhoneLayout, TABLET_UP_MQ, markGone, enterAfterGone, enhanceRanges, systemEdge, sinkTo, stopSink, swapFade, scrollBehavior, reconcile } from './util.js?v=9a45134198';
 import { TEXT_STEPS } from './type-scale.js?v=d7cca3fb73';
 
@@ -168,7 +168,7 @@ async function main() {
   dock = createDock({ strip: $('#strip'), head: $('#dockHead'), body: $('#dockBody'), onWhy: (m, el) => why.open(m, el), onAction: doAction, onProbe: (id) => { host.send({ type: 'probe', id }); logAction('probe', id); }, onReveal: revealDock, onLobule: () => zoomLobule('R'),
     onOpen: () => openPanel('instruments'), onClose: () => setPanelTab('chart'), onLayout: () => syncDoppler(), isVisible: () => app.classList.contains('dock-open'),
     marks: () => timeline.entries(), onBeat: () => sendBeat() });
-  presenterL = lazy(() => import('./presenter.js?v=a8b9256f70'), ({ createPresenter }) => createPresenter({ openSettings, loadPreset, updateParams, host, stage, dock, action: doAction,
+  presenterL = lazy(() => import('./presenter.js?v=8bc23cea27'), ({ createPresenter }) => createPresenter({ openSettings, loadPreset, updateParams, host, stage, dock, action: doAction,
     projectorOn: () => { if (!projector) toggleProjector(); }, projectorOff: () => { if (projector) toggleProjector(); },
     closeHome: () => mainMenu.close(), stashCards, rerenderHome: () => mainMenu.render() }));
   mainMenu = createMenu({

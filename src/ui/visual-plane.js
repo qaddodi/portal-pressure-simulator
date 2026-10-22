@@ -18,7 +18,7 @@
 // element's own pixels, one unit a CSS pixel, so its words keep the slide's caption size (12 px or more) at any width.
 
 import { h, fmt, clamp } from './util.js?v=9a45134198';
-import { TILE } from './table-marks.js?v=2ab3be51bb';
+import { TILE } from './table-marks.js?v=8d52d1e713';
 
 // ── Conditions: [key, op, value], all of which must hold ──
 const OPS = { '<': (a, b) => a < b, '<=': (a, b) => a <= b, '>': (a, b) => a > b, '>=': (a, b) => a >= b };

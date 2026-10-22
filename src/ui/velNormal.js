@@ -4,6 +4,9 @@
 // own healthy velocity, normal from two-thirds to one and a half times it, as no published range covers it. Collaterals
 // and the other shunts have no normal and stay neutral.
 import { EDGES, dopplerK } from '../engine/topology.js?v=4044766e96';
+import { FLOW_CUTS } from '../engine/flow-cuts.js?v=1c97536e9e';
+
+export { FLOW_CUTS };
 
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
 export const DOPPLER_NORMAL = {
@@ -46,3 +49,24 @@ export const velPos = (v, [lo, hi]) => {
   const a = Math.abs(v), span = Number.isFinite(hi) ? hi - lo : lo;
   return a < lo ? 0.32 * (a / lo) : a <= hi ? 0.34 + 0.32 * Math.min(1, (a - lo) / span) : 0.68 + 0.32 * Math.min(1, (a - hi) / hi);
 };
+
+// Whether a flow (mL/s, signed) runs backward, past a small dead band: a flow hovering at zero is not "reversed". `ref` is the vessel's healthy flow.
+export const flowReversed = (q, ref = 0) => q < -Math.max(FLOW_CUTS.reversedQ, FLOW_CUTS.reversedRel * Math.abs(ref));
+
+// One reading of a vein's flow, for every place that puts it in words (flow-cuts.js lists them). `v` is the signed velocity (cm/s, as the Doppler
+// reads it; null when the caller has only a flow); `q` the signed flow (mL/s; null when only the velocity's sign is known, as for a Doppler
+// waveform); `normal` the vessel's usual range ([lo, hi], hi may be Infinity) or null. Options: `ref` the vessel's healthy flow (mL/s); `stent`
+// reads a stent, which is occluded under 2 cm/s and has no stasis; `swings` is a waveform that crosses zero, which is never stasis.
+// The flags are independent, so a caller that cares about direction first (the Details sentence, the screen-reader summary) can say so;
+// `word` is the one name when a single word is wanted: none, then stasis, then reversed, then slow, fast or normal.
+export function judgeFlow(v, q, normal, { ref = 0, stent = false, swings = false } = {}) {
+  const has = Number.isFinite(v), a = has ? Math.abs(v) : 0;
+  const none = has && a < (stent ? FLOW_CUTS.stentNone : FLOW_CUTS.none);
+  const stasis = has && !stent && !none && !swings && a < FLOW_CUTS.stasis;
+  const reversed = q != null ? flowReversed(q, ref) : has && v < 0;
+  const still = q != null && Math.abs(q) < FLOW_CUTS.stillQ && Math.abs(ref) > FLOW_CUTS.stillRef;
+  const slow = has && !!normal && a < normal[0];
+  const fast = has && !!normal && a > normal[1];
+  const word = none ? 'none' : stasis ? 'stasis' : reversed ? 'reversed' : slow ? 'slow' : fast ? 'fast' : 'normal';
+  return { word, none, stasis, reversed, still, slow, fast };
+}
