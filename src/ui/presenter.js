@@ -2122,6 +2122,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   // On a laptop or tablet, and on a phone held sideways (I23, 17 Oct), the words sit on a floating card like the data card (false:
   // the full-height glass panel at the left edge). (An upright phone keeps its words' panel at the foot either way.)
   const TEXT_CARD = true;
+  const SHORT_H = 860;   // (a wider screen this tall or less takes the compact layout, .pz.short: css px)
   const LOW_M = 10;   // (a phone held sideways: its teaching card's margin from the top and bottom, css px; styles/app.css .pz.low)
   // (auto: closed by the layout, a slide whose card does not fit beside the words and the figure; autoKey: the slide it closed on.
   // A card the reader closed stays closed from slide to slide; one the layout closed opens again on the next slide that fits.)
@@ -2367,6 +2368,35 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     if (floor < 1) { el.style.setProperty('--pz-fit', String(floor)); const ok = fits(); el.style.removeProperty('--pz-fit'); if (ok) return done(false, floor); }
     return done(!!el.querySelector(':scope > :not(.pz-dh):not(.pz-grip):not(.pz-lip)'), 0.5);
   }
+  // A wide screen too short for its cards, an iPad on its side or a short Mac window (.pz.short, layout): a card too tall for its room
+  // first stands tighter (.pz-lt: less padding, its tiles and table rows closer; .pz-lt2: a table's row on one line), then zooms only
+  // as far as its smallest lettering stays 12 px on the screen (glitch hunt, 22 Oct: cards zoomed to half there, about 300 pieces of
+  // text down to 7 px). Returns the smallest zoom the fit may take for that. (A card that still does not fit zooms further only as a
+  // last resort, fitCards, rather than run out of its card.)
+  function shortFit(el) {
+    const fits = () => { const o = overflowOf(el); return o.v <= 1 && o.h <= 1; };
+    el.classList.remove('pz-lt', 'pz-lt2');
+    for (const c of ['pz-lt', 'pz-lt2']) { if (fits()) break; el.classList.add(c); }
+    const px = minText(el);
+    return px > 12 && isFinite(px) ? Math.ceil(12 / px * 1000) / 1000 : 1;
+  }
+  // The smallest lettering in a card as it reaches the screen: its font size times every zoom on its way (the card's own, its parts',
+  // the interface's), or an SVG's drawn scale. (As tests/e2e/text-floor.mjs measures it.)
+  function minText(el) {
+    let min = Infinity;
+    const w = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+    for (let n; (n = w.nextNode());) {
+      const e = n.parentElement;
+      if (!e || !n.textContent.trim() || !e.getClientRects().length) continue;
+      const fs = parseFloat(getComputedStyle(e).fontSize);
+      if (!fs) continue;
+      let k = 1;
+      if (e instanceof SVGElement) { const m = e.getScreenCTM?.(); if (m) k = Math.hypot(m.a, m.b); }
+      else for (let a = e; a; a = a.parentElement) k *= parseFloat(getComputedStyle(a).zoom) || 1;
+      min = Math.min(min, fs * k);
+    }
+    return min;
+  }
   function fitCards(...els) {
     for (const el of els) {
       if (!el || el.hidden || 'folding' in el.dataset) continue;   // (a part mid-fold: the card keeps the fit it will rest with)
@@ -2427,9 +2457,12 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       // last resort rather than run out of its card.)
       const small = el === ui.text && (phone() || ui.root.classList.contains('low'));
       const lowFloor = el === ui.data && ui.root.classList.contains('low') ? lowData(el) : 0;
+      const shortFloor = !small && !lowFloor && ui.root.classList.contains('short') ? shortFit(el) : 0;
+      if (!shortFloor && !lowFloor) el.classList.remove('pz-lt', 'pz-lt2');   // (a card left tight by a shorter window)
       const ln = small ? el.querySelector('.pz-line, p') : null, lb = ln ? parseFloat(getComputedStyle(ln).fontSize) : 0;
       const floor = lb > 12 ? Math.ceil(12 / lb * 1000) / 1000 : 0.5;
       const mins = small ? [...new Set([floor, phone() ? floor : 0.5])] : [lowFloor || floor];
+      if (shortFloor > mins[0]) mins.unshift(shortFloor);   // (the compact layout's 12 px first; past it only as a last resort)
       let k = 1, over = 1;   // (over: the largest fit tried that still overflowed)
       const fits = () => { const o = overflowOf(el); return o.v <= 1 && o.h <= 1 ? null : o; };
       if (small && fits()) { k = over = Math.max(COMPACT, floor); el.style.setProperty('--pz-fit', String(k)); }   // (Compact; over: no search back up past it)
@@ -2540,6 +2573,10 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     ui.root.classList.toggle('stack', p); ui.shade.classList.toggle('stack', p);
     ui.root.classList.toggle('tab', p && tabUp()); ui.shade.classList.toggle('tab', p && tabUp());
     const low = !p && W > H && H <= 500;   // (a phone held sideways: its instruments fold behind Show)
+    // (A wider screen under 860 px tall, an iPad on its side or a short Mac window: the compact layout, tighter cards at the roles'
+    // own sizes whose lettering never zooms under 12 px, shortFit; styles/app.css .pz.short.)
+    const short = !p && !low && H / k <= SHORT_H;
+    ui.root.classList.toggle('short', short);
     const cardOn = TEXT_CARD && !p;   // (a phone held sideways too: its words in a floating card, not a panel at the edge)
     ui.root.classList.toggle('pz-card', cardOn); ui.shade.classList.toggle('pz-card', cardOn);
     ui.root.classList.toggle('low', low); ui.shade.classList.toggle('low', low);
@@ -2607,6 +2644,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       const canFold = dd.classList.contains('has-tool') && !dd.classList.contains('tool-only') && !dd.classList.contains('tool-lead');
       const setFolds = (on) => {
         if (dd.classList.contains('pz-folds') === on) return;   // (unchanged: a pass mid-ease must not cut a Show or Hide short)
+        if (on) dd.classList.remove('pz-lt', 'pz-lt2');   // (folded, the compact layout's steps run again from the loosest)
         const tl = dd.querySelector(':scope > .pz-tool');
         if (tl) tl.style.transition = 'none';
         dd.classList.toggle('pz-folds', on); dd.classList.toggle('pz-beside', !on && dd.hasAttribute('data-beside'));
@@ -2632,7 +2670,9 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       const foldH = (s) => colHeight(cw / k, s);
       const step = (s) => { dk = s; ch = foldH(s) * k; };
       // (The words stay Compact while the blocks step down: one size for the words, whatever the data card needs.)
+      // (The compact layout steps its blocks tighter instead (.pz-lt, .pz-lt2), never smaller: its lettering stays 12 px, shortFit.)
       const ladder = () => {
+        if (short) { for (const c of ['pz-lt', 'pz-lt2']) { if (below) break; dd.classList.add(c); ch = colHeight(cw / k) * k; below = put(WIDE.title, WIDE.words); } return; }
         for (const s of DK) { if (below) break; step(s); below = put(WIDE.title, WIDE.words); }   // (the data card's blocks a step or two smaller: no further, or the words would squeeze)
       };
       // The last step when even the smallest blocks leave the pair too tall: the instrument folds behind Show (as on a phone),
@@ -2645,6 +2685,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       } else {
         // (The words at Compact at the one card width, then the steps below; the column never widens.)
         if (held) step(1);
+        dd.classList.remove('pz-lt', 'pz-lt2'); ch = foldH(dk) * k;
         below = title();
         if (!below) ladder();
         if (!below && canFold && !held) { setFolds(true); ts.removeProperty('--pz-tk'); ts.removeProperty('--pz-bk'); step(1); below = title(); if (!below) ladder(); }

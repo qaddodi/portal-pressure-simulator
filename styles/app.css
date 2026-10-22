@@ -5390,6 +5390,23 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
 .pz.low:not(.stack) .pz-data.pz-lt .pz-tiles .pz-tile { padding-block: 4px; }
 .pz.low:not(.stack) .pz-data.pz-lt.tiles-only:not(.under):not(.col):not(.has-tool) .pzt-v { font-size: var(--s-big); }
 .pz.low:not(.stack) .pz-data.pz-lt.pz-lt2.tiles-only:not(.under):not(.col):not(.has-tool) .pzt-v, .pz.low:not(.stack) .pz-data.pz-lt.pz-lt2 .pz-tiles .pzt-v { font-size: var(--s-val); }
+/* The compact layout (presenter.js .pz.short, shortFit): a wider screen under 860 px tall, an iPad on its side or a short Mac window.
+   The data card and a full-width slide take the roles' own sizes, as a phone's data card does (their names and units stay 12 px
+   or more), and a card too tall for its room stands tighter (.pz-lt), then its table rows run on one line (.pz-lt2), before it may zoom,
+   and then only as far as its smallest lettering stays 12 px on the screen. (Glitch hunt, 22 Oct: there the cards had zoomed to half,
+   tile bars, ratings and tables down to 7 px.) The words' card keeps its sizes and its own two steps (Regular, Compact). */
+.pz.short:not(.stack):not(.low) :is(.pz-data, .pz-panel) { --s-cap: calc(var(--t-cap) * var(--ts, 1)); --s-lab: max(12px, calc(var(--t-lab) * var(--ts, 1))); --s-body: calc(var(--t-body) * var(--ts, 1)); --s-val: calc(var(--t-val) * var(--ts, 1)); --s-big: calc(var(--t-big) * var(--ts, 1)); }
+.pz.short:not(.stack):not(.low) .pz-data.pz-lt { --pz-gap: 6px; }
+.pz.short:not(.stack):not(.low) .pz-data.pz-lt .pz-tiles { gap: 6px; }
+.pz.short:not(.stack):not(.low) .pz-data.pz-lt .pz-tiles .pz-tile { padding-block: 4px; }
+.pz.short:not(.stack):not(.low) .pz-panel.pz-lt { gap: 10px; padding-bottom: 16px; }
+.pz.short:not(.stack):not(.low) .pz-panel.pz-lt .pz-ph { gap: 4px; }
+.pz.short:not(.stack):not(.low) .pz-lt .pz-table :is(th, td) { padding-block: .3em; }
+.pz.short:not(.stack):not(.low) .pz-lt .pz-table.long tbody :is(th, td) { padding-block: .2em; }
+.pz.short:not(.stack):not(.low) .pz-lt .pz-table .pz-foot { padding: .4em .8em .5em; }
+.pz.short:not(.stack):not(.low) .pz-lt2 .pz-table tbody th :is(.pz-kick, .tw, .tn, .vs) { display: inline; margin: 0; }
+.pz.short:not(.stack):not(.low) .pz-lt2 .pz-table tbody th .pz-kick { margin-right: .6em; }
+.pz.short:not(.stack):not(.low) .pz-lt2 .pz-table tbody th .vs { margin-left: .5em; }
 .pz:not(.stack):not(.low) .pz-data.pz-beside.pz-narrow .pz-tiles .pz-tile:has(.pzt-bar) { gap: 0; padding-block: 5px; }
 .pz:not(.stack):not(.low) .pz-data.pz-beside.pz-narrow .pz-tiles .pz-tile:has(.pzt-bar) .pzt-k { margin: 0; }
 .pz:not(.stack):not(.low) .pz-data.pz-beside.pz-narrow .pz-tiles .pz-tile:has(.pzt-bar) .pzt-bar { margin-top: 2px; }

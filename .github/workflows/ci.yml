@@ -222,6 +222,26 @@ jobs:
       - name: Pinch and pan follow the hand (phone, lobule, trackpad, Safari gesture events)
         run: npm run smoke:gesture
 
+  # The compact layout (an iPad held sideways, a Mac window 700 px tall): no slide's text under 12 px on the screen.
+  text-floor:
+    name: text-floor (${{ matrix.device }} ${{ matrix.shard }})
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        device: [ipadSide, macShort]
+        shard: [1/4, 2/4, 3/4, 4/4]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup-browser
+      - name: Every slide's text 12 px or more
+        env:
+          DEVS: ${{ matrix.device }}
+          SHARD: ${{ matrix.shard }}
+          SLIDES_ONLY: '1'
+        run: node tests/e2e/text-floor.mjs
+
   # The look (organ tones and light, vessels, lobule) against tests/visual, one device per runner;
   # on a failure the current pictures and diffs are kept as an artifact.
   visual:
