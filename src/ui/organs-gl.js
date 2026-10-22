@@ -44,7 +44,7 @@ void main() {
 }`;
 
 import { createShapeGL } from './shape-gl.js?v=c4003c5526';
-import { createOrganPaint, mul } from './organ-paint.js?v=afafbac9dd';
+import { createOrganPaint, mul } from './organ-paint.js?v=7991a4bda7';
 
 function program(gl, vs, fs) {
   const p = gl.createProgram();

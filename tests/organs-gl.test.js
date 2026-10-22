@@ -98,3 +98,11 @@ test('a pinch reuses the live organs\' meshes: the tolerance moves in powers of 
   const src = readFileSync(new URL('../src/ui/organ-paint.js', import.meta.url), 'utf8');
   assert.match(src, /tol = Math\.min\(0\.5, 2 \*\* Math\.floor\(Math\.log2\(0\.2 \/ sc\)\)\);/);
 });
+
+// A new clip's coverage was cleared over the whole canvas before it was drawn, for every clipped group on every frame; a later op
+// with the same clip is cut to the clip's box, so clearing the clip's box (with the op's own) is the same. (Review item 5.)
+test("a clip's coverage is cleared over its own box, not the canvas", () => {
+  const paint = readFileSync(new URL('../src/ui/organ-paint.js', import.meta.url), 'utf8');
+  assert.match(paint, /scissor\(newClip \? join\(b, devBox\(csh\.box, cm, 2\)\) : b\);\n\s+gl\.clearBufferfv\(gl\.COLOR, 0, \[0, 0, 0, 0\]\);/);
+  assert.doesNotMatch(paint, /if \(newClip\) gl\.disable\(gl\.SCISSOR_TEST\); else scissor\(b\);/);
+});

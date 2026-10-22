@@ -334,11 +334,12 @@ export function createOrganPaint(gl, shape) {
       // The shape's coverage into the scratch's red, its clip's into green (kept while the next op has the same clip).
       gl.bindFramebuffer(gl.FRAMEBUFFER, scratch.fbo);
       gl.viewport(0, 0, W, H);
-      const ck = op.clip ? `${op.clip.geom.d ? op.clip.geom.el.getAttribute('d') : ''}|${cm.join(',')}` : null;
+      const ck = op.clip ? `${op.clip.geom.d ? dKey(op.clip.geom.el.getAttribute('d') || '') : ''}|${cm.join(',')}` : null;
       const newClip = !!op.clip && ck !== clipKey;
-      // (Cleared over the whole canvas when the clip is new: a later op with the same clip may reach further.)
+      // (A new clip's green is cleared over the clip's own box, with this op's: a later op with the same clip is cut to that box, so
+      // it never reads the green outside it. It was the whole canvas, on every clipped group, every frame.)
       gl.colorMask(true, newClip, false, false);
-      if (newClip) gl.disable(gl.SCISSOR_TEST); else scissor(b);
+      scissor(newClip ? join(b, devBox(csh.box, cm, 2)) : b);
       gl.clearBufferfv(gl.COLOR, 0, [0, 0, 0, 0]);
       gl.colorMask(true, true, true, true);
       gl.disable(gl.SCISSOR_TEST);
