@@ -22,3 +22,12 @@ test('the pane shows every group and every systemic value, and each tile can say
   assert.match(pane, /onWhy\(t\.why, el\)/);
   assert.match(pane, /onWhy\(v\.why, el\)/);
 });
+
+test('the systemic values carry their data card tile\'s bar, scale, cut-offs, words and colours (22 Oct: any tile should have its normals)', async () => {
+  const { SCALE, RATE } = await import('../src/ui/table-marks.js');
+  for (const id of ['map', 'hr', 'co', 'ra', 'hb']) assert.ok(SCALE[id] && SCALE[id][2].length && RATE[id], `${id} has its tile's scale and rating`);
+  assert.match(pane, /import \{ SCALE, RATE \} from '\.\/table-marks\.js/);
+  assert.match(pane, /const S = SCALE\[v\.id\];/);
+  assert.match(pane, /RATE\[x\.v\.id\]\(shownOf\(r\.v, x\.v\.d\), \{\}\)/, 'the word and colour are the tile\'s, judging the number as shown');
+  assert.match(pane, /h\('span', \{ class: 'rb', 'aria-hidden': 'true' \}, fill, S\[2\]\.map/, 'a bar with a tick at each cut-off, as the other readouts have');
+});

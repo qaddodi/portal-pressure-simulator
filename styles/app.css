@@ -5542,7 +5542,6 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
 .rp-tiles .metric .status.unmeas { font-size: var(--fs-12); }
 .rp-tiles .metric .status.unmeas::after { content: none; }
 .rp-tiles .metric[data-sev="danger"] .val, .rp-tiles .metric[data-sev="critical"] .val { color: color-mix(in srgb, var(--critical) 80%, var(--text)); }
-.rp-tiles .rp-vital { padding-bottom: 8px; }
 /* A narrow card (a phone's sheet) fits three tiles across, as the bar did, with the short names where a long one would be cut. */
 @container (max-width: 440px) {
   .rp-tiles { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }

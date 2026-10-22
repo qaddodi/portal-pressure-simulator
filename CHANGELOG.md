@@ -8,6 +8,14 @@
   (TIPS, BRTO, BATO), the time-point and gate buttons, the `gv`, `co` and `bv` table columns, the one set of flow cut-offs, the Gut to heart
   chart's zones, pills and red block, the six-case grid, the reasoning question in the closing quick check, question and answer pairs, and
   the six decks added since 20 Oct. Docs only.
+- **The Systemic row of Tests › Readouts gets bars.** MAP, heart rate, cardiac output, RA pressure and Hb were plain numbers (red past an
+  unlisted cut-off of the bottom bar's own: 65, 110, 6.5, 10 and 7). Each is now a tile like the ones above it, with a bar, a tick at every
+  cut-off and a rating word, and takes its scale, cut-offs, word and colour from its data card tile (`SCALE` and `RATE` in
+  `table-marks.js`), so the Readouts and the data card tiles can never disagree about what is normal. Where they did differ, the card's
+  numbers now win in this row: a heart rate is "Fast" over 100 (was red over 110), RA pressure "High" over 8 (was 10), hemoglobin "Low" under
+  12 and "Severe" under 7 (was red under 7 only). A slow heart rate and a high output show gray, as on the card. The bottom bar's own
+  strip of the five values is not shown on any screen and keeps its flags. Code only; looked at on screen on Mac and phone widths for the
+  row's height and words. Test: `tests/readouts-tab.test.js`.
 - **Cardiac output and Blood volume tiles get their normal bands.** They were the only two data card tiles left with a bare gray track and
   no word. Each now has coloured bands with its cut-off numbers, a dot for now, a ring for the start and a rating word, in Heart rate's
   style (Mohammad, 22 Oct: any tile should always have its normal where it can). The guideline files give no numbers for either, so these
