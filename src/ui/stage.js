@@ -3577,7 +3577,11 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       veinsRows.clear();
       if (veins.drawRows(T, vLook, bloodLook(), rows, fullComposite)) return true;
     }
-    if (key !== veinsDrawKey && plateOn()) schedulePlateView();
+    if (key !== veinsDrawKey) {
+      if (plateOn()) schedulePlateView();
+      // (The organs drawn live, the view moved: once it is let go, the gut's picture for it, if none kept will do.)
+      else if (gutCopy && gGut && morphTarget === 0 && !(morph > 0) && !gutPicFor(vdpr * m.sc)) gutPicSoon();
+    }
     // (Moved with only some vessels' attributes changed, those vessels are named: a drag while the model plays still
     // moves the drawn layer, and draws their cells again, rather than drawing it all.)
     const rows = veinsDirty ? null : [...veinsRows];
@@ -3599,7 +3603,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // picking organs and for exports.
   const PLATE_RECT = [200, -200, 1020, 1320];
   const PLATE_BASE = 1.2;          // px per world unit of the whole-plate raster
-  let plateTheme = null, plateKey = '', plateSeq = 0, plateBusy = false, plateAgain = false, plateLast = 0, plateTimer = 0, plateView = null, plateViewKey = '', plateSettle = 0, plateCopy = null;
+  let plateTheme = null, plateKey = '', plateSeq = 0, plateBusy = false, plateAgain = false, plateLast = 0, plateTimer = 0, plateView = null, plateViewKey = '', plateSettle = 0, plateCopy = null, gutCopy = null;
   // The last sharp picture of the view, kept in memory (its pixels, its world rect, size and scale, and the state it shows): a pan
   // at the same scale takes the pixels the two views share from it and draws only what the pan uncovered (viewReuse).
   let viewKeep = null, viewSeq = 0;
@@ -3695,6 +3699,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       const base = gOrgans.parentNode.getCTM?.(), inv = base?.inverse();
       const toLocal = (el) => { try { const k = el.getCTM?.(); return inv && k ? inv.multiply(k).inverse() : null; } catch { return null; } };
       const maskT = used.length ? { head: ser.serializeToString(dc), masks: used.map((m) => ({ r: m.r, toLocal: refs.filter((x) => x[2] === m.id).map((x) => toLocal(x[1])) })) } : null;
+      // (The gut's part of it outlives the copy: it does not change with the liver, the spleen or the fluid, so its pictures can be
+      // made with the plate down too, after a pinch in mid-change: makeGutPic.)
+      gutCopy = { gut, head, gutMut, look: gutLook() };
       return { key, seq: plateSeq, head, parts, subs, toLiver, gut, gutMut, live, boxes: null, maskT };
     } finally { if (greyed) syncOrganDim(); }
   }
@@ -4102,7 +4109,10 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     for (let k = top / Math.SQRT2; k >= lo * 0.99; k /= Math.SQRT2) { if (!leftAlone(1000)) return; await makeGutPic(k / 1.01); }   // (not under a finger: a later rest makes them)
   }
   async function makeGutPic(need = vdpr * (CTM?.sc || 0)) {
-    if (!gGut || !plateOn() || !CTM || morphTarget !== 0 || morph > 0 || !plateCopy?.gut?.length || plateCopy.key !== plateStateKey() || plateCopy.gutMut !== gutMut) return;
+    // (From the gut's copy, kept across the plate's drops, of the same art and colours: with the plate down too. Zoomed in during a
+    // change, no kept picture was sharp enough and none could be made until the plate came back, so the gut's 1,201 paths were drawn
+    // on every frame of the pinch and the ease: Mohammad on f65f3bb, "extreme lag ... as I zoom or pan around during that change".)
+    if (!gGut || !CTM || morphTarget !== 0 || morph > 0 || !gutCopy?.gut.length || gutCopy.gutMut !== gutMut || gutCopy.look !== gutLook()) return;
     // Zoomed in past what a picture of the whole gut can hold, the picture is of the view's part of it, with a margin (and the
     // bowel's float of 26 above and below), at the organs' own sharpness for the view (Mohammad's Mac ?perf, zoom 3.06, 21 Oct:
     // "gut live: zoomed past it", 160-220 ms frames while the liver eased).
@@ -4120,7 +4130,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const k = win ? win.k : gutStep(need, GUT_CAP), look = gutLook(), mut = gutMut;   // (the next fixed step at or above the view's: never stretched)
     if (!win && gutPics.some((p) => !p.win && p.mut === mut && p.look === look && p.k === k)) return;
     const seq = ++gutPicSeq, W = Math.max(1, Math.round(R[2] * k)), H = Math.max(1, Math.round(R[3] * k));
-    const ser = new XMLSerializer(), copies = plateCopy.gut, head = plateCopy.head, runs = [];
+    const ser = new XMLSerializer(), copies = gutCopy.gut, head = gutCopy.head, runs = [];
     try {
       for (const kids of gutRuns()) {
         const body = kids.map((kid) => { const i = String([...gGut.children].indexOf(kid)), c = copies.find((el) => el.getAttribute('data-gut') === i)?.cloneNode(true); if (!c) throw new Error('gut copy'); c.removeAttribute('transform'); c.removeAttribute('data-gut'); return ser.serializeToString(c); }).join('');

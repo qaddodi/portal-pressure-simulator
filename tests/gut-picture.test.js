@@ -36,9 +36,14 @@ test('the picture is used only while the plate is down, in the look and art it w
   for (const f of ['drawVeins', 'syncPlateLook']) assert.match(fn(f), /syncGutPic\(\)/, f);
 });
 
-test('the picture is made at rest from the plate copy, never baked into the plate, and never measured by Fit', () => {
+test('the picture is made from the gut\'s copy (kept across the plate\'s drops, of the same art and colours), never baked into the plate, and never measured by Fit', () => {
   const mk = fn('makeGutPic');
-  assert.match(mk, /if \(!gGut \|\| !plateOn\(\) \|\| !CTM \|\| morphTarget !== 0 \|\| morph > 0 \|\| !plateCopy\?\.gut\?\.length \|\| plateCopy\.key !== plateStateKey\(\) \|\| plateCopy\.gutMut !== gutMut\) return;/);
+  assert.match(mk, /if \(!gGut \|\| !CTM \|\| morphTarget !== 0 \|\| morph > 0 \|\| !gutCopy\?\.gut\.length \|\| gutCopy\.gutMut !== gutMut \|\| gutCopy\.look !== gutLook\(\)\) return;/);
+  assert.match(mk, /const ser = new XMLSerializer\(\), copies = gutCopy\.gut, head = gutCopy\.head, runs = \[\];/);
+  assert.match(fn('plateBuild'), /gutCopy = \{ gut, head, gutMut, look: gutLook\(\) \};/);
+  assert.doesNotMatch(fn('hidePlate'), /gutCopy/, 'a drop of the plate keeps the gut\'s copy');
+  assert.match(stage, /else if \(gutCopy && gGut && morphTarget === 0 && !\(morph > 0\) && !gutPicFor\(vdpr \* m\.sc\)\) gutPicSoon\(\);/, 'with the plate down, a moved view gets its picture once let go');
+  assert.match(fn('gutPicSoon'), /if \(!leftAlone\(1000\)\)/, 'never under a finger');
   assert.match(mk, /await keep\.decode\(\);/, 'decoded before it can show');
   const build = fn('plateBuild');
   assert.match(build, /if \(gGut\.children\[i\] === gGutPics \|\| gGut\.children\[i\] === gGutCuts\) k\.setAttribute\('data-pc', 'drop'\); else k\.setAttribute\('data-gut', i\);/);
