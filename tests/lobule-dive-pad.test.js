@@ -13,7 +13,8 @@ test('an aimed dive shows the whole lobule, built before the zoom, the layers th
   assert.ok(box);
   assert.match(box, /if \(!geo \|\| atFit\) return null;/, 'the fit view (no aim) keeps the layers alone');
   assert.match(box, /return padRect\(x, y, geo\.R \* V\.k \* 1\.35, W, H\);/, 'out past the rim and the corners\' triads');
-  assert.match(lz, /const \[W, H\] = hostSize\(\), box = padBox\(W, H\), wd = box \? buildWide\(W, H, box\) : null;\n\s+idleDrawn = ''; draw\(0\); diveDrawn = true; staged = api\.viewKey\(\); relLater = true;\n\s+wide = wideChecked\(wd\);/);
+  // (Reduced motion fades the dive, magnifying nothing: no copy is built then.)
+  assert.match(lz, /const \[W, H\] = hostSize\(\), box = reduce\.matches \? null : padBox\(W, H\), wd = box \? buildWide\(W, H, box\) : null;\n\s+idleDrawn = ''; draw\(0\); diveDrawn = true; staged = api\.viewKey\(\); relLater = true;\n\s+wide = wideChecked\(wd\);/);
   // Each tile is the layers as they stack: the tissue's rimmed copy, the vessels, the ductules; each source given back at once.
   const b = lz.match(/function buildWide\([\s\S]*?\n {2}\}/)[0];
   assert.match(b, /paintTissue\(w, hh, dpr, dark, cs, flat\);\n\s+diveRim = [^\n]*diveCopy\(cv\);/);

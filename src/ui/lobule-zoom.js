@@ -364,6 +364,10 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host) }
   let glide = 0, gliding = false;
   // A presenter's glide (focusOn): the labels ease out, are not laid out on the way, and ease back in where it lands.
   let camMove = false, camInT = 0, camUntil = 0, camHeld = false;   // (camHeld: aim's hold, which only focusOn or leaving lets go)
+  // A second aim's hold let go where no focusOn will come to do it: the presentation ended, or the view went on into the sinusoid
+  // (its labels would otherwise never show again in this lobule).
+  const releaseCam = () => { if (camHeld) { camHeld = false; camSettle(); } };
+  store.on('presenting', () => { if (!store.get().presenting) releaseCam(); });
   function camSettle() {
     if (!camMove || camHeld) return;
     camMove = false; layoutKey = '';
@@ -1819,7 +1823,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host) }
   // Out of a lobule framed zoomed in (a slide's station, or a hand's zoom) on a way that does not glide to the whole lobule first:
   // the same copy, built before the rise's clock starts, so the lobule shrinks whole rather than as the screen's rectangle.
   function stageRise() {
-    if (wide || fade <= 0.98 || !model) return;
+    if (wide || fade <= 0.98 || !model || reduce.matches) return;   // (reduced motion: the rise fades, no copy is needed)
     const [W, H] = hostSize(), box = padBox(W, H);
     if (!box) return;
     if (gliding) { cancelFrame(glide); gliding = false; camAim = null; }   // (the copy is of this framing: the view holds it)
@@ -2225,7 +2229,8 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host) }
     if (!model) return;
     dropWide();
     // (Aimed at a station: the whole lobule's copy for the zoom, built first; the layers are then drawn for the screen.)
-    const [W, H] = hostSize(), box = padBox(W, H), wd = box ? buildWide(W, H, box) : null;
+    // (Reduced motion: the dive fades, nothing is magnified, so no copy: it was built and freed in the same moment.)
+    const [W, H] = hostSize(), box = reduce.matches ? null : padBox(W, H), wd = box ? buildWide(W, H, box) : null;
     idleDrawn = ''; draw(0); diveDrawn = true; staged = api.viewKey(); relLater = true;
     wide = wideChecked(wd);
   }
@@ -3232,7 +3237,8 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host) }
     const to = on ? 1 : 0;
     if (to === sinTo && sinU === to) return;
     sinTo = to;
-    if (on && sinU === 0) { sinPick = sinusoidPick(); sv.setModel(model); }
+    // (A flick or a button's glide still moving would carry the lobule off the vessel the zoom is aimed at: stopped first.)
+    if (on && sinU === 0) { stopInertia(); cancelFrame(glide); gliding = false; releaseCam(); sinPick = sinusoidPick(); sv.setModel(model); }
     // Back out from the sinusoid after the screen changed size (turned, a window resized): the lobule is built and framed for the new size
     // first, so the zoom lands on it as it will stay (it landed at the old size and then refitted).
     if (!on && sinU === 1) {

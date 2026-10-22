@@ -101,3 +101,12 @@ test('item 43 (lobule parts): the anatomy-to-sinusoid chain, the zoom-out hand-o
   assert.doesNotMatch(src, /the neighbours' triads, drawn flat/);
   assert.doesNotMatch(rc, /rimKeep|diveRimMix/);
 });
+
+test('item 18 (lobule side): the sinusoid zoom stops a flick or glide first; a held aim lets go; reduced motion builds no wide copy', () => {
+  const src = read('../src/ui/lobule-zoom.js');
+  const dive = src.slice(src.indexOf('function diveSinusoid(on)'), src.indexOf('function diveSinusoid(on)') + 2500);
+  assert.match(dive, /if \(on && sinU === 0\) \{ stopInertia\(\); cancelFrame\(glide\); gliding = false; releaseCam\(\);/);
+  assert.match(src, /store\.on\('presenting', \(\) => \{ if \(!store\.get\(\)\.presenting\) releaseCam\(\); \}\);/);
+  assert.match(src, /box = reduce\.matches \? null : padBox\(W, H\), wd = box \? buildWide/);
+  assert.match(src, /if \(wide \|\| fade <= 0\.98 \|\| !model \|\| reduce\.matches\) return;/);
+});
