@@ -150,6 +150,10 @@ export const ADOPTED = {
   'next-bleed/nsbb': ['cite'],
   'next-bleed/both': ['cite'],
   'next-bleed/tips': ['cite', 'kind:flows'],
+  'read-doppler/a2': ['cite'],
+  'read-doppler/a3': ['cite'],
+  'read-doppler/a4': ['tool.pair', 'tool.calipers'],
+  'read-doppler/summary': ['cols.wave', 'wave'],
 };
 
 /** Whether the slide d/s may use the field. */
