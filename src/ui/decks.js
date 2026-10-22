@@ -71,7 +71,7 @@
 //   procedure                'tips' | 'brto' | 'bato', or { kind, auto: true }: a Play button on the teaching card plays that catheter
 //                            procedure on the figure (proc-anim.js; auto: as the slide lands, going forward), and the live model takes
 //                            the change when it ends, as a compare button does. Opt-in: a built-in slide uses it only when
-//                            tests/deck-adopted.js lists it. Its patient must not have had it yet (else the button is dimmed and says why)
+//                            tests/deck-adopted.js lists it. A patient who already has the result has it taken back first, and the play puts it back
 //   opt-in visuals (deck visuals packages; a built-in slide uses one only when tests/deck-adopted.js lists it; docs/deck-authoring-guide.md 5.9, 6.4, 7):
 //                            figure: spot, normalOutline, ripple, lens 'system' | 'since' (since, sinceLabel), calipers,
 //                            lapseGlow ['bowel'] (those organs glow from the time-lapse's start, while the slide is up), steps (with glowSeq), span, zone,
@@ -95,7 +95,7 @@ import { TREATMENT } from './decks/treatment.js?v=5c88f1230e';
 import { STIFFNESS } from './decks/stiffness.js?v=4d396aca46';
 import { ONE_YEAR } from './decks/one-year.js?v=75670684de';
 import { LOBULE } from './decks/lobule.js?v=697a4700cf';
-import { SHUNTS } from './decks/shunts.js?v=0c99117ab7';
+import { SHUNTS } from './decks/shunts.js?v=4f82364946';
 import { TIPS_DOPPLER } from './decks/tips-doppler.js?v=22f8877cc5';
 import { TAP } from './decks/tap.js?v=5c145bc856';
 import { CIRCUIT } from './decks/circuit.js?v=424f33dee3';
@@ -116,7 +116,7 @@ import { BETA_BLOCKERS } from './decks/beta-blockers.js?v=253a8893d3';
 import { ENCEPHALOPATHY } from './decks/encephalopathy.js?v=f72dc3c10f';
 import { CAUSE_TREATED } from './decks/cause-treated.js?v=0da183adb0';
 import { NEXT_BLEED } from './decks/next-bleed.js?v=f31959bf21';
-import { GASTRIC } from './decks/gastric-varices.js?v=c5e6a19ef7';
+import { GASTRIC } from './decks/gastric-varices.js?v=6355de809a';
 import { READ_DOPPLER } from './decks/read-doppler.js?v=148f0ab0d0';
 import { HYPERDYNAMIC } from './decks/hyperdynamic.js?v=1277cfc437';
 import { CHOOSE_TREATMENT } from './decks/choose-treatment.js?v=0d59f78349';

@@ -78,3 +78,15 @@ test('built-in slides use procedure only where adopted, each naming a known one'
     assert.ok(PROCS[k], `${d.id}/${s.id}: unknown procedure ${k}`);
   }
 });
+
+test('a patient who already has the result can have it taken back and put back (a slide that shows it done)', () => {
+  const p = { ...defaultParams(), spontaneous: { C5: true, C6: false } };
+  for (const k of PROC_KINDS) {
+    const done = PROCS[k].apply(structuredClone(p));
+    assert.ok(PROCS[k].had(done) && !PROCS[k].had(p), k);
+    const back = PROCS[k].undo(structuredClone(done));
+    assert.ok(!PROCS[k].had(back), `${k}: taken back`);
+    assert.equal(procBlocked(k, back), '', `${k}: playable again`);
+  }
+  assert.ok(!isOccluded(PROCS.brto.undo(structuredClone(PROCS.brto.apply(structuredClone(p)))), 'C2'), 'the gastric feeder reopens with the shunt');
+});

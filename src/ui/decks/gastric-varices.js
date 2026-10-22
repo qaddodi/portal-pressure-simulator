@@ -62,7 +62,7 @@ export const GASTRIC = {
       ask: ['After a TIPS that brings the PPG under 12 mmHg, is a beta-blocker still needed?', 'No, according to AASLD.'],
     },
     {
-      id: 'brto', lens: 'flow', preset: 'gastric-varix', params: { occluded: { C5: true } }, cam: 'fundus', terms: ['gv'], mark: { edges: ['C5'], label: 'Shunt closed', kind: 'treat' }, tool: { kind: 'flows' },
+      id: 'brto', lens: 'flow', preset: 'gastric-varix', params: { occluded: { C5: true } }, cam: 'fundus', terms: ['gv'], mark: { edges: ['C5'], label: 'Shunt closed', kind: 'treat' }, tool: { kind: 'flows' }, procedure: 'brto',
       compare: [{ label: 'Shunt open', short: 'Open', params: { occluded: { C5: false } } }, { label: 'Shunt closed', short: 'Closed', own: true, params: { occluded: { C5: true } } }],
       data: 'tiles', tiles: ['gv', 'varix', 'ppg'], key: ['gv'], delta: 'classes',
       cite: 'Baveno VIII 5.41; AASLD 45',

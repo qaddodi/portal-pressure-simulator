@@ -17,7 +17,7 @@ import { T, ease, k01, balloonAt, timeOfBalloon, pressureAt as pAt } from './hvp
 import { frameFor, cancelFrame } from './frame.js?v=19b3f2915c';
 import { traceRoom, TRACE_MIN } from './trace-room.js?v=b4c0aaa97f';
 import { rateOf } from './table-marks.js?v=15f059172f';
-import { PROCS, PROC_KINDS, procBlocked, playProcedure } from './proc-anim.js?v=8dae1a3cf6';
+import { PROCS, PROC_KINDS, procBlocked, playProcedure } from './proc-anim.js?v=ee29e7b3c9';
 const nextFrame = frameFor('hvpg-proc');
 
 let stageRef = null;

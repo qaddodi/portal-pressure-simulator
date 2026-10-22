@@ -79,7 +79,7 @@ export const SHUNTS = {
       ask: ['Why is the Warren shunt called selective?', 'It drains the varices through the spleen to the left renal vein, while SMV blood keeps perfusing the liver at portal pressure.'],
     },
     {
-      id: 'brto', lens: 'flow', terms: ['gv'], preset: 'gastric-varix', params: { occluded: { C5: true } }, cam: 'fundus', mark: { edges: ['C5'], label: 'Shunt closed', kind: 'treat' }, tool: { kind: 'flows' },
+      id: 'brto', lens: 'flow', terms: ['gv'], preset: 'gastric-varix', params: { occluded: { C5: true } }, cam: 'fundus', mark: { edges: ['C5'], label: 'Shunt closed', kind: 'treat' }, tool: { kind: 'flows' }, procedure: 'brto',
       compare: [{ label: 'Shunt open', params: { occluded: { C5: false } } }, { label: 'Shunt closed', own: true, params: { occluded: { C5: true } } }],
       data: 'tiles', tiles: ['pv', 'varix'], key: ['varix'], delta: 'grs',
       kicker: 'Closing a shunt', site: 'sin', title: 'BRTO closes the gastrorenal shunt',

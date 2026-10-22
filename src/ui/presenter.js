@@ -21,11 +21,11 @@ import { sinusoidSupported } from './gl-support.js?v=94ad2a7ff1';
 import { SCALE_NAME, offeredScales, scaleView, pickedScale } from './scale-switch.js?v=1b0e3acd65';
 import { DISEASE_SRC, diseasePieces } from './diseases.js?v=fb8a5451c3';
 import { nb, listCase, plateletText } from './glue.js?v=5a0f63226b';
-import { DECKS, REGIONS, LEVELS, TOPICS, withOverview, siteTag, SITE_TAGS } from './decks.js?v=9aef63c712';
+import { DECKS, REGIONS, LEVELS, TOPICS, withOverview, siteTag, SITE_TAGS } from './decks.js?v=d87e28f67c';
 import { fingerprintOf } from '../engine/fingerprint.js?v=8faea80b59';
-import { createHvpgMonitor } from './hvpg-proc.js?v=c82f17fda5';
-import { createTools } from './presenter-tools.js?v=990f3b6669';
-import { openHandout } from './handout.js?v=5145b31e77';
+import { createHvpgMonitor } from './hvpg-proc.js?v=7da6f2a3db';
+import { createTools } from './presenter-tools.js?v=47a1cad76c';
+import { openHandout } from './handout.js?v=3b09e978ce';
 import { noteResume, resumeFor } from './resume.js?v=f086f80ee8';
 import { parseDeckSource, checkDeck } from './deck-source.js?v=8395c650cd';
 import { NO_ASC, TILE, SCALE, bandsOf, rateOf, COLS, CUT, PRESS, fpv, dirAbs, dirRel, rateAbs, effOf, rateShown, tileShown, tipsGoal, liveSettled, shownSig } from './table-marks.js?v=15f059172f';
@@ -33,13 +33,13 @@ import { frameFor, cancelFrame } from './frame.js?v=19b3f2915c';
 import { createFigureKey } from './figure-key.js?v=8bbf7a41ed';
 import { traceWhen } from './trace-labels.js?v=fc916a95c6';
 import { flowCss, heatCss, dropCss, gradientCss, oxygenCss } from './colormap.js?v=287019881f';
-import { EXT, expandIds, stepExtra, markLabel, figureHooks, safe } from './slide-ext.js?v=69ade7dd7f';
+import { EXT, expandIds, stepExtra, markLabel, figureHooks, safe } from './slide-ext.js?v=6325859b17';
 import { clotWords } from './callout-math.js?v=d92ff7722e';
 import { citeText, focusOf, oneLadder } from './teach-extras.js?v=5f5248f5a7';
 import { createProfileTool, createProfileStrip } from './tool-profile.js?v=6aa1573cc9';
 import { causeFit } from './cause-fit.js?v=830a6835a5';
 import { COMPACT, WIDE } from './card-type.js?v=f5dfdb80f2';
-import { PROCS, procBlocked, playProcedure } from './proc-anim.js?v=8dae1a3cf6';
+import { PROCS, procBlocked, playProcedure } from './proc-anim.js?v=ee29e7b3c9';
 const nextFrame = frameFor('presenter');
 
 const KEY = 'pps.scripts';
@@ -1098,7 +1098,9 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   }
   // ── A slide's procedure (proc-anim.js): TIPS, BRTO or BATO played on the live figure from the teaching card's Play button, or
   // as the slide lands going forward (auto: true). When it ends the live model takes the change, as a treatment button does
-  // (liveSet), unless the slide's patient already has it. Leaving the slide stops it where it is; the next slide's camera takes over.
+  // (liveSet). A slide whose own patient has already had it (the BRTO slides show the shunt closed) plays it from just before:
+  // the live model takes it back first (the shunt opens again while the catheter travels), then the procedure puts it back.
+  // Leaving the slide stops it where it is; the next slide's camera takes over.
   let procRun = null;
   const procKind = (s) => (typeof s.procedure === 'string' ? s.procedure : s.procedure?.kind) || null;
   function procStop() { if (!procRun) return; const r = procRun; procRun = null; r.stop({ home: false }); stage.cathForget(); procPaint(); }
@@ -1110,14 +1112,24 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     await toAnatomy();
     if (store.get().view !== 'anatomic') { store.set({ view: 'anatomic' }); await wait(700); }
     if (!mine() || procRun) return;
+    // (Through liveSet as the change itself is: the slide's own state comes back whenever it is shown again.)
+    if (PROCS[kind].had(store.get().params)) liveSet(s, i, PROCS[kind].undo(structuredClone(store.get().params)));
     const run = procRun = playProcedure(stage, kind, {
-      apply: () => { if (procRun === run && mine() && !procBlocked(kind, store.get().params)) liveSet(s, i, PROCS[kind].apply(structuredClone(store.get().params))); },
+      apply: () => {
+        if (procRun !== run || !mine() || procBlocked(kind, store.get().params)) return;
+        liveSet(s, i, PROCS[kind].apply(structuredClone(store.get().params)));
+        // (The slide's treatment buttons press the one that now matches the live model.)
+        const has = (o, p) => Object.entries(o).every(([k, v]) => (v && typeof v === 'object' ? has(v, p?.[k] || {}) : !!p?.[k] === !!v && (typeof v === 'boolean' || p?.[k] === v)));
+        const k = s.compare?.findIndex((o) => o.params && has(o.params, store.get().params)) ?? -1;
+        if (k >= 0) ui?.text.querySelectorAll('.pz-abb:not(.pz-proc)').forEach((btn, j) => btn.setAttribute('aria-pressed', String(j === k)));
+      },
       onEnd: () => { if (procRun === run) { procRun = null; procPaint(); } },
     });
     procPaint();
   }
   function procEl(s, i, st) {
-    const kind = procKind(s), why = PROCS[kind] ? procBlocked(kind, st?.params || store.get().params) : 'Unknown procedure.';
+    const kind = procKind(s), p = st?.params || store.get().params;
+    const why = !PROCS[kind] ? 'Unknown procedure.' : PROCS[kind].had(p) ? '' : procBlocked(kind, p);
     return h('div', { class: 'pz-ab pz-procs', role: 'group', 'aria-label': 'Play the procedure on the figure' },
       h('button', { type: 'button', class: 'pz-abb pz-proc', 'aria-pressed': 'false', ...(why ? { disabled: '', 'data-why': why, title: why } : {}), onclick: () => procPlay(s, i) },
         `Play ${PROCS[kind]?.name || kind}`));

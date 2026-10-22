@@ -26,6 +26,8 @@ export const PROCS = {
     ],
     can: (p) => (p.tips?.on ? 'A TIPS is already in place.' : (p.thrombus?.RHV_IVC || 0) >= 0.8 ? 'The right hepatic vein is clotted, so a TIPS has no route.' : ''),
     apply: (p) => { p.tips = { ...p.tips, on: true, d: p.tips?.d || 8 }; return p; },
+    had: (p) => !!p.tips?.on,
+    undo: (p) => { p.tips = { ...p.tips, on: false }; return p; },
   },
   brto: {
     name: 'BRTO', label: 'BRTO', T: OBLIT_T,
@@ -36,7 +38,7 @@ export const PROCS = {
       ['done', 'Shunt closed', 'The shunt and the varices are closed. Their blood stays in the portal system, so the portal pressure rises.'],
     ],
     can: oblitCan,
-    apply: oblitApply,
+    apply: oblitApply, had: oblitHad, undo: oblitUndo,
   },
   bato: {
     name: 'BATO', label: 'BATO', T: OBLIT_T,
@@ -47,7 +49,7 @@ export const PROCS = {
       ['done', 'Varices closed', 'The varices and their gastrorenal shunt are closed. Their blood stays in the portal system, so the portal pressure rises.'],
     ],
     can: (p) => oblitCan(p) || ((p.thrombus?.PV_TRUNK || 0) >= 0.8 ? 'The portal vein is clotted, so BATO has no route.' : ''),
-    apply: oblitApply,
+    apply: oblitApply, had: oblitHad, undo: oblitUndo,
   },
 };
 export const PROC_KINDS = Object.keys(PROCS);
@@ -56,6 +58,8 @@ function oblitCan(p) {
 }
 // (The model's occlusion of the gastrorenal shunt closes its short gastric feeder too: topology.js isOccluded.)
 function oblitApply(p) { p.occluded = { ...p.occluded, C5: true }; return p; }
+function oblitHad(p) { return !!p.occluded?.C5; }
+function oblitUndo(p) { p.occluded = { ...p.occluded, C5: false }; return p; }
 
 /** Why a procedure cannot run on these params ('' when it can). */
 export const procBlocked = (kind, p) => (PROCS[kind] ? PROCS[kind].can(p || {}) : 'Unknown procedure.');
