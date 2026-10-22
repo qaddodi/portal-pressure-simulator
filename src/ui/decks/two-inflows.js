@@ -36,11 +36,11 @@ export const TWO_INFLOWS = {
       ask: ['Where do portal and arterial blood meet?', 'In the sinusoids, which both enter at the portal tracts.'],
     },
     {
-      id: 'clot', preset: 'pvt-acute', cam: 'portal', terms: ['pv'], mark: { edges: ['PV_TRUNK'], label: 'Clot' }, tool: HA('dual'), data: 'tiles', tiles: ['pvFlow', 'liver'], key: ['liver'], delta: 'dual',
+      id: 'clot', lens: 'oxygen', compare: [{ label: 'Pressure', lens: 'pressure' }, { label: 'Oxygen', lens: 'oxygen', own: true }], preset: 'pvt-acute', cam: 'portal', terms: ['pv'], mark: { edges: ['PV_TRUNK'], label: 'Clot' }, tool: HA('dual'), data: 'tiles', tiles: ['pvFlow', 'liver'], key: ['liver'], delta: 'dual',
       kicker: 'The buffer', site: 'pre', title: 'A clot stops the portal flow',
       vignette: 'A 47-year-old man with a newly diagnosed JAK2-positive myeloproliferative neoplasm has had 3 days of constant abdominal pain. His liver tests are normal.',
-      line: 'With resistance in the portal vein, the hepatic artery opens up and carries about twice its usual flow, so liver blood flow falls only to {liver} of normal.',
-      notes: 'This is the hepatic arterial buffer response. Adenosine is released at a steady rate around the hepatic arterioles and is normally washed away by portal flow; when portal flow falls, adenosine builds up and dilates the artery. The buffer makes up part, not all, of the lost flow. It is why acute portal vein thrombosis rarely infarcts the liver.',
+      line: 'With resistance in the portal vein, the hepatic artery opens up and carries about twice its usual flow, so liver blood flow falls only to {liver} of normal. Colored by oxygen, the sinusoids brighten as arterial blood fills them.',
+      notes: 'This is the hepatic arterial buffer response. Adenosine is released at a steady rate around the hepatic arterioles and is normally washed away by portal flow; when portal flow falls, adenosine builds up and dilates the artery. The buffer makes up part, not all, of the lost flow. It is why acute portal vein thrombosis rarely infarcts the liver. Colored by oxygen, blood entering the sinusoids rises from about 88% to 95% saturation, because most of it is now arterial.',
       ask: ['Why does acute portal vein thrombosis rarely cause a liver infarct?', 'The hepatic artery dilates (the buffer response) and keeps the liver perfused.'],
     },
     {

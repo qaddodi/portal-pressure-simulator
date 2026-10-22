@@ -60,7 +60,7 @@ export const LOBULE = {
       id: 'cong', terms: { 'zone 3': 'lobule:zone3', 'central vein': 'lobule:central', sinusoids: 'lobule:sinusoid' }, layers: ['zones'], callout: { at: 'cv', label: 'Dilated zone 3 sinusoids' }, preset: 'rhf', cam: 'lobule:central', scales: { anatomy: { cam: 'heart', labels: ['RHV', 'IVCS', 'RA'] }, sinusoid: {} }, data: 'tiles', tiles: ['pv', 'hvpg'],
       kicker: 'Cardiac', site: 'cardiac', title: 'Congestion dilates the sinusoids of zone 3',
       vignette: 'A 71-year-old woman with pulmonary hypertension and severe TR has a raised JVP, ascites and a tender, enlarged liver. Her ALT is mildly raised.',
-      line: 'Back pressure from the heart dilates the sinusoids around the central vein, and zone 3 cells die first. The portal vein reads {pv}, the HVPG {hvpg}.',
+      line: 'Back pressure from the heart dilates the sinusoids around the central vein, and zone 3 cells die first. Colored by congestion, every vessel in the lobule is backed up. The portal vein reads {pv}, the HVPG {hvpg}.',
       notes: 'A high right atrial pressure passes back through the hepatic veins into the central veins and the sinusoids of zone 3, which dilate and fill with blood; the cut liver looks like a nutmeg. Low cardiac output adds hypoxia, and zone 3 cells atrophy and die. Years of this lay down fibrosis that links the central veins (cardiac cirrhosis). Every pressure from the portal vein to the atrium is high, so the HVPG is normal. The sinusoid wall is still open, so the ascites is rich in protein.',
       ask: ['Why is the HVPG normal in congestive hepatopathy although the portal pressure is high?', 'The wedged and free pressures rise together with the right atrium.'],
     },

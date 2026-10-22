@@ -60,9 +60,9 @@ export const ONE_YEAR = {
       ask: ['The HVPG is now 13. What does that change?', 'The varices are now more likely to bleed; below about 12 mmHg bleeding is rare.'],
     },
     {
-      id: 'doppler', cam: 'portal', labels: ['CONF'], tool: { kind: 'doppler', vessel: 'PV_TRUNK', delta: 'd0' },
+      id: 'doppler', lens: 'velocity', cam: 'portal', labels: ['CONF'], tool: { kind: 'doppler', vessel: 'PV_TRUNK', delta: 'd0' },
       kicker: 'Day 365', site: 'sin', title: 'Portal flow is starting to slow',
-      line: 'As resistance in the liver rises, portal velocity falls; here it has fallen a little since day 0 but is still in the usual range. A velocity under {<15 cm/s} supports portal hypertension.',
+      line: 'As resistance in the liver rises, portal velocity falls; here it has fallen a little since day 0 but is still in the usual range. Colored by velocity, the portal vein still reads normal. A velocity under {<15 cm/s} supports portal hypertension.',
       notes: 'The main portal vein normally carries 15 cm/s or more toward the liver, with a gentle respiratory ripple. As resistance rises the velocity falls; under about 15 cm/s supports portal hypertension. Later the flow can become to-and-fro, then reverse (hepatofugal). Doppler also looks for a clot, a large spleen, collaterals and ascites. It is operator-dependent and changes with meals and breathing, so scan fasting.',
       ask: ['What portal vein velocity supports portal hypertension?', 'Under about 15 cm/s, or flow that is to-and-fro or reversed.'],
     },

@@ -28,10 +28,10 @@ export const PVT_CIRRHOSIS = {
       ask: ['Does a high INR protect a patient with cirrhosis from portal vein thrombosis?', 'No: the anticoagulant proteins fall too, so clotting is rebalanced.'],
     },
     {
-      id: 'clot', tick: 'Partial clot', params: { thrombus: { PV_TRUNK: 0.6 } }, whatIf: { label: 'Clot size', param: 'thrombus.PV_TRUNK', min: 0, max: 1, step: 0.05, ends: ['None', 'Occlusive'] }, cam: 'portal', terms: ['pv'], mark: { edges: ['PV_TRUNK'], clot: true },
+      id: 'clot', lens: 'velocity', tick: 'Partial clot', params: { thrombus: { PV_TRUNK: 0.6 } }, whatIf: { label: 'Clot size', param: 'thrombus.PV_TRUNK', min: 0, max: 1, step: 0.05, ends: ['None', 'Occlusive'] }, cam: 'portal', terms: ['pv'], mark: { edges: ['PV_TRUNK'], clot: true },
       tool: { kind: 'lumen', vessel: 'PV_TRUNK' }, data: 'tiles', tiles: ['pv'], key: ['pv'],
       kicker: 'The clot', site: 'pre', title: 'A partial clot in the portal vein',
-      line: 'The clot fills more than half of the portal vein. Blood speeds through the channel that is left, and the pressure behind it rises to {pv}.',
+      line: 'The clot fills more than half of the portal vein. Colored by velocity, blood speeds through the channel that is left, and the pressure behind it rises to {pv}.',
       notes: 'On ultrasound the clot is echogenic material in the vein, with color flow around it and a faster jet through the narrowing; an occlusive clot shows no flow at all. Contrast CT or MR comes next: first to rule out tumor thrombus from a liver cancer, which enhances in the arterial phase and expands the vein, then to show how far it extends into the splenic and superior mesenteric veins, which guides treatment. The varices enlarge as the pressure behind the clot rises.',
       ask: ['What does a contrast CT add to the Doppler?', 'First, whether the clot is tumor: an HCC thrombus enhances in the arterial phase and expands the vein. Then how far it extends into the splenic and mesenteric veins, and how much of the lumen it fills.'],
     },
