@@ -2,6 +2,15 @@
 
 ## October 2026
 
+- **One sideways swipe on a Mac trackpad moves one slide; the up and down arrow keys work the stack, not the slides.** (Mohammad, 22 Oct:
+  "swiping sideways on mac is moving multiple slides"; "up and down arrow keys should tuck and untuck on mac ... not move slides".) A flick's
+  momentum glide runs a second or more after the fingers lift, with an odd zero or bump in it, and the wheel rule took any of those for a
+  fresh push and acted again: a simulated flick moved two to six slides. A gesture now lasts until the wheel goes quiet (250 ms between
+  events, timed by the events' own stamps, so a slow frame cannot split a glide) and acts once, for slides, case cards and the stack alike;
+  only fingers turned clearly back the other way in one unbroken run start the next action inside a glide. The Up arrow brings the stacked
+  card's readings out and the Down arrow tucks them, eased as the swipe is (Mac, iPad on its side; never over a case card; a focused slider,
+  field or the slide list keeps its arrows); Left, Right, Page Up, Page Down, Space, Enter and Backspace still move slides. The Guide lists
+  the keys. Checked on simulated wheel streams only; nobody has tried it on a Mac trackpad. Tests: `tests/wheel-gesture.test.js`.
 - **A Mac trackpad works the stack and the slides like a finger; an iPad on its side swipes the stack anywhere.** (Mohammad, 22 Oct.) In a
   talk, a two-finger swipe up on the trackpad anywhere on the slide (or a mouse-wheel notch up) brings the readings' card out, a swipe down
   tucks it away, a swipe left goes on and a swipe right goes back, or throws a case card off the way the fingers go. One action a gesture, eased

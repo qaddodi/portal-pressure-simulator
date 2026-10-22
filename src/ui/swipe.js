@@ -94,11 +94,12 @@ export function pageGo(dx, ms, w) {
 // A trackpad (or a wheel) works the slide as a finger does (Mohammad, 22 Oct: "use the touch pad on the mac to move slides just like on ipad
 // and to open the stack and close it (scroll up opens it anywhere ..., scroll down closes it, scroll right and left move slides/throws
 // away case card)"). A gesture is a run of wheel events with no more than WHEEL_QUIET ms between them, the tail of a trackpad's glide
-// after the fingers lift included: it locks to one axis, acts once, and is spent until a fresh push (stronger than the tail it
-// follows, or turned back) or a quiet gap starts the next one.
+// after the fingers lift included (a flick's momentum runs a second or more, with an odd zero or a bump in it). It locks to one axis and
+// acts once; then it is spent until the stream goes quiet, whatever the tail does (Mohammad, 22 Oct: "swiping sideways on mac is moving
+// multiple slides"). Only fingers turned clearly back the other way, in one unbroken run, start the next action inside it.
 export const WHEEL_X = 80;        // px of fingers moving sideways before it moves a slide
 export const WHEEL_Y = 30;        // px of fingers moving up or down before it opens or closes the stack
-export const WHEEL_QUIET = 200;   // ms without a wheel event ends a gesture
+export const WHEEL_QUIET = 250;   // ms without a wheel event ends a gesture (a slow frame must not split a glide)
 
 /** The fingers' own movement, positive to the right and down, from a wheel event's deltas. A trackpad on Mac reports the page's movement,
  *  the opposite of the fingers' when natural scrolling is on (webkitDirectionInvertedFromDevice; assumed on where a browser does not say). */
@@ -107,23 +108,27 @@ export function wheelFinger(dx, dy, mode = 0, inverted = true, page = 800) {
   return [sg * dx * m, sg * dy * m];
 }
 
-/** Takes one wheel event's finger movement (fx, fy) at time `now`; gives the gesture so far and what it did: act is null while undecided or
- *  spent, else { axis: 'x' | 'y', dir: +1 | -1 } with dir the fingers' direction (right / down positive). */
+/** Takes one wheel event's finger movement (fx, fy) at time `now` (the event's own time stamp, so a busy frame does not stretch a gap);
+ *  gives the gesture so far and what it did: act is null while undecided or spent, else { axis: 'x' | 'y', dir: +1 | -1 } with dir the
+ *  fingers' direction (right / down positive). */
 export function wheelGesture(g, fx, fy, now) {
-  const fresh = () => ({ x: 0, y: 0, lock: '', spent: false, dir: 0, prev: 0, t: now });
-  let s = g && now - g.t <= WHEEL_QUIET ? { ...g, t: now } : fresh();
+  const fresh = () => ({ x: 0, y: 0, lock: '', spent: false, dir: 0, back: 0, t: now });
+  let s = g && now - g.t <= WHEEL_QUIET ? { ...g, t: Math.max(g.t, now) } : fresh();   // (a stamp a hair out of order is not a gap)
   if (!Number.isFinite(fx) || !Number.isFinite(fy)) return { g: s, act: null };
   if (s.spent) {
-    const along = s.lock === 'x' ? fx : fy, mag = Math.abs(along);
-    if (mag > s.prev * 1.6 + 6 || (mag > 12 && Math.sign(along) === -s.dir)) s = fresh();
-    else return { g: { ...s, prev: mag }, act: null };
+    // (The glide after an action never acts again, however it jitters: a momentum tail does not turn back, so only an unbroken run of
+    // movement the other way, as far as a fresh gesture needs, is the fingers' own.)
+    const along = s.lock === 'x' ? fx : fy;
+    if (along !== 0) s.back = Math.sign(along) === -s.dir ? s.back + Math.abs(along) : 0;
+    if (s.back < (s.lock === 'x' ? WHEEL_X : WHEEL_Y)) return { g: s, act: null };
+    s.dir = -s.dir; s.back = 0;
+    return { g: s, act: { axis: s.lock, dir: s.dir } };
   }
   s.x += fx; s.y += fy;
   const ax = Math.abs(s.x), ay = Math.abs(s.y);
   if (!s.lock) {
     if (ax + ay >= 10) s.lock = ax > 1.5 * ay ? 'x' : ay > 1.5 * ax ? 'y' : ax + ay >= 80 ? (ax >= ay ? 'x' : 'y') : '';
   }
-  s.prev = Math.abs(s.lock === 'x' ? fx : fy);
   if (s.lock === 'x' && ax >= WHEEL_X) { s.spent = true; s.dir = Math.sign(s.x); return { g: s, act: { axis: 'x', dir: s.dir } }; }
   if (s.lock === 'y' && ay >= WHEEL_Y) { s.spent = true; s.dir = Math.sign(s.y); return { g: s, act: { axis: 'y', dir: s.dir } }; }
   return { g: s, act: null };

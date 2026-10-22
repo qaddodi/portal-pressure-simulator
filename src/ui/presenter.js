@@ -9,14 +9,15 @@
 // new values.
 //
 // Keys (clickers send the same): → Page Down Space Enter next (during a time-lapse the first runs it to its end),
-// ← Page Up back, a number then Enter jumps, G the slide list, Home End, B or . black screen, F full screen, ? the Guide,
-// Esc. (The Guide lists them: PRESENT_KEYS in main.js.) On a touch screen a sideways swipe anywhere on the slide goes on or back.
+// ← Page Up back, ↑ untucks and ↓ tucks the stacked card's readings (Mac, iPad on its side; they never move a slide), a number then
+// Enter jumps, G the slide list, Home End, B or . black screen, F full screen, ? the Guide, Esc. (The Guide lists them: PRESENT_KEYS in
+// main.js.) On a touch screen a sideways swipe anywhere on the slide goes on or back.
 
 import { store, replaceParams } from './store.js?v=67f4341802';
 import { download } from './download.js?v=3564e5bf8c';
 import { h, toast, svgIcon, icon, fmt, clamp, openModal, closeModal, isModalOpen, restBox, paintRange, cssVar, swapText, STACK_MQ, SHORT_SIDE_MQ, TABLET_UP_MQ } from './util.js?v=be12b8e102';
 import { titleParts } from './title-units.js?v=c8d5ce1f26';
-import { swipeDir, ownsSideways, ownsTouch, cardSwipe, caseFling, caseFlight, wheelFinger, wheelGesture, ownsWheel } from './swipe.js?v=502bb1b8e3';
+import { swipeDir, ownsSideways, ownsTouch, cardSwipe, caseFling, caseFlight, wheelFinger, wheelGesture, ownsWheel } from './swipe.js?v=3ad619631e';
 import { sinusoidSupported } from './gl-support.js?v=94ad2a7ff1';
 import { SCALE_NAME, offeredScales, scaleView, pickedScale } from './scale-switch.js?v=1b0e3acd65';
 import { DISEASE_SRC, diseasePieces } from './diseases.js?v=fb8a5451c3';
@@ -3663,17 +3664,28 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   wrap.addEventListener('touchend', (e) => { if (far && !e.touches.length) farLet('touchend'); }, { passive: true, capture: true });
   wrap.addEventListener('touchcancel', () => { if (far) farLet('touchcancel'); }, { passive: true, capture: true });
 
+  // The stacked card's readings out (open) or tucked away: the wheel's and the arrow keys' way to what a swipe up or down does. Only where the
+  // card stacks (Mac, iPad on its side), with it showing and no case card up; eased by the card's own setFold. True when it applies.
+  function stackFold(open) {
+    const d = ui?.data;
+    if (!d || (caseCard && !caseCard.flown) || !wideSheet(d) || d.hidden || d.classList.contains('pz-hide')) return false;
+    if (open !== d.classList.contains('tool-open')) ui.setFold(open);
+    return true;
+  }
+
   // ── A trackpad or wheel on a Mac works the slide as a finger does (Mohammad, 22 Oct): fingers up anywhere bring the stacked card's
   // readings out (a swipe up), fingers down tuck them away, fingers sideways go on or back, or throw a case card off that way. One action
-  // a gesture, eased as the finger's are (setFold, caseFly, go); a box that scrolls itself keeps its wheel (ownsWheel), and a pinch
-  // (ctrl) stays the figure's. The deck's last slide is not left by a sideways glide: only a swipe or Next ends the talk. ──
+  // a gesture, and a gesture lasts until the wheel goes quiet, the glide after the fingers lift included (swipe.js, wheelGesture); eased as
+  // the finger's are (setFold, caseFly, go); a box that scrolls itself keeps its wheel (ownsWheel), and a pinch (ctrl) stays the
+  // figure's. The deck's last slide is not left by a sideways glide: only a swipe or Next ends the talk. ──
   let wheelG = null;
   wrap.addEventListener('wheel', (e) => {
     if (!deck || !ui || e.ctrlKey || e.metaKey || leaving || !ui.jump.hidden || isModalOpen()) return;
+    const now = e.timeStamp > 0 ? e.timeStamp : performance.now();   // (the event's own time: a slow frame must not stretch a gap inside one glide)
     const [fx, fy] = wheelFinger(e.deltaX, e.deltaY, e.deltaMode, e.webkitDirectionInvertedFromDevice, innerHeight);
-    if (ownsWheel(e.target, Math.abs(fx) > Math.abs(fy) ? 'x' : 'y', { stop: wrap })) { wheelG = null; return; }
+    if (ownsWheel(e.target, Math.abs(fx) > Math.abs(fy) ? 'x' : 'y', { stop: wrap })) { wheelG = wheelG?.spent ? { ...wheelG, t: now } : null; return; }   // (a glide that has acted stays spent under whatever the slide's change brings under the pointer)
     if (e.cancelable) e.preventDefault();   // (the browser's own back and forward glide, and the page's scroll, stay out of the talk)
-    const r = wheelGesture(wheelG, fx, fy, performance.now());
+    const r = wheelGesture(wheelG, fx, fy, now);
     wheelG = r.g;
     const a = r.act;
     if (!a) return;
@@ -3682,10 +3694,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       if (card) caseFly(card, a.dir, 1.2);   // (fingers right: off to the right)
       else if (a.dir < 0) { if (caseLift || want < slides.length - 1) next(); }
       else prev();
-    } else if (!card && wideSheet(ui.data) && !ui.data.hidden && !ui.data.classList.contains('pz-hide')) {
-      const open = a.dir < 0;   // (fingers up: the readings come out, as a swipe up does)
-      if (open !== ui.data.classList.contains('tool-open')) ui.setFold(open);
-    }
+    } else stackFold(a.dir < 0);   // (fingers up: the readings come out, as a swipe up does)
   }, { passive: false, capture: true });
 
   // ── Hands off: while presenting, the figure only points (hover glow); taps, drags, pans and zooms that would
@@ -3718,8 +3727,9 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     let used = true;
     if (/^[0-9]$/.test(k)) { digits = (digits + k).slice(-3); clearTimeout(digitT); digitT = setTimeout(() => { digits = ''; }, 2500); toast(`Slide ${digits}: press Enter`, '', { present: true }); }
     else if (k === 'Enter' && digits) { const n = +digits; digits = ''; if (n >= 1) go(n - 1); }
-    else if (k === 'ArrowRight' || k === 'PageDown' || k === ' ' || k === 'Enter' || k === 'ArrowDown') { if (!e.repeat) next(); }
-    else if (k === 'ArrowLeft' || k === 'PageUp' || k === 'ArrowUp' || k === 'Backspace') { if (!e.repeat) prev(); }
+    else if (k === 'ArrowRight' || k === 'PageDown' || k === ' ' || k === 'Enter') { if (!e.repeat) next(); }
+    else if (k === 'ArrowLeft' || k === 'PageUp' || k === 'Backspace') { if (!e.repeat) prev(); }
+    else if (k === 'ArrowUp' || k === 'ArrowDown') { if (!e.repeat) stackFold(k === 'ArrowUp'); }   // (up untucks the stacked card's readings, down tucks them, as a swipe does; never a slide)
     else if (k === 'Home') go(0);
     else if (k === 'End') go(slides.length - 1);
     else if (lk === 'b' || k === '.' || lk === 'w') toggleBlack();
