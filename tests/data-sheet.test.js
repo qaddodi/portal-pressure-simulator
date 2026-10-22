@@ -146,8 +146,9 @@ test('a stacked card\'s header and readings keep one size tucked, sliding and ou
 // too close), yet every tile in the row kept an empty row for them under its bar. A row whose bars show no number keeps none.
 test('a stacked row of tiles whose bars show no cut-off number keeps no empty row for them', () => {
   assert.match(css, /\.pz\.stack \.pz-data \.pz-tiles\.pzb-nonum \.pzt-bar \{ height: 15px; \}/);
-  assert.match(js, /row\.classList\.toggle\('pzb-nonum', !bars\.some\(\(b\) => \[\.\.\.b\.querySelectorAll\('\.pzb-l'\)\]\.some\(\(l\) => !l\.classList\.contains\('off'\) && l\.getBoundingClientRect\(\)\.width\)\)\);/);
-  assert.match(js, /if \(!bars\.length \|\| bars\.some\(\(b\) => !b\.getBoundingClientRect\(\)\.width\)\) continue;/, 'decided only once the bars are laid out');
+  // (The bars' and numbers' widths read once for the card, in fitCards' read pass.)
+  assert.match(js, /row\.classList\.toggle\('pzb-nonum', !rb\.some\(\(b\) => b\.ls\.some\(\(l, i\) => !l\.classList\.contains\('off'\) && b\.rs\[i\]\.width\)\)\);/);
+  assert.match(js, /if \(!rb\.length \|\| rb\.some\(\(b\) => !b\?\.B\.width\)\) continue;/, 'decided only once the bars are laid out');
   assert.match(js, /el\.classList\.remove\('pzb-nonum'\);/, 'new bars keep the row until fitted');
 });
 

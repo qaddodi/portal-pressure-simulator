@@ -2348,7 +2348,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   // (A card holding the quick check grows as its answers ease open and shut; it was fitted with every answer open, so its own
   // height is left out (the window's stands in): refitting mid-ease cut the easing short and jolted the words' size.)
   const fitSig = (el) => `${el.clientWidth}x${el.querySelector('.pz-check') ? `q${innerWidth}x${innerHeight}` : el.clientHeight}|${el.className}|${document.documentElement.style.cssText}|${el.style.getPropertyValue('--pz-reach')},${el.style.getPropertyValue('--pz-fkrow')}|${[...el.children].map((c) => (c.hidden ? 0 : c.className + (getComputedStyle(c).maxHeight !== 'none' ? ':' + c.offsetHeight : ''))).join()}|${el.textContent.replace(/\d/g, '0')}`;
-  const fitDone = new WeakMap();
+  const fitDone = new WeakMap(), smOf = new WeakMap();
   // A narrow summary table's column heads: 11 px, or as large as each column fits (down to 8), one size for the row.
   // (Only the phone and upright tablet layout reads --th-fs.)
   const headFits = (th) => { const b = th.getBoundingClientRect(), g = document.createRange(); g.selectNodeContents(th); return [...g.getClientRects()].every((q) => !q.width || (q.left >= b.left - 0.5 && q.right <= b.right + 0.5)); };
@@ -2452,33 +2452,40 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       // (A tablet's narrow data card: its own grid changes, which a container query on the card cannot do.)
       if (el.classList.contains('pz-data')) el.classList.toggle('pz-narrow', el.offsetWidth > 0 && el.offsetWidth < 420);
       // (A tile's name in full when it fits on one line in its tile, else its short form: Liver flow, Protein ...)
-      for (const k of el.querySelectorAll('.pz-tiles .pzt-k[data-s]')) {
-        k.classList.remove('short');
-        const t = k.parentElement, cs = getComputedStyle(t), room = t.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
-        if (room > 0 && k.scrollWidth > room + 0.5) k.classList.add('short');
-      }
+      // (All read in one layout, then written: the tiles' columns are equal shares of the row, so one tile's short name never
+      // changes another's room. Read and written tile by tile, each read laid the card out again.)
+      const names = [...el.querySelectorAll('.pz-tiles .pzt-k[data-s]')];
+      for (const k of names) k.classList.remove('short');
+      const shorts = names.filter((k) => { const t = k.parentElement, cs = getComputedStyle(t), room = t.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight); return room > 0 && k.scrollWidth > room + 0.5; });
+      for (const k of shorts) k.classList.add('short');
       // (A scale bar's cut-off numbers stay inside the bar, and where two would come within 8 px of each other the bar shows none of
       // them: sweep batch 03, 0.1 and 1.5 sat 6 px apart and read as one, and a lone survivor read as a mystery value (critique D2,
       // 17 Oct). The coloured bands still show where the cut-offs fall.)
-      for (const bar of el.querySelectorAll('.pz-tiles .pzt-bar')) {
-        const B = bar.getBoundingClientRect(), ls = [...bar.querySelectorAll('.pzb-l')];
+      // (Every bar's numbers read in one layout and then written. A number is centred on its cut-off (translate −50 %); .lo sets it
+      // to start there (0) and .hi to end there (−100 %), a shift of half its width, worked out rather than measured again.)
+      const bars = [...el.querySelectorAll('.pz-tiles .pzt-bar')].map((bar) => ({ bar, ls: [...bar.querySelectorAll('.pzb-l')] }));
+      for (const { ls } of bars) for (const l of ls) l.classList.remove('lo', 'hi', 'off');
+      for (const b of bars) { b.B = b.bar.getBoundingClientRect(); b.rs = b.ls.map((l) => l.getBoundingClientRect()); }
+      for (const { B, ls, rs } of bars) {
         let end = -Infinity, clash = false;
-        for (const l of ls) {
-          l.classList.remove('lo', 'hi', 'off');
-          let r = l.getBoundingClientRect();
-          if (!r.width) continue;
-          if (r.left < B.left) { l.classList.add('lo'); r = l.getBoundingClientRect(); } else if (r.right > B.right) { l.classList.add('hi'); r = l.getBoundingClientRect(); }
-          if (r.left < end + 8) clash = true; else end = r.right;
-        }
+        ls.forEach((l, i) => {
+          const r = rs[i];
+          if (!r.width) return;
+          let left = r.left, right = r.right;
+          if (r.left < B.left) { l.classList.add('lo'); left += r.width / 2; right += r.width / 2; } else if (r.right > B.right) { l.classList.add('hi'); left -= r.width / 2; right -= r.width / 2; }
+          if (left < end + 8) clash = true; else end = right;
+        });
         if (clash) for (const l of ls) l.classList.add('off');
       }
       // (A row of tiles whose bars show no cut-off number keeps no empty row for them under the bars: on a phone that row stood empty
       // under HVPG's bar (5 and 10 too close to number) and, the tiles one height, under WHVP's and FHVP's too, Sites 3 on an iPhone,
       // 20 Oct, where the stacked cards ran into the words. Decided by the bars' widths only, so a tile never resizes as its numbers change.)
+      // (Widths only, which the numbers' classes above do not change: the bars' and numbers' read before, then each row written.)
+      const rowW = new Map(bars.map((b) => [b.bar, b]));
       for (const row of el.querySelectorAll('.pz-tiles')) {
-        const bars = [...row.querySelectorAll('.pzt-bar')];
-        if (!bars.length || bars.some((b) => !b.getBoundingClientRect().width)) continue;
-        row.classList.toggle('pzb-nonum', !bars.some((b) => [...b.querySelectorAll('.pzb-l')].some((l) => !l.classList.contains('off') && l.getBoundingClientRect().width)));
+        const rb = [...row.querySelectorAll('.pzt-bar')].map((b) => rowW.get(b));
+        if (!rb.length || rb.some((b) => !b?.B.width)) continue;
+        row.classList.toggle('pzb-nonum', !rb.some((b) => b.ls.some((l, i) => !l.classList.contains('off') && b.rs[i].width)));
       }
       fitHeads(el);
       // (A quick check is fitted with every answer open: its words keep one size however many are revealed.)
@@ -2529,7 +2536,11 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       // (Parts whose words keep their size (styles/app.css: zoom var(--pz-z)) let the fit shorten only their pictures; when even
       // the shortest pictures leave the card too full, a large text setting, the words then zoom down too, to half at most.)
       // (Never past the 12 px floor: the card's small size, --pz-sm, zoomed, stays at least 11.5 px.)
-      const sm = (() => { const pr = h('span', { style: 'position:absolute;visibility:hidden;font-size:var(--pz-sm, 12px)' }); el.append(pr); const v = parseFloat(getComputedStyle(pr).fontSize) || 12; pr.remove(); return v; })();
+      // (Its small size read with a probe once per look of the card and the screen, not on every fit.)
+      const smKey = `${el.className}|${ui.root.className}|${innerWidth}x${innerHeight}|${devicePixelRatio}|${document.documentElement.style.cssText}|${app.style.cssText}|${ui.root.style.cssText}|${el.style.cssText.replace(/--pz-(fit|z):[^;]*;?/g, '')}`;
+      let sm = smOf.get(el);
+      if (sm?.k !== smKey) { const pr = h('span', { style: 'position:absolute;visibility:hidden;font-size:var(--pz-sm, 12px)' }); el.append(pr); sm = { k: smKey, v: parseFloat(getComputedStyle(pr).fontSize) || 12 }; pr.remove(); smOf.set(el, sm); }
+      sm = sm.v;
       const zMin = Math.max(0.5, Math.min(1, 11.5 / sm));
       for (let n = 0, z = 1; n < 8 && z > zMin; n++) {
         const o = overflowOf(el);

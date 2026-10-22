@@ -28,7 +28,7 @@ test('one capital-letter style: 600 weight, .06em spacing, for tile names, the h
 });
 
 test('a scale bar shows all its cut-off numbers or none (D2)', () => {
-  const pass = js.slice(js.indexOf("for (const bar of el.querySelectorAll('.pz-tiles .pzt-bar'))"), js.indexOf('fitHeads(el);'));
+  const pass = js.slice(js.indexOf("const bars = [...el.querySelectorAll('.pz-tiles .pzt-bar')]"), js.indexOf('fitHeads(el);'));
   assert.match(pass, /clash = true/);
   assert.match(pass, /if \(clash\) for \(const l of ls\) l\.classList\.add\('off'\)/);
 });
