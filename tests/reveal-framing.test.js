@@ -10,7 +10,7 @@ const pz = read('../src/ui/presenter.js'), st = read('../src/ui/stage.js');
 
 test('under the start cover the camera is set outright, never a glide the reveal can catch', () => {
   assert.match(pz, /const gl = booting \? 0 : ms \|\| 300;/);
-  assert.match(pz, /fitAround\(s, s\.visual \? s\.cam : s\.cam \|\| 'fit', booting \? 0 : ms\);/);
+  assert.match(pz, /fitAround\(s, cam, booting \? 0 : ms\);/);
   assert.match(pz, /if \(booting\) \{ clearTimeout\(reframeT\); reframeT = 0; reframe\(0\); return; \}/);
 });
 
@@ -25,4 +25,9 @@ test('the stage\'s first fit leaves a presenting slide\'s framing alone and glid
   const ff = st.slice(st.indexOf('function firstFrame()'), st.indexOf('showFigure();', st.indexOf('function firstFrame()')));
   assert.match(ff, /!userMoved && !store\.get\(\)\.presenting/);
   assert.match(ff, /if \(figureShown\) \{ homeAt = d; fitted = true; if \(!sameView\(d, vtGliding \? vtTarget : vt\)\) animateVT\(d, 450\); \}/);
+});
+
+test('under the start cover a slide with no framing of its own (the outline) takes the stage\'s fit outright', () => {
+  const rf = pz.slice(pz.indexOf('function reframe(ms)'), pz.indexOf('function fitAround('));
+  assert.match(rf, /if \(booting && !cam && !store\.get\(\)\.lobule\) \{ stage\.fitSlow\(0\); return; \}/);
 });

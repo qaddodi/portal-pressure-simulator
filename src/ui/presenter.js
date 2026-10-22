@@ -3065,7 +3065,12 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   function reframe(ms) {
     const s = slides[shown.i];
     // (Under the start's cover the framing is set outright: unseen, a glide only kept the reveal waiting, or was caught by it.)
-    fitAround(s, s.visual ? s.cam : s.cam || 'fit', booting ? 0 : ms);
+    const cam = s.visual ? s.cam : s.cam || 'fit';
+    // (A slide with no framing of its own (the outline, a table) leaves the figure at the stage's fit, which follows the cards:
+    // under the cover that fit is set outright too. Left to the stage, it followed the outline's card only after the reveal, on
+    // a busy page in one frame: the figure stood behind where the words had been, then jumped to the middle.)
+    if (booting && !cam && !store.get().lobule) { stage.fitSlow(0); return; }
+    fitAround(s, cam, booting ? 0 : ms);
   }
   // The camera eases to fit a slide's framing into the space its cards leave (the lobule refits itself on pps:occ).
   function fitAround(s, cam, ms) {
