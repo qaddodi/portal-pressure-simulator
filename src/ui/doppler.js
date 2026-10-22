@@ -9,11 +9,11 @@ import { h, fmt, fitCanvas, clamp, icon, cssVar, cssAlpha } from './util.js?v=9e
 import { FONT } from './charts.js?v=5c5cc11eeb';
 import { logAction, shownVel, store } from './store.js?v=05dd788e72';
 import { DOPPLER_MODES, THETA, dopplerColor, shadeColor, swatchGradient } from './dopplerColor.js?v=01c6d18c36';
-import { frameFor, noteDraw, paceMs } from './frame.js?v=74867bd42b';
+import { frameFor, noteDraw, paceMs, cancelFrame } from './frame.js?v=74867bd42b';
 import { windowIndexFor, scaleFor, fitScale } from './dopplerWindow.js?v=1d34e63b32';
 import { velNormal, dopplerVel } from './velNormal.js?v=181dda5594';
 import { caliperFrame, caliperLevel, caliperX, CAL_FADE, pairOf, pairBand, pairScale, PAIR_GAP } from './doppler-marks.js?v=15fc499dcd';
-import { createDopplerGL } from './doppler-gl.js?v=bf23d57383';
+import { createDopplerGL } from './doppler-gl.js?v=a41917b07b';
 const nextFrame = frameFor('doppler');
 
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
@@ -1183,5 +1183,13 @@ export function createDoppler({ onProbe, pickGate = true }) {
   function autoWindow() { manualSweep = false; pickNext = true; redraw(); }
   /** Name the hepatic vein's a, S, v and D waves on the trace (the Presenter's waveform slides). */
   function setWaves(on) { if (waves !== !!on) { waves = !!on; redraw(); } }
-  return { id: 'doppler', label: 'Doppler', el, update, ingest, redraw, clear, restart, setInvert, setWaves, autoWindow, pin, configure };
+  /** The monitor is done with (a presentation's own instruments go with it, presenter-tools.js): its frames, observers and GPU
+   *  context are let go. Each presentation made a new monitor and kept the old one's WebGL context; iOS Safari holds about a
+   *  dozen contexts and drops the oldest without a word, which could be the figure's. */
+  function dispose() {
+    if (raf) { cancelFrame(raf); raf = 0; }
+    io?.disconnect(); ro?.disconnect(); frame = null;
+    gpu?.dispose(); gpu?.canvas.remove();
+  }
+  return { id: 'doppler', label: 'Doppler', el, update, ingest, redraw, clear, restart, setInvert, setWaves, autoWindow, pin, configure, dispose };
 }

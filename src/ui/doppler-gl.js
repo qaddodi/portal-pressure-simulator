@@ -124,7 +124,8 @@ export function createDopplerGL() {
     },
     dispose() {
       gl.deleteTexture(ringT); gl.deleteTexture(noiseT); gl.deleteBuffer(quad); gl.deleteVertexArray(vao); gl.deleteProgram(prog);
-      canvas.width = canvas.height = 1;
+      canvas.width = canvas.height = 0;
+      gl.getExtension('WEBGL_lose_context')?.loseContext();   // (the context given back at once, as endo-gl.js does, not when the browser gets to it)
     },
   };
 }

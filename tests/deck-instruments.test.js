@@ -160,7 +160,7 @@ test('V21: the calipers read the window\'s extremes, on their own samples, with 
 });
 
 test('V20, V21, V29: the Doppler takes a slide\'s options, and a slide that names none is plain Spectrum', () => {
-  assert.match(DOP, /return \{ id: 'doppler'[^}]*configure \};/);
+  assert.match(DOP, /return \{ id: 'doppler'[^}]*configure, dispose \};/);
   assert.match(DOP, /const m = MODE_OF\[t\?\.mode\] \|\| 'spectrum';/);
   assert.match(DOP, /color: 'velocity'/);
   assert.match(DOP, /calip = !!t\?\.calipers/);
