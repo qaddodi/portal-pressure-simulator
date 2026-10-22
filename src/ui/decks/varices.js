@@ -85,8 +85,8 @@ export const VARICES = {
     },
     {
       id: 'summary', visual: 'table', cols: ['hvpg', 'varix'], asc: false, note: 'Risk of a bleed', rowHead: 'Patient',
-      of: [{ preset: 'healthy', kicker: 'Reference', title: 'Healthy', note: 'None', ref: true }, { preset: 'cirr-comp', kicker: 'Sinusoidal', title: 'Compensated cirrhosis', note: 'None yet: no varices' },
-        { id: 'collat', title: 'CSPH', note: 'Rising: small varices can grow' }, { id: 'burst', title: 'Decompensated cirrhosis', note: 'Highest: large varices' }],
+      of: [{ preset: 'healthy', kicker: 'Reference', title: 'Healthy', note: 'None', ref: true }, { preset: 'cirr-comp', site: 'sin', kicker: 'Sinusoidal', title: 'Compensated cirrhosis', note: 'None yet: no varices' },
+        { id: 'collat', kicker: 'Sinusoidal', title: 'CSPH', note: 'Rising: small varices can grow' }, { id: 'burst', kicker: 'Sinusoidal', title: 'Decompensated cirrhosis', note: 'Highest: large varices' }],
       kicker: 'Summary', title: 'Gradient, varix size and bleeding risk',
       line: 'Varices appear with clinically significant portal hypertension and grow as the gradient climbs. Their size decides how likely a bleed is.',
       notes: 'Read from top to bottom, the gradient and the varix grow together. Varices are a sign of clinically significant portal hypertension, so none are expected before it, a small varix appears with it, and a large one follows as the gradient climbs. Large varices carry the highest risk of a first bleed: in the natural-history studies AASLD 2024 quotes, about 15% of large varices bled within a year. Red wale marks and a higher Child–Pugh class raise the risk further.',
