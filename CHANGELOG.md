@@ -10,6 +10,15 @@
   HVPG deck, One year), on phone, iPad and Mac. A WHVP or FHVP written into a slide's words (`{whvp}`, `{fhvp}`), a figure pill or a
   callout now takes the same green, amber or red, and in Explore and Patients the two readings of Tests › HVPG take it too (easing,
   never snapping). Tests: `tests/tile-bar.test.js`, `tests/pill-rating-tone.test.js`.
+- **Ladder: three zones, three tints.** The Gut to heart ladder's one LIVER band becomes three soft tints, each named over the plot in full:
+  PRE-HEPATIC over Gut and PV (a cool blue), INTRAHEPATIC over the liver's Pre-, Intra- and Post- columns (the warm tint the LIVER band
+  had) and POST-HEPATIC over HV, IVC and RA (a green); the written-out words never read as the Pre- and Post- stations under the axis.
+  The three names are set as wide as the chart allows: on one line, else with the letters a little closer, else on two lines ("PRE"
+  over "HEPATIC"; every iPhone), else on two with the letters closer (a small grid cell), and none where even that cannot fit, only
+  the tints. The strip over the plot is as tall as the names need (about half an em more than the old one line; one em more for a
+  second line), and a name stands clear of a reading at the plot's top and of a block hanging from it. The phone's one-line cases get the
+  three tints too (no names, as they had none). The app's own Pressure panel (Explore, Patients) is a separate chart and is unchanged.
+  Tests: `tests/deck-charts.test.js`, `tests/grid-key-phone.test.js`, `tests/data-sheet.test.js`.
 - **Ladder: the resistance block stands on its column.** The red hatched block on the Gut to heart ladder used to hang in the gap between
   the two readings the pressure falls across. It now stands on the column of the station the pressure falls from (Pre- to Intra- marks
   Pre-, Intra- to Post- marks Intra-, Post- to HV marks Post-, the portal vein to Pre- marks PV, HV to IVC marks HV, and the heart marks the

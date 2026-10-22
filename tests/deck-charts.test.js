@@ -10,7 +10,7 @@ import { adopted } from './deck-adopted.js';
 import { EXT } from '../src/ui/slide-ext.js';
 import { NODES } from '../src/engine/topology.js';
 import { portalSplit } from '../src/ui/table-marks.js';
-import { profileOf, STATIONS, TIGHT_NAMES, NAME_GAP, axisTop, nameFit, profileGeo, valueSides, placeValues, curveRuns, labelPlacer, bracketLabel, bracketFit, oneLineGap, LABEL_PAD, BAR_MIN, BR_CLEAR, BR_MIN, BRACE_NAME, SPANS, placeBrackets, bracketBox, BR_PAD } from '../src/ui/tool-profile.js';
+import { profileOf, STATIONS, TIGHT_NAMES, NAME_GAP, axisTop, nameFit, profileGeo, valueSides, placeValues, curveRuns, labelPlacer, bracketLabel, bracketFit, oneLineGap, LABEL_PAD, BAR_MIN, BR_CLEAR, BR_MIN, BRACE_NAME, SPANS, placeBrackets, bracketBox, BR_PAD, ZONES, ZONE_GAP, zoneSpans, zoneFit, zoneBoxes } from '../src/ui/tool-profile.js';
 import { flowParts, routeFlows, wholeShares, flowView, MAX_ROUTES, flowLayout, LABEL_GAP } from '../src/ui/tool-flows.js';
 import { milePlaces } from '../src/ui/talk-trace.js';
 import { RX, bandKeys, bandRuns, bandSpan, namePlaces } from '../src/ui/rx-bands.js';
@@ -122,19 +122,51 @@ test('the station names fit their slots on one row: full where there is room, el
   }
 });
 
-// Mohammad, 21 Oct (iPhone, Ascites 8/13): "better compaction or less wasted space on top". The key row over the plot is gone: the plot starts
-// 1.5 em under the chart's top, the liver band rises 1.3 em over it and carries its name, and the layouts' boxes (styles/app.css) are 1.6 em
-// shorter, so the plot keeps its old height and the card is that much shorter.
-test('the ladder keeps no empty row over its plot: the liver band and its name fill the strip above it', () => {
-  for (const [w, h, f] of [[335, 250, 12], [352, 270, 13.8], [552, 300, 15.6], [259, 200, 12.02]]) {
-    const tw = approxW(f), G = profileGeo(w, h, f, tw, true), word = [G.T - 0.35 * f - 0.72 * f, G.T - 0.35 * f], bandTop = G.T - 1.3 * f;
-    assert.equal(G.T, 1.5 * f, `${w}x${h}: the plot starts 1.5 em down`);
-    assert.ok(bandTop >= 0 && word[0] > bandTop, `${w}x${h}: the band starts inside the chart and LIVER stands in it`);
+// Mohammad, 21 Oct (iPhone, Ascites 8/13): "better compaction or less wasted space on top". The key row over the plot is gone: the zones'
+// tints rise over the plot in a strip that carries their names (22 Oct: PRE-HEPATIC, INTRAHEPATIC, POST-HEPATIC), and the layouts' boxes
+// (styles/app.css) are 1.6 em shorter. The strip is only as tall as the names need: a line of them, two where the zones are too narrow
+// for one, none where nothing fits.
+test('the ladder keeps no empty row over its plot: the zones\' tints and their names fill the strip above it', () => {
+  for (const [w, h, f] of [[335, 250, 12], [352, 270, 13.8], [552, 300, 15.6], [259, 200, 12.02], [430, 260, 12], [100, 200, 12]]) {
+    const tw = approxW(f), G = profileGeo(w, h, f, tw, true), lines = G.zone.lines, top = G.T - G.hdr, base = G.T - G.zb;
+    assert.ok(Math.abs(top - 0.2 * f) < 1e-9, `${w}x${h}: the tints start 0.2 em down, inside the chart`);
+    // (A name's baseline stands clear of the highest reading a plot can hold: its box and its halo, over the plot's top.)
+    assert.ok(base <= G.T - 0.36 * f - 4, `${w}x${h}: names clear of a reading standing at the plot's top`);
+    if (lines) assert.ok(base - 0.72 * f - (lines === 2 ? 1.05 * f : 0) > top, `${w}x${h}: ${lines} line(s) of names stand inside the tints`);
+    else assert.ok(G.T <= 0.56 * f + 4 + 1e-9, `${w}x${h}: no names, no empty strip`);
+    assert.ok(G.T <= 2 * f + (lines === 2 ? 1.1 * f : 0), `${w}x${h}: the strip costs the plot under half an em more than the old one line (1.5 em), one em more for a second`);
     assert.equal(G.keyH, undefined, 'no key row');
-    // (The plot's height at a box 1.6 em shorter than the old layout's: what it was with the key row's 1.6 em kept.)
-    const old = profileGeo(w, h + 1.6 * f, f, tw, true);
-    assert.ok(Math.abs((old.B - 3.1 * f) - (G.B - G.T)) < 1e-9, `${w}x${h}: the plot as tall as before`);
   }
+});
+
+test('the zones cover the eight stations once each; a name stays inside its zone, 4 px from the next, on one line, tighter or two', () => {
+  const sp = zoneSpans();
+  assert.deepEqual(sp, [[0, 1], [2, 4], [5, 7]], 'Gut and PV, the liver\'s three stations, then HV, IVC and RA');
+  assert.deepEqual(ZONES.map((z) => z.one), ['PRE-HEPATIC', 'INTRAHEPATIC', 'POST-HEPATIC']);
+  assert.deepEqual(ZONES.map((z) => z.top), ['PRE', 'INTRA', 'POST']);
+  assert.equal(ZONE_GAP, 4);
+  for (const f of [12, 13.8, 15.6]) {
+    const tw = (t) => t.length * f * 0.6;   // (about Inter semibold: a letter about 0.6 em wide)
+    let prev = -1;
+    // (From wide to narrow: one line gives way to tighter letters, then two lines, then none; it never goes back.)
+    for (let slot = 80; slot >= 20; slot -= 0.5) {
+      const z = zoneFit(slot, f, tw), rank = z.lines === 0 ? 4 : (z.lines === 2 ? 2 : 0) + (z.tight ? 1 : 0);
+      assert.ok(rank >= prev, `${f}px: slot ${slot} sets names no better than a wider chart`);
+      prev = rank;
+      if (!z.lines) continue;
+      const G = { f, zone: z, x: (i) => 30 + slot * (i + 0.5), T: 40, zb: 0.36 * f + 6 }, boxes = zoneBoxes(G, tw);
+      sp.forEach(([a, b], k) => {
+        assert.ok(boxes[k][0] >= G.x(a) - slot / 2 - 1e-9 && boxes[k][1] <= G.x(b) + slot / 2 + 1e-9, `${f}px slot ${slot}: ${ZONES[k].one} inside its zone, its 2 px halo too`);
+        if (k) assert.ok(boxes[k][0] - boxes[k - 1][1] >= -1e-9, `${f}px slot ${slot}: names at least ${ZONE_GAP} px apart (the halos included)`);
+      });
+    }
+  }
+  // (A phone's chart sets two lines, a wide one a line, a narrow grid cell two with tighter letters, a sliver none.)
+  const tw = (t) => t.length * 12 * 0.6;
+  assert.deepEqual(zoneFit(38, 12, tw), { lines: 2, tight: false });
+  assert.deepEqual(zoneFit(28, 12, tw), { lines: 2, tight: true });
+  assert.deepEqual(zoneFit(62, 12, tw), { lines: 1, tight: false });
+  assert.equal(zoneFit(10, 12, tw).lines, 0);
 });
 
 test('a value goes under its dot only where the line is in the way above', () => {
@@ -271,7 +303,9 @@ test('on the resistance profiles no value touches a line or a word, and each is 
   const off = [];
   // (A phone, an upright iPad and a Mac card, at the sizes the demo deck draws them: each box 1.6 em shorter than it was, now the chart keeps no key row.)
   for (const [dev, f, w, h0] of [['phone', 13.8, 352, 260], ['iPad', 15.6, 552, 270], ['Mac', 12.02, 259, 229]]) {
-    const h = h0 - 1.6 * f;
+    // (placeValues is the sides the values would take beside their dots; the chart writes each on its dot (numberSides). It is kept to the
+    // plot heights it was written for: the box as tall as the plot needs, the zone names' strip, taller than the old 1.5 em, taken as extra.)
+    const h = h0 - 1.6 * f + (profileGeo(w, h0, f, approxW(f)).T - 1.5 * f);
     for (const [name, g, ref] of [['healthy', hl, null], ['schisto', schisto, null], ['cirrhosis', csph, schisto], ['SOS', sos, csph], ['compensated', comp, null]]) {
       const tw = approxW(f), G = profileGeo(w, h, f, tw), goal = { ...g, top: axisTop(g, hl, ref) };
       const y = (v) => G.Z - (G.Z - G.T) * Math.min(v, goal.top) / goal.top, P = (p) => p.v.map((v, i) => [G.x(i), y(v)]);

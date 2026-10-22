@@ -35,6 +35,44 @@ const SPOKEN = { ...PATH.names, SIN_R: 'Sinusoid (WHVP)' };
 const AT_FP = { INT: 'int', CONF: 'pv', SIN_R: 'whvp', CV_R: 'cv', RHV: 'fhvp', IVCS: 'ivc', RA: 'ra' };
 export const SPANS = [['hvpg', 'HVPG', 'SIN_R', 'RHV'], ['ppg', 'PPG', 'CONF', 'IVCS']];
 
+// The route's three zones, each on its own soft tint (Mohammad, 22 Oct: "add one that is PRE, change LIVER to INTRA, and add POST", meaning
+// pre-, intra- and posthepatic; the words are written out in full so they never read as the Pre- and Post- stations under the axis): before
+// the liver (Gut, PV), in it (the stations on the LIVER band that was) and after it (HV, IVC, RA). A zone's name stands in the strip over the
+// plot, as wide as it can be set: on one line, else with its letters closer, else on two lines ("PRE" over "HEPATIC"), else on two with
+// its letters closer; the same for all three, so no name touches another or leaves its zone. A chart too narrow even for that keeps the
+// tints and no names (never a bare PRE or POST, which would read as the Pre- and Post- stations).
+export const ZONES = [{ cls: 'ppf-zone ppf-pre', one: 'PRE-HEPATIC', top: 'PRE' }, { cls: 'ppf-zone ppf-liver', one: 'INTRAHEPATIC', top: 'INTRA' },
+  { cls: 'ppf-zone ppf-post', one: 'POST-HEPATIC', top: 'POST' }];
+export const ZONE_SECOND = 'HEPATIC';
+export const ZONE_GAP = 4;
+/** The stations each zone covers: [first, last] indexes (none where the path has no liver). */
+export function zoneSpans() {
+  const i0 = STATIONS.indexOf(PATH.liver[0]), i1 = STATIONS.indexOf(PATH.liver[1]);
+  return i0 < 1 || i1 < i0 || i1 >= STATIONS.length - 1 ? [] : [[0, i0 - 1], [i0, i1], [i1 + 1, STATIONS.length - 1]];
+}
+// (A name's width: the text and, unless tight, the style's letter-spacing, .06 em a letter: styles/app.css .ppf-zone.)
+const zoneW = (t, f, tw, tight) => tw(t, 600) + (tight ? 0 : 0.06 * f * t.length);
+/** The lines of zone k's name: one, or two ("PRE" over "HEPATIC"). */
+const zoneLines = (k, lines) => (lines === 2 ? [ZONES[k].top, ZONE_SECOND] : [ZONES[k].one]);
+/** How the three names are set in a chart whose stations stand slot px apart, in type f px: { lines: 1 | 2, tight } (tight: letters closer),
+ *  or { lines: 0 } where none fits, each name at least ZONE_GAP px inside its own zone's width. Judged from the chart's width and type
+ *  alone, so a chart never changes with its numbers. tw(t, weight): a text's width in px. */
+export function zoneFit(slot, f, tw) {
+  const sp = zoneSpans();
+  for (const [lines, tight] of [[1, false], [1, true], [2, false], [2, true]]) {
+    if (sp.every(([a, b], k) => Math.max(...zoneLines(k, lines).map((t) => zoneW(t, f, tw, tight))) + ZONE_GAP <= slot * (b - a + 1))) return { lines, tight };
+  }
+  return { lines: 0, tight: false };
+}
+/** The boxes the zone names take over the plot of the chart G (profileGeo), 2 px clear all round: what values, line names and brackets keep out of. */
+export function zoneBoxes(G, tw) {
+  const { f, zone } = G, cap = 0.72 * f;
+  return zone.lines ? zoneSpans().map(([a, b], k) => {
+    const m = (G.x(a) + G.x(b)) / 2, hw = Math.max(...zoneLines(k, zone.lines).map((t) => zoneW(t, f, tw, zone.tight))) / 2;
+    return [m - hw - 2, m + hw + 2, G.T - G.zb - cap - (zone.lines === 2 ? 1.05 * f : 0) - 2, G.T - G.zb + 2];
+  }) : [];
+}
+
 // Where the resistance is, hatched red as the old ladder had it (Mohammad, 21 Oct: "can we add that red block thing that showed where
 // the resistance is?"): each stretch from the portal vein on where the pressure falls more than BLOCK_FALL mmHg (the old ladder's
 // rule), the block standing on the column of the station the pressure falls from (Mohammad, 22 Oct: "highlight the Pre number/column
@@ -127,11 +165,14 @@ export function nameFit(slot, tw) {
  *  its plot at its smallest, the band kept. */
 export function profileGeo(w, h, f, tw, inside = false) {
   const L = Math.ceil(tw('30') + 12), R = w - 10, slot = (R - L) / STATIONS.length, fit = nameFit(slot, tw);
-  // (The plot starts 1.5 em under the chart's top: the liver's band rises 1.3 em over it and carries its name, the card title stands above
-  // the chart in the card's header, and no key row is kept (the healthy line is named on itself, the unit sits in the bottom row).
-  // Mohammad, 21 Oct: "better compaction or less wasted space on top". The layouts' box heights (styles/app.css --prof-h) are shorter by
-  // the 1.6 em this gave back, so the plot keeps its height.)
-  const T = 1.5 * f, nameH = fit.rows * 1.25 * f + 0.4 * f;
+  // (The plot starts a little over 1.4 em under the chart's top: the zones' tints rise over it in a strip that carries their names, the card
+  // title stands above the chart in the card's header, and no key row is kept (the healthy line is named on itself, the unit sits in the
+  // bottom row). Mohammad, 21 Oct: "better compaction or less wasted space on top". The layouts' box heights (styles/app.css --prof-h) are
+  // shorter by the 1.6 em this gave back, so the plot keeps (nearly) its height. The names' baseline zb stands over the plot clear of a
+  // reading at the plot's top, and of a block hanging from one (its box and its halo, 2 px over them), so a name never touches them. One line of names, or two where the narrowest
+  // zone cannot hold its name; none where even that does not fit, the strip then only a lip over the readings.)
+  const zone = zoneFit(slot, f, tw), zb = 0.36 * f + 6, hdr = zone.lines ? zb + 0.84 * f + (zone.lines === 2 ? 1.05 * f : 0) : 0.36 * f + 4;
+  const T = 0.2 * f + hdr, nameH = fit.rows * 1.25 * f + 0.4 * f;
   const brFit = SPANS.map(([, name, a, b]) => bracketFit(slot * (STATIONS.indexOf(b) - STATIONS.indexOf(a)), name, tw, f));
   const brMode = brFit.map((q) => q.mode), brFs = brFit.map((q) => q.fs);
   const half = brMode.map((m) => (m === 'stack' ? 0.91 : 0.36) * f + 1), bandH = 3 * BR_PAD + 2 * (half[0] + half[1]), band = inside ? 0 : bandH;
@@ -139,7 +180,7 @@ export function profileGeo(w, h, f, tw, inside = false) {
   const braceH = 1.85 * f;
   const B = Math.max(T + 3 * f + band, h - nameH - braceH - 0.5 * f), y1 = B - BR_PAD - half[1];
   const x = (i) => L + slot * (i + 0.5);
-  return { w, h, f, L, R, T, B, Z: B - band, slot, x, fit, brMode, brFs, inside, need: T + 3 * f + bandH + nameH + braceH + 0.5 * f,
+  return { w, h, f, L, R, T, B, Z: B - band, slot, x, fit, brMode, brFs, inside, zone, zb, hdr, need: T + 3 * f + bandH + nameH + braceH + 0.5 * f,
     braceY: B + nameH - 0.1 * f,
     nameX: (i) => x(i) + fit.dx[i], nameY: (i) => B + 1.05 * f + (fit.low[i] ? 1.25 * f : 0),
     brY: (k) => (k ? y1 : y1 - half[1] - BR_PAD - half[0]) };
@@ -355,7 +396,9 @@ const textW = (t, f, wt = 600) => {
   return mctx.measureText(t).width;
 };
 
-/** Where the values go on the chart G (profileGeo) for the profile goal, with the healthy line hl and the earlier one bf
+/** (Legacy: the chart writes each value on its dot, numberSides, clear of the zones' names by the strip's own height; this is where the values
+ *  would stand beside their dots, kept as the placer's checks use it, with the old LIVER word's box as its one obstacle.)
+ *  Where the values go on the chart G (profileGeo) for the profile goal, with the healthy line hl and the earlier one bf
  *  (profiles or null): valueSides's answer. tw(t, weight): a text's width in px. */
 export function placeValues(G, tw, goal, hl, bf) {
   const { f } = G, dotR = Math.max(4, 0.36 * f);
@@ -395,8 +438,7 @@ export function placeLineNames(G, tw, goal, hl, bf, sides, brk, bfName = 'Before
   for (const v of sides || []) if (v?.box) place.take(v.box);
   for (const i of blocksOf(goal, hl)) place.take(blockBox(G, tw, goal, i));   // (clear of the red blocks)
   for (const r of [0, 1]) place.take(bracketBox(G, r, brk ? brk[r] : G.brY(r)));
-  const i0 = STATIONS.indexOf(PATH.liver[0]), i1 = STATIONS.indexOf(PATH.liver[1]);
-  if (i0 >= 0) { const m = (G.x(i0) + G.x(i1)) / 2, lw = (tw('LIVER', 600) + 0.3 * f) / 2; place.take([m - lw - 2, m + lw + 2, G.T - 0.35 * f - cap - 2, G.T - 0.35 * f + 2]); }
+  for (const b of zoneBoxes(G, tw)) place.take(b);
   const out = [];
   for (const [, t, c] of named) {
     const run = runs[1 + out.length], w = tw(t, 500);
@@ -429,7 +471,7 @@ export function bracketBox(G, r, yy) {
 
 /** Where the HVPG and the PPG brackets stand inside the plot (Mohammad, 19 Oct: "put the HVPG and PPG brackets INSIDE the chart"):
  *  each as low as it can go, at least BR_PAD px from every line (the slide's, the healthy one, the earlier one), dot, value
- *  (sides: placeValues's answer), the liver's name, the axis and each other.
+ *  (sides: placeValues's answer), the zones' names, the axis and each other.
  *  → [yy of the HVPG's bar, yy of the PPG's], or null where the two have no such places (the plot then keeps a band for them). */
 export const BR_PAD = 4;
 export function placeBrackets(G, tw, goal, hl, bf, sides, prev = null) {
@@ -440,8 +482,7 @@ export function placeBrackets(G, tw, goal, hl, bf, sides, prev = null) {
   for (const [x, y] of pg) place.take([x - dotR - 1, x + dotR + 1, y - dotR - 1, y + dotR + 1]);
   for (const v of sides || []) if (v?.box) place.take(v.box);
   for (const i of blocksOf(goal, hl)) place.take(blockBox(G, tw, goal, i));   // (clear of the red blocks)
-  const i0 = STATIONS.indexOf(PATH.liver[0]), i1 = STATIONS.indexOf(PATH.liver[1]);
-  if (i0 >= 0) { const m = (G.x(i0) + G.x(i1)) / 2, lw = (tw('LIVER', 600) + 0.3 * f) / 2; place.take([m - lw - 2, m + lw + 2, G.T - 0.35 * f - 0.72 * f - 2, G.T - 0.35 * f + 2]); }
+  for (const b of zoneBoxes(G, tw)) place.take(b);
   // (Every clear height for each, then the pair standing lowest that keeps the two apart: under the curve where it has room,
   // else over it.)
   const ys = [0, 1].map((r) => {
@@ -569,9 +610,13 @@ export function createProfileTool() {
         sv('mask', { id: `${gid}-m`, maskUnits: 'userSpaceOnUse', x: 0, y: 0, width: w, height: hh },
           sv('rect', { x: 0, y: 0, width: w, height: hh, fill: '#fff' }),   // colour-exempt: a mask
           now.map(([cx, cy], i) => { const hw = tw(labels[i], 700) / 2; return sv('rect', { x: cx - hw - NUM_PAD, y: cy - 0.36 * f - NUM_PAD, width: 2 * (hw + NUM_PAD), height: 0.72 * f + 2 * NUM_PAD, rx: NUM_PAD, fill: '#000' }); }))),   // colour-exempt: a mask
-      // The liver's stations on a soft band, named over the plot (every ladder, every deck: Mohammad, 21 Oct, "return the word liver").
-      i0 >= 0 ? sv('g', { class: 'ppf-liver' }, sv('rect', { x: G.x(i0) - G.slot / 2, width: G.slot * (i1 - i0 + 1), y: G.T - 1.3 * f, height: G.B - G.T + 1.3 * f }),
-        sv('text', { x: (G.x(i0) + G.x(i1)) / 2, y: G.T - 0.35 * f, 'text-anchor': 'middle' }, 'LIVER')) : null,
+      // The route's three zones on soft tints, each named over the plot (every ladder, every deck: Mohammad, 21 Oct, "return the word liver",
+      // 22 Oct, PRE / INTRA / POST written out in full): the names stand in one line, or in two where a zone is too narrow for its name.
+      zoneSpans().map(([a, b], k) => {
+        const m = (G.x(a) + G.x(b)) / 2, y0 = G.T - G.hdr, ls = zoneLines(k, G.zone.lines);
+        return sv('g', { class: G.zone.tight ? `${ZONES[k].cls} tight` : ZONES[k].cls }, sv('rect', { x: G.x(a) - G.slot / 2, width: G.slot * (b - a + 1), y: y0, height: G.B - y0 }),
+          G.zone.lines ? ls.map((t, j) => sv('text', { x: m, y: G.T - G.zb - (ls.length - 1 - j) * 1.05 * f, 'text-anchor': 'middle' }, t)) : null);
+      }),
       Array.from({ length: Math.floor(top / every) + 1 }, (_, k) => sv('g', { class: 'ptk-grid' }, sv('line', { x1: G.L, x2: G.R, y1: y(k * every), y2: y(k * every) }),
         sv('text', { x: G.L - 6, y: y(k * every) + 0.35 * f, 'text-anchor': 'end' }, String(k * every)))),
       // (The unit in the bottom row, at the left, level with the brace's name: Mohammad, 21 Oct, "Remove mmHg from above put it below".)
@@ -695,9 +740,11 @@ export function createProfileStrip(namesOnly = false) {
       'aria-label': `Pressure from gut to heart: ${STATIONS.map((s, i) => `${SPOKEN[s]} ${labels[i]}`).join(', ')} mmHg.` },
       sv('defs', {}, hatchDef(`${gid}-h`, 7), sv('linearGradient', { id: gid, gradientUnits: 'userSpaceOnUse', x1: x(0), x2: x(n), y1: 0, y2: 0 },
         p.v.map((v, i) => sv('stop', { offset: (i / n).toFixed(3), 'stop-color': pressureColor(v) })))),
-      // (The liver's three readings on the chart's LIVER tint, across the line's full height, so each case shows where the sinusoids are:
-      // Mohammad, 21 Oct, "every graph has a background behind the pre, intra, and post numbers". Under the blocks, the line and the numbers.)
-      i0 >= 0 ? sv('g', { class: 'ppf-liver' }, sv('rect', { x: x(i0) - slot / 2, y: 0, width: slot * (i1 - i0 + 1), height: hh, rx: 4 })) : null,
+      // (The chart's three zones on their tints, across the line's full height, so each case shows where the liver is: Mohammad, 21 Oct,
+      // "every graph has a background behind the pre, intra, and post numbers"; 22 Oct, a tint before and after it too. Tint only, no
+      // names (the names strip over the six carries the brace). Under the blocks, the line and the numbers, a hair apart.)
+      zoneSpans().map(([a, b], k) => sv('g', { class: ZONES[k].cls },
+        sv('rect', { x: x(a) - slot / 2 + 0.5, y: 0, width: slot * (b - a + 1) - 1, height: hh, rx: 4 }))),
       // (Each block on its station's column, behind the line and the readings, which keep their outline: Mohammad, 22 Oct.)
       blocksOf(p, hl).map((i) => { const [x0, x1] = box(i); return sv('rect', { class: 'ppf-blk', x: x0, y: 1, width: x1 - x0, height: hh - 2, rx: Math.min(4, (x1 - x0) / 2), fill: `url(#${gid}-h)` }); }),
       // (The line stops NUM_PAD px short of each reading, as on the chart.)

@@ -75,13 +75,15 @@ test('the cause is fitted again when its own width changes (its font loading lat
   assert.match(js, /new ResizeObserver\(\(es\) => es\.forEach\(\(e\) => fitRow\(e\.target\.closest\('\.pz-cell-k'\)\)\)\)/);
 });
 
-test('a phone\'s station names carry the sinusoidal brace over Pre-, Intra- and Post-; each line has the LIVER tint behind those three readings', () => {
+test('a phone\'s station names carry the sinusoidal brace over Pre-, Intra- and Post-; each line has the three zones\' tints behind its readings', () => {
   const strip = prof.slice(prof.indexOf('export function createProfileStrip'));
   assert.match(strip, /sv\('g', \{ class: 'ppf-brace' \}, sv\('path', \{ d: braceD\(x\(i0\) - 0\.42 \* slot, x\(i1\) \+ 0\.42 \* slot, 0, 0\.55 \* f\), transform: `translate\(0 \$\{ends\.toFixed\(2\)\}\) scale\(1 -1\)` \}\),\n\s*sv\('text', \{ x: \(x\(i0\) \+ x\(i1\)\) \/ 2, y: 0\.95 \* f, 'text-anchor': 'middle' \}, BRACE_NAME\)\)/);
   assert.match(strip, /const fit = nameFit\(slot, tw\), ends = 1\.85 \* f, base = ends \+ 1\.05 \* f,/, 'the names stand under the brace, clear of it');
-  // (Drawn first: under the blocks, the line and the numbers.)
-  assert.match(strip, /i0 >= 0 \? sv\('g', \{ class: 'ppf-liver' \}, sv\('rect', \{ x: x\(i0\) - slot \/ 2, y: 0, width: slot \* \(i1 - i0 \+ 1\), height: hh, rx: 4 \}\)\) : null,\n(\s*\/\/[^\n]*\n)*\s*blocksOf\(p, hl\)/);
+  // (Drawn first: under the blocks, the line and the numbers. Pre-hepatic: Gut and PV; intrahepatic: the liver's three; post-hepatic: HV, IVC and RA.)
+  assert.match(strip, /zoneSpans\(\)\.map\(\(\[a, b\], k\) => sv\('g', \{ class: ZONES\[k\]\.cls \},\n\s*sv\('rect', \{ x: x\(a\) - slot \/ 2 \+ 0\.5, y: 0, width: slot \* \(b - a \+ 1\) - 1, height: hh, rx: 4 \}\)\)\),\n(\s*\/\/[^\n]*\n)*\s*blocksOf\(p, hl\)/);
   assert.match(css, /\.ppf-liver rect \{ fill: var\(--chart-liver-band\); \}/);
+  assert.match(css, /\.ppf-pre rect \{ fill: var\(--chart-pre-band\); \}/);
+  assert.match(css, /\.ppf-post rect \{ fill: var\(--chart-post-band\); \}/);
 });
 
 test('Sites 10 has no line over the grid (Mohammad, 21 Oct: "get rid of that sentence above everything")', () => {

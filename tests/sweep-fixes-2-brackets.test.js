@@ -62,6 +62,9 @@ test('a block stands on the column of the station the pressure falls from, aroun
   // (The heart's: its own column, from its reading to zero.)
   const [h0, h1, hy0, hy1] = blockBox(G, tw, { ...p, v: [23, 20, 8, 7, 6, 5, 5, 12], top }, 7);
   assert.ok(Math.abs((h0 + h1) / 2 - G.x(7)) < 1e-9 && h1 <= G.R && hy1 === G.Z && hy0 < yg(12), 'the RA\'s column, inside the chart, down to zero');
+  // (A block hanging from a reading at the plot's very top stays 2 px under the zones' names, which stand over the plot.)
+  const topP = { v: [23, 25, 8, 7, 6, 5, 5, 4], hvpg: 2, ppg: 15 }, [, , ty0] = blockBox(G, tw, { ...topP, top: 25 }, 1);
+  assert.ok(ty0 >= G.T - G.zb + 2 - 1e-9, 'under the names');
   // (Even on the narrowest chart a block stays inside its column.)
   const Gn = profileGeo(250, 200, 12, tw, true), [n0, n1] = blockBox(Gn, tw, { ...p, top }, 1);
   assert.ok(n0 >= Gn.x(1) - Gn.slot / 2 && n1 <= Gn.x(1) + Gn.slot / 2);
