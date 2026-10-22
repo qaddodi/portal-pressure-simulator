@@ -14,17 +14,17 @@
 
 import { store, replaceParams } from './store.js?v=67f4341802';
 import { download } from './download.js?v=3564e5bf8c';
-import { h, toast, svgIcon, icon, fmt, clamp, openModal, closeModal, isModalOpen, restBox, paintRange, cssVar, swapText } from './util.js?v=9a45134198';
+import { h, toast, svgIcon, icon, fmt, clamp, openModal, closeModal, isModalOpen, restBox, paintRange, cssVar, swapText, STACK_MQ, SHORT_SIDE_MQ, TABLET_UP_MQ } from './util.js?v=be12b8e102';
 import { titleParts } from './title-units.js?v=c8d5ce1f26';
 import { swipeDir, ownsSideways, ownsTouch, cardSwipe, caseFling, caseFlight } from './swipe.js?v=ca9148ab7d';
-import { sinusoidSupported } from './sinusoid-view.js?v=738da21430';
+import { sinusoidSupported } from './sinusoid-view.js?v=32a69ad0dc';
 import { SCALE_NAME, offeredScales, scaleView, pickedScale } from './scale-switch.js?v=1b0e3acd65';
 import { DISEASE_SRC, diseasePieces } from './diseases.js?v=fb8a5451c3';
 import { nb, listCase, plateletText } from './glue.js?v=5a0f63226b';
 import { DECKS, REGIONS, LEVELS, TOPICS, withOverview, siteTag, SITE_TAGS } from './decks.js?v=19f2e41449';
 import { fingerprintOf } from '../engine/fingerprint.js?v=8faea80b59';
-import { createHvpgMonitor } from './hvpg-proc.js?v=0d4eb25ac0';
-import { createTools } from './presenter-tools.js?v=5dda3249ce';
+import { createHvpgMonitor } from './hvpg-proc.js?v=c5062d69aa';
+import { createTools } from './presenter-tools.js?v=13b8c47a2a';
 import { openHandout } from './handout.js?v=336fb6c42b';
 import { noteResume, resumeFor } from './resume.js?v=f086f80ee8';
 import { parseDeckSource, checkDeck } from './deck-source.js?v=8395c650cd';
@@ -32,11 +32,11 @@ import { NO_ASC, TILE, SCALE, bandsOf, rateOf, COLS, CUT, PRESS, fpv, dirAbs, di
 import { frameFor, cancelFrame } from './frame.js?v=19b3f2915c';
 import { createFigureKey } from './figure-key.js?v=185e1448c8';
 import { traceWhen } from './trace-labels.js?v=fc916a95c6';
-import { flowCss, heatCss, dropCss, gradientCss, oxygenCss } from './colormap.js?v=912ddb2a2a';
-import { EXT, expandIds, stepExtra, markLabel, figureHooks, safe } from './slide-ext.js?v=f116a58232';
+import { flowCss, heatCss, dropCss, gradientCss, oxygenCss } from './colormap.js?v=287019881f';
+import { EXT, expandIds, stepExtra, markLabel, figureHooks, safe } from './slide-ext.js?v=1b12b94b9a';
 import { clotWords } from './callout-math.js?v=e42e679867';
 import { citeText, focusOf, oneLadder } from './teach-extras.js?v=5f5248f5a7';
-import { createProfileTool, createProfileStrip } from './tool-profile.js?v=60cc370621';
+import { createProfileTool, createProfileStrip } from './tool-profile.js?v=75cc65f449';
 import { causeFit } from './cause-fit.js?v=830a6835a5';
 import { COMPACT, WIDE } from './card-type.js?v=f5dfdb80f2';
 import { PROCS, procBlocked, playProcedure } from './proc-anim.js?v=8dae1a3cf6';
@@ -1759,7 +1759,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   // On a phone, tiles beside a sinusoid sit under the words, so the vessel has the width of the screen.
   // (Not on a phone on its side, nor on a tablet or computer: there they sit at the top right as on other slides,
   // and the camera centres the vessel between the two cards.)
-  const shortSide = matchMedia('(orientation: landscape) and (max-height: 500px)');
+  const shortSide = matchMedia(SHORT_SIDE_MQ);
   const sinTiles = (s) => s.data === 'tiles' && !s.visual && /^sinusoid/.test(s.cam || '');
   const under = (s) => sinTiles(s) && !shortSide.matches && phone();
   // (Starts the cards' fade out and returns how long it runs, ms: 0 when nothing is showing.)
@@ -2141,8 +2141,11 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   // An upright phone, or a tablet held upright, stacks the words under the figure and the data card over it; a tablet on its
   // side and any phone on its side keep the words at the left and the data card at the right (a small phone on its side had
   // no height for the two stacked). An upright tablet's cards take 70% of the width (class `tab`), centred.
-  const tabUp = () => innerWidth >= 700 && innerWidth <= 1100 && innerHeight > innerWidth * 1.15;
-  const phone = () => (innerWidth < 700 && innerHeight >= 500) || tabUp();
+  // (The same breakpoints as the style sheet's (util.js): a 700–767 px window or a near-square upright one stacked by the CSS
+  // while these said wide, and the text card took the wrong fit floor and Compact step.)
+  const stackMQ = matchMedia(STACK_MQ), shortMQ = matchMedia(SHORT_SIDE_MQ), tabMQ = matchMedia(TABLET_UP_MQ);
+  const tabUp = () => tabMQ.matches;
+  const phone = () => stackMQ.matches && !shortMQ.matches;
   // Which pill the screen takes (paintChrome): a phone's, an upright tablet's (with back and next) or a wide screen's.
   const pillKind = () => (phone() ? (tabUp() ? 'tab' : 'phone') : 'wide');
   // ── The data card slides out of view and back ──

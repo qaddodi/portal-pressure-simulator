@@ -3,16 +3,16 @@
 
 import { store, hiddenNow } from './store.js?v=67f4341802';
 import { EDGES } from '../engine/topology.js?v=4044766e96';
-import { h, fmt, svgIcon, closePopover, clamp, shownOf, isPhoneLayout, swapFade, scrollBehavior, countTo, swapText, glideOnResize } from './util.js?v=9a45134198';
-import { lobuleFlows } from './lobule-model.js?v=2e7174b4a2';
-import { createProfile } from './charts.js?v=83d60c2ce9';
-import { createPressureTime } from './pressure-time.js?v=d326bf7243';
-import { createFibroScan } from './fibroscan.js?v=0f9d65e763';
-import { createHvpgProcedure } from './hvpg-proc.js?v=0d4eb25ac0';
-import { createDoppler } from './doppler.js?v=0a41c29f05';
+import { h, fmt, svgIcon, closePopover, clamp, shownOf, isPhoneLayout, SIDEWAYS_MQ, swapFade, scrollBehavior, countTo, swapText, glideOnResize } from './util.js?v=be12b8e102';
+import { lobuleFlows } from './lobule-model.js?v=19726077d2';
+import { createProfile } from './charts.js?v=f7eeb75791';
+import { createPressureTime } from './pressure-time.js?v=c1311289ad';
+import { createFibroScan } from './fibroscan.js?v=30bd218345';
+import { createHvpgProcedure } from './hvpg-proc.js?v=c5062d69aa';
+import { createDoppler } from './doppler.js?v=36b0580d92';
 import { ownsSideways, pageGo } from './swipe.js?v=ca9148ab7d';
-import { createEndoscopy, createVarixWall, createAbdomen } from './instruments.js?v=a57a10c96a';
-import { createReadoutsPane } from './readouts-pane.js?v=b32fb6e781';
+import { createEndoscopy, createVarixWall, createAbdomen } from './instruments.js?v=0576ebae61';
+import { createReadoutsPane } from './readouts-pane.js?v=2cd4b9fa35';
 import { frameFor } from './frame.js?v=19b3f2915c';
 import { vitalReading } from './vital-read.js?v=e902fb66cd';
 import { setShown } from './shown.js?v=82ef5e29ec';
@@ -337,8 +337,8 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
   let heightRatio = typeof saved.h === 'number' ? saved.h : null, widthPx = typeof saved.w === 'number' ? saved.w : null;
   const remember = () => { try { localStorage.setItem('pps.instruments', JSON.stringify({ open, h: heightRatio, w: widthPx })); } catch { /* storage unavailable */ } };
   // A phone held sideways (667x375 and up) docks on the right too, like a narrow iPad: the figure keeps the full height.
-  const sideMQ = matchMedia('(min-width: 700px) and (orientation: landscape), (max-width: 1023px) and (max-height: 500px) and (orientation: landscape)');
-  const sidewaysMQ = matchMedia('(max-width: 1023px) and (max-height: 500px) and (orientation: landscape)');
+  const sideMQ = matchMedia(`(min-width: 700px) and (orientation: landscape), ${SIDEWAYS_MQ}`);
+  const sidewaysMQ = matchMedia(SIDEWAYS_MQ);
   const isSide = () => sideMQ.matches;
 
   const live = h('span', { class: 'workspace-live', 'aria-live': 'off' });

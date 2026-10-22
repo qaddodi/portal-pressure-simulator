@@ -10,8 +10,14 @@ for (const m of ['replaceChildren', 'append', 'prepend']) {
 // The phone's layout: a phone held upright or on its side, and a tablet held upright (Mohammad, 17 Oct: the upright iPad takes
 // the phone's cards, sheets, bottom bar and menus). Every phone block in styles/app.css carries the same upright clause.
 export const UPRIGHT_MQ = '(max-width: 1100px) and (orientation: portrait)';
-export const PHONE_MQ = `(max-width: 767px), (max-width: 1023px) and (max-height: 500px) and (orientation: landscape), ${UPRIGHT_MQ}`;
+// (A phone on its side; and any short landscape window, which keeps the words at the left and the data at the right.)
+export const SIDEWAYS_MQ = '(max-width: 1023px) and (max-height: 500px) and (orientation: landscape)';
+export const SHORT_SIDE_MQ = '(orientation: landscape) and (max-height: 500px)';
+export const PHONE_MQ = `(max-width: 767px), ${SIDEWAYS_MQ}, ${UPRIGHT_MQ}`;
 export const isPhoneLayout = () => matchMedia(PHONE_MQ).matches;
+// The stacked layout (the presenter's words under the figure, its data card over it): the phone's layout less a phone on its side.
+// The same width and upright clauses as styles/app.css's phone blocks (tests/breakpoints.test.js).
+export const STACK_MQ = `(max-width: 767px), ${UPRIGHT_MQ}`;
 // (A tablet held upright: the phone's layout, scaled to the tablet: its bottom bar and cards take 70 % of the width, centred, as
 // its deck cards do, and its cards the phone's share of the height, never the whole screen. styles/app.css, main.js sheetBehaviour.)
 export const TABLET_UP_MQ = '(min-width: 768px) and (max-width: 1100px) and (orientation: portrait)';

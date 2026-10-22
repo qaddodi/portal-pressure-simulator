@@ -14,7 +14,8 @@ const UP = '(max-width: 1100px) and (orientation: portrait)';
 
 test('one query names the phone layout, and it takes in an upright tablet', () => {
   assert.match(util, /export const UPRIGHT_MQ = '\(max-width: 1100px\) and \(orientation: portrait\)';/);
-  assert.match(util, /export const PHONE_MQ = `\(max-width: 767px\), \(max-width: 1023px\) and \(max-height: 500px\) and \(orientation: landscape\), \$\{UPRIGHT_MQ\}`;/);
+  assert.match(util, /export const SIDEWAYS_MQ = '\(max-width: 1023px\) and \(max-height: 500px\) and \(orientation: landscape\)';/);
+  assert.match(util, /export const PHONE_MQ = `\(max-width: 767px\), \$\{SIDEWAYS_MQ\}, \$\{UPRIGHT_MQ\}`;/);
   assert.match(util, /const asSheet = sheet && \(innerWidth < 768 \|\| matchMedia\(UPRIGHT_MQ\)\.matches\);/, 'menus rise as sheets');
   assert.match(read('../src/ui/main.js'), /const isPhone = isPhoneLayout;/, 'the dock, the cards\' sheets, History and the occupancy');
   assert.match(read('../src/ui/card.js'), /if \(isPhoneLayout\(\)\) \{\n\s*if \(el\.parentNode !== dockHost\) dockHost\.append\(el\);/, 'the vessel card docks over the tab row');
