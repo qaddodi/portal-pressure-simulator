@@ -13,7 +13,7 @@ import { frameFor, noteDraw, paceMs, cancelFrame } from './frame.js?v=74867bd42b
 import { windowIndexFor, scaleFor, fitScale } from './dopplerWindow.js?v=1d34e63b32';
 import { velNormal, dopplerVel } from './velNormal.js?v=181dda5594';
 import { caliperFrame, caliperLevel, caliperX, CAL_FADE, pairOf, pairBand, pairScale, PAIR_GAP } from './doppler-marks.js?v=15fc499dcd';
-import { createDopplerGL } from './doppler-gl.js?v=a41917b07b';
+import { createDopplerGL } from './doppler-gl.js?v=6ef76c6bca';
 const nextFrame = frameFor('doppler');
 
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));

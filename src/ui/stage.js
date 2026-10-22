@@ -49,6 +49,7 @@ import { writeGlowTexels } from './glow-texels.js?v=e578794a92';
 import { SIN_PERFUSION, sinStrandRadius } from './sin-perfusion.js?v=25a8407fdd';
 import { wavePacks, paintWave } from './scan-waves.js?v=066db7aa38';
 import { fitPose, probeShapes, beamBoxes, gateBoxes, awayFromProbe, createProbeMind, NONE_MS, SLACK, PROBE, PROBE_SVG } from './dop-probe.js?v=c9d8367fdb';
+import { pathPieces, piecesLength, pointsAlong } from './path-pieces.js?v=e486672c9b';
 import { organDimMatrix } from './organ-dim.js?v=7888276613';
 import { parseColor, greyOf, paintRef } from './organ-grey.js?v=e41d68222c';
 import { bandRing, dashRings, liftEnd, normalShown, rippleList, systemOf, SYSTEM_COLOR } from './highlight-math.js?v=e2c1816e25';
@@ -4673,18 +4674,52 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // A group's transform as one matrix, read without consolidate() (which rewrites the attribute as a matrix(), and the group's own
   // writer puts translate() back, so the outline keys would change at every build).
   const gMatrix = (g) => { const l = g.transform.baseVal; let m = null; for (let i = 0; i < l.numberOfItems; i++) { const t = l.getItem(i).matrix; m = m ? m.multiply(t) : t; } return m; };
+  // An outline's points in its own coordinates, every `stride` along it, kept by its path (bounded: an easing liver's outline is
+  // new on every frame). Measured piece by piece (path-pieces.js): getPointAtLength along the whole path walks it from its start
+  // on every call, and the first Doppler probe read every organ so (the colon's 608 pieces at 1752 points), a second or two
+  // with the page held as a monitor first opened (Mohammad, 22 Oct). The same points, measured once per path.
+  const olLocalMemo = new Map();
+  let olPieceG = null;
+  function olLocal(src, stride) {
+    const mk = `${stride}|${src}`;
+    let r = olLocalMemo.get(mk);
+    if (r) return r;
+    let L, at;
+    const pieces = pathPieces(src);
+    if (pieces) {
+      // (Each curve its own fresh element, all put in at once and taken out after: a reused element can keep measuring its last
+      // course in Chromium, sample() above.)
+      if (!olPieceG) { olPieceG = s('g'); defs.append(olPieceG); }
+      const els = [];
+      for (const q of pieces) if (q.c) { const el = s('path', { d: q.c }); q.el = el; els.push(el); }
+      olPieceG.replaceChildren(...els);
+      try {
+        L = piecesLength(pieces, ({ el }) => ({ len: el.getTotalLength(), at: (u) => { const p = el.getPointAtLength(u); return [p.x, p.y]; } }));
+      } catch { olPieceG.replaceChildren(); return null; }
+      at = (ls) => pointsAlong(pieces, ls);
+    } else {
+      if (!olPath) { olPath = s('path'); defs.append(olPath); }
+      const el = olPath;
+      el.setAttribute('d', src);
+      try { L = el.getTotalLength(); } catch { return null; }
+      at = (ls) => ls.map((u) => { const q = el.getPointAtLength(u); return [q.x, q.y]; });
+    }
+    const n = Math.max(48, Math.ceil(L / stride)), step = L / n, ls = [];
+    for (let i = 0; i <= n; i++) ls.push(i * step);
+    r = { step, pts: at(ls) };
+    olPieceG?.replaceChildren();
+    if (olLocalMemo.size >= 48) olLocalMemo.delete(olLocalMemo.keys().next().value);
+    olLocalMemo.set(mk, r);
+    return r;
+  }
   function olRingsRaw(id, bare, d = null, stride = 2) {
     const m = bare ? null : gMatrix(organG[id]);
-    if (!olPath) { olPath = s('path'); defs.append(olPath); }
-    const el = olPath;
-    el.setAttribute('d', d || RING_OF[id] || organEls[id].getAttribute('d'));
-    let L;
-    try { L = el.getTotalLength(); } catch { return []; }
-    const n = Math.max(48, Math.ceil(L / stride)), step = L / n, rings = [];
+    const loc = olLocal(d || RING_OF[id] || organEls[id].getAttribute('d'), stride);
+    if (!loc) return [];
+    const { step } = loc, rings = [];
     let cur = [], prev = null;
-    for (let i = 0; i <= n; i++) {
-      const q = el.getPointAtLength(i * step);
-      const p = m ? [m.a * q.x + m.c * q.y + m.e, m.b * q.x + m.d * q.y + m.f] : [q.x, q.y];
+    for (const [qx, qy] of loc.pts) {
+      const p = m ? [m.a * qx + m.c * qy + m.e, m.b * qx + m.d * qy + m.f] : [qx, qy];
       if (prev && Math.hypot(p[0] - prev[0], p[1] - prev[1]) > step * 4 * (m ? Math.hypot(m.a, m.b) : 1)) { if (cur.length > 1) rings.push(cur); cur = []; }   // a new subpath
       cur.push(p); prev = p;
     }

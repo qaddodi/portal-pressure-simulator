@@ -67,6 +67,17 @@ export function createDopplerGL() {
   gl.bindVertexArray(null);
   const tex = () => { const t = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, t); for (const [k, v] of [[gl.TEXTURE_MIN_FILTER, gl.NEAREST], [gl.TEXTURE_MAG_FILTER, gl.NEAREST], [gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE], [gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE]]) gl.texParameteri(gl.TEXTURE_2D, k, v); return t; };
   const ringT = tex(), noiseT = tex();
+  // One draw now, into the 1 × 1 canvas with two black texels: the browser builds the shader's GPU pipeline at its first draw
+  // (Safari's Metal does it then, not at the link above), which fell on the monitor's first frame as it opened. Nothing shows:
+  // the canvas is resized and cleared by the first real draw, and both textures are filled again then.
+  try {
+    for (const t of [ringT, noiseT]) { gl.bindTexture(gl.TEXTURE_2D, t); gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array([0, 0, 0, 255])); }
+    gl.viewport(0, 0, 1, 1); gl.useProgram(prog);
+    gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, ringT); gl.uniform1i(U.ring, 0);
+    gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, noiseT); gl.uniform1i(U.noise, 1);
+    gl.uniform2i(U.size, 1, 1);
+    gl.bindVertexArray(vao); gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4); gl.bindVertexArray(null);
+  } catch { /* only a head start */ }
   let rw = 0, rh = 0;
   const bytes = (d) => (d instanceof Uint8Array ? d : new Uint8Array(d.buffer, d.byteOffset, d.byteLength));
   return {
