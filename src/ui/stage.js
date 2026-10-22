@@ -3924,7 +3924,10 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     // then 1.6, then 3.2 after the liver or the fluid last moved: a time-lapse that pauses between steps began a whole organ picture in each pause
     // and threw it away, a frame of a quarter of a second each time on an iPhone (Mohammad's ?perf recording, 21 Oct). The live
     // drawing shows meanwhile, as it does now; once one lands the wait is as before.
-    const still = plateMiss ? Math.min(3200, 400 * 2 ** plateMiss) : 400;
+    // (Now one step only, 0.8 s: the whole picture is made a strip per frame from the shapes that meet each strip (0e73bb6), so one
+    // given up costs a strip, and the waits of up to 3.2 s kept the live organs up, every pan or zoom a repaint of all of them, for
+    // seconds after a change: external review, 22 Oct.)
+    const still = plateMiss ? 800 : 400;
     const wait = themed ? 0 : Math.max(0, 500 - (performance.now() - plateLast), still - (performance.now() - lvStillAt), 400 - (performance.now() - spleenMv.stillAt()), still - (performance.now() - fluidStillAt));
     clearTimeout(plateTimer);
     plateTimer = setTimeout(async () => {
