@@ -409,7 +409,7 @@ test('stage: on a slide the probe waits, hidden, for the slide\'s camera to sett
 test('stage: no Doppler screen in sight, no probe; shown afresh it waits for its place to hold still, then fades in there', () => {
   const src = readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8');
   assert.match(src, /const show = [^;]*dprMonitorOn\(\)/);
-  const mon = src.slice(src.indexOf('function dprMonitorOn('), src.indexOf('function dprobePaint('));
+  const mon = src.slice(src.indexOf('function dprMonitorLook('), src.indexOf('function dprobePaint('));
   for (const k of ["'[hidden], .card-leaving, .vd-out, [data-folding]'", 'checkVisibility', 'elementFromPoint']) assert.ok(mon.includes(k), k);
   const paint = src.slice(src.indexOf('function dprobePaint('), src.indexOf('function dprShape('));
   assert.ok(paint.indexOf("act === 'wait'") < paint.indexOf('dpr.cur = { ang: tgt.ang'), 'a fresh probe waits before it is placed');
@@ -589,4 +589,12 @@ test('stage: the probe\'s memory is in the loop (layout signature, banned places
   assert.match(paint, /if \(act === 'hold'\) \{ dpr\.noneT \|\|= setTimeout\(\(\) => \{ dpr\.noneT = 0; dprobePaint\(\); \}, NONE_MS \+ 30\); return; \}/, 'a held "no place" looks again when it has lasted');
   assert.ok(paint.indexOf('dprMind.act(') > paint.indexOf('const tgt = '));
   assert.ok(paint.indexOf('dprMind.sync(') < paint.indexOf('const pose = fitPose('));
+});
+
+// Review item 28: the monitor check reads layout only while the page's layout watch says a card or bar may have moved.
+test('stage: the Doppler monitor check keeps its last answer while nothing placed has moved', () => {
+  const src = readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8');
+  assert.match(src, /const dprQuiet = \(\) => dpr\.monAt > 0 && !watch\.due\(\);/);
+  assert.match(src, /if \(dprQuiet\(\)\) return dprMonLast;\n\s+dpr\.monAt = now;\n\s+dprMonLast = dprMonitorLook\(\);/);
+  assert.match(src, /if \(!dpr\.ready \|\| !dop\.id\) return;\n\s+let on = dprMonLast;\n\s+if \(!dprQuiet\(\)\) \{ dpr\.monAt = 0; on = dprMonitorOn\(\); \}/);
 });

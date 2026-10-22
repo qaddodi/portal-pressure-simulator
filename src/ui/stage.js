@@ -6232,10 +6232,19 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // No Doppler screen in sight, no probe (Mohammad, 20 Oct: "no doppler screen = no probe"): a monitor whose card is hidden,
   // folded, leaving, off screen or covered (the case card over it) leaves the probe hidden. Checked a few times a second while a
   // vessel is chosen, since those changes come from the cards, not the figure.
+  // (Only while a card or bar may have moved, shown, hidden or covered another (layoutWatch, as dprCards): otherwise the last
+  // look's answer still holds and no layout is read. Review item 28.)
+  let dprMonLast = false;
+  const dprQuiet = () => dpr.monAt > 0 && !watch.due();
   function dprMonitorOn() {
     const now = performance.now();
     if (now - dpr.monAt < 200) return dpr.mon;   // (asked on every model frame: the answer of the last 200 ms, the pace it is watched at anyway)
+    if (dprQuiet()) return dprMonLast;
     dpr.monAt = now;
+    dprMonLast = dprMonitorLook();
+    return dprMonLast;
+  }
+  function dprMonitorLook() {
     const W = innerWidth, H = innerHeight;
     for (const cv of document.querySelectorAll('canvas[aria-label^="Spectral Doppler"]')) {
       if (cv.closest('[hidden], .card-leaving, .vd-out, [data-folding]')) continue;
@@ -6250,8 +6259,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   }
   setInterval(() => {
     if (!dpr.ready || !dop.id) return;
-    dpr.monAt = 0;
-    const on = dprMonitorOn();
+    let on = dprMonLast;
+    if (!dprQuiet()) { dpr.monAt = 0; on = dprMonitorOn(); }
     if (on !== dpr.mon || (on && !dpr.on && !dpr.swap)) { dpr.mon = on; dprobePaint(); }
   }, 200);
   // What the probe remembers between frames: the places it has left on this layout, and how long a fresh place has held still
