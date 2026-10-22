@@ -34,7 +34,7 @@
 import { CHEV_GLSL } from './chevron-glsl.js?v=96ec7c6666';
 import { SLOT, DYE_BINS } from './blood.js?v=e668d01823';
 import { cssRGB } from './util.js?v=be12b8e102';
-import { CELL, ENT_W, binVeins, splitRows } from './veins-bin.js?v=81a80b3a6d';
+import { CELL, ENT_W, binVeins, splitRows } from './veins-bin.js?v=918d15167c';
 import { gpuProbe } from './gpu-probe.js?v=e82dc07b45';
 import { createOrganStack } from './organs-gl.js?v=eb7a83e544';
 
@@ -166,9 +166,15 @@ vec4 over(vec4 top, vec4 under) { return top + under * (1.0 - top.a); }
 // there, so that wall is the trunk's alone (no fillet swelling it, no blend of the tributary's caliber or shading); 1 in
 // the corners beside the tributary and inside it. (ga, gb: unit directions from each centreline to p; da, db: the
 // distances from each wall; ra, rb: the radii.)
-float corner(vec2 p, vec2 ga, float da, float ra, vec2 gb, float db, float rb) {
+// Where one of the two is the trunk the other ends on (role 1: a, 2: b), only the test that matters there is made: the
+// tributary's centreline lies off the trunk's toward p. The trunk's off the tributary's toward p fails in the corner itself
+// when the tributary ends well inside the trunk (the hepatic veins on the IVC): the vein's round end is the nearest point
+// there, so the fillet was cut off on the wall's last few units short of the vein's wall, and the wall above it, swollen
+// by the fillet, ended in a spike. (role 0: two vessels meeting at a node, either may lead: both tests.)
+float corner(vec2 p, vec2 ga, float da, float ra, vec2 gb, float db, float rb, int role) {
   vec2 ca = p - ga * (da + ra), cb = p - gb * (db + rb);
-  float off = min(dot(cb - ca, ga), dot(ca - cb, gb)), rm = max(min(ra, rb), 0.5);
+  float o1 = dot(cb - ca, ga), o2 = dot(ca - cb, gb), rm = max(min(ra, rb), 0.5);
+  float off = role == 1 ? o1 : role == 2 ? o2 : min(o1, o2);
   return smoothstep(0.25 * rm, 0.6 * rm, off);
 }
 
@@ -269,21 +275,21 @@ void main() {
 
   // ── Junctions: which of these vessels are joined here, and how widely ──
   int jn = 0;
-  int jm[MAXJ];
+  int jm[MAXJ], jt[MAXJ];             // (jt: the members that are the trunk the others end on)
   float jk[MAXJ], jf[MAXJ], js[MAXJ];
   for (int k = 0; k < min(vR.w, 64); k++) {
     if (jn == MAXJ) break;
     vec4 A = E(vR.z + k, 0), B = E(vR.z + k, 1);
     float dc = length(p - A.xy);
     if (dc > A.z) continue;
-    int mask = 0, c = 0;
+    int mask = 0, c = 0, tm = 0;
     for (int m = 0; m < 4; m++) {
       if (B[m] < -0.5) continue;
       int id = int(B[m] + 0.5);
-      for (int s = 0; s < MAXS; s++) if (s < n && sid[s] == id && (mask & (1 << s)) == 0) { mask |= 1 << s; c++; }
+      for (int s = 0; s < MAXS; s++) if (s < n && sid[s] == id && (mask & (1 << s)) == 0) { mask |= 1 << s; c++; if (fract(B[m]) > 0.1) tm |= 1 << s; }
     }
     if (c < 2) continue;
-    jm[jn] = mask; js[jn] = fract(A.w) / 0.99; jk[jn] = floor(A.w) * 0.01 * (1.0 - smoothstep(0.55 * A.z, A.z, dc)); jf[jn] = 1.0 - smoothstep(0.3 * A.z, 0.85 * A.z, dc); jn++;
+    jm[jn] = mask; jt[jn] = tm; js[jn] = fract(A.w) / 0.99; jk[jn] = floor(A.w) * 0.01 * (1.0 - smoothstep(0.55 * A.z, A.z, dc)); jf[jn] = 1.0 - smoothstep(0.3 * A.z, 0.85 * A.z, dc); jn++;
   }
 
   // ── Nothing to draw here: settled now, without the tiers below ──
@@ -470,7 +476,7 @@ void main() {
         if ((jj & (1 << a)) == 0) continue;
         for (int b = a + 1; b < MAXS; b++) {
           if ((jj & (1 << b)) == 0) continue;
-          float kk = jk[j] * js[j] * corner(p, sg[a], sd[a], sr[a], sg[b], sd[b], sr[b]);
+          float kk = jk[j] * js[j] * corner(p, sg[a], sd[a], sr[a], sg[b], sd[b], sr[b], (jt[j] & (1 << a)) != 0 ? 1 : (jt[j] & (1 << b)) != 0 ? 2 : 0);
           D = min(D, smin(sd[a], sd[b], kk));
           Ds = min(Ds, smin(sh[a], sh[b], kk));
         }
@@ -522,7 +528,9 @@ void main() {
       for (int j = 0; j < MAXJ; j++) if (j < jn && jk[j] > 0.0 && js[j] < 0.98 && (jm[j] & (1 << s)) != 0 && (jm[j] & (1 << ow)) != 0) run = true;
       // (Deep in the lumens, away from every wall, they blend all through too, so the shading runs on into a tributary.)
       float deep = 1.0 - smoothstep(-0.6 * sr[ow], -0.25 * sr[ow], max(sd[ow], sd[s]));
-      float wg = s == ow || run ? w : w * max(max(corner(p, sg[s], sd[s], sr[s], sg[ow], sd[ow], sr[ow]), deep), tin[s]);
+      int role = 0;
+      for (int j = 0; j < MAXJ; j++) if (j < jn && (jm[j] & (1 << s)) != 0 && (jm[j] & (1 << ow)) != 0) role = (jt[j] & (1 << s)) != 0 ? 1 : (jt[j] & (1 << ow)) != 0 ? 2 : role;
+      float wg = s == ow || run ? w : w * max(max(corner(p, sg[s], sd[s], sr[s], sg[ow], sd[ow], sr[ow], role), deep), tin[s]);
       W += w; Wg += wg; R += wg * sr[s]; wall += wg * swall[s]; alpha += w * sa[s] * pres[s]; col += w * scol[s]; g += wg * sg[s];
     }
     R /= Wg; wall /= Wg; alpha /= W; col /= W;
