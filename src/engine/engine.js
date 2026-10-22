@@ -7,7 +7,7 @@ import {
   heartFlow, fillShape, systoleShape, raWave, iapFromAscites, makeRng,
 } from './physiology.js?v=6fc3ec393a';
 import { defaultParams, DRUGS, PRESETS, deepMerge, MEAL_TONE, MEAL_BLUNT } from './scenario.js?v=fda1eda5ff';
-import { detectEvents } from './events.js?v=582dd803a9';
+import { detectEvents } from './events.js?v=d8f8510e8d';
 
 const KNEE = { artery: [1e9, 1], bed: [14, 10], portal: [14, 10], vein: [14, 6], hepvein: [10, 3], heart: [10, 4], liver: [9, 2], wedge: [9, 5], varix: [30, 10] };
 const KD = { vein: 0.03, diode: 0.03, collateral: 0.08 };
