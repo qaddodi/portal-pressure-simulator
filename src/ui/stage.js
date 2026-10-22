@@ -3,15 +3,15 @@
 
 import { EDGES, dopplerK, NODES, PORTAL_TERRITORY, dMinOf, edgePresent, isOccluded, SHUNT_PORTAL, SHUNT_SYSTEMIC, customShuntId, isStent, stentSite, STENT_SITES, STENT_SPANS, stentGate, stentSegments } from '../engine/topology.js?v=4044766e96';
 import { route as metroRoute, RECTUM_FADE, LABEL_VESSEL, TIP_FADE, TIP_CONNECT, VIEW, VB_ANAT, VB_CIRC, ATLAS_COLUMNS, HIDDEN_EDGES, HIDDEN_NODES, ANAT_HIDDEN, ANAT_HIDDEN_NODES, CAUDATE, CONTEXT_EDGES, BACK_EDGES, IVC_EDGES, NEEDS_C3, NODE_POS, EDGE_PATH, CIRCUIT_PATH, metroPath, ORGANS, SEAM_D, ORGAN_DETAIL, BACKDROP, LIVER_INNER, LIVER_EDGES, LANE_CAPTIONS, ABDOMEN_CLIP, ABDOMEN_FLOOR, flankPath, abdomenOutline, cavityHalfWidths, SPLEEN_CENTER, SITES, ORGAN_LABELS, ATLAS_LABELS, SHORT, ABBR, CHIP_NODES, LIVER_SPLIT_X, CIRCUIT_ZONES, CIRCUIT_LABELS, STRANDS, STRAND_FROM, SIN_EDGES, FEEDERS, fanFeeders, CIRCUIT_TREES } from './anatomy.js?v=1f28084c15';
-import { pressureColor, deltaColor, dropColor, flowColor, heatColor, velColorOf, velocityColor, oxygenColor } from './colormap.js?v=e438260a0d';
+import { pressureColor, deltaColor, dropColor, flowColor, heatColor, velColorOf, velocityColor, oxygenColor } from './colormap.js?v=8e570d655e';
 import { forkJoins, sideEndScale } from './fork-joins.js?v=b678f7ba5a';
 import { nodeEnds, nodeDrawn, dotRadius, bareDots } from './circuit-nodes.js?v=1040ba0ec4';
 import { STATION_VESSEL, meanVel, velNormal } from './velNormal.js?v=181dda5594';
 import { store, updateParams, varicesPresent, varixGrowth, shownVel } from './store.js?v=67f4341802';
 import { fibroReading } from './clock.js?v=6a1f89a5c2';
-import { s, h, fmt, fmtFlow, fp, clamp, lerp, toast, systemEdge, bloodColors, restBox, translateRest, settledBox, putText } from './util.js?v=9e70912a09';
+import { s, h, fmt, fmtFlow, fp, clamp, lerp, toast, systemEdge, bloodColors, restBox, translateRest, settledBox, putText } from './util.js?v=67e1954725';
 import { riseCentre } from './rise-path.js?v=c039cb7b49';
-import { createLobuleZoom } from './lobule-zoom.js?v=af250d45a8';
+import { createLobuleZoom } from './lobule-zoom.js?v=3899ec7d71';
 import { sinceSource } from './since-ref.js?v=ef1a818c75';
 import { clipBox, mapBox } from './fit-box.js?v=d5d6d4c60f';
 import { runFlick, FLICK } from './flick.js?v=0d9ad35d1c';
@@ -34,7 +34,7 @@ import { gpuProbe } from './gpu-probe.js?v=e82dc07b45';
 import { plateStrips, premultiply, gutStep, viewReuse, copyPixels } from './plate-upload.js?v=5fc45556a1';
 import { cropToGrid } from './organs-gl.js?v=51f9ac0f57';
 import { readGroup } from './organ-paint.js?v=7bcc7ef138';
-import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, ORIGIN_GREY } from './veins-gl.js?v=b3fbee015f';
+import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, ORIGIN_GREY } from './veins-gl.js?v=a8388760b8';
 import { varixBead, beadRadius } from './varix-bead.js?v=ac0e84fd89';
 import { advanceStream, createReversalHold, bleedShapes, stepBleedFade, fadeBleedShapes, chevFlowLevel, keyChevron, KEY_CHEV_LANES, originFractions, oxygenFor, ORIGIN_N, createBolus, DYE_BINS, KAPPA, STASIS_MIN_D, HIDDEN_SECONDS } from './blood.js?v=e668d01823';
 import { frameFor, cancelFrame, noteDraw, setSaver as setFrameSaver, paceMs } from './frame.js?v=74867bd42b';
@@ -1279,7 +1279,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const dop = { id: null, want: null, pin: null, key: '', seg: '', points: false, all: false };
   const dopGateOf = (id) => (dop.id === id && dop.seg ? dop.seg : '');   // the third of a stent the Doppler samples ('' when it is elsewhere)
   // The Doppler probe on the figure (dprobePaint): live once the stage is built (dopApply runs before its pieces exist).
-  const dpr = { el: null, on: false, key: '', side: 0, reach: 0, rev: false, k: 1, cur: null, tgt: null, hold: 0, mon: false, noneT: 0, headOff: false, eRaf: 0, eAt: 0, box: null, marks: [], swap: 0, shapes: '', at: '', ready: false, gate: null, monAt: 0, syncKey: '', searchAt: 0 };
+  const dpr = { el: null, on: false, key: '', side: 0, reach: 0, rev: false, k: 1, cur: null, tgt: null, hold: 0, mon: false, noneT: 0, headOff: false, eRaf: 0, eAt: 0, box: null, marks: [], swap: 0, shapes: '', at: '', ready: false, gate: null, monAt: 0, syncKey: '', searchAt: 0, searchGap: 150, lastSig: '' };
   function dopApply() {
     let id = dop.pin ?? dop.want ?? null;
     if (id && !E[id]) id = null;
@@ -6359,7 +6359,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     // runs at most every 150 ms while its inputs hold; a change of vessel, camera, gate or cards runs it at once. The probe's place is
     // decided with 0.2 s of stillness and eases over 0.3 s, so nothing it does is timed finer than that.)
     const tNow = performance.now();
-    if (syncKey === dpr.syncKey && dpr.on && tNow - dpr.searchAt < 150) return;
+    if (syncKey === dpr.syncKey && dpr.on && tNow - dpr.searchAt < dpr.searchGap) return;
+    if (syncKey !== dpr.syncKey) dpr.searchGap = 150;   // (a new layout: searched at once, and again soon; a place that holds is searched less often, up to 600 ms)
     dpr.syncKey = syncKey; dpr.searchAt = tNow;
     dprMind.sync(syncKey);
     // (Its place keeps its fit through a few px of give, unless only its marks fit: back to the head's fade, it needs the whole room.)
@@ -6379,6 +6380,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     // and turned to it, so it never arrives and then swings into place (Mohammad, 20 Oct). A place far round the gate or far nearer:
     // it fades out and in there rather than flying across. No place: it holds a moment before it fades. dprMind decides.)
     const sig = `${key}|${pose.side}|${pose.reach}|${+pose.rev}|${pose.k}|${Math.round(pose.ang / 5)}|${Math.round(gx / 4)},${Math.round(gy / 4)}`;
+    dpr.searchGap = sig === dpr.lastSig ? Math.min(600, dpr.searchGap * 2) : 150; dpr.lastSig = sig;
     const act = dprMind.act({ pose, tgt, on: dpr.on, cur: dpr.cur, sig, now: performance.now(), instant: reduceMotion.matches });
     if (act !== 'hold' && dpr.noneT) { clearTimeout(dpr.noneT); dpr.noneT = 0; }
     // (No place on the slide's free space at any side or distance, for good: it fades out, and fades in once one opens.)

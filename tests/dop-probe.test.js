@@ -581,7 +581,8 @@ test('stage: the probe\'s memory is in the loop (layout signature, banned places
   assert.match(paint, /const syncKey = \[key, CTM \?/, 'a new layout (vessel, camera, stage, gate, cards) forgets the places left');
   assert.match(paint, /dprMind\.sync\(syncKey\);/);
   // (Asked on every model frame, the search runs at most every 150 ms while the layout holds and the probe shows; a new layout runs it at once.)
-  assert.match(paint, /if \(syncKey === dpr\.syncKey && dpr\.on && tNow - dpr\.searchAt < 150\) return;\s*dpr\.syncKey = syncKey; dpr\.searchAt = tNow;\s*dprMind\.sync\(syncKey\);/);
+  assert.match(paint, /if \(syncKey === dpr\.syncKey && dpr\.on && tNow - dpr\.searchAt < dpr\.searchGap\) return;\s*if \(syncKey !== dpr\.syncKey\) dpr\.searchGap = 150;[^\n]*\n\s*dpr\.syncKey = syncKey; dpr\.searchAt = tNow;\s*dprMind\.sync\(syncKey\);/);
+  assert.match(paint, /dpr\.searchGap = sig === dpr\.lastSig \? Math\.min\(600, dpr\.searchGap \* 2\) : 150; dpr\.lastSig = sig;/, 'a place that holds is searched less often, up to 600 ms');
   assert.match(paint, /ban: dprMind\.banned\(\), lock: dprMind\.locked\(\), slack: dpr\.headOff \? 0 : SLACK/);
   assert.match(paint, /if \(!show\) \{\s*dprMind\.hide\(\);\s*dprHide\(\);/);
   assert.match(paint, /dprDots\(\); dprMind\.hide\(\);\s*dpr\.swap = setTimeout/, 'a new vessel or third: it is no longer "leaving" a place');

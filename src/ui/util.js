@@ -619,7 +619,8 @@ export function parseRGB(c) {
 export const cssRGB = (name) => parseRGB(cssVar(name));
 export const cssRGB01 = (name) => cssRGB(name).map((v) => v / 255);
 /** A colour token with an alpha, for a canvas: cssAlpha('--white', .5) → 'rgba(255,255,255,0.5)' (colour-exempt). */
-export const cssAlpha = (name, a) => `rgba(${cssRGB(name).join(',')},${a})`;
+const alphaCache = new Map();   // (cleared with varCache: the instruments ask for the same few colours on every frame)
+export const cssAlpha = (name, a) => { const k = `${name}|${a}`; let v = alphaCache.get(k); if (v === undefined || !varCache.has(name)) { v = `rgba(${cssRGB(name).join(',')},${a})`; alphaCache.set(k, v); } return v; };
 /** A colour ramp token ('#hex position, #hex position, …') as [[position, '#hex'], …]. */
 export const cssRamp = (name) => [...cssVar(name).matchAll(/(#[0-9a-f]{6})\s+(-?[\d.]+)/gi)].map((m) => [+m[2], m[1]]);
 // The blood's colours on the GPU (theme independent: they sit on the lumen, not on the page), in 0–1.
