@@ -107,12 +107,14 @@ export function maskRegionIn(r, band, toLocal) {
   return bx > ax && by > ay ? [ax, ay, bx - ax, by - ay] : [ax, ay, 0, 0];
 }
 
-/** The placeholder written for a mask's region attribute in the copy's defs (fillMaskHead puts the strip's numbers in). */
-export const maskSlot = (i, k) => `__pcm${i}_${k}__`;
+/** The placeholder written for a mask's region attribute in the copy's defs (fillMaskHead puts the strip's numbers in). A number the
+ *  browser takes as a length, and one no real coordinate in the defs comes near: a word there ("__pcm0_x__") made the console log
+ *  "<mask> attribute x: Expected length" for each of the copy's masks every time it was made. */
+export const maskSlot = (i, k) => `98765${i}${'xywh'.indexOf(k)}.0625`;
 
 /** The defs' markup with each mask's region filled in from `regions` (index → [x, y, w, h]). */
 export function fillMaskHead(head, regions) {
-  return head.replace(/__pcm(\d+)_([xywh])__/g, (_, i, k) => String(+regions[+i]['xywh'.indexOf(k)].toFixed(3)));
+  return head.replace(/(?<![\d.])98765(\d+)([0-3])\.0625/g, (_, i, k) => String(+regions[+i][+k].toFixed(3)));
 }
 
 /**

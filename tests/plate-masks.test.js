@@ -32,6 +32,19 @@ test("the strip's numbers go into the defs' placeholders", () => {
   assert.equal(fillMaskHead(head, [[1.23456, 2, 3, 4], [5, 6, 0, 0]]), '<mask id="a" x="1.235" y="2" width="3" height="4"/><mask id="b" x="5" y="6" width="0" height="0"/>');
 });
 
+// With ?gpuorgans=force the copy is made on every page, and a placeholder that was a word logged "<mask> attribute x: Expected length" for each mask
+// (32 page errors on the first load, which the browser checks count as failures): it must be a number the browser takes as a length.
+test('a mask slot is a positive number, never a word, and ten masks fill without crossing', () => {
+  const slots = [];
+  for (let i = 0; i < 10; i++) for (const k of 'xywh') slots.push(maskSlot(i, k));
+  assert.equal(new Set(slots).size, 40);
+  for (const s of slots) assert.match(s, /^\d+(\.\d+)?$/);
+  const head = slots.map((s) => `<m v="${s}"/>`).join('');
+  const regions = Array.from({ length: 10 }, (_, i) => [i, i + 0.5, i + 1, i + 2]);
+  const want = regions.flatMap((r) => r).map((v) => `<m v="${v}"/>`).join('');
+  assert.equal(fillMaskHead(head, regions), want);
+});
+
 test("only the view's strips get cut masks, with a 4 px margin; the whole plate and the gut picture keep the full ones", () => {
   assert.match(stage, /try \{ out = \(cull \? maskHead\(plateCopy, rect, W\) : plateCopy\.head\) \+ parts\.map/);
   assert.match(stage, /const g = 4 \* rect\[2\] \/ W, band = \[rect\[0\] - g, rect\[1\] - g, rect\[2\] \+ 2 \* g, rect\[3\] \+ 2 \* g\];/);
