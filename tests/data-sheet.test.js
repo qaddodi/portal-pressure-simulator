@@ -248,3 +248,40 @@ test('the ladder\'s Healthy name eases to a new place, never jumps', () => {
   assert.match(prof, /const \[nx, ny\] = glideAt\(/, 'drawn where the glide has it');
   assert.match(prof, /Object\.values\(nameAt\)\.some\(\(a\) => t - a\.t0 < FADE_MS\)/, 'frames keep coming while it glides');
 });
+
+// Mohammad, 22 Oct (Sites 4 and 5, a Mac and a short wide window): "the card is just not good". Stacked under the words, the card's own width
+// rule (the fit times the block step) outranked the ladder's full-width rule, so a card too tall for its room drew the ladder at a third
+// of its width, its plot a few px tall, its words piled up.
+test('the ladder and the portal blood bars keep the stacked card\'s full width, whatever its fit or block step', () => {
+  // (Specificity as classes, attributes and pseudo-classes, :is() the highest of its list and :not() its argument, as the cascade counts them.)
+  const spec = (sel) => {
+    let n = 0;
+    const re = /\.[\w-]+|\[[^\]]+\]|:(is|not)\(|:[\w-]+|\)|,/g;
+    const stack = [];
+    for (let m; (m = re.exec(sel));) {
+      if (m[1]) { stack.push({ kind: m[1], sum: 0, max: 0, cur: 0 }); continue; }
+      if (m[0] === ')') {
+        const g = stack.pop();
+        const v = g.kind === 'is' ? Math.max(g.max, g.cur) : g.cur;
+        if (stack.length) stack[stack.length - 1].cur += v; else n += v;
+        continue;
+      }
+      if (m[0] === ',') { if (stack.length) { const g = stack[stack.length - 1]; g.max = Math.max(g.max, g.cur); g.cur = 0; } continue; }
+      if (stack.length) stack[stack.length - 1].cur += 1; else n += 1;
+    }
+    return n;
+  };
+  const sel = (head) => css.split('\n').map((l) => l.match(/^(.*?)\s*\{/)?.[1]).find((s) => s?.startsWith(head));
+  const keep = sel('.pz .pz-data.pz-data'), narrow = sel('.pz-data.col > :is(.pz-quad');
+  assert.ok(keep && narrow, 'both rules are there');
+  assert.match(keep, /\[data-kind="profile"\], \[data-kind="flows"\]/);
+  assert.ok(spec(keep) > spec(narrow), `the full-width rule (${spec(keep)}) stands over the stacked card's width rule (${spec(narrow)})`);
+  // (And the ladder's height steps with the card's block step, never with its fit, and is at least 28 % of the window's height: a ladder
+  // beside its tiles is narrow, and 62 % of its width alone left it at its minimum.)
+  assert.match(css, /\.pz:not\(\.stack\) \.pz-tool\[data-kind="profile"\] \.pz-prof \{ --prof-h: calc\(min\(max\(62cqi, calc\(28 \* var\(--pzh\)\)\), calc\(40 \* var\(--pzh\)\)\) \* var\(--pz-dk, 1\) - 1\.6em\); \}/);
+});
+
+// (A short window, or a phone on its side, has the whole height for the data card beside the words: the ladder takes what it needs of it.)
+test('the ladder in a short window takes more of the window\'s height than a flat 170 px', () => {
+  assert.match(css, /\.pz\.low \.pz-data\.has-tool \.pz-prof \{ --prof-h: calc\(min\(62cqi, max\(170px, calc\(48 \* var\(--pzh\)\)\)\) - 1\.6em\); \}/);
+});

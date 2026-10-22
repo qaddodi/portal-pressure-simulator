@@ -6181,15 +6181,15 @@ html.thumb-ui .menu.from-dock { clip-path: inset(-64px -64px calc(var(--sink, 0p
    Each box is 1.6 em shorter than it was: the chart no longer keeps a key row over its plot (tool-profile.js profileGeo), so the plot is as tall as
    before and the card is that much shorter: "less wasted space on top", Mohammad, 21 Oct.) */
 .pz-prof { height: var(--prof-h, 250px); min-height: 11em; }
-.pz:not(.stack) .pz-tool[data-kind="profile"] .pz-prof { --prof-h: calc(min(62cqi, calc(40 * var(--pzh))) - 1.6em); }
+.pz:not(.stack) .pz-tool[data-kind="profile"] .pz-prof { --prof-h: calc(min(max(62cqi, calc(28 * var(--pzh))), calc(40 * var(--pzh))) * var(--pz-dk, 1) - 1.6em); }   /* (stacked under the words, one of the fixed steps of the card's blocks, presenter.js DK: the chart's height steps with them, never with the fit. A chart beside its tiles is narrow, so 62 % of its width alone left it at its minimum, a plot 29 to 36 px tall on a card with room under it: it takes at least 28 % of the window's height.) */
 .pz.stack .pz-prof { --prof-h: calc(min(74cqi, 270px) - 1.6em); }
-.pz.low .pz-data.has-tool .pz-prof { --prof-h: calc(min(44cqi, 170px) - 1.6em); }
+.pz.low .pz-data.has-tool .pz-prof { --prof-h: calc(min(62cqi, max(170px, calc(48 * var(--pzh)))) - 1.6em); }   /* (a short window, a phone on its side too: the card has the window's height to itself beside the words, so the ladder takes what it needs of it, not a flat 44 % of its width or 170 px, whose plot was 29 to 39 px tall on a card with half its room empty; one size per window) */
 .pz:not(.stack):not(.low) .pz-data > .pz-tool[data-kind="profile"], .pz:not(.stack):not(.low) .pz-data > .pz-tool[data-kind="flows"] { container-type: inline-size; }
 .pz-prof svg, .pz-flows svg { grid-area: 1 / 1; width: 100%; height: 100%; overflow: visible; }
 /* (The card's fit shortens these charts, never their width or their words: they keep the card's full width and are not zoomed with
    the card. Narrowed and zoomed with the fit as the instruments are, a short card drew the profile at a third of its width with its
    words under 12 px and its values crowded, Sites 4 and 5; its type already keeps 12 px on the screen, tool-profile.js.) */
-.pz .pz-data.pz-data.pz-data.pz-data > .pz-tool:is([data-kind="profile"], [data-kind="flows"]) { width: 100%; zoom: 1; }
+.pz .pz-data.pz-data.pz-data.pz-data.pz-data.pz-data > .pz-tool:is([data-kind="profile"], [data-kind="flows"]) { width: 100%; zoom: 1; }   /* (six times, to stand over the stacked card's own width rule, which narrowed them by the fit and the block step: a short window drew the ladder at a third of its card, Sites 4 and 5) */
 .pz.stack .pz-data.pz-data.pz-data.pz-data > .pz-tool[data-kind="flowtime"] { width: 100%; zoom: 1; }   /* (a phone's after-meal chart likewise: phoneTextCap shortens it, flow-time.js redraws its words at size) */
 .ppf-liver rect { fill: var(--chart-liver-band); }
 .ppf-pre rect { fill: var(--chart-pre-band); }

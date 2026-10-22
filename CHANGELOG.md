@@ -28,6 +28,14 @@
   second line), and a name stands clear of a reading at the plot's top and of a block hanging from it. The phone's one-line cases get the
   three tints too (no names, as they had none). The app's own Pressure panel (Explore, Patients) is a separate chart and is unchanged.
   Tests: `tests/deck-charts.test.js`, `tests/grid-key-phone.test.js`, `tests/data-sheet.test.js`.
+- **Ladder: full width and a readable height at every window size.** On a Mac, an iPad landscape or a wide window, the data card sits under
+  the words' card, and a card too tall for its room is shrunk in fixed steps. One of the card's width rules (its fit times the block step)
+  outranked the ladder's own full-width rule, so the Gut to heart ladder on Sites 4 and 5 was drawn at about a third of its card, its plot a
+  few px tall, its HVPG and Healthy words piled over the numbers. The ladder (and the portal blood bars) now keep the card's full width, and
+  the ladder's height steps with the card's block steps (never with the fit, so it still cannot vibrate), at least 28 % of the window's
+  height; a ladder beside its tiles (Treatment 2 to 5, HVPG 5 and others) no longer stops at its minimum. In a short window, and on a phone
+  held sideways, where the card has the window's height to itself beside the words, the ladder takes up to 48 % of it instead of a flat
+  170 px. Tests: `tests/data-sheet.test.js`.
 - **Ladder: the resistance block stands on its column.** The red hatched block on the Gut to heart ladder used to hang in the gap between
   the two readings the pressure falls across. It now stands on the column of the station the pressure falls from (Pre- to Intra- marks
   Pre-, Intra- to Post- marks Intra-, Post- to HV marks Post-, the portal vein to Pre- marks PV, HV to IVC marks HV, and the heart marks the
