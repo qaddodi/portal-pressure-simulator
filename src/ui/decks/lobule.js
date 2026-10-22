@@ -32,7 +32,7 @@ export const LOBULE = {
       ask: ['Why is zone 3 the vulnerable zone?', 'It is last on the path, so it gets the least oxygen, and it is where many drugs are activated.'],
     },
     {
-      id: 'schisto', terms: { 'portal venules': 'lobule:triad', sinusoids: 'lobule:sinusoid' }, preset: 'schisto', cam: 'lobule:triad', callout: { at: 'triad', label: 'Resistance' }, data: 'tiles', tiles: ['pv', 'hvpg'],
+      id: 'schisto', terms: { 'portal venules': 'lobule:triad', sinusoids: 'lobule:sinusoid' }, preset: 'schisto', cam: 'lobule:triad', callout: { at: 'triad', label: 'Resistance' }, scales: { anatomy: { cam: 'liver', labels: ['CONF', 'SIN_R'] }, sinusoid: {} }, data: 'tiles', tiles: ['pv', 'hvpg'],
       kicker: 'Presinusoidal', site: 'presin', title: 'Schistosomiasis raises resistance in the portal tract',
       vignette: 'A 29-year-old man who grew up farming rice in the Philippines has a large spleen and large esophageal varices. His liver tests are normal, and there is no ascites.',
       line: 'Eggs lodge in the portal venules. Granulomas and fibrosis form around them, and the sinusoids downstream stay normal. The portal pressure is {pv}, yet the HVPG only {hvpg}.',
@@ -40,7 +40,7 @@ export const LOBULE = {
       ask: ['A patient with schistosomiasis also has hepatitis C cirrhosis. What will the HVPG show?', 'Raised, but below the true gradient: the wedge reads the sinusoidal resistance, not the presinusoidal one before it.'],
     },
     {
-      id: 'cirr', terms: { 'space of Disse': 'sinusoid:disse', fenestrae: 'sinusoid:fenestrae', 'stellate cells': 'sinusoid:stellate', sinusoid: 'sinusoid:lumen' }, preset: 'cirr-decomp', cam: 'sinusoid', callout: { at: 'sin', label: 'Resistance' }, data: 'tiles', tiles: ['sin', 'hvpg'],
+      id: 'cirr', terms: { 'space of Disse': 'sinusoid:disse', fenestrae: 'sinusoid:fenestrae', 'stellate cells': 'sinusoid:stellate', sinusoid: 'sinusoid:lumen' }, preset: 'cirr-decomp', cam: 'sinusoid', callout: { at: 'sin', label: 'Resistance' }, scales: { anatomy: { cam: 'liver', labels: ['CONF', 'SIN_R', 'RHV'] }, lobule: { cam: 'lobule:sinusoid', glow: ['lobule:sinusoid'] } }, data: 'tiles', tiles: ['sin', 'hvpg'],
       compare: [{ label: 'Fenestrae open', short: 'Open', params: { fenestrae: 1 } }, { label: 'Closed (cirrhosis)', short: 'Closed', own: true }],
       kicker: 'Sinusoidal', site: 'sin', title: 'Cirrhosis narrows the sinusoid',
       vignette: 'A 61-year-old woman with MASH cirrhosis has ascites despite spironolactone and furosemide. Her albumin is 2.8 g/dL, and her platelets are 57,000/µL.',
@@ -49,7 +49,7 @@ export const LOBULE = {
       ask: ['Name the two parts of the raised resistance in cirrhosis.', 'Structural (scar, nodules, capillarized sinusoids) and dynamic (vascular tone).'],
     },
     {
-      id: 'sos', terms: { 'central veins': 'lobule:central' }, preset: 'sos', cam: 'lobule:central', callout: { at: 'cv', label: 'Resistance' }, data: 'tiles', tiles: ['hvpg', 'asc'],
+      id: 'sos', terms: { 'central veins': 'lobule:central' }, preset: 'sos', cam: 'lobule:central', callout: { at: 'cv', label: 'Resistance' }, scales: { anatomy: { cam: 'hepatic', labels: ['SIN_R', 'RHV', 'RA'] }, sinusoid: {} }, data: 'tiles', tiles: ['hvpg', 'asc'],
       kicker: 'Postsinusoidal', site: 'postsin', title: 'Sinusoidal obstruction syndrome adds resistance in the central veins',
       vignette: 'A 38-year-old woman with lymphoma, 18 days after high-dose conditioning for HSCT, has tender hepatomegaly, weight gain and new ascites. Her bilirubin is 2.3 mg/dL.',
       line: 'Injured endothelium swells and sloughs into the small central veins and raises resistance there.',
@@ -57,7 +57,7 @@ export const LOBULE = {
       ask: ['Why does the HVPG rise in sinusoidal obstruction syndrome?', 'The resistance is in the central veins, between the sinusoids the wedge reads and the free hepatic vein.'],
     },
     {
-      id: 'cong', terms: { 'zone 3': 'lobule:zone3', 'central vein': 'lobule:central', sinusoids: 'lobule:sinusoid' }, layers: ['zones'], callout: { at: 'cv', label: 'Dilated zone 3 sinusoids' }, preset: 'rhf', cam: 'lobule:central', data: 'tiles', tiles: ['pv', 'hvpg'],
+      id: 'cong', terms: { 'zone 3': 'lobule:zone3', 'central vein': 'lobule:central', sinusoids: 'lobule:sinusoid' }, layers: ['zones'], callout: { at: 'cv', label: 'Dilated zone 3 sinusoids' }, preset: 'rhf', cam: 'lobule:central', scales: { anatomy: { cam: 'heart', labels: ['RHV', 'IVCS', 'RA'] }, sinusoid: {} }, data: 'tiles', tiles: ['pv', 'hvpg'],
       kicker: 'Cardiac', site: 'cardiac', title: 'Congestion dilates the sinusoids of zone 3',
       vignette: 'A 71-year-old woman with pulmonary hypertension and severe TR has a raised JVP, ascites and a tender, enlarged liver. Her ALT is mildly raised.',
       line: 'Back pressure from the heart dilates the sinusoids around the central vein, and zone 3 cells die first. The portal vein reads {pv}, the HVPG {hvpg}.',
