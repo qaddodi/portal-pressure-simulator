@@ -44,7 +44,7 @@ void main() {
 }`;
 
 import { createShapeGL } from './shape-gl.js?v=c4003c5526';
-import { createOrganPaint, mul } from './organ-paint.js?v=7991a4bda7';
+import { createOrganPaint, mul } from './organ-paint.js?v=7bcc7ef138';
 
 function program(gl, vs, fs) {
   const p = gl.createProgram();
@@ -136,7 +136,8 @@ export function createOrganStack(gl) {
     drop(slot) { if (live[slot].size) { free(live[slot]); ver++; } free(staged[slot]); },
     has: (slot) => live[slot].size > 0,
     /** Whether a render at transform m and this size would draw something new (a pan, a zoom, a new set). */
-    stale: (m, cw, ch) => drawnKey !== `${ver}|${liveVer}|${m.join(',')}|${cw}x${ch}`,
+    // (With live groups, a render is always asked: what they draw is read from the page there, and nothing is drawn when it is as it was.)
+    stale: (m, cw, ch) => drawnKey !== `${ver}|${liveVer}|${m.join(',')}|${cw}x${ch}` || !!(painter && (liveOrgans.size || cuts.size)),
     /**
      * The stack drawn for transform m (world → device px) into its texture, the canvas's size. Returns what changed in it: true for
      * the whole (the view or the layers changed), a device box [x0, y0, x1, y1] when only live groups changed (their boxes, old and new),
@@ -144,7 +145,7 @@ export function createOrganStack(gl) {
      */
     render(m, cw, ch) {
       const key = `${ver}|${liveVer}|${m.join(',')}|${cw}x${ch}`;
-      if (key === drawnKey) return null;
+      if (key === drawnKey && !(painter && (liveOrgans.size || cuts.size))) return null;
       drawnKey = key;
       const at = `${ver}|${m.join(',')}|${cw}x${ch}`, same = at === drawnAt && !!painter;
       drawnAt = at;

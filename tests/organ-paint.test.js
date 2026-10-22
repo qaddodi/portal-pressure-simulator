@@ -35,5 +35,5 @@ test('with the GPU organs on, the liver, spleen and fluid ease with no drop to t
 test('what the SVG hides is not painted: visibility as the picture copy takes it, not the figure\'s hidden one', () => {
   const src = readFileSync(new URL('../src/ui/organ-paint.js', import.meta.url), 'utf8');
   assert.match(src, /const own = el\.style\?\.visibility \|\| el\.getAttribute\('visibility'\);\n\s+if \(own && own !== 'inherit'\) vis = own;/);
-  assert.match(src, /for \(const k of el\.children\) walk\(k, me, a, cl, vis\); return; \}\n\s+if \([^\n]*\|\| vis !== 'visible'\) return;/);
+  assert.match(src, /for \(const k of el\.children\) walk\(k, me, a, cl, vis, ch\); return; \}\n\s+if \([^\n]*\|\| vis !== 'visible'\) return;/);
 });

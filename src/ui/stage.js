@@ -11,7 +11,7 @@ import { store, updateParams, varicesPresent, varixGrowth, shownVel } from './st
 import { fibroReading } from './clock.js?v=e011dfc3e7';
 import { s, h, fmt, fmtFlow, fp, clamp, lerp, toast, systemEdge, bloodColors, restBox, translateRest, settledBox, putText } from './util.js?v=9e70912a09';
 import { riseCentre } from './rise-path.js?v=c039cb7b49';
-import { createLobuleZoom } from './lobule-zoom.js?v=78ffec3b73';
+import { createLobuleZoom } from './lobule-zoom.js?v=5d39667ace';
 import { sinceSource } from './since-ref.js?v=ef1a818c75';
 import { clipBox, mapBox } from './fit-box.js?v=d5d6d4c60f';
 import { runFlick, FLICK } from './flick.js?v=0d9ad35d1c';
@@ -32,9 +32,9 @@ import { warmVisible, ringGrid, inGrid } from './warm-vis.js?v=ccf4f6f71b';
 import { createRouter } from './circuit-router.js?v=0ee9e02fc6';
 import { gpuProbe } from './gpu-probe.js?v=e82dc07b45';
 import { plateStrips, premultiply, gutStep, viewReuse, copyPixels } from './plate-upload.js?v=5fc45556a1';
-import { cropToGrid } from './organs-gl.js?v=af1c89f447';
-import { readGroup } from './organ-paint.js?v=7991a4bda7';
-import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, ORIGIN_GREY } from './veins-gl.js?v=521ab22cbc';
+import { cropToGrid } from './organs-gl.js?v=51f9ac0f57';
+import { readGroup } from './organ-paint.js?v=7bcc7ef138';
+import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, ORIGIN_GREY } from './veins-gl.js?v=b3fbee015f';
 import { varixBead, beadRadius } from './varix-bead.js?v=ac0e84fd89';
 import { advanceStream, createReversalHold, bleedShapes, stepBleedFade, fadeBleedShapes, chevFlowLevel, keyChevron, KEY_CHEV_LANES, originFractions, oxygenFor, ORIGIN_N, createBolus, DYE_BINS, KAPPA, STASIS_MIN_D, HIDDEN_SECONDS } from './blood.js?v=e668d01823';
 import { frameFor, cancelFrame, noteDraw, setSaver as setFrameSaver, paceMs } from './frame.js?v=74867bd42b';
@@ -3969,11 +3969,14 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const matOfEl = (el) => { const t = el?.transform?.baseVal; if (!t || !t.numberOfItems) return [1, 0, 0, 1, 0, 0]; const k = t.consolidate().matrix; return [k.a, k.b, k.c, k.d, k.e, k.f]; };
   const MASK_OF = { gut: '#gutHide', stomach: '#frontM' };
   let liveKeyWas = '', liveSet = false;
+  // (What eases, the outlines, the organs' frames and the parts' own opacities, the painter reads from the page at each paint
+  // (organ-paint liveOf): the specs are read again only when what is in them changes: a part hidden or shown, the liver's mask,
+  // the ghost line, a lens, the theme and its colours. They were read again on every frame of an ease: about fifty computed
+  // styles, with the step's writes pending.)
   function liveKey() {
     const cs = wrapCS();
-    return [liverKey, organG.liver.getAttribute('transform'), organG.spleen.getAttribute('transform'), organG.spleen.style.opacity, diaKey, liverTint.style.opacity,
-      ghost.style.display, ghost.style.opacity, frontCut?.getAttribute('fill-opacity'), thinCut?.getAttribute('fill-opacity'), organEls.umbilicus?.getAttribute('opacity'),
-      organG.falciform?.getAttribute('transform'), cs.getPropertyValue('--stage-bg'), cs.getPropertyValue('--organ-liver'), wrap.classList.contains('imaging'), document.documentElement.dataset.theme || ''].join('|');
+    return [organG.liver.getAttribute('mask'), ghost.style.display, lv.sep.style.visibility, lv.nod.style.visibility, lv.cong.style.visibility, lv.isl.style.visibility,
+      cs.getPropertyValue('--stage-bg'), cs.getPropertyValue('--organ-liver'), wrap.classList.contains('imaging'), document.documentElement.dataset.theme || ''].join('|');
   }
   function syncLiveOrgans(force = false) {
     const v = veins;
@@ -3991,7 +3994,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       const spec = readGroup(el);
       if (!spec) { ok = false; console.warn('Organs on the GPU: not readable for painting, the organs stay pictures:', el); return; }
       if (!organs.has(L)) organs.set(L, []);
-      organs.get(L).push({ spec, m: matOfEl(el) });
+      organs.get(L).push({ spec, get m() { return matOfEl(el); } });   // (the group's own frame, as it is at each paint)
     };
     add('back', gBackdrop);
     for (const [k, L] of organLayers()) if (LIVE_LAYERS.has(L)) add(L, k);
@@ -4000,7 +4003,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       const spec = el && readGroup(el);
       if (!spec) { ok = false; continue; }
       // (The gut's: its group's opacity laid with it, and the bowel's picture, at rest, gathered under it with its float.)
-      masks.set(L, L === 'gut' ? { spec, m: matOfEl(g), opacity: parseFloat(getComputedStyle(gGut).opacity), under: [{ name: 'bowel', dy: bowelDy() }] } : { spec, m: matOfEl(g) });
+      masks.set(L, L === 'gut' ? { spec, get m() { return matOfEl(g); }, opacity: parseFloat(getComputedStyle(gGut).opacity), under: [{ name: 'bowel', dy: bowelDy() }] } : { spec, get m() { return matOfEl(g); } });
     }
     if (!ok) { liveFailed = true; v.organs.setLive(null, null); liveSet = false; hidePlate(); platePoke(); return; }
     // (The next composite renders the stack again for it (its version moved): the vessels themselves need no redraw.)

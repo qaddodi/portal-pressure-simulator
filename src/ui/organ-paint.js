@@ -99,7 +99,7 @@ function readClip(doc, id, m) {
   if (kids.length !== 1 || c.getAttribute('clip-path')) return false;
   const geom = readGeom(kids[0]);
   if (!geom) return false;
-  return { geom, m: mul(m, matOf(kids[0])) };
+  return { geom, m: mul(m, matOf(kids[0])), km: matOf(kids[0]) };
 }
 
 /**
@@ -114,25 +114,31 @@ export function readGroup(root, { withMask = true } = {}) {
   // (Visibility as the picture's copy takes it, svg-inline.js inlineStyles: the element's own setting, else its parent's. The
   // computed one is hidden under the whole figure while the GPU draws it (.gl-plate); the liver's congestion, islands and gloss
   // are hidden with their own style in the imaging view, whatever their opacity.)
-  const walk = (el, m, alpha, clip, vis = 'visible') => {
+  // What eases on the page is written inline (an element's style or its own attribute: the liver parts' opacity, the cuts'
+  // fill-opacity, the organs' transforms), so an op keeps its chain of elements down from the root and the painter reads those
+  // from the chain at each paint (liveOf); what the page's styles give (read here, computed) stands until the group is read again.
+  const walk = (el, m, alpha, clip, vis = 'visible', chain = []) => {
     if (!ok) return;
     const cs = getComputedStyle(el);
     if (cs.display === 'none') return;
     const own = el.style?.visibility || el.getAttribute('visibility');
     if (own && own !== 'inherit') vis = own;
     const o = parseFloat(cs.opacity);
-    if (!(o > 0)) return;
+    if (!(o > 0) && !ownO(el)) return;   // (at nothing by the page's styles: never shown; by its own setting: shown as it eases)
     if ((cs.filter && cs.filter !== 'none') || (cs.mixBlendMode && cs.mixBlendMode !== 'normal')) { ok = false; return; }
     if (el !== root && ((cs.mask && cs.mask !== 'none') || el.getAttribute('mask'))) { ok = false; return; }
     const me = el === root ? ID : mul(m, matOf(el)), a = el === root ? 1 : alpha * o;
+    const ch = el === root ? chain : [...chain, el];
+    CS_O.set(el, o);
     let cl = clip;
     const cid = el === root ? null : urlId(cs.clipPath && cs.clipPath !== 'none' ? cs.clipPath : el.getAttribute('clip-path'));
     if (cid) {
       if (clip) { ok = false; return; }   // (two clips, one inside the other: not drawn here)
       cl = readClip(doc, cid, me);
       if (!cl) { ok = false; return; }
+      cl.chain = ch;
     }
-    if (el.localName === 'g' || el === root) { for (const k of el.children) walk(k, me, a, cl, vis); return; }
+    if (el.localName === 'g' || el === root) { for (const k of el.children) walk(k, me, a, cl, vis, ch); return; }
     if (/^(title|desc|metadata)$/.test(el.localName) || vis !== 'visible') return;
     const geom = readGeom(el);
     if (!geom) { ok = false; return; }
@@ -142,19 +148,22 @@ export function readGroup(root, { withMask = true } = {}) {
     const fill = readPaintValue(doc, cs.fill), stroke = readPaintValue(doc, cs.stroke);
     if (fill === false || stroke === false) { ok = false; return; }
     if (fill) {
-      const fa = a * (parseFloat(cs.fillOpacity) || 0);
-      if (fa > 0) ops.push({ geom, m: me, kind: 'fill', paint: fill, alpha: fa, clip: cl, el });
+      const fo = parseFloat(cs.fillOpacity) || 0;
+      CS_FO.set(el, fo);
+      if (a * fo > 0 || ownFO(el) || ch.some(ownO)) ops.push({ geom, m: me, kind: 'fill', paint: fill, alpha: a * fo, clip: cl, el, chain: ch });
     }
     if (stroke) {
-      const sa = a * (parseFloat(cs.strokeOpacity) || 0), w = parseFloat(cs.strokeWidth) || 0;
-      if (sa > 0 && w > 0) {
-        ops.push({ geom, m: me, kind: 'stroke', paint: stroke, alpha: sa, w, cap: { butt: 0, round: 1, square: 2 }[cs.strokeLinecap] ?? 0, clip: cl, el });
+      const so = parseFloat(cs.strokeOpacity) || 0, w = parseFloat(cs.strokeWidth) || 0;
+      CS_SO.set(el, so);
+      if ((a * so > 0 || ownSO(el) || ch.some(ownO)) && w > 0) {
+        ops.push({ geom, m: me, kind: 'stroke', paint: stroke, alpha: a * so, w, cap: { butt: 0, round: 1, square: 2 }[cs.strokeLinecap] ?? 0, clip: cl, el, chain: ch });
       }
     }
   };
   walk(root, ID, 1, null);
   if (!ok) return null;
   const rcs = getComputedStyle(root);
+  CS_O.set(root, parseFloat(rcs.opacity) || 0);
   let mask = null;
   const mid = urlId(rcs.mask && rcs.mask !== 'none' ? rcs.mask : root.getAttribute('mask'));
   if (mid && withMask) {
@@ -165,7 +174,33 @@ export function readGroup(root, { withMask = true } = {}) {
   } else if (mid) mask = undefined;
   const clipId = urlId(rcs.clipPath && rcs.clipPath !== 'none' ? rcs.clipPath : null);
   if (clipId) return null;
-  return { ops, opacity: parseFloat(rcs.opacity) || 0, mask };
+  return { ops, opacity: parseFloat(rcs.opacity) || 0, mask, root };
+}
+
+// The computed opacities read with a group (by element), for the chain elements whose own setting is not inline.
+const CS_O = new WeakMap(), CS_FO = new WeakMap(), CS_SO = new WeakMap();
+const ownV = (el, prop, attr) => { const v = el.style?.[prop]; if (v != null && v !== '') return v; const a = el.getAttribute(attr); return a != null && a !== '' ? a : null; };
+const ownO = (el) => ownV(el, 'opacity', 'opacity') != null;
+const ownFO = (el) => ownV(el, 'fillOpacity', 'fill-opacity') != null;
+const ownSO = (el) => ownV(el, 'strokeOpacity', 'stroke-opacity') != null;
+const clamp01 = (v) => Math.min(1, Math.max(0, parseFloat(v) || 0));
+const liveO = (el, cs) => { const v = ownV(el, 'opacity', 'opacity'); return v != null ? clamp01(v) : cs.get(el) ?? 1; };
+const livePO = (el, prop, attr, cs) => { const v = ownV(el, prop, attr); return v != null ? clamp01(v) : cs.get(el) ?? 1; };
+/** A group's own opacity now (its root's own setting, else as read). */
+export const specOpacity = (spec) => (spec.root ? liveO(spec.root, CS_O) : spec.opacity);
+/** The frame of an element chain (each element's transform, outermost first) now. */
+export const chainM = (chain) => { let m = ID; for (const el of chain) m = mul(m, matOf(el)); return m; };
+/**
+ * An op as it stands now: its frame (the chain's transforms), its alpha (the chain's opacities and its own fill or stroke
+ * opacity) and its clip's frame, read from the page's inline settings, else as read with the group.
+ */
+export function liveOf(op) {
+  if (!op.chain) return { m: op.m, alpha: op.alpha, cm: op.clip ? op.clip.m : null };
+  let a = 1;
+  for (const el of op.chain) a *= liveO(el, CS_O);
+  a *= op.kind === 'fill' ? livePO(op.el, 'fillOpacity', 'fill-opacity', CS_FO) : livePO(op.el, 'strokeOpacity', 'stroke-opacity', CS_SO);
+  const m = chainM(op.chain);
+  return { m, alpha: a, cm: op.clip ? mul(op.clip.chain ? chainM(op.clip.chain) : op.m, op.clip.km) : null };
 }
 
 /** The element's paint's box in its own units (an objectBoundingBox gradient's), from its flattened outline. */
@@ -310,18 +345,23 @@ export function createOrganPaint(gl, shape) {
   const meet = (a, c) => { if (!a || !c) return null; const r = [Math.max(a[0], c[0]), Math.max(a[1], c[1]), Math.min(a[2], c[2]), Math.min(a[3], c[3])]; return r[2] > r[0] && r[3] > r[1] ? r : null; };
   const join = (a, c) => (a && c ? [Math.min(a[0], c[0]), Math.min(a[1], c[1]), Math.max(a[2], c[2]), Math.max(a[3], c[3])] : a || c);
   // An op under m: its mesh, its clip's, and the device box it paints within (with its stroke, its clip), or null for none.
+  // (An op's inline settings are read once a frame: describe and the paint both ask.)
+  let lives = new Map();
+  function liveAt(op) { let l = lives.get(op); if (!l) { l = liveOf(op); lives.set(op, l); } return l; }
   function opAt(op, m) {
+    const lv = liveAt(op);
     // (The tolerance in powers of two, a fifth of a pixel or finer: a pinch reuses the meshes until the zoom doubles.)
-    const om = mul(m, op.m), sc = scaleOf(om), tol = Math.min(0.5, 2 ** Math.floor(Math.log2(0.2 / sc)));
+    const om = mul(m, lv.m), sc = scaleOf(om), tol = Math.min(0.5, 2 ** Math.floor(Math.log2(0.2 / sc)));
     const sh = meshOf(op.geom, op.kind === 'stroke' ? op.cap : 0, tol);
     const grow = op.kind === 'stroke' ? (op.w / 2) * sc + 2 : 2;
-    let b = devBox(sh.box, om, grow), cm = null, csh = null;
+    // (At no opacity it paints nothing: no box, so a change check sees it come and go.)
+    let b = lv.alpha > 0 ? devBox(sh.box, om, grow) : null, cm = null, csh = null;
     if (op.clip) {
-      cm = mul(m, op.clip.m);
+      cm = mul(m, lv.cm);
       csh = meshOf(op.clip.geom, 0, Math.min(0.5, 0.2 / scaleOf(cm)));
       b = meet(b, devBox(csh.box, cm, 2));
     }
-    return { om, sh, cm, csh, b };
+    return { om, sh, cm, csh, b, alpha: lv.alpha };
   }
   /** Paints the ops of a group into the bound target (cleared by the caller), under m; only within `within` (a device box) if given. */
   function paintOps(spec, m, into, within = null) {
@@ -355,7 +395,7 @@ export function createOrganPaint(gl, shape) {
       gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, scratch.tex);
       gl.uniform1i(U.cov, 0);
       gl.uniform1i(U.useClip, op.clip ? 1 : 0);
-      gl.uniform1f(U.alpha, op.alpha);
+      gl.uniform1f(U.alpha, at.alpha);
       gl.uniform1f(U.H, H);
       const p = op.paint;
       if (p.solid) { gl.uniform1i(U.kind, 0); gl.uniform4fv(U.color, p.solid); }
@@ -389,8 +429,8 @@ export function createOrganPaint(gl, shape) {
   }
   // What an op paints, as a string: what it is painted with (fixed while the spec lives: kept on the op) and where (its outline's
   // `d` and its frame, read now). Two frames with the same string paint the same pixels in the same box.
-  const paintKey = (op) => op.pk || (op.pk = JSON.stringify([op.kind, op.alpha, op.w, op.cap, op.m, op.paint, op.clip && op.clip.m]));
-  const opSig = (op, m) => `${paintKey(op)}|${m.join(',')}|${op.geom.d ? dKey(op.geom.el.getAttribute('d') || '') : ''}|${op.clip ? (op.clip.geom.d ? dKey(op.clip.geom.el.getAttribute('d') || '') : '') : ''}`;
+  const paintKey = (op) => op.pk || (op.pk = JSON.stringify([op.kind, op.w, op.cap, op.paint]));
+  const opSig = (op, m) => { const lv = liveAt(op); return `${paintKey(op)}|${lv.alpha}|${lv.m.join(',')}|${lv.cm ? lv.cm.join(',') : ''}|${m.join(',')}|${op.geom.d ? dKey(op.geom.el.getAttribute('d') || '') : ''}|${op.clip ? (op.clip.geom.d ? dKey(op.clip.geom.el.getAttribute('d') || '') : '') : ''}`; };
   /**
    * The group under m described for a change check: its own string (opacity, whether masked) and, per op (the mask's after its
    * own), [string, device box]. The meshes it will paint are touched (kept for the frame).
@@ -399,7 +439,7 @@ export function createOrganPaint(gl, shape) {
     const ops = [];
     for (const op of spec.ops) ops.push([opSig(op, m), opAt(op, m).b]);
     if (spec.mask) for (const op of spec.mask.ops) ops.push([`mask|${opSig(op, m)}`, opAt(op, m).b]);
-    return { sig: `${spec.opacity}|${spec.mask ? 1 : 0}`, ops };
+    return { sig: `${specOpacity(spec)}|${spec.mask ? 1 : 0}`, ops };
   }
 
   // The group's layer (and the mask's) cleared within b.
@@ -438,7 +478,7 @@ export function createOrganPaint(gl, shape) {
       paintOps(spec, m, layers[0].fbo, b);
       // (A mask's content is in the user space of the element it masks: the group's frame.)
       if (spec.mask) paintOps(spec.mask, m, layers[1].fbo, b);
-      lay(b, spec.opacity, !!spec.mask, fbo);
+      lay(b, specOpacity(spec), !!spec.mask, fbo);
     },
     /** The group's device box under m (groupBox), and its description (describe), for the stack's change check. */
     box: (spec, m) => groupBox(spec, m),
@@ -461,7 +501,7 @@ export function createOrganPaint(gl, shape) {
       lay(b, opacity, true, fbo);
     },
     /** Ends a frame of painting: meshes not used in it are let go. */
-    endFrame() { meshesOld = meshes; meshes = new Map(); dKeys = new Map(); },
+    endFrame() { meshesOld = meshes; meshes = new Map(); dKeys = new Map(); lives = new Map(); },
     trim() { if (!W) return; W = H = 0; for (const t of [scratch, ...layers]) { gl.bindTexture(gl.TEXTURE_2D, t.tex); gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, null); } gl.bindRenderbuffer(gl.RENDERBUFFER, stencil); gl.renderbufferStorage(gl.RENDERBUFFER, gl.STENCIL_INDEX8, 1, 1); },
     dispose() {
       for (const t of [scratch, ...layers]) { gl.deleteTexture(t.tex); gl.deleteFramebuffer(t.fbo); }

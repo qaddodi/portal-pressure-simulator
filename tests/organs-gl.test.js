@@ -106,3 +106,23 @@ test("a clip's coverage is cleared over its own box, not the canvas", () => {
   assert.match(paint, /scissor\(newClip \? join\(b, devBox\(csh\.box, cm, 2\)\) : b\);\n\s+gl\.clearBufferfv\(gl\.COLOR, 0, \[0, 0, 0, 0\]\);/);
   assert.doesNotMatch(paint, /if \(newClip\) gl\.disable\(gl\.SCISSOR_TEST\); else scissor\(b\);/);
 });
+
+// What eases (outlines, frames, the parts' own opacities) the painter reads from the page at each paint, so the live specs are
+// read again only when what is in them changes (a part hidden or shown, the liver's mask, the ghost line, a lens, the theme);
+// they were read again, about fifty computed styles, on every frame of an ease. (Review item 3.)
+test('the live organs are read once per state; the painter reads the eased values from the page', () => {
+  const stage = readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8');
+  const paint = readFileSync(new URL('../src/ui/organ-paint.js', import.meta.url), 'utf8');
+  const gl = readFileSync(new URL('../src/ui/organs-gl.js', import.meta.url), 'utf8');
+  assert.match(stage, /return \[organG\.liver\.getAttribute\('mask'\), ghost\.style\.display, lv\.sep\.style\.visibility, lv\.nod\.style\.visibility, lv\.cong\.style\.visibility, lv\.isl\.style\.visibility,\n\s+cs\.getPropertyValue\('--stage-bg'\)/);
+  assert.match(stage, /organs\.get\(L\)\.push\(\{ spec, get m\(\) \{ return matOfEl\(el\); \} \}\);/);
+  // The painter: an op's frame, alpha and clip frame from its element chain's inline settings, else as read; at no opacity no box.
+  assert.match(paint, /export function liveOf\(op\) \{/);
+  assert.match(paint, /for \(const el of op\.chain\) a \*= liveO\(el, CS_O\);/);
+  assert.match(paint, /let b = lv\.alpha > 0 \? devBox\(sh\.box, om, grow\) : null, cm = null, csh = null;/);
+  assert.match(paint, /gl\.uniform1f\(U\.alpha, at\.alpha\);/);
+  assert.match(paint, /if \(!\(o > 0\) && !ownO\(el\)\) return;/, 'a part at nothing by its own setting is kept, to show as it eases');
+  // The stack asks the painter every frame while groups are live, and draws nothing when nothing changed.
+  assert.match(gl, /\|\| !!\(painter && \(liveOrgans\.size \|\| cuts\.size\)\),/);
+  assert.match(gl, /if \(key === drawnKey && !\(painter && \(liveOrgans\.size \|\| cuts\.size\)\)\) return null;/);
+});
