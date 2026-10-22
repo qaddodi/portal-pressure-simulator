@@ -24,17 +24,17 @@
 // the tool sits above the tiles. Each instrument is made once per presentation and kept, so a trace that keeps recording
 // (Doppler) carries on from slide to slide while the patient stays the same.
 
-import { store } from './store.js?v=05dd788e72';
+import { store } from './store.js?v=67f4341802';
 import { h } from './util.js?v=9e70912a09';
 import { EDGES } from '../engine/topology.js?v=4044766e96';
-import { createDoppler } from './doppler.js?v=c071b8a48d';
-import { createFibroScan } from './fibroscan.js?v=0c2ce7fa57';
-import { createPressureTime } from './pressure-time.js?v=d134ee213c';
+import { createDoppler } from './doppler.js?v=8b31f8838e';
+import { createFibroScan } from './fibroscan.js?v=9a05a3191a';
+import { createPressureTime } from './pressure-time.js?v=81256dcbe7';
 import { createFlowTime } from './flow-time.js?v=ae42479b6d';
-import { createEndoscopy, createAbdomen, createVarixWall } from './instruments.js?v=8169bbacf5';
+import { createEndoscopy, createAbdomen, createVarixWall } from './instruments.js?v=5eee5e7bb2';
 import { frameFor } from './frame.js?v=74867bd42b';
 import { talkTrace } from './talk-trace.js?v=a2d255e94a';
-import { EXT, guard, safe } from './slide-ext.js?v=a0f55dbe86';
+import { EXT, guard, safe } from './slide-ext.js?v=29392f795e';
 const nextFrame = frameFor('presenter-tools');
 
 const VESSEL = { PV_TRUNK: 'main portal vein', PVH_R: 'right portal vein', PVH_L: 'left portal vein', SV_CONF: 'splenic vein', SV_MID: 'splenic vein', V_SPL: 'splenic vein, at the hilum',

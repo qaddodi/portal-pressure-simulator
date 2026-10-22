@@ -19,10 +19,10 @@
 
 import highlights from './ext-highlights.js?v=3b0452cefe';
 import charts from './ext-charts.js?v=47797413db';
-import model from './ext-model.js?v=d6f01a19a1';
+import model from './ext-model.js?v=9ba8881a92';
 import panels from './ext-panels.js?v=c790f6c235';
 import callouts from './ext-callouts.js?v=c821d78947';
-import instruments from './ext-instruments.js?v=b56852531f';
+import instruments from './ext-instruments.js?v=4fbd18767d';
 
 export const PACKAGES = { A: highlights, B: charts, C: model, E: panels, F: callouts, G: instruments };
 const NAMED = ['targets', 'lenses', 'sets', 'tools', 'visuals', 'columns'];

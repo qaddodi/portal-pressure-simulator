@@ -7,11 +7,11 @@ import { pressureColor, deltaColor, dropColor, flowColor, heatColor, velColorOf,
 import { forkJoins, sideEndScale } from './fork-joins.js?v=b678f7ba5a';
 import { nodeEnds, nodeDrawn, dotRadius, bareDots } from './circuit-nodes.js?v=1040ba0ec4';
 import { STATION_VESSEL, meanVel, velNormal } from './velNormal.js?v=181dda5594';
-import { store, updateParams, varicesPresent, varixGrowth, shownVel } from './store.js?v=05dd788e72';
-import { fibroReading } from './clock.js?v=a6f20ba487';
+import { store, updateParams, varicesPresent, varixGrowth, shownVel } from './store.js?v=67f4341802';
+import { fibroReading } from './clock.js?v=6a1f89a5c2';
 import { s, h, fmt, fmtFlow, fp, clamp, lerp, toast, systemEdge, bloodColors, restBox, translateRest, settledBox, putText } from './util.js?v=9e70912a09';
 import { riseCentre } from './rise-path.js?v=c039cb7b49';
-import { createLobuleZoom } from './lobule-zoom.js?v=2ef45a3710';
+import { createLobuleZoom } from './lobule-zoom.js?v=af250d45a8';
 import { sinceSource } from './since-ref.js?v=ef1a818c75';
 import { clipBox, mapBox } from './fit-box.js?v=d5d6d4c60f';
 import { runFlick, FLICK } from './flick.js?v=0d9ad35d1c';

@@ -6,7 +6,7 @@ import {
   clamp, tubeResistanceFactor, tubeArea, volumeOf, ptmOf, complianceAt, stenosisFactor,
   heartFlow, fillShape, systoleShape, raWave, iapFromAscites, makeRng,
 } from './physiology.js?v=6fc3ec393a';
-import { defaultParams, DRUGS, PRESETS, deepMerge, MEAL_TONE, MEAL_BLUNT } from './scenario.js?v=fda1eda5ff';
+import { defaultParams, DRUGS, PRESETS, deepMerge, MEAL_TONE, MEAL_BLUNT } from './scenario.js?v=d7d3ea5b70';
 import { detectEvents } from './events.js?v=2a09df9cec';
 
 const KNEE = { artery: [1e9, 1], bed: [14, 10], portal: [14, 10], vein: [14, 6], hepvein: [10, 3], heart: [10, 4], liver: [9, 2], wedge: [9, 5], varix: [30, 10] };
@@ -286,11 +286,11 @@ export class Engine {
 
   // ───────────────────────── derived params ─────────────────────────
   drugEffects() {
-    const e = { hr: 1, contr: 1, spl: 1, sys: 1, sin: 1, baroHr: 1 };
+    const e = { hr: 1, contr: 1, spl: 1, sys: 1, sin: 1, baroHr: 1, baroSlow: 1 };
     for (const [k, on] of Object.entries(this.params.drugs)) {
       if (!on || !DRUGS[k]) continue;
       const d = DRUGS[k];
-      e.hr *= d.hr; e.contr *= d.contr; e.spl *= d.spl; e.sys *= d.sys; e.sin *= d.sin; e.baroHr = Math.min(e.baroHr, d.baroHr);
+      e.hr *= d.hr; e.contr *= d.contr; e.spl *= d.spl; e.sys *= d.sys; e.sin *= d.sin; e.baroHr = Math.min(e.baroHr, d.baroHr); e.baroSlow = Math.min(e.baroSlow, d.baroSlow ?? 1);
     }
     return e;
   }
@@ -331,7 +331,8 @@ export class Engine {
     // A reflex speeding the heart adds beats to the resting rate rather than scaling it, and cirrhosis blunts it (lower
     // baroreflex sensitivity and chronotropic incompetence, Møller & Henriksen 2010, Heart 96:1088), by up to `chrono`
     // with the vasodilation; slowing (a high pressure) scales the rate as before.
-    const reflex = (0.9 * (b - 1) + vol) * d.baroHr;
+    // (A drug can blunt the slowing alone, `baroSlow`: terlipressin's rise in pressure slows the heart less than the reflex would.)
+    const reflex0 = 0.9 * (b - 1) + vol, reflex = reflex0 * d.baroHr * (reflex0 < 0 ? d.baroSlow : 1);
     const blunt = 1 - RESERVOIR.chrono * clamp((1 - this.slow.splTone) / 0.45, 0, 1);
     // Pregnancy adds beats to the resting rate and strengthens the heart; like the chronic drive, the beats it adds do not
     // add pump capacity. (At 0 weeks `rest` is the rate as before: HR_REST · symp.)

@@ -1,18 +1,18 @@
 // Readout strip (the four key readouts in the vitals dock, and the rest behind its chevron) and the
 // Instruments card (blueprint §9.1, §9.2).
 
-import { store, hiddenNow } from './store.js?v=05dd788e72';
+import { store, hiddenNow } from './store.js?v=67f4341802';
 import { EDGES } from '../engine/topology.js?v=4044766e96';
 import { h, fmt, svgIcon, closePopover, clamp, shownOf, isPhoneLayout, swapFade, scrollBehavior, countTo, swapText, glideOnResize } from './util.js?v=9e70912a09';
 import { lobuleFlows } from './lobule-model.js?v=4747de3370';
-import { createProfile } from './charts.js?v=5c5cc11eeb';
-import { createPressureTime } from './pressure-time.js?v=d134ee213c';
-import { createFibroScan } from './fibroscan.js?v=0c2ce7fa57';
-import { createHvpgProcedure } from './hvpg-proc.js?v=ac685bcef8';
-import { createDoppler } from './doppler.js?v=c071b8a48d';
+import { createProfile } from './charts.js?v=3473fe134a';
+import { createPressureTime } from './pressure-time.js?v=81256dcbe7';
+import { createFibroScan } from './fibroscan.js?v=9a05a3191a';
+import { createHvpgProcedure } from './hvpg-proc.js?v=1ffa9ab164';
+import { createDoppler } from './doppler.js?v=8b31f8838e';
 import { ownsSideways, pageGo } from './swipe.js?v=ca9148ab7d';
-import { createEndoscopy, createVarixWall, createAbdomen } from './instruments.js?v=8169bbacf5';
-import { createReadoutsPane } from './readouts-pane.js?v=5181bdbf08';
+import { createEndoscopy, createVarixWall, createAbdomen } from './instruments.js?v=5eee5e7bb2';
+import { createReadoutsPane } from './readouts-pane.js?v=d0e919aef6';
 import { frameFor } from './frame.js?v=74867bd42b';
 import { vitalReading } from './vital-read.js?v=e902fb66cd';
 import { setShown } from './shown.js?v=82ef5e29ec';

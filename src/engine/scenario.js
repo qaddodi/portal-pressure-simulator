@@ -51,8 +51,11 @@ export const DRUGS = {
     info: 'Non-selective β-blocker. β1 lowers cardiac output; β2 blockade leaves α-constriction unopposed in splanchnic arterioles, so portal inflow falls.' },
   carvedilol: { label: 'Carvedilol', hr: 0.82, contr: 0.92, spl: 1.25, sys: 0.9, sin: 0.8, baroHr: 0.4,
     info: 'NSBB with α1 blockade: also lowers intrahepatic (sinusoidal) tone, so HVPG falls more than with propranolol, at the cost of lower MAP.' },
-  terlipressin: { label: 'Terlipressin', hr: 0.95, contr: 1.0, spl: 1.9, sys: 1.15, sin: 1.0, baroHr: 1,
-    info: 'Vasopressin analogue: strong splanchnic vasoconstriction lowers portal inflow and variceal pressure. Raises systemic resistance.' },
+  // (The baroreflex gives back most of a systemic vasoconstrictor's rise, so `sys` is well above the rise it yields: 5 to 10 mmHg
+  // in cirrhosis, a rise of at least 5 mmHg by day 3 marking a response (Nazar 2010, Hepatology 51:219). `spl` keeps the HVPG
+  // fall near 15 %, and `baroSlow` the slowing of the heart under 20 beats/min in decompensated cirrhosis (89 to 72).)
+  terlipressin: { label: 'Terlipressin', hr: 0.95, contr: 1.0, spl: 2.4, sys: 1.9, sin: 1.0, baroHr: 1, baroSlow: 0.5,
+    info: 'Vasopressin analogue: strong splanchnic vasoconstriction lowers portal inflow and variceal pressure. Raises systemic resistance, so the mean arterial pressure rises by about 5 to 10 mmHg.' },
   octreotide: { label: 'Octreotide', hr: 1.0, contr: 1.0, spl: 1.35, sys: 1.0, sin: 1.0, baroHr: 1,
     info: 'Somatostatin analogue: inhibits vasodilatory gut peptides → splanchnic vasoconstriction.' },
 };

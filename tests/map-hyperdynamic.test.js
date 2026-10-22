@@ -51,7 +51,7 @@ test('patients without the vasodilation keep 93: right heart failure and constri
 test('from the lower baseline, a litre lost is class II and not shock; terlipressin lifts the pressure; 65 mmHg takes a large bleed', () => {
   const d = go('cirr-decomp');
   const t = go('cirr-decomp', { drugs: { terlipressin: true } });
-  assert.ok(t.m.map - d.m.map >= 2, `terlipressin MAP ${r0(d.m.map)} → ${r0(t.m.map)}`);
+  assert.ok(t.m.map - d.m.map >= 5, `terlipressin MAP ${r0(d.m.map)} → ${r0(t.m.map)}`);
   const e = d.e; e.hemorrhage(1000); e.settle();
   const m1 = computeMetrics(e);
   assert.ok(m1.blood.shock === 2 && m1.map > 65 && m1.map >= d.m.map - 13, `1 L: class ${m1.blood.shock}, MAP ${r0(d.m.map)} → ${r0(m1.map)}`);
