@@ -31,7 +31,9 @@
     "scorm": "node scripts/scorm.mjs",
     "visual": "node tests/e2e/visual.mjs",
     "smoke:order": "node tests/e2e/card-order.mjs",
-    "smoke:credit": "node tests/e2e/credit-steady.mjs"
+    "smoke:credit": "node tests/e2e/credit-steady.mjs",
+    "smoke:layers": "node tests/e2e/plate-layers.mjs",
+    "smoke:shapes": "node tests/e2e/shape-cover.mjs"
   },
   "license": "UNLICENSED",
   "devDependencies": {

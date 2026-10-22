@@ -4,7 +4,7 @@
 // (gpu-probe.js cpuOnly: no waiting for the GPU), every frame gap over 20 ms in the window is listed with the steps that ran
 // in it, and so is each long task the browser reports (Chrome; Safari reports none, its frame gaps still show). The panel is
 // written only when a window closes, never during a gesture, and the last five gestures stay listed with a Copy button.
-import { gpuProbe } from './gpu-probe.js?v=26aafb5fae';
+import { gpuProbe } from './gpu-probe.js?v=2e30f04b4d';
 
 const WINDOW = 2000, GAP = 20, KEEP = 5;
 const HIDES = ['', 'no live organs', 'no figure SVG', 'no labels', 'no GPU picture'];
@@ -39,7 +39,7 @@ export function gapLine(g) {
 
 /** A gesture's report as text. */
 export function gestureText(r) {
-  const head = `#${r.n} ${r.kind} in ${r.view}, zoom ${r.zoom}, ${r.frames} frames in ${((r.win || WINDOW) / 1000).toFixed(0)} s, worst ${r.worst.toFixed(0)} ms${r.gpu ? ', GPU timed' : ''}${r.hide ? `, TEST: ${r.hide}` : ''}`;
+  const head = `#${r.n} ${r.kind} in ${r.view}, zoom ${r.zoom}, ${r.frames} frames in ${((r.win || WINDOW) / 1000).toFixed(0)} s, worst ${r.worst.toFixed(0)} ms${r.gpu ? ', GPU timed' : ''}${r.orgs ? ', GPU organs' : ''}${r.hide ? `, TEST: ${r.hide}` : ''}`;
   const gauges = Object.entries(r.gauges || {}).filter(([, v]) => v).map(([k, v]) => `  ${k}: ${v}`);
   // (Frames counted by what they drew, over the whole window: the whole picture redrawn, the organ picture down.)
   const tally = Object.entries(r.tally || {}).map(([k, n]) => `${k} in ${n} of ${r.frames} frames`);
@@ -72,7 +72,7 @@ export function startPerfReadout({ zoom = () => '?' } = {}) {
   };
   const begin = (kind, win = WINDOW) => {
     const was = !!cur;
-    cur = { n: ++n, kind, win, tally: {}, view: view(), zoom: (+zoom() || 0).toFixed(2), t0: performance.now(), frames: 0, worst: 0, gaps: [], tasks: [], gauges: {}, gpu: !gpuProbe.cpuOnly, hide: HIDES[hideAt] };
+    cur = { n: ++n, kind, win, tally: {}, view: view(), zoom: (+zoom() || 0).toFixed(2), t0: performance.now(), frames: 0, worst: 0, gaps: [], tasks: [], gauges: {}, gpu: !gpuProbe.cpuOnly, hide: HIDES[hideAt], orgs: gpuProbe.gpuOrgans };
     gpuProbe.take(); gpuProbe.takeNotes(); gpuProbe.takeGauges();
     if (!was && !beatT) { beatAt = performance.now(); busy = 0; beatT = setTimeout(beat, 0); }
   };
@@ -157,17 +157,22 @@ export function startPerfReadout({ zoom = () => '?' } = {}) {
     hideLabel();
   };
   hideLabel();
+  // The organs drawn as layers on the GPU instead of one picture (organs-gl.js): the same look, for trying before it is the default.
+  const orgs = document.createElement('button');
+  const orgsLabel = () => { orgs.textContent = gpuProbe.gpuOrgans ? 'GPU organs on' : 'GPU organs off'; };
+  orgs.onclick = () => { gpuProbe.gpuOrgans = !gpuProbe.gpuOrgans; orgsLabel(); gpuProbe.onOrgans?.(); };
+  orgsLabel();
   const rec = document.createElement('button');
   rec.textContent = 'Record 6 s';
   rec.onclick = () => { begin('recording', 6000); rec.textContent = 'Recording…'; setTimeout(() => { rec.textContent = 'Record 6 s'; }, 6000); };
-  for (const b of [title, rest, rec, hide, gpu, copy]) b.style.cssText = 'font:inherit;color:#fff;background:rgb(255 255 255 / .16);border:0;border-radius:6px;padding:4px 8px;min-height:28px';   // colour-exempt
+  for (const b of [title, rest, rec, hide, gpu, orgs, copy]) b.style.cssText = 'font:inherit;color:#fff;background:rgb(255 255 255 / .16);border:0;border-radius:6px;padding:4px 8px;min-height:28px';   // colour-exempt
   title.textContent = 'Lag after gestures (tap to fold)';
   copy.textContent = 'Copy';
   rest.textContent = 'At rest';
   rest.onclick = () => { rest.textContent = 'Wait 3 s'; setTimeout(() => { begin('at rest'); setTimeout(() => { rest.textContent = 'At rest'; }, 2000); }, 1000); };
   const body = document.createElement('div');
   body.textContent = 'Pan, pinch or scroll-zoom the figure, then let go and wait 2 s.';
-  bar.append(title, rest, rec, hide, gpu, copy); el.append(bar, body);
+  bar.append(title, rest, rec, hide, gpu, orgs, copy); el.append(bar, body);
   let folded = false;
   title.onclick = () => { folded = !folded; body.style.display = folded ? 'none' : ''; };
   const text = () => [`${navigator.userAgent}`, `screen ${innerWidth}x${innerHeight} @${devicePixelRatio}x, ${location.pathname}${document.getElementById('preview-badge') ? ` ${document.getElementById('preview-badge').textContent.trim()}` : ''}`, ...reports.map(gestureText)].join('\n\n');

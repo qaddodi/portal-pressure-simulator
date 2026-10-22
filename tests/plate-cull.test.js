@@ -40,11 +40,11 @@ test('the painted box holds every point the stroke can paint, through any transf
 const src = readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8');
 test('only the view picture is trimmed, the copy is put back whole, and shapes that could reach further are kept', () => {
   // (The whole plate, slot 0, from a fresh copy, a full-width strip at a time: each strip trimmed to its own rows, same scale.)
-  assert.match(src, /const banded = slot === 1;\n\s+if \(!banded\) gpuProbe\.time\(null, 'organ picture: copy \(script\)', \(\) => \{ plateCopy = plateBuild\(plateStateKey\(\)\); \}\);/, 'the whole-plate picture (slot 0) is drawn from a fresh copy');
-  assert.match(src, /plateMarkup\(\[rect\[0\], rect\[1\] \+ y \/ sy, rect\[2\], rows \/ sy\], W, rows, false, true\)/, 'each slot-0 strip is the plate\'s full width and exactly its rows');
+  assert.match(src, /const banded = slot === 1;\n\s+if \(!banded && fresh\) gpuProbe\.time\(null, 'organ picture: copy \(script\)', \(\) => \{ plateCopy = plateBuild\(plateStateKey\(\)\); \}\);/, 'the whole-plate picture (slot 0) is drawn from a fresh copy');
+  assert.match(src, /plateMarkup\(\[rect\[0\], rect\[1\] \+ y \/ sy, rect\[2\], rows \/ sy\], W, rows, false, true, layer\)/, 'each slot-0 strip is the plate\'s full width and exactly its rows');
   assert.match(src, /const p = drawn\(W, rows, \(pg\) => pg\.drawImage\(band, 0, 0, W, rows\)\);/);
   // (The view's picture, slot 1, a strip at a time: each piece of a strip it draws trimmed to its own pixels, same scale.)
-  assert.match(src, /plateMarkup\(\[rect\[0\] \+ qx \/ sx, rect\[1\] \+ qy \/ sy, qw \/ sx, qh \/ sy\], qw, qh, false, true\)/);
+  assert.match(src, /plateMarkup\(\[rect\[0\] \+ qx \/ sx, rect\[1\] \+ qy \/ sy, qw \/ sx, qh \/ sy\], qw, qh, false, true, layer\)/);
   assert.match(src, /const v = veins, sx = W \/ rect\[2\], sy = H \/ rect\[3\];/);
   assert.match(src, /finally \{ for \(let i = out0\.length - 1; i >= 0; i--\) \{ const \[c, p, n\] = out0\[i\]; p\.insertBefore\(c, n\); \} \}/);
   const pb = src.slice(src.indexOf('function plateBoxes('), src.indexOf('function plateMarkup('));

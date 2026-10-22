@@ -33,7 +33,7 @@ test("the strip's numbers go into the defs' placeholders", () => {
 });
 
 test("only the view's strips get cut masks, with a 4 px margin; the whole plate and the gut picture keep the full ones", () => {
-  assert.match(stage, /try \{ out = \(cull \? maskHead\(plateCopy, rect, W\) : plateCopy\.head\) \+ plateCopy\.parts\.map/);
+  assert.match(stage, /try \{ out = \(cull \? maskHead\(plateCopy, rect, W\) : plateCopy\.head\) \+ parts\.map/);
   assert.match(stage, /const g = 4 \* rect\[2\] \/ W, band = \[rect\[0\] - g, rect\[1\] - g, rect\[2\] \+ 2 \* g, rect\[3\] \+ 2 \* g\];/);
   // The users' matrices are read as the copy is made, from the page in the same state; the copy's own masks only.
   const build = stage.slice(stage.indexOf('function plateBuild('), stage.indexOf('const CULL_TAGS'));
@@ -82,5 +82,5 @@ test("each strip carries only the definitions the organs use, through any chain 
 test('the ?perf readout can measure 2 s with the figure left alone', () => {
   const src = readFileSync(new URL('../src/ui/perf-readout.js', import.meta.url), 'utf8');
   assert.match(src, /rest\.onclick = \(\) => \{ rest\.textContent = 'Wait 3 s'; setTimeout\(\(\) => \{ begin\('at rest'\);/);
-  assert.match(src, /bar\.append\(title, rest, rec, hide, gpu, copy\);/);
+  assert.match(src, /bar\.append\(title, rest, rec, hide, gpu, orgs, copy\);/);
 });

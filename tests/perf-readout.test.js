@@ -78,7 +78,8 @@ test('the ?perf test switch leaves out the live organs or the GPU picture for a 
   const src = readFileSync(new URL('../src/ui/perf-readout.js', import.meta.url), 'utf8');
   assert.match(src, /const HIDES = \['', 'no live organs', 'no figure SVG', 'no labels', 'no GPU picture'\];/);
   assert.match(src, /hideStyle\.textContent = HIDE_CSS\[HIDES\[hideAt\]\] \|\| '';/);
-  assert.match(src, /hide: HIDES\[hideAt\] \};/);
+  assert.match(src, /hide: HIDES\[hideAt\], orgs: gpuProbe\.gpuOrgans \};/);
+  assert.match(src, /\$\{r\.orgs \? ', GPU organs' : ''\}/, 'a report says when the organs were drawn as GPU layers');
   assert.match(src, /\$\{r\.hide \? `, TEST: \$\{r\.hide\}` : ''\}/);
   assert.match(src, /gpuProbe\.skipGL = HIDES\[hideAt\] === 'no GPU picture';/);
   const gl = readFileSync(new URL('../src/ui/veins-gl.js', import.meta.url), 'utf8');

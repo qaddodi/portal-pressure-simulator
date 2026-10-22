@@ -33,9 +33,10 @@
 
 import { CHEV_GLSL } from './chevron-glsl.js?v=96ec7c6666';
 import { SLOT, DYE_BINS } from './blood.js?v=e668d01823';
-import { cssRGB } from './util.js?v=0ac8f4f6fa';
+import { cssRGB } from './util.js?v=54c2d6673a';
 import { CELL, ENT_W, binVeins, splitRows } from './veins-bin.js?v=81a80b3a6d';
-import { gpuProbe } from './gpu-probe.js?v=26aafb5fae';
+import { gpuProbe } from './gpu-probe.js?v=2e30f04b4d';
+import { createOrganStack } from './organs-gl.js?v=909b82809e';
 
 export { binVeins };
 
@@ -780,6 +781,8 @@ uniform sampler2D dye;                 // per vessel: dye concentration along th
 uniform sampler2D plate0, plate1;
 uniform vec4 plateRect0, plateRect1;
 uniform int plates;                    // bit 0: whole plate, bit 1: sharp view
+uniform sampler2D stackL;              // the organs drawn layer by layer instead (organs-gl.js), device pixels, premultiplied
+uniform int stackOn;
 uniform float plateAlpha, plateSat;
 uniform highp sampler2D fluidMask;     // the peritoneal cavity: its half-width about the middle of fluidRect, row by row down it
 uniform vec4 fluidRect;
@@ -1072,7 +1075,8 @@ void main() {
   vec2 w = (inv * vec3(gl_FragCoord.x, H - gl_FragCoord.y, 1.0)).xy;
   // The plate: the sharp view raster where it lies, else the whole-plate one.
   vec4 pl = vec4(0.0);
-  if ((plates & 2) != 0) {
+  if (stackOn == 1) pl = texelFetch(stackL, ip, 0);
+  else if ((plates & 2) != 0) {
     vec2 uv = (w - plateRect1.xy) / plateRect1.zw;
     if (all(greaterThanEqual(uv, vec2(0.0))) && all(lessThanEqual(uv, vec2(1.0)))) pl = texture(plate1, uv);
     else if ((plates & 1) != 0) pl = texture(plate0, (w - plateRect0.xy) / plateRect0.zw);
@@ -1336,6 +1340,8 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false }) {
   let comp, compCell;
   try { comp = finishProgram(gl, started.comp); compCell = finishProgram(gl, started.compCell); } catch (e) { console.warn('Veins renderer: composite shader failed.', e); freeShaders(); return null; }
   const plates = [null, null];   // [whole plate, sharp view] : { tex, rect }
+  // The organs as layers instead of one picture (the ?perf switch "GPU organs", stage.js): null where it cannot be made.
+  const stack = createOrganStack(gl);
   let cathP = null;
   try { cathP = finishProgram(gl, started.cath); } catch (e) { console.warn('Veins renderer: catheter shader failed.', e); }
   const cathBuf = gl.createBuffer(), cathVAO = gl.createVertexArray();
@@ -1810,6 +1816,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false }) {
     setPlate(slot, job, rect) {
       if (plates[slot]) gl.deleteTexture(plates[slot].tex);
       plates[slot] = { tex: job.tex, rect };
+      stack?.drop(slot);
     },
     /** A plate raster given up on its way in. */
     dropJob(job) { gl.deleteTexture(job.tex); },
@@ -1838,8 +1845,19 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false }) {
       gl.bufferData(gl.ARRAY_BUFFER, cells, gl.DYNAMIC_DRAW);
       nFluid = cells.length / 2;
     },
-    dropPlate(slot) { if (plates[slot]) { gl.deleteTexture(plates[slot].tex); plates[slot] = null; } },
-    hasPlate: (slot) => !!plates[slot],
+    dropPlate(slot) { if (plates[slot]) { gl.deleteTexture(plates[slot].tex); plates[slot] = null; } stack?.drop(slot); },
+    hasPlate: (slot) => !!plates[slot] || !!stack?.has(slot),
+    /** The organs' layers (organs-gl.js), or null: a filled raster job (plateJob) is staged for a slot and the set committed whole. */
+    organs: stack && {
+      stage(slot, name, job, rect) { stack.stage(slot, name, job.tex, rect); },
+      commit(slot, names) {
+        // (One kind of picture at a time: the layers replace the flattened plate of the same slot.)
+        if (plates[slot]) { gl.deleteTexture(plates[slot].tex); plates[slot] = null; }
+        stack.commit(slot, names);
+      },
+      dropStaged: (slot) => stack.dropStaged(slot),
+      has: (slot) => stack.has(slot),
+    },
     /** Per-vessel blood: nTubes × FLOW_TEXELS × 4 floats (see stage.js). */
     setFlow(data) {
       gl.bindTexture(gl.TEXTURE_2D, flowTex);
@@ -1957,6 +1975,9 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false }) {
       if (linesWas && !lines) full = true;
       linesWas = !!lines;
       wasBleeding = bleeding;
+      // The organs' layers drawn into their texture when the view or the layers changed: the whole picture is drawn then.
+      const useStack = !!(look.plate?.stack && stack?.has(0));
+      if (useStack && stack.stale(m, canvas.width, canvas.height)) { gpuProbe.time(gl, 'organ layers', () => stack.render(m, canvas.width, canvas.height)); full = true; }
       const fl = look.fluid && fluidRect ? look.fluid : null;
       if (!full && !nCells && !(fl?.ripple && nFluid)) return;
       if (gpuProbe.on) { if (full) gpuProbe.note('whole picture'); if (!look.plate) gpuProbe.note('organ picture down'); }
@@ -1977,7 +1998,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false }) {
       gl.uniformMatrix3fv(U.inv, false, put(SCR.inv, [ia, ib, 0, ic, id, 0, ie, iff, 1]));
       gl.uniform1f(U.H, canvas.height);
       gl.uniform1f(U.pxW, 1 / Math.max(1e-6, Math.hypot(m[0], m[1])));
-      const pm = (look.plate ? (plates[0] ? 1 : 0) | (plates[1] ? 2 : 0) : 0);
+      const pm = (look.plate && !useStack ? (plates[0] ? 1 : 0) | (plates[1] ? 2 : 0) : 0);
       gl.uniform1i(U.plates, pm);
       gl.uniform1f(U.plateAlpha, look.plate?.alpha ?? 0);
       gl.uniform1f(U.plateSat, look.plate?.sat ?? 1);
@@ -2027,6 +2048,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false }) {
       bind(11, glowLayer.tex, 'glowL'); gl.uniform1i(U.glowOn, glow ? 1 : 0);
       bind(13, warmLayer.tex, 'warmL'); gl.uniform1i(U.warmOn, warm ? 1 : 0);
       bind(12, bendTex, 'bend');
+      bind(14, useStack ? stack.texture : baseTex, 'stackL'); gl.uniform1i(U.stackOn, useStack ? 1 : 0);
       if (full) {
         gl.uniform1i(U.bloodOnly, 0);
         if (gpuProbe.on) gpuProbe.gauge('blood squares on screen', 'whole picture');
@@ -2096,6 +2118,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false }) {
       }
       fboW = fboH = 0; baseM = null; fboOK = false; dropSpare();
       freeLayer(lineLayer); freeLayer(glowLayer); freeLayer(warmLayer); lineKey = glowKey = warmKey = '';
+      stack?.trim();
     },
     /**
      * Frees every GPU object (textures, the vessel framebuffer, buffers, programs) and stops
@@ -2110,6 +2133,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false }) {
         for (const b of [quad, cellBuf, bloodBuf, partBuf, fluidBuf, cathBuf, lineBuf]) gl.deleteBuffer(b);
         for (const v of [vao, bloodVAO, partVAO, fluidVAO, compVAO, cathVAO, lineVAO]) gl.deleteVertexArray(v);
         for (const x of [prog, comp, compCell, cathP, lineP]) if (x) gl.deleteProgram(x.p);
+        stack?.dispose();
         clearTimeout(spare.timer);
         for (const t of [spare.base, spare.g, spare.g2, spare.dep]) gl.deleteTexture(t);
         gl.deleteFramebuffer(spare.fbo);

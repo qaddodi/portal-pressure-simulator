@@ -27,11 +27,11 @@ test('a plate raster draws into a canvas of its own and sends it as pixel strips
   assert.match(body, /v\.plateRows\(job, y, rows, px\.subarray\(y \* W \* 4, \(y \+ rows\) \* W \* 4\)\);/);
   assert.match(body, /if \(gone\(\) \|\| plateCopy\?\.key !== drawnAs\) return false;\n\s+const p = drawn\(W, rows, \(pg\) => pg\.drawImage\(band, 0, 0, W, rows\)\);\n\s+await new Promise\(\(res\) => nextFrame\(res\)\); waited = true;\n\s+if \(gone\(\)\) return false;\n\s+v\.plateRows\(job, y, rows, readBack\(p\)\);/);
   assert.doesNotMatch(body, /drawImage\([a-z]+, 0, 0, W, H\)/, 'never the whole picture in one frame');
-  assert.match(body, /v\.setPlate\(slot, job, rect\); job = null;/, 'shown only once every strip is in');
+  assert.match(body, /if \(layer\) v\.organs\.stage\(slot, layer, job, rect\); else v\.setPlate\(slot, job, rect\);\n\s+job = null;/, 'shown only once every strip is in (a layer of the organs: held until the whole set is in)');
   assert.match(body, /finally \{ if \(job && !v\.lost\) v\.dropJob\(job\); px = null; for \(const p of pend\) p\.pc\.width = p\.pc\.height = 0; \}/, 'a canvas drawn and not yet read is let go when the picture is given up');
   // (Only the view picture that was shown is kept, for the next pan; the one before is let go, and so is the kept one when the plate drops.)
-  assert.match(body, /v\.setPlate\(slot, job, rect\); job = null;\n\s+if \(banded\) \{ dropViewKeep\(\); viewKeep = \{ px, rect, W, H, scale, seq, drops, key: drawnAs \}; px = null; \}/);
-  assert.match(stage, /function dropViewKeep\(\) \{ viewKeep = null; \}/);
+  assert.match(body, /job = null;\n\s+if \(banded\) \{ viewKeeps\.set\(layer \|\| '', \{ px, rect, W, H, scale, seq, drops, key: drawnAs \}\); px = null; \}/, 'one kept view picture per layer, the newest');
+  assert.match(stage, /function dropViewKeep\(\) \{ viewKeeps\.clear\(\); \}/);
   assert.match(stage, /plateCopy = null; dropViewKeep\(\);\n/);
   assert.doesNotMatch(stage, /veins\.setPlate\(slot, c,/);
   assert.match(stage, /function hidePlate\(\) \{\n\s+plateDrops\+\+;/, 'a dropped plate gives up the raster on its way in');
