@@ -20,7 +20,7 @@
 import highlights from './ext-highlights.js?v=f9ef46a5e8';
 import charts from './ext-charts.js?v=649a80e33c';
 import model from './ext-model.js?v=ecd974d0b8';
-import panels from './ext-panels.js?v=52dc9029fc';
+import panels from './ext-panels.js?v=25e703b94f';
 import callouts from './ext-callouts.js?v=35a111423d';
 import instruments from './ext-instruments.js?v=db971107c5';
 

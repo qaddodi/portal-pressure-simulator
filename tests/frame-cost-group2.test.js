@@ -17,3 +17,12 @@ test('item 38: chart and Doppler strip labels are measured once per font and tex
   assert.doesNotMatch(strip, /measureText\(/);
   assert.match(strip, /textW\(ctx, label\)/);
 });
+
+test('item 36: the data-card plane skips a redraw whose size, font, points, reading and last dot place are all unchanged', () => {
+  const src = read('../src/ui/visual-plane.js');
+  const draw = src.slice(src.indexOf('const draw = () => {'), src.indexOf('const kids = [];'));
+  assert.match(draw, /if \(key === drawn\) return;/);
+  // (The dot's previous place is in the key, so the words still settle once after the dot stops.)
+  assert.match(draw, /\$\{sizeWas\}\|\$\{was \?/);
+  assert.match(src, /set\(points, r = ring\) \{ pts = points \|\| \[\]; ptsVer\+\+;/);
+});

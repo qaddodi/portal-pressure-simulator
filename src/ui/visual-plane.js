@@ -473,12 +473,19 @@ export function planePlot(pl, { card = false } = {}) {
   svg.append(base, wordsG, ringG);
   el.append(svg);
   const cardWords = new Map();   // (zone → its text element in the card)
-  let pts = [], ring = null, size = '', was = null, sizeWas = '';
+  let pts = [], ring = null, size = '', was = null, sizeWas = '', ptsVer = 0, drawn = '';
+  // (What the ring's dot and words read: its two values and whatever the zones test. A redraw with all of these, the size,
+  // the font, the points and where the dot was the same as the last one draws the same picture, so it is skipped: the live
+  // card pins a reading every 150 ms.)
+  const ringKeys = [...new Set([pl.x.key, pl.y.key, ...[...pl.zones, ...(pl.boxes || [])].flatMap((z) => (Array.isArray(z.when) ? z.when.map((c) => c?.[0]) : []))])];
   const draw = () => {
     const W = el.clientWidth, H = el.clientHeight;
     if (!W || !H) return;
     size = `${W}x${H}`;
     const fs = Math.max(12, parseFloat(getComputedStyle(el).fontSize) || 13);
+    const key = `${size}|${fs}|${ptsVer}|${ring ? ringKeys.map((k) => ring[k]).join(',') : '-'}|${sizeWas}|${was ? `${was.x},${was.y}` : '-'}`;
+    if (key === drawn) return;
+    drawn = key;
     const fr = frame(W, H, fs, pl), { X, Y } = scaler(pl, fr);
     svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
     svg.setAttribute('width', W); svg.setAttribute('height', H);
@@ -566,7 +573,7 @@ export function planePlot(pl, { card = false } = {}) {
   if (typeof ResizeObserver === 'function') new ResizeObserver(() => { if (`${el.clientWidth}x${el.clientHeight}` !== size) requestAnimationFrame(draw); }).observe(el);
   return {
     el,
-    set(points, r = ring) { pts = points || []; ring = r; if (el.isConnected) draw(); else requestAnimationFrame(draw); },
+    set(points, r = ring) { pts = points || []; ptsVer++; ring = r; if (el.isConnected) draw(); else requestAnimationFrame(draw); },
     ring(f) { ring = f; if (el.isConnected) draw(); },
   };
 }
