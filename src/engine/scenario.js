@@ -100,7 +100,7 @@ export const PRESETS = [
   // clock has run, so moving the gestation back to 0 shows her before pregnancy.
   { id: 'pregnancy', group: 'Sinusoidal', label: 'Cirrhosis in pregnancy', apply: P({ cirrhosis: 0.62 }), days: 365, now: { gestation: 24 },
     summary: 'Compensated cirrhosis at 24 weeks of pregnancy. A larger blood volume, a higher cardiac output and splanchnic vasodilation raise portal inflow, so small varices grow large. Move the weeks on the heart card.' },
-  { id: 'sos', group: 'Postsinusoidal', label: 'Sinusoidal obstruction syndrome', apply: P({ fibrosis: { R: { post: 20 }, L: { post: 20 } } }), days: 21,
+  { id: 'sos', group: 'Postsinusoidal', label: 'Sinusoidal obstruction syndrome', apply: P({ fibrosis: { R: { post: 32 }, L: { post: 32 } } }), days: 21,
     summary: 'Central-vein resistance: high wedged pressure and HVPG, hepatomegaly, ascites.' },
   { id: 'budd-chiari', group: 'Posthepatic', label: 'Budd–Chiari (hepatic vein occlusion)', apply: P({ thrombus: { RHV_IVC: 1, MHV_IVC: 1, LHV_IVC: 1 } }), days: 60,
     summary: 'All three hepatic veins occluded: only the caudate veins drain the liver (caudate hypertrophy), massive ascites.' },

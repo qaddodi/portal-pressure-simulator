@@ -214,9 +214,10 @@ function placeOnce(pts, fr, fs, r, avoid, first, cross = []) {
   const inside = (b) => b[0] >= fr.L + 2 && b[2] <= fr.R - 2 && b[1] >= fr.T && b[3] <= fr.B - 2;
   // (The lines among the boxes to avoid: a name beside its point stays on the point's side of each one.)
   const cutLines = avoid.filter((o) => Math.min(o[2] - o[0], o[3] - o[1]) <= 8);
+  // (Judged from the line itself, not its 4 px band: a point a hair off a cut-off still keeps its name on its own side.)
   const sameSide = (b, p) => cutLines.every((o) => {
-    if (o[3] - o[1] > o[2] - o[0]) return b[3] <= o[1] || b[1] >= o[3] || (p.x < o[0] ? b[2] <= o[0] : p.x > o[2] ? b[0] >= o[2] : true);
-    return b[2] <= o[0] || b[0] >= o[2] || (p.y < o[1] ? b[3] <= o[1] : p.y > o[3] ? b[1] >= o[3] : true);
+    if (o[3] - o[1] > o[2] - o[0]) return b[3] <= o[1] || b[1] >= o[3] || (p.x < (o[0] + o[2]) / 2 ? b[2] <= o[0] : b[0] >= o[2]);
+    return b[2] <= o[0] || b[0] >= o[2] || (p.y < (o[1] + o[3]) / 2 ? b[3] <= o[1] : b[1] >= o[3]);
   });
   // (The most crowded points choose first, so a point with little room is not hemmed in by its neighbours' names.)
   const near = (p) => pts.filter((q) => q !== p && Math.hypot(q.x - p.x, q.y - p.y) < 8 * fs).length;
@@ -244,8 +245,9 @@ function placeOnce(pts, fr, fs, r, avoid, first, cross = []) {
           else top = clamp(top, fr.T, fr.B - 2 - hgt);
           const x0 = anchor === 'start' ? x : anchor === 'end' ? x - w : x - w / 2, b = [x0, top, x0 + w, top + hgt];
           if (!over) { if (inside(b) && !hit(b) && sameSide(b, p)) { done = { x, y: top + fs * 0.85, anchor, lines, box: b }; break; } continue; }
+          // (Across a cut-off, or on its point's side of every one: never clear of a line but on the wrong side of it.)
           const n = cross.filter((o) => meets(b, o)).length;
-          if (n < fewest && inside(b) && !hitBut(b)) fewest = n, done = { x, y: top + fs * 0.85, anchor, lines, box: b, across: n > 0 };
+          if (n < fewest && inside(b) && !hitBut(b) && (n > 0 || sameSide(b, p))) fewest = n, done = { x, y: top + fs * 0.85, anchor, lines, box: b, across: n > 0 };
         }
         if (done) break;
       }

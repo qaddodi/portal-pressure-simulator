@@ -49,7 +49,7 @@ export const LOBULE = {
       ask: ['Name the two parts of the raised resistance in cirrhosis.', 'Structural (scar, nodules, capillarized sinusoids) and dynamic (vascular tone).'],
     },
     {
-      id: 'sos', terms: { 'central veins': 'lobule:central' }, preset: 'sos', params: { fibrosis: { R: { post: 32 }, L: { post: 32 } } }, cam: 'lobule:central', callout: { at: 'cv', label: 'Resistance' }, data: 'tiles', tiles: ['hvpg', 'asc'],
+      id: 'sos', terms: { 'central veins': 'lobule:central' }, preset: 'sos', cam: 'lobule:central', callout: { at: 'cv', label: 'Resistance' }, data: 'tiles', tiles: ['hvpg', 'asc'],
       kicker: 'Postsinusoidal', site: 'postsin', title: 'Sinusoidal obstruction syndrome adds resistance in the central veins',
       vignette: 'A 38-year-old woman with lymphoma, 18 days after high-dose conditioning for HSCT, has tender hepatomegaly, weight gain and new ascites. Her bilirubin is 2.3 mg/dL.',
       line: 'Injured endothelium swells and sloughs into the small central veins and raises resistance there.',
