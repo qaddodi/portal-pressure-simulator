@@ -110,10 +110,15 @@ function readClip(doc, id, m) {
 export function readGroup(root, { withMask = true } = {}) {
   const doc = root.ownerDocument, ops = [];
   let ok = true;
-  const walk = (el, m, alpha, clip) => {
+  // (Visibility as the picture's copy takes it, svg-inline.js inlineStyles: the element's own setting, else its parent's. The
+  // computed one is hidden under the whole figure while the GPU draws it (.gl-plate); the liver's congestion, islands and gloss
+  // are hidden with their own style in the imaging view, whatever their opacity.)
+  const walk = (el, m, alpha, clip, vis = 'visible') => {
     if (!ok) return;
     const cs = getComputedStyle(el);
     if (cs.display === 'none') return;
+    const own = el.style?.visibility || el.getAttribute('visibility');
+    if (own && own !== 'inherit') vis = own;
     const o = parseFloat(cs.opacity);
     if (!(o > 0)) return;
     if ((cs.filter && cs.filter !== 'none') || (cs.mixBlendMode && cs.mixBlendMode !== 'normal')) { ok = false; return; }
@@ -126,8 +131,8 @@ export function readGroup(root, { withMask = true } = {}) {
       cl = readClip(doc, cid, me);
       if (!cl) { ok = false; return; }
     }
-    if (el.localName === 'g' || el === root) { for (const k of el.children) walk(k, me, a, cl); return; }
-    if (/^(title|desc|metadata)$/.test(el.localName)) return;
+    if (el.localName === 'g' || el === root) { for (const k of el.children) walk(k, me, a, cl, vis); return; }
+    if (/^(title|desc|metadata)$/.test(el.localName) || vis !== 'visible') return;
     const geom = readGeom(el);
     if (!geom) { ok = false; return; }
     if (geom.d && !el.getAttribute('d')) return;
@@ -302,7 +307,8 @@ export function createOrganPaint(gl, shape) {
     const sz = [W, H];
     let clipKey = null;
     for (const op of spec.ops) {
-      const om = mul(m, op.m), sc = scaleOf(om), tol = Math.min(0.5, 0.2 / sc);
+      // (The tolerance in powers of two, a fifth of a pixel or finer: a pinch reuses the meshes until the zoom doubles.)
+      const om = mul(m, op.m), sc = scaleOf(om), tol = Math.min(0.5, 2 ** Math.floor(Math.log2(0.2 / sc)));
       const sh = meshOf(op.geom, op.kind === 'stroke' ? op.cap : 0, tol);
       const grow = op.kind === 'stroke' ? (op.w / 2) * sc + 2 : 2;
       let b = devBox(sh.box, om, grow);

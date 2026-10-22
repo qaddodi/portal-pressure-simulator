@@ -3,7 +3,7 @@
 // position [x, y] (the view's bounds); `apply(x, y)` shows a position; `done()` runs once it has settled.
 // Like a scroll view: the glide decays slowly, but carried past the edge it is braked hard (the velocity halves
 // each frame), the overshoot shows only as a short tanh stretch, and it returns to the edge within a few frames.
-import { frameFor, cancelFrame } from './frame.js?v=a83f37af2f';
+import { frameFor, cancelFrame } from './frame.js?v=74867bd42b';
 const nextFrame = frameFor('flick');
 export const FLICK = { decay: 0.9955, brake: 0.5, overshoot: 0.78, band: 36, minSpeed: 0.25, stop: 0.03 };
 

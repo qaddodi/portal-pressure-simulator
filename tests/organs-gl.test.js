@@ -58,3 +58,18 @@ test('the bowel is a picture at rest gathered under the gut, moved by its float 
   assert.match(gl, /const dy = Math\.round\(\(\(u\.dy \|\| 0\) - U0\.at\) \* m\[3\]\), mm = mat\.slice\(\);\n\s+mm\[7\] \+= dy;/);
   assert.match(gl, /for \(const \[U0, U1, mm\] of under\) drawLayer\(U0, U1, mm\); drawLayer\(L0, L1\); \}, box, cut\.spec, mul\(m, cut\.m\), w, h, fbo, cut\.opacity \?\? 1\);/);
 });
+
+// On by default (Mohammad, 22 Oct 00:17Z: "Do the GPU draw for everything"), off with ?gpuorgans=0 or the ?perf switch; never on
+// a software renderer unless forced (the browser checks run there, and keep the one picture).
+test('the GPU organs are on by default and can be turned off from the address', async () => {
+  const { gpuProbe } = await import('../src/ui/gpu-probe.js');
+  assert.equal(gpuProbe.gpuOrgans, true);
+  const src = readFileSync(new URL('../src/ui/gpu-probe.js', import.meta.url), 'utf8');
+  assert.match(src, /gpuorgans=\(0\|1\|force\)/);
+  assert.match(src, /gpuOrgans: ORGANS_Q === 'force' \? 'force' : ORGANS_Q !== '0',/);
+});
+
+test('a pinch reuses the live organs\' meshes: the tolerance moves in powers of two', () => {
+  const src = readFileSync(new URL('../src/ui/organ-paint.js', import.meta.url), 'utf8');
+  assert.match(src, /tol = Math\.min\(0\.5, 2 \*\* Math\.floor\(Math\.log2\(0\.2 \/ sc\)\)\);/);
+});

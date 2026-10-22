@@ -1,6 +1,6 @@
 // The organs painted on the GPU from their own SVG (organ-paint.js) against the browser's drawing of the same SVG. For the liver
 // (healthy, and cirrhotic with its nodules, septa and congestion), the spleen (enlarged), the ghost line and the diaphragm, at
-// three zooms, in the light and dark themes: each group is read from the page (readGroup) and painted by the GPU, and the same
+// three zooms, in the light and dark themes and the imaging view: each group is read from the page (readGroup) and painted by the GPU, and the same
 // group, its styles inlined, is drawn by the browser at the same transform. Inside the shapes (pixels whose 3 × 3 neighbourhood
 // the browser paints alike: no edge near) the two must agree to INSIDE levels of 255 (premultiplied), on average to INSIDE_MEAN;
 // everywhere, on average, to ALL_MEAN; and on edges to EDGE_MAX (Mohammad's OK for edges a few levels off, 22 Oct: the drawer's
@@ -109,6 +109,10 @@ try {
   await compare('cirrhosis');
   await page.evaluate(() => document.documentElement.setAttribute('data-theme', 'dark'));
   await compare('cirrhosis, dark');
+  // The imaging view: the liver's congestion, islands and gloss hidden with their own visibility, under the figure's own
+  // (hidden while the GPU draws it).
+  await page.evaluate(() => { document.documentElement.removeAttribute('data-theme'); window.pps.store.set({ imaging: true }); });
+  await compare('cirrhosis, imaging');
   if (errors.length) fail(`page errors: ${errors.join(' | ')}`);
 } finally {
   await browser.close();

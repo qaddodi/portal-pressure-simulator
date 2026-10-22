@@ -2,16 +2,17 @@
 // step costs one check. On, each timed step waits for the GPU (gl.finish) before and after it, so its time is the GPU's own
 // work rather than the moment the call was queued. That slows the page, so it is only for measuring. A step timed without a
 // context (gl null) is the page's own script time.
-const ORGANS_Q = typeof location !== 'undefined' ? location.search.match(/[?&]gpuorgans=(1|force)\b/)?.[1] : null;
+const ORGANS_Q = typeof location !== 'undefined' ? location.search.match(/[?&]gpuorgans=(0|1|force)\b/)?.[1] : null;
 export const gpuProbe = {
   on: false,
   // Script time only (the ?perf readout, perf-readout.js): no wait for the GPU, so the page runs as it does for everyone.
   cpuOnly: false,
   skipGL: false,   // (the ?perf test switch: the vessels' screen picture is not drawn)
-  // The organs drawn as layers on the GPU (organs-gl.js) instead of one picture: the ?perf switch "GPU organs" (or ?gpuorgans=1 in
-  // the address), off by default for now. onOrgans: the stage's call to make its picture again the other way, set by stage.js.
+  // The organs drawn as layers on the GPU (organs-gl.js), the changing ones painted live, instead of one picture: on by default
+  // (Mohammad, 22 Oct: "Do the GPU draw for everything"), off with the ?perf switch "GPU organs" or ?gpuorgans=0 in the address;
+  // never on a software renderer (stage.js gpuOrgansOn). onOrgans: the stage's call to make its picture again the other way.
   // (?gpuorgans=force: on the software renderer too, for the browser check of it, tests/e2e/plate-layers.mjs.)
-  gpuOrgans: ORGANS_Q === 'force' ? 'force' : ORGANS_Q === '1',
+  gpuOrgans: ORGANS_Q === 'force' ? 'force' : ORGANS_Q !== '0',
   onOrgans: null,
   parts: {},
   stack: [],
