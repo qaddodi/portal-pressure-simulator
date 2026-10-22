@@ -14,6 +14,7 @@ export const OUTFLOW = {
     ['Why does the caudate lobe enlarge in Budd–Chiari syndrome?', 'Its short veins drain straight into the IVC below the clots, so it keeps its outflow while the rest of the liver congests.'],
     ['Why can the HVPG be measured in sinusoidal obstruction syndrome?', 'The hepatic veins are open, and the resistance sits upstream of the free reading, so the wedged pressure rises.'],
     ['What drains the liver when no hepatic vein can be opened?', 'A DIPS: a shunt from the portal vein through the caudate lobe into the IVC.'],
+    ['A stent opens the clotted right hepatic vein and the ascites starts to clear. Which lever moved?', 'Outflow resistance fell, so the sinusoid pressure dropped and less lymph leaks into the belly.'],
   ],
   summary: 'Budd–Chiari syndrome and sinusoidal obstruction syndrome: a liver that cannot drain, what the catheter can and cannot read, and the stepwise reopening of the outflow.',
   slides: [

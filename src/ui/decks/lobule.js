@@ -13,6 +13,7 @@ export const LOBULE = {
     ['Which zone of the lobule is injured first by low flow or congestion?', 'Zone 3, around the central vein, which gets the least oxygen.'],
     ['Where does schistosomiasis add resistance to the flow?', 'In the portal venules of the portal tract, upstream of the sinusoids, so the HVPG stays near normal.'],
     ['Why does the HVPG rise in sinusoidal obstruction syndrome?', 'The resistance sits in the small central veins, upstream of the free reading, so the wedged pressure rises.'],
+    ['In cirrhosis the fenestrae close. What happens to the ascitic protein?', 'It falls: a sinusoid without open pores lets less protein out, so the fluid has a high SAAG and a protein below 2.5 g/dL.'],
   ],
   summary: 'The lobule from portal tract to central vein, and the point in it where each disease adds resistance. Ends with what the wedge reads at each site.',
   slides: [

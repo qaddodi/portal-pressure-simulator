@@ -11,6 +11,7 @@ export const ASCITES = {
     ['What SAAG points to portal hypertension?', '1.1 g/dL or more.'],
     ['A high SAAG with ascitic protein of 2.5 g/dL or more. Where is the problem?', 'Post-hepatic or cardiac: Budd–Chiari syndrome or heart failure. The sinusoid wall is still open and lets protein through.'],
     ['Why does portal vein thrombosis rarely cause ascites?', 'The sinusoids beyond the clot stay at normal pressure, and ascites comes from sinusoidal pressure.'],
+    ['The SAAG is 1.8, the ascitic protein 3.1 g/dL and the HVPG normal. Where is the resistance?', 'After the sinusoids, most often a failing right heart: it raises the wedged and free pressures together, so the HVPG stays normal, and the open sinusoids let protein through.'],
   ],
   slides: [
     {

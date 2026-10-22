@@ -18,6 +18,7 @@ export const BLEED = {
     ['What shows shock early in a variceal bleed?', 'The heart rate and blood pressure. The hemoglobin falls only later, as fluid refills the vessels, and a beta-blocker can blunt the heart rate.'],
     ['What do you start before the endoscopy?', 'Octreotide, a 50 µg bolus then 50 µg an hour, and ceftriaxone 1 g a day.'],
     ['Within how long does a high-risk patient get a TIPS?', 'Within 72 hours, ideally within 24.'],
+    ['Minutes after octreotide starts, the portal pressure falls by about 2 mmHg, with no change in the liver. Which lever moved?', 'Inflow: octreotide constricts the gut arterioles, so less blood enters the portal vein. The resistance in the liver is unchanged.'],
   ],
   sections: [['Before the bleed', ['Before']], ['The bleed', ['The bleed']], ['Drugs and volume', ['Before the scope', 'Volume']], ['The scope', ['Endoscopy']], ['After the scope', ['After the scope']]],
   summary: 'One bleed from tear to TIPS: early shock with a normal hemoglobin, octreotide and volume before the scope, restrictive transfusion, banding and a pre-emptive TIPS.',

@@ -19,6 +19,7 @@ export const ENDOSCOPY = {
     ['When is a varix called large?', 'Over 5 mm: it bulges into the lumen and does not flatten with air.'],
     ['To what hemoglobin do you transfuse in a variceal bleed?', '7 to 8 g/dL. More volume raises the portal pressure and the risk of rebleeding.'],
     ['Why does banding need a beta-blocker beside it?', 'Banding closes the varices but leaves the portal pressure unchanged, so new varices form.'],
+    ['After transfusion to a hemoglobin of 11 g/dL, the portal pressure rises and the varix bleeds again. Which lever moved?', 'Volume: over-transfusion fills the portal circulation and raises its pressure. Transfuse from 7 g/dL to a target of 7 to 8.'],
   ],
   summary: 'One patient seen through the scope: screening, growing and large varices, wall tension, a bleed, transfusion, octreotide and band ligation.',
   slides: [

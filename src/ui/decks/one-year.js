@@ -16,6 +16,7 @@ export const ONE_YEAR = {
     ['At what HVPG does CSPH begin?', '10 mmHg.'],
     ['Which endoscopy finding counts as CSPH under Baveno VIII?', 'Any varices, even small ones.'],
     ['Which drug does Baveno VIII prefer before a first bleed or decompensation?', 'Carvedilol, a non-selective beta-blocker.'],
+    ['Over the year the HVPG crossed 10 mmHg, varices appeared and the platelets fell. What changed?', 'The resistance inside the liver rose as fibrosis advanced. The portal pressure rose behind it, the spleen grew and held back more platelets.'],
   ],
   summary: 'One patient with compensated cirrhosis followed for a year, seen in turn through the catheter, FibroScan, endoscopy, Doppler and the abdomen, with Baveno VIII\'s stiffness and platelet zones. Ends with carvedilol and a chart of the year.',
   slides: [

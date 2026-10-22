@@ -21,6 +21,7 @@ export const BETA_BLOCKERS = {
     ['What does carvedilol add to propranolol?', 'It lowers the resistance inside the liver as well as the inflow, most likely through α1 blockade of the stellate cells.'],
     ['Why does carvedilol\'s extra effect add little in schistosomiasis?', 'The resistance is scar in the portal venules, before the sinusoids where its extra effect acts.'],
     ['On carvedilol the HVPG falls a little in schistosomiasis. Did the portal pressure fall more?', 'No. The HVPG reads the sinusoids, not the portal vein; the portal pressure fell about as much as on propranolol.'],
+    ['On propranolol the heart rate falls from 80 to 58, but the HVPG only from 18 to 17.5 mmHg. Has the portal pressure responded?', 'No. The heart rate shows the β1 blockade, not the portal response; a fall under 10% marks a non-responder.'],
   ],
   summary: 'Propranolol and carvedilol compared in cirrhosis and in schistosomiasis. Both cut the portal inflow; only carvedilol lowers the resistance in the sinusoids, so it lowers the pressure more only where the resistance is sinusoidal.',
   slides: [

@@ -13,6 +13,7 @@ export const RIGHT_HEART = {
     ['What does severe tricuspid regurgitation do to the hepatic vein S wave?', 'It reverses it: blood is driven back into the hepatic veins in systole.'],
     ['Why is the HVPG normal in heart failure?', 'Wedged and free pressures rise together, so their difference stays small.'],
     ['Which reading separates an IVC web from heart failure?', 'The right atrial pressure: normal with a web, high in heart failure and constriction.'],
+    ['Diuretics bring the right atrial pressure down from 18 to 8 mmHg. What happens to the portal pressure and the HVPG?', 'The portal pressure falls with the back pressure. The HVPG stays normal throughout, because the wedged and free pressures fall together.'],
   ],
   summary: 'Heart failure, constrictive pericarditis and an IVC web on Doppler: the hepatic vein waveform, the pulsatile portal vein, and why the HVPG stays normal while every pressure is high.',
   slides: [

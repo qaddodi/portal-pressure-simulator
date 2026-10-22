@@ -15,6 +15,7 @@ export const PREHEPATIC = {
     ['Why is the HVPG normal with a portal vein clot?', 'The clot is before the liver. The wedge reads the normal sinusoids beyond it.'],
     ['Which measurement shows the resistance?', 'The PPG, portal vein minus IVC.'],
     ['Where do varices form with a splenic vein clot?', 'In the gastric fundus, often with no esophageal varices.'],
+    ['After six months of anticoagulation the PPG falls from 27 to 4 mmHg and the HVPG stays at 2. What moved?', 'The clot cleared, so the resistance in the portal vein, before the liver, fell. The sinusoids never carried it, so the HVPG did not change.'],
   ],
   summary: 'A clot before the liver: acute portal vein thrombosis on Doppler, the normal HVPG and high PPG, the cavernoma months later, and splenic vein thrombosis with gastric varices.',
   slides: [

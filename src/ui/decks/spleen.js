@@ -13,6 +13,7 @@ export const SPLEEN = {
     ['Give two reasons the platelets fall in cirrhosis.', 'The large spleen pools them, and the scarred liver makes less thrombopoietin.'],
     ['Which results spare a screening endoscopy?', 'Stiffness below 20 kPa with platelets of 150 or more.'],
     ['What risk does splenectomy carry?', 'Portal vein thrombosis, from blood stagnating in the stump of the splenic vein.'],
+    ['After partial splenic embolization the platelets rise. Why?', 'Less spleen holds back fewer platelets, and less splenic blood flows into the portal vein.'],
   ],
   summary: 'How the spleen grows as the portal pressure rises, why the platelets fall, when platelets and stiffness can spare an endoscopy, and what splenic embolization and splenectomy do.',
   slides: [

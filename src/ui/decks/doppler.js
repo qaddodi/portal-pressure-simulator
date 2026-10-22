@@ -15,6 +15,7 @@ export const DOPPLER = {
     ['Which way does normal portal vein flow run?', 'Toward the liver (hepatopetal).'],
     ['What portal velocity is abnormal?', 'Under 15 cm/s.'],
     ['What does a pulsatile portal vein point to?', 'A high right atrial pressure, as in heart failure, reaching back through the sinusoids.'],
+    ['Over two years, portal velocity falls from 25 to 12 cm/s with no clot. What moved?', 'The resistance inside the liver rose, so less blood runs through the portal trunk and more takes the collaterals.'],
   ],
   summary: 'What the Doppler probe reads in the portal and hepatic veins: normal flow, cirrhosis, reversal, thrombosis, Budd–Chiari, heart failure and a TIPS. Ends with a comparison table.',
   slides: [

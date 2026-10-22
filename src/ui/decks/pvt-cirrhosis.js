@@ -15,6 +15,7 @@ export const PVT_CIRRHOSIS = {
     ['What is the strongest local risk factor for a portal vein clot in cirrhosis?', 'Slow flow in the portal vein.'],
     ['Why does the HVPG barely change with a portal vein clot?', 'The wedge reads the sinusoids beyond the clot. The PPG rises instead.'],
     ['What comes before anticoagulation?', 'Variceal bleeding prophylaxis, carvedilol if tolerated, without letting it delay the anticoagulant.'],
+    ['A partial portal vein clot grows to fill the vein, and the varices enlarge. Which lever moved?', 'Resistance in the portal vein, before the liver: the pressure behind the clot rises and more blood takes the collaterals that feed the varices.'],
   ],
   summary: 'A partial clot in a cirrhotic portal vein: what it does to the portal pressure and the varices, why the HVPG misses it, and how months of anticoagulation reopen the vein.',
   slides: [

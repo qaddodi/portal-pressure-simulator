@@ -9,6 +9,7 @@ export const TREATMENT = {
     ['Why does carvedilol lower the HVPG more than propranolol?', 'It also blocks α1 receptors, so it lowers the resistance inside the liver as well as the inflow.'],
     ['Does banding lower the portal pressure?', 'No. It closes the varices, but the pressure stays high, so new ones form unless a beta-blocker lowers it.'],
     ['What does a TIPS cost the patient?', 'Portal blood bypasses the liver, so liver perfusion falls and about one patient in three develops encephalopathy.'],
+    ['After a TIPS the PPG is 8 mmHg, and within weeks he becomes confused. Which change explains it?', 'Portal blood now runs through the stent around the liver, so gut toxins reach the brain and the liver gets less portal blood.'],
   ],
   slides: [
     {

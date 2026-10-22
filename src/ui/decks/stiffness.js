@@ -14,6 +14,7 @@ export const STIFFNESS = {
     ['Which stiffness means CSPH in compensated cirrhosis under Baveno VIII?', '25 kPa or more rules CSPH in, in viral, alcohol-related and non-obese MASLD cirrhosis. In obese MASLD, the ANTICIPATE model decides instead.'],
     ['Which stiffness and platelet count rule CSPH out?', 'Stiffness of 15 kPa or less with platelets of 150 or more.'],
     ['Name two situations where stiffness misleads.', 'A recent meal and heart failure congestion raise it. Presinusoidal resistance, such as schistosomiasis, keeps it low despite high portal pressure.'],
+    ['During a hepatitis flare with an ALT of 600, the stiffness jumps from 14 to 30 kPa. Has the fibrosis advanced?', 'Not necessarily: inflammation raises the stiffness. Repeat the scan once the ALT settles before reading it as CSPH.'],
   ],
   summary: 'FibroScan, spleen size and the platelet count against the portal gradient: the Baveno VIII rule, and where stiffness misleads (presinusoidal resistance, congestion, a meal).',
   slides: [

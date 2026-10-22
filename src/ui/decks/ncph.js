@@ -16,6 +16,7 @@ export const NCPH = {
     ['Name the two main causes of presinusoidal portal hypertension.', 'Schistosomiasis and porto-sinusoidal vascular disorder.'],
     ['Why is the HVPG near normal?', 'The resistance lies before the sinusoids, so the wedge reads normal sinusoidal pressure. Only a PPG shows the gradient.'],
     ['Varices with a soft liver. What does that suggest?', 'Resistance before the sinusoids. Stiffness reflects scar and congestion, not portal pressure.'],
+    ['Varices have bled, the stiffness is 6 kPa, the HVPG 4 mmHg and the portal vein is open on Doppler. Where is the resistance?', 'Before the sinusoids, in the portal venules: the wedge reads the normal sinusoids beyond them. Think of porto-sinusoidal vascular disorder or schistosomiasis.'],
   ],
   summary: 'Schistosomiasis and porto-sinusoidal vascular disorder: varices and a big spleen with a normal liver stiffness and a normal HVPG, because the resistance sits in the portal tracts.',
   slides: [
