@@ -1340,9 +1340,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   let drawOnce = false;   // draw the vessels once through the dive's freeze: the camera moved while hidden
   let stageWake = () => {};   // set once the frame loop exists: anything that may need a redraw calls it
   let resizeReady = false, forceDraw = false;   // forceDraw: the vessel canvas was just resized (and so cleared): the next frame draws it at once
-  let clampFs = '';
+  let clampFs = '', clampBase = 12;   // clampBase: the "60 %"'s size on screen (clampFontAt: the labels' own name size)
   // A narrowing's label stands level on screen whatever the figure's turn, at the spot the layout chose for it (clampLabelAt: the
-  // column's side, a spot off the probe) or, where it chose none, just clear of its clamp on the vessel's side, at its 12 px size
+  // column's side, a spot off the probe) or, where it chose none, just clear of its clamp on the vessel's side, at the labels' name size
   // (a turned "60 %" had stood on end across the right atrium in the circuit). Every rebuild of the marks and every change of zoom
   // places it again by that one rule, so neither undoes the spot the layout gave it: the "60 %" had gone back to the vessel's side
   // under the stent's callouts after a redraw.
@@ -1394,8 +1394,11 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     // An unchanged view keeps the same object, so the frame loop (which compares it) sees that nothing moved.
     CTM = ctmLast && ['a', 'b', 'c', 'd', 'e', 'f', 'sc'].every((k) => ctmLast[k] === m[k]) ? ctmLast : (ctmLast = m);
     wrapRect = b;
-    // (A narrowing's "60 %" is drawn in the figure: its size there is 12 px on screen at any zoom, sweep batch 03 at 6–7 px.)
-    const cfs = sk > 0 ? (12 / sk).toFixed(1) : '';
+    applyClampFs();
+  }
+  // (A narrowing's "60 %" is drawn in the figure: its size there is that of the labels' names on screen at any zoom, sweep batch 03 at 6–7 px.)
+  function applyClampFs() {
+    const sk = CTM?.sc || 0, cfs = sk > 0 ? (clampBase / sk).toFixed(2) : '';
     if (cfs && cfs !== clampFs) { clampFs = cfs; for (const g of [ov.clamps, ov.clampsOut]) g.style.setProperty('--clamp-fs', `${cfs}px`); placeClampLabels(); }
   }
   function worldToLocal(x, y) {
@@ -6836,10 +6839,16 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   });
   // How far a point's callout stands from its dot: clear of the stent's body, its leader 16 px at most.
   const colGap = (sid) => Math.min(16, ((E[sid]?.width || 4) * CTM.sc) / 2 + 7);
-  // (The "60 %" is drawn in the figure's own units: on a phone's small figure it is scaled up so it reads at least 12 px.)
+  // (The "60 %" is drawn in the figure's own units, in the labels' own name size on screen (fontPx 11.5: 12 px at least, the text size
+  // setting and a presentation's projector size included), the weight and the 7 px stage-colour halo of the callouts beside it.)
   // (Its halo a constant 7 px wide on screen, whatever the zoom: wide enough to fill the counters of "6", "0" and "%" too, so
   // the figure never shows through inside a digit: Review 16 Oct.)
-  const clampFontAt = (el) => { el.style.fontSize = CTM.sc > 0 && CTM.sc < 1 ? `calc(var(--fs-12) / ${CTM.sc.toFixed(3)})` : ''; el.style.strokeWidth = CTM.sc > 0 ? `${(7 / CTM.sc).toFixed(2)}px` : ''; };
+  const clampFontAt = (el) => {
+    const px = fontPx(11.5);
+    if (Math.abs(px - clampBase) > 0.01) { clampBase = px; applyClampFs(); }
+    el.style.fontSize = CTM.sc > 0 && CTM.sc < 1 ? `${(clampBase / CTM.sc).toFixed(2)}px` : '';
+    el.style.strokeWidth = CTM.sc > 0 ? `${(7 / CTM.sc).toFixed(2)}px` : '';
+  };
   // Moves a "60 %" to `want` ({ d, t } or null: back where it belongs): it fades out where it stands, then in at the new place.
   function clampStep(id, want) {
     const m = clampMv.get(id) || { cur: null, want: null, busy: false }, same = (a, b) => (a ? !!b && a.d === b.d && a.t === b.t : !b);
@@ -6869,7 +6878,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const pos = [1, -1].map((sg) => [c.x + c.nx * sg * d - c.ny * t, c.y + c.ny * sg * d + c.nx * t]);   // (t: slid along the vessel)
     const xs = pos.map((q) => worldToLocal(...q)[0]);
     const k = away && (away === 'W') !== (xs[0] < xs[1]) ? 1 : 0, left = xs[k] < xs[1 - k] - 0.5, [x, y] = pos[k];
-    const gap = 6 / Math.max(CTM?.sc || 1, 1e-3), deg = rotDeg();   // (6 px on screen, the text's own offset from its spot: 4 at the usual scale)
+    const gap = (6 * clampBase) / 12 / Math.max(CTM?.sc || 1, 1e-3), deg = rotDeg();   // (6 px on screen at 12 px text, the text's own offset from its spot, in step with the text's size)
     el.setAttribute('x', x.toFixed(2)); el.setAttribute('y', y.toFixed(2));
     el.setAttribute('dx', (left ? -gap : gap).toFixed(2)); el.setAttribute('dy', gap.toFixed(2));
     if (left) el.setAttribute('text-anchor', 'end'); else el.removeAttribute('text-anchor');
@@ -8868,7 +8877,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (!isImaging()) for (const el of ov.clamps.querySelectorAll('.clamp-label')) {
       const c = el._c, m = c && clampMv.get(c.id), own = c && c.id === clampFor && ptSide && clampD.get(c.id);
       if (!c || m?.busy || !(m?.cur || own)) continue;
-      const b = boxOfEl(el, 6);
+      const b = boxOfEl(el, (6 * clampBase) / 12);   // (the leader stops short of the text by the same 6 px at 12 px text, in step with its size)
       if (!b) continue;
       const tips = [[c.x + c.nx * (c.off + 8), c.y + c.ny * (c.off + 8)], [c.x - c.nx * (c.off + 8), c.y - c.ny * (c.off + 8)]].map((q) => worldToLocal(...q));
       const gap = (q) => Math.hypot(Math.max(b.x0 - q[0], 0, q[0] - b.x1), Math.max(b.y0 - q[1], 0, q[1] - b.y1));

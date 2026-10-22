@@ -9,6 +9,10 @@
   level whatever the figure's turn. Where the spot has to stand off from the clamp (a crowded stretch of the liver, or off the Doppler
   probe) a thin leader joins it to the nearer arrow, as the probe's own move already did. Tests: `tests/clamp-label-place.test.js`, and the
   browser check "the narrowing's 60 % keeps clear of every callout, label and arrow".
+  The "60 %" also reads in the same size as the callouts beside it: it had been fixed at 12 px, smaller than the names of the readings
+  ("TIPS distal") wherever the figure's text is larger (a laptop or iPad, a bigger text size in Settings, a presentation at the
+  projector's size). It now takes the labels' own name size (13.6 px on a Mac or iPad, 12 px on a phone, following the text size
+  setting), the same weight and the same stage-coloured outline, with its gap from the spot and its leader's stop-short growing with it.
 - **WHVP and FHVP tiles get the scale bar.** The two tiles used to show a bare number with an empty bar. They now carry coloured
   bands, a dot for now and a ring for the start, and a rating word, like HVPG's. The guidelines give no cut-offs for either pressure on
   its own, so each is judged as the pressure it stands for, with the numbers the summary tables already used: the wedged pressure like

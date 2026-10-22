@@ -592,7 +592,7 @@ div.vital { cursor: default; }
 .suture { fill: none; stroke: var(--text); stroke-opacity: .7; stroke-width: 1.1; stroke-linecap: round; }
 .clamp, .clamp-out { fill: var(--text); fill-opacity: .82; }
 .clamp-label, .clamp-label-out, .guide-label { font: 600 var(--fs-12) var(--font-ui); fill: var(--text); paint-order: stroke; stroke: var(--stage-bg); stroke-width: 4px; stroke-linejoin: round; }
-.clamp-label, .clamp-label-out { font-size: var(--clamp-fs, var(--fs-12)); }   /* (12 px on screen at any zoom: stage.js syncView) */
+.clamp-label, .clamp-label-out { font-size: var(--clamp-fs, var(--fs-12)); }   /* (the labels' own name size on screen at any zoom: stage.js applyClampFs) */
 /* Soft clot: three translucent layers of one red build toward the thick middle and fade at the edges. */
 .thrombus-halo { fill: var(--thrombus); fill-opacity: .4; }
 .thrombus { fill: var(--thrombus); fill-opacity: .55; }

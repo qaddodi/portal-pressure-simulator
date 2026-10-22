@@ -6,6 +6,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { TIPS_DOPPLER } from '../src/ui/decks/tips-doppler.js';
+import { rolePx, roleOf } from '../src/ui/type-scale.js';
 
 const read = (p) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8');
 const stage = read('src/ui/stage.js'), doppler = read('src/ui/doppler.js'), tools = read('src/ui/presenter-tools.js'), gl = read('src/ui/veins-gl.js'), css = read('styles/app.css');
@@ -72,7 +73,14 @@ test("the column's side is chosen from the stent and the screen, never the pick,
   assert.ok(side.length > 0 && !/dop\.seg|dopGateOf|st\.dopGate/.test(side), 'the side does not read the sampled point');
   assert.match(side, /lb-val' \? \{ \.\.\.r, t: '000' \}/);   // (a fixed template width: the values the pick changes do not tip it)
   assert.match(stage, /const away = col \? \(ptSide === 'E' \? 'W' : 'E'\) : null;/);
-  assert.match(stage, /calc\(var\(--fs-12\) \/ \$\{CTM\.sc\.toFixed\(3\)\}\)/);
+  // (the "60 %" reads in the labels' own name size, 12 px at least (the lab role: the text size setting and a presentation's size in it),
+  // at any zoom, its gap and its leader's stop-short in step with it)
+  assert.match(stage, /const px = fontPx\(11\.5\);\n\s+if \(Math\.abs\(px - clampBase\) > 0\.01\) \{ clampBase = px; applyClampFs\(\); \}/);
+  assert.match(stage, /el\.style\.fontSize = CTM\.sc > 0 && CTM\.sc < 1 \? `\$\{\(clampBase \/ CTM\.sc\)\.toFixed\(2\)\}px` : '';/);
+  assert.match(stage, /const sk = CTM\?\.sc \|\| 0, cfs = sk > 0 \? \(clampBase \/ sk\)\.toFixed\(2\) : '';/);
+  assert.match(stage, /const gap = \(6 \* clampBase\) \/ 12 \/ Math\.max\(CTM\?\.sc \|\| 1, 1e-3\)/);
+  assert.match(stage, /const b = boxOfEl\(el, \(6 \* clampBase\) \/ 12\);/);
+  assert.ok(roleOf(11.5) === 'lab' && rolePx('lab', 390, 844) >= 12 && rolePx('lab', 1440, 900) >= 12, "the labels' names are the lab role, 12 px at least on a phone and a laptop");
   assert.match(stage, /\{ proximal: 'Prox', mid: 'Mid', distal: 'Dist' \}\[point\]/);   // (short on a phone)
 });
 

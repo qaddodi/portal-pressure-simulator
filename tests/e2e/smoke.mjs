@@ -3539,6 +3539,10 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
         const box = (e) => e.getBoundingClientRect(), meet = (a, b, g) => a.left - g < b.right && b.left - g < a.right && a.top - g < b.bottom && b.top - g < a.bottom;
         const lab = document.querySelector('.clamp-label'), r = box(lab), err = [], st = box(document.querySelector('#labels'));
         if (lab.textContent.trim() !== '60%') err.push(`the label reads "${lab.textContent}"`);
+        // (The "60 %" reads in the labels' own name size: the same as "TIPS distal" beside it, 12 px at least, at the text size set.)
+        const px = parseFloat(getComputedStyle(lab).fontSize) * lab.getScreenCTM().a, name = parseFloat(document.querySelector('#labels g.lb[data-key="n:TIPS:distal"] tspan')?.getAttribute('font-size'));
+        if (!(Math.abs(px - name) < 0.5 && px >= 11.95)) err.push(`the "60 %" reads ${px.toFixed(1)} px, the callouts' names ${name} px`);
+        if (getComputedStyle(lab).fontWeight !== '600') err.push(`the "60 %" is weight ${getComputedStyle(lab).fontWeight}, the names 600`);
         if (r.left < st.left || r.right > st.right || r.top < st.top || r.bottom > st.bottom) err.push('the "60 %" is not inside the stage');
         const others = [...document.querySelectorAll('#labels g.lb')].filter((e) => e.style.display !== 'none' && !e.classList.contains('lb-off'));
         for (const o of others) if (meet(r, box(o), 2)) err.push(`the "60 %" touches "${o.textContent.trim().slice(0, 20)}"`);
