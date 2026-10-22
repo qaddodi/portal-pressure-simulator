@@ -5291,8 +5291,9 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
    ("make so I open the stacked card untuck it to the TOP not to the bottom. Cuz that's easier to pull up and the teaching card goes up").
    Pulled up or tapped, it comes out above the instrument card, which stays where it is: the card's box grows upward by the readings'
    travel (--pz-u of --pz-d) and rises by as much (--pz-lift, presenter.js liftTo), the words' card with it, their top behind the screen's
-   top if need be; tucked, everything comes back down. Each slide comes in tucked. Its corners are the wide card's own (16-28 px). A Gut
-   to heart chart keeps its tiles beside it, one card (data-ladder). The card never docks to the side here, so it has no edge handle. */
+   top if need be; tucked, everything comes back down. Each slide comes in tucked. Its corners are the wide card's own (16-28 px). Every
+   instrument with readings stacks so, the Gut to heart chart too (Mohammad, 22 Oct: "every stacked should be stacked"). The card never docks
+   to the side here, so it has no edge handle. */
 .pz.pz-wide .pz-data > .pz-grip { display: none; }
 .pz.pz-wide .pz-lip:not([hidden]) { display: block; position: absolute; height: 24px; margin: 0; padding: 0; border: 0; background: none; pointer-events: auto; touch-action: none;
   cursor: pointer; -webkit-tap-highlight-color: transparent; transition: opacity .5s var(--ease) .12s, transform .5s var(--ease) .12s; }

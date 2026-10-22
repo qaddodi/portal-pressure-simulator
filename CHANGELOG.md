@@ -2,6 +2,13 @@
 
 ## October 2026
 
+- **The Gut to heart chart stacks on Mac and iPad landscape like every other instrument.** It was the one chart left with its tiles beside
+  it (Mohammad, 22 Oct: "every stacked should be stacked"). Its card now sits under the words with the readings' card tucked behind its
+  top, in every deck, as on a phone. The chart is drawn at its own size and never zoomed by the fit, so where the words are so tall that the
+  card does not fit in the room under them even at the smallest steps (HVPG slide 4 below about 900 px tall, a few Treatment slides at
+  1024x768) the words' card eases up with the data card and its top slips behind the screen's top, as it already does when the readings
+  come out, instead of the chart spilling out of its card. Looked at headless on 1440x900, 1280x800, 1180x820 and 1024x768; nobody has
+  looked at it on a device. Tests: `tests/wide-stack.test.js`, `tests/data-sheet.test.js`.
 - **Cardiac output reads 8 L/min as the top of normal everywhere, and the Hyperdynamic deck's words follow.** Mohammad's call (22 Oct):
   the tile's "Normal up to 8 L/min" stands. The bottom bar's own flag for the output (a strip no screen shows) moves from 6.5 to 8, and
   Tests › Readouts already rates it as the tile does, so nothing flags a 6.6 or 6.7 L/min output. The Hyperdynamic deck no longer calls a

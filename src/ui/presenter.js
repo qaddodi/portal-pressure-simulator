@@ -1917,7 +1917,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       // (The fluid balance's capacity window too: its rows of numbers need the card's width; tool-fluid.js.)
       data.classList.toggle('pz-beside', !!s.tool && !!s.data && tileKeys(s).length > 0 && s.tool?.kind !== 'flows' && !(s.tool?.kind === 'fluid' && s.tool.window));
       data.toggleAttribute('data-beside', data.classList.contains('pz-beside'));
-      data.toggleAttribute('data-ladder', s.tool?.kind === 'profile');   // (Mac and iPad landscape: the Gut to heart chart keeps its tiles beside it, no stack; layout)
+      data.toggleAttribute('data-ladder', s.tool?.kind === 'profile');   // (Mac and iPad landscape: the Gut to heart chart is never zoomed by the fit, so a pair too tall for it lifts instead, slip.base; layout)
       data.classList.remove('pz-folds');   // (Mac and iPad landscape: folded behind Show only when the pair would not fit, set in layout)
       data.dataset.tn = tileKeys(s).length;   // (Mac and iPad landscape: every instrument with tiles has them stacked beside it; its own readings fold to a short list under its picture)
       data.classList.toggle('tool-lead', !!s.tool?.open && !!s.data);   // (a phone keeps this instrument open and folds the tiles instead)
@@ -2202,14 +2202,17 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   // set frame by frame by the finger or here, never by a CSS transition (the card is frosted glass); styles/app.css works out both
   // pieces of glass, the readings' place and where they are cut at the instrument card's foot from it. (d: how far it travels, the
   // readings' share of the card's height; h0: the card's height with them tucked, css px; raf: the ease running.)
-  const slip = { d: null, h0: null, raf: 0, lift: 0 };
+  const slip = { d: null, h0: null, raf: 0, lift: 0, base: 0 };
   // (Mac and iPad landscape: the stacked card's height cap is the room under the words and its readings' card's tucked edge, grown by what
   // is out of the readings (--pz-grow, styles/app.css), so the instrument is fitted to the tucked room and keeps that size open or tucked.)
-  const capOf = (d, room) => (wideSheet(d) ? `calc(${room.toFixed(1)}px + var(--pz-grow, 0px))` : `${room.toFixed(1)}px`);
+  // (A Gut to heart chart too tall for it grows the cap by slip.base, the room the pair rises by: below.)
+  const capOf = (d, room) => (wideSheet(d) ? `calc(${(room + slip.base).toFixed(1)}px + var(--pz-grow, 0px))` : `${room.toFixed(1)}px`);
   // (The rise, frame by frame with the readings' card: u of the way out lifts the words' card, its glass and the data card's box by u of
   // slip.lift, the readings' travel (layout), so the instrument card stays where it is and the readings come out above it; tucking them
   // brings everything back down the same way. A translate, never their top, which eases on its own.)
-  const liftTo = (u) => { const v = slip.lift > 0.5 && u > 0 ? (u * slip.lift).toFixed(1) : ''; if (wrap.style.getPropertyValue('--pz-lift') !== (v && `${v}px`)) { if (v) wrap.style.setProperty('--pz-lift', `${v}px`); else wrap.style.removeProperty('--pz-lift'); } };
+  // (slip.base: the rise a Gut to heart chart needs whatever the readings do, its tucked card being taller than the room under the words; the
+  // readings add the rest of slip.lift on top, by u.)
+  const liftTo = (u) => { const w = slip.base + (u > 0 ? u * Math.max(0, slip.lift - slip.base) : 0), v = w > 0.5 ? w.toFixed(1) : ''; if (wrap.style.getPropertyValue('--pz-lift') !== (v && `${v}px`)) { if (v) wrap.style.setProperty('--pz-lift', `${v}px`); else wrap.style.removeProperty('--pz-lift'); } };
   const underU = (d) => (d.classList.contains('pz-sliding') ? parseFloat(d.style.getPropertyValue('--pz-u')) || 0 : d.classList.contains('tool-open') ? 1 : 0);
   function slideUnder(from, to, ms = 360) {
     const d = ui.data;
@@ -2679,10 +2682,10 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     // (Before the words are measured for the phone's cap: measured with the full names on two rows, the card kept 12 px it no longer needed.)
     abShort(ui.text, p || ui.root.classList.contains('low'));   // (a phone, upright or on its side; a wider card may take two rows of full names)
     // (A phone's card with a second part keeps that part on its sheet (.pz-lip, dockVec); each slide arrives partly open.)
-    // (Mac and iPad landscape: the same, stacked under the words, except a Gut to heart chart, which keeps its tiles beside it: pz-wide.)
+    // (Mac and iPad landscape: the same, stacked under the words, every instrument with readings, the Gut to heart chart too: pz-wide.)
     const wide = cardOn && !low;
     ui.root.classList.toggle('pz-wide', wide);
-    const dd0 = ui.data, sheet = (p || (wide && !dd0.hasAttribute('data-ladder'))) && dd0.classList.contains('has-tool') && !dd0.classList.contains('tool-only');
+    const dd0 = ui.data, sheet = (p || wide) && dd0.classList.contains('has-tool') && !dd0.classList.contains('tool-only');
     // (An upright phone's or tablet's sheet stays opaque while it is out and fades its parts instead, styles/app.css: a card that
     // becomes one, or stops being one, while it is out takes its new state at once, so its glass never shows, fading, between two slides.)
     if (sheet !== dd0.classList.contains('pz-sheet') && (p || wide) && dd0.classList.contains('pz-hide')) {
@@ -2717,6 +2720,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     // above the controls; what does not fit is made smaller in fixed steps, never moved to the top right. A card in view that
     // changes place fades out, moves while unseen and fades back in.
     let below = false, gap = 0, cw = 0, foot = H;
+    slip.base = 0;
     const top0 = cardOn && t ? sl : 0;   // (the cards' top: one margin from the top, as from the side)
     if (cardOn && !low && t && !off(dd)) {
       gap = Math.round(0.6 * sl); cw = t.right - wr.left + pad - sl;
@@ -2777,6 +2781,14 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       if (dk < 1) dd.style.setProperty('--pz-dk', dk); else dd.style.removeProperty('--pz-dk');
       foldHeld = dd.classList.contains('pz-folds') ? foldKey : null;
       if (lockKey && !lock) textLock = { key: lockKey, below, dk, folds: dd.classList.contains('pz-folds'), vars: ['--pz-tk', '--pz-bk'].map((n) => [n, ts.getPropertyValue(n)]) };
+      // (A Gut to heart chart is drawn at its own size, never zoomed by the fit, and has a smallest height. Where the pair is too tall for it
+      // even at the smallest steps, the words' card eases up with the data card, its top slipping behind the screen's top if need be, so the
+      // chart stays whole in its card instead of spilling past the screen (Mohammad, 22 Oct: "It's ok if the top of the teaching card slips
+      // behind upper part of the screen as the info below is more pertinent"). The readings add their own rise on top, slip.lift.)
+      if (wideSheet(dd) && dd.hasAttribute('data-ladder')) {
+        const b = Math.max(0, Math.min(top0 + t.height + 2 * pad + gap + ch - foot, t.height + 2 * pad + gap)) / k;
+        slip.base = b > 0.5 ? b : 0;
+      }
     } else dd.style.removeProperty('--pz-dk');
     const isCol = dd.classList.contains('col');
     if (below !== isCol) {
@@ -2857,9 +2869,9 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       if (shift > 0.5) { dd.style.top = `${((y + shift) / k).toFixed(1)}px`; dd.style.maxHeight = capOf(dd, (foot - y - shift) / k); } else shift = 0;
       // (How far the words rise with the readings all out: the readings' whole travel, so the instrument card never moves (Mohammad, 22 Oct:
       // "It's ok if the top of the teaching card slips behind upper part of the screen as the info below is more pertinent").)
-      if (ws) slip.lift = dpx;
+      if (ws) slip.lift = dpx + slip.base;   // (in all: a Gut to heart chart's own rise, slip.base, and then the readings' travel)
     }
-    if (!(below && t && wideSheet(dd))) slip.lift = 0;
+    if (!(below && t && wideSheet(dd))) { slip.lift = 0; slip.base = 0; }
     liftTo(underU(dd));
     fitWatch();
     const dv = ui.data.hidden ? [0, 0] : dockVec();

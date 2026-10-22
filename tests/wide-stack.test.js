@@ -9,10 +9,12 @@ const read = (p) => readFileSync(new URL(p, import.meta.url), 'utf8');
 const css = read('../styles/app.css');
 const js = read('../src/ui/presenter.js');
 
-test('a wide screen stacks its instrument card under the words as two cards, a Gut to heart chart excepted', () => {
+test('a wide screen stacks every instrument card with readings under the words as two cards, the Gut to heart chart too', () => {
   assert.match(js, /const wide = cardOn && !low;\n\s*ui\.root\.classList\.toggle\('pz-wide', wide\);/);
-  assert.match(js, /sheet = \(p \|\| \(wide && !dd0\.hasAttribute\('data-ladder'\)\)\)/);
-  assert.match(js, /data\.toggleAttribute\('data-ladder', s\.tool\?\.kind === 'profile'\);/);
+  // (Mohammad, 22 Oct: "every stacked should be stacked": the Gut to heart chart stacks too, its tiles on the readings' card.)
+  assert.match(js, /const dd0 = ui\.data, sheet = \(p \|\| wide\) && dd0\.classList\.contains\('has-tool'\) && !dd0\.classList\.contains\('tool-only'\);/);
+  assert.doesNotMatch(js, /stackShort/, 'no chart folds behind Show or keeps its tiles beside it any more');
+  assert.doesNotMatch(css, /data-ladder/);
   assert.match(js, /const wideSheet = \(d\) => !!ui\?\.root\.classList\.contains\('pz-wide'\) && d\.classList\.contains\('pz-sheet'\);/);
   // (Its tiles live on the readings' card: none beside the instrument while it is a stack; back beside it when it is not.)
   assert.match(js, /if \(!p\) dd0\.classList\.toggle\('pz-beside', !sheet && dd0\.hasAttribute\('data-beside'\) && !dd0\.classList\.contains\('pz-folds'\)\);/);
@@ -39,11 +41,11 @@ test('the instrument is fitted to the tucked room; readings that need more room 
   assert.match(col, /d\.className = sv\[0\]; ds\.width = sv\[1\];/, 'put back as it was');
   assert.match(col, /d\.classList\.add\('col'\); if \(dk < 1\) ds\.setProperty\('--pz-dk', dk\);/, 'measured at the step asked');
   // (The cap: the tucked room, grown by what is out of the readings; fitted, as an upright phone's, with them out against it.)
-  assert.match(js, /const capOf = \(d, room\) => \(wideSheet\(d\) \? `calc\(\$\{room\.toFixed\(1\)\}px \+ var\(--pz-grow, 0px\)\)` : `\$\{room\.toFixed\(1\)\}px`\);/);
+  assert.match(js, /const capOf = \(d, room\) => \(wideSheet\(d\) \? `calc\(\$\{\(room \+ slip\.base\)\.toFixed\(1\)\}px \+ var\(--pz-grow, 0px\)\)` : `\$\{room\.toFixed\(1\)\}px`\);/);
   assert.match(js, /const under = el === ui\.data && splitSheet\(el\) && !el\.classList\.contains\('tool-open'\) && !el\.classList\.contains\('pz-sliding'\);/);
   // (Centred for the tucked card, its handle above it; the readings come out upward, the pair rising by their whole travel.)
   assert.match(js, /const tuckH = ws \? dd\.offsetHeight - underU\(dd\) \* dpx \+ LIP : dd\.offsetHeight;/);
-  assert.match(js, /if \(ws\) slip\.lift = dpx;/);
+  assert.match(js, /if \(ws\) slip\.lift = dpx \+ slip\.base;/);
   // (Moved with the readings' card every frame, by the finger or the ease, and put back when it rests.)
   assert.match(js, /d\.style\.setProperty\('--pz-u', u\.toFixed\(4\)\); liftTo\(u\); slip\.raf = nextFrame\(step\);/);
   assert.match(js, /ui\.data\.classList\.remove\('pz-sliding'\); liftTo\(underU\(ui\.data\)\);/);
@@ -71,4 +73,15 @@ test('the wide stack draws the phone\'s two pieces of glass upside down, the rea
   // (It comes and goes whole, its glass opaque while its parts fade, the old card's top glide kept.)
   assert.ok(css.includes(`${W}.pz-hide { opacity: 1; visibility: hidden; transition: transform .32s var(--ease), visibility 0s linear .32s; }`));
   assert.ok(css.includes(`${W}:not(.pz-hide) { visibility: visible; transition: transform .5s var(--ease) .12s, top .45s var(--ease), visibility 0s linear 0s; }`));
+});
+
+// The Gut to heart chart is drawn at its own size and never zoomed by the fit (styles/app.css), so where the pair is too tall for it even at the
+// smallest steps it is not folded or shrunk: the words' card rises with the data card, its top slipping behind the screen's top if need be
+// (Mohammad, 22 Oct: "It's ok if the top of the teaching card slips behind upper part of the screen as the info below is more pertinent").
+test('a Gut to heart chart too tall for the room under the words lifts the pair by slip.base instead of spilling', () => {
+  assert.match(js, /slip\.base = 0;\n/, 'worked out afresh on every pass');
+  assert.match(js, /if \(wideSheet\(dd\) && dd\.hasAttribute\('data-ladder'\)\) \{\n\s*const b = Math\.max\(0, Math\.min\(top0 \+ t\.height \+ 2 \* pad \+ gap \+ ch - foot, t\.height \+ 2 \* pad \+ gap\)\) \/ k;\n\s*slip\.base = b > 0\.5 \? b : 0;/);
+  assert.match(js, /if \(!\(below && t && wideSheet\(dd\)\)\) \{ slip\.lift = 0; slip\.base = 0; \}/);
+  // (The rise is the base always, and the readings add the rest of their lift on top, by u.)
+  assert.match(js, /const liftTo = \(u\) => \{ const w = slip\.base \+ \(u > 0 \? u \* Math\.max\(0, slip\.lift - slip\.base\) : 0\)/);
 });

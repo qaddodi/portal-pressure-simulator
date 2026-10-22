@@ -8,7 +8,7 @@ const css = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
 const js = readFileSync(new URL('../src/ui/presenter.js', import.meta.url), 'utf8');
 
 test('a phone instrument card shows the instrument first, its readings on a sheet whose edge carries the handle', () => {
-  assert.match(js, /const dd0 = ui\.data, sheet = \(p \|\| \(wide && !dd0\.hasAttribute\('data-ladder'\)\)\) && dd0\.classList\.contains\('has-tool'\) && !dd0\.classList\.contains\('tool-only'\);/, 'upright, and stacked under the words on a wide screen: on its side the card shows everything');
+  assert.match(js, /const dd0 = ui\.data, sheet = \(p \|\| wide\) && dd0\.classList\.contains\('has-tool'\) && !dd0\.classList\.contains\('tool-only'\);/, 'upright, and stacked under the words on a wide screen: on its side the card shows everything');
   assert.match(js, /const wide = cardOn && !low;/, 'never a phone on its side');
   assert.match(js, /dd0\.classList\.toggle\('pz-sheet', sheet\);/);
   assert.match(js, /if \(sheet && dd0\.classList\.contains\('tool-open'\) && dd0\.dataset\.openFor !== String\(want\)\) \{ stopUnder\(\); dd0\.classList\.remove\('tool-open'\); \}/, 'each slide arrives partly open');
