@@ -2333,7 +2333,13 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     nextFrame(() => {
       // (Set outright, so a glide still under way (a refit as the bars came in) stops here: left running it never landed,
       // stayed 'gliding' for good, and the zoom-out spring and the pans' bounds waited on it, so a pinch out stayed stuck.)
-      if (morphTarget === 0 && !userMoved) { cancelFrame(vtAnim); vtGliding = false; vt = homeAt = vtTarget = defaultVT(false); fitted = true; applyVT(); CTM = null; }
+      // (While presenting, the slide's framing is the presenter's: set outright here it jumped the figure off the slide's framing,
+      // after the start's cover had lifted when the patient came late. Shown already (the 4 s backstop), the figure glides to its fit.)
+      if (morphTarget === 0 && !userMoved && !store.get().presenting) {
+        const d = defaultVT(false);
+        if (figureShown) { homeAt = d; fitted = true; if (!sameView(d, vtGliding ? vtTarget : vt)) animateVT(d, 450); }
+        else { cancelFrame(vtAnim); vtGliding = false; vt = homeAt = vtTarget = d; fitted = true; applyVT(); CTM = null; }
+      }
       showFigure();
     });
   }

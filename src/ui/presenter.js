@@ -1033,8 +1033,9 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     await toAnatomy(v === 'anatomic' ? riseFor(cam, s) : null);
     if (cut()) return;
     if (store.get().view !== v) { store.set({ view: v }); await wait(700); }
-    // (Reduced motion keeps the glide, short: a jump of the whole figure is harder to follow than a quick move.)
-    const gl = ms || 300;
+    // (Reduced motion keeps the glide, short: a jump of the whole figure is harder to follow than a quick move. Under the start's
+    // cover it is set outright, so the reveal never catches it on its way.)
+    const gl = booting ? 0 : ms || 300;
     if (cam === 'fit' || v === 'circuit') stage.fitSlow(gl);
     else stage.frameBox(camBox(cam, s), gl, s.kMax || 3.2, !!s.clear);
     await wait(gl);
@@ -3051,7 +3052,8 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   const cardSig = () => (ui ? [ui.text, ui.data].map((el) => (el.hidden ? '-' : ((r) => [r.left, r.top, r.width, r.height].map((v) => Math.round(v / 4)).join())(el.getBoundingClientRect()))).join('|') : '');
   function reframe(ms) {
     const s = slides[shown.i];
-    fitAround(s, s.visual ? s.cam : s.cam || 'fit', ms);
+    // (Under the start's cover the framing is set outright: unseen, a glide only kept the reveal waiting, or was caught by it.)
+    fitAround(s, s.visual ? s.cam : s.cam || 'fit', booting ? 0 : ms);
   }
   // The camera eases to fit a slide's framing into the space its cards leave (the lobule refits itself on pps:occ).
   function fitAround(s, cam, ms) {
@@ -3101,6 +3103,8 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     if (turn && !ui.text.hidden) { const was = !!ui.text.querySelector('.pz-h.long'); markLong(ui.text); if (was !== !!ui.text.querySelector('.pz-h.long')) { textLock = null; layout(); } }
     setLabels();
     if (!shown) return;
+    // (Under the start's cover, the projector layout landing or a window settling: framed at once, so the reveal shows it framed.)
+    if (booting) { clearTimeout(reframeT); reframeT = 0; reframe(0); return; }
     // (Another caller (a card's dock moving, its fit done) frames at once, unless a resize is still settling: then that one look covers both.)
     if (!turn && !reframeT) { reframe(400); return; }
     clearTimeout(reframeT);
@@ -3872,11 +3876,18 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     if (!now) {
       // Under the cover: the figure has refitted to the projector layout (its framing holds still) and the slide's
       // own entrances (the words, the card, the glass) have finished, so the reveal shows a finished slide.
+      // The framing is taken for the stage and the cards as they stand at the reveal: a size the stage settled to after its last
+      // resize (the projector layout landing), or cards that settled after the camera framed them, are framed again under the
+      // cover, outright. Left to the looks that follow those changes, the figure showed beside where it belonged and then moved
+      // to the middle just after the reveal.
       const T = () => document.getElementById('world')?.getAttribute('transform') || '';
+      const settle = () => { if (!ui || !shown) return; if (sizeNow() !== sizeSeen) onResize({ type: 'resize' }); else if (cardSig() !== framedSig) reframe(0); };
       let a = T(), same = 0;
-      for (let i = 0; i < 40 && same < 5; i++) { await wait(60); const c = T(); same = c === a ? same + 1 : 0; a = c; }
+      for (let i = 0; i < 40 && same < 5; i++) { await wait(60); settle(); const c = T(); same = c === a ? same + 1 : 0; a = c; }
       const runs = ui ? [...ui.root.getAnimations({ subtree: true }), ...ui.shade.getAnimations()].filter((x) => x.effect?.getComputedTiming().iterations !== Infinity) : [];
       await Promise.race([Promise.all(runs.map((x) => x.finished.catch(() => {}))), wait(1200)]);
+      // (Once more as the entrances end: the slide's own framing, set outright for the cards where they now rest.)
+      if (ui && shown && booting) { settle(); clearTimeout(reframeT); reframeT = 0; reframe(0); }
       await new Promise((r) => nextFrame(() => nextFrame(r)));
     }
     clearTimeout(coverT); booting = false;
