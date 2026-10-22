@@ -2184,9 +2184,24 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const SOFTWARE = !!veins?.software;
   try { localStorage.removeItem('pps.quality'); localStorage.removeItem('pps.q'); } catch { /* storage unavailable */ }
   let quality = SOFTWARE ? Q_SOFTWARE : 0;
+  // The context is lost (iOS Safari takes it in the background or under memory pressure): the SVG vessels and organs
+  // come back at once, as they do whenever the GPU is not wanted (syncVeinsNow with `on` false, which a lost context never
+  // reaches). Without this the tubes stayed hidden under a blank canvas until a restore, which Safari may never send.
+  // (Pixels as the SVG path draws them; the GPU picture returns with the context.)
+  vCanvas.addEventListener('webglcontextlost', () => {
+    wrap.classList.remove('gl-on');
+    if (wrap.classList.contains('gl-plate')) { wrap.classList.remove('gl-plate'); syncPlateLook(); }
+    plateView = null; plateViewKey = ''; plateCopy = null; plateKey = ''; dropViewKeep();
+    tubesHidden = false; if (tubesHeld.size) flushTubes();
+    if (tubesStale) { tubesStale = false; updateGeometry(true); }
+    syncOrganDim();
+    vLook = null; vBinKey = ''; binShown = null; bendShown = null; veinsDirty = true;
+    stageWake();
+  });
   vCanvas.addEventListener('webglcontextrestored', () => {
     veins?.dispose();   // the lost instance's listener goes with it (one per restore otherwise)
     veins = createVeinsGL(vCanvas, { tubes: GL_ROWS, force: true });
+    if (!veins) { wrap.classList.remove('gl-on', 'gl-plate'); syncPlateLook(); return; }   // (no context this time: the SVG stays)
     vBinKey = ''; binShown = null; bendShown = null; glOrgans = false; plateKey = ''; tubesShown = null;   // (a new context holds no vessels yet)
     liverKey = '';   // (nor the liver's lower edge the ascites stops at: morphLiver sends it again)
     for (const x of EV) for (const o of [x, ...(x.strands || []), ...(x.feeders || [])]) { o.glRadKey = null; o.glRSent = null; }
@@ -9168,7 +9183,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const swYield = softwareYield(SOFTWARE, SOFTWARE ? vCanvas.getContext('webgl2') : null);
   function animate(now) {
     // The blood moves by elapsed time, so speeds and transitions are the same at any frame rate.
-    if (document.hidden || appEl?.classList.contains('home-open')) { lastT = flowGate = now; sleep(); return; }
+    if (document.hidden || appEl?.classList.contains('home-open')) { lastT = flowGate = now; trimVeins(); sleep(); return; }
     // The dive magnifies the figure as it stands (a compositor scale): nothing under it is redrawn until it lands.
     if (diveT > 0 && diveT < 1 && !drawOnce && !forceDraw) {
       // (The plate holds still through the dive, measured before its zoom, but while the anatomy still shows, its blood keeps
@@ -9196,7 +9211,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     lastT = now;
     // Fully inside the lobule, the plate is covered (a pending redraw waits for the frame it can show in): the loop sleeps
     // there, and leaving the lobule (a store change) wakes it. While the lobule only covers it on the way in or out, it keeps looking.
-    if (lz?.isOpen()) { sleep(); return; }
+    if (lz?.isOpen()) { trimVeins(); sleep(); return; }
+    veinsTrimmed = false;   // (shown again: the next draw makes what trimVeins gave back)
     if (lz?.covers()) { nextFrame(animate); return; }
     forceDraw = false; drawOnce = false;
     const st = store.get();
@@ -9250,6 +9266,14 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // Nothing to draw: the loop stops asking for frames (so the screen can idle) until something changes, and looks
   // again a few times a second in case a change came by a path that does not wake it.
   let sleeping = false, sleepTimer = 0;
+  // The figure is not shown (the page hidden, the home screen, or the lobule fully over it): the vessel framebuffer, the
+  // outline layers and the organ stack (about 58 bytes a pixel of GPU memory) are given back; the first draw on the way
+  // back makes them again, whole (veins-gl.js trim: ensureFBO and the layer keys). Once per sleep; the plates stay.
+  let veinsTrimmed = false;
+  function trimVeins() {
+    if (veinsTrimmed || !veins || veins.lost || glowSync) return;
+    veins.trim(); veinsTrimmed = true; veinsDirty = true;
+  }
   function sleep() { sleeping = true; clearTimeout(sleepTimer); sleepTimer = setTimeout(wake, 250); }
   function wake() { if (!sleeping) return; sleeping = false; clearTimeout(sleepTimer); nextFrame(animate); }
   stageWake = wake;
