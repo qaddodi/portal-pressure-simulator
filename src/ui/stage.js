@@ -4133,7 +4133,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
           plateMiss = plateOn() ? 0 : Math.min(3, plateMiss + 1);
           if (!plateOn()) plateKey = '';   // not shown (the liver moved meanwhile): raster again once it settles
           else if (risePrep) { risePrep = false; clearTimeout(risePrepT); }   // (made for the way out: the anatomy under the lobule rests again)
-          schedulePlateView(); gutPicSoon();
+          schedulePlateView(); if (!liveOn()) gutPicSoon();   // (with the organs drawn live the plate stays up through eases, so a gut picture is never shown: gutPicOk)
         } else if (plateStateKey() !== k) plateAgain = true;   // (given up as out of date: drawn again for the state now)
         if (plateAgain && !plateOn()) plateMiss = Math.min(3, plateMiss + 1);   // (and the next one waits longer for the change to rest)
       } catch (e) { console.warn('Plate raster failed; the SVG plate stays.', e); }
@@ -4158,7 +4158,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       // drawn after every pan and pinch for nothing (Mohammad, 21 Oct: the lag "also happens in circuit view"). The way back to
       // the anatomy moves the view on every frame, so the last of them, at the anatomy, schedules them again.)
       if (morphTarget !== 0 || morph > 0) return;
-      gutPicSoon();
+      if (!liveOn()) gutPicSoon();
       const need = vdpr * CTM.sc;
       if (need <= PLATE_BASE * 1.2) { if (veins.hasPlate(1)) { veins.dropPlate(1); veinsDirty = true; } return; }
       // The view in world units (the anatomy is never turned), with a margin, within the plate.

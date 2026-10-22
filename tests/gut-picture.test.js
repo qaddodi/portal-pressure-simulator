@@ -49,7 +49,7 @@ test('the picture is made from the gut\'s copy (kept across the plate\'s drops, 
   const build = fn('plateBuild');
   assert.match(build, /if \(gGut\.children\[i\] === gGutPics \|\| gGut\.children\[i\] === gGutCuts\) k\.setAttribute\('data-pc', 'drop'\); else k\.setAttribute\('data-gut', i\);/);
   assert.match(stage, /gGut \? gutKids\(\) : \[\]\)\) \{/);
-  assert.match(stage, /schedulePlateView\(\); gutPicSoon\(\);/);
+  assert.match(stage, /schedulePlateView\(\); if \(!liveOn\(\)\) gutPicSoon\(\);/);
 });
 
 test('only the bowel floats on the fluid, so it is a run of its own', () => {

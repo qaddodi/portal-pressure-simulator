@@ -107,5 +107,5 @@ test("the gut picture is made at fixed zoom steps, never stretched, so an ordina
 test('in the circuit, where the organs are faded out, no organ picture is made after a pan or pinch', () => {
   // (Mohammad, 21 Oct: the lag after a pan or zoom "also happens in circuit view".)
   const sched = stage.slice(stage.indexOf('function schedulePlateView'), stage.indexOf('async function makeGutPic'));
-  assert.match(sched, /if \(!veins \|\| !plateOn\(\) \|\| !CTM\) return;\n(?:\s+\/\/.*\n)+\s+if \(morphTarget !== 0 \|\| morph > 0\) return;\n\s+gutPicSoon\(\);/);
+  assert.match(sched, /if \(!veins \|\| !plateOn\(\) \|\| !CTM\) return;\n(?:\s+\/\/.*\n)+\s+if \(morphTarget !== 0 \|\| morph > 0\) return;\n\s+if \(!liveOn\(\)\) gutPicSoon\(\);/);
 });
