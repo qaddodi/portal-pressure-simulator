@@ -515,8 +515,8 @@ export function createDoppler({ onProbe, pickGate = true }) {
   let tDisp = null;     // the display clock (model seconds)
   let wallLast = 0;
   let ovLast = '', ovAt = 0, ovOn = false, ovTop = 26;   // the report in the top strip (see draw)
-  let img = null, off = null, octx = null;
-  let floor = null, noiseAt = 0, nx = 0, ny = 0;
+  let img = null, off = null, octx = null, colCv = null, cctx = null;
+  let floor = null, noiseAt = 0, nx = 0, ny = 0, traceBox = null;
   let ringKey = '', lastCol = null, jit = 0, lineGain = 0, spk = null;
   const cc = [0, 0, 0, 0], sc = [0, 0, 0];   // scratch: one pixel's colour
   const A_SIG = 10 ** 2.8;          // signal power over the noise floor (≈ 28 dB)
@@ -782,7 +782,15 @@ export function createDoppler({ onProbe, pickGate = true }) {
     const { ctx, w, h: hh } = fitCanvas(cv);
     const dpr = cv.width / Math.max(1, w);
     ctx.setTransform(1, 0, 0, 1, 0, 0);
-    ctx.fillStyle = cssVar('--black'); ctx.fillRect(0, 0, cv.width, cv.height);
+    ctx.fillStyle = cssVar('--black');
+    // (The trace's own rectangle is drawn whole and opaque below, so only the margins are cleared: the whole canvas was, every
+    // frame, at the phone's three pixels per point.)
+    if (traceBox && traceBox[2] > 0 && traceBox[3] > 0 && traceBox[0] >= 0 && traceBox[1] >= 0 && traceBox[0] + traceBox[2] <= cv.width && traceBox[1] + traceBox[3] <= cv.height) {
+      const [bx, by, bw, bh] = traceBox;
+      ctx.fillRect(0, 0, cv.width, by); ctx.fillRect(0, by + bh, cv.width, cv.height - by - bh);
+      ctx.fillRect(0, by, bx, bh); ctx.fillRect(bx + bw, by, cv.width - bx - bw, bh);
+    } else ctx.fillRect(0, 0, cv.width, cv.height);
+    traceBox = null;
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     // On a slide's data card the report sits in the top strip (CSS sets --dop-ov on the box): the strip is as tall as the
     // report, and the vessel and settings move to the bottom strip under the second ticks. Read again when the size changes.
@@ -891,9 +899,16 @@ export function createDoppler({ onProbe, pickGate = true }) {
     for (let c = from; c <= cNow; c++) writeLine(c, g);
     if (full) octx.putImageData(img, 0, 0);
     else if (cNow > lastCol) {
+      // The new lines go into the ring through a small canvas of their own: pixels written straight into the ring (putImageData
+      // on a canvas the size of the trace, which the browser keeps on the GPU) made it wait for the GPU and copy the whole ring
+      // back and forth on every frame; a few columns drawn from a small canvas are one small copy. The same pixels: the lines are
+      // opaque and copied one to one.
       const x0 = ((from % RW) + RW) % RW, n = cNow - from + 1;
-      if (x0 + n <= RW) octx.putImageData(img, 0, 0, x0, 0, n, RH);
-      else { octx.putImageData(img, 0, 0, x0, 0, RW - x0, RH); octx.putImageData(img, 0, 0, 0, 0, x0 + n - RW, RH); }
+      if (!colCv || colCv.height !== RH || colCv.width < n) { colCv = mk(Math.max(64, 1 << Math.ceil(Math.log2(n))), RH); cctx = colCv.getContext('2d'); cctx.imageSmoothingEnabled = false; }
+      octx.imageSmoothingEnabled = false;
+      const put = (sx, w) => { cctx.putImageData(img, -sx, 0, sx, 0, w, RH); octx.drawImage(colCv, 0, 0, w, RH, sx, 0, w, RH); };
+      if (x0 + n <= RW) put(x0, n);
+      else { put(x0, RW - x0); put(0, x0 + n - RW); }
     }
     ringKey = key; lastCol = cNow;
     // copy the ring out, oldest line on the left, pixel for pixel
@@ -906,6 +921,7 @@ export function createDoppler({ onProbe, pickGate = true }) {
       c2.drawImage(src, 0, 0, p + 1, RH, ox + RW - p - 1, oy, p + 1, RH);
     };
     ring(ctx, off, dx, dy);
+    traceBox = [dx, dy, RW, RH];   // (opaque, drawn whole: the next frame clears round it)
     // the noise floor, fixed to the screen: a new random view of the texture ~10 times a second
     if (!floor || floor.width < RW + PAD || floor.height < RH + PAD || floor.dpr !== Math.max(1, dpr)) makeNoise(RW, RH, g.binPx, Math.max(1, dpr));
     if (now - noiseAt > 100) { noiseAt = now; nx = (Math.random() * (floor.width - RW)) | 0; ny = (Math.random() * (floor.height - RH)) | 0; }
