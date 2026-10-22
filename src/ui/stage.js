@@ -1429,8 +1429,11 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (lobuleOn) return;   // the lobule view has its own zoom
     const [vx, vy] = clientToVB(cx, cy);
     const wx = (vx - vt.x) / vt.k, wy = (vy - vt.y) / vt.k;
-    vt.k = stretch ? clamp(vt.k * factor, 0.5, 7.2) : clamp(vt.k * factor, 0.6, 6);
-    vt.x = vx - wx * vt.k; vt.y = vy - wy * vt.k;
+    // (A new view, never the old one changed in place: the first fit sets the view, the home framing and the glide's target outright, and
+    // a zoom that changed the one object changed them all, so the home look took the zoomed view for home and glided it back to the fit
+    // as soon as a card moved: a pinch in the first seconds after the page opened was undone.)
+    const k = stretch ? clamp(vt.k * factor, 0.5, 7.2) : clamp(vt.k * factor, 0.6, 6);
+    vt = { k, x: vx - wx * k, y: vy - wy * k };
     applyVT(); CTM = null;
   }
   // Default framing. The circuit is a wide map (≈ 1.9 : 1); in a squarish or tall viewport,
@@ -2338,7 +2341,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       if (morphTarget === 0 && !userMoved && !store.get().presenting) {
         const d = defaultVT(false);
         if (figureShown) { homeAt = d; fitted = true; if (!sameView(d, vtGliding ? vtTarget : vt)) animateVT(d, 450); }
-        else { cancelFrame(vtAnim); vtGliding = false; vt = homeAt = vtTarget = d; fitted = true; applyVT(); CTM = null; }
+        else { cancelFrame(vtAnim); vtGliding = false; vt = { ...d }; homeAt = d; vtTarget = { ...d }; fitted = true; applyVT(); CTM = null; }   // (three views, not one object: see zoomAt)
       }
       showFigure();
     });
@@ -4929,7 +4932,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       if (c.a !== t) { c.a = t > c.a ? Math.min(1, c.a + cdu) : Math.max(0, c.a - cdu); clampMoved = true; clampShade(id); }
       if (!c.on && c.a === 0) { for (const el of ov.clampsOut.querySelectorAll(`[data-id="${id}"]`)) el.remove(); clampA.delete(id); mk.ver++; }
     }
-    if (glLines && marksKey() !== mk.key) gpuProbe.time(null, 'vessel marks (script)', marksBuild);
+    marksSync();
     if (!glLines || (!olDirty && !olList.length && !mk.dirty && !clampMoved)) return false;
     const dt = now - olLast;
     olLast = now;
@@ -5152,6 +5155,13 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     }
     if (idx.length === 3) out.push(P[idx[0]], P[idx[1]], P[idx[2]]);
     return { tris: out, sgn };
+  }
+  // Reads the marks for the GPU when they are not read yet (new shapes, a new look). Run in the frame loop, and by the update that rebuilds the
+  // overlays (below), in the same task: a rebuilt mark is an SVG shape without data-gl, shown until it is read, and the frame loop does not
+  // come round in every frame (a paced or yielding frame, a step in between), so a pan or pinch painted the new marks as SVG a frame apart
+  // from the vessels (the stent and the band rings, on a slow screen up to a quarter of a second after the model changed them).
+  function marksSync() {
+    if (glLines && marksKey() !== mk.key) gpuProbe.time(null, 'vessel marks (script)', marksBuild);
   }
   function marksBuild() {
     mk.key = marksKey();
@@ -7168,6 +7178,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (anat && p.balloonEso) ov.balloons.append(s('rect', { x: 792, y: 190, width: 20, height: 84, rx: 10, class: 'balloon-shape' }));
     if (anat && p.balloonGas) ov.balloons.append(s('circle', { cx: SITES.fundus[0], cy: SITES.fundus[1], r: 24, class: 'balloon-shape' }));
     mk.ver++;
+    marksSync();
   }
 
   // ── Labels: a screen-space layer (SVG) laid out every frame ──

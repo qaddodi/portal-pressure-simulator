@@ -477,6 +477,26 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     }
   });
 
+  // The first fit sets the view, the home framing and the glide's target outright; one object for the three meant the first zoom changed them
+  // all, so the home look took the zoomed view for home and glided it back to the fit when a card moved (a pinch in the first seconds undone).
+  if (device === 'desktop') await check(device, 'a pinch soon after the page opens stays when a card moves', async (page) => {
+    await open(page, '?preset=cirr-decomp');
+    await page.waitForFunction(() => window.ppsFigureReady, null, { timeout: 15000 }).catch(() => {});
+    await page.waitForTimeout(1500);
+    const box = await page.locator('.stage-view').boundingBox();
+    await page.mouse.move(box.x + box.width / 2, box.y + box.height * 0.45);
+    const scale = () => page.evaluate(() => { const st = window.pps.stage, a = st.worldToLocal(0, 0), b = st.worldToLocal(1, 0); return b[0] - a[0]; });
+    const rest = await scale();
+    await page.keyboard.down('Control'); await page.mouse.wheel(0, -40); await page.keyboard.up('Control');
+    await page.waitForTimeout(800);
+    const zoomed = await scale();
+    if (zoomed < rest * 1.2) throw new Error(`the pinch did not stay: the figure's scale went ${rest.toFixed(3)} to ${zoomed.toFixed(3)} and was back at the fit within 0.8 s`);
+    await page.evaluate(() => dispatchEvent(new Event('pps:occ')));   // (a card or sheet announcing a new place)
+    await page.waitForTimeout(1500);
+    const after = await scale();
+    if (Math.abs(after - zoomed) > 0.005) throw new Error(`a card moving glided the pinched view back: scale ${zoomed.toFixed(3)} to ${after.toFixed(3)} (the fit is ${rest.toFixed(3)})`);
+  });
+
   await check(device, 'sinusoid view: a rebuilt caption does not fade in again (no flashing at rest)', async (page) => {
     await open(page, '?preset=cirr-decomp');
     await page.evaluate(() => document.querySelector('#viewSeg [data-view="lobule"]').click());
