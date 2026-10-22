@@ -17,7 +17,7 @@
 // Everything that decides a place or a size is a pure function here (tests/panels-e.test.js); the drawing is at the
 // element's own pixels, one unit a CSS pixel, so its words keep the slide's caption size (12 px or more) at any width.
 
-import { h, fmt, clamp } from './util.js?v=67e1954725';
+import { h, fmt, clamp } from './util.js?v=9a45134198';
 import { TILE } from './table-marks.js?v=4dd1ebf72f';
 
 // ── Conditions: [key, op, value], all of which must hold ──

@@ -2,7 +2,7 @@
 
 import { PORTOSYSTEMIC_EDGES, SPLANCHNIC_ARTERIES, EDGES } from './topology.js?v=4044766e96';
 import { clamp } from './physiology.js?v=6fc3ec393a';
-import { tenthGap } from './gap.js?v=3a5947c552';
+import { tenthGap } from './gap.js?v=3aabfbb29b';
 
 const STENTS = new Set(['TIPS', 'DIPS']);   // the stents from the portal side: their flow is part arterial (see computeMetrics)
 
