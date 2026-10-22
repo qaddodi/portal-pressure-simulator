@@ -2774,6 +2774,34 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     followHome();
     return true;
   }
+  // In the same way, while the organs ease (the liver's shape, its tint) and no vessel width, coil, reveal or view moves, each
+  // display frame between the model's frames steps the organs alone (updateOrgans: the liver, the spleen, the fluid, their masks):
+  // the rest of the update reads only the model's frame, the settings and the view, unchanged since the last full update, and
+  // nothing in it follows the liver's ease (the organs' anchors are fixed, the spleen's size is the model's). External review,
+  // 21 Oct: the whole update, the labels' layout read included, ran on every frame of an ease. The same picture, frame for frame.
+  function stepOrgans() {
+    const f = F;
+    if (!organsEasing || !f || f !== widthF || storeVer !== widthVer || !CTM || CTM !== widthCTM || coilEasing || catchUp) return false;
+    if (lobuleOn || lz?.isOpen() || hid.at || plateStale || blockersStale || (performance.now() - blockersAt > 100 && watch.due())) return false;
+    if (morph !== morphTarget || tubesHidden !== wrap.classList.contains('gl-on') || EV.some((x) => x.reveal || (x.vis && widthMoving(x)))) return false;
+    stageWake();
+    inUpdate = true;
+    try {
+      gpuProbe.time(null, 'organ step (script)', () => {
+        const t = easeInOut(morph);
+        widthEasing = organsEasing = false;
+        updateOrgans(f, f.viewParams || store.get().params, t);
+        // (What the width step lays out every frame, it does here too: the site labels, a scan, a slide's moving camera, TIPS or DIPS.)
+        if (sites.list || scan.on || camMove || E.TIPS?.vis || E.DIPS?.vis) updateLabels(f);
+        if (fx) fxSync(f, t);
+      });
+    } finally { inUpdate = false; fxAt = null; }
+    if (plateRedraw) { plateRedraw = false; drawVeins(); }
+    firstFrame();
+    prepLobule();
+    followHome();
+    return true;
+  }
   function stepWidthsInner(f) {
     const nowW = performance.now(), dt = Math.min(0.1, (nowW - (wAt || nowW)) / 1000);
     wAt = nowW; widthEasing = false;
@@ -8971,7 +8999,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (morph !== morphTarget) {
       morph = clamp(morph + Math.sign(morphTarget - morph) * dt / 0.6, 0, 1);
       if (F) update(F); else updateGeometry(true);
-    } else if (widthEasing && F && !stepWidths()) update(F);   // a width still easing to its target: one step a frame (stepWidths: the widths alone, when nothing else changed)
+    } else if (widthEasing && F && !stepOrgans() && !stepWidths()) update(F);   // a width still easing to its target: one step a frame (stepWidths: the widths alone, when nothing else changed)
     if (rotU !== rotTarget) {
       rotU = clamp(rotU + Math.sign(rotTarget - rotU) * dt / 0.5, 0, 1);
       setViewBox(easeInOut(morph));

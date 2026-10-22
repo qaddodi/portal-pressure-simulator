@@ -12,7 +12,7 @@ const body = (name) => {
 };
 
 test('the display loop tries the width step before the full update', () => {
-  assert.match(STAGE, /else if \(widthEasing && F && !stepWidths\(\)\) update\(F\);/);
+  assert.match(STAGE, /else if \(widthEasing && F && !stepOrgans\(\) && !stepWidths\(\)\) update\(F\);/, 'the organ step, then the width step, then the full update');
 });
 
 test('the width step falls back to the full update whenever anything but the widths may have changed', () => {
@@ -42,4 +42,21 @@ test('a coil or the liver still easing keeps the full update running', () => {
   assert.match(body('updateInner'), /widthEasing = coilEasing = true/);
   assert.match(body('updateOrgans'), /if \(lvT !== tT\) widthEasing = organsEasing = true;/);
   assert.match(body('updateOrgans'), /if \(moving\) widthEasing = organsEasing = true;/);
+});
+
+test('between model frames, an organ ease alone steps the organs alone, under the width step\'s guards', () => {
+  const src = STAGE;
+  const fn = src.slice(src.indexOf('  function stepOrgans()'), src.indexOf('  function stepWidthsInner('));
+  assert.match(fn, /if \(!organsEasing \|\| !f \|\| f !== widthF \|\| storeVer !== widthVer \|\| !CTM \|\| CTM !== widthCTM \|\| coilEasing \|\| catchUp\) return false;/);
+  assert.match(fn, /if \(lobuleOn \|\| lz\?\.isOpen\(\) \|\| hid\.at \|\| plateStale \|\| blockersStale \|\| \(performance\.now\(\) - blockersAt > 100 && watch\.due\(\)\)\) return false;/);
+  assert.match(fn, /if \(morph !== morphTarget \|\| tubesHidden !== wrap\.classList\.contains\('gl-on'\) \|\| EV\.some\(\(x\) => x\.reveal \|\| \(x\.vis && widthMoving\(x\)\)\)\) return false;/, 'any vessel width still moving takes the full update');
+  assert.match(fn, /widthEasing = organsEasing = false;\n\s+updateOrgans\(f, f\.viewParams \|\| store\.get\(\)\.params, t\);/, 'the organs set their own easing flags again');
+  assert.match(fn, /if \(plateRedraw\) \{ plateRedraw = false; drawVeins\(\); \}/, 'a plate redraw it asks for is drawn, as after an update');
+  assert.match(src, /\} else if \(widthEasing && F && !stepOrgans\(\) && !stepWidths\(\)\) update\(F\);/);
+  // Nothing else in the update follows the liver's ease: only the organs and the fluid read it.
+  for (const name of ['updateOverlays', 'updateLabels', 'updateBridges', 'updateNodesCircuit', 'fxSync', 'updateFocus', 'updateOrganSel']) {
+    const at = src.indexOf(`  function ${name}(`), next = src.indexOf('\n  function ', at + 10);
+    assert.ok(at > 0, name);
+    assert.doesNotMatch(src.slice(at, next), /\blvC\b|\blvG\b|liverScale|liverFloor|liverDome/, `${name} reads the liver's ease`);
+  }
 });
