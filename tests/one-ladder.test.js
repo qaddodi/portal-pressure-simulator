@@ -85,6 +85,7 @@ test('the six-case summary keeps its six patients, the heart failure one include
 test('the profile\'s HVPG and PPG brackets round the true values, never the difference of the drawn readings (Mohammad\'s pick: they may be 1 off it)', () => {
   const src = readFileSync(new URL('../src/ui/tool-profile.js', import.meta.url), 'utf8');
   assert.doesNotMatch(src, /wholeGap/);
+  assert.doesNotMatch(readFileSync(new URL('../src/engine/gap.js', import.meta.url), 'utf8'), /wholeGap/, 'the whole-number gap is gone');
   assert.match(src, /const v = shown\[k\], rate = RATE\[k\]\(v\)\[0\];/);
   assert.match(src, /HVPG \$\{whole\(shown\.hvpg\)\}, PPG \$\{whole\(shown\.ppg\)\}/);
   assert.match(src, /return \{ v, hvpg: fp\.hvpg, ppg: fp\.ppg \};/);

@@ -50,7 +50,7 @@ export function computeMetrics(eng) {
   for (const e of EDGES) if (e.kind === 'collateral') collateralFlows[e.id] = qf(e.id);
   const shuntFraction = clamp(shunted / Math.max(1e-6, splIn + apIn), 0, 1);
 
-  const hepFlow = qf('SIN_RR') + qf('SIN_LL') + qf('CAUD') * 0;
+  const hepFlow = qf('SIN_RR') + qf('SIN_LL');
   const arterialIn = qf('A_HR') + qf('A_HL');
 
   const varE = eng.varix('VAR', P), varG = eng.varix('GV', P);

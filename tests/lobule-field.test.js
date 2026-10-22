@@ -52,10 +52,9 @@ test('every zoom into the lobule draws it first, for where it lands, then zooms;
   assert.match(lz, /function stage\(\) \{\n\s+while \(warm\(\)\);[^\n]*\n\s+if \(fade > 0 \|\| !F\) return;\n\s+flowA = 0; flowT = 0; resetView\(\); staging = true; snapState\(\);/);
   assert.match(lz, /idleDrawn = ''; draw\(0\); diveDrawn = true; staged = api\.viewKey\(\); relLater = true;/);
   assert.match(lz, /if \(fade <= 0 && !staging\) return;/, 'update fills in the model while staging');
-  // Both ways in (a tap or slide, and a pinch) draw it before their zoom's clock starts.
+  // The way in (a tap or slide; manual zoom never dives) draws it before the zoom's clock starts.
   assert.match(stage, /lz\.prewarm\(diveLand\.r\);\n\s+lz\.stage\(\); {3}\/\/ the lobule is drawn now/);
-  assert.match(stage, /lz\.prewarm\(diveLand\.r\);\n\s+lz\.stage\(\);\n\s+cancelFrame\(vtAnim\);/);
-  assert.ok(stage.indexOf('lz.stage();   //') < stage.indexOf('const t0 = !on && riseAt'), 'drawn before the zoom is timed');
+  assert.ok(stage.indexOf('lz.stage();   //') < stage.indexOf('const t0 = performance.now();\n    const step = (now) => {\n      const e0 = ms ?'), 'drawn before the zoom is timed');
   // The frame it starts to fade in draws nothing new when the framing still matches.
   assert.match(lz, /if \(staged && staged === api\.viewKey\(\) && model\) \{ if \(!raf\) raf = nextFrame\(loop\); \} else \{ diveDrawn = false; snapState\(\); if \(F\) update\(F\); \}/);
   // Its memory is given back when the zoom returns to the anatomy (never mid-zoom); the idle preparation keeps nothing.
