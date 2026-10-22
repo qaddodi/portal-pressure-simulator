@@ -21,6 +21,16 @@ export const theme = () => ({
   series: [1, 2, 3, 4, 5, 6, 7, 8].map((i) => cssVar('--s' + i)),
 });
 export const FONT = (w = 500, px = 11) => `${w} ${px}px Inter, system-ui, -apple-system, 'Segoe UI', sans-serif`;
+// A text's width in the context's current font, measured once (labels repeat on every draw). Forgotten when the web fonts
+// arrive, so a width taken in a fallback font never stays.
+const widths = new Map();
+globalThis.document?.fonts?.addEventListener?.('loadingdone', () => widths.clear());
+export const textW = (ctx, t) => {
+  const k = ctx.font + '|' + t;
+  let w = widths.get(k);
+  if (w == null) { if (widths.size > 500) widths.clear(); w = ctx.measureText(t).width; widths.set(k, w); }
+  return w;
+};
 // DOM writes only when something changed: a write on every frame, even of the same text, marks the page for a fresh
 // style and layout pass.
 const setText = (node, t) => { if (node && node.textContent !== t) node.textContent = t; };
@@ -109,7 +119,7 @@ export function createProfile() {
     // Close together, the station names turn 30° on one row (each ending under its point).
     const stagger = slot0 < 74;
     let tilt = 0;
-    if (stagger) { const m = cv.getContext('2d'); m.font = FONT(500, 12); tilt = Math.max(...stations.map((n) => m.measureText(nm(n)).width)) * 0.5; }
+    if (stagger) { const m = cv.getContext('2d'); m.font = FONT(500, 12); tilt = Math.max(...stations.map((n) => textW(m, nm(n)))) * 0.5; }
     // Arterial stations sit far above the venous scale: they are drawn in a band above a broken
     // axis (//) with their true value, never clipped.
     const hasArt = stations.some((n) => ARTERIAL.has(n));
@@ -156,9 +166,9 @@ export function createProfile() {
     const x0 = 12, x1 = w - 12;
     const vals = STRIP.map((n) => reading(n, PM)), txt = vals.map((v) => fmt(v, 1));
     ctx.font = FONT(600, 12);
-    const nw = STRIP.map((n) => ctx.measureText(STRIP_NAME[n]).width);
+    const nw = STRIP.map((n) => textW(ctx, STRIP_NAME[n]));
     let vf = 15, tw;
-    for (; vf >= 13; vf--) { ctx.font = FONT(700, vf); tw = txt.map((t) => ctx.measureText(t).width); if (STRIP.reduce((a, _, i) => a + Math.max(nw[i] + 6, tw[i] + 24), 0) <= x1 - x0) break; }
+    for (; vf >= 13; vf--) { ctx.font = FONT(700, vf); tw = txt.map((t) => textW(ctx, t)); if (STRIP.reduce((a, _, i) => a + Math.max(nw[i] + 6, tw[i] + 24), 0) <= x1 - x0) break; }
     const cw = STRIP.map((_, i) => Math.max(nw[i] + 6, tw[i] + 24)), gap = Math.max(0, (x1 - x0 - cw.reduce((a, b) => a + b, 0)) / STRIP.length);
     const cx = []; let at = x0 + gap / 2; cw.forEach((q) => { cx.push(at + q / 2); at += q + gap; });
     const X = (i) => cx[i];

@@ -6,7 +6,7 @@
 
 import { EDGES, dopplerK, stentSegments, stentSite, stentGate, stentCourse } from '../engine/topology.js?v=4044766e96';
 import { h, fmt, fitCanvas, clamp, icon, cssVar, cssAlpha } from './util.js?v=9a45134198';
-import { FONT } from './charts.js?v=38c21ea77d';
+import { FONT, textW } from './charts.js?v=69607abb69';
 import { logAction, shownVel, store } from './store.js?v=67f4341802';
 import { DOPPLER_MODES, THETA, dopplerColor, shadeColor, swatchGradient } from './dopplerColor.js?v=db91b02cc3';
 import { frameFor, noteDraw, paceMs, cancelFrame } from './frame.js?v=19b3f2915c';
@@ -828,7 +828,7 @@ export function createDoppler({ onProbe, pickGate = true }) {
     const label = probe ? probeName(meta()) + (isStentProbe() ? ` · ${SEGS.find(([v]) => v === gateOf())[1]}` : '') : '';
     ctx.font = FONT(600, 12); ctx.fillStyle = cssAlpha('--white', .86); ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
     ctx.fillText(label, padL, yLab);
-    const lw = ctx.measureText(label).width;
+    const lw = textW(ctx, label);
     ctx.font = FONT(500, 12); ctx.fillStyle = cssAlpha('--white', .5);
     // (The settings drop from the end, sweep first, where the strip is too narrow for all of them beside the units.)
     // (this frame's time, and the calipers' pick from it, before the strip: the index there is the marks' own, this frame)
@@ -838,11 +838,11 @@ export function createDoppler({ onProbe, pickGate = true }) {
     let x0 = padL + lw + 12;
     if (pi) {
       ctx.font = FONT(700, 12); ctx.fillStyle = cssAlpha('--doppler', 1); ctx.fillText(pi, x0, yLab);
-      x0 += ctx.measureText(pi).width + 12; ctx.font = FONT(500, 12); ctx.fillStyle = cssAlpha('--white', .5);
+      x0 += textW(ctx, pi) + 12; ctx.font = FONT(500, 12); ctx.fillStyle = cssAlpha('--white', .5);
     }
     const parts = [mode === 'spectrum' ? 'PW' : 'PW + CD', `θ ${THETA}°`, `SV ${svMm()} mm`, `${sweepSeconds} s`], room = w - padR - x0 - 6;
-    while (parts.length > 1 && ctx.measureText(parts.join('  ·  ')).width > room) parts.pop();
-    if (ctx.measureText(parts.join('  ·  ')).width <= room) ctx.fillText(parts.join('  ·  '), x0, yLab);
+    while (parts.length > 1 && textW(ctx, parts.join('  ·  ')) > room) parts.pop();
+    if (textW(ctx, parts.join('  ·  ')) <= room) ctx.fillText(parts.join('  ·  '), x0, yLab);
     if (buf.length < 2) {
       tDisp = null;
       ctx.textAlign = 'center'; ctx.fillStyle = cssAlpha('--white', .55);
@@ -975,7 +975,7 @@ export function createDoppler({ onProbe, pickGate = true }) {
     // (the bottom strip's settings stop short of the scale's margin).
     // (left out where a narrow monitor's bottom label would run into it: the strip's reading already names the unit)
     ctx.fillStyle = cssAlpha('--white', .5); ctx.textAlign = 'right';
-    if (!ovOn || padL + lw + 8 <= w - 6 - ctx.measureText('cm/s').width) ctx.fillText('cm/s', w - 6, ovOn ? yLab : 13);
+    if (!ovOn || padL + lw + 8 <= w - 6 - textW(ctx, 'cm/s')) ctx.fillText('cm/s', w - 6, ovOn ? yLab : 13);
     if (waves && meta().kind === 'hepatic') {
       // The hepatic vein's waves named at their peaks (a presenter slide asks for it): the a-wave reversal on the
       // atrial side of the baseline, then the S, v and D forward waves of the same beat. One beat is named at a time.
