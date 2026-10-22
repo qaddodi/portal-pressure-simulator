@@ -53,6 +53,7 @@
 //                            time (params: each option's full set of the switched keys; own: the slide's own state);
 //                            or [{ label, preset }, { label, own: true }]: buttons that ease the live model to another
 //                            patient (a preset, computed with the slide's states) and back to the slide's own state;
+//                            or [{ label, slide }, { label, own: true }]: the same, to another slide's state in the deck (a time point);
 //                            or [{ label, lens, own? }]: buttons that switch the figure's lens, the model untouched;
 //                            or [{ label, gate, own? }]: buttons that move a stent Doppler's gate (see tool), the model untouched
 //   scales                   the scale switch: an Anatomy / Lobule / Sinusoid pill that flips the figure to other scales of the same patient
@@ -83,27 +84,27 @@
 
 import { CIRCULATION } from './decks/circulation.js?v=ed5243683d';
 import { SITES } from './decks/sites.js?v=6b6bfd0d9a';
-import { HVPG } from './decks/hvpg.js?v=1f1f96d516';
+import { HVPG } from './decks/hvpg.js?v=e31e696518';
 import { ASCITES } from './decks/ascites.js?v=68ab0bb495';
 import { VARICES } from './decks/varices.js?v=5e92da46f8';
 import { TREATMENT } from './decks/treatment.js?v=dad79c0a5d';
-import { STIFFNESS } from './decks/stiffness.js?v=65532f1056';
-import { ONE_YEAR } from './decks/one-year.js?v=3c2cfc459c';
+import { STIFFNESS } from './decks/stiffness.js?v=979e2c4874';
+import { ONE_YEAR } from './decks/one-year.js?v=fc91848c2e';
 import { LOBULE } from './decks/lobule.js?v=418d63e547';
 import { SHUNTS } from './decks/shunts.js?v=fdf4deb758';
 import { TIPS_DOPPLER } from './decks/tips-doppler.js?v=a6771b69c6';
 import { TAP } from './decks/tap.js?v=3a7bc5955a';
 import { CIRCUIT } from './decks/circuit.js?v=424f33dee3';
 import { DOPPLER } from './decks/doppler.js?v=2c9442fba9';
-import { ENDOSCOPY } from './decks/endoscopy.js?v=2361b5b0bf';
-import { PREHEPATIC } from './decks/prehepatic.js?v=5cf3ae28fd';
+import { ENDOSCOPY } from './decks/endoscopy.js?v=434caeeae8';
+import { PREHEPATIC } from './decks/prehepatic.js?v=079b80df2a';
 import { RIGHT_HEART } from './decks/right-heart.js?v=804d9b4428';
-import { BLEED } from './decks/variceal-bleed.js?v=efcd021e27';
+import { BLEED } from './decks/variceal-bleed.js?v=ec58cc07eb';
 import { TWO_INFLOWS } from './decks/two-inflows.js?v=0e9eb9f46d';
 import { PVT_CIRRHOSIS } from './decks/pvt-cirrhosis.js?v=6e8a9589f9';
-import { SPLEEN } from './decks/spleen.js?v=212c72bb98';
-import { NCPH } from './decks/ncph.js?v=420bd9336a';
-import { OUTFLOW } from './decks/outflow.js?v=3bbe0120fa';
+import { SPLEEN } from './decks/spleen.js?v=914629f1fc';
+import { NCPH } from './decks/ncph.js?v=ab74f66e04';
+import { OUTFLOW } from './decks/outflow.js?v=a570abfc9d';
 import { RECOMPENSATION } from './decks/recompensation.js?v=e78b9f0f5e';
 import { WHERE } from './decks/where.js?v=07764393d5';
 import { PREGNANCY_DECK } from './decks/pregnancy.js?v=a65817a8f2';

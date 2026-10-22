@@ -26,6 +26,7 @@ export const STIFFNESS = {
     },
     {
       id: 'fibrosis', preset: 'cirr-comp', cam: 'liver', glow: ['liver'], tool: { kind: 'fibroscan' }, data: 'tiles', tiles: ['lsm', 'hvpg'], key: ['lsm'], delta: 'measure',
+      whatIf: { label: 'Scarring', param: 'cirrhosis', min: 0, max: 1, step: 0.05, ends: ['None', 'Severe'] },
       kicker: 'Liver stiffness', site: 'sin', title: 'Fibrosis stiffens the liver',
       vignette: 'A 50-year-old man with chronic hepatitis B, lost to follow-up for years, is referred for staging. He feels well, and his platelets are 159,000/µL.',
       line: 'Stiffness is {lsm}, with an HVPG of {hvpg}. By Baveno VIII, under 10 kPa makes advanced disease unlikely and over 15 kPa highly likely. Stiffness tracks the gradient well up to about 12 mmHg and only loosely above that.',

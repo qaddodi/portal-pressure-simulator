@@ -48,6 +48,7 @@ export const SPLEEN = {
     },
     {
       id: 'pse', params: { splenicRx: 1 }, cam: 'splenic', tool: { kind: 'doppler', vessel: 'SV_CONF', delta: 'grown' }, data: 'tiles', tiles: ['pv', 'hvpg'], key: ['pv'],
+      compare: [{ label: 'No treatment', short: 'None', params: { splenicRx: 0 } }, { label: 'Embolization', own: true, params: { splenicRx: 1 } }, { label: 'Splenectomy', params: { splenicRx: 2 } }],
       kicker: 'Treating the spleen', site: 'sin', title: 'Partial splenic embolization',
       line: 'Particles block part of the splenic artery. Less blood leaves by the [splenic vein](sv), and the portal pressure eases to {pv}.',
       notes: 'Through a catheter in the splenic artery, particles infarct part of the splenic pulp, often half to two thirds of it. The splenic inflow falls, so less blood reaches the portal vein and the portal pressure falls a little. Pain and fever for a few days are common afterwards; splenic abscess and portal vein thrombosis are rarer complications.',

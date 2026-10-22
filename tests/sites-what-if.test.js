@@ -84,7 +84,7 @@ test('on a phone a what-if slider takes a full line under its label', () => {
 test('a patient compare button eases the live model to its computed patient and back; the chart reads the live patient, with no station block to follow', () => {
   const src = readFileSync(new URL('../src/ui/presenter.js', import.meta.url), 'utf8');
   assert.match(src, /\.\.\.\(s\.compare \|\| \[\]\)\.filter\(\(o\) => o\.preset\)/);
-  assert.match(src, /stateReady\(o\.preset \? extraOf\.get\(xKey\(o\)\) : stateOf\[i\]\)/);
+  assert.match(src, /stateReady\(o\.preset \? extraOf\.get\(xKey\(o\)\) : stateOf\[o\.slide \? slideAt\(o\.slide\) : i\]\)/);
   assert.doesNotMatch(src, /abBlk|blockOf/);
 });
 

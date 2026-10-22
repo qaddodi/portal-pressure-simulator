@@ -452,7 +452,7 @@ Visuals may also carry `cam` (how the dimmed figure is framed).
 
 On a stent Doppler slide, `{ label, gate, own? }` buttons move the Doppler's gate (`'proximal'`, `'mid'`, `'distal'`, `'site'`) without touching the model (TIPS Doppler).
 
-A button can name another patient instead: `compare: [{ label: 'Normal heart', preset: 'healthy' }, { label: 'Failing heart', own: true }]`. The live model eases to that patient (computed with the slide's states), and the `own` button eases back to the slide's exact state.
+A button can name another patient instead: `compare: [{ label: 'Normal heart', preset: 'healthy' }, { label: 'Failing heart', own: true }]`. The live model eases to that patient (computed with the slide's states), and the `own` button eases back to the slide's exact state. A button can also name an earlier slide of the same deck, one patient's earlier visit: `compare: [{ label: 'Day 0', slide: 'd0' }, { label: 'Day 365', own: true }]` eases the live model to that slide's state and back (One year's last catheter slide). On a catheter slide the catheter's callouts and its monitor follow the live model with the tiles.
 
 ---
 

@@ -43,6 +43,7 @@ export const ENDOSCOPY = {
     {
       id: 'large', terms: ['varix'], preset: 'cirr-decomp', cam: 'gej', labels: ['VAR', 'LGV'], mark: { edges: ['C1a'], label: 'Large varices', kind: 'note' }, calipers: ['varix'], tool: { kind: 'scope', open: true },
       data: 'tiles', tiles: ['hvpg'], key: ['hvpg'],
+      compare: [{ label: 'CSPH', preset: 'csph' }, { label: 'Decompensated', own: true }],
       kicker: 'Endoscopy', site: 'sin', title: 'Size and red signs predict the first bleed',
       line: 'Varices over 5 mm bulge into the lumen and do not flatten with air; this one is {varix}. Red wale marks show where the wall has thinned.',
       notes: 'The size, the red signs (red wale marks, cherry-red spots) and the Child–Pugh class predict the first bleed. Large varices, or small ones with red signs or in Child–Pugh C, need prophylaxis: a non-selective beta-blocker (carvedilol preferred) or band ligation. With ascites and varices, Baveno VIII recommends a beta-blocker, carvedilol preferred, to prevent a first bleed and to lower the risk of ascites complications, reducing or stopping it if the systolic pressure stays below 90 mmHg, the mean below 65 mmHg, or kidney injury develops.',

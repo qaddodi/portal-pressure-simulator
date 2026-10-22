@@ -22,11 +22,11 @@ import { SCALE_NAME, offeredScales, scaleView, pickedScale } from './scale-switc
 import { NODES } from '../engine/topology.js?v=4044766e96';
 import { DISEASE_SRC, diseasePieces } from './diseases.js?v=fb8a5451c3';
 import { nb, listCase, plateletText } from './glue.js?v=5a0f63226b';
-import { DECKS, REGIONS, LEVELS, TOPICS, withOverview, siteTag, SITE_TAGS } from './decks.js?v=1413018859';
+import { DECKS, REGIONS, LEVELS, TOPICS, withOverview, siteTag, SITE_TAGS } from './decks.js?v=62b3110a33';
 import { tenthGap } from '../engine/gap.js?v=3a5947c552';
 import { createHvpgMonitor } from './hvpg-proc.js?v=be86e0f6c8';
-import { createTools } from './presenter-tools.js?v=3e76f58d1b';
-import { openHandout } from './handout.js?v=4083214706';
+import { createTools } from './presenter-tools.js?v=fc436dc6be';
+import { openHandout } from './handout.js?v=6625c4a227';
 import { noteResume, resumeFor } from './resume.js?v=f086f80ee8';
 import { parseDeckSource, checkDeck } from './deck-source.js?v=8395c650cd';
 import { NO_ASC, TILE, SCALE, bandsOf, rateOf, COLS, CUT, PRESS, fpv, dirAbs, dirRel, rateAbs, effOf, rateShown, tileShown, tipsGoal, liveSettled, shownSig } from './table-marks.js?v=58a52c530c';
@@ -34,7 +34,7 @@ import { frameFor, cancelFrame } from './frame.js?v=74867bd42b';
 import { createFigureKey } from './figure-key.js?v=3a0a1b05cc';
 import { traceWhen } from './trace-labels.js?v=fc916a95c6';
 import { flowCss, heatCss, dropCss, gradientCss, oxygenCss } from './colormap.js?v=8e570d655e';
-import { EXT, expandIds, stepExtra, markLabel, figureHooks, safe } from './slide-ext.js?v=03911e1678';
+import { EXT, expandIds, stepExtra, markLabel, figureHooks, safe } from './slide-ext.js?v=22d805f400';
 import { clotWords } from './callout-math.js?v=dd0645efe5';
 import { citeText, focusOf, oneLadder } from './teach-extras.js?v=5f5248f5a7';
 import { createProfileTool, createProfileStrip } from './tool-profile.js?v=680979eeb2';
@@ -106,7 +106,8 @@ const lensButtons = (s) => !!s.compare?.some((o) => o.lens);
 const gateButtons = (s) => !!s.compare?.some((o) => o.gate);
 /** What a compare slide's button k does. A lens button ({ label, lens }) crossfades the figure to that lens and a gate
  *  button ({ label, gate }) moves the stent Doppler's gate, the model untouched. A patient button ({ label, preset, block? })
- *  eases the live model to that patient, computed with the slide's states; the slide's own button eases back to the slide's
+ *  eases the live model to that patient, computed with the slide's states, and a time-point button ({ label, slide }) to that
+ *  slide's state in the same deck (one patient's earlier visit); the slide's own button eases back to the slide's
  *  exact state when the row has a patient button or when it names no params of its own ({ label, own: true }: the slide's
  *  state is its params, Mohammad, 19 Oct: "when i click no tips then tips again the tips doesn't come"). A normal heart is
  *  then a healthy circulation (none of the failing heart's retained fluid or ascites is left behind), and the failing heart
@@ -116,7 +117,7 @@ export function abChoice(compare, k) {
   const o = compare[k];
   if (o.lens) return { kind: 'lens', lens: o.lens };
   if (o.gate) return { kind: 'gate', gate: o.gate };
-  if (o.preset || (o.own && (!o.params || compare.some((p) => p.preset)))) return { kind: 'state' };
+  if (o.preset || o.slide || (o.own && (!o.params || compare.some((p) => p.preset || p.slide)))) return { kind: 'state' };
   return { kind: 'params', patch: o.params || {} };
 }
 // The key for the small pill on the figure (figure-key.js): the lens named, then its colour scale under it (a gradient has no end words; named swatches keep their names).
@@ -1177,9 +1178,10 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     if (c.kind === 'state') { livePatient(s, i, s.compare[k]); return; }
     liveSet(s, i, c.patch);
   }
+  const slideAt = (id) => slides.findIndex((x) => x.id === id);   // (a time-point button's slide, { label, slide })
   async function livePatient(s, i, o) {
     const g = ++abGen, mine = () => g === abGen && shown?.i === i && slides[i] === s && !!deck;
-    const st = await stateReady(o.preset ? extraOf.get(xKey(o)) : stateOf[i]);
+    const st = await stateReady(o.preset ? extraOf.get(xKey(o)) : stateOf[o.slide ? slideAt(o.slide) : i]);
     if (!st || !mine()) return;
     liveOff = true;
     const ref = refOf(s, i);
@@ -1296,6 +1298,8 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     if (!ui) return;
     if (s.data) ui.tiles.set(f, tileKeys(s), s.key || [], ref, ms, store.get().params?.tips?.on);
     ui.tools.pin(f);   // (an instrument's reading is the tiles' number)
+    // (and the catheter's callouts and its monitor, on a catheter slide whose compare buttons or time-lapse move the model)
+    if (s.cath && cath.on && cath.fp) { cath.fp = f; if (s.monitor) mon?.set(s.monitor, f); }
     stage.siteFp?.(f);   // (and a callout's)
     figureHooks('update', f, s);   // (and a deck visuals package's, slide-ext.js)
   }

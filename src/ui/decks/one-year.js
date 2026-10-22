@@ -53,6 +53,7 @@ export const ONE_YEAR = {
     },
     {
       id: 'd365', tick: 'Catheter, Doppler', days: 185, ramp: ramp(0.58, 0.66), cath: 'result', tool: { kind: 'profile', from: 'd0', fromLabel: 'Day 0' }, key: ['whvp', 'fhvp', 'hvpg'], delta: 'd0',
+      compare: [{ label: 'Day 0', slide: 'd0' }, { label: 'Day 90', slide: 'd90' }, { label: 'Day 180', slide: 'd180' }, { label: 'Day 365', own: true }],
       kicker: 'Day 365', site: 'sin', title: 'At one year, HVPG is above 12',
       line: 'The HVPG is {hvpg}, up from 8.8 a year ago. From about 12, the risk of a variceal bleed rises steeply.',
       notes: 'A year on, the gradient has risen by about 4 mmHg. The faint line on the ladder, labelled Day 0, is day 0. Above about 12 mmHg a variceal bleed becomes more likely, and the risk of ascites and other decompensation rises with each mmHg. Repeat catheter studies are not routine; in practice the stiffness, the platelets and the scope track this rise.',

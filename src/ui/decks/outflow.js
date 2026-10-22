@@ -19,6 +19,7 @@ export const OUTFLOW = {
   slides: [
     {
       id: 'bcs', terms: ['ivc', 'ra'], preset: 'budd-chiari', cam: 'hepatic', mark: { edges: ['RHV_IVC', 'MHV_IVC', 'LHV_IVC'], label: 'Clots' }, tool: { kind: 'abdomen' }, data: 'tiles', tiles: ['pv', 'asc'], key: ['asc'],
+      whatIf: { label: 'Right hepatic vein clot', param: 'thrombus.RHV_IVC', min: 0, max: 1, step: 0.05, ends: ['None', 'Occlusive'] },
       kicker: 'Hepatic veins', site: 'post', title: 'In Budd–Chiari syndrome the hepatic veins clot',
       vignette: 'A 31-year-old woman with antiphospholipid syndrome stopped warfarin 3 months ago. She has had RUQ pain for 2 months and now has tense ascites.',
       line: 'Resistance anywhere from the small [hepatic veins](hv) to where the IVC enters the right atrium traps blood in the liver. The liver swells, portal pressure rises to {pv} and ascites forms.',

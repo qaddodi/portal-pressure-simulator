@@ -39,6 +39,7 @@ export const HVPG = {
     },
     {
       id: 'hvpg', cath: 'result', monitor: 'result', tool: { kind: 'profile' }, data: 'tiles', tiles: ['whvp', 'fhvp'], key: ['whvp', 'fhvp', 'hvpg'],
+      compare: [{ label: 'Healthy', preset: 'healthy' }, { label: 'Compensated', preset: 'cirr-comp' }, { label: 'This case', own: true }, { label: 'Decompensated', short: 'Decomp.', preset: 'cirr-decomp' }],
       kicker: 'Measuring portal pressure', site: 'sin', title: 'HVPG measures the pressure drop across the sinusoids',
       eq: [mi('HVPG') + mo('=') + '<mi class="eq-wedge">WHVP</mi>' + mo('−') + '<mi class="eq-hv">FHVP</mi>'],
       line: 'In this case the HVPG is {hvpg}: clinically significant portal hypertension.',
