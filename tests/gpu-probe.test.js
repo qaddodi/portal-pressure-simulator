@@ -27,3 +27,10 @@ test('on, nested steps count apart and the waits before them count as other GPU 
   assert.equal(p['other GPU'], 4, 'the waits before each step');
   assert.equal(gpuProbe.stack.length, 0);
 });
+
+// The shared frame loop calls each surface directly while the probe is off: no name string or closure per callback per frame.
+test('the frame loop times its callbacks only while the probe is on', async () => {
+  const { readFileSync } = await import('node:fs');
+  const js = readFileSync(new URL('../src/ui/frame.js', import.meta.url), 'utf8');
+  assert.match(js, /if \(gpuProbe\.on\) gpuProbe\.time\(null, `\$\{tag\} \(script\)`, \(\) => cb\(now\)\); else cb\(now\);/);
+});

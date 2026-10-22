@@ -29,7 +29,7 @@ function flush(now) {
       current.delete(id);
       counts.set(tag, (counts.get(tag) || 0) + 1); totals.asks[tag] = (totals.asks[tag] || 0) + 1;
       const t0 = performance.now();
-      try { gpuProbe.time(null, `${tag} (script)`, () => cb(now)); } catch (e) { setTimeout(() => { throw e; }); }   // one surface's error never stops the others
+      try { if (gpuProbe.on) gpuProbe.time(null, `${tag} (script)`, () => cb(now)); else cb(now); } catch (e) { setTimeout(() => { throw e; }); }   // one surface's error never stops the others
       totals.ms[tag] = (totals.ms[tag] || 0) + performance.now() - t0;
     }
   } finally { current = null; }
