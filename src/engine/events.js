@@ -82,21 +82,28 @@ function breathAveraged(m, eng, init) {
   return s;
 }
 
+// Hold: a condition must hold for this much model time before an event fires or clears. (It was three evaluations, which
+// are frames: 0.3 s of model time at 1x, 2.4 s at 8x, and a few milliseconds during a slider drag, where every change
+// posts a frame of its own. Model time is the same on every device and at every speed.)
+const HOLD_S = 0.25;
 export function detectEvents(eng, init = false) {
   const m = computeMetrics(eng);
+  const day = (eng.day || 0) + (eng.dayFrac || 0);
+  // How long the condition has held, in model seconds; the clock starts over on a new day, a restored state or a clock set back.
+  const held = (s) => {
+    if (s.since == null || s.sinceDay !== day || eng.t < s.since) { s.since = eng.t; s.sinceDay = day; return 0; }
+    return eng.t - s.since;
+  };
   for (const d of defs(breathAveraged(m, eng, init), eng)) {
     const s = eng.evState[d.id] || (eng.evState[d.id] = { active: false });
-    // Hold: the condition must persist for 3 consecutive evaluations before firing or clearing.
     if (!s.active && d.on) {
-      s.n = (s.n || 0) + 1;
-      if (init || s.n >= 3) {
-        s.active = true; s.n = 0;
+      if (init || held(s) >= HOLD_S) {
+        s.active = true; s.since = null;
         if (!init) eng.pushEvent({ id: d.id, severity: d.severity, title: d.title, detail: d.detail, anchor: d.anchor });
       }
     } else if (s.active && d.off) {
-      s.n = (s.n || 0) + 1;
-      if (s.n >= 3) { s.active = false; s.n = 0; }
-    } else s.n = 0;
+      if (held(s) >= HOLD_S) { s.active = false; s.since = null; }
+    } else s.since = null;
   }
   return m;
 }
