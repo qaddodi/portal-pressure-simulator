@@ -66,8 +66,9 @@ test('a live organ that changed is drawn again within its box, and only its cell
   const gl = readFileSync(new URL('../src/ui/organs-gl.js', import.meta.url), 'utf8');
   const paint = readFileSync(new URL('../src/ui/organ-paint.js', import.meta.url), 'utf8');
   const veins = readFileSync(new URL('../src/ui/veins-gl.js', import.meta.url), 'utf8');
-  assert.match(gl, /setLive\(organs, masks\) \{ liveOrgans = organs \|\| new Map\(\); cuts = masks \|\| new Map\(\); liveVer\+\+; \}/, 'a live change moves its own version');
-  assert.match(gl, /stale: \(m, cw, ch\) => drawnKey !== `\$\{ver\}\|\$\{liveVer\}\|/);
+  assert.match(gl, /setLive\(organs, masks\) \{ liveOrgans = organs \|\| new Map\(\); cuts = masks \|\| new Map\(\); liveVer\+\+; watchLive\(\); \}/, 'a live change moves its own version');
+  assert.match(gl, /stale: \(m, cw, ch\) => drawnKey !== keyOf\(m, cw, ch\) \|\| \(!watch && liveNow\(\)\),/);
+  assert.match(gl, /const keyOf = \(m, cw, ch\) => \{ pull\(\); return `\$\{ver\}\|\$\{liveVer\}\|\$\{watch \? pageVer : ''\}\|/);
   assert.match(gl, /const at = `\$\{ver\}\|\$\{m\.join\(','\)\}\|\$\{cw\}x\$\{ch\}`, same = at === drawnAt && !!painter;/, 'the same view and layers: only what changed');
   assert.match(gl, /if \(a\[i\]\.ops\[k\]\[0\] !== b\[i\]\.ops\[k\]\[0\]\) \{ add\(a\[i\]\.ops\[k\]\[1\]\); add\(b\[i\]\.ops\[k\]\[1\]\); \}/, "an op's old and new boxes");
   assert.match(gl, /if \(!whole && !dirty\) \{ painter\?\.endFrame\(\); return null; \}/, 'nothing changed: nothing drawn');
@@ -122,7 +123,24 @@ test('the live organs are read once per state; the painter reads the eased value
   assert.match(paint, /let b = lv\.alpha > 0 \? devBox\(sh\.box, om, grow\) : null, cm = null, csh = null;/);
   assert.match(paint, /gl\.uniform1f\(U\.alpha, at\.alpha\);/);
   assert.match(paint, /if \(!\(o > 0\) && !ownO\(el\)\) return;/, 'a part at nothing by its own setting is kept, to show as it eases');
-  // The stack asks the painter every frame while groups are live, and draws nothing when nothing changed.
-  assert.match(gl, /\|\| !!\(painter && \(liveOrgans\.size \|\| cuts\.size\)\),/);
-  assert.match(gl, /if \(key === drawnKey && !\(painter && \(liveOrgans\.size \|\| cuts\.size\)\)\) return null;/);
+  // The stack asks the painter only after a write to a live group's elements (or, with no MutationObserver, every frame while
+  // groups are live), and draws nothing when nothing changed.
+  assert.match(gl, /if \(key === drawnKey && \(watch \|\| !liveNow\(\)\)\) return null;/);
+});
+
+// Review item 3: with live organs the stack no longer describes every op as strings on every blood frame. It watches exactly the
+// elements the painter reads from (each op's element, its chain, its clip's, the group's root and mask, and each entry's own frame
+// element) and renders again only after a write that left one different, taken synchronously so the same task's composite sees it.
+test('the live organs are described again only after a write to what the painter reads', () => {
+  const gl = readFileSync(new URL('../src/ui/organs-gl.js', import.meta.url), 'utf8');
+  const stage = readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8');
+  assert.match(gl, /const pull = \(\) => \{ if \(!watch\) return; const rs = watch\.takeRecords\(\); if \(rs\.length && netChanged\(rs\)\) pageVer\+\+; \};/);
+  const els = gl.slice(gl.indexOf('const elsOf = '), gl.indexOf('function watchLive()'));
+  for (const k of ['out.add(spec.root)', 'out.add(op.el)', 'out.add(op.geom?.el)', 'for (const e of op.chain || []) out.add(e)', 'out.add(op.clip.geom?.el)', 'for (const e of op.clip.chain || []) out.add(e)', 'elsOf(spec.mask, out)']) assert.ok(els.includes(k), k);
+  assert.match(gl, /for \(const list of liveOrgans\.values\(\)\) for \(const o of list\) \{ elsOf\(o\.spec, els\); els\.add\(o\.el\); \}/);
+  assert.match(gl, /for \(const c of cuts\.values\(\)\) \{ elsOf\(c\.spec, els\); els\.add\(c\.el\); \}/);
+  assert.match(gl, /watch\.observe\(el, \{ attributes: true, attributeOldValue: true \}\)/);
+  // The cuts' frames are read from their group (the gut, the stomach), not the mask: that element is watched too.
+  assert.equal((stage.match(/\{ spec, el: g, get m\(\) \{ return matOfEl\(g\); \}/g) || []).length, 2);
+  assert.match(stage, /organs\.get\(L\)\.push\(\{ spec, get m\(\) \{ return matOfEl\(el\); \} \}\);/, "an organ's frame element is its spec's root");
 });

@@ -3943,8 +3943,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       const el = defs.querySelector(sel), g = L === 'gut' ? gGut : organG.stomach;
       const spec = el && readGroup(el);
       if (!spec) { ok = false; continue; }
-      // (The gut's: its group's opacity laid with it, and the bowel's picture, at rest, gathered under it with its float.)
-      masks.set(L, L === 'gut' ? { spec, get m() { return matOfEl(g); }, opacity: parseFloat(getComputedStyle(gGut).opacity), under: [{ name: 'bowel', dy: bowelDy() }] } : { spec, get m() { return matOfEl(g); } });
+      // (The gut's: its group's opacity laid with it, and the bowel's picture, at rest, gathered under it with its float. el: the
+      // element whose frame m reads, watched by the stack for writes with the mask's own elements: organs-gl watchLive.)
+      masks.set(L, L === 'gut' ? { spec, el: g, get m() { return matOfEl(g); }, opacity: parseFloat(getComputedStyle(gGut).opacity), under: [{ name: 'bowel', dy: bowelDy() }] } : { spec, el: g, get m() { return matOfEl(g); } });
     }
     if (!ok) { liveFailed = true; v.organs.setLive(null, null); liveSet = false; hidePlate(); platePoke(); return; }
     // (The next composite renders the stack again for it (its version moved): the vessels themselves need no redraw.)

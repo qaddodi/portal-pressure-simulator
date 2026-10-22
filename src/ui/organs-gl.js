@@ -45,6 +45,7 @@ void main() {
 
 import { createShapeGL } from './shape-gl.js?v=c4003c5526';
 import { createOrganPaint, mul } from './organ-paint.js?v=7bcc7ef138';
+import { netChanged } from './idle-keys.js?v=ea36a0b5c6';
 
 function program(gl, vs, fs) {
   const p = gl.createProgram();
@@ -99,6 +100,36 @@ export function createOrganStack(gl) {
   // The live organs (name → [{ spec (organ-paint readGroup), m (its frame → world) }]) and the layers' live masks (name → { spec, m }).
   let liveOrgans = new Map(), cuts = new Map(), painter = null;
   try { painter = createOrganPaint(gl, createShapeGL(gl)); } catch (e) { console.warn('Organ stack: the live painter failed; the organs stay pictures.', e); }
+  // What the painter reads from the page at each paint (organ-paint liveOf, describe) is the live groups' elements' own attributes
+  // and inline styles (an outline's d, a transform, an opacity), and each entry's own frame (its `el`, the m getter's element). A
+  // watch on exactly those elements moves `pageVer` on any write that leaves one different, so a render with nothing written since
+  // the last returns at once, without describing every op as strings on every blood frame (review item 3). The records are taken
+  // synchronously at each check (takeRecords), so a write made in the same task as the composite is seen by that composite.
+  // (No MutationObserver: every render describes, as before.)
+  let pageVer = 0;
+  const watch = typeof MutationObserver === 'function' ? new MutationObserver((rs) => { if (netChanged(rs)) pageVer++; }) : null;
+  const pull = () => { if (!watch) return; const rs = watch.takeRecords(); if (rs.length && netChanged(rs)) pageVer++; };
+  const elsOf = (spec, out) => {
+    if (!spec) return;
+    out.add(spec.root);
+    for (const op of spec.ops) {
+      out.add(op.el); out.add(op.geom?.el);
+      for (const e of op.chain || []) out.add(e);
+      if (op.clip) { out.add(op.clip.geom?.el); for (const e of op.clip.chain || []) out.add(e); }
+    }
+    elsOf(spec.mask, out);
+  };
+  function watchLive() {
+    if (!watch) return;
+    pull(); watch.disconnect();
+    const els = new Set();
+    for (const list of liveOrgans.values()) for (const o of list) { elsOf(o.spec, els); els.add(o.el); }
+    for (const c of cuts.values()) { elsOf(c.spec, els); els.add(c.el); }
+    for (const el of els) if (el?.nodeType === 1) watch.observe(el, { attributes: true, attributeOldValue: true });
+    pageVer++;
+  }
+  const liveNow = () => !!(painter && (liveOrgans.size || cuts.size));
+  const keyOf = (m, cw, ch) => { pull(); return `${ver}|${liveVer}|${watch ? pageVer : ''}|${m.join(',')}|${cw}x${ch}`; };
   const free = (map) => { for (const L of map.values()) gl.deleteTexture(L.tex); map.clear(); };
   const mat = new Float32Array(9);
   return {
@@ -126,7 +157,7 @@ export function createOrganStack(gl) {
      * The organs painted live, by layer name (each a list of { spec, m }), and the layers' live masks (name → { spec, m }), in
      * place of what was set before; null for none. Drawn at the next render.
      */
-    setLive(organs, masks) { liveOrgans = organs || new Map(); cuts = masks || new Map(); liveVer++; },
+    setLive(organs, masks) { liveOrgans = organs || new Map(); cuts = masks || new Map(); liveVer++; watchLive(); },
     /** A layer gathered under a cut (its `under`) now at dy world units down (drawn at its `at`), as of the next render. */
     shift(name, dy) {
       for (const c of cuts.values()) for (const u of c.under || []) if (u.name === name && u.dy !== dy) { u.dy = dy; liveVer++; }
@@ -135,17 +166,18 @@ export function createOrganStack(gl) {
     setOrder(names) { order = names.slice(); ver++; },
     drop(slot) { if (live[slot].size) { free(live[slot]); ver++; } free(staged[slot]); },
     has: (slot) => live[slot].size > 0,
-    /** Whether a render at transform m and this size would draw something new (a pan, a zoom, a new set). */
-    // (With live groups, a render is always asked: what they draw is read from the page there, and nothing is drawn when it is as it was.)
-    stale: (m, cw, ch) => drawnKey !== `${ver}|${liveVer}|${m.join(',')}|${cw}x${ch}` || !!(painter && (liveOrgans.size || cuts.size)),
+    /** Whether a render at transform m and this size would draw something new (a pan, a zoom, a new set, a live group written). */
+    // (Without the page watch, a render is always asked while groups are live: what they draw is read from the page there, and
+    // nothing is drawn when it is as it was.)
+    stale: (m, cw, ch) => drawnKey !== keyOf(m, cw, ch) || (!watch && liveNow()),
     /**
      * The stack drawn for transform m (world → device px) into its texture, the canvas's size. Returns what changed in it: true for
      * the whole (the view or the layers changed), a device box [x0, y0, x1, y1] when only live groups changed (their boxes, old and new),
      * or null when nothing on it changed.
      */
     render(m, cw, ch) {
-      const key = `${ver}|${liveVer}|${m.join(',')}|${cw}x${ch}`;
-      if (key === drawnKey && !(painter && (liveOrgans.size || cuts.size))) return null;
+      const key = keyOf(m, cw, ch);
+      if (key === drawnKey && (watch || !liveNow())) return null;
       drawnKey = key;
       const at = `${ver}|${m.join(',')}|${cw}x${ch}`, same = at === drawnAt && !!painter;
       drawnAt = at;
