@@ -1,6 +1,6 @@
 // The liver's outline as cirrhosis and congestion reshape it (pure: no DOM, so the tests can check the vessels stay inside it).
 import { seeded } from './liver-geo.js?v=977185f80a';
-import { EDGE_PATH, LIVER_EDGES, HIDDEN_EDGES, ANAT_HIDDEN, STRANDS } from './anatomy.js?v=c3c8976b67';
+import { EDGE_PATH, LIVER_EDGES, HIDDEN_EDGES, ANAT_HIDDEN, STRANDS } from './anatomy.js?v=b7caddf567';
 
 const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
 export const smooth01 = (v) => { const t = clamp(v, 0, 1); return t * t * (3 - 2 * t); };

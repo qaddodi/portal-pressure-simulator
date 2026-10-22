@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { COLON_RING } from '../src/ui/organ-art.js';
 
 // While the plate is down (the liver, spleen or fluid easing), the gut's mask follows the liver every frame, and a mask that
 // changes repaints everything under it: the gut's 1,201 paths. So the gut shows as a picture of itself then, made at rest
@@ -64,9 +65,16 @@ test('the rectum fades out at its end through a mask on the colon\'s own group, 
   // The gut's mask no longer cuts the rectum off at 1040: it runs to 1080, past the end of the art and the fade.
   assert.match(stage, /<mask id="gutHide"[^>]*height="660"><rect [^>]*height="660" fill="#fff"\/>/);
   const rect = stage.match(/const GUT_RECT = \[(\d+), (\d+), (\d+), (\d+)\]/).slice(1).map(Number);
-  const [, y1] = readFileSync(new URL('../src/ui/anatomy.js', import.meta.url), 'utf8').match(/RECTUM_FADE = \[(\d+), (\d+)\]/).slice(1).map(Number);
-  assert.equal(y1, 1075);
+  const [y0, y1] = readFileSync(new URL('../src/ui/anatomy.js', import.meta.url), 'utf8').match(/RECTUM_FADE = \[(\d+), (\d+)\]/).slice(1).map(Number);
+  assert.equal(y1, 1015);
+  assert.ok(y0 >= 935, 'the superior rectal veins (C4) end at y 928, on a rectum still at full strength');
   assert.ok(rect[1] + rect[3] >= y1, 'the gut picture reaches the end of the fade');
+  // The colon art is clipped by Mohammad's drawn outline (oc-his = COLON_RING), whose end is a slanted edge at y 1017 to 1037. The fade
+  // must be gone before the art's own end, at every x of it: with the fade running on to 1075 the art stopped at about half strength,
+  // a hard edge, in every view and theme (Mohammad, 22 Oct: "the fade never worked in this case").
+  const pts = []; for (let i = 0, n = COLON_RING.match(/-?\d+\.?\d*/g).map(Number); i < n.length; i += 2) pts.push([n[i], n[i + 1]]);
+  const lowest = []; for (let x = 770; x <= 810; x++) lowest.push(Math.max(...pts.filter((p) => Math.abs(p[0] - x) <= 2).map((p) => p[1])));
+  assert.ok(Math.min(...lowest) >= y1, `the rectum's drawn end (${Math.min(...lowest)} at its highest) is below where the fade is gone (${y1})`);
   // the outlines and glows over the rectum fade on the same span: every organ outline draw carries it, and the shader reads it
   assert.equal((stage.match(/endFade: RECTUM_FADE/g) || []).length, 2, 'warm glow, and the outline and glow passes');
   const gl = readFileSync(new URL('../src/ui/veins-gl.js', import.meta.url), 'utf8');

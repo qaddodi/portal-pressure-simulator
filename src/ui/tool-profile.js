@@ -9,7 +9,7 @@
 // Its numbers are the slide's own (its fingerprint, as the tiles read it: the same on every screen), easing to each new
 // state; a what-if slider or compare button moves it with the tiles. The Patients chart (charts.js) is not changed.
 
-import { PROFILE_PATHS } from './anatomy.js?v=c3c8976b67';
+import { PROFILE_PATHS } from './anatomy.js?v=b7caddf567';
 import { NODES } from '../engine/topology.js?v=4044766e96';
 import { RATE } from './table-marks.js?v=58a52c530c';
 import { monotoneSegs } from './curve-near.js?v=9ff15157e9';
