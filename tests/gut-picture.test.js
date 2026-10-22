@@ -41,7 +41,7 @@ test('the picture is made at rest from the plate copy, never baked into the plat
   assert.match(mk, /if \(!gGut \|\| !plateOn\(\) \|\| !CTM \|\| morphTarget !== 0 \|\| morph > 0 \|\| !plateCopy\?\.gut\?\.length \|\| plateCopy\.key !== plateStateKey\(\) \|\| plateCopy\.gutMut !== gutMut\) return;/);
   assert.match(mk, /await keep\.decode\(\);/, 'decoded before it can show');
   const build = fn('plateBuild');
-  assert.match(build, /if \(gGut\.children\[i\] === gGutPics\) k\.setAttribute\('data-pc', 'drop'\); else k\.setAttribute\('data-gut', i\);/);
+  assert.match(build, /if \(gGut\.children\[i\] === gGutPics \|\| gGut\.children\[i\] === gGutCuts\) k\.setAttribute\('data-pc', 'drop'\); else k\.setAttribute\('data-gut', i\);/);
   assert.match(stage, /gGut \? gutKids\(\) : \[\]\)\) \{/);
   assert.match(stage, /schedulePlateView\(\); gutPicSoon\(\);/);
 });
@@ -77,4 +77,22 @@ test('the gut pictures for the zooms further out, down to the whole figure, are 
   assert.match(out, /const lo = gutStep\(vdpr \* CTM\.sc \/ vt\.k \* Math\.min\(1, homeAt\?\.k \?\? 1\), GUT_CAP\);/);
   assert.match(out, /const top = vdpr \* CTM\.sc > GUT_CAP \* 1\.15 \? GUT_CAP \* Math\.SQRT2 : gutStep\(vdpr \* CTM\.sc, GUT_CAP\);/);
   assert.match(out, /for \(let k = top \/ Math\.SQRT2; k >= lo \* 0\.99; k \/= Math\.SQRT2\) \{ if \(!leftAlone\(1000\)\) return; await makeGutPic\(k \/ 1\.01\); \}/);
+});
+
+test('while the picture shows, the gut\'s cuts are patches of the stage colour in place of its mask (same pixels)', () => {
+  assert.match(stage, /const gGutCuts = s\('g', \{ class: 'gut-cuts', 'pointer-events': 'none' \}\);/);
+  assert.match(stage, /const gutPatch = Object\.fromEntries\(GUT_HIDE\.map\(\(id\) => \[id, s\('path', \{ d: id === 'stomach' \? SEAM_D : ORGANS\.find\(\(o\) => o\.id === id\)\.d \}\)\]\)\);/, 'the same shapes as the mask\'s cuts');
+  assert.match(stage, /gGut\?\.append\(gGutCuts\);\n\s+const gutKids = \(\) => \(gGut \? \[\.\.\.gGut\.children\]\.filter\(\(c\) => c !== gGutPics && c !== gGutCuts\) : \[\]\);/, 'over the picture, never a gut group of its own');
+  assert.match(stage, /for \(const el of \[gutCut\.liver, gutPatch\.liver, frontCut, ghostCut, ascLvCut\]\) putA\(el, 'transform', lt\);/, 'the liver patch takes the cut\'s shrink');
+  assert.match(stage, /for \(const el of \[gutCut\.spleen, gutPatch\.spleen\]\) putA\(el, 'transform', spleenT \|\| ''\);/);
+  assert.match(stage, /liverPaths\.push\(gutCut\.liver, gutPatch\.liver,/, 'and its outline');
+  assert.match(stage, /if \(!gGutCuts\.contains\(el\) && !visit\(el\)\) return null;/, 'never greyed: the stage is not');
+  assert.match(stage, /<clipPath id="gutBox" clipPathUnits="userSpaceOnUse"><rect x="320" y="420" width="800" height="660"\/><\/clipPath>/);
+  assert.match(stage, /<mask id="gutHide" maskUnits="userSpaceOnUse" x="320" y="420" width="800" height="660">/, 'the clip is the mask\'s box');
+  assert.match(css, /#organs > \.organ-gut > \.gut-cuts \{ display: none; \}/);
+  assert.match(css, /#organs:not\(\[filter\]\) > \.organ-gut\.gut-pic-on \{ mask: none; clip-path: url\(#gutBox\); \}/);
+  assert.match(css, /#organs:not\(\[filter\]\) > \.organ-gut\.gut-pic-on > \.gut-cuts \{ display: inline; \}/);
+  assert.match(css, /\.gut-cuts > path \{ fill: var\(--stage-bg\); stroke: none; \}/);
+  assert.match(css, /\.stage-wrap \{[^}]*background: var\(--stage-bg\);/, 'the stage the cut showed is that colour');
+  assert.match(stage, /for \(const g of \[gOrgans, gBackdrop\]\) g\.setAttribute\('filter', 'url\(#organDim\)'\);/, 'the grey filter fallback is an attribute on #organs');
 });

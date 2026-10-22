@@ -616,6 +616,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     // colour-exempt: masks (white shows, black hides)
     // (The gut's mask runs to y 1080, past the rectum's end: at 1040 it cut the rectum off in a hard edge. The rectum's fade is on the colon's
     // own group, rectFade, as the esophagus has esoFade.)
+    + '<clipPath id="gutBox" clipPathUnits="userSpaceOnUse"><rect x="320" y="420" width="800" height="660"/></clipPath>'
     + `<mask id="gutHide" maskUnits="userSpaceOnUse" x="320" y="420" width="800" height="660"><rect x="320" y="420" width="800" height="660" fill="#fff"/>${GUT_HIDE.map((id) => `<path data-gut-cut="${id}" d="${id === 'stomach' ? SEAM_D : ORGANS.find((o) => o.id === id).d}" fill="#000"/>`).join('')}</mask>`
     // The duodenum's first part fades in over the stomach's tip, from inside it (x 730) to just past it (x 712).
     + '<linearGradient id="duFadeG" gradientUnits="userSpaceOnUse" x1="712" y1="0" x2="730" y2="0"><stop offset="0" stop-color="#fff"/><stop offset="1" stop-color="#000"/></linearGradient><mask id="duFade" maskUnits="userSpaceOnUse" x="500" y="400" width="400" height="400"><rect x="500" y="400" width="400" height="400" fill="url(#duFadeG)"/></mask>'
@@ -687,7 +688,16 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // The gut's picture while the organs ease (gutPic), over its groups, under the gut's mask and opacity.
   const gGutPics = s('g', { class: 'gut-pics', 'pointer-events': 'none', style: 'display:none' });
   gGut?.append(gGutPics);
-  const gutKids = () => (gGut ? [...gGut.children].filter((c) => c !== gGutPics) : []);
+  // Over the picture, the gut's three cuts as patches of the stage's colour (app.css .gut-cuts): while the picture shows they
+  // stand in for the mask, whose liver cut changed on every frame of an ease and had Safari draw the whole gut again through two
+  // offscreen layers the size of the screen (external review, 21 Oct). Under the gut, inside the liver, stomach and spleen, there
+  // is only the stage (the diaphragm is cut away there, and clear below y 420), so a patch of its colour inside the see-through
+  // group shows the stage, as the cut did: the same pixels. A plain rectangle clip keeps the mask's box.
+  const gGutCuts = s('g', { class: 'gut-cuts', 'pointer-events': 'none' });
+  const gutPatch = Object.fromEntries(GUT_HIDE.map((id) => [id, s('path', { d: id === 'stomach' ? SEAM_D : ORGANS.find((o) => o.id === id).d })]));
+  gGutCuts.append(...Object.values(gutPatch));
+  gGut?.append(gGutCuts);
+  const gutKids = () => (gGut ? [...gGut.children].filter((c) => c !== gGutPics && c !== gGutCuts) : []);
   const GUT_RECT = [320, 410, 800, 670];   // the gut's mask (#gutHide), in the groups' own frame (the bowel's float of 26 included)
   const GUT_CAP = Math.min(4096 / GUT_RECT[2], 4096 / GUT_RECT[3], Math.sqrt(4.2e6 / (GUT_RECT[2] * GUT_RECT[3])));   // px per unit, at most
   let gutPic = null, gutPics = [], gutPicOn = false, gutPicSeq = 0, gutPicTimer = 0, gutMut = 0, gutLookAt = null, gutLookV = '';
@@ -705,8 +715,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // The masks' copies of the liver and spleen follow them as they change size, every frame (as the diaphragm's cuts do).
   function syncOrganMasks(shrink, spleenT) {
     const lt = `translate(560 350) scale(${shrink.toFixed(4)}) translate(-560 -350)`;
-    for (const el of [gutCut.liver, frontCut, ghostCut, ascLvCut]) putA(el, 'transform', lt);
-    putA(gutCut.spleen, 'transform', spleenT || '');
+    for (const el of [gutCut.liver, gutPatch.liver, frontCut, ghostCut, ascLvCut]) putA(el, 'transform', lt);
+    for (const el of [gutCut.spleen, gutPatch.spleen]) putA(el, 'transform', spleenT || '');
     // (lvThin is the liver's own mask, read in the liver's frame: the stomach's copy takes the shrink's inverse.)
     putA(thinCut, 'transform', `translate(560 350) scale(${(1 / shrink).toFixed(5)}) translate(-560 -350)`);
   }
@@ -757,7 +767,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     diaMask.append(diaCut[o.id]);
   }
   liverPaths.push(diaCut.liver);
-  liverPaths.push(gutCut.liver, frontCut, ghostCut, ascLvCut);   // (the masks' copies: the gut's cut, the stomach's see-through, the ghost line's, the ascites')
+  liverPaths.push(gutCut.liver, gutPatch.liver, frontCut, ghostCut, ascLvCut);   // (the masks' copies: the gut's cut and its patch, the stomach's see-through, the ghost line's, the ascites')
   // (Cirrhosis's reshaping of the liver, CIRR and liverField: liver-morph.js.)
   let baseLiver = null, liverKey = '';
   // The diseased liver's outline without its nodular bulges and notches, for the diaphragm: one smooth dome the nodules
@@ -3616,7 +3626,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         // The gut's own picture (gutPic) is never part of the copy; its groups are marked so it can be made from the copy.
         if (g === gOrgans) {
           const gc = c.children[[...gOrgans.children].indexOf(gGut)];
-          if (gc) [...gc.children].forEach((k, i) => { if (gGut.children[i] === gGutPics) k.setAttribute('data-pc', 'drop'); else k.setAttribute('data-gut', i); });
+          if (gc) [...gc.children].forEach((k, i) => { if (gGut.children[i] === gGutPics || gGut.children[i] === gGutCuts) k.setAttribute('data-pc', 'drop'); else k.setAttribute('data-gut', i); });
         }
         // (Shown for this copy by definition: the stage hides these groups only while the GPU draws them. A visibility read back
         // from the page here could be stale, as Chrome's was for descendants (d7d2314), and one stale "hidden" at the top hides
@@ -4182,7 +4192,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       }
       return true;
     };
-    for (const el of [...gBackdrop.querySelectorAll('*'), ...gOrgans.querySelectorAll('*')]) if (!visit(el)) return null;
+    for (const el of [...gBackdrop.querySelectorAll('*'), ...gOrgans.querySelectorAll('*')]) if (!gGutCuts.contains(el) && !visit(el)) return null;   // (the gut's patches stay the stage's colour, as the stage shows through a cut)
     while (refs.length) {
       const id = refs.pop();
       if (seen.has(id)) continue;
