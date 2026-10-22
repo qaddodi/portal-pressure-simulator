@@ -116,6 +116,7 @@ import { GASTRIC } from './decks/gastric-varices.js?v=c5e6a19ef7';
 import { READ_DOPPLER } from './decks/read-doppler.js?v=148f0ab0d0';
 import { HYPERDYNAMIC } from './decks/hyperdynamic.js?v=5603f677ec';
 import { CHOOSE_TREATMENT } from './decks/choose-treatment.js?v=0d59f78349';
+import { BLOOD_VOLUME } from './decks/blood-volume.js?v=44a23e2e25';
 
 // Regions of the anatomy plate the camera frames (world units, x 300-1120, y 0-920).
 export const REGIONS = {
@@ -186,6 +187,7 @@ DECKS.push(GASTRIC);
 DECKS.push(READ_DOPPLER);
 DECKS.push(HYPERDYNAMIC);
 DECKS.push(CHOOSE_TREATMENT);
+DECKS.push(BLOOD_VOLUME);
 
 // The unified menu lists the presentations by topic, in teaching order, under a short title (32 characters or fewer); the
 // third name is the deck's short name in the tab at each slide card's top right corner (presenter.js deckTab; 20 or fewer).
@@ -193,7 +195,7 @@ export const TOPICS = [
   ['foundations', 'Foundations', [['circulation', 'The portal circulation', 'Circulation'], ['circuit', 'Portal pressure as a circuit', 'Circuit'], ['two-inflows', 'The liver\'s two inflows', 'Two inflows'], ['hvpg', 'HVPG and PPG', 'HVPG and PPG'], ['hyperdynamic', 'The hyperdynamic circulation', 'Hyperdynamic']]],
   ['causes', 'Causes', [['sites', 'Sites and causes', 'Sites and causes'], ['prehepatic', 'Pre-hepatic PH', 'Pre-hepatic PH'], ['ncph', 'Presinusoidal PH', 'Presinusoidal PH'], ['right-heart', 'The right heart and the liver', 'Right heart'], ['outflow', 'Hepatic outflow obstruction', 'Outflow obstruction'], ['lobule', 'Inside the lobule', 'Lobule'], ['where-resistance', 'Where is the resistance?', 'Find the resistance']]],
   ['measuring', 'Measuring', [['doppler', 'Doppler of the portal system', 'Doppler'], ['read-doppler', 'Read the Doppler', 'Read the Doppler'], ['stiffness', 'Stiffness, spleen and platelets', 'Stiffness'], ['one-year', 'A year of compensated cirrhosis', 'One year']]],
-  ['complications', 'Complications', [['varices', 'Collaterals and varices', 'Varices'], ['endoscopy', 'Endoscopy and the varix', 'Endoscopy'], ['variceal-bleed', 'Acute variceal bleeding', 'Variceal bleed'], ['ascites', 'How ascites forms', 'Ascites'], ['tap', 'Paracentesis and albumin', 'Paracentesis'], ['encephalopathy', 'Encephalopathy and shunting', 'Encephalopathy'], ['spleen', 'The spleen: size and treatment', 'Spleen'], ['gastric-varices', 'Gastric varices', 'Gastric varices'], ['pvt-cirrhosis', 'Portal vein clot in cirrhosis', 'PVT in cirrhosis'], ['recompensation', 'Decompensation and recovery', 'Recompensation'], ['pregnancy', 'Cirrhosis in pregnancy', 'Pregnancy']]],
+  ['complications', 'Complications', [['varices', 'Collaterals and varices', 'Varices'], ['endoscopy', 'Endoscopy and the varix', 'Endoscopy'], ['variceal-bleed', 'Acute variceal bleeding', 'Variceal bleed'], ['blood-volume', 'Blood volume and portal pressure', 'Blood volume'], ['ascites', 'How ascites forms', 'Ascites'], ['tap', 'Paracentesis and albumin', 'Paracentesis'], ['encephalopathy', 'Encephalopathy and shunting', 'Encephalopathy'], ['spleen', 'The spleen: size and treatment', 'Spleen'], ['gastric-varices', 'Gastric varices', 'Gastric varices'], ['pvt-cirrhosis', 'Portal vein clot in cirrhosis', 'PVT in cirrhosis'], ['recompensation', 'Decompensation and recovery', 'Recompensation'], ['pregnancy', 'Cirrhosis in pregnancy', 'Pregnancy']]],
   ['treatment', 'Treatment', [['treatment', 'Lowering portal pressure', 'Lowering pressure'], ['beta-blockers', 'Propranolol or carvedilol', 'Beta-blockers'], ['next-bleed', 'Preventing the next bleed', 'Next bleed'], ['choose-treatment', 'Choose the treatment', 'Choose treatment'], ['cause-treated', 'Treating the cause', 'Treating the cause'], ['shunts', 'Spontaneous shunts and TIPS', 'Shunts and TIPS'], ['tips-doppler', 'Doppler after TIPS', 'TIPS Doppler']]],
 ];
 for (const [topic, , list] of TOPICS) for (const [id, short, head] of list) { const d = DECKS.find((x) => x.id === id); if (d) Object.assign(d, { topic, short, head }); }
