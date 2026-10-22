@@ -9662,7 +9662,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       return;
     }
     if (drag.type === 'pan') {
-      if (Math.abs(ev.clientX - drag.x) + Math.abs(ev.clientY - drag.y) > (ev.pointerType === 'touch' ? 8 : 4)) { drag.moved = true; clearPress(); }
+      // Once it counts as a pan the figure follows the finger from where it is then, rather than catching up the slop in one frame.
+      if (Math.abs(ev.clientX - drag.x) + Math.abs(ev.clientY - drag.y) > (ev.pointerType === 'touch' ? 8 : 4)) { if (!drag.moved) { drag.moved = true; drag.x = ev.clientX; drag.y = ev.clientY; } clearPress(); }
       if (drag.peeked) {   // a long press then drag: the popup follows whichever vessel is under the finger
         const r = wrap.getBoundingClientRect();
         const id = edgeFromEvent(ev) || nearbyEdge(ev);
