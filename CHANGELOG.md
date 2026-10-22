@@ -2,6 +2,12 @@
 
 ## October 2026
 
+- **The author guides are up to date again.** Both deck guides (`docs/deck-authoring-guide.md` and the quick guide) were checked against
+  the code on 22 Oct. New in them: the bedside time-lapse (`lapse.clock: 'seconds'`) and the `meal` and `fenestrae` settings (a meal is
+  ramped with `meal`, not `splanchnicTone`), the `gut` camera region, patient buttons that carry `params` and `days`, `procedure`
+  (TIPS, BRTO, BATO), the time-point and gate buttons, the `gv`, `co` and `bv` table columns, the one set of flow cut-offs, the Gut to heart
+  chart's zones, pills and red block, the six-case grid, the reasoning question in the closing quick check, question and answer pairs, and
+  the six decks added since 20 Oct. Docs only.
 - **Cardiac output and Blood volume tiles get their normal bands.** They were the only two data card tiles left with a bare gray track and
   no word. Each now has coloured bands with its cut-off numbers, a dot for now, a ring for the start and a rating word, in Heart rate's
   style (Mohammad, 22 Oct: any tile should always have its normal where it can). The guideline files give no numbers for either, so these

@@ -1,6 +1,6 @@
 # Writing a deck: the short guide
 
-This guide is for people. It explains what a deck can show, gives one small example of each feature and says when to use it. Each section ends with a pointer to the full guide, `docs/deck-authoring-guide.md`, which lists every option, value and rule. When the two disagree, the full guide and the code win.
+This guide is for people. It explains what a deck can show, gives one small example of each feature and says when to use it. Each section ends with a pointer to the full guide, `docs/deck-authoring-guide.md`, which lists every option, value and rule. When the two disagree, the full guide and the code win. Both were checked against the app on 22 Oct 2026.
 
 ## How a deck works
 
@@ -49,6 +49,7 @@ Each slide has a `title` that stands on its own and a `line` of fewer than 45 wo
 - **A source line.** `cite: 'Baveno VIII 1.15, 1.16'` prints a small source under the words. Use it when a slide states a guideline rule. Cite Baveno VIII, EASL 2025 or AASLD 2024, never Baveno VII.
 - **Small print.** `caveat` adds one sentence where the model differs from real patients.
 - **Handout only.** `notes` and `ask` print in the handout and never show on screen.
+- **The closing quick check.** `checks` holds 3 or 4 `[question, answer]` pairs, and the app turns them into the last slide. Make one a reasoning question that gives a change in the numbers and asks what moved: `['The HVPG falls from 16 to 11 mmHg on a beta-blocker. Is the bleeding risk gone?', 'Much lower, not gone: varices can still bleed below 12 mmHg.']`. A card with four questions is full.
 
 Full guide: section 6 (words), section 9 (house rules).
 
@@ -59,6 +60,8 @@ Full guide: section 6 (words), section 9 (house rules).
 - `action: { kind: 'band' }` is a one-off event, such as banding, paracentesis or a bleed.
 - `days: 90` lets the disease run on, and `ramp: { cirrhosis: [0.5, 0.6] }` moves a setting across those days.
 - `lapse: { seconds: 8 }` plays those days on the figure as a time-lapse.
+- `days: 8, ramp: { meal: [0, 1] }, lapse: { seconds: 6, from: 'Fasting', to: 'After a meal' }` plays a meal. Add `clock: 'seconds'` to the lapse when a Doppler has to keep recording while it happens, so the trace shows the flow rising.
+- `params: { fenestrae: 1 }` opens the pores in the sinusoid wall again, and `0` leaves them as the disease has them.
 
 A slide that sets none of these keeps the patient from the slide before.
 
@@ -72,7 +75,7 @@ Full guide: section 14.
 
 ## Framing the figure
 
-- **Camera.** `cam: 'portal'` frames a named region such as `liver`, `spleen`, `varices` or `heart`. `cam: 'lobule:central'` dives into the liver lobule.
+- **Camera.** `cam: 'portal'` frames a named region such as `liver`, `spleen`, `varices`, `heart` or `gut` (the portal system with the whole small bowel). `cam: 'lobule:central'` dives into the liver lobule.
 - **Circuit view.** `view: 'circuit'` shows the electrical-circuit map instead of the body.
 - **Labels.** `labels: ['CONF', 'RHV', 'RA']` names those stations on the figure. Only the stations you list appear.
 - **Glow.** `glow: ['C3', 'spleen']` lights vessels or organs the words do not name. Add `glowSeq: 550` to light them one after another.
@@ -116,7 +119,7 @@ Full guide: section 5.9.
 
 ### Ladder and tiles
 
-- `tool: { kind: 'profile' }` shows the pressure ladder, the Gut to heart chart, with the HVPG and PPG brackets. (An old `data: 'ladder'` is read as this chart.)
+- `tool: { kind: 'profile' }` shows the pressure ladder, the Gut to heart chart. It has three tinted zones (pre-hepatic, intrahepatic, post-hepatic), the HVPG and PPG brackets with the two readings as pills at the top right, and a red block wherever the pressure falls steeply, so the chart shows where the resistance is. (An old `data: 'ladder'` is read as this chart.)
 - `data: 'tiles', tiles: ['hvpg', 'plt']` shows readout tiles. Each tile has a coloured scale with a dot for now and a ring for where it started.
 - `key: ['hvpg']` highlights a tile and bolds its name in the words.
 - `delta: true` shows each tile's change from the slide before.
@@ -138,7 +141,9 @@ An instrument goes in the data card with `tool`. It reads the live model, so it 
 | The varix wall | `tool: { kind: 'wall' }` | why a large varix bursts |
 | Pressure and flow around a meal | `tool: { kind: 'flowtime' }` | a time-lapse with a meal |
 
-Doppler has extra options. `mode: 'color'` shows a colour Doppler map. `calipers: true` marks peak and trough and gives the pulsatility index. `pair: true` adds a slim second trace (a hepatic vein under a portal vein). `scale: 60` fixes the velocity scale so a fast jet wraps round, which shows aliasing, and `baseline: 0.3` moves the baseline to make room.
+Doppler has extra options. `mode: 'color'` shows a colour Doppler map. `calipers: true` marks peak and trough and gives the pulsatility index. `pair: true` adds a slim second trace (a hepatic vein under a portal vein). `scale: 60` fixes the velocity scale so a fast jet wraps round, which shows aliasing, and `baseline: 0.3` moves the baseline to make room. On a stent, `gate: 'distal'` picks the third that is sampled and `points: true` calls out the velocity at all three.
+
+The app judges slow, absent and backward flow with one set of cut-offs everywhere: under 1 cm/s is no flow (2 cm/s for a stent), under 9 cm/s is stasis, and a tiny backward flow near zero is not called reversed. Word the line to match what the trace shows.
 
 Full guide: section 7.2.
 
@@ -170,7 +175,7 @@ Full guide: section 7.2.
 
 `visual` replaces the words and the figure with a panel, with the figure dimmed behind. Use it for a summary or a comparison.
 
-- `visual: 'table'` with `of: ['clot', 'cavernoma']` puts earlier slides in a table, one row each. `cols` picks the columns. A `wave` column adds a small Doppler trace to each row, and `focusRow: 'clot'` highlights one row.
+- `visual: 'table'` with `of: ['clot', 'cavernoma']` puts earlier slides in a table, one row each. `cols` picks the columns (`pv hvpg ppg varix gv asc plt lsm spleen map hr co bv` and more; the full guide lists them). A `wave` column adds a small Doppler trace to each row, and `focusRow: 'clot'` highlights one row.
 - `visual: 'ladders'` puts several ladders (Gut to heart charts) side by side.
 - `visual: 'scale'` puts several patients on one banded scale.
 - `visual: 'plane'` puts several patients on a two-reading plane (`plane: 'hvpg-ppg'` or `'csph'`).
@@ -183,13 +188,26 @@ Full guide: section 7.3.
 ### Buttons and sliders
 
 - **Treatment buttons.** `compare: [{ label: 'No drug', params: { drugs: { carvedilol: false } }, own: true }, { label: 'Carvedilol', params: { drugs: { carvedilol: true } } }]` lets the presenter switch treatments live. Give each button the full set of switches.
-- **Patient buttons.** `{ label: 'Normal heart', preset: 'healthy' }` eases to another patient and back.
-- **Lens buttons.** `{ label: 'Flow', lens: 'flow' }` switches the colours without touching the model.
+- **Patient buttons.** `{ label: 'Normal heart', preset: 'healthy' }` eases to another patient and back. A patient button can carry `params` and `days` too: `{ label: 'No anticoagulation', preset: 'pvt-acute', params: {}, days: 180 }` leaves the acute clot alone for six months.
+- **Time-point buttons.** `{ label: 'Day 0', slide: 'd0' }` eases to the state of an earlier slide of the same deck, one patient's earlier visit. The slide's own button is `{ label: 'Day 365', own: true }`.
+- **Lens buttons.** `{ label: 'Direction', lens: 'direction', short: 'Dir.' }` switches the colours without touching the model.
+- **Gate buttons.** `{ label: 'Distal', gate: 'distal' }` moves a stent Doppler's sample gate, again without touching the model.
+- **Short labels.** Any button can carry `short`, a compact name (`'Prop.'`) that a phone uses when the full names would wrap.
 - **A what-if slider.** `whatIf: { label: 'Clot size', param: 'thrombus.PV_TRUNK', min: 0, max: 1, ends: ['None', 'Occluded'] }` lets the room drag one setting and watch everything follow.
 
-Put buttons and sliders on key slides only.
+Put buttons and sliders on key slides only. 29 of the 35 built-in decks have at least one. `tests/hands-on-decks.test.js` shows how to test a new one.
+
+### A catheter treatment
+
+`procedure: 'tips'` (or `'brto'`, `'bato'`) puts a Play button on the teaching card. It plays the procedure on the real vessels: the camera follows the catheter, closes in on the balloon, the sclerosant or the stent, and goes back. When it ends, the live model keeps the change, as a treatment button would. `procedure: { kind: 'tips', auto: true }` plays it as the slide lands, going forward only. The patient must not have had the procedure yet and needs the vessels it uses (a gastrorenal shunt for BRTO and BATO). Otherwise the button is dimmed and says why. Do not put it on a slide with the HVPG catheter. A built-in slide uses it only when `tests/deck-adopted.js` lists it.
 
 Full guide: section 7.4.
+
+## Question and answer slides
+
+The capstone decks (Where is the resistance?, Read the Doppler, Choose the treatment) show each case twice. The question slide loads the patient with a `vignette`, shows the readings or the live options as `compare` buttons, and asks in its line without naming anything. Where is the resistance? and Read the Doppler leave `site` off here, so no level tab gives the answer away. The answer slide carries on with the same patient (no `preset`), names the finding, and may add `delta: 'q1'` to show what changed since the question, a `cite`, and `causesHead` with `causes` for the criteria. Give the two slides the same `kicker`, and never put `scales` on a question slide.
+
+Full guide: section 9, rule 23.
 
 ## Adding the deck to the app
 
@@ -199,7 +217,7 @@ To make it a built-in deck for everyone:
 
 1. Save it as `src/ui/decks/<id>.js`.
 2. Import and register it in `src/ui/decks.js`, and list it under one topic in `TOPICS`.
-3. If a built-in slide uses any of the newer options (the highlights, charts, `cite`, the deck-only lenses), list that slide in `tests/deck-adopted.js`.
+3. If a built-in slide uses any of the newer options (the highlights, `scales`, `procedure`, charts, `cite`, the deck-only lenses), list that slide in `tests/deck-adopted.js`.
 4. Run `npm run lint && npm test`, then `npm run stamp`.
 5. Draw the handout pictures with `node scripts/handout-figures.mjs <id>`.
 
@@ -207,7 +225,7 @@ Full guide: sections 12 and 13.
 
 ## The rules that matter most
 
-- One idea a slide, and a line under 45 words.
+- One idea a slide, and a line under 45 words. A short screen (an iPad on its side) keeps every card's text at 12 px or more, so a slide with too many words fails a browser check. Shorten the words, never the text size.
 - HVPG is WHVP minus FHVP (amber 5, red 10). PPG is portal vein minus IVC (amber 6, red 12).
 - Say numbers through live values, never typed.
 - Say "resistance" for where pressure is lost, not "block" or "obstruction".
