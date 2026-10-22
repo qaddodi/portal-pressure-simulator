@@ -9,6 +9,11 @@ export const RATE = {
   hvpg: (v) => (v >= 10 ? ['hi', 'CSPH'] : v >= 5 ? ['mid', 'Mild'] : ['ok', 'Normal']),
   ppg: (v) => (v >= 12 ? ['hi', 'Bleed risk'] : v >= 6 ? ['mid', 'High'] : ['ok', 'Normal']),
   pv: (v) => (v >= 15 ? ['hi', 'Severe'] : v > 10 ? ['mid', 'High'] : ['ok', 'Normal']),
+  // The wedged and free pressures have no cut-offs of their own in the guidelines, so each reads as the pressure it stands for: the wedged
+  // (sinusoidal, in a healthy liver about the portal) pressure as the portal vein's, the free one as the IVC's, which AASLD 2024 (Box 2) says it
+  // should match within 2 mmHg. (Their summary-table arrows use the same numbers: RAW.)
+  whvp: (v) => (v >= 15 ? ['hi', 'Severe'] : v > 10 ? ['mid', 'High'] : ['ok', 'Normal']),
+  fhvp: (v) => (v > 8 ? ['hi', 'High'] : ['ok', 'Normal']),
   sin: (v) => (v >= 12 ? ['hi', 'Severe'] : v >= 9 ? ['mid', 'High'] : ['ok', 'Normal']),
   saag: (v, f) => (f.asc < NO_ASC ? [null, 'No ascites'] : v >= 1.1 ? ['hi', 'Portal HTN'] : ['ok', 'Not portal']),
   // (Protein is neither good nor bad, except that below 1.5 g/dL it no longer guards against infection.)
@@ -81,9 +86,9 @@ export const tileShown = (k, v) => {
 };
 export const rateShown = (k, f) => (f && f[k] != null ? rateOf(k, { ...f, [k]: tileShown(k, f[k]) }) : rateOf(k, f));
 // Each tile's scale bar, in the units the tile shows: [from, to, the cut-offs between its coloured bands]. The bands take their
-// colour from the tile's own rating, so the bar and the status word always agree. (No bar where nothing is rated: WHVP, FHVP.)
+// colour from the tile's own rating, so the bar and the status word always agree. (No bands where nothing is rated: cardiac output, blood volume.)
 export const SCALE = {
-  hvpg: [0, 25, [5, 10]], ppg: [0, 25, [6, 12]], pv: [0, 30, [10, 15]], sin: [0, 20, [9, 12]],
+  hvpg: [0, 25, [5, 10]], ppg: [0, 25, [6, 12]], pv: [0, 30, [10, 15]], sin: [0, 20, [9, 12]], whvp: [0, 30, [10, 15]], fhvp: [0, 20, [8]],
   saag: [0, 3, [1.1]], tp: [0, 5, [1.5, 2.5]], asc: [0, 8, [0.15, 1.5, 5]],
   varix: [0, 10, [2.5, 5]], gv: [0, 10, [2.5, 5]], spleen: [8, 22, [13, 16]], plt: [0, 300, [100, 150]],
   pvFlow: [-0.6, 2, [0]], pvVel: [0, 50, [9, 15]], liver: [0, 125, [55, 75]], shunt: [0, 100, [10, 30]], map: [40, 120, [65]],

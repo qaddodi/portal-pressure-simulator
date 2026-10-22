@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { SCALE, TILE, RATE, bandsOf, rateOf } from '../src/ui/table-marks.js';
+import { SCALE, TILE, RATE, bandsOf, rateOf, dirAbs } from '../src/ui/table-marks.js';
 
 // Each data card tile's scale bar (layout A): its bands take the tile's own rating, so the bar and the status word agree.
 const bandRates = (k) => bandsOf(k).map((z) => rateOf(k, { asc: 1e4, [k]: z.m })[0] || 'info');
@@ -23,6 +23,32 @@ test('the bands follow the ratings (Baveno VIII stiffness, platelets lower is wo
   assert.deepEqual(bandRates('asc'), ['ok', 'mid', 'hi', 'hi']);   // (litres shown, millilitres rated)
   assert.deepEqual(bandRates('hr'), ['info', 'ok', 'hi']);          // (slow is gray: a beta-blocked rate is the goal)
   assert.deepEqual(bandRates('shunt'), ['ok', 'mid', 'hi']);       // (percent shown, a fraction rated)
+});
+
+test('WHVP and FHVP have bars like HVPG\'s (22 Oct): the portal pressure\'s bands and the IVC\'s, as their table arrows read them', () => {
+  assert.deepEqual(bandRates('whvp'), ['ok', 'mid', 'hi']);
+  assert.deepEqual(bandRates('fhvp'), ['ok', 'hi']);
+  assert.deepEqual(SCALE.whvp, SCALE.pv, 'the wedged pressure is judged as the portal vein\'s');
+  assert.deepEqual(SCALE.fhvp, SCALE.ivc, 'the free pressure is judged as the IVC\'s (AASLD 2024, Box 2: almost identical)');
+  const word = { ok: 'Normal', mid: 'High', hi: 'Severe' };
+  for (let v = 0; v <= 35; v++) {
+    const [c, w] = rateOf('whvp', { whvp: v });
+    assert.equal(w, word[c], `WHVP ${v}`);
+    assert.equal({ ok: 0, mid: 1, hi: 2 }[c], dirAbs('whvp', { whvp: v }), `WHVP ${v}: the tile and the table arrow agree`);
+    assert.deepEqual(rateOf('fhvp', { fhvp: v }), rateOf('ivc', { ivc: v }), `FHVP ${v} reads as the IVC does`);
+    assert.equal(dirAbs('fhvp', { fhvp: v }) > 0, rateOf('fhvp', { fhvp: v })[0] === 'hi', `FHVP ${v}: red where the arrow points up`);
+  }
+  // (Healthy 6.5 and 4.1, right heart failure 20 and 19.4, compensated cirrhosis 10.5 and 4.1.)
+  assert.deepEqual(rateOf('whvp', { whvp: 6.5 }), ['ok', 'Normal']);
+  assert.deepEqual(rateOf('fhvp', { fhvp: 19.4 }), ['hi', 'High']);
+  assert.deepEqual(rateOf('whvp', { whvp: 10.5 }), ['mid', 'High']);
+});
+
+test('the Tests › HVPG readings carry their tile\'s colour too, and ease into it', () => {
+  const js = readFileSync(new URL('../src/ui/hvpg-proc.js', import.meta.url), 'utf8');
+  const css = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
+  assert.match(js, /for \(const k of \['fhvp', 'whvp'\]\) \{\s*const sk = shown\[k\] \? sevOfRead\(k, v\[k\]\) : '';/);
+  assert.match(css, /\.hvpg-kv dd \{[^}]*transition: color \.4s var\(--ease\)/, 'the colour never snaps');
 });
 
 test('the bar takes the change line\'s place, so a tile never grows for it', () => {

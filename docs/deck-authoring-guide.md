@@ -591,8 +591,8 @@ The ratings mirror `RATE` in `src/ui/table-marks.js` exactly; each judges the va
 | `ppg` | PPG (portal − IVC) | mmHg | under 6 | 6 or more "High" | 12 or more "Bleed risk" |
 | `pv` | Portal vein pressure | mmHg | 10 or less | over 10 "High" | 15 or more "Severe" |
 | `sin` | Sinusoidal pressure | mmHg | under 9 | 9 or more "High" | 12 or more "Severe" |
-| `whvp` | WHVP (wedged hepatic vein) | mmHg | unrated | | |
-| `fhvp` | FHVP (free hepatic vein) | mmHg | unrated | | |
+| `whvp` | WHVP (wedged hepatic vein) | mmHg | 10 or less | over 10 "High" | 15 or more "Severe" |
+| `fhvp` | FHVP (free hepatic vein) | mmHg | 8 or less | | over 8 "High" |
 | `ra` | Right atrial pressure | mmHg | 8 or less | | over 8 "High" |
 | `ivc` | IVC pressure | mmHg | 8 or less | | over 8 "High" |
 | `saag` | SAAG (serum − ascites albumin) | g/dL | under 1.1 "Not portal" | | 1.1 or more "Portal HTN" |

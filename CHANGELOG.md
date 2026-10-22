@@ -2,6 +2,14 @@
 
 ## October 2026
 
+- **WHVP and FHVP tiles get the scale bar.** The two tiles used to show a bare number with an empty bar. They now carry coloured
+  bands, a dot for now and a ring for the start, and a rating word, like HVPG's. The guidelines give no cut-offs for either pressure on
+  its own, so each is judged as the pressure it stands for, with the numbers the summary tables already used: the wedged pressure like
+  the portal vein's (normal up to 10 mmHg, "High" over 10, "Severe" from 15), the free pressure like the IVC's (normal up to 8, "High"
+  over 8; AASLD 2024, Box 2: FHVP and IVC pressure should be almost identical). The same on every slide that shows them (Sites 3, the
+  HVPG deck, One year), on phone, iPad and Mac. A WHVP or FHVP written into a slide's words (`{whvp}`, `{fhvp}`), a figure pill or a
+  callout now takes the same green, amber or red, and in Explore and Patients the two readings of Tests › HVPG take it too (easing,
+  never snapping). Tests: `tests/tile-bar.test.js`, `tests/pill-rating-tone.test.js`.
 - **Ladder: the resistance block stands on its column.** The red hatched block on the Gut to heart ladder used to hang in the gap between
   the two readings the pressure falls across. It now stands on the column of the station the pressure falls from (Pre- to Intra- marks
   Pre-, Intra- to Post- marks Intra-, Post- to HV marks Post-, the portal vein to Pre- marks PV, HV to IVC marks HV, and the heart marks the

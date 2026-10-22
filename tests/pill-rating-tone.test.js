@@ -31,10 +31,20 @@ test('after TIPS the PPG pill reads against its target, as its tile', () => {
   assert.equal(pillRate('ppg', { ppg: 11.96 }, true), 'hi');
 });
 
+test('the wedged and free pressures are rated like their tiles (22 Oct): the portal pressure\'s bands and the IVC\'s', () => {
+  assert.ok(RATE.whvp && RATE.fhvp);
+  assert.equal(valTone('whvp', { whvp: 6.5 }), '--ok');
+  assert.equal(valTone('whvp', { whvp: 12 }), '--caution');
+  assert.equal(valTone('whvp', { whvp: 18 }), '--danger');
+  assert.equal(valTone('fhvp', { fhvp: 4.1 }), '--ok');
+  assert.equal(valTone('fhvp', { fhvp: 8 }), '--ok');
+  assert.equal(valTone('fhvp', { fhvp: 19.4 }), '--danger');
+});
+
 test('an unrated value keeps its station colour; no reading, no rating colour', () => {
-  assert.ok(!RATE.whvp);
-  assert.equal(valTone('whvp', { whvp: 18 }), 'wedge');
-  assert.equal(valTone('fhvp', { fhvp: 8 }), 'hv');
+  assert.ok(!RATE.co);
+  assert.equal(valTone('whvp', null), 'wedge');
+  assert.equal(valTone('fhvp', null), 'hv');
   assert.equal(valTone('pv', null), 'pv');
   assert.equal(valTone('spleen', null), null);
   assert.equal(valTone('hr', { hr: 55 }), undefined);   // (a slow rate is information, not a warning: plain)

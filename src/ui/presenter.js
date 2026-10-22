@@ -24,20 +24,20 @@ import { DISEASE_SRC, diseasePieces } from './diseases.js?v=fb8a5451c3';
 import { nb, listCase, plateletText } from './glue.js?v=5a0f63226b';
 import { DECKS, REGIONS, LEVELS, TOPICS, withOverview, siteTag, SITE_TAGS } from './decks.js?v=96a49beb22';
 import { tenthGap } from '../engine/gap.js?v=3a5947c552';
-import { createHvpgMonitor } from './hvpg-proc.js?v=b819afc875';
-import { createTools } from './presenter-tools.js?v=8471768b24';
-import { openHandout } from './handout.js?v=6731b60487';
+import { createHvpgMonitor } from './hvpg-proc.js?v=39c3519294';
+import { createTools } from './presenter-tools.js?v=c16f5b6ef0';
+import { openHandout } from './handout.js?v=cc8c5b11b0';
 import { noteResume, resumeFor } from './resume.js?v=f086f80ee8';
 import { parseDeckSource, checkDeck } from './deck-source.js?v=8395c650cd';
-import { NO_ASC, TILE, SCALE, bandsOf, rateOf, COLS, CUT, PRESS, fpv, dirAbs, dirRel, rateAbs, effOf, rateShown, tileShown, tipsGoal, liveSettled, shownSig } from './table-marks.js?v=1dc429fe31';
+import { NO_ASC, TILE, SCALE, bandsOf, rateOf, COLS, CUT, PRESS, fpv, dirAbs, dirRel, rateAbs, effOf, rateShown, tileShown, tipsGoal, liveSettled, shownSig } from './table-marks.js?v=58a52c530c';
 import { frameFor, cancelFrame } from './frame.js?v=a83f37af2f';
 import { createFigureKey } from './figure-key.js?v=8d1c46adfb';
 import { traceWhen } from './trace-labels.js?v=fc916a95c6';
 import { flowCss, heatCss, dropCss, gradientCss, oxygenCss } from './colormap.js?v=71c26e66e1';
-import { EXT, expandIds, stepExtra, markLabel, figureHooks, safe } from './slide-ext.js?v=d2640c5bc5';
-import { clotWords } from './callout-math.js?v=0c960d54d3';
+import { EXT, expandIds, stepExtra, markLabel, figureHooks, safe } from './slide-ext.js?v=f207a66485';
+import { clotWords } from './callout-math.js?v=485befdb77';
 import { citeText, focusOf, oneLadder } from './teach-extras.js?v=5f5248f5a7';
-import { createProfileTool, createProfileStrip } from './tool-profile.js?v=d97650d533';
+import { createProfileTool, createProfileStrip } from './tool-profile.js?v=b2631c3960';
 import { causeFit } from './cause-fit.js?v=830a6835a5';
 import { DEMO_ALL } from './test-decks/demo-all-new-visuals.js?v=994d9ba268';
 import { COMPACT, WIDE } from './card-type.js?v=f5dfdb80f2';
@@ -219,7 +219,7 @@ const VAL_TONE = { pv: 'pv', whvp: 'wedge', sin: 'wedge', fhvp: 'hv', ivc: 'ivc'
 const BY_RATE = new Set(['spleen', 'varix', 'gv']), RATE_TONE = { hi: '--danger', mid: '--caution' };
 const rateTone = (k, fp) => RATE_TONE[rateShown(k, fp)[0]] || null;   // (judged as its pill prints it)
 // A filled pill (the patient) takes its tile's rating colour, as the tile's bar shows it: green, amber or red (Mohammad,
-// 19 Oct). A value its tile does not rate (WHVP, FHVP) or rates only as information keeps its station's colour, or none.
+// 19 Oct). A value its tile does not rate or rates only as information keeps its station's colour, or none.
 const PILL_TONE = { ok: '--ok', mid: '--caution', hi: '--danger' };
 const pillRate = (k, fp, tips = false) => (fp?.[k] == null ? null : tips && k === 'ppg' ? tipsGoal(tileShown(k, fp[k]))[0] : rateShown(k, fp)[0]);   // (after TIPS the PPG is read against its target, as its tile reads it)
 const valTone = (k, fp, tips) => PILL_TONE[pillRate(k, fp, tips)] || (BY_RATE.has(k) ? null : VAL_TONE[k]);

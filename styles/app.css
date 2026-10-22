@@ -2993,7 +2993,7 @@ button.finding { cursor: pointer; }
 /* (The unit on the name's own line, never wrapped: "FHVP ·" over "mmHg" read as a break, sweep batch 03, shot 30; a line of its
    own instead cost the monitor 19 px on an iPad and cut the words under it sideways, sweep 2 review items 6 and 7.) */
 .hvpg-kv dt { font-size: 12px; font-weight: 600; letter-spacing: .05em; color: var(--text-3); white-space: nowrap; }
-.hvpg-kv dd { margin: 0; font-size: 17px; line-height: 1.2; font-weight: 650; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.hvpg-kv dd { margin: 0; font-size: 17px; line-height: 1.2; font-weight: 650; font-variant-numeric: tabular-nums; white-space: nowrap; transition: color .4s var(--ease); }
 .hvpg-kv dt::after { content: '\00a0· mmHg'; font-weight: 500; letter-spacing: 0; }
 .hvpg-box { border-radius: var(--r-card); background: var(--mon-bg); }
 .hvpg-kv dd[data-sev="ok"] { color: color-mix(in srgb, var(--ok) 75%, var(--text)); }

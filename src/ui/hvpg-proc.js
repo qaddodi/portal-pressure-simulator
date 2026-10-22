@@ -16,6 +16,7 @@ import { shownOr } from './shown.js?v=82ef5e29ec';
 import { T, ease, k01, balloonAt, timeOfBalloon, pressureAt as pAt } from './hvpg-clock.js?v=553551a92a';
 import { frameFor, cancelFrame } from './frame.js?v=a83f37af2f';
 import { traceRoom, TRACE_MIN } from './trace-room.js?v=b4c0aaa97f';
+import { rateOf } from './table-marks.js?v=58a52c530c';
 const nextFrame = frameFor('hvpg-proc');
 
 let stageRef = null;
@@ -36,6 +37,9 @@ const STEPS = [
 const C = Object.defineProperties({}, Object.fromEntries(Object.entries({ bg: '--mon-bg', grid: '--mon-grid', line: '--mon-line', text: '--mon-text', bright: '--mon-bright',
   free: '--mon-free', wedge: '--mon-wedge', ok: '--mon-ok', caution: '--mon-caution', danger: '--mon-alarm' }).map(([k, n]) => [k, { get: () => cssVar(n) }])));
 const sevOf = (v) => (v >= 10 ? 'danger' : v >= 5 ? 'caution' : 'ok');
+// The two readings carry the colour their tiles give them (the wedged as the portal pressure, the free as the IVC's).
+const SEV = { ok: 'ok', mid: 'caution', hi: 'danger' };
+const sevOfRead = (k, v) => SEV[rateOf(k, { [k]: v })[0]] || '';
 const sevWord = (v) => (v >= 10 ? 'Clinically significant portal hypertension (CSPH)' : v >= 5 ? 'Mild portal hypertension' : 'Normal');
 
 export function createHvpgProcedure() {
@@ -171,6 +175,10 @@ export function createHvpgProcedure() {
     // replaced its text under the finger, and Safari then takes a tap for a hover and drops the click.
     const sev = shown.hvpg ? sevOf(v.hvpg) : '';
     if (vals.hvpg.dataset.sev !== sev) vals.hvpg.dataset.sev = sev;
+    for (const k of ['fhvp', 'whvp']) {
+      const sk = shown[k] ? sevOfRead(k, v[k]) : '';
+      if (vals[k].dataset.sev !== sk) vals[k].dataset.sev = sk;
+    }
     const cur = ph === 'abort' ? 1 : STEPS.findIndex((s) => s[0] === ph);
     stepEls.forEach((li, i) => { const v2 = ph === 'idle' ? '' : ph === 'abort' ? (i === 0 ? 'done' : '') : i < cur || ph === 'result' ? 'done' : i === cur ? 'now' : ''; if (li.dataset.state !== v2) li.dataset.state = v2; });
     const cap = ph === 'idle' ? 'A balloon catheter via the right internal jugular vein reads the free, then the wedged, hepatic vein pressure.'
