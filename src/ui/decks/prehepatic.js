@@ -4,7 +4,7 @@
 const mi = (x) => `<mi>${x}</mi>`, mo = (x) => `<mo>${x}</mo>`, sub = (b, i) => `<msub>${b}<mtext>${i}</mtext></msub>`;
 
 export const PREHEPATIC = {
-  id: 'prehepatic', level: 'core', title: 'Pre-hepatic portal hypertension', minutes: 7,
+  id: 'prehepatic', level: 'core', title: 'Pre-hepatic portal hypertension', minutes: 8,
   objectives: [
     'Recognize acute portal vein thrombosis on Doppler',
     'Explain why the HVPG is normal and the PPG is high',
@@ -36,8 +36,18 @@ export const PREHEPATIC = {
       ask: ['Varices, a large spleen and an HVPG of 3 mmHg. What does the HVPG tell you?', 'The resistance is not sinusoidal: look before the sinusoids, in the portal vein or the portal tracts.'],
     },
     {
+      id: 'anticoag', preset: 'pvt-acute', params: { anticoag: true }, days: 180, lapse: { seconds: 8 }, cam: 'portal', labels: ['CONF'],
+      tool: { kind: 'lumen', vessel: 'PV_TRUNK' }, data: 'tiles', tiles: ['ppg', 'pvFlow', 'varix'], key: ['ppg'], delta: 'clot',
+      compare: [{ label: 'Anticoagulation', own: true }, { label: 'No anticoagulation', short: 'None', preset: 'pvt-acute', params: {}, days: 180 }],
+      kicker: 'Acute thrombosis', site: 'pre', title: 'Early anticoagulation can reopen the portal vein',
+      line: 'Anticoagulation starts as soon as possible and continues for at least 6 months. Here the clot clears, portal flow returns and the PPG falls to {ppg}. In practice the portal vein reopens in about 4 in 10 patients.',
+      cite: 'EASL 2025, recent PVT',
+      notes: 'In recent portal vein thrombosis without cirrhosis, EASL 2025 starts anticoagulation as soon as possible, because early treatment lowers the risk of bowel ischemia and makes recanalization more likely, and continues it for at least six months. The workup for a thrombophilia should not delay it. In a European prospective study the portal vein reopened in 39% of treated patients, the splenic vein in 80% and the superior mesenteric vein in 73%; ascites and a clotted splenic vein made recanalization less likely. In the model the clot clears completely over six months; with no treatment it stays, and within six months the varices grow, the spleen enlarges and the platelets fall, the cavernoma of the next slides.',
+      ask: ['How long is anticoagulation continued for a recent portal vein clot without cirrhosis?', 'At least six months, started as soon as possible; long term when a permanent prothrombotic risk factor remains.'],
+    },
+    {
       id: 'cavernoma', lens: 'flow', preset: 'pvt-chronic', cam: 'portal', labels: ['CONF'], mark: { edges: ['PV_TRUNK'], label: 'Occluded portal vein' }, tool: { kind: 'lumen' }, data: 'tiles', tiles: ['varix', 'spleen', 'plt'], key: ['varix'],
-      kicker: 'Months later', site: 'pre', title: 'Months later, collaterals grow around the clot',
+      kicker: 'Months later', site: 'pre', title: 'Without recanalization, collaterals grow around the clot',
       line: 'A cavernoma, a web of small collaterals, grows around the clotted vein. Colored by flow, it carries the blood the trunk cannot. Varices form and the spleen enlarges.',
       notes: 'Cavernous transformation is a web of collaterals around the occluded portal vein, seen within weeks to months. It does not carry enough blood to bring the portal pressure down, so varices, a large spleen and low platelets follow. Screen for varices with endoscopy and treat them as in cirrhosis: a non-selective beta-blocker or banding. Long-term anticoagulation is advised when a thrombophilia persists. Large collaterals around the bile duct can narrow it (portal cholangiopathy). In children the clot often follows umbilical vein catheterization or sepsis in infancy.',
       ask: ['A child bleeds from varices with normal liver tests. What is the likely cause?', 'Chronic portal vein thrombosis with a cavernoma: varices with a normal liver point to resistance before the sinusoids.'],

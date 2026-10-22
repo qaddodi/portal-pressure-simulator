@@ -1175,6 +1175,8 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     const c = abChoice(s.compare, k);
     if (c.kind === 'lens') { lensPick(c.lens, s); return; }
     if (c.kind === 'gate') { store.set({ dopGate: c.gate }); return; }
+    // (A treatment button pressed while the slide's time-lapse still plays ends the lapse first: two clocks must not drive the model.)
+    if (lapseOn) stopLapse();
     if (c.kind === 'state') { livePatient(s, i, s.compare[k]); return; }
     liveSet(s, i, c.patch);
   }

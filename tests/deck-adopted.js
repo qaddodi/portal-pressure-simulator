@@ -58,6 +58,7 @@ export const ADOPTED = {
   'spleen/grown': ['normalOutline', 'calipers'],
   'spleen/later': ['calipers'],
   'prehepatic/cath': ['kind:profile'],
+  'prehepatic/anticoag': ['kind:lumen', 'cite'],
   'prehepatic/cavernoma': ['kind:lumen'],
   'prehepatic/summary': ['cols.wave', 'wave'],
   'outflow/open': ['kind:lumen'],
