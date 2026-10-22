@@ -2994,9 +2994,13 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     const regular = shut ? Infinity : at(1), lend = regular - (both - data);
     const reg = lend > 0 && lend <= phoneFig - FIG_REG(H) && regular <= mine && regular <= room - dtop - data;
     if (reg) phoneFig -= lend;
+    // (Where the data card stays open and the words fit at 12 px but not at Compact in the room it leaves them, they take that room, between
+    // 12 px and Compact, never Compact: Compact stood over the data card's foot, which the layout then cut off (a chart does not give way
+    // to fit), the Gut to heart ladder's unit and its sinusoidal brace, Sites 4 on an iPhone at a larger text size, Mohammad, 22 Oct.)
+    const floorCap = !gone && !shut ? Math.max(words, Math.min(compact, both - data)) : compact;
     const cap = Math.max(120, shut
       ? Math.min(room - GRIP * k, Math.max(Math.min(mine, room - dtop - Math.min(data, dmax + sheetLip)), compact))
-      : reg ? regular : Math.min(room - dtop - data, Math.max(Math.min(mine, both - data), compact))) / k;
+      : reg ? regular : Math.min(room - dtop - data, Math.max(Math.min(mine, both - data), floorCap))) / k;
     if (key) phoneLock = { key, cap, shut, data: full, fig: phoneFig };   // (data: at full size, as the check above measures it)
     return cap;
   }

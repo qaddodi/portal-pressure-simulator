@@ -168,6 +168,15 @@ test('a phone\'s data card and the words\' plan leave room for the glass as far 
   assert.doesNotMatch(js, /- 16 - 8\b/);
 });
 
+// Mohammad, 22 Oct (iPhone, Sites 4/12, a larger text size): the Gut to heart ladder's bottom row (mmHg, the sinusoidal brace) was cut off by the
+// card's foot. The words stood at Compact over the data card's room, the figure's share kept, so the layout capped the card under the chart,
+// which does not give way to fit. An open data card keeps its full room: the words take what it leaves them, between 12 px and Compact.
+test('the words at Compact never take the room of an open data card whose chart cannot shrink', () => {
+  assert.match(js, /const floorCap = !gone && !shut \? Math\.max\(words, Math\.min\(compact, both - data\)\) : compact;/, 'the floor of the words\' cap');
+  assert.match(js, /: reg \? regular : Math\.min\(room - dtop - data, Math\.max\(Math\.min\(mine, both - data\), floorCap\)\)\) \/ k;/, 'an open card\'s cap uses it');
+  assert.match(js, /shut\s+\? Math\.min\(room - GRIP \* k, Math\.max\(Math\.min\(mine, room - dtop - Math\.min\(data, dmax \+ sheetLip\)\), compact\)\)/, 'a closed card still gives the words Compact');
+});
+
 // Mohammad, 21 Oct (iPhone, Sites 3/12): the Gut to heart ladder bounced between a small and a large version. "Just make it one version everywhere."
 test('every chart in a phone\'s card has one size on every slide: none gives way to fit, none follows the card\'s fit', () => {
   assert.doesNotMatch(js, /CHART_GIVE|elastic/, 'no shrink path');
