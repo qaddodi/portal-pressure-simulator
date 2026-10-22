@@ -273,16 +273,20 @@ export function createCurve() {
     // (With against both lines are one reading on one scale, named on the lines; the key is only the reading and its unit.)
     const vals = ag ? [vals0.flat()] : vals0, keyLs = ag ? [{ ...lineMeta(curveLines(t)[0]), c: '--text-2', bare: true }] : ls;
     const keys0 = keyLs.length < 2 || keyLs.reduce((a, l) => a + 22 + cw(l.name, f, 1) + 6 + cw(l.unit, f), 0) + 2 * f <= w;
+    // (With against, the two lines' key that stands in when their names don't fit on the drawing takes a row of its own when
+    // it would run into the reading's name and unit at the left.)
+    const altW = ag ? ls.reduce((a, l) => a + 22 + 1.05 * cw(l.name, f, 1), 0) + f * (ls.length - 1) : 0;
+    const altBelow = ag && cw(keyLs[0].name, f, 1) + 6 + cw(keyLs[0].unit, f) + altW + 2 * f > w;
     // (No more numbers up the side than fit a line and a half of type apart.)
-    const plotH = h - 2.9 * f - ((keys0 ? 1 : 2) * 1.5 * f + 1.6 * f), most = clamp(Math.floor(plotH / (1.6 * f)) + 1, 3, 7);
+    const plotH = h - 2.9 * f - ((keys0 && !altBelow ? 1 : 2) * 1.5 * f + 1.6 * f), most = clamp(Math.floor(plotH / (1.6 * f)) + 1, 3, 7);
     const sL = leftScale(ls[0].k, vals[0], most), sR = ls[1] && !ag ? rightScale(vals[1], sL.ticks.length) : null;
     const keys = keyLs.map((l) => ({ ...l, w: (l.bare ? 0 : 22) + cw(l.name, f, 1) + 6 + cw(l.unit, f) }));
-    const oneRow = keys.length < 2 || keys[0].w + keys[1].w + 2 * f <= w, rowH = 1.5 * f, legH = (oneRow ? 1 : 2) * rowH;
+    const oneRow = keys.length < 2 || keys[0].w + keys[1].w + 2 * f <= w, rowH = 1.5 * f, legH = (oneRow && !altBelow ? 1 : 2) * rowH;
     const tw = (sc) => Math.max(...sc.ticks.map((v) => cw(fmt(v, dec(sc)), f)));
     const xt = xTicks(xs[0], xs.at(-1), Math.max(2, Math.min(7, Math.floor((w - 4 * f) / (3.2 * f)))));
     const L = Math.ceil(tw(sL) + 8), R = Math.floor(w - (sR ? tw(sR) + 8 : Math.max(8, cw(fmt(xs.at(-1), ax.d), f) / 2 + 2)));
     const T = legH + 1.6 * f, B = h - 2.9 * f;
-    return { w, h, f, ls, ag, ax, xs, xt, sL, sR, keys, oneRow, rowH, L, R, T, B: Math.max(T + 3 * f, B) };
+    return { w, h, f, ls, ag, ax, xs, xt, sL, sR, keys, oneRow, altBelow, rowH, L, R, T, B: Math.max(T + 3 * f, B) };
   }
   const X = (x) => G.L + (G.R - G.L) * (x - G.xs[0]) / ((G.xs.at(-1) - G.xs[0]) || 1);
   const Yof = (sc) => (v) => G.B - (G.B - G.T) * clamp((v - sc.min) / ((sc.max - sc.min) || 1), 0, 1);
@@ -328,7 +332,7 @@ export function createCurve() {
       const ks = [...ls].reverse().map((l) => { const kw = 22 + 1.05 * cw(l.name, f, 1); x -= kw; const at = x; x -= f;
         return sv('g', { transform: `translate(${at.toFixed(1)} 0)` }, sv('line', { x1: 0, x2: 16, y1: 0, y2: 0, style: `stroke: var(${l.c})` }),
           sv('text', { x: 22, y: 0.36 * f, style: `fill: var(${l.c})` }, l.name)); });
-      alt = sv('g', { class: 'pft-key pcv-alt off', transform: `translate(${G.w} ${0.75 * f})` }, ks);
+      alt = sv('g', { class: 'pft-key pcv-alt off', transform: `translate(${G.w} ${(G.altBelow ? G.rowH : 0) + 0.75 * f})` }, ks);
     }
     const axis = [sv('line', { class: 'pft-x', x1: L, x2: R, y1: B, y2: B }),
       // (The two end numbers stand inside the plot's ends, clear of the corner numbers of the y axes.)

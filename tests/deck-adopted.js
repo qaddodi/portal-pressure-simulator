@@ -105,7 +105,7 @@ export const ADOPTED = {
   'sites/postsin': ['scales', 'kind:profile'],
   'sites/post': ['scales', 'kind:profile'],
   'sites/cardiac': ['scales', 'kind:profile'],
-  'beta-blockers/carv-sin': ['lens:since', 'sinceLabel'],
+  'beta-blockers/carv-sin': ['lens:since', 'sinceLabel', 'kind:curve', 'tool.against'],
   'beta-blockers/carv-pre': ['lens:since', 'sinceLabel'],
   'recompensation/ascites': ['kind:fluid'],
   'recompensation/carv': ['ripple', 'kind:profile'],

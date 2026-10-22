@@ -41,11 +41,12 @@ export const BETA_BLOCKERS = {
       ask: ['How does propranolol lower portal pressure?', 'It cuts the portal inflow: a lower cardiac output (β1) and constricted gut arterioles (β2).'],
     },
     {
-      id: 'carv-sin', params: CARV, lens: 'since', sinceLabel: 'propranolol', cam: 'lobule:sinusoid', terms: { sinusoids: 'lobule:sinusoid' }, data: 'tiles', tiles: ['hvpg', 'ppg'], key: ['hvpg'], delta: 'prop-sin',
+      id: 'carv-sin', params: CARV, lens: 'since', sinceLabel: 'propranolol', cam: 'lobule:sinusoid', terms: { sinusoids: 'lobule:sinusoid' },
+      tool: { kind: 'curve', param: 'cirrhosis', from: 0.3, to: 0.9, step: 0.05, lines: ['hvpg'], against: { label: 'Propranolol', params: PROP, own: 'Carvedilol' } }, data: 'tiles', tiles: ['hvpg', 'ppg'], key: ['hvpg'], delta: 'prop-sin',
       compare: [{ label: 'Propranolol', params: PROP }, { label: 'Carvedilol', own: true, params: CARV }],
       kicker: 'Cirrhosis', site: 'sin', title: 'Carvedilol lowers the HVPG more than propranolol in cirrhosis',
       line: 'Most of the resistance sits in the sinusoids. Carvedilol\'s α1 blockade is thought to relax their stellate cells, and with the lower inflow the HVPG falls to {hvpg}. Colored by change against propranolol, pressure in the sinusoids falls further.',
-      notes: 'Switch between the two drugs: carvedilol acts on both flow and resistance, so it lowers the HVPG more; in trials, by about 2 mmHg more than propranolol. Baveno VIII prefers carvedilol in compensated cirrhosis with clinically significant portal hypertension, to prevent decompensation.',
+      notes: 'Switch between the two drugs: carvedilol acts on both flow and resistance, so it lowers the HVPG more; in trials, by about 2 mmHg more than propranolol. The chart runs the same patient from mild to advanced cirrhosis on each drug: in the model the gap between the two lines widens as the sinusoidal resistance grows, from under 1 mmHg to about 2 mmHg. Baveno VIII prefers carvedilol in compensated cirrhosis with clinically significant portal hypertension, to prevent decompensation.',
       ask: ['Why does carvedilol lower the HVPG more than propranolol in cirrhosis?', 'Unlike propranolol, it lowers the resistance in the sinusoids, where most of the resistance sits.'],
     },
     {
