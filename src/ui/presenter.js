@@ -19,11 +19,10 @@ import { titleParts } from './title-units.js?v=c8d5ce1f26';
 import { swipeDir, ownsSideways, ownsTouch, cardSwipe, caseFling, caseFlight } from './swipe.js?v=ca9148ab7d';
 import { sinusoidSupported } from './sinusoid-view.js?v=738da21430';
 import { SCALE_NAME, offeredScales, scaleView, pickedScale } from './scale-switch.js?v=1b0e3acd65';
-import { NODES } from '../engine/topology.js?v=4044766e96';
 import { DISEASE_SRC, diseasePieces } from './diseases.js?v=fb8a5451c3';
 import { nb, listCase, plateletText } from './glue.js?v=5a0f63226b';
 import { DECKS, REGIONS, LEVELS, TOPICS, withOverview, siteTag, SITE_TAGS } from './decks.js?v=3f38949fcd';
-import { tenthGap } from '../engine/gap.js?v=3aabfbb29b';
+import { fingerprintOf } from '../engine/fingerprint.js?v=8faea80b59';
 import { createHvpgMonitor } from './hvpg-proc.js?v=17d014a745';
 import { createTools } from './presenter-tools.js?v=23b9d42383';
 import { openHandout } from './handout.js?v=141d7c8d3c';
@@ -399,16 +398,9 @@ function wedgeColumn() {
   return svg;
 }
 const tileVal = (k, v) => (v == null ? '—' : fmt(v * (TILE[k]?.x ?? 1), TILE[k]?.d ?? 1));
-// The live model's numbers in the fingerprint's terms (a time-lapse plays on the live figure).
-const NI = Object.fromEntries(NODES.map((n, i) => [n.id, i]));
-function liveFp(fr) {
-  const m = fr.metrics, a = m.ascites, P = fr.Pf || fr.P;
-  return { pv: m.pv, whvp: m.whvp, fhvp: m.fhvp, hvpg: tenthGap(m.whvp, m.fhvp, m.hvpg), ra: m.vitals?.ra ?? m.ra, ivc: m.ivc, ppg: tenthGap(m.pv, m.ivc, m.ppg), asc: a.volume, saag: a.saag, tp: a.totalProtein,
-    sin: P?.[NI.SIN_R], int: P?.[NI.INT], varix: m.varix.d, wall: m.varix.ratioShown, gv: m.gastricVarix.d, spleen: m.spleen.length, plt: m.spleen.platelets,
-    pvFlow: m.pvFlowMean, shunt: m.shuntFraction, liver: m.liverPerfPct, map: m.map, hr: m.hr, lsm: m.lsm, pvVel: m.pvVelMean, hb: m.blood?.hb, co: m.co, bv: m.blood?.volume,
-    clot: +store.get().params?.thrombus?.PV_TRUNK || 0,
-    at: P && fr.D ? { P, Q: fr.Qf || fr.Q, D: fr.D } : null };
-}
+// The live model's numbers in the fingerprint's terms (a time-lapse plays on the live figure): the same function the worker builds a slide's
+// state with. It has no starling() here, so the lymph's overflow, take-back and net stay null and the fluid card follows the live frames.
+const liveFp = (fr) => fingerprintOf(fr.metrics, { P: fr.Pf || fr.P, Q: fr.Qf || fr.Q, D: fr.D, params: store.get().params });
 
 // A value counts from where it was to where it goes (eased, about a second); reduced motion jumps.
 function tweener(draw) {
@@ -809,7 +801,7 @@ function makeCalc() {
   };
   const ready = (async () => {
     try {
-      const w = new Worker(new URL('../worker.js?v=d871e7be89', import.meta.url), { type: 'module' });
+      const w = new Worker(new URL('../worker.js?v=2a250df7d9', import.meta.url), { type: 'module' });
       await new Promise((res, rej) => {
         const t = setTimeout(() => rej(new Error('worker timeout')), 15000);   // (long: a slow load still gets the worker; host.js)
         w.onmessage = (e) => { if (e.data?.type === 'presets') { clearTimeout(t); res(); } };
@@ -822,7 +814,7 @@ function makeCalc() {
       post = (m) => w.postMessage(m); kill = () => w.terminate();
     } catch {
       try {
-        const { createCore } = await import('../worker-core.js?v=696ec7289d');
+        const { createCore } = await import('../worker-core.js?v=6bb336c41d');
         const core = createCore((m) => setTimeout(() => onMsg(m), 0));
         core.handle({ type: 'visibility', visible: false }); core.handle({ type: 'run', running: false });
         post = (m) => core.handle(structuredClone(m)); kill = () => core.dispose();

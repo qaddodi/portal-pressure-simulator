@@ -3,36 +3,17 @@
 
 import { Engine } from './engine/engine.js?v=40556d7cd0';
 import { computeMetrics } from './engine/metrics.js?v=1db0ad7ab0';
-import { tenthGap } from './engine/gap.js?v=3aabfbb29b';
+import { fingerprintOf } from './engine/fingerprint.js?v=8faea80b59';
 import { detectEvents } from './engine/events.js?v=747cdbed9a';
 import { explain } from './engine/explain.js?v=e684dbd5ec';
 import { deepMerge, sanitizeParams, PRESETS } from './engine/scenario.js?v=d7d3ea5b70';
 
 const SAMPLE_NODES = ['RA', 'IVCS', 'RHV', 'CONF', 'SIN_R', 'VAR', 'AO', 'SV', 'SMV'];
 
-// A state's fingerprint for the ladder, the presenter's data and tables: the pressures from the portal vein to the
-// heart, the gradients, the ascites (volume, SAAG, protein, albumin) and the lymph that makes it, the sinusoidal and
-// central vein pressures, varices, spleen, flow and shunting.
-// The fluid balance (engine.js starling, mL/min): lymphCap, what the lymphatics can carry; lymphOver, the lymph made beyond
-// it, which becomes ascites; lymphBack, what the peritoneum takes back; lymphNet, the ascites made (overflow less take-back).
-// rih: the resistance inside the liver (mmHg per L/min): each lobe's venules, sinusoids and outflow in series, the
-// two lobes in parallel, as the circuit view's liver resistor reads it. (PPG ÷ portal flow also counts the collaterals.)
-const LOBES = [['PRE_R', 'SIN_RR', 'POST_R_RHV'], ['PRE_L', 'SIN_LL', 'POST_L_LHV']];
-function liverRes(e) {
-  const P = e.Pf || e.P, Q = e.Qf || e.Q;
-  const r = (id) => { const k = e.ei[id], ed = e.edges[k]; return (P[e.ni[ed.from]] - P[e.ni[ed.to]]) / Math.max(1e-6, Math.abs(Q[k]) * 0.06); };
-  return 1 / LOBES.reduce((g, ids) => g + 1 / Math.max(1e-6, ids.reduce((s, id) => s + r(id), 0)), 0);
-}
-const fingerprint = (m, e) => {
-  const P = e ? e.Pf || e.P : null, a = m.ascites, fl = e ? e.starling() : null;
-  return { pv: m.pv, whvp: m.whvp, fhvp: m.fhvp, hvpg: tenthGap(m.whvp, m.fhvp, m.hvpg), ra: m.ra, ivc: m.ivc, ppg: tenthGap(m.pv, m.ivc, m.ppg),
-    asc: a.volume, saag: a.saag, tp: a.totalProtein, aalb: a.albumin, salb: e?.params.albumin, sigma: a.lymphSigma, hepLymph: a.hepLymph, splLymph: a.splLymph,
-    sin: P ? P[e.ni.SIN_R] : null, cv: P ? P[e.ni.CV_R] : null, int: P ? P[e.ni.INT] : null, varix: m.varix.d, wall: e ? e.varix('VAR', e.Pf || e.P).ratioShown : m.varix.ratioShown, gv: m.gastricVarix.d, spleen: m.spleen.length, plt: m.spleen.platelets,
-    pvFlow: m.pvFlowMean, shunt: m.shuntFraction, he: m.heRisk.index, liver: m.liverPerfPct, lsm: m.lsm, pvVel: m.pvVelMean, map: m.map, hr: m.hr, hb: m.blood.hb, co: m.co, bv: m.blood.volume, rih: e ? liverRes(e) : null,
-    lymphCap: a.lymphCap, lymphOver: fl ? fl.excess : null, lymphBack: fl ? fl.bulk + fl.water : null, lymphNet: fl ? fl.net : null,
-    // (the whole network as it stood, so a slide's callouts and figure labels read its numbers as the tiles do: the same on every screen)
-    at: e ? { P: Float32Array.from(e.Pf || e.P), Q: Float32Array.from(e.Qf || e.Q), D: Float32Array.from(e.edges, (ed) => e.diameter(ed.id)) } : null };
-};
+// A state's fingerprint (engine/fingerprint.js: the presenter builds the live model's from the same function).
+const fingerprint = (m, e) => fingerprintOf(m, {
+  P: e.Pf || e.P, Q: e.Qf || e.Q, D: Float32Array.from(e.edges, (ed) => e.diameter(ed.id)), copy: true,
+  params: e.params, fluid: e.starling() });
 // A time-lapse's params on day d of n: each ramped key eased linearly from its first value to its last.
 // (A dotted key names a nested param: 'fibrosis.R.post'.)
 const rampAt = (ramp, d, n) => ramp.reduce((o, [k, [a, b]]) => {
