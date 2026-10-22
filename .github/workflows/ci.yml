@@ -43,6 +43,14 @@ jobs:
         run: npm test
       - name: Production build
         run: npm run build
+      # Made once, here: every browser share of the build site downloads it (they each built it before, 42 times over).
+      - name: Keep the build for the browser checks
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
+          if-no-files-found: error
+          retention-days: 1
 
   # The source site and the production build (what Pages serves, and the SCORM package), each on
   # a desktop and a phone, desktop in twenty-eight shares and phone in fourteen: eighty-four runners, one check at a time on each (a runner is
@@ -149,9 +157,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/setup-browser
-      - name: Production build
+      - name: Production build (made once, in quick)
         if: matrix.site == 'build'
-        run: npm run build
+        uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist
       - name: Browser checks
         env:
           SHOTS: browser-shots
