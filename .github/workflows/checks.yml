@@ -11,7 +11,7 @@ name: Checks (browser, visual, WebKit)
 
 on:
   push:
-    branches: [main, claude/settings-topbar-icon-flvft1]
+    branches: [claude/settings-topbar-icon-flvft1]   # (main is covered by ci.yml, which runs the same build checks on every push there; until 22 Oct both ran, 42 shares twice a merge)
   workflow_dispatch:
 
 permissions:
