@@ -1045,7 +1045,15 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host) }
     if (!app?.classList.contains('presenting') || !lit || !/(^| )(lobule|sinusoid):/.test(lit)) return false;
     return !(LIT_OK.includes(target) && lit.split(' ').includes(target));
   };
-  const named = (k) => !!document.querySelector('.app')?.dataset.lit?.split(' ').includes(`lobule:${LZ_TARGET[k]}`);
+  // (The lit terms split once each time they change, not a query and a split for every candidate spot of a layout.)
+  let appEl = null, litRaw = null, litSet = new Set();
+  const litOf = () => {
+    if (!appEl?.isConnected) appEl = document.querySelector('.app');
+    const r = appEl?.dataset.lit;
+    if (r !== litRaw) { litRaw = r; litSet = new Set(r ? r.split(' ') : []); }
+    return litSet;
+  };
+  const named = (k) => litOf().has(`lobule:${LZ_TARGET[k]}`);
   const pick = { triad: 3, lt: null, sin: null, geo: null };
   // A sinusoid's reading sits half way from the portal tract to the central vein: along the middle generation's
   // course, or at the inner end of an outer one and the outer end of an inner one when only those are in view.
@@ -1249,8 +1257,44 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host) }
   const handOn = () => touches.size > 0 || !!cancelFlick || (wheelKind === 'pad' && performance.now() - wheelAt < 250);
   // The hand let go (or paused): place the labels again for where the view now is.
   function followEnd() { if (handOn()) { followT = setTimeout(followEnd, 140); return; } if (labels.style.transform || rough) { rough = false; layoutKey = ''; viewChanged(); } }
+  // The glide's ride: each piece moved by its own spot's move since the last layout (a CSS translate, written into its place by bakeFollow).
+  let rides = null;
+  function ride() {
+    const f = follow, at = (a) => [(a[0] - f.x) / f.k * V.k + V.x - a[0], (a[1] - f.y) / f.k * V.k + V.y - a[1]];
+    if (!rides) {
+      rides = [];
+      for (const L of Object.values(labs)) if (L.a && !L.el.hidden && !L.el.classList.contains('edge')) rides.push({ a: [...L.a], els: [L.el, L.line, L.dotEl] });
+      for (const z of zoneEls) if (z.isConnected && z.style.left) rides.push({ a: [parseFloat(z.style.left), parseFloat(z.style.top)], els: [z] });
+      if (callRing.classList.contains('on')) rides.push({ a: [+callRing.getAttribute('cx'), +callRing.getAttribute('cy')], els: [callEl, callLine, callRing] });
+    }
+    for (const r of rides) {
+      r.d = at(r.a);
+      const t = `${r.d[0].toFixed(2)}px ${r.d[1].toFixed(2)}px`;
+      for (const e of r.els) e.style.translate = t;
+    }
+  }
+  function bakeRides() {
+    if (!rides) return false;
+    // (Written in place with no glide on, then the page styled once, so the layout's glide starts from where each piece is seen.)
+    labels.classList.remove('lz-ease');
+    let moved = false;
+    for (const { d, els } of rides) {
+      if (!d) continue;
+      const [dx, dy] = d;
+      if (dx || dy) moved = true;
+      for (const e of els) {
+        e.style.translate = '';
+        if (e.style.left) { e.style.left = `${parseFloat(e.style.left) + dx}px`; e.style.top = `${parseFloat(e.style.top) + dy}px`; }
+        for (const [a, v] of [['x1', dx], ['x2', dx], ['cx', dx], ['y1', dy], ['y2', dy], ['cy', dy]]) { const o = e.getAttribute?.(a); if (o != null) e.setAttribute(a, +o + v); }
+      }
+    }
+    rides = null;
+    if (moved) void labels.offsetWidth;
+    return moved;
+  }
   // Writes the pan's shift into the labels' and leaders' own positions and drops the shared shift, so they glide on from where they are seen.
   function bakeFollow() {
+    if (bakeRides()) { clearTimeout(followT); labels.style.transform = leaders.style.transform = ''; return true; }
     clearTimeout(followT);
     const m = /translate3d\(([-\d.e]+)px, ([-\d.e]+)px/.exec(labels.style.transform);
     labels.style.transform = leaders.style.transform = '';
@@ -1272,12 +1316,16 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host) }
     // While a hand pans the lobule (a drag, its flick, a trackpad scroll), the labels ride with the picture as one
     // layer: placing them again every frame (measuring each, then trying hundreds of spots and orders) is what made
     // panning lag on a phone. They are placed again, gliding to their new spots, once the hand lets go.
-    if (follow && bKey === follow.b && V.k === follow.k && handOn()) {
+    if (follow && bKey === follow.b && V.k === follow.k && handOn() && !rides) {
       const t = `translate3d(${V.x - follow.x}px, ${V.y - follow.y}px, 0)`;
       labels.style.transform = leaders.style.transform = t;
       clearTimeout(followT); followT = setTimeout(followEnd, 140);
       return;
     }
+    // A short glide (+, −, Fit, a space that holds still) carries each label, leader and zone name with the spot it names, at
+    // its own size, and lays them out once where the glide lands (they glide there from where they are seen). Solving the
+    // layout on every frame of the glide (measuring the cards, trying hundreds of spots and orders) stalled it on a phone.
+    if (follow && bKey === follow.b && gliding && !camMove && !handOn() && !labels.style.transform) { ride(); return; }
     const baked = bakeFollow();
     layoutN++;
     // A label that moves while the view holds still (a term lit, a value's width changed) glides to its new spot;

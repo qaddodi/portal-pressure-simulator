@@ -76,3 +76,19 @@ test("item 31: lobule pan and zoom frames reuse each tube's radii, compare inks 
   assert.match(gl, /if \(cs !== lookCs\) \{ lookCs = cs; lookNow = lookOf\(cs\); lookSig = JSON\.stringify\(lookNow\); \}/);
   assert.doesNotMatch(gl, /const lsig = JSON\.stringify\(look\)/);
 });
+
+test('item 6: a short lobule glide carries the labels with their spots and lays them out once where it lands', () => {
+  const src = read('../src/ui/lobule-zoom.js');
+  const lay = src.slice(src.indexOf('function layoutLabels()'), src.indexOf('const baked = bakeFollow();'));
+  // (Not a presenter's camera move, which hides the labels on the way, nor a hand's pan, which carries the whole layer.)
+  assert.match(lay, /if \(follow && bKey === follow\.b && gliding && !camMove && !handOn\(\) && !labels\.style\.transform\) \{ ride\(\); return; \}/);
+  assert.match(lay, /V\.k === follow\.k && handOn\(\) && !rides\)/);
+  const rd = src.slice(src.indexOf('function ride()'), src.indexOf('function bakeFollow()'));
+  // Each piece moves by its own spot's move at its own size (a translate), and is written into its place at landing.
+  assert.match(rd, /e\.style\.translate = t;/);
+  assert.match(rd, /e\.style\.translate = '';/);
+  assert.match(rd, /labels\.classList\.remove\('lz-ease'\);/);
+  assert.match(src, /function bakeFollow\(\) \{\s*if \(bakeRides\(\)\)/);
+  // The lit terms are split once per change, not queried for every candidate spot.
+  assert.match(src, /const named = \(k\) => litOf\(\)\.has\(/);
+});
