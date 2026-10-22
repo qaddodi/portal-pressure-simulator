@@ -2781,7 +2781,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // 21 Oct: the whole update, the labels' layout read included, ran on every frame of an ease. The same picture, frame for frame.
   function stepOrgans() {
     const f = F;
-    if (!organsEasing || !f || f !== widthF || storeVer !== widthVer || !CTM || CTM !== widthCTM || coilEasing || catchUp) return false;
+    // (A pan moves no drawn size, and the view's own frame lays the labels out again (syncView): it takes this step too. A zoom or a
+    // turn changes the sizes kept in screen pixels, and takes the full update.)
+    if (!organsEasing || !f || f !== widthF || storeVer !== widthVer || !CTM || !widthCTM || CTM.sc !== widthCTM.sc || CTM.a !== widthCTM.a || CTM.b !== widthCTM.b || coilEasing || catchUp) return false;
     if (lobuleOn || lz?.isOpen() || hid.at || plateStale || blockersStale || (performance.now() - blockersAt > 100 && watch.due())) return false;
     if (morph !== morphTarget || tubesHidden !== wrap.classList.contains('gl-on') || EV.some((x) => x.reveal || (x.vis && widthMoving(x)))) return false;
     stageWake();
