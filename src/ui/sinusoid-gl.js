@@ -523,20 +523,28 @@ export function createSinusoidGL(canvas) {
   const ready = () => (ok === null ? (ok = init()) : ok);
   if (window.requestIdleCallback) requestIdleCallback(ready, { timeout: 8000 }); else setTimeout(ready, 3000);
   canvas.addEventListener('webglcontextlost', (e) => { e.preventDefault(); ok = false; });
-  canvas.addEventListener('webglcontextrestored', () => { ok = init(); });
+  canvas.addEventListener('webglcontextrestored', () => { sent.clear(); ok = init(); });
+  // A uniform keeps its value in its program, so one is sent only when it changes (most colours never do).
+  const sent = new Map();
+  const same = (a, b) => (typeof a === 'number' ? a === b : b != null && typeof b !== 'number' && a.length === b.length && Array.prototype.every.call(a, (x, i) => x === b[i]));
   const set = (U, k, v) => {
     const l = U[k];
     if (l == null) return;
+    if (sent.has(l) && same(v, sent.get(l))) return;
+    sent.set(l, typeof v === 'number' ? v : Array.from(v));
     if (k === 'uPass') gl.uniform1i(l, v);
     else if (typeof v === 'number') gl.uniform1f(l, v);
     else if (v.length === 2) gl.uniform2fv(l, v);
     else if (v.length === 3) gl.uniform3fv(l, v);
     else gl.uniform4fv(l, v);
   };
+  // (The second pass, the same program straight after the first, needs only its pass number: the rest still holds.)
   const tissue = (u, pass) => {
     gl.useProgram(T.p);
-    set(T.U, 'size', [canvas.width, canvas.height]);
-    for (const k in u) set(T.U, k, u[k]);
+    if (pass === 0) {
+      set(T.U, 'size', [canvas.width, canvas.height]);
+      for (const k in u) set(T.U, k, u[k]);
+    }
     set(T.U, 'uPass', pass);
     gl.bindVertexArray(vao); gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
   };

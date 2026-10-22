@@ -35,3 +35,23 @@ test("item 39: a lit lobule label's pill is read once per layout, not on every f
   const lay = src.slice(src.indexOf('function layoutLabels()'), src.indexOf('function layoutLabels()') + 900);
   assert.match(lay, /if \(key === layoutKey\) return;\s*pills\.clear\(\);/);
 });
+
+test('item 33: the sinusoid view keeps its size, colours and dark-mode query instead of reading them every frame', () => {
+  const src = read('../src/ui/sinusoid-view.js');
+  const draw = src.slice(src.indexOf('function draw(dt, run = true'), src.indexOf('function describe()'));
+  assert.doesNotMatch(draw, /getBoundingClientRect|getComputedStyle|matchMedia\(/);
+  assert.match(draw, /const \[W, H\] = hostSize\(\);/);
+  assert.match(src, /new ResizeObserver\(\(\) => \{ hostWH = null;/);
+  // (The colours are read again when the theme or a setting's class changes, never from the presenter's inline room.)
+  assert.match(src, /if \(cssVer !== lookVer\) \{ cssVer = lookVer; cssVals\.clear\(\); \}/);
+  assert.match(src, /r\.attributeName !== 'style'/);
+  assert.match(src, /if \(el\.style\.getPropertyValue\('--label-k'\) !== lk\)/);
+});
+
+test('item 34: sinusoid uniforms are sent only when they change, and the second tissue pass sends only its pass number', () => {
+  const src = read('../src/ui/sinusoid-gl.js');
+  assert.match(src, /if \(sent\.has\(l\) && same\(v, sent\.get\(l\)\)\) return;/);
+  assert.match(src, /webglcontextrestored', \(\) => \{ sent\.clear\(\);/);
+  const t = src.slice(src.indexOf('const tissue = '), src.indexOf('return {', src.indexOf('const tissue = ')));
+  assert.match(t, /if \(pass === 0\) \{[\s\S]*for \(const k in u\)[\s\S]*\}\s*set\(T\.U, 'uPass', pass\);/);
+});
