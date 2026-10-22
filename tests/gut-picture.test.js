@@ -67,7 +67,8 @@ test('the rectum fades out at its end through a mask on the colon\'s own group, 
   const rect = stage.match(/const GUT_RECT = \[(\d+), (\d+), (\d+), (\d+)\]/).slice(1).map(Number);
   const [y0, y1] = readFileSync(new URL('../src/ui/anatomy.js', import.meta.url), 'utf8').match(/RECTUM_FADE = \[(\d+), (\d+)\]/).slice(1).map(Number);
   assert.equal(y1, 1015);
-  assert.ok(y0 >= 935, 'the superior rectal veins (C4) end at y 928, on a rectum still at full strength');
+  assert.ok(y1 - y0 >= 130, 'a wide fade (Mohammad, 22 Oct: start earlier, end in the same place)');
+  assert.ok(y0 >= 860, 'it starts at the sigmoid\'s bend into the rectum, not up in the sigmoid');
   assert.ok(rect[1] + rect[3] >= y1, 'the gut picture reaches the end of the fade');
   // The colon art is clipped by Mohammad's drawn outline (oc-his = COLON_RING), whose end is a slanted edge at y 1017 to 1037. The fade
   // must be gone before the art's own end, at every x of it: with the fade running on to 1075 the art stopped at about half strength,

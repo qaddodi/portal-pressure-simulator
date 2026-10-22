@@ -12,8 +12,9 @@ export const VIEW = { w: 1400, h: 1000 };
 // Where the rectum's end fades away (y: clear above the first, gone at the second): the colon's mask (stage.js rectFade) and the
 // outlines and glows drawn over it (veins-gl.js endFade) use the same span. The colon art is clipped by the drawn outline (oc-his),
 // which ends at y 1037 with its lower left corner up at 1017, so the fade is already gone by 1015: any later and the art's own
-// clipped end showed as a hard edge, at about half strength (22 Oct).
-export const RECTUM_FADE = [940, 1015];
+// clipped end showed as a hard edge, at about half strength (22 Oct). It starts at the sigmoid's bend into the rectum (Mohammad, 22 Oct:
+// "make the fade wider, start earlier, ends same place"): the rectal veins (C4, ending at 928) are drawn over the fading organ.
+export const RECTUM_FADE = [880, 1015];
 export const VB_ANAT = [300, 0, 820, 920];
 export const VB_CIRC = [30, 30, 1360, 730];
 // World x of the margins the atlas labels hang from (left, right).
