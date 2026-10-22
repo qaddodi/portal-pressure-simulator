@@ -3524,6 +3524,30 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
       }
     }
   });
+  // A narrowing's "60 %" stands whole, 2 px clear of every callout, label and arrow on the figure, and inside the stage: on the TIPS
+  // slides with a narrowing (a stent called out at its three points puts the "60 %" on the side the callouts leave free; a redraw of the
+  // marks had put it back beside the arrows, under the distal callout, with its "%" hidden: Mohammad, 22 Oct). The slides are found by
+  // name, and the check waits for the labels to hold still, as the callout check above does.
+  await check(device, 'presenter TIPS Doppler: the narrowing\'s "60 %" keeps clear of every callout, label and arrow', async (page) => {
+    const { DECKS, withOverview } = await import(new URL('../../src/ui/decks.js', import.meta.url));
+    const tips = withOverview(DECKS.find((d) => d.id === 'tips-doppler'));
+    for (const id of ['narrow', 'where']) {
+      await open(page, `?script=tips-doppler&slide=${tips.slides.findIndex((s) => s.id === id) + 1}`);
+      await page.waitForFunction(() => document.querySelector('.clamp-label') && document.querySelectorAll('#labels g.lb[data-key^="n:TIPS:"]:not(.lb-off)').length === 3, null, { timeout: 60000 });
+      await page.waitForFunction(() => { const now = JSON.stringify(window.pps.stage.labelClearance()), same = now === window.__tipsClear; window.__tipsClear = now; return same; }, null, { polling: 500, timeout: 30000 }).catch(() => {});
+      const bad = await page.evaluate(() => {
+        const box = (e) => e.getBoundingClientRect(), meet = (a, b, g) => a.left - g < b.right && b.left - g < a.right && a.top - g < b.bottom && b.top - g < a.bottom;
+        const lab = document.querySelector('.clamp-label'), r = box(lab), err = [], st = box(document.querySelector('#labels'));
+        if (lab.textContent.trim() !== '60%') err.push(`the label reads "${lab.textContent}"`);
+        if (r.left < st.left || r.right > st.right || r.top < st.top || r.bottom > st.bottom) err.push('the "60 %" is not inside the stage');
+        const others = [...document.querySelectorAll('#labels g.lb')].filter((e) => e.style.display !== 'none' && !e.classList.contains('lb-off'));
+        for (const o of others) if (meet(r, box(o), 2)) err.push(`the "60 %" touches "${o.textContent.trim().slice(0, 20)}"`);
+        for (const a of document.querySelectorAll('path.clamp')) if (meet(r, box(a), 2)) err.push('the "60 %" touches an arrow of its clamp');
+        return err;
+      });
+      if (bad.length) throw new Error(`TIPS Doppler "${id}": ${[...new Set(bad)].join('; ')}`);
+    }
+  });
   // Every phone card and sheet, driven by real touches (the path iOS takes), at the Home Screen app's height and Safari's: a short
   // pull eases back, a pull from Full (slow or a flick) settles at Half, a pull or flick from Half closes, and a new touch while the
   // card is still easing (back, to Half, or away) takes it over. Every frame, every card's slide equals its cut and nothing of a

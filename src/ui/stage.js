@@ -1341,17 +1341,13 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   let stageWake = () => {};   // set once the frame loop exists: anything that may need a redraw calls it
   let resizeReady = false, forceDraw = false;   // forceDraw: the vessel canvas was just resized (and so cleared): the next frame draws it at once
   let clampFs = '';
-  // A narrowing's label stands level on screen whatever the figure's turn, just clear of its clamp on the vessel's side,
-  // at its 12 px size (a turned "60 %" had stood on end across the right atrium in the circuit).
+  // A narrowing's label stands level on screen whatever the figure's turn, at the spot the layout chose for it (clampLabelAt: the
+  // column's side, a spot off the probe) or, where it chose none, just clear of its clamp on the vessel's side, at its 12 px size
+  // (a turned "60 %" had stood on end across the right atrium in the circuit). Every rebuild of the marks and every change of zoom
+  // places it again by that one rule, so neither undoes the spot the layout gave it: the "60 %" had gone back to the vessel's side
+  // under the stent's callouts after a redraw.
   function placeClampLabels() {
-    const fs = parseFloat(clampFs) || 12, th = (rotDeg() * Math.PI) / 180, w = 1.4 * fs, hh = 0.6 * fs;
-    for (const t of ov.clamps.querySelectorAll('.clamp-label')) {
-      const [x, y, nx, ny, off] = t.dataset.at.split(' ').map(Number);
-      const sx = nx * Math.cos(th) - ny * Math.sin(th), sy = nx * Math.sin(th) + ny * Math.cos(th);   // (the side, as it points on screen)
-      const D = off + 2 + Math.abs(sx) * w + Math.abs(sy) * hh, lx = x + nx * D, ly = y + ny * D;
-      t.setAttribute('x', lx.toFixed(2)); t.setAttribute('y', ly.toFixed(2));
-      t.setAttribute('transform', `rotate(${(-rotDeg()).toFixed(2)} ${lx.toFixed(2)} ${ly.toFixed(2)})`);
-    }
+    for (const t of ov.clamps.querySelectorAll('.clamp-label')) clampLabelAt(t);
   }
   const applyVT = () => {
     const deg = rotDeg();
@@ -6935,6 +6931,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       if (F) updateLabels(F);
     }, dur);
   }
+  // A narrowing's "60 %": one rule for where it stands, whichever code asks (the marks' rebuild, a change of zoom, the layout's search).
+  // Its spot is d past the clamp's arrows on one side of the vessel and t along it (the layout's, or 16 and 0), the text reading
+  // outward from there, ending at the spot on the clamp's left on screen and starting there on its right, level whatever the turn.
   function clampLabelAt(el) {
     const c = el._c;
     if (!c) return;
@@ -6942,9 +6941,13 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const kept = c.id === clampFor ? clampD.get(c.id) : null, mv = c.id !== clampFor ? clampMv.get(c.id)?.cur : null;
     const d = c.off + (el._d ?? mv?.d ?? kept?.d ?? 16), t = el._d != null ? el._t ?? 0 : mv?.t ?? kept?.t ?? 0;
     const pos = [1, -1].map((sg) => [c.x + c.nx * sg * d - c.ny * t, c.y + c.ny * sg * d + c.nx * t]);   // (t: slid along the vessel)
-    const k = away && (away === 'W') !== (worldToLocal(...pos[0])[0] < worldToLocal(...pos[1])[0]) ? 1 : 0, left = away === 'W';
-    el.setAttribute('x', pos[k][0] + (left ? -4 : 4)); el.setAttribute('y', pos[k][1] + 4);
+    const xs = pos.map((q) => worldToLocal(...q)[0]);
+    const k = away && (away === 'W') !== (xs[0] < xs[1]) ? 1 : 0, left = xs[k] < xs[1 - k] - 0.5, [x, y] = pos[k];
+    const gap = 6 / Math.max(CTM?.sc || 1, 1e-3), deg = rotDeg();   // (6 px on screen, the text's own offset from its spot: 4 at the usual scale)
+    el.setAttribute('x', x.toFixed(2)); el.setAttribute('y', y.toFixed(2));
+    el.setAttribute('dx', (left ? -gap : gap).toFixed(2)); el.setAttribute('dy', gap.toFixed(2));
     if (left) el.setAttribute('text-anchor', 'end'); else el.removeAttribute('text-anchor');
+    if (deg) el.setAttribute('transform', `rotate(${(-deg).toFixed(2)} ${x.toFixed(2)} ${y.toFixed(2)})`); else el.removeAttribute('transform');
   }
   // A quantized value that only moves once the input has clearly left its step (so a varix whose
   // diameter pulses across a rounding boundary is not rebuilt on every beat).
@@ -7009,7 +7012,6 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         ov.clamps.append(s('path', { class: 'clamp', 'data-id': id, d: `M${tx} ${ty} L ${bx + ux} ${by + uy} L ${bx - ux} ${by - uy} Z` }));
       }
       const lab = s('text', { class: 'clamp-label', 'data-id': id }, document.createTextNode(`${Math.round(v * 100)}%`));
-      lab.setAttribute('data-at', [x, y, nx, ny, off + 8].map((q) => q.toFixed(2)).join(' '));
       lab._c = { id, x, y, nx, ny, off }; clampLabelAt(lab); clampFontAt(lab);
       ov.clamps.append(lab);
       clampShade(id);
@@ -8934,12 +8936,18 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       if (it.point) dots.push({ k: 'h:' + it.key, tag: 'circle', at: { class: 'leader-dot-halo', cx, cy, r: String(DISC) } });
       if (!circuit || it.mid) dots.push({ k: 'd:' + it.key, tag: 'circle', at: { class: 'leader-dot', cx, cy, r: '2.4' } });
     }
-    // (A moved "60 %": its leader runs from the clamp's outer tip to the label, fading with it.)
-    if (solve && !isImaging()) for (const el of ov.clamps.querySelectorAll('.clamp-label')) {
-      const c = el._c, m = c && clampMv.get(c.id);
-      if (!m?.cur || m.busy || !el._box) continue;
-      const [ax, ay] = worldToLocal(c.x + c.nx * (c.off + 8), c.y + c.ny * (c.off + 8)), le = leaderEnd(el._box, ax, ay, 1);
-      if (Math.hypot(le.x - ax, le.y - ay) > 4) leaders.push({ k: 'cl:' + c.id, tag: 'path', at: { class: 'leader', d: `M${ax.toFixed(1)} ${ay.toFixed(1)} L${le.x.toFixed(1)} ${le.y.toFixed(1)}` } });
+    // (A "60 %" that stands off from its clamp, moved off the probe or put where the stent's column of callouts leaves room, is
+    // joined to the clamp's nearer outer tip by a leader, fading with it; one at its usual spot has none. Read from the label as it
+    // stands now, in a carried layout too, so a pan or a nudge of the figure keeps the line.)
+    if (!isImaging()) for (const el of ov.clamps.querySelectorAll('.clamp-label')) {
+      const c = el._c, m = c && clampMv.get(c.id), own = c && c.id === clampFor && ptSide && clampD.get(c.id);
+      if (!c || m?.busy || !(m?.cur || own)) continue;
+      const b = boxOfEl(el, 6);
+      if (!b) continue;
+      const tips = [[c.x + c.nx * (c.off + 8), c.y + c.ny * (c.off + 8)], [c.x - c.nx * (c.off + 8), c.y - c.ny * (c.off + 8)]].map((q) => worldToLocal(...q));
+      const gap = (q) => Math.hypot(Math.max(b.x0 - q[0], 0, q[0] - b.x1), Math.max(b.y0 - q[1], 0, q[1] - b.y1));
+      const [ax, ay] = gap(tips[1]) < gap(tips[0]) ? tips[1] : tips[0], le = leaderEnd(b, ax, ay, 1);
+      if (Math.hypot(le.x - ax, le.y - ay) > (m?.cur ? 4 : 28)) leaders.push({ k: 'cl:' + c.id, tag: 'path', at: { class: 'leader', d: `M${ax.toFixed(1)} ${ay.toFixed(1)} L${le.x.toFixed(1)} ${le.y.toFixed(1)}` } });
     }
     leaders.push(...dots);
     // (The flow's arrowheads keep out from under the points' callouts, within 17 px of their dots, and 5 px either side of

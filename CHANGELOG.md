@@ -2,6 +2,13 @@
 
 ## October 2026
 
+- **A narrowing's "60 %" fits.** On the TIPS Doppler slides with a narrowing (the narrowed stent, where it narrows), the "60 %" stood
+  between its arrow and the distal callout with its "%" under "TIPS". A redraw of the figure's marks had put it back on the vessel's own
+  side, undoing the side the layout chose (the one the stent's column of callouts leaves free). One rule now places the "60 %" wherever it
+  shows (every deck, Explore, Patients, the circuit, phone, iPad and Mac): on the side the layout chose, reading outward from its spot,
+  level whatever the figure's turn. Where the spot has to stand off from the clamp (a crowded stretch of the liver, or off the Doppler
+  probe) a thin leader joins it to the nearer arrow, as the probe's own move already did. Tests: `tests/clamp-label-place.test.js`, and the
+  browser check "the narrowing's 60 % keeps clear of every callout, label and arrow".
 - **WHVP and FHVP tiles get the scale bar.** The two tiles used to show a bare number with an empty bar. They now carry coloured
   bands, a dot for now and a ring for the start, and a rating word, like HVPG's. The guidelines give no cut-offs for either pressure on
   its own, so each is judged as the pressure it stands for, with the numbers the summary tables already used: the wedged pressure like
