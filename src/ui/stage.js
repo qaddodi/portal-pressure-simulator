@@ -4098,13 +4098,21 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // each pinch, as the menus faded back in.)
   function gutPicSoon() {
     clearTimeout(gutPicTimer);
-    const go = () => { if (!leftAlone(1000)) { gutPicTimer = setTimeout(go, 250); return; } makeGutPic().then(gutPicsOut).catch(() => { /* the live paths stay */ }); };
+    const go = () => { if (!leftAlone(1000)) { gutPicTimer = setTimeout(go, 250); return; } makeGutPic().then(gutPicsIn).then(gutPicsOut).catch(() => { /* the live paths stay */ }); };
     gutPicTimer = setTimeout(go, 350);
   }
   // The gut's pictures for the zooms further out, down to the whole figure (its home framing, or the whole plate if that is
   // further out): a slide's camera often glides out while the organs ease, and the picture of the close-up was then too sharp
   // for it, so the gut drew its live paths in every frame of the change (Mohammad's iPhone ?perf recording, 21 Oct:
   // "zoomed out past it", 95-300 ms frames). Each step down is half the pixels of the one above, so they cost little.
+  // And the two steps further in, up to the cap: a pinch in during a change then finds a picture at once, instead of the gut's live
+  // paths until the pinch is let go and its own picture made (external review, 22 Oct). Every step is at or under the cap, each
+  // kept once, so all the pictures together stay under twice the cap's pixels.
+  async function gutPicsIn() {
+    if (!CTM || vdpr * CTM.sc > GUT_CAP) return;
+    const k0 = gutStep(vdpr * CTM.sc, GUT_CAP);
+    for (let k = k0 * Math.SQRT2, n = 0; n < 2 && k <= GUT_CAP * 1.001; k *= Math.SQRT2, n++) { if (!leftAlone(1000)) return; await makeGutPic(k / 1.01); }
+  }
   async function gutPicsOut() {
     if (!CTM || !(vt.k > 0)) return;
     const lo = gutStep(vdpr * CTM.sc / vt.k * Math.min(1, homeAt?.k ?? 1), GUT_CAP);
@@ -4170,7 +4178,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     // it began at (it kept three: external review, 21 Oct). Each step has half the pixels of the one above, so all of them together
     // are less than twice the largest.)
     // (Of the view's part, only the newest is kept: each is up to 4.2 MP.)
-    const kept = gutPics.filter((p) => p.mut === mut && p.look === look && (p.win ? !win : p.k !== k)).slice(-7);
+    // (Nine: the zoom it began at, the two steps in (gutPicsIn) and seven out.)
+    const kept = gutPics.filter((p) => p.mut === mut && p.look === look && (p.win ? !win : p.k !== k)).slice(-9);
     for (const p of gutPics) if (!kept.includes(p)) for (const r of p.runs) URL.revokeObjectURL(r.url);
     gutPics = [...kept, gutPic];
     gutPicOn = false; gGutPics.style.display = 'none'; gGut.classList.remove('gut-pic-on');

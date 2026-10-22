@@ -27,7 +27,7 @@ test('the picture is used only while the plate is down, in the look and art it w
   // Eight are kept at most: the new one and the seven before, of the same art and colours (the rest are let go): every zoom step,
   // and of the view's part only the newest.
   const mk = fn('makeGutPic');
-  assert.match(mk, /const kept = gutPics\.filter\(\(p\) => p\.mut === mut && p\.look === look && \(p\.win \? !win : p\.k !== k\)\)\.slice\(-7\);/);
+  assert.match(mk, /const kept = gutPics\.filter\(\(p\) => p\.mut === mut && p\.look === look && \(p\.win \? !win : p\.k !== k\)\)\.slice\(-9\);/);
   assert.match(mk, /const k = Math\.min\(g\.scale, 4094 \/ w, 4094 \/ h, Math\.sqrt\(4\.2e6 \/ \(w \* h\)\)\);/, 'a texture side within 4096, within 4.2 MP');
   assert.match(mk, /for \(const p of gutPics\) if \(!kept\.includes\(p\)\) for \(const r of p\.runs\) URL\.revokeObjectURL\(r\.url\);\n\s+gutPics = \[\.\.\.kept, gutPic\];/);
   assert.match(fn('syncGutPic'), /const pic = gutPicFor\(vdpr \* CTM\.sc\);\n\s+if \(pic !== gutPic\) \{ gutPic = pic; gGutPics\.replaceChildren\(\.\.\.pic\.runs\.map\(\(r\) => r\.img\)\); \}/);
@@ -77,7 +77,11 @@ test('the rectum fades out at its end through a mask on the colon\'s own group, 
 test('the gut pictures for the zooms further out, down to the whole figure, are made too', () => {
   const stage = readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8');
   // (Mohammad's iPhone ?perf recording, 21 Oct: a slide's camera glided out while the organs eased: "zoomed out past it".)
-  assert.match(stage, /makeGutPic\(\)\.then\(gutPicsOut\)/);
+  assert.match(stage, /makeGutPic\(\)\.then\(gutPicsIn\)\.then\(gutPicsOut\)/);
+  // (And two steps in, up to the cap, for a pinch in during a change: external review, 22 Oct.)
+  const inw = stage.slice(stage.indexOf('async function gutPicsIn'), stage.indexOf('async function gutPicsOut'));
+  assert.match(inw, /if \(!CTM \|\| vdpr \* CTM\.sc > GUT_CAP\) return;/);
+  assert.match(inw, /for \(let k = k0 \* Math\.SQRT2, n = 0; n < 2 && k <= GUT_CAP \* 1\.001; k \*= Math\.SQRT2, n\+\+\) \{ if \(!leftAlone\(1000\)\) return; await makeGutPic\(k \/ 1\.01\); \}/);
   const out = stage.slice(stage.indexOf('async function gutPicsOut'), stage.indexOf('async function makeGutPic'));
   assert.match(out, /const lo = gutStep\(vdpr \* CTM\.sc \/ vt\.k \* Math\.min\(1, homeAt\?\.k \?\? 1\), GUT_CAP\);/);
   assert.match(out, /const top = vdpr \* CTM\.sc > GUT_CAP \* 1\.15 \? GUT_CAP \* Math\.SQRT2 : gutStep\(vdpr \* CTM\.sc, GUT_CAP\);/);
