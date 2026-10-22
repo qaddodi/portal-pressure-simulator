@@ -574,6 +574,7 @@ export function createPressureTime({ marks = () => [] } = {}) {
     return wrapped.get(key);
   }
   function layoutMarkers(ms, X, right) {
+    if (!ms.length) return { groups: [], rows: 0 };   // (no markers in the window, the common case and every slide's: the font below cost each frame a font lookup for nothing)
     const ctx = cv.getContext('2d');
     ctx.font = FONT(600, 12);
     const groups = [];
