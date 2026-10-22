@@ -62,6 +62,14 @@ test('the line shares the chart\'s stations, names, colours and blocks, and is l
   assert.match(strip, /x\(i\) \+ hw\[i\] \+ pad\)\.toFixed\(1\)\} \$\{cy\}H\$\{\(x\(i \+ 1\) - hw\[i \+ 1\] - pad\)/, 'the line stops short of each reading');
 });
 
+test('a phone\'s line puts each block on its station\'s column, behind the line and the reading, which keeps an outline in the cell\'s colour', () => {
+  const strip = prof.slice(prof.indexOf('export function createProfileStrip'));
+  assert.match(strip, /const box = \(i\) => blockSpan\(x\(i\), slot, tw\);/, 'the chart\'s own width rule, centred on its column');
+  const at = (re) => { const m = strip.search(re); assert.ok(m > 0, String(re)); return m; };
+  assert.ok(at(/class: 'ppf-blk'/) < at(/class: 'pps-line'/) && at(/class: 'pps-line'/) < at(/class: 'pps-v'/), 'block, line, readings: back to front');
+  assert.match(css, /\.pps-v \{[^}]*paint-order: stroke; stroke: var\(--surface-2\); stroke-width: 4px;/);
+});
+
 test('the cause is fitted again when its own width changes (its font loading late), not only the row\'s', () => {
   assert.match(grid, /rowRO\?\.observe\(k\); rowRO\?\.observe\(k\.firstElementChild\); rowRO\?\.observe\(k\.lastElementChild\);/, 'the site\'s own width too: its font loading late');
   assert.match(js, /new ResizeObserver\(\(es\) => es\.forEach\(\(e\) => fitRow\(e\.target\.closest\('\.pz-cell-k'\)\)\)\)/);

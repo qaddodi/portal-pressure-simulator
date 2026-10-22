@@ -6208,7 +6208,7 @@ html.thumb-ui .menu.from-dock { clip-path: inset(-64px -64px calc(var(--sink, 0p
 .pz-pstrip { display: none; width: 100%; }   /* (a phone's six-case grid, one line a case: tool-profile.js createProfileStrip) */
 .pz-pstrip svg { display: block; overflow: visible; }
 .pps-line { fill: none; stroke-width: 4; stroke-linecap: round; }
-.pps-v { font: 700 1em var(--font-ui); fill: var(--text); font-variant-numeric: tabular-nums; }
+.pps-v { font: 700 1em var(--font-ui); fill: var(--text); font-variant-numeric: tabular-nums; paint-order: stroke; stroke: var(--surface-2); stroke-width: 4px; stroke-linejoin: round; }   /* (outlined in the cell's colour, so a reading stays whole over its block's hatching) */
 .ppf-brace path { fill: none; stroke: var(--text-3); stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
 .ppf-brace text { font: 500 1em var(--font-ui); fill: var(--text-2); }
 .ppf-br path { fill: none; stroke: var(--text-3); stroke-width: 1.5; }

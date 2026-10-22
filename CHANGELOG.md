@@ -2,6 +2,15 @@
 
 ## October 2026
 
+- **Ladder: the resistance block stands on its column.** The red hatched block on the Gut to heart ladder used to hang in the gap between
+  the two readings the pressure falls across. It now stands on the column of the station the pressure falls from (Pre- to Intra- marks
+  Pre-, Intra- to Post- marks Intra-, Post- to HV marks Post-, the portal vein to Pre- marks PV, HV to IVC marks HV, and the heart marks the
+  RA), as wide as a two-digit reading, from just over that reading down to the level of the one it falls to (the heart's down to zero).
+  The reading, the line and the station names are drawn over the block and keep their outline, and the dashed Healthy and Before lines are
+  drawn again over it, so all of them stay whole. The same on the chart (every deck's data card, phone, iPad and Mac) and on the phone's
+  one-line cases; the app's own Pressure panel (Explore, Patients) draws no block, as before. A block still fades in and out and moves
+  with the line as it eases. Tests:
+  `tests/sweep-fixes-2-brackets.test.js`, `tests/grid-key-phone.test.js`.
 - **Fluid balance card: one strip.** The card is redrawn for the slides that opt in with `window: true` (Ascites 4 and 5, Tap, Recompensation,
   the Testing deck). It leads with the answer ("Each day · ascites builds ▲ 160"), then the lymph made with its Liver and Gut, then one strip
   that splits the day on one scale: what the lymphatics carry (named inside the bar, with "full" once they can carry no more, or the room left

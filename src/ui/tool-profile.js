@@ -37,9 +37,12 @@ export const SPANS = [['hvpg', 'HVPG', 'SIN_R', 'RHV'], ['ppg', 'PPG', 'CONF', '
 
 // Where the resistance is, hatched red as the old ladder had it (Mohammad, 21 Oct: "can we add that red block thing that showed where
 // the resistance is?"): each stretch from the portal vein on where the pressure falls more than BLOCK_FALL mmHg (the old ladder's
-// rule), over the fall itself. Where no stretch falls that much but the right atrium stands more than BLOCK_FALL over the healthy one,
-// the pressure is held up past it, by the heart: a column after the RA's reading (the old ladder's block on the RA). A healthy chart
-// shows none. (The gut's own stretch, its capillaries to the portal vein, is never a block.)
+// rule), the block standing on the column of the station the pressure falls from (Mohammad, 22 Oct: "highlight the Pre number/column
+// rather than in between"; so the fall from Pre- to Intra- marks Pre-, from Intra- to Post- marks Intra-, from the portal vein to Pre-
+// marks the portal vein, and so on), hanging from the reading down to the level of the one it falls to. Where no stretch falls that
+// much but the right atrium stands more than BLOCK_FALL over the healthy one, the pressure is held up past it, by the heart: the RA's
+// own column, from its reading to zero (the old ladder's block on the RA). The reading, the line and the names are drawn over the
+// block, so they stay whole. A healthy chart shows none. (The gut's own stretch, its capillaries to the portal vein, is never a block.)
 export const BLOCK_FALL = 4;
 /** The blocks of profile p (hl: the healthy one, or null): each stretch's first station index, the last station's for the heart. */
 export function blocksOf(p, hl) {
@@ -49,15 +52,18 @@ export function blocksOf(p, hl) {
   if (!out.length && hl && p.v[n] - hl.v[n] > BLOCK_FALL) out.push(n);
   return out;
 }
-/** Block i's box on the chart G (profileGeo) for profile p ({ v, top }): between the two readings, NUM_PAD + 2 px clear of each, from
- *  the higher reading's middle down to the lower's; the heart's from after the RA's reading to the chart's edge, from it down to zero.
- *  → [x0, x1, y0, y1] */
+/** A block's width: centred on its station's column, as wide as the widest reading (two digits) with NUM_PAD + 3 px each side, so every
+ *  block is as wide as the next and a reading's digits changing never moves an edge; never past its column's edge. → [x0, x1] */
+export function blockSpan(cx, slot, tw) {
+  const hw = Math.min(tw('00', 700) / 2 + NUM_PAD + 3, slot / 2 - 3);
+  return [cx - hw, cx + hw];
+}
+/** Block i's box on the chart G (profileGeo) for profile p ({ v, top }): on station i's column, around its reading (NUM_PAD px over it)
+ *  and down to the level of the next reading (the heart's: down to zero). → [x0, x1, y0, y1] */
 export function blockBox(G, tw, p, i) {
   const { f } = G, n = p.v.length - 1, yg = (v) => G.Z - (G.Z - G.T) * Math.max(0, Math.min(v, p.top)) / p.top;
-  const hw = (k) => tw(whole(p.v[k]), 700) / 2, pad = NUM_PAD + 2;
-  if (i >= n) { const x0 = G.x(n) + hw(n) + pad; return [x0, Math.max(x0 + 6, G.w - 2), yg(p.v[n]) - 0.36 * f, G.Z]; }
-  const x0 = G.x(i) + hw(i) + pad, x1 = Math.max(x0 + 4, G.x(i + 1) - hw(i + 1) - pad), y0 = yg(p.v[i]) - 0.36 * f;
-  return [x0, x1, y0, Math.max(y0 + 4, yg(p.v[i + 1]) + 0.36 * f)];
+  const [x0, x1] = blockSpan(G.x(i), G.slot, tw), y0 = yg(p.v[i]) - 0.36 * f - NUM_PAD;
+  return [x0, x1, y0, i >= n ? Math.max(y0 + 4, G.Z) : Math.max(y0 + 4, yg(p.v[i + 1]) + 0.36 * f)];
 }
 
 /** A fingerprint's profile: the eight stations' pressures (mmHg) in order, and its HVPG and PPG as the tiles give them;
@@ -552,9 +558,12 @@ export function createProfileTool() {
     const col = (v) => pressureColor(v);
     const gid = `pzpg-${Math.random().toString(36).slice(2, 8)}`;
     const valY = (cy, k) => cy + sides[k].by, t = performance.now();
+    // (The blocks showing, each where the shown line falls so it moves with the line as it eases, and how far each has faded in.)
+    const bk = [...blk].map(([i, b]) => ({ op: blkOp(b, t), box: blockBox(G, tw, shown, i) })).filter((q) => q.op >= 0.005);
+    const blkRect = ([x0, x1, y0, y1], at = {}) => sv('rect', { x: x0, y: y0, width: x1 - x0, height: y1 - y0, rx: Math.min(4, (x1 - x0) / 2), ...at });
     const svg = sv('svg', { viewBox: `0 0 ${w} ${hh}`, width: w, height: hh, role: 'img', style: `font-size: ${f.toFixed(2)}px`,
       'aria-label': `Pressure from gut to heart: ${STATIONS.map((n, i) => `${SPOKEN[n]} ${labels[i]}`).join(', ')} mmHg. HVPG ${whole(shown.hvpg)}, PPG ${whole(shown.ppg)}.` },
-      sv('defs', {}, hatchDef(`${gid}-h`, 8), sv('linearGradient', { id: gid, gradientUnits: 'userSpaceOnUse', x1: G.x(0), x2: G.x(STATIONS.length - 1), y1: 0, y2: 0 },
+      sv('defs', {}, hatchDef(`${gid}-h`, 8), bk.length ? sv('clipPath', { id: `${gid}-c` }, bk.map((q) => blkRect(q.box))) : null, sv('linearGradient', { id: gid, gradientUnits: 'userSpaceOnUse', x1: G.x(0), x2: G.x(STATIONS.length - 1), y1: 0, y2: 0 },
         shown.v.map((v, i) => sv('stop', { offset: (i / (STATIONS.length - 1)).toFixed(3), 'stop-color': col(v) }))),
         // (The lines stop NUM_PAD px short of each number written on them.)
         sv('mask', { id: `${gid}-m`, maskUnits: 'userSpaceOnUse', x: 0, y: 0, width: w, height: hh },
@@ -570,13 +579,11 @@ export function createProfileTool() {
       hl ? sv('path', { class: 'ppf-hl', d: smoothD(pts(hl)), mask: `url(#${gid}-m)` }) : null,
       bf ? sv('path', { class: 'ppf-bf', d: smoothD(pts(bf)), mask: `url(#${gid}-m)` }) : null,
       sv('path', { class: 'ppf-fill', d: `${smoothD(now)}L${G.x(STATIONS.length - 1).toFixed(1)} ${G.Z}L${G.x(0).toFixed(1)} ${G.Z}Z`, style: `fill: url(#${gid})` }),
-      // The blocks, over the fill and under the line, each where the shown line falls (so it moves with the line as it eases).
-      [...blk].map(([i, b]) => {
-        const op = blkOp(b, t);
-        if (op < 0.005) return null;
-        const [x0, x1, y0, y1] = blockBox(G, tw, shown, i);
-        return sv('rect', { class: 'ppf-blk', x: x0, y: y0, width: x1 - x0, height: y1 - y0, rx: Math.min(4, (x1 - x0) / 2), fill: `url(#${gid}-h)`, opacity: op < 1 ? op.toFixed(3) : null });
-      }),
+      // The blocks, over the fill and under the line and the readings; the healthy and the earlier lines are drawn again over them, clipped to
+      // them, so those show whole too (Mohammad, 22 Oct: the line and the numbers stay visible over the block).
+      bk.map((q) => blkRect(q.box, { class: 'ppf-blk', fill: `url(#${gid}-h)`, opacity: q.op < 1 ? q.op.toFixed(3) : null })),
+      bk.length ? sv('g', { 'clip-path': `url(#${gid}-c)` }, hl ? sv('path', { class: 'ppf-hl', d: smoothD(pts(hl)), mask: `url(#${gid}-m)` }) : null,
+        bf ? sv('path', { class: 'ppf-bf', d: smoothD(pts(bf)), mask: `url(#${gid}-m)` }) : null) : null,
       sv('line', { class: 'ppf-axis', x1: G.L, x2: G.R, y1: G.B, y2: G.B }),
       sv('path', { class: 'ppf-line', d: smoothD(now), style: `stroke: url(#${gid})`, mask: `url(#${gid}-m)` }),
       now.map(([cx, cy], i) => sv('text', { class: 'ppf-v', x: cx, y: valY(cy, i), 'text-anchor': 'middle' }, labels[i])),
@@ -683,7 +690,7 @@ export function createProfileStrip(namesOnly = false) {
     const hh = Math.ceil(1.9 * f), cy = hh / 2, labels = p.v.map(whole), hw = labels.map((t) => tw(t, 700) / 2), pad = NUM_PAD;
     el.style.height = `${hh}px`;
     const gid = `pzps-${Math.random().toString(36).slice(2, 8)}`;
-    const box = (i) => (i >= n ? [x(n) + hw[n] + pad, Math.max(x(n) + hw[n] + pad + 6, w - 2)] : [x(i) + hw[i] + pad, Math.max(x(i) + hw[i] + pad + 4, x(i + 1) - hw[i + 1] - pad)]);
+    const box = (i) => blockSpan(x(i), slot, tw);   // (each block on its station's column, as the chart's)
     el.replaceChildren(sv('svg', { viewBox: `0 0 ${w} ${hh}`, width: w, height: hh, role: 'img', style: `font-size: ${f.toFixed(2)}px`,
       'aria-label': `Pressure from gut to heart: ${STATIONS.map((s, i) => `${SPOKEN[s]} ${labels[i]}`).join(', ')} mmHg.` },
       sv('defs', {}, hatchDef(`${gid}-h`, 7), sv('linearGradient', { id: gid, gradientUnits: 'userSpaceOnUse', x1: x(0), x2: x(n), y1: 0, y2: 0 },
@@ -691,6 +698,7 @@ export function createProfileStrip(namesOnly = false) {
       // (The liver's three readings on the chart's LIVER tint, across the line's full height, so each case shows where the sinusoids are:
       // Mohammad, 21 Oct, "every graph has a background behind the pre, intra, and post numbers". Under the blocks, the line and the numbers.)
       i0 >= 0 ? sv('g', { class: 'ppf-liver' }, sv('rect', { x: x(i0) - slot / 2, y: 0, width: slot * (i1 - i0 + 1), height: hh, rx: 4 })) : null,
+      // (Each block on its station's column, behind the line and the readings, which keep their outline: Mohammad, 22 Oct.)
       blocksOf(p, hl).map((i) => { const [x0, x1] = box(i); return sv('rect', { class: 'ppf-blk', x: x0, y: 1, width: x1 - x0, height: hh - 2, rx: Math.min(4, (x1 - x0) / 2), fill: `url(#${gid}-h)` }); }),
       // (The line stops NUM_PAD px short of each reading, as on the chart.)
       sv('path', { class: 'pps-line', style: `stroke: url(#${gid})`, d: p.v.slice(0, n).map((_, i) => `M${(x(i) + hw[i] + pad).toFixed(1)} ${cy}H${(x(i + 1) - hw[i + 1] - pad).toFixed(1)}`).join('') }),

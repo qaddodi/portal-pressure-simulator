@@ -47,12 +47,31 @@ test('the red block marks each fall over 4 mmHg from the portal vein on, or the 
   assert.ok(!blocksOf({ ...hl, v }, hl).includes(0));
 });
 
-test('a block stands between the two readings, clear of both, over the fall itself', () => {
+test('a block stands on the column of the station the pressure falls from, around its reading, down to the next reading\'s level', () => {
   const tw = (t) => t.length * 7, p = { v: [23, 20, 8, 7, 6, 5, 5, 4], hvpg: 2, ppg: 15 }, top = axisTop(p), G = profileGeo(400, 260, 12, tw, true);
   const [x0, x1, y0, y1] = blockBox(G, tw, { ...p, top }, 1);
-  assert.ok(x0 >= G.x(1) + 7 + 4 && x1 <= G.x(2) - 3.5 - 4, 'clear of both readings by NUM_PAD and more');
   const yg = (v) => G.Z - (G.Z - G.T) * v / top;
-  assert.ok(Math.abs(y0 - (yg(20) - 0.36 * 12)) < 0.01 && Math.abs(y1 - (yg(8) + 0.36 * 12)) < 0.01);
+  assert.ok(Math.abs((x0 + x1) / 2 - G.x(1)) < 1e-9, 'centred on its own station\'s column, not between two');
+  assert.ok(x0 < G.x(1) - 7 - 4 && x1 > G.x(1) + 7 + 4, 'wider than its reading, NUM_PAD and more each side, so the number stands inside');
+  assert.ok(x0 > G.x(0) + 7 + 4 && x1 < G.x(2) - 7 - 4, 'clear of both neighbouring readings');
+  assert.ok(Math.abs(y0 - (yg(20) - 0.36 * 12 - 4)) < 0.01 && Math.abs(y1 - (yg(8) + 0.36 * 12)) < 0.01, 'from over its reading down to the level of the one it falls to');
+  // (Every block is as wide as the next, whatever its reading's digits, so an easing number never moves an edge.)
+  const w = (i, v) => { const q = blockBox(G, tw, { ...p, v: p.v.map((x, k) => (k === i ? v : x)), top }, i); return q[1] - q[0]; };
+  assert.equal(w(1, 9), w(1, 20));
+  assert.equal(w(1, 20), w(2, 20));
+  // (The heart's: its own column, from its reading to zero.)
+  const [h0, h1, hy0, hy1] = blockBox(G, tw, { ...p, v: [23, 20, 8, 7, 6, 5, 5, 12], top }, 7);
+  assert.ok(Math.abs((h0 + h1) / 2 - G.x(7)) < 1e-9 && h1 <= G.R && hy1 === G.Z && hy0 < yg(12), 'the RA\'s column, inside the chart, down to zero');
+  // (Even on the narrowest chart a block stays inside its column.)
+  const Gn = profileGeo(250, 200, 12, tw, true), [n0, n1] = blockBox(Gn, tw, { ...p, top }, 1);
+  assert.ok(n0 >= Gn.x(1) - Gn.slot / 2 && n1 <= Gn.x(1) + Gn.slot / 2);
+});
+
+test('the block is drawn under the axis line, the line and the readings, which keep their outline', () => {
+  const at = (re) => { const m = prof.slice(prof.indexOf('export function createProfileTool')).search(re); assert.ok(m > 0, String(re)); return m; };
+  const blk = at(/class: 'ppf-blk'/), axis = at(/class: 'ppf-axis'/), line = at(/class: 'ppf-line'/), vals = at(/class: 'ppf-v'/);
+  assert.ok(blk < axis && axis < line && line < vals, 'block, axis, line, readings: back to front');
+  assert.match(css, /\.ppf-v \{[^}]*paint-order: stroke; stroke: var\(--surface\); stroke-width: 4px;/);
 });
 
 test('every bracket and the healthy line\'s name keep clear of the blocks; a block eases in and out, hatched as the old ladder\'s', () => {
