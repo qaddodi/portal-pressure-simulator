@@ -3,7 +3,7 @@
 // holds it hidden only until the cards have settled (a slide change lifts its hold 120 ms after the camera move; a move off a spot a card now covers is hidden for 80 ms), then shows it at once at the new spot; with no figure left anywhere it stays hidden.
 import { frameFor } from './frame.js?v=19b3f2915c';
 import { gpuProbe } from './gpu-probe.js?v=e82dc07b45';
-import { layoutWatch } from './idle-keys.js?v=ea36a0b5c6';
+import { layoutWatch, PLACED } from './idle-keys.js?v=ea36a0b5c6';
 const nextFrame = frameFor('credit');
 
 // Corners in order of preference. A bottom corner rises above whatever covers it (up to the middle of the figure);
@@ -459,8 +459,14 @@ export function createCreditPlacer(credit, { keptStyle = null } = {}) {
   function soon() { if (!raf) raf = nextFrame(check); }
   addEventListener('resize', () => { resizedAt = performance.now(); soon(); });
   addEventListener('pps:occ', soon);
-  // Readout bars ease on every value and never cover the figure: their transitions are not a reason to look again.
-  const settled = (e) => { if (!e.target.classList?.contains('rb-fill')) soon(); };
+  // Readout bars ease on every value and never cover the figure: their transitions are not a reason to look again. Nor is a
+  // transition that can move nothing the look measures: only one on the figure (its labels), or on, in or around a card, bar or
+  // menu (PLACED: base selectors, so a piece fading out of its shown state still counts). Review item 29.
+  const settled = (e) => {
+    const t = e.target;
+    if (t?.nodeType !== 1 || t.classList.contains('rb-fill')) return;
+    if (wrap.contains(t) || t.closest(PLACED) || t.querySelector(PLACED)) soon();
+  };
   addEventListener('transitionend', settled, true);
   addEventListener('animationend', settled, true);
   // (Not for stage-busy alone: the floating pieces' fade while the figure moves changes only their opacity, and a look then,
