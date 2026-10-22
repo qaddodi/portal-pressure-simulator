@@ -416,9 +416,9 @@ export function createOrganPaint(gl, shape) {
     /**
      * A layer drawn by `draw(fbo)` (a picture of some organs, under its own program) laid over framebuffer `fbo` (w × h) times the
      * luminance of a mask group painted under m: the gut's cut and the stomach's see-through, made live while the layer stays a
-     * picture. `box`: the layer's device box [x0, y0, x1, y1] (y down).
+     * picture. `box`: the layer's device box [x0, y0, x1, y1] (y down); `opacity`: the group's own, laid with the mask.
      */
-    layMasked(draw, box, maskSpec, m, w, h, fbo) {
+    layMasked(draw, box, maskSpec, m, w, h, fbo, opacity = 1) {
       size(w, h);
       const b = [Math.max(0, Math.floor(box[0])), Math.max(0, Math.floor(box[1])), Math.min(W, Math.ceil(box[2])), Math.min(H, Math.ceil(box[3]))];
       if (!(b[2] > b[0] && b[3] > b[1])) return;
@@ -427,7 +427,7 @@ export function createOrganPaint(gl, shape) {
       gl.viewport(0, 0, W, H);
       draw(layers[0].fbo);
       paintOps(maskSpec, m, layers[1].fbo);
-      lay(b, 1, true, fbo);
+      lay(b, opacity, true, fbo);
     },
     /** Ends a frame of painting: meshes not used in it are let go. */
     endFrame() { meshesOld = meshes; meshes = new Map(); },

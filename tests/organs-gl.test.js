@@ -37,3 +37,24 @@ test('the stage splits the organs into the layers in the SVG order, and shows a 
   const gl = readFileSync(new URL('../src/ui/organs-gl.js', import.meta.url), 'utf8');
   assert.match(gl, /gl\.blendFunc\(gl\.ONE, gl\.ONE_MINUS_SRC_ALPHA\)/, 'plain "over", premultiplied');
 });
+
+// The bowel floats up on the ascites. Painted live, its picture is moved on the GPU while the fluid eases (and made again once it
+// settles), under the rest of the gut, the gut's opacity and mask laid over the two as one group (as the SVG lays it): nothing is drawn again while the
+// fluid eases (it was every half step of the bulge, the bowel standing still until each new picture landed).
+test('the bowel is a picture at rest gathered under the gut, moved by its float on the GPU', () => {
+  const stage = readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8');
+  const gl = readFileSync(new URL('../src/ui/organs-gl.js', import.meta.url), 'utf8');
+  assert.match(stage, /const LIVE_ORDER = \['back', 'behind', 'bowel', 'gut', /);
+  assert.match(stage, /for \(const L of live \? LIVE_ORDER : ORGAN_LAYERS\) \{/);
+  assert.match(stage, /opacity: parseFloat\(getComputedStyle\(gGut\)\.opacity\), under: \[\{ name: 'bowel', dy: bowelDy\(\) \}\]/);
+  assert.match(stage, /if \(liveSet\) veins\.organs\.shift\('bowel', bowelDy\(\)\);/);
+  // The picture: the bowel alone, or the rest without it; the group's opacity left to the GPU. Drawn where the bowel is in the
+  // copy (at), its float held in the pictures' state while the fluid eases and taken once it settles.
+  assert.match(stage, /if \(mine !== \(layer === 'bowel'\)\) drop\.push\(\[g, g\.parentNode, g\.nextSibling\]\);/);
+  assert.match(stage, /v\.organs\.stage\(slot, layer, job, rect, layer === 'bowel' \? plateCopy\.bowelDy : 0\)/);
+  assert.match(stage, /if \(!fluidEasing\(\)\) bowelHeld = organG\.bowel\.getAttribute\('transform'\);\n\s+if \(liveOn\(\)\) return \['live', bowelHeld, /);
+  assert.match(stage, /unmasked\.push\(\[k, 'opacity', k\.getAttribute\('opacity'\)\]\); k\.removeAttribute\('opacity'\);/);
+  // On the GPU: moved by whole device pixels, drawn under the gut's picture, laid with the gut's opacity.
+  assert.match(gl, /const dy = Math\.round\(\(\(u\.dy \|\| 0\) - U0\.at\) \* m\[3\]\), mm = mat\.slice\(\);\n\s+mm\[7\] \+= dy;/);
+  assert.match(gl, /for \(const \[U0, U1, mm\] of under\) drawLayer\(U0, U1, mm\); drawLayer\(L0, L1\); \}, box, cut\.spec, mul\(m, cut\.m\), w, h, fbo, cut\.opacity \?\? 1\);/);
+});

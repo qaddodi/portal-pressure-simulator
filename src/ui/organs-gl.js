@@ -14,7 +14,10 @@
 // The organs that change (the liver with its ghost line, the spleen, the diaphragm, the falciform line) can instead be painted
 // live from their own SVG at each render (organ-paint.js, setLive), at the screen's resolution, in their place in the order;
 // and a layer whose mask changes with them (the gut's cut by the liver and the spleen, the stomach's see-through liver) is a
-// picture of its organs without the mask, the mask painted live over it (its cut).
+// picture of its organs without the mask, the mask painted live over it (its cut). A cut can gather other layers under its
+// layer into the one group (`under`, each with its own shift): the bowel, which floats up on the ascites, is a picture of its
+// own, moved on the GPU from where it was drawn (`at`) to where it is, under the rest of the gut, the gut's opacity and its mask
+// laid over the two together, as the SVG lays its group: no picture is made again while the fluid eases.
 
 const LAYER_VS = `#version 300 es
 layout(location=0) in vec2 corner;
@@ -41,7 +44,7 @@ void main() {
 }`;
 
 import { createShapeGL } from './shape-gl.js?v=c4003c5526';
-import { createOrganPaint, mul } from './organ-paint.js?v=ef382296bf';
+import { createOrganPaint, mul } from './organ-paint.js?v=77d7aef556';
 
 function program(gl, vs, fs) {
   const p = gl.createProgram();
@@ -95,11 +98,14 @@ export function createOrganStack(gl) {
   const free = (map) => { for (const L of map.values()) gl.deleteTexture(L.tex); map.clear(); };
   const mat = new Float32Array(9);
   return {
-    /** A layer's raster for `slot` (0 whole, 1 view), its texture filled (veins-gl plateJob), over world rect: held until commit. */
-    stage(slot, name, tex, rect) {
+    /**
+     * A layer's raster for `slot` (0 whole, 1 view), its texture filled (veins-gl plateJob), over world rect: held until commit.
+     * `at`: for a layer that can be moved (shift), where it was drawn.
+     */
+    stage(slot, name, tex, rect, at = 0) {
       const was = staged[slot].get(name);
       if (was) gl.deleteTexture(was.tex);
-      staged[slot].set(name, { tex, rect });
+      staged[slot].set(name, { tex, rect, at });
     },
     /** Shows the staged set for `slot` in place of the one shown, drawn in the order of `names` (back to front). */
     commit(slot, names) {
@@ -117,6 +123,10 @@ export function createOrganStack(gl) {
      * place of what was set before; null for none. Drawn at the next render.
      */
     setLive(organs, masks) { liveOrgans = organs || new Map(); cuts = masks || new Map(); ver++; },
+    /** A layer gathered under a cut (its `under`) now at dy world units down (drawn at its `at`), as of the next render. */
+    shift(name, dy) {
+      for (const c of cuts.values()) for (const u of c.under || []) if (u.name === name && u.dy !== dy) { u.dy = dy; ver++; }
+    },
     /** The names the stack lays, back to front (the layers' and the live organs'). */
     setOrder(names) { order = names.slice(); ver++; },
     drop(slot) { if (live[slot].size) { free(live[slot]); ver++; } free(staged[slot]); },
@@ -139,10 +149,10 @@ export function createOrganStack(gl) {
       gl.viewport(0, 0, w, h);
       gl.clearBufferfv(gl.COLOR, 0, [0, 0, 0, 0]);
       mat.set([m[0], m[1], 0, m[2], m[3], 0, m[4], m[5], 1]);
-      const drawLayer = (L0, L1) => {
+      const drawLayer = (L0, L1, mm = mat) => {
         const U = layerP.u;
         gl.useProgram(layerP.p);
-        gl.uniformMatrix3fv(U.world, false, mat);
+        gl.uniformMatrix3fv(U.world, false, mm);
         gl.uniform2f(U.size, w, h);
         gl.uniform1i(U.t0, 0); gl.uniform1i(U.t1, 1);
         gl.enable(gl.BLEND); gl.blendEquation(gl.FUNC_ADD); gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
@@ -161,7 +171,20 @@ export function createOrganStack(gl) {
         const L0 = live[0].get(n), L1 = live[1].get(n);
         if (!L0) continue;
         const cut = painter && cuts.get(n);
-        if (cut) painter.layMasked(() => { gl.viewport(0, 0, w, h); drawLayer(L0, L1); }, dev(L0.rect), cut.spec, mul(m, cut.m), w, h, fbo);
+        if (cut) {
+          // (The layers gathered under it, each moved by whole device pixels: on the view's picture's own pixel grid, as sharp as at rest.)
+          const under = [], box = dev(L0.rect);
+          for (const u of cut.under || []) {
+            const U0 = live[0].get(u.name), U1 = live[1].get(u.name);
+            if (!U0) continue;
+            const dy = Math.round(((u.dy || 0) - U0.at) * m[3]), mm = mat.slice();
+            mm[7] += dy;
+            const b = dev(U0.rect);
+            box[0] = Math.min(box[0], b[0]); box[1] = Math.min(box[1], b[1] + dy); box[2] = Math.max(box[2], b[2]); box[3] = Math.max(box[3], b[3] + dy);
+            under.push([U0, U1 && U1.at === U0.at ? U1 : null, mm]);   // (the view's picture only if drawn where the whole one was)
+          }
+          painter.layMasked(() => { gl.viewport(0, 0, w, h); for (const [U0, U1, mm] of under) drawLayer(U0, U1, mm); drawLayer(L0, L1); }, box, cut.spec, mul(m, cut.m), w, h, fbo, cut.opacity ?? 1);
+        }
         else { gl.bindFramebuffer(gl.FRAMEBUFFER, fbo); gl.viewport(0, 0, w, h); drawLayer(L0, L1); }
       }
       painter?.endFrame();

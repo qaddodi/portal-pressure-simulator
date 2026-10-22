@@ -46,7 +46,7 @@ test('only the view picture is trimmed, the copy is put back whole, and shapes t
   // (The view's picture, slot 1, a strip at a time: each piece of a strip it draws trimmed to its own pixels, same scale.)
   assert.match(src, /plateMarkup\(\[rect\[0\] \+ qx \/ sx, rect\[1\] \+ qy \/ sy, qw \/ sx, qh \/ sy\], qw, qh, false, true, layer, unmask\)/);
   assert.match(src, /const v = veins, sx = W \/ rect\[2\], sy = H \/ rect\[3\];/);
-  assert.match(src, /finally \{\n\s+for \(let i = out0\.length - 1; i >= 0; i--\) \{ const \[c, p, n\] = out0\[i\]; p\.insertBefore\(c, n\); \}[^\n]*\n\s+for \(const \[k, v\] of unmasked\) k\.setAttribute\('mask', v\);/);
+  assert.match(src, /finally \{\n\s+for \(let i = out0\.length - 1; i >= 0; i--\) \{ const \[c, p, n\] = out0\[i\]; p\.insertBefore\(c, n\); \}[^\n]*\n\s+for \(const \[k, a, v\] of unmasked\) k\.setAttribute\(a, v\);/);
   const pb = src.slice(src.indexOf('function plateBoxes('), src.indexOf('function plateMarkup('));
   for (const re of [/clipPath\|mask\|pattern\|marker\|symbol\|defs/, /getAttribute\?\.\('filter'\)/, /subs\.has\(c\) \|\| c\.id/, /objectBoundingBox/, /marker-end/]) assert.match(pb, re);
 });

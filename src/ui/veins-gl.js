@@ -36,7 +36,7 @@ import { SLOT, DYE_BINS } from './blood.js?v=e668d01823';
 import { cssRGB } from './util.js?v=54c2d6673a';
 import { CELL, ENT_W, binVeins, splitRows } from './veins-bin.js?v=81a80b3a6d';
 import { gpuProbe } from './gpu-probe.js?v=2e30f04b4d';
-import { createOrganStack } from './organs-gl.js?v=aa092ee112';
+import { createOrganStack } from './organs-gl.js?v=cab3961edf';
 
 export { binVeins };
 
@@ -1871,7 +1871,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false }) {
     hasPlate: (slot) => !!plates[slot] || !!stack?.has(slot),
     /** The organs' layers (organs-gl.js), or null: a filled raster job (plateJob) is staged for a slot and the set committed whole. */
     organs: stack && {
-      stage(slot, name, job, rect) { stack.stage(slot, name, job.tex, rect); },
+      stage(slot, name, job, rect, at = 0) { stack.stage(slot, name, job.tex, rect, at); },
       commit(slot, names) {
         // (One kind of picture at a time: the layers replace the flattened plate of the same slot.)
         if (plates[slot]) { gl.deleteTexture(plates[slot].tex); plates[slot] = null; }
@@ -1883,6 +1883,8 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false }) {
       get canLive() { return stack.canLive; },
       setLive: (organs, masks) => stack.setLive(organs, masks),
       setOrder: (names) => stack.setOrder(names),
+      /** A layer gathered under a live mask now at dy world units down (the bowel's float on the ascites). */
+      shift: (name, dy) => stack.shift(name, dy),
     },
     /** Per-vessel blood: nTubes × FLOW_TEXELS × 4 floats (see stage.js). */
     setFlow(data) {

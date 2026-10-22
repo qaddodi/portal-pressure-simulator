@@ -27,7 +27,7 @@ test('a plate raster draws into a canvas of its own and sends it as pixel strips
   assert.match(body, /v\.plateRows\(job, y, rows, px\.subarray\(y \* W \* 4, \(y \+ rows\) \* W \* 4\)\);/);
   assert.match(body, /if \(gone\(\) \|\| plateCopy\?\.key !== drawnAs\) return false;\n\s+const p = drawn\(W, rows, \(pg\) => pg\.drawImage\(band, 0, 0, W, rows\)\);\n\s+await new Promise\(\(res\) => nextFrame\(res\)\); waited = true;\n\s+if \(gone\(\)\) return false;\n\s+v\.plateRows\(job, y, rows, readBack\(p\)\);/);
   assert.doesNotMatch(body, /drawImage\([a-z]+, 0, 0, W, H\)/, 'never the whole picture in one frame');
-  assert.match(body, /if \(layer\) v\.organs\.stage\(slot, layer, job, rect\); else v\.setPlate\(slot, job, rect\);\n\s+job = null;/, 'shown only once every strip is in (a layer of the organs: held until the whole set is in)');
+  assert.match(body, /if \(layer\) v\.organs\.stage\(slot, layer, job, rect, layer === 'bowel' \? plateCopy\.bowelDy : 0\); else v\.setPlate\(slot, job, rect\);\n\s+job = null;/, 'shown only once every strip is in (a layer of the organs: held until the whole set is in)');
   assert.match(body, /finally \{ if \(job && !v\.lost\) v\.dropJob\(job\); px = null; for \(const p of pend\) p\.pc\.width = p\.pc\.height = 0; \}/, 'a canvas drawn and not yet read is let go when the picture is given up');
   // (Only the view picture that was shown is kept, for the next pan; the one before is let go, and so is the kept one when the plate drops.)
   assert.match(body, /job = null;\n\s+if \(banded\) \{ viewKeeps\.set\(layer \|\| '', \{ px, rect, W, H, scale, seq, drops, key: drawnAs \}\); px = null; \}/, 'one kept view picture per layer, the newest');
@@ -57,7 +57,8 @@ test('an ease that outgrows the plate shows on the live drawing, and the plate i
   assert.match(poke, /if \(!live && \(lvMoving \|\| fluidEasing\(\)\)\) \{ if \(plateKey && veins\.hasPlate\(0\) && plateStateKey\(\) !== plateKey\) hidePlate\(\); return; \}/);
   // (Unless the changing organs are painted live: then nothing is dropped, and the pictures under them hold none of them.)
   assert.match(poke, /const live = liveOn\(\);/);
-  assert.match(stage, /if \(liveOn\(\)\) return \['live', organG\.bowel\.getAttribute\('transform'\)/);
+  // (The bowel's float only once the fluid settles: its picture is moved on the GPU while it eases.)
+  assert.match(stage, /if \(liveOn\(\)\) return \['live', bowelHeld, cs\.getPropertyValue\('--stage-bg'\)/);
 });
 
 test('highlighting an organ never draws the organ picture again (its look is the same, and the redraw lagged)', () => {

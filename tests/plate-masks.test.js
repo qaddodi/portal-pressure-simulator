@@ -40,7 +40,7 @@ test("only the view's strips get cut masks, with a 4 px margin; the whole plate 
   assert.match(build, /\{ const lm = \[g, \.\.\.g\.querySelectorAll\('\[mask\]'\)\], cm = \[c, \.\.\.c\.querySelectorAll\('\[mask\]'\)\];/, 'found while the copy and the page still match');
   assert.match(build, /const refs = maskRefs\.filter\(\(\[ce\]\) => parts\.some\(\(p\) => p\.contains\(ce\)\)\);/);
   assert.match(build, /inv && k \? inv\.multiply\(k\)\.inverse\(\) : null/);
-  assert.match(build, /return \{ key, seq: plateSeq, head, parts,[^\n]*maskT \};/, 'the plain head stays for the whole plate and the gut picture');
+  assert.match(build, /return \{ key, seq: plateSeq, head, parts,[^\n]*maskT, bowelDy: bowelDy\(\) \};/, 'the plain head stays for the whole plate and the gut picture');
 });
 
 test('the ?perf readout splits the rest of the page into page busy and waiting, and notes the organ SVGs read', () => {
