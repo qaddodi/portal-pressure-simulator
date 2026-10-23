@@ -2,6 +2,12 @@
 
 ## October 2026
 
+- **Wide time-lapse charts receive room before the teaching card is fitted.** The chart targets a taller plot at the column's full
+  width; the title, approved explanation, equation and view buttons fit together above it with a 12 px lettering floor. Short windows
+  use tighter teaching-card spacing and budget its actual content height, keeping the cards clear even at that floor. A previous
+  compressed chart no longer defines the next layout's natural height. Applies to all wide chart-only time-lapse cards. Targeted
+  headless Mac geometry checks cover three window sizes and enlarged text, without screenshots.
+
 - **Wide chart-only time-lapse cards keep their full width and readable plots.** The chart uses the space below the teaching card,
   reserving its header, padding and gaps before choosing a height. Its minimum accounts for both plots, a wrapped legend and treatment
   bars; shorter windows retain the existing fitting fallback. Applies to every wide chart-only time-lapse card. Circulation's meal slide

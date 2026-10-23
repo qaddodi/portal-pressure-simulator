@@ -25,7 +25,7 @@ import { nb, listCase, plateletText } from './glue.js?v=5a0f63226b';
 import { DECKS, REGIONS, LEVELS, TOPICS, withOverview, siteTag, SITE_TAGS } from './decks.js?v=43c54b4a26';
 import { fingerprintOf } from '../engine/fingerprint.js?v=8faea80b59';
 import { createHvpgMonitor } from './hvpg-proc.js?v=616157c7bf';
-import { createTools } from './presenter-tools.js?v=46fedbbfc9';
+import { createTools } from './presenter-tools.js?v=950e288894';
 import { openHandout } from './handout.js?v=54b55b0bd1';
 import { noteResume, resumeFor } from './resume.js?v=f086f80ee8';
 import { parseDeckSource, checkDeck } from './deck-source.js?v=8395c650cd';
@@ -40,7 +40,7 @@ import { citeText, focusOf, oneLadder } from './teach-extras.js?v=5f5248f5a7';
 import { createProfileTool, createProfileStrip } from './tool-profile.js?v=939db19505';
 import { causeFit } from './cause-fit.js?v=830a6835a5';
 import { COMPACT, WIDE } from './card-type.js?v=f5dfdb80f2';
-import { flowTimeHeight } from './flow-time.js?v=cb89e13e11';
+import { flowTimeHeight } from './flow-time.js?v=58004108e1';
 import { PROCS, procBlocked, playProcedure } from './proc-anim.js?v=b92ccb3a81';
 const nextFrame = frameFor('presenter');
 
@@ -2569,12 +2569,16 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       // does not fit even at Compact goes further, to 12 px on the screen, and on its side, where no cap keeps that room, past it as a
       // last resort rather than run out of its card.)
       const small = el === ui.text && (phone() || ui.root.classList.contains('low'));
+      const chartWords = el === ui.text && ui.root.classList.contains('pz-flowtext');
       const lowFloor = el === ui.data && ui.root.classList.contains('low') ? lowData(el) : 0;
       const shortFloor = !small && !lowFloor && ui.root.classList.contains('short') ? shortFit(el) : 0;
       if (!shortFloor && !lowFloor) el.classList.remove('pz-lt', 'pz-lt2');   // (a card left tight by a shorter window)
       const ln = small ? el.querySelector('.pz-line, p') : null, lb = ln ? parseFloat(getComputedStyle(ln).fontSize) : 0;
       const floor = lb > 12 ? Math.ceil(12 / lb * 1000) / 1000 : 0.5;
+      const wordPx = chartWords ? Math.min(...[...el.querySelectorAll('.pz-line, .pz-abb, .pz-h, .pz-eq math')].map((e) => parseFloat(getComputedStyle(e).fontSize) || Infinity)) : Infinity;
+      const wordFloor = chartWords ? Math.min(1, Math.ceil(12 / wordPx * 1000) / 1000) : 0;
       const mins = small ? [...new Set([floor, phone() ? floor : 0.5])] : [lowFloor || floor];
+      if (chartWords) mins[0] = wordFloor;
       if (shortFloor > mins[0]) mins.unshift(shortFloor);   // (the compact layout's 12 px first; past it only as a last resort)
       let k = 1, over = 1;   // (over: the largest fit tried that still overflowed)
       const fits = () => { const o = overflowOf(el); return o.v <= 1 && o.h <= 1 ? null : o; };
@@ -2748,7 +2752,22 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       const top = off(ui.data) ? vm : r(ui.data).top - wr.top;
       ui.text.style.maxHeight = `${Math.max(0, (H - top - padT - pad0 - vm) / k).toFixed(1)}px`;
     }
+    // Give a time chart its natural readable height before the teaching card is fitted. Previously the
+    // title/equation claimed the column first and the chart received only the leftovers (142 px on a
+    // 700 px Mac window). Fit all the teaching content together in the remaining room, keeping 12 px.
+    const chartWords = wide && dd0.classList.contains('tool-only') && !!dd0.querySelector(':scope > .pz-tool[data-kind="flowtime"] > .pz-flowtime') && !off(dd0);
+    ui.root.classList.toggle('pz-flowtext', chartWords);
+    if (chartWords) {
+      ui.text.style.setProperty('--pz-tk', WIDE.title); ui.text.style.setProperty('--pz-bk', WIDE.words);
+      const m = ui.shade.offsetLeft, cp = ui.text.offsetLeft - m, width = ui.text.offsetWidth + 2 * cp;
+      const gap = Math.round(0.6 * m), q = ui.bar.hidden || !ui.bar.offsetWidth ? null : ui.bar.getBoundingClientRect();
+      const foot = q && q.left - wr.left < (m + width) * k ? (q.top - wr.top) / k - gap : H / k - m;
+      ui.text.style.maxHeight = `${Math.max(1, foot - m - 2 * cp - gap - colHeight(width)).toFixed(1)}px`;
+    }
     fitCards(ui.text);
+    // The floor may leave the words taller than their reservation. Budget their full resting height,
+    // rather than a capped box that would expand after the chart had already been positioned.
+    if (chartWords) ui.text.style.maxHeight = 'none';
     let t = r(ui.text);
     if (cardOn && low && t && lowKey(t, r(ui.data), padT, pad0, vm, wr, H, k)) { fitDone.delete(ui.text); fitCards(ui.text); t = r(ui.text); }
     const sl = ui.shade.offsetLeft * k, pad = cardOn && t ? t.left - wr.left - sl : 0, dd = ui.data, ts = ui.text.style;
@@ -2787,7 +2806,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       // fixed step (card-type.js WIDE, so every slide reads at one of two sizes and its title always well above its words; its column
       // never widens: every slide keeps one card width), then the data card's blocks step smaller (DK). At the last step the pair
       // stays stacked and the data card's own fit does the rest.
-      const put = (tk, bk) => { ui.text.style.setProperty('--pz-tk', tk); ui.text.style.setProperty('--pz-bk', bk); t = r(ui.text); return top0 + t.height + 2 * pad + gap + ch <= foot; };   // (no slack once shrunk: the data card is never squeezed)
+      const put = (tk, bk) => { if (chartWords) { tk = WIDE.title; bk = WIDE.words; } ui.text.style.setProperty('--pz-tk', tk); ui.text.style.setProperty('--pz-bk', bk); t = r(ui.text); return top0 + t.height + 2 * pad + gap + ch <= foot; };   // (no slack once shrunk: the data card is never squeezed)
       const title = () => put(1, 1) || put(WIDE.title, WIDE.words);   // (Regular, else Compact)
       const foldH = (s) => colHeight(cw / k, s);
       const step = (s) => { dk = s; ch = foldH(s) * k; };
@@ -3120,11 +3139,23 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     // them where the screen is short, slip.lift.)
     const sheet = d.classList.contains('pz-sheet'), parts = sheet ? [...d.children].filter((c) => c.matches('.pz-tiles')) : [], was = parts.map((c) => c.style.display);
     if (sheet) { d.classList.remove('tool-open', 'pz-sliding'); ds.removeProperty('--pz-u'); for (const c of parts) c.style.display = 'none'; }
+    // Measure a time chart at its preferred size, never the last layout's --ft-room. Otherwise a
+    // previously squeezed chart became the next layout's intrinsic size and could never claim room.
+    const chart = ui.root.classList.contains('pz-wide') && d.classList.contains('tool-only') && d.querySelector(':scope > .pz-tool[data-kind="flowtime"] > .pz-flowtime');
+    let extra = 0;
+    if (chart) {
+      d.classList.add('pz-flowfit');
+      const f = Math.max(12, parseFloat(getComputedStyle(chart).fontSize) || 12), bands = parseFloat(getComputedStyle(chart).getPropertyValue('--band-room')) || 0;
+      const preferred = flowTimeHeight(chart.clientWidth, f, Infinity, chart.dataset.lines.split(','), bands).preferred;
+      // Use the destination arithmetically: changing --ft-room here would start its visible height
+      // transition, so offsetHeight could still describe the previous smaller allocation.
+      extra = preferred - chart.offsetHeight;
+    }
     const hh = d.offsetHeight + (sheet ? LIP : 0);
     parts.forEach((c, i) => { c.style.display = was[i]; });
     d.className = sv[0]; ds.width = sv[1]; ds.maxHeight = sv[2]; if (sv[3]) ds.setProperty('--pz-fit', sv[3]); if (sv[4]) ds.setProperty('--pz-dk', sv[4]); else ds.removeProperty('--pz-dk'); if (sv[5]) ds.setProperty('--pz-z', sv[5]); if (sv[6]) ds.setProperty('--pz-u', sv[6]);
     ui.lipMO?.takeRecords();
-    return hh;
+    return hh + extra;
   }
   function freeRects() {
     if (!ui || phone()) return null;

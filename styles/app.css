@@ -6628,3 +6628,8 @@ html.thumb-ui .menu.from-dock { clip-path: inset(-64px -64px calc(var(--sink, 0p
 .pz.stack.stack .pz-flows { height: 9.25em; }
 .pz.stack.stack .pz-flowtime { --ft-h: min(43cqi, 144px); height: var(--ft-h); }
 .pz.stack.stack .pz-flowtime.has-bands { height: calc(var(--ft-h) + var(--band-room, 0em)); }
+
+/* Small teaching captions keep their screen size while the time chart reserves its room. */
+.pz.pz-flowtext .pz-text :is(.pz-kick, .pz-eqk) { font-size: max(var(--s-cap), calc(12px / var(--pz-fit, 1))); }
+.pz.pz-flowtext .pz-text { gap: 10px; }
+.pz.pz-flowtext.short .pz-text { gap: 6px; }

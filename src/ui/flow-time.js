@@ -77,7 +77,7 @@ const legendOf = (keys, f) => keys.map((key) => { const [name, unit, , c] = LINE
 export function flowTimeHeight(w, f, room, keys = MEAL_LINES, bandEm = 0) {
   const legend = legendOf(keys, f), rows = legend[0].w + legend[1].w + 2 * f <= w ? 1 : 2;
   const bands = bandEm * f, min = (rows * 1.5 + 1.9 + 1.7 + 6) * f + bands;
-  const preferred = Math.max(0.6 * w, 15 * f) + bands;
+  const preferred = Math.max(0.8 * w, 20 * f) + bands;
   return { min, preferred, height: room >= min ? Math.min(preferred, room) : null };
 }
 const linesOf = (keys) => keys.map((key, j) => { const [name, unit, d, c] = LINE[key]; return j ? ['flow', 'fScale', null, c, name, unit, d] : ['pv', 'pScale', null, c, name, unit, d]; });

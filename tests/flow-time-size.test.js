@@ -6,7 +6,7 @@ import { CIRCULATION } from '../src/ui/decks/circulation.js';
 
 test('wide meal charts shorten to their room without sacrificing the two plots', () => {
   const full = flowTimeHeight(420, 12, 500);
-  assert.equal(full.preferred, 252);
+  assert.equal(full.preferred, 336, "reserve a readable wide plot before fitting the teaching card");
   assert.equal(full.height, full.preferred);
   assert.ok(Math.abs(full.min - 11.1 * 12) < 1e-9);
   assert.equal(flowTimeHeight(420, 12, 180).height, 180);
