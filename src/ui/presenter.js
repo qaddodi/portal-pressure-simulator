@@ -25,7 +25,7 @@ import { nb, listCase, plateletText } from './glue.js?v=5a0f63226b';
 import { DECKS, REGIONS, LEVELS, TOPICS, withOverview, siteTag, SITE_TAGS } from './decks.js?v=d87e28f67c';
 import { fingerprintOf } from '../engine/fingerprint.js?v=8faea80b59';
 import { createHvpgMonitor } from './hvpg-proc.js?v=56cec3f3ba';
-import { createTools } from './presenter-tools.js?v=d0a0234be3';
+import { createTools } from './presenter-tools.js?v=98513a0de1';
 import { openHandout } from './handout.js?v=3b09e978ce';
 import { noteResume, resumeFor } from './resume.js?v=f086f80ee8';
 import { parseDeckSource, checkDeck } from './deck-source.js?v=8395c650cd';
@@ -2214,12 +2214,14 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   // (slip.base: the rise a Gut to heart chart needs whatever the readings do, its tucked card being taller than the room under the words; the
   // readings add the rest of slip.lift on top, by u.)
   const liftTo = (u) => { const w = slip.base + (u > 0 ? u * Math.max(0, slip.lift - slip.base) : 0), v = w > 0.5 ? w.toFixed(1) : ''; if (wrap.style.getPropertyValue('--pz-lift') !== (v && `${v}px`)) { if (v) wrap.style.setProperty('--pz-lift', `${v}px`); else wrap.style.removeProperty('--pz-lift'); } };
+  // (Told when the readings' card starts to move, so the Doppler probe is placed against the cards frame by frame as they go: stage.js dprTrack.)
+  const slideTell = () => dispatchEvent(new Event('pps:slide'));
   const underU = (d) => (d.classList.contains('pz-sliding') ? parseFloat(d.style.getPropertyValue('--pz-u')) || 0 : d.classList.contains('tool-open') ? 1 : 0);
   function slideUnder(from, to, ms = 360) {
     const d = ui.data;
     cancelFrame(slip.raf);
     if (reduce.matches) ms = 0; else ms *= Math.max(0.4, Math.abs(to - from));
-    d.classList.add('pz-sliding'); d.style.setProperty('--pz-u', from.toFixed(4)); liftTo(from);
+    d.classList.add('pz-sliding'); d.style.setProperty('--pz-u', from.toFixed(4)); liftTo(from); slideTell();
     const t0 = performance.now();
     const step = (now) => {
       const t = ms ? clamp((now - t0) / ms, 0, 1) : 1;
@@ -3128,6 +3130,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     // under the cover that fit is set outright too. Left to the stage, it followed the outline's card only after the reveal, on
     // a busy page in one frame: the figure stood behind where the words had been, then jumped to the middle.)
     if (booting && !cam && !store.get().lobule) { stage.fitSlow(0); return; }
+    stage.carryProbe?.();   // (a refit to the cards, not a new slide's framing: a Doppler probe that shows rides it out)
     fitAround(s, cam, booting ? 0 : ms);
   }
   // The camera eases to fit a slide's framing into the space its cards leave (the lobule refits itself on pps:occ).
@@ -3811,7 +3814,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       const p = part(), split = splitSheet(el);
       return { x, y, p, open, shown: open, split, u0: split ? underU(el) : open ? 1 : 0, full: split ? slip.d || p.scrollHeight : Math.min(p.scrollHeight, innerHeight * 0.4), on: false, pts: [] };   // (open: its part shown, the tiles under a lead instrument or the instrument over its tiles)
     };
-    const take = (gg) => { gg.on = true; if (gg.split) cancelFrame(slip.raf); else gg.p.style.transition = 'none'; hold(true); };
+    const take = (gg) => { gg.on = true; if (gg.split) { cancelFrame(slip.raf); slideTell(); } else gg.p.style.transition = 'none'; hold(true); };
     // (dy: how far the finger has moved since the part began to follow it, down positive.)
     const follow = (gg, dy) => {
       const u = clamp(gg.u0 * gg.full + dy, 0, gg.full) / (gg.full || 1);

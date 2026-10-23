@@ -225,11 +225,12 @@ export function createProbeMind() {
     hide() { at = ''; pend = ''; noneAt = null; },
     /**
      * pose: from fitPose; tgt: where it would stand ({ ang, d, k, ax, r }); on, cur: whether it shows and where it is drawn; sig: what a
-     * fresh show waits to see hold still; now (ms); instant: no waiting (reduced motion).
+     * fresh show waits to see hold still; now (ms); instant: no waiting (reduced motion); swing: the cards are moving under it (the
+     * readings' card tucking or coming out, and the camera refit after), so a far place is swung to, never faded out and in at.
      * 'hide' (no place: fade out), 'hold' (no place yet: it stays as it is), 'restart' and 'wait' (hidden: its place has not held
      * still for PEND_MS), 'jump' (fade out, and in again at the new place) or 'go' (show it, or ease it to its place).
      */
-    act({ pose, tgt, on, cur, sig: seen, now, instant = false }) {
+    act({ pose, tgt, on, cur, sig: seen, now, instant = false, swing = false }) {
       if (pose.none) {
         if (on) { if (noneAt === null) noneAt = now; if (now - noneAt < NONE_MS) return 'hold'; }
         this.hide();
@@ -242,7 +243,7 @@ export function createProbeMind() {
       }
       const id = placeId(pose);
       if (on && at && at !== id) left.add(at);
-      if (on && cur && probeJumps(cur, tgt)) { at = ''; pend = ''; return 'jump'; }
+      if (on && cur && !swing && probeJumps(cur, tgt)) { at = ''; pend = ''; return 'jump'; }
       at = id;
       return 'go';
     },

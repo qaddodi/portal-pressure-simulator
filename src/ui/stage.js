@@ -47,7 +47,7 @@ import { layoutWatch } from './idle-keys.js?v=4b46e6a6ef';
 import { writeGlowTexels } from './glow-texels.js?v=e578794a92';
 import { SIN_PERFUSION, sinStrandRadius } from './sin-perfusion.js?v=25a8407fdd';
 import { wavePacks, paintWave } from './scan-waves.js?v=066db7aa38';
-import { fitPose, probeShapes, beamBoxes, gateBoxes, awayFromProbe, createProbeMind, NONE_MS, SLACK, PROBE, PROBE_SVG } from './dop-probe.js?v=333917e0dc';
+import { fitPose, probeShapes, beamBoxes, gateBoxes, awayFromProbe, createProbeMind, NONE_MS, SLACK, PROBE, PROBE_SVG } from './dop-probe.js?v=34cec11e48';
 import { pathPieces, piecesLength, pointsAlong } from './path-pieces.js?v=e486672c9b';
 import { organDimMatrix } from './organ-dim.js?v=7888276613';
 import { parseColor, greyOf, paintRef } from './organ-grey.js?v=e41d68222c';
@@ -1280,7 +1280,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const dop = { id: null, want: null, pin: null, key: '', seg: '', points: false, all: false };
   const dopGateOf = (id) => (dop.id === id && dop.seg ? dop.seg : '');   // the third of a stent the Doppler samples ('' when it is elsewhere)
   // The Doppler probe on the figure (dprobePaint): live once the stage is built (dopApply runs before its pieces exist).
-  const dpr = { el: null, on: false, key: '', side: 0, reach: 0, rev: false, k: 1, cur: null, tgt: null, hold: 0, mon: false, noneT: 0, headOff: false, eRaf: 0, eAt: 0, box: null, marks: [], swap: 0, shapes: '', at: '', ready: false, gate: null, monAt: 0, syncKey: '', searchAt: 0, searchGap: 150, lastSig: '' };
+  const dpr = { el: null, on: false, key: '', side: 0, reach: 0, rev: false, k: 1, cur: null, tgt: null, hold: 0, mon: false, noneT: 0, headOff: false, eRaf: 0, eAt: 0, box: null, marks: [], swap: 0, shapes: '', at: '', ready: false, gate: null, monAt: 0, syncKey: '', searchAt: 0, searchGap: 150, lastSig: '', refitUntil: 0, carry: false, track: false };
   function dopApply() {
     let id = dop.pin ?? dop.want ?? null;
     if (id && !E[id]) id = null;
@@ -1994,7 +1994,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   let camMove = false;
   function camSettle() {
     if (!camMove) return;
-    camMove = false;
+    camMove = false; dpr.carry = false;
     if (F) updateLabels(F);
     nextFrame(() => { if (!camMove) wrap.classList.remove('cam-move'); });
   }
@@ -2007,7 +2007,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     // Lite mode: a jump, and a move that changes the view (not a small refit) fades the figure in at its new framing.
     if (ms <= 0) { vtGliding = false; vt = to; applyVT(); CTM = null; camSettle(); dprLet(); return; }
     vtGliding = true;
-    if (store.get().presenting && !sameView(from, to)) { camMove = true; wrap.classList.add('cam-move'); setTimeout(() => { if (!vtGliding) camSettle(); }, ms + 80); } else camSettle();
+    if (store.get().presenting && !sameView(from, to)) { camMove = true; dpr.carry = dpr.on && performance.now() < dpr.refitUntil; wrap.classList.add('cam-move'); setTimeout(() => { if (!vtGliding) camSettle(); }, ms + 80); } else camSettle();
     dprLet();   // (a probe waiting for the slide's framing: a move hides it till it lands, a refit shows it now)
     const step = (now) => {
       // A newer glide (or a framing set outright) took over: this one stops. A glide started from inside this step's
@@ -6198,6 +6198,24 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const dprStale = () => { dprCardsAt = -1e9; };
   addEventListener('pps:occ', dprStale);
   addEventListener('resize', dprStale);
+  // While the readings' card slides (a pull, a tap, the ease after either; presenter.js tells with pps:slide), the cards it moves are read on
+  // every frame and the probe is placed against them as they go: it stays where it is while it has room, swings out of a card's way as
+  // the card comes, and fades only where no place is clear (Mohammad, 22 Oct: "it should only hide once there is no space available;
+  // not hide and show during the tuck untuck"). A few frames after the slide ends the cards' last place is read once more.
+  let dprTrackRaf = 0, dprTrackQuiet = 0;
+  function dprTrack() {
+    dprTrackRaf = 0;
+    dprTrackQuiet = document.querySelector('.pz-data.pz-sliding') ? 0 : dprTrackQuiet + 1;
+    dpr.track = dprTrackQuiet <= 6;
+    if (dop.id) { dprStale(); dprobePaint(); }
+    if (dpr.track) dprTrackRaf = nextFrame(dprTrack);
+  }
+  addEventListener('pps:slide', () => { dprTrackQuiet = 0; dprPrev = new WeakMap(); if (!dprTrackRaf && dpr.ready) dprTrackRaf = nextFrame(dprTrack); });
+  // (Where each card stood on the frame before, while they slide: a card's leading edge is read DPR_AHEAD ms ahead of where it is, at the
+  // speed it has just moved at (at most DPR_REACH px, and not from a read more than 120 ms old), so the probe starts to move as the card
+  // comes and is out of its way as it arrives, not after it has covered it.)
+  let dprPrev = new WeakMap();
+  const DPR_AHEAD = 90, DPR_REACH = 80;
   function dprCards() {
     const now = performance.now();
     if (dprCardsAt > 0 && !(now - dprCardsAt > 250 && watch.due())) return dprCardsList;
@@ -6208,7 +6226,13 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       // a phone, invisible, as tall as it was last opened, and kept the probe off the whole figure in Tests › Doppler, 20 Oct.)
       if (el.hidden || el.closest('[hidden]') || el.classList.contains('card-leaving') || el.classList.contains('vd-out') || unseenCard(el)) return null;
       const q = el.getBoundingClientRect();
-      return q.width && q.height ? { x0: q.left - wr.left - 6, y0: q.top - wr.top - 6, x1: q.right - wr.left + 6, y1: q.bottom - wr.top + 6 } : null;
+      if (!q.width || !q.height) return null;
+      const box = { x0: q.left - wr.left - 6, y0: q.top - wr.top - 6, x1: q.right - wr.left + 6, y1: q.bottom - wr.top + 6 };
+      if (!dpr.track) return box;
+      const was = dprPrev.get(el); dprPrev.set(el, { ...box, at: now });
+      if (!was || now - was.at > 120) return box;
+      const out = (d) => Math.min(DPR_REACH, (Math.max(0, d) / Math.max(8, now - was.at)) * DPR_AHEAD);
+      return { x0: box.x0 - out(was.x0 - box.x0), y0: box.y0 - out(was.y0 - box.y0), x1: box.x1 + out(box.x1 - was.x1), y1: box.y1 + out(box.y1 - was.y1) };
     }).filter(Boolean)];
     return dprCardsList;
   }
@@ -6293,7 +6317,10 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   function dprMonitorLook() {
     const W = innerWidth, H = innerHeight;
     for (const cv of document.querySelectorAll('canvas[aria-label^="Spectral Doppler"]')) {
-      if (cv.closest('[hidden], .card-leaving, .vd-out, [data-folding]')) continue;
+      if (cv.closest('[hidden], .card-leaving, .vd-out')) continue;
+      // (A card folding its instrument away takes the monitor with it; a stacked card tucking or bringing out its readings does not:
+      // the monitor stays where it is, and the probe with it, Mohammad, 22 Oct.)
+      if (cv.closest('[data-folding]:not(.pz-sheet)')) continue;
       if (cv.checkVisibility && !cv.checkVisibility({ opacityProperty: true, visibilityProperty: true })) continue;
       const q = cv.getBoundingClientRect();
       if (q.width < 20 || q.height < 20 || q.right <= 0 || q.bottom <= 0 || q.left >= W || q.top >= H) continue;
@@ -6321,7 +6348,10 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     // Where they never show, it waits four seconds and stands anyway.)
     if (!dop.all || colShown) colWaitAt = 0; else colWaitAt ||= performance.now();
     const waitCol = !dpr.on && !dpr.swap && dop.all && !colShown && performance.now() - colWaitAt < 4000;
-    const show = !!(pts?.length > 1 && E[id]?.vis && (morph < 0.01 || morph > 0.99) && !camMove && !dpr.hold && dprMonitorOn() && !st.lobule && !st.sinusoid && !lz?.isOpen() && !waitCol);
+    // (A camera glide hides it, as a slide's framing does, unless it began as the same slide's figure refitting to cards that changed
+    // (a phone's readings tucking or coming out, carryProbe) with the probe already showing: then it stays and rides the vessel.)
+    const camHides = camMove && !dpr.carry;
+    const show = !!(pts?.length > 1 && E[id]?.vis && (morph < 0.01 || morph > 0.99) && !camHides && !dpr.hold && dprMonitorOn() && !st.lobule && !st.sinusoid && !lz?.isOpen() && !waitCol);
     if (!show) {
       dprMind.hide();
       dprHide();
@@ -6368,7 +6398,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     // it fades out and in there rather than flying across. No place: it holds a moment before it fades. dprMind decides.)
     const sig = `${key}|${pose.side}|${pose.reach}|${+pose.rev}|${pose.k}|${Math.round(pose.ang / 5)}|${Math.round(gx / 4)},${Math.round(gy / 4)}`;
     dpr.searchGap = sig === dpr.lastSig ? Math.min(600, dpr.searchGap * 2) : 150; dpr.lastSig = sig;
-    const act = dprMind.act({ pose, tgt, on: dpr.on, cur: dpr.cur, sig, now: performance.now(), instant: reduceMotion.matches });
+    // (While the readings' card slides, and through the camera's refit to it, the cards move under the probe: a far place is swung to, round
+    // the gate, never faded out and in at, Mohammad, 22 Oct: "rotate/move actively out of the way".)
+    const act = dprMind.act({ pose, tgt, on: dpr.on, cur: dpr.cur, sig, now: performance.now(), instant: reduceMotion.matches, swing: dpr.track || dpr.carry });
     if (act !== 'hold' && dpr.noneT) { clearTimeout(dpr.noneT); dpr.noneT = 0; }
     // (No place on the slide's free space at any side or distance, for good: it fades out, and fades in once one opens.)
     if (act === 'hide') { dprHide(); return; }
@@ -10348,6 +10380,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     cameraZoom: () => ((diveT <= 0 || diveT >= 1) && !lz?.sinBusy() ? null : (refreshCTM(), Math.log(CTM.sc) + diveZ + lz.sinZoom() + zShift)),
     /** The next way out of the lobule lands on this box of the plate (or the fit, for null or 'fit'): one zoom, no stop between. */
     riseTo, holdHome, prepRise, riseReady,
+    /** The camera is about to glide only to refit the figure to cards that changed (the same slide): a probe showing rides that glide out, never hides. */
+    carryProbe() { dpr.refitUntil = performance.now() + 300; },
     fitSlow(ms = 1300) { if (lobuleOn) return; const to = defaultVT(morphTarget === 1); if (morphTarget !== 1) homeAt = to; fitted = true; if (!sameView(to, vtGliding ? vtTarget : vt)) animateVT(to, ms); },
     /** The anatomy/circuit camera (where it is headed, if gliding), and a glide back to one saved earlier (the presenter puts the view back). */
     cameraState: () => ({ ...(vtGliding && vtTarget ? vtTarget : vt) }),
