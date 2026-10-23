@@ -1674,6 +1674,7 @@ button.finding { cursor: pointer; }
 /* A slide's causes: one plain line in the small size, its heading inline (no pills: four pills took four rows). */
 .pz-causes { margin: 0; font: 400 var(--s-cap)/1.4 var(--font-ui); color: var(--text-2); text-wrap: pretty; }
 .pz-causes .pz-sub { display: inline; margin: 0 .5em 0 0; }
+.pz-text.pz-nocauses .pz-causes { display: none; }   /* (a laptop or tablet pair still too tall at Compact: the line goes before the data card is cut off, presenter.js squeeze) */
 /* The six levels, portal vein to heart. */
 .pz-rail { --rp: .2em; position: relative; padding: 1.6em var(--rp) 0; font-size: var(--s-cap); }
 /* (--rp: side room so the block round the end bars (pre-hepatic, cardiac) is never clipped by the card's edge) */

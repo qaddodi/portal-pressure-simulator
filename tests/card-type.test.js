@@ -74,9 +74,9 @@ test('phones and an upright iPad: title above the words, buttons and tab no larg
 });
 
 test('a laptop or a sideways iPad: the same order at Regular and Compact', () => {
-  for (const vh of [5, 6.5, 8, 9, 10, 12, 15]) for (const ts of TEXT_STEPS) for (const [tk, bk] of [[1, 1], [WIDE.title, WIDE.words]]) {
+  for (const vh of [5, 6.5, 8, 9, 10, 12, 15]) for (const ts of TEXT_STEPS) for (const [tk, bk] of [[1, 1], [WIDE.title, WIDE.words], [WIDE.tight, WIDE.words]]) {
     const B = clamp(2.311 * vh, 17, 28) * ts, cp = clamp(1.4 * B, 18, 40);
-    ok(`1vh ${vh} px at ${ts * 100} %, ${tk === 1 ? 'Regular' : 'Compact'}`,
+    ok(`1vh ${vh} px at ${ts * 100} %, ${tk === 1 ? 'Regular' : tk === WIDE.title ? 'Compact' : 'Tight title'}`,
       { title: clamp(5.546 * vh, 32, 67) * ts * tk, words: B * bk, buttons: clamp(2.022 * vh, 14, 24.5) * ts * bk, tab: Math.max(12, cp * 0.72 * 0.56) });
   }
 });
@@ -84,4 +84,23 @@ test('a laptop or a sideways iPad: the same order at Regular and Compact', () =>
 test('Compact is one fixed step below Regular, the same on every slide', () => {
   assert.ok(COMPACT < 1 && COMPACT >= 0.75);
   assert.ok(WIDE.title < 1 && WIDE.words < 1 && WIDE.words >= WIDE.title);
+});
+
+// A laptop's or a sideways iPad's pair still too tall for its data card at Compact (Sites 4 on a Mac at a larger text size: the Gut to heart
+// chart, which cannot zoom, was cut off under a two-line title and a long CAUSES line): the words' card gives way once more, the title one
+// step down and then the CAUSES line, before the data card's blocks step again, and only for a slide the steps before it could not fit.
+test('the words give way once more before the data card is cut off: a tighter title, then no CAUSES line', () => {
+  assert.ok(WIDE.tight < WIDE.title && WIDE.tight >= 0.5, 'the title has one further step, still well above the words');
+  assert.match(js, /let trim = 0;/);
+  assert.match(js, /const put = \(tk, bk\) => \{ ui\.text\.style\.setProperty\('--pz-tk', trim \? Math\.min\(tk, WIDE\.tight\) : tk\); ui\.text\.style\.setProperty\('--pz-bk', bk\); ui\.text\.classList\.toggle\('pz-nocauses', trim > 1\);/);
+  assert.match(js, /for \(const n of \[1, 2\]\) \{\s*trim = n; dd\.classList\.remove\('pz-lt', 'pz-lt2'\); step\(1\);\s*below = put\(WIDE\.title, WIDE\.words\);\s*if \(!below && n === 2\) ladder\(\);/);
+  // (Only after the steps before it failed: a slide that fitted at Compact, or with its blocks stepped, is never trimmed.)
+  assert.match(js, /below = title\(\);\s*if \(!below\) ladder\(\);\s*if \(!below\) squeeze\(\);/);
+  // (A fold starts the steps again from the loosest, the trim with them; the slide's lock keeps the CAUSES line's state with its sizes.)
+  assert.match(js, /setFolds\(true\); trim = 0; ts\.removeProperty\('--pz-tk'\); ts\.removeProperty\('--pz-bk'\); ui\.text\.classList\.remove\('pz-nocauses'\);/);
+  assert.match(js, /if \(!below && !held && dd\.classList\.contains\('pz-folds'\)\) squeeze\(\);/);
+  assert.match(js, /nc: ui\.text\.classList\.contains\('pz-nocauses'\)/);
+  assert.match(js, /ui\.text\.classList\.toggle\('pz-nocauses', !!lock\.nc\);/);
+  assert.match(js, /ui\.text\.style\.removeProperty\('--pz-tk'\); ui\.text\.style\.removeProperty\('--pz-bk'\); ui\.text\.classList\.remove\('pz-nocauses'\);/);
+  assert.match(css, /\.pz-text\.pz-nocauses \.pz-causes \{ display: none; \}/);
 });

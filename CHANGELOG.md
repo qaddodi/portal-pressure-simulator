@@ -2,6 +2,14 @@
 
 ## October 2026
 
+- **A teaching card too tall for its data card no longer cuts the data card off (Mac and iPad on its side).** (Mohammad, 23 Oct, Sites 4 of 12
+  on a Mac: "remove CAUSES perhaps; fix the title so it's not too big; I want the data card to show".) At a larger text size the two-line
+  title and the long CAUSES line left the Gut to heart chart about 180 px, and a chart that cannot zoom lost its foot. When the pair is still
+  too tall at Compact with the data card's blocks stepped down, the words' card now gives way once more before anything is cut off: its title
+  one step smaller (0.62 of Regular, still well above the words), then the CAUSES line gone, the blocks stepping again from full size under
+  each. Only a slide the earlier steps could not fit comes here, so every slide that fitted stays as it was; applies to every stacked data
+  card in every deck on Mac and iPad on its side. A phone never showed CAUSES. Code and unit checks, and one headless look at Sites 4 at a
+  125 % text size; the other decks and sizes have not been compared.
 - **Wide chart-only time-lapse cards keep their full width and readable plots.** The chart uses the space below the teaching card,
   reserving its header, padding and gaps before choosing a height. Its minimum accounts for both plots, a wrapped legend and treatment
   bars; shorter windows retain the existing fitting fallback. Applies to every wide chart-only time-lapse card. Circulation's meal slide

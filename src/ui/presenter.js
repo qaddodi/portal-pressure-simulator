@@ -39,7 +39,7 @@ import { clotWords } from './callout-math.js?v=d8785a0ad3';
 import { citeText, focusOf, oneLadder } from './teach-extras.js?v=5f5248f5a7';
 import { createProfileTool, createProfileStrip } from './tool-profile.js?v=939db19505';
 import { causeFit } from './cause-fit.js?v=830a6835a5';
-import { COMPACT, WIDE } from './card-type.js?v=f5dfdb80f2';
+import { COMPACT, WIDE } from './card-type.js?v=5af5f22935';
 import { flowTimeHeight } from './flow-time.js?v=cb89e13e11';
 import { PROCS, procBlocked, playProcedure } from './proc-anim.js?v=b92ccb3a81';
 const nextFrame = frameFor('presenter');
@@ -2706,7 +2706,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     // the fold found while its cards come in is kept once it shows. Keyed by the slide shown, the card unfolded for a moment
     // as it came in at 200%, then folded again.)
     const foldKey = `${gen}:${want}:${W.toFixed(0)}x${H.toFixed(0)}:${stage.labelScale()}`;
-    ui.text.style.removeProperty('--pz-tk'); ui.text.style.removeProperty('--pz-bk');
+    ui.text.style.removeProperty('--pz-tk'); ui.text.style.removeProperty('--pz-bk'); ui.text.classList.remove('pz-nocauses');
     ui.text.style.maxHeight = '';   // (the last pass's cap would shrink the words to a room they no longer have)
     // (A phone's words keep clear of the pill and the colour key first: the room they leave (--pz-reach, --pz-fkrow) is part
     // of the fit. Placed only after it, the words were fitted to the last slide's key and kept that fit: Circulation slide 2
@@ -2787,7 +2787,9 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       // fixed step (card-type.js WIDE, so every slide reads at one of two sizes and its title always well above its words; its column
       // never widens: every slide keeps one card width), then the data card's blocks step smaller (DK). At the last step the pair
       // stays stacked and the data card's own fit does the rest.
-      const put = (tk, bk) => { ui.text.style.setProperty('--pz-tk', tk); ui.text.style.setProperty('--pz-bk', bk); t = r(ui.text); return top0 + t.height + 2 * pad + gap + ch <= foot; };   // (no slack once shrunk: the data card is never squeezed)
+      // (trim: the words' card's last steps, below. 1: the title one step further down (WIDE.tight); 2: and the CAUSES line gone.)
+      let trim = 0;
+      const put = (tk, bk) => { ui.text.style.setProperty('--pz-tk', trim ? Math.min(tk, WIDE.tight) : tk); ui.text.style.setProperty('--pz-bk', bk); ui.text.classList.toggle('pz-nocauses', trim > 1); t = r(ui.text); return top0 + t.height + 2 * pad + gap + ch <= foot; };   // (no slack once shrunk: the data card is never squeezed)
       const title = () => put(1, 1) || put(WIDE.title, WIDE.words);   // (Regular, else Compact)
       const foldH = (s) => colHeight(cw / k, s);
       const step = (s) => { dk = s; ch = foldH(s) * k; };
@@ -2797,11 +2799,24 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
         if (short) { for (const c of ['pz-lt', 'pz-lt2']) { if (below) break; dd.classList.add(c); ch = colHeight(cw / k) * k; below = put(WIDE.title, WIDE.words); } return; }
         for (const s of DK) { if (below) break; step(s); below = put(WIDE.title, WIDE.words); }   // (the data card's blocks a step or two smaller: no further, or the words would squeeze)
       };
+      // When even the smallest blocks leave the pair too tall, the words' card gives way once more before anything is cut off: its title one
+      // step down, then the CAUSES line gone, the blocks stepping again from full size under each (Mohammad, 23 Oct, Sites 4 on a Mac at a
+      // larger text size: a tall title and a long CAUSES line left the Gut to heart chart cut off). Only a slide the steps above could not fit
+      // comes here, so every slide that fitted stays as it was.
+      const squeeze = () => {
+        for (const n of [1, 2]) {
+          trim = n; dd.classList.remove('pz-lt', 'pz-lt2'); step(1);
+          below = put(WIDE.title, WIDE.words);
+          if (!below && n === 2) ladder();
+          if (below) return;
+        }
+      };
       // The last step when even the smallest blocks leave the pair too tall: the instrument folds behind Show (as on a phone),
       // its tiles in a row under the header at the card's full width, and the steps run again from full size.
       // (Not for a slide whose instrument is its point (tool-lead), nor a card that holds only the instrument.)
       if (lock) {
         for (const [n, v] of lock.vars) if (v) ts.setProperty(n, v);
+        ui.text.classList.toggle('pz-nocauses', !!lock.nc);
         if (lock.folds) setFolds(true);
         t = r(ui.text); below = lock.below; dk = lock.dk; cw = t.right - wr.left + pad - sl; ch = foldH(dk) * k;
       } else {
@@ -2810,14 +2825,17 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
         dd.classList.remove('pz-lt', 'pz-lt2'); ch = foldH(dk) * k;
         below = title();
         if (!below) ladder();
-        if (!below && canFold && !held) { setFolds(true); ts.removeProperty('--pz-tk'); ts.removeProperty('--pz-bk'); step(1); below = title(); if (!below) ladder(); }
-        // (Still too tall at the smallest step: the pair stays stacked at the one card width, the words at Compact and the blocks at
-        // their smallest step; the data card is never moved to the top right, its own fit (fitCards) makes the rest fit its room.)
+        if (!below) squeeze();
+        if (!below && canFold && !held) { setFolds(true); trim = 0; ts.removeProperty('--pz-tk'); ts.removeProperty('--pz-bk'); ui.text.classList.remove('pz-nocauses'); step(1); below = title(); if (!below) ladder(); }
+        if (!below && !held && dd.classList.contains('pz-folds')) squeeze();   // (folded just now: the same last steps again)
+        // (Still too tall at the smallest step: the pair stays stacked at the one card width, the words at their smallest (the title one step
+        // down and no CAUSES line) and the blocks at their smallest step; the data card is never moved to the top right, its own fit (fitCards)
+        // makes the rest fit its room.)
         if (!below) { put(WIDE.title, WIDE.words); below = true; }
       }
       if (dk < 1) dd.style.setProperty('--pz-dk', dk); else dd.style.removeProperty('--pz-dk');
       foldHeld = dd.classList.contains('pz-folds') ? foldKey : null;
-      if (lockKey && !lock) textLock = { key: lockKey, below, dk, folds: dd.classList.contains('pz-folds'), vars: ['--pz-tk', '--pz-bk'].map((n) => [n, ts.getPropertyValue(n)]) };
+      if (lockKey && !lock) textLock = { key: lockKey, below, dk, folds: dd.classList.contains('pz-folds'), nc: ui.text.classList.contains('pz-nocauses'), vars: ['--pz-tk', '--pz-bk'].map((n) => [n, ts.getPropertyValue(n)]) };
       // (A Gut to heart chart is drawn at its own size, never zoomed by the fit, and has a smallest height. Where the pair is too tall for it
       // even at the smallest steps, the words' card eases up with the data card, its top slipping behind the screen's top if need be, so the
       // chart stays whole in its card instead of spilling past the screen (Mohammad, 22 Oct: "It's ok if the top of the teaching card slips
@@ -3246,6 +3264,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     // (Nothing fitted at the old size carries over: each card's fit, the words' steps (a title judged long or not at the old
     // step had kept that size), and each ladder's choice of plot or strip.)
     for (const el of [ui.text, ui.data, ui.panel]) { fitDone.delete(el); for (const n of ['--pz-fit', '--pz-z', '--pz-tk', '--pz-bk', '--pz-dk']) el.style.removeProperty(n); }
+    ui.text.classList.remove('pz-nocauses');
     reFit();
     lastAt = Math.max(lastAt, shown.i + 1); redrawn = ++gen;
     if (!busy) run();

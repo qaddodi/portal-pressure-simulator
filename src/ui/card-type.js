@@ -9,4 +9,6 @@ export const COMPACT = 0.8;
 // Its row of buttons (14 px at the usual text size) at Compact: 13 px, never under 12 (styles/app.css .pz.stack .pz-text > .pz-ab).
 export const AB_COMPACT = 13 / 14, AB_FLOOR = 12 / 14;
 // A laptop or a sideways iPad: the title (--pz-tk) and the words (--pz-bk) each one step.
-export const WIDE = { title: 0.8, words: 0.88 };
+// tight: the title's one further step, for a pair still too tall for its data card at Compact (presenter.js layout, squeeze); the words stay at
+// Compact. The CAUSES line goes after it (Mohammad, 23 Oct).
+export const WIDE = { title: 0.8, words: 0.88, tight: 0.62 };
