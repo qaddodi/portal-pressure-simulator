@@ -2,6 +2,10 @@
 
 ## October 2026
 
+- **Wide chart-only time-lapse cards keep their full width and readable plots.** The chart uses the space below the teaching card,
+  reserving its header, padding and gaps before choosing a height. Its minimum accounts for both plots, a wrapped legend and treatment
+  bars; shorter windows retain the existing fitting fallback. Applies to every wide chart-only time-lapse card. Circulation's meal slide
+  also uses the shorter approved explanation. Code and unit checks only; no browser or device review has been run.
 - **The lower colon and small bowel extend a little further down, with more depth at the colon's edges.** The lower gut is 8% taller
   below its upper attachments; its artwork, outlines, vessel covers, appendix, captions and rectum fade follow together. A faint inner
   shadow and upper-left highlight round the colon's scalloped edges in each theme, using the existing tissue colors. Vessels stay in

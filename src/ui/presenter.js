@@ -22,11 +22,11 @@ import { sinusoidSupported } from './gl-support.js?v=94ad2a7ff1';
 import { SCALE_NAME, offeredScales, scaleView, pickedScale } from './scale-switch.js?v=1b0e3acd65';
 import { DISEASE_SRC, diseasePieces } from './diseases.js?v=fb8a5451c3';
 import { nb, listCase, plateletText } from './glue.js?v=5a0f63226b';
-import { DECKS, REGIONS, LEVELS, TOPICS, withOverview, siteTag, SITE_TAGS } from './decks.js?v=7f0e49be39';
+import { DECKS, REGIONS, LEVELS, TOPICS, withOverview, siteTag, SITE_TAGS } from './decks.js?v=43c54b4a26';
 import { fingerprintOf } from '../engine/fingerprint.js?v=8faea80b59';
 import { createHvpgMonitor } from './hvpg-proc.js?v=616157c7bf';
-import { createTools } from './presenter-tools.js?v=39a7bb9cb9';
-import { openHandout } from './handout.js?v=523d089c57';
+import { createTools } from './presenter-tools.js?v=46fedbbfc9';
+import { openHandout } from './handout.js?v=54b55b0bd1';
 import { noteResume, resumeFor } from './resume.js?v=f086f80ee8';
 import { parseDeckSource, checkDeck } from './deck-source.js?v=8395c650cd';
 import { NO_ASC, TILE, SCALE, bandsOf, rateOf, COLS, CUT, PRESS, fpv, dirAbs, dirRel, rateAbs, effOf, rateShown, tileShown, tipsGoal, liveSettled, shownSig } from './table-marks.js?v=15f059172f';
@@ -34,12 +34,13 @@ import { frameFor, cancelFrame } from './frame.js?v=19b3f2915c';
 import { createFigureKey } from './figure-key.js?v=8bbf7a41ed';
 import { traceWhen } from './trace-labels.js?v=fc916a95c6';
 import { flowCss, heatCss, dropCss, gradientCss, oxygenCss } from './colormap.js?v=cdcf6a2f55';
-import { EXT, expandIds, stepExtra, markLabel, figureHooks, safe } from './slide-ext.js?v=c1aad1b677';
+import { EXT, expandIds, stepExtra, markLabel, figureHooks, safe } from './slide-ext.js?v=fffa6412d7';
 import { clotWords } from './callout-math.js?v=d8785a0ad3';
 import { citeText, focusOf, oneLadder } from './teach-extras.js?v=5f5248f5a7';
 import { createProfileTool, createProfileStrip } from './tool-profile.js?v=939db19505';
 import { causeFit } from './cause-fit.js?v=830a6835a5';
 import { COMPACT, WIDE } from './card-type.js?v=f5dfdb80f2';
+import { flowTimeHeight } from './flow-time.js?v=cb89e13e11';
 import { PROCS, procBlocked, playProcedure } from './proc-anim.js?v=b92ccb3a81';
 const nextFrame = frameFor('presenter');
 
@@ -2379,7 +2380,10 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       // (A card's header grows with its words; only its Show chip's tap area reaches past it, and that is no overflow: counted,
       // it shrank a phone's folded data card to half, its chip to 19 px.)
       const clip = s.maxHeight !== 'none' || c.classList.contains('pz-dh') ? 0 : Math.max(0, c.scrollHeight - c.clientHeight - 3);
-      used += Math.max(c.getBoundingClientRect().height, side && c.classList.contains('pz-tool') ? side.getBoundingClientRect().height : 0) / z + ((parseFloat(s.marginTop) || 0) + (parseFloat(s.marginBottom) || 0) + clip) * cz;
+      // A protected time chart eases to its allocated height. Fit against its destination, so the old height
+      // during that ease cannot shrink the card's words and start another fit/resize cycle.
+      const chartH = el.classList.contains('pz-flowfit') && c.matches('.pz-tool[data-kind="flowtime"]') ? parseFloat(el.style.getPropertyValue('--ft-room')) : 0;
+      used += (chartH || Math.max(c.getBoundingClientRect().height, side && c.classList.contains('pz-tool') ? side.getBoundingClientRect().height : 0) / z) + ((parseFloat(s.marginTop) || 0) + (parseFloat(s.marginBottom) || 0) + clip) * cz;
       n++;
     }
     used += (parseFloat(cs.rowGap) || 0) * Math.max(0, n - 1);
@@ -2389,7 +2393,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   // A card whose signature is unchanged keeps its fit without being measured again (measuring forces layouts mid-animation).
   // (A card holding the quick check grows as its answers ease open and shut; it was fitted with every answer open, so its own
   // height is left out (the window's stands in): refitting mid-ease cut the easing short and jolted the words' size.)
-  const fitSig = (el) => `${el.clientWidth}x${el.querySelector('.pz-check') ? `q${innerWidth}x${innerHeight}` : el.clientHeight}|${el.className}|${document.documentElement.style.cssText}|${el.style.getPropertyValue('--pz-reach')},${el.style.getPropertyValue('--pz-fkrow')}|${[...el.children].map((c) => (c.hidden ? 0 : c.className + (getComputedStyle(c).maxHeight !== 'none' ? ':' + c.offsetHeight : ''))).join()}|${el.textContent.replace(/\d/g, '0')}`;
+  const fitSig = (el) => `${el.clientWidth}x${el.querySelector('.pz-check') ? `q${innerWidth}x${innerHeight}` : el.clientHeight}|${el.className}|${el.style.maxHeight}|${document.documentElement.style.cssText}|${el.style.getPropertyValue('--pz-reach')},${el.style.getPropertyValue('--pz-fkrow')}|${[...el.children].map((c) => (c.hidden ? 0 : c.className + (getComputedStyle(c).maxHeight !== 'none' ? ':' + c.offsetHeight : ''))).join()}|${el.textContent.replace(/\d/g, '0')}`;
   const fitDone = new WeakMap(), smOf = new WeakMap();
   // A narrow summary table's column heads: 11 px, or as large as each column fits (down to 8), one size for the row.
   // (Only the phone and upright tablet layout reads --th-fs.)
@@ -2473,6 +2477,31 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     }
     return min;
   }
+  function fitFlowTime(el) {
+    if (el !== ui.data) return;
+    const chart = el.querySelector(':scope > .pz-tool[data-kind="flowtime"] > .pz-flowtime');
+    const eligible = chart && el.classList.contains('tool-only') && ui.root.classList.contains('pz-wide') && !ui.root.classList.contains('stack') && !ui.root.classList.contains('low');
+    el.classList.toggle('pz-flowfit', !!eligible);
+    const clear = () => { el.style.removeProperty('--ft-room'); el.style.removeProperty('--ft-card'); };
+    if (!eligible) { clear(); return; }
+    // Measure at full width, without the previous fit. The chart's own height never enters its budget.
+    const cs = getComputedStyle(el), px = (v) => parseFloat(v) || 0;
+    const z = el.offsetWidth ? el.getBoundingClientRect().width / el.offsetWidth : 1;
+    const f = Math.max(px(getComputedStyle(chart).fontSize), 12 / (z || 1));
+    let chrome = px(cs.paddingTop) + px(cs.paddingBottom) + px(cs.borderTopWidth) + px(cs.borderBottomWidth), n = 0;
+    for (const c of el.children) {
+      const s = getComputedStyle(c);
+      if (s.display === 'none' || s.position === 'absolute' || s.position === 'fixed') continue;
+      const cz = parseFloat(s.zoom) || 1;
+      chrome += (c === chart.parentElement ? 0 : c.getBoundingClientRect().height / (z || 1)) + (px(s.marginTop) + px(s.marginBottom)) * cz;
+      n++;
+    }
+    chrome += px(cs.rowGap) * Math.max(0, n - 1);
+    const room = parseFloat(cs.maxHeight) - chrome - 1;
+    const h = flowTimeHeight(chart.clientWidth, f, room, chart.dataset.lines.split(','), px(getComputedStyle(chart).getPropertyValue('--band-room'))).height;
+    if (h == null) { el.classList.remove('pz-flowfit'); clear(); }
+    else { el.style.setProperty('--ft-room', `${h.toFixed(2)}px`); el.style.setProperty('--ft-card', `${(h + chrome).toFixed(2)}px`); }
+  }
   function fitCards(...els) {
     for (const el of els) {
       if (!el || el.hidden || 'folding' in el.dataset) continue;   // (a part mid-fold: the card keeps the fit it will rest with)
@@ -2480,6 +2509,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       if (fitDone.get(el) === sig) continue;
       const was = parseFloat(el.style.getPropertyValue('--pz-fit')) || 1;
       el.style.removeProperty('--pz-fit'); el.style.removeProperty('--pz-z');
+      fitFlowTime(el);
       // (An upright phone's stacked card is fitted with its readings' card out, and keeps that fit tucked: the instrument holds one
       // size whether the stack is open or closed, Mohammad, 20 Oct: "This data card is changing its size when I open the stack".)
       const under = el === ui.data && splitSheet(el) && !el.classList.contains('tool-open') && !el.classList.contains('pz-sliding');
@@ -2868,7 +2898,10 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       if (ws && !dd.classList.contains('pz-sliding')) measureUnder(dd);   // (their travel as fitted now: the last slide's had been left on the card)
       const dpx = ws ? parseFloat(dd.style.getPropertyValue('--pz-d')) || 0 : 0;
       const tuckH = ws ? dd.offsetHeight - underU(dd) * dpx + LIP : dd.offsetHeight;
-      const stackH = t.height + 2 * pad + gap + tuckH * k;
+      // Centre against the chart's destination too: a chart still growing must not lend its temporary
+      // empty space to a downward move that would leave too little room for its final height.
+      const cardH = !ws && parseFloat(dd.style.getPropertyValue('--ft-card')) || tuckH;
+      const stackH = t.height + 2 * pad + gap + cardH * k;
       shift = Math.max(0, Math.min((H - stackH) / 2 - top0, foot - top0 - stackH));
       // (Centred once per slide: while only the data card's readings change (a time-lapse, a what-if slider), the pair keeps the place
       // it came in at, so the words never ride up and down with a reading that measured a pixel taller.)

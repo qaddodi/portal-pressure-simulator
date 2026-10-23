@@ -6270,6 +6270,10 @@ html.thumb-ui .menu.from-dock { clip-path: inset(-64px -64px calc(var(--sink, 0p
    words under 12 px and its values crowded, Sites 4 and 5; its type already keeps 12 px on the screen, tool-profile.js.) */
 .pz .pz-data.pz-data.pz-data.pz-data.pz-data.pz-data > .pz-tool:is([data-kind="profile"], [data-kind="flows"]) { width: 100%; zoom: 1; }   /* (six times, to stand over the stacked card's own width rule, which narrowed them by the fit and the block step: a short window drew the ladder at a third of its card, Sites 4 and 5) */
 .pz.stack .pz-data.pz-data.pz-data.pz-data > .pz-tool[data-kind="flowtime"] { width: 100%; zoom: 1; }   /* (a phone's after-meal chart likewise: phoneTextCap shortens it, flow-time.js redraws its words at size) */
+/* Wide chart-only cards allocate the room below the words before fitting. As with the other adaptive charts,
+   keep their whole width and redraw at their own pixels; only their allocated height changes. */
+.pz.pz-wide .pz-data.pz-data.pz-data.pz-data.pz-data.pz-data.pz-flowfit > .pz-tool[data-kind="flowtime"] { width: 100%; zoom: 1; }
+.pz.pz-wide .pz-flowfit .pz-flowtime { height: var(--ft-room); min-height: 0; transition: height .32s var(--ease); }
 .ppf-liver rect { fill: var(--chart-liver-band); }
 .ppf-pre rect { fill: var(--chart-pre-band); }
 .ppf-post rect { fill: var(--chart-post-band); }

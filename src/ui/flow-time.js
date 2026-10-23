@@ -71,6 +71,15 @@ const sv = (tag, attrs = {}, ...kids) => {
 // lower's under it, the clock under both. Each band's numbers sit on its own side, in its line's colour; the legend names
 // the two lines (with their units) over the plot, on one row when it fits, else two.
 const cw = (t, f, b) => t.length * f * (b ? 0.6 : 0.56);   // (a text's width, near enough: the chart is laid out before it is drawn)
+const legendOf = (keys, f) => keys.map((key) => { const [name, unit, , c] = LINE[key]; return { c, name, unit, w: 22 + cw(name, f, 1) + 6 + cw(unit, f) }; });
+// A full-width chart needs room for both plots as well as its legend, clock and treatment bars. Below this
+// minimum the presenter keeps its existing fit, rather than protecting a chart whose labels would collide.
+export function flowTimeHeight(w, f, room, keys = MEAL_LINES, bandEm = 0) {
+  const legend = legendOf(keys, f), rows = legend[0].w + legend[1].w + 2 * f <= w ? 1 : 2;
+  const bands = bandEm * f, min = (rows * 1.5 + 1.9 + 1.7 + 6) * f + bands;
+  const preferred = Math.max(0.6 * w, 15 * f) + bands;
+  return { min, preferred, height: room >= min ? Math.min(preferred, room) : null };
+}
 const linesOf = (keys) => keys.map((key, j) => { const [name, unit, d, c] = LINE[key]; return j ? ['flow', 'fScale', null, c, name, unit, d] : ['pv', 'pScale', null, c, name, unit, d]; });
 const dec = (sc) => (sc.ticks.some((v) => Math.abs(v * 10 - Math.round(v * 10)) > 1e-6) ? 2 : sc.ticks.some((v) => v % 1) ? 1 : 0);
 /** Whether a line's value goes left of its head: when, drawn right of it (its baseline 0.7 f over the head, in type 1.1 f),
@@ -85,6 +94,7 @@ export function createFlowTime() {
   const reduceMQ = matchMedia('(prefers-reduced-motion: reduce)');   // (one query, read each frame: a new one was made every frame)
   const el = document.createElement('div');
   el.className = 'pz-flowtime';
+  el.dataset.lines = MEAL_LINES.join(',');
   let ser = null, parts = null, shown = 0, goal = 0, raf = 0, sig = '', clock = 'meal', keys = MEAL_LINES, LINES = linesOf(keys);
   let rx = [];   // (the treatments on through the slide's time-lapse that its tool shades, rx-bands.js; none on a built-in deck)
   const ax = () => ser?.ax || MINUTES;
@@ -96,7 +106,7 @@ export function createFlowTime() {
   const bandRoom = (f) => (rx.length ? (0.95 + 0.32 * rx.length) * f : 0);
   // The geometry for a chart w × h px in type f px.
   function geo(w, h, f) {
-    const meal = clock !== 'days', keysL = LINES.map(([, , , c, name, unit]) => ({ c, name, unit, w: 22 + cw(name, f, 1) + 6 + cw(unit, f) }));
+    const meal = clock !== 'days', keysL = legendOf(keys, f);
     const oneRow = keysL[0].w + keysL[1].w + 2 * f <= w, rowH = 1.5 * f, legH = (oneRow ? 1 : 2) * rowH;
     const tw = (sc) => Math.max(...sc.ticks.map((v) => cw(fmt(v, dec(sc)), f)));
     // (Right of the plot: the upper line's numbers, and the clock's unit in capitals after half its last number.)
@@ -213,7 +223,7 @@ export function createFlowTime() {
      *  k: how far along it to draw (0 to 1); spec: { clock: 'meal' | 'days', lines: [lower, upper] } (undefined: keep
      *  the one drawn). A new trail fades in over the old chart. */
     set(trail, k = 1, spec) {
-      if (spec) { clock = spec.clock || 'meal'; keys = spec.lines || MEAL_LINES; el.classList.toggle('days', clock === 'days'); }
+      if (spec) { clock = spec.clock || 'meal'; keys = spec.lines || MEAL_LINES; el.dataset.lines = keys.join(','); el.classList.toggle('days', clock === 'days'); }
       const s2 = trail === undefined ? sig : trail ? JSON.stringify([clock, keys, trail[0], trail.at(-1), ...(rx.length ? [rx] : [])]) : '';
       if (s2 !== sig) {
         sig = s2; LINES = linesOf(keys); ser = flowTimeSeries(trail, clock, keys);
