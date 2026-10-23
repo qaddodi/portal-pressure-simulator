@@ -2,6 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { COLON_RING } from '../src/ui/organ-art.js';
+import { gutY } from '../src/ui/gut-proportions.js';
 
 // While the plate is down (the liver, spleen or fluid easing), the gut's mask follows the liver every frame, and a mask that
 // changes repaints everything under it: the gut's 1,201 paths. So the gut shows as a picture of itself then, made at rest
@@ -66,7 +67,8 @@ test('the rectum fades out at its end through a mask on the colon\'s own group, 
   assert.match(stage, /<mask id="gutHide"[^>]*height="660"><rect [^>]*height="660" fill="#fff"\/>/);
   const rect = stage.match(/const GUT_RECT = \[(\d+), (\d+), (\d+), (\d+)\]/).slice(1).map(Number);
   const [y0, y1] = readFileSync(new URL('../src/ui/anatomy.js', import.meta.url), 'utf8').match(/RECTUM_FADE = \[(\d+), (\d+)\]/).slice(1).map(Number);
-  assert.equal(y1, 1015);
+  assert.equal(y0, Math.round(gutY(880)), 'the fade starts at the same place on the stretched tissue');
+  assert.equal(y1, Math.round(gutY(1015)), 'the fade ends at the same place on the stretched tissue');
   assert.ok(y1 - y0 >= 130, 'a wide fade (Mohammad, 22 Oct: start earlier, end in the same place)');
   assert.ok(y0 >= 860, 'it starts at the sigmoid\'s bend into the rectum, not up in the sigmoid');
   assert.ok(rect[1] + rect[3] >= y1, 'the gut picture reaches the end of the fade');

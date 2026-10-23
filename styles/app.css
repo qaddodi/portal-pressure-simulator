@@ -2704,6 +2704,13 @@ button.finding { cursor: pointer; }
 .oc-band-lit { fill: var(--og-light); fill-opacity: .32; }
 .oc-shade { fill: var(--o3); stroke: var(--o3); stroke-width: 16; stroke-linejoin: round; stroke-linecap: round; }
 .oc-fold { fill: none; stroke: var(--o3); stroke-width: 1.6; stroke-opacity: .7; stroke-linejoin: round; stroke-linecap: round; }
+/* A rounded turn along the colon's scalloped silhouette, with the same upper-left light as the other organs. */
+.oc-rim-shade, .oc-rim-light { fill: none; stroke-linejoin: round; stroke-linecap: round; }
+.oc-rim-shade { stroke: var(--o3); }
+.oc-rim-shade.s1 { stroke-width: 24; stroke-opacity: .08; }
+.oc-rim-shade.s2 { stroke-width: 14; stroke-opacity: .12; }
+.oc-rim-shade.s3 { stroke-width: 6; stroke-opacity: .18; }
+.oc-rim-light { stroke: var(--og-light); stroke-width: 4; stroke-opacity: .22; }
 /* The loops in the app's tube shading, mixed to solid tones so overlapping pieces join without seams. */
 :is(.ob-ao, .ob-deep, .ob-rim, .ob-edge, .ob-wall, .ob-shade, .ob-hi) { fill: none; stroke-linecap: butt; stroke-linejoin: round; }
 .ob-ao { stroke: var(--og-ao); }

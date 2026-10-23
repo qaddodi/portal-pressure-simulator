@@ -6,15 +6,17 @@
 // only close the systemic loop (aorta, limb and head vessels, the right kidney) are part of
 // the model but are not drawn.
 
-import { COLON_D, COLON_RING, BOWEL_RING, DUO_D } from './organ-art.js?v=a1c08582e2';
+import { COLON_D, COLON_RING, BOWEL_RING, DUO_D } from './organ-art.js?v=a6a766d521';
+import { gutPath, gutY } from './gut-proportions.js?v=1ecbf3debd';
 
 export const VIEW = { w: 1400, h: 1000 };
 // Where the rectum's end fades away (y: clear above the first, gone at the second): the colon's mask (stage.js rectFade) and the
 // outlines and glows drawn over it (veins-gl.js endFade) use the same span. The colon art is clipped by the drawn outline (oc-his),
-// which ends at y 1037 with its lower left corner up at 1017, so the fade is already gone by 1015: any later and the art's own
+// which originally ended at y 1037 with its lower left corner up at 1017, so the fade was gone by 1015: any later and the art's own
 // clipped end showed as a hard edge, at about half strength (22 Oct). It starts at the sigmoid's bend into the rectum (Mohammad, 22 Oct:
 // "make the fade wider, start earlier, ends same place"): the rectal veins (C4, ending at 928) are drawn over the fading organ.
-export const RECTUM_FADE = [880, 1015];
+// Both ends follow the lower gut's stretch (22 Oct), preserving the fade's position on the tissue and its soft end.
+export const RECTUM_FADE = [902, 1048];
 export const VB_ANAT = [300, 0, 820, 920];
 export const VB_CIRC = [30, 30, 1360, 730];
 // World x of the margins the atlas labels hang from (left, right).
@@ -433,10 +435,10 @@ export const ORGANS = [
   // The three are drawn in one see-through group, cut away under the liver, stomach, spleen and kidney (stage.js). `art`:
   // drawn from that markup; `ring`: the visible outline a highlight draws; `cover`: the shape the vessels behind fade under
   // (the tubes' earlier centre lines and widths, so the vessel tiers keep their look).
-  { id: 'appendix', tone: 'gut', cls: 'org-appendix', band: true, d: 'M473 916.2 C 479 939.5 491 957.5 509 963.9 C 519 967 527 963.9 531 957.5' },
-  { id: 'bowel', tone: 'gut', cls: 'org-bowel', art: 'bowel', d: BOWEL_RING, cover: { d: 'M604 729.3 C 650 712.4 700 720.8 742 729.3 C 786 737.8 830 718.7 872 731.4 C 904 742 906 773.8 878 782.3 C 840 792.9 800 773.8 760 780.2 C 716 786.6 684 801.4 646 792.9 C 610 784.4 590 801.4 598 820.5 C 606 839.6 640 843.8 676 837.4 C 720 829 760 848 800 843.8 C 846 839.6 884 824.7 906 839.6 C 928 856.5 918 886.2 888 890.4 C 846 896.8 810 877.7 764 884.1 C 716 890.4 680 905.3 630 896.8 C 580 888.3 540 875.6 500 877.7 C 470 879.8 446 886.2 424 890.4', w: 19 } },
+  { id: 'appendix', tone: 'gut', cls: 'org-appendix', band: true, d: gutPath('M473 916.2 C 479 939.5 491 957.5 509 963.9 C 519 967 527 963.9 531 957.5') },
+  { id: 'bowel', tone: 'gut', cls: 'org-bowel', art: 'bowel', d: BOWEL_RING, cover: { d: gutPath('M604 729.3 C 650 712.4 700 720.8 742 729.3 C 786 737.8 830 718.7 872 731.4 C 904 742 906 773.8 878 782.3 C 840 792.9 800 773.8 760 780.2 C 716 786.6 684 801.4 646 792.9 C 610 784.4 590 801.4 598 820.5 C 606 839.6 640 843.8 676 837.4 C 720 829 760 848 800 843.8 C 846 839.6 884 824.7 906 839.6 C 928 856.5 918 886.2 888 890.4 C 846 896.8 810 877.7 764 884.1 C 716 890.4 680 905.3 630 896.8 C 580 888.3 540 875.6 500 877.7 C 470 879.8 446 886.2 424 890.4'), w: 19 } },
   { id: 'duodenum', tone: 'stomach', cls: 'org-duodenum', art: 'duodenum', band: true, ringW: 26, d: DUO_D, cover: { d: 'M726 514 C 690 506 652 526 644 566 C 636 612 650 650 688 668 C 724 684 772 680 806 664', w: 19 } },
-  { id: 'colon', tone: 'gut', cls: 'org-colon', art: 'colon', band: true, d: COLON_D, ring: COLON_RING, cover: { d: 'M460 920.4 C 457 899.2 451 882.2 448 863.2 C 440 822.9 437 776.2 439 712.6 C 440 651.2 449 598.2 473 568.5 C 503 555.8 534 589.7 568 632.1 C 611 685.1 664 708.4 727 708.4 C 799 708.4 862 666 903 602.4 C 930 560 952 507 964 462.5 C 971 560 968 708.4 953 803.8 C 944 865.3 910 899.2 860 911.9 C 833 918.3 809 922.5 788 926.8', w: 25 } },
+  { id: 'colon', tone: 'gut', cls: 'org-colon', art: 'colon', band: true, d: COLON_D, ring: COLON_RING, cover: { d: gutPath('M460 920.4 C 457 899.2 451 882.2 448 863.2 C 440 822.9 437 776.2 439 712.6 C 440 651.2 449 598.2 473 568.5 C 503 555.8 534 589.7 568 632.1 C 611 685.1 664 708.4 727 708.4 C 799 708.4 862 666 903 602.4 C 930 560 952 507 964 462.5 C 971 560 968 708.4 953 803.8 C 944 865.3 910 899.2 860 911.9 C 833 918.3 809 922.5 788 926.8'), w: 25 } },
   { id: 'kidney-l', tone: 'kidney', cls: 'org org-kidney', d: 'M1002 556 C 1040 548 1066 584 1064 626 C 1062 672 1034 700 1000 694 C 982 690 984 668 994 654 C 1000 642 998 630 990 620 C 984 606 978 574 1002 556 Z' },
   { id: 'spleen', tone: 'spleen', cls: 'org org-spleen', d: 'M1030 266 C 1072 264 1100 300 1104 352 C 1108 408 1082 452 1040 462 C 1018 466 1002 456 1004 440 C 1006 426 1016 414 1017 400 C 1018 390 1014 382 1016 372 C 1018 358 1018 342 1013 328 C 1008 314 1006 300 1008 288 C 1010 274 1018 267 1030 266 Z' },
   { id: 'stomach', tone: 'stomach', cls: 'org org-stomach', d: 'M813 249 C 818 257 828 253 840 247 C 850 242 859 241 868 242 C 910 238 948 260 966 296 C 984 332 990 380 984 424 C 976 480 940 524 886 546 C 846 562 796 566 756 552 C 738 546 724 536 714 522 L 708 508 C 712 498 722 494 734 494 C 764 494 794 484 812 462 C 822 450 828 436 830 420 C 834 392 830 350 822 320 C 815 298 800 276 792 249 Z' },
@@ -532,8 +534,8 @@ export const SITES = {
 
 // Organ captions: [text, x, y, anchor]
 export const ORGAN_LABELS = [
-  ['Liver', 455, 432], ['Stomach', 918, 432], ['Spleen', 1066, 250], ['Colon', 960, 846], ['Kidney', 978, 716],
-  ['Small bowel', 820, 800], ['Esophagus', 860, 40], ['Right atrium', 532, 118],
+  ['Liver', 455, 432], ['Stomach', 918, 432], ['Spleen', 1066, 250], ['Colon', 960, gutY(846)], ['Kidney', 978, 716],
+  ['Small bowel', 820, gutY(800)], ['Esophagus', 860, 40], ['Right atrium', 532, 118],
 ];
 
 // Atlas labels: node → caption and which margin column it hangs from.

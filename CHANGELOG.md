@@ -2,6 +2,11 @@
 
 ## October 2026
 
+- **The lower colon and small bowel extend a little further down, with more depth at the colon's edges.** The lower gut is 8% taller
+  below its upper attachments; its artwork, outlines, vessel covers, appendix, captions and rectum fade follow together. A faint inner
+  shadow and upper-left highlight round the colon's scalloped edges in each theme, using the existing tissue colors. Vessels stay in
+  place. The shared gut camera region also extends to hold the taller bowel's glow. Applies to the anatomy in Patients and every
+  presentation. Code and unit checks only; the changed art has not been viewed on screen.
 - **One sideways swipe on a Mac trackpad moves one slide; the up and down arrow keys work the stack, not the slides.** (Mohammad, 22 Oct:
   "swiping sideways on mac is moving multiple slides"; "up and down arrow keys should tuck and untuck on mac ... not move slides".) A flick's
   momentum glide runs a second or more after the fingers lift, with an odd zero or bump in it, and the wheel rule took any of those for a
