@@ -4933,9 +4933,13 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       if (!c.on && c.a === 0) { for (const el of ov.clampsOut.querySelectorAll(`[data-id="${id}"]`)) el.remove(); clampA.delete(id); mk.ver++; }
     }
     marksSync();
-    if (!glLines || (!olDirty && !olList.length && !mk.dirty && !clampMoved)) return false;
+    if (!glLines) return false;
     const dt = now - olLast;
     olLast = now;
+    // Settled world-space outlines and marks keep their draw specs while the blood moves. Geometry and appearance
+    // changes still set olDirty/mk.dirty; clamps and outline fades keep rebuilding at every display frame. Keep the
+    // clock current even when settled, so a later fade takes only this frame's elapsed time.
+    if (!olDirty && !mk.dirty && !clampMoved && !olList.some((o) => o.a !== (o.on ? 1 : 0))) return false;
     let moving = false;
     for (const o of olList) {
       const t = o.on ? 1 : 0, du = Math.min(1, dt / (o.fade || OL_FADE));

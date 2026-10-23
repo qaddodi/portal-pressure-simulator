@@ -2,6 +2,12 @@
 
 ## October 2026
 
+- **Settled anatomy outlines keep their drawing instructions while the blood moves.** Selected, hovered, pinned and normal-size
+  organ outlines were rebuilding their draw lists, walking their rings and comparing GPU signatures on every display frame even
+  after their fades settled. They now reuse those instructions until geometry, appearance, marks or a fade changes. Blood, camera
+  motion and organ easing keep their existing rate and quality. Pure Node checks find zero rebuilds across 1,000 settled blood
+  frames versus 1,000 before, with identical drawing instructions throughout tested fades and invalidations. Code and unit checks
+  only; no browser or device heat measurement has been run.
 - **Wide chart-only time-lapse cards keep their full width and readable plots.** The chart uses the space below the teaching card,
   reserving its header, padding and gaps before choosing a height. Its minimum accounts for both plots, a wrapped legend and treatment
   bars; shorter windows retain the existing fitting fallback. Applies to every wide chart-only time-lapse card. Circulation's meal slide

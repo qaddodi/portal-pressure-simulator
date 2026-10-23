@@ -35,6 +35,11 @@ What changed:
   `syncGlowOnly` in `stage.js` writes those texels alone, with the helper the whole sync uses
   (`glow-texels.js`), and only the changed rows are drawn again; otherwise the whole sync runs.
   The same tube data, so the same picture (`tests/frame-costs-glow.test.js`).
+- **Settled outlines keep their draw lists.** The organ outlines and their glows reuse their world-space drawing instructions
+  during the blood's animation frames once every alpha reaches its target. Geometry, marks, appearance, clamps and fades still
+  refresh them; the view's matrix continues to move the existing instructions on every camera frame. `tests/outline-idle.test.js`
+  compares retained instructions and fade states with the old per-frame construction and counts skipped rebuilds. This removes
+  redundant script work; no device heat or frame-rate improvement is claimed.
 - **Full detail, always.** The figure, the lobule and the FibroScan never
   lower their own resolution or frame rate: no governor steps them down when frames run long, and
   zooming in keeps every pixel. Levels older builds stored (`pps.quality`, `pps.q`) are removed at
