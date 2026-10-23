@@ -17,7 +17,7 @@ import { T, ease, k01, balloonAt, timeOfBalloon, pressureAt as pAt } from './hvp
 import { frameFor, cancelFrame } from './frame.js?v=19b3f2915c';
 import { traceRoom, TRACE_MIN } from './trace-room.js?v=b4c0aaa97f';
 import { rateOf } from './table-marks.js?v=15f059172f';
-import { PROCS, PROC_KINDS, procBlocked, playProcedure } from './proc-anim.js?v=b92ccb3a81';
+import { PROCS, PROC_KINDS, procBlocked, procOffered, playProcedure } from './proc-anim.js?v=b2351a24c6';
 const nextFrame = frameFor('hvpg-proc');
 
 let stageRef = null;
@@ -60,7 +60,8 @@ export function createHvpgProcedure() {
   const note = h('p', { class: 'ctl-sub hvpg-note' });
   const bar = h('div', { class: 'hvpg-bar' }, startBtn, kv);
   // The treatments played on the same anatomy (proc-anim.js): each catheter on its own route, the model changed when it ends.
-  // One the patient cannot have (no gastrorenal shunt, a TIPS already in) stays dimmed, and a tap says why.
+  // One the patient cannot have (a TIPS already in, a shunt already closed) stays dimmed, and a tap says why; BRTO and BATO
+  // are only there while the patient has gastric varices to treat.
   const procBtns = Object.fromEntries(PROC_KINDS.map((k) => [k, h('button', { type: 'button', class: 'btn sm hvpg-proc-btn', 'aria-label': `Play ${PROCS[k].name}`,
     onclick: () => play(k), onpointerup: (e) => { if (e.pointerType !== 'mouse' && !procBtns[k].disabled) play(k); } }, icon('play'), h('span', {}, PROCS[k].name))]));
   const procRow = h('div', { class: 'hvpg-procs', role: 'group', 'aria-label': 'Play a procedure on the anatomy' }, h('span', { class: 'hvpg-procs-k' }, 'Watch'), ...Object.values(procBtns));
@@ -93,7 +94,7 @@ export function createHvpgProcedure() {
     // (A touch plays it on the lift; the click that follows is ignored.)
     if (performance.now() - playT < 600 || proc || (t0 != null && t < tEnd()) || !stageRef) return;
     playT = performance.now();
-    const st = store.get(), why = procBlocked(kind, st.params);
+    const st = store.get(), why = procBlocked(kind, st.params, now()?.metrics);
     if (why) { toast(why); return; }
     if (st.lobule) store.set({ lobule: false });
     if (st.view !== 'anatomic') store.set({ view: 'anatomic' });
@@ -217,7 +218,10 @@ export function createHvpgProcedure() {
     if (startBtn.disabled !== busy) startBtn.disabled = busy;
     for (const [k, b] of Object.entries(procBtns)) {
       if (b.disabled !== busy) b.disabled = busy;
-      const off = !!procBlocked(k, st.params), on = procKind === k;
+      // (BRTO and BATO are offered only while the patient has gastric varices: with none they are not shown at all.)
+      const m = now()?.metrics, hide = !procOffered(k, st.params, m) && procKind !== k;
+      if (b.hidden !== hide) b.hidden = hide;
+      const off = !!procBlocked(k, st.params, m), on = procKind === k;
       if (b.classList.contains('off') !== off) b.classList.toggle('off', off);
       if (b.getAttribute('aria-pressed') !== String(on)) b.setAttribute('aria-pressed', String(on));
     }

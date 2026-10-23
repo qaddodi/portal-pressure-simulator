@@ -6614,7 +6614,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const tp = span(spec.tip[0]), free = tp.d0 + (tp.d1 - tp.d0) * spec.tip[1];
     const spans = Object.fromEntries(parts.filter((q) => q.name !== 'lead').map((q) => [q.name, [q.d0, q.d1]]));
     const r = { kind, pts: P, raw, rad: Rr.slice(), src, map, refs: null, radOf: procRadOf, cum, total, parts, spans,
-      start: parts[1].d0 * spec.start, free, hv0: free, hvEnd: total, focus: [span(spec.focus[0]).d0, span(spec.focus[1]).d1] };
+      start: parts[1].d0 * spec.start, free, hv0: free, hvEnd: total, focus: [span(spec.focus[0]).d0, span(spec.focus[1]).d1],
+      // (The close-up while the procedure does its work: the last leg alone, the one it treats.)
+      work: [span(spec.focus[1]).d0, span(spec.focus[1]).d1] };
     if (E[spec.ids[spec.ids.length - 1]].glR?.length) cath.route = r;
     return r;
   }
@@ -6838,7 +6840,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       if (l.unit) { const u = document.createElement('span'); u.textContent = l.unit; el.append(u); }
       // (A treatment's step stands beside the tip with a thin leader to it, never over it: no pointer of its own.)
       el._glass = glassCallout(el, { pointer: l.at !== 'side' });
-      if (l.at === 'side') el.append(document.createElement('i'));
+      if (l.at === 'side') { const ld = document.createElement('i'); ld.className = 'cath-lead'; el.append(ld); }
       return el;
     };
     const fill = (el, l) => { const sm = el.querySelector('small'); if (sm.textContent !== l.kicker) sm.textContent = l.kicker || ''; const b = el.querySelector('b'); if (b.textContent !== l.text) b.textContent = l.text; };
@@ -6948,35 +6950,56 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       }
     });
   }
-  // A treatment's step callout (proc-anim.js): beside the catheter's tip, across its course (never over the tip or the shaft
-  // running into it), on the side with room inside the free space, with a thin leader that stops short of the tip. It keeps its
-  // side while that one has room (it changes only for one clearly better, then glides there, as every reading does).
-  const SIDE_GAP = 30;
+  // A treatment's step callout (proc-anim.js): near the catheter's tip, with a thin leader that stops short of it, on a spot
+  // that keeps off the vessels as drawn (the catheter's own route included), the cards and the slide's glass, inside the
+  // free space. Spots all round the tip at a few distances are scored (vessels crossed weigh most, then cover, then how far
+  // out); the callout keeps its spot (as an offset from the tip, so it rides with the camera) until another is clearly
+  // better, and every move glides (cathGlide). (It had stood straight across the catheter's course, which in the belly is
+  // usually over the next vessel: the IVC beside the renal vein, the splenic vein beside the shunt: review 23 Oct.)
+  const SIDE_GAP = 26, SIDE_DIRS = 16, SIDE_RINGS = [0, 34, 72, 120];
   function cathSide(el, w, h, W, top, bot) {
-    const at = cath.at, [tx, ty] = worldToLocal(at.tip[0], at.tip[1]), [qx, qy] = worldToLocal(at.tip[0] + at.nx * 10, at.tip[1] + at.ny * 10);
-    const nl = Math.hypot(qx - tx, qy - ty) || 1, nx = (qx - tx) / nl, ny = (qy - ty) / nl;
-    const ext = Math.abs(nx) * w / 2 + Math.abs(ny) * h / 2;   // (the box's half reach across the course)
-    // (The cards and the slide's glass, read at most four times a second: the step moves its callout every frame.)
+    const at = cath.at, [tx, ty] = worldToLocal(at.tip[0], at.tip[1]);
+    // (The cards, the slide's glass and the vessels, read at most four times a second and again when the view moves: the step
+    // moves its callout every frame.)
     const now = performance.now();
-    if (!cath.blk || now - cath.blkT > 250) { cath.blk = readBlockers(); cath.blkT = now; }
-    const blk = cath.blk;
-    const spot = (k) => {
-      const cx = tx + nx * k * (SIDE_GAP + ext), cy = ty + ny * k * (SIDE_GAP + ext);
-      const x = clamp(cx, Math.min(w / 2 + 8, W / 2), Math.max(W - w / 2 - 8, W / 2)), y = clamp(cy, Math.min(top + h / 2, (top + bot) / 2), Math.max(bot - h / 2, (top + bot) / 2));
-      // (How far the screen's edges push it off its place, and how much of it a card or the slide's glass would cover.)
-      const over = blk.reduce((n, r) => n + Math.max(0, Math.min(x + w / 2, r.x1) - Math.max(x - w / 2, r.x0)) * Math.max(0, Math.min(y + h / 2, r.y1) - Math.max(y - h / 2, r.y0)), 0);
-      return { x, y, cost: Math.hypot(x - cx, y - cy) + over / Math.max(w, h) };
+    if (!cath.blk || now - cath.blkT > 250 || cath.blkV !== viewVersion) {
+      cath.blk = readBlockers(); cath.blkT = now; cath.blkV = viewVersion; buildSegs();
+      const r = cathRoute();
+      cath.rsegs = [];
+      if (r) { let prev = null; for (let i = 0; i < r.pts.length; i += 2) { const q = worldToLocal(r.pts[i][0], r.pts[i][1]); if (prev) cath.rsegs.push({ x0: prev[0], y0: prev[1], x1: q[0], y1: q[1] }); prev = q; } }
+    }
+    const blk = cath.blk, X0 = Math.min(w / 2 + 8, W / 2), X1 = Math.max(W - w / 2 - 8, W / 2), Y0 = Math.min(top + h / 2, (top + bot) / 2), Y1 = Math.max(bot - h / 2, (top + bot) / 2);
+    const cost = (ox, oy) => {
+      const cx = tx + ox, cy = ty + oy, x = clamp(cx, X0, X1), y = clamp(cy, Y0, Y1);
+      const r = { x0: x - w / 2, y0: y - h / 2, x1: x + w / 2, y1: y + h / 2 };
+      const over = blk.reduce((n, q) => n + Math.max(0, Math.min(r.x1, q.x1) - Math.max(r.x0, q.x0)) * Math.max(0, Math.min(r.y1, q.y1) - Math.max(r.y0, q.y0)), 0);
+      const veins = lineHits(r, 3), own = cath.rsegs.reduce((n, sg) => n + (segHitsBox(sg, r, 14) ? 1 : 0), 0);
+      // (Over the tip itself is the worst of all: the callout is there to name what the tip does.)
+      const onTip = tx > r.x0 - 10 && tx < r.x1 + 10 && ty > r.y0 - 10 && ty < r.y1 + 10;
+      // (A leader across other vessels reads as pointing at them: the points along it, short of the tip's own vein, count too.)
+      let cross = 0;
+      for (const f of [0.2, 0.4, 0.6]) { const px = x + (tx - x) * f, py = y + (ty - y) * f; cross += lineHits({ x0: px - 1, y0: py - 1, x1: px + 1, y1: py + 1 }, 0, true); }
+      return { x, y, c: Math.hypot(x - cx, y - cy) * 1.5 + over / Math.max(w, h) * 4 + veins * 26 + own * 60 + cross * 8 + (onTip ? 400 : 0) + Math.hypot(ox, oy) * 0.12 };
     };
-    const a = spot(1), b = spot(-1);
-    // (The side is the procedure's, kept from step to step, so each new step's words come in where the last ones were.)
-    if (cath.side == null || (cath.side > 0 ? a : b).cost > (cath.side > 0 ? b : a).cost + 20) cath.side = a.cost <= b.cost ? 1 : -1;
-    const c = cath.side > 0 ? a : b, [cx, cy] = cathGlide(el, c.x, c.y, tx, ty);
+    if (!cath.sideOff || now - (cath.sideT || 0) > 200) {
+      cath.sideT = now;
+      let best = null;
+      for (const ring of SIDE_RINGS) for (let i = 0; i < SIDE_DIRS; i++) {
+        const a = (i / SIDE_DIRS) * Math.PI * 2, ux = Math.cos(a), uy = Math.sin(a);
+        const d = SIDE_GAP + ring + Math.abs(ux) * w / 2 + Math.abs(uy) * h / 2;   // (the box's own reach that way)
+        const c = cost(ux * d, uy * d);
+        if (!best || c.c < best.c) best = { ...c, ox: ux * d, oy: uy * d };
+      }
+      const cur = cath.sideOff && cost(cath.sideOff[0], cath.sideOff[1]);
+      if (!cur || best.c < cur.c - 10) cath.sideOff = [best.ox, best.oy];
+    }
+    const c = cost(cath.sideOff[0], cath.sideOff[1]), [cx, cy] = cathGlide(el, c.x, c.y, tx, ty);
     el.style.transform = `translate(${cx.toFixed(1)}px, ${cy.toFixed(1)}px)`;
     el._box = { x0: cx - w / 2, y0: cy - h / 2, x1: cx + w / 2, y1: cy + h / 2 };
     // The leader: from the box's edge toward the tip, ending 6 px short of it.
     const dx = tx - cx, dy = ty - cy, d = Math.hypot(dx, dy) || 1, ux = dx / d, uy = dy / d;
     const e = Math.min(Math.abs(ux) > 1e-6 ? w / 2 / Math.abs(ux) : Infinity, Math.abs(uy) > 1e-6 ? h / 2 / Math.abs(uy) : Infinity);
-    const ld = el.lastElementChild, len = Math.max(0, d - e - 6);
+    const ld = el.querySelector('.cath-lead'), len = Math.max(0, d - e - 6);
     ld.style.cssText = `left:${(w / 2 + ux * e).toFixed(1)}px;top:${(h / 2 + uy * e).toFixed(1)}px;width:${len.toFixed(1)}px;transform:rotate(${Math.atan2(uy, ux).toFixed(4)}rad)`;
   }
   // The camera for the procedure: the route, the tip close up, then back where it was.
@@ -6990,11 +7013,17 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const wr = wrap.getBoundingClientRect(), ins = safeInsets();
     const [fx0, fy0] = clientToVB(wr.left + ins.l, wr.top + ins.t), [fx1, fy1] = clientToVB(wr.left + ins.W - ins.r, wr.top + ins.H - ins.b);
     let cx, cy, k, cyScreen = (fy0 + fy1) / 2;
-    if (mode === 'tip' && r.focus) {
-      // A treatment: the stretch it works on (the tract and the portal vein, the shunt, the feeder), whole and close.
-      const seg = cutLen(r.pts, r.cum, r.focus[0], r.focus[1]);
-      const xs = seg.map((q) => q[0]), ys = seg.map((q) => q[1]), x0 = Math.min(...xs) - 24, x1 = Math.max(...xs) + 24, y0 = Math.min(...ys) - 24, y1 = Math.max(...ys) + 24;
-      cx = (x0 + x1) / 2; cy = (y0 + y1) / 2; k = clamp(Math.min((fx1 - fx0) / (x1 - x0), (fy1 - fy0) / (y1 - y0)) * 0.85, 1, 5);
+    if ((mode === 'tip' || mode === 'work') && r.focus) {
+      // A treatment: the stretch it works on (the tract and the portal vein, the shunt, the feeder), whole and close; 'work'
+      // closer still, on the leg it treats alone (the shunt, the feeder) while the balloon and the sclerosant do their work.
+      // (Framed in the space the cards leave, so the close-up never sits under the Tests card or a slide's words.)
+      const [d0, d1] = mode === 'work' && r.work ? r.work : r.focus, pad = mode === 'work' ? 14 : 24;
+      const seg = cutLen(r.pts, r.cum, d0, d1);
+      const xs = seg.map((q) => q[0]), ys = seg.map((q) => q[1]), x0 = Math.min(...xs) - pad, x1 = Math.max(...xs) + pad, y0 = Math.min(...ys) - pad, y1 = Math.max(...ys) + pad;
+      const fr = cathFree(wr, ins);
+      cx = (x0 + x1) / 2; cy = (y0 + y1) / 2; k = clamp(Math.min((fr.x1 - fr.x0) / (x1 - x0), (fr.y1 - fr.y0) / (y1 - y0)) * (mode === 'work' ? 0.62 : 0.72), 1, mode === 'work' ? 7 : 5);
+      animateVT({ k, x: (fr.x0 + fr.x1) / 2 - cx * k, y: (fr.y0 + fr.y1) / 2 - cy * k }, ms);
+      return true;
     } else if (mode === 'tip') {
       const tp = cutLen(r.pts, r.cum, 0, r.free).at(-1);
       cx = tp[0]; cy = tp[1]; k = 6.2;
@@ -7019,6 +7048,18 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     }
     animateVT({ k, x: (fx0 + fx1) / 2 - cx * k, y: cyScreen - cy * k }, ms);
     return true;
+  }
+  // The free space for a treatment's close-up, in the figure's viewBox units: the stage less its insets and the cards over it
+  // (the Tests card at the side, a slide's words, a phone's sheet), whichever side leaves the most room.
+  function cathFree(wr, ins) {
+    const [ax, ay] = clientToVB(wr.left + ins.l, wr.top + ins.t), [bx, by] = clientToVB(wr.left + ins.W - ins.r, wr.top + ins.H - ins.b);
+    let f = { x0: ax, y0: ay, x1: bx, y1: by };
+    const sp = cardSpace(), L = ins.l, T = Math.max(ins.t, sp.t), R = ins.W - Math.max(ins.r, sp.r || 0), B = ins.H - Math.max(ins.b, sp.b);
+    if (R - L > 160 && B - T > 160) {
+      const [px, py] = clientToVB(wr.left + L, wr.top + T), [qx, qy] = clientToVB(wr.left + R, wr.top + B);
+      f = { x0: px, y0: py, x1: qx, y1: qy };
+    }
+    return f;
   }
   // While the catheter travels, the view drifts after its tip (eased, never snapping) once the tip has
   // passed the middle of the route view, so the hepatic vein arrives centred before the close-up.
@@ -10218,7 +10259,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       else if (cathFade || !cath.st) { cath.st = null; return; }
       cath.st = st; wrap.classList.toggle('cath-on', !!st);
       if (st && (st.route || 'hvpg') !== cath.kind) { cath.kind = st.route || 'hvpg'; cath.route = null; cath.rc = 0; }
-      if (!st) { cath.rc = 0; cath.route = null; cath.side = null; cathVer++; if (cathTint) { cathTint = null; cath.tintKey = ''; syncVeins(easeInOut(morph)); } cath.at = null; cathFadeOut(); return; }
+      if (!st) { cath.rc = 0; cath.route = null; cath.sideOff = null; cath.rsegs = null; cath.blk = null; cathVer++; if (cathTint) { cathTint = null; cath.tintKey = ''; syncVeins(easeInOut(morph)); } cath.at = null; cathFadeOut(); return; }
       cathPaint();
     },
     /** A presenter slide's measuring sites, e.g. ['pv', 'ivc'] (see SITE_DEF), read from fp (the slide's numbers, so they

@@ -12,8 +12,12 @@ import { ease, k01 } from './hvpg-clock.js?v=553551a92a';
 const nextFrame = frameFor('proc-anim');
 
 // Each step: [id, the word on the tip's callout, the caption]. T: the sequence in ms from the start (apply: the model takes
-// the change; back: the catheter starts out; end: it has gone).
-const OBLIT_T = { travel0: 300, travel1: 4800, zoom: 4400, inflate0: 5200, inflate1: 6400, fill0: 6800, fill1: 9800, apply: 10200, fillOut: 10600, deflate: 11400, back: 12200, end: 15000 };
+// the change; back: the catheter starts out; end: it has gone; zoom: the camera closes on the stretch it works on; work: closer
+// still, on the vein it treats, while the sclerosant fills it).
+// (BRTO and BATO play at about two thirds of their first speed, each step long enough to read and watch: review 23 Oct.)
+const OBLIT_T = { travel0: 600, travel1: 7600, zoom: 6600, inflate0: 8400, inflate1: 10200, work: 10400, fill0: 10800, fill1: 15800, apply: 16400, fillOut: 17000, deflate: 18400, back: 19600, end: 24000 };
+// How long each camera move glides (ms): slow and even, so the eye can follow the catheter from the route into the close-up.
+const CAM_MS = { route: 1400, tip: 2000, work: 1800, home: 1800 };
 export const PROCS = {
   tips: {
     name: 'TIPS', label: 'TIPS', balloonSpan: 'tract',
@@ -30,7 +34,7 @@ export const PROCS = {
     undo: (p) => { p.tips = { ...p.tips, on: false }; return p; },
   },
   brto: {
-    name: 'BRTO', label: 'BRTO', T: OBLIT_T,
+    name: 'BRTO', label: 'BRTO', T: OBLIT_T, camMs: CAM_MS, follow: true,
     steps: [
       ['enter', 'Catheter in', 'Up from the right femoral vein, through the IVC and the left renal vein into the gastrorenal shunt.'],
       ['balloon', 'Balloon up', 'The balloon blocks the shunt near the renal vein, so nothing washes out into it.'],
@@ -41,28 +45,36 @@ export const PROCS = {
     apply: oblitApply, had: oblitHad, undo: oblitUndo,
   },
   bato: {
-    name: 'BATO', label: 'BATO', T: OBLIT_T,
+    name: 'BATO', label: 'BATO', T: OBLIT_T, camMs: CAM_MS, follow: true,
     steps: [
       ['enter', 'Catheter in', 'Through the liver into the right portal vein, then along the portal and splenic veins into the short gastric veins.'],
       ['balloon', 'Balloon up', 'The balloon blocks the feeding vein, so the inflow to the varices stops.'],
       ['fill', 'Sclerosant', 'Sclerosant fills the varices from the portal side, and they clot.'],
       ['done', 'Varices closed', 'The varices and their gastrorenal shunt are closed. Their blood stays in the portal system, so the portal pressure rises.'],
     ],
-    can: (p) => oblitCan(p) || ((p.thrombus?.PV_TRUNK || 0) >= 0.8 ? 'The portal vein is clotted, so BATO has no route.' : ''),
+    can: (p, m) => oblitCan(p, m) || ((p.thrombus?.PV_TRUNK || 0) >= 0.8 ? 'The portal vein is clotted, so BATO has no route.' : ''),
     apply: oblitApply, had: oblitHad, undo: oblitUndo,
   },
 };
 export const PROC_KINDS = Object.keys(PROCS);
-function oblitCan(p) {
-  return p.spontaneous?.C5 === false ? 'This patient has no gastrorenal shunt.' : p.occluded?.C5 ? 'The gastrorenal shunt is already closed.' : '';
+// Fundal varices large enough to grade (the Fundal varices card's own "none" below 2.4 mm): BRTO and BATO treat them, so
+// without them neither is offered. m: the live frame's metrics (no frame yet: the params alone decide).
+export const GV_MIN_MM = 2.4;
+export const hasGastricVarices = (m) => !m?.gastricVarix || (m.gastricVarix.d || 0) >= GV_MIN_MM;
+function oblitCan(p, m) {
+  return p.spontaneous?.C5 === false ? 'This patient has no gastrorenal shunt.' : p.occluded?.C5 ? 'The gastrorenal shunt is already closed.'
+    : !hasGastricVarices(m) ? 'This patient has no gastric varices to treat.' : '';
 }
 // (The model's occlusion of the gastrorenal shunt closes its short gastric feeder too: topology.js isOccluded.)
 function oblitApply(p) { p.occluded = { ...p.occluded, C5: true }; return p; }
 function oblitHad(p) { return !!p.occluded?.C5; }
 function oblitUndo(p) { p.occluded = { ...p.occluded, C5: false }; return p; }
 
-/** Why a procedure cannot run on these params ('' when it can). */
-export const procBlocked = (kind, p) => (PROCS[kind] ? PROCS[kind].can(p || {}) : 'Unknown procedure.');
+/** Why a procedure cannot run on these params ('' when it can). m: the live frame's metrics (BRTO and BATO need fundal varices). */
+export const procBlocked = (kind, p, m = null) => (PROCS[kind] ? PROCS[kind].can(p || {}, m) : 'Unknown procedure.');
+/** Whether a procedure is offered at all for this patient: BRTO and BATO only while there are gastric varices (or the
+ *  procedure has already closed them, so it can be watched again). TIPS always is (dimmed when it cannot run). */
+export const procOffered = (kind, p, m = null) => !!PROCS[kind] && (kind === 'tips' || PROCS[kind].had(p || {}) || (p?.spontaneous?.C5 !== false && hasGastricVarices(m)));
 
 /**
  * The procedure at t ms (pure): { u (0..1 of the way in), balloon, column (the sclerosant, 0..1), opacity, step (index into
@@ -72,7 +84,7 @@ export const procBlocked = (kind, p) => (PROCS[kind] ? PROCS[kind].can(p || {}) 
 export function procFrame(kind, t, stops = null) {
   const P = PROCS[kind], T = P.T, back = ease(k01(t, T.back, T.end - 400));
   const opacity = 1 - k01(t, T.end - 800, T.end);
-  const cam = t < T.zoom ? 'route' : t < T.back ? 'tip' : 'home';
+  const cam = t < T.zoom ? 'route' : t < T.back ? (T.work != null && t >= T.work ? 'work' : 'tip') : 'home';
   if (kind === 'tips') {
     const [a, b] = stops?.tract || [0.62, 0.86];
     const u = (t < T.needle0 ? a * ease(k01(t, T.travel0, T.travel1)) : t < T.needle1 ? a + (b - a) * ease(k01(t, T.needle0, T.needle1)) : b + (1 - b) * ease(k01(t, T.needle1, T.wire1))) * (1 - back);
@@ -105,7 +117,10 @@ export function playProcedure(stage, kind, { apply = null, onFrame = null, onEnd
       ring: null, clock: t, opacity: f.opacity, labels });
     stops ||= stage.cathStops?.() || null;
     // (Each camera move waits until the anatomy is on screen: a switch from the circuit takes a moment.)
-    if (f.cam !== cam && (f.cam !== 'route' || t > 250) && stage.cathFocus(f.cam, f.cam === 'tip' ? 1100 : 900)) cam = f.cam;
+    const ms = P.camMs || {};
+    if (f.cam !== cam && (f.cam !== 'route' || t > 250) && stage.cathFocus(f.cam, ms[f.cam] || (f.cam === 'tip' ? 1100 : 900))) cam = f.cam;
+    // (Between the route's framing and the close-up, the view drifts after the tip as it travels, as the HVPG catheter's does.)
+    else if (cam === 'route' && f.cam === 'route' && P.follow) stage.cathFollow?.();
     if (!applied && t >= P.T.apply) { applied = true; apply?.(); }
     onFrame?.(f, t);
     if (t < P.T.end) raf = nextFrame(step);
@@ -116,7 +131,7 @@ export function playProcedure(stage, kind, { apply = null, onFrame = null, onEnd
     if (over) return;
     cancelFrame(raf); raf = 0; over = true;
     stage.setCatheter(null);
-    if (home && cam && cam !== 'home') stage.cathFocus('home');
+    if (home && cam && cam !== 'home') stage.cathFocus('home', P.camMs?.home || 700);
     onEnd?.();
   }
   step();

@@ -24,7 +24,7 @@ import { DISEASE_SRC, diseasePieces } from './diseases.js?v=fb8a5451c3';
 import { nb, listCase, plateletText } from './glue.js?v=5a0f63226b';
 import { DECKS, REGIONS, LEVELS, TOPICS, withOverview, siteTag, SITE_TAGS } from './decks.js?v=43c54b4a26';
 import { fingerprintOf } from '../engine/fingerprint.js?v=8faea80b59';
-import { createHvpgMonitor } from './hvpg-proc.js?v=616157c7bf';
+import { createHvpgMonitor } from './hvpg-proc.js?v=ed0101ef84';
 import { createTools } from './presenter-tools.js?v=c13ab6278d';
 import { openHandout } from './handout.js?v=54b55b0bd1';
 import { noteResume, resumeFor } from './resume.js?v=f086f80ee8';
@@ -41,7 +41,7 @@ import { createProfileTool, createProfileStrip, pillReadings } from './tool-prof
 import { causeFit } from './cause-fit.js?v=830a6835a5';
 import { COMPACT, WIDE } from './card-type.js?v=5af5f22935';
 import { flowTimeHeight } from './flow-time.js?v=cb89e13e11';
-import { PROCS, procBlocked, playProcedure } from './proc-anim.js?v=b92ccb3a81';
+import { PROCS, procBlocked, procOffered, playProcedure } from './proc-anim.js?v=b2351a24c6';
 const nextFrame = frameFor('presenter');
 
 const KEY = 'pps.scripts';
@@ -1118,7 +1118,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     if (PROCS[kind].had(store.get().params)) liveSet(s, i, PROCS[kind].undo(structuredClone(store.get().params)));
     const run = procRun = playProcedure(stage, kind, {
       apply: () => {
-        if (procRun !== run || !mine() || procBlocked(kind, store.get().params)) return;
+        if (procRun !== run || !mine() || procBlocked(kind, store.get().params, store.get().frame?.metrics)) return;
         liveSet(s, i, PROCS[kind].apply(structuredClone(store.get().params)));
         // (The slide's treatment buttons press the one that now matches the live model.)
         const has = (o, p) => Object.entries(o).every(([k, v]) => (v && typeof v === 'object' ? has(v, p?.[k] || {}) : !!p?.[k] === !!v && (typeof v === 'boolean' || p?.[k] === v)));
@@ -1130,8 +1130,10 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     procPaint();
   }
   function procEl(s, i, st) {
-    const kind = procKind(s), p = st?.params || store.get().params;
-    const why = !PROCS[kind] ? 'Unknown procedure.' : PROCS[kind].had(p) ? '' : procBlocked(kind, p);
+    const kind = procKind(s), p = st?.params || store.get().params, m = st ? null : store.get().frame?.metrics;
+    // (BRTO and BATO only on a patient with gastric varices, or one who has had it already, so it plays from just before.)
+    if (PROCS[kind] && !procOffered(kind, p, m)) return null;
+    const why = !PROCS[kind] ? 'Unknown procedure.' : PROCS[kind].had(p) ? '' : procBlocked(kind, p, m);
     return h('div', { class: 'pz-ab pz-procs', role: 'group', 'aria-label': 'Play the procedure on the figure' },
       h('button', { type: 'button', class: 'pz-abb pz-proc', 'aria-pressed': 'false', ...(why ? { disabled: '', 'data-why': why, title: why } : {}), onclick: () => procPlay(s, i) },
         `Play ${PROCS[kind]?.name || kind}`));

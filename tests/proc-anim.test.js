@@ -2,7 +2,7 @@
 // takes the change the Treat buttons make, one the patient cannot have says why, and built-in slides use it only where adopted.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { PROCS, PROC_KINDS, procBlocked, procFrame } from '../src/ui/proc-anim.js';
+import { PROCS, PROC_KINDS, procBlocked, procOffered, procFrame, GV_MIN_MM } from '../src/ui/proc-anim.js';
 import { defaultParams } from '../src/engine/scenario.js';
 import { isOccluded } from '../src/engine/topology.js';
 import { DECKS } from '../src/ui/decks.js';
@@ -89,4 +89,34 @@ test('a patient who already has the result can have it taken back and put back (
     assert.equal(procBlocked(k, back), '', `${k}: playable again`);
   }
   assert.ok(!isOccluded(PROCS.brto.undo(structuredClone(PROCS.brto.apply(structuredClone(p)))), 'C2'), 'the gastric feeder reopens with the shunt');
+});
+
+// Review 23 Oct: BRTO and BATO are offered only while there are gastric varices to treat, and play slowly enough to follow.
+test('BRTO and BATO are offered only with gastric varices (TIPS always), and say why when there are none', () => {
+  const p = defaultParams(); p.spontaneous = { ...p.spontaneous, C5: true };
+  const none = { gastricVarix: { d: 0 } }, small = { gastricVarix: { d: GV_MIN_MM - 0.1 } }, some = { gastricVarix: { d: 6 } };
+  for (const k of ['brto', 'bato']) {
+    assert.equal(procOffered(k, p, none), false, `${k} with no varices`);
+    assert.equal(procOffered(k, p, small), false, `${k} below grading size`);
+    assert.equal(procOffered(k, p, some), true, `${k} with varices`);
+    assert.match(procBlocked(k, p, none), /no gastric varices/);
+    assert.equal(procBlocked(k, p, some), '');
+    // Once it has closed them, it can still be watched again (a slide plays it from just before).
+    assert.equal(procOffered(k, { ...p, occluded: { C5: true } }, none), true, `${k} already done`);
+  }
+  assert.equal(procOffered('tips', p, none), true);
+  assert.equal(procBlocked('tips', p, none), '');
+});
+
+test('BRTO and BATO run slowly, close in on the vein they treat while they work, and glide the camera home', () => {
+  for (const k of ['brto', 'bato']) {
+    const T = PROCS[k].T;
+    assert.ok(T.end >= 22000, `${k} lasts ${T.end} ms`);
+    assert.ok(T.travel1 - T.travel0 >= 6000, `${k}: the catheter travels for at least 6 s`);
+    assert.ok(T.fill1 - T.fill0 >= 4000, `${k}: the sclerosant fills for at least 4 s`);
+    const cams = [...new Set(times(T).map((t) => procFrame(k, t).cam))];
+    assert.deepEqual(cams, ['route', 'tip', 'work', 'home'], `${k} camera order`);
+    assert.equal(procFrame(k, T.fill0).cam, 'work', `${k}: close in before the sclerosant`);
+    for (const m of ['route', 'tip', 'work', 'home']) assert.ok(PROCS[k].camMs[m] >= 1400, `${k} ${m} glide`);
+  }
 });

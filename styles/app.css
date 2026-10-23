@@ -2870,7 +2870,9 @@ button.finding { cursor: pointer; }
 .cath-label.step b { font-size: 17px; color: var(--text); white-space: nowrap; }
 /* Beside the tip, centred on its spot (stage.js cathSide), with a thin leader to the tip that stops short of it. */
 .cath-label[data-at="side"] { translate: -50% -50%; }
-.cath-label[data-at="side"] > i { position: absolute; height: 1.5px; margin-top: -.75px; transform-origin: 0 50%; background: var(--text-2); border-radius: 1px; pointer-events: none; }
+/* (Only the leader: the glass is an <i> too, and the leader's rule had painted it solid grey, a dark card in light mode and a
+   pale one under white words in dark mode: review 23 Oct.) */
+.cath-label[data-at="side"] > i.cath-lead { position: absolute; height: 1.5px; margin-top: -.75px; transform-origin: 0 50%; background: var(--text-2); border-radius: 1px; pointer-events: none; }
 .cath-label.ghost { --lo: .5; }
 /* The presenter's measuring sites (PPG: portal vein and IVC), in the tracing colours; one off the free space waits hidden. */
 .cath-label.site { transition: scale .6s var(--ease) .35s, box-shadow .6s var(--ease) .35s, translate .45s var(--ease); } .cath-label.site > * { transition: opacity .6s var(--ease) .35s; }
@@ -3036,6 +3038,7 @@ button.finding { cursor: pointer; }
 .hvpg-procs { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 8px; }
 .hvpg-procs-k { font-size: 12px; font-weight: 600; letter-spacing: .05em; color: var(--text-3); }
 .hvpg-proc-btn { gap: 6px; }
+.hvpg-proc-btn[hidden] { display: none; }   /* (BRTO and BATO: only with gastric varices) */
 .hvpg-proc-btn svg { width: 12px; height: 12px; }
 .hvpg-proc-btn.off:not(:disabled) { opacity: .55; }
 .hvpg-proc-btn[aria-pressed="true"]:disabled { opacity: 1; cursor: default; }

@@ -2,6 +2,17 @@
 
 ## October 2026
 
+- **BRTO and BATO play slower with a closer camera, their step callouts keep off the vessels and follow light and dark mode, and they are
+  offered only when there are gastric varices.** (Mohammad, 23 Oct: "The BRTO/BATO animations should be refined, like camera zoom and slower;
+  also the callouts are still in the way, and they're not obeying light/dark mode; and they only need to be options when the varices are
+  present".) Each now lasts 24 s instead of 15 s: the catheter travels for 7 s while the view follows its tip, the camera closes in on the
+  stretch it works on, then closer again on the vein it treats (the shunt for BRTO, the short gastric feeder for BATO) before the sclerosant
+  fills, and every camera move glides for 1.4 to 2 s. The step callout tries spots all round the tip and takes the one that crosses the
+  fewest vessels (the catheter's own route included), keeps off the cards and the tip, and keeps its leader off other vessels. Its glass had
+  been painted solid grey by the leader's style (a dark box in light mode, a pale one under white words in dark mode); it is now the same
+  frosted glass as every other figure callout. In Tests › HVPG the BRTO and BATO buttons are shown only while the fundal varices are large
+  enough to grade (2.4 mm, the Fundal varices card's own "none"), and a slide's Play button likewise. TIPS is unchanged. Checked on desktop
+  in light and dark mode and on an iPad on its side (screenshots). Tests: `tests/proc-anim.test.js`.
 - **The six-site ladders (Sites 10 of 12, Where-resistance 14) use their room better, and a phone's rows carry the HVPG and PPG pills.**
   (Mohammad, 23 Oct: "this slide can be optimized in terms of sizes; the cards are wasting some space below sinusoidal within each card; also
   the title is wasting space. also for the phone view, it should have the HVPG PPG pills".) On a Mac or an iPad on its side the card's title
