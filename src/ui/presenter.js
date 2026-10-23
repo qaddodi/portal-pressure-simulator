@@ -31,6 +31,7 @@ import { noteResume, resumeFor } from './resume.js?v=f086f80ee8';
 import { parseDeckSource, checkDeck } from './deck-source.js?v=8395c650cd';
 import { NO_ASC, TILE, SCALE, bandsOf, rateOf, COLS, CUT, PRESS, fpv, dirAbs, dirRel, rateAbs, effOf, rateShown, tileShown, tipsGoal, liveSettled, shownSig } from './table-marks.js?v=15f059172f';
 import { frameFor, cancelFrame } from './frame.js?v=19b3f2915c';
+import { createCardLayoutQueue } from './card-layout-queue.js?v=fecc57bb35';
 import { createFigureKey } from './figure-key.js?v=8bbf7a41ed';
 import { traceWhen } from './trace-labels.js?v=fc916a95c6';
 import { flowCss, heatCss, dropCss, gradientCss, oxygenCss } from './colormap.js?v=cdcf6a2f55';
@@ -2642,12 +2643,18 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   const cardsStill = () => !!shown && shown.i === want && (liveOff || !!slides[want]?.lapse) && !!ui && !ui.root.classList.contains('pz-prep');
   let shiftLock = null;   // (the stacked pair's centring, keyed as the words' lock: layout)
   let textLock = null, foldHeld = null;   // (foldHeld: the foldKey the data card was last folded for, layout)
-  let fitRO = null, fitRaf = 0, clearRO = null, clearT = 0, paneRaf = 0, fitKids = [], clearFor = null;
+  let fitRO = null, clearRO = null, clearT = 0, fitKids = [], clearFor = null;
+  const cardLayouts = createCardLayoutQueue({
+    frame: nextFrame, cancel: cancelFrame,
+    blocked: () => !ui || 'folding' in ui.data.dataset || ui.data.classList.contains('pz-sliding'),
+    run: (kind) => {
+      if (!ui) return;
+      if (cardsStill()) { fitCards(ui.data); return; }
+      if (kind === 'layout' || [ui.text, ui.data, ui.panel].some((el) => !el.hidden && fitDone.get(el) !== fitSig(el) && (el.style.getPropertyValue('--pz-fit') || (({ v, h }) => v > 1 || h > 1)(overflowOf(el))))) layout();
+    },
+  });
   const fitWatch = () => {
-    fitRO ||= new ResizeObserver(() => {
-      cancelFrame(fitRaf);
-      fitRaf = nextFrame(() => { if (ui && cardsStill()) { fitCards(ui.data); return; } if (ui && [ui.text, ui.data, ui.panel].some((el) => !el.hidden && fitDone.get(el) !== fitSig(el) && (el.style.getPropertyValue('--pz-fit') || (({ v, h }) => v > 1 || h > 1)(overflowOf(el))))) layout(); });   // (a shrunk card is fitted again when it changes, so it can grow back)
-    });
+    fitRO ||= new ResizeObserver(() => cardLayouts.request('fit'));   // (a shrunk card is fitted again when it changes, so it can grow back)
     // (Watched again only when the cards' children changed: observing a box reports it at once, so re-observing on every pass
     // ran the layout again every frame on a slide sitting still, Circuit 7 on an iPhone some four times a second.)
     const kids = [ui.text, ui.data, ui.panel].flatMap((el) => [...el.children]);
@@ -2657,7 +2664,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       if (cardSig() !== framedSig) reframe(400); };   // (only when the cards really changed: the camera framed them once; any slide, so a card that grew never covers its box)
     const soon = () => { clearTimeout(clearT); clearT = setTimeout(again, 120); };
     // (The words' glass pane and the figure's insets follow a card that grows after the layout, a chart arriving under the words.)
-    clearRO ||= new ResizeObserver(() => { cancelFrame(paneRaf); paneRaf = nextFrame(() => { if (!ui) return; if (cardsStill()) fitCards(ui.data); else layout(); }); soon(); });
+    clearRO ||= new ResizeObserver(() => { cardLayouts.request('layout'); soon(); });
     if (clearFor !== ui) { clearRO.disconnect(); clearRO.observe(ui.data); clearRO.observe(ui.text); clearFor = ui; }
     ui.data.ontransitionend = ui.text.ontransitionend = soon;   // (a card slides into place: its edge is where it ends, not where it was measured)
   };
@@ -3949,9 +3956,9 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     let foldT = 0;
     const foldStill = () => {
       clearTimeout(foldT);
-      if (!('folding' in data.dataset)) return;
-      if (partOf().getAnimations?.().some((a) => a.playState === 'running')) { foldT = setTimeout(foldStill, 100); return; }   // (still easing: a slow frame)
-      delete data.dataset.folding; fitDone.delete(data); onResize();
+      if (!ui || ui.data !== data || !('folding' in data.dataset)) return;
+      if (data.classList.contains('pz-sliding') || partOf().getAnimations?.().some((a) => a.playState === 'running')) { foldT = setTimeout(foldStill, 100); return; }   // (still easing: a slow frame)
+      delete data.dataset.folding; fitDone.delete(data); cardLayouts.settle(() => onResize());
     };
     const fold = h('button', { class: 'pz-fold', type: 'button', 'aria-expanded': 'false', onclick: () => setFold(!data.classList.contains('tool-open')) }, 'Show');
     // A phone's sheet under the card (.pz-sheet, dockVec): its edge carries the handle. A tap steps through the three states, as the
@@ -4128,7 +4135,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     removeEventListener('resize', onResize);
     wrapRO?.disconnect();
     document.fonts?.removeEventListener('loadingdone', onFonts);
-    fitRO?.disconnect(); clearRO?.disconnect(); fitKids = []; clearFor = null; clearTimeout(clearT); cancelFrame(fitRaf);
+    fitRO?.disconnect(); clearRO?.disconnect(); fitKids = []; clearFor = null; clearTimeout(clearT); cardLayouts.reset();
     store.set({ presenting: false, presentLabels: null, presentTerms: null, presentNames: false, focus: null, lobuleCallout: null, presentFp: null }); stage.setSites(null); stage.setGlow(null); stage.pinOrgans(null); delete app.dataset.lit;
     figureHooks('clear');
     hushed = false; lastCam = null; clearTimeout(hushInT); app.classList.remove('pz-hush', 'pz-hush-in');

@@ -2,6 +2,10 @@
 
 ## October 2026
 
+- **Stacked data cards defer observer-driven layout while tucking and untucking.** Resize reports from the moving card are
+  coalesced into its final settle pass, preserving its fit during the ease or drag. Real viewport and font changes still
+  lay out immediately. Applies across decks and screen layouts; animation and simulation rates and glass are unchanged.
+  Code and unit checks only; smoothness and device temperature have not been measured.
 - **Wide chart-only time-lapse cards keep their full width and readable plots.** The chart uses the space below the teaching card,
   reserving its header, padding and gaps before choosing a height. Its minimum accounts for both plots, a wrapped legend and treatment
   bars; shorter windows retain the existing fitting fallback. Applies to every wide chart-only time-lapse card. Circulation's meal slide
