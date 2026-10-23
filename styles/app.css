@@ -5331,10 +5331,12 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
   .pz.pz-wide.pz-wide > .pz-data.pz-sheet.pz-hide { transition: visibility 0s linear .3s !important; }
   .pz.pz-wide.pz-wide > .pz-data.pz-sheet::before, .pz.pz-wide.pz-wide > .pz-data.pz-sheet::after, .pz.pz-wide.pz-wide > .pz-data.pz-sheet > :is(.pz-dh, .pz-tool, .pz-tiles) { transition: opacity .3s var(--ease) !important; }
 }
-/* (The rise, frame by frame with the readings' card (presenter.js liftTo, --pz-lift on the stage): the words' card, its glass, the data
-   card's box and the handle rise together, the words' top behind the screen's top if need be, and come back down as the readings tuck
-   away. A translate: their tops ease on their own.) */
-.pz.pz-wide .pz-text, .pz.pz-wide .pz-data.col, .pz.pz-wide .pz-lip, .pz-shade.pz-card:not(.stack):not(.low) { translate: 0 calc(-1 * var(--pz-lift, 0px)); }
+/* (The rise, frame by frame with the readings' card (presenter.js liftTo, on the stage): the data card's box and the handle rise by the
+   readings' travel (--pz-lift), the words' card and its glass by 24 px less (--pz-rise), the edge the readings' card already shows above
+   the instrument card tucked, so the gap under the words is the same tucked or out; the words' top behind the screen's top if need be.
+   They come back down as the readings tuck away. A translate: their tops ease on their own.) */
+.pz.pz-wide .pz-data.col, .pz.pz-wide .pz-lip { translate: 0 calc(-1 * var(--pz-lift, 0px)); }
+.pz.pz-wide .pz-text, .pz-shade.pz-card:not(.stack):not(.low) { translate: 0 calc(-1 * var(--pz-rise, 0px)); }
 @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) { .pz.pz-wide.pz-wide .pz-data.pz-sheet::before, .pz.pz-wide.pz-wide .pz-data.pz-sheet::after { background: color-mix(in srgb, var(--surface) 96%, transparent); } }
 @media (prefers-reduced-transparency: reduce) { .pz.pz-wide.pz-wide .pz-data.pz-sheet::before, .pz.pz-wide.pz-wide .pz-data.pz-sheet::after { background: var(--surface-2); -webkit-backdrop-filter: none; backdrop-filter: none; } }
 /* Mac and iPad landscape: when even the smallest steps leave the pair too tall, the instrument folds behind Show as on a phone

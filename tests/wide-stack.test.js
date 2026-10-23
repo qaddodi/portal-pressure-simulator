@@ -50,7 +50,34 @@ test('the instrument is fitted to the tucked room; readings that need more room 
   assert.match(js, /d\.style\.setProperty\('--pz-u', u\.toFixed\(4\)\); liftTo\(u\); slip\.raf = nextFrame\(step\);/);
   assert.match(js, /ui\.data\.classList\.remove\('pz-sliding'\); liftTo\(underU\(ui\.data\)\);/);
   assert.match(js, /el\.style\.setProperty\('--pz-u', u\.toFixed\(4\)\); liftTo\(u\); return;/);
-  assert.ok(css.includes('.pz.pz-wide .pz-text, .pz.pz-wide .pz-data.col, .pz.pz-wide .pz-lip, .pz-shade.pz-card:not(.stack):not(.low) { translate: 0 calc(-1 * var(--pz-lift, 0px)); }'), 'the words, their glass, the card and its handle rise together');
+  // (The card and its handle rise by the readings' travel, --pz-lift; the words and their glass by LIP less, --pz-rise: see the next test.)
+  assert.ok(css.includes('.pz.pz-wide .pz-data.col, .pz.pz-wide .pz-lip { translate: 0 calc(-1 * var(--pz-lift, 0px)); }'), 'the card and its handle rise by the readings\' travel');
+  assert.ok(css.includes('.pz.pz-wide .pz-text, .pz-shade.pz-card:not(.stack):not(.low) { translate: 0 calc(-1 * var(--pz-rise, 0px)); }'), 'the words and their glass rise together, by LIP less');
+  assert.match(js, /const lf = \(parseFloat\(wrap\.style\.getPropertyValue\('--pz-rise'\)\) \|\| 0\) \* k;/, 'the glass reads back the words\' rise');
+});
+
+test('the gap under the words is the same with the readings tucked, out or on the way (Mohammad, 22 Oct)', () => {
+  // Runs the real liftTo against a stand-in stage, then places the cards as styles/app.css does: the readings' card's top is 25 px above
+  // the box tucked and 1 px out (top: -1px - 24px * (1 - u)), the instrument card's top is u * d - 1 px under the box's, and the box and
+  // the words rise by --pz-lift and --pz-rise.
+  const src = js.match(/const setRise = [^\n]*\n\s*const liftTo = [^\n]*/)?.[0];
+  assert.ok(src, 'setRise and liftTo are in presenter.js');
+  const LIP = 24, Y = 600, Tb = 480;   // (the box's top at rest, the words' card's foot at rest)
+  for (const base of [0, 70]) for (const d of [60, 128, 210]) {
+    const props = new Map(), slip = { lift: d + base, base };
+    const wrap = { style: { getPropertyValue: (n) => props.get(n) ?? '', setProperty: (n, v) => props.set(n, v), removeProperty: (n) => props.delete(n) } };
+    const { liftTo } = new Function('wrap', 'slip', 'LIP', `${src}; return { liftTo };`)(wrap, slip, LIP);
+    const at = (u) => {
+      liftTo(u);
+      const lift = parseFloat(props.get('--pz-lift')) || 0, rise = parseFloat(props.get('--pz-rise')) || 0;
+      return { gap: (Y - lift - 1 - 24 * (1 - u)) - (Tb - rise), instrument: Y - lift + u * d - 1 };
+    };
+    const tucked = at(0);
+    for (const u of [0.1, 0.25, 0.5, 0.75, 1]) {
+      assert.ok(Math.abs(at(u).gap - tucked.gap) < 0.15, `base ${base}, travel ${d}, u ${u}: the gap stays ${tucked.gap.toFixed(1)} px, got ${at(u).gap.toFixed(1)}`);
+      assert.ok(Math.abs(at(u).instrument - tucked.instrument) < 0.15, `base ${base}, travel ${d}, u ${u}: the instrument card stays where it is`);
+    }
+  }
 });
 
 test('the handle only brings the readings out or tucks them away, eased; it never closes the card', () => {
@@ -83,5 +110,5 @@ test('a Gut to heart chart too tall for the room under the words lifts the pair 
   assert.match(js, /if \(wideSheet\(dd\) && dd\.hasAttribute\('data-ladder'\)\) \{\n\s*const b = Math\.max\(0, Math\.min\(top0 \+ t\.height \+ 2 \* pad \+ gap \+ ch - foot, t\.height \+ 2 \* pad \+ gap\)\) \/ k;\n\s*slip\.base = b > 0\.5 \? b : 0;/);
   assert.match(js, /if \(!\(below && t && wideSheet\(dd\)\)\) \{ slip\.lift = 0; slip\.base = 0; \}/);
   // (The rise is the base always, and the readings add the rest of their lift on top, by u.)
-  assert.match(js, /const liftTo = \(u\) => \{ const w = slip\.base \+ \(u > 0 \? u \* Math\.max\(0, slip\.lift - slip\.base\) : 0\)/);
+  assert.match(js, /const liftTo = \(u\) => \{ const trav = Math\.max\(0, slip\.lift - slip\.base\), f = u > 0 \? u : 0; setRise\('--pz-lift', slip\.base \+ f \* trav\); setRise\('--pz-rise', slip\.base \+ f \* Math\.max\(0, trav - LIP\)\);/);
 });

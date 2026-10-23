@@ -2213,7 +2213,12 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   // brings everything back down the same way. A translate, never their top, which eases on its own.)
   // (slip.base: the rise a Gut to heart chart needs whatever the readings do, its tucked card being taller than the room under the words; the
   // readings add the rest of slip.lift on top, by u.)
-  const liftTo = (u) => { const w = slip.base + (u > 0 ? u * Math.max(0, slip.lift - slip.base) : 0), v = w > 0.5 ? w.toFixed(1) : ''; if (wrap.style.getPropertyValue('--pz-lift') !== (v && `${v}px`)) { if (v) wrap.style.setProperty('--pz-lift', `${v}px`); else wrap.style.removeProperty('--pz-lift'); } };
+  // (Two rises: --pz-lift, the readings' travel, carries the box and the handle, so the instrument card stays put; --pz-rise, the words' card
+  // and its glass, is LIP less of the readings' travel: the readings' card already shows its LIP-px edge above the instrument card tucked, so
+  // out it needs LIP less than the instrument card's rise to stand the same gap under the words, tucked or out (Mohammad, 22 Oct: "the distance
+  // between the untucked and tucked card and teaching card should remain consistent"; it was LIP more out, about 110 px beside 60 px.))
+  const setRise = (name, w) => { const v = w > 0.5 ? `${w.toFixed(1)}px` : ''; if (wrap.style.getPropertyValue(name) !== v) { if (v) wrap.style.setProperty(name, v); else wrap.style.removeProperty(name); } };
+  const liftTo = (u) => { const trav = Math.max(0, slip.lift - slip.base), f = u > 0 ? u : 0; setRise('--pz-lift', slip.base + f * trav); setRise('--pz-rise', slip.base + f * Math.max(0, trav - LIP)); };
   // (Told when the readings' card starts to move, so the Doppler probe is placed against the cards frame by frame as they go: stage.js dprTrack.)
   const slideTell = () => dispatchEvent(new Event('pps:slide'));
   const underU = (d) => (d.classList.contains('pz-sliding') ? parseFloat(d.style.getPropertyValue('--pz-u')) || 0 : d.classList.contains('tool-open') ? 1 : 0);
@@ -2904,8 +2909,8 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     ui.shade.classList.remove('pz-tabs-tight');
     if (t && tabsTight(k)) ui.shade.classList.add('pz-tabs-tight');
     const lift = p && t ? glassLift(k) : 16;
-    // (The words' rect carries the stacked pair's rise, --pz-lift, which the glass takes by its own translate: read back without it.)
-    const lf = (parseFloat(wrap.style.getPropertyValue('--pz-lift')) || 0) * k;
+    // (The words' rect carries the stacked pair's rise, --pz-rise, which the glass takes by its own translate: read back without it.)
+    const lf = (parseFloat(wrap.style.getPropertyValue('--pz-rise')) || 0) * k;
     ui.shade.style.top = p && t ? `${ui.text.offsetTop - lift}px` : cardOn && t ? `${(t.top - wr.top - padT + lf) / k}px` : '';
     ui.shade.style.opacity = t ? '1' : '0';
     ui.safe.hidden = !t;
