@@ -2,6 +2,16 @@
 
 ## October 2026
 
+- **The six-site ladders (Sites 10 of 12, Where-resistance 14) use their room better, and a phone's rows carry the HVPG and PPG pills.**
+  (Mohammad, 23 Oct: "this slide can be optimized in terms of sizes; the cards are wasting some space below sinusoidal within each card; also
+  the title is wasting space. also for the phone view, it should have the HVPG PPG pills".) On a Mac or an iPad on its side the card's title
+  steps down to the Compact title step (0.8 of its size), so it stands on one line where it had run a second for its last two words and
+  every case gets that height; each case's chart reaches half a type size into the cell's bottom padding, which is blank under the brace's
+  name, and the padding is shorter, so the plots stand taller. On an upright phone or tablet each row ends in two pills, "HVPG n" and "PPG n",
+  the whole mmHg the chart's brackets read, tinted by the same cut-offs; the cause steps down (never under 12 px) to leave them room, and
+  where it cannot stay beside the site and the pills it goes under the site at the largest size the row holds, the pills staying at the right of
+  the first line. A phone on its side shows none (two columns, no height for a second line). Code and unit checks only; nobody has looked
+  on screen. Tests: `tests/grid-key-phone.test.js`.
 - **A teaching card too tall for its data card no longer cuts the data card off (Mac and iPad on its side).** (Mohammad, 23 Oct, Sites 4 of 12
   on a Mac: "remove CAUSES perhaps; fix the title so it's not too big; I want the data card to show".) At a larger text size the two-line
   title and the long CAUSES line left the Gut to heart chart about 180 px, and a chart that cannot zoom lost its foot. When the pair is still

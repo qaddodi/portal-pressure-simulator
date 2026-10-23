@@ -431,6 +431,13 @@ export function numberSides(G, tw, goal) {
   });
 }
 
+/** A case's HVPG and PPG for a phone's pills (Mohammad, 23 Oct: "for the phone view, it should have the HVPG PPG pills"): [{ k, name, v, rate }],
+ *  HVPG first, each v the whole mmHg the chart's bracket and pill read and rate the rating of the same cut-offs (table-marks.js RATE), so a
+ *  case's pills tint as the chart's do. [] where the fingerprint has no profile. */
+export function pillReadings(fp) {
+  const p = profileOf(fp);
+  return p ? SPANS.filter(([k]) => Number.isFinite(p[k])).map(([k, name]) => ({ k, name, v: whole(p[k]), rate: RATE[k](p[k])[0] })) : [];
+}
 /** The two readings as pills in the plot's top right (Mohammad, 22 Oct: "add two pills HVPG and PPG ... on top right for each card"):
  *  "HVPG 4" and "PPG 16", each as wide as its name and the widest value (00), so a number changing never moves an edge. → { w: [HVPG's,
  *  PPG's], h, pad } in px. */

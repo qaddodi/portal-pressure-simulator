@@ -1856,6 +1856,14 @@ button.finding { cursor: pointer; }
 .pz-panel.fill { height: calc(100% - 2 * clamp(16px, calc(4 * var(--pzh)), 56px)); }
 .pz-panel.fill .pz-grid { flex: 1; min-height: 0; grid-template-rows: repeat(2, minmax(0, 1fr)); }
 .pz-panel.fill .pz-cell { min-height: 0; }
+/* (A wide screen's six ladders (Mohammad, 23 Oct: "the cards are wasting some space below sinusoidal within each card; also the title is wasting
+   space"): the title one step down, the Compact step of the other titles (card-type.js WIDE.title, 0.8), so it stands on one line where it had
+   a second for two words, and every case gets that height; each case's foot gives back what lay under its sinusoidal brace: the chart reaches
+   half its type size into the cell's bottom padding (its picture has that much blank under the brace's name, overflow visible), the padding
+   itself shorter. The name and the unit stay inside the cell, over 12 px from its edge.) */
+.pz:not(.stack):not(.low) .pz-panel.fill .pz-h { font-size: calc(var(--s-big) * .8); }
+.pz:not(.stack):not(.low) .pz-cell { padding-bottom: clamp(4px, calc(.6 * var(--pzh)), 8px); }
+.pz:not(.stack):not(.low) .pz-cell > .pz-prof { margin-bottom: -.5em; }
 .pz-cell > .pz-prof { flex: 1 1 0; min-height: 0; height: auto; font-size: var(--ch-cap, 12px); }   /* (each case's Gut to heart chart takes its cell's room under the title, lettered at the data card's chart size) */
 :is(.pz.stack, .pz.low) .pz-cell > .pz-prof { display: none; }   /* (a phone draws each case on one line instead) */
 :is(.pz.stack, .pz.low) .pz-cell > .pz-pstrip { display: block; margin-top: 3px; font-size: var(--s-lab); }
@@ -2134,6 +2142,17 @@ button.finding { cursor: pointer; }
 :is(.pz.stack, .pz.low) .pz-cell { display: block; padding: 7px 12px 4px; border-radius: 12px; line-height: 1.25; --ch-cap: var(--s-cap); --ch-lab: var(--s-lab); }
 :is(.pz.stack, .pz.low) .pz-cell .pz-cell-k .pz-kick { font-size: var(--s-cap); letter-spacing: .06em; }
 :is(.pz.stack, .pz.low) .pz-cell-t { font: 600 var(--s-lab)/1.25 var(--font-display); color: var(--text-2); }
+/* (A phone's row ends in the case's HVPG and PPG as two pills, tinted as the chart's brackets and pills rate them (Mohammad, 23 Oct: "for the phone
+   view, it should have the HVPG PPG pills"): at the right of the first row, the cause stepping down to leave them room (presenter.js fitRow), else
+   going under the site with the pills staying at the row's right. A wide screen's chart carries both, so they stay hidden there; a phone on its side
+   has no room for them beside the cause and no height for a second line, so it shows none.) */
+.pz-gpills { display: none; flex: none; align-items: baseline; gap: 4px; margin-left: auto; }
+.pz.stack .pz-gpills { display: flex; }
+.pz-gpill { --tone: var(--ok); flex: none; white-space: nowrap; padding: 0 .55em; border: 1px solid color-mix(in srgb, var(--tone) 50%, transparent); border-radius: 999px; background: color-mix(in srgb, var(--tone) 15%, var(--surface-2)); color: color-mix(in srgb, var(--tone) 82%, var(--text)); font: 700 var(--s-cap)/1.2 var(--font-ui); font-variant-numeric: tabular-nums; letter-spacing: 0; }
+.pz-gpill[data-rate="mid"] { --tone: var(--caution); } .pz-gpill[data-rate="hi"] { --tone: var(--danger); }
+.pz-gpill .k { font-weight: 600; }
+.pz-cell-k.under .pz-gpills { order: 1; }
+.pz-cell-k.under .pz-cell-t { order: 2; flex-basis: 100%; }
 /* (Sideways the six rows stand in two columns of three, under a row of names each, and the card wraps them: it had given the
    ladders no height at all, so a phone held sideways showed six empty cells.) */
 .pz.low .pz-grid { --pk: 1; }   /* (sideways, the roles' own size: two rows of three and the slide's title share 390 px) */

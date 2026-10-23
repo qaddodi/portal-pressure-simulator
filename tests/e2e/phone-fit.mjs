@@ -57,7 +57,7 @@ export const fitIssues = () => {
     const panel = grid.closest('.pz-panel');
     if (panel && panel.scrollHeight > panel.clientHeight + 1) out.push(`site rows cut off (${panel.scrollHeight} of ${panel.clientHeight} px)`);
     const k = gr.height / grid.offsetHeight || 1;   // (its zoom on the screen)
-    for (const e of grid.querySelectorAll('.pz-kick, .pz-cell-t, .pz-cell-pill, .pz-grid-head span')) { const fs = parseFloat(getComputedStyle(e).fontSize) * k; if (e.getBoundingClientRect().width && fs < 11.95) { out.push(`site row word "${e.textContent.trim().slice(0, 16)}" ${fs.toFixed(1)} px`); break; } }
+    for (const e of grid.querySelectorAll('.pz-kick, .pz-cell-t, .pz-gpill, .pz-grid-head span')) { const fs = parseFloat(getComputedStyle(e).fontSize) * k; if (e.getBoundingClientRect().width && fs < 11.95) { out.push(`site row word "${e.textContent.trim().slice(0, 16)}" ${fs.toFixed(1)} px`); break; } }
     // Each case's site and cause whole inside the cell's inner edge, upright or on its side (Sites 10: "Sinusoidal obstruction syndrome" ran past the card's right edge).
     for (const row of grid.querySelectorAll('.pz-cell-k')) {
       const cell = row.closest('.pz-cell'), cr = vis(cell), inner = cr && cr.right - parseFloat(getComputedStyle(cell).paddingRight) * k;

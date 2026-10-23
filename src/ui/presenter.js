@@ -25,7 +25,7 @@ import { nb, listCase, plateletText } from './glue.js?v=5a0f63226b';
 import { DECKS, REGIONS, LEVELS, TOPICS, withOverview, siteTag, SITE_TAGS } from './decks.js?v=43c54b4a26';
 import { fingerprintOf } from '../engine/fingerprint.js?v=8faea80b59';
 import { createHvpgMonitor } from './hvpg-proc.js?v=616157c7bf';
-import { createTools } from './presenter-tools.js?v=46fedbbfc9';
+import { createTools } from './presenter-tools.js?v=c13ab6278d';
 import { openHandout } from './handout.js?v=54b55b0bd1';
 import { noteResume, resumeFor } from './resume.js?v=f086f80ee8';
 import { parseDeckSource, checkDeck } from './deck-source.js?v=8395c650cd';
@@ -34,10 +34,10 @@ import { frameFor, cancelFrame } from './frame.js?v=19b3f2915c';
 import { createFigureKey } from './figure-key.js?v=8bbf7a41ed';
 import { traceWhen } from './trace-labels.js?v=fc916a95c6';
 import { flowCss, heatCss, dropCss, gradientCss, oxygenCss } from './colormap.js?v=cdcf6a2f55';
-import { EXT, expandIds, stepExtra, markLabel, figureHooks, safe } from './slide-ext.js?v=fffa6412d7';
+import { EXT, expandIds, stepExtra, markLabel, figureHooks, safe } from './slide-ext.js?v=2ab4d1b5b2';
 import { clotWords } from './callout-math.js?v=d8785a0ad3';
 import { citeText, focusOf, oneLadder } from './teach-extras.js?v=5f5248f5a7';
-import { createProfileTool, createProfileStrip } from './tool-profile.js?v=939db19505';
+import { createProfileTool, createProfileStrip, pillReadings } from './tool-profile.js?v=23ee896a59';
 import { causeFit } from './cause-fit.js?v=830a6835a5';
 import { COMPACT, WIDE } from './card-type.js?v=5af5f22935';
 import { flowTimeHeight } from './flow-time.js?v=cb89e13e11';
@@ -2000,15 +2000,19 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   // (The first row's cause steps down to fit beside the site, never under 12 px on the screen, never wrapped or cut. fitRow measures the
   // laid-out row, the site's width and the gap against the cause's own, not an estimate; a cause that still does not fit at 12 px goes
   // under the site, whole, so no case's cause runs out of its card: causeFit. Mohammad, 21 Oct: "SOS doesn't fit text wise".)
+  // (A phone's row also holds the case's HVPG and PPG pills at its right end, which the cause keeps clear of: Mohammad, 23 Oct.)
   const fitRow = (k) => {
-    const t = k?.lastElementChild, tag = k?.firstElementChild;
+    const t = k?.querySelector('.pz-cell-t'), tag = k?.firstElementChild, pills = k?.querySelector('.pz-gpills');
     if (!t || !tag) return;
     t.style.removeProperty('font-size'); k.classList.remove('under');
     if (!t.offsetWidth) return;
     // (z: the row's zoom on the screen, so the floor is 12 px there; the room is what the row holds, less 1 px for the three widths' rounding)
     const z = Math.min(2, Math.max(0.5, k.getBoundingClientRect().width / k.offsetWidth || 1)), fs = parseFloat(getComputedStyle(t).fontSize) || 12;
-    const room = k.clientWidth - tag.offsetWidth - (parseFloat(getComputedStyle(k).columnGap) || 0) - 1;
-    const fit = causeFit(fs, t.offsetWidth, room, 12 / z);
+    const gap = parseFloat(getComputedStyle(k).columnGap) || 0, room = k.clientWidth - tag.offsetWidth - gap - (pills?.offsetWidth ? pills.offsetWidth + gap : 0) - 1;
+    let fit = causeFit(fs, t.offsetWidth, room, 12 / z);
+    // (Under the site it has the row to itself, as large as that holds, 12 px at least: with the pills at the row's right it is no longer
+    // the stepped-down size of a cause squeezed beside them.)
+    if (fit.under) fit = { ...causeFit(fs, t.offsetWidth, k.clientWidth - 1, 12 / z), under: true };
     if (fit.size !== fs) t.style.fontSize = `${fit.size.toFixed(2)}px`;
     k.classList.toggle('under', fit.under);
   };
@@ -2021,9 +2025,12 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       const P = createProfileTool(), S = createProfileStrip();
       P.configure({ kind: 'profile' }, { fp: r.f, healthy: () => base });
       S.set(r.f, () => base);
+      // (A phone shows the case's HVPG and PPG as two pills at the right of this row, tinted as the chart's brackets rate them; a wide screen's
+      // chart carries them, so there they stay hidden: styles/app.css .pz-gpills.)
       const k = h('div', { class: 'pz-cell-k' }, h('div', { class: 'pz-kick', 'data-site': r.site || 'none' }, r.kicker.replace('Intrahepatic · ', '')),
-        h('div', { class: 'pz-cell-t' }, r.name));   // (a row's `name` where its title is too long for the first row: Sites 10 "Sinusoidal obstr. synd.")
-      rowRO?.observe(k); rowRO?.observe(k.firstElementChild); rowRO?.observe(k.lastElementChild);   // (and the site and the cause themselves: a font loading late widens them, not the row)
+        h('div', { class: 'pz-cell-t' }, r.name),   // (a row's `name` where its title is too long for the first row: Sites 10 "Sinusoidal obstr. synd.")
+        h('div', { class: 'pz-gpills' }, pillReadings(r.f).map((q) => h('span', { class: 'pz-gpill', 'data-k': q.k, 'data-rate': q.rate }, h('span', { class: 'k' }, `${q.name} `), q.v))));
+      rowRO?.observe(k); for (const c of k.children) rowRO?.observe(c);   // (and the site, the cause and the pills themselves: a font loading late widens them, not the row)
       grid.append(h('div', { class: 'pz-cell' }, k, P.el, S.el));
     }
     return grid;
