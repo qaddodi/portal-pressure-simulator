@@ -24,7 +24,8 @@ import { store } from './store.js?v=67f4341802';
 import { radiiChanged, canvasPx, fxMoves, DIVE_RIM } from './lobule-render-cache.js?v=84bf4c2222';
 import { softwareYield } from './sw-yield.js?v=e580a095b1';
 import { lobuleState, lymphRate, sinceOf, LOBE } from './lobule-model.js?v=ff8433ada2';
-import { SIN_NARROW, cordTone, dullSinusoid, NEIGHBOUR_FLAT, neighbourBlur, blurWrapped, bandOutline, FADE_MID, fadeOuter, padRect, wideDpr, wideTiles } from './lobule-look.js?v=0ebfdaec61';
+import { SIN_NARROW, cordTone, dullSinusoid, NEIGHBOUR_FLAT, neighbourBlur, blurWrapped, bandOutline, FADE_MID, fadeOuter, padRect, wideDpr, wideTiles, FIELD_RS, fieldBlend } from './lobule-look.js?v=f47a77f331';
+import { createFieldGL } from './field-gl.js?v=59f18636de';
 import { h, s, fmt, clamp, createEaser, systemEdge, bloodColors, cssVar, cssAlpha, cssRGB01 } from './util.js?v=d2c95a1b16';
 import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatColor, oxygenColor } from './colormap.js?v=cdcf6a2f55';
 import { NODES, EDGES } from '../engine/topology.js?v=4044766e96';
@@ -263,7 +264,10 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   const el = h('div', { class: 'lz', 'aria-hidden': 'true' }, tissue, diveCv, glCv, fx, leaders, labels);
   // The dive's field (below the view): the liver's lobules, few and large, that the camera falls through (those away from the landing lobule fade as it nears).
   const field = h('canvas', { class: 'lz-canvas lz-field', 'aria-hidden': 'true' });
-  host.insertBefore(field, before); host.insertBefore(el, before);
+  // The same field drawn on the GPU (field-gl.js), where it can be: the 2D canvas above is then left empty.
+  const fieldG = h('canvas', { class: 'lz-canvas lz-field', 'aria-hidden': 'true' });
+  host.insertBefore(fieldG, before); host.insertBefore(field, before); host.insertBefore(el, before);
+  let fieldGL;   // its drawing (fieldGLOn)
 
   // ── The view: the lobule framed in the space the floating pieces leave (top bar, dock, cards and
   // its own card), free zoom up to 5× that, the pan held to this lobule. Zooming out stops at the framing.
@@ -689,7 +693,9 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     const drop = (q) => { if (q.cv) free(q.cv); if (q.quiet) free(q.quiet.cv); if (q.liverQ) free(q.liverQ.cv); q.cv = null; q.quiet = null; q.liverQ = null; };
     for (const key of keys.slice(0, -1)) { for (const q of tileSets.get(key)) drop(q); tileSets.delete(key); }
     const tiles = tileSets.get(keys[keys.length - 1]);
-    if (tiles) { const keepR = (tiles.find((q) => q.R >= top) || tiles[tiles.length - 1]).R; for (const q of tiles) if (q.R > keepR && q.cv) { drop(q); prepKey = ''; } }
+    // (and the size the GPU field blends in above the landing's: fieldBlend)
+    if (tiles) { const keepR = Math.max((tiles.find((q) => q.R >= top) || tiles[tiles.length - 1]).R, FIELD_RS[fieldBlend(geo.R * k * Math.min(1, devicePixelRatio || 1) * 0.8 * 0.55).b]); for (const q of tiles) if (q.R > keepR && q.cv) { drop(q); prepKey = ''; } }
+    fieldGL?.sweep();   // (the GPU's copies of the tiles just given back)
   }
 
   // ── Geometry: one lobule and its network (built once per size) ──
@@ -1927,7 +1933,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     if (later) tileLast = { key, dark };
     let tiles = tileSets.get(key);
     if (!tiles) {
-      tiles = [6, 12, 24, 48, 96, 192, 384].map((R) => ({ R, cv: null, set: key })); tileSets.set(key, tiles);
+      tiles = FIELD_RS.map((R) => ({ R, cv: null, set: key })); tileSets.set(key, tiles);
       if (tileSets.size > 3) { const k0 = tileSets.keys().next().value; for (const q of tileSets.get(k0)) { if (q.cv) free(q.cv); if (q.quiet) free(q.quiet.cv); if (q.liverQ) free(q.liverQ.cv); } tileSets.delete(k0); }   // (zeroed: Safari frees a dropped canvas's memory late)
     }
     else { tileSets.delete(key); tileSets.set(key, tiles); }
@@ -2112,15 +2118,25 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   // browser recompute the page's styles in the middle of the frame.)
   let diveCtx = null;
   const styleSnap = (cs) => { const m = new Map(); return { getPropertyValue: (n) => { let v = m.get(n); if (v === undefined) m.set(n, (v = cs.getPropertyValue(n))); return v; } }; };
+  const fieldHide = (cv) => { if (cv.width) { cv.width = 0; cv.height = 0; } cv.style.opacity = '0'; };
   function paintField(d) {
     if (!d) diveCtx = null;
-    if (!d || d.a <= 0.002) { if (field.width) { field.width = 0; field.height = 0; } field.style.opacity = '0'; fieldOp = 0; return; }
+    if (!d || d.a <= 0.002) { fieldHide(field); fieldHide(fieldG); fieldOp = 0; return; }
     if (!diveCtx) {
       const rect = host.getBoundingClientRect(), cs = getComputedStyle(host), dark = isDark();
       diveCtx = { W: Math.max(1, Math.round(rect.width)), H: Math.max(1, Math.round(rect.height)), cs: styleSnap(cs), dark, bg: stageBg(cs, dark) };
     }
     const { W, H, cs, dark, bg } = diveCtx;
     const dpr = Math.min(1, devicePixelRatio || 1) * 0.8;   // in motion and behind the lobule: a modest resolution is plenty
+    // On the GPU where it can be (the same picture, its tile sizes blended); otherwise the 2D canvas, as below.
+    const g = fieldGLOn();
+    if (g && paintFieldGL(g, d, W, H, dpr, cs, dark, bg)) {
+      fieldHide(field);
+      fieldOp = Math.min(1, d.a * 1.25);
+      fieldG.style.opacity = fieldOp.toFixed(3);
+      return;
+    }
+    fieldHide(fieldG);
     if (field.width !== Math.round(W * dpr) || field.height !== Math.round(H * dpr)) { field.width = Math.round(W * dpr); field.height = Math.round(H * dpr); }
     // Half the tile's resolution, as at rest: the field is in motion and behind the lobule.
     const rd = d.r * dpr, t = fieldTile(cs, dark, rd * 0.55);
@@ -2161,6 +2177,32 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     field.style.opacity = fieldOp.toFixed(3);
   }
   let fieldOp = 0;
+  // The field's GPU drawing (field-gl.js): made the first time it is asked for (ahead of the first dive, by the idle preparation);
+  // null where WebGL2 is missing or would run in software, and set aside if its context is lost (the 2D canvas carries on).
+  function fieldGLOn() {
+    if (fieldGL === undefined) { fieldGL = createFieldGL(fieldG); if (!fieldGL) fieldG.remove(); }
+    return fieldGL && !fieldGL.lost ? fieldGL : null;
+  }
+  // A tile's liver-toned and quieted copies sent to the GPU ahead of the dive (no frame of it uploads a texture).
+  const fieldUp = (t) => { const g = fieldGLOn(); if (g) { g.upload(t.liverQ?.cv); g.upload(t.quiet?.cv); } };
+  // One frame of the field on the GPU, the same picture paintField's 2D passes make (the same tiles, quieting, fade and emerging
+  // mask, with the same numbers), except that the two tile sizes nearest the lobules' size on screen are blended (fieldBlend), so
+  // the detail of the larger one comes in gradually as the lobules grow instead of in a step where the 2D canvas switched.
+  function paintFieldGL(g, d, W, H, dpr, cs, dark, bg) {
+    const fw = Math.round(W * dpr), fh = Math.round(H * dpr), rd = d.r * dpr;
+    const { a, b, mix } = fieldBlend(rd * 0.55);   // (half the tile's resolution, as at rest and on the 2D canvas)
+    const ta = fieldTile(cs, dark, FIELD_RS[a]), tb = b !== a && mix > 0 ? fieldTile(cs, dark, FIELD_RS[b]) : null;
+    const f = clamp(d.focus ?? d.quiet, 0, 1), fq = Math.max(f, d.quiet), fx0 = d.x * dpr, fy0 = d.y * dpr;
+    const r0 = f > 0 ? Math.exp(lerp(Math.log(Math.hypot(W, H) * dpr * 0.45), Math.log(Math.min(Math.hypot(W, H) * dpr * 0.45, rd * 1.1)), f)) : 0;
+    const r1 = fadeOuter(r0, Math.max(...[[0, 0], [fw, 0], [0, fh], [fw, fh]].map(([x, y]) => Math.hypot(x - fx0, y - fy0))));
+    const q = d.quiet >= 1 ? 1 : Math.max(0, d.quiet || 0), tone = shadeOf(bg, dark);
+    const rho = Math.hypot(W, H) * dpr * (0.2 + 1.1 * d.a + 2 * smooth(0.7, 1, d.a));
+    return g.draw({
+      W: fw, H: fh, a: liverTile(ta, cs, dark, bg).cv, b: tb ? liverTile(tb, cs, dark, bg).cv : null,
+      qa: q > 0 ? quietTile(ta, tone).cv : null, qb: q > 0 && tb ? quietTile(tb, tone).cv : null, mix: tb ? mix : 0, quiet: q,
+      ox: fx0, oy: fy0, rd, fade: f > 0 ? [r0, r1, fq] : null, mid: FADE_MID, bg: tone, mask: d.a < 1 ? [d.ox * dpr, d.oy * dpr, rho] : null,
+    });
+  }
   function liverTile(t, cs, dark, bg) {
     const lv = rgb01(cs.getPropertyValue('--og-liver-2').trim());
     const tone = bg.map((x, i) => lerp(x, lv[i], 0.6));
@@ -2189,6 +2231,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     const q = [
       () => { cs = styles(); bg = stageBg(cs, dark); land = api.landing(); },   // (the stage's kept copy of its styles: no live read)
       () => ensureGL(),
+      () => fieldGLOn(),   // (the field's GPU context, made here once, so the first dive does not compile its shader)
     ];
     // The dive's field: every tile it steps through on the way to the landing size (see paintField).
     const fdpr = Math.min(1, devicePixelRatio || 1) * 0.8;
@@ -2196,7 +2239,8 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
       const top = land.r * fdpr * 0.55;
       // (Each with its quieted copy too: the dive lays it over the field from midway, and building one there, a tile at a time,
       // snagged the zoom's last stretch.)
-      for (let rd = 6; ; rd *= 2) { const r = rd; q.splice(q.indexOf(null), 0, () => { const t = fieldTile(cs, dark, r); liverTile(t, cs, dark, bg); quietTile(t, shadeOf(bg, dark)); }); if (r >= top) break; }
+      // (One size past the landing's: the GPU field blends it in over the last stretch, fieldBlend.)
+      for (let rd = 6; ; rd *= 2) { const r = rd; q.splice(q.indexOf(null), 0, () => { const t = fieldTile(cs, dark, r); liverTile(t, cs, dark, bg); quietTile(t, shadeOf(bg, dark)); fieldUp(t); }); if (r >= top * 2) break; }
     }, null);
     q.push(() => {   // the landed lobule: its state, then the tissue, then one full frame
       const st = store.get();
@@ -2220,9 +2264,9 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   let warmQ = [];
   function prewarm(rEnd) {
     const cs = getComputedStyle(host), dark = isDark(), bg = stageBg(cs, dark), top = rEnd * Math.min(1, devicePixelRatio || 1) * 0.8 * 0.55;
-    warmQ = [() => ensureGL()];
+    warmQ = [() => ensureGL(), () => fieldGLOn()];   // (the field's GPU context too, if the idle preparation has not made it)
     // The tiles paintField steps through (each a no-op when the idle preparation already drew it).
-    for (let rd = 6; ; rd *= 2) { const r = rd; warmQ.push(() => { const t = fieldTile(cs, dark, r); liverTile(t, cs, dark, bg); quietTile(t, shadeOf(bg, dark)); }); if (r >= top) break; }
+    for (let rd = 6; ; rd *= 2) { const r = rd; warmQ.push(() => { const t = fieldTile(cs, dark, r); liverTile(t, cs, dark, bg); quietTile(t, shadeOf(bg, dark)); fieldUp(t); }); if (r >= top * 2) break; }
   }
   // Right before a zoom into the lobule starts: the lobule is drawn, whole and unseen, for the framing it will land on (flow marks
   // faded), so the zoom only magnifies and fades in what is already drawn. Its canvases (about 16 MB on a phone) are given back
@@ -3415,7 +3459,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     /** For the checks: bytes held in the lobule's bitmaps (its canvases, world bitmap and field tiles). */
     memBytes(detail = false) {
       const b = (cv) => (cv ? cv.width * cv.height * 4 : 0);
-      const d = { canvases: b(tissue) + b(diveCv) + b(glCv) + b(fx) + b(field), world: b(worldCv), tiles: 0, worldDraws, tileSets: tileSets.size };
+      const d = { canvases: b(tissue) + b(diveCv) + b(glCv) + b(fx) + b(field) + b(fieldG), world: b(worldCv), tiles: 0, worldDraws, tileSets: tileSets.size };
       for (const tiles of tileSets.values()) for (const q of tiles) d.tiles += b(q.cv) + b(q.quiet?.cv) + b(q.liverQ?.cv);
       return detail ? d : d.canvases + d.world + d.tiles;
     },

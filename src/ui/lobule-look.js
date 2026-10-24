@@ -49,6 +49,21 @@ export function fadeOuter(r0, reach) {
 /** Their blur, in px of a field tile whose lobules are R px across: none on the smallest tiles, about 4 px on a 192 px one. */
 export const neighbourBlur = (R) => (R < 24 ? 0 : R * 0.02);
 
+/** The dive field's tile sizes (their lobules' radius, px), a factor of 2 apart: the small ones simple (outlines, a dot for each
+ *  vein), the large ones with their sinusoids and fibres. */
+export const FIELD_RS = [6, 12, 24, 48, 96, 192, 384];
+/** The two tile sizes the field blends for a lobule wanting `want` px of tile, and how much of the larger (0 … 1): the first size
+ *  at or above it, as the 2D field used alone, and the next one up, coming in over the octave below the first so that it is
+ *  whole just as the first would have given way to it. Both are at or above the size wanted (never shown blurrier), and the
+ *  detail a larger tile draws arrives gradually, never in a step. */
+export function fieldBlend(want, Rs = FIELD_RS) {
+  let a = Rs.findIndex((R) => R >= want);
+  if (a < 0) a = Rs.length - 1;
+  const b = Math.min(a + 1, Rs.length - 1);
+  const mix = b === a ? 0 : Math.min(1, Math.max(0, Math.log2(want / (Rs[a] / 2))));
+  return { a, b, mix };
+}
+
 // Box widths whose three passes approximate a Gaussian of this sigma (each pass a box of radius r).
 function boxRadii(sigma, n = 3) {
   const wIdeal = Math.sqrt((12 * sigma * sigma) / n + 1);
