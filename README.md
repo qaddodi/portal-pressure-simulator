@@ -161,6 +161,7 @@ For preparing a class, `window.pps` in the browser console exposes `loadPreset`,
 | [docs/ai-humanizer.md](docs/ai-humanizer.md) | Style rules for slide wording |
 | [docs/design-humanizer.md](docs/design-humanizer.md) | Visual rules that keep the interface from looking machine-made |
 | [docs/DESIGN_BLUEPRINT.md](docs/DESIGN_BLUEPRINT.md) | The original design spec; its model sections (§7, §12) are what the code comments cite |
+| [docs/visual-recommendations.md](docs/visual-recommendations.md) | Candidate tiles, charts, instruments and callouts not yet built, with what each needs |
 | [docs/PERFORMANCE.md](docs/PERFORMANCE.md) | Rendering and simulation scheduling |
 | [docs/LMS.md](docs/LMS.md) | Deep links and SCORM packaging |
 | [docs/ACCESSIBILITY.md](docs/ACCESSIBILITY.md) | WCAG 2.2 AA self-assessment |
