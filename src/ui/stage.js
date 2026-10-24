@@ -1805,8 +1805,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     diveHid = on; labHid = lab;
     for (const el of diveEls()) el.style.visibility = (el.id === 'labels' ? lab : on) ? 'hidden' : '';
   }
-  // The anatomy fades out as the field fades in over it (one crossfade, the same curve), and is hidden only once it is fully clear, so
-  // nothing pops out of or into view at either end of the zoom. Opacity on layers the zoom already composites costs nothing per frame;
+  // The field fades in over the anatomy, which stays whole beneath it and is hidden only once the field covers it, so nothing pops out
+  // of or into view at either end of the zoom and the page never shows through between them (see diveFrame). Opacity on layers the zoom already composites costs nothing per frame;
   // their usual .25s opacity transition is held off while it is driven frame by frame (and eases the anatomy back in under the landed lobule).
   let diveFadeO = null;
   function setDiveFade(o) {
@@ -1859,7 +1859,11 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       const landed = t >= 1 && !diveOut;
       setDiveScale(t >= 1 ? 1 : Math.exp(Math.min(z, LC + 0.4)), landed);
       if (landed) { clearTimeout(unhideAt); unhideAt = setTimeout(() => { if (diveT >= 1 && lobuleOn) { setDiveHidden(false, false); setDiveFade(null); } }, 500); }
-      setDiveFade(t <= 0 ? null : landed ? 0 : 1 - smoothT(LC * 0.45, LC + 0.3, z));
+      // The anatomy stays whole under the field as it fades in (and out, on the way back), and is hidden only once the field covers
+      // it. (Faded out on the field's curve, the two half-clear layers let the page through, about a fifth of it, for a fifth of a
+      // second as the field took over: a dark flash zooming in, in dark mode, Mohammad, 24 Oct. Zooming out it fell where the field
+      // itself was already fading into the page, so it did not show.)
+      setDiveFade(t <= 0 ? null : landed ? 0 : 1);
       // The anatomy's labels leave as the zoom starts.
       const lab = wrap.querySelector('#labels');
       // (Going out they come back over the last half of the zoom, in place, rather than at the very end.)

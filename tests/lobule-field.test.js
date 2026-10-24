@@ -43,9 +43,11 @@ test('the dive does no full-size redraws or hidden compositing mid-zoom', () => 
   assert.match(stage, /a: smoothT\(LC \* 0\.45, LC \+ 0\.3, z\)/, 'the field is whole exactly where the anatomy is hidden');
 });
 
-test('the anatomy fades with the field rather than popping, at both ends of the zoom', () => {
-  // One crossfade on the same curve as the field's opacity; hidden (visibility) only once it is fully clear.
-  assert.match(stage, /setDiveFade\(t <= 0 \? null : landed \? 0 : 1 - smoothT\(LC \* 0\.45, LC \+ 0\.3, z\)\)/);
+test('the anatomy stays whole under the field until the field covers it, so the page never shows through mid-zoom', () => {
+  // Opaque beneath the field as it fades in over it, hidden (visibility) only once the field is whole: two half-clear layers let the
+  // page through as a dark flash zooming in (Mohammad, 24 Oct).
+  assert.match(stage, /setDiveFade\(t <= 0 \? null : landed \? 0 : 1\);/);
+  assert.doesNotMatch(stage, /setDiveFade\([^\n]*1 - smoothT/);
   assert.match(stage, /el\.style\.transition = q === null \? '' : 'none'; el\.style\.opacity = q === null \? '' : String\(q\)/, 'driven per frame with the CSS transition held off');
   // The field's emerging mask spreads past every corner by the time it is dropped (a = 1), so nothing vanishes in the far corners.
   assert.match(lz, /rho = diag \* \(0\.2 \+ 1\.1 \* d\.a \+ 2 \* smooth\(0\.7, 1, d\.a\)\)/);
