@@ -587,7 +587,7 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
       }).map((c) => c.className);
     });
     const shots = [], opaque = new Set();
-    for (const [on, ms] of [[true, 1900], [false, 1300]]) {
+    for (const [on, ms] of [[true, 2500], [false, 1600]]) {   // (the dive 2.2 s, the rise 1.3 s, and a little after each)
       await page.evaluate((v) => window.pps.store.set({ lobule: v }), on);
       for (let t = 0; t <= ms; t += 50) {
         await page.evaluate(() => window.__step(50));

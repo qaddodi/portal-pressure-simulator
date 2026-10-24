@@ -1772,17 +1772,22 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // liver's card, the palette, a presenter step) and cross-fades over the plate.
   let liverBB = null;
   let lobuleOn = false, lobU = 0, lobAnim = 0;
-  // Into the lobule, a dive (1.6 s): one continuous zoom from a spot in the liver, gentle at both ends.
+  // Into the lobule, a dive (2.2 s): one continuous zoom from a spot in the liver, gentle at both ends.
   // The anatomy is magnified as it stands (a compositor transform: nothing is redrawn); a field of
-  // lobules (few and large, so the zoom stays light) blooms out from that spot over it; the zoom goes on through them and
+  // lobules blooms out from that spot over it, first a fine grain about as large as real lobules are in a liver that size
+  // (Mohammad, 24 Oct: "we should be zooming quite a bit more to get to the lobule level"), then simple lobules, then defined
+  // ones as they grow (the field's tile sizes, blended on the GPU: field-gl.js); the zoom goes on through them and
   // settles onto one, where the lobule's tissue fades in, in place, and then its labels and card.
-  // Out, the same in reverse, quicker.
+  // Out, the same in reverse, quicker. (About four times the zoom of the 1.6 s dive before, so a little longer: on a log scale
+  // its pace is about the same.)
   // The anatomy's own framing is never touched. diveT is the dive's clock, 0 (anatomy) to 1 (lobule).
   let diveAt = null, diveLand = null, diveT = 0, diveOut = false;
-  const DIVE_MS = 1600, RISE_MS = 1000;
+  const DIVE_MS = 2200, RISE_MS = 1300;
   let diveZ = 0;   // the dive's zoom so far (log scale), kept for cameraZoom
   let riseLine = false, riseFast = false, zShift = 0;   // (zShift: for cameraZoom, the plate's zoom is reset unseen when the rise begins)
-  const RH = 24;   // a lobule's size on screen (px) as the liver's surface gives way to the field
+  // A lobule's radius on screen (px) as the liver's surface gives way to the field (the anatomy at ×5): about true to scale, a lobule
+  // (1 to 1.5 mm) being about 1/130 of the liver's width. (It was 24, four times too large, so the dive zoomed only ×34 to ×57.)
+  const RH = 6;
   const LC = Math.log(5);   // the anatomy's share of the zoom (×5), the field's the rest
   const diveEls = () => [svg, wrap.querySelector('#stageOver'), wrap.querySelector('#labels'), vCanvas].filter(Boolean);
   function diveTarget() {

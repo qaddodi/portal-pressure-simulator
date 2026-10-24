@@ -8,9 +8,19 @@ const read = (p) => readFileSync(new URL(p, import.meta.url), 'utf8');
 const stage = read('../src/ui/stage.js');
 const lz = read('../src/ui/lobule-zoom.js');
 
-test('the field starts with lobules large enough to keep their count low', () => {
+// Their count no longer costs anything: the field is one pattern (one shader pass on the GPU, field-gl.js), whatever the size of
+// its lobules. They start about true to scale (Mohammad, 24 Oct: the lobule looked too large; zoom further to reach it).
+test('the field starts with lobules about true to scale, so the dive zooms over a hundredfold to the lobule', () => {
   const rh = Number(stage.match(/const RH = (\d+)/)[1]);
-  assert.ok(rh >= 20, `field lobules start at ${rh}px; at 11px the screen held hundreds`);
+  assert.ok(rh >= 4 && rh <= 8, `field lobules start at ${rh}px radius at the anatomy's ×5`);
+  // The whole zoom: the anatomy's ×5, then the field from RH to the landing lobule's radius (phone and Mac framings).
+  const lc = Math.log(5);
+  assert.ok(lc.toFixed(4) === Math.log(Number(stage.match(/const LC = Math\.log\((\d+)\)/)[1])).toFixed(4));
+  for (const land of [164, 272]) assert.ok(Math.exp(lc + Math.log(Math.max(rh * 2, land) / rh)) >= 120, `only ×${Math.exp(lc + Math.log(land / rh)).toFixed(0)} for a ${land} px lobule`);
+  assert.match(stage, /const lt = LC \+ Math\.log\(Math\.max\(RH \* 2, diveLand\.r\) \/ RH\);/);
+  // Longer for the deeper zoom, the way out quicker; the field's sizes blended so their detail comes in gradually.
+  assert.match(stage, /const DIVE_MS = 2200, RISE_MS = 1300;/);
+  assert.match(lz, /fieldBlend\(rd \* 0\.55\)/);
 });
 
 test('the dive fades the lobules away from the landing one, in and out, rising to full focus', () => {

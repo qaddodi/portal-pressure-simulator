@@ -2,6 +2,19 @@
 
 ## October 2026
 
+- **The zoom into the lobule goes about four times deeper, through simpler lobules first, and its field of lobules is drawn on the GPU.**
+  (Mohammad, 24 Oct: "the zoom into the lobule and out is 1) still laggy, and 2) the lobule appears to be larger than what it should ...
+  maybe we need to have simpler lobules at super zoomed out level then more defined then more defined and then our main lobule appears
+  lastly".) As the liver gives way to the field, its lobules now start about true to scale (a radius of 6 px at the anatomy's ×5, where they
+  were 24 px), so the whole dive zooms about ×140 on a phone and ×230 on a Mac instead of ×34 and ×57. The field's tile sizes, each with its
+  own detail (a fine grain of outlines and vein dots when small; triads and septa; then sinusoids and fibres), are now blended on the GPU by
+  where the zoom is between them, so the lobules gain detail gradually as they grow and the main lobule fades in last, at about a sixth of
+  its size. The field was four passes over the whole screen on the main thread each frame; it is now one shader pass (`src/ui/field-gl.js`)
+  with the same tiles, quieting, fade and emerging mask, sent to the GPU ahead of the dive (the 2D canvas still draws it without WebGL2).
+  The dive takes 2.2 s and the way out 1.3 s (1.6 s and 1.0 s before), so its pace on a log scale stays about the same. Every way into
+  the lobule (View row, the liver's card, search, slides and the scale switch) in Present and Patients, on every device. Code and unit
+  checks only; nobody has looked on screen. Tests: `tests/lobule-field-gpu.test.js`, `tests/lobule-field.test.js`.
+
 - **BRTO and BATO play slower with a closer camera, their step callouts keep off the vessels and follow light and dark mode, and they are
   offered only when there are gastric varices.** (Mohammad, 23 Oct: "The BRTO/BATO animations should be refined, like camera zoom and slower;
   also the callouts are still in the way, and they're not obeying light/dark mode; and they only need to be options when the varices are
