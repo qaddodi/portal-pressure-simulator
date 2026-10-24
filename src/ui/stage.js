@@ -1785,10 +1785,12 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const DIVE_MS = 2200, RISE_MS = 1300;
   let diveZ = 0;   // the dive's zoom so far (log scale), kept for cameraZoom
   let riseLine = false, riseFast = false, zShift = 0;   // (zShift: for cameraZoom, the plate's zoom is reset unseen when the rise begins)
-  // A lobule's radius on screen (px) as the liver's surface gives way to the field (the anatomy at ×5): about true to scale, a lobule
-  // (1 to 1.5 mm) being about 1/130 of the liver's width. (It was 24, four times too large, so the dive zoomed only ×34 to ×57.)
-  const RH = 6;
-  const LC = Math.log(5);   // the anatomy's share of the zoom (×5), the field's the rest
+  // The anatomy's share of the zoom (×16), the field's the rest: the camera goes deep into one part of the liver, its vessels still
+  // drawn, before any lobule shows (Mohammad, 24 Oct, on an iPad: at ×5 the liver and its portal branches still filled the screen as
+  // the lobules came in). RH: a lobule's radius on screen (px) at that zoom, about true to scale, a lobule (1 to 1.5 mm) being about
+  // 1/130 of the liver's width (6 px at ×5). The whole dive stays about ×140 on a phone and ×230 on a Mac.
+  const LC = Math.log(16);
+  const RH = 19;
   const diveEls = () => [svg, wrap.querySelector('#stageOver'), wrap.querySelector('#labels'), vCanvas].filter(Boolean);
   function diveTarget() {
     const lb = liverBox();
@@ -1879,8 +1881,11 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       // The detailed lobule rides on the field's own lobule at that centre, so it grows out of it.
       lz.setDiveZoom(t >= 1 ? 1 : clamp(r / diveLand.r, 0.05, 1), diveLand.x, diveLand.y, px, py);
       lz.setDive(t <= 0 || t >= 1 ? null : {
-        a: smoothT(LC * 0.45, LC + 0.3, z), x: px, y: py,
-        r, ox, oy, quiet: smoothT(0.45, 0.8, t), focus: smoothT(0.1, 0.8, t),
+        // The field comes in only over the anatomy's last stretch (×9 to ×21, its lobules a fine grain about 10 px across), whole
+        // where the anatomy is hidden; its neighbours drain and fade into the page only once it is whole, toward the landing, so the
+        // grain fills the screen first. (On the zoom, not the clock: the way out passes the same pictures in reverse.)
+        a: smoothT(LC - 0.6, LC + 0.3, z), x: px, y: py,
+        r, ox, oy, quiet: smoothT(lerp(LC + 0.3, lt, 0.4), lt, z), focus: smoothT(LC + 0.3, lt, z),
       });
       // Once the field is whole (fully opaque, from z = LC + 0.3) the magnified anatomy beneath it is not seen: it is hidden, so the
       // browser stops compositing it (Safari redraws a scaled SVG at each new scale, every frame); the labels as soon as they have faded.

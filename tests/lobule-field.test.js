@@ -10,12 +10,14 @@ const lz = read('../src/ui/lobule-zoom.js');
 
 // Their count no longer costs anything: the field is one pattern (one shader pass on the GPU, field-gl.js), whatever the size of
 // its lobules. They start about true to scale (Mohammad, 24 Oct: the lobule looked too large; zoom further to reach it).
-test('the field starts with lobules about true to scale, so the dive zooms over a hundredfold to the lobule', () => {
+test('the field starts with lobules about true to scale, deep in the liver, so the dive zooms over a hundredfold to the lobule', () => {
   const rh = Number(stage.match(/const RH = (\d+)/)[1]);
-  assert.ok(rh >= 4 && rh <= 8, `field lobules start at ${rh}px radius at the anatomy's ×5`);
-  // The whole zoom: the anatomy's ×5, then the field from RH to the landing lobule's radius (phone and Mac framings).
-  const lc = Math.log(5);
-  assert.ok(lc.toFixed(4) === Math.log(Number(stage.match(/const LC = Math\.log\((\d+)\)/)[1])).toFixed(4));
+  const lc = Math.log(Number(stage.match(/const LC = Math\.log\((\d+)\)/)[1]));
+  // The anatomy zooms far into the liver first (Mohammad, 24 Oct: the lobules came in while the liver still filled the screen).
+  assert.ok(Math.exp(lc) >= 12, `the anatomy hands over at ×${Math.exp(lc).toFixed(0)}`);
+  // About true to scale there: 6 px of radius at ×5, in proportion.
+  assert.ok(Math.abs(rh / Math.exp(lc) - 6 / 5) < 0.15, `field lobules start at ${rh}px radius at the anatomy's ×${Math.exp(lc).toFixed(0)}`);
+  // The whole zoom: the anatomy's share, then the field from RH to the landing lobule's radius (phone and Mac framings).
   for (const land of [164, 272]) assert.ok(Math.exp(lc + Math.log(Math.max(rh * 2, land) / rh)) >= 120, `only ×${Math.exp(lc + Math.log(land / rh)).toFixed(0)} for a ${land} px lobule`);
   assert.match(stage, /const lt = LC \+ Math\.log\(Math\.max\(RH \* 2, diveLand\.r\) \/ RH\);/);
   // Longer for the deeper zoom, the way out quicker; the field's sizes blended so their detail comes in gradually.
@@ -24,7 +26,7 @@ test('the field starts with lobules about true to scale, so the dive zooms over 
 });
 
 test('the dive fades the lobules away from the landing one, in and out, rising to full focus', () => {
-  assert.match(stage, /focus: smoothT\(0\.\d+, 0\.8, t\)/, 'focus follows the dive clock, so the rise out reverses it');
+  assert.match(stage, /focus: smoothT\(LC \+ 0\.3, lt, z\)/, 'focus follows the zoom (the clock\'s own function), so the rise out reverses it, and starts only once the field is whole');
   assert.match(lz, /const f = clamp\(d\.focus \?\? d\.quiet, 0, 1\)/);
   // At focus 1 the clear circle is the lobule view's resting surround (rd × 1.1), so the landing has no jump.
   assert.match(lz, /Math\.log\(Math\.min\(Math\.hypot\(W, H\) \* dpr \* 0\.45, rd \* 1\.1\)\), f\)\)/);
@@ -40,7 +42,7 @@ test('the dive does no full-size redraws or hidden compositing mid-zoom', () => 
   // The magnified anatomy is hidden while the whole field covers it (z ≥ LC + 0.3, where the field is opaque), and shown again on every end.
   assert.match(stage, /if \(!landed\) setDiveHidden\(t > 0 && t < 1 && z >= LC \+ 0\.3,/);
   assert.match(stage, /if \(k <= 1\.0001\) \{\n\s+if \(!keep\) \{ setDiveHidden\(false, false\); setDiveFade\(null\); \}/);
-  assert.match(stage, /a: smoothT\(LC \* 0\.45, LC \+ 0\.3, z\)/, 'the field is whole exactly where the anatomy is hidden');
+  assert.match(stage, /a: smoothT\(LC - 0\.6, LC \+ 0\.3, z\)/, 'the field is whole exactly where the anatomy is hidden, and comes in only over its last stretch');
 });
 
 test('the anatomy stays whole under the field until the field covers it, so the page never shows through mid-zoom', () => {

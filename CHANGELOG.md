@@ -5,8 +5,11 @@
 - **The zoom into the lobule goes about four times deeper, through simpler lobules first, and its field of lobules is drawn on the GPU.**
   (Mohammad, 24 Oct: "the zoom into the lobule and out is 1) still laggy, and 2) the lobule appears to be larger than what it should ...
   maybe we need to have simpler lobules at super zoomed out level then more defined then more defined and then our main lobule appears
-  lastly".) As the liver gives way to the field, its lobules now start about true to scale (a radius of 6 px at the anatomy's ×5, where they
-  were 24 px), so the whole dive zooms about ×140 on a phone and ×230 on a Mac instead of ×34 and ×57. The field's tile sizes, each with its
+  lastly".) The anatomy now zooms ×16 into one part of the liver, its vessels still drawn, before any lobule shows (it handed over at
+  ×5, while the liver and its portal branches still filled the screen: Mohammad's iPad photo, 24 Oct); the field's lobules come in only
+  over its last stretch, about true to scale (a radius of 19 px at ×16), and fill the screen before the neighbours fade toward the landing.
+  The whole dive zooms about ×140 on a phone and ×230 on a Mac instead of ×34 and ×57. Zooming in, the anatomy stays whole under the
+  field until the field covers it (fading both at once let the page through: a dark flash). The field's tile sizes, each with its
   own detail (a fine grain of outlines and vein dots when small; triads and septa; then sinusoids and fibres), are now blended on the GPU by
   where the zoom is between them, so the lobules gain detail gradually as they grow and the main lobule fades in last, at about a sixth of
   its size. The field was four passes over the whole screen on the main thread each frame; it is now one shader pass (`src/ui/field-gl.js`)
