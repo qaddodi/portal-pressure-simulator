@@ -38,7 +38,7 @@ A slide is **one idea**: a standalone title, a line of fewer than 45 words (sect
 
 | Field | Type | Notes |
 |---|---|---|
-| `id` | string | Kebab-case, unique across all decks (existing, 33: `circulation circuit two-inflows hvpg hyperdynamic sites prehepatic ncph outflow lobule where-resistance doppler stiffness one-year varices endoscopy variceal-bleed ascites tap encephalopathy spleen gastric-varices recompensation pregnancy treatment next-bleed choose-treatment cause-treated shunts tips-doppler transplant-doppler ten-years tips-journey`). A talk that was merged into another keeps working by its old id: add it to `DECK_ALIAS` in `decks.js` (old id → the deck that took its slides). `?script=<old id>` and the share page `c/deck-<old id>.html` then open that deck at slide 1 (`beta-blockers` → `treatment`, `blood-volume` → `hyperdynamic`, `read-doppler` → `doppler`, `first-visit` → `stiffness`, `refractory-bleed` → `variceal-bleed`, `where-block` → `sites`, `bleed` → `treatment`). |
+| `id` | string | Kebab-case, unique across all decks (existing, 32: `circulation circuit two-inflows hvpg hyperdynamic sites prehepatic ncph outflow lobule where-resistance doppler stiffness one-year varices endoscopy variceal-bleed ascites tap encephalopathy spleen gastric-varices recompensation pregnancy treatment next-bleed choose-treatment cause-treated shunts tips-doppler transplant-doppler ten-years`). A talk that was merged into another keeps working by its old id: add it to `DECK_ALIAS` in `decks.js` (old id → the deck that took its slides). `?script=<old id>` and the share page `c/deck-<old id>.html` then open that deck at slide 1 (`beta-blockers` → `treatment`, `blood-volume` → `hyperdynamic`, `read-doppler` → `doppler`, `first-visit` → `stiffness`, `refractory-bleed` → `variceal-bleed`, `where-block` → `sites`, `bleed` → `treatment`, `tips-journey` → `shunts`). |
 | `level` | `'foundation'` \| `'core'` \| `'advanced'` | Shown as Foundation / Core / Advanced. |
 | `title` | string | Full title. |
 | `minutes` | number | Talk length. |
@@ -491,7 +491,7 @@ not, and follows the model as the tiles do. `note` is the case's own value in a 
 bleeding"); `lit: true` sets the row that applies to the case in full-white words (the other rows stay quieter; rows are split by a hairline, as the quick check's, with no fills). `ticks: false` leaves the marks off, for a classification such as the
 Sarin classes. `title` names the card (keep it under about 36 characters; `short` is a phone's shorter title). The slide's tiles sit under
 the card, never beside it. Give the slide no `causes` with the same list, and check every row's words against the guideline. Used on
-Variceal bleed 8, Choose the treatment 3, Recompensation 7, Gastric varices 2, Pregnancy 6 and 7, Paracentesis 8, Encephalopathy 4, Stiffness 5, Ten years 12 and 13 and TIPS journey 2, 3, 7 and 8.
+Variceal bleed 8, Choose the treatment 3, Recompensation 7, Gastric varices 2, Pregnancy 6 and 7, Paracentesis 8, Encephalopathy 4, Stiffness 5, Ten years 12 and 13 and TIPS and shunts 4 and 5.
 
 **Question card: `question: 'One short question?'`.** The room is asked before the slide teaches, and the slide is the answer. Going forward
 one step onto the slide, the case card's glass comes up over the figure as it stands, tagged Question, with the question in large type and

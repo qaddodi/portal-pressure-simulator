@@ -2,6 +2,17 @@
 
 ## October 2026
 
+- **TIPS and shunts is one 11-slide talk: the spontaneous shunt, the woman's TIPS and the surgical shunt.** (Mohammad, 25 Oct, "Go"; deck rebuild plan, C5.)
+  "A TIPS from start to finish" is folded into the shunts talk (`?script=tips-journey` and its share page still open it, at slide 1). The talk runs
+  in four sections: the spontaneous splenorenal shunt (own flow, then the shunt's effect on the pressure), who gets a TIPS (the woman with recurrent
+  ascites and a four-row criteria card ending "No single number rules a TIPS out"), the stent and the flow (the procedure, the pressure it
+  buys, the heart's response with its compare button, the 12 mm stent and the stepwise dilation, and the closed stent), and the surgical distal
+  splenorenal shunt. The gastric-variceal shunt and BRTO slides left (Gastric varices teaches them), and so did "TIPS around the stent" and
+  "What a TIPS does not decide"; the criteria card's last row says the second one. Each section runs one instrument; no slide shows more than two
+  tiles except the distal shunt, which keeps three and says why in a code comment. The talk uses the flow lens on every slide but the last (blood
+  origin). Lines are 30 words or fewer; every `cite` and caveat moved into the notes, with the field and its ADOPTED entry removed. Both
+  humanizer passes were done. Code and unit tests only; nobody has looked on screen. Menu title now "TIPS and shunts". `src/ui/decks/shunts.js`,
+  `src/ui/decks.js`, `tests/deck-adopted.js`, `tests/deck-pills.json`, `docs/deck-authoring-guide.md`, `brand/handout/shunts/`.
 - **The EKG strip and the other recording traces open already full.** (Mohammad, 25 Oct, "In the heart ekg card while things are happening in the
   slide the ekg is empty it takes a while for it to show up so needs to be fixed somehow".) The vitals monitor's strip, the beat trace (its EKG strip and
   its pressures) and the Doppler were held empty while a slide's patient changed, then started over and swept in from the left for six to twelve seconds.

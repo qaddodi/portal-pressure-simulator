@@ -2,7 +2,7 @@
 // pressure behind it, so the bands slough and the varix regrows; carvedilol lowers the pressure, the two together are first
 // line, and a TIPS follows when they fail (the slide fields are described at the top of decks.js). One scope card, with the varix and
 // the HVPG as tiles, runs through every slide; the tiles' ring marks where the run began, after the bleed. The TIPS for a rebleed is
-// the bleed talk's last section and A TIPS from start to finish.
+// the bleed talk's last section and TIPS and shunts.
 
 const BAND = { kind: 'band' };
 const SCOPE = { kind: 'scope' };

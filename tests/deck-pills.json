@@ -319,23 +319,25 @@
   "{pv}",
   "{hvpg}"
  ],
- "shunts/grs": [
-  "fundal varices",
-  "left renal vein"
+ "shunts/reasons": [
+  "{asc}"
  ],
  "shunts/tips": [
   "portal vein",
   "hepatic vein",
   "{ppg}"
  ],
+ "shunts/heart": [
+  "{co@reasons}",
+  "{co}",
+  "{ra}"
+ ],
  "shunts/wide": [
-  "(a value)"
+  "{ppg}",
+  "{liver}"
  ],
  "shunts/dsrs": [
   "{ppg}"
- ],
- "shunts/brto": [
-  "fundal varices"
  ],
  "doppler/probe": [
   "portal vein",
@@ -978,18 +980,6 @@
   "{shunt}"
  ],
  "ten-years/list": [
-  "{liver}"
- ],
- "tips-journey/reasons": [
-  "{asc}"
- ],
- "tips-journey/heart": [
-  "{co@reasons}",
-  "{co}",
-  "{ra}"
- ],
- "tips-journey/width": [
-  "{ppg}",
   "{liver}"
  ]
 }
