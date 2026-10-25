@@ -342,23 +342,29 @@
  "doppler/slow": [
   "{<15 cm/s}"
  ],
- "doppler/clot": [
-  "superior mesenteric vein"
- ],
- "doppler/smv": [
-  "superior mesenteric vein",
-  "cavernoma"
- ],
- "doppler/bc": [
-  "hepatic vein"
- ],
- "doppler/rhf": [
+ "doppler/normal": [
   "portal vein",
-  "sinusoids"
+  "{pvVel}"
  ],
- "doppler/tips": [
-  "{<90 cm/s}",
-  "{>190 cm/s}"
+ "doppler/a1": [
+  "{pvFlow}"
+ ],
+ "doppler/a2": [
+  "portal vein",
+  "{hvpg}"
+ ],
+ "doppler/a3": [
+  "hepatic veins",
+  "{pvVel}"
+ ],
+ "doppler/a4": [
+  "portal vein",
+  "{>=30%}",
+  "{ra}",
+  "{hvpg}"
+ ],
+ "doppler/a5": [
+  "{ppg}"
  ],
  "endoscopy/grow": [
   "varices",
@@ -900,31 +906,6 @@
   "fundal varices",
   "{gv}",
   "{plt}"
- ],
- "read-doppler/normal": [
-  "portal vein",
-  "{pvVel}"
- ],
- "read-doppler/a1": [
-  "{pvFlow}"
- ],
- "read-doppler/a2": [
-  "portal vein",
-  "{hvpg}"
- ],
- "read-doppler/a3": [
-  "hepatic veins",
-  "{pvVel}"
- ],
- "read-doppler/a4": [
-  "portal vein",
-  "{>=30%}",
-  "{ra}",
-  "{hvpg}"
- ],
- "read-doppler/a5": [
-  "{>190 cm/s}",
-  "{ppg}"
  ],
  "hyperdynamic/rest": [
   "{co}",

@@ -105,7 +105,7 @@ import { SHUNTS } from './decks/shunts.js?v=e655bb6f84';
 import { TIPS_DOPPLER } from './decks/tips-doppler.js?v=85ee5c729f';
 import { TAP } from './decks/tap.js?v=1c015291d2';
 import { CIRCUIT } from './decks/circuit.js?v=c1f4d54f37';
-import { DOPPLER } from './decks/doppler.js?v=dbd76f9f63';
+import { DOPPLER } from './decks/doppler.js?v=75cf534497';
 import { ENDOSCOPY } from './decks/endoscopy.js?v=fe82b43220';
 import { PREHEPATIC } from './decks/prehepatic.js?v=bbb8e52395';
 import { RIGHT_HEART } from './decks/right-heart.js?v=76c355aca4';
@@ -123,7 +123,6 @@ import { ENCEPHALOPATHY } from './decks/encephalopathy.js?v=b9c1426e63';
 import { CAUSE_TREATED } from './decks/cause-treated.js?v=f2ee45fb1a';
 import { NEXT_BLEED } from './decks/next-bleed.js?v=6f687c2dc9';
 import { GASTRIC } from './decks/gastric-varices.js?v=fc839d2a3e';
-import { READ_DOPPLER } from './decks/read-doppler.js?v=ad80c00190';
 import { HYPERDYNAMIC } from './decks/hyperdynamic.js?v=8f06d153c4';
 import { CHOOSE_TREATMENT } from './decks/choose-treatment.js?v=95fb1b25c1';
 import { FIRST_VISIT } from './decks/first-visit.js?v=61860a515d';
@@ -197,7 +196,6 @@ DECKS.push(BETA_BLOCKERS);
 DECKS.push(ENCEPHALOPATHY, CAUSE_TREATED);
 DECKS.push(NEXT_BLEED);
 DECKS.push(GASTRIC);
-DECKS.push(READ_DOPPLER);
 DECKS.push(HYPERDYNAMIC);
 DECKS.push(CHOOSE_TREATMENT);
 DECKS.push(FIRST_VISIT);
@@ -207,15 +205,16 @@ DECKS.push(TIPS_JOURNEY);
 
 // Old links and bookmarks: a talk that was merged into another, or renamed, still opens by its old id (?script=<old id>, a shared
 // c/deck-<old id>.html page), at slide 1 of the deck that took its slides. The self-running tour became the Sites presentation, the
-// bleeding lecture the treatment one, the refractory bleed the acute variceal bleed, blood volume the circulation in cirrhosis.
-export const DECK_ALIAS = { 'where-block': 'sites', bleed: 'treatment', 'refractory-bleed': 'variceal-bleed', 'blood-volume': 'hyperdynamic' };
+// bleeding lecture the treatment one, the refractory bleed the acute variceal bleed, blood volume the circulation in cirrhosis, Read the Doppler the
+// Doppler of the portal system.
+export const DECK_ALIAS = { 'where-block': 'sites', bleed: 'treatment', 'refractory-bleed': 'variceal-bleed', 'blood-volume': 'hyperdynamic', 'read-doppler': 'doppler' };
 
 // The unified menu lists the presentations by topic, in teaching order, under a short title (32 characters or fewer); the
 // third name is the deck's short name in the tab at each slide card's top right corner (presenter.js deckTab; 20 or fewer).
 export const TOPICS = [
   ['foundations', 'Foundations', [['circulation', 'The portal circulation', 'Circulation'], ['circuit', 'Portal pressure as a circuit', 'Circuit'], ['two-inflows', 'The liver\'s two inflows', 'Two inflows'], ['hvpg', 'HVPG and PPG', 'HVPG and PPG'], ['hyperdynamic', 'The circulation in cirrhosis', 'Hyperdynamic']]],
   ['causes', 'Causes', [['sites', 'Sites and causes', 'Sites and causes'], ['prehepatic', 'Pre-hepatic PH', 'Pre-hepatic PH'], ['ncph', 'Presinusoidal PH', 'Presinusoidal PH'], ['right-heart', 'The right heart and the liver', 'Right heart'], ['outflow', 'Hepatic outflow obstruction', 'Outflow obstruction'], ['lobule', 'Inside the lobule', 'Lobule'], ['where-resistance', 'Where is the resistance?', 'Find the resistance']]],
-  ['measuring', 'Measuring', [['doppler', 'Doppler of the portal system', 'Doppler'], ['read-doppler', 'Read the Doppler', 'Read the Doppler'], ['transplant-doppler', 'Doppler after a liver transplant', 'Transplant Doppler'], ['stiffness', 'Stiffness, spleen and platelets', 'Stiffness'], ['one-year', 'A year of compensated cirrhosis', 'One year'], ['first-visit', 'Stage at the first visit', 'First visit']]],
+  ['measuring', 'Measuring', [['doppler', 'Doppler of the portal system', 'Doppler'], ['transplant-doppler', 'Doppler after a liver transplant', 'Transplant Doppler'], ['stiffness', 'Stiffness, spleen and platelets', 'Stiffness'], ['one-year', 'A year of compensated cirrhosis', 'One year'], ['first-visit', 'Stage at the first visit', 'First visit']]],
   ['complications', 'Complications', [['varices', 'Collaterals and varices', 'Varices'], ['endoscopy', 'Endoscopy and the varix', 'Endoscopy'], ['variceal-bleed', 'Acute variceal bleeding', 'Variceal bleed'], ['ascites', 'How ascites forms', 'Ascites'], ['tap', 'Paracentesis and albumin', 'Paracentesis'], ['encephalopathy', 'Encephalopathy and shunting', 'Encephalopathy'], ['spleen', 'The spleen: size and treatment', 'Spleen'], ['gastric-varices', 'Gastric varices', 'Gastric varices'], ['pvt-cirrhosis', 'Portal vein clot in cirrhosis', 'PVT in cirrhosis'], ['recompensation', 'Decompensation and recovery', 'Recompensation'], ['pregnancy', 'Cirrhosis in pregnancy', 'Pregnancy'], ['ten-years', 'One patient, ten years', 'Ten years']]],
   ['treatment', 'Treatment', [['treatment', 'Lowering portal pressure', 'Lowering pressure'], ['beta-blockers', 'Propranolol or carvedilol', 'Beta-blockers'], ['next-bleed', 'Preventing the next bleed', 'Next bleed'], ['choose-treatment', 'Choose the treatment', 'Choose treatment'], ['cause-treated', 'Treating the cause', 'Treating the cause'], ['shunts', 'Spontaneous shunts and TIPS', 'Shunts and TIPS'], ['tips-journey', 'A TIPS from start to finish', 'TIPS journey'], ['tips-doppler', 'Doppler after TIPS', 'TIPS Doppler']]],
 ];

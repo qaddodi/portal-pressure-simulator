@@ -63,7 +63,7 @@ test('Two inflows: after TIPS the sinusoids carry arterial blood and the stent c
 });
 
 test('Doppler: hepatofugal flow reverses the portal and splenic veins, draining by the splenorenal shunt', () => {
-  const e = run('doppler', 'reverse');
+  const e = run('doppler', 'a1');
   for (const k of ['PV_TRUNK', 'SV_CONF', 'SV_MID']) assert.ok(e.Q[e.ei[k]] < 0, k);
   assert.ok(e.Q[e.ei.C6] > 10, 'splenorenal shunt carries the blood away');
 });

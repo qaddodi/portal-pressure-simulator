@@ -61,5 +61,5 @@ test('the cavernoma is a pill that lights its collaterals wherever a line names 
   assert.match(SRC, /cavernoma: \{ edges: \['C8'\], tone: 'cav'/);
   const named = [];
   for (const d of DECKS) for (const s of d.slides) if (/\bcavernoma/i.test(s.line || '')) named.push(`${d.id}/${s.id}`);
-  assert.ok(named.includes('prehepatic/cavernoma') && named.includes('doppler/smv'), named.join());
+  assert.ok(named.includes('prehepatic/cavernoma'), named.join());
 });

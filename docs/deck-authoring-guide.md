@@ -480,7 +480,7 @@ red blocks and no HVPG or PPG brackets; the Doppler trace runs and its velocity 
 show their numbers but not their rating words; and the figure's "no flow" and "stasis" words stand down. The next slide, its answer (same
 patient, no `preset`), comes in still holding them, and once its cards have landed they ease in (the blocks fade up, the words fade in);
 nothing snaps. Going back or jumping to an answer slide shows it whole. Use it on every question slide of a question-and-answer pair (rule
-23): Where is the resistance?, Read the Doppler and Stage the patient at the first visit hold all of theirs.
+23): Where is the resistance? and Stage the patient at the first visit hold all of theirs. (Doppler of the portal system, which took in Read the Doppler's cases on 25 Oct, shows each case on one slide: the case card asks, the slide answers, and nothing is held.)
 
 **The criteria card: `tool: { kind: 'criteria', title, rows, ticks? }`.** A guideline's rules as up to four rows in the data card, where
 every screen shows them (a phone never shows the `causes` line, and a tight laptop drops it). Write each row as a string, as
@@ -525,11 +525,11 @@ switch patients, and a difference between two patients is not a response.)
 
 #### The Doppler reading grid: `grid` on `tool: doppler`
 
-*Read the Doppler* teaches a method, direction, then speed, then shape, and the grid draws it. `tool: { kind: 'doppler', vessel:
+The Doppler talk teaches a method, direction, then speed, then shape, and the grid draws it. `tool: { kind: 'doppler', vessel:
 'PV_TRUNK', grid: true }` puts three readings under the trace, laid out as its Peak and Trough readings, **Direction**, **Speed** and **Shape**, filled from the same
 reading as the strip's words ("Hepatofugal", "8.2 cm/s", "Continuous"). `grid: ['speed']` (any of `'dir'`, `'speed'`,
 `'shape'`) sets the name of the box the slide is about in full white. On a `hold` slide the boxes keep their names and leave their readings blank; on the
-answer slide the readings ease in. Used on every Doppler slide of Read the Doppler, Doppler 2 to 11 and TIPS Doppler 9 and 13.
+answer slide the readings ease in. Used on the ten Doppler slides of Doppler of the portal system that read a trace, and TIPS Doppler 9 and 13.
 
 #### The bleed clock: `clock`
 
@@ -734,7 +734,7 @@ Key facts for text: normal HVPG 1–5; CSPH is HVPG ≥ 10; bleeding risk rises 
 20. **A time-lapse with its own `preset` carries `params`** (`params: {}` is enough), or it plays from the previous slide's patient; word its line as the end point, since its `{tokens}` show the end values (section 4).
 21. **Summary tables:** every `cols` key needs a heading in `COLS` (`src/ui/table-marks.js`); `tests/deck-review-bugs.test.js` checks it.
 22. **New decks need handout figures:** run `node scripts/handout-figures.mjs <id>` (it writes `brand/handout/<id>/<slide id>.webp`); `tests/handout.test.js` fails while a slide has none, or while a figure belongs to no slide (a renamed or removed slide).
-23. **Question and answer pairs (the capstone decks Where is the resistance?, Read the Doppler, Choose the treatment and Stage the patient at the first visit).** A case is two slides. The question slide loads the patient (`preset`, with a `vignette`), shows the readings or the live options (`compare`) and asks in its line, with nothing named; Where is the resistance? and Read the Doppler also leave `site` off here and set it on the answer slide, so no level tab gives the answer away. The answer slide carries on with the same patient (no `preset`), names the finding, can add `params`, `delta: '<question slide id>'` and a `cite`, and may list what decides it with `causesHead` and `causes`. Never put `scales` on a question slide: a flip would give the answer away. Put `hold: true` on the question slide (section 7.5), so its data card names nothing either. Give the two slides of a pair the same kicker ("Case 1"), so the outline and the summary table read in order.
+23. **Question and answer pairs (the capstone decks Where is the resistance?, Choose the treatment and Stage the patient at the first visit; Doppler of the portal system shows its cases on one slide each).** A case is two slides. The question slide loads the patient (`preset`, with a `vignette`), shows the readings or the live options (`compare`) and asks in its line, with nothing named; Where is the resistance? also leaves `site` off here and set it on the answer slide, so no level tab gives the answer away. The answer slide carries on with the same patient (no `preset`), names the finding, can add `params`, `delta: '<question slide id>'` and a `cite`, and may list what decides it with `causesHead` and `causes`. Never put `scales` on a question slide: a flip would give the answer away. Put `hold: true` on the question slide (section 7.5), so its data card names nothing either. Give the two slides of a pair the same kicker ("Case 1"), so the outline and the summary table read in order.
 24. **Write the slide that teaches, not the one that tells (the 25 Oct word pass).**
     * *Puzzle before the reveal.* The slide before a reveal ends on the paradox as a plain statement ("A meal is about to raise the portal flow by half."; "They can carry only so much."), and the next slide resolves it. Do not ask a question the figure cannot answer yet.
     * *One lens a line.* Name at most one "Colored by …" sentence in a line, and only when the color is the finding. The key under the figure already says what each coloring shows; put a second lens in the notes or on its own button. `tests/lens-word-pills.test.js` keeps more than 40 of these phrases across the decks, so keep the ones that carry a finding.

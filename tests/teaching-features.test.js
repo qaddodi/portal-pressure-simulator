@@ -17,14 +17,14 @@ const slidesUsing = (f) => DECKS.flatMap((d) => d.slides.filter((s) => s[f] !== 
 
 test('hold: only adopted question slides use it, each a true flag on a slide with a card and no preset answer', () => {
   const used = slidesUsing('hold');
-  assert.ok(used.length >= 11, 'Where is the resistance? and Read the Doppler hold their question slides');
+  assert.ok(used.length >= 11, 'Where is the resistance? and Stage the patient at the first visit hold their question slides');
   for (const [d, s] of used) {
     assert.ok(adopted(d, s, 'hold'), `${d.id}/${s.id}: hold is opt-in (tests/deck-adopted.js)`);
     assert.equal(s.hold, true, `${d.id}/${s.id}: hold is true`);
     assert.ok(!s.visual && (s.tool || s.data), `${d.id}/${s.id}: a held slide has a data card to hold`);
     assert.ok(!s.site, `${d.id}/${s.id}: a question slide names no level`);
   }
-  for (const d of DECKS.filter((x) => x.id === 'where-resistance' || x.id === 'read-doppler')) {
+  for (const d of DECKS.filter((x) => x.id === 'where-resistance')) {
     for (const s of d.slides.filter((x) => /^q\d$/.test(x.id))) assert.equal(s.hold, true, `${d.id}/${s.id} holds its answer`);
   }
 });
@@ -121,7 +121,7 @@ test('HVPG response tile: hvpgResp adds a live percent fall in the HVPG from a n
 
 test('Doppler reading grid: grid on a Doppler tool shows Direction, Speed and Shape under the trace, blank while held', () => {
   const used = DECKS.flatMap((d) => d.slides.filter((s) => s.tool?.grid !== undefined).map((s) => [d, s]));
-  assert.ok(used.length >= 20, 'Read the Doppler, Doppler 2 to 11 and TIPS Doppler 9 and 13');
+  assert.ok(used.length >= 12, 'the ten Doppler slides that read a trace, and TIPS Doppler 9 and 13 (20 slides before Read the Doppler joined Doppler)');
   for (const [d, s] of used) {
     const at = `${d.id}/${s.id}`;
     assert.equal(s.tool.kind, 'doppler', `${at}: a Doppler slide`);

@@ -2,6 +2,18 @@
 
 ## October 2026
 
+- **Doppler of the portal system takes in Read the Doppler: five cases, one slide each.** (Mohammad, 25 Oct, "Build the new decks"; deck rebuild
+  plan, D1.) The talk is now 11 slides: the probe, the hepatic veins, the meal, cirrhosis, the reading order (Read the Doppler's "Read every trace in
+  the same order"), the five cases and a table of the five traces. Each case is one slide: its case card asks ("Which way will his portal blood run?"),
+  and the slide that follows is the answer, with the reading grid under the trace the room reads (the portal vein for the first, second and fourth, the
+  right hepatic vein for Budd–Chiari, the left portal vein after a TIPS). Nothing is held back any more, so the Doppler no longer blanks its direction
+  and shape words, and the five cases carry no tiles; the lines quote their numbers live. The slides the cases cover (reversed flow, portal vein
+  thrombosis, the cavernoma, Budd–Chiari, heart failure and the stent) and Read the Doppler's five question slides are gone, as is the deck. The old
+  link `?script=read-doppler` opens Doppler of the portal system at slide 1. Lines are 30 words or fewer; the two sources moved into the notes. Words
+  went through the AI humanizer and no new visual device was added. Handout figures moved with their slides; the eight slides whose look changed are
+  listed for the figure redraw at the end of the rebuild. Code only; nobody has looked on screen. `src/ui/decks/doppler.js`, `src/ui/decks.js`,
+  `src/ui/presenter.js`, `tests/deck-adopted.js`, `tests/deck-pills.json`, `tests/teaching-features.test.js`, `tests/deck-lenses.test.js`,
+  `tests/deck-terms.test.js`.
 - **"The circulation in cirrhosis": Hyperdynamic takes in Blood volume (8 slides).** (Mohammad, 25 Oct, "Go"; deck rebuild plan, C2.) The talk keeps
   its id `hyperdynamic` and its Foundations place and is now `rest`, `dilate`, `resist`, `volume`, `forward`, then the old Blood volume's `full` (its case
   card, "Losing blood") and `loss` (its question card, "What will a liter lost do to the portal pressure?"), then the summary. One vitals monitor (heart
