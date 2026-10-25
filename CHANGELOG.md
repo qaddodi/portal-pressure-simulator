@@ -2,6 +2,15 @@
 
 ## October 2026
 
+- **The stacked card's handle comes in with the cards, never ahead of them.** (Mohammad, 25 Oct, "The handle of the stacked cards appears before the
+  cards".) Found in code: with Reduce Motion on, `.pz *` turned every transition off and the handle (`.pz-lip`) was the one piece of the stacked card
+  left out of the fade the cards keep, so it came up at once, and went at once, while the cards were still fading. In motion, its bar fades with the
+  same start and ease as the glass but is a crisp mark on glass that is nearly clear while it fades, so it read as first in and last out. It now fades in
+  once the glass is in (opacity .3 s after .42 s, where the card's own fade runs .12 s to .62 s) and out first (.2 s), still sliding with the card, on the
+  phone's sheet and the Mac and iPad stack. With Reduce Motion it fades in after the glass and out before it, with no slide. A handle that is shown with its
+  card already standing (a move cut short) starts from its out look and eases in instead of coming up at full strength; a slide
+  that changes in the middle of a pull lets it leave first too. Code and unit tests only; nobody has looked on screen. `styles/app.css`,
+  `src/ui/presenter.js` (`lipSync`), `tests/handle-with-card.test.js`.
 - **One patient, ten years: the first year is now the one-year follow-up.** (Mohammad, 25 Oct, "Build the new decks"; deck rebuild plan, D4.) "A year of
   compensated cirrhosis" is gone; its four best slides open Ten years as Year 0 to Year 1, and the clock moves to match: CSPH and carvedilol at year 1,
   not year 3. The case card and the plane (Year 0, HVPG just below 10), the FibroScan at month 3, the HVPG monitor card at year 1 (the HVPG above 12,

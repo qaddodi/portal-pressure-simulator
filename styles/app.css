@@ -2572,6 +2572,10 @@ button.finding { cursor: pointer; }
      in and out is harder to follow. */
   .pz > :is(.pz-text, .pz-data, .pz-panel), .pz-text > *, .pz-shade { transition: opacity .3s var(--ease) !important; }
   .pz > :is(.pz-text, .pz-data, .pz-panel), .pz-text > .pz-leave, .pz-shade { transform: none !important; }
+  /* The stacked card's handle (.pz-lip) fades with the cards too, in once the glass is in and out before it, never popping in or out
+     ahead of them: with every transition off it came up at once while the cards were still fading in (Mohammad, 25 Oct). */
+  .pz > .pz-lip { transition: opacity .3s var(--ease) .3s !important; transform: none !important; }
+  .pz > .pz-data.pz-hide + .pz-lip { transition: opacity .15s var(--ease) !important; }
 }
 /* Menu › Present: the presentations and your scripts. */
 /* High contrast (P while presenting, or Settings): colour only, never a size. Stronger words, ratings as filled chips, a deeper shade. Organ art unchanged. */
@@ -5254,7 +5258,7 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
    up to its edge and the sheet's (dockVec). A slide whose card does not fit comes in closed, never folded behind Show. */
 .pz-lip { display: none; }
 .pz:is(.stack, .low) .pz-lip:not([hidden]) { display: block; position: absolute; height: 24px; margin: 0; padding: 0; border: 0; background: none; pointer-events: auto; touch-action: none;
-  cursor: pointer; -webkit-tap-highlight-color: transparent; transition: opacity .5s var(--ease) .12s, transform .5s var(--ease) .12s, margin-top .36s var(--ease); }
+  cursor: pointer; -webkit-tap-highlight-color: transparent; transition: opacity .3s var(--ease) .42s, transform .5s var(--ease) .12s, margin-top .36s var(--ease); }
 .pz:is(.stack, .low) .pz-lip::before { content: ''; position: absolute; inset: 0 14px; border: 1px solid color-mix(in srgb, var(--text) 9%, transparent); border-top: 0; border-radius: 0 0 16px 16px;
   background: color-mix(in srgb, var(--surface-2) 94%, transparent); box-shadow: 0 6px 14px -8px rgb(var(--black-rgb) / .14), 0 1px 2px rgb(var(--black-rgb) / .14);
   transition: inset .36s var(--ease), background-color .36s var(--ease), border-color .36s var(--ease), box-shadow .36s var(--ease); }
@@ -5263,8 +5267,13 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
 .pz:is(.stack, .low) .pz-data.tool-open + .pz-lip { margin-top: -24px; }
 .pz:is(.stack, .low) .pz-data.tool-open + .pz-lip::before { inset: 0; background-color: transparent; border-color: transparent; box-shadow: none; }
 .app.pz-hi .pz:is(.stack, .low) .pz-data:not(.tool-open) + .pz-lip::before { border-color: color-mix(in srgb, var(--text) 32%, transparent); }
-/* (It comes and goes with the card: the same fade and the same small shift.) */
-.pz .pz-data.pz-hide + .pz-lip:not([hidden]) { opacity: 0; transform: translateX(18px); pointer-events: none; transition: opacity .32s var(--ease), transform .32s var(--ease), margin-top .36s var(--ease); }
+/* (It comes and goes with the card, the same small shift, and its bar never shows ahead of the card: the bar is a crisp mark on glass that is
+   nearly clear while it fades, so faded with the glass it read as the first thing to arrive and the last to go (Mohammad, 25 Oct: "the
+   handle of the stacked cards appears before the cards"). It fades in once the glass is in (the card's own fade runs .12 s to .62 s, the bar's .42 s
+   to .72 s) and out first, in .2 s. A card that has just come to stand with its glass already on (pz-lip-in, presenter.js lipSync) starts
+   from this same out look.) */
+.pz .pz-data.pz-hide + .pz-lip:not([hidden]) { opacity: 0; transform: translateX(18px); pointer-events: none; transition: opacity .2s var(--ease), transform .32s var(--ease), margin-top .36s var(--ease); }
+.pz .pz-lip.pz-lip-in:not([hidden]) { opacity: 0; transition: none !important; }
 .pz.stack .pz-data.pz-hide + .pz-lip { transform: translateY(-18px); }
 .pz.pz-turning .pz-lip, .pz.pz-turning .pz-lip::before { transition: none !important; }
 .pz.stack .pz-data.pz-sheet > .pz-grip { display: none; }   /* (its handle is the sheet's) */
@@ -5323,7 +5332,8 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
 .pz.stack.stack .pz-data.pz-sheet.pz-sheet:not(.tool-open):not(.pz-sliding) > .pz-tiles { visibility: hidden; }
 /* (The handle rides in the readings' card's foot, tucked or out: --pz-u is copied to it by presenter.js placeLip, frame by frame.) */
 .pz.stack .pz-data.pz-sheet + .pz-lip::before { content: none; }
-.pz.stack .pz-data.pz-sheet.pz-sliding + .pz-lip { margin-top: calc(-24px * var(--pz-u, 0)); transition: opacity .5s var(--ease) .12s, transform .5s var(--ease) .12s; }
+.pz.stack .pz-data.pz-sheet.pz-sliding + .pz-lip { margin-top: calc(-24px * var(--pz-u, 0)); transition: opacity .3s var(--ease) .42s, transform .5s var(--ease) .12s; }
+.pz.stack .pz-data.pz-sheet.pz-sliding.pz-hide + .pz-lip { transition: opacity .2s var(--ease), transform .32s var(--ease); }   /* (a slide that changes mid-pull: the bar still leaves first) */
 /* (Inside a fading card a glass piece loses its blur until the fade ends, so here the card stays opaque and its parts and its two
    pieces fade, the card hidden once they have gone. The readings fade by their own ease.) */
 .pz.stack.stack .pz-data.pz-sheet.pz-hide { opacity: 1; visibility: hidden; transition: transform .32s var(--ease), visibility 0s linear .32s; }
@@ -5349,7 +5359,7 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
    to the side here, so it has no edge handle. */
 .pz.pz-wide .pz-data > .pz-grip { display: none; }
 .pz.pz-wide .pz-lip:not([hidden]) { display: block; position: absolute; height: 24px; margin: 0; padding: 0; border: 0; background: none; pointer-events: auto; touch-action: none;
-  cursor: pointer; -webkit-tap-highlight-color: transparent; transition: opacity .5s var(--ease) .12s, transform .5s var(--ease) .12s; }
+  cursor: pointer; -webkit-tap-highlight-color: transparent; transition: opacity .3s var(--ease) .42s, transform .5s var(--ease) .12s; }
 .pz.pz-wide .pz-lip::after { content: ''; position: absolute; left: 50%; top: 50%; width: 34px; height: 4px; translate: -50% -50%; border-radius: 2px; background: color-mix(in srgb, var(--text) 32%, transparent); }
 .pz.pz-wide .pz-data.pz-hide + .pz-lip { transform: translateX(-18px); }   /* (as the card leaves, .pz-data.col) */
 .pz.pz-wide.pz-wide .pz-data.pz-sheet.pz-sheet { --pz-u: 0; --pz-sr: clamp(16px, calc(2.2 * var(--pzh)), 28px); --pz-in: 8px; padding-top: 10px; background: none; -webkit-backdrop-filter: none; backdrop-filter: none; border-color: transparent; box-shadow: none; overflow: visible; isolation: isolate; }

@@ -4270,7 +4270,18 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     const dockHs = dockTouch(data, lip);
     const cardTouch = [foldHs, dockHs];   // (fold first: it stops the dock drag when it takes a move, as on the card)
     // (Shown with the sheet only, and kept at the card's foot as the card grows or shrinks, a part easing open included.)
-    const lipMO = new MutationObserver(() => { lip.hidden = data.hidden || !data.classList.contains('pz-sheet'); placeLip(); });
+    // (Shown with a card already standing (its sheet came on in the pass that let the cards in, or a move was cut short and they came in as it
+    // ended), a handle that was display: none starts from its out look, pz-lip-in, and eases in with the card's own fade: it came up at
+    // full strength at once, ahead of the cards.)
+    const lipSync = () => {
+      const was = lip.hidden;
+      lip.hidden = data.hidden || !data.classList.contains('pz-sheet');
+      const enter = was && !lip.hidden && !data.classList.contains('pz-hide');
+      if (enter) lip.classList.add('pz-lip-in');
+      placeLip();
+      if (enter) { void lip.offsetWidth; lip.classList.remove('pz-lip-in'); }
+    };
+    const lipMO = new MutationObserver(lipSync);
     lipMO.observe(data, { attributes: true, attributeFilter: ['class', 'hidden', 'style'] });
     // (Not while the readings' card slides: each frame's --pz-u already places it, lipMO, from the slide's own sums.)
     const lipRO = typeof ResizeObserver === 'function' ? new ResizeObserver(() => { if (!data.classList.contains('pz-sliding')) placeLip(); }) : null;
