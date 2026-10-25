@@ -6733,3 +6733,9 @@ html.thumb-ui .menu.from-dock { clip-path: inset(-64px -64px calc(var(--sink, 0p
 .dop-grid dd { margin: 0; font-size: var(--fs-14); font-weight: 600; color: var(--text); overflow-wrap: anywhere; transition: opacity .32s var(--ease); }
 .pz-data[data-held] .pz-tool .dop-grid dd { opacity: 0; }
 .pz-data[data-held-now] .pz-tool .dop-grid dd { transition: none; }
+
+/* The bleed clock (slide field clock, presenter.js bleedClock): one tile of its own under the slide's tiles, a tile's own bar from 0
+   to 72 hours, its dot easing to the slide's moment. Beside an instrument it runs the card's full width under the two. */
+.pz:not(.stack):not(.low) .pz-data.pz-beside > .pz-tiles.pz-clockrow:not([data-n="0"]) { grid-column: 1 / -1; grid-row: 3; }
+.pz-clockrow[hidden] { display: none; }
+.pz-clock .pzb-now { transition: left .6s var(--ease), background-color .4s var(--ease); }

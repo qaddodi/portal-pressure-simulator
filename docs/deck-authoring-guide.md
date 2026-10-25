@@ -91,7 +91,7 @@ Every field is optional unless marked. Fields are grouped by what they do. Unkno
 
 ### 3.4 The data card (section 7)
 
-`data`, `tiles`, `key`, `delta`, `dataTitle`, `tool`, `visual` (+ `cols`, `asc`, `rowHead`, `note`, `vs`, `foot`, `calm`, `of`, `scale`), `compare`, `whatIf`, `procedure` (7.4); opt-in: `wave`, `waveMax`, `focusRow` (7.3); opt-in teaching features (7.5): `hold`, `tool: { kind: 'criteria' }`, `predict`, `hvpgResp`, `tool.grid` on a Doppler; `caseQ` (section 14).
+`data`, `tiles`, `key`, `delta`, `dataTitle`, `tool`, `visual` (+ `cols`, `asc`, `rowHead`, `note`, `vs`, `foot`, `calm`, `of`, `scale`), `compare`, `whatIf`, `procedure` (7.4); opt-in: `wave`, `waveMax`, `focusRow` (7.3); opt-in teaching features (7.5): `hold`, `tool: { kind: 'criteria' }`, `predict`, `hvpgResp`, `tool.grid` on a Doppler, `clock`; `caseQ` (section 14).
 
 ### Slide order and carry-over
 
@@ -523,6 +523,16 @@ switch patients, and a difference between two patients is not a response.)
 reading as the strip's words ("Hepatofugal", "8.2 cm/s", "Continuous"). `grid: ['speed']` (any of `'dir'`, `'speed'`,
 `'shape'`) sets the name of the box the slide is about in full white. On a `hold` slide the boxes keep their names and leave their readings blank; on the
 answer slide the readings ease in. Used on every Doppler slide of Read the Doppler, Doppler 2 to 11 and TIPS Doppler 9 and 13.
+
+#### The bleed clock: `clock`
+
+The bleed decks' timings are their most-tested facts, so a tiles slide can show where the case stands on them. `clock: { at: 10,
+label: 'Scope by 12 h' }` adds one tile under the slide's tiles, **Since the bleed**: the hours (`at`, 0 to 72) as its number, the
+label as its word, and a tile's own bar from 0 to 72 hours with marks at 12 (the scope, Baveno VIII 5.18) and 72 (a pre-emptive
+TIPS, 5.31). The dot eases along the bar from one slide to the next. The hours are the clinical timeline the slide's words give, not
+the model's clock, which runs faster; never let them run backward through a deck (the test checks). Keep the label short, a few
+words ("Drugs at once", "TIPS by 72 h"). Beside an instrument on a Mac the tile runs the card's full width under the two. Used on
+Variceal bleed 3 to 8, Gastric varices 5 and Choose the treatment 2.
 
 #### Self-study (a viewer's setting, no slide field)
 

@@ -106,7 +106,7 @@ import { DOPPLER } from './decks/doppler.js?v=e5553202de';
 import { ENDOSCOPY } from './decks/endoscopy.js?v=6eb57ca45b';
 import { PREHEPATIC } from './decks/prehepatic.js?v=c81a766351';
 import { RIGHT_HEART } from './decks/right-heart.js?v=e78fe55b91';
-import { BLEED } from './decks/variceal-bleed.js?v=0ffd78a921';
+import { BLEED } from './decks/variceal-bleed.js?v=5e43d9c24e';
 import { TWO_INFLOWS } from './decks/two-inflows.js?v=7e04777263';
 import { PVT_CIRRHOSIS } from './decks/pvt-cirrhosis.js?v=69c82a9933';
 import { SPLEEN } from './decks/spleen.js?v=45ea1f83f2';
@@ -119,10 +119,10 @@ import { BETA_BLOCKERS } from './decks/beta-blockers.js?v=cc7207835c';
 import { ENCEPHALOPATHY } from './decks/encephalopathy.js?v=f72dc3c10f';
 import { CAUSE_TREATED } from './decks/cause-treated.js?v=55437d73c9';
 import { NEXT_BLEED } from './decks/next-bleed.js?v=6a94d08981';
-import { GASTRIC } from './decks/gastric-varices.js?v=2105566324';
+import { GASTRIC } from './decks/gastric-varices.js?v=f45211036f';
 import { READ_DOPPLER } from './decks/read-doppler.js?v=881d84bd08';
 import { HYPERDYNAMIC } from './decks/hyperdynamic.js?v=1277cfc437';
-import { CHOOSE_TREATMENT } from './decks/choose-treatment.js?v=b5c8e22022';
+import { CHOOSE_TREATMENT } from './decks/choose-treatment.js?v=8ba4e5ee9d';
 import { BLOOD_VOLUME } from './decks/blood-volume.js?v=2dad97c829';
 
 // Regions of the anatomy plate the camera frames (world units, x 300-1120, y 0-920).

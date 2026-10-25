@@ -47,7 +47,7 @@ export const GASTRIC = {
       ask: ['A 12 mm fundal varix has never bled, and carvedilol is well tolerated. Should glue be added?', 'No. Baveno VIII finds little evidence for adding local therapy to a beta-blocker before a first bleed.'],
     },
     {
-      id: 'bleed', action: { kind: 'rupture', site: 'GV', tear: 0.4 }, cam: 'fundus', mark: { edges: ['C2'], label: 'Bleeding fundal varix' }, tool: BEATS, data: 'tiles', tiles: ['hr', 'map'], key: ['map'], delta: true,
+      id: 'bleed', clock: { at: 6, label: 'Scope by 12 h' }, action: { kind: 'rupture', site: 'GV', tear: 0.4 }, cam: 'fundus', mark: { edges: ['C2'], label: 'Bleeding fundal varix' }, tool: BEATS, data: 'tiles', tiles: ['hr', 'map'], key: ['map'], delta: true,
       cite: 'Baveno VIII 5.39; AASLD 43, 44',
       kicker: 'After a bleed', site: 'sin', title: 'A fundal varix bleeds',
       line: 'The first hours follow the care of any variceal bleed: octreotide, ceftriaxone, restrictive transfusion and a scope within 12 hours. Carvedilol blunts the heart rate at {hr}, while the blood pressure falls to {map}.',

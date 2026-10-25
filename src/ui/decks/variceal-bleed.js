@@ -32,14 +32,14 @@ export const BLEED = {
       ask: ['Name three features that predict a first variceal bleed.', 'Large varices, red signs on the varix and advanced liver disease (Child–Pugh B or C).'],
     },
     {
-      id: 'tear', action: { kind: 'rupture', tear: 0.35 }, cam: 'varices', mark: { edges: ['C1a', 'C1b'], label: 'Bleeding varix' }, tool: BEATS, data: 'tiles', tiles: ['hr', 'map'], key: ['hr'], delta: true,
+      id: 'tear', clock: { at: 0, label: 'The bleed starts' }, action: { kind: 'rupture', tear: 0.35 }, cam: 'varices', mark: { edges: ['C1a', 'C1b'], label: 'Bleeding varix' }, tool: BEATS, data: 'tiles', tiles: ['hr', 'map'], key: ['hr'], delta: true,
       kicker: K, site: 'sin', title: 'The varix tears',
       line: 'Blood pours into the esophagus. The heart rate usually rises first, unless a beta-blocker blunts it. Blood pressure is still normal at this stage.',
       notes: 'Hematemesis or melena in a patient with cirrhosis is variceal until proved otherwise. Lost volume is replaced first by a faster heart and tighter arterioles, so the blood pressure falls late. A beta-blocker such as carvedilol blunts the rise in heart rate, and admission heart rate is neither sensitive nor specific for a large bleed, so a normal pulse does not reassure. A heart rate over 100 or a systolic pressure below 100 means a large bleed. Place two large cannulas, send blood for cross-match, and call the endoscopist and the intensive care team. Hold the diuretics and any beta-blocker while the bleed is active.',
       ask: ['A man on carvedilol vomits blood. His pulse is 88 and his blood pressure 100/60. Is he stable?', 'Not necessarily. Carvedilol blunts the rise in heart rate, and his usual pressure may be low. Judge by the trend, the blood seen, the lactate and a postural drop.'],
     },
     {
-      id: 'minutes', action: [],
+      id: 'minutes', clock: { at: 0.2, label: 'Minutes in' }, action: [],
       predict: { title: 'Minutes into the bleed', q: 'Blood is pouring into the esophagus, and the first blood count is back. Which tells you how much blood he has lost?', options: ['Pulse and blood pressure', 'The hemoglobin'], answer: 0 }, cam: 'varices', tool: BEATS, data: 'tiles', tiles: ['hr', 'hb'], key: ['hb'], delta: true,
       kicker: K, site: 'sin', title: 'Shock before anemia',
       line: 'Minutes later the heart rate is {hr} and the blood pressure has fallen to {map}. The hemoglobin has not moved: it falls only as fluid refills the vessels over hours.',
@@ -47,7 +47,7 @@ export const BLEED = {
       ask: ['A hemoglobin of 13.5 g/dL in a patient vomiting blood with a pulse of 140. Is the bleed small?', 'No: the hemoglobin lags. The pulse says the bleed is large.'],
     },
     {
-      id: 'oct', params: { drugs: { octreotide: true } }, action: [UNIT, SALINE], cam: 'portal', labels: ['SMV', 'CONF'], ripple: true, tool: BEATS, data: 'tiles', tiles: ['pv', 'map'], key: ['pv'], delta: true,
+      id: 'oct', clock: { at: 0.5, label: 'Drugs at once' }, params: { drugs: { octreotide: true } }, action: [UNIT, SALINE], cam: 'portal', labels: ['SMV', 'CONF'], ripple: true, tool: BEATS, data: 'tiles', tiles: ['pv', 'map'], key: ['pv'], delta: true,
       compare: [{ label: 'No drug', params: { drugs: { octreotide: false, terlipressin: false } } }, { label: 'Octreotide', own: true, params: { drugs: { octreotide: true, terlipressin: false } } }, { label: 'Terlipressin', params: { drugs: { octreotide: false, terlipressin: true } } }],
       kicker: 'Before the scope', site: 'sin', title: 'Octreotide and volume start together',
       line: 'Start octreotide, a 50 µg bolus then 50 µg an hour, with ceftriaxone 1 g a day. The first unit and a liter of fluid run in, but the bleed still outpaces them and the blood pressure falls to {map}.',
@@ -55,7 +55,7 @@ export const BLEED = {
       ask: ['In the US, which drugs start before the endoscopy, and what does each do?', 'Octreotide lowers the portal pressure; ceftriaxone cuts infection, rebleeding and death; erythromycin clears the stomach for the scope.'],
     },
     {
-      id: 'blood', action: [UNIT], cam: 'varices', tool: BEATS, data: 'tiles', tiles: ['map', 'hb'], key: ['map'], delta: true,
+      id: 'blood', clock: { at: 2, label: 'Transfuse to 7 to 8' }, action: [UNIT], cam: 'varices', tool: BEATS, data: 'tiles', tiles: ['map', 'hb'], key: ['map'], delta: true,
       cite: 'Baveno VIII 5.4',
       kicker: 'Volume', site: 'sin', title: 'Transfuse to a hemoglobin of 7 to 8',
       line: 'A second unit brings the blood pressure up to {map}. The hemoglobin has barely moved, because it lags the bleed. Once the circulation is stable, transfuse only below 7 g/dL, to a target of 7 to 8.',
@@ -63,14 +63,14 @@ export const BLEED = {
       ask: ['What hemoglobin target is used in variceal bleeding, and why not more?', '7 to 8 g/dL, transfusing below 7. Extra volume raises the portal pressure and the risk of an early rebleed.'],
     },
     {
-      id: 'band', terms: ['varix'], action: [BAND, BAND, BAND, BAND], cam: 'varices', mark: { edges: ['C1a', 'C1b'], label: 'Banded varices', kind: 'treat' }, tool: BEATS, data: 'tiles', tiles: ['map', 'hr'], key: ['map'], delta: true,
+      id: 'band', clock: { at: 10, label: 'Scope by 12 h' }, terms: ['varix'], action: [BAND, BAND, BAND, BAND], cam: 'varices', mark: { edges: ['C1a', 'C1b'], label: 'Banded varices', kind: 'treat' }, tool: BEATS, data: 'tiles', tiles: ['map', 'hr'], key: ['map'], delta: true,
       kicker: 'Endoscopy', site: 'sin', title: 'Bands stop the bleeding',
       line: 'Endoscopy within 12 hours, once the blood pressure holds. Banding does not lower portal pressure; the HVPG rises slightly as the varix closes. If bleeding continues, an esophageal stent or a balloon tube bridges to a rescue TIPS.',
       notes: 'Band ligation controls most variceal bleeds. If bleeding cannot be controlled, a covered self-expanding esophageal stent (preferred over a balloon tube where available) buys time as a bridge to a rescue TIPS. Banding does not lower the portal pressure; over the following days it raises the HVPG slightly as the varix closes.',
       ask: ['What bridges a bleed that banding cannot control?', 'A covered esophageal stent (preferred) or a balloon tube, as a bridge to a rescue TIPS.'],
     },
     {
-      id: 'tips', params: { tips: { on: true } }, cam: 'liver', ripple: true, data: 'tiles',
+      id: 'tips', clock: { at: 24, label: 'TIPS by 72 h' }, params: { tips: { on: true } }, cam: 'liver', ripple: true, data: 'tiles',
       tool: { kind: 'criteria', title: 'Who gets a pre-emptive TIPS', short: 'Who gets it', rows: [{ text: 'Child–Pugh C, 10 to 13 points', note: 'C 10', lit: true },
         'Child–Pugh B, over 7, with active bleeding at endoscopy', 'HVPG 20 mmHg or more, where measured'] }, tiles: ['ppg', 'varix'], key: ['ppg'], delta: true,
       cite: 'Baveno VIII 5.31',

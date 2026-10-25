@@ -24,7 +24,7 @@ export const CHOOSE_TREATMENT = {
   summary: 'Five cases with their real options as live buttons: a variceal bleed, refractory ascites, splenic vein thrombosis, a recent portal vein clot and Budd–Chiari syndrome, each followed by the choice the guidelines make.',
   slides: [
     {
-      id: 'q1', preset: 'cirr-decomp', action: BAND, cam: 'liver', labels: ['CONF', 'VAR'], data: 'tiles', tiles: ['ppg', 'liver'], key: ['ppg'],
+      id: 'q1', clock: { at: 24, label: 'TIPS by 72 h' }, preset: 'cirr-decomp', action: BAND, cam: 'liver', labels: ['CONF', 'VAR'], data: 'tiles', tiles: ['ppg', 'liver'], key: ['ppg'],
       vignette: 'A 61-year-old woman with alcohol-associated cirrhosis vomited blood yesterday. One band controlled it, with no active bleeding at endoscopy. She is Child–Pugh B 8.',
       compare: [{ label: 'Bands so far', short: 'Bands', own: true }, { label: 'Carvedilol', short: 'Carv.', params: { drugs: { carvedilol: true }, tips: { on: false } } }, { label: 'Pre-emptive TIPS', short: 'TIPS', params: { drugs: { carvedilol: false }, tips: { on: true } } }],
       kicker: 'Bleeding', site: 'sin', title: 'Case 1: after the first bleed',

@@ -224,6 +224,10 @@ On a Doppler slide, `grid: true` in its tool adds three boxes under the trace, D
 
 On a tiles slide, `hvpgResp: 'ohm'` adds an HVPG fall tile: the fall in percent from slide `ohm`'s HVPG, live, with marks at 10% and 20%. Count from the untreated patient. Full guide: section 7.5.
 
+## Where a bleed stands in time
+
+On a tiles slide in a bleed talk, `clock: { at: 10, label: 'Scope by 12 h' }` adds a Since the bleed tile: the hours from the slide's own words on a bar from 0 to 72, marked at 12 (the scope) and 72 (a pre-emptive TIPS). Never let the hours run backward. Full guide: section 7.5.
+
 ## Self-study
 
 Each slide's `ask` prints in the handout. A viewer who turns on Self-study in Settings (while presenting, this device only) also sees it under a Question handle, the answer hidden until they tap Show answer. A projected talk is unchanged. So give every content slide a short `ask` with its answer: `ask: ['Where is the resistance?', 'In the sinusoids.']`.

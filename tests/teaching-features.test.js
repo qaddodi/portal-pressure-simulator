@@ -177,3 +177,21 @@ test('Doppler reading grid: grid on a Doppler tool shows Direction, Speed and Sh
   assert.match(dop, /setGrid\(it\.dir, none \? 'No flow' : /, 'the same reading as the strip\'s words');
   assert.match(css, /\.pz-data\[data-held\] \.pz-tool \.dop-grid dd \{ opacity: 0; \}/, 'held, the boxes keep their names and leave their readings blank');
 });
+
+test('bleed clock: clock on a tiles slide shows the hours since the bleed on a tile\'s own bar, 0 to 72 with the 12 and 72 hour marks', () => {
+  const used = slidesUsing('clock');
+  assert.ok(used.length >= 8, 'Variceal bleed 3 to 8, Gastric varices 5, Choose the treatment 2');
+  for (const [d, s] of used) {
+    const at = `${d.id}/${s.id}`;
+    assert.ok(adopted(d, s, 'clock'), `${at}: opt-in (tests/deck-adopted.js)`);
+    assert.equal(s.data, 'tiles', `${at}: in the data card, under the tiles`);
+    assert.ok(Number.isFinite(s.clock.at) && s.clock.at >= 0 && s.clock.at <= 72, `${at}: a moment within 72 hours`);
+    assert.ok(s.clock.label.length <= 22 && s.clock.label.split(' ').length <= 5, `${at}: a short word for the tile, "${s.clock.label}"`);
+  }
+  // The clock never runs backward through a deck.
+  for (const d of DECKS) { let t = -1; for (const s of d.slides) if (s.clock) { assert.ok(s.clock.at >= t, `${d.id}/${s.id}: later than the slide before`); t = s.clock.at; } }
+  const p = src('presenter.js');
+  assert.match(p, /export const CLOCK_END = 72, CLOCK_MARKS = \[12, 72\];/);
+  assert.match(p, /ui\.clock\.set\(s\.data \? s\.clock : null\);/);
+  assert.match(css, /\.pz-clock \.pzb-now \{ transition: left \.6s var\(--ease\)/, 'the dot eases to the slide\'s moment');
+});
