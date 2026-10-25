@@ -227,6 +227,13 @@ export const ADOPTED = {
   'refractory-bleed/who': ['kind:criteria', 'cite'],
   'refractory-bleed/after': ['cite'],
   'refractory-bleed/summary': ['cite'],
+  'transplant-doppler/graft': ['cite'],
+  'transplant-doppler/hat': ['caseQ', 'cite'],
+  'transplant-doppler/has': ['caseQ', 'cite'],
+  'transplant-doppler/pvs': ['caseQ', 'cite'],
+  'transplant-doppler/pvt': ['caseQ', 'cite'],
+  'transplant-doppler/outflow': ['caseQ', 'cite'],
+  'transplant-doppler/summary': ['cols.wave', 'wave'],
 };
 
 /** Whether the slide d/s may use the field. */
