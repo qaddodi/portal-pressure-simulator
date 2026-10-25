@@ -99,6 +99,11 @@ test('the Case pill is set at the teaching card body size or larger, not the sma
 test('the Case pill and the case text are centred on the card', () => {
   assert.match(css, /\.pz-case-tag \{[^}]*align-self: center/);
   assert.match(css.match(/\.pz-case-p \{[^}]*\}/)[0], /text-align: center/);
+  // (The card is a flex column that starts its items at the left: a line shorter than the card, such as the case's own short question
+  // (caseQ), sat at the left under its centred text-align until each line stretched across the card.)
+  assert.match(css.match(/\.pz-case \{[^}]*\}/)[0], /align-items: flex-start/);
+  assert.match(css.match(/\.pz-case-p \{[^}]*\}/)[0], /align-self: stretch/);
+  assert.doesNotMatch(css.match(/\.pz-case-q \{[^}]*\}/)[0], /align-self|text-align|margin-inline|width/);
 });
 
 test('a let-go case card flies off when far out or flicked, either way, and springs back otherwise', async () => {

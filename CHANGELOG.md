@@ -2,6 +2,17 @@
 
 ## October 2026
 
+- **The outline, summary table and quick check are narrower and centred on wide screens; the case card's question is centred.**
+  (Mohammad, 25 Oct: "The outline card, the tables card and the questions card on wide screens like iPad side way and Mac should be more
+  centered and not too wide... Need the viewer to focus"; then "The little question in the case card should be centered.") On a Mac or an
+  iPad on its side each of the three cards is a centred card of its own width, in multiples of the teaching card's body text so it grows
+  with the words: the outline 50, the table 54 and the quick check 42, and never more than 82% of the screen. A 1440 x 900 Mac, where
+  they took 1366 px, now shows the outline about 1040 px wide, the table about 1120 and the quick check about 870; an iPad at 1024 x 768
+  shows them at 840 (the outline keeps its two columns down to 1024 wide). Phones and the upright iPad keep their full-width and 70% cards. The outline
+  had a 1180 px width rule that never applied (the wide panel's own rule was more specific); it is gone. The case card's short question
+  (`caseQ`) sat at the left of the card under its centred text, because the card is a flex column that starts its lines at the left and a
+  line shorter than the card keeps its own width; each line of the case card now stretches across the card, on every device and deck.
+  Code and unit tests only; nobody has looked on screen. `styles/app.css`, `tests/reading-cards-width.test.js`, `tests/case-card.test.js`.
 - **Self-study is gone.** (Mohammad, 25 Oct: "I hate self study and question with it. Remove".) The Settings switch that showed each slide's
   handout question under a Question handle, the handle and its card, Show answer, their styles, their unit test and the guides' sections
   are removed; no slide, deck or other feature changed. Each slide's `ask` still prints in the handout, and a unit test still checks that
