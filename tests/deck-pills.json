@@ -212,12 +212,12 @@
   "{lsm@spleen}",
   "{hvpg@spleen}"
  ],
- "stiffness/heart": [
-  "(a value)"
- ],
  "stiffness/year": [
   "{lsm}",
   "{hvpg}"
+ ],
+ "stiffness/heart": [
+  "(a value)"
  ],
  "one-year/cath": [
   "{hvpg}"
@@ -230,7 +230,8 @@
   "varices"
  ],
  "one-year/d365": [
-  "{hvpg}"
+  "{hvpg}",
+  "{hvpg@d0}"
  ],
  "one-year/doppler": [
   "{<15 cm/s}"

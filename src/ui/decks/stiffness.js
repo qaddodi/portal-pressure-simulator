@@ -30,7 +30,7 @@ export const STIFFNESS = {
       whatIf: { label: 'Scarring', param: 'cirrhosis', min: 0, max: 1, step: 0.05, ends: ['None', 'Severe'] },
       kicker: 'Liver stiffness', site: 'sin', title: 'Fibrosis stiffens the liver',
       vignette: 'A 50-year-old man with chronic hepatitis B, lost to follow-up for years, is referred for staging. He feels well, and his platelets are 159,000/µL.',
-      line: 'Stiffness is {lsm}, with an HVPG of {hvpg}. By Baveno VIII, under 10 kPa makes advanced disease unlikely and over 15 kPa highly likely. Stiffness tracks the gradient well up to about 12 mmHg and only loosely above that.',
+      line: 'Stiffness is {lsm}, with an HVPG of {hvpg}. By Baveno VIII, under 10 kPa makes advanced chronic liver disease unlikely and over 15 kPa highly likely. Stiffness tracks the gradient up to about 12 mmHg, and only loosely above it.',
       caveat: 'The model\'s stiffness follows the gradient more closely than patients\' does.',
       notes: 'Baveno VIII: below 10 kPa, compensated advanced chronic liver disease (cACLD) is unlikely without other signs; 10 to 15 kPa suggests it; over 15 kPa makes it highly likely. Stiffness also rises with inflammation (a hepatitis flare, alcohol), cholestasis and congestion, so a high reading is read against the whole picture. In the model stiffness follows the sinusoidal gradient and the hepatic vein pressure, which is why it climbs with the HVPG.',
       ask: ['Why can stiffness rule CSPH in or out, yet not follow a gradient above 12?', 'Above 10 to 12 mmHg the gradient rises mostly with inflow and vascular tone, which stiffness does not see.'],
@@ -52,6 +52,14 @@ export const STIFFNESS = {
       line: '25 kPa or more means CSPH in viral, alcohol-related and non-obese MASLD cirrhosis; 15 or less with platelets of 150 or more rules it out. The second case, at {lsm@spleen} with an HVPG of {hvpg@spleen}, falls between. The third is above 25.',
       notes: 'The rule of five: 10, 15, 20 and 25 kPa. At or below 15 kPa with platelets of 150 or more, CSPH is ruled out (sensitivity and negative predictive value over 90%). A separate rule decides the scope: under 20 kPa with platelets of 150 or more spares the screening endoscopy. At 25 kPa or more, CSPH is ruled in (in viral and alcohol-related disease, and in non-obese MASLD). In the gray zone between, Baveno VIII uses a validated model (ANTICIPATE, from the stiffness and the platelets; with BMI in obese MASLD) and calls CSPH present at a probability of 75% or more. A spleen stiffness above 55 kPa on the 100 Hz probe also rules CSPH in. In obese MASLD the 25 kPa rule does not apply; the model decides. The model\'s compensated patient with CSPH (HVPG 12 mmHg, platelets 88) sits at 24 kPa, in the gray zone: a reminder that the zone is common, and that there the catheter or the platelets decide.',
       ask: ['Stiffness 13 kPa, platelets 180. Is CSPH present, and is a scope needed?', 'No CSPH (15 or less with 150 or more), and no scope (under 20 with 150 or more): repeat both in a year. Only 25 kPa or more would rule CSPH in.'],
+    },
+    {
+      id: 'year', preset: 'cirr-comp', params: { cirrhosis: 0.4 }, days: 365, ramp: { cirrhosis: [0.4, 0.6] }, cam: 'liver', glow: ['liver'], tool: { kind: 'fibroscan' }, data: 'tiles', tiles: ['lsm', 'hvpg'], key: ['lsm'], delta: 'fibrosis',
+      kicker: 'Over time', site: 'sin', title: 'Stiffness rises as cirrhosis advances',
+      cite: 'Baveno VIII 1.9',
+      line: 'Stiffness is now {lsm}, with a gradient of {hvpg}. A fall after the cause is treated predicts a lower risk of decompensation, and a rise means progression. Baveno VIII advises repeating the scan every year.',
+      notes: 'Baveno VIII advises repeating stiffness and platelets every year in compensated cirrhosis. A clear fall in stiffness after treating the cause (antivirals, abstinence) predicts a lower risk of decompensation; a rise means progression. The tiles compare with the same patient a year earlier.',
+      ask: ['How often are stiffness and platelets repeated in compensated cirrhosis?', 'Every year.'],
     },
     {
       id: 'meal', preset: 'cirr-comp', params: { splanchnicTone: 1 }, days: 8, ramp: { meal: [0, 1] }, lapse: { seconds: 6, from: 'Fasting', to: 'After a meal' }, cam: 'liver', tool: { kind: 'fibroscan' }, data: 'tiles', tiles: ['lsm', 'hvpg'], key: ['lsm'], delta: 'fibrosis',
@@ -76,14 +84,6 @@ export const STIFFNESS = {
       line: 'Readings above 25 kPa are common in decompensated heart failure and fall within days of diuresis. Check the jugular venous pressure and get an echocardiogram before calling it cirrhosis.',
       notes: 'Raised right atrial pressure fills the hepatic veins and sinusoids and stiffens the liver; readings over 25 kPa are common in decompensated heart failure and fall within days of diuresis. The HVPG is normal because the wedged and free pressures rise together. Hepatic outflow resistance (Budd–Chiari syndrome) does the same. Check the jugular venous pressure and an echocardiogram before reading a high stiffness as fibrosis.',
       ask: ['Stiffness 32 kPa and a raised jugular venous pressure. What is going on?', 'Congestion from the right heart, not cirrhosis.'],
-    },
-    {
-      id: 'year', preset: 'cirr-comp', params: { cirrhosis: 0.4 }, days: 365, ramp: { cirrhosis: [0.4, 0.6] }, cam: 'liver', glow: ['liver'], tool: { kind: 'fibroscan' }, data: 'tiles', tiles: ['lsm', 'hvpg'], key: ['lsm'], delta: 'fibrosis',
-      kicker: 'Over time', site: 'sin', title: 'Stiffness rises as cirrhosis advances',
-      cite: 'Baveno VIII 1.9',
-      line: 'Stiffness is now {lsm}, with a gradient of {hvpg}. A fall after the cause is treated predicts a lower risk of decompensation, and a rise means progression. Baveno VIII advises repeating the scan every year.',
-      notes: 'Baveno VIII advises repeating stiffness and platelets every year in compensated cirrhosis. A clear fall in stiffness after treating the cause (antivirals, abstinence) predicts a lower risk of decompensation; a rise means progression. The tiles compare with the same patient a year earlier.',
-      ask: ['How often are stiffness and platelets repeated in compensated cirrhosis?', 'Every year.'],
     },
     {
       id: 'summary', visual: 'table', cols: ['lsm', 'plt', 'ppg'], asc: false, rowHead: 'Patient',
