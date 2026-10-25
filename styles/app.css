@@ -140,6 +140,7 @@ svg { flex: none; }
 /* The labels the GPU draws (label-gl.js): their SVG copy stays, for its layout, clicks, focus and screen readers, but paints nothing;
    the canvas over it takes the label layer's rules (cam-move, unframed, the lobule, the catheter) and never takes a pointer. */
 #labels .lb[data-gl] > * { opacity: 0; }
+#labels :is(.lb-leaders, .lb-scan) > [data-gl] { visibility: hidden; }   /* (a leader or dot the GPU draws: its fades still run here, and are read) */
 .stage-view > canvas#labelGl { pointer-events: none; }
 .stage-view .lb-glass { transition: opacity .25s ease; }
 .stage-view.panning #stage { cursor: grabbing; }

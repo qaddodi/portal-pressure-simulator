@@ -36,7 +36,75 @@ void main() {
   o = texelFetch(uT, q, 0) * uA;
 }`;
 
+// The leaders and their dots, drawn as shapes (no picture: a zoom changes their length every frame). One quad over the mark; its
+// coverage worked out per pixel from the distance to the line or the circle, as the browser's own smoothing gives an edge.
+const MVS = `#version 300 es
+uniform vec4 uBox;    // left, top, right, bottom (device px)
+uniform vec2 uView;
+const vec2 Q[4] = vec2[4](vec2(0.0, 0.0), vec2(1.0, 0.0), vec2(0.0, 1.0), vec2(1.0, 1.0));
+void main() {
+  vec2 p = mix(uBox.xy, uBox.zw, Q[gl_VertexID]);
+  gl_Position = vec4(p.x / uView.x * 2.0 - 1.0, 1.0 - p.y / uView.y * 2.0, 0.0, 1.0);
+}`;
+const MFS = `#version 300 es
+precision highp float;
+uniform vec2 uView;
+uniform int uKind;          // 0: a line (butt ends), 1: a circle
+uniform vec4 uGeo;          // line: x0 y0 x1 y1; circle: cx cy r 0 (device px)
+uniform float uW;           // stroke width (device px)
+uniform vec2 uDash;         // dash, gap (device px; 0: solid)
+uniform vec4 uStroke, uFill; // premultiplied
+uniform float uA;
+out vec4 o;
+// The share of a pixel centred at x (one pixel wide) inside [a, b].
+float span(float x, float a, float b) { return clamp(min(x + 0.5, b) - max(x - 0.5, a), 0.0, 1.0); }
+void main() {
+  vec2 p = vec2(gl_FragCoord.x, uView.y - gl_FragCoord.y);
+  if (uKind == 0) {
+    vec2 a = uGeo.xy, d = uGeo.zw - a;
+    float L = length(d);
+    if (L < 1e-4) discard;
+    vec2 t = d / L;
+    float u = dot(p - a, t), v = abs(dot(p - a, vec2(-t.y, t.x)));
+    // (How much of the pixel the line covers, across it and along it: a hairline under a pixel wide shows fainter, not thinner.)
+    float c = span(v, -uW * 0.5, uW * 0.5) * span(u, 0.0, L);
+    if (uDash.x > 0.0) { float m = mod(u, uDash.x + uDash.y); c *= span(m, 0.0, uDash.x) + span(m, uDash.x + uDash.y, uDash.x + uDash.y + uDash.x); }
+    o = uStroke * c * uA;
+  } else {
+    float d = length(p - uGeo.xy), r = uGeo.z;
+    float f = span(d, -1.0, r), s = uW > 0.0 ? span(d, r - uW * 0.5, r + uW * 0.5) : 0.0;
+    vec4 fill = uFill * f;
+    o = (uStroke * s + fill * (1.0 - uStroke.a * s)) * uA;
+  }
+}`;
+
 const NUM = (v) => parseFloat(v) || 0;
+// A computed colour as premultiplied RGBA, 0 … 1.
+export function rgba(c) {
+  const m = /rgba?\(([^)]+)\)/.exec(c || '');
+  if (!m) return [0, 0, 0, 0];
+  const v = m[1].split(/[\s,/]+/).filter(Boolean).map(Number), a = v.length > 3 ? v[3] : 1;
+  return [v[0] / 255 * a, v[1] / 255 * a, v[2] / 255 * a, a];
+}
+/** A leader's or dot's look: null when it draws nothing; false when it is not a shape drawn here (the SVG keeps it). */
+export function describeMark(el, cs = getComputedStyle) {
+  const c = cs(el);
+  if (c.display === 'none') return null;
+  const st = { op: NUM(c.opacity), stroke: none(c.stroke) ? null : rgba(c.stroke), w: NUM(c.strokeWidth), fill: none(c.fill) ? null : rgba(c.fill), dash: [0, 0] };
+  if (c.strokeDasharray && c.strokeDasharray !== 'none') {
+    const d = c.strokeDasharray.split(/[\s,]+/).map(NUM);
+    if (d.length !== 2 || NUM(c.strokeDashoffset)) return false;
+    st.dash = d;
+  }
+  if (el.tagName === 'path') { if (c.strokeLinecap !== 'butt' || st.fill) return false; }
+  else if (el.tagName !== 'circle') return false;
+  return st;
+}
+/** A leader's path as one straight piece [x0, y0, x1, y1], or null when it is anything else. */
+export function lineOf(d) {
+  const m = /^\s*M\s*(-?[\d.]+)[\s,]+(-?[\d.]+)\s*L\s*(-?[\d.]+)[\s,]+(-?[\d.]+)\s*$/.exec(d || '');
+  return m ? [+m[1], +m[2], +m[3], +m[4]] : null;
+}
 const none = (c) => !c || c === 'none' || c === 'transparent' || /^rgba\([^)]*,\s*0\)$/.test(c);
 
 /** What a label's group draws, read from the page: null when it shows nothing; { svg: why } when this drawing cannot give it. */
@@ -191,7 +259,7 @@ export function drawBlock(cv, d, dpr, rot = false) {
  * fades included, is copied over), drawing the label groups under `blocks`. Null without a usable WebGL2.
  *   sync(list): the labels as stage.js laid them out this frame, [{ g, x, y, rot }] (x, y: the group's origin, stage px).
  */
-export function createLabelGL(svg, blocks, { software = false, off = false } = {}) {
+export function createLabelGL(svg, blocks, { software = false, off = false, marks = [] } = {}) {
   if (off || software || typeof WebGL2RenderingContext === 'undefined') return null;
   const canvas = document.createElement('canvas');
   canvas.id = 'labelGl'; canvas.setAttribute('aria-hidden', 'true');
@@ -203,6 +271,10 @@ export function createLabelGL(svg, blocks, { software = false, off = false } = {
   gl.attachShader(prog, sh(gl.VERTEX_SHADER, VS)); gl.attachShader(prog, sh(gl.FRAGMENT_SHADER, FS)); gl.linkProgram(prog);
   if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) return null;
   const U = Object.fromEntries(['uR', 'uView', 'uT', 'uA'].map((k) => [k, gl.getUniformLocation(prog, k)]));
+  const mprog = gl.createProgram();
+  gl.attachShader(mprog, sh(gl.VERTEX_SHADER, MVS)); gl.attachShader(mprog, sh(gl.FRAGMENT_SHADER, MFS)); gl.linkProgram(mprog);
+  if (!gl.getProgramParameter(mprog, gl.LINK_STATUS)) return null;
+  const MU = Object.fromEntries(['uBox', 'uView', 'uKind', 'uGeo', 'uW', 'uDash', 'uStroke', 'uFill', 'uA'].map((k) => [k, gl.getUniformLocation(mprog, k)]));
   const vao = gl.createVertexArray();
   svg.after(canvas);
   let lost = false, dpr = 1, W = 1, H = 1, last = [], raf = 0;
@@ -223,7 +295,7 @@ export function createLabelGL(svg, blocks, { software = false, off = false } = {
   const mo = new MutationObserver((rs) => { take(rs); if (dirty.size) ask(); });
   mo.observe(blocks, { subtree: true, childList: true, characterData: true, attributes: true, attributeOldValue: true, attributeFilter: ['class', 'style', 'x', 'y', 'dx', 'width', 'height', 'rx', 'fill', 'font-size', 'font-weight', 'letter-spacing', 'text-anchor'] });
   // Anything outside them that can change how they look (the theme, the glass setting, the text size, a mode's class): every label.
-  const all = () => { for (const s of last) { dirty.add(s.g); live.set(s.g, performance.now() + 700); } ask(); };
+  const all = () => { for (const s of last) { dirty.add(s.g); live.set(s.g, performance.now() + 700); } allMarks(); ask(); };
   const outer = new MutationObserver((rs) => { if (rs.some(changed)) all(); });
   for (let el = svg.parentElement; el; el = el.parentElement) outer.observe(el, { attributes: true, attributeOldValue: true, attributeFilter: ['class', 'data-theme', 'data-noglass', 'data-mode'] });
   matchMedia('(prefers-color-scheme: dark)').addEventListener?.('change', all);
@@ -231,7 +303,20 @@ export function createLabelGL(svg, blocks, { software = false, off = false } = {
   // A CSS fade or colour ease, a hover (its colour comes with no class), a focus: that label is read each frame till it ends.
   const hold = (ev, ms = 700) => { const g = labelOf(ev.target); if (g) { dirty.add(g); live.set(g, performance.now() + ms); ask(); } };
   for (const t of ['transitionrun', 'transitionend', 'transitioncancel', 'animationstart', 'animationend', 'animationcancel', 'pointerover', 'pointerout', 'focusin', 'focusout']) blocks.addEventListener(t, (ev) => hold(ev), true);
-  canvas.addEventListener('webglcontextlost', (e) => { e.preventDefault(); lost = true; for (const s of last) s.g.removeAttribute('data-gl'); });
+  // The leaders and their dots (marks: their layers, the leaders' and the FibroScan callout's): read as the labels are.
+  const looks = new WeakMap(), markLive = new Map(), markDirty = new Set();
+  const markOf = (n) => { const el = n.nodeType === 1 ? n : n.parentElement; return marks.includes(el) ? el : marks.includes(el?.parentElement) ? el : null; };
+  const mmo = new MutationObserver((rs) => { for (const r of rs) { if (!changed(r)) continue; const el = markOf(r.target); if (el) markDirty.add(el); } ask(); });
+  for (const root of marks) {
+    mmo.observe(root, { subtree: true, childList: true, attributes: true, attributeOldValue: true, attributeFilter: ['class', 'style'] });
+    for (const t of ['transitionrun', 'transitionend', 'transitioncancel', 'animationstart', 'animationend', 'animationcancel']) root.addEventListener(t, (ev) => { const el = markOf(ev.target); if (el) { markDirty.add(el); markLive.set(el, performance.now() + 800); ask(); } }, true);
+  }
+  const allMarks = () => { const t = performance.now() + 700; for (const root of marks) { markDirty.add(root); markLive.set(root, t); for (const el of root.children) { markDirty.add(el); markLive.set(el, t); } } };
+  canvas.addEventListener('webglcontextlost', (e) => {
+    e.preventDefault(); lost = true;
+    for (const s of last) s.g.removeAttribute('data-gl');
+    for (const root of marks) for (const el of root.children) el.removeAttribute('data-gl');
+  });
   function size() {
     const r = svg.parentElement.getBoundingClientRect(), k = devicePixelRatio || 1;   // (the stage's box: the dive zooms the layer itself)
     const w = Math.max(1, Math.round(r.width * k)), h = Math.max(1, Math.round(r.height * k));
@@ -277,7 +362,9 @@ export function createLabelGL(svg, blocks, { software = false, off = false } = {
     gl.useProgram(prog); gl.bindVertexArray(vao);
     gl.enable(gl.BLEND); gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
     gl.uniform2f(U.uView, W, H); gl.uniform1i(U.uT, 0); gl.activeTexture(gl.TEXTURE0);
-    let moving = false;
+    let moving = drawMarks(now);
+    gl.useProgram(prog);
+    gl.uniform2f(U.uView, W, H); gl.uniform1i(U.uT, 0);
     for (const s of last) {
       const { g } = s;
       const until = live.get(g);
@@ -299,6 +386,53 @@ export function createLabelGL(svg, blocks, { software = false, off = false } = {
     dirty.clear();
     if (moving) ask();
   }
+  // A mark's look, read again while it may be changing.
+  const lookOf = (el, now) => {
+    let lk = looks.get(el);
+    const until = markLive.get(el);
+    if (until != null && until < now) { markLive.delete(el); markDirty.add(el); }
+    if (!lk || markDirty.has(el) || markLive.has(el)) { lk = { st: el.tagName === 'g' ? { op: NUM(getComputedStyle(el).opacity) } : describeMark(el) }; looks.set(el, lk); }
+    return lk.st;
+  };
+  function drawMarks(now) {
+    let moving = false;
+    if (!marks.length) return false;
+    gl.useProgram(mprog);
+    gl.uniform2f(MU.uView, W, H);
+    for (const root of marks) {
+      const ro = lookOf(root, now);
+      if (markLive.has(root)) moving = true;
+      for (const el of root.children) {
+        const st = lookOf(el, now);
+        if (markLive.has(el)) moving = true;
+        let geo = null;
+        if (st) {
+          if (el.tagName === 'path') { const q = lineOf(el.getAttribute('d')); geo = q && q.map((v) => v * dpr); }
+          else geo = [NUM(el.getAttribute('cx')) * dpr, NUM(el.getAttribute('cy')) * dpr, NUM(el.getAttribute('r')) * dpr, 0];
+        }
+        // (A mark this drawing cannot give stays the SVG's; one it draws is hidden there, in the same frame.)
+        if (st === false || (st && !geo)) { if (el.hasAttribute('data-gl')) el.removeAttribute('data-gl'); continue; }
+        if (!el.hasAttribute('data-gl')) el.setAttribute('data-gl', '');
+        const a = (st?.op ?? 0) * (ro?.op ?? 1);
+        if (!st || !(a > 0.001) || (!st.stroke && !st.fill)) continue;
+        const w = st.stroke ? st.w * dpr : 0, m = w / 2 + 2;
+        const box = el.tagName === 'path' ? [Math.min(geo[0], geo[2]) - m, Math.min(geo[1], geo[3]) - m, Math.max(geo[0], geo[2]) + m, Math.max(geo[1], geo[3]) + m]
+          : [geo[0] - geo[2] - m, geo[1] - geo[2] - m, geo[0] + geo[2] + m, geo[1] + geo[2] + m];
+        if (box[0] > W || box[1] > H || box[2] < 0 || box[3] < 0) continue;
+        gl.uniform4f(MU.uBox, ...box);
+        gl.uniform1i(MU.uKind, el.tagName === 'path' ? 0 : 1);
+        gl.uniform4f(MU.uGeo, ...geo);
+        gl.uniform1f(MU.uW, w);
+        gl.uniform2f(MU.uDash, st.dash[0] * dpr, st.dash[1] * dpr);
+        gl.uniform4f(MU.uStroke, ...(st.stroke || [0, 0, 0, 0]));
+        gl.uniform4f(MU.uFill, ...(st.fill || [0, 0, 0, 0]));
+        gl.uniform1f(MU.uA, Math.min(1, a));
+        gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+      }
+    }
+    markDirty.clear();
+    return moving;
+  }
   return {
     canvas,
     get lost() { return lost; },
@@ -307,6 +441,7 @@ export function createLabelGL(svg, blocks, { software = false, off = false } = {
       if (lost) return;
       if ((devicePixelRatio || 1) !== dpr) size();   // (moved to a screen of another density)
       take(mo.takeRecords());
+      for (const r of mmo.takeRecords()) { if (!changed(r)) continue; const el = markOf(r.target); if (el) markDirty.add(el); }
       const was = new Set(last.map((s) => s.g));
       last = list;
       for (const s of list) was.delete(s.g);
@@ -315,6 +450,10 @@ export function createLabelGL(svg, blocks, { software = false, off = false } = {
       draw();
     },
     /** A label animated by script (the Web Animations API, which sends no events): read each frame for `ms`. */
-    hold(g, ms) { if (g) { dirty.add(g); live.set(g, performance.now() + ms + 100); ask(); } },
+    hold(g, ms) {
+      if (!g) return;
+      if (markOf(g)) { markDirty.add(g); markLive.set(g, performance.now() + ms + 100); } else { dirty.add(g); live.set(g, performance.now() + ms + 100); }
+      ask();
+    },
   };
 }

@@ -44,12 +44,36 @@ test('the SVG copy is see-through only while the GPU draws that label, marked in
   assert.match(CSS, /\.stage-view\.in-lobule #labelGl/);
   assert.match(CSS, /\.cath-on :is\(#labels, #labelGl\)/);
   assert.match(LGL, /if \(st\.mode !== 'gl'\) \{ if \(g\.hasAttribute\('data-gl'\)\) g\.removeAttribute\('data-gl'\); continue; \}\n\s+if \(!g\.hasAttribute\('data-gl'\)\) g\.setAttribute\('data-gl', ''\);/);
-  assert.match(LGL, /webglcontextlost[^\n]*removeAttribute\('data-gl'\)/);
+  assert.match(LGL, /webglcontextlost[\s\S]{0,200}for \(const s of last\) s\.g\.removeAttribute\('data-gl'\);/);
 });
 
 test('stage.js hands the GPU every label it laid out, in the same frame, and the script fades', () => {
-  assert.match(STAGE, /const labelGL = createLabelGL\(labelSvg, gLabels, \{ software: SOFTWARE, off: \/\[\?&\]gpulabels=0\\b\/\.test\(location\.search\) \}\);/);
+  assert.match(STAGE, /const labelGL = createLabelGL\(labelSvg, gLabels, \{ software: SOFTWARE, off: \/\[\?&\]gpulabels=0\\b\/\.test\(location\.search\), marks: \[gLeaders, gScan\] \}\);/);
   assert.match(STAGE, /b\.pos = \{ g: b\.g, x: \+it\.x\.toFixed\(1\), y: \+\(it\.rot \? it\.y \+ it\.w : it\.y\)\.toFixed\(1\), rot: !!it\.rot \};/);
   assert.match(STAGE, /labelKey = key; stats\.layouts\+\+; stats\.ms \+= performance\.now\(\) - t0;\n\s+\}\n\s+labelGlSync\(\);/);
   for (const m of STAGE.matchAll(/b\.g\.animate\?\.\(/g)) assert.match(STAGE.slice(m.index, m.index + 260), /labelGL\?\.hold\(b\.g, /, 'a scripted fade is held');
+});
+
+test('leaders and dots: straight leaders and circles are drawn on the GPU, anything else stays SVG', async () => {
+  const { lineOf, describeMark, rgba } = await import('../src/ui/label-gl.js');
+  assert.deepEqual(lineOf('M12.5 30.0 L80.2 -4.5'), [12.5, 30, 80.2, -4.5]);
+  assert.equal(lineOf('M0 0 L1 1 L2 2'), null);
+  assert.equal(lineOf('M0 0 C1 1 2 2 3 3'), null);
+  assert.deepEqual(rgba('rgba(200, 212, 240, 0.5)').map((v) => +v.toFixed(3)), [0.392, 0.416, 0.471, 0.5]);
+  assert.deepEqual(rgba('rgb(255, 0, 0)'), [1, 0, 0, 1]);
+  const el = (tagName) => ({ tagName });
+  const cs = (o) => () => ({ display: 'inline', opacity: '1', stroke: 'rgb(0, 0, 0)', strokeWidth: '1px', fill: 'none', strokeDasharray: 'none', strokeDashoffset: '0px', strokeLinecap: 'butt', ...o });
+  assert.deepEqual(describeMark(el('path'), cs({ strokeDasharray: '3px, 3px' })).dash, [3, 3]);
+  assert.equal(describeMark(el('path'), cs({ strokeLinecap: 'round' })), false, 'a round cap stays SVG');
+  assert.equal(describeMark(el('path'), cs({ strokeDasharray: '3px, 3px, 1px' })), false);
+  assert.equal(describeMark(el('rect'), cs({})), false);
+  assert.equal(describeMark(el('circle'), cs({ display: 'none' })), null);
+  assert.ok(describeMark(el('circle'), cs({ fill: 'rgb(10, 10, 10)' })).fill);
+});
+
+test('the leaders\' and the FibroScan callout\'s layers go to the GPU with the labels, their SVG copies hidden but still fading', () => {
+  assert.match(STAGE, /marks: \[gLeaders, gScan\] \}\);/);
+  assert.match(CSS, /#labels :is\(\.lb-leaders, \.lb-scan\) > \[data-gl\] \{ visibility: hidden; \}/);
+  assert.match(STAGE, /el\.animate\?\.\(\[\{ opacity: 0 \}, \{ opacity: 1 \}\], \{ duration: 350, delay: wait, easing: 'ease-out', fill: 'backwards' \}\); labelGL\?\.hold\(el, wait \+ 350\); \}/);
+  assert.match(LGL, /float span\(float x, float a, float b\)/);
 });
