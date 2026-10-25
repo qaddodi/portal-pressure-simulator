@@ -1,15 +1,15 @@
 // Dock charts (blueprint §9.2): the pressure profile.
 
 import { NODES } from '../engine/topology.js?v=4044766e96';
-import { PROFILE_PATHS, SHORT } from './anatomy.js?v=8374d8e213';
-import { pressureColor } from './colormap.js?v=dc071e3659';
-import { store, hiddenNow } from './store.js?v=31ee79b6ab';
-import { h, fmt, fitCanvas, cssVar, cssAlpha, clamp, createEaser, axisTop } from './util.js?v=b6a40567da';
-import { frameFor, cancelFrame, paceMs } from './frame.js?v=67ca200c87';
-import { tenthGap } from '../engine/gap.js?v=3a5947c552';
+import { PROFILE_PATHS, SHORT } from './anatomy.js?v=aeef116188';
+import { pressureColor } from './colormap.js?v=cdcf6a2f55';
+import { store, hiddenNow } from './store.js?v=67f4341802';
+import { h, fmt, fitCanvas, cssVar, cssAlpha, clamp, createEaser, axisTop } from './util.js?v=d2c95a1b16';
+import { frameFor, cancelFrame, paceMs } from './frame.js?v=19b3f2915c';
+import { tenthGap } from '../engine/gap.js?v=3aabfbb29b';
 import { shownOr } from './shown.js?v=82ef5e29ec';
 import { monotoneSegs, curveTester } from './curve-near.js?v=9ff15157e9';
-import { glideMoving } from './idle-keys.js?v=27f599b5bc';
+import { glideMoving } from './idle-keys.js?v=4b46e6a6ef';
 const nextFrame = frameFor('charts');
 
 const NI = Object.fromEntries(NODES.map((n, i) => [n.id, i]));
@@ -21,6 +21,16 @@ export const theme = () => ({
   series: [1, 2, 3, 4, 5, 6, 7, 8].map((i) => cssVar('--s' + i)),
 });
 export const FONT = (w = 500, px = 11) => `${w} ${px}px Inter, system-ui, -apple-system, 'Segoe UI', sans-serif`;
+// A text's width in the context's current font, measured once (labels repeat on every draw). Forgotten when the web fonts
+// arrive, so a width taken in a fallback font never stays.
+const widths = new Map();
+globalThis.document?.fonts?.addEventListener?.('loadingdone', () => widths.clear());
+export const textW = (ctx, t) => {
+  const k = ctx.font + '|' + t;
+  let w = widths.get(k);
+  if (w == null) { if (widths.size > 500) widths.clear(); w = ctx.measureText(t).width; widths.set(k, w); }
+  return w;
+};
 // DOM writes only when something changed: a write on every frame, even of the same text, marks the page for a fresh
 // style and layout pass.
 const setText = (node, t) => { if (node && node.textContent !== t) node.textContent = t; };
@@ -66,7 +76,8 @@ export function createProfile() {
   }) : null;
   io?.observe(cv);
   const shown = () => (seen == null ? !!cv.offsetParent : seen);
-  const easeP = createEaser(), easeAxis = createEaser(), easePill = createEaser(0.18);
+  const easeP = createEaser(), easeAxis = createEaser();
+  let easePill = createEaser(0.18);
   let pillMoving = false;
   function ease() {
     if (!Fraw) return;
@@ -97,7 +108,9 @@ export function createProfile() {
   let predict = null; // { on, values: Map(station → P), done }
   let dragging = false;
 
-  function geometry() {
+  // band: the HVPG and PPG brackets in rows of their own under the station names (BAND_ROW each), the plot above them shorter,
+  // where they find no clear spot inside a short plot (a phone's half sheet): the chart, never the strip, while it has its room.
+  function geometry(band = false) {
     const { w, h: hh } = fitCanvas(cv);
     const path = curPath();
     // Venous stations only: the arterial pressure sits far off the portal scale and says little here.
@@ -106,19 +119,19 @@ export function createProfile() {
     // Close together, the station names turn 30° on one row (each ending under its point).
     const stagger = slot0 < 74;
     let tilt = 0;
-    if (stagger) { const m = cv.getContext('2d'); m.font = FONT(500, 12); tilt = Math.max(...stations.map((n) => m.measureText(nm(n)).width)) * 0.5; }
+    if (stagger) { const m = cv.getContext('2d'); m.font = FONT(500, 12); tilt = Math.max(...stations.map((n) => textW(m, nm(n)))) * 0.5; }
     // Arterial stations sit far above the venous scale: they are drawn in a band above a broken
     // axis (//) with their true value, never clipped.
     const hasArt = stations.some((n) => ARTERIAL.has(n));
     const roomy = hh > 230;
-    const L = 40, R = 16, T = hasArt ? (roomy ? 58 : 34) : 28, B = stagger ? Math.ceil(tilt) + 20 : 26;
+    const L = 40, R = 16, T = hasArt ? (roomy ? 58 : 34) : 28, B = (stagger ? Math.ceil(tilt) + 20 : 26) + (band ? (path.dims || []).length * BAND_ROW + 2 : 0);
     const slot = (w - L - R) / stations.length;
     // The axis follows the highest point (now, healthy or the compared moment), eased, not fixed at 30.
     const maxP = axisMax;
     const y = (p) => T + (hh - T - B) * (1 - clamp(p, -2, maxP) / maxP);
     const x = (i) => L + slot * (i + 0.5);
     const artY = roomy ? T - 24 : T - 20;
-    return { w, hh, stations, L, R, T, B, slot, maxP, x, y, stagger, hasArt, artY, roomy };
+    return { w, hh, stations, L, R, T, B, slot, maxP, x, y, stagger, hasArt, artY, roomy, band };
   }
 
   // The compact strip (as a ladder card picks its full plot or its strip by size, a667e9f): where the plot would be too short
@@ -127,6 +140,9 @@ export function createProfile() {
   // as soon as the plot has its room (the sheet pulled up). Never while a prediction is being drawn on the plot.
   const STRIP = ['CONF', 'SIN_R', 'RHV', 'IVCS', 'RA'], STRIP_NAME = { CONF: 'Portal v.', SIN_R: 'Sinusoid', RHV: 'RHV', IVCS: 'IVC', RA: 'RA' };
   const PLOT_MIN = 130;   // (two pill rows of 24, the LIVER caption, and the stations' own spread)
+  // (With the brackets in their band under the names, the plot holds only the line, its dots and their values: the strip shows
+  // only where even that is shorter than BAND_PLOT_MIN.)
+  const BAND_PLOT_MIN = 72, BAND_ROW = 22;
   // A station's reading: the bar's own (shown.js) where a gradient ends, so a bracket's label is the difference of the two
   // readings written at its ends, after rounding, and the bar's number too (sweep 2 review item 13).
   const AT_SHOWN = { CONF: 'pv', IVCS: 'ivc', RHV: 'fhvp' };
@@ -134,7 +150,7 @@ export function createProfile() {
   // (A gradient measured elsewhere, the HVPG's wedged pressure, takes that reading for its upper end.)
   const gapOf = (d, m, hv, lv) => tenthGap(d.hiM && m[d.hiM] != null ? shownOr(d.hiM, m[d.hiM]) : hv, d.loM && m[d.loM] != null ? shownOr(d.loM, m[d.loM]) : lv, hv - lv);
   let wasStrip = null, formLock = null;
-  const stripNow = (g) => !predict?.on && g.hh - g.T - g.B < PLOT_MIN;
+  const stripNow = (g) => !predict?.on && g.hh - g.T - g.B < (g.band ? BAND_PLOT_MIN : PLOT_MIN);
   // (Which form shows: a fade when it changes; the strip's own key. A full chart whose labels cannot all stand clear switches
   // to the strip for that size and stays there, so a beat's wobble never flips it back and forth.)
   const setForm = (strip) => {
@@ -150,9 +166,9 @@ export function createProfile() {
     const x0 = 12, x1 = w - 12;
     const vals = STRIP.map((n) => reading(n, PM)), txt = vals.map((v) => fmt(v, 1));
     ctx.font = FONT(600, 12);
-    const nw = STRIP.map((n) => ctx.measureText(STRIP_NAME[n]).width);
+    const nw = STRIP.map((n) => textW(ctx, STRIP_NAME[n]));
     let vf = 15, tw;
-    for (; vf >= 13; vf--) { ctx.font = FONT(700, vf); tw = txt.map((t) => ctx.measureText(t).width); if (STRIP.reduce((a, _, i) => a + Math.max(nw[i] + 6, tw[i] + 24), 0) <= x1 - x0) break; }
+    for (; vf >= 13; vf--) { ctx.font = FONT(700, vf); tw = txt.map((t) => textW(ctx, t)); if (STRIP.reduce((a, _, i) => a + Math.max(nw[i] + 6, tw[i] + 24), 0) <= x1 - x0) break; }
     const cw = STRIP.map((_, i) => Math.max(nw[i] + 6, tw[i] + 24)), gap = Math.max(0, (x1 - x0 - cw.reduce((a, b) => a + b, 0)) / STRIP.length);
     const cx = []; let at = x0 + gap / 2; cw.forEach((q) => { cx.push(at + q / 2); at += q + gap; });
     const X = (i) => cx[i];
@@ -197,15 +213,23 @@ export function createProfile() {
     ctx.fillText('mmHg', x1, rows.ppg + 0.5); ctx.textBaseline = 'alphabetic';
   }
 
+  // (The brackets move between the plot and the band by a fade in place, never a glide across the line and the numbers.)
+  function bandFade() { easePill = createEaser(0.18); cv.animate?.([{ opacity: 0 }, { opacity: 1 }], { duration: 200, easing: 'ease-out' }); }
   function draw() {
     if (!F) return;
     const c = theme();
     const { ctx } = fitCanvas(cv);
-    const g = geometry();
+    const { w: w0, h: hh0 } = fitCanvas(cv);
+    const formKey = `${w0}x${hh0}|${pathId}|${[...(hiddenNow() || [])].join()}|${!!predict?.on}`;
+    if (formLock?.key !== formKey) {
+      // (A new size starts in the plot, or straight in the band where the plot alone is too short for the brackets.)
+      const band = !predict?.on && stripNow(geometry());
+      if (formLock && band !== !!formLock.band && !formLock.strip && !(wasStrip ?? true)) bandFade();
+      formLock = { key: formKey, strip: false, band };
+    }
+    const g = geometry(formLock.band);
     const { w, hh, stations, L, R, T, B, slot, maxP, x, y, stagger, hasArt, artY, roomy } = g;
     ctx.clearRect(0, 0, w, hh);
-    const formKey = `${w}x${hh}|${pathId}|${[...(hiddenNow() || [])].join()}|${!!predict?.on}`;
-    if (formLock?.key !== formKey) formLock = { key: formKey, strip: false };
     const toStrip = () => { formLock.strip = true; ctx.clearRect(0, 0, w, hh); setForm(true); drawStrip(ctx, c, w, hh); };
     if (stripNow(g) || (formLock.strip && !predict?.on)) { toStrip(); return; }
     ctx.font = FONT(500, 12);
@@ -442,17 +466,22 @@ export function createProfile() {
         return !withHealthy || !lines.slice(1).some((pp) => hitsLine(r, pp));
       };
       let best = null;
-      for (const withHealthy of [true, false]) {
+      // (In the band: its own row under the names, centred on its span and kept inside the chart.)
+      if (g.band) best = { yy: hh - (dimN - k) * BAND_ROW + BAND_ROW / 2, lx: cx };
+      else for (const withHealthy of [true, false]) {
         for (const yy of rows) { for (const lx of xs) if (ok(yy, lx, withHealthy)) { best = { yy, lx }; break; } if (best) break; }
         if (best) break;
       }
       // (No spot clear of everything: the chart is too small for its labels, and the strip shows instead. Before, the pill
       // kept a spot on the curve, sweep 2 review item 1.)
       if (!best) { fail = true; best = { yy: base, lx: cx }; }
+      else if (g.band) { items.push({ d, a, b, col, txt, num, tw1, tw, x0, x1, ty: best.yy, tx: best.lx, base }); return; }
       claimed.push({ x0: Math.min(x0, x1) - 3, x1: Math.max(x0, x1) + 3, y0: best.yy - 9, y1: best.yy + 9 });
       items.push({ d, a, b, col, txt, num, tw1, tw, x0, x1, ty: best.yy, tx: best.lx, base });
     });
-    if (fail && !predict?.on) { toStrip(); return; }
+    // (No clear spot inside the plot: the brackets take their band under the names, drawn on the next frame.)
+    if (fail && !predict?.on && g.band) { toStrip(); return; }   // (already in the band and a value still has no clear spot: the strip, never a loop)
+    if (fail && !predict?.on) { formLock.band = true; bandFade(); draw(); return; }
     setForm(false);
     // eased positions: [row, left edge] per span
     const { v: pos, moving: mPill } = easePill.step(items.flatMap((it) => (it ? [it.ty, it.tx] : [0, 0])));
@@ -462,7 +491,9 @@ export function createProfile() {
       const { a, b, col, txt, num, tw1, tw, x0, x1 } = it;
       const yy = pos[2 * k], lx = pos[2 * k + 1], ly = yy;
       ctx.save();
-      // Faint leaders from the bracket ends to the two station dots, broken around any value label.
+      // Faint leaders from the bracket ends to the two station dots, broken around any value label (none from the band: the
+      // brackets stand under their stations' names there).
+      if (!g.band) {
       ctx.strokeStyle = col; ctx.globalAlpha = 0.45; ctx.lineWidth = 1; ctx.setLineDash([2, 3]);
       for (const [px, st2] of [[x0, a], [x1, b]]) {
         const dy = Y(now[st2], st2), from = yy + (dy > yy ? 4 : -4), to = dy + (dy > yy ? -7 : 7);
@@ -472,6 +503,7 @@ export function createProfile() {
         for (const o of dir > 0 ? gaps : gaps.reverse()) { const e = dir > 0 ? o.y0 - 1 : o.y1 + 1; if ((e - cur) * dir > 0) segs.push([cur, e]); cur = dir > 0 ? o.y1 + 1 : o.y0 - 1; }
         if ((to - cur) * dir > 0) segs.push([cur, to]);
         ctx.beginPath(); for (const [s0, s1] of segs) { ctx.moveTo(px, s0); ctx.lineTo(px, s1); } ctx.stroke();
+      }
       }
       ctx.setLineDash([]); ctx.globalAlpha = 1;
       ctx.strokeStyle = col; ctx.lineWidth = 1.5;

@@ -12,7 +12,7 @@
 //
 // window.pps.perf (see perf()) reports callbacks per second for each surface over the last second.
 
-import { gpuProbe } from './gpu-probe.js?v=d4aeccea90';
+import { gpuProbe } from './gpu-probe.js?v=e82dc07b45';
 let queue = new Map();   // id -> [tag, cb], in request order
 let current = null;      // the batch running now
 let next = 1, pending = 0;
@@ -29,7 +29,7 @@ function flush(now) {
       current.delete(id);
       counts.set(tag, (counts.get(tag) || 0) + 1); totals.asks[tag] = (totals.asks[tag] || 0) + 1;
       const t0 = performance.now();
-      try { gpuProbe.time(null, `${tag} (script)`, () => cb(now)); } catch (e) { setTimeout(() => { throw e; }); }   // one surface's error never stops the others
+      try { if (gpuProbe.on) gpuProbe.time(null, `${tag} (script)`, () => cb(now)); else cb(now); } catch (e) { setTimeout(() => { throw e; }); }   // one surface's error never stops the others
       totals.ms[tag] = (totals.ms[tag] || 0) + performance.now() - t0;
     }
   } finally { current = null; }
@@ -77,12 +77,14 @@ export function perf() {
   return { fps, surfaces: Object.fromEntries(rates), drawn: Object.fromEntries(drawRates), totals: { asks: { ...totals.asks }, drawn: { ...totals.drawn }, ms: { ...totals.ms }, frames: allFrames }, waiting: [...new Set([...queue.values()].map(([t]) => t))] };
 }
 
-// Settings › Battery saver (off by default): the anatomy's blood, the lobule, the sinusoid and the FibroScan
+// Battery saver (no longer in Settings, 20 Oct; kept for tests): the anatomy's blood, the lobule, the sinusoid and the FibroScan
 // move at 15 frames a second at a lower resolution. Each surface reads it every frame; stage.setSaver() sets it.
 // Otherwise nothing is paced: steady motion (the blood and flow, a glide toward values that keep moving, an instrument's
 // sweep or speckle) is drawn on every frame the screen offers, 60, 120 or more a second. Motion follows elapsed time,
 // never the number of frames, so a faster screen shows the same speeds in more steps.
-let saverOn = (() => { try { return localStorage.getItem('pps.saver') === '1'; } catch { return false; } })();
+// (No longer a Setting, 20 Oct: always off. A value an older build stored is dropped.)
+try { localStorage.removeItem('pps.saver'); } catch { /* storage unavailable */ }
+let saverOn = false;
 export const saver = () => saverOn;
 export function setSaver(on) { saverOn = !!on; }
 // (Battery saver's pacing: a little under 67 ms, so a frame lands on the screen's next refresh, not the one after.)

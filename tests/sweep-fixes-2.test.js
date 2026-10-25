@@ -34,7 +34,17 @@ test('the Pressure chart writes its numbers to one decimal at 12 px, and keeps e
   assert.match(charts, /taken\.some\(\(o\) => overlap4\(r, o\)\) \|\| claimed\.some\(\(o\) => overlap4\(r, o\)\) \|\| nearCurve\(r, 4\)/);
   assert.match(charts, /\|\| nearCurve\(q, 4\)/);
   assert.match(charts, /if \(!best\) \{ fail = true;/);
-  assert.match(charts, /if \(fail && !predict\?\.on\) \{ toStrip\(\); return; \}/);
+  // (No spot left inside the plot means the band under the names, fixed rows clear of the line, never a label on the line.)
+  assert.match(charts, /if \(fail && !predict\?\.on\) \{ formLock\.band = true; bandFade\(\); draw\(\); return; \}/);
+  // (A failure while already in the band goes to the strip, before the band handler, so draw() never recurses.)
+  assert.match(charts, /if \(fail && !predict\?\.on && g\.band\) \{ toStrip\(\); return; \}/);
+  assert.ok(charts.indexOf('if (fail && !predict?.on && g.band) { toStrip(); return; }') < charts.indexOf('if (fail && !predict?.on) { formLock.band = true;'));
+  // (The band is reserved under the names: B grows by a full row per bracket, so the band rows (from hh - dims * BAND_ROW) sit
+  // below the plot's foot and the names, and the values, clamped to hh - B, never reach them.)
+  assert.match(charts, /B = \(stagger \? Math\.ceil\(tilt\) \+ 20 : 26\) \+ \(band \? \(path\.dims \|\| \[\]\)\.length \* BAND_ROW \+ 2 : 0\);/);
+  assert.match(charts, /const yy = Math\.max\(T \+ th \/ 2, Math\.min\(hh - B - th \/ 2, cy\)\);/);
+  assert.match(charts, /if \(!g\.band\) \{\s*\n\s*ctx\.strokeStyle = col;/);   // (no leaders from the band across the names)
+  assert.match(charts, /if \(g\.band\) best = \{ yy: hh - \(dimN - k\) \* BAND_ROW \+ BAND_ROW \/ 2, lx: cx \};/);
   assert.doesNotMatch(charts, /__cf|__why/);
 });
 
@@ -75,7 +85,9 @@ test('a figure label under the open menu is hidden, not left as a sliver', () =>
 
 test('a Pressure chart too short for its plot shows the compact strip, and the full chart where it has room', () => {
   assert.match(charts, /const PLOT_MIN = 130;/);
-  assert.match(charts, /const stripNow = \(g\) => !predict\?\.on && g\.hh - g\.T - g\.B < PLOT_MIN;/);
+  assert.match(charts, /const BAND_PLOT_MIN = 72, BAND_ROW = 22;/);
+  assert.match(charts, /const stripNow = \(g\) => !predict\?\.on && g\.hh - g\.T - g\.B < \(g\.band \? BAND_PLOT_MIN : PLOT_MIN\);/);
+  assert.match(charts, /const band = !predict\?\.on && stripNow\(geometry\(\)\);/);   // (a half sheet starts with the brackets in the band)
   assert.match(charts, /if \(stripNow\(g\) \|\| \(formLock\.strip && !predict\?\.on\)\) \{ toStrip\(\); return; \}/);
   assert.match(charts, /cv\.animate\?\.\(\[\{ opacity: 0 \}, \{ opacity: 1 \}\]/);   // (eased, never a jump)
 });

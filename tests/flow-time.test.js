@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createCore } from '../src/worker-core.js';
-import { flowTimeSeries, MINUTES, LINE } from '../src/ui/flow-time.js';
+import { flowTimeSeries, MINUTES, LINE, headLeft } from '../src/ui/flow-time.js';
 import { CIRCULATION } from '../src/ui/decks/circulation.js';
 
 // The Circulation deck's meal slide, run off screen as the presenter does: its trail is the model's pressure and flow each day.
@@ -83,8 +83,8 @@ test('time-lapse charts plot every day of the lapse', async () => {
 });
 
 test('the ascites time-lapse charts sinusoids and ascites, one point a day', async () => {
-  const { ASCITES } = await import('../src/ui/decks/ascites.js');
-  const s = ASCITES.slides.find((x) => x.id === 'fill'), msgs = [], core = createCore((m) => msgs.push(m));
+  // (The Ascites deck's time-lapse as it was before it took up the fluid card, 20 Oct: the chart's own settings.)
+  const s = { days: 60, ramp: { cirrhosis: [0.6, 0.85], albumin: [4, 2.8] }, tool: { lines: ['sin', 'asc'] } }, msgs = [], core = createCore((m) => msgs.push(m));
   core.handle({ type: 'init' });
   await core.handle({ type: 'sequence', reqId: 1, steps: [{ preset: 'csph' }, { days: s.days, ramp: s.ramp, fine: true, trail: s.tool.lines }] });   // (settles once the sequence has run)
   assert.ok(msgs.some((m) => m.type === 'sequence'), 'the sequence finished');
@@ -101,4 +101,15 @@ test('the ascites time-lapse charts sinusoids and ascites, one point a day', asy
 test('the chart prints portal flow as the figure does, to one decimal (review #55: Circulation 10 read 1.4 beside 1.41)', () => {
   // (The figure's flow callouts use util.js fmtFlow: one decimal.)
   assert.equal(LINE.pvFlow[2], 1);
+});
+
+test("a line's value at its head keeps clear of the right margin's numbers", () => {
+  // (Encephalopathy slide 6 on an iPhone: the ascites ended at 1.2 L just under its scale's top number, and the value, drawn
+  // right of its head, ran onto that number.) f = 12 px type, a 300 px chart, the plot's right edge at 250.
+  const f = 12, w = 300, R = 250, tick = (y) => [R + 6, R + 6 + 3 * 0.56 * f, y - 0.45 * f, y + 0.55 * f];
+  assert.equal(headLeft(R, 40, 30, f, w, [tick(30)]), true, 'over the top number: the value goes left of its head');
+  assert.equal(headLeft(R, 40, 30, f, w, [tick(80)]), false, 'clear of every number: it stays right');
+  assert.equal(headLeft(R, 40, 30, f, w, []), false);
+  assert.equal(headLeft(w - 10, 40, 30, f, w, []), true, 'off the chart: left, as before');
+  assert.equal(headLeft(100, 40, 30, f, w, [tick(30)]), false, 'mid-chart, far from the margin');
 });

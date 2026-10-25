@@ -6,8 +6,9 @@
 // liver's flow).
 
 import { NODES, EDGES } from '../engine/topology.js?v=4044766e96';
-import { clamp } from './util.js?v=b6a40567da';
-import { oxygenFor } from './blood.js?v=b0e8934683';
+import { clamp } from './util.js?v=d2c95a1b16';
+import { oxygenFor } from './blood.js?v=e668d01823';
+import { sinceNow } from './since-ref.js?v=ef1a818c75';
 
 const NI = Object.fromEntries(NODES.map((n, i) => [n.id, i]));
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
@@ -17,11 +18,15 @@ export const LOBE = { pv: 'RPV', sin: 'SIN_R', cv: 'CV_R', hv: 'RHV', q: 'SIN_RR
 export function lobuleFlows(f, H) {
   const Q = f.Qf || f.Q, Qe = (id) => Q[EI[id]], He = (id) => H?.Q?.[EI[id]];
   const ratio = (id) => { const q = Qe(id), q0 = He(id) || Math.abs(q) || 1; return q / q0; };
-  return { flow: ratio(LOBE.q), portal: ratio(LOBE.pre), art: ratio(LOBE.a), lymph: f.metrics?.ascites?.hepLymph ?? 0, lyProt: f.metrics?.ascites?.lymphProt ?? 0.88, sigma: f.metrics?.ascites?.lymphSigma ?? 0.15, lymph0: H?.metrics?.ascites?.hepLymph || 0.8 };
+  return { flow: ratio(LOBE.q), portal: ratio(LOBE.pre), portalQ: Qe(LOBE.pre), portalRef: He(LOBE.pre) ?? 0, art: ratio(LOBE.a), lymph: f.metrics?.ascites?.hepLymph ?? 0, lyProt: f.metrics?.ascites?.lymphProt ?? 0.88, sigma: f.metrics?.ascites?.lymphSigma ?? 0.15, lymph0: H?.metrics?.ascites?.hepLymph || 0.8 };
 }
 
-/** The lobule's state for frame `f` (store state `st` gives the healthy reference). */
-export function lobuleState(f, st) {
+/** The network a change-since slide counts from (a Float32Array of node pressures), or null: only that lens, on a slide, takes it. */
+export const sinceOf = (st) => (!st.compareSnap && st.presenting && st.colorMode === 'since' ? sinceNow() : null);
+
+/** The lobule's state for frame `f` (store state `st` gives the healthy reference). `since`: the reference a change-since slide counts
+ *  from, when the caller eases it (lobule-zoom.js); left out, it is read as the slide has it. */
+export function lobuleState(f, st, since = sinceOf(st)) {
   const S = LOBE, p = f.params || f.viewParams || st.params, H = st.healthy;
   const Pn = (id) => f.P[NI[id]], Hn = (id) => H?.P?.[NI[id]];
   const Q = f.Qf || f.Q, Qe = (id) => Q[EI[id]], He = (id) => H?.Q?.[EI[id]];
@@ -37,12 +42,15 @@ export function lobuleState(f, st) {
   m.act = clamp(Math.max(m.fibSin, sc * 0.9), 0, 1);
   // What the vessel color encodes, as in the anatomy (the lens, a comparison, or the imaging view's neutral one).
   m.mode = m.hide ? 'neutral' : st.compareSnap && st.compareView === 'D' ? 'delta' : st.colorMode;
-  const ref = st.compareSnap ? st.compareSnap.P : H?.P;
+  // A "change since" slide (lens 'since', stage.js REF): change counts from the network the slide counts from, not from healthy.
+  // Only that lens on a slide takes it; every other lens and Patients' pinned moment read as before.
+  const ref = st.compareSnap ? st.compareSnap.P : since || H?.P;
   // The reference the labels and the card measure change against: the pinned moment while
-  // comparing (as the anatomy does), otherwise the healthy patient.
+  // comparing (as the anatomy does), otherwise the healthy patient (the slide's reference on a change-since slide).
   m.cmp = !!st.compareSnap;
+  m.since = !!since;
   m.lymphRef = m.cmp ? (st.compareSnap.metrics?.ascites?.hepLymph ?? m.lymph0) : m.lymph0;
-  m.R = m.cmp ? [S.pv, S.sin, S.cv, S.hv, 'IVCS'].map((id) => ref[NI[id]]) : m.H;
+  m.R = m.cmp || m.since ? [S.pv, S.sin, S.cv, S.hv, 'IVCS'].map((id) => ref[NI[id]]) : m.H;
   const dOf = (id) => (ref ? Pn(id) - ref[NI[id]] : 0);
   m.dP = [dOf(S.pv), dOf(S.sin), dOf(S.cv)];
   m.Qs = { pre: Qe(S.pre), sin: Qe(S.q), post: Qe(S.post) };

@@ -161,9 +161,9 @@ test('the lobule\'s tissue fills each pixel only with the passes that change it,
   assert.match(pt, /c\.clip\('evenodd'\);/);
   assert.ok(pt.indexOf('if (wk !== worldKey) {') < pt.indexOf('const crossfading'), 'the bitmap (and any crossfade it starts) is settled before the surround leaves a hole for it');
   // The fade: the annulus from its inner edge to past the surround's clip, so the clip's soft edge is covered at full strength.
-  assert.match(pt, /fieldFade\(c, shadeOf\(rgb01\(bg\), dark\), ox, oy, rdv, 1, W \* dpr, H \* dpr, fIn, \[fIn - 1, fOut \+ 4\]\)/);
-  assert.match(lz, /const vg = c\.createRadialGradient\(x, y, r0, x, y, r0 \* \(3\.2 \/ 1\.1\)\);\n\s+vg\.addColorStop\(0, css\(bg, 0\)\);/, 'clear at the inner edge, the page colour at full strength past 3.2 radii');
-  assert.match(pt, /fIn = rdv \* 1\.1, fOut = rdv \* 3\.2;/);
+  assert.match(pt, /fieldFade\(c, shadeOf\(rgb01\(bg\), dark\), ox, oy, rdv, 1, W \* dpr, H \* dpr, fIn, fOut, \[fIn - 1, fOut \+ 4\]\)/);
+  assert.match(lz, /const vg = c\.createRadialGradient\(x, y, r0, x, y, r1\);\n\s+vg\.addColorStop\(0, css\(bg, 0\)\);/, 'clear at the inner edge, the page colour at full strength past its outer edge');
+  assert.match(pt, /fIn = rdv \* 1\.1;/); assert.match(pt, /const fOut = fadeOuter\(fIn, reach\);/);
   // The lobule's bitmap is opaque inside its own outline (filled first, at 1.015 of the hexagon, full strength).
   assert.match(lz, /const px = l\.x \+ \(x - l\.x\) \* 1\.015, py = l\.y \+ \(y - l\.y\) \* 1\.015;[^\n]*c\.fill\(\); \}/);
 });

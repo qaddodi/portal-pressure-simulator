@@ -11,7 +11,7 @@ name: Checks (browser, visual, WebKit)
 
 on:
   push:
-    branches: [main, claude/settings-topbar-icon-flvft1]
+    branches: [claude/settings-topbar-icon-flvft1]   # (main is covered by ci.yml, which runs the same build checks on every push there; until 22 Oct both ran, 42 shares twice a merge)
   workflow_dispatch:
 
 permissions:
@@ -23,12 +23,33 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  # The production build, made once for the run: every browser share below downloads it (each built its own, forty-two times over).
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Production build
+        run: npm run build
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
+          if-no-files-found: error
+          retention-days: 1
+
   # The browser checks run alongside the deploy (pages.yml), not before it: a failure marks this run red
   # (so it is seen) but the preview is already published for testing on devices.
   # Split over forty-two runners (desktop in twenty-eight shares, phone in fourteen), filled by each check's own time on a runner
   # (tests/e2e/check-times.json), one check at a time per runner: a runner is too small to run several browsers at once.
   browser-checks:
     runs-on: ubuntu-24.04
+    needs: build
     # Covers the install (capped at 4 minutes below) plus the checks: about 32 minutes a desktop share by measured times, so a
     # slow runner still finishes. (The old 25-minute limit cut almost every share off mid-check and every run ended red without a
     # result; 40 minutes did the same to a third of the desktop shares once the checks grew.)
@@ -89,9 +110,12 @@ jobs:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/setup-browser
       # Pages serves the production build (pages.yml builds each copy), so the browser checks run against
-      # that build, as shipped. ci.yml checks the source site as well on pull requests and main.
-      - name: Production build
-        run: npm run build
+      # that build, as shipped (made once, in the build job). ci.yml checks the source site as well on pull requests and main.
+      - name: Production build (made once, in the build job)
+        uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist
       - name: Browser checks
         env:
           SHOTS: workspace-shots
@@ -104,6 +128,44 @@ jobs:
         with:
           name: workspace-browser-checks-${{ matrix.device }}-${{ strategy.job-index }}
           path: workspace-shots/
+          if-no-files-found: ignore
+          retention-days: 1
+
+  # The organs drawn as GPU layers, as every GPU device draws them (since 22 Oct, on by default). A software renderer, which these runners
+  # have, keeps the one picture unless the address says ?gpuorgans=force, so no other job here ever ran that path. Three checks of it: the
+  # layers make the picture the plate does, the organs painted live match the browser's drawing of their SVG, and the figure's own browser
+  # checks (SMOKE_GPUORGANS=force: every page opens with the switch, see tests/e2e/smoke.mjs FIGURE_CHECKS) pass with the organs on the GPU.
+  # One more runner than the 17 above, so pages.yml still finds one of the account's ~20.
+  gpu-organs:
+    runs-on: ubuntu-24.04
+    needs: build
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup-browser
+      - name: Production build (made once, in the build job)
+        uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist
+      - name: The layers draw the plate's picture, and the screen with the organs live is the one without
+        run: npm run smoke:layers
+      - name: The organs painted on the GPU match the browser's drawing of their SVG
+        if: success() || failure()   # (each check runs even when the one before it failed, so one red run tells them all)
+        run: npm run smoke:paint
+      - name: The figure's browser checks, organs on the GPU
+        if: success() || failure()   # (each check runs even when the one before it failed, so one red run tells them all)
+        env:
+          SHOTS: gpu-organs-shots
+          SMOKE_GPUORGANS: force
+          SMOKE_DEVICE: desktop
+          SMOKE_WORKERS: 1
+        run: npm run smoke:dist
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: gpu-organs-shots
+          path: gpu-organs-shots/
           if-no-files-found: ignore
           retention-days: 1
 

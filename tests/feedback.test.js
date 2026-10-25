@@ -34,3 +34,20 @@ test('the timed ask counts active, visible time, waits out drags, talks and proj
   assert.match(ask, /actions: \[\['Send feedback', \(\) => sendFeedback\(\)\], \['Not now', \(\) => \{\}\]\]/);
   assert.match(main, /if \(!deep\) firstRun\(\);\n\s*armFeedbackAsk\(\);/);
 });
+
+test('only the person\'s own answer counts: a feedback card pushed out by newer messages asks again later', () => {
+  const util = readFileSync(new URL('../src/ui/util.js', import.meta.url), 'utf8');
+  const toast = util.slice(util.indexOf('export function toast('), util.indexOf('return close;', util.indexOf('export function toast(')));
+  // Pushed out, either through the two-message limit or removed from the card stack, the card says so.
+  assert.match(util, /while \(stay\.length >= 2\) \{ const o = stay\.shift\(\); if \(o\._close\) o\._close\('pushed'\);/);
+  assert.match(toast, /if \(!gone\) \{ gone = true; clearTimeout\(timer\); onClose\?\.\('pushed'\); \}/);
+  // A tap, the ×, a swipe or a button close as the person's own answer (the click handler never passes its event on).
+  assert.match(toast, /const close = \(why = 'user'\) => \{[^}]*onClose\?\.\(why\)/);
+  assert.match(toast, /t\.addEventListener\('click', \(\) => close\(\)\);/);
+  assert.doesNotMatch(toast, /addEventListener\('click', close\)/);
+  // The ask records nothing when pushed out, and starts another FEEDBACK_ASK_MIN active minutes.
+  const ask = between('function armFeedbackAsk(', 'main().catch(');
+  const pushed = ask.indexOf("if (why === 'pushed')"), record = ask.indexOf("answer(was === 'later'");
+  assert.ok(pushed > 0 && pushed < record, 'checked before anything is recorded');
+  assert.match(ask, /if \(why === 'pushed'\) \{ active = 0; last = performance\.now\(\); timer = setInterval\(tick, TICK\); return; \}/);
+});

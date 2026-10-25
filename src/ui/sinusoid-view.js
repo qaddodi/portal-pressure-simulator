@@ -19,27 +19,24 @@
 // the sinusoid exactly over the lobule's one at every step: first the vessel itself, then the tissue
 // around it.
 
-import { h, fmt, clamp, lerp } from './util.js?v=b6a40567da';
-import { pressureColor } from './colormap.js?v=dc071e3659';
-import { isPaused } from './clock.js?v=520596240b';
-import { store } from './store.js?v=31ee79b6ab';
+import { h, fmt, clamp, lerp } from './util.js?v=d2c95a1b16';
+import { pressureColor } from './colormap.js?v=cdcf6a2f55';
+import { isPaused } from './clock.js?v=6a1f89a5c2';
+import { store } from './store.js?v=67f4341802';
 import { sinusoidTargets } from './sinusoid-model.js?v=74f5d007ca';
-import { createSinusoidGL, poreAt, poreOpenness, cellAt, cellEdge, SLOT, SEED, UM } from './sinusoid-gl.js?v=7360dfe571';
-import { frameFor, noteDraw, saver, paceMs } from './frame.js?v=67ca200c87';
+import { createSinusoidGL, poreAt, poreOpenness, cellAt, cellEdge, SLOT, SEED, UM } from './sinusoid-gl.js?v=43f77a6997';
+import { frameFor, noteDraw, saver, paceMs } from './frame.js?v=19b3f2915c';
 import { softwareGL, softwareYield } from './sw-yield.js?v=e580a095b1';
+import { noteSinusoidSupport } from './gl-support.js?v=94ad2a7ff1';
 const nextFrame = frameFor('sinusoid-view');
 
 const smooth = (a, b, x) => { const t = clamp((x - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };
 function rng(seed) { let q = seed >>> 0; return () => { q = (q * 1664525 + 1013904223) >>> 0; return q / 4294967296; }; }
 
-let glSupport = null;
-/** Whether this browser can draw the sinusoid view (WebGL2). */
-export function sinusoidSupported() {
-  if (glSupport == null) { try { glSupport = !!document.createElement('canvas').getContext('webgl2'); } catch { glSupport = false; } }
-  return glSupport;
-}
+export { sinusoidSupported } from './gl-support.js?v=94ad2a7ff1';
 
-export function createSinusoidView({ host }) {
+/** `before`: a node of `host` to sit ahead of (the lobule layer, built late, takes the place it would have had). */
+export function createSinusoidView({ host, before = null }) {
   const reduce = matchMedia('(prefers-reduced-motion: reduce)');
   const phoneMQ = matchMedia('(max-width: 720px)');
   const canvas = h('canvas', { class: 'sv-canvas', role: 'img', 'aria-label': 'A sinusoid, cut along its length' });
@@ -103,9 +100,9 @@ export function createSinusoidView({ host }) {
     dot.setAttribute('cx', tx.toFixed(1)); dot.setAttribute('cy', ty.toFixed(1)); dot.setAttribute('r', '1.8');
   }
   const el = h('div', { class: 'sv', 'aria-hidden': 'true' }, canvas, leaders, labels, legend);
-  host.append(el);
+  host.insertBefore(el, before);
   const gpu = createSinusoidGL(canvas);
-  glSupport = !!gpu;   // (answered by this view's own context: sinusoidSupported need not make a throwaway one)
+  noteSinusoidSupport(!!gpu);   // (answered by this view's own context: sinusoidSupported need not make a throwaway one)
   // (A software renderer only: a frame of the view waits for the last to finish on the GPU and gives the page as long again,
   // as the anatomy's vessels do; see sw-yield.js. On a GPU there is no yield.)
   const swGL = gpu ? canvas.getContext('webgl2') : null, svYield = swGL && softwareGL(swGL) ? softwareYield(true, swGL) : null;
@@ -124,6 +121,27 @@ export function createSinusoidView({ host }) {
   // Where the sinusoid sits: centred in the space the floating pieces leave (a row kept for the legend).
   const appStyle = document.getElementById('app')?.style;
   const cssN = (k) => parseFloat(appStyle?.getPropertyValue(k)) || 0;
+  // The stage's size, kept from its ResizeObserver (read where the layout is already clean), not read on every frame: a
+  // read just after the lobule's transform is written laid the page out again, once a frame through the zoom.
+  let hostWH = null;
+  const hostSize = () => {
+    if (!hostWH) { const r = host.getBoundingClientRect(); hostWH = [Math.max(1, Math.round(r.width)), Math.max(1, Math.round(r.height))]; }
+    return hostWH;
+  };
+  if (typeof ResizeObserver === 'function') new ResizeObserver(() => { hostWH = null; if (shown > 0 && !raf && model) raf = nextFrame(loop); }).observe(host);
+  addEventListener('resize', () => { hostWH = null; });
+  // The page's look (the theme, a setting's class): a change counts up, and the colours read from the style sheet are
+  // read again; otherwise they are kept (thirty property reads a frame before).
+  const darkMQ = matchMedia('(prefers-color-scheme: dark)');
+  let lookVer = 0, cssVer = -1, gapAt = '';
+  const lookChanged = () => { lookVer++; };
+  darkMQ.addEventListener?.('change', lookChanged);
+  if (typeof MutationObserver === 'function') {
+    // (Not the inline style: the presenter writes its room there as cards move; the colours never come from it.)
+    const mo = new MutationObserver((rs) => { if (rs.some((r) => r.attributeName !== 'style')) lookChanged(); });
+    for (const n of [document.documentElement, document.body, document.getElementById('app'), host]) if (n) mo.observe(n, { attributes: true });
+  }
+  let gapPx = 12;
   function freeRect(W, H) {
     // The view has the stage to itself (the dock and the side panels are hidden in it), so their room is not kept.
     // (--pz-l, --pz-r, --pz-t, --pz-b: the room a presenter slide's text, data and bar take; the credit line, just above
@@ -133,7 +151,9 @@ export function createSinusoidView({ host }) {
     // the credit sat moved the labels, which moved the credit, which resized the view, about once a second for good.)
     // (Outside a presentation the view switch's pill sits centred at the bottom, its foot the gap plus 8 px up, 42 px tall:
     // the vein's end, its arrow and its reading stay 8 px above it.)
-    const app = document.getElementById('app'), pill = !app || app.classList.contains('presenting') ? 0 : (parseFloat(getComputedStyle(app).getPropertyValue('--gap')) || 12) + 8 + 42 + 8;
+    const app = document.getElementById('app'), pres = !app || app.classList.contains('presenting');
+    if (!pres && gapAt !== `${lookVer}|${W}x${H}`) { gapAt = `${lookVer}|${W}x${H}`; gapPx = parseFloat(getComputedStyle(app).getPropertyValue('--gap')) || 12; }   // (read again when the look or the size changes)
+    const pill = pres ? 0 : gapPx + 8 + 42 + 8;
     const b = H - cssN('--pz-b') - Math.max(34, pill), l = 12 + cssN('--pz-l'), r = W - 12 - cssN('--pz-r');
     return { l: Math.round(l), t: Math.round(t), r: Math.round(Math.max(l + 80, r)), b: Math.round(Math.max(t + 80, b)) };
   }
@@ -164,7 +184,8 @@ export function createSinusoidView({ host }) {
     const short = geo.vert ? fw : fh, across = lerp(40, 54, smooth(380, 720, short));
     VW.f = f; VW.tk = clamp(short / across, 3, 14);
     // Its names are the lobule's size on every device (only the app's label-size setting scales them).
-    el.style.setProperty('--label-k', String(labelK())); VW.tC = [(f.l + f.r) / 2, (f.t + f.b) / 2];
+    { const lk = String(labelK()); if (el.style.getPropertyValue('--label-k') !== lk) el.style.setProperty('--label-k', lk); }   // (written only when it changes: a write each frame restyled the page)
+    VW.tC = [(f.l + f.r) / 2, (f.t + f.b) / 2];
     if (!VW.k) { VW.k = VW.tk; VW.C = [...VW.tC]; }
     return geo;
   }
@@ -231,8 +252,15 @@ export function createSinusoidView({ host }) {
     return o;
   }
   const mixv = (a, b, t) => a.map((x, i) => lerp(x, b[i], t));
-  function palette(dark, cs) {
-    const v = (n, d) => cs.getPropertyValue(n).trim() || d, t = (n) => rgb(v(n));
+  const cssVals = new Map();
+  function palette(dark) {
+    if (cssVer !== lookVer) { cssVer = lookVer; cssVals.clear(); }
+    let cs = null;
+    const v = (n, d) => {
+      let x = cssVals.get(n);
+      if (x == null) { cs ||= getComputedStyle(host); x = cs.getPropertyValue(n).trim(); cssVals.set(n, x); }
+      return x || d;
+    }, t = (n) => rgb(v(n));
     const bg = rgb(v('--stage-bg', v('--bg')));
     // Pressure only: this view has no other lens.
     const m = model;
@@ -352,21 +380,16 @@ export function createSinusoidView({ host }) {
   }
 
   // ── Labels ──
-  // The fenestrae's state with the share open, read as a value beneath the name (eased with S.por, so it counts rather than jumps).
-  const fenWord = () => (S.por > 0.85 ? 'Open' : S.por > 0.15 ? 'Closing' : 'Closed');
-  const fenTxt = () => `${fenWord()}~${Math.round(S.por * 100)}%`;
-  // Every frame: the share counts by single percents with S.por, and a new state word cross-fades in (never a swap).
-  let fenFade = 0;
+  // The fenestrae's open share, read as a value beneath the name, "16% open" up to "100% open" (Mohammad, 20 Oct: the word
+  // and the number agree; no "Closing" for a wall at rest). It counts by single percents with S.por, so it eases, never jumps.
+  const fenPct = () => `${Math.round(S.por * 100)}%`;
+  const fenTxt = () => `${fenPct()}~open`;
+  // Every frame: the share counts with S.por (the caption itself is built once; see caption).
   function fenTick() {
-    const b = regions.fen?.el.querySelector('.v b'), u = b?.nextSibling;
+    const b = regions.fen?.el.querySelector('.v b');
     if (!b) return;
-    const pct = ` ${Math.round(S.por * 100)}%`;
-    if (u && u.nodeValue !== pct) u.nodeValue = pct;
-    const w = fenWord();
-    if (b.textContent !== w && !fenFade) {
-      b.style.opacity = '0';
-      fenFade = setTimeout(() => { b.textContent = w; b.style.opacity = ''; fenFade = 0; }, 260);
-    }
+    const pct = fenPct();
+    if (b.textContent !== pct) b.textContent = pct;
   }
   // The fenestra a callout points at: of the upper lining's pores near x, the one that stays open longest (by place
   // only, so the line does not hop as the pores close).
@@ -596,8 +619,7 @@ export function createSinusoidView({ host }) {
   // real time since the last frame (an exponential ease takes any step, so a slow frame settles as soon as a fast one would).
   function draw(dt, run = true, paint = true, ease = dt) {
     settled = false;
-    const rect = host.getBoundingClientRect();
-    const W = Math.max(1, Math.round(rect.width)), H = Math.max(1, Math.round(rect.height));
+    const [W, H] = hostSize();
     ensureGeo(W, H);
     if (ease > 0 || S.lum == null) stepState(ease);
     stepView(ease);
@@ -607,14 +629,14 @@ export function createSinusoidView({ host }) {
     if (!paint) return;
     const dpr = Math.min(saver() ? 1 : 2, devicePixelRatio || 1);   // (Battery saver: one pixel per CSS pixel)
     if (canvas.width !== Math.round(W * dpr) || canvas.height !== Math.round(H * dpr)) { canvas.width = Math.round(W * dpr); canvas.height = Math.round(H * dpr); }
-    const dark = document.documentElement.dataset.theme === 'dark' || (!document.documentElement.dataset.theme && matchMedia('(prefers-color-scheme: dark)').matches);
+    const dark = document.documentElement.dataset.theme === 'dark' || (!document.documentElement.dataset.theme && darkMQ.matches);
     // The names are laid out where the view will rest, during the zoom too (hidden until it lands), so the end arrows
     // the shader draws are in place from the first frame and nothing moves when the names fade in.
     const lk = [geoKey, VW.k.toFixed(3), VW.C.map((v) => v.toFixed(0)), S.lum.toFixed(3), S.act > 0.5, Math.round(S.por * 20), model.hide, model.P2.toFixed(1), model.lymph.toFixed(1), Math.round(model.lyProt * 100), model.P1.toFixed(1), model.P3.toFixed(1), phoneMQ.matches, labelK(), blockKey()].join('|');
     if (lk !== lastKey) { lastKey = lk; layoutEnds(); layoutTags(); declutter(); }
     fenTick();
     if (gpu) {
-      const u = palette(dark, getComputedStyle(host));
+      const u = palette(dark);
       const endA = [endShown('in'), endShown('out')];
       const ek = endA.map((v) => v.toFixed(2)).join(' ');
       if (canvas.dataset.endArrows !== ek) canvas.dataset.endArrows = ek;   // (for the browser checks: how much each end arrow shows)
@@ -644,7 +666,7 @@ export function createSinusoidView({ host }) {
       const n = sprites();
       // Paused and settled (nothing eases, no zoom): the same picture as last frame, so the two full-screen passes are skipped.
       const gk = go === 0 && !dive ? canvas.width + 'x' + canvas.height + '|' + n + '|' + JSON.stringify(u) : '';
-      if (!gk || gk !== gpuKey) { gpu.draw(u, pts, n); noteDraw('sinusoid-view'); svYield?.drew(performance.now()); } else settled = !fenFade;
+      if (!gk || gk !== gpuKey) { gpu.draw(u, pts, n); noteDraw('sinusoid-view'); svYield?.drew(performance.now()); } else settled = true;
       gpuKey = gk;
     }
     const dk = [Math.round(S.por * 4), S.col > 0.15, S.act > 0.4, model.hide, model.P2.toFixed(0), model.lymph.toFixed(1), Math.round(model.lyProt * 100)].join('|');
@@ -716,8 +738,8 @@ export function createSinusoidView({ host }) {
     },
     /** Where the sinusoid's centre is drawn at rest (stage px), its direction (radians) and the lumen's width there (px). */
     frame() {
-      const rect = host.getBoundingClientRect();
-      ensureGeo(Math.max(1, Math.round(rect.width)), Math.max(1, Math.round(rect.height)));
+      const [W, H] = hostSize();
+      ensureGeo(W, H);
       if (model && S.lum == null) stepState(0);
       return { x: VW.tC[0], y: VW.tC[1], ang: geo.ang, k: VW.tk, lumen: 2 * UM.lum * (S.lum ?? 1) * VW.tk };
     },

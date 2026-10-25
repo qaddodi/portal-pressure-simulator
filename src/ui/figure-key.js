@@ -2,7 +2,7 @@
 // It is docked by the stylesheet, never floated: on a phone at the words' bottom-left corner, opposite the nav pill; on a wider
 // screen (Mac, iPad, a phone held sideways) right on top of the nav pill at the lower right, right-aligned with it (Mohammad,
 // 15 Oct: "put the legend on top of the zoom pill"). It waits for the cards to land and fades in there; it never slides.
-import { frameFor, cancelFrame } from './frame.js?v=67ca200c87';
+import { frameFor, cancelFrame } from './frame.js?v=19b3f2915c';
 const nextFrame = frameFor('figkey');
 
 // el: the key's element (inside the presenter's layer, beside the nav pill); app: the app's root (its pz-moving class marks a slide change).
@@ -38,8 +38,9 @@ export function createFigureKey({ el, app, ready = null, watch = [] }) {
     // fill() writes the new words: at once when the key is out of sight, else once it has faded.
     set(has, fill) {
       clearTimeout(swapT);
-      if (!has) { el.dataset.empty = ''; off(); return; }
-      delete el.dataset.empty;
+      // (An empty key is an image with no words: hidden from a screen reader.)
+      if (!has) { el.dataset.empty = ''; el.setAttribute('aria-hidden', 'true'); off(); return; }
+      delete el.dataset.empty; el.removeAttribute('aria-hidden');
       if (!on) { fill?.(); soon(); return; }
       off();
       swapT = setTimeout(() => { fill?.(); soon(); }, 200);

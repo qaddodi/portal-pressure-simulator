@@ -1,11 +1,12 @@
 // Text floor: no piece of text on screen is drawn under 12 px, as the eye sees it: the font size times every scale on its
-// way to the screen (a card scaled to fit, an SVG drawn into a smaller box, the interface zoom). HTML and SVG text are
+// way to the screen (a card scaled to fit, an SVG drawn into a smaller box). HTML and SVG text are
 // measured; canvas text is held to the floor where it is set (tests/text-floor.test.js reads the sources).
 // (Sweep batches 02–04: FibroScan scale numbers about 7 px at 320 px, a title card scaled to 8 px on a phone held sideways,
 // the circuit table's sublabels at 10 px, the bottom bar's HVPG and PPG at 9.6 px on a 320 px phone.)
 //
 //   node tests/e2e/text-floor.mjs                 every deck's slides, Explore's views and the Tests tabs, at five sizes
 //   DEVS=phone320,mac DECKS=stiffness node tests/e2e/text-floor.mjs
+//   DEVS=ipadSide SHARD=2/4 SLIDES_ONLY=1 node tests/e2e/text-floor.mjs   (CI: the compact layout's slides, a quarter of the decks)
 import { chromium } from 'playwright';
 import { serve } from '../../scripts/serve.mjs';
 import { fastContext, gotoSlide, quiet } from './fast.mjs';
@@ -50,16 +51,13 @@ export function smallText(min) {
       const m = el.getScreenCTM?.();
       if (m) k = Math.hypot(m.a, m.b);
     } else {
-      // (A transform or a zoom on the way: the line's height on screen over its height in layout.)
-      const hl = el.offsetHeight, r = el.getBoundingClientRect();
-      if (hl > 0 && r.height > 0 && cs.display !== 'inline') k = r.height / hl;
-      else {
-        let s = 1;
-        for (let e = el; e && e.nodeType === 1; e = e.parentElement) {
-          const t = getComputedStyle(e).transform;
-          if (t && t !== 'none') { const mm = new DOMMatrixReadOnly(t); s *= Math.hypot(mm.a, mm.b); }
-        }
-        k = s;
+      // (Every zoom and transform on the way, multiplied: the line's height on screen over its height in layout read 11.6 px for
+      // 12 px words, offsetHeight being whole pixels.)
+      for (let e = el; e && e.nodeType === 1; e = e.parentElement) {
+        const s = getComputedStyle(e);
+        k *= parseFloat(s.zoom) || 1;
+        if (s.transform && s.transform !== 'none') { const mm = new DOMMatrixReadOnly(s.transform); k *= Math.hypot(mm.a, mm.b); }
+        if (s.scale && s.scale !== 'none') k *= parseFloat(s.scale) || 1;
       }
     }
     const px = fs * k;
@@ -74,6 +72,9 @@ const DEVICES = {
   sideways: { viewport: { width: 844, height: 390 }, deviceScaleFactor: 3, isMobile: true, hasTouch: true },
   ipad: { viewport: { width: 820, height: 1180 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true },
   mac: { viewport: { width: 1440, height: 900 }, deviceScaleFactor: 2 },
+  // The compact layout (presenter.js .pz.short): an iPad held sideways and a short Mac window.
+  ipadSide: { viewport: { width: 1180, height: 820 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true },
+  macShort: { viewport: { width: 1440, height: 700 }, deviceScaleFactor: 2 },
 };
 const TABS = ['profile', 'hvpg', 'doppler', 'endoscopy', 'abdomen', 'fibroscan', 'readouts'];
 
@@ -83,13 +84,15 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   const url = srv.url;
   const browser = await chromium.launch({ args: ['--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] });
   const devs = (process.env.DEVS || Object.keys(DEVICES).join(',')).split(',');
-  const decks = DECKS.filter((d) => !process.env.DECKS || process.env.DECKS.split(',').includes(d.id));
+  // (SHARD=i/n: every n-th deck from the i-th, so CI can split the sweep over runners.)
+  const [si, sn] = (process.env.SHARD || '1/1').split('/').map(Number);
+  const decks = DECKS.filter((d) => !process.env.DECKS || process.env.DECKS.split(',').includes(d.id)).filter((_, j) => j % sn === si - 1);
   const found = new Map();   // "words @ where" → { px, at: [...] }
   const note = (at, list) => { for (const x of list) { const k = `${x.t} @ ${x.where}`; const f = found.get(k) || { px: x.px, at: [] }; f.px = Math.min(f.px, x.px); if (f.at.length < 4) f.at.push(at); found.set(k, f); } };
   for (const dev of devs) {
     const ctx = await fastContext(browser, DEVICES[dev]);
     const page = await ctx.newPage();
-    if (!process.env.DECKS) {
+    if (!process.env.DECKS && si === 1 && !process.env.SLIDES_ONLY) {
       for (const [preset, view] of [['cirr-decomp', 'anatomic'], ['cirr-decomp', 'circuit'], ['budd-chiari', 'lobule'], ['ivc-web', 'circuit']]) {
         await page.goto(`${url}?preset=${preset}`);
         await page.waitForFunction(() => window.pps?.store?.get().frame, null, { timeout: 60000 });

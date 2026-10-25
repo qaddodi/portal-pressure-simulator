@@ -28,8 +28,51 @@ export function dullSinusoid(rgb, shade, fibSin) {
 /** The neighbouring lobules' contrast, cut by this much (an overlay of the page's own colour) in the lobule view (G22). */
 export const NEIGHBOUR_FLAT = 0.3;
 
+/** The surround's fade into the page round the lobule in focus: clear inside r0, FADE_MID of the page's colour halfway out,
+ *  all of it at the outer edge, which sits FADE_SPAN × r0 out (the lobule view's 1.1 R to 3.2 R). */
+export const FADE_SPAN = 3.2 / 1.1, FADE_MID = 0.72;
+/** The most of the page's colour the fade may lay anywhere on screen, so the neighbouring lobules always reach every edge
+ *  (Mohammad, 19 Oct: zooming in, they were cut off at the top and bottom). */
+export const EDGE_FADE = 0.5;
+/** How much of the page's colour the fade lays at distance d from the lobule (q = 1). */
+export function fadeAt(d, r0, r1) {
+  const s = Math.min(1, Math.max(0, (d - r0) / Math.max(1e-6, r1 - r0)));
+  return s < 0.5 ? FADE_MID * s * 2 : FADE_MID + (1 - FADE_MID) * (s - 0.5) * 2;
+}
+/** The fade's outer edge for a clear circle r0, pushed out (never in) so the farthest screen corner, reach away, is at most
+ *  EDGE_FADE faded: the neighbours cover the whole screen at every moment of the zoom and at rest, on every screen. */
+export function fadeOuter(r0, reach) {
+  const s = EDGE_FADE / (2 * FADE_MID);   // (where the first half of the ramp reaches EDGE_FADE)
+  return Math.max(r0 * FADE_SPAN, r0 + Math.max(0, reach - r0) / s);
+}
+
 /** Their blur, in px of a field tile whose lobules are R px across: none on the smallest tiles, about 4 px on a 192 px one. */
 export const neighbourBlur = (R) => (R < 24 ? 0 : R * 0.02);
+
+/** The dive field's tile sizes (their lobules' radius, px), a factor of 2 apart: the small ones simple (outlines, a dot for each
+ *  vein), the large ones with their sinusoids and fibres. */
+export const FIELD_RS = [6, 12, 24, 48, 96, 192, 384];
+/** The two tile sizes the field blends for a lobule wanting `want` px of tile, and how much of the larger (0 … 1): the first size
+ *  at or above it, as the 2D field used alone, and the next one up, coming in over the octave below the first so that it is
+ *  whole just as the first would have given way to it. Both are at or above the size wanted (never shown blurrier), and the
+ *  detail a larger tile draws arrives gradually, never in a step. */
+export function fieldBlend(want, Rs = FIELD_RS) {
+  let a = Rs.findIndex((R) => R >= want);
+  if (a < 0) a = Rs.length - 1;
+  const b = Math.min(a + 1, Rs.length - 1);
+  const mix = b === a ? 0 : Math.min(1, Math.max(0, Math.log2(want / (Rs[a] / 2))));
+  return { a, b, mix };
+}
+
+/** The GPU field's softness, as mip-level biases: [the whole field's (the focus pull as it comes in), where the depth of field
+ *  starts (device px from the landing lobule's centre), where it is full, its bias there]. d: the dive's frame (blur, dof: 0 … 1),
+ *  rd: the lobules' radius on screen, diag: the canvas's diagonal (device px). The landing lobule and its ring of neighbours stay
+ *  sharp; past them the lobules soften with distance, at most about three times the blur a tile's own size gives (1.6 levels). */
+export function fieldDof(d, rd, diag) {
+  const pull = 2.6 * Math.min(1, Math.max(0, d.blur || 0)), k = Math.min(1, Math.max(0, d.dof || 0));
+  const r0 = rd * 2.4, r1 = Math.max(r0 + 1, Math.min(rd * 10, diag * 0.6));
+  return [pull, r0, r1, 1.6 * k];
+}
 
 // Box widths whose three passes approximate a Gaussian of this sigma (each pass a box of radius r).
 function boxRadii(sigma, n = 3) {
@@ -128,4 +171,37 @@ export function bandOutline(c, P, N, Wd, k, kEnd = k) {
   for (let i = n; i >= 0; i--) c.lineTo(P[i][0] - N[i][0] * h(i), P[i][1] - N[i][1] * h(i));
   c.arc(P[0][0], P[0][1], h(0), ang(0) + Math.PI, ang(0), true);
   c.closePath();
+}
+
+// A dive aimed at a station draws the lobule's layers over its whole box (lobule-zoom.js, padBox): the box around the lobule's
+// centre (x, y) out to r, past the screen W × H wherever it reaches beyond it, or null when the lobule is on screen already.
+export function padRect(x, y, r, W, H) {
+  const l = Math.max(0, Math.ceil(r - x)), t = Math.max(0, Math.ceil(r - y)), rr = Math.max(0, Math.ceil(x + r - W)), b = Math.max(0, Math.ceil(y + r - H));
+  if (!(l || t || rr || b)) return null;
+  return { l, t, w: W + l + rr, h: H + t + b };
+}
+// The wide copy's pixel ratio (lobule-zoom.js, buildWide): always the screen's own, unless the whole box would pass the budget for
+// it: WIDE_PX_TOUCH on an iPhone or iPad, where WebKit refuses 2D canvases past about 384 MB in all (30 M px is 120 MB; with the
+// layers, the lobule's bitmap, the field and its tiles the dive stays under 300 MB); WIDE_PX on a computer. Every phone and iPad
+// keeps full detail: the widest iPad dive measured (13", landscape, no slide text) needs 25.3 M px.
+export const WIDE_PX_TOUCH = 30e6, WIDE_PX = 64e6, WIDE_TILE = 8.35e6;
+export function wideDpr(dpr, W, H, touch) {
+  const px = W * H * dpr * dpr, cap = touch ? WIDE_PX_TOUCH : WIDE_PX;
+  return px <= cap ? dpr : dpr * Math.sqrt(cap / px);
+}
+// The copy's tiles, at most WIDE_TILE device pixels each (half the 16.7 M px one canvas may hold), cut on whole device pixels:
+// { x, y, w, h } in CSS px within the box.
+export function wideTiles(W, H, dpr) {
+  const DW = Math.round(W * dpr), DH = Math.round(H * dpr);
+  for (let n = Math.max(1, Math.ceil((DW * DH) / WIDE_TILE)); ; n++) {
+    const cols = Math.max(1, Math.min(n, Math.round(Math.sqrt((n * DW) / DH)))), rows = Math.ceil(n / cols);
+    const tw = Math.ceil(DW / cols), th = Math.ceil(DH / rows);
+    if (tw * th > WIDE_TILE) continue;
+    const out = [];
+    for (let j = 0; j < rows; j++) for (let i = 0; i < cols; i++) {
+      const x0 = i * tw, y0 = j * th, x1 = Math.min(DW, x0 + tw), y1 = Math.min(DH, y0 + th);
+      if (x1 > x0 && y1 > y0) out.push({ x: x0 / dpr, y: y0 / dpr, w: (x1 - x0) / dpr, h: (y1 - y0) / dpr });
+    }
+    return out;
+  }
 }

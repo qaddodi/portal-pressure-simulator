@@ -2,7 +2,7 @@
 
 import { PORTOSYSTEMIC_EDGES, SPLANCHNIC_ARTERIES, EDGES } from './topology.js?v=4044766e96';
 import { clamp } from './physiology.js?v=6fc3ec393a';
-import { tenthGap } from './gap.js?v=3a5947c552';
+import { tenthGap } from './gap.js?v=3aabfbb29b';
 
 const STENTS = new Set(['TIPS', 'DIPS']);   // the stents from the portal side: their flow is part arterial (see computeMetrics)
 
@@ -50,7 +50,7 @@ export function computeMetrics(eng) {
   for (const e of EDGES) if (e.kind === 'collateral') collateralFlows[e.id] = qf(e.id);
   const shuntFraction = clamp(shunted / Math.max(1e-6, splIn + apIn), 0, 1);
 
-  const hepFlow = qf('SIN_RR') + qf('SIN_LL') + qf('CAUD') * 0;
+  const hepFlow = qf('SIN_RR') + qf('SIN_LL');
   const arterialIn = qf('A_HR') + qf('A_HL');
 
   const varE = eng.varix('VAR', P), varG = eng.varix('GV', P);
@@ -105,7 +105,7 @@ export function computeMetrics(eng) {
     splanchnicIn: splIn * 0.06,
     shuntFraction,
     collateralFlows,
-    varix: { ...varE, d: 2 * varE.r, grade: varixGrade(2 * varE.r), redWale: varE.ratio > 0.7 },
+    varix: { ...varE, d: 2 * varE.r, grade: varixGrade(2 * varE.r), redWale: varE.ratio > 0.7, ratioMean: eng.vitM?.[4] ?? varE.ratio },
     gastricVarix: noGRS ? { ...varG, d: 0, grade: varixGrade(0), redWale: false } : { ...varG, d: 2 * varG.r, grade: varixGrade(2 * varG.r), redWale: varG.ratio > 0.7 },
     ascites: { volume: eng.slow.ascites, ratePerDay: st.net * 1440, iap: eng.iap ?? 5, ...asc, highProtein: st.highProtein, totalProtein: st.ascTP, albumin: st.ascAlb, saag: st.saag, lymphProt: st.prot.lymphProt, lymphSigma: st.prot.sigma, hepLymph: st.hep, splLymph: st.spl, lymphCap: eng.slow.lymphCap },
     spleen: eng.params.splenicRx === 2 ? { length: 0, platelets: 380 } : { length: eng.slow.spleen, platelets: clamp(250 * Math.pow(11 / eng.slow.spleen, 3), 25, 400) },

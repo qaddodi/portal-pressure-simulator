@@ -13,7 +13,7 @@ export const CIRCULATION = {
   ],
   slides: [
     {
-      id: 'inflow', lens: 'origin', preset: 'healthy', cam: 'portal', labels: ['SMV', 'SV', 'CONF', 'IMV'], tint: ['imv'], terms: ['sv', 'smv', 'pv'], glow: [{ id: 'imv', soft: true }, { id: 'lgv', soft: true }], data: 'tiles', tiles: ['pvFlow', 'pv'],
+      id: 'inflow', lens: 'origin', preset: 'healthy', cam: 'portal', labels: ['SMV', 'SV', 'CONF', 'IMV'], tint: ['imv'], terms: ['sv', 'smv', 'pv'], glow: [{ id: 'imv', soft: true }, { id: 'lgv', soft: true }], tool: { kind: 'flows', of: 'inflow' }, data: 'tiles', tiles: ['pvFlow', 'pv'],
       kicker: 'The portal circulation', title: 'Portal blood comes from the gut and spleen',
       line: 'The splenic and superior mesenteric veins join behind the pancreas to form the portal vein, which brings the liver about three quarters of its blood. Colored by origin, each vein keeps its source’s color.',
       notes: 'Portal blood drains the gut from the lower esophagus to the upper rectum, and the spleen, pancreas and gallbladder. It carries absorbed nutrients, toxins and bacterial products to the liver first. The inferior mesenteric vein most often joins the splenic vein. Portal flow is about 1 to 1.2 L a minute, three quarters of the liver\'s blood; the hepatic artery brings the rest, and about half of the liver\'s oxygen. On the figure, colored by origin, each vein keeps its source’s color, and the colors run side by side into the portal vein.',
@@ -21,24 +21,24 @@ export const CIRCULATION = {
     },
     {
       id: 'lenses', cam: 'fit', labels: ['CONF', 'RA'],
-      compare: [{ label: 'Pressure', lens: 'pressure', own: true }, { label: 'Flow', lens: 'flow' }, { label: 'Direction', lens: 'direction' }, { label: 'Origin', lens: 'origin' }],
-      kicker: 'The portal circulation', title: 'One patient, four ways to color the vessels',
-      line: 'Each button colors the same vessels by a different question: how high the pressure is, how much blood flows, which way it goes, and where it comes from. Later slides pick the coloring that answers their question.',
-      notes: 'Switch through the four colorings on this healthy patient. Pressure falls from the gut to the heart. Flow is largest in the portal vein and the IVC. Direction is uniform: every vein runs toward the heart, and the portal vein runs toward the liver. Origin follows each source: SMV, IMV and splenic blood run side by side into the portal vein and mix with arterial blood in the liver. Other decks switch to the coloring that shows their point, and the key under the line says which.',
+      compare: [{ label: 'Pressure', lens: 'pressure', own: true, short: 'Press.' }, { label: 'Flow', lens: 'flow' }, { label: 'Direction', lens: 'direction', short: 'Dir.' }, { label: 'Origin', lens: 'origin' }, { label: 'Oxygen', lens: 'oxygen' }],
+      kicker: 'The portal circulation', title: 'One patient, five ways to color the vessels',
+      line: 'Each button colors the same vessels by a different question: how high the pressure is, how much blood flows, which way it goes, where it comes from, and how much oxygen it carries. Later slides pick the coloring that answers their question.',
+      notes: 'Switch through the five colorings on this healthy patient. Pressure falls from the gut to the heart. Flow is largest in the portal vein and the IVC. Direction is uniform: every vein runs toward the heart, and the portal vein runs toward the liver. Origin follows each source: SMV, IMV and splenic blood run side by side into the portal vein and mix with arterial blood in the liver. Oxygen runs from arterial red through the slightly darker portal blood to the blue of the hepatic veins, after the liver cells have taken their share. Other decks switch to the coloring that shows their point, and the key under the line says which.',
       ask: ['Which coloring would show a portal vein flowing away from the liver?', 'Direction: the reversed vein changes color.'],
     },
     {
-      id: 'series', cam: 'route', labels: ['CONF', 'SIN_R', 'RHV', 'RA'], terms: { sinusoids: 'sin', heart: 'heart' }, glow: ['smv', 'sin', { id: 'sv', soft: true }, { id: 'lgv', soft: true }, { id: 'imv', soft: true }],
+      id: 'series', cam: [380, 30, 1010, 745], scales: { lobule: { glow: ['lobule:sinusoid'] }, sinusoid: {} }, labels: ['CONF', 'SIN_R', 'RHV', 'RA'], terms: { sinusoids: 'sin', heart: 'heart' }, glow: [['V_INT', 'V_SPL', 'V_IMV'], ['SIN_RR', 'SIN_LL']], glowSeq: 550, steps: true, tool: { kind: 'profile' },   // (1: the gut's and spleen's veins, the first bed; 2: both lobes' sinusoids, the second)
       kicker: 'The portal circulation', title: 'Gut blood crosses two capillary beds in series',
       line: 'The first bed is the capillaries of the gut and spleen. The second is the liver\'s sinusoids. Because they are in series, resistance in the liver or between it and the heart raises pressure in every vein upstream.',
       notes: 'A portal system is a set of veins running between two capillary beds. The first bed is in the gut and spleen, the second is the hepatic sinusoids. Because the beds are in series, anything that raises resistance in the liver, or beyond it, raises the pressure in every vein upstream: the portal vein, the splenic vein and the veins of the gut.',
       ask: ['What makes a circulation a portal system?', 'Blood passes through two capillary beds in series before it returns to the heart.'],
     },
     {
-      id: 'ladder', lens: 'drop', cam: 'route', labels: ['CONF', 'SIN_R', 'RHV', 'RA'], data: 'ladder', key: ['hvpg', 'ppg'],
+      id: 'ladder', lens: 'drop', cam: 'route', scales: { lobule: { glow: ['lobule:triad', 'lobule:central'] } }, labels: ['CONF', 'SIN_R', 'RHV', 'RA'], tool: { kind: 'profile' }, key: ['hvpg', 'ppg'],
       kicker: 'The portal circulation', title: 'Normal pressures from the portal vein to the right atrium',
       line: 'About {pv} in the [portal vein](pv) and {ra} in the [right atrium](ra). Healthy [sinusoids](sin) barely resist, so the portal pressure gradient is only {ppg}. Colored by pressure drop, every vein stays pale.',
-      notes: 'The ladder reads four stations: the portal vein, the wedged hepatic vein (which reads the sinusoids), the free hepatic vein and the right atrium. The dashed line is the healthy reference, used on every slide. In health the whole fall from the portal vein to the IVC, the portal pressure gradient (PPG), is 5 mmHg or less, and the hepatic venous pressure gradient (HVPG), the fall across the sinusoids, is 1 to 5 mmHg. The wedge is a balloon reading of the sinusoids; the HVPG and PPG deck explains it.',
+      notes: 'The ladder runs from the gut to the right atrium, through the portal vein, the liver\'s three stations and the hepatic vein; the wedged hepatic vein reads the sinusoids. The dashed line is the healthy reference, used on every slide. In health the whole fall from the portal vein to the IVC, the portal pressure gradient (PPG), is 5 mmHg or less, and the hepatic venous pressure gradient (HVPG), the fall across the sinusoids, is 1 to 5 mmHg. The wedge is a balloon reading of the sinusoids; the HVPG and PPG deck explains it.',
       ask: ['What is the normal portal pressure gradient?', '5 mmHg or less, because healthy sinusoids barely resist the flow.'],
     },
     {
@@ -70,16 +70,15 @@ export const CIRCULATION = {
       ask: ['Where does blood go after the central vein?', 'Into the hepatic veins, the IVC and the right atrium.'],
     },
     {
-      id: 'flow', lens: 'flow', terms: ['sin'], days: 8, ramp: { splanchnicTone: [1, 0.72] }, lapse: { seconds: 6, from: 'Fasting', to: 'After a meal' }, cam: 'portal', clear: true, labels: ['SMV', 'CONF'], glow: ['smv', 'sv', { id: 'imv', soft: true }, { id: 'lgv', soft: true }], tool: { kind: 'flowtime' },
+      id: 'flow', lens: 'flow', terms: ['sin'], days: 8, ramp: { meal: [0, 1] }, lapse: { seconds: 6, from: 'Fasting', to: 'After a meal' }, lapseGlow: ['bowel'], compare: [{ label: 'Flow', lens: 'flow', own: true }, { label: 'Oxygen', lens: 'oxygen' }], cam: 'gut', clear: true, labels: ['SMV', 'CONF'], glow: ['smv', 'sv', { id: 'imv', soft: true }, { id: 'lgv', soft: true }], tool: { kind: 'flowtime' },
       kicker: 'Hemodynamics', title: 'After a meal flow rises, but the pressure barely moves',
       eq: ['<mrow><mi mathvariant="normal">Δ</mi><mi>P</mi></mrow>' + mo('=') + mi('Q') + mo('×') + mi('R'), 'ΔP pressure drop across the liver · Q portal flow · R hepatic resistance'],
-      line: 'Pressure equals flow times resistance. Normal sinusoids have so little resistance that nearly doubling the flow adds almost no pressure. Colored by flow, the gut veins and the portal vein deepen as the flow rises.',
-      caveat: 'The model shows a smaller rise in flow, about a quarter.',
-      notes: 'Watch the portal flow tile and the vessels speed up as the meal is digested, while the portal pressure rises by under a millimeter. Pressure is flow times resistance, and normal sinusoids have very little resistance, so even a large rise in flow adds little pressure. In cirrhosis the resistance is high, so the same meal raises the HVPG by a couple of mmHg; this is why flow matters most once the resistance has risen; in most portal hypertension the resistance rises first. Later the splanchnic arterioles dilate for good and the extra inflow keeps the pressure high even after collaterals open. Treatments work on one side or the other: beta-blockers and vasoactive drugs such as octreotide cut inflow; TIPS goes around the resistance.',
+      line: 'Increasing flow by half adds little pressure because healthy sinusoids offer little resistance. In Flow, gut veins darken as flow rises; in Oxygen, gut venous blood keeps most of its oxygen.',
+      notes: 'Watch the portal flow tile and the vessels speed up as the meal is digested, while the portal pressure rises by only just over 1 mmHg. Pressure is flow times resistance, and normal sinusoids have very little resistance, so even a large rise in flow adds little pressure. In cirrhosis the resistance is high, so the same meal raises the HVPG by about 15 to 25%; this is why flow matters most once the resistance has risen; in most portal hypertension the resistance rises first. Later the splanchnic arterioles dilate for good and the extra inflow keeps the pressure high even after collaterals open. Treatments work on one side or the other: beta-blockers and vasoactive drugs such as octreotide cut inflow; TIPS goes around the resistance. Colored by oxygen, the gut veins stay close to arterial red: the gut takes only a little of its blood\'s oxygen, so portal blood still carries about 85%, and after a meal it brings the liver a larger share of its oxygen while the hepatic artery eases back.',
       ask: ['What does the meal tell you about a healthy liver?', 'That its resistance is very low: a large rise in flow adds almost no pressure.'],
     },
     {
-      id: 'define', terms: ['varix'], preset: 'csph', cam: 'route', labels: ['CONF', 'SIN_R', 'RHV', 'RA'], data: 'ladder', key: ['hvpg', 'ppg'],
+      id: 'define', terms: ['varix'], preset: 'csph', cam: 'route', labels: ['CONF', 'SIN_R', 'RHV', 'RA'], tool: { kind: 'profile' }, key: ['hvpg', 'ppg'],
       kicker: 'Definition', site: 'sin', title: 'Portal hypertension is a gradient above 5 mmHg',
       line: 'In cirrhosis it is measured as the HVPG, and in this case it is {hvpg}. An HVPG of 6 to 9 mmHg is subclinical. From 10 mmHg, varices and ascites become possible, and the risk rises with the gradient.',
       notes: 'Portal hypertension is a portal pressure gradient above 5 mmHg; in cirrhosis it is measured as the HVPG. An HVPG of 6 to 9 mmHg is subclinical. 10 mmHg or more is clinically significant portal hypertension (CSPH): from there varices and decompensation (ascites, variceal bleeding, encephalopathy) become possible, and the risk rises with the gradient; from about 12 mmHg the risk of variceal bleeding rises. In this cirrhotic liver the largest pressure drop is across the sinusoids.',

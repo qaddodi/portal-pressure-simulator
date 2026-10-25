@@ -36,7 +36,7 @@ jobs:
     concurrency:
       group: validate-${{ github.ref }}
       cancel-in-progress: ${{ github.ref_name != 'main' }}
-    timeout-minutes: 5
+    timeout-minutes: 15   # (lint and tests take about 2 minutes; the rest is headroom for a slow or stalled runner)
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -44,7 +44,7 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      # The unit tests keep every deck's slide states in node_modules/.cache (tests/deck-states.js), keyed by a hash of src/;
+      # The unit tests keep every deck's slide states in node_modules/.cache (tests/deck-states.js), keyed by a hash of the engine, the worker and the decks (tests/deck-states.js STATE_SOURCES);
       # restored after npm ci, which empties node_modules. A miss or a failed restore only warns and the tests compute afresh.
       - name: Restore saved deck states
         uses: actions/cache@v4
@@ -54,7 +54,8 @@ jobs:
           SEGMENT_DOWNLOAD_TIMEOUT_MINS: 1
         with:
           path: node_modules/.cache/pps-deck-states
-          key: deck-states-${{ hashFiles('src/**') }}
+          key: deck-states-${{ hashFiles('src/engine/**', 'src/worker-core.js', 'src/worker.js', 'src/ui/decks/**') }}
+          restore-keys: deck-states-
       - name: Lint and unit tests
         run: npm run lint && npm test
 
@@ -116,8 +117,8 @@ jobs:
           sed -i 's|<head>|<head>\n  <meta name="robots" content="noindex" />|' site/preview/index.html
           printf 'branch: %s\ncommit: %s\nbuilt:  %s\n' "$BRANCH" "$SHA" "$(date -u +%FT%TZ)" > site/preview/preview-info.txt
           # /preview/ always wears the PREVIEW badge so it is never mistaken for the live site; after a
-          # merge it is main's build and the badge says so ("PREVIEW · main abc1234").
-          LABEL="${SHA:0:7}"
+          # merge it is main's build and the badge says so ("PREVIEW · main abc12345").
+          LABEL="${SHA:0:8}"
           if [ "$BRANCH" = "main" ]; then LABEL="main $LABEL"; fi
           node preview/scripts/preview-badge.mjs site/preview "$LABEL"
           # One small page per case under c/, so shared links preview with the case title (scripts/share-pages.mjs).

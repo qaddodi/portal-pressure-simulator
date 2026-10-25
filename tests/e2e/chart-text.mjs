@@ -51,6 +51,14 @@ export function chartClashes() {
       const y = side === 'Top' ? r.top : r.bottom; lines.push({ r: { left: r.left, right: r.right, top: y - 0.5, bottom: y + 0.5 }, label: `${side.toLowerCase()} border of ${el.tagName.toLowerCase()}.${el.className}` });
     }
   }
+  // The six-case grid's first row: the site and the cause stay whole inside the cell's inner edge (its padding in), the cause beside the
+  // site or under it (Sites 10: "Sinusoidal obstruction syndrome" ran past the card's right edge; nothing here measured it).
+  for (const row of root.querySelectorAll('.pz-cell-k')) {
+    const cell = row.closest('.pz-cell'), cr = cell.getBoundingClientRect();
+    if (!cr.width || !shown(row)) continue;
+    const zoom = cr.width / (cell.offsetWidth || cr.width), inner = cr.right - parseFloat(getComputedStyle(cell).paddingRight) * zoom;
+    for (const el of row.children) { const q = el.getBoundingClientRect(); if (q.width && q.right > inner + 0.5) out.push(`"${el.textContent.trim().slice(0, 24)}" runs ${Math.round(q.right - inner)} px past its card's inner edge`); }
+  }
   const hit = (a, b, m = 0.5) => Math.min(a.right, b.right) - Math.max(a.left, b.left) > m && Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top) > m;
   // (text is trimmed to its ink: a line box carries leading above and below the letters)
   const ink = (r) => { const pad = r.height * 0.18; return { left: r.left, right: r.right, top: r.top + pad, bottom: r.bottom - pad }; };

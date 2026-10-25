@@ -6,8 +6,8 @@ import {
   clamp, tubeResistanceFactor, tubeArea, volumeOf, ptmOf, complianceAt, stenosisFactor,
   heartFlow, fillShape, systoleShape, raWave, iapFromAscites, makeRng,
 } from './physiology.js?v=6fc3ec393a';
-import { defaultParams, DRUGS, PRESETS, deepMerge } from './scenario.js?v=1ee7733788';
-import { detectEvents } from './events.js?v=582dd803a9';
+import { defaultParams, DRUGS, PRESETS, deepMerge, MEAL_TONE, MEAL_BLUNT } from './scenario.js?v=d7d3ea5b70';
+import { detectEvents } from './events.js?v=747cdbed9a';
 
 const KNEE = { artery: [1e9, 1], bed: [14, 10], portal: [14, 10], vein: [14, 6], hepvein: [10, 3], heart: [10, 4], liver: [9, 2], wedge: [9, 5], varix: [30, 10] };
 const KD = { vein: 0.03, diode: 0.03, collateral: 0.08 };
@@ -42,6 +42,15 @@ const pinchResistance = (wall, kq, s) => {
   return wall * PINCH * (stenosisFactor(s) - 1) + (kq / 1.5) * (1 / a - 1) * (1 / a - 1);
 };
 const BLOOD_BASE = 5000, HCT_BASE = 0.42;
+// How long the volumes a hidden relaxation moved take to come across to the live model (s): the worker's tick.
+const CARRY_S = 0.033;
+// How far (mmHg) below the outside pressure a vein's downstream end goes before its flow is wholly the collapsed vein's.
+const WF_BAND = 1;
+// A live change's numbers (a narrowing, a stent's width, a leak) ease in with this time constant (s) of model time, so a
+// slider that sends a new value every frame moves the model, and every Doppler trace, without a step at each frame.
+export const PARAM_EASE_S = 0.15;
+// Numbers that are choices, not amounts: they change at once.
+const NO_EASE = new Set(['seed', 'splenicRx', 'customShunts', 'catheter']);
 const HR_REST = 60;   // resting heart rate (/min); the contractility reference is scaled to it so cardiac output is unchanged
 // Compensation for blood loss, calibrated to the ATLS hemorrhage classes (ATLS 10th ed., 2018): under 15 % lost the
 // vital signs barely change, 15–30 % raises the heart rate with the pressure held, 30–40 % brings hypotension, and over
@@ -67,7 +76,12 @@ const sieve = (sig, jv, ps) => (1 - sig) / (1 - sig * Math.exp(-Math.max(0, jv) 
 /** Splenic artery resistance multiplier: none, partial embolization (about 60 % infarct), splenectomy (no inflow). */
 const SPLENIC_RX_R = [1, 2.5, 80];
 /** Systemic share of the chronic splanchnic vasodilation (fraction of the splanchnic tone drop). */
-const SYS_DILATION = 0.5;
+const SYS_DILATION = 1.0;
+// The arterial pressure the baroreflex defends, and how far it gives way to the chronic vasodilation of portal hypertension:
+// the reflex is reset to the lower pressure of the hyperdynamic circulation (MAP in the low 80s in decompensated cirrhosis,
+// about 88 compensated; AASLD 2024 portal hypertension guidance, hyperdynamic circulation) rather than restoring 93 mmHg
+// whatever the disease. Bleeds, fluids and drugs move the pressure from that lower baseline.
+const MAP_SET = 93, MAP_DROP = 14;
 // Pregnancy (params.gestation, weeks; 0 = not pregnant, and then none of this applies). At its full extent, from about
 // 30 weeks: splanchnic and systemic arteriolar tone fall by a quarter and 30 %, the heart pumps 20 % harder and beats
 // 15 /min faster (the rate only, as the chronic drive in cirrhosis), and blood volume grows by about 1.8 L (30–50 % in
@@ -98,6 +112,8 @@ export class Engine {
     this.Cn = new Float64Array(this.N);
     this.wf = new Int8Array(this.E);     // waterfall flag: +1 f→t, −1 t→f
     this.wfx = new Float64Array(this.E); // waterfall external pressure
+    this.wfw = new Float64Array(this.E); // near the collapse point: the collapsed share of the flow (see computeG)
+    this.wfo = new Float64Array(this.E); // and the open vein's conductance over the collapsed one's
     this.vx = new Float64Array(this.E);  // a vein's external pressure (set by computeG)
     this.wfPrev = new Int8Array(this.E); // the waterfall state of the step before
 
@@ -135,6 +151,7 @@ export class Engine {
     this.baro = 1; this.MAPf = 93; this.habr = 1;
     // Display filters start over from the new state (a non-finite run must not leak into the next patient).
     this.Pf = this.Qf = null; this.COf = this.pvQm = this.pvVm = undefined; this.vitM = null;
+    this._hiddenOn = false; this._carry = null; this._ease = null;
     this.hr = HR_REST;
     this.slow = {
       d: Object.fromEntries(this.collaterals.map((k) => [EDGES[k].id, dMinOf(EDGES[k])])),
@@ -186,7 +203,49 @@ export class Engine {
   setParams(p) {
     const prev = this.params;
     this.params = structuredClone(p);
+    this._ease = null;
     if (prev.seed !== p.seed) this.rng = makeRng(p.seed);
+  }
+  /** setParams with the numbers that changed eased in over about PARAM_EASE_S of model time (switches and choices at once).
+   *  A number missing on one side (a narrowing added or taken away) counts as 0 there. */
+  easeParams(p) {
+    const from = this.params;
+    this.setParams(p);
+    const legs = [];
+    const walk = (a, b, path) => {
+      for (const k of new Set([...Object.keys(a || {}), ...Object.keys(b || {})])) {
+        if (NO_EASE.has(k)) continue;
+        const x = a?.[k], y = b?.[k];
+        if (y && typeof y === 'object') { if (!x || typeof x === 'object') walk(x, y, [...path, k]); continue; }
+        if (!(typeof x === 'number' || x === undefined) || !(typeof y === 'number' || y === undefined) || (x ?? 0) === (y ?? 0)) continue;
+        legs.push({ path, key: k, from: x ?? 0, to: y ?? 0, drop: y === undefined });
+      }
+    };
+    walk(from, this.params, []);
+    if (!legs.length) return;
+    this._ease = { legs, left: 1, to: structuredClone(this.params) };
+    this.easeStep(0);
+  }
+  easing() { return !!this._ease; }
+  /** The params a live change is easing toward (this.params once it has landed). */
+  paramsTarget() {
+    if (!this._ease) return this.params;
+    const p = structuredClone(this.params);
+    for (const l of this._ease.legs) { const o = l.path.reduce((q, k) => q[k], p); if (l.drop) delete o[l.key]; else o[l.key] = l.to; }
+    return p;
+  }
+  easeStep(dt) {
+    const e = this._ease;
+    if (!e) return;
+    e.left *= 1 - Math.min(1, dt / PARAM_EASE_S);
+    const done = e.left < 1e-3;
+    for (const l of e.legs) {
+      const o = l.path.reduce((q, k) => q?.[k], this.params);
+      if (!o) continue;
+      if (done && l.drop) delete o[l.key];
+      else o[l.key] = done ? l.to : l.to + (l.from - l.to) * e.left;
+    }
+    if (done) this._ease = null;
   }
 
   /** Load a preset: healthy reset, apply params, run the disease clock for its chronic days. */
@@ -227,11 +286,11 @@ export class Engine {
 
   // ───────────────────────── derived params ─────────────────────────
   drugEffects() {
-    const e = { hr: 1, contr: 1, spl: 1, sys: 1, sin: 1, baroHr: 1 };
+    const e = { hr: 1, contr: 1, spl: 1, sys: 1, sin: 1, baroHr: 1, baroSlow: 1 };
     for (const [k, on] of Object.entries(this.params.drugs)) {
       if (!on || !DRUGS[k]) continue;
       const d = DRUGS[k];
-      e.hr *= d.hr; e.contr *= d.contr; e.spl *= d.spl; e.sys *= d.sys; e.sin *= d.sin; e.baroHr = Math.min(e.baroHr, d.baroHr);
+      e.hr *= d.hr; e.contr *= d.contr; e.spl *= d.spl; e.sys *= d.sys; e.sin *= d.sin; e.baroHr = Math.min(e.baroHr, d.baroHr); e.baroSlow = Math.min(e.baroSlow, d.baroSlow ?? 1);
     }
     return e;
   }
@@ -272,7 +331,8 @@ export class Engine {
     // A reflex speeding the heart adds beats to the resting rate rather than scaling it, and cirrhosis blunts it (lower
     // baroreflex sensitivity and chronotropic incompetence, Møller & Henriksen 2010, Heart 96:1088), by up to `chrono`
     // with the vasodilation; slowing (a high pressure) scales the rate as before.
-    const reflex = (0.9 * (b - 1) + vol) * d.baroHr;
+    // (A drug can blunt the slowing alone, `baroSlow`: terlipressin's rise in pressure slows the heart less than the reflex would.)
+    const reflex0 = 0.9 * (b - 1) + vol, reflex = reflex0 * d.baroHr * (reflex0 < 0 ? d.baroSlow : 1);
     const blunt = 1 - RESERVOIR.chrono * clamp((1 - this.slow.splTone) / 0.45, 0, 1);
     // Pregnancy adds beats to the resting rate and strengthens the heart; like the chronic drive, the beats it adds do not
     // add pump capacity. (At 0 weeks `rest` is the rate as before: HR_REST · symp.)
@@ -329,7 +389,12 @@ export class Engine {
     const p = this.params, s = p.cirrhosis, d = this._drug;
     const visc = this.viscosity();
     const pg = pregnancyLevel(p.gestation);
-    const spl = p.splanchnicTone * (1 - PREGNANCY.spl * pg) * this.slow.splTone * d.spl * Math.pow(this.baro, 0.6);
+    // (A meal dilates the gut arterioles less the more cirrhosis has dilated them already: scenario.js, MEAL_TONE.)
+    const meal = 1 - (1 - MEAL_TONE) * (p.meal || 0) * clamp(1 - MEAL_BLUNT * (1 - this.slow.splTone), 0, 1);
+    // (The lower arterial pressure of the hyperdynamic circulation (mapSetOf) drives the gut arteries less: their tone falls with
+    // it, a little more than in proportion, so the splanchnic inflow, the portal pressures and the slow portal vein of a disease
+    // stay those tuned at 93 mmHg: decompensated cirrhosis 0.76 L/min and 14.8 cm/s against 0.74 and 14.2 before.)
+    const spl = p.splanchnicTone * meal * (1 - PREGNANCY.spl * pg) * this.slow.splTone * d.spl * Math.pow(this.baro, 0.6) * (this.mapSetOf() / MAP_SET) ** 1.25;
     // Chronic portal hypertension dilates systemic arterioles too (nitric oxide spill-over), not only the
     // splanchnic bed: SVR falls and, with the expanded plasma volume, cardiac output rises (hyperdynamic circulation).
     const sys = p.systemicTone * (1 - PREGNANCY.sys * pg) * d.sys * this.baro * (1 - SYS_DILATION * (1 - this.slow.splTone));
@@ -359,9 +424,16 @@ export class Engine {
           const up = P[f] >= P[t] ? f : t, dn = up === f ? t : f;
           // Starling resistor: downstream end collapsed → flow set by upstream − external pressure.
           if (P[dn] - x < 0 && P[up] - x > 0.5) {
-            R *= tubeResistanceFactor(P[up] - x, P[up] - x, this.Pbase[up], this.Pbase[up], KD[e.kind] ?? 0.03);
+            const kd = KD[e.kind] ?? 0.03, fc = tubeResistanceFactor(P[up] - x, P[up] - x, this.Pbase[up], this.Pbase[up], kd);
+            R *= fc;
             this.wf[k] = up === f ? 1 : -1;
             this.wfx[k] = x;
+            // Within WF_BAND of the collapse point the open vein's flow hands over to the collapsed one's gradually (wfw: the
+            // collapsed share; wfo: the open vein's conductance over the collapsed one's), so the flow never steps as the
+            // downstream pressure crosses the outside pressure (it jumped tenfold there, every beat at an IVC web's middle).
+            const w = Math.min(1, (x - P[dn]) / WF_BAND);
+            this.wfw[k] = w;
+            if (w < 1) this.wfo[k] = fc / tubeResistanceFactor(P[f] - x, P[t] - x, this.Pbase[f], this.Pbase[t], kd);
           } else {
             R *= tubeResistanceFactor(P[f] - x, P[t] - x, this.Pbase[f], this.Pbase[t], KD[e.kind] ?? 0.03);
           }
@@ -431,7 +503,7 @@ export class Engine {
   step(dt) {
     const N = this.N, A = this.A, b = this.b, P = this.P, p = this.params;
     this._drug = this.drugEffects();
-    if (!this._sub) this.pregnancyVolume(dt);
+    if (!this._sub) { this.easeStep(dt); this.carryVolume(dt); this.pregnancyVolume(dt); }
     const hs = this.heartState();
     this.hr = hs.hr;
     this.cyc = (this.cyc || 0) + dt * hs.hr / 60;
@@ -487,9 +559,10 @@ export class Engine {
         if (shut[k]) g *= 0.002;
         this.G[k] = g;
         if (this.wf[k]) {
-          const up = this.wf[k] > 0 ? f : t, dn = up === f ? t : f, x = this.wfx[k];
-          A[up * N + up] += g; b[up] += g * x;
-          A[dn * N + up] -= g; b[dn] -= g * x;
+          const up = this.wf[k] > 0 ? f : t, dn = up === f ? t : f, x = this.wfx[k], w = this.wfw[k], gc = g * w, go = g * (1 - w) * this.wfo[k];
+          A[up * N + up] += gc; b[up] += gc * x;
+          A[dn * N + up] -= gc; b[dn] -= gc * x;
+          if (go > 0) { A[f * N + f] += go; A[t * N + t] += go; A[f * N + t] -= go; A[t * N + f] -= go; }
           continue;
         }
         A[f * N + f] += g; A[t * N + t] += g;
@@ -534,8 +607,11 @@ export class Engine {
       const g = this.G[k];
       const f = this.edgeF[k], t = this.edgeT[k];
       let q;
-      if (this.wf[k]) q = this.wf[k] > 0 ? g * (Pn[f] - this.wfx[k]) : -g * (Pn[t] - this.wfx[k]);
-      else q = g * (Pn[f] - Pn[t]);
+      if (this.wf[k]) {
+        const w = this.wfw[k];
+        q = (this.wf[k] > 0 ? g * (Pn[f] - this.wfx[k]) : -g * (Pn[t] - this.wfx[k])) * w;
+        if (w < 1) q += g * (1 - w) * this.wfo[k] * (Pn[f] - Pn[t]);
+      } else q = g * (Pn[f] - Pn[t]);
       this.Q[k] = q;
       net[f] -= q; net[t] += q;
     }
@@ -611,11 +687,14 @@ export class Engine {
     // cardiac output 5.6 to 7.1 and the MAP 91 to 96 in decompensated cirrhosis, and a screen's frames sample that too
     // sparsely to average it out themselves.
     // (Two 4 s stages: one leaves the output wandering ±0.07 L/min, right across its 6.5 cut-off in that patient.)
-    const vNow = [this.COf * 0.06, this.MAPf, this.hr, this.P[this.ni.RA]], av4 = Math.min(1, dt / 4);
+    // (The fifth is the esophageal varix's wall index: the breath swings the pressure around it by a third in schistosomiasis,
+    // so the red-wale flag (events.js) reads this mean, as the vitals' flags do, and fires once.)
+    const vNow = [this.COf * 0.06, this.MAPf, this.hr, this.P[this.ni.RA], this.refP ? this.varix('VAR').ratio : NaN], av4 = Math.min(1, dt / 4);
     if (!this.vitM || !this.vitM.every(Number.isFinite)) { this.vitM = vNow; this.vitM1 = [...vNow]; }
-    else for (let i = 0; i < 4; i++) { this.vitM1[i] += (vNow[i] - this.vitM1[i]) * av4; this.vitM[i] += (this.vitM1[i] - this.vitM[i]) * av4; }
+    else for (let i = 0; i < vNow.length; i++) { this.vitM1[i] += (vNow[i] - this.vitM1[i]) * av4; this.vitM[i] += (this.vitM1[i] - this.vitM[i]) * av4; }
     const def = this.volumeDeficit();
-    const bt = clamp(1 + 4 * (93 - this.MAPf) / 93, 0.5, 2.5);
+    const mapSet = this.mapSetOf();
+    const bt = clamp(1 + 4 * (mapSet - this.MAPf) / mapSet, 0.5, 2.5);
     this.baro += (bt - this.baro) * Math.min(0.25, dt / (15 + dt));
     const Qp = this.portalInflow();
     const kh = 2.0 * (1 - 0.5 * p.cirrhosis) * p.habrStrength;
@@ -628,11 +707,7 @@ export class Engine {
     const ds = (target - (this.blood.shift || 0)) * Math.min(1, dt / R.tau);
     if (Math.abs(ds) > 1e-9) {
       this.blood.shift = (this.blood.shift || 0) + ds;
-      for (const id of ['UPPV', 'LOWV']) {
-        const i = this.ni[id], [Pk, Ps] = this.nodeK[i];
-        this.V[i] += ds / 2;
-        this.P[i] = this.ext[i] + ptmOf(this.V[i], this.nodeC[i], Pk, Ps);
-      }
+      for (const id of ['UPPV', 'LOWV']) this.shiftVolume(id, ds / 2);
     }
   }
 
@@ -705,6 +780,69 @@ export class Engine {
     const q = this.quiet, t = this.t, cyc = this.cyc; this.quiet = true;
     for (let i = 0; i < n; i++) this.step(dt);
     this.quiet = q; this.t = t; this.cyc = cyc;
+  }
+  /** relax() on a hidden copy of this model, this one taking only how far the copy moved: its volumes shifted by as much
+   *  as the copy's, its slow reflexes and averaged readings set to the copy's. A live change (a slider dragged, a button)
+   *  settles in about a second while this model's beat runs on untouched. (Relaxing this model itself, once a tick,
+   *  flattens its beat every time and the restart jolts the flow: a comb of spikes in the Doppler for as long as a slider
+   *  moves.) The copy is taken on the first call and followed until relaxDone(). It neither bleeds nor runs infusions:
+   *  this model does those at the bedside clock. */
+  relaxHidden() {
+    let h = this._hidden;
+    if (!this._hiddenOn) {
+      h = this._hidden ??= new Engine({ params: this.params });
+      h.restore(this.snapshot());
+      // (Restoring starts the copy's averages over from this instant of the beat: it takes this model's own instead.)
+      h.Pf = Float64Array.from(this.Pf || this.P); h.Qf = Float64Array.from(this.Qf || this.Q);
+      Object.assign(h, { COf: this.COf, pvQm: this.pvQm, pvVm: this.pvVm, vitM: this.vitM && [...this.vitM], vitM1: this.vitM1 && [...this.vitM1] });
+      h._paramsOf = null;
+      this._hiddenOn = true;
+    }
+    // (The copy takes a change easing in on this model at once: it is where the change settles.)
+    const to = this._ease?.to ?? this.params;
+    if (h._paramsOf !== to) { h.setParams(to); h._paramsOf = to; }
+    // The copy holds this model's blood (what bled or was given since the last call, and the accounts the reflexes read).
+    let dv = 0;
+    for (let i = 0; i < this.N; i++) dv += this.V[i] - h.V[i];
+    h.shiftVolume('UPPV', dv);
+    h.blood = structuredClone(this.blood);
+    h.bleed = { ...h.bleed, active: false }; h.infusions = [];
+    const V0 = h._V0 ??= new Float64Array(this.N);
+    V0.set(h.V);
+    h.relax();
+    // (Eased in over the next tick's steps, not all at once: see carryVolume.)
+    const c = this._carry ??= { dV: new Float64Array(this.N), left: 0 };
+    for (let i = 0; i < this.N; i++) c.dV[i] += h.V[i] - V0[i];
+    c.left = CARRY_S;
+    // (The venous reservoir and a pregnancy moved blood in the copy: those volumes come across with the rest, their accounts here.)
+    for (const k of ['shift', 'preg', 'ref', 'rbc']) if (h.blood[k] !== undefined) this.blood[k] = h.blood[k];
+    for (const k of ['baro', 'habr', 'MAPf', 'COf', 'pvQm', 'pvVm']) this[k] = h[k];
+    if (this.Pf) this.Pf.set(h.Pf);
+    if (this.Qf) this.Qf.set(h.Qf);
+    if (h.vitM) { this.vitM = [...h.vitM]; this.vitM1 = [...h.vitM1]; }
+  }
+  relaxDone() { this._hiddenOn = false; }
+  /** The volumes relaxHidden moved, added a share at each step over CARRY_S (one tick of the worker), so a tick's
+   *  move reaches the beat as a ramp rather than a step. */
+  carryVolume(dt) {
+    const c = this._carry;
+    if (!c || !(c.left > 0)) return;
+    const f = Math.min(1, dt / c.left);
+    for (let i = 0; i < this.N; i++) {
+      const d = c.dV[i] * f;
+      if (!d) continue;
+      const [Pk, Ps] = this.nodeK[i];
+      this.V[i] += d; c.dV[i] -= d;
+      this.P[i] = this.ext[i] + ptmOf(this.V[i], this.nodeC[i] * this.liverStiff(i), Pk, Ps);
+    }
+    c.left -= dt;
+    if (!(c.left > 0)) { c.dV.fill(0); c.left = 0; }
+  }
+  /** mL added to (or taken from) one node, its pressure following. */
+  shiftVolume(id, mL) {
+    const i = this.ni[id], [Pk, Ps] = this.nodeK[i];
+    this.V[i] += mL;
+    this.P[i] = this.ext[i] + ptmOf(this.V[i], this.nodeC[i], Pk, Ps);
   }
   settleQuick() {
     const q = this.quiet, t = this.t, cyc = this.cyc; this.quiet = true;
@@ -855,7 +993,10 @@ export class Engine {
     const p = this.params, P = this.P, s = p.cirrhosis;
     const iap = this.iap ?? 5;
     const pic = 25 * (p.albumin / 4.0);
-    const sigH = 0.1 + 0.5 * s;
+    // How capillarized the sinusoid wall is: as the cirrhosis has it, less the share of its closed pores opened again (fenestrae,
+    // a what-if: the pores opened in the same liver, its scar and resistance unchanged). A number at both ends, so a change eases.
+    const shut = s * (1 - clamp(p.fenestrae ?? 0, 0, 1));
+    const sigH = 0.1 + 0.5 * shut;
     const piH = pic * (1 - sigH) * 0.9;
     const pMid = 0.6 * (0.7 * P[this.ni.SIN_R] + 0.3 * P[this.ni.CV_R]) + 0.4 * (0.7 * P[this.ni.SIN_L] + 0.3 * P[this.ni.CV_L]);
     // Hepatic lymph: 0.5 mL/min at baseline, rising with sinusoidal filtration pressure.
@@ -869,7 +1010,7 @@ export class Engine {
     // Protein: what crosses each bed (sieving by the wall's reflection coefficient, more complete the faster
     // the filtration), then the overflow's mix of liver and gut lymph.
     const alb = p.albumin, glob = 3 + 0.8 * s;          // plasma, g/dL (globulins rise in cirrhosis)
-    const sA = PROT.sigHep0 + PROT.sigHepCirr * s, sG = Math.min(0.95, sA + PROT.sigGlob);
+    const sA = PROT.sigHep0 + PROT.sigHepCirr * shut, sG = Math.min(0.95, sA + PROT.sigGlob);
     const jg = spl + PROT.gutBase, gA = sieve(PROT.sigGut, jg, PROT.psGut), gG = sieve(Math.min(0.97, PROT.sigGut + 0.05), jg, PROT.psGut);
     const hA = sieve(sA, hep, PROT.psHep) * alb, hG = sieve(sG, hep, PROT.psHep) * glob;
     const wH = PROT.hepWeep * hep, wS = jg;
@@ -1024,7 +1165,9 @@ export class Engine {
     const ex = site === 'VAR' ? this.routeExcess(['CONF', 'RA'], P) : this.routeExcess(['SV', 'IVCI'], P);
     // Fundal varices exist only where a gastrorenal shunt can drain them.
     // Isolated fundal varices (IGV1) have no esophageal varices beside them, until BRTO closes their shunt.
-    const ex0 = (site === 'GV' && p.spontaneous.C5 === false) || (site === 'VAR' && p.isolatedGV && !p.occluded.C5) ? -1e9 : ex;
+    // BRTO plugs that shunt and its short gastric feeder and obliterates the varices with it: they shrink back to a
+    // resting vein even though the splenic-to-caval gradient that sized them climbs once the shunt is closed.
+    const ex0 = (site === 'GV' && (p.spontaneous.C5 === false || p.occluded.C5)) || (site === 'VAR' && p.isolatedGV && !p.occluded.C5) ? -1e9 : ex;
     // Esophageal varices are collaterals too, so they take weeks to form: their size is capped by how far the coronary
     // vein feeding them has remodeled on the disease clock (none at the onset of an acute block). Fundal varices ride
     // on a gastrorenal shunt that is present from birth, so they are not capped.
@@ -1032,6 +1175,9 @@ export class Engine {
     const grown = clamp(VARIX.r0Healthy + (site === 'GV' ? VARIX.kGV : VARIX.k) * Math.max(0, ex0 - (site === 'GV' ? VARIX.openGV : VARIX.open)), VARIX.r0Healthy, VARIX.r0Healthy + mature * (VARIX.rMax - VARIX.r0Healthy));
     return site === 'VAR' ? VARIX.r0Healthy + (grown - VARIX.r0Healthy) * Math.pow(0.6, this.bands) : grown;
   }
+
+  /** The arterial pressure the baroreflex defends in this patient: 93 mmHg, less the reset of the hyperdynamic circulation. */
+  mapSetOf() { return MAP_SET - MAP_DROP * clamp((1 - this.slow.splTone) / 0.45, 0, 1); }
 
   /** How far the channel feeding a varix has remodeled (0 at the onset of a block, 1 once established). */
   varixMature(site) {
@@ -1055,7 +1201,8 @@ export class Engine {
     const r = r0 * (1 + this.varixMature(site) * (Math.sqrt(tubeArea(ptm - raRise, 0.08) / tubeArea(ref, 0.08)) - 1));
     const w = Math.max(0.12, VARIX.w0 / r0) * (site === 'GV' ? 1.4 : 1);
     const T = Math.max(0, ptm) * r / w;
-    return { ptm, r, r0, w, T, ratio: T / VARIX.Tcrit };
+    // (ratioShown: the stress index as the tiles show it (wall-read.js), over the tear point, so every percentage printed agrees with the index beside it.)
+    return { ptm, r, r0, w, T, ratio: T / VARIX.Tcrit, ratioShown: +wallRead({ ptm, r, w }).index / VARIX.Tcrit };
   }
 
   hvpgTrue(P = this.P) {
@@ -1067,7 +1214,7 @@ export class Engine {
   // ───────────────────────── snapshot ─────────────────────────
   snapshot() {
     return structuredClone({
-      params: this.params, V: Array.from(this.V), P: Array.from(this.P), Q: Array.from(this.Q), t: this.t, day: this.day,
+      params: this.paramsTarget(), V: Array.from(this.V), P: Array.from(this.P), Q: Array.from(this.Q), t: this.t, day: this.day,
       baro: this.baro, MAPf: this.MAPf, habr: this.habr, hr: this.hr, slow: this.slow, blood: this.blood,
       bleed: this.bleed, infusions: this.infusions, bands: this.bands, rng: this.rng.state(), iap: this.iap,
       valsalva: this.valsalva, evState: this.evState,
@@ -1086,6 +1233,7 @@ export class Engine {
     this.Pf = Float64Array.from(this.P);
     this.Qf = Float64Array.from(this.Q);
     this.pvQm = this.pvVm = undefined; this.vitM = null;
+    this._hiddenOn = false; this._carry = null; this._ease = null;   // (a hidden copy being relaxed, and what it moved, belonged to the state before)
     this._drug = this.drugEffects();
     this.computeExt(this.t);
     this.computeG(this.P);
@@ -1097,5 +1245,6 @@ function solve(A, b, n) {
   return solveInPlace(A, b, n);
 }
 import { solveInPlace } from './linalg.js?v=4f20e14f7c';
+import { wallRead } from './wall-read.js?v=09449acd01';
 
 export { SPLANCHNIC_ARTERIES, PORTOSYSTEMIC_EDGES };

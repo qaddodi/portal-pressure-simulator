@@ -9,34 +9,50 @@
 // new values.
 //
 // Keys (clickers send the same): → Page Down Space Enter next (during a time-lapse the first runs it to its end),
-// ← Page Up back, a number then Enter jumps, G the slide list, Home End, B or . black screen, F full screen, ? the Guide,
-// Esc. (The Guide lists them: PRESENT_KEYS in main.js.) On a touch screen a sideways swipe anywhere on the slide goes on or back.
+// ← Page Up back, ↑ untucks and ↓ tucks the stacked card's readings (Mac, iPad on its side; they never move a slide), a number then
+// Enter jumps, G the slide list, Home End, B or . black screen, F full screen, ? the Guide, Esc. (The Guide lists them: PRESENT_KEYS in
+// main.js.) On a touch screen a sideways swipe anywhere on the slide goes on or back.
 
-import { store, replaceParams } from './store.js?v=31ee79b6ab';
+import { store, replaceParams } from './store.js?v=67f4341802';
 import { download } from './download.js?v=3564e5bf8c';
-import { h, toast, svgIcon, icon, fmt, clamp, openModal, closeModal, isModalOpen, restBox, paintRange, cssVar, swapText } from './util.js?v=b6a40567da';
-import { swipeDir, ownsSideways, caseFling, caseFlight } from './swipe.js?v=60b2fc909b';
-import { sinusoidSupported } from './sinusoid-view.js?v=93a2dc5de0';
-import { NODES } from '../engine/topology.js?v=4044766e96';
+import { h, toast, svgIcon, icon, fmt, clamp, openModal, closeModal, isModalOpen, restBox, paintRange, cssVar, swapText, STACK_MQ, SHORT_SIDE_MQ, TABLET_UP_MQ } from './util.js?v=d2c95a1b16';
+import { titleParts } from './title-units.js?v=c8d5ce1f26';
+import { swipeDir, ownsSideways, ownsTouch, cardSwipe, caseFling, caseFlight, wheelFinger, wheelGesture, ownsWheel } from './swipe.js?v=3ad619631e';
+import { sinusoidSupported } from './gl-support.js?v=94ad2a7ff1';
+import { SCALE_NAME, offeredScales, scaleView, pickedScale } from './scale-switch.js?v=1b0e3acd65';
 import { DISEASE_SRC, diseasePieces } from './diseases.js?v=fb8a5451c3';
 import { nb, listCase, plateletText } from './glue.js?v=5a0f63226b';
-import { DECKS, REGIONS, LEVELS, TOPICS, withOverview, siteTag, SITE_TAGS } from './decks.js?v=17a95feee0';
-import { wholeGap, tenthGap } from '../engine/gap.js?v=3a5947c552';
-import { createHvpgMonitor } from './hvpg-proc.js?v=ca6b23e252';
-import { createTools } from './presenter-tools.js?v=0001d8c0ca';
-import { openHandout } from './handout.js?v=d25b4e8d53';
+import { DECKS, REGIONS, LEVELS, TOPICS, withOverview, siteTag, SITE_TAGS } from './decks.js?v=43c54b4a26';
+import { fingerprintOf } from '../engine/fingerprint.js?v=8faea80b59';
+import { createHvpgMonitor } from './hvpg-proc.js?v=ed0101ef84';
+import { createTools } from './presenter-tools.js?v=c13ab6278d';
+import { openHandout } from './handout.js?v=54b55b0bd1';
 import { noteResume, resumeFor } from './resume.js?v=f086f80ee8';
 import { parseDeckSource, checkDeck } from './deck-source.js?v=8395c650cd';
-import { NO_ASC, TILE, SCALE, bandsOf, rateOf, COLS, CUT, PRESS, fpv, dirAbs, dirRel, rateAbs, effOf, rateShown, tileShown } from './table-marks.js?v=e25caf9bf9';
-import { frameFor, cancelFrame } from './frame.js?v=67ca200c87';
-import { createFigureKey } from './figure-key.js?v=96997852c4';
+import { NO_ASC, TILE, SCALE, bandsOf, rateOf, COLS, CUT, PRESS, fpv, dirAbs, dirRel, rateAbs, effOf, rateShown, tileShown, tipsGoal, liveSettled, shownSig } from './table-marks.js?v=15f059172f';
+import { frameFor, cancelFrame } from './frame.js?v=19b3f2915c';
+import { createFigureKey } from './figure-key.js?v=8bbf7a41ed';
 import { traceWhen } from './trace-labels.js?v=fc916a95c6';
-import { flowCss, heatCss, dropCss, gradientCss, oxygenCss } from './colormap.js?v=dc071e3659';
+import { flowCss, heatCss, dropCss, gradientCss, oxygenCss } from './colormap.js?v=cdcf6a2f55';
+import { EXT, expandIds, stepExtra, markLabel, figureHooks, safe } from './slide-ext.js?v=2ab4d1b5b2';
+import { clotWords } from './callout-math.js?v=d8785a0ad3';
+import { citeText, focusOf, oneLadder } from './teach-extras.js?v=5f5248f5a7';
+import { createProfileTool, createProfileStrip, pillReadings } from './tool-profile.js?v=23ee896a59';
+import { causeFit } from './cause-fit.js?v=830a6835a5';
+import { COMPACT, WIDE } from './card-type.js?v=5af5f22935';
+import { flowTimeHeight } from './flow-time.js?v=cb89e13e11';
+import { PROCS, procBlocked, procOffered, playProcedure } from './proc-anim.js?v=b2351a24c6';
 const nextFrame = frameFor('presenter');
 
 const KEY = 'pps.scripts';
 // Only well-formed scripts: a damaged saved value is ignored rather than stopping the library.
 const readMine = () => { try { const v = JSON.parse(localStorage.getItem(KEY) || '[]'); return Array.isArray(v) ? v.filter((x) => x && typeof x === 'object' && x.id) : []; } catch { return []; } };
+// Test decks: on the /preview/ copy only (never the live site), listed under "Testing" in Present. Each plays exactly as
+// if imported (an "Outline and objectives" slide in front, so its slide numbers match the imported file's).
+const PREVIEW = typeof location !== 'undefined' && /\/preview\//.test(location.pathname);
+// (Loaded only there: the live site's bundle carried the 53 KB deck for nothing. The menu reads TESTING when it opens, long after.)
+let TESTING = [];
+const testingLoad = PREVIEW ? import('./test-decks/demo-all-new-visuals.js?v=75316cbb3a').then(({ DEMO_ALL }) => { TESTING = [DEMO_ALL].map((d) => ({ id: 'test-' + d.id, title: d.title, summary: d.summary || '', deck: checkDeck(d), test: true })); }).catch(() => { /* the preview's test deck only */ }) : Promise.resolve();
 const writeMine = (list) => { try { localStorage.setItem(KEY, JSON.stringify(list)); } catch { /* storage unavailable */ } };
 const enc = (o) => btoa(unescape(encodeURIComponent(JSON.stringify(o)))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 const dec = (s) => JSON.parse(decodeURIComponent(escape(atob(s.replace(/-/g, '+').replace(/_/g, '/')))));
@@ -60,7 +76,6 @@ async function smooth(cut, ms = 700) {
 const LOBULE_CAM = /^(lobule|sinusoid)/;
 
 // ── Numbers ────────────────────────────────────────
-const RUNGS = [['pv', 'PV'], ['whvp', 'WHVP'], ['fhvp', 'FHVP'], ['ivc', 'IVC'], ['ra', 'RA']];
 // A slide's equation (decks.js eq: [MathML, legend]): typeset by the browser's own MathML, the legend under it.
 function equation([ml, legend]) {
   const box = h('div', { class: 'pz-eq' });
@@ -68,6 +83,8 @@ function equation([ml, legend]) {
   if (legend) box.append(h('p', { class: 'pz-eqk' }, legend));
   return box;
 }
+// A source line under the words (V23): cite: 'Baveno VIII 1.15, 1.16', in the caveat's small print.
+const citeEl = (s) => (citeText(s.cite) ? h('p', { class: 'pz-cite' }, citeText(s.cite)) : null);
 // A slide's lens (decks.js lens): what the vessel colours show on that slide, with a key under its line, its name ("Velocity")
 // and the two ends, as the legend does in Explore. (Learner-facing words say "colored by", never "lens".)
 // Pressure is the default and needs no key.
@@ -79,19 +96,38 @@ const LENS_KEY = {
   drop: ['pressure drop', () => dropCss('to right'), 'Low', 'High'],
   delta: ['change', () => 'linear-gradient(to right, var(--delta-low), var(--delta-mid), var(--delta-high))', 'Lower', 'Higher'],
   oxygen: ['oxygen', () => oxygenCss('to right'), 'Low', 'High'],
-  origin: ['origin', [['--origin-smv', 'SMV'], ['--origin-imv', 'IMV'], ['--origin-spleen', 'Spleen'], ['--origin-artery', 'Artery'], ['--origin-systemic', 'Systemic']]],
+  origin: ['origin', [['--origin-smv', 'SMV'], ['--origin-imv', 'IMV'], ['--origin-spleen', 'Spleen', 'SV'], ['--origin-artery', 'Artery', 'HA'], ['--origin-systemic', 'Systemic', 'Sys']]],   // (the short names blood.js ORIGINS uses: a phone's key beside the pill, fitKey)
 };
+// (A deck visuals package's lenses (slide-ext.js) after the app's own; a key whose words depend on the slide is a function of it.)
+for (const [k, v] of Object.entries(EXT.lenses)) if (!LENS_KEY[k]) LENS_KEY[k] = v;
+const lensSpec = (k, s) => { const v = LENS_KEY[k]; return typeof v === 'function' ? safe(() => v(s), null, `lenses.${k}`) : v; };
 export const slideLens = (s) => (!s?.visual && LENS_KEY[s?.lens] ? s.lens : 'pressure');
 // Pressure's key shows only on a slide with lens buttons (the default needs none).
 const PRESSURE_KEY = ['pressure', () => gradientCss('to right', 30), 'Low', 'High'];
 const lensButtons = (s) => !!s.compare?.some((o) => o.lens);
 const gateButtons = (s) => !!s.compare?.some((o) => o.gate);
+/** What a compare slide's button k does. A lens button ({ label, lens }) crossfades the figure to that lens and a gate
+ *  button ({ label, gate }) moves the stent Doppler's gate, the model untouched. A patient button ({ label, preset, block? })
+ *  eases the live model to that patient, computed with the slide's states, and a time-point button ({ label, slide }) to that
+ *  slide's state in the same deck (one patient's earlier visit); the slide's own button eases back to the slide's
+ *  exact state when the row has a patient button or when it names no params of its own ({ label, own: true }: the slide's
+ *  state is its params, Mohammad, 19 Oct: "when i click no tips then tips again the tips doesn't come"). A normal heart is
+ *  then a healthy circulation (none of the failing heart's retained fluid or ascites is left behind), and the failing heart
+ *  is the slide's numbers exactly. Any other button patches the live model's params with its own.
+ *  → { kind: 'lens', lens } | { kind: 'gate', gate } | { kind: 'state' } | { kind: 'params', patch } */
+export function abChoice(compare, k) {
+  const o = compare[k];
+  if (o.lens) return { kind: 'lens', lens: o.lens };
+  if (o.gate) return { kind: 'gate', gate: o.gate };
+  if (o.preset || o.slide || (o.own && (!o.params || compare.some((p) => p.preset || p.slide)))) return { kind: 'state' };
+  return { kind: 'params', patch: o.params || {} };
+}
 // The key for the small pill on the figure (figure-key.js): the lens named, then its colour scale under it (a gradient has no end words; named swatches keep their names).
 // (The pressure-drop key also names its ends, "Low ▬▬ High", as the velocity key does: a bare green bar did not say which end was
 // which (17 Oct design review). The other scales keep the bar alone.)
 const KEY_ENDS = new Set(['drop']);
-function keyNodes(k) {
-  const [name, bar, lo, hi] = LENS_KEY[k] || PRESSURE_KEY;
+function keyNodes(k, s) {
+  const [name, bar, lo, hi] = lensSpec(k, s) || PRESSURE_KEY;
   const sw = (v) => h('i', { class: 'pz-lens-sw', style: { background: `var(${v})` } });
   // (Each swatch stays on one line with its words: "Low ▬▬ High" as one piece, a short stroke with its name.)
   const scale = () => h('i', { class: 'pz-lens-bar', style: { background: bar() } });
@@ -99,7 +135,8 @@ function keyNodes(k) {
     ...(typeof bar === 'function' ? [KEY_ENDS.has(k) ? h('span', { class: 'pz-lens-ends' }, h('span', {}, lo), scale(), h('span', {}, hi)) : scale()]
       // (The named swatches travel as one group: a key that wraps sets its name on one line and all its swatches on the next, never
       // one swatch left alone under the others: Mohammad, 17 Oct, "Reversed" had dropped under "Direction · Usual".)
-      : [h('span', { class: 'pz-lens-items' }, ...bar.map(([v, t]) => h('span', { class: 'pz-lens-k' }, sw(v), h('span', {}, t))))])];
+      // (A swatch may carry a short name, [var, name, short]: a phone's key takes them only to fit beside the pill, fitKey.)
+      : [h('span', { class: 'pz-lens-items' }, ...bar.map(([v, t, sh]) => h('span', { class: 'pz-lens-k', title: sh ? t : null }, sw(v), h('span', { class: sh ? 'pz-lk-l' : null }, t), sh ? h('span', { class: 'pz-lk-s', 'aria-hidden': 'true' }, sh) : null)))])];
 }
 // A string with its disease names set in a pill (see diseases.js).
 const diseaseNodes = (t) => diseasePieces(t).map(([x, dz]) => (dz ? h('span', { class: 'pz-dz' }, x) : x));
@@ -115,7 +152,7 @@ const TERMS = ['CSPH', 'SAAG', 'WHVP', 'FHVP', 'central vein', 'portal tracts?',
 // A tile's words in a line (the slide's key tiles are its key terms).
 const KEYWORDS = { hvpg: 'HVPG', ppg: 'PPG', pv: 'portal pressure', whvp: 'WHVP|wedged pressure', fhvp: 'FHVP|free pressure', ra: 'right atrial pressure|right atrium',
   ivc: 'IVC', varix: 'varix|varices', hr: 'heart rate', map: 'blood pressure', asc: 'ascites', plt: 'platelets?', lsm: 'stiffness', spleen: 'spleen',
-  liver: 'liver blood flow', shunt: 'shunt', sin: 'sinusoidal pressure', saag: 'SAAG', tp: 'protein', hb: 'hemoglobin', pvFlow: 'portal flow', pvVel: 'portal vein velocity',
+  liver: 'liver blood flow', shunt: 'shunt', sin: 'sinusoidal pressure', saag: 'SAAG', tp: 'protein', hb: 'hemoglobin', pvFlow: 'portal flow', pvVel: 'portal vein velocity', clot: 'clot',
   co: 'cardiac output', bv: 'blood volume' };
 const esc = (x) => x.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 // What a word in a line can point at on the figure (a term pill, M1): the station's label (node), the vessels that
@@ -167,9 +204,11 @@ const TARGETS = {
   'sinusoid:lumen': { lit: true, tone: 'wedge', words: 'sinusoids?' },
 };
 const toneVar = (t) => (t === 'accent' ? 'var(--accent)' : t.startsWith('--') ? `var(${t})` : `var(--tr-${t})`);
+// (A deck visuals package's targets (slide-ext.js) after the app's own, before the node names and the station tones.)
+for (const [k, t] of Object.entries(EXT.targets)) if (!TARGETS[k]) TARGETS[k] = t;
 // Node ids name their target too ([portal vein](CONF) is [portal vein](pv)).
 for (const [k, t] of Object.entries(TARGETS)) if (t.node && !TARGETS[t.node]) TARGETS[t.node] = TARGETS[k];
-const ORGANS = new Set(['liver', 'caudate', 'caudate-lobe', 'spleen', 'heart', 'heart-ra']);
+const ORGANS = new Set(['liver', 'caudate', 'caudate-lobe', 'spleen', 'heart', 'heart-ra', ...EXT.organs]);
 // A vessel's station colour, for a glow written by hand (glow: ['PV_TRUNK']).
 const EDGE_TONE = {};
 for (const t of Object.values(TARGETS)) for (const e of t.edges || []) EDGE_TONE[e] ||= t.tone;
@@ -183,7 +222,11 @@ const VAL_TONE = { pv: 'pv', whvp: 'wedge', sin: 'wedge', fhvp: 'hv', ivc: 'ivc'
 // shows it, on its pill and on its organ's outline; neutral while it is normal.
 const BY_RATE = new Set(['spleen', 'varix', 'gv']), RATE_TONE = { hi: '--danger', mid: '--caution' };
 const rateTone = (k, fp) => RATE_TONE[rateShown(k, fp)[0]] || null;   // (judged as its pill prints it)
-const valTone = (k, fp) => (BY_RATE.has(k) ? rateTone(k, fp) : VAL_TONE[k]);
+// A filled pill (the patient) takes its tile's rating colour, as the tile's bar shows it: green, amber or red (Mohammad,
+// 19 Oct). A value its tile does not rate or rates only as information keeps its station's colour, or none.
+const PILL_TONE = { ok: '--ok', mid: '--caution', hi: '--danger' };
+const pillRate = (k, fp, tips = false) => (fp?.[k] == null ? null : tips && k === 'ppg' ? tipsGoal(tileShown(k, fp[k]))[0] : rateShown(k, fp)[0]);   // (after TIPS the PPG is read against its target, as its tile reads it)
+const valTone = (k, fp, tips) => PILL_TONE[pillRate(k, fp, tips)] || (BY_RATE.has(k) ? null : VAL_TONE[k]);
 // A slide's terms: { words: target } (terms: ['pv', 'ra'] takes each target's own words). A word every slide uses the
 // same way needs no listing: the cavernoma is always a pill that lights its collaterals.
 const AUTO_TERMS = ['cavernoma'];
@@ -213,18 +256,19 @@ export function slideTargets(s, line = s.line || '') {
   for (const k of s.tint || []) { const t = TARGETS[k]; if (t?.node) terms[t.node] = t.tone; }   // (a label the line does not name, in its colour all the same)
   // glowSeq (ms): the glow field lights in its order, one step apart (pressure passing back from the heart, D6).
   const at = new Map();
-  (s.glow || []).forEach((g, i) => {
+  // (An entry may be a list of vessels, a step's group (V10): they light together, at the entry's moment.)
+  expandIds(s.glow || []).forEach((g0, i) => { for (const g of Array.isArray(g0) ? expandIds(g0) : [g0]) {   // ('@name': a deck visuals package's named set, slide-ext.js)
     const id = typeof g === 'string' ? g : g.id, tone = typeof g === 'string' ? null : g.tone, ms = s.glowSeq ? i * s.glowSeq : 0;
     // { id, soft: true }: a supporting vessel, lit more gently than the one the slide is about.
     const add = (e, tn) => { glow.delete(e); glow.set(e, tn); if (ms) at.set(e, ms); if (g.soft) soft.add(e); else soft.delete(e); };
     if (TARGETS[id]) { const t = TARGETS[id]; if (t.lit) lit.add(id); if (t.res) res.set(t.res, tone || t.tone); for (const e of t.edges || []) add(e, tone || t.tone); if (t.organ) organs.set(t.organ, tone || t.tone); }
     else if (ORGANS.has(id)) organs.set(id, tone || TARGETS[id]?.tone);
     else add(id, tone || EDGE_TONE[id] || 'accent');
-  });
+  } });
   // A lobule slide that lights the portal venule's or the central vein's reading lights the sinusoids' as well: the
   // sinusoidal pressure sits between the two, and the other labels are faded out (Mohammad, 16 Oct).
   if (lit.has('lobule:central') || lit.has('lobule:triad')) lit.add('lobule:sinusoid');
-  if (isDop(s)) { const v = s.tool.vessel || 'PV_TRUNK'; if (glow.has(v)) glow.set(v, '--doppler'); }
+  if (isDop(s)) { const v = s.tool.vessel || 'PV_TRUNK'; if (glow.has(v)) glow.set(v, '--dop-glow'); }
   return { labels, terms, glow: [...glow].map(([id, tone]) => ({ id, tone, at: at.get(id) || 0, soft: soft.has(id) || undefined })), organs: [...organs].map(([id, tone]) => ({ id, tone })), res: [...res].map(([id, tone]) => ({ id, tone })), lit: [...lit], sites: [...sites] };
 }
 // A live value pill ({pv}): the model's reading for this slide, to its usual decimal.
@@ -253,18 +297,18 @@ function lineRe(s = {}) {
 // A view the words name ("With the vessels colored by congestion"): the view's name is a pill in that view's own colour,
 // as its key on the figure draws it (Mohammad, 16 Oct). It points at nothing on the figure, so it lights nothing.
 export const LENS_WORDS = { 'pressure drop': 'drop', 'blood origin': 'origin', origin: 'origin', velocity: 'velocity', 'flow volume': 'flow',
-  flow: 'flow', direction: 'direction', congestion: 'heat', change: 'delta', oxygen: 'oxygen' };
-export const LENS_TONE = { velocity: '--vel-normal', flow: '--lens-flow', direction: '--flow-reversed', heat: '--lens-heat', drop: '--lens-drop', delta: '--delta-high', origin: '--origin-spleen', oxygen: '--lens-oxygen' };
+  flow: 'flow', direction: 'direction', congestion: 'heat', change: 'delta', 'vein system': 'system', oxygen: 'oxygen' };
+export const LENS_TONE = { velocity: '--vel-normal', flow: '--lens-flow', direction: '--flow-reversed', heat: '--lens-heat', drop: '--lens-drop', delta: '--delta-high', origin: '--origin-spleen', system: '--tr-var', oxygen: '--lens-oxygen' };
 const LENS_RE = String.raw`\b([Cc]olou?red by )(${Object.keys(LENS_WORDS).sort((a, b) => b.length - a.length).join('|')})\b`;
-function rich(t, s = {}, fp = null) {
+function rich(t, s = {}, fp = null, tips = false) {
   const { re, tl } = lineRe(s);
   const marked = /\{[^}]+\}/.test(t);
   const out = [], seen = new Set(), seenT = new Set(); let at = 0, bold = 0, pills = 0, m;
   t = nb(t);
   // A pill keeps the word before it and the stop after it on its line (a no-break space, one unbreakable span).
   const glue = () => { const prev = out[out.length - 1]; if (typeof prev === 'string') out[out.length - 1] = prev.replace(/ $/, '\u00a0'); };
-  const pill = (v, stop, cls = '', tone = null) => { glue();
-    pills++; return h('span', { class: stop ? 'pz-nw pz-stop' : 'pz-nw' }, h('span', { class: `pz-val${cls}${tone ? ' tone' : ''}`, style: tone ? `--tone: ${toneVar(tone)}` : null }, v.replace(/\s(?=mmHg|g\/dL|mL|kPa|cm\/s|mm\b|%)/, '\u00a0')), stop || ''); };
+  const pill = (v, stop, cls = '', tone = null, rate = null) => { glue();
+    pills++; return h('span', { class: stop ? 'pz-nw pz-stop' : 'pz-nw' }, h('span', { class: `pz-val${cls}${tone ? ' tone' : ''}`, 'data-rate': PILL_TONE[rate] ? rate : null, style: tone ? `--tone: ${toneVar(tone)}` : null }, v.replace(/\s(?=mmHg|g\/dL|mL|kPa|cm\/s|mm\b|%)/, '\u00a0')), stop || ''); };
   const termPill = (w, k) => { const tone = TARGETS[k].organ === 'spleen' ? (fp && rateTone('spleen', fp)) || '--text-2' : TARGETS[k].tone;   // (the spleen's word, as its outline)
     return h('span', { class: 'pz-term', 'data-target': k, style: `--tone: ${toneVar(tone)}` }, w); };
   while ((m = re.exec(t))) {
@@ -278,8 +322,8 @@ function rich(t, s = {}, fp = null) {
     if (lensW) out.push(lensBy.replace(/ $/, '\u00a0'), h('span', { class: 'pz-term pz-lens-t', style: `--tone: ${toneVar(LENS_TONE[LENS_WORDS[lensW]])}` }, lensW));
     else if (lw) out.push(TARGETS[lk] ? termPill(lw, lk) : lw);
     else if (tword) { seenT.add(tk); out.push(termPill(tword, tk)); }
-    else if (mk && TILE[mk]) out.push(pill(liveVal(mk, s, fp), mkStop, '', valTone(mk, fp)));
-    else if (mk && atRe.test(mk) && TILE[mk.match(atRe)[1]]) { const [, k, id] = mk.match(atRe), f = fpAt(id); out.push(pill(liveVal(k, s, f), mkStop, '', valTone(k, f))); }
+    else if (mk && TILE[mk]) out.push(pill(liveVal(mk, s, fp), mkStop, '', valTone(mk, fp, tips), pillRate(mk, fp, tips)));
+    else if (mk && atRe.test(mk) && TILE[mk.match(atRe)[1]]) { const [, k, id] = mk.match(atRe), f = fpAt(id); out.push(pill(liveVal(k, s, f), mkStop, '', valTone(k, f), pillRate(k, f))); }
     else if (mk && /^[<>≥≤]=?/.test(mk)) out.push(pill(mk.replace(/^(?:>=|<=|[<>≥≤])\s*/, ''), mkStop, ' cut'));
     else if (mk) out.push(pill(mk, mkStop, ' cut'));   // (a number typed in braces, {6 to 8 g}: a rule, outlined; only a live value is the patient)
     else if (val) out.push(pill(val, valStop, ' cut'));   // (a typed number is a rule or a figure from the literature, not the patient: outlined)
@@ -357,15 +401,9 @@ function wedgeColumn() {
   return svg;
 }
 const tileVal = (k, v) => (v == null ? '—' : fmt(v * (TILE[k]?.x ?? 1), TILE[k]?.d ?? 1));
-// The live model's numbers in the fingerprint's terms (a time-lapse plays on the live figure).
-const NI = Object.fromEntries(NODES.map((n, i) => [n.id, i]));
-function liveFp(fr) {
-  const m = fr.metrics, a = m.ascites, P = fr.Pf || fr.P;
-  return { pv: m.pv, whvp: m.whvp, fhvp: m.fhvp, hvpg: tenthGap(m.whvp, m.fhvp, m.hvpg), ra: m.vitals?.ra ?? m.ra, ivc: m.ivc, ppg: tenthGap(m.pv, m.ivc, m.ppg), asc: a.volume, saag: a.saag, tp: a.totalProtein,
-    sin: P?.[NI.SIN_R], int: P?.[NI.INT], varix: m.varix.d, wall: m.varix.ratio, gv: m.gastricVarix.d, spleen: m.spleen.length, plt: m.spleen.platelets,
-    pvFlow: m.pvFlowMean, shunt: m.shuntFraction, liver: m.liverPerfPct, map: m.map, hr: m.hr, lsm: m.lsm, pvVel: m.pvVelMean, hb: m.blood?.hb, co: m.co, bv: m.blood?.volume,
-    at: P && fr.D ? { P, Q: fr.Qf || fr.Q, D: fr.D } : null };
-}
+// The live model's numbers in the fingerprint's terms (a time-lapse plays on the live figure): the same function the worker builds a slide's
+// state with. It has no starling() here, so the lymph's overflow, take-back and net stay null and the fluid card follows the live frames.
+const liveFp = (fr) => fingerprintOf(fr.metrics, { P: fr.Pf || fr.P, Q: fr.Qf || fr.Q, D: fr.D, params: store.get().params });
 
 // A value counts from where it was to where it goes (eased, about a second); reduced motion jumps.
 function tweener(draw) {
@@ -419,23 +457,11 @@ const fitNow = (c) => {
     // their lettering larger in the chart's units, the strips taller, and the card stayed zoomed to half for good.)
     const cellGrid = svg.closest(':is(.pz.stack, .pz.low) .pz-cell')?.parentElement;
     if (cellGrid) wz *= parseFloat(getComputedStyle(cellGrid).zoom) || 1;
-    // (A wide card's opened strip, folded behind Show, keeps its own size whatever the card's zoom (app.css): following the zoom, its
-    // height changed the card's fit, the fit its zoom, and the card never came to rest.)
-    if (svg.matches('.pz:not(.stack):not(.low) .pz-data.pz-folds.tool-open:not(.has-tool) > .pz-strip')) wz = 1;
     for (const r of ROLE_NAMES) { pr.style.fontSize = `var(--ch-${r}, var(--s-${r}))`; fs[r] = parseFloat(getComputedStyle(pr).fontSize) * k * wz; }
     pr.remove();
     if (c.fs && ROLE_NAMES.every((r) => Math.abs(c.fs[r] - fs[r]) < 0.01 * fs[r]) && Math.abs(c.w - box.width) + Math.abs(c.h - box.height) < 1) return;
     c.fs = fs; c.w = box.width; c.h = box.height; lay(fs, box);
   }
-};
-// A vertical hairline's x, in a chart's units, moved to whole device pixels so its 1 px stroke draws crisp, not smeared over two.
-// (snapAt takes the chart's matrix as already read: a frame that snaps several lines reads it once, not once per line after
-// its own writes, each of which made the browser lay the page out again.)
-const snapAt = (m, x) => {
-  const d = Math.round(globalThis.devicePixelRatio || 1) || 1;
-  if (!m || !m.a) return x;
-  const L = Math.round((m.a * x + m.e) * d - d / 2);
-  return ((L + d / 2) / d - m.e) / m.a;
 };
 // An attribute or a text written only when it changes (a tween's frame rewrote every one of them, same or not).
 const setA = (e, k, v) => { v = String(v); if (e.getAttribute(k) !== v) e.setAttribute(k, v); };
@@ -461,359 +487,6 @@ function railBlock() {
   return sv('svg', { class: 'pz-rail-blk', 'aria-hidden': 'true' },
     sv('defs', {}, hatch(id, 7)), sv('rect', { class: 'pzs-drop', width: '100%', height: '100%', rx: 6, fill: `url(#${id})` }));
 }
-/** The pressure ladder at projector size: five stations, the healthy line dashed behind, every fall of
- *  more than 4 mmHg shaded as a block. Under the axis, as on the app's own pressure chart, two spans run
- *  along the stations, named: HVPG (wedged to free hepatic vein) and PPG (portal
- *  vein to the IVC), coloured by their cut-offs, with faint leaders up to the
- *  stations they join. set(f, { key }) glides the line and counts the numbers. */
-const LADDER_FILL = '.pz:not(.stack):not(.low) .pz-data:not(.tiles-only) > .pz-ladder';   // (styles/app.css: a ladder card's ladder, words at one size)
-function bigLadder() {
-  // The geometry follows the lettering (lay, from the slide's type scale): the margins, rows and station spacing grow with
-  // the text, the station names and the falls take two rows when one is too tight, and the box grows taller, never wider.
-  const W = 500;
-  let H = 362, x0 = 56, step = 97, yTop = 54, c = 17, l = 25, ph = 26, nameY = [354, 354], gx = 44, tx = 34;
-  let PH = 198;
-  const X = (i) => x0 + i * step;
-  // The axis fits the data: the smallest of 12, 20, 30, 40 or 50 mmHg that clears the highest station (the healthy line
-  // included), with round ticks (every 4, 5 or 10, every other one when the lettering would crowd them). Scale and ticks ease.
-  let top = 12, tTo = 12, baseVals = null;
-  const Y = (v) => yTop + PH - clamp(v, 0, top) * (PH / top);
-  const TOPS = [12, 20, 30, 40, 50], TICKS = [0, 4, 5, 8, 10, 12, 15, 20, 30, 40, 50];
-  const stepOf = (t) => (t <= 12 ? 4 : t <= 20 ? 5 : 10);
-  const every = (t) => (PH / t * stepOf(t) < 1.3 * c ? 2 : 1);
-  const wOf = (v, t) => (v % stepOf(t) === 0 && v <= t ? 1 : 0);
-  const gid = 'pzGrad' + ++uid;
-  const base = sv('path', { class: 'pzl-base' });
-  const line = sv('path', { class: 'pzl-line', stroke: `url(#${gid})` });
-  const bands = [0, 1, 2, 3].map(() => {
-    const r = sv('rect', { rx: 12, fill: `url(#${gid}hb)` });   // (placed in lay; y and height follow the axis, in draw; the band carries no label)
-    return { g: sv('g', { class: 'pzl-drop', opacity: 0 }, r), r };
-  });
-  // A block that sits on a station itself (the right atrium in heart failure), not on a stretch of line: the same hatched
-  // rectangle as the others, from just left of that node to a little right of it, under the reading. A slide asks for it with
-  // block: 'ra'; the rectangle follows its node, and fades in and out.
-  const nodeBlk = sv('rect', { class: 'pzl-nb', rx: 12, fill: `url(#${gid}hb)`, opacity: 0 });
-  let blockAt = -1;
-  const pts = RUNGS.map(([, a]) => {
-    const c = sv('circle', { r: 8.5 }), v = sv('text', { class: 'pzl-v', 'text-anchor': 'middle' }), k = sv('text', { class: 'pzl-k', 'text-anchor': 'middle' }, a);
-    return { g: sv('g', { class: 'pzl-pt' }, c, v, k), c, v, k };
-  });
-  // A gradient span: a bar with end caps from one station's column to another's, dotted leaders up to the two
-  // station points, and its name and reading written in the line's gap, as on the phone's strip.
-  const span = (name, i0, i1) => {
-    const lead = sv('path', { class: 'pzl-lead' }), bar = sv('path', { class: 'pzl-br' });
-    const txt = sv('text', { class: 'pzl-bk', 'text-anchor': 'middle' }, name);
-    return { name, i0, i1, row: 0, lead, bar, txt, label: name, g: sv('g', { class: 'pzl-bg', opacity: 0 }, lead, bar, txt) };
-  };
-  const placeSpan = (b) => {
-    b.x0 = X(b.i0); b.x1 = X(b.i1); b.mid = (b.x0 + b.x1) / 2;
-    // The label sits in the line's gap when the line keeps at least 10 a side; otherwise the line runs unbroken
-    // across the span (raised a little) and the label is centred just under it, so it never sits on a drop line.
-    const w = est(b.label, c, 0.64) + 0.9 * c, r = b.row;
-    // (The PPG's label sits in its first stretch, portal vein to WHVP, where it fits there: centred, it stood straight under the
-    // HVPG's, both on the same middle, and the two read as one stack. Critique A6, 17 Oct.)
-    if (b.i0 === 0 && b.i1 - b.i0 > 2 && X(1) - X(0) - w >= 20) b.mid = (X(0) + X(1)) / 2;
-    const inl = b.x1 - b.x0 - w >= 20;
-    b.by = inl ? r : r - 0.5 * c;
-    const by = b.by.toFixed(1);
-    b.bar.setAttribute('d', `M${b.x0} ${(b.by - 5).toFixed(1)}V${(b.by + 5).toFixed(1)}M${b.x1} ${(b.by - 5).toFixed(1)}V${(b.by + 5).toFixed(1)}M${b.x0} ${by}`
-      + (inl ? `H${(b.mid - w / 2).toFixed(1)}M${(b.mid + w / 2).toFixed(1)} ${by}H${b.x1}` : `H${b.x1}`));
-    b.txt.setAttribute('x', b.mid); b.txt.setAttribute('y', (inl ? r + 0.35 * c : r + 0.72 * c).toFixed(1)); fsOf(b.txt, c);
-    b.g.classList.toggle('below', !inl);
-  };
-  const hv = span('HVPG', 1, 2), pp = span('PPG', 0, 3);
-  // The phone's strip, two short rows: the station names over the five readings as plain numbers, on the ladder's own
-  // line, straight and thick, with the fall written above each stretch (the largest named by colour, a fall over 4 in red). Under them the HVPG and PPG as thin brackets with their reading
-  // in the rating's colour (numbers only, no arrows), so a phone needs no tiles. Its rows follow its lettering too (layS).
-  const S = { W: 360, ky: 9, dy: 16, ny: 27, vy: 32.5, hvpg: 52, ppg: 68, H: 76, c: 11, d: 12, v: 15, gap: 13 }, XS = (i) => 28 + 70 * i;
-  const conns = [0, 1, 2, 3].map(() => ({ band: sv('rect', { class: 'pzs-drop', rx: 6, opacity: 0, fill: `url(#${gid}hs)` }) }));
-  // (The line stops a clear gap short of each reading, so no outline is needed: the gap is measured from the digits' own edge, so it is the same beside one digit or two, and it eases when a reading gains or loses a digit.)
-  const sline = sv('path', { class: 'pzs-c', stroke: `url(#${gid}s)` });
-  // (A block on a station itself: the hatching in a rounded patch behind that reading, as the ladder's disc.)
-  const snodeBlk = sv('rect', { class: 'pzs-nb', rx: 6, fill: `url(#${gid}hs)`, opacity: 0 });
-  const sgrad = sv('linearGradient', { id: gid + 's', gradientUnits: 'userSpaceOnUse', x1: XS(0), x2: XS(4), y1: 0, y2: 0 }, sv('stop', { offset: 0, 'stop-color': 'var(--tour-portal)' }), sv('stop', { offset: 1, 'stop-color': 'var(--tour-sys)' }));
-  const spts = RUNGS.map(([, a], i) => {
-    const v = sv('text', { class: 'pzs-v', x: XS(i), 'text-anchor': 'middle' });
-    return { g: sv('g', { class: 'pzs-pt' }, v), v, k: sv('text', { class: 'pzs-k', x: XS(i), 'text-anchor': 'middle' }, a) };
-  });
-  const sbr = (name, i0, i1) => {
-    const x0 = XS(i0), x1 = XS(i1), t = ['bn', 'bv'].map((c) => sv('tspan', { class: 'pzs-' + c }));
-    const lead = sv('path', { class: 'pzl-lead' }), bar = sv('path', { class: 'pzl-br' });
-    const lbl = sv('text', { class: 'pzs-bl', x: (x0 + x1) / 2, 'text-anchor': 'middle' }, t);
-    return { name, x0, x1, row: 0, lead, t, bar, lbl, g: sv('g', { class: 'pzl-bg', opacity: 0 }, lead, bar, lbl) };
-  };
-  const hvS = sbr('HVPG', 1, 2), ppS = sbr('PPG', 0, 3);
-  const unit = sv('text', { class: 'pzs-u', 'text-anchor': 'end' }, 'mmHg');
-  const strip = sv('svg', { class: 'pz-strip', viewBox: `0 0 ${S.W} ${S.H}`, role: 'img' },
-    sv('defs', {}, sgrad, hatch(gid + 'hs', 7)), conns.map((c) => c.band), snodeBlk, sline, spts.map((p) => [p.g, p.k]), unit, hvS.g, ppS.g);
-  // A bracket's label: inline with a gap each side when the bracket has room for it, otherwise just above an unbroken line
-  // (its width an estimate, so a hidden strip needs no measuring and nothing jumps).
-  const lay = (b) => {
-    if (!b.len) return;
-    const half = b.len / 2 + 0.6 * S.c, mid = (b.x0 + b.x1) / 2, r = b.row, above = b.x1 - b.x0 - 2 * half < 14;
-    b.above = above;
-    b.lbl.setAttribute('y', (above ? r - 0.4 * S.c : r + 0.33 * S.c).toFixed(1));
-    b.bar.setAttribute('d', `M${b.x0} ${r - 3}V${r + 3}M${b.x1} ${r - 3}V${r + 3}` + (above ? `M${b.x0} ${r}H${b.x1}` : `M${b.x0} ${r}H${mid - half}M${mid + half} ${r}H${b.x1}`));
-  };
-  const layS = (fs, box) => {
-    // (A reading takes the largest role whose two digits still leave the line its gap on each side between stations 70 apart:
-    // in a narrow card at a large text size the value role would run the readings into each other.)
-    const fit = [fs.val, fs.body, fs.lab, fs.cap].filter((x) => x > 0), v0 = fit.find((x) => est('20', x, 0.62) + 2 * 5 + 10 <= 70) ?? Math.min(...fit);
-    const c = S.c = fs.cap, v = S.v = v0;
-    // The names take two rows when neighbours would touch. (No falls are written: a big one is shaded instead.)
-    // The names tilt 45° when neighbours would touch, rising from just above their readings (two staggered rows crowded a narrow cell).
-    // (Tilted names are parallel strips 70 × sin 45° = 49.5 apart: at a large text size, where letters that tall would touch, the
-    // names stand upright instead, 70 apart, at the same size.)
-    // (At a large text size the names step down first, never under half their role nor 12 px on the screen, so they stand
-    // upright between stations: tilted, they made the strip twice as tall as its card and cut off its PPG row (recompensation
-    // slide 5 at 200 % on a 375 px phone).)
-    const ppu = box?.width ? box.width / S.W : 0, kMin = ppu ? Math.max(c / 2, 12 / ppu) : c;
-    const wOf = (x) => Math.max(...RUNGS.map(([, a]) => est(a, x, 0.7)));
-    let kc = c;
-    while (wOf(kc) > 70 - 6 && kc > kMin) kc = Math.max(kMin, kc * 0.9);
-    const nameW = wOf(kc), tilt = nameW > 70 - 6;
-    const ang = !tilt ? 0 : 1.1 * kc <= 49.5 ? 45 : 90;
-    S.ky = ang === 45 ? 0.71 * nameW + 0.9 * kc : ang ? nameW + 0.6 * kc : 0.8 * kc + 1; S.ky2 = S.ky;
-    S.ny = S.ky2 + 0.3 * c + 0.55 * v + 3;
-    // (A phone's site-ladder cell, upright or sideways, writes no names: the rows share one row of names over them, laddersGrid's .pz-grid-head.)
-    const bare = !!strip.closest(':is(.pz.stack, .pz.low) .pz-cell');
-    if (bare) { S.ky2 = -0.35 * c + 1; S.ny = 0.55 * v + 4; }
-    S.vy = S.ny + 0.36 * v;
-    numW.clear(); lineKey = '';
-    // (In a wide card's shown strip the falls' shading keeps a clear 8 px or more from the readings either side: 2 was tight beside big digits.)
-    bandPad = strip.closest('.pz:not(.stack):not(.low) .pz-data.pz-folds, .pz.stack .pz-data') ? 11 : 2;   // (a phone's card strip too, not a site cell's)
-    // The unit sits after the last reading when it fits there, else at the end of the HVPG row (under the last stations).
-    const inline = XS(4) + est('20', v, 0.62) / 2 + 8 + est('mmHg', c, 0.68) <= S.W - 1;
-    // (The HVPG row sits clear of the falls' hatching under the readings: its label, raised over a short bracket, came within 3 px of it, text-200 review P4.)
-    S.hvpg = S.ny + 0.5 * v + 7 + 1.2 * c; S.ppg = S.hvpg + 1.45 * c; S.H = S.ppg + 0.6 * c + 3;
-    // (A phone's site-ladder cell hides the brackets, its kicker carries the HVPG: the strip ends under its readings.)
-    if (bare) S.H = S.ny + 0.5 * v + 4;
-    unit.style.display = bare ? 'none' : '';   // (a site row has no room for it beside its last reading, where a block's hatching may sit)
-    // (With its unit in the header, a wide card's shown strip centres its readings: the room kept for the unit sat empty on the right.)
-    const dx = strip.closest('.pz.stack .pz-data') ? -(S.W - XS(4) - XS(0)) / 2 : strip.closest('.pz:not(.stack):not(.low) .pz-data.pz-folds') ? -(S.W - XS(4) - XS(0)) / 2 - 4 : 0;   // (and 4 more: the first reading has two digits, the last one)
-    strip.setAttribute('viewBox', `${dx.toFixed(1)} 0 ${S.W} ${S.H.toFixed(1)}`);
-    conns.forEach((cn) => { const y0 = S.ky2 + 0.35 * c; cn.band.setAttribute('y', y0.toFixed(1)); cn.band.setAttribute('height', (S.ny + 0.5 * v - y0).toFixed(1)); });
-    spts.forEach((p, i) => {
-      p.v.setAttribute('y', S.vy.toFixed(1)); fsOf(p.v, v); fsOf(p.k, kc); p.k.style.display = bare ? 'none' : '';
-      const x = ang === 45 ? XS(i) - 0.3 * kc : ang ? XS(i) + 0.36 * kc : XS(i);
-      p.k.setAttribute('x', x.toFixed(1)); p.k.setAttribute('y', S.ky.toFixed(1)); p.k.setAttribute('text-anchor', ang ? 'start' : 'middle');
-      if (ang) p.k.setAttribute('transform', `rotate(-${ang} ${x.toFixed(1)} ${S.ky.toFixed(1)})`); else p.k.removeAttribute('transform');
-    });
-    unit.setAttribute('x', S.W - 2); unit.setAttribute('y', (inline ? S.vy : S.hvpg + 0.33 * c).toFixed(1)); fsOf(unit, c);
-    hvS.row = S.hvpg; ppS.row = S.ppg;
-    for (const b of [hvS, ppS]) fsOf(b.lbl, c);
-    draw.again(); placeLine();
-  };
-  // The connecting line between readings: each end stops LINE_PAD short of the digits' own edge. A reading's width is
-  // measured once per digit count (tabular figures, so any number of that length is as wide), or estimated while the strip is hidden.
-  const LINE_PAD = 5, numW = new Map(), halves = [0, 0, 0, 0, 0];
-  let bandPad = 2;
-  let lineKey = '', lineRaf = 0;
-  const halfOf = (p) => {
-    const t = p.v.textContent, n = t.length;
-    if (!n) return 0;
-    if (!numW.has(n)) {
-      let w = 0;
-      try { w = p.v.getComputedTextLength(); } catch { /* not rendered */ }
-      if (!(w > 0)) return est(t, S.v, 0.62) / 2;
-      numW.set(n, w);
-    }
-    return numW.get(n) / 2;
-  };
-  const placeNodeBlk = () => {
-    if (blockAt < 0) return;
-    const hw = Math.max(halves[blockAt], 6) + 5;   // (the reading's own width, then a little more to its right)
-    snodeBlk.setAttribute('x', (XS(blockAt) - hw).toFixed(1)); snodeBlk.setAttribute('width', (2 * hw + 14).toFixed(1));
-    snodeBlk.setAttribute('y', (S.vy - 0.78 * S.v - 2).toFixed(1)); snodeBlk.setAttribute('height', (1.05 * S.v + 4).toFixed(1));
-  };
-  const placeLine = () => {
-    const goal = spts.map(halfOf), key = goal.join() + '|' + S.ny;
-    if (key === lineKey) return;
-    lineKey = key;
-    const step = () => {
-      let moving = false;
-      goal.forEach((g, i) => { const d = g - halves[i]; if (!halves[i] || Math.abs(d) < 0.05) halves[i] = g; else { halves[i] += d * 0.3; moving = true; } });
-      // (The big fall's band spans its stretch of line, between the two readings, from the falls' row down past the line.)
-      conns.forEach((cn, i) => { const x = XS(i) + halves[i] + bandPad; cn.band.setAttribute('x', x.toFixed(1)); cn.band.setAttribute('width', Math.max(4, XS(i + 1) - halves[i + 1] - bandPad - x).toFixed(1)); });
-      sline.setAttribute('d', [0, 1, 2, 3].map((i) => `M${(XS(i) + halves[i] + LINE_PAD).toFixed(2)} ${S.ny}H${(XS(i + 1) - halves[i + 1] - LINE_PAD).toFixed(2)}`).join(''));
-      placeNodeBlk();
-      lineRaf = moving ? requestAnimationFrame(step) : 0;
-    };
-    cancelAnimationFrame(lineRaf); step();
-  };
-  document.fonts?.ready.then(() => { numW.clear(); lineKey = ''; placeLine(); });
-  fitChart(strip, layS);
-  const grid = TICKS.map((v) => {
-    const line = sv('line', {}), txt = sv('text', { 'text-anchor': 'end' }, String(v));
-    return { v, line, txt, g: sv('g', { class: 'pzl-grid' }, line, txt) };
-  });
-  const drawBase = () => {
-    base.setAttribute('d', baseVals ? RUNGS.map(([k], i) => `${i ? 'L' : 'M'}${X(i)} ${Y(baseVals[k]).toFixed(1)}`).join(' ') : '');
-  };
-  let verdict = {};
-  const el = sv('svg', { class: 'pz-ladder', viewBox: `0 0 ${W} ${H}`, role: 'img' },
-    sv('defs', {}, hatch(gid + 'hb', 14), sv('linearGradient', { id: gid, x1: 0, x2: 1, y1: 0, y2: 0 }, sv('stop', { offset: 0, 'stop-color': 'var(--tour-portal)' }), sv('stop', { offset: 1, 'stop-color': 'var(--tour-sys)' }))),
-    grid.map((r) => r.g),
-    bands.map((b) => b.g), nodeBlk, hv.g, pp.g, base, line, pts.map((p) => p.g));
-  const layL = (fs, box) => {
-    c = fs.cap; l = fs.lab; ph = 1.75 * c;
-    // (The first reading, centred on its station, stays clear of the axis numbers to its left.)
-    tx = est('50', c) + 4; gx = tx + 0.5 * c; x0 = Math.max(gx + 12, gx + 8 + 0.66 * l);   // (its outline included: "18" by the axis's "20" read as one, critique A6)
-    const xr = W - Math.max(56, Math.max(est('WHVP', c, 0.66) / 2, est('20', l) / 2) + 8);
-    step = (xr - x0) / 4;
-    // (Two rows only when two neighbouring names, as drawn, would come closer than a quarter letter.)
-    const kw = pts.map((p, i) => { fsOf(p.k, c); let w = 0; try { w = p.k.getComputedTextLength(); } catch { /* not rendered */ } return w > 0 ? w : est(RUNGS[i][1], c, 0.78); });
-    const nameRows = kw.some((w, i) => i && (w + kw[i - 1]) / 2 + 0.25 * c > step) ? 2 : 1;
-    // (The readings sit above their points, at the top of the plot.)
-    yTop = 6 + 0.8 * l + 12.5 + 0.22 * l;
-    // (A ladder in a cell of fixed height, the site ladders, gives its plot whatever height the lettering leaves.)
-    const cell = box && el.closest('.pz-panel.fill .pz-cell');
-    // (A laptop's or tablet's ladder card gives the ladder a height (styles/app.css, shorter as the card fits): the plot takes
-    // what the lettering leaves, so the words keep their size and only the plot gets shorter.)
-    const own = box && !cell && el.matches(LADDER_FILL);
-    // (A ladder card in a narrow column, a tablet's, packs its rows under the plot closer, so the plot keeps its height.)
-    const tight = (own && box.width < 420) || !!cell;   // (and the six site ladders, so a big screen's cells keep a plot)
-    if (tight) ph = 1.35 * c;
-    const g1 = tight ? 9 : 13, g2 = tight ? 4 : 12, g3 = tight ? 6 : 10;
-    const rows = (ph / 2 + g1) + (ph + g2) + (ph / 2 + g3 + 0.75 * c) + 0.25 * c + 6;
-    // (Its lettering's own height goes to the stylesheet, --lad-fixed, so the box is that plus the plot's share of the card.)
-    if (own) el.style.setProperty('--lad-fixed', `${((yTop + rows + (nameRows > 1 ? 1.15 * c : 0)) * box.width / W / (parseFloat(getComputedStyle(el).zoom) || 1)).toFixed(1)}px`);   // (in the ladder's own px, before a zoom of the card's words)
-    if (cell || own) {
-      PH = W * box.height / box.width - yTop - rows - (nameRows > 1 ? 1.15 * c : 0);
-      // (Too short for a plot at this text size: the cell shows the strip instead, until a resize or the next slide.)
-      // (All six or none, so the grid keeps its two rows; a box not laid out yet decides nothing.)
-      // (The lettering above came through the screen's matrix, which shrinks with a last viewBox taller than the box: the fit
-      // test reads it at the box's width, so the choice of plot or strip does not depend on the previous pass.)
-      const fw = box.width ? Math.min(1, (el.getScreenCTM?.()?.a || 0) * W / box.width) || 1 : 1;
-      const PHw = W * box.height / box.width - (yTop + rows + (nameRows > 1 ? 1.15 * c : 0)) * fw;
-      // (A cell its grid leaves no height at all, a phone held sideways, has no room for a plot either: it had drawn nothing.)
-      if (cell && box.width > 0 && (box.height <= 0 || PHw < 48)) { for (const x of cell.parentElement.children) x.classList.toggle('strip', x.classList.contains('pz-cell')); PH = 48; }
-      // (Too short for a readable plot: the card shows the compact strip instead, until a resize or the next slide.)
-      // (The card is laid out again at once for its strip: left to the next resize, a strip too tall for its room stood cut off at
-      // the card's foot until then.)
-      const dd = own && box.height > 0 && PHw < 48 ? el.closest('.pz-data') : null;
-      if (dd && !dd.classList.contains('strip')) { dd.classList.add('strip'); dd.dispatchEvent(new Event('pz-strip')); }
-      if (own) PH = Math.max(12, PH);
-    } else PH = 198;
-    const yBot = yTop + PH;
-    hv.row = yBot + ph / 2 + g1; pp.row = hv.row + ph + g2;
-    nameY = [pp.row + ph / 2 + g3 + 0.75 * c]; nameY[1] = nameY[0] + (nameRows > 1 ? 1.15 * c : 0);
-    H = nameY[1] + 0.25 * c + 6;
-    el.setAttribute('viewBox', `0 0 ${W} ${H.toFixed(1)}`);
-    for (const g of grid) { g.line.setAttribute('x1', gx.toFixed(1)); g.line.setAttribute('x2', W - 10); g.txt.setAttribute('x', tx.toFixed(1)); fsOf(g.txt, c); }
-    // (A fall's band keeps 8 px as drawn clear of the two-digit readings at its ends: at 16 units a WHVP of 23 ran 2 px into it.)
-    const bp = Math.max(16, est('20', l, 0.62) / 2 + 8 * (box?.width ? W / box.width : 1));
-    bands.forEach((b, i) => { b.r.setAttribute('x', (X(i) + bp).toFixed(1)); b.r.setAttribute('width', Math.max(4, step - 2 * bp).toFixed(1)); });
-    pts.forEach((p, i) => {
-      p.c.setAttribute('cx', X(i).toFixed(1)); p.v.setAttribute('x', X(i).toFixed(1)); fsOf(p.v, l);
-      p.k.setAttribute('x', X(i).toFixed(1)); p.k.setAttribute('y', nameY[i % 2].toFixed(1)); fsOf(p.k, c);
-    });
-    placeSpan(hv); placeSpan(pp);
-    draw.again();
-  };
-  fitChart(el, layL);
-  let say0 = '';
-  const draw = tweener((f) => {
-    top = clamp(f.top || 12, 12, 50);
-    const sparse = every(tTo);
-    // (Each chart's matrix is read once in the frame, at its first use: the chart's own writes in the frame do not move it.)
-    let mE, mS;
-    const snapE = (x) => snapAt(mE === undefined ? (mE = el.getScreenCTM?.() || null) : mE, x), snapS = (x) => snapAt(mS === undefined ? (mS = strip.getScreenCTM?.() || null) : mS, x);
-    for (const g of grid) {
-      setA(g.line, 'y1', Y(g.v).toFixed(1)); setA(g.line, 'y2', Y(g.v).toFixed(1)); setA(g.txt, 'y', (Y(g.v) + 0.36 * c).toFixed(1));
-      // (A plot too short for two rows of numbers names only its zero line.)
-      setA(g.g, 'opacity', (clamp(f['g' + g.v] ?? 0, 0, 1) * (g.v % (stepOf(tTo) * sparse) === 0 && (g.v === 0 || PH >= 2.4 * c) ? 1 : 0)).toFixed(3));
-    }
-    bands.forEach((b) => { setA(b.r, 'y', (Y(top) - 6).toFixed(1)); setA(b.r, 'height', (Y(0) - Y(top) + 6).toFixed(1)); });
-    drawBase();
-    const y = RUNGS.map(([k]) => Y(f[k]));
-    setA(line, 'd', y.map((yy, i) => `${i ? 'L' : 'M'}${X(i)} ${yy.toFixed(1)}`).join(' '));
-    if (blockAt >= 0) {
-      const yt = y[blockAt] - 12, yb = Math.max(Y(0), y[blockAt] + 12);   // (starts just above the node, so its reading stays clear)
-      nodeBlk.setAttribute('x', (X(blockAt) - 0.12 * step).toFixed(1)); nodeBlk.setAttribute('width', (0.46 * step).toFixed(1));
-      setA(nodeBlk, 'y', yt.toFixed(1)); setA(nodeBlk, 'height', (yb - yt).toFixed(1));
-    }
-    pts.forEach((p, i) => { setA(p.c, 'cy', y[i].toFixed(1)); setA(p.v, 'y', (y[i] - 12.5 - 0.22 * l).toFixed(1)); setT(p.v, fmt(f[RUNGS[i][0]], 0)); });
-    // The strip: readings in the nodes, the fall on each connector (from the rounded readings, so it adds up).
-    const raw = conns.map((_, i) => Math.max(0, f[RUNGS[i][0]] - f[RUNGS[i + 1][0]]));
-    spts.forEach((p, i) => { setT(p.v, fmt(f[RUNGS[i][0]], 0)); });
-    placeLine();
-    conns.forEach((c, i) => {
-      // A big fall is shaded, as on the ladder; no fall is written as a number.
-      setA(c.band, 'opacity', clamp((raw[i] - 4) / 3, 0, 1).toFixed(3));
-    });
-    bands.forEach((b, i) => {
-      const d = f[RUNGS[i][0]] - f[RUNGS[i + 1][0]];
-      setA(b.g, 'opacity', clamp((d - 4) / 3, 0, 1).toFixed(3));
-    });
-    // Each span fades out when a level is not measurable (Budd-Chiari has no wedge). Its leaders end on the points.
-    // Each pill is coloured by its own number against its own cut-offs; a slide's verdict (brackets: { hvpg: 'misleads' })
-    // only marks it.
-    const put = (b, hi, lo, v, rate) => {
-      const ok = Number.isFinite(hi) && Number.isFinite(lo) && Number.isFinite(v);
-      setA(b.g, 'opacity', ok ? 1 : 0);
-      if (!ok) return;
-      setA(b.lead, 'd', `M${snapE(b.x0).toFixed(2)} ${(b.by ?? b.row) - 6}V${(Y(hi) + 12).toFixed(1)}M${snapE(b.x1).toFixed(2)} ${(b.by ?? b.row) - 6}V${(Y(lo) + 12).toFixed(1)}`);
-      const say = verdict[b.name.toLowerCase()];
-      b.g.dataset.rate = rate;
-      b.g.classList.toggle('says', !!say);
-      const label = `${b.name} ${fmt(v, 0)}`;
-      if (b.txt.textContent !== label) { b.txt.textContent = b.label = label; placeSpan(b); }
-    };
-    // The card reads in whole mmHg, so each gradient is the difference of the whole readings, coloured by its own value.
-    const gH = wholeGap(f.whvp, f.fhvp, f.hvpg), gP = wholeGap(f.pv, f.ivc, f.ppg);
-    put(hv, f.whvp, f.fhvp, gH, rateOf('hvpg', { hvpg: gH })[0] || 'ok');
-    put(pp, f.pv, f.ivc, gP, rateOf('ppg', { ppg: gP })[0] || 'ok');
-    // The strip's brackets: name, reading and its rating (coloured by its own number; a slide's verdict only marks it).
-    const putS = (b, hi, lo, v, k) => {
-      const ok = Number.isFinite(hi) && Number.isFinite(lo) && Number.isFinite(v), [rate] = rateOf(k, { [k]: v });
-      setA(b.g, 'opacity', ok ? 1 : 0);
-      if (!ok) return;
-      b.g.dataset.rate = rate || 'ok';
-      const num = ' ' + fmt(v, 0);
-      setT(b.t[0], b.name); setT(b.t[1], num);
-      b.len = est(b.name, S.c, 0.64) + est(num, S.c, 0.52); lay(b);
-      // The leaders run from the bracket's ends up to the readings, broken 4 px round the label where it sits above the bar
-      // and wider than it (its tick lines ran through "HVPG", text-200 review P3). The label's own box where it is drawn, else
-      // its estimate.
-      let bb = null;
-      try { const q = b.lbl.getBBox(); if (q.width > 0) bb = { x0: q.x, x1: q.x + q.width, y0: q.y, y1: q.y + q.height }; } catch { /* not rendered */ }
-      const mid = (b.x0 + b.x1) / 2, ly = b.above ? b.row - 0.4 * S.c : b.row + 0.33 * S.c;
-      bb ||= { x0: mid - b.len / 2, x1: mid + b.len / 2, y0: ly - 0.8 * S.c, y1: ly + 0.25 * S.c };
-      const top = S.ny + 0.5 * S.v + 2;
-      const leg = (x) => {
-        const sx = snapS(x).toFixed(2);
-        if (!b.above || x < bb.x0 - 4 || x > bb.x1 + 4) return `M${sx} ${b.row - 5}V${top}`;
-        // (from the bar up to 4 px under the label, and from 4 px over it up to the reading, each where it has length)
-        return (b.row - 5 - (bb.y1 + 4) > 1 ? `M${sx} ${b.row - 5}V${(bb.y1 + 4).toFixed(1)}` : '') + (bb.y0 - 4 - top > 1 ? `M${sx} ${(bb.y0 - 4).toFixed(1)}V${top}` : '');
-      };
-      b.lead.setAttribute('d', leg(b.x0) + leg(b.x1));
-    };
-    putS(hvS, f.whvp, f.fhvp, gH, 'hvpg'); putS(ppS, f.pv, f.ivc, gP, 'ppg');
-    const say = 'Pressure ladder: ' + RUNGS.map(([k, a]) => `${a} ${fmt(f[k], 0)}`).join(', ') + ' mmHg. '
-      + `HVPG ${fmt(gH, 0)}, PPG ${fmt(gP, 0)} mmHg.`;
-    if (say !== say0) { say0 = say; el.setAttribute('aria-label', say); strip.setAttribute('aria-label', say); }
-  });
-  layL({ cap: 17, lab: 25 }); layS({ cap: 11, lab: 12, val: 15 });
-  return {
-    el, strip,
-    setBase(b) { baseVals = b; drawBase(); },
-    set(f, { key = [], ms, brackets = null, block = null } = {}) {
-      verdict = brackets || {};
-      const at = RUNGS.findIndex(([k]) => k === block);
-      if (at >= 0) blockAt = at;
-      nodeBlk.setAttribute('opacity', at >= 0 ? 1 : 0); snodeBlk.setAttribute('opacity', at >= 0 ? 1 : 0);
-      spts.forEach((p, i) => p.g.classList.toggle('blk', i === at));
-      placeNodeBlk();
-      pts.forEach((p, i) => p.g.classList.toggle('key', key.includes(RUNGS[i][0])));
-      spts.forEach((p, i) => p.g.classList.toggle('key', key.includes(RUNGS[i][0])));
-      const hi = Math.max(f.pv, f.whvp, f.fhvp, f.ra, f.ivc ?? f.ra, ...(baseVals ? RUNGS.map(([k]) => baseVals[k]) : []));
-      const t = tTo = TOPS.find((v) => v >= hi + 1.5) || 50;
-      draw({ top: t, ...Object.fromEntries(TICKS.map((v) => ['g' + v, wOf(v, t)])), pv: f.pv, whvp: f.whvp, fhvp: f.fhvp, ra: f.ra, ivc: f.ivc ?? f.ra, hvpg: f.hvpg, ppg: f.ppg }, ms);
-    },
-  };
-}
-
 /** Big number tiles, each rated; set() counts to the new values. Given ref (an earlier state's numbers), each
  *  tile also says how far it moved from there, green when it went the better way (and plain within normal). */
 function bigTiles() {
@@ -821,7 +494,7 @@ function bigTiles() {
   let sig = '', parts = [], draw = null, goal = false;
   // After TIPS the PPG is read against its target (below 12 mmHg), so a tile never says "High" under a line that
   // says the target is reached.
-  const rated = (k, f) => (goal && k === 'ppg' && f.ppg != null ? (f.ppg < 12 ? ['ok', 'Target met'] : ['hi', 'Above target']) : rateOf(k, f));
+  const rated = (k, f) => (goal && k === 'ppg' && f.ppg != null ? tipsGoal(f.ppg) : rateOf(k, f));
   // (A tile's word judges the number it prints: 4.98 L shows "5.0 L", so it reads Grade 3.)
   const ratedShown = (k, f) => (f[k] != null ? rated(k, { ...f, [k]: tileShown(k, f[k]) }) : rated(k, f));
   // Where a value sits on its tile's bar, 0 to 100 (shown units, held inside the bar).
@@ -850,7 +523,7 @@ function bigTiles() {
       if (ku < 1) p.u.style.fontSize = `${Math.floor(uf * ku * 10) / 10}px`;
     }
   }
-  let fitRaf = 0;
+  let fitRaf = 0, fitShape = '';
   const fitSoon = () => { cancelFrame(fitRaf); fitRaf = nextFrame(fit); };
   if (typeof ResizeObserver !== 'undefined') new ResizeObserver(fitSoon).observe(el);
   document.fonts?.ready?.then(fitSoon);
@@ -872,6 +545,7 @@ function bigTiles() {
       return { k, T, tile, v, u, r, d, S, bands, zs, link, was, now, zr: '' };
     });
     el.replaceChildren(...parts.map((p) => p.tile));
+    el.classList.remove('pzb-nonum');   // (new bars keep their numbers' row until the card's fit has seen them: fitCards)
     el.dataset.n = String(parts.length);
     draw = tweener((f) => parts.forEach((p) => {
       const [cls, word] = ratedShown(p.k, f), none = cls == null && (p.k === 'saag' || p.k === 'tp');
@@ -917,15 +591,16 @@ function bigTiles() {
       const sg = ks.join() + (ref ? '|ref' : '');
       if (sg !== sig || !draw) { sig = sg; build(ks, !!ref); }   // (no tiles at all is a build too)
       el.dataset.keys = ks.join();
-      // (On a phone the strip's brackets carry HVPG and PPG with their ratings, so plain tiles of just those two fold away.)
-      el.dataset.compact = ks.join() === 'hvpg,ppg' && !ref && !tips ? '1' : '';
       parts.forEach((p) => p.tile.classList.toggle('key', key.includes(p.k)));
       paintBands(f);
       const to = Object.fromEntries([...ks, 'asc'].map((k) => [k, f[k]]));
       if (ref) for (const k of ks) to['ref_' + k] = ref[k];
       for (const p of parts) p.fin = tileVal(p.k, to[p.k]);
       draw(to, ms);
-      fitSoon();
+      // (Fitted again only when a number's shape changed, its final text or the length of the one shown: measuring the tiles forced a
+      // layout on every model frame, with the same answer. A tile's own size change still refits through the observer below.)
+      const shape = parts.map((p) => `${p.fin}|${p.v.textContent.length}`).join();
+      if (shape !== fitShape) { fitShape = shape; fitSoon(); }
     },
   };
 }
@@ -1014,7 +689,7 @@ function quadrantVisual(rows) {
     const near = pts.find((p) => Math.abs(p.saag - r.f.saag) < 0.3 && Math.abs(p.tp - r.f.tp) < 0.5);   // (labels that would overlap)
     if (near) near.names.push(r.name); else pts.push({ saag: r.f.saag, tp: r.f.tp, names: [r.name], site: r.site });
   }
-  const quads = QUADS.map((q) => { const rect = sv('rect'), n = sv('text', { class: 'pzq-n', 'text-anchor': 'start' }, String(q.n)); return { q, rect, n, g: sv('g', { class: 'pzq-q', 'data-portal': q.x ? 'y' : 'n' }, rect, n) }; });
+  const quads = QUADS.map((q) => { const rect = sv('rect'), n = sv('text', { class: 'pzq-n', 'text-anchor': 'start' }, String(q.n)); return { q, rect, n, g: sv('g', { class: 'pzq-q', 'data-q': String(q.n) }, rect, n) }; });
   const cuts = [sv('line', { class: 'pzq-cut' }), sv('line', { class: 'pzq-cut' })], axes = [sv('line', { class: 'pzq-axis' }), sv('line', { class: 'pzq-axis' })];
   const xt = [[0, '0'], [1.1, '1.1'], [2, '2'], [3, '3']].map(([v, t]) => ({ v, el: sv('text', { class: 'pzq-t' + (v === 1.1 ? ' on' : ''), 'text-anchor': 'middle' }, t) }));
   const yt = [[0, '0'], [2.5, '2.5'], [5, '5']].map(([v, t]) => ({ v, el: sv('text', { class: 'pzq-t' + (v === 2.5 ? ' on' : ''), 'text-anchor': 'end' }, t) }));
@@ -1070,7 +745,7 @@ function quadrantVisual(rows) {
   lay({ cap: 25, lab: 29, val: 42 });
   fitChart(svg, lay);
   return h('div', { class: 'pz-visual pz-quadwrap' }, svg,
-    h('ol', { class: 'pz-quads' }, QUADS.map((q) => h('li', { 'data-portal': q.x ? 'y' : 'n' },
+    h('ol', { class: 'pz-quads' }, QUADS.map((q) => h('li', { 'data-q': String(q.n) },
       h('span', { class: 'qn' }, String(q.n)), h('span', { class: 'qt' }, q.t), h('span', { class: 'qc' }, q.c)))));
 }
 
@@ -1129,7 +804,7 @@ function makeCalc() {
   };
   const ready = (async () => {
     try {
-      const w = new Worker(new URL('../worker.js?v=869d5cb860', import.meta.url), { type: 'module' });
+      const w = new Worker(new URL('../worker.js?v=2a250df7d9', import.meta.url), { type: 'module' });
       await new Promise((res, rej) => {
         const t = setTimeout(() => rej(new Error('worker timeout')), 15000);   // (long: a slow load still gets the worker; host.js)
         w.onmessage = (e) => { if (e.data?.type === 'presets') { clearTimeout(t); res(); } };
@@ -1142,7 +817,7 @@ function makeCalc() {
       post = (m) => w.postMessage(m); kill = () => w.terminate();
     } catch {
       try {
-        const { createCore } = await import('../worker-core.js?v=c0cfc5e1c9');
+        const { createCore } = await import('../worker-core.js?v=6bb336c41d');
         const core = createCore((m) => setTimeout(() => onMsg(m), 0));
         core.handle({ type: 'visibility', visible: false }); core.handle({ type: 'run', running: false });
         post = (m) => core.handle(structuredClone(m)); kill = () => core.dispose();
@@ -1180,21 +855,23 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   const PW = 'pps.pzWidth', PW_K = { narrow: 0.8, medium: 1, wide: 1.3 };
   let pzWidth = 'medium';   // (fixed for now: no control offers it; a saved choice is ignored)
 
-  const all = () => [...DECKS, ...readMine().map(fromScript)];
-  // An instructor's script (captured model states) as slides: its own titles and notes, the ladder beside.
+  const all = () => [...DECKS, ...[...TESTING, ...readMine()].map(fromScript)];
+  // An instructor's script (captured model states) as slides: its own titles and notes, the Gut to heart profile beside.
   // An imported deck file (s.deck: the full deck format, read without running it by deck-source.js) keeps every feature.
   function fromScript(s) {
     if (s.deck) return { ...s.deck, id: s.id, title: s.title, level: 'yours', mine: true, full: true, slides: withOverview(s.deck).slides };
     return { ...s, level: 'yours', mine: true, slides: (s.steps || []).map((st) => ({
       preset: st.preset, presetDays: st.presetDays, params: st.params, action: st.action, days: st.days, view: st.view, cam: st.view === 'circuit' ? 'fit' : st.cam || 'fit',
-      kicker: st.kicker || s.title, title: st.title || 'Step', line: st.line || '', causes: st.causes, site: st.site, notes: st.notes || st.tell || '', ask: st.ask, data: 'ladder', key: st.key || [],
+      kicker: st.kicker || s.title, title: st.title || 'Step', line: st.line || '', causes: st.causes, site: st.site, notes: st.notes || st.tell || '', ask: st.ask, tool: { kind: 'profile' }, key: st.key || [],
     })) };
   }
 
   // ── Slide states ──
   // stateOf[i]: the slide whose model state slide i shows (itself, or the last one before it that changed the model).
   const changes = (s) => !!(s.preset || s.params || s.action || s.days);
-  const stepOf = (s) => (changes(s) ? { preset: s.preset, presetDays: s.presetDays, params: s.params, action: s.action, days: s.days, ramp: s.ramp, fine: !!s.lapse, trail: s.tool?.kind === 'flowtime' && (s.tool.lines || true) } : {});
+  const modelStep = (s) => (changes(s) ? { preset: s.preset, presetDays: s.presetDays, params: s.params, action: s.action, days: s.days, ramp: s.ramp, fine: !!s.lapse, trail: s.tool?.kind === 'flowtime' && (s.tool.lines || true) } : {});
+  // (With the extra work a deck visuals package asks for at the slide's state, kept with it as st.extra: slide-ext.js stepExtra.)
+  const stepOf = (s) => { const x = stepExtra(s); return x ? { ...modelStep(s), ...x } : modelStep(s); };
   function prepare() {
     const key = deck.mine ? null : deck.id;
     stateOf = []; let last = 0;
@@ -1214,10 +891,11 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     const deckNow = deck;
     (async () => {
       const first = slides[0]?.preset ? null : (await host.request('snapshot')).snap;
-      if (!base) c.request('presetMetrics', { ids: ['healthy'] }).then((m) => { base = m.result?.healthy || null; if (deck === deckNow) ui?.ladder.setBase(base); });
+      if (!base) c.request('presetMetrics', { ids: ['healthy'] }).then((m) => { base = m.result?.healthy || null; });
       const end = await c.sequence(steps, first, (m) => {
         const st = { snap: m.snap, params: m.params, fp: m.fp, trail: m.trail, presetId: presetAt[m.i] };
         if (m.start) st.start = { ...m.start, presetId: presetAt[m.i] };
+        if (m.extra) st.extra = m.extra;
         mine[m.i] = st;
         if (states !== mine) return;   // a newer presentation has started
         for (const w of waiters.filter((x) => x.i === m.i)) w.res(st);
@@ -1241,7 +919,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     if (!st) {
       st = [];
       const first = sl[0]?.preset ? null : (await host.request('snapshot')).snap;
-      await getCalc().sequence(sl.map(stepOf), first, (m) => { st[m.i] = { fp: m.fp }; });
+      await getCalc().sequence(sl.map(modelStep), first, (m) => { st[m.i] = { fp: m.fp }; });
     }
     return sl.map((_, i) => st[own[i]]?.fp ?? null);
   }
@@ -1288,12 +966,25 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   function figureIn() { view.classList.remove('pz-out'); loading(false); }
   // (next: the slide being moved to, if it frames the plate, so the way out of the lobule lands on that framing
   // in one zoom rather than stopping at the fit first.)
+  const RISE_FIT_MS = 450;   // (the zoom back to the whole lobule before a rise: about the rise's own speed where they meet)
+  const RISE_AHEAD_MS = 1200;   // (a lobule slide settled this long: its way out's organ picture is made ahead)
+  let prepAheadT = 0;
+  const RISE_READY_MS = 2500;   // (the longest the rise waits for the organs' picture: past it, the live drawing shows, as before)
   async function toAnatomy(next) {
     const st = store.get();
     if (!st.lobule && !st.sinusoid) return;
     // Out of the sinusoid, then back to the lobule's normal framing, and only then out of the lobule: three steps, never one zoom through them.
     if (st.sinusoid) { store.set({ sinusoid: false }); await wait(60); await until(() => !stage.sinBusy() && !stage.sinusoidOpen(), 4000); }
-    if (stage.lobuleOpen()) { const ms = reduce.matches || booting ? 0 : 900; if (stage.lobuleFocus('fit', { ms })) await wait(ms); }
+    // The anatomy under the lobule is brought up to the patient now and its organs' picture made, unseen (begun in camera() as the
+    // new cards come in); the rise waits for it (stage.js prepRise), so the organs fade in as they are, never swapped in one frame at landing.
+    stage.prepRise?.();
+    stage.lobuleHold?.(true);   // (the lobule's framing stays where the leaving slide left it: the way out only zooms out, see transitionRun)
+    // (Waited for before the glide, at rest: the glide runs straight on into the rise, never stopping at the whole lobule.)
+    if (stage.riseReady && !booting) await until(() => stage.riseReady(), RISE_READY_MS);
+    // (The way back to the fit eases in only: it reaches the fit still moving and the rise, which moves from its first frame, carries
+    // straight on. Eased out as well, the zoom came to rest at the whole lobule and set off again: it stopped midway (Mohammad, 20 Oct,
+    // Circulation 9 to 10).)
+    if (stage.lobuleOpen()) { const ms = reduce.matches || booting ? 0 : RISE_FIT_MS; if (stage.lobuleFocus('fit', { ms, ease: 'in' })) await wait(ms); }
     if (next && !reduce.matches && !booting) stage.riseTo(next.box, next.kMax, next.clear);   // (box: a function, asked for when the rise begins)
     store.set({ lobule: false });
     await until(() => stage.lobuleSettled(), 6000); await wait(80);
@@ -1302,6 +993,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   async function camera(cam, s, cut) {
     const ms = reduce.matches || booting ? 0 : 1500;
     if (LOBULE_CAM.test(cam)) {
+      stage.lobuleHold?.(false);   // (a way out called off: the lobule follows this slide's cards again)
       // (A slide's layers: ['zones'] shows the lobule's zone bands; any other lobule slide has them off.)
       const zonesWant = !!s.layers?.includes('zones');
       if (!!store.get().lobuleLayers?.zones !== zonesWant) store.set({ lobuleLayers: { ...store.get().lobuleLayers, zones: zonesWant } });
@@ -1331,6 +1023,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     // (The rise lands where the box fits the space the cards leave, measured as it begins: the new slide's cards are let come in
     // first, or they would settle a little larger after it and the camera would glide again to the fit they leave.)
     if ((store.get().lobule || store.get().sinusoid) && ms > 0) {
+      if (!store.get().sinusoid) stage.prepRise?.();   // (begun now, while the cards come in: see toAnatomy)
       const t0 = performance.now();
       await until(() => cut() || !cardsEntering(), 1200);
       // (And their size has stopped moving: a chart or a wrapped line that lands during the rise would change the fit it was aimed at.
@@ -1342,8 +1035,9 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     await toAnatomy(v === 'anatomic' ? riseFor(cam, s) : null);
     if (cut()) return;
     if (store.get().view !== v) { store.set({ view: v }); await wait(700); }
-    // (Reduced motion keeps the glide, short: a jump of the whole figure is harder to follow than a quick move.)
-    const gl = ms || 300;
+    // (Reduced motion keeps the glide, short: a jump of the whole figure is harder to follow than a quick move. Under the start's
+    // cover it is set outright, so the reveal never catches it on its way.)
+    const gl = booting ? 0 : ms || 300;
     if (cam === 'fit' || v === 'circuit') stage.fitSlow(gl);
     else stage.frameBox(camBox(cam, s), gl, s.kMax || 3.2, !!s.clear);
     await wait(gl);
@@ -1404,6 +1098,46 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     if (cath.on) { stage.setCatheter(null); stage.cathForget(); }
     Object.assign(cath, { on: false, v: { u: 0, balloon: 0, column: 0, opacity: 1 }, tr: {}, show: [], ring: null, ostium: false, probeT0: 0, follow: false, cam: null, fp: null });
   }
+  // ── A slide's procedure (proc-anim.js): TIPS, BRTO or BATO played on the live figure from the teaching card's Play button, or
+  // as the slide lands going forward (auto: true). When it ends the live model takes the change, as a treatment button does
+  // (liveSet). A slide whose own patient has already had it (the BRTO slides show the shunt closed) plays it from just before:
+  // the live model takes it back first (the shunt opens again while the catheter travels), then the procedure puts it back.
+  // Leaving the slide stops it where it is; the next slide's camera takes over.
+  let procRun = null;
+  const procKind = (s) => (typeof s.procedure === 'string' ? s.procedure : s.procedure?.kind) || null;
+  function procStop() { if (!procRun) return; const r = procRun; procRun = null; r.stop({ home: false }); stage.cathForget(); procPaint(); }
+  function procPaint() { ui?.text.querySelectorAll('.pz-proc').forEach((b) => { b.disabled = !!procRun || !!b.dataset.why; b.setAttribute('aria-pressed', String(!!procRun)); }); }
+  async function procPlay(s, i) {
+    const kind = procKind(s), mine = () => !!deck && shown?.i === i && slides[i] === s;
+    if (!PROCS[kind] || !mine() || procRun || cath.on) return;
+    if (lapseOn) stopLapse();
+    await toAnatomy();
+    if (store.get().view !== 'anatomic') { store.set({ view: 'anatomic' }); await wait(700); }
+    if (!mine() || procRun) return;
+    // (Through liveSet as the change itself is: the slide's own state comes back whenever it is shown again.)
+    if (PROCS[kind].had(store.get().params)) liveSet(s, i, PROCS[kind].undo(structuredClone(store.get().params)));
+    const run = procRun = playProcedure(stage, kind, {
+      apply: () => {
+        if (procRun !== run || !mine() || procBlocked(kind, store.get().params, store.get().frame?.metrics)) return;
+        liveSet(s, i, PROCS[kind].apply(structuredClone(store.get().params)));
+        // (The slide's treatment buttons press the one that now matches the live model.)
+        const has = (o, p) => Object.entries(o).every(([k, v]) => (v && typeof v === 'object' ? has(v, p?.[k] || {}) : !!p?.[k] === !!v && (typeof v === 'boolean' || p?.[k] === v)));
+        const k = s.compare?.findIndex((o) => o.params && has(o.params, store.get().params)) ?? -1;
+        if (k >= 0) ui?.text.querySelectorAll('.pz-abb:not(.pz-proc)').forEach((btn, j) => btn.setAttribute('aria-pressed', String(j === k)));
+      },
+      onEnd: () => { if (procRun === run) { procRun = null; procPaint(); } },
+    });
+    procPaint();
+  }
+  function procEl(s, i, st) {
+    const kind = procKind(s), p = st?.params || store.get().params, m = st ? null : store.get().frame?.metrics;
+    // (BRTO and BATO only on a patient with gastric varices, or one who has had it already, so it plays from just before.)
+    if (PROCS[kind] && !procOffered(kind, p, m)) return null;
+    const why = !PROCS[kind] ? 'Unknown procedure.' : PROCS[kind].had(p) ? '' : procBlocked(kind, p, m);
+    return h('div', { class: 'pz-ab pz-procs', role: 'group', 'aria-label': 'Play the procedure on the figure' },
+      h('button', { type: 'button', class: 'pz-abb pz-proc', 'aria-pressed': 'false', ...(why ? { disabled: '', 'data-why': why, title: why } : {}), onclick: () => procPlay(s, i) },
+        `Play ${PROCS[kind]?.name || kind}`));
+  }
   // Out: the readings go, the balloon goes down and the catheter fades (at once when the figure is fading anyway).
   async function cathOut(fading) {
     if (!cath.on) return;
@@ -1462,6 +1196,11 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   let lapseOn = false, lapseLeft = 0, lastAt = -1;   // (lapseLeft: days still to run; 0 once Next has sped it up; lastAt: the slide last shown)
   // A compare slide's buttons switch the live model's params (liveOff: it no longer shows the slide's computed state).
   let liveOff = false, abGen = 0;
+  // The slide's marks as it landed (markBase), and those marks for the params now: a mark with clot: true names the clot in its
+  // first vessel as the model has it (callout-math clotWords), so the what-if slider changes its words, and with no clot it goes.
+  let markBase = null;
+  const clotMarks = (marks, params) => marks.flatMap((m) => { if (!m.clot) return [m]; const t = clotWords(params?.thrombus?.[m.edges[0]]); return t ? [{ ...m, label: t }] : []; });
+  const markFocus = (marks) => (marks.length ? { ...marks[0], marks } : null);
   const merge = (a, b) => { for (const [k, v] of Object.entries(b)) a[k] = v && typeof v === 'object' && !Array.isArray(v) ? merge({ ...(a[k] || {}) }, v) : v; return a; };
   function abSlow() { abGen++; }
   // The new treatment takes effect on the live figure at real time (a faster clock would make the Doppler and tracings
@@ -1469,25 +1208,20 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   function abPick(s, i, k) {
     if (!deck || shown?.i !== i || slides[i] !== s) return;
     ui?.text.querySelectorAll('.pz-abb').forEach((b, j) => b.setAttribute('aria-pressed', String(j === k)));
-    if (s.compare[k].lens) { lensPick(s.compare[k].lens); return; }
-    // A gate button ({ label, gate }): the Doppler samples that third of the stent; the model is untouched.
-    if (s.compare[k].gate) { store.set({ dopGate: s.compare[k].gate }); return; }
-    // A patient button ({ label, preset, block? }): the live model eases to that patient, computed with the slide's states,
-    // and the slide's own button eases back to the slide's own state. A normal heart is then a healthy circulation (none of
-    // the failing heart's retained fluid or ascites is left behind), and the failing heart is the slide's numbers exactly.
-    if (s.compare[k].preset || (s.compare[k].own && s.compare.some((o) => o.preset))) { livePatient(s, i, s.compare[k]); return; }
-    liveSet(s, i, s.compare[k].params);
+    const c = abChoice(s.compare, k);
+    if (c.kind === 'lens') { lensPick(c.lens, s); return; }
+    if (c.kind === 'gate') { store.set({ dopGate: c.gate }); return; }
+    // (A treatment button pressed while the slide's time-lapse still plays ends the lapse first: two clocks must not drive the model.)
+    if (lapseOn) stopLapse();
+    if (c.kind === 'state') { livePatient(s, i, s.compare[k]); return; }
+    liveSet(s, i, c.patch);
   }
-  // The ladder's block on a station (block: 'ra') follows the button pressed: a patient button gives its own (none, unless it
-  // names one), the slide's own button the slide's. Cleared when a slide is shown afresh, its own button pressed.
-  let abBlk = null;
-  const blockOf = (s) => (abBlk?.s === s ? abBlk.block : s.block);
+  const slideAt = (id) => slides.findIndex((x) => x.id === id);   // (a time-point button's slide, { label, slide })
   async function livePatient(s, i, o) {
     const g = ++abGen, mine = () => g === abGen && shown?.i === i && slides[i] === s && !!deck;
-    const st = await stateReady(o.preset ? extraOf.get(xKey(o)) : stateOf[i]);
+    const st = await stateReady(o.preset ? extraOf.get(xKey(o)) : stateOf[o.slide ? slideAt(o.slide) : i]);
     if (!st || !mine()) return;
     liveOff = true;
-    abBlk = { s, block: o.preset ? o.block ?? null : s.block };
     const ref = refOf(s, i);
     let easing = true;
     (async () => {
@@ -1502,35 +1236,47 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     if (done && mine()) { dataTo(s, st.fp, ref, 280); abSlow(); }
   }
   // The slide's colour key on the figure (null: none); another lens fades the old key out, the new one in.
-  function paintKey(k) {
+  function paintKey(k, s = null) {
     if (!ui) return;
     ui.text.classList.toggle('pz-keyed', !!k);
     ui.figKey.set(!!k, () => {
-      ui.fk.replaceChildren(...(k ? keyNodes(k) : []));
+      ui.fk.replaceChildren(...(k ? keyNodes(k, s) : []));
       // (The key's words can arrive after the fit below, once the old key has faded: fitted again for its own words, not the old ones.)
       queueMicrotask(() => { if (ui) clearPill(); });
-      ui.fk.classList.toggle('grad', !!k && typeof (LENS_KEY[k] || PRESSURE_KEY)[1] === 'function');
-      { const [nm, bar, lo, hi] = LENS_KEY[k] || PRESSURE_KEY; ui.fk.setAttribute('aria-label', `Vessels colored by ${nm}${typeof bar === 'function' ? `, ${lo} to ${hi}` : ''}`); }
+      ui.fk.classList.toggle('grad', !!k && typeof (lensSpec(k, s) || PRESSURE_KEY)[1] === 'function');
+      { const [nm, bar, lo, hi] = lensSpec(k, s) || PRESSURE_KEY; ui.fk.setAttribute('aria-label', `Vessels colored by ${nm}${typeof bar === 'function' ? `, ${lo} to ${hi}` : ''}`); }
     });
     clearPill();   // (the words make room for the docked key's row, or give it back)
   }
   // A lens button ({ label, lens }): the figure crossfades to that lens and the key under the line follows; the model is untouched.
-  function lensPick(l) {
+  function lensPick(l, s = null) {
     const lens = slideLens({ lens: l });
     if (store.get().colorMode !== lens) store.set({ colorMode: lens });
-    paintKey(lens);
+    paintKey(lens, s);
   }
   async function liveSet(s, i, patch) {
     if (!deck || shown?.i !== i || slides[i] !== s) return;
     const g = ++abGen, ref = refOf(s, i), mine = () => g === abGen && shown?.i === i && !!deck;
     liveOff = true;
-    replaceParams(merge(structuredClone(store.get().params), patch));
+    replaceParams(merge(structuredClone(store.get().params), patch || {}));
+    // (A clot mark takes its new words at once, as the slider moves; the stage fades them in, and fades the mark out at no clot.)
+    if (markBase?.i === i && markBase.marks.some((m) => m.clot)) {
+      const ms = clotMarks(markBase.marks, store.get().params);
+      if (ms.map((m) => m.label).join('|') !== (store.get().focus?.marks || []).map((m) => m.label).join('|')) store.set({ focus: markFocus(ms) });
+    }
     host.send({ type: 'setParams', params: store.get().params, settle: false, ease: 1200 });
     host.send({ type: 'run', running: true, clock: 'hemo', speed: 1 });
-    for (const t0 = performance.now(); performance.now() - t0 < 7000 && mine();) {
+    const keys = [...new Set([...tileKeys(s), ...(s.key || []), ...(s.tool?.kind === 'profile' ? ['pv', 'whvp', 'fhvp', 'ivc', 'ra', 'hvpg', 'ppg'] : [])])];
+    let sig = null, still = performance.now();
+    for (const t0 = performance.now(); mine();) {
       await wait(150);
-      const fr = store.get().frame;
-      if (fr?.metrics && mine()) dataTo(s, liveFp(fr), ref, 280);
+      const fr = store.get().frame, now = performance.now();
+      if (fr?.metrics && mine()) {
+        const f = liveFp(fr), k = shownSig(f, keys);
+        dataTo(s, f, ref, 280);
+        if (k !== sig) { sig = k; still = now; }
+      }
+      if (liveSettled(now - t0, now - still)) break;
     }
     if (mine()) abSlow();
   }
@@ -1567,7 +1313,13 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   }
   function stopLapse() { if (!lapseOn) return; lapseOn = false; host.send({ type: 'lapse', days: 0 }); shownState = -1; paintChrome(); }
   // Next during a time-lapse runs the days that are left in about 600 ms (the clock speeds up, the ramp is unchanged) and stops on its end.
-  function skipLapse() { if (!lapseOn || lapseLeft < 1) return; host.send({ type: 'run', speed: Math.max(1, lapseLeft / 0.6) }); lapseLeft = 0; paintChrome(); }
+  function skipLapse() {
+    if (!lapseOn || lapseLeft < 1) return;
+    host.send(bedside(slides[want]) ? { type: 'lapseFast', ms: 600 } : { type: 'run', speed: Math.max(1, lapseLeft / 0.6) });
+    lapseLeft = 0; paintChrome();
+  }
+  // (A bedside time-lapse, lapse.clock 'seconds': the ramp plays on the seconds clock, so an instrument such as the Doppler keeps recording.)
+  const bedside = (s) => s?.lapse?.clock === 'seconds';
   const lapseWords = (n) => (n >= 60 && n % 30 === 0 ? `${n / 30} months` : `${n} days`);
   const lapseText = (s, d, n, done) => (s.lapse.to ? (done ? s.lapse.to : `${s.lapse.from} → ${s.lapse.to}`) : done ? `${lapseWords(n)} later` : `Day ${Math.round(d)} of ${n}`);
   function paintLapse(s, d, n, done = false) {
@@ -1582,23 +1334,30 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   const tileKeys = (s) => (s.tiles || []).filter((k) => !(s.tool?.kind === 'flowtime' && s.tool.lines?.includes(k) && !phone()));   // (a ladder already brackets the HVPG and PPG: tiles there would repeat them, rounded differently)
   function dataTo(s, f, ref, ms) {
     if (!ui) return;
-    if (s.data === 'ladder') ui.ladder.set(f, { key: s.key || [], ms, brackets: s.brackets, block: blockOf(s) });
     if (s.data) ui.tiles.set(f, tileKeys(s), s.key || [], ref, ms, store.get().params?.tips?.on);
     ui.tools.pin(f);   // (an instrument's reading is the tiles' number)
+    // (and the catheter's callouts and its monitor, on a catheter slide whose compare buttons or time-lapse move the model)
+    if (s.cath && cath.on && cath.fp) { cath.fp = f; if (s.monitor) mon?.set(s.monitor, f); }
     stage.siteFp?.(f);   // (and a callout's)
+    figureHooks('update', f, s);   // (and a deck visuals package's, slide-ext.js)
   }
   async function playLapse(s, to, cut) {
     const end = await stateReady(stateOf[to]);
     if (!end || cut()) return;
     const days = s.days, d0 = store.get().frame?.day ?? 0, ref = refOf(s, to);
     lapseOn = true; lapseLeft = days;
+    let seen = false;
     ui?.tools.progress(0, end.trail);
-    host.send({ type: 'lapse', days, speed: days / (s.lapse.seconds || 8), ramp: s.ramp || null });
+    host.send({ type: 'lapse', days, speed: days / (s.lapse.seconds || 8), ramp: s.ramp || null, bedside: bedside(s) });
     paintChrome();
+    figureHooks('lapse', s);   // (a deck visuals package's glow from the days' start: slide-ext.js)
     while (lapseOn && !cut()) {
       const fast = lapseLeft === 0;
       await wait(fast ? 60 : 150);
-      const fr = store.get().frame, d = clamp((fr?.day ?? d0) - d0, 0, days);
+      const fr = store.get().frame;
+      // (A bedside lapse counts its days in lapseDay, which frames from before it started lack, and frames after it ended lack again.)
+      if (fr?.lapseDay != null) seen = true;
+      const d = clamp(bedside(s) ? fr?.lapseDay ?? (seen ? days : 0) : (fr?.day ?? d0) - d0, 0, days);
       if (lapseLeft) lapseLeft = days - d;
       paintLapse(s, d, days);
       ui?.tools.progress(d / days);
@@ -1790,8 +1549,15 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     const g = gen, s = slides[to], cut = () => !deck || want !== to || gen !== g;
     // The slide on screen is leaving, so a move cut short never counts as showing it: going back and forward again to that
     // slide (summary table included) draws it afresh instead of leaving the half-changed screen.
+    scalePick = null;   // (a flip of the scale is a detour: every slide opens on its own scale)
     shown = null; entering = null;
     const cam = s.visual ? s.cam || null : s.cam || 'fit';
+    // Leaving the lobule: the organs' picture for the way out is begun at once, while the old words leave and the new ones come in,
+    // so the rise does not wait for it (stage.js prepRise; it does nothing outside a landed lobule).
+    if (!LOBULE_CAM.test(cam || '')) stage.prepRise?.();
+    // And the lobule's framing is held in the space the leaving slide's cards left, before the new cards change it: they come in
+    // before the rise, and a lobule that followed them zoomed in and down before going out (Mohammad, 21 Oct, Ascites 4 to 5).
+    if ((!s.visual && s.cath) || (cam && !LOBULE_CAM.test(cam))) stage.lobuleHold?.(true);
     // A time-lapse starts from the slide before's state; a catheter slide drives its own camera.
     // Coming back to it from a later slide shows its end at once: it plays only going forward.
     const back = to < lastAt, lap = !!s.lapse && to > 0 && !back, ct = !s.visual ? s.cath || null : null;
@@ -1809,17 +1575,21 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     const outAt = performance.now(), outMs = wordsOut(s);
     if (outMs) { await painted(); await painted(); }
     // Words out, and the marks: they belong to the slide that is leaving.
+    markBase = null;
     store.set({ focus: null, presentLabels: [], presentTerms: null, lobuleCallout: null, presentFp: null }); stage.setSites(null); stage.setGlow(null); stage.pinOrgans(null);
+    figureHooks('clear');   // (and what a deck visuals package put on the figure: slide-ext.js)
     // The slide's lens: the figure crossfades to its colours (stage.js) while the old words leave. A question, or a
     // visual over the figure, keeps the colours already showing: they change only when a slide's lens does.
     if (!s.visual) { const lens = slideLens(s); if (store.get().colorMode !== lens) store.set({ colorMode: lens }); }
     if (!hushed) delete app.dataset.lit;   // (hushed, the lit set goes straight to the next slide's: a label on both keeps its pill)
-    stopLapse(); abSlow();
+    stopLapse(); procStop(); abSlow();
     const si = lap ? stateOf[to - 1] : stateOf[to];
     await wait(Math.max(0, outMs - (performance.now() - outAt)));
     // (Nothing in the liver changes until its labels are gone.)
     if (hushed) { await wait(Math.max(0, HUSH_OUT - (performance.now() - hushAt))); await eased(['--lab-o'], 600); if (cut()) return; }
     if (cut()) return;
+    // (A flip of the scale still moving stops at its next step, cut by this slide: its camera is let finish before the slide's own.)
+    if (flipping) { await until(() => !flipping, 9000); if (cut()) return; }
     slideLayers(s);
     // The catheter leaves with its slides (with a new patient, the figure's fade takes it).
     if (cath.on && (!ct || si !== shownState)) { await cathOut(si !== shownState && shownState >= 0); if (cut()) return; }
@@ -1846,6 +1616,8 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     if (!skipCase && s.vignette && ui && !booting && !lap && to > lastAt && (si !== shownState || liveOff)) { if (!await caseRun(s, si, st, cut)) return; }
     // A new patient, or the same one changed: the figure fades out, the state changes unseen, it fades back in.
     const swap = si !== shownState || liveOff || !!own;
+    // (The recording instruments wait for the slide's own state: see the release once it has landed.)
+    ui?.tools.hold(swap && !booting);
     // On screen the change eases (morphTo): after the camera has landed and before the cards come in, or for a catheter slide
     // (its cards come in at once) right here. Only the first slide, or with reduced motion, does the figure dim while it changes.
     const glide = swap && !booting && !reduce.matches, later = glide && !ct && !!ui;
@@ -1915,10 +1687,36 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       await wait(60); await until(() => cut() || !cardsEntering(), 1200);
       if (cut()) return;
     }
+    // The slide's state has landed: the Doppler starts its trace from the left now, never with the leaving state's flow.
+    ui?.tools.hold(false);
+    paintOverlays(s, to, st);
+    lastCam = cam; framedSig = cardSig();
+    await unhush(cut);
+    if (cut()) return;
+    shown = { i: to, gen: g }; lastAt = to;
+    // A lobule slide whose next slide leaves the lobule: once it has settled, the organs' picture for the way out is made ahead,
+    // unseen under the lobule, so Next goes straight out with no wait (see toAnatomy).
+    { const nx = slides[to + 1], nCam = nx ? (nx.visual ? nx.cam || null : nx.cam || 'fit') : null;
+      if (nx && LOBULE_CAM.test(cam || '') && !LOBULE_CAM.test(nCam || '')) { clearTimeout(prepAheadT); prepAheadT = setTimeout(() => { if (shown?.i === to && shown.gen === g && gen === g) stage.prepRise?.(); }, RISE_AHEAD_MS); } }
+    // (One pass keyed to the slide now shown, so its fold and words' room are kept from here on: a tap on Show or Hide then
+    // eases the card it planned, not one measured afresh with the instrument open. The pass changes nothing on screen.)
+    if (ui && phone()) layout();
+    paintChrome();
+    if (s.lapse && to > 0 && back) paintLapse(s, s.days, s.days, true);
+    if (booting) await coverDown();
+    if (lap) await playLapse(s, to, cut);
+    else if (s.lapse) figureHooks('lapse', s);   // (back or jumped to the slide: it shows where its days ended, the glow with it)
+    if (s.procedure?.auto && !back && !cut()) procPlay(s, to);   // (like a time-lapse, it plays only going forward)
+  }
+
+  // What a slide calls out on the figure once it has landed (or a scale's view of it, after a flip: flipMove): its marks, labels,
+  // the stations its terms name (in their colours), its glows, the lobule's callout and its readings (see slideTargets).
+  function paintOverlays(s, to, st, hooks = true) {
     if (!s.visual) {
       // The slide's marks, labels, the stations its terms name (in their colours) and its glows (see slideTargets).
-      const tg = slideTargets(s);
-      let marks = (s.marks || (s.mark ? [s.mark] : [])).map((m) => ({ edges: [...m.edges], label: m.label, kind: m.kind || 'block', free: !!m.free, ...(m.seg ? { seg: m.seg } : {}) }));
+      const tg = slideTargets(s), xc = ctxOf(s, to);
+      // (A mark's edges may name a package's set, '@name', and its label goes through the packages' label hooks: slide-ext.js.)
+      let marks = (s.marks || (s.mark ? [s.mark] : [])).map((m) => ({ edges: [...expandIds(m.edges)], label: markLabel(m.label, m, xc), kind: m.kind || 'block', free: !!m.free, ...(m.seg ? { seg: m.seg } : {}), ...(m.clot ? { clot: true } : {}) }));
       // A note mark is a pointer: its vessel glows in its station's colour. Where a station label on the slide already
       // names that vessel, the pointer would only repeat it, so it goes (the glow stays).
       if (tg) {
@@ -1928,37 +1726,28 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       }
       // (A site the label stands in for lends it its station colour, so the label is the slide's highlight.)
       if (tg) for (const k of s.sites || []) if (SITE_NODE[k] && [...(s.labels || []), ...tg.labels].includes(SITE_NODE[k])) tg.terms[SITE_NODE[k]] ||= TARGETS[k]?.tone || VAL_TONE[k];
+      markBase = { i: to, marks };
+      marks = clotMarks(marks, st?.params || store.get().params);
       store.set({ presentLabels: [...new Set([...(s.labels || []), ...tg.labels])], presentTerms: tg.terms || null,
-        presentNames: s.data === 'ladder' || !!s.cath, presentFp: st?.fp || null,
-        focus: marks.length ? { ...marks[0], marks } : null, lobuleCallout: !s.callout ? null : { kind: 'block', ...s.callout } });
+        presentNames: s.tool?.kind === 'profile' || !!s.cath, presentFp: st?.fp || null,
+        focus: markFocus(marks), lobuleCallout: !s.callout ? null : { kind: 'block', ...s.callout } });
       if (tg) { stage.setGlow(tg.glow); stage.pinOrgans(tg.organs.map((o) => (o.id === 'spleen' && st?.fp ? { id: o.id, tone: rateTone('spleen', st.fp) } : o))); stage.setResGlow(tg.res); }
       app.dataset.lit = tg?.lit.join(' ') || '';
+      if (hooks) figureHooks('show', xc);   // (a deck visuals package's own marks on the figure: slide-ext.js; a flip leaves them as they are)
     }
     // A site whose station label is already on the slide is not called out twice: the label carries the one reading,
     // in its station's colour, and the pill stays only where no label stands.
     { const named = new Set(store.get().presentLabels || []);
       const ss = !s.visual ? [...new Set([...(s.sites || []), ...slideTargets(s).sites])].filter((k) => !named.has(SITE_NODE[k])) : [];
-      if (ss.length) stage.setSites(ss, st.fp); }
-    lastCam = cam; framedSig = cardSig();
-    await unhush(cut);
-    if (cut()) return;
-    shown = { i: to, gen: g }; lastAt = to;
-    // (One pass keyed to the slide now shown, so its fold and words' room are kept from here on: a tap on Show or Hide then
-    // eases the card it planned, not one measured afresh with the instrument open. The pass changes nothing on screen.)
-    if (ui && phone()) layout();
-    paintChrome();
-    if (s.lapse && to > 0 && back) paintLapse(s, s.days, s.days, true);
-    if (booting) await coverDown();
-    if (lap) await playLapse(s, to, cut);
+      if (ss.length && st) stage.setSites(ss, st.fp); }
   }
-
   // The fonts in and two frames for the cards' charts and refits to run, then one last fit; then the cards show (eased in).
-  // (The cards were fitted unseen; once in place, every ladder asks again whether its plot fits, before the next paint.)
-  const reFit = () => { for (const x of document.querySelectorAll('.pz-data.strip, .pz-cell.strip')) x.classList.remove('strip'); fitted.forEach(fitNow); };
+  // (The cards were fitted unseen; once in place, every chart is lettered again for its size, before the next paint.)
+  const reFit = () => fitted.forEach(fitNow);
   // (at: the slide coming in. Its last layout, here while it is still unseen, keys the words' lock, so the size the cards come in
   // at is the size they keep: keyed only once the slide was shown, the passes while the cards eased in measured afresh, and on a
   // tight iPad a reading settling or a chart lettered stepped the title or folded the ladder, so the card came in and then snapped.)
-  function cardsIn(at) { if (ui) { if (at) { entering = at; layout(); } reFit(); if (!bare) { ui.text.classList.remove('pz-leave'); delete ui.root.dataset.bare; } ui.root.classList.remove('pz-prep'); ui.panel.classList.remove('pz-leave'); if (ui.data.dataset.prep && !('hold' in ui.data.dataset)) { delete ui.data.dataset.prep; ui.data.classList.remove('pz-hide'); } } }
+  function cardsIn(at) { if (ui) { if (at) { entering = at; layout(); } reFit(); if (!bare) { ui.text.classList.remove('pz-leave'); ui.scl.classList.remove('pz-leave'); delete ui.root.dataset.bare; } ui.root.classList.remove('pz-prep'); ui.panel.classList.remove('pz-leave'); if (ui.data.dataset.prep && !('hold' in ui.data.dataset)) { delete ui.data.dataset.prep; ui.data.classList.remove('pz-hide'); } } }
   // The last refits that used to run as the cards came in (a ladder's strip given back its plot, the charts lettered again, the
   // layout their new sizes call for, a frame later) run while the cards are still unseen, so they come in at their final size and
   // never snap to it in view (an upright iPad's teaching card did). cardsIn's own reFit then finds nothing left to change.
@@ -1987,7 +1776,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   // On a phone, tiles beside a sinusoid sit under the words, so the vessel has the width of the screen.
   // (Not on a phone on its side, nor on a tablet or computer: there they sit at the top right as on other slides,
   // and the camera centres the vessel between the two cards.)
-  const shortSide = matchMedia('(orientation: landscape) and (max-height: 500px)');
+  const shortSide = matchMedia(SHORT_SIDE_MQ);
   const sinTiles = (s) => s.data === 'tiles' && !s.visual && /^sinusoid/.test(s.cam || '');
   const under = (s) => sinTiles(s) && !shortSide.matches && phone();
   // (Starts the cards' fade out and returns how long it runs, ms: 0 when nothing is showing.)
@@ -1998,6 +1787,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     // never left standing while the words go, nor changed in place.
     const dataOut = !data.hidden && !data.classList.contains('pz-hide');
     if (dataOut) { data.classList.add('pz-hide'); delete data.dataset.colswap; }
+    ui.scl.classList.add('pz-leave');   // (the scale switch leaves with the words, in their fade)
     // Leaving a visual for the figure: the veil lifts with the panel, not after it.
     if (!next?.visual) ui.veil.classList.remove('on');
     if (!dataOut && out.every((el) => el.hidden || !el.childElementCount)) return 0;
@@ -2014,7 +1804,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   const deltaOf = (s, i) => s.delta ?? (i > 0 && !s.preset && changes(s) ? true : null);
   const refOf = (s, i) => { const d = deltaOf(s, i); return (d === true ? states[stateOf[i - 1]]?.fp : typeof d === 'string' ? fpOf(d) : null) || null; };
   // The data card: the ladder and tiles, a slide's instrument (tool), or both (the tool above the tiles).
-  const hasCard = (s) => !s.visual && (s.data === 'ladder' || s.data === 'tiles' || !!s.tool);
+  const hasCard = (s) => !s.visual && (s.data === 'tiles' || !!s.tool);
   // A reading tool can show the earlier reading as a ghost (D3): tool.delta, else the slide's own delta.
   const GHOST = { fibroscan: ['lsm', 'kPa', 1], doppler: ['pvVel', 'cm/s', 0] };
   function toolGhost(s, i) {
@@ -2027,7 +1817,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     const from = d === true ? slides[stateOf[i - 1]] : slides.find((x) => x.id === d);
     return { label: s.tool.deltaLabel || (d === true && s.lapse?.from) || from?.kicker || 'Before', value: `${fmt(r[g[0]], g[2])} ${g[1]}` };
   }
-  const fullTitle = (s) => (s?.data === 'ladder' ? 'Pressure, portal vein to heart' : s?.dataTitle || (s?.tool ? ui.tools.title(s.tool) : 'The patient'));
+  const fullTitle = (s) => s?.dataTitle || (s?.tool ? ui.tools.title(s.tool) : 'The patient');
   // A phone's card title is one short line beside Show: the long name's head, never broken into two lines or a hyphen.
   const SHORT_TITLE = { 'Pressure, portal vein to heart': 'Portal vein to heart', 'Endoscopy, the lower esophagus': 'Endoscopy', 'The varix wall, in cross-section': 'The varix wall',
     'Liver stiffness, FibroScan': 'FibroScan', 'Pressure, beat by beat': 'Beat by beat', 'Portal pressure and flow over time': 'Pressure and flow', 'Doppler, main portal vein': 'Doppler, portal vein',
@@ -2039,16 +1829,21 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   // hyphen never breaks, on any screen: a non-breaking one. Critique I7, 17 Oct.)
   const cardTitle = (s) => {
     const t = fullTitle(s), small = phone() || (innerWidth > innerHeight && innerHeight <= 500);
-    return (small && t.length > 20 ? SHORT_TITLE[t] || t.replace(/ over the (days|year|talk)$/, '').replace(/,.*$/, '') : t).replace(/-/g, '\u2011');
+    return (small && t.length > 20 ? SHORT_TITLE[t] || (s?.tool && ui.tools.short(s.tool, t)) || t.replace(/ over the (days|year|talk)$/, '').replace(/,.*$/, '') : t).replace(/-/g, '\u2011');
   };
+  // (A unit in a title keeps its own case, in a span the style leaves alone: "mL/day", not "ML/DAY".)
+  const unitSpans = (el) => { const p = titleParts(el.textContent); if (p.length < 2) return; el.textContent = ''; p.forEach((t, i) => { if (t) el.append(i % 2 ? h('span', { class: 'pz-unit' }, t) : t); }); };
   // The talk so far, for a pressure trace: every state up to slide i, once each.
-  // Each carries its time point (the deck's days so far) and what happened there (the first tick among its slides, else its title).
-  const whenOf = (k) => {
-    const d = slides.slice(0, k + 1).reduce((a, s) => a + (s.days || 0), 0);
+  // Each carries its time point (the deck's days so far) and what happened there (the first tick among its slides, else its title),
+  // and its slide's id and its state's params (for a deck visuals package's chart).
+  // (since: a slide's id, the trace's tool.since: the chart starts at that slide's state and counts its days from there, so a
+  // deck that moves on to a new patient charts only that patient's course.)
+  const whenOf = (k, f0 = -1) => {
+    const d = slides.slice(f0 + 1, k + 1).reduce((a, s) => a + (s.days || 0), 0);
     return d && d % 365 === 0 ? `Year ${d / 365}` : d <= 200 ? `Day ${d}` : `Month ${Math.round(d / 30.4)}`;
   };
   // (A state on the same day as the one before it, as a drug started at that visit, says so instead of repeating the day; a slide's `when` words it.)
-  const chainTo = (i) => { let before = null; return [...new Set(stateOf.slice(0, i + 1))].filter((k) => slides[k]?.visual !== 'outline').map((k) => { const w = whenOf(k), p = { n: k + 1, title: slides[k].title, tick: slides.find((x, j) => stateOf[j] === k && x.tick)?.tick || slides[k].title, when: traceWhen(slides[k].when, w, before), fp: states[k]?.fp }; before = w; return p; }); };
+  const chainTo = (i, since) => { let before = null; const f0 = since ? slides.findIndex((x, j) => j <= i && x.id === since) : -1, k0 = f0 >= 0 ? stateOf[f0] : -1; return [...new Set(stateOf.slice(0, i + 1))].filter((k) => k >= k0 && slides[k]?.visual !== 'outline').map((k) => { const w = whenOf(k, k0), p = { n: k + 1, title: slides[k].title, tick: slides.find((x, j) => stateOf[j] === k && x.tick)?.tick || slides[k].title, mile: slides.find((x, j) => stateOf[j] === k && x.milestone)?.milestone, when: traceWhen(slides[k].when, w, before), fp: states[k]?.fp, id: slides[k].id, params: states[k]?.params }; before = w; return p; }); };
   // The deck's short name in a tab at the card's top right corner (decks.js TOPICS; your own deck, its title when short):
   // a darker patch of the card's own glass, flush with its top and right edges, only its bottom left corner rounded. It sits in
   // the card's top padding, so it never meets the title. (Not read out on every slide: the outline and the slide list name the talk.)
@@ -2072,6 +1867,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   function wordsIn(s, st, i, fresh = false, lap = false, now = st) {
     if (!ui) return;
     const { text, panel, data } = ui;
+    paintScales(s, i);
     // The slide's level (Presinusoidal, Cardiac...) is a tab in the glass's top left corner, the deck tab's mirror in the level's
     // colour (17 Oct), not a pill over the title: set with the words, gone on a visual slide.
     // (A slide with a level rail names its level on the rail, which a phone held upright hides: there the tab names it instead.)
@@ -2089,55 +1885,55 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       panel.dataset.visual = s.visual;
       const tab = s.visual !== 'outline' && deckTab();   // (the outline names the talk in full instead)
       panel.classList.toggle('tabbed', !!tab);
-      panel.replaceChildren(...(tab ? [tab] : []), h('div', { class: 'pz-ph' }, s.visual === 'outline' ? h('h1', { class: 'pz-dtitle' }, nb(deck.title)) : null, h('h1', { class: 'pz-h' }, ...diseaseNodes(nb(s.title))), s.eq ? equation(s.eq) : null, s.line ? h('p', { class: 'pz-line' }, rich(s.line, s, st?.fp)) : null, s.caveat ? h('p', { class: 'pz-caveat' }, s.caveat) : null),
-        VISUALS[s.visual](s));
+      panel.replaceChildren(...(tab ? [tab] : []), h('div', { class: 'pz-ph' }, s.visual === 'outline' ? h('h1', { class: 'pz-dtitle' }, nb(deck.title)) : null, h('h1', { class: 'pz-h' }, ...diseaseNodes(nb(s.title))), s.eq ? equation(s.eq) : null, s.line ? h('p', { class: 'pz-line' }, rich(s.line, s, st?.fp, !!st?.params?.tips?.on)) : null, s.caveat ? h('p', { class: 'pz-caveat' }, s.caveat) : null, citeEl(s)),
+        visualOf(s, i));
       if (!ui.root.classList.contains('pz-prep')) panel.classList.remove('pz-leave');   // (else once fitted: settle)
       ui.veil.classList.add('on');
     } else {
       panel.hidden = true; panel.replaceChildren(); panel.classList.remove('pz-leave'); ui.veil.classList.remove('on');
       text.hidden = false;
       text.replaceChildren(...[h('h1', { class: 'pz-h' }, ...diseaseNodes(nb(s.title))), s.eq ? equation(s.eq) : null, s.monitor ? monitorFor(s, i) : null,
-          s.line ? h('p', { class: 'pz-line' }, rich(s.line, s, st?.fp)) : null, s.caveat ? h('p', { class: 'pz-caveat' }, s.caveat) : null,
-          s.compare ? h('div', { class: 'pz-ab', role: 'group', 'aria-label': lensButtons(s) ? 'Color the vessels by' : gateButtons(s) ? 'Sample the stent at' : 'Switch treatment on the live model' },
+          s.line ? h('p', { class: 'pz-line' }, rich(s.line, s, st?.fp, !!st?.params?.tips?.on)) : null, s.caveat ? h('p', { class: 'pz-caveat' }, s.caveat) : null, citeEl(s),
+          s.compare ? h('div', { class: 'pz-ab', role: 'group', 'aria-label': lensButtons(s) ? 'Color the vessels by' : gateButtons(s) ? 'Sample the stent at' : s.compare.some((o) => o.params && 'fenestrae' in o.params) ? 'Open or close the fenestrae on the live model' : 'Switch treatment on the live model' },
             s.compare.map((o, k) => h('button', { type: 'button', class: 'pz-abb', 'aria-pressed': String(!!o.own), ...(o.short ? { 'data-full': o.label, 'data-short': o.short, 'aria-label': o.label, title: o.label } : {}), onclick: () => abPick(s, i, k) }, o.label))) : null,
+          s.procedure ? procEl(s, i, st) : null,
           s.whatIf ? whatIfEl(s, i, st) : null,
           s.column ? wedgeColumn() : null,
           s.lapse && i > 0 ? h('div', { class: 'pz-lapse', role: 'status' }, h('span', { class: 'pzl-bar' }, h('i')), h('span', { class: 'pzl-t' }, lapseText(s, 0, s.days, false))) : null,
           s.rail ? rail(s.rail === 'all' ? 'all' : s.site) : null,
           s.causes?.length ? h('p', { class: 'pz-causes' }, h('span', { class: 'pz-sub' }, s.causesHead || 'Causes'), nb(listCase(s.causes))) : null]);
-      paintKey((slideLens(s) !== 'pressure' || lensButtons(s)) ? slideLens(s) : null);
+      paintKey((slideLens(s) !== 'pressure' || lensButtons(s)) ? slideLens(s) : null, s);
       markLong(text, gen !== redrawn);   // (drawn again for a new text size: judged at its full size, as a fresh load does)
       [...text.children].forEach((c, k) => c.style.setProperty('--i', k));
       text.classList.remove('pz-enter'); void text.offsetWidth; text.classList.add('pz-enter');
     }
     delete data.dataset.hold;
     if (hasCard(s)) {
-      const lad = s.data === 'ladder';
       // (A time-lapse's numbers wait for its end; an instrument on the card plays the days, so that card comes in with the words.)
       if (lap && !s.tool && ui.root.classList.contains('pz-prep')) data.dataset.hold = '';
-      data.classList.toggle('tiles-only', !lad);
+      data.classList.add('tiles-only');   // (every card: the old ladder card was the one without it)
       data.classList.toggle('under', under(s));
       data.toggleAttribute('data-sin-tiles', sinTiles(s));
       data.classList.toggle('has-tool', !!s.tool);
       data.classList.toggle('tool-only', !!s.tool && !s.data);
-      data.classList.remove('strip');   // (a squashed ladder's strip lasts one slide)
-      data.classList.toggle('pz-beside', (!!s.tool || lad) && !!s.data && tileKeys(s).length > 0);
+      // (The portal blood bar takes the card's full width, its tiles under it: beside them its column was too narrow for the
+      // segments' names, a 320 px card left it about 120 px, tool-flows.js.)
+      // (The fluid balance's capacity window too: its rows of numbers need the card's width; tool-fluid.js.)
+      data.classList.toggle('pz-beside', !!s.tool && !!s.data && tileKeys(s).length > 0 && s.tool?.kind !== 'flows' && !(s.tool?.kind === 'fluid' && s.tool.window));
       data.toggleAttribute('data-beside', data.classList.contains('pz-beside'));
-      data.classList.remove('pz-folds', 'pz-footfold');   // (Mac and iPad landscape: folded behind Show only when the pair would not fit, set in layout)
+      data.toggleAttribute('data-ladder', s.tool?.kind === 'profile');   // (Mac and iPad landscape: the Gut to heart chart is never zoomed by the fit, so a pair too tall for it lifts instead, slip.base; layout)
+      data.classList.remove('pz-folds');   // (Mac and iPad landscape: folded behind Show only when the pair would not fit, set in layout)
       data.dataset.tn = tileKeys(s).length;   // (Mac and iPad landscape: every instrument with tiles has them stacked beside it; its own readings fold to a short list under its picture)
       data.classList.toggle('tool-lead', !!s.tool?.open && !!s.data);   // (a phone keeps this instrument open and folds the tiles instead)
       data.dataset.tool = ui.tools.sig(s.tool);
-      ui.dhT.textContent = cardTitle(s);
-      ui.dhL.hidden = !lad;
+      ui.dhT.textContent = cardTitle(s); unitSpans(ui.dhT);
       // (A flow-time chart over a time-lapse starts empty and draws as it plays.)
-      if (s.tool) ui.tools.show(s.tool, { slide: i, stateKey: stateOf[i], chain: chainTo(i), trail: states[stateOf[i]]?.trail ?? null, reveal: lap ? 0 : 1 }); else ui.tools.hide();
+      if (s.tool) ui.tools.show(s.tool, { slide: i, stateKey: stateOf[i], chain: chainTo(i, s.tool.kind === 'trace' ? s.tool.since : null), trail: states[stateOf[i]]?.trail ?? null, reveal: lap ? 0 : 1, ctx: ctxOf(s, i) }); else ui.tools.hide();
       if (s.tool) ui.tools.ghost(toolGhost(s, i));
       // (With a new patient the numbers are set at once, while the card is still out: it fades back in already showing them. So
       // too while the new cards wait, unseen, for the camera to land (bare): their count ran unseen beside the glide, a frame's
       // work each frame of it, and was over before they came in.)
       const ms = fresh || (bare && ui.root.classList.contains('pz-prep')) ? 0 : undefined;
-      abBlk = null;   // (the slide's own button is pressed again)
-      if (lad) ui.ladder.set(now.fp, { key: s.key || [], ms, brackets: s.brackets, block: s.block });
       if (s.data) ui.tiles.set(now.fp, tileKeys(s), s.key || [], refOf(s, i), ms, now.params?.tips?.on);
       ui.tools.pin(now.fp);
       if (data.hidden) { data.hidden = false; data.classList.add('pz-hide'); void data.offsetWidth; }
@@ -2164,6 +1960,26 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   }
   const fpOf = (id) => { const i = slides.findIndex((x) => x.id === id); return i >= 0 ? states[stateOf[i]]?.fp : null; };
   fpAt = fpOf;   // (for {key@slide} in the words: see liveVal)
+  // What a deck visuals package's instrument, visual, column or figure hook gets for slide i (slide-ext.js): the slide, its
+  // model state (snapshot, params, fingerprint), its extra work (st.extra, see stepOf), the live params (with any what-if slider
+  // or compare button), other slides' fingerprints by id, the healthy fingerprint, and requests to the presenter's own
+  // calculation worker (never the live model). P0.md in review/deck-visuals-build has the full list.
+  function ctxOf(s, i) {
+    const st = states[stateOf[i]] || null, d = deck;
+    return {
+      slide: s, index: i, deck: d, slides, stage, store, app,
+      state: st, snap: st?.snap ?? null, params: st?.params ?? null, fp: st?.fp ?? null,
+      extra: states[i]?.extra ?? null,
+      whenExtra: () => stateReady(i).then((x) => x?.extra ?? null),
+      liveParams: () => store.get().params,
+      fpOf, healthy: () => base,
+      shown: () => deck === d && shown?.i === i,
+      request: (type, payload = {}) => getCalc().request(type, payload),
+      // (steps as stepOf makes them; from: the snapshot the first starts from, the slide's own by default. Resolves with each
+      // step's { snap, params, fp, extra? }, or null when the worker failed.)
+      run: (steps, from = st?.snap ?? null) => { const out = []; return getCalc().sequence(steps, from, (m) => { out[m.i] = { snap: m.snap, params: m.params, fp: m.fp, extra: m.extra }; }).then((end) => (end?.type === 'error' ? null : out)); },
+    };
+  }
   // A visual's rows: the deck's slides by id ('pvt', or { id, name } to name it), or { preset, name } patients that
   // no slide shows, computed after the slides.
   const rowAt = (o) => { const id = typeof o === 'string' ? o : o.id, i = id ? slides.findIndex((x) => x.id === id) : -1; return [i, i >= 0 ? stateOf[i] : extraOf.get(xKey(o))]; };
@@ -2173,30 +1989,52 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       const [i, k] = rowAt(o), sl = i >= 0 ? slides[i] : null, x = typeof o === 'object' ? o : {};
       if (k == null || k < 0) return null;
       const title = x.title ?? sl?.title ?? '';
-      return { i, k, f: states[k]?.fp, kicker: x.kicker ?? sl?.kicker ?? '', title, name: x.name || title, site: x.site ?? sl?.site, note: x.note, blank: x.blank || [], ref: !!x.ref, vs: x.vs, key: x.key, calm: x.calm || [], block: x.block ?? sl?.block };
+      return { i, k, f: states[k]?.fp, kicker: x.kicker ?? sl?.kicker ?? '', title, name: x.name || title, site: x.site ?? sl?.site, note: x.note, blank: x.blank || [], ref: !!x.ref, vs: x.vs, key: x.key, calm: x.calm || [] };
     }).filter(Boolean);
   }
+  // The six levels side by side (visual: 'ladders'), each patient's Gut to heart profile in a cell of its own, the healthy line named
+  // on each and the resistance hatched red (one chart everywhere: Mohammad, 21 Oct, "Gut to heart is good, unify it"). Each cell's
+  // first row names the site and the cause; no HVPG pill, its chart's bracket shows it (Mohammad, 21 Oct: "fit the name of the cause in
+  // the first row ... and get rid of the HVPG, because it's on the graph!").
+  // (A phone, upright or sideways, draws each case on one line instead, its readings with the red blocks, the stations named once over
+  // them: Mohammad, 21 Oct, "for phone, we should just make it one line with the red block of course, similar to what we had before".
+  // Two copies of the names, for a phone on its side's two columns.)
+  // (The first row's cause steps down to fit beside the site, never under 12 px on the screen, never wrapped or cut. fitRow measures the
+  // laid-out row, the site's width and the gap against the cause's own, not an estimate; a cause that still does not fit at 12 px goes
+  // under the site, whole, so no case's cause runs out of its card: causeFit. Mohammad, 21 Oct: "SOS doesn't fit text wise".)
+  // (A phone's row also holds the case's HVPG and PPG pills at its right end, which the cause keeps clear of: Mohammad, 23 Oct.)
+  const fitRow = (k) => {
+    const t = k?.querySelector('.pz-cell-t'), tag = k?.firstElementChild, pills = k?.querySelector('.pz-gpills');
+    if (!t || !tag) return;
+    t.style.removeProperty('font-size'); k.classList.remove('under');
+    if (!t.offsetWidth) return;
+    // (z: the row's zoom on the screen, so the floor is 12 px there; the room is what the row holds, less 1 px for the three widths' rounding)
+    const z = Math.min(2, Math.max(0.5, k.getBoundingClientRect().width / k.offsetWidth || 1)), fs = parseFloat(getComputedStyle(t).fontSize) || 12;
+    const gap = parseFloat(getComputedStyle(k).columnGap) || 0, room = k.clientWidth - tag.offsetWidth - gap - (pills?.offsetWidth ? pills.offsetWidth + gap : 0) - 1;
+    let fit = causeFit(fs, t.offsetWidth, room, 12 / z);
+    // (Under the site it has the row to itself, as large as that holds, 12 px at least: with the pills at the row's right it is no longer
+    // the stepped-down size of a cause squeezed beside them.)
+    if (fit.under) fit = { ...causeFit(fs, t.offsetWidth, k.clientWidth - 1, 12 / z), under: true };
+    if (fit.size !== fs) t.style.fontSize = `${fit.size.toFixed(2)}px`;
+    k.classList.toggle('under', fit.under);
+  };
+  const rowRO = typeof ResizeObserver === 'function' ? new ResizeObserver((es) => es.forEach((e) => fitRow(e.target.closest('.pz-cell-k')))) : null;
   function laddersGrid(s) {
-    // (At a large text size a phone's strips take a row each: five readings no longer fit half its width.)
-    const big = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--ts')) >= 1.3;
-    const grid = h('div', { class: 'pz-grid' + (big ? ' big' : '') });
-    // (A phone: the five station names once, over the six rows of readings, each over its column of the strips below: the
-    // strip's stations stand at 28 + 70 i of its 360 units, and the head is as wide as a cell's strip. Hidden on wider screens.)
-    // (Three copies: a phone held sideways shows the rows in three columns, each under its own names.)
-    const names = () => h('div', {}, RUNGS.map(([, a], i) => h('span', { style: `left: ${((28 + 70 * i) / 3.6).toFixed(3)}%` }, a)));
-    grid.append(h('div', { class: 'pz-grid-head', 'aria-hidden': 'true' }, names(), names(), names()));
+    const grid = h('div', { class: 'pz-grid' });
+    grid.append(h('div', { class: 'pz-grid-head', 'aria-hidden': 'true' }, createProfileStrip(true).el, createProfileStrip(true).el));
     for (const r of rowsOf(s)) {
       if (!r.f) continue;
-      const L = bigLadder(); L.setBase(base); L.set(r.f, { block: r.block });   // (a block on a station, the heart's RA, is hatched on its node)
-      const cell = h('div', { class: 'pz-cell' },
-        h('div', { class: 'pz-cell-k' }, h('div', { class: 'pz-kick', 'data-site': r.site || 'none' }, r.kicker.replace('Intrahepatic · ', '')),
-          h('span', { class: 'pz-cell-pill', 'data-rate': rateOf('hvpg', { hvpg: wholeGap(r.f.whvp, r.f.fhvp, r.f.hvpg) })[0] }, 'HVPG ', h('b', {}, fmt(wholeGap(r.f.whvp, r.f.fhvp, r.f.hvpg), 0)))),   // (as its ladder's bracket reads it: whole readings, their difference)
-        h('div', { class: 'pz-cell-t' }, r.title), L.el, L.strip);
-      grid.append(cell);
+      const P = createProfileTool(), S = createProfileStrip();
+      P.configure({ kind: 'profile' }, { fp: r.f, healthy: () => base });
+      S.set(r.f, () => base);
+      // (A phone shows the case's HVPG and PPG as two pills at the right of this row, tinted as the chart's brackets rate them; a wide screen's
+      // chart carries them, so there they stay hidden: styles/app.css .pz-gpills.)
+      const k = h('div', { class: 'pz-cell-k' }, h('div', { class: 'pz-kick', 'data-site': r.site || 'none' }, r.kicker.replace('Intrahepatic · ', '')),
+        h('div', { class: 'pz-cell-t' }, r.name),   // (a row's `name` where its title is too long for the first row: Sites 10 "Sinusoidal obstr. synd.")
+        h('div', { class: 'pz-gpills' }, pillReadings(r.f).map((q) => h('span', { class: 'pz-gpill', 'data-k': q.k, 'data-rate': q.rate }, h('span', { class: 'k' }, `${q.name} `), q.v))));
+      rowRO?.observe(k); for (const c of k.children) rowRO?.observe(c);   // (and the site, the cause and the pills themselves: a font loading late widens them, not the row)
+      grid.append(h('div', { class: 'pz-cell' }, k, P.el, S.el));
     }
-    // The dashed line's numbers, once for all six: the healthy reference each ladder is read against.
-    if (base) grid.append(h('p', { class: 'pz-grid-key' }, h('i', { 'aria-hidden': 'true' }), 'Healthy, dashed: ',
-      [['PV', 'pv'], ['WHVP', 'whvp'], ['FHVP', 'fhvp'], ['IVC', 'ivc'], ['RA', 'ra']].filter(([, k]) => base[k] != null).map(([a, k]) => `${a} ${fmt(base[k], 0)}`).join(' · ') + ' mmHg'));
     return grid;
   }
   // Purpose-drawn arrows: a solid head on a shaft of real weight, one per symbol; a large change is two arrows side by side.
@@ -2221,9 +2059,10 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   const withArrows = (t) => t.split(/(↑↑|↓↓|↑|↓|•|○)/).map((x) => (x === '↑↑' ? arrowEl(2) : x === '↓↓' ? arrowEl(-2) : x === '↑' ? arrowEl(1) : x === '↓' ? arrowEl(-1) : x === '•' ? arrowEl(0) : x === '○' ? noneEl() : x));
   const WORD = { 2: 'well above normal', 1: 'above normal', 0: 'normal', '-1': 'below normal', '-2': 'well below normal' };
   const WORDREL = { 2: 'much higher', 1: 'higher', 0: 'unchanged', '-1': 'lower', '-2': 'much lower' };
-  const unitOf = (k) => (k === 'varix' ? ' mm' : k === 'asc' ? ' L' : k === 'liver' || k === 'shunt' ? '%' : k === 'hr' ? '/min' : k === 'res' ? ' mmHg per L/min' : PRESS.has(k) ? ' mmHg' : TILE[k]?.u ? ` ${TILE[k].u}` : '');
-  const UNIT_WORDS = { press: 'pressures in mmHg', varix: 'varix in mm', asc: 'ascites in liters', liver: 'liver blood flow in % of normal', shunt: 'shunted blood in %', plt: 'platelets × 10³/µL',
-    lsm: 'stiffness in kPa', hr: 'heart rate in beats/min', pvFlow: 'portal flow in L/min', res: 'liver resistance in mmHg per L/min', spleen: 'spleen in cm' };
+  const unitOf = (k) => (k === 'varix' || k === 'gv' ? ' mm' : k === 'asc' ? ' L' : k === 'liver' || k === 'shunt' ? '%' : k === 'hr' ? '/min' : k === 'res' ? ' mmHg per L/min' : PRESS.has(k) ? ' mmHg' : TILE[k]?.u ? ` ${TILE[k].u}` : '');
+  const UNIT_WORDS = { press: 'pressures in mmHg', varix: 'varix in mm', gv: 'fundal varix in mm', asc: 'ascites in liters', liver: 'liver blood flow in % of normal', shunt: 'shunted blood in %', plt: 'platelets × 10³/µL',
+    lsm: 'stiffness in kPa', hr: 'heart rate in beats/min', pvFlow: 'portal flow in L/min', res: 'liver resistance in mmHg per L/min', spleen: 'spleen in cm', co: 'cardiac output in L/min', bv: 'blood volume in L' };
+  const colExt = (k) => (!COLS[k] && Object.hasOwn(EXT.columns, k) ? EXT.columns[k] : null);
   function summaryTable(s, arrived = -1) {
     const cols = s.cols || ['pv', 'whvp', 'fhvp', 'ivc', 'ra', 'hvpg', 'ppg'], ascCols = s.asc ?? !s.cols, rows = rowsOf(s);
     const perRow = rows.some((r) => r.vs), rel = s.vs === 'first' || perRow;
@@ -2239,6 +2078,8 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     const vsName = (r) => { const t = vsRow(r); return lc(t?.title || slides.find((x) => x.id === r.vs)?.title || ''); };
     // The reference row (the healthy patient, or the baseline) keeps its numbers, the anchor for the arrows.
     const isRef = (r, n) => !!r.ref || (rel && !r.vs && n === 0);
+    // focusRow (V15, opt-in): lights one row; the others recede.
+    const focus = focusOf(s);
     const cell = (k, r, n) => {
       if (r.blank.includes(k)) return h('td', { class: 'num blank', title: 'Not measurable' }, noneEl(), h('span', { class: 'sr-only' }, 'not measurable'));
       if (!r.f || (rel && !isRef(r, n) && !refOfRow(r))) return h('td', { class: 'num pend' }, '…');
@@ -2251,6 +2092,14 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       return h('td', { class: 'num dir' + (d ? '' : ' zero') + (rel ? ' rel' : ''), 'data-rate': rel ? null : rateAbs(k, d), 'data-eff': rel && !calm ? effOf(k, d) : null, title: v },
         arrowEl(d), h('span', { class: 'sr-only' }, `${rel ? WORDREL[d] : WORD[d]}, ${v}`));
     };
+    // A column a deck visuals package registers (slide-ext.js columns) for a key the table does not know: its heading, cut-off note,
+    // unit words and cells are its own; a row not yet computed waits, and a row's blank columns show the ring, as the others do.
+    const extCell = (k, r, n) => {
+      if (r.blank.includes(k)) return h('td', { class: 'num blank', title: 'Not measurable' }, noneEl(), h('span', { class: 'sr-only' }, 'not measurable'));
+      if (!r.f) return h('td', { class: 'num pend' }, '…');
+      const c = safe(() => colExt(k).cell({ ...r, state: states[r.k] ?? null, ref: refOfRow(r) ?? null, isRef: isRef(r, n) }, ctxOf(s, slides.indexOf(s))), null, `columns.${k}`);
+      return c?.tagName === 'TD' ? c : h('td', { class: 'num' }, c ?? '—');
+    };
     // Ascites as two columns, SAAG and protein, one arrow each; "None" spans both when there is no fluid.
     const ascCells = (r, n) => {
       if (!r.f) return [h('td', { class: 'num pend' }, '…'), h('td', { class: 'num pend' }, '…')];
@@ -2262,6 +2111,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     };
     // One legend, built from the table itself: what the arrows compare with, the reference row's units, the ring.
     const units = [...new Set(cols.map((k) => (PRESS.has(k) ? 'press' : k)).filter((k) => UNIT_WORDS[k]))].map((k) => UNIT_WORDS[k]);
+    for (const k of cols) if (colExt(k)?.unit) units.push(colExt(k).unit);
     if (ascCols) units.push('SAAG and protein in g/dL');
     const refTitle = first ? lc(rows[0].title) : 'the baseline';
     const key = rel
@@ -2270,26 +2120,29 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     const legend = [key, rows.some((r) => r.blank.length) ? '○ not measurable' : '', units.length && rows.some((r, n) => isRef(r, n)) ? `Top row: ${units.join(', ')}` : '', s.foot || '']
       .filter(Boolean).map((x) => x.replace(/\.$/, '')).join('. ') + '.';
     // A heading's cut-offs: its tooltip on hover, and a line under the legend on a tap (a touch screen shows no tooltip).
-    const cutLine = h('span', { class: 'pz-cutl', 'aria-live': 'polite' });
-    const showCut = (k) => (e) => { if (e.type === 'click' || e.key === 'Enter' || e.key === ' ') { e.preventDefault?.(); e.stopPropagation?.(); cutLine.replaceChildren(h('b', {}, `${COLS[k] || k}: `), ...withArrows(CUT[k] + '.')); } };
+    const cutLine = h('span', { class: 'pz-cutl' });
+    const showCut = (k) => (e) => { if (e.type === 'click' || e.key === 'Enter' || e.key === ' ') { e.preventDefault?.(); e.stopPropagation?.(); cutLine.replaceChildren(h('b', {}, `${COLS[k] || colExt(k)?.heading || k}: `), ...withArrows((CUT[k] ?? colExt(k)?.cut) + '.')); } };
     const cutTh = (k, label, cut) => h('th', { class: 'num', title: cut || null, ...(cut ? { tabindex: '0', onclick: showCut(k), onkeydown: showCut(k) } : {}) }, label);
     const go1 = (r) => (e) => { if (e.type === 'click' || e.key === 'Enter' || e.key === ' ') { e.preventDefault?.(); go(r.i); } };
     // (long: seven rows or more; a class, not :has(), which made every table cell part of each restyle the page did)
     // (notecols: few enough columns that an upright tablet keeps each note in a column of its own under its heading, as on its side)
     const noteCols = notes.length && cols.length + (ascCols ? 2 : 0) + notes.length <= 4;
-    return h('div', { class: 'pz-table' + (rows.length >= 7 ? ' long' : '') + (noteCols ? ' notecols' : '') }, h('table', { style: { '--nc': String(cols.length + (ascCols ? 2 : 0)), '--nn': String(notes.length), '--asc-w': '0px' } },
-      h('thead', {}, h('tr', {}, h('th', {}, s.rowHead || 'Level'), cols.map((k) => cutTh(k, COLS[k] || k, CUT[k])),
+    return h('div', { class: 'pz-table' + (rows.length >= 7 ? ' long' : '') + (noteCols ? ' notecols' : '') + (focus ? ' pzv-focused' : '') }, h('table', { style: { '--nc': String(cols.length + (ascCols ? 2 : 0)), '--nn': String(notes.length), '--asc-w': '0px' } },
+      h('thead', {}, h('tr', {}, h('th', {}, s.rowHead || 'Level'), cols.map((k) => cutTh(k, COLS[k] || colExt(k)?.heading || k, CUT[k] ?? colExt(k)?.cut)),
         ascCols ? [cutTh('saag', h('abbr', { title: 'Serum−ascites albumin gradient' }, 'SAAG'), CUT.saag), cutTh('tp', h('abbr', { title: 'Ascites protein' }, 'Prot.'), CUT.tp)] : null,
         notes.map((x) => h('th', { class: 'nh' }, x)))),
-      h('tbody', {}, rows.map((r, n) => h('tr', { ...(r.i >= 0 ? { tabindex: '0', onclick: go1(r), onkeydown: go1(r), 'aria-label': `${r.title}: go to this slide` } : { class: 'static' }),
+      h('tbody', {}, rows.map((r, n) => h('tr', { ...(r.i >= 0 ? { tabindex: '0', onclick: go1(r), onkeydown: go1(r), 'aria-label': `${r.title}: go to this slide` } : {}),
+          class: [r.i >= 0 ? '' : 'static', focus && (r.key === focus || (r.i >= 0 && slides[r.i]?.id === focus)) ? 'pzv-focus' : ''].filter(Boolean).join(' ') || null,
           'data-arrived': r.k === arrived || (rel && n > 0 && (r.vs ? vsRow(r)?.k : rows[0].k) === arrived) ? '' : null },
         h('th', { scope: 'row' }, h('span', { class: 'pz-kick', 'data-site': r.site || 'none' }, r.kicker.replace('Intrahepatic · ', '')), h('span', { class: 'tw' }, h('span', { class: 'tn' }, nb(r.title)),
           r.vs ? h('span', { class: 'vs' }, `vs ${vsName(r)}`) : null)),
-        cols.map((k) => cell(k, r, n)),
+        cols.map((k) => (colExt(k) ? extCell(k, r, n) : cell(k, r, n))),
         ascCols ? ascCells(r, n) : null,
         notes.map((_, j) => h('td', { class: 'note' }, [r.note].flat()[j] || '')))))),
     h('p', { class: 'pz-foot' }, withArrows(legend), cutLine));
   }
+  // (A visual a deck visuals package registers (slide-ext.js visuals) is called with the slide and its context; the app's own win.)
+  const visualOf = (s, i) => (VISUALS[s.visual] ? VISUALS[s.visual](s) : safe(() => EXT.visuals[s.visual](s, ctxOf(s, i)), null, `visuals.${s.visual}`));
   const VISUALS = {
     table: summaryTable,
     ladders: laddersGrid,
@@ -2313,8 +2166,11 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   // An upright phone, or a tablet held upright, stacks the words under the figure and the data card over it; a tablet on its
   // side and any phone on its side keep the words at the left and the data card at the right (a small phone on its side had
   // no height for the two stacked). An upright tablet's cards take 70% of the width (class `tab`), centred.
-  const tabUp = () => innerWidth >= 700 && innerWidth <= 1100 && innerHeight > innerWidth * 1.15;
-  const phone = () => (innerWidth < 700 && innerHeight >= 500) || tabUp();
+  // (The same breakpoints as the style sheet's (util.js): a 700–767 px window or a near-square upright one stacked by the CSS
+  // while these said wide, and the text card took the wrong fit floor and Compact step.)
+  const stackMQ = matchMedia(STACK_MQ), shortMQ = matchMedia(SHORT_SIDE_MQ), tabMQ = matchMedia(TABLET_UP_MQ);
+  const tabUp = () => tabMQ.matches;
+  const phone = () => stackMQ.matches && !shortMQ.matches;
   // Which pill the screen takes (paintChrome): a phone's, an upright tablet's (with back and next) or a wide screen's.
   const pillKind = () => (phone() ? (tabUp() ? 'tab' : 'phone') : 'wide');
   // ── The data card slides out of view and back ──
@@ -2325,6 +2181,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   // On a laptop or tablet, and on a phone held sideways (I23, 17 Oct), the words sit on a floating card like the data card (false:
   // the full-height glass panel at the left edge). (An upright phone keeps its words' panel at the foot either way.)
   const TEXT_CARD = true;
+  const SHORT_H = 860;   // (a wider screen this tall or less takes the compact layout, .pz.short: css px)
   const LOW_M = 10;   // (a phone held sideways: its teaching card's margin from the top and bottom, css px; styles/app.css .pz.low)
   // (auto: closed by the layout, a slide whose card does not fit beside the words and the figure; autoKey: the slide it closed on.
   // A card the reader closed stays closed from slide to slide; one the layout closed opens again on the next slide that fits.)
@@ -2344,23 +2201,46 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   // instrument's and the readings'. A push up, or a tap on the handle, from fully open tucks the readings' card away; the next closes
   // the instrument card. A pull down on the closed card brings the instrument card out, and the same pull carried on brings the
   // readings' card out after it (dockTouch, sheetPull: "if I keep sliding I can open both in one swipe").
-  const splitSheet = (d) => !!ui?.root.classList.contains('stack') && d.classList.contains('pz-sheet');
+  // (Mac and iPad landscape too, the data card stacked under the words (pz-wide): the same two cards, its readings' card out as a slide
+  // comes in (Mohammad, 22 Oct: "is there a way to build something similar for mac and ipad, stacked card to show the main card and the
+  // stacked card behind it"). There the readings' card is tucked behind the instrument card's top edge, its handle on top, and comes out
+  // upward: the words' card rises with it and comes back down as it tucks away (Mohammad, 22 Oct: "make so I open the stacked card untuck
+  // it to the TOP not to the bottom. Cuz that's easier to pull up and the teaching card goes up"; slip.lift, liftTo).)
+  const splitSheet = (d) => !!ui && (ui.root.classList.contains('stack') || ui.root.classList.contains('pz-wide')) && d.classList.contains('pz-sheet');
+  const wideSheet = (d) => !!ui?.root.classList.contains('pz-wide') && d.classList.contains('pz-sheet');
   // The readings' card slides out from behind the instrument card and back under it, one solid piece (Mohammad, 17 Oct: "The secondary
   // card should actually be hidden underneath the other card not just pop into existence"): --pz-u on the card is how far out it is,
   // set frame by frame by the finger or here, never by a CSS transition (the card is frosted glass); styles/app.css works out both
   // pieces of glass, the readings' place and where they are cut at the instrument card's foot from it. (d: how far it travels, the
   // readings' share of the card's height; h0: the card's height with them tucked, css px; raf: the ease running.)
-  const slip = { d: null, h0: null, raf: 0 };
+  const slip = { d: null, h0: null, raf: 0, lift: 0, base: 0 };
+  // (Mac and iPad landscape: the stacked card's height cap is the room under the words and its readings' card's tucked edge, grown by what
+  // is out of the readings (--pz-grow, styles/app.css), so the instrument is fitted to the tucked room and keeps that size open or tucked.)
+  // (A Gut to heart chart too tall for it grows the cap by slip.base, the room the pair rises by: below.)
+  const capOf = (d, room) => (wideSheet(d) ? `calc(${(room + slip.base).toFixed(1)}px + var(--pz-grow, 0px))` : `${room.toFixed(1)}px`);
+  // (The rise, frame by frame with the readings' card: u of the way out lifts the words' card, its glass and the data card's box by u of
+  // slip.lift, the readings' travel (layout), so the instrument card stays where it is and the readings come out above it; tucking them
+  // brings everything back down the same way. A translate, never their top, which eases on its own.)
+  // (slip.base: the rise a Gut to heart chart needs whatever the readings do, its tucked card being taller than the room under the words; the
+  // readings add the rest of slip.lift on top, by u.)
+  // (Two rises: --pz-lift, the readings' travel, carries the box and the handle, so the instrument card stays put; --pz-rise, the words' card
+  // and its glass, is LIP less of the readings' travel: the readings' card already shows its LIP-px edge above the instrument card tucked, so
+  // out it needs LIP less than the instrument card's rise to stand the same gap under the words, tucked or out (Mohammad, 22 Oct: "the distance
+  // between the untucked and tucked card and teaching card should remain consistent"; it was LIP more out, about 110 px beside 60 px.))
+  const setRise = (name, w) => { const v = w > 0.5 ? `${w.toFixed(1)}px` : ''; if (wrap.style.getPropertyValue(name) !== v) { if (v) wrap.style.setProperty(name, v); else wrap.style.removeProperty(name); } };
+  const liftTo = (u) => { const trav = Math.max(0, slip.lift - slip.base), f = u > 0 ? u : 0; setRise('--pz-lift', slip.base + f * trav); setRise('--pz-rise', slip.base + f * Math.max(0, trav - LIP)); };
+  // (Told when the readings' card starts to move, so the Doppler probe is placed against the cards frame by frame as they go: stage.js dprTrack.)
+  const slideTell = () => dispatchEvent(new Event('pps:slide'));
   const underU = (d) => (d.classList.contains('pz-sliding') ? parseFloat(d.style.getPropertyValue('--pz-u')) || 0 : d.classList.contains('tool-open') ? 1 : 0);
   function slideUnder(from, to, ms = 360) {
     const d = ui.data;
     cancelFrame(slip.raf);
     if (reduce.matches) ms = 0; else ms *= Math.max(0.4, Math.abs(to - from));
-    d.classList.add('pz-sliding'); d.style.setProperty('--pz-u', from.toFixed(4));
+    d.classList.add('pz-sliding'); d.style.setProperty('--pz-u', from.toFixed(4)); liftTo(from); slideTell();
     const t0 = performance.now();
     const step = (now) => {
       const t = ms ? clamp((now - t0) / ms, 0, 1) : 1;
-      if (t < 1) { d.style.setProperty('--pz-u', (from + (to - from) * (1 - (1 - t) ** 3)).toFixed(4)); slip.raf = nextFrame(step); }
+      if (t < 1) { const u = from + (to - from) * (1 - (1 - t) ** 3); d.style.setProperty('--pz-u', u.toFixed(4)); liftTo(u); slip.raf = nextFrame(step); }
       else stopUnder();
     };
     slip.raf = nextFrame(step);
@@ -2369,19 +2249,19 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   function stopUnder() {
     cancelFrame(slip.raf);
     if (!ui?.data.classList.contains('pz-sliding')) return;
-    ui.data.style.removeProperty('--pz-u'); ui.data.classList.remove('pz-sliding');
+    ui.data.style.removeProperty('--pz-u'); ui.data.classList.remove('pz-sliding'); liftTo(underU(ui.data));
   }
   // How far the readings' card travels: the card's height with them out less its height without them, read in the card's own px (its
   // parts are zoomed by the fit, so their own boxes are not read). (--pz-o: a second part's place under the first, for its cut.)
   function measureUnder(d) {
-    const parts = [...d.children].filter((c) => c.matches('.pz-strip, .pz-tiles') && getComputedStyle(c).display !== 'none');
+    const parts = [...d.children].filter((c) => c.matches('.pz-tiles') && getComputedStyle(c).display !== 'none');
     if (!parts.length || !d.getClientRects().length) return;
     const kw = wrap.getBoundingClientRect().width / (wrap.clientWidth || 1) || 1, hh = () => d.getBoundingClientRect().height / kw;
     // (Without the card's height cap, which is the tucked card's: out, the card is fitted again. The card's own style changes only
     // for the measure, so its watcher is not told: told, it measured again, for ever.)
     const was = parts.map((c) => c.style.cssText), cap = d.style.maxHeight;
     d.style.maxHeight = 'none';
-    parts[0].style.marginTop = '14px';   // (out: styles/app.css)
+    parts[0].style.marginTop = wideSheet(d) ? '16px' : '14px';   // (out: styles/app.css)
     const h1 = hh(), z = (parseFloat(getComputedStyle(parts[0]).zoom) || 1) * kw;
     const o = parts[1] ? (parts[1].getBoundingClientRect().top - parts[0].getBoundingClientRect().top) / z : 0;
     for (const c of parts) c.style.display = 'none';
@@ -2403,7 +2283,11 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   const dockPaint = () => {
     if (!ui) return;
     const [x, y] = dockVec();
-    ui.data.style.translate = dock.lvl ? `${(x * dock.lvl).toFixed(1)}px ${(y * dock.lvl).toFixed(1)}px` : '';
+    // (A wide screen's stacked pair keeps its rise, --pz-lift, while the card docks: styles/app.css.)
+    const ly = wideSheet(ui.data) ? ' - var(--pz-lift, 0px)' : '';
+    ui.data.style.translate = dock.lvl ? `${(x * dock.lvl).toFixed(1)}px ${ly ? `calc(${(y * dock.lvl).toFixed(1)}px${ly})` : `${(y * dock.lvl).toFixed(1)}px`}` : '';
+    // (Where the glide ends: the camera frames for the card there, util.js translateRest, never where it stands this frame.)
+    ui.data.dataset.restTranslate = `${(x * dock.to).toFixed(1)} ${(y * dock.to).toFixed(1)}`;
     ui.data.classList.toggle('docked', dock.to === 1);
     dockFade(dock.to === 1);
     placeLip();
@@ -2432,10 +2316,12 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     if (split && !sliding && dock.lvl === dock.to) measureUnder(d);
     const u = sliding ? parseFloat(d.style.getPropertyValue('--pz-u')) || 0 : 0;
     // (Sliding, at the readings' card's foot to the fraction of a px: the card's own box height is whole px.)
-    l.style.left = px(d.offsetLeft); l.style.width = px(d.offsetWidth); l.style.top = px(d.offsetTop + (sliding && slip.h0 != null ? slip.h0 + u * slip.d : d.offsetHeight));
-    l.style.translate = d.style.translate;
+    // (Mac and iPad landscape: over the card's top, in the readings' card's top edge, tucked or out; the rise, --pz-lift, carries it up.)
+    const ut = wideSheet(d) ? (sliding ? u : open ? 1 : 0) : 0;
+    l.style.left = px(d.offsetLeft); l.style.width = px(d.offsetWidth); l.style.top = px(wideSheet(d) ? d.offsetTop - LIP * (1 - ut) : d.offsetTop + (sliding && slip.h0 != null ? slip.h0 + u * slip.d : d.offsetHeight));
+    l.style.translate = d.style.translate; l.dataset.restTranslate = d.dataset.restTranslate ?? '0 0';
     if (sliding) l.style.setProperty('--pz-u', u.toFixed(4)); else l.style.removeProperty('--pz-u');
-    const say = dock.to === 1 ? 'Open the card' : open ? (split ? 'Hide the readings' : 'Close the card') : split && dock.down === want ? 'Close the card' : 'Show the rest of the card';
+    const say = dock.to === 1 ? 'Open the card' : wideSheet(d) ? (open ? 'Hide the readings' : 'Show the readings') : open ? (split ? 'Hide the readings' : 'Close the card') : split && dock.down === want ? 'Close the card' : 'Show the rest of the card';
     if (l.getAttribute('aria-label') !== say) l.setAttribute('aria-label', say);
   }
   function dockTo(to, ms = 380) {
@@ -2460,7 +2346,8 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   // behind Show; the next slide that fits brings it back. (After the pass that asked: dockTo lays the cards out again.)
   function autoDock(shut) {
     const key = `${gen}:${want}`, d = ui.data, ms = d.classList.contains('pz-hide') || d.hidden ? 0 : 380;
-    if (shut && dock.to === 0 && dock.autoKey !== key) { dock.autoKey = key; dock.auto = true; queueMicrotask(() => ui && dockTo(1, ms)); }
+    // (Never while the reader's finger or a fold is moving the card: their pull opens the readings, it never closes the card.)
+    if (shut && dock.to === 0 && dock.autoKey !== key && !dock.drag && !d.classList.contains('pz-sliding') && !('folding' in d.dataset)) { dock.autoKey = key; dock.auto = true; queueMicrotask(() => ui && dockTo(1, ms)); }
     else if (!shut && dock.auto && dock.to === 1) { dock.auto = false; queueMicrotask(() => ui && dockTo(0, ms)); }
   }
   // A phone on its side: a table card's title that ends clear of the deck's tab stands level with it, the tab in the corner beside
@@ -2487,9 +2374,8 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     const cs = getComputedStyle(el), z = el.offsetHeight ? el.getBoundingClientRect().height / el.offsetHeight : 1;
     let used = (parseFloat(cs.paddingTop) || 0) + (parseFloat(cs.paddingBottom) || 0), n = 0;
     // (An instrument with its tiles beside it shares one row with them: the row is counted once, at its taller side.)
-    // (Only while a tool or the plot shows beside the tiles: a card too short for its plot shows the strip in a row of its own,
-    // and the tiles then stand in their row alone, counted like any part; skipped, the card read as fitting with its strip below its end.)
-    const rail = el.matches(RAIL), pair = rail && [...el.querySelectorAll(':scope > :is(.pz-tool, .pz-ladder)')].some((c) => getComputedStyle(c).display !== 'none'), side = pair && el.querySelector(':scope > .pz-tiles');
+    // (Only while the tool shows beside the tiles: folded, the tiles stand in their row alone, counted like any part.)
+    const rail = el.matches(RAIL), pair = rail && [...el.querySelectorAll(':scope > .pz-tool')].some((c) => getComputedStyle(c).display !== 'none'), side = pair && el.querySelector(':scope > .pz-tiles');
     for (const c of el.children) {
       if (c === side) continue;
       const s = getComputedStyle(c);
@@ -2503,7 +2389,10 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       // (A card's header grows with its words; only its Show chip's tap area reaches past it, and that is no overflow: counted,
       // it shrank a phone's folded data card to half, its chip to 19 px.)
       const clip = s.maxHeight !== 'none' || c.classList.contains('pz-dh') ? 0 : Math.max(0, c.scrollHeight - c.clientHeight - 3);
-      used += Math.max(c.getBoundingClientRect().height, side && (c.classList.contains('pz-tool') || c.classList.contains('pz-ladder')) ? side.getBoundingClientRect().height : 0) / z + ((parseFloat(s.marginTop) || 0) + (parseFloat(s.marginBottom) || 0) + clip) * cz;
+      // A protected time chart eases to its allocated height. Fit against its destination, so the old height
+      // during that ease cannot shrink the card's words and start another fit/resize cycle.
+      const chartH = el.classList.contains('pz-flowfit') && c.matches('.pz-tool[data-kind="flowtime"]') ? parseFloat(el.style.getPropertyValue('--ft-room')) : 0;
+      used += (chartH || Math.max(c.getBoundingClientRect().height, side && c.classList.contains('pz-tool') ? side.getBoundingClientRect().height : 0) / z) + ((parseFloat(s.marginTop) || 0) + (parseFloat(s.marginBottom) || 0) + clip) * cz;
       n++;
     }
     used += (parseFloat(cs.rowGap) || 0) * Math.max(0, n - 1);
@@ -2513,8 +2402,8 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   // A card whose signature is unchanged keeps its fit without being measured again (measuring forces layouts mid-animation).
   // (A card holding the quick check grows as its answers ease open and shut; it was fitted with every answer open, so its own
   // height is left out (the window's stands in): refitting mid-ease cut the easing short and jolted the words' size.)
-  const fitSig = (el) => `${el.clientWidth}x${el.querySelector('.pz-check') ? `q${innerWidth}x${innerHeight}` : el.clientHeight}|${el.className}|${document.documentElement.style.cssText}|${el.style.getPropertyValue('--pz-reach')},${el.style.getPropertyValue('--pz-fkrow')}|${[...el.children].map((c) => (c.hidden ? 0 : c.className + (getComputedStyle(c).maxHeight !== 'none' ? ':' + c.offsetHeight : ''))).join()}|${el.textContent.replace(/\d/g, '0')}`;
-  const fitDone = new WeakMap();
+  const fitSig = (el) => `${el.clientWidth}x${el.querySelector('.pz-check') ? `q${innerWidth}x${innerHeight}` : el.clientHeight}|${el.className}|${el.style.maxHeight}|${document.documentElement.style.cssText}|${el.style.getPropertyValue('--pz-reach')},${el.style.getPropertyValue('--pz-fkrow')}|${[...el.children].map((c) => (c.hidden ? 0 : c.className + (getComputedStyle(c).maxHeight !== 'none' ? ':' + c.offsetHeight : ''))).join()}|${el.textContent.replace(/\d/g, '0')}`;
+  const fitDone = new WeakMap(), smOf = new WeakMap();
   // A narrow summary table's column heads: 11 px, or as large as each column fits (down to 8), one size for the row.
   // (Only the phone and upright tablet layout reads --th-fs.)
   const headFits = (th) => { const b = th.getBoundingClientRect(), g = document.createRange(); g.selectNodeContents(th); return [...g.getClientRects()].every((q) => !q.width || (q.left >= b.left - 0.5 && q.right <= b.right + 0.5)); };
@@ -2568,6 +2457,60 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     if (floor < 1) { el.style.setProperty('--pz-fit', String(floor)); const ok = fits(); el.style.removeProperty('--pz-fit'); if (ok) return done(false, floor); }
     return done(!!el.querySelector(':scope > :not(.pz-dh):not(.pz-grip):not(.pz-lip)'), 0.5);
   }
+  // A wide screen too short for its cards, an iPad on its side or a short Mac window (.pz.short, layout): a card too tall for its room
+  // first stands tighter (.pz-lt: less padding, its tiles and table rows closer; .pz-lt2: a table's row on one line), then zooms only
+  // as far as its smallest lettering stays 12 px on the screen (glitch hunt, 22 Oct: cards zoomed to half there, about 300 pieces of
+  // text down to 7 px). Returns the smallest zoom the fit may take for that. (A card that still does not fit zooms further only as a
+  // last resort, fitCards, rather than run out of its card.)
+  function shortFit(el) {
+    const fits = () => { const o = overflowOf(el); return o.v <= 1 && o.h <= 1; };
+    el.classList.remove('pz-lt', 'pz-lt2');
+    for (const c of ['pz-lt', 'pz-lt2']) { if (fits()) break; el.classList.add(c); }
+    const px = minText(el);
+    return px > 12 && isFinite(px) ? Math.ceil(12 / px * 1000) / 1000 : 1;
+  }
+  // The smallest lettering in a card as it reaches the screen: its font size times every zoom on its way (the card's own, its parts',
+  // the interface's), or an SVG's drawn scale. (As tests/e2e/text-floor.mjs measures it.)
+  function minText(el) {
+    let min = Infinity;
+    const w = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+    for (let n; (n = w.nextNode());) {
+      const e = n.parentElement;
+      if (!e || !n.textContent.trim() || !e.getClientRects().length) continue;
+      const fs = parseFloat(getComputedStyle(e).fontSize);
+      if (!fs) continue;
+      let k = 1;
+      if (e instanceof SVGElement) { const m = e.getScreenCTM?.(); if (m) k = Math.hypot(m.a, m.b); }
+      else for (let a = e; a; a = a.parentElement) k *= parseFloat(getComputedStyle(a).zoom) || 1;
+      min = Math.min(min, fs * k);
+    }
+    return min;
+  }
+  function fitFlowTime(el) {
+    if (el !== ui.data) return;
+    const chart = el.querySelector(':scope > .pz-tool[data-kind="flowtime"] > .pz-flowtime');
+    const eligible = chart && el.classList.contains('tool-only') && ui.root.classList.contains('pz-wide') && !ui.root.classList.contains('stack') && !ui.root.classList.contains('low');
+    el.classList.toggle('pz-flowfit', !!eligible);
+    const clear = () => { el.style.removeProperty('--ft-room'); el.style.removeProperty('--ft-card'); };
+    if (!eligible) { clear(); return; }
+    // Measure at full width, without the previous fit. The chart's own height never enters its budget.
+    const cs = getComputedStyle(el), px = (v) => parseFloat(v) || 0;
+    const z = el.offsetWidth ? el.getBoundingClientRect().width / el.offsetWidth : 1;
+    const f = Math.max(px(getComputedStyle(chart).fontSize), 12 / (z || 1));
+    let chrome = px(cs.paddingTop) + px(cs.paddingBottom) + px(cs.borderTopWidth) + px(cs.borderBottomWidth), n = 0;
+    for (const c of el.children) {
+      const s = getComputedStyle(c);
+      if (s.display === 'none' || s.position === 'absolute' || s.position === 'fixed') continue;
+      const cz = parseFloat(s.zoom) || 1;
+      chrome += (c === chart.parentElement ? 0 : c.getBoundingClientRect().height / (z || 1)) + (px(s.marginTop) + px(s.marginBottom)) * cz;
+      n++;
+    }
+    chrome += px(cs.rowGap) * Math.max(0, n - 1);
+    const room = parseFloat(cs.maxHeight) - chrome - 1;
+    const h = flowTimeHeight(chart.clientWidth, f, room, chart.dataset.lines.split(','), px(getComputedStyle(chart).getPropertyValue('--band-room'))).height;
+    if (h == null) { el.classList.remove('pz-flowfit'); clear(); }
+    else { el.style.setProperty('--ft-room', `${h.toFixed(2)}px`); el.style.setProperty('--ft-card', `${(h + chrome).toFixed(2)}px`); }
+  }
   function fitCards(...els) {
     for (const el of els) {
       if (!el || el.hidden || 'folding' in el.dataset) continue;   // (a part mid-fold: the card keeps the fit it will rest with)
@@ -2575,44 +2518,76 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       if (fitDone.get(el) === sig) continue;
       const was = parseFloat(el.style.getPropertyValue('--pz-fit')) || 1;
       el.style.removeProperty('--pz-fit'); el.style.removeProperty('--pz-z');
+      fitFlowTime(el);
+      // (An upright phone's stacked card is fitted with its readings' card out, and keeps that fit tucked: the instrument holds one
+      // size whether the stack is open or closed, Mohammad, 20 Oct: "This data card is changing its size when I open the stack".)
+      const under = el === ui.data && splitSheet(el) && !el.classList.contains('tool-open') && !el.classList.contains('pz-sliding');
+      if (under) el.classList.add('tool-open');
+      // (Fitted against the cap it has with its readings out, open or tucked: the tucked card's cap with the readings' share on top
+      // (--pz-grow), never past the opened card's room (layout), so the readings coming out never fit it again to another size. The
+      // instrument card alone then fits the tucked cap and, out, the readings fit under it. With the share left out, the instrument and
+      // the readings both had to fit the tucked cap, and where the figure keeps its share the chart was squeezed to its smallest and the
+      // readings' words zoomed under their size: Sites 3 on an iPhone came in at 0.5, Mohammad, 20 Oct.)
+      const stacked = el === ui.data && splitSheet(el);
+      if (stacked) el.style.setProperty('--pz-grow', 'var(--pz-d, 0px)');
       // (A tablet's narrow data card: its own grid changes, which a container query on the card cannot do.)
       if (el.classList.contains('pz-data')) el.classList.toggle('pz-narrow', el.offsetWidth > 0 && el.offsetWidth < 420);
       // (A tile's name in full when it fits on one line in its tile, else its short form: Liver flow, Protein ...)
-      for (const k of el.querySelectorAll('.pz-tiles .pzt-k[data-s]')) {
-        k.classList.remove('short');
-        const t = k.parentElement, cs = getComputedStyle(t), room = t.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
-        if (room > 0 && k.scrollWidth > room + 0.5) k.classList.add('short');
-      }
+      // (All read in one layout, then written: the tiles' columns are equal shares of the row, so one tile's short name never
+      // changes another's room. Read and written tile by tile, each read laid the card out again.)
+      const names = [...el.querySelectorAll('.pz-tiles .pzt-k[data-s]')];
+      for (const k of names) k.classList.remove('short');
+      const shorts = names.filter((k) => { const t = k.parentElement, cs = getComputedStyle(t), room = t.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight); return room > 0 && k.scrollWidth > room + 0.5; });
+      for (const k of shorts) k.classList.add('short');
       // (A scale bar's cut-off numbers stay inside the bar, and where two would come within 8 px of each other the bar shows none of
       // them: sweep batch 03, 0.1 and 1.5 sat 6 px apart and read as one, and a lone survivor read as a mystery value (critique D2,
       // 17 Oct). The coloured bands still show where the cut-offs fall.)
-      for (const bar of el.querySelectorAll('.pz-tiles .pzt-bar')) {
-        const B = bar.getBoundingClientRect(), ls = [...bar.querySelectorAll('.pzb-l')];
+      // (Every bar's numbers read in one layout and then written. A number is centred on its cut-off (translate −50 %); .lo sets it
+      // to start there (0) and .hi to end there (−100 %), a shift of half its width, worked out rather than measured again.)
+      const bars = [...el.querySelectorAll('.pz-tiles .pzt-bar')].map((bar) => ({ bar, ls: [...bar.querySelectorAll('.pzb-l')] }));
+      for (const { ls } of bars) for (const l of ls) l.classList.remove('lo', 'hi', 'off');
+      for (const b of bars) { b.B = b.bar.getBoundingClientRect(); b.rs = b.ls.map((l) => l.getBoundingClientRect()); }
+      for (const { B, ls, rs } of bars) {
         let end = -Infinity, clash = false;
-        for (const l of ls) {
-          l.classList.remove('lo', 'hi', 'off');
-          let r = l.getBoundingClientRect();
-          if (!r.width) continue;
-          if (r.left < B.left) { l.classList.add('lo'); r = l.getBoundingClientRect(); } else if (r.right > B.right) { l.classList.add('hi'); r = l.getBoundingClientRect(); }
-          if (r.left < end + 8) clash = true; else end = r.right;
-        }
+        ls.forEach((l, i) => {
+          const r = rs[i];
+          if (!r.width) return;
+          let left = r.left, right = r.right;
+          if (r.left < B.left) { l.classList.add('lo'); left += r.width / 2; right += r.width / 2; } else if (r.right > B.right) { l.classList.add('hi'); left -= r.width / 2; right -= r.width / 2; }
+          if (left < end + 8) clash = true; else end = right;
+        });
         if (clash) for (const l of ls) l.classList.add('off');
+      }
+      // (A row of tiles whose bars show no cut-off number keeps no empty row for them under the bars: on a phone that row stood empty
+      // under HVPG's bar (5 and 10 too close to number) and, the tiles one height, under WHVP's and FHVP's too, Sites 3 on an iPhone,
+      // 20 Oct, where the stacked cards ran into the words. Decided by the bars' widths only, so a tile never resizes as its numbers change.)
+      // (Widths only, which the numbers' classes above do not change: the bars' and numbers' read before, then each row written.)
+      const rowW = new Map(bars.map((b) => [b.bar, b]));
+      for (const row of el.querySelectorAll('.pz-tiles')) {
+        const rb = [...row.querySelectorAll('.pzt-bar')].map((b) => rowW.get(b));
+        if (!rb.length || rb.some((b) => !b?.B.width)) continue;
+        row.classList.toggle('pzb-nonum', !rb.some((b) => b.ls.some((l, i) => !l.classList.contains('off') && b.rs[i].width)));
       }
       fitHeads(el);
       // (A quick check is fitted with every answer open: its words keep one size however many are revealed.)
       const all = el.querySelector('.pz-check'); all?.classList.add('pzc-all', 'pzc-still');
       // (A phone's words never fit below 12 px: the card's height cap leaves them that room, phoneTextCap.)
-      // (A phone's words, upright or on its side: one body size per layout. A tight slide's title steps down first (--pz-ptk, the
-      // titles' fixed steps), then the whole card by one step (0.9); only a slide that still does not fit goes further, to 12 px on
-      // the screen, and on its side, where no cap keeps that room, past it as a last resort rather than run out of its card.)
+      // (A phone's words, upright or on its side, and an upright iPad's: two fixed sizes, Regular or Compact (card-type.js), the whole
+      // card at once, so its title always reads larger than its words and its buttons never larger (Mohammad, 19 Oct: "Two fixed
+      // sizes"; the title had stepped down first and the buttons not at all, so all of them met at 12 to 14 px). Only a slide that
+      // does not fit even at Compact goes further, to 12 px on the screen, and on its side, where no cap keeps that room, past it as a
+      // last resort rather than run out of its card.)
       const small = el === ui.text && (phone() || ui.root.classList.contains('low'));
       const lowFloor = el === ui.data && ui.root.classList.contains('low') ? lowData(el) : 0;
+      const shortFloor = !small && !lowFloor && ui.root.classList.contains('short') ? shortFit(el) : 0;
+      if (!shortFloor && !lowFloor) el.classList.remove('pz-lt', 'pz-lt2');   // (a card left tight by a shorter window)
       const ln = small ? el.querySelector('.pz-line, p') : null, lb = ln ? parseFloat(getComputedStyle(ln).fontSize) : 0;
       const floor = lb > 12 ? Math.ceil(12 / lb * 1000) / 1000 : 0.5;
-      const mins = small ? [...new Set([Math.max(floor, 0.9), floor, phone() ? floor : 0.5])] : [lowFloor || floor];
+      const mins = small ? [...new Set([floor, phone() ? floor : 0.5])] : [lowFloor || floor];
+      if (shortFloor > mins[0]) mins.unshift(shortFloor);   // (the compact layout's 12 px first; past it only as a last resort)
       let k = 1, over = 1;   // (over: the largest fit tried that still overflowed)
       const fits = () => { const o = overflowOf(el); return o.v <= 1 && o.h <= 1 ? null : o; };
-      if (small) { el.style.removeProperty('--pz-ptk'); for (const tk of TK.slice(1)) { if (!fits()) break; el.style.setProperty('--pz-ptk', tk); } }
+      if (small && fits()) { k = over = Math.max(COMPACT, floor); el.style.setProperty('--pz-fit', String(k)); }   // (Compact; over: no search back up past it)
       for (const kMin of mins) {
         for (let n = 0; n < 8 && k > kMin; n++) {
           const o = fits();
@@ -2642,7 +2617,11 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       // (Parts whose words keep their size (styles/app.css: zoom var(--pz-z)) let the fit shorten only their pictures; when even
       // the shortest pictures leave the card too full, a large text setting, the words then zoom down too, to half at most.)
       // (Never past the 12 px floor: the card's small size, --pz-sm, zoomed, stays at least 11.5 px.)
-      const sm = (() => { const pr = h('span', { style: 'position:absolute;visibility:hidden;font-size:var(--pz-sm, 12px)' }); el.append(pr); const v = parseFloat(getComputedStyle(pr).fontSize) || 12; pr.remove(); return v; })();
+      // (Its small size read with a probe once per look of the card and the screen, not on every fit.)
+      const smKey = `${el.className}|${ui.root.className}|${innerWidth}x${innerHeight}|${devicePixelRatio}|${document.documentElement.style.cssText}|${app.style.cssText}|${ui.root.style.cssText}|${el.style.cssText.replace(/--pz-(fit|z):[^;]*;?/g, '')}`;
+      let sm = smOf.get(el);
+      if (sm?.k !== smKey) { const pr = h('span', { style: 'position:absolute;visibility:hidden;font-size:var(--pz-sm, 12px)' }); el.append(pr); sm = { k: smKey, v: parseFloat(getComputedStyle(pr).fontSize) || 12 }; pr.remove(); smOf.set(el, sm); }
+      sm = sm.v;
       const zMin = Math.max(0.5, Math.min(1, 11.5 / sm));
       for (let n = 0, z = 1; n < 8 && z > zMin; n++) {
         const o = overflowOf(el);
@@ -2653,16 +2632,30 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       fitEquations(el);
       // (Closed again with no transition, so the answers start hidden and the card rests at its closed height.)
       if (all) { all.classList.remove('pzc-all'); void all.offsetHeight; all.classList.remove('pzc-still'); }
+      if (under) { el.classList.remove('tool-open'); ui.lipMO?.takeRecords(); }
+      if (stacked) { el.style.removeProperty('--pz-grow'); ui.lipMO?.takeRecords(); }
       fitDone.set(el, fitSig(el));   // (as it rests once fitted: a folding part's height is part of it)
     }
   }
   // A card whose contents grow after the layout (a time-lapse, the numbers settling) is fitted again.
-  let textLock = null, ladderFold = null, foldHeld = null;   // (foldHeld: the foldKey the data card was last folded for, layout)
+  // A slide whose data card changes only its readings while it shows: a what-if slider or compare button driving the live model
+  // (liveOff), or a time-lapse slide (its days running, or run). Its cards keep the plan made as the slide came in.
+  const readingsOnly = () => liveOff || lapseOn || (!!shown && shown.i === want && !!slides[want]?.lapse);
+  // A time-lapse slide in view: as its days run the data card's readings change many times a second, and each change that measured
+  // the card a hair different laid every card out again, so on an iPhone the teaching card vibrated as the days passed (Endoscopy 3,
+  // 18 Oct). The data card is only fitted again in its own room; the words and their glass stay as they came in. (A resize, a turn or
+  // a new text size still lays everything out afresh: onResize.)
+  // (The same while a what-if slider or a compare button drives the live model (liveOff): each reading that measured the data card a
+  // hair different laid the cards out again and fitted the words afresh, a pixel off each time, so the teaching card's text shook
+  // under the finger: Tricuspid leak on slide 60 of the test-all deck on an iPhone, 19 Oct.)
+  const cardsStill = () => !!shown && shown.i === want && (liveOff || !!slides[want]?.lapse) && !!ui && !ui.root.classList.contains('pz-prep');
+  let shiftLock = null;   // (the stacked pair's centring, keyed as the words' lock: layout)
+  let textLock = null, foldHeld = null;   // (foldHeld: the foldKey the data card was last folded for, layout)
   let fitRO = null, fitRaf = 0, clearRO = null, clearT = 0, paneRaf = 0, fitKids = [], clearFor = null;
   const fitWatch = () => {
     fitRO ||= new ResizeObserver(() => {
       cancelFrame(fitRaf);
-      fitRaf = nextFrame(() => { if (ui && [ui.text, ui.data, ui.panel].some((el) => !el.hidden && fitDone.get(el) !== fitSig(el) && (el.style.getPropertyValue('--pz-fit') || (({ v, h }) => v > 1 || h > 1)(overflowOf(el))))) layout(); });   // (a shrunk card is fitted again when it changes, so it can grow back)
+      fitRaf = nextFrame(() => { if (ui && cardsStill()) { fitCards(ui.data); return; } if (ui && [ui.text, ui.data, ui.panel].some((el) => !el.hidden && fitDone.get(el) !== fitSig(el) && (el.style.getPropertyValue('--pz-fit') || (({ v, h }) => v > 1 || h > 1)(overflowOf(el))))) layout(); });   // (a shrunk card is fitted again when it changes, so it can grow back)
     });
     // (Watched again only when the cards' children changed: observing a box reports it at once, so re-observing on every pass
     // ran the layout again every frame on a slide sitting still, Circuit 7 on an iPhone some four times a second.)
@@ -2673,37 +2666,42 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       if (cardSig() !== framedSig) reframe(400); };   // (only when the cards really changed: the camera framed them once; any slide, so a card that grew never covers its box)
     const soon = () => { clearTimeout(clearT); clearT = setTimeout(again, 120); };
     // (The words' glass pane and the figure's insets follow a card that grows after the layout, a chart arriving under the words.)
-    clearRO ||= new ResizeObserver(() => { cancelFrame(paneRaf); paneRaf = nextFrame(() => ui && layout()); soon(); });
+    clearRO ||= new ResizeObserver(() => { cancelFrame(paneRaf); paneRaf = nextFrame(() => { if (!ui) return; if (cardsStill()) fitCards(ui.data); else layout(); }); soon(); });
     if (clearFor !== ui) { clearRO.disconnect(); clearRO.observe(ui.data); clearRO.observe(ui.text); clearFor = ui; }
     ui.data.ontransitionend = ui.text.ontransitionend = soon;   // (a card slides into place: its edge is where it ends, not where it was measured)
   };
-  // A folded ladder card with nothing else in it (no tiles, no instrument) is no card of its own on a wide screen: its name and
-  // Show sit in the teaching card's foot, and the card shows only once opened, with its strip (critique A7, Sites 5 and 9 on a
-  // sideways iPad, 17 Oct). The row stays while the card is open, its button reading Hide, so the words' card never changes size.
-  // Called wherever the card folds or unfolds in layout, before the words are measured.
-  function footFold() {
-    const dd = ui.data, on = dd.classList.contains('pz-folds') && !dd.classList.contains('has-tool') && dd.dataset.tn === '0';
-    dd.classList.toggle('pz-footfold', on);
-    let row = ui.text.querySelector(':scope > .pz-tfold');
-    if (!on) { row?.remove(); return; }
-    const chip = dd.querySelector('.pz-dh > .pz-fold'), open = dd.classList.contains('tool-open');
-    if (!row) {
-      const b = h('button', { type: 'button', class: 'pz-tfold-b', onclick: () => { chip?.click(); footFold(); } });
-      row = h('p', { class: 'pz-tfold' }, h('span', { class: 'pz-sub' }), b);
-      ui.text.append(row);
-    }
-    row.firstChild.textContent = ui.dhT.textContent;
-    const b = row.lastChild;
-    b.textContent = open ? 'Hide' : 'Show'; b.setAttribute('aria-expanded', String(open));
-  }
+  // How far a phone's glass reaches above the words (page px): 16 px, or the deck's tab and 8 px more, so the tab never meets
+  // the title. The data card and the words' plan leave room for that reach (layout, phoneTextCap): counted as 16 px, an opened
+  // stacked card ended 6 px into the glass, under its tab, Sites 3 on an iPhone, 20 Oct.
+  // (The level's tab and the deck's share the glass's top edge; where they would come within 8 px of each other, the deck's gives way.)
+  // (Judged with the deck's tab shown, as the layout does below: a tight class left from the last pass hides it.)
+  const tabsTight = (k) => {
+    const tabEl = ui.shade.querySelector('.pz-tabname'), stab = ui.shade.querySelector('.pz-sitetab:not([hidden])'), was = ui.shade.classList.contains('pz-tabs-tight');
+    if (was) ui.shade.classList.remove('pz-tabs-tight');
+    const tight = !!(stab && tabEl && stab.getBoundingClientRect().right + 8 * k > tabEl.getBoundingClientRect().left);
+    if (was) ui.shade.classList.add('pz-tabs-tight');
+    return tight;
+  };
+  const glassLift = (k) => {
+    const tabEl = ui.shade.querySelector('.pz-tabname'), stab = ui.shade.querySelector('.pz-sitetab:not([hidden])'), tight = tabsTight(k);
+    if (!tabEl && !stab) return 16;
+    const was = ui.shade.classList.contains('pz-tabs-tight');
+    if (was) ui.shade.classList.remove('pz-tabs-tight');
+    const tabH = Math.max(tabEl && !tight ? tabEl.offsetHeight : 0, stab?.offsetHeight || 0);
+    if (was) ui.shade.classList.add('pz-tabs-tight');
+    return Math.max(16, tabH + 8);
+  };
   function layout() {
     if (!ui) return;
-    // Under interface zoom the page is scaled by k: rects are screen px, inline sizes are the page's own (screen / k).
-    // The --pz-* insets stay in screen px, the figure's own units (the stage view undoes the zoom).
+    // k: screen px per CSS px of the figure's box (1 unless the page is scaled): rects are screen px, inline sizes are the page's own (screen / k).
     const p = phone(), wr = wrap.getBoundingClientRect(), W = wr.width, H = wr.height, k = wr.width / (wrap.clientWidth || wr.width) || 1;
     ui.root.classList.toggle('stack', p); ui.shade.classList.toggle('stack', p);
     ui.root.classList.toggle('tab', p && tabUp()); ui.shade.classList.toggle('tab', p && tabUp());
     const low = !p && W > H && H <= 500;   // (a phone held sideways: its instruments fold behind Show)
+    // (A wider screen under 860 px tall, an iPad on its side or a short Mac window: the compact layout, tighter cards at the roles'
+    // own sizes whose lettering never zooms under 12 px, shortFit; styles/app.css .pz.short.)
+    const short = !p && !low && H / k <= SHORT_H;
+    ui.root.classList.toggle('short', short);
     const cardOn = TEXT_CARD && !p;   // (a phone held sideways too: its words in a floating card, not a panel at the edge)
     ui.root.classList.toggle('pz-card', cardOn); ui.shade.classList.toggle('pz-card', cardOn);
     ui.root.classList.toggle('low', low); ui.shade.classList.toggle('low', low);
@@ -2717,7 +2715,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     // the fold found while its cards come in is kept once it shows. Keyed by the slide shown, the card unfolded for a moment
     // as it came in at 200%, then folded again.)
     const foldKey = `${gen}:${want}:${W.toFixed(0)}x${H.toFixed(0)}:${stage.labelScale()}`;
-    ui.text.style.removeProperty('--pz-tk'); ui.text.style.removeProperty('--pz-bk');
+    ui.text.style.removeProperty('--pz-tk'); ui.text.style.removeProperty('--pz-bk'); ui.text.classList.remove('pz-nocauses');
     ui.text.style.maxHeight = '';   // (the last pass's cap would shrink the words to a room they no longer have)
     // (A phone's words keep clear of the pill and the colour key first: the room they leave (--pz-reach, --pz-fkrow) is part
     // of the fit. Placed only after it, the words were fitted to the last slide's key and kept that fit: Circulation slide 2
@@ -2730,15 +2728,20 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     // (Before the words are measured for the phone's cap: measured with the full names on two rows, the card kept 12 px it no longer needed.)
     abShort(ui.text, p || ui.root.classList.contains('low'));   // (a phone, upright or on its side; a wider card may take two rows of full names)
     // (A phone's card with a second part keeps that part on its sheet (.pz-lip, dockVec); each slide arrives partly open.)
-    const dd0 = ui.data, sheet = p && dd0.classList.contains('has-tool') && !dd0.classList.contains('tool-only');
+    // (Mac and iPad landscape: the same, stacked under the words, every instrument with readings, the Gut to heart chart too: pz-wide.)
+    const wide = cardOn && !low;
+    ui.root.classList.toggle('pz-wide', wide);
+    const dd0 = ui.data, sheet = (p || wide) && dd0.classList.contains('has-tool') && !dd0.classList.contains('tool-only');
     // (An upright phone's or tablet's sheet stays opaque while it is out and fades its parts instead, styles/app.css: a card that
     // becomes one, or stops being one, while it is out takes its new state at once, so its glass never shows, fading, between two slides.)
-    if (sheet !== dd0.classList.contains('pz-sheet') && p && dd0.classList.contains('pz-hide')) {
+    if (sheet !== dd0.classList.contains('pz-sheet') && (p || wide) && dd0.classList.contains('pz-hide')) {
       const was = dd0.style.transition;
       dd0.style.transition = 'none'; dd0.classList.toggle('pz-sheet', sheet); void dd0.offsetWidth; dd0.style.transition = was;
     }
     dd0.classList.toggle('pz-sheet', sheet);
-    if ((p || low) && dd0.classList.contains('pz-folds')) { dd0.classList.remove('pz-folds'); footFold(); }   // (a wider screen's fold, left by a window made narrow)
+    if (!p) dd0.classList.toggle('pz-beside', !sheet && dd0.hasAttribute('data-beside') && !dd0.classList.contains('pz-folds'));   // (the readings' card holds the tiles: none beside the instrument)
+    if ((p || low) && dd0.classList.contains('pz-folds')) dd0.classList.remove('pz-folds');   // (a wider screen's fold, left by a window made narrow)
+    // (Mac and iPad landscape too: each slide comes in with its readings tucked, the words whole; they come out on a pull or a tap.)
     if (sheet && dd0.classList.contains('tool-open') && dd0.dataset.openFor !== String(want)) { stopUnder(); dd0.classList.remove('tool-open'); }
     const phoneCap = p ? phoneTextCap(lockKey, H, k) : null;
     if (phoneCap != null) ui.text.style.maxHeight = `${phoneCap.toFixed(1)}px`;
@@ -2762,23 +2765,21 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     // On a laptop or tablet the data card always stacks under the words' card, at its width, a gap below it (0.6 of the margin),
     // above the controls; what does not fit is made smaller in fixed steps, never moved to the top right. A card in view that
     // changes place fades out, moves while unseen and fades back in.
-    let below = false, gap = 0, cw = 0, foot = H, keepH = 0;   // (keepH: the room a ladder folded behind Show keeps, screen px)
+    let below = false, gap = 0, cw = 0, foot = H;
+    slip.base = 0;
     const top0 = cardOn && t ? sl : 0;   // (the cards' top: one margin from the top, as from the side)
     if (cardOn && !low && t && !off(dd)) {
       gap = Math.round(0.6 * sl); cw = t.right - wr.left + pad - sl;
       // (Folding the instrument behind Show is the last step, below: each new measure starts unfolded. It snaps while the card is
       // measured, so the measure sees where it rests; a tap on Show or Hide then eases it.)
-      // (A ladder card with no instrument folds its plot the same way, its tiles keeping the readings, but only once its own fit has
-      // failed (ladderFold, below): its plot shrinks with the card where an instrument cannot. Treatment slide 2 at 200 % on a
-      // 1440x900 screen left the card 232 px, too short for the plot even at the card's smallest zoom.)
-      const canFold = (dd.classList.contains('has-tool') || (!dd.classList.contains('tiles-only') && ladderFold === foldKey)) && !dd.classList.contains('tool-only') && !dd.classList.contains('tool-lead');
+      const canFold = dd.classList.contains('has-tool') && !dd.classList.contains('tool-only') && !dd.classList.contains('tool-lead') && !dd.classList.contains('pz-sheet');   // (a stacked card tucks its readings instead)
       const setFolds = (on) => {
-        if (dd.classList.contains('pz-folds') === on) { footFold(); return; }   // (unchanged: a pass mid-ease must not cut a Show or Hide short)
+        if (dd.classList.contains('pz-folds') === on) return;   // (unchanged: a pass mid-ease must not cut a Show or Hide short)
+        if (on) dd.classList.remove('pz-lt', 'pz-lt2');   // (folded, the compact layout's steps run again from the loosest)
         const tl = dd.querySelector(':scope > .pz-tool');
         if (tl) tl.style.transition = 'none';
         dd.classList.toggle('pz-folds', on); dd.classList.toggle('pz-beside', !on && dd.hasAttribute('data-beside'));
         if (tl) { void tl.offsetHeight; tl.style.transition = ''; }
-        footFold();
       };
       // (A card already folded for this slide at this size stays folded until the slide is shown and its words lock: unfolded
       // and folded again on every pass, the foot row under the words was made anew each time, the words fitted without it, and
@@ -2791,42 +2792,67 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       let ch = colHeight(cw / k) * k, dk = 1;
       const slack = dd.classList.contains('col') ? 8 : 0;
       below = top0 + t.height + 2 * pad + gap + ch <= foot + slack;
-      // Too tall to stack: the words' card gives way first, only a little: its title steps down (TK, fixed steps, so titles
-      // match across a deck; its column never widens: every slide keeps one card width), then the data card's blocks step
-      // smaller (DK) with the words a little smaller to match. At the last step the pair stays stacked and the data card's own fit does the rest.
-      const put = (tk, bk) => { ui.text.style.setProperty('--pz-tk', tk); ui.text.style.setProperty('--pz-bk', bk); t = r(ui.text); return top0 + t.height + 2 * pad + gap + ch <= foot; };   // (no slack once shrunk: the data card is never squeezed)
-      const title = (bk = 1) => { for (const tk of TK) if (put(tk, bk)) return true; return false; };
-      // (A ladder folded behind Show keeps room under the words for its opened strip: the words step down for that, never the
-      // strip squeezed into a header's room. pvt-cirrhosis slide 4 at 200 % on a 1440x900 screen opened into 144 px, its strip zoomed
-      // to half and PPG still cut off at the card's foot.)
-      // (Folded, its tiles stand where the strip shows once opened: the room is the taller of the two.)
-      const foldH = (s) => Math.max(colHeight(cw / k, s), dd.classList.contains('pz-folds') && !dd.classList.contains('has-tool') ? colHeight(cw / k, s, true) : 0);
+      // Too tall to stack: the words' card gives way first, only a little: from Regular to Compact, its title and words each one
+      // fixed step (card-type.js WIDE, so every slide reads at one of two sizes and its title always well above its words; its column
+      // never widens: every slide keeps one card width), then the data card's blocks step smaller (DK). At the last step the pair
+      // stays stacked and the data card's own fit does the rest.
+      // (trim: the words' card's last steps, below. 1: the title one step further down (WIDE.tight); 2: and the CAUSES line gone.)
+      let trim = 0;
+      const put = (tk, bk) => { ui.text.style.setProperty('--pz-tk', trim ? Math.min(tk, WIDE.tight) : tk); ui.text.style.setProperty('--pz-bk', bk); ui.text.classList.toggle('pz-nocauses', trim > 1); t = r(ui.text); return top0 + t.height + 2 * pad + gap + ch <= foot; };   // (no slack once shrunk: the data card is never squeezed)
+      const title = () => put(1, 1) || put(WIDE.title, WIDE.words);   // (Regular, else Compact)
+      const foldH = (s) => colHeight(cw / k, s);
       const step = (s) => { dk = s; ch = foldH(s) * k; };
-      // (The words' text steps down with the blocks, a little less, so the two cards' type never ends far apart.)
+      // (The words stay Compact while the blocks step down: one size for the words, whatever the data card needs.)
+      // (The compact layout steps its blocks tighter instead (.pz-lt, .pz-lt2), never smaller: its lettering stays 12 px, shortFit.)
       const ladder = () => {
-        for (const [s, bk] of DK) { if (below) break; step(s); below = title(bk); }   // (the data card's blocks a step or two smaller, the words a little: no further, or the words would squeeze)
+        if (short) { for (const c of ['pz-lt', 'pz-lt2']) { if (below) break; dd.classList.add(c); ch = colHeight(cw / k) * k; below = put(WIDE.title, WIDE.words); } return; }
+        for (const s of DK) { if (below) break; step(s); below = put(WIDE.title, WIDE.words); }   // (the data card's blocks a step or two smaller: no further, or the words would squeeze)
+      };
+      // When even the smallest blocks leave the pair too tall, the words' card gives way once more before anything is cut off: its title one
+      // step down, then the CAUSES line gone, the blocks stepping again from full size under each (Mohammad, 23 Oct, Sites 4 on a Mac at a
+      // larger text size: a tall title and a long CAUSES line left the Gut to heart chart cut off). Only a slide the steps above could not fit
+      // comes here, so every slide that fitted stays as it was.
+      const squeeze = () => {
+        for (const n of [1, 2]) {
+          trim = n; dd.classList.remove('pz-lt', 'pz-lt2'); step(1);
+          below = put(WIDE.title, WIDE.words);
+          if (!below && n === 2) ladder();
+          if (below) return;
+        }
       };
       // The last step when even the smallest blocks leave the pair too tall: the instrument folds behind Show (as on a phone),
       // its tiles in a row under the header at the card's full width, and the steps run again from full size.
       // (Not for a slide whose instrument is its point (tool-lead), nor a card that holds only the instrument.)
       if (lock) {
         for (const [n, v] of lock.vars) if (v) ts.setProperty(n, v);
+        ui.text.classList.toggle('pz-nocauses', !!lock.nc);
         if (lock.folds) setFolds(true);
         t = r(ui.text); below = lock.below; dk = lock.dk; cw = t.right - wr.left + pad - sl; ch = foldH(dk) * k;
       } else {
-        // (A title a step or two smaller at the one card width, then the steps below; the column never widens.)
-        if (held) { step(1); footFold(); }
-        below = title(1);
+        // (The words at Compact at the one card width, then the steps below; the column never widens.)
+        if (held) step(1);
+        dd.classList.remove('pz-lt', 'pz-lt2'); ch = foldH(dk) * k;
+        below = title();
         if (!below) ladder();
-        if (!below && canFold && !held) { setFolds(true); ts.removeProperty('--pz-tk'); ts.removeProperty('--pz-bk'); step(1); below = title(1); if (!below) ladder(); }
-        // (Still too tall at the smallest step: the pair stays stacked at the one card width, the title and blocks at their
-        // smallest steps; the data card is never moved to the top right, its own fit (fitCards) makes the rest fit its room.)
-        if (!below) { put(TK[TK.length - 1], DK[DK.length - 1][1]); below = true; }
+        if (!below) squeeze();
+        if (!below && canFold && !held) { setFolds(true); trim = 0; ts.removeProperty('--pz-tk'); ts.removeProperty('--pz-bk'); ui.text.classList.remove('pz-nocauses'); step(1); below = title(); if (!below) ladder(); }
+        if (!below && !held && dd.classList.contains('pz-folds')) squeeze();   // (folded just now: the same last steps again)
+        // (Still too tall at the smallest step: the pair stays stacked at the one card width, the words at their smallest (the title one step
+        // down and no CAUSES line) and the blocks at their smallest step; the data card is never moved to the top right, its own fit (fitCards)
+        // makes the rest fit its room.)
+        if (!below) { put(WIDE.title, WIDE.words); below = true; }
       }
       if (dk < 1) dd.style.setProperty('--pz-dk', dk); else dd.style.removeProperty('--pz-dk');
-      keepH = ch;
       foldHeld = dd.classList.contains('pz-folds') ? foldKey : null;
-      if (lockKey && !lock) textLock = { key: lockKey, below, dk, folds: dd.classList.contains('pz-folds'), vars: ['--pz-tk', '--pz-bk'].map((n) => [n, ts.getPropertyValue(n)]) };
+      if (lockKey && !lock) textLock = { key: lockKey, below, dk, folds: dd.classList.contains('pz-folds'), nc: ui.text.classList.contains('pz-nocauses'), vars: ['--pz-tk', '--pz-bk'].map((n) => [n, ts.getPropertyValue(n)]) };
+      // (A Gut to heart chart is drawn at its own size, never zoomed by the fit, and has a smallest height. Where the pair is too tall for it
+      // even at the smallest steps, the words' card eases up with the data card, its top slipping behind the screen's top if need be, so the
+      // chart stays whole in its card instead of spilling past the screen (Mohammad, 22 Oct: "It's ok if the top of the teaching card slips
+      // behind upper part of the screen as the info below is more pertinent"). The readings add their own rise on top, slip.lift.)
+      if (wideSheet(dd) && dd.hasAttribute('data-ladder')) {
+        const b = Math.max(0, Math.min(top0 + t.height + 2 * pad + gap + ch - foot, t.height + 2 * pad + gap)) / k;
+        slip.base = b > 0.5 ? b : 0;
+      }
     } else dd.style.removeProperty('--pz-dk');
     const isCol = dd.classList.contains('col');
     if (below !== isCol) {
@@ -2834,7 +2860,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       // (Not after its fade (swapNow: it moves now, though a slow frame left it not quite faded; it had stayed stacked under the
       // words for good when an iPad was turned upright), nor on a resize or a turn, where everything moves at once: faded there,
       // it showed over the words' card for a moment while the words had already moved.)
-      else if (!swapNow && !ui.root.classList.contains('pz-turning') && !dd.hidden && !reduce.matches && +getComputedStyle(dd).opacity > 0.05) {
+      else if (!swapNow && !ui.root.classList.contains('pz-turning') && !dd.hidden && !reduce.matches && (dd.classList.contains('pz-sheet') ? !dd.classList.contains('pz-hide') : +getComputedStyle(dd).opacity > 0.05)) {
         below = isCol;
         if (!dd.classList.contains('pz-hide')) {
           dd.classList.add('pz-hide'); dd.dataset.colswap = '';
@@ -2844,22 +2870,40 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     }
     if (below !== isCol) { dd.style.transition = 'none'; dd.classList.toggle('col', below); }
     if (off(dd) || below) delete dd.dataset.safe; else dd.dataset.safe = p ? 'top' : 'right';
-    const y = top0 + t?.height + 2 * pad + gap;
+    // (The sheet's edge under the card is part of it for the camera: left out, the room between the cards was taken 24 px taller
+    // than it is, and the figure sat that much high.)
+    if (dd.dataset.safe) ui.lip.dataset.safe = dd.dataset.safe; else delete ui.lip.dataset.safe;
+    const y = top0 + t?.height + 2 * pad + gap + (below && wideSheet(dd) ? LIP * k : 0);   // (a wide stacked card: its readings' card's tucked edge above it)
     dd.style.left = below ? `${(sl / k).toFixed(1)}px` : '';
     // (One width on every slide: stacked or at the top right, the data card is always the teaching card's width, whatever it holds.)
     dd.style.width = cw ? `${(cw / k).toFixed(1)}px` : '';
     dd.style.maxWidth = cw ? 'none' : '';   // (no per-content cap: tiles, an instrument or a chart never make it narrower)
     dd.style.top = below ? `${(y / k).toFixed(1)}px` : '';
-    dd.style.maxHeight = below ? `${((foot - y) / k).toFixed(1)}px` : '';
-    // (A phone: the data card ends 8 px short of the teaching card (16 px above the words), however much it holds: an opened instrument had grown over the words.)
+    dd.style.maxHeight = below ? capOf(dd, (foot - y) / k) : '';
+    // (A phone: the data card ends 8 px short of the teaching card (where its glass begins, glassLift), however much it holds: an opened instrument had grown over the words.)
     // (And leaves the figure its share: FIG_MIN between the two cards.)
     // (Partly open, its sheet's edge (LIP) stands below it in that room too. A card that came in closed (phoneShut) leaves the figure
     // its share only while closed: brought back by the reader it may cover the figure, never the words.)
     // (The sheet's edge comes out of the figure's share, not the card's: taken from the card, it shrank the instrument and tiles to
     // 90-99 %, Endoscopy 4 on an iPhone. And 2 px more: the card's border and rounding had left it 99.6 %.)
-    if (p && t) { const cs = getComputedStyle(dd), lip = lipOn(dd) ? LIP : 0, fig = phoneCap != null && !phoneShut && !dd.classList.contains('tool-open') && !('folding' in dd.dataset) ? Math.max(0, FIG_MIN(H) / k - lip - 2) : 0;
-      const room = Math.floor((t.top - wr.top) / k - (parseFloat(cs.top) || 0) - 16 - 8 - lip - fig);
-      if (room > 0) dd.style.maxHeight = cs.maxHeight === 'none' ? `${room}px` : `min(${cs.maxHeight}, ${room}px)`; }
+    if (p && t) { const cs = getComputedStyle(dd), lip = lipOn(dd) ? LIP : 0, fig = phoneCap != null && !phoneShut && !dd.classList.contains('tool-open') && !('folding' in dd.dataset) ? Math.max(0, phoneFig / k - lip - 2) : 0;
+      const room = Math.floor((t.top - wr.top) / k - (parseFloat(cs.top) || 0) - glassLift(k) - 8 - lip - fig);
+      // (An upright phone's stacked card grows by its readings' card as that slides out or back (--pz-grow, styles/app.css): capped
+      // at its tucked height mid-slide, the card's box came out shorter than the instrument, so the instrument card's glass, which ends
+      // the readings' travel above the box's foot, cut through the portal blood bar's names, Mohammad on an iPhone, TIPS Doppler 3, 20 Oct.)
+      // (Its cap is the tucked card's in every state, readings out or not, and the readings' share is added on top (--pz-grow), never
+      // past the room an opened card has: fitted against the opened card's larger room, the instrument came out bigger the moment the
+      // readings came out, and its chart snapped to the new size, Sites 3 on an iPhone, 20 Oct. fitCards fits it with --pz-grow at the readings' share (--pz-d),
+      // so open or tucked it is fitted against one cap and keeps one size.)
+      if (splitSheet(dd)) {
+        const tuck = cs.getPropertyValue('--pz-cap').trim() || 'none';
+        const base = (t.top - wr.top) / k - (parseFloat(cs.top) || 0) - glassLift(k) - 8;
+        const roomT = Math.floor(base - LIP - (phoneCap != null && !phoneShut ? Math.max(0, phoneFig / k - LIP - 2) : 0)), roomO = Math.floor(base);
+        // (No tucked room at all, a tiny screen or a very large text size: the tucked cap is the card's own, as before, and the opened card's
+        // room still caps it, so it never runs under the words. The same cap open or tucked either way, so the fit never changes on opening.)
+        const capT = roomT > 0 ? (tuck === 'none' ? `${roomT}px` : `min(${tuck}, ${roomT}px)`) : tuck;
+        if (roomO > 0) dd.style.maxHeight = capT === 'none' ? `${roomO}px` : `min(calc(${capT} + var(--pz-grow, 0px)), ${roomO}px)`;
+      } else if (room > 0) dd.style.maxHeight = cs.maxHeight === 'none' ? `${room}px` : `min(${cs.maxHeight}, ${room}px)`; }
     // (A wider screen: a data card at the top right ends 8 px above the colour key standing on the nav pill (a phone held sideways had covered it).)
     if (!p && !below && ui.fk.dataset.empty == null && !ui.bar.hidden) {
       const f = ui.fk, was = f.hidden; f.hidden = false; const q = f.getBoundingClientRect(); f.hidden = was;
@@ -2870,29 +2914,32 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     chipRoom(dd);
     const beside = low && tabBeside();
     fitCards(ui.data, ui.panel);
-    // (A ladder card still too full at its smallest zoom: laid out again, folded, for as long as the slide shows at this size.
-    // At 100 % text the card always fits by its own zoom, so it never folds there.)
-    // (Not while the leaving slide's card is still out, its charts lettered for the old size: only the new card, being fitted unseen
-    // (pz-prep) or in view.)
-    if (below && ladderFold !== foldKey && slides[want]?.fold !== false && (ui.root.classList.contains('pz-prep') || !dd.classList.contains('pz-hide')) && !dd.classList.contains('has-tool') && !dd.classList.contains('tiles-only') && !dd.classList.contains('tool-only')
-      && !dd.classList.contains('tool-lead') && !dd.classList.contains('pz-folds') && (!lock || !shown) && (({ v, h }) => v > 1 || h > 1)(overflowOf(dd))) { ladderFold = foldKey; textLock = null; layout(); return; }
     if (beside && !tabBeside()) { fitDone.delete(ui.panel); fitCards(ui.panel); }
-    // (Locked, it still folds until the slide is shown: its strip, lettered again as the cards came in, had overflowed and stayed
-    // under 12 px, Recompensation 2 at 200 %.)
-    // (A folded instrument card whose pressure strip fits only zoomed down, under 12 px at 200 % (Where is the resistance 10): the strip
-    // folds in with the instrument, and Show opens both. Kept while the card stays folded.)
-    if (!dd.classList.contains('pz-folds') || dd.classList.contains('tool-open')) dd.classList.remove('pz-foldstrip');
-    else if (dd.classList.contains('has-tool') && !dd.classList.contains('pz-foldstrip') && (parseFloat(dd.style.getPropertyValue('--pz-fit')) || 1) < 1) { dd.classList.add('pz-foldstrip'); fitDone.delete(dd); fitCards(dd); }
     // The stacked pair shorter than the screen is centred top to bottom as one (equal room above and below, never closer than one margin
     // to the top or the controls); a pair that fills the screen stays where it is. Set here, before the cards come in, so nothing moves after.
     let shift = 0;
     if (below && t && !off(dd)) {
-      // (A ladder folded behind Show is centred by the room it keeps, the same folded or opened, never by its fitted height: that
-      // moved the card, which fitted it again to another height, and an opened strip card at 200 % never came to rest.)
-      const stackH = t.height + 2 * pad + gap + (dd.classList.contains('pz-folds') && !dd.classList.contains('has-tool') ? Math.min(keepH, foot - y) : dd.offsetHeight * k);
+      // (A stacked card counts with its readings tucked and their card's foot under it, whatever share of them is out: the pair is centred
+      // for the tucked card, and rises from there only as far as the readings need, slip.lift.)
+      const ws = wideSheet(dd);
+      if (ws && !dd.classList.contains('pz-sliding')) measureUnder(dd);   // (their travel as fitted now: the last slide's had been left on the card)
+      const dpx = ws ? parseFloat(dd.style.getPropertyValue('--pz-d')) || 0 : 0;
+      const tuckH = ws ? dd.offsetHeight - underU(dd) * dpx + LIP : dd.offsetHeight;
+      // Centre against the chart's destination too: a chart still growing must not lend its temporary
+      // empty space to a downward move that would leave too little room for its final height.
+      const cardH = !ws && parseFloat(dd.style.getPropertyValue('--ft-card')) || tuckH;
+      const stackH = t.height + 2 * pad + gap + cardH * k;
       shift = Math.max(0, Math.min((H - stackH) / 2 - top0, foot - top0 - stackH));
-      if (shift > 0.5) { dd.style.top = `${((y + shift) / k).toFixed(1)}px`; dd.style.maxHeight = `${((foot - y - shift) / k).toFixed(1)}px`; } else shift = 0;
+      // (Centred once per slide: while only the data card's readings change (a time-lapse, a what-if slider), the pair keeps the place
+      // it came in at, so the words never ride up and down with a reading that measured a pixel taller.)
+      if (lockKey && shiftLock?.key === lockKey && readingsOnly()) shift = shiftLock.v; else if (lockKey) shiftLock = { key: lockKey, v: shift };
+      if (shift > 0.5) { dd.style.top = `${((y + shift) / k).toFixed(1)}px`; dd.style.maxHeight = capOf(dd, (foot - y - shift) / k); } else shift = 0;
+      // (How far the words rise with the readings all out: the readings' whole travel, so the instrument card never moves (Mohammad, 22 Oct:
+      // "It's ok if the top of the teaching card slips behind upper part of the screen as the info below is more pertinent").)
+      if (ws) slip.lift = dpx + slip.base;   // (in all: a Gut to heart chart's own rise, slip.base, and then the readings' travel)
     }
+    if (!(below && t && wideSheet(dd))) { slip.lift = 0; slip.base = 0; }
+    liftTo(underU(dd));
     fitWatch();
     const dv = ui.data.hidden ? [0, 0] : dockVec();
     const d = below ? null : r(ui.data);
@@ -2919,12 +2966,12 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     // (A phone's glass reaches 16 px above the words, or the deck's tab and 8 px more: the tab never meets the title.)
     // (The level's tab and the deck's share the glass's top edge; where they would come within 8 px of each other, a long deck
     // name on a narrow phone, the deck's gives way: the level is what the slide teaches.)
-    const tabEl = ui.shade.querySelector('.pz-tabname'), stab = ui.shade.querySelector('.pz-sitetab:not([hidden])');
     ui.shade.classList.remove('pz-tabs-tight');
-    if (t && stab && tabEl && stab.getBoundingClientRect().right + 8 * k > tabEl.getBoundingClientRect().left) ui.shade.classList.add('pz-tabs-tight');
-    const tabH = Math.max(tabEl && !ui.shade.classList.contains('pz-tabs-tight') ? tabEl.offsetHeight : 0, stab?.offsetHeight || 0);
-    const lift = p && t ? Math.max(16, tabH + 8) : 16;
-    ui.shade.style.top = p && t ? `${ui.text.offsetTop - lift}px` : cardOn && t ? `${(t.top - wr.top - padT) / k}px` : '';
+    if (t && tabsTight(k)) ui.shade.classList.add('pz-tabs-tight');
+    const lift = p && t ? glassLift(k) : 16;
+    // (The words' rect carries the stacked pair's rise, --pz-rise, which the glass takes by its own translate: read back without it.)
+    const lf = (parseFloat(wrap.style.getPropertyValue('--pz-rise')) || 0) * k;
+    ui.shade.style.top = p && t ? `${ui.text.offsetTop - lift}px` : cardOn && t ? `${(t.top - wr.top - padT + lf) / k}px` : '';
     ui.shade.style.opacity = t ? '1' : '0';
     ui.safe.hidden = !t;
     ui.safe.dataset.safe = p ? 'bottom' : 'left';
@@ -2967,81 +3014,116 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   // Where the figure's share, the data card and the words at 12 px or more cannot all fit, the data card folds to its header
   // behind Show (the button that already folds a phone's instrument): the card takes its folded size at once, never easing in view.
   const FIG_MIN = (H) => Math.round(Math.max(170, 0.3 * H));
-  let phoneLock = null, phoneShut = false;   // (phoneShut: the slide's data card comes in closed (autoDock), too tall beside the words and the figure)
+  // (Words that would fit at Regular with a little of the figure's share take it, down to FIG_REG, rather than drop a whole step to
+  // Compact and leave that room empty: PVT in cirrhosis 5 on an iPhone came in at Compact over 100 px of bare figure, Mohammad, 20 Oct:
+  // "This teaching card could be larger with larger text".)
+  const FIG_REG = (H) => Math.round(Math.max(170, 0.25 * H));
+  let phoneLock = null, phoneShut = false, phoneFig = 0;   // (phoneFig: the figure's share the slide's plan keeps, screen px)   // (phoneShut: the slide's data card comes in closed (autoDock), too tall beside the words and the figure)
   function phoneTextCap(key, H, k) {
     const dd = ui.data, ds = dd.style, gone = dd.hidden || 'gone' in dd.dataset;
     const held = key && phoneLock?.key === key ? phoneLock : null;
     // (Also while a what-if slider or a compare button drives the live model (liveOff): its data card changes only its numbers,
     // and re-planned on every live reading that measured a pixel taller, the words' cap stepped and the teaching card shook
     // under the finger on a phone, Sites 4's clot slider. The plan made as the slide came in holds until the next slide.)
-    if (held && (held.shut || gone || liveOff)) { phoneShut = held.shut; return held.cap; }
-    phoneShut = false;
-    const natural = (el, st) => {   // (as it stands unfitted and uncapped)
+    // (And through a time-lapse, while it plays and once it has ended: its data card changes only its readings as the days run, a
+    // varix appearing on the scope, and re-planned whenever one measured a pixel taller, the words' cap stepped and the teaching card
+    // bounced as the days passed, Endoscopy 3 on an iPhone, 18 Oct.)
+    if (held && (held.shut || gone || readingsOnly())) { phoneShut = held.shut; phoneFig = held.fig; return held.cap; }
+    phoneShut = false; phoneFig = FIG_MIN(H);
+    const natural = (el, st, fit = 0) => {   // (as it stands unfitted and uncapped; or at that fit)
       const sv = [st.maxHeight, st.getPropertyValue('--pz-fit'), st.getPropertyValue('--pz-z')];
       st.maxHeight = 'none'; st.removeProperty('--pz-fit'); st.removeProperty('--pz-z');
+      if (fit) st.setProperty('--pz-fit', String(fit));
       const v = el.offsetHeight * k;
-      st.maxHeight = sv[0]; if (sv[1]) st.setProperty('--pz-fit', sv[1]); if (sv[2]) st.setProperty('--pz-z', sv[2]);
+      st.maxHeight = sv[0]; if (sv[1]) st.setProperty('--pz-fit', sv[1]); else st.removeProperty('--pz-fit'); if (sv[2]) st.setProperty('--pz-z', sv[2]);
       return v;
     };
     // (Kept while the slide shows, unless its data card grew past what was planned for it, an instrument or chart built after
     // the slide arrived: Doppler 5 on a 320 px iPhone was planned at 148 px and grew to 284, over the figure's share.)
     // (Not for an instrument the reader opened: that grows by choice, over the figure, and closes again.)
     const lip = lipOn(dd) ? LIP * k : 0;
-    if (held) { if (dd.classList.contains('tool-open') || natural(dd, ds) + lip <= held.data + 1) return held.cap; }
+    // (Nor while its readings' card is pulled or easing out: they grow the card on the way, and re-planned mid-pull the card came out
+    // too tall and closed itself under the finger instead of opening the readings, Mohammad on an iPhone, 20 Oct.)
+    if (held) { if (dd.classList.contains('tool-open') || dd.classList.contains('pz-sliding') || 'folding' in dd.dataset || natural(dd, ds) + lip <= held.data + 1) { phoneFig = held.fig; return held.cap; } }
     const ts = ui.text.style, was = ts.maxHeight;
     ts.maxHeight = '';
     const css = getComputedStyle(ui.text), own = parseFloat(css.maxHeight) * (css.maxHeight.endsWith('%') ? H / 100 : 1), foot = (parseFloat(css.bottom) || 0) * k;
     ts.maxHeight = was;
-    // (The words zoom down to fit (--pz-fit) but never below 12 px: their body size sets how far.)
+    // (The words zoom down to fit (--pz-fit): to Compact (card-type.js), and only where nothing else gives, to 12 px: their body
+    // size sets how far.)
     const line = ui.text.querySelector('.pz-line, p'), body = line ? parseFloat(getComputedStyle(line).fontSize) : 0;
-    // (Measured at that floor, not scaled from the full size: zoomed down, the lines take more words each and the card comes
+    // (Measured at that size, not scaled from the full size: zoomed down, the lines take more words each and the card comes
     // out shorter than its full height times the zoom. Scaled, HVPG 5 on a 667 px iPhone asked 263 px for words that take 230.)
-    // (With the title at its smallest step: a tight slide's title steps down before its words do, fitCards.)
-    const ptk = ts.getPropertyValue('--pz-ptk'); ts.setProperty('--pz-ptk', String(TK[TK.length - 1]));
-    const floor = body > 12 ? Math.ceil(12 / body * 1000) / 1000 : 1, words = (floor < 1 ? (() => {
+    const at = (z) => (z < 1 ? (() => {
       const sv = [ts.maxHeight, ts.getPropertyValue('--pz-fit'), ts.getPropertyValue('--pz-z')];
-      ts.maxHeight = 'none'; ts.removeProperty('--pz-z'); ts.setProperty('--pz-fit', String(floor));
+      ts.maxHeight = 'none'; ts.removeProperty('--pz-z'); ts.setProperty('--pz-fit', String(z));
       const v = ui.text.offsetHeight * k;
       ts.maxHeight = sv[0]; if (sv[1]) ts.setProperty('--pz-fit', sv[1]); else ts.removeProperty('--pz-fit'); if (sv[2]) ts.setProperty('--pz-z', sv[2]);
       return v;
     })() : natural(ui.text, ts)) + 4;
-    if (ptk) ts.setProperty('--pz-ptk', ptk); else ts.removeProperty('--pz-ptk');
-    // (The words' glass starts 16 px above them, the data card ends 8 px above that and stands its own top (8 px) from the
+    // (words: at 12 px, whether the data card can stay open beside them, as before; compact: at Compact, the room the words take,
+    // from the figure's share when they need it: the figure gives way before the words drop under Compact.)
+    const floor = body > 12 ? Math.ceil(12 / body * 1000) / 1000 : 1, words = at(floor), compact = at(Math.max(COMPACT, floor));
+    // (The words' glass starts 16 px above them or higher, glassLift, the data card ends 8 px above that and stands its own top (8 px) from the
     // screen's top: the same room the layout gives it below.) The data card shows at full size or comes in closed: never shrunk to fit.
     // It comes in closed (autoDock, its edge and handle at the top) where it and the words at 12 px cannot both fit beside the figure's
     // share, or where it is taller than its own cap (styles/app.css max-height). (Capped at 45 % of the shared room before, its own fit
     // doing the rest: Treatment 2 on a 667 px iPhone came in at half size, and the 8 px of its top left out shrank hvpg 5's card to 78 % on a 844 px one.)
     // (Never folded to its header behind Show any more: Mohammad, 17 Oct, "The data card should not glitch like this on the iPhone".)
     const dcs = getComputedStyle(dd), dtop = (parseFloat(dcs.top) || 0) * k;
-    const dmax = (() => { const sv = ds.maxHeight; ds.maxHeight = ''; const m = getComputedStyle(dd).maxHeight; ds.maxHeight = sv; return m === 'none' ? Infinity : m.endsWith('%') ? parseFloat(m) * H / 100 : parseFloat(m) * k; })();
-    const both = H - foot - 16 - 8 - dtop - FIG_MIN(H);
+    // (The cap with the readings tucked: out, it grows by their height, styles/app.css .pz-sheet.has-tool.tool-open.)
+    const dmax = (() => { const sv = ds.maxHeight; ds.maxHeight = ''; const m = getComputedStyle(dd).maxHeight; ds.maxHeight = sv; if (m === 'none') return Infinity; let v = 0; m.replace(/(-?[\d.]+)(%|px)/g, (_, n, u) => { v += u === '%' ? n * H / 100 : n * k; }); return v; })()
+      - (splitSheet(dd) && dd.classList.contains('tool-open') && dd.classList.contains('has-tool') ? (parseFloat(ds.getPropertyValue('--pz-d')) || 0) * k : 0);
+    const reach = glassLift(k) * k;
+    let both = H - foot - reach - 8 - dtop - FIG_MIN(H);
     // (Measured as the slide arrives, partly open with its sheet's edge below it, whatever the reader opened: the part's ease held
     // back so the measure sees where it rests.)
-    const arriving = () => {
+    const arriving = (fit = 0) => {
       const p = dd.classList.contains('pz-sheet') && dd.classList.contains('tool-open') ? ui.partOf() : null;
-      if (!p) return natural(dd, ds) + lip;
+      if (!p) return natural(dd, ds, fit) + lip;
       const tr = p.style.transition; p.style.transition = 'none'; dd.classList.remove('tool-open');
-      const v = natural(dd, ds) + LIP * k;
+      const v = natural(dd, ds, fit) + LIP * k;
       dd.classList.add('tool-open'); void p.offsetHeight; p.style.transition = tr;
       return v;
     };
-    const data = gone ? 0 : arriving(), sheetLip = dd.classList.contains('pz-sheet') ? LIP * k : 0;
+    const full = gone ? 0 : arriving(), sheetLip = dd.classList.contains('pz-sheet') ? LIP * k : 0;
+    // (Every chart in a phone's card has one size on every slide (styles/app.css .pz.stack .pz-prof, .pz-flows, .pz-flowtime): never
+    // given way to 80 % to fit, which drew the Gut to heart ladder small on one slide and large on the next, Mohammad, 21 Oct: "Just
+    // make it one version everywhere". A card too tall beside the words borrows from the figure instead, below.)
+    const data = full;
+    // (A card a little too tall beside the words borrows from the figure, down to FIG_REG, and arrives partly open: only past that
+    // does it come in closed. Shut on any shortfall, slides came in closed, Circulation 10 on an iPhone after 8aa5142's taller glass,
+    // and others still after fc4a6ab lent only that 14 px, Mohammad, 20 Oct: "the stacked cards started hidden".)
+    const short = words - (both - data);
+    // (Lent for the words at Compact, the size they then take, not at 12 px: lent only the 12 px room, the words took Compact
+    // anyway, stood higher than planned and the card came in at a smaller fit, then grew to full size on a later pass, Circulation 4
+    // on an iPhone, Mohammad, 20 Oct: "appears in small version then ... pops further to become larger".)
+    const lim = FIG_MIN(H) - FIG_REG(H), lent = Math.min(lim, Math.max(short, compact - (both - data)));
+    if (!gone && short > 0 && short <= lim) { both += lent; phoneFig = FIG_MIN(H) - lent; }
     const shut = !gone && (both - data < words || data - sheetLip > dmax + 0.5) && !!dd.querySelector(':scope > :not(.pz-dh):not(.pz-grip):not(.pz-lip)');
     phoneShut = shut;
-    // (Words at 12 px win over the figure's share and the 62 % cap when nothing else gives; they never reach the data card. Closed,
+    // (Words at Compact win over the figure's share and the 62 % cap when nothing else gives; they never reach the data card. Closed,
     // the card leaves them all but its edge (GRIP) at the top, and brought back it stands over the figure down to the words.)
-    const room = H - foot - 16 - 8, mine = Number.isFinite(own) ? own : 0.62 * H;
+    const room = H - foot - reach - 8, mine = Number.isFinite(own) ? own : 0.62 * H;
+    // (Regular, where it needs more than its share but no more than the figure can lend: the figure keeps what is left, at least FIG_REG.)
+    const regular = shut ? Infinity : at(1), lend = regular - (both - data);
+    const reg = lend > 0 && lend <= phoneFig - FIG_REG(H) && regular <= mine && regular <= room - dtop - data;
+    if (reg) phoneFig -= lend;
+    // (Where the data card stays open and the words fit at 12 px but not at Compact in the room it leaves them, they take that room, between
+    // 12 px and Compact, never Compact: Compact stood over the data card's foot, which the layout then cut off (a chart does not give way
+    // to fit), the Gut to heart ladder's unit and its sinusoidal brace, Sites 4 on an iPhone at a larger text size, Mohammad, 22 Oct.)
+    const floorCap = !gone && !shut ? Math.max(words, Math.min(compact, both - data)) : compact;
     const cap = Math.max(120, shut
-      ? Math.min(room - GRIP * k, Math.max(Math.min(mine, room - dtop - Math.min(data, dmax + sheetLip)), words))
-      : Math.min(room - dtop - data, Math.max(Math.min(mine, both - data), words))) / k;
-    if (key) phoneLock = { key, cap, shut, data };
+      ? Math.min(room - GRIP * k, Math.max(Math.min(mine, room - dtop - Math.min(data, dmax + sheetLip)), compact))
+      : reg ? regular : Math.min(room - dtop - data, Math.max(Math.min(mine, both - data), floorCap))) / k;
+    if (key) phoneLock = { key, cap, shut, data: full, fig: phoneFig };   // (data: at full size, as the check above measures it)
     return cap;
   }
   // The free area: the open rectangles of the figure the words, the data card (where it comes to rest) and the controls leave,
   // in wrap px. The camera centres a slide's box in whichever of them shows it largest (stage boxVT).
   let frameL = 0, colT = 0, swapNow = false;
-  // The stacked data card's fixed block sizes, largest first, and the smallest the words' title goes.
-  const DK = [[0.9, 0.95], [0.8, 0.9], [0.7, 0.88], [0.6, 0.88]], TK = [1, 0.95, 0.9, 0.85, 0.8];   // (the data card's block size with the words' text size; the title's steps)
+  // The stacked data card's fixed block sizes, largest first (the words beside them stay at Compact: card-type.js WIDE).
+  const DK = [0.9, 0.8, 0.7, 0.6];
   // The data card's height at width w (page px) under the words: as it would stand there, at full size (unfitted).
   // A header's Show or Hide keeps its title clear by the chip's own width, not a fixed 64 or 66 px: a larger text size grows the chip,
   // and a title once ran under it (DOPPLER, TH at 200 % on a 390 px phone). Its words' width goes to the stylesheet in ems of the
@@ -3056,14 +3138,19 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     const w = Math.max(...['Show', 'Hide'].map((t) => { const x = cs.textTransform === 'uppercase' ? t.toUpperCase() : t; return chipCanvas.measureText(x).width + ls * x.length; }));
     dd.style.setProperty('--pz-chip-em', (w / fs).toFixed(3));
   }
-  // (open: a ladder folded behind Show, measured as it stands opened, so the room kept under the words holds it when Show is tapped.)
-  function colHeight(w, dk = 1, open = false) {
+  function colHeight(w, dk = 1) {
     // (Unfitted, its zoom (--pz-z) cleared with the fit: kept, the card measured at the last fit's zoom, so the words' step depended on
     // what was fitted before (a live text-size change took a larger title than a fresh load at that size).)
-    const d = ui.data, ds = d.style, sv = [d.className, ds.width, ds.maxHeight, ds.getPropertyValue('--pz-fit'), ds.getPropertyValue('--pz-dk'), ds.getPropertyValue('--pz-z')];
-    d.classList.add('col'); if (open) d.classList.add('tool-open'); if (dk < 1) ds.setProperty('--pz-dk', dk); else ds.removeProperty('--pz-dk'); ds.width = `${w}px`; ds.maxHeight = 'none'; ds.removeProperty('--pz-fit'); ds.removeProperty('--pz-z');
-    const hh = d.offsetHeight;
-    d.className = sv[0]; ds.width = sv[1]; ds.maxHeight = sv[2]; if (sv[3]) ds.setProperty('--pz-fit', sv[3]); if (sv[4]) ds.setProperty('--pz-dk', sv[4]); else ds.removeProperty('--pz-dk'); if (sv[5]) ds.setProperty('--pz-z', sv[5]);
+    const d = ui.data, ds = d.style, sv = [d.className, ds.width, ds.maxHeight, ds.getPropertyValue('--pz-fit'), ds.getPropertyValue('--pz-dk'), ds.getPropertyValue('--pz-z'), ds.getPropertyValue('--pz-u')];
+    d.classList.add('col'); if (dk < 1) ds.setProperty('--pz-dk', dk); else ds.removeProperty('--pz-dk'); ds.width = `${w}px`; ds.maxHeight = 'none'; ds.removeProperty('--pz-fit'); ds.removeProperty('--pz-z');
+    // (A stacked card with its readings tucked, their card's foot below it: the room it keeps; brought out, the pair rises to make room for
+    // them where the screen is short, slip.lift.)
+    const sheet = d.classList.contains('pz-sheet'), parts = sheet ? [...d.children].filter((c) => c.matches('.pz-tiles')) : [], was = parts.map((c) => c.style.display);
+    if (sheet) { d.classList.remove('tool-open', 'pz-sliding'); ds.removeProperty('--pz-u'); for (const c of parts) c.style.display = 'none'; }
+    const hh = d.offsetHeight + (sheet ? LIP : 0);
+    parts.forEach((c, i) => { c.style.display = was[i]; });
+    d.className = sv[0]; ds.width = sv[1]; ds.maxHeight = sv[2]; if (sv[3]) ds.setProperty('--pz-fit', sv[3]); if (sv[4]) ds.setProperty('--pz-dk', sv[4]); else ds.removeProperty('--pz-dk'); if (sv[5]) ds.setProperty('--pz-z', sv[5]); if (sv[6]) ds.setProperty('--pz-u', sv[6]);
+    ui.lipMO?.takeRecords();
     return hh;
   }
   function freeRects() {
@@ -3102,7 +3189,14 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   const cardSig = () => (ui ? [ui.text, ui.data].map((el) => (el.hidden ? '-' : ((r) => [r.left, r.top, r.width, r.height].map((v) => Math.round(v / 4)).join())(el.getBoundingClientRect()))).join('|') : '');
   function reframe(ms) {
     const s = slides[shown.i];
-    fitAround(s, s.visual ? s.cam : s.cam || 'fit', ms);
+    // (Under the start's cover the framing is set outright: unseen, a glide only kept the reveal waiting, or was caught by it.)
+    const cam = s.visual ? s.cam : s.cam || 'fit';
+    // (A slide with no framing of its own (the outline, a table) leaves the figure at the stage's fit, which follows the cards:
+    // under the cover that fit is set outright too. Left to the stage, it followed the outline's card only after the reveal, on
+    // a busy page in one frame: the figure stood behind where the words had been, then jumped to the middle.)
+    if (booting && !cam && !store.get().lobule) { stage.fitSlow(0); return; }
+    stage.carryProbe?.();   // (a refit to the cards, not a new slide's framing: a Doppler probe that shows rides it out)
+    fitAround(s, cam, booting ? 0 : ms);
   }
   // The camera eases to fit a slide's framing into the space its cards leave (the lobule refits itself on pps:occ).
   function fitAround(s, cam, ms) {
@@ -3110,16 +3204,8 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     if (cath.on && cath.cam) stage.cathFocus(cath.cam, ms, { both: true });
     else if (cam && !LOBULE_CAM.test(cam) && !store.get().lobule) { if (cam === 'fit') stage.fitSlow(ms); else stage.frameBox(camBox(cam, s), ms, s.kMax || 3.2, !!s.clear); }
   }
-  // (A resize or a turn asks every ladder again whether its plot fits: strips drop, the plots re-measure and take the strip
-  // back only where they still don't fit, with a short fade rather than a jump.)
-  let restrip = 0;
-  const reStrip = () => {
-    const was = [...document.querySelectorAll('.pz-data.strip, .pz-cell.strip')];
-    document.documentElement.classList.add('lad-swap');
-    for (const x of was) x.classList.remove('strip');
-    fitted.forEach(fitNow);
-    setTimeout(() => document.documentElement.classList.remove('lad-swap'), 600);
-  };
+  // (A resize or a turn letters every chart again for its new size.)
+  let refitT = 0;
   // A title of three or more lines on a wider screen is set a size smaller (long). Judged at the title's full size; again after a
   // resize or a turn, so a turned iPad sets its titles as a fresh load at that size does (turned sideways it had kept them big,
   // and the data card under them shorter).
@@ -3148,7 +3234,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     // (Turned between upright (a phone's or tablet's stacked cards) and a wider layout: a data card closed in the one comes in open in
     // the other, at once with everything else. Kept closed, an iPad's card turned on its side stood off the screen's left edge.)
     if (e?.type === 'resize' && phone() !== ui.root.classList.contains('stack') && dock.to === 1 && !dock.auto) { cancelFrame(dock.raf); dock.to = 0; dock.lvl = 0; dock.down = -1; dockPaint(); }
-    clearTimeout(restrip); restrip = setTimeout(reStrip, 250);
+    clearTimeout(refitT); refitT = setTimeout(reFit, 250);
     if (ui.data.hasAttribute('data-sin-tiles')) ui.data.classList.toggle('under', !shortSide.matches && phone());   // (turned on or off its side)
     // (For 0.8 s after a resize or a turn the data card takes each new place at once, with no fade or glide: the words' card
     // re-fits in steps as the size settles, and a data card easing after it passed over the words.)
@@ -3160,6 +3246,8 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     if (turn && !ui.text.hidden) { const was = !!ui.text.querySelector('.pz-h.long'); markLong(ui.text); if (was !== !!ui.text.querySelector('.pz-h.long')) { textLock = null; layout(); } }
     setLabels();
     if (!shown) return;
+    // (Under the start's cover, the projector layout landing or a window settling: framed at once, so the reveal shows it framed.)
+    if (booting) { clearTimeout(reframeT); reframeT = 0; reframe(0); return; }
     // (Another caller (a card's dock moving, its fit done) frames at once, unless a resize is still settling: then that one look covers both.)
     if (!turn && !reframeT) { reframe(400); return; }
     clearTimeout(reframeT);
@@ -3184,10 +3272,8 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     if (!shown) return;   // (a slide on its way in lays out at the new size anyway)
     // (Nothing fitted at the old size carries over: each card's fit, the words' steps (a title judged long or not at the old
     // step had kept that size), and each ladder's choice of plot or strip.)
-    for (const el of [ui.text, ui.data, ui.panel]) { fitDone.delete(el); for (const n of ['--pz-fit', '--pz-z', '--pz-tk', '--pz-bk', '--pz-dk', '--pz-ptk']) el.style.removeProperty(n); }
-    // (The ladder and strip are kept from slide to slide: their lettering and its height, set for the old size, go too, so they
-    // are measured from nothing, as on a fresh load. Kept, the 200% card's words took a larger title step than a fresh load's.)
-    for (const e of ui.data.querySelectorAll('svg')) { e.style.removeProperty('--lad-fixed'); for (const t of e.querySelectorAll('text[style]')) t.style.removeProperty('font-size'); }
+    for (const el of [ui.text, ui.data, ui.panel]) { fitDone.delete(el); for (const n of ['--pz-fit', '--pz-z', '--pz-tk', '--pz-bk', '--pz-dk']) el.style.removeProperty(n); }
+    ui.text.classList.remove('pz-nocauses');
     reFit();
     lastAt = Math.max(lastAt, shown.i + 1); redrawn = ++gen;
     if (!busy) run();
@@ -3218,7 +3304,97 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     if (!ui) return;
     if (phone() && ui.bar.offsetWidth && ui.bar.offsetWidth !== pillW) { pillW = ui.bar.offsetWidth; app.style.setProperty('--pz-pill-w', `${pillW}px`); }
     clearPill();
+    placeScales();
   }
+
+  // ── The scale switch (slide field scales; scale-switch.js) ──
+  // One pill, Anatomy, Lobule, Sinusoid, on a slide that offers more than its own scale. A tap flips the figure to that scale of the
+  // same patient with the moves the slides already make (camera: the dive, the sinusoid, the rise), so it eases and the vessels stay
+  // where they are; the words, the data card and anything playing go on. Never remembered: Next, Back and a jump open each slide on
+  // its own scale (transitionRun clears the pick). Mac and iPad landscape: in the counter's row, 8 px left of it. A phone and an
+  // upright iPad: centred 8 px above the teaching card, where the camera keeps clear of it.
+  let scalePick = null, flipping = false;
+  const scalesOf = (s) => offeredScales(s, { lens: slideLens(s), sinusoid: sinusoidSupported() });
+  function paintScales(s, i) {
+    if (!ui) return;
+    const el = ui.scl, ks = s && !s.visual ? scalesOf(s) : [];
+    el.hidden = !ks.length;
+    if (!ks.length) { el.replaceChildren(); delete el.dataset.sig; return; }
+    const sig = ks.join(' ');
+    if (el.dataset.sig !== sig) {
+      el.dataset.sig = sig;
+      el.replaceChildren(h('i', { class: 'pzs-thumb', 'aria-hidden': 'true' }),
+        ...ks.map((k) => h('button', { type: 'button', 'data-scale': k, 'aria-pressed': 'false', onclick: () => flipScale(k) }, SCALE_NAME[k])));
+      el.classList.add('pzs-new');   // (a new set of words: the thumb takes its place without easing across)
+    }
+    paintScaleSel(pickedScale(scalePick, i, s));
+    placeScales();
+  }
+  // The selected word, and the soft inner pill eased under it (as Explore's selection eases from one word to the next).
+  function paintScaleSel(k) {
+    const el = ui?.scl;
+    if (!el || el.hidden) return;
+    let on = null;
+    // (A sinusoid slide on a device that cannot draw the wall shows the lobule: camera(). Its pill selects Lobule.)
+    const want = k === 'sinusoid' && !el.querySelector('[data-scale="sinusoid"]') ? 'lobule' : k;
+    for (const b of el.querySelectorAll('button')) { const yes = b.dataset.scale === want; b.setAttribute('aria-pressed', String(yes)); if (yes) on = b; }
+    if (on) { el.style.setProperty('--pzs-x', `${on.offsetLeft}px`); el.style.setProperty('--pzs-w', `${on.offsetWidth}px`); }
+    if (el.classList.contains('pzs-new')) requestAnimationFrame(() => requestAnimationFrame(() => el.classList.remove('pzs-new')));
+  }
+  function placeScales() {
+    const el = ui?.scl;
+    if (!el || el.hidden) return;
+    const p = phone();
+    // (A phone's pill stands over the figure, above the teaching card: the camera frames above it, as above the card.)
+    el.toggleAttribute('data-safe', p); if (p) el.dataset.safe = 'bottom';
+    if (p) {
+      const wr = wrap.getBoundingClientRect(), k = wr.width / (wrap.clientWidth || wr.width) || 1, r = restRect(ui.shade);
+      if (r.width) {
+        el.style.setProperty('--pzs-b', `${Math.max(0, (wr.bottom - r.top) / k + 8).toFixed(1)}px`);
+        el.style.setProperty('--pzs-cx', `${((r.left + r.width / 2 - wr.left) / k).toFixed(1)}px`);
+      }
+    } else if (ui.bar.offsetWidth) el.style.setProperty('--pzs-r', `${ui.bar.offsetWidth}px`);
+    const on = el.querySelector('[aria-pressed="true"]');
+    if (on) { el.style.setProperty('--pzs-x', `${on.offsetLeft}px`); el.style.setProperty('--pzs-w', `${on.offsetWidth}px`); }
+  }
+  // A tap on the pill: once the slide has landed (cards in, any case card lifted), and while it shows. A tap while a flip moves
+  // turns it to the new scale once its present step ends; Next, Back or a jump cuts it.
+  async function flipScale(k) {
+    if (!deck || !ui || caseCard || !shown || shown.i !== want || shown.gen !== gen) return;
+    const i = shown.i, s = slides[i];
+    if (!scalesOf(s).includes(k)) return;
+    scalePick = { i, scale: k }; paintScaleSel(k);
+    if (flipping) return;
+    flipping = true;
+    creditHolds++; clearTimeout(creditT); app.classList.add('pz-moving');
+    try {
+      for (let at = null; deck && want === i && shown?.i === i && scalePick?.i === i && scalePick.scale !== at;) {
+        at = scalePick.scale;
+        const k0 = at, cut = () => !deck || want !== i || shown?.i !== i || scalePick?.scale !== k0;
+        await flipMove(s, i, k0, cut);
+      }
+    } finally {
+      flipping = false;
+      creditHolds--; clearTimeout(creditT);
+      creditT = setTimeout(() => { if (!creditHolds) app.classList.remove('pz-moving'); }, 120);
+    }
+  }
+  // One flip: the scale's call-outs leave (all the liver's labels out first, as on a slide change), the camera makes the scale's move,
+  // then that scale's view calls out what it names (scale-switch.js scaleView: the slide's own at its own scale).
+  async function flipMove(s, i, k, cut) {
+    const v = scaleView(s, k), cam = v.cam;
+    if ((store.get().lobule || store.get().sinusoid) && !booting) hush();
+    markBase = null;
+    store.set({ focus: null, presentLabels: [], presentTerms: null, lobuleCallout: null }); stage.setSites(null); stage.setGlow(null); stage.pinOrgans(null);
+    if (hushed) { await wait(Math.max(0, HUSH_OUT - (performance.now() - hushAt))); await eased(['--lab-o'], 600); if (cut()) return; }
+    stage.holdHome(true);
+    try { await camera(cam, v, cut); } finally { stage.holdHome(false); }
+    lastCam = cam;
+    if (cut()) return;
+    paintOverlays(v, i, states[stateOf[i]] || null, false);
+    await unhush(cut);
+  }
+
   // The words' last shown block keeps clear of a phone's pill: a line of words (or the station key) ends with a gap the pill's
   // width and as tall as the pill reaches into the words (--pz-reach, measured), on its own line if the last line is too long
   // for it; so the pill only ever meets that last line. A box (buttons, a monitor, a diagram) ends just above the pill instead.
@@ -3265,7 +3441,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   // beside it (fk-two, as tall as the pill's row); else on its own row just above the pill's row (fk-up; a 320 px phone), one line,
   // shrunk to the card's width if even that is too narrow. The words end above whatever the key takes (--pz-fkrow).
   function fitKey() {
-    const fk = ui.fk, root = ui.root, set = (two, up, wrap = false) => { root.classList.toggle('fk-two', two); root.classList.toggle('fk-up', up); root.classList.toggle('fk-wrap', wrap); };
+    const fk = ui.fk, root = ui.root, set = (two, up, wrap = false, flow = false, short = false) => { root.classList.toggle('fk-two', two); root.classList.toggle('fk-up', up); root.classList.toggle('fk-wrap', wrap); root.classList.toggle('fk-flow', flow); root.classList.toggle('fk-short', short); };
     const on = phone() && !ui.text.hidden && fk.dataset.empty == null;
     if (!on) { set(false, false); return; }
     const was = fk.hidden; fk.hidden = false; set(false, false);
@@ -3285,10 +3461,14 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       if (w > full) balanceKey(fk, full);
       row = Math.ceil(fk.offsetHeight) + 12;
     } else {
-      fk.style.setProperty('--pz-fk-room', `${Math.floor(room)}px`); set(true, false);
-      const w2 = fk.scrollWidth, h2 = fk.offsetHeight;
-      if (w2 <= room + .5 && h2 <= barH + 1.5) {   // (two lines inside the pill's own height, the two read as one row)
-        balanceKey(fk, room); row = Math.max(0, h2 - barH) + 2; }
+      // (Two lines inside the pill's own height, the two read as one row: its name over its swatches; else name and swatches flowing
+      // over both lines; else the same with the swatches' short names (SV, HA, Sys). Only then a row of its own above the pill, which
+      // took a whole line from the words and left the room beside the pill empty: Mohammad, 20 Oct, TIPS Doppler 3 on an iPhone,
+      // "The legend of the lens could be on two lines ... Can use abbreviations".)
+      const sh = !!fk.querySelector('.pz-lk-s');
+      const two = (flow, short) => { set(true, false, false, flow, short); fk.style.setProperty('--pz-fk-room', `${Math.floor(room)}px`); return fk.scrollWidth <= room + .5 && fk.offsetHeight <= barH + 1.5; };
+      if (two(false, false) || two(true, false) || (sh && (two(false, true) || two(true, true)))) {
+        balanceKey(fk, room); row = Math.max(0, fk.offsetHeight - barH) + 2; }
       else {
         // (Wider than the card too: wrapped to its width, at its own size; it had been scaled down, its words under 12 px.)
         if (w > full) fk.style.setProperty('--pz-fk-room', `${Math.floor(full)}px`);
@@ -3334,6 +3514,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     if (!ui) return;
     const n = slides.length, i = want;
     ui.prog.style.setProperty('--p', String((i + 1) / n));
+    { const t = `Slide ${i + 1} of ${n}${slides[i]?.title ? `: ${slides[i].title}` : ''}`; if (ui.say.textContent !== t) ui.say.textContent = t; }
     const ph = phone(), skip = lapseOn && lapseLeft > 0, last = i === n - 1 && !skip;
     // The count opens the slide list (G).
     // (A list still fading out after a pick counts as closed: the count must not stay grey, as if the list were open, on the slide picked.)
@@ -3380,7 +3561,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     ui.bar._pill = { sig, count: countBtn, prev: pb, next: nxb };
     placeBar();
   }
-  // Settings while presenting (appearance, text size, interface zoom, full screen): the app's own sheet, opened from the bar.
+  // Settings while presenting (appearance, text size, full screen): the app's own sheet, opened from the bar.
   const gear = () => (openSettings ? h('button', { class: 'ib', 'aria-label': 'Settings', 'aria-haspopup': 'dialog', title: 'Settings', onclick: (e) => openSettings(e.currentTarget) }, svgIcon('gear')) : null);
   let idleT = 0;
   function wake() {
@@ -3453,7 +3634,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   let sw = null;
   wrap.addEventListener('touchstart', (e) => {
     const t = e.touches[0];
-    sw = deck && e.touches.length === 1 && !caseOn(e) && !ownsSideways(e.target, { stop: wrap, cardSideways: ui && !ui.data.hidden && !phone() })
+    sw = deck && e.touches.length === 1 && !caseOn(e) && !ownsSideways(e.target, { stop: wrap, cardSideways: ui && !ui.data.hidden && !phone() && !ui.root.classList.contains('pz-wide') })
       ? { x: t.clientX, y: t.clientY, t: performance.now() } : null;
   }, { passive: true, capture: true });
 
@@ -3508,6 +3689,82 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     if (d > 0) next(); else if (d < 0) prev();
   }, { passive: true, capture: true });
 
+  // ── A swipe up or down anywhere else on an upright slide (the figure, the teaching card, the space around them) works the
+  // data card exactly as a drag on its handle does: down pulls it open, up pushes it shut, following the finger, and it eases the
+  // rest of the way on release (Mohammad, 21 Oct: "Swiping down or up anywhere on the slide should trigger as if I'm holding the
+  // handle"). The card's own touch handlers (foldTouch, dockTouch) are fed the same touch, from where the finger first came down.
+  // Only once the move is clearly up or down (cardSwipe); a sideways move stays the slide swipe, a second finger lets the card
+  // ease back to where it was going, and a touch that starts on a control (a button, tab, slider, chart) stays the control's
+  // (ownsTouch). Upright only: where the card docks sideways its handle is a sideways drag. The figure is read-only while
+  // presenting, so its vertical drags are free. (Touch events only, as the slide swipe: a mouse never drags the card.) ──
+  let far = null;
+  const farFeed = (type, x, y) => {
+    let stopped = false, kept = false;
+    const t = { clientX: x, clientY: y }, live = type === 'touchstart' || type === 'touchmove';
+    const e = { type, target: ui.data, touches: live ? [t] : [], changedTouches: [t], cancelable: true,
+      preventDefault: () => { kept = true; }, stopImmediatePropagation: () => { stopped = true; } };
+    for (const hs of ui.cardTouch) { hs[type]?.(e); if (stopped) break; }
+    return kept;
+  };
+  const farLet = (type, x, y) => { const g = far; far = null; if (g?.on && ui) farFeed(type, x ?? g.lx, y ?? g.ly); };
+  wrap.addEventListener('touchstart', (e) => {
+    if (far) { farLet('touchcancel'); return; }   // (a second finger: a pinch, not a swipe)
+    const d = ui?.data;
+    if (!deck || !d || e.touches.length !== 1 || !(phone() || wideSheet(d)) || d.hidden || d.classList.contains('pz-hide') || !ui.cardTouch
+      || d.contains(e.target) || ui.lip.contains(e.target) || caseOn(e) || ownsTouch(e.target, { stop: wrap })) return;
+    const t = e.touches[0];
+    far = { x: t.clientX, y: t.clientY, lx: t.clientX, ly: t.clientY, on: false };
+  }, { passive: true, capture: true });
+  wrap.addEventListener('touchmove', (e) => {
+    if (!far) return;
+    if (e.touches.length !== 1 || !ui) { farLet('touchcancel'); return; }
+    const t = e.touches[0];
+    if (!far.on) {
+      const k = cardSwipe(t.clientX - far.x, t.clientY - far.y);
+      if (k < 0) { far = null; return; }
+      if (!k) return;
+      far.on = true; sw = null;   // (up or down: not a slide change)
+      farFeed('touchstart', far.x, far.y);
+    }
+    far.lx = t.clientX; far.ly = t.clientY;
+    if (farFeed('touchmove', t.clientX, t.clientY) && e.cancelable) e.preventDefault();
+  }, { passive: false, capture: true });
+  wrap.addEventListener('touchend', (e) => { if (far && !e.touches.length) farLet('touchend'); }, { passive: true, capture: true });
+  wrap.addEventListener('touchcancel', () => { if (far) farLet('touchcancel'); }, { passive: true, capture: true });
+
+  // The stacked card's readings out (open) or tucked away: the wheel's and the arrow keys' way to what a swipe up or down does. Only where the
+  // card stacks (Mac, iPad on its side), with it showing and no case card up; eased by the card's own setFold. True when it applies.
+  function stackFold(open) {
+    const d = ui?.data;
+    if (!d || (caseCard && !caseCard.flown) || !wideSheet(d) || d.hidden || d.classList.contains('pz-hide')) return false;
+    if (open !== d.classList.contains('tool-open')) ui.setFold(open);
+    return true;
+  }
+
+  // ── A trackpad or wheel on a Mac works the slide as a finger does (Mohammad, 22 Oct): fingers up anywhere bring the stacked card's
+  // readings out (a swipe up), fingers down tuck them away, fingers sideways go on or back, or throw a case card off that way. One action
+  // a gesture, and a gesture lasts until the wheel goes quiet, the glide after the fingers lift included (swipe.js, wheelGesture); eased as
+  // the finger's are (setFold, caseFly, go); a box that scrolls itself keeps its wheel (ownsWheel), and a pinch (ctrl) stays the
+  // figure's. The deck's last slide is not left by a sideways glide: only a swipe or Next ends the talk. ──
+  let wheelG = null;
+  wrap.addEventListener('wheel', (e) => {
+    if (!deck || !ui || e.ctrlKey || e.metaKey || leaving || !ui.jump.hidden || isModalOpen()) return;
+    const now = e.timeStamp > 0 ? e.timeStamp : performance.now();   // (the event's own time: a slow frame must not stretch a gap inside one glide)
+    const [fx, fy] = wheelFinger(e.deltaX, e.deltaY, e.deltaMode, e.webkitDirectionInvertedFromDevice, innerHeight);
+    if (ownsWheel(e.target, Math.abs(fx) > Math.abs(fy) ? 'x' : 'y', { stop: wrap })) { wheelG = wheelG?.spent ? { ...wheelG, t: now } : null; return; }   // (a glide that has acted stays spent under whatever the slide's change brings under the pointer)
+    if (e.cancelable) e.preventDefault();   // (the browser's own back and forward glide, and the page's scroll, stay out of the talk)
+    const r = wheelGesture(wheelG, fx, fy, now);
+    wheelG = r.g;
+    const a = r.act;
+    if (!a) return;
+    const card = caseCard && !caseCard.flown ? caseCard : null;
+    if (a.axis === 'x') {
+      if (card) caseFly(card, a.dir, 1.2);   // (fingers right: off to the right)
+      else if (a.dir < 0) { if (caseLift || want < slides.length - 1) next(); }
+      else prev();
+    } else stackFold(a.dir < 0);   // (fingers up: the readings come out, as a swipe up does)
+  }, { passive: false, capture: true });
+
   // ── Hands off: while presenting, the figure only points (hover glow); taps, drags, pans and zooms that would
   // move it off the slide's script are swallowed. The swipe above uses touch events, so it still works. ──
   const offFig = (e) => deck && e.target.closest?.('#stageView') && !e.target.closest('#overlay');
@@ -3538,8 +3795,9 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     let used = true;
     if (/^[0-9]$/.test(k)) { digits = (digits + k).slice(-3); clearTimeout(digitT); digitT = setTimeout(() => { digits = ''; }, 2500); toast(`Slide ${digits}: press Enter`, '', { present: true }); }
     else if (k === 'Enter' && digits) { const n = +digits; digits = ''; if (n >= 1) go(n - 1); }
-    else if (k === 'ArrowRight' || k === 'PageDown' || k === ' ' || k === 'Enter' || k === 'ArrowDown') { if (!e.repeat) next(); }
-    else if (k === 'ArrowLeft' || k === 'PageUp' || k === 'ArrowUp' || k === 'Backspace') { if (!e.repeat) prev(); }
+    else if (k === 'ArrowRight' || k === 'PageDown' || k === ' ' || k === 'Enter') { if (!e.repeat) next(); }
+    else if (k === 'ArrowLeft' || k === 'PageUp' || k === 'Backspace') { if (!e.repeat) prev(); }
+    else if (k === 'ArrowUp' || k === 'ArrowDown') { if (!e.repeat) stackFold(k === 'ArrowUp'); }   // (up untucks the stacked card's readings, down tucks them, as a swipe does; never a slide)
     else if (k === 'Home') go(0);
     else if (k === 'End') go(slides.length - 1);
     else if (lk === 'b' || k === '.' || lk === 'w') toggleBlack();
@@ -3557,9 +3815,9 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   function dockTouch(el, ...more) {   // (more: the card's sheet edge, its sibling, takes the same touch)
     let g = null;
     const reset = () => { g = null; dock.drag = false; };
-    const on = (type, fn, opts) => { for (const t of [el, ...more]) t.addEventListener(type, fn, opts); };
+    const hs = {}, on = (type, fn, opts) => { hs[type] = fn; for (const t of [el, ...more]) t.addEventListener(type, fn, opts); };   // (hs: a swipe elsewhere on the slide is fed the same, farTouch)
     on('touchstart', (e) => {
-      if (e.touches.length !== 1 || !deck) { reset(); return; }
+      if (e.touches.length !== 1 || !deck || ui?.root.classList.contains('pz-wide')) { reset(); return; }   // (Mac and iPad landscape: the card never closes to the side, Mohammad, 22 Oct)
       const t = e.touches[0], vec = dockVec(), k = wrap.getBoundingClientRect().width / (wrap.clientWidth || 1) || 1;
       g = { x: t.clientX, y: t.clientY, t: performance.now(), lvl0: dock.lvl, vec, k, on: false, last: 0 };
     }, { passive: true });
@@ -3604,6 +3862,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       } else if (dock.to === 1 && dt < 500) { dock.auto = false; dock.tapAt = performance.now(); dockTo(0); }   // (tapAt: the click that follows is this tap's, .pz-lip)
     }, { passive: true });
     on('touchcancel', () => { if (g?.on) dockTo(dock.to, 300); if (g?.pull) sheetPull.settle(g.pull, false); reset(); }, { passive: true });
+    return hs;
   }
 
   // A phone's foldable card also opens and closes by a swipe anywhere on it: down pulls the folded part open, up pushes it
@@ -3614,19 +3873,19 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   // away first, and a pull down on the closed card carried on past its rest brings them out in the same pull, splitSheet.)
   function foldTouch(el, btn, setFold, part, hold, ...more) {
     let g = null;
-    const on = (type, fn, opts) => { for (const t of [el, ...more]) t.addEventListener(type, fn, opts); };
+    const hs = {}, on = (type, fn, opts) => { hs[type] = fn; for (const t of [el, ...more]) t.addEventListener(type, fn, opts); };   // (hs: a swipe elsewhere on the slide is fed the same, farTouch)
     // (Upright, the readings' card follows the finger over the whole of its travel, from wherever it is: an ease the finger catches
     // is taken up where it stands.)
     const grab = (x, y, open) => {
       const p = part(), split = splitSheet(el);
       return { x, y, p, open, shown: open, split, u0: split ? underU(el) : open ? 1 : 0, full: split ? slip.d || p.scrollHeight : Math.min(p.scrollHeight, innerHeight * 0.4), on: false, pts: [] };   // (open: its part shown, the tiles under a lead instrument or the instrument over its tiles)
     };
-    const take = (gg) => { gg.on = true; if (gg.split) cancelFrame(slip.raf); else gg.p.style.transition = 'none'; hold(true); };
+    const take = (gg) => { gg.on = true; if (gg.split) { cancelFrame(slip.raf); slideTell(); } else gg.p.style.transition = 'none'; hold(true); };
     // (dy: how far the finger has moved since the part began to follow it, down positive.)
     const follow = (gg, dy) => {
       const u = clamp(gg.u0 * gg.full + dy, 0, gg.full) / (gg.full || 1);
       gg.u = u; gg.pts.push([performance.now(), dy]);
-      if (gg.split) { el.classList.add('pz-sliding'); el.style.setProperty('--pz-u', u.toFixed(4)); return; }
+      if (gg.split) { el.classList.add('pz-sliding'); el.style.setProperty('--pz-u', u.toFixed(4)); liftTo(u); return; }
       gg.p.style.maxHeight = `${(u * gg.full).toFixed(1)}px`; gg.p.style.opacity = u.toFixed(3);
     };
     // (From where the finger left it to the class's own state: the part's transition, or the readings' card's slide, eases the
@@ -3647,18 +3906,19 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       if (e.touches.length !== 1 || (!btn.offsetWidth && !sheet) || (sheet && open && !split) || dock.lvl > 0 || btn.contains(e.target)) return;
       const t = e.touches[0];
       g = grab(t.clientX, t.clientY, open);
+      g.dir = wideSheet(el) ? -1 : 1;   // (Mac and iPad landscape: the readings come out upward, a pull up; a push down tucks them)
     }, { passive: true });
     on('touchmove', (e) => {
       if (!g) return;
       const t = e.touches[0], dy = t.clientY - g.y, dx = t.clientX - g.x;
       if (!g.on) {
         if (Math.abs(dy) < 8) return;
-        if (Math.abs(dx) > Math.abs(dy) || (dy > 0) === g.shown) { g = null; return; }   // (sideways, or nothing to fold that way)
+        if (Math.abs(dx) > Math.abs(dy) || (dy * g.dir > 0) === g.shown) { g = null; return; }   // (sideways, or nothing to fold that way)
         take(g);
       }
       e.stopImmediatePropagation();
       if (e.cancelable) e.preventDefault();
-      follow(g, dy);
+      follow(g, dy * g.dir);
     }, { passive: false });
     const end = (e) => {
       const gg = g; g = null;
@@ -3672,13 +3932,14 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     };
     on('touchend', end, { passive: true });
     on('touchcancel', end, { passive: true });
+    return hs;
   }
 
   // ── Start and stop ──
   function build() {
-    const ladder = bigLadder(), tiles = bigTiles();
-    const text = h('section', { class: 'pz-text stage-blocker', 'aria-live': 'polite' });
-    const dhT = h('span', {}, 'Pressure, portal vein to heart'), dhL = h('span', { class: 'pz-lg' }, h('i', { class: 'now' }), 'Patient', h('i', { class: 'base' }), 'Healthy');
+    const tiles = bigTiles();
+    const text = h('section', { class: 'pz-text stage-blocker' });
+    const dhT = h('span', {}, 'The patient');
     const tools = createTools({ host, stage });
     // On a phone an instrument above tiles folds away (the tiles keep the reading), so the figure is not a strip between
     // two cards; the button opens it, and it stays open for the rest of the talk.
@@ -3686,8 +3947,8 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     // tiles and pictures hold their size through the whole open and close. (Fitted as the part eased or followed the finger,
     // the card measured itself against a cap meant for the other state; an iPhone's Doppler card shrank to half mid-pull, then
     // grew back once open.)
-    // (A phone's sheet holds what is under the instrument: its tiles, or its pressure strip when it has none.)
-    const partOf = () => (data.classList.contains('tool-lead') || (data.classList.contains('pz-sheet') && !data.classList.contains('tool-only')) ? (tiles.el.querySelector('.pz-tile') ? tiles.el : ladder.strip) : tools.el);
+    // (A phone's sheet holds what is under the instrument: its tiles.)
+    const partOf = () => (data.classList.contains('tool-lead') || (data.classList.contains('pz-sheet') && !data.classList.contains('tool-only')) ? tiles.el : tools.el);
     const setFold = (open) => {
       // (Upright: fitted at rest as it will be, then the readings' card slides there from wherever it stood, slideUnder.)
       if (splitSheet(data)) {
@@ -3723,28 +3984,29 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     const fold = h('button', { class: 'pz-fold', type: 'button', 'aria-expanded': 'false', onclick: () => setFold(!data.classList.contains('tool-open')) }, 'Show');
     // A phone's sheet under the card (.pz-sheet, dockVec): its edge carries the handle. A tap steps through the three states, as the
     // card's own pulls and pushes do: partly open, fully open, closed to its edge at the top, partly open again.
-    const lip = h('button', { class: 'pz-lip stage-blocker', type: 'button', hidden: true, 'aria-label': 'Show the rest of the card', onclick: () => {
+    const lip = h('button', { class: 'pz-lip stage-blocker', type: 'button', hidden: true, 'data-safe-rest': '', 'aria-label': 'Show the rest of the card', onclick: () => {
       if (performance.now() - (dock.tapAt || 0) < 700) return;   // (a touch that already opened the closed card, dockTouch)
       // (Upright: partly open, fully open, partly open (its readings' card tucked away), closed, partly open again.)
       const split = splitSheet(data);
       if (dock.to === 1) { dock.auto = false; dockTo(0); }
+      else if (wideSheet(data)) setFold(!data.classList.contains('tool-open'));   // (Mac and iPad landscape: the handle only brings the readings out or tucks them away)
       else if (data.classList.contains('tool-open')) { if (split) { dock.down = want; setFold(false); } else { dock.auto = false; dockTo(1); } }
       else if (split && dock.down === want) { dock.auto = false; dockTo(1); }
       else setFold(true);
     } });
-    const data = h('section', { class: 'pz-data stage-blocker pz-hide', 'data-safe': 'right', 'data-safe-rest': '', 'data-gone': '', hidden: true, 'aria-label': 'The numbers' },
-      h('div', { class: 'pz-dh' }, dhT, dhL, fold), tools.el, ladder.el, ladder.strip, tiles.el, h('span', { class: 'pz-grip', 'aria-hidden': 'true' }));
-    foldTouch(data, fold, setFold, partOf, (on) => { if (on) { clearTimeout(foldT); data.dataset.folding = ''; } else foldT = setTimeout(foldStill, reduce.matches ? 0 : 450); }, lip);
-    dockTouch(data, lip);
+    const data = h('section', { class: 'pz-data stage-blocker pz-hide', 'data-safe': 'right', 'data-safe-rest': '', 'data-safe-waits': '', 'data-gone': '', hidden: true, 'aria-label': 'The numbers' },
+      h('div', { class: 'pz-dh' }, dhT, fold), tools.el, tiles.el, h('span', { class: 'pz-grip', 'aria-hidden': 'true' }));
+    const foldHs = foldTouch(data, fold, setFold, partOf, (on) => { if (on) { clearTimeout(foldT); data.dataset.folding = ''; } else foldT = setTimeout(foldStill, reduce.matches ? 0 : 450); }, lip);
+    const dockHs = dockTouch(data, lip);
+    const cardTouch = [foldHs, dockHs];   // (fold first: it stops the dock drag when it takes a move, as on the card)
     // (Shown with the sheet only, and kept at the card's foot as the card grows or shrinks, a part easing open included.)
     const lipMO = new MutationObserver(() => { lip.hidden = data.hidden || !data.classList.contains('pz-sheet'); placeLip(); });
     lipMO.observe(data, { attributes: true, attributeFilter: ['class', 'hidden', 'style'] });
     const lipRO = typeof ResizeObserver === 'function' ? new ResizeObserver(() => placeLip()) : null;
     lipRO?.observe(data, { box: 'border-box' });
-    data.addEventListener('pz-strip', () => requestAnimationFrame(() => { if (ui) { fitDone.delete(data); layout(); } }));   // (laid out, not a resize: a resize sets every strip back to its plot and measures again)
     // A part that has finished folding or unfolding: fit the card again from full size (a fit taken mid-fold kept the tiles small).
     data.addEventListener('transitionend', (e) => { if (e.propertyName === 'max-height' && e.target.parentElement === data) { if ('folding' in data.dataset) foldStill(); else { fitDone.delete(data); onResize(); } } });
-    const veil = h('div', { class: 'pz-veil' }), panel = h('section', { class: 'pz-panel stage-blocker', hidden: true, 'aria-live': 'polite' });
+    const veil = h('div', { class: 'pz-veil' }), panel = h('section', { class: 'pz-panel stage-blocker', hidden: true });
     const prog = h('div', { class: 'pz-prog', 'aria-hidden': 'true' }, h('i'));
     const bar = h('div', { class: 'pz-bar stage-blocker', role: 'toolbar', 'aria-label': 'Presenter' });
     bar.addEventListener('focusin', wake);
@@ -3758,17 +4020,23 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     const idle = (e) => { if (e.target === load && e.propertyName === 'opacity' && !load.classList.contains('on')) load.classList.add('idle'); };
     const load = h('div', { class: 'pz-load idle', 'aria-hidden': 'true', ontransitionend: idle, ontransitioncancel: idle }, h('i'));
     const jump = h('nav', { class: 'pz-jump stage-blocker', hidden: true, 'aria-label': 'Slides' });
-    const vcase = h('section', { class: 'pz-case stage-blocker', hidden: true, 'aria-live': 'polite', onclick: () => { if (performance.now() - caseDragAt > 400) caseLift?.(); } });
+    const vcase = h('section', { class: 'pz-case stage-blocker', hidden: true, onclick: () => { if (performance.now() - caseDragAt > 400) caseLift?.(); } });
     // The slide's colour key, small on the figure (src/ui/figure-key.js fades it in; its words are set by figKey). The figure's labels keep clear of it (stage-blocker).
-    const fk = h('div', { class: 'pz-fk stage-blocker', role: 'img', hidden: true, 'data-empty': '' });
-    const root = h('div', { class: 'pz' }, safe, veil, load, fk, text, data, lip, panel, vcase, prog, bar, jump, blackEl);
+    const fk = h('div', { class: 'pz-fk stage-blocker', role: 'img', hidden: true, 'data-empty': '', 'aria-hidden': 'true' });
+    // One announcement per slide for a screen reader ("Slide 3 of 12: its title"), not the whole card and panel read out each
+    // time they are rewritten (they carry no live region of their own).
+    const say = h('p', { class: 'sr-only', 'aria-live': 'polite', 'aria-atomic': 'true' });
+    // The slide's scale switch (slide field scales): Anatomy, Lobule, Sinusoid, as Explore's pill. It comes and goes with the
+    // teaching card; the figure's labels keep clear of it, and on a phone the camera frames above it (data-safe, set in placeScales).
+    const scl = h('div', { class: 'pz-scales stage-blocker pz-leave', role: 'group', 'aria-label': 'Scale', hidden: true });
+    const root = h('div', { class: 'pz' }, safe, veil, load, fk, text, data, lip, panel, vcase, prog, scl, bar, jump, blackEl, say);
     wrap.insertBefore(shade, wrap.querySelector('.stage-credit'));
     // The teaching card's glass is the card itself: it leaves and arrives with the words, never resizing in view.
     new MutationObserver(() => shade.classList.toggle('pz-leave', text.classList.contains('pz-leave'))).observe(text, { attributes: true, attributeFilter: ['class'] });
     wrap.append(root);
     // (It comes in with the teaching card, in the card's own fade, once the card is fitted (pz-prep gone), and leaves with it.)
     const figKey = createFigureKey({ el: fk, app, watch: [text, root], ready: () => !text.hidden && !text.classList.contains('pz-leave') && !root.classList.contains('pz-prep') });
-    return { root, shade, safe, load, text, data, lip, lipRO, lipMO, setFold, partOf, vcase, fk, figKey, dhT, dhL, ladder, tiles, tools, veil, panel, prog, bar, black: blackEl, jump };
+    return { root, shade, safe, load, text, data, lip, lipRO, lipMO, cardTouch, setFold, partOf, vcase, fk, figKey, dhT, tiles, tools, veil, panel, prog, scl, bar, black: blackEl, jump, say };
   }
   // The start's cover (see start). While it is up (booting) the camera cuts instead of gliding.
   let cover = null, booting = false, coverT = 0, noCase = false;   // (noCase: the slide a start lands on, a reload's included, does not play its case card)
@@ -3788,11 +4056,18 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     if (!now) {
       // Under the cover: the figure has refitted to the projector layout (its framing holds still) and the slide's
       // own entrances (the words, the card, the glass) have finished, so the reveal shows a finished slide.
+      // The framing is taken for the stage and the cards as they stand at the reveal: a size the stage settled to after its last
+      // resize (the projector layout landing), or cards that settled after the camera framed them, are framed again under the
+      // cover, outright. Left to the looks that follow those changes, the figure showed beside where it belonged and then moved
+      // to the middle just after the reveal.
       const T = () => document.getElementById('world')?.getAttribute('transform') || '';
+      const settle = () => { if (!ui || !shown) return; if (sizeNow() !== sizeSeen) onResize({ type: 'resize' }); else if (cardSig() !== framedSig) reframe(0); };
       let a = T(), same = 0;
-      for (let i = 0; i < 40 && same < 5; i++) { await wait(60); const c = T(); same = c === a ? same + 1 : 0; a = c; }
+      for (let i = 0; i < 40 && same < 5; i++) { await wait(60); settle(); const c = T(); same = c === a ? same + 1 : 0; a = c; }
       const runs = ui ? [...ui.root.getAnimations({ subtree: true }), ...ui.shade.getAnimations()].filter((x) => x.effect?.getComputedTiming().iterations !== Infinity) : [];
       await Promise.race([Promise.all(runs.map((x) => x.finished.catch(() => {}))), wait(1200)]);
+      // (Once more as the entrances end: the slide's own framing, set outright for the cards where they now rest.)
+      if (ui && shown && booting) { settle(); clearTimeout(reframeT); reframeT = 0; reframe(0); }
       await new Promise((r) => nextFrame(() => nextFrame(r)));
     }
     clearTimeout(coverT); booting = false;
@@ -3818,6 +4093,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     leaving = null; healthyGen++;
     const want0 = Math.max(0, (parseInt(at, 10) || 0));
     const d = typeof id === 'object' ? id : all().find((x) => x.id === (ALIAS[id] || id));
+    if (!d && typeof id === 'string' && id.startsWith('test-') && !TESTING.length) return testingLoad.then(() => start(id, at));   // (a ?script= link to the preview's test deck, asked before it loaded)
     if (!d?.slides?.length) { toast('That presentation could not be found.', 'bad'); return; }
     // The start is one composed reveal: a calm cover fades over the screen, the projector layout, the first patient and
     // the first slide are all set up under it, and the cover fades away once nothing behind it is still moving.
@@ -3829,7 +4105,8 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     lastAt = -1;
     saved = before;
     if (saved && !saved.cards) saved.cards = stashCards?.();
-    deck = d; slides = d.mine ? d.slides : withOverview(d).slides; shown = null; entering = null; shownState = -1; black = false; app.classList.remove('pz-blacked');
+    deck = d; slides = (d.mine ? d.slides : withOverview(d).slides).map(oneLadder);   // (the old ladder card's slides show the Gut to heart profile)
+    shown = null; entering = null; shownState = -1; black = false; app.classList.remove('pz-blacked');
     closeHome?.();
     const st0 = store.get();
     if (!layersBefore) layersBefore = { ...st0.lobuleLayers };
@@ -3842,7 +4119,6 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     app.classList.toggle('pz-hi', hiCon);
     app.style.setProperty('--pz-wk', String(PW_K[pzWidth]));
     ui = build();
-    if (base) ui.ladder.setBase(base);
     setLabels();
     prepare();
     addEventListener('resize', onResize);
@@ -3873,7 +4149,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     leaving = null;
     if (!deck) return;
     if (cover) coverDown(true);
-    stopLapse(); cathStop(); abSlow(); liveOff = false;   // (before deck is cleared: stopping a time-lapse repaints the bar)
+    stopLapse(); procStop(); cathStop(); abSlow(); liveOff = false;   // (before deck is cleared: stopping a time-lapse repaints the bar)
     deck = null; shown = null; entering = null; want = 0;
     for (const w of waiters) w.res(null);
     waiters = [];
@@ -3882,12 +4158,14 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     document.fonts?.removeEventListener('loadingdone', onFonts);
     fitRO?.disconnect(); clearRO?.disconnect(); fitKids = []; clearFor = null; clearTimeout(clearT); cancelFrame(fitRaf);
     store.set({ presenting: false, presentLabels: null, presentTerms: null, presentNames: false, focus: null, lobuleCallout: null, presentFp: null }); stage.setSites(null); stage.setGlow(null); stage.pinOrgans(null); delete app.dataset.lit;
+    figureHooks('clear');
     hushed = false; lastCam = null; clearTimeout(hushInT); app.classList.remove('pz-hush', 'pz-hush-in');
     cancelFrame(slip.raf); slip.d = null; slip.h0 = null;
     clearTimeout(idleT); clearTimeout(dock.fit); cancelFrame(dock.raf); dock.lvl = 0; dock.to = 0; dock.drag = false; dock.auto = false; dock.autoKey = '';
     pillW = 0; ui?.tools.dispose(); ui?.figKey.dispose(); ui?.lipRO?.disconnect(); ui?.root.remove(); ui?.shade.remove(); ui = null; app.classList.remove('pz-blacked');
     view.classList.remove('pz-out');
     for (const k of ['--pz-l', '--pz-r', '--pz-t', '--pz-b']) app.style.removeProperty(k);
+    stage.lobuleHold?.(false);   // (a way out of the lobule left unfinished: the lobule follows the free space again)
     stage.setProjection(false);
     document.documentElement.style.setProperty('--label-k', String(stage.labelEff())); document.documentElement.style.setProperty('--label-scale', String(stage.labelScale()));
     dispatchEvent(new Event('pps:labelscale'));
@@ -3998,7 +4276,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   }
 
   // What the unified menu (menu.js) lists and does: the presentations, this device's scripts and their actions.
-  const library = () => ({ decks: DECKS, topics: TOPICS, levels: LEVELS, mine: readMine(), start, shareDeck, notes: (d) => openHandout(d, deckNumbers(d)),
+  const library = () => ({ decks: DECKS, topics: TOPICS, levels: LEVELS, mine: readMine(), testing: TESTING, start, shareDeck, notes: (d) => openHandout(d, deckNumbers(d)),
     scriptNotes: (s) => { const d = fromScript(s); openHandout(d, deckNumbers(d)); }, newScript, importFile, addStep, shareScript, exportScript, remove, current: () => deck?.id ?? null,
     resumeAt: (d) => resumeFor(d.id, (d.mine ? d.slides : withOverview(d).slides).length) });
 

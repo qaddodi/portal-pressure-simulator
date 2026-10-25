@@ -11,9 +11,10 @@ export const STIFFNESS = {
     'Recognize when stiffness misleads: presinusoidal resistance, congestion, a meal',
   ],
   checks: [
-    ['Which stiffness means CSPH in compensated cirrhosis under Baveno VIII?', '25 kPa or more.'],
+    ['Which stiffness means CSPH in compensated cirrhosis under Baveno VIII?', '25 kPa or more rules CSPH in, in viral, alcohol-related and non-obese MASLD cirrhosis. In obese MASLD, the ANTICIPATE model decides instead.'],
     ['Which stiffness and platelet count rule CSPH out?', 'Stiffness of 15 kPa or less with platelets of 150 or more.'],
     ['Name two situations where stiffness misleads.', 'A recent meal and heart failure congestion raise it. Presinusoidal resistance, such as schistosomiasis, keeps it low despite high portal pressure.'],
+    ['During a hepatitis flare with an ALT of 600, the stiffness jumps from 14 to 30 kPa. Has the fibrosis advanced?', 'Not necessarily: inflammation raises the stiffness. Repeat the scan once the ALT settles before reading it as CSPH.'],
   ],
   summary: 'FibroScan, spleen size and the platelet count against the portal gradient: the Baveno VIII rule, and where stiffness misleads (presinusoidal resistance, congestion, a meal).',
   slides: [
@@ -26,6 +27,7 @@ export const STIFFNESS = {
     },
     {
       id: 'fibrosis', preset: 'cirr-comp', cam: 'liver', glow: ['liver'], tool: { kind: 'fibroscan' }, data: 'tiles', tiles: ['lsm', 'hvpg'], key: ['lsm'], delta: 'measure',
+      whatIf: { label: 'Scarring', param: 'cirrhosis', min: 0, max: 1, step: 0.05, ends: ['None', 'Severe'] },
       kicker: 'Liver stiffness', site: 'sin', title: 'Fibrosis stiffens the liver',
       vignette: 'A 50-year-old man with chronic hepatitis B, lost to follow-up for years, is referred for staging. He feels well, and his platelets are 159,000/µL.',
       line: 'Stiffness is {lsm}, with an HVPG of {hvpg}. By Baveno VIII, under 10 kPa makes advanced disease unlikely and over 15 kPa highly likely. Stiffness tracks the gradient well up to about 12 mmHg and only loosely above that.',
@@ -34,7 +36,7 @@ export const STIFFNESS = {
       ask: ['Why can stiffness rule CSPH in or out, yet not follow a gradient above 12?', 'Above 10 to 12 mmHg the gradient rises mostly with inflow and vascular tone, which stiffness does not see.'],
     },
     {
-      id: 'spleen', terms: ['spleen'], preset: 'csph', cam: 'spleen', glow: ['spleen'], data: 'tiles', tiles: ['spleen', 'plt', 'hvpg'], key: ['plt'], delta: 'fibrosis',
+      id: 'spleen', terms: ['spleen'], preset: 'csph', cam: 'spleen', glow: ['spleen'], calipers: ['spleen'], normalOutline: ['spleen'], data: 'tiles', tiles: ['spleen', 'plt', 'hvpg'], key: ['plt'], delta: 'fibrosis',
       kicker: 'The spleen and the platelets', site: 'sin', title: 'A large spleen sequesters platelets',
       vignette: 'A 63-year-old woman with MASH cirrhosis has had a lower platelet count at each yearly visit. She feels well and has never had ascites or bleeding.',
       line: 'A falling platelet count is often the first sign in the blood tests. Here the spleen is {spleen} and platelets are {plt}.',
@@ -42,20 +44,20 @@ export const STIFFNESS = {
       ask: ['Give two reasons the platelet count falls in portal hypertension.', 'Splenic pooling in a large congested spleen, and less thrombopoietin from the liver.'],
     },
     {
-      id: 'rule', visual: 'scale', scale: { key: 'lsm', max: 40, low: 'Ruled out', marks: [[15, 'Borderline'], [25, 'Ruled in']], sub: ['hvpg', 'plt'],
-        rules: ['If platelets are 150 or more', 'Low platelets point to CSPH', 'Whatever the platelets'] },
-      // (Baveno VIII's rules are for compensated disease, so every patient here is compensated, without ascites.)
-      of: [{ preset: 'healthy', name: 'Healthy' }, { id: 'fibrosis', name: 'Compensated, no CSPH' }, { preset: 'csph', name: 'Compensated, CSPH by HVPG' }, { preset: 'csph', params: { cirrhosis: 0.75 }, name: 'Compensated, CSPH' }],
+      id: 'rule', visual: 'plane', plane: 'csph',
+      // (Baveno VIII's rules are for compensated disease, so every case here is compensated, without ascites. Schistosomiasis and heart
+      // failure stay off: the zones hold only for viral, alcohol-related and non-obese MASLD cirrhosis.)
+      of: [{ id: 'fibrosis', name: 'Low stiffness, normal platelets', short: 'Low stiffness' }, { id: 'spleen', name: 'Gray-zone stiffness, low platelets', short: 'Gray zone' }, { preset: 'csph', params: { cirrhosis: 0.75 }, name: 'High stiffness, low platelets', short: 'High stiffness' }],
       kicker: 'Baveno VIII', title: 'Stiffness and platelets rule CSPH in or out',
-      line: 'In compensated cirrhosis, 25 kPa or more means CSPH, and 15 or less with platelets of 150 or more rules it out. The last case, at {lsm@spleen} with an HVPG of {hvpg@spleen}, falls between: its low platelets point to CSPH.',
-      notes: 'The rule of five: 10, 15, 20 and 25 kPa. At or below 15 kPa with platelets of 150 or more, CSPH is ruled out (sensitivity and negative predictive value over 90%). A separate rule decides the scope: under 20 kPa with platelets of 150 or more spares the screening endoscopy. At 25 kPa or more, CSPH is ruled in (in viral and alcohol-related disease, and in non-obese MASLD). In the gray zone between, Baveno VIII uses a validated model (ANTICIPATE, from the stiffness and the platelets; with BMI in obese MASLD) and calls CSPH present at a probability of 75% or more. A spleen stiffness above 55 kPa also rules CSPH in. In obese MASLD the 25 kPa rule does not apply; the model decides. The model\'s compensated patient with CSPH (HVPG 12 mmHg, platelets 88) sits at 24 kPa, in the gray zone: a reminder that the zone is common, and that there the catheter or the platelets decide.',
-      ask: ['Stiffness 13 kPa, platelets 180. Is CSPH present, and is a scope needed?', 'No CSPH (15 or less with 150 or more), and no scope (under 20 with 150 or more): repeat both in a year.'],
+      line: '25 kPa or more means CSPH in viral, alcohol-related and non-obese MASLD cirrhosis; 15 or less with platelets of 150 or more rules it out. The second case, at {lsm@spleen} with an HVPG of {hvpg@spleen}, falls between. The third is above 25.',
+      notes: 'The rule of five: 10, 15, 20 and 25 kPa. At or below 15 kPa with platelets of 150 or more, CSPH is ruled out (sensitivity and negative predictive value over 90%). A separate rule decides the scope: under 20 kPa with platelets of 150 or more spares the screening endoscopy. At 25 kPa or more, CSPH is ruled in (in viral and alcohol-related disease, and in non-obese MASLD). In the gray zone between, Baveno VIII uses a validated model (ANTICIPATE, from the stiffness and the platelets; with BMI in obese MASLD) and calls CSPH present at a probability of 75% or more. A spleen stiffness above 55 kPa on the 100 Hz probe also rules CSPH in. In obese MASLD the 25 kPa rule does not apply; the model decides. The model\'s compensated patient with CSPH (HVPG 12 mmHg, platelets 88) sits at 24 kPa, in the gray zone: a reminder that the zone is common, and that there the catheter or the platelets decide.',
+      ask: ['Stiffness 13 kPa, platelets 180. Is CSPH present, and is a scope needed?', 'No CSPH (15 or less with 150 or more), and no scope (under 20 with 150 or more): repeat both in a year. Only 25 kPa or more would rule CSPH in.'],
     },
     {
-      id: 'meal', preset: 'cirr-comp', days: 8, ramp: { splanchnicTone: [1, 0.72] }, lapse: { seconds: 6, from: 'Fasting', to: 'After a meal' }, cam: 'liver', tool: { kind: 'fibroscan' }, data: 'tiles', tiles: ['lsm', 'hvpg'], key: ['lsm'], delta: 'fibrosis',
+      id: 'meal', preset: 'cirr-comp', params: { splanchnicTone: 1 }, days: 8, ramp: { meal: [0, 1] }, lapse: { seconds: 6, from: 'Fasting', to: 'After a meal' }, cam: 'liver', tool: { kind: 'fibroscan' }, data: 'tiles', tiles: ['lsm', 'hvpg'], key: ['lsm'], delta: 'fibrosis',
       kicker: 'Where stiffness misleads', site: 'sin', title: 'Stiffness rises after a meal',
       line: 'Stiffness stays raised for up to two to three hours after eating, so scan fasting.',
-      notes: 'After eating, the gut arterioles dilate, portal inflow rises and the liver swells with blood; stiffness can rise by a fifth or more for up to two to three hours. Scan after at least two hours of fasting. The model shows the same patient fasting and after a meal: the HVPG rises by about a millimeter of mercury, the stiffness by about 2 kPa.',
+      notes: 'After eating, the gut arterioles dilate, portal inflow rises and the liver swells with blood; stiffness can rise by a fifth or more for up to two to three hours. Scan after at least two hours of fasting. The model shows the same patient fasting and after a meal: the HVPG rises by about 1.5 mmHg, the stiffness by about 3 kPa.',
       ask: ['Why scan fasting?', 'A meal raises portal inflow and the stiffness reading for up to two to three hours.'],
     },
     {
@@ -75,8 +77,9 @@ export const STIFFNESS = {
       ask: ['Stiffness 32 kPa and a raised jugular venous pressure. What is going on?', 'Congestion from the right heart, not cirrhosis.'],
     },
     {
-      id: 'year', preset: 'cirr-comp', days: 365, ramp: { cirrhosis: [0.4, 0.85], albumin: [4, 2.8] }, cam: 'liver', glow: ['liver'], tool: { kind: 'fibroscan' }, data: 'tiles', tiles: ['lsm', 'hvpg'], key: ['lsm'], delta: 'fibrosis',
+      id: 'year', preset: 'cirr-comp', params: { cirrhosis: 0.4 }, days: 365, ramp: { cirrhosis: [0.4, 0.6] }, cam: 'liver', glow: ['liver'], tool: { kind: 'fibroscan' }, data: 'tiles', tiles: ['lsm', 'hvpg'], key: ['lsm'], delta: 'fibrosis',
       kicker: 'Over time', site: 'sin', title: 'Stiffness rises as cirrhosis advances',
+      cite: 'Baveno VIII 1.9',
       line: 'Stiffness is now {lsm}, with a gradient of {hvpg}. A fall after the cause is treated predicts a lower risk of decompensation, and a rise means progression. Baveno VIII advises repeating the scan every year.',
       notes: 'Baveno VIII advises repeating stiffness and platelets every year in compensated cirrhosis. A clear fall in stiffness after treating the cause (antivirals, abstinence) predicts a lower risk of decompensation; a rise means progression. The tiles compare with the same patient a year earlier.',
       ask: ['How often are stiffness and platelets repeated in compensated cirrhosis?', 'Every year.'],

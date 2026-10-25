@@ -2,17 +2,18 @@
 // varix cross-section, abdomen.
 
 import { NODES } from '../engine/topology.js?v=4044766e96';
-import { pressureColor } from './colormap.js?v=dc071e3659';
-import { h, fmt, fitCanvas, cssVar, cssAlpha, clamp, icon } from './util.js?v=b6a40567da';
-import { simTime, isPaused } from './clock.js?v=520596240b';
-import { createEndoGL } from './endo-gl.js?v=aa0ba6a721';
-import { renderEndo } from './endo-render.js?v=0cceaa1120';
+import { wallRead } from '../engine/wall-read.js?v=09449acd01';
+import { pressureColor } from './colormap.js?v=cdcf6a2f55';
+import { h, fmt, fitCanvas, cssVar, cssAlpha, clamp, icon } from './util.js?v=d2c95a1b16';
+import { simTime, isPaused } from './clock.js?v=6a1f89a5c2';
+import { createEndoGL } from './endo-gl.js?v=10311b4cca';
+import { renderEndo } from './endo-render.js?v=b4ff4e6dc9';
 import { endoGrow } from './endo-size.js?v=824631d0bc';
 import { DEFLATE_MS, BAND_MS, BAND_DELAY_MS, fadeIn, glide } from './endo-motion.js?v=fdca92fc81';
-import { FONT } from './charts.js?v=75f52d4f49';
-import { store, updateParams, varicesPresent } from './store.js?v=31ee79b6ab';
-import { balanceHold } from './balance-hold.js?v=ea4d9121d2';
-import { frameFor, cancelFrame } from './frame.js?v=67ca200c87';
+import { FONT } from './charts.js?v=dde7572b82';
+import { store, updateParams, varicesPresent } from './store.js?v=67f4341802';
+import { balanceHold, balanceLine } from './balance-hold.js?v=1792704e7a';
+import { frameFor, cancelFrame } from './frame.js?v=19b3f2915c';
 const nextFrame = frameFor('instruments');
 
 const NI = Object.fromEntries(NODES.map((n, i) => [n.id, i]));
@@ -220,7 +221,7 @@ export function createEndoscopy({ onAction }) {
 // ── Varix wall cross-section (L3) ───────────────────
 // Scope's Wall mechanics tab: a cross-section of the esophagus with the varix in its wall, and Laplace's
 // law as readings in the same tiles and meter as the scope view.
-const WALL_SEV = { ok: 'Low', caution: 'High', danger: 'Near tear', critical: 'Past tear' };
+const WALL_SEV = { ok: 'Low', caution: 'High', danger: 'Near tear', critical: 'Rupture risk' };
 // A name's ink as drawn (centred, baseline middle), one span per quarter-pixel row: [top, bottom, left, right] round its
 // anchor. A name's box has empty corners ("muscle" curves away from a ring's edge under its round letters), so names are
 // placed by the ink itself.
@@ -290,21 +291,22 @@ export function createVarixWall() {
   }
   function update(f) {
     const v = f.metrics.varix;
-    set(ptm.v, fmt(v.ptm, 1)); set(rad.v, fmt(v.r, 1)); set(wal.v, fmt(v.w, 1)); set(idx.v, fmt(v.T, 0));
-    set(stressTxt, v.ratio >= 1 ? 'past the tear point' : `${Math.round(v.ratio * 100)} % of the tear point`);
-    const sev = v.ratio > 1 ? 'critical' : v.ratio > 0.7 ? 'danger' : v.ratio > 0.4 ? 'caution' : 'ok';
+    const wr = wallRead(v);   // (the index is worked out from the shown ΔP, r and w, so the tiles multiply out)
+    set(ptm.v, wr.ptm); set(rad.v, wr.r); set(wal.v, wr.w); set(idx.v, wr.index);
+    set(stressTxt, v.ratioShown > 1 ? 'above the tear point' : `${Math.round(v.ratioShown * 100)} % of the tear point`);
+    const sev = v.ratioShown > 1 ? 'critical' : v.ratioShown > 0.7 ? 'danger' : v.ratioShown > 0.4 ? 'caution' : 'ok';
     if (stressBar.dataset.sev !== sev) stressBar.dataset.sev = sev;
     // (The stress swings with each beat and each breath: the number is its mean over the last several breaths, a plain
     // average while that many have not passed yet, so it reads steady and the same on every screen, folded or open.)
     const now = performance.now();
-    if (wMean == null || now - wT > 3000) { wMean = v.ratio; wN = 1; } else { wN++; wMean += (v.ratio - wMean) * Math.max(1 / wN, 1 - Math.exp(-(now - wT) / 6000)); }
+    if (wMean == null || now - wT > 3000) { wMean = v.ratioShown; wN = 1; } else { wN++; wMean += (v.ratioShown - wMean) * Math.max(1 / wN, 1 - Math.exp(-(now - wT) / 6000)); }
     wT = now;
     // (On a slide the figure is the slide's own, the state its tiles show (pin), so every screen reads the same number.)
     if (Number.isFinite(wPin)) wMean = wPin;
     const ms = wMean > 1 ? 'critical' : wMean > 0.7 ? 'danger' : wMean > 0.4 ? 'caution' : 'ok';
     set(wPct, String(Math.round(wMean * 100))); set(wSev, WALL_SEV[ms]);
     if (wSev.dataset.sev !== ms) wSev.dataset.sev = wBig.dataset.sev = ms;
-    const wPctW = `${Math.round(clamp(v.ratio, 0, 1) * 1000) / 10}%`;
+    const wPctW = `${Math.round(clamp(v.ratioShown, 0, 1) * 1000) / 10}%`;
     if (stressFill.style.width !== wPctW) stressFill.style.width = wPctW;
     const { ctx, w, h: hh } = fitCanvas(cv);
     if (w < 32 || hh < 32) return;
@@ -569,22 +571,15 @@ export function createAbdomen({ onAction }) {
   const bigEl = h('b', {}, numEl, h('small', {}, 'L'));   // (the volume, coloured by its grade like the Ascites tile)
   const bellyFill = h('i', { class: 'ab-belly-fill' });
   // The litres sit inside the belly and the grade under it, so the reading and the picture stay one object.
-  // The daily balance: always on its line, never appearing or going, through balanceHold (below). When the shown value
-  // changes the line dips and comes back with the new value: amber with ▲ while fluid builds up, teal with ▼ while it goes.
+  // The daily balance: always on its line, never appearing or going, through balanceHold (below). A new value is written in
+  // place, no fade: amber with ▲ while fluid builds up, teal with ▼ while it goes, outlined in the card's colour (no pill).
   const rateArrow = h('i', { class: 'ab-rate-a', 'aria-hidden': 'true' }), rateTxt = h('span');
   const rateEl = h('span', { class: 'ab-rate', 'data-dir': 'steady' }, rateArrow, rateTxt);
-  const rateHold = balanceHold();
-  let rateTimer = 0;
+  const rateHold = balanceHold(), showRate = balanceLine(rateEl, rateArrow, rateTxt);
   const rateLabel = (b) => (b === 0 ? ['steady', '', 'Steady'] : b > 0 ? ['up', '▲', `${fmt(b, 0)} mL/day`] : ['down', '▼', `${fmt(-b, 0)} mL/day`]);
   function paintRate(raw) {
     const b = rateHold.step(raw, performance.now());
-    if (b == null) return;
-    const [dir, arrow, txt] = rateLabel(b);
-    const apply = () => { rateTimer = 0; rateEl.dataset.dir = dir; rateArrow.textContent = arrow; rateTxt.textContent = txt; rateEl.classList.remove('ab-rate-out'); };
-    if (!rateTxt.textContent) { apply(); return; }   // (the first reading: no fade)
-    clearTimeout(rateTimer);
-    rateEl.classList.add('ab-rate-out');
-    rateTimer = setTimeout(apply, 160);
+    if (b != null) showRate(...rateLabel(b));
   }
   const belly = h('div', { class: 'ab-belly' }, bellyFill, h('div', { class: 'ab-big' }, bigEl, gradeEl, rateEl));
   const gauge = h('div', { class: 'ab-gauge' }, belly);

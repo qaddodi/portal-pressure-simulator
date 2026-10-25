@@ -2,6 +2,8 @@
 // each column's cut-offs (CUT, the same as the readouts' status colors), the direction a cell's arrow points against
 // normal (dirAbs) or against a reference patient (dirRel), and the colour that goes with it.
 
+import { FLOW_CUTS } from '../engine/flow-cuts.js?v=1c97536e9e';
+
 export const NO_ASC = 150;   // mL: below it there is no ascites to tap (ultrasound grade 1 starts here)
 export const vSize = (v) => (v < 2.5 ? ['ok', 'None'] : v < 5 ? ['mid', 'Small'] : ['hi', 'Large']);
 
@@ -9,6 +11,11 @@ export const RATE = {
   hvpg: (v) => (v >= 10 ? ['hi', 'CSPH'] : v >= 5 ? ['mid', 'Mild'] : ['ok', 'Normal']),
   ppg: (v) => (v >= 12 ? ['hi', 'Bleed risk'] : v >= 6 ? ['mid', 'High'] : ['ok', 'Normal']),
   pv: (v) => (v >= 15 ? ['hi', 'Severe'] : v > 10 ? ['mid', 'High'] : ['ok', 'Normal']),
+  // The wedged and free pressures have no cut-offs of their own in the guidelines, so each reads as the pressure it stands for: the wedged
+  // (sinusoidal, in a healthy liver about the portal) pressure as the portal vein's, the free one as the IVC's, which AASLD 2024 (Box 2) says it
+  // should match within 2 mmHg. (Their summary-table arrows use the same numbers: RAW.)
+  whvp: (v) => (v >= 15 ? ['hi', 'Severe'] : v > 10 ? ['mid', 'High'] : ['ok', 'Normal']),
+  fhvp: (v) => (v > 8 ? ['hi', 'High'] : ['ok', 'Normal']),
   sin: (v) => (v >= 12 ? ['hi', 'Severe'] : v >= 9 ? ['mid', 'High'] : ['ok', 'Normal']),
   saag: (v, f) => (f.asc < NO_ASC ? [null, 'No ascites'] : v >= 1.1 ? ['hi', 'Portal HTN'] : ['ok', 'Not portal']),
   // (Protein is neither good nor bad, except that below 1.5 g/dL it no longer guards against infection.)
@@ -20,7 +27,7 @@ export const RATE = {
   // (A flow that reads 0.0 is no flow, as with a clotted portal vein: it has no direction.)
   pvFlow: (v) => (v < 0 ? ['hi', 'Hepatofugal'] : v === 0 ? ['hi', 'No flow'] : [null, 'Hepatopetal']),
   // Main portal vein velocity on Doppler: 15 cm/s or more normal, slower is slow, under 9 stasis, below zero reversed.
-  pvVel: (v) => (v < 0 ? ['hi', 'Reversed'] : v < 9 ? ['hi', 'Stasis'] : v < 15 ? ['mid', 'Slow'] : ['ok', 'Normal']),
+  pvVel: (v) => (v < 0 ? ['hi', 'Reversed'] : v < FLOW_CUTS.stasis ? ['hi', 'Stasis'] : v < 15 ? ['mid', 'Slow'] : ['ok', 'Normal']),
   liver: (v) => (v <= 55 ? ['hi', 'Severe'] : v <= 75 ? ['mid', 'Low'] : ['ok', 'Normal']),
   shunt: (v) => (v >= 0.3 ? ['hi', 'Large'] : v >= 0.1 ? ['mid', 'Moderate'] : ['ok', 'Small']),
   map: (v) => (v < 65 ? ['hi', 'Low'] : ['ok', 'Normal']),
@@ -32,7 +39,16 @@ export const RATE = {
   // (A slow rate is no warning on its own: beta-blocked patients aim for 55 to 60, so its band is plain gray.)
   hr: (v) => (v < 60 ? ['info', 'Slow'] : v > 100 ? ['hi', 'Fast'] : ['ok', 'Normal']),
   ivc: (v) => (v > 8 ? ['hi', 'High'] : ['ok', 'Normal']),
+  // Portal vein clot, the share of the lumen it fills, in EASL 2025's grades (Table 4): minimal up to half, partial past it, complete.
+  clot: (v) => (v >= 0.995 ? ['hi', 'Complete'] : v > 0.5 ? ['hi', 'Partial'] : v >= 0.05 ? ['mid', 'Minimal'] : ['ok', 'None']),
   hb: (v) => (v < 7 ? ['hi', 'Severe'] : v < 12 ? ['mid', 'Low'] : ['ok', 'Normal']),
+  // Cardiac output and blood volume (22 Oct, Mohammad: any tile should show its normal where it can). The guideline files give no numbers for
+  // either, so these are the standard physiology ranges: a resting adult's cardiac output is 4 to 8 L/min (cardiac index 2.5 to 4 L/min/m²), and
+  // the blood volume is about 70 mL/kg, 4.5 to 5.5 L for the model's 70 kg adult (±10% of its 5.0 L). Low is the warning (red). High is only
+  // information (gray, like a slow heart rate): pregnancy, fever or cirrhosis's hyperdynamic circulation raise both without anything being wrong
+  // with the tile's reading itself, so it never reads as a fault.
+  co: (v) => (v < 4 ? ['hi', 'Low'] : v > 8 ? ['info', 'High'] : ['ok', 'Normal']),
+  bv: (v) => (v < 4500 ? ['hi', 'Low'] : v > 5500 ? ['info', 'High'] : ['ok', 'Normal']),
 };
 // Each tile: its name (n: a short one for a narrow tile, three in a row on a tablet or phone), what it is, the unit, the decimals (1 unless d), a scale (x) and which way is better
 // (−1 lower, 1 higher) for the colour of a change.
@@ -57,14 +73,17 @@ export const TILE = {
   map: { t: 'Blood pressure', n: 'MAP', s: 'Mean arterial', u: 'mmHg', d: 0 },
   hr: { t: 'Heart rate', n: 'HR', s: 'Beats a minute', u: '/min', d: 0 },
   lsm: { t: 'Liver stiffness', n: 'Stiffness', s: 'FibroScan', u: 'kPa', better: -1 },
+  clot: { t: 'Portal vein clot', n: 'Clot', s: 'Share of the lumen', u: '%', x: 100, d: 0, better: -1 },
   ra: { t: 'Right atrial pressure', n: 'RA', s: 'Pressure', u: 'mmHg', better: -1 },
   salb: { t: 'Serum albumin', n: 'Albumin', s: 'Blood', u: 'g/dL', better: 1 },
   ivc: { t: 'IVC pressure', n: 'IVC', s: 'Pressure', u: 'mmHg', better: -1 },
   hb: { t: 'Hemoglobin', n: 'Hb', s: 'Blood', u: 'g/dL', better: 1 },
-  // (Unrated: in pregnancy both rise as they should, so neither is good or bad.)
   co: { t: 'Cardiac output', n: 'Output', s: 'Heart', u: 'L/min' },
   bv: { t: 'Blood volume', n: 'Volume', s: 'Whole blood', u: 'L', x: 0.001 },
 };
+// After TIPS the PPG is read against its target (below 12 mmHg): its tile, and the pill that prints it, never say "High" under a
+// line that says the target is reached.
+export const tipsGoal = (v) => (v < 12 ? ['ok', 'Target met'] : ['hi', 'Above target']);
 export const rateOf = (k, f) => (RATE[k] && f && f[k] != null ? RATE[k](f[k], f) : [null, '']);
 // A value as its tile prints it (the tile's scale and decimals), back in the model's units: a tile's word judges the number it
 // shows, so "5.0 L" is Grade 3 and "2.5 mm" Small, never the unrounded 4.98 L or 2.49 mm behind them.
@@ -75,15 +94,18 @@ export const tileShown = (k, v) => {
 };
 export const rateShown = (k, f) => (f && f[k] != null ? rateOf(k, { ...f, [k]: tileShown(k, f[k]) }) : rateOf(k, f));
 // Each tile's scale bar, in the units the tile shows: [from, to, the cut-offs between its coloured bands]. The bands take their
-// colour from the tile's own rating, so the bar and the status word always agree. (No bar where nothing is rated: WHVP, FHVP.)
+// colour from the tile's own rating, so the bar and the status word always agree. (Every tile has its bands: a tile is left bare only where no normal exists.)
 export const SCALE = {
-  hvpg: [0, 25, [5, 10]], ppg: [0, 25, [6, 12]], pv: [0, 30, [10, 15]], sin: [0, 20, [9, 12]],
+  hvpg: [0, 25, [5, 10]], ppg: [0, 25, [6, 12]], pv: [0, 30, [10, 15]], sin: [0, 20, [9, 12]], whvp: [0, 30, [10, 15]], fhvp: [0, 20, [8]],
   saag: [0, 3, [1.1]], tp: [0, 5, [1.5, 2.5]], asc: [0, 8, [0.15, 1.5, 5]],
   varix: [0, 10, [2.5, 5]], gv: [0, 10, [2.5, 5]], spleen: [8, 22, [13, 16]], plt: [0, 300, [100, 150]],
-  pvFlow: [-0.6, 2, [0]], pvVel: [0, 50, [9, 15]], liver: [0, 125, [55, 75]], shunt: [0, 100, [10, 30]], map: [40, 120, [65]],
-  lsm: [0, 35, [10, 15, 25]], ra: [0, 20, [8]], ivc: [0, 20, [8]], salb: [1.5, 5.5, [3.5]], hb: [4, 18, [7, 12]], hr: [30, 200, [60, 100]],
-  // (Unrated, so a plain bar with no bands and no cut-off numbers: only the ring, before pregnancy, and the dot, now. Critique D4, 17 Oct.)
-  bv: [3, 9, []], co: [3, 12, []],
+  pvFlow: [-0.6, 2, [0]], pvVel: [0, 50, [FLOW_CUTS.stasis, 15]], liver: [0, 125, [55, 75]], shunt: [0, 100, [10, 30]], map: [40, 120, [65]],
+  lsm: [0, 35, [10, 15, 25]], clot: [0, 100, [5, 50]], ra: [0, 20, [8]], ivc: [0, 20, [8]], salb: [1.5, 5.5, [3.5]], hb: [4, 18, [7, 12]], hr: [30, 200, [60, 100]],
+  // (Volume and output were a plain bar until 22 Oct. The model's patients run from 3.0 to 8.4 L/min, which the output's scale holds. The volume's
+  // 4.5 and 5.5 are three characters wide and the tile's bar is 88 px on a phone with three tiles in a row, so its scale is kept tight: just
+  // over a third of the bar between them, and the first well clear of the bar's start, or the two numbers would crowd each other out (the bars
+  // drop them within 8 px). A pregnancy's 7.1 L rests against the end, as a platelet count of 380 does.)
+  bv: [4.1, 7, [4.5, 5.5]], co: [2, 11, [4, 8]],
 };
 // A bar's bands: each from a to b (shown units), and m, its middle in the model's units (what the rating reads).
 export const bandsOf = (k) => {
@@ -99,15 +121,15 @@ export const portalSplit = (sh) => { const v = Math.min(1, Math.max(0, +sh || 0)
 // The table's columns: the raw pressures shade above normal, the rest by their tile's rating.
 // Headers match the pressure chart's axis (PV, WHVP, FHVP, IVC, RA). res: the resistance inside the liver, as the model has it (rih). (PPG ÷ portal flow would also count the collaterals,
 // whose resistance rises as propranolol lowers the pressure, and read as if the drug raised the liver's.)
-export const COLS = { pv: 'PV', whvp: 'WHVP', fhvp: 'FHVP', ivc: 'IVC', ra: 'RA', hvpg: 'HVPG', ppg: 'PPG', sin: 'Sinusoids', varix: 'Varix', asc: 'Ascites', liver: 'Liver flow', shunt: 'Shunted', saag: 'SAAG', tp: 'Protein', plt: 'Platelets', lsm: 'LSM', spleen: 'Spleen', map: 'MAP', hr: 'HR', pvFlow: 'Flow (Q)', res: 'Liver R' };
+export const COLS = { pv: 'PV', whvp: 'WHVP', fhvp: 'FHVP', ivc: 'IVC', ra: 'RA', hvpg: 'HVPG', ppg: 'PPG', sin: 'Sinusoids', varix: 'Varix', gv: 'Fundal', asc: 'Ascites', liver: 'Liver flow', shunt: 'Shunted', saag: 'SAAG', tp: 'Protein', plt: 'Platelets', lsm: 'LSM', spleen: 'Spleen', map: 'MAP', hr: 'HR', hb: 'Hb', co: 'Output', bv: 'Volume', pvFlow: 'Flow (Q)', res: 'Liver R' };
 // Each column's cut-offs (the same as the readouts' status colors), shown on its heading (hover, or a tap under the table) so the legend can stay short.
 export const CUT = { pv: '↑ over 10, ↑↑ 15 or more mmHg', whvp: '↑ over 10, ↑↑ 15 or more mmHg', fhvp: '↑ over 8, ↑↑ over 16 mmHg', ivc: '↑ over 8, ↑↑ over 16 mmHg', ra: '↑ over 8, ↑↑ over 16 mmHg',
-  hvpg: '↑ 5 or more, ↑↑ 10 or more mmHg', ppg: '↑ 6 or more, ↑↑ 12 or more mmHg', sin: '↑ 9 or more, ↑↑ 12 or more mmHg', varix: '↑ 2.5 to 5 mm, ↑↑ 5 mm or more',
-  plt: '↓ under 150, ↓↓ under 100 × 10³/µL', lsm: '↑ 10 to 25, ↑↑ 25 kPa or more', spleen: '↑ over 13, ↑↑ over 16 cm', liver: '↓ 75% or less, ↓↓ 55% or less', shunt: '↑ 10% or more, ↑↑ 30% or more', map: '↓↓ under 65 mmHg', hr: '↑↑ over 100 beats/min (slow, under 60, is not flagged)',
+  hvpg: '↑ 5 or more, ↑↑ 10 or more mmHg', ppg: '↑ 6 or more, ↑↑ 12 or more mmHg', sin: '↑ 9 or more, ↑↑ 12 or more mmHg', varix: '↑ 2.5 to 5 mm, ↑↑ 5 mm or more', gv: '↑ 2.5 to 5 mm, ↑↑ 5 mm or more (fundal varix)',
+  plt: '↓ under 150, ↓↓ under 100 × 10³/µL', lsm: '↑ 10 to 25, ↑↑ 25 kPa or more', spleen: '↑ over 13, ↑↑ over 16 cm', liver: '↓ 75% or less, ↓↓ 55% or less', shunt: '↑ 10% or more, ↑↑ 30% or more', map: '↓↓ under 65 mmHg', hr: '↑↑ over 100 beats/min (slow, under 60, is not flagged)', hb: '↓ under 12, ↓↓ under 7 g/dL', co: '↓↓ under 4 L/min (high, over 8, is not flagged)', bv: '↓↓ under 4.5 L (high, over 5.5, is not flagged)',
   asc: '↑ grade 1, ↑↑ grade 2 or 3', saag: '↑ 1.1 g/dL or more: portal hypertension; ↓ under 1.1', tp: '↑ 2.5 g/dL or more, ↓ under 2.5 (ascites protein)', pvFlow: '↓ under 0.9 L/min, ↓↓ stasis or reversed; ↑ over 1.3 L/min (fasting normal)' };
 // Raw pressures, in whole mmHg: ↑ over the first, ↑↑ over the second. PV and WHVP follow the portal pressure readout (normal 10 or less, high from 15).
 export const RAW = { pv: [10, 14], whvp: [10, 14], fhvp: [8, 16], ivc: [8, 16], ra: [8, 16] };
-export const UP_GOOD = new Set(['liver', 'plt', 'map', 'salb']);   // (higher is better: a low one rates amber or red, an arrow down)
+export const UP_GOOD = new Set(['liver', 'plt', 'map', 'salb', 'hb']);   // (higher is better: a low one rates amber or red, an arrow down)
 export const PRESS = new Set(['pv', 'whvp', 'fhvp', 'ivc', 'ra', 'hvpg', 'ppg', 'sin', 'map']);
 export const fpv = (k, f) => (k === 'ivc' ? f.ivc ?? f.ra : k === 'res' ? f.rih ?? null : f[k]);
 // A cell's direction: against the normal range ('abs': ↑ above, ↑↑ well above or past the red cut-off, ↓ below, a dash within),
@@ -117,24 +139,34 @@ export function dirAbs(k, f) {
   const v = atShown(k, fpv(k, f));
   if (RAW[k]) return v > RAW[k][1] ? 2 : v > RAW[k][0] ? 1 : 0;
   // Portal flow: reduced under 0.9 L/min; stasis (under 9 cm/s) or reversed is past the red line; above the fasting range after a meal or a TIPS.
-  if (k === 'pvFlow') return v < -0.02 || (f.pvVel != null && Math.abs(f.pvVel) < 9) ? -2 : v < 0.9 ? -1 : v > 1.3 ? 1 : 0;
+  if (k === 'pvFlow') return v < -0.02 || (f.pvVel != null && Math.abs(f.pvVel) < FLOW_CUTS.stasis) ? -2 : v < 0.9 ? -1 : v > 1.3 ? 1 : 0;
   if (k === 'asc') return v < NO_ASC ? 0 : rateOf(k, f)[0] === 'hi' ? 2 : 1;
+  // Output and volume: only a low one is flagged (↓↓); a high one is information, as its tile's gray reads it, like a slow heart rate.
+  if (k === 'co' || k === 'bv') return rateOf(k, { ...f, [k]: tileShown(k, fpv(k, f)) })[0] === 'hi' ? -2 : 0;
   const r = rateOf(k, { ...f, [k]: v })[0], sign = UP_GOOD.has(k) ? -1 : 1;
   return r === 'hi' ? 2 * sign : r === 'mid' ? sign : 0;
 }
 // Against the baseline every real change shows (octreotide's half-millimetre, banding's slight rise), so the steps are small.
-export const STEP_REL = { pv: .5, whvp: .5, fhvp: .5, ivc: .5, ra: .5, hvpg: .5, ppg: .5, sin: .5, varix: .3, asc: 100, liver: 2, shunt: .05, pvFlow: .15, res: 1.5, map: 2, hr: 2 };
+export const STEP_REL = { pv: .5, whvp: .5, fhvp: .5, ivc: .5, ra: .5, hvpg: .5, ppg: .5, sin: .5, varix: .3, gv: .3, asc: 100, liver: 2, shunt: .05, pvFlow: .15, res: 1.5, map: 2, hr: 2, co: .3, bv: 100 };
 export function dirRel(k, f, ref) {
   const a = atShown(k, fpv(k, f)), b = atShown(k, fpv(k, ref));
   if (a == null || b == null) return 0;
   const d = a - b, r = Math.abs(d) / Math.max(Math.abs(b), 1e-6);
   return Math.abs(d) < (STEP_REL[k] ?? 1) ? 0 : (d > 0 ? 1 : -1) * (r >= 0.4 ? 2 : 1);
 }
-export const DP = { varix: 1, asc: 1, lsm: 1, spleen: 1, pvFlow: 1, res: 1, liver: 0, shunt: 2, plt: 0, map: 0, hr: 0 };
+export const DP = { varix: 1, gv: 1, asc: 1, lsm: 1, spleen: 1, pvFlow: 1, res: 1, liver: 0, shunt: 2, plt: 0, map: 0, hr: 0 };
 export const atShown = (k, v) => { if (v == null) return v; if (k === 'asc') return Math.round(v / 100) * 100; const d = PRESS.has(k) ? 0 : DP[k] ?? 1, m = 10 ** d; return Math.round(v * m) / m; };
 
 // In the comparison table a change is coloured by what it means for the patient: green better, red worse.
-// Lower is better everywhere except blood flow to the liver, platelets, blood pressure and albumin; portal flow is neither.
+// Lower is better everywhere except blood flow to the liver, platelets, blood pressure, albumin and hemoglobin; portal flow is neither.
 // (A portal flow above the fasting range is the gut being fed, not a disease: it keeps neutral ink.)
 export const rateAbs = (k, d) => (k === 'pvFlow' && d > 0 ? null : ({ 1: 'mid', 2: 'hi' })[Math.abs(d)] ?? null);
 export const effOf = (k, d) => (d === 0 || k === 'pvFlow' ? null : (UP_GOOD.has(k) ? d > 0 : d < 0) ? 'good' : 'bad');
+
+// A what-if (a compare button or slider) follows the live model until the readings it shows have held still for
+// LIVE_STEADY ms, never less than LIVE_MIN ms and at most LIVE_MAX: the slow parts of the model (the arterial buffer,
+// the baroreflex) take tens of seconds, and a fixed 7 s left the tiles frozen mid-ease (two inflows, "Buffer off").
+export const LIVE_MIN = 7000, LIVE_STEADY = 2000, LIVE_MAX = 60000;
+export const liveSettled = (elapsed, steady) => elapsed >= LIVE_MAX || (elapsed >= LIVE_MIN && steady >= LIVE_STEADY);
+// The readings as a what-if's card prints them (its tiles, and the ladder's stations), so a drift too small to show counts as still.
+export const shownSig = (f, keys) => keys.map((k) => (f[k] == null ? '—' : (f[k] * (TILE[k]?.x ?? 1)).toFixed(TILE[k]?.d ?? 1))).join('|');

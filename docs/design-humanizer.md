@@ -131,7 +131,7 @@ unless he changes them; you may point out the tension, but do not "fix" them on 
 - The deck's short name as a darker corner tab (e9c1844).
 - Tiles with a scale bar: bands at the real cut-offs, a dot for now and a ring for the start (17890fe); tile status words (0fc8c43).
 - Red diagonal hatching for the resistance site on the ladder and the site rail.
-- The green glow on the vessel being Dopplered, the olive cavernoma glow, the soft glow on a selected vessel, the heart glow behind the liver.
+- The white glow on the vessel being Dopplered (ink on the light themes) and the small probe with its sample gate, the olive cavernoma glow, the soft glow on a selected vessel, the heart glow behind the liver.
 - The FibroScan reading in white with a dark outline inside the map (M4 declined); black monitors in every theme (I22 declined).
 - Live callouts that follow the model (4bded44).
 

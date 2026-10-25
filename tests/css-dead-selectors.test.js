@@ -13,9 +13,9 @@ const source = ['index.html', ...walk('src').filter((f) => f.endsWith('.js')), .
 
 // Built from a prefix in the code: stage.js (organ-, tone-, od-), sinusoid-view.js (sv-region-, sv-lead-), lobule-zoom.js
 // (z1–z3), main.js (tool-), stage.js labels (k-), presenter.js (pzs-).
-const BUILT = [/^organ-/, /^tone-/, /^od-/, /^sv-region-/, /^sv-lead-/, /^z\d$/, /^tool-/, /^k-/, /^pzs-/];
-// Named by the browser checks and kept with them.
-const KEPT = new Set(['hv-main', 'pz-deck', 'pzb-go']);
+const BUILT = [/^organ-/, /^tone-/, /^od-/, /^sv-region-/, /^sv-lead-/, /^z\d$/, /^tool-/, /^k-/];
+// Named by the browser checks and kept with them (none now: .hv-main, .pz-deck and .pzb-go went with nothing left using them).
+const KEPT = new Set([]);
 
 test('every class app.css styles is used by the app', () => {
   const css = readFileSync(join(root, 'styles/app.css'), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');

@@ -39,7 +39,7 @@ test('the pill and the bars move over the sinusoid zoom\'s own time and curve', 
 test('out of the sinusoid the dock and the pill rise together, the pill above the dock all the way, and land as the zoom does', () => {
   // An 844 px high phone: the dock rests with its top at 700, the pill 8 px above it (42 px tall); in the sinusoid view the pill
   // sits 20 px off the foot. The dock starts past the screen's foot (sinMotion: its top to the foot, plus 24 px).
-  const H = 844, dockTop = 700, pillH = 42, off = H - dockTop + 24;   // (no interface zoom)
+  const H = 844, dockTop = 700, pillH = 42, off = H - dockTop + 24;
   const pillFrom = H - 20 - pillH / 2, pillRest = dockTop - 8 - pillH / 2;
   const dock = (u) => dockTop + off * (1 - easeIO3(u)), pill = (u) => pillRest + (pillFrom - pillRest) * (1 - easeIO3(u));
   assert.equal(dock(0), H + 24); assert.equal(pill(0), pillFrom);
@@ -64,8 +64,8 @@ test('the pill starts where it was drawn and reads its resting place each frame,
   assert.ok(change.indexOf("classList.add('vd-out')") < change.indexOf('change();'), 'into the sinusoid the dock stays to slide away');
   const m = fn('sinMotion');
   assert.match(m, /prefers-reduced-motion: reduce/, 'reduced motion: the pill and the dock just take their places');
-  assert.match(m, /glideShift\(r\.top \+ r\.height \/ 2, shift\[1\], z, dock, from\.y, k\)\.shift/, 'less its own shift and the dock\'s');
-  assert.match(m, /const dock = inDock && bars \? barY \* bz : 0, k = 1 - e;/);
+  assert.match(m, /glideShift\(r\.top \+ r\.height \/ 2, shift\[1\], dock, from\.y, k\)\.shift/, 'less its own shift and the dock\'s');
+  assert.match(m, /const dock = inDock && bars \? barY : 0, k = 1 - e;/);
   // A move reversed part way starts from where the dock is drawn, not from its far end.
   assert.match(m, /if \(intoSin\) y1 = off; else if \(!leaving\) y0 = off;/);
   // The dock's published height reads the pill at rest, not mid-glide (the lobule's framing depends on it).
@@ -103,7 +103,7 @@ test('the framing reads the dock and the pill where they rest while they slide',
   assert.match(main, /\(vd\.getBoundingClientRect\(\)\.top - vdSlide\)/);
   assert.match(main, /new DOMRect\(x, y - vdSlide, width, height\)\)\(\$\('#thumbBar'\)\.getBoundingClientRect\(\)\)/);
   const m = fn('sinMotion');
-  assert.match(m, /vd\.dataset\.slideY = \(barY \* bz\)\.toFixed\(2\)/);
+  assert.match(m, /vd\.dataset\.slideY = barY\.toFixed\(2\)/);
   assert.match(m, /el\.dataset\.slideY = \(pillShiftY \+ dock\)\.toFixed\(2\)/);
 });
 

@@ -12,6 +12,7 @@ export function defaultParams() {
     thrombus: {},                 // edgeId → 0..1 occlusion
     splenicRx: 0,                 // 0 none · 1 partial splenic artery embolization · 2 splenectomy
     splanchnicTone: 1,            // arteriolar resistance multiplier (<1 = vasodilated)
+    meal: 0,                      // how far a meal has taken hold, 0..1 (0 fasting); see MEAL_TONE
     systemicTone: 1,
     contractility: 1,
     tr: 0,                        // tricuspid regurgitation 0..1
@@ -36,6 +37,7 @@ export function defaultParams() {
     balloonGas: false,
     anticoag: false,
     diuretics: false,             // spironolactone + furosemide: renal sodium/water loss offsets ascites
+    fenestrae: 0,                 // how far the sinusoid lining's pores are opened past what the disease leaves (0: as the disease has it, 1: all open); see starling()
     drugs: { propranolol: false, carvedilol: false, terlipressin: false, octreotide: false },
     catheter: { vein: null, wedged: false },
     bleeding: false,              // spontaneous variceal rupture (off: varices swell but never tear on their own)
@@ -49,8 +51,11 @@ export const DRUGS = {
     info: 'Non-selective β-blocker. β1 lowers cardiac output; β2 blockade leaves α-constriction unopposed in splanchnic arterioles, so portal inflow falls.' },
   carvedilol: { label: 'Carvedilol', hr: 0.82, contr: 0.92, spl: 1.25, sys: 0.9, sin: 0.8, baroHr: 0.4,
     info: 'NSBB with α1 blockade: also lowers intrahepatic (sinusoidal) tone, so HVPG falls more than with propranolol, at the cost of lower MAP.' },
-  terlipressin: { label: 'Terlipressin', hr: 0.95, contr: 1.0, spl: 1.9, sys: 1.15, sin: 1.0, baroHr: 1,
-    info: 'Vasopressin analogue: strong splanchnic vasoconstriction lowers portal inflow and variceal pressure. Raises systemic resistance.' },
+  // (The baroreflex gives back most of a systemic vasoconstrictor's rise, so `sys` is well above the rise it yields: 5 to 10 mmHg
+  // in cirrhosis, a rise of at least 5 mmHg by day 3 marking a response (Nazar 2010, Hepatology 51:219). `spl` keeps the HVPG
+  // fall near 15 %, and `baroSlow` the slowing of the heart under 20 beats/min in decompensated cirrhosis (89 to 72).)
+  terlipressin: { label: 'Terlipressin', hr: 0.95, contr: 1.0, spl: 2.4, sys: 1.9, sin: 1.0, baroHr: 1, baroSlow: 0.5,
+    info: 'Vasopressin analogue: strong splanchnic vasoconstriction lowers portal inflow and variceal pressure. Raises systemic resistance, so the mean arterial pressure rises by about 5 to 10 mmHg.' },
   octreotide: { label: 'Octreotide', hr: 1.0, contr: 1.0, spl: 1.35, sys: 1.0, sin: 1.0, baroHr: 1,
     info: 'Somatostatin analogue: inhibits vasodilatory gut peptides → splanchnic vasoconstriction.' },
 };
@@ -60,11 +65,21 @@ export const PREGNANCY_INFO = 'Weeks of pregnancy. Blood volume and cardiac outp
 
 const P = (patch) => (p) => deepMerge(p, patch);
 
+// A meal's fall in splanchnic arteriolar tone (params.meal 1): a healthy adult's portal flow rises about 50% (1.1 to 1.65
+// L/min) and the velocity about 47%, within the 40 to 80% (flow) and 35 to 100% (velocity) that Doppler studies find at
+// the 30-minute peak. A deeper fall would take the healthy PPG to the amber 6 mmHg, the model's healthy resistance not
+// recruiting sinusoids as flow rises. Gut arterioles that cirrhosis has already dilated (slow.splTone) have less left to
+// give, so the meal is blunted by MEAL_BLUNT for each step of that dilation: CSPH's flow rises about 28% and its HVPG
+// about 15% (Sabbà 1991, Albillos 2007), compensated cirrhosis's flow about 40%. A stronger blunting would leave the
+// cirrhotic gradient rising less than the healthy one. Every meal slide ramps meal 0 to 1
+// (/mnt/project-files/review/meal-response/review.md, engine-options.md).
+export const MEAL_TONE = 0.58, MEAL_BLUNT = 1.36;
+
 // Each preset: patch applied to defaultParams(), plus chronic days on the disease clock.
 export const PRESETS = [
   { id: 'healthy', group: 'Normal', label: 'Healthy', apply: P({}), days: 0,
     summary: 'Normal adult at rest. HVPG ≈ 3 mmHg, portal flow ≈ 1.1 L/min, no collateral flow.' },
-  { id: 'postprandial', group: 'Normal', label: 'Post-prandial', apply: P({ splanchnicTone: 0.72 }), days: 0,
+  { id: 'postprandial', group: 'Normal', label: 'Post-prandial', apply: P({ meal: 1 }), days: 0,
     summary: 'Meal-induced splanchnic vasodilation increases portal inflow and pressure slightly.' },
   { id: 'pvt-acute', group: 'Prehepatic', label: 'Acute portal vein thrombosis', apply: P({ thrombus: { PV_TRUNK: 1 } }), days: 0,
     summary: 'Occlusive clot in the main portal vein. Mesenteric congestion; no collaterals yet (they form over weeks). The hepatic artery buffer keeps the liver perfused. HVPG normal.' },
@@ -88,7 +103,7 @@ export const PRESETS = [
   // clock has run, so moving the gestation back to 0 shows her before pregnancy.
   { id: 'pregnancy', group: 'Sinusoidal', label: 'Cirrhosis in pregnancy', apply: P({ cirrhosis: 0.62 }), days: 365, now: { gestation: 24 },
     summary: 'Compensated cirrhosis at 24 weeks of pregnancy. A larger blood volume, a higher cardiac output and splanchnic vasodilation raise portal inflow, so small varices grow large. Move the weeks on the heart card.' },
-  { id: 'sos', group: 'Postsinusoidal', label: 'Sinusoidal obstruction syndrome', apply: P({ fibrosis: { R: { post: 20 }, L: { post: 20 } } }), days: 21,
+  { id: 'sos', group: 'Postsinusoidal', label: 'Sinusoidal obstruction syndrome', apply: P({ fibrosis: { R: { post: 32 }, L: { post: 32 } } }), days: 21,
     summary: 'Central-vein resistance: high wedged pressure and HVPG, hepatomegaly, ascites.' },
   { id: 'budd-chiari', group: 'Posthepatic', label: 'Budd–Chiari (hepatic vein occlusion)', apply: P({ thrombus: { RHV_IVC: 1, MHV_IVC: 1, LHV_IVC: 1 } }), days: 60,
     summary: 'All three hepatic veins occluded: only the caudate veins drain the liver (caudate hypertrophy), massive ascites.' },
@@ -105,7 +120,7 @@ export const PRESETS = [
 const RANGES = {
   cirrhosis: [0, 1], splenicRx: [0, 2], splanchnicTone: [0.4, 2.5], systemicTone: [0.4, 2.5],
   contractility: [0.15, 1.6], tr: [0, 1], pericardial: [0, 1], albumin: [1.5, 5], habrStrength: [0, 2],
-  apShunt: [0, 1], respDepth: [0, 3], gestation: [0, 40],
+  apShunt: [0, 1], respDepth: [0, 3], gestation: [0, 40], fenestrae: [0, 1], meal: [0, 1],
 };
 const num = (v, lo, hi, def) => (typeof v === 'number' && Number.isFinite(v) ? Math.min(hi, Math.max(lo, v)) : def);
 

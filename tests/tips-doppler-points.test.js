@@ -6,6 +6,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { TIPS_DOPPLER } from '../src/ui/decks/tips-doppler.js';
+import { rolePx, roleOf } from '../src/ui/type-scale.js';
 
 const read = (p) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8');
 const stage = read('src/ui/stage.js'), doppler = read('src/ui/doppler.js'), tools = read('src/ui/presenter-tools.js'), gl = read('src/ui/veins-gl.js'), css = read('styles/app.css');
@@ -56,7 +57,7 @@ test('one callout per point, at its own third, the three in a column beside thei
   assert.match(stage, /return Math\.hypot\(px - it\.ax - ex \* t, py - it\.ay - ey \* t\) < 18; \}\)\) return;/);   // the mark's leader passes no other dot
   assert.match(stage, /held = !moved && /);   // and does not hold a spot left by a dot that moved
   // (a point or the mark keeps 4 px off a card, so a point by an open monitor's card stays level; a held slid slot never beats a level one)
-  assert.match(stage, /obstacles\.some\(\(o\) => hits\(r, \{ x0: o\.x0 - 4, y0: o\.y0 - 4, x1: o\.x1 \+ 4, y1: o\.y1 \+ 4 \}\)\)\) return;/);
+  assert.match(stage, /obstacles\.some\(\(o\) => !\(it\.point && o\.probe\) && hits\(r, \{ x0: o\.x0 - 4, y0: o\.y0 - 4, x1: o\.x1 \+ 4, y1: o\.y1 \+ 4 \}\)\)\) return;/);
   assert.match(stage, /held \? \(ps\.clear \? \(it\.point && it\.col \? 5e3 : 1e5\) : 4\) : 0\)/);
   // (the mark keeps 2 px off its own stent's drawn mesh in every pass; the "60 %" halo fills its digits' counters)
   assert.match(stage, /if \(mk && dop\.id && lineHits\(r, 3, \{ only: dop\.id \}\)\) return;/);
@@ -72,7 +73,14 @@ test("the column's side is chosen from the stent and the screen, never the pick,
   assert.ok(side.length > 0 && !/dop\.seg|dopGateOf|st\.dopGate/.test(side), 'the side does not read the sampled point');
   assert.match(side, /lb-val' \? \{ \.\.\.r, t: '000' \}/);   // (a fixed template width: the values the pick changes do not tip it)
   assert.match(stage, /const away = col \? \(ptSide === 'E' \? 'W' : 'E'\) : null;/);
-  assert.match(stage, /calc\(var\(--fs-12\) \/ \$\{CTM\.sc\.toFixed\(3\)\}\)/);
+  // (the "60 %" reads in the labels' own name size, 12 px at least (the lab role: the text size setting and a presentation's size in it),
+  // at any zoom, its gap and its leader's stop-short in step with it)
+  assert.match(stage, /const px = fontPx\(11\.5\);\n\s+if \(Math\.abs\(px - clampBase\) > 0\.01\) \{ clampBase = px; applyClampFs\(\); \}/);
+  assert.match(stage, /el\.style\.fontSize = CTM\.sc > 0 && CTM\.sc < 1 \? `\$\{\(clampBase \/ CTM\.sc\)\.toFixed\(2\)\}px` : '';/);
+  assert.match(stage, /const sk = CTM\?\.sc \|\| 0, cfs = sk > 0 \? \(clampBase \/ sk\)\.toFixed\(2\) : '';/);
+  assert.match(stage, /const gap = \(6 \* clampBase\) \/ 12 \/ Math\.max\(CTM\?\.sc \|\| 1, 1e-3\)/);
+  assert.match(stage, /const b = boxOfEl\(el, \(6 \* clampBase\) \/ 12\);/);
+  assert.ok(roleOf(11.5) === 'lab' && rolePx('lab', 390, 844) >= 12 && rolePx('lab', 1440, 900) >= 12, "the labels' names are the lab role, 12 px at least on a phone and a laptop");
   assert.match(stage, /\{ proximal: 'Prox', mid: 'Mid', distal: 'Dist' \}\[point\]/);   // (short on a phone)
 });
 
@@ -89,4 +97,27 @@ test("the points' numbers take the velocity colours against the stent's normal; 
   // (A colour change only repaints the number: it is not part of the label's structure, which rebuilds its text.)
   assert.match(stage, /line\.map\(\(\{ t, fill, cls, \.\.\.style \}\) => style\)/);
   assert.doesNotMatch(read('styles/app.css'), /lb-gate \{ fill/);
+});
+
+test("the three callouts never give way to the Doppler probe: the column's side, its spots and its visibility ignore the probe's body and line of sight, and the probe waits for the column and keeps off it", () => {
+  // (Mohammad, 22 Oct, TIPS Doppler slide 5: the mid callout hopped to the far side of the stent when a point was picked. The probe's boxes
+  // were obstacles to the callouts, and the probe stood before or after them by chance: the column stands where the stent and the screen
+  // put it, whatever the pick and whatever got there first.)
+  assert.match(stage, /if \(dpr\.on && dpr\.box\) out\.push\(\.\.\.\[dpr\.box, \.\.\.dpr\.marks\]\.map\(\(b\) => \(\{ \.\.\.b, probe: true \}\)\)\);/);
+  assert.match(stage, /callouts\.map\(\(b\) => \(\{ x0: b\.x0 - 3, y0: b\.y0 - 3, x1: b\.x1 \+ 3, y1: b\.y1 \+ 3, call: true, probe: !!b\.probe \}\)\)/);
+  // the side is scored without the probe; a point's spots and its visibility ignore it (the in-view pass included)
+  assert.match(stage, /\(obstacles\.some\(\(o\) => !o\.probe && hits\(r, o\)\) \? 1e3 : 0\)/);
+  assert.match(stage, /!\(o\.zone && ps\.strict\) && !\(it\.point && o\.probe\) && hits\(r, /);
+  assert.match(stage, /obstacles\.some\(\(o\) => !\(it\.point && o\.probe\) && \(o\.zone \? /);
+  // every box check of a spot trial against the labels placed so far skips the probe's, for a point
+  const trial = stage.slice(stage.indexOf('passes.forEach((ps, pi) => pi >= from'), stage.indexOf('if (!best || cost < best.cost) best = '));
+  assert.ok((trial.match(/placed\.some\(\(p\) => !\(it\.point && p\.probe\) && /g) || []).length >= 6 && !/placed\.some\(\(p\) => (?!!\(it\.point && p\.probe\))/.test(trial), 'no placed-box check in a point\'s spot trial counts the probe');
+  // the probe knows where the column stands before it picks a side: it waits for the callouts to show (four seconds at most), only
+  // while it is not already showing
+  assert.match(stage, /colShown = out\.some\(\(it\) => it\.point && !it\.hide && it\.w && it\.h\);/);
+  assert.match(stage, /const waitCol = !dpr\.on && !dpr\.swap && dop\.all && !colShown && performance\.now\(\) - colWaitAt < 4000;/);
+  assert.match(stage, /!lz\?\.isOpen\(\) && !waitCol\);/);
+  assert.match(stage, /ptSide = null; colShown = false; clampD\.clear\(\);/);
+  // and it keeps off them: the callouts' boxes are what its place is searched against
+  assert.match(stage, /avoid: dprAvoid\(\)/);
 });

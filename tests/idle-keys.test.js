@@ -5,7 +5,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { glideMoving, compareRows, netChanged, createLayoutWatch, PLACED, PLACE_ATTRS } from '../src/ui/idle-keys.js';
+import { glideMoving, compareRows, netChanged, createLayoutWatch, PLACED, PLACE_ATTRS, PAINT_ONLY, INNER_FREE } from '../src/ui/idle-keys.js';
 
 const src = (f) => readFileSync(new URL(`../src/ui/${f}`, import.meta.url), 'utf8');
 
@@ -90,6 +90,31 @@ test('the layout watch is due from a change until it has settled, and not on unc
   w.touch(); assert.equal(w.due(), true);
 });
 
+test('a transition that moves no box leaves the watch settled; one that moves a placed piece makes it due', () => {
+  let t = 0;
+  const { MO, RO } = fakes();
+  const listeners = {};
+  const card = { ...el({ class: 'card' }), matches: (s) => s.includes('[data-safe]'), querySelector: () => null, closest: () => card };
+  const fill = { ...el({}), matches: () => false, querySelector: () => null, closest: () => card };   // (a lapse bar's fill inside the card)
+  const holder = { ...el({}), matches: () => false, querySelector: () => card, closest: () => null };  // (a parent of the card)
+  const root = { querySelectorAll: () => [card], ownerDocument: { addEventListener(type, fn) { listeners[type] = fn; } } };
+  const w = createLayoutWatch({ root, now: () => t, settle: 2500, MO, RO, exclude: () => false });
+  t = 3000; assert.equal(w.due(), false);
+  const run = (target, propertyName) => listeners.transitionrun({ target, propertyName });
+  for (const p of ['transform', 'opacity', 'color']) { run(fill, p); assert.equal(w.due(), false, `${p} inside the card`); }
+  for (const p of ['color', 'box-shadow', 'background-color']) { run(card, p); assert.equal(w.due(), false, `${p} on the card`); }
+  run(fill, 'width'); assert.equal(w.due(), true, 'a width inside the card can grow it');
+  t = 6000; assert.equal(w.due(), false);
+  run(card, 'transform'); assert.equal(w.due(), true, 'the card itself moving');
+  t = 9000; assert.equal(w.due(), false);
+  run(holder, 'transform'); assert.equal(w.due(), true, 'a parent moving the card');
+  t = 12000; assert.equal(w.due(), false);
+  listeners.animationstart({ target: fill }); assert.equal(w.due(), true, 'an animation: its properties are unknown');
+  assert.ok(PAINT_ONLY.has('color') && INNER_FREE.has('transform'));
+  // (and the model's parameters, set several times a second by a slide's time-lapse, wake the stage's watch no more than its frames do)
+  assert.match(src('stage.js'), /keys\.some\(\(k\) => k !== 'frame' && k !== 'params'\)\) watch\.touch\(\)/);
+});
+
 test('the framing, the labels\' card boxes and the credit\'s poll go by the watch', () => {
   const stage = src('stage.js');
   assert.match(stage, /if \(home && now - homeCheck > 500 && watch\.due\(\)\)/);
@@ -106,8 +131,19 @@ test('the framing, the labels\' card boxes and the credit\'s poll go by the watc
 });
 
 test('the composite allocates no uniform arrays per frame', () => {
-  const gl = src('veins-gl.js'), body = gl.slice(gl.indexOf('    composite(look, blood = {}, full = false) {'), gl.indexOf('    /** Whether organ outlines can be drawn here'));
+  const gl = src('veins-gl.js'), body = gl.slice(gl.indexOf('    composite(look, blood = {}, full = false, part = 0) {'), gl.indexOf('    /** Whether organ outlines can be drawn here'));
   assert.ok(body.length > 1000);
   assert.ok(!/new Float32Array\(\[/.test(body) && !/new Float32Array\(\d+\)/.test(body), 'a fresh Float32Array in the composite');
   assert.match(body, /SCR\.be\.fill\(0\)/);
+});
+
+test('an outline change redraws the outline layer alone, a glow change its glow layer alone', () => {
+  const gl = src('veins-gl.js');
+  // (External review, 21 Oct: one outline's opacity redrew all three layers.)
+  assert.match(gl, /for \(const d of lines\.draws\) sigs\[d\.warm \? 2 : d\.soft \? 1 : 0\]\.push\(/);
+  assert.match(gl, /if \(fresh \|\| sig !== lineSigs\[i\]\) \{ lineSigs\[i\] = sig; lineVers\[i\]\+\+; \}/);
+  assert.match(gl, /vk = lineVers\[0\] \+ at;/);
+  assert.match(gl, /if \(lineVers\[1\] \+ at !== glowKey\)/);
+  assert.match(gl, /if \(lineVers\[2\] \+ at !== warmKey\)/);
+  assert.doesNotMatch(gl, /lineVer\b/);
 });

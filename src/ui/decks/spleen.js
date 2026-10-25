@@ -13,6 +13,7 @@ export const SPLEEN = {
     ['Give two reasons the platelets fall in cirrhosis.', 'The large spleen pools them, and the scarred liver makes less thrombopoietin.'],
     ['Which results spare a screening endoscopy?', 'Stiffness below 20 kPa with platelets of 150 or more.'],
     ['What risk does splenectomy carry?', 'Portal vein thrombosis, from blood stagnating in the stump of the splenic vein.'],
+    ['After partial splenic embolization the platelets rise. Why?', 'Less spleen holds back fewer platelets, and less splenic blood flows into the portal vein.'],
   ],
   summary: 'How the spleen grows as the portal pressure rises, why the platelets fall, when platelets and stiffness can spare an endoscopy, and what splenic embolization and splenectomy do.',
   slides: [
@@ -25,7 +26,7 @@ export const SPLEEN = {
       ask: ['What share of the body\'s platelets sits in a normal spleen?', 'About a third.'],
     },
     {
-      id: 'grown', days: 730, ramp: { cirrhosis: [0, 0.6] }, lapse: { seconds: 10 }, cam: 'splenic', terms: ['spleen'], data: 'tiles', tiles: ['pv', 'spleen', 'plt'], key: ['spleen'], delta: 'normal',
+      id: 'grown', days: 730, ramp: { cirrhosis: [0, 0.6] }, lapse: { seconds: 10, from: 'MASLD', to: 'Cirrhosis' }, cam: 'splenic', terms: ['spleen'], normalOutline: ['spleen'], calipers: ['spleen'], data: 'tiles', tiles: ['pv', 'spleen', 'plt'], key: ['spleen'], delta: 'normal',
       kicker: 'A growing spleen', site: 'sin', title: 'The spleen grows with the portal pressure',
       line: 'After two years of cirrhosis, portal pressure is {pv}, the spleen is {spleen} and platelets are {plt}.',
       notes: 'The spleen enlarges partly from congestion, as the high portal pressure backs up into the splenic vein, and partly because its pulp grows, with more splenic arterial flow. Splenomegaly is one of the commonest signs of portal hypertension, but its size follows the pressure only loosely.',
@@ -43,18 +44,19 @@ export const SPLEEN = {
       id: 'screen', cam: 'liver', tool: { kind: 'fibroscan' }, data: 'tiles', tiles: ['lsm', 'plt'], key: ['lsm', 'plt'],
       kicker: 'The platelets', site: 'sin', title: 'Platelets and stiffness: who needs the scope',
       line: 'Stiffness below 20 kPa with platelets of 150 or more spares the screening endoscopy. Here they are {lsm} and {plt}: CSPH is likely, so carvedilol starts and no scope is needed.',
-      notes: 'These are the Baveno criteria for sparing a screening endoscopy in compensated advanced chronic liver disease; patients who meet them repeat the stiffness and the platelet count every year. The patient meets neither: a stiffness this high with platelets this low means clinically significant portal hypertension (the model\'s HVPG is above 10 mmHg). A patient with CSPH who can take a non-selective beta-blocker starts carvedilol and needs no screening endoscopy; only those who cannot take one, or in whom CSPH is uncertain (the gray zone), are scoped.',
+      notes: 'These are the Baveno criteria for sparing a screening endoscopy in compensated advanced chronic liver disease; patients who meet them repeat the stiffness and the platelet count every year. The patient meets neither: a stiffness this high with platelets this low means clinically significant portal hypertension (the model\'s HVPG is above 10 mmHg). A patient with CSPH who can take a non-selective beta-blocker starts carvedilol and needs no screening endoscopy; only those who cannot take one, or in whom CSPH is uncertain (the gray zone), are scoped, unless a spleen stiffness under 40 kPa spares them.',
       ask: ['Stiffness 14 kPa and platelets 190. Does this patient need a screening endoscopy?', 'No: below 20 kPa with platelets of 150 or more, repeat both tests in a year.'],
     },
     {
       id: 'pse', params: { splenicRx: 1 }, cam: 'splenic', tool: { kind: 'doppler', vessel: 'SV_CONF', delta: 'grown' }, data: 'tiles', tiles: ['pv', 'hvpg'], key: ['pv'],
+      compare: [{ label: 'No treatment', short: 'None', params: { splenicRx: 0 } }, { label: 'Embolization', own: true, params: { splenicRx: 1 } }, { label: 'Splenectomy', params: { splenicRx: 2 } }],
       kicker: 'Treating the spleen', site: 'sin', title: 'Partial splenic embolization',
       line: 'Particles block part of the splenic artery. Less blood leaves by the [splenic vein](sv), and the portal pressure eases to {pv}.',
       notes: 'Through a catheter in the splenic artery, particles infarct part of the splenic pulp, often half to two thirds of it. The splenic inflow falls, so less blood reaches the portal vein and the portal pressure falls a little. Pain and fever for a few days are common afterwards; splenic abscess and portal vein thrombosis are rarer complications.',
       ask: ['What is the commonest problem after partial splenic embolization?', 'Pain and fever for a few days (post-embolization syndrome).'],
     },
     {
-      id: 'later', days: 180, lapse: { seconds: 6 }, cam: 'splenic', terms: ['spleen'], data: 'tiles', tiles: ['plt', 'spleen'], key: ['plt'], delta: 'grown',
+      id: 'later', days: 180, lapse: { seconds: 6 }, cam: 'splenic', terms: ['spleen'], calipers: ['spleen'], data: 'tiles', tiles: ['plt', 'spleen'], key: ['plt'], delta: 'grown',
       kicker: 'Treating the spleen', site: 'sin', title: 'Platelets rise as the spleen shrinks',
       line: 'With less working pulp, the spleen traps fewer platelets. Six months on, platelets are {plt} and the spleen is {spleen}. The count can fall again if the remaining spleen regrows.',
       notes: 'With less working pulp, fewer platelets are pooled and the count rises over the following weeks. The rise can fade as the remaining spleen grows back. Embolization is used for severe thrombocytopenia or hypersplenism in centers with experience.',

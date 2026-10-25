@@ -16,11 +16,12 @@ export const NCPH = {
     ['Name the two main causes of presinusoidal portal hypertension.', 'Schistosomiasis and porto-sinusoidal vascular disorder.'],
     ['Why is the HVPG near normal?', 'The resistance lies before the sinusoids, so the wedge reads normal sinusoidal pressure. Only a PPG shows the gradient.'],
     ['Varices with a soft liver. What does that suggest?', 'Resistance before the sinusoids. Stiffness reflects scar and congestion, not portal pressure.'],
+    ['Varices have bled, the stiffness is 6 kPa, the HVPG 4 mmHg and the portal vein is open on Doppler. Where is the resistance?', 'Before the sinusoids, in the portal venules: the wedge reads the normal sinusoids beyond them. Think of porto-sinusoidal vascular disorder or schistosomiasis.'],
   ],
   summary: 'Schistosomiasis and porto-sinusoidal vascular disorder: varices and a big spleen with a normal liver stiffness and a normal HVPG, because the resistance sits in the portal tracts.',
   slides: [
     {
-      id: 'patient', preset: 'schisto', cam: 'fit', terms: ['varix', 'spleen'], data: 'tiles', tiles: ['varix', 'spleen', 'plt'], key: ['varix'],
+      id: 'patient', preset: 'schisto', cam: 'fit', terms: ['varix', 'spleen'], normalOutline: ['spleen'], calipers: ['spleen'], data: 'tiles', tiles: ['varix', 'spleen', 'plt'], key: ['varix'],
       kicker: 'The patient', site: 'presin', title: 'Varices with normal liver function',
       vignette: 'A 27-year-old woman who grew up near Lake Victoria in Uganda is admitted with hematemesis. She has never had jaundice, and she does not drink alcohol.',
       line: 'A young adult with varices of {varix}, a spleen of {spleen} and platelets of {plt}, but no jaundice, no ascites and normal liver tests.',
@@ -35,7 +36,8 @@ export const NCPH = {
       ask: ['Why does liver function last for years in schistosomiasis?', 'The resistance is in the portal venules; the sinusoids and liver cells are spared.'],
     },
     {
-      id: 'wedge', cath: 'result', data: 'ladder', key: ['pv', 'whvp', 'hvpg'], brackets: { hvpg: 'misleads', ppg: 'works' },
+      id: 'wedge', cath: 'result', tool: { kind: 'profile' }, key: ['pv', 'whvp', 'hvpg'],
+      compare: [{ label: 'Schistosomiasis', own: true }, { label: 'Cirrhosis', preset: 'cirr-comp' }],
       kicker: 'Where the resistance sits', site: 'presin', title: 'The wedge reads normal sinusoids',
       line: 'The resistance lies before the sinusoids, so the HVPG is {hvpg}. Only a direct portal reading shows the gradient, a PPG of {ppg}.',
       notes: 'In presinusoidal resistance the HVPG is normal or only mildly raised and underestimates the portal pressure, often by a wide margin. A normal HVPG in a patient with varices or a large spleen points to a presinusoidal or pre-hepatic cause. The portal pressure itself can be measured directly, through the liver at TIPS or with an endoscopic ultrasound needle.',
@@ -57,10 +59,10 @@ export const NCPH = {
       ask: ['How is porto-sinusoidal vascular disorder diagnosed?', 'An adequate liver biopsy without cirrhosis, plus a specific sign of portal hypertension (varices, collaterals), or a specific lesion (obliterative portal venopathy, nodular regenerative hyperplasia, incomplete septal cirrhosis), or one non-specific sign with one non-specific lesion.'],
     },
     {
-      id: 'nsbb', params: { drugs: { propranolol: true } }, cam: 'portal', terms: ['pv'], data: 'tiles', tiles: ['pv', 'varix'], key: ['varix'],
+      id: 'nsbb', params: { drugs: { propranolol: true } }, cam: 'portal', terms: ['pv'], data: 'tiles', tiles: ['pv', 'hr'], key: ['pv'], cite: 'Baveno VIII 8.9',
       kicker: 'Treatment', site: 'presin', title: 'A beta-blocker works here too',
-      line: 'Propranolol cuts the inflow from the gut: the portal vein pressure falls to {pv}, and with it the tension in the varix wall.',
-      caveat: 'The model shrinks the varices. In patients the beta-blocker lowers the pressure, but no one re-scopes to watch them shrink.',
+      line: 'Propranolol cuts gut inflow: portal vein pressure falls to {pv}. EASL 2025 and Baveno VIII see no proven advantage for carvedilol when resistance is presinusoidal.',
+      caveat: 'In the model, its extra effect is sinusoidal; here it mostly lowers blood pressure.',
       notes: 'Bleeding prophylaxis in non-cirrhotic portal hypertension follows the rules for cirrhosis: a non-selective beta-blocker or banding for large varices, and both after a bleed. In schistosomiasis, praziquantel treats the infection, but established portal hypertension still needs its own treatment.',
       ask: ['Is variceal prophylaxis any different here from cirrhosis?', 'No: a non-selective beta-blocker or banding, as in cirrhosis, because the varices come from the same high portal pressure.'],
     },

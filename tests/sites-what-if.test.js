@@ -67,11 +67,12 @@ test('the controls teach their slides: portal pressure follows the clot and the 
   for (let j = 1; j < lad.length; j++) assert.ok(lad[j - 1] - lad[j] <= 4, `no block between stations ${j - 1} and ${j} (${lad})`);
 });
 
-test('Sites slide 7 (sinusoidal obstruction syndrome) never folds its ladder behind Show; every other slide keeps the fold', () => {
-  assert.equal(slide('postsin').fold, false);
-  for (const s of SITES.slides) if (s.id !== 'postsin') assert.equal(s.fold, undefined, s.id);
+test('Sites level slides show the Gut to heart chart, and no slide has a ladder fold left to put behind Show', () => {
+  for (const id of ['healthy', 'pvt', 'presin', 'sin', 'postsin', 'post', 'cardiac']) assert.equal(slide(id).tool?.kind, 'profile', id);
+  for (const s of SITES.slides) assert.ok(s.data !== 'ladder' && s.fold === undefined, s.id);
   const src = readFileSync(new URL('../src/ui/presenter.js', import.meta.url), 'utf8');
-  assert.match(src, /ladderFold !== foldKey && slides\[want\]\?\.fold !== false/);
+  assert.doesNotMatch(src, /ladderFold|\.fold !== false/);
+  assert.match(src, /const canFold = dd\.classList\.contains\('has-tool'\) && !dd\.classList\.contains\('tool-only'\) && !dd\.classList\.contains\('tool-lead'\) && !dd\.classList\.contains\('pz-sheet'\);/, 'only an instrument card folds, never a stacked one');
 });
 
 test('on a phone a what-if slider takes a full line under its label', () => {
@@ -80,12 +81,11 @@ test('on a phone a what-if slider takes a full line under its label', () => {
   assert.match(css, /\.pz-wi \{[^}]*flex-wrap: wrap/);
 });
 
-test('a patient compare button eases the live model to its computed patient and back; the ladder\'s station block follows it', () => {
+test('a patient compare button eases the live model to its computed patient and back; the chart reads the live patient, with no station block to follow', () => {
   const src = readFileSync(new URL('../src/ui/presenter.js', import.meta.url), 'utf8');
   assert.match(src, /\.\.\.\(s\.compare \|\| \[\]\)\.filter\(\(o\) => o\.preset\)/);
-  assert.match(src, /stateReady\(o\.preset \? extraOf\.get\(xKey\(o\)\) : stateOf\[i\]\)/);
-  assert.match(src, /abBlk = \{ s, block: o\.preset \? o\.block \?\? null : s\.block \}/);
-  assert.match(src, /block: blockOf\(s\)/);
+  assert.match(src, /stateReady\(o\.preset \? extraOf\.get\(xKey\(o\)\) : stateOf\[o\.slide \? slideAt\(o\.slide\) : i\]\)/);
+  assert.doesNotMatch(src, /abBlk|blockOf/);
 });
 
 test('the slide count is not left grey (as if the list were open) on a slide picked from the slide list', () => {

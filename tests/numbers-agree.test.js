@@ -127,7 +127,10 @@ test('the right atrium is read over two breaths everywhere it is shown, and that
   assert.ok(hi - lo > 0.4, `the beat-by-beat RA swings (${lo.toFixed(2)}–${hi.toFixed(2)}), which is why it is not shown`);
   assert.ok(vhi - vlo < 0.3, `RA over two breaths holds within 0.3 mmHg (${vlo.toFixed(2)}–${vhi.toFixed(2)})`);
   assert.match(src('stage.js'), /mk === 'ra' \? f\.metrics\?\.vitals\?\.ra/, 'the figure reads RA over two breaths');
-  assert.match(src('presenter.js'), /ra: m\.vitals\?\.ra \?\? m\.ra/, 'the slide data card reads RA over two breaths');
+  // (The slide data card: the presenter's live fingerprint and the worker's slide states are one function, engine/fingerprint.js.)
+  assert.match(src('../engine/fingerprint.js'), /ra: m\.vitals\?\.ra \?\? m\.ra/, 'the slide data card reads RA over two breaths');
+  assert.match(src('presenter.js'), /const liveFp = \(fr\) => fingerprintOf\(/, 'the live slide data is that fingerprint');
+  assert.match(readFileSync(new URL('../src/worker-core.js', import.meta.url), 'utf8'), /fingerprintOf\(m,/, 'and so are the slide states');
   assert.match(src('dock.js'), /m\.vitals\?\.ra \?\? m\.ra/, 'the bar reads RA over two breaths');
 });
 

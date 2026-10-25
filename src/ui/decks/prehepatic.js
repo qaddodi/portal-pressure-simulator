@@ -4,7 +4,7 @@
 const mi = (x) => `<mi>${x}</mi>`, mo = (x) => `<mo>${x}</mo>`, sub = (b, i) => `<msub>${b}<mtext>${i}</mtext></msub>`;
 
 export const PREHEPATIC = {
-  id: 'prehepatic', level: 'core', title: 'Pre-hepatic portal hypertension', minutes: 7,
+  id: 'prehepatic', level: 'core', title: 'Pre-hepatic portal hypertension', minutes: 8,
   objectives: [
     'Recognize acute portal vein thrombosis on Doppler',
     'Explain why the HVPG is normal and the PPG is high',
@@ -15,11 +15,13 @@ export const PREHEPATIC = {
     ['Why is the HVPG normal with a portal vein clot?', 'The clot is before the liver. The wedge reads the normal sinusoids beyond it.'],
     ['Which measurement shows the resistance?', 'The PPG, portal vein minus IVC.'],
     ['Where do varices form with a splenic vein clot?', 'In the gastric fundus, often with no esophageal varices.'],
+    ['After six months of anticoagulation the PPG falls from 27 to 4 mmHg and the HVPG stays at 2. What moved?', 'The clot cleared, so the resistance in the portal vein, before the liver, fell. The sinusoids never carried it, so the HVPG did not change.'],
   ],
   summary: 'A clot before the liver: acute portal vein thrombosis on Doppler, the normal HVPG and high PPG, the cavernoma months later, and splenic vein thrombosis with gastric varices.',
   slides: [
     {
       id: 'clot', preset: 'pvt-acute', cam: 'portal', labels: ['CONF'], terms: { 'portal pressure': 'pv', 'superior mesenteric vein': 'smv' }, tool: { kind: 'doppler', vessel: 'PV_TRUNK' }, data: 'tiles', tiles: ['pv', 'hvpg'], key: ['pv'],
+      whatIf: { label: 'Clot size', param: 'thrombus.PV_TRUNK', min: 0, max: 1, step: 0.05, ends: ['None', 'Occlusive'] },
       kicker: 'Acute thrombosis', site: 'pre', title: 'An acute clot stops portal flow on Doppler',
       vignette: 'A 39-year-old woman with factor V Leiden who takes an OCP has had 4 days of constant periumbilical pain. Her liver tests and platelets are normal.',
       line: 'Portal pressure rises steeply behind the clot. Contrast CT confirms it and shows whether it extends into the superior mesenteric vein, where the risk is bowel ischemia.',
@@ -27,7 +29,7 @@ export const PREHEPATIC = {
       ask: ['What does Doppler show in an acute portal vein clot?', 'No flow in the trunk; a fresh clot can be nearly anechoic, so the missing color signal matters more than the gray scale.'],
     },
     {
-      id: 'cath', cath: 'result', data: 'ladder', key: ['hvpg', 'ppg'],
+      id: 'cath', cath: 'result', tool: { kind: 'profile' }, key: ['hvpg', 'ppg'],
       kicker: 'Acute thrombosis', site: 'pre', title: 'HVPG is normal with a portal vein clot',
       eq: [mi('PPG') + mo('=') + sub(mi('P'), 'portal vein') + mo('−') + sub(mi('P'), 'IVC')],
       line: 'The clot is before the liver, so wedged and free pressures stay normal and the HVPG is {hvpg}. The PPG of {ppg} shows the resistance.',
@@ -35,8 +37,18 @@ export const PREHEPATIC = {
       ask: ['Varices, a large spleen and an HVPG of 3 mmHg. What does the HVPG tell you?', 'The resistance is not sinusoidal: look before the sinusoids, in the portal vein or the portal tracts.'],
     },
     {
-      id: 'cavernoma', lens: 'flow', preset: 'pvt-chronic', cam: 'portal', labels: ['CONF'], mark: { edges: ['PV_TRUNK'], label: 'Occluded portal vein' }, data: 'tiles', tiles: ['varix', 'spleen', 'plt'], key: ['varix'],
-      kicker: 'Months later', site: 'pre', title: 'Months later, collaterals grow around the clot',
+      id: 'anticoag', preset: 'pvt-acute', params: { anticoag: true }, days: 180, lapse: { seconds: 8 }, cam: 'portal', labels: ['CONF'],
+      tool: { kind: 'lumen', vessel: 'PV_TRUNK' }, data: 'tiles', tiles: ['ppg', 'pvFlow', 'varix'], key: ['ppg'], delta: 'clot',
+      compare: [{ label: 'Anticoagulation', own: true }, { label: 'No anticoagulation', short: 'None', preset: 'pvt-acute', params: {}, days: 180 }],
+      kicker: 'Acute thrombosis', site: 'pre', title: 'Early anticoagulation can reopen the portal vein',
+      line: 'Anticoagulation starts as soon as possible and continues for at least 6 months. Here the clot clears, portal flow returns and the PPG falls to {ppg}. In practice the portal vein reopens in about 4 in 10 patients.',
+      cite: 'EASL 2025, recent PVT',
+      notes: 'In recent portal vein thrombosis without cirrhosis, EASL 2025 starts anticoagulation as soon as possible, because early treatment lowers the risk of bowel ischemia and makes recanalization more likely, and continues it for at least six months. The workup for a thrombophilia should not delay it. In a European prospective study the portal vein reopened in 39% of treated patients, the splenic vein in 80% and the superior mesenteric vein in 73%; ascites and a clotted splenic vein made recanalization less likely. In the model the clot clears completely over six months; with no treatment it stays, and within six months the varices grow, the spleen enlarges and the platelets fall, the cavernoma of the next slides.',
+      ask: ['How long is anticoagulation continued for a recent portal vein clot without cirrhosis?', 'At least six months, started as soon as possible; long term when a permanent prothrombotic risk factor remains.'],
+    },
+    {
+      id: 'cavernoma', lens: 'flow', preset: 'pvt-chronic', cam: 'portal', labels: ['CONF'], mark: { edges: ['PV_TRUNK'], label: 'Occluded portal vein' }, tool: { kind: 'lumen' }, data: 'tiles', tiles: ['varix', 'spleen', 'plt'], key: ['varix'],
+      kicker: 'Months later', site: 'pre', title: 'Without recanalization, collaterals grow around the clot',
       line: 'A cavernoma, a web of small collaterals, grows around the clotted vein. Colored by flow, it carries the blood the trunk cannot. Varices form and the spleen enlarges.',
       notes: 'Cavernous transformation is a web of collaterals around the occluded portal vein, seen within weeks to months. It does not carry enough blood to bring the portal pressure down, so varices, a large spleen and low platelets follow. Screen for varices with endoscopy and treat them as in cirrhosis: a non-selective beta-blocker or banding. Long-term anticoagulation is advised when a thrombophilia persists. Large collaterals around the bile duct can narrow it (portal cholangiopathy). In children the clot often follows umbilical vein catheterization or sepsis in infancy.',
       ask: ['A child bleeds from varices with normal liver tests. What is the likely cause?', 'Chronic portal vein thrombosis with a cavernoma: varices with a normal liver point to resistance before the sinusoids.'],
@@ -57,7 +69,7 @@ export const PREHEPATIC = {
       ask: ['Isolated gastric varices after pancreatitis. What is the cause and the cure?', 'Splenic vein thrombosis; splenectomy or splenic artery embolization, which removes the inflow that fills the varices.'],
     },
     {
-      id: 'summary', visual: 'table', cols: ['pv', 'hvpg', 'ppg', 'plt'], asc: false, rowHead: 'Patient',
+      id: 'summary', visual: 'table', cols: ['pv', 'hvpg', 'ppg', 'plt', 'wave'], wave: 'PV_TRUNK', asc: false, rowHead: 'Patient',
       of: [{ preset: 'healthy', kicker: 'Reference', title: 'Healthy', ref: true }, { id: 'clot', kicker: 'Portal vein', title: 'Acute thrombosis' }, { id: 'cavernoma', kicker: 'Portal vein', title: 'Cavernoma' }, { id: 'svt', kicker: 'Splenic vein', title: 'Splenic vein thrombosis' }],
       kicker: 'Summary', title: 'HVPG in pre-hepatic resistance',
       line: 'The HVPG stays normal in all three; the PPG rises only when the portal vein itself carries the resistance.',

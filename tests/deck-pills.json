@@ -117,6 +117,12 @@
   "space of disse",
   "lymphatics"
  ],
+ "ascites/lymph": [
+  "space of disse",
+  "lymphatics",
+  "portal tracts",
+  "{sin}"
+ ],
  "ascites/saag": [
   "{saag}"
  ],
@@ -205,14 +211,14 @@
   "{lsm}",
   "{hvpg}"
  ],
- "stiffness/rule": [
-  "{lsm@spleen}",
-  "{hvpg@spleen}"
- ],
  "stiffness/spleen": [
   "spleen",
   "{spleen}",
   "{plt}"
+ ],
+ "stiffness/rule": [
+  "{lsm@spleen}",
+  "{hvpg@spleen}"
  ],
  "stiffness/heart": [
   "(a value)"
@@ -534,9 +540,8 @@
   "varices",
   "{varix}"
  ],
- "pvt-cirrhosis/band": [
-  "varices",
-  "{varix}"
+ "pvt-cirrhosis/carv": [
+  "{pv}"
  ],
  "pvt-cirrhosis/anticoag": [
   "portal vein",
@@ -659,5 +664,104 @@
  "recompensation/cure": [
   "{salb}",
   "{hvpg}"
+ ],
+ "where-resistance/q1": [
+  "{pv}",
+  "{hvpg}",
+  "{ppg}"
+ ],
+ "where-resistance/a1": [
+  "sinusoids",
+  "{hvpg}"
+ ],
+ "where-resistance/q2": [
+  "{hvpg}",
+  "{ppg}"
+ ],
+ "where-resistance/a2": [
+  "cavernoma",
+  "{hvpg}"
+ ],
+ "where-resistance/q3": [
+  "{pv}",
+  "{ra}",
+  "{hvpg}",
+  "{ppg}"
+ ],
+ "where-resistance/a3": [
+  "right atrial pressure"
+ ],
+ "where-resistance/q4": [
+  "{hvpg}",
+  "{ppg}"
+ ],
+ "where-resistance/a4": [
+  "central veins"
+ ],
+ "where-resistance/q5": [
+  "{hvpg}",
+  "{ppg}"
+ ],
+ "where-resistance/a5": [
+  "portal venules",
+  "{hvpg}"
+ ],
+ "where-resistance/q6": [
+  "{pv}",
+  "{hvpg}",
+  "{ppg}",
+  "{ivc}",
+  "{ra}"
+ ],
+ "where-resistance/a6": [
+  "right atrium"
+ ],
+ "pregnancy/before": [
+  "{hvpg}",
+  "{>=10 mmHg}"
+ ],
+ "pregnancy/weeks": [
+  "{bv}",
+  "{co}"
+ ],
+ "pregnancy/inflow": [
+  "{pvFlow}",
+  "{hvpg}"
+ ],
+ "pregnancy/scope": [
+  "{varix}"
+ ],
+ "pregnancy/propranolol": [
+  "{hvpg}",
+  "{hr}"
+ ],
+ "pregnancy/after": [
+  "{bv}",
+  "{hvpg}"
+ ],
+ "beta-blockers/ohm": [
+  "{hvpg}"
+ ],
+ "beta-blockers/prop-sin": [
+  "{pvFlow}",
+  "{hvpg}"
+ ],
+ "beta-blockers/carv-sin": [
+  "sinusoids",
+  "{hvpg}"
+ ],
+ "beta-blockers/schisto": [
+  "portal venules",
+  "{pv}",
+  "{hvpg}"
+ ],
+ "beta-blockers/prop-pre": [
+  "{pvFlow}",
+  "{pv}"
+ ],
+ "beta-blockers/carv-pre": [
+  "portal venules",
+  "{pv}",
+  "{pv@prop-pre}"
  ]
 }

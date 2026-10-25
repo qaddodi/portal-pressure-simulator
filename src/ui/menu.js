@@ -4,12 +4,12 @@
 // same content as a bottom sheet. Hovering a row (or focusing it with the arrow keys) previews it beside
 // the panel; on touch, the ⓘ at a presentation's end opens the same preview under its row.
 
-import { store } from './store.js?v=31ee79b6ab';
-import { h, icon, svgIcon, uiScale, clamp, swipeSheet, visibleBottom, fadeWhileMore, PHONE_MQ } from './util.js?v=b6a40567da';
-import { SNAPSHOTS } from './snapshots.js?v=f018995b4c';
-import { pressureColor } from './colormap.js?v=dc071e3659';
-import { ownsSideways, pageGo } from './swipe.js?v=60b2fc909b';
-import { frameFor } from './frame.js?v=67ca200c87';
+import { store } from './store.js?v=67f4341802';
+import { h, icon, svgIcon, clamp, swipeSheet, visibleBottom, fadeWhileMore, PHONE_MQ } from './util.js?v=d2c95a1b16';
+import { SNAPSHOTS } from './snapshots.js?v=4ca084eda3';
+import { pressureColor } from './colormap.js?v=cdcf6a2f55';
+import { ownsSideways, pageGo } from './swipe.js?v=3ad619631e';
+import { frameFor } from './frame.js?v=19b3f2915c';
 const nextFrame = frameFor('menu');
 
 // Where each group's resistance sits along the pathway from the gut to the heart.
@@ -133,7 +133,7 @@ export function createMenu({ anchor, library, libraryNow, onPreset, share, help,
       h('button', { class: 'btn ghost sm', onclick: () => lib.shareDeck(d) }, svgIcon('share', 'mi-ic'), 'Copy link'),
       h('button', { class: 'btn ghost sm', title: 'Speaker notes and questions for the room, one row per slide', onclick: () => lib.notes(d) }, svgIcon('print', 'mi-ic'), 'Print notes')));
   const scriptPreview = (s, lib) => h('div', { class: 'um-pv-in' },
-    h('span', { class: 'um-pv-meta' }, `${s.deck ? 'Your deck' : 'Your script'} · ${(s.steps || s.deck.slides).length} slides`),
+    h('span', { class: 'um-pv-meta' }, `${s.test ? 'Test deck, preview only' : s.deck ? 'Your deck' : 'Your script'} · ${(s.steps || s.deck.slides).length} slides`),
     h('h3', {}, s.title), h('p', {}, s.summary || ''),
     h('div', { class: 'um-acts' },
       h('button', { class: 'btn sm primary', onclick: () => { close(); lib.start(s.id); } }, svgIcon('play', 'mi-ic'), 'Present'),
@@ -141,7 +141,7 @@ export function createMenu({ anchor, library, libraryNow, onPreset, share, help,
       h('button', { class: 'btn ghost sm', onclick: () => lib.shareScript(s) }, 'Share link'),
       h('button', { class: 'btn ghost sm', onclick: () => lib.exportScript(s) }, 'Export'),
       h('button', { class: 'btn ghost sm', onclick: () => lib.scriptNotes(s) }, 'Print notes'),
-      h('button', { class: 'btn ghost sm', onclick: () => lib.remove(s.id) }, 'Delete')));
+      s.test ? null : h('button', { class: 'btn ghost sm', onclick: () => lib.remove(s.id) }, 'Delete')));
 
   // ── Preview beside the panel (mouse) ──
   function hoverable(row, make, col) {
@@ -170,11 +170,11 @@ export function createMenu({ anchor, library, libraryNow, onPreset, share, help,
       $$rows().forEach((r) => r.classList.toggle('pv-on', r === row));
     }
     // Beside the panel, level with the row; over the other column when there is no room beside it.
-    const z = uiScale(), pr = el.getBoundingClientRect(), rr = row.getBoundingClientRect(), w = 360 * z, ph = pv.offsetHeight * z;
+    const pr = el.getBoundingClientRect(), rr = row.getBoundingClientRect(), w = 360, ph = pv.offsetHeight;
     let x = pr.right + 8;
     if (x + w > innerWidth - 8) x = Math.max(8, innerWidth - w - 8);   // (no room beside the panel: over its right edge)
-    const y = clamp(rr.top - 40 * z, 8, visibleBottom() - ph - 8);
-    pv.style.left = x / z + 'px'; pv.style.top = y / z + 'px';
+    const y = clamp(rr.top - 40, 8, visibleBottom() - ph - 8);
+    pv.style.left = x + 'px'; pv.style.top = y + 'px';
     pv.classList.add('on');
   }
   function hidePreview(now) {
@@ -213,6 +213,9 @@ export function createMenu({ anchor, library, libraryNow, onPreset, share, help,
           h('div', { class: 'um-gl', id: 'umt-' + k }, h('b', {}, name)),
           h('ul', { 'aria-labelledby': 'umt-' + k }, list.map(([id]) => lib.decks.find((d) => d.id === id)).filter(Boolean).map((d) => deckRow(d, lib)))),
         ),
+        lib.testing?.length ? h('div', { class: 'um-g' },
+          h('div', { class: 'um-gl', id: 'umt-testing' }, h('b', {}, 'Testing')),
+          h('ul', { 'aria-labelledby': 'umt-testing' }, lib.testing.map((s) => deckRow(s, lib, true)))) : null,
         h('div', { class: 'um-g scripts' },
           h('div', { class: 'um-gl', id: 'umt-mine' }, h('b', {}, 'Your scripts'),
             h('span', { class: 'um-gacts' },
@@ -310,9 +313,9 @@ export function createMenu({ anchor, library, libraryNow, onPreset, share, help,
 
   function place() {
     if (!el || el.classList.contains('sheet')) return;
-    const z = uiScale(), r = anchor.getBoundingClientRect();
-    el.style.left = clamp(r.left, 12 * z, Math.max(12 * z, innerWidth - el.offsetWidth * z - 12 * z)) / z + 'px';
-    el.style.top = (r.bottom + 8 * z) / z + 'px';
+    const r = anchor.getBoundingClientRect();
+    el.style.left = clamp(r.left, 12, Math.max(12, innerWidth - el.offsetWidth - 12)) + 'px';
+    el.style.top = (r.bottom + 8) + 'px';
   }
   function render() {
     if (!el) return;

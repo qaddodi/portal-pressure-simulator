@@ -6,6 +6,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { createCore } from '../src/worker-core.js';
 import { OUTFLOW } from '../src/ui/decks/outflow.js';
+import { PRESETS } from '../src/engine/scenario.js';
 import { deckStates } from './deck-states.js';
 
 const fmt = (v) => v.toFixed(1);
@@ -17,7 +18,10 @@ test('the recovery slide eases the central veins over its days instead of settin
   assert.equal(s.params, undefined, 'no params of its own (they were set, and shown, before the days ran)');
   assert.deepEqual(s.ramp, { 'fibrosis.R.post': [32, 1], 'fibrosis.L.post': [32, 1] });
   const sos = OUTFLOW.slides.find((x) => x.id === 'sos');
-  assert.equal(sos.params.fibrosis.R.post, s.ramp['fibrosis.R.post'][0], 'the ramp starts where the slide before left the veins');
+  assert.equal(sos.preset, 'sos');
+  assert.equal(sos.params, undefined, 'the SOS slide is the preset as every other deck shows it (Sites, Where, Lobule)');
+  const preset = PRESETS.find((x) => x.id === 'sos').apply({});
+  assert.equal(preset.fibrosis.R.post, s.ramp['fibrosis.R.post'][0], 'the ramp starts where the preset left the veins');
 });
 
 test('a dotted ramp key eases that nested param day by day', async () => {
@@ -34,11 +38,12 @@ test('a dotted ramp key eases that nested param day by day', async () => {
 });
 
 // (Healed over the whole month, the Recovered row reads PV 8.5 and FHVP 4.7, up from 8.0 and 4.3 when the veins healed
-// before the days: Mohammad kept the new numbers, 18 Oct.)
-test('the Recovered row: PV 8.5, FHVP 4.7, HVPG 2.5, no ascites', async () => {
+// before the days: Mohammad kept the new numbers, 18 Oct. 22 Oct the SOS preset itself carries the block of 32 and
+// runs its 21 days with it, so the patient arrives a little more congested: PV 8.6, FHVP 4.8.)
+test('the Recovered row: PV 8.6, FHVP 4.8, HVPG 2.5, no ascites', async () => {
   const fps = await deckStates(OUTFLOW), f = fps[OUTFLOW.slides.findIndex((x) => x.id === 'recover')];
-  assert.equal(fmt(f.pv), '8.5');
-  assert.equal(fmt(f.fhvp), '4.7');
+  assert.equal(fmt(f.pv), '8.6');
+  assert.equal(fmt(f.fhvp), '4.8');
   assert.equal(fmt(f.hvpg), '2.5');
   assert.ok(f.asc < 0.5, `ascites ${f.asc}`);
 });

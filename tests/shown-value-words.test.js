@@ -83,11 +83,12 @@ test('#45: on a slide the scale unit leaves the top strip, and the strip fits by
   assert.match(src, /ctx\.fillText\('cm\/s', w - 6, ovOn \? yLab : 13\)/);
   // (the pattern, "High velocity" on a narrowed stent, is never hidden: its last step is a line of its own under the reading)
   assert.doesNotMatch(src, /patternEl\.hidden = true/);
-  assert.match(src, /const STEPS = \[\[1, false, false\], \[0\.9, false, false\], \[1, false, true\], \[0\.9, false, true\], \[0\.8, false, true\], \[0\.9, true, true\], \[0\.8, true, true\]\];/);
-  assert.match(src, /'Portal → hepatic vein': 'PV → HV'/);   // (the direction's short form only after the pattern has a line of its own)
+  // (always one line, Mohammad 20 Oct: shorter type, then the direction's short form, the pattern's, then the unit; never a second line)
+  assert.match(src, /const STEPS = \[\[1, false, 0\], \[0\.9, false, 0\], \[0\.8, false, 0\], \[0\.9, true, 0\], \[0\.8, true, 0\], \[0\.8, true, 1\], \[0\.8, true, 2\]\];/);
+  assert.doesNotMatch(src + css, /dop-wrap/, 'the pattern never takes a second line');
+  assert.match(src, /'High velocity': 'Fast'/);
+  assert.match(css, /\.dop-report\.dop-nounit \.dop-vel small \{ display: none; \}/);
+  assert.match(src, /'Portal → hepatic vein': 'PV → HV'/);
   // (the strip's right side is free once "cm/s" moved to the bottom strip)
   assert.match(css, /\.pz-tool\[data-kind="doppler"\] \.dop-report \{ grid-area: 1 \/ 1 \/ 2 \/ -1;[^}]*padding: 8px 12px 0 12px;/);
-  // (the pattern sits inside .dop-velrow, so the wrap rules use a descendant selector: a child one never matched)
-  assert.match(css, /\.dop-report\.dop-wrap \.dop-pattern \{ flex: 0 0 100%; \}/);
-  assert.match(css, /#app \.instrument-workspace \.instrument-view\.dop \.dop-report\.dop-wrap \.dop-pattern \{ grid-row: 2; grid-column: 1 \/ -1;/);
 });

@@ -59,3 +59,9 @@ test('an app that cannot say where it was still reloads the current URL', async 
   await settle();
   assert.match(log.at(-1), /^replace https:\/\/x\.github\.io\/portal\/preview\/\?lang=en&r=\d+$/);
 });
+
+test('the deploy labels the pill with the 8-character hash the push reports use', async () => {
+  const { readFileSync } = await import('node:fs');
+  const yml = readFileSync(new URL('../.github/workflows/pages.yml', import.meta.url), 'utf8');
+  assert.match(yml, /LABEL="\$\{SHA:0:8\}"/);
+});

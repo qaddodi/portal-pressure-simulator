@@ -53,9 +53,11 @@ const workerUrl = {
   },
 };
 const app = await build({ ...common, plugins: [stripStamps, workerUrl], entryPoints: [join(ROOT, 'src/ui/main.js')], outdir: ASSETS, splitting: true, entryNames: 'app-[hash]', chunkNames: 'chunk-[hash]', write: true, metafile: true });
-const appFile = basename(Object.keys(app.metafile.outputs).find((f) => app.metafile.outputs[f].entryPoint));
+// (esbuild lists a module that is only import()ed with an entryPoint too, so the page's script is the one made from main.js, not the first listed.)
+const isApp = (o) => o.entryPoint?.endsWith('src/ui/main.js');
+const appFile = basename(Object.keys(app.metafile.outputs).find((f) => isApp(app.metafile.outputs[f])));
 // Chunks the entry imports statically: preload them alongside it.
-const appOut = Object.entries(app.metafile.outputs).find(([, o]) => o.entryPoint)[1];
+const appOut = Object.values(app.metafile.outputs).find(isApp);
 const staticChunks = appOut.imports.filter((i) => i.kind === 'import-statement').map((i) => basename(i.path));
 
 // 3. Styles: fonts, tokens and layout in one file; fonts get hashed names.

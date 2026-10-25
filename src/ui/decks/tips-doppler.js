@@ -39,7 +39,7 @@ export const TIPS_DOPPLER = {
       // The stent switched on in real time, before the varices shrink over the following weeks (the next slide): about
       // three quarters of the gut and spleen blood already bypasses the liver through collaterals, and the TIPS takes it
       // to almost 90%, while the varices slow from about 270 to 170 cm/s. The buttons carry the next slide's settings.
-      id: 'shunted', cam: 'route', lens: 'origin', labels: ['CONF'], data: 'tiles', tiles: ['shunt', 'ppg'], key: ['shunt'],
+      id: 'shunted', cam: 'route', lens: 'origin', labels: ['CONF'], tool: { kind: 'flows' }, data: 'tiles', tiles: ['ppg'],
       compare: [{ label: 'Before TIPS', own: true, params: { tips: { on: false, d: 8 }, splanchnicTone: 1, habrStrength: 1, apShunt: 0 } },
         { label: 'With TIPS', params: { tips: { on: true, d: 9 }, splanchnicTone: 0.7, habrStrength: 1.5, apShunt: 0.5 } }],
       kicker: 'Before TIPS', title: 'Most portal blood already bypasses the liver',
@@ -52,21 +52,37 @@ export const TIPS_DOPPLER = {
       // loses (its buffer response, with some arterioportal shunting): the patch stands for both, so the stent reads 90–190 cm/s,
       // the main portal vein over 30 cm/s and the left portal vein clearly reversed, as on a working TIPS.
       id: 'stent', params: { tips: { on: true, d: 9 }, splanchnicTone: 0.7, habrStrength: 1.5, apShunt: 0.5 }, days: 30, cam: 'liver', lens: 'flow', labels: ['CONF'],
-      mark: { edges: ['TIPS'], label: 'Covered stent', kind: 'treat' }, data: 'tiles', tiles: ['ppg', 'shunt'], key: ['ppg'], delta: 'before',
+      data: 'tiles', tiles: ['ppg', 'shunt'], key: ['ppg'], delta: 'before',
       kicker: 'A working TIPS', title: 'The stent carries most of the portal flow',
       line: 'A covered stent joins the [right portal vein](RPV) to the right hepatic vein. Colored by flow, it is the busiest vessel in the liver, and the PPG falls from {ppg@before} before the TIPS to {ppg}.',
       notes: 'A covered stent, here 9 mm wide, runs through the liver from the right portal vein to the right hepatic vein. The low-resistance path takes most of the portal blood straight to the heart, so the gradient falls. Colored by flow, each vessel shows how much blood it carries. A baseline Doppler is done in the first weeks after the procedure, and every later scan is compared with it.',
       ask: ['When is the baseline TIPS Doppler done?', 'In the first weeks after the stent is placed; every later scan is compared with it.'],
     },
     {
-      // The gate moves along the stent with the buttons; its third glows in the Doppler's green.
-      id: 'jet', cam: 'liver', lens: 'velocity', mark: { edges: ['TIPS'], label: 'Covered stent', kind: 'treat' }, tool: { kind: 'doppler', vessel: 'TIPS', gate: 'mid', points: true },
+      // The gate moves along the stent with the buttons; its third glows (white on the dark themes) and the probe's gate sits on it.
+      id: 'jet', cam: 'liver', lens: 'velocity', tool: { kind: 'doppler', vessel: 'TIPS', gate: 'mid', points: true },
       compare: [{ label: 'Proximal', gate: 'proximal' }, { label: 'Mid', gate: 'mid', own: true }, { label: 'Distal', gate: 'distal' }],
       kicker: 'A working TIPS', title: 'The stent is sampled at three points',
       line: 'The Doppler reads the stent at its portal end (proximal), in the middle (mid) and at its hepatic vein end (distal). At any of them a velocity under {<90 cm/s} or over {>190 cm/s} suggests narrowing.',
       caveat: 'In the model the open stent reads about a tenth slower at its portal end than mid stent; in patients the three often differ by a few tens of cm/s.',
       notes: 'Blood speeds up as it enters the stent, which is narrower than the portal vein, and runs from the portal vein toward the heart along its whole length. Each of the three points normally reads 90 to 190 cm/s. In patent shunts confirmed at venography, mean peaks were about 140 cm/s at the portal end, 150 to 185 cm/s mid stent and 140 to 170 cm/s at the hepatic vein end, often highest mid stent in 8 mm stents (Mitchell et al., 2025). A velocity outside 90 to 190 cm/s, or a change of more than 50 cm/s from the baseline study, suggests stenosis. These cut-offs come from bare stents; covered stents narrow far less often, so the change from the baseline study counts for more. Tap Proximal, Mid or Distal to move the Doppler gate; that third of the stent glows green.',
       ask: ['Where along the stent is the velocity measured?', 'At the portal end (proximal), in the middle (mid) and at the hepatic vein end (distal).'],
+    },
+    {
+      // Aliasing (Ferraioli, EFSUMB; Meola et al., J Vasc Access 2021): the scale is fixed at 80 cm/s each way, the Nyquist
+      // limit, below this working stent's velocity, so the top of its spectrum wraps round to the other side of the baseline.
+      id: 'alias', cam: 'liver', tool: { kind: 'doppler', vessel: 'TIPS', scale: 80 },
+      kicker: 'A working TIPS', title: 'Flow faster than the scale wraps round',
+      line: 'The scale here reaches 80 cm/s each way. The stent\'s flow is faster, so the top of its spectrum wraps round and shows below the baseline. This is aliasing, not flow running backwards.',
+      notes: 'Pulsed Doppler samples the echoes in bursts, so it can measure a velocity only up to half its pulse repetition frequency, the Nyquist limit, which the scanner shows as the velocity scale. Faster flow is drawn on the other side of the baseline, as if it ran the other way. In a TIPS, where flow is fast, aliasing can look like reversed flow and hides the true peak.',
+      ask: ['The top of a stent\'s spectrum shows below the baseline. Is the flow reversed?', 'No: it is faster than the scale, so it wraps round (aliasing). Move the baseline or raise the scale.'],
+    },
+    {
+      id: 'alias-fix', cam: 'liver', tool: { kind: 'doppler', vessel: 'TIPS', scale: 80, baseline: 0.85 },
+      kicker: 'A working TIPS', title: 'Moving the baseline down makes room',
+      line: 'The same stent with the baseline moved down. The scale now reaches further toward the probe, so the whole spectrum fits above the baseline. Raising the scale would fix it too.',
+      notes: 'Moving the baseline gives the direction of flow more of the scale without changing the Nyquist limit. Raising the scale, a higher pulse repetition frequency, lifts the limit itself, and a lower frequency transducer helps too. Read the peak velocity only once the whole spectrum fits.',
+      ask: ['Name two ways to remove aliasing from a spectral trace.', 'Move the baseline away from the direction of flow, or raise the velocity scale.'],
     },
     {
       id: 'mpv', cam: 'portal', lens: 'velocity', labels: ['CONF'], tool: { kind: 'doppler', vessel: 'PV_TRUNK', delta: 'before' },
@@ -77,6 +93,7 @@ export const TIPS_DOPPLER = {
     },
     {
       id: 'left', cam: 'liver', lens: 'direction', labels: ['LPV'], terms: ['lpv'], tool: { kind: 'doppler', vessel: 'PVH_L' },
+      cite: 'Lechowicz 2015, Polish Ultrasound Society standards',
       kicker: 'A working TIPS', title: 'The left portal vein flows toward the stent',
       line: 'With a working TIPS, every branch flows toward the stent. The [left portal vein](lpv) turns hepatofugal, drawn below the baseline and in the reversed color.',
       notes: 'The stent is the easiest way out of the liver, so blood in the left portal vein, much of it hepatic arterial blood that has entered the sinusoids, runs back to the bifurcation and into the stent. Before the TIPS this branch flowed toward the liver. Here hepatofugal flow is the expected finding, a sign that the stent is working, not a sign of advanced disease. Colored by direction, reversed flow is orange.',
@@ -103,11 +120,11 @@ export const TIPS_DOPPLER = {
     },
     {
       // The same 60 % pinch moved along the stent with the buttons: the flow is the same wherever it sits, and the gate follows it.
-      id: 'where', cam: 'liver', lens: 'velocity', mark: { edges: ['TIPS'], label: 'Narrowing', seg: 'site' }, tool: { kind: 'doppler', vessel: 'TIPS', gate: 'site', points: true },
+      id: 'where', cam: 'liver', lens: 'velocity', mark: { edges: ['TIPS'], label: 'Narrowing', seg: 'site' }, tool: { kind: 'doppler', vessel: 'TIPS', gate: 'site', points: true, mode: 'variance' },
       compare: [{ label: 'Proximal', params: { stenosisSite: { TIPS: 'proximal' } } }, { label: 'Mid', params: { stenosisSite: { TIPS: 'mid' } } },
         { label: 'Distal', own: true, params: { stenosisSite: { TIPS: 'distal' } } }],
       kicker: 'TIPS stenosis', title: 'The jet shows where the stent narrows',
-      line: 'Most narrowings form at the hepatic vein end, but some form mid stent or at the portal end. Wherever it sits, the jet runs over {>190 cm/s} only at the narrowing, and the other two points read under {<90 cm/s}.',
+      line: 'Most narrowings form at the hepatic vein end, some mid stent or at the portal end. Only the narrowing runs over {>190 cm/s}; the other two points read under {<90 cm/s}. In variance mode the jet\'s trace turns from orange toward yellow.',
       notes: 'A narrowing at the hepatic vein end often reflects intimal hyperplasia where the stent meets the hepatic vein, or a stent that stops short of the cava. Within the stent, pseudointimal hyperplasia or a kink can narrow it, and at the portal end the stent can be too short or angled against the vein wall. The Doppler finds the site by its jet: the fastest of the three readings, with slow flow on either side. The Doppler card lists all three, so read them together and against the baseline study. Tap Proximal, Mid or Distal to move the narrowing; the gate follows it.',
       ask: ['A TIPS reads 60 cm/s proximally, 240 cm/s mid stent and 65 cm/s distally. Where is the narrowing?', 'Mid stent, where the jet is.'],
     },

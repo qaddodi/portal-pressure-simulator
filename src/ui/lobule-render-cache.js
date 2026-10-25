@@ -11,3 +11,6 @@ export const canvasPx = (css, dpr) => Math.max(1, Math.round(css * dpr));
 // Whether anything on the effects layer moves from frame to frame: the lymph (drops or streaks), or the
 // red cells drawn there when the vessels have no WebGL. Otherwise it holds only still shapes, drawn once.
 export const fxMoves = ({ lymph, flat, hide, flow }) => !!lymph || (!!flat && !hide && flow !== false);
+
+// The dive's soft rim, in lobule radii: the scaled-down tissue's surround is opaque to `solid` and gone by `clear` (diveCopy).
+export const DIVE_RIM = { solid: 1.02, clear: 1.2 };

@@ -1,8 +1,9 @@
 // The corner credit finds a free spot on the figure: never on or touching a card, a sheet, a bar or a menu.
 // It keeps its corner while that corner stays free and is never animated (no glide, no fade): any move hides it at once,
 // holds it hidden only until the cards have settled (a slide change lifts its hold 120 ms after the camera move; a move off a spot a card now covers is hidden for 80 ms), then shows it at once at the new spot; with no figure left anywhere it stays hidden.
-import { frameFor } from './frame.js?v=67ca200c87';
-import { layoutWatch } from './idle-keys.js?v=27f599b5bc';
+import { frameFor } from './frame.js?v=19b3f2915c';
+import { gpuProbe } from './gpu-probe.js?v=e82dc07b45';
+import { layoutWatch, PLACED } from './idle-keys.js?v=4b46e6a6ef';
 const nextFrame = frameFor('credit');
 
 // Corners in order of preference. A bottom corner rises above whatever covers it (up to the middle of the figure);
@@ -116,8 +117,8 @@ export function pickCorner(spots, cur, blocked = {}) {
 }
 
 // What the credit keeps clear of. Chrome (the bars, the zoom pill, the figure's labels) is avoided but does not make the screen "busy".
-export const OBSTACLES = '.stage-blocker:not([hidden]), .pz-fk:not([hidden]), .stage-clock, .menu, .umenu:not(.out), .why-pop.show, .modal-back.show, .home:not([hidden]), .scan-probe:not(.off) .sp-body, .pz-shade, .pz-prog';   // (the FibroScan probe's body carries its reading; it counts as chrome below)
-export const CHROME = '#topbar, .pz-fk, #vdock, #zoomPill, #sinViews, .stage-clock, .pz-bar, .scan-probe:not(.off) .sp-body, .pz-prog';   // (.pz-prog: a slide's progress line along the bottom edge)   // (the FibroScan probe: its body carries the reading)
+export const OBSTACLES = '.stage-blocker:not([hidden]), .pz-fk:not([hidden]), .stage-clock, .menu, .umenu:not(.out), .why-pop.show, .modal-back.show, .home:not([hidden]), .scan-probe:not(.off) .sp-body, .dop-probe:not(.off) .dpr-body, .pz-shade, .pz-prog';   // (the FibroScan probe's body carries its reading; it counts as chrome below)
+export const CHROME = '#topbar, .pz-fk, .pz-scales, #vdock, #zoomPill, #sinViews, .stage-clock, .pz-bar, .scan-probe:not(.off) .sp-body, .dop-probe:not(.off) .dpr-body, .pz-prog';   // (.pz-prog: a slide's progress line along the bottom edge)   // (the FibroScan probe: its body carries the reading)
 
 // The figure's own labels (station values, organ captions) and measuring callouts: each one's text and pill, padded and snapped outward to a small
 // grid, so a label that jitters by a pixel as its number changes does not read as a move.
@@ -167,9 +168,19 @@ const VESSELS = '#edges :is(.v-lumen, .v-lumenP, .v-strand), #world .v-hit';
 // (The diaphragm's line across the back wall counts too: the credit had sat on it with the menu open; sweep 02 #11.)
 const FLUID = '#ascites .ascites-fill, #ascites .ascites-line, path.flank, path.org-diaphragm';
 const num = (el, a) => parseFloat(el.getAttribute(a)) || 0;
+// (A path's Path2D is kept while its outline is the same: read again from its text on every look, the organs' thousands of
+// paths, about 1 MB, were most of the 73 to 95 ms each look took on a Mac once a pan or pinch had stopped: Mohammad's ?perf
+// readout, 21 Oct. The same outline, so the same cells.)
+const pathMemo = new WeakMap();
 function shapePath(el) {
   const p = new Path2D(), tag = el.tagName.toLowerCase();
-  if (tag === 'path') return new Path2D(el.getAttribute('d') || '');
+  if (tag === 'path') {
+    const d = el.getAttribute('d') || '', m = pathMemo.get(el);
+    if (m && m.d === d) return m.p;
+    const q = new Path2D(d);
+    pathMemo.set(el, { d, p: q });
+    return q;
+  }
   if (tag === 'circle') p.arc(num(el, 'cx'), num(el, 'cy'), num(el, 'r'), 0, 2 * Math.PI);
   else if (tag === 'ellipse') p.ellipse(num(el, 'cx'), num(el, 'cy'), num(el, 'rx'), num(el, 'ry'), 0, 0, 2 * Math.PI);
   else if (tag === 'rect') p.rect(num(el, 'x'), num(el, 'y'), num(el, 'width'), num(el, 'height'));
@@ -201,11 +212,16 @@ export function organTest(wr, ring = null) {
         if (!m || !r.width) continue;   // (drawn as a bitmap plate, the shapes stay in place but hidden: they still count)
         const cs = getComputedStyle(el);
         if (cs.display === 'none') continue;
+        const w = parseFloat(cs.strokeWidth) || 0;
+        // A shape wholly off the grid paints nothing in it, and is not drawn: zoomed in, most of the organs' shapes are off
+        // screen, and drawing them all took 28 ms after each pan or zoom (Mohammad's ?perf readout, Mac, 21 Oct). (Its box is
+        // the fill's: grown by the most its stroke reaches, a miter at the default limit, twice the stroke width, and a cell.)
+        const g = 2 * w * Math.max(Math.hypot(m.a, m.b), Math.hypot(m.c, m.d)) + CELL;
+        if (r.right + g < wr.left || r.left - g > wr.left + cols * CELL || r.bottom + g < wr.top || r.top - g > wr.top + rows * CELL) continue;
         // One canvas pixel per cell: cell (i, j) covers wrap px [i * CELL, (i + 1) * CELL).
         ctx.setTransform(m.a / CELL, m.b / CELL, m.c / CELL, m.d / CELL, (m.e - wr.left) / CELL, (m.f - wr.top) / CELL);
         const path = shapePath(el);
         if (asDrawn ? cs.fill !== 'none' : !vessel || (cs.fill !== 'none' && !el.classList.contains('v-hit'))) ctx.fill(path);
-        const w = parseFloat(cs.strokeWidth) || 0;
         if (w > 0 && (asDrawn ? cs.stroke !== 'none' : !vessel || cs.stroke !== 'none' || el.classList.contains('v-hit'))) { ctx.lineWidth = el.classList.contains('v-hit') ? w * 0.7 : w; ctx.lineCap = cs.strokeLinecap || 'butt'; ctx.lineJoin = cs.strokeLinejoin || 'miter'; ctx.stroke(path); }
       }
       const px = ctx.getImageData(0, 0, cols, rows).data;
@@ -355,7 +371,7 @@ export function createCreditPlacer(credit, { keptStyle = null } = {}) {
     const wr = wrap.getBoundingClientRect();
     let { w, h } = measure(false);
     const fig = { l: size.sl, t: 0, r: wr.width - size.sr, b: wr.height - Math.max(0, size.sb - Math.max(0, innerHeight - wr.bottom)) };   // (the home indicator's strip, where the figure reaches the screen's bottom)
-    const els = [...document.querySelectorAll(OBSTACLES)], obs = [...els.map((el) => rectOf(el, wr)), ...labelRects(wr, wrap, keptStyle)].filter((o) => o && hit(o, fig));
+    const els = [...document.querySelectorAll(OBSTACLES)], obs = [...els.map((el) => rectOf(el, wr)), ...gpuProbe.time(null, 'credit: labels', () => labelRects(wr, wrap, keptStyle))].filter((o) => o && hit(o, fig));
     const busy = obs.some((o) => !o.chrome);
     credit.classList.toggle('busy', busy);
     if (busy) ({ w, h } = measure(true));
@@ -363,7 +379,7 @@ export function createCreditPlacer(credit, { keptStyle = null } = {}) {
     const now = performance.now();
     // A card still sliding or fading in is not where it will settle: wait for it (and for its size to stop changing).
     // (The card and its blocks only: a live instrument deep inside eases all the time and kept the credit hidden.)
-    const settling = els.some((el) => [el, ...el.children].some((c) => c.getAnimations().some((an) => an.playState === 'running' && Number.isFinite(an.effect?.getComputedTiming().endTime))));
+    const settling = gpuProbe.time(null, 'credit: card motion', () => els.some((el) => [el, ...el.children].some((c) => c.getAnimations().some((an) => an.playState === 'running' && Number.isFinite(an.effect?.getComputedTiming().endTime)))));
     // (lastSig is empty after a slide change: the first look at the settled cards is taken as it is, with no extra beat.)
     if ((lastSig && sig !== lastSig) || settling) {
       // Something moved: if it now reaches the credit, hide it at once; let it settle before choosing a new spot
@@ -387,7 +403,7 @@ export function createCreditPlacer(credit, { keptStyle = null } = {}) {
     if (look === kept && !settling) { for (const k of keptBlocked) blocked[k] = now; return; }
     kept = '';
     const opt = { gap: wr.width < 768 ? 12 : 24, inset: sr?.width ? Math.max(12, Math.round(sr.left - wr.left - fig.l)) : wr.width < 768 ? 12 : 24 };   // (a clear gap from every card: 24 px on a laptop or tablet)
-    const art = organTest(wr, ring);
+    const art = gpuProbe.time(null, 'credit: art grid', () => organTest(wr, ring));
     // It holds its spot while that spot stays good: inside the figure, clear of every card and label by the gap, and as clear of the
     // art as when it was chosen. A better spot freeing up is no reason to move (a label's live number changing width beside it
     // had it hop between spots every few seconds; Circuit 7 on a phone). After a slide change or a resize it picks anew.
@@ -443,11 +459,21 @@ export function createCreditPlacer(credit, { keptStyle = null } = {}) {
   function soon() { if (!raf) raf = nextFrame(check); }
   addEventListener('resize', () => { resizedAt = performance.now(); soon(); });
   addEventListener('pps:occ', soon);
-  // Readout bars ease on every value and never cover the figure: their transitions are not a reason to look again.
-  const settled = (e) => { if (!e.target.classList?.contains('rb-fill')) soon(); };
+  // Readout bars ease on every value and never cover the figure: their transitions are not a reason to look again. Nor is a
+  // transition that can move nothing the look measures: only one on the figure (its labels), or on, in or around a card, bar or
+  // menu (PLACED: base selectors, so a piece fading out of its shown state still counts). Review item 29.
+  const settled = (e) => {
+    const t = e.target;
+    if (t?.nodeType !== 1 || t.classList.contains('rb-fill')) return;
+    if (wrap.contains(t) || t.closest(PLACED) || t.querySelector(PLACED)) soon();
+  };
   addEventListener('transitionend', settled, true);
   addEventListener('animationend', settled, true);
-  if (app) new MutationObserver(soon).observe(app, { attributes: true, attributeFilter: ['class'] });
+  // (Not for stage-busy alone: the floating pieces' fade while the figure moves changes only their opacity, and a look then,
+  // as the menus faded back in after each pan or pinch, added to that beat's hitch.)
+  const appCls = () => app.className.replace(/(?:^|\s)stage-busy(?=\s|$)/g, '');
+  let appWas = app ? appCls() : '';
+  if (app) new MutationObserver(() => { const c = appCls(); if (c !== appWas) { appWas = c; soon(); } }).observe(app, { attributes: true, attributeFilter: ['class'] });
   // Cards open, close and resize in many ways; a light poll catches the ones no event announces. (It looks only when something
   // the look measures may have changed: a card or bar moved, sized or changed state (layoutWatch), the labels were laid out
   // again or the camera moved, or labels came or went. In the lobule and the sinusoid, whose own labels move by themselves, it

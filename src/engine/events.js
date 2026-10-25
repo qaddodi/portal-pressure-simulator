@@ -1,6 +1,7 @@
 // Event detectors with hysteresis (blueprint §10.3). Pure functions of engine state.
 
-import { computeMetrics } from './metrics.js?v=e566c70621';
+import { computeMetrics } from './metrics.js?v=1db0ad7ab0';
+import { FLOW_CUTS } from './flow-cuts.js?v=1c97536e9e';
 
 const COLLATERAL_NAMES = {
   C1b: ['Esophageal varices', 'VAR'], C3: ['Paraumbilical vein (caput medusae)', 'C3'], C4: ['Anorectal varices', 'C4'],
@@ -21,7 +22,7 @@ function defs(m, eng) {
       title: 'SMV flow reversed', detail: 'Portal blood is draining retrograde into the mesenteric veins.' },
     { id: 'INTRAHEPATIC_REVERSAL', on: Qf('PRE_R') < -0.2 || Qf('PRE_L') < -0.2 || Qf('PVH_L') < -0.2, off: Qf('PRE_R') > 0 && Qf('PRE_L') > 0 && Qf('PVH_L') > 0,
       severity: 'info', anchor: 'LPV', title: 'Intrahepatic portal branches reversed', detail: 'Arterial blood entering the sinusoids escapes backward through portal branches (typical after TIPS).' },
-    { id: 'PV_STASIS', on: Math.abs(m.pvVel) < 9 && !occ('PV_TRUNK'), off: Math.abs(m.pvVel) > 12, severity: 'caution', anchor: 'PV_TRUNK',
+    { id: 'PV_STASIS', on: Math.abs(m.pvVel) < FLOW_CUTS.stasis && !occ('PV_TRUNK'), off: Math.abs(m.pvVel) > FLOW_CUTS.stasisOff, severity: 'caution', anchor: 'PV_TRUNK',
       title: 'Portal vein stasis', detail: 'Doppler velocity < 9 cm/s: stagnant flow raises the risk of portal vein thrombosis.' },
     { id: 'CSPH', on: m.hvpg >= 10, off: m.hvpg < 9.5, severity: 'caution', anchor: 'SIN_R',
       title: 'Clinically significant portal hypertension', detail: 'HVPG ≥ 10 mmHg (in cirrhosis): collaterals and varices can develop.' },
@@ -29,7 +30,7 @@ function defs(m, eng) {
       title: 'HVPG ≥ 12 mmHg', detail: 'Bleeding becomes more likely at higher gradients, but 12 is not a threshold: varices can bleed below it.' },
     { id: 'VARIX_LARGE', on: m.varix.d >= 5, off: m.varix.d < 4.5, severity: 'caution', anchor: 'VAR',
       title: 'Large esophageal varices', detail: 'Diameter ≥ 5 mm: high-risk varices.' },
-    { id: 'RED_WALE', on: m.varix.ratio > 0.7, off: m.varix.ratio < 0.65, severity: 'danger', anchor: 'VAR',
+    { id: 'RED_WALE', on: m.varix.ratioMean > 0.7, off: m.varix.ratioMean < 0.65, severity: 'danger', anchor: 'VAR',
       title: 'Red wale signs', detail: 'Modeled wall stress is approaching its rupture point (index = ΔP·r / w).' },
     { id: 'ASCITES_FORMING', on: m.ascites.ratePerDay > 80 && m.ascites.volume > 150, off: m.ascites.ratePerDay < -50, severity: 'caution', anchor: 'PERITONEUM',
       title: 'Ascites forming', detail: 'Filtration has overwhelmed lymphatic drainage.' },
@@ -82,21 +83,28 @@ function breathAveraged(m, eng, init) {
   return s;
 }
 
+// Hold: a condition must hold for this much model time before an event fires or clears. (It was three evaluations, which
+// are frames: 0.3 s of model time at 1x, 2.4 s at 8x, and a few milliseconds during a slider drag, where every change
+// posts a frame of its own. Model time is the same on every device and at every speed.)
+const HOLD_S = 0.25;
 export function detectEvents(eng, init = false) {
   const m = computeMetrics(eng);
+  const day = (eng.day || 0) + (eng.dayFrac || 0);
+  // How long the condition has held, in model seconds; the clock starts over on a new day, a restored state or a clock set back.
+  const held = (s) => {
+    if (s.since == null || s.sinceDay !== day || eng.t < s.since) { s.since = eng.t; s.sinceDay = day; return 0; }
+    return eng.t - s.since;
+  };
   for (const d of defs(breathAveraged(m, eng, init), eng)) {
     const s = eng.evState[d.id] || (eng.evState[d.id] = { active: false });
-    // Hold: the condition must persist for 3 consecutive evaluations before firing or clearing.
     if (!s.active && d.on) {
-      s.n = (s.n || 0) + 1;
-      if (init || s.n >= 3) {
-        s.active = true; s.n = 0;
+      if (init || held(s) >= HOLD_S) {
+        s.active = true; s.since = null;
         if (!init) eng.pushEvent({ id: d.id, severity: d.severity, title: d.title, detail: d.detail, anchor: d.anchor });
       }
     } else if (s.active && d.off) {
-      s.n = (s.n || 0) + 1;
-      if (s.n >= 3) { s.active = false; s.n = 0; }
-    } else s.n = 0;
+      if (held(s) >= HOLD_S) { s.active = false; s.since = null; }
+    } else s.since = null;
   }
   return m;
 }

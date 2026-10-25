@@ -192,3 +192,18 @@ test('the credit is hidden in the sinusoid view and while zooming into or out of
   const src = readFileSync(new URL('../src/ui/credit.js', import.meta.url), 'utf8');
   assert.match(src, /if \(inSinusoid\(\)\) \{\s*credit\.classList\.add\('covered'\)/, 'check() hides it (covered: no fade) in the sinusoid');
 });
+
+// Review item 29: a transition ending elsewhere in the app (a button's hover, a menu row) no longer asks for a look; one on the
+// figure, or on, in or around a placed piece, still does.
+test('the credit looks again only for transitions that can move what it measures', async () => {
+  const { readFileSync } = await import('node:fs');
+  const { PLACED } = await import('../src/ui/idle-keys.js');
+  const src = readFileSync(new URL('../src/ui/credit.js', import.meta.url), 'utf8');
+  assert.match(src, /if \(t\?\.nodeType !== 1 \|\| t\.classList\.contains\('rb-fill'\)\) return;\n\s+if \(wrap\.contains\(t\) \|\| t\.closest\(PLACED\) \|\| t\.querySelector\(PLACED\)\) soon\(\);/);
+  const { OBSTACLES } = await import('../src/ui/credit.js');
+  // Every obstacle's base class is a placed piece, so its own transitions still count.
+  for (const sel of OBSTACLES.split(',')) {
+    const base = sel.trim().split(/[\s:]/)[0].replace(/\.(show|out)$/, '');
+    assert.ok(PLACED.split(',').map((x) => x.trim()).includes(base), base);
+  }
+});

@@ -15,6 +15,9 @@ export function strHash(str) {
 
 // Spacing of the grid the sites are bucketed in.
 const G = 13;
+// The nodules' size (organ picks, 20 Oct: "a little bit larger cells"): every site's spacing scaled by it. Changing it
+// changes the sites: run scripts/liver-geo.mjs again. (1.4 on the picked liver; 1.29 on his smaller outline, so it keeps about as many.)
+export const NODULE_SIZE = 1.29;
 // Regenerative nodules as a packing of irregular polygons (a Voronoi diagram of dart-thrown
 // sites, each with its own random spacing, so nodule sizes mix evenly over the whole
 // liver). These are the sites, [[x, y]], inside (or just outside) the outline.
@@ -43,7 +46,7 @@ export function nodularSites(outline) {
   // Dart throwing, with a grid of accepted sites so each try checks only its neighbours.
   const sites = [], grid = new Map();
   for (let k = 0; k < 160000 && sites.length < 4600; k++) {
-    const x = 290 + 620 * r(), y = 150 + 390 * r(), d = 5 + 4.5 * r();
+    const x = 290 + 620 * r(), y = 150 + 390 * r(), d = (5 + 4.5 * r()) * NODULE_SIZE;
     const gx = Math.floor(x / G), gy = Math.floor(y / G);
     let ok = true;
     for (let i = -1; i <= 1 && ok; i++) for (let j = -1; j <= 1 && ok; j++) {

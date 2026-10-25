@@ -2,42 +2,58 @@
 // over an SVG scene that holds the organ artwork, hit targets and overlays, and screen-space labels.
 
 import { EDGES, dopplerK, NODES, PORTAL_TERRITORY, dMinOf, edgePresent, isOccluded, SHUNT_PORTAL, SHUNT_SYSTEMIC, customShuntId, isStent, stentSite, STENT_SITES, STENT_SPANS, stentGate, stentSegments } from '../engine/topology.js?v=4044766e96';
-import { route as metroRoute, LABEL_VESSEL, TIP_FADE, TIP_CONNECT, VIEW, VB_ANAT, VB_CIRC, ATLAS_COLUMNS, HIDDEN_EDGES, HIDDEN_NODES, ANAT_HIDDEN, ANAT_HIDDEN_NODES, CAUDATE, CONTEXT_EDGES, BACK_EDGES, IVC_EDGES, NEEDS_C3, NODE_POS, EDGE_PATH, CIRCUIT_PATH, metroPath, ORGANS, ORGAN_DETAIL, BACKDROP, LIVER_INNER, LIVER_EDGES, LANE_CAPTIONS, ABDOMEN_CLIP, ABDOMEN_FLOOR, flankPath, abdomenOutline, cavityHalfWidths, SPLEEN_CENTER, SITES, ORGAN_LABELS, ATLAS_LABELS, SHORT, ABBR, CHIP_NODES, LIVER_SPLIT_X, CIRCUIT_ZONES, CIRCUIT_LABELS, STRANDS, STRAND_FROM, SIN_EDGES, FEEDERS, fanFeeders, CIRCUIT_TREES } from './anatomy.js?v=8374d8e213';
-import { pressureColor, deltaColor, dropColor, flowColor, heatColor, velColorOf, velocityColor, oxygenColor } from './colormap.js?v=dc071e3659';
-import { STATION_VESSEL, meanVel, velNormal } from './velNormal.js?v=181dda5594';
-import { store, updateParams, varicesPresent, varixGrowth, shownVel } from './store.js?v=31ee79b6ab';
-import { fibroReading } from './clock.js?v=520596240b';
-import { s, h, fmt, fmtFlow, fp, clamp, lerp, toast, systemEdge, bloodColors, restBox, settledBox, putText } from './util.js?v=b6a40567da';
-import { createLobuleZoom } from './lobule-zoom.js?v=4f31f360d0';
-import { runFlick, FLICK } from './flick.js?v=3da45febf2';
+import { route as metroRoute, RECTUM_FADE, LABEL_VESSEL, TIP_FADE, TIP_CONNECT, VIEW, VB_ANAT, VB_CIRC, ATLAS_COLUMNS, HIDDEN_EDGES, HIDDEN_NODES, ANAT_HIDDEN, ANAT_HIDDEN_NODES, CAUDATE, CONTEXT_EDGES, BACK_EDGES, IVC_EDGES, NEEDS_C3, NODE_POS, EDGE_PATH, CIRCUIT_PATH, metroPath, ORGANS, SEAM_D, ORGAN_DETAIL, BACKDROP, LIVER_INNER, LIVER_EDGES, LANE_CAPTIONS, ABDOMEN_CLIP, ABDOMEN_FLOOR, flankPath, abdomenOutline, cavityHalfWidths, SPLEEN_CENTER, SITES, ORGAN_LABELS, ATLAS_LABELS, SHORT, ABBR, CHIP_NODES, LIVER_SPLIT_X, CIRCUIT_ZONES, CIRCUIT_LABELS, STRANDS, STRAND_FROM, SIN_EDGES, FEEDERS, fanFeeders, CIRCUIT_TREES } from './anatomy.js?v=aeef116188';
+import { pressureColor, deltaColor, dropColor, flowColor, heatColor, velColorOf, velocityColor, oxygenColor } from './colormap.js?v=cdcf6a2f55';
+import { forkJoins, sideEndScale } from './fork-joins.js?v=20a032142f';
+import { nodeEnds, nodeDrawn, dotRadius, bareDots } from './circuit-nodes.js?v=1040ba0ec4';
+import { STATION_VESSEL, meanVel, velNormal, judgeFlow } from './velNormal.js?v=97920ddf3f';
+import { store, updateParams, varicesPresent, varixGrowth, shownVel } from './store.js?v=67f4341802';
+import { fibroReading } from './clock.js?v=6a1f89a5c2';
+import { s, h, fmt, fmtFlow, fp, clamp, lerp, toast, systemEdge, bloodColors, restBox, translateRest, settledBox, putText, UPRIGHT_MQ } from './util.js?v=d2c95a1b16';
+import { riseCentre } from './rise-path.js?v=c039cb7b49';
+import { sinceSource } from './since-ref.js?v=ef1a818c75';
+import { clipBox, mapBox } from './fit-box.js?v=d5d6d4c60f';
+import { runFlick, FLICK } from './flick.js?v=9602697f46';
 import { inlineStyles } from './svg-inline.js?v=fc17cb73fe';
 import { fluidTarget, poolFade } from './fluid-step.js?v=2742314765';
 import { easeTo, fluidSpring, fluidSpringFor } from './organ-ease.js?v=4ebb648131';
-import { subpathsIn, foldOpacity, dropInvisible, mergeClipRuns } from './plate-copy.js?v=8a7456e9fc';
+import { spleenMotion } from './spleen-motion.js?v=4e87db0dbb';
+import { subpathsIn, foldOpacity, dropInvisible, mergeClipRuns, boxOutside, paintBox, maskRegionIn, maskSlot, fillMaskHead, pruneDefs } from './plate-copy.js?v=0b5acb0928';
 import { gridHits, segHitsBox } from './seg-hits.js?v=e7cde76929';
 import { glassCallout } from './callout.js?v=d5524b6a11';
 import { TEXT_MIN, TEXT_MAX, rolePx, roleOf } from './type-scale.js?v=d7cca3fb73';
-import { seeded, strHash, nodularSites, nodularCells } from './liver-geo.js?v=44b4455160';
-import { LIVER_GEO } from './liver-geo-data.js?v=d2bd9ee6b4';
+import { seeded, strHash, nodularSites, nodularCells } from './liver-geo.js?v=977185f80a';
+import { diaphragmLine, diaphragmD } from './diaphragm.js?v=8012ab6b28';
+import { CIRR, smooth01, liverField, liverShrink, outlineNormals, contourNodules, morphOutline, fix1 } from './liver-morph.js?v=391612f29e';
+import { LIVER_GEO } from './liver-geo-data.js?v=41a20a25ac';
+import { COLON_ART, BOWEL_ART, DUO_CLIPS, DUO_A, DUO_B } from './organ-art.js?v=a6a766d521';
+import { warmVisible, ringGrid, inGrid } from './warm-vis.js?v=ccf4f6f71b';
 import { createRouter } from './circuit-router.js?v=0ee9e02fc6';
-import { gpuProbe } from './gpu-probe.js?v=d4aeccea90';
-import { plateStrips, premultiply } from './plate-upload.js?v=2dd6db2a18';
-import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, ORIGIN_GREY } from './veins-gl.js?v=e796165537';
+import { gpuProbe } from './gpu-probe.js?v=e82dc07b45';
+import { plateStrips, premultiply, gutStep, viewReuse, copyPixels } from './plate-upload.js?v=5fc45556a1';
+import { cropToGrid } from './organs-gl.js?v=c7b2151086';
+import { readGroup, shapeSource, bindShape } from './organ-paint.js?v=d84c87f18d';
+import { pathCmds } from './shape-gl.js?v=690a96f0f2';
+import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, ORIGIN_GREY } from './veins-gl.js?v=256a37b262';
 import { varixBead, beadRadius } from './varix-bead.js?v=ac0e84fd89';
-import { advanceStream, createReversalHold, bleedShapes, chevFlowLevel, keyChevron, KEY_CHEV_LANES, originFractions, oxygenFor, ORIGIN_N, createBolus, DYE_BINS, KAPPA, STASIS_MIN_D, HIDDEN_SECONDS } from './blood.js?v=b0e8934683';
-import { frameFor, cancelFrame, noteDraw, setSaver as setFrameSaver, paceMs } from './frame.js?v=67ca200c87';
+import { advanceStream, createReversalHold, bleedShapes, stepBleedFade, fadeBleedShapes, chevFlowLevel, keyChevron, KEY_CHEV_LANES, originFractions, oxygenFor, ORIGIN_N, createBolus, DYE_BINS, KAPPA, STASIS_MIN_D, HIDDEN_SECONDS } from './blood.js?v=e668d01823';
+import { frameFor, cancelFrame, noteDraw, setSaver as setFrameSaver, paceMs } from './frame.js?v=19b3f2915c';
 import { softwareYield } from './sw-yield.js?v=e580a095b1';
-import { portalSplit } from './table-marks.js?v=e25caf9bf9';
+import { portalSplit } from './table-marks.js?v=15f059172f';
 import { hashSeed, clotSide, clotSpan, clotRadius, clotShift, clotLayers, CLOT_EDGE } from './clot-shape.js?v=415ba6b9c0';
 import { leaderEnd as edgeOf, leaderEndRects as edgeOfRects } from './leader-end.js?v=8e884700ab';
 import { balloonRy, balloonOutline, routeRadii } from './hvpg-balloon.js?v=35d7bb162c';
 import { outlineBox, placeSummary } from './cath-place.js?v=b5835a19ca';
-import { layoutWatch } from './idle-keys.js?v=27f599b5bc';
+import { layoutWatch } from './idle-keys.js?v=4b46e6a6ef';
 import { writeGlowTexels } from './glow-texels.js?v=e578794a92';
 import { SIN_PERFUSION, sinStrandRadius } from './sin-perfusion.js?v=25a8407fdd';
 import { wavePacks, paintWave } from './scan-waves.js?v=066db7aa38';
+import { fitPose, probeShapes, beamBoxes, gateBoxes, awayFromProbe, createProbeMind, NONE_MS, SLACK, PROBE, PROBE_SVG } from './dop-probe.js?v=34cec11e48';
+import { pathPieces, piecesLength, pointsAlong } from './path-pieces.js?v=e486672c9b';
 import { organDimMatrix } from './organ-dim.js?v=7888276613';
 import { parseColor, greyOf, paintRef } from './organ-grey.js?v=e41d68222c';
+import { bandRing, dashRings, liftEnd, normalShown, rippleList, systemOf, SYSTEM_COLOR } from './highlight-math.js?v=e2c1816e25';
+import { organAnchor, spleenCaliper, acrossVessel, stepGroups, spanOf, spanPath, zoneBand, SPAN_TICK, insideBy, clearOf, besideLine } from './callout-math.js?v=d8785a0ad3';
 const nextFrame = frameFor('stage');
 
 const N_SAMPLES = 64;
@@ -71,6 +87,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // setting, a resize, or a new text size.
   // (A settings change reaches its listeners only at the next frame: a read between, from a timer or an idle moment, checks them itself.)
   let csSnap = null, csMq = null;
+  // A class list less the classes a pan or pinch puts on and takes off, which change no colour or look the stage draws.
+  const gestureFree = (c) => (c || '').replace(/(?:^|\s)(?:panning|stage-busy|figure-focus)(?=\s|$)/g, '');
   const MQ = ['(prefers-color-scheme: dark)', '(prefers-reduced-motion: reduce)', '(prefers-reduced-transparency: reduce)', '(hover: hover)', '(pointer: coarse)', 'print'].map((q) => matchMedia(q));
   function wrapCS() {
     if (csSnap && MQ.some((q, i) => q.matches !== csMq[i])) csSnap = null;
@@ -83,8 +101,17 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   }
   {
     const drop = () => { csSnap = null; };
-    const mo = new MutationObserver(drop);
-    for (let el = wrap; el; el = el.parentElement) mo.observe(el, { attributes: true, attributeFilter: ['class', 'style', 'hidden', 'data-theme', 'data-noglass', 'data-mode'] });
+    // (Not for the classes of a gesture alone: panning (the cursor), stage-busy (the menus' fade) and figure-focus (the phone's
+    // top bar and dock) set no colour the stage reads. Dropped, the snapshot forced a style pass and a whole vessel sync as a
+    // pan began, as it ended and again as the menus faded back in, 0.6 s after (Mohammad, 21 Oct: "still lag after i pan or zoom").)
+    const seen = new Map();
+    const mo = new MutationObserver((recs) => {
+      for (const r of recs) {
+        if (r.attributeName === 'class') { const c = gestureFree(r.target.getAttribute('class')); if (seen.get(r.target) === c) continue; seen.set(r.target, c); }
+        drop(); return;
+      }
+    });
+    for (let el = wrap; el; el = el.parentElement) { seen.set(el, gestureFree(el.getAttribute('class'))); mo.observe(el, { attributes: true, attributeFilter: ['class', 'style', 'hidden', 'data-theme', 'data-noglass', 'data-mode'] }); }
     // (The settings the style sheets ask about; the sizes come with a resize, as does a turn of the device or a page zoom.)
     for (const q of MQ) q.addEventListener?.('change', drop);
     addEventListener('resize', drop); addEventListener('orientationchange', drop); addEventListener('pps:labelscale', drop);
@@ -99,7 +126,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   document.addEventListener('visibilitychange', watch.touch);
   document.fonts?.addEventListener?.('loadingdone', watch.touch);
   for (const q of MQ) q.addEventListener?.('change', watch.touch);
-  store.on('*', (keys) => { if (keys.some((k) => k !== 'frame')) watch.touch(); });
+  // (Not the model's frames, nor its parameters: a slide's time-lapse sets them several times a second for minutes, which kept the
+  // cards' boxes read ten times a second through the slide; a card that grows with a new reading is seen by its own size watch.)
+  store.on('*', (keys) => { if (keys.some((k) => k !== 'frame' && k !== 'params')) watch.touch(); });
   svg.setAttribute('viewBox', `0 0 ${VIEW.w} ${VIEW.h}`);
   svg.setAttribute('preserveAspectRatio', 'xMidYMid meet');
 
@@ -193,6 +222,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const GPU_EASE = { IVCS_RA: 'RA' };
   // Shunts that leave and join a vein part-way along it, not at a node: the veins at each end ([from end], [to end]).
   const SIDE_HOSTS = { C6: [['V_SPL', 'SV_MID'], ['V_KID_L']], S_DSR: [['V_SPL', 'SV_MID'], ['V_KID_L']] };
+  // The ends of those that lie inside the vein's lumen, as a side branch (the Warren shunt's start runs on from the
+  // divided splenic vein instead): narrowed there on the GPU (renderTube).
+  const SIDE_INSIDE = { C6: [true, true], S_DSR: [false, true] };
   // Surgical shunts and the vein each one divides (engine.js closes the same vessels): the Warren shunt the splenic
   // vein, the portocaval shunt the portal trunk. The vein's first stretch, at the shunt, is not drawn, so the shunt
   // side and the tied-off stump stand apart with a clear gap, each ending in a rounded cap.
@@ -421,14 +453,15 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const wedgeTip = (id) => { const c = geo[WEDGE_BRANCH[id]]?.cur; return c?.length > 1 ? headOf(c.slice().reverse(), 0.55).at(-1) : null; };
   const nodePos = (id, t) => { if (WEDGE_BRANCH[id]) { const w = wedgeTip(id); if (w) return w; } const [a, c] = NODE_POS[id]; return [lerp(a[0], c[0], t), lerp(a[1], c[1], t)]; };
   // The point half way along a drawn vessel, by length, and the direction it runs there.
-  function arcMid(pts) {
+  // (at: how far along, 0.5 by default: the middle.)
+  function arcMid(pts, at = 0.5) {
     let total = 0;
     for (let i = 1; i < pts.length; i++) total += Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]);
     let run = 0;
     for (let i = 1; i < pts.length; i++) {
       const seg = Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]);
-      if (run + seg >= total / 2 && seg > 0) {
-        const u = (total / 2 - run) / seg, dx = pts[i][0] - pts[i - 1][0], dy = pts[i][1] - pts[i - 1][1];
+      if (run + seg >= total * at && seg > 0) {
+        const u = (total * at - run) / seg, dx = pts[i][0] - pts[i - 1][0], dy = pts[i][1] - pts[i - 1][1];
         return [pts[i - 1][0] + dx * u, pts[i - 1][1] + dy * u, dx / seg, dy / seg];
       }
       run += seg;
@@ -440,6 +473,11 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const defs = s('defs');
   // Organ fills: a light top-to-bottom falloff in the organ's own hue.
   const grad = (id, varName, a0, a1) => `<linearGradient id="${id}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" style="stop-color:var(${varName});stop-opacity:calc(var(--organ-a) * ${a0})"/><stop offset="1" style="stop-color:var(${varName});stop-opacity:calc(var(--organ-a) * ${a1})"/></linearGradient>`;
+  // The diaphragm's mask ends where its fade does (diaFadeG: clear from y 420 down, padded clear past it): the same pixels, as below it
+  // the mask hid everything anyway. Ending at the bottom of the view, its region made the page build a mask the size of the whole
+  // backdrop on every frame the organs were drawn live (the flank, drawn with ascites, stretched the backdrop over the abdomen), as
+  // the liver eased (Mohammad's iPhone ?perf, 21 Oct: 35-50 ms frames with the live organs left out, 60-140 with them; 16 Oct notes).
+  const DIA_MASK_H = 422 + 150;
   defs.innerHTML = `
     ${grad('gLiver', '--organ-liver', 0.8, 1.05)}${grad('gStomach', '--organ-stomach', 0.75, 1)}${grad('gSpleen', '--organ-spleen', 0.8, 1.05)}
     ${grad('gKidney', '--organ-kidney', 0.75, 1)}${grad('gGut', '--organ-gut', 0.6, 0.85)}${grad('gHeart', '--organ-heart', 0.8, 1.05)}${grad('gPancreas', '--organ-pancreas', 0.8, 1)}
@@ -451,7 +489,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     <linearGradient id="esoFadeG" gradientUnits="userSpaceOnUse" x1="0" y1="40" x2="0" y2="-40"><stop offset="0" stop-color="#fff"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient>
     <mask id="esoFade" maskUnits="userSpaceOnUse" x="0" y="-150" width="${VIEW.w}" height="${VIEW.h + 150}"><rect x="0" y="-150" width="${VIEW.w}" height="${VIEW.h + 150}" fill="url(#esoFadeG)"/></mask>
     <linearGradient id="diaFadeG" gradientUnits="userSpaceOnUse" x1="0" y1="300" x2="0" y2="420"><stop offset="0" stop-color="#fff"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient>
-    <mask id="diaMask" maskUnits="userSpaceOnUse" x="0" y="-150" width="${VIEW.w}" height="${VIEW.h + 150}"><rect x="0" y="-150" width="${VIEW.w}" height="${VIEW.h + 150}" fill="url(#diaFadeG)"/></mask>
+    <mask id="diaMask" maskUnits="userSpaceOnUse" x="0" y="-150" width="${VIEW.w}" height="${DIA_MASK_H}"><rect x="0" y="-150" width="${VIEW.w}" height="${DIA_MASK_H}" fill="url(#diaFadeG)"/></mask>
+    <linearGradient id="rectFadeG" gradientUnits="userSpaceOnUse" x1="0" y1="${RECTUM_FADE[0]}" x2="0" y2="${RECTUM_FADE[1]}"><stop offset="0" stop-color="#fff"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient>
+    <mask id="rectFade" maskUnits="userSpaceOnUse" x="0" y="0" width="${VIEW.w}" height="1100"><rect x="0" y="0" width="${VIEW.w}" height="1100" fill="url(#rectFadeG)"/></mask>
     <clipPath id="abdomenClip"><path d="${ABDOMEN_CLIP}"/></clipPath>
     <radialGradient id="orgForm" cx=".3" cy=".2" r=".95"><stop offset="0" class="lit-hi"/><stop offset=".48" class="lit-mid"/><stop offset="1" class="lit-lo"/></radialGradient>
     <filter id="castShadow" x="-10%" y="-10%" width="130%" height="130%"><feGaussianBlur stdDeviation="7"/></filter>
@@ -460,7 +500,6 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     <pattern id="texRugae" width="40" height="12" patternUnits="userSpaceOnUse" patternTransform="rotate(-38)"><path class="tex" d="M0 6c7-4 13 4 20 0s13-4 20 0"/></pattern>
     <pattern id="texLobules" width="14" height="12" patternUnits="userSpaceOnUse"><path class="tex" d="M1 6a6 5 0 0 1 12 0M-6 12a6 5 0 0 1 12 0M8 12a6 5 0 0 1 12 0"/></pattern>
     <pattern id="texMuscle" width="30" height="10" patternUnits="userSpaceOnUse" patternTransform="rotate(24)"><path class="tex" d="M0 5c8-3 22 3 30 0"/></pattern>
-    <filter id="heatBlur" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="7"/></filter>
     <pattern id="mapGrid" width="20" height="20" patternUnits="userSpaceOnUse"><circle class="map-dot" cx="10" cy="10" r=".9"/></pattern>`;
   svg.append(defs);
   const world = s('g', { id: 'world' });
@@ -486,8 +525,6 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // same three tiers behind the organs.
   const gArt = s('g', { id: 'arteries' });
   const gShadowL = s('g', { id: 'vShadows' });
-  // Heat layer: a soft glow of congestion around the network, like a density map.
-  const gHeat = s('g', { id: 'heatGlow', filter: 'url(#heatBlur)' });
   const gCaseL = s('g', { id: 'vCasings' });
   const gEdges = s('g', { id: 'edges' });
   const gBackS = s('g'), gBackC = s('g'), gBackL = s('g'), gBackH = s('g');
@@ -506,7 +543,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const gTop = s('g', { id: 'focusNet' });
   const gTopS = s('g'), gTopC = s('g'), gTopL = s('g'), gTopH = s('g');
   gTop.append(gTopS, gTopC, gTopL, gTopH);
-  world.append(gBackdrop, gGrid, gBack, gOrgans, gGhost, gFocus, gHeat, gNet, gAscites, gTop, gOver, gNodes, gGuides);
+  world.append(gBackdrop, gGrid, gBack, gOrgans, gGhost, gFocus, gNet, gAscites, gTop, gOver, gNodes, gGuides);
   // The figure is drawn on the GPU (veins-gl.js): the plate, every vessel in both views and the
   // moving blood. The SVG below keeps the organ artwork (rasterized for the GPU), invisible hit
   // targets and focus for each vessel, and what is drawn above the vessels (lesions, stents,
@@ -545,21 +582,10 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   CIRCUIT_ZONES.forEach(([, x0, x1], i) => {
     gGrid.append(s('rect', { x: x0, y: 40, width: x1 - x0, height: 690, class: 'zone' + (i % 2 ? ' alt' : '') }));
   });
+  // A slide's lit zone (deck visuals V25, ext-callouts.js: zone): one band of the five, lit softly (fxSync).
+  const fxZone = s('rect', { x: 0, y: 40, width: 0, height: 690, class: 'fx-zone' });
+  gGrid.append(fxZone);
 
-  // Colon folds: short arcs across the tube at regular intervals.
-  function haustra(d, r) {
-    const p = s('path', { d });
-    svg.append(p);
-    const L = p.getTotalLength();
-    let out = '';
-    for (let l = 14; l < L - 10; l += 24) {
-      const a = p.getPointAtLength(l), b = p.getPointAtLength(l + 1);
-      let tx = b.x - a.x, ty = b.y - a.y; const n = Math.hypot(tx, ty) || 1; tx /= n; ty /= n;
-      out += `M${(a.x - ty * r).toFixed(1)} ${(a.y + tx * r).toFixed(1)} Q${(a.x + tx * 4).toFixed(1)} ${(a.y + ty * 4).toFixed(1)} ${(a.x + ty * r).toFixed(1)} ${(a.y - tx * r).toFixed(1)} `;
-    }
-    p.remove();
-    return out;
-  }
   // Each organ is drawn as a medical plate draws it, lit from the upper left:
   //   ambient occlusion where it meets the body wall (a soft dark edge outside it),
   //   its tissue tone (a light face turning to a shaded face, per tissue),
@@ -582,47 +608,122 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     }
     return dg;
   };
+  // The gut (colon, small bowel, duodenum; organ picks, 20 Oct): drawn from organ-art.js in one see-through group (app.css
+  // --gut-a), so the colon covers the loops under it, and cut away under the liver, stomach, spleen and kidney (#gutHide):
+  // the gut never shows through them. The cut follows the liver and spleen as they change size (syncOrganMasks).
+  // Each gut organ keeps its own group (the bowel's floats up on ascites) and its own path, unpainted (.org-key-path),
+  // which highlights, anchors and the vessels' cover read.
+  const GUT_DRAW = { colon: COLON_ART, bowel: BOWEL_ART, duodenum: `<g clip-path="url(#du-Bc)">${DUO_B}</g>` };
+  const GUT_HIDE = ['liver', 'stomach', 'spleen'];
+  const FLUID_R = [284, 430, 856, 600], FLUID_COLS = 1201;   // the GPU ascites' rectangle (world x, y, w, h), and its rows and columns
+  const MASK_BOX = 'x="200" y="-200" width="1020" height="1320"';   // (the plate's rectangle, PLATE_RECT)
+  defs.insertAdjacentHTML('beforeend', `${DUO_CLIPS}`
+    // colour-exempt: masks (white shows, black hides)
+    // (The gut's mask runs to y 1080, past the rectum's end: at 1040 it cut the rectum off in a hard edge. The rectum's fade is on the colon's
+    // own group, rectFade, as the esophagus has esoFade.)
+    + '<clipPath id="gutBox" clipPathUnits="userSpaceOnUse"><rect x="320" y="420" width="800" height="660"/></clipPath>'
+    + `<mask id="gutHide" maskUnits="userSpaceOnUse" x="320" y="420" width="800" height="660"><rect x="320" y="420" width="800" height="660" fill="#fff"/>${GUT_HIDE.map((id) => `<path data-gut-cut="${id}" d="${id === 'stomach' ? SEAM_D : ORGANS.find((o) => o.id === id).d}" fill="#000"/>`).join('')}</mask>`
+    // The duodenum's first part fades in over the stomach's tip, from inside it (x 730) to just past it (x 712).
+    + '<linearGradient id="duFadeG" gradientUnits="userSpaceOnUse" x1="712" y1="0" x2="730" y2="0"><stop offset="0" stop-color="#fff"/><stop offset="1" stop-color="#000"/></linearGradient><mask id="duFade" maskUnits="userSpaceOnUse" x="500" y="400" width="400" height="400"><rect x="500" y="400" width="400" height="400" fill="url(#duFadeG)"/></mask>'
+    // The esophagus and stomach as one shape: the stomach's tones as one ramp over both, and the esophagus's own tone fading
+    // out over the cardia (y 226 to 262), so no colour step marks the old seam.
+    + '<linearGradient id="seamS" gradientUnits="userSpaceOnUse" x1="750" y1="241" x2="948" y2="566"><stop offset="0" style="stop-color:var(--og-stomach-1)"/><stop offset="1" style="stop-color:var(--og-stomach-2)"/></linearGradient>'
+    + '<linearGradient id="seamFG" gradientUnits="userSpaceOnUse" x1="0" y1="226" x2="0" y2="262"><stop offset="0" stop-color="#fff"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient><mask id="seamFade" maskUnits="userSpaceOnUse" x="700" y="-150" width="200" height="450"><rect x="700" y="-150" width="200" height="450" fill="url(#seamFG)"/></mask>'
+    // The liver lies in front of the stomach and esophagus, which show through it: where it covers them they are drawn at
+    // .65, and up to full strength as cirrhosis comes in (morphLiver); the top still fades out of the plate as before.
+    + `<mask id="frontM" maskUnits="userSpaceOnUse" ${MASK_BOX}><rect ${MASK_BOX} fill="url(#esoFadeG)"/><path data-front d="${ORGANS.find((o) => o.id === 'liver').d}" fill="#000" fill-opacity=".35"/></mask>`
+    // With cirrhosis the liver itself goes lighter over the stomach (to .5 of its strength), in the liver's own frame (the
+    // shrink's inverse, syncOrganMasks), and the stomach's outline is traced over the liver, only where the liver covers it.
+    + `<mask id="lvThin" maskUnits="userSpaceOnUse" ${MASK_BOX}><rect ${MASK_BOX} fill="#fff"/><path data-thin d="${SEAM_D}" fill="#000" fill-opacity="0"/></mask>`
+    + `<mask id="ghostM" maskUnits="userSpaceOnUse" ${MASK_BOX}><path data-ghost d="${ORGANS.find((o) => o.id === 'liver').d}" fill="#fff"/></mask>`
+    // The ascites kept off the congested liver (the page's copy, drawn without WebGL; the GPU's own: fluidLv in veins-gl.js).
+    + `<mask id="ascLv" maskUnits="userSpaceOnUse" ${MASK_BOX}><rect ${MASK_BOX} fill="#fff"/><path data-asc-lv d="${ORGANS.find((o) => o.id === 'liver').d}" fill="#000" fill-opacity="0"/></mask>`);
+  const gutCut = Object.fromEntries([...defs.querySelectorAll('#gutHide [data-gut-cut]')].map((el) => [el.dataset.gutCut, el]));
+  const frontCut = defs.querySelector('#frontM [data-front]'), thinCut = defs.querySelector('#lvThin [data-thin]'), ghostCut = defs.querySelector('#ghostM [data-ghost]'), ascLvCut = defs.querySelector('#ascLv [data-asc-lv]');
+  let gGut = null;
   for (const o of ORGANS) {
     const g = s('g', { class: 'organ organ-' + o.id + (o.tone ? ' tone-' + o.tone : '') });
     let el;
     if (o.circle) { const [cx, cy, r] = o.circle; el = s('circle', { cx, cy, r, class: o.cls, opacity: o.id === 'umbilicus' ? 0 : null }); g.append(el); }
-    else if (o.band) {
-      // Tubes (colon, small bowel, duodenum): a soft contact edge, the wall, the lumen in the
-      // tissue tone, a shaded underside and a light top, then the colon's haustra.
+    else if (o.art || o.id === 'esophagus') {
+      // Drawn from its markup (the esophagus with the stomach, as one shape): the organ's own path stays, unpainted.
+      el = s('path', { d: o.d, class: o.cls + ' org-key-path' });
+      g.append(el);
+      if (o.art) g.insertAdjacentHTML('beforeend', GUT_DRAW[o.art]);
+      if (o.id === 'colon') g.setAttribute('mask', 'url(#rectFade)');   // the rectum runs down out of the frame: it fades away, as the esophagus does at the top
+    } else if (o.band) {
+      // Tubes (the appendix): a soft contact edge, the wall, the lumen in the tissue tone, a shaded underside.
       el = s('path', { d: o.d, class: o.cls + ' band-body' });
       g.append(s('path', { d: o.d, class: o.cls + ' band-ao' }), s('path', { d: o.d, class: o.cls + ' band-edge' }), el,
-        s('path', { d: o.d, class: o.cls + ' band-under', transform: 'translate(1.5 3)' }),
-        s('path', { d: o.d, class: o.cls + ' band-sheen', transform: 'translate(-2 -3.5)' }));
-      if (o.cls === 'org-colon') g.append(s('path', { d: haustra(o.d, 11.5), class: 'org-haustra' }));
-    } else if (o.id === 'heart-out') {
-      // Blood leaving for the right ventricle: three notched darts, no shaft.
-      const n = o.d.match(/-?\d+(?:\.\d+)?/g).map(Number), L = [0, 2, 4, 6].map((i) => [n[i], n[i + 1]]);
-      const bez = (u) => [0, 1].map((j) => (1 - u) ** 3 * L[0][j] + 3 * (1 - u) ** 2 * u * L[1][j] + 3 * (1 - u) * u * u * L[2][j] + u ** 3 * L[3][j]);
-      const d = [0.3, 0.62, 0.94].map((u) => {
-        const [cx, cy] = bez(u), [ax, ay] = bez(u - 0.02), [bx, by] = bez(Math.min(1, u + 0.02));
-        const len = Math.hypot(bx - ax, by - ay) || 1;
-        const ux = (bx - ax) / len, uy = (by - ay) / len, dart = [[0.55, 0], [-0.45, 0.45], [-0.2, 0], [-0.45, -0.45]];
-        return 'M' + dart.map(([a, c]) => `${(cx + (ux * a - uy * c) * 9).toFixed(1)} ${(cy + (uy * a + ux * c) * 9).toFixed(1)}`).join(' L') + ' Z';
-      }).join(' ');
-      el = s('path', { d, class: o.cls });
-      g.append(el);
+        s('path', { d: o.d, class: o.cls + ' band-under', transform: 'translate(1.5 3)' }));
     } else if (o.deco) { el = s('path', { d: o.d, class: o.cls }); g.append(el); }
     else {
-      el = s('path', { d: o.d, class: o.cls + ' org-fill', fill: o.tone ? `url(#og-${o.tone})` : null });
-      defs.insertAdjacentHTML('beforeend', `<clipPath id="clip-${o.id}"><path d="${o.d}"/></clipPath>`);
+      // The stomach is painted as one shape with the esophagus (SEAM_D); its own outline stays its organ path.
+      const seam = o.id === 'stomach', d = seam ? SEAM_D : o.d;
+      el = s('path', { d, class: o.cls + ' org-fill', fill: o.tone ? `url(#og-${o.tone})` : null });
+      defs.insertAdjacentHTML('beforeend', `<clipPath id="clip-${o.id}"><path d="${d}"/></clipPath>`);
       const clip = `url(#clip-${o.id})`;
-      g.append(s('path', { d: o.d, class: 'org-ao' }), el, s('path', { d: o.d, class: 'org-form', fill: 'url(#ogVol)' }));
+      g.append(s('path', { d, class: 'org-ao' }));
+      if (seam) {
+        // A base over all of it, the stomach's fill and volume on its own outline, then the esophagus's, fading over the cardia.
+        const eso = ORGANS.find((q) => q.id === 'esophagus').d.replace('L 792 251', 'L 813 266 L 792 266');
+        const sg = s('g', { 'clip-path': clip }), fade = s('g', { mask: 'url(#seamFade)' });
+        el = s('path', { d: o.d, class: o.cls + ' org-fill', fill: `url(#og-${o.tone})` });
+        fade.append(s('path', { d: eso, class: 'org-eso-fill', fill: 'url(#og-eso)' }), s('path', { d: eso, class: 'org-form', fill: 'url(#ogVol)' }));
+        sg.append(el, s('path', { d: o.d, class: 'org-form', fill: 'url(#ogVol)' }), fade);
+        g.append(s('path', { d, class: 'org-seam-base', fill: 'url(#seamS)' }), sg);
+      } else g.append(el, s('path', { d, class: 'org-form', fill: 'url(#ogVol)' }));
       const dg = detailFor(o);
       if (dg) g.append(dg);
       // The inner shade is a soft ramp (three widening, fading strokes), never a hard band.
-      for (const k of [1, 2, 3]) g.append(s('path', { d: o.d, class: 'org-shade s' + k, 'clip-path': clip, transform: 'translate(-3.5 -5)' }));
+      for (const k of [1, 2, 3]) g.append(s('path', { d, class: 'org-shade s' + k, 'clip-path': clip, transform: 'translate(-3.5 -5)' }));
       g.append(
-        s('path', { d: o.d, class: 'org-rimlight', 'clip-path': clip, transform: 'translate(2 3)' }),
-        s('path', { d: o.d, class: o.cls + ' org-line' }));
+        s('path', { d, class: 'org-rimlight', 'clip-path': clip, transform: 'translate(2 3)' }),
+        s('path', { d, class: o.cls + ' org-line' }));
+      // The duodenum's first part lies over the stomach's tip in the stomach's own group, so stomach and duodenum read as one tube.
+      if (seam) g.insertAdjacentHTML('beforeend', `<g clip-path="url(#du-Ac)"><g mask="url(#duFade)">${DUO_A}</g></g>`);
+      if (seam) g.setAttribute('mask', 'url(#frontM)');
     }
     organEls[o.id] = el; organG[o.id] = g;
-    if (o.id === 'esophagus') g.setAttribute('mask', 'url(#esoFade)');   // it runs up out of the plate: fade, don't cut
-    gOrgans.append(g);
+    if (o.art) {
+      if (!gGut) { gGut = s('g', { class: 'organ organ-gut tone-gut', mask: 'url(#gutHide)' }); gOrgans.append(gGut); }
+      gGut.append(g);
+    } else gOrgans.append(g);
+  }
+  // The gut's picture while the organs ease (gutPic), over its groups, under the gut's mask and opacity.
+  const gGutPics = s('g', { class: 'gut-pics', 'pointer-events': 'none', style: 'display:none' });
+  gGut?.append(gGutPics);
+  // Over the picture, the gut's three cuts as patches of the stage's colour (app.css .gut-cuts): while the picture shows they
+  // stand in for the mask, whose liver cut changed on every frame of an ease and had Safari draw the whole gut again through two
+  // offscreen layers the size of the screen (external review, 21 Oct). Under the gut, inside the liver, stomach and spleen, there
+  // is only the stage (the diaphragm is cut away there, and clear below y 420), so a patch of its colour inside the see-through
+  // group shows the stage, as the cut did: the same pixels. A plain rectangle clip keeps the mask's box.
+  const gGutCuts = s('g', { class: 'gut-cuts', 'pointer-events': 'none' });
+  const gutPatch = Object.fromEntries(GUT_HIDE.map((id) => [id, s('path', { d: id === 'stomach' ? SEAM_D : ORGANS.find((o) => o.id === id).d })]));
+  gGutCuts.append(...Object.values(gutPatch));
+  gGut?.append(gGutCuts);
+  const gutKids = () => (gGut ? [...gGut.children].filter((c) => c !== gGutPics && c !== gGutCuts) : []);
+  const GUT_RECT = [320, 410, 800, 670];   // the gut's mask (#gutHide), in the groups' own frame (the bowel's float of 26 included)
+  const GUT_CAP = Math.min(4096 / GUT_RECT[2], 4096 / GUT_RECT[3], Math.sqrt(4.2e6 / (GUT_RECT[2] * GUT_RECT[3])));   // px per unit, at most
+  let gutPic = null, gutPics = [], gutPicOn = false, gutPicSeq = 0, gutPicTimer = 0, gutMut = 0, gutLookAt = null, gutLookV = '';
+  const darkMq = matchMedia('(prefers-color-scheme: dark)');
+  const gutPicGrey = s('filter', { id: 'gutPicGrey', filterUnits: 'userSpaceOnUse', x: GUT_RECT[0], y: GUT_RECT[1] - 30, width: GUT_RECT[2], height: GUT_RECT[3] + 30, 'color-interpolation-filters': 'sRGB' });
+  const gutPicGreyFx = s('feColorMatrix', { type: 'matrix' });
+  gutPicGrey.append(gutPicGreyFx); defs.append(gutPicGrey);
+  // (A change in the drawn art, other than the bowel's float or the live grey, which the picture follows itself, retires it.)
+  const gutMo = new MutationObserver((ms) => { if (ms.some((m) => m.type === 'childList' || (m.attributeName !== 'style' && !(m.attributeName === 'transform' && m.target.parentNode === gGut)))) gutMut++; });
+  for (const k of gutKids()) gutMo.observe(k, { attributes: true, childList: true, subtree: true });
+  // The stomach's outline traced over the liver where the liver covers it (cirrhosis only: morphLiver), after the liver.
+  const ghost = s('g', { class: 'org-ghost', mask: 'url(#ghostM)', style: 'display:none' });
+  ghost.append(s('path', { d: SEAM_D, class: 'org-ghost-line' }));
+  organG.liver.after(ghost);
+  // The masks' copies of the liver and spleen follow them as they change size, every frame (as the diaphragm's cuts do).
+  function syncOrganMasks(shrink, spleenT) {
+    const lt = `translate(560 350) scale(${shrink.toFixed(4)}) translate(-560 -350)`;
+    for (const el of [gutCut.liver, gutPatch.liver, frontCut, ghostCut, ascLvCut]) putA(el, 'transform', lt);
+    for (const el of [gutCut.spleen, gutPatch.spleen]) putA(el, 'transform', spleenT || '');
+    // (lvThin is the liver's own mask, read in the liver's frame: the stomach's copy takes the shrink's inverse.)
+    putA(thinCut, 'transform', `translate(560 350) scale(${(1 / shrink).toFixed(5)}) translate(-560 -350)`);
   }
   // Keyboard stops for the organs a tap opens (the drawn plate is hidden under the GPU copy, and hidden things take no
   // focus): invisible outlines after the organs, reached by Tab only. They take no pointer, so a click or tap never
@@ -639,12 +740,15 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // field, so every state blends continuously into the next.
   const liverD = ORGANS.find((o) => o.id === 'liver').d;
   const liverTint = s('path', { d: liverD, fill: 'url(#congest)', class: 'liver-tint' });
+  // The liver's nodules, septa and congestion fade in with the disease; at 0 they are hidden too: at opacity 0 a clipped path
+  // was still drawn into its own layer, the liver's size, on every repaint (the same pixels).
+  const lvFade = (el, a) => { const o = a.toFixed(3), v = +o > 0 ? '' : 'hidden'; el.style.opacity = o; if (el.style.visibility !== v) el.style.visibility = v; };
   const lv = {
     gloss: s('g', { class: 'lv-gloss', 'clip-path': 'url(#clip-liver)' }),
-    nut: s('path', { class: 'lv-nut', 'clip-path': 'url(#clip-liver)' }),
-    nutNet: s('path', { class: 'lv-nut-net', 'clip-path': 'url(#clip-liver)' }),
-    sep: s('path', { d: liverD, class: 'lv-sep', 'clip-path': 'url(#clip-liver)', style: 'opacity:0' }),
-    nod: s('path', { class: 'lv-nod', 'clip-path': 'url(#clip-liver)', style: 'opacity:0' }),
+    cong: s('path', { d: liverD, class: 'lv-cong', 'clip-path': 'url(#clip-liver)', style: 'opacity:0;visibility:hidden' }),
+    isl: s('path', { class: 'lv-isl', 'clip-path': 'url(#clip-liver)', style: 'opacity:0;visibility:hidden' }),
+    sep: s('path', { d: liverD, class: 'lv-sep', 'clip-path': 'url(#clip-liver)', style: 'opacity:0;visibility:hidden' }),
+    nod: s('path', { class: 'lv-nod', 'clip-path': 'url(#clip-liver)', style: 'opacity:0;visibility:hidden' }),
   };
   // The capsule's sheen: broad soft reflections on the domes of both lobes.
   // The organs' dim and grey on the live drawing (syncOrganDim), over the plate's rectangle (PLATE_RECT), as the GPU copy has it.
@@ -653,7 +757,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   lv.gloss.append(s('ellipse', { cx: 468, cy: 236, rx: 118, ry: 34, transform: 'rotate(-6 468 236)', fill: 'url(#lvSheen)' }),
     s('ellipse', { cx: 752, cy: 262, rx: 66, ry: 16, transform: 'rotate(22 752 262)', fill: 'url(#lvSheen)' }));
   const shadeAt = organG.liver.querySelector('.org-shade');
-  for (const el of [liverTint, lv.nutNet, lv.nut, lv.sep, lv.nod, lv.gloss]) organG.liver.insertBefore(el, shadeAt);
+  for (const el of [liverTint, lv.cong, lv.isl, lv.sep, lv.nod, lv.gloss]) organG.liver.insertBefore(el, shadeAt);
   const liverPaths = [...organG.liver.querySelectorAll('path')].filter((el) => el.getAttribute('d') === liverD);
   const liverClip = defs.querySelector('#clip-liver path');
   if (liverClip) liverPaths.push(liverClip);
@@ -668,8 +772,13 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     diaMask.append(diaCut[o.id]);
   }
   liverPaths.push(diaCut.liver);
-  let baseLiver = null, liverKey = '';
-  const smooth01 = (v) => { const t = clamp(v, 0, 1); return t * t * (3 - 2 * t); };
+  liverPaths.push(gutCut.liver, gutPatch.liver, frontCut, ghostCut, ascLvCut);   // (the masks' copies: the gut's cut and its patch, the stomach's see-through, the ghost line's, the ascites')
+  // (Cirrhosis's reshaping of the liver, CIRR and liverField: liver-morph.js.)
+  let baseLiver = null, liverKey = '', islSrc = null;
+  const liverCmds = pathCmds(liverD);   // (the healthy outline as numbers, for the GPU painter: read once)
+  // The diseased liver's outline without its nodular bulges and notches, for the diaphragm: one smooth dome the nodules
+  // never dent (Mohammad, 20 Oct: it was "morphing to the nodules of the liver"). null while the liver is healthy.
+  let liverDome = null;
   function sampleLiver() {
     // The outline and the nodules' sites, computed ahead for this artwork (liver-geo.js); live if the outline changed.
     const pre = LIVER_GEO.key === strHash(liverD) ? LIVER_GEO : null, n = 360;
@@ -681,65 +790,67 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       for (let i = 0; i < n; i++) { const q = tmp.getPointAtLength((L * i) / n); pts.push([q.x, q.y]); }
       tmp.remove();
     }
-    let area = 0;
-    for (let i = 0; i < n; i++) { const [ax, ay] = pts[i], [bx, by] = pts[(i + 1) % n]; area += ax * by - bx * ay; }
-    const sg = area > 0 ? 1 : -1; // outward normal for either winding
-    const nm = pts.map((_, i) => {
-      const [ax, ay] = pts[(i + n - 1) % n], [bx, by] = pts[(i + 1) % n];
-      const dx = bx - ax, dy = by - ay, l = Math.hypot(dx, dy) || 1;
-      return [(sg * dy) / l, (-sg * dx) / l];
-    });
-    // Contour nodules: irregular lengths along the edge, fixed per point.
-    const rnd = seeded(7);
-    let start = 0, lam = 18 + 10 * rnd();
-    const step = L / n, nod = [];
-    for (let i = 0; i < n; i++) {
-      const acc = i * step;
-      if (acc - start > lam) { start = acc; lam = 15 + 12 * rnd(); }
-      nod.push([(acc - start) / lam, 0.7 + 0.6 * rnd()]);
-    }
-    // Nutmeg spots (a jittered hex lattice, mixed sizes), each a closed blob of six radii.
-    const blobs = (gap, seed, sz) => {
-      const r = seeded(seed), out = [];
-      for (let y = 170, row = 0; y < 520; y += gap * 0.866, row++) {
-        for (let x = 310 + (row % 2) * gap / 2; x < 890; x += gap) {
-          out.push({ x: x + (r() - 0.5) * gap * 0.55, y: y + (r() - 0.5) * gap * 0.5, r: gap * 0.5 * (sz[0] + sz[1] * r()),
-            k: Array.from({ length: 6 }, () => 0.8 + 0.34 * r()), a: r() * Math.PI });
-        }
-      }
-      return out;
-    };
-    // Nutmeg links: some neighbouring spots joined by a thin bridge, so deeper congestion reads as
-    // a lacy network rather than a field of dots.
-    const spots = blobs(15, 23, [0.35, 0.6]), lr = seeded(31), links = [];
-    for (let i = 0; i < spots.length; i++) {
-      for (let j = i + 1; j < spots.length; j++) {
-        const a = spots[i], b = spots[j], dd = Math.hypot(a.x - b.x, a.y - b.y);
-        if (dd < 20 && lr() < 0.42) links.push([a, b, (lr() - 0.5) * 9, (lr() - 0.5) * 9]);
-      }
-    }
+    const nm = outlineNormals(pts), nod = contourNodules(L, n);
     const sites = [];
     if (pre) for (let i = 0; i < pre.sites.length; i += 2) sites.push([pre.sites[i], pre.sites[i + 1]]);
-    return { pts, nm, nod, cells: nodularCells(pre ? sites : nodularSites(pts)), spots, links };
+    else sites.push(...nodularSites(pts));
+    return { pts, nm, nod, cells: nodularCells(sites), isl: nutmegIslands(sites) };
+  }
+  // Congestion's nutmeg (organ picks, 20 Oct, "even dusk"): blood pools round each lobule's central vein and those dark zones
+  // join from lobule to lobule, so the dark tone lies evenly over the whole liver (lv.cong); what stays pale are islands round
+  // the portal tracts, at the lobules' corners. The lobules are the cells of the nodules' sites; the sites stop at y 540 (the
+  // cirrhotic liver never reaches lower) but the congested liver reaches about 575, so the band just above that line is
+  // mirrored below it. Each island is three-lobed, as the pale zone reaches out along the lobules' edges.
+  function nutmegIslands(sites0) {
+    const sites = sites0.slice();
+    for (const [x, y] of sites0) if (y > 505 && y < 540) sites.push([x, 1080 - y]);
+    const cells = nodularCells(sites), r = seeded(29);
+    for (let i = 0; i < 36; i++) r();   // (the stream as the mock-up drew it: its first draws placed a size drift, unused here)
+    const seen = new Map(), isl = [];
+    for (const cl of cells) {
+      const R = cl.v.reduce((a, [x, y]) => a + Math.hypot(x - cl.x, y - cl.y), 0) / cl.v.length;
+      for (const [x, y] of cl.v) {
+        // corners the neighbouring lobules share come out a little apart: merge those within 2 units
+        const gx = Math.floor(x / 3), gy = Math.floor(y / 3);
+        let hit = null;
+        for (let i = -1; i <= 1 && !hit; i++) for (let j = -1; j <= 1 && !hit; j++) for (const o of seen.get((gx + i) * 10000 + gy + j) || []) if (Math.hypot(o.x - x, o.y - y) < 2) { hit = o; break; }
+        if (hit) continue;
+        const o = { x, y, R }, key = gx * 10000 + gy;
+        if (seen.has(key)) seen.get(key).push(o); else seen.set(key, [o]);
+        isl.push(o);
+      }
+    }
+    // lobules on the rim are cut open (no neighbour on one side), so their size overstates: capped near the typical one
+    const Rs = isl.map((o) => o.R).sort((a, b) => a - b), Rcap = Rs[Math.floor(Rs.length / 2)] * 1.15;
+    let d = '';
+    for (const o of isl) {
+      const rr = Math.min(o.R, Rcap) * 0.7 * (0.75 + 0.5 * r());
+      if (rr < 0.6) continue;
+      const b = { k: Array.from({ length: 6 }, (_, j) => (j % 3 === 0 ? 1.15 : 0.62) + 0.45 * r()), a: r() * Math.PI };
+      d += blobPath(b, o.x, o.y, rr);
+    }
+    return d;
   }
   // A cell drawn as a rounded nodule: corners pulled in toward the site by the septum's half
   // width, then smoothed (quadratics through the edge midpoints).
-  function cellPath(cl, c, w) {
+  // (cmds: the same shape as numbers, for the GPU painter (organ-paint shapeSource), each the number its text says.)
+  function cellPath(cl, c, w, cmds) {
     const [sx, sy] = liverField(cl.x, cl.y, c);
     const p = cl.v.map(([vx, vy]) => {
       const [x, y] = liverField(vx, vy, c), dx = x - sx, dy = y - sy, l = Math.hypot(dx, dy) || 1, k = Math.max(0.35, 1 - w / l);
       return [sx + dx * k, sy + dy * k];
     });
-    const n = p.length, m = (j) => { const a = p[j % n], q = p[(j + 1) % n]; return `${((a[0] + q[0]) / 2).toFixed(1)} ${((a[1] + q[1]) / 2).toFixed(1)}`; };
-    let d = 'M' + m(n - 1);
-    for (let j = 0; j < n; j++) d += `Q${p[j][0].toFixed(1)} ${p[j][1].toFixed(1)} ${m(j)}`;
+    const n = p.length, m = (j) => { const a = p[j % n], q = p[(j + 1) % n]; return [fix1((a[0] + q[0]) / 2), fix1((a[1] + q[1]) / 2)]; };
+    let [mx, my] = m(n - 1), d = `M${mx} ${my}`;
+    cmds.push(['M', +mx, +my]);
+    for (let j = 0; j < n; j++) {
+      const qx = fix1(p[j][0]), qy = fix1(p[j][1]);
+      [mx, my] = m(j);
+      d += `Q${qx} ${qy} ${mx} ${my}`;
+      cmds.push(['Q', +qx, +qy, +mx, +my]);
+    }
+    cmds.push(['Z']);
     return d + 'Z';
-  }
-  // The displacement of the whole organ (interior and outline): the right lobe atrophies toward
-  // the hilum and the lateral left lobe hypertrophies with cirrhosis.
-  function liverField(x, y, c) {
-    const wr = smooth01((610 - x) / 260), wl = smooth01((x - 700) / 140);
-    return [x + (600 - x) * 0.15 * c * wr + (x - 720) * 0.12 * c * wl, y + (360 - y) * 0.11 * c * wr + (y - 280) * 0.14 * c * wl];
   }
   // A closed smooth blob (quadratics through the edge midpoints) of radius r at (x, y).
   function blobPath(b, x, y, r, sx = 1, sy = 1) {
@@ -749,6 +860,21 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     for (let j = 0; j < 6; j++) d += `Q${p[j][0].toFixed(1)} ${p[j][1].toFixed(1)} ${m(j)}`;
     return d + 'Z';
   }
+  // The liver's lower edge (in its own frame) at FLUID_COLS columns evenly across the fluid's rectangle (FLUID_R), for the
+  // GPU ascites: the lowest point of the outline over each column, or far above where the liver does not reach.
+  let liverFloor = null, liverFluidCut = 0, liverScale = 1;
+  function lowerEdge(P) {
+    const out = new Float32Array(FLUID_COLS).fill(-1e4), k = (FLUID_COLS - 1) / FLUID_R[2];
+    for (let i = 0; i < P.length; i++) {
+      const [ax, ay] = P[i], [bx, by] = P[(i + 1) % P.length];
+      const u0 = Math.ceil((Math.min(ax, bx) - FLUID_R[0]) * k), u1 = Math.floor((Math.max(ax, bx) - FLUID_R[0]) * k);
+      for (let u = Math.max(0, u0); u <= Math.min(FLUID_COLS - 1, u1); u++) {
+        const x = FLUID_R[0] + u / k, y = bx === ax ? Math.max(ay, by) : ay + (by - ay) * (x - ax) / (bx - ax);
+        if (y > out[u]) out[u] = y;
+      }
+    }
+    return out;
+  }
   function morphLiver(cirr, cong, fine) {
     const q = fine ? 200 : 40;
     const c = Math.round(clamp(cirr, 0, 1) * q) / q, g = Math.round(clamp(cong, 0, 1) * q) / q;
@@ -756,45 +882,56 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (key === liverKey) return;
     if (!baseLiver) { try { baseLiver = sampleLiver(); } catch { return; } if (!baseLiver.pts.length) { baseLiver = null; return; } }
     liverKey = key;
-    const { pts, nm, nod, spots } = baseLiver;
-    const out = pts.map((p0, i) => {
-      let [x, y] = liverField(p0[0], p0[1], c);
-      const [nx, ny] = nm[i], inf = clamp(ny, 0, 1);
-      // Cirrhosis: the inferior edge draws up and rounds off; the thin left lobe tip thickens.
-      const tip = smooth01((p0[0] - 780) / 70);
-      let push = -8 * c * inf + 5 * c * tip;
-      // Congestion: the organ swells, most along its free inferior edge, and its tip rounds.
-      push += g * (5 + 9 * inf + 4 * tip);
-      // Nodular contour: rounded bulges with notches between them (a cusp at each notch).
-      const [u, a] = nod[i];
-      push += (Math.pow(Math.sin(Math.PI * u), 0.5) - 0.72) * 2.2 * a * smooth01(c / 0.7) * (0.45 + 0.55 * c);
-      return [x + nx * push, y + ny * push];
-    });
-    const f1 = (v) => v.toFixed(1);
-    const d = c + g > 0 ? 'M' + out.map(([x, y]) => `${f1(x)} ${f1(y)}`).join(' L') + ' Z' : liverD;
-    for (const el of liverPaths) el.setAttribute('d', d);
+    // (?perf: the outline and nodules worked out, apart from writing them into the page: the browser's own work on them comes later.)
+    const { out, dome } = gpuProbe.time(null, 'liver: outline (maths)', () => morphOutline(baseLiver, c, g));
+    const f1 = fix1;
+    // (Its commands too, for the GPU painter: the liver is painted from these numbers, never parsing or hashing the text.)
+    let d = liverD, cmds = liverCmds;
+    if (c + g > 0) {
+      const xy = out.map(([x, y]) => [f1(x), f1(y)]);
+      d = 'M' + xy.map(([x, y]) => `${x} ${y}`).join(' L') + ' Z';
+      cmds = xy.map(([x, y], i) => [i ? 'L' : 'M', +x, +y]);
+      cmds.push(['Z']);
+    }
+    const src = shapeSource(d, cmds);
+    gpuProbe.time(null, 'liver: writes', () => { for (const el of liverPaths) { el.setAttribute('d', d); bindShape(el, src); } });
+    liverDome = c + g > 0 ? dome : null;
+    liverFloor = lowerEdge(c + g > 0 ? out : baseLiver.pts);
+    if (veins && !veins.lost) veins.setFluidLiver(liverFloor);
     lv.gloss.style.opacity = (1 - 0.75 * smooth01(c / 0.6)).toFixed(3);
     // Regenerative nodules: tawny islands of mixed size parted by a network of pale fibrous
     // septa (the liver shows through the gaps, lightened). Flat, no shading; the septa widen and
     // the contrast firms with severity.
     const cn = smooth01(c / 0.5) * (0.55 + 0.45 * c);
-    lv.nod.setAttribute('d', cn > 0.01 ? baseLiver.cells.map((cl) => cellPath(cl, c, 0.3 + 0.45 * c)).join('') : '');
-    lv.sep.style.opacity = lv.nod.style.opacity = cn.toFixed(3);
-    // Nutmeg: dark centrilobular spots that grow and begin to link up as congestion deepens.
-    if (g > 0.01) {
-      let nt = '', ln = '';
-      for (const b of spots) { const [x, y] = liverField(b.x, b.y, c); nt += blobPath(b, x, y, b.r * (0.4 + 0.6 * g)); }
-      for (const [a, b, jx, jy] of baseLiver.links) {
-        const [ax, ay] = liverField(a.x, a.y, c), [bx, by] = liverField(b.x, b.y, c);
-        ln += `M${f1(ax)} ${f1(ay)}Q${f1((ax + bx) / 2 + jx)} ${f1((ay + by) / 2 + jy)} ${f1(bx)} ${f1(by)}`;
-      }
-      lv.nut.setAttribute('d', nt); lv.nutNet.setAttribute('d', ln);
-      lv.nutNet.style.strokeWidth = (0.8 + 2.6 * g).toFixed(2);
-    } else { lv.nut.setAttribute('d', ''); lv.nutNet.setAttribute('d', ''); }
-    lv.nut.style.opacity = lv.nutNet.style.opacity = smooth01(g / 0.5).toFixed(3);
+    const nodCmds = [];
+    const nod = gpuProbe.time(null, 'liver: nodules (maths)', () => (cn > 0.01 ? baseLiver.cells.map((cl) => cellPath(cl, c, (0.3 + 0.45 * c) * CIRR.sep, nodCmds)).join('') : ''));
+    gpuProbe.time(null, 'liver: writes', () => { lv.nod.setAttribute('d', nod); bindShape(lv.nod, shapeSource(nod, nodCmds)); });
+    lvFade(lv.sep, cn); lvFade(lv.nod, cn);
+    // Nutmeg: the even dusky tone and its pale islands, fading in as congestion deepens.
+    lv.isl.setAttribute('d', g > 0.01 ? baseLiver.isl : '');
+    if (g > 0.01) bindShape(lv.isl, (islSrc ||= shapeSource(baseLiver.isl, pathCmds(baseLiver.isl))));   // (the same islands throughout: read once)
+    const gn = smooth01(g / 0.5); lvFade(lv.cong, gn); lvFade(lv.isl, gn);
+    // The ascites is kept off the liver as its congestion shows (over the dusky liver its straw turned the lower lobe into a
+    // brown blotch; organ picks, round 26).
+    liverFluidCut = smooth01(g / 0.5);
+    ascLvCut.setAttribute('fill-opacity', liverFluidCut.toFixed(3));
+    // (Only while it cuts anything: an unused mask would still be rasterized with the fluid on every frame it eases.)
+    for (const el of [ascitesPath, ascitesLine]) if (liverFluidCut > 0.001) putA(el, 'mask', 'url(#ascLv)'); else el.removeAttribute('mask');
+    // The liver lies in front of the stomach and esophagus, which show through it at .65; as cirrhosis comes in (the
+    // shrunken liver leaves them in plain view) they come back to full strength under it, the liver goes lighter over them
+    // and their outline is traced over it (organ picks, 20 Oct).
+    frontCut.setAttribute('fill-opacity', (0.35 * (1 - cn)).toFixed(3));
+    thinCut.setAttribute('fill-opacity', (0.5 * cn).toFixed(3));
+    if (cn > 0.01) organG.liver.setAttribute('mask', 'url(#lvThin)'); else organG.liver.removeAttribute('mask');
+    ghost.style.display = cn > 0.01 ? '' : 'none';
+    ghost.style.opacity = (0.55 * cn).toFixed(3);
   }
   // The liver's state eases toward the model's (a new patient or a slider never makes it jump).
   let lvC = null, lvG = 0, lvT = 0, lvGT = null, lvTT = null, lvAt = 0, lvMoving = false, lvCT = null, lvGTo = null, lvStillAt = 0, caudK = null;
+  // The spleen growing through a time-lapse shows on the live drawing, at its size each frame, as the liver's ease does (spleen-motion.js).
+  const spleenMv = spleenMotion();
+  const spleenMoving = () => spleenMv.moving(performance.now());
+  let spleenTimer = 0;
   // Abdominal wall (anterior): a soft skin tint that appears only with caput medusae, under its veins.
   const abdWall = s('ellipse', { cx: SITES.umbilicus[0], cy: SITES.umbilicus[1], rx: 120, ry: 96, fill: 'url(#skin)', class: 'abd-wall', opacity: 0 });
   // Flanks: the outline of the abdominal wall, which bulges as ascites accumulates.
@@ -875,8 +1012,6 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       }
       gShadowL.append(gs); gCaseL.append(gc); gEdges.append(g); gHiMid.append(gh);
     }
-    const heat = isArt ? null : s('path', { class: 'v-heat' });
-    if (heat) gHeat.append(heat);
     if (FADE_IN[e.id]) for (const el of [shadow, wall, lumen, shade, sheen, wallP, lumenP]) el?.setAttribute('mask', `url(#cm-${e.id})`);
     if (SIN_FADE[e.id]) {
       // The SVG's own copy of the sinusoids' fade (the GPU draws it from SIN_FADE).
@@ -905,7 +1040,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       for (const el of [shadow, wall, lumen, shade, sheen, wallP, lumenP, halo, sel]) el?.setAttribute('mask', `url(#tm-${e.id})`);
       tipFade = { tg, s0, frac: TIP_FADE[e.id], line: [0, 0, 1, 0], joined: false };
     }
-    E[e.id] = { e, g, gc, gs, gh, tipFade, groups: isArt ? [g] : [gs, gc, g, gh], heat, grad, st0, st1, halo, sel, shadow, wall, lumen, shade, sheen, wallP, lumenP, hit, strands, feeders, isArt, vis: true, width: 4, wallPx: 1, shadeKey: '' };
+    E[e.id] = { e, g, gc, gs, gh, tipFade, groups: isArt ? [g] : [gs, gc, g, gh], grad, st0, st1, halo, sel, shadow, wall, lumen, shade, sheen, wallP, lumenP, hit, strands, feeders, isArt, vis: true, width: 4, wallPx: 1, shadeKey: '' };
   }
   ALL_EDGES.forEach((e, i) => { E[e.id].row = i; });
   // (Every vessel, in E's order, as one list kept from here on: E is built once above and never gains or loses a key, so the
@@ -989,7 +1124,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // (The same, checked against the element itself, for attributes other code writes too: the organs' each model update, and every
   // frame of a liver's or the fluid's ease, were written again with the values they had, and Safari repainted them each time.)
   const putA = (el, k, v) => { v = String(v); if (el.getAttribute(k) !== v) el.setAttribute(k, v); };
-  // While the GPU draws the vessels (gl-on), their SVG walls, strands, feeders, heat halos and selection rings are display:none
+  // While the GPU draws the vessels (gl-on), their SVG walls, strands, feeders and selection rings are display:none
   // (app.css): their widths and colours are held and written when the SVG shows them again (syncVeins, flushTubes). The lumens are
   // always written (credit.js reads a lit lumen's width), and so are the gradient stops.
   let tubesHidden = false;
@@ -1019,12 +1154,14 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   };
 
   // Nodes (circuit view)
+  // (Each dot starts off, and comes in with the first vessel drawn at its station (updateNodesCircuit): none shows on the
+  // first frame before the model says which vessels are drawn.)
   const nodeEls = {};
   for (const n of NODES) {
     if (n.kind === 'wedge' || HIDDEN_NODES.has(n.id)) continue;
-    const c = s('circle', { r: n.kind === 'heart' ? 7 : n.kind === 'bed' ? 5.5 : 4.5, class: 'node-dot circuit-only' });
+    const c = s('circle', { r: dotRadius(n.kind), class: 'node-dot circuit-only off' });
     gNodes.append(c);
-    nodeEls[n.id] = { c };
+    nodeEls[n.id] = { c, off: true };
   }
   // Resistance of each liver compartment, per lobe (read out in the circuit's liver header).
   const liverR = {};
@@ -1032,16 +1169,19 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
 
   // Overlays
   const ov = {
-    clamps: s('g'), thrombi: s('g'), stents: s('g'), plugs: s('g'), varices: s('g'), gvarices: s('g'),
+    clamps: s('g'), clampsOut: s('g'), thrombi: s('g'), stents: s('g'), plugs: s('g'), varices: s('g'), gvarices: s('g'),
     balloons: s('g'), bands: s('g'),
   };
   Object.values(ov).forEach((g) => gOver.append(g));
+  // A slide's calipers (deck visuals V9) over the anatomy, and its brackets under the circuit (V25): ext-callouts.js, fxSync.
+  const gFx = s('g', { class: 'fx-cal-g' }), gFxC = s('g', { class: 'fx-span-g circuit-only' });
+  gOver.append(gFx, gFxC);
   // The caudate lobe and its veins (CAUDATE): shown only while a slide is about them (pinOrgans 'caudate'), eased in
   // and out (.caud.on), under the stents and other overlays. Each vein is a tapered tube (a wall, its lumen colored
   // from its pressures like the vessels, a sheen) that fades into the IVC's wall instead of ending on it.
   const caud = (() => {
     const [ax, ay] = CAUDATE.anchor, W = CAUDATE.wall;
-    const g = s('g', { class: 'caud', style: `transform-origin:${ax}px ${ay}px` });
+    const g = s('g', { class: 'caud gone', style: `transform-origin:${ax}px ${ay}px` });
     let defsHtml = '<radialGradient id="caudDome"><stop offset="0" class="caud-d0"/><stop offset=".55" class="caud-d1"/><stop offset="1" class="caud-d2"/></radialGradient>'
       + `<linearGradient id="caudFade" gradientUnits="userSpaceOnUse" x1="${W - 1}" y1="0" x2="${W + 4}" y2="0"><stop offset="0" stop-color="#fff"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient>`
       + `<mask id="caudMask" maskUnits="userSpaceOnUse" x="0" y="0" width="${VIEW.w}" height="${VIEW.h}"><rect x="0" y="0" width="${VIEW.w}" height="${VIEW.h}" fill="url(#caudFade)"/></mask>`;
@@ -1074,9 +1214,14 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const lumens = [...veinsG.querySelectorAll('.caud-lumen')];
     g.append(lobe, veinsG);
     gOver.prepend(g);
-    let cols = '', grow = '';
+    let cols = '', grow = '', goneT = 0;
     return {
-      show(on, veins) { g.classList.toggle('on', !!on); if (on) g.classList.toggle('lobe-only', !veins); },
+      // (Once faded out, hidden, its veins' mask is off (.gone): a hidden group's mask is still built on every repaint.)
+      show(on, veins) {
+        g.classList.toggle('on', !!on); if (on) g.classList.toggle('lobe-only', !veins);
+        clearTimeout(goneT);
+        if (on) g.classList.remove('gone'); else goneT = setTimeout(() => g.classList.add('gone'), 760);
+      },
       // Colored from the pressure they drain at (the IVC's: the lobe keeps its outflow); sized by its share of it.
       sync(c, kq) {
         if (c !== cols) { cols = c; for (const el of lumens) el.setAttribute('fill', c); }
@@ -1091,7 +1236,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // the vessels (veins-gl.js, tube rows 10 and 11). It follows every move and pulse for free: no blur, no mask, no
   // outline to rebuild. Each source asks for vessels in a colour (null: the vessel's own); a vessel several sources
   // light takes the colour of the last in GLOW_RANK. Each eases in and out on its own, so a change cross-fades.
-  const GLOW_RANK = ['sel', 'hover', 'flash', 'delta', 'dop', 'slide', 'focus', 'shunt'];
+  const GLOW_RANK = ['spot', 'sel', 'hover', 'flash', 'delta', 'dop', 'slide', 'focus', 'shunt'];
   const glow = { src: new Map(), lit: new Map(), raf: 0, t: 0 };
   // The glow and hover eases step at the display's rate, but the vessels are redrawn at the paced rate (animate): an
   // ease only marks the tubes stale, and the paced frame rebuilds and uploads them once.
@@ -1149,10 +1294,13 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // The watched vessels (REVERSAL_WATCH) whose flow runs against its healthy direction, as shown: their stations' value
   // pills carry ⟲. In an imaging case it waits, as the blood does, until a Doppler has looked at the flow.
   const revShown = new Set();
-  // The Doppler's vessel glows in the Doppler's green while its instrument is open; on a stent, only the third its gate samples.
+  // The Doppler's vessel glows (--dop-glow: white on the dark themes, ink on the light ones; 19 Oct, it was the Doppler's green, which
+  // reads as "normal") while its instrument is open; on a stent, only the third its gate samples. The probe looks at it (dprobePaint).
   // (points: a slide's Doppler on a stent shows a callout at each of its three points, not just the sampled one.)
   const dop = { id: null, want: null, pin: null, key: '', seg: '', points: false, all: false };
   const dopGateOf = (id) => (dop.id === id && dop.seg ? dop.seg : '');   // the third of a stent the Doppler samples ('' when it is elsewhere)
+  // The Doppler probe on the figure (dprobePaint): live once the stage is built (dopApply runs before its pieces exist).
+  const dpr = { el: null, on: false, key: '', side: 0, reach: 0, rev: false, k: 1, cur: null, tgt: null, hold: 0, mon: false, noneT: 0, headOff: false, eRaf: 0, eAt: 0, box: null, marks: [], swap: 0, shapes: '', at: '', ready: false, gate: null, monAt: 0, syncKey: '', searchAt: 0, searchGap: 150, lastSig: '', refitUntil: 0, carry: false, track: false };
   function dopApply() {
     let id = dop.pin ?? dop.want ?? null;
     if (id && !E[id]) id = null;
@@ -1160,18 +1308,28 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const all = !!seg && dop.points && id === dop.pin, key = `${id}|${seg}|${+all}`;
     if (key === dop.key) return;
     dop.id = id; dop.key = key; dop.seg = seg; dop.all = all;
+    // (On a slide it waits for the slide's camera: the framing comes a moment after the slide's tool, once its cards land, and the
+    // probe showed before the zoom, went with it and came back after (Doppler 2, Mohammad, 20 Oct). animateVT lets it go.)
+    if (id && store.get().presenting) dprHold();
     // (On top of every vessel it crosses, as a glow should lie (18f2e33): the stent's lit third over the hepatic vein above it, Review 15 Oct.)
-    setGlowSrc('dop', id ? [{ id, col: 'var(--doppler)', amt: 1.1, wide: 0.8, dur: 360, top: true, span: seg ? STENT_SPANS[seg] : null }] : []);
+    setGlowSrc('dop', id ? [{ id, col: 'var(--dop-glow)', amt: 1.1, wide: 0.8, dur: 360, top: true, span: seg ? STENT_SPANS[seg] : null }] : []);
+    dprobePaint();
   }
   // A presenter slide's glows (glow: [...] and its terms' vessels), each in its station's colour. Slide, focus and
   // Doppler glows are a slim, soft band (smaller than a hover's), so they mark the vessel without swamping it.
   const toneCol = (tone) => (tone.startsWith('--') ? `var(${tone})` : tone === 'accent' ? 'var(--accent)' : `var(--tr-${tone})`);
-  function setGlow(list) { setGlowSrc('slide', (list || []).map((g) => ({ id: g.id, col: toneCol(g.tone || 'accent'), amt: g.soft ? 0.55 : 1, wide: g.soft ? 0.8 : 0.75, at: g.at, dur: 500 }))); }
+  let slideGlow = [], glowSetAt = 0;   // (the slide's glows as set, and when: a glowSeq slide's step numbers follow them, V10)
+  function setGlow(list) { slideGlow = list || []; glowSetAt = performance.now(); setGlowSrc('slide', (list || []).map((g) => ({ id: g.id, col: toneCol(g.tone || 'accent'), amt: g.soft ? 0.55 : 1, wide: g.soft ? 0.8 : 0.75, at: g.at, dur: 500 }))); }
   // The hovered vessel glows softly in its own colour (and its lumen brightens a little, vh: tube row 9).
   // Each vessel's brightening eases in and out on its own, so moving from one vessel to the next cross-fades.
   // The selected vessel (sel: it and, on the cava, the rest of the cava) takes the same brightening, and selA eases its
   // standing out of the dimmed network in and out (syncVeins), so selecting and deselecting never snap.
   const vh = { id: null, amt: new Map(), sel: new Set(), selKey: '', selA: new Map(), raf: 0, t: 0 };
+  // A slide's spotlight (deck visuals V2, ext-highlights.js: spot): the network and the organs step back as for a selection,
+  // the named vessels stand out of it as a selected one does (selA, vhStep) and the named organs are outlined. Never in the
+  // liver's own views. live: from the spotlight set until the plate has eased back after it (the ascites follows it there).
+  const spot = { ids: new Set(), on: false, live: false };
+  const spotOn = () => spot.on && !store.get().lobule && !store.get().sinusoid;
   const SEL_FADE = 0.3;
   const selAKey = () => { let k = ''; for (const [id, v] of vh.selA) k += id + v; return k; };
 
@@ -1184,7 +1342,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // box (which swaps its width and height with it), so pan, zoom and every screen-space layer
   // keep working in the frame they already use.
   // With no saved choice, a phone or tablet held upright opens the circuit upright (the wide map would be a strip).
-  const portraitPhone = () => innerWidth < 1100 && innerHeight > innerWidth * 1.15;
+  const portraitPhone = () => matchMedia(UPRIGHT_MQ).matches;   // (the style sheet's upright clause, util.js)
   let rotTarget = (() => { try { const v = localStorage.getItem('pps.circuitRot'); return v == null ? (portraitPhone() ? 1 : 0) : v === '1' ? 1 : 0; } catch { return portraitPhone() ? 1 : 0; } })();
   let rotU = rotTarget;
   const rotEase = (u) => u * u * (3 - 2 * u);
@@ -1192,7 +1350,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const VB_CIRC_R = [CIRC_C[0] - VB_CIRC[3] / 2, CIRC_C[1] - VB_CIRC[2] / 2, VB_CIRC[3], VB_CIRC[2]];
   // Degrees the world is turned by right now (blended in with the view morph).
   const rotDeg = () => -90 * rotEase(rotU) * Math.max(0, lastMorph);
-  let lz = null;   // the lobule view's layer
+  let lz = null;   // the lobule view's layer (built when its code has arrived: lobuleReady)
+  let lzCode = null, lzLoad = null, lzWaiting = false, lzSoon = false, aimWait = null;
   let geometryVersion = 0;
   let netBox = null, netBoxFor = -1;
   // Everything drawn in screen space (labels, leaders, organ names, the flow marks, the action
@@ -1203,18 +1362,14 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   let drawOnce = false;   // draw the vessels once through the dive's freeze: the camera moved while hidden
   let stageWake = () => {};   // set once the frame loop exists: anything that may need a redraw calls it
   let resizeReady = false, forceDraw = false;   // forceDraw: the vessel canvas was just resized (and so cleared): the next frame draws it at once
-  let clampFs = '';
-  // A narrowing's label stands level on screen whatever the figure's turn, just clear of its clamp on the vessel's side,
-  // at its 12 px size (a turned "60 %" had stood on end across the right atrium in the circuit).
+  let clampFs = '', clampBase = 12;   // clampBase: the "60 %"'s size on screen (clampFontAt: the labels' own name size)
+  // A narrowing's label stands level on screen whatever the figure's turn, at the spot the layout chose for it (clampLabelAt: the
+  // column's side, a spot off the probe) or, where it chose none, just clear of its clamp on the vessel's side, at the labels' name size
+  // (a turned "60 %" had stood on end across the right atrium in the circuit). Every rebuild of the marks and every change of zoom
+  // places it again by that one rule, so neither undoes the spot the layout gave it: the "60 %" had gone back to the vessel's side
+  // under the stent's callouts after a redraw.
   function placeClampLabels() {
-    const fs = parseFloat(clampFs) || 12, th = (rotDeg() * Math.PI) / 180, w = 1.4 * fs, hh = 0.6 * fs;
-    for (const t of ov.clamps.querySelectorAll('.clamp-label')) {
-      const [x, y, nx, ny, off] = t.dataset.at.split(' ').map(Number);
-      const sx = nx * Math.cos(th) - ny * Math.sin(th), sy = nx * Math.sin(th) + ny * Math.cos(th);   // (the side, as it points on screen)
-      const D = off + 2 + Math.abs(sx) * w + Math.abs(sy) * hh, lx = x + nx * D, ly = y + ny * D;
-      t.setAttribute('x', lx.toFixed(2)); t.setAttribute('y', ly.toFixed(2));
-      t.setAttribute('transform', `rotate(${(-rotDeg()).toFixed(2)} ${lx.toFixed(2)} ${ly.toFixed(2)})`);
-    }
+    for (const t of ov.clamps.querySelectorAll('.clamp-label')) clampLabelAt(t);
   }
   const applyVT = () => {
     const deg = rotDeg();
@@ -1228,11 +1383,12 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     viewRaf = 0;
     if (!F || lz?.isOpen()) return;
     refreshCTM();
-    updateLabels(F);
+    gpuProbe.time(null, 'labels (script)', () => updateLabels(F));
     if (cath.st) cathLabels();
     if (sites.list) sitesPaint();
     if (scan.on) scanPaint();
-    onViewChange?.();
+    dprobePaint();
+    gpuProbe.time(null, 'cards follow (script)', () => onViewChange?.());
   }
   applyVT();
   // The figure's screen transform, computed from the viewBox, the zoom state and the stage box.
@@ -1260,9 +1416,12 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     // An unchanged view keeps the same object, so the frame loop (which compares it) sees that nothing moved.
     CTM = ctmLast && ['a', 'b', 'c', 'd', 'e', 'f', 'sc'].every((k) => ctmLast[k] === m[k]) ? ctmLast : (ctmLast = m);
     wrapRect = b;
-    // (A narrowing's "60 %" is drawn in the figure: its size there is 12 px on screen at any zoom, sweep batch 03 at 6–7 px.)
-    const cfs = sk > 0 ? (12 / sk).toFixed(1) : '';
-    if (cfs && cfs !== clampFs) { clampFs = cfs; ov.clamps.style.setProperty('--clamp-fs', `${cfs}px`); placeClampLabels(); }
+    applyClampFs();
+  }
+  // (A narrowing's "60 %" is drawn in the figure: its size there is that of the labels' names on screen at any zoom, sweep batch 03 at 6–7 px.)
+  function applyClampFs() {
+    const sk = CTM?.sc || 0, cfs = sk > 0 ? (clampBase / sk).toFixed(2) : '';
+    if (cfs && cfs !== clampFs) { clampFs = cfs; for (const g of [ov.clamps, ov.clampsOut]) g.style.setProperty('--clamp-fs', `${cfs}px`); placeClampLabels(); }
   }
   function worldToLocal(x, y) {
     if (!CTM) refreshCTM();
@@ -1281,7 +1440,6 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   function animZoomAt(cx, cy, factor) {
     fitted = false;
     if (lobuleOn) return;
-    if (scrubS > 0 || canScrub(factor)) { scrubGlide(factor); return; }
     const [vx, vy] = clientToVB(cx, cy), base = vtTarget && vtAnim ? vtTarget : vt;
     const k = clamp(base.k * factor, 0.6, 6), wx = (vx - vt.x) / vt.k, wy = (vy - vt.y) / vt.k;
     animateVT({ k, x: vx - wx * k, y: vy - wy * k }, 260);
@@ -1289,11 +1447,13 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // A trackpad pinch may stretch a little past the limits (it springs back when it ends).
   function zoomAt(cx, cy, factor, stretch = false) {
     if (lobuleOn) return;   // the lobule view has its own zoom
-    if (scrubBy(factor)) return;
     const [vx, vy] = clientToVB(cx, cy);
     const wx = (vx - vt.x) / vt.k, wy = (vy - vt.y) / vt.k;
-    vt.k = stretch ? clamp(vt.k * factor, 0.5, 7.2) : clamp(vt.k * factor, 0.6, 6);
-    vt.x = vx - wx * vt.k; vt.y = vy - wy * vt.k;
+    // (A new view, never the old one changed in place: the first fit sets the view, the home framing and the glide's target outright, and
+    // a zoom that changed the one object changed them all, so the home look took the zoomed view for home and glided it back to the fit
+    // as soon as a card moved: a pinch in the first seconds after the page opened was undone.)
+    const k = stretch ? clamp(vt.k * factor, 0.5, 7.2) : clamp(vt.k * factor, 0.6, 6);
+    vt = { k, x: vx - wx * k, y: vy - wy * k };
     applyVT(); CTM = null;
   }
   // Default framing. The circuit is a wide map (≈ 1.9 : 1); in a squarish or tall viewport,
@@ -1310,12 +1470,19 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // (A piece sliding with the sinusoid zoom, main.js sinMotion: the dock as it slides away (vd-out) no longer counts, and while
   // the dock or the view pill slides back, data-slide-y holds its shift on screen, so it counts where it will rest.)
   const slideRest = (el, q) => { const y = +el.dataset.slideY || 0; return y ? new DOMRect(q.x, q.y - y, q.width, q.height) : q; };
+  // (A card hidden by visibility no longer counts, except the slide's data card while it waits for its entry (data-safe-waits):
+  // an upright phone's data card with its readings on a sheet waits hidden by visibility, not opacity (styles/app.css
+  // .pz-sheet.pz-hide), while the slide's camera frames. Skipped then, the figure framed as if no card stood at the top, and the
+  // card came in over the slide's vessel: the test all deck's clot slide on an iPhone, 19 Oct. Only that card: the Tests sheet and
+  // the Details panel (data-safe-rest too) are hidden by visibility when closed, and counted then, the app opened framed small at
+  // the top of a phone, 19 Oct.)
+  const unseenCard = (el) => !('safeWaits' in el.dataset) && (el.checkVisibility ? !el.checkVisibility({ visibilityProperty: true }) : getComputedStyle(el).visibility === 'hidden');
   function cardSpace() {
     const wr = wrap.getBoundingClientRect(), W = wr.width, H = wr.height, sp = { t: 0, b: 0 };
     for (const el of document.querySelectorAll('[data-safe]')) {
       // (A card playing its way out no longer counts: the camera frames for what stays.)
       if (el.hidden || el.closest('[hidden]') || el.classList.contains('card-leaving') || el.classList.contains('vd-out')) continue;
-      if (el.checkVisibility ? !el.checkVisibility({ visibilityProperty: true }) : getComputedStyle(el).visibility === 'hidden') continue;
+      if (unseenCard(el)) continue;
       const q = slideRest(el, el.getBoundingClientRect());
       if (!q.width || !q.height) continue;
       const y0 = ((el.classList.contains('mini') || el.dataset.folding) && +el.dataset.fullH ? q.bottom - +el.dataset.fullH : q.top) - wr.top - (+el.dataset.safePad || 0), y1 = q.bottom - wr.top;
@@ -1327,7 +1494,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     return sp;
   }
   // (exact: the cards' real edges, with no softening: a slide that must keep its vessels clear of them, even where they leave a thin band.)
-  function safeInsets(exact = false) {
+  function safeInsets(exact = false, skip = null) {
     const wr = wrap.getBoundingClientRect(), W = wr.width, H = wr.height;
     const ins = { t: 0, b: 0, l: 0, r: 0, W, H }, cards = [];
     if (!W || !H) return ins;
@@ -1336,11 +1503,12 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     for (const el of document.querySelectorAll('[data-safe]')) {
       // (A card playing its way out no longer counts: the camera frames for what stays.)
       if (el.hidden || el.closest('[hidden]') || el.classList.contains('card-leaving') || el.classList.contains('vd-out')) continue;
-      if (el.checkVisibility ? !el.checkVisibility({ visibilityProperty: true }) : getComputedStyle(el).visibility === 'hidden') continue;
+      if (skip && skip.includes(el)) continue;
+      if (unseenCard(el)) continue;
       let q = slideRest(el, el.getBoundingClientRect());
       if (!q.width || !q.height) continue;
       // (data-safe-rest: a card whose own transform only eases it in or out counts where it rests, so the camera frames once.)
-      if ('safeRest' in el.dataset) q = restBox(el, q);
+      if ('safeRest' in el.dataset) q = translateRest(el, restBox(el, q));
       // The vitals dock folded to one line on a phone (main.js) still counts at its full height, so the
       // framing does not jump each time it folds and opens.
       // (data-safe-pad: room kept clear above a piece too, as the 8 px between the figure's readings and the view switch's pill.)
@@ -1431,6 +1599,25 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   }
   // The whole map, in the space the cards leave and clear of the zoom pill.
   const circWhole = () => clearPill(insetVT({ k: 1, x: 0, y: 0 }, circVB()), circVB());
+  // The boxes the home framing fits: whole groups as drawn, and each gut organ (in its own transform) with every clipped
+  // part cut to its clip path's box.
+  function fitBoxes(whole, clipped) {
+    const out = [], box = (el) => { try { return el.getBBox(); } catch { return null; } };
+    for (const g of whole) { const b = box(g); if (b) out.push(b); }
+    for (const g of clipped) {
+      const parts = [];
+      for (const c of g.children) {
+        const b = box(c); if (!b || !b.width || !b.height) continue;
+        const id = /url\(#([^)]+)\)/.exec(c.getAttribute('clip-path') || '')?.[1];
+        const cp = id && svg.querySelector('#' + CSS.escape(id))?.firstElementChild;
+        const k = cp && box(cp);
+        parts.push(k ? clipBox(b, k) : b);
+      }
+      const m = g.transform?.baseVal?.consolidate()?.matrix;
+      for (const b of parts) if (b) out.push(m ? mapBox(b, m) : b);
+    }
+    return out;
+  }
   function defaultVT(circuit) {
     if (!circuit) {
       // Fit frames everything the plate draws: the heart and the veins above it, the organs, the
@@ -1443,8 +1630,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       // Only what holds still is measured: the abdomen, the organs and the ascites. The vessels morph (to and from
       // the circuit, and as the first frames lay them out), and measuring them made the framing land in one place
       // and then glide to another a second later.
-      for (const g of [gBackdrop, gOrgans, gAscites]) {
-        let b; try { b = g.getBBox(); } catch { continue; }
+      // (A box ignores clip paths, so the gut's art, drawn past Mohammad's outlines and clipped to them, is measured
+      // clipped: fitBoxes. Measured whole, its loose ends pushed the framing off centre.)
+      for (const b of fitBoxes([gBackdrop, ...[...gOrgans.children].filter((c) => c !== gGut), gAscites], gGut ? gutKids() : [])) {
         if (!b.width || !b.height) continue;
         x0 = Math.min(x0, b.x); y0 = Math.min(y0, b.y); x1 = Math.max(x1, b.x + b.width); y1 = Math.max(y1, b.y + b.height);
       }
@@ -1477,6 +1665,25 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // panned: a pinch, a drag, the wheel or a zoom step clears it. The tools' own camera trips (the HVPG catheter's route and
   // close-up, there and back) leave it as it was, so a card closed after a measurement still fits (see closeView).
   let fitted = false;
+  // The Tests card opening leaves the camera where it is (Mohammad, 20 Oct): the pan and zoom stay as they were, under the card too.
+  // keepView(true) is called as the card opens and notes the space the other pieces leave (the card itself not counted); the
+  // refits that follow the card (the open's, the sheet settling, a tool's card changing height) and the home framing's own
+  // look then leave the view alone for as long as only the Tests card has changed that space. Another card coming or going,
+  // a turn of the device or a resize changes it, and the framing follows as ever; so do the Fit button and a slide's own
+  // framing (not kept while presenting).
+  let keptSpace = null;
+  const spaceSig = () => {
+    // (The vitals dock changes shape beside a side-docked Tests card, so it is not counted either.)
+    const i = safeInsets(false, [document.getElementById('dock'), document.getElementById('vdock')]);
+    return [i.W, i.H, i.t, i.b, i.l, i.r].map(Math.round).join();
+  };
+  // (Once the space has changed for another reason the view is no longer kept: the framing follows from then on.)
+  const keptNow = () => {
+    if (keptSpace === null) return false;
+    if (!store.get().presenting && keptSpace === spaceSig()) return true;
+    keptSpace = null;
+    return false;
+  };
   const fit = () => {
     // In the lobule view, Fit shows the whole lobule again (it never leaves the view). Inside the sinusoid it steps back out to the lobule.
     if (lobuleOn) { if (store.get().sinusoid) { store.set({ sinusoid: false }); return; } lz.fitView(); return; }
@@ -1494,7 +1701,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
 
   // A card or sheet opened or closed: glide to the framing for the space that is now free (not in the lobule, which refits itself).
   function refit() {
-    if (lobuleOn) return;
+    if (lobuleOn || keptNow()) return;
     const to = defaultVT(morphTarget === 1);
     if (morphTarget !== 1) homeAt = to;
     fitted = true;
@@ -1585,22 +1792,29 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // liver's card, the palette, a presenter step) and cross-fades over the plate.
   let liverBB = null;
   let lobuleOn = false, lobU = 0, lobAnim = 0;
-  // Into the lobule, a dive (1.6 s): one continuous zoom from a spot in the liver, gentle at both ends.
+  // Into the lobule, a dive (2.2 s): one continuous zoom from a spot in the liver, gentle at both ends.
   // The anatomy is magnified as it stands (a compositor transform: nothing is redrawn); a field of
-  // lobules (few and large, so the zoom stays light) blooms out from that spot over it; the zoom goes on through them and
+  // lobules blooms out from that spot over it, first a fine grain about as large as real lobules are in a liver that size
+  // (Mohammad, 24 Oct: "we should be zooming quite a bit more to get to the lobule level"), then simple lobules, then defined
+  // ones as they grow (the field's tile sizes, blended on the GPU: field-gl.js); the zoom goes on through them and
   // settles onto one, where the lobule's tissue fades in, in place, and then its labels and card.
-  // Out, the same in reverse, quicker.
+  // Out, the same in reverse, quicker. (About four times the zoom of the 1.6 s dive before, so a little longer: on a log scale
+  // its pace is about the same.)
   // The anatomy's own framing is never touched. diveT is the dive's clock, 0 (anatomy) to 1 (lobule).
   let diveAt = null, diveLand = null, diveT = 0, diveOut = false;
-  const DIVE_MS = 1600, RISE_MS = 1000;
+  const DIVE_MS = 2200, RISE_MS = 1300;
   let diveZ = 0;   // the dive's zoom so far (log scale), kept for cameraZoom
-  // Anatomy to the sinusoid (and back) as one zoom, with no rest in the lobule: the dive is eased in only and hands its speed on, at the joint,
-  // to the sinusoid's zoom (lobule-zoom.js sinChain), which eases out only; out, the other way round.
-  // (diveClock: the dive's own start, span and ends, so the joint's moment is known exactly; riseAt: when the sinusoid finished
-  // closing, the moment the rise that follows it begins, rather than when its callback happens to run.)
-  let riseFast = false, chainIn = false, chainOut = false, chainFired = false, chainAt = 0, zShift = 0, diveClock = null, riseAt = null;   // (zShift: for cameraZoom, the plate's zoom is reset unseen when the rise begins)
-  const RH = 24;   // a lobule's size on screen (px) as the liver's surface gives way to the field
-  const LC = Math.log(5);   // the anatomy's share of the zoom (×5), the field's the rest
+  let riseLine = false, riseFast = false, zShift = 0;   // (zShift: for cameraZoom, the plate's zoom is reset unseen when the rise begins)
+  // The anatomy's share of the zoom (×16), the field's the rest: the camera goes deep into one part of the liver, its vessels still
+  // drawn, before any lobule shows (Mohammad, 24 Oct, on an iPad: at ×5 the liver and its portal branches still filled the screen as
+  // the lobules came in). RH: a lobule's radius on screen (px) at that zoom, about true to scale, a lobule (1 to 1.5 mm) being about
+  // 1/130 of the liver's width (6 px at ×5). The whole dive stays about ×140 on a phone and ×230 on a Mac.
+  const LC = Math.log(16);
+  const RH = 19;
+  // The hand-over from the anatomy to the field, on the zoom: the field starts to come in at FIELD_IN and is whole (opaque) at
+  // FIELD_WHOLE, where the magnified anatomy under it is hidden. About two octaves of zoom (×4.7), so it takes about a third of a
+  // second at the dive's fastest instead of a sixth: the lobules came in, and the anatomy's vessels went, all at once (Mohammad, 25 Oct).
+  const FIELD_IN = LC - 1.2, FIELD_WHOLE = LC + 0.35;
   const diveEls = () => [svg, wrap.querySelector('#stageOver'), wrap.querySelector('#labels'), vCanvas].filter(Boolean);
   function diveTarget() {
     const lb = liverBox();
@@ -1617,8 +1831,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     diveHid = on; labHid = lab;
     for (const el of diveEls()) el.style.visibility = (el.id === 'labels' ? lab : on) ? 'hidden' : '';
   }
-  // The anatomy fades out as the field fades in over it (one crossfade, the same curve), and is hidden only once it is fully clear, so
-  // nothing pops out of or into view at either end of the zoom. Opacity on layers the zoom already composites costs nothing per frame;
+  // The field fades in over the anatomy, which stays whole beneath it and is hidden only once the field covers it, so nothing pops out
+  // of or into view at either end of the zoom and the page never shows through between them (see diveFrame). Opacity on layers the zoom already composites costs nothing per frame;
   // their usual .25s opacity transition is held off while it is driven frame by frame (and eases the anatomy back in under the landed lobule).
   let diveFadeO = null;
   function setDiveFade(o) {
@@ -1660,17 +1874,12 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       const lt = LC + Math.log(Math.max(RH * 2, diveLand.r) / RH);
       // Eased in and out (smootherstep), one ease over the whole log scale: the anatomy's part and the field's run on at the same
       // speed where they meet. (Each part had its own rate, so the zoom sped up by a sixth or more, suddenly, a third of the way in.)
-      // (riseFast: a way out of the landed lobule moves from its first frame, as the rise into the sinusoid's chain does; the dive's
-      // ease starts at rest and held the lobule still for its first 120-160 ms. A reversal keeps the curve it was on, so nothing jumps.)
-      const fast = chainIn || chainOut || riseFast;
-      const TJ = chainIn ? 0.88 : chainOut || riseFast ? 1 : 0.84, u = clamp(t / TJ, 0, 1);
-      const p = fast ? u * u * (2 - u) : u * u * u * (u * (u * 6 - 15) + 10);
-      // (at: the moment the dive reaches the joint, from its own clock: the sinusoid's zoom is timed from there, not from whenever the
-      // frame that crossed it ran, which on a phone is a frame or more later and left the zoom slowed for a moment.)
-      // (now: this frame's own moment, so the frame that crosses the joint already draws the sinusoid's first step, rather than holding
-      // the zoom still for that frame.)
-      const clockAt = (x) => (chainIn && diveClock ? diveClock[0] + (x - diveClock[2]) / (diveClock[3] - diveClock[2]) * diveClock[1] : undefined);
-      if (chainIn && !chainFired || chainOut) lz.setSinChain({ speed: lt / (TJ * (diveOut ? RISE_MS : DIVE_MS)), at: clockAt(TJ), now: clockAt(t) }, true);
+      // (riseFast: a way out of the landed lobule moves from its first frame; the dive's ease starts at rest and held the lobule
+      // still for its first 120-160 ms. A reversal keeps the curve it was on, so nothing jumps.)
+      // (A sine ease: from rest and back to rest, its fastest a sixth slower than the smootherstep's, which passed the hand-over at
+      // its peak speed.)
+      const TJ = riseFast ? 1 : 0.84, u = clamp(t / TJ, 0, 1);
+      const p = riseFast ? u * u * (2 - u) : (1 - Math.cos(Math.PI * u)) / 2;
       const z = lt * p;
       diveZ = z;
       // Landed in the lobule: the anatomy under it is shown again only once the lobule has settled and its flow marks have
@@ -1678,7 +1887,11 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       const landed = t >= 1 && !diveOut;
       setDiveScale(t >= 1 ? 1 : Math.exp(Math.min(z, LC + 0.4)), landed);
       if (landed) { clearTimeout(unhideAt); unhideAt = setTimeout(() => { if (diveT >= 1 && lobuleOn) { setDiveHidden(false, false); setDiveFade(null); } }, 500); }
-      setDiveFade(t <= 0 ? null : landed ? 0 : 1 - smoothT(LC * 0.45, LC + 0.3, z));
+      // The anatomy stays whole under the field as it fades in (and out, on the way back), and is hidden only once the field covers
+      // it. (Faded out on the field's curve, the two half-clear layers let the page through, about a fifth of it, for a fifth of a
+      // second as the field took over: a dark flash zooming in, in dark mode, Mohammad, 24 Oct. Zooming out it fell where the field
+      // itself was already fading into the page, so it did not show.)
+      setDiveFade(t <= 0 ? null : landed ? 0 : 1);
       // The anatomy's labels leave as the zoom starts.
       const lab = wrap.querySelector('#labels');
       // (Going out they come back over the last half of the zoom, in place, rather than at the very end.)
@@ -1686,35 +1899,60 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       // The detailed lobule comes in while the zoom is still settling, zooming with the field.
       const r = RH * Math.exp(z - LC);
       const [ox, oy] = diveAt;
-      const g = smoothT(LC - 0.5, lt, z);   // the zoom's centre drifts from the dive point to the lobule's place
-      const px = lerp(ox, diveLand.x, g), py = lerp(oy, diveLand.y, g);
+      // Going in, the zoom's centre drifts from the dive point to the lobule's place. Going out (riseLine), one straight pull-out:
+      // the lobule is scaled about one fixed point, so it leaves its place in step with the zoom and ends on the dive point, with
+      // no sideways pan across it first (rise-path.js).
+      const g = smoothT(LC - 0.5, lt, z);
+      const [px, py] = riseLine ? riseCentre([diveLand.x, diveLand.y], [ox, oy], Math.exp(-lt), Math.exp(z - lt)) : [lerp(ox, diveLand.x, g), lerp(oy, diveLand.y, g)];
       // The detailed lobule rides on the field's own lobule at that centre, so it grows out of it.
       lz.setDiveZoom(t >= 1 ? 1 : clamp(r / diveLand.r, 0.05, 1), diveLand.x, diveLand.y, px, py);
       lz.setDive(t <= 0 || t >= 1 ? null : {
-        a: smoothT(LC * 0.45, LC + 0.3, z), x: px, y: py,
-        r, ox, oy, quiet: smoothT(0.45, 0.8, t), focus: smoothT(0.1, 0.8, t),
+        // The field comes in only over the anatomy's last stretch (×5 to ×23, its lobules a fine grain a few px across), whole
+        // where the anatomy is hidden; its neighbours drain and fade into the page only once it is whole, toward the landing, so the
+        // grain fills the screen first. (On the zoom, not the clock: the way out passes the same pictures in reverse.)
+        a: smoothT(FIELD_IN, FIELD_WHOLE, z), x: px, y: py,
+        r, ox, oy, quiet: smoothT(lerp(FIELD_WHOLE, lt, 0.4), lt, z), focus: smoothT(FIELD_WHOLE, lt, z),
+        // A focus pull: the field comes in soft, the liver's grain, and sharpens into lobules as it becomes whole; and a depth of
+        // field: the lobules away from the one being landed on stay a little soft through the zoom, sharp again as it lands, where
+        // the lobule view's own surround takes over (GPU only: lobule-zoom.js paintFieldGL).
+        blur: 1 - smoothT(FIELD_IN, FIELD_WHOLE + 0.3, z), dof: smoothT(FIELD_IN + 0.3, FIELD_WHOLE + 0.6, z) * (1 - smoothT(lt - 0.9, lt, z)),
       });
-      // Once the field is whole (fully opaque, from z = LC + 0.3) the magnified anatomy beneath it is not seen: it is hidden, so the
+      // Once the field is whole (fully opaque, from z = FIELD_WHOLE) the magnified anatomy beneath it is not seen: it is hidden, so the
       // browser stops compositing it (Safari redraws a scaled SVG at each new scale, every frame); the labels as soon as they have faded.
-      if (!landed) setDiveHidden(t > 0 && t < 1 && z >= LC + 0.3, lab && t > 0 && t < 1 && +lab.style.opacity <= 0.001);
+      if (!landed) setDiveHidden(t > 0 && t < 1 && z >= FIELD_WHOLE, lab && t > 0 && t < 1 && +lab.style.opacity <= 0.001);
     }
     lobU = easeInOut(clamp((t - 0.48) / 0.4, 0, 1));
     syncSemantic();
-    // The joint: the lobule has landed under the dive, and the sinusoid's zoom takes over at the speed the dive has.
-    if (chainIn && !chainFired && t >= 0.88) { chainFired = true; store.set({ sinusoid: true }); }
+  }
+  // Before the way out of a landed lobule (prepRise, asked for by the presenter as the slide changes): the anatomy under it, still
+  // covered, follows the model again and its organs' picture is made for the patient now, so the rise fades in a current picture.
+  // (Left as it was under the lobule, the picture held the patient from before the dive: shown through the rise and swapped at
+  // landing, the organs changed in one frame; dropped as the rise began, the live drawing showed, scaled up by the zoom, and
+  // Safari lost its masked groups, the stomach and gut, until partway down: Mohammad, 20 Oct, HVPG 7 to 8.)
+  let risePrep = false, risePrepT = 0;
+  function prepRise() {
+    if (!lobuleOn || diveT < 1 || morphTarget !== 0 || risePrep) return;
+    risePrep = true; clearTimeout(risePrepT); risePrepT = setTimeout(() => { risePrep = false; }, 6000);   // (never left on in the lobule)
+    if (F && !inUpdate) update(F);
+    platePoke();
+  }
+  // The organs' picture is made for the patient now (prepRise is done: it ends when that picture lands), or there is none to wait for.
+  function riseReady() {
+    if (!risePrep || !F || !veins || veins.lost || !glWanted(easeInOut(morph)) || figureHidden() || !lobuleOn) return true;
+    return plateOn() && !plateBusy && !lvMoving && !fluidEasing() && !spleenMoving() && plateKey === plateStateKey();
   }
   function setLobule(on) {
     if (on && morphTarget !== 0) return;
+    risePrep = false; clearTimeout(risePrepT);
     const from0 = diveT;
-    scrubS = 0; cancelFrame(scrubAnim); diveOut = !on;
-    if (on) { riseBox = null; riseUsed = false; chainOut = false; chainFired = false; } else chainIn = false;
+    diveOut = !on;
+    if (on) { riseBox = null; riseUsed = false; }
     if (lobuleOn === on && diveT === (on ? 1 : 0)) return;
     lobuleOn = on;
     logMove({ t: performance.now(), kind: on ? 'dive' : 'rise' });
     cancelFrame(lobAnim);
     if (on && diveT === 0) {
-      riseFast = false;
-      if (chainIn && performance.now() - chainAt > 4000) chainIn = false;   // (asked for long ago and never begun)
+      riseFast = false; riseLine = false;
       const w = diveTarget();
       if (w) {
         refreshCTM();
@@ -1725,7 +1963,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       lz.prewarm(diveLand.r);
       lz.stage();   // the lobule is drawn now, for where it lands, and only then does the zoom start (its clock starts below)
     } else if (!on && diveT >= 1) {
-      riseFast = !chainOut;
+      riseLine = true;   // (kept through a reversal, so the lobule stays on the line it was on)
+      riseFast = true;
+      lz.stageRise();   // (out of a zoomed-in lobule: its whole copy is drawn now, before the rise's clock starts)
       diveLand = lz.current();
       // The anatomy is covered by the lobule at this point: take it to its fit framing now, unseen, so the way out is one
       // continuous zoom from the lobule's fit to the anatomy's fit, with no correction after it lands.
@@ -1752,9 +1992,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     // A reversal mid-way glides back from where it is, at the speed of the move it turns round (eased from rest, not at full speed at once).
     const turn = from0 > 0 && from0 < 1, from = diveT, to = on ? 1 : 0;
     const ms = reduceMotion.matches ? 0 : turn ? (on ? RISE_MS : DIVE_MS) : on ? DIVE_MS : RISE_MS;
-    // Out from the sinusoid, the rise starts when its zoom ended, so the two run on as one.
-    const t0 = !on && riseAt !== null ? Math.min(performance.now(), riseAt) : performance.now();
-    riseAt = null; diveClock = [t0, ms * Math.abs(to - from) || 1, from, to];
+    const t0 = performance.now();
     const step = (now) => {
       const e0 = ms ? clamp((now - t0) / (ms * Math.abs(to - from) || 1), 0, 1) : 1, e = turn ? e0 * e0 * (3 - 2 * e0) : e0;
       diveT = from + (to - from) * e;
@@ -1765,7 +2003,6 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       else if (!on) {
         setDiveScale(1); lz.setDiveZoom(1, 0, 0); diveLand = null;
         zShift = 0;
-        if (chainOut) { chainOut = false; lz.setSinChain(null, false); }
         // Out of the lobule the anatomy always ends on its full fit, not where the dive began (often the liver close-up).
         // (Already taken to its fit when the way out began; measuring it again here read the floating pieces mid-change and sent the view down, then back.)
         if (riseUsed) riseUsed = false;   // (the rise already landed on the slide's own framing)
@@ -1786,7 +2023,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   function syncSemantic() {
     if (!lz) return;
     // Turning to the circuit closes the lobule view.
-    if ((lobuleOn || scrubS > 0) && morphTarget !== 0) { scrubS = 0; lobuleOn = false; lobU = 0; diveT = 0; diveLand = null; lz.setDive(null); lz.setDiveZoom(1, 0, 0); if (diveAt) setDiveScale(1); { const lab = wrap.querySelector('#labels'); if (lab) lab.style.opacity = ''; } cancelFrame(lobAnim); if (store.get().lobule) store.set({ lobule: false }); }
+    if (lobuleOn && morphTarget !== 0) { lobuleOn = false; lobU = 0; diveT = 0; diveLand = null; lz.setDive(null); lz.setDiveZoom(1, 0, 0); if (diveAt) setDiveScale(1); { const lab = wrap.querySelector('#labels'); if (lab) lab.style.opacity = ''; } cancelFrame(lobAnim); if (store.get().lobule) store.set({ lobule: false }); }
     const u = morphTarget === 0 ? lobU : 0;
     const wasOpen = lz.isOpen();
     lz.setFade(u);
@@ -1801,7 +2038,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   let camMove = false;
   function camSettle() {
     if (!camMove) return;
-    camMove = false;
+    camMove = false; dpr.carry = false;
     if (F) updateLabels(F);
     nextFrame(() => { if (!camMove) wrap.classList.remove('cam-move'); });
   }
@@ -1812,9 +2049,10 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (!sameView(from, to)) logMove({ t: t0, ms, restart: vtGliding, kind: 'glide', zoom: Math.abs(Math.log(to.k / from.k)), pan: Math.hypot(to.x - from.x, to.y - from.y) });
     if (reduceMotion.matches) ms = Math.min(ms, 300);   // (reduced motion: a short glide, never a jump)
     // Lite mode: a jump, and a move that changes the view (not a small refit) fades the figure in at its new framing.
-    if (ms <= 0) { vtGliding = false; vt = to; applyVT(); CTM = null; camSettle(); return; }
+    if (ms <= 0) { vtGliding = false; vt = to; applyVT(); CTM = null; camSettle(); dprLet(); return; }
     vtGliding = true;
-    if (store.get().presenting && !sameView(from, to)) { camMove = true; wrap.classList.add('cam-move'); setTimeout(() => { if (!vtGliding) camSettle(); }, ms + 80); } else camSettle();
+    if (store.get().presenting && !sameView(from, to)) { camMove = true; dpr.carry = dpr.on && performance.now() < dpr.refitUntil; wrap.classList.add('cam-move'); setTimeout(() => { if (!vtGliding) camSettle(); }, ms + 80); } else camSettle();
+    dprLet();   // (a probe waiting for the slide's framing: a move hides it till it lands, a refit shows it now)
     const step = (now) => {
       // A newer glide (or a framing set outright) took over: this one stops. A glide started from inside this step's
       // frame (a refit a view change set off) left two running, and the older could land last, where nobody wanted it.
@@ -1826,6 +2064,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       if (cath.st) { refreshCTM(); cathLabels(); if (drawVeins()) drawnView = viewVersion; }
       if (sites.list) { refreshCTM(); sitesPaint(); }
       if (scan.on) scanPaint();
+      dprobePaint();
       if (u < 1) vtAnim = nextFrame(step); else { vtGliding = false; camSettle(); }
     };
     vtAnim = nextFrame(step);
@@ -1893,6 +2132,14 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // only from the view switch, never by zooming out. The anatomy underneath keeps its framing.
   function openLobule(tries = 0) {
     if (morphTarget !== 0) store.set({ view: 'anatomic' });
+    // The lobule's code loads after the first paint (lobuleReady): a dive asked for before it is there goes on once it is.
+    if (!lz) {
+      if (!lzWaiting) {
+        lzWaiting = true;
+        lobuleReady().then(() => { lzWaiting = false; if (store.get().lobule) openLobule(); }, (err) => { lzWaiting = false; console.error(err); store.set({ lobule: false, sinusoid: false }); });
+      }
+      return;
+    }
     // Right after loading the liver may not be laid out yet: try again shortly.
     // From the circuit, ease into the anatomy first, then dive.
     if (!liverBox() || morphTarget !== 0 || morph > 0.02) { if (tries < 40) setTimeout(() => { if (store.get().lobule) openLobule(tries + 1); }, 120); return; }
@@ -1901,66 +2148,24 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     setLobule(true);
   }
   function closeLobule() { setLobule(false); }
-  // Zoom-driven dive: normal zoom carries on into the liver; past SCRUB_K over the liver the camera and pan
-  // lock and each further zoom step scrubs the dive (scrubS 0..1, the same frames the timed dive plays).
-  // Zooming back out reverses it, down to the liver again. Taps and the Lobule step still play it timed.
-  const SCRUB_ON = false;   // the lobule opens and closes only from the view buttons: manual zoom never dives into it
-  const SCRUB_K = 5.8,   // the anatomy zoom is free up to its 6× maximum; the pan locks and the dive begins only at it
-     SCRUB_SPAN = Math.log(7), SCRUB_DONE = 0.88;   // the dive has fully landed by 0.88, so the view switches there
-  let scrubS = 0, quietLobule = false, scrubAnim = 0;
-  function canScrub(factor) {
-    if (!SCRUB_ON) return false;
-    if (lobuleOn || factor <= 1 || morphTarget !== 0 || morph > 0.02 || vt.k < SCRUB_K || reduceMotion.matches) return false;
-    const w = diveTarget(); if (!w) return false;
-    refreshCTM();
-    const [x, y] = worldToLocal(w[0], w[1]);
-    return x > 0 && y > 0 && x < wrap.clientWidth && y < wrap.clientHeight;   // the liver is in view
-  }
-  function startScrub() {
-    const w = diveTarget();
-    refreshCTM();
-    const [x, y] = w ? worldToLocal(w[0], w[1]) : [wrap.clientWidth / 2, wrap.clientHeight / 2];
-    diveAt = [clamp(x, 0, wrap.clientWidth), clamp(y, 0, wrap.clientHeight)];
-    diveLand = lz.landing();
-    lz.prewarm(diveLand.r);
-    lz.stage();
-    cancelFrame(vtAnim); vtGliding = false;
-    if (store.get().selection && store.get().selection.type !== 'lobule') store.set({ selection: null });
-  }
-  function scrubBy(factor) {
-    if (factor === 1 || morphTarget !== 0) return false;
-    if (scrubS === 0 && !lobuleOn && !canScrub(factor)) return false;
-    if (scrubS === 0 && !lobuleOn) startScrub();
-    diveOut = factor < 1;
-    scrubS = clamp(scrubS + Math.log(factor) / SCRUB_SPAN, 0, 1);
-    diveT = scrubS;
-    if (scrubS >= SCRUB_DONE) {
-      scrubS = 0; diveT = 1; lobuleOn = true;
-      diveFrame(1);
-      quietLobule = true; store.set({ lobule: true }); quietLobule = false;
-      return true;
-    }
-    if (scrubS === 0) { diveFrame(0); setDiveScale(1); lz.setDiveZoom(1, 0, 0); diveLand = null; return factor < 1 ? true : false; }
-    lz.warm();
-    diveFrame(diveT);
-    return true;
-  }
-  // A button step: the same scrub, spread over a short glide.
-  function scrubGlide(factor) {
-    cancelFrame(scrubAnim);
-    const t0 = performance.now(), ms = 320; let done = 0;
-    const step = (now) => {
-      const u = easeInOut(clamp((now - t0) / ms, 0, 1));
-      const f = Math.pow(factor, u - done); done = u;
-      scrubBy(f);
-      if (u < 1 && (scrubS > 0 || canScrub(f))) scrubAnim = nextFrame(step);
-    };
-    scrubAnim = nextFrame(step);
-  }
-  store.on('lobule', (on) => { if (!quietLobule) (on ? openLobule() : closeLobule()); });
+  store.on('lobule', (on) => (on ? openLobule() : closeLobule()));
   const zoomLobule = () => store.set({ lobule: true });
-  lz = createLobuleZoom({ host: wrap, styles: wrapCS });
-  // Out of the lobule view by zooming out: the view hands the dive back to the scrub, which carries on reversing it.
+  // The lobule's layer (the zoom, the sinusoid view under it) is built when its code has arrived, which the stage asks for once the
+  // figure is on screen and the page has a moment (prepLobule), or at once when a dive is asked for. It takes the place in the page it
+  // always had (the anchor), so the layers stack as they did, and reads the frame and the store as they stand. What a presenter slide
+  // asked of it before then (lobuleAim) is kept for it.
+  const lzAnchor = document.createComment('lobule');
+  wrap.append(lzAnchor);
+  // (The code is fetched as soon as the figure is shown; the layer is built a moment later, when the page is quiet, or at once for a dive.)
+  const lobuleCode = () => (lzCode ||= import('./lobule-zoom.js?v=be0f0900a9').catch((err) => { lzCode = null; throw err; }));
+  function lobuleReady() {
+    return (lzLoad ||= lobuleCode().then(({ createLobuleZoom }) => {
+      lz = createLobuleZoom({ host: wrap, styles: wrapCS, before: lzAnchor });
+      if (aimWait) { lz.aim(...aimWait); aimWait = null; }
+      if (F) lz.update(F);
+      return lz;
+    }, (err) => { lzLoad = null; throw err; }));
+  }
 
   // ── Detail ────────────────────────────────────────
   // Detail: the moving blood is drawn on every frame the screen offers (fps 0: 60, 120 or more a second; a frame of it
@@ -1974,11 +2179,27 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const paceOf = (q) => (QUALITY[q].fps ? 1000 / QUALITY[q].fps : 0);   // (ms between drawn frames of the blood; 0: every frame)
   const SOFTWARE = !!veins?.software;
   try { localStorage.removeItem('pps.quality'); localStorage.removeItem('pps.q'); } catch { /* storage unavailable */ }
-  let quality = SOFTWARE ? Q_SOFTWARE : (() => { try { return localStorage.getItem('pps.saver') === '1' ? Q_SAVER : 0; } catch { return 0; } })();
+  let quality = SOFTWARE ? Q_SOFTWARE : 0;
+  // The context is lost (iOS Safari takes it in the background or under memory pressure): the SVG vessels and organs
+  // come back at once, as they do whenever the GPU is not wanted (syncVeinsNow with `on` false, which a lost context never
+  // reaches). Without this the tubes stayed hidden under a blank canvas until a restore, which Safari may never send.
+  // (Pixels as the SVG path draws them; the GPU picture returns with the context.)
+  vCanvas.addEventListener('webglcontextlost', () => {
+    wrap.classList.remove('gl-on');
+    if (wrap.classList.contains('gl-plate')) { wrap.classList.remove('gl-plate'); syncPlateLook(); }
+    plateView = null; plateViewKey = ''; plateCopy = null; plateKey = ''; dropViewKeep();
+    tubesHidden = false; if (tubesHeld.size) flushTubes();
+    if (tubesStale) { tubesStale = false; updateGeometry(true); }
+    syncOrganDim();
+    vLook = null; vBinKey = ''; binShown = null; bendShown = null; veinsDirty = true;
+    stageWake();
+  });
   vCanvas.addEventListener('webglcontextrestored', () => {
     veins?.dispose();   // the lost instance's listener goes with it (one per restore otherwise)
     veins = createVeinsGL(vCanvas, { tubes: GL_ROWS, force: true });
-    vBinKey = ''; binShown = null; glOrgans = false; plateKey = ''; tubesShown = null;   // (a new context holds no vessels yet)
+    if (!veins) { wrap.classList.remove('gl-on', 'gl-plate'); syncPlateLook(); return; }   // (no context this time: the SVG stays)
+    vBinKey = ''; binShown = null; bendShown = null; glOrgans = false; plateKey = ''; tubesShown = null;   // (a new context holds no vessels yet)
+    liverKey = '';   // (nor the liver's lower edge the ascites stops at: morphLiver sends it again)
     for (const x of EV) for (const o of [x, ...(x.strands || []), ...(x.feeders || [])]) { o.glRadKey = null; o.glRSent = null; }
     if (F) update(F);
   });
@@ -2089,7 +2310,6 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       // While the GPU draws the tubes their SVG layers are hidden (gl-on): their paths catch up when the SVG shows them again (syncVeins).
       if (svgTubes) {
         x.sel.setAttribute('d', d); x.wall.setAttribute('d', d); x.shadow.setAttribute('d', d);
-        if (x.heat) x.heat.setAttribute('d', d);
         if (x.lumen) x.lumen.setAttribute('d', d);
       }
       g.lit = litNormals(pts);
@@ -2122,6 +2342,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     stageWrap.classList.toggle('cmap', t > 0.5);
     gGrid.style.opacity = String(t);
     gNodes.style.opacity = String(t);
+    gFxC.style.opacity = String(t);
     // (Faded out whole, the circuit's grid and dots are hidden too (app.css, once their fade has run): at opacity 0 Safari still
     // painted the grid's patterned frames under the anatomy on every frame the figure moved.)
     gGrid.classList.toggle('gone', t === 0); gNodes.classList.toggle('gone', t === 0);
@@ -2159,7 +2380,13 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     nextFrame(() => {
       // (Set outright, so a glide still under way (a refit as the bars came in) stops here: left running it never landed,
       // stayed 'gliding' for good, and the zoom-out spring and the pans' bounds waited on it, so a pinch out stayed stuck.)
-      if (morphTarget === 0 && !userMoved) { cancelFrame(vtAnim); vtGliding = false; vt = homeAt = vtTarget = defaultVT(false); fitted = true; applyVT(); CTM = null; }
+      // (While presenting, the slide's framing is the presenter's: set outright here it jumped the figure off the slide's framing,
+      // after the start's cover had lifted when the patient came late. Shown already (the 4 s backstop), the figure glides to its fit.)
+      if (morphTarget === 0 && !userMoved && !store.get().presenting) {
+        const d = defaultVT(false);
+        if (figureShown) { homeAt = d; fitted = true; if (!sameView(d, vtGliding ? vtTarget : vt)) animateVT(d, 450); }
+        else { cancelFrame(vtAnim); vtGliding = false; vt = { ...d }; homeAt = d; vtTarget = { ...d }; fitted = true; applyVT(); CTM = null; }   // (three views, not one object: see zoomAt)
+      }
       showFigure();
     });
   }
@@ -2171,13 +2398,26 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // (no touch, wheel or key for 0.7 s), so it never lands in the middle of a pan, a pinch or a tap's response.
   let inputAt = -1e9;
   for (const ev of ['pointerdown', 'pointermove', 'wheel', 'keydown']) addEventListener(ev, (e) => { if (ev !== 'pointermove' || e.buttons) inputAt = performance.now(); }, { passive: true, capture: true });
+  // A finger or button still down, held still or not: the pictures made after a pan or pinch wait until it lifts (Mohammad, 21 Oct:
+  // "hitch as soon as I stop panning", finger still down). (A mouse let go outside the window is seen on its next move; a press
+  // held over 5 s with no input stops counting, so nothing waits for a lost release.)
+  const pressed = new Set();
+  addEventListener('pointerdown', (e) => pressed.add(e.pointerId), { passive: true, capture: true });
+  for (const ev of ['pointerup', 'pointercancel']) addEventListener(ev, (e) => pressed.delete(e.pointerId), { passive: true, capture: true });
+  addEventListener('pointermove', (e) => { if (!e.buttons) pressed.delete(e.pointerId); }, { passive: true, capture: true });
+  addEventListener('blur', () => pressed.clear());
+  const leftAlone = (ms) => !(pressed.size && performance.now() - inputAt < 5000) && performance.now() - inputAt >= ms;
   const prepIdle = (fn) => {
     const go = () => (performance.now() - inputAt < 700 ? setTimeout(go, 400) : window.requestIdleCallback ? requestIdleCallback(fn, { timeout: 600 }) : setTimeout(fn, 50));
     setTimeout(go, 0);
   };
   function prepLobule() {
+    if (!lz) {   // (the lobule's code comes once the figure is on screen and the page is quiet; the first dive is prepared as soon as it is built)
+      if (figureShown && !lzLoad && !lzSoon) { lzSoon = true; lobuleCode().catch(() => {}); prepIdle(() => lobuleReady().then(() => prepLobule(), (err) => console.warn('The lobule view did not load.', err))); }
+      return;
+    }
     const now = performance.now();
-    if (prepBusy || !lz || !figureShown || now - prepAt < 1000) return;
+    if (prepBusy || !figureShown || now - prepAt < 1000) return;
     prepAt = now;
     const calm = () => morphTarget === 0 && morph < 0.02 && !lobuleOn && diveT === 0 && !vtGliding;
     if (!calm() || figureHidden()) return;
@@ -2202,7 +2442,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     stageWake();
     inUpdate = true;
     try { gpuProbe.time(null, 'update (script)', () => updateInner(f)); } finally { inUpdate = false; fxAt = null; }
-    if (plateRedraw) { plateRedraw = false; drawVeins(); }
+    // (Hidden, no animation frame comes to draw the vessels again: they are drawn now, so the canvas never keeps colours the
+    // page no longer has, as after a change of the device's light or dark setting in the background.)
+    if (plateRedraw || (document.hidden && veinsDirty)) { plateRedraw = false; drawVeins(); }
     // The first framing waits for the patient (the first frames are drawn before it has loaded, without its
     // ascites or spleen), and the figure stays hidden until it is framed, so it appears once, in place.
     firstFrame();
@@ -2224,6 +2466,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     wasHome = home;
     if (home && now - homeCheck > 500 && watch.due()) {
       homeCheck = now;
+      if (keptNow()) return;   // (the Tests card alone has changed the space: see keepView)
       const d = defaultVT(false);
       if (!sameView(d, homeAt)) { homeAt = d; fitted = true; animateVT(d, 400); }
     }
@@ -2304,7 +2547,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     // In the lobule, or diving into it (the anatomy is only magnified, then covered), the plate is left as it is
     // (reading the cards' boxes and restyling it each model frame stalled the zoom); it catches up on the way out,
     // with its eases already where they have got to (followHidden).
-    const under = (lobuleOn || lz?.isOpen()) && !catchUp;
+    const under = (lobuleOn || lz?.isOpen()) && !catchUp && !risePrep;
     // The cards' boxes, read at most every 100 ms (each read forces a layout in the middle of the model's frames);
     // a card that opens, closes or moves announces itself (pps:occ, resize) and is read at once.
     // (And only while one of them may have moved: layoutWatch.)
@@ -2349,7 +2592,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       if (g.wigT == null || Math.abs(w - g.wigT) > 0.6) g.wigT = w;
       if (g.wig !== g.wigT) { const d = g.wigT - g.wig; g.wig = Math.abs(d) < 0.03 ? g.wigT : g.wig + d * kW; coiling.push(x); if (g.wig !== g.wigT) widthEasing = coilEasing = true; }
     }
-    updateGeometry(false, coiling);
+    gpuProbe.time(null, 'update: geometry', () => updateGeometry(false, coiling));
 
     for (const x of EV) {
       const e = x.e;
@@ -2359,7 +2602,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       // flow, the way it drew on, and is hidden when it is done; it is held visible until then.
       if (x.reveal?.out) vis = true;
       else if (!vis && x.vis && wasDrawn && canFade(x) && !x.reveal && !x.g.classList.contains('coll-ghost') && !quietFx()) { startExit(x, f); vis = true; }
-      if (vis !== x.vis) { setStyle(x, 'display', vis ? '' : 'none'); if (x.heat) x.heat.style.display = vis ? '' : 'none'; x.vis = vis; }
+      if (vis !== x.vis) { setStyle(x, 'display', vis ? '' : 'none'); x.vis = vis; }
       if (!vis) { x.drawn = false; continue; }
       if (x.tipFade && TIP_CONNECT[e.id]) {
         // Drawn solid to its end while something attaches there; otherwise it fades.
@@ -2384,6 +2627,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       if (e.code === 'C1' && f.bands > 0 && t < 1) w *= 1 - 0.14 * Math.min(4, f.bands);
       // The periportal collaterals (cavernoma) are fine channels, thinner than the caliber their flow alone would draw.
       if (e.id === 'C8') w *= lerp(0.6, 1, t);
+      // The spontaneous splenorenal shunt never reads fatter than the splenic vein it leaves.
+      if (e.id === 'C6' && mode !== 'flow' && EI.V_SPL != null) w = Math.min(w, lerp(vesselPx(f.D[EI.V_SPL]), clamp(vesselPx(f.D[EI.V_SPL]) * 0.95, 6, 15) * circBoost, t));
       // The caudate vein hypertrophies when it becomes the liver's outflow (Budd–Chiari).
       if (e.id === 'CAUD' && t < 1) { const ref = store.get().healthy?.Q?.[k]; if (ref) w *= 0.8 * clamp(Math.sqrt(Math.abs(f.Qf ? f.Qf[k] : f.Q[k]) / Math.abs(ref)), 1, 1.8); }
       // A vessel leaving keeps its width. While the views morph, the width follows the morph frame by frame.
@@ -2399,7 +2644,6 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       // no hover, no tap on them; it falls through to the organ. The sinusoids are a vessel of their own.
       cls(x, 'no-hit', LIVER_EDGES.has(e.id) && !SIN_EDGES.has(e.id) && t < 0.5);
       if (!x.isArt) {
-        x.pmid = (P1 + P2) / 2;
         const baseD = IVC_EDGES.has(e.id) ? E.IVC_IS.e.d : e.d || (e.dMax ? dMinOf(e) : 3);   // one wall thickness along the whole cava
         // The circuit is a map: a slightly wider border (drawn by the GPU, as one shape with filleted
         // joins) gives its lines their weight.
@@ -2416,6 +2660,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       else if (mode === 'velocity') { c1 = c2 = e.kind === 'liver' ? 'var(--lens-neutral)' : velColorOf(f, k, store.get().healthy); }
       else if (mode === 'oxygen') { c1 = oxygenColor(oxy[2 * k]); c2 = oxygenColor(oxy[2 * k + 1]); }
       else if (mode === 'heat') { c1 = heatColor(ref ? qHold(mode, k, 0, P1 - ref[NI[e.from]]) : 0); c2 = heatColor(ref ? qHold(mode, k, 1, P2 - ref[NI[e.to]]) : 0); }
+      else if (mode === 'system') { c1 = c2 = SYSTEM_COLOR[systemOf(e, PORTAL_TERRITORY)]; }   // (a slide's vein system, deck visuals V7: the same on every patient)
       else if (mode === 'neutral') { c1 = c2 = PORTAL_TERRITORY.has(e.from) || PORTAL_TERRITORY.has(e.to) ? 'var(--vein-portal)' : 'var(--vein-systemic)'; }
       else { c1 = deltaColor(ref ? qHold(mode, k, 0, P1 - ref[NI[e.from]]) : 0); c2 = deltaColor(ref ? qHold(mode, k, 1, P2 - ref[NI[e.to]]) : 0); }
       setA(x.st0, 'stop-color', c1); setA(x.st1, 'stop-color', c2);
@@ -2426,8 +2671,6 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       }
       // Flow marks are white on dark lumens and ink on pale ones.
       x.inkDark = mode === 'pressure' ? luminance(pressureColor((P1 + P2) / 2)) > 0.36 : luminance(c1) > 0.36;
-      if (x.heat && mode === 'heat') { setT(x.heat, 'stroke', c1); setT(x.heat, 'stroke-width', (w + 15).toFixed(1)); const ho = mode === 'heat' && ref ? (0.67 * clamp((x.pmid - (ref[NI[e.from]] + ref[NI[e.to]]) / 2) / 8, 0, 1)).toFixed(2) : '0'; if (x.heat._op !== ho) { x.heat._op = ho; x.heat.style.opacity = ho; } }
-      x.heatA = x.heat && mode === 'heat' && ref ? clamp((x.pmid - (ref[NI[e.from]] + ref[NI[e.to]]) / 2) / 8, 0, 1) : 0; x.heatCol = c1;
       if (e.kind === 'collateral') {
         const fr = shownFrac(e.id, f);
         const qa = Math.abs(f.Qf ? f.Qf[k] : f.Q[k]);
@@ -2471,20 +2714,21 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     // dashed stroke from its first frame (never first as a full tube that then vanishes).
     trackChanges(f, p);
     stepReveals(performance.now());
-    for (const x of EV) if (x.vis && !x.isArt) renderTube(x, p, t, J);
+    gpuProbe.time(null, 'update: tubes', () => { for (const x of EV) if (x.vis && !x.isArt) renderTube(x, p, t, J); });
     if (glWanted(t)) clearJoins(); else updateJoins(t);
     // A selected vessel stays bright while the rest of the network recedes.
     wrap.classList.toggle('has-sel', st.selection?.type === 'edge' && !!E[st.selection.id]?.vis);
     syncLift();
     syncVeins(t);
     updateOrganSel(st.selection, t);
-    updateNodesCircuit(f);
-    updateOverlays(f, p, gain, t);
+    gpuProbe.time(null, 'update: nodes', () => updateNodesCircuit(f));
+    gpuProbe.time(null, 'update: overlays', () => updateOverlays(f, p, gain, t));
     updateFocus();
     dopApply();
-    updateBridges(t);
-    updateLabels(f);
-    updateOrgans(f, p, t);
+    gpuProbe.time(null, 'update: bridges', () => updateBridges(t));
+    gpuProbe.time(null, 'update: labels', () => updateLabels(f));
+    gpuProbe.time(null, 'update: organs', () => updateOrgans(f, p, t));
+    gpuProbe.time(null, 'update: slide marks', () => fxSync(f, t));
     widthF = f; widthVer = storeVer; widthCTM = CTM;
   }
 
@@ -2517,10 +2761,10 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   function syncRadiiOnly(t) {
     return gpuProbe.time(null, 'radius sync (script)', () => {
       if (glowSync || plateEasing() || !glowOnlyOk(t)) return false;
-      const m = glowMemo, items = m.items, heat = m.mode === 'heat';
+      const m = glowMemo, items = m.items;
       for (let i = 0; i < items.length; i++) if ((items[i].x.width >= 3.4) !== m.wide[i]) return false;
       sendRadii(items);
-      for (const it of items) if (Math.ceil((it.obj.glMaxR + (it.x.wallPx || 1) + 18 + (heat ? 30 : 0)) / 2) * 2 > (vBinReach.get(it.row) || 0)) return false;
+      for (const it of items) if (Math.ceil((it.obj.glMaxR + (it.x.wallPx || 1) + 18) / 2) * 2 > (vBinReach.get(it.row) || 0)) return false;
       // (A ligated vein's divided stretch is as long as the vein is wide (divideLen): its drawn start, tube texel 5, follows the width.)
       let lig = false;
       for (const it of items) {
@@ -2553,11 +2797,41 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     followHome();
     return true;
   }
+  // In the same way, while the organs ease (the liver's shape, its tint) and no vessel width, coil, reveal or view moves, each
+  // display frame between the model's frames steps the organs alone (updateOrgans: the liver, the spleen, the fluid, their masks):
+  // the rest of the update reads only the model's frame, the settings and the view, unchanged since the last full update, and
+  // nothing in it follows the liver's ease (the organs' anchors are fixed, the spleen's size is the model's). External review,
+  // 21 Oct: the whole update, the labels' layout read included, ran on every frame of an ease. The same picture, frame for frame.
+  function stepOrgans() {
+    const f = F;
+    // (A pan moves no drawn size, and the view's own frame lays the labels out again (syncView): it takes this step too. A zoom or a
+    // turn changes the sizes kept in screen pixels, and takes the full update.)
+    if (!organsEasing || !f || f !== widthF || storeVer !== widthVer || !CTM || !widthCTM || CTM.sc !== widthCTM.sc || CTM.a !== widthCTM.a || CTM.b !== widthCTM.b || coilEasing || catchUp) return false;
+    if (lobuleOn || lz?.isOpen() || hid.at || plateStale || blockersStale || (performance.now() - blockersAt > 100 && watch.due())) return false;
+    if (morph !== morphTarget || tubesHidden !== wrap.classList.contains('gl-on') || EV.some((x) => x.reveal || (x.vis && widthMoving(x)))) return false;
+    stageWake();
+    inUpdate = true;
+    try {
+      gpuProbe.time(null, 'organ step (script)', () => {
+        const t = easeInOut(morph);
+        widthEasing = organsEasing = false;
+        updateOrgans(f, f.viewParams || store.get().params, t);
+        // (What the width step lays out every frame, it does here too: the site labels, a scan, a slide's moving camera, TIPS or DIPS.)
+        if (sites.list || scan.on || camMove || E.TIPS?.vis || E.DIPS?.vis) updateLabels(f);
+        if (fx) fxSync(f, t);
+      });
+    } finally { inUpdate = false; fxAt = null; }
+    if (plateRedraw) { plateRedraw = false; drawVeins(); }
+    firstFrame();
+    prepLobule();
+    followHome();
+    return true;
+  }
   function stepWidthsInner(f) {
     const nowW = performance.now(), dt = Math.min(0.1, (nowW - (wAt || nowW)) / 1000);
     wAt = nowW; widthEasing = false;
     lvAt = nowW;   // (the liver's ease clock: a full update after width steps eases from this frame, not from the last full update)
-    const t = easeInOut(morph), mode = layerMode();
+    const t = easeInOut(morph);
     let moved = false, labels = !!sites.list || scan.on || !!camMove || !!E.TIPS?.vis || !!E.DIPS?.vis;
     for (const x of EV) {
       if (!x.vis || !followWidth(x, dt)) continue;
@@ -2566,7 +2840,6 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       const w = x.width;
       widthWrites(x, w, t, f, EI[x.e.id]);
       if (x.isArt) continue;
-      if (x.heat && mode === 'heat') setT(x.heat, 'stroke-width', (w + 15).toFixed(1));
       if (x.sel.classList.contains('on')) setT(x.sel, 'stroke-width', (w + 12).toFixed(1));
       x.dopW = w;
       if (!labels) { const sw = sigW.get(x.e.id); labels = sw == null || Math.abs(w - sw) >= 2; }
@@ -2586,6 +2859,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     updateOverlays(f, p, lerp(1, 0.8, t), t);
     updateBridges(t);
     if (labels) updateLabels(f);
+    if (fx) fxSync(f, t);
   }
 
   // Each vein is a filled tube whose radius eases from the junction width at either end to its
@@ -2611,15 +2885,21 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     // end stays inside the vein instead of bulging out of the far wall.
     const hostW = (i) => { const hs = SIDE_HOSTS[id]?.[i].filter((h) => E[h]?.vis).map((h) => E[h].width); return hs?.length ? clamp(Math.max(...hs), w * 0.4, w) : null; };
     const a = (!stroked && hostW(0)) || endW(x.e.from), b = (!stroked && hostW(1)) || endW(x.e.to);
+    // On the GPU its end inside the vein then narrows further (fork-joins.js sideEndScale), so the round end stays clear
+    // of the far wall: the hosts' radii at each end, or 0.
+    const hostR = (i) => { const hs = SIDE_HOSTS[id]?.[i].filter((h) => E[h]?.vis).map((h) => E[h].width); return gpu && !stroked && SIDE_INSIDE[id]?.[i] && hs?.length ? Math.max(...hs) / 2 : 0; };
     const qw = widthMoving(x) ? 2 * edgeQ() : 0;
     keep(x, 'kw', w, qw); keep(x, 'ka', a, qw); keep(x, 'kb', b, qw);
-    const key = `${x.kw},${x.ka},${x.kb}|${wallPx.toFixed(2)}|${sten ? v.toFixed(3) + '@' + stenosisAt(id, p) : ''}|${lastMorph}|${stroked}|${gpu}`;
+    keep(x, 'kh0', hostR(0), qw); keep(x, 'kh1', hostR(1), qw);
+    const key = `${x.kw},${x.ka},${x.kb},${x.kh0},${x.kh1}|${wallPx.toFixed(2)}|${sten ? v.toFixed(3) + '@' + stenosisAt(id, p) : ''}|${lastMorph}|${stroked}|${gpu}`;
     if (key === x.shadeKey) return;
     x.shadeKey = key;
     const f = sten ? waist(id, v, g.len, w, p) : null;
+    const h0 = x.kh0, h1 = x.kh1, L = g.len || 1;
     x.rOf = (u) => {
       const r = u < 0.3 ? lerp(a, w, smooth(u / 0.3)) : u > 0.7 ? lerp(w, b, smooth((u - 0.7) / 0.3)) : w;
-      return Math.max(0.35, (r / 2) * (f ? f(u) : 1));
+      const side = (h0 ? sideEndScale(u * L, h0) : 1) * (h1 ? sideEndScale((1 - u) * L, h1) : 1);
+      return Math.max(0.35, (r / 2) * (f ? f(u) : 1) * side);
     };
     // The GPU draws the tube from rOf; the SVG outlines are built only when the SVG shows them.
     if (gpu) return;
@@ -2783,12 +3063,42 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   let cathTint = null;   // the HVPG's wedged vein, recolored (see cathPaint)
   const ORIGIN_LUMEN = [ORIGIN_GREY, ORIGIN_GREY, ORIGIN_GREY];   // the lumen while the blood is colored by origin (the GPU paints the streams on it)
   const binMemo = new Map();
-  let binShown = null;
+  let binShown = null, bendShown = null;
+  // A coiling collateral's cells are tested against its points when the coil began, reaching farther by as much as the coil
+  // still has to go (each point moves toward its coiled place by at most the change in amplitude), so they list it wherever
+  // it draws until the coil settles: every model frame of the coil writes its new points over the last binning (binVeins'
+  // patch) instead of binning every vessel again (round 2 review, G1-3). Settled, or moved past that (a new target), it is
+  // binned on its own points again. (A vessel listed in a cell it does not reach draws nothing there: the 1.25 headroom of a
+  // widening vein, below, lists such cells too.)
+  const binFrom = new Map();
+  // How far a vessel's lumen can reach, for the cells the moving blood is drawn in each frame (binVeins' `blood`): the reach
+  // less the 18 it adds for the casing, shadow and glow (reachOf), plus BLOOD_PAD. A vessel whose widest radius (glMaxR) and
+  // wall outgrow its reach is binned again (syncVeins, syncRadiiOnly), so this is always at least glMaxR + its wall + BLOOD_PAD,
+  // past the lumen's edge, which antialiases half a pixel out (veins-gl aL): half a pixel is under 6 world units even for the
+  // whole circuit at its smallest zoom (K_MIN) in a small window on a 1x screen, drawn at half resolution (a software
+  // renderer). Elsewhere in its cells nothing changes from frame to frame.
+  const BLOOD_PAD = 6;
+  function binTube(it, pts) {
+    const reach = vBinReach.get(it.row), g = it.x.e.kind === 'collateral' ? geo[it.x.e.id] : null;   // (its strands and feeders too)
+    const core = reach - 18 + BLOOD_PAD;
+    // (A collateral that never coils, spontaneous or straight, has no target: wigT stays unset, and a reach of
+    // NaN from it spoilt the whole binning's bounds, so no vessel drew at all: the outflow talk's caval collateral, 18 Oct.)
+    if (!g || g.wigT == null || g.wig === g.wigT) { binFrom.delete(it.row); return { id: it.row, pts, reach, core }; }
+    let a = binFrom.get(it.row);
+    if (a && a.pts.length === pts.length) {
+      let far = 0;
+      for (let i = 0; i < pts.length && far <= a.m; i++) far = Math.max(far, Math.hypot(pts[i][0] - a.pts[i][0], pts[i][1] - a.pts[i][1]));
+      if (far > a.m) a = null;
+    } else a = null;
+    if (!a) binFrom.set(it.row, a = { pts: pts.map((q) => q.slice()), m: Math.ceil(Math.abs(g.wigT - g.wig) * 2 + 1) / 2 });
+    return { id: it.row, pts, bin: a.pts, reach: reach + a.m, core: core + a.m };
+  }
   let vBinKey = '', vBinReach = new Map(), veinsDirty = true, veinsDrawKey = '', vLook = null, glOrgans = false;
   const veinsRows = new Set();   // vessel rows whose attributes changed since the vessel layer was drawn (only those, while veinsDirty is false)
   let plateDim = null, plateSat = 1, netA = 1;
   // A lens switch crossfades every vessel from the colors it showed to the new lens's (no one-frame recolor).
   let shownCol = new Map(), lensFrom = null, lensT0 = 0, lensMode = null;
+  let sinceP = null;   // (a "change since" slide's reference: see changeRef)
   const JUMP_MMHG = 2;
   let jumpP = null, jumpF = null;
   function modelJumped(f) {
@@ -2919,7 +3229,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const pairKey = (a, b) => Math.min(a.row, b.row) + ':' + Math.max(a.row, b.row);
     const endOf = (it, i) => (i ? it.pts[it.pts.length - 1] : it.pts[0]);
     const rEnd = (it, i) => it.obj.glR[i ? N_SAMPLES - 1 : 0];
-    const add = (ends, c) => {
+    const add = (ends, c, trunk) => {
       const uniq = [...new Map(ends.map((e) => [e[0].row, e])).values()];
       if (uniq.length < 2) return;
       let spread = 0, rMin = Infinity, rMax = 0;
@@ -2929,20 +3239,14 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         rMin = Math.min(rMin, r); rMax = Math.max(rMax, r);
       }
       const k = clamp(1.2 * rMin + 1.2, 1.5, 11);
-      let fil = 1;
-      // One vessel running on into the next (two ends meeting nearly head on) needs no fillet: the
-      // smooth union of two overlapping ends swells the tube there, a bump at every join.
-      if (uniq.length === 2 && uniq.every(([, i]) => i != null)) {
-        const dir = ([it, i]) => { const P = it.pts, n = P.length, a = i ? P[n - 1] : P[0], b = i ? P[Math.max(0, n - 4)] : P[Math.min(n - 1, 3)], L = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1; return [(b[0] - a[0]) / L, (b[1] - a[1]) / L]; };
-        const [u, v] = uniq.map(dir), dot = u[0] * v[0] + u[1] * v[1];
-        fil = clamp((dot + 0.9) / 0.5, 0, 1);
-        if (fil < 1) glStraight.push({ a: uniq[0][0].row, ia: uniq[0][1], b: uniq[1][0].row, ib: uniq[1][1] });
-      }
+      // Which ends blend into which (fork-joins.js): a vessel running on into the next is not filleted to it, in a fork too.
+      const dir = ([it, i]) => { if (i == null) return null; const P = it.pts, n = P.length, a = i ? P[n - 1] : P[0], b = i ? P[Math.max(0, n - 4)] : P[Math.min(n - 1, 3)], L = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1; return [(b[0] - a[0]) / L, (b[1] - a[1]) / L]; };
+      const { groups, runOn } = forkJoins(uniq.map(dir));
+      if (runOn) glStraight.push({ a: uniq[runOn[0]][0].row, ia: uniq[runOn[0]][1], b: uniq[runOn[1]][0].row, ib: uniq[runOn[1]][1], fork: uniq.length > 2 });
       const reach = spread + 2 * rMax + k + 6;
       const rows = uniq.map(([it]) => it);
       for (let a = 0; a < rows.length; a++) for (let b = a + 1; b < rows.length; b++) pairs.add(pairKey(rows[a], rows[b]));
-      const groups = rows.length <= 4 ? [rows] : rows.flatMap((r, a) => rows.slice(a + 1).map((q) => [r, q]));
-      for (const g of groups) joins.push({ x: c[0], y: c[1], reach, k, fillet: fil, members: g.map((it) => it.row) });
+      for (const g of groups) joins.push({ x: c[0], y: c[1], reach, k, fillet: g.fillet, members: g.members.map((i) => rows[i].row), trunk: g.trunk != null ? rows[g.trunk].row : trunk, fork: g.trunk != null });
     };
     const byNode = new Map();
     for (const it of items) {
@@ -2972,7 +3276,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         const b = box.get(y);
         if (y === it || !!y.x.isArt !== !!it.x.isArt || q[0] < b[0] || q[0] > b[2] || q[1] < b[1] || q[1] > b[3]) continue;
         if (pairs.has(pairKey(it, y))) continue;
-        if (distTo(y.pts, q) < y.obj.glMaxR + 0.5 * rq + 2) add([[it, i], [y, null]], q);
+        if (distTo(y.pts, q) < y.obj.glMaxR + 0.5 * rq + 2) add([[it, i], [y, null]], q, y.x.e.id === it.x.e.id ? undefined : y.row);   // (the trunk, unless it is another stretch of the same vessel: the azygos arch's bend)
       }
     }
     return joins;
@@ -2991,22 +3295,20 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     IVC_LIST.forEach((id, i) => { const g = E[id]?.g; b[items.length + i] = on(g, 'is-sel') | on(g, 'hl') << 1; });
     return b;
   }
-  // Whether a selected vessel eases back into the network toward its end at node n: 1 where another visible vessel joins there
-  // and none of the selection does.
+  // Whether a selected or spotlit vessel eases back into the network toward its end at node n (highlight-math.js liftEnd).
   function selEnd(id, n) {
-    let other = false;
+    const joins = [];
     for (const y of EV) {
       if (y.e.id === id || !y.vis || (y.e.from !== n && y.e.to !== n)) continue;
-      if (vh.sel.has(y.e.id)) return 0;
-      if (!y.g.classList.contains('coll-ghost')) other = true;
+      joins.push({ lit: vh.sel.has(y.e.id) || spot.ids.has(y.e.id), ghost: y.g.classList.contains('coll-ghost') });
     }
-    return other ? 1 : 0;
+    return liftEnd(spot.ids.has(id) && spotOn(), joins);
   }
   function glowOnlyOk(t) {
     const m = glowMemo;
     if (!m || !veins || veins.lost || !vLook || tubesNew || lensFrom || !tubesShown || tubesShown.length !== tubeData.length) return false;
     if (m.t !== t || m.F !== F || m.geo !== geometryVersion || m.netA !== netA || m.cs !== wrapCS() || m.mode !== layerMode() || m.origin !== originOn()) return false;
-    if (m.selK !== selAKey() || m.cath !== cathTint || m.plate !== veins.hasPlate(0) || m.cls !== wrap.className || m.reach !== (m.mode === 'heat' ? 40 : glow.lit.size ? 20 : 11)) return false;
+    if (m.selK !== selAKey() || m.cath !== cathTint || m.plate !== veins.hasPlate(0) || m.cls !== gestureFree(wrap.className) || m.reach !== (glow.lit.size ? 20 : 11)) return false;
     const b = glowBits(m.items);
     for (let i = 0; i < b.length; i++) if (b[i] !== m.bits[i] || b[i] & 64) return false;   // (a vessel drawing on changes with the clock: whole syncs)
     return true;
@@ -3047,10 +3349,25 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     }
     if (refs) {
       const byRow = new Map(items.map((it) => [it.row, it.obj])), itOf = new Map(items.map((it) => [it.row, it]));
-      for (const { a, ia, b, ib } of glStraight) {
+      for (const { a, ia, b, ib, fork } of glStraight) {
         const A = byRow.get(a), B = byRow.get(b);
         if (!A?.glR0 || !B?.glR0) continue;
         const ra = A.glR0[ia ? N_SAMPLES - 1 : 0], rb = B.glR0[ib ? N_SAMPLES - 1 : 0];
+        // In a fork the narrower stretch widens to the wider one's caliber at the node instead (the wider never narrows):
+        // a tributary there meets the trunk at full width, so its end stays inside the trunk's walls (the splenorenal
+        // shunt on the splenic vein, where the splenic vein's last stretch carries little).
+        if (fork) {
+          const m = Math.max(ra, rb), S = (u) => u * u * (3 - 2 * u);
+          for (const [O, i, r0, row] of [[A, ia, ra, a], [B, ib, rb, b]]) {
+            if (r0 >= m) continue;
+            // (Over about three trunk radii, not half its course: a short funnel, not a long cone.)
+            const it = itOf.get(row), step = arcLen(it.pts) / (N_SAMPLES - 1) || 1;
+            const E = Math.min(runOnSamples(it, N_SAMPLES >> 1), Math.max(2, Math.round((3 * m) / step))), R = eased.get(O) || O.glR0.slice();
+            for (let s = 0; s < E; s++) R[i ? N_SAMPLES - 1 - s : s] += (m - r0) * (1 - S(s / E));
+            eased.set(O, R);
+          }
+          continue;
+        }
         // One smoothstep from A's caliber (half A's course back) to B's (half B's course on), so the
         // taper runs steadily through the join: no plateau there, which read as a crease.
         const S = (u) => u * u * (3 - 2 * u);
@@ -3091,7 +3408,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const plateWas = plateOn();
     wrap.classList.toggle('gl-plate', on && veins.hasPlate(0));
     syncOrganDim();
-    if (!on) { if (vLook) { veins.clear(); vLook = null; vBinKey = ''; binShown = null; } return; }
+    if (!on) { if (vLook) { veins.clear(); vLook = null; vBinKey = ''; binShown = null; bendShown = null; } return; }
     if (!glOrgans) {
       // The organ covers, rasterized once in world space (1.5 px per unit): tiers behind them fade.
       const k = 1.5, c = document.createElement('canvas');
@@ -3106,9 +3423,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       veins.setOrgans(c, [0, 0, VIEW.w, VIEW.h]);
       glOrgans = true; tubesNew = true;
     }
-    const items = glItems();
+    const items = gpuProbe.time(null, 'vessel sync: list', () => glItems());
     const cs = wrapCS();
-    const mode = layerMode(), heat = mode === 'heat';
+    const mode = layerMode();
     // A jump in the model (a new patient, Undo or History, a time jump, Compare's Then and Now, Settle) recolours the vessels
     // through the same crossfade as a lens change, instead of in one frame (round 2 review, B6): a frame whose pressures moved
     // by more than JUMP_MMHG anywhere since the last one drawn. The running model's own steps (well under that) are drawn as
@@ -3120,12 +3437,12 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     lensMode = mode;
     if (lensFrom && !lensFading()) lensFrom = null;
     shownCol = new Map();
-    sendRadii(items);
+    gpuProbe.time(null, 'vessel sync: radii', () => sendRadii(items));
     // Geometry: re-binned when the layout, the set of vessels or a vessel's reach grows.
-    const reachOf = (it) => Math.ceil((it.obj.glMaxR + (it.x.wallPx || 1) + 18 + (heat ? 30 : 0)) / 2) * 2;
-    const key = `${geometryVersion}|${heat}|` + items.map((it) => it.row).join(',');
+    const reachOf = (it) => Math.ceil((it.obj.glMaxR + (it.x.wallPx || 1) + 18) / 2) * 2;
+    const key = `${geometryVersion}|` + items.map((it) => it.row).join(',');
     const grew = key === vBinKey && items.some((it) => reachOf(it) > (vBinReach.get(it.row) || 0));
-    if (key !== vBinKey || grew) {
+    if (key !== vBinKey || grew) gpuProbe.time(null, 'vessel sync: binning', () => {
       vBinKey = key;
       // A vessel that outgrows its reach gets a quarter more room than it needs: a widening vein (a congested IVC easing
       // in over a slide) was re-binned and its geometry uploaded again at every 2 px of growth, about 4 MB each time, a
@@ -3135,10 +3452,13 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       for (const it of items) if (it.kind === 'v') { it.obj.glPts = smooth.get(it.row) || it.pts; }
       // (Binned against the last binning: a coiling collateral re-tests only its own cells, and when nothing the GPU holds
       // changed (another vessel's coil easing while it is hidden), nothing is uploaded.)
-      const bins = binVeins(items.map((it) => ({ id: it.row, pts: smooth.get(it.row) || it.pts, reach: vBinReach.get(it.row) })), J, binMemo);
-      if (bins !== binShown) { binShown = bins; veins.setGeometry(bins); }
+      const bins = binVeins(items.map((it) => binTube(it, smooth.get(it.row) || it.pts)), J, binMemo);
+      // (Patched in place, only the rows that changed go up again: the cells and every other entry are as uploaded.)
+      if (bins !== binShown) { if (bins.patch && binShown?.ent === bins.ent) veins.patchGeometry(bins); else veins.setGeometry(bins); binShown = bins; }
+      // (Each axis's curvature with it, so the flow arrowheads keep their shape on a bend: veins-gl chevAt.)
+      if (bins !== bendShown) { bendShown = bins; for (const it of items) veins.setBend(it.row, smooth.get(it.row) || it.pts); }
       tubesNew = true;
-    }
+    });
     // Attributes, every frame.
     const T0 = easeInOut(morph), now = performance.now();
     const artery = toRGB('var(--artery)', cs);
@@ -3148,7 +3468,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     // Hovering or selecting any part of the IVC shows it whole: no veil, and no fades on it or on the tributaries joining it.
     let ivcOn = false;
     for (const id of IVC_EDGES) { const g = E[id]?.g; if (g && (g.classList.contains('is-sel') || g.classList.contains('hl') || vh.selA.get(id) > 0)) ivcOn = true; }
-    for (const it of items) {
+    gpuProbe.time(null, 'vessel sync: colours', () => { for (const it of items) {
       const { x, kind, obj } = it, id = x.e.id, o = it.row * TUBE_TEXELS * 4;
       const ghost = x.g.classList.contains('coll-ghost');
       const ra = it.ra;
@@ -3179,8 +3499,6 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       const spec = shade && !veil && kind !== 'f' && kind !== 'c' && !CONTEXT_EDGES.has(id) && !x.back && x.width >= 3.4;
       const flags = (shade ? F_DIFFUSE : 0) | (spec ? F_SPEC : 0) | (!x.back && !x.isArt && !ghost && !veil ? F_SHADOW : 0) | (ghost ? F_DOTTED : 0) | (x.isArt ? F_NOCASE : 0) | (veil ? F_VEIL : 0);
       const z = (kind === 'v' ? x.row + 0.5 : x.row) / GL_ROWS;
-      // No congestion halo on the IVC itself: its wide halo would spill onto the bowel beside it.
-      const heatA = kind === 'v' && heat && !IVC_EDGES.has(id) ? (x.heatA || 0) : 0;
       if (lensFrom) {
         const was = lensFrom.get(it.row), u = easeInOut(clamp((now - lensT0) / LENS_FADE, 0, 1));
         if (was) { c0 = mix3(was[0], c0, u); c1 = mix3(was[1], c1, u); }
@@ -3188,7 +3506,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       shownCol.set(it.row, [c0, c1]);
       // The sinusoids' strands are drawn faint and fine (sin-perfusion.js).
       if (sinStrand) alpha *= SIN_PERFUSION.fade;
-      tubeData.set([...c0, x.isArt ? 0 : x.wallPx, ...c1, alpha, tier, z, flags, heatA], o);
+      tubeData.set([...c0, x.isArt ? 0 : x.wallPx, ...c1, alpha, tier, z, flags, 0], o);
       // Fades, as the SVG masks: into an organ (TIP_FADE), out of the plate, into a deeper vein,
       // tributaries toward the bowel they drain.
       let fade = null;
@@ -3213,7 +3531,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         if (r.dir > 0) hi = 1 - off; else lo = off;
       }
       if (kind === 'v' && LIGATED.some((l) => l[1] === id)) lo = Math.max(lo, divideLen(id) / (it.len || geo[id].len || 1));
-      tubeData.set([lo, hi, kind === 's' ? obj.len : kind === 'f' ? arcLen(it.pts) || 1 : it.len || geo[id].len || 1, 0, ...(heatA ? toRGB(x.heatCol, cs) : [0, 0, 0]), 0], o + 20);
+      tubeData.set([lo, hi, kind === 's' ? obj.len : kind === 'f' ? arcLen(it.pts) || 1 : it.len || geo[id].len || 1, 0, 0, 0, 0, 0], o + 20);
       let tint = kind === 'v' && cathTint?.[id];
       if (ra && kind === 'v') {
         // On the cava drawn as one, each stretch's tint is placed along the whole.
@@ -3228,13 +3546,13 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       // eases back into the network; a free end, or one into the rest of the selection, stays at full.
       const sa = tier < TIER_LIFT && !x.back && !SIN_EDGES.has(id) ? vh.selA.get(id) || 0 : 0;
       if (sa > 0) tubeData.set(kind === 'v' ? [easeInOut(sa), selEnd(id, x.e.from), selEnd(id, x.e.to), 0] : [easeInOut(sa), 0, 0, 0], o + 48);
-    }
+    } });
     // (Uploaded only when some vessel's attributes changed: most model frames in a steady state change none.)
     let tubesChanged = !tubesShown || tubesShown.length !== tubeData.length;
     if (!tubesChanged) for (let i = 0; i < tubeData.length; i++) if (tubeData[i] !== tubesShown[i]) { tubesChanged = true; break; }
     if (tubesChanged) veins.setTubes(tubeData);
     vLook = {
-      shOff: [1.4, 2.8], light: LIGHT, reach: heat ? 40 : glow.lit.size ? 20 : 11, heat, organs: 1 - T0,
+      shOff: [1.4, 2.8], light: LIGHT, reach: glow.lit.size ? 20 : 11, organs: 1 - T0,
       casing: [...cssTriplet(cs, '--casing-rgb'), cssNum(cs, '--casing-a', 0.56)],
       shadow: [...cssTriplet(cs, '--shadow-rgb'), cssNum(cs, '--shadow-a', 0.15)],
       sheen: [...toRGB('var(--light-ink)', cs), cssNum(cs, '--tube-sheen', 0.42)],
@@ -3260,7 +3578,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       }
     }
     tubesNew = false;
-    glowMemo = { items, t, netA, cs, mode, origin: originMode, cath: cathTint, F, geo: geometryVersion, plate: veins.hasPlate(0), cls: wrap.className, bits: glowBits(items), reach: vLook.reach };
+    glowMemo = { items, t, netA, cs, mode, origin: originMode, cath: cathTint, F, geo: geometryVersion, plate: veins.hasPlate(0), cls: gestureFree(wrap.className), bits: glowBits(items), reach: vLook.reach };
     glowMemo.selK = selAKey();   // (the selection's ease sets the vessels' alpha, which the glow-only sync does not write)
     glowMemo.wide = items.map((it) => it.x.width >= 3.4);   // (the sheen's width: syncRadiiOnly)
     // The SVG organs just hid for the GPU plate: draw it now, so no frame shows neither.
@@ -3269,6 +3587,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   /** Redraws the vessel layer (and the picture) if anything in it changed; true when it did. */
   let glM = null;   // the world → stage transform (CSS px) the vessels were last drawn in (for the tests)
   function drawVeins(fullComposite = false) {
+    if (liveSet || liveOn()) { syncLiveOrgans(); if (liveSet) veins.organs.shift('bowel', bowelDy()); }
+    syncGutPic();
     if (!veins || veins.lost || !vLook || !F) return false;
     if (!CTM) refreshCTM();
     const m = CTM;
@@ -3281,7 +3601,11 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       veinsRows.clear();
       if (veins.drawRows(T, vLook, bloodLook(), rows, fullComposite)) return true;
     }
-    if (key !== veinsDrawKey && plateOn()) schedulePlateView();
+    if (key !== veinsDrawKey) {
+      if (plateOn()) schedulePlateView();
+      // (The organs drawn live, the view moved: once it is let go, the gut's picture for it, if none kept will do.)
+      else if (gutCopy && gGut && morphTarget === 0 && !(morph > 0) && !gutPicFor(vdpr * m.sc)) gutPicSoon();
+    }
     // (Moved with only some vessels' attributes changed, those vessels are named: a drag while the model plays still
     // moves the drawn layer, and draws their cells again, rather than drawing it all.)
     const rows = veinsDirty ? null : [...veinsRows];
@@ -3298,50 +3622,102 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // The backdrop, organs and ascites are rasterized from the live SVG (styles inlined) into
   // textures the vessel layer draws first: one of the whole plate, and, once a pan or zoom has
   // settled, a sharper one of the view. The SVG is rasterized again only when what it shows
-  // changes (cirrhosis, spleen size, ascites, congestion tint, theme, a selected organ); dimming
+  // changes (cirrhosis, spleen size, ascites, congestion tint, theme); dimming
   // for a selection or a data layer is applied on the GPU. The SVG groups stay, hidden, for
   // picking organs and for exports.
   const PLATE_RECT = [200, -200, 1020, 1320];
   const PLATE_BASE = 1.2;          // px per world unit of the whole-plate raster
-  let plateTheme = null, plateKey = '', plateSeq = 0, plateBusy = false, plateAgain = false, plateLast = 0, plateTimer = 0, plateView = null, plateViewKey = '', plateSettle = 0, plateCopy = null;
+  let plateTheme = null, plateKey = '', plateSeq = 0, plateBusy = false, plateAgain = false, plateLast = 0, plateTimer = 0, plateView = null, plateViewKey = '', plateSettle = 0, plateCopy = null, gutCopy = null;
+  // The last sharp picture of the view, kept in memory (its pixels, its world rect, size and scale, and the state it shows): a pan
+  // at the same scale takes the pixels the two views share from it and draws only what the pan uncovered (viewReuse).
+  // (One per layer of the organs drawn as layers, under the layer's name; the flattened plate's under ''.)
+  const viewKeeps = new Map();
+  let viewSeq = 0;
+  function dropViewKeep() { viewKeeps.clear(); }
   const plateOn = () => wrap.classList.contains('gl-plate');
+  // The organs drawn as layers on the GPU (organs-gl.js) instead of one flattened picture: the ?perf switch "GPU organs" for now.
+  // (Not on a software renderer: CI's browser checks keep the one picture; ?gpuorgans=force turns it on there, for its own check.)
+  const gpuOrgansOn = () => !!(gpuProbe.gpuOrgans && veins?.organs && (!SOFTWARE || gpuProbe.gpuOrgans === 'force'));
+  // With it, the organs that change (the liver, the spleen, the diaphragm, the falciform line: LIVE_LAYERS) are painted live on
+  // the GPU from their own SVG at each frame they change (syncLiveOrgans), so their picture is never dropped while they ease; the
+  // gut's and the stomach's masks, which follow the liver and the spleen, are painted live over pictures made without them.
+  // (Off when an organ could not be read for painting: the organs are then all pictures, as above.)
+  const LIVE_LAYERS = new Set(['back', 'spleen', 'liver', 'front']);
+  // (Painted live, the bowel is a layer of its own, gathered under the gut's: syncLiveOrgans.)
+  const LIVE_ORDER = ['back', 'behind', 'bowel', 'gut', 'kidney', 'spleen', 'stomach', 'liver', 'front'];
+  const bowelDy = () => parseFloat((organG.bowel?.getAttribute('transform') || '').match(/^translate\(0 ([-\d.]+)\)$/)?.[1]) || 0;
+  let liveFailed = false, liveFailWhy = '';
+  const liveOn = () => gpuOrgansOn() && !!veins.organs.canLive && !liveFailed;
   // Drops the plate rasters and shows the live SVG organs. The vessel layer is redrawn in the same
   // task (after the model update in progress), so no frame shows the SVG organs over the old GPU
   // plate: the two, and the ascites, would add up to a bright flash.
   let plateRedraw = false, plateDrops = 0;
   function hidePlate() {
     plateDrops++;   // (a raster still on its way in is of the state before: rasterPlate gives it up)
-    veins.dropPlate(0); veins.dropPlate(1); plateView = null; plateViewKey = ''; plateCopy = null;
+    veins.dropPlate(0); veins.dropPlate(1); plateView = null; plateViewKey = ''; plateCopy = null; dropViewKeep();
     wrap.classList.remove('gl-plate'); veinsDirty = true; syncPlateLook();
     if (inUpdate) plateRedraw = true; else drawVeins();
   }
   // The inlined copy of the backdrop and organs for the current state (plateStateKey), built with the whole-plate raster
   // and reused by the view rasters that follow it (a pan changes only the window): inlining every element's styles is
   // about 30 ms of each redraw. Made cheaper to draw on the way (plate-copy.js), with the same pixels.
-  // The diaphragm's cuts for the liver, stomach and spleen never touch it: the dome is their hull pushed out DIA_GAP (11)
-  // units, more than the cut's half-width (2.5) and the line's (3.5). The heart and esophagus cuts stay.
-  const DEAD_CUTS = ['liver', 'stomach', 'spleen'];
+  // The diaphragm's cut for the spleen never touches it: the dome runs DIA.gap (11, diaphragm.js) units above it, more than the cut's
+  // half-width (2.5) and the line's (3.5). The stomach's stays (its upper right comes within a few units of the dome, and
+  // crosses it with a large spleen; 20 Oct review), and so does the liver's: under the heart the dome passes below the liver's top
+  // (the heart rests on it), so the liver hides it there, in the copy as on the page. The heart and esophagus cuts stay too.
+  const DEAD_CUTS = ['spleen'];
+  // The organs' groups by the layer they are drawn in (organs-gl.js), back to front: the five pictures of the plan, with the two
+  // organs that change shape, the spleen and the liver (its ghost line with it), each a layer of its own between them. An element
+  // the list does not name (none today) goes with the layer before it, so the order of the SVG is always kept.
+  const ORGAN_LAYERS = ['back', 'behind', 'gut', 'kidney', 'spleen', 'stomach', 'liver', 'front'];
+  function organLayers() {
+    const by = new Map([[gGut, 'gut'], [ghost, 'liver']]);
+    for (const [id, L] of [['esophagus', 'behind'], ['heart', 'behind'], ['heart-ra', 'behind'], ['heart-grooves', 'behind'], ['appendix', 'behind'],
+      ['kidney-l', 'kidney'], ['spleen', 'spleen'], ['stomach', 'stomach'], ['liver', 'liver'], ['falciform', 'front'], ['umbilicus', 'front']]) if (organG[id]) by.set(organG[id], L);
+    const out = new Map();
+    let last = 'behind';
+    for (const k of gOrgans.children) { last = by.get(k) || last; out.set(k, last); }
+    return out;
+  }
   function plateBuild(key) {
-    const was = plateOn();
-    wrap.classList.remove('gl-plate');
+    // (The plate's class stays on: it only hides the groups and turns their masks off, and the copy takes neither (every group is
+    // copied as shown, below, and the mask attributes are cloned). Taking it off and on again restyled and laid out the whole figure
+    // at the next read, up to 714 ms in one frame on the Mac (Mohammad's ?perf, 21 Oct), each time a copy was made while it was up.)
     // (The copy takes the organs' own colours, as the GPU greys and dims it itself: the live grey comes off for it.)
     const greyed = !!greyList;
     if (greyed) { greyClear(); organDimKey = ''; }
-    const ser = new XMLSerializer(), parts = [], subs = [];
+    const ser = new XMLSerializer(), parts = [], subs = [], live = new Map();
     try {
       const dc = defs.cloneNode(true); inlineStyles(defs, dc);
       for (const id of DEAD_CUTS) dc.querySelector(`[data-cut="${id}"]`)?.remove();
-      const head = ser.serializeToString(dc);
+      // The masks, for the view's strips: each strip's copy has their regions cut to the strip (maskHead). The elements that use
+      // them are found in the copy now, with their page counterparts (for their transforms), while the two trees still match.
+      const masks = [], maskRefs = [];
+      for (const m of dc.querySelectorAll('mask')) {
+        const r = ['x', 'y', 'width', 'height'].map((a) => parseFloat(m.getAttribute(a)));
+        if (m.id && m.getAttribute('maskUnits') === 'userSpaceOnUse' && r.every(Number.isFinite)) masks.push({ id: m.id, el: m, r });
+      }
+      const layerOf = organLayers();
       for (const g of [gBackdrop, gOrgans]) {   // the ascites is drawn on the GPU over the plate (see fluidLook)
         const c = g.cloneNode(true);
+        // Each part of the copy marked with the layer it is drawn in when the organs are drawn as layers (plateMarkup's `layer`).
+        if (g === gBackdrop) c.setAttribute('data-layer', 'back');
+        else [...c.children].forEach((k, i) => k.setAttribute('data-layer', layerOf.get(gOrgans.children[i])));
+        { const lm = [g, ...g.querySelectorAll('[mask]')], cm = [c, ...c.querySelectorAll('[mask]')]; for (let i = 0; i < cm.length; i++) if (cm[i].getAttribute('mask')) maskRefs.push([cm[i], lm[i], cm[i].getAttribute('mask').match(/#([^)"']+)/)?.[1]]); }
+        { const lv = g.querySelectorAll(CULL_TAGS), cv = c.querySelectorAll(CULL_TAGS); for (let i = 0; i < cv.length; i++) live.set(cv[i], lv[i]); }   // (for plateCull: the same tree, in the same order)
         // Marked while the classes are still on (inlineStyles takes them off).
-        for (const el of c.querySelectorAll('.lv-nod, .lv-nut, .lv-nut-net')) el.setAttribute('data-pc', 'sub fold');
-        for (const el of c.querySelectorAll('.lv-sep, .liver-tint')) el.setAttribute('data-pc', 'fold');
+        for (const el of c.querySelectorAll('.lv-nod, .lv-isl')) el.setAttribute('data-pc', 'sub fold');
+        for (const el of c.querySelectorAll('.lv-sep, .lv-cong, .liver-tint')) el.setAttribute('data-pc', 'fold');
         for (const el of c.querySelectorAll('.lv-gloss')) el.setAttribute('data-pc', 'kids');
         // The flank (the abdominal wall, drawn with ascites) lies wholly below the diaphragm's fade (diaMask: clear past
         // y 420, the flank starts at 470), so it shows nothing; in the copy it only stretched the backdrop's mask, two
         // offscreen layers, from the dome over the liver and spleen to the whole abdomen.
         for (const el of c.querySelectorAll('.flank')) el.setAttribute('data-pc', 'drop');
+        // The gut's own picture (gutPic) is never part of the copy; its groups are marked so it can be made from the copy.
+        if (g === gOrgans) {
+          const gc = c.children[[...gOrgans.children].indexOf(gGut)];
+          if (gc) [...gc.children].forEach((k, i) => { if (gGut.children[i] === gGutPics || gGut.children[i] === gGutCuts) k.setAttribute('data-pc', 'drop'); else k.setAttribute('data-gut', i); });
+        }
         // (Shown for this copy by definition: the stage hides these groups only while the GPU draws them. A visibility read back
         // from the page here could be stale, as Chrome's was for descendants (d7d2314), and one stale "hidden" at the top hides
         // every organ in the copy and so in the figure.)
@@ -3362,75 +3738,445 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         for (const el of c.querySelectorAll('[data-pc~="sub"]')) subs.push({ el, d: el.getAttribute('d') || '' });
         for (const el of c.querySelectorAll('[data-pc]')) el.removeAttribute('data-pc');
         for (const og of [c, ...c.children]) mergeClipRuns(og);
+        for (const k of c.children) if (!k.hasAttribute('data-layer') && g === gOrgans) k.setAttribute('data-layer', k.querySelector('[data-layer]')?.getAttribute('data-layer') || 'behind');
         parts.push(c);
       }
-      // The nodules and spots are drawn in the liver's own frame (its shrink about a centre): the window is mapped into it.
+      // The nodules and islands are drawn in the liver's own frame (its shrink about a centre): the window is mapped into it.
       const t = organG.liver.getAttribute('transform') || '', m = t.match(/^translate\(([-\d.]+) ([-\d.]+)\) scale\(([-\d.]+)\) translate\([-\d.]+ [-\d.]+\)$/);
       const toLiver = !t ? (r) => r : m ? (r) => { const [cx, cy, k] = m.slice(1).map(Number); return [cx + (r[0] - cx) / k, cy + (r[1] - cy) / k, r[2] / k, r[3] / k]; } : null;
-      return { key, seq: plateSeq, head, parts, subs, toLiver };
-    } finally { if (was) wrap.classList.add('gl-plate'); if (greyed) syncOrganDim(); }
+      const gut = parts.flatMap((c) => [...c.querySelectorAll('[data-gut]')]);
+      // (Only the definitions the organs use go with them: the defs hold the vessels' too, a third of each strip's markup.)
+      pruneDefs(dc, parts.map((c) => ser.serializeToString(c)).join(''));
+      const head = ser.serializeToString(dc);
+      // (Only the masks the copy's own elements use get a strip's region; one used from elsewhere keeps its own.)
+      const refs = maskRefs.filter(([ce]) => parts.some((p) => p.contains(ce)));
+      const used = masks.filter((m) => refs.some((x) => x[2] === m.id));
+      used.forEach((m, i) => { for (const [a, k] of [['x', 'x'], ['y', 'y'], ['width', 'w'], ['height', 'h']]) m.el.setAttribute(a, maskSlot(i, k)); });
+      // (Each user's world → user-space matrix, read now, while the page and the copy are the same state.)
+      const base = gOrgans.parentNode.getCTM?.(), inv = base?.inverse();
+      const toLocal = (el) => { try { const k = el.getCTM?.(); return inv && k ? inv.multiply(k).inverse() : null; } catch { return null; } };
+      const maskT = used.length ? { head: ser.serializeToString(dc), masks: used.map((m) => ({ r: m.r, toLocal: refs.filter((x) => x[2] === m.id).map((x) => toLocal(x[1])) })) } : null;
+      // (The gut's part of it outlives the copy: it does not change with the liver, the spleen or the fluid, so its pictures can be
+      // made with the plate down too, after a pinch in mid-change: makeGutPic.)
+      gutCopy = { gut, head, gutMut, look: gutLook() };
+      return { key, seq: plateSeq, head, parts, subs, toLiver, gut, gutMut, live, boxes: null, maskT, bowelDy: bowelDy() };
+    } finally { if (greyed) syncOrganDim(); }
   }
-  function plateMarkup(rect, W, H, fresh) {
+  // The sharp picture of the view (slot 1) leaves out every shape that paints nothing inside it: zoomed in, most of the
+  // organs' 1 MB of shapes lay outside the view, and writing them out, reading them back and drawing them all, in one go
+  // after each pan settled, was the hitch half a second after a zoomed pan stopped (Mohammad, 21 Oct). The same pixels: a
+  // shape is left out only when its whole painted box (its outline through every transform, its stroke at the widest a
+  // miter reaches, and a margin) misses the view. Kept whole: whatever sits in a clip, mask, pattern or marker, under a
+  // filter (a blur spreads past the box), or under a clip or mask sized to its group (its group's box would change), and
+  // anything with an id another element could point at; the nodules are trimmed to the window on their own (subpathsIn).
+  const CULL_TAGS = 'path, circle, ellipse, rect, polygon, polyline, line';
+  function plateBoxes(copy) {
+    const roots = new Set(copy.parts), subs = new Set(copy.subs.map((sp) => sp.el)), out = [];
+    const bboxRef = (v) => { const id = v && v.match(/#([^)"']+)/)?.[1], d = id && defs.querySelector(`#${CSS.escape(id)}`); return !!d && (d.getAttribute('maskContentUnits') === 'objectBoundingBox' || d.getAttribute('clipPathUnits') === 'objectBoundingBox'); };
+    const base = gOrgans.parentNode.getCTM?.();
+    if (!base) return out;
+    const inv = base.inverse();
+    for (const [c, el] of copy.live) {
+      if (subs.has(c) || c.id) continue;
+      let ok = true, top = c;
+      for (let a = c; a; a = a.parentNode) {
+        top = a;
+        if (a !== c && /^(clipPath|mask|pattern|marker|symbol|defs)$/.test(a.localName)) { ok = false; break; }
+        if (a.getAttribute?.('filter') || (a !== c && (bboxRef(a.getAttribute?.('mask')) || bboxRef(a.getAttribute?.('clip-path'))))) { ok = false; break; }
+      }
+      if (!ok || !roots.has(top) || c.hasAttribute('marker-start') || c.hasAttribute('marker-mid') || c.hasAttribute('marker-end')) continue;
+      try {
+        const bb = el.getBBox(), m = el.getCTM();
+        if (!m || !(bb.width || bb.height)) continue;
+        out.push([c, paintBox(bb, inv.multiply(m), parseFloat(c.getAttribute('stroke-width')) || 0)]);
+      } catch { /* not measurable: kept */ }
+    }
+    return out;
+  }
+  // The copy's defs for a strip of the view: each mask the organs use has its region cut to the strip and 4 pixels round it
+  // (plate-copy.js maskRegionIn: Safari's layer for a mask is as big as its region lets it be).
+  function maskHead(copy, rect, W) {
+    const t = copy.maskT;
+    if (!t) return copy.head;
+    const g = 4 * rect[2] / W, band = [rect[0] - g, rect[1] - g, rect[2] + 2 * g, rect[3] + 2 * g];
+    return fillMaskHead(t.head, t.masks.map((m) => maskRegionIn(m.r, band, m.toLocal)));
+  }
+  function plateMarkup(rect, W, H, fresh, cull = false, layer = null, unmask = false) {
     const key = plateStateKey();
     if (fresh || !plateCopy || plateCopy.key !== key || plateCopy.seq !== plateSeq) plateCopy = plateBuild(key);
-    // Only the nodules and nutmeg spots that meet this window (the others add nothing to it).
+    // Only the nodules and nutmeg islands that meet this window (the others add nothing to it).
     const lr = plateCopy.toLiver?.(rect);
     for (const sp of plateCopy.subs) sp.el.setAttribute('d', lr ? subpathsIn(sp.d, lr) : sp.d);
-    const ser = new XMLSerializer();
-    const out = plateCopy.head + plateCopy.parts.map((c) => ser.serializeToString(c)).join('');
+    const ser = new XMLSerializer(), out0 = [];
+    if (cull) {
+      plateCopy.boxes ??= gpuProbe.time(null, 'organ boxes (script)', () => plateBoxes(plateCopy));
+      for (const [c, b] of plateCopy.boxes) if (boxOutside(b, rect)) out0.push([c, c.parentNode, c.nextSibling]);
+      for (const [c] of out0) c.remove();
+    }
+    // One layer of the organs: the backdrop alone, or only the organs' groups marked with it (plateBuild).
+    // (The bowel's layer is drawn from the gut's group: below.)
+    const want = layer === 'bowel' ? 'gut' : layer;
+    const parts = layer ? plateCopy.parts.filter((c) => (c.getAttribute('data-layer') === 'back') === (want === 'back')) : plateCopy.parts;
+    const unmasked = [];
+    if (layer && layer !== 'back') {
+      const off = [];
+      for (const c of parts) for (const k of c.children) if (k.getAttribute('data-layer') !== want) off.push([k, c, k.nextSibling]);
+      for (const [k] of off) k.remove();
+      out0.push(...off);
+      // (Painted live, its mask is left out of the picture: syncLiveOrgans paints it over the picture.)
+      if (unmask) for (const c of parts) for (const k of c.children) if (k.getAttribute('mask')) { unmasked.push([k, 'mask', k.getAttribute('mask')]); k.removeAttribute('mask'); }
+      // With the organs painted live, the gut is two pictures laid as one group on the GPU, with the group's opacity and its mask:
+      // the bowel alone (it floats up on the ascites, moved on the GPU while the fluid eases), and the rest of the gut without it.
+      if (unmask && want === 'gut') {
+        const bowel = String([...gGut.children].indexOf(organG.bowel)), drop = [];
+        for (const c of parts) for (const k of c.children) {
+          if (k.getAttribute('data-layer') !== 'gut') continue;
+          if (k.getAttribute('opacity') != null) { unmasked.push([k, 'opacity', k.getAttribute('opacity')]); k.removeAttribute('opacity'); }
+          for (const g of k.querySelectorAll('[data-gut]')) {
+            const mine = g.getAttribute('data-gut') === bowel;
+            if (mine !== (layer === 'bowel')) drop.push([g, g.parentNode, g.nextSibling]);
+          }
+        }
+        for (const [g] of drop) g.remove();
+        out0.push(...drop);
+      }
+    }
+    let out;
+    try { out = (cull ? maskHead(plateCopy, rect, W) : plateCopy.head) + parts.map((c) => ser.serializeToString(c)).join(''); }
+    finally {
+      for (let i = out0.length - 1; i >= 0; i--) { const [c, p, n] = out0[i]; p.insertBefore(c, n); }   // (the copy stays whole: the next view, the gut's picture)
+      for (const [k, a, v] of unmasked) k.setAttribute(a, v);
+    }
     return `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="${W}" height="${H}" viewBox="${rect.join(' ')}" preserveAspectRatio="none">${out}</svg>`;
   }
-  async function rasterPlate(slot, rect, scale) {
-    const W = Math.max(1, Math.round(rect[2] * scale)), H = Math.max(1, Math.round(rect[3] * scale));
-    const seq = plateSeq, drops = plateDrops;
-    const url = URL.createObjectURL(new Blob([gpuProbe.time(null, 'organ picture: copy (script)', () => plateMarkup(rect, W, H, slot === 0))], { type: 'image/svg+xml' }));
+  // An SVG picture of the given markup, loaded (its parse is the browser's, in one go: so each one is kept small).
+  async function svgPicture(markup) {
+    const url = URL.createObjectURL(new Blob([markup], { type: 'image/svg+xml' }));
     try {
       const img = new Image();
       await new Promise((res, rej) => { img.onload = res; img.onerror = rej; img.src = url; });
-      if (seq !== plateSeq || !veins || veins.lost) return false;
-      // Drawn into a canvas kept in memory and sent as pixels, a strip per frame (plate-upload.js): a canvas handed to the
-      // GPU stalled Safari for up to 750 ms. The raster shown meanwhile stays until the last strip is in.
-      const c = document.createElement('canvas');
-      c.width = W; c.height = H;
-      const g = c.getContext('2d', { willReadFrequently: true });
-      gpuProbe.time(null, 'organ picture: draw', () => g.drawImage(img, 0, 0, W, H));
-      const v = veins;
-      let job = v.plateJob(W, H);
-      try {
-        for (const [y, rows] of plateStrips(W, H)) {
-          if (y) await new Promise((res) => nextFrame(res));
-          if (seq !== plateSeq || drops !== plateDrops || v !== veins || v.lost) return false;
-          v.plateRows(job, y, rows, gpuProbe.time(null, 'organ picture: read', () => premultiply(g.getImageData(0, y, W, rows).data)));
-        }
-        v.setPlate(slot, job, rect); job = null;
-        return true;
-      } finally { if (job && !v.lost) v.dropJob(job); c.width = c.height = 0; }
+      gpuProbe.note('organ SVG read', markup.length / 1024);   // (its parse is the browser's: the ?perf readout notes it in its frame)
+      return img;
     } finally { URL.revokeObjectURL(url); }
   }
-  // What the plate shows, in coarse steps: re-rasterize when it changes.
+  async function rasterPlate(slot, rect, scale, layer = null, fresh = true, unmask = false) {
+    const W = Math.max(1, Math.round(rect[2] * scale)), H = Math.max(1, Math.round(rect[3] * scale));
+    const seq = plateSeq, drops = plateDrops;
+    // The view's sharp picture (slot 1) is made a strip at a time, each strip a picture of its own from only the shapes that
+    // meet it: one picture of the whole view was built, read in and laid out by the browser in one long frame 0.28 s after
+    // the view stopped, finger still down or not (Mohammad, 21 Oct: "still hitch as soon as I stop panning"). Each strip is
+    // the same world rows at the same scale (its view box starts at its first row: rows are whole pixels), so the same pixels.
+    // The whole plate (slot 0) is made the same way, a strip per frame, from a fresh copy: as one picture it was read in and laid out
+    // by the browser in one go at its first strip, the 100-185 ms frames as the plate came back after a change (Mohammad's ?perf).
+    const banded = slot === 1;
+    if (!banded && fresh) gpuProbe.time(null, 'organ picture: copy (script)', () => { plateCopy = plateBuild(plateStateKey()); });
+    const drawnAs = banded ? plateStateKey() : plateCopy?.key;   // (the strips' copy is made, if need be, with the first strip)
+    if (seq !== plateSeq || !veins || veins.lost) return false;
+    // Only the newest view picture goes on (an older one, overtaken by a later pan, is given up), and after a pan at the same
+    // scale, of the same state, it takes the pixels the two views share from the last one: its rect starts on the scale's pixel
+    // grid (schedulePlateView), so the views sit a whole number of pixels apart and the pixels are the same. Only the strip of
+    // organs the pan uncovered is drawn from the shapes (Mohammad, 21 Oct: "the lag after stopping panning or zooming").
+    const vseq = banded ? ++viewSeq : 0;
+    const viewKeep = viewKeeps.get(layer || '');
+    const prev = banded && viewKeep && viewKeep.seq === seq && viewKeep.drops === drops && viewKeep.key === drawnAs && viewKeep.scale === scale ? viewKeep : null;
+    const ox = prev ? Math.round((rect[0] - prev.rect[0]) * scale) : 0, oy = prev ? Math.round((rect[1] - prev.rect[1]) * scale) : 0;
+    // Drawn a piece at a time into a small canvas of its own and read back from it, then sent as pixels, a strip per frame
+    // (plate-upload.js): a canvas handed to the GPU stalled Safari for up to 750 ms. The raster shown meanwhile stays until
+    // the last strip is in. (Read back from one canvas the size of the whole picture, each strip took Safari longer than the
+    // one above it: 25 ms for the first, over 200 ms for the last, on every pan and pinch: Mohammad's ?perf readout, Mac,
+    // 21 Oct. A canvas per piece is read in the time its own pixels take.) The view's pixels stay in memory, for the next pan.
+    // Each piece is read a frame after it is drawn: Safari only records a drawing on a canvas and paints it on its own, so a
+    // read straight after the draw waited out the whole painting, the 70–130 ms "organ picture: read" of his readout. A
+    // frame later the painting has had that frame to get done, and the strip's pixels are the same.
+    let px = banded ? new Uint8ClampedArray(W * H * 4) : null;
+    const pend = [];
+    const drawn = (w, h, paint) => {
+      const pc = document.createElement('canvas');
+      pc.width = w; pc.height = h;
+      const pg = pc.getContext('2d', { willReadFrequently: true }), p = { pc, pg, w, h };
+      pend.push(p);
+      gpuProbe.time(null, 'organ picture: draw', () => paint(pg));
+      return p;
+    };
+    const readBack = (p) => {
+      try { return gpuProbe.time(null, 'organ picture: read', () => premultiply(p.pg.getImageData(0, 0, p.w, p.h).data)); } finally { p.pc.width = p.pc.height = 0; pend.splice(pend.indexOf(p), 1); }
+    };
+    const v = veins, sx = W / rect[2], sy = H / rect[3];
+    // (A state that changed on the way is given up at the next strip, not after every strip is drawn, read back and uploaded: with the
+    // plate already down, another organ change hides nothing, so plateDrops does not move for it. External review, 21 Oct.)
+    const gone = () => seq !== plateSeq || drops !== plateDrops || v !== veins || v.lost || vseq !== (banded ? viewSeq : 0) || drawnAs !== plateStateKey();
+    let job = v.plateJob(W, H), waited = false;
+    try {
+      for (const [y, rows] of plateStrips(W, H)) {
+        if (y && !waited) await new Promise((res) => nextFrame(res));
+        waited = false;
+        if (gone()) return false;
+        if (banded) {
+          const { copy, draw } = prev ? viewReuse(W, H, prev.W, prev.H, ox, oy, y, rows) : { copy: null, draw: [[0, y, W, rows]] };
+          if (copy) gpuProbe.time(null, 'organ picture: reuse', () => copyPixels(px, W, copy[0], copy[1], prev.px, prev.W, copy[0] + ox, copy[1] + oy, copy[2], copy[3]));
+          const mine = [];
+          for (const [qx, qy, qw, qh] of draw) {
+            const band = await svgPicture(gpuProbe.time(null, 'organ picture: copy (script)', () => plateMarkup([rect[0] + qx / sx, rect[1] + qy / sy, qw / sx, qh / sy], qw, qh, false, true, layer, unmask)));
+            if (gone() || plateCopy?.key !== drawnAs) return false;
+            mine.push([qx, qy, drawn(qw, qh, (pg) => pg.drawImage(band, 0, 0, qw, qh))]);
+          }
+          if (mine.length) { await new Promise((res) => nextFrame(res)); waited = true; if (gone()) return false; }
+          for (const [qx, qy, p] of mine) copyPixels(px, W, qx, qy, readBack(p), p.w, 0, 0, p.w, p.h);
+          v.plateRows(job, y, rows, px.subarray(y * W * 4, (y + rows) * W * 4));
+        } else {
+          const band = await svgPicture(gpuProbe.time(null, 'organ picture: copy (script)', () => plateMarkup([rect[0], rect[1] + y / sy, rect[2], rows / sy], W, rows, false, true, layer, unmask)));
+          if (gone() || plateCopy?.key !== drawnAs) return false;
+          const p = drawn(W, rows, (pg) => pg.drawImage(band, 0, 0, W, rows));
+          await new Promise((res) => nextFrame(res)); waited = true;
+          if (gone()) return false;
+          v.plateRows(job, y, rows, readBack(p));
+        }
+      }
+      // A picture of a state that ended while it was on its way in is given up (the one shown stays). Above all the colours: an
+      // iPhone or iPad turns the page light and back while it takes the app switcher's pictures, and a picture begun then
+      // finished on the way back to the app, in the light theme's colours (the organs mixed with its white stage: almost
+      // white), until the next one replaced it (Mohammad, 21 Oct: "overly bright almost white then it goes back").
+      if (drawnAs !== plateStateKey()) return false;
+      if (layer) v.organs.stage(slot, layer, job, rect, layer === 'bowel' ? plateCopy.bowelDy : 0); else v.setPlate(slot, job, rect);
+      job = null;
+      if (banded) { viewKeeps.set(layer || '', { px, rect, W, H, scale, seq, drops, key: drawnAs }); px = null; }   // (kept for the next pan)
+      return true;
+    } finally { if (job && !v.lost) v.dropJob(job); px = null; for (const p of pend) p.pc.width = p.pc.height = 0; }
+  }
+  // The organs as layers (gpuOrgansOn): each layer rasterized as the plate is (rasterPlate, from the same copy), cropped to its own
+  // painted box on the plate's pixel grid (so its pixels are the plate's samples), and the set shown whole once every layer is in.
+  // Composited back to front on the GPU, each with its group's opacity baked in, they make the plate's picture.
+  const EVERYWHERE = [-Infinity, -Infinity, Infinity, Infinity];
+  function layerBoxes() {
+    const base = gOrgans.parentNode.getCTM?.(), by = new Map([['back', EVERYWHERE]]);
+    if (!base) return null;
+    const inv = base.inverse();
+    for (const [k, L] of organLayers()) {
+      let b = EVERYWHERE;
+      try {
+        const bb = k.getBBox(), m = k.getCTM();
+        if (!m || !(bb.width || bb.height)) continue;
+        // (Its outline through every transform, the widest stroke on it (the liver's inner shade, 30 wide, clipped inside) and a margin.)
+        b = paintBox(bb, inv.multiply(m), 15, 24);
+      } catch { /* not measurable: the whole plate */ }
+      const u = by.get(L);
+      by.set(L, u ? [Math.min(u[0], b[0]), Math.min(u[1], b[1]), Math.max(u[2], b[2]), Math.max(u[3], b[3])] : b);
+    }
+    // The bowel (its own layer when the organs are painted live: plateMarkup).
+    try { const bb = organG.bowel.getBBox(), m = organG.bowel.getCTM(); if (m && (bb.width || bb.height)) by.set('bowel', paintBox(bb, inv.multiply(m), 15, 24)); } catch { by.set('bowel', EVERYWHERE); }
+    return by;
+  }
+  let layerStarts = 0, layerStartsEasing = 0;   // (for the tests: organ pictures begun, and those begun while the fluid eased)
+  // Which way each organ layer is drawn (the ?organpaths readout, and the checks): 'GPU' (painted on the GPU from its shapes) or
+  // 'picture (why)' (rasterized from the SVG copy: a group the painter cannot read, or the organs not painted live at all).
+  // bakeSkip: layers kept as pictures for a check (tests/e2e/plate-layers.mjs, to find which layer a difference comes from).
+  const organPaths = new Map(), bakeWhy = new Map(), bakeSkip = new Set();
+  let layerCommits = 0;
+  const elName = (el) => (!el ? '?' : el.id ? `#${el.id}` : `${el.localName}${el.classList?.length ? `.${[...el.classList].join('.')}` : ''}`);
+  // (Why the organs are not painted live, in a few words.)
+  function liveWhy() {
+    if (!veins) return 'no WebGL2';
+    if (!gpuProbe.gpuOrgans) return 'GPU organs off: ?gpuorgans=0 or the ?perf switch';
+    if (!veins.organs) return 'no organ stack: its shader failed';
+    if (SOFTWARE && gpuProbe.gpuOrgans !== 'force') return 'software renderer';
+    if (!veins.organs.canLive) return 'the live painter failed to start';
+    if (liveFailed) return `live painting off: ${liveFailWhy || 'an organ not readable'}`;
+    return 'painted live';
+  }
+  /** The organs' drawing paths now: { mode, live, layers: [[name, path]], gpu } (the ?organpaths readout). */
+  function organPathsNow() {
+    const mode = !veins || veins.lost ? 'SVG (no GPU figure)' : !plateOn() ? 'SVG (live drawing, no picture shown)' : gpuOrgansOn() ? 'GPU layers' : 'one picture (GPU organs off)';
+    return { mode, live: liveOn() ? 'liver, spleen, diaphragm, falciform: painted live' : liveWhy(), layers: gpuOrgansOn() ? [...organPaths] : [], gpu: veins?.organs?.stats?.() || null, renderer: SOFTWARE ? 'software' : 'gpu' };
+  }
+  // The readout itself, only with ?organpaths in the address: a small box at the top left, read again every second.
+  if (/[?&]organpaths\b/.test(location.search)) {
+    const box = document.createElement('div');
+    box.className = 'organ-paths';
+    box.setAttribute('aria-hidden', 'true');
+    document.body.append(box);
+    let was = '';
+    setInterval(() => {
+      const p = organPathsNow();
+      const t = [`Organs: ${p.mode} (${p.renderer} renderer)`, `Live: ${p.live}`, ...p.layers.map(([L, w]) => `${L}: ${w}`),
+        ...(p.gpu ? [`On the GPU: ${p.gpu.meshes} meshes, ${p.gpu.kept} kept for pictures`] : [])].join('\n');
+      if (t !== was) { was = t; box.textContent = t; console.info(`[organpaths]\n${t}`); }
+    }, 1000);
+  }
+  async function rasterLayers(slot, rect, scale) {
+    const v = veins, boxes = layerBoxes(), names = [], live = liveOn(), paths = new Map();
+    layerStarts++; if (fluidEasing()) layerStartsEasing++;
+    // With the organs painted live, each layer's picture is painted on the GPU straight from its organs' shapes (bakeLayer); the SVG
+    // copy is made only for a layer the painter cannot read, which is rasterized from it as before.
+    const baked = live ? bakeAll() : null;
+    for (const L of bakeSkip) if (baked?.get(L)) { baked.set(L, null); bakeWhy.set(L, 'painting turned off for the check'); }
+    const copyNeeded = !baked || [...baked.values()].some((b) => !b);
+    if (slot === 0 && copyNeeded) gpuProbe.time(null, 'organ picture: copy (script)', () => { plateCopy = plateBuild(plateStateKey()); });
+    try {
+      for (const L of live ? LIVE_ORDER : ORGAN_LAYERS) {
+        if (live && LIVE_LAYERS.has(L)) continue;
+        const box = boxes ? boxes.get(L) : EVERYWHERE;
+        const r = box && cropToGrid(rect, box, scale);
+        if (!r) continue;
+        const b = baked?.get(L);
+        if (!(await (b ? bakeLayer(slot, L, b, r, scale) : rasterPlate(slot, r, scale, L, false, live))) || v !== veins || !v.organs) return false;
+        names.push(L);
+        paths.set(L, b ? 'GPU' : `picture (${live ? bakeWhy.get(L) || 'not readable' : liveWhy()})`);
+      }
+      v.organs.commit(slot, names);
+      if (slot === 0) { organPaths.clear(); for (const [L, p] of paths) organPaths.set(L, p); }
+      layerCommits++;
+      if (live) { syncLiveOrgans(true); v.organs.setOrder(ORGAN_LAYERS); }
+      return true;
+    } finally { if (v === veins && !v.lost) v.organs?.dropStaged(slot); }
+  }
+  // The groups each layer's picture is painted from on the GPU (organs-gl bake), read from the organs' own groups in the SVG's order
+  // (readGroup with nest: the gut's see-through shades, the stomach's and duodenum's fades are groups of their own, as the browser
+  // lays them): { groups: [{ spec, m }], at } per layer, or null for a layer one of whose groups cannot be read (it is rasterized). The
+  // gut's own mask and opacity, and the stomach's see-through liver, are not in them: they are laid over the pictures live (the cuts).
+  // (The organs' own colours: a lens's grey is taken off for the read, as for the copy, plateBuild.)
+  function bakeAll() {
+    const greyed = !!greyList;
+    if (greyed) { greyClear(); organDimKey = ''; }
+    bakeWhy.clear();
+    try {
+      const out = new Map(), layerOf = organLayers(), key = plateStateKey();
+      for (const L of LIVE_ORDER) {
+        if (LIVE_LAYERS.has(L)) continue;
+        const els = L === 'bowel' ? [organG.bowel] : L === 'gut' ? gutKids().filter((k) => k !== organG.bowel) : [...layerOf].filter(([k, l]) => l === L && k !== gGut).map(([k]) => k);
+        const groups = [];
+        let ok = true;
+        for (const el of els) {
+          if (!el || getComputedStyle(el).display === 'none') continue;
+          const spec = el.localName === 'g' ? readGroup(el, { withMask: el !== organG.stomach, nest: true }) : null;
+          if (!spec) { console.warn('Organs on the GPU: not readable for painting, this layer stays a picture:', el); bakeWhy.set(L, `${elName(el)} not readable`); ok = false; break; }
+          groups.push({ spec, m: matOfEl(el) });
+        }
+        out.set(L, ok ? { groups, at: L === 'bowel' ? bowelDy() : 0, key } : null);
+      }
+      return out;
+    } finally { if (greyed) syncOrganDim(); }
+  }
+  // A layer's picture painted on the GPU from its groups, a few milliseconds a frame (the picture shown meanwhile stays), and staged
+  // for the slot once whole; false when the state it shows moved on while it was painted (as rasterPlate gives one up).
+  async function bakeLayer(slot, L, b, rect, scale) {
+    const v = veins, seq = plateSeq, drops = plateDrops, key = b.key, vseq = slot === 1 ? ++viewSeq : 0;
+    const gone = () => seq !== plateSeq || drops !== plateDrops || v !== veins || v.lost || !v.organs || (slot === 1 && vseq !== viewSeq) || key !== plateStateKey();
+    const job = v.organs.bake(slot, L, b.groups, rect, scale, b.at);
+    if (!job) return false;
+    try {
+      for (;;) {
+        if (gone()) return false;
+        if (gpuProbe.time(null, 'organ picture: GPU paint', () => job.step(performance.now() + 6))) return true;
+        await new Promise((res) => nextFrame(res));
+      }
+    } finally { if (!v.lost) job.drop(); }
+  }
+  // The live organs' specs (organ-paint readGroup) read again whenever what they draw may have changed (liveKey), for the next
+  // render of the stack. Their outlines are read from the page at the render itself.
+  const matOfEl = (el) => { const t = el?.transform?.baseVal; if (!t || !t.numberOfItems) return [1, 0, 0, 1, 0, 0]; const k = t.consolidate().matrix; return [k.a, k.b, k.c, k.d, k.e, k.f]; };
+  const MASK_OF = { gut: '#gutHide', stomach: '#frontM' };
+  let liveKeyWas = '', liveSet = false;
+  // (What eases, the outlines, the organs' frames and the parts' own opacities, the painter reads from the page at each paint
+  // (organ-paint liveOf): the specs are read again only when what is in them changes: a part hidden or shown, the liver's mask,
+  // the ghost line, a lens, the theme and its colours. They were read again on every frame of an ease: about fifty computed
+  // styles, with the step's writes pending.)
+  function liveKey() {
+    const cs = wrapCS();
+    return [organG.liver.getAttribute('mask'), ghost.style.display, lv.sep.style.visibility, lv.nod.style.visibility, lv.cong.style.visibility, lv.isl.style.visibility,
+      cs.getPropertyValue('--stage-bg'), cs.getPropertyValue('--organ-liver'), wrap.classList.contains('imaging'), document.documentElement.dataset.theme || ''].join('|');
+  }
+  function syncLiveOrgans(force = false) {
+    const v = veins;
+    if (!v || v.lost || !v.organs) return;
+    if (!liveOn()) { if (liveSet) { v.organs.setLive(null, null); liveSet = false; liveKeyWas = ''; } return; }
+    const key = liveKey();
+    if (!force && key === liveKeyWas) return;
+    // (The organs' own colours: a lens's grey on the live SVG (only while the plate is off) would be read as theirs.)
+    if (greyList) return;
+    liveKeyWas = key;
+    const organs = new Map(), masks = new Map();
+    let ok = true;
+    liveFailWhy = '';
+    const add = (L, el) => {
+      if (getComputedStyle(el).display === 'none') return;
+      const spec = readGroup(el);
+      if (!spec) { ok = false; liveFailWhy ||= `${elName(el)} not readable`; console.warn('Organs on the GPU: not readable for painting, the organs stay pictures:', el); return; }
+      if (!organs.has(L)) organs.set(L, []);
+      organs.get(L).push({ spec, get m() { return matOfEl(el); } });   // (the group's own frame, as it is at each paint)
+    };
+    add('back', gBackdrop);
+    for (const [k, L] of organLayers()) if (LIVE_LAYERS.has(L)) add(L, k);
+    for (const [L, sel] of Object.entries(MASK_OF)) {
+      const el = defs.querySelector(sel), g = L === 'gut' ? gGut : organG.stomach;
+      const spec = el && readGroup(el);
+      if (!spec) { ok = false; liveFailWhy ||= `mask ${sel} not readable`; continue; }
+      // (The gut's: its group's opacity laid with it, and the bowel's picture, at rest, gathered under it with its float. el: the
+      // element whose frame m reads, watched by the stack for writes with the mask's own elements: organs-gl watchLive.)
+      masks.set(L, L === 'gut' ? { spec, el: g, get m() { return matOfEl(g); }, opacity: parseFloat(getComputedStyle(gGut).opacity), under: [{ name: 'bowel', dy: bowelDy() }] } : { spec, el: g, get m() { return matOfEl(g); } });
+    }
+    if (!ok) { liveFailed = true; v.organs.setLive(null, null); liveSet = false; hidePlate(); platePoke(); return; }
+    // (The next composite renders the stack again for it (its version moved): the vessels themselves need no redraw.)
+    v.organs.setLive(organs, masks); liveSet = true;
+  }
+  // What the plate shows, in coarse steps: re-rasterize when it changes. A selected organ is not part of it: its outline is drawn
+  // outside the organs (gSelO, or on the GPU) and its dim on the GPU, and its .org-sel class styles nothing, so the picture was
+  // the same; drawing it again made every highlight and unhighlight lag (Mohammad, 20 Oct: "even highlighting the liver is laggy").
   let tintQ = 0;
+  let bowelHeld = null;
   function plateStateKey() {
     const cs = wrapCS();
     // The tint in coarse steps, with some hysteresis: a pressure that wavers on a step boundary
     // while the model runs must not re-rasterize the plate over and over.
     const tq = (parseFloat(liverTint.style.opacity) || 0) * 40;
     if (Math.abs(tq - tintQ) > 1.5 || (tq === 0 && tintQ !== 0)) tintQ = Math.round(tq);
+    // (With the changing organs painted live, the pictures hold none of them: only the rest is the pictures' state.)
+    // (The bowel's float only once the fluid has settled: while it eases, the bowel's picture is moved on the GPU, organs-gl.js shift.)
+    if (!fluidEasing()) bowelHeld = organG.bowel.getAttribute('transform');
+    if (liveOn()) return ['live', bowelHeld, cs.getPropertyValue('--stage-bg'), cs.getPropertyValue('--organ-liver'), wrap.classList.contains('imaging')].join('|');
     return [liverKey, organG.liver.getAttribute('transform')?.replace(/(\d\.\d\d\d)\d*/g, '$1'), organG.spleen.getAttribute('transform')?.replace(/(\d\.\d\d)\d*/g, '$1'), diaKey,
       tintQ,
-      organG.bowel.getAttribute('transform'), (flank.getAttribute('d') || '').slice(0, 24), selOKey, organEls.umbilicus?.getAttribute('opacity'),
+      organG.bowel.getAttribute('transform'), (flank.getAttribute('d') || '').slice(0, 24), organEls.umbilicus?.getAttribute('opacity'),
       cs.getPropertyValue('--stage-bg'), cs.getPropertyValue('--organ-liver'), wrap.classList.contains('imaging')].join('|');
   }
   // Hidden (the home page over the app), every organ would rasterize invisible: wait until the figure shows.
   const figureHidden = () => wrapCS().getPropertyValue('visibility') === 'hidden';
+  // The circuit's own colours (.cmap) in the dark theme: it sets its own --stage-bg, which the organs' fills mix with. They come
+  // on halfway through the switch, when the organs are half faded, and read as a theme change: the picture was dropped, every
+  // organ drawn live for the rest of the fade (the gut's 1,201 paths), and the picture drawn again mid-switch, in the circuit's
+  // colours, then once more on the way back (Mohammad, 20 Oct: "switching from anatomy to circuit lags mid switch and back").
+  // While they are on the organs are fading out or gone, so the picture in the anatomy's colours stays; a change made in the
+  // circuit is drawn once the anatomy's colours are back. (In the light themes the circuit keeps the stage's colour: no change.)
+  let anatBg = null, cmapSeen = false;
+  function circuitInk() {
+    const on = stageWrap.classList.contains('cmap');
+    if (on !== cmapSeen) { cmapSeen = on; csSnap = null; }   // (the style snapshot is dropped by an observer, a beat after the class)
+    const bg = wrapCS().getPropertyValue('--stage-bg');
+    if (!on) { anatBg = bg; return false; }
+    return anatBg !== null && bg !== anatBg;
+  }
   let plateStale = false;
+  let plateMiss = 0, fluidStillAt = 0, fluidWas = false;   // (pictures given up in a row; when the fluid last stopped)
   function platePoke() {
     // Not while diving into the lobule (the anatomy is only magnified, then covered): once landed, under the lobule.
     if (lobuleOn && !lz?.isOpen()) return;
-    if (!veins || veins.lost || !glWanted(easeInOut(morph)) || figureHidden()) return;
+    // In the background no picture is begun (below), but one in colours the page no longer has is dropped at once, for the live
+    // drawing (already in the colours now, drawn in the same task): the system turns the page light for the app switcher's
+    // pictures and dark again while it is hidden, and the light picture stayed on the canvas until the next one replaced it, so
+    // coming back showed the organs almost white first (Mohammad, 21 Oct: "the flash when I switch to the app ... still happens").
+    if (document.hidden && veins && !veins.lost && plateTheme !== null && veins.hasPlate(0) && !circuitInk()) {
+      const theme = wrapCS().getPropertyValue('--stage-bg');
+      if (theme !== plateTheme) { plateTheme = theme; hidePlate(); }
+    }
+    if (!veins || veins.lost || !glWanted(easeInOut(morph)) || figureHidden() || document.hidden || circuitInk()) return;
     // An ease that outgrows the plate (a fill played over days, a liver that changes in small steps) shows on the live drawing
     // as it goes, and the plate is drawn again once it settles: held, the organs inside it stood still while their outlines
     // moved, then jumped to the new shape at the end (Ascites deck slide 5, 17 Oct).
-    if (lvMoving || fluidEasing()) { if (plateKey && veins.hasPlate(0) && plateStateKey() !== plateKey) hidePlate(); return; }
+    // (With the changing organs painted live (liveOn) nothing is held or dropped: the pictures under them hold no liver, spleen or
+    // diaphragm, and are made again while the fluid eases, a strip a frame, the one shown staying until the new one is in.)
+    const live = liveOn();
+    if (!live && (lvMoving || fluidEasing())) { if (plateKey && veins.hasPlate(0) && plateStateKey() !== plateKey) hidePlate(); return; }
+    // (A growing spleen: no new size may come once it stops, so a later poke rasterizes it once it has settled.)
+    if (!live && spleenMoving()) { if (plateKey && veins.hasPlate(0) && plateStateKey() !== plateKey) hidePlate(); clearTimeout(spleenTimer); spleenTimer = setTimeout(platePoke, 320); return; }
     const stale = plateStale; plateStale = false;
     const key = plateStateKey();
     if (key === plateKey && veins.hasPlate(0)) return;
@@ -3447,57 +4193,281 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     }
     if (plateBusy) { plateAgain = true; return; }
     // (A liver that just settled may be pausing mid time-lapse: give it a moment.)
-    const wait = themed ? 0 : Math.max(0, 500 - (performance.now() - plateLast), 400 - (performance.now() - lvStillAt));
+    // A picture that came too late (the change moved on before it landed, so it was given up) waits longer the next time, 0.8 s,
+    // then 1.6, then 3.2 after the liver or the fluid last moved: a time-lapse that pauses between steps began a whole organ picture in each pause
+    // and threw it away, a frame of a quarter of a second each time on an iPhone (Mohammad's ?perf recording, 21 Oct). The live
+    // drawing shows meanwhile, as it does now; once one lands the wait is as before.
+    // (Now one step only, 0.8 s: the whole picture is made a strip per frame from the shapes that meet each strip (0e73bb6), so one
+    // given up costs a strip, and the waits of up to 3.2 s kept the live organs up, every pan or zoom a repaint of all of them, for
+    // seconds after a change: external review, 22 Oct.)
+    const still = plateMiss ? 800 : 400;
+    const wait = themed ? 0 : live ? Math.max(0, 500 - (performance.now() - plateLast)) : Math.max(0, 500 - (performance.now() - plateLast), still - (performance.now() - lvStillAt), 400 - (performance.now() - spleenMv.stillAt()), still - (performance.now() - fluidStillAt));
     clearTimeout(plateTimer);
     plateTimer = setTimeout(async () => {
-      if (figureHidden() || lvMoving || fluidEasing() || (lobuleOn && !lz?.isOpen())) return;   // hidden, moving or diving meanwhile: a later poke rasterizes
+      const moving = !liveOn() && (lvMoving || fluidEasing() || spleenMoving());
+      if (figureHidden() || moving || (lobuleOn && !lz?.isOpen()) || circuitInk() || document.hidden) return;   // hidden, moving or diving meanwhile: a later poke rasterizes
       const k = plateStateKey();
       if (k === plateKey && veins?.hasPlate(0)) return;   // it changed and changed back
       plateBusy = true; plateLast = performance.now();
       plateSeq++;
       try {
-        if (await rasterPlate(0, PLATE_RECT, PLATE_BASE)) {
+        if (await (gpuOrgansOn() ? rasterLayers : rasterPlate)(0, PLATE_RECT, PLATE_BASE)) {
           plateKey = k;
           // The sharp view raster stays until its replacement lands (dropping it first would show
           // the softer whole plate for a beat: the textures would blur, then sharpen).
-          plateView = null; plateViewKey = '';
-          veinsDirty = true;
-          if (!plateOn() && glWanted(easeInOut(morph)) && !lvMoving) {
+          plateView = null; plateViewKey = ''; dropViewKeep();   // (a picture of the state before: nothing to take from it)
+          veinsDirty = true; stageWake();
+          if (!plateOn() && glWanted(easeInOut(morph)) && (liveOn() || (!lvMoving && !spleenMoving()))) {
             // The raster lands outside an animation frame (and the next frames may be paced out):
             // hide the SVG organs only together with a GPU draw that shows the plate, or a frame
             // would show neither (a flash of the dark stage through the organs).
             wrap.classList.add('gl-plate'); syncPlateLook();
             if (!drawVeins()) { wrap.classList.remove('gl-plate'); syncPlateLook(); }
           } else syncPlateLook();
+          plateMiss = plateOn() ? 0 : Math.min(3, plateMiss + 1);
           if (!plateOn()) plateKey = '';   // not shown (the liver moved meanwhile): raster again once it settles
-          schedulePlateView();
-        }
+          else if (risePrep) { risePrep = false; clearTimeout(risePrepT); }   // (made for the way out: the anatomy under the lobule rests again)
+          schedulePlateView(); if (!liveOn()) gutPicSoon();   // (with the organs drawn live the plate stays up through eases, so a gut picture is never shown: gutPicOk)
+        } else if (plateStateKey() !== k) plateAgain = true;   // (given up as out of date: drawn again for the state now)
+        if (plateAgain && !plateOn()) plateMiss = Math.min(3, plateMiss + 1);   // (and the next one waits longer for the change to rest)
       } catch (e) { console.warn('Plate raster failed; the SVG plate stays.', e); }
       plateBusy = false;
       if (plateAgain) { plateAgain = false; platePoke(); }
     }, wait);
   }
+  // In the background nothing is drawn again (the page's colours can change and change back meanwhile, as above): back in
+  // view, the picture is checked against the state now, and drawn again only if that differs.
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) platePoke(); });
+  // The ?perf switch "GPU organs": the picture shown now is dropped (the live drawing shows for a beat) and made again the other way.
+  gpuProbe.onOrgans = () => { plateKey = ''; liveFailed = false; liveFailWhy = ''; if (veins && !veins.lost) { hidePlate(); syncLiveOrgans(); veins.organs?.dropKept(); } platePoke(); };
   // After a pan or zoom settles, a raster of the view at the screen's resolution (when the
   // whole-plate raster would look soft there).
   function schedulePlateView() {
     clearTimeout(plateSettle);
-    plateSettle = setTimeout(async () => {
+    plateSettle = setTimeout(async function settled() {
+      // (Not with a finger or button still down, nor within 0.28 s of the last input: it is begun once the figure is let go.)
+      if (!leftAlone(280)) { plateSettle = setTimeout(settled, 120); return; }
       if (!veins || !plateOn() || !CTM) return;
+      // (Not in the circuit, or on the way to it: the organs are faded out there, and their sharp picture and the gut's were
+      // drawn after every pan and pinch for nothing (Mohammad, 21 Oct: the lag "also happens in circuit view"). The way back to
+      // the anatomy moves the view on every frame, so the last of them, at the anatomy, schedules them again.)
+      if (morphTarget !== 0 || morph > 0) return;
+      if (!liveOn()) gutPicSoon();
       const need = vdpr * CTM.sc;
-      if (need <= PLATE_BASE * 1.2) { if (veins.hasPlate(1)) { veins.dropPlate(1); veinsDirty = true; } return; }
+      if (need <= PLATE_BASE * 1.2) { if (veins.hasPlate(1)) { veins.dropPlate(1); veinsDirty = true; stageWake(); } return; }
       // The view in world units (the anatomy is never turned), with a margin, within the plate.
       const r = stageBox(), [ax, ay] = clientToWorldFast(r.left, r.top), [bx, by] = clientToWorldFast(r.right, r.bottom);
-      const mx = (bx - ax) * 0.15, my = (by - ay) * 0.15;
-      const x0 = Math.max(PLATE_RECT[0], ax - mx), y0 = Math.max(PLATE_RECT[1], ay - my);
-      const x1 = Math.min(PLATE_RECT[0] + PLATE_RECT[2], bx + mx), y1 = Math.min(PLATE_RECT[1] + PLATE_RECT[3], by + my);
+      // (Painted on the GPU (bake) a view's picture costs little for its size, so it reaches half a view past each side, as far as
+      // the texture's limits allow at the screen's resolution: most pans then stay inside it, below. As pictures of the SVG copy it
+      // reaches a seventh, each pan's uncovered strip drawn from the copy.)
+      const vw = (bx - ax) * need, vh = (by - ay) * need;
+      const reach = liveOn() ? Math.max(0.15, Math.min(0.5, (Math.sqrt(4.2e6 / Math.max(1, vw * vh)) - 1) / 2, (4094 / Math.max(1, vw, vh) - 1) / 2)) : 0.15;
+      const mx = (bx - ax) * reach, my = (by - ay) * reach;
+      let x0 = Math.max(PLATE_RECT[0], ax - mx), y0 = Math.max(PLATE_RECT[1], ay - my);
+      let x1 = Math.min(PLATE_RECT[0] + PLATE_RECT[2], bx + mx), y1 = Math.min(PLATE_RECT[1] + PLATE_RECT[3], by + my);
       if (x1 <= x0 || y1 <= y0) return;
-      const scale = Math.min(need, 4096 / (x1 - x0), 4096 / (y1 - y0), Math.sqrt(4.2e6 / ((x1 - x0) * (y1 - y0))));
+      // (4094: the rect grows by up to a pixel each way below, and a texture side stays within 4096.)
+      const scale = Math.min(need, 4094 / (x1 - x0), 4094 / (y1 - y0), Math.sqrt(4.2e6 / ((x1 - x0) * (y1 - y0))));
+      // On the scale's pixel grid (grown outward to whole pixels): two views at one scale sit whole pixels apart, so the next pan
+      // can take the pixels they share (rasterPlate).
+      x0 = Math.floor(x0 * scale) / scale; y0 = Math.floor(y0 * scale) / scale; x1 = Math.ceil(x1 * scale) / scale; y1 = Math.ceil(y1 * scale) / scale;
       const key = `${plateKey}|${x0.toFixed(0)},${y0.toFixed(0)},${x1.toFixed(0)},${y1.toFixed(0)}|${scale.toFixed(2)}`;
       if (key === plateViewKey) return;
-      if (plateView && x0 >= plateView[0] && y0 >= plateView[1] && x1 <= plateView[2] && y1 <= plateView[3] && scale <= plateView[4] * 1.05) return;
+      // The picture of the view kept while it still covers what is on screen (not the margin around it) at the resolution wanted:
+      // a pan or a small zoom within it makes nothing new. (It was made again whenever the margin left it, after nearly every pan.)
+      const vx0 = Math.max(PLATE_RECT[0], ax), vy0 = Math.max(PLATE_RECT[1], ay), vx1 = Math.min(PLATE_RECT[0] + PLATE_RECT[2], bx), vy1 = Math.min(PLATE_RECT[1] + PLATE_RECT[3], by);
+      if (plateView && vx0 >= plateView[0] && vy0 >= plateView[1] && vx1 <= plateView[2] && vy1 <= plateView[3] && scale <= plateView[4] * 1.05) return;
       plateViewKey = key;
-      try { if (await rasterPlate(1, [x0, y0, x1 - x0, y1 - y0], scale)) { plateView = [x0, y0, x1, y1, scale]; veinsDirty = true; } } catch { /* the whole-plate raster stays */ }
+      try { if (await (gpuOrgansOn() ? rasterLayers : rasterPlate)(1, [x0, y0, x1 - x0, y1 - y0], scale)) { plateView = [x0, y0, x1, y1, scale]; veinsDirty = true; stageWake(); } else if (plateViewKey === key) plateViewKey = ''; } catch { /* the whole-plate raster stays */ }
     }, 280);
+  }
+  // ── The gut's picture while the organs ease ─────────
+  // While the live drawing shows (the plate is down while the liver, the spleen or the fluid eases), the gut was repainted on
+  // every frame the liver changed, though nothing in it does: its mask (#gutHide) holds the liver's outline, and a mask that
+  // changes repaints everything it covers, the gut's 1,201 paths (Mohammad, 20 Oct: "why is it redrawing if there is nothing
+  // happening there"). So while the plate is down the gut shows as a picture of itself, made at rest from the plate's copy at
+  // the plate's resolution (as the GPU shows it at rest), under the gut's own live mask and opacity: the liver's cut still
+  // follows the liver each frame, over one image instead of the paths. The groups that move together are one image, placed with
+  // their transform (the small bowel floats on the fluid: a run of its own). A picture that no longer fits (the theme, a change
+  // in the art, a zoom past its resolution, groups of one run apart) is not used: the live paths show, as before.
+  // What the gut's colours are made of, read again only when the classes or the theme change.
+  const GUT_VARS = ['--og-gut-1', '--og-gut-2', '--og-gut-3', '--og-ao', '--og-light', '--og-hi', '--og-hi-k', '--gut-rim-k', '--organ-gut', '--stage-bg'];
+  function gutLook() {
+    const r = document.documentElement, at = `${gestureFree(wrap.className).replace(/\bgl-plate\b/, '')}|${r.className}|${r.dataset.theme || ''}|${darkMq.matches}`;
+    if (at !== gutLookAt) { const cs = getComputedStyle(gGut); gutLookAt = at; gutLookV = GUT_VARS.map((v) => cs.getPropertyValue(v).trim()).join('|'); }
+    return gutLookV;
+  }
+  function gutRuns() {
+    const runs = [];
+    let prev = null;
+    for (const k of gutKids()) { if (!runs.length || k === organG.bowel || prev === organG.bowel) runs.push([]); runs[runs.length - 1].push(k); prev = k; }
+    return runs;
+  }
+  const trOf = (el) => el.getAttribute('transform') || '';
+  function gutPicOk() {
+    if (plateOn() || !veins || veins.lost || !CTM || !glWanted(easeInOut(morph))) return false;
+    const pic = gutPicFor(vdpr * CTM.sc);
+    if (!pic) return false;
+    return pic.runs.every((r) => r.kids.every((k) => trOf(k) === trOf(r.kids[0])));
+  }
+  // The picture for this zoom among those kept: of the art and colours now, at most 1.15x softer and 2x sharper than the
+  // screen, the closest. Two are kept (the one before stays when a new zoom has one made), so a slide whose camera glides back
+  // out while the organs ease (an ascites slide from a close-up to the whole figure, Mohammad's iPhone ?perf recording, 21 Oct:
+  // "zoomed out past it", 95-120 ms frames with the gut's live paths) still finds the picture made at the zoom it comes back to.
+  function gutPicFor(need) {
+    let best = null;
+    // (Zoomed in past the whole gut's sharpest picture, one of the view's part of it (gutWin) stands in: as sharp as the organs'
+    // own picture of that view at rest, and only while every run's place still lies inside it.)
+    const win = need > GUT_CAP * 1.15 ? gutWin(0) : null;
+    for (const p of gutPics) {
+      if (p.mut !== gutMut || p.look !== gutLook()) continue;
+      if (p.win) { if (!win || p.k * 1.15 < win.scale || p.k > need * 2 || !gutWinHolds(p, win)) continue; }
+      else if (p.k * 1.15 < need || p.k > need * 2) continue;
+      if (!best || Math.abs(Math.log(p.k / need)) < Math.abs(Math.log(best.k / need))) best = p;
+    }
+    return best;
+  }
+  // The view's part of the gut, in the world, for a picture past GUT_CAP: the view with `margin` of its size around it, within the
+  // gut's rect, at the scale the organs' sharp picture of such a view has (schedulePlateView: the screen's, within 4.2 MP).
+  function gutWin(margin = 0.15) {
+    if (!CTM) return null;
+    const r = stageBox(), [ax, ay] = clientToWorldFast(r.left, r.top), [bx, by] = clientToWorldFast(r.right, r.bottom);
+    const mx = (bx - ax) * margin, my = (by - ay) * margin;
+    const x0 = Math.max(GUT_RECT[0], ax - mx), y0 = Math.max(GUT_RECT[1], ay - my);
+    const x1 = Math.min(GUT_RECT[0] + GUT_RECT[2], bx + mx), y1 = Math.min(GUT_RECT[1] + GUT_RECT[3], by + my);
+    if (x1 <= x0 || y1 <= y0) return null;
+    const w = x1 - x0, h = y1 - y0, need = vdpr * CTM.sc;
+    return { rect: [x0, y0, w, h], scale: Math.min(need, 4094 / w, 4094 / h, Math.sqrt(4.2e6 / (w * h))) };
+  }
+  // Whether a picture of part of the gut still holds the view (`win`, no margin) for every run, each in its own frame (the bowel
+  // floats: its run is moved by its translate).
+  function gutWinHolds(p, win) {
+    const [vx, vy, vw, vh] = win.rect, [px, py, pw, ph] = p.win;
+    return p.runs.every((r) => {
+      const t = trOf(r.kids[0]), m = t.match(/^translate\(([-\d.]+)[ ,]+([-\d.]+)\)$/), [tx, ty] = !t ? [0, 0] : m ? [+m[1], +m[2]] : [NaN, NaN];
+      const x = vx - tx, y = vy - ty;
+      return x >= px - 0.5 && y >= py - 0.5 && x + vw <= px + pw + 0.5 && y + vh <= py + ph + 0.5;
+    });
+  }
+  // (For the ?perf readout: why the gut shows its live paths while the organ picture is down.)
+  function gutLiveWhy() {
+    const pics = gutPics.filter((p) => p.mut === gutMut), need = vdpr * (CTM?.sc || 0);
+    if (!gutPics.length) return 'no picture';
+    if (!pics.length) return 'art changed';
+    const looks = pics.filter((p) => p.look === gutLook());
+    if (!looks.length) return 'colours changed';
+    if (need > GUT_CAP * 1.15) return looks.some((p) => p.win) ? 'moved off its part' : 'zoomed past it';
+    if (looks.every((p) => p.k * 1.15 < need)) return 'zoomed past it';
+    if (!gutPicFor(need)) return 'zoomed out past it';
+    return 'moved apart';
+  }
+  function syncGutPic() {
+    if (!gGut) return;
+    const on = gutPicOk();
+    if (on) {
+      const pic = gutPicFor(vdpr * CTM.sc);
+      if (pic !== gutPic) { gutPic = pic; gGutPics.replaceChildren(...pic.runs.map((r) => r.img)); }
+      for (const r of gutPic.runs) { const t = trOf(r.kids[0]); if (t) putA(r.img, 'transform', t); else r.img.removeAttribute('transform'); }
+      // The live grey is each paint's own colour made grey (greyOn): the same grey over the picture, a linear map, as the same.
+      const grey = !!greyList && plateSat < 1;
+      if (grey) putA(gutPicGreyFx, 'values', organDimMatrix(1, plateSat));
+      if (grey) putA(gGutPics, 'filter', 'url(#gutPicGrey)'); else gGutPics.removeAttribute('filter');
+    }
+    if (on === gutPicOn) return;
+    gutPicOn = on;
+    gGutPics.style.display = on ? '' : 'none';
+    gGut.classList.toggle('gut-pic-on', on);
+  }
+  // (Begun once the figure has been left alone for a second, finger lifted: it is a long piece of work, and it was made 0.6 s after
+  // each pinch, as the menus faded back in.)
+  function gutPicSoon() {
+    clearTimeout(gutPicTimer);
+    const go = () => { if (!leftAlone(1000)) { gutPicTimer = setTimeout(go, 250); return; } makeGutPic().then(gutPicsIn).then(gutPicsOut).catch(() => { /* the live paths stay */ }); };
+    gutPicTimer = setTimeout(go, 350);
+  }
+  // The gut's pictures for the zooms further out, down to the whole figure (its home framing, or the whole plate if that is
+  // further out): a slide's camera often glides out while the organs ease, and the picture of the close-up was then too sharp
+  // for it, so the gut drew its live paths in every frame of the change (Mohammad's iPhone ?perf recording, 21 Oct:
+  // "zoomed out past it", 95-300 ms frames). Each step down is half the pixels of the one above, so they cost little.
+  // And the two steps further in, up to the cap: a pinch in during a change then finds a picture at once, instead of the gut's live
+  // paths until the pinch is let go and its own picture made (external review, 22 Oct). Every step is at or under the cap, each
+  // kept once, so all the pictures together stay under twice the cap's pixels.
+  async function gutPicsIn() {
+    if (!CTM || vdpr * CTM.sc > GUT_CAP) return;
+    const k0 = gutStep(vdpr * CTM.sc, GUT_CAP);
+    for (let k = k0 * Math.SQRT2, n = 0; n < 2 && k <= GUT_CAP * 1.001; k *= Math.SQRT2, n++) { if (!leftAlone(1000)) return; await makeGutPic(k / 1.01); }
+  }
+  async function gutPicsOut() {
+    if (!CTM || !(vt.k > 0)) return;
+    const lo = gutStep(vdpr * CTM.sc / vt.k * Math.min(1, homeAt?.k ?? 1), GUT_CAP);
+    const top = vdpr * CTM.sc > GUT_CAP * 1.15 ? GUT_CAP * Math.SQRT2 : gutStep(vdpr * CTM.sc, GUT_CAP);   // (past the cap: the view's part was made, the whole from the cap down)
+    for (let k = top / Math.SQRT2; k >= lo * 0.99; k /= Math.SQRT2) { if (!leftAlone(1000)) return; await makeGutPic(k / 1.01); }   // (not under a finger: a later rest makes them)
+  }
+  async function makeGutPic(need = vdpr * (CTM?.sc || 0)) {
+    // (From the gut's copy, kept across the plate's drops, of the same art and colours: with the plate down too. Zoomed in during a
+    // change, no kept picture was sharp enough and none could be made until the plate came back, so the gut's 1,201 paths were drawn
+    // on every frame of the pinch and the ease: Mohammad on f65f3bb, "extreme lag ... as I zoom or pan around during that change".)
+    if (!gGut || !CTM || morphTarget !== 0 || morph > 0 || !gutCopy?.gut.length || gutCopy.gutMut !== gutMut || gutCopy.look !== gutLook()) return;
+    // Zoomed in past what a picture of the whole gut can hold, the picture is of the view's part of it, with a margin (and the
+    // bowel's float of 26 above and below), at the organs' own sharpness for the view (Mohammad's Mac ?perf, zoom 3.06, 21 Oct:
+    // "gut live: zoomed past it", 160-220 ms frames while the liver eased).
+    let win = null;
+    if (need > GUT_CAP * 1.15) {
+      const g = gutWin(0.15);
+      if (!g) return;
+      const y0 = Math.max(GUT_RECT[1], g.rect[1] - 28), y1 = Math.min(GUT_RECT[1] + GUT_RECT[3], g.rect[1] + g.rect[3] + 28), w = g.rect[2], h = y1 - y0;
+      const k = Math.min(g.scale, 4094 / w, 4094 / h, Math.sqrt(4.2e6 / (w * h)));
+      win = { rect: [g.rect[0], y0, w, h], k };
+      const w0 = gutWin(0);
+      if (w0 && gutPics.some((p) => p.win && p.mut === gutMut && p.look === gutLook() && p.k * 1.15 >= w0.scale && gutWinHolds(p, w0))) return;
+    }
+    const R = win ? win.rect : GUT_RECT;
+    const k = win ? win.k : gutStep(need, GUT_CAP), look = gutLook(), mut = gutMut;   // (the next fixed step at or above the view's: never stretched)
+    if (!win && gutPics.some((p) => !p.win && p.mut === mut && p.look === look && p.k === k)) return;
+    const seq = ++gutPicSeq, W = Math.max(1, Math.round(R[2] * k)), H = Math.max(1, Math.round(R[3] * k));
+    const ser = new XMLSerializer(), copies = gutCopy.gut, head = gutCopy.head, runs = [];
+    try {
+      for (const kids of gutRuns()) {
+        const body = kids.map((kid) => { const i = String([...gGut.children].indexOf(kid)), c = copies.find((el) => el.getAttribute('data-gut') === i)?.cloneNode(true); if (!c) throw new Error('gut copy'); c.removeAttribute('transform'); c.removeAttribute('data-gut'); return ser.serializeToString(c); }).join('');
+        const src = URL.createObjectURL(new Blob([`<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="${W}" height="${H}" viewBox="${R.join(' ')}" preserveAspectRatio="none">${head}${body}</svg>`], { type: 'image/svg+xml' }));
+        let blob;
+        try {
+          const img = new Image();
+          await new Promise((res, rej) => { img.onload = res; img.onerror = rej; img.src = src; });
+          const cv = document.createElement('canvas');
+          cv.width = W; cv.height = H;
+          // (A strip per frame, as the plate's picture: drawn whole, the gut's 1,201 paths took one long frame after a pinch.)
+          const cg = cv.getContext('2d');
+          for (const [y, rows] of plateStrips(W, H)) {
+            if (y) await new Promise((res) => nextFrame(res));
+            if (seq !== gutPicSeq) throw new Error('overtaken');
+            cg.drawImage(img, 0, y, W, rows, 0, y, W, rows);
+          }
+          blob = await gpuProbe.time(null, 'gut picture: encode', () => new Promise((res) => cv.toBlob(res, 'image/png')));
+          cv.width = cv.height = 0;
+        } finally { URL.revokeObjectURL(src); }
+        if (!blob) throw new Error('gut picture');
+        const url = URL.createObjectURL(blob);
+        runs.push({ kids, url });
+        // Decoded before it can show, so the first frame of an ease does not wait for it.
+        const keep = new Image(); keep.src = url; await keep.decode();
+        runs[runs.length - 1].keep = keep;
+        if (seq !== gutPicSeq || mut !== gutMut) throw new Error('overtaken');
+      }
+    } catch (e) { for (const r of runs) URL.revokeObjectURL(r.url); throw e; }
+    gutPic = { k, look, mut, win: win ? R : null, runs: runs.map(({ kids, url, keep }) => ({ kids, url, keep, img: s('image', { href: url, x: R[0], y: R[1], width: R[2], height: R[3], preserveAspectRatio: 'none' }) })) };
+    gGutPics.replaceChildren(...gutPic.runs.map((r) => r.img));
+    // (Those before are kept if they are of the same art and colours, for the zooms out (gutPicsOut) or one it may come back to: up to
+    // seven, every step from the cap down to an eleventh of it, so the chain gutPicsOut makes never pushes out the picture of the zoom
+    // it began at (it kept three: external review, 21 Oct). Each step has half the pixels of the one above, so all of them together
+    // are less than twice the largest.)
+    // (Of the view's part, only the newest is kept: each is up to 4.2 MP.)
+    // (Nine: the zoom it began at, the two steps in (gutPicsIn) and seven out.)
+    const kept = gutPics.filter((p) => p.mut === mut && p.look === look && (p.win ? !win : p.k !== k)).slice(-9);
+    for (const p of gutPics) if (!kept.includes(p)) for (const r of p.runs) URL.revokeObjectURL(r.url);
+    gutPics = [...kept, gutPic];
+    gutPicOn = false; gGutPics.style.display = 'none'; gGut.classList.remove('gut-pic-on');
+    syncGutPic();
   }
   function clientToWorldFast(cx, cy) {
     if (!CTM) refreshCTM();
@@ -3506,17 +4476,20 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   }
   // With a vessel selected the organs (and the ascites over them) step back to SEL_DIM, as app.css's .has-sel filter (G20).
   const SEL_DIM = 0.6;
+  const SPOT_NET = 0.16;   // the network's alpha outside a slide's spotlight (deck visuals V2)
   // The plate's dim and grey (a lens or a selection) and the network's dim ease toward their targets
   // (stepPlateEase, each frame), so a lens switch or a selection never changes the figure in one frame.
   const plateTargets = () => {
-    const dataLayer = wrap.classList.contains('data-layer'), sel = wrap.classList.contains('has-sel') || wrap.classList.contains('shunting');
-    return [(sel ? SEL_DIM : 1) * (dataLayer ? 0.72 : 1), dataLayer ? 0.12 : 1, sel ? 0.42 : 1];
+    const dataLayer = wrap.classList.contains('data-layer'), own = wrap.classList.contains('has-sel') || wrap.classList.contains('shunting'), sel = own || spotOn();
+    // (A slide's spotlight steps the rest of the network further back than a selection, SPOT_NET: its vessels are a set, and a pale
+    // one, as the paraumbilical vein in Pressure colours, must still stand out of it.)
+    return [(sel ? SEL_DIM : 1) * (dataLayer ? 0.72 : 1), dataLayer ? 0.12 : 1, own ? 0.42 : sel ? SPOT_NET : 1];
   };
   function syncPlateLook() {
-    syncOrganDim();
+    syncOrganDim(); syncGutPic();
     if (!vLook) return;
     if (plateDim == null || reduceMotion.matches) [plateDim, plateSat, netA] = plateTargets();
-    vLook.plate = plateOn() ? { alpha: (1 - easeInOut(morph)) * plateDim, sat: plateSat } : null;
+    vLook.plate = plateOn() ? { alpha: (1 - easeInOut(morph)) * plateDim, sat: plateSat, stack: gpuOrgansOn() } : null;
     vLook.netAlpha = netA;
   }
   // The live SVG organs (shown while the GPU copy is off: a patient change, a theme switch, no WebGL) take the same dim and
@@ -3555,7 +4528,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       }
       return true;
     };
-    for (const el of [...gBackdrop.querySelectorAll('*'), ...gOrgans.querySelectorAll('*')]) if (!visit(el)) return null;
+    for (const el of [...gBackdrop.querySelectorAll('*'), ...gOrgans.querySelectorAll('*')]) if (!gGutCuts.contains(el) && !visit(el)) return null;   // (the gut's patches stay the stage's colour, as the stage shows through a cut)
     while (refs.length) {
       const id = refs.pop();
       if (seen.has(id)) continue;
@@ -3575,7 +4548,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     for (const g of greyList) g.el.style.setProperty(g.p, greyOf(g.c, sat), 'important');
   }
   // The colours are read again when what they depend on changes (the theme, the stage's classes), before the next paint.
-  const greyDeps = () => { const r = document.documentElement; return `${wrap.className}|${r.className}|${r.dataset.theme || ''}|${matchMedia('(prefers-color-scheme: dark)').matches}`; };
+  const greyDeps = () => { const r = document.documentElement; return `${gestureFree(wrap.className)}|${r.className}|${r.dataset.theme || ''}|${matchMedia('(prefers-color-scheme: dark)').matches}`; };
   let greyAt = '';
   const greyStale = () => { if (greyList && greyDeps() !== greyAt) { greyClear(); organDimKey = ''; syncOrganDim(); } };
   new MutationObserver(greyStale).observe(wrap, { attributes: true, attributeFilter: ['class'] });
@@ -3610,6 +4583,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   let plateFrom = null, plateTo = null, plateT0 = 0;
   function stepPlateEase() {
     if (lensFrom) { veinsDirty = true; glowSync = true; }   // (each frame of the crossfade syncs the vessels, paused too, so it runs to its end)
+    if (!spot.on && !plateEasing()) spot.live = false;   // (the spotlight's dim has eased away: the ascites goes back to its own)
     if (!plateEasing()) { plateFrom = null; return; }
     const to = plateTargets(), now = performance.now();
     if (!plateFrom || to.some((v, i) => v !== plateTo[i])) { plateFrom = [plateDim, plateSat, netA]; plateTo = to; plateT0 = lensFrom && now - lensT0 < 60 ? lensT0 : now; }
@@ -3658,7 +4632,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // When the retraction ends: hide the vessel, or leave the dotted outline of a closed collateral.
   function finishExit(x) {
     if (!F) return;
-    if (!edgeVisible(x, F)) { setStyle(x, 'display', 'none'); if (x.heat) x.heat.style.display = 'none'; x.vis = false; }
+    if (!edgeVisible(x, F)) { setStyle(x, 'display', 'none'); x.vis = false; }
     else if (x.e.kind === 'collateral' && !collOpen(x.e.id, F)) cls(x, 'coll-ghost', true);
   }
   const REVEAL_PARTS = ['shadow', 'wall', 'lumen', 'shade', 'sheen'];
@@ -3718,7 +4692,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (quietFx() || !f.P) return;
     const cand = [];
     for (const n of NODES) {
-      if (n.kind === 'wedge' || HIDDEN_NODES.has(n.id) || !NODE_POS[n.id]) continue;
+      // (A ring marks a place on a drawn vessel: none over a station with nothing drawn at it, as no dot is.)
+      if (n.kind === 'wedge' || HIDDEN_NODES.has(n.id) || !NODE_POS[n.id] || !nodeVisible(n.id)) continue;
       const d = f.P[NI[n.id]] - base[NI[n.id]];
       if (Math.abs(d) >= 1) cand.push([n.id, d]);
     }
@@ -3748,7 +4723,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // or zoom moves them in the same frame (an SVG overlay is composited apart and can trail it).
   // Each one fades in and out; the SVG lines are kept only where the GPU cannot draw them.
   const glLines = !!veins?.canLines;
-  const OL_LOOK = { sel: [2.6, 0.7], hov: [2, 0.45], pin: [2.6, 0.6] };   // as .org-sel-line and .org-hov-line: width, opacity
+  const OL_LOOK = { sel: [2.6, 0.7], hov: [2, 0.45], pin: [2.6, 0.6], spot: [2.6, 0.6], normal: [1.4, 0.5] };   // as .org-sel-line and .org-hov-line: width, opacity
+  // (spot: a slide's spotlit organ, as a pinned one; normal: the normal-sized spleen's thin line inside an enlarged one, V18.)
   // A selected organ is outlined in its own deep tone (--og-<tone>-3, read through the organ's tone class as --o3), not the
   // accent blue, with a soft glow of the same tone easing out from its edge (G20). Hovered, the same tone without the glow.
   const SEL_GLOW = { reach: 12, alpha: 0.22 };
@@ -3764,22 +4740,87 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     return c;
   }
   const OL_FADE = 160;   // ms
+  // A narrowing's clamp and its "60 %" fade in and out with the narrowing (they had popped): each narrowing's shown amount
+  // (0 … 1), stepped in olStep. A narrowing that goes keeps its marks, moved to ov.clampsOut, until they have faded.
+  // (The arrows are drawn on the GPU, so their fade is the draw's alpha; the label, and the arrows without the GPU, take opacity.)
+  const CLAMP_FADE = 250;   // ms
+  const clampA = new Map();   // id → { a, on }
+  let clampLast = 0;
+  const clampFading = () => { for (const c of clampA.values()) if (c.a !== (c.on ? 1 : 0)) return true; return false; };
+  const clampEase = (id) => { const a = clampA.get(id)?.a ?? 1; return a * a * (3 - 2 * a); };
+  function clampShade(id) {
+    const e = clampEase(id), op = e < 1 ? e.toFixed(3) : '';
+    for (const g of [ov.clamps, ov.clampsOut]) for (const el of g.querySelectorAll(`[data-id="${id}"]`)) if (el.tagName === 'text' || !glLines) el.style.opacity = op;
+  }
   // The heart a slide points at (the right atrium, the heart itself) is lit whole by a soft glow, not a line: one band
   // easing out from its edge (the GPU shades the falloff smoothly, behind the organs): reach in world units, peak opacity.
   const HEART_GLOW = { reach: 46, alpha: 0.34 };
   let olPath = null;   // sampled in <defs>: the organ itself is hidden while the GPU draws the plate
-  function olRings(id) {
-    const m = organG[id].transform.baseVal.consolidate()?.matrix;
-    if (!olPath) { olPath = s('path'); defs.append(olPath); }
-    const el = olPath;
-    el.setAttribute('d', organEls[id].getAttribute('d'));
-    let L;
-    try { L = el.getTotalLength(); } catch { return []; }
-    const n = Math.max(48, Math.ceil(L / 2)), step = L / n, rings = [];
+  // A tube (the bowel, colon, duodenum: a stroke along a centre line) is outlined along both its edges (bandRing), at the
+  // width its edge is stroked. bare: the organ's own path at its normal size, not as the figure now scales it (the normal
+  // spleen, V18).
+  const BAND_IDS = new Set(ORGANS.filter((o) => o.band).map((o) => o.id));
+  // An organ with a drawn outline of its own (ORGANS ring: the colon as it shows, the transverse colon over the limbs behind)
+  // is outlined along it; the small bowel's path is already its outline, the whole pile as one.
+  const RING_OF = Object.fromEntries(ORGANS.filter((o) => typeof o.ring === 'string').map((o) => [o.id, o.ring]));
+  function olRings(id, bare = false) {
+    const rings = olRingsRaw(id, bare);
+    if (BAND_IDS.has(id) && !RING_OF[id]) {
+      const o = ORGANS.find((q) => q.id === id), edge = organG[id].querySelector('.band-edge');
+      const w = o.ringW || (edge ? parseFloat(getComputedStyle(edge).strokeWidth) : 0);
+      return w > 0 ? rings.map((r) => bandRing(r, w / 2)).filter((r) => r.length) : rings;
+    }
+    return rings;
+  }
+  // A group's transform as one matrix, read without consolidate() (which rewrites the attribute as a matrix(), and the group's own
+  // writer puts translate() back, so the outline keys would change at every build).
+  const gMatrix = (g) => { const l = g.transform.baseVal; let m = null; for (let i = 0; i < l.numberOfItems; i++) { const t = l.getItem(i).matrix; m = m ? m.multiply(t) : t; } return m; };
+  // An outline's points in its own coordinates, every `stride` along it, kept by its path (bounded: an easing liver's outline is
+  // new on every frame). Measured piece by piece (path-pieces.js): getPointAtLength along the whole path walks it from its start
+  // on every call, and the first Doppler probe read every organ so (the colon's 608 pieces at 1752 points), a second or two
+  // with the page held as a monitor first opened (Mohammad, 22 Oct). The same points, measured once per path.
+  const olLocalMemo = new Map();
+  let olPieceG = null;
+  function olLocal(src, stride) {
+    const mk = `${stride}|${src}`;
+    let r = olLocalMemo.get(mk);
+    if (r) return r;
+    let L, at;
+    const pieces = pathPieces(src);
+    if (pieces) {
+      // (Each curve its own fresh element, all put in at once and taken out after: a reused element can keep measuring its last
+      // course in Chromium, sample() above.)
+      if (!olPieceG) { olPieceG = s('g'); defs.append(olPieceG); }
+      const els = [];
+      for (const q of pieces) if (q.c) { const el = s('path', { d: q.c }); q.el = el; els.push(el); }
+      olPieceG.replaceChildren(...els);
+      try {
+        L = piecesLength(pieces, ({ el }) => ({ len: el.getTotalLength(), at: (u) => { const p = el.getPointAtLength(u); return [p.x, p.y]; } }));
+      } catch { olPieceG.replaceChildren(); return null; }
+      at = (ls) => pointsAlong(pieces, ls);
+    } else {
+      if (!olPath) { olPath = s('path'); defs.append(olPath); }
+      const el = olPath;
+      el.setAttribute('d', src);
+      try { L = el.getTotalLength(); } catch { return null; }
+      at = (ls) => ls.map((u) => { const q = el.getPointAtLength(u); return [q.x, q.y]; });
+    }
+    const n = Math.max(48, Math.ceil(L / stride)), step = L / n, ls = [];
+    for (let i = 0; i <= n; i++) ls.push(i * step);
+    r = { step, pts: at(ls) };
+    olPieceG?.replaceChildren();
+    if (olLocalMemo.size >= 48) olLocalMemo.delete(olLocalMemo.keys().next().value);
+    olLocalMemo.set(mk, r);
+    return r;
+  }
+  function olRingsRaw(id, bare, d = null, stride = 2) {
+    const m = bare ? null : gMatrix(organG[id]);
+    const loc = olLocal(d || RING_OF[id] || organEls[id].getAttribute('d'), stride);
+    if (!loc) return [];
+    const { step } = loc, rings = [];
     let cur = [], prev = null;
-    for (let i = 0; i <= n; i++) {
-      const q = el.getPointAtLength(i * step);
-      const p = m ? [m.a * q.x + m.c * q.y + m.e, m.b * q.x + m.d * q.y + m.f] : [q.x, q.y];
+    for (const [qx, qy] of loc.pts) {
+      const p = m ? [m.a * qx + m.c * qy + m.e, m.b * qx + m.d * qy + m.f] : [qx, qy];
       if (prev && Math.hypot(p[0] - prev[0], p[1] - prev[1]) > step * 4 * (m ? Math.hypot(m.a, m.b) : 1)) { if (cur.length > 1) rings.push(cur); cur = []; }   // a new subpath
       cur.push(p); prev = p;
     }
@@ -3787,6 +4828,92 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     return rings;
   }
   const olKey = (id) => organEls[id].getAttribute('d') + '|' + (organG[id].getAttribute('transform') || '');
+  // The small bowel's loops as they are drawn now: the centre line of each tube of its pile (the deep-tone stroke under the loops,
+  // .ob-deep in organ-art.js), read from the live drawing, so a pile that is reshaped is followed without a copy of its path here.
+  // A warm layer (see WARM) is a soft glow along both edges of each tube, on the organs and under the vessels: the loops' outlines
+  // glow, the tubes' insides stay as drawn.
+  // The tubes are plain polylines: their points are read from the path's own text once (cached by it), every other point, and each
+  // build is only the group's transform over them (no path measuring: the ascites moves the bowel, and each move builds again).
+  const GLOW_SPAN = 4;   // (points either side an outline's glow takes its direction from: the rings are read every 2 units)
+  const WARM = { reach: 10, alpha: 0.46, taper: 20 };   // (how far the glow runs out from a tube's edge, in world units (under the tube's own half width, so a tube's middle stays clear), and its strength on the edge)
+  const warmEls = new Map(), warmEdges = new Map(), warmPts = new Map();   // (the drawing's tubes, found again if the pile is redrawn: the key below is read every frame)
+  const warmTubes = (id) => {
+    let t = warmEls.get(id), e = warmEdges.get(id);
+    // (the first and last of the drawing's pieces stand for them all: a redrawn pile replaces the lot; an empty list is looked for again)
+    const gone = (l) => !l || !l.length || !l[0].isConnected || !l[l.length - 1].isConnected;
+    if (gone(t) || gone(e)) {
+      t = [...organG[id].querySelectorAll('.ob-deep')]; warmEls.set(id, t);
+      warmEdges.set(id, [...organG[id].querySelectorAll('.ob-edge')]);
+    }
+    return t;
+  };
+  const warmDs = (id) => warmTubes(id).map((el) => el.getAttribute('d')).filter(Boolean);
+  function warmLines(d) {
+    let r = warmPts.get(d);
+    if (!r) {
+      // (Only M and L: a path with curves in it is measured along instead.)
+      r = /^[ML\d.,\s-]+$/.test(d)
+        ? d.split('M').filter(Boolean).map((c) => { const n = c.match(/-?\d*\.?\d+/g).map(Number), pts = []; for (let i = 0; i + 1 < n.length; i += 4) pts.push([n[i], n[i + 1]]); if (n.length >= 4 && (n.length / 2 - 1) % 2) pts.push([n[n.length - 2], n[n.length - 1]]); return pts; })
+        : null;
+      warmPts.set(d, r);
+    }
+    return r;
+  }
+  // (the tubes' lines in the drawing's own coordinates, in drawing order)
+  const warmLocal = (id) => warmDs(id).flatMap((d) => { const lines = warmLines(d) || olRingsRaw(id, true, d, 6); return lines.filter((r) => r.length > 1); });
+  function warmRings(id) {
+    const m = gMatrix(organG[id]);
+    return warmLocal(id).map((r) => (m ? r.map(([x, y]) => [m.a * x + m.c * y + m.e, m.b * x + m.d * y + m.f]) : r));
+  }
+  // Which of the loops' edges can be seen (warm-vis.js): not under a loop drawn over it, and inside the organ's own outline (the
+  // glow is not clipped as the drawing is). Per tube and point, side -1 then 1; worked out once per drawing (its key below).
+  const warmSeen = new Map();
+  function warmVis(id) {
+    const k = warmDs(id).map((d) => d.length + d.slice(-30)).join('|') + '|' + warmR(id) + '|' + (organEls[id].getAttribute('d') || '').length;
+    let c = warmSeen.get(id);
+    if (!c || c.k !== k) {
+      const g = ringGrid(olRingsRaw(id, true));
+      warmSeen.set(id, c = { k, vis: warmVisible(warmLocal(id), warmR(id), { inside: g ? (x, y) => inGrid(g, x, y) : null }) });
+    }
+    return c.vis;
+  }
+  // A tube's radius, from the drawing's own pieces (each .ob-edge is stroked 2r wide): the middle one, read again when the
+  // deep-toned bed under the tubes (stroked wider as the tubes are) changes, so a refitted pile is followed.
+  const warmRad = new Map();
+  // (its signature: the bed's stroke widths and a few of the pieces' own, cheap enough to read every frame)
+  const warmSw = (id) => { const e = (warmTubes(id), warmEdges.get(id)), at = (i) => e[i]?.getAttribute('stroke-width'); return warmTubes(id).map((el) => el.getAttribute('stroke-width')).join(',') + '|' + e.length + ',' + at(0) + ',' + at(e.length >> 1) + ',' + at(e.length - 1); };
+  function warmR(id) {
+    const sw = warmSw(id);
+    let c = warmRad.get(id);
+    if (!c || c.sw !== sw) {
+      // (A drawing that leaves out its hidden pieces names the middle width of all of them: scripts/organ-art.mjs cullHidden.)
+      const named = +organG[id].querySelector('[data-edge-w]')?.dataset.edgeW;
+      const w = warmEdges.get(id).map((el) => +el.getAttribute('stroke-width')).filter((x) => x > 0).sort((a, b) => a - b);
+      warmRad.set(id, c = { sw, r: named > 0 ? named / 2 : w.length ? w[w.length >> 1] / 2 : 12.5 });
+    }
+    return c.r;
+  }
+  // The colon's drawn outline (its limbs, closed), from the ring's own text once: the glow is left off where the colon lies over the pile.
+  // (As a coarse grid in the colon's own coordinates, filled once by scanlines: a point is then one transform and one look-up,
+  // where testing it against the ring made each build cost ten times more, and builds run every frame while the ascites eases.)
+  const COLON_CELL = 3;
+  let colonMask = null;
+  function colonGrid() {
+    if (colonMask) return colonMask;
+    const rings = (RING_OF.colon || '').split('M').filter(Boolean).map((c) => { const n = c.match(/-?\d*\.?\d+/g).map(Number), r = []; for (let i = 0; i + 1 < n.length; i += 2) r.push([n[i], n[i + 1]]); return r; });
+    const all = rings.flat(), x0 = Math.min(...all.map((q) => q[0])), y0 = Math.min(...all.map((q) => q[1])), w = Math.ceil((Math.max(...all.map((q) => q[0])) - x0) / COLON_CELL) + 1, h = Math.ceil((Math.max(...all.map((q) => q[1])) - y0) / COLON_CELL) + 1;
+    const bits = new Uint8Array(w * h);
+    for (const r of rings) for (let j = 0; j < h; j++) {
+      const y = y0 + (j + 0.5) * COLON_CELL, xs = [];
+      for (let i = 0, k = r.length - 1; i < r.length; k = i++) if ((r[i][1] > y) !== (r[k][1] > y)) xs.push(r[i][0] + (y - r[i][1]) * (r[k][0] - r[i][0]) / (r[k][1] - r[i][1]));
+      xs.sort((u, v) => u - v);
+      for (let m = 0; m + 1 < xs.length; m += 2) for (let i = Math.max(0, Math.ceil((xs[m] - x0) / COLON_CELL - 0.5)); i <= Math.min(w - 1, Math.floor((xs[m + 1] - x0) / COLON_CELL - 0.5)); i++) bits[j * w + i] = 1;
+    }
+    return (colonMask = { x0, y0, w, h, bits });
+  }
+  (typeof requestIdleCallback === 'function' ? (f) => requestIdleCallback(f, { timeout: 5000 }) : (f) => setTimeout(f, 3000))(() => { try { colonGrid(); if (organG.bowel && warmDs('bowel').length) warmVis('bowel'); } catch { /* each is made when a glow first needs it */ } });   // (made while idle, so a slide's start does not pay for them)
+  const warmKey = (id) => olKey(id) + '|' + (organG.colon?.getAttribute('transform') || '') + '|' + warmSw(id) + '|' + warmDs(id).map((d) => d.length + d.slice(-30)).join('|');
+  const olRingsOf = (o) => (o.kind === 'warm' ? warmRings(o.id) : olRings(o.id));
   function olSet(kind, id) {
     for (const o of olList) if (o.kind === kind && o.id !== id) o.on = false;
     if (id && organEls[id]?.getAttribute('d') && !olList.some((o) => o.kind === kind && o.id === id && (o.on = true))) {
@@ -3797,33 +4924,160 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // A presenter slide's organs, outlined and held (several at once): eased in and out like the hover outline.
   // Each in its station's colour ([{ id, tone }], --tr-<tone>).
   // The right atrium's slides light the whole heart (the atrium is one chamber of it), so both ids come to 'heart'.
+  // (An item may also ask for the soft glow the heart gets, glow: true, and its own fade in ms, fade: a meal's gut glow swells and
+  // eases off over a second or more, where an outline's own fade is 160 ms. glowOrgans adds such items to the slide's pins.)
   const PIN_ID = (id) => (id === 'heart-ra' ? 'heart' : id);
-  function pinOrgans(list) {
-    const items = (list || []).map((o) => (typeof o === 'string' ? { id: o } : o)).map((o) => ({ id: PIN_ID(o.id), tone: o.tone || null }));
+  let pinList = [];
+  function pinOrgans(list, more) {
+    if (!more) pinList = list || [];
+    const items = [...pinList, ...(more || [])].map((o) => (typeof o === 'string' ? { id: o } : o)).map((o) => ({ id: PIN_ID(o.id), tone: o.tone || null, glow: !!o.glow, warm: !!o.warm, fade: o.fade || 0 }));
     const ids = items.map((o) => o.id);
     caud.show(ids.includes('caudate') || ids.includes('caudate-lobe'), ids.includes('caudate'));
-    const want = new Map(items.filter((o) => organEls[o.id]).map((o) => [o.id, o.tone]));
+    const want = new Map(items.filter((o) => organEls[o.id]).map((o) => [o.id, o]));
     const cs = getComputedStyle(svg), col = (tone) => (tone ? [...toRGB(`var(${tone.startsWith('--') ? tone : `--tr-${tone}`})`, cs)].slice(0, 3) : null);
-    for (const o of olList) if (o.kind === 'pin' && !want.has(o.id)) o.on = false;
-    for (const [id, tone] of want) {
+    for (const o of olList) if (o.kind === 'pin' && !want.has(o.id)) o.on = false;   // (it keeps its own fade on the way out)
+    for (const [id, it] of want) {
       const o = olList.find((x) => x.kind === 'pin' && x.id === id);
-      if (o) { o.on = true; o.col = col(tone); } else if (organEls[id].getAttribute('d')) olList.push({ kind: 'pin', id, key: olKey(id), rings: olRings(id), a: 0, on: true, col: col(tone), glow: id === 'heart' });
+      if (o) { o.on = true; o.col = col(it.tone); o.glow = id === 'heart' || it.glow; o.fade = it.fade; } else if (organEls[id].getAttribute('d')) olList.push({ kind: 'pin', id, key: olKey(id), rings: olRings(id), a: 0, on: true, col: col(it.tone), glow: id === 'heart' || it.glow, fade: it.fade });
+    }
+    // (warm: the organ's loops glow along their edges, beside its outline's glow: the bowel's pile, eased with the same fade.)
+    const warm = new Map(items.filter((o) => glLines && o.warm && organEls[o.id]?.getAttribute('d') && warmDs(o.id).length).map((o) => [o.id, o]));
+    for (const o of olList) if (o.kind === 'warm' && !warm.has(o.id)) o.on = false;
+    for (const [id, it] of warm) {
+      const o = olList.find((x) => x.kind === 'warm' && x.id === id);
+      if (o) { o.on = true; o.col = col(it.tone); o.fade = it.fade; } else olList.push({ kind: 'warm', id, key: warmKey(id), rings: warmRings(id), a: 0, on: true, col: col(it.tone), fade: it.fade });
     }
     olDirty = true; olLast = performance.now();
   }
+  // A slide's spotlit organs (V2), outlined beside its pins; an organ the slide already pins keeps that one line.
+  function spotOrgans(list) {
+    const cs = getComputedStyle(svg), col = (tone) => (tone ? [...toRGB(`var(${tone.startsWith('--') ? tone : `--tr-${tone}`})`, cs)].slice(0, 3) : null);
+    const want = new Map((list || []).filter((o) => organEls[o.id]?.getAttribute('d') && !olList.some((x) => x.kind === 'pin' && x.on && x.id === o.id)).map((o) => [o.id, o.tone]));
+    for (const o of olList) if (o.kind === 'spot' && !want.has(o.id)) o.on = false;
+    for (const [id, tone] of want) {
+      const o = olList.find((x) => x.kind === 'spot' && x.id === id);
+      if (o) { o.on = true; o.col = col(tone); } else olList.push({ kind: 'spot', id, key: olKey(id), rings: olRings(id), a: 0, on: true, col: col(tone) });
+    }
+    olDirty = true; olLast = performance.now(); stageWake();
+  }
+  // The normal spleen's outline (V18): wanted by a slide, shown while the spleen is enlarged (normalSync, each frame the spleen
+  // is drawn), in the spleen's own deep tone. It keeps the organ's normal size and place as the spleen grows round it.
+  // Dashed (on, off in world units), so it reads as where the spleen would be and not as a second organ.
+  const normal = { want: false, shown: false, sc: 1 };
+  const NORMAL_DASH = [7, 5];
+  function normalSync(sc = normal.sc) {
+    normal.sc = sc;
+    const p = store.get().params;
+    const on = normal.want && !!organEls.spleen && p?.splenicRx !== 2 && easeInOut(morph) < 0.5 && normalShown(sc, normal.shown);
+    if (on === normal.shown) return;
+    normal.shown = on;
+    const o = olList.find((x) => x.kind === 'normal');
+    if (o) o.on = on;
+    else if (on) olList.push({ kind: 'normal', id: 'spleen', key: '', rings: dashRings(olRings('spleen', true), NORMAL_DASH[0], NORMAL_DASH[1]), a: 0, on: true, col: orgTone('spleen') });
+    olDirty = true; olLast = performance.now(); stageWake();
+  }
+  // Deck visuals, package F (ext-callouts.js): a slide's figure callouts, or null. live: an edge mark's words by
+  // `${edge}|${kind}`; organs: marks on organs; calipers; steps (the glow's first entry's vessels: its order is numbered, V10);
+  // spans and zone, on the circuit (V25). Each piece of words is { runs: [{ t, sp, tone? }], wide, label }: wide, the same words at
+  // their widest, is the room its pill keeps, so a number ticking never moves or resizes it (fxPill).
+  let fx = null, fxSig = '';
+  const fxWide = new Map(), fxBuild = new Map(), fxEls = new Map();
+  function setCallouts(sp) {
+    const sig = sp ? JSON.stringify([Object.keys(sp.live || {}), (sp.organs || []).map((o) => o.organ + o.kind), (sp.calipers || []).map((c) => c.id), sp.steps, (sp.spans || []).map((x) => x.from + x.to), sp.zone]) : '';
+    if (!sp || sig !== fxSig) { fxWide.clear(); for (const [k, b] of pool) if (k.startsWith('fxs:')) b.fxIn = false; }
+    fx = sp ? { live: {}, organs: [], calipers: [], steps: null, spans: [], zone: -1, ...sp } : null; fxSig = sig;
+    const band = fx && zoneBand(fx.zone);
+    if (band) { fxZone.setAttribute('x', band[0]); fxZone.setAttribute('width', band[1] - band[0]); }
+    fxZone.classList.toggle('on', !!band);
+    stageWake();
+  }
+  // A callout's pill (a mark, a caliper's or a bracket's reading): its words as runs, a value in its rating colour where the pill
+  // is plain (tone; on a red or accent pill the words keep the pill's own ink), as wide as its widest words (and never narrower
+  // than it has been on this slide). fxw: its words with each value as #, so a number ticking redraws no pill (renderBlock).
+  const fxRuns = (runs, tone) => runs.map((r, i) => ({ t: r.t, size: 11.5, weight: r.tone !== undefined ? 750 : 650, cls: r.tone !== undefined ? 'lb-focus fx-v' : 'lb-focus', ...(i ? { gap: r.sp ? 3 : 0 } : {}), ...(tone && r.tone ? { fill: `color-mix(in srgb, var(${r.tone}) 78%, var(--text))` } : {}) }));
+  // (split: the words on one line and the reading from its first value on under them, where one line is too wide for its room.)
+  function fxPill(key, w, cls, tone, split = false) {
+    const cut = split ? w.runs.findIndex((r) => r.tone !== undefined) : -1, two = cut > 0;
+    const part = (runs) => (two ? [runs.slice(0, cut), runs.slice(cut)] : [runs]);
+    const lines = part(w.runs).map((r) => fxRuns(r, tone)), wide = part(w.wide || w.runs).map((r) => fxRuns(r, tone));
+    const wd = Math.max(...lines.map(lineW), ...wide.map(lineW), fxWide.get(key + (two ? ':2' : '')) || 0);
+    fxWide.set(key + (two ? ':2' : ''), wd);
+    return { key, cls, lines, align: 'middle', bg: true, padX: 8, padY: 4, w: wd, h: lines.reduce((a, l) => a + LINE_H(l), 0), label: w.label, fxw: w.runs.map((r) => (r.tone !== undefined ? '#' : r.t)).join(' ') + (two ? '|2' : '') };
+  }
+  // The calipers' and brackets' lines, each frame (the spleen grows through a time-lapse, a vessel's width eases): a line that
+  // comes eases in, one that goes eases out (app.css, Package F).
+  function fxLine(key, parent, d, cls) {
+    let el = fxEls.get(key);
+    if (!el) {
+      el = s('g', { class: cls });
+      el.append(s('path', { class: 'fx-halo' }), s('path', { class: 'fx-ink' }));
+      parent.append(el); fxEls.set(key, el);
+      if (!reduceMotion.matches) requestAnimationFrame(() => requestAnimationFrame(() => el.classList.add('on'))); else el.classList.add('on');
+    }
+    el.seen = true;
+    if (el._d !== d) { el._d = d; for (const p of el.children) p.setAttribute('d', d); }
+  }
+  // (Screen pixels per world unit now: lines that keep a size on screen are drawn in world units from it.)
+  const fxK = () => { if (!CTM) refreshCTM(); return CTM?.sc || 1; };
+  function caliperAt(c, f) {
+    if (c.organ) {
+      const p = f.viewParams || store.get().params;
+      if (p?.splenicRx === 2 || !organEls.spleen) return null;
+      const [a, b] = spleenCaliper((f.slow?.spleen ?? 11) / 11);
+      return { a, b };
+    }
+    const x = E[c.edge], cur = geo[c.edge]?.cur;
+    if (!x?.vis || x.g.classList.contains('coll-ghost') || !(cur?.length > 1)) return null;
+    // (Wall to wall and a little past, and never shorter than 30 px on screen, so a narrow stent on a phone still reads as a caliper.)
+    // (A varix at its middle, where the tile measures it; any other vessel a third along, off its station's dot at the middle.)
+    const [wx, wy, tx, ty] = c.key === 'varix' ? arcMid(cur) : pointAt(cur, 0.32), [a, b] = acrossVessel(wx, wy, tx, ty, Math.max((x.width || 4) / 2 + 3, 15 / fxK()));
+    return { a, b };
+  }
+  // A caliper's line and its end ticks (5 px either side, square to it), in world units.
+  function caliperSegs(c, f) {
+    const g = caliperAt(c, f);
+    if (!g) return null;
+    const [[ax, ay], [bx, by]] = [g.a, g.b], L = Math.hypot(bx - ax, by - ay) || 1, tk = 5 / fxK(), nx = (-(by - ay) / L) * tk, ny = ((bx - ax) / L) * tk;
+    return { a: g.a, b: g.b, segs: [[g.a, g.b], [[ax - nx, ay - ny], [ax + nx, ay + ny]], [[bx - nx, by - ny], [bx + nx, by + ny]]] };
+  }
+  function fxSync(f, t) {
+    for (const el of fxEls.values()) el.seen = false;
+    if (fx && t < 0.5) for (const c of fx.calipers) {
+      const g = caliperSegs(c, f);
+      if (!g) continue;
+      const P = ([x, y]) => `${x.toFixed(1)} ${y.toFixed(1)}`;
+      fxLine('c:' + c.id, gFx, g.segs.map(([p, q]) => `M${P(p)}L${P(q)}`).join(''), 'fx-cal-line');
+    }
+    if (fx) for (const sp of fx.spans) { const at = spanOf(sp.from, sp.to, fxK()); if (at) fxLine(`s:${sp.from}:${sp.to}`, gFxC, spanPath(at), 'fx-span-line'); }
+    for (const [k, el] of fxEls) {
+      if (el.seen || el.going) continue;
+      el.going = true; el.classList.remove('on');
+      setTimeout(() => { el.remove(); if (fxEls.get(k) === el) fxEls.delete(k); }, reduceMotion.matches ? 0 : 420);
+    }
+    for (const [k, el] of fxEls) if (el.seen && el.going) { fxEls.delete(k); }   // (a line gone and wanted again starts afresh)
+    gFx.style.opacity = t > 0 ? String(1 - t) : '';
+  }
   // The organ was redrawn (a reshaped liver, a larger spleen): the outlines follow it.
   function olGeom() {
-    for (const o of olList) { const k = olKey(o.id); if (k !== o.key) { o.key = k; o.rings = olRings(o.id); o.verts = null; olDirty = true; } }
+    for (const o of olList) { if (o.kind === 'normal') continue; const k = o.kind === 'warm' ? warmKey(o.id) : olKey(o.id); if (k !== o.key) { o.key = k; o.rings = olRingsOf(o); o.verts = null; olDirty = true; } }
   }
   // Eases each outline toward shown or gone and hands them to the GPU; true while anything is changing.
   function olStep(now) {
-    if (glLines && marksKey() !== mk.key) marksBuild();
-    if (!glLines || (!olDirty && !olList.length && !mk.dirty)) return false;
-    const du = Math.min(1, (now - olLast) / OL_FADE);
+    const cdu = Math.min(1, (now - clampLast) / CLAMP_FADE);
+    clampLast = now;
+    let clampMoved = false;
+    for (const [id, c] of clampA) {
+      const t = c.on ? 1 : 0;
+      if (c.a !== t) { c.a = t > c.a ? Math.min(1, c.a + cdu) : Math.max(0, c.a - cdu); clampMoved = true; clampShade(id); }
+      if (!c.on && c.a === 0) { for (const el of ov.clampsOut.querySelectorAll(`[data-id="${id}"]`)) el.remove(); clampA.delete(id); mk.ver++; }
+    }
+    marksSync();
+    if (!glLines || (!olDirty && !olList.length && !mk.dirty && !clampMoved)) return false;
+    const dt = now - olLast;
     olLast = now;
     let moving = false;
     for (const o of olList) {
-      const t = o.on ? 1 : 0;
+      const t = o.on ? 1 : 0, du = Math.min(1, dt / (o.fade || OL_FADE));
       if (o.a !== t) { o.a = t > o.a ? Math.min(1, o.a + du) : Math.max(0, o.a - du); moving = true; }
     }
     // (An outline that has faded out leaves the list: the rest are laid out again, or each would draw from its old place.)
@@ -3836,6 +5090,81 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     for (const o of olList) {
       const ease = o.a * o.a * (3 - 2 * o.a);
       const col = o.col || (o.kind === 'pin' ? olCol : orgTone(o.id));
+      // A warm layer: a soft glow along each side of every tube, strongest on its edge and easing out from it (strips are laid with MAX,
+      // so where two meet they never stack). Only a loop's edge that shows is lit: not where a loop drawn over it lies on it, nor
+      // outside the organ's outline (warmVis). Left off where the colon lies over the pile; on the inside of a tight bend the glow is
+      // held short of the bend's centre (its reach follows the room there) and dropped where there is none, so it never folds back.
+      if (o.kind === 'warm') {
+        if (V) {
+          const mt = gMatrix(organG[o.id]), rad = warmR(o.id) * (mt ? Math.hypot(mt.a, mt.b) : 1), reachMax = Math.min(63, WARM.reach, 0.8 * rad);   // (under the tube's half width, whatever the drawing)
+          const cm = o.id === 'colon' ? null : gMatrix(organG.colon), inv = cm?.inverse(), grid = o.id === 'colon' ? null : colonGrid();
+          const underColon = (x, y) => {
+            if (!grid) return false;
+            const lx = inv ? inv.a * x + inv.c * y + inv.e : x, ly = inv ? inv.b * x + inv.d * y + inv.f : y, i = Math.floor((lx - grid.x0) / COLON_CELL), j = Math.floor((ly - grid.y0) / COLON_CELL);
+            return i >= 0 && j >= 0 && i < grid.w && j < grid.h && grid.bits[j * grid.w + i] === 1;
+          };
+          o.runs = [];
+          const seen = warmVis(o.id);
+          for (const [ri, r] of o.rings.entries()) {
+            const vis = seen[ri];
+            const n = r.length, R = new Float32Array(n), cs = new Int8Array(n), tg = [];
+            for (let i = 0; i < n; i++) {
+              const pa = r[Math.max(0, i - 1)], pb = r[Math.min(n - 1, i + 1)];
+              let tx = pb[0] - pa[0], ty = pb[1] - pa[1]; const l = Math.hypot(tx, ty) || 1; tx /= l; ty /= l; tg.push([tx, ty]);
+              const i0 = Math.max(0, i - 2), i1 = Math.min(n - 1, i + 2), ax = r[i][0] - r[i0][0], ay = r[i][1] - r[i0][1], bx = r[i1][0] - r[i][0], by = r[i1][1] - r[i][1];
+              const la = Math.hypot(ax, ay), lb = Math.hypot(bx, by), th = Math.atan2(ax * by - ay * bx, ax * bx + ay * by);
+              R[i] = la < 0.5 || lb < 0.5 || Math.abs(th) < 1e-3 ? 1e9 : (la + lb) / 2 / Math.abs(th);
+              cs[i] = th > 0 ? 1 : -1;   // (the side the bend turns toward)
+            }
+            for (const side of [-1, 1]) {
+              // A run is held until it ends, then laid down fading out to nothing over its first and last WARM.taper units of length (a
+              // blunt start or stop would read as a cut). It goes by length, not by points, so a run's profile stays steady as the
+              // colon's cut or a bend moves it by a point. The fade rides in the width (64 x its 63 steps + the width; see LINE_VS).
+              let run = [];
+              const end = () => {
+                const len = run.length;
+                if (len > 1) {
+                  const dist = [0];
+                  for (let k = 1; k < len; k++) dist.push(dist[k - 1] + Math.hypot(run[k][0] - run[k - 1][0], run[k][1] - run[k - 1][1]));
+                  const L = dist[len - 1];
+                  run.forEach(([ex, ey, tx, ty, reach], k) => {
+                    const f = Math.min(1, Math.min(dist[k], L - dist[k]) / WARM.taper), e = f * f * (3 - 2 * f), w = reach * (0.5 + 0.5 * e) + 64 * Math.round(e * 63);
+                    V.push(ex, ey, -ty, tx, 0, w, ex, ey, -ty, tx, side, w);
+                  });
+                  o.runs.push(len * 2);
+                }
+                run = [];
+              };
+              // The glow at a point along the line, between points i0 and i1 (t from 0 to 1): its place, its direction and its reach,
+              // and whether it is shown (the colon is not over it and the reach is room enough).
+              const at = (i0, i1, t) => {
+                const a = r[i0], b = r[i1];
+                let tx = tg[i0][0] * (1 - t) + tg[i1][0] * t, ty = tg[i0][1] * (1 - t) + tg[i1][1] * t; const l = Math.hypot(tx, ty) || 1; tx /= l; ty /= l;
+                const Rv = 1 / Math.max((1 - t) / R[i0] + t / R[i1], 1e-9);
+                const ex = a[0] + (b[0] - a[0]) * t - ty * rad * side, ey = a[1] + (b[1] - a[1]) * t + tx * rad * side;
+                const reach = (t < 0.5 ? cs[i0] : cs[i1]) === side ? Math.min(reachMax, (Rv - rad) * 0.85) : reachMax;
+                return { v: [ex, ey, tx, ty, reach], ok: !(reach < 2.5 || (vis && !vis[2 * (t < 0.5 ? i0 : i1) + (side > 0 ? 1 : 0)]) || underColon(ex, ey)) };
+              };
+              // Where a run starts or stops falls exactly on its cut (found between the last point on one side and the first on the
+              // other), so its length, and with it the fade, moves smoothly as the cut does, not a whole point at a time.
+              const cut = (i, wasOk) => {
+                let lo = 0, hi = 1;
+                for (let k = 0; k < 6; k++) { const m = (lo + hi) / 2; if (at(i - 1, i, m).ok === wasOk) lo = m; else hi = m; }
+                return at(i - 1, i, wasOk ? lo : hi).v;
+              };
+              let prevOk = false;
+              for (let i = 0; i < n; i++) {
+                const c = at(i, i, 0);
+                if (c.ok) { if (i > 0 && !prevOk) run.push(cut(i, false)); run.push(c.v); } else { if (prevOk) run.push(cut(i, true)); end(); }
+                prevOk = c.ok;
+              }
+              end();
+            }
+          }
+        }
+        for (const c of o.runs || []) { draws.push({ first, count: c, col, alpha: WARM.alpha * ease, soft: true, warm: true, endFade: RECTUM_FADE }); first += c; }
+        continue;
+      }
       // The passes: a glow alone (the heart a slide points at), a glow under the line (a selected organ), or the line.
       const passes = o.glow ? [[true, HEART_GLOW.reach, HEART_GLOW.alpha]] : [...(o.kind === 'sel' ? [[true, SEL_GLOW.reach, SEL_GLOW.alpha]] : []), [false, ...OL_LOOK[o.kind]]];
       for (const [glow, w, alpha] of passes) {
@@ -3848,13 +5177,15 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
           let out = 1;
           if (glow) { let ar = 0; for (let i = 0; i < n; i++) { const p = pts[i], q = pts[(i + 1) % n]; ar += p[0] * q[1] - q[0] * p[1]; } out = ar > 0 ? -1 : 1; }
           if (V) for (let i = 0; i <= n - (closed ? 0 : 1); i++) {
-            const k = i % n, p = pts[k];
-            const pa = pts[closed ? (k - 1 + n) % n : Math.max(0, k - 1)], pb = pts[closed ? (k + 1) % n : Math.min(n - 1, k + 1)];
+            // (A glow's direction is taken across a few points either side (GLOW_SPAN, about 8 units): along a hand-drawn line with
+            // small wobbles, the next points alone turn it back and forth, and its strips fan out into ticks.)
+            const k = i % n, p = pts[k], sp = glow ? Math.min(GLOW_SPAN, (n - 1) >> 1) : 1;
+            const pa = pts[closed ? (k - sp + n) % n : Math.max(0, k - sp)], pb = pts[closed ? (k + sp) % n : Math.min(n - 1, k + sp)];
             let tx = pb[0] - pa[0], ty = pb[1] - pa[1]; const l = Math.hypot(tx, ty) || 1; tx /= l; ty /= l;
             if (glow) V.push(p[0], p[1], -ty, tx, 0, w, p[0], p[1], -ty, tx, out, w);
             else V.push(p[0], p[1], -ty, tx, 1, h, p[0], p[1], -ty, tx, -1, h);
           }
-          draws.push({ first, count, col, alpha: a, soft: glow || undefined });
+          draws.push({ first, count, col, alpha: a, soft: glow || undefined, endFade: RECTUM_FADE });
           first += count;
         }
       }
@@ -3867,7 +5198,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       mk.all = all; mk.dirty = false;
     }
     const off = mk.verts.length / 6;
-    const list = [...mk.draws, ...draws.map((d) => ({ ...d, first: d.first + off }))];
+    const list = [...mk.draws.map((d) => (d.fade ? { ...d, alpha: d.alpha * clampEase(d.fade) } : d)), ...draws.map((d) => ({ ...d, first: d.first + off }))];
     veins.setLines(list.length ? { verts: mk.all, draws: list } : null);
     olDirty = false;
     return moving || !!V;
@@ -3880,7 +5211,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // fills; the SVG copy stays, hidden (data-gl), and shows again wherever the GPU cannot draw.
   const mk = { key: '', ver: 0, verts: new Float32Array(0), draws: [], all: null, dirty: false };
   const darkMQ = matchMedia('(prefers-color-scheme: dark)');
-  const marksKey = () => `${mk.ver}|${wrap.className}|${document.documentElement.dataset.theme}|${darkMQ.matches}`;
+  const marksKey = () => `${mk.ver}|${gestureFree(wrap.className)}|${document.documentElement.dataset.theme}|${darkMQ.matches}`;
   // Subpaths of an absolute M/L/H/V/C/Q/Z path as point lists (curves sampled); null for anything else.
   function pathRings(d) {
     const tok = d.match(/[a-zA-Z]|-?(?:\d+\.?\d*|\.\d+)(?:e[-+]?\d+)?/g) || [];
@@ -3964,11 +5295,19 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (idx.length === 3) out.push(P[idx[0]], P[idx[1]], P[idx[2]]);
     return { tris: out, sgn };
   }
+  // Reads the marks for the GPU when they are not read yet (new shapes, a new look). Run in the frame loop, and by the update that rebuilds the
+  // overlays (below), in the same task: a rebuilt mark is an SVG shape without data-gl, shown until it is read, and the frame loop does not
+  // come round in every frame (a paced or yielding frame, a step in between), so a pan or pinch painted the new marks as SVG a frame apart
+  // from the vessels (the stent and the band rings, on a slow screen up to a quarter of a second after the model changed them).
+  function marksSync() {
+    if (glLines && marksKey() !== mk.key) gpuProbe.time(null, 'vessel marks (script)', marksBuild);
+  }
   function marksBuild() {
     mk.key = marksKey();
     const V = [], draws = [];
     let first = 0;
-    const push = (col, count, tri) => { if (count) { draws.push({ first, count, col: col.slice(0, 3), alpha: col[3], tri }); first += count; } };
+    let fade;   // (a narrowing's clamp: its id, whose fade olStep lays on the draw's alpha)
+    const push = (col, count, tri) => { if (count) { draws.push({ first, count, col: col.slice(0, 3), alpha: col[3], tri, fade }); first += count; } };
     // A stroke as a strip of mitred joins (as SVG, limit 4); open ends with square or round caps.
     const stroke = (pts, closed, h, cap) => {
       const n = pts.length;
@@ -4007,6 +5346,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         }
         const rings = ok ? shapeRings(el) : null;
         if (!rings) continue;
+        fade = el.classList.contains('clamp') || el.classList.contains('clamp-out') ? el.dataset.id : undefined;
         if (M) for (const r of rings) r.pts = r.pts.map(([x, y]) => [M[0] * x + M[2] * y + M[4], M[1] * x + M[3] * y + M[5]]);
         for (const r of rings) r.pts = r.pts.filter((p, i, a) => !i || Math.hypot(p[0] - a[i - 1][0], p[1] - a[i - 1][1]) > 1e-3);
         const fill = paintOf(cs.fill, op * Number(cs.fillOpacity)), sk = paintOf(cs.stroke, op * Number(cs.strokeOpacity));
@@ -4206,11 +5546,29 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
 
   // The diaphragm is drawn around the organs it covers, the way a plate shows it: one smooth dome a
   // little above the liver, the fundus and the spleen, bridging the dips between them, and down the
-  // flanks on both sides (where diaMask fades it out). It is the upper convex hull of their current
-  // outlines, pushed out a few units, so it follows a shrunken or congested liver and an enlarged
-  // spleen as they ease, and never crosses an organ.
+  // flanks on both sides (where diaMask fades it out). It runs along the top of their current outlines,
+  // pushed out a few units, so it follows a shrunken or congested liver and an enlarged spleen as they
+  // ease, and never crosses an organ; the heart rests on it.
   const diaEls = gBackdrop.querySelectorAll('.org-diaphragm');
-  const DIA_GAP = 11, DIA_FOOT = 420;
+  // Just under the heart's base, column by column (or far above, beside it), for the diaphragm the heart rests on.
+  let heartBase = null;
+  function heartFloor(x) {
+    if (!heartBase) {
+      heartBase = new Map();
+      for (const [hx, hy] of outlinePts(diaCut.heart.getAttribute('d'), diaCut.heart)) {
+        const i = Math.round(hx / 4);
+        if (hy > (heartBase.get(i) ?? -Infinity)) heartBase.set(i, hy);
+      }
+      // (A column the outline's samples skipped, or caught only on its upper side, takes its neighbours' base: no notch.)
+      const ks = [...heartBase.keys()].sort((p, q) => p - q);
+      for (let k = ks[0]; k <= ks.at(-1); k++) {
+        const l = heartBase.get(k - 1), r = heartBase.get(k + 1), v = heartBase.get(k);
+        if (l != null && r != null && (v == null || v < Math.min(l, r) - 6)) heartBase.set(k, (l + r) / 2);
+      }
+    }
+    const i = x / 4, a = heartBase.get(Math.floor(i)), b = heartBase.get(Math.ceil(i));
+    return a == null || b == null ? -Infinity : a + (b - a) * (i - Math.floor(i)) + 3.5;
+  }
   let diaKey = '';
   // An outline's points: a polyline's own (the diseased liver), else sampled once along the curve.
   const outlineCache = new Map();
@@ -4224,51 +5582,13 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     return outlineCache.get(d);
   }
   function diaphragmPath(shrink, sc) {
-    const pts = [];
-    const add = (el, cx, cy, k) => {
-      for (const [x, y] of outlinePts(el.getAttribute('d'), el)) pts.push([cx + (x - cx) * k, cy + (y - cy) * k]);
-    };
-    add(diaCut.liver, 560, 350, shrink);
-    add(diaCut.stomach, 0, 0, 1);
-    add(diaCut.spleen, SPLEEN_CENTER[0], SPLEEN_CENTER[1], sc);
-    // Upper hull, left to right (monotone chain).
-    pts.sort((p, q) => p[0] - q[0] || p[1] - q[1]);
-    const hull = [];
-    for (const p of pts) {
-      while (hull.length > 1) {
-        const [o, a] = hull.slice(-2);
-        if ((a[0] - o[0]) * (p[1] - o[1]) - (a[1] - o[1]) * (p[0] - o[0]) > 0) break;
-        hull.pop();
-      }
-      hull.push(p);
-    }
-    // A long straight run of the hull (across from the liver to the spleen) arches up a little, as
-    // the left dome does over the fundus: tangent at both ends, highest in the middle.
-    const arched = [hull[0]];
-    for (let i = 1; i < hull.length; i++) {
-      const a = hull[i - 1], b = hull[i], dx = b[0] - a[0], dy = b[1] - a[1], len = Math.hypot(dx, dy);
-      if (len > 60) {
-        const n = Math.ceil(len / 20), h = 0.1 * len;
-        for (let j = 1; j < n; j++) { const t = j / n, up = h * Math.sin(Math.PI * t) ** 1.5; arched.push([a[0] + dx * t + (up * dy) / len, a[1] + dy * t - (up * dx) / len]); }
-      }
-      arched.push(b);
-    }
-    // Down the sides to the foot, then pushed out along each point's normal.
-    const line = [[hull[0][0], Math.max(DIA_FOOT, hull[0][1])], ...arched, [hull.at(-1)[0], Math.max(DIA_FOOT, hull.at(-1)[1])]]
-      .filter((p, i, a) => i === 0 || Math.hypot(p[0] - a[i - 1][0], p[1] - a[i - 1][1]) > 3);
-    const out = line.map((p, i) => {
-      const a = line[Math.max(0, i - 1)], b = line[Math.min(line.length - 1, i + 1)];
-      const dx = b[0] - a[0], dy = b[1] - a[1], n = Math.hypot(dx, dy) || 1;
-      return [p[0] + DIA_GAP * dy / n, p[1] - DIA_GAP * dx / n];
-    });
-    // Through every point (Catmull-Rom as cubic Béziers).
-    const f1 = (v) => v.toFixed(1);
-    let d = `M${f1(out[0][0])} ${f1(out[0][1])}`;
-    for (let i = 0; i < out.length - 1; i++) {
-      const p0 = out[Math.max(0, i - 1)], p1 = out[i], p2 = out[i + 1], p3 = out[Math.min(out.length - 1, i + 2)];
-      d += ` C${f1(p1[0] + (p2[0] - p0[0]) / 6)} ${f1(p1[1] + (p2[1] - p0[1]) / 6)} ${f1(p2[0] - (p3[0] - p1[0]) / 6)} ${f1(p2[1] - (p3[1] - p1[1]) / 6)} ${f1(p2[0])} ${f1(p2[1])}`;
-    }
-    return d;
+    const at = (P, cx, cy, k) => P.map(([x, y]) => [cx + (x - cx) * k, cy + (y - cy) * k]);
+    // (The liver's smooth dome, never its nodular edge: the nodules stand out about 2 at most, inside the gap.)
+    const liver = at(liverDome || outlinePts(diaCut.liver.getAttribute('d'), diaCut.liver), 560, 350, shrink);
+    const stomach = outlinePts(diaCut.stomach.getAttribute('d'), diaCut.stomach);
+    const spleen = at(outlinePts(diaCut.spleen.getAttribute('d'), diaCut.spleen), SPLEEN_CENTER[0], SPLEEN_CENTER[1], sc);
+    // One smooth dome over them (diaphragm.js); the heart rests on it, just under its base.
+    return diaphragmD(diaphragmLine([liver, stomach, spleen], heartFloor));
   }
   function liftDiaphragm(shrink, sc) {
     // The spleen in steps of 1% (as the plate key reads it): the running model's slow drift must not
@@ -4311,7 +5631,12 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     // The congestion tint eases here, not by a CSS transition: the plate raster reads the value
     // it shows, and a fade in progress at that moment would be baked in (re-rastered over and
     // over, the tint flickered between mid-fade values).
-    liverTint.style.opacity = (lvT * k).toFixed(3);
+    // (The congested liver takes the even dusk instead, so the tint's darker rim gives way to it as congestion comes in: organ
+    // picks, 20 Oct.) It hands over across the same range the dusk comes in by (morphLiver: g / 0.5), so a slightly raised
+    // pressure (after a TIPS) keeps some of the tint until the dusk is there to take its place.
+    // (Not faded with the switch to the circuit: the organs' group fades it there, and a tint stepping down with the switch
+    // changed the picture's key, so the organs' picture was drawn again every half second of the fade.)
+    liverTint.style.opacity = (lvT * (1 - smooth01(lvG / 0.5))).toFixed(3);
     if (lvT !== tT) widthEasing = organsEasing = true;
     const moving = lvC !== cT || lvG !== gT;
     // While it eases, the live drawing shows (a raster would move in steps); the plate is
@@ -4321,20 +5646,23 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     // it settles: swapping to the live drawing and back every few seconds would flash the organs.
     const retarget = lvMoving && (cT !== lvCT || gT !== lvGTo);
     lvCT = cT; lvGTo = gT;
-    if (moving && (retarget || Math.max(Math.abs(cT - lvC), Math.abs(gT - lvG)) > 0.08) && veins && !veins.lost && veins.hasPlate(0)) hidePlate();
+    if (moving && (retarget || Math.max(Math.abs(cT - lvC), Math.abs(gT - lvG)) > 0.08) && veins && !veins.lost && veins.hasPlate(0) && !liveOn()) hidePlate();
     if (lvMoving && !moving) lvStillAt = performance.now();
     lvMoving = moving;
     if (moving) widthEasing = organsEasing = true;
-    morphLiver(lvC, lvG, moving);
-    for (const el of [lv.nut, lv.nutNet, lv.gloss]) if (el.style.visibility !== (imaging ? 'hidden' : '')) el.style.visibility = imaging ? 'hidden' : '';
+    gpuProbe.time(null, 'organs: liver', () => morphLiver(lvC, lvG, moving));
+    for (const el of [lv.cong, lv.isl, lv.gloss]) if (el.style.visibility !== (imaging ? 'hidden' : '')) el.style.visibility = imaging ? 'hidden' : '';
     // A cirrhotic liver shrinks a little; a congested one swells.
-    const shrink = 1 - 0.035 * lvC + 0.035 * lvG;
-    putA(organG.liver, 'transform', `translate(560 350) scale(${shrink.toFixed(4)}) translate(-560 -350)`);
+    const shrink = liverShrink(lvC, lvG);
+    liverScale = shrink;
+    const liverT = `translate(560 350) scale(${shrink.toFixed(4)}) translate(-560 -350)`;
+    putA(organG.liver, 'transform', liverT);
+    putA(organG.falciform, 'transform', liverT);   // (the falciform line goes with the liver, as its surface lines do)
     {
       // The caudate lobe grows as its veins carry the liver's outflow: from twice their normal flow, fully at four times.
       const hq = store.get().healthy?.Q?.[EI.CAUD], PA2 = f.Pf || f.P;
       caudK = stepHeld(caudK, hq ? clamp((Math.abs((f.Qf || f.Q)[EI.CAUD] / hq) - 2) / 2, 0, 1) : 0, 0.05);
-      caud.sync(pressureColor(qP(PA2[NI.IVCS] + 0.5)), caudK);
+      gpuProbe.time(null, 'organs: caudate', () => caud.sync(pressureColor(qP(PA2[NI.IVCS] + 0.5)), caudK));
     }
     const c3 = recruitFrac('C3', f);
     putA(abdWall, 'opacity', (clamp((c3 - 0.1) / 0.4, 0, 1) * 0.9 * k).toFixed(2));
@@ -4346,7 +5674,11 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       if (organEls.umbilicus.getAttribute('opacity') !== op) organEls.umbilicus.setAttribute('opacity', op);
     }
     const sc = f.slow.spleen / 11;
+    normalSync(sc);
+    // Growing, the plate (a picture of the organs at one size) gives way to the live drawing, which follows this size each frame.
+    if (spleenMv.see(sc, performance.now()) && veins && !veins.lost && veins.hasPlate(0) && !liveOn()) hidePlate();
     putA(organG.spleen, 'transform', `translate(${SPLEEN_CENTER[0]} ${SPLEEN_CENTER[1]}) scale(${sc.toFixed(3)}) translate(${-SPLEEN_CENTER[0]} ${-SPLEEN_CENTER[1]})`);
+    gpuProbe.time(null, 'organs: masks', () => syncOrganMasks(shrink, organG.spleen.getAttribute('transform')));
     if (organG.spleen.style.opacity !== (p.splenicRx === 2 ? '0.14' : '')) organG.spleen.style.opacity = p.splenicRx === 2 ? '0.14' : '';
     liftDiaphragm(shrink, sc);
     syncSelLine();
@@ -4355,9 +5687,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const asc = fluidTarget(ascTarget, f.slow.ascites);
     if (ascTarget === null) ascShown = asc;
     ascTarget = asc;
-    drawAscites();
+    gpuProbe.time(null, 'organs: fluid', () => drawAscites());
     syncSelFluid();
-    platePoke();
+    gpuProbe.time(null, 'organs: plate poke', () => platePoke());
   }
 
   // Ascites collects in the flanks and the pelvis first (supine patient, frontal view), so its
@@ -4395,8 +5727,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       // The cavity as a half-width per half unit of height (cavityHalfWidths), not a raster of its outline: copying a fresh
       // 856 x 600 canvas into a texture took Safari about 220 ms, on nearly every frame of a fluid ease (a Timelines
       // recording of HVPG slide 8 to 9, 17 Oct).
-      const R = [284, 430, 856, 600];
-      veins.setFluidSpans(cavityHalfWidths(bulge, R[1], R[3], R[3] * 2 + 1), R);
+      const R = FLUID_R;
+      veins.setFluidSpans(cavityHalfWidths(bulge, R[1], R[3], FLUID_COLS), R);   // (its second row: the liver's edge, setFluidLiver)
     }
     putA(organG.bowel, 'transform', `translate(0 ${(-bulge / 34 * 26).toFixed(1)})`);
     // The fluid level rises on a compressed scale (u^0.6), so a grade 1–2 effusion is a visible pool, not a sliver. Near the
@@ -4436,10 +5768,11 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (ascTarget === null) return false;
     let moved = false;
     if (ascShown !== ascTarget) {
+      fluidFrom ??= fluidH;
       // A large change shows the live drawing while it eases, as the liver's does: the wall and bowel move with the fluid, and the plate
       // is rasterized once it settles (held under the plate, the wall would jump by the whole change when it landed).
       const held = fluidEasing();
-      if (held && Math.abs(clamp(ascTarget / 8500, 0, 1) * 34 - bulgeQ) > 3 && veins && !veins.lost && veins.hasPlate(0)) hidePlate();
+      if (held && Math.abs(clamp(ascTarget / 8500, 0, 1) * 34 - bulgeQ) > 3 && veins && !veins.lost && veins.hasPlate(0) && !liveOn()) hidePlate();
       // A critically damped spring on the drawn scale (volume^0.6), so the fluid fills in from the pelvis and
       // drains out smoothly, starting and stopping gently, instead of jumping in or out of existence.
       ({ shown: ascShown, vel: ascVel } = easeDt > 0.05 ? fluidSpringFor(ascShown, ascVel, ascTarget, easeDt) : fluidSpring(ascShown, ascVel, ascTarget, easeDt));
@@ -4447,13 +5780,29 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     }
     const run = st.running && !reduceMotion.matches;
     if (run) fluidPh = (fluidPh + dt / 1.1) % (20 * Math.PI);
-    const t = easeInOut(morph), k = (1 - t) * (wrap.classList.contains('has-sel') ? SEL_DIM : 1);
+    // (Under a slide's spotlight the fluid eases with the organs' dim: the plate's own value, less a lens's share of it.)
+    const spotK = spot.live && plateDim != null ? clamp(plateDim / (wrap.classList.contains('data-layer') ? 0.72 : 1), SEL_DIM, 1) : 1;
+    const t = easeInOut(morph), k = (1 - t) * (wrap.classList.contains('has-sel') ? SEL_DIM : spotK);
     fluidLook.s = [ABDOMEN_FLOOR + 5, fluidH, fluidAmp, run ? fluidPhase() : fluidLook.s[3]];
     fluidLook.ink = [fluidInkRGBA[0], fluidInkRGBA[1], fluidInkRGBA[2], fluidInkRGBA[3] * k * fluidFade()];
     fluidLook.ripple = run && fluidFade() > 0 && k > 0;
+    fluidLook.lv = [liverScale, liverFluidCut];
     if (vLook) vLook.fluid = fluidLook;
-    return moved;
+    // (A level that moves under fluid drawn at no opacity changes no pixel (the shader draws none at ink 0): no whole repaint for it,
+    // only for the frame it fades to nothing. External review, 21 Oct.)
+    const seen = fluidLook.ink[3] > 0, was = fluidSeen;
+    fluidSeen = seen;
+    const from = fluidFrom ?? fluidH;
+    fluidFrom = null;
+    if (!(moved && (seen || was))) return false;
+    // Only the pool's cells are composited again, from above the higher of the two levels (the surface, its ripple and its light
+    // band) down: the rest of the picture does not change with it. It was the whole screen on every frame of a fill or a drain
+    // (Fable's lag review, item 4). A whole repaint where there is no cavity to bound it.
+    const pool = !!(veins && !veins.lost && veins.fluidPool(ABDOMEN_FLOOR + 5 - Math.max(from, fluidH) - fluidAmp - 6));
+    if (pool) poolFrames++;
+    return !pool;
   }
+  let fluidSeen = false, fluidFrom = null, poolFrames = 0;
   function readFluidInk(cs) {
     const hex = cs.getPropertyValue('--ascites').trim().replace('#', ''), a = parseFloat(cs.getPropertyValue('--ascites-a')) || 0.4;
     if (hex.length === 6) fluidInkRGBA = [0, 2, 4].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255).concat(a);
@@ -4532,7 +5881,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const labels = document.createElement('div');
     labels.className = 'cath-labels'; labels.setAttribute('aria-hidden', 'true');
     wrap.append(labels);
-    return { g, column, column2, shadow, body, balloon, ring, tip, labels, st: null, at: null, saved: null };
+    return { g, column, column2, shadow, body, balloon, ring, tip, labels, st: null, at: null, saved: null, kind: 'hvpg' };
   })();
   // A presenter slide's measuring sites (the PPG's portal vein and IVC): a pointer on each station with its reading,
   // drawn like the catheter's WHVP and FHVP callouts. It fades in, follows the camera and stays in the figure's free space.
@@ -4764,7 +6113,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       const [x, y] = ra ? [ra.x, ra.y + resDy] : worldToLocal(...nodePos(d.node, t));
       // Off the free space (or a resistor with nothing to show, or out of the circuit), the reading waits hidden; above
       // its point unless the top is covered (decided once, so it never jumps).
-      el.classList.toggle('off', x < x0 || x > x1 || y < y0 || y > y1 || (!!d.res && (ratio == null || t < 0.5)));
+      // (A reading wider than the free space, as the portal blood's share is between two wide cards on a phone held sideways, waits
+      // hidden too: it would stand half under a card, its words cut off.)
+      el.classList.toggle('off', x < x0 || x > x1 || y < y0 || y > y1 || (!!d.res && (ratio == null || t < 0.5)) || (!d.res && !!el._half && 2 * el._half > x1 - x0 + 1));
       if (el._below == null && el.offsetHeight) { el._below = d.below ? y + 18 + el.offsetHeight < y1 : y - 18 - el.offsetHeight < y0; el.dataset.at = el._below ? 'ahead' : ''; }
       // (Its width read again only when its words or classes change: a read after each frame's new number forced a layout.)
       const wk = `${el.className}|${el.textContent}|${W}|${labelBase()}|${labelFonts}`;
@@ -4805,7 +6156,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (now - kpAt < 500) return kpBox;
     kpAt = now; kpBox = null;
     const wb = stageBox();
-    for (const q of document.querySelectorAll('.pz:not(.stack) .pz-fk:not([hidden]):not([data-empty]), .pz-bar.pzb-pill')) {
+    for (const q of document.querySelectorAll('.pz:not(.stack) .pz-fk:not([hidden]):not([data-empty]), .pz-bar.pzb-pill, .pz:not(.stack) .pz-scales:not([hidden])')) {
       const r = q.getBoundingClientRect();
       if (!r.width) continue;
       const o = { l: r.left - wb.left, t: r.top - wb.top, r: r.right - wb.left, b: r.bottom - wb.top };
@@ -4975,6 +6326,283 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (scan.raf) { cancelFrame(scan.raf); scan.raf = 0; }
     if (el) { el.classList.add('cath-pre'); setTimeout(() => { el._glass?.dispose(); el.remove(); }, 500); }
   }
+  // ── The Doppler probe (dop-probe.js) ──
+  // While the Doppler reads a vessel, a small probe stands off it, its line of sight runs straight through the vessel, and the sample
+  // volume's two bars and the flow axis mark the vessel's middle (where its callout points), or a stent's sampled third. It
+  // follows the camera with the labels; it fades out while the views morph and in the liver's own views. A new vessel or third, or
+  // a card making it change sides, fades it out where it stood and back in at its new place (nothing jumps).
+  let dprCardsList = [], dprCardsAt = -1e9, lbRects = [], colShown = false, colWaitAt = 0;   // colShown: a stent's three point callouts stand (the probe keeps off them, so it waits for them)
+  // The cards and bars it keeps off: the slide's cards, and the docked instruments and bars. Read at most four times a second, and
+  // only while one may have moved (layoutWatch), as the labels' blockers are: each read forces a layout among the model's frames.
+  const dprStale = () => { dprCardsAt = -1e9; };
+  addEventListener('pps:occ', dprStale);
+  addEventListener('resize', dprStale);
+  // While the readings' card slides (a pull, a tap, the ease after either; presenter.js tells with pps:slide), the cards it moves are read on
+  // every frame and the probe is placed against them as they go: it stays where it is while it has room, swings out of a card's way as
+  // the card comes, and fades only where no place is clear (Mohammad, 22 Oct: "it should only hide once there is no space available;
+  // not hide and show during the tuck untuck"). A few frames after the slide ends the cards' last place is read once more.
+  let dprTrackRaf = 0, dprTrackQuiet = 0;
+  function dprTrack() {
+    dprTrackRaf = 0;
+    dprTrackQuiet = document.querySelector('.pz-data.pz-sliding') ? 0 : dprTrackQuiet + 1;
+    dpr.track = dprTrackQuiet <= 6;
+    if (dop.id) { dprStale(); dprobePaint(); }
+    if (dpr.track) dprTrackRaf = nextFrame(dprTrack);
+  }
+  addEventListener('pps:slide', () => { dprTrackQuiet = 0; dprPrev = new WeakMap(); if (!dprTrackRaf && dpr.ready) dprTrackRaf = nextFrame(dprTrack); });
+  // (Where each card stood on the frame before, while they slide: a card's leading edge is read DPR_AHEAD ms ahead of where it is, at the
+  // speed it has just moved at (at most DPR_REACH px, and not from a read more than 120 ms old), so the probe starts to move as the card
+  // comes and is out of its way as it arrives, not after it has covered it.)
+  let dprPrev = new WeakMap();
+  const DPR_AHEAD = 90, DPR_REACH = 80;
+  function dprCards() {
+    const now = performance.now();
+    if (dprCardsAt > 0 && !(now - dprCardsAt > 250 && watch.due())) return dprCardsList;
+    dprCardsAt = now;
+    const wr = wrap.getBoundingClientRect();
+    dprCardsList = [...scanCards(), ...[...document.querySelectorAll('[data-safe], .stage-blocker:not([hidden])')].map((el) => {
+      // (A card hidden by visibility is not there, as the framing reads it (unseenCard): the closed Details sheet stays in place on
+      // a phone, invisible, as tall as it was last opened, and kept the probe off the whole figure in Tests › Doppler, 20 Oct.)
+      if (el.hidden || el.closest('[hidden]') || el.classList.contains('card-leaving') || el.classList.contains('vd-out') || unseenCard(el)) return null;
+      const q = el.getBoundingClientRect();
+      if (!q.width || !q.height) return null;
+      const box = { x0: q.left - wr.left - 6, y0: q.top - wr.top - 6, x1: q.right - wr.left + 6, y1: q.bottom - wr.top + 6 };
+      if (!dpr.track) return box;
+      const was = dprPrev.get(el); dprPrev.set(el, { ...box, at: now });
+      if (!was || now - was.at > 120) return box;
+      const out = (d) => Math.min(DPR_REACH, (Math.max(0, d) / Math.max(8, now - was.at)) * DPR_AHEAD);
+      return { x0: box.x0 - out(was.x0 - box.x0), y0: box.y0 - out(was.y0 - box.y0), x1: box.x1 + out(box.x1 - was.x1), y1: box.y1 + out(box.y1 - was.y1) };
+    }).filter(Boolean)];
+    return dprCardsList;
+  }
+  // The labels and callouts showing (stage px), which the probe and its line of sight keep off where a side allows.
+  function dprAvoid() {
+    const out = [...lbRects];
+    for (const el of sites.made.values()) if (el._box && !el.classList.contains('cath-pre')) out.push(el._box);
+    if (cath.made && !cath.labels.hidden) for (const el of cath.made.values()) if (el._box) out.push(el._box);
+    // (A narrowing's "60 %" too: the probe stands on the side whose line of sight and flow axis keep off it: Mohammad, 20 Oct.)
+    for (const el of ov.clamps.querySelectorAll('.clamp-label')) if (el._box) out.push(el._box);
+    return out;
+  }
+  // The organs' outlines (world units, every 4 or so along them), kept until an organ's shape or transform changes (olKey).
+  const dprOrgPts = new Map();
+  function dprOrgans() {
+    const out = [];
+    if (organMorphA < 0.5) return out;   // (faded out with the morph to the circuit)
+    for (const o of ORGANS) {
+      if (o.deco || o.circle || !organEls[o.id]?.getAttribute('d')) continue;
+      const k = olKey(o.id), now = performance.now();
+      let c = dprOrgPts.get(o.id);
+      // (While a shape eases (the liver to cirrhosis) its key changes every frame: the outline is read again (getPointAtLength along
+      // it, the costliest step of a Doppler slide's frame) at most every 300 ms, a few px stale through an ease, for a count that
+      // only weighs how busy a place is.)
+      if (!c || (c.k !== k && now - c.at > 300)) { c = { k, at: now, pts: olRings(o.id).flatMap((ring) => ring.filter((_, i) => i % 2 === 0)) }; dprOrgPts.set(o.id, c); }
+      out.push(c.pts);
+    }
+    return out;
+  }
+  // Points along the vessels drawn (stage px, with their radius), near the gate: the probe stands where the figure is quieter. The
+  // organs' outlines count too, at half a vessel's weight (Mohammad, 20 Oct: "less busy, where not a lot of drawings").
+  function dprBusy(g, id) {
+    const out = [], sc = CTM?.sc || 1, R = PROBE.GAP + PROBE.LEN + 140;   // (out to the farthest place, dop-probe.js FAR)
+    for (const pts of dprOrgans()) {
+      let last = null;
+      for (const [wx, wy] of pts) {
+        const p = worldToLocal(wx, wy);
+        if (Math.abs(p[0] - g[0]) >= R || Math.abs(p[1] - g[1]) >= R || (last && Math.hypot(p[0] - last[0], p[1] - last[1]) < 6)) continue;
+        out.push([p[0], p[1], 1, 0.5]); last = p;
+      }
+    }
+    for (const x of EV) {
+      if (!x.vis || x.g.classList.contains('coll-ghost') || x.e.id === id) continue;
+      const pts = geo[x.e.id]?.cur, q = cathRadOf(x.e.id, 0.5) * sc;
+      if (!(pts?.length > 1)) continue;
+      let prev = worldToLocal(pts[0][0], pts[0][1]);
+      for (let i = 1; i < pts.length; i++) {
+        const p = worldToLocal(pts[i][0], pts[i][1]), n = Math.max(1, Math.ceil(Math.hypot(p[0] - prev[0], p[1] - prev[1]) / 6));
+        for (let j = 0; j < n; j++) {
+          const px = prev[0] + ((p[0] - prev[0]) * j) / n, py = prev[1] + ((p[1] - prev[1]) * j) / n;
+          if (Math.abs(px - g[0]) < R + q && Math.abs(py - g[1]) < R + q) out.push([px, py, q]);
+        }
+        prev = p;
+      }
+    }
+    return out;
+  }
+  // (In a deck it waits for the slide's zoom to settle: it fades out as a camera move starts and back in once it lands (camSettle
+  // lays the labels out, which paints it): Mohammad, 20 Oct.)
+  function dprHold() {
+    clearTimeout(dpr.hold); dpr.hold = setTimeout(dprLet, 1500);   // (no framing came: it shows anyway)
+  }
+  function dprLet() {
+    if (!dpr.hold) return;
+    clearTimeout(dpr.hold); dpr.hold = 0; dprobePaint();
+  }
+  // No Doppler screen in sight, no probe (Mohammad, 20 Oct: "no doppler screen = no probe"): a monitor whose card is hidden,
+  // folded, leaving, off screen or covered (the case card over it) leaves the probe hidden. Checked a few times a second while a
+  // vessel is chosen, since those changes come from the cards, not the figure.
+  // (Only while a card or bar may have moved, shown, hidden or covered another (layoutWatch, as dprCards): otherwise the last
+  // look's answer still holds and no layout is read. Review item 28.)
+  let dprMonLast = false;
+  const dprQuiet = () => dpr.monAt > 0 && !watch.due();
+  function dprMonitorOn() {
+    const now = performance.now();
+    if (now - dpr.monAt < 200) return dpr.mon;   // (asked on every model frame: the answer of the last 200 ms, the pace it is watched at anyway)
+    if (dprQuiet()) return dprMonLast;
+    dpr.monAt = now;
+    dprMonLast = dprMonitorLook();
+    return dprMonLast;
+  }
+  function dprMonitorLook() {
+    const W = innerWidth, H = innerHeight;
+    for (const cv of document.querySelectorAll('canvas[aria-label^="Spectral Doppler"]')) {
+      if (cv.closest('[hidden], .card-leaving, .vd-out')) continue;
+      // (A card folding its instrument away takes the monitor with it; a stacked card tucking or bringing out its readings does not:
+      // the monitor stays where it is, and the probe with it, Mohammad, 22 Oct.)
+      if (cv.closest('[data-folding]:not(.pz-sheet)')) continue;
+      if (cv.checkVisibility && !cv.checkVisibility({ opacityProperty: true, visibilityProperty: true })) continue;
+      const q = cv.getBoundingClientRect();
+      if (q.width < 20 || q.height < 20 || q.right <= 0 || q.bottom <= 0 || q.left >= W || q.top >= H) continue;
+      const x = Math.min(W - 1, Math.max(0, (q.left + q.right) / 2)), y = Math.min(H - 1, Math.max(0, (q.top + q.bottom) / 2));
+      const hit = document.elementFromPoint(x, y), mon = cv.parentElement;
+      if (hit && (hit === cv || mon?.contains(hit) || hit.contains(cv))) return true;
+    }
+    return false;
+  }
+  setInterval(() => {
+    if (!dpr.ready || !dop.id) return;
+    let on = dprMonLast;
+    if (!dprQuiet()) { dpr.monAt = 0; on = dprMonitorOn(); }
+    if (on !== dpr.mon || (on && !dpr.on && !dpr.swap)) { dpr.mon = on; dprobePaint(); }
+  }, 200);
+  // What the probe remembers between frames: the places it has left on this layout, and how long a fresh place has held still
+  // (dop-probe.js createProbeMind: the cure for the probe flashing on and off, Right heart 6 on an iPhone, 21 Oct).
+  const dprMind = createProbeMind();
+  const dprHide = () => { if (dpr.on) { dpr.on = false; dpr.el.classList.add('off'); } dpr.box = null; dpr.marks = []; dpr.key = ''; dpr.gate = null; dprDots(); };
+  function dprobePaint() {
+    if (!dpr.ready) return;
+    const st = store.get(), id = dop.id, pts = id && geo[id]?.cur;
+    // (On a stent called out at its three points, the probe waits for the column: it keeps off the callouts, which never move for it,
+    // so it must know where they stand before it picks its side: Mohammad, 22 Oct, the mid callout hopped to the far side on a pick.
+    // Where they never show, it waits four seconds and stands anyway.)
+    if (!dop.all || colShown) colWaitAt = 0; else colWaitAt ||= performance.now();
+    const waitCol = !dpr.on && !dpr.swap && dop.all && !colShown && performance.now() - colWaitAt < 4000;
+    // (A camera glide hides it, as a slide's framing does, unless it began as the same slide's figure refitting to cards that changed
+    // (a phone's readings tucking or coming out, carryProbe) with the probe already showing: then it stays and rides the vessel.)
+    const camHides = camMove && !dpr.carry;
+    const show = !!(pts?.length > 1 && E[id]?.vis && (morph < 0.01 || morph > 0.99) && !camHides && !dpr.hold && dprMonitorOn() && !st.lobule && !st.sinusoid && !lz?.isOpen() && !waitCol);
+    if (!show) {
+      dprMind.hide();
+      dprHide();
+      return;
+    }
+    if (!dpr.el) {
+      const el = document.createElement('div');
+      el.className = 'dop-probe off'; el.setAttribute('aria-hidden', 'true'); el.innerHTML = PROBE_SVG;
+      // (Beneath the figure's labels and the callouts, above the figure: where no side is clear of them, they read over its marks.)
+      labelSvg.before(el); dpr.el = el; void el.offsetWidth;
+    }
+    if (dpr.swap) return;   // (fading out to move: it comes back at its new place)
+    const key = `${id}|${dop.seg}`, u = dop.seg ? STENT_SITES[dop.seg] : null;
+    const [wx, wy, tx, ty] = u == null ? arcMid(pts) : pointAt(pts, u);
+    const [gx, gy] = worldToLocal(wx, wy), [ax, ay] = worldToLocal(wx + tx, wy + ty);
+    const r = cathRadOf(id, u ?? 0.5) * (CTM?.sc || 1), cards = dprCards();
+    // (What its place is worked out for: the vessel, the camera, the stage, the gate and the cards, a little coarsely. While it holds,
+    // the places the probe has left stay left; a change forgets them.)
+    const syncKey = [key, CTM ? `${CTM.a.toFixed(2)},${CTM.b.toFixed(2)},${Math.round(CTM.e / 12)},${Math.round(CTM.f / 12)}` : '', Math.round(wrapRect.width / 8), Math.round(wrapRect.height / 8), Math.round(gx / 12), Math.round(gy / 12),
+      cards.map((c) => [c.x0, c.y0, c.x1, c.y1].map((v) => Math.round(v / 16)).join()).join(';')].join('|');
+    // (Asked on every model frame, the search below (every place's busyness over the vessels' and organs' points, the labels' boxes)
+    // runs at most every 150 ms while its inputs hold; a change of vessel, camera, gate or cards runs it at once. The probe's place is
+    // decided with 0.2 s of stillness and eases over 0.3 s, so nothing it does is timed finer than that.)
+    const tNow = performance.now();
+    if (syncKey === dpr.syncKey && dpr.on && tNow - dpr.searchAt < dpr.searchGap) return;
+    if (syncKey !== dpr.syncKey) dpr.searchGap = 150;   // (a new layout: searched at once, and again soon; a place that holds is searched less often, up to 600 ms)
+    dpr.syncKey = syncKey; dpr.searchAt = tNow;
+    dprMind.sync(syncKey);
+    // (Its place keeps its fit through a few px of give, unless only its marks fit: back to the head's fade, it needs the whole room.)
+    const pose = fitPose({ g: [gx, gy], t: [ax - gx, ay - gy], r, away: awayFromProbe(id), w: wrapRect.width, h: wrapRect.height, cards, keep: key === dpr.key ? dpr.side : 0, keepReach: dpr.reach, keepRev: dpr.rev, keepK: dpr.k, sc: CTM?.sc || 1, avoid: dprAvoid(), busy: dprBusy([gx, gy], id),
+      ban: dprMind.banned(), lock: dprMind.locked(), slack: dpr.headOff ? 0 : SLACK });
+    // A new vessel or third: it fades out where it stood and in at the new place.
+    if (dpr.on && key !== dpr.key) {
+      dpr.on = false; dpr.box = null; dpr.marks = []; dpr.el.classList.add('off'); dprDots(); dprMind.hide();
+      dpr.swap = setTimeout(() => { dpr.swap = 0; dpr.key = ''; dprobePaint(); }, reduceMotion.matches ? 0 : 380);
+      return;
+    }
+    // A new place on the same vessel: the probe swings round the gate to it, its distance and size easing with it (Mohammad,
+    // 20 Oct: "I'm okay with the probe rotating in real time as I move around"); the flow axis stays along the flow. Shown afresh,
+    // it starts at its place. (dprShape draws it, a frame at a time.)
+    const tgt = { ang: pose.ang, d: pose.D - Math.max(0, r), k: pose.k, ax: pose.ang + pose.phi, r };
+    // (Shown afresh, it waits till its place holds still for 0.2 s, the late cards and labels landed, then fades in already there
+    // and turned to it, so it never arrives and then swings into place (Mohammad, 20 Oct). A place far round the gate or far nearer:
+    // it fades out and in there rather than flying across. No place: it holds a moment before it fades. dprMind decides.)
+    const sig = `${key}|${pose.side}|${pose.reach}|${+pose.rev}|${pose.k}|${Math.round(pose.ang / 5)}|${Math.round(gx / 4)},${Math.round(gy / 4)}`;
+    dpr.searchGap = sig === dpr.lastSig ? Math.min(600, dpr.searchGap * 2) : 150; dpr.lastSig = sig;
+    // (While the readings' card slides, and through the camera's refit to it, the cards move under the probe: a far place is swung to, round
+    // the gate, never faded out and in at, Mohammad, 22 Oct: "rotate/move actively out of the way".)
+    const act = dprMind.act({ pose, tgt, on: dpr.on, cur: dpr.cur, sig, now: performance.now(), instant: reduceMotion.matches, swing: dpr.track || dpr.carry });
+    if (act !== 'hold' && dpr.noneT) { clearTimeout(dpr.noneT); dpr.noneT = 0; }
+    // (No place on the slide's free space at any side or distance, for good: it fades out, and fades in once one opens.)
+    if (act === 'hide') { dprHide(); return; }
+    if (act === 'hold') { dpr.noneT ||= setTimeout(() => { dpr.noneT = 0; dprobePaint(); }, NONE_MS + 30); return; }
+    if (act === 'restart') { dprStale(); return; }
+    if (act === 'wait') return;
+    if (act === 'jump') {
+      dpr.on = false; dpr.box = null; dpr.marks = []; dpr.el.classList.add('off'); dprDots();
+      dpr.swap = setTimeout(() => { dpr.swap = 0; dpr.key = ''; dprobePaint(); }, reduceMotion.matches ? 0 : 380);
+      return;
+    }
+    if (!dpr.on || !dpr.cur || reduceMotion.matches) dpr.cur = { ang: tgt.ang, d: tgt.d, k: tgt.k };
+    else dpr.cur.ang = tgt.ang + angTo(tgt.ang, dpr.cur.ang);   // (the short way round)
+    dpr.k = pose.k; dpr.tgt = tgt;
+    dprShape();
+    const at = `translate(${gx.toFixed(1)}px, ${gy.toFixed(1)}px)`;
+    if (at !== dpr.at) { dpr.at = at; dpr.el.style.transform = at; }
+    dpr.key = key; dpr.side = pose.side; dpr.reach = pose.reach; dpr.rev = pose.rev; dpr.box = pose.box; dpr.marks = [...beamBoxes([gx, gy], pose.ang, pose.D, r), ...gateBoxes([gx, gy], pose.ang, pose.phi, r)];
+    // (Only its marks fit clear of the cards: the head fades, as the FibroScan probe's does under a card (scanHead).)
+    dpr.headOff = !!pose.headOff;
+    dpr.el.classList.toggle('head-off', dpr.headOff);
+    dpr.gate = [gx, gy];
+    if (!dpr.on) { dpr.on = true; dpr.el.classList.remove('off'); }
+    dprDots();
+  }
+  // The probe as drawn (dpr.cur: its direction from the gate, its face's distance from the wall and its size), easing to where it
+  // stands (dpr.tgt) in about 0.3 s, one frame at a time; the line of sight always square to its face, the flow axis along the flow.
+  const angTo = (a, b) => ((((b - a) % 360) + 540) % 360) - 180;   // b − a, in −180 … 180
+  function dprShape() {
+    const c = dpr.cur, t = dpr.tgt, rr = Math.max(0, t.r), D = rr + c.d;
+    const sh = `${D.toFixed(1)}|${Math.round(t.r * 2)}|${c.ang.toFixed(2)}|${t.ax.toFixed(2)}|${c.k.toFixed(3)}`;
+    if (sh !== dpr.shapes) {
+      dpr.shapes = sh;
+      const p = probeShapes(D, t.r, angTo(c.ang, t.ax), c.k), all = (q, k, v) => { for (const e of dpr.el.querySelectorAll(q)) e.setAttribute(k, v); };
+      all('.dpr-wedge', 'd', p.wedge); all('.dpr-beam', 'd', p.beam); all('.dpr-axis', 'd', p.axis); all('.dpr-bars', 'd', p.gate); all('.dpr-head', 'transform', p.head);
+      dpr.el.querySelector('.dpr-rot').setAttribute('transform', `rotate(${c.ang.toFixed(2)})`);
+    }
+    const done = c.ang === t.ang && c.d === t.d && c.k === t.k;
+    if (done) { dpr.eAt = 0; return; }
+    if (dpr.eRaf) return;
+    const step = (now) => {
+      dpr.eRaf = 0;
+      if (!dpr.on || !dpr.tgt || dpr.swap) { if (dpr.tgt) dpr.cur = { ang: dpr.tgt.ang, d: dpr.tgt.d, k: dpr.tgt.k }; dpr.eAt = 0; return; }
+      const dt = dpr.eAt ? Math.min(0.1, (now - dpr.eAt) / 1000) : 0, f = 1 - Math.exp(-dt / 0.1), q = dpr.cur, g = dpr.tgt; dpr.eAt = now;
+      q.ang += (g.ang - q.ang) * f; q.d += (g.d - q.d) * f; q.k += (g.k - q.k) * f;
+      if (Math.abs(g.ang - q.ang) < 0.3) q.ang = g.ang;
+      if (Math.abs(g.d - q.d) < 0.3) q.d = g.d;
+      if (Math.abs(g.k - q.k) < 0.004) q.k = g.k;
+      dprShape();   // (and the next frame, while it is still easing)
+    };
+    dpr.eRaf = nextFrame(step);
+  }
+  // The station dot under the gate (where the reading's leader starts) fades out while the probe shows on that vessel, and back as it
+  // goes: the reading and its leader stay. Every dot within 6 px of the gate, at the same 0.36 s as the probe (.dpr-hid, styles/app.css).
+  // Called as the probe's state changes and as the leaders are painted (paintLeaders), so a dot that comes in under the probe never shows.
+  function dprDots() {
+    const g = (dpr.on || dpr.swap) && dpr.gate;   // (a probe changing sides keeps the dot away: it fades out and in again with the probe)
+    for (const [k, el] of leadEls) {
+      if (!/^(d|h):/.test(k)) continue;
+      const a = el._a, hide = !!g && !el._gone && Math.hypot(+a.cx - g[0], +a.cy - g[1]) < 6;
+      if (hide !== !!el._dprHid) { el._dprHid = hide; el.classList.toggle('dpr-hid', hide); }
+    }
+  }
   const CATH_IDS = ['SVC_RA', 'IVCS_RA', 'RHV_IVC', 'POST_R_RHV'];   // (and down the IVC_IS to the hepatic vein)
   const lenTo = (pts) => { const c = [0]; for (let i = 1; i < pts.length; i++) c.push(c[i - 1] + Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1])); return c; };
   /** The part of a polyline from length a to length b (cumulative lengths in cum). */
@@ -4999,33 +6627,13 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const x = clamp(f, 0, 1) * (R.length - 1), i = Math.min(R.length - 2, Math.floor(x));
     return lerp(R[i], R[i + 1], x - i);
   };
-  function cathRoute() {
-    if (morph > 0.01 || CATH_IDS.some((id) => !geo[id]?.cur?.length || !E[id])) return null;
-    if (cath.route) return cath.route;
-    const radOf = cathRadOf;
-    const svc = geo.SVC_RA.cur, top = svc[0], pts = [], rad = [], src = [], marks = [];
-    const at = (id, f) => { src.push([id, f]); return radOf(id, f); };
-    const add = (id, rev) => {
-      const P = rev ? geo[id].cur.slice().reverse() : geo[id].cur, c = lenTo(P), n = c[c.length - 1] || 1;
-      marks.push(pts.length);
-      for (let i = 1; i < P.length; i++) { pts.push(P[i]); rad.push(at(id, rev ? 1 - c[i] / n : c[i] / n)); }
-    };
-    marks.push(0);
-    for (const q of [[top[0] - 6, top[1] - 150], [top[0] - 2, top[1] - 60], top]) { pts.push(q); rad.push(at('SVC_RA', 0)); }
-    add('SVC_RA', false); add('IVCS_RA', true);
-    // On down the middle of the IVC to the level where the right hepatic vein opens into it.
-    const ost = geo.RHV_IVC.cur[geo.RHV_IVC.cur.length - 1];
-    if (geo.IVC_IS?.cur?.length && E.IVC_IS) {
-      const P = geo.IVC_IS.cur.slice().reverse(), c = lenTo(P), n = c[c.length - 1] || 1;
-      for (let i = 1; i < P.length && P[i][1] < ost[1] - 4; i++) { pts.push(P[i]); rad.push(at('IVC_IS', 1 - c[i] / n)); }
-    }
-    add('RHV_IVC', true); add('POST_R_RHV', true);
-    // The vessels' courses meet at corners (the IVC turns into the hepatic vein at its side): the
-    // catheter bends through them as a wire does. Resampled evenly, then smoothed with a window as wide
-    // as the vein there, so the curve stays inside the lumen.
+  // The vessels' courses meet at corners (the IVC turns into the hepatic vein at its side): the
+  // catheter bends through them as a wire does. Resampled evenly, then smoothed with a window as wide
+  // as the vein there, so the curve stays inside the lumen. (marks: where each part starts, as indices into pts.)
+  function smoothRoute(pts, rad, marks) {
     const c0 = lenTo(pts), H = 1.2, n = Math.max(2, Math.ceil(c0[c0.length - 1] / H) + 1);
-    let P = [], Rr = [], j = 1;
-    const map = [];   // each resampled point's two source points and the mix between them
+    let P = [], j = 1;
+    const Rr = [], map = [];   // (map: each resampled point's two source points and the mix between them)
     for (let i = 0; i < n; i++) {
       const d = (c0[c0.length - 1] * i) / (n - 1);
       while (j < c0.length - 1 && c0[j] < d) j++;
@@ -5044,11 +6652,111 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       }
       P = Q;
     }
+    return { P, raw, Rr, map, idx };
+  }
+  function cathRoute() {
+    const kind = cath.st?.route || cath.kind || 'hvpg';
+    if (kind !== 'hvpg') return procRoute(kind);
+    if (morph > 0.01 || CATH_IDS.some((id) => !geo[id]?.cur?.length || !E[id])) return null;
+    if (cath.route?.kind === 'hvpg') return cath.route;
+    const radOf = cathRadOf;
+    const svc = geo.SVC_RA.cur, top = svc[0], pts = [], rad = [], src = [], marks = [];
+    const at = (id, f) => { src.push([id, f]); return radOf(id, f); };
+    const add = (id, rev) => {
+      const P = rev ? geo[id].cur.slice().reverse() : geo[id].cur, c = lenTo(P), n = c[c.length - 1] || 1;
+      marks.push(pts.length);
+      for (let i = 1; i < P.length; i++) { pts.push(P[i]); rad.push(at(id, rev ? 1 - c[i] / n : c[i] / n)); }
+    };
+    marks.push(0);
+    for (const q of [[top[0] - 6, top[1] - 150], [top[0] - 2, top[1] - 60], top]) { pts.push(q); rad.push(at('SVC_RA', 0)); }
+    add('SVC_RA', false); add('IVCS_RA', true);
+    // On down the middle of the IVC to the level where the right hepatic vein opens into it.
+    const ost = geo.RHV_IVC.cur[geo.RHV_IVC.cur.length - 1];
+    if (geo.IVC_IS?.cur?.length && E.IVC_IS) {
+      const P = geo.IVC_IS.cur.slice().reverse(), c = lenTo(P), n = c[c.length - 1] || 1;
+      for (let i = 1; i < P.length && P[i][1] < ost[1] - 4; i++) { pts.push(P[i]); rad.push(at('IVC_IS', 1 - c[i] / n)); }
+    }
+    add('RHV_IVC', true); add('POST_R_RHV', true);
+    const { P, raw, Rr, map, idx } = smoothRoute(pts, rad, marks);
     const cum = lenTo(P), L = (i) => cum[Math.min(idx[i], cum.length - 1)];
     // The tip reads in the trunk of the right hepatic vein, about two thirds of the way out from the IVC.
     const hv0 = L(3), hv1 = L(4);
-    const r = { pts: P, raw, rad: Rr.slice(), src, map, refs: null, cum, total: cum[cum.length - 1], start: L(1) * 0.55, free: hv0 + (hv1 - hv0) * 0.62, hv0, hvEnd: hv1 };
+    const r = { kind: 'hvpg', pts: P, raw, rad: Rr.slice(), src, map, refs: null, cum, total: cum[cum.length - 1], start: L(1) * 0.55, free: hv0 + (hv1 - hv0) * 0.62, hv0, hvEnd: hv1 };
     if (E.RHV_IVC.glR?.length) cath.route = r;
+    return r;
+  }
+  // The treatment catheters (proc-anim.js plays them, from Tests › HVPG or a slide's procedure), each on the real vessels as
+  // the HVPG catheter is: TIPS in from the neck to the right hepatic vein, a needle across the liver along the TIPS tract into
+  // the right portal vein and on into the trunk; BRTO up from the femoral vein, the IVC and the left renal vein into the
+  // gastrorenal shunt; BATO through the liver into the right portal vein, along the portal and splenic veins into the short
+  // gastric feeder of the fundal varices. build lays the legs in the order the catheter travels (see procRoute); tip: where
+  // the tip stops (a leg's name and how far along it); focus: the legs the close-up frames; start: how far along the lead-in
+  // the tip sits before it moves.
+  const PROC_ROUTES = {
+    tips: { ids: ['SVC_RA', 'IVCS_RA', 'IVC_IS', 'RHV_IVC', 'TIPS', 'PVH_R', 'PV_TRUNK'], start: 0.55, tip: ['trunk', 0.45], focus: ['hv', 'trunk'],
+      build(B) {
+        const top = geo.SVC_RA.cur[0], ost = geo.RHV_IVC.cur[geo.RHV_IVC.cur.length - 1];
+        B.pts([[top[0] - 6, top[1] - 150], [top[0] - 2, top[1] - 60], top], 'SVC_RA', 0);
+        B.vessel('SVC_RA'); B.vessel('IVCS_RA', { rev: true });
+        B.vessel('IVC_IS', { rev: true, until: (q) => q[1] >= ost[1] - 4 });
+        // Out along the right hepatic vein to where the tract leaves it, then the needle's path through the liver (the tract,
+        // as wide as the stent will be) into the right portal vein, and the wire on into the portal trunk.
+        B.vessel('RHV_IVC', { rev: true, near: geo.TIPS.cur[geo.TIPS.cur.length - 1], name: 'hv' });
+        B.vessel('TIPS', { rev: true, name: 'tract', r: cathRadOf('PVH_R', 0.5) * 0.8 });
+        B.vessel('PVH_R', { rev: true }); B.vessel('PV_TRUNK', { rev: true, b: 0.6, name: 'trunk' });
+      } },
+    brto: { ids: ['ILI_IVC', 'IVC_IS', 'LRV_IVC', 'C5'], start: 0.55, tip: ['shunt', 0.3], focus: ['lrv', 'shunt'],
+      build(B) {
+        const bot = geo.ILI_IVC.cur[0], lrv = geo.LRV_IVC.cur[geo.LRV_IVC.cur.length - 1];
+        B.pts([[bot[0] + 4, bot[1] + 150], [bot[0] + 1, bot[1] + 60], bot], 'ILI_IVC', 0);
+        B.vessel('ILI_IVC'); B.vessel('IVC_IS', { until: (q) => q[1] <= lrv[1] + 4 });
+        B.vessel('LRV_IVC', { rev: true, name: 'lrv' }); B.vessel('C5', { rev: true, name: 'shunt' });
+      } },
+    bato: { ids: ['PVH_R', 'PV_TRUNK', 'SV_CONF', 'C2'], start: 0.1, tip: ['feeder', 0.35], focus: ['splenic', 'feeder'],
+      build(B) {
+        const rpv = geo.PVH_R.cur[geo.PVH_R.cur.length - 1];
+        B.pts([[rpv[0] - 215, rpv[1] + 34], [rpv[0] - 120, rpv[1] + 16], rpv], 'PVH_R', 1);
+        B.vessel('PVH_R', { rev: true }); B.vessel('PV_TRUNK', { rev: true });
+        B.vessel('SV_CONF', { rev: true, name: 'splenic' }); B.vessel('C2', { name: 'feeder' });
+      } },
+  };
+  // A leg's lumen radius: a vessel's drawn caliber there, or a fixed one ('=r', a tract through the liver).
+  const procRadOf = (id, f) => (id[0] === '=' ? +id.slice(1) : cathRadOf(id, f));
+  function procRoute(kind) {
+    const spec = PROC_ROUTES[kind];
+    if (!spec || morph > 0.01 || spec.ids.some((id) => !geo[id]?.cur?.length || !E[id])) return null;
+    if (cath.route?.kind === kind) return cath.route;
+    const pts = [], rad = [], src = [], marks = [], parts = [];
+    const at = (id, f) => { src.push([id, f]); return procRadOf(id, f); };
+    const B = {
+      // Loose points (a lead-in from outside the plate), with the lumen radius of vessel id at f; the last one is where the next leg starts.
+      pts(list, id, f) { marks.push(pts.length); parts.push({ id: null, name: 'lead' }); for (const q of list) { pts.push(q); rad.push(at(id, f)); } },
+      // A vessel, whole or in part, the way the catheter travels it (rev: against its drawn course): from a to b of the
+      // way, or until a point meets until(q), or to the point nearest `near`. r: a fixed lumen radius instead of its caliber.
+      vessel(id, { rev = false, a = 0, b = 1, until = null, near = null, name = id, r = 0 } = {}) {
+        const P0 = rev ? geo[id].cur.slice().reverse() : geo[id].cur, c = lenTo(P0), n = c[c.length - 1] || 1;
+        if (near) { let best = Infinity; P0.forEach((q, i) => { const dd = Math.hypot(q[0] - near[0], q[1] - near[1]); if (dd < best) { best = dd; b = c[i] / n; } }); }
+        if (until) { const i = P0.findIndex((q, k) => k > 0 && until(q)); if (i > 0) b = c[i - 1] / n; }
+        const seg = cutLen(P0, c, a * n, b * n), own = (f) => (rev ? 1 - f : f);
+        marks.push(pts.length); parts.push({ id, name, fa: own(a), fb: own(b) });
+        for (let i = a === 0 && pts.length ? 1 : 0, run = a * n; i < seg.length; i++) {
+          if (i) run += Math.hypot(seg[i][0] - seg[i - 1][0], seg[i][1] - seg[i - 1][1]);
+          pts.push(seg[i]); rad.push(r ? at('=' + r.toFixed(3), 0) : at(id, own(run / n)));
+        }
+      },
+    };
+    spec.build(B);
+    const { P, raw, Rr, map, idx } = smoothRoute(pts, rad, marks);
+    const cum = lenTo(P), total = cum[cum.length - 1], L = (i) => (i < idx.length ? cum[Math.min(idx[i], cum.length - 1)] : total);
+    parts.forEach((q, i) => { q.d0 = L(i); q.d1 = L(i + 1); });
+    const span = (name) => parts.find((q) => q.name === name);
+    const tp = span(spec.tip[0]), free = tp.d0 + (tp.d1 - tp.d0) * spec.tip[1];
+    const spans = Object.fromEntries(parts.filter((q) => q.name !== 'lead').map((q) => [q.name, [q.d0, q.d1]]));
+    const r = { kind, pts: P, raw, rad: Rr.slice(), src, map, refs: null, radOf: procRadOf, cum, total, parts, spans,
+      start: parts[1].d0 * spec.start, free, hv0: free, hvEnd: total, focus: [span(spec.focus[0]).d0, span(spec.focus[1]).d1],
+      // (The close-up while the procedure does its work: the last leg alone, the one it treats.)
+      work: [span(spec.focus[1]).d0, span(spec.focus[1]).d1] };
+    if (E[spec.ids[spec.ids.length - 1]].glR?.length) cath.route = r;
     return r;
   }
   // The route's lumen radii from the vessels' drawn caliber now, so the balloon and the still column hug the
@@ -5057,7 +6765,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const ids = [...new Set(r.src.map((q) => q[0]))], refs = ids.map((id) => E[id]?.glR);
     if (r.refs && refs.every((R, i) => R === r.refs[i])) return;
     r.refs = refs;
-    routeRadii(r.src, r.map, cathRadOf, r.rad);
+    routeRadii(r.src, r.map, r.radOf || cathRadOf, r.rad);
   }
   /** The point, direction, the vein's own centre (w) and lumen radius at length d along the route. */
   function cathAt(r, d) {
@@ -5092,14 +6800,26 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     // pressure's color in the vessel's own rendering, filling outward as the column settles.
     let tint = null;
     const col = clamp(st.column || 0, 0, 1);
-    if (gpu && col > 0.001) {
+    if (gpu && col > 0.001 && r.parts) {
+      // A treatment's sclerosant: from the tip on to the route's end, each vessel it reaches tinted over the part it covers
+      // (an end where it runs on into the next vessel left open, so the joins show no edge).
+      const a = tipD, reach = a + (r.total - a) * col;
+      tint = { col: st.columnColor || 'var(--tr-wedge)', soft: Rf * 2.6 };
+      for (const q of r.parts) {
+        if (!q.id || q.d1 <= a || q.d0 >= reach) continue;
+        const f = (d) => q.fa + (q.fb - q.fa) * clamp((d - q.d0) / (q.d1 - q.d0 || 1), 0, 1), open = (fe) => (fe === 0 ? -1 : fe === 1 ? 2 : fe);
+        const lo = a < q.d0 - 0.5 ? open(q.fa) : f(a), hi = reach > q.d1 + 0.5 ? open(q.fb) : f(reach);
+        tint[q.id] = [Math.min(lo, hi), Math.max(lo, hi)];
+      }
+    } else if (gpu && col > 0.001) {
       const a = tipD - rc * 4.2, reach = a + (r.total - a) * col, soft = Rf * 2.6;   // (a long fade where it meets moving blood)
       const hv = (d) => 1 - (d - r.hv0) / (r.hvEnd - r.hv0), br = (d) => 1 - (d - r.hvEnd) / (r.total - r.hvEnd);
       tint = { col: st.columnColor || 'var(--tr-wedge)', soft, RHV_IVC: [hv(Math.min(reach, r.hvEnd)), hv(a)] };
       if (reach >= r.hvEnd) tint.RHV_IVC[0] = -1;   // runs on into the branch: no edge at the join
       if (reach > r.hvEnd) tint.POST_R_RHV = [br(reach), 2];
     }
-    const tk = tint ? `${tint.col}|${tint.RHV_IVC.map((v) => v.toFixed(3))}|${tint.POST_R_RHV?.[0].toFixed(3) ?? ''}` : '';
+    const tk = !tint ? '' : r.parts ? Object.entries(tint).map(([k, v]) => (Array.isArray(v) ? `${k}:${v.map((x) => x.toFixed(3))}` : k === 'col' ? v : '')).join('|')
+      : `${tint.col}|${tint.RHV_IVC.map((v) => v.toFixed(3))}|${tint.POST_R_RHV?.[0].toFixed(3) ?? ''}`;
     if (tk !== cath.tintKey) { cath.tintKey = tk; cathTint = tint; if (!inUpdate) syncVeins(easeInOut(morph)); }
     if (gpu) cathGL(st, r, tipD, rc);
     else cathSVG(st, r, tipD, rc * 2, Rf * 2);
@@ -5137,8 +6857,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const bl = clamp(st.balloon || 0, 0, 1);
     cath.balBox = null;
     if (bl > 0.001) {
-      const gap = rc * 4.2, Rb = cathAt(r, tipD - gap - rFree(r) * 1.6).r;
-      const rx = lerp(rc * 3.4, Rb * 1.6, bl), dC = tipD - gap - rx;
+      const gap = rc * 4.2, Rb = cathAt(r, tipD - gap - rFree(r) * 1.6).r, sp = r.spans?.[st.balloonSpan];
+      // (A TIPS's angioplasty balloon lies along the tract it opens, its whole length; the others sit just behind the tip.)
+      const rx = sp ? (sp[1] - sp[0]) * 0.45 : lerp(rc * 3.4, Rb * 1.6, bl), dC = sp ? (sp[0] + sp[1]) / 2 : tipD - gap - rx;
       const at = (d) => cathAt(r, d), ry0 = balloonRy(at, dC, rx, rc * 1.35, { floor: rc * 1.05 });
       // Bent with the vein: a strip whose sides are the outline, its local coords on the unit circle at the
       // sides so it shades and edges as the latex disc does.
@@ -5198,7 +6919,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     cath.ring.setAttribute('r', (cw * (1.8 + 0.8 * (st.pulse || 0))).toFixed(2)); cath.ring.style.display = st.ring ? '' : 'none';
     cath.ring.style.stroke = st.ring || '';
     // The balloon: inflated, it lies along the vein and fills it wall to wall (see balloonOutline).
-    const bl = clamp(st.balloon || 0, 0, 1), rx = wHV * (0.45 + 0.35 * bl), dC = tipD - rx - cw * 1.5, at = (d) => cathAt(r, d);
+    const sp = r.spans?.[st.balloonSpan], bl = clamp(st.balloon || 0, 0, 1), at = (d) => cathAt(r, d);
+    const rx = sp ? (sp[1] - sp[0]) * 0.45 : wHV * (0.45 + 0.35 * bl), dC = sp ? (sp[0] + sp[1]) / 2 : tipD - rx - cw * 1.5;
     const ry0 = balloonRy(at, dC, rx, cw * 0.65, { floor: cw * 0.55 }), ol = balloonOutline(at, dC, rx, ry0, bl, { floor: cw * 0.55 });
     const side = (k) => ol.map((o) => [o.c[0] - o.t[1] * o.h * k, o.c[1] + o.t[0] * o.h * k]);
     cath.balBox = bl > 0 ? outlineBox(ol) : null;   // (the readings keep clear of it)
@@ -5255,7 +6977,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       const k = document.createElement('small'); k.textContent = l.kicker || ''; el.append(k);
       const b = document.createElement('b'); b.textContent = l.text; el.append(b);
       if (l.unit) { const u = document.createElement('span'); u.textContent = l.unit; el.append(u); }
-      el._glass = glassCallout(el);
+      // (A treatment's step stands beside the tip with a thin leader to it, never over it: no pointer of its own.)
+      el._glass = glassCallout(el, { pointer: l.at !== 'side' });
+      if (l.at === 'side') { const ld = document.createElement('i'); ld.className = 'cath-lead'; el.append(ld); }
       return el;
     };
     const fill = (el, l) => { const sm = el.querySelector('small'); if (sm.textContent !== l.kicker) sm.textContent = l.kicker || ''; const b = el.querySelector('b'); if (b.textContent !== l.text) b.textContent = l.text; };
@@ -5294,6 +7018,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const fEl = made.get('f'), fW = fEl ? (size.get(fEl) || [fEl.offsetWidth])[0] : 0;
     for (const [el] of pills) {
       const [w, h] = size.get(el);
+      if (el.dataset.at === 'side') { cathSide(el, w, h, W, Math.max(8, sp.t + 8), lim - 8); continue; }
       const p = el.dataset.at === 'ahead' ? at.ahead : at.tip;
       const [x, y] = worldToLocal(p[0], p[1]);
       // A reading that hangs below its point goes above it when the bottom is covered (decided once, so it never jumps).
@@ -5364,6 +7089,58 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       }
     });
   }
+  // A treatment's step callout (proc-anim.js): near the catheter's tip, with a thin leader that stops short of it, on a spot
+  // that keeps off the vessels as drawn (the catheter's own route included), the cards and the slide's glass, inside the
+  // free space. Spots all round the tip at a few distances are scored (vessels crossed weigh most, then cover, then how far
+  // out); the callout keeps its spot (as an offset from the tip, so it rides with the camera) until another is clearly
+  // better, and every move glides (cathGlide). (It had stood straight across the catheter's course, which in the belly is
+  // usually over the next vessel: the IVC beside the renal vein, the splenic vein beside the shunt: review 23 Oct.)
+  const SIDE_GAP = 26, SIDE_DIRS = 16, SIDE_RINGS = [0, 34, 72, 120];
+  function cathSide(el, w, h, W, top, bot) {
+    const at = cath.at, [tx, ty] = worldToLocal(at.tip[0], at.tip[1]);
+    // (The cards, the slide's glass and the vessels, read at most four times a second and again when the view moves: the step
+    // moves its callout every frame.)
+    const now = performance.now();
+    if (!cath.blk || now - cath.blkT > 250 || cath.blkV !== viewVersion) {
+      cath.blk = readBlockers(); cath.blkT = now; cath.blkV = viewVersion; buildSegs();
+      const r = cathRoute();
+      cath.rsegs = [];
+      if (r) { let prev = null; for (let i = 0; i < r.pts.length; i += 2) { const q = worldToLocal(r.pts[i][0], r.pts[i][1]); if (prev) cath.rsegs.push({ x0: prev[0], y0: prev[1], x1: q[0], y1: q[1] }); prev = q; } }
+    }
+    const blk = cath.blk, X0 = Math.min(w / 2 + 8, W / 2), X1 = Math.max(W - w / 2 - 8, W / 2), Y0 = Math.min(top + h / 2, (top + bot) / 2), Y1 = Math.max(bot - h / 2, (top + bot) / 2);
+    const cost = (ox, oy) => {
+      const cx = tx + ox, cy = ty + oy, x = clamp(cx, X0, X1), y = clamp(cy, Y0, Y1);
+      const r = { x0: x - w / 2, y0: y - h / 2, x1: x + w / 2, y1: y + h / 2 };
+      const over = blk.reduce((n, q) => n + Math.max(0, Math.min(r.x1, q.x1) - Math.max(r.x0, q.x0)) * Math.max(0, Math.min(r.y1, q.y1) - Math.max(r.y0, q.y0)), 0);
+      const veins = lineHits(r, 3), own = cath.rsegs.reduce((n, sg) => n + (segHitsBox(sg, r, 14) ? 1 : 0), 0);
+      // (Over the tip itself is the worst of all: the callout is there to name what the tip does.)
+      const onTip = tx > r.x0 - 10 && tx < r.x1 + 10 && ty > r.y0 - 10 && ty < r.y1 + 10;
+      // (A leader across other vessels reads as pointing at them: the points along it, short of the tip's own vein, count too.)
+      let cross = 0;
+      for (const f of [0.2, 0.4, 0.6]) { const px = x + (tx - x) * f, py = y + (ty - y) * f; cross += lineHits({ x0: px - 1, y0: py - 1, x1: px + 1, y1: py + 1 }, 0, true); }
+      return { x, y, c: Math.hypot(x - cx, y - cy) * 1.5 + over / Math.max(w, h) * 4 + veins * 26 + own * 60 + cross * 8 + (onTip ? 400 : 0) + Math.hypot(ox, oy) * 0.12 };
+    };
+    if (!cath.sideOff || now - (cath.sideT || 0) > 200) {
+      cath.sideT = now;
+      let best = null;
+      for (const ring of SIDE_RINGS) for (let i = 0; i < SIDE_DIRS; i++) {
+        const a = (i / SIDE_DIRS) * Math.PI * 2, ux = Math.cos(a), uy = Math.sin(a);
+        const d = SIDE_GAP + ring + Math.abs(ux) * w / 2 + Math.abs(uy) * h / 2;   // (the box's own reach that way)
+        const c = cost(ux * d, uy * d);
+        if (!best || c.c < best.c) best = { ...c, ox: ux * d, oy: uy * d };
+      }
+      const cur = cath.sideOff && cost(cath.sideOff[0], cath.sideOff[1]);
+      if (!cur || best.c < cur.c - 10) cath.sideOff = [best.ox, best.oy];
+    }
+    const c = cost(cath.sideOff[0], cath.sideOff[1]), [cx, cy] = cathGlide(el, c.x, c.y, tx, ty);
+    el.style.transform = `translate(${cx.toFixed(1)}px, ${cy.toFixed(1)}px)`;
+    el._box = { x0: cx - w / 2, y0: cy - h / 2, x1: cx + w / 2, y1: cy + h / 2 };
+    // The leader: from the box's edge toward the tip, ending 6 px short of it.
+    const dx = tx - cx, dy = ty - cy, d = Math.hypot(dx, dy) || 1, ux = dx / d, uy = dy / d;
+    const e = Math.min(Math.abs(ux) > 1e-6 ? w / 2 / Math.abs(ux) : Infinity, Math.abs(uy) > 1e-6 ? h / 2 / Math.abs(uy) : Infinity);
+    const ld = el.querySelector('.cath-lead'), len = Math.max(0, d - e - 6);
+    ld.style.cssText = `left:${(w / 2 + ux * e).toFixed(1)}px;top:${(h / 2 + uy * e).toFixed(1)}px;width:${len.toFixed(1)}px;transform:rotate(${Math.atan2(uy, ux).toFixed(4)}rad)`;
+  }
   // The camera for the procedure: the route, the tip close up, then back where it was.
   // both: the close-up holds the tip and the vein ahead of it, where the wedged reading hangs, inside the free space.
   function cathFocus(mode, ms = 700, { both = false } = {}) {
@@ -5375,7 +7152,18 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const wr = wrap.getBoundingClientRect(), ins = safeInsets();
     const [fx0, fy0] = clientToVB(wr.left + ins.l, wr.top + ins.t), [fx1, fy1] = clientToVB(wr.left + ins.W - ins.r, wr.top + ins.H - ins.b);
     let cx, cy, k, cyScreen = (fy0 + fy1) / 2;
-    if (mode === 'tip') {
+    if ((mode === 'tip' || mode === 'work') && r.focus) {
+      // A treatment: the stretch it works on (the tract and the portal vein, the shunt, the feeder), whole and close; 'work'
+      // closer still, on the leg it treats alone (the shunt, the feeder) while the balloon and the sclerosant do their work.
+      // (Framed in the space the cards leave, so the close-up never sits under the Tests card or a slide's words.)
+      const [d0, d1] = mode === 'work' && r.work ? r.work : r.focus, pad = mode === 'work' ? 14 : 24;
+      const seg = cutLen(r.pts, r.cum, d0, d1);
+      const xs = seg.map((q) => q[0]), ys = seg.map((q) => q[1]), x0 = Math.min(...xs) - pad, x1 = Math.max(...xs) + pad, y0 = Math.min(...ys) - pad, y1 = Math.max(...ys) + pad;
+      const fr = cathFree(wr, ins);
+      cx = (x0 + x1) / 2; cy = (y0 + y1) / 2; k = clamp(Math.min((fr.x1 - fr.x0) / (x1 - x0), (fr.y1 - fr.y0) / (y1 - y0)) * (mode === 'work' ? 0.62 : 0.72), 1, mode === 'work' ? 7 : 5);
+      animateVT({ k, x: (fr.x0 + fr.x1) / 2 - cx * k, y: (fr.y0 + fr.y1) / 2 - cy * k }, ms);
+      return true;
+    } else if (mode === 'tip') {
       const tp = cutLen(r.pts, r.cum, 0, r.free).at(-1);
       cx = tp[0]; cy = tp[1]; k = 6.2;
       if (both) {
@@ -5399,6 +7187,18 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     }
     animateVT({ k, x: (fx0 + fx1) / 2 - cx * k, y: cyScreen - cy * k }, ms);
     return true;
+  }
+  // The free space for a treatment's close-up, in the figure's viewBox units: the stage less its insets and the cards over it
+  // (the Tests card at the side, a slide's words, a phone's sheet), whichever side leaves the most room.
+  function cathFree(wr, ins) {
+    const [ax, ay] = clientToVB(wr.left + ins.l, wr.top + ins.t), [bx, by] = clientToVB(wr.left + ins.W - ins.r, wr.top + ins.H - ins.b);
+    let f = { x0: ax, y0: ay, x1: bx, y1: by };
+    const sp = cardSpace(), L = ins.l, T = Math.max(ins.t, sp.t), R = ins.W - Math.max(ins.r, sp.r || 0), B = ins.H - Math.max(ins.b, sp.b);
+    if (R - L > 160 && B - T > 160) {
+      const [px, py] = clientToVB(wr.left + L, wr.top + T), [qx, qy] = clientToVB(wr.left + R, wr.top + B);
+      f = { x0: px, y0: py, x1: qx, y1: qy };
+    }
+    return f;
   }
   // While the catheter travels, the view drifts after its tip (eased, never snapping) once the tip has
   // passed the middle of the route view, so the hepatic vein arrives centred before the close-up.
@@ -5429,29 +7229,70 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   let ptSide = null, clampAway = null, clampFor = null;
   // (The flow's arrowheads stay out from under a stent's called-out points: world boxes [x0, y0, x1, y1, r], round by r; see bloodLook.)
   let chevHoles = [], holesKey = '';
+  // A narrowing's "60 %" the Doppler probe would cover (its body, line of sight, bars or flow axis) steps out to the nearest clear spot on
+  // a leader line, by stenosis: cur is where it stands now, busy while it fades out and in at its new place (Mohammad, 20 Oct).
+  const clampMv = new Map();
   const clampD = new Map();   // (a column's "60 %": how far out it stands, by stenosis, kept across the overlay's rebuilds)
   // (A new slide (the presenter clears its mark first) starts the stent's column afresh: its callouts, its mark, their side and the
   // "60 %" are solved for this slide alone, as on a fresh load, never held from the slide before: Review 16 Oct.)
   store.on('focus', (foc) => {
     if (foc) return;
     for (const k of [...labelSol.keys()]) if (/^(n:TIPS:|n:DIPS:|focus)/.test(k)) labelSol.delete(k);
-    ptSide = null; clampD.clear();
+    ptSide = null; colShown = false; clampD.clear();
   });
   // How far a point's callout stands from its dot: clear of the stent's body, its leader 16 px at most.
   const colGap = (sid) => Math.min(16, ((E[sid]?.width || 4) * CTM.sc) / 2 + 7);
-  // (The "60 %" is drawn in the figure's own units: on a phone's small figure it is scaled up so it reads at least 12 px.)
+  // (The "60 %" is drawn in the figure's own units, in the labels' own name size on screen (fontPx 11.5: 12 px at least, the text size
+  // setting and a presentation's projector size included), the weight and the 7 px stage-colour halo of the callouts beside it.)
   // (Its halo a constant 7 px wide on screen, whatever the zoom: wide enough to fill the counters of "6", "0" and "%" too, so
   // the figure never shows through inside a digit: Review 16 Oct.)
-  const clampFontAt = (el) => { el.style.fontSize = CTM.sc > 0 && CTM.sc < 1 ? `calc(var(--fs-12) / ${CTM.sc.toFixed(3)})` : ''; el.style.strokeWidth = CTM.sc > 0 ? `${(7 / CTM.sc).toFixed(2)}px` : ''; };
+  const clampFontAt = (el) => {
+    const px = fontPx(11.5);
+    if (Math.abs(px - clampBase) > 0.01) { clampBase = px; applyClampFs(); }
+    el.style.fontSize = CTM.sc > 0 && CTM.sc < 1 ? `${(clampBase / CTM.sc).toFixed(2)}px` : '';
+    el.style.strokeWidth = CTM.sc > 0 ? `${(7 / CTM.sc).toFixed(2)}px` : '';
+  };
+  // Moves a "60 %" to `want` ({ d, t } or null: back where it belongs): it fades out where it stands, then in at the new place.
+  function clampStep(id, want) {
+    const m = clampMv.get(id) || { cur: null, want: null, busy: false }, same = (a, b) => (a ? !!b && a.d === b.d && a.t === b.t : !b);
+    clampMv.set(id, m);
+    if (m.busy) return;
+    m.want = want;
+    if (same(m.cur, want)) return;
+    const els = () => [...ov.clamps.querySelectorAll(`.clamp-label[data-id="${id}"]`)];
+    m.busy = true;
+    const dur = reduceMotion.matches ? 0 : 260;
+    for (const el of els()) el.animate?.([{ opacity: getComputedStyle(el).opacity }, { opacity: 0 }], { duration: dur, fill: 'forwards' });
+    setTimeout(() => {
+      m.cur = m.want; m.busy = false;
+      for (const el of els()) { el.getAnimations?.().forEach((a) => a.cancel()); clampLabelAt(el); el.animate?.([{ opacity: 0 }, { opacity: getComputedStyle(el).opacity }], { duration: dur }); }
+      if (F) updateLabels(F);
+    }, dur);
+  }
+  // A narrowing's "60 %": one rule for where it stands, whichever code asks (the marks' rebuild, a change of zoom, the layout's search).
+  // Its spot is d past the clamp's arrows on one side of the vessel and t along it (the layout's, or 16 and 0), the text reading
+  // outward from there, ending at the spot on the clamp's left on screen and starting there on its right, level whatever the turn.
   function clampLabelAt(el) {
-    const c = el._c;
-    if (!c) return;
-    const away = c.id === clampFor ? clampAway : null;
-    const kept = c.id === clampFor ? clampD.get(c.id) : null, d = c.off + (el._d ?? kept?.d ?? 16), t = el._d != null ? el._t ?? 0 : kept?.t ?? 0;
-    const pos = [1, -1].map((sg) => [c.x + c.nx * sg * d - c.ny * t, c.y + c.ny * sg * d + c.nx * t]);   // (t: slid along the vessel)
-    const k = away && (away === 'W') !== (worldToLocal(...pos[0])[0] < worldToLocal(...pos[1])[0]) ? 1 : 0, left = away === 'W';
-    el.setAttribute('x', pos[k][0] + (left ? -4 : 4)); el.setAttribute('y', pos[k][1] + 4);
+    const q = clampLabelPos(el);
+    if (!q) return;
+    const { x, y, left, gap, deg } = q;
+    el.setAttribute('x', x.toFixed(2)); el.setAttribute('y', y.toFixed(2));
+    el.setAttribute('dx', (left ? -gap : gap).toFixed(2)); el.setAttribute('dy', gap.toFixed(2));
     if (left) el.setAttribute('text-anchor', 'end'); else el.removeAttribute('text-anchor');
+    if (deg) el.setAttribute('transform', `rotate(${(-deg).toFixed(2)} ${x.toFixed(2)} ${y.toFixed(2)})`); else el.removeAttribute('transform');
+  }
+  // Where clampLabelAt puts a clamp's percentage (its spot, which side its text runs and its offset), without writing it.
+  function clampLabelPos(el) {
+    const c = el._c;
+    if (!c) return null;
+    const away = c.id === clampFor ? clampAway : null;
+    const kept = c.id === clampFor ? clampD.get(c.id) : null, mv = c.id !== clampFor ? clampMv.get(c.id)?.cur : null;
+    const d = c.off + (el._d ?? mv?.d ?? kept?.d ?? 16), t = el._d != null ? el._t ?? 0 : mv?.t ?? kept?.t ?? 0;
+    const pos = [1, -1].map((sg) => [c.x + c.nx * sg * d - c.ny * t, c.y + c.ny * sg * d + c.nx * t]);   // (t: slid along the vessel)
+    const xs = pos.map((q) => worldToLocal(...q)[0]);
+    const k = away && (away === 'W') !== (xs[0] < xs[1]) ? 1 : 0, left = xs[k] < xs[1 - k] - 0.5, [x, y] = pos[k];
+    const gap = (6 * clampBase) / 12 / Math.max(CTM?.sc || 1, 1e-3), deg = rotDeg();   // (6 px on screen at 12 px text, the text's own offset from its spot, in step with the text's size)
+    return { x, y, left, gap, deg };
   }
   // A quantized value that only moves once the input has clearly left its step (so a varix whose
   // diameter pulses across a rounding boundary is not rebuilt on every beat).
@@ -5480,14 +7321,32 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     overlayKey = key;
     const anat = t < 0.5;
     // stenosis clamps & thrombi
-    ov.clamps.innerHTML = ''; ov.stents.innerHTML = ''; ov.plugs.innerHTML = '';
     const hideDx = store.get().found ? findingHidden('clot') : isImaging();
+    // (A narrowing that goes leaves its clamp and "60 %" to fade out in ov.clampsOut, under other classes so the label
+    // layout never counts them; one that comes, or comes back, fades in from where it stands.)
+    const want = new Set(Object.entries(p.stenosis).filter(([id, v]) => !hideDx && v > 0 && E[id]?.vis).map(([id]) => id));
+    if (!clampFading()) clampLast = performance.now();
+    for (const el of [...ov.clamps.children]) {
+      const id = el.dataset.id;
+      if (want.has(id)) continue;
+      const c = clampA.get(id);
+      if (!c) { el.remove(); continue; }
+      c.on = false;
+      el.classList.replace('clamp', 'clamp-out'); el.classList.replace('clamp-label', 'clamp-label-out');
+      ov.clampsOut.append(el);
+    }
+    for (const id of want) {
+      const c = clampA.get(id);
+      if (!c) clampA.set(id, { a: 0, on: true });
+      else if (!c.on) { c.on = true; for (const el of ov.clampsOut.querySelectorAll(`[data-id="${id}"]`)) el.remove(); }
+    }
+    ov.clamps.innerHTML = ''; ov.stents.innerHTML = ''; ov.plugs.innerHTML = '';
     // Clots keep their own key: growing varices (the disease clock) rebuild the rest, not them.
     const tk = JSON.stringify([t.toFixed(3), hideDx, p.thrombus, Object.keys(p.thrombus).map((id) => (E[id] ? [E[id].vis, held[`w${id}`]] : 0))]);
     const clots = tk !== thrombiKey;
     if (clots) { thrombiKey = tk; ov.thrombi.innerHTML = ''; }
     for (const [id, v] of Object.entries(p.stenosis)) {
-      if (hideDx || !(v > 0) || !E[id] || !E[id].vis) continue;
+      if (!want.has(id)) continue;
       const [x, y, dx, dy] = pointAt(geo[id].cur, stenosisAt(id, p));
       const n = Math.hypot(dx, dy) || 1, nx = -dy / n, ny = dx / n;
       const off = (E[id].width / 2) * (1 - v) + 3;
@@ -5497,10 +7356,10 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         const ux = dx / n * 4.5, uy = dy / n * 4.5;
         ov.clamps.append(s('path', { class: 'clamp', 'data-id': id, d: `M${tx} ${ty} L ${bx + ux} ${by + uy} L ${bx - ux} ${by - uy} Z` }));
       }
-      const lab = s('text', { class: 'clamp-label' }, document.createTextNode(`${Math.round(v * 100)}%`));
-      lab.setAttribute('data-at', [x, y, nx, ny, off + 8].map((q) => q.toFixed(2)).join(' '));
+      const lab = s('text', { class: 'clamp-label', 'data-id': id }, document.createTextNode(`${Math.round(v * 100)}%`));
       lab._c = { id, x, y, nx, ny, off }; clampLabelAt(lab); clampFontAt(lab);
       ov.clamps.append(lab);
+      clampShade(id);
     }
     placeClampLabels();
     // Thrombus: a lumpy clot lying against one wall of the lumen, drawn as soft stacked layers of one
@@ -5565,6 +7424,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (anat && p.balloonEso) ov.balloons.append(s('rect', { x: 792, y: 190, width: 20, height: 84, rx: 10, class: 'balloon-shape' }));
     if (anat && p.balloonGas) ov.balloons.append(s('circle', { cx: SITES.fundus[0], cy: SITES.fundus[1], r: 24, class: 'balloon-shape' }));
     mk.ver++;
+    marksSync();
   }
 
   // ── Labels: a screen-space layer (SVG) laid out every frame ──
@@ -5698,6 +7558,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     }
     // (A new one goes in just before the next one wanted that is already in, so every line still lies under every dot.)
     for (let i = els.length - 1, next = null; i >= 0; i--) { if (!els[i].isConnected) gLeaders.insertBefore(els[i], next); next = els[i]; }
+    dprDots();
     for (const [k, el] of leadEls) {
       if (keep.has(k) || el._gone) continue;
       if (reduceMotion.matches) { el.remove(); leadEls.delete(k); continue; }
@@ -5719,7 +7580,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     // badge turning from + to − swaps its class on the same tspan rather than building the label again: 16 Oct.)
     // (A slide's mark is drawn afresh when its words change: a pill kept from another slide's longer mark could hold its old width
     // for a while after the new one was set: Review 16 Oct.)
-    const sig = JSON.stringify([it.lines.map((line) => line.map(({ t, fill, cls, ...style }) => style)), it.align, !!it.swatch, it.bg, !!it.hit, it.cls, labelK, fontPx(14), /^focus/.test(it.key) ? it.lines.map((line) => line.map((r) => r.t).join('')) : 0]);
+    const sig = JSON.stringify([it.lines.map((line) => line.map(({ t, fill, cls, ...style }) => style)), it.align, !!it.swatch, it.bg, !!it.hit, it.cls, labelK, fontPx(14), it.fxw ?? (/^focus/.test(it.key) ? it.lines.map((line) => line.map((r) => r.t).join('')) : 0)]);
     if (sig !== b.sig) {
       b.sig = sig;
       const kids = [];
@@ -5748,7 +7609,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       if (it.swatch) kids.unshift(s('rect', { class: 'lb-sw', x: it.align === 'end' ? it.w - 3 : 0, y: 1, width: 3, height: Math.max(8, it.h - 2), rx: 1.5 }));
       b.g.replaceChildren(...kids);
       // (A slide's mark that stays but takes new words fades the new words in, never swaps them in at once.)
-      const words = /^focus/.test(it.key) ? it.lines.map((line) => line.map((r) => r.t).join('')).join('\n') : null;
+      // (A live callout's words keep their shape as its numbers tick: it.fxw, so only a new slide's words fade in.)
+      const words = it.fxw ?? (/^focus/.test(it.key) ? it.lines.map((line) => line.map((r) => r.t).join('')).join('\n') : null);
       if (words != null && b.words != null && words !== b.words && b.g.style.display !== 'none' && !reduceMotion.matches) b.g.animate?.([{ opacity: 0 }, { opacity: 1 }], { duration: 400, easing: 'ease-out' });
       b.words = words;
       b.sw = it.swatch ? b.g.querySelector('.lb-sw') : null;
@@ -5799,6 +7661,10 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const MARK_GRID = [];
   for (let x = -150; x <= 150; x += 6) for (let y = -150; y <= 150; y += 6) if (Math.hypot(x, y) <= 150 && Math.hypot(x, y) >= 24) MARK_GRID.push([x, y]);
   MARK_GRID.sort((a, b) => Math.hypot(...a) - Math.hypot(...b));
+  // (Steps for a Circuit reading pulled onto a station's ring, every 4 px out to 120, nearest first: see layoutLabels.)
+  const PULL_GRID = [];
+  for (let x = -120; x <= 120; x += 4) for (let y = -120; y <= 120; y += 4) if ((x || y) && Math.hypot(x, y) <= 120) PULL_GRID.push([x, y]);
+  PULL_GRID.sort((a, b) => Math.hypot(...a) - Math.hypot(...b));
   function offset(dir, it, gap) {
     const { w, h: hh } = it;
     const d = gap * 0.72;
@@ -5822,8 +7688,37 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
 
   const REF = () => {
     const st = store.get();
+    if (!st.compareSnap && st.presenting && st.colorMode === 'since') return sinceRef();
     return st.compareSnap ? st.compareSnap.P : st.healthy?.P;
   };
+  // A "change since" slide's reference (deck visuals V11, ext-highlights.js: lens 'since'): the network its slide counts from
+  // (changeRef), and until that is set the one the figure showed as the lens came in, so the colours move as the change lands.
+  // It never touches Patients' pinned moment (compareSnap). A new reference recolours through the lens crossfade, as a jump does.
+  const sinceRef = () => { if (!sinceP && F) sinceP = Float32Array.from(F.Pf || F.P); return sinceP || store.get().healthy?.P; };
+  sinceSource(sinceRef);   // (the lobule's colours count from the same reference: since-ref.js)
+  function changeRef(P) {
+    const was = sinceP;
+    sinceP = P ? Float32Array.from(P) : null;
+    if (was === sinceP || store.get().colorMode !== 'since') return;
+    if (shownCol.size && !reduceMotion.matches) { lensFrom = shownCol; lensT0 = performance.now(); }
+    // (Cleared as a slide leaves, the next model frame takes the figure's state then as its reference: no redraw here.)
+    if (P && F && !inUpdate) update(F);
+  }
+  // A slide's change ripple (deck visuals V6, ext-highlights.js: ripple): the vessels whose pressure moved between two of its
+  // states glow warm (up) or cool (down) for a moment, as Patients' Δ glow does after a change, without its rings and numbers.
+  // (Stronger, wider and held longer than Patients' Δ glow: on a slide the vessel under it often already wears the same blue or
+  // red, from the Change colours, so only its halo shows it.)
+  const RIPPLE_AMT = 2, RIPPLE_HOLD = 1600;
+  let rippleT = 0;
+  function ripple(from, to) {
+    clearTimeout(rippleT);
+    const list = from && to && !quietFx() ? rippleList(EDGES, NI, from, to, (e) => { const x = E[e.id]; return !!x?.vis && !x.isArt && !x.g.classList.contains('coll-ghost'); }) : [];
+    const cs = getComputedStyle(svg), lift = clamp(cssNum(cs, '--ripple-lift', 0), 0, 1);
+    const tone = (v) => { const c = mix3(toRGB(v, cs), [1, 1, 1], lift); return `rgb(${c.map((x) => Math.round(x * 255)).join(', ')})`; };   // colour-exempt: built from the glow tokens
+    const up = tone('var(--glow-up)'), down = tone('var(--glow-down)');
+    setGlowSrc('delta', list.map(([id, d]) => ({ id, col: d > 0 ? up : down, amt: RIPPLE_AMT, wide: 1.3, dur: 420 })));
+    if (list.length) rippleT = setTimeout(() => setGlowSrc('delta', []), RIPPLE_HOLD);
+  }
   const isImaging = () => !!store.get().imaging;
   // Captions of findings (varices, collaterals) can stay hidden until a test shows them.
   const labelHidden = (id) => !!store.get().hiddenLabels?.has(id);
@@ -5911,8 +7806,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     // collaterals carries no flow at all (not stasis in an open vessel).
     if (!tubes) return { runs: [{ ...unit, t: bed ? 'microcirculation' : 'collaterals closed', gap: 0 }], color: 'var(--lens-neutral)' };
     const runs = [{ ...big, t: fmt(best, 0) }, { ...unit, t: 'cm/s' }];
-    // (Named as the Doppler names it: under 1 cm/s no flow, under 9 stasis.)
-    if (best < 9) runs.push({ t: best < 1 ? 'no flow' : 'stasis', size: 10.5, weight: 650, cls: 'lb-alert', gap: 6 });
+    // (Named as the Doppler names it: velNormal.js judgeFlow, under 1 cm/s no flow, under 9 stasis.)
+    const jf = judgeFlow(best, null, null);
+    if (jf.none || jf.stasis) runs.push({ t: jf.none ? 'no flow' : 'stasis', size: 10.5, weight: 650, cls: 'lb-alert', gap: 6 });
     return { runs, color: velColorOf(f, bestK, store.get().healthy) };
   }
 
@@ -6016,7 +7912,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     // (A phone's three points read short, "Prox 99 cm/s", so the column fits beside a small stent.)
     const name = point && stageBox().width < 700 ? { proximal: 'Prox', mid: 'Mid', distal: 'Dist' }[point] : sid + seg;
     // (An occluded stent reads "No flow", as the Doppler's strip does, not "0 cm/s": under 2 cm/s the Doppler calls a stent occluded.)
-    const none = Math.abs(vel) < 2;
+    const none = judgeFlow(vel, null, null, { stent: true }).none;
     // (A stent's point: its number in the velocity colours against the stent's own normal, sand slow, teal normal, violet fast
     // (c8e89a6), drawn toward the text colour (--vel-ink) so it reads on the label's halo, 4.5:1 at least on the light stage; the point sampled is named in bold: Review 15 Oct.)
     const nv = point ? velNormal(EI[sid], f) : null, tint = nv && !none ? `color-mix(in srgb, ${velocityColor(vel, nv)} var(--vel-ink), var(--text))` : '';
@@ -6054,12 +7950,14 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const out = [];
     for (const el of sites.made.values()) if (el._box && !el.classList.contains('cath-pre')) out.push(el._box);
     if (cath.made && !cath.labels.hidden) for (const el of cath.made.values()) if (el._box) out.push(el._box);
+    if (dpr.on && dpr.box) out.push(...[dpr.box, ...dpr.marks].map((b) => ({ ...b, probe: true })));   // (the Doppler probe's body and its line of sight)
     return out;
   }
   // What the labels' slots depend on: which readings show and how big they are (where they stand follows the camera, which
   // the labels' own key already holds). A new or resized reading lays the labels out afresh, so one under it moves aside.
   const calloutSig = () => [...sites.made.values(), ...(cath.made && !cath.labels.hidden ? cath.made.values() : [])]
-    .map((el) => el._box ? `${el.className}:${Math.round(el._box.x1 - el._box.x0)}x${Math.round(el._box.y1 - el._box.y0)}` : '').join('|');
+    .map((el) => el._box ? `${el.className}:${Math.round(el._box.x1 - el._box.x0)}x${Math.round(el._box.y1 - el._box.y0)}` : '').join('|')
+    + (dpr.on && dpr.box ? `|dpr:${Math.round((dpr.box.x1 - dpr.box.x0) / 8)}x${Math.round((dpr.box.y1 - dpr.box.y0) / 8)}` : '');
   function readBlockers() {
     const wr = stageBox();
     { const r = store.get().presenting && document.querySelector('.pz-bar.pzb-pill')?.getBoundingClientRect();
@@ -6187,14 +8085,16 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     return now - c >= STENT_CALM_MS;
   }
   // The narrowings' part of the signature, kept per object: a change of parameters always makes new objects (updateParams
-  // clones them, and each model frame brings its own), so the same object always gives the same text.
+  // clones them, and each model frame brings its own), so the same object always gives the same text. The same holds for the
+  // slide's marks and terms (the presenter sets new ones per slide) and the cards' boxes (readBlockers returns a new list):
+  // their text is built once per object, not on every call (review item 25).
   const paramJSONs = new WeakMap();
   const paramJSON = (o) => { if (!o || typeof o !== 'object') return JSON.stringify(o); let j = paramJSONs.get(o); if (j === undefined) paramJSONs.set(o, (j = JSON.stringify(o))); return j; };
   function labelSig(f) {
     const st = store.get(), t = easeInOut(morph);
     const edges = EV.filter((x) => x.vis).map((x) => `${x.e.id}${sigWidth(x)}${x.g.classList.contains('coll-ghost') ? 'g' : ''}`).join(',');
     return [geometryVersion, t >= 0.5, rotU > 0.5, labelBase(), stageBox().width < 700, st.selection?.type + ':' + st.selection?.id, paramJSON((f.viewParams || st.params).stenosis), paramJSON((f.viewParams || st.params).stenosisSite),
-      isImaging(), st.layers.labels, st.layers.chips, layerMode(), st.focus?.label, st.focus?.edges?.[0], st.focus?.marks && JSON.stringify(st.focus.marks), vt.k > 1.35, st.labelLevel, st.presenting && st.presentLabels?.join(','), st.presenting && JSON.stringify(st.presentTerms || null), st.presenting && st.presentNames, scan.on, [...(st.hiddenLabels || [])].join(','), zoomedIn(), flagged(f).join(','), edges, ['TIPS', 'DIPS'].map((id) => +stentReady(id, f)).join(''), dop.key].join('|');
+      isImaging(), st.layers.labels, st.layers.chips, layerMode(), st.focus?.label, st.focus?.edges?.[0], st.focus?.marks && paramJSON(st.focus.marks), fxSig, fx?.steps && slideGlow.map((g) => g.id + g.at).join(), (fx?.organs.some((o) => o.organ === 'spleen') || fx?.calipers.some((c) => c.organ)) && Math.round((f.slow?.spleen ?? 11) * 2), vt.k > 1.35, st.labelLevel, st.presenting && st.presentLabels?.join(','), st.presenting && paramJSON(st.presentTerms || null), st.presenting && st.presentNames, scan.on, [...(st.hiddenLabels || [])].join(','), zoomedIn(), flagged(f).join(','), edges, ['TIPS', 'DIPS'].map((id) => +stentReady(id, f)).join(''), dop.key].join('|');
   }
   // Layout runs only when one of its inputs changed: the camera and stage box (the CTM), the label
   // signature (geometry, widths, selection, layers, levels...), the morph and turn, the floating panels,
@@ -6209,7 +8109,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     refreshCTM();
     const st = store.get(), sig = labelSig(f), b = stageBox();
     const key = [[CTM.a, CTM.b, CTM.e, CTM.f].map((v) => v.toFixed(2)).join(), b.width, b.height, morph, rotU, labelFonts, document.documentElement.dataset.theme,
-      pzInset('--pz-l'), pzInset('--pz-t'), st.mode, !!st.compareSnap, st.compareView, JSON.stringify(blockerBoxes), sig,
+      pzInset('--pz-l'), pzInset('--pz-t'), st.mode, !!st.compareSnap, st.compareView, paramJSON(blockerBoxes), sig,
       calloutBoxes().map((b) => [b.x0, b.y0].map((v) => Math.round(v / 8)).join()).join(';')].join('|');
     if (!force && key === labelKey && refreshValues(f)) { stats.skips++; stats.ms += performance.now() - t0; }
     else {
@@ -6224,6 +8124,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     }
     if (sites.list) sitesPaint();
     if (scan.on) scanPaint();
+    dprobePaint();
   }
   // The live values of the labels showing, rebuilt and written into their text in place. False when one
   // changed shape (a width, a run, a change badge): the caller then lays the labels out again.
@@ -6231,7 +8132,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const next = [];
     for (const it of labelShown) {
       const [kind, id, mode, compact] = it.src;
-      const n = kind === 'vel' ? velItem(id, f, mode) : kind === 'scan' ? scanItem() : nodeItem(id, f, mode, compact);
+      const n = kind === 'fx' ? fxBuild.get(id)?.() : kind === 'vel' ? velItem(id, f, mode) : kind === 'scan' ? scanItem() : nodeItem(id, f, mode, compact);
+      if (!n) return false;   // (a slide's callout gone: lay out again)
       if (it.short || it.abbr) shortenTo(n, it.short || 0, it.abbr);
       if (n.lines.length !== it.lines.length || Math.abs(n.w - it.w) > 0.5 || Math.abs(n.h - it.h) > 0.5) return false;
       for (let i = 0; i < n.lines.length; i++) {
@@ -6374,7 +8276,22 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const blockers = blockerBoxes || readBlockers();
     const callouts = calloutBoxes();
     const obstacles = [...blockers, ...callouts];   // what can hide a label this frame
-    const placed = solve ? callouts.map((b) => ({ x0: b.x0 - 3, y0: b.y0 - 3, x1: b.x1 + 3, y1: b.y1 + 3, call: true })) : [];
+    const placed = solve ? callouts.map((b) => ({ x0: b.x0 - 3, y0: b.y0 - 3, x1: b.x1 + 3, y1: b.y1 + 3, call: true, probe: !!b.probe })) : [];
+    // (A slide's calipers and brackets (package F) are lines no label may sit on, their own readings included: boxes along each.)
+    if (solve && fx) {
+      const segBoxes = (p, q, pad) => {
+        const [x0, y0] = worldToLocal(...p), [x1, y1] = worldToLocal(...q), n = Math.max(1, Math.ceil(Math.hypot(x1 - x0, y1 - y0) / 8));
+        for (let i = 0; i < n; i++) {
+          const u0 = i / n, u1 = (i + 1) / n, xa = x0 + (x1 - x0) * u0, xb = x0 + (x1 - x0) * u1, ya = y0 + (y1 - y0) * u0, yb = y0 + (y1 - y0) * u1;
+          placed.push({ x0: Math.min(xa, xb) - pad, y0: Math.min(ya, yb) - pad, x1: Math.max(xa, xb) + pad, y1: Math.max(ya, yb) + pad, dot: true });
+        }
+      };
+      if (!circuit) for (const c of fx.calipers) { const g = caliperSegs(c, f); if (g) for (const [p, q] of g.segs) segBoxes(p, q, 5); }
+      if (circuit) for (const sp of fx.spans) {
+        const at = spanOf(sp.from, sp.to, fxK());
+        if (at) for (const [p, q] of [[[at.x0, at.y], [at.x1, at.y]], [[at.x0, at.y - SPAN_TICK], [at.x0, at.y]], [[at.x1, at.y - SPAN_TICK], [at.x1, at.y]]]) segBoxes(p, q, 5);
+      }
+    }
     // (The corner credit, where it shows: a stent's column and the slide's mark beside it keep off it where they can, so it holds its
     // spot when another point is picked. It moves whenever a label comes to cover it, and does not come back.)
     const creditBox = solve && dop.all ? (() => { const el = document.querySelector('.stage-credit'), r = el?.getBoundingClientRect(); return r?.width && getComputedStyle(el).opacity !== '0' ? { x0: r.left - wr.left - 10, y0: r.top - wr.top - 10, x1: r.right - wr.left + 10, y1: r.bottom - wr.top + 10 } : null; })() : null;
@@ -6390,7 +8307,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const prevSol = labelSol, nextSol = solve ? new Map() : labelSol;
     const out = [];
     const leaders = [];   // { k, tag, at }: every line, then every dot (paintLeaders)
-    let useLines = false, rings = [], ringPts = [];   // rings: the Circuit's stations with a reading (see placeMulti)
+    let useLines = false, rings = [], ringXY = [];   // rings: the Circuit's stations with a reading (see placeMulti); ringXY: their dots
     let clampAlts = [];   // (the column's "60 %": other spots off the vessels, nearest first, for the slide's mark)
     const buildLines = () => { if (solve && !useLines) { useLines = true; buildSegs(); } };
     // A stent called out at its three points: the three stand in a column beside their own dots, distal to proximal in the stent's
@@ -6405,7 +8322,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         const score = (side) => ['proximal', 'mid', 'distal'].reduce((n, pt) => {
           const [ax, ay] = worldToLocal(...pointAt(geo[col].cur, STENT_SITES[pt]));
           const r = rectOf({ x: side === 'E' ? ax + G : ax - G - wT, y: ay - h / 2, w: wT, h, padX: tpl.padX || 0, padY: tpl.padY || 0 });
-          return n + (within(r, view) ? 0 : 1e3) + (obstacles.some((o) => hits(r, o)) ? 1e3 : 0) + lineHits(r, 2) * 10;
+          return n + (within(r, view) ? 0 : 1e3) + (obstacles.some((o) => !o.probe && hits(r, o)) ? 1e3 : 0) + lineHits(r, 2) * 10;
         }, 0);
         const e = score('E'), w = score('W');
         ptSide = clampFor === col && ptSide === 'W' ? (e + 5 < w ? 'E' : 'W') : (w + 5 < e ? 'W' : 'E');   // (a near tie keeps the side it had)
@@ -6447,10 +8364,22 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         // and then the "60 %" moves to the nearest of them that frees it (see the focus callout).)
         const markOn = (st.focus ? st.focus.marks || [st.focus] : []).some((m) => m.edges?.[0] === col);
         clampAlts = [];
+        // (Its box is measured once for each way its text can run; every other step only moves it, so the box moves by the
+        // same amount: up to 289 forced layouts in one search had been one per step. Review item 24.)
+        const measured = [null, null];
         for (const [px, tp] of steps) {
           if (best && !best.n && (!markOn || clampAlts.length >= 12)) break;
-          el._d = 16 + px * k; el._t = tp * k; clampLabelAt(el);
-          let bb; try { bb = el.getBBox(); } catch { break; }
+          el._d = 16 + px * k; el._t = tp * k;
+          const q = clampLabelPos(el);
+          if (!q) break;
+          const qx = +q.x.toFixed(2), qy = +q.y.toFixed(2), ref = measured[+q.left];
+          let bb;
+          if (ref) bb = { x: ref.bb.x + (qx - ref.x), y: ref.bb.y + (qy - ref.y), width: ref.bb.width, height: ref.bb.height };
+          else {
+            clampLabelAt(el);
+            try { bb = el.getBBox(); } catch { break; }
+            measured[+q.left] = { x: qx, y: qy, bb: { x: bb.x, y: bb.y, width: bb.width, height: bb.height } };
+          }
           const cs = [[bb.x, bb.y], [bb.x + bb.width, bb.y + bb.height]].map(([x, y]) => worldToLocal(x, y));
           const r = { x0: Math.min(cs[0][0], cs[1][0]), y0: Math.min(cs[0][1], cs[1][1]), x1: Math.max(cs[0][0], cs[1][0]), y1: Math.max(cs[0][1], cs[1][1]) };
           const n = lineHits(r, 8, col) + (within(r, view) ? 0 : 1e3) + (creditBox && hits(r, creditBox) ? 100 : 0) + (inLane(r) ? 0.5 : 0);   // (its 3.5 px halo and 2 px of air past it, and a pixel and a half to spare)
@@ -6477,6 +8406,41 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     }
     // (The clamps' "60 %" again on its own: a station inside the clamp's box above may send a long leader out, but never through it,
     // and no leader passes nearer than 2 px to its halo: Review 15 Oct.)
+    // The "60 %" the probe would cover steps out on a leader line (its fade out and in: clampStep); the leader is drawn from the
+    // clamp's outer tip (clampLeads, below).
+    if (solve && !isImaging()) {
+      const probe = dpr.on && dpr.box ? [dpr.box, ...dpr.marks] : [], seen = new Set(), k = 1 / Math.max(CTM.sc, 1e-3);
+      for (const el of ov.clamps.querySelectorAll('.clamp-label')) {
+        const c = el._c, id = c?.id, m = clampMv.get(id);
+        if (!c || id === clampFor || (!probe.length && !m?.cur)) continue;   // (a column's "60 %" has its own spot: clampD)
+        seen.add(id);
+        buildLines();
+        // (The box at the usual spot once, then shifted: a move of d out and t along the vessel is the same move on screen.)
+        el._d = 16; el._t = 0; clampLabelAt(el);
+        const base = boxOfEl(el, 5), o = worldToLocal(c.x, c.y);
+        el._d = el._t = undefined;
+        const boxAt = (d, t) => {
+          const [bx, by] = worldToLocal(c.x + c.nx * (d - 16) - c.ny * t, c.y + c.ny * (d - 16) + c.nx * t);
+          return base && { x0: base.x0 + bx - o[0], y0: base.y0 + by - o[1], x1: base.x1 + bx - o[0], y1: base.y1 + by - o[1] };
+        };
+        const free = (b) => b && !probe.some((q) => hits(b, q)) && within(b, view) && lineHits(b, 6, id) < 1 && !(creditBox && hits(b, creditBox));
+        let want = null;
+        if (probe.some((q) => hits(boxAt(16, 0), q))) {
+          const cur = m?.want;
+          if (cur && free(boxAt(cur.d, cur.t))) want = cur;   // (a spot that still works is kept: nothing hops while the probe stays)
+          else {
+            const steps = [];
+            for (let px = 0; px <= 80; px += 8) for (let tp = -88; tp <= 88; tp += 8) if (px || tp) steps.push([px, tp]);
+            steps.sort((u, v) => Math.hypot(...u) - Math.hypot(...v));
+            const hit = steps.find(([px, tp]) => free(boxAt(16 + px * k, tp * k)));
+            if (hit) want = { d: 16 + hit[0] * k, t: hit[1] * k };
+          }
+        }
+        clampStep(id, want);
+        clampLabelAt(el);
+      }
+      for (const [id, m] of clampMv) if (!seen.has(id) && !m.busy) clampMv.delete(id);
+    }
     if (solve && !isImaging()) for (const el of ov.clamps.querySelectorAll('.clamp-label')) { const b = boxOfEl(el, 6); if (b) placed.push(el._box = { ...b, lab: true }); }
     // (The column's narrowing arrows, for the slide's mark: its leader keeps 6 px off them, as drawn (their triangles, not their
     // boxes, so a leader straight up between them still passes): Review 16 Oct.)
@@ -6514,6 +8478,10 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         const slack = it.rot ? 0 : prev.w - it.w;
         it.x = ax + prev.dx + (prev.dir.includes('W') ? slack : prev.dir.includes('E') ? 0 : slack / 2);
         it.y = ay + prev.dy;
+        // (A Circuit reading carried onto a station's ring is solved again: the figure eased a few per cent closer or farther since
+        // it was solved, and the reading, kept as far from the middle of its vessel, came onto the station's ring at its end. One
+        // the solve itself left on a ring (dot) is carried, or it would be solved again every frame.)
+        if (circuit && it.key.startsWith('n:') && !prev.dot && placed.some((p) => p.dot && hits(rectOf(it), p))) { stale = true; return false; }
         placed.push(rectOf(it)); out.push(it);
         return true;
       }
@@ -6535,15 +8503,15 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
           const cx = Math.max(ptView.x0 - r.x0, Math.min(0, ptView.x1 - r.x1)), cy = Math.max(ptView.y0 - r.y0, Math.min(0, ptView.y1 - r.y1));
           if (cx || cy) { dx += cx; dy += cy; r = rectOf({ ...probe, x: it.ax + dx, y: it.ay + dy }); }
         }
-        if (placed.some((p) => (ps.callGap && p.call ? hits(r, { ...p, x0: p.x0 - ps.callGap, x1: p.x1 + ps.callGap }) : hits(r, p)) && !(ps.overZones && p.zone))) return;
+        if (placed.some((p) => !(it.point && p.probe) && (ps.callGap && p.call ? hits(r, { ...p, x0: p.x0 - ps.callGap, x1: p.x1 + ps.callGap }) : hits(r, p)) && !(ps.overZones && p.zone))) return;
         if (ps.credit && creditBox && hits(r, creditBox)) return;
         // (A stent's point, or the slide's mark beside it, never takes a spot a card covers, where it would only hide: the next spot that
         // shows is better.)
         // (It keeps 4 px off a card: with 10, a point near the card's edge was slid off its dot's line: Review 16 Oct.)
-        if ((it.point || (dop.all && /^focus/.test(it.key))) && obstacles.some((o) => hits(r, { x0: o.x0 - 4, y0: o.y0 - 4, x1: o.x1 + 4, y1: o.y1 + 4 }))) return;
+        if ((it.point || (dop.all && /^focus/.test(it.key))) && obstacles.some((o) => !(it.point && o.probe) && hits(r, { x0: o.x0 - 4, y0: o.y0 - 4, x1: o.x1 + 4, y1: o.y1 + 4 }))) return;
         // (A long leader may not run through another label: only boxes clear of its own station count, by 8 px, so a clamp's arrows at
         // the station do not.)
-        if (ps.uncrossed && placed.some((p) => (p.lab || !(it.ax >= p.x0 - 8 && it.ax <= p.x1 + 8 && it.ay >= p.y0 - 8 && it.ay <= p.y1 + 8)) && crosses(it.ax, it.ay, (r.x0 + r.x1) / 2, (r.y0 + r.y1) / 2, p))) return;
+        if (ps.uncrossed && placed.some((p) => !(it.point && p.probe) && (p.lab || !(it.ax >= p.x0 - 8 && it.ax <= p.x1 + 8 && it.ay >= p.y0 - 8 && it.ay <= p.y1 + 8)) && crosses(it.ax, it.ay, (r.x0 + r.x1) / 2, (r.y0 + r.y1) / 2, p))) return;
         // (...nor, the slide's mark's, pass within 18 px of another of the stent's dots: Review 15 Oct.)
         if (markDots && /^focus/.test(it.key) && !ps.loose) {
           const le = leaderEnd(r, it.ax, it.ay), ex = le.x - it.ax, ey = le.y - it.ay, L2 = ex * ex + ey * ey || 1;
@@ -6557,15 +8525,31 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         // (The mark moves with the point sampled, so it holds its spot only while its dot stays put.)
         const moved = dop.all && /^focus/.test(it.key) && prev && Math.hypot(...worldToLocal(prev.wx, prev.wy).map((v, j) => v - (j ? it.ay : it.ax))) > 2;
         const V = viewOf(it), inside = within(r, V), held = !moved && !!prev && !prev.drop && prev.dir === dir && prev.pi === pi && (inside || !within({ x0: it.ax, y0: it.ay, x1: it.ax, y1: it.ay }, V));
+        // (edge: px inside the stage it keeps; avoid: drawn shapes (an organ, a lit outline) it keeps off, by pad px.)
+        if ((ps.edge && !insideBy(r, V, ps.edge)) || (ps.avoid && !clearOf(r, ps.avoid, ps.pad ?? 0))) return;
+        // (fans: the targets of a numbered step's group, V10. Each of its leaders, from its target to the box, runs through no label and
+        // crosses no other leader, a group's own included.)
+        if (ps.fans) {
+          const segs = out.flatMap((o) => [...(o.leader && !o.live ? [(() => { const e = leaderEnd(rectOf(o), o.ax, o.ay); return [o.ax, o.ay, e.x, e.y]; })()] : []), ...(o.fans || []).map(([fx, fy]) => { const e = leaderEnd(rectOf(o), fx, fy); return [fx, fy, e.x, e.y]; })]);
+          if (ps.fans.some(([fx, fy]) => {
+            const le = leaderEnd(r, fx, fy), L = Math.hypot(le.x - fx, le.y - fy);
+            if (segs.some((sg) => segsCross(sg, [fx, fy, le.x, le.y]))) return true;
+            for (let u = 6; u < L - 2; u += 3) {
+              const px = fx + ((le.x - fx) * u) / L, py = fy + ((le.y - fy) * u) / L;
+              if (placed.some((p) => !(it.point && p.probe) && !p.dot && hits({ x0: px - 3, y0: py - 3, x1: px + 3, y1: py + 3 }, p))) return true;
+            }
+            return false;
+          })) return;
+        }
         const om = ps.strict ? 10 : 0;
-        if ((ps.inView && !inside) || ((ps.inView || ps.strict) && obstacles.some((o) => !(o.zone && ps.strict) && hits(r, { x0: o.x0 - om, y0: o.y0 - om, x1: o.x1 + om, y1: o.y1 + om })))) return;   // (in the free space: inside the stage, 10 px from any card, the margin a hidden label needs to show again)
+        if ((ps.inView && !inside) || ((ps.inView || ps.strict) && obstacles.some((o) => !(o.zone && ps.strict) && !(it.point && o.probe) && hits(r, { x0: o.x0 - om, y0: o.y0 - om, x1: o.x1 + om, y1: o.y1 + om })))) return;   // (in the free space: inside the stage, 10 px from any card, the margin a hidden label needs to show again)
         let onLine = 0;
         if (useLines) {
           // (A clear pass only asks whether any vessel is in the way. The slide's mark beside a stent's three points keeps 2 px off every
           // vessel as drawn (3 with a pixel to spare; a point's callout 4, its halo included), and its leader 2 px off every vessel but
           // its stent: Review 15-16 Oct.)
           const mk = dop.all && /^focus/.test(it.key);
-          if (ps.clear) { if (mk ? lineHits(r, 3, true) : it.point ? lineHits(r, 4, true) : held ? lineHits(r, 0, true) : lineHits(r, 3, true)) return; } else onLine = lineHits(r, 0);
+          if (ps.clear) { if (ps.pad != null ? lineHits(r, ps.pad, true) : mk ? lineHits(r, 3, true) : it.point ? lineHits(r, 4, true) : held ? lineHits(r, 0, true) : lineHits(r, 3, true)) return; } else onLine = lineHits(r, 0);
           if (mk && dop.id && lineHits(r, 3, { only: dop.id })) return;   // (and in any pass, 2 px off its own stent as drawn)
           // (A reading out on a ring is joined to its station by a leader: one that would cross a vessel or a label is no use.)
           // A reading moving off its vessel or rescued (passes from 3 on, and the rescue's: strict) keeps 4 px from every other
@@ -6578,14 +8562,31 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
             // (No reading sits on another's leader: 2 px clear of its halo.)
             const others = out.filter((o) => o !== it && o.leader && !o.live).map((o) => { const e = leaderEnd(rectOf(o), o.ax, o.ay); return [o.ax, o.ay, e.x, e.y]; });
             if (others.some((sg) => segHitsBox({ x0: sg[0], y0: sg[1], x1: sg[2], y1: sg[3] }, r, ps.strict || ps.resc ? 5 : 2))) return;
-            if (ps.inView && placed.some((p) => !p.dot && hits(r, { x0: p.x0 - 4, y0: p.y0 - 4, x1: p.x1 + 4, y1: p.y1 + 4 }))) return;
+            if (ps.inView && placed.some((p) => !(it.point && p.probe) && !p.dot && hits(r, { x0: p.x0 - 4, y0: p.y0 - 4, x1: p.x1 + 4, y1: p.y1 + 4 }))) return;
             const le = leaderEnd(r, it.ax, it.ay), ex = le.x, ey = le.y, L = Math.hypot(ex - it.ax, ey - it.ay);
             const gapPx = Math.hypot(Math.max(r.x0 - it.ax, 0, it.ax - r.x1), Math.max(r.y0 - it.ay, 0, it.ay - r.y1));
             if (gapPx > 10) {
               if (others.some((sg) => segsCross(sg, [it.ax, it.ay, ex, ey]))) return;
+              // (A zone title's column that the station itself stands at the edge of (VAR beside "Portal veins" on a phone) does not
+              // stop its leader: it starts there.)
+              const own = (p) => p.zone && it.ax > p.x0 - 4 && it.ax < p.x1 + 4 && it.ay > p.y0 - 4 && it.ay < p.y1 + 4;
               for (let u = ps.strict || ps.resc ? 0 : 8, q = ps.strict || ps.resc ? 3 : 2; u < L - 2; u += ps.strict || ps.resc ? 2 : 3) {   // (rescued: from its station's ring on, the ring too kept clear)
                 const px = it.ax + ((ex - it.ax) * u) / L, py = it.ay + ((ey - it.ay) * u) / L, pr = { x0: px - q, y0: py - q, x1: px + q, y1: py + q };
-                if ((ps.ring === 'clean' && lineHits(pr, 0)) || placed.some((p) => !p.dot && hits(pr, p))) return;   // (a leader may pass a station's dot, never a reading)
+                if ((ps.ring === 'clean' && lineHits(pr, 0)) || placed.some((p) => !(it.point && p.probe) && !p.dot && !own(p) && hits(pr, p))) return;   // (a leader may pass a station's dot, never a reading)
+              }
+            }
+          } else if (circuit && it.key.startsWith('n:')) {
+            // (Beside its station too (passes 0-2), a Circuit reading sits on no other reading's leader, and where it stands far
+            // enough out to take a leader (past 18 px: see below), its leader runs through no reading: on a sideways iPad, IVC's
+            // leader had run through RA's.)
+            const others = out.filter((o) => o !== it && o.leader && !o.live).map((o) => { const e = leaderEnd(rectOf(o), o.ax, o.ay); return { x0: o.ax, y0: o.ay, x1: e.x, y1: e.y }; });
+            if (others.some((sg) => segHitsBox(sg, r, 2))) return;
+            const gapPx = Math.hypot(Math.max(r.x0 - it.ax, 0, it.ax - r.x1), Math.max(r.y0 - it.ay, 0, it.ay - r.y1));
+            if (gapPx > 18) {
+              const le = leaderEnd(r, it.ax, it.ay), L = Math.hypot(le.x - it.ax, le.y - it.ay);
+              for (let u = 8; u < L - 2; u += 3) {
+                const px = it.ax + ((le.x - it.ax) * u) / L, py = it.ay + ((le.y - it.ay) * u) / L;
+                if (placed.some((p) => !(it.point && p.probe) && !p.dot && !p.zone && hits({ x0: px - 2, y0: py - 2, x1: px + 2, y1: py + 2 }, p))) return;
               }
             }
           }
@@ -6814,6 +8815,11 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         }
       }
       buildLines();
+      // (A station's ring, 4 px round, stays clear of every reading's halo by 2 px. The halo widens with the text (styles/app.css,
+      // #labels .lb.inline.bare text: 4 px a unit of --lbk; 7 px on a vessel, .on-vessel), and only the 3 px beside the words
+      // (padX) leave less room than the line's own space above and below them, so the room kept to either side of the ring grows
+      // with it: on an upright iPad, LHV's halo had covered its ring.)
+      const ringR = 5, ringRX = 3.5 + Math.max(2 * labelK, 3.5);
       // The liver's stations show when zoomed in on it or when one is selected (there is no box to open them).
       const open = liverExpanded();
       const nodes = [], flagC = flagged(f);
@@ -6828,11 +8834,17 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         const { ax, ay, mid, tan, w: vw } = labelAnchor(n.id, t);
         // The station dot stays where it is; a callout on a vessel also keeps clear of its own marker.
         const [sx, sy] = worldToLocal(...nodePos(n.id, t));
-        placed.push({ x0: sx - 5, y0: sy - 5, x1: sx + 5, y1: sy + 5, dot: true }); if (solve) ringPts.push(`${Math.round(sx)},${Math.round(sy)}`);
+        placed.push({ x0: sx - ringRX, y0: sy - ringR, x1: sx + ringRX, y1: sy + ringR, dot: true }); ringXY.push([sx, sy, ringRX]);
         if (mid) placed.push({ x0: ax - 4, y0: ay - 4, x1: ax + 4, y1: ay + 4, dot: true });
         const it = nodeItem(n.id, f, 'station', compact);
         it.align = 'middle'; it.ax = ax; it.ay = ay; it.mid = mid; it.tan = tan; it.vw = vw * CTM.sc; it.pri = it.sel ? 100 : CIRCUIT_LABELS[n.id].pri;
         nodes.push(it);
+      }
+      // (Every other dot keeps clear of the readings too: a station whose reading is left out at this level of detail, or has none, still
+      // has its dot, and a reading had sat on it: the colon bed's, under the spleen's.)
+      const labelled = new Set(nodes.map((it) => it.node));
+      for (const d of bareDots(NODES.filter((n) => nodeEls[n.id]), { labelled, shown: nodeVisible, at: (id) => worldToLocal(...nodePos(id, t)), scale: CTM.sc, minX: ringRX, minY: ringR })) {
+        placed.push({ ...d.box, dot: true }); ringXY.push([d.x, d.y, ringRX]);
       }
       // Stations by priority, each beside its station: level with it first (beside a vertical run, over a horizontal one).
       // A minor station gives way rather than sit on a vessel or crowd its neighbours.
@@ -6901,10 +8913,13 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         const outer = [90, 104, 118].map((g) => g + half);
         const far = [...passes.slice(3), ...outer.map((gap) => ({ gap, dirs: RING_DIRS, ring: 'clean', clear: true, inView: true })), ...outer.map((gap) => ({ gap, dirs: RING_DIRS, ring: 'any', clear: true, inView: true }))].map((ps) => ({ ...ps, callGap: 12, resc: true }));
         const near = [...passes.slice(0, 3), { gap: passes[2].gap + 10 }, { gap: passes[2].gap + 18 }].map((ps) => ({ ...ps, clear: false, strict: true, inView: true, callGap: 12, resc: true }));
-        const ok = [far, near, near.map((ps) => ({ ...ps, overZones: true }))].some((R) => {
+        // (Then out on the same rings over a vessel, with the solid halo: on a phone the free space round VAR is all vessels, and
+        // nearer than the rings there is no room.)
+        const farOn = far.map((ps) => ({ ...ps, clear: false, ring: 'any' }));
+        const ok = [far, near, farOn, near.map((ps) => ({ ...ps, overZones: true }))].some((R) => {
           Object.assign(it, { lines: it._full.lines, w: it._full.w, h: it._full.h, short: it._full.short, abbr: it._full.abbr, one: false });   // (whole again for each try)
           return placeMulti(it, dirs, R, 0, R.length, false, 1);
-        }) || [0, 1].some((sh) => [far, near, far.map((ps) => ({ ...ps, overZones: true })), near.map((ps) => ({ ...ps, overZones: true }))].some((R) => {
+        }) || [0, 1].some((sh) => [far, near, farOn, far.map((ps) => ({ ...ps, overZones: true })), near.map((ps) => ({ ...ps, overZones: true }))].some((R) => {
           // (Else on one line, name then value (then without its units): a station at the top of the free space, RA under a phone's
           // data card, has room beside it only for a reading one line tall.)
           Object.assign(it, { lines: it._full.lines, w: it._full.w, h: it._full.h, short: it._full.short, abbr: it._full.abbr, one: false });
@@ -6920,6 +8935,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       }
       // Any reading left touching a vessel (within 3 px) takes the solid halo.
       if (solve && useLines) for (const { it } of plan) if (out.includes(it) && it._r && !it.onVessel && lineHits(it._r, 3)) { it.onVessel = true; const sol = nextSol.get(it.key); if (sol) sol.onv = true; }
+      // (And any left on a station's ring is marked, so the next frames carry it rather than solve again: see placeMulti.)
+      if (solve) for (const { it } of plan) { const sol = nextSol.get(it.key); if (sol && !sol.drop && out.includes(it) && placed.some((p) => p.dot && p !== it._r && hits(rectOf(it), p))) sol.dot = true; }
       // One unit rule for the whole circuit (17 Oct design review): where any reading had to drop its unit for room, every reading
       // shows its number alone ("Gut bed 21.1" had stood beside "SMV 18.7 mmHg"). Each one only narrows, toward its station, so it
       // runs into nothing it had cleared; its slot keeps the width it reserved, so the next frames carry it unchanged.
@@ -6974,8 +8991,13 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       const segAt = m.seg && isStent(EDGES[EI[m.edges[0]]]) ? STENT_SITES[stentGate(m.seg, f.viewParams || st.params, m.edges[0])] : 0.5;
       const [x, y] = pointAt(geo[m.edges[0]].cur, segAt);
       const [ax, ay] = worldToLocal(x, y);
-      const it = { key: i || m.kind ? `focus${i}${m.kind || ''}` : 'focus', mk: m.kind, cls: 'focus' + (m.kind ? ` k-${m.kind}` : ''), lines: [[{ t: m.label || 'Here', size: 11.5, weight: 650, cls: 'lb-focus' }]], align: 'start', bg: true, padX: 8, padY: 4, ax, ay };
-      it.w = lineW(it.lines[0]); it.h = LINE_H(it.lines[0]);
+      const key = i || m.kind ? `focus${i}${m.kind || ''}` : 'focus', cls = 'focus' + (m.kind ? ` k-${m.kind}` : '');
+      // (A mark whose words carry live readings, deck visuals V8: its words come from the slide's callouts, filled as the model moves.)
+      const lk = `${m.edges[0]}|${m.kind || 'block'}`, lv = fx?.live?.[lk];
+      const it = lv ? fxPill(key, lv, cls, m.kind === 'note') : { key, cls, lines: [[{ t: m.label || 'Here', size: 11.5, weight: 650, cls: 'lb-focus' }]], align: 'start', bg: true, padX: 8, padY: 4 };
+      Object.assign(it, { mk: m.kind, ax, ay });
+      if (lv) { it.src = ['fx', key]; fxBuild.set(key, () => fx?.live?.[lk] && fxPill(key, fx.live[lk], cls, m.kind === 'note')); }
+      else { it.w = lineW(it.lines[0]); it.h = LINE_H(it.lines[0]); }
       // (A free mark stands by itself, with no leader: it names a group of vessels, so a line to the first would single it out.)
       const gap = 18 + (E[m.edges[0]].width || 4);
       // (Beside a stent called out at all three points the mark may stand a little farther off, on a leader that crosses no label.)
@@ -6987,7 +9009,13 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       // (Where no such spot is off the vessels, any spot within 150 px that is, nearest first, before one over a vessel: Review 16 Oct.)
       const reach = (clear) => [true, false].flatMap((credit) => [gap, gap + 20, gap + 52, gap + 84, gap + 120].flatMap((g) => (clear ? [true, false] : [false]).map((lead) => ({ gap: g, leader: true, uncrossed: true, clear, lead, credit }))));
       const passes = dop.all && [...reach(true), { grid: true }, ...reach(false)].flatMap((ps, tier) => (ps.grid ? MARK_GRID.map((at) => ({ at, gap: 0, leader: true, uncrossed: true, clear: true, tier })) : NUDGE.map((shift) => ({ ...ps, shift, tier }))));
-      let marked = dop.all ? placeMulti(it, FAR_DIRS, passes) : place(it, ['E', 'W', 'NE', 'SE', 'N', 'S'], gap, true);
+      // (A mark with live readings (package F) keeps its side as its numbers and the vessels under it change: its side first, a little
+      // farther out if need be, before it tries another.)
+      const side = lv && !dop.all && prevSol.get(it.key);
+      // (Its pill also touches nothing drawn: 6 px clear of every vessel, a varix's strands and glow included, and 12 px inside the stage.)
+      const tidy = lv && !dop.all ? [gap, gap + 14, gap + 30, gap + 50].map((g) => ({ gap: g, leader: true, clear: true, inView: true, pad: 6, edge: 12 })) : null;
+      if (tidy) buildLines();
+      let marked = dop.all ? placeMulti(it, FAR_DIRS, passes) : (tidy && ((side && !side.drop && placeMulti(it, [side.dir], tidy)) || placeMulti(it, ['E', 'W', 'NE', 'SE', 'N', 'S', 'NW', 'SW'], tidy))) || (side && !side.drop && place(it, [side.dir], [gap, gap + 16, gap + 32], true)) || place(it, ['E', 'W', 'NE', 'SE', 'N', 'S'], gap, true);
       // (A mark that found no spot off the vessels, where the column's "60 %" blocks its way: the "60 %" tries its next spots off the
       // vessels, nearest first, and keeps the first that lets the mark stand clear; failing all, both stay as they were: Review 16 Oct.)
       if (marked && dop.all && clampAlts.length && clampAlts[0].el._box && placed.includes(clampAlts[0].el._box) && !passes[nextSol.get(it.key)?.pi]?.clear) {
@@ -7014,6 +9042,88 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       if (marked && !m.free) it.focusLeader = true;
       it.free = !!m.free;
     });
+    // Deck visuals, package F (ext-callouts.js): the slide's marks on organs, its calipers' readings and its steps' numbers on the
+    // anatomy, its brackets' readings on the circuit. Each keeps off the vessels where it can, as the stations' readings do.
+    if (fx) {
+      // (Each set of spots first in the free space only, inside the stage and off the cards, then anywhere.)
+      const k = CTM.sc, roomy = (passes) => [...passes.map((ps) => ({ ...ps, inView: true })), ...passes];
+      const nearFar = (near) => roomy([{ gap: near, leader: false, clear: true }, { gap: near + 16, leader: true, clear: true }, { gap: near, leader: false }, { gap: near + 16, leader: true }]);
+      // A reading's pill touches nothing drawn: 5 px clear of every vessel as drawn (and the lines' boxes), of `avoid` (an organ),
+      // and 12 px inside the stage, nearest first, on a short leader once it stands off; only where no such spot is left, the old
+      // passes (it never vanishes).
+      const clean = (near, avoid, rest) => [...[0, 10, 22, 36, 54, 78].map((d) => ({ gap: near + d, leader: d > 0, clear: true, inView: true, pad: 5, edge: 12, avoid })), ...rest];
+      const organBox = (id) => { const a = organAnchor(id, (f.slow?.spleen ?? 11) / 11); if (!a) return null; const [x0, y0] = worldToLocal(a.at[0] - a.half[0], a.at[1] - a.half[1]), [x1, y1] = worldToLocal(a.at[0] + a.half[0], a.at[1] + a.half[1]); return { x0: Math.min(x0, x1), y0: Math.min(y0, y1), x1: Math.max(x0, x1), y1: Math.max(y0, y1) }; };
+      if (!circuit) fx.organs.forEach((m, i) => {
+        // A mark on an organ: off the organ's box, on a leader to its middle (the spleen's box grows with it).
+        const a = organAnchor(m.organ, (f.slow?.spleen ?? 11) / 11);
+        if (!a || (m.organ !== 'ascites' && !organEls[m.organ]) || (m.organ === 'spleen' && (f.viewParams || st.params)?.splenicRx === 2)) return;
+        const key = `focusO${i}`, cls = `focus k-${m.kind}`, it = fxPill(key, m, cls, m.kind === 'note');
+        const [ax, ay] = worldToLocal(...a.at), gx = a.half[0] * k + 12, gy = a.half[1] * k + 12, gd = Math.min(gx, gy);
+        Object.assign(it, { mk: m.kind, ax, ay, src: ['fx', key] });
+        fxBuild.set(key, () => fx?.organs?.[i] && fxPill(key, fx.organs[i], cls, m.kind === 'note'));
+        const passes = roomy([true, false].flatMap((clear) => [0, 24, 56].flatMap((d) => [{ dirs: ['E', 'W'], gap: gx + d, leader: true, clear }, { dirs: ['N', 'S'], gap: gy + d, leader: true, clear }, { dirs: ['NE', 'SE', 'NW', 'SW'], gap: gd + d, leader: true, clear }])));
+        const ob = m.organ !== 'ascites' && organBox(m.organ), av = ob ? [ob] : undefined;
+        const tidy = [0, 24, 56].flatMap((d) => [{ dirs: ['E', 'W'], gap: gx + d, leader: true, clear: true, inView: true, pad: 5, edge: 12, avoid: av }, { dirs: ['N', 'S'], gap: gy + d, leader: true, clear: true, inView: true, pad: 5, edge: 12, avoid: av }, { dirs: ['NE', 'SE', 'NW', 'SW'], gap: gd + d, leader: true, clear: true, inView: true, pad: 5, edge: 12, avoid: av }]);
+        buildLines();
+        if (placeMulti(it, [], [...tidy, ...passes])) it.focusLeader = true;
+      });
+      if (!circuit) fx.calipers.forEach((c) => {
+        // A caliper's reading at the line's middle, never an end: beside the middle where there is room, square to the line and 5 px
+        // clear of it, its ticks, every vessel and the stage's edge (inside an organ it measures, as the spleen's); where there is no
+        // room (across a narrow stent), called out on a leader from the middle, off the organ, as the slide's other callouts are.
+        const g = caliperAt(c, f);
+        if (!g) return;
+        const [p0, p1] = [worldToLocal(...g.a), worldToLocal(...g.b)], mid = [(p0[0] + p1[0]) / 2, (p0[1] + p1[1]) / 2];
+        const key = 'fxc:' + c.id, it = fxPill(key, c, 'fx-cal', true);
+        Object.assign(it, { ax: mid[0], ay: mid[1], src: ['fx', key] });
+        fxBuild.set(key, () => { const n = fx?.calipers?.find((x) => x.id === c.id); return n && fxPill(key, n, 'fx-cal', true); });
+        buildLines();
+        const ob = c.organ && organBox(c.organ), av = ob ? [ob] : undefined;
+        const beside = [11, 16].map((gap) => ({ gap, leader: false, clear: true, inView: true, pad: 5, edge: 12 }));
+        const out = [24, 36, 52, 72, 96].map((gap) => ({ gap, leader: true, clear: true, inView: true, pad: 5, edge: 12, avoid: av }));
+        placeMulti(it, besideLine(p0, p1), [...beside, ...out, ...nearFar(24)]);
+      });
+      if (fx.steps) for (const g of stepGroups(slideGlow.filter((x) => E[x.id]?.vis), fx.steps)) {
+        // A step's number by the middle of its vessel (the first of its vessels drawn), or on its organ, lit as its glow lights (V10).
+        let ax, ay, near, fans = null;
+        if (g.organ) {
+          const a = !circuit && organEls[g.organ] && organAnchor(g.organ, (f.slow?.spleen ?? 11) / 11);
+          if (!a) continue;
+          [ax, ay] = worldToLocal(...a.at); near = 4;
+        } else {
+          const ids = g.ids.filter((x) => geo[x]?.cur?.length > 1 && !E[x].g.classList.contains('coll-ghost'));
+          if (!ids.length) continue;
+          // (A vein that fades out of its organ (TIP_FADE) is aimed at in the middle of its solid stretch, not at its middle, which is faint.)
+          const mids = ids.map((x) => worldToLocal(...arcMid(geo[x].cur, TIP_FADE[x] > 0.5 ? (1 + TIP_FADE[x]) / 2 : 0.5)));
+          // (A group's number stands between its vessels, on a leader to the middle of each: fans.)
+          if (g.group && mids.length > 1) { fans = mids; ax = mids.reduce((a, p) => a + p[0], 0) / mids.length; ay = mids.reduce((a, p) => a + p[1], 0) / mids.length; near = 4; }
+          else { [ax, ay] = mids[0]; near = 4 + ((E[ids[0]].width || 4) * k) / 2; }
+        }
+        const it = { key: 'fxs:' + g.n, cls: 'fx-step', lines: [[{ t: String(g.n), size: 11.5, weight: 750, cls: 'lb-step' }]], align: 'middle', bg: true, pill: true, padX: 5, padY: 2, ax, ay, pri: 20, delay: g.at, free: true, label: `Step ${g.n}` };   // (free: no dot on the vessel, only a leader when it stands off)
+        it.h = LINE_H(it.lines[0]); it.w = Math.max(lineW(it.lines[0]), it.h - 4);
+        buildLines();
+        // (A group's spots keep its leaders clear first; where none does, it takes the usual ones, so the number never vanishes.)
+        if (fans) it.fans = fans;
+        placeMulti(it, ['NE', 'NW', 'SE', 'SW', 'N', 'S', 'E', 'W'], fans ? [...nearFar(near).map((ps) => ({ ...ps, fans })), ...nearFar(24).map((ps) => ({ ...ps, fans })), ...nearFar(near)] : nearFar(near));
+      }
+      if (circuit) fx.spans.forEach((sp, i) => {
+        // A bracket's reading, under its middle (above it where the stage ends first).
+        const at = spanOf(sp.from, sp.to, fxK());
+        if (!at) return;
+        // (Turned upright on a phone, the bracket runs down the circuit's right side, where one line of words has no room: the reading
+        // then takes two, its words over its number.)
+        const turned = rotU > 0.5, D = (d) => (turned ? TURN_DIR[d] : d), split = turned;
+        const [ax, ay] = worldToLocal((at.x0 + at.x1) / 2, at.y), key = 'fxb:' + i, it = fxPill(key, sp, 'fx-span', true, split);
+        Object.assign(it, { ax, ay, src: ['fx', key] });
+        buildLines();
+        fxBuild.set(key, () => fx?.spans?.[i] && fxPill(key, fx.spans[i], 'fx-span', true, split));
+        // Under the bracket on a leader, kept inside the stage 12 px from its edges and off every vessel; then beside it.
+        // (Turned upright there is no room beside the bracket: the reading stands past its lower end instead, on a leader.)
+        if (turned) { const [ex, ey] = worldToLocal(at.x0, at.y); it.ax = ex; it.ay = ey; }
+        const order = turned ? ['S', 'SW', 'SE', 'W', 'E'] : [D('S'), D('SE'), D('SW'), D('E'), D('W')];
+        placeMulti(it, order, clean(18, undefined, roomy([{ gap: 18, leader: true, clear: true }, { gap: 40, leader: true, clear: true }, { gap: 18, leader: true }])));
+      });
+    }
     // A stent's other two points, where they fit around the sampled point's callout and the slide's mark: off the vessels if they can.
     later.sort((a, b) => (b.pri - a.pri) || (b.jet - a.jet));
     for (const it of later) {
@@ -7023,18 +9133,43 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         || placeMulti(it, FAR_DIRS, SLID(far));
     }
     if (stale) return false;
-    if (solve) {
-      labelSol = nextSol;
-      // (The stations' rings, and the readings given up for want of room with where their stations are, for the browser
-      // checks: tests/e2e/smoke.mjs.)
-      const at = new Map(out.concat(rings).map((o) => [o.key, o]));
-      gLabels.dataset.rings = ringPts.join(' ');
-      gLabels.dataset.dropped = [...nextSol].filter(([k, v]) => v.drop && k.startsWith('n:')).map(([k]) => { const o = at.get(k); return `${k.slice(2)}@${o ? `${Math.round(o.ax)},${Math.round(o.ay)}` : ''}`; }).join(' ');
-    }
+    if (solve) labelSol = nextSol;
+    // (The stations' rings, and the readings given up for want of room with where their stations are, for the browser checks:
+    // tests/e2e/smoke.mjs. Written at every layout, a carried one too: written only when solved, they lagged behind a pan since,
+    // and a reading carried with its ring looked to stand on where the ring had been.)
+    const at = new Map(out.concat(rings).map((o) => [o.key, o]));
+    const ringsAt = ringXY.map(([x, y]) => `${Math.round(x)},${Math.round(y)}`).join(' ');
+    if (gLabels.dataset.rings !== ringsAt) gLabels.dataset.rings = ringsAt;
+    const droppedAt = [...labelSol].filter(([k, v]) => v.drop && k.startsWith('n:')).map(([k]) => { const o = at.get(k); return `${k.slice(2)}@${o ? `${Math.round(o.ax)},${Math.round(o.ay)}` : ''}`; }).join(' ');
+    if (gLabels.dataset.dropped !== droppedAt) gLabels.dataset.dropped = droppedAt;
     // Which labels show this frame. A slot never moves for a screen-fixed obstacle: a label whose box a
     // panel, card or title covers (or that has panned off the stage) is hidden, and shown again once it is
     // clear of the obstacle by a margin, so it cannot flicker at the edge. A selected label always shows.
     const stage = { x0: 0, y0: 0, x1: W, y1: H };
+    // (A Circuit reading that the pull below would set on a station's ring, its own included, where its halo would hide the ring,
+    // slides the least it needs instead, any way within 120 px: into the free space, onto no other reading as they will stand, its
+    // leader through none of them and none of theirs through it. Failing that it is pulled in as before.)
+    if (circuit && ringXY.length) {
+      const ns = out.filter((o) => o.key.startsWith('n:') && !o.live && o.ax >= -8 && o.ax <= W + 8 && o.ay >= -8 && o.ay <= H + 8);
+      const pull = new Map(ns.map((o) => { const e = rectOf(o), V = viewOf(o); return [o, [Math.max(V.x0 - e.x0, Math.min(0, V.x1 - e.x1)), Math.max(V.y0 - e.y0, Math.min(0, V.y1 - e.y1))]]; }));
+      const pulledBox = (o) => { const [cx, cy] = pull.get(o); return rectOf({ ...o, x: o.x + cx, y: o.y + cy }); };
+      const onRing = (r) => ringXY.some(([x, y, rx]) => x > r.x0 - rx && x < r.x1 + rx && y > r.y0 - 5 && y < r.y1 + 5);
+      for (const it of ns) {
+        const [cx, cy] = pull.get(it);
+        if ((!cx && !cy) || !onRing(pulledBox(it))) continue;
+        const near = ns.filter((o) => o !== it), others = near.map(pulledBox), V = viewOf(it);
+        const lines = near.filter((o) => o.leader || Math.hypot(...pull.get(o)) > 2).map((o) => { const r = pulledBox(o), e = leaderEnd(r, o.ax, o.ay); return { x0: o.ax, y0: o.ay, x1: e.x, y1: e.y }; });
+        const step = PULL_GRID.find(([dx, dy]) => {
+          const r = rectOf({ ...it, x: it.x + cx + dx, y: it.y + cy + dy });
+          if (!within(r, V) || onRing(r) || others.some((o) => hits(r, o)) || lines.some((sg) => segHitsBox(sg, r, 2))) return false;
+          const e = leaderEnd(r, it.ax, it.ay), sg = { x0: it.ax, y0: it.ay, x1: e.x, y1: e.y };
+          return !others.some((o) => segHitsBox(sg, o, 2));
+        });
+        if (!step) continue;
+        it.x += cx + step[0]; it.y += cy + step[1]; it.leader = true; pull.set(it, [0, 0]);
+        if (solve && useLines && lineHits(rectOf(it), 2)) { it.onVessel = true; const sol = nextSol.get(it.key); if (sol) sol.onv = true; }   // (on a vessel: the solid halo)
+      }
+    }
     for (const it of out) {
       if (it.live) { it.hide = false; continue; }
       // A label a pan has pushed over the stage edge is pulled back inside (with a leader to its station)
@@ -7051,7 +9186,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       const r = it.rot ? rectOf({ ...it, w: it.h, h: it.w }) : rectOf(it), was = labelVis.get(it.key) !== false, m = was ? 0 : it.point || (dop.all && /^focus/.test(it.key)) ? 4 : 10;   // (a turned caption: its box turned too; a stent's point or its mark was placed 4 px off the cards)
       // A zone title is a label too: a reading is never hidden by one (the overlap pass below settles any
       // clash, and a reading outranks a zone title); other labels give way to it only where they truly overlap.
-      it.hide = !hits(r, stage) || obstacles.some((o) => (o.zone ? !it.key.startsWith('n:') && hits(r, o) : hits(r, { x0: o.x0 - m, y0: o.y0 - m, x1: o.x1 + m, y1: o.y1 + m })));
+      it.hide = !hits(r, stage) || obstacles.some((o) => !(it.point && o.probe) && (o.zone ? !it.key.startsWith('n:') && hits(r, o) : hits(r, { x0: o.x0 - m, y0: o.y0 - m, x1: o.x1 + m, y1: o.y1 + m })));
       // (A stent's point, or the slide's mark beside it, that the figure's move carried under a card is placed again rather than hidden
       // (nothing of the column hides: Review 16 Oct); at most every quarter second, so a card still easing cannot keep it searching.)
       if (it.hide && !solve && dop.all && (it.point || /^focus/.test(it.key)) && performance.now() - colResolve > 250) { colResolve = performance.now(); return false; }
@@ -7122,6 +9257,14 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     for (const it of out) {
       if (it.hide || it.live || it.cls === 'organ' || it.cls === 'lane' || it.key === 'scan') continue;
       let r = rectOf(it);
+      // (A numbered step's group: a leader from each of its vessels to the number, none to the point between them.)
+      if (it.fans) {
+        it.fans.forEach(([fx, fy], j) => {
+          const le = leaderEnd(r, fx, fy, 6);
+          if (Math.hypot(le.x - fx, le.y - fy) > 4) leaders.push({ k: `lf:${it.key}:${j}`, tag: 'path', at: { class: 'leader', 'data-k': it.key, d: `M${fx.toFixed(1)} ${fy.toFixed(1)} L${le.x.toFixed(1)} ${le.y.toFixed(1)}` }, fanOf: it });
+        });
+        continue;
+      }
       // (A Circuit reading's leader reaches its text: the nearer of its lines, as wide as that line's words, not the block's box.)
       if (circuit && it.key.startsWith('n:')) {
         let y = it.y, best = null;
@@ -7154,6 +9297,19 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       if (it.point) dots.push({ k: 'h:' + it.key, tag: 'circle', at: { class: 'leader-dot-halo', cx, cy, r: String(DISC) } });
       if (!circuit || it.mid) dots.push({ k: 'd:' + it.key, tag: 'circle', at: { class: 'leader-dot', cx, cy, r: '2.4' } });
     }
+    // (A "60 %" that stands off from its clamp, moved off the probe or put where the stent's column of callouts leaves room, is
+    // joined to the clamp's nearer outer tip by a leader, fading with it; one at its usual spot has none. Read from the label as it
+    // stands now, in a carried layout too, so a pan or a nudge of the figure keeps the line.)
+    if (!isImaging()) for (const el of ov.clamps.querySelectorAll('.clamp-label')) {
+      const c = el._c, m = c && clampMv.get(c.id), own = c && c.id === clampFor && ptSide && clampD.get(c.id);
+      if (!c || m?.busy || !(m?.cur || own)) continue;
+      const b = boxOfEl(el, (6 * clampBase) / 12);   // (the leader stops short of the text by the same 6 px at 12 px text, in step with its size)
+      if (!b) continue;
+      const tips = [[c.x + c.nx * (c.off + 8), c.y + c.ny * (c.off + 8)], [c.x - c.nx * (c.off + 8), c.y - c.ny * (c.off + 8)]].map((q) => worldToLocal(...q));
+      const gap = (q) => Math.hypot(Math.max(b.x0 - q[0], 0, q[0] - b.x1), Math.max(b.y0 - q[1], 0, q[1] - b.y1));
+      const [ax, ay] = gap(tips[1]) < gap(tips[0]) ? tips[1] : tips[0], le = leaderEnd(b, ax, ay, 1);
+      if (Math.hypot(le.x - ax, le.y - ay) > (m?.cur ? 4 : 28)) leaders.push({ k: 'cl:' + c.id, tag: 'path', at: { class: 'leader', d: `M${ax.toFixed(1)} ${ay.toFixed(1)} L${le.x.toFixed(1)} ${le.y.toFixed(1)}` } });
+    }
     leaders.push(...dots);
     // (The flow's arrowheads keep out from under the points' callouts, within 17 px of their dots, and 5 px either side of
     // every leader that ends at a point, the slide's mark's included, so no line runs through one: Review 15 Oct.)
@@ -7170,6 +9326,16 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const hk = holes.map((h) => h.map((v) => v.toFixed(1)).join(',')).join(';');
     if (hk !== holesKey) { holesKey = hk; chevHoles = holes; }
     for (const it of out) renderBlock(it);
+    lbRects = out.filter((it) => !it.hide && it.w && it.h).map((it) => it._r || rectOf(it));
+    colShown = out.some((it) => it.point && !it.hide && it.w && it.h);
+    // (A step's number comes in as its vessel lights, deck visuals V10; with reduced motion all at once.)
+    for (const it of out) {
+      if (it.delay == null || it.hide) continue;
+      const b = pool.get(it.key), wait = it.delay - (performance.now() - glowSetAt);
+      if (!b || b.fxIn) continue;
+      b.fxIn = true;
+      if (wait > 0 && !reduceMotion.matches) b.g.animate?.([{ opacity: 0 }, { opacity: 1 }], { duration: 350, delay: wait, easing: 'ease-out', fill: 'backwards' });
+    }
     const sit = out.find((o) => o.key === 'scan'), sblk = pool.get('scan');
     if (sit && !sit.hide) {
       const le = seenEnd(sit);
@@ -7191,9 +9357,20 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     }
     glass.hidden = !out.some((it) => it.key === 'liver' && !it.hide);
     paintLeaders(leaders);
+    // (A group's leaders come in with its number, as its vessels light.)
+    for (const w of leaders) {
+      const el = w.fanOf && leadEls.get(w.k), wait = el && w.fanOf.delay - (performance.now() - glowSetAt);
+      if (!el || el.fxIn) continue;
+      el.fxIn = true;
+      if (wait > 0 && !reduceMotion.matches) el.animate?.([{ opacity: 0 }, { opacity: 1 }], { duration: 350, delay: wait, easing: 'ease-out', fill: 'backwards' });
+    }
     return true;
   }
-  const nodeVisible = (id) => !(ANAT_HIDDEN_NODES.has(id) && morph < 0.5) && ALL_EDGES.some((e) => (e.from === id || e.to === id) && E[e.id]?.vis);
+  // A station's marker (its dot, its label, the Δ ring) shows only while a vessel is drawn at it (circuit-nodes.js): a vessel the
+  // plate leaves out, or one still closed, leaves no dot floating where it would end, and one that draws on or retracts brings
+  // its far end's marker in once it has arrived and takes it away as it withdraws.
+  const NODE_ENDS = nodeEnds(ALL_EDGES, (e) => E[e.id]);
+  const nodeVisible = (id) => !(ANAT_HIDDEN_NODES.has(id) && morph < 0.5) && nodeDrawn(NODE_ENDS[id]);
 
   // ── Moving blood ──────────────────────────────────
   // What is kept true, and what is exaggerated, is set out in blood.js. Every model vessel has a
@@ -7375,11 +9552,21 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // in the same four stages, while paused or with reduced motion), and pools in the stomach, the pool growing with the
   // square root of what has been lost. Each: [x0, y0, x1, y1, r0, r1, alpha, kind] (veins-gl.js): a jet (kind 1) from
   // its base (x0, y0; radius r0) to its tip (x1, y1; r1), or the pool (kind 0), an ellipse at (x0, y0) with radii x1, y1.
+  // (It fades in on a rupture and out once the bleed stops, or as the circuit view takes over: sprayA, stepped in animate;
+  // while it fades out the jets keep spurting from the last bleed seen.)
+  let sprayA = 0, sprayLast = null;
+  const sprayOn = () => !!F?.bleed?.active && morph < 0.5;
+  const sprayFading = () => sprayA !== (sprayOn() ? 1 : 0);
+  function stepSpray(dt) {
+    if (sprayOn()) sprayLast = { bleed: F.bleed, rate: F.metrics.bleeding?.rate };
+    sprayA = stepBleedFade(sprayA, sprayOn(), dt, reduceMotion.matches);
+    if (sprayA <= 0) sprayLast = null;
+  }
   function bleedSpray() {
-    if (!F?.bleed?.active || morph >= 0.5) return [];
+    if (sprayA <= 0 || !sprayLast) return [];
     // (On the blood's own clock, which stands still while paused, so the jets hold where they are and carry on from there;
     // the wall clock made them jump on pause and play. Reduce Motion keeps the still four stages: B11.)
-    return bleedShapes(F.bleed, F.metrics.bleeding?.rate, reduceMotion.matches ? 0 : bloodClock, SITES);
+    return fadeBleedShapes(bleedShapes(sprayLast.bleed, sprayLast.rate, reduceMotion.matches ? 0 : bloodClock, SITES), sprayA);
   }
   function bloodLook() {
     const st = store.get(), b = st.blood || {};
@@ -7392,7 +9579,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // Whether the figure moves by itself while the model runs (see animate).
   function figureMoves(st) {
     if (!st.running || reduceMotion.matches) return false;
-    return bloodOn() || (chevOn() && !cath.st) || fluidLook.ripple || (!!F?.bleed?.active && morph < 0.5);
+    return bloodOn() || (chevOn() && !cath.st) || fluidLook.ripple || sprayOn() || sprayA > 0;
   }
   let drawnView = -1;
   let flowGate = lastT;
@@ -7401,7 +9588,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const swYield = softwareYield(SOFTWARE, SOFTWARE ? vCanvas.getContext('webgl2') : null);
   function animate(now) {
     // The blood moves by elapsed time, so speeds and transitions are the same at any frame rate.
-    if (document.hidden || appEl?.classList.contains('home-open')) { lastT = flowGate = now; sleep(); return; }
+    if (document.hidden || appEl?.classList.contains('home-open')) { lastT = flowGate = now; trimVeins(); sleep(); return; }
     // The dive magnifies the figure as it stands (a compositor scale): nothing under it is redrawn until it lands.
     if (diveT > 0 && diveT < 1 && !drawOnce && !forceDraw) {
       // (The plate holds still through the dive, measured before its zoom, but while the anatomy still shows, its blood keeps
@@ -7429,7 +9616,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     lastT = now;
     // Fully inside the lobule, the plate is covered (a pending redraw waits for the frame it can show in): the loop sleeps
     // there, and leaving the lobule (a store change) wakes it. While the lobule only covers it on the way in or out, it keeps looking.
-    if (lz?.isOpen()) { sleep(); return; }
+    if (lz?.isOpen()) { trimVeins(); sleep(); return; }
+    veinsTrimmed = false;   // (shown again: the next draw makes what trimVeins gave back)
     if (lz?.covers()) { nextFrame(animate); return; }
     forceDraw = false; drawOnce = false;
     const st = store.get();
@@ -7440,15 +9628,16 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const still = (!st.running || reduceMotion.matches || (!anim && !lastAnim)) && !bolus.active && !dyeShown;
     // A new model frame changes the figure only through the vessel layer (checked by syncVeins), or through the blood's
     // own data (flow, origin streams) and a bleed, while those are shown.
-    const fSame = F === lastDrawF || (!lastAnim && !bloodOn() && !chevOn() && !originOn() && !F?.bleed?.active);
-    const key = still ? `${cathVer}|${morph}|${rotU}|${wrap.className}|${st.layers.flow}|${JSON.stringify(st.blood)}|${vCanvas.width}x${vCanvas.height}|${holesKey}` : null;
+    const fSame = F === lastDrawF || (!lastAnim && !bloodOn() && !chevOn() && !originOn() && !F?.bleed?.active && sprayA <= 0);
+    if (still && bloodKeyVer !== storeVer) { bloodKey = JSON.stringify(st.blood); bloodKeyVer = storeVer; }   // (the store sets blood whole: its text changes only with a store write)
+    const key = still ? `${cathVer}|${morph}|${rotU}|${wrap.className}|${st.layers.flow}|${bloodKey}|${vCanvas.width}x${vCanvas.height}|${holesKey}` : null;
     // A plate raster that lands while the figure is still (paused, or reduced motion) marks the vessel layer dirty: draw it.
-    if (still && !veinsDirty && !glowSync && !olDirty && (!glLines || marksKey() === mk.key) && !olList.some((o) => o.a !== (o.on ? 1 : 0)) && !widthEasing && !bloodEasing && !plateEasing() && !lensFrom && ascShown === ascTarget && morph === morphTarget && rotU === rotTarget && key === lastDrawKey && fSame && CTM === lastDrawCTM && !EV.some((x) => x.reveal)) { sleep(); return; }
+    if (still && !veinsDirty && !glowSync && !(glLines && olDirty) && (!glLines || marksKey() === mk.key) && !(glLines && olList.some((o) => o.a !== (o.on ? 1 : 0))) && !clampFading() && !widthEasing && !bloodEasing && !plateEasing() && !sprayFading() && !lensFrom && ascShown === ascTarget && morph === morphTarget && rotU === rotTarget && key === lastDrawKey && fSame && CTM === lastDrawCTM && !EV.some((x) => x.reveal)) { sleep(); return; }
     stepPlateEase();
     if (morph !== morphTarget) {
       morph = clamp(morph + Math.sign(morphTarget - morph) * dt / 0.6, 0, 1);
       if (F) update(F); else updateGeometry(true);
-    } else if (widthEasing && F && !stepWidths()) update(F);   // a width still easing to its target: one step a frame (stepWidths: the widths alone, when nothing else changed)
+    } else if (widthEasing && F && !stepOrgans() && !stepWidths()) update(F);   // a width still easing to its target: one step a frame (stepWidths: the widths alone, when nothing else changed)
     if (rotU !== rotTarget) {
       rotU = clamp(rotU + Math.sign(rotTarget - rotU) * dt / 0.5, 0, 1);
       setViewBox(easeInOut(morph));
@@ -7457,7 +9646,19 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     }
     stepReveals(now);
     if (F) stepBlood(dt);
+    stepSpray(dt);
     const fluidMoved = stepFluid(dt, st, easeDt);
+    { const fe = fluidEasing(); if (fluidWas && !fe) fluidStillAt = now; fluidWas = fe; }
+    // (For the ?perf readout: what eases while the organ picture is down, and whether the gut shows as its picture or its paths.)
+    if (gpuProbe.on && !plateOn()) {
+      gpuProbe.note(gutPicOn ? 'gut picture' : 'gut live');
+      if (!gutPicOn) gpuProbe.note(`gut live: ${gutLiveWhy()}`);
+      // (The scale the view needs, the pictures kept and the cap: the external review asked for them, 21 Oct.)
+      if (!gutPicOn) gpuProbe.gauge('gut pictures', `view needs ${(vdpr * (CTM?.sc || 0)).toFixed(2)} px/unit, cap ${GUT_CAP.toFixed(2)}, kept ${gutPics.filter((p) => p.mut === gutMut).map((p) => `${p.k.toFixed(2)}${p.win ? ' (view part)' : ''}`).join(', ') || 'none'}`);
+      if (lvMoving) gpuProbe.note('liver easing');
+      if (fluidWas) gpuProbe.note('fluid easing');
+      if (spleenMoving()) gpuProbe.note('spleen easing');
+    }
     // The vessel layer is redrawn only when something in it changed; the blood every frame.
     if (glowSync && !syncGlowOnly(easeInOut(morph))) syncVeins(easeInOut(morph));
     olStep(now);
@@ -7469,9 +9670,18 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   }
   nextFrame(animate);
   // Nothing to draw: the loop stops asking for frames (so the screen can idle) until something changes, and looks
-  // again a few times a second in case a change came by a path that does not wake it.
-  let sleeping = false, sleepTimer = 0;
-  function sleep() { sleeping = true; clearTimeout(sleepTimer); sleepTimer = setTimeout(wake, 250); }
+  // again once a second in case a change came by a path that does not wake it. (The store, the page's visibility, the
+  // figure's classes, the camera, the glows and the organ pictures landing all wake it themselves.)
+  let sleeping = false, sleepTimer = 0, bloodKey = '', bloodKeyVer = -1;
+  // The figure is not shown (the page hidden, the home screen, or the lobule fully over it): the vessel framebuffer, the
+  // outline layers and the organ stack (about 58 bytes a pixel of GPU memory) are given back; the first draw on the way
+  // back makes them again, whole (veins-gl.js trim: ensureFBO and the layer keys). Once per sleep; the plates stay.
+  let veinsTrimmed = false;
+  function trimVeins() {
+    if (veinsTrimmed || !veins || veins.lost || glowSync) return;
+    veins.trim(); veinsTrimmed = true; veinsDirty = true;
+  }
+  function sleep() { sleeping = true; clearTimeout(sleepTimer); sleepTimer = setTimeout(wake, 1000); }
   function wake() { if (!sleeping) return; sleeping = false; clearTimeout(sleepTimer); nextFrame(animate); }
   stageWake = wake;
   store.on('*', wake);
@@ -7488,6 +9698,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     for (const o of ORGANS) {
       if (o.deco || o.noCover || !organEls[o.id]) continue;
       if (o.circle) { const p = new Path2D(); p.arc(o.circle[0], o.circle[1], o.circle[2], 0, Math.PI * 2); organCovers.push({ p, w: 0 }); continue; }
+      // (The gut's tubes cover the vessels behind them along their earlier centre lines and widths: ORGANS cover.)
+      if (o.cover) { organCovers.push({ p: new Path2D(o.cover.d), w: o.cover.w }); continue; }
       const w = o.band ? parseFloat(getComputedStyle(organEls[o.id]).strokeWidth) || 0 : 0;
       if (o.band && w < 4) continue; // the diaphragm is a hairline, not a cover
       organCovers.push({ p: new Path2D(o.d), w });
@@ -7566,6 +9778,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   function vhStep(now) {
     const dt = Math.min(0.1, (now - vh.t) / 1000); vh.t = now;
     const want = new Set([...(vh.id ? vhEdges(vh.id) : []), ...vh.sel]);
+    if (spotOn()) for (const id of spot.ids) want.add(id);   // (a slide's spotlit vessels brighten as a selected one: V2)
     for (const id of want) if (!vh.amt.has(id)) vh.amt.set(id, 0);
     let moving = false;
     for (const [id, v] of vh.amt) {
@@ -7575,9 +9788,11 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     }
     // (While a shunt is being made, its source and every vessel it can join stand out of the dimmed network too: NP3.)
     const out = shunt ? new Set([...vh.sel, shunt.src, ...shunt.targets.keys()].filter((id) => E[id]?.vis)) : vh.sel;
-    for (const id of out) if (!vh.selA.has(id)) vh.selA.set(id, 0);
+    // (A slide's spotlit vessels stand out the same way: deck visuals V2.)
+    const lift = spotOn() && spot.ids.size ? new Set([...out, ...spot.ids]) : out;
+    for (const id of lift) if (!vh.selA.has(id)) vh.selA.set(id, 0);
     for (const [id, v] of vh.selA) {
-      const to = out.has(id) ? 1 : 0, k = reduceMotion.matches ? 1 : dt / SEL_FADE, nv = to > v ? Math.min(1, v + k) : Math.max(0, v - k);
+      const to = lift.has(id) ? 1 : 0, k = reduceMotion.matches ? 1 : dt / SEL_FADE, nv = to > v ? Math.min(1, v + k) : Math.max(0, v - k);
       if (nv <= 0 && !to) vh.selA.delete(id); else vh.selA.set(id, nv);
       if (nv !== to) moving = true;
     }
@@ -7697,7 +9912,6 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     }
     wheelAt = now;
     if (wheelKind === 'wheel' || lobuleOn) { zoomAt(ev.clientX, ev.clientY, Math.exp(-clamp(dy, -120, 120) * 0.0015)); if (!lobuleOn) settleSoon(); return; }   // (out past the whole figure, it springs back once the wheel stops, as a pinch does)
-    if (scrubS > 0) return;   // panning is locked onto the lobule while the dive is under the fingers
     const s = vbScale();
     const u0 = unsoftPan(vt);
     vt = softPan({ k: vt.k, x: u0.x - dx / s, y: u0.y - dy / s });
@@ -7869,11 +10083,6 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       const d = Math.hypot(a[0] - b[0], a[1] - b[1]), mx = (a[0] + b[0]) / 2, my = (a[1] + b[1]) / 2;
       if (Math.abs(d - drag.d0) > 10 || Math.hypot(mx - drag.mx, my - drag.my) > 10) drag.moved = true;
       if (lobuleOn) return;
-      const dl = drag.dl || d; drag.dl = d;
-      if (d !== dl && scrubBy(d / dl)) {   // past the liver zoom the pinch scrubs the dive; the camera is rebased for when it ends
-        drag.d0 = d; drag.k0 = vt.k; const [sx, sy] = clientToVBFast(mx, my); drag.wx = (sx - vt.x) / vt.k; drag.wy = (sy - vt.y) / vt.k;
-        return;
-      }
       const k = softK(drag.k0 * d / drag.d0);
       const [vx, vy] = clientToVBFast(mx, my);
       vt = { k, x: vx - drag.wx * k, y: vy - drag.wy * k }; fitted = false;
@@ -7881,7 +10090,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       return;
     }
     if (drag.type === 'pan') {
-      if (Math.abs(ev.clientX - drag.x) + Math.abs(ev.clientY - drag.y) > (ev.pointerType === 'touch' ? 8 : 4)) { drag.moved = true; clearPress(); }
+      // Once it counts as a pan the figure follows the finger from where it is then, rather than catching up the slop in one frame.
+      if (Math.abs(ev.clientX - drag.x) + Math.abs(ev.clientY - drag.y) > (ev.pointerType === 'touch' ? 8 : 4)) { if (!drag.moved) { drag.moved = true; drag.x = ev.clientX; drag.y = ev.clientY; } clearPress(); }
       if (drag.peeked) {   // a long press then drag: the popup follows whichever vessel is under the finger
         const r = wrap.getBoundingClientRect();
         const id = edgeFromEvent(ev) || nearbyEdge(ev);
@@ -7889,7 +10099,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         else onHoverInfo(null);
         return;
       }
-      if (drag.moved && scrubS === 0) {
+      if (drag.moved) {
         vt = softPan({ k: vt.k, x: drag.vx + (ev.clientX - drag.x) / drag.s0, y: drag.vy + (ev.clientY - drag.y) / drag.s0 }); fitted = false;
         applyVT(); CTM = null;
         const now = performance.now();
@@ -8150,6 +10360,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     return null;
   }
 
+  dpr.ready = true; dprobePaint();   // (a Doppler set while the stage was being built shows now)
+
   // ── Public API ────────────────────────────────────
   return {
     update,
@@ -8173,19 +10385,20 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     // The label slots as solved (key → side and pixel offset from the figure point it names), for tests.
     labelSlots: () => Object.fromEntries([...labelSol].filter(([, r]) => !r.drop).map(([k, r]) => [k, `${r.dir}/${r.pi}/${Math.round(r.dx)},${Math.round(r.dy)}`])),
     setSaver(on) {
-      try { localStorage.setItem('pps.saver', on ? '1' : '0'); } catch { /* storage unavailable */ }
       setFrameSaver(on);   // (the lobule, the sinusoid and the FibroScan read it each frame)
       if (!SOFTWARE) { quality = on ? Q_SAVER : 0; wrap.dataset.quality = String(quality); resizeCanvas(); }
     },
     labelScale: () => labelScale,
     labelEff: () => labelScale * deskK(),   // what the figure shows outside a presentation (a desktop's baseline included)
     /** The HVPG catheter: null removes it; else { u (0..1 of the way in), balloon, column (0..1), columnColor, ring, pulse,
-     *  opacity, labels: [{ key, at: 'tip' | 'ahead', kicker, text, unit, cls }] }. */
+     *  opacity, labels: [{ key, at: 'tip' | 'ahead', kicker, text, unit, cls }] }. route: 'tips' | 'brto' | 'bato' takes a
+     *  treatment's route instead (PROC_ROUTES), where column is its sclerosant and balloonSpan names the stretch a long balloon fills. */
     setCatheter(st) {
       if (st) cathFade?.done();
       else if (cathFade || !cath.st) { cath.st = null; return; }
       cath.st = st; wrap.classList.toggle('cath-on', !!st);
-      if (!st) { cath.rc = 0; cath.route = null; cathVer++; if (cathTint) { cathTint = null; cath.tintKey = ''; syncVeins(easeInOut(morph)); } cath.at = null; cathFadeOut(); return; }
+      if (st && (st.route || 'hvpg') !== cath.kind) { cath.kind = st.route || 'hvpg'; cath.route = null; cath.rc = 0; }
+      if (!st) { cath.rc = 0; cath.route = null; cath.sideOff = null; cath.rsegs = null; cath.blk = null; cathVer++; if (cathTint) { cathTint = null; cath.tintKey = ''; syncVeins(easeInOut(morph)); } cath.at = null; cathFadeOut(); return; }
       cathPaint();
     },
     /** A presenter slide's measuring sites, e.g. ['pv', 'ivc'] (see SITE_DEF), read from fp (the slide's numbers, so they
@@ -8194,10 +10407,38 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     setGlow(list) { setGlow(list); },
     setResGlow(list) { resLit = new Map((list || []).map((r) => [r.id, r.tone])); if (sites.list) sitesPaint(); },
     pinOrgans(list) { pinOrgans(list); },
+    // Organs eased in or out beside the slide's own pins (null: out): { id, tone, glow, fade } (ext-highlights.js, a meal's gut glow).
+    glowOrgans(list) { pinOrgans(null, list || []); },
+    // Deck visuals, package A (ext-highlights.js): a slide's spotlight ({ edges, organs: [{ id, tone }] } or null, V2), the
+    // normal spleen's outline (['spleen'] or null, V18), its change ripple (two networks' node pressures, V6) and the network a
+    // "change since" slide counts from (node pressures or null, V11).
+    spotlight(sp) {
+      spot.ids = new Set((sp?.edges || []).filter((id) => E[id]));
+      spot.on = !!sp && (spot.ids.size > 0 || !!sp.organs?.length);
+      if (spot.on) spot.live = true;
+      spotOrgans(spot.on ? sp.organs : null);
+      // (Each named vessel glows softly in its own colour, as a selected one does, so a pale one still reads against the dimmed rest.)
+      setGlowSrc('spot', spotOn() ? [...spot.ids].map((id) => ({ id, col: null, amt: 1.7, wide: 0.9, dur: SEL_FADE * 1000 })) : []);
+      if (!vh.raf) { vh.t = performance.now(); vh.raf = nextFrame(vhStep); }
+      veinsDirty = true; stageWake();
+    },
+    // Deck visuals, package F (ext-callouts.js): a slide's figure callouts (live mark words, organ marks, calipers, step
+    // numbers, the circuit's brackets and lit zone), or null.
+    callouts(sp) { setCallouts(sp); },
+    normalOutline(ids) { normal.want = !!ids?.includes('spleen'); normalSync(); },
+    ripple(from, to) { ripple(from, to); },
+    changeRef(P) { changeRef(P); },
     siteFp(fp) { slideFp = fp; if (sites.list) sites.fp = fp; },   // (the numbers the slide's tiles now show: a what-if, a time-lapse)
     setSites(list, fp = null) { sites.list = list?.length ? [...list] : null; sites.fp = fp; if (fp) slideFp = fp; if (!sites.list) for (const k of [...resMade.keys()]) resPaint(k, SITE_DEF[k], null); if (!sites.list) for (const [k, el] of [...sites.made]) siteLeave(k, el); else { refreshCTM(); sitesPaint(); } },
     /** Frame the catheter's route ('route'), its tip close up ('tip'), or go back to the view before ('home'). */
     cathFocus,
+    /** A treatment route's named stretches as u (0..1 of the way in, as setCatheter takes it): { tract: [u0, u1], … }, or null. */
+    cathStops() {
+      const r = cathRoute();
+      if (!r?.spans) return null;
+      const u = (d) => (d - r.start) / (r.free - r.start || 1);
+      return Object.fromEntries(Object.entries(r.spans).map(([k, [a, b]]) => [k, [u(a), u(b)]]));
+    },
     cathFollow,
     /** Forget the view cathFocus would go back to (the presenter moves its own camera on). */
     cathForget() { cath.saved = null; cath.k0 = 0; },
@@ -8250,6 +10491,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       const c = freeCentre(); animZoomAt(c[0], c[1], 1 / 1.4);
     },
     fit, refit, closeView,
+    keepView(on) { keptSpace = on ? spaceSig() : null; },
     reveal, unreveal,
     /** Changes whenever what is drawn where changes (a pan, a zoom, the morph): a cheap key for "did anything move". */
     layoutKey: () => `${viewVersion}|${geometryVersion}` + (lz?.isOpen() ? '|' + lz.viewKey() : ''),
@@ -8272,7 +10514,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
           b = b ? [Math.min(b[0], X), Math.min(b[1], Y), Math.max(b[2], X), Math.max(b[3], Y)] : [X, Y, X, Y];
         }
       };
-      for (const id of organs) if (organEls[id]?.getAttribute('d')) add(organEls[id], organG[id]?.transform.baseVal.consolidate()?.matrix);
+      for (const id of organs) if (organEls[id]?.getAttribute('d')) add(organEls[id], organG[id] && gMatrix(organG[id]));
       // (A vessel's wall is hidden while the GPU draws the vessels, so its drawn centreline gives the box.)
       for (const id of edges) {
         const P = geo[id]?.cur;
@@ -8289,15 +10531,41 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     glMatrix: () => (veins && !veins.lost && wrap.classList.contains('gl-on') ? glM : null),
     /** For the checks: the vessel canvas as it stands (mid-gesture too), then after a whole redraw of it at the same view
      *  (PNG data URLs; equal when nothing on screen is stale, undrawn or softer), or null without the GPU figure. */
-    veinsCheck() {
+    /** For the checks: the organs' picture as the plate (one SVG of the whole plate) and as the layers the GPU draws instead
+     *  (each layer's SVG, over its cropped rect on the plate's pixel grid), both of the state now (tests/e2e/plate-layers.mjs). */
+    /** For the checks (tests/e2e/fluid-pool.mjs): frames that composited only the fluid's pool, and whether the level is easing. */
+    poolFrames: () => poolFrames, fluidEasing: () => fluidEasing(), layerStarts: () => [layerStarts, layerStartsEasing],
+    organLayersShown: () => plateOn() && gpuOrgansOn() && !!veins?.organs?.has(0),
+    /** The organs' drawing paths (the ?organpaths readout), and the layer sets committed so far. */
+    organPaths: () => ({ ...organPathsNow(), commits: layerCommits }),
+    /** For the checks: these layers drawn as pictures from the SVG copy rather than painted on the GPU, the pictures made again. */
+    bakeOff(names = []) { bakeSkip.clear(); for (const n of names) bakeSkip.add(n); plateKey = ''; platePoke(); },
+    /** The ?perf switch "GPU organs", for the checks: true, false, or 'force' (on the software renderer too). */
+    gpuOrgans(v) { gpuProbe.gpuOrgans = v; gpuProbe.onOrgans?.(); },
+    plateLayersCheck() {
+      const W = Math.round(PLATE_RECT[2] * PLATE_BASE), H = Math.round(PLATE_RECT[3] * PLATE_BASE), boxes = layerBoxes();
+      const plate = plateMarkup(PLATE_RECT, W, H, true), layers = [];
+      for (const L of ORGAN_LAYERS) {
+        const r = cropToGrid(PLATE_RECT, boxes ? boxes.get(L) || [0, 0, 0, 0] : EVERYWHERE, PLATE_BASE);
+        if (!r) continue;
+        const w = Math.round(r[2] * PLATE_BASE), h = Math.round(r[3] * PLATE_BASE);
+        layers.push({ name: L, x: Math.round((r[0] - PLATE_RECT[0]) * PLATE_BASE), y: Math.round((r[1] - PLATE_RECT[1]) * PLATE_BASE), w, h, svg: plateMarkup(r, w, h, false, false, L) });
+      }
+      return { W, H, plate, layers };
+    },
+    veinsCheck(compositeOnly = false) {
       if (!veins || veins.lost || !vLook || !F) return null;
       const now = veins.snapshot();
+      // (compositeOnly: the picture composited again whole from the same vessel layer and look, as a partial composite stands in for.)
+      if (compositeOnly) { veins.composite(vLook, bloodLook(), true); return { now, whole: veins.snapshot() }; }
       veinsDirty = true; drawVeins();
       return { now, whole: veins.snapshot() };
     },
-    cameraZoom: () => ((diveT <= 0 || diveT >= 1) && !chainOut && !lz?.sinBusy() ? null : (refreshCTM(), Math.log(CTM.sc) + diveZ + lz.sinZoom() + zShift)),
+    cameraZoom: () => ((diveT <= 0 || diveT >= 1) && !lz?.sinBusy() ? null : (refreshCTM(), Math.log(CTM.sc) + diveZ + lz.sinZoom() + zShift)),
     /** The next way out of the lobule lands on this box of the plate (or the fit, for null or 'fit'): one zoom, no stop between. */
-    riseTo, holdHome,
+    riseTo, holdHome, prepRise, riseReady,
+    /** The camera is about to glide only to refit the figure to cards that changed (the same slide): a probe showing rides that glide out, never hides. */
+    carryProbe() { dpr.refitUntil = performance.now() + 300; },
     fitSlow(ms = 1300) { if (lobuleOn) return; const to = defaultVT(morphTarget === 1); if (morphTarget !== 1) homeAt = to; fitted = true; if (!sameView(to, vtGliding ? vtTarget : vt)) animateVT(to, ms); },
     /** The anatomy/circuit camera (where it is headed, if gliding), and a glide back to one saved earlier (the presenter puts the view back). */
     cameraState: () => ({ ...(vtGliding && vtTarget ? vtTarget : vt) }),
@@ -8327,9 +10595,11 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     /** The presenter's camera in the lobule: the whole lobule ('fit'), a portal tract ('triad'), the sinusoids ('sinusoid') or the central vein ('central'). */
     lobuleFocus: (part, opts) => !!lz?.focusOn(part, opts),
     /** Where the presenter's next lobule framing will be, so a dive lands on it in one move (see lobule-zoom aim). */
-    lobuleAim: (part, opts) => lz?.aim(part, opts),
+    lobuleAim: (part, opts) => { if (lz) lz.aim(part, opts); else { aimWait = [part, opts]; lobuleReady().catch(() => {}); } },
+    /** The way out of the lobule begins (true: its framing stays in the space the leaving slide's cards left) or is called off (false). */
+    lobuleHold: (on) => lz?.holdFrame(on),
     /** The dive into the lobule (or back out) has finished: the view is wholly the lobule, or wholly the anatomy. */
-    lobuleSettled: () => !chainOut && !(lz?.sinBusy()) && (lobuleOn ? diveT >= 1 : diveT <= 0),
+    lobuleSettled: () => !(lz?.sinBusy()) && (lobuleOn ? diveT >= 1 : diveT <= 0),
     /** From the anatomy to the sinusoid view in two zooms: into the lobule's normal framing, then into the sinusoid. In the lobule already, just the sinusoid. */
     async diveToSinusoid() {
       if (!lobuleOn && diveT === 0 && morphTarget === 0 && !reduceMotion.matches) {

@@ -39,7 +39,10 @@ export function netChanged(records) {
 export const PLACE_ATTRS = ['class', 'hidden', 'style', 'data-safe', 'data-safe-pad', 'data-safe-rest', 'data-full-h', 'data-folding', 'open'];
 // The pieces watched: what the home framing (data-safe, the zoom pill), the labels (stage blockers, the slide's glass) and the
 // corner credit (its obstacles) measure. (Base selectors, without a state like :not([hidden]): a piece leaving that state counts.)
-export const PLACED = '[data-safe], .stage-blocker, .pz-shade, #zoomPill, .pz-fk, .stage-clock, .menu, .umenu, .why-pop, .modal-back, .home, .scan-probe, .pz-prog, #topbar, #vdock';
+// Transition properties that paint without moving a box; and ones that do not move the box of a piece they run inside of.
+export const PAINT_ONLY = new Set(['color', 'background-color', 'background', 'border-color', 'outline-color', 'box-shadow', 'text-shadow', 'fill', 'stroke', 'filter', 'backdrop-filter']);
+export const INNER_FREE = new Set(['transform', 'translate', 'rotate', 'scale', 'opacity', 'visibility']);
+export const PLACED = '[data-safe], .stage-blocker, .pz-shade, #zoomPill, .pz-fk, .stage-clock, .menu, .umenu, .why-pop, .modal-back, .home, .scan-probe, .dop-probe, .pz-prog, #topbar, #vdock';
 
 /**
  * A watch over what measured layout depends on, so a check that reads boxes (forcing a layout in the middle of the model's
@@ -80,7 +83,18 @@ export function createLayoutWatch({ root, exclude = inSvg, settle = 2500, now = 
   }
   if (root && pageMO) pageMO.observe(root, { subtree: true, childList: true, attributes: true, attributeOldValue: true, attributeFilter: PLACE_ATTRS });
   resync();
-  const onMotion = (e) => { const t = e.target; if (t?.nodeType === 1 && !exclude(t) && (places(t) || t.closest?.(sel))) touch(); };
+  // A transition that paints without moving anything (a colour, a shadow) never changes a box; nor does a transform or a fade
+  // on something inside a placed piece (a transform moves no layout, and the piece's own box is what is measured). A teaching
+  // card's lapse bar scales its fill every few seconds, which kept the cards' boxes read ten times a second through a whole
+  // slide (Doppler of the portal system 5/13, 22 Oct).
+  const onMotion = (e) => {
+    const t = e.target;
+    if (t?.nodeType !== 1 || exclude(t)) return;
+    const own = places(t), prop = e.propertyName;
+    if (!own && !t.closest?.(sel)) return;
+    if (prop && (PAINT_ONLY.has(prop) || (!own && INNER_FREE.has(prop)))) return;
+    touch();
+  };
   const motion = ['transitionrun', 'transitionend', 'transitioncancel', 'animationstart', 'animationend', 'animationcancel'];
   const doc = root?.ownerDocument || root;
   if (doc?.addEventListener) for (const t of motion) doc.addEventListener(t, onMotion, true);

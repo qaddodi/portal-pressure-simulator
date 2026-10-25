@@ -6,7 +6,17 @@
 // only close the systemic loop (aorta, limb and head vessels, the right kidney) are part of
 // the model but are not drawn.
 
+import { COLON_D, COLON_RING, BOWEL_RING, DUO_D } from './organ-art.js?v=a6a766d521';
+import { gutPath, gutY } from './gut-proportions.js?v=1ecbf3debd';
+
 export const VIEW = { w: 1400, h: 1000 };
+// Where the rectum's end fades away (y: clear above the first, gone at the second): the colon's mask (stage.js rectFade) and the
+// outlines and glows drawn over it (veins-gl.js endFade) use the same span. The colon art is clipped by the drawn outline (oc-his),
+// which originally ended at y 1037 with its lower left corner up at 1017, so the fade was gone by 1015: any later and the art's own
+// clipped end showed as a hard edge, at about half strength (22 Oct). It starts at the sigmoid's bend into the rectum (Mohammad, 22 Oct:
+// "make the fade wider, start earlier, ends same place"): the rectal veins (C4, ending at 928) are drawn over the fading organ.
+// Both ends follow the lower gut's stretch (22 Oct), preserving the fade's position on the tissue and its soft end.
+export const RECTUM_FADE = [902, 1048];
 export const VB_ANAT = [300, 0, 820, 920];
 export const VB_CIRC = [30, 30, 1360, 730];
 // World x of the margins the atlas labels hang from (left, right).
@@ -174,8 +184,10 @@ export const EDGE_PATH = {
   // the left renal vein.
   C5: 'M876 302 C 868 314 854 336 852 380 C 850 460 852 560 858 596 C 860 606 861 612 862 618',
   // The splenorenal shunts leave the splenic vein halfway between the spleen and the IMV junction (SVD)
-  // and drop to the renal vein just below, right of the IMV, so they never cross it.
-  C6: 'M962 448 C 966 500 968 566 962 614',
+  // and drop to the renal vein just below, right of the IMV, so they never cross it. They bow left, clear of the
+  // descending colon (which had run alongside, touching, and read as a huge outline round the shunt), and ease into
+  // the renal vein heading the way it flows, toward the cava, instead of meeting it at a right angle. They end just short of its centreline (fork-joins.js sideEndScale).
+  C6: 'M962 448 C 958 490 948 536 954 576 C 958 600 960 612 953 618',
   // The retroperitoneal collateral leaves the SMV well below the mesocaval origin, on the lower trunk,
   // and runs across to the cava lower down (see STRANDS for its small veins).
   C7: 'M738 755 C 706 756 664 748 620 745',
@@ -192,7 +204,7 @@ export const EDGE_PATH = {
   // confluence. It stops at the IVC's left wall (x 609) and does not run along the cava or enter its lumen.
   DIPS: 'M602 442 C 582 392 595 318 620 302',
   S_PC: 'M700 556 C 682 590 652 625 620 650',
-  S_DSR: 'M962 448 C 958 500 956 566 962 614',
+  S_DSR: 'M962 448 C 958 490 948 536 954 576 C 958 600 960 612 953 618',
   S_MC: 'M690 660 C 672 650 645 648 620 650',
 };
 
@@ -409,34 +421,43 @@ export const LABEL_VESSEL = {
 // organs are drawn to sit around it. `band` shapes are stroked tubes; `deco` shapes are line work
 // only; `noCover` shapes never hide the flow marks of vessels behind them.
 export const ORGANS = [
-  { id: 'kidney-l', tone: 'kidney', cls: 'org org-kidney', d: 'M1002 556 C 1040 548 1066 584 1064 626 C 1062 672 1034 700 1000 694 C 982 690 984 668 994 654 C 1000 642 998 630 990 620 C 984 606 978 574 1002 556 Z' },
   { id: 'esophagus', tone: 'eso', cls: 'org org-eso', d: 'M775 -90 L 799 -90 L 798 0 C 800 90 805 190 813 251 L 792 251 C 787 190 781 90 776 0 Z' },
-  { id: 'heart', tone: 'heart', cls: 'org org-heart', d: 'M618 64 C 607 88 606 128 611 158 C 616 184 632 194 658 194 C 695 194 731 188 753 172 C 762 165 762 150 755 140 C 738 110 716 80 691 64 C 669 51 637 50 618 64 Z' },
+  { id: 'heart', tone: 'heart', cls: 'org org-heart', d: 'M618 47 C 607 71 606 111 611 141 C 616 167 632 177 658 177 C 695 177 731 171 753 155 C 762 148 762 133 755 123 C 738 93 716 63 691 47 C 669 34 637 33 618 47 Z' },
   // The right atrium: the chamber on the heart's right border (the viewer's left) that both cavae
   // empty into (the SVC at its top, the IVC at its bottom), bulging a little past the ventricles' outline as
   // the right heart border does; a smooth, rounded chamber smaller than the right ventricle.
   // Presenter slides and the RA station point at it, not at the cava running into it.
-  { id: 'heart-ra', tone: 'ra', cls: 'org org-ra', d: 'M622 60 C 608 68 601 90 601 116 C 601 142 609 162 622 170 C 634 174 643 162 645 146 C 648 122 647 92 641 74 C 637 62 630 57 622 60 Z' },
-  { id: 'heart-grooves', cls: 'org-heart-groove', deco: true, d: 'M691 64 C 700 108 722 152 751 176 M648 64 C 658 102 660 150 655 193' },
-  { id: 'heart-out', cls: 'org-heart-flow', deco: true, d: 'M647 118 C 663 112 679 114 695 126' },
-  { id: 'appendix', tone: 'gut', cls: 'org-appendix', band: true, d: 'M420 906 C 418 924 428 938 448 940' },
-  { id: 'bowel', tone: 'gut', cls: 'org-bowel', band: true, d: 'M604 722 C 650 706 700 714 742 722 C 786 730 830 712 872 724 C 904 734 906 764 878 772 C 840 782 800 764 760 770 C 716 776 684 790 646 782 C 610 774 590 790 598 808 C 606 826 640 830 676 824 C 720 816 760 834 800 830 C 846 826 884 812 906 826 C 928 842 918 870 888 874 C 846 880 810 862 764 868 C 716 874 680 888 630 880 C 580 872 540 860 500 862 C 470 864 446 870 424 874' },
-  { id: 'colon', tone: 'gut', cls: 'org-colon', band: true, d: 'M424 900 C 420 880 414 864 410 846 C 402 808 398 764 400 704 C 402 646 412 596 438 568 C 472 556 506 588 544 628 C 592 678 650 700 720 700 C 800 700 870 660 916 600 C 946 560 970 510 984 468 C 992 560 988 700 972 790 C 962 848 924 880 868 892 C 838 898 812 902 788 906' },
+  { id: 'heart-ra', tone: 'ra', cls: 'org org-ra', d: 'M622 43 C 608 51 601 73 601 99 C 601 125 609 145 622 153 C 634 157 643 145 645 129 C 648 105 647 75 641 57 C 637 45 630 40 622 43 Z' },
+  { id: 'heart-grooves', cls: 'org-heart-groove', deco: true, d: 'M691 47 C 700 91 722 135 751 159 M648 47 C 658 85 660 133 655 176' },
+  // The gut (Mohammad's picks in the organ mock-ups, 20 Oct; drawn from organ-art.js, made by scripts/organ-art.mjs): the
+  // folded colon (three limbs, the transverse colon in front at both flexures), the small bowel as a pile of loops with a
+  // few more in the gap by the kidney, and the duodenum's round C, which lies behind the bowel and the transverse colon.
+  // The three are drawn in one see-through group, cut away under the liver, stomach, spleen and kidney (stage.js). `art`:
+  // drawn from that markup; `ring`: the visible outline a highlight draws; `cover`: the shape the vessels behind fade under
+  // (the tubes' earlier centre lines and widths, so the vessel tiers keep their look).
+  { id: 'appendix', tone: 'gut', cls: 'org-appendix', band: true, d: gutPath('M473 916.2 C 479 939.5 491 957.5 509 963.9 C 519 967 527 963.9 531 957.5') },
+  { id: 'bowel', tone: 'gut', cls: 'org-bowel', art: 'bowel', d: BOWEL_RING, cover: { d: gutPath('M604 729.3 C 650 712.4 700 720.8 742 729.3 C 786 737.8 830 718.7 872 731.4 C 904 742 906 773.8 878 782.3 C 840 792.9 800 773.8 760 780.2 C 716 786.6 684 801.4 646 792.9 C 610 784.4 590 801.4 598 820.5 C 606 839.6 640 843.8 676 837.4 C 720 829 760 848 800 843.8 C 846 839.6 884 824.7 906 839.6 C 928 856.5 918 886.2 888 890.4 C 846 896.8 810 877.7 764 884.1 C 716 890.4 680 905.3 630 896.8 C 580 888.3 540 875.6 500 877.7 C 470 879.8 446 886.2 424 890.4'), w: 19 } },
+  { id: 'duodenum', tone: 'stomach', cls: 'org-duodenum', art: 'duodenum', band: true, ringW: 26, d: DUO_D, cover: { d: 'M726 514 C 690 506 652 526 644 566 C 636 612 650 650 688 668 C 724 684 772 680 806 664', w: 19 } },
+  { id: 'colon', tone: 'gut', cls: 'org-colon', art: 'colon', band: true, d: COLON_D, ring: COLON_RING, cover: { d: gutPath('M460 920.4 C 457 899.2 451 882.2 448 863.2 C 440 822.9 437 776.2 439 712.6 C 440 651.2 449 598.2 473 568.5 C 503 555.8 534 589.7 568 632.1 C 611 685.1 664 708.4 727 708.4 C 799 708.4 862 666 903 602.4 C 930 560 952 507 964 462.5 C 971 560 968 708.4 953 803.8 C 944 865.3 910 899.2 860 911.9 C 833 918.3 809 922.5 788 926.8'), w: 25 } },
+  { id: 'kidney-l', tone: 'kidney', cls: 'org org-kidney', d: 'M1002 556 C 1040 548 1066 584 1064 626 C 1062 672 1034 700 1000 694 C 982 690 984 668 994 654 C 1000 642 998 630 990 620 C 984 606 978 574 1002 556 Z' },
   { id: 'spleen', tone: 'spleen', cls: 'org org-spleen', d: 'M1030 266 C 1072 264 1100 300 1104 352 C 1108 408 1082 452 1040 462 C 1018 466 1002 456 1004 440 C 1006 426 1016 414 1017 400 C 1018 390 1014 382 1016 372 C 1018 358 1018 342 1013 328 C 1008 314 1006 300 1008 288 C 1010 274 1018 267 1030 266 Z' },
-  { id: 'duodenum', tone: 'stomach', cls: 'org-duodenum', band: true, d: 'M726 514 C 690 506 652 526 644 566 C 636 612 650 650 688 668 C 724 684 772 680 806 664' },
   { id: 'stomach', tone: 'stomach', cls: 'org org-stomach', d: 'M813 249 C 818 257 828 253 840 247 C 850 242 859 241 868 242 C 910 238 948 260 966 296 C 984 332 990 380 984 424 C 976 480 940 524 886 546 C 846 562 796 566 756 552 C 738 546 724 536 714 522 L 708 508 C 712 498 722 494 734 494 C 764 494 794 484 812 462 C 822 450 828 436 830 420 C 834 392 830 350 822 320 C 815 298 800 276 792 249 Z' },
-  { id: 'liver', tone: 'liver', cls: 'org org-liver', d: 'M858 250 C 832 236 798 226 748 212 C 700 196 650 188 620 187 C 560 184 470 178 404 188 C 358 196 330 220 322 262 C 316 312 318 382 330 432 C 338 466 356 490 388 498 C 432 505 492 494 540 480 C 575 470 602 459 630 446 C 644 440 650 436 653 431 C 656 435 661 437 667 433 C 724 398 790 340 846 292 C 864 277 873 259 858 250 Z' },
+  { id: 'liver', tone: 'liver', cls: 'org org-liver', d: 'M827.6 265 C 826.4 262.5 824.9 260.1 823.1 257.9 C 821.1 255.4 818.8 253.2 816.4 251 C 813.7 248.6 810.8 246.4 807.9 244.3 C 804.7 242 801.4 239.9 798 237.8 C 794.5 235.7 790.9 233.7 787.2 231.7 C 783.4 229.8 779.5 227.9 775.6 226.1 C 771.7 224.3 767.6 222.5 763.6 220.9 C 759.5 219.2 755.4 217.7 751.2 216.2 C 747 214.7 742.8 213.3 738.6 212 C 734.3 210.6 730 209.2 725.7 208 C 721.1 206.7 716.5 205.4 711.9 204.3 C 707 203.1 702 202 697 200.9 C 691.8 199.9 686.6 198.9 681.3 198 C 675.9 197.1 670.5 196.3 665.1 195.5 C 659.5 194.8 654 194.1 648.4 193.5 C 642.8 192.8 637.2 192.3 631.6 191.8 C 626 191.3 620.4 190.9 614.9 190.6 C 609.4 190.2 604 189.9 598.6 189.7 C 593.4 189.4 588.3 189.2 583.1 189.1 C 578.3 188.9 573.4 188.8 568.6 188.7 C 564.2 188.6 559.7 188.6 555.3 188.5 C 551.3 188.5 547.3 188.5 543.2 188.5 C 539.6 188.5 536 188.5 532.4 188.5 C 529.1 188.6 525.9 188.6 522.6 188.6 C 519.6 188.7 516.7 188.7 513.7 188.8 C 511 188.8 508.2 188.9 505.5 189 C 503 189.1 500.4 189.1 497.8 189.3 C 495.4 189.4 493 189.5 490.5 189.7 C 488.2 189.9 485.8 190 483.4 190.3 C 481.1 190.6 478.7 190.8 476.3 191.2 C 474 191.6 471.6 192 469.2 192.5 C 466.8 193.1 464.3 193.7 461.9 194.3 C 459.4 195.1 456.9 195.9 454.4 196.7 C 451.8 197.7 449.2 198.7 446.7 199.8 C 444 201 441.3 202.3 438.7 203.7 C 435.9 205.2 433.1 206.8 430.5 208.5 C 427.7 210.2 425 212 422.4 214 C 419.7 216 417.1 218 414.6 220.2 C 412.1 222.5 409.6 224.8 407.3 227.3 C 404.9 229.8 402.7 232.4 400.6 235.1 C 398.4 237.8 396.4 240.7 394.5 243.6 C 392.6 246.6 390.8 249.7 389.2 252.9 C 387.6 256.2 386.1 259.6 384.7 263 C 383.3 266.5 382.1 270.1 381.1 273.8 C 380 277.6 379.1 281.5 378.3 285.4 C 377.5 289.5 376.8 293.7 376.3 297.8 C 375.8 302.2 375.4 306.6 375.2 311 C 374.9 315.6 374.8 320.2 374.8 324.8 C 374.7 329.6 374.9 334.4 375.1 339.2 C 375.3 344.2 375.6 349.2 376 354.1 C 376.5 359.2 377 364.3 377.6 369.4 C 378.2 374.5 378.9 379.6 379.7 384.7 C 380.5 389.8 381.4 394.9 382.4 400 C 383.3 405 384.4 409.9 385.3 414.9 C 386.3 419.7 387.1 424.5 388 429.4 C 388.9 434 389.7 438.7 390.6 443.3 C 391.5 447.7 392.4 452.1 393.4 456.4 C 394.4 460.5 395.4 464.5 396.6 468.5 C 397.8 472.2 399 475.9 400.5 479.5 C 401.8 482.8 403.3 486 405 489.1 C 406.6 492 408.4 494.8 410.4 497.4 C 412.2 499.9 414.3 502.2 416.5 504.3 C 418.7 506.4 421 508.3 423.5 510.1 C 425.9 511.7 428.5 513.2 431.1 514.5 C 433.7 515.8 436.4 516.9 439.2 517.7 C 441.9 518.6 444.7 519.2 447.5 519.7 C 450.2 520.1 453 520.3 455.8 520.4 C 458.5 520.4 461.2 520.3 464 520 C 466.7 519.7 469.4 519.2 472.1 518.6 C 474.9 518 477.7 517.3 480.4 516.4 C 483.3 515.6 486.2 514.5 489 513.5 C 492.1 512.5 495.2 511.3 498.3 510.1 C 501.7 508.9 505.1 507.6 508.5 506.4 C 512.3 505 516 503.7 519.9 502.4 C 524.1 501.1 528.3 499.7 532.5 498.4 C 537.2 497.1 541.8 495.7 546.5 494.4 C 551.5 493 556.5 491.7 561.6 490.3 C 566.7 488.9 571.9 487.5 577 486 C 582 484.5 587 483 591.9 481.4 C 596.4 479.9 600.9 478.3 605.2 476.4 C 609.2 474.8 613.1 473 616.8 471 C 620.2 469.2 623.4 467.2 626.4 465 C 629.1 463.1 631.7 460.9 634.1 458.7 C 636.3 456.6 638.3 454.4 640.2 452.1 C 642 449.9 643.7 447.5 645.5 445.2 C 647.2 442.9 648.9 440.5 650.9 438.3 C 652.9 436.2 655 434.1 657.4 432.4 C 659.9 430.6 662.7 429.2 665.6 428 C 668.7 426.6 672.1 425.7 675.3 424.6 C 678.9 423.4 682.5 422.4 686 421.1 C 689.7 419.6 693.5 417.9 697 416 C 700.9 413.9 704.5 411.6 708.1 409.1 C 711.9 406.4 715.5 403.4 719.1 400.4 C 722.9 397.2 726.6 393.9 730.2 390.6 C 734 387.1 737.7 383.5 741.4 379.9 C 745.3 376.2 749 372.5 752.8 368.8 C 756.6 365.1 760.4 361.3 764.2 357.6 C 767.9 353.8 771.6 350.1 775.4 346.4 C 779.1 342.8 782.8 339.3 786.4 335.6 C 789.9 332.2 793.4 328.7 796.7 325.2 C 799.9 321.8 803.1 318.5 806.1 315 C 808.9 311.9 811.7 308.6 814.3 305.3 C 816.7 302.4 819 299.4 821.1 296.2 C 822.9 293.5 824.7 290.7 826.1 287.7 C 827.3 285.2 828.4 282.5 829 279.8 C 829.6 277.3 829.8 274.8 829.6 272.3 C 829.4 269.8 828.6 267.3 827.6 265 Z' },
   // Cantlie's line (gallbladder fossa to the IVC) and the falciform ligament: the lobes as a
   // surgeon reads them.
-  { id: 'falciform', cls: 'org-lobe-line', deco: true, d: 'M657 434 C 652 370 646 290 642 190' },
+  { id: 'falciform', cls: 'org-lobe-line', deco: true, d: 'M654 430 C 650 375 654 305.3 648 207.6' },
   { id: 'umbilicus', cls: 'org-umbilicus', circle: [500, 800, 5] },
 ];
+// The esophagus and stomach drawn as one shape (organ mock-ups, 20 Oct: "the esophagus connection to the stomach should be
+// seamless"): the esophagus's edges run into the cardia and the angle of His with no seam across. The organs keep their own
+// outlines above (highlights, the diaphragm's cut); the stage paints this one.
+export const SEAM_D = 'M775 -90 L 799 -90 L 798 0 C 800 90 805 190 811 238 C 813 250 822 256 840 247 C 850 242 859 241 868 242 C 910 238 948 260 966 296 C 984 332 990 380 984 424 C 976 480 940 524 886 546 C 846 562 796 566 756 552 C 738 546 724 536 714 522 L 708 508 C 712 498 722 494 734 494 C 764 494 794 484 812 462 C 822 450 828 436 830 420 C 834 392 830 350 822 320 C 815 298 804 282 798 268 C 793 256 790 244 788 222 C 785 160 781 90 776 0 Z';
 // Surface anatomy drawn inside each organ (clipped to it), as a medical plate shows it:
 // fissures and ligaments, rugae, hilum, lobulation. Classes: fine (hairline in the organ's
 // outline tone), soft (a broader, fainter fold), sheen (a light reflection on a curved surface).
 export const ORGAN_DETAIL = {
   liver: [
-    ['fine', 'M657 434 C 652 370 646 290 642 190'],
+    ['fine', 'M654 430 C 650 375 654 305.3 648 207.6'],
   ],
   stomach: [
     ['fold', 'M858 300 C 884 330 894 372 890 418 C 887 452 872 484 846 508'],
@@ -448,7 +469,7 @@ export const ORGAN_DETAIL = {
   ],
   spleen: [['fine', 'M1026 334 C 1034 352 1034 374 1026 396']],
   'kidney-l': [['fine', 'M996 628 C 1010 624 1020 632 1022 644']],
-  heart: [['fine', 'M691 64 C 700 108 722 152 751 176']],
+  heart: [['fine', 'M691 47 C 700 91 722 135 751 159']],
 };
 // Background plane (anatomic view): the posterior wall the organs sit against, drawn quietly
 // so the plate reads in depth. The diaphragm is one muscle sheet a little above the organs: a higher
@@ -513,8 +534,8 @@ export const SITES = {
 
 // Organ captions: [text, x, y, anchor]
 export const ORGAN_LABELS = [
-  ['Liver', 404, 446], ['Stomach', 918, 432], ['Spleen', 1058, 482], ['Colon', 1016, 824], ['Kidney', 1030, 716],
-  ['Small bowel', 866, 752], ['Esophagus', 860, 40], ['Right atrium', 532, 118],
+  ['Liver', 455, 432], ['Stomach', 918, 432], ['Spleen', 1066, 250], ['Colon', 960, gutY(846)], ['Kidney', 978, 716],
+  ['Small bowel', 820, gutY(800)], ['Esophagus', 860, 40], ['Right atrium', 532, 118],
 ];
 
 // Atlas labels: node → caption and which margin column it hangs from.

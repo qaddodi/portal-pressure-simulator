@@ -2,10 +2,11 @@
 // Each factor that differs from the healthy state is reverted in isolation on a scratch engine;
 // its contribution is (current − reverted). Contributions are approximate: they need not sum exactly.
 
-import { Engine } from './engine.js?v=fb8ce7b2ed';
-import { computeMetrics } from './metrics.js?v=e566c70621';
-import { defaultParams, DRUGS } from './scenario.js?v=1ee7733788';
+import { Engine } from './engine.js?v=40556d7cd0';
+import { computeMetrics } from './metrics.js?v=1db0ad7ab0';
+import { defaultParams, DRUGS } from './scenario.js?v=d7d3ea5b70';
 import { EDGES, dMinOf } from './topology.js?v=4044766e96';
+import { wallRead } from './wall-read.js?v=09449acd01';
 
 export const METRICS = {
   pv: { label: 'Portal pressure', unit: 'mmHg', get: (m) => m.pv, digits: 1 },
@@ -20,7 +21,7 @@ export const METRICS = {
   hb: { label: 'Hemoglobin', unit: 'g/dL', get: (m) => m.blood.hb, digits: 1 },
   hr: { label: 'Heart rate', unit: '/min', get: (m) => m.hr, digits: 0 },
   shunt: { label: 'Shunt fraction', unit: '%', get: (m) => m.shuntFraction * 100, digits: 0 },
-  varix: { label: 'Varix wall stress (model)', unit: '% of rupture', get: (m) => m.varix.ratio * 100, digits: 0 },
+  varix: { label: 'Varix wall stress (model)', unit: '% of rupture', get: (m) => m.varix.ratioShown * 100, digits: 0 },
   ascites: { label: 'Ascites formation', unit: 'mL/day', get: (m) => m.ascites.ratePerDay, digits: 0 },
   ra: { label: 'Right atrial pressure', unit: 'mmHg', get: (m) => m.ra, digits: 1 },
   map: { label: 'Mean arterial pressure', unit: 'mmHg', get: (m) => m.map, digits: 0 },
@@ -48,6 +49,7 @@ function factors(eng, metricId) {
   for (const [id, v] of Object.entries(p.thrombus)) if (v > 0) add(`Clot in ${edgeLabel(id)} ${Math.round(v * 100)} %`, `the clot in the ${lc(edgeLabel(id))}`, (e) => { delete e.params.thrombus[id]; });
   if (p.splenicRx) add(p.splenicRx === 2 ? 'Splenectomy' : 'Partial splenic embolization', p.splenicRx === 2 ? 'the splenectomy' : 'the partial splenic embolization', (e) => { e.params.splenicRx = 0; });
   if (p.splanchnicTone !== 1) add(p.splanchnicTone < 1 ? 'Splanchnic vasodilation, set' : 'Splanchnic vasoconstriction, set', p.splanchnicTone < 1 ? 'the splanchnic vasodilation you set' : 'the splanchnic vasoconstriction you set', (e) => { e.params.splanchnicTone = 1; });
+  if (p.meal > 0) add('Splanchnic vasodilation after a meal', 'the meal', (e) => { e.params.meal = 0; });
   if (Math.abs(s.splTone - 1) > 0.01) add('Chronic splanchnic vasodilation', 'the chronic splanchnic vasodilation', (e) => { e.slow.splTone = 1; });
   if (p.systemicTone !== 1) add('Systemic arteriolar tone', 'the systemic arteriolar tone', (e) => { e.params.systemicTone = 1; });
   if (p.contractility !== 1) add('Right-heart contractility', 'the right-heart contractility', (e) => { e.params.contractility = 1; });
@@ -164,7 +166,8 @@ export function formula(eng, id, m = null) {
   }
   if (id === 'varix') {
     const v = eng.varix('VAR');
-    return `Laplace: T = ΔP·r / w = ${v.ptm.toFixed(1)} mmHg × ${v.r.toFixed(2)} mm / ${v.w.toFixed(2)} mm = ${v.T.toFixed(0)}  (rupture ≈ ${(v.T / v.ratio).toFixed(0)})`;
+    const t = wallRead(v);
+    return `Laplace: T = ΔP·r / w = ${t.ptm} mmHg × ${t.r} mm / ${t.w} mm = ${t.index}  (rupture ≈ ${(v.T / v.ratio).toFixed(0)})`;
   }
   if (id === 'ascites') {
     const f = eng.flows;

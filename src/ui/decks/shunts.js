@@ -20,7 +20,7 @@ export const SHUNTS = {
   summary: 'Spontaneous portosystemic shunts, TIPS, the Warren shunt, and what closing a shunt does. Ends with a comparison of gradient, liver flow and encephalopathy risk.',
   slides: [
     {
-      id: 'own', lens: 'flow', preset: 'cirr-decomp', cam: 'fit', sites: ['split'], glow: ['C1a', 'C1b', 'C3'], data: 'tiles', tiles: ['ppg', 'shunt', 'liver'],
+      id: 'own', lens: 'flow', preset: 'cirr-decomp', cam: 'fit', sites: ['split'], glow: ['C1a', 'C1b', 'C3'], tool: { kind: 'flows' }, data: 'tiles', tiles: ['ppg', 'liver'],
       kicker: 'Shunts', site: 'sin', title: 'Spontaneous collaterals',
       vignette: 'A 56-year-old man with alcohol-associated cirrhosis has ascites despite spironolactone and furosemide, and large esophageal varices. His platelets are 57,000/µL.',
       eq: [frac('<mn>1</mn>', sub(mi('R'), 'total')) + mo('=') + frac('<mn>1</mn>', sub(mi('R'), 'liver')) + mo('+') + frac('<mn>1</mn>', sub(mi('R'), 'shunt')), 'R resistance to portal flow · the liver and the shunt in parallel'],
@@ -29,7 +29,7 @@ export const SHUNTS = {
       ask: ['Why do collaterals fail to bring the portal pressure down?', 'Portal inflow rises as they open, and they are not wide enough to carry it all at a low gradient.'],
     },
     {
-      id: 'grs', lens: 'flow', terms: ['gv', 'lrv'], preset: 'gastric-varix', cam: 'fundus', mark: { edges: ['C5'], label: 'Gastrorenal shunt', kind: 'note' }, data: 'tiles', tiles: ['gv', 'ppg'],
+      id: 'grs', lens: 'flow', terms: ['gv', 'lrv'], preset: 'gastric-varix', cam: 'fundus', spot: ['@gastrorenal'], mark: { edges: ['C5'], label: 'Gastrorenal shunt', kind: 'note' }, tool: { kind: 'flows' }, data: 'tiles', tiles: ['gv', 'ppg'],
       kicker: 'Spontaneous', site: 'sin', title: 'Gastrorenal shunt',
       vignette: 'A 63-year-old man with hepatitis C cirrhosis has a large fundal varix on surveillance EGD. He has never bled, and his albumin is 3.0 g/dL.',
       line: 'Fundal varices drain through the gastrorenal shunt to the left renal vein. Colored by flow, the shunt carries much of the splenic blood.',
@@ -38,7 +38,7 @@ export const SHUNTS = {
     },
     {
       id: 'srs', lens: 'direction', preset: 'cirr-decomp', params: { spontaneous: { C6: true } }, days: 30, cam: 'splenic', mark: { edges: ['C6'], label: 'Splenorenal shunt', kind: 'note' },
-      data: 'tiles', tiles: ['ppg', 'shunt', 'liver'], delta: 'own',
+      tool: { kind: 'flows' }, data: 'tiles', tiles: ['ppg', 'liver'], delta: 'own',
       kicker: 'Spontaneous', site: 'sin', title: 'Splenorenal shunt',
       vignette: 'A 64-year-old woman with MASH cirrhosis has had repeated bouts of confusion despite lactulose and rifaximin. Her ascites has gone, and EGD shows no varices.',
       line: 'A large spontaneous shunt lowers the gradient but diverts portal blood from the liver. Portal flow may reverse. Colored by direction, the portal and splenic veins reverse toward the shunt.',
@@ -46,7 +46,7 @@ export const SHUNTS = {
       ask: ['A patient with cirrhosis has recurrent encephalopathy despite lactulose and rifaximin. What should you look for?', 'A large spontaneous portosystemic shunt, such as a splenorenal shunt, on CT.'],
     },
     {
-      id: 'tips', terms: ['pv', 'hv'], preset: 'cirr-decomp', params: { tips: { on: true, d: 8 } }, whatIf: { label: 'Stent width', param: 'tips.d', min: 6, max: 12, step: 1, unit: 'mm' }, cam: 'liver', sites: ['split'], mark: { edges: ['TIPS'], label: 'Covered stent', kind: 'treat' },
+      id: 'tips', terms: ['pv', 'hv'], preset: 'cirr-decomp', params: { tips: { on: true, d: 8 } }, whatIf: { label: 'Stent width', param: 'tips.d', min: 6, max: 12, step: 1, unit: 'mm' }, cam: 'liver', sites: ['split'], mark: { edges: ['TIPS'], label: 'Covered stent', kind: 'treat' }, calipers: ['TIPS'], spot: ['TIPS', 'PV_TRUNK', 'PVH_R', 'RHV_IVC'],
       tool: { kind: 'doppler', vessel: 'TIPS' }, data: 'tiles', tiles: ['ppg', 'shunt', 'liver'], delta: 'own',
       kicker: 'Placed shunts', site: 'sin', title: 'TIPS',
       line: 'A covered stent, 8 to 10 mm, from a hepatic vein to the portal vein. The PPG falls to {ppg}, below 12 mmHg.',
@@ -54,9 +54,11 @@ export const SHUNTS = {
       ask: ['What does Doppler show in a working TIPS?', 'Steady flow toward the heart along the whole stent, at a velocity close to the last scan.'],
     },
     {
-      id: 'wide', lens: 'flow', params: { tips: { d: 12 } }, cam: 'liver', sites: ['split'], mark: { edges: ['TIPS'], label: 'Stent at 12 mm', kind: 'treat' }, data: 'tiles', tiles: ['ppg', 'liver'],
+      id: 'wide', params: { tips: { d: 12 } }, whatIf: { label: 'Stent width', param: 'tips.d', min: 6, max: 12, step: 1, unit: 'mm' }, cam: 'liver', sites: ['split'], mark: { edges: ['TIPS'], label: 'Stent at 12 mm', kind: 'treat' },
+      tool: { kind: 'curve', param: 'tips.d', from: 6, to: 12, step: 1, lines: ['ppg', 'liver'] }, data: 'tiles', tiles: ['ppg', 'liver'],
+      cite: 'Baveno VIII 6.5',
       kicker: 'Placed shunts', site: 'sin', title: 'A 12 mm stent diverts too much portal flow',
-      line: 'The gradient falls further, but the liver loses more portal blood; encephalopathy is more common, and liver failure is a risk when reserve is poor. Many centers use 8 mm stents. Colored by flow, the stent dwarfs the sinusoids.',
+      line: 'The gradient falls further, but the liver loses more portal blood; encephalopathy is more common, and liver failure is a risk when reserve is poor. Many centers use 8 mm stents. Along the curve, each extra millimeter lowers the PPG a little less.',
       notes: 'The same patient with the stent opened to 12 mm. The gradient falls further, but the liver loses more of its portal blood. Encephalopathy after TIPS is commoner with wider stents, older age and earlier encephalopathy; liver failure is the feared complication when reserve is poor. Many centers place an 8 mm stent, or a stent that is under-dilated and can be widened later if the gradient stays high. Persistent encephalopathy can be treated by narrowing the stent. Under-dilated standard stent grafts tend to widen partly toward their full size over about six months; controlled-expansion grafts are designed to hold the set width. On the figure, colored by flow, the stent carries far more blood than the sinusoids.',
       ask: ['Why are TIPS stents often left under-dilated?', 'To lower the gradient enough while keeping portal flow to the liver and the risk of encephalopathy down.'],
     },
@@ -77,12 +79,12 @@ export const SHUNTS = {
       ask: ['Why is the Warren shunt called selective?', 'It drains the varices through the spleen to the left renal vein, while SMV blood keeps perfusing the liver at portal pressure.'],
     },
     {
-      id: 'brto', lens: 'flow', terms: ['gv'], preset: 'gastric-varix', params: { occluded: { C5: true } }, cam: 'fundus', mark: { edges: ['C5'], label: 'Shunt closed', kind: 'treat' },
+      id: 'brto', lens: 'flow', terms: ['gv'], preset: 'gastric-varix', params: { occluded: { C5: true } }, cam: 'fundus', mark: { edges: ['C5'], label: 'Shunt closed', kind: 'treat' }, tool: { kind: 'flows' }, procedure: 'brto',
       compare: [{ label: 'Shunt open', params: { occluded: { C5: false } } }, { label: 'Shunt closed', own: true, params: { occluded: { C5: true } } }],
       data: 'tiles', tiles: ['pv', 'varix'], key: ['varix'], delta: 'grs',
       kicker: 'Closing a shunt', site: 'sin', title: 'BRTO closes the gastrorenal shunt',
       line: 'A balloon blocks the shunt, and sclerosant fills it and the fundal varices behind it, which thrombose. Portal blood now stays in the portal system, so pressure rises and esophageal varices grow. Colored by flow, the closed shunt is empty.',
-      notes: 'In balloon-occluded retrograde transvenous obliteration (BRTO), a balloon is inflated in the gastrorenal shunt from the left renal vein, and a sclerosant fills the shunt and the fundal varices behind it, which thrombose. It controls fundal variceal bleeding with little rebleeding. The portal blood that left by the shunt now stays in the portal system, so the portal pressure rises and esophageal varices and ascites can worsen; surveillance endoscopy follows, and some centers combine BRTO with TIPS. In the model the fundal varix keeps its size because the sclerosant is not modeled; only the pressure effect is shown. The tiles compare with the patient before the shunt was closed. On the figure, colored by flow, the closed shunt is empty and the portal vein carries more blood.',
+      notes: 'In balloon-occluded retrograde transvenous obliteration (BRTO), a balloon is inflated in the gastrorenal shunt from the left renal vein, and a sclerosant fills the shunt and the fundal varices behind it, which thrombose. It controls fundal variceal bleeding with little rebleeding. The portal blood that left by the shunt now stays in the portal system, so the portal pressure rises and esophageal varices and ascites can worsen; surveillance endoscopy follows, and some centers combine BRTO with TIPS. In the model, closing the shunt collapses the fundal varix to a resting vein, and the esophageal varix grows as the portal pressure rises. The tiles compare with the patient before the shunt was closed. On the figure, colored by flow, the closed shunt is empty and the portal vein carries more blood.',
       ask: ['What must you watch for after BRTO?', 'Worsening esophageal varices and ascites, from the rise in portal pressure.'],
     },
     {

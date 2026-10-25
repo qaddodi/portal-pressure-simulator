@@ -8,6 +8,8 @@
 //   tool: { kind: 'trace', range: 'talk' | 'beats' }
 //                                                   'talk' (default): portal, wedged and free hepatic pressures and the
 //                                                   HVPG at every slide so far, one point per state; 'beats': the live trace
+//   tool: { kind: 'trace', range: 'talk', since: '<slide id>' }
+//                                                   the talk trace from that slide on, its days counted from it (presenter.js chainTo)
 //   tool: { kind: 'abdomen' }                       the belly with its ascites and collaterals
 //   tool: { kind: 'wall' }                          the varix in cross-section, Laplace's T, r and w (the scope's Wall mechanics)
 //   tool: { kind: 'flowtime' }                      portal pressure and portal flow around a meal, the slide's time-lapse on a
@@ -16,20 +18,23 @@
 //                                                   the same chart over a disease time-lapse: two fingerprint keys
 //                                                   (flow-time.js LINE), one point a model day, drawn as it plays
 //
+// A kind a deck visuals package registers (slide-ext.js tools) is made, titled and shown the same way; built-in kinds win.
+//
 // Optional on any kind: title (the card's heading, in place of the kind's own). A slide may carry both data and tool:
 // the tool sits above the tiles. Each instrument is made once per presentation and kept, so a trace that keeps recording
 // (Doppler) carries on from slide to slide while the patient stays the same.
 
-import { store } from './store.js?v=31ee79b6ab';
-import { h, fmt, clamp } from './util.js?v=b6a40567da';
-import { traceLabel, traceLabelRoom } from './trace-labels.js?v=fc916a95c6';
+import { store } from './store.js?v=67f4341802';
+import { h } from './util.js?v=d2c95a1b16';
 import { EDGES } from '../engine/topology.js?v=4044766e96';
-import { createDoppler } from './doppler.js?v=f13c727958';
-import { createFibroScan } from './fibroscan.js?v=488459f8fb';
-import { createPressureTime } from './pressure-time.js?v=9e53260ba8';
-import { createFlowTime } from './flow-time.js?v=c72a4a2873';
-import { createEndoscopy, createAbdomen, createVarixWall } from './instruments.js?v=53635929a8';
-import { frameFor } from './frame.js?v=67ca200c87';
+import { createDoppler } from './doppler.js?v=59e996c376';
+import { createFibroScan } from './fibroscan.js?v=2af61823c8';
+import { createPressureTime } from './pressure-time.js?v=b9ae28aa5d';
+import { createFlowTime } from './flow-time.js?v=cb89e13e11';
+import { createEndoscopy, createAbdomen, createVarixWall } from './instruments.js?v=fbcf3d909c';
+import { frameFor } from './frame.js?v=19b3f2915c';
+import { talkTrace } from './talk-trace.js?v=690f63b106';
+import { EXT, guard, safe } from './slide-ext.js?v=2ab4d1b5b2';
 const nextFrame = frameFor('presenter-tools');
 
 const VESSEL = { PV_TRUNK: 'main portal vein', PVH_R: 'right portal vein', PVH_L: 'left portal vein', SV_CONF: 'splenic vein', SV_MID: 'splenic vein', V_SPL: 'splenic vein, at the hilum',
@@ -55,28 +60,36 @@ export function createTools({ host, stage }) {
     if (!w || !r) continue; const k = Math.min(2, Math.max(1, 12 / (13 * r / w))); if (Math.abs(k - (+sv.style.getPropertyValue('--svk') || 1)) > 0.02) sv.style.setProperty('--svk', k.toFixed(2)); } };
   if (typeof ResizeObserver === 'function') new ResizeObserver(() => nextFrame(svk)).observe(box);
   const made = {};
-  let cur = null, kind = null, probe0, gate0, lastSt = null, lastSlide = null;
+  let cur = null, kind = null, probe0, gate0, lastSt = null, lastSlide = null, held = false;
   function make(k) {
     if (made[k]) return made[k];
     const inst = k === 'doppler' ? createDoppler({ onProbe: noop, pickGate: false }) : k === 'fibroscan' ? createFibroScan() : k === 'scope' ? createEndoscopy({ onAction: noop })
-      : k === 'abdomen' ? createAbdomen({ onAction: noop }) : k === 'wall' ? createVarixWall() : k === 'beats' ? createPressureTime() : k === 'talk' ? talkTrace() : k === 'flowtime' ? createFlowTime() : null;
+      : k === 'abdomen' ? createAbdomen({ onAction: noop }) : k === 'wall' ? createVarixWall() : k === 'beats' ? createPressureTime() : k === 'talk' ? talkTrace() : k === 'flowtime' ? createFlowTime()
+        : Object.hasOwn(EXT.tools, k) ? guard(safe(() => EXT.tools[k].make({ host, stage, store }), null, `tools.${k}.make`), `tools.${k}`) : null;
+    if (inst && !inst.el?.classList) return null;   // (a registered instrument that made no element is left out)
     if (inst) { inst.el.classList.remove('dock-pane'); inst.el.classList.add('pz-inst'); }
     return (made[k] = inst);
   }
   const keyOf = (t) => (t.kind === 'trace' ? (t.range === 'beats' ? 'beats' : 'talk') : t.kind);
   const offFrame = store.on('frame', (f) => {
     if (!cur || !f || !box.isConnected) return;
+    // (Held while the slide's own state eases in: a recording trace would catch the leaving state, the old flow before it reverses.)
+    if (held && (kind === 'doppler' || kind === 'beats')) return;
     if (kind === 'doppler' && cur.ingest) { cur.update(f); return; }
-    if (kind !== 'talk' && kind !== 'flowtime') cur.update(f);
+    if (kind !== 'talk' && kind !== 'flowtime') cur.update?.(f);
   });
   return {
     el: box,
-    title: (t) => t.title || TITLE[t.kind]?.(t) || '',
+    title: (t) => t.title || TITLE[t.kind]?.(t) || (Object.hasOwn(EXT.tools, t.kind) && safe(() => EXT.tools[t.kind].title?.(t), null, 'tools.title')) || '',
+    /** A registered instrument's short title for a phone's card, when the card shows its own title (full); the built-in ones are
+     *  in the presenter's SHORT_TITLE. */
+    short: (t, full) => (t && !TITLE[t.kind] && Object.hasOwn(EXT.tools, t.kind) && safe(() => (full === EXT.tools[t.kind].title?.(t) ? EXT.tools[t.kind].short?.(t) : null), null, 'tools.short')) || null,
     sig: (t) => (t ? `${keyOf(t)}:${t.vessel || ''}` : ''),
     /** Put the slide's tool in the box. stateKey: the slide's model state (a new one clears a recording trace);
      *  chain: for the talk trace, [{ n, title, fp }] of every state up to this slide.
-     *  trail, reveal: for the flow-time chart, its series and how far along to draw it (see progress). */
-    show(t, { slide = null, stateKey = null, chain = [], trail = null, reveal = 1 } = {}) {
+     *  trail, reveal: for the flow-time chart, its series and how far along to draw it (see progress).
+     *  ctx: the slide's context for an instrument's configure(t, ctx) (the presenter's ctxOf; slide-ext.js). */
+    show(t, { slide = null, stateKey = null, chain = [], trail = null, reveal = 1, ctx = null } = {}) {
       const k = keyOf(t), inst = make(k);
       if (!inst) { this.hide(); return; }
       if (k !== 'doppler') stage?.pinDoppler?.(null);
@@ -89,6 +102,7 @@ export function createTools({ host, stage }) {
         stage?.pinDoppler?.(t.vessel || 'PV_TRUNK', { points: !!t.points });   // (points: the figure calls out all three of a stent's points)
       }
       inst.setWaves?.(!!t.waves);
+      inst.configure?.(t, ctx);   // (an instrument's own options on this slide: a deck visuals package's, slide-ext.js)
       if (cur !== inst || slide !== lastSlide) inst.autoWindow?.();   // (a new slide chooses its Doppler window again from the width it is drawn at)
       lastSlide = slide;
       if (stateKey !== lastSt && (k === 'doppler' || k === 'beats')) inst.clear?.();
@@ -98,7 +112,7 @@ export function createTools({ host, stage }) {
       box.dataset.kind = k;
       if (k === 'talk') inst.set(chain);
       else if (k === 'flowtime') inst.set(trail, reveal, { clock: t.clock, lines: t.lines });
-      else { const f = store.get().frame; if (f) nextFrame(() => cur === inst && inst.update(f)); }
+      else { const f = store.get().frame; if (f) nextFrame(() => cur === inst && inst.update?.(f)); }
     },
     /** The flow-time chart drawn up to k (0 to 1) of its time-lapse, with its series (trail) once it is computed. */
     /** The numbers the slide's tiles and words show (a fingerprint): a reading instrument shows the same, not the beat-to-beat live value. */
@@ -108,6 +122,12 @@ export function createTools({ host, stage }) {
     ghost(g) {
       ghostEl.classList.toggle('on', !!g);
       if (g) ghostEl.replaceChildren(h('span', {}, g.label), h('b', {}, g.value));
+    },
+    /** Hold the recording instruments (Doppler, beat by beat) while the slide's state changes: they draw nothing new, and on
+     *  release start over empty, sweeping from the left, their reading waiting for the new state's own beats. */
+    hold(on) {
+      on = !!on; if (on === held) return; held = on;
+      for (const k of ['doppler', 'beats']) made[k]?.restart?.() ?? made[k]?.clear?.();
     },
     hide() { stage?.pinDoppler?.(null); stage?.setScanProbe?.(false); cur = null; kind = null; lastSlide = null; delete box.dataset.kind; },
     /** The presentation is over: the Doppler goes back to the vessel it had. */
@@ -119,74 +139,4 @@ export function createTools({ host, stage }) {
       box.replaceChildren();
     },
   };
-}
-
-// ── The talk so far: PV, WHVP and FHVP at each state, the HVPG in its own lane with its cut-offs ──
-const SVGNS = 'http://www.w3.org/2000/svg';
-const sv = (tag, attrs = {}, ...kids) => {
-  const el = document.createElementNS(SVGNS, tag);
-  for (const [k, v] of Object.entries(attrs)) if (v != null) el.setAttribute(k, v);
-  el.append(...kids.flat().filter((k) => k != null));
-  return el;
-};
-const LINES = [['pv', 'PV', '--tr-pv'], ['whvp', 'WHVP', '--tr-wedge'], ['fhvp', 'FHVP', '--tr-hv']];
-function talkTrace() {
-  // Drawn at the card's own pixels (one unit a CSS pixel) and its one small size, so the words never scale with the card:
-  // the card's fit sets the chart's height (styles/app.css .pz-talk) and only the plot gets shorter.
-  const el = h('div', { class: 'pz-talk' });
-  let chain0 = null, size = '';
-  const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(() => { if (chain0 && `${el.clientWidth}x${el.clientHeight}` !== size) draw(chain0, false); }) : null;
-  ro?.observe(el);
-  function set(chain) { chain0 = chain; draw(chain, true); }
-  function draw(chain, fade) {
-    const W = el.clientWidth || 520, HT = el.clientHeight || 420, fs = parseFloat(getComputedStyle(el).fontSize) || 12, L = Math.ceil(3.3 * fs) + 8;
-    size = `${W}x${HT}`;
-    const pts = chain.filter((c) => c.fp);
-    // Over each line: what happened there, at 45° along the top (the chart makes room); under it, its time point.
-    const vfs = 1.5 * fs, right = Math.ceil(Math.max(4 * 0.68 * fs, 4 * 0.6 * vfs)) + 14;
-    const { R, pad } = traceLabelRoom(pts.map((p) => p.tick), { W, L, right, cw: 0.6 * fs });
-    const T = pad + fs + 18, B2 = HT - fs - 12, T2 = B2 - Math.max(28, 0.2 * (B2 - T)), B1 = Math.max(T + 30, T2 - fs - 26);
-    const n = Math.max(pts.length, 2), X = (i) => L + (R - L) * (pts.length < 2 ? 0.5 : i / (n - 1));
-    const top = Math.max(20, ...pts.flatMap((p) => LINES.map(([k]) => p.fp[k] || 0)));
-    const pMax = Math.ceil(top / 10) * 10, Y = (v) => B1 - (B1 - T) * clamp(v, 0, pMax) / pMax;
-    const gMax = Math.max(15, Math.ceil(Math.max(0, ...pts.map((p) => p.fp.hvpg || 0)) / 5) * 5), Y2 = (v) => B2 - (B2 - T2) * clamp(v, 0, gMax) / gMax;
-    const path = (f) => pts.map((p, i) => `${i ? 'L' : 'M'}${X(i).toFixed(1)} ${f(p).toFixed(1)}`).join('');
-    const sev = (v) => (v >= 10 ? 'hi' : v >= 5 ? 'mid' : 'ok');
-    const last = pts.length - 1;
-    // (Gridlines every 10 mmHg, or every 20 when the plot is short; the HVPG lane names 0 and its 10 mmHg cut-off only when short.)
-    const gStep = (B1 - T) / (pMax / 10) < 1.4 * fs ? 20 : 10, hTicks = (B2 - T2) / gMax * 5 < 1.2 * fs ? [0, 10] : [0, 5, 10];
-    // The line names at the right end, top to bottom, never touching.
-    const ends = pts.length ? LINES.map(([k, a, c]) => [a, c, Y(pts[last].fp[k])]).sort((p, q) => p[2] - q[2]) : [];
-    ends.forEach((e, k) => { if (k) e[2] = Math.max(e[2], ends[k - 1][2] + 1.25 * fs); });
-    // A time point is named under its line where it has room: the last always, an earlier one only clear of its neighbours.
-    const whenW = (p) => (p.when || String(p.n)).length * 0.6 * fs, named = new Set();
-    for (let i = last, edge = Infinity; i >= 0; i--) {
-      const half = whenW(pts[i]) / 2;
-      if (X(i) + half + 8 <= edge && X(i) - half >= 0 && !(i < last && pts[i].when && pts[i].when === pts[i + 1]?.when)) { named.add(i); edge = X(i) - half; }
-    }
-    const svg = sv('svg', { viewBox: `0 0 ${W} ${HT}`, role: 'img', 'aria-label': 'Pressures over the talk so far: ' + pts.map((p) => `${p.when || `slide ${p.n}`}${p.tick ? `, ${p.tick}` : ''}, PV ${fmt(p.fp.pv, 0)}, HVPG ${fmt(p.fp.hvpg, 1)}`).join('; ') },
-      Array.from({ length: pMax / gStep + 1 }, (_, k) => sv('g', { class: 'ptk-grid' }, sv('line', { x1: L, x2: R, y1: Y(k * gStep), y2: Y(k * gStep) }), sv('text', { x: L - 8, y: Y(k * gStep) + 0.35 * fs, 'text-anchor': 'end' }, String(k * gStep)))),
-      // The unit sits once at the top of each axis, above its numbers; the top lane needs no name, the HVPG lane keeps its own (nothing wedged under the event labels).
-      sv('text', { class: 'ptk-unit', x: L - 8, y: T - 8, 'text-anchor': 'end' }, 'mmHg'),
-      sv('text', { class: 'ptk-ax', x: L, y: T2 - 8 }, 'HVPG'), sv('text', { class: 'ptk-unit', x: L - 8, y: T2 - 8, 'text-anchor': 'end' }, 'mmHg'),
-      hTicks.map((v) => sv('g', { class: 'ptk-grid' + (v ? ' cut' : ''), 'data-rate': v === 10 ? 'hi' : v === 5 ? 'mid' : null },
-        sv('line', { x1: L, x2: R, y1: Y2(v), y2: Y2(v) }), sv('text', { x: L - 8, y: Y2(v) + 0.35 * fs, 'text-anchor': 'end' }, String(v)))),
-      // A line at each time point, with when and what happened.
-      pts.map((p, i) => sv('g', { class: 'ptk-mark' + (i === last ? ' now' : '') }, sv('title', {}, `${p.when || `Slide ${p.n}`}: ${p.title}`),
-        sv('line', { x1: X(i), x2: X(i), y1: T - fs - 8, y2: B2 + 4 }), named.has(i) ? sv('text', { x: X(i), y: B2 + fs + 6, 'text-anchor': 'middle' }, p.when || String(p.n)) : null,
-        p.tick ? sv('text', { class: 'ptk-ev', x: X(i) + 3, y: T - fs - 12, 'text-anchor': 'start', transform: `rotate(-45 ${X(i) + 3} ${T - fs - 12})` }, traceLabel(p.tick)) : null)),
-      LINES.map(([k, , c]) => sv('path', { class: 'ptk-line', style: `stroke: var(${c})`, d: path((p) => Y(p.fp[k])) })),
-      ends.map(([a, c, y]) => sv('text', { class: 'ptk-lbl', x: R + 8, y: y + 0.35 * fs, style: `fill: var(${c})` }, a)),
-      sv('path', { class: 'ptk-line hv', d: path((p) => Y2(p.fp.hvpg)) }),
-      pts.map((p, i) => sv('circle', { class: 'ptk-pt', 'data-rate': sev(p.fp.hvpg), cx: X(i), cy: Y2(p.fp.hvpg), r: i === last ? 6 : 4 })),
-      pts.length ? sv('text', { class: 'ptk-v', 'data-rate': sev(pts[last].fp.hvpg), x: R + 8, y: Y2(pts[last].fp.hvpg) + 0.35 * vfs }, fmt(pts[last].fp.hvpg, 1)) : null);
-    // The new chart fades in over the old one, which then goes (never a jump); a new size just redraws.
-    const old = [...el.children];
-    if (!fade) { el.replaceChildren(svg); return; }
-    svg.classList.add('in');
-    el.append(svg);
-    nextFrame(() => nextFrame(() => svg.classList.remove('in')));
-    setTimeout(() => old.forEach((o) => o.remove()), 480);
-  }
-  return { el, set, update() {}, clear() {} };
 }

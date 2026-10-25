@@ -441,6 +441,16 @@ export const HIDDEN_SECONDS = HIDDEN_S;
 // Each shape: [x0, y0, x1, y1, r0, r1, alpha, kind]: a jet (kind 1) from its base (x0, y0; radius r0) to its tip
 // (x1, y1; radius r1), or the pool (kind 0), an ellipse at (x0, y0) with radii x1, y1.
 export const BLEED_JETS = 4;
+// A bleed's jets and pool come and go over BLEED_FADE seconds (never in one frame): the share shown steps toward 1 while
+// the bleed runs and toward 0 once it stops (Reduce Motion: at once), and every shape's alpha is scaled by its eased value.
+export const BLEED_FADE = 0.5;
+export const stepBleedFade = (a, on, dt, instant = false) => (instant ? (on ? 1 : 0) : on ? Math.min(1, a + dt / BLEED_FADE) : Math.max(0, a - dt / BLEED_FADE));
+export const fadeBleedShapes = (shapes, a) => {
+  if (a >= 1) return shapes;
+  const k = a <= 0 ? 0 : a * a * (3 - 2 * a);
+  return k ? shapes.map((sh) => { const o = sh.slice(); o[6] *= k; return o; }) : [];
+};
+
 export function bleedShapes(bleed, rate, t, sites) {
   const gv = bleed.site === 'GV';
   const site = gv ? [sites.fundus[0], sites.fundus[1] - 4] : [sites.varix[0] + 8, sites.varix[1] + 12];

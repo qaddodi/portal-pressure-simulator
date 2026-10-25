@@ -1,0 +1,92 @@
+// One pressure chart on every card (Mohammad, 21 Oct: "Gut to heart is good, unify it"; Pre-hepatic 3: "do we really need both in
+// the same figure? ... just use the one we decided on"). The old five-station ladder card is gone from every deck: each of its slides
+// shows the Gut to heart chart (tool { kind: 'profile' }), its earlier line as the chart's from, its tiles kept. The resistance is
+// read from where the chart falls steeply, as on the Sites slides, with no hatching (his OK on the plan, 21 Oct).
+import './dom-shim.js';
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { readFileSync, readdirSync } from 'node:fs';
+import { parseDeckSource } from '../src/ui/deck-source.js';
+import { DECKS } from '../src/ui/decks.js';
+import { oneLadder } from '../src/ui/teach-extras.js';
+
+const DIR = new URL('../src/ui/decks/', import.meta.url);
+const slides = readdirSync(DIR).filter((f) => f.endsWith('.js'))
+  .flatMap((f) => parseDeckSource(readFileSync(new URL(f, DIR), 'utf8')).slides.map((s) => ({ ...s, f })));
+const pres = readFileSync(new URL('../src/ui/presenter.js', import.meta.url), 'utf8');
+const css = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
+const at = (f, id) => slides.find((x) => x.f === f && x.id === id);
+
+test('no built-in slide asks for the old ladder card or any of its fields', () => {
+  for (const s of slides) {
+    for (const k of ['brackets', 'block', 'ladderFrom', 'ladderFromLabel', 'fold']) assert.equal(s[k], undefined, `${s.f} ${s.id}: ${k}`);
+    assert.notEqual(s.data, 'ladder', `${s.f} ${s.id}`);
+    for (const o of s.of || []) if (typeof o === 'object') assert.equal(o.block, undefined, `${s.f} ${s.id} row ${o.id}`);
+    for (const c of s.compare || []) assert.equal(c.block, undefined, `${s.f} ${s.id} button ${c.label}`);
+  }
+});
+
+test('the presenter has no old ladder left: no five-station drawing, strip, legend, hatching on a station or block buttons', () => {
+  assert.doesNotMatch(pres, /bigLadder|RUNGS|ladderFromTo|ui\.ladder|ladder\.strip|pz-strip|pz-ladder|pz-lg|snodeBlk|nodeBlk|blockOf|abBlk|data === 'ladder'/);
+  assert.doesNotMatch(css, /pz-ladder|pz-strip|pz-lg|pzl-(base|bg|bk|br|drop|from|grid|k|lead|line|nb|pt|v)\b|lad-swap|lad-fixed/);
+  // (The level rail keeps its own hatched block: it names the level, not a station.)
+  assert.match(pres, /function railBlock\(\)/);
+  assert.match(css, /\.pzs-drop \{/);
+});
+
+test('every slide that had the old ladder shows the Gut to heart chart, or keeps its instrument with the readings as tiles', () => {
+  const was = { 'circulation.js': ['ladder', 'define'], 'circuit.js': ['where'], 'hvpg.js': ['hvpg', 'presin', 'ppg', 'heart'], 'lobule.js': ['wedge'],
+    'treatment.js': ['target', 'prop', 'carv', 'oct', 'vs'], 'one-year.js': ['d365', 'carv'], 'cause-treated.js': ['high', 'high2'],
+    'recompensation.js': ['csph', 'carv'], 'pvt-cirrhosis.js': ['gradients'], 'ncph.js': ['wedge'], 'outflow.js': ['soswedge'],
+    'prehepatic.js': ['cath'], 'right-heart.js': ['cath'], 'where.js': ['q1', 'a1', 'a2', 'q3', 'a3', 'q4', 'a4', 'a5', 'q6', 'a6'] };
+  for (const [f, ids] of Object.entries(was)) for (const id of ids) assert.equal(at(f, id)?.tool?.kind, 'profile', `${f} ${id}`);
+  // (A card holds one instrument, and a phone has no room for a Doppler and the chart: there the chart's numbers are tiles.)
+  assert.deepEqual(at('outflow.js', 'nowedge').tiles, ['pv', 'ppg']);
+  assert.deepEqual(at('treatment.js', 'tips').tiles, ['ppg', 'varix']);
+  for (const id of ['q2', 'q5']) { assert.equal(at('where.js', id).tool.kind, 'doppler', id); assert.deepEqual(at('where.js', id).tiles, ['hvpg', 'ppg'], id); }
+  // (Each card that had tiles beside the ladder keeps them.)
+  for (const s of slides) if (s.tiles?.length && s.tool) assert.equal(s.data, 'tiles', `${s.f} ${s.id}: its tiles show`);
+});
+
+test('the earlier line keeps its name: No Rx before treatment, Day 0 a year back', () => {
+  for (const id of ['prop', 'carv']) assert.deepEqual(at('treatment.js', id).tool, { kind: 'profile', from: 'target', fromLabel: 'No Rx' }, id);
+  assert.deepEqual(at('one-year.js', 'd365').tool, { kind: 'profile', from: 'd0', fromLabel: 'Day 0' });
+  assert.deepEqual(at('one-year.js', 'carv').tool, { kind: 'profile', from: 'd365', fromLabel: 'No Rx' });
+  const prof = readFileSync(new URL('../src/ui/tool-profile.js', import.meta.url), 'utf8');
+  assert.match(prof, /fromLabel: typeof t\?\.fromLabel === 'string' && t\.fromLabel\.trim\(\) \? t\.fromLabel\.trim\(\) : 'Before'/);
+  assert.match(prof, /placeLineNames\(g, tw, goal, hl, bf, s, brk, cfg\.fromLabel, pl \|\| \[\]\)/);
+  assert.match(prof, /\[bf, bfName, 'bf'\]/);
+});
+
+test('the HVPG deck still names the wedged and free readings: WHVP and FHVP tiles beside the chart', () => {
+  for (const id of ['hvpg', 'heart']) { const s = at('hvpg.js', id); assert.equal(s.data, 'tiles', id); assert.deepEqual(s.tiles, ['whvp', 'fhvp'], id); }
+  // (And the figure tags the wedge and the free hepatic vein on every Gut to heart slide, as it did on the ladder's.)
+  assert.match(pres, /presentNames: s\.tool\?\.kind === 'profile' \|\| !!s\.cath,/);
+});
+
+test('an older deck\'s ladder slide, an imported deck or a script, shows the Gut to heart chart too', () => {
+  assert.match(pres, /slides = \(d\.mine \? d\.slides : withOverview\(d\)\.slides\)\.map\(oneLadder\);/);
+  assert.match(pres, /ask: st\.ask, tool: \{ kind: 'profile' \}, key: st\.key \|\| \[\],/, 'an instructor\'s script');
+  // (The test decks still written with the old field come out as the built-in slides do.)
+  const demo = readFileSync(new URL('../src/ui/test-decks/demo-all-new-visuals.js', import.meta.url), 'utf8');
+  assert.match(demo, /"data": "ladder"/);
+  assert.deepEqual(oneLadder({ data: 'ladder', ladderFrom: 'd-start', ladderFromLabel: 'No Rx' }).tool, { kind: 'profile', from: 'd-start', fromLabel: 'No Rx' });
+  // (Every built-in deck, once through it, is unchanged: none has a ladder slide left.)
+  for (const d of DECKS) for (const s of d.slides) assert.equal(oneLadder(s), s, `${d.id}/${s.id}`);
+});
+
+test('the six-case summary keeps its six patients, the heart failure one included', () => {
+  const lad = slides.find((x) => x.f === 'sites.js' && x.visual === 'ladders');
+  assert.ok(lad.of.some((r) => (r.id ?? r) === 'cardiac'), 'the summary includes the heart failure slide');
+  assert.equal(lad.of.length, 6);
+  assert.equal(slides.find((x) => x.f === 'where.js' && x.visual === 'ladders').of.length, 6);
+});
+
+test('the profile\'s HVPG and PPG brackets round the true values, never the difference of the drawn readings (Mohammad\'s pick: they may be 1 off it)', () => {
+  const src = readFileSync(new URL('../src/ui/tool-profile.js', import.meta.url), 'utf8');
+  assert.doesNotMatch(src, /wholeGap/);
+  assert.doesNotMatch(readFileSync(new URL('../src/engine/gap.js', import.meta.url), 'utf8'), /wholeGap/, 'the whole-number gap is gone');
+  assert.match(src, /const v = shown\[k\], rate = RATE\[k\]\(v\)\[0\];/);
+  assert.match(src, /HVPG \$\{whole\(shown\.hvpg\)\}, PPG \$\{whole\(shown\.ppg\)\}/);
+  assert.match(src, /return \{ v, hvpg: fp\.hvpg, ppg: fp\.ppg \};/);
+});

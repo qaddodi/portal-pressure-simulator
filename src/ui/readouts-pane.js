@@ -3,15 +3,19 @@
 // The tile markup, classes and status logic follow the bar's tiles in dock.js; the data comes from there
 // (TILES, GROUPS, VITALS, readoutValue), passed in so this file does not import the dock.
 
-import { store, hiddenNow } from './store.js?v=31ee79b6ab';
-import { h, fmt, clamp, shownOf, countTo, swapText } from './util.js?v=b6a40567da';
+import { store, hiddenNow } from './store.js?v=67f4341802';
+import { h, fmt, clamp, shownOf, countTo, swapText } from './util.js?v=d2c95a1b16';
 import { vitalReading } from './vital-read.js?v=e902fb66cd';
+import { SCALE, RATE } from './table-marks.js?v=15f059172f';
 
 // A number that changes rewrites its text node in place (setting textContent replaces the node).
 
 // A trend arrow marks a sustained change (over TREND_S seconds, larger than TREND_FRAC of the scale).
 const TREND_S = 5, TREND_FRAC = 0.03;
 const RANKS = { none: -1, ok: 0, caution: 1, danger: 2, critical: 3 };
+// The data card tile's rating class as this pane's severity: green, amber, red; a reading its tile only informs of (a slow heart rate, a high
+// output) stays the neutral gray.
+const SEV = { ok: 'ok', mid: 'caution', hi: 'danger' };
 
 // [id, full name, short name for a narrow card]
 const SYSTEMIC = [
@@ -36,14 +40,18 @@ export function createReadoutsPane({ tiles, groups, vitals, readoutValue, onWhy,
     return el;
   }
 
+  // A systemic value has its data card tile's bar: the tile's own scale, cut-offs, word and colour (table-marks SCALE and RATE), so the two
+  // never disagree about what is normal (Mohammad, 22 Oct: any tile should have its normals).
   function vital(v, name, short) {
-    const val = h('span', { class: 'val' }, '—');
+    const S = SCALE[v.id];
+    const val = h('span', { class: 'val' }, '—'), st = h('span', { class: 'status' }), fill = h('i', { class: 'rb-fill' });
+    const bar = h('span', { class: 'rb', 'aria-hidden': 'true' }, fill, S[2].map((c) => h('i', { class: 'rb-tick', style: { left: clamp((c - S[0]) / (S[1] - S[0]), 0, 1) * 100 + '%' } })));
     const el = h('button', { type: 'button', class: 'metric rp-vital', 'data-id': v.id },
-      h('span', { class: 'k' }, h('span', { class: 'k-l' }, name), h('span', { class: 'k-s' }, short)), h('span', { class: 'v' }, val, h('span', { class: 'unit' }, v.u)));
+      h('span', { class: 'k' }, h('span', { class: 'k-l' }, name), h('span', { class: 'k-s' }, short)), h('span', { class: 'v' }, val, h('span', { class: 'unit' }, v.u)), bar, h('span', { class: 's' }, st));
     el.title = `${v.title}${v.why ? '\nClick for what is driving it.' : ''}`;
     if (v.why) el.addEventListener('click', () => onWhy(v.why, el));
     else el.style.cursor = 'default';
-    vitEls.push({ v, el, val });
+    vitEls.push({ v, S, el, val, st, fill, sev: null, ariaTxt: '' });
     return el;
   }
 
@@ -112,8 +120,20 @@ export function createReadoutsPane({ tiles, groups, vitals, readoutValue, onWhy,
       const hid = hidden?.has(x.v.hideKey);
       const r = vitalReading(x, m, st0.running, now);
       countTo(x.val, hid ? null : r.v, x.v.d, { eased: st0.running });
-      const sev = !hid && r.bad ? 'danger' : 'ok';
-      if (x.el.dataset.sev !== sev) x.el.dataset.sev = sev;
+      // (Its tile's word and colour, judging the number as shown; the tile's colour holds a moment before it changes, as the others do.)
+      const none = hid || !Number.isFinite(r.v), [cls, word] = none ? [null, 'Not measured'] : RATE[x.v.id](shownOf(r.v, x.v.d), {}), sev = SEV[cls] ?? 'none';
+      const w = none ? 0 : clamp((r.v - x.S[0]) / (x.S[1] - x.S[0]), 0, 1);
+      if (x.fillW !== w) { x.fillW = w; x.fill.style.setProperty('--fl', 0); x.fill.style.setProperty('--fw', w); }
+      if (sev !== x.sev) {
+        if (x.sevNext !== sev) { x.sevNext = sev; x.sevSince = now; }
+        if (!x.sev || sev === 'none' || !st0.running || now - x.sevSince > 1500) {
+          if (x.sev && RANKS[sev] > RANKS[x.sev]) { x.el.classList.remove('flash'); void x.el.offsetWidth; x.el.classList.add('flash'); }
+          x.el.dataset.sev = sev; x.sev = sev;
+        }
+      } else x.sevNext = null;
+      if (sev === x.sev) swapText(x.st, word, () => x.st.classList.toggle('unmeas', none));
+      const aria = `${x.v.title}: ${none ? 'not measured' : `${fmt(r.v, x.v.d)} ${x.v.u}, ${word}`}`;
+      if (aria !== x.ariaTxt) { x.ariaTxt = aria; x.el.setAttribute('aria-label', aria); }
     }
   }
 

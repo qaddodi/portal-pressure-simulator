@@ -8,14 +8,16 @@
 // readout tile. In Explore the live HVPG readouts stay hidden until this has run for the patient
 // (store.hvpgMeasured, hiddenNow); the tracing's small waves are illustrative.
 
-import { h, fmt, fitCanvas, clamp, icon, cssVar } from './util.js?v=b6a40567da';
-import { FONT } from './charts.js?v=75f52d4f49';
-import { pressureColor } from './colormap.js?v=dc071e3659';
-import { store, logAction, hiddenNow } from './store.js?v=31ee79b6ab';
+import { h, fmt, fitCanvas, clamp, icon, cssVar, toast } from './util.js?v=d2c95a1b16';
+import { FONT } from './charts.js?v=dde7572b82';
+import { pressureColor } from './colormap.js?v=cdcf6a2f55';
+import { store, logAction, hiddenNow, updateParams } from './store.js?v=67f4341802';
 import { shownOr } from './shown.js?v=82ef5e29ec';
 import { T, ease, k01, balloonAt, timeOfBalloon, pressureAt as pAt } from './hvpg-clock.js?v=553551a92a';
-import { frameFor, cancelFrame } from './frame.js?v=67ca200c87';
+import { frameFor, cancelFrame } from './frame.js?v=19b3f2915c';
 import { traceRoom, TRACE_MIN } from './trace-room.js?v=b4c0aaa97f';
+import { rateOf } from './table-marks.js?v=15f059172f';
+import { PROCS, PROC_KINDS, procBlocked, procOffered, playProcedure } from './proc-anim.js?v=b2351a24c6';
 const nextFrame = frameFor('hvpg-proc');
 
 let stageRef = null;
@@ -36,6 +38,9 @@ const STEPS = [
 const C = Object.defineProperties({}, Object.fromEntries(Object.entries({ bg: '--mon-bg', grid: '--mon-grid', line: '--mon-line', text: '--mon-text', bright: '--mon-bright',
   free: '--mon-free', wedge: '--mon-wedge', ok: '--mon-ok', caution: '--mon-caution', danger: '--mon-alarm' }).map(([k, n]) => [k, { get: () => cssVar(n) }])));
 const sevOf = (v) => (v >= 10 ? 'danger' : v >= 5 ? 'caution' : 'ok');
+// The two readings carry the colour their tiles give them (the wedged as the portal pressure, the free as the IVC's).
+const SEV = { ok: 'ok', mid: 'caution', hi: 'danger' };
+const sevOfRead = (k, v) => SEV[rateOf(k, { [k]: v })[0]] || '';
 const sevWord = (v) => (v >= 10 ? 'Clinically significant portal hypertension (CSPH)' : v >= 5 ? 'Mild portal hypertension' : 'Normal');
 
 export function createHvpgProcedure() {
@@ -54,7 +59,13 @@ export function createHvpgProcedure() {
   const startBtn = h('button', { class: 'btn primary', onclick: () => start(), onpointerup: (e) => { if (e.pointerType !== 'mouse' && !startBtn.disabled) start(); } }, icon('catheter'), h('span', {}, 'Measure HVPG'));
   const note = h('p', { class: 'ctl-sub hvpg-note' });
   const bar = h('div', { class: 'hvpg-bar' }, startBtn, kv);
-  const side = h('div', { class: 'chart-side' }, h('ol', { class: 'hvpg-steps' }, stepEls), caption, note);
+  // The treatments played on the same anatomy (proc-anim.js): each catheter on its own route, the model changed when it ends.
+  // One the patient cannot have (a TIPS already in, a shunt already closed) stays dimmed, and a tap says why; BRTO and BATO
+  // are only there while the patient has gastric varices to treat.
+  const procBtns = Object.fromEntries(PROC_KINDS.map((k) => [k, h('button', { type: 'button', class: 'btn sm hvpg-proc-btn', 'aria-label': `Play ${PROCS[k].name}`,
+    onclick: () => play(k), onpointerup: (e) => { if (e.pointerType !== 'mouse' && !procBtns[k].disabled) play(k); } }, icon('play'), h('span', {}, PROCS[k].name))]));
+  const procRow = h('div', { class: 'hvpg-procs', role: 'group', 'aria-label': 'Play a procedure on the anatomy' }, h('span', { class: 'hvpg-procs-k' }, 'Watch'), ...Object.values(procBtns));
+  const side = h('div', { class: 'chart-side' }, h('ol', { class: 'hvpg-steps' }, stepEls), caption, procRow, note);
   const el = h('div', { class: 'dock-pane', 'data-pane': 'hvpg' }, bar, box, side);
 
   let t0 = null, t = 0, raf = 0, frame = null, result = null, sig = '', cam = '', blocked = false;
@@ -68,7 +79,7 @@ export function createHvpgProcedure() {
   const values = () => result || snap || live();
 
   function start() {
-    if (t0 != null && t < tEnd()) return;
+    if ((t0 != null && t < tEnd()) || proc) return;
     const st = store.get();
     if (st.lobule) store.set({ lobule: false });
     if (st.view !== 'anatomic') store.set({ view: 'anatomic' });
@@ -77,7 +88,26 @@ export function createHvpgProcedure() {
   }
   function stopFigure() { stageRef?.setCatheter(null); if (cam && cam !== 'home') stageRef?.cathFocus('home'); cam = ''; }
   const tEnd = () => (blocked ? TB.end : T.end);
-  function reset() { cancelFrame(raf); raf = 0; if (t0 != null && t < tEnd()) { stopFigure(); } t0 = null; t = 0; result = null; snap = null; sig = ''; blocked = false; paintSide(); draw(); }
+  // ── A treatment played on the anatomy (one at a time, never with the measurement) ──
+  let proc = null, procKind = '', procStep = -1, playT = 0;
+  function play(kind) {
+    // (A touch plays it on the lift; the click that follows is ignored.)
+    if (performance.now() - playT < 600 || proc || (t0 != null && t < tEnd()) || !stageRef) return;
+    playT = performance.now();
+    const st = store.get(), why = procBlocked(kind, st.params, now()?.metrics);
+    if (why) { toast(why); return; }
+    if (st.lobule) store.set({ lobule: false });
+    if (st.view !== 'anatomic') store.set({ view: 'anatomic' });
+    procKind = kind; procStep = 0;
+    proc = playProcedure(stageRef, kind, {
+      apply: () => updateParams((p) => PROCS[kind].apply(p), { label: PROCS[kind].label }),
+      onFrame: (f) => { if (f.step !== procStep) { procStep = f.step; paintSide(); } },
+      onEnd: () => { proc = null; procKind = ''; procStep = -1; paintSide(); },
+    });
+    logAction('procedure', PROCS[kind].name);
+    paintSide();
+  }
+  function reset() { proc?.stop(); cancelFrame(raf); raf = 0; if (t0 != null && t < tEnd()) { stopFigure(); } t0 = null; t = 0; result = null; snap = null; sig = ''; blocked = false; paintSide(); draw(); }
   function loop() {
     cancelFrame(raf);
     const step = () => {
@@ -171,16 +201,31 @@ export function createHvpgProcedure() {
     // replaced its text under the finger, and Safari then takes a tap for a hover and drops the click.
     const sev = shown.hvpg ? sevOf(v.hvpg) : '';
     if (vals.hvpg.dataset.sev !== sev) vals.hvpg.dataset.sev = sev;
+    for (const k of ['fhvp', 'whvp']) {
+      const sk = shown[k] ? sevOfRead(k, v[k]) : '';
+      if (vals[k].dataset.sev !== sk) vals[k].dataset.sev = sk;
+    }
     const cur = ph === 'abort' ? 1 : STEPS.findIndex((s) => s[0] === ph);
     stepEls.forEach((li, i) => { const v2 = ph === 'idle' ? '' : ph === 'abort' ? (i === 0 ? 'done' : '') : i < cur || ph === 'result' ? 'done' : i === cur ? 'now' : ''; if (li.dataset.state !== v2) li.dataset.state = v2; });
     const cap = ph === 'idle' ? 'A balloon catheter via the right internal jugular vein reads the free, then the wedged, hepatic vein pressure.'
       : ph === 'abort' ? `${ABORT_MSG}. The hepatic vein is thrombosed (Budd–Chiari), so the catheter cannot enter it and no free or wedged pressure can be read. HVPG is not measurable.`
       : blocked && t >= TB.probe0 ? 'The tip is at the hepatic vein ostium, but the vein is thrombosed: it will not advance.'
       : ph === 'result' ? `${sevWord(v.hvpg)}. ${STEPS[3][2]}` : STEPS[cur][2];
-    if (caption.textContent !== cap) caption.textContent = cap;
-    const busy = t0 != null && t < tEnd();
+    // (A treatment playing tells its own step instead.)
+    const say = proc ? PROCS[procKind].steps[Math.max(0, procStep)][2] : cap;
+    if (caption.textContent !== say) caption.textContent = say;
+    const busy = (t0 != null && t < tEnd()) || !!proc;
     if (startBtn.disabled !== busy) startBtn.disabled = busy;
-    const lbl = busy ? 'Measuring…' : result ? 'Measure again' : 'Measure HVPG';
+    for (const [k, b] of Object.entries(procBtns)) {
+      if (b.disabled !== busy) b.disabled = busy;
+      // (BRTO and BATO are offered only while the patient has gastric varices: with none they are not shown at all.)
+      const m = now()?.metrics, hide = !procOffered(k, st.params, m) && procKind !== k;
+      if (b.hidden !== hide) b.hidden = hide;
+      const off = !!procBlocked(k, st.params, m), on = procKind === k;
+      if (b.classList.contains('off') !== off) b.classList.toggle('off', off);
+      if (b.getAttribute('aria-pressed') !== String(on)) b.setAttribute('aria-pressed', String(on));
+    }
+    const lbl = t0 != null && t < tEnd() ? 'Measuring…' : result ? 'Measure again' : 'Measure HVPG';
     if (startBtn.lastChild.textContent !== lbl) startBtn.lastChild.textContent = lbl;
     const n = st.mode === 'explore' && !st.presenting
       ? (st.showHvpg ? 'The HVPG readouts are always shown (Settings).' : st.hvpgMeasured ? 'Measured: the HVPG readouts are live for this patient until a new one.' : 'The HVPG readouts stay hidden until it is measured here.')
@@ -200,7 +245,7 @@ export function createHvpgProcedure() {
     if (key !== sig) { sig = key; draw(); }
   }
   // A new patient (or a jump in time) starts with no measurement.
-  store.on('hvpgMeasured', (v) => { if (!v && (result || t0 != null)) reset(); });
+  store.on('hvpgMeasured', (v) => { if (!v && (result || t0 != null || proc)) reset(); });
   store.on('lastHVPG', (v) => { if (!v && result) reset(); });
   paintSide();
   return { id: 'hvpg', label: 'HVPG procedure', el, update, start };

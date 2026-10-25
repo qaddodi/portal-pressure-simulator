@@ -3,10 +3,10 @@
 // sliders that used to live in the side panel. Every verb takes effect at once and becomes one
 // entry in the timeline; nothing stays "armed".
 
-import { store, updateParams } from './store.js?v=31ee79b6ab';
-import { h, icon, svgIcon, clamp, infoButton, sinkTo, stopSink, paintRange, isPhoneLayout, countTo, swapText, transformEndX, afterExit } from './util.js?v=b6a40567da';
-import { cardFor, normalizeSel } from './actions.js?v=46de443924';
-import { frameFor, cancelFrame } from './frame.js?v=67ca200c87';
+import { store, updateParams } from './store.js?v=67f4341802';
+import { h, icon, svgIcon, clamp, infoButton, sinkTo, stopSink, paintRange, isPhoneLayout, countTo, swapText, transformEndX, afterExit } from './util.js?v=d2c95a1b16';
+import { cardFor, normalizeSel } from './actions.js?v=2d396c6094';
+import { frameFor, cancelFrame } from './frame.js?v=19b3f2915c';
 import { placeCard, coverCount, vesselPoints } from './card-place.js?v=4eb9859ce3';
 const nextFrame = frameFor('card');
 // A reading's printed number ("12.5", "−3.0"), with its decimals, or null for one that isn't a plain number.

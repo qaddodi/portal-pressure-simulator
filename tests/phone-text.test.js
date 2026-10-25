@@ -43,7 +43,8 @@ test('a phone held sideways shows the short clock in its play row', () => {
   assert.doesNotMatch(block, /\.tl-time \{ display: none/);
 });
 
-test('a phone\'s six site ladders share one row of names and letter at their own size', () => {
-  assert.match(read('../src/ui/presenter.js'), /class: 'pz-grid-head'/);
+test('a phone\'s six site lines share one row of names over them and letter at their own size', () => {
+  const js = read('../src/ui/presenter.js');
+  assert.match(js, /h\('div', \{ class: 'pz-grid-head', 'aria-hidden': 'true' \}/);
   assert.match(css, /:is\(\.pz\.stack, \.pz\.low\) \.pz-grid \{ --pk: 1\.15;/);
 });

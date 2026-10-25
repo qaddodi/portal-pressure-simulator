@@ -4,14 +4,14 @@
 // in the timeline as one entry.
 
 import { EDGES, NODES, SHUNT_PORTAL, SHUNT_SYSTEMIC, dMinOf, edgePresent, isStent, stentSite } from '../engine/topology.js?v=4044766e96';
-import { dopplerVel } from './velNormal.js?v=181dda5594';
-import { store, updateParams, hiddenNow } from './store.js?v=31ee79b6ab';
-import { fmt, fmtFlow, clamp } from './util.js?v=b6a40567da';
-import { PREGNANCY_INFO } from '../engine/scenario.js?v=1ee7733788';
-import { aboutVessel, aboutOrgan } from './about.js?v=9bc8839da1';
-import { lobuleState } from './lobule-model.js?v=59d4bf2a04';
-import { oxygenFor } from './blood.js?v=b0e8934683';
-import { LABEL_VESSEL, SIN_EDGES } from './anatomy.js?v=8374d8e213';
+import { dopplerVel, flowReversed } from './velNormal.js?v=97920ddf3f';
+import { store, updateParams, hiddenNow } from './store.js?v=67f4341802';
+import { fmt, fmtFlow, clamp } from './util.js?v=d2c95a1b16';
+import { PREGNANCY_INFO } from '../engine/scenario.js?v=d7d3ea5b70';
+import { aboutVessel, aboutOrgan } from './about.js?v=7063bec9c8';
+import { lobuleState } from './lobule-model.js?v=ff8433ada2';
+import { oxygenFor } from './blood.js?v=e668d01823';
+import { LABEL_VESSEL, SIN_EDGES } from './anatomy.js?v=aeef116188';
 
 export const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
 export const NI = Object.fromEntries(NODES.map((n, i) => [n.id, i]));
@@ -273,6 +273,9 @@ const fibrosisVerb = (z) => ({ type: 'slider', id: 'fibrosis', key: 'fibrosis', 
   info: { pre: 'Resistance before the sinusoids, as in schistosomiasis: portal pressure rises, the wedged pressure does not.', sin: 'Collagen in the space of Disse and closing fenestrae: resistance in the sinusoids themselves, read by HVPG.', post: 'Resistance at the central veins, as in sinusoidal obstruction syndrome: the sinusoids congest from the outflow side.' }[z] });
 const ZONE_TEXT = ['Zone 1 (periportal) gets blood first, richest in oxygen and nutrients: the first to regenerate, the last to die in ischemia.', 'Zone 2 lies between: intermediate oxygen.', 'Zone 3 (centrilobular) gets blood last, poorest in oxygen: first to suffer in congestion, shock and drug toxicity (acetaminophen).'];
 
+// The lobule's portal flow runs backward (the same dead band as every other reversed-flow sentence: velNormal.js flowReversed).
+const portalBack = (m) => flowReversed(m.portalQ, m.portalRef);
+
 function lobuleCard(sel, ctx) {
   const L = (f) => lobuleState(f, store.get());
   const mm = (v) => `${fmt(v, 1)} mmHg`, pc = (v) => `${Math.round(v * 100)} %`;
@@ -285,11 +288,11 @@ function lobuleCard(sel, ctx) {
     case 'triad': return { ...base, title: 'Portal triad', value: pv((m) => m.P1),
       verbs: [about((m) => ['Blood enters the lobule here: portal venous blood (about three quarters) and hepatic arterial blood, with a bile ductule carrying bile the other way. Inlet venules run along the lobule’s edge and feed the sinusoids.',
         m.fibPre > 0.1 ? `Portal fibrosis (resistance ×${fmt(m.zone.pre, 1)}) narrows the venules before the sinusoids: pre-sinusoidal portal hypertension, with a near-normal wedged pressure.` : '',
-        m.portal < 0 ? 'Portal flow is reversed: blood leaves the liver through the portal venules (hepatofugal flow).' : ''].filter(Boolean)),
-      fibrosisVerb('pre'), stat('Portal inflow', (m) => (m.portal < 0 ? 'reversed' : pc(m.portal))), stat('Arterial inflow', (m) => pc(m.art))] };
+        portalBack(m) ? 'Portal flow is reversed: blood leaves the liver through the portal venules (hepatofugal flow).' : ''].filter(Boolean)),
+      fibrosisVerb('pre'), stat('Portal inflow', (m) => (portalBack(m) ? 'reversed' : pc(Math.max(0, m.portal)))), stat('Arterial inflow', (m) => pc(m.art))] };
     case 'in': return { ...base, title: 'Inlet venule', value: pv((m) => m.P1),
-      verbs: [about((m) => ['A branch of the portal venule running along the lobule’s border, feeding the sinusoids it passes.', m.portal < 0 ? 'Flow here runs backwards (orange): arterial blood that entered the sinusoids drains out through the portal venules.' : ''].filter(Boolean)),
-        fibrosisVerb('pre'), stat('Portal inflow', (m) => (m.portal < 0 ? 'reversed' : pc(m.portal)))] };
+      verbs: [about((m) => ['A branch of the portal venule running along the lobule’s border, feeding the sinusoids it passes.', portalBack(m) ? 'Flow here runs backwards (orange): arterial blood that entered the sinusoids drains out through the portal venules.' : ''].filter(Boolean)),
+        fibrosisVerb('pre'), stat('Portal inflow', (m) => (portalBack(m) ? 'reversed' : pc(Math.max(0, m.portal))))] };
     case 'sin': case 'an': return { ...base, title: sel.part === 'an' ? 'Sinusoidal anastomosis' : 'Sinusoid', value: pv((m) => m.P2),
       verbs: [about((m) => [sel.part === 'an' ? 'A cross-link between sinusoids: blood can go around a local block, so one blocked sinusoid does not starve the cells beyond it.'
         : 'A leaky capillary lined by fenestrated endothelium, between plates of hepatocytes one cell thick. Sinusoids merge toward the central vein, so blood speeds up as it goes; the highlighted path runs to the central vein.',

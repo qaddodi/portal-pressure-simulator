@@ -17,57 +17,76 @@ function segDist2(px, py, ax, ay, bx, by) {
 const d2 = (x, y) => x * x + y * y;
 
 /**
- * Bins vessels into cells. `tubes`: [{ id (row), pts: [[x, y]] × N_SAMPLES, reach }] where reach
- * is how far from the centerline the vessel can draw (radius, casing, shadow, fillet, glow);
- * `joins`: [{ x, y, reach, k, members: [row, …] (≤ 4) }]. Returns the entry texels and the cells.
+ * Bins vessels into cells. `tubes`: [{ id (row), pts: [[x, y]] × N_SAMPLES, reach, core, bin }] where reach
+ * is how far from the centerline the vessel can draw (radius, casing, shadow, fillet, glow), and `core` (optional) how far its
+ * lumen can reach (at most `reach`);
+ * `joins`: [{ x, y, reach, k, members: [row, …] (≤ 4), trunk?: row, fork?: bool }] (trunk: the member the others' ends lie on, when
+ * one of them is; fork: it runs on into the rest of its course at this join). Returns the entry texels and the cells,
+ * and `blood`: the cells (as `cells`, nBlood of them) a lumen can reach, those within `core` of a vessel (all of a vessel's
+ * cells without one) or listing a join, where the moving blood is drawn (veins-gl composite).
+ * `bin` (optional): other points, within `reach` less the vessel's own of `pts` at every sample, that the cells are
+ * tested against instead (a coiling vessel's points when its coil began: see stage.js syncVeins).
  */
+const same2 = (P, F) => F.length === P.length * 2 && P.every((q, i) => q[0] === F[i * 2] && q[1] === F[i * 2 + 1]);
+const sameArr = (a, b) => a.length === b.length && a.every((v, k) => v === b[k]);
 export function binVeins(tubes, joins, memo = null) {
   let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
-  for (const t of tubes) for (const [x, y] of t.pts) { x0 = Math.min(x0, x - t.reach); y0 = Math.min(y0, y - t.reach); x1 = Math.max(x1, x + t.reach); y1 = Math.max(y1, y + t.reach); }
-  if (!tubes.length) return { ent: new Float32Array(0), rows: 1, cells: new Float32Array(0), nCells: 0, nEnt: 0 };
+  for (const t of tubes) {
+    const P = t.bin || t.pts, r = t.reach;
+    for (let i = 0; i < P.length; i++) { const x = P[i][0], y = P[i][1]; x0 = Math.min(x0, x - r); y0 = Math.min(y0, y - r); x1 = Math.max(x1, x + r); y1 = Math.max(y1, y + r); }
+  }
+  if (!tubes.length) return { ent: new Float32Array(0), rows: 1, cells: new Float32Array(0), nCells: 0, nEnt: 0, blood: new Float32Array(0), nBlood: 0 };
   x0 = Math.floor(x0 / CELL) * CELL; y0 = Math.floor(y0 / CELL) * CELL;
   const nx = Math.max(1, Math.ceil((x1 - x0) / CELL)), ny = Math.max(1, Math.ceil((y1 - y0) / CELL));
   const HALF = CELL * Math.SQRT1_2;
-  // Pass 1: (cell, tube, sample) triples in vessel-major order, so a cell's list stays grouped by vessel.
-  let cap = 1 << 16, nSeg = 0, cellOf = new Int32Array(cap), tubeOf = new Int32Array(cap), segOf = new Int32Array(cap);
-  const push = (c, t, i) => {
+  // Pass 1: each vessel's (cell, sample) pairs, in order of sample (see the triples below).
+  let cap = 1 << 12, nSeg = 0, cellOf = new Int32Array(cap), segOf = new Int32Array(cap);
+  const push = (c, i) => {
     if (nSeg === cap) {
       cap *= 2;
       const grow = (a) => { const b = new Int32Array(cap); b.set(a); return b; };
-      cellOf = grow(cellOf); tubeOf = grow(tubeOf); segOf = grow(segOf);
+      cellOf = grow(cellOf); segOf = grow(segOf);
     }
-    cellOf[nSeg] = c; tubeOf[nSeg] = t; segOf[nSeg] = i; nSeg++;
+    cellOf[nSeg] = c; segOf[nSeg] = i; nSeg++;
   };
   // (memo: a Map kept by the caller. A vessel whose points and reach are the same as last time, on the same grid, reuses
   // its (cell, sample) pairs instead of testing every cell again; the result is the same, entry for entry.)
   const grid = `${x0},${y0},${nx},${ny}`;
-  if (memo && memo.grid !== grid) { memo.clear(); memo.grid = grid; memo.last = null; }
-  let fresh = 0;
+  if (memo && memo.grid !== grid) { memo.clear(); memo.grid = grid; memo.last = null; memo.place = null; }
+  let fresh = 0, freshMoved = 0;
+  // (The vessels whose points moved without changing which cells list which of their segments: a collateral coiling, tested
+  // against its points when the coil began. When they are all that changed, the last result is patched in place: see below.)
+  const moved = [];
+  const per = new Array(tubes.length);
   for (let ti = 0; ti < tubes.length; ti++) {
-    const { id, pts, reach } = tubes[ti];
+    const { id, pts: drawn, reach, core } = tubes[ti], pts = tubes[ti].bin || drawn;
     const m = memo?.get(id);
-    if (m && m.reach === reach && m.pts.length === pts.length * 2 && pts.every((q, i) => q[0] === m.pts[i * 2] && q[1] === m.pts[i * 2 + 1])) {
-      for (let k = 0; k < m.n; k++) push(m.cs[k], ti, m.ss[k]);
+    if (m && m.reach === reach && m.core === core && same2(pts, m.pts)) {
+      per[ti] = m;
+      if (!same2(drawn, m.at)) { moved.push(ti); m.at = Float64Array.from(drawn.flat()); }
       continue;
     }
-    const from = nSeg;
+    nSeg = 0;
     fresh++;
-    const lim2 = (reach + HALF) ** 2;
+    const lim2 = (reach + HALF) ** 2, limC2 = core == null ? Infinity : (Math.min(core, reach) + HALF) ** 2;
+    const bc = [];   // (the cells its lumen can reach: see `blood`)
     for (let i = 0; i < pts.length - 1; i++) {
       const ax = pts[i][0], ay = pts[i][1], bx = pts[i + 1][0], by = pts[i + 1][1];
       const cx0 = Math.max(0, Math.floor((Math.min(ax, bx) - reach - x0) / CELL)), cx1 = Math.min(nx - 1, Math.floor((Math.max(ax, bx) + reach - x0) / CELL));
       const cy0 = Math.max(0, Math.floor((Math.min(ay, by) - reach - y0) / CELL)), cy1 = Math.min(ny - 1, Math.floor((Math.max(ay, by) + reach - y0) / CELL));
       for (let cy = cy0; cy <= cy1; cy++) for (let cx = cx0; cx <= cx1; cx++) {
-        if (segDist2(x0 + (cx + 0.5) * CELL, y0 + (cy + 0.5) * CELL, ax, ay, bx, by) > lim2) continue;
-        push(cy * nx + cx, ti, i);
+        const dd = segDist2(x0 + (cx + 0.5) * CELL, y0 + (cy + 0.5) * CELL, ax, ay, bx, by);
+        if (dd > lim2) continue;
+        push(cy * nx + cx, i);
+        if (dd <= limC2) bc.push(cy * nx + cx);
       }
     }
-    if (memo) memo.set(id, { reach, pts: Float64Array.from(pts.flat()), n: nSeg - from, cs: cellOf.slice(from, nSeg), ss: segOf.slice(from, nSeg) });
+    const n = nSeg, cs = cellOf.slice(0, n), ss = segOf.slice(0, n);
+    // (Its lumen's cells must be the same too: a patch keeps the last result's blood cells.)
+    if (m && m.reach === reach && m.core === core && m.n === n && cs.every((c, k) => c === m.cs[k]) && ss.every((q, k) => q === m.ss[k]) && sameArr(bc, m.bc)) { moved.push(ti); freshMoved++; }
+    per[ti] = { n, cs, ss, bc };
+    if (memo) memo.set(id, { reach, core, pts: Float64Array.from(pts.flat()), at: Float64Array.from(drawn.flat()), n, cs, ss, bc });
   }
-  // Nothing changed since the last call (same vessels, points, reaches and joins): the last result itself, so the caller
-  // can skip the upload.
-  const sameKey = memo && `${tubes.map((t) => t.id).join(',')}|${joins.map((j) => `${j.x},${j.y},${j.reach},${j.k},${j.fillet},${j.members.join('.')}`).join(';')}`;
-  if (memo && !fresh && memo.last && memo.key === sameKey) return memo.last;
   const jCell = [];
   joins.forEach((j, ji) => {
     const cx0 = Math.max(0, Math.floor((j.x - j.reach - x0) / CELL)), cx1 = Math.min(nx - 1, Math.floor((j.x + j.reach - x0) / CELL));
@@ -78,6 +97,47 @@ export function binVeins(tubes, joins, memo = null) {
       jCell.push(cy * nx + cx, ji);
     }
   });
+  // The layout (which entries go where) is the last result's when the vessels are the same, each lists the same segments
+  // in the same cells, and each join has the same members and cells; then only values in entries can have changed.
+  const sameLayout = memo?.last && memo.place && !(fresh - freshMoved) && memo.ids === tubes.map((t) => t.id).join(',') &&
+    memo.jm === joins.map((j) => j.members.join('.') + (j.trunk != null ? 't' + j.trunk + (j.fork ? 'f' : '') : '')).join(';') && memo.jCell.length === jCell.length && jCell.every((v, k) => v === memo.jCell[k]);
+  const jv = memo && Float64Array.from(joins.flatMap((j) => [j.x, j.y, j.reach, j.k, j.fillet ?? 1, j.trunk ?? -1, j.fork ? 1 : 0]));
+  if (sameLayout) {
+    // Nothing changed since the last call (same vessels, points, reaches and joins): the last result itself, so the caller
+    // can skip the upload.
+    const jMoved = [];
+    for (let ji = 0; ji < joins.length; ji++) for (let f = 0; f < 7; f++) if (jv[ji * 7 + f] !== memo.jv[ji * 7 + f]) { jMoved.push(ji); break; }
+    if (!moved.length && !jMoved.length) return memo.last;
+    // Only moved vessels or joins that keep their cells: the same entries in the same places, so the vessels' points are
+    // written over the last result's and their heads and runs fitted again (as below), the joins written again, and only the
+    // rows of entries that changed are uploaded again (`patch`: [first row, last row] spans). Entry for entry what a whole
+    // binning of the same tubes and joins gives: a coiling collateral was a whole binning of every vessel and a 4 MB upload
+    // at every model frame of its coil, for 20–35 s after a patient change or a talk start (round 2 review, G1-3).
+    const { ent } = memo.last, { es, hs, js } = memo.place, rowsOf = new Set();
+    const mark = (e) => rowsOf.add((e * 2) / ENT_W | 0);
+    for (const ti of moved) {
+      const t = tubes[ti], E = es[ti], segs = memo.get(t.id).ss;
+      for (let k = 0; k < E.length; k++) {
+        const q = E[k] * 8, a = t.pts[segs[k]], b = t.pts[segs[k] + 1];
+        ent[q] = a[0]; ent[q + 1] = a[1]; ent[q + 2] = b[0]; ent[q + 3] = b[1];
+        mark(E[k]);
+      }
+      for (const h of hs[ti]) { fitStretch(ent, h); mark(h); }
+    }
+    for (const ji of jMoved) for (const e of js[ji]) { writeJoin(ent, e, joins[ji]); mark(e); }
+    const rs = [...rowsOf].sort((a, b) => a - b), patch = [];
+    for (const r of rs) { if (patch.length && patch[patch.length - 1][1] === r - 1) patch[patch.length - 1][1] = r; else patch.push([r, r]); }
+    const out = { ...memo.last, patch };
+    memo.last = out; memo.jv = jv;
+    return out;
+  }
+  // The (cell, tube, sample) triples in vessel-major order, so a cell's list stays grouped by vessel.
+  const tFrom = new Int32Array(tubes.length + 1);
+  for (let ti = 0; ti < tubes.length; ti++) tFrom[ti + 1] = tFrom[ti] + per[ti].n;
+  nSeg = tFrom[tubes.length];
+  cellOf = new Int32Array(nSeg); segOf = new Int32Array(nSeg);
+  const tubeOf = new Int32Array(nSeg);
+  for (let ti = 0; ti < tubes.length; ti++) { const { n, cs, ss } = per[ti]; cellOf.set(n === cs.length ? cs : cs.subarray(0, n), tFrom[ti]); segOf.set(n === ss.length ? ss : ss.subarray(0, n), tFrom[ti]); tubeOf.fill(ti, tFrom[ti], tFrom[ti + 1]); }
   // Pass 2: counting sort by cell (stable). Each vessel's stretch of a cell's list (a run of one vessel id) starts with a head
   // entry (see below), counted here with the stretch.
   const NC = nx * ny, segCount = new Int32Array(NC), jCount = new Int32Array(NC), lastId = new Float64Array(NC).fill(-Infinity);
@@ -96,16 +156,17 @@ export function binVeins(tubes, joins, memo = null) {
   const rows = Math.max(1, Math.ceil((nEnt * 2) / ENT_W));
   const ent = new Float32Array(rows * ENT_W * 4);
   const fillS = segStart.slice(), fillJ = jStart.slice();
+  // (Where each vessel's entries and heads went, for a later patch: memo.place.)
+  const entOf = memo ? new Int32Array(nSeg) : null, hs = memo ? tubes.map(() => []) : null;
   lastId.fill(-Infinity);
   for (let k = 0; k < nSeg; k++) {
     const c = cellOf[k], t = tubes[tubeOf[k]];
-    if (lastId[c] !== t.id) { lastId[c] = t.id; const h = fillS[c]++ * 8; ent[h + 4] = t.id; ent[h + 5] = -1; }
+    if (lastId[c] !== t.id) { lastId[c] = t.id; const h = fillS[c]++; ent[h * 8 + 4] = t.id; ent[h * 8 + 5] = -1; hs?.[tubeOf[k]].push(h); }
     const e = fillS[c]++, i = segOf[k], a = t.pts[i], b = t.pts[i + 1], q = e * 8;
+    if (entOf) entOf[k] = e;
     ent[q] = a[0]; ent[q + 1] = a[1]; ent[q + 2] = b[0]; ent[q + 3] = b[1];
     ent[q + 4] = t.id; ent[q + 5] = i;
   }
-  // A radius that holds every point measured, nudged past float32 rounding (the shader reads it as float32).
-  const up = (r) => (Math.fround(r) < r ? r * (1 + 1e-6) + 1e-6 : r);
   // Each vessel's stretch of a cell's list starts with a head entry: a circle (centre, radius) holding every point of the
   // stretch, and the stretch's length (segment index -1 marks it), so the shader can pass over a vessel that lies wholly
   // out of reach of a pixel. Then the stretch in runs of up to RUN segments: the run's first entry holds (in its two spare
@@ -114,50 +175,82 @@ export function binVeins(tubes, joins, memo = null) {
   for (let c = 0; c < NC; c++) {
     const e1 = segStart[c] + segCount[c];
     for (let e = segStart[c]; e < e1;) {
-      if (ent[e * 8 + 5] === -1) {
-        const h = e * 8, id = ent[h + 4];
-        let g = e + 1, bx0 = Infinity, by0 = Infinity, bx1 = -Infinity, by1 = -Infinity;
-        for (; g < e1 && ent[g * 8 + 4] === id && ent[g * 8 + 5] !== -1; g++) {
-          const q = g * 8;
-          bx0 = Math.min(bx0, ent[q], ent[q + 2]); bx1 = Math.max(bx1, ent[q], ent[q + 2]);
-          by0 = Math.min(by0, ent[q + 1], ent[q + 3]); by1 = Math.max(by1, ent[q + 1], ent[q + 3]);
-        }
-        const cx = Math.fround((bx0 + bx1) / 2), cy = Math.fround((by0 + by1) / 2);
-        let R2 = 0;
-        for (let f = e + 1; f < g; f++) { const q = f * 8; R2 = Math.max(R2, d2(ent[q] - cx, ent[q + 1] - cy), d2(ent[q + 2] - cx, ent[q + 3] - cy)); }
-        ent[h] = cx; ent[h + 1] = cy; ent[h + 2] = up(Math.sqrt(R2)); ent[h + 7] = g - e - 1;
-        e++;
-        continue;
-      }
-      const q0 = e * 8, id = ent[q0 + 4], ax = ent[q0], ay = ent[q0 + 1];
-      let n = 0, rho2 = 0;
-      while (n < RUN && e + n < e1 && ent[(e + n) * 8 + 4] === id && ent[(e + n) * 8 + 5] !== -1) {
-        const q = (e + n) * 8;
-        rho2 = Math.max(rho2, d2(ent[q] - ax, ent[q + 1] - ay), d2(ent[q + 2] - ax, ent[q + 3] - ay));
-        n++;
-      }
-      ent[q0 + 6] = up(Math.sqrt(rho2)); ent[q0 + 7] = n;
-      e += n;
+      // (A head entry; its stretch runs on until the vessel changes, a head, or the end of the cell's list.)
+      const id = ent[e * 8 + 4];
+      let g = e + 1;
+      while (g < e1 && ent[g * 8 + 4] === id && ent[g * 8 + 5] !== -1) g++;
+      ent[e * 8 + 7] = g - e - 1;
+      fitStretch(ent, e);
+      e = g;
     }
   }
+  const js = memo ? joins.map(() => []) : null;
   for (let k = 0; k < jCell.length; k += 2) {
     const c = jCell[k];
     if (!segCount[c]) continue;
-    const e = fillJ[c]++, j = joins[jCell[k + 1]], q = e * 8;
-    ent[q] = j.x; ent[q + 1] = j.y; ent[q + 2] = j.reach; ent[q + 3] = Math.round(j.k * 100) + 0.99 * Math.min(1, Math.max(0, j.fillet ?? 1));   // the blend width, and (as the fraction) how much of it rounds the shape
-    for (let m = 0; m < 4; m++) ent[q + 4 + m] = j.members[m] ?? -1;
+    const e = fillJ[c]++;
+    writeJoin(ent, e, joins[jCell[k + 1]]);
+    js?.[jCell[k + 1]].push(e);
   }
-  const cells = new Float32Array(nCells * 6);
+  // The cells a lumen can reach: within a vessel's core, or listing a join (its fillet and the lower tier's copy swell the
+  // lumens there). Elsewhere a cell draws only casings, shadows and the plate, which the moving blood never changes.
+  const wet = new Uint8Array(NC);
+  for (let ti = 0; ti < tubes.length; ti++) {
+    const { n, cs, bc } = per[ti];
+    if (tubes[ti].core == null) for (let k = 0; k < n; k++) wet[cs[k]] = 1;
+    else for (const c of bc) wet[c] = 1;
+  }
+  for (let k = 0; k < jCell.length; k += 2) wet[jCell[k]] = 1;
+  const cells = new Float32Array(nCells * 6), wetAt = [];
   let ci = 0;
   for (let c = 0; c < NC; c++) {
     if (!segCount[c]) continue;
     cells[ci] = x0 + (c % nx) * CELL; cells[ci + 1] = y0 + Math.floor(c / nx) * CELL;
     cells[ci + 2] = segStart[c]; cells[ci + 3] = segCount[c]; cells[ci + 4] = jStart[c]; cells[ci + 5] = jCount[c];
+    if (wet[c]) wetAt.push(ci);
     ci += 6;
   }
-  const out = { ent, rows, cells, nCells, nEnt };
-  if (memo) { memo.last = out; memo.key = sameKey; }
+  const nBlood = wetAt.length, blood = new Float32Array(nBlood * 6);
+  wetAt.forEach((at, b) => blood.set(cells.subarray(at, at + 6), b * 6));
+  const out = { ent, rows, cells, nCells, nEnt, blood, nBlood };
+  if (memo) {
+    memo.last = out; memo.ids = tubes.map((t) => t.id).join(','); memo.jm = joins.map((j) => j.members.join('.') + (j.trunk != null ? 't' + j.trunk + (j.fork ? 'f' : '') : '')).join(';'); memo.jCell = jCell; memo.jv = jv;
+    memo.place = { es: tubes.map((_, ti) => entOf.slice(tFrom[ti], tFrom[ti + 1])), hs, js };
+  }
   return out;
+}
+
+function writeJoin(ent, e, j) {
+  const q = e * 8;
+  ent[q] = j.x; ent[q + 1] = j.y; ent[q + 2] = j.reach; ent[q + 3] = Math.round(j.k * 100) + 0.99 * Math.min(1, Math.max(0, j.fillet ?? 1));   // the blend width, and (as the fraction) how much of it rounds the shape
+  // (A member that is the trunk the others end on has a quarter added to its row, three eighths at a fork, where it runs on into
+  // the rest of its course: the shader reads the row as int(v + 0.5).)
+  for (let m = 0; m < 4; m++) ent[q + 4 + m] = j.members[m] == null ? -1 : j.members[m] + (j.trunk === j.members[m] ? (j.fork ? 0.375 : 0.25) : 0);
+}
+
+// A radius that holds every point measured, nudged past float32 rounding (the shader reads it as float32).
+const up = (r) => (Math.fround(r) < r ? r * (1 + 1e-6) + 1e-6 : r);
+// Fits one stretch of a cell's list: its head `h` (whose stretch length, float 7, is set) and its runs, from the points in
+// its entries (see binVeins).
+function fitStretch(ent, h) {
+  const g = h + 1 + ent[h * 8 + 7];
+  let bx0 = Infinity, by0 = Infinity, bx1 = -Infinity, by1 = -Infinity;
+  for (let f = h + 1; f < g; f++) {
+    const q = f * 8;
+    bx0 = Math.min(bx0, ent[q], ent[q + 2]); bx1 = Math.max(bx1, ent[q], ent[q + 2]);
+    by0 = Math.min(by0, ent[q + 1], ent[q + 3]); by1 = Math.max(by1, ent[q + 1], ent[q + 3]);
+  }
+  const cx = Math.fround((bx0 + bx1) / 2), cy = Math.fround((by0 + by1) / 2);
+  let R2 = 0;
+  for (let f = h + 1; f < g; f++) { const q = f * 8; R2 = Math.max(R2, d2(ent[q] - cx, ent[q + 1] - cy), d2(ent[q + 2] - cx, ent[q + 3] - cy)); }
+  ent[h * 8] = cx; ent[h * 8 + 1] = cy; ent[h * 8 + 2] = up(Math.sqrt(R2));
+  for (let e = h + 1; e < g;) {
+    const q0 = e * 8, ax = ent[q0], ay = ent[q0 + 1], n = Math.min(RUN, g - e);
+    let rho2 = 0;
+    for (let k = 0; k < n; k++) { const q = (e + k) * 8; rho2 = Math.max(rho2, d2(ent[q] - ax, ent[q + 1] - ay), d2(ent[q + 2] - ax, ent[q + 3] - ay)); }
+    ent[q0 + 6] = up(Math.sqrt(rho2)); ent[q0 + 7] = n;
+    e += n;
+  }
 }
 
 // ── What a vessel's new attributes change in the drawn layer ──

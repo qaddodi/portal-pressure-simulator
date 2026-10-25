@@ -8,6 +8,9 @@
 //   SMOKE_DEVICE=phone SMOKE_SHARD=1/2 one device, and one share of its checks (CI runs shards in parallel)
 //   SMOKE_RETRIES=0                    no second try (default 1: a check that failed only by timing
 //                                       out on a slow runner gets one more try; any other failure counts)
+//   SMOKE_GPUORGANS=force              every page opens with ?gpuorgans=force: the organs drawn as GPU layers, which a
+//                                       software renderer (CI's) otherwise never does (the "gpu-organs" job in ci.yml and checks.yml)
+//   SMOKE_MATCH=<regex>                only the checks whose name matches it (with SMOKE_GPUORGANS and no SMOKE_MATCH: the figure's own, FIGURE_CHECKS)
 //
 // Needs a Chromium for Playwright (`npx playwright install chromium`; the Claude Code cloud
 // image ships one).
@@ -27,6 +30,23 @@ const shots = process.env.SHOTS;
 if (shots) mkdirSync(shots, { recursive: true });
 const server = await serve(dir);
 const browser = await chromium.launch(process.env.CHROMIUM ? { executablePath: process.env.CHROMIUM } : {});
+// SMOKE_GPUORGANS=force (see the header): every page of every context, the checks' own as well as the shared ones, opens with ?gpuorgans=force.
+const GPU_ORGANS = process.env.SMOKE_GPUORGANS;
+// The checks that draw or move the figure itself (about 25 minutes on a desktop runner): what SMOKE_GPUORGANS runs when no SMOKE_MATCH names others.
+// The rest judge cards, words and charts, which the organs' path does not touch.
+const FIGURE_CHECKS = 'moving blood on the GPU|Fit always|pan and pinch|presenter in the liver|leaders reach|zooming out|vessels and plate|liver lobule: GPU|lobule: a Fit glide|lobule zoom is continuous: (Explore|lobule slide 1|tap slide 8)';
+if (GPU_ORGANS) {
+  const newContext = browser.newContext.bind(browser);
+  browser.newContext = async (o) => {
+    const ctx = await newContext(o), newPage = ctx.newPage.bind(ctx);
+    ctx.newPage = async () => {
+      const page = await newPage(), go = page.goto.bind(page);
+      page.goto = (url, opts) => { const [path, hash] = url.split('#'); return go(`${path}${path.includes('?') ? '&' : '?'}gpuorgans=${GPU_ORGANS}${hash ? '#' + hash : ''}`, opts); };
+      return page;
+    };
+    return ctx;
+  };
+}
 let failed = 0;
 
 const TYPE_SCALE_SIZES = TYPE_SIZES.map((s) => s.name), CHART_TEXT_SIZES = CHART_SIZES_ALL.map((s) => s.name);
@@ -303,8 +323,9 @@ const barFit = (page) => page.evaluate(() => {
   }
   return 'ok';
 });
-// A phone's data card hugs its contents: at most 12 px of empty card above the first part or below the last, and its
-// contents at full size (a folded tool must not count as overflow and shrink them). null when it fits, else what is wrong.
+// A phone's data card hugs its contents: at most 12 px of empty card above the first part or below the last. null when it fits,
+// else what is wrong. (The fit may shrink the header and tiles to make a tall card fit, down to its 12 px lettering floor: that is
+// by design, so the card's zoom is not a failure here.)
 const cardGap = (page) => page.evaluate(() => {
   const d = document.querySelector('.pz-data:not(.pz-hide):not([hidden])');
   if (!d || !d.offsetHeight) return null;
@@ -315,10 +336,7 @@ const cardGap = (page) => page.evaluate(() => {
   if (!parts.length) return null;
   const top = Math.min(...parts.map((c) => c.getBoundingClientRect().top)) - b.top - d.clientTop;
   const bottom = b.bottom - d.clientTop - Math.max(...parts.map((c) => c.getBoundingClientRect().bottom));
-  // (The words' own zoom: an opened phone instrument may give way, the header and tiles never.)
-  const fit = Math.min(...[...d.children].filter((c) => !c.classList.contains('pz-tool') || !(d.classList.contains('tool-open') || d.classList.contains('tool-only'))).map((c) => parseFloat(getComputedStyle(c).zoom) || 1));
   if (top > 12 || bottom > 12) return `the data card has ${Math.round(top)} px empty above and ${Math.round(bottom)} px below its contents (cap 12)`;
-  if (fit < 1) return `the data card's contents are shrunk to ${Math.round(fit * 100)} %`;
   return null;
 });
 
@@ -457,6 +475,26 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     }
   });
 
+  // The first fit sets the view, the home framing and the glide's target outright; one object for the three meant the first zoom changed them
+  // all, so the home look took the zoomed view for home and glided it back to the fit when a card moved (a pinch in the first seconds undone).
+  if (device === 'desktop') await check(device, 'a pinch soon after the page opens stays when a card moves', async (page) => {
+    await open(page, '?preset=cirr-decomp');
+    await page.waitForFunction(() => window.ppsFigureReady, null, { timeout: 15000 }).catch(() => {});
+    await page.waitForTimeout(1500);
+    const box = await page.locator('.stage-view').boundingBox();
+    await page.mouse.move(box.x + box.width / 2, box.y + box.height * 0.45);
+    const scale = () => page.evaluate(() => { const st = window.pps.stage, a = st.worldToLocal(0, 0), b = st.worldToLocal(1, 0); return b[0] - a[0]; });
+    const rest = await scale();
+    await page.keyboard.down('Control'); await page.mouse.wheel(0, -40); await page.keyboard.up('Control');
+    await page.waitForTimeout(800);
+    const zoomed = await scale();
+    if (zoomed < rest * 1.2) throw new Error(`the pinch did not stay: the figure's scale went ${rest.toFixed(3)} to ${zoomed.toFixed(3)} and was back at the fit within 0.8 s`);
+    await page.evaluate(() => dispatchEvent(new Event('pps:occ')));   // (a card or sheet announcing a new place)
+    await page.waitForTimeout(1500);
+    const after = await scale();
+    if (Math.abs(after - zoomed) > 0.005) throw new Error(`a card moving glided the pinched view back: scale ${zoomed.toFixed(3)} to ${after.toFixed(3)} (the fit is ${rest.toFixed(3)})`);
+  });
+
   await check(device, 'sinusoid view: a rebuilt caption does not fade in again (no flashing at rest)', async (page) => {
     await open(page, '?preset=cirr-decomp');
     await page.evaluate(() => document.querySelector('#viewSeg [data-view="lobule"]').click());
@@ -547,7 +585,7 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
       }).map((c) => c.className);
     });
     const shots = [], opaque = new Set();
-    for (const [on, ms] of [[true, 1900], [false, 1300]]) {
+    for (const [on, ms] of [[true, 2500], [false, 1600]]) {   // (the dive 2.2 s, the rise 1.3 s, and a little after each)
       await page.evaluate((v) => window.pps.store.set({ lobule: v }), on);
       for (let t = 0; t <= ms; t += 50) {
         await page.evaluate(() => window.__step(50));
@@ -600,7 +638,7 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     await page.waitForTimeout(1500);
     await page.evaluate(() => window.pps.store.set({ lobule: false }));
     await page.waitForFunction(() => window.pps.stage.lobuleSettled() && !window.pps.stage.lobuleOpen(), null, { timeout: 60000 });
-    await page.waitForTimeout(500);
+    await page.waitForTimeout(1500);   // (the next dive's idle preparation redraws the world bitmap and a canvas 0.4 to 0.9 s after the lobule is left: read after it)
     const left = await page.evaluate(() => window.pps.stage.lobuleMem(true));
     const MB = (o) => JSON.stringify(Object.fromEntries(Object.entries(o).map(([k, v]) => [k, +(v / 1e6).toFixed(1)])));
     if (left.canvases > 0 || left.tiles > Math.max(landed.tiles, 1) * 1.05 || left.world > Math.max(landed.world, 1) * 1.05) throw new Error(`after a close zoom the anatomy still holds the lobule's bitmaps: landed ${MB(landed)}, zoomed ${MB(zoomed)}, after leaving ${MB(left)} (MB)`);
@@ -609,11 +647,13 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     await page.waitForFunction(() => (window.pps.store.get().frame?.slow?.ascites || 0) > 800, null, { timeout: 60000 });
     await page.evaluate(() => window.pps.store.set({ running: false }));
     await page.waitForTimeout(4000);
-    await page.evaluate(() => { window.__svg = 0; const c = URL.createObjectURL; URL.createObjectURL = function (b) { if (b?.type === 'image/svg+xml') window.__svg++; return c.call(this, b); }; });
+    const rasters0 = await page.evaluate(() => window.pps.stage.plateRasters());
     await page.evaluate(() => window.pps.host.send({ type: 'action', action: { kind: 'paracentesis', mL: 6000, albumin: true } }));
     await page.evaluate(() => window.pps.store.set({ running: true })); await page.waitForTimeout(1500); await page.evaluate(() => window.pps.store.set({ running: false }));
     await page.waitForTimeout(9000);
-    const n = await page.evaluate(() => window.__svg);
+    // (Counted as passes over the plate, not as pictures: a pass is a picture a strip at a time, and with the organs drawn on the GPU a
+    // picture per organ layer too, so 14 pictures were two passes there, and 4 to 10 on the single picture.)
+    const n = (await page.evaluate(() => window.pps.stage.plateRasters())) - rasters0;
     if (n > 2) throw new Error(`draining the ascites rasterized the organ plate ${n} times while the fluid eased (once, plus the view's sharper copy, is enough)`);
   });
 
@@ -1357,7 +1397,7 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
   // lists the presentations and no error is thrown. (chart.js used to throw on a bad pps.chartOpen3 before anything drew.)
   if (device === 'desktop') await check(device, 'damaged saved settings do not stop the app from starting', async (page) => {
     await page.addInitScript(() => {
-      const bad = { 'pps.chartOpen3': '{', 'pps.scripts': '{"id":1}', 'pps.instruments': '[', 'pps.blood2': '"x"', 'pps.theme': 'nope', 'pps.labelScale': 'big', 'pps.quality': 'x', 'pps.uiZoom': 'x', 'pps.labels': '7' };
+      const bad = { 'pps.chartOpen3': '{', 'pps.scripts': '{"id":1}', 'pps.instruments': '[', 'pps.blood2': '"x"', 'pps.theme': 'nope', 'pps.labelScale': 'big', 'pps.quality': 'x', 'pps.labels': '7' };
       try { for (const [k, v] of Object.entries(bad)) localStorage.setItem(k, v); } catch { /* no storage on this frame */ }
     });
     await open(page, '?home=present');
@@ -1366,6 +1406,16 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     await page.waitForTimeout(600);
     if (!(await page.evaluate((t) => window.pps.store.get().frame.t > t, t1))) throw new Error('the model clock did not advance');
     if (await page.evaluate(() => document.documentElement.getAttribute('data-theme'))) throw new Error('an unknown saved theme was applied');
+  });
+
+  // The Interface zoom setting is gone: a value saved by it is dropped, and the page keeps its default size.
+  if (device === 'desktop') await check(device, 'a saved interface zoom no longer applies', async (page) => {
+    await page.addInitScript(() => { try { localStorage.setItem('pps.uiZoom', '1.4'); } catch { /* no storage on this frame */ } });
+    await open(page, '?home=present');
+    await page.waitForSelector('.umenu .um-row[data-k="d:hvpg"]');
+    const st = await page.evaluate(() => ({ zoom: document.documentElement.style.zoom, prop: document.documentElement.style.getPropertyValue('--ui-zoom'), saved: localStorage.getItem('pps.uiZoom') }));
+    if (st.zoom || st.prop) throw new Error(`the saved interface zoom was applied: ${JSON.stringify(st)}`);
+    if (st.saved !== null) throw new Error(`the saved interface zoom was kept: ${st.saved}`);
   });
 
   // A page left open across an update: its presentation engine's files no longer load (here the worker never answers and
@@ -1653,7 +1703,7 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
       if (sv) throw new Error(`${deck}, slide ${n}: ${sv}`);
       const dl = badDelta(await cardTiles(page));
       if (dl) throw new Error(`${deck}, slide ${n}: ${dl}`);
-      // (A folding tool: Show then Hide must leave the card's contents at full size, as on arrival.)
+      // (A folding tool: Show then Hide must leave the card hugging its contents, as on arrival.)
       const fold = page.locator('.pz-data:not(.pz-hide):not([hidden]) .pz-fold');
       if (await fold.isVisible().catch(() => false)) {
         for (const want of ['true', 'false']) {
@@ -1662,7 +1712,7 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
           // (The fold eases, then the card is fitted again: give it until it settles, up to 3 s.)
           let g = null;
           for (let w = 0; w < 10; w++) { await page.waitForTimeout(300); g = await cardGap(page); if (!g) break; }
-          if (g && (want === 'false' || g.includes('shrunk'))) throw new Error(`${deck}, slide ${n}, after ${want === 'true' ? 'Show' : 'Show then Hide'}: ${g}`);
+          if (g && want === 'false') throw new Error(`${deck}, slide ${n}, after Show then Hide: ${g}`);
           // (Opened, no two stacked sections of the card touch: the readout, a bar, the lab tiles and the card's own tiles keep a gap.)
           const tight = want === 'true' && await page.evaluate(() => {
             const card = document.querySelector('.pz-data:not(.pz-hide):not([hidden])');
@@ -2263,10 +2313,14 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
   // The Mac and iPad ladder card's HVPG and PPG brackets on every slide: a real line between the ticks, the label clear
   // of every drop line, reading, name and other bracket (Mac 1280x800 and upright iPad at 100% and 200% text here; run
   // checkLadderBrackets alone for every size).
-  if (device === 'desktop') await check(device, 'presenter: ladder HVPG/PPG brackets draw a line and their labels clash with nothing', async () => {
-    const bad = await checkLadderBrackets(browser, server.url, () => {}, [LADDER_SIZES[0], LADDER_SIZES[2]]);
-    if (bad.length) throw new Error(bad.slice(0, 3).join(' | '));
-  });
+  // (One check per size and text size, so the four walks of every slide share out over the runners: as one check they ran past
+  // a share's time limit, and the checks after it in that share went unreported.)
+  if (device === 'desktop') for (const size of [LADDER_SIZES[0], LADDER_SIZES[2]]) for (const z of [1, 2]) {
+    await check(device, `presenter: ladder HVPG/PPG brackets draw a line and their labels clash with nothing (${size.name}, ${z * 100}% text)`, async () => {
+      const bad = await checkLadderBrackets(browser, server.url, () => {}, [size], [z]);
+      if (bad.length) throw new Error(bad.slice(0, 3).join(' | '));
+    });
+  }
 
   // A Mac or iPad ladder card too tall for its room even at its smallest steps folds its plot behind Show, its tiles keeping the
   // readings; shown, the plot takes the tiles' place. Folded or shown, every reading sits inside the card at 12 px or more, and
@@ -3440,8 +3494,15 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
   await check(device, 'presenter TIPS Doppler: the stent slides call out all three points, matching the Doppler tiles', async (page) => {
     // (On a phone, each slide twice: as it opens, and with its data card's monitor open, which moves the figure: a point slid off its
     // dot's line by the open card got past the check once: Review 16 Oct.)
-    for (const n of [5, 9, 10, 13]) for (const unfold of device === 'phone' ? [false, true] : [false]) {
+    // (The slides are found by name: their numbers went stale when two slides were added before them (the check then stood on slides with
+    // no points and found nothing to fail on), and the presenter's buttons are waited for, as they arrive after the figure.)
+    const { DECKS, withOverview } = await import(new URL('../../src/ui/decks.js', import.meta.url));
+    const tips = withOverview(DECKS.find((d) => d.id === 'tips-doppler'));
+    for (const id of ['jet', 'narrow', 'where', 'fix']) for (const unfold of device === 'phone' ? [false, true] : [false]) {
+      const n = tips.slides.findIndex((s) => s.id === id) + 1;
+      if (!n) throw new Error(`TIPS Doppler has no slide "${id}"`);
       await open(page, `?script=tips-doppler&slide=${n}`);
+      await page.waitForFunction(() => document.querySelectorAll('.pz-abb').length > 0, null, { timeout: 60000 });
       if (unfold) {
         const folded = await page.evaluate(() => { const f = document.querySelector('.pz-data:not(.pz-hide):not([hidden]) .pz-fold'); if (!f?.getClientRects().length || f.getAttribute('aria-expanded') !== 'false') return false; f.click(); return true; });
         if (!folded) continue;
@@ -3459,7 +3520,9 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
             .map((d) => [d.querySelector('dt').textContent.trim().toLowerCase(), parseFloat(d.querySelector('dd').textContent)]));
           const shown = [...document.querySelectorAll('#labels g.lb[data-key^="n:TIPS:"]')].filter((g) => g.style.display !== 'none' && !g.classList.contains('lb-off'));
           if (shown.length !== 3 || shown.filter((g) => g.querySelector('.lb-gate')).length !== 1) return false;
-          if (phone && !Object.keys(tiles).length) return true;
+          // (Where no tiles show (a phone's folded card; the Mac's and iPad's card now shows the monitor alone) there is nothing to match them to, and
+          // the callouts are only counted, once the green one is the point just picked; the monitor's own number is matched to it below.)
+          if (!Object.keys(tiles).length) { const st = window.pps.store.get(), gate = st.dopGate === 'site' ? st.params.stenosisSite?.TIPS || 'distal' : st.dopGate; return !!shown.find((g) => g.querySelector('.lb-gate'))?.dataset.key.endsWith(gate); }
           // (A phone names them short: "Prox 99 cm/s".)
           const names = { tipsproximal: 'proximal', tipsmid: 'mid', tipsdistal: 'distal', prox: 'proximal', mid: 'mid', dist: 'distal' };
           return shown.every((g) => { const m = g.textContent.match(/^(TIPS ?(?:proximal|mid|distal)|Prox|Mid|Dist)\s*([\d.]+)/); return m && tiles[names[m[1].replace(/ /g, '').toLowerCase()]] === parseFloat(m[2]); });
@@ -3481,7 +3544,8 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
           const rs = Object.fromEntries(Object.entries(pts).map(([p, e]) => [p, box(e)]));
           const others = [...document.querySelectorAll('#labels g.lb:not(.lb-off)')].filter((e) => !e.dataset.key?.startsWith('n:TIPS:') && e.style.display !== 'none' && !e.dataset.key?.startsWith('o:'));
           const clamps = [...document.querySelectorAll('.clamp-label')];
-          const dots = [...document.querySelectorAll('.leader-dot:not(.ld-gone)')].map((d) => { const r = box(d); return [(r.left + r.right) / 2, (r.top + r.bottom) / 2]; });
+          // (The figure's own leader dots: the lobule view's, hidden behind it, stand wherever its labels would and are none of the stent's.)
+          const dots = [...document.querySelectorAll('.lb-leaders .leader-dot:not(.ld-gone)')].map((d) => { const r = box(d); return [(r.left + r.right) / 2, (r.top + r.bottom) / 2]; });
           const far = (r) => Math.min(...dots.map(([x, y]) => Math.hypot(Math.max(r.left - x, 0, x - r.right), Math.max(r.top - y, 0, y - r.bottom))));
           const err = [], list = Object.values(rs), cx = (r) => (r.left + r.right) / 2;
           if (list.some((a, i) => list.some((b, j) => j > i && meet(a, b)))) err.push('two callouts overlap');
@@ -3489,9 +3553,10 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
           const own = (r) => dots.reduce((m, d) => (Math.hypot(Math.max(r.left - d[0], 0, d[0] - r.right), Math.max(r.top - d[1], 0, d[1] - r.bottom)) < Math.hypot(Math.max(r.left - m[0], 0, m[0] - r.right), Math.max(r.top - m[1], 0, m[1] - r.bottom)) ? d : m), dots[0] || [0, 0]);
           const sides = list.map((r) => Math.sign(cx(r) - own(r)[0]));
           if (new Set(sides).size > 1) err.push('the callouts are not all on one side of the stent');
-          // (Only the jet may stand farther, just past its narrowing's arrow on its dot's line: 8 px beyond the arrow at most.)
+          // (Only the jet may stand farther, just past its narrowing's arrow on its dot's line: 8 px beyond the arrow at most. An arrow's box
+          // reaches the dot's line from one side, so it counts within 2 px of it.)
           const arrows = [...document.querySelectorAll('path.clamp')].map(box);
-          const reach = (r) => { const [x, y] = own(r); return Math.max(16.5, ...arrows.filter((a) => a.top <= y && y <= a.bottom && (cx(r) > x ? a.left >= x - 2 && a.left < r.left : a.right <= x + 2 && a.right > r.right)).map((a) => (cx(r) > x ? a.right - x : x - a.left) + 8)); };
+          const reach = (r) => { const [x, y] = own(r); return Math.max(16.5, ...arrows.filter((a) => a.top - 2 <= y && y <= a.bottom + 2 && (cx(r) > x ? a.left >= x - 2 && a.left < r.left : a.right <= x + 2 && a.right > r.right)).map((a) => (cx(r) > x ? a.right - x : x - a.left) + 8)); };
           for (const [p, r] of Object.entries(rs)) if (far(r) > reach(r)) err.push(`${p} stands ${Math.round(far(r))} px from its dot`);
           // (Level with its own dot, where the dots stand far enough apart for three level callouts.)
           const ys = list.map((r) => own(r)[1]).sort((a, b) => a - b);
@@ -3499,9 +3564,6 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
           // (The slide's mark (Narrowing, Stent) still shows, moved off the column, not dropped or under a card.)
           const mk = [...document.querySelectorAll('#labels g.lb[data-key^="focus"]')].filter((e) => e.style.display !== 'none');
           if (st.focus && !mk.some((e) => !e.classList.contains('lb-off'))) err.push("the slide's mark is not shown");
-          // (The monitor's number is the green callout's.)
-          const mon = document.querySelector('.pz-data .dop-vel > b');
-          if (mon?.getClientRects().length && g && Math.abs(parseFloat(mon.textContent.replace('−', '-'))) !== parseFloat(g.querySelector('.lb-val')?.textContent)) err.push(`the monitor reads ${mon.textContent}, the green callout ${g.textContent}`);
           for (const [p, r] of Object.entries(rs)) for (const o of [...others, ...clamps]) if (meet(r, box(o))) err.push(`${p} covers "${o.textContent.trim().slice(0, 16)}"`);
           for (const c of clamps) if (box(c).height && parseFloat(getComputedStyle(c).fontSize) * (c.getScreenCTM()?.a || 1) < 11.5) err.push('the "60 %" reads under 12 px');
           if (!g.dataset.key.endsWith(gate)) err.push(`the green callout (${g.textContent}) is not the sampled ${gate}`);
@@ -3513,11 +3575,44 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
           }
           return { err, at: Object.fromEntries(Object.entries(rs).map(([p, r]) => [p, [Math.round(r.left), Math.round(r.top)]])) };
         });
+        // (The monitor's number is the green callout's. Both follow the live trace and tick a moment apart, so they are read until they agree
+        // at one reading, ten seconds at most, then no longer.)
+        const agree = () => { const mon = document.querySelector('.pz-data .dop-vel > b'), g = document.querySelector('#labels g.lb[data-key^="n:TIPS:"] .lb-gate')?.closest('g.lb'); return !mon?.getClientRects().length || !g || Math.abs(parseFloat(mon.textContent.replace('−', '-'))) === parseFloat(g.querySelector('.lb-val')?.textContent); };
+        const apart = await page.waitForFunction(agree, null, { polling: 'raf', timeout: 10000 }).then(() => '', () => page.evaluate(() => `the monitor reads ${document.querySelector('.pz-data .dop-vel > b').textContent}, the green callout ${document.querySelector('#labels g.lb[data-key^="n:TIPS:"] .lb-gate').closest('g.lb').textContent}`));
+        if (apart) got.err.push(apart);
         if (got.err.length) throw new Error(`TIPS Doppler ${at}, button ${k + 1}: ${[...new Set(got.err)].join('; ')}`);
-        // (Slides 10 and 13 move or open the narrowing itself with the pick; elsewhere only the sampled point changes, and nothing moves.)
-        if (n !== 10 && n !== 13 && k && Object.entries(got.at).some(([p, [x, y]]) => Math.abs(x - first[p][0]) > 2 || Math.abs(y - first[p][1]) > 2)) throw new Error(`TIPS Doppler ${at}, button ${k + 1}: a callout moved when another point was picked (${JSON.stringify(first)} → ${JSON.stringify(got.at)})`);
+        // (The "where" and "fix" slides move or open the narrowing itself with the pick; elsewhere only the sampled point changes, and nothing moves.)
+        if (id !== 'where' && id !== 'fix' && k && Object.entries(got.at).some(([p, [x, y]]) => Math.abs(x - first[p][0]) > 2 || Math.abs(y - first[p][1]) > 2)) throw new Error(`TIPS Doppler ${at}, button ${k + 1}: a callout moved when another point was picked (${JSON.stringify(first)} → ${JSON.stringify(got.at)})`);
         if (!k) first = got.at;
       }
+    }
+  });
+  // A narrowing's "60 %" stands whole, 2 px clear of every callout, label and arrow on the figure, and inside the stage: on the TIPS
+  // slides with a narrowing (a stent called out at its three points puts the "60 %" on the side the callouts leave free; a redraw of the
+  // marks had put it back beside the arrows, under the distal callout, with its "%" hidden: Mohammad, 22 Oct). The slides are found by
+  // name, and the check waits for the labels to hold still, as the callout check above does.
+  await check(device, 'presenter TIPS Doppler: the narrowing\'s "60 %" keeps clear of every callout, label and arrow', async (page) => {
+    const { DECKS, withOverview } = await import(new URL('../../src/ui/decks.js', import.meta.url));
+    const tips = withOverview(DECKS.find((d) => d.id === 'tips-doppler'));
+    for (const id of ['narrow', 'where']) {
+      await open(page, `?script=tips-doppler&slide=${tips.slides.findIndex((s) => s.id === id) + 1}`);
+      await page.waitForFunction(() => document.querySelector('.clamp-label') && document.querySelectorAll('#labels g.lb[data-key^="n:TIPS:"]:not(.lb-off)').length === 3, null, { timeout: 60000 });
+      await page.waitForFunction(() => { const now = JSON.stringify(window.pps.stage.labelClearance()), same = now === window.__tipsClear; window.__tipsClear = now; return same; }, null, { polling: 500, timeout: 30000 }).catch(() => {});
+      const bad = await page.evaluate(() => {
+        const box = (e) => e.getBoundingClientRect(), meet = (a, b, g) => a.left - g < b.right && b.left - g < a.right && a.top - g < b.bottom && b.top - g < a.bottom;
+        const lab = document.querySelector('.clamp-label'), r = box(lab), err = [], st = box(document.querySelector('#labels'));
+        if (lab.textContent.trim() !== '60%') err.push(`the label reads "${lab.textContent}"`);
+        // (The "60 %" reads in the labels' own name size: the same as "TIPS distal" beside it, 12 px at least, at the text size set.)
+        const px = parseFloat(getComputedStyle(lab).fontSize) * lab.getScreenCTM().a, name = parseFloat(document.querySelector('#labels g.lb[data-key="n:TIPS:distal"] tspan')?.getAttribute('font-size'));
+        if (!(Math.abs(px - name) < 0.5 && px >= 11.95)) err.push(`the "60 %" reads ${px.toFixed(1)} px, the callouts' names ${name} px`);
+        if (getComputedStyle(lab).fontWeight !== '600') err.push(`the "60 %" is weight ${getComputedStyle(lab).fontWeight}, the names 600`);
+        if (r.left < st.left || r.right > st.right || r.top < st.top || r.bottom > st.bottom) err.push('the "60 %" is not inside the stage');
+        const others = [...document.querySelectorAll('#labels g.lb')].filter((e) => e.style.display !== 'none' && !e.classList.contains('lb-off'));
+        for (const o of others) if (meet(r, box(o), 2)) err.push(`the "60 %" touches "${o.textContent.trim().slice(0, 20)}"`);
+        for (const a of document.querySelectorAll('path.clamp')) if (meet(r, box(a), 2)) err.push('the "60 %" touches an arrow of its clamp');
+        return err;
+      });
+      if (bad.length) throw new Error(`TIPS Doppler "${id}": ${[...new Set(bad)].join('; ')}`);
     }
   });
   // Every phone card and sheet, driven by real touches (the path iOS takes), at the Home Screen app's height and Safari's: a short
@@ -4131,11 +4226,12 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
             const reach = Math.min(...ownBoxes.map((b) => Math.hypot(Math.max(b.left - e.x, 0, e.x - b.right), Math.max(b.top + b.height * 0.15 - e.y, 0, e.y - b.top - b.height * 0.85))));
             if (own.length && ownBoxes.length && reach > 4) bad.push(`${at}: the leader of ${own[0]} stops ${Math.round(reach)} px short of its text`);
           }
-          // No reading's halo covers a station's ring (its own too), 2 px clear of the ring's 4 px radius.
+          // No reading's halo covers a station's ring (its own too), 2 px clear of the ring's 4 px radius. (Every visible dot has one in the list,
+          // a station without a reading beside it too: the colon bed's, under the spleen's reading.)
           for (const xy of (document.querySelector('#labels .lb-blocks')?.dataset.rings || '').split(' ').filter(Boolean)) {
             const [x, y] = xy.split(',').map(Number), lr = document.querySelector('#labels').getBoundingClientRect(), cx = lr.left + x, cy = lr.top + y;
             const on = boxes.filter((b) => Math.hypot(Math.max(b.x0 - cx, 0, cx - b.x1), Math.max(b.y0 - cy, 0, cy - b.y1)) < 4).map((b) => b.k);
-            if (on.length) bad.push(`${at}: ${[...new Set(on)].join(', ')} covers the station ring at (${Math.round(cx)},${Math.round(cy)})`);
+            if (on.length) bad.push(`${at}: ${[...new Set(on)].join(', ')} covers the station ring or dot at (${Math.round(cx)},${Math.round(cy)})`);
           }
           return { bad, miss };
         }, `${w}x${hgt} Circuit ${n}`);
@@ -4209,10 +4305,11 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
         out.push(...await page.evaluate((at) => {
           const bad = [], rect = (e) => e.getBoundingClientRect(), hit = (a, b, m = 1) => Math.min(a.right, b.right) - Math.max(a.left, b.left) > m && Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top) > m;
           const shown = (e) => { const st = getComputedStyle(e); return st.display !== 'none' && st.visibility !== 'hidden' && rect(e).width > 1; };
-          // A phone keeps the figure a fixed share of its height between the data card and the words' glass (presenter.js FIG_MIN).
-          const sh = document.querySelector('.pz-shade.stack'), dc = document.querySelector('.pz-data');
+          // A phone keeps the figure a fixed share of its height between the data card and the words' glass (presenter.js FIG_MIN),
+          // or a little less (FIG_REG) where that keeps the words at Regular.
+          const sh = document.querySelector('.pz-shade.stack'), dc = document.querySelector('.pz-data'), reg = !document.querySelector('.pz-text')?.style.getPropertyValue('--pz-fit');
           if (sh && dc && shown(dc) && !dc.classList.contains('pz-hide') && +getComputedStyle(sh).opacity > 0.5) {
-            const room = rect(sh).top - rect(dc).bottom, need = Math.round(Math.max(170, 0.3 * innerHeight)) - 2;
+            const room = rect(sh).top - rect(dc).bottom, need = Math.round(Math.max(170, (reg ? 0.25 : 0.3) * innerHeight)) - 2;
             if (room < need) bad.push(`${at}: the cards leave ${Math.round(room)} px of figure (at least ${Math.round(need + 2)})`);
           }
           // A phone's words never fit below 12 px (their body size times the card's fit).
@@ -4806,7 +4903,7 @@ if (!process.env.SMOKE_DEVICE || process.env.SMOKE_DEVICE === 'desktop') check('
 const SLOW = ['responsive instrument workspace', 'pressure over time and Doppler', 'action card is a compact sheet that keeps the vessel in view', 'circuit view, selection card, lenses'];
 const weight = (name) => { const i = SLOW.indexOf(name); return i < 0 ? 0 : SLOW.length - i; };
 queue.sort((a, b) => weight(b[1]) - weight(a[1]));
-if (process.env.SMOKE_MATCH) { const match = new RegExp(process.env.SMOKE_MATCH, 'i'); for (let i = queue.length - 1; i >= 0; i--) if (!match.test(queue[i][1])) queue.splice(i, 1); }
+if (process.env.SMOKE_MATCH || GPU_ORGANS) { const match = new RegExp(process.env.SMOKE_MATCH || FIGURE_CHECKS, 'i'); for (let i = queue.length - 1; i >= 0; i--) if (!match.test(queue[i][1])) queue.splice(i, 1); }
 // Shards are filled by expected time, longest first, each check going to the least-loaded share.
 // The times are each check's own on CI runners (tests/e2e/check-times.json, seconds, by device and name: a failing check counted
 // with its retry, as it costs that much until it is fixed); refresh them with node scripts/check-times.mjs <job logs>.

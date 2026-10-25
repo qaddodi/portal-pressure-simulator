@@ -1,35 +1,19 @@
 // Simulation host: owns the Engine, runs the clocks, streams frames (blueprint §13.4).
 // Used inside a Web Worker (src/worker.js) or on the main thread as a fallback.
 
-import { Engine } from './engine/engine.js?v=fb8ce7b2ed';
-import { computeMetrics } from './engine/metrics.js?v=e566c70621';
-import { tenthGap } from './engine/gap.js?v=3a5947c552';
-import { detectEvents } from './engine/events.js?v=582dd803a9';
-import { explain } from './engine/explain.js?v=5e3424c840';
-import { deepMerge, sanitizeParams, PRESETS } from './engine/scenario.js?v=1ee7733788';
+import { Engine } from './engine/engine.js?v=40556d7cd0';
+import { computeMetrics } from './engine/metrics.js?v=1db0ad7ab0';
+import { fingerprintOf } from './engine/fingerprint.js?v=8faea80b59';
+import { detectEvents } from './engine/events.js?v=747cdbed9a';
+import { explain } from './engine/explain.js?v=e684dbd5ec';
+import { deepMerge, sanitizeParams, PRESETS } from './engine/scenario.js?v=d7d3ea5b70';
 
 const SAMPLE_NODES = ['RA', 'IVCS', 'RHV', 'CONF', 'SIN_R', 'VAR', 'AO', 'SV', 'SMV'];
 
-// A state's fingerprint for the ladder, the presenter's data and tables: the pressures from the portal vein to the
-// heart, the gradients, the ascites (volume, SAAG, protein, albumin) and the lymph that makes it, the sinusoidal and
-// central vein pressures, varices, spleen, flow and shunting.
-// rih: the resistance inside the liver (mmHg per L/min): each lobe's venules, sinusoids and outflow in series, the
-// two lobes in parallel, as the circuit view's liver resistor reads it. (PPG ÷ portal flow also counts the collaterals.)
-const LOBES = [['PRE_R', 'SIN_RR', 'POST_R_RHV'], ['PRE_L', 'SIN_LL', 'POST_L_LHV']];
-function liverRes(e) {
-  const P = e.Pf || e.P, Q = e.Qf || e.Q;
-  const r = (id) => { const k = e.ei[id], ed = e.edges[k]; return (P[e.ni[ed.from]] - P[e.ni[ed.to]]) / Math.max(1e-6, Math.abs(Q[k]) * 0.06); };
-  return 1 / LOBES.reduce((g, ids) => g + 1 / Math.max(1e-6, ids.reduce((s, id) => s + r(id), 0)), 0);
-}
-const fingerprint = (m, e) => {
-  const P = e ? e.Pf || e.P : null, a = m.ascites;
-  return { pv: m.pv, whvp: m.whvp, fhvp: m.fhvp, hvpg: tenthGap(m.whvp, m.fhvp, m.hvpg), ra: m.ra, ivc: m.ivc, ppg: tenthGap(m.pv, m.ivc, m.ppg),
-    asc: a.volume, saag: a.saag, tp: a.totalProtein, aalb: a.albumin, salb: e?.params.albumin, sigma: a.lymphSigma, hepLymph: a.hepLymph, splLymph: a.splLymph,
-    sin: P ? P[e.ni.SIN_R] : null, cv: P ? P[e.ni.CV_R] : null, int: P ? P[e.ni.INT] : null, varix: m.varix.d, wall: e ? e.varix('VAR', e.Pf || e.P).ratio : m.varix.ratio, gv: m.gastricVarix.d, spleen: m.spleen.length, plt: m.spleen.platelets,
-    pvFlow: m.pvFlowMean, shunt: m.shuntFraction, he: m.heRisk.index, liver: m.liverPerfPct, lsm: m.lsm, pvVel: m.pvVelMean, map: m.map, hr: m.hr, hb: m.blood.hb, co: m.co, bv: m.blood.volume, rih: e ? liverRes(e) : null,
-    // (the whole network as it stood, so a slide's callouts and figure labels read its numbers as the tiles do: the same on every screen)
-    at: e ? { P: Float32Array.from(e.Pf || e.P), Q: Float32Array.from(e.Qf || e.Q), D: Float32Array.from(e.edges, (ed) => e.diameter(ed.id)) } : null };
-};
+// A state's fingerprint (engine/fingerprint.js: the presenter builds the live model's from the same function).
+const fingerprint = (m, e) => fingerprintOf(m, {
+  P: e.Pf || e.P, Q: e.Qf || e.Q, D: Float32Array.from(e.edges, (ed) => e.diameter(ed.id)), copy: true,
+  params: e.params, fluid: e.starling() });
 // A time-lapse's params on day d of n: each ramped key eased linearly from its first value to its last.
 // (A dotted key names a nested param: 'fibrosis.R.post'.)
 const rampAt = (ramp, d, n) => ramp.reduce((o, [k, [a, b]]) => {
@@ -58,6 +42,38 @@ function mix(a, b, k) {
 const morphAt = (from, to, k) => ({ ...to, ...Object.fromEntries(MORPH_KEYS.map((key) => [key, mix(from[key], to[key], k)])) });
 const easeInOut = (x) => (x < 0.5 ? 4 * x * x * x : 1 - (-2 * x + 2) ** 3 / 2);
 
+// A slide's extra work, asked for by a deck visuals package (slide-ext.js steps), on scratch engines so the chain is untouched:
+// explain: a metric id or a list (engine/explain.js METRICS), the Why? contributions at the slide's state;
+// wave: a vessel id, { vessel, secs } or a list of them, the Doppler velocity (cm/s, signed) over secs (default 3) of beats
+// from the slide's state, a point every 20 ms after a second's run-in: { t: [s], v: [cm/s] }.
+const WAVE_DT = 0.004, WAVE_EVERY = 5, WAVE_RUNIN = 1;
+function* waveAt(snap, vessel, secs = 3) {
+  const w = new Engine();
+  w.restore(snap);
+  w.beat = true;
+  const t = [], v = [], n = Math.round((WAVE_RUNIN + secs) / WAVE_DT), n0 = Math.round(WAVE_RUNIN / WAVE_DT);
+  for (let i = 0; i <= n; i++) {
+    if (i >= n0 && (i - n0) % WAVE_EVERY === 0) { t.push(+((i - n0) * WAVE_DT).toFixed(3)); v.push(w.dopplerVelocity(vessel)); }
+    if (i < n) w.step(WAVE_DT);
+    if (i % 100 === 99) yield;
+  }
+  return { t, v };
+}
+function* stepExtras(e, st) {
+  if (st.explain == null && st.wave == null) return null;
+  const out = {};
+  if (st.explain != null) { out.explain = {}; for (const id of [st.explain].flat()) { out.explain[id] = explain(e, id); yield; } }
+  if (st.wave != null) {
+    out.wave = {};
+    const snap = e.snapshot();
+    for (const w of [st.wave].flat()) {
+      const id = typeof w === 'string' ? w : w?.vessel;
+      if (id && e.ei[id] != null) out.wave[id] = yield* waveAt(snap, id, typeof w === 'object' && w.secs > 0 ? Math.min(10, w.secs) : 3);
+    }
+  }
+  return out;
+}
+
 // The bedside clock's step (seconds): 4 ms with the pulse on, 20 ms without. At 4× and 8× the pulse takes 8 ms steps, half
 // as many a tick, so a phone keeps up; the beat-averaged readings move by about 0.01 mmHg (MAP and heart rate by 0.15 at
 // most, tests/hemo-step.test.js). 1× and 2× (and every Present slide, which runs at 1×) keep 4 ms.
@@ -80,7 +96,7 @@ export function createCore(post) {
   let lapse = null;
   // The presenter's eased change of patient on the live model: { from, to, t0, ms } (see 'morph').
   let morph = null;
-  // Until this time (ms) every tick also relaxes the model quietly, so a live change settles while the clock runs on.
+  // Until this time (ms) every tick also relaxes a hidden copy of the model quietly, so a live change settles while the clock runs on.
   let relaxUntil = 0;
   let beat = true; // the heartbeat always runs (the Over time trace is beat to beat from the start)
   const newSamples = () => ({ t: [], vel: [], pvVel: [], hvVel: [], whvp: [], hvpg: [], ...Object.fromEntries(SAMPLE_NODES.map((n) => [n, []])) });
@@ -105,9 +121,13 @@ export function createCore(post) {
       type: 'frame',
       changed: frameDirty,
       t: eng.t, day: eng.day, running, speed, clock, probe,
+      lapseDay: lapse?.bedside ? lapse.total - lapse.left : undefined,
       pulsing: !!(eng.params.pulsatile || eng.beat),
       resp: !!eng.params.respiration,
       morphing: !!morph,
+      // A live change still settling (a slider moving, a button, eased in and relaxed): the Doppler holds its scale until it ends.
+      // (Not a bedside time-lapse's own relaxing: its meal is what the trace is there to show, so the scale follows it.)
+      settling: (performance.now() < relaxUntil && !lapse?.bedside) || eng.easing(),
       phase: eng.phase(),
       P: Float32Array.from(eng.P),
       Pf: Float32Array.from(eng.Pf || eng.P),
@@ -121,7 +141,7 @@ export function createCore(post) {
       bleed: eng.bleed,
       events: eng.newEvents.splice(0),
       samples,
-      params: paramsDirty ? eng.params : undefined,
+      params: paramsDirty ? eng.paramsTarget() : undefined,
     };
     paramsDirty = false;
     frameDirty = false;
@@ -157,7 +177,9 @@ export function createCore(post) {
       paramsDirty = true; frameDirty = true;
     } else if (running) {
       if (clock === 'hemo') {
-        if (now < relaxUntil) eng.relax();
+        if (lapse?.bedside) bedsideStep(now);
+        // (On a hidden copy of the model: the beat runs on, so the Doppler and tracings stay smooth while a slider moves.)
+        if (now < relaxUntil) eng.relaxHidden(); else eng.relaxDone();
         const h = hemoStep(eng.params.pulsatile || beat, speed);
         let simDt = realDt * speed;
         let n = Math.min(Math.ceil(simDt / h), h < 0.02 ? 700 : 400);
@@ -198,11 +220,23 @@ export function createCore(post) {
   // ('sequence' with fine days), then back to bedside time once the days are done.
   function lapseDays(n) {
     for (let k = 0; k < n && lapse; k++) {
-      if (lapse.ramp) eng.setParams(deepMerge(eng.params, rampAt(lapse.ramp, lapse.total - lapse.left + 1, lapse.total)));
+      if (lapse.ramp) eng.setParams(deepMerge(eng.paramsTarget(), rampAt(lapse.ramp, lapse.total - lapse.left + 1, lapse.total)));
       eng.advanceDays(1, { noRupture: true, silent: true });
       if (--lapse.left <= 0) { lapse = null; eng.settle(); clock = 'hemo'; speed = 1; diseaseAcc = 0; }
     }
     paramsDirty = true;
+  }
+
+  // A bedside time-lapse (lapse.clock 'seconds'): the ramp eased over real seconds on the seconds clock, the beat running,
+  // so the Doppler keeps sampling as it plays (a meal). Its progress is reported in the slide's days (frame.lapseDay).
+  function bedsideStep(now) {
+    const b = lapse.bedside, k = Math.min(1, (now - b.t0) / b.ms);
+    if (lapse.ramp) eng.setParams(deepMerge(eng.paramsTarget(), rampAt(lapse.ramp, k, 1)));
+    // (Settled as it goes, as a slider is, on a hidden copy: the flow climbs with the ramp, not tens of seconds behind it.)
+    relaxUntil = now + 1200;
+    lapse.left = lapse.total * (1 - k);
+    paramsDirty = true;
+    if (k >= 1) lapse = null;
   }
 
   function start() {
@@ -238,8 +272,8 @@ export function createCore(post) {
     setParams({ params, settle, ease }) {
       morph = null;
       // UI-originated: not echoed back (avoids overwriting in-flight edits).
-      eng.setParams(sanitizeParams(params));
-      if (settle) eng.settle();
+      // (Its numbers eased in over a fraction of a second, so a slider moves the model, and the Doppler, without steps.)
+      if (settle) { eng.setParams(sanitizeParams(params)); eng.settle(); } else eng.easeParams(sanitizeParams(params));
       // ease (ms): the presenter's live buttons and sliders, eased to the new steady state over that long (see tick).
       relaxUntil = ease > 0 ? performance.now() + ease : 0;
     },
@@ -256,10 +290,17 @@ export function createCore(post) {
     },
     // The presenter's time-lapse: days on the disease clock at speed days a second, ramp's params eased over
     // them ({ key: [from, to] }); days 0 stops one under way.
-    lapse({ days, speed: s, ramp }) {
+    // bedside: the ramp plays over the slide's seconds on the seconds clock instead (see bedsideStep).
+    lapse({ days, speed: s, ramp, bedside }) {
       morph = null;
-      lapse = days > 0 ? { left: days, total: days, ramp: ramp ? Object.entries(ramp) : null } : null;
-      running = true; clock = lapse ? 'disease' : 'hemo'; speed = lapse ? s : 1; diseaseAcc = 0;
+      lapse = days > 0 ? { left: days, total: days, ramp: ramp ? Object.entries(ramp) : null, bedside: bedside ? { t0: performance.now(), ms: (days / s) * 1000 } : null } : null;
+      running = true; clock = lapse && !bedside ? 'disease' : 'hemo'; speed = lapse && !bedside ? s : 1; diseaseAcc = 0;
+    },
+    // Next during a bedside time-lapse: what is left of it runs in ms.
+    lapseFast({ ms }) {
+      if (!lapse?.bedside) return;
+      const now = performance.now(), b = lapse.bedside, k = Math.min(1, (now - b.t0) / b.ms);
+      b.ms = ms / Math.max(1e-6, 1 - k); b.t0 = now - k * b.ms;
     },
     // The presenter's slide that turns breathing off stops it on the live model as the slide begins (only that switch;
     // a morph under way keeps easing to its own state).
@@ -352,7 +393,8 @@ export function createCore(post) {
         if (st.preset || st.params || st.action || st.days) e.settle();
         const m = computeMetrics(e);
         if (trail) trail.push(at(st.days, m));
-        post({ type: 'seqStep', reqId, i, snap: e.snapshot(), params: structuredClone(e.params), fp: fingerprint(m, e), trail, start });
+        const extra = yield* stepExtras(e, st);
+        post({ type: 'seqStep', reqId, i, snap: e.snapshot(), params: structuredClone(e.params), fp: fingerprint(m, e), trail, start, ...(extra ? { extra } : {}) });
         yield;
       }
       post({ type: 'sequence', reqId });

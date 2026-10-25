@@ -52,8 +52,11 @@ test('decompensated cirrhosis has less reserve, and its heart rate stays under t
     const h = after('healthy', v), c = after('cirr-decomp', v);
     assert.ok(c.map < h.map, `${v} mL: cirrhosis MAP ${c.map.toFixed(0)} vs healthy ${h.map.toFixed(0)}`);
   }
+  // (A litre from a decompensated patient: class II, the pressure lower but not shock. Measured from the patient's own
+  // pressure, which the hyperdynamic circulation holds in the low 80s (22 Oct), not from a healthy 93: no more than 13 mmHg
+  // down, and never under the 65 mmHg that calls for stopping the beta-blocker, Baveno VIII 4.6.)
   const c = after('cirr-decomp', 1000);
-  assert.ok(c.map >= 75 && c.hr - c.hr0 >= 20 && c.hr <= 140, `1000 mL: MAP ${c.map.toFixed(0)}, HR ${c.hr0.toFixed(0)} → ${c.hr.toFixed(0)}`);
+  assert.ok(c.map >= c.map0 - 13 && c.map > 65 && c.hr - c.hr0 >= 20 && c.hr <= 140, `1000 mL: MAP ${c.map0.toFixed(0)} → ${c.map.toFixed(0)}, HR ${c.hr0.toFixed(0)} → ${c.hr.toFixed(0)}`);
 });
 
 test('carvedilol blunts the rise in heart rate, not the fall in pressure', () => {
@@ -138,7 +141,8 @@ test('the bleed decks: shock is a class II loss with a fast heart, and the press
   const { BLEED } = await import('../src/ui/decks/variceal-bleed.js');
   const fps = await deckStates(BLEED), at = Object.fromEntries(BLEED.slides.map((s, i) => [s.id, fps[i]]));
   // The tear: "the heart rate usually rises first … blood pressure is still normal".
-  assert.ok(at.tear.hr > at.before.hr + 5 && at.tear.map >= 85, `tear: HR ${at.tear.hr.toFixed(0)}, MAP ${at.tear.map.toFixed(0)}`);
+  // ("still normal": within 6 mmHg of this patient's own pressure, in the low 80s since the hyperdynamic reset of 22 Oct.)
+  assert.ok(at.tear.hr > at.before.hr + 5 && at.tear.map >= at.before.map - 6, `tear: HR ${at.tear.hr.toFixed(0)}, MAP ${at.before.map.toFixed(0)} → ${at.tear.map.toFixed(0)}`);
   // "Shock before anemia": class II or worse, a heart rate over 100, the hemoglobin unchanged.
   assert.ok(at.minutes.lossPct >= 15 && at.minutes.hr > 100 && at.minutes.map < at.tear.map, `minutes: ${at.minutes.lossPct.toFixed(0)} % lost, HR ${at.minutes.hr.toFixed(0)}, MAP ${at.minutes.map.toFixed(0)}`);
   assert.ok(Math.abs(at.minutes.hb - at.before.hb) < 0.5);
@@ -150,6 +154,7 @@ test('the bleed decks: shock is a class II loss with a fast heart, and the press
   const { ENDOSCOPY } = await import('../src/ui/decks/endoscopy.js');
   const ef = await deckStates(ENDOSCOPY), ea = Object.fromEntries(ENDOSCOPY.slides.map((s, i) => [s.id, ef[i]]));
   // "A liter is lost" from decompensated cirrhosis: class II, a fast heart, the pressure lower but not shock.
-  assert.ok(ea.bleed.lossPct >= 15 && ea.bleed.lossPct < 30 && ea.bleed.hr > 100 && ea.bleed.map >= 70 && ea.bleed.map < ea.tension.map - 5,
+  // (The pressure lower but not shock: measured from this patient's own pressure, in the low 80s since 22 Oct, and above 65.)
+  assert.ok(ea.bleed.lossPct >= 15 && ea.bleed.lossPct < 30 && ea.bleed.hr > 100 && ea.bleed.map > 65 && ea.bleed.map >= ea.tension.map - 13 && ea.bleed.map < ea.tension.map - 5,
     `endoscopy bleed: ${ea.bleed.lossPct.toFixed(0)} %, HR ${ea.bleed.hr.toFixed(0)}, MAP ${ea.bleed.map.toFixed(0)}`);
 });

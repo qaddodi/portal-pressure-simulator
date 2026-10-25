@@ -1,6 +1,8 @@
 // Every slide's model state (fingerprint) for a deck, as the presenter computes it. Several unit tests walk every deck, and
-// each walk takes about half a minute, so a result is kept on disk (node_modules/.cache) under a hash of every source file:
-// a second run, or a second test file, reads it back; any change to src/ computes afresh.
+// each walk takes about half a minute, so a result is kept on disk (node_modules/.cache) under a hash of the files the states
+// come from (the engine, the worker core and the decks): a second run, or a second test file, reads it back; a change to one of
+// those computes afresh. (Keyed on all of src/ until 22 Oct, every edit to the UI threw the whole cache away: 29 walks, most of
+// the unit suite's time, on nearly every run and every CI job. The workflows key their saved copy on the same files.)
 import { createHash } from 'node:crypto';
 import { readFileSync, readdirSync, mkdirSync, writeFileSync, renameSync, statSync } from 'node:fs';
 import { join } from 'node:path';
@@ -14,7 +16,8 @@ export const changes = (s) => MODEL.some((k) => s[k]);
 
 const walk = (p) => (statSync(p).isDirectory() ? readdirSync(p).sort().flatMap((f) => walk(join(p, f))) : [p]);
 let srcHash = null;
-const sourceHash = () => (srcHash ||= createHash('sha256').update(walk(join(ROOT, 'src')).map((f) => f + '\n' + readFileSync(f, 'utf8')).join('\n')).digest('hex').slice(0, 16));
+export const STATE_SOURCES = ['src/engine', 'src/worker-core.js', 'src/worker.js', 'src/ui/decks'];   // (as .github/workflows: hashFiles on the same paths)
+const sourceHash = () => (srcHash ||= createHash('sha256').update(STATE_SOURCES.flatMap((d) => walk(join(ROOT, d))).map((f) => f + '\n' + readFileSync(f, 'utf8')).join('\n')).digest('hex').slice(0, 16));
 
 // The fingerprints of a run of steps (the worker's 'sequence'), one per step.
 export async function runSteps(steps) {

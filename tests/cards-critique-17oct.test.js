@@ -28,13 +28,13 @@ test('one capital-letter style: 600 weight, .06em spacing, for tile names, the h
 });
 
 test('a scale bar shows all its cut-off numbers or none (D2)', () => {
-  const pass = js.slice(js.indexOf("for (const bar of el.querySelectorAll('.pz-tiles .pzt-bar'))"), js.indexOf('fitHeads(el);'));
+  const pass = js.slice(js.indexOf("const bars = [...el.querySelectorAll('.pz-tiles .pzt-bar')]"), js.indexOf('fitHeads(el);'));
   assert.match(pass, /clash = true/);
   assert.match(pass, /if \(clash\) for \(const l of ls\) l\.classList\.add\('off'\)/);
 });
 
-test('Volume and Output get a plain bar: no bands, no cut-offs (D4)', () => {
-  for (const k of ['bv', 'co']) { assert.ok(SCALE[k], k); assert.deepEqual(SCALE[k][2], []); assert.deepEqual(bandsOf(k), []); }
+test('Volume and Output carry their normal bands now (D4 gave them a plain bar on 17 Oct; Mohammad, 22 Oct: any tile should have its normal)', () => {
+  for (const k of ['bv', 'co']) { assert.ok(SCALE[k], k); assert.deepEqual(SCALE[k][2].length, 2, `${k}: low, normal and high`); assert.equal(bandsOf(k).length, 3); }
 });
 
 test('cards of tiles alone drop their header on every screen, folded cards keep it (D1, DG2)', () => {
@@ -52,13 +52,12 @@ test('a card title never breaks at its hyphen, and a sideways phone takes the sh
   assert.match(ct, /innerHeight <= 500/);
 });
 
-test('the ladder\'s PPG label sits in its first stretch, apart from the HVPG\'s (A6)', () => {
-  assert.match(js, /if \(b\.i0 === 0 && b\.i1 - b\.i0 > 2 && X\(1\) - X\(0\) - w >= 20\) b\.mid = \(X\(0\) \+ X\(1\)\) \/ 2;/);
-});
-
-test('a lone folded ladder moves its Show into the teaching card\'s foot (A7)', () => {
-  assert.match(js, /function footFold\(\)/);
-  assert.match(css, /\.pz-data\.pz-folds\.pz-footfold:not\(\.tool-open\) \{ opacity: 0 !important; pointer-events: none; \}/);
+// (A6 and A7 were the old ladder's: its PPG label's stretch and a lone folded ladder's Show in the teaching card's foot. Both went
+// with the ladder on 21 Oct, one chart everywhere; the Gut to heart chart labels its brackets inside them (tests/deck-charts.test.js)
+// and folds only as an instrument does.)
+test('the old ladder\'s A6 and A7 fixes left nothing behind', () => {
+  assert.doesNotMatch(js, /b\.i0 === 0 && b\.i1 - b\.i0 > 2|function footFold\(\)|pz-tfold/);
+  assert.doesNotMatch(css, /pz-footfold|pz-tfold/);
 });
 
 test('what-if: a label naming the unit shows the bare number, on the label\'s row on a phone (C1, C2)', () => {
@@ -69,7 +68,10 @@ test('what-if: a label naming the unit shows the bare number, on the label\'s ro
 });
 
 test('the level tab and the deck tab share the glass\'s top edge; the deck\'s gives way where they would meet (P1)', () => {
-  assert.match(js, /stab\.getBoundingClientRect\(\)\.right \+ 8 \* k > tabEl\.getBoundingClientRect\(\)\.left\) ui\.shade\.classList\.add\('pz-tabs-tight'\);/);
-  assert.match(js, /const lift = p && t \? Math\.max\(16, tabH \+ 8\) : 16;/);
+  assert.match(js, /const tight = !!\(stab && tabEl && stab\.getBoundingClientRect\(\)\.right \+ 8 \* k > tabEl\.getBoundingClientRect\(\)\.left\);/);
+  assert.match(js, /if \(t && tabsTight\(k\)\) ui\.shade\.classList\.add\('pz-tabs-tight'\);/);
+  assert.match(js, /const tabH = Math\.max\(tabEl && !tight \? tabEl\.offsetHeight : 0, stab\?\.offsetHeight \|\| 0\);/);
+  assert.match(js, /return Math\.max\(16, tabH \+ 8\);/);
+  assert.match(js, /const lift = p && t \? glassLift\(k\) : 16;/);
   assert.match(css, /\.pz-sitetab\[hidden\], \.pz-shade\.pz-tabs-tight \.pz-tabname \{ display: none; \}/);
 });

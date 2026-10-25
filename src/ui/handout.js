@@ -6,9 +6,10 @@
 // (decks.js, new ones included: a slide without a figure prints without one) and for the instructor's scripts.
 
 import { download } from './download.js?v=3564e5bf8c';
-import { LEVELS, withOverview } from './decks.js?v=17a95feee0';
-import { TILE } from './table-marks.js?v=e25caf9bf9';
+import { LEVELS, withOverview } from './decks.js?v=43c54b4a26';
+import { TILE } from './table-marks.js?v=15f059172f';
 import { plateletText } from './glue.js?v=5a0f63226b';
+import { citeText } from './teach-extras.js?v=5f5248f5a7';
 
 const esc = (t) => String(t ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
 const slug = (t) => t.replace(/[^\w-]+/g, '-').replace(/^-|-$/g, '').toLowerCase();
@@ -44,6 +45,7 @@ h2 { margin: 0; font-size: 19px; font-weight: 600; line-height: 1.25; }
 .eq { margin: 10px 0 0; }
 .eq math { font-family: 'STIX Two Math', 'Cambria Math', 'Latin Modern Math', math; font-size: 18px; }
 .eq small { display: block; margin-top: 2px; color: var(--ink-3); font-size: 12px; }
+.cite { margin: 6px 0 0; color: var(--ink-3); font-size: 12px; }
 .notes { margin-top: 12px; }
 .notes p { margin: 0; }
 .ask { margin-top: 12px; padding: 8px 12px; border: 1px solid var(--rule); border-radius: 6px; }
@@ -105,6 +107,7 @@ function slideBlock(d, base, s, i, fp, at) {
     <h2>${esc(s.title || 'Slide')}</h2>
     ${s.line ? `<p class="line">${esc(lineText(s.line, fp, at))}</p>` : ''}
     ${ml ? `<div class="eq"><math display="block">${ml}</math>${legend ? `<small>${esc(legend)}</small>` : ''}</div>` : ''}
+    ${citeText(s.cite) ? `<p class="cite">${esc(citeText(s.cite))}</p>` : ''}
     ${s.notes ? `<div class="notes"><p class="cap">Notes</p><p>${esc(s.notes)}</p></div>` : ''}
     ${s.checks ? `<ol class="checks">${s.checks.map(([cq, ca]) => `<li><p>${esc(cq)}</p><p class="a"><b>Answer:</b> ${esc(ca)}</p></li>`).join('')}</ol>` : ''}
     ${q ? `<div class="ask"><p class="cap">Ask the room</p><p>${esc(q)}</p>${a ? `<p class="a"><b>Answer:</b> ${esc(a)}</p>` : ''}</div>` : ''}

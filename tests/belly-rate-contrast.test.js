@@ -1,7 +1,7 @@
 // The ascites belly's daily balance ("Steady", "▲ 120 mL/day", "▼ 80 mL/day") must read clearly wherever the fluid line
 // sits: over the empty belly, over the fullest, brightest fluid and across the line between them, in every theme.
 // Mohammad, 15 Oct: grey "Steady" on the pale fluid "can barely be seen". This resolves the line's colours and its
-// backing from the CSS and the tokens and checks WCAG contrast (4.5:1) against each background it can sit on.
+// outline from the CSS and the tokens and checks WCAG contrast (4.5:1) against it.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -49,23 +49,29 @@ function decl(selector, prop) {
 }
 
 const RATE = '.ab .ab-belly > .ab-big > .ab-rate';
-test('the belly daily balance is readable on the fluid, on the empty belly and across the fluid line, in every theme', () => {
-  const backing = decl(`${RATE}[data-dir]`, 'background');
+// Mohammad, 19 Oct: no pill. The words carry a solid 1 px outline of the card's colour on all eight sides (then a soft halo),
+// so every letter is edged by the card colour whatever lies behind; the contrast that counts is the words against it.
+test('the belly daily balance has no pill, only a solid card-coloured outline round its letters', () => {
+  assert.equal(decl(`${RATE}[data-dir]`, 'background'), null, 'no backing pill');
+  assert.match(decl(`${RATE}[data-dir]`, 'text-shadow'), /^var\(--ab-rate-halo\) !important$/);
+  const halo = decl(`${RATE}[data-dir]`, '--ab-rate-halo');
+  for (const [x, y] of [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [-1, -1], [1, -1], [-1, 1]]) {
+    const o = (v) => (v ? `${v}px` : '0');
+    assert.ok(halo.includes(`${o(x)} ${o(y)} 0 var(--surface)`), `solid outline at ${x},${y}`);
+  }
+});
+
+test('the belly daily balance is readable against its outline in every theme', () => {
   const fails = [];
   for (const [theme, t] of Object.entries(THEMES)) {
-    const surface = colour('var(--surface)', t);
-    // The fluid's gradient, top (55%) and bottom (90%), over the card-coloured belly.
-    const fluid = [55, 90].map((p) => { const f = colour(`color-mix(in srgb, var(--ascites) ${p}%, transparent)`, t); return over(f, f[3], surface); });
-    for (const ground of [surface.slice(0, 3), ...fluid]) {
-      const bg = backing ? (() => { const b = colour(backing, t); return over(b, b[3], ground); })() : ground;
-      for (const dir of ['steady', 'up', 'down']) {
-        const fg = colour(decl(`${RATE}[data-dir="${dir}"]`, 'color'), t);
-        const r = ratio(over(fg, fg[3], bg), bg);
-        if (r < 4.5) fails.push(`${theme} ${dir} on ${bg.map(Math.round)}: ${r.toFixed(2)}:1`);
-      }
+    const bg = colour('var(--surface)', t).slice(0, 3);
+    for (const dir of ['steady', 'up', 'down']) {
+      const fg = colour(decl(`${RATE}[data-dir="${dir}"]`, 'color'), t);
+      const r = ratio(over(fg, fg[3], bg), bg);
+      if (r < 4.5) fails.push(`${theme} ${dir}: ${r.toFixed(2)}:1`);
     }
   }
-  assert.deepEqual(fails, [], 'the balance line needs 4.5:1 against everything behind it');
+  assert.deepEqual(fails, [], 'the balance line needs 4.5:1 against the outline round it');
 });
 
 test('the balance keeps its meaning colours: amber rising, teal falling', () => {

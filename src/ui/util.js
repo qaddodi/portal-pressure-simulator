@@ -1,5 +1,5 @@
 // DOM & formatting helpers.
-import { saver } from './frame.js?v=67ca200c87';
+import { saver } from './frame.js?v=19b3f2915c';
 
 // replaceChildren/append stringify null and arrays: flatten and drop empties instead.
 for (const m of ['replaceChildren', 'append', 'prepend']) {
@@ -10,8 +10,14 @@ for (const m of ['replaceChildren', 'append', 'prepend']) {
 // The phone's layout: a phone held upright or on its side, and a tablet held upright (Mohammad, 17 Oct: the upright iPad takes
 // the phone's cards, sheets, bottom bar and menus). Every phone block in styles/app.css carries the same upright clause.
 export const UPRIGHT_MQ = '(max-width: 1100px) and (orientation: portrait)';
-export const PHONE_MQ = `(max-width: 767px), (max-width: 1023px) and (max-height: 500px) and (orientation: landscape), ${UPRIGHT_MQ}`;
+// (A phone on its side; and any short landscape window, which keeps the words at the left and the data at the right.)
+export const SIDEWAYS_MQ = '(max-width: 1023px) and (max-height: 500px) and (orientation: landscape)';
+export const SHORT_SIDE_MQ = '(orientation: landscape) and (max-height: 500px)';
+export const PHONE_MQ = `(max-width: 767px), ${SIDEWAYS_MQ}, ${UPRIGHT_MQ}`;
 export const isPhoneLayout = () => matchMedia(PHONE_MQ).matches;
+// The stacked layout (the presenter's words under the figure, its data card over it): the phone's layout less a phone on its side.
+// The same width and upright clauses as styles/app.css's phone blocks (tests/breakpoints.test.js).
+export const STACK_MQ = `(max-width: 767px), ${UPRIGHT_MQ}`;
 // (A tablet held upright: the phone's layout, scaled to the tablet: its bottom bar and cards take 70 % of the width, centred, as
 // its deck cards do, and its cards the phone's share of the height, never the whole screen. styles/app.css, main.js sheetBehaviour.)
 export const TABLET_UP_MQ = '(min-width: 768px) and (max-width: 1100px) and (orientation: portrait)';
@@ -80,16 +86,10 @@ export const units = { pressure: 'mmHg', flow: 'L/min' };
 export function fp(v) { const c = unitConv.pressure[units.pressure]; return [fmt(c.f(v), c.d), c.u]; }
 export function ff(v) { const c = unitConv.flow[units.flow]; return [units.flow === 'L/min' ? fmtFlow(v) : fmt(c.f(v), c.d), c.u]; }
 
-// Interface zoom (Settings): screen pixels per CSS pixel of the zoomed page, measured rather than
-// read from the setting so browsers that report rectangles either way both place menus right.
-export function uiScale() {
-  const b = document.body, w = b?.offsetWidth;
-  return w ? b.getBoundingClientRect().width / w || 1 : 1;
-}
-
 // Messages show as a card at the top, below the bars, never over the bottom bar.
 // opts: actions, [[label, fn], …] as buttons after the words (a tap runs it and closes the card); sticky, stays until
-// dismissed; onClose, called once when it goes. Returns a function that closes it.
+// dismissed; onClose, called once when it goes, with 'pushed' when newer messages pushed it out (else 'user': the
+// person's own tap, × or swipe, or the caller closing it). Returns a function that closes it.
 // A toast that has played its way out leaves, and the ones below it glide up into its place (they jumped).
 function dropToast(t) {
   const wrap = t.parentElement;
@@ -111,18 +111,18 @@ export function toast(msg, kind = '', { actions = null, sticky = false, onClose 
   // One message at a time reads calmer than a growing stack. (The oldest leaves through its own close, so it fades out
   // and the one left glides into its place, rather than vanishing mid-exit: P19.)
   const stay = [...wrap.children].filter((c) => !c.classList.contains('leaving'));
-  while (stay.length >= 2) { const o = stay.shift(); if (o._close) o._close(); else o.remove(); }
+  while (stay.length >= 2) { const o = stay.shift(); if (o._close) o._close('pushed'); else o.remove(); }
   // A card slides down from behind the top bars and settles just below them (below every row on a phone).
   const bars = document.getElementById('topbar');
   const r = document.querySelector('.vdock')?.offsetParent && bars?.getBoundingClientRect();
   wrap.classList.toggle('docked', !!(r && r.height));
   if (r && r.height) {
-    const z = uiScale(), W = innerWidth / z, w = Math.min(W - 24, 560);
-    Object.assign(wrap.style, { left: `${(W - w) / 2 - 20}px`, width: `${w + 40}px`, top: `${r.bottom / z}px`, bottom: 'auto', height: '', maxWidth: 'none' });
+    const W = innerWidth, w = Math.min(W - 24, 560);
+    Object.assign(wrap.style, { left: `${(W - w) / 2 - 20}px`, width: `${w + 40}px`, top: `${r.bottom}px`, bottom: 'auto', height: '', maxWidth: 'none' });
   }
   const t = h('div', { class: 'toast ' + kind, role: 'status' }, h('span', { class: 'toast-msg' }, msg));
   let timer = 0, gone = false;
-  const close = () => { if (gone) return; gone = true; clearTimeout(timer); onClose?.(); t.classList.add('leaving'); setTimeout(() => dropToast(t), 340); };
+  const close = (why = 'user') => { if (gone) return; gone = true; clearTimeout(timer); onClose?.(why); t.classList.add('leaving'); setTimeout(() => dropToast(t), 340); };
   t._close = close;
   if (actions?.length) {
     t.classList.add('has-acts');
@@ -135,13 +135,13 @@ export function toast(msg, kind = '', { actions = null, sticky = false, onClose 
   const x = h('button', { class: 'toast-x', 'aria-label': 'Dismiss' }, icon('close'));
   x.addEventListener('click', (e) => { e.stopPropagation(); close(); });
   t.append(x);
-  t.addEventListener('click', close);
+  t.addEventListener('click', () => close());
   // Swipe down (or sideways) to dismiss.
   let sx = 0, sy = 0;
   t.addEventListener('pointerdown', (e) => { sx = e.clientX; sy = e.clientY; });
   t.addEventListener('pointerup', (e) => { if (Math.abs(e.clientY - sy) > 18 || Math.abs(e.clientX - sx) > 40) close(); });
-  // (A card pushed out by newer ones still counts as closed.)
-  if (onClose) new MutationObserver((_, ob) => { if (!t.isConnected) { ob.disconnect(); if (!gone) { gone = true; clearTimeout(timer); onClose?.(); } } }).observe(wrap, { childList: true });
+  // (A card pushed out by newer ones still counts as closed, as pushed out.)
+  if (onClose) new MutationObserver((_, ob) => { if (!t.isConnected) { ob.disconnect(); if (!gone) { gone = true; clearTimeout(timer); onClose?.('pushed'); } } }).observe(wrap, { childList: true });
   wrap.append(t);
   // Fill the docked card: the largest size that fits, stepping down for longer text, never clipped.
   if (wrap.classList.contains('docked')) {
@@ -198,8 +198,7 @@ export function tooltipFor(el, text, side = 'right') {
       x = r.right + 10; y = r.top + r.height / 2 - tr.height / 2;
       if (x + tr.width > innerWidth - 8) x = r.left - tr.width - 10;
     }
-    const z = uiScale();
-    tip.style.left = clamp(x, 8, innerWidth - tr.width - 8) / z + 'px'; tip.style.top = clamp(y, 8, innerHeight - tr.height - 8) / z + 'px';
+    tip.style.left = clamp(x, 8, innerWidth - tr.width - 8) + 'px'; tip.style.top = clamp(y, 8, innerHeight - tr.height - 8) + 'px';
   };
   const hide = () => tip.classList.remove('show');
   el.addEventListener('pointerenter', (e) => { if (e.pointerType !== 'touch') show(); });
@@ -236,7 +235,7 @@ export function popover(anchor, content, { cls = '', align = 'start', place = 'b
   document.body.append(el);
   const put = () => {
     if (asSheet) return;
-    const r = anchor.getBoundingClientRect(), z = uiScale(), w0 = el.offsetWidth * z;
+    const r = anchor.getBoundingClientRect(), w0 = el.offsetWidth;
     let x = align === 'end' ? r.right - w0 : align === 'center' ? r.left + r.width / 2 - w0 / 2 : r.left;
     // A scrolling menu below its button may use all the room down to the 8 px margin, so it ends whole where it fits; never
     // over the bottom bar where the two meet (a phone held sideways: Settings had run 87 px over it; sweep 04 #01).
@@ -247,22 +246,22 @@ export function popover(anchor, content, { cls = '', align = 'start', place = 'b
       // A button low on the screen (the deck nav pill's gear on a Mac or iPad) opens it above, at its full height: below
       // it the room was the 160 px floor, which cut Settings off at "Text size on the figure".
       const below = (barTop ?? visibleBottom()) - r.bottom - 16;
-      if (below < el.scrollHeight * z && r.top - 16 > below) { at = 'above'; barTop = null; el.style.maxHeight = (r.top - 16) / z + 'px'; }
-      else el.style.maxHeight = Math.max(160, below) / z + 'px';
+      if (below < el.scrollHeight && r.top - 16 > below) { at = 'above'; barTop = null; el.style.maxHeight = (r.top - 16) + 'px'; }
+      else el.style.maxHeight = Math.max(160, below) + 'px';
     }
     // A menu from the thumb dock's tab row sits on the tab row's top edge, 8 px clear of it, over the play bar (which steps
     // aside), like the cards and the phone's sheets: it rises from behind the tab row and is cut on its top line. (Above
     // the whole dock, it had risen out of thin air over the faded play bar, its cut-off shadow left as a ghost there.)
     const bar = anchor.closest('.thumb-bar'), tabTop = bar ? bar.getBoundingClientRect().top : null;
-    if (bar && /auto|scroll/.test(getComputedStyle(el).overflowY)) el.style.maxHeight = Math.max(160, tabTop - 16) / z + 'px';
+    if (bar && /auto|scroll/.test(getComputedStyle(el).overflowY)) el.style.maxHeight = Math.max(160, tabTop - 16) + 'px';
     // Layout size, not the rectangle: the opening animation scales the menu for a moment.
-    const mr = { width: el.offsetWidth * z, height: el.offsetHeight * z };
+    const mr = { width: el.offsetWidth, height: el.offsetHeight };
     const top = bar ? tabTop : r.top;
     let y = at === 'above' || bar ? top - mr.height - 8 : r.bottom + 8;
     const vb = visibleBottom();
     if (y + mr.height > vb - 8) y = Math.max(8, top - mr.height - 8);
-    el.style.left = clamp(x, 8, innerWidth - mr.width - 8) / z + 'px';
-    el.style.top = clamp(y, 8, vb - mr.height - 8) / z + 'px';
+    el.style.left = clamp(x, 8, innerWidth - mr.width - 8) + 'px';
+    el.style.top = clamp(y, 8, vb - mr.height - 8) + 'px';
     barAt = barTop;
     clipBar();
   };
@@ -270,8 +269,8 @@ export function popover(anchor, content, { cls = '', align = 'start', place = 'b
   // review). Measured from the menu as laid out (its height settles after it opens), again whenever it resizes.
   let barAt = null;
   const clipBar = () => {
-    const z = uiScale(), gap = barAt == null ? 0 : barAt - (parseFloat(el.style.top) + el.offsetHeight) * z;
-    el.style.clipPath = barAt == null ? '' : `inset(-64px -64px ${(-Math.max(0, gap) / z).toFixed(2)}px -64px)`;
+    const gap = barAt == null ? 0 : barAt - (parseFloat(el.style.top) + el.offsetHeight);
+    el.style.clipPath = barAt == null ? '' : `inset(-64px -64px ${(-Math.max(0, gap)).toFixed(2)}px -64px)`;
   };
   if (el.classList.contains('app-menu')) { const ro = new ResizeObserver(() => { if (!el.isConnected) ro.disconnect(); else clipBar(); }); ro.observe(el); }
   put();
@@ -300,6 +299,10 @@ export function fadeWhileMore(el) {
   sync();
   return sync;
 }
+// Whether an element has a box (neither it nor an ancestor display: none), as getClientRects().length says, without laying
+// the page out: checkVisibility needs only styles. (Each read in the middle of a model frame, after its writes, laid the
+// page out: 1-2 ms each, several a frame in the Tests card's tiles; round 2 review, P5.)
+export const hasBox = (el) => (el.checkVisibility ? el.checkVisibility() : el.getClientRects().length > 0);
 // One swap at a time per element: its newest content goes in when the old has faded.
 const fadeIns = new WeakMap();   // (swapFade: each element's fade-in, cancelled when the next swap lands)
 const swaps = new WeakMap();
@@ -309,7 +312,7 @@ const swaps = new WeakMap();
 export function swapFade(el, fill, { instant = false, out = 120, inn = 180 } = {}) {
   const job = swaps.get(el);
   if (job) { job.fill = fill; return; }
-  if (instant || !el.animate || !el.isConnected || !el.firstChild || !el.getClientRects().length) { fill(); return; }
+  if (instant || !el.animate || !el.isConnected || !el.firstChild || !hasBox(el)) { fill(); return; }
   const me = { fill };
   swaps.set(el, me);
   // (From wherever the element is now: a fade-in still under way included, so a quick second swap never jumps to full.)
@@ -407,7 +410,7 @@ export function swapText(el, txt, then) {
   const job = swaps.get(el);
   if (job ? job.txt === txt : el.textContent === txt) return;
   const fill = () => { el.textContent = txt; then?.(); };
-  if (!job && !el.firstChild && txt && el.animate && el.isConnected && el.getClientRects().length) {
+  if (!job && !el.firstChild && txt && el.animate && el.isConnected && hasBox(el)) {
     fill(); el.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 180, easing: 'cubic-bezier(.2, .8, .2, 1)' }); return;
   }
   swapFade(el, fill);
@@ -448,7 +451,7 @@ export function countTo(el, v, d = 1, { eased = false } = {}) {
     c.from = c.shown; c.to = v; c.t0 = performance.now(); return;
   }
   const same = c.shown != null && fmt(c.shown, d) === fmt(v, d);
-  if (eased || same || c.shown == null || reduceMotionMQ.matches || !el.isConnected || !el.getClientRects().length) { c.shown = v; putNum(el, fmt(v, d)); return; }
+  if (eased || same || c.shown == null || reduceMotionMQ.matches || !el.isConnected || !hasBox(el)) { c.shown = v; putNum(el, fmt(v, d)); return; }
   c.from = c.shown; c.to = v; c.t0 = performance.now();
   rolling.add(el);
   if (!rollRaf) rollRaf = requestAnimationFrame(rollStep);
@@ -614,7 +617,8 @@ export function parseRGB(c) {
 export const cssRGB = (name) => parseRGB(cssVar(name));
 export const cssRGB01 = (name) => cssRGB(name).map((v) => v / 255);
 /** A colour token with an alpha, for a canvas: cssAlpha('--white', .5) → 'rgba(255,255,255,0.5)' (colour-exempt). */
-export const cssAlpha = (name, a) => `rgba(${cssRGB(name).join(',')},${a})`;
+const alphaCache = new Map();   // (cleared with varCache: the instruments ask for the same few colours on every frame)
+export const cssAlpha = (name, a) => { const k = `${name}|${a}`; let v = alphaCache.get(k); if (v === undefined || !varCache.has(name)) { v = `rgba(${cssRGB(name).join(',')},${a})`; alphaCache.set(k, v); } return v; };
 /** A colour ramp token ('#hex position, #hex position, …') as [[position, '#hex'], …]. */
 export const cssRamp = (name) => [...cssVar(name).matchAll(/(#[0-9a-f]{6})\s+(-?[\d.]+)/gi)].map((m) => [+m[2], m[1]]);
 // The blood's colours on the GPU (theme independent: they sit on the lumen, not on the page), in 0–1.
@@ -623,7 +627,7 @@ let bloodCols = null;
 export const bloodColors = () => bloodCols || (bloodCols = {
   originCol: ['smv', 'imv', 'spleen', 'artery', 'systemic'].map((o) => cssRGB01(`--origin-${o}`)),
   dyeCol: cssRGB01('--blood-dye'), inkLight: cssRGB01('--blood-ink-light'), inkDark: cssRGB01('--blood-ink-dark'),
-  revCol: cssRGB01('--blood-reversed'), chevInk: cssRGB01('--blood-chevron'),
+  revCol: cssRGB01('--blood-reversed'), chevInk: cssRGB01('--blood-chevron'), chevLight: cssRGB01('--blood-chevron-light'),
 });
 
 /** Canvas sized to its box with device-pixel ratio. Returns ctx with CSS-pixel units. */
@@ -751,6 +755,24 @@ export function settledBox(el, q = el.getBoundingClientRect()) {
   if (end === cur) return q;
   const z = el.offsetWidth ? q.width / el.offsetWidth : 1;
   return new DOMRect(q.x + (end - cur) * z, q.y, q.width, q.height);
+}
+// A CSS translate value ("12px -40px", "12px", "none") as [x, y] layout px.
+export function parseTranslate(t) {
+  if (!t || t === 'none') return [0, 0];
+  const [x = 0, y = 0] = String(t).trim().split(/\s+/).map((v) => parseFloat(v) || 0);
+  return [x, y];
+}
+// An element's box with its translate property at the shift it is gliding to (data-rest-translate, "x y" layout px), not the shift
+// it has this frame. The phone's data card opens and closes by a translate set frame by frame (presenter.js dockTo): the camera
+// framed 60 ms into that glide counted the card where it stood then, so the figure sat high under a card opening and low under one
+// closing, off the middle of the room between the cards (Ascites 8 on an iPhone, 21 Oct).
+export function translateRest(el, q = el.getBoundingClientRect()) {
+  const rest = el.dataset?.restTranslate;
+  if (rest == null) return q;
+  const [cx, cy] = parseTranslate(getComputedStyle(el).translate), [ex, ey] = parseTranslate(rest);
+  if (cx === ex && cy === ey) return q;
+  const z = el.offsetHeight ? q.height / el.offsetHeight : 1;
+  return new DOMRect(q.x + (ex - cx) * z, q.y + (ey - cy) * z, q.width, q.height);
 }
 // An element's box without its own transform (a card's entrance offset): where it rests.
 export function restBox(el, q = el.getBoundingClientRect()) {

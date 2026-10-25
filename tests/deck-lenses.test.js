@@ -1,5 +1,6 @@
 // Slide lenses (decks.js lens, and lens buttons in compare) name lenses the presenter knows, and the lines that
 // describe a lens describe what the model shows on that slide. The slides are run as the presenter runs them.
+import './dom-shim.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -8,8 +9,12 @@ import { EDGES, NODES } from '../src/engine/topology.js';
 import { deepMerge } from '../src/engine/scenario.js';
 import { originFractions, oxygenSat, SAT } from '../src/ui/blood.js';
 import { DECKS } from '../src/ui/decks.js';
+import { EXT } from '../src/ui/slide-ext.js';
 
 const KNOWN = ['velocity', 'flow', 'direction', 'heat', 'drop', 'delta', 'oxygen', 'origin'];
+// The deck-only lenses a deck visuals package adds (slide-ext.js): A's vein system (V7) and change since a slide (V11). They are
+// not in Explore's lens menu, so Patients never shows them.
+const PKG = ['system', 'since'];
 const deck = (id) => DECKS.find((d) => d.id === id);
 function run(deckId, upTo) {
   const e = new Engine();
@@ -29,8 +34,11 @@ const origin = (e, id) => { const o = originFractions(EDGES, NODES, e.Q, e.P), k
 test('every slide lens and lens button names a lens the presenter knows', () => {
   const src = readFileSync(new URL('../src/ui/presenter.js', import.meta.url), 'utf8');
   for (const k of KNOWN) assert.match(src, new RegExp(`^  ${k}: \\['`, 'm'), `presenter LENS_KEY has ${k}`);
+  for (const k of PKG) assert.ok(EXT.lenses[k] && EXT.owner.lenses[k] === 'A', `package A registers the ${k} lens`);
+  const menu = readFileSync(new URL('../src/ui/main.js', import.meta.url), 'utf8');
+  for (const k of PKG) assert.doesNotMatch(menu.slice(menu.indexOf('const LENSES'), menu.indexOf('\n};', menu.indexOf('const LENSES'))), new RegExp(`\\b${k}:`), `${k} stays out of Explore's lens menu`);
   for (const d of DECKS) for (const s of d.slides) {
-    if (s.lens) assert.ok(KNOWN.includes(s.lens), `${d.id}/${s.id}: ${s.lens}`);
+    if (s.lens) assert.ok(KNOWN.includes(s.lens) || PKG.includes(s.lens), `${d.id}/${s.id}: ${s.lens}`);
     if (s.lens) assert.ok(!s.visual, `${d.id}/${s.id}: a visual always shows pressure`);
     for (const o of s.compare || []) if (o.lens) assert.ok(o.lens === 'pressure' || KNOWN.includes(o.lens), `${d.id}/${s.id}: ${o.lens}`);
   }

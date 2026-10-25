@@ -5,13 +5,14 @@
 // per day). Changes the learner makes and threshold events are marked where they happened, and
 // a crosshair (hover, or drag on a touch screen) reads every trace at one moment.
 
-import { store, hiddenNow } from './store.js?v=31ee79b6ab';
-import { h, fmt, fitCanvas, cssVar, cssAlpha, clamp } from './util.js?v=b6a40567da';
-import { FONT as FONT0, FONT } from './charts.js?v=75f52d4f49';
-import { frameFor } from './frame.js?v=67ca200c87';
-import { tenthGap } from '../engine/gap.js?v=3a5947c552';
+import { store, hiddenNow } from './store.js?v=67f4341802';
+import { h, fmt, fitCanvas, cssVar, cssAlpha, clamp } from './util.js?v=d2c95a1b16';
+import { FONT as FONT0, FONT } from './charts.js?v=dde7572b82';
+import { frameFor } from './frame.js?v=19b3f2915c';
+import { tenthGap } from '../engine/gap.js?v=3aabfbb29b';
 import { firstAtOrAbove, firstAbove } from './sorted.js?v=662e543c85';
 import { limitLabelX as labelX } from './limit-label.js?v=52dcc41a1e';
+import { wrapLabel } from './wrap-label.js?v=1af9654a99';
 const nextFrame = frameFor('pressure-time');
 
 // hide: the readout that can stay unmeasured (store.hiddenReadouts); day: the value on the
@@ -42,7 +43,8 @@ export function createPressureTime({ marks = () => [] } = {}) {
   const heroVal = h('b', { class: 'pt-num' }, '—');
   const heroSev = h('span', { class: 'pt-sev' });
   const heroDelta = h('span', { class: 'pt-delta' });
-  const hero = h('div', { class: 'pt-hero' }, h('span', { class: 'pt-k' }, 'HVPG'), h('span', { class: 'pt-v' }, heroVal, h('small', {}, 'mmHg')), heroSev);
+  // The header is one row on every screen: HVPG, the number, and the status over its trend.
+  const hero = h('div', { class: 'pt-hero' }, h('span', { class: 'pt-k' }, 'HVPG'), h('span', { class: 'pt-v' }, heroVal, h('small', {}, 'mmHg')), h('span', { class: 'pt-st' }, heroSev, heroDelta));
   let range = 'beats', userRange = 'beats';
   const rangeSeg = h('div', { class: 'seg pt-range', role: 'group', 'aria-label': 'Time range' }, RANGES.map(([id, label]) =>
     h('button', { 'data-range': id, 'aria-pressed': String(id === range), onclick: () => { userRange = id; setRange(id); } }, label)));
@@ -64,7 +66,9 @@ export function createPressureTime({ marks = () => [] } = {}) {
   const smoothBtn = h('button', { class: 'pt-chip pt-smooth', 'aria-pressed': 'false', title: 'Show the mean: hide beat-to-beat and breathing variation', onclick: () => {
     smooth = !smooth; yr.pressure = yr.hvpg = null; smoothBtn.setAttribute('aria-pressed', String(smooth)); draw();
   } }, 'Smooth');
-  const el = h('div', { class: 'pt' }, h('div', { class: 'pt-head' }, hero, heroDelta, smoothBtn, rangeSeg), box, chips);
+  // Smooth and the range switch sit with the trace pills under the chart, together at the right end of the pills' last line.
+  chips.append(h('div', { class: 'pt-ctl' }, smoothBtn, rangeSeg));
+  const el = h('div', { class: 'pt' }, h('div', { class: 'pt-head' }, hero), box, chips);
 
   function setRange(id) {
     range = id;
@@ -520,9 +524,9 @@ export function createPressureTime({ marks = () => [] } = {}) {
       const ch = 12 + rowH * (crossRows.length + 1);
       let bx = cx + 14; if (bx + cw > L + plotW) bx = cx - 14 - cw;
       const by = clamp(lanes[0].top, 4, hh - ch - 4);
-      ctx.fillStyle = surface; ctx.shadowColor = cssAlpha('--black', 0.14); ctx.shadowBlur = 16; ctx.shadowOffsetY = 4;
+      drawShadow(ctx, bx, by, cw, ch);
+      ctx.fillStyle = surface;
       ctx.beginPath(); ctx.roundRect ? ctx.roundRect(bx, by, cw, ch, 10) : ctx.rect(bx, by, cw, ch); ctx.fill();
-      ctx.shadowColor = 'transparent'; ctx.shadowBlur = 0; ctx.shadowOffsetY = 0;
       ctx.strokeStyle = grid; ctx.stroke();
       ctx.textAlign = 'left'; ctx.fillStyle = muted; ctx.font = FONT(600, 12); ctx.fillText(when, bx + padX, by + 18);
       crossRows.forEach((r, i) => {
@@ -534,37 +538,68 @@ export function createPressureTime({ marks = () => [] } = {}) {
     }
   }
 
+  // The readout card's shadow: a blur drawn once per card size and screen density into a small picture and laid under the
+  // card, instead of the browser blurring it again on every frame the crosshair shows while the model runs (shadowBlur is the
+  // one costly 2D call in this chart). The card's own fill, edge and words are still drawn live. The picture is laid at the
+  // card's fractional place, so a blur may land a fraction of a pixel off its old rendering; the card itself is unchanged.
+  const SH_PAD = 40, shadows = new Map();
+  function drawShadow(ctx, bx, by, cw, ch) {
+    const m = ctx.getTransform(), dpr = m.a || 1, key = `${cw}|${ch}|${dpr}`;
+    let pic = shadows.get(key);
+    if (!pic) {
+      if (shadows.size > 24) shadows.clear();
+      const W = Math.ceil((cw + 2 * SH_PAD) * dpr), H = Math.ceil((ch + 2 * SH_PAD) * dpr);
+      pic = typeof OffscreenCanvas !== 'undefined' ? new OffscreenCanvas(W, H) : Object.assign(document.createElement('canvas'), { width: W, height: H });
+      const c = pic.getContext('2d');
+      c.setTransform(dpr, 0, 0, dpr, 0, 0);
+      // (the card itself is drawn a picture's width to the left, outside it, and only its shadow lands in it: the same blur and
+      // offset as before, in a canvas with the same transform; offsets are not scaled by it)
+      c.fillStyle = cssAlpha('--black', 0.14); c.shadowColor = cssAlpha('--black', 0.14); c.shadowBlur = 16; c.shadowOffsetX = W; c.shadowOffsetY = 4;
+      c.beginPath(); c.roundRect ? c.roundRect(SH_PAD - W / dpr, SH_PAD, cw, ch, 10) : c.rect(SH_PAD - W / dpr, SH_PAD, cw, ch); c.fill();
+      shadows.set(key, pic);
+    }
+    ctx.drawImage(pic, 0, 0, pic.width, pic.height, bx - SH_PAD, by - SH_PAD, pic.width / dpr, pic.height / dpr);
+  }
+
   // Markers a few pixels apart (several changes made at once) share one dot and one label ("… +2").
   // Each label takes the highest row where it clears the labels already placed, right of its dot or
   // else left of it. Labels are drawn on a halo, so the dotted lines of other markers pass behind
   // them. With no row free the marker keeps its line and a dot at the top of the plot, unlabelled.
   const ROW = 13, MAX_ROWS = 4;
+  // (wrapLabel: a long label wraps between words onto the rows below, never cut with an ellipsis.) Cached per label and room.
+  const wrapped = new Map();
+  function wrapOf(ctx, lab, maxW) {
+    const key = `${lab}|${maxW}`;
+    if (!wrapped.has(key)) { if (wrapped.size > 200) wrapped.clear(); wrapped.set(key, wrapLabel(lab, maxW, (t) => ctx.measureText(t).width)); }
+    return wrapped.get(key);
+  }
   function layoutMarkers(ms, X, right) {
+    if (!ms.length) return { groups: [], rows: 0 };   // (no markers in the window, the common case and every slide's: the font below cost each frame a font lookup for nothing)
     const ctx = cv.getContext('2d');
     ctx.font = FONT(600, 12);
     const groups = [];
     for (const mk of ms) {
       const xx = Math.round(X(mk.x)) + 0.5, g = groups[groups.length - 1];
       if (g && xx - g.xx < 6) { g.n++; if (!g.sev && mk.sev) g.sev = mk.sev; continue; }
-      groups.push({ xx, label: mk.label, sev: mk.sev, n: 1, row: -1, text: '' });
+      groups.push({ xx, label: mk.label, sev: mk.sev, n: 1, row: -1, text: null });
     }
     const spans = [];   // placed labels: { x0, x1, row }
     const maxW = Math.min(170, (right - 40) * 0.6);
     for (const g of groups) {
-      let lab = g.label ? g.label + (g.n > 1 ? ` +${g.n - 1}` : '') : g.n > 1 ? `${g.n} changes` : '';
-      while (lab.length > 4 && ctx.measureText(lab).width > maxW) lab = lab.slice(0, -2).trimEnd() + '…';
-      if (!lab) continue;
-      const tw = ctx.measureText(lab).width;
-      place: for (let r = 0; r < MAX_ROWS; r++) for (const toRight of [true, false]) {
+      const lab = g.label ? g.label + (g.n > 1 ? ` +${g.n - 1}` : '') : g.n > 1 ? `${g.n} changes` : '';
+      const fit = lab && wrapOf(ctx, lab, maxW);
+      if (!fit) continue;
+      const tw = fit.w, n = fit.lines.length;
+      place: for (let r = 0; r + n <= MAX_ROWS; r++) for (const toRight of [true, false]) {
         const x0 = toRight ? g.xx - 4 : g.xx - 11 - tw, x1 = toRight ? g.xx + 7 + tw : g.xx + 4;
         if (x1 > right || x0 < 2) continue;
-        if (spans.some((sp) => sp.row === r && x0 < sp.x1 + 8 && x1 > sp.x0 - 8)) continue;
-        g.row = r; g.text = lab; g.toRight = toRight;
-        spans.push({ x0, x1, row: r });
+        if (spans.some((sp) => sp.row >= r && sp.row < r + n && x0 < sp.x1 + 8 && x1 > sp.x0 - 8)) continue;
+        g.row = r; g.text = fit.lines; g.toRight = toRight;
+        for (let i = 0; i < n; i++) spans.push({ x0, x1, row: r + i });
         break place;
       }
     }
-    const rows = Math.max(groups.length ? 1 : 0, ...groups.map((g) => g.row + 1));
+    const rows = Math.max(groups.length ? 1 : 0, ...groups.map((g) => g.row + (g.text ? g.text.length : 1)));
     return { groups, rows };
   }
   function drawMarkers({ groups }, lanes) {
@@ -585,8 +620,10 @@ export function createPressureTime({ marks = () => [] } = {}) {
       if (!g.text) continue;
       ctx.textAlign = g.toRight ? 'left' : 'right';
       const tx = g.toRight ? g.xx + 7 : g.xx - 7;
-      ctx.strokeStyle = halo; ctx.lineWidth = 4; ctx.strokeText(g.text, tx, y + 0.5);
-      ctx.fillStyle = muted; ctx.fillText(g.text, tx, y + 0.5);
+      g.text.forEach((line, i) => {
+        ctx.strokeStyle = halo; ctx.lineWidth = 4; ctx.strokeText(line, tx, y + i * ROW + 0.5);
+        ctx.fillStyle = muted; ctx.fillText(line, tx, y + i * ROW + 0.5);
+      });
     }
     ctx.textBaseline = 'alphabetic'; ctx.textAlign = 'left'; ctx.lineWidth = 1;
     return allBot;
@@ -632,7 +669,7 @@ export function createPressureTime({ marks = () => [] } = {}) {
       const win = coarse.filter((x) => x.t >= first.t && x.t < first.t + 1 && x.v.hvpg);
       const now = coarse.filter((x) => x.t >= lastT - 1 && x.v.hvpg);
       const mean = (bs) => bs.reduce((a, b) => a + b.v.hvpg[2] / b.v.hvpg[3], 0) / bs.length;
-      if (win.length && now.length) { d = mean(now) - mean(win); over = lastT - first.t > 100 ? 'in 2 min' : `in ${Math.round(lastT - first.t)} s`; }
+      if (win.length && now.length) { d = mean(now) - mean(win); over = lastT - first.t > 100 ? 'in 2\u00a0min' : `in ${Math.round(lastT - first.t)}\u00a0s`; }   // (a number keeps its unit: never "43" over a lone "s")
     }
     const flat = d == null || Math.abs(d) < 0.4;
     const dt = d == null ? '' : flat ? `Steady ${over}` : `${d > 0 ? '▲' : '▼'} ${fmt(Math.abs(d), 1)} ${over}`;

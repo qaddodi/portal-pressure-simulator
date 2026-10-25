@@ -2,6 +2,235 @@
 
 ## October 2026
 
+- **The organs' pictures are painted on the GPU from their own shapes.** (Mohammad, 25 Oct: no more SVG → image → canvas → read back →
+  upload.) The heart and esophagus, the gut, the kidney, the stomach and the bowel were each a picture made by copying the SVG, loading
+  it as an image, drawing it on a 2D canvas, reading its pixels back and uploading them, after every change and every settled pan or zoom.
+  Now the painter that already drew the liver, spleen and diaphragm reads them too (nested masks and see-through groups painted in
+  layers of their own, as the browser lays them), and paints each layer into a texture that stays on the GPU, a few milliseconds a frame:
+  a pan or zoom only moves it. Shapes keep their arrays on the GPU while they are drawn. A layer the painter cannot read is still made
+  from the SVG copy; software renderers keep the old pictures (CI unchanged).
+- **The lobule dive's hand-over is gradual.** The field of lobules comes in over two octaves of zoom (it was under one, at the dive's
+  fastest: lobules and vessels popped), the zoom eases on a sine curve, the field arrives soft and sharpens, and the lobules away from the
+  landing one stay a little soft until it lands (a mip bias in the field's shader: no extra pass).
+
+- **The zoom into the lobule goes about four times deeper, through simpler lobules first, and its field of lobules is drawn on the GPU.**
+  (Mohammad, 24 Oct: "the zoom into the lobule and out is 1) still laggy, and 2) the lobule appears to be larger than what it should ...
+  maybe we need to have simpler lobules at super zoomed out level then more defined then more defined and then our main lobule appears
+  lastly".) The anatomy now zooms ×16 into one part of the liver, its vessels still drawn, before any lobule shows (it handed over at
+  ×5, while the liver and its portal branches still filled the screen: Mohammad's iPad photo, 24 Oct); the field's lobules come in only
+  over its last stretch, about true to scale (a radius of 19 px at ×16), and fill the screen before the neighbours fade toward the landing.
+  The whole dive zooms about ×140 on a phone and ×230 on a Mac instead of ×34 and ×57. Zooming in, the anatomy stays whole under the
+  field until the field covers it (fading both at once let the page through: a dark flash). The field's tile sizes, each with its
+  own detail (a fine grain of outlines and vein dots when small; triads and septa; then sinusoids and fibres), are now blended on the GPU by
+  where the zoom is between them, so the lobules gain detail gradually as they grow and the main lobule fades in last, at about a sixth of
+  its size. The field was four passes over the whole screen on the main thread each frame; it is now one shader pass (`src/ui/field-gl.js`)
+  with the same tiles, quieting, fade and emerging mask, sent to the GPU ahead of the dive (the 2D canvas still draws it without WebGL2).
+  The dive takes 2.2 s and the way out 1.3 s (1.6 s and 1.0 s before), so its pace on a log scale stays about the same. Every way into
+  the lobule (View row, the liver's card, search, slides and the scale switch) in Present and Patients, on every device. Code and unit
+  checks only; nobody has looked on screen. Tests: `tests/lobule-field-gpu.test.js`, `tests/lobule-field.test.js`.
+
+- **BRTO and BATO play slower with a closer camera, their step callouts keep off the vessels and follow light and dark mode, and they are
+  offered only when there are gastric varices.** (Mohammad, 23 Oct: "The BRTO/BATO animations should be refined, like camera zoom and slower;
+  also the callouts are still in the way, and they're not obeying light/dark mode; and they only need to be options when the varices are
+  present".) Each now lasts 24 s instead of 15 s: the catheter travels for 7 s while the view follows its tip, the camera closes in on the
+  stretch it works on, then closer again on the vein it treats (the shunt for BRTO, the short gastric feeder for BATO) before the sclerosant
+  fills, and every camera move glides for 1.4 to 2 s. The step callout tries spots all round the tip and takes the one that crosses the
+  fewest vessels (the catheter's own route included), keeps off the cards and the tip, and keeps its leader off other vessels. Its glass had
+  been painted solid grey by the leader's style (a dark box in light mode, a pale one under white words in dark mode); it is now the same
+  frosted glass as every other figure callout. In Tests › HVPG the BRTO and BATO buttons are shown only while the fundal varices are large
+  enough to grade (2.4 mm, the Fundal varices card's own "none"), and a slide's Play button likewise. TIPS is unchanged. Checked on desktop
+  in light and dark mode and on an iPad on its side (screenshots). Tests: `tests/proc-anim.test.js`.
+- **The six-site ladders (Sites 10 of 12, Where-resistance 14) use their room better, and a phone's rows carry the HVPG and PPG pills.**
+  (Mohammad, 23 Oct: "this slide can be optimized in terms of sizes; the cards are wasting some space below sinusoidal within each card; also
+  the title is wasting space. also for the phone view, it should have the HVPG PPG pills".) On a Mac or an iPad on its side the card's title
+  steps down to the Compact title step (0.8 of its size), so it stands on one line where it had run a second for its last two words and
+  every case gets that height; each case's chart reaches half a type size into the cell's bottom padding, which is blank under the brace's
+  name, and the padding is shorter, so the plots stand taller. On an upright phone or tablet each row ends in two pills, "HVPG n" and "PPG n",
+  the whole mmHg the chart's brackets read, tinted by the same cut-offs; the cause steps down (never under 12 px) to leave them room, and
+  where it cannot stay beside the site and the pills it goes under the site at the largest size the row holds, the pills staying at the right of
+  the first line. A phone on its side shows none (two columns, no height for a second line). Code and unit checks only; nobody has looked
+  on screen. Tests: `tests/grid-key-phone.test.js`.
+- **A teaching card too tall for its data card no longer cuts the data card off (Mac and iPad on its side).** (Mohammad, 23 Oct, Sites 4 of 12
+  on a Mac: "remove CAUSES perhaps; fix the title so it's not too big; I want the data card to show".) At a larger text size the two-line
+  title and the long CAUSES line left the Gut to heart chart about 180 px, and a chart that cannot zoom lost its foot. When the pair is still
+  too tall at Compact with the data card's blocks stepped down, the words' card now gives way once more before anything is cut off: its title
+  one step smaller (0.62 of Regular, still well above the words), then the CAUSES line gone, the blocks stepping again from full size under
+  each. Only a slide the earlier steps could not fit comes here, so every slide that fitted stays as it was; applies to every stacked data
+  card in every deck on Mac and iPad on its side. A phone never showed CAUSES. Code and unit checks, and one headless look at Sites 4 at a
+  125 % text size; the other decks and sizes have not been compared.
+- **Wide chart-only time-lapse cards keep their full width and readable plots.** The chart uses the space below the teaching card,
+  reserving its header, padding and gaps before choosing a height. Its minimum accounts for both plots, a wrapped legend and treatment
+  bars; shorter windows retain the existing fitting fallback. Applies to every wide chart-only time-lapse card. Circulation's meal slide
+  also uses the shorter approved explanation. Code and unit checks only; no browser or device review has been run.
+- **The lower colon and small bowel extend a little further down, with more depth at the colon's edges.** The lower gut is 8% taller
+  below its upper attachments; its artwork, outlines, vessel covers, appendix, captions and rectum fade follow together. A faint inner
+  shadow and upper-left highlight round the colon's scalloped edges in each theme, using the existing tissue colors. Vessels stay in
+  place. The shared gut camera region also extends to hold the taller bowel's glow. Applies to the anatomy in Patients and every
+  presentation. Code and unit checks only; the changed art has not been viewed on screen.
+- **One sideways swipe on a Mac trackpad moves one slide; the up and down arrow keys work the stack, not the slides.** (Mohammad, 22 Oct:
+  "swiping sideways on mac is moving multiple slides"; "up and down arrow keys should tuck and untuck on mac ... not move slides".) A flick's
+  momentum glide runs a second or more after the fingers lift, with an odd zero or bump in it, and the wheel rule took any of those for a
+  fresh push and acted again: a simulated flick moved two to six slides. A gesture now lasts until the wheel goes quiet (250 ms between
+  events, timed by the events' own stamps, so a slow frame cannot split a glide) and acts once, for slides, case cards and the stack alike;
+  only fingers turned clearly back the other way in one unbroken run start the next action inside a glide. The Up arrow brings the stacked
+  card's readings out and the Down arrow tucks them, eased as the swipe is (Mac, iPad on its side; never over a case card; a focused slider,
+  field or the slide list keeps its arrows); Left, Right, Page Up, Page Down, Space, Enter and Backspace still move slides. The Guide lists
+  the keys. Checked on simulated wheel streams only; nobody has tried it on a Mac trackpad. Tests: `tests/wheel-gesture.test.js`.
+- **A Mac trackpad works the stack and the slides like a finger; an iPad on its side swipes the stack anywhere.** (Mohammad, 22 Oct.) In a
+  talk, a two-finger swipe up on the trackpad anywhere on the slide (or a mouse-wheel notch up) brings the readings' card out, a swipe down
+  tucks it away, a swipe left goes on and a swipe right goes back, or throws a case card off the way the fingers go. One action a gesture, eased
+  like the finger's, whatever the Mac's scroll direction setting says (it follows the fingers); a pinch stays the figure's, and a box that scrolls
+  itself keeps its wheel. A sideways glide never ends the talk on its last slide. On an iPad held sideways a swipe up or down anywhere on the
+  figure or the words opens and tucks the stack as on an iPhone, and a sideways swipe over the data card moves the slide (the card no longer
+  docks to the side there). Checked headless with real wheel and touch events on a 1280×800 window and a 1180×820 touch window; nobody has
+  tried it on a Mac trackpad or an iPad. Tests: `tests/wheel-gesture.test.js`, `tests/card-swipe-anywhere.test.js`.
+- **The Gut to heart chart stacks on Mac and iPad landscape like every other instrument.** It was the one chart left with its tiles beside
+  it (Mohammad, 22 Oct: "every stacked should be stacked"). Its card now sits under the words with the readings' card tucked behind its
+  top, in every deck, as on a phone. The chart is drawn at its own size and never zoomed by the fit, so where the words are so tall that the
+  card does not fit in the room under them even at the smallest steps (HVPG slide 5 below about 900 px tall, Treatment slides 5 and 11 at
+  1024x768) the words' card eases up with the data card and its top slips behind the screen's top, as it already does when the readings
+  come out, instead of the chart spilling out of its card. Looked at headless on 1440x900, 1280x800, 1180x820 and 1024x768; nobody has
+  looked at it on a device. Tests: `tests/wide-stack.test.js`, `tests/data-sheet.test.js`.
+- **Cardiac output reads 8 L/min as the top of normal everywhere, and the Hyperdynamic deck's words follow.** Mohammad's call (22 Oct):
+  the tile's "Normal up to 8 L/min" stands. The bottom bar's own flag for the output (a strip no screen shows) moves from 6.5 to 8, and
+  Tests › Readouts already rates it as the tile does, so nothing flags a 6.6 or 6.7 L/min output. The Hyperdynamic deck no longer calls a
+  normal output "high": its objective, summary, quick check and the slide "More output, less resistance" say the output, the heart rate
+  and the arterial pressure are higher or lower than in health, and the speaker notes say both numbers can sit inside their normal ranges
+  while the resistance has still fallen. Tests: `tests/readouts-tab.test.js`.
+- **The author guides are up to date again.** Both deck guides (`docs/deck-authoring-guide.md` and the quick guide) were checked against
+  the code on 22 Oct. New in them: the bedside time-lapse (`lapse.clock: 'seconds'`) and the `meal` and `fenestrae` settings (a meal is
+  ramped with `meal`, not `splanchnicTone`), the `gut` camera region, patient buttons that carry `params` and `days`, `procedure`
+  (TIPS, BRTO, BATO), the time-point and gate buttons, the `gv`, `co` and `bv` table columns, the one set of flow cut-offs, the Gut to heart
+  chart's zones, pills and red block, the six-case grid, the reasoning question in the closing quick check, question and answer pairs, and
+  the six decks added since 20 Oct. Docs only.
+- **The Systemic row of Tests › Readouts gets bars.** MAP, heart rate, cardiac output, RA pressure and Hb were plain numbers (red past an
+  unlisted cut-off of the bottom bar's own: 65, 110, 6.5, 10 and 7). Each is now a tile like the ones above it, with a bar, a tick at every
+  cut-off and a rating word, and takes its scale, cut-offs, word and colour from its data card tile (`SCALE` and `RATE` in
+  `table-marks.js`), so the Readouts and the data card tiles can never disagree about what is normal. Where they did differ, the card's
+  numbers now win in this row: a heart rate is "Fast" over 100 (was red over 110), RA pressure "High" over 8 (was 10), hemoglobin "Low" under
+  12 and "Severe" under 7 (was red under 7 only). A slow heart rate and a high output show gray, as on the card. The bottom bar's own
+  strip of the five values is not shown on any screen and keeps its flags. Code only; looked at on screen on Mac and phone widths for the
+  row's height and words. Test: `tests/readouts-tab.test.js`.
+- **Cardiac output and Blood volume tiles get their normal bands.** They were the only two data card tiles left with a bare gray track and
+  no word. Each now has coloured bands with its cut-off numbers, a dot for now, a ring for the start and a rating word, in Heart rate's
+  style (Mohammad, 22 Oct: any tile should always have its normal where it can). The guideline files give no numbers for either, so these
+  are the standard physiology ranges: a resting adult's cardiac output is 4 to 8 L/min (cardiac index 2.5 to 4 L/min/m²), and the blood
+  volume is about 70 mL/kg, 4.5 to 5.5 L for the model's 70 kg adult (±10% of its 5.0 L). A low one is red ("Low"); a high one (output over
+  8 L/min, volume over 5.5 L) is gray "High", not a warning, as a slow heart rate is, because pregnancy and the hyperdynamic circulation of
+  cirrhosis raise both on their own. The same rating now colours the {co} and {bv} pills and callouts, the cut-off lines on a curve of either, and a
+  summary table read against normal flags only a low one (↓↓). Every tile in every deck, in Present, Patients and Explore and on every
+  device takes it. A new test fails for any tile left bare. Code only, not looked at on screen. Tests: `tests/tile-bar.test.js`,
+  `tests/callouts.test.js`, `tests/model-charts.test.js`.
+- **The stent's three callouts keep their places when a point is picked.** On the TIPS Doppler slides the middle callout could jump to the
+  far side of the stent (or the whole column land there) when Proximal, Mid or Distal was picked, depending on whether the Doppler probe
+  or the callouts reached the screen first: the probe's body and line of sight counted as obstacles to the callouts, and its place was
+  worked out before they stood. The three now ignore the probe (the column's side, its spots and whether it shows are the stent's and
+  the screen's alone, as the layout's own comment always said), the probe waits until they show (four seconds at most) and keeps off
+  them, and the callouts stay level with their dots, 16 px away, on every pick, on every slide and device that calls out a stent's
+  points (the TIPS Doppler deck, Read the Doppler). The browser check "the stent slides call out all three points" had been passing
+  without testing anything (its slide numbers had gone stale and it read the pick buttons before they drew); it now finds the slides
+  by name, waits for the buttons and the pick, counts only the figure's own leader dots (the lobule view's hidden ones fell under the
+  callouts), reads the monitor and the green callout together once the live trace has ticked them to the same number, and passes on
+  desktop and phone with its rules unchanged. Tests: `tests/tips-doppler-points.test.js`, `tests/dop-probe.test.js`.
+- **A narrowing's "60 %" fits.** On the TIPS Doppler slides with a narrowing (the narrowed stent, where it narrows), the "60 %" stood
+  between its arrow and the distal callout with its "%" under "TIPS". A redraw of the figure's marks had put it back on the vessel's own
+  side, undoing the side the layout chose (the one the stent's column of callouts leaves free). One rule now places the "60 %" wherever it
+  shows (every deck, Explore, Patients, the circuit, phone, iPad and Mac): on the side the layout chose, reading outward from its spot,
+  level whatever the figure's turn. Where the spot has to stand off from the clamp (a crowded stretch of the liver, or off the Doppler
+  probe) a thin leader joins it to the nearer arrow, as the probe's own move already did. Tests: `tests/clamp-label-place.test.js`, and the
+  browser check "the narrowing's 60 % keeps clear of every callout, label and arrow".
+  The "60 %" also reads in the same size as the callouts beside it: it had been fixed at 12 px, smaller than the names of the readings
+  ("TIPS distal") wherever the figure's text is larger (a laptop or iPad, a bigger text size in Settings, a presentation at the
+  projector's size). It now takes the labels' own name size (13.6 px on a Mac or iPad, 12 px on a phone, following the text size
+  setting), the same weight and the same stage-coloured outline, with its gap from the spot and its leader's stop-short growing with it.
+- **WHVP and FHVP tiles get the scale bar.** The two tiles used to show a bare number with an empty bar. They now carry coloured
+  bands, a dot for now and a ring for the start, and a rating word, like HVPG's. The guidelines give no cut-offs for either pressure on
+  its own, so each is judged as the pressure it stands for, with the numbers the summary tables already used: the wedged pressure like
+  the portal vein's (normal up to 10 mmHg, "High" over 10, "Severe" from 15), the free pressure like the IVC's (normal up to 8, "High"
+  over 8; AASLD 2024, Box 2: FHVP and IVC pressure should be almost identical). The same on every slide that shows them (Sites 3, the
+  HVPG deck, One year), on phone, iPad and Mac. A WHVP or FHVP written into a slide's words (`{whvp}`, `{fhvp}`), a figure pill or a
+  callout now takes the same green, amber or red, and in Explore and Patients the two readings of Tests › HVPG take it too (easing,
+  never snapping). Tests: `tests/tile-bar.test.js`, `tests/pill-rating-tone.test.js`.
+- **Ladder: HVPG and PPG pills in the plot's top right.** Every Gut to heart ladder (the data cards, the slides' charts, each case of the
+  six-case grids on Mac and iPad) shows the two readings as two small pills, "HVPG 5" and "PPG 16", in the plot's top right corner, in the
+  same whole numbers and the same green, amber and red as the brackets (HVPG amber from 5, red from 10; PPG amber from 6, red from 12).
+  Each pill is as wide as its name and the widest value, so a number changing never moves an edge. They stand in a row, or one over the
+  other where the row does not fit, in the nearest place to the corner that keeps 4 px clear of every line, reading, block, zone name and
+  bracket; a new state eases them there (never jumping), and where a place appears or disappears they fade. Where a chart is too crowded
+  for pills that clear all that (the narrow six-case cells on Mac and iPad, some phone and iPad states), they stand down and the brackets
+  keep the same two numbers: the brackets and the plot's height never give way for them. The phone's one-line cases and the app's own
+  Pressure panel in Explore and Patients are not changed. Tests: `tests/ladder-pills.test.js`.
+- **Ladder: three zones, three tints.** The Gut to heart ladder's one LIVER band becomes three soft tints, each named over the plot in full:
+  PRE-HEPATIC over Gut and PV (a cool blue), INTRAHEPATIC over the liver's Pre-, Intra- and Post- columns (the warm tint the LIVER band
+  had) and POST-HEPATIC over HV, IVC and RA (a green); the written-out words never read as the Pre- and Post- stations under the axis.
+  The three names are set as wide as the chart allows: on one line, else with the letters a little closer, else on two lines ("PRE"
+  over "HEPATIC"; every iPhone), else on two with the letters closer (a small grid cell), and none where even that cannot fit, only
+  the tints. The strip over the plot is as tall as the names need (about half an em more than the old one line; one em more for a
+  second line), and a name stands clear of a reading at the plot's top and of a block hanging from it. The phone's one-line cases get the
+  three tints too (no names, as they had none). The app's own Pressure panel (Explore, Patients) is a separate chart and is unchanged.
+  Tests: `tests/deck-charts.test.js`, `tests/grid-key-phone.test.js`, `tests/data-sheet.test.js`.
+- **Ladder: full width and a readable height at every window size.** On a Mac, an iPad landscape or a wide window, the data card sits under
+  the words' card, and a card too tall for its room is shrunk in fixed steps. One of the card's width rules (its fit times the block step)
+  outranked the ladder's own full-width rule, so the Gut to heart ladder on Sites 4 and 5 was drawn at about a third of its card, its plot a
+  few px tall, its HVPG and Healthy words piled over the numbers. The ladder (and the portal blood bars) now keep the card's full width, and
+  the ladder's height steps with the card's block steps (never with the fit, so it still cannot vibrate), at least 28 % of the window's
+  height; a ladder beside its tiles (Treatment 2 to 5, HVPG 5 and others) no longer stops at its minimum. In a short window, and on a phone
+  held sideways, where the card has the window's height to itself beside the words, the ladder takes up to 48 % of it instead of a flat
+  170 px. Tests: `tests/data-sheet.test.js`.
+- **Ladder: the resistance block stands on its column.** The red hatched block on the Gut to heart ladder used to hang in the gap between
+  the two readings the pressure falls across. It now stands on the column of the station the pressure falls from (Pre- to Intra- marks
+  Pre-, Intra- to Post- marks Intra-, Post- to HV marks Post-, the portal vein to Pre- marks PV, HV to IVC marks HV, and the heart marks the
+  RA), as wide as a two-digit reading, from just over that reading down to the level of the one it falls to (the heart's down to zero).
+  The reading, the line and the station names are drawn over the block and keep their outline, and the dashed Healthy and Before lines are
+  drawn again over it, so all of them stay whole. The same on the chart (every deck's data card, phone, iPad and Mac) and on the phone's
+  one-line cases; the app's own Pressure panel (Explore, Patients) draws no block, as before. A block still fades in and out and moves
+  with the line as it eases. Tests:
+  `tests/sweep-fixes-2-brackets.test.js`, `tests/grid-key-phone.test.js`.
+- **Fluid balance card: one strip.** The card is redrawn for the slides that opt in with `window: true` (Ascites 4 and 5, Tap, Recompensation,
+  the Testing deck). It leads with the answer ("Each day · ascites builds ▲ 160"), then the lymph made with its Liver and Gut, then one strip
+  that splits the day on one scale: what the lymphatics carry (named inside the bar, with "full" once they can carry no more, or the room left
+  as a dashed outline), what the belly reabsorbs and what builds, with a bracket over what leaked. Under it the forces are one strip too:
+  the push and the pull as two arrows meeting at the wall, named inside. Every size is em from one text size, so the card scales as one, and
+  that size holds 12 px on the screen after the card's zoom (an iPhone on Ascites 5 had come down to about 10.8 px); the block now fills
+  the card's width instead of shrinking with the zoom. Parts with nothing in them are dashed swatches or outlines, and every part eases.
+  Same numbers as before; Liver and Gut are no longer keyed by colour on the strip (they are printed in the line above it). The flow
+  picture (no `window`) keeps its own drawing but takes the new forces strip. Tests: `tests/fluid-window.test.js`.
+- **No stray dots in the circuit.** A station's dot used to show whether or not a vessel was drawn at it: in health, four hollow dots
+  floated alone (the gastric bed, the fundal varices, the esophageal varices and the epigastric veins, whose vessels are left out or
+  still closed), because the stylesheet's "show every circuit dot" rule outranked the one that fades a dot out. A dot, its label and
+  the Δ ring after a change now show only while a vessel is drawn at that station, in every deck, preset and mode, on every device.
+  A collateral or shunt that draws on brings its far end's dot in once it has arrived, and one that retracts takes it away as it
+  withdraws; each dot fades, never snaps, and none shows on the first frame. Tests: `tests/circuit-nodes.test.js`.
+- **Card titles keep a unit's case.** The data card's header is set in capitals, which turned "Fluid balance · mL/day" into "ML/DAY".
+  A unit in a title (mmHg, kPa, mL, mL/day, mL/min, L/min, cm/s, m/s) now sits in its own span that the style leaves as typed, on the card's
+  header and on the copy of it that folds under the words on a Mac or iPad. Only the Fluid balance title has a unit today; the rest of
+  the header is unchanged.
+- **Fluid balance card: ghost parts.** Every part of the capacity window is now always drawn: a part with nothing in it is a
+  dashed outline in its own colour that the solid part grows out of (the room left in the window, the overflow's cap and drop,
+  the Leaked and Reabsorbed lanes, the gut's swatch), so nothing pops in or out as a time-lapse moves the numbers, and 10 mL a day
+  still leaves a mark. Two swatches key the fill's two greens to Liver and Gut (they give way on a card too narrow for them). The
+  lanes' names sit on the left and their numbers on the card's right edge with the sum's and the day's, a dotted leader between;
+  "Nothing runs over, so none collects" is replaced by the dashed lanes reading 0. The Reabsorbed lane now shows whenever something
+  is reabsorbed, not only while something also leaks. Same height as before. Tests: `tests/fluid-window.test.js`.
+- **Change since, in the lobule.** A slide that colours by change since an earlier slide (`lens: 'since'`) now does so in the
+  lobule and sinusoid-zoom views too, where it used to fall back to plain pressure colours under a "Change vs …" key. The lobule's
+  vessels and its three readings count from the same reference as the figure's vessels, and ease to a new one instead of snapping. Every other lens and
+  Patients are untouched. Used on Propranolol or carvedilol? slides 4 and 7 (carvedilol against propranolol). Tests: `tests/lobule-since.test.js`.
+- **Phone colour key beside the pill, on two lines.** A key too long for one line beside the nav pill now flows its name and
+  swatches over two lines there, then tries the swatches' short names (blood origin: SMV, IMV, SV, HA, Sys), before taking a row
+  of its own above the pill, which had cost the words a whole line and left the room beside the pill empty (TIPS Doppler 3 on an iPhone).
+- **Phone teaching card: Regular where there is room.** On a phone or an upright iPad, words that need a little more than their
+  share now take it from the figure (which keeps at least a quarter of the screen's height, 170 px at least) instead of dropping a
+  whole step to Compact and leaving that room empty: PVT in cirrhosis slide 5 on an iPhone had come in at Compact over a large bare
+  figure. Words that would take more than that still go to Compact, with the figure's full share. Tests: `tests/card-type.test.js`.
+- **Moving blood: less GPU work per frame, same picture.** A frame where only the blood moves now repaints just the squares
+  of the figure that a lumen can reach, instead of every square near a vessel (casings, shadows and the space around thin
+  vessels stay as the last frame left them, since the blood never changes them). A sicker patient opens far more vessels
+  (decompensated cirrhosis about 106 against 38 for a healthy one: collaterals, braided varices, caput medusae), so this cut
+  is largest there. Any frame where something else changed repaints every square as before. Tests: `tests/blood-cells.test.js`.
+- **Congestion view: colour only.** The halo around backed-up veins is gone (on the GPU and in Lite graphics): it reached
+  full strength at 8 mmHg while the colour runs to 15, spread well past each vein and repeated what the colour says. The
+  veins' colour now carries congestion, as every other view carries its data, and the view draws a narrower band per vein.
 - **Send feedback.** Settings has a new Send feedback item at its top (in talks too): it opens a draft in the viewer's own email app,
   addressed to the author, with the build, device, screen size and a link back to the exact view; the app sends nothing
   itself (Privacy says so). After ten minutes of active use in one visit, a message card asks once for feedback (Send
