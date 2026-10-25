@@ -14,7 +14,7 @@ export const GASTRIC = {
   checks: [
     ['Which gastric varices are managed like esophageal varices?', 'GOV1, which run down the lesser curve from the esophagus.'],
     ['What is the first treatment for fundal varices that have never bled?', 'A non-selective beta-blocker, preferably carvedilol. Glue, BRTO or a TIPS is not used to prevent a first bleed; glue is kept for high-risk varices when a beta-blocker cannot be taken.'],
-    ['What can happen to the esophageal varices after BRTO, and why?', 'They can grow. Closing the gastrorenal shunt keeps its blood in the portal system, so the portal pressure rises.'],
+    ['After BRTO the fundal varix shrinks, but the PPG rises and esophageal varices grow. Which lever moved?', 'The gastrorenal shunt, an outflow for portal blood, was closed. That blood stays in the portal system, so the pressure rises and the esophageal route opens.'],
     ['Fundal varices, a normal liver and a large spleen: what do you look for, and what treats it?', 'A clotted splenic vein on contrast CT. Splenectomy, a splenic vein stent or splenic artery embolization treats it.'],
   ],
   summary: 'The Sarin classes, carvedilol before a first bleed, glue and TIPS after one, what BRTO does to the portal pressure, and the clotted splenic vein that a splenectomy cures.',

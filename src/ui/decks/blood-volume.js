@@ -15,6 +15,7 @@ export const BLOOD_VOLUME = {
     ['Why does the portal pressure fall during a variceal bleed?', 'Less blood volume means less inflow into the portal system.'],
     ['What hemoglobin target do Baveno VIII and AASLD give for a variceal bleed?', 'Baveno VIII: 7 to 8 g/dL. AASLD: about 7 g/dL, higher with coronary disease or instability.'],
     ['Why not transfuse to a normal hemoglobin?', 'Extra volume pushes the portal pressure above its level before the bleed; liberal transfusion worsens the portal pressure and survival.'],
+    ['After two units the blood pressure has recovered and the hemoglobin is 8 g/dL. Give a third unit?', 'No. The target is 7 to 8 g/dL, and more volume pushes the portal pressure up behind varices that have just stopped bleeding.'],
   ],
   summary: 'What a liter of blood lost does to the arterial and the portal pressure in cirrhosis, why the healthy circulation copes better, and why transfusion stops at a hemoglobin of 7 to 8 g/dL.',
   slides: [

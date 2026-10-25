@@ -115,12 +115,6 @@
   "portal tracts",
   "{sin}"
  ],
- "ascites/saag": [
-  "{saag}"
- ],
- "ascites/lowprot": [
-  "fenestrae"
- ],
  "ascites/pvt": [
   "sinusoids",
   "{pv}",
@@ -129,6 +123,12 @@
  "ascites/presin": [
   "portal tracts",
   "sinusoidal pressure"
+ ],
+ "ascites/saag": [
+  "{saag}"
+ ],
+ "ascites/lowprot": [
+  "fenestrae"
  ],
  "ascites/hf": [
   "lymph",
@@ -158,12 +158,6 @@
  "varices/fundal": [
   "fundal varices",
   "left renal vein"
- ],
- "varices/svt": [
-  "splenic vein",
-  "portal vein",
-  "spleen",
-  "gastric varices"
  ],
  "varices/umbilical": [
   "left portal vein",
@@ -651,7 +645,8 @@
   "{hvpg}"
  ],
  "recompensation/csph": [
-  "{hvpg}"
+  "{hvpg}",
+  "{>=10 mmHg}"
  ],
  "recompensation/ascites": [
   "{hvpg}",

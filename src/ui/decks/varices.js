@@ -5,9 +5,9 @@ const frac = (n, d) => `<mfrac><mrow>${n}</mrow><mrow>${d}</mrow></mfrac>`;
 
 export const VARICES = {
   id: 'varices', level: 'core', title: 'Collaterals and varices', minutes: 14,
-  sections: [['How collaterals form', ['Collaterals']], ['Esophageal and gastric varices', ['Varices', 'Gastric varices']], ['Other routes', ['Left-sided portal hypertension', 'Other collaterals']], ['Heart failure', ['Heart failure']]],
+  sections: [['How collaterals form', ['Collaterals']], ['Esophageal and gastric varices', ['Varices', 'Gastric varices']], ['Other routes', ['Other collaterals']], ['Heart failure', ['Heart failure']]],
   summary: 'Six months of progression, then the varices and other collateral routes. Ends with why heart failure rarely causes varices.',
-  objectives: ['Name the main portosystemic collaterals and where they form', 'Relate varix size and HVPG to bleeding risk', 'Recognize left-sided portal hypertension and gastric varices', 'Explain why heart failure rarely produces varices'],
+  objectives: ['Name the main portosystemic collaterals and where they form', 'Relate varix size and HVPG to bleeding risk', 'Recognize fundal varices and how they are treated', 'Explain why heart failure rarely produces varices'],
   checks: [
     ['Name three places where portosystemic collaterals open.', 'Any three of: the gastroesophageal junction, the umbilicus, the rectum and the retroperitoneum, including splenorenal and gastrorenal shunts.'],
     ['How does the risk of a variceal bleed change with the HVPG?', 'Varices rarely bleed below an HVPG of about 12 mmHg; above it the risk rises with the gradient, the varix size and red signs.'],
@@ -19,7 +19,7 @@ export const VARICES = {
       id: 'collat', lens: 'system', preset: 'csph', cam: 'fit', glow: [{ id: 'lgv', soft: true }], data: 'tiles', tiles: ['hvpg', 'varix', 'spleen', 'plt'],
       kicker: 'Collaterals', site: 'sin', title: 'Collaterals open where portal and systemic veins meet',
       vignette: 'A 59-year-old man with alcohol-associated cirrhosis keeps drinking. His platelets are 88,000/µL, and EGD shows small esophageal varices.',
-      line: 'They form at the gastroesophageal junction, the umbilicus, the rectum and the retroperitoneum, and as splenorenal and gastrorenal shunts, some by reopening existing channels and some as new vessels. Colored by vein system, the collaterals stand out between the portal and systemic veins.',
+      line: 'They form at the gastroesophageal junction, the umbilicus, the rectum and the retroperitoneum, some by reopening old channels and some as new vessels. Colored by vein system, the collaterals stand out between the portal and systemic veins.',
       notes: 'Portosystemic collaterals open where the portal and systemic venous beds meet: at the gastroesophageal junction (left gastric and short gastric veins to the azygos), the umbilicus (paraumbilical veins), the rectum (superior to middle and inferior rectal veins), the retroperitoneum (veins of Retzius), and through splenorenal and gastrorenal shunts. They form by reopening existing channels and by new vessel growth, driven by the portal-to-systemic gradient. Even large ones do not relieve portal hypertension: splanchnic inflow rises to fill them. On the figure, colored by vein system, the collaterals stand out in a color of their own between the portal veins and the systemic veins they drain into.',
       ask: ['Name four places where portosystemic collaterals form.', 'The gastroesophageal junction, the umbilicus, the rectum, the retroperitoneum (and splenorenal and gastrorenal shunts).'],
     },
@@ -53,14 +53,6 @@ export const VARICES = {
       line: 'Fundal varices bleed less often than esophageal varices, but they bleed more heavily. Treatment is cyanoacrylate glue, BRTO through the left renal vein, or TIPS.',
       notes: 'Isolated fundal varices (IGV1) and those running from the esophagus along the greater curve (GOV2) usually drain through a spontaneous gastrorenal shunt to the left renal vein. They bleed less often than esophageal varices, but more heavily. They are treated with cyanoacrylate glue at endoscopy, by blocking the shunt from below (balloon-occluded retrograde transvenous obliteration, BRTO), or with TIPS. A large shunt also steals portal blood from the liver and raises the risk of encephalopathy.',
       ask: ['Which vein does BRTO enter, and why from there?', 'The left renal vein: the gastrorenal shunt drains into it, so a balloon there blocks the shunt from below.'],
-    },
-    {
-      id: 'svt', lens: 'origin', preset: 'svt', cam: 'splenic', labels: ['SV', 'CONF', 'GV'], terms: ['sv', 'pv', 'spleen', 'gv'], mark: { edges: ['SV_CONF'], label: 'Clot' }, data: 'tiles', tiles: ['pv', 'gv', 'spleen'], key: ['pv', 'gv'],
-      kicker: 'Left-sided portal hypertension', site: 'pre', title: 'Splenic vein thrombosis and gastric varices',
-      vignette: 'A 47-year-old woman, 4 months after severe necrotizing pancreatitis, has a large spleen and low platelets. EGD shows fundal varices, and her liver tests are normal.',
-      line: 'The usual causes are pancreatitis and pancreatic cancer, next to the splenic vein. The portal vein stays normal while the spleen enlarges and, colored by origin, splenic blood fills new gastric varices. Splenectomy or splenic artery embolization cures it.',
-      notes: 'Sinistral (left-sided) portal hypertension. Splenic blood goes around the clot through the short gastric and gastroepiploic veins, giving isolated gastric varices with a normal portal pressure and a normal liver; esophageal varices are uncommon. Pancreatitis and pancreatic cancer are the usual causes. Removing the inflow cures it: splenectomy, or splenic artery embolization. On the figure, colored by origin, splenic blood runs through the gastric varices to the left renal vein, while the portal vein carries only gut blood.',
-      ask: ['Gastric varices, a large spleen and normal liver tests after pancreatitis. Diagnosis and cure?', 'Splenic vein thrombosis; splenectomy, or splenic artery embolization.'],
     },
     {
       id: 'umbilical', preset: 'cirr-decomp', cam: 'wall', labels: ['LPV'], terms: ['lpv', 'pv'], mark: { edges: ['C3'], label: 'Paraumbilical vein', kind: 'note' }, tool: { kind: 'flows' }, data: 'tiles', tiles: ['liver'],

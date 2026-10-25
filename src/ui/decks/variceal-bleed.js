@@ -16,7 +16,7 @@ export const BLEED = {
   ],
   checks: [
     ['What shows shock early in a variceal bleed?', 'The heart rate and blood pressure. The hemoglobin falls only later, as fluid refills the vessels, and a beta-blocker can blunt the heart rate.'],
-    ['What do you start before the endoscopy?', 'Octreotide, a 50 µg bolus then 50 µg an hour, and ceftriaxone 1 g a day.'],
+    ['What do you start before the endoscopy?', 'Octreotide, a 50 µg bolus then 25 to 50 µg an hour, and ceftriaxone 1 g a day.'],
     ['Within how long does a high-risk patient get a TIPS?', 'Within 72 hours, ideally within 24.'],
     ['Minutes after octreotide starts, the portal pressure falls by about 2 mmHg, with no change in the liver. Which lever moved?', 'Inflow: octreotide constricts the gut arterioles, so less blood enters the portal vein. The resistance in the liver is unchanged.'],
   ],
@@ -49,8 +49,8 @@ export const BLEED = {
       id: 'oct', clock: { at: 0.5, label: 'Drugs at once' }, params: { drugs: { octreotide: true } }, action: [UNIT, SALINE], cam: 'portal', labels: ['SMV', 'CONF'], ripple: true, tool: BEATS, data: 'tiles', tiles: ['pv', 'map'], key: ['pv'], delta: true,
       compare: [{ label: 'No drug', params: { drugs: { octreotide: false, terlipressin: false } } }, { label: 'Octreotide', own: true, params: { drugs: { octreotide: true, terlipressin: false } } }, { label: 'Terlipressin', params: { drugs: { octreotide: false, terlipressin: true } } }],
       kicker: 'Before the scope', site: 'sin', title: 'Octreotide and volume start together',
-      line: 'Start octreotide, a 50 µg bolus then 50 µg an hour, with ceftriaxone 1 g a day. The first unit and a liter of fluid run in, but the bleed still outpaces them and the blood pressure falls to {map}.',
-      notes: 'Start the vasoactive drug, the first unit and the first fluid together, as soon as a variceal bleed is suspected. Octreotide, a somatostatin analogue: a 50 microgram bolus, then 50 micrograms an hour for 2 to 5 days. Give ceftriaxone 1 g a day as well, for up to 5 days (AASLD stops it at discharge if that comes sooner): antibiotics lower infection, rebleeding and death. Erythromycin 250 mg IV, 30 to 90 minutes before the scope, clears the stomach of blood. Baveno VIII allows stopping the vasoactive drug as early as 24 hours after successful banding once a beta-blocker starts, and a shorter antibiotic course, or none, in Child–Pugh A. Outside the US, terlipressin or somatostatin are used in its place. The portal pressure here falls with the blood loss too; in the model octreotide adds about 1 mmHg of that fall.',
+      line: 'Octreotide starts, a 50 µg bolus then 25 to 50 µg an hour, with ceftriaxone 1 g a day. A unit of blood and a liter of fluid run in, but the bleed outpaces them: the blood pressure falls to {map}.',
+      notes: 'Start the vasoactive drug, the first unit and the first fluid together, as soon as a variceal bleed is suspected. Octreotide, a somatostatin analogue: a 50 microgram bolus, then 25 to 50 micrograms an hour for 2 to 5 days. Give ceftriaxone 1 g a day as well, for up to 5 days (AASLD stops it at discharge if that comes sooner): antibiotics lower infection, rebleeding and death. Erythromycin 250 mg IV, 30 to 90 minutes before the scope, clears the stomach of blood. Baveno VIII allows stopping the vasoactive drug as early as 24 hours after successful banding once a beta-blocker starts, and a shorter antibiotic course, or none, in Child–Pugh A. Outside the US, terlipressin or somatostatin are used in its place. The portal pressure here falls with the blood loss too; in the model octreotide adds about 1 mmHg of that fall.',
       ask: ['In the US, which drugs start before the endoscopy, and what does each do?', 'Octreotide lowers the portal pressure; ceftriaxone cuts infection, rebleeding and death; erythromycin clears the stomach for the scope.'],
     },
     {
@@ -64,7 +64,7 @@ export const BLEED = {
     {
       id: 'band', clock: { at: 10, label: 'Scope by 12 h' }, terms: ['varix'], action: [BAND, BAND, BAND, BAND], cam: 'varices', mark: { edges: ['C1a', 'C1b'], label: 'Banded varices', kind: 'treat' }, tool: BEATS, data: 'tiles', tiles: ['map', 'hr'], key: ['map'], delta: true,
       kicker: 'Endoscopy', site: 'sin', title: 'Bands stop the bleeding',
-      line: 'Endoscopy within 12 hours, once the blood pressure holds. Banding does not lower portal pressure; the HVPG rises slightly as the varix closes. If bleeding continues, an esophageal stent or a balloon tube bridges to a rescue TIPS.',
+      line: 'Endoscopy within 12 hours, once the blood pressure holds. Banding does not lower portal pressure; the HVPG rises slightly as the varix closes. If bleeding continues, a covered esophageal stent, preferred over a balloon tube, bridges to a rescue TIPS.',
       notes: 'Band ligation controls most variceal bleeds. If bleeding cannot be controlled, a covered self-expanding esophageal stent (preferred over a balloon tube where available) buys time as a bridge to a rescue TIPS. Banding does not lower the portal pressure; over the following days it raises the HVPG slightly as the varix closes.',
       ask: ['What bridges a bleed that banding cannot control?', 'A covered esophageal stent (preferred) or a balloon tube, as a bridge to a rescue TIPS.'],
     },

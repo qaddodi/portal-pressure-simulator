@@ -15,9 +15,9 @@ export const PREGNANCY_DECK = {
   summary: 'One woman with compensated cirrhosis through pregnancy: more blood volume and portal inflow, growing varices, a second-trimester endoscopy, propranolol, and delivery.',
   checks: [
     ['When is a variceal bleed most likely in pregnancy?', 'In the second trimester, as the blood volume rises toward its peak, and during labor, when pushing raises the portal pressure.'],
-    ['When is the screening endoscopy done?', 'In the second trimester, unless one was done in the year before conception.'],
-    ['Which beta-blocker is used in pregnancy, and what is watched?', 'Propranolol. Fetal growth is followed, and the newborn is watched for bradycardia and hypoglycemia.'],
+    ['When is the screening endoscopy done, and which beta-blocker follows if the varices are large?', 'In the second trimester, unless one was done in the year before conception. Propranolol: fetal growth is followed, and the newborn is watched for bradycardia and hypoglycemia.'],
     ['Which vasoactive drug is avoided in a variceal bleed during pregnancy?', 'Terlipressin, because it stimulates uterine contraction. Octreotide or somatostatin is used instead.'],
+    ['At 28 weeks her HVPG has risen with no change in her liver. Which lever moved?', 'The inflow: the blood volume and cardiac output rise in pregnancy, so more portal flow crosses the same scarred liver.'],
   ],
   slides: [
     {

@@ -69,13 +69,13 @@ test('Doppler: hepatofugal flow reverses the portal and splenic veins, draining 
 });
 
 test('Shunts and varices: the origin lens separates splenic from gut blood', () => {
-  for (const [d, id] of [['shunts', 'dsrs'], ['varices', 'svt'], ['prehepatic', 'svt']]) {
+  for (const [d, id] of [['shunts', 'dsrs'], ['gastric-varices', 'svt'], ['prehepatic', 'svt']]) {
     const e = run(d, id), pv = origin(e, 'PV_TRUNK');
     assert.ok(pv.spleen < 0.05 && pv.smv > 0.9, `${d}/${id}: the portal vein carries gut blood`);
   }
   const s = run('shunts', 'dsrs');
   assert.ok(origin(s, 'S_DSR').spleen > 0.95 && s.Q[s.ei.S_DSR] > 4, 'Warren shunt carries splenic blood');
-  const v = run('varices', 'svt');
+  const v = run('gastric-varices', 'svt');
   assert.ok(origin(v, 'C2').spleen > 0.95 && v.Q[v.ei.C2] > 2, 'gastric varices carry splenic blood');
 });
 

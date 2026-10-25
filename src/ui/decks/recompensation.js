@@ -16,6 +16,7 @@ export const RECOMPENSATION = {
     ['Name the three events that mark decompensation.', 'Ascites, variceal bleeding and hepatic encephalopathy.'],
     ['What lowered the portal pressure most in this case?', 'Removing the cause: stopping alcohol.'],
     ['When has a patient recompensated under Baveno VIII?', 'The cause is removed or controlled, there is no ascites or encephalopathy off treatment and no further variceal bleed for more than 6 months, and the liver is back to Child–Pugh A.'],
+    ['A year after stopping alcohol, the HVPG has fallen from 18 to 12 mmHg and the albumin has risen. Has he recompensated?', 'Not on the numbers alone. He also needs no ascites, encephalopathy or rebleed off treatment for over 6 months, and the liver back to Child–Pugh A.'],
   ],
   summary: 'One patient over two years: CSPH, the first ascites, diuretics and carvedilol, then the cause removed and the liver recompensates. The portal pressure falls, but recompensation is not a cure.',
   slides: [
@@ -23,7 +24,8 @@ export const RECOMPENSATION = {
       id: 'csph', tick: 'CSPH', preset: 'csph', cam: 'liver', tool: { kind: 'profile' }, data: 'tiles', key: ['hvpg'], tiles: ['varix'],
       kicker: 'Compensated', site: 'sin', title: 'Compensated, with CSPH',
       vignette: 'A 47-year-old man with alcohol-associated cirrhosis drinks about eight drinks a day. He has never had ascites or bleeding, and his platelets are 88,000/µL.',
-      line: 'In alcohol-associated cirrhosis, an HVPG of {hvpg} is 10 mmHg or more. There is no ascites or bleeding yet, but both are now possible, and the risk rises with the HVPG.',
+      line: 'The HVPG is {hvpg}, at or above {>=10 mmHg}: CSPH, with no ascites or bleeding yet. Baveno VIII would start carvedilol now; this case holds it back to show what follows.',
+      cite: 'Baveno VIII 3.15',
       notes: 'Clinically significant portal hypertension marks the patients at risk of decompensation. Baveno VIII advises treating the cause and starting a non-selective beta-blocker, preferably carvedilol, at this stage to prevent decompensation. The patient keeps drinking and takes no treatment, so the disease runs its course.',
       ask: ['What does Baveno VIII advise for compensated cirrhosis with CSPH?', 'Treat the cause, and start a non-selective beta-blocker, preferably carvedilol, to prevent decompensation.'],
     },

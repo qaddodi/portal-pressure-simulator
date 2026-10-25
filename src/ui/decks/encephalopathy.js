@@ -10,13 +10,13 @@ export const ENCEPHALOPATHY = {
     'Explain how portosystemic shunting lets gut blood reach the brain without passing the liver',
     'Recognize when to look for a large spontaneous shunt, and what closing it costs',
     'Choose the stent width and the drug that lower encephalopathy after a TIPS',
-    'Treat overt encephalopathy in order: the precipitant, lactulose, then rifaximin',
+    'Look for the precipitant and treat the encephalopathy first, and narrow a stent only if it persists',
   ],
   checks: [
     ['How is covert encephalopathy found and treated?', 'With one test, such as animal naming, and lactulose if the test is abnormal.'],
-    ['Who needs a CT or MRI to look for a large spontaneous shunt?', 'A patient whose encephalopathy keeps coming back despite lactulose, rifaximin and treatment of every precipitant.'],
-    ['What does embolizing a spontaneous shunt cost?', 'The portal pressure rises, so varices and ascites can grow.'],
+    ['Who needs a CT or MRI to look for a large spontaneous shunt, and what does closing it cost?', 'A patient whose encephalopathy keeps coming back despite lactulose, rifaximin and treatment of every precipitant. Closing the shunt raises the portal pressure, so varices and ascites can grow.'],
     ['Name the two choices that lower encephalopathy after an elective TIPS.', 'The narrowest stent that reaches the target gradient, and rifaximin started about 2 weeks before.'],
+    ['After an 8 mm TIPS, most of the portal blood bypasses the liver and the patient becomes confused. What do you do first, and what is the last resort?', 'Look for a precipitant and treat it, give lactulose and add rifaximin. Narrow the stent only if the encephalopathy persists.'],
   ],
   summary: 'How shunted gut blood reaches the brain: covert encephalopathy, a large splenorenal shunt and what closing it costs, and the stent width and rifaximin that lower encephalopathy after a TIPS.',
   slides: [
