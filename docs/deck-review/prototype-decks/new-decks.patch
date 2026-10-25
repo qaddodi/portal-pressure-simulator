@@ -1,0 +1,350 @@
+diff --git a/src/ui/decks.js b/src/ui/decks.js
+index a8b572c8..0049bdcd 100644
+--- a/src/ui/decks.js
++++ b/src/ui/decks.js
+@@ -95,6 +95,9 @@ import { RECOMPENSATION } from './decks/recompensation.js?v=5d88408232';
+ import { WHERE } from './decks/where.js?v=bee116087f';
+ import { PREGNANCY_DECK } from './decks/pregnancy.js?v=0cb3e90f9a';
+ import { BETA_BLOCKERS } from './decks/beta-blockers.js?v=8508ceeefe';
++import { ENCEPHALOPATHY } from './decks/encephalopathy.js?v=a4ca3759e8';
++import { REFRACTORY_BLEED } from './decks/refractory-bleed.js?v=dd5fd28c5b';
++import { CAUSE_TREATED } from './decks/cause-treated.js?v=8198df7b5b';
+ 
+ // Regions of the anatomy plate the camera frames (world units, x 300-1120, y 0-920).
+ export const REGIONS = {
+@@ -158,6 +161,7 @@ DECKS.push(TWO_INFLOWS, PVT_CIRRHOSIS, SPLEEN, NCPH, OUTFLOW, RECOMPENSATION);
+ DECKS.push(WHERE);
+ DECKS.push(PREGNANCY_DECK);
+ DECKS.push(BETA_BLOCKERS);
++DECKS.push(ENCEPHALOPATHY, REFRACTORY_BLEED, CAUSE_TREATED);
+ 
+ // The unified menu lists the presentations by topic, in teaching order, under a short title (32 characters or fewer); the
+ // third name is the deck's short name in the tab at each slide card's top right corner (presenter.js deckTab; 20 or fewer).
+@@ -165,7 +169,7 @@ export const TOPICS = [
+   ['foundations', 'Foundations', [['circulation', 'The portal circulation', 'Circulation'], ['circuit', 'Portal pressure as a circuit', 'Circuit'], ['two-inflows', 'The liver\'s two inflows', 'Two inflows'], ['hvpg', 'HVPG and PPG', 'HVPG and PPG']]],
+   ['causes', 'Causes', [['sites', 'Sites and causes', 'Sites and causes'], ['prehepatic', 'Pre-hepatic PH', 'Pre-hepatic PH'], ['ncph', 'Presinusoidal PH', 'Presinusoidal PH'], ['right-heart', 'The right heart and the liver', 'Right heart'], ['outflow', 'Hepatic outflow obstruction', 'Outflow obstruction'], ['lobule', 'Inside the lobule', 'Lobule'], ['where-resistance', 'Where is the resistance?', 'Find the resistance']]],
+   ['measuring', 'Measuring', [['doppler', 'Doppler of the portal system', 'Doppler'], ['stiffness', 'Stiffness, spleen and platelets', 'Stiffness'], ['one-year', 'A year of compensated cirrhosis', 'One year']]],
+-  ['complications', 'Complications', [['varices', 'Collaterals and varices', 'Varices'], ['endoscopy', 'Endoscopy and the varix', 'Endoscopy'], ['variceal-bleed', 'Acute variceal bleeding', 'Variceal bleed'], ['ascites', 'How ascites forms', 'Ascites'], ['tap', 'Paracentesis and albumin', 'Paracentesis'], ['spleen', 'The spleen: size and treatment', 'Spleen'], ['pvt-cirrhosis', 'Portal vein clot in cirrhosis', 'PVT in cirrhosis'], ['recompensation', 'Decompensation and recovery', 'Recompensation'], ['pregnancy', 'Cirrhosis in pregnancy', 'Pregnancy']]],
+-  ['treatment', 'Treatment', [['treatment', 'Lowering portal pressure', 'Lowering pressure'], ['beta-blockers', 'Propranolol or carvedilol', 'Beta-blockers'], ['shunts', 'Spontaneous shunts and TIPS', 'Shunts and TIPS'], ['tips-doppler', 'Doppler after TIPS', 'TIPS Doppler']]],
++  ['complications', 'Complications', [['varices', 'Collaterals and varices', 'Varices'], ['endoscopy', 'Endoscopy and the varix', 'Endoscopy'], ['variceal-bleed', 'Acute variceal bleeding', 'Variceal bleed'], ['refractory-bleed', 'When banding fails', 'Refractory bleed'], ['ascites', 'How ascites forms', 'Ascites'], ['tap', 'Paracentesis and albumin', 'Paracentesis'], ['encephalopathy', 'Encephalopathy and shunting', 'Encephalopathy'], ['spleen', 'The spleen: size and treatment', 'Spleen'], ['pvt-cirrhosis', 'Portal vein clot in cirrhosis', 'PVT in cirrhosis'], ['recompensation', 'Decompensation and recovery', 'Recompensation'], ['pregnancy', 'Cirrhosis in pregnancy', 'Pregnancy']]],
++  ['treatment', 'Treatment', [['treatment', 'Lowering portal pressure', 'Lowering pressure'], ['beta-blockers', 'Propranolol or carvedilol', 'Beta-blockers'], ['cause-treated', 'Treating the cause', 'Treating the cause'], ['shunts', 'Spontaneous shunts and TIPS', 'Shunts and TIPS'], ['tips-doppler', 'Doppler after TIPS', 'TIPS Doppler']]],
+ ];
+ for (const [topic, , list] of TOPICS) for (const [id, short, head] of list) { const d = DECKS.find((x) => x.id === id); if (d) Object.assign(d, { topic, short, head }); }
+diff --git a/src/ui/decks/cause-treated.js b/src/ui/decks/cause-treated.js
+new file mode 100644
+index 00000000..4bb885f4
+--- /dev/null
++++ b/src/ui/decks/cause-treated.js
+@@ -0,0 +1,96 @@
++// Presenter talk: what treating the cause does to portal hypertension, in three patients: hepatitis C cured early,
++// hepatitis C cured with a higher HVPG, and MASH cirrhosis with weight loss (the slide fields are described at the top
++// of decks.js). Carvedilol stays out of the params: on a beta-blocker the varix and the stiffness would fall at once
++// (engine.js), so the time-lapses show the cure alone, and a caveat says so.
++
++const SCAN = { kind: 'fibroscan' };
++const HCV = 'Hepatitis C cured', HIGH = 'A higher start', MASLD = 'MASLD';
++const OFF_BB = 'The model shows the patient off carvedilol, so the changes that follow come from treating the cause alone.';
++
++export const CAUSE_TREATED = {
++  id: 'cause-treated', level: 'core', title: 'Treating the cause', minutes: 10,
++  objectives: [
++    'Explain why treating the cause lowers the portal pressure over months to years',
++    'Use stiffness and platelets to decide who can leave portal hypertension follow-up after cure',
++    'Recognize that CSPH can persist after cure when the HVPG starts high',
++    'Read stiffness in obese MASLD, and describe what weight loss does to it',
++  ],
++  checks: [
++    ['After hepatitis C is cured, which stiffness and platelet count rule CSPH out?', 'A stiffness under 12 kPa with platelets over 150,000/µL, with no other cause of liver injury.'],
++    ['Does a cure always remove CSPH?', 'No: when the HVPG starts high, CSPH often persists, and the beta-blocker continues.'],
++    ['Why does the 25 kPa rule-in not apply at a BMI of 30 or more?', 'A high stiffness often overstates the portal pressure in obesity, so ANTICIPATE-NASH, which adds the BMI, is used instead.'],
++    ['Does liver cancer surveillance stop after cure?', 'No: it continues every 6 months in anyone who had cirrhosis.'],
++  ],
++  sections: [[HCV, [HCV]], [HIGH, [HIGH]], [MASLD, [MASLD]]],
++  summary: 'Three patients whose cause is treated: hepatitis C cured early, hepatitis C cured with CSPH that persists, and MASH cirrhosis with weight loss. Stiffness and platelets show who can leave portal hypertension follow-up.',
++  slides: [
++    {
++      id: 'before', preset: 'csph', cam: 'liver', tool: SCAN, data: 'tiles', tiles: ['lsm', 'plt', 'hvpg'], key: ['hvpg'],
++      kicker: HCV, site: 'sin', title: 'Hepatitis C cirrhosis with CSPH, before treatment',
++      vignette: 'A 52-year-old man with hepatitis C cirrhosis, found when he gave blood, starts sofosbuvir and velpatasvir. He feels well and has never had ascites or bleeding.',
++      line: 'A stiffness of {lsm} with platelets of {plt} puts him in the gray zone, and an HVPG of {hvpg} confirms CSPH, so carvedilol starts with the antivirals.',
++      caveat: OFF_BB,
++      notes: 'Curing hepatitis C does not lower the portal pressure at once, so a patient with CSPH starts carvedilol with the antivirals. In the gray zone between 15 and 25 kPa, Baveno VIII calls CSPH present when a validated model such as ANTICIPATE puts its probability at 75% or more. Here the HVPG settles it.',
++      ask: ['Why start carvedilol now, if the virus will soon be cured?', 'The portal pressure falls only slowly after cure, and carvedilol lowers the risk of decompensation in the meantime.'],
++    },
++    {
++      id: 'year1', days: 365, ramp: { cirrhosis: [0.6, 0.45] }, lapse: { seconds: 8, from: 'Cure', to: 'One year later' }, cam: 'liver',
++      tool: { kind: 'flowtime', clock: 'days', lines: ['hvpg', 'varix'] }, data: 'tiles', tiles: ['hvpg', 'varix', 'lsm', 'plt'], key: ['lsm'], delta: 'before',
++      kicker: HCV, site: 'sin', title: 'A year after cure, the pressure and the stiffness fall',
++      line: 'A year after cure the stiffness reads {lsm}, the platelets have risen to {plt} and the HVPG has fallen to {hvpg}.',
++      notes: 'After cure, inflammation settles first, so the stiffness falls faster than the scar regresses, and an early fall overstates how much fibrosis has gone. The HVPG falls more slowly and less completely, and in many patients with CSPH before treatment it stays at 10 mmHg or more. Whether carvedilol can stop once CSPH resolves is not settled.',
++      ask: ['The stiffness falls fast in the first year after cure. Has the fibrosis regressed as fast?', 'No: much of the early fall is inflammation settling, so the stiffness overstates the regression.'],
++    },
++    {
++      id: 'year2', days: 365, ramp: { cirrhosis: [0.45, 0.37] }, lapse: { seconds: 8, from: 'One year', to: 'Two years after cure' }, cam: 'liver', tool: SCAN,
++      data: 'tiles', tiles: ['lsm', 'plt', 'hvpg'], key: ['lsm'], delta: 'before',
++      kicker: HCV, site: 'sin', title: 'Two years after cure, CSPH is ruled out',
++      line: 'Two years after cure, a stiffness of {lsm}, under {<12 kPa}, with platelets of {plt}, over {>150,000/µL}, rules CSPH out.',
++      notes: 'After hepatitis C is cured, and with no other cause of liver injury such as alcohol or obesity, a stiffness under 12 kPa with platelets over 150,000/µL rules CSPH out, and portal hypertension follow-up can stop. Liver cancer surveillance every 6 months continues, because cirrhosis was present before the cure. Recheck the stiffness and the platelets if a new cause of liver injury appears.',
++      ask: ['Does he still need liver cancer surveillance?', 'Yes, every 6 months: cirrhosis was present before the cure, and the cancer risk remains.'],
++    },
++    {
++      id: 'high', preset: 'csph', params: { cirrhosis: 0.75 }, days: 365, cam: 'liver', data: 'ladder', key: ['hvpg'], tiles: ['varix', 'asc'],
++      kicker: HIGH, site: 'sin', title: 'A higher HVPG before cure',
++      vignette: 'A 58-year-old woman with hepatitis C cirrhosis from a transfusion in 1987 starts sofosbuvir and velpatasvir. EGD shows large varices, and ultrasound shows a little ascites she has not noticed.',
++      line: 'With an HVPG of {hvpg}, large varices and fluid seen only on ultrasound, she starts carvedilol with the antivirals.',
++      caveat: OFF_BB,
++      notes: 'Ascites seen only on ultrasound does not count as decompensation, so she is still compensated, with CSPH and high-risk varices. Carvedilol treats both: it lowers the risk of a first bleed and of decompensation. The higher the HVPG before cure, the more likely CSPH is to persist after it.',
++      ask: ['Ascites seen only on ultrasound: is she decompensated?', 'No: only clinically evident ascites marks decompensation, though even a little fluid on ultrasound carries a worse outlook.'],
++    },
++    {
++      id: 'high2', days: 730, ramp: { cirrhosis: [0.75, 0.57] }, lapse: { seconds: 10, from: 'Cure', to: 'Two years later' }, cam: 'liver', data: 'ladder', key: ['hvpg'], tiles: ['lsm', 'varix'], delta: 'high',
++      kicker: HIGH, site: 'sin', title: 'Two years after cure, CSPH persists',
++      line: 'Two years after cure the HVPG is still {hvpg}, at or above {>=10 mmHg}, so CSPH persists and she keeps carvedilol.',
++      notes: 'When the HVPG starts well above 10 mmHg, CSPH often persists after cure, and so does the risk of decompensation. She keeps carvedilol and liver cancer surveillance every 6 months. Her stiffness, still in the gray zone, cannot tell on its own whether CSPH has gone.',
++      ask: ['Should she stop carvedilol now that the virus is gone?', 'No: CSPH persists, so carvedilol continues.'],
++    },
++    {
++      id: 'masld', preset: 'cirr-comp', params: { cirrhosis: 0.45 }, days: 365, cam: 'liver', tool: SCAN, data: 'tiles', tiles: ['lsm', 'plt'], key: ['lsm'],
++      kicker: MASLD, site: 'sin', title: 'MASLD cirrhosis with obesity sits in the gray zone',
++      vignette: 'A 54-year-old woman with MASH cirrhosis and a BMI of 34 has a liver stiffness of 15 kPa on FibroScan. Her platelets are 136,000/µL, and she has never had ascites or bleeding.',
++      line: 'A stiffness of {lsm} with platelets of {plt} leaves her in the gray zone, where a model that adds her BMI estimates the chance of CSPH.',
++      notes: 'In obese patients with MASH, a stiffness of 25 kPa or more often overstates the portal pressure, so at a BMI of 30 or more it no longer rules CSPH in. Baveno VIII then uses ANTICIPATE-NASH, which adds the BMI to the stiffness and the platelets, and calls CSPH present at a probability of 75% or more. In the model her HVPG is below 10 mmHg.',
++      ask: ['Why does the 25 kPa rule-in not apply to her?', 'At a BMI of 30 or more a high stiffness often overstates the portal pressure, so a model that adds the BMI (ANTICIPATE-NASH) is used instead.'],
++    },
++    {
++      id: 'loss', days: 365, ramp: { cirrhosis: [0.45, 0.35] }, lapse: { seconds: 8, from: 'Weight loss starts', to: 'One year later' }, cam: 'liver', tool: SCAN,
++      data: 'tiles', tiles: ['lsm', 'plt'], key: ['lsm'], delta: 'masld',
++      kicker: MASLD, site: 'sin', title: 'Losing 12% of her weight lowers the stiffness',
++      line: 'A year and 12% of her weight later, the stiffness has fallen to {lsm} and the platelets have risen to {plt}, which now rules CSPH out.',
++      caveat: 'The model has no fat or weight; it eases the scar back instead.',
++      notes: 'In MASLD-related cACLD, losing 10% or more of body weight goes with a fall in stiffness of 30% or more. Diet and exercise come first; a GLP-1 receptor agonist helps where it is indicated, and bariatric surgery is kept for selected patients without CSPH. A stiffness of 15 kPa or less with platelets of 150,000/µL or more rules CSPH out, whatever the cause.',
++      ask: ['How much weight loss changes the stiffness meaningfully?', 'About 10% of body weight or more, which goes with a fall in stiffness of about 30% or more.'],
++    },
++    {
++      id: 'summary', visual: 'table', cols: ['hvpg', 'lsm', 'plt'], asc: false, rowHead: 'Patient',
++      of: [{ id: 'before', kicker: 'Hepatitis C', title: 'Before cure' }, { id: 'year1', kicker: 'Hepatitis C', title: 'One year after cure', vs: 'before' }, { id: 'year2', kicker: 'Hepatitis C', title: 'Two years after cure', vs: 'before' },
++        { id: 'high', kicker: 'Higher start', title: 'Before cure', ref: true }, { id: 'high2', kicker: 'Higher start', title: 'Two years after cure', vs: 'high' },
++        { id: 'masld', kicker: 'MASLD', title: 'Before weight loss', ref: true }, { id: 'loss', kicker: 'MASLD', title: 'After 12% weight loss', vs: 'masld' }],
++      kicker: 'Summary', title: 'How far the pressure falls depends on where it started',
++      line: 'Treating the cause lowers the HVPG in every patient, but CSPH persists when it starts high.',
++      notes: 'Curing hepatitis C, stopping alcohol or losing weight is the most effective long-term treatment of portal hypertension, but the pressure falls over years, not weeks. Patients who start with a high HVPG often keep CSPH and keep their beta-blocker. Liver cancer surveillance continues after any cure in a patient who had cirrhosis.',
++      ask: ['After cure, who still needs carvedilol?', 'Anyone in whom CSPH persists, as shown by the HVPG or by stiffness and platelets.'],
++    },
++  ],
++};
+diff --git a/src/ui/decks/encephalopathy.js b/src/ui/decks/encephalopathy.js
+new file mode 100644
+index 00000000..c33d7ed8
+--- /dev/null
++++ b/src/ui/decks/encephalopathy.js
+@@ -0,0 +1,95 @@
++// Presenter talk: portosystemic shunting and hepatic encephalopathy, from first-pass clearance to a large spontaneous
++// shunt and its embolization, and the stent width and rifaximin that lower encephalopathy after a TIPS
++// (the slide fields are described at the top of decks.js).
++
++const STENT = { edges: ['TIPS'], label: 'Covered stent', kind: 'treat' };
++
++export const ENCEPHALOPATHY = {
++  id: 'encephalopathy', level: 'core', title: 'Encephalopathy and shunting', minutes: 10,
++  objectives: [
++    'Explain how portosystemic shunting lets gut blood reach the brain without passing the liver',
++    'Recognize when to look for a large spontaneous shunt, and what closing it costs',
++    'Choose the stent width and the drug that lower encephalopathy after a TIPS',
++    'Treat overt encephalopathy in order: the precipitant, lactulose, then rifaximin',
++  ],
++  checks: [
++    ['How is covert encephalopathy found and treated?', 'With one test, such as animal naming, and lactulose if the test is abnormal.'],
++    ['Who needs a CT or MRI to look for a large spontaneous shunt?', 'A patient whose encephalopathy keeps coming back despite lactulose, rifaximin and treatment of every precipitant.'],
++    ['What does embolizing a spontaneous shunt cost?', 'The portal pressure rises, so varices and ascites can grow.'],
++    ['Name the two choices that lower encephalopathy after an elective TIPS.', 'The narrowest stent that reaches the target gradient, and rifaximin started about 2 weeks before.'],
++  ],
++  summary: 'How shunted gut blood reaches the brain: covert encephalopathy, a large splenorenal shunt and what closing it costs, and the stent width and rifaximin that lower encephalopathy after a TIPS.',
++  slides: [
++    {
++      id: 'firstpass', preset: 'healthy', cam: 'liver', lens: 'origin', sites: ['split'], data: 'tiles', tiles: ['shunt', 'liver'], key: ['shunt'],
++      kicker: 'First pass', site: 'sin', title: 'In health, all gut blood passes through the liver',
++      line: 'Colored by origin, gut and spleen blood fills the sinusoids, so the liver clears what the gut absorbs, and {shunt} of the portal blood bypasses it.',
++      caveat: 'The model has no ammonia or brain; the share of portal blood that skips the liver stands in for the risk.',
++      notes: 'Gut bacteria and the breakdown of protein make ammonia, which reaches the liver in portal blood. Periportal hepatocytes turn it into urea, and perivenous hepatocytes take up what is left as glutamine. Blood that skips the liver skips both steps, and the ammonia reaches the brain.',
++      ask: ['A young adult with a normal liver and a congenital portosystemic shunt is confused. Why?', 'Gut blood reaches the brain without passing through the liver, which would have cleared its ammonia.'],
++    },
++    {
++      id: 'collat', preset: 'cirr-decomp', cam: 'fit', lens: 'origin', sites: ['split'], data: 'tiles', tiles: ['shunt', 'liver'], key: ['shunt'], delta: 'firstpass',
++      kicker: 'Collaterals', site: 'sin', title: 'Collaterals carry gut blood around a scarred liver',
++      vignette: 'A 69-year-old taxi driver with hepatitis C cirrhosis, cured 2 years ago, has had two minor car crashes this year. His wife finds him slower, and EGD shows large varices.',
++      line: 'Colored by origin, collaterals now carry {shunt} of the portal blood around the liver, and the scarred liver clears less of what still reaches it.',
++      notes: 'Covert encephalopathy shows only on testing, as slower thinking and slower reactions. It does not count as decompensation, but it predicts overt encephalopathy and car crashes. A single test, such as animal naming, is enough to find it, and lactulose treats it. Ask about driving, and look for a precipitant.',
++      ask: ['He drives a taxi. What do you test, and what do you start?', 'One test for covert encephalopathy, such as animal naming; lactulose if it is abnormal; and advice not to drive until it improves.'],
++    },
++    {
++      id: 'srs', preset: 'cirr-decomp', params: { spontaneous: { C6: true } }, days: 30, cam: 'splenic', lens: 'direction', mark: { edges: ['C6'], label: 'Splenorenal shunt', kind: 'note' },
++      tool: { kind: 'doppler', vessel: 'SV_CONF' }, data: 'tiles', tiles: ['liver', 'ppg'], key: ['liver'], delta: 'collat',
++      kicker: 'Spontaneous shunts', site: 'sin', title: 'A large splenorenal shunt keeps encephalopathy coming back',
++      vignette: 'A 58-year-old man with hepatitis B cirrhosis on entecavir has been admitted four times in 8 months with confusion while taking lactulose and rifaximin. He has no ascites or varices.',
++      line: 'Colored by direction, the portal and splenic veins now run away from the liver into the shunt, and flow through the liver falls to {liver}.',
++      causesHead: 'Look first for', causes: ['Infection or bleeding', 'Constipation or missed lactulose', 'Sedatives or opioids', 'Low sodium or potassium, or dehydration'],
++      notes: 'Overt encephalopathy is treated in order: find and treat the precipitant, give lactulose to two or three soft stools a day, and add rifaximin after a recurrence. When it keeps coming back despite both, look for a large spontaneous shunt on contrast CT or MRI. A large shunt lowers the portal pressure but sends gut blood straight to the systemic veins, and the Doppler in the splenic vein shows its flow running away from the liver.',
++      ask: ['Four admissions despite lactulose and rifaximin. What do you look for?', 'Missed precipitants first, then a large spontaneous shunt on contrast CT or MRI.'],
++    },
++    {
++      id: 'embolize', cam: 'fit', lens: 'flow', mark: { edges: ['C6'], label: 'Splenorenal shunt', kind: 'note' }, data: 'tiles', tiles: ['liver', 'ppg'], key: ['liver'],
++      compare: [{ label: 'Shunt open', own: true, params: { occluded: { C6: false } } }, { label: 'Shunt embolized', short: 'Embolized', params: { occluded: { C6: true } } }],
++      kicker: 'Spontaneous shunts', site: 'sin', title: 'Closing the shunt sends blood back through the liver',
++      line: 'Colored by flow, the shunt empties once it is embolized, and portal blood returns to the liver as the PPG climbs.',
++      caveat: 'In the model the varices fill as soon as the shunt closes; in patients they grow over weeks to months.',
++      notes: 'Embolization closes the shunt from the left renal vein with coils, a plug or a sclerosant. In case series it controls recurrent encephalopathy in most selected patients. Results are best when liver function is preserved, the MELD is low and there is no liver cancer.',
++      ask: ['Who is a good candidate for embolization?', 'Recurrent or persistent encephalopathy despite lactulose and rifaximin, a large shunt on imaging, and good liver function with a low MELD.'],
++    },
++    {
++      id: 'price', params: { occluded: { C6: true } }, days: 60, lapse: { seconds: 7, from: 'Shunt closed', to: 'Two months later' }, cam: 'fit',
++      tool: { kind: 'flowtime', clock: 'days', lines: ['pv', 'asc'] }, data: 'tiles', tiles: ['pv', 'asc', 'ppg'], key: ['asc'], delta: 'srs',
++      kicker: 'Spontaneous shunts', site: 'sin', title: 'Closing the shunt brings the portal pressure back',
++      line: 'Two months after embolization the PPG has climbed to {ppg}, and {asc} of ascites has formed.',
++      notes: 'Closing a large shunt raises the portal pressure. In pooled series, new or larger varices or ascites followed in about 15% of patients, and bleeding in about 10%. An endoscopy and an ultrasound follow the embolization, and varices that grow are treated as in any cirrhosis.',
++      ask: ['What do you check after a shunt is closed?', 'Varices on endoscopy and ascites on ultrasound, because the portal pressure rises.'],
++    },
++    {
++      id: 'tips', preset: 'cirr-decomp', params: { tips: { on: true, d: 8 } }, cam: 'liver', lens: 'origin', sites: ['split'], mark: STENT,
++      compare: [{ label: '8 mm', own: true, params: { tips: { on: true, d: 8 } } }, { label: '10 mm', params: { tips: { on: true, d: 10 } } }],
++      data: 'tiles', tiles: ['ppg', 'liver'], key: ['liver'],
++      kicker: 'After TIPS', site: 'sin', title: 'A wider stent takes more portal blood from the liver',
++      vignette: 'A 70-year-old man with alcohol-associated cirrhosis, sober for 2 years, has bled again from esophageal varices despite banding and carvedilol and is booked for a TIPS. He has never been confused.',
++      line: 'Colored by origin, gut blood runs through the 8 mm stent, which brings the PPG to {ppg}, under the {<12 mmHg} target, and leaves the liver {liver} of its flow.',
++      notes: 'Overt encephalopathy follows a TIPS in a third to a half of patients in the first year; older age, earlier encephalopathy, a wider stent and poorer liver function raise the risk. In a randomized trial, 8 mm stents caused less encephalopathy than 10 mm ones without more rebleeding, so the narrowest stent that reaches the target gradient is preferred. In another trial, rifaximin started 14 days before a TIPS cut overt encephalopathy by about a third. In the US the tablet is 550 mg, and this use is off-label.',
++      ask: ['He has never been confused. What lowers his risk of encephalopathy after the TIPS?', 'The narrowest stent that reaches the target gradient, and rifaximin started about 2 weeks before.'],
++    },
++    {
++      id: 'narrow', cam: 'liver', mark: STENT, data: 'tiles', tiles: ['liver', 'ppg'], key: ['ppg'],
++      compare: [{ label: '8 mm', own: true, params: { tips: { on: true, d: 8 } } }, { label: 'Narrowed to 6 mm', short: '6 mm', params: { tips: { on: true, d: 6 } } }, { label: 'Occluded', params: { tips: { on: false } } }],
++      kicker: 'After TIPS', site: 'sin', title: 'When encephalopathy persists, narrow the stent',
++      line: 'Narrowing the stent gives the liver back portal blood, and the PPG climbs toward the level the TIPS was placed to treat.',
++      notes: 'Encephalopathy that persists after a TIPS despite lactulose and rifaximin can be treated by narrowing the stent, with a smaller stent placed inside it, or by closing it. If a large spontaneous shunt is also found, embolizing it is another option. Either way, some of the portal pressure the TIPS was placed to lower comes back.',
++      ask: ['What does narrowing the stent cost?', 'The portal pressure rises, so the ascites or bleeding the TIPS treated can come back.'],
++    },
++    {
++      id: 'summary', visual: 'table', cols: ['shunt', 'liver', 'ppg'], asc: false, rowHead: 'Patient',
++      of: [{ id: 'firstpass', kicker: 'Reference', title: 'Healthy' }, { id: 'collat', kicker: 'Cirrhosis', title: 'Collaterals', ref: true }, { id: 'srs', kicker: 'Spontaneous', title: 'Splenorenal shunt', vs: 'collat' },
++        { id: 'price', kicker: 'Spontaneous', title: 'Shunt embolized', vs: 'srs' }, { id: 'tips', kicker: 'TIPS', title: 'TIPS, 8 mm', vs: 'collat' },
++        { preset: 'cirr-decomp', params: { tips: { on: true, d: 10 } }, kicker: 'TIPS', title: 'TIPS, 10 mm', vs: 'tips' }],
++      kicker: 'Summary', title: 'Every shunt trades a lower gradient for less liver flow',
++      line: 'The more portal blood skips the liver, the lower the gradient and the higher the risk of encephalopathy.',
++      notes: 'Every shunt, spontaneous or placed, lowers the gradient by sending portal blood around the liver, and the brain receives what the liver did not clear. Closing or narrowing a shunt reverses the trade. Treat the precipitant and give lactulose and rifaximin first; turn to the shunt only when encephalopathy keeps coming back.',
++      ask: ['What does every portosystemic shunt trade?', 'A lower portal gradient for less portal blood through the liver, and more encephalopathy.'],
++    },
++  ],
++};
+diff --git a/src/ui/decks/refractory-bleed.js b/src/ui/decks/refractory-bleed.js
+new file mode 100644
+index 00000000..cb5388ba
+--- /dev/null
++++ b/src/ui/decks/refractory-bleed.js
+@@ -0,0 +1,109 @@
++// Presenter talk: a variceal bleed that drugs and banding cannot control, bridged by a balloon tube to a rescue TIPS,
++// then a fundal varix that bleeds through a gastrorenal shunt, with BRTO weighed against a TIPS
++// (the slide fields are described at the top of decks.js). The bleed opens on slide 2, not slide 1, so the Outline,
++// which shows slide 1's patient, is not already bleeding. The chain never clots an open bleed on its own, so each
++// balloon slide stops it explicitly (stopBleed) once the balloon has dropped the pressure across the varix wall.
++
++const UNIT = { kind: 'infuse', fluid: 'prbc' };
++const BEATS = { kind: 'trace', range: 'beats' };
++const ESO = 'Esophageal varices', GV = 'Fundal varices';
++
++export const REFRACTORY_BLEED = {
++  id: 'refractory-bleed', level: 'advanced', title: 'When banding fails', minutes: 10,
++  objectives: [
++    'Use a balloon tube as a bridge when drugs and banding cannot stop the bleeding',
++    'Decide on a rescue TIPS, and recognize when it is likely futile',
++    'Classify gastric varices and name the ones that are banded',
++    'Weigh BRTO against a TIPS for a fundal varix',
++  ],
++  checks: [
++    ['How long can a balloon tube stay inflated?', 'About 24 hours at most, as a bridge to a rescue TIPS.'],
++    ['When is a rescue TIPS likely to be futile?', 'Child–Pugh 14 or 15, or a MELD of 30 or more with a lactate of 12 mmol/L or more, unless a transplant can follow.'],
++    ['Which gastric varices are banded like esophageal ones?', 'GOV1, which run from the esophagus along the lesser curve.'],
++    ['What does BRTO cost?', 'The portal pressure rises, so esophageal varices and ascites can worsen.'],
++  ],
++  sections: [['Uncontrolled bleeding', [ESO]], ['Bridge and rescue', ['Bridge', 'Rescue']], ['Fundal varices', [GV]], ['Definitive treatment', ['Definitive treatment']]],
++  summary: 'An esophageal bleed that drugs and banding cannot control, bridged by a balloon tube to a rescue TIPS, then a fundal varix that bleeds through a gastrorenal shunt, with BRTO weighed against a TIPS.',
++  slides: [
++    {
++      id: 'before', preset: 'cirr-decomp', terms: ['varix'], cam: 'varices', labels: ['VAR'], tool: { kind: 'scope' }, data: 'tiles', tiles: ['varix', 'ppg'], key: ['varix'],
++      kicker: ESO, site: 'sin', title: 'Large varices in Child–Pugh C cirrhosis',
++      vignette: 'A 49-year-old man with alcohol-associated cirrhosis and ascites drank until last week. His bilirubin is 4.2 mg/dL and his INR 2.1, and EGD last month showed large varices with red wale marks.',
++      line: 'In Child–Pugh C cirrhosis, varices of {varix} under a PPG of {ppg} can bleed faster than drugs and banding can control.',
++      notes: 'In this case, bilirubin 4.2 mg/dL scores 3 points, INR 2.1 scores 2, albumin 2.8 g/dL scores 2, ascites on diuretics scores 2 and no encephalopathy scores 1: Child–Pugh C, 10 points. Child–Pugh C, active bleeding at endoscopy and an HVPG of 20 mmHg or more, where it is measured, make a bleed that drugs and banding cannot control more likely. The same features select patients for a pre-emptive TIPS once a bleed is controlled.',
++      ask: ['Which features make a variceal bleed harder to control?', 'Child–Pugh C, active bleeding at endoscopy, and an HVPG of 20 mmHg or more where it is measured.'],
++    },
++    {
++      id: 'fail', action: { kind: 'rupture', tear: 0.7 }, cam: 'varices', mark: { edges: ['C1a', 'C1b'], label: 'Bleeding varix' }, tool: BEATS, data: 'tiles', tiles: ['hr', 'map'], key: ['hr'], delta: true,
++      kicker: ESO, site: 'sin', title: 'Bleeding that banding cannot stop',
++      line: 'The varix tears, and blood fills the esophagus faster than the scope can clear it, so no band can be placed and the heart rate climbs to {hr}.',
++      notes: 'Drugs and banding control most variceal bleeds, but about 1 in 10 is not controlled, and then death within 6 weeks becomes much more likely. Protect the airway, keep the octreotide and ceftriaxone running, and call for a bridge and a rescue TIPS.',
++      ask: ['Banding fails and blood keeps coming. What are the next steps?', 'Protect the airway, keep octreotide and ceftriaxone running, tamponade with a balloon tube or an esophageal stent, and arrange a rescue TIPS.'],
++    },
++    {
++      id: 'shock', params: { drugs: { octreotide: true } }, action: [UNIT, UNIT], cam: 'varices', tool: BEATS, data: 'tiles', tiles: ['hr', 'map'], key: ['map'], delta: true,
++      kicker: ESO, site: 'sin', title: 'Drugs and blood do not keep up',
++      line: 'With octreotide running and two units in, the bleeding still outpaces them and the blood pressure falls to {map}.',
++      notes: 'Octreotide narrows the splanchnic arterioles and lowers the portal pressure, but it cannot close a torn varix. Transfuse to keep the circulation going; once it is stable, the target is a hemoglobin of 7 to 8 g/dL. Fresh frozen plasma and platelets given only to correct the INR or the count are not advised.',
++      ask: ['Once the bleeding is controlled, why not transfuse to a normal hemoglobin?', 'Extra volume raises the portal pressure and makes an early rebleed more likely.'],
++    },
++    {
++      id: 'balloon', params: { balloonEso: true }, action: [{ kind: 'stopBleed' }, UNIT], cam: 'varices', tool: { kind: 'scope', open: true }, data: 'tiles', tiles: ['map', 'hr'], key: ['map'], delta: true,
++      kicker: 'Bridge', site: 'sin', title: 'A balloon tube presses the varices shut',
++      line: 'Inflated in the esophagus, the balloon presses on the varices from outside, so the pressure across their wall falls, the bleeding stops and the blood pressure recovers to {map}.',
++      caveat: 'The model stops the bleed at once; in patients the balloon controls most bleeds, and many restart when it comes down.',
++      notes: 'Intubate before the tube goes in, and confirm that the gastric balloon sits in the stomach before inflating the esophageal one. Keep it inflated for no more than about 24 hours, as a bridge to a rescue TIPS. In a small randomized trial, a covered self-expanding esophageal stent controlled the bleeding more often than a balloon tube; in the US the balloon tube is still the usual bridge.',
++      ask: ['What must happen before the balloon tube goes in?', 'Intubation to protect the airway.'],
++    },
++    {
++      id: 'rescue', params: { balloonEso: false, tips: { on: true, d: 8 } }, cam: 'liver', mark: { edges: ['TIPS'], label: 'Covered stent', kind: 'treat' }, data: 'ladder', key: ['ppg'],
++      causesHead: 'Likely futile with', causes: ['Child–Pugh 14 or 15', 'MELD 30 or more with lactate 12 mmol/L or more'],
++      kicker: 'Rescue', site: 'sin', title: 'A rescue TIPS takes over from the balloon',
++      line: 'A covered TIPS drops the PPG to {ppg}, under the {<12 mmHg} target, so the balloon can come down.',
++      notes: 'A rescue TIPS controls the bleeding in most patients, but survival depends on how much liver function is left. With Child–Pugh 14 or 15 points, or a MELD of 30 or more with a lactate of 12 mmol/L or more, death is very likely despite the TIPS, unless a liver transplant can follow soon. Decide with the transplant team before the procedure.',
++      ask: ['When is a rescue TIPS likely to be futile?', 'Child–Pugh 14 or 15, or a MELD of 30 or more with a lactate of 12 mmol/L or more, unless a transplant can follow.'],
++    },
++    {
++      id: 'gv', preset: 'gastric-varix', cam: 'fundus', labels: ['GV', 'LRV'], mark: { edges: ['C5'], label: 'Gastrorenal shunt', kind: 'note' }, lens: 'flow', data: 'tiles', tiles: ['gv', 'varix', 'ppg'], key: ['gv'],
++      kicker: GV, site: 'sin', title: 'A fundal varix drains through a gastrorenal shunt',
++      vignette: 'A 47-year-old woman with cirrhosis from primary biliary cholangitis vomited blood and is lightheaded. EGD shows a large fundal varix with a fresh clot on it and no esophageal varices.',
++      line: 'Colored by flow, a fundal varix of {gv}, fed by the short and posterior gastric veins, drains through a shunt to the left renal vein while the esophagus stays clear.',
++      notes: 'Gastric varices are classed by where they lie: GOV1 continue from the esophagus along the lesser curve, GOV2 run into the fundus, IGV1 sit alone in the fundus and IGV2 elsewhere in the stomach. GOV1 are banded like esophageal varices. Fundal varices (GOV2 and IGV1) are treated with cyanoacrylate glue (off-label in the US), a TIPS or, when a gastrorenal shunt is present, retrograde obliteration (BRTO). Endoscopy in this app stays in the esophagus, so the fundal varix is read from its tile.',
++      ask: ['Which gastric varices are banded like esophageal varices?', 'GOV1, which run from the esophagus along the lesser curve.'],
++    },
++    {
++      id: 'gvbleed', action: { kind: 'rupture', site: 'GV', tear: 0.5 }, cam: 'fundus', mark: { edges: ['C2'], label: 'Bleeding varix' }, tool: BEATS, data: 'tiles', tiles: ['hr', 'map'], key: ['hr'], delta: true,
++      kicker: GV, site: 'sin', title: 'The fundal varix bleeds again, heavily',
++      line: 'The varix tears again and bleeds into the stomach, and the heart rate climbs to {hr}.',
++      notes: 'Fundal varices bleed less often than esophageal varices, but more heavily. They are wide, so the tension in their wall is high at the same pressure. Start octreotide and ceftriaxone as for any variceal bleed.',
++      ask: ['Why does a wide varix tear more easily at the same pressure?', 'By Laplace, wall tension is pressure times radius over wall thickness, so a wide, thin-walled varix carries more tension.'],
++    },
++    {
++      id: 'gvballoon', params: { balloonGas: true }, action: [{ kind: 'stopBleed' }, UNIT], cam: 'fundus', data: 'tiles', tiles: ['gv', 'map'], key: ['gv'], delta: true,
++      kicker: GV, site: 'sin', title: 'A gastric balloon presses on the fundal varix',
++      line: 'Pulled up against the fundus, the gastric balloon squeezes the varix to {gv} and the bleeding stops.',
++      caveat: 'The model presses on the varix only; it does not model the balloon\'s traction or its risks.',
++      notes: 'The gastric balloon of a Minnesota or Linton tube is inflated in the stomach and pulled up against the cardia and fundus. It is a bridge of hours to glue, retrograde obliteration or a TIPS, with the same airway and pressure-injury risks as the esophageal balloon.',
++      ask: ['What does the gastric balloon bridge to?', 'Cyanoacrylate glue, retrograde obliteration of the shunt (BRTO) or a TIPS.'],
++    },
++    {
++      id: 'choose', params: { balloonGas: false, occluded: { C5: true } }, cam: 'fit', lens: 'flow', mark: { edges: ['C5'], label: 'Shunt closed', kind: 'treat' }, data: 'tiles', tiles: ['ppg', 'varix', 'liver'], key: ['ppg'], delta: 'gv',
++      compare: [{ label: 'BRTO', own: true, params: { occluded: { C5: true }, tips: { on: false } } }, { label: 'TIPS', params: { occluded: { C5: false }, tips: { on: true } } }],
++      kicker: 'Definitive treatment', site: 'sin', title: 'BRTO raises the portal pressure, and a TIPS lowers it',
++      line: 'Colored by flow, BRTO plugs the shunt and keeps portal blood in the liver but raises the PPG to {ppg}, while a TIPS lowers it and sends that blood around the liver.',
++      caveat: 'In the model the esophageal varices fill as soon as the shunt closes; in patients they grow over months.',
++      notes: 'Retrograde obliteration fills the shunt and the fundal varix with sclerosant behind a balloon or a plug. It controls fundal bleeding with little rebleeding, but closing the shunt raises the portal pressure, so esophageal varices and ascites can worsen. A TIPS suits patients with ascites or esophageal varices, and obliteration suits those who cannot have a TIPS. In a French randomized trial, a pre-emptive TIPS after a fundal bleed cut rebleeding compared with glue, without a clear gain in survival.',
++      ask: ['A fundal varix has bled, and there is ascites. BRTO or TIPS?', 'A TIPS: closing the shunt would raise the portal pressure and worsen the ascites.'],
++    },
++    {
++      id: 'summary', visual: 'table', cols: ['map', 'ppg', 'varix'], asc: false, rowHead: 'Step',
++      of: [{ id: 'before', kicker: 'Esophageal', title: 'Before the bleed' }, { id: 'fail', kicker: 'Esophageal', title: 'Banding fails', vs: 'before' }, { id: 'shock', kicker: 'Esophageal', title: 'Octreotide, two units', vs: 'before' },
++        { id: 'balloon', kicker: 'Bridge', title: 'Balloon tube', vs: 'before' }, { id: 'rescue', kicker: 'Rescue', title: 'Rescue TIPS', vs: 'before' },
++        { id: 'gv', kicker: 'Fundal', title: 'Fundal varix', ref: true }, { id: 'gvbleed', kicker: 'Fundal', title: 'Fundal bleed', vs: 'gv' }, { id: 'choose', kicker: 'Fundal', title: 'BRTO', vs: 'gv' }],
++      kicker: 'Summary', title: 'From an uncontrolled bleed to the treatment that ends it',
++      line: 'A balloon buys a few hours, and a TIPS or BRTO then treats the pressure behind the bleed.',
++      notes: 'When drugs and banding fail, protect the airway, tamponade the varix and bring in a rescue TIPS within hours, unless it is likely to be futile. Fundal varices take a different route: glue, a TIPS or obliteration of the gastrorenal shunt, chosen by the shunt, the ascites and the liver. During a bleed the PPG falls because blood is lost, not because the bleeding is controlled, so its green arrows on those rows are no comfort.',
++      ask: ['What is the balloon tube for?', 'A bridge of no more than about 24 hours to a definitive treatment such as a TIPS.'],
++    },
++  ],
++};
