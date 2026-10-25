@@ -15,6 +15,20 @@
   behind a case card, runs a time-lapse, asks a question or changes its tiles; the words card is never the same twice in them. It is
   there for the decks being written. Code and unit checks only; nobody has looked on screen. `src/ui/card-keep.js`; tests:
   `tests/card-keep.test.js`.
+- **The decks' wording, order and quick checks were gone over (words and data only; nothing on screen has been looked at).** (Mohammad, 25 Oct:
+  "All" from the deck-teaching recommendations.) Lines: a second "Colored by" sentence is cut where the key already says it (Circulation,
+  Two inflows, Sites, Outflow, Treatment, Beta-blockers); lines of 42 to 44 words are shorter (Doppler 2 and 10, Varices 2, Variceal bleed 5,
+  Shunts 6, One year 2 and 10); the slide before a reveal ends on the puzzle (Circulation 5, Hyperdynamic 3, Ascites 4); titles name the
+  finding (Circuit 9, Two inflows 5 and 6, Right heart 5, Shunts 3 to 5); a slide that loads another patient says so (Ascites, Spleen 8);
+  Where is the resistance? ends all six question slides on one sentence. Order: Stiffness 9 follows the rule; Ascites 6 and 7 (portal vein
+  clot, schistosomiasis) follow the mechanism; Circulation's three lobule slides are one; Varices lost its splenic vein slide, which
+  Pre-hepatic and Gastric varices teach. Quick checks: a reasoning question in Circulation, Circuit, Two inflows, HVPG, Hyperdynamic,
+  Where is the resistance?, Blood volume, Encephalopathy, Recompensation, Pregnancy, Treating the cause, Shunts and TIPS Doppler. Medical,
+  each against the guideline files: octreotide is a 50 µg bolus then 25 to 50 µg an hour (AASLD 2024); a covered stent is preferred to a
+  balloon tube (Baveno VIII 5.35); the HVPG response (10% or to 12 mmHg) is Baveno VIII Table 3, stated for primary prophylaxis, and the
+  20% figure is gone from HVPG 5; Budd–Chiari starts with anticoagulation (EASL 2025); the 4 in 10 and 7 in 10 recanalization rates name
+  their populations; Recompensation 2 says Baveno VIII starts carvedilol at CSPH; Next bleed 8 stops carvedilol under 12 mmHg (AASLD 2024);
+  Choose the treatment's case 4 gets live buttons. The authoring guides gained the rules behind this (guide rules 24 to 27).
 - **The organs' pictures are painted on the GPU from their own shapes.** (Mohammad, 25 Oct: no more SVG → image → canvas → read back →
   upload.) The heart and esophagus, the gut, the kidney, the stomach and the bowel were each a picture made by copying the SVG, loading
   it as an image, drawing it on a 2D canvas, reading its pixels back and uploading them, after every change and every settled pan or zoom.
