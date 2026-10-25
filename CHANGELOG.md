@@ -2,6 +2,12 @@
 
 ## October 2026
 
+- **Sites and causes: a lighter talk, one question for the room.** (Mohammad, 25 Oct, "Build the new decks"; deck rebuild plan, E3.)
+  The six level slides drop the case questions, the extra sliders and buttons (except the heart buttons on the cardiac slide), the causes list and the scale
+  switch; the causes moved into each slide's notes, and the periportal fibrosis slider moved to the presinusoidal talk's "Where the resistance sits" slide so
+  the control is kept. Slide lines are 30 words or fewer. The tag that names the level is not said twice when the kicker already says it. The ladders slide
+  asks "Which of the six raised the HVPG?" on a question card. Code and unit tests only; nobody has looked on screen. `src/ui/decks/sites.js`,
+  `src/ui/decks/ncph.js`, `src/ui/decks.js`, `tests/deck-adopted.js`, `tests/question-card.test.js`, `tests/sites-what-if.test.js`, `docs/deck-authoring-guide.md`.
 - **Collaterals and varices: fundal varices and the rectal slide leave, the other routes share one slide, and one pair of tiles runs through the first four.**
   (Mohammad, 25 Oct, "Sure"; deck rebuild plan, B2.) Gastric varices have their own talk, so the fundal slide is gone, and the paraumbilical and rectal
   slides are one, "Other collaterals: the paraumbilical and rectal routes", with both routes marked and the camera framing the two. The HVPG and the varix

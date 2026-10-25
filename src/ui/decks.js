@@ -93,7 +93,7 @@
 // (withOverview below); a deck never writes that slide itself.
 
 import { CIRCULATION } from './decks/circulation.js?v=81083b0906';
-import { SITES } from './decks/sites.js?v=d921674c99';
+import { SITES } from './decks/sites.js?v=672baf95f7';
 import { HVPG } from './decks/hvpg.js?v=2b95017b10';
 import { ASCITES } from './decks/ascites.js?v=5b8b08ea75';
 import { VARICES } from './decks/varices.js?v=35a51560a4';
@@ -111,7 +111,7 @@ import { PREHEPATIC } from './decks/prehepatic.js?v=6e4ae22c61';
 import { BLEED } from './decks/variceal-bleed.js?v=5f20680728';
 import { TWO_INFLOWS } from './decks/two-inflows.js?v=c654aeaa46';
 import { SPLEEN } from './decks/spleen.js?v=419f925c34';
-import { NCPH } from './decks/ncph.js?v=20b7cd7155';
+import { NCPH } from './decks/ncph.js?v=187598bc42';
 import { OUTFLOW } from './decks/outflow.js?v=f854f410c6';
 import { RECOMPENSATION } from './decks/recompensation.js?v=8101aaecd6';
 import { WHERE } from './decks/where.js?v=9ae29bcc6c';
@@ -178,7 +178,9 @@ export function withOverview(d) {
 export const SITE_TAGS = { pre: 'Pre-hepatic', pvt: 'Pre-hepatic', presin: 'Presinusoidal', sin: 'Sinusoidal', postsin: 'Postsinusoidal', post: 'Post-hepatic', cardiac: 'Cardiac' };
 export function siteTag(deck, s) {
   if (!s?.site || s.rail || s.visual || !deck?.slides?.some((x) => x.site && x.site !== 'sin')) return null;
-  return SITE_TAGS[s.site] ? { site: s.site === 'pvt' ? 'pre' : s.site, name: SITE_TAGS[s.site] } : null;
+  const name = SITE_TAGS[s.site];
+  // (A kicker that already says the level, "Pre-hepatic" or "Intrahepatic · presinusoidal", is not said twice.)
+  return name && !(s.kicker || '').toLowerCase().includes(name.toLowerCase()) ? { site: s.site === 'pvt' ? 'pre' : s.site, name } : null;
 }
 
 export const DECKS = [CIRCULATION, SITES, HVPG, ASCITES, VARICES, TREATMENT];
