@@ -30,6 +30,7 @@ export const CIRCUIT = withPoints({
     ['How does pressure relate to flow and resistance?', 'The pressure drop equals flow times resistance: ΔP = Q × R.'],
     ['Why does a meal raise the gradient more in cirrhosis?', 'The extra flow crosses a higher resistance, so even a smaller rise in flow adds more pressure.'],
     ['Why does a TIPS lower the gradient when collaterals do not?', 'The stent has far less resistance than the sinusoids or any collateral, so most portal blood goes through it.'],
+    ['Collaterals open and carry most of the portal blood, yet the PPG stays high. Which terms of ΔP = Q × R explain it?', 'The total inflow (Q) rises as the gut arteries widen, and the blood that still crosses the liver meets its high resistance (R).'],
   ],
   summary: 'Portal hypertension as a circuit: more flow, more resistance, collaterals in parallel, TIPS and the drugs, each read as ΔP = Q × R.',
   slides: [
@@ -90,8 +91,8 @@ export const CIRCUIT = withPoints({
     {
       id: 'drugs', params: { tips: { on: false }, drugs: { propranolol: true } }, view: C, sites: R, data: 'tiles', tiles: ['hvpg', 'pvFlow'], delta: 'parallel',
       compare: [{ label: 'Propranolol', own: true, params: { drugs: { propranolol: true, carvedilol: false } } }, { label: 'Carvedilol', params: { drugs: { propranolol: false, carvedilol: true } } }],
-      kicker: K, site: 'sin', title: 'Propranolol and carvedilol',
-      line: 'Propranolol lowers the inflow. Carvedilol also relaxes the resistance inside the liver, so HVPG falls further.',
+      kicker: K, site: 'sin', title: 'Propranolol lowers Q; carvedilol lowers Q and R',
+      line: 'Propranolol lowers the inflow (Q). Carvedilol lowers it too and relaxes the resistance inside the liver (R), so the HVPG falls further.',
       notes: 'Propranolol lowers the cardiac output (β1) and lets the gut arterioles constrict (β2): Q falls. Carvedilol adds α1 blockade, which relaxes the stellate cells and lowers the dynamic part of R. Switch between them: carvedilol lowers HVPG more with less fall in portal flow. In patients carvedilol\'s extra effect comes with a lower blood pressure, which matters once ascites appears. The tiles compare with the untreated patient.',
       ask: ['Which term of ΔP = Q × R does carvedilol act on that propranolol does not?', 'R, the intrahepatic resistance, through α1 blockade.'],
     },

@@ -10,6 +10,7 @@ export const HVPG = {
     ['How is the HVPG calculated?', 'Wedged hepatic vein pressure minus free hepatic vein pressure (WHVP − FHVP).'],
     ['At which HVPG levels does the risk rise?', 'Above 5 mmHg is portal hypertension, 10 mmHg or more is CSPH, and from about 12 mmHg the risk of a variceal bleed rises steeply.'],
     ['When does the HVPG miss a high portal pressure, and what do you measure instead?', 'When the resistance lies before the sinusoids, as with a portal vein clot or schistosomiasis. Measure the PPG, portal vein minus IVC.'],
+    ['WHVP is 21, FHVP 20 and right atrial pressure 19 mmHg. The HVPG is 1 mmHg. Is the portal pressure normal?', 'No. Every station is high because the heart holds the pressure up, so the gradient is small while the portal pressure is above 20 mmHg.'],
   ],
   slides: [
     {
@@ -44,8 +45,8 @@ export const HVPG = {
       eq: [mi('HVPG') + mo('=') + '<mi class="eq-wedge">WHVP</mi>' + mo('−') + '<mi class="eq-hv">FHVP</mi>'],
       cite: 'AASLD 2024 3, 4; Baveno VIII Table 3',
       line: 'In this case the HVPG is {hvpg}: clinically significant portal hypertension.',
-      notes: 'The hepatic venous pressure gradient is the pressure drop across the sinusoids. In this case the HVPG is about 12 mmHg, which is clinically significant. HVPG predicts outcome: from 10 mmHg varices and decompensation become possible, and the risk rises with the gradient; variceal bleeding is rare below about 12. After a variceal bleed, a fall on treatment to below 12 mmHg, or by 20% or more, protects against rebleeding. Before any bleed, a fall of 10% or more already predicts benefit. Without a catheter, liver stiffness (25 kPa or more) rules clinically significant portal hypertension in; stiffness of 15 kPa or less with platelets of 150 or more rules it out.',
-      ask: ['After a variceal bleed, on carvedilol, the HVPG falls from 18 to 13 mmHg. Is that a response?', 'Yes: a fall of 20% or more protects against rebleeding even above 12. Before any bleed, a fall of 10% already predicts benefit.'],
+      notes: 'The hepatic venous pressure gradient is the pressure drop across the sinusoids. In this case the HVPG is about 12 mmHg, which is clinically significant. HVPG predicts outcome: from 10 mmHg varices and decompensation become possible, and the risk rises with the gradient; variceal bleeding is rare below about 12. On a beta-blocker, a fall of 10% or more from baseline, or to 12 mmHg or less, is clinically relevant (Baveno VIII Table 3, stated for primary prophylaxis). Without a catheter, liver stiffness (25 kPa or more) rules clinically significant portal hypertension in; stiffness of 15 kPa or less with platelets of 150 or more rules it out.',
+      ask: ['On carvedilol, the HVPG falls from 18 to 13 mmHg. Is that a response?', 'Yes. It fell by more than 10% from baseline, which Baveno VIII calls clinically relevant on a beta-blocker, and it is close to 12 mmHg.'],
     },
     {
       id: 'grades', visual: 'scale', scale: { key: 'hvpg', max: 20, legend: true, low: 'Normal', marks: [[5, 'Portal\nhypertension', 'Mild'], [10, 'Clinically significant\nportal hypertension\n(CSPH)', 'CSPH'], [12, 'Bleeding risk\nrises', 'Bleed risk']] },

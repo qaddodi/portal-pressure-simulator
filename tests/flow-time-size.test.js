@@ -34,5 +34,5 @@ test('all wide chart-only cards share the protection while mixed and phone cards
   assert.match(js, /c === chart\.parentElement \? 0 : c\.getBoundingClientRect\(\)\.height/);
   assert.match(css, /\.pz\.pz-wide[^\n]+pz-flowfit > \.pz-tool\[data-kind="flowtime"\] \{ width: 100%; zoom: 1; \}/);
   assert.match(css, /pz-flowfit \.pz-flowtime \{ height: var\(--ft-room\); min-height: 0; transition: height \.32s var\(--ease\); \}/);
-  assert.equal(CIRCULATION.slides.find((s) => s.id === 'flow').line, 'Increasing flow by half adds little pressure because healthy sinusoids offer little resistance. In Flow, gut veins darken as flow rises; in Oxygen, gut venous blood keeps most of its oxygen.');
+  assert.equal(CIRCULATION.slides.find((s) => s.id === 'flow').line, 'Increasing flow by half adds little pressure because healthy sinusoids offer little resistance. The gut veins darken as flow rises.');
 });
