@@ -24,8 +24,8 @@ import { store } from './store.js?v=67f4341802';
 import { radiiChanged, canvasPx, fxMoves, DIVE_RIM } from './lobule-render-cache.js?v=84bf4c2222';
 import { softwareYield } from './sw-yield.js?v=e580a095b1';
 import { lobuleState, lymphRate, sinceOf, LOBE } from './lobule-model.js?v=ff8433ada2';
-import { SIN_NARROW, cordTone, dullSinusoid, NEIGHBOUR_FLAT, neighbourBlur, blurWrapped, bandOutline, FADE_MID, fadeOuter, padRect, wideDpr, wideTiles, FIELD_RS, fieldBlend } from './lobule-look.js?v=f47a77f331';
-import { createFieldGL } from './field-gl.js?v=59f18636de';
+import { SIN_NARROW, cordTone, dullSinusoid, NEIGHBOUR_FLAT, neighbourBlur, blurWrapped, bandOutline, FADE_MID, fadeOuter, padRect, wideDpr, wideTiles, FIELD_RS, fieldBlend, fieldDof } from './lobule-look.js?v=a7314b7992';
+import { createFieldGL } from './field-gl.js?v=8921ff0785';
 import { h, s, fmt, clamp, createEaser, systemEdge, bloodColors, cssVar, cssAlpha, cssRGB01 } from './util.js?v=d2c95a1b16';
 import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatColor, oxygenColor } from './colormap.js?v=cdcf6a2f55';
 import { NODES, EDGES } from '../engine/topology.js?v=4044766e96';
@@ -2201,6 +2201,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
       W: fw, H: fh, a: liverTile(ta, cs, dark, bg).cv, b: tb ? liverTile(tb, cs, dark, bg).cv : null,
       qa: q > 0 ? quietTile(ta, tone).cv : null, qb: q > 0 && tb ? quietTile(tb, tone).cv : null, mix: tb ? mix : 0, quiet: q,
       ox: fx0, oy: fy0, rd, fade: f > 0 ? [r0, r1, fq] : null, mid: FADE_MID, bg: tone, mask: d.a < 1 ? [d.ox * dpr, d.oy * dpr, rho] : null,
+      dof: fieldDof(d, rd, Math.hypot(fw, fh)),
     });
   }
   function liverTile(t, cs, dark, bg) {

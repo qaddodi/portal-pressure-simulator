@@ -1791,6 +1791,10 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // 1/130 of the liver's width (6 px at ×5). The whole dive stays about ×140 on a phone and ×230 on a Mac.
   const LC = Math.log(16);
   const RH = 19;
+  // The hand-over from the anatomy to the field, on the zoom: the field starts to come in at FIELD_IN and is whole (opaque) at
+  // FIELD_WHOLE, where the magnified anatomy under it is hidden. About two octaves of zoom (×4.7), so it takes about a third of a
+  // second at the dive's fastest instead of a sixth: the lobules came in, and the anatomy's vessels went, all at once (Mohammad, 25 Oct).
+  const FIELD_IN = LC - 1.2, FIELD_WHOLE = LC + 0.35;
   const diveEls = () => [svg, wrap.querySelector('#stageOver'), wrap.querySelector('#labels'), vCanvas].filter(Boolean);
   function diveTarget() {
     const lb = liverBox();
@@ -1852,8 +1856,10 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       // speed where they meet. (Each part had its own rate, so the zoom sped up by a sixth or more, suddenly, a third of the way in.)
       // (riseFast: a way out of the landed lobule moves from its first frame; the dive's ease starts at rest and held the lobule
       // still for its first 120-160 ms. A reversal keeps the curve it was on, so nothing jumps.)
+      // (A sine ease: from rest and back to rest, its fastest a sixth slower than the smootherstep's, which passed the hand-over at
+      // its peak speed.)
       const TJ = riseFast ? 1 : 0.84, u = clamp(t / TJ, 0, 1);
-      const p = riseFast ? u * u * (2 - u) : u * u * u * (u * (u * 6 - 15) + 10);
+      const p = riseFast ? u * u * (2 - u) : (1 - Math.cos(Math.PI * u)) / 2;
       const z = lt * p;
       diveZ = z;
       // Landed in the lobule: the anatomy under it is shown again only once the lobule has settled and its flow marks have
@@ -1881,15 +1887,19 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       // The detailed lobule rides on the field's own lobule at that centre, so it grows out of it.
       lz.setDiveZoom(t >= 1 ? 1 : clamp(r / diveLand.r, 0.05, 1), diveLand.x, diveLand.y, px, py);
       lz.setDive(t <= 0 || t >= 1 ? null : {
-        // The field comes in only over the anatomy's last stretch (×9 to ×21, its lobules a fine grain about 10 px across), whole
+        // The field comes in only over the anatomy's last stretch (×5 to ×23, its lobules a fine grain a few px across), whole
         // where the anatomy is hidden; its neighbours drain and fade into the page only once it is whole, toward the landing, so the
         // grain fills the screen first. (On the zoom, not the clock: the way out passes the same pictures in reverse.)
-        a: smoothT(LC - 0.6, LC + 0.3, z), x: px, y: py,
-        r, ox, oy, quiet: smoothT(lerp(LC + 0.3, lt, 0.4), lt, z), focus: smoothT(LC + 0.3, lt, z),
+        a: smoothT(FIELD_IN, FIELD_WHOLE, z), x: px, y: py,
+        r, ox, oy, quiet: smoothT(lerp(FIELD_WHOLE, lt, 0.4), lt, z), focus: smoothT(FIELD_WHOLE, lt, z),
+        // A focus pull: the field comes in soft, the liver's grain, and sharpens into lobules as it becomes whole; and a depth of
+        // field: the lobules away from the one being landed on stay a little soft through the zoom, sharp again as it lands, where
+        // the lobule view's own surround takes over (GPU only: lobule-zoom.js paintFieldGL).
+        blur: 1 - smoothT(FIELD_IN, FIELD_WHOLE + 0.3, z), dof: smoothT(FIELD_IN + 0.3, FIELD_WHOLE + 0.6, z) * (1 - smoothT(lt - 0.9, lt, z)),
       });
-      // Once the field is whole (fully opaque, from z = LC + 0.3) the magnified anatomy beneath it is not seen: it is hidden, so the
+      // Once the field is whole (fully opaque, from z = FIELD_WHOLE) the magnified anatomy beneath it is not seen: it is hidden, so the
       // browser stops compositing it (Safari redraws a scaled SVG at each new scale, every frame); the labels as soon as they have faded.
-      if (!landed) setDiveHidden(t > 0 && t < 1 && z >= LC + 0.3, lab && t > 0 && t < 1 && +lab.style.opacity <= 0.001);
+      if (!landed) setDiveHidden(t > 0 && t < 1 && z >= FIELD_WHOLE, lab && t > 0 && t < 1 && +lab.style.opacity <= 0.001);
     }
     lobU = easeInOut(clamp((t - 0.48) / 0.4, 0, 1));
     syncSemantic();
@@ -2127,7 +2137,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const lzAnchor = document.createComment('lobule');
   wrap.append(lzAnchor);
   // (The code is fetched as soon as the figure is shown; the layer is built a moment later, when the page is quiet, or at once for a dive.)
-  const lobuleCode = () => (lzCode ||= import('./lobule-zoom.js?v=ec37993df2').catch((err) => { lzCode = null; throw err; }));
+  const lobuleCode = () => (lzCode ||= import('./lobule-zoom.js?v=b2dea704b4').catch((err) => { lzCode = null; throw err; }));
   function lobuleReady() {
     return (lzLoad ||= lobuleCode().then(({ createLobuleZoom }) => {
       lz = createLobuleZoom({ host: wrap, styles: wrapCS, before: lzAnchor });

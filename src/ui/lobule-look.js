@@ -64,6 +64,16 @@ export function fieldBlend(want, Rs = FIELD_RS) {
   return { a, b, mix };
 }
 
+/** The GPU field's softness, as mip-level biases: [the whole field's (the focus pull as it comes in), where the depth of field
+ *  starts (device px from the landing lobule's centre), where it is full, its bias there]. d: the dive's frame (blur, dof: 0 … 1),
+ *  rd: the lobules' radius on screen, diag: the canvas's diagonal (device px). The landing lobule and its ring of neighbours stay
+ *  sharp; past them the lobules soften with distance, at most about three times the blur a tile's own size gives (1.6 levels). */
+export function fieldDof(d, rd, diag) {
+  const pull = 2.6 * Math.min(1, Math.max(0, d.blur || 0)), k = Math.min(1, Math.max(0, d.dof || 0));
+  const r0 = rd * 2.4, r1 = Math.max(r0 + 1, Math.min(rd * 10, diag * 0.6));
+  return [pull, r0, r1, 1.6 * k];
+}
+
 // Box widths whose three passes approximate a Gaussian of this sigma (each pass a box of radius r).
 function boxRadii(sigma, n = 3) {
   const wIdeal = Math.sqrt((12 * sigma * sigma) / n + 1);

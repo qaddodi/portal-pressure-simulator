@@ -26,7 +26,7 @@ test('the field starts with lobules about true to scale, deep in the liver, so t
 });
 
 test('the dive fades the lobules away from the landing one, in and out, rising to full focus', () => {
-  assert.match(stage, /focus: smoothT\(LC \+ 0\.3, lt, z\)/, 'focus follows the zoom (the clock\'s own function), so the rise out reverses it, and starts only once the field is whole');
+  assert.match(stage, /focus: smoothT\(FIELD_WHOLE, lt, z\)/, 'focus follows the zoom (the clock\'s own function), so the rise out reverses it, and starts only once the field is whole');
   assert.match(lz, /const f = clamp\(d\.focus \?\? d\.quiet, 0, 1\)/);
   // At focus 1 the clear circle is the lobule view's resting surround (rd × 1.1), so the landing has no jump.
   assert.match(lz, /Math\.log\(Math\.min\(Math\.hypot\(W, H\) \* dpr \* 0\.45, rd \* 1\.1\)\), f\)\)/);
@@ -39,10 +39,14 @@ test('the dive does no full-size redraws or hidden compositing mid-zoom', () => 
   assert.match(lz, /if \(fade > 0 && was === 0\) \{ flowA = 0; flowT = 0;/);
   // The field reads the styles once per dive, not live each frame after the stage's writes.
   assert.match(lz, /cs: styleSnap\(cs\)/);
-  // The magnified anatomy is hidden while the whole field covers it (z ≥ LC + 0.3, where the field is opaque), and shown again on every end.
-  assert.match(stage, /if \(!landed\) setDiveHidden\(t > 0 && t < 1 && z >= LC \+ 0\.3,/);
+  // The magnified anatomy is hidden while the whole field covers it (z ≥ FIELD_WHOLE, where the field is opaque), and shown again on every end.
+  assert.match(stage, /if \(!landed\) setDiveHidden\(t > 0 && t < 1 && z >= FIELD_WHOLE,/);
   assert.match(stage, /if \(k <= 1\.0001\) \{\n\s+if \(!keep\) \{ setDiveHidden\(false, false\); setDiveFade\(null\); \}/);
-  assert.match(stage, /a: smoothT\(LC - 0\.6, LC \+ 0\.3, z\)/, 'the field is whole exactly where the anatomy is hidden, and comes in only over its last stretch');
+  assert.match(stage, /a: smoothT\(FIELD_IN, FIELD_WHOLE, z\)/, 'the field is whole exactly where the anatomy is hidden, and comes in only over its last stretch');
+  // The hand-over spans about two octaves of zoom, ending before the anatomy's magnification stops (LC + 0.4), so it never pops.
+  const [fin, fwh] = stage.match(/const FIELD_IN = LC - ([\d.]+), FIELD_WHOLE = LC \+ ([\d.]+);/).slice(1).map(Number);
+  assert.ok(fin + fwh >= 1.4, `the field comes in over only ${(fin + fwh).toFixed(2)} of log zoom`);
+  assert.ok(fwh < 0.4, 'whole before the anatomy stops growing');
 });
 
 test('the anatomy stays whole under the field until the field covers it, so the page never shows through mid-zoom', () => {
@@ -137,4 +141,18 @@ test('the neighbouring lobules cover the whole screen at every moment of the div
   assert.match(lz, /const vg = c\.createRadialGradient\(x, y, r0, x, y, r1\)/);
   assert.match(lz, /addColorStop\(0\.5, css\(bg, FADE_MID \* q\)\)/, 'the gradient is the one fadeAt measures');
   assert.doesNotMatch(lz, /3\.2 \/ 1\.1|rdv \* 3\.2/, 'no fixed outer edge left');
+});
+
+test('the GPU field comes in soft and sharpens, and keeps far lobules a little soft, sharp again at the landing', async () => {
+  const { fieldDof } = await import('../src/ui/lobule-look.js');
+  assert.match(stage, /blur: 1 - smoothT\(FIELD_IN, FIELD_WHOLE \+ 0\.3, z\), dof: smoothT\(FIELD_IN \+ 0\.3, FIELD_WHOLE \+ 0\.6, z\) \* \(1 - smoothT\(lt - 0\.9, lt, z\)\),/);
+  assert.match(lz, /dof: fieldDof\(d, rd, Math\.hypot\(fw, fh\)\),/);
+  const fgl = read('../src/ui/field-gl.js');
+  assert.match(fgl, /float bias = uDof\.x \+ uDof\.w \* smoothstep\(uDof\.y, uDof\.z, length\(p - uO\)\);/);
+  assert.equal((fgl.match(/texture\(u(A|B|QA|QB), uv, bias\)/g) || []).length, 4, 'every tile read with the same softness');
+  // At the landing (blur 0, dof 0) nothing is softened: the lobule view takes over without a jump.
+  assert.deepEqual(fieldDof({ blur: 0, dof: 0 }, 100, 2000).filter((v, i) => i === 0 || i === 3), [0, 0]);
+  const [pull, r0, r1, far] = fieldDof({ blur: 1, dof: 1 }, 20, 2000);
+  assert.ok(pull > 2 && far > 1 && far < 2, 'soft, but never smeared');
+  assert.ok(r0 >= 2 * 20 && r1 > r0, 'the landing lobule and its neighbours stay sharp');
 });
