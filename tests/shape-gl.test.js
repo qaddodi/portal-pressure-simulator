@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { flattenPath, ellipsePoly, polyBox, polyMesh, insidePoly, innerEdges } from '../src/ui/shape-gl.js';
+import { flattenPath, ellipsePoly, polyBox, polyMesh, insidePoly, innerEdges, SEG } from '../src/ui/shape-gl.js';
 import { ORGANS, SEAM_D } from '../src/ui/anatomy.js';
 
 // The GPU's shapes (shape-gl.js) are the SVG's paths cut into chords: every chord end lies on the curve, and every
@@ -97,8 +97,28 @@ test('a mesh fans each run into triangles that tile it, and lists each edge once
   assert.equal(area, 100);
   assert.equal(m.nSeg, 4 + 2);
   // The closed run's joints are round; the open run's ends take its cap, its joint is round.
-  const caps = []; for (let k = 0; k < m.nSeg; k++) caps.push([m.seg[6 * k + 4], m.seg[6 * k + 5]]);
+  const caps = []; for (let k = 0; k < m.nSeg; k++) caps.push([m.seg[SEG * k + 4], m.seg[SEG * k + 5]]);
   assert.deepEqual(caps, [[1, 1], [1, 1], [1, 1], [1, 1], [0, 1], [1, 0]]);
+});
+
+test('each segment carries the directions of its neighbours, none at an open run\'s ends, and repeated points are skipped', () => {
+  // (The stroke's round joints are the browser's wedge outside the turn: drawn as a whole disc, a joint near a butt end whose
+  // last segment is shorter than the half width reached past the end, and every small-bowel loop showed round ends.)
+  const line = { pts: new Float32Array([0, 0, 2, 0, 2, 0, 2, 3, 4, 3]), closed: false };
+  const m = polyMesh([line], 0);
+  assert.equal(m.nSeg, 3);
+  const row = (k) => Array.from(m.seg.slice(SEG * k, SEG * k + SEG));
+  assert.deepEqual(row(0), [0, 0, 2, 0, 0, 1, 0, 0, 0, 3]);
+  assert.deepEqual(row(1), [2, 0, 2, 3, 1, 1, 2, 0, 2, 0]);
+  assert.deepEqual(row(2), [2, 3, 4, 3, 1, 0, 0, 3, 0, 0]);
+  // A closed run wraps round: its first segment's neighbour before is its last.
+  const sq = polyMesh([{ pts: new Float32Array([0, 0, 1, 0, 1, 1, 0, 1, 0, 0]), closed: true }], 0);
+  assert.equal(sq.nSeg, 4);
+  assert.deepEqual(Array.from(sq.seg.slice(6, 10)), [0, -1, 0, 1]);
+  // A run of one point keeps its one segment, of no length (a round cap's dot).
+  const dot = polyMesh([{ pts: new Float32Array([5, 5, 5, 5]), closed: false }], 1);
+  assert.equal(dot.nSeg, 1);
+  assert.deepEqual(Array.from(dot.seg.slice(0, 6)), [5, 5, 5, 5, 1, 1]);
 });
 
 test('overlapping runs leave out the edges inside each other; touching ones keep theirs', () => {
@@ -107,7 +127,7 @@ test('overlapping runs leave out the edges inside each other; touching ones keep
   const drop = innerEdges([a, b]);
   const m = polyMesh([a, b], 0, drop);
   for (let k = 0; k < m.nSeg; k++) {
-    const [ax, ay, bx, by] = m.seg.slice(6 * k, 6 * k + 4), x = (ax + bx) / 2, y = (ay + by) / 2;
+    const [ax, ay, bx, by] = m.seg.slice(SEG * k, SEG * k + 4), x = (ax + bx) / 2, y = (ay + by) / 2;
     assert.ok(!(insidePoly(a.pts, x, y) && insidePoly(b.pts, x, y)), `edge ${[ax, ay, bx, by]} lies inside both`);
   }
   // a's right edge (x 10) lies inside b; b's left edge (x 5) inside a: both gone, the other six kept.
