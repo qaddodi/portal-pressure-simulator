@@ -18,7 +18,7 @@ test('the FibroScan probe never asks the browser for the liver\'s box', () => {
 test('a view change paints the callouts and probes once: again only when updateLabels held back', () => {
   const sv = body('syncView'), ul = body('updateLabels');
   assert.match(ul, /^\s+function updateLabels\(f, force = false\) \{\n\s+labelPainted = false;/);
-  assert.match(ul, /dprobePaint\(\);\n\s+labelPainted = true;\n\s+\}$/);
+  assert.match(ul, /dprobePaint\(\);\n\s+labelPainted = true;\n\s+labelGlSync\(\);[^\n]*\n\s+\}$/);
   assert.match(sv, /if \(!labelPainted\) \{\n\s+if \(sites\.list\) sitesPaint\(\);\n\s+if \(scan\.on\) scanPaint\(\);\n\s+dprobePaint\(\);\n\s+\}/);
 });
 

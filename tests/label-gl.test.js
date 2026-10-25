@@ -50,7 +50,7 @@ test('the SVG copy is see-through only while the GPU draws that label, marked in
 test('stage.js hands the GPU every label it laid out, in the same frame, and the script fades', () => {
   assert.match(STAGE, /const labelGL = createLabelGL\(labelSvg, gLabels, \{ software: SOFTWARE, off: \/\[\?&\]gpulabels=0\\b\/\.test\(location\.search\), marks: \[gLeaders, gScan\] \}\);/);
   assert.match(STAGE, /b\.pos = \{ g: b\.g, x: \+it\.x\.toFixed\(1\), y: \+\(it\.rot \? it\.y \+ it\.w : it\.y\)\.toFixed\(1\), rot: !!it\.rot \};/);
-  assert.match(STAGE, /labelKey = key; stats\.layouts\+\+; stats\.ms \+= performance\.now\(\) - t0;\n\s+\}\n\s+labelGlSync\(\);/);
+  assert.match(STAGE, /dprobePaint\(\);\n\s+labelPainted = true;\n\s+labelGlSync\(\);/, 'last, after the probe is placed');
   for (const m of STAGE.matchAll(/b\.g\.animate\?\.\(/g)) assert.match(STAGE.slice(m.index, m.index + 260), /labelGL\?\.hold\(b\.g, /, 'a scripted fade is held');
 });
 
@@ -76,4 +76,14 @@ test('the leaders\' and the FibroScan callout\'s layers go to the GPU with the l
   assert.match(CSS, /#labels :is\(\.lb-leaders, \.lb-scan\) > \[data-gl\] \{ visibility: hidden; \}/);
   assert.match(STAGE, /el\.animate\?\.\(\[\{ opacity: 0 \}, \{ opacity: 1 \}\], \{ duration: 350, delay: wait, easing: 'ease-out', fill: 'backwards' \}\); labelGL\?\.hold\(el, wait \+ 350\); \}/);
   assert.match(LGL, /float span\(float x, float a, float b\)/);
+});
+
+test('the Doppler probe is drawn on the GPU under the leaders, its SVG kept as the model and hidden while drawn', () => {
+  assert.match(STAGE, /labelSvg\.before\(el\); dpr\.el = el; void el\.offsetWidth;\n\s+labelGL\?\.setProbe\(el\);/);
+  assert.match(STAGE, /dprShape\(\); {3}\/\/ \(and the next frame, while it is still easing\)\n\s+labelGL\?\.redraw\(\);/, 'each frame of its ease drawn in that frame');
+  assert.match(CSS, /\.dop-probe\[data-gl\] \.dpr-svg \{ visibility: hidden; \}/);
+  assert.match(LGL, /let moving = drawProbe\(now\);\n\s+moving = drawMarks\(now\) \|\| moving;/, 'the probe under the leaders and labels, as it lay under their SVG');
+  // Its marks in PROBE_SVG's order: beam, rim under line, axis, then the bars on top, then the head.
+  const order = ['for (const q of beam) seg(q, L.rimL);', 'for (const q of beam) seg(q, L.line);', 'for (const q of axis) seg(q, L.rimL);', 'for (const q of axis) seg(q, L.line);', 'for (const q of bars) seg(q, L.gateRim);', 'for (const q of bars) seg(q, L.gate);', "querySelector('.dpr-head')?.getAttribute('transform')"].map((k) => LGL.indexOf(k));
+  assert.ok(order.every((v, i) => v > 0 && (!i || v > order[i - 1])), order.join());
 });

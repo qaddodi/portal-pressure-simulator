@@ -49,7 +49,11 @@ void main() {
 const MFS = `#version 300 es
 precision highp float;
 uniform vec2 uView;
-uniform int uKind;          // 0: a line (butt ends), 1: a circle
+uniform int uKind;          // 0: a line (butt ends), 1: a circle, 2: a line with round ends, 3: a triangle filled with a linear gradient
+uniform vec2 uT0, uT1, uT2; // the triangle (device px)
+uniform vec4 uG;            // the gradient's start and end (device px)
+uniform vec4 uS0, uS1, uS2; // its three stops, premultiplied
+uniform vec3 uSO;           // their offsets
 uniform vec4 uGeo;          // line: x0 y0 x1 y1; circle: cx cy r 0 (device px)
 uniform float uW;           // stroke width (device px)
 uniform vec2 uDash;         // dash, gap (device px; 0: solid)
@@ -60,6 +64,27 @@ out vec4 o;
 float span(float x, float a, float b) { return clamp(min(x + 0.5, b) - max(x - 0.5, a), 0.0, 1.0); }
 void main() {
   vec2 p = vec2(gl_FragCoord.x, uView.y - gl_FragCoord.y);
+  if (uKind == 2) {
+    vec2 a = uGeo.xy, d = uGeo.zw - a;
+    float h = clamp(dot(p - a, d) / max(dot(d, d), 1e-6), 0.0, 1.0);
+    o = uStroke * clamp(uW * 0.5 + 0.5 - length(p - a - d * h), 0.0, 1.0) * uA;
+    return;
+  }
+  if (uKind == 3) {
+    // (Inside all three edges, each softened over a pixel; the gradient's colour where the pixel falls along it.)
+    float c = 1.0;
+    vec2 T[3] = vec2[3](uT0, uT1, uT2);
+    float side = sign((T[1].x - T[0].x) * (T[2].y - T[0].y) - (T[1].y - T[0].y) * (T[2].x - T[0].x));
+    for (int i = 0; i < 3; i++) {
+      vec2 a = T[i], e = T[(i + 1) % 3] - a, n = normalize(vec2(e.y, -e.x)) * -side;
+      c *= clamp(dot(p - a, n) + 0.5, 0.0, 1.0);
+    }
+    vec2 g = uG.zw - uG.xy;
+    float t = clamp(dot(p - uG.xy, g) / max(dot(g, g), 1e-6), 0.0, 1.0);
+    vec4 col = t <= uSO.y ? mix(uS0, uS1, clamp((t - uSO.x) / max(uSO.y - uSO.x, 1e-6), 0.0, 1.0)) : mix(uS1, uS2, clamp((t - uSO.y) / max(uSO.z - uSO.y, 1e-6), 0.0, 1.0));
+    o = col * c * uA;
+    return;
+  }
   if (uKind == 0) {
     vec2 a = uGeo.xy, d = uGeo.zw - a;
     float L = length(d);
@@ -274,7 +299,7 @@ export function createLabelGL(svg, blocks, { software = false, off = false, mark
   const mprog = gl.createProgram();
   gl.attachShader(mprog, sh(gl.VERTEX_SHADER, MVS)); gl.attachShader(mprog, sh(gl.FRAGMENT_SHADER, MFS)); gl.linkProgram(mprog);
   if (!gl.getProgramParameter(mprog, gl.LINK_STATUS)) return null;
-  const MU = Object.fromEntries(['uBox', 'uView', 'uKind', 'uGeo', 'uW', 'uDash', 'uStroke', 'uFill', 'uA'].map((k) => [k, gl.getUniformLocation(mprog, k)]));
+  const MU = Object.fromEntries(['uBox', 'uView', 'uKind', 'uGeo', 'uW', 'uDash', 'uStroke', 'uFill', 'uA', 'uT0', 'uT1', 'uT2', 'uG', 'uS0', 'uS1', 'uS2', 'uSO'].map((k) => [k, gl.getUniformLocation(mprog, k)]));
   const vao = gl.createVertexArray();
   svg.after(canvas);
   let lost = false, dpr = 1, W = 1, H = 1, last = [], raf = 0;
@@ -316,6 +341,7 @@ export function createLabelGL(svg, blocks, { software = false, off = false, mark
     e.preventDefault(); lost = true;
     for (const s of last) s.g.removeAttribute('data-gl');
     for (const root of marks) for (const el of root.children) el.removeAttribute('data-gl');
+    probe?.removeAttribute('data-gl');
   });
   function size() {
     const r = svg.parentElement.getBoundingClientRect(), k = devicePixelRatio || 1;   // (the stage's box: the dive zooms the layer itself)
@@ -362,7 +388,8 @@ export function createLabelGL(svg, blocks, { software = false, off = false, mark
     gl.useProgram(prog); gl.bindVertexArray(vao);
     gl.enable(gl.BLEND); gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
     gl.uniform2f(U.uView, W, H); gl.uniform1i(U.uT, 0); gl.activeTexture(gl.TEXTURE0);
-    let moving = drawMarks(now);
+    let moving = drawProbe(now);
+    moving = drawMarks(now) || moving;
     gl.useProgram(prog);
     gl.uniform2f(U.uView, W, H); gl.uniform1i(U.uT, 0);
     for (const s of last) {
@@ -433,8 +460,123 @@ export function createLabelGL(svg, blocks, { software = false, off = false, mark
     markDirty.clear();
     return moving;
   }
+  // ── The Doppler probe (stage.js dprobePaint draws it into its own SVG, the model, as before; dop-probe.js) ──
+  // Its marks are drawn here as shapes (the faded beam a triangle with its gradient, the lines with their round ends, black rim under
+  // white line), and its head as a small picture drawn at its angle and size (again only when either changes), under the leaders and
+  // labels as the SVG lay. Its look (colours, widths, fades) is read from its elements while one may be changing.
+  let probe = null, pLook = null, pDirty = true, pLive = 0;
+  const pmo = new MutationObserver((rs) => { if (rs.some((r) => r.attributeName === 'class' && changed(r))) pDirty = true; ask(); });
+  const holdProbe = () => { pDirty = true; pLive = performance.now() + 800; ask(); };
+  const headCv = document.createElement('canvas');
+  let headSp = null;
+  function setProbe(el) {
+    if (probe === el) return;
+    probe = el; pDirty = true;
+    pmo.disconnect();
+    if (!el) return;
+    pmo.observe(el, { subtree: true, attributes: true, attributeOldValue: true, attributeFilter: ['class', 'style', 'transform', 'd'] });
+    for (const t of ['transitionrun', 'transitionend', 'transitioncancel', 'animationstart', 'animationend']) el.addEventListener(t, holdProbe, true);
+  }
+  const stroke = (el) => { const c = getComputedStyle(el); return { col: none(c.stroke) ? null : rgba(c.stroke), w: NUM(c.strokeWidth), cap: c.strokeLinecap, raw: c.stroke, fill: c.fill, join: c.strokeLinejoin }; };
+  function probeLookRead(el) {
+    const q = (k) => el.querySelector(k);
+    // (A stop's colour times its stop-opacity, premultiplied.)
+    const stops = [...el.querySelectorAll('stop')].map((st) => {
+      const c = getComputedStyle(st), [r, g, b, k] = rgba(c.stopColor), a = NUM(c.stopOpacity) * k, u = k > 0 ? a / k : 0;
+      return [NUM(st.getAttribute('offset')), [r * u, g * u, b * u, a]];
+    });
+    const head = q('.dpr-head');
+    return {
+      op: NUM(getComputedStyle(el).opacity), headOp: head ? NUM(getComputedStyle(head).opacity) : 0, stops,
+      rimL: stroke(q('.dpr-rim-l')), line: stroke(q('.dpr-line')), gateRim: stroke(q('.dpr-gate-rim')), gate: stroke(q('.dpr-gate')),
+      head: ['.dpr-rim', '.dpr-body', '.dpr-face', '.dpr-light'].map((k) => { const e = q(k), c = getComputedStyle(e); return { d: e.getAttribute('d'), circle: e.tagName === 'circle' ? [NUM(e.getAttribute('cx')), NUM(e.getAttribute('cy')), NUM(e.getAttribute('r'))] : null, fill: none(c.fill) ? '' : c.fill, stroke: none(c.stroke) ? '' : c.stroke, w: NUM(c.strokeWidth), join: c.strokeLinejoin }; }),
+    };
+  }
+  // A path of straight pieces ("M x y L x y …") as its segments; a closed three-point one as its triangle.
+  const segsOf = (d) => { const out = [], re = /M\s*(-?[\d.]+)[\s,]+(-?[\d.]+)\s*L\s*(-?[\d.]+)[\s,]+(-?[\d.]+)/g; let m; while ((m = re.exec(d || ''))) out.push([+m[1], +m[2], +m[3], +m[4]]); return out; };
+  const triOf = (d) => { const n = (d || '').match(/-?[\d.]+/g)?.map(Number); return n?.length === 6 ? [[n[0], n[1]], [n[2], n[3]], [n[4], n[5]]] : null; };
+  function drawProbe(now) {
+    if (!probe?.isConnected) return false;
+    if (pDirty || now < pLive || !pLook) { pLook = probeLookRead(probe); pDirty = false; }
+    const live = now < pLive;
+    if (!probe.hasAttribute('data-gl')) probe.setAttribute('data-gl', '');
+    const L = pLook;
+    if (!(L.op > 0.001)) return live;
+    const tm = /translate\(\s*(-?[\d.]+)px,\s*(-?[\d.]+)px\)/.exec(probe.style.transform || ''), rm = /rotate\((-?[\d.]+)\)/.exec(probe.querySelector('.dpr-rot')?.getAttribute('transform') || '');
+    if (!tm) return live;
+    const gx = +tm[1], gy = +tm[2], ang = rm ? +rm[1] : 0, ca = Math.cos(ang * Math.PI / 180), sa = Math.sin(ang * Math.PI / 180);
+    const at = (x, y) => [(gx + x * ca - y * sa) * dpr, (gy + x * sa + y * ca) * dpr];
+    const seg = (q, st) => {
+      if (!st.col || !(st.w > 0)) return;
+      const [x0, y0] = at(q[0], q[1]), [x1, y1] = at(q[2], q[3]), w = st.w * dpr, m = w / 2 + 2;
+      gl.uniform1i(MU.uKind, st.cap === 'round' ? 2 : 0);
+      gl.uniform4f(MU.uBox, Math.min(x0, x1) - m, Math.min(y0, y1) - m, Math.max(x0, x1) + m, Math.max(y0, y1) + m);
+      gl.uniform4f(MU.uGeo, x0, y0, x1, y1); gl.uniform1f(MU.uW, w); gl.uniform2f(MU.uDash, 0, 0);
+      gl.uniform4f(MU.uStroke, ...st.col); gl.uniform1f(MU.uA, Math.min(1, L.op));
+      gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+    };
+    gl.useProgram(mprog);
+    gl.uniform2f(MU.uView, W, H);
+    // The faded beam: its gradient runs across the wedge's box from its right edge (the probe's face) to its left (past the far wall).
+    const tri = triOf(probe.querySelector('.dpr-wedge')?.getAttribute('d'));
+    if (tri && L.stops.length === 3) {
+      const xs = tri.map((p) => p[0]), T = tri.map((p) => at(p[0], p[1])), g0 = at(Math.max(...xs), 0), g1 = at(Math.min(...xs), 0);
+      gl.uniform1i(MU.uKind, 3);
+      gl.uniform4f(MU.uBox, Math.min(...T.map((p) => p[0])) - 2, Math.min(...T.map((p) => p[1])) - 2, Math.max(...T.map((p) => p[0])) + 2, Math.max(...T.map((p) => p[1])) + 2);
+      gl.uniform2f(MU.uT0, ...T[0]); gl.uniform2f(MU.uT1, ...T[1]); gl.uniform2f(MU.uT2, ...T[2]);
+      gl.uniform4f(MU.uG, ...g0, ...g1);
+      gl.uniform4f(MU.uS0, ...L.stops[0][1]); gl.uniform4f(MU.uS1, ...L.stops[1][1]); gl.uniform4f(MU.uS2, ...L.stops[2][1]);
+      gl.uniform3f(MU.uSO, L.stops[0][0], L.stops[1][0], L.stops[2][0]);
+      gl.uniform1f(MU.uA, Math.min(1, L.op));
+      gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+    }
+    // Rim under line, the line of sight, then the flow axis, then the gate's bars on top (dop-probe.js PROBE_SVG's order).
+    const beam = segsOf(probe.querySelector('.dpr-beam')?.getAttribute('d')), axis = segsOf(probe.querySelector('.dpr-axis')?.getAttribute('d')), bars = segsOf(probe.querySelector('.dpr-bars')?.getAttribute('d'));
+    for (const q of beam) seg(q, L.rimL);
+    for (const q of beam) seg(q, L.line);
+    for (const q of axis) seg(q, L.rimL);
+    for (const q of axis) seg(q, L.line);
+    for (const q of bars) seg(q, L.gateRim);
+    for (const q of bars) seg(q, L.gate);
+    // The head: its picture at its angle and size, drawn again only when either (or its look) changes.
+    const hm = /translate\((-?[\d.]+)[\s,]+(-?[\d.]+)\)\s*scale\((-?[\d.]+)\)/.exec(probe.querySelector('.dpr-head')?.getAttribute('transform') || '');
+    if (hm && L.headOp > 0.001) {
+      const D = +hm[1], k = +hm[3], key = JSON.stringify([L.head, ang.toFixed(2), k, dpr]);
+      if (!headSp || headSp.key !== key) {
+        // (Its box: the body's −3 … 48 along it, ±11 across, grown for the rim, turned with it.)
+        const pts = [[-5, -14], [50, -14], [-5, 14], [50, 14]].map(([u, v]) => [(u * ca - v * sa) * k * dpr, (u * sa + v * ca) * k * dpr]);
+        const x0 = Math.floor(Math.min(...pts.map((p) => p[0]))), y0 = Math.floor(Math.min(...pts.map((p) => p[1]))), x1 = Math.ceil(Math.max(...pts.map((p) => p[0]))), y1 = Math.ceil(Math.max(...pts.map((p) => p[1])));
+        headCv.width = Math.max(1, x1 - x0); headCv.height = Math.max(1, y1 - y0);
+        const c = headCv.getContext('2d');
+        c.setTransform(1, 0, 0, 1, 0, 0); c.clearRect(0, 0, headCv.width, headCv.height);
+        c.setTransform(ca * k * dpr, sa * k * dpr, -sa * k * dpr, ca * k * dpr, -x0, -y0);
+        for (const h of L.head) {
+          const path = h.circle ? (() => { const p2 = new Path2D(); p2.arc(h.circle[0], h.circle[1], h.circle[2], 0, Math.PI * 2); return p2; })() : new Path2D(h.d);
+          if (h.fill) { c.fillStyle = h.fill; c.fill(path); }
+          if (h.stroke && h.w > 0) { c.strokeStyle = h.stroke; c.lineWidth = h.w; c.lineJoin = h.join || 'miter'; c.stroke(path); }
+        }
+        headSp ||= { tex: gl.createTexture() };
+        gl.bindTexture(gl.TEXTURE_2D, headSp.tex);
+        gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, true);
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, headCv);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+        Object.assign(headSp, { key, ox: x0, oy: y0, w: headCv.width, h: headCv.height });
+      }
+      const [hx, hy] = at(D, 0);
+      gl.useProgram(prog);
+      gl.uniform2f(U.uView, W, H); gl.uniform1i(U.uT, 0);
+      gl.bindTexture(gl.TEXTURE_2D, headSp.tex);
+      gl.uniform4f(U.uR, Math.round(hx) + headSp.ox, Math.round(hy) + headSp.oy, headSp.w, headSp.h); gl.uniform1f(U.uA, Math.min(1, L.op * L.headOp));
+      gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+    }
+    return live;
+  }
   return {
     canvas,
+    setProbe,
+    /** Draws now (a mark the stage just moved, outside a label layout: the probe's ease). */
+    redraw() { if (!lost) { if (raf) { cancelFrame(raf); raf = 0; } draw(); } },
     get lost() { return lost; },
     /** This frame's labels: drawn now, in the same frame as the SVG's layout. */
     sync(list) {

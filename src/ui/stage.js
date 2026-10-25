@@ -34,7 +34,7 @@ import { plateStrips, premultiply, gutStep, viewReuse, copyPixels } from './plat
 import { cropToGrid } from './organs-gl.js?v=50a7580426';
 import { readGroup, shapeSource, bindShape, targetRoom } from './organ-paint.js?v=1250d7cb89';
 import { pathCmds, flattenCmds, polyBox } from './shape-gl.js?v=a5ba46162b';
-import { createLabelGL } from './label-gl.js?v=79281762fe';
+import { createLabelGL } from './label-gl.js?v=8d172e8140';
 import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, ORIGIN_GREY } from './veins-gl.js?v=ea99d7102b';
 import { varixBead, beadRadius } from './varix-bead.js?v=ac0e84fd89';
 import { advanceStream, createReversalHold, bleedShapes, stepBleedFade, fadeBleedShapes, chevFlowLevel, keyChevron, KEY_CHEV_LANES, originFractions, oxygenFor, ORIGIN_N, createBolus, DYE_BINS, KAPPA, STASIS_MIN_D, HIDDEN_SECONDS } from './blood.js?v=856babbc01';
@@ -6371,7 +6371,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     dprTrackRaf = 0;
     dprTrackQuiet = document.querySelector('.pz-data.pz-sliding') ? 0 : dprTrackQuiet + 1;
     dpr.track = dprTrackQuiet <= 6;
-    if (dop.id) { dprStale(); dprobePaint(); }
+    if (dop.id) { dprStale(); dprobePaint(); labelGL?.redraw(); }
     if (dpr.track) dprTrackRaf = nextFrame(dprTrack);
   }
   addEventListener('pps:slide', () => { dprTrackQuiet = 0; dprPrev = new WeakMap(); if (!dprTrackRaf && dpr.ready) dprTrackRaf = nextFrame(dprTrack); });
@@ -6526,6 +6526,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       el.className = 'dop-probe off'; el.setAttribute('aria-hidden', 'true'); el.innerHTML = PROBE_SVG;
       // (Beneath the figure's labels and the callouts, above the figure: where no side is clear of them, they read over its marks.)
       labelSvg.before(el); dpr.el = el; void el.offsetWidth;
+      labelGL?.setProbe(el);   // (drawn on the GPU with the labels, its SVG the model: label-gl.js)
     }
     if (dpr.swap) return;   // (fading out to move: it comes back at its new place)
     const key = `${id}|${dop.seg}`, u = dop.seg ? STENT_SITES[dop.seg] : null;
@@ -6614,6 +6615,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       if (Math.abs(g.d - q.d) < 0.3) q.d = g.d;
       if (Math.abs(g.k - q.k) < 0.004) q.k = g.k;
       dprShape();   // (and the next frame, while it is still easing)
+      labelGL?.redraw();
     };
     dpr.eRaf = nextFrame(step);
   }
@@ -8155,11 +8157,11 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       if (solve || layoutLabels(f, false) === false) { layoutLabels(f, true); solvedFor = { sig, sc, th, csig, ins }; }
       labelKey = key; stats.layouts++; stats.ms += performance.now() - t0;
     }
-    labelGlSync();
     if (sites.list) sitesPaint();
     if (scan.on) scanPaint();
     dprobePaint();
     labelPainted = true;
+    labelGlSync();   // (last: the probe's place, just written, is drawn in this frame too)
   }
   // The live values of the labels showing, rebuilt and written into their text in place. False when one
   // changed shape (a width, a run, a change badge): the caller then lays the labels out again.
