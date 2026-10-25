@@ -587,14 +587,6 @@
  "ncph/psvd": [
   "portal venules"
  ],
- "ncph/nsbb": [
-  "portal vein",
-  "{pv}"
- ],
- "ncph/band": [
-  "varices",
-  "{varix}"
- ],
  "outflow/bcs": [
   "hepatic veins",
   "ivc",

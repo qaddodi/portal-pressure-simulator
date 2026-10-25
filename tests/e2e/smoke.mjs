@@ -1106,7 +1106,7 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
   const CROSSINGS = [   // [deck, slide to start on (0-based), key, whether the key goes into the lobule, whether it is the sinusoid view that is gone to or left]
     ['circulation', 4, 'ArrowRight', true], ['circulation', 5, 'ArrowLeft', false], ['circulation', 8, 'ArrowRight', false],   // ladder → lobule and back; central vein → the next view
     ['lobule', 0, 'ArrowRight', true],   // the outline's fit → the whole lobule
-    ['ncph', 1, 'ArrowRight', true], ['ncph', 4, 'ArrowRight', true], ['ncph', 5, 'ArrowRight', false, false, true],   // a fit, then a liver close-up, before it (the last one changes the patient: propranolol)
+    ['ncph', 1, 'ArrowRight', true], ['ncph', 4, 'ArrowRight', true], ['ncph', 5, 'ArrowRight', false, false, true],   // a fit, then a liver close-up, before it (the last one leaves the lobule for the summary table)
     ['sites', 7, 'ArrowLeft', true],   // backwards into it
     ['ascites', 0, 'ArrowRight', true, true], ['ascites', 5, 'ArrowRight', true, true], ['tap', 7, 'ArrowRight', true, true],   // anatomy straight to the sinusoid view, through the lobule without stopping in it
     ['ascites', 6, 'ArrowRight', false, true, true], ['ascites', 9, 'ArrowRight', false, true, true],   // and the sinusoid view straight back out to the anatomy (a new patient: the words, and so the space the camera frames into, are settled after the rise)

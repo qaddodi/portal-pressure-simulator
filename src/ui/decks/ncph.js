@@ -2,15 +2,12 @@
 // resistance in the portal tracts that the wedge and the stiffness both miss (the slide fields are described at the top
 // of decks.js).
 
-const BAND = { kind: 'band' };
-
 export const NCPH = {
-  id: 'ncph', level: 'core', title: 'Presinusoidal portal hypertension', minutes: 9,
+  id: 'ncph', level: 'core', title: 'Presinusoidal portal hypertension', minutes: 7,
   objectives: [
     'Recognize portal hypertension with a working liver: varices, a big spleen, normal stiffness',
     'Explain why the HVPG is near normal in presinusoidal resistance',
     'Name the two main causes: schistosomiasis and porto-sinusoidal vascular disorder',
-    'Treat the varices as in cirrhosis',
   ],
   checks: [
     ['Name the two main causes of presinusoidal portal hypertension.', 'Schistosomiasis and porto-sinusoidal vascular disorder.'],
@@ -60,24 +57,9 @@ export const NCPH = {
       ask: ['How is porto-sinusoidal vascular disorder diagnosed?', 'An adequate liver biopsy without cirrhosis, plus a specific sign of portal hypertension (varices, collaterals), or a specific lesion (obliterative portal venopathy, nodular regenerative hyperplasia, incomplete septal cirrhosis), or one non-specific sign with one non-specific lesion.'],
     },
     {
-      id: 'nsbb', params: { drugs: { propranolol: true } }, cam: 'portal', terms: ['pv'], data: 'tiles', tiles: ['pv', 'hr'], key: ['pv'], cite: 'Baveno VIII 8.9',
-      kicker: 'Treatment', site: 'presin', title: 'A beta-blocker works here too',
-      line: 'Propranolol cuts gut inflow: portal vein pressure falls to {pv}. EASL 2025 and Baveno VIII see no proven advantage for carvedilol when resistance is presinusoidal.',
-      caveat: 'In the model, its extra effect is sinusoidal; here it mostly lowers blood pressure.',
-      notes: 'Bleeding prophylaxis in non-cirrhotic portal hypertension follows the rules for cirrhosis: a non-selective beta-blocker or banding for large varices, and both after a bleed. In schistosomiasis, praziquantel treats the infection, but established portal hypertension still needs its own treatment.',
-      ask: ['Is variceal prophylaxis any different here from cirrhosis?', 'No: a non-selective beta-blocker or banding, as in cirrhosis, because the varices come from the same high portal pressure.'],
-    },
-    {
-      id: 'band', terms: ['varix'], action: [BAND, BAND, BAND, BAND], cam: 'varices', mark: { edges: ['C1a', 'C1b'], label: 'Banded varices', kind: 'treat' }, tool: { kind: 'scope' }, data: 'tiles', tiles: ['varix'], key: ['varix'],
-      kicker: 'Treatment', site: 'presin', title: 'Banding closes the varices',
-      line: 'Banding is repeated every two to four weeks until the varices are gone. Here they are down to {varix}. The beta-blocker continues. Because liver function is good, survival after a bleed is much better than in cirrhosis.',
-      notes: 'After a bleed, banding is repeated until the varices are eradicated and is combined with the beta-blocker. Because the liver works well, survival after a bleed is far better than in cirrhosis. A TIPS or a surgical shunt is kept for bleeding that recurs despite this.',
-      ask: ['After a bleed, how often are the bands repeated, and until when?', 'Every two to four weeks until the varices are gone, with the beta-blocker, because banding treats the varix, not the pressure.'],
-    },
-    {
       id: 'summary', visual: 'table', cols: ['pv', 'hvpg', 'ppg', 'lsm', 'spleen'], asc: false, rowHead: 'Patient',
       of: [{ preset: 'healthy', kicker: 'Reference', title: 'Healthy', ref: true }, { id: 'patient', kicker: 'Presinusoidal', title: 'Schistosomiasis' },
-        { preset: 'csph', kicker: 'Sinusoidal', title: 'Cirrhosis with CSPH' }, { id: 'band', kicker: 'Presinusoidal', title: 'After treatment' }],
+        { preset: 'csph', kicker: 'Sinusoidal', title: 'Cirrhosis with CSPH' }],
       kicker: 'Summary', title: 'Presinusoidal resistance versus cirrhosis',
       line: 'Both have a high PPG and a big spleen. Only cirrhosis raises the HVPG and liver stiffness.',
       notes: 'Suspect a non-cirrhotic cause when signs of portal hypertension come with normal liver tests, a normal or near-normal stiffness and a low HVPG. Image the portal vein, ask about travel and drugs, and take a biopsy. The varices are treated exactly as in cirrhosis.',

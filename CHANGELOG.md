@@ -2,6 +2,10 @@
 
 ## October 2026
 
+- **Presinusoidal portal hypertension is six slides, down from eight.** (Mohammad, 25 Oct, "Build the new decks"; deck rebuild plan, E5.)
+  The beta-blocker and banding slides leave: treating the varices is the same as in cirrhosis and has its own talks. The talk ends on the table of the healthy liver,
+  schistosomiasis and cirrhosis (the "After treatment" row goes), its objectives are three, and it is 7 minutes. Code and unit tests only; nobody has looked on screen.
+  `src/ui/decks/ncph.js`, `tests/deck-adopted.js`, `tests/e2e/smoke.mjs` (the last lobule crossing now ends on the summary), `brand/handout/ncph/`.
 - **Where is the resistance? is eight slides, down from fourteen.** (Mohammad, 25 Oct, "Build the new decks"; deck rebuild plan, E4.)
   Each case is now one slide: the case card holds the patient and asks "Where is the resistance?", and the slide behind it shows the Gut to heart chart with the
   Pressure and Pressure drop buttons and names the level. The six question slides, their held data cards and the two Doppler cards leave (the open or clotted portal

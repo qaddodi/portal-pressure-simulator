@@ -74,7 +74,6 @@ export const ADOPTED = {
   'outflow/soswedge': ['kind:profile'],
   'ncph/patient': ['calipers', 'normalOutline'],
   'ncph/wedge': ['kind:profile'],
-  'ncph/nsbb': ['cite'],
   'varices/lapse': ['calipers'],
   'varices/eso': ['spot'],
   'varices/umbilical': ['kind:flows'],
