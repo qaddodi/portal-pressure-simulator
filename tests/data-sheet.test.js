@@ -183,7 +183,7 @@ test('every chart in a phone\'s card has one size on every slide: none gives way
   assert.doesNotMatch(js, /CHART_GIVE|elastic/, 'no shrink path');
   assert.match(js, /const data = full;/);
   assert.match(js, /if \(key\) phoneLock = \{ key, cap, shut, data: full, fig: phoneFig \};/, 'the plan is kept against the card at its one size');
-  for (const [sel, h] of [['pz-prof', /--prof-h: calc\(min\(74cqi, 270px\) - 1\.6em\); height: var\(--prof-h\);/], ['pz-flows', /height: 9\.25em;/], ['pz-flowtime', /--ft-h: min\(43cqi, 144px\); height: var\(--ft-h\);/], ['pz-flowtime\\.has-bands', /height: calc\(var\(--ft-h\) \+ var\(--band-room, 0em\)\);/]]) {
+  for (const [sel, h] of [['pz-prof', /--prof-h: calc\(min\(74cqi, 270px\) - 1\.6em\); height: var\(--prof-h\);/], ['pz-flows', /height: 10em;/], ['pz-flowtime', /--ft-h: min\(43cqi, 144px\); height: var\(--ft-h\);/], ['pz-flowtime\\.has-bands', /height: calc\(var\(--ft-h\) \+ var\(--band-room, 0em\)\);/]]) {
     const rule = css.match(new RegExp(`\\.pz\\.stack\\.stack \\.${sel} \\{([^}]*)\\}`))?.[1] ?? '';
     assert.match(rule, h, sel);
     assert.doesNotMatch(rule, /--pz-fit/, `${sel} never follows the fit`);

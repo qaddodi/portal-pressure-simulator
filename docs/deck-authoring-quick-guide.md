@@ -159,7 +159,7 @@ Full guide: section 7.2.
 | Chart | Write | What it shows | Use it when |
 |---|---|---|---|
 | Pressure profile | `tool: { kind: 'profile' }` | the pressure from gut to heart through eight stations, with the healthy line dashed | showing where along the way the pressure is lost |
-| Portal blood bars | `tool: { kind: 'flows' }` | two bars, Healthy above Now, split by where the portal blood goes | collaterals, shunts or a TIPS taking blood past the liver |
+| Portal blood bar | `tool: { kind: 'flows' }` | one centred bar split by where the portal blood goes, the healthy split a dashed bracket over it, small routes named in pills under it | collaterals, shunts or a TIPS taking blood past the liver |
 | Liver inflow bar | `tool: { kind: 'flows', of: 'inflow' }` | one centred bar: the liver's inflow split into portal vein and hepatic artery, the healthy split a dashed line over it | the arterial buffer, or a TIPS stealing portal flow |
 | Setting curve | `tool: { kind: 'curve', param: 'cirrhosis', from: 0, to: 1, lines: ['ppg'] }` | one reading across a setting's range, with a ring at the slide's value | dose or severity against pressure |
 | Causes waterfall | `tool: { kind: 'causes' }` | steps from the healthy PPG to the patient's, one per cause | splitting a pressure into what raised it |
@@ -170,7 +170,7 @@ Full guide: section 7.2.
 
 A few details worth knowing:
 
-- The portal blood bars show only the Healthy bar while the patient's split matches it. The Now bar fades in as soon as it differs.
+- The portal blood bar is one bar across the card with a dashed Healthy bracket over it; a route too narrow to carry its name is named in a pill under the bar, so the card has no leaders and nothing off to one side.
 - A profile with `from: true` adds a dotted line for the slide before.
 - A curve with `against: { label: 'Carvedilol', params: { drugs: { carvedilol: true } } }` draws a second line for a drug on the same scale.
 - A year chart with `style: 'milestones'` shows the HVPG line alone and names the slides that set `milestone: 'Dx'`. `since: 'dx'` starts the chart at that slide, and `bands: ['carvedilol']` shades the time a drug was on.

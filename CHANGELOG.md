@@ -2,6 +2,20 @@
 
 ## October 2026
 
+- **"Where the portal blood goes" is one centred bar too, with its names under it in pills, none hanging.** (Mohammad, 25 Oct, on an iPhone:
+  "The data card should be fixed similar to the other one (all of those kinds) centered", of the Next bleed slide's card.) Its two bars
+  kept "Healthy" and "Now" in a gutter at the left, so on a phone the bars sat well right of the card's centre, and the names of small
+  routes hung under the bar on leaders. Now the card is one bar across the whole card: the liver's segment first, then each route in its
+  colour, largest first. The healthy split (all of it to the liver) is a dashed bracket over the bar with "Healthy: liver 100%" centred
+  above it, drawn as the pressure ladder draws its Healthy line, so the liver's segment compares with the whole it would fill. A segment
+  wide enough carries its name and percent; one that fits only its percent carries that; one too narrow for even that is named in a
+  pill under the bar in its colour (the app's value pills), the pills in the bar's order in rows centred on the card. The card is ten em
+  tall (it was 9.25) and holds two rows of pills; on a card or text size where they would not fit, the smallest routes join Other until
+  they do, as before. A name that moves between the bar and a pill fades out and in. There is no gutter, no leader and no second bar
+  left on either flow card, and no Now/Healthy row names. The causes waterfall, which has its own Healthy bar, is a different chart and
+  is unchanged. Code and unit tests only; nobody has looked on screen. `src/ui/tool-flows.js`, `styles/app.css`,
+  `tests/flows-inflow.test.js`, `tests/deck-charts.test.js`, `tests/data-sheet.test.js`, the authoring guides.
+
 - **The beat trace gets a schematic EKG strip, the HVPG lane stays on small cards, and the three bleed runs turn breathing off.** (Mohammad, 25 Oct,
   "yes to both"; deck rebuild plan, A3.) The model's cardiac phase now travels with every pressure sample, and a thin EKG strip over the
   pressures lays a P wave, a QRS and a T wave on each beat, one QRS to a beat, in the text colour, with the heart rate at its right end
@@ -53,10 +67,8 @@
   kept its space, and "Hepatic artery" hung on a leader under the right end. Now the liver's inflow is one bar across the whole card,
   centred top to bottom, with the healthy split as a dashed line over it, "Healthy portal 73%" above, as the pressure ladder marks its
   Healthy line. Names stay on the segments, 4 px clear of the line: "Hepatic artery" takes "Artery" where it does not fit, then the percent
-  alone. The card is 6 em tall instead of 9.25, so the tiles under it get that room back. "Where the portal blood goes" keeps its two bars
-  and names: a Healthy bar standing alone now glides to the middle of its card (and back up when the Now bar returns), and where the card
-  has the room (the bars keep 345 px, which the six-name case needs) the right margin matches the names' gutter so the bars stand centred;
-  narrower cards keep the full width for the names. Code only; nobody has looked on screen.
+  alone. The card is 6 em tall instead of 9.25, so the tiles under it get that room back. "Where the portal blood goes" took the same treatment in the entry above this one.
+  Code only; nobody has looked on screen.
 
 - **The outline, summary table, quick check and chart cards are narrower and centred on wide screens; the case card's question is centred.**
   (Mohammad, 25 Oct: "The outline card, the tables card and the questions card on wide screens like iPad side way and Mac should be more

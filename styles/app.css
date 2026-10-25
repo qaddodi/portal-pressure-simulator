@@ -6352,19 +6352,17 @@ html.thumb-ui .menu.from-dock { clip-path: inset(-64px -64px calc(var(--sink, 0p
 .ppf-pill rect { fill: color-mix(in srgb, var(--tone) 15%, var(--surface)); stroke: color-mix(in srgb, var(--tone) 50%, transparent); stroke-width: 1; }
 .ppf-pill text { font: 700 1em var(--font-ui); font-variant-numeric: tabular-nums; fill: color-mix(in srgb, var(--tone) 82%, var(--text)); }
 .ppf-pill text .k { font-weight: 600; }
-/* (The Healthy bar and the Now bar, as tall and close together, each named at its left, and room for one row of names under
-   the Now bar, whatever the slide holds: the card never resizes from slide to slide, and the drawing centres itself in it, with
-   the same margin at its right as the names' gutter at its left, tool-flows.js. The bars take the card's full width, its tiles under them, presenter.js. Names and
-   percents on the bars carry a halo in the card's colour, so they read on every segment.) */
-.pz-flows { height: var(--flows-h, 9.25em); min-height: 9.25em; }
+/* (One bar across the whole card, the Healthy bracket or line over it and the pills of the names too narrow for the bar under it, the
+   drawing centred in the card whatever the slide holds, tool-flows.js. The portal blood card has room for two rows of pills; the
+   inflow's has none. Names and percents on the bars carry a halo in the card's colour, so they read on every segment.) */
+.pz-flows { height: var(--flows-h, 10em); min-height: 10em; }
 .pz-flows[data-of="inflow"] { --flows-h: 6em; min-height: 6em; }   /* (the liver's inflow is one bar with the Healthy line over it: the words above, the bar, the line's overshoot; nothing hangs under it, tool-flows.js inflowGeo) */
 .pfl-seg { fill: color-mix(in srgb, var(--tone) 70%, transparent); }
 .pfl-lab text { font: 500 1em var(--font-ui); fill: var(--text); font-variant-numeric: tabular-nums; paint-order: stroke; stroke: var(--surface); stroke-width: 3px; stroke-linejoin: round; }
 .pfl-lab .v { font-weight: 700; }
-.pfl-row { font: 600 1em var(--font-ui); fill: var(--text-2); }
-.pfl-row.now { fill: var(--text); }
+.ppf-pill.pfl-pill text { fill: var(--text); }   /* (a route's pill is tinted with its colour like the segment; its words stay in the text colour, which reads on every tint, amber included) */
 .pfl-lead { fill: none; stroke: var(--text-3); stroke-width: 1; stroke-linejoin: round; }
-.pfl-mk line { stroke: var(--text-3); stroke-width: 1.75; stroke-dasharray: 4 5; stroke-linecap: round; }   /* (the ladder's Healthy line: .ppf-hl) */
+.pfl-mk :is(line, path) { fill: none; stroke: var(--text-3); stroke-width: 1.75; stroke-dasharray: 4 5; stroke-linecap: round; stroke-linejoin: round; }   /* (the ladder's Healthy line: .ppf-hl) */
 .pfl-mk text { font: 500 1em var(--font-ui); fill: var(--text-2); font-variant-numeric: tabular-nums; paint-order: stroke; stroke: var(--surface); stroke-width: 3px; stroke-linejoin: round; }
 /* Treatment bands on the over-time charts (rx-bands.js). On the talk trace a soft band in the treatment's colour, its name in a
    deeper shade over the lines with a halo; the chart grows by the names' rows (talk-trace.js sets --band-room). On a flowtime
@@ -6672,7 +6670,7 @@ html.thumb-ui .menu.from-dock { clip-path: inset(-64px -64px calc(var(--sink, 0p
    between small version and large version": "Just make it one version everywhere"). The after-meal chart's is the one it used to give way to,
    so Circulation 10 still arrives partly open; the ladder keeps its full size; a card too tall borrows from the figure. */
 .pz.stack.stack .pz-prof { --prof-h: calc(min(74cqi, 270px) - 1.6em); height: var(--prof-h); }   /* (its full size: at 216 px the brackets left the plot for a band at its foot, the chart grew by its min-height after landing and the card cut off its sinusoidal brace and handle, Sites 4, Mohammad, 21 Oct) */
-.pz.stack.stack .pz-flows { height: 9.25em; }
+.pz.stack.stack .pz-flows { height: 10em; }
 .pz.stack.stack .pz-flows[data-of="inflow"] { height: 6em; }
 .pz.stack.stack .pz-flowtime { --ft-h: min(43cqi, 144px); height: var(--ft-h); }
 .pz.stack.stack .pz-flowtime.has-bands { height: calc(var(--ft-h) + var(--band-room, 0em)); }

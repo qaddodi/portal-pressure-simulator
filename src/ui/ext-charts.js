@@ -5,15 +5,15 @@
 //                                                HVPG and PPG brackets (tool-profile.js); from: true adds the state before
 //                                                as a faint dotted line ('<slide id>' for that slide's)
 //   tool: { kind: 'flows' }                      where the portal blood goes: one bar, the liver's segment and then each
-//                                                shunt route's, largest first, names on the segments, a Healthy bar just
-//                                                above it for comparison (tool-flows.js)
+//                                                shunt route's, largest first, names on the segments or, where too narrow,
+//                                                in pills under it, a dashed Healthy bracket over it (tool-flows.js)
 //   tool: { kind: 'flows', of: 'inflow' }        the same bar for the liver's inflow, portal against arterial
 //   bands: ['carvedilol', 'anticoag', 'tips', …] on a trace or flowtime tool: the treatments shaded (rx-bands.js RX); drawn by
 //                                                talk-trace.js and flow-time.js themselves
 //   style: 'milestones' on a trace tool ('talk')  the HVPG line alone in its cut-off colours, the slides that set milestone:
 //                                                'Dx' (a short name) named level above their points (talk-trace.js)
 import { createProfileTool } from './tool-profile.js?v=5ff8536499';
-import { createFlowsTool } from './tool-flows.js?v=6d98e31bfa';
+import { createFlowsTool } from './tool-flows.js?v=3d1d4375ad';
 
 export default {
   tools: {
