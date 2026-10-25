@@ -125,6 +125,8 @@ Full guide: section 5.9.
 - `delta: true` shows each tile's change from the slide before.
 - `tool: { kind: 'profile', from: 'norx', fromLabel: 'No Rx' }` draws an earlier state as a faint dotted line on the chart, to show what a treatment changed.
 
+- A data card that is the same on the next slide (same `tool` and options, same tiles) stays on screen while the words change, and its numbers ease to the new slide's. Different tiles or instrument options build it afresh.
+
 Full guide: section 7.1 and the tile list in section 8.6.
 
 ### Instruments

@@ -42,6 +42,7 @@ import { causeFit } from './cause-fit.js?v=830a6835a5';
 import { COMPACT, WIDE } from './card-type.js?v=5af5f22935';
 import { flowTimeHeight } from './flow-time.js?v=cb89e13e11';
 import { PROCS, procBlocked, procOffered, playProcedure } from './proc-anim.js?v=b2351a24c6';
+import { dataPlan, textPlan, keepData, keepText, cardSnap, cardChanged, cardBack } from './card-keep.js?v=a70833750f';
 const nextFrame = frameFor('presenter');
 
 const KEY = 'pps.scripts';
@@ -1523,6 +1524,8 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   }
   // Once the slide is ready behind the card (patient in, camera landed): waits for the tap, then lifts the card whole before the slide's cards come in.
   async function caseEnd(cut) {
+    await keepFall(cut);   // (the last gate before the cards come in: a kept card the final layout changed falls first, and is built again)
+    if (cut()) return;
     const card = caseCard;
     if (!card) return;
     if (!card.lifted) await until(() => cut() || card.lifted, 864e5);
@@ -1593,6 +1596,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     stage.holdHome(true);
     creditHolds++; clearTimeout(creditT); app.classList.add('pz-moving');
     try { await transitionRun(to); } finally {
+      keepNow = NO_KEEP; keepSnap = null; keepBad = []; keepArgs = null;
       stage.holdHome(false); caseShut(); if (bare) { bare = false; layout(); cardsIn(); }
       creditHolds--; clearTimeout(creditT);
       creditT = setTimeout(() => { if (!creditHolds) app.classList.remove('pz-moving'); }, 120);   // (the cards come in after the one camera move; src/ui/credit.js then waits for any card still sliding)
@@ -1602,7 +1606,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     const g = gen, s = slides[to], cut = () => !deck || want !== to || gen !== g;
     // The slide on screen is leaving, so a move cut short never counts as showing it: going back and forward again to that
     // slide (summary table included) draws it afresh instead of leaving the half-changed screen.
-    scalePick = null;   // (a flip of the scale is a detour: every slide opens on its own scale)
+    scalePick = null; const was = shown;   // (a flip of the scale is a detour: every slide opens on its own scale; was: the slide on screen, for the cards it may keep)
     shown = null; entering = null;
     const cam = s.visual ? s.cam || null : s.cam || 'fit';
     // Leaving the lobule: the organs' picture for the way out is begun at once, while the old words leave and the new ones come in,
@@ -1629,6 +1633,8 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     if (inLiver && !booting && (hushed || cam !== lastCam || litNext !== (app.dataset.lit || '') || s.visual || ct)) hush();
     // The cards fade out first, and are on screen fading (two frames painted) before anything changes on the figure: the marks,
     // the lens and the glows can each cost a long frame, which would otherwise swallow the fade.
+    // Which cards stay: the data card when this slide's is the same instrument and tiles, the words when they are the same (keepFor).
+    keepNow = keepFor(was && slides[was.i], s, to, stateOf[to] !== shownState || liveOff, { again: !was || was.i === to }); keepCut = cut;
     const outAt = performance.now(), outMs = wordsOut(s);
     if (outMs) { await painted(); await painted(); }
     // Words out, and the marks: they belong to the slide that is leaving.
@@ -1707,7 +1713,8 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     wordsIn(s, said, to, swap, lap, st);
     // (Bare, the teaching card and its glass stay out whole until the camera has landed, never an empty card first. Behind a case
     // card they also stay out until it is lifted, a catheter slide's included: its words would otherwise come in under the case.)
-    if (bare || caseCard) { ui.text.classList.add('pz-leave'); ui.root.dataset.bare = ''; }
+    if (keepNow.text) { /* (kept words stay on screen as they are) */ }
+    else if (bare || caseCard) { ui.text.classList.add('pz-leave'); ui.root.dataset.bare = ''; }
     await settleRun();
     if (!bare) { await caseEnd(cut); if (cut()) return; cardsIn({ i: to, gen: g }); }
     if (cut()) return;
@@ -1734,6 +1741,8 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       await until(() => cut() || !stage.gliding(), 1500);
       if (cut()) return;
       // The camera is still: the patient changes now, unhurried, and the cards come in only once it has.
+      // (A kept data card stays up through it, its readings riding the model as it eases: followData.)
+      if (later && keepNow.data && keepNow.swap) followData(s, to, st, cut);
       if (later) { if (!await morphTo(st, cut)) return; shownState = own ? -1 : si; }
       // The cards fade in once the figure is quiet: after a new patient, once the organs' picture is redrawn (its long frame
       // had eaten the fade), and in any case only when frames come smoothly (see smooth).
@@ -1824,6 +1833,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     await new Promise((r) => nextFrame(() => nextFrame(r)));
     if (!ui) return;
     layout();
+    await keepFall(keepCut);   // (a kept card this layout would change leaves after all, and is built again)
   }
   // A slide's lobule layers (layers: ['zones', 'lymph'] turns those on); otherwise zones off and lymph as the viewer had it.
   function slideLayers(s) {
@@ -1842,12 +1852,13 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   // (Starts the cards' fade out and returns how long it runs, ms: 0 when nothing is showing.)
   function wordsOut(next) {
     if (!ui) return 0;
-    const out = [ui.text, ui.panel], data = ui.data;
+    // (A card the next slide would build the same stays where it is and leaves nothing to fade: keepFor, card-keep.js.)
+    const out = [ui.text, ui.panel].filter((el) => !(keepNow.text && el === ui.text)), data = ui.data;
     // The data card leaves with the words on every slide change, whole (the same ease and pace), and comes back in with the new cards:
     // never left standing while the words go, nor changed in place.
-    const dataOut = !data.hidden && !data.classList.contains('pz-hide');
+    const dataOut = !keepNow.data && !data.hidden && !data.classList.contains('pz-hide');
     if (dataOut) { data.classList.add('pz-hide'); delete data.dataset.colswap; }
-    ui.scl.classList.add('pz-leave');   // (the scale switch leaves with the words, in their fade)
+    if (!keepNow.text) ui.scl.classList.add('pz-leave');   // (the scale switch leaves with the words, in their fade)
     // Leaving a visual for the figure: the veil lifts with the panel, not after it.
     if (!next?.visual) ui.veil.classList.remove('on');
     if (!dataOut && out.every((el) => el.hidden || !el.childElementCount)) return 0;
@@ -1979,9 +1990,19 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   }
   // (Held on this slide: its own hold, a Predict slide still asking, or an answer slide straight after a held one, held until it lands.)
   const answerAfter = (s, i) => !s.visual && !s.hold && !s.preset && i > 0 && !!slides[i - 1]?.hold && i === lastAt + 1;
+  // A slide's cards come in: the teaching card and the data card, each built unseen (pz-prep) and laid out where it will rest. A card the slide
+  // keeps from the one before (keepFor) is not built: the data card only follows the patient (dataKept), the words stay as they stand.
   function wordsIn(s, st, i, fresh = false, lap = false, now = st) {
     if (!ui) return;
-    const { text, panel, data } = ui;
+    keepArgs = { s, st, i, fresh, lap, now };
+    if (!keepNow.text) textIn(s, st, i);
+    if (keepNow.data) dataKept(s, i, now); else dataIn(s, st, i, fresh, lap, now);
+    layout();
+    keepNote();   // (a kept card this layout changed is put back at once: nothing changed is ever painted)
+  }
+  // The teaching card's words (or a visual's panel) for slide i, and what stands with them: the scale switch, the self-study handle, the level's tab.
+  function textIn(s, st, i) {
+    const { text, panel } = ui;
     paintScales(s, i);
     paintStudy(s);
     // The slide's level (Presinusoidal, Cardiac...) is a tab in the glass's top left corner, the deck tab's mirror in the level's
@@ -2035,6 +2056,11 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       [...text.children].forEach((c, k) => c.style.setProperty('--i', k));
       text.classList.remove('pz-enter'); void text.offsetWidth; text.classList.add('pz-enter');
     }
+    textOn = textPlan(s);
+  }
+  // The data card for slide i: its instrument and tiles, or nothing (the card then leaves).
+  function dataIn(s, st, i, fresh, lap, now) {
+    const { data } = ui;
     delete data.dataset.hold;
     if (hasCard(s)) {
       // (A time-lapse's numbers wait for its end; an instrument on the card plays the days, so that card comes in with the words.)
@@ -2057,7 +2083,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       data.dataset.tool = ui.tools.sig(s.tool);
       ui.dhT.textContent = cardTitle(s); unitSpans(ui.dhT);
       // (A flow-time chart over a time-lapse starts empty and draws as it plays.)
-      if (s.tool) ui.tools.show(s.tool, { slide: i, stateKey: stateOf[i], chain: chainTo(i, s.tool.kind === 'trace' ? s.tool.since : null), trail: states[stateOf[i]]?.trail ?? null, reveal: lap ? 0 : 1, ctx: ctxOf(s, i) }); else ui.tools.hide();
+      if (s.tool) showTool(s, i, lap); else ui.tools.hide();
       if (s.tool) ui.tools.ghost(toolGhost(s, i));
       // (With a new patient the numbers are set at once, while the card is still out: it fades back in already showing them. So
       // too while the new cards wait, unseen, for the camera to land (bare): their count ran unseen beside the glide, a frame's
@@ -2075,9 +2101,97 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       data.classList.add('pz-hide'); delete data.dataset.colswap;
       setTimeout(() => { if (data.classList.contains('pz-hide')) { data.hidden = true; ui?.tools.hide(); } }, 320);
     }
+    dataOn = planOf(s, i) ?? null;
     holdEase = answerAfter(s, i);
     holdAnswer(!s.visual && (!!s.hold || holdEase || predArm?.i === i), true);
+  }
+  const showTool = (s, i, lap = false) => ui.tools.show(s.tool, { slide: i, stateKey: stateOf[i], chain: chainTo(i, s.tool.kind === 'trace' ? s.tool.since : null), trail: states[stateOf[i]]?.trail ?? null, reveal: lap ? 0 : 1, ctx: ctxOf(s, i) });
+
+  // ── Cards that stay between slides ──
+  // A slide change used to fade both cards out and build both again. When the next slide's data card is the same (the same instrument
+  // and options, the same tiles, title and layout: card-keep.js dataPlan) it stays where it is, live, and only the words swap; when the
+  // words are the same (textPlan) the data card swaps and the words stay. Chosen as the change begins (keepFor), from the plans of the cards
+  // on screen (dataOn, textOn) and of the slide coming; every other change is as it always was.
+  // The numbers of a kept data card ease to the slide's: with the same patient the tiles count, and with a new one the card follows the model as it
+  // eases (followData), nothing jumping ahead of the figure. A kept card that the new slide's layout would change (its size, fit or fold) is not
+  // kept after all: put back as it stood, it leaves and is built again as every card is (keepNote, keepFall).
+  const NO_KEEP = { data: false, text: false, swap: false };
+  let keepNow = NO_KEEP, keepArgs = null, keepSnap = null, keepBad = [], keepCut = () => true;
+  let dataOn = null, textOn = null;   // (the plans of the cards on screen: null, no such card, or one built from a slide this plan does not know)
+  // What a data card is made of for slide i, or null (no card), or undefined (not yet known: a state its tiles' ring is counted from is still being computed).
+  function planOf(s, i) {
+    if (!hasCard(s)) return null;
+    const d = deltaOf(s, i);
+    if (d === true ? i > 0 && !states[stateOf[i - 1]] : typeof d === 'string' && !fpOf(d)) return undefined;
+    return dataPlan(s, { keys: tileKeys(s), ref: !!refOf(s, i), title: cardTitle(s), ghost: s.tool ? toolGhost(s, i) : null, under: under(s), sin: sinTiles(s) });
+  }
+  // A card standing whole (not on its way in or out, not half folded or pulled) can be kept.
+  const dataStands = () => { const d = ui.data; return !d.hidden && !d.classList.contains('pz-hide') && !d.classList.contains('pz-sliding') && !['gone', 'prep', 'hold', 'colswap', 'folding'].some((k) => k in d.dataset); };
+  const textStands = () => { const t = ui.text; return !t.hidden && !!t.childElementCount && !t.classList.contains('pz-leave') && !ui.root.classList.contains('pz-prep'); };
+  // Which cards slide `to` keeps from the slide on screen (prev). A change cut short, a start, a slide drawn again for a new text size, a case card,
+  // a catheter, a time-lapse or a question (card-keep.js) keep nothing.
+  function keepFor(prev, s, to, swap, o) {
+    keepSnap = null; keepBad = [];
+    if (!ui || !prev || booting || reduce.matches || caseLift || caseCard || o.again || !states[stateOf[to]] || (to > 0 && !states[stateOf[to - 1]])) return NO_KEEP;   // (the states a tile's ring and the readings come from must be in)
+    const data = dataStands() && keepData({ from: dataOn, to: planOf(s, to), prev, next: s, swap, again: o.again });
+    const text = textStands() && keepText({ from: textOn, to: textPlan(s), prev, next: s, swap, again: o.again });
+    if (!data && !text) return NO_KEEP;
+    keepSnap = { data: data ? cardSnap(ui.data) : null, text: text ? cardSnap(ui.text) : null };
+    return { data, text, swap };
+  }
+  // Called after the layout passes with a card kept: one the layout changed is put back as it stood (nothing is painted changed) and noted,
+  // and keepFall then lets it leave and builds it again.
+  function keepNote() {
+    if (!ui || !keepSnap) return;
+    for (const k of ['data', 'text']) {
+      const sn = keepNow[k] && keepSnap[k];
+      if (!sn || !cardChanged(sn, k === 'data')) continue;
+      cardBack(sn);
+      if (k === 'data') { clearTimeout(colT); colT = 0; }
+      if (!keepBad.includes(k)) keepBad.push(k);
+    }
+  }
+  async function keepFall(cut) {
+    keepNote();
+    if (!ui || !keepBad.length) return false;
+    const bad = keepBad; keepBad = [];
+    for (const k of bad) keepNow = { ...keepNow, [k]: false };
+    if (bad.includes('data')) { ui.data.classList.add('pz-hide'); delete ui.data.dataset.colswap; }
+    if (bad.includes('text')) { ui.text.classList.add('pz-leave'); ui.scl.classList.add('pz-leave'); }
+    await wait(340);
+    if (cut() || !ui || !keepArgs) return false;
+    const { s, st, i, fresh, lap, now } = keepArgs;
+    if (bad.includes('text')) { textIn(s, st, i); ui.text.classList.add('pz-leave'); ui.root.dataset.bare = ''; }
+    if (bad.includes('data')) dataIn(s, st, i, fresh, lap, now);
     layout();
+    // (Fitted as every card is before it shows: the sizes it comes in at are the sizes it keeps.)
+    reFit(); await painted(); await painted();
+    if (cut() || !ui) return true;
+    layout();
+    return true;
+  }
+  // The data card kept: nothing is rebuilt. With the same patient the tiles take the slide's readings (their count eases) and the instrument is told
+  // of the slide, as it is on every slide; with a new one the card waits for the model (followData).
+  function dataKept(s, i, now) {
+    if (keepNow.swap) return;
+    if (s.tool) showTool(s, i);
+    if (s.data) ui.tiles.set(respFp(s, now.fp), tileKeys(s), s.key || [], refOf(s, i), undefined, now.params?.tips?.on);
+    ui.tools.pin(now.fp);
+  }
+  // A kept data card with a new patient: its tiles and instrument ride the live model as it eases to the slide's state (as a Predict slide's do),
+  // then land on the slide's own numbers.
+  function followData(s, to, st, cut) {
+    const ref = refOf(s, to);
+    (async () => {
+      while (!cut() && ui) {
+        await wait(150);
+        if (cut() || !ui) return;
+        // (The patient has landed, shownState set: the card takes the slide's own numbers and is done.)
+        if (shownState === stateOf[to]) { if (s.tool) showTool(s, to); dataTo(s, st.fp, ref, 280); return; }
+        const fr = store.get().frame;
+        if (fr?.metrics) dataTo(s, liveFp(fr), ref, 280);
+      }
+    })();
   }
   // Each row of a table still computing fills in (its cells fade in) as its patient arrives.
   function fillTable(s, cut) {
@@ -4355,6 +4469,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     app.classList.toggle('pz-hi', hiCon);
     app.style.setProperty('--pz-wk', String(PW_K[pzWidth]));
     ui = build();
+    dataOn = textOn = null; keepNow = NO_KEEP; keepSnap = null; keepBad = []; keepArgs = null;   // (no card on screen yet)
     setLabels();
     prepare();
     addEventListener('resize', onResize);
@@ -4398,6 +4513,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     hushed = false; lastCam = null; clearTimeout(hushInT); app.classList.remove('pz-hush', 'pz-hush-in', 'pz-held'); heldNow = false; holdEase = false; pred = null; predArm = null;
     cancelFrame(slip.raf); slip.d = null; slip.h0 = null;
     clearTimeout(idleT); clearTimeout(dock.fit); cancelFrame(dock.raf); dock.lvl = 0; dock.to = 0; dock.drag = false; dock.auto = false; dock.autoKey = '';
+    dataOn = textOn = null; keepNow = NO_KEEP; keepSnap = null; keepBad = []; keepArgs = null;
     pillW = 0; ui?.tools.dispose(); ui?.figKey.dispose(); ui?.lipRO?.disconnect(); ui?.root.remove(); ui?.shade.remove(); ui = null; app.classList.remove('pz-blacked');
     view.classList.remove('pz-out');
     for (const k of ['--pz-l', '--pz-r', '--pz-t', '--pz-b']) app.style.removeProperty(k);

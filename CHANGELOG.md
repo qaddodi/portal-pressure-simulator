@@ -2,6 +2,19 @@
 
 ## October 2026
 
+- **A card that stays the same stays on screen when the slide changes.** (Mohammad, 25 Oct: "If the instrument data card on a deck is gonna
+  stay the same for the next slide and only teaching card is changed or other way around we shouldn't reload the data card or vice versa
+  keep it while you load the other card".) Every slide change used to fade both cards out and build both again. Now, when the next slide's
+  data card is the same (same instrument and options, same tiles, title and layout), it stays up and live while the words swap; its tiles
+  count to the new slide's numbers, and with a new patient the card follows the model as it eases rather than jumping ahead of the figure.
+  When the words are the same and the patient is, the teaching card stays and only the data card swaps. A kept card that the new slide's
+  layout would change (its size, fit or fold) is put back at once and leaves and returns as before. Not kept: the Doppler and the
+  beat-by-beat trace through a new patient (their trace starts over), and slides with a time-lapse, the catheter, a case card (a new
+  patient's), a question or a Predict slide. Present on Mac, iPad and iPhone, in every deck. In the decks as they stand it applies to two
+  slide changes (Circulation 4 to 5 and HVPG 7 to 8), because almost every other slide that repeats an instrument brings a new patient
+  behind a case card, runs a time-lapse, asks a question or changes its tiles; the words card is never the same twice in them. It is
+  there for the decks being written. Code and unit checks only; nobody has looked on screen. `src/ui/card-keep.js`; tests:
+  `tests/card-keep.test.js`.
 - **The organs' pictures are painted on the GPU from their own shapes.** (Mohammad, 25 Oct: no more SVG → image → canvas → read back →
   upload.) The heart and esophagus, the gut, the kidney, the stomach and the bowel were each a picture made by copying the SVG, loading
   it as an image, drawing it on a 2D canvas, reading its pixels back and uploading them, after every change and every settled pan or zoom.
