@@ -384,6 +384,8 @@ export function createShapeGL(gl) {
     },
     /** Gives back a mesh's arrays on the GPU (it is no longer kept: drawn again, it is sent again). */
     release,
+    /** How many meshes hold arrays on the GPU now. */
+    count: () => own.size,
     /** (Kept for callers that forgot every mesh at once: each is now given back on its own, by release.) */
     forget() {},
     dispose() {

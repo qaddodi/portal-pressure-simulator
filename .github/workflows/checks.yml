@@ -151,8 +151,10 @@ jobs:
       - name: The layers draw the plate's picture, and the screen with the organs live is the one without
         run: npm run smoke:layers
       - name: The organs painted on the GPU match the browser's drawing of their SVG
+        if: success() || failure()   # (each check runs even when the one before it failed, so one red run tells them all)
         run: npm run smoke:paint
       - name: The figure's browser checks, organs on the GPU
+        if: success() || failure()   # (each check runs even when the one before it failed, so one red run tells them all)
         env:
           SHOTS: gpu-organs-shots
           SMOKE_GPUORGANS: force

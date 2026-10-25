@@ -13,7 +13,7 @@
 // luminance). Anything else (a dash, a filter, a nested mask, a focal point) and the organ is not read: null, and the caller
 // keeps the organ's picture.
 
-import { flattenPath, ellipsePoly, polyBox, polyMesh } from './shape-gl.js?v=4bda9b57f2';
+import { flattenPath, ellipsePoly, polyBox, polyMesh } from './shape-gl.js?v=b9a7bdbd53';
 import { strHash } from './liver-geo.js?v=977185f80a';
 
 const ID = [1, 0, 0, 1, 0, 0];
@@ -566,6 +566,8 @@ export function createOrganPaint(gl, shape) {
         return paintOps(spec, m, fbo, [0, 0, w, h], 0, i0, until);
       } finally { keeping = false; lives = new Map(); dKeys = new Map(); }
     },
+    /** What it holds on the GPU: meshes with arrays there, and those the pictures keep. */
+    stats: () => ({ meshes: shape.count?.() ?? 0, kept: kept.size }),
     /** Lets go of the pictures' kept meshes (their GPU arrays too). */
     dropKept() { for (const [k, v] of kept) if (!meshes.has(k) && !meshesOld.has(k)) shape.release(v.mesh); kept = new Map(); },
     /** The group's device box under m (groupBox), and its description (describe), for the stack's change check. */

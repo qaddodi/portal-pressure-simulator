@@ -31,9 +31,9 @@ import { warmVisible, ringGrid, inGrid } from './warm-vis.js?v=ccf4f6f71b';
 import { createRouter } from './circuit-router.js?v=0ee9e02fc6';
 import { gpuProbe } from './gpu-probe.js?v=e82dc07b45';
 import { plateStrips, premultiply, gutStep, viewReuse, copyPixels } from './plate-upload.js?v=5fc45556a1';
-import { cropToGrid } from './organs-gl.js?v=d67a6dce68';
-import { readGroup } from './organ-paint.js?v=5daa3d817f';
-import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, ORIGIN_GREY } from './veins-gl.js?v=660a9a7090';
+import { cropToGrid } from './organs-gl.js?v=25bbefc737';
+import { readGroup } from './organ-paint.js?v=8f6b8cbc3f';
+import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, ORIGIN_GREY } from './veins-gl.js?v=161dce6a7b';
 import { varixBead, beadRadius } from './varix-bead.js?v=ac0e84fd89';
 import { advanceStream, createReversalHold, bleedShapes, stepBleedFade, fadeBleedShapes, chevFlowLevel, keyChevron, KEY_CHEV_LANES, originFractions, oxygenFor, ORIGIN_N, createBolus, DYE_BINS, KAPPA, STASIS_MIN_D, HIDDEN_SECONDS } from './blood.js?v=e668d01823';
 import { frameFor, cancelFrame, noteDraw, setSaver as setFrameSaver, paceMs } from './frame.js?v=19b3f2915c';
@@ -2137,7 +2137,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const lzAnchor = document.createComment('lobule');
   wrap.append(lzAnchor);
   // (The code is fetched as soon as the figure is shown; the layer is built a moment later, when the page is quiet, or at once for a dive.)
-  const lobuleCode = () => (lzCode ||= import('./lobule-zoom.js?v=65197edcf5').catch((err) => { lzCode = null; throw err; }));
+  const lobuleCode = () => (lzCode ||= import('./lobule-zoom.js?v=111e5ec713').catch((err) => { lzCode = null; throw err; }));
   function lobuleReady() {
     return (lzLoad ||= lobuleCode().then(({ createLobuleZoom }) => {
       lz = createLobuleZoom({ host: wrap, styles: wrapCS, before: lzAnchor });
@@ -3626,7 +3626,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // (Painted live, the bowel is a layer of its own, gathered under the gut's: syncLiveOrgans.)
   const LIVE_ORDER = ['back', 'behind', 'bowel', 'gut', 'kidney', 'spleen', 'stomach', 'liver', 'front'];
   const bowelDy = () => parseFloat((organG.bowel?.getAttribute('transform') || '').match(/^translate\(0 ([-\d.]+)\)$/)?.[1]) || 0;
-  let liveFailed = false;
+  let liveFailed = false, liveFailWhy = '';
   const liveOn = () => gpuOrgansOn() && !!veins.organs.canLive && !liveFailed;
   // Drops the plate rasters and shows the live SVG organs. The vessel layer is redrawn in the same
   // task (after the model update in progress), so no frame shows the SVG organs over the old GPU
@@ -3947,12 +3947,48 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     return by;
   }
   let layerStarts = 0, layerStartsEasing = 0;   // (for the tests: organ pictures begun, and those begun while the fluid eased)
+  // Which way each organ layer is drawn (the ?organpaths readout, and the checks): 'GPU' (painted on the GPU from its shapes) or
+  // 'picture (why)' (rasterized from the SVG copy: a group the painter cannot read, or the organs not painted live at all).
+  // bakeSkip: layers kept as pictures for a check (tests/e2e/plate-layers.mjs, to find which layer a difference comes from).
+  const organPaths = new Map(), bakeWhy = new Map(), bakeSkip = new Set();
+  let layerCommits = 0;
+  const elName = (el) => (!el ? '?' : el.id ? `#${el.id}` : `${el.localName}${el.classList?.length ? `.${[...el.classList].join('.')}` : ''}`);
+  // (Why the organs are not painted live, in a few words.)
+  function liveWhy() {
+    if (!veins) return 'no WebGL2';
+    if (!gpuProbe.gpuOrgans) return 'GPU organs off: ?gpuorgans=0 or the ?perf switch';
+    if (!veins.organs) return 'no organ stack: its shader failed';
+    if (SOFTWARE && gpuProbe.gpuOrgans !== 'force') return 'software renderer';
+    if (!veins.organs.canLive) return 'the live painter failed to start';
+    if (liveFailed) return `live painting off: ${liveFailWhy || 'an organ not readable'}`;
+    return 'painted live';
+  }
+  /** The organs' drawing paths now: { mode, live, layers: [[name, path]], gpu } (the ?organpaths readout). */
+  function organPathsNow() {
+    const mode = !veins || veins.lost ? 'SVG (no GPU figure)' : !plateOn() ? 'SVG (live drawing, no picture shown)' : gpuOrgansOn() ? 'GPU layers' : 'one picture (GPU organs off)';
+    return { mode, live: liveOn() ? 'liver, spleen, diaphragm, falciform: painted live' : liveWhy(), layers: gpuOrgansOn() ? [...organPaths] : [], gpu: veins?.organs?.stats?.() || null, renderer: SOFTWARE ? 'software' : 'gpu' };
+  }
+  // The readout itself, only with ?organpaths in the address: a small box at the top left, read again every second.
+  if (/[?&]organpaths\b/.test(location.search)) {
+    const box = document.createElement('div');
+    box.className = 'organ-paths';
+    box.setAttribute('aria-hidden', 'true');
+    document.body.append(box);
+    let was = '';
+    setInterval(() => {
+      const p = organPathsNow();
+      const t = [`Organs: ${p.mode} (${p.renderer} renderer)`, `Live: ${p.live}`, ...p.layers.map(([L, w]) => `${L}: ${w}`),
+        ...(p.gpu ? [`On the GPU: ${p.gpu.meshes} meshes, ${p.gpu.kept} kept for pictures`] : [])].join('\n');
+      if (t !== was) { was = t; box.textContent = t; console.info(`[organpaths]\n${t}`); }
+    }, 1000);
+  }
   async function rasterLayers(slot, rect, scale) {
-    const v = veins, boxes = layerBoxes(), names = [], live = liveOn();
+    const v = veins, boxes = layerBoxes(), names = [], live = liveOn(), paths = new Map();
     layerStarts++; if (fluidEasing()) layerStartsEasing++;
     // With the organs painted live, each layer's picture is painted on the GPU straight from its organs' shapes (bakeLayer); the SVG
     // copy is made only for a layer the painter cannot read, which is rasterized from it as before.
     const baked = live ? bakeAll() : null;
+    for (const L of bakeSkip) if (baked?.get(L)) { baked.set(L, null); bakeWhy.set(L, 'painting turned off for the check'); }
     const copyNeeded = !baked || [...baked.values()].some((b) => !b);
     if (slot === 0 && copyNeeded) gpuProbe.time(null, 'organ picture: copy (script)', () => { plateCopy = plateBuild(plateStateKey()); });
     try {
@@ -3964,8 +4000,11 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         const b = baked?.get(L);
         if (!(await (b ? bakeLayer(slot, L, b, r, scale) : rasterPlate(slot, r, scale, L, false, live))) || v !== veins || !v.organs) return false;
         names.push(L);
+        paths.set(L, b ? 'GPU' : `picture (${live ? bakeWhy.get(L) || 'not readable' : liveWhy()})`);
       }
       v.organs.commit(slot, names);
+      if (slot === 0) { organPaths.clear(); for (const [L, p] of paths) organPaths.set(L, p); }
+      layerCommits++;
       if (live) { syncLiveOrgans(true); v.organs.setOrder(ORGAN_LAYERS); }
       return true;
     } finally { if (v === veins && !v.lost) v.organs?.dropStaged(slot); }
@@ -3978,6 +4017,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   function bakeAll() {
     const greyed = !!greyList;
     if (greyed) { greyClear(); organDimKey = ''; }
+    bakeWhy.clear();
     try {
       const out = new Map(), layerOf = organLayers(), key = plateStateKey();
       for (const L of LIVE_ORDER) {
@@ -3988,7 +4028,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         for (const el of els) {
           if (!el || getComputedStyle(el).display === 'none') continue;
           const spec = el.localName === 'g' ? readGroup(el, { withMask: el !== organG.stomach, nest: true }) : null;
-          if (!spec) { console.warn('Organs on the GPU: not readable for painting, this layer stays a picture:', el); ok = false; break; }
+          if (!spec) { console.warn('Organs on the GPU: not readable for painting, this layer stays a picture:', el); bakeWhy.set(L, `${elName(el)} not readable`); ok = false; break; }
           groups.push({ spec, m: matOfEl(el) });
         }
         out.set(L, ok ? { groups, at: L === 'bowel' ? bowelDy() : 0, key } : null);
@@ -4036,10 +4076,11 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     liveKeyWas = key;
     const organs = new Map(), masks = new Map();
     let ok = true;
+    liveFailWhy = '';
     const add = (L, el) => {
       if (getComputedStyle(el).display === 'none') return;
       const spec = readGroup(el);
-      if (!spec) { ok = false; console.warn('Organs on the GPU: not readable for painting, the organs stay pictures:', el); return; }
+      if (!spec) { ok = false; liveFailWhy ||= `${elName(el)} not readable`; console.warn('Organs on the GPU: not readable for painting, the organs stay pictures:', el); return; }
       if (!organs.has(L)) organs.set(L, []);
       organs.get(L).push({ spec, get m() { return matOfEl(el); } });   // (the group's own frame, as it is at each paint)
     };
@@ -4048,7 +4089,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     for (const [L, sel] of Object.entries(MASK_OF)) {
       const el = defs.querySelector(sel), g = L === 'gut' ? gGut : organG.stomach;
       const spec = el && readGroup(el);
-      if (!spec) { ok = false; continue; }
+      if (!spec) { ok = false; liveFailWhy ||= `mask ${sel} not readable`; continue; }
       // (The gut's: its group's opacity laid with it, and the bowel's picture, at rest, gathered under it with its float. el: the
       // element whose frame m reads, watched by the stack for writes with the mask's own elements: organs-gl watchLive.)
       masks.set(L, L === 'gut' ? { spec, el: g, get m() { return matOfEl(g); }, opacity: parseFloat(getComputedStyle(gGut).opacity), under: [{ name: 'bowel', dy: bowelDy() }] } : { spec, el: g, get m() { return matOfEl(g); } });
@@ -4178,7 +4219,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // view, the picture is checked against the state now, and drawn again only if that differs.
   document.addEventListener('visibilitychange', () => { if (!document.hidden) platePoke(); });
   // The ?perf switch "GPU organs": the picture shown now is dropped (the live drawing shows for a beat) and made again the other way.
-  gpuProbe.onOrgans = () => { plateKey = ''; liveFailed = false; if (veins && !veins.lost) { hidePlate(); syncLiveOrgans(); } platePoke(); };
+  gpuProbe.onOrgans = () => { plateKey = ''; liveFailed = false; liveFailWhy = ''; if (veins && !veins.lost) { hidePlate(); syncLiveOrgans(); } platePoke(); };
   // After a pan or zoom settles, a raster of the view at the screen's resolution (when the
   // whole-plate raster would look soft there).
   function schedulePlateView() {
@@ -10467,6 +10508,10 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     /** For the checks (tests/e2e/fluid-pool.mjs): frames that composited only the fluid's pool, and whether the level is easing. */
     poolFrames: () => poolFrames, fluidEasing: () => fluidEasing(), layerStarts: () => [layerStarts, layerStartsEasing],
     organLayersShown: () => plateOn() && gpuOrgansOn() && !!veins?.organs?.has(0),
+    /** The organs' drawing paths (the ?organpaths readout), and the layer sets committed so far. */
+    organPaths: () => ({ ...organPathsNow(), commits: layerCommits }),
+    /** For the checks: these layers drawn as pictures from the SVG copy rather than painted on the GPU, the pictures made again. */
+    bakeOff(names = []) { bakeSkip.clear(); for (const n of names) bakeSkip.add(n); plateKey = ''; platePoke(); },
     /** The ?perf switch "GPU organs", for the checks: true, false, or 'force' (on the software renderer too). */
     gpuOrgans(v) { gpuProbe.gpuOrgans = v; gpuProbe.onOrgans?.(); },
     plateLayersCheck() {

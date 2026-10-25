@@ -48,8 +48,8 @@ void main() {
   else { vec2 u0 = (vW - r0.xy) / r0.zw; o = texture(t0, flip.x == 1 ? vec2(u0.x, 1.0 - u0.y) : u0); }
 }`;
 
-import { createShapeGL } from './shape-gl.js?v=4bda9b57f2';
-import { createOrganPaint, mul } from './organ-paint.js?v=5daa3d817f';
+import { createShapeGL } from './shape-gl.js?v=b9a7bdbd53';
+import { createOrganPaint, mul } from './organ-paint.js?v=8f6b8cbc3f';
 import { netChanged } from './idle-keys.js?v=4b46e6a6ef';
 
 function program(gl, vs, fs) {
@@ -195,6 +195,8 @@ export function createOrganStack(gl) {
     },
     /** Lets go of the shapes the pictures keep on the GPU (bake), when no picture is being made. */
     dropKept() { painter?.dropKept(); },
+    /** What the painter holds on the GPU (organ-paint stats), or null without one. */
+    stats: () => painter?.stats() || null,
     /** Shows the staged set for `slot` in place of the one shown, drawn in the order of `names` (back to front). */
     commit(slot, names) {
       free(live[slot]);

@@ -6651,3 +6651,5 @@ html.thumb-ui .menu.from-dock { clip-path: inset(-64px -64px calc(var(--sink, 0p
 .pz.stack.stack .pz-flows { height: 9.25em; }
 .pz.stack.stack .pz-flowtime { --ft-h: min(43cqi, 144px); height: var(--ft-h); }
 .pz.stack.stack .pz-flowtime.has-bands { height: calc(var(--ft-h) + var(--band-room, 0em)); }
+/* The ?organpaths readout (stage.js): which organ layers are painted on the GPU and which fall back to a picture. Opt-in only. */
+.organ-paths { position: fixed; left: 8px; top: calc(env(safe-area-inset-top, 0px) + 64px); z-index: 9999; max-width: calc(100vw - 16px); padding: 6px 8px; border-radius: 6px; background: var(--surface); color: var(--text); border: 1px solid var(--border-strong); font: 12px/1.35 ui-monospace, SFMono-Regular, Menlo, monospace; white-space: pre-wrap; pointer-events: none; }

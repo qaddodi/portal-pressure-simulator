@@ -18,6 +18,7 @@
 //   node tests/e2e/plate-layers.mjs [dir]
 
 import { chromium } from 'playwright';
+import { mkdirSync, writeFileSync } from 'node:fs';
 import { serve } from '../../scripts/serve.mjs';
 
 const ROUND = 2, FEW = 400, MAX = 12, MEAN = 0.05, SCREEN = { inside: 8, insideMean: 1, edge: 96, mean: 0.3 };
@@ -82,43 +83,78 @@ try {
   if (!(await page.evaluate(() => window.pps.stage.organLayersShown()))) fail('with ?gpuorgans=force the organs are never shown from the layers');
   else console.log('ok the organs are shown from the layers with the switch on');
   // The screen, paused, with the switch on and then off.
+  // (A canvas held still: the same picture twice, 1.5 s apart, once `ready` holds.)
+  const still = async (ready, arg) => {
+    let a = null;
+    for (let t0 = Date.now(); Date.now() - t0 < 60000;) {
+      await page.waitForTimeout(1500);
+      const ok = await page.evaluate(ready, arg);
+      const b = ok && (await page.evaluate(() => document.querySelector('canvas#veins').toDataURL()));
+      if (b && b === a) return b;
+      a = b;
+    }
+    return null;
+  };
+  // Two screens compared: inside max and mean, edges max, mean everywhere, the worst inside pixel, and a picture of the
+  // differences (each pixel's worst channel ×8, red inside the shapes, blue on edges) as a PNG data URL.
+  const measure = (on, off) => page.evaluate(async ([a, b]) => {
+    const img0 = {}; const px = async (u) => { const img = new Image(); img.src = u; await img.decode(); img0.w = img.width; const cv = document.createElement('canvas'); cv.width = img.width; cv.height = img.height; const g = cv.getContext('2d'); g.drawImage(img, 0, 0); return g.getImageData(0, 0, cv.width, cv.height).data; };
+    const p = await px(a), q = await px(b), W = img0.w;
+    // (Premultiplied: a PNG keeps colour unpremultiplied, and at the faint edge of the glow, alpha 1 to 4, its colour is noise.)
+    const pm = (d) => { const o = new Float32Array(d.length); for (let i = 0; i < d.length; i++) o[i] = (i & 3) === 3 ? d[i] : d[i] * d[i | 3] / 255; return o; };
+    const P = pm(p), Q = pm(q), H = Q.length / 4 / W;
+    const cv = document.createElement('canvas'); cv.width = W; cv.height = H;
+    const g = cv.getContext('2d'), dimg = g.createImageData(W, H), D = dimg.data;
+    let inside = 0, edge = 0, sum = 0, inSum = 0, inN = 0, worst = null;
+    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+      const i = (y * W + x) * 4;
+      let e = 0; for (let n = 0; n < 4; n++) e = Math.max(e, Math.abs(P[i + n] - Q[i + n]));
+      sum += e;
+      // (Inside: the switch-off screen's 3 × 3 neighbourhood within 6 levels of this pixel, and painted.)
+      let flat = Q[i + 3] > 0 && x > 0 && y > 0 && x < W - 1 && y < H - 1;
+      for (let dy = -1; dy <= 1 && flat; dy++) for (let dx = -1; dx <= 1 && flat; dx++) { const j = i + (dy * W + dx) * 4; for (let n = 0; n < 4; n++) if (Math.abs(Q[j + n] - Q[i + n]) > 6) flat = false; }
+      if (flat) { if (e > inside) worst = { x, y, on: [...p.slice(i, i + 4)], off: [...q.slice(i, i + 4)] }; inside = Math.max(inside, e); inSum += e; inN++; } else edge = Math.max(edge, e);
+      const v = Math.min(255, e * 8);
+      D[i] = flat ? v : 0; D[i + 1] = 0; D[i + 2] = flat ? 0 : v; D[i + 3] = 255;
+    }
+    g.putImageData(dimg, 0, 0);
+    return { inside, insideMean: inN ? inSum / inN : 0, edge, mean: sum / (W * H), worst, diff: cv.toDataURL() };
+  }, [on, off]);
+  // (On a failure the pictures are kept for the run's artifact, gpu-organs-shots: the screens on and off and their differences.)
+  const SHOTS = 'gpu-organs-shots';
+  const keep = (name, url) => { mkdirSync(SHOTS, { recursive: true }); writeFileSync(`${SHOTS}/${name}.png`, Buffer.from(url.split(',')[1], 'base64')); };
   const screenCompare = async (what) => {
     await page.evaluate(() => window.pps.host.send({ type: 'run', running: false }));
     const shot = async (on) => {
       await page.evaluate((v) => window.pps.stage.gpuOrgans(v), on);
-      let a = null;
-      for (let t0 = Date.now(); Date.now() - t0 < 60000;) {
-        await page.waitForTimeout(1500);
-        const ok = await page.evaluate((v) => window.pps.stage.organsSettled() && window.pps.stage.organLayersShown() === v, !!on);
-        const b = ok && (await page.evaluate(() => document.querySelector('canvas#veins').toDataURL()));
-        if (b && b === a) return b;
-        a = b;
-      }
-      return null;
+      return still((v) => window.pps.stage.organsSettled() && window.pps.stage.organLayersShown() === v, !!on);
     };
     const on = await shot('force'), off = await shot(false);
     if (!on || !off) fail('the screen never held still with the switch on and off');
     else {
-      const d = await page.evaluate(async ([a, b]) => {
-        const img0 = {}; const px = async (u) => { const img = new Image(); img.src = u; await img.decode(); img0.w = img.width; const cv = document.createElement('canvas'); cv.width = img.width; cv.height = img.height; const g = cv.getContext('2d'); g.drawImage(img, 0, 0); return g.getImageData(0, 0, cv.width, cv.height).data; };
-        const p = await px(a), q = await px(b), W = img0.w;
-        // (Premultiplied: a PNG keeps colour unpremultiplied, and at the faint edge of the glow, alpha 1 to 4, its colour is noise.)
-        const pm = (d) => { const o = new Float32Array(d.length); for (let i = 0; i < d.length; i++) o[i] = (i & 3) === 3 ? d[i] : d[i] * d[i | 3] / 255; return o; };
-        const P = pm(p), Q = pm(q), H = Q.length / 4 / W;
-        let inside = 0, edge = 0, sum = 0, inSum = 0, inN = 0;
-        for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
-          const i = (y * W + x) * 4;
-          let e = 0; for (let n = 0; n < 4; n++) e = Math.max(e, Math.abs(P[i + n] - Q[i + n]));
-          sum += e;
-          // (Inside: the switch-off screen's 3 × 3 neighbourhood within 6 levels of this pixel, and painted.)
-          let flat = Q[i + 3] > 0 && x > 0 && y > 0 && x < W - 1 && y < H - 1;
-          for (let dy = -1; dy <= 1 && flat; dy++) for (let dx = -1; dx <= 1 && flat; dx++) { const j = i + (dy * W + dx) * 4; for (let n = 0; n < 4; n++) if (Math.abs(Q[j + n] - Q[i + n]) > 6) flat = false; }
-          if (flat) { inside = Math.max(inside, e); inSum += e; inN++; } else edge = Math.max(edge, e);
-        }
-        return { inside, insideMean: inN ? inSum / inN : 0, edge, mean: sum / (W * H) };
-      }, [on, off]);
+      const d = await measure(on, off);
       const line = `screen, ${what}, switch on against off: inside max ${d.inside.toFixed(1)} mean ${d.insideMean.toFixed(2)}, edges max ${d.edge.toFixed(1)}, mean ${d.mean.toFixed(4)}`;
-      if (d.inside > SCREEN.inside || d.insideMean > SCREEN.insideMean || d.edge > SCREEN.edge || d.mean > SCREEN.mean) fail(`${line}: the organs look different drawn as layers`); else console.log(`ok ${line}`);
+      if (d.inside > SCREEN.inside || d.insideMean > SCREEN.insideMean || d.edge > SCREEN.edge || d.mean > SCREEN.mean) {
+        fail(`${line}: the organs look different drawn as layers (worst inside at x ${d.worst?.x}, y ${d.worst?.y}: on ${d.worst?.on} against off ${d.worst?.off})`);
+        const tag = what.replace(/\W+/g, '-');
+        keep(`${tag}-on`, on); keep(`${tag}-off`, off); keep(`${tag}-diff`, d.diff);
+        // Which layer it comes from: each layer painted on the GPU alone (the others pictures of the SVG copy, as before 4f2fd81b),
+        // then none, each against the same screen with the switch off. (Only told, never counted: the check above has failed.)
+        await page.evaluate(() => window.pps.stage.gpuOrgans('force'));
+        await still(() => window.pps.stage.organsSettled() && window.pps.stage.organLayersShown());
+        const paths = await page.evaluate(() => window.pps.stage.organPaths());
+        console.log(`  layers: ${paths.layers.map(([L, w]) => `${L} ${w}`).join(', ')}; live: ${paths.live}`);
+        const gpu = paths.layers.filter(([, w]) => w === 'GPU').map(([L]) => L);
+        for (const only of [...gpu.map((L) => [L]), []]) {
+          const c0 = await page.evaluate((off) => { const st = window.pps.stage; const c = st.organPaths().commits; st.bakeOff(off); return c; }, gpu.filter((L) => !only.includes(L)));
+          const s = await still((c) => window.pps.stage.organPaths().commits > c && window.pps.stage.organsSettled() && window.pps.stage.organLayersShown(), c0);
+          if (!s) { console.log(`  ${only[0] || 'no layer'} on the GPU: the screen never held still`); continue; }
+          const e = await measure(s, off);
+          console.log(`  ${only.length ? `only ${only[0]}` : 'no layer'} painted on the GPU: inside max ${e.inside.toFixed(1)} mean ${e.insideMean.toFixed(2)} (worst at x ${e.worst?.x}, y ${e.worst?.y}), edges max ${e.edge.toFixed(1)}, mean ${e.mean.toFixed(4)}`);
+          if (only.length) keep(`${tag}-only-${only[0]}-diff`, e.diff);
+        }
+        await page.evaluate(() => window.pps.stage.bakeOff([]));
+      } else console.log(`ok ${line}`);
     }
     await page.evaluate(() => window.pps.stage.gpuOrgans('force'));
   };
