@@ -3,7 +3,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { advanceStream, REVERSE_HOLD, bleedShapes, BLEED_JETS, chevFlowLevel, CHEV_Q_FULL } from '../src/ui/blood.js';
+import { advanceStream, REVERSE_HOLD, bleedShapes, BLEED_JETS, BLEED_DROPS, bleedPulse, poolFill, chevFlowLevel, CHEV_Q_FULL } from '../src/ui/blood.js';
 import { varixBead, beadRadius, BEAD_MAX } from '../src/ui/varix-bead.js';
 
 const src = (p) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8');
@@ -57,32 +57,46 @@ test('G9: a watched vessel that reverses marks its station with ⟲, and no band
 });
 
 const SITES = { varix: [800, 120], fundus: [870, 300], stomachPool: [880, 360] };
-test('G10: a bleed is a pool and four tapered jets into the lumen, each spurting in turn', () => {
-  const ev = bleedShapes({ site: 'VAR', total: 500 }, 90, 0.3, SITES);
-  assert.equal(ev.length, 1 + BLEED_JETS);
+test('G10: a bleed spurts with the heartbeat, runs down into the stomach and pools there, nothing popping on or off', () => {
+  const ev = bleedShapes({ site: 'VAR', total: 500 }, 90, 0.3, SITES, 80);
   assert.equal(ev[0][7], 0, 'the pool first');
-  for (const j of ev.slice(1)) {
+  assert.ok(ev.length <= 24, 'fits the shader');
+  assert.match(GL, /uniform vec4 bleedB\[24\];/);
+  const jets = ev.slice(1, 1 + BLEED_JETS), drops = ev.slice(1 + BLEED_JETS, 1 + BLEED_JETS + BLEED_DROPS), run = ev.slice(1 + BLEED_JETS + BLEED_DROPS);
+  for (const j of jets) {
     assert.equal(j[7], 1);
     assert.ok(j[3] < j[1], 'up the esophagus');
     assert.ok(j[4] > j[5], 'tapered toward its tip');
   }
-  for (const j of bleedShapes({ site: 'GV', total: 500 }, 90, 0.3, SITES).slice(1)) assert.ok(j[3] > j[1], 'down into the fundus');
-  // The pool grows on the square-root law.
-  const r = (total) => bleedShapes({ site: 'VAR', total }, 90, 0, SITES)[0][2];
-  assert.ok(Math.abs(r(2000) / r(500) - 2) < 1e-9);
-  // No jet pops on or off: each eases in from nothing and thins to nothing as its cycle wraps.
-  for (let i = 1; i <= BLEED_JETS; i++) {
+  for (const j of bleedShapes({ site: 'GV', total: 500 }, 90, 0.3, SITES).slice(1, 1 + BLEED_JETS)) assert.ok(j[3] > j[1], 'down into the fundus');
+  // The trickle runs downhill from the tear to the pool's surface.
+  const trickle = run.slice(0, -3);
+  assert.ok(trickle.length >= 3);
+  for (const s of trickle) assert.ok(s[3] > s[1], 'downhill');
+  assert.ok(Math.abs(trickle.at(-1)[3] - (ev[0][4] + 2)) < 1e-9, 'into the pool');
+  // The pool fills its bowl from below, its depth on the square-root law, and stays inside it.
+  const depth = (total) => { const p = bleedShapes({ site: 'VAR', total }, 90, 0, SITES)[0]; return p[1] + p[3] - p[4]; };
+  assert.ok(Math.abs(depth(400) / depth(100) - 2) < 1e-9);
+  assert.ok(depth(1e6) < 2 * ev[0][3], 'never above the bowl');
+  assert.equal(poolFill(0), 0.12, 'a puddle at once');
+  // The jets lengthen on each beat: longer in systole than between beats, and the beat follows the heart rate.
+  const jl = (t, hr) => { const j = bleedShapes({ site: 'VAR', total: 500 }, 90, t, SITES, hr)[1]; return Math.hypot(j[2] - j[0], j[3] - j[1]); };
+  assert.ok(jl(0.09, 60) > 1.5 * jl(0.6, 60));
+  assert.ok(Math.abs(bleedPulse(0.3, 60) - bleedPulse(1.3, 60)) < 1e-9 && Math.abs(bleedPulse(0.15, 120) - bleedPulse(0.65, 120)) < 1e-9);
+  // A slow bleed oozes: short jets and faint drops.
+  const slow = bleedShapes({ site: 'VAR', total: 500 }, 15, 0.09, SITES, 60);
+  assert.ok(Math.hypot(slow[1][2] - slow[1][0], slow[1][3] - slow[1][1]) < 0.4 * jl(0.09, 60));
+  // No shape pops on or off: every alpha moves smoothly.
+  for (const site of ['VAR', 'GV']) {
     let prev = null;
     for (let t = 0; t < 3; t += 0.002) {
-      const a = bleedShapes({ site: 'VAR', total: 500 }, 90, t, SITES)[i][6];
-      if (prev != null) assert.ok(Math.abs(a - prev) < 0.03, `jet ${i} at ${t.toFixed(3)} s`);
+      const a = bleedShapes({ site, total: 500 }, 90, t, SITES, 80).map((s) => s[6]);
+      if (prev) a.forEach((x, i) => assert.ok(Math.abs(x - prev[i]) < 0.03, `${site} shape ${i} at ${t.toFixed(3)} s`));
       prev = a;
     }
   }
-  // Paused, the jets stand at four different stages (a still picture of the spurts).
-  const still = bleedShapes({ site: 'VAR', total: 500 }, 90, 0, SITES).slice(1).map((j) => j[3]);
-  assert.equal(new Set(still.map((y) => y.toFixed(2))).size, BLEED_JETS);
-  assert.match(GL, /uniform vec4 bleedB\[10\];/);
+  // Paused, the drops stand at different stages (a still picture of the spray).
+  assert.equal(new Set(drops.map((d) => d[1].toFixed(2))).size, BLEED_DROPS);
 });
 
 test('G12 taken back: the pressure legend is as it was (its scale is absolute pressure; the cut-offs are HVPG)', () => {

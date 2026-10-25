@@ -435,12 +435,16 @@ export function createBolus(edges, nodes) {
 export const HIDDEN_SECONDS = HIDDEN_S;
 
 // ── An active variceal bleed on the figure (veins-gl.js draws it) ──
-// Blood jets from the rupture into the lumen (up the esophagus from an esophageal varix, down into the fundus from a
-// gastric one): four tapered streaks, each spurting in its turn, longer and faster with the bleeding rate, and the pool
-// in the stomach, growing with the square root of the blood lost. t: seconds (0 holds every jet at its own stage).
+// Blood spurts from the rupture into the lumen (up the esophagus from an esophageal varix, down into the fundus from a
+// gastric one) in time with the heartbeat: two jets that lengthen on each beat, and drops thrown off them that rise and
+// fall back under gravity. A slow bleed (under about 40 mL/min) oozes instead: the jets stay short and few drops fly.
+// Blood then runs down from the tear into the stomach, a trickle with beads sliding along it, and collects in a pool
+// that lies in the bottom of the stomach with a flat surface, its level rising with the square root of the blood lost.
+// t: seconds (0 holds every jet and drop at its own stage); hr: the heart rate (beats a minute).
 // Each shape: [x0, y0, x1, y1, r0, r1, alpha, kind]: a jet (kind 1) from its base (x0, y0; radius r0) to its tip
-// (x1, y1; radius r1), or the pool (kind 0), an ellipse at (x0, y0) with radii x1, y1.
-export const BLEED_JETS = 4;
+// (x1, y1; radius r1), or the pool (kind 0): a bowl, the ellipse at (x0, y0) with radii x1, y1, filled below the
+// surface at height r0.
+export const BLEED_JETS = 2;
 // A bleed's jets and pool come and go over BLEED_FADE seconds (never in one frame): the share shown steps toward 1 while
 // the bleed runs and toward 0 once it stops (Reduce Motion: at once), and every shape's alpha is scaled by its eased value.
 export const BLEED_FADE = 0.5;
@@ -451,19 +455,66 @@ export const fadeBleedShapes = (shapes, a) => {
   return k ? shapes.map((sh) => { const o = sh.slice(); o[6] *= k; return o; }) : [];
 };
 
-export function bleedShapes(bleed, rate, t, sites) {
+export const BLEED_DROPS = 12;
+const DROP_LIFE = 0.75, GRAV = 150;
+const frac = (x) => ((x % 1) + 1) % 1;
+const smooth = (e0, e1, x) => { const u = Math.min(1, Math.max(0, (x - e0) / (e1 - e0))); return u * u * (3 - 2 * u); };
+// The heartbeat's surge at time t: a sharp systolic peak over a quieter flow between beats, periodic and smooth.
+export const bleedPulse = (t, hr = 80) => 0.25 + 0.75 * Math.max(0, Math.cos(2 * Math.PI * (frac((t * Math.min(160, Math.max(45, hr || 80))) / 60) - 0.12))) ** 4;
+// The pool's fill (0..1 of its bowl) for the blood lost so far: a puddle at once, full by 1.5 L.
+export const poolFill = (total) => Math.min(1, Math.max(0.12, Math.sqrt(Math.max(0, total || 0) / 1500)));
+const hash = (i) => frac(Math.sin(i * 127.1 + 311.7) * 43758.5453);
+function along(pts, u) {
+  const seg = [];
+  let L = 0;
+  for (let i = 1; i < pts.length; i++) { const l = Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]); seg.push(l); L += l; }
+  let d = u * L;
+  for (let i = 0; i < seg.length; i++) {
+    if (d <= seg[i] || i === seg.length - 1) {
+      const f = Math.min(1, d / seg[i]), a = pts[i], b = pts[i + 1];
+      return [a[0] + (b[0] - a[0]) * f, a[1] + (b[1] - a[1]) * f, (b[0] - a[0]) / seg[i], (b[1] - a[1]) / seg[i]];
+    }
+    d -= seg[i];
+  }
+  return [...pts[pts.length - 1], 0, 1];
+}
+
+export function bleedShapes(bleed, rate, t, sites, hr = 80) {
   const gv = bleed.site === 'GV';
   const site = gv ? [sites.fundus[0], sites.fundus[1] - 4] : [sites.varix[0] + 8, sites.varix[1] + 12];
   const k = Math.min(1.8, Math.max(0.7, (rate || 50) / 90));
-  const pool = Math.min(40, Math.max(4, Math.sqrt((bleed.total || 0) / 5)));
-  const out = [[sites.stomachPool[0], sites.stomachPool[1], pool * 1.4, pool * 0.6, 0, 0, 0.34, 0]];
-  for (let i = 0; i < BLEED_JETS; i++) {
-    const a = (gv ? Math.PI / 2 : -Math.PI / 2) + (i - (BLEED_JETS - 1) / 2) * 0.2;
-    const ph = (((t * 0.9 + i / BLEED_JETS) % 1) + 1) % 1;
-    // Out fast, then slowing (√): each spurt eases in, so none pops on, and thins away as it reaches its length.
-    const len = (8 + 22 * Math.sqrt(ph)) * k;
-    const al = 0.9 * Math.min(1, ph / 0.12) * (1 - ph) ** 1.5;
-    out.push([site[0], site[1], site[0] + Math.cos(a) * len * 0.55, site[1] + Math.sin(a) * len, 1.6 * k, 0.45 * k, al, 1]);
+  const spurt = smooth(25, 70, rate || 50);   // 0 an ooze, 1 a spurting bleed
+  const up = gv ? 1 : -1;   // (the jets' way into the lumen: up the esophagus, down into the stomach)
+  // The pool: a bowl in the bottom of the stomach, filled to its surface.
+  const [px, py] = sites.stomachPool, rx = 72, ry = 40;
+  const surf = py + ry - 2 * ry * 0.85 * poolFill(bleed.total);
+  const out = [[px, py, rx, ry, surf, 0, 0.88, 0]];
+  // The jets, lengthening on each beat.
+  const p = bleedPulse(t, hr);
+  for (const [da, w] of [[-0.06, 1], [0.08, 0.7]].slice(0, BLEED_JETS)) {
+    const len = (4 + (6 + 28 * p) * spurt) * k * w, a = up * Math.PI / 2 + da;
+    out.push([site[0], site[1], site[0] + Math.cos(a) * len, site[1] + Math.sin(a) * len, 1.7 * k * w, 0.45 * k, 0.95 * (0.6 + 0.4 * p), 1]);
+  }
+  // The drops: each thrown off at its birth, as far as that moment's surge throws it, and falling back; each eases in from
+  // nothing and thins to nothing before it is thrown again, so none pops on or off.
+  for (let i = 0; i < BLEED_DROPS; i++) {
+    const age = frac(t / DROP_LIFE + i / BLEED_DROPS) * DROP_LIFE, pb = bleedPulse(t - age, hr);
+    const a = up * Math.PI / 2 + (hash(i) - 0.5) * 0.24, v = Math.sqrt(2 * GRAV * (5 + 18 * pb) * k) * (0.35 + 0.65 * spurt);
+    const x = site[0] + Math.cos(a) * v * age, y = site[1] + Math.sin(a) * v * age + 0.5 * GRAV * age * age;
+    const r = (0.8 + 0.9 * hash(i + 40)) * k;
+    // (Gone once it falls back past the tear, into the wall below it.)
+    const fall = gv ? 1 : 1 - smooth(site[1] + 4, site[1] + 40, y);
+    const al = 0.9 * smooth(0, 0.12, age) * (1 - age / DROP_LIFE) ** 1.2 * (0.3 + 0.7 * spurt) * fall;
+    const vy = Math.sin(a) * v + GRAV * age, vx = Math.cos(a) * v, sp = Math.hypot(vx, vy) || 1;
+    out.push([x, y, x - (vx / sp) * r * 1.4, y - (vy / sp) * r * 1.4, r, r * 0.7, al, 1]);
+  }
+  // The trickle down into the stomach, and beads of blood sliding along it toward the pool.
+  const run = gv ? [site, [site[0] + 2, site[1] + 40], [site[0] + 4, site[1] + 100], [px - 4, surf + 2]]
+    : [site, [site[0] + 7, site[1] + 18], [site[0] + 23, site[1] + 56], [site[0] + 41, site[1] + 116], [site[0] + 57, site[1] + 176], [px - 6, surf + 2]];
+  for (let i = 1; i < run.length; i++) out.push([run[i - 1][0], run[i - 1][1], run[i][0], run[i][1], 1.4 * k, 1.2 * k, 0.78, 1]);
+  for (let i = 0; i < 3; i++) {
+    const u = frac(t * 0.55 + i / 3), [x, y, tx, ty] = along(run, u), r = 2.1 * k;
+    out.push([x, y, x - tx * r * 1.6, y - ty * r * 1.6, r, r * 0.8, 0.9 * Math.sin(Math.PI * u) ** 0.8, 1]);
   }
   return out;
 }

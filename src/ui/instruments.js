@@ -9,8 +9,10 @@ import { simTime, isPaused } from './clock.js?v=5151312569';
 import { createEndoGL } from './endo-gl.js?v=10311b4cca';
 import { renderEndo } from './endo-render.js?v=b4ff4e6dc9';
 import { endoGrow } from './endo-size.js?v=b0a31f2bde';
-import { DEFLATE_MS, BAND_MS, BAND_DELAY_MS, fadeIn, glide } from './endo-motion.js?v=fdca92fc81';
-import { FONT } from './charts.js?v=13e20afa56';
+import { DEFLATE_MS, BAND_MS, BAND_DELAY_MS, fadeIn, glide } from './endo-motion.js?v=1393297b61';
+import { drawScopeBleed } from './endo-bleed.js?v=2711f28cc0';
+import { poolFill } from './blood.js?v=856babbc01';
+import { FONT } from './charts.js?v=ce74d37e11';
 import { store, updateParams, varicesPresent } from './store.js?v=926dabfaef';
 import { balanceHold, balanceLine } from './balance-hold.js?v=1792704e7a';
 import { frameFor, cancelFrame } from './frame.js?v=19b3f2915c';
@@ -64,9 +66,8 @@ export function createEndoscopy({ onAction }) {
   // Rendered endoscopic view (see endo-render.js): a per-pixel 3D shading of the lumen with raised,
   // winding varices, drawn once per state into a cached bitmap, so it is perfectly steady. Balloon,
   // bleeding and the scope mask are drawn on top.
-  const rnd = (seed) => { let x = seed >>> 0; return () => { x = (x * 1664525 + 1013904223) >>> 0; return x / 4294967296; }; };
   const gl = createEndoGL(), glOut = document.createElement('canvas');
-  let peak = 0, peakRed = 0, an = null, lastT = 0, last = null, raf = 0, bleedT = 0, cache = { key: '', img: null }, glKey = '', painted = '', mv = null, held = null;
+  let peak = 0, peakRed = 0, an = null, lastT = 0, last = null, raf = 0, bleedLast = null, poolA = 0, cache = { key: '', img: null }, glKey = '', painted = '', mv = null, held = null;
   const dark = matchMedia('(prefers-color-scheme: dark)'), still = matchMedia('(prefers-reduced-motion: reduce)');
   // The field as it showed before its bitmap last changed (fadeCv), the new one fading in over it from fadeT0
   // (endo-motion.js); the balloon's and the jet's strength (0..1) easing toward on or off. On the display clock, so a
@@ -171,10 +172,13 @@ export function createEndoscopy({ onAction }) {
     // as it is. It is asked for on every frame of the model, and a full repaint each time (a scaled bitmap and the rim) held
     // a phone's or a browser without a GPU's main thread for most of every frame.
     const bleeding = !!(f.bleed?.active && f.bleed.site === 'VAR'), balloon = !!f.params?.balloonEso, root = document.documentElement;
+    // (The last bleed seen: its jet and pool keep drawing from it while they fade out after the bleed stops.)
+    if (bleeding) bleedLast = { rate: f.metrics?.bleeding?.rate, total: f.bleed.total, hr: f.metrics?.vitals?.hr ?? f.metrics?.hr };
     // The new field fades in over the old; the balloon and the jet ease in and out (endo-motion.js).
     const tu = performance.now(), du = uiT ? Math.min(100, tu - uiT) : 0; uiT = tu;
-    if (still.matches) { fadeT0 = -1; balA = +balloon; jetA = +bleeding; }
-    else { balA = glide(balA, +balloon, du); jetA = glide(jetA, +bleeding, du); }
+    const poolT = bleedLast ? poolFill(bleedLast.total) : 0;
+    if (still.matches) { fadeT0 = -1; balA = +balloon; jetA = +bleeding; poolA = poolT; }
+    else { balA = glide(balA, +balloon, du); jetA = glide(jetA, +bleeding, du); poolA = poolA ? glide(poolA, poolT, du, 600) : poolT; }
     fadeA = fadeT0 < 0 ? 1 : fadeIn(tu - fadeT0);
     if (fadeA >= 1) fadeT0 = -1;
     shown = img;
@@ -198,19 +202,12 @@ export function createEndoscopy({ onAction }) {
       ctx.strokeStyle = cssAlpha('--white', 0.5); ctx.lineWidth = 2; ctx.stroke();
       ctx.globalAlpha = 1;
     }
-    if (jetA > 0) {
-      ctx.globalAlpha = jetA;
-      // Active bleeding: a jet from the ruptured column and blood pooling dependently.
-      bleedT = (bleedT + 1) % 1000;
-      const jx = cx + R * 0.28, jy = cy + R * 0.05;
-      const pool = ctx.createRadialGradient(cx, cy + R * 0.8, R * 0.1, cx, cy + R * 0.8, R * 0.75);
-      pool.addColorStop(0, cssVar('--scope-blood-pool')); pool.addColorStop(1, cssAlpha('--scope-blood-pool-edge', 0));
-      ctx.fillStyle = pool; ctx.fillRect(cx - R, cy, 2 * R, R);
-      const jr = rnd(77), sway = 0.1 * Math.sin(bleedT * 0.02);
-      ctx.fillStyle = cssVar('--scope-blood-jet');
-      for (let i = 0; i < 70; i++) { const u = jr(), a = -1.9 + sway + (jr() - 0.5) * 0.5; ctx.beginPath(); ctx.arc(jx + Math.cos(a) * u * R * 0.5, jy + Math.sin(a) * u * R * 0.5 + u * u * R * 0.4, 1.2 + 2.2 * (1 - u), 0, Math.PI * 2); ctx.fill(); }
-      ctx.globalAlpha = 1;
+    if (jetA > 0 && bleedLast) {
+      // Active bleeding: blood spurting (or oozing) from the ruptured column, running down the wall and pooling in the
+      // lowest part of the lumen (endo-bleed.js). On the model's clock, so a paused bleed holds still.
+      drawScopeBleed(ctx, { cx, cy, R, jx: cx + R * 0.28, jy: cy + R * 0.05, t: still.matches ? 0.3 : simTime(), a: jetA, rate: bleedLast.rate, fill: poolA, hr: bleedLast.hr });
     }
+    if (jetA <= 0 && !bleeding) { bleedLast = null; poolA = 0; }
     ctx.restore();
     ctx.strokeStyle = cssVar('--scope-rim'); ctx.lineWidth = 7; ctx.beginPath(); ctx.arc(cx, cy, R, 0, Math.PI * 2); ctx.stroke();
   }

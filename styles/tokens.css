@@ -129,6 +129,7 @@
   --chart-pre-band: rgba(92, 128, 186, .10); --chart-post-band: rgba(84, 164, 142, .10);   /* (the zones before and after the liver, the ladder's: a cool blue and a green, as quiet as the liver's warm one) */
   --print-ink: #111; --print-ink-2: #3d3d3d; --print-ink-3: #6b6b6b; --print-rule: #cfcfcf; --print-paper: #fff;
   --bleed-spray: rgb(150, 14, 34);   /* an active bleed's spray on the figure (WebGL) */
+  --bleed-fresh: rgb(204, 26, 40); --bleed-deep: rgb(62, 4, 14);   /* its bright core, and the pool's depths */
   --debug-line: #7dd3fc;   /* the ?debug overlay's frame-time graph */
   /* chart series (validated categorical order, light) */
   --s1: #2a78d6; --s2: #eb6834; --s3: #1baf7a; --s4: #eda100; --s5: #e87ba4; --s6: #008300; --s7: #4a3aa7; --s8: #e34948;
@@ -182,8 +183,9 @@
   /* instruments drawn as their machines are, dark in both themes */
   --scope-bg: #05070D; --mon-bg: #07090C; --mon-grid: #1C2128; --mon-line: #2A3038; --mon-text: #9AA4B2; --mon-alarm: #FF7A85;
   /* endoscopy and FibroScan screens (both themes): balloon glare, blood pool and jet, the scope's rim */
-  --scope-balloon-hi: rgba(255, 250, 225, .55); --scope-balloon-lo: rgba(235, 215, 160, .35); --scope-blood-pool: rgba(95, 0, 12, .95); --scope-blood-pool-edge: #780014;
-  --scope-blood-jet: rgba(165, 8, 28, .85); --scope-rim: #0c0d10;
+  --scope-balloon-hi: rgba(255, 250, 225, .55); --scope-balloon-lo: rgba(235, 215, 160, .35); --scope-blood-pool: rgba(40, 0, 7, .97); --scope-blood-pool-edge: #780014;
+  --scope-blood-jet: rgba(165, 8, 28, .92); --scope-blood-fresh: rgb(214, 30, 42); --scope-blood-pool-top: rgba(122, 4, 20, .95);
+  --scope-blood-haze: rgb(120, 0, 16); --scope-rim: #0c0d10;
   /* endoscopy (WebGL, both themes): mucosa pale to deep, Z-line, surface vessels, varices small to large, crest highlight,
      red wale marks, band halo and band, the scope light near and far, glint, the dark lumen */
   --endo-mucosa: rgb(226, 150, 132); --endo-mucosa-deep: rgb(150, 52, 50); --endo-zline: rgb(200, 70, 60); --endo-vessels: rgb(184, 84, 92);

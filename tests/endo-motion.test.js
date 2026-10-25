@@ -29,8 +29,31 @@ test('banding eases: the band follows the deflating vein, nothing snaps', () => 
   assert.doesNotMatch(src, /tween\([^)]*, now, 1, 0\)/, 'no tween runs in 1 ms (a snap)');
   // The balloon and the jet are drawn at their easing strength, not on a bare on/off.
   assert.match(src, /if \(balA > 0\)/);
-  assert.match(src, /if \(jetA > 0\)/);
+  assert.match(src, /if \(jetA > 0 && bleedLast\)/);
+  // The bleed runs on the model's clock (still while paused) and its pool's level eases.
+  assert.match(src, /t: still\.matches \? 0\.3 : simTime\(\)/);
+  assert.match(src, /poolA = poolA \? glide\(poolA, poolT, du, 600\) : poolT;/);
   assert.doesNotMatch(src, /if \(f\.params\?\.balloonEso\) \{/);
   // Each new field bitmap keeps the one shown before it to fade from.
   assert.match(src, /if \(glKey\) keep\(glOut, res\)/);
+});
+
+test('scope bleed: drops thrown on each beat ease in and out, the pool rises with the blood lost and stays in the lumen', async () => {
+  const { scopeDrops, scopePoolY, SCOPE_DROPS } = await import('../src/ui/endo-motion.js');
+  let prev = null;
+  for (let t = 0; t < 3; t += 0.002) {
+    const d = scopeDrops(t, 90, 80);
+    assert.equal(d.length, SCOPE_DROPS);
+    if (prev) d.forEach((x, i) => assert.ok(Math.abs(x[3] - prev[i][3]) < 0.03, `drop ${i} at ${t.toFixed(3)} s`));
+    prev = d;
+  }
+  // Thrown up and away from the tear, then falling back.
+  const up = scopeDrops(0.3, 90, 80).filter((x) => x[3] > 0.3);
+  assert.ok(up.some((x) => x[1] < 0), 'some drops above the tear');
+  // An ooze throws them a shorter way than a spurt (how high above the tear they rise).
+  const reach = (rate) => Math.max(...scopeDrops(0.3, rate, 80).map((x) => -x[1]));
+  assert.ok(reach(15) < 0.6 * reach(120));
+  // The pool: low at first, higher as it fills, never above the lumen's middle.
+  assert.ok(scopePoolY(0, 100, 0.12) > scopePoolY(0, 100, 0.5) && scopePoolY(0, 100, 0.5) > scopePoolY(0, 100, 1));
+  assert.ok(scopePoolY(0, 100, 1) >= 0 && scopePoolY(0, 100, 0) < 100);
 });

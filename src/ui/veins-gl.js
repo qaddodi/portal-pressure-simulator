@@ -32,7 +32,7 @@
 // createVeinsGL(canvas) returns null only when WebGL2 is unavailable altogether.
 
 import { CHEV_GLSL } from './chevron-glsl.js?v=96ec7c6666';
-import { SLOT, DYE_BINS } from './blood.js?v=e668d01823';
+import { SLOT, DYE_BINS } from './blood.js?v=856babbc01';
 import { cssRGB } from './util.js?v=d2c95a1b16';
 import { CELL, ENT_W, binVeins, splitRows } from './veins-bin.js?v=17351d9767';
 import { gpuProbe } from './gpu-probe.js?v=e82dc07b45';
@@ -68,7 +68,7 @@ const QUAD = new Float32Array([0, 0, 1, 0, 0, 1, 1, 1]);
 // The origin colours flattened once per palette (the palette is one object for the page's life), not every frame (P8).
 const OC = new WeakMap();
 const originColOf = (src) => { let a = OC.get(src); if (!a) OC.set(src, a = new Float32Array(src.flat())); return a; };
-const SCR = { world: new Float32Array(9), inv: new Float32Array(9), be: new Float32Array(40), bb: new Float32Array(40), ncv: new Float32Array(48), hb: new Float32Array(64), hr: new Float32Array(16) };
+const SCR = { world: new Float32Array(9), inv: new Float32Array(9), be: new Float32Array(96), bb: new Float32Array(96), ncv: new Float32Array(48), hb: new Float32Array(64), hr: new Float32Array(16) };
 const ORIGIN_WHITE = [[1, 1, 1], [1, 1, 1], [1, 1, 1], [1, 1, 1], [1, 1, 1]];
 const put = (dst, src) => { dst.set(src); return dst; };
 
@@ -838,8 +838,8 @@ uniform vec3 originCol[5];
 uniform vec3 dyeCol;
 uniform vec3 revCol;                   // the moving blood's color where flow runs backwards
 uniform vec3 inkLight, inkDark;
-uniform vec4 bleedE[10];               // an active bleed (stage.js bleedSpray): a jet's base and tip, or the pool's centre and radii (world)
-uniform vec4 bleedB[10];               // a jet's radius at its base and at its tip, alpha, kind (1 jet, 0 pool)
+uniform vec4 bleedE[24];               // an active bleed (stage.js bleedSpray): a jet's base and tip, or the pool's centre and radii (world)
+uniform vec4 bleedB[24];               // a jet's radius at its base and at its tip (the pool: its surface's height), alpha, kind (1 jet, 0 pool)
 uniform int bleedN;
 uniform vec4 noChev[12];               // world boxes (x0, y0, x1, y1) where no flow arrowhead is drawn: a figure reading sits there
 uniform int noChevN;
@@ -1225,26 +1225,34 @@ void main() {
     v = vec4(col * v.a, v.a);
   }
   vec4 o = over(fluidC, over(v, pl));
-  // An active bleed: jets from the rupture (tapered streaks, densest at the base) and the pool in the stomach (a
-  // feathered edge, and a darker meniscus just inside it).
-  for (int i = 0; i < 10; i++) {
+  // An active bleed: jets and drops from the rupture (tapered streaks, a bright core under a darker skin) and the pool in
+  // the stomach (a bowl filled to a flat surface that ripples a little, a wet sheen just under it, darker with depth and
+  // toward the bowl's edge).
+  vec3 bc = vec3(${cssRGB('--bleed-spray').map((v) => v.toFixed(1)).join(', ')}) / 255.0;
+  vec3 bf = vec3(${cssRGB('--bleed-fresh').map((v) => v.toFixed(1)).join(', ')}) / 255.0;
+  vec3 bd = vec3(${cssRGB('--bleed-deep').map((v) => v.toFixed(1)).join(', ')}) / 255.0;
+  for (int i = 0; i < 24; i++) {
     if (i >= bleedN) break;
     vec4 bE = bleedE[i], bB = bleedB[i];
-    vec3 bc = vec3(${cssRGB('--bleed-spray').map((v) => v.toFixed(1)).join(', ')}) / 255.0;
     float a;
+    vec3 bcol;
     if (bB.w > 0.5) {
       vec2 pa = w - bE.xy, ba = bE.zw - bE.xy;
       float h = clamp(dot(pa, ba) / max(dot(ba, ba), 1e-6), 0.0, 1.0);
-      float d = length(pa - ba * h) - mix(bB.x, bB.y, h);
-      a = (1.0 - smoothstep(-0.75 * pxW, 0.75 * pxW, d)) * bB.z * (1.0 - 0.55 * h);
+      float r = mix(bB.x, bB.y, h), d = length(pa - ba * h) - r;
+      a = (1.0 - smoothstep(-0.75 * pxW, 0.75 * pxW, d)) * bB.z * (1.0 - 0.35 * h);
+      bcol = mix(bc * 0.8, bf, smoothstep(0.15, 0.85, clamp(-d / max(r, 1e-3), 0.0, 1.0)));
     } else {
-      vec2 d = (w - bE.xy) / max(bE.zw, vec2(1e-3));
-      float r = length(d), aa = pxW / max(min(bE.z, bE.w), 1e-3);
-      float rim = smoothstep(0.7, 0.9, r) * (1.0 - smoothstep(0.9, 1.0, r));
-      a = min(1.0, bB.z + 0.3 * rim) * (1.0 - smoothstep(0.84, 1.0 + aa, r));
-      bc = mix(bc, bc * 0.55, rim);
+      vec2 q = (w - bE.xy) / max(bE.zw, vec2(1e-3));
+      float r = length(q), aa = pxW / max(min(bE.z, bE.w), 1e-3);
+      float sy = bB.x + 0.5 * sin(w.x * 0.16 + clock * 1.7);
+      float under = w.y - sy, depth = clamp(under / max(bE.y + bE.w - sy, 1e-3), 0.0, 1.0);
+      bcol = mix(bc, bd, smoothstep(0.0, 0.75, depth));
+      bcol = mix(bcol, bf * 1.2, 0.5 * smoothstep(0.4, 1.4, under) * (1.0 - smoothstep(1.4, 3.6, under)));
+      bcol = mix(bcol, bd * 0.7, 0.55 * smoothstep(0.82, 1.0, r));
+      a = bB.z * (1.0 - smoothstep(1.0 - aa, 1.0 + aa, r)) * smoothstep(-0.75 * pxW, 0.75 * pxW, under);
     }
-    if (a > 0.0) o = over(vec4(bc * a, a), o);
+    if (a > 0.0) o = over(vec4(min(bcol, vec3(1.0)) * a, a), o);
   }
   if (lineOn == 1) o = over(texelFetch(lineL, ip, 0), o);
   outColor = o;
@@ -2124,10 +2132,10 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false }) {
       gl.uniform3f(U.inkDark, ...(blood.inkDark || [0.1, 0.1, 0.16]));
       const bl = blood.bleed || [];
       const be = SCR.be.fill(0), bb = SCR.bb.fill(0);
-      for (let i = 0; i < Math.min(10, bl.length); i++) for (let j = 0; j < 4; j++) { be[i * 4 + j] = bl[i][j]; bb[i * 4 + j] = bl[i][4 + j]; }
+      for (let i = 0; i < Math.min(24, bl.length); i++) for (let j = 0; j < 4; j++) { be[i * 4 + j] = bl[i][j]; bb[i * 4 + j] = bl[i][4 + j]; }
       gl.uniform4fv(U.bleedE, be);
       gl.uniform4fv(U.bleedB, bb);
-      gl.uniform1i(U.bleedN, Math.min(10, bl.length));
+      gl.uniform1i(U.bleedN, Math.min(24, bl.length));
       const nc = (blood.noChev || []).slice(0, 12), ncv = SCR.ncv.fill(0);
       nc.forEach((b, i) => ncv.set(b, i * 4));
       gl.uniform4fv(U.noChev, ncv);
