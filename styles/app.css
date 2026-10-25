@@ -6665,9 +6665,10 @@ html.thumb-ui .menu.from-dock { clip-path: inset(-64px -64px calc(var(--sink, 0p
 /* The criteria card (tool-criteria.js, teaching card C2): a guideline's rules as rows, in the card so a phone shows them. A live row ends
    on its reading and a quiet tick (met) or dash (not), which cross-fade; lit tints the row that applies to the case. */
 .pz-crit { font-size: max(12px, var(--bs, 14px)); }
-.pzc-list { list-style: none; margin: 0; padding: 0; display: grid; gap: .35em; }
-.pzc-row { display: grid; grid-template-columns: 1fr auto; align-items: baseline; column-gap: .8em; padding: .4em .6em; border-radius: 8px; background: color-mix(in srgb, var(--text) 5%, transparent); font: 500 1em/1.3 var(--font-ui); color: var(--text); transition: background-color .4s var(--ease); }
-.pzc-row[data-lit] { background: color-mix(in srgb, var(--accent) 16%, transparent); box-shadow: inset 2px 0 0 var(--accent); }
+.pzc-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.pzc-row { display: grid; grid-template-columns: 1fr auto; align-items: baseline; column-gap: .8em; padding: .45em 0; border-top: 1px solid color-mix(in srgb, var(--text) 8%, transparent); font: 500 1em/1.3 var(--font-ui); color: var(--text-2); transition: color .3s var(--ease); }
+.pzc-row:first-child { border-top: 0; }   /* (the quick check's rows: a hairline between, no fills) */
+.pzc-row[data-lit] { color: var(--text); font-weight: 600; }   /* (the row that fits the case: full-white words, as a key tile's name) */
 .pzc-t { min-width: 0; }
 .pzc-end { display: inline-flex; align-items: baseline; gap: .45em; white-space: nowrap; font-weight: 600; font-variant-numeric: tabular-nums; color: var(--text-2); }
 .pzc-note { color: var(--text); }
@@ -6687,10 +6688,10 @@ html.thumb-ui .menu.from-dock { clip-path: inset(-64px -64px calc(var(--sink, 0p
 .pz-swap > .pz-pa { display: flex; flex-direction: column; align-items: flex-start; gap: .6em; }
 .pz-pq { color: var(--text); }
 .pz-pchips { gap: 6px; }
-.pz-pchip[data-right] { background: color-mix(in srgb, var(--ok) 18%, transparent); border-color: color-mix(in srgb, var(--ok) 60%, transparent); color: var(--text); }
+.pz-pchip[data-right] { color: var(--text); border-color: var(--ok); box-shadow: inset 0 0 0 .5px var(--ok); }   /* (as a pressed choice, .pz-abb[aria-pressed], in the ok colour) */
 .pz-pchip:disabled { cursor: default; }
 /* A case card's own question (slide caseQ): the case's type and size, on a line of its own under it, in the accent so it reads as the ask. */
-.pz-case-q { margin-top: .55em; color: color-mix(in srgb, var(--accent) 70%, var(--text)); }
+.pz-case-q { margin-top: .55em; }
 
 /* Self-study (presenter.js paintStudy, placeStudy; Settings while presenting, this device only): the slide's handout question
    under a "Question" handle, its answer hidden until a tap. It comes and goes with the teaching card and never touches it. */
@@ -6705,13 +6706,13 @@ html.thumb-ui .menu.from-dock { clip-path: inset(-64px -64px calc(var(--sink, 0p
 @media (prefers-reduced-transparency: reduce) { :is(.pzq-h, .pzq-card) { background: color-mix(in srgb, var(--surface) 96%, transparent); -webkit-backdrop-filter: none; backdrop-filter: none; } }
 :root[data-noglass] :is(.pzq-h, .pzq-card) { background: color-mix(in srgb, var(--surface) 96%, transparent); -webkit-backdrop-filter: none; backdrop-filter: none; }
 .app.pz-hi :is(.pzq-h, .pzq-card) { background: color-mix(in srgb, var(--surface) 92%, transparent); border-color: color-mix(in srgb, var(--text) 32%, transparent); }
-.pzq-h { left: var(--pzq-x, 24px); top: var(--pzq-y, 24px); display: inline-flex; align-items: center; gap: 6px; height: 44px; box-sizing: border-box; padding: 0 16px 0 12px; border-radius: var(--r-sheet); font: 500 14px/1 var(--font-ui); color: var(--text); white-space: nowrap; cursor: pointer; -webkit-tap-highlight-color: transparent; transition: left .35s var(--ease), top .35s var(--ease), right .35s var(--ease), bottom .35s var(--ease), color .25s var(--ease), background-color .25s var(--ease); }
-.pzq-h svg { width: 18px; height: 18px; color: var(--accent); }
-.pz-study.open .pzq-h { color: var(--accent); }
+.pzq-h { left: var(--pzq-x, 24px); top: var(--pzq-y, 24px); display: inline-flex; align-items: center; gap: 6px; height: 44px; box-sizing: border-box; padding: 0 16px 0 12px; border-radius: var(--r-sheet); font: 500 14px/1 var(--font-ui); color: var(--text-2); white-space: nowrap; cursor: pointer; -webkit-tap-highlight-color: transparent; transition: left .35s var(--ease), top .35s var(--ease), right .35s var(--ease), bottom .35s var(--ease), color .25s var(--ease), background-color .25s var(--ease); }
+.pzq-h svg { width: 18px; height: 18px; color: var(--text-2); }
+.pz-study.open .pzq-h { color: var(--text); }
 .pzq-card { left: var(--pzq-x, 24px); top: calc(var(--pzq-y, 24px) + 52px); width: var(--pzq-w, 300px); max-height: var(--pzq-h, 60vh); box-sizing: border-box; overflow: hidden; padding: 14px 16px 12px; border-radius: var(--r-card); display: flex; flex-direction: column; align-items: flex-start; gap: 10px; font: 400 var(--pzq-f, 15px)/1.42 var(--font-ui); color: var(--text); opacity: 0; visibility: hidden; transform: translateY(-6px); transition: opacity .28s var(--ease), transform .28s var(--ease), visibility 0s linear .28s, left .35s var(--ease), top .35s var(--ease), right .35s var(--ease), bottom .35s var(--ease), width .35s var(--ease); }
 .pz-study.open .pzq-card { opacity: 1; visibility: visible; transform: none; transition: opacity .32s var(--ease), transform .32s var(--ease), visibility 0s, left .35s var(--ease), top .35s var(--ease), right .35s var(--ease), bottom .35s var(--ease), width .35s var(--ease); }
 .pzq-q { margin: 0; font-weight: 500; }
-.pzq-show { border: 0; background: none; padding: 4px 0; font: 500 max(12px, calc(var(--pzq-f, 15px) - 1px))/1.2 var(--font-ui); color: var(--accent); cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.pzq-show { appearance: none; border: 0; cursor: pointer; font: 600 max(12px, calc(var(--pzq-f, 15px) - 2px))/1 var(--font-ui); color: var(--accent-ink, var(--accent)); white-space: nowrap; padding: .45em .8em; border-radius: 999px; background: color-mix(in srgb, var(--accent) 10%, transparent); -webkit-tap-highlight-color: transparent; }   /* (the quick check's Show answer, .pzc-hint) */
 .pzq-a { display: grid; grid-template-rows: 0fr; opacity: 0; width: 100%; transition: grid-template-rows .32s var(--ease), opacity .32s var(--ease); }
 .pzq-a > p { margin: 0; min-height: 0; overflow: hidden; color: var(--text-2); }
 .pz-study.told .pzq-a, .pz-study.pzq-fit .pzq-a { grid-template-rows: 1fr; opacity: 1; }
@@ -6724,12 +6725,11 @@ html.thumb-ui .menu.from-dock { clip-path: inset(-64px -64px calc(var(--sink, 0p
 
 /* The Doppler reading grid (tool option grid, doppler.js): Direction, Speed and Shape in three small boxes under the trace. With
    hold the boxes keep their names and leave their readings blank until the answer slide, where they ease in. */
-.dop-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; margin: 8px 0 0; padding: 0; }
+.dop-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px 12px; margin: 8px 0 0; padding-top: 8px; border-top: 1px solid var(--hairline); }   /* (laid out as the readings under the trace, .dop-stats) */
 .dop-grid[hidden] { display: none; }
-.dop-grid > div { min-width: 0; padding: 6px 8px 7px; border: 1px solid var(--hairline); border-radius: var(--r-control); transition: background-color .3s var(--ease), border-color .3s var(--ease); }
-.dop-grid > div[data-lit] { border-color: color-mix(in srgb, var(--accent) 55%, transparent); background: color-mix(in srgb, var(--accent) 10%, transparent); }
-.dop-grid dt { font: 500 12px/1.3 var(--font-ui); color: var(--text-3); }
-.dop-grid > div[data-lit] dt { color: color-mix(in srgb, var(--accent) 70%, var(--text)); }
-.dop-grid dd { margin: 2px 0 0; font: 600 max(12px, var(--fs-14))/1.3 var(--font-ui); color: var(--text); overflow-wrap: anywhere; transition: opacity .32s var(--ease); }
+.dop-grid > div { min-width: 0; }
+.dop-grid > div[data-lit] dt { color: var(--text); }   /* (the step the slide is about: its name in full white) */
+.dop-grid dt { font-size: var(--fs-12); color: var(--text-3); font-weight: 500; transition: color .3s var(--ease); }
+.dop-grid dd { margin: 0; font-size: var(--fs-14); font-weight: 600; color: var(--text); overflow-wrap: anywhere; transition: opacity .32s var(--ease); }
 .pz-data[data-held] .pz-tool .dop-grid dd { opacity: 0; }
 .pz-data[data-held-now] .pz-tool .dop-grid dd { transition: none; }

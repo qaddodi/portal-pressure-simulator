@@ -480,7 +480,7 @@ every screen shows them (a phone never shows the `causes` line, and a tight lapt
 (section 8.6), `op` one of `>=`, `>`, `<=`, `<`, and `value` in the tile's own units (`['No ascites off diuretics', 'asc', '<', 0.15]`
 reads litres, as the Ascites tile does). A live row ends on its reading as its tile prints it, with a quiet tick when met and a dash when
 not, and follows the model as the tiles do. `note` is the case's own value in a few words at the row's right ("C 10", "B 8, not
-bleeding"); `lit: true` tints the row that applies to the case. `ticks: false` leaves the marks off, for a classification such as the
+bleeding"); `lit: true` sets the row that applies to the case in full-white words (the other rows stay quieter; rows are split by a hairline, as the quick check's, with no fills). `ticks: false` leaves the marks off, for a classification such as the
 Sarin classes. `title` names the card (keep it under about 36 characters; `short` is a phone's shorter title). The slide's tiles sit under
 the card, never beside it. Give the slide no `causes` with the same list, and check every row's words against the guideline. Used on
 Variceal bleed 8, Choose the treatment 3, Recompensation 7, Gastric varices 2, Beta-blockers 8 and Pregnancy 6 and 7.
@@ -519,9 +519,9 @@ switch patients, and a difference between two patients is not a response.)
 #### The Doppler reading grid: `grid` on `tool: doppler`
 
 *Read the Doppler* teaches a method, direction, then speed, then shape, and the grid draws it. `tool: { kind: 'doppler', vessel:
-'PV_TRUNK', grid: true }` puts three small boxes under the trace, **Direction**, **Speed** and **Shape**, filled from the same
+'PV_TRUNK', grid: true }` puts three readings under the trace, laid out as its Peak and Trough readings, **Direction**, **Speed** and **Shape**, filled from the same
 reading as the strip's words ("Hepatofugal", "8.2 cm/s", "Continuous"). `grid: ['speed']` (any of `'dir'`, `'speed'`,
-`'shape'`) tints the box the slide is about. On a `hold` slide the boxes keep their names and leave their readings blank; on the
+`'shape'`) sets the name of the box the slide is about in full white. On a `hold` slide the boxes keep their names and leave their readings blank; on the
 answer slide the readings ease in. Used on every Doppler slide of Read the Doppler, Doppler 2 to 11 and TIPS Doppler 9 and 13.
 
 #### Self-study (a viewer's setting, no slide field)
@@ -949,7 +949,7 @@ No new code is needed: the presenter reads `vignette` itself (`caseRun` in `src/
 ### A question on the card: `caseQ`
 
 The case card already holds the talk until it is lifted, so a case that comes right before a reveal can end on one short question for the
-room: `caseQ: 'Will his HVPG be raised?'`. It stands on its own line under the case, in the same type, tinted in the accent, and is fitted
+room: `caseQ: 'Will his HVPG be raised?'`. It stands on its own line under the case, in the same type and colour, and is fitted
 with the case. Ask what the next slide answers, in the case's own terms ("What will the Doppler show?", "Where is the resistance?"), and
 keep the case and the question together under 220 characters (`tests/teaching-features.test.js` counts them). One question, no choices,
 no answer on the card: the slide behind it is the answer. Used on Two inflows 4 and 6, Sites 4, 5, 7, 8 and 9, Pre-hepatic 2, Right

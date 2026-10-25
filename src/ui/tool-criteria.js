@@ -6,7 +6,7 @@
 //   { text, key, op, value }  or  [text, key, op, value]  a row read from the live model (a tile key: 'hvpg', 'asc', ...):
 //                                                       its reading at the right with a quiet tick when met and a dash when not,
 //                                                       following the model as the tiles do (a slider, a button, a time-lapse)
-//   lit: true                                           tints the row that applies to the case
+//   lit: true                                           sets the row that applies to the case in full-white words
 // ticks: false on the tool leaves the marks off (a classification such as the Sarin classes, where no row is "met").
 // The card never changes size with the reading: each reading's slot is as wide as its widest number, the marks cross-fade.
 

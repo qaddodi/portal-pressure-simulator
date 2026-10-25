@@ -152,7 +152,7 @@ export function createDoppler({ onProbe, pickGate = true }) {
   }));
   const report = h('div', { class: 'dop-report' }, dirEl, h('div', { class: 'dop-velrow' }, velEl, patternEl), rangeEl, stats, noteEl);
   // The reading grid (tool option grid, card C4, 25 Oct): Direction, Speed and Shape in three small boxes under the trace, the method
-  // Read the Doppler teaches, filled from the same reading as the strip's words; grid: ['speed'] tints the box the slide is about.
+  // Read the Doppler teaches, filled from the same reading as the strip's words; grid: ['speed'] sets the name of the box the slide is about in full white.
   const GRID = [['dir', 'Direction'], ['speed', 'Speed'], ['shape', 'Shape']];
   const gridDd = {};
   const gridEl = h('dl', { class: 'dop-grid', hidden: true }, GRID.map(([k, n]) => { gridDd[k] = h('dd', {}, '—'); return h('div', { 'data-k': k }, h('dt', {}, n), gridDd[k]); }));
