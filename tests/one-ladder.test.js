@@ -36,7 +36,7 @@ test('the presenter has no old ladder left: no five-station drawing, strip, lege
 
 test('every slide that had the old ladder shows the Gut to heart chart, or keeps its instrument with the readings as tiles', () => {
   const was = { 'circulation.js': ['ladder', 'define'], 'circuit.js': ['where'], 'hvpg.js': ['hvpg', 'presin', 'ppg', 'heart'], 'lobule.js': ['wedge'],
-    'treatment.js': ['target', 'oct', 'vs'], 'one-year.js': ['d365', 'carv'], 'cause-treated.js': ['high', 'high2'],
+    'treatment.js': ['target', 'oct', 'vs'], 'cause-treated.js': ['high', 'high2'],
     'recompensation.js': ['csph', 'carv'], 'ncph.js': ['wedge'], 'outflow.js': ['soswedge'],
     'prehepatic.js': ['cath', 'gradients'], 'where.js': ['a1', 'a2', 'a3', 'a4', 'a5', 'a6'] };
   for (const [f, ids] of Object.entries(was)) for (const id of ids) assert.equal(at(f, id)?.tool?.kind, 'profile', `${f} ${id}`);
@@ -46,11 +46,12 @@ test('every slide that had the old ladder shows the Gut to heart chart, or keeps
   for (const s of slides) if (s.tiles?.length && s.tool) assert.equal(s.data, 'tiles', `${s.f} ${s.id}: its tiles show`);
 });
 
-test('the earlier line keeps its name: No Rx before treatment, Day 0 a year back', () => {
+test('the earlier line keeps its name: Before TIPS and Year 8 on Ten years\' profile slides, the HVPG tracing on the drug slides', () => {
   // (Lowering portal pressure's propranolol and carvedilol slides read the HVPG tracing and the percent fall now, not the line: C3, 25 Oct.)
   for (const id of ['prop', 'carv', 'carv-sin']) assert.deepEqual(at('treatment.js', id).tool, { kind: 'hvpg' }, id);
-  assert.deepEqual(at('one-year.js', 'd365').tool, { kind: 'profile', from: 'd0', fromLabel: 'Day 0' });
-  assert.deepEqual(at('one-year.js', 'carv').tool, { kind: 'profile', from: 'd365', fromLabel: 'No Rx' });
+  for (const id of ['d365', 'carv']) assert.deepEqual(at('ten-years.js', id).tool, { kind: 'hvpg' }, id);
+  assert.deepEqual(at('ten-years.js', 'rebleed').tool, { kind: 'profile', from: 'bands', fromLabel: 'Year 8' });
+  assert.deepEqual(at('ten-years.js', 'tips').tool, { kind: 'profile', from: 'rebleed', fromLabel: 'Before TIPS' });
   const prof = readFileSync(new URL('../src/ui/tool-profile.js', import.meta.url), 'utf8');
   assert.match(prof, /fromLabel: typeof t\?\.fromLabel === 'string' && t\.fromLabel\.trim\(\) \? t\.fromLabel\.trim\(\) : 'Before'/);
   assert.match(prof, /placeLineNames\(g, tw, goal, hl, bf, s, brk, cfg\.fromLabel, pl \|\| \[\]\)/);

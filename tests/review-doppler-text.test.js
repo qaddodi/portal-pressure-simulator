@@ -6,23 +6,8 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { createCore } from '../src/worker-core.js';
 import { Engine } from '../src/engine/engine.js';
-import { velNormal, velPos, dopplerVel, STENT_PV_NORMAL } from '../src/ui/velNormal.js';
+import { velNormal, velPos, STENT_PV_NORMAL } from '../src/ui/velNormal.js';
 import { DOPPLER } from '../src/ui/decks/doppler.js';
-import { ONE_YEAR } from '../src/ui/decks/one-year.js';
-
-const MODEL = ['preset', 'presetDays', 'params', 'action', 'days'];
-const changes = (s) => MODEL.some((k) => s[k]);
-async function deckStates(d) {
-  const fps = [];
-  const core = createCore((m) => { if (m.type === 'seqStep') fps[m.i] = m.fp; });
-  const steps = d.slides.map((s) => (changes(s) ? { preset: s.preset, presetDays: s.presetDays, params: s.params, action: s.action, days: s.days, ramp: s.ramp, fine: !!s.lapse } : {}));
-  core.handle({ type: 'run', running: false });
-  await core.handle({ type: 'sequence', steps, reqId: 1 });
-  core.dispose();
-  let last = fps[0];
-  return d.slides.map((s, i) => (last = changes(s) || i === 0 ? fps[i] : last));
-}
-const pvVel = (fp) => { const e = new Engine(), k = e.ei.PV_TRUNK; return Math.abs(dopplerVel({ Q: fp.at.Q, D: fp.at.D }, k)); };
 
 test('a new vessel never receives the old one\'s samples: they go out under the old name first', (t) => {
   t.mock.timers.enable({ apis: ['setInterval'] });
@@ -59,21 +44,12 @@ test('the Doppler judges nothing until 1.5 s of the vessel is recorded, and a ne
 
 test('Doppler teaching says velocity, not mean, and writes its rules as cut-offs', () => {
   const said = (d) => [...(d.checks || []).flat(), ...d.slides.flatMap((s) => [s.title, s.line, ...(s.ask || [])])].filter(Boolean);
-  for (const d of [DOPPLER, ONE_YEAR]) for (const t of said(d)) assert.doesNotMatch(t, /\bmean (velocity|portal|of)\b|\ba mean\b|\bthe mean\b/i, `${d.id}: ${t}`);
-  for (const s of [...DOPPLER.slides, ...ONE_YEAR.slides]) {
+  for (const d of [DOPPLER]) for (const t of said(d)) assert.doesNotMatch(t, /\bmean (velocity|portal|of)\b|\ba mean\b|\bthe mean\b/i, `${d.id}: ${t}`);
+  for (const s of DOPPLER.slides) {
     if (!s.line) continue;
     // A cut-off beside a live monitor is outlined ({<15 cm/s}), never filled like the patient's own value.
     for (const m of s.line.matchAll(/\{([^}]*cm\/s)\}/g)) assert.match(m[1], /^[<>≥≤]/, `${s.id}: {${m[1]}}`);
   }
-});
-
-test('One-year slide 7 says the portal vein is still in the usual range, and it is', async () => {
-  const fps = await deckStates(ONE_YEAR);
-  const i = ONE_YEAR.slides.findIndex((s) => s.id === 'doppler');
-  assert.match(ONE_YEAR.slides[i].line, /still in the usual range/);
-  const v = pvVel(fps[i]), v0 = pvVel(fps[0]);
-  assert.ok(v >= 15 && v <= 40, `MPV ${v.toFixed(1)} cm/s`);
-  assert.ok(v < v0, 'fallen since day 0');
 });
 
 test('with a TIPS in, a fast main portal vein is normal: no ceiling, never coloured fast', () => {

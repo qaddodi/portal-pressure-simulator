@@ -142,7 +142,7 @@ test('Q11 the worker\'s slide sequence is deterministic, whatever ran before it'
   const decks = [];
   for (const f of readdirSync(DIR).filter((f) => f.endsWith('.js')).sort()) {
     const d = Object.values(await import(new URL(f, DIR))).find((v) => Array.isArray(v?.slides));
-    if (d && ['one-year', 'ascites'].includes(d.id)) decks.push(d);
+    if (d && ['ten-years', 'ascites'].includes(d.id)) decks.push(d);
   }
   assert.equal(decks.length, 2, 'the two time-lapse decks are found');
   const stepsOf = (d) => d.slides.map((s) => (changes(s) ? { preset: s.preset, presetDays: s.presetDays, params: s.params, action: s.action, days: s.days, ramp: s.ramp, fine: !!s.lapse } : {}));

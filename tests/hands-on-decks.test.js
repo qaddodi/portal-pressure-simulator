@@ -85,14 +85,13 @@ test('Endoscopy and NCPH: the patient buttons go to a preset and back to the sli
   assert.ok(schisto.hvpg < 5 && comp.hvpg > schisto.hvpg && schisto.pv > comp.pv, `the wedge misses schistosomiasis (HVPG ${schisto.hvpg}, PV ${schisto.pv}) and reads cirrhosis (HVPG ${comp.hvpg}, PV ${comp.pv})`);
 });
 
-test('One year: the day buttons on the last catheter slide go back to the earlier visits\' states', async () => {
-  const d = DECKS.find((x) => x.id === 'one-year'), s = slide('one-year', 'd365');
-  assert.deepEqual(kinds(s), ['state', 'state', 'state', 'state']);
+test('Ten years: the HVPG rises visit by visit through the first year, and carvedilol brings it down', async () => {
+  const d = DECKS.find((x) => x.id === 'ten-years');
   const at = (id) => d.slides.findIndex((x) => x.id === id);
-  for (const o of s.compare) if (o.slide) assert.ok(at(o.slide) >= 0 && at(o.slide) < at('d365'), `${o.slide} is an earlier slide`);
   const fps = (await deckStates(d)).map(pick);
-  const hv = ['d0', 'd90', 'd180', 'd365'].map((id) => fps[at(id)].hvpg);
+  const hv = ['d0', 'd90', 'd365'].map((id) => fps[at(id)].hvpg);
   hv.slice(1).forEach((v, k) => assert.ok(v > hv[k], `HVPG rises visit by visit (${hv.join(', ')})`));
+  assert.ok(fps[at('carv')].hvpg < fps[at('d365')].hvpg, 'carvedilol lowers it');
 });
 
 test('the presenter eases a time-point button to that slide\'s state, and a catheter slide\'s callouts follow the live model', () => {

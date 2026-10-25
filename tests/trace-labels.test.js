@@ -1,4 +1,4 @@
-// The event labels of a talk-so-far chart (data card of one-year, prehepatic, recompensation) sit at 45° along the top,
+// The event labels of a talk-so-far chart (data card of ten-years, prehepatic, recompensation) sit at 45° along the top,
 // each time point is named once, and the chart makes room so no label is clipped.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -24,11 +24,11 @@ test('the chart leaves room for the longest label at its last column', () => {
   assert.deepEqual(traceLabelRoom([], { W, L }).pad, 0);
 });
 
-test('the chart draws its labels at 45° on top, and the one-year deck has no two states on the same label', () => {
+test('the chart draws its labels at 45° on top, and the ten-years deck has no two states on the same label', () => {
   const src = readFileSync(new URL('../src/ui/talk-trace.js', import.meta.url), 'utf8');
   assert.match(src, /'text-anchor': 'start', transform: `rotate\(-45 /);
   assert.doesNotMatch(src, /rotate\(-90/);
-  const d = DECKS.find((x) => x.id === 'one-year' || x.id === 'oneyear') || DECKS.find((x) => x.slides.some((s) => s.id === 'd365'));
+  const d = DECKS.find((x) => x.slides.some((s) => s.id === 'd365'));
   const ticks = d.slides.filter((s) => s.tick).map((s) => s.tick);
   assert.equal(new Set(ticks).size, ticks.length);
   assert.ok(d.slides.find((s) => s.id === 'carv').when, 'the drug slide names its own time point (it shares the year-1 visit)');

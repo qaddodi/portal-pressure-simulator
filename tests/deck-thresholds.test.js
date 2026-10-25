@@ -10,8 +10,8 @@ const DIR = new URL('../src/ui/decks/', import.meta.url);
 // Slides whose claim is in a neighbouring sentence, checked by hand.
 const KNOWN = {
   'outflow/soswedge': (f) => f.hvpg > 10,
-  'one-year/cath': (f) => f.hvpg < 10,
-  'one-year/d365': (f) => f.hvpg >= 12,
+  'ten-years/d0': (f) => f.hvpg < 10,
+  'ten-years/d365': (f) => f.hvpg >= 12,
   'varices/burst': (f) => f.hvpg >= 12,
   'hvpg/hvpg': (f) => f.hvpg >= 10,
   'recompensation/csph': (f) => f.hvpg >= 10,

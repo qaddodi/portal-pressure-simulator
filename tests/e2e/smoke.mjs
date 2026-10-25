@@ -4290,7 +4290,7 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
   await check(device, 'presenter: resistance readings and callouts show, clear of the cards and the figure labels', async (page) => {
     const sizes = device === 'desktop' ? [[820, 1180], [1180, 820], [1440, 900]] : [[390, 844], [375, 667], [320, 568]];
     // (Plus every other slide with a reading on the figure, and every slide whose words a 320 px phone had fitted under 12 px.)
-    const more = 'hvpg 4,5,8,10;right-heart 3,5,7;shunts 2,5,6,8,9;stiffness 7;treatment 10;two-inflows 8;lobule 8;ncph 4;one-year 3,6;outflow 6,8;prehepatic 3,6;doppler 2,8;sites 3,8';
+    const more = 'hvpg 4,5,8,10;right-heart 3,5,7;shunts 2,5,6,8,9;stiffness 7;treatment 10;two-inflows 8;lobule 8;ncph 4;outflow 6,8;prehepatic 3,6;doppler 2,8;sites 3,8';
     const slides = [...Array.from({ length: 11 }, (_, i) => ['circuit', i]), ['hvpg', 2],
       ...more.split(';').flatMap((x) => { const [d, n] = x.split(' '); return n.split(',').map((k) => [d, k - 1]); })];
     const out = [];
@@ -4810,8 +4810,8 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
 // minutes on every scope slide (15 Oct: the browser checks ran past their time limit). Over 8 s of a steady patient
 // with the heartbeat running, it is drawn again at most twice.
 check('desktop', 'endoscopy: a steady patient\'s field is not redrawn with every heartbeat', async (page) => {
-  // (One year on, slide 5: small varices, whose beat-by-beat swell crossed the field's steps.)
-  await open(page, '?script=one-year&slide=5');
+  // (Ten years, slide 9: small varices after the bands, whose beat-by-beat swell crossed the field's steps.)
+  await open(page, '?script=ten-years&slide=9');
   const field = '.pz-data .pz-inst canvas';
   await page.waitForFunction((sel) => { window.pps.presenter.skipLapse?.(); return !window.pps.presenter.busy() && !document.querySelector('.pz-cover') && +(document.querySelector(sel)?.dataset.renders || 0) > 0; }, field, { timeout: 90000, polling: 200 });
   await page.waitForFunction(() => window.pps.store.get().frame.pulsing && !window.pps.presenter.probe()?.playing, null, { timeout: 60000 });

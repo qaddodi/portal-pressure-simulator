@@ -218,29 +218,6 @@
  "stiffness/heart": [
   "(a value)"
  ],
- "one-year/cath": [
-  "{hvpg}"
- ],
- "one-year/d90": [
-  "{lsm}",
-  "{plt}"
- ],
- "one-year/d180": [
-  "varices"
- ],
- "one-year/d365": [
-  "{hvpg}",
-  "{hvpg@d0}"
- ],
- "one-year/doppler": [
-  "{<15 cm/s}"
- ],
- "one-year/belly": [
-  "{spleen}"
- ],
- "one-year/plane": [
-  "(a value)"
- ],
  "tap/tense": [
   "renal veins"
  ],
@@ -903,16 +880,21 @@
   "{ppg}",
   "{liver}"
  ],
- "ten-years/start": [
+ "ten-years/d0": [
   "{hvpg}",
   "{>=10 mmHg}"
  ],
- "ten-years/rise": [
+ "ten-years/d90": [
+  "{lsm}",
+  "{plt}"
+ ],
+ "ten-years/d365": [
   "{hvpg}",
+  "{hvpg@d0}",
   "{>=10 mmHg}"
  ],
  "ten-years/carv": [
-  "{hvpg@rise}",
+  "{hvpg@d365}",
   "{hvpg}"
  ],
  "ten-years/ascites": [
@@ -931,8 +913,7 @@
   "{varix}"
  ],
  "ten-years/rebleed": [
-  "{varix}",
-  "{hvpg}"
+  "{varix}"
  ],
  "ten-years/tips": [
   "{ppg}",
@@ -940,8 +921,5 @@
  ],
  "ten-years/he": [
   "{shunt}"
- ],
- "ten-years/list": [
-  "{liver}"
  ]
 }

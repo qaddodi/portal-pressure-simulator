@@ -2,6 +2,23 @@
 
 ## October 2026
 
+- **One patient, ten years: the first year is now the one-year follow-up.** (Mohammad, 25 Oct, "Build the new decks"; deck rebuild plan, D4.) "A year of
+  compensated cirrhosis" is gone; its four best slides open Ten years as Year 0 to Year 1, and the clock moves to match: CSPH and carvedilol at year 1,
+  not year 3. The case card and the plane (Year 0, HVPG just below 10), the FibroScan at month 3, the HVPG monitor card at year 1 (the HVPG above 12,
+  from the diagnosis reading), and carvedilol with the percent fall in the HVPG and the blood pressure. Then the same chain as before: the first
+  ascites at year 6 (five more years of injury now, not three), diuretics, the bleeds of years 8 and 9, the TIPS, the confusion, the transplant
+  evaluation. Dropped: the catheter on the figure, the small-varices slide, the Doppler and the first-fluid slides (their own talks teach them),
+  the plane summary and the day buttons. The state chain was read slide by slide against the old one with `deck-states`: the later steps keep the
+  same HVPG, PPG and varix within a tenth or two (the ascites volume at year 6 is 1388 mL, was 1443), and the threshold checks still hold. The
+  quick check's first question now says "an HVPG of 10 mmHg or more". Lines are 30 words or fewer, sources moved into the notes, the second
+  "Year 9" label is now "Confusion" (the chart's labels had two the same). Old link `?script=one-year` opens Ten years at slide 1. Words went
+  through the AI humanizer and no new visual device was added. Handout figures of the four kept slides moved with them; the stale ones are listed
+  for the redraw. Tests: the thresholds, adopted, ladder and tile checks follow the new ids; the day-button test became a check that the HVPG rises
+  visit by visit and falls on carvedilol; the smoke check of the scope's redraw now opens Ten years 9; the catheter-callout size check lost its
+  One year slides (no slide of Ten years has a catheter on the figure). Code only; nobody has looked on screen. `src/ui/decks/ten-years.js`,
+  `src/ui/decks.js`, `tests/deck-adopted.js`, `tests/deck-pills.json`, `tests/deck-thresholds.test.js`, `tests/engine-solver.test.js`,
+  `tests/hands-on-decks.test.js`, `tests/one-ladder.test.js`, `tests/review-doppler-text.test.js`, `tests/tile-grid.test.js`,
+  `tests/trace-labels.test.js`, `tests/e2e/smoke.mjs`, `docs/deck-authoring-guide.md`.
 - **Presinusoidal portal hypertension is six slides, down from eight.** (Mohammad, 25 Oct, "Build the new decks"; deck rebuild plan, E5.)
   The beta-blocker and banding slides leave: treating the varices is the same as in cirrhosis and has its own talks. The talk ends on the table of the healthy liver,
   schistosomiasis and cirrhosis (the "After treatment" row goes), its objectives are three, and it is 7 minutes. Code and unit tests only; nobody has looked on screen.

@@ -38,7 +38,7 @@ A slide is **one idea**: a standalone title, a line of fewer than 45 words (sect
 
 | Field | Type | Notes |
 |---|---|---|
-| `id` | string | Kebab-case, unique across all decks (existing, 32: `circulation circuit two-inflows hvpg hyperdynamic sites prehepatic ncph outflow lobule where-resistance doppler stiffness one-year varices endoscopy variceal-bleed ascites tap encephalopathy spleen gastric-varices recompensation pregnancy treatment next-bleed choose-treatment cause-treated shunts tips-doppler transplant-doppler ten-years`). A talk that was merged into another keeps working by its old id: add it to `DECK_ALIAS` in `decks.js` (old id → the deck that took its slides). `?script=<old id>` and the share page `c/deck-<old id>.html` then open that deck at slide 1 (`beta-blockers` → `treatment`, `blood-volume` → `hyperdynamic`, `read-doppler` → `doppler`, `first-visit` → `stiffness`, `refractory-bleed` → `variceal-bleed`, `where-block` → `sites`, `bleed` → `treatment`, `tips-journey` → `shunts`). |
+| `id` | string | Kebab-case, unique across all decks (existing, 31: `circulation circuit two-inflows hvpg hyperdynamic sites prehepatic ncph outflow lobule where-resistance doppler stiffness varices endoscopy variceal-bleed ascites tap encephalopathy spleen gastric-varices recompensation pregnancy treatment next-bleed choose-treatment cause-treated shunts tips-doppler transplant-doppler ten-years`). A talk that was merged into another keeps working by its old id: add it to `DECK_ALIAS` in `decks.js` (old id → the deck that took its slides). `?script=<old id>` and the share page `c/deck-<old id>.html` then open that deck at slide 1 (`beta-blockers` → `treatment`, `blood-volume` → `hyperdynamic`, `read-doppler` → `doppler`, `first-visit` → `stiffness`, `one-year` → `ten-years`, `refractory-bleed` → `variceal-bleed`, `where-block` → `sites`, `bleed` → `treatment`, `tips-journey` → `shunts`). |
 | `level` | `'foundation'` \| `'core'` \| `'advanced'` | Shown as Foundation / Core / Advanced. |
 | `title` | string | Full title. |
 | `minutes` | number | Talk length. |
@@ -76,7 +76,7 @@ Every field is optional unless marked. Fields are grouped by what they do. Unkno
 | `ask` | `[question, expected answer]` | none | A question with its answer, **printed in the handout**, never on a projected talk (a plain string prints the question alone). Give every content slide one. The handout test requires `ask[0]` to appear. |
 | `rail` | `true` \| `'all'` | none | `true`: the six levels with this slide's `site` marked; `'all'`: all six levels named. |
 | `column` | `true` | none | Draws the wedge-pressure column illustration (portal vein, sinusoids, central vein, balloon) in the text panel. |
-| `tick` | string | the slide title | A few words for what happened at this slide's time point, set at 45° over its line on a talk trace (`tool: { kind: 'trace', range: 'talk' }`). Used in the time-line decks (`one-year`, `prehepatic`, `recompensation`). |
+| `tick` | string | the slide title | A few words for what happened at this slide's time point, set at 45° over its line on a talk trace (`tool: { kind: 'trace', range: 'talk' }`). Used in the time-line decks (`ten-years`, `prehepatic`, `recompensation`). |
 | `when` | string | the day count | The time point under that label, in words, when the days so far would repeat the one before (a drug started at the same visit). |
 | `milestone` | string | none | Opt-in: a short name (`'Dx'`, `'Carvedilol'`, `'TIPS'`) for this slide's time point on a milestones year chart (`tool: { kind: 'trace', range: 'talk', style: 'milestones' }`, section 7.2). |
 | `cite` | string | none | Opt-in: a source line under the words (section 6.4). |
@@ -466,7 +466,7 @@ On a stent Doppler slide, `{ label, gate, own? }` buttons move the Doppler's gat
 
 `{ label, tool: { red: false }, own? }` buttons change the options of the slide's instrument, the model untouched: the patch is laid over the slide's `tool`, and the `own` button puts the slide's own options back (the insufflation lesson's No red signs / Red signs; TIPS Doppler's aliasing slide, As scanned / Baseline down). Keep the slide's `tool` itself free of the option the buttons switch, so the card stays the same as the slides beside it (section 7.1).
 
-A button can name another patient instead: `compare: [{ label: 'Normal heart', preset: 'healthy' }, { label: 'Failing heart', own: true }]`. The live model eases to that patient (computed with the slide's states), and the `own` button eases back to the slide's exact state. A patient button may also carry `params` and `days`, as an `of` row does: `{ label: 'No anticoagulation', short: 'None', preset: 'pvt-acute', params: {}, days: 180 }` shows the acute clot left alone for 180 days (Pre-hepatic's anticoagulation slide). Give a button a `short` label when the full names would wrap on a phone. A button can also name an earlier slide of the same deck, one patient's earlier visit: `compare: [{ label: 'Day 0', slide: 'd0' }, { label: 'Day 365', own: true }]` eases the live model to that slide's state and back (One year's last catheter slide). On a catheter slide the catheter's callouts and its monitor follow the live model with the tiles.
+A button can name another patient instead: `compare: [{ label: 'Normal heart', preset: 'healthy' }, { label: 'Failing heart', own: true }]`. The live model eases to that patient (computed with the slide's states), and the `own` button eases back to the slide's exact state. A patient button may also carry `params` and `days`, as an `of` row does: `{ label: 'No anticoagulation', short: 'None', preset: 'pvt-acute', params: {}, days: 180 }` shows the acute clot left alone for 180 days (Pre-hepatic's anticoagulation slide). Give a button a `short` label when the full names would wrap on a phone. A button can also name an earlier slide of the same deck, one patient's earlier visit: `compare: [{ label: 'Before the stent', slide: 'reasons' }, { label: 'With the stent', own: true }]` eases the live model to that slide's state and back (TIPS journey's stent slide). On a catheter slide the catheter's callouts and its monitor follow the live model with the tiles.
 
 ### 7.5 Teaching features (opt-in, 25 Oct)
 
@@ -491,7 +491,7 @@ not, and follows the model as the tiles do. `note` is the case's own value in a 
 bleeding"); `lit: true` sets the row that applies to the case in full-white words (the other rows stay quieter; rows are split by a hairline, as the quick check's, with no fills). `ticks: false` leaves the marks off, for a classification such as the
 Sarin classes. `title` names the card (keep it under about 36 characters; `short` is a phone's shorter title). The slide's tiles sit under
 the card, never beside it. Give the slide no `causes` with the same list, and check every row's words against the guideline. Used on
-Variceal bleed 8, Choose the treatment 3, Recompensation 7, Gastric varices 2, Pregnancy 6 and 7, Paracentesis 8, Encephalopathy 4, Stiffness 5, Ten years 12 and 13 and TIPS and shunts 4 and 5.
+Variceal bleed 8, Choose the treatment 3, Recompensation 7, Gastric varices 2, Pregnancy 6 and 7, Paracentesis 8, Encephalopathy 4, Stiffness 5, Ten years 13 and 14 and TIPS and shunts 4 and 5.
 
 **Question card: `question: 'One short question?'`.** The room is asked before the slide teaches, and the slide is the answer. Going forward
 one step onto the slide, the case card's glass comes up over the figure as it stands, tagged Question, with the question in large type and
@@ -520,7 +520,7 @@ HVPG, in percent, read live as the other tiles are, so a compare button or a tim
 marks at 10% and 20%; its line says which HVPG it counts from ("from 18.0 mmHg"); its word is "Under 10%" (red), "≥ 10%" (amber, a
 response before any bleed), "≥ 20%" (green, a response after a bleed too), or "≤12 mmHg" (green) when the HVPG has come down to 12
 or less. Count from the untreated patient, not from the drug before: on Lowering portal pressure 5 the fall is from slide 2, the untreated patient,
-though the slide before is carvedilol. Used on Next bleed 5, Lowering portal pressure 3 to 5 and One year 9. (HVPG 5 is left out: its buttons
+though the slide before is carvedilol. Used on Next bleed 5, Lowering portal pressure 3 to 5 and Ten years 5. (HVPG 5 is left out: its buttons
 switch patients, and a difference between two patients is not a response.)
 
 #### The Doppler reading grid: `grid` on `tool: doppler`
