@@ -21,7 +21,7 @@ export const TIPS_DOPPLER = {
   summary: 'Doppler of a TIPS, from the scan before the stent to a working stent and a narrowed one, with the vessels colored by velocity, flow, direction, congestion and blood origin.',
   checks: [
     ['Which velocities suggest stenosis?', 'A velocity under 90 or over 190 cm/s at the proximal, mid or distal stent, a change of more than 50 cm/s from the baseline study, or a main portal vein under 30 cm/s.'],
-    ['Why is the stent sampled at three points?', 'A narrowing speeds up flow only where it sits. The rest of the stent runs slow, so a single sample can miss the jet.'],
+    ['The baseline scan read 140 cm/s mid stent. Six months later: 85 cm/s proximally, 230 cm/s distally, and 22 cm/s in the main portal vein. What happened?', 'A narrowing at the hepatic vein end: the jet sits there, and the rest of the stent and the portal vein have slowed behind it. A single mid-stent sample could have missed it.'],
     ['A follow-up scan shows hepatopetal flow in the left portal vein. Why is that a concern?', 'With a working TIPS it should flow toward the stent. Flow toward the liver suggests the stent is narrowing.'],
     ['What confirms a suspected stenosis?', 'TIPS venography with a portosystemic pressure gradient, followed by angioplasty or a new stent if it is narrowed.'],
   ],

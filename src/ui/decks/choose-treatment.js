@@ -80,9 +80,9 @@ export const CHOOSE_TREATMENT = {
     {
       id: 'q4', preset: 'pvt-acute', cam: 'portal', labels: ['CONF', 'SMV'], mark: { edges: ['PV_TRUNK'], label: 'Clot' }, tool: { kind: 'lumen' }, data: 'tiles', tiles: ['ppg', 'pvFlow'], key: ['ppg'],
       vignette: 'A 39-year-old woman with factor V Leiden who takes an OCP has had 4 days of constant periumbilical pain. CT shows a fresh clot in the portal vein. Her liver is normal.',
-      causesHead: 'Options', causes: ['Anticoagulation now', 'Watch and repeat the scan', 'Thrombolysis', 'TIPS'],
+      compare: [{ label: 'Fresh clot', short: 'Now', own: true }, { label: 'Anticoagulate', short: 'Anticoag.', preset: 'pvt-acute', params: { anticoag: true }, days: 180 }, { label: 'Watch', preset: 'pvt-acute', params: {}, days: 180 }],
       kicker: 'Clots', site: 'pre', title: 'Case 4: a fresh clot in the portal vein',
-      line: 'The clot fills the portal vein, the PPG is {ppg} and no portal blood reaches the liver. The bowel is not yet ischemic. What comes first?',
+      line: 'The clot fills the portal vein, the PPG is {ppg} and no portal blood reaches the liver. The bowel is not yet ischemic. Try anticoagulation and watching: which one reopens the vein?',
       notes: 'A recent portal vein clot without cirrhosis threatens the bowel, through spreading clot in the mesenteric veins, and the liver\'s portal supply. The OCP is stopped. The question is how soon to treat and with what.',
       ask: ['What two harms does early treatment of a recent portal vein clot prevent?', 'Bowel ischemia from spreading clot, and a chronic occlusion with a cavernoma and portal hypertension.'],
     },
@@ -92,7 +92,7 @@ export const CHOOSE_TREATMENT = {
       kicker: 'Clots', site: 'pre', title: 'Anticoagulate at once, for at least 6 months',
       line: 'Anticoagulation starts at once. Six months on the portal vein has reopened, portal flow is back to {pvFlow} and the PPG is {ppg}.',
       caveat: 'In the model the clot always dissolves on anticoagulation; in patients the vein reopens in only some.',
-      notes: 'EASL 2025: in recent portal vein thrombosis, anticoagulation starts as soon as possible, because early treatment lowers the risk of bowel ischemia and raises the chance that the vein reopens, and it continues for at least 6 months. Thrombolysis is kept for severe disease that does not respond. A lasting prothrombotic cause, such as a myeloproliferative neoplasm, calls for long-term anticoagulation.',
+      notes: 'EASL 2025: in recent portal vein thrombosis, anticoagulation starts as soon as possible, because early treatment lowers the risk of bowel ischemia and raises the chance that the vein reopens, and it continues for at least 6 months. Thrombolysis and endovascular treatment are kept, in expert centers, for signs of intestinal ischemia that do not improve early on anticoagulation. Neither thrombolysis nor a TIPS comes first. A lasting prothrombotic cause, such as a myeloproliferative neoplasm, calls for long-term anticoagulation.',
       ask: ['How long is anticoagulation given after a recent portal vein clot?', 'At least 6 months, and long term when a lasting prothrombotic cause is found.'],
     },
     {

@@ -58,7 +58,7 @@ export const NEXT_BLEED = {
       cite: 'Baveno VIII 4.8, Table 3',
       kicker: 'Carvedilol', site: 'sin', title: 'Carvedilol lowers the pressure behind the varices',
       line: 'Back at discharge, carvedilol lowers the HVPG from {hvpg@after} to {hvpg} and the heart rate to {hr}. A fall of 10% or more, or to {<=12 mmHg} or less, marks a response.',
-      notes: 'Carvedilol starts at 6.25 mg a day and rises to 12.5 mg a day if the blood pressure allows. It cuts the portal inflow, as propranolol does, and also relaxes the resistance inside the liver, so it lowers the HVPG more; Baveno VIII prefers it after a bleed. The 10% response comes from the earlier Baveno meetings and stays valid in Baveno VIII; HVPG is rarely measured in practice, so the response is usually assumed. Reduce or stop carvedilol if the systolic pressure stays below 90 mmHg, the mean pressure below 65 mmHg, or kidney injury develops.',
+      notes: 'Carvedilol starts at 6.25 mg a day and rises to 12.5 mg a day if the blood pressure allows. It cuts the portal inflow, as propranolol does, and also relaxes the resistance inside the liver, so it lowers the HVPG more; Baveno VIII prefers it after a bleed. Baveno VIII Table 3 keeps the 10% (or to 12 mmHg) response from the earlier Baveno meetings and states it for primary prophylaxis; it gives no separate target after a bleed, so the same figure is used here. HVPG is rarely measured in practice, so the response is usually assumed. Reduce or stop carvedilol if the systolic pressure stays below 90 mmHg, the mean pressure below 65 mmHg, or kidney injury develops.',
       ask: ['What fall in HVPG marks a response to a beta-blocker?', 'A fall of at least 10% from baseline, or to 12 mmHg or less.'],
     },
     {
@@ -80,8 +80,8 @@ export const NEXT_BLEED = {
       id: 'tips', params: { tips: { on: true }, ...NONE }, cam: 'liver', labels: ['CONF', 'IVCS'], tool: { kind: 'flows' }, data: 'tiles', tiles: ['ppg', 'liver'], key: ['ppg'], delta: 'held',
       cite: 'Baveno VIII 4.13, 6.16; AASLD 2024 statement 39',
       kicker: 'When it fails', site: 'sin', title: 'A rebleed despite both means a TIPS',
-      line: 'Bleeding again on carvedilol and bands is failure of secondary prophylaxis. A covered TIPS lowers the PPG to {ppg}, but the liver now gets {liver} of its normal flow, so encephalopathy is the price.',
-      notes: 'TIPS is recommended when bleeding recurs despite carvedilol and banding, especially within the first 6 weeks. A TIPS can come earlier, as the plan after the first bleed, when there is another reason for one, such as refractory ascites. Before an elective TIPS, ask about past encephalopathy and consider rifaximin to prevent it. In the model carvedilol is stopped with the TIPS.',
+      line: 'Bleeding again on carvedilol and bands means prophylaxis has failed. A covered TIPS lowers the PPG to {ppg}, and carvedilol stops once the PPG is under 12 mmHg. The liver now gets {liver} of its normal flow, so encephalopathy is the price.',
+      notes: 'TIPS is recommended when bleeding recurs despite carvedilol and banding, especially within the first 6 weeks. A TIPS can come earlier, as the plan after the first bleed, when there is another reason for one, such as refractory ascites. Before an elective TIPS, ask about past encephalopathy and consider rifaximin to prevent it. AASLD 2024 does not require a beta-blocker after a TIPS once the portosystemic gradient is under 12 mmHg, so in the model carvedilol stops with the TIPS.',
       ask: ['Who gets a TIPS for secondary prophylaxis?', 'Patients who rebleed despite a beta-blocker and banding, and those with another reason for a TIPS, such as refractory ascites.'],
     },
     {
