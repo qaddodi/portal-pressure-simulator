@@ -21,7 +21,7 @@ export const WHERE = {
   ],
   slides: [
     {
-      id: 'q1', preset: 'csph', cam: 'route', labels: ROUTE, tool: { kind: 'profile' }, key: ['hvpg', 'ppg'],
+      id: 'q1', hold: true, preset: 'csph', cam: 'route', labels: ROUTE, tool: { kind: 'profile' }, key: ['hvpg', 'ppg'],
       vignette: 'A 57-year-old man treated for hepatitis C ten years ago has small esophageal varices on EGD. His platelets are 88,000/µL, his liver stiffness is 24 kPa, and there is no ascites.',
       kicker: 'Case 1', title: 'Where is the resistance in case 1?',
       line: 'The portal pressure is {pv}. Read the ladder from the portal vein to the right atrium and find the largest fall: the HVPG is {hvpg} and the PPG is {ppg}.',
@@ -36,7 +36,7 @@ export const WHERE = {
       ask: ['Why does the wedged pressure track the portal pressure here?', 'The resistance is in the sinusoids, which the wedged catheter reads.'],
     },
     {
-      id: 'q2', preset: 'pvt-chronic', cam: 'route', labels: ROUTE, tool: { kind: 'doppler', vessel: 'PV_TRUNK' }, data: 'tiles', tiles: ['hvpg', 'ppg'], key: ['hvpg', 'ppg'],
+      id: 'q2', hold: true, preset: 'pvt-chronic', cam: 'route', labels: ROUTE, tool: { kind: 'doppler', vessel: 'PV_TRUNK' }, data: 'tiles', tiles: ['hvpg', 'ppg'], key: ['hvpg', 'ppg'],
       vignette: 'A 24-year-old woman who had an umbilical vein catheter as a newborn vomits blood. EGD shows esophageal varices. Her spleen is large, her platelets are 76,000/µL, and her liver tests are normal.',
       kicker: 'Case 2', title: 'Where is the resistance in case 2?',
       line: 'Look at the Doppler of the main portal vein. The HVPG is {hvpg}, but the PPG is {ppg}.',
@@ -51,7 +51,7 @@ export const WHERE = {
       ask: ['Why is the Doppler of the main portal vein flat?', 'The vein is occluded; the cavernoma carries the blood around it.'],
     },
     {
-      id: 'q3', preset: 'constrictive', cam: 'route', labels: ROUTE, tool: { kind: 'profile' }, key: ['hvpg', 'ppg'],
+      id: 'q3', hold: true, preset: 'constrictive', cam: 'route', labels: ROUTE, tool: { kind: 'profile' }, key: ['hvpg', 'ppg'],
       vignette: 'A 61-year-old man who had mediastinal radiation for Hodgkin lymphoma 20 years ago has leg edema and ascites. His JVP rises on inspiration. The ascites has a SAAG of 1.5 and a protein of 4.1 g/dL.',
       kicker: 'Case 3', title: 'Where is the resistance in case 3?',
       line: 'Every station on the ladder is high, from the portal vein at {pv} to the right atrium at {ra}. The HVPG is {hvpg} and the PPG is {ppg}.',
@@ -66,7 +66,7 @@ export const WHERE = {
       ask: ['Why are varices rare in this case?', 'Varices need a gradient from the portal to the systemic veins, and both are high.'],
     },
     {
-      id: 'q4', preset: 'sos', cam: 'route', labels: ROUTE, tool: { kind: 'profile' }, key: ['hvpg', 'ppg'],
+      id: 'q4', hold: true, preset: 'sos', cam: 'route', labels: ROUTE, tool: { kind: 'profile' }, key: ['hvpg', 'ppg'],
       vignette: 'A 44-year-old woman has drunk a comfrey tea every day for months. Over 3 weeks she has developed tender hepatomegaly, weight gain and ascites, with a SAAG of 1.5 and a protein of 4.2 g/dL.',
       kicker: 'Case 4', title: 'Where is the resistance in case 4?',
       line: 'The HVPG is {hvpg} and the PPG is {ppg}, yet the ascites is rich in protein. Which two stations is the fall between, and what lies between them?',
@@ -81,7 +81,7 @@ export const WHERE = {
       ask: ['What separates this case from case 1?', 'A short history after a toxin, and protein-rich ascites; on the ladder the fall also sits one station later.'],
     },
     {
-      id: 'q5', preset: 'schisto', cam: 'route', labels: ROUTE, tool: { kind: 'doppler', vessel: 'PV_TRUNK' }, data: 'tiles', tiles: ['hvpg', 'ppg'], key: ['hvpg', 'ppg'],
+      id: 'q5', hold: true, preset: 'schisto', cam: 'route', labels: ROUTE, tool: { kind: 'doppler', vessel: 'PV_TRUNK' }, data: 'tiles', tiles: ['hvpg', 'ppg'], key: ['hvpg', 'ppg'],
       vignette: 'A 33-year-old man who fished in Lake Victoria as a boy vomits blood. EGD shows large esophageal varices. His spleen is large, his platelets are 70,000/µL, and his liver stiffness is 6.6 kPa.',
       kicker: 'Case 5', title: 'Where is the resistance in case 5?',
       line: 'The HVPG is {hvpg} and the PPG is {ppg}, as in case 2. Compare the Doppler of the main portal vein.',
@@ -96,7 +96,7 @@ export const WHERE = {
       ask: ['Cases 2 and 5 share their HVPG and PPG. What tells them apart?', 'The portal vein: occluded in case 2, open in case 5. On the ladder the fall sits at the clot in case 2 and in the portal venules in case 5.'],
     },
     {
-      id: 'q6', preset: 'ivc-web', cam: 'route', labels: ROUTE, tool: { kind: 'profile' }, key: ['hvpg', 'ppg'],
+      id: 'q6', hold: true, preset: 'ivc-web', cam: 'route', labels: ROUTE, tool: { kind: 'profile' }, key: ['hvpg', 'ppg'],
       vignette: 'A 36-year-old man from Nepal has had swollen legs for a year and now has ascites. Dilated veins run up his flanks. The ascites has a SAAG of 1.4 and a protein of 4.3 g/dL.',
       kicker: 'Case 6', title: 'Where is the resistance in case 6?',
       line: 'The portal pressure is {pv}, yet the HVPG is {hvpg} and even the PPG is {ppg}. Compare the IVC, {ivc}, with the right atrium, {ra}.',

@@ -32,7 +32,7 @@ export const READ_DOPPLER = {
       ask: ['Describe the normal main portal vein trace.', 'Above the baseline (hepatopetal), 15 cm/s or more, steady with a gentle ripple from breathing.'],
     },
     {
-      id: 'q1', preset: 'cirr-hepatofugal', cam: 'portal', labels: ['CONF'], tool: { kind: 'doppler', vessel: 'PV_TRUNK' },
+      id: 'q1', hold: true, preset: 'cirr-hepatofugal', cam: 'portal', labels: ['CONF'], tool: { kind: 'doppler', vessel: 'PV_TRUNK' },
       vignette: 'A 63-year-old man with hepatitis C cirrhosis has had two admissions for encephalopathy this year. He comes fasting for an ultrasound before a TIPS is considered.',
       kicker: 'Portal inflow', title: 'Case 1: the main portal vein',
       line: `The probe samples the main portal vein. ${ASK}`,
@@ -47,7 +47,7 @@ export const READ_DOPPLER = {
       ask: ['What does hepatofugal portal flow tell you about the liver?', 'Its resistance is higher than the collaterals\', so portal blood leaves through them: advanced cirrhosis.'],
     },
     {
-      id: 'q2', preset: 'pvt-acute', cam: 'portal', labels: ['CONF'], tool: { kind: 'doppler', vessel: 'PV_TRUNK' },
+      id: 'q2', hold: true, preset: 'pvt-acute', cam: 'portal', labels: ['CONF'], tool: { kind: 'doppler', vessel: 'PV_TRUNK' },
       vignette: 'A 41-year-old woman with a JAK2-positive myeloproliferative neoplasm has had 5 days of constant abdominal pain. Her liver tests are normal.',
       kicker: 'Portal inflow', title: 'Case 2: the main portal vein',
       line: `The gate sits in the middle of the main portal vein, at a good angle and with the gain up. ${ASK}`,
@@ -63,7 +63,7 @@ export const READ_DOPPLER = {
       ask: ['Why does the hepatic artery speed up when the portal vein clots?', 'The hepatic arterial buffer response: the artery dilates to make up for the lost portal flow.'],
     },
     {
-      id: 'q3', preset: 'budd-chiari', cam: 'hepatic', labels: ['RHV', 'RA'], tool: { kind: 'doppler', vessel: 'RHV_IVC' },
+      id: 'q3', hold: true, preset: 'budd-chiari', cam: 'hepatic', labels: ['RHV', 'RA'], tool: { kind: 'doppler', vessel: 'RHV_IVC' },
       vignette: 'A 29-year-old woman who takes an OCP has had 6 weeks of right upper quadrant pain and a growing abdomen. Her liver is large and tender.',
       kicker: 'Outflow', title: 'Case 3: the right hepatic vein',
       line: `The probe samples the right hepatic vein, which normally pulses in time with the right atrium. ${ASK}`,
@@ -79,7 +79,7 @@ export const READ_DOPPLER = {
       ask: ['How does Doppler tell Budd–Chiari syndrome from portal vein thrombosis?', 'In Budd–Chiari the hepatic veins have no flow; in portal vein thrombosis the portal vein has none.'],
     },
     {
-      id: 'q4', preset: 'rhf', cam: 'portal', labels: ['CONF'], tool: { kind: 'doppler', vessel: 'PV_TRUNK' },
+      id: 'q4', hold: true, preset: 'rhf', cam: 'portal', labels: ['CONF'], tool: { kind: 'doppler', vessel: 'PV_TRUNK' },
       vignette: 'A 72-year-old woman with severe tricuspid regurgitation has ascites and leg edema. Her liver tests are mildly raised.',
       kicker: 'Outflow', title: 'Case 4: the main portal vein',
       line: `The probe samples the main portal vein again. ${ASK}`,
@@ -94,7 +94,7 @@ export const READ_DOPPLER = {
       ask: ['A pulsing portal vein with a normal HVPG: where is the resistance?', 'Beyond the liver, in the heart: a high right atrial pressure reaches back through the sinusoids.'],
     },
     {
-      id: 'q5', preset: 'cirr-decomp', params: STENT, days: 180, cam: 'liver', labels: ['LPV'], tool: { kind: 'doppler', vessel: 'PVH_L' },
+      id: 'q5', hold: true, preset: 'cirr-decomp', params: STENT, days: 180, cam: 'liver', labels: ['LPV'], tool: { kind: 'doppler', vessel: 'PVH_L' },
       vignette: 'A 60-year-old man had a covered TIPS for refractory ascites a year ago. Over the last month his ascites has come back.',
       kicker: 'After TIPS', title: 'Case 5: the left portal vein after TIPS',
       line: `The probe samples the left portal vein, which a working stent draws toward itself. ${ASK}`,

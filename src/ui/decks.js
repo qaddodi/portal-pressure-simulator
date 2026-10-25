@@ -72,6 +72,9 @@
 //                            procedure on the figure (proc-anim.js; auto: as the slide lands, going forward), and the live model takes
 //                            the change when it ends, as a compare button does. Opt-in: a built-in slide uses it only when
 //                            tests/deck-adopted.js lists it. A patient who already has the result has it taken back first, and the play puts it back
+//   hold                     true (opt-in, tests/deck-adopted.js): a question slide keeps back what would name its answer (the Gut to heart
+//                            chart's red blocks and brackets, the Doppler strip's direction, pattern and note, the tiles' rating words);
+//                            the next slide, its answer, lets them ease in once it has landed (presenter.js holdAnswer)
 //   opt-in visuals (deck visuals packages; a built-in slide uses one only when tests/deck-adopted.js lists it; docs/deck-authoring-guide.md 5.9, 6.4, 7):
 //                            figure: spot, normalOutline, ripple, lens 'system' | 'since' (since, sinceLabel), calipers,
 //                            lapseGlow ['bowel'] (those organs glow from the time-lapse's start, while the slide is up), steps (with glowSeq), span, zone,
@@ -110,14 +113,14 @@ import { SPLEEN } from './decks/spleen.js?v=45ea1f83f2';
 import { NCPH } from './decks/ncph.js?v=20b7cd7155';
 import { OUTFLOW } from './decks/outflow.js?v=d367eff7a1';
 import { RECOMPENSATION } from './decks/recompensation.js?v=e78b9f0f5e';
-import { WHERE } from './decks/where.js?v=07764393d5';
+import { WHERE } from './decks/where.js?v=52ec58161b';
 import { PREGNANCY_DECK } from './decks/pregnancy.js?v=fe8b1f73c8';
 import { BETA_BLOCKERS } from './decks/beta-blockers.js?v=253a8893d3';
 import { ENCEPHALOPATHY } from './decks/encephalopathy.js?v=f72dc3c10f';
 import { CAUSE_TREATED } from './decks/cause-treated.js?v=0da183adb0';
 import { NEXT_BLEED } from './decks/next-bleed.js?v=f31959bf21';
 import { GASTRIC } from './decks/gastric-varices.js?v=6355de809a';
-import { READ_DOPPLER } from './decks/read-doppler.js?v=148f0ab0d0';
+import { READ_DOPPLER } from './decks/read-doppler.js?v=bb2cb8c617';
 import { HYPERDYNAMIC } from './decks/hyperdynamic.js?v=1277cfc437';
 import { CHOOSE_TREATMENT } from './decks/choose-treatment.js?v=0d59f78349';
 import { BLOOD_VOLUME } from './decks/blood-volume.js?v=44a23e2e25';

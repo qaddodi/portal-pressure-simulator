@@ -22,11 +22,11 @@ import { sinusoidSupported } from './gl-support.js?v=94ad2a7ff1';
 import { SCALE_NAME, offeredScales, scaleView, pickedScale } from './scale-switch.js?v=1b0e3acd65';
 import { DISEASE_SRC, diseasePieces } from './diseases.js?v=fb8a5451c3';
 import { nb, listCase, plateletText } from './glue.js?v=5a0f63226b';
-import { DECKS, REGIONS, LEVELS, TOPICS, withOverview, siteTag, SITE_TAGS } from './decks.js?v=43c54b4a26';
+import { DECKS, REGIONS, LEVELS, TOPICS, withOverview, siteTag, SITE_TAGS } from './decks.js?v=6ebbfa03f2';
 import { fingerprintOf } from '../engine/fingerprint.js?v=8faea80b59';
 import { createHvpgMonitor } from './hvpg-proc.js?v=ed0101ef84';
-import { createTools } from './presenter-tools.js?v=c13ab6278d';
-import { openHandout } from './handout.js?v=54b55b0bd1';
+import { createTools } from './presenter-tools.js?v=5d2f9167cf';
+import { openHandout } from './handout.js?v=bcdbad1243';
 import { noteResume, resumeFor } from './resume.js?v=f086f80ee8';
 import { parseDeckSource, checkDeck } from './deck-source.js?v=8395c650cd';
 import { NO_ASC, TILE, SCALE, bandsOf, rateOf, COLS, CUT, PRESS, fpv, dirAbs, dirRel, rateAbs, effOf, rateShown, tileShown, tipsGoal, liveSettled, shownSig } from './table-marks.js?v=15f059172f';
@@ -34,10 +34,10 @@ import { frameFor, cancelFrame } from './frame.js?v=19b3f2915c';
 import { createFigureKey } from './figure-key.js?v=8bbf7a41ed';
 import { traceWhen } from './trace-labels.js?v=fc916a95c6';
 import { flowCss, heatCss, dropCss, gradientCss, oxygenCss } from './colormap.js?v=cdcf6a2f55';
-import { EXT, expandIds, stepExtra, markLabel, figureHooks, safe } from './slide-ext.js?v=2ab4d1b5b2';
+import { EXT, expandIds, stepExtra, markLabel, figureHooks, safe } from './slide-ext.js?v=81ac3e3b3f';
 import { clotWords } from './callout-math.js?v=d8785a0ad3';
 import { citeText, focusOf, oneLadder } from './teach-extras.js?v=5f5248f5a7';
-import { createProfileTool, createProfileStrip, pillReadings } from './tool-profile.js?v=23ee896a59';
+import { createProfileTool, createProfileStrip, pillReadings } from './tool-profile.js?v=ceb43693c6';
 import { causeFit } from './cause-fit.js?v=830a6835a5';
 import { COMPACT, WIDE } from './card-type.js?v=5af5f22935';
 import { flowTimeHeight } from './flow-time.js?v=cb89e13e11';
@@ -1690,6 +1690,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     // The slide's state has landed: the Doppler starts its trace from the left now, never with the leaving state's flow.
     ui?.tools.hold(false);
     paintOverlays(s, to, st);
+    if (holdEase) { holdEase = false; holdAnswer(false); }   // (an answer slide: what its question slide held back eases in now)
     lastCam = cam; framedSig = cardSig();
     await unhush(cut);
     if (cut()) return;
@@ -1864,6 +1865,23 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     });
     return mon.el;
   }
+  // ── The answer held back ──
+  // A question slide (hold: true) keeps back what would name its answer: the Gut to heart chart's red blocks and HVPG and PPG brackets, the
+  // Doppler strip's direction, pattern and note, the tiles' rating words and the figure's "no flow" and "stasis" words. They are set out
+  // of sight as the slide's cards are built (instant), and the next slide, its answer, comes in still holding them and lets them ease in
+  // once its cards have landed (holdEase, see transitionRun). A Predict slide holds them until its reveal (predictReveal).
+  let heldNow = false, holdEase = false;
+  function holdAnswer(on, instant = false) {
+    if (!ui) return;
+    heldNow = !!on;
+    ui.data.toggleAttribute('data-held-now', !!instant);
+    ui.data.toggleAttribute('data-held', heldNow);
+    app.classList.toggle('pz-held', heldNow);
+    ui.tools.holdAnswer(heldNow, instant);
+    if (instant) nextFrame(() => nextFrame(() => ui?.data.removeAttribute('data-held-now')));
+  }
+  // (Held on this slide: its own hold, a Predict slide still asking, or an answer slide straight after a held one, held until it lands.)
+  const answerAfter = (s, i) => !s.visual && !s.hold && !s.preset && i > 0 && !!slides[i - 1]?.hold && i === lastAt + 1;
   function wordsIn(s, st, i, fresh = false, lap = false, now = st) {
     if (!ui) return;
     const { text, panel, data } = ui;
@@ -1945,6 +1963,8 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       data.classList.add('pz-hide'); delete data.dataset.colswap;
       setTimeout(() => { if (data.classList.contains('pz-hide')) { data.hidden = true; ui?.tools.hide(); } }, 320);
     }
+    holdEase = answerAfter(s, i);
+    holdAnswer(!s.visual && (!!s.hold || holdEase), true);
     layout();
   }
   // Each row of a table still computing fills in (its cells fade in) as its patient arrives.
@@ -4159,7 +4179,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     fitRO?.disconnect(); clearRO?.disconnect(); fitKids = []; clearFor = null; clearTimeout(clearT); cancelFrame(fitRaf);
     store.set({ presenting: false, presentLabels: null, presentTerms: null, presentNames: false, focus: null, lobuleCallout: null, presentFp: null }); stage.setSites(null); stage.setGlow(null); stage.pinOrgans(null); delete app.dataset.lit;
     figureHooks('clear');
-    hushed = false; lastCam = null; clearTimeout(hushInT); app.classList.remove('pz-hush', 'pz-hush-in');
+    hushed = false; lastCam = null; clearTimeout(hushInT); app.classList.remove('pz-hush', 'pz-hush-in', 'pz-held'); heldNow = false; holdEase = false;
     cancelFrame(slip.raf); slip.d = null; slip.h0 = null;
     clearTimeout(idleT); clearTimeout(dock.fit); cancelFrame(dock.raf); dock.lvl = 0; dock.to = 0; dock.drag = false; dock.auto = false; dock.autoKey = '';
     pillW = 0; ui?.tools.dispose(); ui?.figKey.dispose(); ui?.lipRO?.disconnect(); ui?.root.remove(); ui?.shade.remove(); ui = null; app.classList.remove('pz-blacked');

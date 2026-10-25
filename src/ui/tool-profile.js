@@ -582,6 +582,10 @@ export function createProfileTool() {
   // (Each block as it fades: its goal, 1 shown or 0 gone, the opacity it fades from, and when it began. A block comes and goes with
   // an ease, never at once.)
   const blk = new Map();
+  // (A question slide's hold (slide hold: true, or a Predict slide before its reveal): the red blocks and the HVPG and PPG brackets stay
+  // out, as the answer would be read off them; heldK eases the brackets out and in as a block fades, and the blocks go and come by blk.)
+  let held = false, lastFp = null;
+  const heldK = { a: 1, from: 1, t0: 0 };
   const blkOp = (b, now) => b.from + (b.a - b.from) * (0.5 - 0.5 * Math.cos(Math.PI * Math.min(1, Math.max(0, (now - b.t0) / FADE_MS))));
   // (The numbers drawn: the goal's, eased; the healthy and earlier lines as they are.)
   const healthy = () => profileOf(ctx0?.healthy?.());
@@ -729,9 +733,10 @@ export function createProfileTool() {
             stack ? sv('text', { x: lb.x, y: yy - 0.19 * f, 'text-anchor': 'middle' }, sv('tspan', { class: 'k' }, name), sv('tspan', { x: lb.x, dy: `${(1.1 * f).toFixed(2)}` }, val))
               : sv('text', { x: lb.x, y: yy + 0.36 * fs, 'text-anchor': 'middle' }, sv('tspan', { class: 'k' }, `${name} `), val));
         };
-        const row = rows[r] || { y: plan.inside ? plan.brk[r] : G.brY(r), from: null }, e = fadeK(row, t);
+        const row = rows[r] || { y: plan.inside ? plan.brk[r] : G.brY(r), from: null }, e = fadeK(row, t), hk = blkOp(heldK, t);
         if (row.from != null && e >= 1) row.from = null;
-        return row.from == null ? [brk1(row.y, 1)] : [brk1(row.from, 1 - e), brk1(row.y, e)];
+        if (hk < 0.005) return [];
+        return row.from == null ? [brk1(row.y, hk)] : [brk1(row.from, (1 - e) * hk), brk1(row.y, e * hk)];
       }),
       // The two readings as pills in the plot's top right, tinted as the brackets rate them, over everything else (the plan keeps them clear).
       !pillK.boxes || blkOp(pillK, t) < 0.005 ? null : pillK.boxes.map(([px0, px1, py0, py1], k) => {
@@ -740,7 +745,7 @@ export function createProfileTool() {
           sv('text', { x: gx + (px1 - px0) / 2, y: gy + (py1 - py0) / 2 + 0.36 * f, 'text-anchor': 'middle' }, sv('tspan', { class: 'k' }, `${name} `), whole(v)));
       }));
     for (const [i, b] of blk) if (!b.a && t - b.t0 >= FADE_MS) blk.delete(i);
-    fading = rows.some((row) => row?.from != null) || Object.values(nameAt).some((a) => t - a.t0 < FADE_MS) || pillAt.some((a) => a && t - a.t0 < FADE_MS) || t - pillK.t0 < FADE_MS || [...blk.values()].some((b) => t - b.t0 < FADE_MS);
+    fading = rows.some((row) => row?.from != null) || Object.values(nameAt).some((a) => t - a.t0 < FADE_MS) || pillAt.some((a) => a && t - a.t0 < FADE_MS) || t - pillK.t0 < FADE_MS || t - heldK.t0 < FADE_MS || [...blk.values()].some((b) => t - b.t0 < FADE_MS);
     el.replaceChildren(svg);
   }
   const glideAt = (a, now) => { const e = 0.5 - 0.5 * Math.cos(Math.PI * Math.min(1, Math.max(0, (now - a.t0) / FADE_MS))); return [lerp(a.fx, a.x, e), lerp(a.fy, a.y, e)]; };
@@ -759,9 +764,10 @@ export function createProfileTool() {
   function aim(fp) {
     const p = profileOf(fp);
     if (!p) return;
+    lastFp = fp;
     ref = before();
     goal = { ...p, top: axisTop(p, healthy(), ref) };
-    const want = new Set(blocksOf(goal, healthy())), t = performance.now();
+    const want = new Set(held ? [] : blocksOf(goal, healthy())), t = performance.now();
     for (const i of new Set([...blk.keys(), ...want])) {
       const a = want.has(i) ? 1 : 0, b = blk.get(i);
       if (!b || b.a !== a) blk.set(i, { a, from: reduceMQ.matches ? a : b ? blkOp(b, t) : 0, t0: t });
@@ -776,6 +782,17 @@ export function createProfileTool() {
     configure(t, ctx) { cfg = { from: t?.from ?? null, fromLabel: typeof t?.fromLabel === 'string' && t.fromLabel.trim() ? t.fromLabel.trim() : 'Before' }; ctx0 = ctx || null; if (ctx?.fp) aim(ctx.fp); },
     /** The numbers the slide's tiles show: the slide's state, or a what-if slider's or a compare button's. */
     pin(fp) { if (el.isConnected && fp) aim(fp); },
+    /** The answer held back (a question slide): no red blocks and no HVPG or PPG brackets, the line and its numbers as they are. On release
+     *  they ease in; instant: set at once (the card is still out of sight). */
+    hold(on, instant = false) {
+      on = !!on;
+      const t = performance.now(), a = on ? 0 : 1, now = instant || reduceMQ.matches ? a : blkOp(heldK, t);
+      if (on === held && heldK.a === a && (!instant || heldK.from === a)) return;
+      held = on; Object.assign(heldK, { a, from: now, t0: instant ? 0 : t });
+      if (lastFp) aim(lastFp);
+      if (instant) for (const b of blk.values()) { b.from = b.a; b.t0 = 0; }
+      if (!raf) raf = requestAnimationFrame(tick);
+    },
     clear() {},
     dispose() { if (raf) cancelAnimationFrame(raf); raf = 0; },
   };

@@ -6,7 +6,7 @@ Self-contained brief for an AI that writes new presenter decks **without seeing 
 
 **Short version for people:** `docs/deck-authoring-quick-guide.md` explains every feature in plain words with one example each and points back here for the full option lists.
 
-Contents: At a glance · 1 What a deck is · 2 Deck fields · 3 Slide fields · 4 The model state (patient, parameters, actions, time-lapse) · 5 The figure (views, camera, labels, glow, marks, sites, catheter) · 6 The words (live values, cut-offs, term pills) · 7 The data card (ladder, tiles, tools, visuals, compare, what-if) · 8 Catalogue (presets, parameters, stations, vessels, targets, tiles) · 9 Authoring rules · 10 Blank template · 11 Example deck · 12 Adding the deck to the app · 13 Importing in the app · 14 Case cards
+Contents: At a glance · 1 What a deck is · 2 Deck fields · 3 Slide fields · 4 The model state (patient, parameters, actions, time-lapse) · 5 The figure (views, camera, labels, glow, marks, sites, catheter) · 6 The words (live values, cut-offs, term pills) · 7 The data card (ladder, tiles, tools, visuals, compare, what-if, teaching features) · 8 Catalogue (presets, parameters, stations, vessels, targets, tiles) · 9 Authoring rules · 10 Blank template · 11 Example deck · 12 Adding the deck to the app · 13 Importing in the app · 14 Case cards
 
 ---
 
@@ -90,7 +90,7 @@ Every field is optional unless marked. Fields are grouped by what they do. Unkno
 
 ### 3.4 The data card (section 7)
 
-`data`, `tiles`, `key`, `delta`, `dataTitle`, `tool`, `visual` (+ `cols`, `asc`, `rowHead`, `note`, `vs`, `foot`, `calm`, `of`, `scale`), `compare`, `whatIf`, `procedure` (7.4); opt-in: `wave`, `waveMax`, `focusRow` (7.3).
+`data`, `tiles`, `key`, `delta`, `dataTitle`, `tool`, `visual` (+ `cols`, `asc`, `rowHead`, `note`, `vs`, `foot`, `calm`, `of`, `scale`), `compare`, `whatIf`, `procedure` (7.4); opt-in: `wave`, `waveMax`, `focusRow` (7.3); opt-in teaching features (7.5): `hold`.
 
 ### Slide order and carry-over
 
@@ -458,6 +458,20 @@ On a stent Doppler slide, `{ label, gate, own? }` buttons move the Doppler's gat
 
 A button can name another patient instead: `compare: [{ label: 'Normal heart', preset: 'healthy' }, { label: 'Failing heart', own: true }]`. The live model eases to that patient (computed with the slide's states), and the `own` button eases back to the slide's exact state. A patient button may also carry `params` and `days`, as an `of` row does: `{ label: 'No anticoagulation', short: 'None', preset: 'pvt-acute', params: {}, days: 180 }` shows the acute clot left alone for 180 days (Pre-hepatic's anticoagulation slide). Give a button a `short` label when the full names would wrap on a phone. A button can also name an earlier slide of the same deck, one patient's earlier visit: `compare: [{ label: 'Day 0', slide: 'd0' }, { label: 'Day 365', own: true }]` eases the live model to that slide's state and back (One year's last catheter slide). On a catheter slide the catheter's callouts and its monitor follow the live model with the tiles.
 
+### 7.5 Teaching features (opt-in, 25 Oct)
+
+These help a slide make the room think before it tells. Each is opt-in: a built-in slide uses one only when `tests/deck-adopted.js`
+lists it, and `tests/teaching-features.test.js` checks both the decks and the wiring.
+
+**`hold: true`: the answer held back on a question slide.** On a question slide the data card can give the answer away: the Gut to heart
+chart's red block stands on the station the question asks for, and the Doppler's top strip prints "Hepatofugal" or "No flow". With `hold:
+true` the card keeps back what names the answer: the chart draws its line, stations, numbers, healthy line and the HVPG and PPG pills, but no
+red blocks and no HVPG or PPG brackets; the Doppler trace runs and its velocity reads, but its direction, pattern and note stay blank; tiles
+show their numbers but not their rating words; and the figure's "no flow" and "stasis" words stand down. The next slide, its answer (same
+patient, no `preset`), comes in still holding them, and once its cards have landed they ease in (the blocks fade up, the words fade in);
+nothing snaps. Going back or jumping to an answer slide shows it whole. Use it on every question slide of a question-and-answer pair (rule
+23): Where is the resistance? and Read the Doppler hold all of theirs.
+
 ---
 
 ## 8. Catalogue
@@ -652,7 +666,7 @@ Key facts for text: normal HVPG 1–5; CSPH is HVPG ≥ 10; bleeding risk rises 
 20. **A time-lapse with its own `preset` carries `params`** (`params: {}` is enough), or it plays from the previous slide's patient; word its line as the end point, since its `{tokens}` show the end values (section 4).
 21. **Summary tables:** every `cols` key needs a heading in `COLS` (`src/ui/table-marks.js`); `tests/deck-review-bugs.test.js` checks it.
 22. **New decks need handout figures:** run `node scripts/handout-figures.mjs <id>` (it writes `brand/handout/<id>/<slide id>.webp`); `tests/handout.test.js` fails while a slide has none, or while a figure belongs to no slide (a renamed or removed slide).
-23. **Question and answer pairs (the capstone decks Where is the resistance?, Read the Doppler and Choose the treatment).** A case is two slides. The question slide loads the patient (`preset`, with a `vignette`), shows the readings or the live options (`compare`) and asks in its line, with nothing named; Where is the resistance? and Read the Doppler also leave `site` off here and set it on the answer slide, so no level tab gives the answer away. The answer slide carries on with the same patient (no `preset`), names the finding, can add `params`, `delta: '<question slide id>'` and a `cite`, and may list what decides it with `causesHead` and `causes`. Never put `scales` on a question slide: a flip would give the answer away. Give the two slides of a pair the same kicker ("Case 1"), so the outline and the summary table read in order.
+23. **Question and answer pairs (the capstone decks Where is the resistance?, Read the Doppler and Choose the treatment).** A case is two slides. The question slide loads the patient (`preset`, with a `vignette`), shows the readings or the live options (`compare`) and asks in its line, with nothing named; Where is the resistance? and Read the Doppler also leave `site` off here and set it on the answer slide, so no level tab gives the answer away. The answer slide carries on with the same patient (no `preset`), names the finding, can add `params`, `delta: '<question slide id>'` and a `cite`, and may list what decides it with `causesHead` and `causes`. Never put `scales` on a question slide: a flip would give the answer away. Put `hold: true` on the question slide (section 7.5), so its data card names nothing either. Give the two slides of a pair the same kicker ("Case 1"), so the outline and the summary table read in order.
 
 ---
 

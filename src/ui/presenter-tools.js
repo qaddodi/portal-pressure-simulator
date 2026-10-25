@@ -34,7 +34,7 @@ import { createFlowTime } from './flow-time.js?v=cb89e13e11';
 import { createEndoscopy, createAbdomen, createVarixWall } from './instruments.js?v=fbcf3d909c';
 import { frameFor } from './frame.js?v=19b3f2915c';
 import { talkTrace } from './talk-trace.js?v=690f63b106';
-import { EXT, guard, safe } from './slide-ext.js?v=2ab4d1b5b2';
+import { EXT, guard, safe } from './slide-ext.js?v=81ac3e3b3f';
 const nextFrame = frameFor('presenter-tools');
 
 const VESSEL = { PV_TRUNK: 'main portal vein', PVH_R: 'right portal vein', PVH_L: 'left portal vein', SV_CONF: 'splenic vein', SV_MID: 'splenic vein', V_SPL: 'splenic vein, at the hilum',
@@ -129,6 +129,9 @@ export function createTools({ host, stage }) {
       on = !!on; if (on === held) return; held = on;
       for (const k of ['doppler', 'beats']) made[k]?.restart?.() ?? made[k]?.clear?.();
     },
+    /** A question slide's answer held back (slide hold: true, or a Predict slide before its reveal): the instrument showing leaves out the
+     *  parts that name the answer (the Gut to heart chart's red blocks and brackets; the Doppler's words are held by the card's CSS). */
+    holdAnswer(on, instant = false) { cur?.hold?.(!!on, instant); },
     hide() { stage?.pinDoppler?.(null); stage?.setScanProbe?.(false); cur = null; kind = null; lastSlide = null; delete box.dataset.kind; },
     /** The presentation is over: the Doppler goes back to the vessel it had. */
     dispose() {
