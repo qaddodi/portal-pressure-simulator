@@ -200,7 +200,7 @@ export const ADOPTED = {
   'read-doppler/q3': ['tool.grid', 'hold'],
   'read-doppler/q4': ['tool.grid', 'hold'],
   'read-doppler/q5': ['tool.grid', 'hold'],
-  'variceal-bleed/minutes': ['clock', 'predict'],
+  'variceal-bleed/minutes': ['clock'],
   'stiffness/schisto': ['caseQ'],
   'doppler/slow': ['tool.grid', 'caseQ'],
   'doppler/clot': ['tool.grid', 'caseQ'],

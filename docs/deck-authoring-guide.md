@@ -497,7 +497,7 @@ held parts easing in. The card is laid out for the larger of the question and th
 the card (buttons, caveat, source) keeps its place unseen until the reveal. Going back, jumping to the slide, or Next a second time shows
 the slide as usual. Nothing is stored or scored. Write `q` as one or two sentences under 45 words ending on the question, options of a few
 words each ("Rise", "Fall", "Stay the same"), and keep the slide's own `line` as the answer. The handout prints the question, its choices
-and the answer, like an `ask`. Used on Circuit 6, Blood volume 3, Variceal bleed 4, Next bleed 4 and Beta-blockers 7.
+and the answer, like an `ask`. Used on Circuit 6, Blood volume 3, Next bleed 4 and Beta-blockers 7 (taken off Variceal bleed 4 on 25 Oct, where stepping onto it froze the talk on an iPhone).
 
 ```js
 { id: 'both', ...MEAL, predict: { title: 'The same meal, in cirrhosis', q: 'In health a meal raised the portal flow by half, and the gradient barely moved. This liver resists several times more. Will the same meal raise the gradient more or less?', options: ['More', 'Less', 'About the same'], answer: 0 }, /* …the slide as before… */ }

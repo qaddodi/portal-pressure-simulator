@@ -22,11 +22,11 @@ import { sinusoidSupported } from './gl-support.js?v=94ad2a7ff1';
 import { SCALE_NAME, offeredScales, scaleView, pickedScale } from './scale-switch.js?v=1b0e3acd65';
 import { DISEASE_SRC, diseasePieces } from './diseases.js?v=fb8a5451c3';
 import { nb, listCase, plateletText } from './glue.js?v=5a0f63226b';
-import { DECKS, REGIONS, LEVELS, TOPICS, withOverview, siteTag, SITE_TAGS } from './decks.js?v=b812267210';
+import { DECKS, REGIONS, LEVELS, TOPICS, withOverview, siteTag, SITE_TAGS } from './decks.js?v=0490e0df7d';
 import { fingerprintOf } from '../engine/fingerprint.js?v=8faea80b59';
 import { createHvpgMonitor } from './hvpg-proc.js?v=bdf42847fa';
-import { createTools } from './presenter-tools.js?v=7ab2474075';
-import { openHandout } from './handout.js?v=a495054b94';
+import { createTools } from './presenter-tools.js?v=86aab84ff5';
+import { openHandout } from './handout.js?v=14fb6fe587';
 import { noteResume, resumeFor } from './resume.js?v=f086f80ee8';
 import { parseDeckSource, checkDeck } from './deck-source.js?v=8395c650cd';
 import { NO_ASC, TILE, tileOf, SCALE, bandsOf, rateOf, COLS, CUT, PRESS, fpv, dirAbs, dirRel, rateAbs, effOf, rateShown, tileShown, tipsGoal, liveSettled, shownSig } from './table-marks.js?v=2201eda74a';
@@ -34,7 +34,7 @@ import { frameFor, cancelFrame } from './frame.js?v=19b3f2915c';
 import { createFigureKey } from './figure-key.js?v=8bbf7a41ed';
 import { traceWhen } from './trace-labels.js?v=fc916a95c6';
 import { flowCss, heatCss, dropCss, gradientCss, oxygenCss } from './colormap.js?v=cdcf6a2f55';
-import { EXT, expandIds, stepExtra, markLabel, figureHooks, safe } from './slide-ext.js?v=62b602c777';
+import { EXT, expandIds, stepExtra, markLabel, figureHooks, safe } from './slide-ext.js?v=9c22116765';
 import { clotWords } from './callout-math.js?v=75e1ee4dc2';
 import { citeText, focusOf, oneLadder } from './teach-extras.js?v=5f5248f5a7';
 import { createProfileTool, createProfileStrip, pillReadings } from './tool-profile.js?v=9240b975c9';
@@ -1548,7 +1548,15 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   async function run() {
     busy = true;
     try {
-      while (deck && (!shown || shown.i !== want || shown.gen !== gen)) await transition(want);
+      // (A move that ends without landing and without being cut, for the same slide twice running, is not tried a third time: a
+      // slide that could not land had the loop rebuild it without end, and the talk froze. Next or a jump tries it again.)
+      let tries = 0, key = '';
+      while (deck && (!shown || shown.i !== want || shown.gen !== gen)) {
+        const k = `${want}|${gen}`;
+        tries = k === key ? tries + 1 : 1; key = k;
+        if (tries > 2) { console.warn(`presenter: slide ${want + 1} did not land`); break; }
+        await transition(want);
+      }
     } finally { busy = false; }
   }
   // Inside the liver a slide change is one sequence: every label (text, pill, ring, leader) eases out together, the

@@ -79,7 +79,7 @@ test('criteria card: only adopted slides use it, each with 1 to 4 rows of words,
 
 test('predict: only adopted slides ask, each on a slide that changes the same patient, with 2 to 4 short choices and a right one', () => {
   const used = slidesUsing('predict');
-  assert.ok(used.length >= 5, 'Circuit 6, Blood volume 3, Variceal bleed 4, Next bleed 4 and Beta-blockers 7 ask first');
+  assert.ok(used.length >= 4, 'Circuit 6, Blood volume 3, Next bleed 4 and Beta-blockers 7 ask first');
   for (const [d, s] of used) {
     const p = s.predict, at = `${d.id}/${s.id}`;
     assert.ok(adopted(d, s, 'predict'), `${at}: Predict is opt-in (tests/deck-adopted.js)`);
@@ -194,4 +194,11 @@ test('bleed clock: clock on a tiles slide shows the hours since the bleed on a t
   assert.match(p, /export const CLOCK_END = 72, CLOCK_MARKS = \[12, 72\];/);
   assert.match(p, /ui\.clock\.set\(s\.data \? s\.clock : null\);/);
   assert.match(css, /\.pz-clock \.pzb-now \{ transition: left \.6s var\(--ease\)/, 'the dot eases to the slide\'s moment');
+});
+
+test('a slide that cannot land is not rebuilt without end (Variceal bleed 3 to 4 froze the talk, 25 Oct)', () => {
+  const p = src('presenter.js');
+  assert.match(p, /if \(tries > 2\) \{ console\.warn\(`presenter: slide \$\{want \+ 1\} did not land`\); break; \}/, 'the move loop gives up on a slide after two tries');
+  const vb = DECKS.find((d) => d.id === 'variceal-bleed').slides.find((s) => s.id === 'minutes');
+  assert.equal(vb.predict, undefined, 'Variceal bleed 4 asks no Predict question');
 });
