@@ -49,7 +49,7 @@ void main() {
 }`;
 
 import { createShapeGL } from './shape-gl.js?v=b9a7bdbd53';
-import { createOrganPaint, mul } from './organ-paint.js?v=8f6b8cbc3f';
+import { createOrganPaint, mul } from './organ-paint.js?v=96dd8f65f2';
 import { netChanged } from './idle-keys.js?v=4b46e6a6ef';
 
 function program(gl, vs, fs) {
@@ -169,16 +169,25 @@ export function createOrganStack(gl) {
       gl.bindFramebuffer(gl.FRAMEBUFFER, null); gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
       // (World → the picture's pixels, y down; on the GPU its first row lands at the bottom, which the layer's draw turns back: flip.)
       const T = [W / rect[2], 0, 0, H / rect[3], -rect[0] * W / rect[2], -rect[1] * H / rect[3]];
-      let gi = 0, oi = 0, done = false, live = true;
-      const free = () => { if (fb) gl.deleteFramebuffer(fb); };
+      // (gi: the group being painted, its job `cur`; a group's job paints a few ops a step, however deep its groups nest.)
+      let gi = 0, cur = null, done = false, live = true;
+      const free = () => { cur?.drop(); cur = null; if (fb) gl.deleteFramebuffer(fb); };
       return {
         step(until = Infinity) {
           if (!live || done) return done;
           while (gi < groups.length) {
             const g = groups[gi];
-            oi = painter.paintInto(g.spec, mul(T, g.m), W, H, fb, oi, until);
-            if (oi >= 0) break;
-            gi++; oi = 0;
+            cur ||= painter.bakeJob(g.spec, mul(T, g.m), W, H, fb);
+            const r = cur.step(until);
+            if (r === 'lost') {
+              // (The painter's layers were made again meanwhile, a half-painted group with them: the picture starts over.)
+              cur = null; gi = 0;
+              gl.bindFramebuffer(gl.FRAMEBUFFER, fb); gl.viewport(0, 0, W, H); gl.disable(gl.SCISSOR_TEST);
+              gl.clearBufferfv(gl.COLOR, 0, [0, 0, 0, 0]);
+              break;
+            }
+            if (r !== 'done') break;
+            cur = null; gi++;
             if (performance.now() > until) break;
           }
           gl.bindVertexArray(null); gl.disable(gl.BLEND); gl.disable(gl.SCISSOR_TEST); gl.activeTexture(gl.TEXTURE0);

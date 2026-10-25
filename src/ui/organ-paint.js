@@ -323,7 +323,9 @@ export function createOrganPaint(gl, shape) {
   const scratch = target(), stencil = gl.createRenderbuffer(), depths = [[target(), target()]], layers = depths[0];
   // W × H: the target painted now (the canvas, or a picture's texture: organs-gl bake), drawn from the targets' bottom-left
   // corner; AW × AH: what the targets hold, only ever grown, so a picture of another size never makes them all again.
-  let W = 0, H = 0, AW = 0, AH = 0;
+  let W = 0, H = 0, AW = 0, AH = 0, allocVer = 0;
+  // (The picture job painting with the nested layers now (bakeJob): one at a time.)
+  let holder = null;
   const alloc = (list) => {
     for (const t of list) {
       gl.bindTexture(gl.TEXTURE_2D, t.tex);
@@ -336,6 +338,7 @@ export function createOrganPaint(gl, shape) {
     W = w; H = h;
     if (w <= AW && h <= AH) return;
     AW = Math.max(AW, w); AH = Math.max(AH, h);
+    allocVer++;   // (every target made again, what they held lost: a picture's job half done starts over)
     alloc([scratch, ...depths.flat()]);
     gl.bindRenderbuffer(gl.RENDERBUFFER, stencil);
     gl.renderbufferStorage(gl.RENDERBUFFER, gl.STENCIL_INDEX8, AW, AH);
@@ -414,79 +417,97 @@ export function createOrganPaint(gl, shape) {
     }
     return { om, sh, cm, csh, b, alpha: lv.alpha };
   }
-  /** Paints the ops of a group into the bound target (cleared by the caller), under m; only within `within` (a device box) if given. */
-  // (i0, until: the ops from i0, until that time (performance.now) has passed; returns the index of the next op not painted, or -1
-  // once all are. d: how deep in nested groups the ops are, whose layers are depths[d + 1].)
-  function paintOps(spec, m, into, within = null, d = 0, i0 = 0, until = Infinity) {
-    const sz = [W, H];
-    let clipKey = null;
-    for (let i = i0; i < spec.ops.length; i++) {
-      if (i > i0 && performance.now() > until) return i;
-      const op = spec.ops[i];
+  // Painting as a job: frames of ops (a group's, a nested group's into its own layer, its mask's into the mask layer, and the
+  // layer laid over what it belongs to once both are in), painted in order and resumable between any two ops. A picture
+  // (organs-gl bake) is painted a few ms a frame however deep its groups nest (a nested group was painted whole within one
+  // op: the gut's see-through shades, all at once). `ck`: the clip whose coverage the scratch's green holds (none after a pause:
+  // the scratch is the live painting's between two steps).
+  const frameOf = (ops, m, into, within, d) => ({ ops, m, into, within, d, i: 0 });
+  /** Runs a job's frames until they are all painted (true) or, after at least one op, `until` (performance.now) has passed (false). */
+  function runJob(job, until = Infinity) {
+    let n = 0;
+    job.ck = null;
+    while (job.frames.length) {
+      const f = job.frames[job.frames.length - 1];
+      if (f.lay) { job.frames.pop(); layOver(...f.lay); job.ck = null; continue; }
+      if (f.i >= f.ops.length) { job.frames.pop(); continue; }
+      if (n > 0 && performance.now() > until) return false;
+      const op = f.ops[f.i++];
+      n++;
       if (op.kind === 'group') {
         // A nested group (readGroup nest): painted in its own layer, laid with its opacity and mask, as the browser lays it.
-        const at = opAt(op, m), b = within ? meet(at.b, within) : at.b;
+        const at = opAt(op, f.m), b = f.within ? meet(at.b, f.within) : at.b;
         if (!b) continue;
-        const [g, k] = depth(d + 1);
+        const [g, k] = depth(f.d + 1);
         clearTargets(b, op.mask ? [g, k] : [g]);
-        paintOps(op, m, g.fbo, b, d + 1);
-        if (op.mask) paintOps(op.mask, at.mm, k.fbo, b, d + 1);
-        layOver(g, k, b, at.alpha, !!op.mask, into);
-        clipKey = null;
+        // (Last in, first painted: its shapes, then its mask, then the layer laid.)
+        job.frames.push({ lay: [g, k, b, at.alpha, !!op.mask, f.into] });
+        if (op.mask) job.frames.push(frameOf(op.mask.ops, at.mm, k.fbo, b, f.d + 1));
+        job.frames.push(frameOf(op.ops, f.m, g.fbo, b, f.d + 1));
+        job.ck = null;
         continue;
       }
-      const at = opAt(op, m), { om, sh, cm, csh } = at;
-      let b = within ? meet(at.b, within) : at.b;
-      if (!b) continue;
-      // The shape's coverage into the scratch's red, its clip's into green (kept while the next op has the same clip).
-      gl.bindFramebuffer(gl.FRAMEBUFFER, scratch.fbo);
-      gl.viewport(0, 0, W, H);
-      const ck = op.clip ? `${op.clip.geom.d ? dKey(op.clip.geom.el.getAttribute('d') || '') : ''}|${cm.join(',')}` : null;
-      const newClip = !!op.clip && ck !== clipKey;
-      // (A new clip's green is cleared over the clip's own box, with this op's: a later op with the same clip is cut to that box, so
-      // it never reads the green outside it. It was the whole canvas, on every clipped group, every frame.)
-      gl.colorMask(true, newClip, false, false);
-      scissor(newClip ? join(b, devBox(csh.box, cm, 2)) : b);
-      gl.clearBufferfv(gl.COLOR, 0, [0, 0, 0, 0]);
-      gl.colorMask(true, true, true, true);
-      gl.disable(gl.SCISSOR_TEST);
-      if (op.kind === 'fill') shape.fill(sh.mesh, om, sz, [true, false, false, false]);
-      else shape.stroke(sh.mesh, om, sz, [true, false, false, false], op.w);
-      if (newClip) { shape.fill(csh.mesh, cm, sz, [false, true, false, false]); clipKey = ck; }
-      // Painted over the target within the op's box.
-      gl.bindFramebuffer(gl.FRAMEBUFFER, into);
-      gl.viewport(0, 0, W, H);
-      scissor(b);
-      const U = paintP.u;
-      gl.useProgram(paintP.p);
-      gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, scratch.tex);
-      gl.uniform1i(U.cov, 0);
-      gl.uniform1i(U.useClip, op.clip ? 1 : 0);
-      gl.uniform1f(U.alpha, at.alpha);
-      gl.uniform1f(U.H, H);
-      const p = op.paint;
-      if (p.solid) { gl.uniform1i(U.kind, 0); gl.uniform4fv(U.color, p.solid); }
-      else {
-        const g = p.grad;
-        // device → the element's units → (its box) → the gradient's space (its transform undone).
-        let toG = inv(om);
-        if (g.box) { const bx = sh.box; toG = mul([1 / (bx[2] || 1), 0, 0, 1 / (bx[3] || 1), -bx[0] / (bx[2] || 1), -bx[1] / (bx[3] || 1)], toG); }
-        toG = mul(inv(g.gt), toG);
-        mat.set([toG[0], toG[1], 0, toG[2], toG[3], 0, toG[4], toG[5], 1]);
-        gl.uniformMatrix3fv(U.toGrad, false, mat);
-        gl.uniform1i(U.kind, g.kind);
-        gl.uniform4f(U.gp, g.p[0], g.p[1], g.p[2], g.p[3] ?? 0);
-        stopO.fill(0); stopC.fill(0);
-        g.stops.forEach((s, i) => { stopO[i] = s[0]; stopC.set(s.slice(1), 4 * i); });
-        gl.uniform1fv(U.stopO, stopO); gl.uniform4fv(U.stopC, stopC); gl.uniform1i(U.nStops, g.stops.length);
-        gl.uniform4f(U.color, 0, 0, 0, 0);
-      }
-      gl.enable(gl.BLEND); gl.blendEquation(gl.FUNC_ADD); gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
-      drawQuad();
-      gl.disable(gl.BLEND);
-      gl.disable(gl.SCISSOR_TEST);
+      paintOp(op, f.m, f.into, f.within, job);
     }
-    return -1;
+    return true;
+  }
+  /** Paints the ops of a group into the bound target (cleared by the caller), under m; only within `within` (a device box) if given. */
+  // (d: how deep in nested groups the ops are, whose layers are depths[d + 1].)
+  function paintOps(spec, m, into, within = null, d = 0) { runJob({ frames: [frameOf(spec.ops, m, into, within, d)] }); }
+  /** One shape's op painted over `into` under m, within `within`. */
+  function paintOp(op, m, into, within, job) {
+    const sz = [W, H];
+    const at = opAt(op, m), { om, sh, cm, csh } = at;
+    let b = within ? meet(at.b, within) : at.b;
+    if (!b) return false;
+    // The shape's coverage into the scratch's red, its clip's into green (kept while the next op has the same clip).
+    gl.bindFramebuffer(gl.FRAMEBUFFER, scratch.fbo);
+    gl.viewport(0, 0, W, H);
+    const ck = op.clip ? `${op.clip.geom.d ? dKey(op.clip.geom.el.getAttribute('d') || '') : ''}|${cm.join(',')}` : null;
+    const newClip = !!op.clip && ck !== job.ck;
+    // (A new clip's green is cleared over the clip's own box, with this op's: a later op with the same clip is cut to that box, so
+    // it never reads the green outside it. It was the whole canvas, on every clipped group, every frame.)
+    gl.colorMask(true, newClip, false, false);
+    scissor(newClip ? join(b, devBox(csh.box, cm, 2)) : b);
+    gl.clearBufferfv(gl.COLOR, 0, [0, 0, 0, 0]);
+    gl.colorMask(true, true, true, true);
+    gl.disable(gl.SCISSOR_TEST);
+    if (op.kind === 'fill') shape.fill(sh.mesh, om, sz, [true, false, false, false]);
+    else shape.stroke(sh.mesh, om, sz, [true, false, false, false], op.w);
+    if (newClip) { shape.fill(csh.mesh, cm, sz, [false, true, false, false]); job.ck = ck; }
+    // Painted over the target within the op's box.
+    gl.bindFramebuffer(gl.FRAMEBUFFER, into);
+    gl.viewport(0, 0, W, H);
+    scissor(b);
+    const U = paintP.u;
+    gl.useProgram(paintP.p);
+    gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, scratch.tex);
+    gl.uniform1i(U.cov, 0);
+    gl.uniform1i(U.useClip, op.clip ? 1 : 0);
+    gl.uniform1f(U.alpha, at.alpha);
+    gl.uniform1f(U.H, H);
+    const p = op.paint;
+    if (p.solid) { gl.uniform1i(U.kind, 0); gl.uniform4fv(U.color, p.solid); }
+    else {
+      const g = p.grad;
+      // device → the element's units → (its box) → the gradient's space (its transform undone).
+      let toG = inv(om);
+      if (g.box) { const bx = sh.box; toG = mul([1 / (bx[2] || 1), 0, 0, 1 / (bx[3] || 1), -bx[0] / (bx[2] || 1), -bx[1] / (bx[3] || 1)], toG); }
+      toG = mul(inv(g.gt), toG);
+      mat.set([toG[0], toG[1], 0, toG[2], toG[3], 0, toG[4], toG[5], 1]);
+      gl.uniformMatrix3fv(U.toGrad, false, mat);
+      gl.uniform1i(U.kind, g.kind);
+      gl.uniform4f(U.gp, g.p[0], g.p[1], g.p[2], g.p[3] ?? 0);
+      stopO.fill(0); stopC.fill(0);
+      g.stops.forEach((s, i) => { stopO[i] = s[0]; stopC.set(s.slice(1), 4 * i); });
+      gl.uniform1fv(U.stopO, stopO); gl.uniform4fv(U.stopC, stopC); gl.uniform1i(U.nStops, g.stops.length);
+      gl.uniform4f(U.color, 0, 0, 0, 0);
+    }
+    gl.enable(gl.BLEND); gl.blendEquation(gl.FUNC_ADD); gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
+    drawQuad();
+    gl.disable(gl.BLEND);
+    gl.disable(gl.SCISSOR_TEST);
+    return true;
   }
 
   /** The device box of everything a group paints under m (with its strokes), or null. */
@@ -553,18 +574,45 @@ export function createOrganPaint(gl, shape) {
       lay(b, specOpacity(spec), !!spec.mask, fbo);
     },
     /**
-     * A picture's group (organs-gl bake): laid over framebuffer `fbo` (w × h) as paintGroup lays it, its meshes kept across frames.
-     * A group with no opacity of its own and no mask is painted op by op straight onto the picture (the same pixels: "over" onto
-     * what is under it), from op i0 until `until` (performance.now); returns the next op to paint, or -1 once it is all painted.
-     * Any other group is painted whole.
+     * A picture's group (organs-gl bake), laid over framebuffer `fbo` (w × h) as paintGroup lays it, as a job painted a few ops at a
+     * time, its meshes kept across frames: step(until) paints on until that time (performance.now) and returns 'done' once all is
+     * painted, 'more', 'wait' while another picture's job holds the nested layers (one at a time: they keep a half-painted group
+     * between steps), or 'lost' when those layers were made again meanwhile (the canvas grew: the picture must start over). A group
+     * with no opacity of its own and no mask is painted straight onto the picture (the same pixels: "over" onto what is under it);
+     * any other in a layer of its own, laid once whole. drop() gives it up.
      */
-    paintInto(spec, m, w, h, fbo, i0 = 0, until = Infinity) {
-      size(w, h);
-      keeping = true;
-      try {
-        if (spec.mask || specOpacity(spec) < 1) { if (i0 === 0) this.paintGroup(spec, m, w, h, fbo); return -1; }
-        return paintOps(spec, m, fbo, [0, 0, w, h], 0, i0, until);
-      } finally { keeping = false; lives = new Map(); dKeys = new Map(); }
+    bakeJob(spec, m, w, h, fbo) {
+      let job = null, ver = -1;
+      const me = {
+        step(until = Infinity) {
+          if (holder && holder !== me) return 'wait';
+          holder = me;
+          size(w, h);
+          keeping = true;
+          try {
+            if (!job) {
+              ver = allocVer;
+              if (spec.mask || specOpacity(spec) < 1) {
+                const b = meet(groupBox(spec, m), [0, 0, w, h]);
+                job = { frames: [] };
+                if (b) {
+                  const [g, k] = depth(1);
+                  clearTargets(b, spec.mask ? [g, k] : [g]);
+                  // (A mask's content is in the user space of the element it masks: the group's frame.)
+                  job.frames.push({ lay: [g, k, b, specOpacity(spec), !!spec.mask, fbo] });
+                  if (spec.mask) job.frames.push(frameOf(spec.mask.ops, m, k.fbo, b, 1));
+                  job.frames.push(frameOf(spec.ops, m, g.fbo, b, 1));
+                }
+              } else job = { frames: [frameOf(spec.ops, m, fbo, [0, 0, w, h], 0)] };
+            } else if (ver !== allocVer) { holder = null; return 'lost'; }
+            if (!runJob(job, until)) return 'more';
+            holder = null;
+            return 'done';
+          } finally { keeping = false; lives = new Map(); dKeys = new Map(); }
+        },
+        drop() { if (holder === me) holder = null; job = null; },
+      };
+      return me;
     },
     /** What it holds on the GPU: meshes with arrays there, and those the pictures keep. */
     stats: () => ({ meshes: shape.count?.() ?? 0, kept: kept.size }),

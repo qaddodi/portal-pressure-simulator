@@ -76,7 +76,7 @@ test('a live organ that changed is drawn again within its box, and only its cell
   assert.match(gl, /painter\.paintGroup\(o\.spec, mul\(m, o\.m\), w, h, fbo, within\)/);
   assert.match(gl, /cut\.opacity \?\? 1, within\);/);
   // The painter: every op's box is the one it paints within, so a signature's box covers its pixels.
-  assert.match(paint, /function paintOps\(spec, m, into, within = null, d = 0, i0 = 0, until = Infinity\)/);
+  assert.match(paint, /function paintOps\(spec, m, into, within = null, d = 0\) \{ runJob\(\{ frames: \[frameOf\(spec\.ops, m, into, within, d\)\] \}\); \}/);
   assert.match(paint, /const at = opAt\(op, m\), \{ om, sh, cm, csh \} = at;\n\s+let b = within \? meet\(at\.b, within\) : at\.b;/);
   assert.match(paint, /for \(const op of spec\.ops\) ops\.push\(\[opSig\(op, m\), opAt\(op, m\)\.b\]\);/);
   assert.match(paint, /const b = meet\(groupBox\(spec, m\), within \|\| \[0, 0, w, h\]\);/);
@@ -165,12 +165,38 @@ test('the organ layers are painted on the GPU from their shapes, with no SVG pic
   assert.match(gl, /o = texture\(t1, flip\.y == 1 \? vec2\(u1\.x, 1\.0 - u1\.y\) : u1\)/, 'its rows turned back where it is laid');
   // Nested groups laid in layers of their own, with their opacity and mask, as the browser lays them.
   assert.match(paint, /const own2 = nest && el !== root && el\.localName === 'g' && \(masked \|\| o < 1\);/);
-  assert.match(paint, /layOver\(g, k, b, at\.alpha, !!op\.mask, into\);/);
-  assert.match(paint, /if \(op\.mask\) paintOps\(op\.mask, at\.mm, k\.fbo, b, d \+ 1\);/);
-  // A group painted op by op only when that is the same picture (no opacity or mask of its own); otherwise whole.
-  assert.match(paint, /if \(spec\.mask \|\| specOpacity\(spec\) < 1\) \{ if \(i0 === 0\) this\.paintGroup\(spec, m, w, h, fbo\); return -1; \}/);
+  // (Last in, first painted: the nested group's shapes into its layer, its mask into the mask layer, then the layer laid over.)
+  assert.match(paint, /job\.frames\.push\(\{ lay: \[g, k, b, at\.alpha, !!op\.mask, f\.into\] \}\);\n\s+if \(op\.mask\) job\.frames\.push\(frameOf\(op\.mask\.ops, at\.mm, k\.fbo, b, f\.d \+ 1\)\);\n\s+job\.frames\.push\(frameOf\(op\.ops, f\.m, g\.fbo, b, f\.d \+ 1\)\);/);
+  // A group painted straight onto the picture only when that is the same picture (no opacity or mask of its own); otherwise in
+  // its own layer, laid once whole; either way a few ops a step.
+  assert.match(paint, /if \(spec\.mask \|\| specOpacity\(spec\) < 1\) \{\n\s+const b = meet\(groupBox\(spec, m\), \[0, 0, w, h\]\);/);
+  assert.match(paint, /job\.frames\.push\(\{ lay: \[g, k, b, specOpacity\(spec\), !!spec\.mask, fbo\] \}\);/);
+  assert.match(paint, /\} else job = \{ frames: \[frameOf\(spec\.ops, m, fbo, \[0, 0, w, h\], 0\)\] \};/);
   // Shapes keep their arrays on the GPU while kept, given back when let go.
   assert.match(shape, /gl\.bufferData\(gl\.ARRAY_BUFFER, mesh\.tri, gl\.STATIC_DRAW\)/);
   assert.doesNotMatch(shape, /bufferSubData/);
   assert.match(paint, /for \(const \[k, v\] of meshesOld\) if \(!meshes\.has\(k\) && !kept\.has\(k\)\) shape\.release\(v\.mesh\);/);
+});
+
+// The painting time limit holds inside nested groups too (review, 25 Oct): a nested group, or a picture's group with a mask or an
+// opacity of its own, was painted whole within one op, so a picture of the gut could still make one long frame.
+test("a picture's painting stops at its time limit at any depth of nested groups, and resumes where it stopped", () => {
+  const paint = readFileSync(new URL('../src/ui/organ-paint.js', import.meta.url), 'utf8');
+  const gl = readFileSync(new URL('../src/ui/organs-gl.js', import.meta.url), 'utf8');
+  const run = paint.slice(paint.indexOf('function runJob('), paint.indexOf('function paintOps('));
+  // The time is checked before every op of every frame, whatever its depth, after at least one op (so each step moves on).
+  assert.match(run, /if \(n > 0 && performance\.now\(\) > until\) return false;\n\s+const op = f\.ops\[f\.i\+\+\];\n\s+n\+\+;/);
+  assert.doesNotMatch(run, /paintOps\(|paintGroup\(/, 'no nested group painted whole inside a step');
+  // The nested layers hold a half-painted group between steps: one picture's job at a time, and a job whose layers were made
+  // again meanwhile (the canvas grew) starts its picture over rather than lay a wiped layer.
+  assert.match(paint, /if \(holder && holder !== me\) return 'wait';/);
+  assert.match(paint, /\} else if \(ver !== allocVer\) \{ holder = null; return 'lost'; \}/);
+  assert.match(paint, /AW = Math\.max\(AW, w\); AH = Math\.max\(AH, h\);\n\s+allocVer\+\+;/, 'only when the targets are made again, not when a deeper pair is first made');
+  assert.match(paint, /drop\(\) \{ if \(holder === me\) holder = null; job = null; \},/);
+  // The live painting never uses those layers (it reads no nested groups): the picture's start at depth 1.
+  assert.match(paint, /const \[g, k\] = depth\(1\);/);
+  const bake = gl.slice(gl.indexOf('    bake(slot, name, groups, rect, scale, at = 0) {'), gl.indexOf('    dropKept() {'));
+  assert.match(bake, /cur \|\|= painter\.bakeJob\(g\.spec, mul\(T, g\.m\), W, H, fb\);\n\s+const r = cur\.step\(until\);/);
+  assert.match(bake, /if \(r === 'lost'\) \{/);
+  assert.match(bake, /const free = \(\) => \{ cur\?\.drop\(\); cur = null;/, 'a picture given up lets go of the nested layers');
 });
