@@ -196,7 +196,7 @@ test("a picture's painting stops at its time limit at any depth of nested groups
   // The live painting never uses those layers (it reads no nested groups): the picture's start at depth 1.
   assert.match(paint, /const \[g, k\] = depth\(1\);/);
   const bake = gl.slice(gl.indexOf('    bake(slot, name, groups, rect, scale, at = 0) {'), gl.indexOf('    dropKept() {'));
-  assert.match(bake, /cur \|\|= painter\.bakeJob\(g\.spec, mul\(T, g\.m\), W, H, fb\);\n\s+const r = cur\.step\(until\);/);
+  assert.match(bake, /cur \|\|= painter\.bakeJob\(g\.spec, mul\(T, g\.m\), W, H, fb, pic\);\n\s+const r = cur\.step\(until\);/);
   assert.match(bake, /if \(r === 'lost'\) \{/);
   assert.match(bake, /const free = \(\) => \{ cur\?\.drop\(\); cur = null;/, 'a picture given up lets go of the nested layers');
 });

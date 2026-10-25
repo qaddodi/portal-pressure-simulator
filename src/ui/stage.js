@@ -31,9 +31,9 @@ import { warmVisible, ringGrid, inGrid } from './warm-vis.js?v=ccf4f6f71b';
 import { createRouter } from './circuit-router.js?v=0ee9e02fc6';
 import { gpuProbe } from './gpu-probe.js?v=e82dc07b45';
 import { plateStrips, premultiply, gutStep, viewReuse, copyPixels } from './plate-upload.js?v=5fc45556a1';
-import { cropToGrid } from './organs-gl.js?v=fe07f3d0d5';
-import { readGroup } from './organ-paint.js?v=96dd8f65f2';
-import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, ORIGIN_GREY } from './veins-gl.js?v=d9690f21d1';
+import { cropToGrid } from './organs-gl.js?v=b5ad4771a6';
+import { readGroup } from './organ-paint.js?v=22858c2611';
+import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, ORIGIN_GREY } from './veins-gl.js?v=21c983e6b1';
 import { varixBead, beadRadius } from './varix-bead.js?v=ac0e84fd89';
 import { advanceStream, createReversalHold, bleedShapes, stepBleedFade, fadeBleedShapes, chevFlowLevel, keyChevron, KEY_CHEV_LANES, originFractions, oxygenFor, ORIGIN_N, createBolus, DYE_BINS, KAPPA, STASIS_MIN_D, HIDDEN_SECONDS } from './blood.js?v=e668d01823';
 import { frameFor, cancelFrame, noteDraw, setSaver as setFrameSaver, paceMs } from './frame.js?v=19b3f2915c';
@@ -2137,7 +2137,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const lzAnchor = document.createComment('lobule');
   wrap.append(lzAnchor);
   // (The code is fetched as soon as the figure is shown; the layer is built a moment later, when the page is quiet, or at once for a dive.)
-  const lobuleCode = () => (lzCode ||= import('./lobule-zoom.js?v=704b3e517a').catch((err) => { lzCode = null; throw err; }));
+  const lobuleCode = () => (lzCode ||= import('./lobule-zoom.js?v=0cc196eff4').catch((err) => { lzCode = null; throw err; }));
   function lobuleReady() {
     return (lzLoad ||= lobuleCode().then(({ createLobuleZoom }) => {
       lz = createLobuleZoom({ host: wrap, styles: wrapCS, before: lzAnchor });
@@ -4219,7 +4219,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // view, the picture is checked against the state now, and drawn again only if that differs.
   document.addEventListener('visibilitychange', () => { if (!document.hidden) platePoke(); });
   // The ?perf switch "GPU organs": the picture shown now is dropped (the live drawing shows for a beat) and made again the other way.
-  gpuProbe.onOrgans = () => { plateKey = ''; liveFailed = false; liveFailWhy = ''; if (veins && !veins.lost) { hidePlate(); syncLiveOrgans(); } platePoke(); };
+  gpuProbe.onOrgans = () => { plateKey = ''; liveFailed = false; liveFailWhy = ''; if (veins && !veins.lost) { hidePlate(); syncLiveOrgans(); veins.organs?.dropKept(); } platePoke(); };
   // After a pan or zoom settles, a raster of the view at the screen's resolution (when the
   // whole-plate raster would look soft there).
   function schedulePlateView() {

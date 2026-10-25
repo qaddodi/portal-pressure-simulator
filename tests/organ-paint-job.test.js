@@ -82,3 +82,22 @@ test('a picture group with an opacity of its own is painted in a layer, a few op
   const lays = calls.filter((c) => c[0] === 'uniform1f').map((c) => c[2]).filter((v) => v === 0.6);
   assert.equal(lays.length, 1, 'laid once, with its opacity');
 });
+
+test('the meshes kept for pictures stay bounded over many pictures, and every one is given back when the painter goes', () => {
+  const { gl } = fakeGL(), shape = fakeShape(), p = createOrganPaint(gl, shape);
+  // (Three pictures of 2,500 shapes each, none shared: a patient or zoom change each, past the cap of 4,000 kept.)
+  const made = new Set();
+  for (let n = 0; n < 3; n++) {
+    const ops = Array.from({ length: 2500 }, (_, i) => square(i % 50, Math.floor(i / 50), 1));
+    const job = p.bakeJob({ ops, opacity: 1, mask: null, root: null }, ID, 100, 100, {}, p.beginPicture());
+    assert.equal(job.step(), 'done');
+    for (const l of shape.log) if (l[0] === 'fill') made.add(l[1]);
+    assert.ok(p.stats().kept <= 5000, `picture ${n + 1}: ${p.stats().kept} kept`);
+  }
+  const released = new Set(shape.log.filter((l) => l[0] === 'release').map((l) => l[1]));
+  assert.ok(released.size >= 2500, 'the first picture\'s meshes given back once two newer pictures are in');
+  assert.equal(p.stats().kept, made.size - released.size);
+  p.dispose();
+  assert.ok(shape.log.some((l) => l[0] === 'dispose'), 'the shape drawer disposed with the painter (its meshes\' arrays with it)');
+  assert.equal(p.stats().kept, 0);
+});

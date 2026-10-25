@@ -49,7 +49,7 @@ void main() {
 }`;
 
 import { createShapeGL } from './shape-gl.js?v=b9a7bdbd53';
-import { createOrganPaint, mul } from './organ-paint.js?v=96dd8f65f2';
+import { createOrganPaint, mul } from './organ-paint.js?v=22858c2611';
 import { netChanged } from './idle-keys.js?v=4b46e6a6ef';
 
 function program(gl, vs, fs) {
@@ -169,6 +169,7 @@ export function createOrganStack(gl) {
       gl.bindFramebuffer(gl.FRAMEBUFFER, null); gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
       // (World → the picture's pixels, y down; on the GPU its first row lands at the bottom, which the layer's draw turns back: flip.)
       const T = [W / rect[2], 0, 0, H / rect[3], -rect[0] * W / rect[2], -rect[1] * H / rect[3]];
+      const pic = painter.beginPicture();
       // (gi: the group being painted, its job `cur`; a group's job paints a few ops a step, however deep its groups nest.)
       let gi = 0, cur = null, done = false, live = true;
       const free = () => { cur?.drop(); cur = null; if (fb) gl.deleteFramebuffer(fb); };
@@ -177,7 +178,7 @@ export function createOrganStack(gl) {
           if (!live || done) return done;
           while (gi < groups.length) {
             const g = groups[gi];
-            cur ||= painter.bakeJob(g.spec, mul(T, g.m), W, H, fb);
+            cur ||= painter.bakeJob(g.spec, mul(T, g.m), W, H, fb, pic);
             const r = cur.step(until);
             if (r === 'lost') {
               // (The painter's layers were made again meanwhile, a half-painted group with them: the picture starts over.)
@@ -351,6 +352,7 @@ export function createOrganStack(gl) {
     dispose() {
       for (const s of [0, 1]) { free(live[s]); free(staged[s]); }
       painter?.dispose();
+      watch?.disconnect();
       gl.deleteTexture(stackTex); gl.deleteFramebuffer(fbo); gl.deleteBuffer(quad); gl.deleteVertexArray(vao); gl.deleteProgram(layerP.p);
     },
   };

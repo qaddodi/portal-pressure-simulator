@@ -351,21 +351,29 @@ export function createOrganPaint(gl, shape) {
   let meshes = new Map(), meshesOld = new Map();
   // (The pictures' meshes (bake): kept across frames, so a picture made again at the same detail cuts no outline again. Each mesh's
   // arrays stay on the GPU while it is kept (shape-gl.js), and are given back when it is let go.)
-  let kept = new Map(), keeping = false;
+  // (Each kept mesh carries the picture that last used it (tick): past the cap, those no picture of the last two used are let go,
+  // so a picture made at a new zoom never drops the meshes of the one being made.)
+  let kept = new Map(), keeping = false, tick = 0;
+  const KEEP_CAP = 4000;
   // (A path's `d` named by its hash and length, worked out once a frame: the liver's is thousands of characters, the nodules'
   // tens of thousands, and an outline written to several paths is hashed once.)
   let dKeys = new Map();
   const dKey = (d) => { let k = dKeys.get(d); if (!k) { k = `${d.length}:${strHash(d)}`; dKeys.set(d, k); } return k; };
+  // A kept mesh no picture of the last two used, given back (its GPU arrays too, unless the live painting has it this frame).
+  function evict() {
+    for (const [k, v] of kept) if (v.tick < tick - 1) { kept.delete(k); if (!meshes.has(k) && !meshesOld.has(k)) shape.release(v.mesh); }
+  }
   function meshOf(geom, cap, tol) {
     const d = geom.d ? geom.el.getAttribute('d') || '' : null;
     const key = geom.d ? `${tol}|${cap}|${dKey(d)}` : geom;
     if (keeping) {
       let k = kept.get(key);
       if (!k) {
-        if (kept.size > 4000) { for (const [kk, v] of kept) if (!meshes.has(kk) && !meshesOld.has(kk)) shape.release(v.mesh); kept = new Map(); }
+        if (kept.size >= KEEP_CAP) evict();
         const polys = geom.d ? flattenPath(d, tol) : geom.poly;
-        kept.set(key, (k = { mesh: polyMesh(polys, cap), polys, box: boxOf(polys) }));
+        kept.set(key, (k = { mesh: polyMesh(polys, cap), polys, box: boxOf(polys), tick }));
       }
+      k.tick = tick;
       return k;
     }
     let r = meshes.get(key) || meshesOld.get(key) || kept.get(key);
@@ -581,14 +589,14 @@ export function createOrganPaint(gl, shape) {
      * with no opacity of its own and no mask is painted straight onto the picture (the same pixels: "over" onto what is under it);
      * any other in a layer of its own, laid once whole. drop() gives it up.
      */
-    bakeJob(spec, m, w, h, fbo) {
+    bakeJob(spec, m, w, h, fbo, pic = tick) {
       let job = null, ver = -1;
       const me = {
         step(until = Infinity) {
           if (holder && holder !== me) return 'wait';
           holder = me;
           size(w, h);
-          keeping = true;
+          keeping = true; tick = pic;
           try {
             if (!job) {
               ver = allocVer;
@@ -614,10 +622,12 @@ export function createOrganPaint(gl, shape) {
       };
       return me;
     },
+    /** A new picture begun (organs-gl bake): its number, passed to its groups' jobs (bakeJob), for the kept meshes' ages. */
+    beginPicture: () => ++tick,
     /** What it holds on the GPU: meshes with arrays there, and those the pictures keep. */
     stats: () => ({ meshes: shape.count?.() ?? 0, kept: kept.size }),
     /** Lets go of the pictures' kept meshes (their GPU arrays too). */
-    dropKept() { for (const [k, v] of kept) if (!meshes.has(k) && !meshesOld.has(k)) shape.release(v.mesh); kept = new Map(); },
+    dropKept() { if (holder) return; for (const [k, v] of kept) if (!meshes.has(k) && !meshesOld.has(k)) shape.release(v.mesh); kept = new Map(); },
     /** The group's device box under m (groupBox), and its description (describe), for the stack's change check. */
     box: (spec, m) => groupBox(spec, m),
     describe,
@@ -646,6 +656,9 @@ export function createOrganPaint(gl, shape) {
     },
     trim() { this.dropKept(); if (!AW) return; W = H = AW = AH = 0; for (const t of [scratch, ...depths.flat()]) { gl.bindTexture(gl.TEXTURE_2D, t.tex); gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, null); } gl.bindRenderbuffer(gl.RENDERBUFFER, stencil); gl.renderbufferStorage(gl.RENDERBUFFER, gl.STENCIL_INDEX8, 1, 1); },
     dispose() {
+      // (Every mesh's arrays given back with the shape drawer: those kept for pictures, the live frame's and the last frame's.)
+      kept = new Map(); meshes = new Map(); meshesOld = new Map(); holder = null;
+      shape.dispose();
       for (const t of [scratch, ...depths.flat()]) { gl.deleteTexture(t.tex); gl.deleteFramebuffer(t.fbo); }
       gl.deleteRenderbuffer(stencil); gl.deleteBuffer(quad); gl.deleteVertexArray(vao); gl.deleteProgram(paintP.p); gl.deleteProgram(layP.p);
     },
