@@ -47,14 +47,40 @@ test('an instrument that records the patient, or a chart drawn from the deck\'s 
   assert.equal(eases(undefined), true, 'tiles alone ease');
 });
 
-test('slides with their own order of cards keep nothing: a new patient, a time-lapse, the catheter, a case card, a question, a held answer', () => {
+test('slides with their own order of cards keep nothing: the catheter, a case card, a question, a held answer (and a time-lapse keeps no words)', () => {
   const a = scope(), p = dataPlan(a, O);
   for (const k of ['visual', 'lapse', 'cath', 'monitor', 'procedure', 'vignette', 'question', 'hold']) {
     const x = scope({ [k]: k === 'lapse' ? { seconds: 8 } : k === 'visual' ? 'table' : 'x' });
-    assert.equal(keepData({ from: p, to: p, prev: a, next: x }), false, `${k} ahead`);
-    assert.equal(keepData({ from: p, to: p, prev: x, next: a }), false, `${k} behind`);
+    if (k !== 'lapse') {
+      assert.equal(keepData({ from: p, to: p, prev: a, next: x }), false, `${k} ahead`);
+      assert.equal(keepData({ from: p, to: p, prev: x, next: a }), false, `${k} behind`);
+    }
     assert.equal(keepText({ from: textPlan(a), to: textPlan(a), prev: a, next: x }), false, `${k} ahead (words)`);
+    assert.equal(keepText({ from: textPlan(a), to: textPlan(a), prev: x, next: a }), false, `${k} behind (words)`);
   }
+});
+
+test('a time-lapse keeps a matching data card that reads the live model, with the same patient; the words, recorders, drawn charts and a lapse with a patient of its own do not', () => {
+  const lapse = { seconds: 8 };
+  for (const tool of [undefined, { kind: 'fibroscan' }, { kind: 'profile' }, { kind: 'flows' }]) {
+    const a = scope({ tool }), b = scope({ tool, title: 'B', lapse }), p = dataPlan(a, O);
+    assert.equal(keepData({ from: p, to: p, prev: a, next: b }), true, `${tool?.kind || 'tiles'}: the card stays into the lapse and climbs with its days`);
+    assert.equal(keepData({ from: p, to: p, prev: b, next: scope({ tool, title: 'C' }) }), true, `${tool?.kind || 'tiles'}: and out of it`);
+    assert.equal(keepData({ from: p, to: p, prev: b, next: scope({ tool, title: 'C', lapse }) }), true, `${tool?.kind || 'tiles'}: and through one lapse into the next`);
+    assert.equal(keepData({ from: p, to: p, prev: a, next: b, swap: true }), false, `${tool?.kind || 'tiles'}: a lapse that opens on a patient of its own builds its card (the follow would land on the lapse's start)`);
+    assert.equal(keepData({ from: p, to: p, prev: b, next: scope({ tool, title: 'C' }), swap: true }), true, `${tool?.kind || 'tiles'}: after a lapse a new patient rides in as it does anywhere`);
+    assert.equal(keepData({ from: p, to: p, prev: a, next: b, again: true }), false);
+    assert.equal(keepText({ from: textPlan(a), to: textPlan(a), prev: a, next: b }), false, 'the words are built afresh: the lapse bar is in them');
+  }
+  // A recorder starts its trace over and a drawn chart starts empty for the days, so they are built for the lapse as before.
+  for (const tool of [{ kind: 'doppler', vessel: 'PV_TRUNK' }, { kind: 'vitals' }, { kind: 'trace', range: 'beats' }, { kind: 'flowtime' }, { kind: 'trace', range: 'talk' }]) {
+    const a = scope({ tool }), b = scope({ tool, title: 'B', lapse }), p = dataPlan(a, O);
+    assert.equal(keepData({ from: p, to: p, prev: a, next: b }), false, `${tool.kind} into a lapse`);
+    assert.equal(keepData({ from: p, to: p, prev: b, next: a }), false, `${tool.kind} out of one`);
+  }
+  // The other fields that give a slide its own order of cards still do, lapse or not.
+  const a = scope(), p = dataPlan(a, O);
+  for (const k of ['cath', 'monitor', 'procedure', 'vignette', 'question', 'hold']) assert.equal(keepData({ from: p, to: p, prev: a, next: scope({ lapse, [k]: 'x' }) }), false, `${k} with a lapse`);
 });
 
 test('the words stay when they are the same and the patient is: whatever only the data card, the figure or the model read does not count', () => {
@@ -119,7 +145,9 @@ test('a kept card the layout leaves alone is kept; a changed class, size, fit or
 test('the presenter decides before the cards leave and falls back if the layout would change a kept card', () => {
   const out = run.indexOf('keepNow = keepFor('), words = run.indexOf('outMs = wordsOut(s)');
   assert.ok(out > 0 && out < words, 'chosen as the change begins, before any card fades');
-  assert.match(run, /keepFor\(was && slides\[was\.i\], s, to, stateOf\[to\] !== shownState \|\| liveOff, \{ again: !was \|\| was\.i === to \}\)/);
+  // (A time-lapse changes the patient as transitionRun counts it: from the slide before's state, or from a start of its own.)
+  assert.match(run, /const si = lap \|\| holdQ \? stateOf\[to - 1\] : stateOf\[to\];\n\s+keepNow = keepFor\(was && slides\[was\.i\], s, to, si !== shownState \|\| liveOff \|\| \(lap && !!states\[stateOf\[to\]\]\?\.start\), \{ again: !was \|\| was\.i === to \}\)/);
+  assert.equal(run.split('const si = ').length, 2, 'one count of the patient');
   // (a kept card is not built; its fall back is checked after each layout of the unseen cards, before they come in)
   assert.match(src, /if \(!keepNow\.text\) textIn\(s, st, i\);\n\s+if \(keepNow\.data\) dataKept\(s, i, now\); else dataIn\(s, st, i, fresh, lap, now\);\n\s+layout\(\);\n\s+keepNote\(\);/);
   // (the settle lays the unseen cards out once more, and ends by letting a kept card that layout changed fall; the cards come in after it)
@@ -171,13 +199,17 @@ test('in the shipped decks the rule keeps cards between consecutive slides, and 
       const a = sl[i - 1], b = sl[i];
       pairs++;
       const O2 = (s) => ({ keys: s.tiles || [], ref: false, title: String(s.dataTitle || ''), ghost: null });
-      const swap = MODEL.some((k) => b[k]);
+      // (A time-lapse changes the patient only when it opens on a start of its own: params with its days. Its days are the live model's.)
+      const swap = b.lapse ? !!(b.params || b.preset) : MODEL.some((k) => b[k]);
       const pa = dataPlan(a, O2(a)), pb = dataPlan(b, O2(b));
       if (keepData({ from: pa, to: pb, prev: a, next: b, swap })) {
         kept++; if (swap) swapKept++;
         assert.deepEqual(a.tool || null, b.tool || null, `${d.id} ${i}: kept cards hold the same instrument and options`);
         assert.deepEqual(a.tiles || [], b.tiles || [], `${d.id} ${i}: and the same tiles`);
-        assert.ok(!a.vignette && !b.vignette && !a.lapse && !b.lapse && !a.cath && !b.cath, `${d.id} ${i}: no slide with its own order of cards`);
+        assert.ok(!a.vignette && !b.vignette && !a.cath && !b.cath, `${d.id} ${i}: no slide with its own order of cards`);
+        // (A time-lapse keeps only a card that reads the live model, with the patient staying into it.)
+        if (a.lapse) assert.ok(eases(a.tool), `${d.id} ${i}: a time-lapse's card that stays reads the live model`);
+        if (b.lapse) assert.ok(!swap && eases(b.tool), `${d.id} ${i}: a time-lapse keeps its card only with the patient staying and a card that eases`);
         if (swap) assert.ok(eases(b.tool), `${d.id} ${i}: a recording instrument is never kept through a new patient`);
       }
     }

@@ -10,8 +10,11 @@ const J = JSON.stringify;
 // question keeps its answer back.
 // Those slides have their own order of cards; they come and go whole, as they always did. (A new patient without a case card is
 // not one of them: the data card rides the model to it, see keepData.)
+// A time-lapse stops the words being kept but not always the data card: its days run on the live model, which a card that reads the live
+// model follows (keepData).
 const OWN = ['visual', 'lapse', 'cath', 'monitor', 'procedure', 'vignette', 'question', 'hold'];
 const own = (s) => !s || OWN.some((k) => s[k]);
+const ownData = (s) => !s || OWN.some((k) => k !== 'lapse' && s[k]);
 
 // Instruments that record the patient's flow as it passes: another patient clears their trace, so their card is built again
 // rather than kept. Charts drawn from the deck's own states (the talk's trace, the flow-time chart) are redrawn per slide.
@@ -49,7 +52,13 @@ export function textPlan(s) {
  *   again      the same slide drawn again (a new text size): its cards are built afresh
  */
 export function keepData({ from, to, prev, next, swap = false, again = false }) {
-  if (again || !from || !to || from !== to || own(prev) || own(next)) return false;
+  if (again || !from || !to || from !== to || ownData(prev) || ownData(next)) return false;
+  // A time-lapse plays its days on the live model and the presenter sets the card's readings from each frame (playLapse), so a card that
+  // reads the live model (the tiles, an instrument that eases) stays up and climbs with them. The patient must stay, though: a lapse that opens on
+  // a patient of its own (swap) starts from a state the card would have to ride to, and then land on the lapse's start, not its end. A recording
+  // instrument or a chart drawn from the deck's states (the flow-time chart starts empty) is built for the lapse as before.
+  if (next.lapse && (swap || !eases(next.tool))) return false;
+  if (prev.lapse && !eases(prev.tool)) return false;
   return !swap || eases(next.tool);
 }
 

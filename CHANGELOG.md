@@ -2,6 +2,16 @@
 
 ## October 2026
 
+- **A time-lapse can keep the data card from the slide before.** (Mohammad, 25 Oct, "yes to both"; deck rebuild plan, A5.) A run of slides that crosses a
+  time-lapse (ten years, the next bleed, ascites building) no longer fades its data card out and builds the same one again when the card is the same.
+  If the lapse slide has the same instrument, tiles and title as the slide before, and the patient stays, the card is already on screen when the days
+  start and its readings climb with them, which the presenter already sets from each frame of the lapse; it stays on into the next slide too. This is
+  only for a card that reads the live model (tiles alone, the ladder, the flows bars, the FibroScan, the spleen and the HVPG tracing). A lapse that
+  opens on a patient of its own (it has `params`), and the Doppler, the vitals monitor, the beat trace, the flow-time chart and the talk trace, are built for
+  the lapse as before, and the teaching card of a lapse slide is still built afresh (its bar is in it). No shipped deck has such a pair today, so
+  nothing on screen changes until the rebuilt decks use it. The keep decision now counts a lapse's patient as the transition does (a lapse plays
+  from the slide before's state, so it is not a new patient unless it has its own start). Code and unit tests only; nobody has looked on screen.
+  `src/ui/card-keep.js`, `src/ui/presenter.js`, `tests/card-keep.test.js`.
 - **Three new instruments for a slide's data card, and an encephalopathy tile: a spleen ultrasound, a vitals monitor and the HVPG catheter's
   tracing.** (Mohammad, 25 Oct, "yes to both"; deck rebuild plan, A4. No deck uses them yet; phase C does.) `tool: { kind: 'spleen' }` is a grey
   sector on the monitor's black with the spleen cut along its long axis, calipers end to end and the length in cm written in the picture in

@@ -42,7 +42,7 @@ import { causeFit } from './cause-fit.js?v=830a6835a5';
 import { COMPACT, WIDE } from './card-type.js?v=5af5f22935';
 import { flowTimeHeight } from './flow-time.js?v=cb89e13e11';
 import { PROCS, procBlocked, procOffered, playProcedure } from './proc-anim.js?v=b2351a24c6';
-import { dataPlan, textPlan, keepData, keepText, cardSnap, cardChanged, cardBack } from './card-keep.js?v=6d8db82fd8';
+import { dataPlan, textPlan, keepData, keepText, cardSnap, cardChanged, cardBack } from './card-keep.js?v=c23d02b1d3';
 const nextFrame = frameFor('presenter');
 
 const KEY = 'pps.scripts';
@@ -1645,7 +1645,9 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     // The cards fade out first, and are on screen fading (two frames painted) before anything changes on the figure: the marks,
     // the lens and the glows can each cost a long frame, which would otherwise swallow the fade.
     // Which cards stay: the data card when this slide's is the same instrument and tiles, the words when they are the same (keepFor).
-    keepNow = keepFor(was && slides[was.i], s, to, stateOf[to] !== shownState || liveOff, { again: !was || was.i === to }); keepCut = cut;
+    // (The patient changes as transitionRun counts it below: a time-lapse plays from the slide before's state, or from a start of its own.)
+    const si = lap || holdQ ? stateOf[to - 1] : stateOf[to];
+    keepNow = keepFor(was && slides[was.i], s, to, si !== shownState || liveOff || (lap && !!states[stateOf[to]]?.start), { again: !was || was.i === to }); keepCut = cut;
     const outAt = performance.now(), outMs = wordsOut(s);
     if (outMs) { await painted(); await painted(); }
     // Words out, and the marks: they belong to the slide that is leaving.
@@ -1657,7 +1659,6 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     if (!s.visual) { const lens = slideLens(s); if (store.get().colorMode !== lens) store.set({ colorMode: lens }); }
     if (!hushed) delete app.dataset.lit;   // (hushed, the lit set goes straight to the next slide's: a label on both keeps its pill)
     stopLapse(); procStop(); abSlow();
-    const si = lap || holdQ ? stateOf[to - 1] : stateOf[to];
     await wait(Math.max(0, outMs - (performance.now() - outAt)));
     // (Nothing in the liver changes until its labels are gone.)
     if (hushed) { await wait(Math.max(0, HUSH_OUT - (performance.now() - hushAt))); await eased(['--lab-o'], 600); if (cut()) return; }
