@@ -25,7 +25,7 @@ import { nb, listCase, plateletText } from './glue.js?v=5a0f63226b';
 import { DECKS, DECK_ALIAS, REGIONS, LEVELS, TOPICS, withOverview, siteTag, SITE_TAGS } from './decks.js?v=3cff9e5ddc';
 import { fingerprintOf } from '../engine/fingerprint.js?v=8faea80b59';
 import { createHvpgMonitor } from './hvpg-proc.js?v=27e9c2cbb0';
-import { createTools } from './presenter-tools.js?v=dab7c26f79';
+import { createTools } from './presenter-tools.js?v=249a701954';
 import { openHandout } from './handout.js?v=969c287264';
 import { noteResume, resumeFor } from './resume.js?v=f086f80ee8';
 import { parseDeckSource, checkDeck } from './deck-source.js?v=8395c650cd';
@@ -841,7 +841,7 @@ function makeCalc() {
   };
   const ready = (async () => {
     try {
-      const w = new Worker(new URL('../worker.js?v=b93f77a500', import.meta.url), { type: 'module' });
+      const w = new Worker(new URL('../worker.js?v=b55c86e49f', import.meta.url), { type: 'module' });
       await new Promise((res, rej) => {
         const t = setTimeout(() => rej(new Error('worker timeout')), 15000);   // (long: a slow load still gets the worker; host.js)
         w.onmessage = (e) => { if (e.data?.type === 'presets') { clearTimeout(t); res(); } };
@@ -854,7 +854,7 @@ function makeCalc() {
       post = (m) => w.postMessage(m); kill = () => w.terminate();
     } catch {
       try {
-        const { createCore } = await import('../worker-core.js?v=76e93f8d04');
+        const { createCore } = await import('../worker-core.js?v=e5ecd47091');
         const core = createCore((m) => setTimeout(() => onMsg(m), 0));
         core.handle({ type: 'visibility', visible: false }); core.handle({ type: 'run', running: false });
         post = (m) => core.handle(structuredClone(m)); kill = () => core.dispose();
@@ -1716,6 +1716,9 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
         await drawn(st);
       }
       if (!deck) return;
+      // (The state is in: the recording instruments start now, their window filled with the steady state the slide opens on, tools.hold.
+      // A slide whose change eases in after the camera lands does it below.)
+      if (!later) ui?.tools.hold(false);
     }
     // With a new patient and a move over the plate, the glide starts while the figure is still dim and runs on
     // through its fade back in, so the eye sees one motion, not a fade and then a move.
@@ -1765,18 +1768,19 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       // The camera is still: the patient changes now, unhurried, and the cards come in only once it has.
       // (A kept data card stays up through it, its readings riding the model as it eases: followData.)
       if (later && keepNow.data && keepNow.swap) followData(s, to, st, cut);
-      if (later) { if (!await morphTo(st, cut)) return; shownState = own ? -1 : si; }
+      if (later) { if (!await morphTo(st, cut)) return; shownState = own ? -1 : si; ui?.tools.hold(false); }
       // The cards fade in once the figure is quiet: after a new patient, once the organs' picture is redrawn (its long frame
       // had eaten the fade), and in any case only when frames come smoothly (see smooth).
       if (swap) { await until(() => cut() || stage.organsSettled(), 1500); if (cut()) return; }
       await unseen(cut); if (cut()) return;
+      await ui.tools.ready(900); if (cut()) return;   // (a recording instrument's window is filled before its card comes in: tools.prime)
       await caseEnd(cut); if (cut()) return;
       bare = false; cardsIn({ i: to, gen: g });
       // (Once they are in, so the size they settle at is the one the camera already framed: no second move.)
       await wait(60); await until(() => cut() || !cardsEntering(), 1200);
       if (cut()) return;
     }
-    // The slide's state has landed: the Doppler starts its trace from the left now, never with the leaving state's flow.
+    // The slide's state has landed (the recording instruments were let go at the landing, never with the leaving state's flow).
     ui?.tools.hold(false);
     paintOverlays(s, to, st);
     if (holdEase) { holdEase = false; holdAnswer(false); }   // (an answer slide: what its question slide held back eases in now)

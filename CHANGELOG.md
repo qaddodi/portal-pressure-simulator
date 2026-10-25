@@ -2,6 +2,18 @@
 
 ## October 2026
 
+- **The EKG strip and the other recording traces open already full.** (Mohammad, 25 Oct, "In the heart ekg card while things are happening in the
+  slide the ekg is empty it takes a while for it to show up so needs to be fixed somehow".) The vitals monitor's strip, the beat trace (its EKG strip and
+  its pressures) and the Doppler were held empty while a slide's patient changed, then started over and swept in from the left for six to twelve seconds.
+  Now the model makes the steady state's last seconds on a scratch copy of itself and the instrument takes them in front of what it records
+  (`history` in `src/worker-core.js`, `src/ui/backfill.js`). The copy runs between the live ticks and never stops the clock. It ends on the last sample the
+  model posted, on the same moment of the same beat and breath, so the live samples follow on with no seam: in the check, the phase matches exactly, the heart
+  rate to within one beat a minute and the portal pressure steps by about 0.15 mmHg at the join. A card waits up to 0.9 s for its window before it comes in; on
+  Patients, a loaded patient's Over time and Doppler traces open the same way. Nothing is made for a state that is still changing (an easing patient, a
+  time-lapse, the disease clock), and a newer state cancels one under way. The instruments are let go at the landing, not after the cards are in. An
+  instrument coming back after another card showed starts over (it had missed the frames between). Code and unit tests only; nobody has looked on screen.
+  `src/worker-core.js`, `src/ui/backfill.js`, `src/ui/presenter-tools.js`, `src/ui/presenter.js`, `src/ui/pressure-time.js`, `src/ui/vitals-monitor.js`,
+  `src/ui/doppler.js`, `src/ui/lazy-pane.js`, `src/ui/dock.js`, `src/ui/main.js`, `tests/history-backfill.test.js`.
 - **Stiffness, platelets and the first visit: one talk of 12 slides.** (Mohammad, 25 Oct, "Build the new decks"; deck rebuild plan, D3.) Liver stiffness takes
   in "Stage the patient at the first visit". It has three sections. The measurements: the shear wave, "Fibrosis stiffens the liver", and a large spleen
   with the new spleen ultrasound (calipers and the length in cm) and the platelet tile. The first visit: the Baveno VIII rules card, then five cases,

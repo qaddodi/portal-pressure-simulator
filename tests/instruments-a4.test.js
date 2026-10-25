@@ -111,8 +111,9 @@ test('the vitals monitor is a recording kind: a new patient starts its strip ove
   assert.equal(eases({ kind: 'spleen' }), true);
   assert.equal(eases({ kind: 'hvpg' }), true);
   assert.notEqual(dataPlan({ tool: { kind: 'vitals' }, data: 'tiles' }, {}), dataPlan({ tool: { kind: 'vitals', show: ['co'] }, data: 'tiles' }, {}), 'its options are part of the card\'s plan');
-  assert.match(tools, /k === 'vitals'\) inst\.clear\?\.\(\)|k === 'beats' \|\| k === 'vitals'\)\) inst\.clear\?\.\(\)/, 'a new state clears its strip');
-  assert.match(tools, /for \(const k of \['doppler', 'beats', 'vitals'\]\)/, 'and a held state restarts it');
+  assert.match(tools, /const RECORDS = \['doppler', 'beats', 'vitals'\];/, 'the vitals monitor is one of the recording kinds');
+  assert.match(tools, /const startOver = RECORDS\.includes\(k\) && \(stateKey !== lastSt \|\| cur !== inst\);\s+if \(startOver\) \{ inst\.clear\?\.\(\); primeTok\+\+; \}/, 'a new state clears its strip');
+  assert.match(tools, /for \(const k of RECORDS\) made\[k\]\?\.restart\?\.\(\) \?\? made\[k\]\?\.clear\?\.\(\);/, 'and a held state restarts it');
 });
 
 // ── The HVPG monitor on the card ──

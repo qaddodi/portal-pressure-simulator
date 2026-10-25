@@ -6,9 +6,9 @@ import { EDGES } from '../engine/topology.js?v=4044766e96';
 import { h, fmt, svgIcon, closePopover, clamp, shownOf, isPhoneLayout, SIDEWAYS_MQ, swapFade, scrollBehavior, countTo, swapText, glideOnResize } from './util.js?v=d2c95a1b16';
 import { lobuleFlows } from './lobule-model.js?v=60a0071f2d';
 import { createProfile } from './charts.js?v=ce74d37e11';
-import { createPressureTime } from './pressure-time.js?v=8c6a8d57b1';
+import { createPressureTime } from './pressure-time.js?v=43722f568d';
 import { createHvpgProcedure } from './hvpg-proc.js?v=27e9c2cbb0';
-import { lazyPane, holdUntilLoaded } from './lazy-pane.js?v=4fd2dfa2e7';
+import { lazyPane, holdUntilLoaded } from './lazy-pane.js?v=9a7c26d383';
 import { ownsSideways, pageGo } from './swipe.js?v=3ad619631e';
 import { createEndoscopy, createVarixWall, createAbdomen } from './instruments.js?v=94f5accdd9';
 import { createReadoutsPane } from './readouts-pane.js?v=0a1a8818d1';
@@ -774,12 +774,14 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
   // Both keep a fixed window (seconds of samples, two minutes of bins), so memory stays flat.
   function ingest(f) { byId.scope.ingest(f); byId.doppler.ingest(f); }
   function clearTraces() { byId.scope.clear(); byId.doppler.clear(); }
+  /** A new patient's traces open with the steady state's last seconds already drawn (backfill.js); what they have recorded since stays. */
+  function backfillTraces(hs) { byId.scope.backfill(hs); byId.doppler.backfill(hs); }
   addEventListener('resize', () => { updateSize(); layout(); });
   setState('open'); updateSize(); layout();
   /** Bring in the instruments that load after the first paint (main.js calls it when the app is idle). */
   function load() { for (const p of panes) p.need?.(); }
   return {
-    update, ingest, clearTraces, show, toggle, close, ensure, openGrid, profile, load,
+    update, ingest, clearTraces, backfillTraces, show, toggle, close, ensure, openGrid, profile, load,
     pane: (id) => id === 'landscape' ? profile : id === 'varixwall' ? wall : byId[id],
     isOpen: (id) => isVisible() && open.includes(id === 'landscape' ? 'profile' : id === 'varixwall' ? 'endoscopy' : id),
     setState,

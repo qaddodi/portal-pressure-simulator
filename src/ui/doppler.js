@@ -14,6 +14,7 @@ import { windowIndexFor, scaleFor, fitScale } from './dopplerWindow.js?v=1d34e63
 import { velNormal, dopplerVel, judgeFlow } from './velNormal.js?v=97920ddf3f';
 import { caliperFrame, caliperLevel, caliperX, CAL_FADE, pairOf, pairBand, pairScale, PAIR_GAP } from './doppler-marks.js?v=15fc499dcd';
 import { createDopplerGL } from './doppler-gl.js?v=6ef76c6bca';
+import { olderThan } from './backfill.js?v=455d888760';
 const nextFrame = frameFor('doppler');
 
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
@@ -1198,6 +1199,23 @@ export function createDoppler({ onProbe, pickGate = true }) {
     if (!raf) raf = nextFrame(loop);
   }
   function update(f) { ingest(f); redraw(); }
+  /** The window ahead of the record filled with the steady state the vessel opened on (backfill.js): the history's samples before the
+   *  first of the trace go in front, in the same form, and the trace the monitor has recorded itself stays. Only for the vessel it was
+   *  made for, and not over a time-lapse's replay. */
+  function backfill(hs) {
+    if (!hs?.t?.length || !hs.vel || hs.probe !== probe || synth || frame?.clock === 'disease') return false;
+    const n = olderThan({ t: hs.t.map((t) => t + tOff) }, buf.length ? buf[0][0] : Infinity);
+    if (!n) return false;
+    const ps = hs[pairOf(meta().kind) === 'PV_TRUNK' ? 'pvVel' : 'hvVel'];
+    const rows = [];
+    for (let i = 0; i < n; i++) rows.push([hs.t[i] + tOff, hs.vel[i], ps?.[i] ?? NaN]);
+    buf = rows.concat(buf);
+    const tNow = buf[buf.length - 1][0];
+    let cut = 0; while (cut < buf.length && buf[cut][0] < tNow - KEEP) cut++;
+    if (cut) buf.splice(0, cut);
+    redraw();
+    return true;
+  }
   function clear() { buf = []; wl = null; redraw(); }
   // (A new recording of the same vessel: as a new probe, the trace, its scale and its reading start over.)
   function restart() { buf = []; wl = null; tOff = 0; synth = null; scale = null; heldTo = null; steady.probe = null; redraw(); }
@@ -1214,5 +1232,5 @@ export function createDoppler({ onProbe, pickGate = true }) {
     io?.disconnect(); ro?.disconnect(); frame = null;
     gpu?.dispose(); gpu?.canvas.remove();
   }
-  return { id: 'doppler', label: 'Doppler', el, update, ingest, redraw, clear, restart, setInvert, setWaves, autoWindow, pin, configure, dispose };
+  return { id: 'doppler', label: 'Doppler', el, update, ingest, redraw, clear, restart, backfill, historySecs: () => sweepSeconds, setInvert, setWaves, autoWindow, pin, configure, dispose };
 }

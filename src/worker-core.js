@@ -78,6 +78,8 @@ function* stepExtras(e, st) {
 // as many a tick, so a phone keeps up; the beat-averaged readings move by about 0.01 mmHg (MAP and heart rate by 0.15 at
 // most, tests/hemo-step.test.js). 1× and 2× (and every Present slide, which runs at 1×) keep 4 ms.
 export const hemoStep = (pulse, speed) => (pulse ? (speed >= 4 ? 0.008 : 0.004) : 0.02);
+// The history's step (the bedside clock's own 4 ms), the longest window it will make, its run-in before the window, and the work it does between ticks.
+const HIST_DT = 0.004, HIST_MAX_S = 14, HIST_RUNIN_S = 1.5, HIST_SLICE_MS = 6;
 
 export function createCore(post) {
   let eng = new Engine();
@@ -101,17 +103,79 @@ export function createCore(post) {
   let beat = true; // the heartbeat always runs (the Over time trace is beat to beat from the start)
   const newSamples = () => ({ t: [], ph: [], vel: [], pvVel: [], hvVel: [], whvp: [], hvpg: [], ...Object.fromEntries(SAMPLE_NODES.map((n) => [n, []])) });
 
+  // One sample of model e into s, stamped t (the model's own time unless a history labels it, see history below).
+  function takeSample(e, s, vessel, t = e.t) {
+    s.t.push(t);
+    s.ph.push(e.phase());   // (the cardiac phase 0..1: the EKG strip's QRS lands where it wraps, ekg.js)
+    s.vel.push(e.velocity(vessel));
+    s.pvVel.push(e.velocity('PV_TRUNK'));
+    s.hvVel.push(e.velocity('RHV_IVC'));
+    const hv = e.hvpgTrue();
+    s.whvp.push(hv.whvp);
+    s.hvpg.push(hv.hvpg);
+    for (const n of SAMPLE_NODES) s[n].push(e.P[e.ni[n]]);
+  }
+  // The newest sample, and the newest sample posted in a frame (its time and the heart's cycle count): a history ends on the last one posted,
+  // so the live samples that follow it begin right after, with no overlap and no hole.
+  let sampT = NaN, sampCyc = 0, postedT = NaN, postedCyc = 0;
   function sample() {
     if (!samples) samples = newSamples();
-    samples.t.push(eng.t);
-    samples.ph.push(eng.phase());   // (the cardiac phase 0..1: the EKG strip's QRS lands where it wraps, ekg.js)
-    samples.vel.push(eng.velocity(probe));
-    samples.pvVel.push(eng.velocity('PV_TRUNK'));
-    samples.hvVel.push(eng.velocity('RHV_IVC'));
-    const hv = eng.hvpgTrue();
-    samples.whvp.push(hv.whvp);
-    samples.hvpg.push(hv.hvpg);
-    for (const n of SAMPLE_NODES) samples[n].push(eng.P[eng.ni[n]]);
+    takeSample(eng, samples, probe);
+    sampT = eng.t; sampCyc = eng.cyc || 0;
+  }
+
+  // ── History ──────────────────────────────────────
+  // A recording instrument (the beat trace, the vitals monitor, the Doppler) that opens on a steady state would sweep in from empty
+  // for the length of its window. The history is what it would have recorded had the state stood: a scratch copy of the live model
+  // (taken as relaxHidden takes its copy, filters and all) runs the last `secs` of model time with the beat on and is posted in the
+  // samples' own form, ending at the moment of the request. Two things make the live samples follow on without a seam: the copy's clock
+  // stays positive and a whole number of breaths long (the breath is the clock modulo 4 s; a negative time reads as Valsalva's), and
+  // the beat count is steered to the live one at the end, so the last sample is the same moment of the same beat. It runs in slices
+  // between the live ticks and never stops the clock. Only a steady state is lent a past: not while the model is easing, on a time-lapse
+  // or on the disease clock, and a change of state cancels it.
+  let hist = null, histEng = null, histTimer = 0;
+  function endHistory(done) {
+    clearTimeout(histTimer); histTimer = 0;
+    if (!hist) return;
+    const { reqId } = hist, h = hist; hist = null;
+    post({ type: 'history', reqId, samples: done ? h.s : null, probe: h.probe, t: h.T });
+  }
+  // The model was given another state (a patient, a restore, an action): the history under way is of the old one, and nothing posted is the new one's.
+  function stateChanged() { endHistory(false); postedT = NaN; }
+  function histSlice() {
+    histTimer = 0;
+    const j = hist;
+    if (!j) return;
+    try {
+      const c = j.c, t0 = performance.now(), keepFrom = j.n - Math.round(j.secs / HIST_DT);
+      while (j.i < j.n) {
+        c.step(HIST_DT);
+        // (The copy's heart rate drifts as it settles: a little of the difference is taken out of every step, all of it on the last.)
+        const rem = (j.n - 1 - j.i) * HIST_DT;
+        c.cyc += (j.cycT - (c.cyc + c.hr * rem / 60)) * HIST_DT / (rem + HIST_DT);
+        if (j.i >= keepFrom) takeSample(c, j.s, j.probe, j.T - rem);
+        j.i++;
+        if (j.i % 16 === 0 && performance.now() - t0 > HIST_SLICE_MS) break;
+      }
+      if (j.i < j.n) histTimer = setTimeout(histSlice, 0);
+      else endHistory(true);
+    } catch { endHistory(false); }
+  }
+  function startHistory(secs, reqId) {
+    endHistory(false);   // (one still running is answered empty: the newer request is the instrument's)
+    if (crashed || clock !== 'hemo' || lapse || morph || !(eng.t >= 0)) { post({ type: 'history', reqId, samples: null }); return; }
+    const W = Math.min(HIST_MAX_S, Math.max(2, +secs || 10)), D = 4 * Math.ceil((W + HIST_RUNIN_S) / 4);
+    const fresh = postedT <= eng.t, T = fresh ? postedT : eng.t, cycT = fresh ? postedCyc : eng.cyc || 0, c = (histEng ||= new Engine());
+    c.restore(eng.snapshot());
+    // (What restore() starts over and the copy must have as the live model has it: relaxHidden.)
+    Object.assign(c, { COf: eng.COf, pvQm: eng.pvQm, pvVm: eng.pvVm, vitM: eng.vitM && [...eng.vitM], vitM1: eng.vitM1 && [...eng.vitM1] });
+    c.Pf = Float64Array.from(eng.Pf || eng.P); c.Qf = Float64Array.from(eng.Qf || eng.Q);
+    c.beat = true; c.quiet = false;
+    c.bleed = { ...c.bleed, active: false }; c.infusions = []; c.valsalva = { until: -1, start: -1 };
+    c.t = T % 4;
+    c.cyc = cycT - D * (eng.hr || 70) / 60;
+    hist = { reqId, c, secs: W, T, cycT, i: 0, n: Math.round(D / HIST_DT), probe, s: newSamples() };
+    histTimer = setTimeout(histSlice, 0);
   }
 
   function frame() {
@@ -146,6 +210,7 @@ export function createCore(post) {
     };
     paramsDirty = false;
     frameDirty = false;
+    if (samples) { postedT = sampT; postedCyc = sampCyc; }
     samples = null;
     post(f, [f.P.buffer, f.Pf.buffer, f.Q.buffer, f.Qf.buffer, f.ext.buffer, f.D.buffer]);
   }
@@ -271,6 +336,7 @@ export function createCore(post) {
       start();
     },
     setParams({ params, settle, ease }) {
+      endHistory(false);
       morph = null;
       // UI-originated: not echoed back (avoids overwriting in-flight edits).
       // (Its numbers eased in over a fraction of a second, so a slider moves the model, and the Doppler, without steps.)
@@ -279,11 +345,12 @@ export function createCore(post) {
       relaxUntil = ease > 0 ? performance.now() + ease : 0;
     },
     *preset({ id, days, reqId }) {
+      stateChanged();
       morph = null;
       yield* eng.loadPresetSteps(id, days != null ? { days: days + (PRESETS.find((p) => p.id === id)?.days || 0) } : {});
       post({ type: 'presetLoaded', reqId, id, params: eng.params });
     },
-    reset() { morph = null; eng = new Engine(); paramsDirty = true; },
+    reset() { stateChanged(); morph = null; eng = new Engine(); paramsDirty = true; },
     run({ running: r, speed: s, clock: c }) {
       if (r !== undefined) running = r;
       if (s !== undefined) speed = s;
@@ -325,7 +392,7 @@ export function createCore(post) {
       paramsDirty = true;
     },
     settle() { eng.settle(); },
-    action({ action }) { morph = null; applyAction(eng, action); paramsDirty = true; },
+    action({ action }) { stateChanged(); morph = null; applyAction(eng, action); paramsDirty = true; },
     // Run the model forward at bedside time (so the vitals have settled before they are shown).
     *preroll({ seconds, reqId }) {
       for (let t = 0; t < seconds; t += 0.1) { eng.step(0.1); yield; }
@@ -336,9 +403,12 @@ export function createCore(post) {
     probe({ id }) { if (id !== probe && samples?.t.length) frame(); probe = id; },
     beat({ on }) { if (beat !== !!on) { beat = !!on; frameDirty = true; } },
     snapshot({ reqId }) { post({ type: 'snapshot', reqId, snap: eng.snapshot() }); },
-    restore({ snap }) { morph = null; relaxUntil = 0; eng.restore(snap); lapse = null; paramsDirty = true; },
+    // The steady state's last `secs` seconds, for an instrument whose window opens empty (see History above).
+    history({ secs, reqId }) { startHistory(secs, reqId); },
+    restore({ snap }) { stateChanged(); morph = null; relaxUntil = 0; eng.restore(snap); lapse = null; paramsDirty = true; },
     // The presenter's change of patient, eased over ms from the live state (wherever it is, a change under way included) to snap.
     morph({ snap, ms }) {
+      stateChanged();
       lapse = null; clock = 'hemo'; speed = 1; diseaseAcc = 0; relaxUntil = 0;
       if (!(ms > 0)) { morph = null; eng.restore(snap); paramsDirty = true; return; }
       morph = { from: eng.snapshot(), to: snap, t0: performance.now(), ms };
@@ -428,7 +498,7 @@ export function createCore(post) {
         if (RECOVER.includes(msg.type)) crashed = false;
         // Queries must not wake the renderer. Mutations send one immediate frame,
         // including UI-originated parameters without echoing those parameters back.
-        if (!crashed && !['snapshot', 'explain', 'healthyProfile', 'presets', 'metrics', 'presetMetrics', 'sequence'].includes(msg.type)) {
+        if (!crashed && !['snapshot', 'explain', 'healthyProfile', 'presets', 'metrics', 'presetMetrics', 'sequence', 'history'].includes(msg.type)) {
           frameDirty = true;
           if (visible) { lastFrame = performance.now(); frame(); }
         }
@@ -445,6 +515,6 @@ export function createCore(post) {
       return new Promise((resolve) => { queue.push({ msg, resolve }); drain(); });
     },
     engine: () => eng,
-    dispose: stop,
+    dispose() { endHistory(false); stop(); },
   };
 }

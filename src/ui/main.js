@@ -1,16 +1,16 @@
 // Application bootstrap: wires the engine host to the four surfaces (figure + action card,
 // timeline, patient chart, instruments) and to Home, the command palette and the menus.
 
-import { startHost, host } from './host.js?v=01652ea3f2';
+import { startHost, host } from './host.js?v=5d6a7d4d60';
 import { store, updateParams, replaceParams, bindParamSender, clearHistory, logAction, varicesPresent, hiddenNow } from './store.js?v=926dabfaef';
 import { createStage } from './stage.js?v=ee66f445c3';
 import { createCreditPlacer } from './credit.js?v=dc0666dc54';
 import { sinusoidSupported } from './gl-support.js?v=94ad2a7ff1';
 import { createInspector } from './inspector.js?v=1f275f4420';
-import { createDock, CUTOFFS, savedInstruments } from './dock.js?v=8848c74232';
+import { createDock, CUTOFFS, savedInstruments } from './dock.js?v=aacb82ee8b';
 import { setHvpgStage } from './hvpg-proc.js?v=27e9c2cbb0';
-import { createWhy } from './why.js?v=a038497edf';
-import { createTimeline, LAPSES } from './timeline.js?v=a2b702805a';
+import { createWhy } from './why.js?v=07aa9f4899';
+import { createTimeline, LAPSES } from './timeline.js?v=a65433d085';
 import { createCompare } from './compare.js?v=6d9cc5a5b1';
 import { createCard } from './card.js?v=915679d613';
 import { createChart } from './chart.js?v=e9697ed347';
@@ -102,7 +102,7 @@ async function main() {
   // The Doppler and the FibroScan load after the first paint (a tab for one that has not come waits for it, dock.js). One left open when the
   // app was last used is asked for now and waited for with the model's first answers, so its pane is whole with the dock.
   const probeTo = (id) => { host.send({ type: 'probe', id }); logAction('probe', id); };
-  dopplerL = lazy(() => import('./doppler.js?v=567972aaf8'), ({ createDoppler }) => createDoppler({ onProbe: probeTo }));
+  dopplerL = lazy(() => import('./doppler.js?v=a7c35b6cb0'), ({ createDoppler }) => createDoppler({ onProbe: probeTo }));
   fibroL = lazy(() => import('./fibroscan.js?v=d33fb925a3'), ({ createFibroScan }) => createFibroScan());
   const wasOpen = savedInstruments().open;
   const openAtStart = [];
@@ -176,7 +176,7 @@ async function main() {
   dock = createDock({ strip: $('#strip'), head: $('#dockHead'), body: $('#dockBody'), onWhy: (m, el) => why.open(m, el), onAction: doAction, onProbe: probeTo, lazy: { doppler: dopplerL, fibroscan: fibroL }, onReveal: revealDock, onLobule: () => zoomLobule('R'),
     onOpen: () => openPanel('instruments'), onClose: () => setPanelTab('chart'), onLayout: () => syncDoppler(), isVisible: () => app.classList.contains('dock-open'),
     marks: () => timeline.entries(), onBeat: () => sendBeat() });
-  presenterL = lazy(() => import('./presenter.js?v=c045f1dc8b'), ({ createPresenter }) => createPresenter({ openSettings, loadPreset, updateParams, host, stage, dock, action: doAction,
+  presenterL = lazy(() => import('./presenter.js?v=826f62198a'), ({ createPresenter }) => createPresenter({ openSettings, loadPreset, updateParams, host, stage, dock, action: doAction,
     projectorOn: () => { if (!projector) toggleProjector(); }, projectorOff: () => { if (projector) toggleProjector(); },
     closeHome: () => mainMenu.close(), stashCards, rerenderHome: () => mainMenu.render() }));
   mainMenu = createMenu({
@@ -398,6 +398,8 @@ async function loadPreset(id, opts = {}) {
   const res = await host.request('preset', { id, days: opts.days });
   // Patients tapped in quick succession: the engine loads them in order, so only the last one's answer is applied.
   if (gen !== presetGen) return;
+  // The traces start from the steady state the patient opens on: its last seconds are made beside the first live ones (backfill.js).
+  host.request('history', { secs: 12 }).then((m) => { if (gen === presetGen && m?.samples) dock?.backfillTraces({ ...m.samples, probe: m.probe }); }).catch(() => { /* the traces fill as they record */ });
   replaceParams(res.params);
   store.set({ presetParams: { id, params: structuredClone(res.params) } });   // what the patient came with (chart.js: About this patient)
   clearHistory();

@@ -10,6 +10,7 @@ import { FONT } from './charts.js?v=ce74d37e11';
 import { frameFor, cancelFrame } from './frame.js?v=19b3f2915c';
 import { VITALS, vitalReading } from './vital-read.js?v=cbba41a6b7';
 import { createBeatClock, ekgSeries } from './ekg.js?v=f1ff7a3880';
+import { olderThan, inFront } from './backfill.js?v=455d888760';
 const nextFrame = frameFor('vitals-monitor');
 
 export const VITALS_DEFAULT = ['hr', 'map', 'hb'];
@@ -35,6 +36,7 @@ export function createVitalsMonitor() {
   const cv = h('canvas', { role: 'img', 'aria-label': 'Vital signs monitor' });
   const el = h('div', { class: 'chart-box vitals-box' }, cv);
   const clock = createBeatClock();
+  const raw = { t: [], ph: [] };   // (the (time, phase) samples the beat clock was made from: a history goes in front of them and the clock is made again)
   let ids = VITALS_DEFAULT, frame = null, pinned = null, wallAt = 0, lastT = -Infinity, firstT = Infinity;
   const xs = new Map(), shownV = new Map();   // (xs: each vital's hold/hysteresis state; shownV: the number as eased to its reading)
   let last = 0, raf = 0, seen = false, lastLabel = '';
@@ -111,14 +113,36 @@ export function createVitalsMonitor() {
   const ro = typeof ResizeObserver === 'function' ? new ResizeObserver(() => { if (!ticking) draw(); }) : null;
   ro?.observe(cv);
 
+  function record(s) {
+    for (let i = 0; i < s.t.length; i++) {
+      const t = s.t[i];
+      if (t <= lastT) continue;
+      raw.t.push(t); raw.ph.push(s.ph[i]); clock.push(t, s.ph[i]); lastT = t; if (t < firstT) firstT = t;
+    }
+    const keep = lastT - 2 * SPAN_S;
+    clock.trim(keep);
+    let cut = 0; while (cut < raw.t.length && raw.t[cut] < keep) cut++;
+    if (cut) { raw.t.splice(0, cut); raw.ph.splice(0, cut); }
+  }
   function ingest(f) {
     frame = f; wallAt = performance.now();
     const s = f.samples;
     if (s?.t?.length && s.ph) {
-      if (s.t[0] < lastT - 1e-9) { clock.reset(); firstT = Infinity; }   // (the model's clock went back: a new patient)
-      for (let i = 0; i < s.t.length; i++) { if (s.t[i] <= lastT && lastT !== -Infinity) continue; clock.push(s.t[i], s.ph[i]); lastT = s.t[i]; if (s.t[i] < firstT) firstT = s.t[i]; }
-      clock.trim(lastT - 2 * SPAN_S);
+      if (s.t[0] < lastT - 1e-9) { clock.reset(); raw.t.length = raw.ph.length = 0; lastT = -Infinity; firstT = Infinity; }   // (the model's clock went back: a new patient)
+      record(s);
     }
+  }
+  /** The strip's window filled with the steady state the card opened on (backfill.js): the samples before its first go in front, the
+   *  beats found again over them, and the recording it has made itself stays. */
+  function backfill(hs) {
+    if (!hs?.t?.length || !hs.ph) return false;
+    const n = olderThan(hs, raw.t.length ? raw.t[0] : Infinity);
+    if (!n) return false;
+    const all = inFront(raw, hs, ['t', 'ph'], n);
+    clock.reset(); raw.t.length = raw.ph.length = 0; lastT = -Infinity; firstT = Infinity;
+    record(all);
+    draw();
+    return true;
   }
   return {
     id: 'vitals', label: 'Vital signs', el,
@@ -126,7 +150,8 @@ export function createVitalsMonitor() {
     update(f) { ingest(f); wake(); if (!ticking) draw(); },
     pin(fp) { pinned = fp || null; if (frame || pinned) draw(); },
     /** A new patient: the strip starts over, its numbers wait for the new state's own. */
-    clear() { clock.reset(); lastT = -Infinity; firstT = Infinity; xs.clear(); shownV.clear(); if (frame) draw(); },
+    clear() { clock.reset(); raw.t.length = raw.ph.length = 0; lastT = -Infinity; firstT = Infinity; xs.clear(); shownV.clear(); if (frame) draw(); },
+    backfill, historySecs: () => SPAN_S,
     restart() { this.clear(); },
     dispose() { cancelFrame(raf); raf = 0; ticking = false; io?.disconnect(); ro?.disconnect(); },
   };

@@ -15,6 +15,7 @@ import { limitLabelX as labelX } from './limit-label.js?v=52dcc41a1e';
 import { wrapLabel } from './wrap-label.js?v=1af9654a99';
 import { createBeatClock, ekgSeries } from './ekg.js?v=f1ff7a3880';
 import { laneRoom } from './trace-lanes.js?v=3d3cb1915e';
+import { olderThan, inFront } from './backfill.js?v=455d888760';
 const nextFrame = frameFor('pressure-time');
 
 // hide: the readout that can stay unmeasured (store.hiddenReadouts); day: the value on the
@@ -101,10 +102,11 @@ export function createPressureTime({ marks = () => [] } = {}) {
   let days = [];
   let clock = 'hemo', dayNow = 0, lastT = -Infinity, frame = null, wallAt = 0;
 
-  function clearHemo() {
+  function resetBuffers() {
     for (const k of Object.keys(fine)) fine[k].length = 0;
-    coarse = []; bin = null; lastT = -Infinity; steadyAt = 0; beatClock.reset();
+    coarse = []; bin = null; lastT = -Infinity; beatClock.reset();
   }
+  function clearHemo() { resetBuffers(); steadyAt = 0; }
   // On a slide each reading is its steady value, the mean over the last few seconds, so the lines' end labels, the header and
   // the tiles agree, and a laptop and a tablet show the same numbers whenever they are looked at. (The HVPG is the difference
   // of the two readings as shown, so WHVP − FHVP reads exactly.)
@@ -123,6 +125,31 @@ export function createPressureTime({ marks = () => [] } = {}) {
   const onSlide = () => !!cv.closest('.pz-tool');
   const endOf = (id) => (Number.isFinite(pinned?.[PIN[id]]) ? pinned[PIN[id]] : steady[id]);
   const steadyHvpg = () => tenthGap(endOf('whvp'), endOf('RHV'), frame.metrics.hvpg);
+  // Samples (a frame's, or the history's) into the fine buffer, the quarter-second bins and the beat clock; the buffers keep a fixed window.
+  function record(smp) {
+    for (let i = 0; i < smp.t.length; i++) {
+      const t = smp.t[i];
+      if (t <= lastT) continue;
+      lastT = t;
+      fine.t.push(t); fine.ph.push(smp.ph?.[i] ?? NaN); beatClock.push(t, smp.ph?.[i]);
+      for (const k of KEYS) fine[k].push(smp[k]?.[i] ?? NaN);
+      const b0 = Math.floor(t / BIN) * BIN;
+      if (!bin || bin.t !== b0) {
+        if (bin) coarse.push(bin);
+        bin = { t: b0, v: {} };
+      }
+      for (const k of KEYS) {
+        const v = smp[k]?.[i];
+        if (v == null || Number.isNaN(v)) continue;
+        const s = bin.v[k] || (bin.v[k] = [v, v, 0, 0]);
+        if (v < s[0]) s[0] = v; if (v > s[1]) s[1] = v; s[2] += v; s[3]++;
+      }
+    }
+    let cut = 0; while (cut < fine.t.length && fine.t[cut] < lastT - FINE_S) cut++;
+    if (cut) { for (const k of Object.keys(fine)) fine[k].splice(0, cut); beatClock.trim(fine.t[0]); }
+    cut = 0; while (cut < coarse.length && coarse[cut].t < lastT - COARSE_S) cut++;
+    if (cut) coarse.splice(0, cut);
+  }
   function ingest(f) {
     frame = f; wallAt = performance.now();
     wake();
@@ -137,28 +164,7 @@ export function createPressureTime({ marks = () => [] } = {}) {
     if (smp && f.clock !== 'disease' && smp.t.length) {
       // A new patient or a step back in time restarts the engine clock: start a fresh trace.
       if (smp.t[0] < lastT - 1e-9) clearHemo();
-      for (let i = 0; i < smp.t.length; i++) {
-        const t = smp.t[i];
-        if (t <= lastT) continue;
-        lastT = t;
-        fine.t.push(t); fine.ph.push(smp.ph?.[i] ?? NaN); beatClock.push(t, smp.ph?.[i]);
-        for (const k of KEYS) fine[k].push(smp[k]?.[i] ?? NaN);
-        const b0 = Math.floor(t / BIN) * BIN;
-        if (!bin || bin.t !== b0) {
-          if (bin) coarse.push(bin);
-          bin = { t: b0, v: {} };
-        }
-        for (const k of KEYS) {
-          const v = smp[k]?.[i];
-          if (v == null || Number.isNaN(v)) continue;
-          const s = bin.v[k] || (bin.v[k] = [v, v, 0, 0]);
-          if (v < s[0]) s[0] = v; if (v > s[1]) s[1] = v; s[2] += v; s[3]++;
-        }
-      }
-      let cut = 0; while (cut < fine.t.length && fine.t[cut] < lastT - FINE_S) cut++;
-      if (cut) { for (const k of Object.keys(fine)) fine[k].splice(0, cut); beatClock.trim(fine.t[0]); }
-      cut = 0; while (cut < coarse.length && coarse[cut].t < lastT - COARSE_S) cut++;
-      if (cut) coarse.splice(0, cut);
+      record(smp);
     }
     const m = f.metrics;
     const last = days[days.length - 1];
@@ -726,8 +732,21 @@ export function createPressureTime({ marks = () => [] } = {}) {
   // A new patient (or the same one restarted) starts with empty traces.
   function clear() { clearHemo(); days = []; redraw(); }
   function pin(fp) { pinned = fp || null; if (frame) redraw(); }
+  /** The window ahead of the record filled with the steady state the card opened on (backfill.js): the samples before its first one go in
+   *  front, and the record it has made itself stays. The two minutes' bins and the strip's beats are made from them as from live ones. */
+  const SAMPLE_KEYS = ['t', 'ph', ...KEYS];
+  function backfill(hs) {
+    if (!hs?.t?.length || clock !== 'hemo') return false;
+    const n = olderThan(hs, fine.t.length ? fine.t[0] : Infinity);
+    if (!n) return false;
+    const all = inFront(fine, hs, SAMPLE_KEYS, n);
+    resetBuffers();
+    record(all);
+    if (frame) redraw();
+    return true;
+  }
   function configure(t) { cfg = { ekg: t?.ekg !== false, lane: t?.hvpgLane !== false }; yr.pressure = yr.hvpg = null; if (frame) redraw(); }
-  return { id: 'scope', label: 'Pressure over time', el, update, ingest, redraw, clear, pin, configure, dispose() { offs.forEach((off) => off()); io?.disconnect(); frame = null; } };
+  return { id: 'scope', label: 'Pressure over time', el, update, ingest, redraw, clear, pin, configure, backfill, historySecs: () => RANGES[0][2], dispose() { offs.forEach((off) => off()); io?.disconnect(); frame = null; } };
 }
 
 // Thin a series to about two points per pixel column (a pulsatile trace has thousands of samples).

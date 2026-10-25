@@ -172,7 +172,7 @@ test('a card that stays does not fade, and the other one still does', () => {
 });
 
 test('a kept data card rides the model through a new patient and lands on the slide\'s numbers; with the same patient it takes them in place', () => {
-  assert.match(run, /if \(later && keepNow\.data && keepNow\.swap\) followData\(s, to, st, cut\);\n\s+if \(later\) \{ if \(!await morphTo\(st, cut\)\) return; shownState = own \? -1 : si; \}/);
+  assert.match(run, /if \(later && keepNow\.data && keepNow\.swap\) followData\(s, to, st, cut\);\n\s+if \(later\) \{ if \(!await morphTo\(st, cut\)\) return; shownState = own \? -1 : si; ui\?\.tools\.hold\(false\); \}/);
   const kept = src.slice(src.indexOf('function dataKept('), src.indexOf('function followData('));
   assert.match(kept, /if \(keepNow\.swap\) return;/, 'with a new patient nothing jumps ahead of the figure');
   assert.match(kept, /ui\.tiles\.set\(respFp\(s, now\.fp\), tileKeys\(s\), s\.key \|\| \[\], refOf\(s, i\), undefined, now\.params\?\.tips\?\.on\);/, 'the tiles count (an undefined ease is theirs)');

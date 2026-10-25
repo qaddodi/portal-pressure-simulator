@@ -29,15 +29,19 @@
 // Optional on any kind: title (the card's heading, in place of the kind's own). A slide may carry both data and tool:
 // the tool sits above the tiles. Each instrument is made once per presentation and kept, so a trace that keeps recording
 // (Doppler) carries on from slide to slide while the patient stays the same.
+//
+// A recording instrument (doppler, beat by beat, vitals) opens with its window already full: when its card appears on a state, or the state
+// has landed, the model sends the steady state's last seconds (worker-core.js, History) and the instrument takes them in front of what it
+// has recorded (backfill.js), so the trace sweeps on live from there instead of in from empty.
 
 import { store } from './store.js?v=926dabfaef';
 import { h } from './util.js?v=d2c95a1b16';
 import { EDGES } from '../engine/topology.js?v=4044766e96';
-import { createDoppler } from './doppler.js?v=567972aaf8';
+import { createDoppler } from './doppler.js?v=a7c35b6cb0';
 import { createFibroScan } from './fibroscan.js?v=d33fb925a3';
-import { createPressureTime } from './pressure-time.js?v=8c6a8d57b1';
+import { createPressureTime } from './pressure-time.js?v=43722f568d';
 import { createSpleenUS } from './spleen-us.js?v=d569f12818';
-import { createVitalsMonitor } from './vitals-monitor.js?v=57f6b80604';
+import { createVitalsMonitor } from './vitals-monitor.js?v=d2afad5396';
 import { createHvpgCard } from './tool-hvpg.js?v=8a8d2da1bc';
 import { createFlowTime } from './flow-time.js?v=cb89e13e11';
 import { createEndoscopy, createAbdomen, createVarixWall } from './instruments.js?v=94f5accdd9';
@@ -62,6 +66,7 @@ const TITLE = {
   hvpg: () => 'HVPG, catheter tracing',
 };
 const noop = () => {};
+const RECORDS = ['doppler', 'beats', 'vitals'];   // (the instruments that record the patient's flow as it passes)
 
 export function createTools({ host, stage }) {
   const ghostEl = h('div', { class: 'pz-ghost', 'aria-live': 'polite' });
@@ -73,6 +78,15 @@ export function createTools({ host, stage }) {
   if (typeof ResizeObserver === 'function') new ResizeObserver(() => nextFrame(svk)).observe(box);
   const made = {};
   let cur = null, kind = null, probe0, gate0, lastSt = null, lastSlide = null, held = false, lastTool = null, lastCtx = null;
+  let primeTok = 0, primeWait = false, primeP = null;   // (primeTok: the history asked for last; primeWait: the card is up while the state is still landing, its history asked for at the landing; primeP: that ask)
+  /** Ask the model for the steady state's last seconds and give them to inst, in front of what it has recorded. An answer for an instrument
+   *  that has been cleared or held since (a newer ask, a state changing again) is let go. */
+  function prime(inst, k) {
+    const tok = ++primeTok;
+    primeP = host.request('history', { secs: inst.historySecs?.() ?? 10 })
+      .then((m) => { if (tok === primeTok && !held && made[k] === inst && m?.samples) inst.backfill?.({ ...m.samples, probe: m.probe }); })
+      .catch(noop);   // (an engine that cannot answer: the trace fills as it records)
+  }
   function make(k) {
     if (made[k]) return made[k];
     const inst = k === 'doppler' ? createDoppler({ onProbe: noop, pickGate: false }) : k === 'fibroscan' ? createFibroScan() : k === 'scope' ? createEndoscopy({ onAction: noop })
@@ -121,7 +135,9 @@ export function createTools({ host, stage }) {
       inst.arrive?.({ forward, again: cur === inst });   // (the HVPG tracing plays going forward onto its slide, once, and is finished otherwise)
       if (cur !== inst || slide !== lastSlide) inst.autoWindow?.();   // (a new slide chooses its Doppler window again from the width it is drawn at)
       lastSlide = slide;
-      if (stateKey !== lastSt && (k === 'doppler' || k === 'beats' || k === 'vitals')) inst.clear?.();
+      // A new patient clears a recording trace; so does an instrument coming back after another one showed (it missed the frames between).
+      const startOver = RECORDS.includes(k) && (stateKey !== lastSt || cur !== inst);
+      if (startOver) { inst.clear?.(); primeTok++; }
       lastSt = stateKey;
       if (cur !== inst) box.replaceChildren(inst.el, ghostEl);
       cur = inst; kind = k;
@@ -129,6 +145,7 @@ export function createTools({ host, stage }) {
       if (k === 'talk') inst.set(chain);
       else if (k === 'flowtime') inst.set(trail, reveal, { clock: t.clock, lines: t.lines });
       else { const f = store.get().frame; if (f) nextFrame(() => cur === inst && inst.update?.(f)); }
+      if (startOver) { if (held) primeWait = true; else prime(inst, k); }
     },
     /** The flow-time chart drawn up to k (0 to 1) of its time-lapse, with its series (trail) once it is computed. */
     /** Change the instrument's options on the slide in place, the model untouched (a compare button { tool }, a what-if slider { tool }):
@@ -142,11 +159,18 @@ export function createTools({ host, stage }) {
       ghostEl.classList.toggle('on', !!g);
       if (g) ghostEl.replaceChildren(h('span', {}, g.label), h('b', {}, g.value));
     },
-    /** Hold the recording instruments (Doppler, beat by beat) while the slide's state changes: they draw nothing new, and on
-     *  release start over empty, sweeping from the left, their reading waiting for the new state's own beats. */
+    /** Resolves once the window of the instrument showing has been filled, or after ms at the longest: a card is not brought in
+     *  before its trace is there, unless the model is slow to make it. */
+    ready(ms) { const p = primeP; return p ? Promise.race([p, new Promise((r) => setTimeout(r, ms))]) : Promise.resolve(); },
+    /** Hold the recording instruments (Doppler, beat by beat, vitals) while the slide's state changes: they draw nothing new, and on
+     *  release start over with their window filled by the new state's own steady beats (prime), then record on. */
     hold(on) {
       on = !!on; if (on === held) return; held = on;
-      for (const k of ['doppler', 'beats', 'vitals']) made[k]?.restart?.() ?? made[k]?.clear?.();
+      primeTok++;
+      for (const k of RECORDS) made[k]?.restart?.() ?? made[k]?.clear?.();
+      // Released: the state has landed. A card already up for it (held meanwhile) has its window filled now.
+      if (!on && primeWait && cur && RECORDS.includes(kind)) prime(cur, kind);
+      primeWait = false;
     },
     /** A question slide's answer held back (slide hold: true): the instrument showing leaves out the
      *  parts that name the answer (the Gut to heart chart's red blocks and brackets; the Doppler's words are held by the card's CSS). */
