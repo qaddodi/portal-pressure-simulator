@@ -147,17 +147,11 @@
  ],
  "varices/eso": [
   "left gastric vein",
-  "azygos",
-  "varices",
-  "(a value)"
+  "azygos vein",
+  "esophageal varices"
  ],
  "varices/burst": [
-  "varices",
-  "{varix}"
- ],
- "varices/fundal": [
-  "fundal varices",
-  "left renal vein"
+  "varices"
  ],
  "varices/umbilical": [
   "left portal vein",

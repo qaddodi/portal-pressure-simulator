@@ -2,6 +2,15 @@
 
 ## October 2026
 
+- **Collaterals and varices: fundal varices and the rectal slide leave, the other routes share one slide, and one pair of tiles runs through the first four.**
+  (Mohammad, 25 Oct, "Sure"; deck rebuild plan, B2.) Gastric varices have their own talk, so the fundal slide is gone, and the paraumbilical and rectal
+  slides are one, "Other collaterals: the paraumbilical and rectal routes", with both routes marked and the camera framing the two. The HVPG and the varix
+  are the two tiles on slides 2 to 5 (the spleen and platelet tiles and the normal-spleen outline left the time-lapse; they are in its notes), the wall
+  slide's card is titled "Wall stress" and its line says it, and the vein-system colours give way to the flow colours as the one second lens, over the
+  first three slides, with pressure home. Every line is one sentence of 30 words or fewer, the time-lapse's caveat is in its notes, "over 5 mm" now
+  reads "5 mm or more", and the two cases no longer say "EGD". Three objectives (the fundal one left with its slide). Both humanizer passes
+  were done. Code and unit tests only; nobody has looked on screen. `src/ui/decks/varices.js`, `tests/varices-cards.test.js`, `tests/deck-adopted.js`,
+  `tests/deck-pills.json`, `brand/handout/varices/`.
 - **Doppler ultrasound of TIPS is 10 slides, down from 15.** (Mohammad, 25 Oct, "Build the new decks"; deck rebuild plan, D2.) The talk now runs: the scan
   before the stent, the working stent read at its three points, aliasing, the main portal vein, the left portal vein, the narrowed stent, the warning
   sign, the portal vein slowing again, venography and the summary. The three-points slide takes the working stent's state and says what the stent did
