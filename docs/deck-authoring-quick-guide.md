@@ -216,6 +216,10 @@ A slide that changes the patient on screen (a drug, an action, days, a time-laps
 
 Full guide: section 7.5.
 
+## Self-study
+
+Each slide's `ask` prints in the handout. A viewer who turns on Self-study in Settings (while presenting, this device only) also sees it under a Question handle, the answer hidden until they tap Show answer. A projected talk is unchanged. So give every content slide a short `ask` with its answer: `ask: ['Where is the resistance?', 'In the sinusoids.']`.
+
 ## Adding the deck to the app
 
 You can try a deck without changing the app. In the app, open Menu, then Present, then Your scripts, and choose Import. The deck keeps every feature and stays in that browser.

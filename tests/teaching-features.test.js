@@ -121,3 +121,20 @@ test('case-card question: only adopted case slides end on one, a question, the c
   }
   assert.match(src('presenter.js'), /s\.caseQ \? h\('p', \{ class: 'pz-case-p pz-case-q' \}, nb\(s\.caseQ\)\) : null/, 'its own line on the card, fitted with the case');
 });
+
+test('self-study: a per-viewer setting, off by default, that shows each slide\'s handout question with its answer hidden', () => {
+  const p = src('presenter.js');
+  assert.match(p, /const STUDY = 'pps\.selfStudy';/);
+  assert.match(p, /localStorage\.getItem\(STUDY\) === '1'/, 'off unless this device turned it on');
+  assert.match(p, /const q = studyOn && s && !s\.visual \? askOf\(s\) : null;/, 'content slides with a question only');
+  assert.match(p, /el\.dataset\.sig !== sig \|\| !now/, 'each slide opens closed, its answer hidden');
+  assert.match(p, /settings: \(\) => \(\{[^}]*study: studyOn, setStudy \}\)/);
+  assert.match(src('main.js'), /menuToggle\(ps\.study, 'book', 'Self-study'/, 'the switch in Settings while presenting');
+  // It leaves with the teaching card, under a case card and on a black screen, and the answer eases open; the teaching card is not touched.
+  assert.match(css, /\.pz-study\.pz-leave, \.pz-case:not\(\[hidden\]\) ~ \.pz-study, \.app\.pz-blacked \.pz-study \{ opacity: 0;/);
+  assert.match(css, /\.pzq-a \{ display: grid; grid-template-rows: 0fr;[^}]*transition: grid-template-rows/);
+  assert.match(css, /\.pz-study\.told \.pzq-a, \.pz-study\.pzq-fit \.pzq-a \{ grid-template-rows: 1fr; opacity: 1; \}/);
+  assert.doesNotMatch(css, /\.pz-study[^{]*\.pz-text/);
+  // Every content slide of a built-in deck has a question to show.
+  for (const d of DECKS) for (const s of d.slides) if (!s.visual) assert.ok(Array.isArray(s.ask) || typeof s.ask === 'string', `${d.id}/${s.id}: has an ask`);
+});
