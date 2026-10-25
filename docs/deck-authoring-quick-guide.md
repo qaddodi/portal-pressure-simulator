@@ -216,6 +216,10 @@ A slide that changes the patient on screen (a drug, an action, days, a time-laps
 
 Full guide: section 7.5.
 
+## Reading a Doppler in three steps
+
+On a Doppler slide, `grid: true` in its tool adds three boxes under the trace, Direction, Speed and Shape, filled from the reading. `grid: ['dir']` tints the box the slide is about. On a held question slide the boxes stay blank until the answer.
+
 ## Showing a response to a drug
 
 On a tiles slide, `hvpgResp: 'ohm'` adds an HVPG fall tile: the fall in percent from slide `ohm`'s HVPG, live, with marks at 10% and 20%. Count from the untreated patient. Full guide: section 7.5.

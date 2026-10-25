@@ -162,3 +162,18 @@ test('HVPG response tile: hvpgResp adds a live percent fall in the HVPG from a n
   assert.match(p, /ui\.tiles\.set\(respFp\(s, now\.fp\)/);
   assert.match(p, /ui\.tiles\.set\(respFp\(s, f\)/);
 });
+
+test('Doppler reading grid: grid on a Doppler tool shows Direction, Speed and Shape under the trace, blank while held', () => {
+  const used = DECKS.flatMap((d) => d.slides.filter((s) => s.tool?.grid !== undefined).map((s) => [d, s]));
+  assert.ok(used.length >= 20, 'Read the Doppler, Doppler 2 to 11 and TIPS Doppler 9 and 13');
+  for (const [d, s] of used) {
+    const at = `${d.id}/${s.id}`;
+    assert.equal(s.tool.kind, 'doppler', `${at}: a Doppler slide`);
+    assert.ok(adopted(d, s, 'tool.grid'), `${at}: opt-in (tests/deck-adopted.js)`);
+    assert.ok(s.tool.grid === true || (Array.isArray(s.tool.grid) && s.tool.grid.length && s.tool.grid.every((k) => ['dir', 'speed', 'shape'].includes(k))), `${at}: true or the boxes to tint`);
+  }
+  const dop = src('doppler.js');
+  assert.match(dop, /const GRID = \[\['dir', 'Direction'\], \['speed', 'Speed'\], \['shape', 'Shape'\]\];/);
+  assert.match(dop, /setGrid\(it\.dir, none \? 'No flow' : /, 'the same reading as the strip\'s words');
+  assert.match(css, /\.pz-data\[data-held\] \.pz-tool \.dop-grid dd \{ opacity: 0; \}/, 'held, the boxes keep their names and leave their readings blank');
+});

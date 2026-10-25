@@ -6721,3 +6721,15 @@ html.thumb-ui .menu.from-dock { clip-path: inset(-64px -64px calc(var(--sink, 0p
 .pz-study.sheet .pzq-h { left: auto; top: auto; right: var(--pzq-r, 8px); bottom: var(--pzq-b, 200px); }
 .pz-study.sheet .pzq-card { left: var(--pzq-l, 8px); right: var(--pzq-r, 8px); top: auto; bottom: calc(var(--pzq-b, 200px) + 52px); width: auto; transform: translateY(8px); }
 .pz-study.sheet.open .pzq-card { transform: none; }
+
+/* The Doppler reading grid (tool option grid, doppler.js): Direction, Speed and Shape in three small boxes under the trace. With
+   hold the boxes keep their names and leave their readings blank until the answer slide, where they ease in. */
+.dop-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; margin: 8px 0 0; padding: 0; }
+.dop-grid[hidden] { display: none; }
+.dop-grid > div { min-width: 0; padding: 6px 8px 7px; border: 1px solid var(--hairline); border-radius: var(--r-control); transition: background-color .3s var(--ease), border-color .3s var(--ease); }
+.dop-grid > div[data-lit] { border-color: color-mix(in srgb, var(--accent) 55%, transparent); background: color-mix(in srgb, var(--accent) 10%, transparent); }
+.dop-grid dt { font: 500 12px/1.3 var(--font-ui); color: var(--text-3); }
+.dop-grid > div[data-lit] dt { color: color-mix(in srgb, var(--accent) 70%, var(--text)); }
+.dop-grid dd { margin: 2px 0 0; font: 600 max(12px, var(--fs-14))/1.3 var(--font-ui); color: var(--text); overflow-wrap: anywhere; transition: opacity .32s var(--ease); }
+.pz-data[data-held] .pz-tool .dop-grid dd { opacity: 0; }
+.pz-data[data-held-now] .pz-tool .dop-grid dd { transition: none; }

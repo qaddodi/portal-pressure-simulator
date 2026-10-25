@@ -91,7 +91,7 @@ Every field is optional unless marked. Fields are grouped by what they do. Unkno
 
 ### 3.4 The data card (section 7)
 
-`data`, `tiles`, `key`, `delta`, `dataTitle`, `tool`, `visual` (+ `cols`, `asc`, `rowHead`, `note`, `vs`, `foot`, `calm`, `of`, `scale`), `compare`, `whatIf`, `procedure` (7.4); opt-in: `wave`, `waveMax`, `focusRow` (7.3); opt-in teaching features (7.5): `hold`, `tool: { kind: 'criteria' }`, `predict`, `hvpgResp`; `caseQ` (section 14).
+`data`, `tiles`, `key`, `delta`, `dataTitle`, `tool`, `visual` (+ `cols`, `asc`, `rowHead`, `note`, `vs`, `foot`, `calm`, `of`, `scale`), `compare`, `whatIf`, `procedure` (7.4); opt-in: `wave`, `waveMax`, `focusRow` (7.3); opt-in teaching features (7.5): `hold`, `tool: { kind: 'criteria' }`, `predict`, `hvpgResp`, `tool.grid` on a Doppler; `caseQ` (section 14).
 
 ### Slide order and carry-over
 
@@ -404,7 +404,7 @@ Inside the liver (the view's own label takes the colour with a soft glow; use wi
 
 | `tool` | Shows |
 |---|---|
-| `{ kind: 'doppler', vessel }` | spectral Doppler in one vessel; the sampled vessel glows white (ink on the light themes) and a small probe on the figure looks at it, with the sample gate in the middle of the lumen. `vessel` ∈ `PV_TRUNK` (MPV), `PVH_R`, `PVH_L`, `SMV_CONF`, `V_INT`, `SV_CONF`, `V_SPL`, `RHV_IVC`, `MHV_IVC`, `LHV_IVC`, `IVCS_RA`, `A_HEP`, `TIPS`, `DIPS`, `C1b` (varix), `C3` (paraumbilical vein). `waves: true` names a hepatic vein's a, S, v and D waves. On a stent, `gate` (`'proximal'` \| `'mid'` (default) \| `'distal'` \| `'site'`) picks the third it samples and `points: true` calls out the velocity at all three points on the figure. `delta` (`true` or a slide id; else the slide's own `delta`) shows the earlier reading as a ghost, labelled `deltaLabel`, else the lapse's `from`, else that slide's kicker, else "Before". The ghost works only on `PV_TRUNK` and is left out when a `pvVel` tile already shows the change. One set of flow cut-offs names slow, absent and backward flow in the reading, the figure's velocity labels, the sentences in Details, the tables and the stasis event: under 1 cm/s a vein has no flow (2 cm/s for a stent), under 9 cm/s is stasis, and a small backward flow near zero is not called reversed. Word a slide to match. On a meal slide add `lapse.clock: 'seconds'` (section 4) so the trace records the flow rising. |
+| `{ kind: 'doppler', vessel }` | spectral Doppler in one vessel; the sampled vessel glows white (ink on the light themes) and a small probe on the figure looks at it, with the sample gate in the middle of the lumen. `vessel` ∈ `PV_TRUNK` (MPV), `PVH_R`, `PVH_L`, `SMV_CONF`, `V_INT`, `SV_CONF`, `V_SPL`, `RHV_IVC`, `MHV_IVC`, `LHV_IVC`, `IVCS_RA`, `A_HEP`, `TIPS`, `DIPS`, `C1b` (varix), `C3` (paraumbilical vein). `waves: true` names a hepatic vein's a, S, v and D waves. On a stent, `gate` (`'proximal'` \| `'mid'` (default) \| `'distal'` \| `'site'`) picks the third it samples and `points: true` calls out the velocity at all three points on the figure. `delta` (`true` or a slide id; else the slide's own `delta`) shows the earlier reading as a ghost, labelled `deltaLabel`, else the lapse's `from`, else that slide's kicker, else "Before". The ghost works only on `PV_TRUNK` and is left out when a `pvVel` tile already shows the change. One set of flow cut-offs names slow, absent and backward flow in the reading, the figure's velocity labels, the sentences in Details, the tables and the stasis event: under 1 cm/s a vein has no flow (2 cm/s for a stent), under 9 cm/s is stasis, and a small backward flow near zero is not called reversed. Word a slide to match. On a meal slide add `lapse.clock: 'seconds'` (section 4) so the trace records the flow rising. Opt-in: `grid` adds the reading grid (section 7.5). |
 | `{ kind: 'scope' }` | the esophagus at this slide's varix state (endoscopy; **esophagus only**) |
 | `{ kind: 'fibroscan' }` | liver stiffness, kPa; shows a ghost reading as the Doppler does (`delta`, `deltaLabel`), left out when an `lsm` tile is on the slide |
 | `{ kind: 'trace', range: 'talk' }` | portal, wedged, free pressure and HVPG at every slide so far (one point per state) |
@@ -515,6 +515,14 @@ response before any bleed), "≥ 20%" (green, a response after a bleed too), or 
 or less. Count from the untreated patient, not from the drug before: on Beta-blockers 4 the fall is from Beta-blockers 2, though its
 other tiles count from propranolol. Used on Next bleed 5, Beta-blockers 3 and 4 and One year 9. (HVPG 5 is left out: its buttons
 switch patients, and a difference between two patients is not a response.)
+
+#### The Doppler reading grid: `grid` on `tool: doppler`
+
+*Read the Doppler* teaches a method, direction, then speed, then shape, and the grid draws it. `tool: { kind: 'doppler', vessel:
+'PV_TRUNK', grid: true }` puts three small boxes under the trace, **Direction**, **Speed** and **Shape**, filled from the same
+reading as the strip's words ("Hepatofugal", "8.2 cm/s", "Continuous"). `grid: ['speed']` (any of `'dir'`, `'speed'`,
+`'shape'`) tints the box the slide is about. On a `hold` slide the boxes keep their names and leave their readings blank; on the
+answer slide the readings ease in. Used on every Doppler slide of Read the Doppler, Doppler 2 to 11 and TIPS Doppler 9 and 13.
 
 #### Self-study (a viewer's setting, no slide field)
 
