@@ -121,7 +121,7 @@ test('HVPG response tile: hvpgResp adds a live percent fall in the HVPG from a n
 
 test('Doppler reading grid: grid on a Doppler tool shows Direction, Speed and Shape under the trace, blank while held', () => {
   const used = DECKS.flatMap((d) => d.slides.filter((s) => s.tool?.grid !== undefined).map((s) => [d, s]));
-  assert.ok(used.length >= 12, 'the ten Doppler slides that read a trace, and TIPS Doppler 9 and 13 (20 slides before Read the Doppler joined Doppler)');
+  assert.ok(used.length >= 12, 'the ten Doppler slides that read a trace, and TIPS Doppler 6 and 8 (20 slides before Read the Doppler joined Doppler)');
   for (const [d, s] of used) {
     const at = `${d.id}/${s.id}`;
     assert.equal(s.tool.kind, 'doppler', `${at}: a Doppler slide`);

@@ -1525,7 +1525,7 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     const deck = withOverview(DECKS.find((d) => d.id === 'tips-doppler'));
     for (const [w, h] of [[1440, 900], [1280, 800], [1024, 768]]) {
       await page.setViewportSize({ width: w, height: h });
-      for (const id of ['narrow', 'where']) {
+      for (const id of ['narrow', 'fix']) {
         await open(page, `?script=tips-doppler&slide=${deck.slides.findIndex((s) => s.id === id) + 1}`);
         await page.waitForFunction(() => document.querySelector('.pz-data:not(.pz-hide) .dop-pattern')?.textContent.trim() && document.querySelector('.pz-data:not(.pz-hide) .dop-pattern').closest('.dop-report').style.getPropertyValue('--dop-k'), null, { timeout: 60000 });
         // (a short window folds the instrument behind Show: opened, as a presenter would)
@@ -2260,10 +2260,10 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
         if (odd) bad.push(`${w}: ${want ? 'opening' : 'shutting'} by a handle tap passed through ${show({ ...odd, dh: rest.dh })}; rests at ${show(rest)}`);
       }
     }
-    // A folded card (a 320 px iPhone, TIPS Doppler slide 9): its header at full size, 12 px words or more.
+    // A folded card (a 320 px iPhone, TIPS Doppler slide 6): its header at full size, 12 px words or more.
     await page.setViewportSize({ width: 320, height: 568 });
     await open(page);
-    await page.evaluate(() => window.pps.presenter.start('tips-doppler', 8));
+    await page.evaluate(() => window.pps.presenter.start('tips-doppler', 5));
     await page.waitForFunction(() => document.querySelector('#app').classList.contains('presenting') && !document.querySelector('.pz-cover')
       && document.querySelector('.pz-data.pz-sheet')?.offsetWidth, null, { timeout: 60000 });
     await page.waitForTimeout(1500);
@@ -3501,7 +3501,7 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     // no points and found nothing to fail on), and the presenter's buttons are waited for, as they arrive after the figure.)
     const { DECKS, withOverview } = await import(new URL('../../src/ui/decks.js', import.meta.url));
     const tips = withOverview(DECKS.find((d) => d.id === 'tips-doppler'));
-    for (const id of ['jet', 'narrow', 'where', 'fix']) for (const unfold of device === 'phone' ? [false, true] : [false]) {
+    for (const id of ['jet', 'narrow', 'fix']) for (const unfold of device === 'phone' ? [false, true] : [false]) {
       const n = tips.slides.findIndex((s) => s.id === id) + 1;
       if (!n) throw new Error(`TIPS Doppler has no slide "${id}"`);
       await open(page, `?script=tips-doppler&slide=${n}`);
@@ -3584,8 +3584,8 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
         const apart = await page.waitForFunction(agree, null, { polling: 'raf', timeout: 10000 }).then(() => '', () => page.evaluate(() => `the monitor reads ${document.querySelector('.pz-data .dop-vel > b').textContent}, the green callout ${document.querySelector('#labels g.lb[data-key^="n:TIPS:"] .lb-gate').closest('g.lb').textContent}`));
         if (apart) got.err.push(apart);
         if (got.err.length) throw new Error(`TIPS Doppler ${at}, button ${k + 1}: ${[...new Set(got.err)].join('; ')}`);
-        // (The "where" and "fix" slides move or open the narrowing itself with the pick; elsewhere only the sampled point changes, and nothing moves.)
-        if (id !== 'where' && id !== 'fix' && k && Object.entries(got.at).some(([p, [x, y]]) => Math.abs(x - first[p][0]) > 2 || Math.abs(y - first[p][1]) > 2)) throw new Error(`TIPS Doppler ${at}, button ${k + 1}: a callout moved when another point was picked (${JSON.stringify(first)} → ${JSON.stringify(got.at)})`);
+        // (The "narrow" and "fix" slides move or open the narrowing itself with the pick; elsewhere only the sampled point changes, and nothing moves.)
+        if (id !== 'narrow' && id !== 'fix' && k && Object.entries(got.at).some(([p, [x, y]]) => Math.abs(x - first[p][0]) > 2 || Math.abs(y - first[p][1]) > 2)) throw new Error(`TIPS Doppler ${at}, button ${k + 1}: a callout moved when another point was picked (${JSON.stringify(first)} → ${JSON.stringify(got.at)})`);
         if (!k) first = got.at;
       }
     }
@@ -3597,7 +3597,7 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
   await check(device, 'presenter TIPS Doppler: the narrowing\'s "60 %" keeps clear of every callout, label and arrow', async (page) => {
     const { DECKS, withOverview } = await import(new URL('../../src/ui/decks.js', import.meta.url));
     const tips = withOverview(DECKS.find((d) => d.id === 'tips-doppler'));
-    for (const id of ['narrow', 'where']) {
+    for (const id of ['narrow']) {
       await open(page, `?script=tips-doppler&slide=${tips.slides.findIndex((s) => s.id === id) + 1}`);
       await page.waitForFunction(() => document.querySelector('.clamp-label') && document.querySelectorAll('#labels g.lb[data-key^="n:TIPS:"]:not(.lb-off)').length === 3, null, { timeout: 60000 });
       await page.waitForFunction(() => { const now = JSON.stringify(window.pps.stage.labelClearance()), same = now === window.__tipsClear; window.__tipsClear = now; return same; }, null, { polling: 500, timeout: 30000 }).catch(() => {});
@@ -4257,7 +4257,7 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
       await open(page);
       const restore = await instantMotionOn(page);
       let started = false;
-      for (const k of [4, 9, 2]) {   // (TIPS Doppler 5, 10 and 3: an instrument folded, and slides with the velocity key)
+      for (const k of [2, 5, 8]) {   // (TIPS Doppler 3, 6 and 9: an instrument folded, and the velocity and direction keys)
         if (!started) { await page.evaluate((n) => window.pps.presenter.start('tips-doppler', n), k); started = true; }
         else await page.evaluate((n) => window.pps.presenter.go(n), k);
         await page.waitForFunction((n) => Number(document.querySelector('.pzb-n')?.textContent.split('/')[0]) === n + 1 && !window.pps.presenter.busy(), k, { timeout: 60000 });

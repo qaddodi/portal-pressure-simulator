@@ -2,6 +2,22 @@
 
 ## October 2026
 
+- **Doppler ultrasound of TIPS is 10 slides, down from 15.** (Mohammad, 25 Oct, "Build the new decks"; deck rebuild plan, D2.) The talk now runs: the scan
+  before the stent, the working stent read at its three points, aliasing, the main portal vein, the left portal vein, the narrowed stent, the warning
+  sign, the portal vein slowing again, venography and the summary. The three-points slide takes the working stent's state and says what the stent did
+  to the PPG (its live value before the stent and after it); the stent slide, the shunted-share slide (Two inflows and Spontaneous shunts and TIPS teach that), the baseline
+  fix, the right portal vein and "where it narrows" are gone. The aliasing slide has a "Baseline down" button that moves the baseline in place, with
+  the instrument buttons from the last push (it took a second slide before). The narrowed stent's Proximal, Mid and Distal buttons now move
+  the narrowing itself and the gate follows it. The left portal vein slide says in one sentence that the right portal vein flows toward the liver only
+  before the stent; a button cannot switch the Doppler's vessel without new code, so the slide keeps the left. The talk uses two lenses, velocity and
+  direction (direction on the two branch slides only); flow, congestion and blood origin went with the slides that used them. The data card is on the
+  narrowed and reopened stent only, with the PPG as its one tile. The on-screen caveat stays on the three-points slide; the narrowing's caveat and the
+  left portal vein's source moved into the notes. Lines are 30 words or fewer. Words went through the AI humanizer and no new visual device was added.
+  The old slide ids are gone from the checks (the smoke checks now name `narrow` and `fix`; the callout-moves check treats `narrow` as a slide whose
+  buttons move the narrowing, as `where` was). Handout figures of the five dropped slides were removed; eight of the rest are listed for the figure
+  redraw at the end of the rebuild. Code only; nobody has looked on screen. `src/ui/decks/tips-doppler.js`, `tests/deck-adopted.js`,
+  `tests/deck-pills.json`, `tests/tips-doppler.test.js`, `tests/tips-doppler-points.test.js`, `tests/teaching-features.test.js`,
+  `tests/e2e/smoke.mjs`, `docs/deck-authoring-guide.md`, `docs/deck-authoring-quick-guide.md`.
 - **After the sinusoids: one talk for the hepatic veins, sinusoidal obstruction and the heart.** (Mohammad, 25 Oct, "Build the new decks"; deck rebuild plan, E2.)
   Hepatic venous outflow obstruction takes the right heart slides and is renamed "After the sinusoids: hepatic veins and the heart" (id `outflow`, Causes). Its three
   sections are the hepatic veins (Budd–Chiari syndrome, the missing wedge, a stent, a DIPS), sinusoidal obstruction (the case, the wedge, recovery) and the heart and IVC

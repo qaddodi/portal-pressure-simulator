@@ -38,7 +38,7 @@ A slide is **one idea**: a standalone title, a line of fewer than 45 words (sect
 
 | Field | Type | Notes |
 |---|---|---|
-| `id` | string | Kebab-case, unique across all decks (existing, 36: `circulation circuit two-inflows hvpg hyperdynamic sites prehepatic ncph outflow lobule where-resistance doppler read-doppler stiffness one-year varices endoscopy variceal-bleed ascites tap encephalopathy spleen gastric-varices recompensation pregnancy treatment beta-blockers next-bleed choose-treatment cause-treated shunts tips-doppler first-visit transplant-doppler ten-years tips-journey`). A talk that was merged into another keeps working by its old id: add it to `DECK_ALIAS` in `decks.js` (old id → the deck that took its slides). `?script=<old id>` and the share page `c/deck-<old id>.html` then open that deck at slide 1 (`blood-volume` → `hyperdynamic`, `refractory-bleed` → `variceal-bleed`, `where-block` → `sites`, `bleed` → `treatment`). |
+| `id` | string | Kebab-case, unique across all decks (existing, 35: `circulation circuit two-inflows hvpg hyperdynamic sites prehepatic ncph outflow lobule where-resistance doppler stiffness one-year varices endoscopy variceal-bleed ascites tap encephalopathy spleen gastric-varices recompensation pregnancy treatment beta-blockers next-bleed choose-treatment cause-treated shunts tips-doppler first-visit transplant-doppler ten-years tips-journey`). A talk that was merged into another keeps working by its old id: add it to `DECK_ALIAS` in `decks.js` (old id → the deck that took its slides). `?script=<old id>` and the share page `c/deck-<old id>.html` then open that deck at slide 1 (`blood-volume` → `hyperdynamic`, `read-doppler` → `doppler`, `refractory-bleed` → `variceal-bleed`, `where-block` → `sites`, `bleed` → `treatment`). |
 | `level` | `'foundation'` \| `'core'` \| `'advanced'` | Shown as Foundation / Core / Advanced. |
 | `title` | string | Full title. |
 | `minutes` | number | Talk length. |
@@ -462,9 +462,9 @@ Visuals may also carry `cam` (how the dimmed figure is framed).
 
 `compare: [{ label, params, own?, short? }, …]`: buttons switch the live model between treatments in real time. `params`: each option's **full set of the switched keys** (switch off the others: e.g. every drug flag), `own: true` marks the option that is the slide's own state. An `own` option may leave out `params`: it then eases back to the slide's exact state. `short` is a compact label a phone uses where the full names would wrap (`'Prop.'`). Use with `data` so the numbers update.
 
-On a stent Doppler slide, `{ label, gate, own? }` buttons move the Doppler's gate (`'proximal'`, `'mid'`, `'distal'`, `'site'`) without touching the model (TIPS Doppler).
+On a stent Doppler slide, `{ label, gate, own? }` buttons move the Doppler's gate (`'proximal'`, `'mid'`, `'distal'`, `'site'`) without touching the model (TIPS Doppler's working stent). A button with `params: { stenosisSite: { TIPS: 'mid' } }` moves the narrowing itself, and the gate `'site'` follows it (TIPS Doppler's narrowed stent).
 
-`{ label, tool: { red: false }, own? }` buttons change the options of the slide's instrument, the model untouched: the patch is laid over the slide's `tool`, and the `own` button puts the slide's own options back (the insufflation lesson's No red signs / Red signs). Keep the slide's `tool` itself free of the option the buttons switch, so the card stays the same as the slides beside it (section 7.1).
+`{ label, tool: { red: false }, own? }` buttons change the options of the slide's instrument, the model untouched: the patch is laid over the slide's `tool`, and the `own` button puts the slide's own options back (the insufflation lesson's No red signs / Red signs; TIPS Doppler's aliasing slide, As scanned / Baseline down). Keep the slide's `tool` itself free of the option the buttons switch, so the card stays the same as the slides beside it (section 7.1).
 
 A button can name another patient instead: `compare: [{ label: 'Normal heart', preset: 'healthy' }, { label: 'Failing heart', own: true }]`. The live model eases to that patient (computed with the slide's states), and the `own` button eases back to the slide's exact state. A patient button may also carry `params` and `days`, as an `of` row does: `{ label: 'No anticoagulation', short: 'None', preset: 'pvt-acute', params: {}, days: 180 }` shows the acute clot left alone for 180 days (Pre-hepatic's anticoagulation slide). Give a button a `short` label when the full names would wrap on a phone. A button can also name an earlier slide of the same deck, one patient's earlier visit: `compare: [{ label: 'Day 0', slide: 'd0' }, { label: 'Day 365', own: true }]` eases the live model to that slide's state and back (One year's last catheter slide). On a catheter slide the catheter's callouts and its monitor follow the live model with the tiles.
 
@@ -529,7 +529,7 @@ The Doppler talk teaches a method, direction, then speed, then shape, and the gr
 'PV_TRUNK', grid: true }` puts three readings under the trace, laid out as its Peak and Trough readings, **Direction**, **Speed** and **Shape**, filled from the same
 reading as the strip's words ("Hepatofugal", "8.2 cm/s", "Continuous"). `grid: ['speed']` (any of `'dir'`, `'speed'`,
 `'shape'`) sets the name of the box the slide is about in full white. On a `hold` slide the boxes keep their names and leave their readings blank; on the
-answer slide the readings ease in. Used on the ten Doppler slides of Doppler of the portal system that read a trace, and TIPS Doppler 9 and 13.
+answer slide the readings ease in. Used on the ten Doppler slides of Doppler of the portal system that read a trace, and TIPS Doppler 6 and 8.
 
 #### The bleed clock: `clock`
 

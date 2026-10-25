@@ -389,15 +389,9 @@
  "tips-doppler/before": [
   "{<15 cm/s}"
  ],
- "tips-doppler/shunted": [
-  "{shunt}"
- ],
- "tips-doppler/stent": [
-  "right portal vein",
-  "{ppg@before}",
-  "{ppg}"
- ],
  "tips-doppler/jet": [
+  "{ppg@before}",
+  "{ppg}",
   "{<90 cm/s}",
   "{>190 cm/s}"
  ],
@@ -411,17 +405,10 @@
  "tips-doppler/left": [
   "left portal vein"
  ],
- "tips-doppler/right": [
-  "right portal vein"
- ],
  "tips-doppler/narrow": [
   "{>190 cm/s}",
   "{<90 cm/s}",
   "{ppg}"
- ],
- "tips-doppler/where": [
-  "{>190 cm/s}",
-  "{<90 cm/s}"
  ],
  "tips-doppler/warn": [
   "left portal vein"

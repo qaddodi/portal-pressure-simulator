@@ -203,7 +203,7 @@ Full guide: section 7.3.
 - **Time-point buttons.** `{ label: 'Day 0', slide: 'd0' }` eases to the state of an earlier slide of the same deck, one patient's earlier visit. The slide's own button is `{ label: 'Day 365', own: true }`.
 - **Lens buttons.** `{ label: 'Direction', lens: 'direction', short: 'Dir.' }` switches the colours without touching the model.
 - **Gate buttons.** `{ label: 'Distal', gate: 'distal' }` moves a stent Doppler's sample gate, again without touching the model.
-- **Instrument buttons.** `{ label: 'No red signs', tool: { red: false } }` changes the options of the slide's scope (here, hides the red wale marks), the model untouched; the slide's own button, `{ label: 'Red signs', own: true }`, puts them back.
+- **Instrument buttons.** `{ label: 'No red signs', tool: { red: false } }` changes the options of the slide's scope (here, hides the red wale marks), the model untouched; the slide's own button, `{ label: 'Red signs', own: true }`, puts them back. The Doppler's aliasing slide does the same with `{ label: 'Baseline down', tool: { baseline: 0.85 } }`.
 - **Short labels.** Any button can carry `short`, a compact name (`'Prop.'`) that a phone uses when the full names would wrap.
 - **A what-if slider.** `whatIf: { label: 'Clot size', param: 'thrombus.PV_TRUNK', min: 0, max: 1, ends: ['None', 'Occluded'] }` lets the room drag one setting and watch everything follow. `whatIf: { label: 'Esophageal air pressure', tool: 'air', min: 0, max: 20, unit: 'mmHg' }` drags a scope option instead (the air's pressure round a varix) and leaves the model alone.
 
