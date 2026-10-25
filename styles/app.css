@@ -2505,7 +2505,6 @@ button.finding { cursor: pointer; }
 .pz.stack .pz-tool[data-kind="scope"] .endo-num, .pz.stack .pz-tool[data-kind="scope"] .endo-chip-v, .pz.stack .pz-tool[data-kind="scope"] .endo-grade, .pz.stack .pz-tool[data-kind="scope"] .endo-grade span, .pz.stack .pz-tool[data-kind="scope"] .endo-grade b { font-size: var(--s-val); }
 .pz.stack .pz-tool[data-kind="scope"] .endo-chip-v[data-long] { font-size: var(--s-lab); }
 .pz.stack .pz-tool[data-kind="scope"] .endo-num small { font-size: var(--s-cap); }
-.pz.stack .pz-tool[data-kind="scope"] .endo-read > .endo-across { grid-column: 1 / -1; }   /* (a lesson slide's three pressures: two side by side, the third across, no tile alone in a row) */
 .pz.stack .pz-tool .dop-note { display: none; }
 /* Phone: the Doppler's report in three short rows: the direction; the mean with its pattern and the normal-range gauge beside it;
    the four stats in one row. */
@@ -5169,6 +5168,11 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
 :is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool, .pz.low .pz-data.has-tool) .pz-tool[data-kind="scope"] .endo-read > .endo-g { grid-area: 1 / 1; }
 :is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool, .pz.low .pz-data.has-tool) .pz-tool[data-kind="scope"] .endo-read > .endo-red { grid-area: 1 / 2; justify-self: end; }
 :is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool, .pz.low .pz-data.has-tool) .pz-tool[data-kind="scope"] .endo-read > .endo-red > dt { display: none; }
+/* A lesson slide's pressures (the scope's readings option): one row under the grade, the name over its number in three columns, the picture below as before. */
+:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool, .pz.low .pz-data.has-tool) .pz-tool[data-kind="scope"] .pz-inst[data-readings] { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool, .pz.low .pz-data.has-tool) .pz-tool[data-kind="scope"] .pz-inst[data-readings] .endo-read > .endo-g { grid-area: 1 / 1 / 2 / 3; }
+:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool, .pz.low .pz-data.has-tool) .pz-tool[data-kind="scope"] .pz-inst[data-readings] .endo-read > .endo-red { grid-area: 1 / 3; }
+:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool, .pz.low .pz-data.has-tool) .pz-tool[data-kind="scope"] .endo-read > .endo-pr { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; grid-row: 2; min-width: 0; margin: 0; padding: 0; border: 0; border-radius: 0; background: none; box-shadow: none; }
 :is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool, .pz.low .pz-data.has-tool) .pz-tool[data-kind="scope"] .endo-more { display: none; }
 :is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool, .pz.low .pz-data.has-tool) .pz-tool[data-kind="wall"] .endo-read > .endo-stress.endo-stress { grid-area: 1 / 1 / 2 / -1; display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: baseline; gap: 6px 12px; }
 :is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool, .pz.low .pz-data.has-tool) .pz-tool[data-kind="wall"] .endo-read > .endo-stress > dt { flex: none; }

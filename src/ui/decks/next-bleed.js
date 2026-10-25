@@ -49,7 +49,7 @@ export const NEXT_BLEED = {
       caveat: 'The model loses one banding session\'s effect about every 50 days, a simplification of how varices return.',
       kicker: 'Banding alone', site: 'sin', title: 'Bands slough and the varices come back',
       line: 'Ten months on, the varices are back to {varix}. The pressure that made them never fell, so after the varices are gone, endoscopy is repeated at 6 months and then every 12 months.',
-      notes: 'Banding is a local treatment. As long as the portal pressure stays high, blood keeps finding the coronary vein and the esophageal collaterals, and new varices grow where the old ones were. Surveillance endoscopy finds them and bands them again. This is the reason banding alone is not enough after a bleed.',
+      notes: 'Banding is a local treatment. As long as the portal pressure stays high, blood keeps finding the coronary vein and the esophageal collaterals, and new varices grow where the old ones were. Surveillance endoscopy finds them and bands them again, every 6 to 12 months once the varices are gone (AASLD 2024). This is the reason banding alone is not enough after a bleed. Banding ulcers form where the bands slough and can bleed a week or two after a session, which is one reason the sessions are spaced 2 to 4 weeks apart.',
       ask: ['Why do varices return after they have been banded away?', 'The portal pressure that made them has not changed, so blood keeps opening the same collaterals.'],
     },
     {

@@ -2,6 +2,24 @@
 
 ## October 2026
 
+- **Endoscopy is now a six-slide lesson, "The varix changes when you insufflate".** (Mohammad, 25 Oct, "Sure"; deck rebuild plan, B1.) One
+  decompensated patient and one scope all the way through, and nothing changes in the model after the case card, so the HVPG is the same on every
+  slide. Slide 2 compares a small varix (under 5 mm) with a large one (5 mm or more); slide 3 switches the red wale marks off and on to show they are
+  a finding of their own and the size does not move; slide 4 has a slider for the pressure of the air in the esophagus, 0 to 20 mmHg (a teaching
+  range, said in the notes), and the varix narrows and flattens; slide 5 adds the pressure inside the varix, in the lumen and across the wall;
+  slide 6 asks on a question card whether a flatter varix means less portal hypertension (it does not: the HVPG is unchanged) and lets the slider
+  answer it; slide 7 points to Preventing the next variceal bleed. Three objectives and three checks (the large-varix check is kept; the other two
+  come from the lesson). Every line is one sentence of 30 words or fewer; the sources and the study the 9 mmHg comes from are in the notes. The menu
+  reads "The varix and insufflation" (tab "Insufflation"). The old slides (screening, growth, large, wall stress, bleed, octreotide, transfusion,
+  banding, summary) and their figures are gone; the follow-up scope after banding and the banding-ulcer note moved to the notes of the Preventing
+  the next variceal bleed slide on bands sloughing, and the transfusion check ("To what hemoglobin do you transfuse?") replaced the octreotide-dose
+  check in Acute variceal bleeding, which repeated that deck's own slide. Both humanizer passes were done on the words and the design (the lesson
+  reuses the scope, the Small/Large and red-sign buttons, the slider and the HVPG tile as they are).
+  The scope's compact card in the presenter hides every tile but the grade and the stigmata, so the three pressures got a row of their own under the
+  grade (three columns, the name over its number); the Tests card's scope is unchanged. Code and unit tests only apart from the six
+  handout figures, which are drawn on a desktop; nobody has looked on a phone or an iPad. `src/ui/decks/endoscopy.js`, `src/ui/decks/variceal-bleed.js`, `src/ui/decks/next-bleed.js`,
+  `src/ui/decks.js`, `tests/endoscopy-lesson.test.js`, `tests/bleed.test.js`, `tests/review-doppler-text.test.js`, `tests/deck-adopted.js`,
+  `tests/deck-pills.json`, `tests/deck-thresholds.test.js`, `tests/hands-on-decks.test.js`, `tests/question-card.test.js`, `brand/handout/endoscopy/`.
 - **Portal vein clots: one talk for the clot without cirrhosis and the clot in cirrhosis.** (Mohammad, 25 Oct, "Build the new decks"; deck rebuild plan, E1.)
   Pre-hepatic portal hypertension takes the slides of Portal vein thrombosis in cirrhosis and is renamed Portal vein clots (id `prehepatic`, Causes). Section 1
   keeps the acute clot, the catheter, anticoagulation, the cavernoma and the soft liver; section 2 follows a patient with cirrhosis through the case, the partial

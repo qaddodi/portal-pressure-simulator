@@ -1,107 +1,79 @@
-// Presenter talk: Endoscopy and the varix (Core). Slide fields as documented at the top of decks.js.
-// Endoscopy is of the esophagus only; gastric varices stay on the anatomy (the varices deck).
+// Presenter talk: The varix changes when you insufflate (Core). Slide fields as documented at the top of decks.js.
+// One patient, one scope and the HVPG tile. Endoscopy is of the esophagus only; gastric varices stay on the anatomy (the varices deck).
+// The scope's options (tool.air, tool.red, tool.readings) never touch the model: air in the lumen changes how the varix looks and the
+// pressure across its wall, not the pressure inside it. The first three slides share one data card, and so do the last three.
 
-const mi = (x) => `<mi>${x}</mi>`, mo = (x) => `<mo>${x}</mo>`;
-const frac = (n, d) => `<mfrac><mrow>${n}</mrow><mrow>${d}</mrow></mfrac>`;
-const BANDS = [{ kind: 'band' }, { kind: 'band' }, { kind: 'band' }, { kind: 'band' }];
-// (params: {} makes the sequence settle the patient after the action, so the pressures show the new volume.)
-const UNITS = [{ kind: 'infuse', fluid: 'prbc' }, { kind: 'infuse', fluid: 'prbc' }, { kind: 'infuse', fluid: 'prbc' }, { kind: 'infuse', fluid: 'prbc' }];
+const SCOPE = { kind: 'scope', open: true };
+const PRESSURES = { kind: 'scope', open: true, readings: true, air: 10 };
+const AIR = { label: 'Esophageal air pressure', tool: 'air', min: 0, max: 20, step: 1, unit: 'mmHg' };
+// (The same camera, stations and tile on every slide: only the words and the one thing taught change.)
+const SAME = { cam: 'gej', labels: ['VAR', 'LGV'], terms: ['varix'], site: 'sin', data: 'tiles', tiles: ['hvpg'], key: ['hvpg'] };
 
 export const ENDOSCOPY = {
-  id: 'endoscopy', level: 'core', title: 'Endoscopy and the varix', minutes: 12,
+  id: 'endoscopy', level: 'core', title: 'The varix changes when you insufflate', minutes: 8,
   objectives: [
-    'Decide who needs a screening endoscopy and who can skip it',
-    'Grade varices by size and red signs, and explain why large ones burst',
-    'Manage a variceal bleed: octreotide, restrictive transfusion and banding',
-    'Explain why banding needs a beta-blocker beside it',
+    'Tell a small varix (under 5 mm) from a large one (5 mm or more)',
+    'Explain why air in the esophagus flattens a varix and lowers the pressure across its wall',
+    'Say why a flatter varix at endoscopy does not mean less portal hypertension',
   ],
   checks: [
-    ['When is a varix called large?', 'Over 5 mm: it bulges into the lumen and does not flatten with air.'],
-    ['To what hemoglobin do you transfuse in a variceal bleed?', '7 to 8 g/dL. More volume raises the portal pressure and the risk of rebleeding.'],
-    ['Why does banding need a beta-blocker beside it?', 'Banding closes the varices but leaves the portal pressure unchanged, so new varices form.'],
-    ['After transfusion to a hemoglobin of 11 g/dL, the portal pressure rises and the varix bleeds again. Which lever moved?', 'Volume: over-transfusion fills the portal circulation and raises its pressure. Transfuse from 7 g/dL to a target of 7 to 8.'],
+    ['When is a varix called large?', 'At 5 mm or more. Under 5 mm it is small. Red wale marks are a separate finding and do not change the size.'],
+    ['What does air in the esophagus do to a varix?', 'It raises the pressure outside the varix, so less pressure stretches the wall and the varix looks flatter. The pressure inside it has not changed.'],
+    ['The varix looks flatter at endoscopy. Has the portal hypertension improved?', 'No. The air changes how the varix looks, not the portal pressure. The HVPG and the pressure inside the varix are the same.'],
   ],
-  summary: 'One patient seen through the scope: screening, growing and large varices, wall stress, a bleed, transfusion, octreotide and band ligation.',
+  summary: 'Small and large varices, red signs as a finding of their own, and what air in the esophagus does to the varix you see and to the pressure across its wall.',
   slides: [
     {
-      id: 'screen', preset: 'cirr-comp', cam: 'gej', labels: ['VAR', 'LGV'], tool: { kind: 'scope', open: true },
-      data: 'tiles', tiles: ['hvpg'], key: ['hvpg'],
-      cite: 'Baveno VIII 1.19',
-      kicker: 'Endoscopy', site: 'sin', title: 'Not every patient needs a screening scope',
-      vignette: 'A 49-year-old woman with MASH cirrhosis feels well. Her platelets are 159,000/µL, and her liver stiffness is 12.5 kPa. She takes no beta-blocker.',
-      line: 'A scope is needed only when no beta-blocker is given and stiffness and platelets do not spare it. In compensated cirrhosis the esophagus is often still normal.',
-      notes: 'Baveno VIII has two bedside rules, each for its own decision: stiffness of 15 kPa or less with platelets of 150 or more rules out CSPH, and stiffness under 20 kPa with platelets of 150 or more spares the screening scope. A patient with a liver stiffness under 20 kPa and platelets of 150 or more can skip the screening endoscopy, because the chance of varices needing treatment is very low; stiffness and platelets are then repeated every year. Patients with clinically significant portal hypertension who take carvedilol do not need a screening endoscopy either, since the drug prevents decompensation whatever the varices. Those who cannot take a beta-blocker are scoped, unless stiffness and platelets, or a spleen stiffness under 40 kPa, spare them.',
-      ask: ['Which compensated patients can skip a screening endoscopy?', 'Those taking carvedilol for CSPH, and those with liver stiffness under 20 kPa and platelets of 150 or more (Baveno VIII).'],
+      id: 'size', preset: 'cirr-decomp', ...SAME, tool: SCOPE,
+      vignette: 'A 61-year-old man with alcohol-associated cirrhosis has ascites on spironolactone and furosemide. At his surveillance endoscopy, the endoscopist will size the varices.',
+      compare: [{ label: 'Small', preset: 'csph' }, { label: 'Large', own: true }],
+      kicker: 'Size and signs',
+      title: 'A large varix is wider and more twisted than a small one',
+      line: 'A varix under 5 mm is small and one of 5 mm or more is large, and this one measures {varix}.',
+      notes: 'The app grades a varix by size alone: small under 5 mm, large from 5 mm. AASLD 2024 also names a medium grade. A large varix is wider and more tortuous than a small one, and the scope draws it that way. Large varices, or small ones with red wale marks or in Child–Pugh C cirrhosis, are high risk and call for primary prophylaxis (AASLD 2024). The Small button shows the patient with clinically significant portal hypertension; the Large button goes back to the decompensated patient the slide opens on. Every slide in this talk keeps that patient.',
+      ask: ['What size separates a small varix from a large one?', 'A small varix is under 5 mm and a large one is 5 mm or more.'],
     },
     {
-      id: 'grow', terms: ['varix'], days: 180, ramp: { cirrhosis: [0.4, 0.6] }, lapse: { seconds: 10 }, cam: 'gej', labels: ['VAR', 'LGV'], tool: { kind: 'scope', open: true },
-      data: 'tiles', tiles: ['hvpg'], key: ['hvpg'], delta: true,
-      kicker: 'Endoscopy', site: 'sin', title: 'Small varices appear six months on',
-      line: 'The HVPG has risen to {hvpg}, 10 mmHg or more (CSPH), so varices are more likely. Blue columns have risen in the lower esophagus; small varices are under 5 mm.',
-      notes: 'Varices become possible once the HVPG reaches 10 mmHg, the threshold of clinically significant portal hypertension, and the risk rises with the gradient; below 10 they form less often, not never. Small varices become large in about one patient in ten each year. They start in the lower esophagus, where the palisade veins lie superficial in the lamina propria; deeper, the submucosal veins enlarge too. Small varices are under 5 mm and flatten with air; large ones are over 5 mm and do not.',
-      ask: ['Below what HVPG are new varices uncommon?', '10 mmHg.'],
+      id: 'red', ...SAME, tool: SCOPE,
+      compare: [{ label: 'No red signs', tool: { red: false } }, { label: 'Red signs', own: true }],
+      kicker: 'Size and signs',
+      title: 'Red wale marks are a separate finding, not another size',
+      line: 'Red wale marks raise the risk of bleeding on a varix of any size, and switching them off leaves the size as it was.',
+      notes: 'Red wale marks are thin spots in the varix wall; cherry-red spots are another red sign. AASLD 2024 counts a varix of any size with red wale marks as high risk, and the risk of a first bleed rises with the size, the red signs and the Child–Pugh class. In the model the marks appear as the wall stress nears the tear point (70 % of it); the switch overrides that rule only to show that a red sign and a size are two findings.',
+      ask: ['A small varix has red wale marks. Does that make it large?', 'No. Size and red signs are separate findings, and a small varix with red signs is already high risk (AASLD 2024).'],
     },
     {
-      id: 'large', terms: ['varix'], preset: 'cirr-decomp', cam: 'gej', labels: ['VAR', 'LGV'], mark: { edges: ['C1a'], label: 'Large varices', kind: 'note' }, calipers: ['varix'], tool: { kind: 'scope', open: true },
-      data: 'tiles', tiles: ['hvpg'], key: ['hvpg'],
-      compare: [{ label: 'CSPH', preset: 'csph' }, { label: 'Decompensated', own: true }],
-      kicker: 'Endoscopy', site: 'sin', title: 'Size and red signs predict the first bleed',
-      line: 'Varices over 5 mm bulge into the lumen and do not flatten with air; this one is {varix}. In the model, red wale marks appear as the wall stress nears the tear point.',
-      notes: 'The size, the red signs (red wale marks, cherry-red spots) and the Child–Pugh class predict the first bleed. Large varices, or small ones with red signs or in Child–Pugh C, need prophylaxis: a non-selective beta-blocker (carvedilol preferred) or band ligation. With ascites and varices, Baveno VIII recommends a beta-blocker, carvedilol preferred, to prevent a first bleed and to lower the risk of ascites complications, reducing or stopping it if the systolic pressure stays below 90 mmHg, the mean below 65 mmHg, or kidney injury develops.',
-      ask: ['Name two endoscopic findings that predict a first bleed.', 'Size over 5 mm and red signs (red wale marks or cherry-red spots).'],
+      id: 'air', ...SAME, tool: SCOPE, whatIf: AIR,
+      kicker: 'Insufflation',
+      title: 'Air flattens the varix you are looking at',
+      line: 'Air presses on the varix from outside, so it looks narrower, and at high enough pressure it looks flat.',
+      notes: 'The slider is the pressure of the air in the esophagus, from 0 to 20 mmHg. That is a teaching range, not a clinical one, and not a setting on a gastroscope. The varix keeps its grade, because the size at rest does not change; only the size seen does. The pressure inside the varix and the HVPG are held constant, which is a teaching assumption rather than a claim that air never changes the circulation. This is not advice to insufflate until a varix flattens.',
+      ask: ['What does air in the esophagus do to a varix you are looking at?', 'It raises the pressure outside the varix, so the varix looks narrower and, at high enough pressure, flat. Its size at rest has not changed.'],
     },
     {
-      id: 'tension', terms: ['varix'], cam: [745, 170, 875, 335], kMax: 4.5, labels: ['VAR'], tool: { kind: 'wall', open: true },
-      data: 'tiles', tiles: ['varix', 'pv'], key: ['varix'],
-      kicker: 'Why varices burst', site: 'sin', title: 'Large, thin-walled varices are the ones that bleed',
-      eq: [mi('σ') + mo('=') + frac('<mi mathvariant="normal">Δ</mi><mi>P</mi>' + mo('·') + mi('r'), mi('w')), 'σ wall stress · ΔP pressure in the varix minus the lumen · r radius · w wall thickness'],
-      line: 'Wall stress rises with the pressure across the wall and the radius, and falls with wall thickness. This varix is {varix} across.',
-      notes: 'Laplace\'s law explains why size and red signs matter: a wide varix with a thin wall carries much more stress at the same pressure. Varices rarely bleed below an HVPG of about 12 mmHg, and the risk climbs steeply above it. Lowering the pressure (beta-blockers) or the radius (banding) lowers the stress.',
-      ask: ['Using Laplace\'s law, name two ways to lower the stress in a varix wall.', 'Lower the pressure in it, or its radius.'],
+      id: 'across', ...SAME, tool: PRESSURES,
+      kicker: 'Insufflation',
+      title: 'Air lowers the pressure across the varix wall',
+      line: 'Air outside the varix lowers the pressure across its wall, though the pressure inside the varix does not change.',
+      notes: 'AASLD 2024 ties the tension in the varix wall to the pressure across it (the transluminal pressure), the diameter and the wall thickness. In this teaching model the pressure in the lumen is taken off the pressure inside the varix, so the wall is stretched less and the varix looks narrower. Around 9 mmHg was reported in one diagnostic study (Ushimaru et al., Sci Rep 2020, PMID 33097772); the spread was wide. That is context, not a dose, and the slider range of 0 to 20 mmHg is a teaching range.',
+      ask: ['A varix holds 18 mmHg inside, and the air outside it is 10 mmHg. What pressure stretches the wall?', '8 mmHg: the pressure inside less the pressure outside.'],
     },
     {
-      id: 'bleed', params: {}, action: [{ kind: 'hemorrhage', mL: 1000 }], cam: 'feeder', labels: ['VAR', 'CONF'], ripple: true,
-      data: 'tiles', tiles: ['map', 'pv', 'hvpg'], key: ['map', 'pv'], delta: true,
-      kicker: 'Variceal bleeding', site: 'sin', title: 'A bleed lowers the portal pressure for a while',
-      line: 'A liter is lost. The blood pressure falls to {map}, and the portal pressure to {pv} with the volume.',
-      notes: 'Suspected variceal bleeding is treated before the scope confirms it: octreotide at once, ceftriaxone, and careful volume replacement; endoscopy within 12 hours, once the circulation is restored. The portal pressure falls with the lost volume, which is part of why many bleeds stop for a while on their own, and why they restart when the volume returns.',
-      ask: ['Why does portal pressure fall during a bleed?', 'Less blood volume means less splanchnic inflow and lower venous pressures.'],
+      id: 'flat', ...SAME, tool: PRESSURES, whatIf: AIR,
+      question: 'If the varix looks flatter, has the portal hypertension improved?',
+      kicker: 'Insufflation',
+      title: 'A flatter varix does not mean less portal hypertension',
+      line: 'A flatter varix can reflect more pressure in the lumen, not less portal hypertension, and the HVPG is still {hvpg}.',
+      notes: 'Only the picture changes. The HVPG and the pressure inside the varix are the same at every setting, so the portal hypertension is the same. Compare a varix under the same conditions each time: one that looks smaller at a later scope may only have been seen with more air in the esophagus.',
+      ask: ['The varix flattens as you add air. Has the HVPG changed?', 'No. The air changes how the varix looks, not the portal pressure.'],
     },
     {
-      id: 'oct', params: { drugs: { octreotide: true } }, cam: 'portal', labels: ['SMV', 'CONF'],
-      data: 'tiles', tiles: ['pv', 'hvpg'], key: ['pv'], delta: true,
-      kicker: 'Variceal bleeding', site: 'sin', title: 'Octreotide starts before the scope',
-      line: 'Give it before endoscopy, which should follow within 12 hours once the circulation is restored. It blunts the rise in portal flow after a meal or a transfusion. With banding, it controls most acute bleeds.',
-      notes: 'Octreotide, a somatostatin analogue, is given as a 50 µg bolus, then 25 to 50 µg an hour for 2 to 5 days. It blocks the gut\'s vasodilating peptides and the rise in portal flow after a meal or a transfusion. With banding it controls most acute bleeds. Outside the US, terlipressin or somatostatin are used instead; terlipressin has the clearest survival benefit against placebo. Ceftriaxone 1 g a day is given with it, because infection triggers bleeding and rebleeding. Erythromycin 250 mg IV, 30 to 90 minutes before the scope unless the QT is long, clears the stomach, and endoscopy follows within 12 hours.',
-      ask: ['In the US, which vasoactive drug is started when a variceal bleed is suspected?', 'Octreotide, from the first suspicion and for 2 to 5 days.'],
-    },
-    {
-      id: 'transfuse', params: {}, action: UNITS, cam: 'feeder', labels: ['VAR', 'CONF'], ripple: true,
-      data: 'tiles', tiles: ['pv', 'hvpg', 'map'], key: ['pv'], delta: true,
-      cite: 'Baveno VIII 5.4',
-      kicker: 'Variceal bleeding', site: 'sin', title: 'Over-transfusion raises the portal pressure again',
-      line: 'Extra volume raises portal flow, and portal pressure climbs back to {pv}, raising the risk of rebleeding. Transfuse to a hemoglobin of 7 to 8 g/dL.',
-      notes: 'A restrictive transfusion strategy (a threshold of 7 g/dL, with a target of 7 to 9 in the trial by Villanueva and colleagues) lowered rebleeding and death compared with a liberal one; Baveno VIII sets the target at 7 to 8, and AASLD at about 7. Over-transfusion raises the portal pressure back to where it was before the bleed. Patients with heart disease or ongoing massive bleeding are the exceptions.',
-      ask: ['What hemoglobin is the target in variceal bleeding?', '7 to 8 g/dL (restrictive transfusion).'],
-    },
-    {
-      id: 'band', action: BANDS, cam: 'gej', labels: ['VAR', 'LGV'], mark: { edges: ['C1a'], label: 'Banded varices', kind: 'treat' }, tool: { kind: 'scope', open: true },
-      data: 'tiles', tiles: ['hvpg'], key: ['hvpg'], delta: true,
-      kicker: 'Endoscopy', site: 'sin', title: 'After banding, the pressure stays high',
-      line: 'The ligated columns thrombose and shrink. With that outflow closed, the HVPG may rise slightly.',
-      notes: 'Banding is repeated every 2 to 4 weeks until the varices are gone, then the esophagus is checked 3 to 6 months later and every 6 to 12 months after that. It treats the varix, not the pressure: new varices form unless the pressure is lowered too, so a non-selective beta-blocker is added for secondary prophylaxis. Post-banding ulcers can bleed a week or two later. In patients at high risk (Child–Pugh C under 14 points, B over 7 with active bleeding at endoscopy, or an HVPG of 20 mmHg or more), a pre-emptive TIPS within 72 hours, ideally within 24, improves survival.',
-      ask: ['Why combine banding with a beta-blocker after a bleed?', 'Banding removes the varices, not the high pressure that makes new ones; the beta-blocker lowers it.'],
-    },
-    {
-      // (No varix column: the bleed's volume loss shrinks the varix, which would read as better.)
-      id: 'summary', visual: 'table', cols: ['hvpg', 'pv'], asc: false, note: 'What to do', rowHead: 'On the scope',
-      of: [{ preset: 'healthy', kicker: 'Reference', title: 'Healthy', note: 'Nothing', ref: true }, { id: 'screen', title: 'No varices', note: 'Carvedilol if CSPH' }, { id: 'grow', title: 'Small varices', note: 'Carvedilol' },
-        { id: 'large', title: 'Large varices', note: 'Carvedilol or banding' }, { id: 'bleed', title: 'Bleeding varix', note: 'Octreotide, then banding' },
-        { id: 'band', title: 'After the bleed', note: 'Banding and a beta-blocker' }],
-      kicker: 'Summary', title: 'Endoscopy findings and treatment',
-      line: 'CSPH decides the beta-blocker; the scope grades the varices, decides on banding and treats a bleed.',
-      notes: 'The scope grades the varices and treats a bleed; the pressure decides whether they form and return. Every step on this list pairs a treatment of the varix with a treatment of the pressure.',
-      ask: ['Large varices, and carvedilol is tolerated. Is banding needed too?', 'No: either alone is primary prophylaxis; banding is for those who cannot take a beta-blocker.'],
+      id: 'bridge', ...SAME, tool: PRESSURES,
+      kicker: 'Pressure',
+      title: 'The scope shows the varix, not the pressure behind it',
+      line: 'The scope grades the varix, and what lowers the pressure behind it is taught in Preventing the next variceal bleed.',
+      notes: 'The scope grades and treats the varix; it does not measure the pressure behind it, which the HVPG does. Beta-blockers, banding and TIPS are taught in Lowering portal pressure and in Preventing the next variceal bleed.',
+      ask: ['What does the HVPG tell you that the scope does not?', 'The pressure behind the varix, which stays high however the varix looks.'],
     },
   ],
 };

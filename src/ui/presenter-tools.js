@@ -40,10 +40,10 @@ import { createSpleenUS } from './spleen-us.js?v=d569f12818';
 import { createVitalsMonitor } from './vitals-monitor.js?v=57f6b80604';
 import { createHvpgCard } from './tool-hvpg.js?v=8a8d2da1bc';
 import { createFlowTime } from './flow-time.js?v=cb89e13e11';
-import { createEndoscopy, createAbdomen, createVarixWall } from './instruments.js?v=deb63f7e48';
+import { createEndoscopy, createAbdomen, createVarixWall } from './instruments.js?v=94f5accdd9';
 import { frameFor } from './frame.js?v=19b3f2915c';
 import { talkTrace } from './talk-trace.js?v=690f63b106';
-import { EXT, guard, safe } from './slide-ext.js?v=3be466bde6';
+import { EXT, guard, safe } from './slide-ext.js?v=db2be1d885';
 const nextFrame = frameFor('presenter-tools');
 
 const VESSEL = { PV_TRUNK: 'main portal vein', PVH_R: 'right portal vein', PVH_L: 'left portal vein', SV_CONF: 'splenic vein', SV_MID: 'splenic vein', V_SPL: 'splenic vein, at the hilum',

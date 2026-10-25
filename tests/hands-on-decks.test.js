@@ -75,9 +75,10 @@ test('Spleen: no treatment, embolization and splenectomy on the embolization sli
 });
 
 test('Endoscopy and NCPH: the patient buttons go to a preset and back to the slide', async () => {
-  const e = slide('endoscopy', 'large'), n = slide('ncph', 'wedge');
+  const e = slide('endoscopy', 'size'), n = slide('ncph', 'wedge');
   assert.deepEqual(kinds(e), ['state', 'state']);
   assert.deepEqual(kinds(n), ['state', 'state']);
+  assert.deepEqual(e.compare.map((o) => o.label), ['Small', 'Large']);
   assert.equal(e.preset, 'cirr-decomp');
   const [csph, decomp, schisto, comp] = (await runSteps(['csph', 'cirr-decomp', 'schisto', 'cirr-comp'].map((preset) => ({ preset })))).map(pick);
   assert.ok(csph.varix < 5 && decomp.varix > 5, `small varices with CSPH (${csph.varix}), large ones decompensated (${decomp.varix})`);

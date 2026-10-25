@@ -366,24 +366,25 @@
  "doppler/a5": [
   "{ppg}"
  ],
- "endoscopy/grow": [
-  "varices",
-  "{hvpg}"
- ],
- "endoscopy/large": [
-  "varices",
-  "{varix}"
- ],
- "endoscopy/tension": [
+ "endoscopy/size": [
   "varix",
   "{varix}"
  ],
- "endoscopy/bleed": [
-  "{map}",
-  "{pv}"
+ "endoscopy/red": [
+  "varix"
  ],
- "endoscopy/transfuse": [
-  "{pv}"
+ "endoscopy/air": [
+  "varix"
+ ],
+ "endoscopy/across": [
+  "varix"
+ ],
+ "endoscopy/flat": [
+  "varix",
+  "{hvpg}"
+ ],
+ "endoscopy/bridge": [
+  "varix"
  ],
  "tips-doppler/before": [
   "{<15 cm/s}"

@@ -1,6 +1,6 @@
 // Code review of 15 Oct, items 3 to 5 and Mohammad's answer A: the Doppler never shows one vessel's samples under
-// another's name, the Doppler teaching reads velocity (not a "mean") and draws its rules as cut-offs, Endoscopy's
-// banding slide says what its numbers do, and with a TIPS in a fast main portal vein is not flagged.
+// another's name, the Doppler teaching reads velocity (not a "mean") and draws its rules as cut-offs, and with a TIPS
+// in a fast main portal vein is not flagged.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -9,7 +9,6 @@ import { Engine } from '../src/engine/engine.js';
 import { velNormal, velPos, dopplerVel, STENT_PV_NORMAL } from '../src/ui/velNormal.js';
 import { DOPPLER } from '../src/ui/decks/doppler.js';
 import { ONE_YEAR } from '../src/ui/decks/one-year.js';
-import { ENDOSCOPY } from '../src/ui/decks/endoscopy.js';
 
 const MODEL = ['preset', 'presetDays', 'params', 'action', 'days'];
 const changes = (s) => MODEL.some((k) => s[k]);
@@ -75,16 +74,6 @@ test('One-year slide 7 says the portal vein is still in the usual range, and it 
   const v = pvVel(fps[i]), v0 = pvVel(fps[0]);
   assert.ok(v >= 15 && v <= 40, `MPV ${v.toFixed(1)} cm/s`);
   assert.ok(v < v0, 'fallen since day 0');
-});
-
-test('Endoscopy: banding keeps octreotide on, and the slide\'s pressure stays high, rising only slightly', async () => {
-  const i = ENDOSCOPY.slides.findIndex((s) => s.id === 'band'), s = ENDOSCOPY.slides[i];
-  assert.equal(s.params?.drugs?.octreotide, undefined, 'octreotide runs 2 to 5 days: banding does not stop it');
-  assert.match(s.title, /stays high/);
-  const fps = await deckStates(ENDOSCOPY);
-  const rise = fps[i].hvpg - fps[i - 1].hvpg;
-  assert.ok(rise > 0 && rise < 2, `HVPG rises ${rise.toFixed(1)}`);
-  assert.ok(fps[i].hvpg >= 12);
 });
 
 test('with a TIPS in, a fast main portal vein is normal: no ceiling, never coloured fast', () => {

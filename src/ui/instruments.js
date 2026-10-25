@@ -43,9 +43,9 @@ export function createEndoscopy({ onAction }) {
   // The three pressures of a lesson slide (the readings option, configure below): they join the list after the wall, in the same tiles.
   const pIn = dd('endo-num'), pLum = dd('endo-num'), pAcross = dd('endo-num');
   const pRows = [
-    h('div', { class: 'endo-tile', title: 'The pressure inside the varix.' }, h('dt', {}, 'In the varix'), pIn),
-    h('div', { class: 'endo-tile', title: 'The pressure of the air in the esophagus around the varix (simulated).' }, h('dt', {}, 'Lumen'), pLum),
-    h('div', { class: 'endo-tile endo-across', title: 'The pressure inside the varix less the pressure in the lumen: what stretches the wall.' }, h('dt', {}, 'Across the wall'), pAcross)];
+    h('div', { class: 'endo-tile endo-pr', title: 'The pressure inside the varix.' }, h('dt', {}, 'In the varix'), pIn),
+    h('div', { class: 'endo-tile endo-pr', title: 'The pressure of the air in the esophagus around the varix (simulated).' }, h('dt', {}, 'Lumen'), pLum),
+    h('div', { class: 'endo-tile endo-pr', title: 'The pressure inside the varix less the pressure in the lumen: what stretches the wall.' }, h('dt', {}, 'Across the wall'), pAcross)];
   const stats = h('dl', { class: 'endo-read' },
     item('endo-chip', h('dt', {}, 'Bands', h('span', { class: 'endo-dt-x' }, ' placed')), bands),
     h('div', { class: 'endo-g', title: 'Small, under 5 mm; Large, 5 mm or more.' }, h('dt', {}, 'Grade'), grade),
@@ -237,6 +237,7 @@ export function createEndoscopy({ onAction }) {
     const changed = air !== opt.air || red !== opt.red || readings !== opt.readings;
     Object.assign(opt, { air, red, readings });
     if (readings) { if (pRows[0].parentNode !== stats) stats.lastElementChild.before(...pRows); } else for (const r of pRows) r.remove();
+    el.toggleAttribute('data-readings', readings);   // (a slide's card lays them out in a row of their own, styles/app.css)
     if (changed && last) update(last.f);
   }
   // The slide's own numbers (presenter-tools pin): the size and the pressure in the varix the tiles and the words show, not the beat's swing.

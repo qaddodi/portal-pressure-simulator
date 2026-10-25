@@ -14,8 +14,8 @@ const presenter = read('../src/ui/presenter.js');
 const css = read('../styles/app.css');
 const asked = DECKS.flatMap((d) => withOverview(d).slides.map((s, i, all) => ({ d, s, i, all }))).filter(({ s }) => s.question !== undefined);
 
-test('question cards: the four Predict slides and the bleed deck two ask first, each adopted and under 100 characters with no number in it', () => {
-  assert.deepEqual(asked.map(({ d, s }) => `${d.id}/${s.id}`).sort(), ['beta-blockers/carv-pre', 'circuit/both', 'hyperdynamic/loss', 'next-bleed/slough', 'variceal-bleed/band', 'variceal-bleed/minutes']);
+test('question cards: the seven slides that ask first are each adopted, under 100 characters and have no number in them', () => {
+  assert.deepEqual(asked.map(({ d, s }) => `${d.id}/${s.id}`).sort(), ['beta-blockers/carv-pre', 'circuit/both', 'endoscopy/flat', 'hyperdynamic/loss', 'next-bleed/slough', 'variceal-bleed/band', 'variceal-bleed/minutes']);
   for (const { d, s } of asked) {
     const at = `${d.id}/${s.id}`;
     assert.ok(adopted(d, s, 'question'), `${at}: a question card is opt-in (tests/deck-adopted.js)`);

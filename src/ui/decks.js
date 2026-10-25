@@ -106,10 +106,10 @@ import { TIPS_DOPPLER } from './decks/tips-doppler.js?v=85ee5c729f';
 import { TAP } from './decks/tap.js?v=1c015291d2';
 import { CIRCUIT } from './decks/circuit.js?v=c1f4d54f37';
 import { DOPPLER } from './decks/doppler.js?v=75cf534497';
-import { ENDOSCOPY } from './decks/endoscopy.js?v=fe82b43220';
+import { ENDOSCOPY } from './decks/endoscopy.js?v=4cb71d8e9c';
 import { PREHEPATIC } from './decks/prehepatic.js?v=6e4ae22c61';
 import { RIGHT_HEART } from './decks/right-heart.js?v=76c355aca4';
-import { BLEED } from './decks/variceal-bleed.js?v=fa5df32511';
+import { BLEED } from './decks/variceal-bleed.js?v=5f20680728';
 import { TWO_INFLOWS } from './decks/two-inflows.js?v=c654aeaa46';
 import { SPLEEN } from './decks/spleen.js?v=419f925c34';
 import { NCPH } from './decks/ncph.js?v=20b7cd7155';
@@ -120,7 +120,7 @@ import { PREGNANCY_DECK } from './decks/pregnancy.js?v=1972ca68b8';
 import { BETA_BLOCKERS } from './decks/beta-blockers.js?v=764f3d0eea';
 import { ENCEPHALOPATHY } from './decks/encephalopathy.js?v=b9c1426e63';
 import { CAUSE_TREATED } from './decks/cause-treated.js?v=f2ee45fb1a';
-import { NEXT_BLEED } from './decks/next-bleed.js?v=6f687c2dc9';
+import { NEXT_BLEED } from './decks/next-bleed.js?v=f4e9c4d160';
 import { GASTRIC } from './decks/gastric-varices.js?v=fc839d2a3e';
 import { HYPERDYNAMIC } from './decks/hyperdynamic.js?v=8f06d153c4';
 import { CHOOSE_TREATMENT } from './decks/choose-treatment.js?v=95fb1b25c1';
@@ -214,7 +214,7 @@ export const TOPICS = [
   ['foundations', 'Foundations', [['circulation', 'The portal circulation', 'Circulation'], ['circuit', 'Portal pressure as a circuit', 'Circuit'], ['two-inflows', 'The liver\'s two inflows', 'Two inflows'], ['hvpg', 'HVPG and PPG', 'HVPG and PPG'], ['hyperdynamic', 'The circulation in cirrhosis', 'Hyperdynamic']]],
   ['causes', 'Causes', [['sites', 'Sites and causes', 'Sites and causes'], ['prehepatic', 'Portal vein clots', 'Portal vein clots'], ['ncph', 'Presinusoidal PH', 'Presinusoidal PH'], ['right-heart', 'The right heart and the liver', 'Right heart'], ['outflow', 'Hepatic outflow obstruction', 'Outflow obstruction'], ['lobule', 'Inside the lobule', 'Lobule'], ['where-resistance', 'Where is the resistance?', 'Find the resistance']]],
   ['measuring', 'Measuring', [['doppler', 'Doppler of the portal system', 'Doppler'], ['transplant-doppler', 'Doppler after a liver transplant', 'Transplant Doppler'], ['stiffness', 'Stiffness, spleen and platelets', 'Stiffness'], ['one-year', 'A year of compensated cirrhosis', 'One year'], ['first-visit', 'Stage at the first visit', 'First visit']]],
-  ['complications', 'Complications', [['varices', 'Collaterals and varices', 'Varices'], ['endoscopy', 'Endoscopy and the varix', 'Endoscopy'], ['variceal-bleed', 'Acute variceal bleeding', 'Variceal bleed'], ['ascites', 'How ascites forms', 'Ascites'], ['tap', 'Paracentesis and albumin', 'Paracentesis'], ['encephalopathy', 'Encephalopathy and shunting', 'Encephalopathy'], ['spleen', 'The spleen: size and treatment', 'Spleen'], ['gastric-varices', 'Gastric varices', 'Gastric varices'], ['recompensation', 'Decompensation and recovery', 'Recompensation'], ['pregnancy', 'Cirrhosis in pregnancy', 'Pregnancy'], ['ten-years', 'One patient, ten years', 'Ten years']]],
+  ['complications', 'Complications', [['varices', 'Collaterals and varices', 'Varices'], ['endoscopy', 'The varix and insufflation', 'Insufflation'], ['variceal-bleed', 'Acute variceal bleeding', 'Variceal bleed'], ['ascites', 'How ascites forms', 'Ascites'], ['tap', 'Paracentesis and albumin', 'Paracentesis'], ['encephalopathy', 'Encephalopathy and shunting', 'Encephalopathy'], ['spleen', 'The spleen: size and treatment', 'Spleen'], ['gastric-varices', 'Gastric varices', 'Gastric varices'], ['recompensation', 'Decompensation and recovery', 'Recompensation'], ['pregnancy', 'Cirrhosis in pregnancy', 'Pregnancy'], ['ten-years', 'One patient, ten years', 'Ten years']]],
   ['treatment', 'Treatment', [['treatment', 'Lowering portal pressure', 'Lowering pressure'], ['beta-blockers', 'Propranolol or carvedilol', 'Beta-blockers'], ['next-bleed', 'Preventing the next bleed', 'Next bleed'], ['choose-treatment', 'Choose the treatment', 'Choose treatment'], ['cause-treated', 'Treating the cause', 'Treating the cause'], ['shunts', 'Spontaneous shunts and TIPS', 'Shunts and TIPS'], ['tips-journey', 'A TIPS from start to finish', 'TIPS journey'], ['tips-doppler', 'Doppler after TIPS', 'TIPS Doppler']]],
 ];
 for (const [topic, , list] of TOPICS) for (const [id, short, head] of list) { const d = DECKS.find((x) => x.id === id); if (d) Object.assign(d, { topic, short, head }); }

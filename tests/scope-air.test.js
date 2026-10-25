@@ -61,7 +61,9 @@ test('the scope takes its options from the slide, eases them in and keeps the gr
   assert.deepEqual(names, ['In the varix', 'Lumen', 'Across the wall']);
   // Without the option the Tests card's scope is what it was: the rows are not in its list.
   assert.match(instruments, /if \(readings\) \{ if \(pRows\[0\]\.parentNode !== stats\) stats\.lastElementChild\.before\(\.\.\.pRows\); \} else for \(const r of pRows\) r\.remove\(\);/);
-  assert.match(css, /\.pz\.stack \.pz-tool\[data-kind="scope"\] \.endo-read > \.endo-across \{ grid-column: 1 \/ -1; \}/, 'a phone sets the third pressure across, no tile alone in a row');
+  assert.match(css, /\.pz-tool\[data-kind="scope"\] \.pz-inst\[data-readings\] \{ grid-template-columns: repeat\(3, minmax\(0, 1fr\)\); \}/, 'the presenter\'s card lays the pressures out in three columns');
+  assert.match(css, /\.pz-tool\[data-kind="scope"\] \.endo-read > \.endo-pr \{ display: flex; flex-direction: column;/, 'and shows them, which its compact row hides for the other tiles');
+  assert.match(instruments, /el\.toggleAttribute\('data-readings', readings\)/);
 });
 
 test('compare buttons can change the slide\'s instrument options, and the slide\'s own button puts them back', () => {
