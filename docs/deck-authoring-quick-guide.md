@@ -159,6 +159,7 @@ Full guide: section 7.2.
 | Two-reading plane | `tool: { kind: 'plane', plane: 'csph' }` | the case as a dot on stiffness against platelets, with the Baveno VIII zones | ruling CSPH in or out without a catheter |
 | Cross-section | `tool: { kind: 'lumen' }` | the vessel cut across, with how much is open, clotted or stented | a clot, a web or a narrowed stent |
 | Fluid balance | `tool: { kind: 'fluid', window: true }` | the day's lymph made split into what the lymphatics carry, what the belly reabsorbs and what builds as ascites, on one strip | how ascites builds and what treatment changes |
+| Criteria card | `tool: { kind: 'criteria', title: 'Who gets a pre-emptive TIPS', rows: [..] }` | a guideline's rules as up to four rows; a row read from the model (`['HVPG 20 mmHg or more', 'hvpg', '>=', 20]`) shows its reading with a tick or a dash; `note` gives the case's own value and `lit: true` tints the row that applies; `ticks: false` for a classification | the rules are the lesson (pre-emptive TIPS, recompensation, the Sarin classes): a phone never shows the causes line, but it shows the card |
 
 A few details worth knowing:
 
@@ -169,7 +170,7 @@ A few details worth knowing:
 - A cross-section of a stent takes `site: 'mid'` to say where it is cut.
 - These charts use the model's own numbers. Do not quote their shares in the words without a checked source.
 
-Full guide: section 7.2.
+Full guide: section 7.2, and 7.5 for the criteria card.
 
 ### Whole-panel visuals
 

@@ -64,7 +64,7 @@ Every field is optional unless marked. Fields are grouped by what they do. Unkno
 | `site` | `'pre'` `'presin'` `'sin'` `'postsin'` `'post'` `'cardiac'` | none (grey) | The level of the resistance (pre-hepatic, presinusoidal, sinusoidal, postsinusoidal, post-hepatic, cardiac). Shown as a tab in the teaching card's top left corner, in the level's colour (Pre-hepatic, Presinusoidal, …), only in decks whose slides cover more than one level and never on a `visual` slide; a slide with a level `rail` names it on the rail instead. It also colours the slide's row label in summary tables. `'pvt'` is read as Pre-hepatic, but no deck uses it: write `'pre'`. |
 | `title` | string | `'Step'` is not applied to decks; give one | The headline. **Must stand alone:** the kicker is not shown with it. |
 | `line` | string | none | The words under the headline: one idea, **fewer than 45 words** (section 9 rule 1). May use `{live values}`, `{>=5 mmHg}` cut-offs and `[word](target)` term pills (section 6). |
-| `causes` | string[] | none | Up to **4** short items, set as one run-in line after the heading, joined by commas. Items after the first are lower-cased unless they start with an acronym or a name (Budd, Child, Wilson, Doppler…). A phone never shows the line. On a laptop or an iPad on its side it drops, after the title has stepped down once more, only when the teaching card and data card still do not fit together (so the data card is never cut off), so never leave a fact there that nothing else says. |
+| `causes` | string[] | none | Up to **4** short items, set as one run-in line after the heading, joined by commas. Items after the first are lower-cased unless they start with an acronym or a name (Budd, Child, Wilson, Doppler…). A phone never shows the line. On a laptop or an iPad on its side it drops, after the title has stepped down once more, only when the teaching card and data card still do not fit together (so the data card is never cut off), so never leave a fact there that nothing else says. When the list is the slide's lesson (who gets a pre-emptive TIPS, the recompensation criteria, a classification), put it in the criteria card instead (section 7.5), which every screen shows. |
 | `causesHead` | string | `'Causes'` | Heading of the causes list (e.g. `'Who gets it'`). |
 | `bold` | string[] | `[]` | Extra key terms to bold at their first mention in the line. Always applied: the three-a-line cap is only for the automatic terms (section 6.2). |
 | `pill` | `false` | auto | `false`: no automatic pill in the line (use it for a plain number such as an anatomical size). Without `{braces}` the first number with a unit becomes an outlined rule pill. |
@@ -90,7 +90,7 @@ Every field is optional unless marked. Fields are grouped by what they do. Unkno
 
 ### 3.4 The data card (section 7)
 
-`data`, `tiles`, `key`, `delta`, `dataTitle`, `tool`, `visual` (+ `cols`, `asc`, `rowHead`, `note`, `vs`, `foot`, `calm`, `of`, `scale`), `compare`, `whatIf`, `procedure` (7.4); opt-in: `wave`, `waveMax`, `focusRow` (7.3); opt-in teaching features (7.5): `hold`.
+`data`, `tiles`, `key`, `delta`, `dataTitle`, `tool`, `visual` (+ `cols`, `asc`, `rowHead`, `note`, `vs`, `foot`, `calm`, `of`, `scale`), `compare`, `whatIf`, `procedure` (7.4); opt-in: `wave`, `waveMax`, `focusRow` (7.3); opt-in teaching features (7.5): `hold`, `tool: { kind: 'criteria' }`.
 
 ### Slide order and carry-over
 
@@ -422,6 +422,7 @@ Inside the liver (the view's own label takes the colour with a soft glow; use wi
 | `{ kind: 'plane', plane }` | opt-in: two readings on one plane with zones (`'csph'`: stiffness and platelets, Baveno VIII 1.15, 1.16, its zones named No CSPH, CSPH and Indeterminate on the plot with no key; `'hvpg-ppg'`), the slide's case a dot in proportion to the plot with a clear gap around it, which the zones' words keep 4 px from wherever it moves. See 7.3 for the panel and a deck's own plane |
 | `{ kind: 'lumen', vessel?, site?, name? }` | opt-in: the vessel in cross-section (default `PV_TRUNK`): open lumen %, clot, narrowing, stent. The vessel's name sits in the circle above the % ("Portal vein"); a stent is named by where it is cut, `site` `'proximal'` (portal end), `'mid'` or `'distal'` (hepatic vein end), else the narrowing's `stenosisSite` (distal if unset): "Distal TIPS". A cut away from the narrowed segment shows the stent open there. `name` replaces the name (keep it to about a dozen letters so it fits the circle) |
 | `{ kind: 'fluid', window?, forces?, caveat? }` | opt-in: lymph made against lymph drained, the build-up in the ascites colour and a sentence on what builds. `window: true` draws the day strip instead, in mL a day: the day's change first, then the lymph made (liver + gut), then one strip that splits the day on one scale into what the lymphatics carry (named inside, "full" once they can carry no more, or the room they have left as a dashed outline), what the belly reabsorbs and what builds, with a bracket over what leaked (title "Fluid balance · mL/day", no caveat line; the slide's Ascites tile gives the litres; its tiles sit under the card, not beside it). `forces: true` adds the Starling push and pull; the no-kidneys caveat shows by itself with diuretics. Model rates, not clinical figures |
+| `{ kind: 'criteria', title, rows, ticks? }` | opt-in: a guideline's rules in the card (section 7.5) |
 | Doppler options | opt-in: `mode: 'color' \| 'variance'` (color Doppler maps; a slide without it is Spectrum again), `calipers: true` (peak and trough marks over the last 3 s and the PI in the bottom strip), `pair: true` (a slim paired trace: the right hepatic vein under a portal vein, the main portal vein under a hepatic vein or the IVC), `scale: <cm/s>` (aliasing: the velocity scale fixed at ± that many cm/s, the Nyquist limit, so a faster spectrum wraps round to the other side of the baseline; the reading beside it stays the true velocity; don't combine with `calipers`), `baseline: 0.15–0.85` (with `scale`: where the baseline sits, 0 the top of the trace, 1 the bottom; default 0.5; lower makes room for flow toward the probe) |
 
 ### 7.3 `visual`: replaces the text and figure area with a full panel (the figure is dimmed behind)
@@ -471,6 +472,17 @@ show their numbers but not their rating words; and the figure's "no flow" and "s
 patient, no `preset`), comes in still holding them, and once its cards have landed they ease in (the blocks fade up, the words fade in);
 nothing snaps. Going back or jumping to an answer slide shows it whole. Use it on every question slide of a question-and-answer pair (rule
 23): Where is the resistance? and Read the Doppler hold all of theirs.
+
+**The criteria card: `tool: { kind: 'criteria', title, rows, ticks? }`.** A guideline's rules as up to four rows in the data card, where
+every screen shows them (a phone never shows the `causes` line, and a tight laptop drops it). Write each row as a string, as
+`{ text, note?, lit? }` or, for a rule the model can read, as `[text, key, op, value]` (or `{ text, key, op, value }`): `key` is a tile key
+(section 8.6), `op` one of `>=`, `>`, `<=`, `<`, and `value` in the tile's own units (`['No ascites off diuretics', 'asc', '<', 0.15]`
+reads litres, as the Ascites tile does). A live row ends on its reading as its tile prints it, with a quiet tick when met and a dash when
+not, and follows the model as the tiles do. `note` is the case's own value in a few words at the row's right ("C 10", "B 8, not
+bleeding"); `lit: true` tints the row that applies to the case. `ticks: false` leaves the marks off, for a classification such as the
+Sarin classes. `title` names the card (keep it under about 36 characters; `short` is a phone's shorter title). The slide's tiles sit under
+the card, never beside it. Give the slide no `causes` with the same list, and check every row's words against the guideline. Used on
+Variceal bleed 8, Choose the treatment 3, Recompensation 7, Gastric varices 2, Beta-blockers 8 and Pregnancy 6 and 7.
 
 ---
 

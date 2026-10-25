@@ -6662,3 +6662,17 @@ html.thumb-ui .menu.from-dock { clip-path: inset(-64px -64px calc(var(--sink, 0p
 .pz-data[data-held-now] .pzt-r, .pz-data[data-held-now] .pz-tool :is(.dop-dir, .dop-pattern, .dop-note) { transition: none; }
 .lb-alert { transition: fill-opacity .5s var(--ease); }
 .app.pz-held .lb-alert { fill-opacity: 0; }
+/* The criteria card (tool-criteria.js, teaching card C2): a guideline's rules as rows, in the card so a phone shows them. A live row ends
+   on its reading and a quiet tick (met) or dash (not), which cross-fade; lit tints the row that applies to the case. */
+.pz-crit { font-size: max(12px, var(--bs, 14px)); }
+.pzc-list { list-style: none; margin: 0; padding: 0; display: grid; gap: .35em; }
+.pzc-row { display: grid; grid-template-columns: 1fr auto; align-items: baseline; column-gap: .8em; padding: .4em .6em; border-radius: 8px; background: color-mix(in srgb, var(--text) 5%, transparent); font: 500 1em/1.3 var(--font-ui); color: var(--text); transition: background-color .4s var(--ease); }
+.pzc-row[data-lit] { background: color-mix(in srgb, var(--accent) 16%, transparent); box-shadow: inset 2px 0 0 var(--accent); }
+.pzc-t { min-width: 0; }
+.pzc-end { display: inline-flex; align-items: baseline; gap: .45em; white-space: nowrap; font-weight: 600; font-variant-numeric: tabular-nums; color: var(--text-2); }
+.pzc-note { color: var(--text); }
+.pzc-m { display: inline-grid; width: 1em; justify-items: center; }
+.pzc-m > i { grid-area: 1 / 1; font-style: normal; opacity: 0; transition: opacity .4s var(--ease); }
+.pzc-row[data-met="yes"] .pzc-m > .y { opacity: 1; color: var(--ok); }
+.pzc-row[data-met="no"] .pzc-m > .n { opacity: 1; color: var(--text-3); }
+.pzc-row[data-met="yes"] .pzc-v { color: var(--text); }

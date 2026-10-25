@@ -75,11 +75,11 @@ export const BETA_BLOCKERS = {
       ask: ['Switch to carvedilol. What happens to the portal vein pressure, and why?', 'It barely changes: carvedilol\'s extra effect acts on the sinusoids, beyond the resistance in the portal venules.'],
     },
     {
-      id: 'choose', cam: 'fit', data: 'tiles', tiles: ['map', 'pv'], key: ['map'], delta: 'schisto',
+      id: 'choose', cam: 'fit', data: 'tiles',
+      tool: { kind: 'criteria', title: 'In practice', ticks: false, rows: ['Cirrhosis with CSPH: carvedilol preferred', 'PSVD: a beta-blocker or banding, no drug preferred', 'Low blood pressure or AKI: reduce or stop'] }, tiles: ['map', 'pv'], key: ['map'], delta: 'schisto',
       cite: 'Baveno VIII 3.15, 4.6, 8.8, 8.9',
       kicker: 'Choosing', title: 'Where the resistance sits guides the choice of beta-blocker',
       line: 'In cirrhosis carvedilol lowers the HVPG more than propranolol, at the cost of a lower blood pressure. In presinusoidal disease the model shows carvedilol adding little.',
-      causesHead: 'In practice', causes: ['Cirrhosis with CSPH: carvedilol preferred', 'PSVD: beta-blocker or banding, no drug preferred', 'Low blood pressure or AKI: reduce or stop'],
       caveat: 'The model\'s blood pressure barely moves; in trials carvedilol lowered it about 4 mmHg more than propranolol.',
       notes: 'Baveno VIII prefers carvedilol in compensated cirrhosis with clinically significant portal hypertension, and with ascites and varices. In vascular liver disease such as porto-sinusoidal vascular disorder, Baveno VIII finds the evidence too thin to prefer carvedilol, and EASL 2025 recommends a non-selective beta-blocker or endoscopic treatment to prevent a first bleed and both after one, naming no drug. Neither guideline addresses schistosomiasis, where a few small studies found the two drugs alike. Whenever the systolic pressure stays below 90 mmHg, the mean pressure below 65 mmHg, or kidney injury develops, the beta-blocker dose is reduced or the drug stopped, and restarted once these resolve.',
       ask: ['What do you do with carvedilol if the systolic pressure stays below 90 mmHg?', 'Reduce the dose or stop it.'],

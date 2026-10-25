@@ -57,10 +57,11 @@ export const RECOMPENSATION = {
       ask: ['What is the most effective long-term way to lower the portal pressure?', 'Remove the cause of the cirrhosis.'],
     },
     {
-      id: 'recomp', tick: 'Off diuretics', params: { diuretics: false }, days: 60, cam: 'fit', tool: BELLY, data: 'tiles', tiles: ['asc', 'salb'], key: ['asc'],
+      id: 'recomp', tick: 'Off diuretics', params: { diuretics: false }, days: 60, cam: 'fit', data: 'tiles',
+      tool: { kind: 'criteria', title: 'Baveno VIII, all for over 6 months', short: 'Recompensation', rows: ['Cause removed or controlled', ['No ascites off diuretics', 'asc', '<', 0.15],
+        'No encephalopathy off treatment, and no rebleed', 'Back to Child–Pugh A, 5 or 6 points'] }, tiles: ['asc', 'salb'], key: ['asc'],
       kicker: 'Recompensation', site: 'sin', title: 'Baveno VIII criteria for recompensation',
       line: 'Off diuretics the ascites stays away and the albumin holds. If that lasts more than 6 months, with the liver back to Child–Pugh A, this counts as recompensation.',
-      causesHead: 'Baveno VIII criteria', causes: ['Cause removed or controlled', 'No ascites or encephalopathy off treatment, and no rebleed, for over 6 months', 'Back to Child–Pugh A'],
       cite: 'Baveno VIII 7.4',
       notes: 'Baveno VIII asks for all of: the cause removed, suppressed or cured; no ascites on imaging off diuretics, no encephalopathy off lactulose or rifaximin and, after a variceal bleed, no further bleed (carvedilol may continue), all for more than 6 months in a row; and liver function back to Child–Pugh A (5 or 6 points). Recompensation means the disease behaves as compensated again; it is not a cure. The cirrhosis is still there, still needs a clinic visit every 6 months with surveillance for liver cancer and, while CSPH persists, the beta-blocker. If the cause returns, decompensation can follow.',
       ask: ['After recompensation, does liver cancer surveillance stop?', 'No: the cirrhosis remains, so surveillance continues.'],

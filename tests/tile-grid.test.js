@@ -57,8 +57,8 @@ test('an instrument with tiles: the instrument on the left, the tiles stacked be
   assert.doesNotMatch(css, /pz-data[^{]*:has\(> \.pz-tiles/, 'no :has() on the data card (it made every layout of the page slow)');
   const pres = readFileSync(new URL('../src/ui/presenter.js', import.meta.url), 'utf8');
   // (All but the portal blood bar, which needs the card's full width for its segments' names, and the fluid balance's capacity
-  // window, whose rows of numbers need it too: their tiles go under them.)
-  assert.match(pres, /data\.classList\.toggle\('pz-beside', !!s\.tool && !!s\.data && tileKeys\(s\)\.length > 0 && s\.tool\?\.kind !== 'flows' && !\(s\.tool\?\.kind === 'fluid' && s\.tool\.window\)\)/, 'every instrument, the Gut to heart chart among them, not only the FibroScan');
+  // window, whose rows of numbers need it too, and the criteria card, whose rules are sentences: their tiles go under them.)
+  assert.match(pres, /data\.classList\.toggle\('pz-beside', !!s\.tool && !!s\.data && tileKeys\(s\)\.length > 0 && s\.tool\?\.kind !== 'flows' && s\.tool\?\.kind !== 'criteria' && !\(s\.tool\?\.kind === 'fluid' && s\.tool\.window\)\)/, 'every instrument, the Gut to heart chart among them, not only the FibroScan');
   assert.match(pres, /if \(c === side\) continue;/);
 });
 

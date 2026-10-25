@@ -17,14 +17,15 @@
 // Built-in names win, and a name two packages register is kept from the first only: tests/slide-ext.test.js fails on both.
 // Every call into a package is guarded, so a package that throws loses its own feature and never stops a talk.
 
-import highlights from './ext-highlights.js?v=f01ea28dd2';
+import highlights from './ext-highlights.js?v=76dc0dc7b4';
 import charts from './ext-charts.js?v=ddf745cb32';
 import model from './ext-model.js?v=f1df8c5238';
 import panels from './ext-panels.js?v=1e2f307083';
 import callouts from './ext-callouts.js?v=d0c311586b';
 import instruments from './ext-instruments.js?v=1ac842f9f8';
+import teaching from './ext-teaching.js?v=b541f00369';
 
-export const PACKAGES = { A: highlights, B: charts, C: model, E: panels, F: callouts, G: instruments };
+export const PACKAGES = { A: highlights, B: charts, C: model, E: panels, F: callouts, G: instruments, H: teaching };
 const NAMED = ['targets', 'lenses', 'sets', 'tools', 'visuals', 'columns'];
 const LISTS = ['organs', 'steps', 'figure', 'labels'];
 // The extra work a step may ask of the worker (worker-core.js 'sequence'); anything else a step function returns is dropped,

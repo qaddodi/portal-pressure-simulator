@@ -20,11 +20,12 @@ export const GASTRIC = {
   summary: 'The Sarin classes, carvedilol before a first bleed, glue and TIPS after one, what BRTO does to the portal pressure, and the clotted splenic vein that a splenectomy cures.',
   slides: [
     {
-      id: 'classes', preset: 'gastric-varix', cam: 'fundus', terms: ['gv'], data: 'tiles', tiles: ['gv', 'varix'], key: ['gv'],
+      id: 'classes', preset: 'gastric-varix', cam: 'fundus', terms: ['gv'], data: 'tiles',
+      tool: { kind: 'criteria', title: 'Sarin classes', ticks: false, rows: ['GOV1, down the lesser curve', 'GOV2, toward the fundus', { text: 'IGV1, isolated in the fundus', note: 'This case', lit: true },
+        'IGV2, elsewhere in the stomach'] }, tiles: ['gv', 'varix'], key: ['gv'],
       vignette: 'A 58-year-old woman with cirrhosis from primary biliary cholangitis has a 9 mm fundal varix and no esophageal varices on screening EGD. She has never bled. Her platelets are 63,000/µL.',
       cite: 'Baveno VIII 5.38; AASLD 2024',
       kicker: 'Where they lie', site: 'sin', title: 'Four kinds of gastric varices',
-      causesHead: 'Sarin classes', causes: ['GOV1, down the lesser curve', 'GOV2, toward the fundus', 'IGV1, isolated in the fundus', 'IGV2, elsewhere in the stomach'],
       line: 'Gastric varices are sorted by where they lie and whether they continue from the esophagus. In this case an isolated fundal varix (IGV1) measures {gv}, and there are no esophageal varices.',
       notes: 'Baveno VIII recommends the Sarin classification for every gastric varix, to report them the same way, judge the bleeding risk and choose the treatment. GOV1 run down the lesser curve from the esophagus and are managed like esophageal varices. GOV2 and IGV1 are the cardiofundal varices: they bleed less often than esophageal varices, but when they bleed, treatment fails, rebleeding and death are more common. Gastric varices are commoner in pre-hepatic portal hypertension, above all with a clotted splenic vein, so finding one calls for contrast CT or MRI. Endoscopy in this app stays in the esophagus; the fundal varix is read from its tile.',
       ask: ['Which gastric varices behave like esophageal varices?', 'GOV1, along the lesser curve.'],

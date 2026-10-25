@@ -33,9 +33,10 @@ export const CHOOSE_TREATMENT = {
       ask: ['Does a Child–Pugh B 8 patient with no active bleeding at endoscopy qualify for a pre-emptive TIPS?', 'No. Child–Pugh B qualifies only with active bleeding at endoscopy.'],
     },
     {
-      id: 'a1', params: CARV, cam: 'liver', labels: ['CONF', 'VAR'], data: 'tiles', tiles: ['ppg', 'hr'], key: ['ppg'], delta: 'q1',
+      id: 'a1', params: CARV, cam: 'liver', labels: ['CONF', 'VAR'], data: 'tiles',
+      tool: { kind: 'criteria', title: 'Pre-emptive TIPS', rows: ['Child–Pugh C, 10 to 13 points', { text: 'Child–Pugh B, over 7, with active bleeding at endoscopy', note: 'B 8, not bleeding', lit: true },
+        'HVPG 20 mmHg or more'] }, tiles: ['ppg', 'hr'], key: ['ppg'], delta: 'q1',
       cite: 'Baveno VIII 4.8, 5.31',
-      causesHead: 'Pre-emptive TIPS', causes: ['Child–Pugh C 10 to 13', 'Child–Pugh B over 7 with active bleeding at endoscopy', 'HVPG 20 mmHg or more'],
       kicker: 'Bleeding', site: 'sin', title: 'Carvedilol and bands, not a pre-emptive TIPS',
       line: 'Child–Pugh B 8 without active bleeding at endoscopy misses the criteria. She starts carvedilol, which lowers the PPG to {ppg}, with banding every 2 to 4 weeks.',
       notes: 'A pre-emptive TIPS, placed within 72 hours and ideally within 24, lowers rebleeding and death only in the highest-risk patients. Everyone else gets secondary prophylaxis: a non-selective beta-blocker, carvedilol preferred, with banding until the varices are gone. A TIPS follows if she bleeds again despite both. The Preventing the next bleed talk follows this plan step by step.',

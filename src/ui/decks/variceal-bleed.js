@@ -69,10 +69,11 @@ export const BLEED = {
       ask: ['What bridges a bleed that banding cannot control?', 'A covered esophageal stent (preferred) or a balloon tube, as a bridge to a rescue TIPS.'],
     },
     {
-      id: 'tips', params: { tips: { on: true } }, cam: 'liver', ripple: true, tool: BEATS, data: 'tiles', tiles: ['ppg', 'varix'], key: ['ppg'], delta: true,
+      id: 'tips', params: { tips: { on: true } }, cam: 'liver', ripple: true, data: 'tiles',
+      tool: { kind: 'criteria', title: 'Who gets a pre-emptive TIPS', short: 'Who gets it', rows: [{ text: 'Child–Pugh C, 10 to 13 points', note: 'C 10', lit: true },
+        'Child–Pugh B, over 7, with active bleeding at endoscopy', 'HVPG 20 mmHg or more, where measured'] }, tiles: ['ppg', 'varix'], key: ['ppg'], delta: true,
       cite: 'Baveno VIII 5.31',
       kicker: 'After the scope', site: 'sin', title: 'High-risk patients get a TIPS within 72 hours',
-      causesHead: 'Who gets it', causes: ['Child–Pugh C, 10 to 13 points', 'Child–Pugh B, over 7, with active bleeding at endoscopy', 'HVPG 20 mmHg or more, where measured'],
       line: 'In this case, bilirubin 3.2 mg/dL, INR 1.9, albumin 2.8 g/dL and ascites give Child–Pugh C 10, so he qualifies. A covered TIPS, ideally within 24 hours, lowers the PPG to {ppg} and reduces rebleeding and death.',
       notes: 'Child–Pugh points in this case: bilirubin 3, INR 2, albumin 2, ascites 2 and no encephalopathy 1, for a total of 10. Baveno VIII: in high-risk patients a pre-emptive TIPS, ideally within 24 hours and no later than 72, reduces rebleeding and death. An HVPG of 20 mmHg or more, where measured, also marks high risk. A patient who misses the 72-hour window can still benefit from a TIPS placed later, up to about 1 week in Child–Pugh B and 2 weeks in Child–Pugh C. For everyone else, after the acute bleed: a non-selective beta-blocker with repeated banding every 2 to 4 weeks until the varices are gone. Rescue TIPS is for bleeding that drugs and banding do not control.',
       ask: ['Which patients get a pre-emptive TIPS after a variceal bleed?', 'Child–Pugh C 10 to 13, or Child–Pugh B over 7 with active bleeding at endoscopy.'],
