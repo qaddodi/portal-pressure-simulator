@@ -220,6 +220,13 @@ export const ADOPTED = {
   'first-visit/q5': ['hold'],
   'first-visit/a5': ['kind:criteria', 'cite'],
   'first-visit/summary': ['visual', 'plane', 'of', 'cite'],
+  'refractory-bleed/rebleed': ['cite'],
+  'refractory-bleed/failure': ['kind:criteria', 'cite'],
+  'refractory-bleed/bridge': ['cite'],
+  'refractory-bleed/tips': ['cite', 'kind:profile'],
+  'refractory-bleed/who': ['kind:criteria', 'cite'],
+  'refractory-bleed/after': ['cite'],
+  'refractory-bleed/summary': ['cite'],
 };
 
 /** Whether the slide d/s may use the field. */
