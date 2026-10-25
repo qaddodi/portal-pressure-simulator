@@ -247,6 +247,13 @@ export const ADOPTED = {
   'ten-years/he-answer': ['kind:criteria', 'cite'],
   'ten-years/list': ['milestone', 'kind:criteria', 'cite'],
   'ten-years/course': ['tool.bands'],
+  'tips-journey/reasons': ['kind:criteria', 'cite'],
+  'tips-journey/check': ['kind:criteria', 'cite'],
+  'tips-journey/play': ['procedure', 'cite'],
+  'tips-journey/heart': ['kind:profile', 'tool.from', 'tool.fromLabel', 'cite'],
+  'tips-journey/width': ['kind:profile', 'cite'],
+  'tips-journey/around': ['kind:criteria', 'cite'],
+  'tips-journey/not': ['kind:criteria', 'cite'],
 };
 
 /** Whether the slide d/s may use the field. */
