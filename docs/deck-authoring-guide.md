@@ -19,7 +19,7 @@ Contents: At a glance · 1 What a deck is · 2 Deck fields · 3 Slide fields · 
 * **Opt-in visuals (deck visuals packages, 19 Oct).** Spotlights, organ outlines, the vein-system and change-since lenses, live readings in marks, calipers and circuit brackets on the figure (section 5.9); a source line under the words (6.4); the pressure profile, the portal blood split, treatment bands, parameter curves, cause bars, the two-reading plane, the vessel cross-section, the fluid balance and new Doppler options in the card (7.2); small Doppler traces as a table column (7.3). A slide that sets none of them looks as before. Many built-in decks use them; a built-in slide may use one only when `tests/deck-adopted.js` lists it (section 12, step 3). The Testing deck "Demo: all the new visuals" (`src/ui/test-decks/demo-all-new-visuals.js`, Present › Testing, preview only) shows them all.
 * **Catheter choreography.** The HVPG measurement can be played step by step (route, free, wedge, result) with the live tracing. A TIPS, a BRTO or a BATO can be played the same way on the real vessels from a Play button (`procedure`, section 7.4).
 * **Hands-on slides.** `compare` buttons switch the live model between treatments, patients, earlier time points or lenses, and a `whatIf` slider drags one setting (section 7.4). 29 of the 35 built-in decks have at least one. `scales` adds a pill that flips the figure between the anatomy, the lobule and the sinusoid (section 5.10).
-* **Case cards.** A slide that brings in a new patient can open with a centred frosted card holding a short clinical case (section 14).
+* **Case cards.** A slide that brings in a new patient can open with a centred frosted card holding a short clinical case, which may end on one short question (`caseQ`, section 14).
 * **Deck furniture the app adds for you:** an Outline and objectives slide in front, the deck's short name in a tab at each slide card's top right corner, the level tab in its top left corner in decks that cover more than one level, disease-name pills, the closing quick check (`checks`), the printed handout (Present menu › Print notes), the nav pill, the corner credit.
 * **On screen and in print.** On screen a slide shows its title, line, causes, the figure and the data card. `notes` and `ask` print only in the handout (`src/ui/handout.js`), never on screen; the only questions learners see during a talk are the closing quick check and a Predict slide's question (section 7.5). While a talk plays, the figure is read-only: taps, hover, zoom, pan and keyboard focus on vessels do nothing, so dye, the vessel card and the Explore tools cannot be used without leaving the talk (Esc). A slide must show what it teaches by itself. These are design decisions by the owner, not gaps to fill.
 * **The menu has two tabs:** *Present* (the decks, this guide) and *Patients* (the presets, free exploration). Instructors can also import a deck file in the app (section 13).
@@ -71,6 +71,7 @@ Every field is optional unless marked. Fields are grouped by what they do. Unkno
 | `eq` | `[mathML, legend?]` | none | Equation under the title (MathML string plus an optional legend sentence). See helpers in section 11. |
 | `caveat` | string | none | One short sentence in small print under the line, where the model differs from patients ("The model builds the fluid from pressure and albumin; it does not model the kidneys."). |
 | `vignette` | string | none | A case card: a clinical case shown on a centred card when this slide brings in a new patient. At most 219 characters, and only on a slide with a `preset`. See section 14. |
+| `caseQ` | string | none | Opt-in (`tests/deck-adopted.js`): one short question that ends the case card, on its own line under the `vignette` ("Will his HVPG be raised?"). The case and the question together stay under 220 characters. See section 14. |
 | `notes` | string | `''` | Printed in the handout under the slide, **never shown on screen**. Write them for a learner reading the handout (what the slide shows and why), not as instructions to the presenter ("Give the room a minute"). Give every slide notes. |
 | `ask` | `[question, expected answer]` | none | A question with its answer, **printed only in the handout**, never on screen (a plain string prints the question alone). Give every content slide one. The handout test requires `ask[0]` to appear. |
 | `rail` | `true` \| `'all'` | none | `true`: the six levels with this slide's `site` marked; `'all'`: all six levels named. |
@@ -90,7 +91,7 @@ Every field is optional unless marked. Fields are grouped by what they do. Unkno
 
 ### 3.4 The data card (section 7)
 
-`data`, `tiles`, `key`, `delta`, `dataTitle`, `tool`, `visual` (+ `cols`, `asc`, `rowHead`, `note`, `vs`, `foot`, `calm`, `of`, `scale`), `compare`, `whatIf`, `procedure` (7.4); opt-in: `wave`, `waveMax`, `focusRow` (7.3); opt-in teaching features (7.5): `hold`, `tool: { kind: 'criteria' }`, `predict`.
+`data`, `tiles`, `key`, `delta`, `dataTitle`, `tool`, `visual` (+ `cols`, `asc`, `rowHead`, `note`, `vs`, `foot`, `calm`, `of`, `scale`), `compare`, `whatIf`, `procedure` (7.4); opt-in: `wave`, `waveMax`, `focusRow` (7.3); opt-in teaching features (7.5): `hold`, `tool: { kind: 'criteria' }`, `predict`; `caseQ` (section 14).
 
 ### Slide order and carry-over
 
@@ -914,6 +915,15 @@ No new code is needed: the presenter reads `vignette` itself (`caseRun` in `src/
 * **Vary the people.** Ages, sexes and causes differ from deck to deck so the same preset never reads as the same person twice (for example, schistosomiasis is a man from Yemen in one deck, a Filipino rice farmer in another, a Brazilian in a third).
 * **Wording:** full grammatical sentences, no sentence fragments. Clinical shorthand as a clinician writes it: OCP use, MASH, MASLD, EGD, TR, JVP, RUQ, HSCT, "alcohol-associated cirrhosis". American spelling, numbers with units (`88,000/µL`, `2.8 g/dL`, `24 kPa`). Never "our patient", "the patient we just measured", or an ambiguous "this patient" (a case is not a patient we have followed). Apply the rest of section 9 rule 13 and `docs/ai-humanizer.md`.
 * **Guidelines:** Baveno VIII, with AASLD where US practice differs. A case describes a presentation, not a recommendation, so it rarely needs a guideline, but never contradicts one.
+
+### A question on the card: `caseQ`
+
+The case card already holds the talk until it is lifted, so a case that comes right before a reveal can end on one short question for the
+room: `caseQ: 'Will his HVPG be raised?'`. It stands on its own line under the case, in the same type, tinted in the accent, and is fitted
+with the case. Ask what the next slide answers, in the case's own terms ("What will the Doppler show?", "Where is the resistance?"), and
+keep the case and the question together under 220 characters (`tests/teaching-features.test.js` counts them). One question, no choices,
+no answer on the card: the slide behind it is the answer. Used on Two inflows 4 and 6, Sites 4, 5, 7, 8 and 9, Pre-hepatic 2, Right
+heart 7, Lobule 4, Doppler 5 and 7, Stiffness 7, Pregnancy 2 and Treating the cause 5.
 
 ### Checking one
 

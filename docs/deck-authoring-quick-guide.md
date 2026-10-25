@@ -69,7 +69,7 @@ Full guide: section 4, and the lists of presets, settings and actions in section
 
 ## Opening a new patient with a case
 
-`vignette: 'A 39-year-old woman with factor V Leiden …'` shows a short clinical case on a centred card when the talk moves forward onto a slide that loads a new patient. Keep it under 220 characters, quote findings rather than pressures, and put it only on a slide with a `preset`.
+`vignette: 'A 39-year-old woman with factor V Leiden …'` shows a short clinical case on a centred card when the talk moves forward onto a slide that loads a new patient. Keep it under 220 characters, quote findings rather than pressures, and put it only on a slide with a `preset`. Before a reveal the room should think about, add `caseQ: 'Will his HVPG be raised?'`: one short question on its own line under the case. The case and its question together stay under 220 characters.
 
 Full guide: section 14.
 

@@ -57,6 +57,7 @@ export const CAUSE_TREATED = {
       id: 'high', preset: 'csph', params: { cirrhosis: 0.75 }, days: 365, cam: 'liver', tool: { kind: 'profile' }, data: 'tiles', key: ['hvpg'], tiles: ['varix', 'asc'],
       kicker: HIGH, site: 'sin', title: 'A higher HVPG before cure',
       vignette: 'A 58-year-old woman with hepatitis C cirrhosis from a transfusion in 1987 starts sofosbuvir and velpatasvir. EGD shows large varices, and ultrasound shows a little ascites she has not noticed.',
+      caseQ: 'Will cure remove her CSPH?',
       line: 'With an HVPG of {hvpg}, large varices and fluid seen only on ultrasound, she starts carvedilol with the antivirals.',
       caveat: OFF_BB,
       notes: 'Ascites seen only on ultrasound does not count as decompensation, so she is still compensated, with CSPH and high-risk varices. Carvedilol treats both: it lowers the risk of a first bleed and of decompensation. The higher the HVPG before cure, the more likely CSPH is to persist after it.',

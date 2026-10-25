@@ -22,11 +22,11 @@ import { sinusoidSupported } from './gl-support.js?v=94ad2a7ff1';
 import { SCALE_NAME, offeredScales, scaleView, pickedScale } from './scale-switch.js?v=1b0e3acd65';
 import { DISEASE_SRC, diseasePieces } from './diseases.js?v=fb8a5451c3';
 import { nb, listCase, plateletText } from './glue.js?v=5a0f63226b';
-import { DECKS, REGIONS, LEVELS, TOPICS, withOverview, siteTag, SITE_TAGS } from './decks.js?v=9ae5bfc298';
+import { DECKS, REGIONS, LEVELS, TOPICS, withOverview, siteTag, SITE_TAGS } from './decks.js?v=0bb5480c1d';
 import { fingerprintOf } from '../engine/fingerprint.js?v=8faea80b59';
 import { createHvpgMonitor } from './hvpg-proc.js?v=ed0101ef84';
-import { createTools } from './presenter-tools.js?v=b24f6296e6';
-import { openHandout } from './handout.js?v=1f3cef52dd';
+import { createTools } from './presenter-tools.js?v=78c1513c0e';
+import { openHandout } from './handout.js?v=401f89fc57';
 import { noteResume, resumeFor } from './resume.js?v=f086f80ee8';
 import { parseDeckSource, checkDeck } from './deck-source.js?v=8395c650cd';
 import { NO_ASC, TILE, SCALE, bandsOf, rateOf, COLS, CUT, PRESS, fpv, dirAbs, dirRel, rateAbs, effOf, rateShown, tileShown, tipsGoal, liveSettled, shownSig } from './table-marks.js?v=15f059172f';
@@ -34,7 +34,7 @@ import { frameFor, cancelFrame } from './frame.js?v=19b3f2915c';
 import { createFigureKey } from './figure-key.js?v=8bbf7a41ed';
 import { traceWhen } from './trace-labels.js?v=fc916a95c6';
 import { flowCss, heatCss, dropCss, gradientCss, oxygenCss } from './colormap.js?v=cdcf6a2f55';
-import { EXT, expandIds, stepExtra, markLabel, figureHooks, safe } from './slide-ext.js?v=81e3511d73';
+import { EXT, expandIds, stepExtra, markLabel, figureHooks, safe } from './slide-ext.js?v=b56b827130';
 import { clotWords } from './callout-math.js?v=d8785a0ad3';
 import { citeText, focusOf, oneLadder } from './teach-extras.js?v=5f5248f5a7';
 import { createProfileTool, createProfileStrip, pillReadings } from './tool-profile.js?v=ceb43693c6';
@@ -1389,7 +1389,9 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   let caseLift = null, caseCard = null;
   async function caseRun(s, si, st, cut) {
     const c = ui.vcase, ms = reduce.matches ? 0 : 450;
-    c.replaceChildren(h('span', { class: 'pz-site pz-case-tag' }, 'Case'), h('p', { class: 'pz-case-p' }, nb(s.vignette)));
+    // (A case may end on one short question of its own, caseQ, on its own line under the case: the card already holds the talk until it is
+    // lifted, so the room has the pause to think.)
+    c.replaceChildren(h('span', { class: 'pz-site pz-case-tag' }, 'Case'), h('p', { class: 'pz-case-p' }, nb(s.vignette)), s.caseQ ? h('p', { class: 'pz-case-p pz-case-q' }, nb(s.caseQ)) : null);
     for (const k of ['transform', 'transition', 'opacity']) c.style.removeProperty(k);   // (a card flung off last time comes back whole)
     c.hidden = false; void c.offsetWidth;
     // The words run 2.5x the teaching card's; on a short or narrow screen they ease down just enough to fit the card's room (set before it enters, so nothing resizes on screen).

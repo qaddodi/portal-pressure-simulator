@@ -64,6 +64,7 @@ export const STIFFNESS = {
       id: 'schisto', preset: 'schisto', cam: 'liver', glow: ['liver'], sites: ['pv'], tool: { kind: 'fibroscan' }, data: 'tiles', tiles: ['lsm', 'pv', 'hvpg'], key: ['lsm', 'pv'],
       kicker: 'Where stiffness misleads', site: 'presin', title: 'In schistosomiasis the liver stays soft',
       vignette: 'A 33-year-old man who grew up in northeastern Brazil and swam in its rivers as a child has a large spleen and low platelets. His liver tests are normal.',
+      caseQ: 'What will the FibroScan read?',
       line: 'The resistance sits in the portal tracts, upstream of the sinusoids, so the wedge misses it too. The HVPG is normal while portal vein pressure is high. Varices, a large spleen and low platelets with a soft liver suggest it.',
       notes: 'In presinusoidal disease (schistosomiasis, porto-sinusoidal vascular disorder) the parenchyma is spared, so the stiffness is normal or only slightly raised, and the wedged pressure, which reads the sinusoids, misses the resistance too. Varices, a large spleen and low platelets with a soft liver point here. Spleen stiffness stays high, and the diagnosis rests on imaging, the history and often a liver biopsy.',
       ask: ['Large varices, a large spleen and a stiffness of 5 kPa. What is the likely level of the resistance?', 'Presinusoidal: schistosomiasis or porto-sinusoidal vascular disorder.'],

@@ -24,6 +24,7 @@ export const PREHEPATIC = {
       whatIf: { label: 'Clot size', param: 'thrombus.PV_TRUNK', min: 0, max: 1, step: 0.05, ends: ['None', 'Occlusive'] },
       kicker: 'Acute thrombosis', site: 'pre', title: 'An acute clot stops portal flow on Doppler',
       vignette: 'A 39-year-old woman with factor V Leiden who takes an OCP has had 4 days of constant periumbilical pain. Her liver tests and platelets are normal.',
+      caseQ: 'Will her HVPG be raised?',
       line: 'Portal pressure rises steeply behind the clot. Contrast CT confirms it and shows whether it extends into the superior mesenteric vein, where the risk is bowel ischemia.',
       notes: 'Acute portal vein thrombosis presents with abdominal pain, sometimes fever, or is found on a scan. Look for a cause: a myeloproliferative neoplasm (test for JAK2), an inherited thrombophilia, local inflammation (pancreatitis, appendicitis, diverticulitis), abdominal surgery or cirrhosis. Contrast CT confirms the clot and shows whether it reaches the superior mesenteric vein, where bowel ischemia is the danger: persistent pain, bloody diarrhea, a rising lactate or organ failure mean urgent CT and surgical review. Without cirrhosis, anticoagulation starts at once and continues for at least six months; the earlier it starts, the more often the vein reopens.',
       ask: ['What does Doppler show in an acute portal vein clot?', 'No flow in the trunk; a fresh clot can be nearly anechoic, so the missing color signal matters more than the gray scale.'],

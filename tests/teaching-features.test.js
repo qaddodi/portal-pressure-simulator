@@ -108,3 +108,16 @@ test('predict: lands on the state before, asks, and plays the change as the answ
   assert.match(css, /\.pz-text\.pz-asking:not\(\.pz-told\) > \.pz-pwait \{ opacity: 0; visibility: hidden;/);
   assert.match(src('handout.js'), /<p class="cap">Predict<\/p>/, 'the handout prints the question and its answer');
 });
+
+test('case-card question: only adopted case slides end on one, a question, the case and its question together under 220 characters', () => {
+  const used = slidesUsing('caseQ');
+  assert.ok(used.length >= 15);
+  for (const [d, s] of used) {
+    const at = `${d.id}/${s.id}`;
+    assert.ok(adopted(d, s, 'caseQ'), `${at}: the case-card question is opt-in (tests/deck-adopted.js)`);
+    assert.ok(s.vignette && s.preset, `${at}: only on a slide with a case`);
+    assert.ok(/^[A-Z].*\?$/.test(s.caseQ) && !s.caseQ.slice(0, -1).includes('?'), `${at}: one question`);
+    assert.ok(`${s.vignette} ${s.caseQ}`.length < 220, `${at}: case and question under 220 characters (${`${s.vignette} ${s.caseQ}`.length})`);
+  }
+  assert.match(src('presenter.js'), /s\.caseQ \? h\('p', \{ class: 'pz-case-p pz-case-q' \}, nb\(s\.caseQ\)\) : null/, 'its own line on the card, fitted with the case');
+});
