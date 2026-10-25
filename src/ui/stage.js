@@ -31,9 +31,10 @@ import { warmVisible, ringGrid, inGrid } from './warm-vis.js?v=ccf4f6f71b';
 import { createRouter } from './circuit-router.js?v=0ee9e02fc6';
 import { gpuProbe } from './gpu-probe.js?v=e82dc07b45';
 import { plateStrips, premultiply, gutStep, viewReuse, copyPixels } from './plate-upload.js?v=5fc45556a1';
-import { cropToGrid } from './organs-gl.js?v=b5ad4771a6';
-import { readGroup } from './organ-paint.js?v=22858c2611';
-import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, ORIGIN_GREY } from './veins-gl.js?v=21c983e6b1';
+import { cropToGrid } from './organs-gl.js?v=c7b2151086';
+import { readGroup, shapeSource, bindShape } from './organ-paint.js?v=d84c87f18d';
+import { pathCmds } from './shape-gl.js?v=690a96f0f2';
+import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, ORIGIN_GREY } from './veins-gl.js?v=256a37b262';
 import { varixBead, beadRadius } from './varix-bead.js?v=ac0e84fd89';
 import { advanceStream, createReversalHold, bleedShapes, stepBleedFade, fadeBleedShapes, chevFlowLevel, keyChevron, KEY_CHEV_LANES, originFractions, oxygenFor, ORIGIN_N, createBolus, DYE_BINS, KAPPA, STASIS_MIN_D, HIDDEN_SECONDS } from './blood.js?v=e668d01823';
 import { frameFor, cancelFrame, noteDraw, setSaver as setFrameSaver, paceMs } from './frame.js?v=19b3f2915c';
@@ -773,7 +774,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   liverPaths.push(diaCut.liver);
   liverPaths.push(gutCut.liver, gutPatch.liver, frontCut, ghostCut, ascLvCut);   // (the masks' copies: the gut's cut and its patch, the stomach's see-through, the ghost line's, the ascites')
   // (Cirrhosis's reshaping of the liver, CIRR and liverField: liver-morph.js.)
-  let baseLiver = null, liverKey = '';
+  let baseLiver = null, liverKey = '', islSrc = null;
+  const liverCmds = pathCmds(liverD);   // (the healthy outline as numbers, for the GPU painter: read once)
   // The diseased liver's outline without its nodular bulges and notches, for the diaphragm: one smooth dome the nodules
   // never dent (Mohammad, 20 Oct: it was "morphing to the nodules of the liver"). null while the liver is healthy.
   let liverDome = null;
@@ -831,15 +833,23 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   }
   // A cell drawn as a rounded nodule: corners pulled in toward the site by the septum's half
   // width, then smoothed (quadratics through the edge midpoints).
-  function cellPath(cl, c, w) {
+  // (cmds: the same shape as numbers, for the GPU painter (organ-paint shapeSource), each the number its text says.)
+  function cellPath(cl, c, w, cmds) {
     const [sx, sy] = liverField(cl.x, cl.y, c);
     const p = cl.v.map(([vx, vy]) => {
       const [x, y] = liverField(vx, vy, c), dx = x - sx, dy = y - sy, l = Math.hypot(dx, dy) || 1, k = Math.max(0.35, 1 - w / l);
       return [sx + dx * k, sy + dy * k];
     });
-    const n = p.length, m = (j) => { const a = p[j % n], q = p[(j + 1) % n]; return `${fix1((a[0] + q[0]) / 2)} ${fix1((a[1] + q[1]) / 2)}`; };
-    let d = 'M' + m(n - 1);
-    for (let j = 0; j < n; j++) d += `Q${fix1(p[j][0])} ${fix1(p[j][1])} ${m(j)}`;
+    const n = p.length, m = (j) => { const a = p[j % n], q = p[(j + 1) % n]; return [fix1((a[0] + q[0]) / 2), fix1((a[1] + q[1]) / 2)]; };
+    let [mx, my] = m(n - 1), d = `M${mx} ${my}`;
+    cmds.push(['M', +mx, +my]);
+    for (let j = 0; j < n; j++) {
+      const qx = fix1(p[j][0]), qy = fix1(p[j][1]);
+      [mx, my] = m(j);
+      d += `Q${qx} ${qy} ${mx} ${my}`;
+      cmds.push(['Q', +qx, +qy, +mx, +my]);
+    }
+    cmds.push(['Z']);
     return d + 'Z';
   }
   // A closed smooth blob (quadratics through the edge midpoints) of radius r at (x, y).
@@ -875,8 +885,16 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     // (?perf: the outline and nodules worked out, apart from writing them into the page: the browser's own work on them comes later.)
     const { out, dome } = gpuProbe.time(null, 'liver: outline (maths)', () => morphOutline(baseLiver, c, g));
     const f1 = fix1;
-    const d = c + g > 0 ? 'M' + out.map(([x, y]) => `${f1(x)} ${f1(y)}`).join(' L') + ' Z' : liverD;
-    gpuProbe.time(null, 'liver: writes', () => { for (const el of liverPaths) el.setAttribute('d', d); });
+    // (Its commands too, for the GPU painter: the liver is painted from these numbers, never parsing or hashing the text.)
+    let d = liverD, cmds = liverCmds;
+    if (c + g > 0) {
+      const xy = out.map(([x, y]) => [f1(x), f1(y)]);
+      d = 'M' + xy.map(([x, y]) => `${x} ${y}`).join(' L') + ' Z';
+      cmds = xy.map(([x, y], i) => [i ? 'L' : 'M', +x, +y]);
+      cmds.push(['Z']);
+    }
+    const src = shapeSource(d, cmds);
+    gpuProbe.time(null, 'liver: writes', () => { for (const el of liverPaths) { el.setAttribute('d', d); bindShape(el, src); } });
     liverDome = c + g > 0 ? dome : null;
     liverFloor = lowerEdge(c + g > 0 ? out : baseLiver.pts);
     if (veins && !veins.lost) veins.setFluidLiver(liverFloor);
@@ -885,11 +903,13 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     // septa (the liver shows through the gaps, lightened). Flat, no shading; the septa widen and
     // the contrast firms with severity.
     const cn = smooth01(c / 0.5) * (0.55 + 0.45 * c);
-    const nod = gpuProbe.time(null, 'liver: nodules (maths)', () => (cn > 0.01 ? baseLiver.cells.map((cl) => cellPath(cl, c, (0.3 + 0.45 * c) * CIRR.sep)).join('') : ''));
-    gpuProbe.time(null, 'liver: writes', () => lv.nod.setAttribute('d', nod));
+    const nodCmds = [];
+    const nod = gpuProbe.time(null, 'liver: nodules (maths)', () => (cn > 0.01 ? baseLiver.cells.map((cl) => cellPath(cl, c, (0.3 + 0.45 * c) * CIRR.sep, nodCmds)).join('') : ''));
+    gpuProbe.time(null, 'liver: writes', () => { lv.nod.setAttribute('d', nod); bindShape(lv.nod, shapeSource(nod, nodCmds)); });
     lvFade(lv.sep, cn); lvFade(lv.nod, cn);
     // Nutmeg: the even dusky tone and its pale islands, fading in as congestion deepens.
     lv.isl.setAttribute('d', g > 0.01 ? baseLiver.isl : '');
+    if (g > 0.01) bindShape(lv.isl, (islSrc ||= shapeSource(baseLiver.isl, pathCmds(baseLiver.isl))));   // (the same islands throughout: read once)
     const gn = smooth01(g / 0.5); lvFade(lv.cong, gn); lvFade(lv.isl, gn);
     // The ascites is kept off the liver as its congestion shows (over the dusky liver its straw turned the lower lobe into a
     // brown blotch; organ picks, round 26).
@@ -2137,7 +2157,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const lzAnchor = document.createComment('lobule');
   wrap.append(lzAnchor);
   // (The code is fetched as soon as the figure is shown; the layer is built a moment later, when the page is quiet, or at once for a dive.)
-  const lobuleCode = () => (lzCode ||= import('./lobule-zoom.js?v=0cc196eff4').catch((err) => { lzCode = null; throw err; }));
+  const lobuleCode = () => (lzCode ||= import('./lobule-zoom.js?v=be0f0900a9').catch((err) => { lzCode = null; throw err; }));
   function lobuleReady() {
     return (lzLoad ||= lobuleCode().then(({ createLobuleZoom }) => {
       lz = createLobuleZoom({ host: wrap, styles: wrapCS, before: lzAnchor });

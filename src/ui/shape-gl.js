@@ -13,14 +13,54 @@ const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
 const NUM = /[MmLlHhVvCcSsQqTtAaZz]|[-+]?(?:\d+\.?\d*|\.\d+)(?:[eE][-+]?\d+)?/g;
 
 /**
+ * An SVG path's `d` as its commands, every one absolute and in one of six forms: ['M', x, y], ['L', x, y], ['C', x1, y1, x2, y2,
+ * x, y], ['Q', x1, y1, x, y], ['A', rx, ry, phi, large, sweep, x, y], ['Z'] (H and V as L, S and T as C and Q with their
+ * reflected control point). A shape made by the app's own code (the liver's outline and nodules, stage.js) is handed to the
+ * painter in this form as it is made, so its `d` is never parsed again there (organ-paint.js shapeSource).
+ */
+export function pathCmds(d) {
+  const t = String(d || '').match(NUM) || [];
+  const out = [];
+  let cx = 0, cy = 0, sx = 0, sy = 0, cmd = '', i = 0, lc = null, lq = null;
+  const num = () => +t[i++];
+  while (i < t.length) {
+    if (/[A-Za-z]/.test(t[i])) cmd = t[i++];
+    else if (!cmd) { i++; continue; }
+    const rel = cmd === cmd.toLowerCase(), C = cmd.toUpperCase(), ox = rel ? cx : 0, oy = rel ? cy : 0;
+    let nc = null, nq = null;
+    if (C === 'Z') { out.push(['Z']); cx = sx; cy = sy; lc = lq = null; cmd = ''; continue; }   // (numbers after a Z, never written: skipped)
+    if (i >= t.length || /[A-Za-z]/.test(t[i])) { cmd = ''; continue; }
+    if (C === 'M') { cx = ox + num(); cy = oy + num(); sx = cx; sy = cy; out.push(['M', cx, cy]); cmd = rel ? 'l' : 'L'; }
+    else if (C === 'L') { const x = ox + num(), y = oy + num(); out.push(['L', x, y]); cx = x; cy = y; }
+    else if (C === 'H') { const x = ox + num(); out.push(['L', x, cy]); cx = x; }
+    else if (C === 'V') { const y = (rel ? cy : 0) + num(); out.push(['L', cx, y]); cy = y; }
+    else if (C === 'C') { const a = [ox + num(), oy + num(), ox + num(), oy + num(), ox + num(), oy + num()]; out.push(['C', ...a]); nc = [a[2], a[3]]; cx = a[4]; cy = a[5]; }
+    else if (C === 'S') {
+      const x1 = lc ? 2 * cx - lc[0] : cx, y1 = lc ? 2 * cy - lc[1] : cy, a = [ox + num(), oy + num(), ox + num(), oy + num()];
+      out.push(['C', x1, y1, ...a]); nc = [a[0], a[1]]; cx = a[2]; cy = a[3];
+    } else if (C === 'Q') { const a = [ox + num(), oy + num(), ox + num(), oy + num()]; out.push(['Q', ...a]); nq = [a[0], a[1]]; cx = a[2]; cy = a[3]; }
+    else if (C === 'T') {
+      const x1 = lq ? 2 * cx - lq[0] : cx, y1 = lq ? 2 * cy - lq[1] : cy, x = ox + num(), y = oy + num();
+      out.push(['Q', x1, y1, x, y]); nq = [x1, y1]; cx = x; cy = y;
+    } else if (C === 'A') {
+      const rx = num(), ry = num(), ph = num(), la = num(), sw = num(), x = ox + num(), y = oy + num();
+      out.push(['A', rx, ry, ph, la ? 1 : 0, sw ? 1 : 0, x, y]); cx = x; cy = y;
+    } else { i++; continue; }
+    lc = nc; lq = nq;
+  }
+  return out;
+}
+
+/**
  * An SVG path's `d` as polylines: [{ pts: Float32Array (x, y pairs), closed }]. Curves (cubic, quadratic, arcs) are cut
  * into chords no further than `tol` (path units) from the curve.
  */
-export function flattenPath(d, tol = 0.01) {
-  const t = String(d || '').match(NUM) || [];
+export const flattenPath = (d, tol = 0.01) => flattenCmds(pathCmds(d), tol);
+
+/** A path's commands (pathCmds) as polylines, as flattenPath gives its `d`. */
+export function flattenCmds(cmds, tol = 0.01) {
   const out = [];
-  let cur = null, cx = 0, cy = 0, sx = 0, sy = 0, cmd = '', i = 0, lc = null, lq = null;
-  const num = () => +t[i++];
+  let cur = null, cx = 0, cy = 0, sx = 0, sy = 0;
   const start = (x, y) => { if (cur && cur.length > 2) out.push({ pts: cur, closed: false }); cur = [x, y]; sx = x; sy = y; };
   const line = (x, y) => { if (!cur) cur = [cx, cy]; cur.push(x, y); };
   const cubic = (x1, y1, x2, y2, x, y) => {
@@ -62,34 +102,15 @@ export function flattenPath(d, tol = 0.01) {
       line(j === n ? x : cp * ex - sp * ey + mx, j === n ? y : sp * ex + cp * ey + my);
     }
   };
-  while (i < t.length) {
-    if (/[A-Za-z]/.test(t[i])) cmd = t[i++];
-    else if (!cmd) { i++; continue; }
-    const rel = cmd === cmd.toLowerCase(), C = cmd.toUpperCase(), ox = rel ? cx : 0, oy = rel ? cy : 0;
-    let nc = null, nq = null;
-    if (C === 'Z') {
-      if (cur && cur.length > 2) out.push({ pts: cur, closed: true });
-      cur = null; cx = sx; cy = sy; lc = lq = null;
-      continue;
+  for (const c of cmds) {
+    switch (c[0]) {
+      case 'Z': if (cur && cur.length > 2) out.push({ pts: cur, closed: true }); cur = null; cx = sx; cy = sy; break;
+      case 'M': cx = c[1]; cy = c[2]; start(cx, cy); break;
+      case 'L': line(c[1], c[2]); cx = c[1]; cy = c[2]; break;
+      case 'C': cubic(c[1], c[2], c[3], c[4], c[5], c[6]); cx = c[5]; cy = c[6]; break;
+      case 'Q': quad(c[1], c[2], c[3], c[4]); cx = c[3]; cy = c[4]; break;
+      case 'A': arc(c[1], c[2], c[3], c[4], c[5], c[6], c[7]); cx = c[6]; cy = c[7]; break;
     }
-    if (i >= t.length || /[A-Za-z]/.test(t[i])) { cmd = ''; continue; }
-    if (C === 'M') { cx = ox + num(); cy = oy + num(); start(cx, cy); cmd = rel ? 'l' : 'L'; }
-    else if (C === 'L') { const x = ox + num(), y = oy + num(); line(x, y); cx = x; cy = y; }
-    else if (C === 'H') { const x = ox + num(); line(x, cy); cx = x; }
-    else if (C === 'V') { const y = (rel ? cy : 0) + num(); line(cx, y); cy = y; }
-    else if (C === 'C') { const a = [ox + num(), oy + num(), ox + num(), oy + num(), ox + num(), oy + num()]; cubic(...a); nc = [a[2], a[3]]; cx = a[4]; cy = a[5]; }
-    else if (C === 'S') {
-      const x1 = lc ? 2 * cx - lc[0] : cx, y1 = lc ? 2 * cy - lc[1] : cy, a = [ox + num(), oy + num(), ox + num(), oy + num()];
-      cubic(x1, y1, ...a); nc = [a[0], a[1]]; cx = a[2]; cy = a[3];
-    } else if (C === 'Q') { const a = [ox + num(), oy + num(), ox + num(), oy + num()]; quad(...a); nq = [a[0], a[1]]; cx = a[2]; cy = a[3]; }
-    else if (C === 'T') {
-      const x1 = lq ? 2 * cx - lq[0] : cx, y1 = lq ? 2 * cy - lq[1] : cy, x = ox + num(), y = oy + num();
-      quad(x1, y1, x, y); nq = [x1, y1]; cx = x; cy = y;
-    } else if (C === 'A') {
-      const rx = num(), ry = num(), ph = num(), la = num(), sw = num(), x = ox + num(), y = oy + num();
-      arc(rx, ry, ph, la ? 1 : 0, sw ? 1 : 0, x, y); cx = x; cy = y;
-    } else { i++; continue; }
-    lc = nc; lq = nq;
   }
   if (cur && cur.length > 2) out.push({ pts: cur, closed: false });
   // (A closed run whose last point repeats its first: the repeat is dropped, the closing edge joins them.)

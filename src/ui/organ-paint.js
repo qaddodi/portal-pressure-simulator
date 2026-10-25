@@ -13,10 +13,23 @@
 // luminance). Anything else (a dash, a filter, a nested mask, a focal point) and the organ is not read: null, and the caller
 // keeps the organ's picture.
 
-import { flattenPath, ellipsePoly, polyBox, polyMesh } from './shape-gl.js?v=b9a7bdbd53';
+import { flattenPath, flattenCmds, ellipsePoly, polyBox, polyMesh } from './shape-gl.js?v=690a96f0f2';
 import { strHash } from './liver-geo.js?v=977185f80a';
 
 const ID = [1, 0, 0, 1, 0, 0];
+
+// Shapes the app makes itself (the liver's outline and its nodules, stage.js morphLiver), handed over as numbers as they are made:
+// { d (the text written to the elements), cmds (shape-gl pathCmds' form), id }. A path whose `d` is still that text is cut from
+// the numbers, named by the id, so the painter neither hashes nor parses the liver's thousands of characters (the nodules' tens of
+// thousands) on any frame; any other `d` (written by anything else) is read from the text as before.
+const SRC = new WeakMap();
+let srcId = 0;
+/** A shape made by the app: its `d` and its commands, under a name of its own. */
+export const shapeSource = (d, cmds) => ({ d, cmds, id: ++srcId });
+/** The element `el` now draws the shape `src` (its `d` written with src.d). */
+export function bindShape(el, src) { if (el) SRC.set(el, src); }
+/** The shape source of a path element whose `d` is still its text, or null. */
+function srcOf(el) { const s = SRC.get(el); return s && el.getAttribute('d') === s.d ? s : null; }
 /** a ∘ b: b applied first (SVG matrices [a, b, c, d, e, f]). */
 export const mul = (a, b) => [a[0] * b[0] + a[2] * b[1], a[1] * b[0] + a[3] * b[1], a[0] * b[2] + a[2] * b[3], a[1] * b[2] + a[3] * b[3], a[0] * b[4] + a[2] * b[5] + a[4], a[1] * b[4] + a[3] * b[5] + a[5]];
 export const inv = (m) => { const d = m[0] * m[3] - m[1] * m[2] || 1e-12; return [m[3] / d, -m[1] / d, -m[2] / d, m[0] / d, (m[2] * m[5] - m[3] * m[4]) / d, (m[1] * m[4] - m[0] * m[5]) / d]; };
@@ -363,14 +376,18 @@ export function createOrganPaint(gl, shape) {
   function evict() {
     for (const [k, v] of kept) if (v.tick < tick - 1) { kept.delete(k); if (!meshes.has(k) && !meshesOld.has(k)) shape.release(v.mesh); }
   }
+  // (A path's name: its shape source's, else its text's hash.)
+  const pathKey = (el) => { const s = srcOf(el); return s ? `n${s.id}` : dKey(el.getAttribute('d') || ''); };
   function meshOf(geom, cap, tol) {
-    const d = geom.d ? geom.el.getAttribute('d') || '' : null;
-    const key = geom.d ? `${tol}|${cap}|${dKey(d)}` : geom;
+    const src = geom.d ? srcOf(geom.el) : null;
+    const d = geom.d && !src ? geom.el.getAttribute('d') || '' : null;
+    const key = geom.d ? `${tol}|${cap}|${src ? `n${src.id}` : dKey(d)}` : geom;
+    const flat = () => (src ? flattenCmds(src.cmds, tol) : geom.d ? flattenPath(d, tol) : geom.poly);
     if (keeping) {
       let k = kept.get(key);
       if (!k) {
         if (kept.size >= KEEP_CAP) evict();
-        const polys = geom.d ? flattenPath(d, tol) : geom.poly;
+        const polys = flat();
         kept.set(key, (k = { mesh: polyMesh(polys, cap), polys, box: boxOf(polys), tick }));
       }
       k.tick = tick;
@@ -378,7 +395,7 @@ export function createOrganPaint(gl, shape) {
     }
     let r = meshes.get(key) || meshesOld.get(key) || kept.get(key);
     if (!r) {
-      const polys = geom.d ? flattenPath(d, tol) : geom.poly;
+      const polys = flat();
       r = { mesh: polyMesh(polys, cap), polys, box: boxOf(polys) };
     }
     meshes.set(key, r);
@@ -471,7 +488,7 @@ export function createOrganPaint(gl, shape) {
     // The shape's coverage into the scratch's red, its clip's into green (kept while the next op has the same clip).
     gl.bindFramebuffer(gl.FRAMEBUFFER, scratch.fbo);
     gl.viewport(0, 0, W, H);
-    const ck = op.clip ? `${op.clip.geom.d ? dKey(op.clip.geom.el.getAttribute('d') || '') : ''}|${cm.join(',')}` : null;
+    const ck = op.clip ? `${op.clip.geom.d ? pathKey(op.clip.geom.el) : ''}|${cm.join(',')}` : null;
     const newClip = !!op.clip && ck !== job.ck;
     // (A new clip's green is cleared over the clip's own box, with this op's: a later op with the same clip is cut to that box, so
     // it never reads the green outside it. It was the whole canvas, on every clipped group, every frame.)
@@ -527,7 +544,7 @@ export function createOrganPaint(gl, shape) {
   // What an op paints, as a string: what it is painted with (fixed while the spec lives: kept on the op) and where (its outline's
   // `d` and its frame, read now). Two frames with the same string paint the same pixels in the same box.
   const paintKey = (op) => op.pk || (op.pk = JSON.stringify([op.kind, op.w, op.cap, op.paint]));
-  const opSig = (op, m) => { const lv = liveAt(op); return `${paintKey(op)}|${lv.alpha}|${lv.m.join(',')}|${lv.cm ? lv.cm.join(',') : ''}|${m.join(',')}|${op.geom.d ? dKey(op.geom.el.getAttribute('d') || '') : ''}|${op.clip ? (op.clip.geom.d ? dKey(op.clip.geom.el.getAttribute('d') || '') : '') : ''}`; };
+  const opSig = (op, m) => { const lv = liveAt(op); return `${paintKey(op)}|${lv.alpha}|${lv.m.join(',')}|${lv.cm ? lv.cm.join(',') : ''}|${m.join(',')}|${op.geom.d ? pathKey(op.geom.el) : ''}|${op.clip ? (op.clip.geom.d ? pathKey(op.clip.geom.el) : '') : ''}`; };
   /**
    * The group under m described for a change check: its own string (opacity, whether masked) and, per op (the mask's after its
    * own), [string, device box]. The meshes it will paint are touched (kept for the frame).

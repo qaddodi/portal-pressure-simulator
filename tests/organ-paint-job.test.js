@@ -101,3 +101,26 @@ test('the meshes kept for pictures stay bounded over many pictures, and every on
   assert.ok(shape.log.some((l) => l[0] === 'dispose'), 'the shape drawer disposed with the painter (its meshes\' arrays with it)');
   assert.equal(p.stats().kept, 0);
 });
+
+test("a shape the app made is painted from its numbers while its path still says what they say, from its text once it does not", async () => {
+  const { shapeSource, bindShape } = await import('../src/ui/organ-paint.js');
+  const { pathCmds } = await import('../src/ui/shape-gl.js');
+  const { gl } = fakeGL(), shape = fakeShape(), p = createOrganPaint(gl, shape);
+  const d = 'M10 10 L60 10 L60 60 Q35 80 10 60 Z';
+  const el = { d, getAttribute: (a) => (a === 'd' ? el.d : null) };
+  const op = { geom: { el, d: true }, m: ID, kind: 'fill', paint: { solid: [1, 0, 0, 1] }, alpha: 1, clip: null };
+  const spec = { ops: [op], opacity: 1, mask: null, root: null };
+  const src = shapeSource(d, pathCmds(d));
+  bindShape(el, src);
+  assert.match(p.describe(spec, ID).ops[0][0], new RegExp(`\\|n${src.id}\\|`), 'named by its source, not by hashing its text');
+  p.paintGroup(spec, ID, 100, 100, {});
+  const viaNumbers = shape.log.filter((l) => l[0] === 'fill').at(-1)[1];
+  // Written by anything else, the path is read from its text again.
+  el.d = 'M10 10 L60 10 L60 60 Q35 80 10 60 L5 30 Z';
+  p.endFrame();
+  assert.doesNotMatch(p.describe(spec, ID).ops[0][0], new RegExp(`\\|n${src.id}\\|`));
+  p.paintGroup(spec, ID, 100, 100, {});
+  const viaText = shape.log.filter((l) => l[0] === 'fill').at(-1)[1];
+  assert.notEqual(viaText, viaNumbers);
+  assert.ok(viaText.nTri > viaNumbers.nTri, 'the new text, with its extra corner');
+});
