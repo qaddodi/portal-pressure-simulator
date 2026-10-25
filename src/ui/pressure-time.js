@@ -1,6 +1,6 @@
 // Pressure over time: the portal circulation's pressures as a live trace, and below them the
 // HVPG (wedged − free hepatic venous pressure) on its own lane, read against its clinical
-// thresholds. Three ranges share one chart: the last beats (every heartbeat and breath), the
+// thresholds, and over the last beats a schematic EKG strip timed to the model's own heartbeat (ekg.js). Three ranges share one chart: the last beats (every heartbeat and breath), the
 // last two minutes (a band from trough to peak around the mean) and the disease clock (one point
 // per day). Changes the learner makes and threshold events are marked where they happened, and
 // a crosshair (hover, or drag on a touch screen) reads every trace at one moment.
@@ -13,6 +13,8 @@ import { tenthGap } from '../engine/gap.js?v=3aabfbb29b';
 import { firstAtOrAbove, firstAbove } from './sorted.js?v=662e543c85';
 import { limitLabelX as labelX } from './limit-label.js?v=52dcc41a1e';
 import { wrapLabel } from './wrap-label.js?v=1af9654a99';
+import { createBeatClock, ekgSeries } from './ekg.js?v=f1ff7a3880';
+import { laneRoom } from './trace-lanes.js?v=3d3cb1915e';
 const nextFrame = frameFor('pressure-time');
 
 // hide: the readout that can stay unmeasured (store.hiddenReadouts); day: the value on the
@@ -61,6 +63,18 @@ export function createPressureTime({ marks = () => [] } = {}) {
     });
     return b;
   }));
+  // The two lanes beside the pressures: the EKG strip (the beats range only) and the HVPG lane. Patients mode turns them on and off here; a slide's
+  // card does not use the pills (hidden there): it takes both lanes where its room allows, as the slide's tool says (configure).
+  let showEkg = false, showLane = true;
+  let cfg = { ekg: true, lane: true };   // (a slide's tool: ekg: false leaves the strip off, hvpgLane: false the HVPG lane)
+  const laneChip = (key, label, title, on, set) => {
+    const b = h('button', { class: 'pt-chip', 'data-lane': key, 'aria-pressed': String(on), title, 'aria-label': title, style: { '--chip': 'var(--text)' } }, h('i'), label);
+    b.addEventListener('click', () => { set(b.getAttribute('aria-pressed') !== 'true'); b.setAttribute('aria-pressed', String(b.getAttribute('aria-pressed') !== 'true')); yr.pressure = yr.hvpg = null; draw(); });
+    return b;
+  };
+  const ekgChip = laneChip('ekg', 'EKG', 'A schematic EKG over the pressures, timed to the model\'s heartbeat. On the 10 s range only.', false, (v) => { showEkg = v; });
+  const laneChipBtn = laneChip('hvpg', 'HVPG lane', 'The HVPG lane under the pressures', true, (v) => { showLane = v; });
+  chips.append(ekgChip, laneChipBtn);
   // Display only: averages away the heartbeat and breathing swings; the simulation is untouched.
   let smooth = false;
   const smoothBtn = h('button', { class: 'pt-chip pt-smooth', 'aria-pressed': 'false', title: 'Show the mean: hide beat-to-beat and breathing variation', onclick: () => {
@@ -73,6 +87,7 @@ export function createPressureTime({ marks = () => [] } = {}) {
   function setRange(id) {
     range = id;
     rangeSeg.querySelectorAll('button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.range === id)));
+    ekgChip.disabled = id !== 'beats';   // (one beat is the strip's unit: over two minutes or days it has nothing to show)
     yr.pressure = yr.hvpg = null;
     draw();
   }
@@ -80,14 +95,15 @@ export function createPressureTime({ marks = () => [] } = {}) {
   // ── Buffers ───────────────────────────────────────
   // fine: every sample of the last few seconds; coarse: quarter-second bins (trough, peak, mean)
   // for the last two minutes; days: one point per simulated day.
-  const fine = { t: [], ...Object.fromEntries(KEYS.map((k) => [k, []])) };
+  const fine = { t: [], ph: [], ...Object.fromEntries(KEYS.map((k) => [k, []])) };
+  const beatClock = createBeatClock();   // (when the cardiac phase wrapped: each wrap starts a beat on the EKG strip)
   let coarse = [], bin = null;
   let days = [];
   let clock = 'hemo', dayNow = 0, lastT = -Infinity, frame = null, wallAt = 0;
 
   function clearHemo() {
     for (const k of Object.keys(fine)) fine[k].length = 0;
-    coarse = []; bin = null; lastT = -Infinity; steadyAt = 0;
+    coarse = []; bin = null; lastT = -Infinity; steadyAt = 0; beatClock.reset();
   }
   // On a slide each reading is its steady value, the mean over the last few seconds, so the lines' end labels, the header and
   // the tiles agree, and a laptop and a tablet show the same numbers whenever they are looked at. (The HVPG is the difference
@@ -125,7 +141,7 @@ export function createPressureTime({ marks = () => [] } = {}) {
         const t = smp.t[i];
         if (t <= lastT) continue;
         lastT = t;
-        fine.t.push(t);
+        fine.t.push(t); fine.ph.push(smp.ph?.[i] ?? NaN); beatClock.push(t, smp.ph?.[i]);
         for (const k of KEYS) fine[k].push(smp[k]?.[i] ?? NaN);
         const b0 = Math.floor(t / BIN) * BIN;
         if (!bin || bin.t !== b0) {
@@ -140,7 +156,7 @@ export function createPressureTime({ marks = () => [] } = {}) {
         }
       }
       let cut = 0; while (cut < fine.t.length && fine.t[cut] < lastT - FINE_S) cut++;
-      if (cut) for (const k of Object.keys(fine)) fine[k].splice(0, cut);
+      if (cut) { for (const k of Object.keys(fine)) fine[k].splice(0, cut); beatClock.trim(fine.t[0]); }
       cut = 0; while (cut < coarse.length && coarse[cut].t < lastT - COARSE_S) cut++;
       if (cut) coarse.splice(0, cut);
     }
@@ -279,8 +295,9 @@ export function createPressureTime({ marks = () => [] } = {}) {
     const text = col('--text'), muted = col('--text-2'), faint = col('--text-3'), grid = col('--grid'), surface = col('--surface');
     const hidden = hiddenSet();
     const showHvpg = !hidden.has('trueHVPG');
-    const traces = TRACES.filter((t) => chosen.has(t.id) && !hidden.has(t.hide) && (range !== 'days' || t.day));
     const slide = onSlide();   // (a slide's card: its own window, one scale, steady readings and larger lettering, below)
+    // (A slide's pressure lane holds the portal pressure alone: the wedged and free lines go, since the HVPG lane under it is their difference.)
+    const traces = TRACES.filter((t) => chosen.has(t.id) && !hidden.has(t.hide) && (range !== 'days' || t.day) && (!slide || t.id === 'CONF'));
     const FONT = (wt, px) => FONT0(wt, slide ? px * 13 / 12 : px);
     const narrow = w < 460, tiny = !slide && w < 300 && (hh - 52) * 0.55 >= traces.length * 27;   // (tiny: a tablet's card with its tiles beside; each end's name goes under its value, where the lane has room to stack them)
     const L = 34, R = tiny ? 62 : narrow ? (slide ? 96 : 90) : 104, B = 22, GAP = slide ? 30 : 16;   // (a slide's lanes stand apart, the lower one named)
@@ -322,20 +339,26 @@ export function createPressureTime({ marks = () => [] } = {}) {
 
     // Marker labels stack in up to three rows, so each stays readable; the plot starts below them.
     const markLayout = layoutMarkers(markers(x0, x1), X, L + plotW + R - 4);
-    T = Math.max(T, 24 + markLayout.rows * ROW);
-    // lanes
-    const avail = hh - T - B;
+    const T0 = Math.max(T, 24 + markLayout.rows * ROW);
+    // lanes: the EKG strip (the last beats only) over the pressures over the HVPG lane; where the room is short the strip goes first, then the lane
+    // (trace-lanes.js). The strip stands at the very top when no marker labels need the space there, so it never sits under them.
+    const EGAP = slide ? 22 : 16;
+    const wantLane = showHvpg && (slide ? cfg.lane : showLane || !traces.length);
+    const wantEkg = range === 'beats' && (slide ? cfg.ekg : showEkg);
+    const want = { pressure: traces.length > 0, hvpg: wantLane, gap: GAP, egap: EGAP, two: slide ? 0.66 : 0.64 };   // (two lanes: a slide's pressure lane holds the portal vein alone but keeps two thirds, as the dock's keeps 0.64)
+    let plan = wantEkg ? laneRoom(hh - (markLayout.rows ? T0 : 8) - B, { ...want, ekg: true }) : null;
+    if (plan?.ekg) T = markLayout.rows ? T0 : 8; else { T = T0; plan = laneRoom(hh - T - B, want); }
     const lanes = [];
+    let ey = T;
+    const ekgLane = plan.ekg ? { key: 'ekg', top: ey, bot: (ey += plan.ekg) } : null;
+    if (ekgLane) ey += EGAP;
+    if (plan.pressure) { lanes.push({ key: 'pressure', top: ey, bot: ey + plan.pressure }); ey += plan.pressure + GAP; }
+    if (plan.hvpg) lanes.push({ key: 'hvpg', top: ey, bot: ey + plan.hvpg });
     // (On a slide both lanes start at zero and end on a round number above every reading, with a tick at the top.)
     const top0 = (key) => { let mx = -Infinity; for (const k of key === 'pressure' ? traces.map((t) => t.id) : ['hvpg']) { const q = series(k, -Infinity, x1); for (let i = 0; i < q.x.length; i++) mx = Math.max(mx, q.hi ? q.hi[i] : q.mid[i]); }
       mx = Math.max(mx, ...(key === 'pressure' ? traces.map((t) => endOf(t.id)) : [steadyHvpg()]).filter(Number.isFinite));   // (and the numbers written at the ends: a reading never sits above its lane)
       return key === 'hvpg' ? Math.max(15, Math.ceil(((Number.isFinite(mx) ? mx : 0) + 3) / 5) * 5) : Math.max(10, Math.ceil(((Number.isFinite(mx) ? mx : 10) * 1.1) / 5) * 5); };
     const fixed = slide ? { pressure: [0, top0('pressure')], hvpg: [0, top0('hvpg')] } : null;
-    // (A slide's small card drops the HVPG lane, which the header already reads, and gives its room to the pressures.)
-    if (traces.length && showHvpg && !(slide && avail < 160)) {
-      const pH = Math.round((avail - GAP) * (fixed ? 0.66 : 0.64));   // (a slide's pressure lane holds five lines, the HVPG lane one: two thirds of the room)
-      lanes.push({ key: 'pressure', top: T, bot: T + pH }, { key: 'hvpg', top: T + pH + GAP, bot: T + avail });
-    } else lanes.push({ key: traces.length ? 'pressure' : 'hvpg', top: T, bot: T + avail });
 
     const data = Object.fromEntries([...traces.map((t) => t.id), 'hvpg'].map((k) => [k, series(k, x0, x1)]));
     const hv = Math.max(0, frame.metrics.hvpg);
@@ -411,12 +434,12 @@ export function createPressureTime({ marks = () => [] } = {}) {
         // (Every dashed line first, then the labels on their plates, so no later line crosses an earlier label.)
         const labs = [];
         for (const [v, label] of LIMITS) {
-          if (v > hi || (v === 5 && !roomy) || (slide && v !== 10)) continue;   // (a slide's small lane: the one cut-off, CSPH)
+          if (v > hi || (v === 5 && !roomy && !slide)) continue;   // (a slide keeps all three faint lines, 5, 10 and 12, as the talk trace's lane does)
           const yy = Math.round(Y(v)) + 0.5;
           ctx.strokeStyle = col(v >= 10 ? '--danger' : '--caution'); ctx.globalAlpha = v >= 10 ? 0.5 : 0.35;
           ctx.setLineDash([3, 4]); ctx.beginPath(); ctx.moveTo(L, yy); ctx.lineTo(L + plotW, yy); ctx.stroke(); ctx.setLineDash([]);
           ctx.globalAlpha = 1;
-          if (label && !narrow && (roomy || v === 10)) labs.push([label, yy]);
+          if (label && !narrow && (slide ? roomy || v === 12 : roomy || v === 10)) labs.push([label, yy]);   // (a slide's short lane names the cut-offs once, at 12)
         }
         let prevLab = null;   // (the label drawn last: one that would sit on it moves along its own line, past its right end)
         for (const [label, yy] of labs) {
@@ -468,14 +491,30 @@ export function createPressureTime({ marks = () => [] } = {}) {
       }
     }
 
-    ctx.font = FONT(500, 12); ctx.fillStyle = faint; ctx.textAlign = 'left'; ctx.fillText('mmHg', 4, T - 12);
+    // The EKG strip: a schematic rhythm laid over the model's own beats (ekg.js), in the app's text colour, one QRS to a beat. Its end reading is the heart rate
+    // (a slide's, the tile's own number).
+    if (ekgLane && fine.t.length > 1) {
+      const { top, bot } = ekgLane, mid = Math.round((top + bot) / 2);
+      const hr = slide && Number.isFinite(pinned?.hr) ? pinned.hr : frame.metrics.hr;
+      const e = ekgSeries(beatClock.times, Math.max(x0, fine.t[0]), x1, 60 / (hr > 20 ? hr : 70));
+      const Ye = (v) => bot - 3 - ((v + 0.3) / 1.3) * (bot - top - 6);   // (the S wave's dip to the R peak fill the lane)
+      if (e.x.length > 1) {
+        ctx.save(); ctx.beginPath(); ctx.rect(L, top - 2, plotW, bot - top + 4); ctx.clip();
+        ctx.strokeStyle = text; ctx.lineWidth = 1.5; ctx.lineJoin = 'round'; ctx.lineCap = 'round'; ctx.beginPath();
+        for (let i = 0; i < e.x.length; i++) ctx[i ? 'lineTo' : 'moveTo'](X(e.x[i]), Ye(e.v[i]));
+        ctx.stroke(); ctx.restore();
+      }
+      ctx.font = FONT(500, 12); ctx.fillStyle = faint; ctx.textAlign = 'left'; ctx.textBaseline = 'middle'; ctx.fillText('EKG', 4, mid); ctx.textBaseline = 'alphabetic';
+      if (Number.isFinite(hr)) ends.push({ y: mid, v: hr, dec: 0, label: 'HR', c: text, lane: ekgLane });
+    }
+    ctx.font = FONT(500, 12); ctx.fillStyle = faint; ctx.textAlign = 'left'; ctx.fillText('mmHg', 4, (lanes[0] ? lanes[0].top : T) - (ekgLane ? 8 : 12));
     if (slide && lanes.length > 1) ctx.fillText('HVPG, mmHg', 4, lanes[1].top - 10);
 
     // markers: learner changes and events, where they happened
-    const allBot = drawMarkers(markLayout, lanes);
+    const allBot = drawMarkers(markLayout, ekgLane ? [ekgLane, ...lanes] : lanes);
 
     // live values at the right edge, nudged apart where they would collide (per lane)
-    for (const lane of lanes) {
+    for (const lane of ekgLane ? [ekgLane, ...lanes] : lanes) {
       const es = ends.filter((e) => e.lane === lane).sort((a, b) => a.y - b.y);
       for (let i = 1; i < es.length; i++) es[i].y = Math.max(es[i].y, es[i - 1].y + (tiny ? 27 : slide ? 18 : 15));
       const over = es.length ? Math.min(es[es.length - 1].y - lane.bot, es[0].y - (lane.top + 4)) : 0;   // (lifted only as far as the top allows: a short lane lets its last label hang below rather than pile the readings on each other)
@@ -485,7 +524,7 @@ export function createPressureTime({ marks = () => [] } = {}) {
         ctx.fillStyle = e.c; ctx.beginPath(); ctx.roundRect ? ctx.roundRect(L + plotW + 4, yy - 1.5, 10, 3, 1.5) : ctx.rect(L + plotW + 4, yy - 1.5, 10, 3); ctx.fill();   // (a short stroke in the trace's colour, not a dot)
         ctx.textBaseline = 'middle'; ctx.textAlign = 'left';
         ctx.font = FONT(650, 12.5); ctx.fillStyle = text;
-        const vt = fmt(e.v, 1);
+        const vt = fmt(e.v, e.dec ?? 1);
         ctx.fillText(vt, L + plotW + 17, yy);
         // Each line is named at its end (PV, WHVP, FHVP, HVPG), on every screen.
         const vw = ctx.measureText(vt).width; ctx.font = FONT(600, 12); ctx.fillStyle = e.c === text ? muted : e.c;
@@ -515,7 +554,7 @@ export function createPressureTime({ marks = () => [] } = {}) {
     // crosshair and its readout card
     if (cx != null && crossRows.length) {
       ctx.strokeStyle = text; ctx.globalAlpha = 0.3; ctx.lineWidth = 1;
-      ctx.beginPath(); ctx.moveTo(Math.round(cx) + 0.5, lanes[0].top); ctx.lineTo(Math.round(cx) + 0.5, allBot); ctx.stroke(); ctx.globalAlpha = 1;
+      ctx.beginPath(); ctx.moveTo(Math.round(cx) + 0.5, (ekgLane || lanes[0]).top); ctx.lineTo(Math.round(cx) + 0.5, allBot); ctx.stroke(); ctx.globalAlpha = 1;
       for (const r of crossRows) { ctx.fillStyle = surface; ctx.beginPath(); ctx.arc(cx, r.y, 4.5, 0, 7); ctx.fill(); ctx.fillStyle = r.c; ctx.beginPath(); ctx.arc(cx, r.y, 3, 0, 7); ctx.fill(); }
       const when = range === 'days' ? `Day ${Math.round(xAtCross)}` : Math.abs(xNow - xAtCross) < 0.05 ? 'now' : `${fmt(xNow - xAtCross, range === 'beats' ? 1 : 0)} s ago`;
       ctx.font = FONT(600, 12);
@@ -687,7 +726,8 @@ export function createPressureTime({ marks = () => [] } = {}) {
   // A new patient (or the same one restarted) starts with empty traces.
   function clear() { clearHemo(); days = []; redraw(); }
   function pin(fp) { pinned = fp || null; if (frame) redraw(); }
-  return { id: 'scope', label: 'Pressure over time', el, update, ingest, redraw, clear, pin, dispose() { offs.forEach((off) => off()); io?.disconnect(); frame = null; } };
+  function configure(t) { cfg = { ekg: t?.ekg !== false, lane: t?.hvpgLane !== false }; yr.pressure = yr.hvpg = null; if (frame) redraw(); }
+  return { id: 'scope', label: 'Pressure over time', el, update, ingest, redraw, clear, pin, configure, dispose() { offs.forEach((off) => off()); io?.disconnect(); frame = null; } };
 }
 
 // Thin a series to about two points per pixel column (a pulsatile trace has thousands of samples).

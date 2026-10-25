@@ -409,7 +409,7 @@ Inside the liver (the view's own label takes the colour with a soft glow; use wi
 | `{ kind: 'scope' }` | the esophagus at this slide's varix state (endoscopy; **esophagus only**) |
 | `{ kind: 'fibroscan' }` | liver stiffness, kPa; shows a ghost reading as the Doppler does (`delta`, `deltaLabel`), left out when an `lsm` tile is on the slide |
 | `{ kind: 'trace', range: 'talk' }` | portal, wedged, free pressure and HVPG at every slide so far (one point per state) |
-| `{ kind: 'trace', range: 'beats' }` | live pressure trace, beat by beat |
+| `{ kind: 'trace', range: 'beats' }` | live pressure trace, beat by beat: a thin schematic EKG strip over the portal pressure and the HVPG lane, as the card's room allows (the strip goes first on a short card, then the HVPG lane). The pressure lane holds the portal pressure alone; the HVPG lane is wedged minus free, with faint lines at 5, 10 and 12 mmHg. The strip is a rhythm timed to the model's own heartbeat (each QRS on a phase wrap), not a modelled ECG, and its end reading is the heart rate; say so in the first slide's `notes` that uses it. `ekg: false` leaves the strip off a slide, `hvpgLane: false` the HVPG lane. Put `params: { respiration: false }` on the first beat-trace slide of a run so the lines show the heartbeat alone (a later `preset` restores breathing; a Doppler slide that reads the hepatic vein's waveform keeps it) |
 | `{ kind: 'abdomen' }` | the belly with its ascites and collaterals |
 | `{ kind: 'wall' }` | the varix in cross-section: Laplace's σ (wall stress), r, w |
 | `{ kind: 'flowtime' }` | portal pressure and portal flow around a meal, drawn as the slide's time-lapse plays (clock in minutes) |

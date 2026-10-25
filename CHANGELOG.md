@@ -2,6 +2,18 @@
 
 ## October 2026
 
+- **The beat trace gets a schematic EKG strip, the HVPG lane stays on small cards, and the three bleed runs turn breathing off.** (Mohammad, 25 Oct,
+  "yes to both"; deck rebuild plan, A3.) The model's cardiac phase now travels with every pressure sample, and a thin EKG strip over the
+  pressures lays a P wave, a QRS and a T wave on each beat, one QRS to a beat, in the text colour, with the heart rate at its right end
+  like the other lanes' readings. It is a rhythm timed to the model's heartbeat, not a modelled ECG (the first slide of each run says so in
+  its notes). On a slide the pressure lane now holds the portal pressure alone, since the HVPG lane under it is wedged minus free, and the
+  HVPG lane is no longer dropped on a small card; it draws faint lines at 5, 10 and 12 mmHg, named once on a short lane. Where the room
+  is short the strip goes first, then the HVPG lane (EKG about 15 %, pressures 50 %, HVPG 35 % of the room when all three show). A phone's
+  trace box is 172 px instead of 140 so the HVPG lane fits there; the strip needs a taller card. Patients mode keeps its two lanes and
+  gains two pills in the chart's pill row, EKG (off) and HVPG lane (on, as before). Breathing is off on Variceal bleed 2, Gastric varices 5
+  and When the bleeding will not stop 2 (`params: { respiration: false }`), so the pressures show the heartbeat alone; a later preset
+  brings it back, and the Doppler decks keep it. Code and unit tests only; nobody has looked on screen. `src/worker-core.js`,
+  `src/ui/ekg.js`, `src/ui/trace-lanes.js`, `src/ui/pressure-time.js`, `tests/ekg-lane.test.js`.
 - **A summary table never scrolls, on an iPad on its side or anywhere else.** (Mohammad, 25 Oct: "The tables on the slide before last scrolls
   right and left on iPad. They should not ever scroll.") The summary table was a scroll box of its own inside its card, so a table wider than
   the narrower, centred card (the 25 Oct width cap) scrolled sideways, and the card's fit never saw it: it only measured the card, and the

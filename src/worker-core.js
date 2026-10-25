@@ -99,11 +99,12 @@ export function createCore(post) {
   // Until this time (ms) every tick also relaxes a hidden copy of the model quietly, so a live change settles while the clock runs on.
   let relaxUntil = 0;
   let beat = true; // the heartbeat always runs (the Over time trace is beat to beat from the start)
-  const newSamples = () => ({ t: [], vel: [], pvVel: [], hvVel: [], whvp: [], hvpg: [], ...Object.fromEntries(SAMPLE_NODES.map((n) => [n, []])) });
+  const newSamples = () => ({ t: [], ph: [], vel: [], pvVel: [], hvVel: [], whvp: [], hvpg: [], ...Object.fromEntries(SAMPLE_NODES.map((n) => [n, []])) });
 
   function sample() {
     if (!samples) samples = newSamples();
     samples.t.push(eng.t);
+    samples.ph.push(eng.phase());   // (the cardiac phase 0..1: the EKG strip's QRS lands where it wraps, ekg.js)
     samples.vel.push(eng.velocity(probe));
     samples.pvVel.push(eng.velocity('PV_TRUNK'));
     samples.hvVel.push(eng.velocity('RHV_IVC'));

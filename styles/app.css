@@ -2486,7 +2486,7 @@ button.finding { cursor: pointer; }
 .pz.stack .pz-data > * { flex-shrink: 0; }   /* (parts keep their height, so a card too full reads as overflow and is fitted, not squeezed until a reading is cut) */
 .pz.stack .pz-tool[data-kind="doppler"] .dop-box { height: 140px; }
 .pz.stack .pz-tool[data-kind="fibroscan"] .fibroscan-box { height: 140px; }
-.pz.stack .pz-tool[data-kind="beats"] .pt-box { height: 140px; }
+.pz.stack .pz-tool[data-kind="beats"] .pt-box { height: 172px; }   /* (tall enough for the pressures and the HVPG lane, trace-lanes.js; the EKG strip needs a taller card) */
 /* Phone: the scope sits beside its grade and size, and the Doppler drops its sentence, so a tile still fits under the instrument. */
 .pz.stack .pz-tool[data-kind="scope"] .pz-inst { flex-direction: row; align-items: center; gap: 12px; }
 .pz.stack .pz-tool[data-kind="scope"] .endo-stage { width: min(40%, 24vh); flex: none; margin: 0; }
@@ -3135,6 +3135,7 @@ button.finding { cursor: pointer; }
 .pt-chip i { width: 12px; height: 3px; border-radius: 2px; background: color-mix(in srgb, var(--chip) 35%, transparent); }
 .pt-chip[aria-pressed="true"] { color: var(--text); background: var(--surface-2); border-color: transparent; }
 .pt-chip[aria-pressed="true"] i { background: var(--chip); }
+.pt-chip:disabled { opacity: 0.4; cursor: default; }   /* (the EKG pill outside the last-beats range) */
 @media (hover: hover) { .pt-chip:hover { border-color: var(--border-strong); } }
 @media (max-width: 767px), (max-width: 1100px) and (orientation: portrait) {
   .pt-num { font-size: var(--fs-28); }

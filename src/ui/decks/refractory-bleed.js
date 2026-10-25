@@ -23,11 +23,11 @@ export const REFRACTORY_BLEED = {
   sections: [['The failure', ['Failure']], ['The bridge', ['The bridge']], ['The rescue', ['The rescue']]],
   slides: [
     {
-      id: 'controlled', preset: 'cirr-decomp', params: { drugs: { octreotide: true } }, action: [BAND], cam: 'varices', labels: ['VAR'], tool: BEATS, data: 'tiles', tiles: ['hr', 'map'], key: ['hr'],
+      id: 'controlled', preset: 'cirr-decomp', params: { drugs: { octreotide: true }, respiration: false }, action: [BAND], cam: 'varices', labels: ['VAR'], tool: BEATS, data: 'tiles', tiles: ['hr', 'map'], key: ['hr'],
       vignette: 'A 54-year-old man with alcohol-associated cirrhosis vomited blood two days ago. Octreotide, ceftriaxone and band ligation stopped the bleeding, and he is on the ward.',
       kicker: 'Failure', site: 'sin', title: 'The first bleed is controlled, for now',
       line: 'Banding and octreotide stopped the bleed, and the heart rate is {hr}. Until day 5, a new bleed would count as treatment failure, not as a new event.',
-      notes: 'The first days after a variceal bleed carry the highest risk of a rebleed. Octreotide continues for 2 to 5 days, ceftriaxone for up to 5 days, and a non-selective beta-blocker starts when the drug stops. Banding is repeated every 2 to 4 weeks until the varices are gone.',
+      notes: 'The first days after a variceal bleed carry the highest risk of a rebleed. Octreotide continues for 2 to 5 days, ceftriaxone for up to 5 days, and a non-selective beta-blocker starts when the drug stops. Banding is repeated every 2 to 4 weeks until the varices are gone. The strip over the pressures is a schematic rhythm timed to the model\'s heartbeat, not a modelled ECG.',
       ask: ['Why is a rebleed on day 3 not counted as a new bleed?', 'Baveno VIII defines treatment failure as uncontrolled bleeding or a rebleed within 5 days of the first bleed.'],
     },
     {
