@@ -22,11 +22,11 @@ import { sinusoidSupported } from './gl-support.js?v=94ad2a7ff1';
 import { SCALE_NAME, offeredScales, scaleView, pickedScale } from './scale-switch.js?v=1b0e3acd65';
 import { DISEASE_SRC, diseasePieces } from './diseases.js?v=fb8a5451c3';
 import { nb, listCase, plateletText } from './glue.js?v=5a0f63226b';
-import { DECKS, REGIONS, LEVELS, TOPICS, withOverview, siteTag, SITE_TAGS } from './decks.js?v=7d9a2ddf1c';
+import { DECKS, DECK_ALIAS, REGIONS, LEVELS, TOPICS, withOverview, siteTag, SITE_TAGS } from './decks.js?v=56114cbc3e';
 import { fingerprintOf } from '../engine/fingerprint.js?v=8faea80b59';
 import { createHvpgMonitor } from './hvpg-proc.js?v=27e9c2cbb0';
-import { createTools } from './presenter-tools.js?v=dffba530a8';
-import { openHandout } from './handout.js?v=aa2b7884f4';
+import { createTools } from './presenter-tools.js?v=42f08f8ca8';
+import { openHandout } from './handout.js?v=75f0243aa3';
 import { noteResume, resumeFor } from './resume.js?v=f086f80ee8';
 import { parseDeckSource, checkDeck } from './deck-source.js?v=8395c650cd';
 import { NO_ASC, TILE, tileOf, SCALE, bandsOf, rateOf, COLS, CUT, PRESS, fpv, dirAbs, dirRel, rateAbs, effOf, rateShown, tileShown, tipsGoal, liveSettled, shownSig } from './table-marks.js?v=b717587a61';
@@ -34,7 +34,7 @@ import { frameFor, cancelFrame } from './frame.js?v=19b3f2915c';
 import { createFigureKey } from './figure-key.js?v=8bbf7a41ed';
 import { traceWhen } from './trace-labels.js?v=fc916a95c6';
 import { flowCss, heatCss, dropCss, gradientCss, oxygenCss } from './colormap.js?v=cdcf6a2f55';
-import { EXT, expandIds, stepExtra, markLabel, figureHooks, safe } from './slide-ext.js?v=bdbfa845ba';
+import { EXT, expandIds, stepExtra, markLabel, figureHooks, safe } from './slide-ext.js?v=332e6f2187';
 import { clotWords } from './callout-math.js?v=5879980ef9';
 import { citeText, focusOf, oneLadder } from './teach-extras.js?v=5f5248f5a7';
 import { createProfileTool, createProfileStrip, pillReadings } from './tool-profile.js?v=73f0678a53';
@@ -57,8 +57,6 @@ const testingLoad = PREVIEW ? import('./test-decks/demo-all-new-visuals.js?v=753
 const writeMine = (list) => { try { localStorage.setItem(KEY, JSON.stringify(list)); } catch { /* storage unavailable */ } };
 const enc = (o) => btoa(unescape(encodeURIComponent(JSON.stringify(o)))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 const dec = (s) => JSON.parse(decodeURIComponent(escape(atob(s.replace(/-/g, '+').replace(/_/g, '/')))));
-// Old links and bookmarks: the self-running tour became the Sites presentation, the bleeding lecture the treatment one.
-const ALIAS = { 'where-block': 'sites', bleed: 'treatment' };
 
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 const reduce = matchMedia('(prefers-reduced-motion: reduce)');
@@ -4360,8 +4358,10 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     // (A talk still fading out is ended by this start, not by its own fade's end, which would otherwise run its restore under
     // the new talk; a return to healthy still under way stops where it is: motion review round 2, RF5.)
     leaving = null; healthyGen++;
-    const want0 = Math.max(0, (parseInt(at, 10) || 0));
-    const d = typeof id === 'object' ? id : all().find((x) => x.id === (ALIAS[id] || id));
+    // (An old id opens the deck that took its slides, at slide 1: the slide number it was linked with means nothing there.)
+    const aliased = typeof id === 'string' && Object.hasOwn(DECK_ALIAS, id);
+    const want0 = aliased ? 0 : Math.max(0, (parseInt(at, 10) || 0));
+    const d = typeof id === 'object' ? id : all().find((x) => x.id === (aliased ? DECK_ALIAS[id] : id));
     if (!d && typeof id === 'string' && id.startsWith('test-') && !TESTING.length) return testingLoad.then(() => start(id, at));   // (a ?script= link to the preview's test deck, asked before it loaded)
     if (!d?.slides?.length) { toast('That presentation could not be found.', 'bad'); return; }
     // The start is one composed reveal: a calm cover fades over the screen, the projector layout, the first patient and

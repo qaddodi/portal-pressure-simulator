@@ -13,3 +13,16 @@ test('every patient and deck gets a titled share page that forwards to the app',
   assert.match(html, /og:title" content="A &amp; &quot;B&quot;"/);
   assert.match(html, /location\.replace\("\.\.\/" \+ location\.hash\)/);
 });
+
+test('a talk merged into another keeps its old share page, which opens the deck that took its slides', async () => {
+  const { DECK_ALIAS } = await import('../src/ui/decks.js');
+  const list = await cases();
+  assert.equal(DECK_ALIAS['refractory-bleed'], 'variceal-bleed');
+  for (const [old, now] of Object.entries(DECK_ALIAS)) {
+    const page = list.find((c) => c.file === `deck-${old}.html`);
+    assert.ok(page, `${old} -> ${now}`);
+    assert.equal(page.target, `../?script=${now}`);
+    assert.ok(page.title);
+  }
+  assert.equal(list.find((c) => c.file === 'deck-refractory-bleed.html').target, '../?script=variceal-bleed');
+});

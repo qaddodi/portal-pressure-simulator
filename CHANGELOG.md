@@ -2,6 +2,22 @@
 
 ## October 2026
 
+- **Acute variceal bleeding takes in "When the bleeding will not stop" (13 slides).** (Mohammad, 25 Oct, "Go"; deck rebuild plan, C1. The merged talk is
+  Resuscitating an acute variceal bleed, Treatment and core.) After the pre-emptive TIPS comes a fifth section, "If it does not stop": a second case
+  whose bleed octreotide and bands controlled comes back by day 5 (`controlled`, `rebleed`, `failure`, `bridge`, `rescue`). Treatment failure and
+  who is considered for a rescue TIPS now sit in the words and notes of those slides; the two refractory slides on who gets a rescue TIPS and on
+  encephalopathy afterward went into the notes, since Choose the treatment, TIPS and shunts and Encephalopathy carry those points. The whole bleed runs on
+  one card, the beat trace (EKG strip, portal pressure, HVPG lane) over the map and hemoglobin tiles, whose ring marks where the run began; the
+  vitals monitor goes to the circulation talk. Two question cards: on "Shock before anemia" ("His pulse is racing. Has the hemoglobin fallen yet?") and
+  on "Bands stop the bleeding" ("Will banding lower his portal pressure?"). Bands opens the scope on the active bleed (the question card holds the
+  slide before's state, so the scope arrives bleeding) and the jet fades as the bands go on; its tiles are the portal vein pressure and the map, so the
+  answer is on the card. The summary table gains the rebleed and the rescue TIPS; the quick check's weakest question became the failure one. Small print
+  (`cite`, the failure and bridge caveats) moved into the notes. Old links keep working: `DECK_ALIAS` is now in `decks.js` and holds `refractory-bleed`
+  as well as `where-block` and `bleed`; an aliased id opens its deck at slide 1, and the share pages (`c/deck-refractory-bleed.html`) point at the
+  new deck. `src/ui/decks/refractory-bleed.js` is gone; its figures moved to `brand/handout/variceal-bleed/` (the stale ones are listed for the
+  redraw). Code and unit tests only; nobody has looked on screen. `src/ui/decks/variceal-bleed.js`, `src/ui/decks.js`, `src/ui/presenter.js`,
+  `scripts/share-pages.mjs`, `tests/deck-adopted.js`, `tests/deck-pills.json`, `tests/ekg-lane.test.js`, `tests/question-card.test.js`,
+  `tests/share-pages.test.js`.
 - **The scope can show a varix with air in the esophagus, and a slide can move an instrument's option.** (Mohammad, 25 Oct, "yes to both"; deck
   rebuild plan, B1, machinery only: the lesson itself is the next push.) The engine reads the diameter a varix is seen at with 0 to 20 mmHg of air in
   the lumen around it (`engine.varix(site, P, air)`; `metrics.varix.air`, a diameter for each mmHg): the air is taken off the pressure across the

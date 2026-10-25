@@ -35,6 +35,12 @@ export async function cases() {
     src = src.slice(src.indexOf(`id: '${id}'`));
     if (id) out.push({ file: `deck-${id}.html`, title: field(src, 'title'), summary: field(src, 'summary'), target: `../?script=${encodeURIComponent(id)}` });
   }
+  // A talk merged into another keeps its old share page: it names the deck that took its slides and opens it (decks.js DECK_ALIAS).
+  const { DECK_ALIAS, DECKS } = await import(pathToFileURL(join(ROOT, 'src/ui/decks.js')).href);
+  for (const [old, now] of Object.entries(DECK_ALIAS)) {
+    const to = DECKS.find((d) => d.id === now);
+    if (to && !out.some((c) => c.file === `deck-${old}.html`)) out.push({ file: `deck-${old}.html`, title: to.title, summary: to.summary, target: `../?script=${encodeURIComponent(now)}` });
+  }
   return out;
 }
 

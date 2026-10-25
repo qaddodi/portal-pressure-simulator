@@ -491,6 +491,25 @@
  "variceal-bleed/tips": [
   "{ppg}"
  ],
+ "variceal-bleed/controlled": [
+  "{hr}"
+ ],
+ "variceal-bleed/rebleed": [
+  "{hr}",
+  "{map}"
+ ],
+ "variceal-bleed/failure": [
+  "{hr}",
+  "{map}"
+ ],
+ "variceal-bleed/bridge": [
+  "{map}"
+ ],
+ "variceal-bleed/rescue": [
+  "{ppg}",
+  "{<12 mmHg}",
+  "{liver}"
+ ],
  "two-inflows/dual": [
   "portal vein",
   "{pvFlow}"
@@ -1023,25 +1042,6 @@
   "{lsm}",
   "{spleen}",
   "{plt}"
- ],
- "refractory-bleed/controlled": [
-  "{hr}"
- ],
- "refractory-bleed/rebleed": [
-  "{hr}",
-  "{map}"
- ],
- "refractory-bleed/failure": [
-  "{hr}",
-  "{map}"
- ],
- "refractory-bleed/bridge": [
-  "{map}"
- ],
- "refractory-bleed/tips": [
-  "{ppg}",
-  "{<12 mmHg}",
-  "{liver}"
  ],
  "transplant-doppler/hat": [
   "{liver}"

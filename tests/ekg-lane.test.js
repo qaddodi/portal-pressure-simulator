@@ -131,7 +131,7 @@ test('the phase reaches the chart: its fine buffer, the beat clock and the clear
 
 test('breathing is off on the first beat-trace slide of each run, and the Doppler decks keep it', () => {
   const slide = (deck, id) => DECKS.find((d) => d.id === deck).slides.find((s) => s.id === id);
-  for (const [deck, id] of [['variceal-bleed', 'before'], ['gastric-varices', 'bleed'], ['refractory-bleed', 'controlled']]) {
+  for (const [deck, id] of [['variceal-bleed', 'before'], ['gastric-varices', 'bleed'], ['variceal-bleed', 'controlled']]) {
     const s = slide(deck, id);
     assert.equal(s.tool?.kind, 'trace');
     assert.equal(s.tool.range, 'beats');
@@ -140,5 +140,5 @@ test('breathing is off on the first beat-trace slide of each run, and the Dopple
   }
   // (Only those three runs: any other deck that turns breathing off is a Doppler slide that reads its own waveform.)
   const off = DECKS.flatMap((d) => d.slides.filter((s) => s.params?.respiration === false).map((s) => `${d.id}/${s.id}`));
-  assert.deepEqual(off.filter((k) => /^(variceal-bleed|gastric-varices|refractory-bleed)\//.test(k)).sort(), ['gastric-varices/bleed', 'refractory-bleed/controlled', 'variceal-bleed/before']);
+  assert.deepEqual(off.filter((k) => /^(variceal-bleed|gastric-varices)\//.test(k)).sort(), ['gastric-varices/bleed', 'variceal-bleed/before', 'variceal-bleed/controlled']);
 });
