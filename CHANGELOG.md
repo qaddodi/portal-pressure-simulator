@@ -2,13 +2,15 @@
 
 ## October 2026
 
-- **The outline, summary table and quick check are narrower and centred on wide screens; the case card's question is centred.**
+- **The outline, summary table, quick check and chart cards are narrower and centred on wide screens; the case card's question is centred.**
   (Mohammad, 25 Oct: "The outline card, the tables card and the questions card on wide screens like iPad side way and Mac should be more
-  centered and not too wide... Need the viewer to focus"; then "The little question in the case card should be centered.") On a Mac or an
-  iPad on its side each of the three cards is a centred card of its own width, in multiples of the teaching card's body text so it grows
-  with the words: the outline 50, the table 54 and the quick check 42, and never more than 82% of the screen. A 1440 x 900 Mac, where
-  they took 1366 px, now shows the outline about 1040 px wide, the table about 1120 and the quick check about 870; an iPad at 1024 x 768
-  shows them at 840 (the outline keeps its two columns down to 1024 wide). Phones and the upright iPad keep their full-width and 70% cards. The outline
+  centered and not too wide... Need the viewer to focus"; then "The little question in the case card should be centered", then "Ladders OK but
+  the rest can be narrowed".) On a Mac or an iPad on its side each full card is a centred card of its own width, in multiples of the
+  teaching card's body text so it grows with the words: the outline 50, the table 54 and the quick check 42, and never more than 82% of the
+  screen. The scale, the SAAG plot, the two capillary walls and the planes (stiffness against platelets and the others) take the table's
+  width; only the six ladders keep the whole screen. A 1440 x 900 Mac, where they took 1366 px, now shows the outline about 1040 px
+  wide, the table and the charts about 1120 and the quick check about 870; an iPad at 1024 x 768 shows them at 840 (the outline keeps its
+  two columns down to 1024 wide). Phones and the upright iPad keep their full-width and 70% cards. The outline
   had a 1180 px width rule that never applied (the wide panel's own rule was more specific); it is gone. The case card's short question
   (`caseQ`) sat at the left of the card under its centred text, because the card is a flex column that starts its lines at the left and a
   line shorter than the card keeps its own width; each line of the case card now stretches across the card, on every device and deck.

@@ -1478,7 +1478,7 @@ button.finding { cursor: pointer; }
   --pz-cm: clamp(16px, min(2.6vw, calc(1.8 * var(--pz-b))), 60px);   /* (one margin: sides, top, bottom and the nav pill) */
   --pz-cp: clamp(18px, calc(1.4 * var(--pz-b)), 40px);   /* (one padding, both cards) */
   --pz-cw: min(calc(clamp(340px, min(38vw, calc(23.5 * var(--pz-b))), 640px) * var(--pz-wk, 1)), 42vw);   /* (one card width, about 40 characters of body text) */
-  --pz-rw-outline: min(calc(50 * var(--pz-b)), 82%); --pz-rw-table: min(calc(54 * var(--pz-b)), 82%); --pz-rw-check: min(calc(42 * var(--pz-b)), 82%); }   /* (the reading cards' widths on a wide screen, below) */
+  --pz-rw-outline: min(calc(50 * var(--pz-b)), 82%); --pz-rw-table: min(calc(54 * var(--pz-b)), 82%); --pz-rw-check: min(calc(42 * var(--pz-b)), 82%); --pz-rw-chart: min(calc(54 * var(--pz-b)), 82%); }   /* (the reading cards' widths on a wide screen, below) */
 .pz-shade.pz-card:not(.stack) { --pz-glass-drop: rgb(var(--black-rgb) / .14); --pz-r: clamp(16px, calc(2.2 * var(--pzh)), 28px); left: var(--pz-cm); top: var(--pz-cm); bottom: var(--pz-cm); background: color-mix(in srgb, var(--surface) 58%, transparent); border: 1px solid color-mix(in srgb, var(--text) 22%, transparent); border-radius: var(--pz-r); box-shadow: 0 14px 34px -10px var(--pz-glass-drop), 0 2px 6px -1px var(--pz-glass-drop); }
 :root[data-theme="dark"] .pz-shade.pz-card:not(.stack) { --pz-glass-drop: rgb(var(--black-rgb) / .45); }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]):not([data-theme="soft"]) .pz-shade.pz-card:not(.stack) { --pz-glass-drop: rgb(var(--black-rgb) / .45); } }
@@ -5411,11 +5411,13 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
    the room over it, so the pill never sits on its corner.) */
 .pz:not(.stack) .pz-panel { width: min(1560px, calc(100% - 2 * var(--pz-cm))); top: calc(50% - (var(--pz-cm) + 44px) / 2); max-height: calc(100% - 3 * var(--pz-cm) - 44px); }
 .pz:not(.stack) .pz-panel.fill { height: calc(100% - 3 * var(--pz-cm) - 44px); }
-/* The reading cards (the opening outline, a summary table, the closing quick check) are a column to read, not a wall: on a laptop or a
+/* The full cards other than the six ladders (the opening outline, a summary table, the closing quick check, the scale, the SAAG plot, the two
+   capillary walls, a plane) are a column to read, not a wall: on a laptop or a
    tablet on its side each stays a centred card, a width in the teaching card's body text (--pz-b, so it grows with the words) and never
    more than 82% of the screen, so the eye has one place to land and the veiled figure shows round it (Mohammad, 25 Oct). The
    fit (presenter.js fitCards) judges the card at this width; a phone keeps its full-width card (.stack, .low).
    (The widths are :root tokens, read where --pz-b is the body text: presenter.js sets --pz-b on the app element as the bottom room in px.) */
+.pz:not(.stack):not(.low) .pz-panel:not(.fill) { width: var(--pz-rw-chart); }   /* (every other full card, the scale, the SAAG plot, the two walls, a plane: the table's width; only the six ladders, .fill, keep the screen) */
 .pz:not(.stack):not(.low) .pz-panel[data-visual="outline"] { width: var(--pz-rw-outline); }
 .pz:not(.stack):not(.low) .pz-panel[data-visual="table"] { width: var(--pz-rw-table); }
 .pz:not(.stack):not(.low) .pz-panel[data-visual="check"] { width: var(--pz-rw-check); }
