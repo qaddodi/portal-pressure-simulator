@@ -76,7 +76,7 @@ export const ADOPTED = {
   'prehepatic/anticoag': ['kind:lumen', 'cite'],
   'prehepatic/cavernoma': ['kind:lumen'],
   'prehepatic/summary': ['cols.wave', 'wave'],
-  'outflow/open': ['kind:lumen'],
+  'outflow/open': ['kind:lumen', 'cite'],
   'outflow/dips': ['kind:flows'],
   'outflow/soswedge': ['kind:profile'],
   'ncph/patient': ['calipers', 'normalOutline'],

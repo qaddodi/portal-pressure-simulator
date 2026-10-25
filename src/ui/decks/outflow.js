@@ -23,7 +23,7 @@ export const OUTFLOW = {
       whatIf: { label: 'Right hepatic vein clot', param: 'thrombus.RHV_IVC', min: 0, max: 1, step: 0.05, ends: ['None', 'Occlusive'] },
       kicker: 'Hepatic veins', site: 'post', title: 'In Budd–Chiari syndrome the hepatic veins clot',
       vignette: 'A 31-year-old woman with antiphospholipid syndrome stopped warfarin 3 months ago. She has had RUQ pain for 2 months and now has tense ascites.',
-      line: 'Resistance anywhere from the small [hepatic veins](hv) to where the IVC enters the right atrium traps blood in the liver. The liver swells, portal pressure rises to {pv} and ascites forms. Colored by congestion, the pressure backs up behind the clotted veins.',
+      line: 'Resistance anywhere from the small [hepatic veins](hv) to where the IVC enters the right atrium traps blood in the liver. The liver swells, portal pressure rises to {pv} and ascites forms.',
       causesHead: 'Look for', causes: ['Myeloproliferative neoplasm', 'Thrombophilia', 'Pregnancy or OCP use'],
       notes: 'Budd–Chiari syndrome is raised resistance to hepatic venous outflow anywhere from the small hepatic veins to the entry of the IVC into the right atrium, without heart disease. It presents with abdominal pain, a large tender liver and ascites, suddenly or over months. Most patients have at least one prothrombotic condition, often more than one: a myeloproliferative neoplasm (the commonest), antiphospholipid syndrome, inherited thrombophilia, paroxysmal nocturnal hemoglobinuria, pregnancy or oral contraceptive (OCP) use; and JAK2 is tested even when the blood count is normal.',
       ask: ['A young woman has a tender liver and sudden ascites. Her blood count is normal. Which test still looks for the commonest cause?', 'JAK2 V617F, then CALR if it is negative: a myeloproliferative neoplasm is the commonest cause even with a normal count.'],
@@ -45,7 +45,8 @@ export const OUTFLOW = {
     {
       id: 'open', terms: ['hv'], params: { thrombus: { RHV_IVC: 0 } }, days: 60, lapse: { seconds: 7 }, cam: 'hepatic', mark: { edges: ['RHV_IVC'], label: 'Stent', kind: 'treat' }, tool: { kind: 'lumen', vessel: 'RHV_IVC' }, data: 'tiles', tiles: ['pv', 'asc'], key: ['asc'], delta: 'bcs',
       kicker: 'Opening the outflow', site: 'post', title: 'One open hepatic vein is enough',
-      line: 'Angioplasty and a stent reopen the right hepatic vein. Two months later the portal pressure is {pv} and the ascites has gone.',
+      line: 'Anticoagulation comes first and continues. When a short narrowing remains, angioplasty and a stent reopen the right hepatic vein. Two months later the portal pressure is {pv} and the ascites has gone.',
+      cite: 'EASL 2025, Budd–Chiari syndrome',
       notes: 'Treatment is stepwise. Every patient is anticoagulated, unless it is contraindicated, and the cause is treated. A short narrowing of a hepatic vein or of the IVC is opened by angioplasty, usually with a stent, and one good hepatic vein can drain the whole liver, as here. Patients who still worsen go on to a shunt, and those with liver failure to transplantation.',
       ask: ['When is angioplasty enough, and when is a shunt chosen?', 'Angioplasty, with a stent if the vein narrows again, for a short stenosis; a TIPS or DIPS when no vein can be opened or the patient does not improve.'],
     },
