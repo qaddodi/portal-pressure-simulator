@@ -170,25 +170,25 @@
   "{hvpg}"
  ],
  "treatment/prop": [
-  "{pvFlow}"
+  "{pvFlow}",
+  "{hvpg}"
+ ],
+ "treatment/carv": [
+  "{hvpg}"
+ ],
+ "treatment/carv-sin": [
+  "sinusoids",
+  "{hvpg}"
  ],
  "treatment/oct": [
   "{pvFlow}"
  ],
- "treatment/band": [
-  "varices"
- ],
- "treatment/tips": [
-  "sinusoids",
-  "portal vein",
-  "hepatic vein",
-  "{ppg}"
- ],
- "treatment/after": [
-  "{ppg}"
- ],
  "treatment/vs": [
   "{ppg}"
+ ],
+ "treatment/schisto": [
+  "portal venules",
+  "{pv}"
  ],
  "stiffness/measure": [
   "(a value)"
@@ -729,31 +729,6 @@
  "pregnancy/after": [
   "{bv}",
   "{hvpg}"
- ],
- "beta-blockers/ohm": [
-  "{hvpg}"
- ],
- "beta-blockers/prop-sin": [
-  "{pvFlow}",
-  "{hvpg}"
- ],
- "beta-blockers/carv-sin": [
-  "sinusoids",
-  "{hvpg}"
- ],
- "beta-blockers/schisto": [
-  "portal venules",
-  "{pv}",
-  "{hvpg}"
- ],
- "beta-blockers/prop-pre": [
-  "{pvFlow}",
-  "{pv}"
- ],
- "beta-blockers/carv-pre": [
-  "portal venules",
-  "{pv}",
-  "{pv@prop-pre}"
  ],
  "encephalopathy/firstpass": [
   "{shunt}"

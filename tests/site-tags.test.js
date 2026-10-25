@@ -21,8 +21,8 @@ test('every slide site is a known level, and every tagged slide maps to exactly 
 
 test('decks that teach more than one level tag their slides; cirrhosis-only decks, rails and visuals do not', () => {
   const by = (id) => DECKS.find((d) => d.id === id);
-  for (const id of ['ncph', 'prehepatic', 'outflow', 'lobule', 'hvpg', 'doppler']) assert.ok(by(id).slides.some((s) => siteTag(by(id), s)), id);
-  for (const id of ['endoscopy', 'treatment', 'circuit']) assert.ok(!by(id).slides.some((s) => siteTag(by(id), s)), id);
+  for (const id of ['ncph', 'prehepatic', 'outflow', 'lobule', 'hvpg', 'doppler', 'treatment']) assert.ok(by(id).slides.some((s) => siteTag(by(id), s)), id);
+  for (const id of ['endoscopy', 'circuit']) assert.ok(!by(id).slides.some((s) => siteTag(by(id), s)), id);
   for (const d of DECKS) for (const s of withOverview(d).slides) if (s.rail || s.visual) assert.equal(siteTag(d, s), null, `${d.id}/${s.id}`);
   assert.deepEqual(siteTag(by('prehepatic'), by('prehepatic').slides[0]), { site: 'pre', name: 'Pre-hepatic' });
 });

@@ -36,20 +36,20 @@ test('the presenter has no old ladder left: no five-station drawing, strip, lege
 
 test('every slide that had the old ladder shows the Gut to heart chart, or keeps its instrument with the readings as tiles', () => {
   const was = { 'circulation.js': ['ladder', 'define'], 'circuit.js': ['where'], 'hvpg.js': ['hvpg', 'presin', 'ppg', 'heart'], 'lobule.js': ['wedge'],
-    'treatment.js': ['target', 'prop', 'carv', 'oct', 'vs'], 'one-year.js': ['d365', 'carv'], 'cause-treated.js': ['high', 'high2'],
+    'treatment.js': ['target', 'oct', 'vs'], 'one-year.js': ['d365', 'carv'], 'cause-treated.js': ['high', 'high2'],
     'recompensation.js': ['csph', 'carv'], 'ncph.js': ['wedge'], 'outflow.js': ['soswedge'],
     'prehepatic.js': ['cath', 'gradients'], 'where.js': ['q1', 'a1', 'a2', 'q3', 'a3', 'q4', 'a4', 'a5', 'q6', 'a6'] };
   for (const [f, ids] of Object.entries(was)) for (const id of ids) assert.equal(at(f, id)?.tool?.kind, 'profile', `${f} ${id}`);
   // (A card holds one instrument, and a phone has no room for a Doppler and the chart: there the chart's numbers are tiles.)
   assert.deepEqual(at('outflow.js', 'nowedge').tiles, ['pv', 'ppg']);
-  assert.deepEqual(at('treatment.js', 'tips').tiles, ['ppg', 'varix']);
   for (const id of ['q2', 'q5']) { assert.equal(at('where.js', id).tool.kind, 'doppler', id); assert.deepEqual(at('where.js', id).tiles, ['hvpg', 'ppg'], id); }
   // (Each card that had tiles beside the ladder keeps them.)
   for (const s of slides) if (s.tiles?.length && s.tool) assert.equal(s.data, 'tiles', `${s.f} ${s.id}: its tiles show`);
 });
 
 test('the earlier line keeps its name: No Rx before treatment, Day 0 a year back', () => {
-  for (const id of ['prop', 'carv']) assert.deepEqual(at('treatment.js', id).tool, { kind: 'profile', from: 'target', fromLabel: 'No Rx' }, id);
+  // (Lowering portal pressure's propranolol and carvedilol slides read the HVPG tracing and the percent fall now, not the line: C3, 25 Oct.)
+  for (const id of ['prop', 'carv', 'carv-sin']) assert.deepEqual(at('treatment.js', id).tool, { kind: 'hvpg' }, id);
   assert.deepEqual(at('one-year.js', 'd365').tool, { kind: 'profile', from: 'd0', fromLabel: 'Day 0' });
   assert.deepEqual(at('one-year.js', 'carv').tool, { kind: 'profile', from: 'd365', fromLabel: 'No Rx' });
   const prof = readFileSync(new URL('../src/ui/tool-profile.js', import.meta.url), 'utf8');

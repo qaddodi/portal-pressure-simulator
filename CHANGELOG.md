@@ -66,6 +66,18 @@
   listed for the figure redraw at the end of the rebuild. Code only; nobody has looked on screen. `src/ui/decks/doppler.js`, `src/ui/decks.js`,
   `src/ui/presenter.js`, `tests/deck-adopted.js`, `tests/deck-pills.json`, `tests/teaching-features.test.js`, `tests/deck-lenses.test.js`,
   `tests/deck-terms.test.js`.
+- **Lowering portal pressure takes in Propranolol or carvedilol (9 slides).** (Mohammad, 25 Oct, "Go"; deck rebuild plan, C3.) The talk is now
+  `target`, `prop`, `carv`, `carv-sin`, `oct`, `terli`, `vs`, then the old beta-blocker talk's schistosomiasis case (`schisto`, with its case card and
+  the question "Will carvedilol add much to propranolol here?") and the summary. The three beta-blocker slides (`prop`, `carv`, `carv-sin`) share one
+  card, the HVPG catheter's tracing with the percent-fall tile counted from the untreated patient; `carv` opens with a question card ("Which lever
+  does carvedilol pull?") and `carv-sin` keeps the Propranolol and Carvedilol buttons. `oct` and `terli` keep their tiles. Flow is the second lens, on the drug
+  slides; the drop, origin and since lenses are gone. The banding, TIPS, after-TIPS and cost slides left (Preventing the next bleed, TIPS and shunts and the
+  bleed talk own them), as did the beta-blocker talk's other slides: its circuit slide, the propranolol slides, the carvedilol-in-schistosomiasis slide and
+  "In practice", which went into the notes of `carv-sin` and `schisto`. `vs` sets its own state (a TIPS) so it does not inherit the schistosomiasis
+  patient. The quick check and the summary table follow. Because the talk now teaches two levels its slides carry the level tab. `?script=beta-blockers`
+  opens this talk (`DECK_ALIAS`, and its share page). Figures: `carv-sin` and `schisto` moved; the others of both talks that left were removed, and every figure that
+  stays is stale until the redraw. Code and unit tests only; nobody has looked on screen. `src/ui/decks/treatment.js`, `src/ui/decks.js`,
+  `tests/deck-adopted.js`, `tests/deck-pills.json`, `tests/one-ladder.test.js`, `tests/site-tags.test.js`, `tests/question-card.test.js`.
 - **"The circulation in cirrhosis": Hyperdynamic takes in Blood volume (8 slides).** (Mohammad, 25 Oct, "Go"; deck rebuild plan, C2.) The talk keeps
   its id `hyperdynamic` and its Foundations place and is now `rest`, `dilate`, `resist`, `volume`, `forward`, then the old Blood volume's `full` (its case
   card, "Losing blood") and `loss` (its question card, "What will a liter lost do to the portal pressure?"), then the summary. One vitals monitor (heart

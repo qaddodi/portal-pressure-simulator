@@ -38,7 +38,7 @@ A slide is **one idea**: a standalone title, a line of fewer than 45 words (sect
 
 | Field | Type | Notes |
 |---|---|---|
-| `id` | string | Kebab-case, unique across all decks (existing, 35: `circulation circuit two-inflows hvpg hyperdynamic sites prehepatic ncph outflow lobule where-resistance doppler stiffness one-year varices endoscopy variceal-bleed ascites tap encephalopathy spleen gastric-varices recompensation pregnancy treatment beta-blockers next-bleed choose-treatment cause-treated shunts tips-doppler first-visit transplant-doppler ten-years tips-journey`). A talk that was merged into another keeps working by its old id: add it to `DECK_ALIAS` in `decks.js` (old id → the deck that took its slides). `?script=<old id>` and the share page `c/deck-<old id>.html` then open that deck at slide 1 (`blood-volume` → `hyperdynamic`, `read-doppler` → `doppler`, `refractory-bleed` → `variceal-bleed`, `where-block` → `sites`, `bleed` → `treatment`). |
+| `id` | string | Kebab-case, unique across all decks (existing, 34: `circulation circuit two-inflows hvpg hyperdynamic sites prehepatic ncph outflow lobule where-resistance doppler stiffness one-year varices endoscopy variceal-bleed ascites tap encephalopathy spleen gastric-varices recompensation pregnancy treatment next-bleed choose-treatment cause-treated shunts tips-doppler first-visit transplant-doppler ten-years tips-journey`). A talk that was merged into another keeps working by its old id: add it to `DECK_ALIAS` in `decks.js` (old id → the deck that took its slides). `?script=<old id>` and the share page `c/deck-<old id>.html` then open that deck at slide 1 (`beta-blockers` → `treatment`, `blood-volume` → `hyperdynamic`, `read-doppler` → `doppler`, `refractory-bleed` → `variceal-bleed`, `where-block` → `sites`, `bleed` → `treatment`). |
 | `level` | `'foundation'` \| `'core'` \| `'advanced'` | Shown as Foundation / Core / Advanced. |
 | `title` | string | Full title. |
 | `minutes` | number | Talk length. |
@@ -491,7 +491,7 @@ not, and follows the model as the tiles do. `note` is the case's own value in a 
 bleeding"); `lit: true` sets the row that applies to the case in full-white words (the other rows stay quieter; rows are split by a hairline, as the quick check's, with no fills). `ticks: false` leaves the marks off, for a classification such as the
 Sarin classes. `title` names the card (keep it under about 36 characters; `short` is a phone's shorter title). The slide's tiles sit under
 the card, never beside it. Give the slide no `causes` with the same list, and check every row's words against the guideline. Used on
-Variceal bleed 8, Choose the treatment 3, Recompensation 7, Gastric varices 2, Beta-blockers 8, Pregnancy 6 and 7, Paracentesis 8, Encephalopathy 4, First visit 2, 10 and 12, Ten years 12 and 13 and TIPS journey 2, 3, 7 and 8.
+Variceal bleed 8, Choose the treatment 3, Recompensation 7, Gastric varices 2, Pregnancy 6 and 7, Paracentesis 8, Encephalopathy 4, First visit 2, 10 and 12, Ten years 12 and 13 and TIPS journey 2, 3, 7 and 8.
 
 **Question card: `question: 'One short question?'`.** The room is asked before the slide teaches, and the slide is the answer. Going forward
 one step onto the slide, the case card's glass comes up over the figure as it stands, tagged Question, with the question in large type and
@@ -502,8 +502,8 @@ lifts it, and the slide goes on behind it. Put it on a slide that shows the answ
 showing those numbers, and plays the change once the card is lifted (the time-lapse, or the eased change a `compare` button makes) with the
 numbers following. Jumped to, or gone back to, the slide shows as any other. Write one question under 100 characters, starting with a
 capital and ending in a question mark, with no number in it. At most one question card in any three slides, one per section and three per deck, never two in a
-row. The handout prints the question before the slide's words, with no answer line. Used on Circuit 6, Blood volume 3, Next bleed 4 and
-Beta-blockers 7 (the four slides that asked with Predict until 25 Oct; Predict is gone, its choices and its reveal with it). A built-in slide
+row. The handout prints the question before the slide's words, with no answer line. Used on Circuit 6, The circulation in cirrhosis 8, Next bleed 4, Lowering portal pressure 4 and
+Variceal bleed 4 and 7 (the first four slides asked with Predict until 25 Oct; Predict is gone, its choices and its reveal with it). A built-in slide
 uses it only when `tests/deck-adopted.js` lists it.
 
 ```js
@@ -519,8 +519,8 @@ Three decks teach that a fall in HVPG is a response, and a tile can now show the
 HVPG, in percent, read live as the other tiles are, so a compare button or a time-lapse moves it. Its bar runs from 0 to 40% with
 marks at 10% and 20%; its line says which HVPG it counts from ("from 18.0 mmHg"); its word is "Under 10%" (red), "≥ 10%" (amber, a
 response before any bleed), "≥ 20%" (green, a response after a bleed too), or "≤12 mmHg" (green) when the HVPG has come down to 12
-or less. Count from the untreated patient, not from the drug before: on Beta-blockers 4 the fall is from Beta-blockers 2, though its
-other tiles count from propranolol. Used on Next bleed 5, Beta-blockers 3 and 4 and One year 9. (HVPG 5 is left out: its buttons
+or less. Count from the untreated patient, not from the drug before: on Lowering portal pressure 5 the fall is from slide 2, the untreated patient,
+though the slide before is carvedilol. Used on Next bleed 5, Lowering portal pressure 3 to 5 and One year 9. (HVPG 5 is left out: its buttons
 switch patients, and a difference between two patients is not a response.)
 
 #### The Doppler reading grid: `grid` on `tool: doppler`
