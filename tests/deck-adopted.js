@@ -234,6 +234,19 @@ export const ADOPTED = {
   'transplant-doppler/pvt': ['caseQ', 'cite'],
   'transplant-doppler/outflow': ['caseQ', 'cite'],
   'transplant-doppler/summary': ['cols.wave', 'wave'],
+  'ten-years/start': ['kind:profile', 'milestone', 'cite'],
+  'ten-years/rise': ['kind:profile', 'tool.from', 'tool.fromLabel'],
+  'ten-years/carv': ['kind:profile', 'tool.from', 'tool.fromLabel', 'milestone', 'cite'],
+  'ten-years/ascites': ['milestone'],
+  'ten-years/diuretics': ['cite'],
+  'ten-years/bleed': ['milestone', 'calipers'],
+  'ten-years/bands': ['cite', 'calipers'],
+  'ten-years/rebleed': ['milestone', 'kind:profile', 'tool.from', 'tool.fromLabel'],
+  'ten-years/tips': ['milestone', 'kind:profile', 'tool.from', 'tool.fromLabel', 'cite'],
+  'ten-years/he': ['kind:profile'],
+  'ten-years/he-answer': ['kind:criteria', 'cite'],
+  'ten-years/list': ['milestone', 'kind:criteria', 'cite'],
+  'ten-years/course': ['tool.bands'],
 };
 
 /** Whether the slide d/s may use the field. */
