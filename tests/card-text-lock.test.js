@@ -128,8 +128,8 @@ test('a time-lapse slide in view never lays its cards out again as its readings 
   // (Every reading that measured the data card a hair different ran the whole layout again, many times a second while the days ran,
   // and on an iPhone the teaching card vibrated: Endoscopy 3, 18 Oct.)
   assert.match(js, /const cardsStill = \(\) => !!shown && shown\.i === want && \(liveOff \|\| !!slides\[want\]\?\.lapse\) && !!ui && !ui\.root\.classList\.contains\('pz-prep'\);/);
-  assert.match(js, /clearRO \|\|= new ResizeObserver\(\(\) => \{ cancelFrame\(paneRaf\); paneRaf = nextFrame\(\(\) => \{ if \(!ui\) return; if \(cardsStill\(\)\) fitCards\(ui\.data\); else layout\(\); \}\); soon\(\); \}\);/);
-  assert.match(js, /fitRaf = nextFrame\(\(\) => \{ if \(ui && cardsStill\(\)\) \{ fitCards\(ui\.data\); return; \}/);
+  assert.match(js, /clearRO \|\|= new ResizeObserver\(\(\) => \{ cancelFrame\(paneRaf\); paneRaf = nextFrame\(\(\) => \{ if \(!ui \|\| cardMoving\(\)\) return; if \(cardsStill\(\)\) fitCards\(ui\.data\); else layout\(\); \}\); soon\(\); \}\);/);
+  assert.match(js, /fitRaf = nextFrame\(\(\) => \{ if \(ui && cardMoving\(\)\) return; if \(ui && cardsStill\(\)\) \{ fitCards\(ui\.data\); return; \}/);
   assert.ok(js.indexOf('const cardsStill') < js.indexOf('function layout()'));
 });
 

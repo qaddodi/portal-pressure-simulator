@@ -2472,7 +2472,11 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   // and its glass, is LIP less of the readings' travel: the readings' card already shows its LIP-px edge above the instrument card tucked, so
   // out it needs LIP less than the instrument card's rise to stand the same gap under the words, tucked or out (Mohammad, 22 Oct: "the distance
   // between the untucked and tucked card and teaching card should remain consistent"; it was LIP more out, about 110 px beside 60 px.))
-  const setRise = (name, w) => { const v = w > 0.5 ? `${w.toFixed(1)}px` : ''; if (wrap.style.getPropertyValue(name) !== v) { if (v) wrap.style.setProperty(name, v); else wrap.style.removeProperty(name); } };
+  // (Written on the cards that rise, never on the stage's box: a custom property there is inherited by the whole figure, so each frame of
+  // a slide restyled every vessel, and the stage, which watches its box's style, dropped its style snapshot and synced every vessel again,
+  // about 10 frames a second on a Mac, Mohammad, 25 Oct: "moving the cards up sliding tucking untucking is very very laggy".)
+  const riseOn = (name) => (name === '--pz-lift' ? [ui?.data, ui?.lip] : [ui?.text, ui?.shade]);
+  const setRise = (name, w) => { const v = w > 0.5 ? `${w.toFixed(1)}px` : ''; for (const el of riseOn(name)) if (el && el.style.getPropertyValue(name) !== v) { if (v) el.style.setProperty(name, v); else el.style.removeProperty(name); } };
   const liftTo = (u) => { const trav = Math.max(0, slip.lift - slip.base), f = u > 0 ? u : 0; setRise('--pz-lift', slip.base + f * trav); setRise('--pz-rise', slip.base + f * Math.max(0, trav - LIP)); };
   // (Told when the readings' card starts to move, so the Doppler probe is placed against the cards frame by frame as they go: stage.js dprTrack.)
   const slideTell = () => dispatchEvent(new Event('pps:slide'));
@@ -2897,13 +2901,17 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   // hair different laid the cards out again and fitted the words afresh, a pixel off each time, so the teaching card's text shook
   // under the finger: Tricuspid leak on slide 60 of the test-all deck on an iPhone, 19 Oct.)
   const cardsStill = () => !!shown && shown.i === want && (liveOff || !!slides[want]?.lapse) && !!ui && !ui.root.classList.contains('pz-prep');
+  // (While the readings' card slides or a part folds, the data card's box changes size on every frame: each change laid every card out
+  // again, the words fitted afresh and the figure framed, frame by frame, so the slide ran at about 10 frames a second (Mohammad, 25 Oct).
+  // The card moves by its own CSS (--pz-u, --pz-grow) and is laid out once it rests: foldStill.)
+  const cardMoving = () => !!ui && (ui.data.classList.contains('pz-sliding') || 'folding' in ui.data.dataset);
   let shiftLock = null;   // (the stacked pair's centring, keyed as the words' lock: layout)
   let textLock = null, foldHeld = null;   // (foldHeld: the foldKey the data card was last folded for, layout)
   let fitRO = null, fitRaf = 0, clearRO = null, clearT = 0, paneRaf = 0, fitKids = [], clearFor = null;
   const fitWatch = () => {
     fitRO ||= new ResizeObserver(() => {
       cancelFrame(fitRaf);
-      fitRaf = nextFrame(() => { if (ui && cardsStill()) { fitCards(ui.data); return; } if (ui && [ui.text, ui.data, ui.panel].some((el) => !el.hidden && fitDone.get(el) !== fitSig(el) && (el.style.getPropertyValue('--pz-fit') || (({ v, h }) => v > 1 || h > 1)(overflowOf(el))))) layout(); });   // (a shrunk card is fitted again when it changes, so it can grow back)
+      fitRaf = nextFrame(() => { if (ui && cardMoving()) return; if (ui && cardsStill()) { fitCards(ui.data); return; } if (ui && [ui.text, ui.data, ui.panel].some((el) => !el.hidden && fitDone.get(el) !== fitSig(el) && (el.style.getPropertyValue('--pz-fit') || (({ v, h }) => v > 1 || h > 1)(overflowOf(el))))) layout(); });   // (a shrunk card is fitted again when it changes, so it can grow back)
     });
     // (Watched again only when the cards' children changed: observing a box reports it at once, so re-observing on every pass
     // ran the layout again every frame on a slide sitting still, Circuit 7 on an iPhone some four times a second.)
@@ -2914,7 +2922,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       if (cardSig() !== framedSig) reframe(400); };   // (only when the cards really changed: the camera framed them once; any slide, so a card that grew never covers its box)
     const soon = () => { clearTimeout(clearT); clearT = setTimeout(again, 120); };
     // (The words' glass pane and the figure's insets follow a card that grows after the layout, a chart arriving under the words.)
-    clearRO ||= new ResizeObserver(() => { cancelFrame(paneRaf); paneRaf = nextFrame(() => { if (!ui) return; if (cardsStill()) fitCards(ui.data); else layout(); }); soon(); });
+    clearRO ||= new ResizeObserver(() => { cancelFrame(paneRaf); paneRaf = nextFrame(() => { if (!ui || cardMoving()) return; if (cardsStill()) fitCards(ui.data); else layout(); }); soon(); });
     if (clearFor !== ui) { clearRO.disconnect(); clearRO.observe(ui.data); clearRO.observe(ui.text); clearFor = ui; }
     ui.data.ontransitionend = ui.text.ontransitionend = soon;   // (a card slides into place: its edge is where it ends, not where it was measured)
   };
@@ -3218,7 +3226,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     if (t && tabsTight(k)) ui.shade.classList.add('pz-tabs-tight');
     const lift = p && t ? glassLift(k) : 16;
     // (The words' rect carries the stacked pair's rise, --pz-rise, which the glass takes by its own translate: read back without it.)
-    const lf = (parseFloat(wrap.style.getPropertyValue('--pz-rise')) || 0) * k;
+    const lf = (parseFloat(ui.text.style.getPropertyValue('--pz-rise')) || 0) * k;
     ui.shade.style.top = p && t ? `${ui.text.offsetTop - lift}px` : cardOn && t ? `${(t.top - wr.top - padT + lf) / k}px` : '';
     ui.shade.style.opacity = t ? '1' : '0';
     ui.safe.hidden = !t;
@@ -4226,7 +4234,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     const foldStill = () => {
       clearTimeout(foldT);
       if (!('folding' in data.dataset)) return;
-      if (partOf().getAnimations?.().some((a) => a.playState === 'running')) { foldT = setTimeout(foldStill, 100); return; }   // (still easing: a slow frame)
+      if (data.classList.contains('pz-sliding') || partOf().getAnimations?.().some((a) => a.playState === 'running')) { foldT = setTimeout(foldStill, 100); return; }   // (still easing: a slow frame)
       delete data.dataset.folding; fitDone.delete(data); onResize();
     };
     const fold = h('button', { class: 'pz-fold', type: 'button', 'aria-expanded': 'false', onclick: () => setFold(!data.classList.contains('tool-open')) }, 'Show');
@@ -4250,7 +4258,8 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     // (Shown with the sheet only, and kept at the card's foot as the card grows or shrinks, a part easing open included.)
     const lipMO = new MutationObserver(() => { lip.hidden = data.hidden || !data.classList.contains('pz-sheet'); placeLip(); });
     lipMO.observe(data, { attributes: true, attributeFilter: ['class', 'hidden', 'style'] });
-    const lipRO = typeof ResizeObserver === 'function' ? new ResizeObserver(() => placeLip()) : null;
+    // (Not while the readings' card slides: each frame's --pz-u already places it, lipMO, from the slide's own sums.)
+    const lipRO = typeof ResizeObserver === 'function' ? new ResizeObserver(() => { if (!data.classList.contains('pz-sliding')) placeLip(); }) : null;
     lipRO?.observe(data, { box: 'border-box' });
     // A part that has finished folding or unfolding: fit the card again from full size (a fit taken mid-fold kept the tiles small).
     data.addEventListener('transitionend', (e) => { if (e.propertyName === 'max-height' && e.target.parentElement === data) { if ('folding' in data.dataset) foldStill(); else { fitDone.delete(data); onResize(); } } });
