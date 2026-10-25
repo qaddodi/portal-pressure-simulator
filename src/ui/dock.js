@@ -7,13 +7,13 @@ import { h, fmt, svgIcon, closePopover, clamp, shownOf, isPhoneLayout, SIDEWAYS_
 import { lobuleFlows } from './lobule-model.js?v=60a0071f2d';
 import { createProfile } from './charts.js?v=ce74d37e11';
 import { createPressureTime } from './pressure-time.js?v=8c6a8d57b1';
-import { createHvpgProcedure } from './hvpg-proc.js?v=a355adc72d';
+import { createHvpgProcedure } from './hvpg-proc.js?v=27e9c2cbb0';
 import { lazyPane, holdUntilLoaded } from './lazy-pane.js?v=4fd2dfa2e7';
 import { ownsSideways, pageGo } from './swipe.js?v=3ad619631e';
 import { createEndoscopy, createVarixWall, createAbdomen } from './instruments.js?v=83a8bf461e';
-import { createReadoutsPane } from './readouts-pane.js?v=0d3d514251';
+import { createReadoutsPane } from './readouts-pane.js?v=0a1a8818d1';
 import { frameFor } from './frame.js?v=19b3f2915c';
-import { vitalReading } from './vital-read.js?v=e902fb66cd';
+import { vitalReading, VITALS } from './vital-read.js?v=cbba41a6b7';
 import { setShown } from './shown.js?v=82ef5e29ec';
 import { tenthGap } from '../engine/gap.js?v=3aabfbb29b';
 import { compareRows } from './idle-keys.js?v=4b46e6a6ef';
@@ -100,14 +100,8 @@ export const CUTOFFS = [
   ['Spleen length', '≤ 13 cm', '13–16 cm', '> 16 cm', '—'],
 ];
 
-// Systemic circulation: a compact obstruction at the end of the strip.
-export const VITALS = [
-  { id: 'map', k: 'MAP', title: 'Mean arterial pressure', why: 'map', v: (m) => m.vitals?.map ?? m.map, d: 0, u: 'mmHg', cut: 65, low: true, hys: 2 },
-  { id: 'hr', k: 'HR', title: 'Heart rate', why: 'hr', v: (m) => m.vitals?.hr ?? m.hr, d: 0, u: '/min', cut: 110, hys: 3 },
-  { id: 'co', k: 'CO', title: 'Cardiac output', why: 'co', v: (m) => m.vitals?.co ?? m.co, d: 1, u: 'L/min', cut: 8, hys: 0.2 },   // (the data card tile's top of normal: table-marks RATE.co)
-  { id: 'ra', k: 'RA', title: 'Right atrial pressure', why: 'ra', hideKey: 'ra', v: (m) => m.vitals?.ra ?? m.ra, d: 1, u: 'mmHg', cut: 10, hys: 0.5 },
-  { id: 'hb', k: 'Hb', title: 'Hemoglobin', why: 'hb', v: (m) => m.blood.hb, d: 1, u: 'g/dL', cut: 7, low: true, hys: 0.2 },
-];
+// Systemic circulation: a compact obstruction at the end of the strip. (The list is in vital-read.js, where the vitals monitor on a slide reads it too.)
+export { VITALS };
 
 // The key readouts: collapsed, the bar shows only the two gradients (HVPG and the portosystemic
 // gradient) on every device; the rest open with the chevron.

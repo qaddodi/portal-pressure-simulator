@@ -28,7 +28,7 @@ test('U8: the Why? sentence reads aloud: no nested brackets, no arrows, "above h
 
 test('U9: hemoglobin has a Why? of its own, and a bleed explains it', () => {
   assert.equal(METRICS.hb.unit, 'g/dL');
-  assert.match(read('../src/ui/dock.js'), /\{ id: 'hb', k: 'Hb', title: 'Hemoglobin', why: 'hb',/);
+  assert.match(read('../src/ui/vital-read.js'), /\{ id: 'hb', k: 'Hb', title: 'Hemoglobin', why: 'hb',/);
   const e = settled('csph');
   e.hemorrhage(1500);
   for (let i = 0; i < 8; i++) e.settleQuick();

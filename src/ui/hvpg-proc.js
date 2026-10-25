@@ -16,7 +16,7 @@ import { shownOr } from './shown.js?v=82ef5e29ec';
 import { T, ease, k01, balloonAt, timeOfBalloon, pressureAt as pAt } from './hvpg-clock.js?v=553551a92a';
 import { frameFor, cancelFrame } from './frame.js?v=19b3f2915c';
 import { traceRoom, TRACE_MIN } from './trace-room.js?v=b4c0aaa97f';
-import { rateOf } from './table-marks.js?v=2201eda74a';
+import { rateOf } from './table-marks.js?v=b717587a61';
 import { PROCS, PROC_KINDS, procBlocked, procOffered, playProcedure } from './proc-anim.js?v=b2351a24c6';
 const nextFrame = frameFor('hvpg-proc');
 
@@ -279,7 +279,8 @@ export function createHvpgMonitor() {
     raf = el.isConnected && (t < t1 || falling() || rising()) ? nextFrame(step) : 0;
   }
   const go = () => { cancelFrame(raf); raf = nextFrame((now) => { last = now; step(now); }); };
-  function set(m, f = null, b = bal) {
+  // (instant: the finished tracing at once, a slide jumped to or gone back to; a card with no catheter on the figure.)
+  function set(m, f = null, b = bal, instant = false) {
     const span = SPAN[m];
     fp = f; bal = b;
     if (!span || (m === mode && (raf || t >= t1))) { if (!raf) draw(); return; }
@@ -289,7 +290,7 @@ export function createHvpgMonitor() {
     // Already wedged (back from the result slide): the pressure is on its plateau, nothing climbs again.
     if (m !== 'free' && bal >= 1) t = Math.max(t, T.wedge);
     mode = m; t1 = span[1];
-    if (matchMedia('(prefers-reduced-motion: reduce)').matches && !falling()) t = t1;
+    if ((instant || matchMedia('(prefers-reduced-motion: reduce)').matches) && !falling()) t = t1;
     // (Once the card is laid out: the canvas sizes itself to it.)
     go();
   }

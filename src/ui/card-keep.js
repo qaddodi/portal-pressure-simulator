@@ -15,7 +15,7 @@ const own = (s) => !s || OWN.some((k) => s[k]);
 
 // Instruments that record the patient's flow as it passes: another patient clears their trace, so their card is built again
 // rather than kept. Charts drawn from the deck's own states (the talk's trace, the flow-time chart) are redrawn per slide.
-const records = (t) => !!t && (t.kind === 'doppler' || (t.kind === 'trace' && t.range === 'beats'));
+const records = (t) => !!t && (t.kind === 'doppler' || t.kind === 'vitals' || (t.kind === 'trace' && t.range === 'beats'));
 const drawn = (t) => !!t && (t.kind === 'flowtime' || (t.kind === 'trace' && t.range !== 'beats'));
 /** Whether the data card's instrument can ride a change of patient: it reads the live model, which eases from the old patient to the new. */
 export const eases = (t) => !records(t) && !drawn(t);

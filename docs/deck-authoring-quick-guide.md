@@ -143,6 +143,9 @@ An instrument goes in the data card with `tool`. It reads the live model, so it 
 | Spectral Doppler in one vessel | `tool: { kind: 'doppler', vessel: 'PV_TRUNK' }` | flow direction, speed or wave shape is the point |
 | The esophagus through a scope | `tool: { kind: 'scope' }` | varix size or banding |
 | A FibroScan reading | `tool: { kind: 'fibroscan' }` | liver stiffness |
+| A spleen ultrasound | `tool: { kind: 'spleen' }` | spleen size, with calipers and the length in cm |
+| A bedside monitor | `tool: { kind: 'vitals', show: ['hr', 'map', 'hb'] }` | the patient's heart rate, pressure, output or hemoglobin, with an EKG strip |
+| The HVPG catheter's tracing | `tool: { kind: 'hvpg' }` | how the HVPG is measured, free pressure to wedge to result |
 | HVPG and pressures across the talk | `tool: { kind: 'trace', range: 'talk' }` | a patient followed over months |
 | The belly and its ascites | `tool: { kind: 'abdomen' }` | ascites and wall collaterals |
 | The varix wall | `tool: { kind: 'wall' }` | why a large varix bursts |

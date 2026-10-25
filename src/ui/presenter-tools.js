@@ -18,6 +18,12 @@
 //                                                   the same chart over a disease time-lapse: two fingerprint keys
 //                                                   (flow-time.js LINE), one point a model day, drawn as it plays
 //
+//   tool: { kind: 'spleen' }                        the spleen on ultrasound: its outline to the model's length, calipers end to end, the length in cm
+//   tool: { kind: 'vitals', show?: ['hr', 'map', 'hb'] }
+//                                                   a black bedside monitor: the EKG strip over up to three of hr, map, co, hb as large numbers
+//   tool: { kind: 'hvpg' }                          the HVPG catheter's tracing on the card (no catheter on the figure): it plays free, wedge and
+//                                                   result going forward onto the slide, then holds the result and eases with the model
+//
 // A kind a deck visuals package registers (slide-ext.js tools) is made, titled and shown the same way; built-in kinds win.
 //
 // Optional on any kind: title (the card's heading, in place of the kind's own). A slide may carry both data and tool:
@@ -30,11 +36,14 @@ import { EDGES } from '../engine/topology.js?v=4044766e96';
 import { createDoppler } from './doppler.js?v=567972aaf8';
 import { createFibroScan } from './fibroscan.js?v=d33fb925a3';
 import { createPressureTime } from './pressure-time.js?v=8c6a8d57b1';
+import { createSpleenUS } from './spleen-us.js?v=d569f12818';
+import { createVitalsMonitor } from './vitals-monitor.js?v=57f6b80604';
+import { createHvpgCard } from './tool-hvpg.js?v=8a8d2da1bc';
 import { createFlowTime } from './flow-time.js?v=cb89e13e11';
 import { createEndoscopy, createAbdomen, createVarixWall } from './instruments.js?v=83a8bf461e';
 import { frameFor } from './frame.js?v=19b3f2915c';
 import { talkTrace } from './talk-trace.js?v=690f63b106';
-import { EXT, guard, safe } from './slide-ext.js?v=cf4b48220f';
+import { EXT, guard, safe } from './slide-ext.js?v=667467e8e3';
 const nextFrame = frameFor('presenter-tools');
 
 const VESSEL = { PV_TRUNK: 'main portal vein', PVH_R: 'right portal vein', PVH_L: 'left portal vein', SV_CONF: 'splenic vein', SV_MID: 'splenic vein', V_SPL: 'splenic vein, at the hilum',
@@ -48,6 +57,9 @@ const TITLE = {
   abdomen: () => 'The abdomen',
   wall: () => 'The varix wall, in cross-section',
   flowtime: () => 'Portal pressure and flow over time',
+  spleen: () => 'Spleen, ultrasound',
+  vitals: () => 'Vital signs',
+  hvpg: () => 'HVPG, catheter tracing',
 };
 const noop = () => {};
 
@@ -65,6 +77,7 @@ export function createTools({ host, stage }) {
     if (made[k]) return made[k];
     const inst = k === 'doppler' ? createDoppler({ onProbe: noop, pickGate: false }) : k === 'fibroscan' ? createFibroScan() : k === 'scope' ? createEndoscopy({ onAction: noop })
       : k === 'abdomen' ? createAbdomen({ onAction: noop }) : k === 'wall' ? createVarixWall() : k === 'beats' ? createPressureTime() : k === 'talk' ? talkTrace() : k === 'flowtime' ? createFlowTime()
+        : k === 'spleen' ? createSpleenUS() : k === 'vitals' ? createVitalsMonitor() : k === 'hvpg' ? createHvpgCard()
         : Object.hasOwn(EXT.tools, k) ? guard(safe(() => EXT.tools[k].make({ host, stage, store }), null, `tools.${k}.make`), `tools.${k}`) : null;
     if (inst && !inst.el?.classList) return null;   // (a registered instrument that made no element is left out)
     if (inst) { inst.el.classList.remove('dock-pane'); inst.el.classList.add('pz-inst'); }
@@ -74,7 +87,7 @@ export function createTools({ host, stage }) {
   const offFrame = store.on('frame', (f) => {
     if (!cur || !f || !box.isConnected) return;
     // (Held while the slide's own state eases in: a recording trace would catch the leaving state, the old flow before it reverses.)
-    if (held && (kind === 'doppler' || kind === 'beats')) return;
+    if (held && (kind === 'doppler' || kind === 'beats' || kind === 'vitals')) return;
     if (kind === 'doppler' && cur.ingest) { cur.update(f); return; }
     if (kind !== 'talk' && kind !== 'flowtime') cur.update?.(f);
   });
@@ -88,8 +101,9 @@ export function createTools({ host, stage }) {
     /** Put the slide's tool in the box. stateKey: the slide's model state (a new one clears a recording trace);
      *  chain: for the talk trace, [{ n, title, fp }] of every state up to this slide.
      *  trail, reveal: for the flow-time chart, its series and how far along to draw it (see progress).
-     *  ctx: the slide's context for an instrument's configure(t, ctx) (the presenter's ctxOf; slide-ext.js). */
-    show(t, { slide = null, stateKey = null, chain = [], trail = null, reveal = 1, ctx = null } = {}) {
+     *  ctx: the slide's context for an instrument's configure(t, ctx) (the presenter's ctxOf; slide-ext.js).
+     *  forward: the slide is stepped onto from the one before it (an instrument that plays on arrival, arrive()). */
+    show(t, { slide = null, stateKey = null, chain = [], trail = null, reveal = 1, ctx = null, forward = false } = {}) {
       const k = keyOf(t), inst = make(k);
       if (!inst) { this.hide(); return; }
       if (k !== 'doppler') stage?.pinDoppler?.(null);
@@ -103,9 +117,10 @@ export function createTools({ host, stage }) {
       }
       inst.setWaves?.(!!t.waves);
       inst.configure?.(t, ctx);   // (an instrument's own options on this slide: a deck visuals package's, slide-ext.js)
+      inst.arrive?.({ forward, again: cur === inst });   // (the HVPG tracing plays going forward onto its slide, once, and is finished otherwise)
       if (cur !== inst || slide !== lastSlide) inst.autoWindow?.();   // (a new slide chooses its Doppler window again from the width it is drawn at)
       lastSlide = slide;
-      if (stateKey !== lastSt && (k === 'doppler' || k === 'beats')) inst.clear?.();
+      if (stateKey !== lastSt && (k === 'doppler' || k === 'beats' || k === 'vitals')) inst.clear?.();
       lastSt = stateKey;
       if (cur !== inst) box.replaceChildren(inst.el, ghostEl);
       cur = inst; kind = k;
@@ -127,7 +142,7 @@ export function createTools({ host, stage }) {
      *  release start over empty, sweeping from the left, their reading waiting for the new state's own beats. */
     hold(on) {
       on = !!on; if (on === held) return; held = on;
-      for (const k of ['doppler', 'beats']) made[k]?.restart?.() ?? made[k]?.clear?.();
+      for (const k of ['doppler', 'beats', 'vitals']) made[k]?.restart?.() ?? made[k]?.clear?.();
     },
     /** A question slide's answer held back (slide hold: true): the instrument showing leaves out the
      *  parts that name the answer (the Gut to heart chart's red blocks and brackets; the Doppler's words are held by the card's CSS). */

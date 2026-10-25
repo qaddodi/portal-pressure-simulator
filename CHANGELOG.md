@@ -2,6 +2,22 @@
 
 ## October 2026
 
+- **Three new instruments for a slide's data card, and an encephalopathy tile: a spleen ultrasound, a vitals monitor and the HVPG catheter's
+  tracing.** (Mohammad, 25 Oct, "yes to both"; deck rebuild plan, A4. No deck uses them yet; phase C does.) `tool: { kind: 'spleen' }` is a grey
+  sector on the monitor's black with the spleen cut along its long axis, calipers end to end and the length in cm written in the picture in
+  white with a dark outline, as the FibroScan's reading is. The scale is the same for every length, so a bigger spleen is drawn bigger; the
+  picture redraws only when the length changes by 0.1 cm and eases between; with no spleen it says "Spleen removed". `tool: { kind: 'vitals',
+  show? }` is a bedside monitor: the EKG strip across the top and up to three of heart rate, mean arterial pressure (named MAP, since the model
+  has no systolic and diastolic), cardiac output and hemoglobin as large numbers, past-limit readings in the monitor's alarm red with the bottom
+  bar's hold and hysteresis. `tool: { kind: 'hvpg' }` is the HVPG procedure's monitor with no catheter on the figure: going forward onto the
+  slide it plays free pressure, balloon, wedge and result (about 9 s), and jumped to or gone back to it shows the finished tracing at once; a
+  model change on the slide eases the levels, and the HVPG it prints is the difference of the two readings as shown. The `he` tile (HE risk,
+  the model's index from 0 to 1; Low under 0.2, Moderate from 0.2, High from 0.45) joins the tiles, and the keyword highlighter knows
+  "encephalopathy risk". The vitals monitor counts as a recording card, so a new patient starts its strip over. No gradients, glow, stripes
+  or live dots on any of them; the numbers and words stay at 12 px or more. The tests run each instrument against a fake page with a real
+  model's frames (no browser): `tests/instruments-a4.test.js`, `tests/instruments-draw.test.js`. Code and unit tests only; nobody has looked
+  on screen. `src/ui/spleen-us.js`, `src/ui/vitals-monitor.js`, `src/ui/tool-hvpg.js`, `src/ui/hvpg-proc.js`, `src/ui/presenter-tools.js`,
+  `src/ui/presenter.js`, `src/ui/card-keep.js`, `src/ui/table-marks.js`, `src/ui/vital-read.js`, `src/ui/dock.js`, `styles/app.css`.
 - **"Where the portal blood goes" is one centred bar too, with its names under it in pills, none hanging.** (Mohammad, 25 Oct, on an iPhone:
   "The data card should be fixed similar to the other one (all of those kinds) centered", of the Next bleed slide's card.) Its two bars
   kept "Healthy" and "Now" in a gutter at the left, so on a phone the bars sat well right of the card's centre, and the names of small

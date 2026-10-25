@@ -1,6 +1,6 @@
 // Deck visuals, package F (figure callouts): the sums behind the slide fields, kept apart from the stage and the presenter so
 // unit tests can load them (review/deck-visuals-recs.md §9). Nothing here touches the page.
-import { TILE, rateShown, tileShown, tipsGoal } from './table-marks.js?v=2201eda74a';
+import { TILE, rateShown, tileShown, tipsGoal } from './table-marks.js?v=b717587a61';
 import { plateletText } from './glue.js?v=5a0f63226b';
 import { ORGANS, NODE_POS, SPLEEN_CENTER, CIRCUIT_ZONES } from './anatomy.js?v=addb33efe0';
 

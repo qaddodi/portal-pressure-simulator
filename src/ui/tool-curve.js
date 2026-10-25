@@ -14,7 +14,7 @@
 // key (a key at the top only when the card is too small for them), and the case has a ring on both lines (the second read from
 // its curve). No marks where the lines cross a cut-off (Mohammad, 19 Oct: the dotted drop lines taken out).
 
-import { TILE, SCALE, RATE } from './table-marks.js?v=2201eda74a';
+import { TILE, SCALE, RATE } from './table-marks.js?v=b717587a61';
 import { frameFor } from './frame.js?v=19b3f2915c';
 const nextFrame = frameFor('tool-curve');
 
