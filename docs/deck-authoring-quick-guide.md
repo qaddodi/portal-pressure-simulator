@@ -203,7 +203,7 @@ Full guide: section 7.3.
 - **Short labels.** Any button can carry `short`, a compact name (`'Prop.'`) that a phone uses when the full names would wrap.
 - **A what-if slider.** `whatIf: { label: 'Clot size', param: 'thrombus.PV_TRUNK', min: 0, max: 1, ends: ['None', 'Occluded'] }` lets the room drag one setting and watch everything follow.
 
-Put buttons and sliders on key slides only. 29 of the 35 built-in decks have at least one. `tests/hands-on-decks.test.js` shows how to test a new one.
+Put buttons and sliders on key slides only. 32 of the 40 built-in decks have at least one. `tests/hands-on-decks.test.js` shows how to test a new one.
 
 ### A catheter treatment
 
@@ -213,7 +213,7 @@ Full guide: section 7.4.
 
 ## Question and answer slides
 
-The capstone decks (Where is the resistance?, Read the Doppler, Choose the treatment) show each case twice. The question slide loads the patient with a `vignette`, shows the readings or the live options as `compare` buttons, and asks in its line without naming anything. Where is the resistance? and Read the Doppler leave `site` off here, so no level tab gives the answer away. The answer slide carries on with the same patient (no `preset`), names the finding, and may add `delta: 'q1'` to show what changed since the question, a `cite`, and `causesHead` with `causes` for the criteria. Give the two slides the same `kicker`, and never put `scales` on a question slide. Put `hold: true` on the question slide: its card then keeps back whatever names the answer (the chart's red blocks and brackets, the Doppler's direction and pattern words, the tiles' rating words), and they ease in once the answer slide has landed.
+The capstone decks (Where is the resistance?, Read the Doppler, Choose the treatment, Stage the patient at the first visit) show each case twice. The question slide loads the patient with a `vignette`, shows the readings or the live options as `compare` buttons, and asks in its line without naming anything. Where is the resistance? and Read the Doppler leave `site` off here, so no level tab gives the answer away. The answer slide carries on with the same patient (no `preset`), names the finding, and may add `delta: 'q1'` to show what changed since the question, a `cite`, and `causesHead` with `causes` for the criteria. Give the two slides the same `kicker`, and never put `scales` on a question slide. Put `hold: true` on the question slide: its card then keeps back whatever names the answer (the chart's red blocks and brackets, the Doppler's direction and pattern words, the tiles' rating words), and they ease in once the answer slide has landed.
 
 Full guide: section 9, rule 23, and section 7.5 for `hold`.
 
@@ -259,6 +259,8 @@ Full guide: sections 12 and 13.
 - HVPG is WHVP minus FHVP (amber 5, red 10). PPG is portal vein minus IVC (amber 6, red 12).
 - Say numbers through live values, never typed.
 - Say "resistance" for where pressure is lost, not "block" or "obstruction".
+- A deck that follows one patient through several decisions (Ten years) puts the preset and the case card on its first slide only, passes time with `days` and `ramp`, and pairs a question slide (with `compare` buttons) with an answer slide at each step.
+- Quote a source's criteria even when the model cannot draw them (the jet at a narrowed portal vein), and add one `caveat` that says what the model shows instead.
 - Everything eases. Never write a slide that relies on a jump.
 - The Testing deck "Demo: all the new visuals" (Present, then Testing, on the preview) shows every newer feature on a slide of its own.
 

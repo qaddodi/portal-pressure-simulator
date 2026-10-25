@@ -2,6 +2,29 @@
 
 ## October 2026
 
+- **Five new talks, a Refractory ascites slide and an Overt encephalopathy slide, and the tester guides show Self-study.** (Mohammad, 25 Oct:
+  "All and make sure to run by humanizer and update author guides", then "Yes" to the browser run for the figures, the two new slides and the
+  guides.) New talks, each from the deck-teaching recommendations (F1 to F5), every line through the humanizer rules and every medical claim
+  checked against the guideline files: **Stage the patient at the first visit** (Measuring, 12 slides; Baveno VIII 1.15, 1.16 and 1.19, five
+  held cases), **When the bleeding will not stop** (Treatment, 8; Baveno VIII 5.16 and 5.35 to 5.37, AASLD 2024), **Doppler after a liver
+  transplant** (Measuring, 7; Lechowicz et al., J Ultrason 2015), **One patient, ten years** (Complications, 14; Baveno VIII 3.15, 3.16, 4.1,
+  4.3, 4.4, 4.6, 4.8, 4.13, 6.1, 6.16, 6.17) and **A TIPS from start to finish** (Treatment, 8; Baveno VIII 4.13, 4.15, 4.19, 5.31, 5.33,
+  5.34, 6.3 to 6.11, 6.14, 6.16). Each uses only slide options that already exist (criteria card, held cases, hold rule, procedure, milestones,
+  calipers, summary table); no Predict slide. Every number on a slide was read off the engine, and where the model cannot draw what the
+  guideline describes the slide says so: one band stops a bleed but three sessions shrink a varix; the shunt tile reads 94% for any stent
+  of 6 mm or more, so the stent-width slide uses the gradient and liver flow; a narrowed portal vein speeds the Doppler about 1.6 times,
+  where a real jet is 3 to 4; there is no ammonia. Paracentesis: slide 9 (high-protein ascites, which repeated the Ascites talk) is
+  gone, and a new slide 8, Refractory ascites, defined, a criteria card, comes before the TIPS slide; objective 4 and quick check 3 follow, and the definition
+  is the deck's own wording (the Baveno VIII statements, 6.3 and 6.4, name refractory ascites without defining it). Encephalopathy: a new
+  slide 4, Overt encephalopathy: the trigger first, then lactulose, then rifaximin, with the triggers on a criteria card in place of the
+  phone-hidden list on the spontaneous-shunt slide; the order of treatment is the deck's own teaching. Handout figures for every new slide
+  were drawn in a headless browser, the first browser run since 23 Oct, and the one for the removed slide deleted. The beta tester guides
+  (`guides/beta-start-guide.pdf` and `-iphone.pdf`, same names) have a new step 4, Send feedback and study alone, with Settings opened
+  during a talk to show the Self-study switch; the other pictures are the 18 Oct set. Authoring guides: counts and the id list, rules 28
+  (a decision talk follows one patient), 29 (state the source criteria and caveat what the model cannot draw) and 30 (model facts found).
+  Nobody has looked at the new slides on a device. `src/ui/decks/{first-visit,refractory-bleed,transplant-doppler,ten-years,tips-journey}.js`,
+  `src/ui/decks.js`, `tests/deck-adopted.js`.
+
 - **A card that stays the same stays on screen when the slide changes.** (Mohammad, 25 Oct: "If the instrument data card on a deck is gonna
   stay the same for the next slide and only teaching card is changed or other way around we shouldn't reload the data card or vice versa
   keep it while you load the other card".) Every slide change used to fade both cards out and build both again. Now, when the next slide's
