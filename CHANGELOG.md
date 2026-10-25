@@ -28,7 +28,7 @@
   balloon tube (Baveno VIII 5.35); the HVPG response (10% or to 12 mmHg) is Baveno VIII Table 3, stated for primary prophylaxis, and the
   20% figure is gone from HVPG 5; Budd–Chiari starts with anticoagulation (EASL 2025); the 4 in 10 and 7 in 10 recanalization rates name
   their populations; Recompensation 2 says Baveno VIII starts carvedilol at CSPH; Next bleed 8 stops carvedilol under 12 mmHg (AASLD 2024);
-  Choose the treatment's case 4 gets live buttons. The authoring guides gained the rules behind this (guide rules 24 to 27).
+  Choose the treatment's case 4 and Outflow 6 (a TIPS beside the DIPS) get live buttons. The authoring guides gained the rules behind this (guide rules 24 to 27).
 - **The organs' pictures are painted on the GPU from their own shapes.** (Mohammad, 25 Oct: no more SVG → image → canvas → read back →
   upload.) The heart and esophagus, the gut, the kidney, the stomach and the bowel were each a picture made by copying the SVG, loading
   it as an image, drawing it on a 2D canvas, reading its pixels back and uploading them, after every change and every settled pan or zoom.
