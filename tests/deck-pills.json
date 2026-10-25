@@ -819,34 +819,19 @@
   "{hr}",
   "{pv}"
  ],
- "choose-treatment/q1": [
-  "{ppg}"
- ],
  "choose-treatment/a1": [
   "{ppg}"
- ],
- "choose-treatment/q2": [
-  "{asc}"
  ],
  "choose-treatment/a2": [
   "{asc}",
   "{liver}"
  ],
- "choose-treatment/q3": [
-  "{ppg}"
- ],
  "choose-treatment/a3": [
   "{gv}",
   "{plt}"
  ],
- "choose-treatment/q4": [
-  "{ppg}"
- ],
  "choose-treatment/a4": [
   "{pvFlow}",
-  "{ppg}"
- ],
- "choose-treatment/q5": [
   "{ppg}"
  ],
  "choose-treatment/a5": [

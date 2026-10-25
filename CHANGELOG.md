@@ -2,6 +2,16 @@
 
 ## October 2026
 
+- **Choose the treatment: one slide for each case.** (Mohammad, 25 Oct, "Go"; deck rebuild plan, C6.) The five cases were each two slides, a question with
+  buttons and then the answer. Each is now one slide: the case card brings the patient in and asks one question ("Does she meet the criteria for a
+  pre-emptive TIPS?", "What stops ascites that keeps coming back?", "What stops his fundal varices?", "What treatment reopens the vein?", "Which shunt
+  decompresses her liver?"), and the slide behind it plays the choice the guidelines make. Four of the five are time-lapses, so the card covers the patient at
+  the time-lapse's start and the days run once it lifts. The option buttons and the "before" arrows on the summary are gone (the summary table still shows
+  each case after its treatment). The deck is six slides, not eleven; the end states are the same as before (checked with the deck-state numbers: the
+  bleeding case's PPG 14.3, the ascites case 8.8 and an empty belly, the splenic vein case 2.6 for the fundal varices, the portal vein clot 4.2, Budd–Chiari 8.3).
+  `cite` and the two caveats moved into the notes, with their ADOPTED entries; a few vignettes and lines were trimmed to fit the case card's 220 characters and
+  the 30-word line. Both humanizer passes were done. Code and unit tests only; nobody has looked on screen. `src/ui/decks/choose-treatment.js`,
+  `tests/deck-adopted.js`, `tests/deck-pills.json`, `docs/deck-authoring-guide.md`, `docs/deck-authoring-quick-guide.md`, `brand/handout/choose-treatment/`.
 - **The vitals monitor's EKG keeps going through a time-lapse.** (Mohammad, 26 Oct, on The circulation in cirrhosis, slide 3, "While the compensated to decompensated is fast
   switching the EKG bounces or starts redrawing over and over"; he picked "Keep it alive at the rising rate".) A time-lapse runs a year in ten seconds on the disease
   clock, where the model's own beat and clock stand still. The strip scrolled by the days a second, so it jumped back about four seconds and crept forward again
