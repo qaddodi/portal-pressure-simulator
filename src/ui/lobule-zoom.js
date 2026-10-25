@@ -1265,9 +1265,40 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   }
   // The layout the labels were last placed for ({ b: everything but the view, k, x, y }), which a pan carries them from.
   let follow = null, followT = 0, rough = false;
-  const handOn = () => touches.size > 0 || !!cancelFlick || (wheelKind === 'pad' && performance.now() - wheelAt < 250);
+  // (A wheel or a trackpad's pinch is a hand too, as a scroll is: each of them changed the zoom on every frame and laid the labels out in
+  // full there, and redrew the lobule's bitmap at each √2 step, which is what made zooming the lobule on a Mac lag.)
+  const handOn = () => touches.size > 0 || !!cancelFlick || (!!wheelKind && performance.now() - wheelAt < 250);
   // The hand let go (or paused): place the labels again for where the view now is.
-  function followEnd() { if (handOn()) { followT = setTimeout(followEnd, 140); return; } if (labels.style.transform || rough) { rough = false; layoutKey = ''; viewChanged(); } }
+  function followEnd() { if (handOn()) { followT = setTimeout(followEnd, 140); return; } if (labels.style.transform || rough || rides) { rough = false; layoutKey = ''; viewChanged(); } }
+  // Whether the labels as laid out (follow.ride), each carried with its spot to the view now, still keep the layout's rules: no label on
+  // another, a zone's name or a chip, none on another's leader, no two leaders crossed, none on a structure (which grows as the view
+  // zooms in) or a card, each inside the free space and what it names still in it, and no chip's spot come back into view.
+  function rideHolds(fr) {
+    const R = follow.ride, f = follow, g = geo;
+    if (call && callRingAt(fr)) return false;
+    const mv = (a) => [(a[0] - f.x) / f.k * V.k + V.x, (a[1] - f.y) / f.k * V.k + V.y];
+    const shift = (b, a) => { const [x, y] = mv(a), dx = x - a[0], dy = y - a[1]; return { l: b.l + dx, r: b.r + dx, t: b.t + dy, b: b.b + dy }; };
+    const inFree = ([x, y]) => x >= fr.l - 4 && x <= fr.r + 4 && y >= fr.t - 4 && y <= fr.b + 4;
+    if (R.chips.some((c) => inFree(mv(c.a)))) return false;
+    const keep = [[g.cx, g.cy, g.rcv0 * 1.7], ...g.lobules[0].corners.map(([x, y]) => [x, y, (g.rt || 6) * 2.4])]
+      .map(([x, y, r]) => { const [sx, sy] = toScreen([x, y]); return { x: sx, y: sy, r: Math.max(14, r * V.k) }; });
+    const others = [...R.zones.map((b) => shift(b, [(b.l + b.r) / 2, (b.t + b.b) / 2])), ...R.chips.map((c) => c.box)];
+    const boxes = [], leads = [];
+    for (const it of R.labs) {
+      const a = mv(it.a), b = shift(it.box, it.a);
+      if (!inFree(a) || b.l < fr.l + R.ix - 0.5 || b.r > fr.r - R.ix + 0.5 || b.t < fr.t + R.iy - 0.5 || b.b > fr.b - R.iy + 0.5) return false;
+      if (keep.some((q) => into(q, b) > 0) || R.cards.some((c) => overlap(b, c) > 0)) return false;
+      boxes.push(b); leads.push([a, [it.c[0] + a[0] - it.a[0], it.c[1] + a[1] - it.a[1]]]);
+    }
+    for (let i = 0; i < boxes.length; i++) {
+      if (others.some((o) => overlap(boxes[i], o) > 0 || crosses(...leads[i], o))) return false;
+      for (let j = 0; j < boxes.length; j++) {
+        if (j === i) continue;
+        if ((j > i && overlap(boxes[i], boxes[j]) > 0) || crosses(...leads[i], boxes[j]) || (j > i && cut(...leads[i], ...leads[j]))) return false;
+      }
+    }
+    return true;
+  }
   // The glide's ride: each piece moved by its own spot's move since the last layout (a CSS translate, written into its place by bakeFollow).
   let rides = null;
   function ride() {
@@ -1316,6 +1347,26 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     for (const e of leaders.children) for (const [a, d] of [['x1', dx], ['x2', dx], ['cx', dx], ['y1', dy], ['y2', dy], ['cy', dy]]) { const v = e.getAttribute(a); if (v != null) e.setAttribute(a, +v + d); }
     return true;
   }
+  // (The layout's geometry, shared with the zoom's ride check: rideHolds.)
+  const overlap = (a, b) => Math.max(0, Math.min(a.r, b.r) - Math.max(a.l, b.l))
+    * Math.max(0, Math.min(a.b, b.b) - Math.max(a.t, b.t));
+  const into = (q, b) => Math.max(0, q.r - Math.hypot(Math.max(b.l - q.x, 0, q.x - b.r), Math.max(b.t - q.y, 0, q.y - b.b)));
+  // Leaders run to each label's centre; a leader never crosses another label, and a label never sits on another's leader.
+  const crosses = (p, q, b) => {
+    let t0 = 0, t1 = 1;
+    const dx = q[0] - p[0], dy = q[1] - p[1];
+    for (const [d, lo, hi, o] of [[dx, b.l, b.r, p[0]], [dy, b.t, b.b, p[1]]]) {
+      if (Math.abs(d) < 1e-9) { if (o < lo || o > hi) return false; continue; }
+      let u = (lo - o) / d, v = (hi - o) / d;
+      if (u > v) [u, v] = [v, u];
+      t0 = Math.max(t0, u); t1 = Math.min(t1, v);
+      if (t0 > t1) return false;
+    }
+    return true;
+  };
+  // Two leaders never cross each other either (a shared end, two labels on one spot, is not a crossing).
+  const side = (p, q, r) => Math.sign((q[0] - p[0]) * (r[1] - p[1]) - (q[1] - p[1]) * (r[0] - p[0]));
+  const cut = (p, q, r, t) => side(p, q, r) * side(p, q, t) < 0 && side(r, t, p) * side(r, t, q) < 0;
   let layoutN = 0;   // (for the checks: how many times the labels have been placed in full)
   function layoutLabels() {
     // Laid out where the presenter's glide lands (see camSettle), or once its time is up if the hand cut it short.
@@ -1337,20 +1388,27 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     // its own size, and lays them out once where the glide lands (they glide there from where they are seen). Solving the
     // layout on every frame of the glide (measuring the cards, trying hundreds of spots and orders) stalled it on a phone.
     if (follow && bKey === follow.b && gliding && !camMove && !handOn() && !labels.style.transform) { ride(); return; }
+    // A hand's zoom (a pinch, the wheel, a trackpad's pinch) carries them the same way, each with its own spot at its own size, for as
+    // long as that leaves every label clear of the others, of their leaders, of the structures, of the cards and inside the free space
+    // (rideHolds); a frame where it would not, they are placed again (gliding there), and once the hand lets go, placed for where it
+    // stopped. Placing them in full on every frame of a pinch (measuring, then trying hundreds of spots) is what made zooming lag.
+    if (follow?.ride && bKey === follow.b && V.k !== follow.k && handOn() && rideHolds(fr0)) {
+      labels.style.transform = leaders.style.transform = '';   // (a pan's shared shift before it: ride moves each piece from the layout itself)
+      ride(); clearTimeout(followT); followT = setTimeout(followEnd, 140);
+      return;
+    }
     const baked = bakeFollow();
     layoutN++;
     // A label that moves while the view holds still (a term lit, a value's width changed) glides to its new spot;
     // while the view itself pans or zooms, the labels follow it at once.
     const vKey = `${g.W}x${g.H}|${V.k},${V.x},${V.y}`;
     if ((layoutKey && vKey === layoutV) || baked) { labels.classList.add('lz-ease'); clearTimeout(easeT); easeT = setTimeout(easeEnd, 450); }
-    layoutKey = key; layoutV = vKey; follow = { b: bKey, k: V.k, x: V.x, y: V.y };
+    layoutKey = key; layoutV = vKey; follow = { b: bKey, k: V.k, x: V.x, y: V.y, ride: null };
     pickAnchors(fr0);
     leaders.setAttribute('viewBox', `0 0 ${g.W} ${g.H}`);
     // Every label has a leader to what it names, aimed at the label's centre and stopping on the edge of its letters.
     // Score nearby placements together so zooming, panning and narrow screens do not stack labels.
     const fr = fr0, placed = [];
-    const overlap = (a, b) => Math.max(0, Math.min(a.r, b.r) - Math.max(a.l, b.l))
-      * Math.max(0, Math.min(a.b, b.b) - Math.max(a.t, b.t));
     if (lymphOn) {
       // The lymph label follows whichever lymphatic is in view (the picked triad's first, else the one nearest the middle).
       const mx = (fr0.l + fr0.r) / 2, my = (fr0.t + fr0.b) / 2, edge = (p) => { const [x, y] = toScreen(p); return x > 0 && x < g.W && y > 0 && y < g.H; };
@@ -1374,7 +1432,6 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
       const d = keep.find((q) => Math.hypot(q.x - a[0], q.y - a[1]) < q.r);
       return d ? d.r + Math.hypot(d.x - a[0], d.y - a[1]) : 10;
     };
-    const into = (q, b) => Math.max(0, q.r - Math.hypot(Math.max(b.l - q.x, 0, q.x - b.r), Math.max(b.t - q.y, 0, q.y - b.b)));
     // The letters' halo reaches past each label's box, more so at larger text: the margins grow with it.
     // Each box also takes in the label's pill (it reaches 4×5 px past the text at --label-k 1) and half the gap kept
     // between two labels, so no two pills ever touch.
@@ -1385,23 +1442,8 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     const r1 = (v) => Math.round(v * 10) / 10;
     labels.dataset.room = JSON.stringify({ fr: [fr.l, fr.t, fr.r, fr.b].map(r1), pad: r1(8 + 4 * lk), hx: r1(hx), hy: r1(hy), lead: LONG_LEAD,
       keep: keep.map((q) => [q.x, q.y, q.r].map(r1)), cards: cards.map((c) => [c.l, c.t, c.r, c.b].map(r1)) });
-    placed.push(...placeZones(fr0, hx, hy, callRingAt(fr0)));
-    // Leaders run to each label's centre; a leader never crosses another label, and a label never sits on another's leader.
-    const crosses = (p, q, b) => {
-      let t0 = 0, t1 = 1;
-      const dx = q[0] - p[0], dy = q[1] - p[1];
-      for (const [d, lo, hi, o] of [[dx, b.l, b.r, p[0]], [dy, b.t, b.b, p[1]]]) {
-        if (Math.abs(d) < 1e-9) { if (o < lo || o > hi) return false; continue; }
-        let u = (lo - o) / d, v = (hi - o) / d;
-        if (u > v) [u, v] = [v, u];
-        t0 = Math.max(t0, u); t1 = Math.min(t1, v);
-        if (t0 > t1) return false;
-      }
-      return true;
-    };
-    // Two leaders never cross each other either (a shared end, two labels on one spot, is not a crossing).
-    const side = (p, q, r) => Math.sign((q[0] - p[0]) * (r[1] - p[1]) - (q[1] - p[1]) * (r[0] - p[0]));
-    const cut = (p, q, r, t) => side(p, q, r) * side(p, q, t) < 0 && side(r, t, p) * side(r, t, q) < 0;
+    const zoneBoxes = placeZones(fr0, hx, hy, callRingAt(fr0));
+    placed.push(...zoneBoxes);
     // Measured first; then placed one at a time, in a few orders, keeping the order that leaves no label on another
     // and no leader under another label (or the fewest), so an early label never blocks a later one's only clear spot.
     const items = [], shown = [];
@@ -1600,6 +1642,12 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
       return sol.res.some((o) => o !== r && !o.out && !itOf(o.k).edge && runInside(itOf(o.k).a, [o.x, o.y], box) > 0.5);
     }).map((r) => r.k));
     if (crossed.size) sol = { ...sol, res: sol.res.map((r) => (crossed.has(r.k) ? { ...r, out: true } : r)) };
+    // (What a hand's zoom checks as it carries them: rideHolds.)
+    if (!callRing.classList.contains('on')) {
+      const res = sol.res.filter((r) => !r.out);
+      follow.ride = { labs: res.filter((r) => !itOf(r.k).edge).map((r) => ({ a: itOf(r.k).a, c: [r.x, r.y], box: r.box })), chips: res.filter((r) => itOf(r.k).edge).map((r) => ({ a: itOf(r.k).a, box: r.box })),
+        zones: zoneBoxes, cards, ix: 8 + 4 * lk - hx, iy: 8 + 4 * lk - hy };
+    }
     // (Every label's letters where it lands, for the leaders to keep off.)
     const inks = sol.res.filter((r) => !r.out).map(({ k, x, y }) => { const { L, w, hh } = items.find((it) => it.k === k); return lettersOf(L, x - w / 2, y - hh / 2, w, hh); });
     for (const { k, x, y, out } of sol.res) {

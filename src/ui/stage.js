@@ -1445,14 +1445,16 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   function animZoomAt(cx, cy, factor) {
     fitted = false;
     if (lobuleOn) return;
-    const [vx, vy] = clientToVB(cx, cy), base = vtTarget && vtAnim ? vtTarget : vt;
+    const [vx, vy] = clientToVBFast(cx, cy), base = vtTarget && vtAnim ? vtTarget : vt;
     const k = clamp(base.k * factor, 0.6, 6), wx = (vx - vt.x) / vt.k, wy = (vy - vt.y) / vt.k;
     animateVT({ k, x: vx - wx * k, y: vy - wy * k }, 260);
   }
   // A trackpad pinch may stretch a little past the limits (it springs back when it ends).
   function zoomAt(cx, cy, factor, stretch = false) {
     if (lobuleOn) return;   // the lobule view has its own zoom
-    const [vx, vy] = clientToVB(cx, cy);
+    // (By arithmetic, as a touch pinch does: asking the browser for the matrix (getScreenCTM) after the last event's new transform laid
+    // the whole figure out again, on every wheel event of a trackpad pinch, several a frame on a Mac.)
+    const [vx, vy] = clientToVBFast(cx, cy);
     const wx = (vx - vt.x) / vt.k, wy = (vy - vt.y) / vt.k;
     // (A new view, never the old one changed in place: the first fit sets the view, the home framing and the glide's target outright, and
     // a zoom that changed the one object changed them all, so the home look took the zoomed view for home and glided it back to the fit
@@ -2162,7 +2164,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const lzAnchor = document.createComment('lobule');
   wrap.append(lzAnchor);
   // (The code is fetched as soon as the figure is shown; the layer is built a moment later, when the page is quiet, or at once for a dive.)
-  const lobuleCode = () => (lzCode ||= import('./lobule-zoom.js?v=89c6cb5230').catch((err) => { lzCode = null; throw err; }));
+  const lobuleCode = () => (lzCode ||= import('./lobule-zoom.js?v=88062bdc65').catch((err) => { lzCode = null; throw err; }));
   function lobuleReady() {
     return (lzLoad ||= lobuleCode().then(({ createLobuleZoom }) => {
       lz = createLobuleZoom({ host: wrap, styles: wrapCS, before: lzAnchor });
@@ -8099,6 +8101,19 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     return out;
   }
   const SOLVE_ZOOM = 0.05, SOLVE_TURN = 0.03;   // re-solve after a 5 % zoom change or ~2 degrees of turn
+  // While a hand zooms (a pinch, the wheel, a flick), the labels are carried up to a 35 % change before they are solved again, as long as
+  // no carried label comes onto another (carryClear); they are solved for where the view stopped once it is let go (labelSettleSoon),
+  // and glide to their new spots (labelGlide). Solving every 5 % was a full search about every third frame of a pinch.
+  const SOLVE_ZOOM_HAND = 0.35;
+  let carryClear = false, labelSettleT = 0;
+  function labelSettleSoon() {
+    clearTimeout(labelSettleT);
+    labelSettleT = setTimeout(function settle() {
+      if (gestureOn()) { labelSettleT = setTimeout(settle, 120); return; }
+      labelSettleT = 0;
+      if (F && !camMove && !lz?.isOpen()) { labelKey = null; updateLabels(F); }
+    }, 260);
+  }
   // A vessel's width as the labels see it: it moves only once the vessel has changed by 2 px, so a width
   // easing or hovering at a rounding edge does not lay the labels out again on every model update.
   const sigW = new Map();
@@ -8153,8 +8168,12 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       // (A stent called out at its three points is solved again when the presenter's cards move (the monitor folded or opened): carried,
       // its callouts and the slide's mark would hide under a card or keep spots chosen for another view: Review 16 Oct.)
       const ins = dop.all ? [...['--pz-t', '--pz-l', '--pz-b', '--pz-r'].map((k) => Math.round(pzInset(k) / 8)), ...(blockerBoxes || []).flatMap((o) => [o.x0, o.y0, o.x1, o.y1].map((v) => Math.round(v / 8)))].join() : '';   // (and the cards' boxes, which can arrive a frame after the insets)
-      const solve = !solvedFor || solvedFor.sig !== sig || solvedFor.csig !== csig || solvedFor.ins !== ins || Math.abs(Math.log(sc / solvedFor.sc)) > SOLVE_ZOOM || Math.abs(th - solvedFor.th) > SOLVE_TURN;
-      if (solve || layoutLabels(f, false) === false) { layoutLabels(f, true); solvedFor = { sig, sc, th, csig, ins }; }
+      const dz = solvedFor ? Math.abs(Math.log(sc / solvedFor.sc)) : 0, hand = dz > SOLVE_ZOOM && gestureOn();
+      const solve = !solvedFor || solvedFor.sig !== sig || solvedFor.csig !== csig || solvedFor.ins !== ins || dz > (hand ? SOLVE_ZOOM_HAND : SOLVE_ZOOM) || Math.abs(th - solvedFor.th) > SOLVE_TURN;
+      carryClear = hand;
+      if (solve || layoutLabels(f, false) === false) { carryClear = false; layoutLabels(f, true); solvedFor = { sig, sc, th, csig, ins }; }
+      else if (hand) labelSettleSoon();
+      carryClear = false;
       labelKey = key; stats.layouts++; stats.ms += performance.now() - t0;
     }
     if (sites.list) sitesPaint();
@@ -8519,6 +8538,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         // it was solved, and the reading, kept as far from the middle of its vessel, came onto the station's ring at its end. One
         // the solve itself left on a ring (dot) is carried, or it would be solved again every frame.)
         if (circuit && it.key.startsWith('n:') && !prev.dot && placed.some((p) => p.dot && hits(rectOf(it), p))) { stale = true; return false; }
+        // (Carried past the usual 5 % by a hand's zoom: a label that would come onto another, or onto a slide's callout, is solved again.)
+        if (carryClear && (placed.some((p) => !p.dot && hits(rectOf(it), p)) || callouts.some((b) => hits(rectOf(it), b)))) { stale = true; return false; }
         placed.push(rectOf(it)); out.push(it);
         return true;
       }
