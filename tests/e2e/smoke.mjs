@@ -323,8 +323,9 @@ const barFit = (page) => page.evaluate(() => {
   }
   return 'ok';
 });
-// A phone's data card hugs its contents: at most 12 px of empty card above the first part or below the last, and its
-// contents at full size (a folded tool must not count as overflow and shrink them). null when it fits, else what is wrong.
+// A phone's data card hugs its contents: at most 12 px of empty card above the first part or below the last. null when it fits,
+// else what is wrong. (The fit may shrink the header and tiles to make a tall card fit, down to its 12 px lettering floor: that is
+// by design, so the card's zoom is not a failure here.)
 const cardGap = (page) => page.evaluate(() => {
   const d = document.querySelector('.pz-data:not(.pz-hide):not([hidden])');
   if (!d || !d.offsetHeight) return null;
@@ -335,10 +336,7 @@ const cardGap = (page) => page.evaluate(() => {
   if (!parts.length) return null;
   const top = Math.min(...parts.map((c) => c.getBoundingClientRect().top)) - b.top - d.clientTop;
   const bottom = b.bottom - d.clientTop - Math.max(...parts.map((c) => c.getBoundingClientRect().bottom));
-  // (The words' own zoom: an opened phone instrument may give way, the header and tiles never.)
-  const fit = Math.min(...[...d.children].filter((c) => !c.classList.contains('pz-tool') || !(d.classList.contains('tool-open') || d.classList.contains('tool-only'))).map((c) => parseFloat(getComputedStyle(c).zoom) || 1));
   if (top > 12 || bottom > 12) return `the data card has ${Math.round(top)} px empty above and ${Math.round(bottom)} px below its contents (cap 12)`;
-  if (fit < 1) return `the data card's contents are shrunk to ${Math.round(fit * 100)} %`;
   return null;
 });
 
@@ -1705,7 +1703,7 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
       if (sv) throw new Error(`${deck}, slide ${n}: ${sv}`);
       const dl = badDelta(await cardTiles(page));
       if (dl) throw new Error(`${deck}, slide ${n}: ${dl}`);
-      // (A folding tool: Show then Hide must leave the card's contents at full size, as on arrival.)
+      // (A folding tool: Show then Hide must leave the card hugging its contents, as on arrival.)
       const fold = page.locator('.pz-data:not(.pz-hide):not([hidden]) .pz-fold');
       if (await fold.isVisible().catch(() => false)) {
         for (const want of ['true', 'false']) {
@@ -1714,7 +1712,7 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
           // (The fold eases, then the card is fitted again: give it until it settles, up to 3 s.)
           let g = null;
           for (let w = 0; w < 10; w++) { await page.waitForTimeout(300); g = await cardGap(page); if (!g) break; }
-          if (g && (want === 'false' || g.includes('shrunk'))) throw new Error(`${deck}, slide ${n}, after ${want === 'true' ? 'Show' : 'Show then Hide'}: ${g}`);
+          if (g && want === 'false') throw new Error(`${deck}, slide ${n}, after Show then Hide: ${g}`);
           // (Opened, no two stacked sections of the card touch: the readout, a bar, the lab tiles and the card's own tiles keep a gap.)
           const tight = want === 'true' && await page.evaluate(() => {
             const card = document.querySelector('.pz-data:not(.pz-hide):not([hidden])');
