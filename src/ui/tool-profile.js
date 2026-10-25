@@ -582,7 +582,7 @@ export function createProfileTool() {
   // (Each block as it fades: its goal, 1 shown or 0 gone, the opacity it fades from, and when it began. A block comes and goes with
   // an ease, never at once.)
   const blk = new Map();
-  // (A question slide's hold (slide hold: true, or a Predict slide before its reveal): the red blocks and the HVPG and PPG brackets stay
+  // (A question slide's hold (slide hold: true): the red blocks and the HVPG and PPG brackets stay
   // out, as the answer would be read off them; heldK eases the brackets out and in as a block fades, and the blocks go and come by blk.)
   let held = false, lastFp = null;
   const heldK = { a: 1, from: 1, t0: 0 };

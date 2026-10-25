@@ -32,8 +32,8 @@ test('the teaching card shows the tag as a corner tab in the level\'s colour, th
   const css = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
   assert.match(src, /const lvl = s\.visual \? null : siteTag\(deck, s\) \|\| railLvl, stab = ui\.shade\.querySelector\('\.pz-sitetab'\);/);
   assert.match(src, /stab\.dataset\.site = lvl\.site; stab\.textContent = lvl\.name;/);
-  // (the title first: a Predict slide's head holds its question's title over the slide's own, in one place)
-  assert.match(src, /ttl = h\('h1', \{ class: 'pz-h' \}, \.\.\.diseaseNodes\(nb\(s\.title\)\)\)/);
+  // (the title first, in one place)
+  assert.match(src, /head = h\('h1', \{ class: 'pz-h' \}, \.\.\.diseaseNodes\(nb\(s\.title\)\)\)/);
   assert.match(src, /text\.replaceChildren\(\.\.\.\[head, /);
   // (the deck tab's mirror: top left, flush, its outer top corner from the same variable and its bottom right corner rounded,
   // tinted in the level's colour)

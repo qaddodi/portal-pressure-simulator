@@ -49,7 +49,7 @@ test('an instrument that records the patient, or a chart drawn from the deck\'s 
 
 test('slides with their own order of cards keep nothing: a new patient, a time-lapse, the catheter, a case card, a question, a held answer', () => {
   const a = scope(), p = dataPlan(a, O);
-  for (const k of ['visual', 'lapse', 'cath', 'monitor', 'procedure', 'vignette', 'predict', 'hold']) {
+  for (const k of ['visual', 'lapse', 'cath', 'monitor', 'procedure', 'vignette', 'question', 'hold']) {
     const x = scope({ [k]: k === 'lapse' ? { seconds: 8 } : k === 'visual' ? 'table' : 'x' });
     assert.equal(keepData({ from: p, to: p, prev: a, next: x }), false, `${k} ahead`);
     assert.equal(keepData({ from: p, to: p, prev: x, next: a }), false, `${k} behind`);

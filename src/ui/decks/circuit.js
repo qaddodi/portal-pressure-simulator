@@ -67,7 +67,7 @@ export const CIRCUIT = withPoints({
     },
     {
       id: 'both', ...MEAL,
-      predict: { title: 'The same meal, in cirrhosis', q: 'In health a meal raised the portal flow by half, and the gradient barely moved. This liver resists several times more. Will the same meal raise the gradient more or less?', options: ['More', 'Less', 'About the same'], answer: 0 }, view: C, sites: R, span: [{ from: 'CONF', to: 'IVCS', label: 'PPG {ppg}' }], data: 'tiles', tiles: ['pvFlow', 'hvpg'], delta: true,
+      question: 'In cirrhosis, will the same meal raise the gradient more?', view: C, sites: R, span: [{ from: 'CONF', to: 'IVCS', label: 'PPG {ppg}' }], data: 'tiles', tiles: ['pvFlow', 'hvpg'], delta: true,
       kicker: K, site: 'sin', title: 'In cirrhosis the same meal raises the gradient more',
       line: 'The gradient rises more even though the flow rises less, because the extra flow now crosses a higher resistance.',
       notes: 'In cirrhosis the splanchnic arterioles dilate for good (nitric oxide, glucagon, bacterial products), so the inflow stays high: the hyperdynamic circulation. A raised resistance and a raised inflow multiply. The rise is less than the resistance alone would predict: in cirrhosis the meal raises flow less, and part of it leaves through collaterals. Large transfusions raise the portal pressure the same way and can provoke a variceal bleed; meals may too.',

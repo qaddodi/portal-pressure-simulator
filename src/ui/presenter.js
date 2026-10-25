@@ -22,11 +22,11 @@ import { sinusoidSupported } from './gl-support.js?v=94ad2a7ff1';
 import { SCALE_NAME, offeredScales, scaleView, pickedScale } from './scale-switch.js?v=1b0e3acd65';
 import { DISEASE_SRC, diseasePieces } from './diseases.js?v=fb8a5451c3';
 import { nb, listCase, plateletText } from './glue.js?v=5a0f63226b';
-import { DECKS, REGIONS, LEVELS, TOPICS, withOverview, siteTag, SITE_TAGS } from './decks.js?v=7af8b5f33d';
+import { DECKS, REGIONS, LEVELS, TOPICS, withOverview, siteTag, SITE_TAGS } from './decks.js?v=aa6d39efa3';
 import { fingerprintOf } from '../engine/fingerprint.js?v=8faea80b59';
 import { createHvpgMonitor } from './hvpg-proc.js?v=a355adc72d';
-import { createTools } from './presenter-tools.js?v=8deee27e5d';
-import { openHandout } from './handout.js?v=a72224c24e';
+import { createTools } from './presenter-tools.js?v=3062a128c7';
+import { openHandout } from './handout.js?v=6e6792a7ad';
 import { noteResume, resumeFor } from './resume.js?v=f086f80ee8';
 import { parseDeckSource, checkDeck } from './deck-source.js?v=8395c650cd';
 import { NO_ASC, TILE, tileOf, SCALE, bandsOf, rateOf, COLS, CUT, PRESS, fpv, dirAbs, dirRel, rateAbs, effOf, rateShown, tileShown, tipsGoal, liveSettled, shownSig } from './table-marks.js?v=2201eda74a';
@@ -34,15 +34,15 @@ import { frameFor, cancelFrame } from './frame.js?v=19b3f2915c';
 import { createFigureKey } from './figure-key.js?v=8bbf7a41ed';
 import { traceWhen } from './trace-labels.js?v=fc916a95c6';
 import { flowCss, heatCss, dropCss, gradientCss, oxygenCss } from './colormap.js?v=cdcf6a2f55';
-import { EXT, expandIds, stepExtra, markLabel, figureHooks, safe } from './slide-ext.js?v=ce9f2ded7b';
+import { EXT, expandIds, stepExtra, markLabel, figureHooks, safe } from './slide-ext.js?v=2b22b0e38f';
 import { clotWords } from './callout-math.js?v=c53cc8d6a3';
 import { citeText, focusOf, oneLadder } from './teach-extras.js?v=5f5248f5a7';
-import { createProfileTool, createProfileStrip, pillReadings } from './tool-profile.js?v=748069634e';
+import { createProfileTool, createProfileStrip, pillReadings } from './tool-profile.js?v=5ff8536499';
 import { causeFit } from './cause-fit.js?v=830a6835a5';
 import { COMPACT, WIDE } from './card-type.js?v=5af5f22935';
 import { flowTimeHeight } from './flow-time.js?v=cb89e13e11';
 import { PROCS, procBlocked, procOffered, playProcedure } from './proc-anim.js?v=b2351a24c6';
-import { dataPlan, textPlan, keepData, keepText, cardSnap, cardChanged, cardBack } from './card-keep.js?v=bd482b25ae';
+import { dataPlan, textPlan, keepData, keepText, cardSnap, cardChanged, cardBack } from './card-keep.js?v=aa6f7cd3bc';
 const nextFrame = frameFor('presenter');
 
 const KEY = 'pps.scripts';
@@ -1430,11 +1430,10 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   // are fitted unseen meanwhile; the tap lifts the card, the camera makes one eased zoom to the slide's own framing, and the
   // slide's cards come in once it has landed (see caseLifted, caseEnd).
   let caseLift = null, caseCard = null;
-  async function caseRun(s, si, st, cut) {
+  // The glass card goes up, a case's or a question's: its words fitted before it enters, so it never resizes on screen.
+  function cardUp(tag, ...words) {
     const c = ui.vcase, ms = reduce.matches ? 0 : 450;
-    // (A case may end on one short question of its own, caseQ, on its own line under the case: the card already holds the talk until it is
-    // lifted, so the room has the pause to think.)
-    c.replaceChildren(h('span', { class: 'pz-site pz-case-tag' }, 'Case'), h('p', { class: 'pz-case-p' }, nb(s.vignette)), s.caseQ ? h('p', { class: 'pz-case-p pz-case-q' }, nb(s.caseQ)) : null);
+    c.replaceChildren(h('span', { class: 'pz-site pz-case-tag' }, tag), ...words);
     for (const k of ['transform', 'transition', 'opacity']) c.style.removeProperty(k);   // (a card flung off last time comes back whole)
     c.hidden = false; void c.offsetWidth;
     // The words run 2.5x the teaching card's; on a short or narrow screen they ease down just enough to fit the card's room (set before it enters, so nothing resizes on screen).
@@ -1446,7 +1445,13 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     // that Next and a swipe act as on any other slide.
     const card = caseCard = { c, ms, lifted: false };
     caseLift = () => caseGone(card);
-    await wait(ms);
+    return card;
+  }
+  async function caseRun(s, si, st, cut, own = false) {
+    // (A case may end on one short question of its own, caseQ, on its own line under the case: the card already holds the talk until it is
+    // lifted, so the room has the pause to think.)
+    const card = cardUp('Case', h('p', { class: 'pz-case-p' }, nb(s.vignette)), s.caseQ ? h('p', { class: 'pz-case-p pz-case-q' }, nb(s.caseQ)) : null);
+    await wait(card.ms);
     if (cut()) return false;
     // The leaving slide's cards (faded out, still in place) no longer count for the framing: the wide view is the whole patient
     // around the case card. (The new slide's words set their own space again before the zoom to the slide: settleRun.)
@@ -1462,7 +1467,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     // Then, the camera still, the new patient eases in.
     liveOff = false; shownState = -1;
     if (!await morphTo(st, cut, reduce.matches ? 0 : 1200)) return false;
-    shownState = si;
+    shownState = own ? -1 : si;   // (a time-lapse's own start is not a slide's state: the live figure plays the days from it)
     // (The fit follows what the new patient draws, a growing ascites or spleen: once the organs are back on their GPU copy, one
     // short ease takes it in, and none when it already fits.)
     if (!card.lifted) {
@@ -1470,6 +1475,13 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       if (!card.lifted) stage.fitSlow(reduce.matches ? 300 : 900);
     }
     if (view.classList.contains('pz-out')) figureIn(); else loading(false);
+    return !cut();
+  }
+  // A question card (slide field question): the case card's glass, tag and lift, with one question and no new patient. It comes up over the
+  // figure as it stands: no camera retreat, no patient morph. The slide's cards wait behind it (the caseCard branches), the camera makes its
+  // one move to the slide's framing as it lifts, and a slide that changes the model plays that change then (answerPlay, playLapse).
+  async function questionRun(s, cut) {
+    await wait(cardUp('Question', h('p', { class: 'pz-case-p' }, nb(s.question))).ms);
     return !cut();
   }
   // Lifted (tap, Next, a swipe anywhere): the card fades out now, as caseShut would, while the slide carries on behind it.
@@ -1543,7 +1555,6 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   }
   const next = () => {
     if (caseLift) { caseLift(); return; }
-    if (pred && shown?.i === pred.i && want === pred.i) { predictReveal(-1); return; }   // (a Predict slide: Next plays its answer first)
     if (lapseOn && lapseLeft > 0 && shown?.i === want) skipLapse();
     else if (want < slides.length - 1) go(want + 1); else stop();
   };
@@ -1618,10 +1629,10 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     // A time-lapse starts from the slide before's state; a catheter slide drives its own camera.
     // Coming back to it from a later slide shows its end at once: it plays only going forward.
     const back = to < lastAt, lap = !!s.lapse && to > 0 && !back, ct = !s.visual ? s.cath || null : null;
-    // A Predict slide stepped onto going forward lands holding the state before it, and asks; its change plays as the answer
-    // (predictReveal). Jumped to, gone back to, or on a slide that brings a new patient, it shows the answer at once.
-    pred = null; predArm = null;
-    const ask = predictable(s, to, ct);
+    // A question card is shown only stepping onto the slide going forward (never on a jump or Back). A slide that changes the model then lands
+    // holding the state before it, and its change plays once the card is lifted (answerPlay, or its time-lapse). A slide whose answer is a
+    // control the learner moves, or a visual, changes nothing and holds nothing.
+    const ask = questionable(s, to, ct), holdQ = ask && !s.visual && (!!s.lapse || changes(s));
     // A slide without breathing stops it on the live figure at once, before its probe is placed: otherwise its Doppler
     // trace records the leaving patient's breathing until the slide's own state eases in (the Doppler talk's meal slide).
     if (s.params?.respiration === false && store.get().params?.respiration !== false) {
@@ -1646,7 +1657,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     if (!s.visual) { const lens = slideLens(s); if (store.get().colorMode !== lens) store.set({ colorMode: lens }); }
     if (!hushed) delete app.dataset.lit;   // (hushed, the lit set goes straight to the next slide's: a label on both keeps its pill)
     stopLapse(); procStop(); abSlow();
-    const si = lap || ask ? stateOf[to - 1] : stateOf[to];
+    const si = lap || holdQ ? stateOf[to - 1] : stateOf[to];
     await wait(Math.max(0, outMs - (performance.now() - outAt)));
     // (Nothing in the liver changes until its labels are gone.)
     if (hushed) { await wait(Math.max(0, HUSH_OUT - (performance.now() - hushAt))); await eased(['--lab-o'], 600); if (cut()) return; }
@@ -1676,9 +1687,13 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     // A new patient's case (s.vignette), going forward: a centred glass card covers the figure while the patient loads behind it
     // (it stays up while the camera glides, once, to the slide's own framing; Next lifts it, and the slide's cards then come in with no further move).
     const skipCase = noCase; noCase = false;
-    if (!skipCase && s.vignette && ui && !booting && !lap && to > lastAt && (si !== shownState || liveOff)) { if (!await caseRun(s, si, st, cut)) return; }
+    // (A time-lapse may open on a case too: the card covers the patient as it loads at the time-lapse's own start, and the days play after the lift.
+    // That patient needs a start state, which a time-lapse step has only with params: a case slide with a lapse says params: {} at least.)
+    let loaded = false;
+    if (!skipCase && s.vignette && ui && !booting && (!lap || !!own) && to > lastAt && (si !== shownState || liveOff || !!own)) { if (!await caseRun(s, si, st, cut, !!own)) return; loaded = true; }
+    else if (ask) { if (!await questionRun(s, cut)) return; }
     // A new patient, or the same one changed: the figure fades out, the state changes unseen, it fades back in.
-    const swap = si !== shownState || liveOff || !!own;
+    const swap = !loaded && (si !== shownState || liveOff || !!own);
     // (The recording instruments wait for the slide's own state: see the release once it has landed.)
     ui?.tools.hold(swap && !booting);
     // On screen the change eases (morphTo): after the camera has landed and before the cards come in, or for a catheter slide
@@ -1698,7 +1713,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     // through its fade back in, so the eye sees one motion, not a fade and then a move.
     // (The words come first: they set the space the camera frames into.)
     // A time-lapse's words tell where it ends ("six months on, the HVPG is {hvpg}"), so their values are the end state's.
-    const said = lap || ask ? await stateReady(stateOf[to]) : st;
+    const said = lap || holdQ ? await stateReady(stateOf[to]) : st;
     if (!said || cut()) return;
     // (Its card starts from the state the time-lapse plays from, and climbs with it.)
     // The new cards are built unseen (pz-prep) and fitted at their final size before they fade in, so they never grow on screen
@@ -1709,7 +1724,6 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     // (A catheter slide comes in at once: its teaching card carries the live tracing, which stays on screen through the
     // measurement while the catheter drives the camera.)
     bare = !booting && !!ui && !ct;
-    if (ask) predArm = { i: to };
     wordsIn(s, said, to, swap, lap, st);
     // (Bare, the teaching card and its glass stay out whole until the camera has landed, never an empty card first. Behind a case
     // card they also stay out until it is lifted, a catheter slide's included: its words would otherwise come in under the case.)
@@ -1772,8 +1786,8 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     paintChrome();
     if (s.lapse && to > 0 && back) paintLapse(s, s.days, s.days, true);
     if (booting) await coverDown();
-    if (ask) { pred = { i: to, s, gen: g }; return; }   // (waits for a choice or Next: predictReveal)
     if (lap) await playLapse(s, to, cut);
+    else if (holdQ) await answerPlay(s, to, cut);
     else if (s.lapse) figureHooks('lapse', s);   // (back or jumped to the slide: it shows where its days ended, the glow with it)
     if (s.procedure?.auto && !back && !cut()) procPlay(s, to);   // (like a time-lapse, it plays only going forward)
   }
@@ -1935,49 +1949,34 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     });
     return mon.el;
   }
-  // ── Predict (teaching feature X3) ──
-  // A slide that changes the model (a time-lapse, a drug, an action, days) can carry predict: { title?, q, options, answer }. Stepped onto
-  // going forward, it lands with the model still at the slide before's state, the data card showing those numbers with the answer held back
-  // (holdAnswer), and the teaching card asking: its predict title and question with two to four choices. A choice, or Next, plays the
-  // answer: the picked choice stays outlined and the right one takes a quiet tint (a wrong pick is never marked), the words cross-fade to the
-  // slide's own inside the same card, and the model makes the slide's change live (its time-lapse, or the eased change a compare button
-  // makes), the numbers following, the held parts easing in once it has landed. Nothing is stored or scored.
-  let pred = null, predArm = null;   // (pred: the slide waiting for its answer, once landed; predArm: the slide being built to ask)
-  const predictOk = (p) => !!p && typeof p.q === 'string' && !!p.q.trim() && Array.isArray(p.options) && p.options.length >= 2 && p.options.length <= 4 && p.options.every((o) => typeof o === 'string' && o.trim());
-  // (Only going forward one step, onto a slide that changes the same patient, never a visual, a catheter or a case card.)
-  const predictable = (s, to, ct) => !!ui && !booting && !s.visual && !ct && !s.vignette && predictOk(s.predict) && to > 0 && to === lastAt + 1 && !s.preset && (!!s.lapse || changes(s));
-  async function predictReveal(k) {
-    const p = pred;
-    if (!p || !ui || !deck) return;
-    pred = null; predArm = null;
-    const { s, i, gen: g } = p, mine = () => !!deck && shown?.i === i && slides[i] === s && gen === g && want === i;
-    if (!mine()) return;
-    const chips = [...ui.text.querySelectorAll('.pz-pchip')];
-    chips.forEach((c, j) => { c.disabled = true; c.setAttribute('aria-pressed', String(j === k)); c.toggleAttribute('data-right', j === s.predict.answer); });
-    if (k >= 0 && !reduce.matches) { await wait(1000); if (!mine()) return; }   // (long enough to see the pick and the right answer side by side)
-    ui.text.classList.add('pz-told');
-    if (s.lapse) await playLapse(s, i, () => !mine());
-    else {
-      const end = await stateReady(stateOf[i]);
-      if (!end || !mine()) return;
-      const ref = refOf(s, i);
-      let easing = true;
-      (async () => { while (easing && mine()) { await wait(150); const fr = store.get().frame; if (easing && fr?.metrics && mine()) dataTo(s, liveFp(fr), ref, 280); } })();
-      shownState = -1;
-      const done = await morphTo(end, () => !mine(), reduce.matches ? 0 : MORPH_MS, false);
-      easing = false;
-      if (!done || !mine()) return;
-      shownState = stateOf[i];
-      dataTo(s, end.fp, ref, 280);
-    }
-    if (mine()) { holdAnswer(!!s.hold); if (s.procedure?.auto) procPlay(s, i); }
+  // ── The question card ──
+  // A slide can carry question: '...' (one short question, no choices, no answer line, nothing stored or scored). Stepped onto going
+  // forward it is asked on the case card's glass (questionRun), over the figure as it stands, and the slide is its answer. A slide that
+  // changes the model lands holding the state before it, the data card showing those numbers, and plays its change once the card is
+  // lifted: its time-lapse, or the eased change a compare button would make (answerPlay), the numbers following. A slide whose answer is
+  // a control the learner moves, or a visual, changes nothing. Jumped to, or gone back to, the slide shows as any other, with no card.
+  // (Only going forward one step, never onto a slide that brings a patient, a case, a catheter or a live procedure.)
+  const questionable = (s, to, ct) => !!ui && !booting && !noCase && typeof s.question === 'string' && !!s.question.trim() && !ct && !s.vignette && !s.preset && !s.procedure && to > 0 && to === lastAt + 1;
+  // The change the slide makes to the model, eased in as the numbers follow (what a time-lapse does by its days).
+  async function answerPlay(s, i, cut) {
+    const end = await stateReady(stateOf[i]);
+    if (!end || cut()) return;
+    const ref = refOf(s, i);
+    let easing = true;
+    (async () => { while (easing && !cut()) { await wait(150); const fr = store.get().frame; if (easing && fr?.metrics && !cut()) dataTo(s, liveFp(fr), ref, 280); } })();
+    shownState = -1;
+    const done = await morphTo(end, cut, reduce.matches ? 0 : MORPH_MS, false);
+    easing = false;
+    if (!done || cut()) return;
+    shownState = stateOf[i];
+    dataTo(s, end.fp, ref, 280);
   }
 
   // ── The answer held back ──
   // A question slide (hold: true) keeps back what would name its answer: the Gut to heart chart's red blocks and HVPG and PPG brackets, the
   // Doppler strip's direction, pattern and note, the tiles' rating words and the figure's "no flow" and "stasis" words. They are set out
   // of sight as the slide's cards are built (instant), and the next slide, its answer, comes in still holding them and lets them ease in
-  // once its cards have landed (holdEase, see transitionRun). A Predict slide holds them until its reveal (predictReveal).
+  // once its cards have landed (holdEase, see transitionRun).
   let heldNow = false, holdEase = false;
   function holdAnswer(on, instant = false) {
     if (!ui) return;
@@ -1988,7 +1987,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     ui.tools.holdAnswer(heldNow, instant);
     if (instant) nextFrame(() => nextFrame(() => ui?.data.removeAttribute('data-held-now')));
   }
-  // (Held on this slide: its own hold, a Predict slide still asking, or an answer slide straight after a held one, held until it lands.)
+  // (Held on this slide: its own hold, or an answer slide straight after a held one, held until it lands.)
   const answerAfter = (s, i) => !s.visual && !s.hold && !s.preset && i > 0 && !!slides[i - 1]?.hold && i === lastAt + 1;
   // A slide's cards come in: the teaching card and the data card, each built unseen (pz-prep) and laid out where it will rest. A card the slide
   // keeps from the one before (keepFor) is not built: the data card only follows the patient (dataKept), the words stay as they stand.
@@ -2014,7 +2013,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     // stay out, never shown for a moment while they are fitted, until the card is lifted: cardsIn)
     if (!caseCard) text.classList.remove('pz-leave');
     if (s.visual) {
-      text.hidden = true; text.replaceChildren(); text.classList.remove('pz-asking', 'pz-told'); paintKey(null);
+      text.hidden = true; text.replaceChildren(); paintKey(null);
       // A panel that was not there fades in (never pops): unhidden while still faded, then let go.
       if (panel.hidden) { panel.classList.add('pz-leave'); panel.hidden = false; void panel.offsetWidth; }
       panel.classList.toggle('fill', s.visual === 'ladders');
@@ -2028,17 +2027,8 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     } else {
       panel.hidden = true; panel.replaceChildren(); panel.classList.remove('pz-leave'); ui.veil.classList.remove('on');
       text.hidden = false;
-      // A Predict slide still asking (predictArm): its question and choices stand in the title's and the line's place, the slide's own words
-      // laid out under them unseen, and everything else on the card kept in place unseen too, so the card is sized for the larger of the two
-      // and the reveal is a cross-fade inside it (predictReveal).
-      const ask = predArm?.i === i ? s.predict : null, ttl = h('h1', { class: 'pz-h' }, ...diseaseNodes(nb(s.title)));
-      const ln = s.line ? h('p', { class: 'pz-line' }, rich(s.line, s, st?.fp, !!st?.params?.tips?.on)) : null;
-      const head = ask ? h('h1', { class: 'pz-h pz-swap' }, h('span', { class: 'pz-pa' }, nb(ask.title || s.title)), h('span', { class: 'pz-pb' }, ...ttl.childNodes)) : ttl;
-      const line = ask ? h('div', { class: 'pz-line pz-swap' },
-        h('div', { class: 'pz-pa' }, h('span', { class: 'pz-pq' }, nb(ask.q)),
-          h('div', { class: 'pz-ab pz-pchips', role: 'group', 'aria-label': 'Your prediction' }, ask.options.map((o, k) => h('button', { type: 'button', class: 'pz-abb pz-pchip', 'aria-pressed': 'false', onclick: () => predictReveal(k) }, o)))),
-        h('div', { class: 'pz-pb' }, ...(ln ? ln.childNodes : []))) : ln;
-      text.classList.toggle('pz-asking', !!ask); text.classList.remove('pz-told');
+      const head = h('h1', { class: 'pz-h' }, ...diseaseNodes(nb(s.title)));
+      const line = s.line ? h('p', { class: 'pz-line' }, rich(s.line, s, st?.fp, !!st?.params?.tips?.on)) : null;
       text.replaceChildren(...[head, s.eq ? equation(s.eq) : null, s.monitor ? monitorFor(s, i) : null,
           line, s.caveat ? h('p', { class: 'pz-caveat' }, s.caveat) : null, citeEl(s),
           s.compare ? h('div', { class: 'pz-ab', role: 'group', 'aria-label': lensButtons(s) ? 'Color the vessels by' : gateButtons(s) ? 'Sample the stent at' : s.compare.some((o) => o.params && 'fenestrae' in o.params) ? 'Open or close the fenestrae on the live model' : 'Switch treatment on the live model' },
@@ -2049,7 +2039,6 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
           s.lapse && i > 0 ? h('div', { class: 'pz-lapse', role: 'status' }, h('span', { class: 'pzl-bar' }, h('i')), h('span', { class: 'pzl-t' }, lapseText(s, 0, s.days, false))) : null,
           s.rail ? rail(s.rail === 'all' ? 'all' : s.site) : null,
           s.causes?.length ? h('p', { class: 'pz-causes' }, h('span', { class: 'pz-sub' }, s.causesHead || 'Causes'), nb(listCase(s.causes))) : null]);
-      if (ask) for (const c of text.children) if (c !== head && c !== line) c.classList.add('pz-pwait');
       paintKey((slideLens(s) !== 'pressure' || lensButtons(s)) ? slideLens(s) : null, s);
       markLong(text, gen !== redrawn);   // (drawn again for a new text size: judged at its full size, as a fresh load does)
       [...text.children].forEach((c, k) => c.style.setProperty('--i', k));
@@ -2063,7 +2052,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     delete data.dataset.hold;
     if (hasCard(s)) {
       // (A time-lapse's numbers wait for its end; an instrument on the card plays the days, so that card comes in with the words.)
-      if (lap && !s.tool && !(predArm?.i === i) && ui.root.classList.contains('pz-prep')) data.dataset.hold = '';   // (a Predict slide shows its numbers before: the question is about them)
+      if (lap && !s.tool && ui.root.classList.contains('pz-prep')) data.dataset.hold = '';
       data.classList.add('tiles-only');   // (every card: the old ladder card was the one without it)
       data.classList.toggle('under', under(s));
       data.toggleAttribute('data-sin-tiles', sinTiles(s));
@@ -2102,7 +2091,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     }
     dataOn = planOf(s, i) ?? null;
     holdEase = answerAfter(s, i);
-    holdAnswer(!s.visual && (!!s.hold || holdEase || predArm?.i === i), true);
+    holdAnswer(!s.visual && (!!s.hold || holdEase), true);
   }
   const showTool = (s, i, lap = false) => ui.tools.show(s.tool, { slide: i, stateKey: stateOf[i], chain: chainTo(i, s.tool.kind === 'trace' ? s.tool.since : null), trail: states[stateOf[i]]?.trail ?? null, reveal: lap ? 0 : 1, ctx: ctxOf(s, i) });
 
@@ -2177,7 +2166,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     if (s.data) ui.tiles.set(respFp(s, now.fp), tileKeys(s), s.key || [], refOf(s, i), undefined, now.params?.tips?.on);
     ui.tools.pin(now.fp);
   }
-  // A kept data card with a new patient: its tiles and instrument ride the live model as it eases to the slide's state (as a Predict slide's do),
+  // A kept data card with a new patient: its tiles and instrument ride the live model as it eases to the slide's state,
   // then land on the slide's own numbers.
   function followData(s, to, st, cut) {
     const ref = refOf(s, to);
@@ -4417,7 +4406,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     fitRO?.disconnect(); clearRO?.disconnect(); fitKids = []; clearFor = null; clearTimeout(clearT); cancelFrame(fitRaf);
     store.set({ presenting: false, presentLabels: null, presentTerms: null, presentNames: false, focus: null, lobuleCallout: null, presentFp: null }); stage.setSites(null); stage.setGlow(null); stage.pinOrgans(null); delete app.dataset.lit;
     figureHooks('clear');
-    hushed = false; lastCam = null; clearTimeout(hushInT); app.classList.remove('pz-hush', 'pz-hush-in', 'pz-held'); heldNow = false; holdEase = false; pred = null; predArm = null;
+    hushed = false; lastCam = null; clearTimeout(hushInT); app.classList.remove('pz-hush', 'pz-hush-in', 'pz-held'); heldNow = false; holdEase = false;
     cancelFrame(slip.raf); slip.d = null; slip.h0 = null;
     clearTimeout(idleT); clearTimeout(dock.fit); cancelFrame(dock.raf); dock.lvl = 0; dock.to = 0; dock.drag = false; dock.auto = false; dock.autoKey = '';
     dataOn = textOn = null; keepNow = NO_KEEP; keepSnap = null; keepBad = []; keepArgs = null;

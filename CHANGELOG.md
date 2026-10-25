@@ -2,6 +2,16 @@
 
 ## October 2026
 
+- **Predict is gone; a slide can ask one short question on a glass card instead.** (Mohammad, 25 Oct, "yes to both"; deck rebuild plan, A2.)
+  The four Predict slides (Circuit 6, Blood volume 3, Next bleed 4, Beta-blockers 7) no longer show choices, a tinted right answer or an
+  answer line, and nothing about a guess is kept. Stepping onto one now brings up the case card's glass over the figure as it stands,
+  tagged Question, with one question in large type; a tap, Next or a swipe lifts it. There is no camera pull-back and no new patient. A slide
+  that changes the model lands holding the numbers before the change and plays the change after the lift (the time-lapse, or the eased
+  change a compare button makes), the numbers following. The slide is the answer. Going back or jumping to the slide shows no card. A slide
+  field `question` replaces `predict`; the handout prints the question before the slide's words. A case card can now also open a
+  time-lapse: it covers the patient at the time-lapse's own start, and the days play after the lift. The question card keeps no data or
+  teaching card from the slide before. Code and unit tests only; nobody has looked on screen. No handout figure changes. `src/ui/presenter.js`,
+  `src/ui/card-keep.js`, `src/ui/handout.js`, `styles/app.css`, `tests/question-card.test.js`, `tests/case-card.test.js`.
 - **Varices are graded Small or Large by size alone, with no F-codes; the wall tool says "wall stress" and uses σ.** (Mohammad, 25 Oct, "yes to
   both" to the varix and insufflation recommendations; deck rebuild plan, A1.) The scope's Grade row, the Tests card tile, the dock chip,
   the screen-reader summary and the inspector now read None (under 2.5 mm), Small (under 5 mm) or Large (5 mm or more). F1, F2, F3 and

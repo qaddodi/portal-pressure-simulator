@@ -6,10 +6,11 @@
 const J = JSON.stringify;
 
 // Fields of a slide that stop either of its cards being kept: the days run (a time-lapse), the catheter or a live procedure drives the
-// screen, a case card covers it as another patient comes in, a question holds the answer back or asks for a prediction.
+// screen, a case card covers it as another patient comes in, a question card asks first and its slide's cards are built after the lift, a held
+// question keeps its answer back.
 // Those slides have their own order of cards; they come and go whole, as they always did. (A new patient without a case card is
 // not one of them: the data card rides the model to it, see keepData.)
-const OWN = ['visual', 'lapse', 'cath', 'monitor', 'procedure', 'vignette', 'predict', 'hold'];
+const OWN = ['visual', 'lapse', 'cath', 'monitor', 'procedure', 'vignette', 'question', 'hold'];
 const own = (s) => !s || OWN.some((k) => s[k]);
 
 // Instruments that record the patient's flow as it passes: another patient clears their trace, so their card is built again

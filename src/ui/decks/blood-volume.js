@@ -29,7 +29,7 @@ export const BLOOD_VOLUME = {
     },
     {
       id: 'loss', action: H,
-      predict: { title: 'A liter is about to be lost', q: 'She is about to lose a liter of blood from a varix, and her arterial pressure will fall. What will the pressure in her portal vein do?', options: ['Rise', 'Fall', 'Stay the same'], answer: 1 }, cam: 'route', tool: PROFILE, data: 'tiles', tiles: ['map', 'hr'], key: ['map'], delta: true,
+      question: 'What will a liter lost do to the portal pressure?', cam: 'route', tool: PROFILE, data: 'tiles', tiles: ['map', 'hr'], key: ['map'], delta: true,
       kicker: 'The bleed', site: 'sin', title: 'A liter lost lowers the portal pressure',
       line: 'A liter of blood is lost. The mean arterial pressure falls to {map} and the heart races at {hr}. With less volume, less blood flows into the portal system, and the portal pressure falls to {pv}.',
       notes: 'The dotted line is the pressure before the bleed. Lost volume lowers the cardiac output and the splanchnic inflow, so the whole portal profile sinks. The heart rate and the arterial pressure show the loss first; the hemoglobin lags for hours, as fluid moves into the vessels (the Variceal bleed deck plays this beat by beat).',

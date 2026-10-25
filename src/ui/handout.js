@@ -6,7 +6,7 @@
 // (decks.js, new ones included: a slide without a figure prints without one) and for the instructor's scripts.
 
 import { download } from './download.js?v=3564e5bf8c';
-import { LEVELS, withOverview } from './decks.js?v=7af8b5f33d';
+import { LEVELS, withOverview } from './decks.js?v=aa6d39efa3';
 import { TILE } from './table-marks.js?v=2201eda74a';
 import { plateletText } from './glue.js?v=5a0f63226b';
 import { citeText } from './teach-extras.js?v=5f5248f5a7';
@@ -56,6 +56,8 @@ h2 { margin: 0; font-size: 19px; font-weight: 600; line-height: 1.25; }
 .checks p { margin: 0; }
 .checks .a { margin-top: 2px; color: var(--ink-2); }
 .ask .a b { color: var(--ink); }
+.q { margin: 0 0 6px; }
+.q p { margin: 0; }
 @media (max-width: 680px) {
   body { padding-top: 20px; }
   article { flex-direction: column; gap: 12px; }
@@ -97,9 +99,6 @@ export function lineText(t, fp = null, at = () => null) {
   });
 }
 
-// A Predict slide's question as the talk asks it, and its answer (the right choice), printed like an ask (presenter.js predictReveal).
-const predictText = (s) => (s.predict?.q && Array.isArray(s.predict.options) && s.predict.options[s.predict.answer] ? [`${s.predict.q} (${s.predict.options.join(', ')})`, s.predict.options[s.predict.answer]] : null);
-
 function slideBlock(d, base, s, i, fp, at) {
   const [ml, legend] = s.eq || [];
   const [q, a] = Array.isArray(s.ask) ? s.ask : s.ask ? [s.ask] : [];
@@ -107,6 +106,7 @@ function slideBlock(d, base, s, i, fp, at) {
   ${fig(base, d, s)}
   <div class="txt">
     <p class="cap"><span class="n">${i + 1}</span>${s.kicker ? ` · ${esc(s.kicker)}` : ''}</p>
+    ${typeof s.question === 'string' && s.question.trim() ? `<div class="q"><p class="cap">Question</p><p>${esc(s.question)}</p></div>` : ''}
     <h2>${esc(s.title || 'Slide')}</h2>
     ${s.line ? `<p class="line">${esc(lineText(s.line, fp, at))}</p>` : ''}
     ${ml ? `<div class="eq"><math display="block">${ml}</math>${legend ? `<small>${esc(legend)}</small>` : ''}</div>` : ''}
@@ -114,7 +114,6 @@ function slideBlock(d, base, s, i, fp, at) {
     ${s.notes ? `<div class="notes"><p class="cap">Notes</p><p>${esc(s.notes)}</p></div>` : ''}
     ${s.checks ? `<ol class="checks">${s.checks.map(([cq, ca]) => `<li><p>${esc(cq)}</p><p class="a"><b>Answer:</b> ${esc(ca)}</p></li>`).join('')}</ol>` : ''}
     ${s.tool?.kind === 'criteria' && Array.isArray(s.tool.rows) ? `<div class="notes"><p class="cap">${esc(s.tool.title || 'Criteria')}</p><ul>${s.tool.rows.map((r) => (typeof r === 'string' ? r : Array.isArray(r) ? r[0] : r?.text)).filter(Boolean).map((t) => `<li>${esc(t)}</li>`).join('')}</ul></div>` : ''}
-    ${predictText(s) ? `<div class="ask"><p class="cap">Predict</p><p>${esc(predictText(s)[0])}</p><p class="a"><b>Answer:</b> ${esc(predictText(s)[1])}</p></div>` : ''}
     ${q ? `<div class="ask"><p class="cap">Ask the room</p><p>${esc(q)}</p>${a ? `<p class="a"><b>Answer:</b> ${esc(a)}</p>` : ''}</div>` : ''}
   </div>
 </article>`;

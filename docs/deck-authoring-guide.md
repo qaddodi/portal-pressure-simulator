@@ -21,7 +21,7 @@ Contents: At a glance · 1 What a deck is · 2 Deck fields · 3 Slide fields · 
 * **Hands-on slides.** `compare` buttons switch the live model between treatments, patients, earlier time points or lenses, and a `whatIf` slider drags one setting (section 7.4). 32 of the 40 built-in decks have at least one. `scales` adds a pill that flips the figure between the anatomy, the lobule and the sinusoid (section 5.10).
 * **Case cards.** A slide that brings in a new patient can open with a centred frosted card holding a short clinical case, which may end on one short question (`caseQ`, section 14).
 * **Deck furniture the app adds for you:** an Outline and objectives slide in front, the deck's short name in a tab at each slide card's top right corner, the level tab in its top left corner in decks that cover more than one level, disease-name pills, the closing quick check (`checks`), the printed handout (Present menu › Print notes), the nav pill, the corner credit.
-* **On screen and in print.** On screen a slide shows its title, line, causes, the figure and the data card. `notes` and `ask` print only in the handout (`src/ui/handout.js`), never on a projected talk; the only questions learners see during a talk are the closing quick check and a Predict slide's question (section 7.5). While a talk plays, the figure is read-only: taps, hover, zoom, pan and keyboard focus on vessels do nothing, so dye, the vessel card and the Explore tools cannot be used without leaving the talk (Esc). A slide must show what it teaches by itself. These are design decisions by the owner, not gaps to fill.
+* **On screen and in print.** On screen a slide shows its title, line, causes, the figure and the data card. `notes` and `ask` print only in the handout (`src/ui/handout.js`), never on a projected talk; the only questions learners see during a talk are the closing quick check and a question card (section 7.5). While a talk plays, the figure is read-only: taps, hover, zoom, pan and keyboard focus on vessels do nothing, so dye, the vessel card and the Explore tools cannot be used without leaving the talk (Esc). A slide must show what it teaches by itself. These are design decisions by the owner, not gaps to fill.
 * **The menu has two tabs:** *Present* (the decks, this guide) and *Patients* (the presets, free exploration). Instructors can also import a deck file in the app (section 13).
 
 ---
@@ -91,7 +91,7 @@ Every field is optional unless marked. Fields are grouped by what they do. Unkno
 
 ### 3.4 The data card (section 7)
 
-`data`, `tiles`, `key`, `delta`, `dataTitle`, `tool`, `visual` (+ `cols`, `asc`, `rowHead`, `note`, `vs`, `foot`, `calm`, `of`, `scale`), `compare`, `whatIf`, `procedure` (7.4); opt-in: `wave`, `waveMax`, `focusRow` (7.3); opt-in teaching features (7.5): `hold`, `tool: { kind: 'criteria' }`, `predict`, `hvpgResp`, `tool.grid` on a Doppler, `clock`; `caseQ` (section 14).
+`data`, `tiles`, `key`, `delta`, `dataTitle`, `tool`, `visual` (+ `cols`, `asc`, `rowHead`, `note`, `vs`, `foot`, `calm`, `of`, `scale`), `compare`, `whatIf`, `procedure` (7.4); opt-in: `wave`, `waveMax`, `focusRow` (7.3); opt-in teaching features (7.5): `hold`, `tool: { kind: 'criteria' }`, `question`, `hvpgResp`, `tool.grid` on a Doppler, `clock`; `caseQ` (section 14).
 
 ### Slide order and carry-over
 
@@ -397,7 +397,7 @@ Inside the liver (the view's own label takes the colour with a soft glow; use wi
 * A chart slide can carry tiles too: `tool: { kind: 'profile' }, data: 'tiles', tiles: [..]` puts the tiles beside it. Leave HVPG and PPG out: the chart's brackets show them.
 * `dataTitle` renames the tiles or instrument card ("Circulation at 24 weeks"); the chart's card is "Pressure, gut to heart".
 * Each tile has a scale bar coloured by its rating, a ring where it started and a dot where it is now, with "from X" or "No change" when it shows a change. After TIPS the PPG tile reads "Target met" (below 12 mmHg) or "Above target" instead of its usual rating.
-* **A data card that stays.** When the next slide has the same instrument and options (`tool`), the same tiles, `dataTitle` and layout, the card stays on screen through the slide change and only the words swap; its readings ease to the new slide's numbers (the highlighted tile, `key`, may differ). Different tiles or an option of the instrument (`grid`, `from`, `gate`, ...) build the card afresh. A recording instrument (the Doppler, the beat-by-beat trace) stays only while the patient stays, since a new patient starts its trace over. Slides with a `lapse`, `cath`, `predict`, `hold` or a case card (`vignette`) always build their cards afresh. A new patient without a case card (a bare `preset`) does keep the card, which follows the model to the new patient. The same holds the other way round: two slides with the same words and the same patient keep the teaching card and swap only the data card. If the new slide's layout would change a kept card (a taller teaching card that makes the data card smaller), it leaves and comes back as usual.
+* **A data card that stays.** When the next slide has the same instrument and options (`tool`), the same tiles, `dataTitle` and layout, the card stays on screen through the slide change and only the words swap; its readings ease to the new slide's numbers (the highlighted tile, `key`, may differ). Different tiles or an option of the instrument (`grid`, `from`, `gate`, ...) build the card afresh. A recording instrument (the Doppler, the beat-by-beat trace) stays only while the patient stays, since a new patient starts its trace over. Slides with a `lapse`, `cath`, `question`, `hold` or a case card (`vignette`) always build their cards afresh. A new patient without a case card (a bare `preset`) does keep the card, which follows the model to the new patient. The same holds the other way round: two slides with the same words and the same patient keep the teaching card and swap only the data card. If the new slide's layout would change a kept card (a taller teaching card that makes the data card smaller), it leaves and comes back as usual.
 
 ### 7.2 `tool`: an instrument in the card (above the tiles if `data` is also set)
 
@@ -486,22 +486,21 @@ Sarin classes. `title` names the card (keep it under about 36 characters; `short
 the card, never beside it. Give the slide no `causes` with the same list, and check every row's words against the guideline. Used on
 Variceal bleed 8, Choose the treatment 3, Recompensation 7, Gastric varices 2, Beta-blockers 8, Pregnancy 6 and 7, Paracentesis 8, Encephalopathy 4, First visit 2, 10 and 12, Refractory bleed 4 and 7, Ten years 12 and 13 and TIPS journey 2, 3, 7 and 8.
 
-**Predict: `predict: { title?, q, options, answer }`.** The room guesses before the slide teaches, on the slide that teaches it: no new
-slide, no score. Put it on a slide that changes the patient already on screen (`params`, `action`, `days` or a `lapse`; never one with a
-`preset`, a `vignette`, a `visual` or a `cath`), where students tend to guess wrong. Stepped onto going forward, the slide lands with the
-model still at the slide before's state: the tiles show the numbers before the change, the time-lapse waits, and the answer is held back as
-`hold` holds it. The teaching card shows `title` (default: the slide's own title, so give one that does not name the answer) and, in the
-line's place, `q` with the `options` as two to four chips. A tap on a chip, or Next, plays the answer: the picked chip stays outlined and the
-right one (`answer`, its index) takes a quiet tint for a second (a wrong pick is never marked), then the title and line cross-fade to the
-slide's own and the model makes the change live (its time-lapse, or the eased change a `compare` button makes), the numbers following, the
-held parts easing in. The card is laid out for the larger of the question and the slide's own words, so it never changes size; the rest of
-the card (buttons, caveat, source) keeps its place unseen until the reveal. Going back, jumping to the slide, or Next a second time shows
-the slide as usual. Nothing is stored or scored. Write `q` as one or two sentences under 45 words ending on the question, options of a few
-words each ("Rise", "Fall", "Stay the same"), and keep the slide's own `line` as the answer. The handout prints the question, its choices
-and the answer, like an `ask`. Used on Circuit 6, Blood volume 3, Next bleed 4 and Beta-blockers 7 (taken off Variceal bleed 4 on 25 Oct, where stepping onto it froze the talk on an iPhone).
+**Question card: `question: 'One short question?'`.** The room is asked before the slide teaches, and the slide is the answer. Going forward
+one step onto the slide, the case card's glass comes up over the figure as it stands, tagged Question, with the question in large type and
+nothing else: no choices, no answer line, nothing stored or scored. There is no camera retreat and no new patient. A tap, Next or a swipe
+lifts it, and the slide goes on behind it. Put it on a slide that shows the answer by changing the model (`params`, `action`, `days`, a
+`lapse`), has a control the learner moves (`compare`, `whatIf`) or is a `visual`; never on one with a `preset`, a `vignette`, a `cath` or a
+`procedure`, which bring their own patient or card. A slide that changes the model lands holding the state before the change, its data card
+showing those numbers, and plays the change once the card is lifted (the time-lapse, or the eased change a `compare` button makes) with the
+numbers following. Jumped to, or gone back to, the slide shows as any other. Write one question under 100 characters, starting with a
+capital and ending in a question mark, with no number in it. At most one question card in any three slides, one per section and three per deck, never two in a
+row. The handout prints the question before the slide's words, with no answer line. Used on Circuit 6, Blood volume 3, Next bleed 4 and
+Beta-blockers 7 (the four slides that asked with Predict until 25 Oct; Predict is gone, its choices and its reveal with it). A built-in slide
+uses it only when `tests/deck-adopted.js` lists it.
 
 ```js
-{ id: 'both', ...MEAL, predict: { title: 'The same meal, in cirrhosis', q: 'In health a meal raised the portal flow by half, and the gradient barely moved. This liver resists several times more. Will the same meal raise the gradient more or less?', options: ['More', 'Less', 'About the same'], answer: 0 }, /* …the slide as before… */ }
+{ id: 'both', ...MEAL, question: 'Will the same meal raise the gradient more, or less?', /* …the slide as before… */ }
 ```
 
 ---
