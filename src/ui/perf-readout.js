@@ -12,7 +12,7 @@ const HIDES = ['', 'no live organs', 'no figure SVG', 'no labels', 'no GPU pictu
 const HIDE_CSS = {
   'no live organs': '#stageView svg#stage :is(#backdrop, #organs, #ascites, #ghosts) { visibility: hidden !important; }',
   'no figure SVG': '#stageView :is(svg#stage, svg#stageOver) { visibility: hidden !important; }',
-  'no labels': '#stageView svg#labels { visibility: hidden !important; }',
+  'no labels': '#stageView svg#labels, #stageView #labelGl { visibility: hidden !important; }',
 };
 let hideAt = 0;
 // Notes counted frame by frame over a window (veins-gl.js composite): a frame that redrew the whole picture, a frame with the organ

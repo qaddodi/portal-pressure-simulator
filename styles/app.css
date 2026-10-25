@@ -136,7 +136,11 @@ svg { flex: none; }
 .stage-view > :is(#stage, #stageOver, #labels, canvas) { transition: opacity .25s ease; }
 .stage-view.unframed > :is(#stage, #stageOver, #labels, canvas) { opacity: 0; }
 /* A presenter's camera move: the labels ease out as it starts and back in once it settles (stage.js camSettle). */
-.stage-view.cam-move > #labels, .stage-view.cam-move .lb-glass { opacity: 0; }
+.stage-view.cam-move > #labels, .stage-view.cam-move > #labelGl, .stage-view.cam-move .lb-glass { opacity: 0; }
+/* The labels the GPU draws (label-gl.js): their SVG copy stays, for its layout, clicks, focus and screen readers, but paints nothing;
+   the canvas over it takes the label layer's rules (cam-move, unframed, the lobule, the catheter) and never takes a pointer. */
+#labels .lb[data-gl] > * { opacity: 0; }
+.stage-view > canvas#labelGl { pointer-events: none; }
 .stage-view .lb-glass { transition: opacity .25s ease; }
 .stage-view.panning #stage { cursor: grabbing; }
 
@@ -1410,7 +1414,7 @@ button.finding { cursor: pointer; }
 :root[data-theme="dark"] .lz-zone b { font-weight: 700; }
 .lz-zone span { font-size: calc(var(--t-cap) * var(--label-scale, 1) * var(--zk, 1)); font-weight: 600; letter-spacing: .08em; opacity: calc(.8 * var(--lab-o, 1) * var(--lit-o, 1) * var(--sv-in, 1) * var(--off-o, 1)); }
 .lz-zone.z1 { --zc: var(--zone-1); } .lz-zone.z2 { --zc: var(--zone-2); } .lz-zone.z3 { --zc: var(--zone-3); }
-.stage-view.in-lobule #labels, .stage-view.in-lobule #veins, .stage-view.in-lobule #stageOver, .stage-view.in-lobule #overlay { visibility: hidden; }
+.stage-view.in-lobule #labels, .stage-view.in-lobule #labelGl, .stage-view.in-lobule #veins, .stage-view.in-lobule #stageOver, .stage-view.in-lobule #overlay { visibility: hidden; }
 /* Phone: snugger cards (labels keep the one size every screen uses) */
 @media (max-width: 720px) {
   .lz-lab { padding: 3px 7px 4px; }
@@ -2852,8 +2856,8 @@ button.finding { cursor: pointer; }
 .cath-balloon { fill: var(--cath-balloon); stroke: var(--white); stroke-width: .6; }
 .cath-column { fill: none; stroke-linecap: round; stroke-linejoin: round; stroke-opacity: .9; }
 /* While the catheter is in, the figure's own readouts are hidden so its labels read clearly. */
-.stage-view #labels { transition: opacity .4s var(--ease); }
-.cath-on #labels { opacity: 0; visibility: hidden; transition: opacity .25s var(--ease-in), visibility 0s linear .25s; }
+.stage-view #labels, .stage-view #labelGl { transition: opacity .4s var(--ease); }
+.cath-on :is(#labels, #labelGl) { opacity: 0; visibility: hidden; transition: opacity .25s var(--ease-in), visibility 0s linear .25s; }
 .cath-labels { position: absolute; inset: 0; pointer-events: none; z-index: 4; }
 .cath-labels[hidden] { display: none; }
 .cath-label { position: absolute; left: 0; top: 0; isolation: isolate; display: inline-flex; flex-direction: column; align-items: center; gap: 1px; padding: 7px 16px 8px; border: 2px solid transparent; border-radius: 14px; white-space: nowrap;

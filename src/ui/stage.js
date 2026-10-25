@@ -34,6 +34,7 @@ import { plateStrips, premultiply, gutStep, viewReuse, copyPixels } from './plat
 import { cropToGrid } from './organs-gl.js?v=50a7580426';
 import { readGroup, shapeSource, bindShape, targetRoom } from './organ-paint.js?v=1250d7cb89';
 import { pathCmds, flattenCmds, polyBox } from './shape-gl.js?v=a5ba46162b';
+import { createLabelGL } from './label-gl.js?v=f76e862597';
 import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, ORIGIN_GREY } from './veins-gl.js?v=ea99d7102b';
 import { varixBead, beadRadius } from './varix-bead.js?v=ac0e84fd89';
 import { advanceStream, createReversalHold, bleedShapes, stepBleedFade, fadeBleedShapes, chevFlowLevel, keyChevron, KEY_CHEV_LANES, originFractions, oxygenFor, ORIGIN_N, createBolus, DYE_BINS, KAPPA, STASIS_MIN_D, HIDDEN_SECONDS } from './blood.js?v=856babbc01';
@@ -7467,6 +7468,11 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // (A reading that has to sit on its vessel (layoutLabels, onVessel) takes a wide text halo in the stage's colour: .on-vessel in
   // app.css. Never an SVG filter: the grown-glyph filter drew dark boxes on iPhone and was redrawn on every frame: 16 Oct.)
   labelSvg.append(gLeaders, gScan, gLabels);
+  // The labels' words and pills drawn on the GPU (label-gl.js), the SVG kept as their model; the SVG draws them itself on a software
+  // renderer, without WebGL2, with ?gpulabels=0, or once the GPU's context is lost.
+  const labelGL = createLabelGL(labelSvg, gLabels, { software: SOFTWARE, off: /[?&]gpulabels=0\b/.test(location.search) });
+  wrap.dataset.labels = labelGL ? 'gpu' : 'svg';
+  const labelGlSync = () => { if (labelGL) labelGL.sync([...pool.values()].filter((b) => b.pos).map((b) => b.pos)); };
   const FONT = 'Inter, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif';
   const measure = document.createElement('canvas').getContext('2d');
   const widths = new Map();
@@ -7635,7 +7641,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       // (A slide's mark that stays but takes new words fades the new words in, never swaps them in at once.)
       // (A live callout's words keep their shape as its numbers tick: it.fxw, so only a new slide's words fade in.)
       const words = it.fxw ?? (/^focus/.test(it.key) ? it.lines.map((line) => line.map((r) => r.t).join('')).join('\n') : null);
-      if (words != null && b.words != null && words !== b.words && b.g.style.display !== 'none' && !reduceMotion.matches) b.g.animate?.([{ opacity: 0 }, { opacity: 1 }], { duration: 400, easing: 'ease-out' });
+      if (words != null && b.words != null && words !== b.words && b.g.style.display !== 'none' && !reduceMotion.matches) { b.g.animate?.([{ opacity: 0 }, { opacity: 1 }], { duration: 400, easing: 'ease-out' }); labelGL?.hold(b.g, 400); }
       b.words = words;
       b.sw = it.swatch ? b.g.querySelector('.lb-sw') : null;
       b.bg = b.g.querySelector('.lb-bg');
@@ -7659,6 +7665,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     }
     // A turned caption reads bottom to top: its box's top-left is (x, y), and its text runs up from the bottom.
     setA(b.g, 'transform', it.rot ? `translate(${it.x.toFixed(1)} ${(it.y + it.w).toFixed(1)}) rotate(-90)` : `translate(${it.x.toFixed(1)} ${it.y.toFixed(1)})`);
+    // (Where the GPU lays its picture: the same origin, label-gl.js.)
+    b.pos = { g: b.g, x: +it.x.toFixed(1), y: +(it.rot ? it.y + it.w : it.y).toFixed(1), rot: !!it.rot };
     b.gone = null;
     b.g.style.display = '';
   }
@@ -8147,6 +8155,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       if (solve || layoutLabels(f, false) === false) { layoutLabels(f, true); solvedFor = { sig, sc, th, csig, ins }; }
       labelKey = key; stats.layouts++; stats.ms += performance.now() - t0;
     }
+    labelGlSync();
     if (sites.list) sitesPaint();
     if (scan.on) scanPaint();
     dprobePaint();
@@ -9360,7 +9369,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       const b = pool.get(it.key), wait = it.delay - (performance.now() - glowSetAt);
       if (!b || b.fxIn) continue;
       b.fxIn = true;
-      if (wait > 0 && !reduceMotion.matches) b.g.animate?.([{ opacity: 0 }, { opacity: 1 }], { duration: 350, delay: wait, easing: 'ease-out', fill: 'backwards' });
+      if (wait > 0 && !reduceMotion.matches) { b.g.animate?.([{ opacity: 0 }, { opacity: 1 }], { duration: 350, delay: wait, easing: 'ease-out', fill: 'backwards' }); labelGL?.hold(b.g, wait + 350); }
     }
     const sit = out.find((o) => o.key === 'scan'), sblk = pool.get('scan');
     if (sit && !sit.hide) {
