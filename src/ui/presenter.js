@@ -4001,7 +4001,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   // readings out (a swipe up), fingers down tuck them away, fingers sideways go on or back, or throw a case card off that way. One action
   // a gesture, and a gesture lasts until the wheel goes quiet, the glide after the fingers lift included (swipe.js, wheelGesture); eased as
   // the finger's are (setFold, caseFly, go); a box that scrolls itself keeps its wheel (ownsWheel), and a pinch (ctrl) stays the
-  // figure's. The deck's last slide is not left by a sideways glide: only a swipe or Next ends the talk. ──
+  // figure's. A fresh swipe to the left on the last slide ends the talk, as the touch swipe and Next do. ──
   let wheelG = null;
   wrap.addEventListener('wheel', (e) => {
     if (!deck || !ui || e.ctrlKey || e.metaKey || leaving || !ui.jump.hidden || isModalOpen()) return;
@@ -4016,7 +4016,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     const card = caseCard && !caseCard.flown ? caseCard : null;
     if (a.axis === 'x') {
       if (card) caseFly(card, a.dir, 1.2);   // (fingers right: off to the right)
-      else if (a.dir < 0) { if (caseLift || want < slides.length - 1) next(); }
+      else if (a.dir < 0) next();   // (on the last slide a fresh swipe ends the talk, as the touch swipe does; the glide that reached it is spent and never also closes)
       else prev();
     } else stackFold(a.dir < 0);   // (fingers up: the readings come out, as a swipe up does)
   }, { passive: false, capture: true });
