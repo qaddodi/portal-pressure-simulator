@@ -251,14 +251,12 @@
  "tap/diuretics": [
   "{asc}"
  ],
+ "tap/refractory": [
+  "{asc}"
+ ],
  "tap/tips": [
   "{ppg}",
   "{asc}"
- ],
- "tap/heart": [
-  "sinusoid",
-  "{saag}",
-  "{tp}"
  ],
  "circuit/ohm": [
   "resistance"
@@ -1005,5 +1003,115 @@
  ],
  "blood-volume/summary": [
   "(a value)"
+ ],
+ "first-visit/a1": [
+  "{lsm}",
+  "{plt}"
+ ],
+ "first-visit/a2": [
+  "{lsm}",
+  "{>=25 kPa}"
+ ],
+ "first-visit/a3": [
+  "{lsm}",
+  "{plt}"
+ ],
+ "first-visit/a4": [
+  "{lsm}"
+ ],
+ "first-visit/a5": [
+  "{lsm}",
+  "{spleen}",
+  "{plt}"
+ ],
+ "refractory-bleed/controlled": [
+  "{hr}"
+ ],
+ "refractory-bleed/rebleed": [
+  "{hr}",
+  "{map}"
+ ],
+ "refractory-bleed/failure": [
+  "{hr}",
+  "{map}"
+ ],
+ "refractory-bleed/bridge": [
+  "{map}"
+ ],
+ "refractory-bleed/tips": [
+  "{ppg}",
+  "{<12 mmHg}",
+  "{liver}"
+ ],
+ "transplant-doppler/hat": [
+  "{liver}"
+ ],
+ "transplant-doppler/has": [
+  "(a value)"
+ ],
+ "transplant-doppler/pvs": [
+  "{pvVel}",
+  "{ppg}"
+ ],
+ "transplant-doppler/pvt": [
+  "{ppg}",
+  "{liver}"
+ ],
+ "transplant-doppler/outflow": [
+  "{ppg}",
+  "{liver}"
+ ],
+ "ten-years/start": [
+  "{hvpg}",
+  "{>=10 mmHg}"
+ ],
+ "ten-years/rise": [
+  "{hvpg}",
+  "{>=10 mmHg}"
+ ],
+ "ten-years/carv": [
+  "{hvpg@rise}",
+  "{hvpg}"
+ ],
+ "ten-years/ascites": [
+  "{hvpg}",
+  "{salb}",
+  "{asc}"
+ ],
+ "ten-years/diuretics": [
+  "{asc}"
+ ],
+ "ten-years/bleed": [
+  "{varix}"
+ ],
+ "ten-years/bands": [
+  "{hvpg}",
+  "{varix}"
+ ],
+ "ten-years/rebleed": [
+  "{varix}",
+  "{hvpg}"
+ ],
+ "ten-years/tips": [
+  "{ppg}",
+  "{liver}"
+ ],
+ "ten-years/he": [
+  "{shunt}"
+ ],
+ "ten-years/list": [
+  "{liver}"
+ ],
+ "tips-journey/reasons": [
+  "{asc}"
+ ],
+ "tips-journey/heart": [
+  "{co@reasons}",
+  "{co}",
+  "{ra}"
+ ],
+ "tips-journey/width": [
+  "{ppg}",
+  "{liver}"
  ]
 }

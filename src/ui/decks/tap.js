@@ -4,17 +4,17 @@ const mi = (x) => `<mi>${x}</mi>`, mo = (x) => `<mo>${x}</mo>`, sub = (b, i) => 
 
 export const TAP = {
   id: 'tap', level: 'advanced', title: 'Paracentesis, albumin and refractory ascites', minutes: 12,
-  sections: [['Ascites', ['Ascites']], ['The tap', ['The diagnostic tap', 'Large-volume paracentesis', 'Two weeks later']], ['Treatment', ['Treatment', 'Refractory ascites']], ['Protein-rich fluid', ['Protein-rich fluid']]],
+  sections: [['Ascites', ['Ascites']], ['The tap', ['The diagnostic tap', 'Large-volume paracentesis', 'Two weeks later']], ['Treatment', ['Treatment', 'Refractory ascites']]],
   objectives: [
     'List what to send from a diagnostic tap and how to read the SAAG',
     'Give albumin correctly after a large-volume paracentesis',
     'Use diuretics and TIPS for ascites that keeps coming back',
-    'Recognize protein-rich ascites that points to the heart',
+    'Define refractory ascites and when a TIPS is considered',
   ],
   checks: [
     ['How much albumin goes with a large-volume paracentesis?', '6 to 8 g for each liter removed, when more than 5 liters come out.'],
     ['Why does ascites come back after a tap alone?', 'Sinusoidal pressure and the kidneys\' sodium retention are unchanged. Diuretics or a TIPS keep it away.'],
-    ['High SAAG and ascitic protein of 2.5 g/dL or more. What do you check?', 'The heart. Protein this high means the sinusoid wall is still open, as in heart failure.'],
+    ['When is ascites called refractory?', 'It returns within 4 weeks of a tap despite the highest diuretic doses and a low-salt diet, or diuretics cannot be given because of kidney injury, low sodium or high potassium.'],
     ['Ten days after a 6 L tap with albumin, the belly is full again on full-dose diuretics. What has not changed?', 'The portal pressure: the tap removes the fluid, not its cause. Ascites that returns on full diuretics is refractory, and TIPS is the next step to consider.'],
   ],
   summary: 'One patient with tense ascites: the diagnostic tap, large-volume paracentesis with albumin, diuretics and TIPS, with the effect of each on the fluid and the pressures.',
@@ -67,19 +67,20 @@ export const TAP = {
       ask: ['Starting doses of spironolactone and furosemide?', 'Spironolactone 100 mg a day, with furosemide 40 mg for recurrent ascites (outside the US, EASL starts a first episode on spironolactone alone); both rise in a 100:40 ratio to 400 and 160 mg.'],
     },
     {
+      id: 'refractory', cam: 'fit', data: 'tiles', tiles: ['asc', 'ppg'], key: ['asc'],
+      tool: { kind: 'criteria', title: 'Refractory ascites', short: 'Refractory', ticks: false, rows: ['Back within 4 weeks on top diuretic doses and a low-salt diet', 'Or diuretics cannot be given (kidney injury, sodium, potassium)'] },
+      cite: 'Baveno VIII 6.3, 6.4',
+      kicker: 'Refractory ascites', site: 'sin', title: 'Refractory ascites, defined',
+      line: 'Ascites is refractory when it returns within 4 weeks of a tap on the highest diuretic doses and a low-salt diet, or when diuretics cannot be given. Here the diuretics work: it settles at {asc}, so he is not refractory.',
+      notes: 'Baveno VIII 6.3 and 6.4: patients with recurrent or refractory ascites should be considered for a TIPS, and the TIPS and a liver transplant discussed together. Refractory means the highest diuretic doses (spironolactone 400 mg and furosemide 160 mg a day) and about 2 g of sodium a day fail to keep the fluid away, or diuretics have to stop for kidney injury, a sodium below 125, high potassium or encephalopathy. The definition is the one used elsewhere in this talk; the Baveno VIII statements name refractory ascites without defining it.',
+      ask: ['Fluid back three weeks after a tap, on spironolactone 400 mg and furosemide 160 mg. What is the label, and what do you consider?', 'Refractory ascites. Consider a TIPS and discuss transplantation, if there is no recurrent encephalopathy, heart failure or severe pulmonary hypertension.'],
+    },
+    {
       id: 'tips', params: { tips: { on: true } }, days: 28, lapse: { seconds: 7 }, cam: 'liver', tool: { kind: 'fluid', window: true }, mark: { edges: ['TIPS'], label: 'Covered stent', kind: 'treat' }, data: 'tiles', tiles: ['asc', 'ppg', 'liver'], key: ['asc'], delta: true,
       kicker: 'Refractory ascites', site: 'sin', title: 'TIPS for refractory ascites',
       line: 'A TIPS lowers the gradient to {ppg}, and the sinusoidal pressure with it, so less lymph forms and the fluid falls to {asc}. In exchange the liver gets less portal blood, and about one in three patients develops encephalopathy.',
-      notes: 'In recurrent or refractory ascites, a covered TIPS improves survival over repeated paracentesis in selected patients: bilirubin under about 3 mg/dL, no recurrent encephalopathy, no heart failure or severe pulmonary hypertension. The ascites clears over weeks to months, diuretics continued at first. The model clears it faster. No target gradient is agreed for ascites; below 12 mmHg is the bleeding target. Refractory ascites returns within four weeks of a tap despite the highest diuretic doses and a salt restriction, or needs diuretics the patient cannot take.',
+      notes: 'In recurrent or refractory ascites, a covered TIPS improves survival over repeated paracentesis in selected patients: bilirubin under about 3 mg/dL, no recurrent encephalopathy, no heart failure or severe pulmonary hypertension. The ascites clears over weeks to months, diuretics continued at first. The model clears it faster. No target gradient is agreed for ascites; below 12 mmHg is the bleeding target.',
       ask: ['Name a reason not to place a TIPS for ascites.', 'Recurrent encephalopathy, heart failure or pulmonary hypertension, or advanced liver failure.'],
-    },
-    {
-      id: 'heart', terms: ['sinusoid:lumen'], preset: 'rhf', cam: 'sinusoid', data: 'tiles', tiles: ['saag', 'tp'], key: ['tp'],
-      kicker: 'Protein-rich fluid', site: 'cardiac', title: 'High-protein ascites: check the heart',
-      vignette: 'A 76-year-old man with no known liver disease has new ascites and swollen legs. He does not drink, and he becomes breathless climbing one flight of stairs.',
-      line: 'SAAG {saag}, 1.1 g/dL or more, with protein {tp}, 2.5 g/dL or more. Protein this high means the sinusoid wall is still open, not capillarized.',
-      notes: 'Congestion without scarring gives a high-SAAG, high-protein fluid: heart failure, constrictive pericarditis, early Budd–Chiari syndrome. A raised jugular venous pressure and a high BNP point to the heart; a normal one to the hepatic veins (Doppler). Here the treatment is the heart, not TIPS. The ascites talk covers the four patterns of SAAG and protein.',
-      ask: ['SAAG 1.5 g/dL and protein 4 g/dL. What do you examine next?', 'The heart: the jugular venous pressure, BNP and an echocardiogram.'],
     },
     {
       id: 'summary', visual: 'table', cols: ['asc', 'ppg', 'liver'], asc: false, vs: 'first', rowHead: 'Step',
