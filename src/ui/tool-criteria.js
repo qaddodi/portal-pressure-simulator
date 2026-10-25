@@ -11,7 +11,7 @@
 // The card never changes size with the reading: each reading's slot is as wide as its widest number, the marks cross-fade.
 
 import { h, fmt } from './util.js?v=d2c95a1b16';
-import { TILE } from './table-marks.js?v=15f059172f';
+import { TILE } from './table-marks.js?v=2201eda74a';
 
 export const CRITERIA_MAX = 4;
 const OPS = { '>=': (a, b) => a >= b, '>': (a, b) => a > b, '<=': (a, b) => a <= b, '<': (a, b) => a < b };

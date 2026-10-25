@@ -22,22 +22,22 @@ import { sinusoidSupported } from './gl-support.js?v=94ad2a7ff1';
 import { SCALE_NAME, offeredScales, scaleView, pickedScale } from './scale-switch.js?v=1b0e3acd65';
 import { DISEASE_SRC, diseasePieces } from './diseases.js?v=fb8a5451c3';
 import { nb, listCase, plateletText } from './glue.js?v=5a0f63226b';
-import { DECKS, REGIONS, LEVELS, TOPICS, withOverview, siteTag, SITE_TAGS } from './decks.js?v=0bb5480c1d';
+import { DECKS, REGIONS, LEVELS, TOPICS, withOverview, siteTag, SITE_TAGS } from './decks.js?v=e4eb4a4e21';
 import { fingerprintOf } from '../engine/fingerprint.js?v=8faea80b59';
-import { createHvpgMonitor } from './hvpg-proc.js?v=ed0101ef84';
-import { createTools } from './presenter-tools.js?v=78c1513c0e';
-import { openHandout } from './handout.js?v=401f89fc57';
+import { createHvpgMonitor } from './hvpg-proc.js?v=bdf42847fa';
+import { createTools } from './presenter-tools.js?v=cb4910b14c';
+import { openHandout } from './handout.js?v=70e5d5283a';
 import { noteResume, resumeFor } from './resume.js?v=f086f80ee8';
 import { parseDeckSource, checkDeck } from './deck-source.js?v=8395c650cd';
-import { NO_ASC, TILE, SCALE, bandsOf, rateOf, COLS, CUT, PRESS, fpv, dirAbs, dirRel, rateAbs, effOf, rateShown, tileShown, tipsGoal, liveSettled, shownSig } from './table-marks.js?v=15f059172f';
+import { NO_ASC, TILE, tileOf, SCALE, bandsOf, rateOf, COLS, CUT, PRESS, fpv, dirAbs, dirRel, rateAbs, effOf, rateShown, tileShown, tipsGoal, liveSettled, shownSig } from './table-marks.js?v=2201eda74a';
 import { frameFor, cancelFrame } from './frame.js?v=19b3f2915c';
 import { createFigureKey } from './figure-key.js?v=8bbf7a41ed';
 import { traceWhen } from './trace-labels.js?v=fc916a95c6';
 import { flowCss, heatCss, dropCss, gradientCss, oxygenCss } from './colormap.js?v=cdcf6a2f55';
-import { EXT, expandIds, stepExtra, markLabel, figureHooks, safe } from './slide-ext.js?v=b56b827130';
-import { clotWords } from './callout-math.js?v=d8785a0ad3';
+import { EXT, expandIds, stepExtra, markLabel, figureHooks, safe } from './slide-ext.js?v=03aad90c4b';
+import { clotWords } from './callout-math.js?v=75e1ee4dc2';
 import { citeText, focusOf, oneLadder } from './teach-extras.js?v=5f5248f5a7';
-import { createProfileTool, createProfileStrip, pillReadings } from './tool-profile.js?v=ceb43693c6';
+import { createProfileTool, createProfileStrip, pillReadings } from './tool-profile.js?v=9240b975c9';
 import { causeFit } from './cause-fit.js?v=830a6835a5';
 import { COMPACT, WIDE } from './card-type.js?v=5af5f22935';
 import { flowTimeHeight } from './flow-time.js?v=cb89e13e11';
@@ -400,7 +400,7 @@ function wedgeColumn() {
   nextFrame(() => nextFrame(() => svg.classList.add('in')));
   return svg;
 }
-const tileVal = (k, v) => (v == null ? '—' : fmt(v * (TILE[k]?.x ?? 1), TILE[k]?.d ?? 1));
+const tileVal = (k, v) => (v == null ? '—' : fmt(v * (tileOf(k)?.x ?? 1), tileOf(k)?.d ?? 1));
 // The live model's numbers in the fingerprint's terms (a time-lapse plays on the live figure): the same function the worker builds a slide's
 // state with. It has no starling() here, so the lymph's overflow, take-back and net stay null and the fluid card follows the live frames.
 const liveFp = (fr) => fingerprintOf(fr.metrics, { P: fr.Pf || fr.P, Q: fr.Qf || fr.Q, D: fr.D, params: store.get().params });
@@ -530,9 +530,9 @@ function bigTiles() {
   function build(ks, withRef) {
     const bars = ks.some((k) => SCALE[k]);
     parts = ks.map((k) => {
-      const T = TILE[k] || { t: k, s: '', u: '' };
+      const T = tileOf(k) || { t: k, s: '', u: '' };
       const v = h('span', { class: 'pzt-v' }), u = h('small', {}, T.u), r = h('span', { class: 'pzt-r' });
-      const d = h('span', { class: 'pzt-d' });
+      const d = h('span', { class: 'pzt-d' }), resp = k === 'hvpgFall';
       // The scale bar: the tile's bands (coloured by its rating), its cut-offs, a ring where it started (given ref) and a dot
       // where it is. A tile with no scale beside one that has one keeps an empty bar, so every tile in a row is the same height.
       const bands = bandsOf(k) || [], S = SCALE[k];
@@ -541,7 +541,7 @@ function bigTiles() {
       const ls = S ? S[2].map((c) => h('span', { class: 'pzb-l', style: `left:${at(k, c / (T.x ?? 1))}%` }, fmt(c, Math.abs(c % 1) > 1e-9 ? 1 : 0))) : [];
       const link = withRef ? h('i', { class: 'pzb-link' }) : null, was = withRef ? h('i', { class: 'pzb-was' }) : null, now = h('i', { class: 'pzb-now' });
       const bar = bars ? h('span', { class: 'pzt-bar' + (S ? '' : ' empty'), 'aria-hidden': 'true' }, h('span', { class: 'pzb-track' }, h('span', { class: 'pzb-zs' }, zs), ts, link, was, S ? now : null), ls) : null;
-      const tile = h('div', { class: 'pz-tile' + (S ? ' scaled' : '') }, h('span', { class: 'pzt-k', 'data-s': T.n || null }, T.t), h('span', { class: 'pzt-vu' }, v, u), r, withRef ? d : null, bar);
+      const tile = h('div', { class: 'pz-tile' + (S ? ' scaled' : '') }, h('span', { class: 'pzt-k', 'data-s': T.n || null }, T.t), h('span', { class: 'pzt-vu' }, v, u), r, withRef || resp ? d : null, bar);
       return { k, T, tile, v, u, r, d, S, bands, zs, link, was, now, zr: '' };
     });
     el.replaceChildren(...parts.map((p) => p.tile));
@@ -553,7 +553,12 @@ function bigTiles() {
       p.u.hidden = none || !p.T.u;
       setT(p.r, word);
       setA(p.tile, 'data-rate', cls || (none ? 'none' : 'plain'));
-      const r0 = f['ref_' + p.k];
+      // (The response tile's line names the HVPG the fall is counted from.)
+      if (p.k === 'hvpgFall') {
+        const t = f.respFrom == null ? '' : `from ${fmt(f.respFrom, 1)} mmHg`;
+        if (p.d.textContent !== t) p.d.textContent = t;
+      }
+      const r0 = p.k === 'hvpgFall' ? null : f['ref_' + p.k];
       if (p.S) {
         const on = !none && f[p.k] != null, w = on ? at(p.k, f[p.k]) : 0;
         p.now.hidden = !on;
@@ -578,7 +583,7 @@ function bigTiles() {
   function paintBands(f) {
     for (const p of parts) {
       if (!p.S) continue;
-      const rs = p.bands.map((z) => rated(p.k, { ...f, asc: Math.max(f.asc ?? 0, NO_ASC), [p.k]: z.m })[0] || 'info'), sig = rs.join();
+      const rs = p.bands.map((z) => rated(p.k, { ...f, respAt: null, asc: Math.max(f.asc ?? 0, NO_ASC), [p.k]: z.m })[0] || 'info'), sig = rs.join();   // (hvpgFall's bands read the fall alone)
       if (sig === p.zr) continue;
       p.zr = sig;
       p.zs.forEach((e, i) => { e.dataset.rate = rs[i]; });
@@ -595,6 +600,7 @@ function bigTiles() {
       paintBands(f);
       const to = Object.fromEntries([...ks, 'asc'].map((k) => [k, f[k]]));
       if (ref) for (const k of ks) to['ref_' + k] = ref[k];
+      if (ks.includes('hvpgFall')) Object.assign(to, { respFrom: f.respFrom, respAt: f.respAt });
       for (const p of parts) p.fin = tileVal(p.k, to[p.k]);
       draw(to, ms);
       // (Fitted again only when a number's shape changed, its final text or the length of the one shown: measuring the tiles forced a
@@ -1331,10 +1337,18 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   }
   // (A chart over the days already draws its two lines from where they started to where they are, numbers and all: on a laptop
   // or tablet, where the chart is always in view beside the tiles, tiles for those two would repeat it.)
-  const tileKeys = (s) => (s.tiles || []).filter((k) => !(s.tool?.kind === 'flowtime' && s.tool.lines?.includes(k) && !phone()));   // (a ladder already brackets the HVPG and PPG: tiles there would repeat them, rounded differently)
+  const ownKeys = (s) => (s.tiles || []).filter((k) => !(s.tool?.kind === 'flowtime' && s.tool.lines?.includes(k) && !phone()));   // (a ladder already brackets the HVPG and PPG: tiles there would repeat them, rounded differently)
+  const tileKeys = (s) => [...ownKeys(s), ...(s.hvpgResp && !s.tiles?.includes('hvpgFall') ? ['hvpgFall'] : [])];
+  // The HVPG response tile (slide field hvpgResp: a slide id, or true for the slide before; card C3, 25 Oct): the percent fall in the
+  // HVPG from that slide's, read live as the other tiles are (a compare button or a time-lapse moves it).
+  function respFp(s, f) {
+    if (!s?.hvpgResp || !f) return f;
+    const i = slides.indexOf(s), base = i > 0 ? refOf({ delta: s.hvpgResp }, i)?.hvpg : null;
+    return base > 0 && f.hvpg != null ? { ...f, hvpgFall: ((base - f.hvpg) / base) * 100, respFrom: base, respAt: tileShown('hvpg', f.hvpg) } : { ...f, hvpgFall: null, respFrom: null, respAt: null };
+  }   // (a ladder already brackets the HVPG and PPG: tiles there would repeat them, rounded differently)
   function dataTo(s, f, ref, ms) {
     if (!ui) return;
-    if (s.data) ui.tiles.set(f, tileKeys(s), s.key || [], ref, ms, store.get().params?.tips?.on);
+    if (s.data) ui.tiles.set(respFp(s, f), tileKeys(s), s.key || [], ref, ms, store.get().params?.tips?.on);
     ui.tools.pin(f);   // (an instrument's reading is the tiles' number)
     // (and the catheter's callouts and its monitor, on a catheter slide whose compare buttons or time-lapse move the model)
     if (s.cath && cath.on && cath.fp) { cath.fp = f; if (s.monitor) mon?.set(s.monitor, f); }
@@ -2013,7 +2027,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       // too while the new cards wait, unseen, for the camera to land (bare): their count ran unseen beside the glide, a frame's
       // work each frame of it, and was over before they came in.)
       const ms = fresh || (bare && ui.root.classList.contains('pz-prep')) ? 0 : undefined;
-      if (s.data) ui.tiles.set(now.fp, tileKeys(s), s.key || [], refOf(s, i), ms, now.params?.tips?.on);
+      if (s.data) ui.tiles.set(respFp(s, now.fp), tileKeys(s), s.key || [], refOf(s, i), ms, now.params?.tips?.on);
       ui.tools.pin(now.fp);
       if (data.hidden) { data.hidden = false; data.classList.add('pz-hide'); void data.offsetWidth; }
       if (!ui.root.classList.contains('pz-prep')) data.classList.remove('pz-hide');   // (else once fitted: settle)
@@ -4477,6 +4491,6 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       const txt = (k, f) => (rateOf(k, f)[0] == null && (k === 'saag' || k === 'tp') ? '—' : tileVal(k, f[k]));   // (as bigTiles shows it)
       const i = shown?.i ?? -1, s = slides[i], ks = s ? tileKeys(s) : [], end = s && states[stateOf[i]], start = s?.lapse && i > 0 ? end?.start || states[stateOf[i - 1]] : end;
       return { i, lapses: slides.flatMap((x, j) => (x.lapse && j > 0 && x.data ? [j] : [])), charts: slides.flatMap((x, j) => (x.lapse && j > 0 && x.tool?.kind === 'flowtime' ? [j] : [])), playing: lapseOn, keys: ks,
-        start: start ? ks.map((k) => txt(k, start.fp)) : null, end: end ? ks.map((k) => txt(k, end.fp)) : null };
+        start: start ? ks.map((k) => txt(k, respFp(s, start.fp))) : null, end: end ? ks.map((k) => txt(k, respFp(s, end.fp))) : null };
     } };
 }

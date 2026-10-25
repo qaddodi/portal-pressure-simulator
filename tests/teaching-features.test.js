@@ -138,3 +138,27 @@ test('self-study: a per-viewer setting, off by default, that shows each slide\'s
   // Every content slide of a built-in deck has a question to show.
   for (const d of DECKS) for (const s of d.slides) if (!s.visual) assert.ok(Array.isArray(s.ask) || typeof s.ask === 'string', `${d.id}/${s.id}: has an ask`);
 });
+
+test('HVPG response tile: hvpgResp adds a live percent fall in the HVPG from a named slide, with 10% and 20% marks', async () => {
+  const { RATE, TILE, DERIVED_TILE, SCALE } = await import('../src/ui/table-marks.js');
+  assert.deepEqual(SCALE.hvpgFall, [0, 40, [10, 20]]);
+  assert.equal(DERIVED_TILE.hvpgFall.u, '%');
+  assert.equal(TILE.hvpgFall, undefined, 'worked out by the presenter, not read from the fingerprint');
+  assert.deepEqual(RATE.hvpgFall(25, {}), ['ok', '≥ 20%']);
+  assert.deepEqual(RATE.hvpgFall(15, { respAt: 14 }), ['mid', '≥ 10%']);
+  assert.deepEqual(RATE.hvpgFall(15, { respAt: 12 }), ['ok', '≤12 mmHg'], 'to 12 mmHg or less is a response too');
+  assert.deepEqual(RATE.hvpgFall(5, {}), ['hi', 'Under 10%']);
+  const used = slidesUsing('hvpgResp');
+  assert.ok(used.length >= 4);
+  for (const [d, s] of used) {
+    const at = `${d.id}/${s.id}`;
+    assert.ok(adopted(d, s, 'hvpgResp'), `${at}: opt-in (tests/deck-adopted.js)`);
+    assert.ok(s.data === 'tiles', `${at}: a tiles slide`);
+    assert.ok(s.hvpgResp === true || d.slides.findIndex((x) => x.id === s.hvpgResp) >= 0 && d.slides.findIndex((x) => x.id === s.hvpgResp) < d.slides.indexOf(s), `${at}: counted from an earlier slide`);
+  }
+  const p = src('presenter.js');
+  assert.match(p, /const tileKeys = \(s\) => \[\.\.\.ownKeys\(s\), \.\.\.\(s\.hvpgResp && !s\.tiles\?\.includes\('hvpgFall'\) \? \['hvpgFall'\] : \[\]/, 'the tile joins the slide\'s tiles');
+  assert.match(p, /hvpgFall: \(\(base - f\.hvpg\) \/ base\) \* 100/, 'the fall in percent, live');
+  assert.match(p, /ui\.tiles\.set\(respFp\(s, now\.fp\)/);
+  assert.match(p, /ui\.tiles\.set\(respFp\(s, f\)/);
+});

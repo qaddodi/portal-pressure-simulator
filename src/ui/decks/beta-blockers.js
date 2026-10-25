@@ -35,7 +35,7 @@ export const BETA_BLOCKERS = {
       ask: ['Name the two ways a drug can lower portal pressure.', 'Cut the inflow, or lower the resistance the blood meets.'],
     },
     {
-      id: 'prop-sin', params: PROP, lens: 'flow', cam: 'portal', labels: ['SMV', 'CONF'], data: 'tiles', tiles: ['pvFlow', 'hvpg'], key: ['pvFlow'], delta: 'ohm',
+      id: 'prop-sin', params: PROP, lens: 'flow', cam: 'portal', labels: ['SMV', 'CONF'], data: 'tiles', tiles: ['pvFlow', 'hvpg'], key: ['pvFlow'], delta: 'ohm', hvpgResp: 'ohm',
       kicker: 'Cirrhosis', site: 'sin', title: 'Propranolol lowers the portal inflow',
       line: 'Propranolol\'s β1 blockade lowers cardiac output, and its β2 blockade lets the gut arterioles constrict. Portal inflow falls to {pvFlow} and the HVPG to {hvpg}. Colored by flow, the gut veins and the portal vein thin.',
       notes: 'Propranolol is titrated to a resting heart rate of 55 to 60 a minute, keeping systolic pressure above 90 mmHg. It lowers the HVPG through the inflow alone.',
@@ -43,7 +43,7 @@ export const BETA_BLOCKERS = {
     },
     {
       id: 'carv-sin', params: CARV, lens: 'since', sinceLabel: 'propranolol', cam: 'lobule:sinusoid', terms: { sinusoids: 'lobule:sinusoid' },
-      tool: { kind: 'curve', param: 'cirrhosis', from: 0.3, to: 0.9, step: 0.05, lines: ['hvpg'], against: { label: 'Propranolol', params: PROP, own: 'Carvedilol' } }, data: 'tiles', tiles: ['hvpg', 'ppg'], key: ['hvpg'], delta: 'prop-sin',
+      tool: { kind: 'curve', param: 'cirrhosis', from: 0.3, to: 0.9, step: 0.05, lines: ['hvpg'], against: { label: 'Propranolol', params: PROP, own: 'Carvedilol' } }, data: 'tiles', tiles: ['hvpg', 'ppg'], key: ['hvpg'], delta: 'prop-sin', hvpgResp: 'ohm',
       compare: [{ label: 'Propranolol', params: PROP }, { label: 'Carvedilol', own: true, params: CARV }],
       kicker: 'Cirrhosis', site: 'sin', title: 'Carvedilol lowers the HVPG more than propranolol in cirrhosis',
       line: 'Most of the resistance sits in the sinusoids. Carvedilol\'s α1 blockade is thought to relax their stellate cells, and with the lower inflow the HVPG falls to {hvpg}. Colored by change against propranolol, pressure in the sinusoids falls further.',

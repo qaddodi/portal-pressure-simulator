@@ -53,7 +53,7 @@ export const NEXT_BLEED = {
       ask: ['Why do varices return after they have been banded away?', 'The portal pressure that made them has not changed, so blood keeps opening the same collaterals.'],
     },
     {
-      id: 'nsbb', preset: 'cirr-decomp', params: CARV, action: BAND, cam: 'portal', labels: ['SMV', 'CONF'], data: 'tiles', tiles: ['hvpg', 'hr', 'map'], key: ['hvpg'], delta: 'after',
+      id: 'nsbb', preset: 'cirr-decomp', params: CARV, action: BAND, cam: 'portal', labels: ['SMV', 'CONF'], data: 'tiles', tiles: ['hvpg', 'hr', 'map'], hvpgResp: 'after', key: ['hvpg'], delta: 'after',
       compare: [{ label: 'No drug', params: NONE }, { label: 'Propranolol', short: 'Prop.', params: PROP }, { label: 'Carvedilol', short: 'Carv.', own: true, params: CARV }],
       cite: 'Baveno VIII 4.8, Table 3',
       kicker: 'Carvedilol', site: 'sin', title: 'Carvedilol lowers the pressure behind the varices',

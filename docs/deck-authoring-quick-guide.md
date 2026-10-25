@@ -216,6 +216,10 @@ A slide that changes the patient on screen (a drug, an action, days, a time-laps
 
 Full guide: section 7.5.
 
+## Showing a response to a drug
+
+On a tiles slide, `hvpgResp: 'ohm'` adds an HVPG fall tile: the fall in percent from slide `ohm`'s HVPG, live, with marks at 10% and 20%. Count from the untreated patient. Full guide: section 7.5.
+
 ## Self-study
 
 Each slide's `ask` prints in the handout. A viewer who turns on Self-study in Settings (while presenting, this device only) also sees it under a Question handle, the answer hidden until they tap Show answer. A projected talk is unchanged. So give every content slide a short `ask` with its answer: `ask: ['Where is the resistance?', 'In the sinusoids.']`.

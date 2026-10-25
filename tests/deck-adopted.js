@@ -4,6 +4,7 @@
 // use, so the list never grows wider than the decks. Fields: 'kind:<tool kind>', 'tool.<option>', 'cols.<column>',
 // 'lens:<deck-only lens>', 'mark.<option>' (on the slide's mark or any of its marks), or a slide field.
 export const ADOPTED = {
+  'beta-blockers/prop-sin': ['hvpgResp'],
   'circuit/ohm': ['span'],
   'circuit/where': ['zone', 'kind:profile'],
   'circuit/meal': ['span'],
@@ -119,7 +120,7 @@ export const ADOPTED = {
   'sites/postsin': ['caseQ', 'scales', 'kind:profile'],
   'sites/post': ['caseQ', 'scales', 'kind:profile'],
   'sites/cardiac': ['caseQ', 'scales', 'kind:profile'],
-  'beta-blockers/carv-sin': ['lens:since', 'sinceLabel', 'kind:curve', 'tool.against'],
+  'beta-blockers/carv-sin': ['hvpgResp', 'lens:since', 'sinceLabel', 'kind:curve', 'tool.against'],
   'beta-blockers/carv-pre': ['predict', 'lens:since', 'sinceLabel'],
   'beta-blockers/choose': ['kind:criteria', 'cite'],
   'recompensation/ascites': ['kind:fluid'],
@@ -132,7 +133,7 @@ export const ADOPTED = {
   'one-year/d180': ['calipers', 'milestone'],
   'one-year/d365': ['kind:profile', 'tool.from', 'tool.fromLabel'],
   'one-year/belly': ['normalOutline', 'calipers', 'milestone'],
-  'one-year/carv': ['milestone', 'kind:profile', 'tool.from', 'tool.fromLabel'],
+  'one-year/carv': ['hvpgResp', 'milestone', 'kind:profile', 'tool.from', 'tool.fromLabel'],
   'one-year/plane': ['visual', 'plane', 'of'],
   'one-year/summary': ['tool.style', 'tool.bands'],
   // One chart everywhere (Mohammad, 21 Oct: "Gut to heart is good, unify it"): every slide that had the old ladder card.
@@ -166,7 +167,7 @@ export const ADOPTED = {
   'next-bleed/after': ['cite'],
   'next-bleed/bands': ['cite'],
   'next-bleed/slough': ['predict', 'cite'],
-  'next-bleed/nsbb': ['cite'],
+  'next-bleed/nsbb': ['hvpgResp', 'cite'],
   'next-bleed/both': ['cite'],
   'next-bleed/tips': ['cite', 'kind:flows'],
   'read-doppler/a2': ['cite'],

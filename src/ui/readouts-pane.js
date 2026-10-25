@@ -6,7 +6,7 @@
 import { store, hiddenNow } from './store.js?v=67f4341802';
 import { h, fmt, clamp, shownOf, countTo, swapText } from './util.js?v=d2c95a1b16';
 import { vitalReading } from './vital-read.js?v=e902fb66cd';
-import { SCALE, RATE } from './table-marks.js?v=15f059172f';
+import { SCALE, RATE } from './table-marks.js?v=2201eda74a';
 
 // A number that changes rewrites its text node in place (setting textContent replaces the node).
 

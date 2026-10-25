@@ -75,7 +75,7 @@ export const ONE_YEAR = {
       ask: ['How is grade 1 ascites detected?', 'On ultrasound only; it cannot be found by examination.'],
     },
     {
-      id: 'carv', tick: 'Carvedilol started', milestone: 'Carvedilol', when: 'On carvedilol', params: { drugs: { carvedilol: true } }, cam: 'liver', tool: { kind: 'profile', from: 'd365', fromLabel: 'No Rx' }, data: 'tiles', key: ['hvpg'], tiles: ['map', 'hr'], delta: true,
+      id: 'carv', tick: 'Carvedilol started', milestone: 'Carvedilol', when: 'On carvedilol', params: { drugs: { carvedilol: true } }, cam: 'liver', tool: { kind: 'profile', from: 'd365', fromLabel: 'No Rx' }, data: 'tiles', key: ['hvpg'], tiles: ['map', 'hr'], delta: true, hvpgResp: 'd365',
       kicker: 'Day 365', site: 'sin', title: 'Carvedilol lowers the gradient',
       line: 'Baveno VIII recommends a non-selective beta-blocker, preferably carvedilol, before a first bleed or decompensation. It lowers the gradient by about a fifth, and in most patients it replaces screening endoscopy. Check the blood pressure.',
       notes: 'Baveno VIII: in compensated cirrhosis with CSPH, a non-selective beta-blocker, preferably carvedilol (6.25 mg, then 12.5 mg a day), to prevent decompensation, as in the PREDESCI trial. It replaces screening endoscopy for most patients who take it. A fall in HVPG of 10% or more on drugs predicts benefit in compensated patients. Watch the blood pressure. The faint line on the ladder, labelled No Rx, is the patient just before carvedilol.',

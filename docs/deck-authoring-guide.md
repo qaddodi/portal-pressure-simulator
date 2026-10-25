@@ -91,7 +91,7 @@ Every field is optional unless marked. Fields are grouped by what they do. Unkno
 
 ### 3.4 The data card (section 7)
 
-`data`, `tiles`, `key`, `delta`, `dataTitle`, `tool`, `visual` (+ `cols`, `asc`, `rowHead`, `note`, `vs`, `foot`, `calm`, `of`, `scale`), `compare`, `whatIf`, `procedure` (7.4); opt-in: `wave`, `waveMax`, `focusRow` (7.3); opt-in teaching features (7.5): `hold`, `tool: { kind: 'criteria' }`, `predict`; `caseQ` (section 14).
+`data`, `tiles`, `key`, `delta`, `dataTitle`, `tool`, `visual` (+ `cols`, `asc`, `rowHead`, `note`, `vs`, `foot`, `calm`, `of`, `scale`), `compare`, `whatIf`, `procedure` (7.4); opt-in: `wave`, `waveMax`, `focusRow` (7.3); opt-in teaching features (7.5): `hold`, `tool: { kind: 'criteria' }`, `predict`, `hvpgResp`; `caseQ` (section 14).
 
 ### Slide order and carry-over
 
@@ -504,6 +504,17 @@ and the answer, like an `ask`. Used on Circuit 6, Blood volume 3, Variceal bleed
 ```
 
 ---
+
+#### The HVPG response tile: `hvpgResp`
+
+Three decks teach that a fall in HVPG is a response, and a tile can now show the percent. On a `data: 'tiles'` slide, add
+`hvpgResp: '<slide id>'` (or `true` for the slide before) and the card gains one more tile, **HVPG fall**: the fall from that slide's
+HVPG, in percent, read live as the other tiles are, so a compare button or a time-lapse moves it. Its bar runs from 0 to 40% with
+marks at 10% and 20%; its line says which HVPG it counts from ("from 18.0 mmHg"); its word is "Under 10%" (red), "≥ 10%" (amber, a
+response before any bleed), "≥ 20%" (green, a response after a bleed too), or "≤12 mmHg" (green) when the HVPG has come down to 12
+or less. Count from the untreated patient, not from the drug before: on Beta-blockers 4 the fall is from Beta-blockers 2, though its
+other tiles count from propranolol. Used on Next bleed 5, Beta-blockers 3 and 4 and One year 9. (HVPG 5 is left out: its buttons
+switch patients, and a difference between two patients is not a response.)
 
 #### Self-study (a viewer's setting, no slide field)
 
