@@ -210,6 +210,12 @@ The capstone decks (Where is the resistance?, Read the Doppler, Choose the treat
 
 Full guide: section 9, rule 23, and section 7.5 for `hold`.
 
+## Asking the room first: Predict
+
+A slide that changes the patient on screen (a drug, an action, days, a time-lapse) can ask before it teaches. Add `predict: { title: 'A liter is about to be lost', q: 'She is about to lose a liter of blood. What will the pressure in her portal vein do?', options: ['Rise', 'Fall', 'Stay the same'], answer: 1 }`. Going forward, the slide lands on the state before the change and shows the question with the choices as buttons. A tap on a choice, or Next, plays the change on the live model as the answer, and the words fade to the slide's own. Give it a title that does not give the answer away, two to four short choices, and keep the slide's line as the answer. No score, no new slide. Not on a slide with a `preset` or a `vignette`. A built-in slide uses it only when `tests/deck-adopted.js` lists it.
+
+Full guide: section 7.5.
+
 ## Adding the deck to the app
 
 You can try a deck without changing the app. In the app, open Menu, then Present, then Your scripts, and choose Import. The deck keeps every feature and stays in that browser.

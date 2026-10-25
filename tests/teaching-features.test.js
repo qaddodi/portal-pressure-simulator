@@ -76,3 +76,35 @@ test('criteria card: only adopted slides use it, each with 1 to 4 rows of words,
   const src2 = readFileSync(new URL('../src/ui/presenter.js', import.meta.url), 'utf8');
   assert.match(src2, /s\.tool\?\.kind !== 'criteria'/, 'its tiles sit under it, never beside: the rules are sentences');
 });
+
+test('predict: only adopted slides ask, each on a slide that changes the same patient, with 2 to 4 short choices and a right one', () => {
+  const used = slidesUsing('predict');
+  assert.ok(used.length >= 5, 'Circuit 6, Blood volume 3, Variceal bleed 4, Next bleed 4 and Beta-blockers 7 ask first');
+  for (const [d, s] of used) {
+    const p = s.predict, at = `${d.id}/${s.id}`;
+    assert.ok(adopted(d, s, 'predict'), `${at}: Predict is opt-in (tests/deck-adopted.js)`);
+    assert.ok(!s.preset && !s.vignette && !s.visual && !s.cath, `${at}: Predict changes the patient already on screen`);
+    assert.ok(s.lapse || s.params || s.action || s.days, `${at}: the answer is the model's own change`);
+    assert.ok(typeof p.q === 'string' && p.q.trim().endsWith('?'), `${at}: the question asks`);
+    assert.ok(p.q.split(/\s+/).length < 45, `${at}: the question is under 45 words, as a line`);
+    assert.ok(!p.title || p.title.length <= 60, `${at}: a short predict title`);
+    assert.ok(Array.isArray(p.options) && p.options.length >= 2 && p.options.length <= 4, `${at}: 2 to 4 choices`);
+    for (const o of p.options) assert.ok(typeof o === 'string' && o.length <= 26, `${at}: "${o}" is a short choice`);
+    assert.ok(Number.isInteger(p.answer) && p.options[p.answer], `${at}: answer names a choice`);
+  }
+});
+
+test('predict: lands on the state before, asks, and plays the change as the answer only on its reveal', () => {
+  const p = src('presenter.js');
+  assert.match(p, /const predictable = \(s, to, ct\) => !!ui && !booting && !s\.visual && !ct && !s\.vignette && predictOk\(s\.predict\) && to > 0 && to === lastAt \+ 1 && !s\.preset/);
+  assert.match(p, /const si = lap \|\| ask \? stateOf\[to - 1\] : stateOf\[to\];/, 'it lands on the slide before\'s state');
+  assert.match(p, /if \(ask\) \{ pred = \{ i: to, s, gen: g \}; return; \}/, 'nothing plays until the reveal');
+  assert.match(p, /if \(pred && shown\?\.i === pred\.i && want === pred\.i\) \{ predictReveal\(-1\); return; \}/, 'Next reveals first');
+  assert.match(p, /if \(s\.lapse\) await playLapse\(s, i, \(\) => !mine\(\)\);/);
+  assert.match(p, /const done = await morphTo\(end, \(\) => !mine\(\), reduce\.matches \? 0 : MORPH_MS, false\);/, 'the change eases, never snaps');
+  assert.match(p, /holdAnswer\(!s\.visual && \(!!s\.hold \|\| holdEase \|\| predArm\?\.i === i\), true\);/);
+  // (The card is sized for both words, one grid cell; the reveal cross-fades.)
+  assert.match(css, /\.pz-swap > :is\(\.pz-pa, \.pz-pb\) \{ grid-area: 1 \/ 1;/);
+  assert.match(css, /\.pz-text\.pz-asking:not\(\.pz-told\) > \.pz-pwait \{ opacity: 0; visibility: hidden;/);
+  assert.match(src('handout.js'), /<p class="cap">Predict<\/p>/, 'the handout prints the question and its answer');
+});

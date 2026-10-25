@@ -43,7 +43,8 @@ export const NEXT_BLEED = {
       ask: ['How often is banding repeated after a variceal bleed, and until when?', 'Every 2 to 4 weeks until the varices are gone.'],
     },
     {
-      id: 'slough', days: 300, lapse: { seconds: 8, from: 'Varices banded', to: '10 months later' }, terms: ['varix'], cam: 'varices', labels: ['VAR'], tool: SCOPE, data: 'tiles', tiles: ['varix', 'hvpg'], key: ['varix'], delta: 'bands',
+      id: 'slough', days: 300,
+      predict: { title: 'Ten months of bands alone', q: 'The varices are banded away, but the pressure behind them never fell. What will the scope find ten months from now?', options: ['No varices', 'Varices back', 'Smaller scars only'], answer: 1 }, lapse: { seconds: 8, from: 'Varices banded', to: '10 months later' }, terms: ['varix'], cam: 'varices', labels: ['VAR'], tool: SCOPE, data: 'tiles', tiles: ['varix', 'hvpg'], key: ['varix'], delta: 'bands',
       cite: 'AASLD 2024 statement 20',
       caveat: 'The model loses one banding session\'s effect about every 50 days, a simplification of how varices return.',
       kicker: 'Banding alone', site: 'sin', title: 'Bands slough and the varices come back',

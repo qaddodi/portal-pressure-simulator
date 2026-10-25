@@ -6,7 +6,7 @@
 // (decks.js, new ones included: a slide without a figure prints without one) and for the instructor's scripts.
 
 import { download } from './download.js?v=3564e5bf8c';
-import { LEVELS, withOverview } from './decks.js?v=a645c92e62';
+import { LEVELS, withOverview } from './decks.js?v=9ae5bfc298';
 import { TILE } from './table-marks.js?v=15f059172f';
 import { plateletText } from './glue.js?v=5a0f63226b';
 import { citeText } from './teach-extras.js?v=5f5248f5a7';
@@ -97,6 +97,9 @@ export function lineText(t, fp = null, at = () => null) {
   });
 }
 
+// A Predict slide's question as the talk asks it, and its answer (the right choice), printed like an ask (presenter.js predictReveal).
+const predictText = (s) => (s.predict?.q && Array.isArray(s.predict.options) && s.predict.options[s.predict.answer] ? [`${s.predict.q} (${s.predict.options.join(', ')})`, s.predict.options[s.predict.answer]] : null);
+
 function slideBlock(d, base, s, i, fp, at) {
   const [ml, legend] = s.eq || [];
   const [q, a] = Array.isArray(s.ask) ? s.ask : s.ask ? [s.ask] : [];
@@ -110,6 +113,8 @@ function slideBlock(d, base, s, i, fp, at) {
     ${citeText(s.cite) ? `<p class="cite">${esc(citeText(s.cite))}</p>` : ''}
     ${s.notes ? `<div class="notes"><p class="cap">Notes</p><p>${esc(s.notes)}</p></div>` : ''}
     ${s.checks ? `<ol class="checks">${s.checks.map(([cq, ca]) => `<li><p>${esc(cq)}</p><p class="a"><b>Answer:</b> ${esc(ca)}</p></li>`).join('')}</ol>` : ''}
+    ${s.tool?.kind === 'criteria' && Array.isArray(s.tool.rows) ? `<div class="notes"><p class="cap">${esc(s.tool.title || 'Criteria')}</p><ul>${s.tool.rows.map((r) => (typeof r === 'string' ? r : Array.isArray(r) ? r[0] : r?.text)).filter(Boolean).map((t) => `<li>${esc(t)}</li>`).join('')}</ul></div>` : ''}
+    ${predictText(s) ? `<div class="ask"><p class="cap">Predict</p><p>${esc(predictText(s)[0])}</p><p class="a"><b>Answer:</b> ${esc(predictText(s)[1])}</p></div>` : ''}
     ${q ? `<div class="ask"><p class="cap">Ask the room</p><p>${esc(q)}</p>${a ? `<p class="a"><b>Answer:</b> ${esc(a)}</p>` : ''}</div>` : ''}
   </div>
 </article>`;

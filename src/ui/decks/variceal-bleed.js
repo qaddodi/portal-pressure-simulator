@@ -39,7 +39,8 @@ export const BLEED = {
       ask: ['A man on carvedilol vomits blood. His pulse is 88 and his blood pressure 100/60. Is he stable?', 'Not necessarily. Carvedilol blunts the rise in heart rate, and his usual pressure may be low. Judge by the trend, the blood seen, the lactate and a postural drop.'],
     },
     {
-      id: 'minutes', action: [], cam: 'varices', tool: BEATS, data: 'tiles', tiles: ['hr', 'hb'], key: ['hb'], delta: true,
+      id: 'minutes', action: [],
+      predict: { title: 'Minutes into the bleed', q: 'Blood is pouring into the esophagus, and the first blood count is back. Which tells you how much blood he has lost?', options: ['Pulse and blood pressure', 'The hemoglobin'], answer: 0 }, cam: 'varices', tool: BEATS, data: 'tiles', tiles: ['hr', 'hb'], key: ['hb'], delta: true,
       kicker: K, site: 'sin', title: 'Shock before anemia',
       line: 'Minutes later the heart rate is {hr} and the blood pressure has fallen to {map}. The hemoglobin has not moved: it falls only as fluid refills the vessels over hours.',
       notes: 'Whole blood is lost, red cells and plasma together, so the first hemoglobin is close to normal even in shock. It falls over the next 24 to 72 hours as fluid moves in from the tissues and from the infusions. Judge the bleed by the pulse, the blood pressure, the urine output and the lactate. Intubate before the scope when encephalopathy clouds consciousness or large amounts of blood keep coming up.',

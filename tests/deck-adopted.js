@@ -8,7 +8,7 @@ export const ADOPTED = {
   'circuit/where': ['zone', 'kind:profile'],
   'circuit/meal': ['span'],
   'circuit/resist': ['zone', 'span'],
-  'circuit/both': ['span'],
+  'circuit/both': ['predict', 'span'],
   'circuit/parallel': ['kind:flows'],
   'cause-treated/year2': ['kind:plane'],
   'pvt-cirrhosis/clot': ['kind:lumen'],
@@ -104,7 +104,7 @@ export const ADOPTED = {
   'hyperdynamic/carvedilol': ['cite'],
   'hyperdynamic/terli': ['cite'],
   'blood-volume/full': ['kind:profile'],
-  'blood-volume/loss': ['kind:profile'],
+  'blood-volume/loss': ['predict', 'kind:profile'],
   'blood-volume/units': ['kind:profile', 'cite'],
   'blood-volume/over': ['kind:profile', 'cite'],
   'variceal-bleed/before': ['calipers'],
@@ -120,7 +120,7 @@ export const ADOPTED = {
   'sites/post': ['scales', 'kind:profile'],
   'sites/cardiac': ['scales', 'kind:profile'],
   'beta-blockers/carv-sin': ['lens:since', 'sinceLabel', 'kind:curve', 'tool.against'],
-  'beta-blockers/carv-pre': ['lens:since', 'sinceLabel'],
+  'beta-blockers/carv-pre': ['predict', 'lens:since', 'sinceLabel'],
   'beta-blockers/choose': ['kind:criteria', 'cite'],
   'recompensation/ascites': ['kind:fluid'],
   'recompensation/carv': ['ripple', 'kind:profile'],
@@ -165,7 +165,7 @@ export const ADOPTED = {
   'cause-treated/high2': ['kind:profile'],
   'next-bleed/after': ['cite'],
   'next-bleed/bands': ['cite'],
-  'next-bleed/slough': ['cite'],
+  'next-bleed/slough': ['predict', 'cite'],
   'next-bleed/nsbb': ['cite'],
   'next-bleed/both': ['cite'],
   'next-bleed/tips': ['cite', 'kind:flows'],
@@ -187,6 +187,7 @@ export const ADOPTED = {
   'read-doppler/q3': ['hold'],
   'read-doppler/q4': ['hold'],
   'read-doppler/q5': ['hold'],
+  'variceal-bleed/minutes': ['predict'],
 };
 
 /** Whether the slide d/s may use the field. */

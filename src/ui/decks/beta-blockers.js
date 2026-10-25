@@ -66,7 +66,8 @@ export const BETA_BLOCKERS = {
       ask: ['Does propranolol need a sinusoidal resistance to work?', 'No. It cuts the inflow, which lowers the pressure wherever the resistance sits.'],
     },
     {
-      id: 'carv-pre', params: CARV, lens: 'since', sinceLabel: 'propranolol', cam: 'lobule:triad', callout: { at: 'triad', label: 'Resistance' }, terms: { 'portal venules': 'lobule:triad' }, data: 'tiles', tiles: ['pv', 'hvpg'], key: ['pv'], delta: 'prop-pre',
+      id: 'carv-pre', params: CARV,
+      predict: { title: 'Switch her to carvedilol?', q: 'In cirrhosis carvedilol lowered the HVPG more than propranolol. Here the resistance sits in the portal venules. Will carvedilol lower her portal vein pressure much further?', options: ['Much further', 'Barely further'], answer: 1 }, lens: 'since', sinceLabel: 'propranolol', cam: 'lobule:triad', callout: { at: 'triad', label: 'Resistance' }, terms: { 'portal venules': 'lobule:triad' }, data: 'tiles', tiles: ['pv', 'hvpg'], key: ['pv'], delta: 'prop-pre',
       compare: [{ label: 'Propranolol', params: PROP }, { label: 'Carvedilol', own: true, params: CARV }],
       kicker: 'Schistosomiasis', site: 'presin', title: 'Carvedilol adds little to propranolol in presinusoidal disease',
       line: 'In the model, carvedilol acts on the sinusoids, beyond the scarred portal venules, so the portal vein pressure falls only to {pv}, against {pv@prop-pre} on propranolol. The HVPG falls more, but it reads the sinusoids. Colored by change against propranolol, almost nothing changes.',

@@ -6676,3 +6676,16 @@ html.thumb-ui .menu.from-dock { clip-path: inset(-64px -64px calc(var(--sink, 0p
 .pzc-row[data-met="yes"] .pzc-m > .y { opacity: 1; color: var(--ok); }
 .pzc-row[data-met="no"] .pzc-m > .n { opacity: 1; color: var(--text-3); }
 .pzc-row[data-met="yes"] .pzc-v { color: var(--text); }
+/* Predict (presenter.js predictReveal, teaching feature X3): while a slide asks, its predict title and question with their choices stand
+   where the title and line will be, and the slide's own words lie under them unseen in the same grid cell, so the card is sized for the
+   larger and never changes size; the rest of the card (buttons, caveat, source) keeps its place unseen. The reveal cross-fades. */
+.pz-swap { display: grid; }
+.pz-swap > :is(.pz-pa, .pz-pb) { grid-area: 1 / 1; min-width: 0; transition: opacity .5s var(--ease), visibility 0s linear 0s; }
+.pz-text.pz-asking:not(.pz-told) .pz-swap > .pz-pb, .pz-text.pz-asking.pz-told .pz-swap > .pz-pa { opacity: 0; visibility: hidden; transition: opacity .5s var(--ease), visibility 0s linear .5s; }
+.pz-text.pz-asking > .pz-pwait { transition: opacity .5s var(--ease) .15s, visibility 0s linear 0s; }
+.pz-text.pz-asking:not(.pz-told) > .pz-pwait { opacity: 0; visibility: hidden; transition: opacity .3s var(--ease), visibility 0s linear .3s; }
+.pz-swap > .pz-pa { display: flex; flex-direction: column; align-items: flex-start; gap: .6em; }
+.pz-pq { color: var(--text); }
+.pz-pchips { gap: 6px; }
+.pz-pchip[data-right] { background: color-mix(in srgb, var(--ok) 18%, transparent); border-color: color-mix(in srgb, var(--ok) 60%, transparent); color: var(--text); }
+.pz-pchip:disabled { cursor: default; }
