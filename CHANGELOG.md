@@ -2,6 +2,13 @@
 
 ## October 2026
 
+- **Where is the resistance? is eight slides, down from fourteen.** (Mohammad, 25 Oct, "Build the new decks"; deck rebuild plan, E4.)
+  Each case is now one slide: the case card holds the patient and asks "Where is the resistance?", and the slide behind it shows the Gut to heart chart with the
+  Pressure and Pressure drop buttons and names the level. The six question slides, their held data cards and the two Doppler cards leave (the open or clotted portal
+  vein is said in the case 2 and case 5 lines), so the talk is the six cases, the six ladders on one chart and the summary table. Lines are 30 words or fewer. The
+  talk is 12 minutes. Code and unit tests only; nobody has looked on screen. `src/ui/decks/where.js`, `tests/deck-adopted.js`, `tests/one-ladder.test.js`,
+  `tests/teaching-features.test.js` (no slide is on hold any more once First visit's five go, so the count is no longer asserted), `tests/grid-key-phone.test.js`,
+  `docs/deck-authoring-guide.md`, `brand/handout/where-resistance/`.
 - **TIPS and shunts is one 11-slide talk: the spontaneous shunt, the woman's TIPS and the surgical shunt.** (Mohammad, 25 Oct, "Go"; deck rebuild plan, C5.)
   "A TIPS from start to finish" is folded into the shunts talk (`?script=tips-journey` and its share page still open it, at slide 1). The talk runs
   in four sections: the spontaneous splenorenal shunt (own flow, then the shunt's effect on the pressure), who gets a TIPS (the woman with recurrent

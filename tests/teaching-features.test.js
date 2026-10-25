@@ -17,15 +17,13 @@ const slidesUsing = (f) => DECKS.flatMap((d) => d.slides.filter((s) => s[f] !== 
 
 test('hold: only adopted question slides use it, each a true flag on a slide with a card and no preset answer', () => {
   const used = slidesUsing('hold');
-  assert.ok(used.length >= 6, 'Where is the resistance? holds its six question slides (eleven before Stiffness took in the first visit, whose five cases are one slide each)');
+  // (No count asserted: the deck rebuild (E4) took Where is the resistance? off hold, after Stiffness took in the first visit's five. The
+  // feature stays in the presenter for a deck that adopts it.)
   for (const [d, s] of used) {
     assert.ok(adopted(d, s, 'hold'), `${d.id}/${s.id}: hold is opt-in (tests/deck-adopted.js)`);
     assert.equal(s.hold, true, `${d.id}/${s.id}: hold is true`);
     assert.ok(!s.visual && (s.tool || s.data), `${d.id}/${s.id}: a held slide has a data card to hold`);
     assert.ok(!s.site, `${d.id}/${s.id}: a question slide names no level`);
-  }
-  for (const d of DECKS.filter((x) => x.id === 'where-resistance')) {
-    for (const s of d.slides.filter((x) => /^q\d$/.test(x.id))) assert.equal(s.hold, true, `${d.id}/${s.id} holds its answer`);
   }
 });
 

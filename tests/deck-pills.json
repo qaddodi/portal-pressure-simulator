@@ -663,53 +663,23 @@
   "{salb}",
   "{hvpg}"
  ],
- "where-resistance/q1": [
-  "{pv}",
-  "{hvpg}",
-  "{ppg}"
- ],
  "where-resistance/a1": [
   "sinusoids",
   "{hvpg}"
- ],
- "where-resistance/q2": [
-  "{hvpg}",
-  "{ppg}"
  ],
  "where-resistance/a2": [
   "cavernoma",
   "{hvpg}"
  ],
- "where-resistance/q3": [
-  "{pv}",
-  "{ra}",
-  "{hvpg}",
-  "{ppg}"
- ],
  "where-resistance/a3": [
   "right atrial pressure"
- ],
- "where-resistance/q4": [
-  "{hvpg}",
-  "{ppg}"
  ],
  "where-resistance/a4": [
   "central veins"
  ],
- "where-resistance/q5": [
-  "{hvpg}",
-  "{ppg}"
- ],
  "where-resistance/a5": [
   "portal venules",
   "{hvpg}"
- ],
- "where-resistance/q6": [
-  "{pv}",
-  "{hvpg}",
-  "{ppg}",
-  "{ivc}",
-  "{ra}"
  ],
  "where-resistance/a6": [
   "right atrium"

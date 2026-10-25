@@ -1,4 +1,4 @@
-// The six-case summary (visual: 'ladders', Sites 10 and Where-resistance 14): each case's Gut to heart chart in its cell, the
+// The six-case summary (visual: 'ladders', Sites 10 and Where-resistance 8): each case's Gut to heart chart in its cell, the
 // site and the cause on its first row with no HVPG pill on a wide screen (the chart's bracket shows it), and on a phone one line a case
 // with the red blocks, the stations named once over the six (Mohammad, 21 Oct), the first row ending in the case's HVPG and PPG pills
 // (Mohammad, 23 Oct).
