@@ -451,8 +451,20 @@
  "prehepatic/liver": [
   "{lsm}"
  ],
- "prehepatic/svt": [
-  "portal vein"
+ "prehepatic/base": [
+  "portal vein",
+  "{pv}"
+ ],
+ "prehepatic/gradients": [
+  "{hvpg}",
+  "{ppg}"
+ ],
+ "prehepatic/carv": [
+  "{pv}"
+ ],
+ "prehepatic/pvt-anticoag": [
+  "portal vein",
+  "{pv}"
  ],
  "right-heart/tr": [
   "right atrium",
@@ -542,29 +554,6 @@
  "two-inflows/fugal": [
   "portal vein",
   "{pvFlow}"
- ],
- "pvt-cirrhosis/base": [
-  "portal vein",
-  "{pv}"
- ],
- "pvt-cirrhosis/clot": [
-  "portal vein",
-  "{pv}"
- ],
- "pvt-cirrhosis/gradients": [
-  "{hvpg}",
-  "{ppg}"
- ],
- "pvt-cirrhosis/scope": [
-  "varices",
-  "{varix}"
- ],
- "pvt-cirrhosis/carv": [
-  "{pv}"
- ],
- "pvt-cirrhosis/anticoag": [
-  "portal vein",
-  "{pv}"
  ],
  "spleen/normal": [
   "splenic vein",

@@ -34,7 +34,7 @@ test('a ladder card shows no HVPG or PPG tiles: its brackets give them, so no nu
   assert.match(pres, /const ownKeys = \(s\) => \(s\.tiles \|\| \[\]\)\.filter\(\(k\) => !\(s\.tool\?\.kind === 'flowtime' && s\.tool\.lines\?\.includes\(k\) && !phone\(\)\)\);/, 'a chart over the days drops tiles for its own two lines, on a laptop or tablet');
   assert.match(pres, /if \(sg !== sig \|\| !draw\)/, 'an empty tile set still builds');
   assert.ok(css.includes('.pz-tiles[data-n="0"] { display: none; }'));
-  const decks = ['hvpg', 'ncph', 'one-year', 'outflow', 'prehepatic', 'pvt-cirrhosis', 'recompensation', 'right-heart', 'treatment']
+  const decks = ['hvpg', 'ncph', 'one-year', 'outflow', 'prehepatic', 'recompensation', 'right-heart', 'treatment']
     .map((d) => readFileSync(new URL(`../src/ui/decks/${d}.js`, import.meta.url), 'utf8')).join('\n');
   assert.doesNotMatch(decks, /data: 'ladder'/, 'every ladder is the Gut to heart chart');
   const lines = decks.split('\n').filter((l) => /kind: 'profile'/.test(l));

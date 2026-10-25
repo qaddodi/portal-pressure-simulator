@@ -2,6 +2,15 @@
 
 ## October 2026
 
+- **Portal vein clots: one talk for the clot without cirrhosis and the clot in cirrhosis.** (Mohammad, 25 Oct, "Build the new decks"; deck rebuild plan, E1.)
+  Pre-hepatic portal hypertension takes the slides of Portal vein thrombosis in cirrhosis and is renamed Portal vein clots (id `prehepatic`, Causes). Section 1
+  keeps the acute clot, the catheter, anticoagulation, the cavernoma and the soft liver; section 2 follows a patient with cirrhosis through the case, the partial
+  clot that raises the PPG and not the HVPG, carvedilol, six months of anticoagulation and the course on one chart (its chart now starts at the cirrhosis
+  patient). The splenic vein clot slide leaves (Gastric varices teaches it), as do the partial-clot and endoscopy slides of the old talk (their words moved into
+  the gradients and carvedilol notes). The clot-without-cirrhosis anticoagulation and cavernoma slides share one card (the portal vein in section, with the
+  portal pressure and the PPG), colored by velocity; the pressure-drop view is gone from the talk. Slide lines are 30 words or fewer and the citations moved to
+  the notes. The old talk's id `pvt-cirrhosis` is removed (`brand/handout` figures moved with their slides). Code and unit tests only; nobody has looked on
+  screen. `src/ui/decks/prehepatic.js`, `src/ui/decks.js`, `tests/deck-adopted.js`, `tests/deck-pills.json`, `docs/deck-authoring-guide.md`.
 - **Doppler of the portal system takes in Read the Doppler: five cases, one slide each.** (Mohammad, 25 Oct, "Build the new decks"; deck rebuild
   plan, D1.) The talk is now 11 slides: the probe, the hepatic veins, the meal, cirrhosis, the reading order (Read the Doppler's "Read every trace in
   the same order"), the five cases and a table of the five traces. Each case is one slide: its case card asks ("Which way will his portal blood run?"),

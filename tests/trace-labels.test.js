@@ -1,4 +1,4 @@
-// The event labels of a talk-so-far chart (data card of one-year, pvt-cirrhosis, recompensation) sit at 45° along the top,
+// The event labels of a talk-so-far chart (data card of one-year, prehepatic, recompensation) sit at 45° along the top,
 // each time point is named once, and the chart makes room so no label is clipped.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
