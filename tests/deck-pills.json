@@ -196,13 +196,24 @@
   "{spleen}",
   "{plt}"
  ],
- "stiffness/rule": [
-  "{lsm@spleen}",
-  "{hvpg@spleen}"
- ],
- "stiffness/year": [
+ "stiffness/a1": [
   "{lsm}",
-  "{hvpg}"
+  "{plt}"
+ ],
+ "stiffness/a2": [
+  "{lsm}",
+  "{>=25 kPa}"
+ ],
+ "stiffness/a3": [
+  "{lsm}",
+  "{plt}"
+ ],
+ "stiffness/a4": [
+  "{lsm}"
+ ],
+ "stiffness/a5": [
+  "{lsm}",
+  "{spleen}"
  ],
  "stiffness/heart": [
   "(a value)"
@@ -909,26 +920,6 @@
  "choose-treatment/a5": [
   "{ppg}",
   "{asc}"
- ],
- "first-visit/a1": [
-  "{lsm}",
-  "{plt}"
- ],
- "first-visit/a2": [
-  "{lsm}",
-  "{>=25 kPa}"
- ],
- "first-visit/a3": [
-  "{lsm}",
-  "{plt}"
- ],
- "first-visit/a4": [
-  "{lsm}"
- ],
- "first-visit/a5": [
-  "{lsm}",
-  "{spleen}",
-  "{plt}"
  ],
  "transplant-doppler/hat": [
   "{liver}"

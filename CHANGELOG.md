@@ -2,6 +2,21 @@
 
 ## October 2026
 
+- **Stiffness, platelets and the first visit: one talk of 12 slides.** (Mohammad, 25 Oct, "Build the new decks"; deck rebuild plan, D3.) Liver stiffness takes
+  in "Stage the patient at the first visit". It has three sections. The measurements: the shear wave, "Fibrosis stiffens the liver", and a large spleen
+  with the new spleen ultrasound (calipers and the length in cm) and the platelet tile. The first visit: the Baveno VIII rules card, then five cases,
+  each on one slide. The case card asks ("Is CSPH ruled out, ruled in or still open?"), and the stiffness and platelet plane with its two tiles
+  answers; the plane and the tiles stay up from case to case, and the ring moves. Cases 4 and 5 were on a rules card and now sit on the plane too,
+  with their point (the BMI, the soft liver) in the line. Where stiffness misleads: congestion from the heart, with the HVPG tile gone. The summary is
+  the plane with cases 1 to 4. The first visit's 5 question slides, the meal, the year on, the schistosomiasis slide, the stiffness rule slide and
+  the old summary table are gone (case 5 makes the schistosomiasis point; the meal and the hepatitis flare moved into the rules slide's notes). The
+  old link `?script=first-visit` opens Stiffness at slide 1. Lines are 30 words or fewer, the sources and caveats are in the notes, the quick
+  check has four questions, and each case card plus its question is under 220 characters. The spleen slide no longer draws calipers and the normal
+  outline on the figure, since the ultrasound shows the length. Words went through the AI humanizer and no new visual device was added. Figures moved
+  with their slides; the stale ones are listed for the redraw. The smoke check that counts FibroScan slides names the three that are left
+  (half of them must show the probe, as before). Code only; nobody has looked on screen. `src/ui/decks/stiffness.js`, `src/ui/decks.js`,
+  `tests/deck-adopted.js`, `tests/deck-pills.json`, `tests/doppler-meal-plays.test.js`, `tests/e2e/smoke.mjs`, `docs/deck-authoring-guide.md`,
+  `docs/deck-authoring-quick-guide.md`.
 - **Sites and causes: a lighter talk, one question for the room.** (Mohammad, 25 Oct, "Build the new decks"; deck rebuild plan, E3.)
   The six level slides drop the case questions, the extra sliders and buttons (except the heart buttons on the cardiac slide), the causes list and the scale
   switch; the causes moved into each slide's notes, and the periportal fibrosis slider moved to the presinusoidal talk's "Where the resistance sits" slide so

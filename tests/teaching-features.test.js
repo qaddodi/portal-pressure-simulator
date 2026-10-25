@@ -17,7 +17,7 @@ const slidesUsing = (f) => DECKS.flatMap((d) => d.slides.filter((s) => s[f] !== 
 
 test('hold: only adopted question slides use it, each a true flag on a slide with a card and no preset answer', () => {
   const used = slidesUsing('hold');
-  assert.ok(used.length >= 11, 'Where is the resistance? and Stage the patient at the first visit hold their question slides');
+  assert.ok(used.length >= 6, 'Where is the resistance? holds its six question slides (eleven before Stiffness took in the first visit, whose five cases are one slide each)');
   for (const [d, s] of used) {
     assert.ok(adopted(d, s, 'hold'), `${d.id}/${s.id}: hold is opt-in (tests/deck-adopted.js)`);
     assert.equal(s.hold, true, `${d.id}/${s.id}: hold is true`);

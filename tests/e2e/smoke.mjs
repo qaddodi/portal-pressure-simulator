@@ -4427,12 +4427,12 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
       await open(page, '?script=stiffness');
       await page.waitForSelector('.pz-h'); await page.waitForTimeout(2000);
       let withProbe = 0;
-      const FIBRO = [2, 3, 6, 7, 8, 9];   // the stiffness deck's slides with the FibroScan card (the overview is slide 1)
-      for (let n = 1; n <= 10; n++) {
+      const FIBRO = [2, 3, 11];   // the stiffness deck's slides with the FibroScan card (the overview is slide 1; 12 slides in all)
+      for (let n = 1; n <= 12; n++) {
         if (n > 1) { await page.keyboard.type(String(n)); await page.keyboard.press('Enter'); }
         if (await settle(`${at} slide ${n}`, FIBRO.includes(n))) withProbe++;
       }
-      if (withProbe < 3) throw new Error(`${at}: only ${withProbe} FibroScan slides showed the probe`);
+      if (withProbe < Math.ceil(FIBRO.length / 2)) throw new Error(`${at}: only ${withProbe} of ${FIBRO.length} FibroScan slides showed the probe`);
     }
   });
   // One type scale and one icon scale (styles/tokens.css): every menu, card and sheet the owner can
