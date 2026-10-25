@@ -4237,7 +4237,12 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       if (need <= PLATE_BASE * 1.2) { if (veins.hasPlate(1)) { veins.dropPlate(1); veinsDirty = true; stageWake(); } return; }
       // The view in world units (the anatomy is never turned), with a margin, within the plate.
       const r = stageBox(), [ax, ay] = clientToWorldFast(r.left, r.top), [bx, by] = clientToWorldFast(r.right, r.bottom);
-      const mx = (bx - ax) * 0.15, my = (by - ay) * 0.15;
+      // (Painted on the GPU (bake) a view's picture costs little for its size, so it reaches half a view past each side, as far as
+      // the texture's limits allow at the screen's resolution: most pans then stay inside it, below. As pictures of the SVG copy it
+      // reaches a seventh, each pan's uncovered strip drawn from the copy.)
+      const vw = (bx - ax) * need, vh = (by - ay) * need;
+      const reach = liveOn() ? Math.max(0.15, Math.min(0.5, (Math.sqrt(4.2e6 / Math.max(1, vw * vh)) - 1) / 2, (4094 / Math.max(1, vw, vh) - 1) / 2)) : 0.15;
+      const mx = (bx - ax) * reach, my = (by - ay) * reach;
       let x0 = Math.max(PLATE_RECT[0], ax - mx), y0 = Math.max(PLATE_RECT[1], ay - my);
       let x1 = Math.min(PLATE_RECT[0] + PLATE_RECT[2], bx + mx), y1 = Math.min(PLATE_RECT[1] + PLATE_RECT[3], by + my);
       if (x1 <= x0 || y1 <= y0) return;
@@ -4248,7 +4253,10 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       x0 = Math.floor(x0 * scale) / scale; y0 = Math.floor(y0 * scale) / scale; x1 = Math.ceil(x1 * scale) / scale; y1 = Math.ceil(y1 * scale) / scale;
       const key = `${plateKey}|${x0.toFixed(0)},${y0.toFixed(0)},${x1.toFixed(0)},${y1.toFixed(0)}|${scale.toFixed(2)}`;
       if (key === plateViewKey) return;
-      if (plateView && x0 >= plateView[0] && y0 >= plateView[1] && x1 <= plateView[2] && y1 <= plateView[3] && scale <= plateView[4] * 1.05) return;
+      // The picture of the view kept while it still covers what is on screen (not the margin around it) at the resolution wanted:
+      // a pan or a small zoom within it makes nothing new. (It was made again whenever the margin left it, after nearly every pan.)
+      const vx0 = Math.max(PLATE_RECT[0], ax), vy0 = Math.max(PLATE_RECT[1], ay), vx1 = Math.min(PLATE_RECT[0] + PLATE_RECT[2], bx), vy1 = Math.min(PLATE_RECT[1] + PLATE_RECT[3], by);
+      if (plateView && vx0 >= plateView[0] && vy0 >= plateView[1] && vx1 <= plateView[2] && vy1 <= plateView[3] && scale <= plateView[4] * 1.05) return;
       plateViewKey = key;
       try { if (await (gpuOrgansOn() ? rasterLayers : rasterPlate)(1, [x0, y0, x1 - x0, y1 - y0], scale)) { plateView = [x0, y0, x1, y1, scale]; veinsDirty = true; stageWake(); } else if (plateViewKey === key) plateViewKey = ''; } catch { /* the whole-plate raster stays */ }
     }, 280);

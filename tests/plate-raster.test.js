@@ -109,3 +109,19 @@ test('in the circuit, where the organs are faded out, no organ picture is made a
   const sched = stage.slice(stage.indexOf('function schedulePlateView'), stage.indexOf('async function makeGutPic'));
   assert.match(sched, /if \(!veins \|\| !plateOn\(\) \|\| !CTM\) return;\n(?:\s+\/\/.*\n)+\s+if \(morphTarget !== 0 \|\| morph > 0\) return;\n\s+if \(!liveOn\(\)\) gutPicSoon\(\);/);
 });
+
+test("an ordinary pan makes no new picture of the view while the one shown still covers the screen", () => {
+  // (Review, 25 Oct: after every settled pan a sharper view picture was made again, though the one shown still covered the
+  // screen; only the margin around it had left it.)
+  const sched = stage.slice(stage.indexOf('function schedulePlateView'), stage.indexOf('async function makeGutPic'));
+  assert.match(sched, /const vx0 = Math\.max\(PLATE_RECT\[0\], ax\), vy0 = Math\.max\(PLATE_RECT\[1\], ay\), vx1 = Math\.min\(PLATE_RECT\[0\] \+ PLATE_RECT\[2\], bx\), vy1 = Math\.min\(PLATE_RECT\[1\] \+ PLATE_RECT\[3\], by\);/);
+  assert.match(sched, /if \(plateView && vx0 >= plateView\[0\] && vy0 >= plateView\[1\] && vx1 <= plateView\[2\] && vy1 <= plateView\[3\] && scale <= plateView\[4\] \* 1\.05\) return;/, 'the screen, not its margin, inside the kept picture');
+  // Painted on the GPU, the picture reaches half a view past each side, never so far its resolution drops below the screen's.
+  assert.match(sched, /const reach = liveOn\(\) \? Math\.max\(0\.15, Math\.min\(0\.5, \(Math\.sqrt\(4\.2e6 \/ Math\.max\(1, vw \* vh\)\) - 1\) \/ 2, \(4094 \/ Math\.max\(1, vw, vh\) - 1\) \/ 2\)\) : 0\.15;/);
+  // (The bound: a view of vw × vh px at reach r spans (1 + 2r)² vw·vh px, within the 4.2e6 the scale is held to, and a side within 4094.)
+  for (const [vw, vh] of [[1280, 800], [2560, 1600], [3456, 2234], [1170, 2532]]) {
+    const reach = Math.max(0.15, Math.min(0.5, (Math.sqrt(4.2e6 / (vw * vh)) - 1) / 2, (4094 / Math.max(vw, vh) - 1) / 2));
+    const s = 1 + 2 * reach;
+    if (reach > 0.15) { assert.ok(s * s * vw * vh <= 4.2e6 + 1, `${vw}x${vh}`); assert.ok(s * Math.max(vw, vh) <= 4094 + 1e-6, `${vw}x${vh}`); }
+  }
+});
