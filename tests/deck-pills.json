@@ -775,7 +775,7 @@
  "next-bleed/after": [
   "varices",
   "{varix}",
-  "{ppg}"
+  "{hvpg}"
  ],
  "next-bleed/bands": [
   "varices",
@@ -802,10 +802,6 @@
   "varices",
   "{varix}",
   "{varix@slough}"
- ],
- "next-bleed/tips": [
-  "{ppg}",
-  "{liver}"
  ],
  "gastric-varices/classes": [
   "gastric varices",

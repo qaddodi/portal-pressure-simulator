@@ -11,6 +11,14 @@
   reads "5 mm or more", and the two cases no longer say "EGD". Three objectives (the fundal one left with its slide). Both humanizer passes
   were done. Code and unit tests only; nobody has looked on screen. `src/ui/decks/varices.js`, `tests/varices-cards.test.js`, `tests/deck-adopted.js`,
   `tests/deck-pills.json`, `brand/handout/varices/`.
+- **Preventing the next variceal bleed: one scope card through seven slides.** (Mohammad, 25 Oct, "Go"; deck rebuild plan, C4.) The scope, with the varix and
+  the HVPG as tiles, now runs from "The bleed is over" to the last slide, `nsbb` (carvedilol) included; the tiles' ring marks the state after the bleed on every slide
+  of the run, and `nsbb` adds the percent-fall tile as a third tile, because the fall is the point of the slide. The first slide reads the HVPG instead of
+  the PPG, as the carvedilol slide's words do. The TIPS slide left: the bleed talk's last section and A TIPS from start to finish carry it, and the summary's
+  last line and notes say when a rebleed despite both means a TIPS (the carvedilol stop, rifaximin and the encephalopathy cost went into the notes). The summary
+  table loses the liver column and the TIPS row. Small print (`cite`, the slough caveat) moved into the notes. The scope-timing and banding-ulcer points
+  from the Endoscopy talk are already in `slough`'s notes. Code and unit tests only; nobody has looked on screen. `src/ui/decks/next-bleed.js`,
+  `tests/deck-adopted.js`, `tests/deck-pills.json`.
 - **Doppler ultrasound of TIPS is 10 slides, down from 15.** (Mohammad, 25 Oct, "Build the new decks"; deck rebuild plan, D2.) The talk now runs: the scan
   before the stent, the working stent read at its three points, aliasing, the main portal vein, the left portal vein, the narrowed stent, the warning
   sign, the portal vein slowing again, venography and the summary. The three-points slide takes the working stent's state and says what the stent did
