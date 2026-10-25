@@ -144,8 +144,6 @@ export const ADOPTED = {
   'cause-treated/high2': ['kind:profile'],
   'next-bleed/slough': ['question'],
   'next-bleed/nsbb': ['hvpgResp'],
-  'where-resistance/q2': ['hold'],
-  'where-resistance/q5': ['hold'],
   'variceal-bleed/minutes': ['clock', 'question'],
   'doppler/slow': ['tool.grid', 'caseQ'],
   'stiffness/spleen': ['kind:spleen'],
