@@ -191,7 +191,7 @@ test("a picture's painting stops at its time limit at any depth of nested groups
   // again meanwhile (the canvas grew) starts its picture over rather than lay a wiped layer.
   assert.match(paint, /if \(holder && holder !== me\) return 'wait';/);
   assert.match(paint, /\} else if \(ver !== allocVer\) \{ holder = null; return 'lost'; \}/);
-  assert.match(paint, /AW = Math\.max\(AW, w\); AH = Math\.max\(AH, h\);\n\s+allocVer\+\+;/, 'only when the targets are made again, not when a deeper pair is first made');
+  assert.match(paint, /if \(gw \* gh <= targetRoom\(BW, BH\)\) \{ AW = gw; AH = gh; \} else \{ AW = Math\.max\(w, BW\); AH = Math\.max\(h, BH\); \}\n\s+allocVer\+\+;/, 'only when the targets are made again, not when a deeper pair is first made');
   assert.match(paint, /drop\(\) \{ if \(holder === me\) holder = null; job = null; \},/);
   // The live painting never uses those layers (it reads no nested groups): the picture's start at depth 1.
   assert.match(paint, /const \[g, k\] = depth\(1\);/);

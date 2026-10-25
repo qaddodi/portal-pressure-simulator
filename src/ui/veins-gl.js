@@ -36,7 +36,7 @@ import { SLOT, DYE_BINS } from './blood.js?v=856babbc01';
 import { cssRGB } from './util.js?v=d2c95a1b16';
 import { CELL, ENT_W, binVeins, splitRows } from './veins-bin.js?v=17351d9767';
 import { gpuProbe } from './gpu-probe.js?v=e82dc07b45';
-import { createOrganStack } from './organs-gl.js?v=d875e497fb';
+import { createOrganStack } from './organs-gl.js?v=50a7580426';
 
 export { binVeins };
 

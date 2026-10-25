@@ -124,3 +124,31 @@ test("a shape the app made is painted from its numbers while its path still says
   assert.notEqual(viaText, viaNumbers);
   assert.ok(viaText.nTri > viaNumbers.nTri, 'the new text, with its extra corner');
 });
+
+test("the painter's targets stay within the room the canvas gives them, however the pictures' shapes alternate (iPad crash, 25 Oct)", async () => {
+  const { targetRoom } = await import('../src/ui/organ-paint.js');
+  const { gl, calls } = fakeGL(), shape = fakeShape(), p = createOrganPaint(gl, shape);
+  const cw = 2388, ch = 1604, room = targetRoom(cw, ch);   // (an iPad held sideways at 2×)
+  const live = () => p.paintGroup({ ops: [square(0, 0)], opacity: 1, mask: null, root: null }, ID, cw, ch, null);
+  const bake = (w, h) => { const j = p.bakeJob({ ops: [square(0, 0)], opacity: 0.5, mask: null, root: null }, ID, w, h, {}); withClock(() => { for (let i = 0; i < 9 && j.step(performance.now() + 5) !== 'done'; i++); }); j.drop(); };
+  const biggest = () => Math.max(...calls.filter((c) => c[0] === 'texImage2D' && c[3] === 'RGBA8').map((c) => c[4] * c[5]));
+  live();
+  // A tall view's picture and a wide one, each within the room beside the canvas (as stage.js schedulePlateView keeps them),
+  // then the whole plate's: the targets once grew to the widest by the tallest, 4094 × 2336 here.
+  for (const [w, h] of [[1805, 2336], [3900, 1026], [1224, 1584], [1805, 2336], [3900, 1026]]) {
+    assert.ok(Math.max(w, cw) * Math.max(h, ch) <= room, `${w}x${h} is a picture the stage can ask for`);
+    bake(w, h); live();
+  }
+  assert.ok(biggest() <= room, `the targets held ${biggest()} px, the room is ${room}`);
+  // Within the room they still only grow: a picture that fits paints with no target made again.
+  const before = count(calls, 'texImage2D');
+  bake(1805, 1500); live();
+  assert.equal(count(calls, 'texImage2D'), before, 'a picture that fits makes nothing again');
+});
+
+test("the view's sharp picture keeps its sides within the painter's room beside the canvas", async () => {
+  const { readFileSync } = await import('node:fs');
+  const src = readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8');
+  assert.match(src, /const room = targetRoom\(vCanvas\.width, vCanvas\.height\);/);
+  assert.match(src, /room \/ \(Math\.max\(1, vCanvas\.height\) \* \(x1 - x0\)\), room \/ \(Math\.max\(1, vCanvas\.width\) \* \(y1 - y0\)\)\);/);
+});
