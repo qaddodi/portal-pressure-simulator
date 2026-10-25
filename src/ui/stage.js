@@ -33,7 +33,7 @@ import { gpuProbe } from './gpu-probe.js?v=e82dc07b45';
 import { plateStrips, premultiply, gutStep, viewReuse, copyPixels } from './plate-upload.js?v=5fc45556a1';
 import { cropToGrid } from './organs-gl.js?v=50a7580426';
 import { readGroup, shapeSource, bindShape, targetRoom } from './organ-paint.js?v=1250d7cb89';
-import { pathCmds } from './shape-gl.js?v=a5ba46162b';
+import { pathCmds, flattenCmds, polyBox } from './shape-gl.js?v=a5ba46162b';
 import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, ORIGIN_GREY } from './veins-gl.js?v=ea99d7102b';
 import { varixBead, beadRadius } from './varix-bead.js?v=ac0e84fd89';
 import { advanceStream, createReversalHold, bleedShapes, stepBleedFade, fadeBleedShapes, chevFlowLevel, keyChevron, KEY_CHEV_LANES, originFractions, oxygenFor, ORIGIN_N, createBolus, DYE_BINS, KAPPA, STASIS_MIN_D, HIDDEN_SECONDS } from './blood.js?v=856babbc01';
@@ -1385,9 +1385,13 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     refreshCTM();
     gpuProbe.time(null, 'labels (script)', () => updateLabels(F));
     if (cath.st) cathLabels();
-    if (sites.list) sitesPaint();
-    if (scan.on) scanPaint();
-    dprobePaint();
+    // (updateLabels ends by painting the callouts and both probes, unless a camera glide held the labels back: they are painted here
+    // only then, not a second time, whose reads came after the first paint's writes.)
+    if (!labelPainted) {
+      if (sites.list) sitesPaint();
+      if (scan.on) scanPaint();
+      dprobePaint();
+    }
     gpuProbe.time(null, 'cards follow (script)', () => onViewChange?.());
   }
   applyVT();
@@ -6233,11 +6237,24 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   }
   // The top left of the right lobe (the patient's right is the figure's left): the tip sits on its edge, aimed 45° down toward the portal vein.
   // Anchored to the liver, not the view: it pans off screen with the liver (and hides once the tip is out of view). Null when no probe shows.
+  // (Worked out from the liver's path and its group's transform through the camera, as the screen box would give it: asking the
+  // browser for the box (getBoundingClientRect) after the frame's figure writes forced a layout of the whole figure, every frame the
+  // probe showed.)
+  let scanLvD = '', scanLvBox = null;
   function scanTipLocal() {
     const lv = organEls.liver;
     if (!scan.on || !lv || morph > 0.5) return null;
-    const r = lv.getBoundingClientRect(), wr = wrap.getBoundingClientRect();
-    return { tx: r.left - wr.left + r.width * 0.13, y: r.top - wr.top + r.height * 0.09 };
+    const d = lv.getAttribute('d');
+    if (!d) return null;
+    if (d !== scanLvD) { scanLvD = d; const [x0, y0, x1, y1] = polyBox(flattenCmds(pathCmds(d), 0.05)); scanLvBox = x1 >= x0 ? [x0, y0, x1, y1] : null; }
+    if (!scanLvBox) return null;
+    const m = gMatrix(organG.liver), [bx0, by0, bx1, by1] = scanLvBox, xs = [], ys = [];
+    for (const [qx, qy] of [[bx0, by0], [bx1, by0], [bx0, by1], [bx1, by1]]) {
+      const [p, q] = worldToLocal(m ? m.a * qx + m.c * qy + m.e : qx, m ? m.b * qx + m.d * qy + m.f : qy);
+      xs.push(p); ys.push(q);
+    }
+    const l = Math.min(...xs), t = Math.min(...ys);
+    return { tx: l + (Math.max(...xs) - l) * 0.13, y: t + (Math.max(...ys) - t) * 0.09 };
   }
   // The probe's reading is the FibroScan card's own number (fibroscan.js writes it in its frame, with its rounding) while a card
   // is on screen; without one it falls back to the model's eased value.
@@ -6297,9 +6314,11 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (!scan.el) {
       const el = document.createElement('div');
       el.className = 'scan-probe cath-pre'; el.setAttribute('aria-hidden', 'true');
-      el.innerHTML = '<svg viewBox="0 0 220 96"><defs><radialGradient id="sp-beam" cx="66" cy="48" r="150" gradientUnits="userSpaceOnUse">'
+      // (The soft beam is its own picture under the rest, on its own layer (.sp-beam-svg): in one picture with the waves, which change
+      // every frame, its blur was drawn again every frame too.)
+      el.innerHTML = '<svg class="sp-beam-svg" viewBox="0 0 220 96"><defs><radialGradient id="sp-beam" cx="66" cy="48" r="150" gradientUnits="userSpaceOnUse">'
         + '<stop offset="0" stop-color="var(--scan)" stop-opacity=".22"/><stop offset="1" stop-color="var(--scan)" stop-opacity="0"/></radialGradient></defs>'
-        + '<path class="sp-beam" d="M66 48 L197.6 -23.9 A150 150 0 0 1 197.6 119.9 Z"/><g class="sp-waves">'
+        + '<path class="sp-beam" d="M66 48 L197.6 -23.9 A150 150 0 0 1 197.6 119.9 Z"/></svg><svg viewBox="0 0 220 96"><g class="sp-waves">'
         + '<g><path class="sp-rip"/><path class="sp-front"/><path class="sp-rip"/></g>'.repeat(SCAN_N) + '</g>'
         + '<path class="sp-cable" d="M-26 48 C-18 48 -14 48 -8 48"/><g class="sp-head"><rect class="sp-body" x="-10" y="35" width="68" height="26" rx="11"/>'
         + '<rect class="sp-tip" x="54" y="39" width="10" height="18" rx="3"/><rect class="sp-screen" x="-3" y="39.5" width="54" height="17" rx="4"/>'
@@ -8105,9 +8124,10 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // signature (geometry, widths, selection, layers, levels...), the morph and turn, the floating panels,
   // fonts, theme and the presenter's insets. Otherwise the last layout stands, and only the live values
   // are refreshed in place (see refreshValues); a value whose text changes shape lays the labels out again.
-  let labelKey = null, labelFonts = 0, labelShown = [], noChevBoxes = [];
+  let labelKey = null, labelFonts = 0, labelShown = [], noChevBoxes = [], labelPainted = false;   // labelPainted: the last updateLabels painted the callouts and probes
   const stats = { layouts: 0, skips: 0, values: 0, ms: 0 };
   function updateLabels(f, force = false) {
+    labelPainted = false;
     // Laid out once the presenter's camera settles (see camSettle), or at once if its glide was cut short.
     if (camMove) { if (!vtGliding) camSettle(); return; }
     const t0 = performance.now();
@@ -8130,6 +8150,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (sites.list) sitesPaint();
     if (scan.on) scanPaint();
     dprobePaint();
+    labelPainted = true;
   }
   // The live values of the labels showing, rebuilt and written into their text in place. False when one
   // changed shape (a width, a run, a change badge): the caller then lays the labels out again.

@@ -2897,7 +2897,8 @@ button.finding { cursor: pointer; }
 /* The FibroScan probe on the skin over the liver; its shear wave eases out into the right lobe and fades. */
 .scan-probe { --scan: var(--fibroscan); /* the orange of the FibroScan card's readout (ORANGE in fibroscan.js) */ position: absolute; left: 0; top: 0; width: 220px; height: 96px; translate: 0 -50%; transition: opacity .6s var(--ease); pointer-events: none; }
 .scan-probe.cath-pre, .scan-probe.off { opacity: 0; }
-.scan-probe svg { width: 220px; height: 96px; overflow: visible; transform: rotate(var(--sp-turn, 45deg)); transform-origin: 66px 48px; transition: transform .5s var(--ease); }   /* probe and beam turned 45° about the tip, pointing down-right (steeper beside the screen's left edge: stage.js scanPaint) */
+.scan-probe svg { position: absolute; left: 0; top: 0; width: 220px; height: 96px; overflow: visible; transform: rotate(var(--sp-turn, 45deg)); transform-origin: 66px 48px; transition: transform .5s var(--ease); }
+.scan-probe .sp-beam-svg { will-change: transform; }   /* (the beam's blur kept as drawn: the waves over it change every frame, it does not) */   /* probe and beam turned 45° about the tip, pointing down-right (steeper beside the screen's left edge: stage.js scanPaint) */
 .scan-probe .sp-body { fill: var(--surface); stroke: var(--text-2); stroke-width: 1.6; }
 .scan-probe .sp-tip { fill: var(--text-2); }
 .scan-probe .sp-screen { fill: var(--fibroscan); }   /* the probe's own display: the live stiffness, along its 45° axis */
