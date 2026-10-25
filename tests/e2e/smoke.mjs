@@ -2571,8 +2571,10 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
 
   await check(device, 'presenter: summary table cells stay under their headings', async (page) => {
     // Each cell's contents sit inside its column heading's width, and no two cells overlap, at each size (the desktop run
-    // also tries an upright iPad). (A phone's control padding once pushed the names into the HVPG column.)
-    const sizes = device === 'desktop' ? [null, { width: 820, height: 1180 }] : [null];
+    // also tries an upright iPad and an iPad on its side, small and large), and the table never scrolls sideways: a card
+    // never scrolls (Mohammad, 25 Oct: the nine-column tables scrolled on an iPad on its side).
+    // (A phone's control padding once pushed the names into the HVPG column.)
+    const sizes = device === 'desktop' ? [null, { width: 820, height: 1180 }, { width: 1024, height: 768 }, { width: 1194, height: 834 }, { width: 1366, height: 1024 }] : [null];
     for (const size of sizes) {
       if (size) await page.setViewportSize(size);
       for (const deck of ['circulation', 'hvpg', 'sites']) {   // (sites: the most columns)
@@ -2613,6 +2615,7 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
               seen.push({ b, name });
             }
           }
+          if (!document.querySelector('.pz.stack') && t.scrollWidth > t.clientWidth + 1) out.push(`the table scrolls sideways (${t.scrollWidth} px of content in ${t.clientWidth})`);
           return out;
         });
         if (bad.length) throw new Error(`${deck}${size ? ` at ${size.width}x${size.height}` : ''}: ${bad.slice(0, 4).join('; ')}`);

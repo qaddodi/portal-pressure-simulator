@@ -2,6 +2,16 @@
 
 ## October 2026
 
+- **A summary table never scrolls, on an iPad on its side or anywhere else.** (Mohammad, 25 Oct: "The tables on the slide before last scrolls
+  right and left on iPad. They should not ever scroll.") The summary table was a scroll box of its own inside its card, so a table wider than
+  the narrower, centred card (the 25 Oct width cap) scrolled sideways, and the card's fit never saw it: it only measured the card, and the
+  box swallowed the overflow. Now the table is clipped, not scrollable, and the card's fit reads the table's own sideways overflow and
+  zooms the card until every column is in view (first only as far as the lettering stays 12 px, then past it as a last resort, as the
+  compact layout's cards do). Before it comes to a zoom, the table gives room itself: a column heading wraps between its words, never
+  inside one, and the value columns keep less padding at their sides (the row names and notes keep theirs). A phone's and an upright
+  tablet's rows are a grid that fits its width and are unchanged. The smoke check for summary tables now also runs an iPad on its side
+  (1024 x 768, 1194 x 834, 1366 x 1024) and fails if the table scrolls sideways. Code and unit tests only; nobody has looked on screen.
+  `src/ui/presenter.js`, `styles/app.css`, `tests/table-no-scroll.test.js`, `tests/e2e/smoke.mjs`.
 - **Predict is gone; a slide can ask one short question on a glass card instead.** (Mohammad, 25 Oct, "yes to both"; deck rebuild plan, A2.)
   The four Predict slides (Circuit 6, Blood volume 3, Next bleed 4, Beta-blockers 7) no longer show choices, a tinted right answer or an
   answer line, and nothing about a guess is kept. Stepping onto one now brings up the case card's glass over the figure as it stands,

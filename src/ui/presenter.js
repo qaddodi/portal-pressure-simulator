@@ -2617,12 +2617,17 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     // (An instrument with its tiles beside it shares one row with them: the row is counted once, at its taller side.)
     // (Only while the tool shows beside the tiles: folded, the tiles stand in their row alone, counted like any part.)
     const rail = el.matches(RAIL), pair = rail && [...el.querySelectorAll(':scope > .pz-tool')].some((c) => getComputedStyle(c).display !== 'none'), side = pair && el.querySelector(':scope > .pz-tiles');
+    // (A wide screen's summary table clips what is wider than it, so the card's own scrollWidth never sees it: read from the table, in the
+    // card's pixels. The fit then zooms the card until every column is in view. A phone's rows are a grid that fits its width by itself.)
+    const wideTable = !ui.root.classList.contains('stack');
+    let sideways = 0;
     for (const c of el.children) {
       if (c === side) continue;
       const s = getComputedStyle(c);
       if (s.display === 'none' || s.position === 'absolute' || s.position === 'fixed') continue;
       if (s.maxHeight === '0px') continue;   // (a folded part, a phone's closed tool: its hidden contents are not overflow)
       const cz = parseFloat(s.zoom) || 1;
+      if (wideTable && c.classList.contains('pz-table')) sideways = Math.max(sideways, (c.scrollWidth - c.clientWidth) * cz);
       // (A part with a height cap clips by design, and mid-fold its clipped contents are not overflow either: counting them
       // shrank the card while a phone's tool folded, and the shrunk fit then stuck.)
       // (A line's glyphs or a pinned button reaching a pixel or two past its part is not overflow: counted, it shrank every
@@ -2637,7 +2642,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       n++;
     }
     used += (parseFloat(cs.rowGap) || 0) * Math.max(0, n - 1);
-    return { v: used - el.clientHeight, h: el.scrollWidth - el.clientWidth };
+    return { v: used - el.clientHeight, h: Math.max(el.scrollWidth - el.clientWidth, sideways) };
   }
   // What a card's fit depends on: its box, its words (digits alike, so a number that eases fits as before) and which parts show.
   // A card whose signature is unchanged keeps its fit without being measured again (measuring forces layouts mid-animation).
@@ -2707,6 +2712,10 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     const fits = () => { const o = overflowOf(el); return o.v <= 1 && o.h <= 1; };
     el.classList.remove('pz-lt', 'pz-lt2');
     for (const c of ['pz-lt', 'pz-lt2']) { if (fits()) break; el.classList.add(c); }
+    return textFloor(el);
+  }
+  // The smallest zoom that keeps a card's smallest lettering at 12 px on the screen (1 when it is already at or under that).
+  function textFloor(el) {
     const px = minText(el);
     return px > 12 && isFinite(px) ? Math.ceil(12 / px * 1000) / 1000 : 1;
   }
@@ -2822,10 +2831,14 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       const lowFloor = el === ui.data && ui.root.classList.contains('low') ? lowData(el) : 0;
       const shortFloor = !small && !lowFloor && ui.root.classList.contains('short') ? shortFit(el) : 0;
       if (!shortFloor && !lowFloor) el.classList.remove('pz-lt', 'pz-lt2');   // (a card left tight by a shorter window)
+      // (A summary table on a wide screen, too wide or too tall for its card, also zooms only as far as its lettering stays 12 px at first,
+      // the compact layout's rule, before it may go past that as a last resort rather than scroll: it never scrolls.)
+      const tableFloor = !small && !lowFloor && !shortFloor && el === ui.panel && !ui.root.classList.contains('stack') && el.querySelector(':scope > .pz-table') ? textFloor(el) : 0;
       const ln = small ? el.querySelector('.pz-line, p') : null, lb = ln ? parseFloat(getComputedStyle(ln).fontSize) : 0;
       const floor = lb > 12 ? Math.ceil(12 / lb * 1000) / 1000 : 0.5;
       const mins = small ? [...new Set([floor, phone() ? floor : 0.5])] : [lowFloor || floor];
       if (shortFloor > mins[0]) mins.unshift(shortFloor);   // (the compact layout's 12 px first; past it only as a last resort)
+      else if (tableFloor > mins[0]) mins.unshift(tableFloor);
       let k = 1, over = 1;   // (over: the largest fit tried that still overflowed)
       const fits = () => { const o = overflowOf(el); return o.v <= 1 && o.h <= 1 ? null : o; };
       if (small && fits()) { k = over = Math.max(COMPACT, floor); el.style.setProperty('--pz-fit', String(k)); }   // (Compact; over: no search back up past it)

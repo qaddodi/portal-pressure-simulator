@@ -1873,11 +1873,17 @@ button.finding { cursor: pointer; }
 :is(.pz.stack, .pz.low) .pz-grid-head > .pz-pstrip { display: block; width: auto; margin: 0 12px; font-size: var(--s-cap); }
 .pz.stack .pz-grid-head > :nth-child(2) { display: none; }
 .pz:not(.stack) .pz-cell { --ch-cap: max(12px, calc(var(--s-cap) * .74)); --ch-lab: calc(max(12px, calc(var(--s-cap) * .74)) * 1.5); }   /* (a big screen's six ladders letter at the data card's chart size, so the plots fit their cells) */
-.pz-table { overflow: auto; border: 1px solid var(--border); border-radius: clamp(12px, calc(1.8 * var(--pzh)), 20px); }
+/* (A card never scrolls, in any direction: a table that is too wide or too tall is zoomed by the card's fit (presenter.js overflowOf reads its
+   sideways overflow), never scrolled inside its card, and what a finger or a trackpad might pan is clipped. Mohammad, 25 Oct: on an iPad
+   on its side the summary table "scrolls right and left. They should not ever scroll.") */
+.pz-table { overflow: hidden; border: 1px solid var(--border); border-radius: clamp(12px, calc(1.8 * var(--pzh)), 20px); }
 .pz-table table { width: 100%; border-collapse: collapse; font: 500 var(--s-body)/1.25 var(--font-ui); }
 .pz-table th, .pz-table td { padding: .55em .75em; text-align: left; vertical-align: middle; }
-.pz-table thead th { background: var(--surface-2); font: var(--caps-w) var(--s-cap)/1.2 var(--font-ui); letter-spacing: var(--caps-ls); text-transform: uppercase; color: var(--text-3); white-space: nowrap; }
+.pz-table thead th { background: var(--surface-2); font: var(--caps-w) var(--s-cap)/1.2 var(--font-ui); letter-spacing: var(--caps-ls); text-transform: uppercase; color: var(--text-3); }   /* (a heading wraps between its words when the card is tight; it never breaks inside one) */
 .pz-table .num { text-align: center; font-variant-numeric: tabular-nums; white-space: nowrap; }
+/* A wide screen's value columns keep less padding at the sides than the row names: their arrows and numbers are centred, so a roomy table
+   looks as before, and a tight one (nine columns on an iPad on its side) gives the room to the columns instead of scrolling. */
+.pz:not(.stack) .pz-table :is(thead th.num, tbody td.num) { padding-inline: .45em; }
 .pz-table tbody tr { border-top: 1px solid var(--border); cursor: pointer; transition: background-color .2s var(--ease); }
 @media (hover: hover) { .pz-table tbody tr:hover { background: var(--accent-soft); } }
 .pz-table tbody th .pz-kick { font-size: var(--s-cap); }
