@@ -5291,6 +5291,9 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
   --pz-cut: calc(((1 - var(--pz-u)) * (var(--pz-d, 0px) - 24px) + 10px - var(--pz-gap, 6px)) - 14px - var(--pz-o, 0px));
   clip-path: polygon(-60px var(--pz-cut), calc(100% + 60px) var(--pz-cut), calc(100% + 60px) calc(100% + 60px), -60px calc(100% + 60px)); }
 .pz.stack.stack .pz-data.pz-sheet.pz-sheet.tiles-only > .pz-tiles { margin-top: calc(14px - (1 - var(--pz-u)) * var(--pz-d, 0px)); }
+/* (Only the first readings part travels; a second (the bleed clock's row) rides under it. With the travel in its own margin too, the
+   card's measure of the travel changed the travel, without end: Variceal bleed 3 to 4 froze.) */
+.pz.stack.stack .pz-data.pz-sheet.pz-sheet.tiles-only > .pz-tiles ~ .pz-tiles { margin-top: 0; }
 .pz.stack.stack .pz-data.pz-sheet.pz-sheet > .pz-tiles { margin-bottom: 16px; }
 .pz.stack.stack .pz-data.pz-sheet.pz-sheet.pz-sheet.pz-sliding > .pz-tiles { transition: none; }
 .pz.stack.stack .pz-data.pz-sheet.pz-sheet:not(.tool-open):not(.pz-sliding) > .pz-tiles { visibility: hidden; }
@@ -5350,6 +5353,7 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
   translate: 0 calc((1 - var(--pz-u)) * (var(--pz-d, 0px) - 24px));
   --pz-cut: calc(var(--pz-u) * var(--pz-d, 0px) - 26px + 24px * (1 - var(--pz-u)));
   clip-path: polygon(-60px -60px, calc(100% + 60px) -60px, calc(100% + 60px) var(--pz-cut), -60px var(--pz-cut)); }
+.pz.pz-wide.pz-wide .pz-data.pz-sheet.pz-sheet > .pz-tiles ~ .pz-tiles { margin-top: 0; }   /* (rides under the first: see the phone's) */
 .pz.pz-wide.pz-wide .pz-data.pz-sheet.pz-sheet.pz-sheet.pz-sliding > .pz-tiles { transition: none; }
 .pz.pz-wide.pz-wide .pz-data.pz-sheet.pz-sheet:not(.tool-open):not(.pz-sliding) > .pz-tiles { visibility: hidden; }
 .pz.pz-wide.pz-wide .pz-data.pz-sheet.pz-hide { opacity: 1; visibility: hidden; transition: transform .32s var(--ease), visibility 0s linear .32s; }

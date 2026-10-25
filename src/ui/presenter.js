@@ -2508,6 +2508,9 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     const was = parts.map((c) => c.style.cssText), cap = d.style.maxHeight;
     d.style.maxHeight = 'none';
     parts[0].style.marginTop = wideSheet(d) ? '16px' : '14px';   // (out: styles/app.css)
+    // (A part after the first rides under it with no travel of its own: the bleed clock's row. Measured with the card's --pz-d in its
+    // margin, the travel read back changed the travel, every write of --pz-d told the watcher again, and the page froze: Variceal bleed 3 to 4.)
+    for (const c of parts.slice(1)) c.style.marginTop = '0px';
     const h1 = hh(), z = (parseFloat(getComputedStyle(parts[0]).zoom) || 1) * kw;
     const o = parts[1] ? (parts[1].getBoundingClientRect().top - parts[0].getBoundingClientRect().top) / z : 0;
     for (const c of parts) c.style.display = 'none';
