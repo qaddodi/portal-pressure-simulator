@@ -42,7 +42,7 @@ import { causeFit } from './cause-fit.js?v=830a6835a5';
 import { COMPACT, WIDE } from './card-type.js?v=5af5f22935';
 import { flowTimeHeight } from './flow-time.js?v=cb89e13e11';
 import { PROCS, procBlocked, procOffered, playProcedure } from './proc-anim.js?v=b2351a24c6';
-import { dataPlan, textPlan, keepData, keepText, cardSnap, cardChanged, cardBack } from './card-keep.js?v=a70833750f';
+import { dataPlan, textPlan, keepData, keepText, cardSnap, cardChanged, cardBack } from './card-keep.js?v=bd482b25ae';
 const nextFrame = frameFor('presenter');
 
 const KEY = 'pps.scripts';
@@ -2000,11 +2000,10 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     layout();
     keepNote();   // (a kept card this layout changed is put back at once: nothing changed is ever painted)
   }
-  // The teaching card's words (or a visual's panel) for slide i, and what stands with them: the scale switch, the self-study handle, the level's tab.
+  // The teaching card's words (or a visual's panel) for slide i, and what stands with them: the scale switch, the level's tab.
   function textIn(s, st, i) {
     const { text, panel } = ui;
     paintScales(s, i);
-    paintStudy(s);
     // The slide's level (Presinusoidal, Cardiac...) is a tab in the glass's top left corner, the deck tab's mirror in the level's
     // colour (17 Oct), not a pill over the title: set with the words, gone on a visual slide.
     // (A slide with a level rail names its level on the rail, which a phone held upright hides: there the tab names it instead.)
@@ -3554,108 +3553,6 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     if (phone() && ui.bar.offsetWidth && ui.bar.offsetWidth !== pillW) { pillW = ui.bar.offsetWidth; app.style.setProperty('--pz-pill-w', `${pillW}px`); }
     clearPill();
     placeScales();
-    placeStudy();
-  }
-
-  // ── Self-study (recommendations X9): a per-viewer setting for a tester alone with the deck ──
-  // Each content slide's handout question (its ask) under a "Question" handle; a tap opens it, and its answer stays hidden until a
-  // second tap, easing open as the quick check's does. A phone opens it as a sheet over the figure, between the data card and the
-  // words; a wider screen as a small card beside the teaching card. The teaching card never changes. Off unless the viewer turns it
-  // on (Settings, while presenting), remembered on this device only, so a talk on a projector is unchanged.
-  const STUDY = 'pps.selfStudy';
-  let studyOn = (() => { try { return localStorage.getItem(STUDY) === '1'; } catch { return false; } })(), studyS = null;
-  const askOf = (s) => {
-    const [q, a] = Array.isArray(s?.ask) ? s.ask : typeof s?.ask === 'string' ? [s.ask] : [];
-    return typeof q === 'string' && q.trim() ? { q: q.trim(), a: typeof a === 'string' && a.trim() ? a.trim() : null } : null;
-  };
-  function setStudy(on) {
-    studyOn = !!on;
-    try { localStorage.setItem(STUDY, studyOn ? '1' : '0'); } catch { /* storage unavailable */ }
-    paintStudy(studyS, true);
-  }
-  function studyOpen(on) {
-    const el = ui?.study;
-    if (!el) return;
-    el.classList.toggle('open', on);
-    el.querySelector('.pzq-h')?.setAttribute('aria-expanded', String(on));
-    if (on) placeStudy();
-  }
-  function paintStudy(s, now = false) {
-    const el = ui?.study;
-    if (!el) return;
-    studyS = s;
-    const q = studyOn && s && !s.visual ? askOf(s) : null;
-    if (!q) {
-      if (now) el.classList.add('pz-leave');
-      el.classList.remove('open');
-      const gone = () => { if (studyS === s && !(studyOn && s && !s.visual && askOf(s))) el.hidden = true; };
-      if (now) setTimeout(gone, reduce.matches ? 0 : 340); else gone();
-      return;
-    }
-    const sig = `${q.q}|${q.a}`;
-    if (el.dataset.sig !== sig || !now) {   // (each slide opens closed, its answer hidden)
-      el.dataset.sig = sig;
-      const ans = q.a ? h('div', { class: 'pzq-a', id: 'pzq-a' }, h('p', {}, q.a)) : null;
-      const show = q.a ? h('button', { type: 'button', class: 'pzq-show', 'aria-expanded': 'false', 'aria-controls': 'pzq-a', onclick: (e) => {
-        const on = !el.classList.contains('told');
-        el.classList.toggle('told', on); e.currentTarget.setAttribute('aria-expanded', String(on));
-        e.currentTarget.textContent = on ? 'Hide answer' : 'Show answer';
-      } }, 'Show answer') : null;
-      el.classList.remove('open', 'told');
-      el.replaceChildren(
-        h('button', { type: 'button', class: 'pzq-h stage-blocker', 'aria-expanded': 'false', 'aria-controls': 'pzq-card', onclick: () => studyOpen(!el.classList.contains('open')) }, icon('help'), h('span', {}, 'Question')),
-        h('section', { class: 'pzq-card', id: 'pzq-card', 'aria-label': 'Question on this slide' }, h('p', { class: 'pzq-q' }, q.q), show, ans));
-    }
-    if (el.hidden) { el.hidden = false; if (now) nextFrame(() => { if (ui?.study === el) el.classList.toggle('pz-leave', ui.text.classList.contains('pz-leave')); }); }
-    else if (now) el.classList.toggle('pz-leave', ui.text.classList.contains('pz-leave'));
-    placeStudy();
-  }
-  // Where the handle and its card sit. A phone or an upright iPad: the handle 8 px above the teaching card at its right (above the
-  // scale switch when the two would meet; the camera frames above it, as above the switch), the sheet above the handle, as wide as
-  // the cards and no higher than the room under the data card (its words step down to fit, never scroll). A wider screen: the
-  // handle 12 px right of the teaching card's top, its card under the handle.
-  function placeStudy() {
-    const el = ui?.study;
-    if (!el || el.hidden) return;
-    const p = phone(), hd = el.querySelector('.pzq-h'), card = el.querySelector('.pzq-card');
-    if (!hd || !card) return;
-    const wr = wrap.getBoundingClientRect(), k = wr.width / (wrap.clientWidth || wr.width) || 1;
-    const glass = ui.shade.offsetWidth ? ui.shade : ui.text, r = restRect(glass);
-    if (!r.width) return;
-    const W = wr.width / k, H = wr.height / k, top = (r.top - wr.top) / k, left = (r.left - wr.left) / k, right = (r.right - wr.left) / k;
-    el.classList.toggle('sheet', p);
-    hd.toggleAttribute('data-safe', p); if (p) hd.dataset.safe = 'bottom';
-    const set = (n, v) => el.style.setProperty(n, `${Math.round(v)}px`);
-    if (p) {
-      let b = H - top + 8;
-      const sc = ui.scl, hw = hd.offsetWidth || 120;
-      if (sc && !sc.hidden && sc.offsetWidth) {
-        const sr = sc.getBoundingClientRect();
-        if ((sr.right - wr.left) / k + 8 > right - hw) b = Math.max(b, H - (sr.top - wr.top) / k + 8);
-      }
-      set('--pzq-r', W - right); set('--pzq-b', b); set('--pzq-l', left);
-      const d = ui.data, dr = d && !d.hidden && !d.classList.contains('pz-hide') ? d.getBoundingClientRect() : null;
-      const roof = dr && dr.height ? (dr.bottom - wr.top) / k + 8 : 8;
-      set('--pzq-h', Math.max(80, H - b - (hd.offsetHeight || 44) - 8 - roof));
-    } else {
-      set('--pzq-x', right + 12); set('--pzq-y', top);
-      const d = ui.data, dr = d && !d.hidden && !d.classList.contains('pz-hide') ? d.getBoundingClientRect() : null;
-      const end = dr && dr.width && (dr.left - wr.left) / k > right ? (dr.left - wr.left) / k - 12 : W - 12;
-      set('--pzq-w', Math.max(200, Math.min(340, end - right - 12)));
-      set('--pzq-h', Math.max(80, H - top - (hd.offsetHeight || 44) - 8 - 84));
-    }
-    if (el.classList.contains('open')) fitStudy(card);
-  }
-  // The card's words step down from their size to the 12 px floor until the card holds the question with its answer open
-  // (fitted once as it will be when told, so the words never change size on the tap).
-  function fitStudy(card) {
-    const el = ui?.study;
-    if (!el) return;
-    el.classList.add('pzq-fit');
-    let f = 15;
-    card.style.setProperty('--pzq-f', `${f}px`);
-    while (f > 12 && card.scrollHeight > card.clientHeight + 1) { f -= 0.5; card.style.setProperty('--pzq-f', `${f}px`); }
-    el.classList.remove('pzq-fit');
   }
 
   // ── The scale switch (slide field scales; scale-switch.js) ──
@@ -4380,16 +4277,14 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     // The slide's scale switch (slide field scales): Anatomy, Lobule, Sinusoid, as Explore's pill. It comes and goes with the
     // teaching card; the figure's labels keep clear of it, and on a phone the camera frames above it (data-safe, set in placeScales).
     const scl = h('div', { class: 'pz-scales stage-blocker pz-leave', role: 'group', 'aria-label': 'Scale', hidden: true });
-    // Self-study (Settings, this device only): the slide's handout question under a handle, its answer hidden until a tap (paintStudy).
-    const study = h('div', { class: 'pz-study pz-leave', hidden: true });
-    const root = h('div', { class: 'pz' }, safe, veil, load, fk, text, data, lip, panel, vcase, study, prog, scl, bar, jump, blackEl, say);
+    const root = h('div', { class: 'pz' }, safe, veil, load, fk, text, data, lip, panel, vcase, prog, scl, bar, jump, blackEl, say);
     wrap.insertBefore(shade, wrap.querySelector('.stage-credit'));
     // The teaching card's glass is the card itself: it leaves and arrives with the words, never resizing in view.
-    new MutationObserver(() => { const out = text.classList.contains('pz-leave'); shade.classList.toggle('pz-leave', out); study.classList.toggle('pz-leave', out); }).observe(text, { attributes: true, attributeFilter: ['class'] });
+    new MutationObserver(() => shade.classList.toggle('pz-leave', text.classList.contains('pz-leave'))).observe(text, { attributes: true, attributeFilter: ['class'] });
     wrap.append(root);
     // (It comes in with the teaching card, in the card's own fade, once the card is fitted (pz-prep gone), and leaves with it.)
     const figKey = createFigureKey({ el: fk, app, watch: [text, root], ready: () => !text.hidden && !text.classList.contains('pz-leave') && !root.classList.contains('pz-prep') });
-    return { root, shade, safe, load, text, data, study, clock, lip, lipRO, lipMO, cardTouch, setFold, partOf, vcase, fk, figKey, dhT, tiles, tools, veil, panel, prog, scl, bar, black: blackEl, jump, say };
+    return { root, shade, safe, load, text, data, clock, lip, lipRO, lipMO, cardTouch, setFold, partOf, vcase, fk, figKey, dhT, tiles, tools, veil, panel, prog, scl, bar, black: blackEl, jump, say };
   }
   // The start's cover (see start). While it is up (booting) the camera cuts instead of gliding.
   let cover = null, booting = false, coverT = 0, noCase = false;   // (noCase: the slide a start lands on, a reload's included, does not play its case card)
@@ -4641,7 +4536,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     // For the browser checks: straight to slide i (0-based) of the deck shown, as the arrow keys move.
     go: (i) => go(i), busy: () => busy, skipLapse: () => skipLapse(),   // (a time-lapse sped to its end, as Next does)
     // What Settings shows while presenting.
-    settings: () => ({ width: pzWidth, setWidth: setPanelWidth, contrast: hiCon, setContrast, stacked: phone(), study: studyOn, setStudy }),
+    settings: () => ({ width: pzWidth, setWidth: setPanelWidth, contrast: hiCon, setContrast, stacked: phone() }),
     // For the browser checks: the time-lapse slides, and the card's tiles as the slide shown should read them at its start and end.
     probe: () => {
       const txt = (k, f) => (rateOf(k, f)[0] == null && (k === 'saag' || k === 'tp') ? '—' : tileVal(k, f[k]));   // (as bigTiles shows it)

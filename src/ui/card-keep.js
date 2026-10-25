@@ -58,7 +58,7 @@ export function keepData({ from, to, prev, next, swap = false, again = false }) 
  */
 export function keepText({ from, to, prev, next, swap = false, again = false }) {
   if (again || swap || !from || !to || from !== to || own(prev) || own(next)) return false;
-  // (Choices, a slider, the scale switch and the self-study handle keep what the viewer did to them on the slide before; each slide opens them afresh.)
+  // (Choices, a slider, the scale switch keep what the viewer did to them on the slide before; each slide opens them afresh.)
   return !['compare', 'whatIf', 'column', 'scales', 'ask'].some((k) => prev[k] || next[k]);
 }
 

@@ -176,7 +176,7 @@ async function main() {
   dock = createDock({ strip: $('#strip'), head: $('#dockHead'), body: $('#dockBody'), onWhy: (m, el) => why.open(m, el), onAction: doAction, onProbe: probeTo, lazy: { doppler: dopplerL, fibroscan: fibroL }, onReveal: revealDock, onLobule: () => zoomLobule('R'),
     onOpen: () => openPanel('instruments'), onClose: () => setPanelTab('chart'), onLayout: () => syncDoppler(), isVisible: () => app.classList.contains('dock-open'),
     marks: () => timeline.entries(), onBeat: () => sendBeat() });
-  presenterL = lazy(() => import('./presenter.js?v=77a3eb1e70'), ({ createPresenter }) => createPresenter({ openSettings, loadPreset, updateParams, host, stage, dock, action: doAction,
+  presenterL = lazy(() => import('./presenter.js?v=c9e7315ac9'), ({ createPresenter }) => createPresenter({ openSettings, loadPreset, updateParams, host, stage, dock, action: doAction,
     projectorOn: () => { if (!projector) toggleProjector(); }, projectorOff: () => { if (projector) toggleProjector(); },
     closeHome: () => mainMenu.close(), stashCards, rerenderHome: () => mainMenu.render() }));
   mainMenu = createMenu({
@@ -877,13 +877,7 @@ function openSettings(anchor, withSearch = false) {
   ], withSearch ? { place: 'above', align: 'end', cls: 'app-menu' } : { align: 'start', cls: 'app-menu' });
 }
 // While presenting: no extra settings for now (panel width and high contrast were taken out of slides).
-// Self-study: each slide's handout question under a "Question" handle, its answer hidden until a tap (presenter.js paintStudy).
-// Off unless the viewer turns it on, and remembered on this device only, so a talk on a projector is unchanged.
-function presenterSettings() {
-  const ps = presenter.settings();
-  if (!ps?.setStudy) return [];
-  return [menuToggle(ps.study, 'book', 'Self-study', 'A question on each slide, its answer hidden until you tap. This device only', (on) => ps.setStudy(on))];
-}
+function presenterSettings() { return []; }
 // Text size: smaller and larger in even steps, and the middle shows the size and resets it.
 // (100 % is the design size; the steps only go up, so no text drops under 11 px. src/ui/type-scale.js)
 function textSizeControl() {

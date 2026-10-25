@@ -2,9 +2,15 @@
 
 ## October 2026
 
-- **Five new talks, a Refractory ascites slide and an Overt encephalopathy slide, and the tester guides show Self-study.** (Mohammad, 25 Oct:
-  "All and make sure to run by humanizer and update author guides", then "Yes" to the browser run for the figures, the two new slides and the
-  guides.) New talks, each from the deck-teaching recommendations (F1 to F5), every line through the humanizer rules and every medical claim
+- **Self-study is gone.** (Mohammad, 25 Oct: "I hate self study and question with it. Remove".) The Settings switch that showed each slide's
+  handout question under a Question handle, the handle and its card, Show answer, their styles, their unit test and the guides' sections
+  are removed; no slide, deck or other feature changed. Each slide's `ask` still prints in the handout, and a unit test still checks that
+  every content slide has one. The two beta tester guide PDFs are back to the 18 Oct build, which never showed the switch. Anyone who had
+  turned it on keeps an unused `pps.selfStudy` entry in their browser, which nothing reads. Code and unit tests only; nobody has looked
+  on screen. `src/ui/presenter.js`, `src/ui/main.js`, `styles/app.css`, `tests/teaching-features.test.js`.
+- **Five new talks, a Refractory ascites slide and an Overt encephalopathy slide.** (Mohammad, 25 Oct:
+  "All and make sure to run by humanizer and update author guides", then "Yes" to the browser run for the figures and the two new slides.)
+  New talks, each from the deck-teaching recommendations (F1 to F5), every line through the humanizer rules and every medical claim
   checked against the guideline files: **Stage the patient at the first visit** (Measuring, 12 slides; Baveno VIII 1.15, 1.16 and 1.19, five
   held cases), **When the bleeding will not stop** (Treatment, 8; Baveno VIII 5.16 and 5.35 to 5.37, AASLD 2024), **Doppler after a liver
   transplant** (Measuring, 7; Lechowicz et al., J Ultrason 2015), **One patient, ten years** (Complications, 14; Baveno VIII 3.15, 3.16, 4.1,
@@ -18,9 +24,7 @@
   is the deck's own wording (the Baveno VIII statements, 6.3 and 6.4, name refractory ascites without defining it). Encephalopathy: a new
   slide 4, Overt encephalopathy: the trigger first, then lactulose, then rifaximin, with the triggers on a criteria card in place of the
   phone-hidden list on the spontaneous-shunt slide; the order of treatment is the deck's own teaching. Handout figures for every new slide
-  were drawn in a headless browser, the first browser run since 23 Oct, and the one for the removed slide deleted. The beta tester guides
-  (`guides/beta-start-guide.pdf` and `-iphone.pdf`, same names) have a new step 4, Send feedback and study alone, with Settings opened
-  during a talk to show the Self-study switch; the other pictures are the 18 Oct set. Authoring guides: counts and the id list, rules 28
+  were drawn in a headless browser, the first browser run since 23 Oct, and the one for the removed slide deleted. Authoring guides: counts and the id list, rules 28
   (a decision talk follows one patient), 29 (state the source criteria and caveat what the model cannot draw) and 30 (model facts found).
   Nobody has looked at the new slides on a device. `src/ui/decks/{first-visit,refractory-bleed,transplant-doppler,ten-years,tips-journey}.js`,
   `src/ui/decks.js`, `tests/deck-adopted.js`.
