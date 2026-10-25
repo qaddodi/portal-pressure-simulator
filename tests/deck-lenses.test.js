@@ -83,7 +83,7 @@ test('Right heart: congestion reaches the upper body with TR, not with an IVC we
   const NIx = (id) => NI.get(id);
   const h = new Engine(); h.loadPreset('healthy');
   const rise = (e, node) => e.P[NIx(node)] - h.P[NIx(node)];
-  const tr = run('right-heart', 'tr'), web = run('right-heart', 'web');
+  const tr = run('outflow', 'tr'), web = run('outflow', 'web');
   for (const n of ['SVC', 'IVCI', 'CONF']) assert.ok(rise(tr, n) > 8, `TR: ${n} backed up`);
   assert.ok(rise(web, 'IVCI') > 8 && rise(web, 'CONF') > 6, 'web: veins below it backed up');
   assert.ok(Math.abs(rise(web, 'SVC')) < 2, 'web: the upper body is clear');

@@ -2,6 +2,15 @@
 
 ## October 2026
 
+- **After the sinusoids: one talk for the hepatic veins, sinusoidal obstruction and the heart.** (Mohammad, 25 Oct, "Build the new decks"; deck rebuild plan, E2.)
+  Hepatic venous outflow obstruction takes the right heart slides and is renamed "After the sinusoids: hepatic veins and the heart" (id `outflow`, Causes). Its three
+  sections are the hepatic veins (Budd–Chiari syndrome, the missing wedge, a stent, a DIPS), sinusoidal obstruction (the case, the wedge, recovery) and the heart and IVC
+  (the normal waveform, tricuspid regurgitation, the pulsatile portal vein, constriction and the IVC web), ending on one table that holds all of them. The caudate lobe
+  slide and the heart catheter slide leave (their words moved into the notes). The congestion view is the talk's own colouring on every slide, with the flow view on the DIPS
+  slide only; the heart slides share one hepatic vein Doppler and one right atrial pressure tile. Slide lines are 30 words or fewer, the citation moved to the notes, and
+  Budd–Chiari 2 and the IVC web lost their extra tiles and readings. The old id `right-heart` opens this talk (`?script=right-heart`, `c/deck-right-heart.html`).
+  Code and unit tests only; nobody has looked on screen. `src/ui/decks/outflow.js`, `src/ui/decks.js`, `tests/deck-adopted.js`, `tests/deck-pills.json`,
+  `tests/e2e/smoke.mjs` (the two Outflow slide numbers), `docs/deck-authoring-guide.md`.
 - **Endoscopy is now a six-slide lesson, "The varix changes when you insufflate".** (Mohammad, 25 Oct, "Sure"; deck rebuild plan, B1.) One
   decompensated patient and one scope all the way through, and nothing changes in the model after the case card, so the HVPG is the same on every
   slide. Slide 2 compares a small varix (under 5 mm) with a large one (5 mm or more); slide 3 switches the red wale marks off and on to show they are

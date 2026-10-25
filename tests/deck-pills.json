@@ -467,28 +467,6 @@
   "portal vein",
   "{pv}"
  ],
- "right-heart/tr": [
-  "right atrium",
-  "hepatic veins",
-  "{ra}"
- ],
- "right-heart/pulse": [
-  "portal vein"
- ],
- "right-heart/cath": [
-  "{ra}"
- ],
- "right-heart/constrict": [
-  "right atrial pressure",
-  "{ra}"
- ],
- "right-heart/web": [
-  "hepatic veins",
-  "ivc",
-  "right atrium",
-  "{ivc}",
-  "{ra}"
- ],
  "variceal-bleed/before": [
   "varix",
   "{varix}",
@@ -629,12 +607,9 @@
   "right atrium",
   "{pv}"
  ],
- "outflow/caudate": [
-  "ivc",
-  "caudate lobe"
- ],
  "outflow/nowedge": [
   "hepatic vein",
+  "caudate lobe",
   "{pv}"
  ],
  "outflow/open": [
@@ -656,6 +631,25 @@
  "outflow/recover": [
   "central veins",
   "{hvpg}"
+ ],
+ "outflow/tr": [
+  "right atrium",
+  "hepatic veins",
+  "{ra}"
+ ],
+ "outflow/pulse": [
+  "portal vein"
+ ],
+ "outflow/constrict": [
+  "right atrial pressure",
+  "{ra}"
+ ],
+ "outflow/web": [
+  "hepatic veins",
+  "ivc",
+  "right atrium",
+  "{ivc}",
+  "{ra}"
  ],
  "recompensation/csph": [
   "{hvpg}",

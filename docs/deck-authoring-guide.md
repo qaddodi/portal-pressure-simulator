@@ -38,7 +38,7 @@ A slide is **one idea**: a standalone title, a line of fewer than 45 words (sect
 
 | Field | Type | Notes |
 |---|---|---|
-| `id` | string | Kebab-case, unique across all decks (existing, 37: `circulation circuit two-inflows hvpg hyperdynamic sites prehepatic ncph right-heart outflow lobule where-resistance doppler read-doppler stiffness one-year varices endoscopy variceal-bleed ascites tap encephalopathy spleen gastric-varices recompensation pregnancy treatment beta-blockers next-bleed choose-treatment cause-treated shunts tips-doppler first-visit transplant-doppler ten-years tips-journey`). A talk that was merged into another keeps working by its old id: add it to `DECK_ALIAS` in `decks.js` (old id → the deck that took its slides). `?script=<old id>` and the share page `c/deck-<old id>.html` then open that deck at slide 1 (`blood-volume` → `hyperdynamic`, `refractory-bleed` → `variceal-bleed`, `where-block` → `sites`, `bleed` → `treatment`). |
+| `id` | string | Kebab-case, unique across all decks (existing, 36: `circulation circuit two-inflows hvpg hyperdynamic sites prehepatic ncph outflow lobule where-resistance doppler read-doppler stiffness one-year varices endoscopy variceal-bleed ascites tap encephalopathy spleen gastric-varices recompensation pregnancy treatment beta-blockers next-bleed choose-treatment cause-treated shunts tips-doppler first-visit transplant-doppler ten-years tips-journey`). A talk that was merged into another keeps working by its old id: add it to `DECK_ALIAS` in `decks.js` (old id → the deck that took its slides). `?script=<old id>` and the share page `c/deck-<old id>.html` then open that deck at slide 1 (`blood-volume` → `hyperdynamic`, `refractory-bleed` → `variceal-bleed`, `where-block` → `sites`, `bleed` → `treatment`). |
 | `level` | `'foundation'` \| `'core'` \| `'advanced'` | Shown as Foundation / Core / Advanced. |
 | `title` | string | Full title. |
 | `minutes` | number | Talk length. |
@@ -972,8 +972,8 @@ The case card already holds the talk until it is lifted, so a case that comes ri
 room: `caseQ: 'Will his HVPG be raised?'`. It stands on its own line under the case, in the same type and colour, and is fitted
 with the case. Ask what the next slide answers, in the case's own terms ("What will the Doppler show?", "Where is the resistance?"), and
 keep the case and the question together under 220 characters (`tests/teaching-features.test.js` counts them). One question, no choices,
-no answer on the card: the slide behind it is the answer. Used on Two inflows 4 and 6, Sites 4, 5, 7, 8 and 9, Pre-hepatic 2, Right
-heart 7, Lobule 4, Doppler 5 and 7, Stiffness 7, Pregnancy 2, Treating the cause 5 and Transplant Doppler 3 to 7.
+no answer on the card: the slide behind it is the answer. Used on Two inflows 4 and 6, Sites 4, 5, 7, 8 and 9, Pre-hepatic 2, After the
+sinusoids 13, Lobule 4, Doppler 5 and 7, Stiffness 7, Pregnancy 2, Treating the cause 5 and Transplant Doppler 3 to 7.
 
 ### Checking one
 

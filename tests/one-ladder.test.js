@@ -38,7 +38,7 @@ test('every slide that had the old ladder shows the Gut to heart chart, or keeps
   const was = { 'circulation.js': ['ladder', 'define'], 'circuit.js': ['where'], 'hvpg.js': ['hvpg', 'presin', 'ppg', 'heart'], 'lobule.js': ['wedge'],
     'treatment.js': ['target', 'prop', 'carv', 'oct', 'vs'], 'one-year.js': ['d365', 'carv'], 'cause-treated.js': ['high', 'high2'],
     'recompensation.js': ['csph', 'carv'], 'ncph.js': ['wedge'], 'outflow.js': ['soswedge'],
-    'prehepatic.js': ['cath', 'gradients'], 'right-heart.js': ['cath'], 'where.js': ['q1', 'a1', 'a2', 'q3', 'a3', 'q4', 'a4', 'a5', 'q6', 'a6'] };
+    'prehepatic.js': ['cath', 'gradients'], 'where.js': ['q1', 'a1', 'a2', 'q3', 'a3', 'q4', 'a4', 'a5', 'q6', 'a6'] };
   for (const [f, ids] of Object.entries(was)) for (const id of ids) assert.equal(at(f, id)?.tool?.kind, 'profile', `${f} ${id}`);
   // (A card holds one instrument, and a phone has no room for a Doppler and the chart: there the chart's numbers are tiles.)
   assert.deepEqual(at('outflow.js', 'nowedge').tiles, ['pv', 'ppg']);
