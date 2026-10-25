@@ -31,9 +31,9 @@ import { warmVisible, ringGrid, inGrid } from './warm-vis.js?v=ccf4f6f71b';
 import { createRouter } from './circuit-router.js?v=0ee9e02fc6';
 import { gpuProbe } from './gpu-probe.js?v=e82dc07b45';
 import { plateStrips, premultiply, gutStep, viewReuse, copyPixels } from './plate-upload.js?v=5fc45556a1';
-import { cropToGrid } from './organs-gl.js?v=eb7a83e544';
-import { readGroup } from './organ-paint.js?v=7bcc7ef138';
-import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, ORIGIN_GREY } from './veins-gl.js?v=f3d337530c';
+import { cropToGrid } from './organs-gl.js?v=d67a6dce68';
+import { readGroup } from './organ-paint.js?v=5daa3d817f';
+import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, ORIGIN_GREY } from './veins-gl.js?v=660a9a7090';
 import { varixBead, beadRadius } from './varix-bead.js?v=ac0e84fd89';
 import { advanceStream, createReversalHold, bleedShapes, stepBleedFade, fadeBleedShapes, chevFlowLevel, keyChevron, KEY_CHEV_LANES, originFractions, oxygenFor, ORIGIN_N, createBolus, DYE_BINS, KAPPA, STASIS_MIN_D, HIDDEN_SECONDS } from './blood.js?v=e668d01823';
 import { frameFor, cancelFrame, noteDraw, setSaver as setFrameSaver, paceMs } from './frame.js?v=19b3f2915c';
@@ -2137,7 +2137,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const lzAnchor = document.createComment('lobule');
   wrap.append(lzAnchor);
   // (The code is fetched as soon as the figure is shown; the layer is built a moment later, when the page is quiet, or at once for a dive.)
-  const lobuleCode = () => (lzCode ||= import('./lobule-zoom.js?v=b2dea704b4').catch((err) => { lzCode = null; throw err; }));
+  const lobuleCode = () => (lzCode ||= import('./lobule-zoom.js?v=65197edcf5').catch((err) => { lzCode = null; throw err; }));
   function lobuleReady() {
     return (lzLoad ||= lobuleCode().then(({ createLobuleZoom }) => {
       lz = createLobuleZoom({ host: wrap, styles: wrapCS, before: lzAnchor });
@@ -3950,20 +3950,66 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   async function rasterLayers(slot, rect, scale) {
     const v = veins, boxes = layerBoxes(), names = [], live = liveOn();
     layerStarts++; if (fluidEasing()) layerStartsEasing++;
-    if (slot === 0) gpuProbe.time(null, 'organ picture: copy (script)', () => { plateCopy = plateBuild(plateStateKey()); });
+    // With the organs painted live, each layer's picture is painted on the GPU straight from its organs' shapes (bakeLayer); the SVG
+    // copy is made only for a layer the painter cannot read, which is rasterized from it as before.
+    const baked = live ? bakeAll() : null;
+    const copyNeeded = !baked || [...baked.values()].some((b) => !b);
+    if (slot === 0 && copyNeeded) gpuProbe.time(null, 'organ picture: copy (script)', () => { plateCopy = plateBuild(plateStateKey()); });
     try {
       for (const L of live ? LIVE_ORDER : ORGAN_LAYERS) {
         if (live && LIVE_LAYERS.has(L)) continue;
         const box = boxes ? boxes.get(L) : EVERYWHERE;
         const r = box && cropToGrid(rect, box, scale);
         if (!r) continue;
-        if (!(await rasterPlate(slot, r, scale, L, false, live)) || v !== veins || !v.organs) return false;
+        const b = baked?.get(L);
+        if (!(await (b ? bakeLayer(slot, L, b, r, scale) : rasterPlate(slot, r, scale, L, false, live))) || v !== veins || !v.organs) return false;
         names.push(L);
       }
       v.organs.commit(slot, names);
       if (live) { syncLiveOrgans(true); v.organs.setOrder(ORGAN_LAYERS); }
       return true;
     } finally { if (v === veins && !v.lost) v.organs?.dropStaged(slot); }
+  }
+  // The groups each layer's picture is painted from on the GPU (organs-gl bake), read from the organs' own groups in the SVG's order
+  // (readGroup with nest: the gut's see-through shades, the stomach's and duodenum's fades are groups of their own, as the browser
+  // lays them): { groups: [{ spec, m }], at } per layer, or null for a layer one of whose groups cannot be read (it is rasterized). The
+  // gut's own mask and opacity, and the stomach's see-through liver, are not in them: they are laid over the pictures live (the cuts).
+  // (The organs' own colours: a lens's grey is taken off for the read, as for the copy, plateBuild.)
+  function bakeAll() {
+    const greyed = !!greyList;
+    if (greyed) { greyClear(); organDimKey = ''; }
+    try {
+      const out = new Map(), layerOf = organLayers(), key = plateStateKey();
+      for (const L of LIVE_ORDER) {
+        if (LIVE_LAYERS.has(L)) continue;
+        const els = L === 'bowel' ? [organG.bowel] : L === 'gut' ? gutKids().filter((k) => k !== organG.bowel) : [...layerOf].filter(([k, l]) => l === L && k !== gGut).map(([k]) => k);
+        const groups = [];
+        let ok = true;
+        for (const el of els) {
+          if (!el || getComputedStyle(el).display === 'none') continue;
+          const spec = el.localName === 'g' ? readGroup(el, { withMask: el !== organG.stomach, nest: true }) : null;
+          if (!spec) { console.warn('Organs on the GPU: not readable for painting, this layer stays a picture:', el); ok = false; break; }
+          groups.push({ spec, m: matOfEl(el) });
+        }
+        out.set(L, ok ? { groups, at: L === 'bowel' ? bowelDy() : 0, key } : null);
+      }
+      return out;
+    } finally { if (greyed) syncOrganDim(); }
+  }
+  // A layer's picture painted on the GPU from its groups, a few milliseconds a frame (the picture shown meanwhile stays), and staged
+  // for the slot once whole; false when the state it shows moved on while it was painted (as rasterPlate gives one up).
+  async function bakeLayer(slot, L, b, rect, scale) {
+    const v = veins, seq = plateSeq, drops = plateDrops, key = b.key, vseq = slot === 1 ? ++viewSeq : 0;
+    const gone = () => seq !== plateSeq || drops !== plateDrops || v !== veins || v.lost || !v.organs || (slot === 1 && vseq !== viewSeq) || key !== plateStateKey();
+    const job = v.organs.bake(slot, L, b.groups, rect, scale, b.at);
+    if (!job) return false;
+    try {
+      for (;;) {
+        if (gone()) return false;
+        if (gpuProbe.time(null, 'organ picture: GPU paint', () => job.step(performance.now() + 6))) return true;
+        await new Promise((res) => nextFrame(res));
+      }
+    } finally { if (!v.lost) job.drop(); }
   }
   // The live organs' specs (organ-paint readGroup) read again whenever what they draw may have changed (liveKey), for the next
   // render of the stack. Their outlines are read from the page at the render itself.

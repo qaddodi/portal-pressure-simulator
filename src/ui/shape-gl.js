@@ -283,37 +283,47 @@ export function createShapeGL(gl) {
   const corner = gl.createBuffer();
   gl.bindBuffer(gl.ARRAY_BUFFER, corner);
   gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([0, -1, 1, -1, 0, 1, 1, 1]), gl.STATIC_DRAW);
-  const triBuf = gl.createBuffer(), segBuf = gl.createBuffer(), triVAO = gl.createVertexArray(), segVAO = gl.createVertexArray();
-  gl.bindVertexArray(triVAO);
-  gl.bindBuffer(gl.ARRAY_BUFFER, triBuf);
-  gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
-  gl.bindVertexArray(segVAO);
-  gl.bindBuffer(gl.ARRAY_BUFFER, corner);
-  gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
-  gl.bindBuffer(gl.ARRAY_BUFFER, segBuf);
-  gl.enableVertexAttribArray(1); gl.vertexAttribPointer(1, 4, gl.FLOAT, false, 24, 0); gl.vertexAttribDivisor(1, 1);
-  gl.enableVertexAttribArray(2); gl.vertexAttribPointer(2, 2, gl.FLOAT, false, 24, 16); gl.vertexAttribDivisor(2, 1);
-  gl.bindVertexArray(null);
-  // Each mesh's arrays are uploaded once and kept in the buffers while the same mesh is drawn again (an organ's outline is
-  // drawn into several channels in a frame: its fill, its strokes, a mask's copy).
-  let triOf = null, segOf = null, triCap = 0, segCap = 0;
-  const upload = (buf, data, capName) => {
-    gl.bindBuffer(gl.ARRAY_BUFFER, buf);
-    if (capName === 'tri' ? data.byteLength > triCap : data.byteLength > segCap) {
-      const cap = Math.max(data.byteLength, 1024) * 2;
-      gl.bufferData(gl.ARRAY_BUFFER, cap, gl.DYNAMIC_DRAW);
-      if (capName === 'tri') triCap = cap; else segCap = cap;
+  // Each mesh's arrays are uploaded once, into buffers of its own, and stay on the GPU for as long as the mesh is kept (release):
+  // a shape drawn again, in the next frame or the next picture, sends nothing (they were sent again at every draw of another
+  // shape). Its vertex arrays carry its buffers, so a draw only binds them.
+  const own = new Set();
+  function gpuOf(mesh) {
+    let g = mesh.gpu;
+    if (g) return g;
+    g = mesh.gpu = { tri: null, seg: null, triVAO: null, segVAO: null };
+    if (mesh.nTri) {
+      g.tri = gl.createBuffer(); g.triVAO = gl.createVertexArray();
+      gl.bindVertexArray(g.triVAO);
+      gl.bindBuffer(gl.ARRAY_BUFFER, g.tri); gl.bufferData(gl.ARRAY_BUFFER, mesh.tri, gl.STATIC_DRAW);
+      gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
     }
-    gl.bufferSubData(gl.ARRAY_BUFFER, 0, data);
-  };
-  const useTri = (mesh) => { if (triOf !== mesh) { upload(triBuf, mesh.tri, 'tri'); triOf = mesh; } };
-  const useSeg = (mesh) => { if (segOf !== mesh) { upload(segBuf, mesh.seg, 'seg'); segOf = mesh; } };
+    if (mesh.nSeg) {
+      g.seg = gl.createBuffer(); g.segVAO = gl.createVertexArray();
+      gl.bindVertexArray(g.segVAO);
+      gl.bindBuffer(gl.ARRAY_BUFFER, corner);
+      gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
+      gl.bindBuffer(gl.ARRAY_BUFFER, g.seg); gl.bufferData(gl.ARRAY_BUFFER, mesh.seg, gl.STATIC_DRAW);
+      gl.enableVertexAttribArray(1); gl.vertexAttribPointer(1, 4, gl.FLOAT, false, 24, 0); gl.vertexAttribDivisor(1, 1);
+      gl.enableVertexAttribArray(2); gl.vertexAttribPointer(2, 2, gl.FLOAT, false, 24, 16); gl.vertexAttribDivisor(2, 1);
+    }
+    gl.bindVertexArray(null);
+    own.add(mesh);
+    return g;
+  }
+  const useTri = (mesh) => gl.bindVertexArray(gpuOf(mesh).triVAO);
+  const useSeg = (mesh) => gl.bindVertexArray(gpuOf(mesh).segVAO);
+  function release(mesh) {
+    const g = mesh?.gpu;
+    if (!g) return;
+    for (const b of [g.tri, g.seg]) if (b) gl.deleteBuffer(b);
+    for (const v of [g.triVAO, g.segVAO]) if (v) gl.deleteVertexArray(v);
+    mesh.gpu = null; own.delete(mesh);
+  }
   const mat = new Float32Array(9);
   const setWorld = (U, m) => { mat.set([m[0], m[1], 0, m[2], m[3], 0, m[4], m[5], 1]); gl.uniformMatrix3fv(U.world, false, mat); };
   const scaleOf = (m) => Math.sqrt(Math.abs(m[0] * m[3] - m[1] * m[2]));
   function segs(mesh, m, size, ch, mode, hw, ext) {
     if (!mesh.nSeg) return;
-    useSeg(mesh);
     gl.useProgram(segP.p);
     setWorld(segP.u, m);
     gl.uniform2f(segP.u.size, size[0], size[1]);
@@ -321,7 +331,7 @@ export function createShapeGL(gl) {
     gl.uniform1f(segP.u.ext, ext);
     gl.uniform1i(segP.u.mode, mode);
     gl.colorMask(...ch);
-    gl.bindVertexArray(segVAO);
+    useSeg(mesh);
     gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, mesh.nSeg);
   }
   return {
@@ -336,11 +346,10 @@ export function createShapeGL(gl) {
     /** A fill (non-zero winding) into channels ch, its edge smoothed unless `hard` (under a stroke that covers it). */
     fill(mesh, m, size, ch, hard = false) {
       if (!mesh.nTri) return;
-      useTri(mesh);
       gl.useProgram(posP.p);
       setWorld(posP.u, m);
       gl.uniform2f(posP.u.size, size[0], size[1]);
-      gl.bindVertexArray(triVAO);
+      useTri(mesh);
       gl.enable(gl.STENCIL_TEST);
       gl.colorMask(false, false, false, false);
       gl.stencilFunc(gl.ALWAYS, 0, 0xff);
@@ -363,7 +372,7 @@ export function createShapeGL(gl) {
       gl.colorMask(false, false, false, false);
       gl.disable(gl.BLEND);
       gl.useProgram(posP.p);
-      gl.bindVertexArray(triVAO);
+      useTri(mesh);
       gl.stencilFunc(gl.ALWAYS, 0, 0xff);
       gl.stencilOp(gl.ZERO, gl.ZERO, gl.ZERO);
       gl.drawArrays(gl.TRIANGLES, 0, mesh.nTri);
@@ -373,11 +382,13 @@ export function createShapeGL(gl) {
       gl.colorMask(true, true, true, true);
       gl.bindVertexArray(null);
     },
-    /** Forgets the uploaded meshes (their arrays may be reused for other shapes). */
-    forget() { triOf = segOf = null; },
+    /** Gives back a mesh's arrays on the GPU (it is no longer kept: drawn again, it is sent again). */
+    release,
+    /** (Kept for callers that forgot every mesh at once: each is now given back on its own, by release.) */
+    forget() {},
     dispose() {
-      for (const b of [corner, triBuf, segBuf]) gl.deleteBuffer(b);
-      for (const v of [triVAO, segVAO]) gl.deleteVertexArray(v);
+      for (const m of [...own]) release(m);
+      gl.deleteBuffer(corner);
       gl.deleteProgram(posP.p); gl.deleteProgram(segP.p);
     },
   };

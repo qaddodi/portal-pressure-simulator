@@ -18,6 +18,10 @@
 // layer into the one group (`under`, each with its own shift): the bowel, which floats up on the ascites, is a picture of its
 // own, moved on the GPU from where it was drawn (`at`) to where it is, under the rest of the gut, the gut's opacity and its mask
 // laid over the two together, as the SVG lays its group: no picture is made again while the fluid eases.
+//
+// A layer's picture is painted on the GPU from its organs' own shapes where the painter can read them (bake): into a texture of its
+// own, which stays on the GPU, so a pan or zoom only moves it and a change paints it again, a few organs a frame, with no image,
+// canvas, read back or upload on the way. Only a layer it cannot read is still rasterized from the SVG copy (stage.js rasterPlate).
 
 const LAYER_VS = `#version 300 es
 layout(location=0) in vec2 corner;
@@ -36,15 +40,16 @@ in vec2 vW;
 uniform sampler2D t0, t1;   // the layer's whole picture and its sharper one of the view (premultiplied)
 uniform vec4 r0, r1;
 uniform int has1;
+uniform ivec2 flip;         // a picture painted on the GPU (bake) has its first row at the bottom
 out vec4 o;
 void main() {
   vec2 u1 = (vW - r1.xy) / r1.zw;
-  if (has1 == 1 && all(greaterThanEqual(u1, vec2(0.0))) && all(lessThanEqual(u1, vec2(1.0)))) o = texture(t1, u1);
-  else o = texture(t0, (vW - r0.xy) / r0.zw);
+  if (has1 == 1 && all(greaterThanEqual(u1, vec2(0.0))) && all(lessThanEqual(u1, vec2(1.0)))) o = texture(t1, flip.y == 1 ? vec2(u1.x, 1.0 - u1.y) : u1);
+  else { vec2 u0 = (vW - r0.xy) / r0.zw; o = texture(t0, flip.x == 1 ? vec2(u0.x, 1.0 - u0.y) : u0); }
 }`;
 
-import { createShapeGL } from './shape-gl.js?v=c4003c5526';
-import { createOrganPaint, mul } from './organ-paint.js?v=7bcc7ef138';
+import { createShapeGL } from './shape-gl.js?v=4bda9b57f2';
+import { createOrganPaint, mul } from './organ-paint.js?v=5daa3d817f';
 import { netChanged } from './idle-keys.js?v=4b46e6a6ef';
 
 function program(gl, vs, fs) {
@@ -137,11 +142,59 @@ export function createOrganStack(gl) {
      * A layer's raster for `slot` (0 whole, 1 view), its texture filled (veins-gl plateJob), over world rect: held until commit.
      * `at`: for a layer that can be moved (shift), where it was drawn.
      */
-    stage(slot, name, tex, rect, at = 0) {
+    stage(slot, name, tex, rect, at = 0, flip = false) {
       const was = staged[slot].get(name);
       if (was) gl.deleteTexture(was.tex);
-      staged[slot].set(name, { tex, rect, at });
+      staged[slot].set(name, { tex, rect, at, flip });
     },
+    /**
+     * A layer's picture painted on the GPU from its organs' own shapes (organ-paint readGroup, nest), with no image, canvas or
+     * upload on the way: `groups` (each { spec, m: its frame → world }, back to front) over world rect at `scale` px per unit,
+     * into a texture of its own that stays on the GPU. Returns a job: step(until) paints on until that time (performance.now)
+     * and returns true once the picture is whole, the texture then staged for `slot` as a raster's would be (commit shows it);
+     * drop() gives it up. `at`: as stage's.
+     */
+    bake(slot, name, groups, rect, scale, at = 0) {
+      if (!painter) return null;
+      const W = Math.max(1, Math.round(rect[2] * scale)), H = Math.max(1, Math.round(rect[3] * scale));
+      const tex = gl.createTexture(), fb = gl.createFramebuffer();
+      gl.bindTexture(gl.TEXTURE_2D, tex);
+      for (const [k, v] of [[gl.TEXTURE_MIN_FILTER, gl.LINEAR], [gl.TEXTURE_MAG_FILTER, gl.LINEAR], [gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE], [gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE]]) gl.texParameteri(gl.TEXTURE_2D, k, v);
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, W, H, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+      gl.bindFramebuffer(gl.FRAMEBUFFER, fb);
+      gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, tex, 0);
+      gl.viewport(0, 0, W, H);
+      gl.disable(gl.SCISSOR_TEST);
+      gl.clearBufferfv(gl.COLOR, 0, [0, 0, 0, 0]);
+      gl.bindFramebuffer(gl.FRAMEBUFFER, null); gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
+      // (World → the picture's pixels, y down; on the GPU its first row lands at the bottom, which the layer's draw turns back: flip.)
+      const T = [W / rect[2], 0, 0, H / rect[3], -rect[0] * W / rect[2], -rect[1] * H / rect[3]];
+      let gi = 0, oi = 0, done = false, live = true;
+      const free = () => { if (fb) gl.deleteFramebuffer(fb); };
+      return {
+        step(until = Infinity) {
+          if (!live || done) return done;
+          while (gi < groups.length) {
+            const g = groups[gi];
+            oi = painter.paintInto(g.spec, mul(T, g.m), W, H, fb, oi, until);
+            if (oi >= 0) break;
+            gi++; oi = 0;
+            if (performance.now() > until) break;
+          }
+          gl.bindVertexArray(null); gl.disable(gl.BLEND); gl.disable(gl.SCISSOR_TEST); gl.activeTexture(gl.TEXTURE0);
+          gl.bindFramebuffer(gl.FRAMEBUFFER, null); gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
+          if (gi < groups.length) return false;
+          done = true; live = false; free();
+          const was = staged[slot].get(name);
+          if (was) gl.deleteTexture(was.tex);
+          staged[slot].set(name, { tex, rect, at, flip: true });
+          return true;
+        },
+        drop() { if (!live) return; live = false; free(); gl.deleteTexture(tex); },
+      };
+    },
+    /** Lets go of the shapes the pictures keep on the GPU (bake), when no picture is being made. */
+    dropKept() { painter?.dropKept(); },
     /** Shows the staged set for `slot` in place of the one shown, drawn in the order of `names` (back to front). */
     commit(slot, names) {
       free(live[slot]);
@@ -239,6 +292,7 @@ export function createOrganStack(gl) {
         gl.bindVertexArray(vao);
         gl.uniform4f(U.rect, ...L0.rect); gl.uniform4f(U.r0, ...L0.rect);
         gl.uniform4f(U.r1, ...(L1 ? L1.rect : [0, 0, 1, 1])); gl.uniform1i(U.has1, L1 ? 1 : 0);
+        gl.uniform2i(U.flip, L0.flip ? 1 : 0, L1?.flip ? 1 : 0);
         gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, L0.tex);
         gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, L1 ? L1.tex : L0.tex);
         gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);

@@ -2,6 +2,17 @@
 
 ## October 2026
 
+- **The organs' pictures are painted on the GPU from their own shapes.** (Mohammad, 25 Oct: no more SVG → image → canvas → read back →
+  upload.) The heart and esophagus, the gut, the kidney, the stomach and the bowel were each a picture made by copying the SVG, loading
+  it as an image, drawing it on a 2D canvas, reading its pixels back and uploading them, after every change and every settled pan or zoom.
+  Now the painter that already drew the liver, spleen and diaphragm reads them too (nested masks and see-through groups painted in
+  layers of their own, as the browser lays them), and paints each layer into a texture that stays on the GPU, a few milliseconds a frame:
+  a pan or zoom only moves it. Shapes keep their arrays on the GPU while they are drawn. A layer the painter cannot read is still made
+  from the SVG copy; software renderers keep the old pictures (CI unchanged).
+- **The lobule dive's hand-over is gradual.** The field of lobules comes in over two octaves of zoom (it was under one, at the dive's
+  fastest: lobules and vessels popped), the zoom eases on a sine curve, the field arrives soft and sharpens, and the lobules away from the
+  landing one stay a little soft until it lands (a mip bias in the field's shader: no extra pass).
+
 - **The zoom into the lobule goes about four times deeper, through simpler lobules first, and its field of lobules is drawn on the GPU.**
   (Mohammad, 24 Oct: "the zoom into the lobule and out is 1) still laggy, and 2) the lobule appears to be larger than what it should ...
   maybe we need to have simpler lobules at super zoomed out level then more defined then more defined and then our main lobule appears

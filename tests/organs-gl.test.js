@@ -27,7 +27,7 @@ test('the stage splits the organs into the layers in the SVG order, and shows a 
   assert.match(stage, /const ORGAN_LAYERS = \['back', 'behind', 'gut', 'kidney', 'spleen', 'stomach', 'liver', 'front'\];/);
   // (An organ the list does not name goes with the layer before it: the SVG's order is always kept.)
   assert.match(stage, /for \(const k of gOrgans\.children\) \{ last = by\.get\(k\) \|\| last; out\.set\(k, last\); \}/);
-  assert.match(stage, /if \(!\(await rasterPlate\(slot, r, scale, L, false, live\)\) \|\| v !== veins \|\| !v\.organs\) return false;/, 'a layer given up gives up the set');
+  assert.match(stage, /if \(!\(await \(b \? bakeLayer\(slot, L, b, r, scale\) : rasterPlate\(slot, r, scale, L, false, live\)\)\) \|\| v !== veins \|\| !v\.organs\) return false;/, 'a layer given up gives up the set');
   // (With the changing organs painted live, their layers are not made, and the gut and the stomach are made without their masks.)
   assert.match(stage, /if \(live && LIVE_LAYERS\.has\(L\)\) continue;/);
   assert.match(stage, /const LIVE_LAYERS = new Set\(\['back', 'spleen', 'liver', 'front'\]\);/);
@@ -76,7 +76,7 @@ test('a live organ that changed is drawn again within its box, and only its cell
   assert.match(gl, /painter\.paintGroup\(o\.spec, mul\(m, o\.m\), w, h, fbo, within\)/);
   assert.match(gl, /cut\.opacity \?\? 1, within\);/);
   // The painter: every op's box is the one it paints within, so a signature's box covers its pixels.
-  assert.match(paint, /function paintOps\(spec, m, into, within = null\)/);
+  assert.match(paint, /function paintOps\(spec, m, into, within = null, d = 0, i0 = 0, until = Infinity\)/);
   assert.match(paint, /const at = opAt\(op, m\), \{ om, sh, cm, csh \} = at;\n\s+let b = within \? meet\(at\.b, within\) : at\.b;/);
   assert.match(paint, /for \(const op of spec\.ops\) ops\.push\(\[opSig\(op, m\), opAt\(op, m\)\.b\]\);/);
   assert.match(paint, /const b = meet\(groupBox\(spec, m\), within \|\| \[0, 0, w, h\]\);/);
@@ -119,7 +119,7 @@ test('the live organs are read once per state; the painter reads the eased value
   assert.match(stage, /organs\.get\(L\)\.push\(\{ spec, get m\(\) \{ return matOfEl\(el\); \} \}\);/);
   // The painter: an op's frame, alpha and clip frame from its element chain's inline settings, else as read; at no opacity no box.
   assert.match(paint, /export function liveOf\(op\) \{/);
-  assert.match(paint, /for \(const el of op\.chain\) a \*= liveO\(el, CS_O\);/);
+  assert.match(paint, /for \(let i = op\.a0 \|\| 0; i < op\.chain\.length; i\+\+\) a \*= liveO\(op\.chain\[i\], CS_O\);/);
   assert.match(paint, /let b = lv\.alpha > 0 \? devBox\(sh\.box, om, grow\) : null, cm = null, csh = null;/);
   assert.match(paint, /gl\.uniform1f\(U\.alpha, at\.alpha\);/);
   assert.match(paint, /if \(!\(o > 0\) && !ownO\(el\)\) return;/, 'a part at nothing by its own setting is kept, to show as it eases');
@@ -143,4 +143,34 @@ test('the live organs are described again only after a write to what the painter
   // The cuts' frames are read from their group (the gut, the stomach), not the mask: that element is watched too.
   assert.equal((stage.match(/\{ spec, el: g, get m\(\) \{ return matOfEl\(g\); \}/g) || []).length, 2);
   assert.match(stage, /organs\.get\(L\)\.push\(\{ spec, get m\(\) \{ return matOfEl\(el\); \} \}\);/, "an organ's frame element is its spec's root");
+});
+
+// The organs' pictures painted on the GPU from their shapes (Mohammad, 25 Oct: no SVG → image → canvas → read back → upload on the
+// way): each layer the painter can read is painted into a texture of its own that stays on the GPU; only an unreadable one is rasterized.
+test('the organ layers are painted on the GPU from their shapes, with no SVG picture, canvas, read back or upload', () => {
+  const stage = readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8');
+  const gl = readFileSync(new URL('../src/ui/organs-gl.js', import.meta.url), 'utf8');
+  const paint = readFileSync(new URL('../src/ui/organ-paint.js', import.meta.url), 'utf8');
+  const shape = readFileSync(new URL('../src/ui/shape-gl.js', import.meta.url), 'utf8');
+  // Read with their nested masks and see-through groups; the gut's and the stomach's own masks are left to the cuts.
+  assert.match(stage, /const spec = el\.localName === 'g' \? readGroup\(el, \{ withMask: el !== organG\.stomach, nest: true \}\) : null;/);
+  assert.match(stage, /const els = L === 'bowel' \? \[organG\.bowel\] : L === 'gut' \? gutKids\(\)\.filter\(\(k\) => k !== organG\.bowel\)/);
+  // The SVG copy only when a layer cannot be read; the picture given up when the state moves on, a few ms painted a frame.
+  assert.match(stage, /const copyNeeded = !baked \|\| \[\.\.\.baked\.values\(\)\]\.some\(\(b\) => !b\);\n\s+if \(slot === 0 && copyNeeded\)/);
+  assert.match(stage, /const gone = \(\) => seq !== plateSeq \|\| drops !== plateDrops \|\| v !== veins \|\| v\.lost \|\| !v\.organs \|\| \(slot === 1 && vseq !== viewSeq\) \|\| key !== plateStateKey\(\);/);
+  assert.match(stage, /job\.step\(performance\.now\(\) \+ 6\)/);
+  const bake = gl.slice(gl.indexOf('    bake(slot, name, groups, rect, scale, at = 0) {'), gl.indexOf('    dropKept() {'));
+  assert.doesNotMatch(bake, /texSubImage2D|readPixels|getImageData|Image\(|XMLSerializer|canvas'\)/);
+  assert.match(bake, /staged\[slot\]\.set\(name, \{ tex, rect, at, flip: true \}\);/);
+  assert.match(gl, /o = texture\(t1, flip\.y == 1 \? vec2\(u1\.x, 1\.0 - u1\.y\) : u1\)/, 'its rows turned back where it is laid');
+  // Nested groups laid in layers of their own, with their opacity and mask, as the browser lays them.
+  assert.match(paint, /const own2 = nest && el !== root && el\.localName === 'g' && \(masked \|\| o < 1\);/);
+  assert.match(paint, /layOver\(g, k, b, at\.alpha, !!op\.mask, into\);/);
+  assert.match(paint, /if \(op\.mask\) paintOps\(op\.mask, at\.mm, k\.fbo, b, d \+ 1\);/);
+  // A group painted op by op only when that is the same picture (no opacity or mask of its own); otherwise whole.
+  assert.match(paint, /if \(spec\.mask \|\| specOpacity\(spec\) < 1\) \{ if \(i0 === 0\) this\.paintGroup\(spec, m, w, h, fbo\); return -1; \}/);
+  // Shapes keep their arrays on the GPU while kept, given back when let go.
+  assert.match(shape, /gl\.bufferData\(gl\.ARRAY_BUFFER, mesh\.tri, gl\.STATIC_DRAW\)/);
+  assert.doesNotMatch(shape, /bufferSubData/);
+  assert.match(paint, /for \(const \[k, v\] of meshesOld\) if \(!meshes\.has\(k\) && !kept\.has\(k\)\) shape\.release\(v\.mesh\);/);
 });

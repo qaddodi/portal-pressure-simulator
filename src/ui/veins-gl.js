@@ -36,7 +36,7 @@ import { SLOT, DYE_BINS } from './blood.js?v=e668d01823';
 import { cssRGB } from './util.js?v=d2c95a1b16';
 import { CELL, ENT_W, binVeins, splitRows } from './veins-bin.js?v=17351d9767';
 import { gpuProbe } from './gpu-probe.js?v=e82dc07b45';
-import { createOrganStack } from './organs-gl.js?v=eb7a83e544';
+import { createOrganStack } from './organs-gl.js?v=d67a6dce68';
 
 export { binVeins };
 
@@ -1925,6 +1925,9 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false }) {
     /** The organs' layers (organs-gl.js), or null: a filled raster job (plateJob) is staged for a slot and the set committed whole. */
     organs: stack && {
       stage(slot, name, job, rect, at = 0) { stack.stage(slot, name, job.tex, rect, at); },
+      /** A layer's picture painted on the GPU from its organs' shapes (organs-gl bake): a job stepped a frame at a time, then staged. */
+      bake: (slot, name, groups, rect, scale, at = 0) => stack.bake(slot, name, groups, rect, scale, at),
+      dropKept: () => stack.dropKept(),
       commit(slot, names) {
         // (One kind of picture at a time: the layers replace the flattened plate of the same slot.)
         if (plates[slot]) { gl.deleteTexture(plates[slot].tex); plates[slot] = null; }

@@ -13,7 +13,7 @@
 // luminance). Anything else (a dash, a filter, a nested mask, a focal point) and the organ is not read: null, and the caller
 // keeps the organ's picture.
 
-import { flattenPath, ellipsePoly, polyBox, polyMesh } from './shape-gl.js?v=c4003c5526';
+import { flattenPath, ellipsePoly, polyBox, polyMesh } from './shape-gl.js?v=4bda9b57f2';
 import { strHash } from './liver-geo.js?v=977185f80a';
 
 const ID = [1, 0, 0, 1, 0, 0];
@@ -107,8 +107,12 @@ function readClip(doc, id, m) {
  * 'fill' | 'stroke', paint ({ solid } | { grad }), alpha, w (stroke width), cap (0 butt, 1 round, 2 square), clip ({ geom, m }
  * | null) }, opacity the group's own and mask a group read the same way (its content), or null. Null when anything in it is
  * outside what the painter draws (the caller keeps the picture). `withMask`: read the group's mask (else it is left to the caller).
+ * `nest`: a group inside it with a mask, or see-through (opacity below 1), is read as a group of its own, an op { kind: 'group',
+ * ops, mask, chain, a0 } painted in a layer of its own and laid with its opacity and mask, as the browser lays it (without it such
+ * a group's opacity is carried to its shapes, and a mask inside is not read). (The organs drawn as pictures, organs-gl bake: the
+ * gut's see-through shades, the stomach's and duodenum's fades, each a group of overlapping shapes.)
  */
-export function readGroup(root, { withMask = true } = {}) {
+export function readGroup(root, { withMask = true, nest = false } = {}) {
   const doc = root.ownerDocument, ops = [];
   let ok = true;
   // (Visibility as the picture's copy takes it, svg-inline.js inlineStyles: the element's own setting, else its parent's. The
@@ -117,8 +121,12 @@ export function readGroup(root, { withMask = true } = {}) {
   // What eases on the page is written inline (an element's style or its own attribute: the liver parts' opacity, the cuts'
   // fill-opacity, the organs' transforms), so an op keeps its chain of elements down from the root and the painter reads those
   // from the chain at each paint (liveOf); what the page's styles give (read here, computed) stands until the group is read again.
-  const walk = (el, m, alpha, clip, vis = 'visible', chain = []) => {
+  // (out: the list the ops go to, the root's or a nested group's; a0: where in the chain the ops' opacities start, past a nested
+  // group's own, which is laid with its layer.)
+  const walk = (el, m, alpha, clip, vis = 'visible', chain = [], out = ops, a0 = 0) => {
     if (!ok) return;
+    // (Definitions kept inside an organ's own art (the colon's and the bowel's clips) paint nothing where they are.)
+    if (el !== root && /^(defs|clipPath|mask|pattern|linearGradient|radialGradient|symbol|marker|style|title|desc|metadata)$/.test(el.localName)) return;
     const cs = getComputedStyle(el);
     if (cs.display === 'none') return;
     const own = el.style?.visibility || el.getAttribute('visibility');
@@ -126,7 +134,9 @@ export function readGroup(root, { withMask = true } = {}) {
     const o = parseFloat(cs.opacity);
     if (!(o > 0) && !ownO(el)) return;   // (at nothing by the page's styles: never shown; by its own setting: shown as it eases)
     if ((cs.filter && cs.filter !== 'none') || (cs.mixBlendMode && cs.mixBlendMode !== 'normal')) { ok = false; return; }
-    if (el !== root && ((cs.mask && cs.mask !== 'none') || el.getAttribute('mask'))) { ok = false; return; }
+    const masked = el !== root && ((cs.mask && cs.mask !== 'none') || !!el.getAttribute('mask'));
+    const own2 = nest && el !== root && el.localName === 'g' && (masked || o < 1);
+    if (masked && !own2) { ok = false; return; }
     const me = el === root ? ID : mul(m, matOf(el)), a = el === root ? 1 : alpha * o;
     const ch = el === root ? chain : [...chain, el];
     CS_O.set(el, o);
@@ -138,7 +148,22 @@ export function readGroup(root, { withMask = true } = {}) {
       if (!cl) { ok = false; return; }
       cl.chain = ch;
     }
-    if (el.localName === 'g' || el === root) { for (const k of el.children) walk(k, me, a, cl, vis, ch); return; }
+    if (own2) {
+      // A group of its own: its shapes at their own opacities (from below it in the chain), its mask in its own frame.
+      const sub = [];
+      for (const k of el.children) walk(k, me, 1, cl, vis, ch, sub, ch.length);
+      if (!ok) return;
+      let mk = null;
+      if (masked) {
+        const mel = doc.getElementById(urlId(cs.mask && cs.mask !== 'none' ? cs.mask : el.getAttribute('mask')));
+        if (!mel || mel.localName !== 'mask' || (mel.getAttribute('maskContentUnits') || 'userSpaceOnUse') !== 'userSpaceOnUse') { ok = false; return; }
+        mk = readGroup(mel);
+        if (!mk) { ok = false; return; }
+      }
+      if (sub.length) out.push({ kind: 'group', ops: sub, mask: mk, m: me, alpha: a, el, chain: ch, a0 });
+      return;
+    }
+    if (el.localName === 'g' || el === root) { for (const k of el.children) walk(k, me, a, cl, vis, ch, out, a0); return; }
     if (/^(title|desc|metadata)$/.test(el.localName) || vis !== 'visible') return;
     const geom = readGeom(el);
     if (!geom) { ok = false; return; }
@@ -150,13 +175,13 @@ export function readGroup(root, { withMask = true } = {}) {
     if (fill) {
       const fo = parseFloat(cs.fillOpacity) || 0;
       CS_FO.set(el, fo);
-      if (a * fo > 0 || ownFO(el) || ch.some(ownO)) ops.push({ geom, m: me, kind: 'fill', paint: fill, alpha: a * fo, clip: cl, el, chain: ch });
+      if (a * fo > 0 || ownFO(el) || ch.some(ownO)) out.push({ geom, m: me, kind: 'fill', paint: fill, alpha: a * fo, clip: cl, el, chain: ch, a0 });
     }
     if (stroke) {
       const so = parseFloat(cs.strokeOpacity) || 0, w = parseFloat(cs.strokeWidth) || 0;
       CS_SO.set(el, so);
       if ((a * so > 0 || ownSO(el) || ch.some(ownO)) && w > 0) {
-        ops.push({ geom, m: me, kind: 'stroke', paint: stroke, alpha: a * so, w, cap: { butt: 0, round: 1, square: 2 }[cs.strokeLinecap] ?? 0, clip: cl, el, chain: ch });
+        out.push({ geom, m: me, kind: 'stroke', paint: stroke, alpha: a * so, w, cap: { butt: 0, round: 1, square: 2 }[cs.strokeLinecap] ?? 0, clip: cl, el, chain: ch, a0 });
       }
     }
   };
@@ -197,7 +222,8 @@ export const chainM = (chain) => { let m = ID; for (const el of chain) m = mul(m
 export function liveOf(op) {
   if (!op.chain) return { m: op.m, alpha: op.alpha, cm: op.clip ? op.clip.m : null };
   let a = 1;
-  for (const el of op.chain) a *= liveO(el, CS_O);
+  for (let i = op.a0 || 0; i < op.chain.length; i++) a *= liveO(op.chain[i], CS_O);
+  if (op.kind === 'group') return { m: chainM(op.chain), alpha: a, cm: null };
   a *= op.kind === 'fill' ? livePO(op.el, 'fillOpacity', 'fill-opacity', CS_FO) : livePO(op.el, 'strokeOpacity', 'stroke-opacity', CS_SO);
   const m = chainM(op.chain);
   return { m, alpha: a, cm: op.clip ? mul(op.clip.chain ? chainM(op.clip.chain) : op.m, op.clip.km) : null };
@@ -293,25 +319,36 @@ export function createOrganPaint(gl, shape) {
   // Canvas-sized targets: the coverage scratch (with the stencil the fills need), and a group and a mask layer for each depth.
   const tex = () => { const t = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, t); for (const [k, v] of [[gl.TEXTURE_MIN_FILTER, gl.NEAREST], [gl.TEXTURE_MAG_FILTER, gl.NEAREST], [gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE], [gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE]]) gl.texParameteri(gl.TEXTURE_2D, k, v); gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, null); return t; };
   const target = () => ({ tex: tex(), fbo: gl.createFramebuffer() });
-  const scratch = target(), stencil = gl.createRenderbuffer(), layers = [target(), target()];
-  let W = 0, H = 0;
-  function size(w, h) {
-    if (w === W && h === H) return;
-    W = w; H = h;
-    for (const t of [scratch, ...layers]) {
+  // (depths[d]: the group and mask layers of a group nested d deep, depths[0] the root's; made as a nesting first needs them.)
+  const scratch = target(), stencil = gl.createRenderbuffer(), depths = [[target(), target()]], layers = depths[0];
+  // W × H: the target painted now (the canvas, or a picture's texture: organs-gl bake), drawn from the targets' bottom-left
+  // corner; AW × AH: what the targets hold, only ever grown, so a picture of another size never makes them all again.
+  let W = 0, H = 0, AW = 0, AH = 0;
+  const alloc = (list) => {
+    for (const t of list) {
       gl.bindTexture(gl.TEXTURE_2D, t.tex);
-      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, w, h, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, AW, AH, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
       gl.bindFramebuffer(gl.FRAMEBUFFER, t.fbo);
       gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, t.tex, 0);
     }
+  };
+  function size(w, h) {
+    W = w; H = h;
+    if (w <= AW && h <= AH) return;
+    AW = Math.max(AW, w); AH = Math.max(AH, h);
+    alloc([scratch, ...depths.flat()]);
     gl.bindRenderbuffer(gl.RENDERBUFFER, stencil);
-    gl.renderbufferStorage(gl.RENDERBUFFER, gl.STENCIL_INDEX8, w, h);
+    gl.renderbufferStorage(gl.RENDERBUFFER, gl.STENCIL_INDEX8, AW, AH);
     gl.bindFramebuffer(gl.FRAMEBUFFER, scratch.fbo);
     gl.framebufferRenderbuffer(gl.FRAMEBUFFER, gl.STENCIL_ATTACHMENT, gl.RENDERBUFFER, stencil);
     gl.clearBufferfi(gl.DEPTH_STENCIL, 0, 1, 0);
   }
+  const depth = (d) => { while (depths.length <= d) { const pair = [target(), target()]; depths.push(pair); if (AW) alloc(pair); } return depths[d]; };
   // Meshes by shape and tolerance: an outline written to several paths (the liver's fill, its shades, its clip) is cut once a frame.
   let meshes = new Map(), meshesOld = new Map();
+  // (The pictures' meshes (bake): kept across frames, so a picture made again at the same detail cuts no outline again. Each mesh's
+  // arrays stay on the GPU while it is kept (shape-gl.js), and are given back when it is let go.)
+  let kept = new Map(), keeping = false;
   // (A path's `d` named by its hash and length, worked out once a frame: the liver's is thousands of characters, the nodules'
   // tens of thousands, and an outline written to several paths is hashed once.)
   let dKeys = new Map();
@@ -319,7 +356,16 @@ export function createOrganPaint(gl, shape) {
   function meshOf(geom, cap, tol) {
     const d = geom.d ? geom.el.getAttribute('d') || '' : null;
     const key = geom.d ? `${tol}|${cap}|${dKey(d)}` : geom;
-    let r = meshes.get(key) || meshesOld.get(key);
+    if (keeping) {
+      let k = kept.get(key);
+      if (!k) {
+        if (kept.size > 4000) { for (const [kk, v] of kept) if (!meshes.has(kk) && !meshesOld.has(kk)) shape.release(v.mesh); kept = new Map(); }
+        const polys = geom.d ? flattenPath(d, tol) : geom.poly;
+        kept.set(key, (k = { mesh: polyMesh(polys, cap), polys, box: boxOf(polys) }));
+      }
+      return k;
+    }
+    let r = meshes.get(key) || meshesOld.get(key) || kept.get(key);
     if (!r) {
       const polys = geom.d ? flattenPath(d, tol) : geom.poly;
       r = { mesh: polyMesh(polys, cap), polys, box: boxOf(polys) };
@@ -350,6 +396,11 @@ export function createOrganPaint(gl, shape) {
   function liveAt(op) { let l = lives.get(op); if (!l) { l = liveOf(op); lives.set(op, l); } return l; }
   function opAt(op, m) {
     const lv = liveAt(op);
+    if (op.kind === 'group') {
+      let b = null;
+      for (const k of op.ops) b = join(b, opAt(k, m).b);
+      return { b: lv.alpha > 0 ? b : null, alpha: lv.alpha, mm: mul(m, lv.m) };
+    }
     // (The tolerance in powers of two, a fifth of a pixel or finer: a pinch reuses the meshes until the zoom doubles.)
     const om = mul(m, lv.m), sc = scaleOf(om), tol = Math.min(0.5, 2 ** Math.floor(Math.log2(0.2 / sc)));
     const sh = meshOf(op.geom, op.kind === 'stroke' ? op.cap : 0, tol);
@@ -364,10 +415,26 @@ export function createOrganPaint(gl, shape) {
     return { om, sh, cm, csh, b, alpha: lv.alpha };
   }
   /** Paints the ops of a group into the bound target (cleared by the caller), under m; only within `within` (a device box) if given. */
-  function paintOps(spec, m, into, within = null) {
+  // (i0, until: the ops from i0, until that time (performance.now) has passed; returns the index of the next op not painted, or -1
+  // once all are. d: how deep in nested groups the ops are, whose layers are depths[d + 1].)
+  function paintOps(spec, m, into, within = null, d = 0, i0 = 0, until = Infinity) {
     const sz = [W, H];
     let clipKey = null;
-    for (const op of spec.ops) {
+    for (let i = i0; i < spec.ops.length; i++) {
+      if (i > i0 && performance.now() > until) return i;
+      const op = spec.ops[i];
+      if (op.kind === 'group') {
+        // A nested group (readGroup nest): painted in its own layer, laid with its opacity and mask, as the browser lays it.
+        const at = opAt(op, m), b = within ? meet(at.b, within) : at.b;
+        if (!b) continue;
+        const [g, k] = depth(d + 1);
+        clearTargets(b, op.mask ? [g, k] : [g]);
+        paintOps(op, m, g.fbo, b, d + 1);
+        if (op.mask) paintOps(op.mask, at.mm, k.fbo, b, d + 1);
+        layOver(g, k, b, at.alpha, !!op.mask, into);
+        clipKey = null;
+        continue;
+      }
       const at = opAt(op, m), { om, sh, cm, csh } = at;
       let b = within ? meet(at.b, within) : at.b;
       if (!b) continue;
@@ -419,6 +486,7 @@ export function createOrganPaint(gl, shape) {
       gl.disable(gl.BLEND);
       gl.disable(gl.SCISSOR_TEST);
     }
+    return -1;
   }
 
   /** The device box of everything a group paints under m (with its strokes), or null. */
@@ -437,28 +505,32 @@ export function createOrganPaint(gl, shape) {
    */
   function describe(spec, m) {
     const ops = [];
-    for (const op of spec.ops) ops.push([opSig(op, m), opAt(op, m).b]);
+    const add = (list, pre) => { for (const op of list) if (op.kind === 'group') { ops.push([`${pre}group|${liveAt(op).alpha}|${liveAt(op).m.join(',')}`, opAt(op, m).b]); add(op.ops, pre); if (op.mask) add(op.mask.ops, `${pre}gmask|`); } else ops.push([`${pre}${opSig(op, m)}`, opAt(op, m).b]); };
+    if (spec.ops.some((op) => op.kind === 'group')) add(spec.ops, '');
+    else for (const op of spec.ops) ops.push([opSig(op, m), opAt(op, m).b]);
     if (spec.mask) for (const op of spec.mask.ops) ops.push([`mask|${opSig(op, m)}`, opAt(op, m).b]);
     return { sig: `${specOpacity(spec)}|${spec.mask ? 1 : 0}`, ops };
   }
 
   // The group's layer (and the mask's) cleared within b.
-  function clearIn(b, withMask) {
+  function clearTargets(b, list) {
     gl.disable(gl.DEPTH_TEST); gl.disable(gl.CULL_FACE);
-    for (const t of withMask ? layers : [layers[0]]) {
+    for (const t of list) {
       gl.bindFramebuffer(gl.FRAMEBUFFER, t.fbo);
       gl.viewport(0, 0, W, H);
       scissor(b); gl.clearBufferfv(gl.COLOR, 0, [0, 0, 0, 0]); gl.disable(gl.SCISSOR_TEST);
     }
   }
+  const clearIn = (b, withMask) => clearTargets(b, withMask ? layers : [layers[0]]);
   // The group's layer laid over fbo within b, times opacity and, withMask, the mask layer's luminance.
-  function lay(b, opacity, withMask, fbo) {
+  const lay = (b, opacity, withMask, fbo) => layOver(layers[0], layers[1], b, opacity, withMask, fbo);
+  function layOver(g, k, b, opacity, withMask, fbo) {
     gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
     gl.viewport(0, 0, W, H);
     scissor(b);
     gl.useProgram(layP.p);
-    gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, layers[0].tex);
-    gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, layers[1].tex);
+    gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, g.tex);
+    gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, k.tex);
     gl.uniform1i(layP.u.src, 0); gl.uniform1i(layP.u.mask, 1);
     gl.uniform1i(layP.u.useMask, withMask ? 1 : 0);
     gl.uniform1f(layP.u.opacity, opacity);
@@ -480,6 +552,22 @@ export function createOrganPaint(gl, shape) {
       if (spec.mask) paintOps(spec.mask, m, layers[1].fbo, b);
       lay(b, specOpacity(spec), !!spec.mask, fbo);
     },
+    /**
+     * A picture's group (organs-gl bake): laid over framebuffer `fbo` (w × h) as paintGroup lays it, its meshes kept across frames.
+     * A group with no opacity of its own and no mask is painted op by op straight onto the picture (the same pixels: "over" onto
+     * what is under it), from op i0 until `until` (performance.now); returns the next op to paint, or -1 once it is all painted.
+     * Any other group is painted whole.
+     */
+    paintInto(spec, m, w, h, fbo, i0 = 0, until = Infinity) {
+      size(w, h);
+      keeping = true;
+      try {
+        if (spec.mask || specOpacity(spec) < 1) { if (i0 === 0) this.paintGroup(spec, m, w, h, fbo); return -1; }
+        return paintOps(spec, m, fbo, [0, 0, w, h], 0, i0, until);
+      } finally { keeping = false; lives = new Map(); dKeys = new Map(); }
+    },
+    /** Lets go of the pictures' kept meshes (their GPU arrays too). */
+    dropKept() { for (const [k, v] of kept) if (!meshes.has(k) && !meshesOld.has(k)) shape.release(v.mesh); kept = new Map(); },
     /** The group's device box under m (groupBox), and its description (describe), for the stack's change check. */
     box: (spec, m) => groupBox(spec, m),
     describe,
@@ -501,10 +589,14 @@ export function createOrganPaint(gl, shape) {
       lay(b, opacity, true, fbo);
     },
     /** Ends a frame of painting: meshes not used in it are let go. */
-    endFrame() { meshesOld = meshes; meshes = new Map(); dKeys = new Map(); lives = new Map(); },
-    trim() { if (!W) return; W = H = 0; for (const t of [scratch, ...layers]) { gl.bindTexture(gl.TEXTURE_2D, t.tex); gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, null); } gl.bindRenderbuffer(gl.RENDERBUFFER, stencil); gl.renderbufferStorage(gl.RENDERBUFFER, gl.STENCIL_INDEX8, 1, 1); },
+    endFrame() {
+      // (A mesh let go is given back to the GPU, unless a picture keeps it.)
+      for (const [k, v] of meshesOld) if (!meshes.has(k) && !kept.has(k)) shape.release(v.mesh);
+      meshesOld = meshes; meshes = new Map(); dKeys = new Map(); lives = new Map();
+    },
+    trim() { this.dropKept(); if (!AW) return; W = H = AW = AH = 0; for (const t of [scratch, ...depths.flat()]) { gl.bindTexture(gl.TEXTURE_2D, t.tex); gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, null); } gl.bindRenderbuffer(gl.RENDERBUFFER, stencil); gl.renderbufferStorage(gl.RENDERBUFFER, gl.STENCIL_INDEX8, 1, 1); },
     dispose() {
-      for (const t of [scratch, ...layers]) { gl.deleteTexture(t.tex); gl.deleteFramebuffer(t.fbo); }
+      for (const t of [scratch, ...depths.flat()]) { gl.deleteTexture(t.tex); gl.deleteFramebuffer(t.fbo); }
       gl.deleteRenderbuffer(stencil); gl.deleteBuffer(quad); gl.deleteVertexArray(vao); gl.deleteProgram(paintP.p); gl.deleteProgram(layP.p);
     },
   };
