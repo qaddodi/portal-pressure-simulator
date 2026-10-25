@@ -208,6 +208,18 @@ export const ADOPTED = {
   'two-inflows/clot': ['caseQ'],
   'two-inflows/artery': ['caseQ'],
   'pregnancy/before': ['caseQ'],
+  'first-visit/rules': ['kind:criteria', 'cite'],
+  'first-visit/q1': ['hold'],
+  'first-visit/a1': ['kind:plane', 'cite'],
+  'first-visit/q2': ['hold'],
+  'first-visit/a2': ['kind:plane', 'cite'],
+  'first-visit/q3': ['hold'],
+  'first-visit/a3': ['kind:plane', 'cite'],
+  'first-visit/q4': ['hold'],
+  'first-visit/a4': ['kind:criteria', 'cite'],
+  'first-visit/q5': ['hold'],
+  'first-visit/a5': ['kind:criteria', 'cite'],
+  'first-visit/summary': ['visual', 'plane', 'of', 'cite'],
 };
 
 /** Whether the slide d/s may use the field. */
