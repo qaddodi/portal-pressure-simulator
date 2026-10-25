@@ -160,7 +160,7 @@ Full guide: section 7.2.
 |---|---|---|---|
 | Pressure profile | `tool: { kind: 'profile' }` | the pressure from gut to heart through eight stations, with the healthy line dashed | showing where along the way the pressure is lost |
 | Portal blood bars | `tool: { kind: 'flows' }` | two bars, Healthy above Now, split by where the portal blood goes | collaterals, shunts or a TIPS taking blood past the liver |
-| Liver inflow bars | `tool: { kind: 'flows', of: 'inflow' }` | the liver's inflow split into portal vein and hepatic artery | the arterial buffer, or a TIPS stealing portal flow |
+| Liver inflow bar | `tool: { kind: 'flows', of: 'inflow' }` | one centred bar: the liver's inflow split into portal vein and hepatic artery, the healthy split a dashed line over it | the arterial buffer, or a TIPS stealing portal flow |
 | Setting curve | `tool: { kind: 'curve', param: 'cirrhosis', from: 0, to: 1, lines: ['ppg'] }` | one reading across a setting's range, with a ring at the slide's value | dose or severity against pressure |
 | Causes waterfall | `tool: { kind: 'causes' }` | steps from the healthy PPG to the patient's, one per cause | splitting a pressure into what raised it |
 | Two-reading plane | `tool: { kind: 'plane', plane: 'csph' }` | the case as a dot on stiffness against platelets, with the Baveno VIII zones | ruling CSPH in or out without a catheter |

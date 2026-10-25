@@ -11,7 +11,7 @@ import { EXT } from '../src/ui/slide-ext.js';
 import { NODES } from '../src/engine/topology.js';
 import { portalSplit } from '../src/ui/table-marks.js';
 import { profileOf, STATIONS, TIGHT_NAMES, NAME_GAP, axisTop, nameFit, profileGeo, valueSides, placeValues, curveRuns, labelPlacer, bracketLabel, bracketFit, oneLineGap, LABEL_PAD, BAR_MIN, BR_CLEAR, BR_MIN, BRACE_NAME, SPANS, placeBrackets, bracketBox, BR_PAD, ZONES, ZONE_GAP, zoneSpans, zoneFit, zoneBoxes } from '../src/ui/tool-profile.js';
-import { flowParts, routeFlows, wholeShares, flowView, MAX_ROUTES, flowLayout, LABEL_GAP } from '../src/ui/tool-flows.js';
+import { flowParts, routeFlows, wholeShares, flowView, MAX_ROUTES, flowLayout, LABEL_GAP, MIN_BAR, inflowGeo, inflowMarker, inflowSpans, inflowLabels, barOrder } from '../src/ui/tool-flows.js';
 import { milePlaces } from '../src/ui/talk-trace.js';
 import { RX, bandKeys, bandRuns, bandSpan, namePlaces } from '../src/ui/rx-bands.js';
 import { deckStates, runSteps } from './deck-states.js';
@@ -425,7 +425,7 @@ test('a TIPS shows as its own part; the inflow turns arterial after it', async (
 
 // The label rule on every deck slide's bars, at every card width from the narrowest real one (240 px: a 320 px Mac or iPad
 // card less its widest padding, 2 × 40 px; a phone's is 280 px or more) to a Mac's widest: the rows' names ("Healthy",
-// "Now") in the gutter at the bars' left; each name 12 px or more, inside the card; a name on its own segment g clear of the
+// "Now") in the gutter at the bars' left, a margin as wide at their right so the bars stand centred; each name 12 px or more, inside the card; a name on its own segment g clear of the
 // segment's edges and inside the bar's height, else under the bar on a leader, ≥ 4 px from every other name, every other
 // name's leader and the bar; the rows inside the card's height. The Healthy bar's words sit on their own segments too.
 function checkRule(parts, of, w, hh, f, at, hParts = null) {
@@ -436,7 +436,8 @@ function checkRule(parts, of, w, hh, f, at, hParts = null) {
   assert.ok(lay.ok, `${at}: the names fit in ${lay.rows} rows`);
   // The rows' names clear of the bars, the two bars close, as tall as each other.
   assert.ok(Math.max(m('Healthy', f), m('Now', f)) + g <= lay.gut + 1e-9 && lay.gut < w / 2, `${at}: Healthy and Now beside their bars`);
-  assert.ok(lay.segs[0].a === lay.gut && Math.abs(lay.segs.at(-1).b - w) < 1e-6, `${at}: the bar runs from the gutter to the card's edge`);
+  assert.ok(lay.segs[0].a === lay.gut && Math.abs(lay.segs.at(-1).b - (lay.gut + lay.bw)) < 1e-6, `${at}: the bar runs from the gutter to its right margin`);
+  assert.ok(Math.abs((w - lay.gut - lay.bw) - Math.min(lay.gut, Math.max(0, w - lay.gut - MIN_BAR))) < 1e-6, `${at}: centred, the margin at the right as wide as the gutter, down to the bar's least width`);
   assert.ok(geo.head - geo.barH <= Math.max(g, 0.5 * f) + 1e-9, `${at}: the bars sit close`);
   assert.ok(lay.top >= 0 && lay.top + geo.head + geo.barH + lay.rows * geo.step <= hh + 1e-6, `${at}: inside the card's height`);
   // Two lines on a bar: inside it, a line's height apart.
@@ -477,8 +478,26 @@ function checkRule(parts, of, w, hh, f, at, hParts = null) {
   return lay;
 }
 
+// The liver's inflow is one bar across the card with the Healthy line over it (tool-flows.js inflowLabels): on every deck slide
+// and card width each name is on its own segment, g clear of its edges and 4 px or more from the line, whole or short, never
+// left off or lifted above the bar (the shares the decks show are 73 / 27, 20 / 80 and all arterial).
+function checkInflow(parts, w, f, hParts, at) {
+  const m = (t, ff, wt) => t.length * ff * (wt >= 700 ? 0.6 : 0.56), geo = inflowGeo(f), g = geo.g;
+  const mark = inflowMarker(hParts, w, f, m), sp = inflowSpans(barOrder(parts, 'inflow'), w), labs = inflowLabels(sp, w, geo, m, mark);
+  assert.equal(labs.length, parts.length, `${at}: every part named`);
+  assert.ok(mark && mark.L >= 0 && mark.R <= w + 1e-9 && mark.L <= mark.x && mark.x <= mark.R, `${at}: the Healthy words inside the card, over their line`);
+  assert.ok(Math.abs(sp.at(-1).b - w) < 1e-9 && sp[0].a === 0, `${at}: the bar spans the card`);
+  labs.forEach((l, i) => {
+    const s = sp[i], v = `${s.pct}%`, vw = m(v, f, 700), full = s.id === 'portal' ? 'Portal vein' : 'Hepatic artery', short = s.id === 'portal' ? 'Portal' : 'Artery';
+    assert.ok(l.tier <= 2, `${at}: ${s.id} named on its segment (tier ${l.tier})`);
+    const tw = [Math.max(m(full, f, 500), vw), Math.max(m(short, f, 500), vw), vw][l.tier];
+    assert.ok(l.cx - tw / 2 >= s.a + g - 1e-9 && l.cx + tw / 2 <= s.b - g + 1e-9, `${at}: ${s.id} clear of its segment's edges`);
+    assert.ok(l.cx + tw / 2 <= mark.x - LABEL_GAP + 1e-9 || l.cx - tw / 2 >= mark.x + LABEL_GAP - 1e-9, `${at}: ${s.id} clear of the Healthy line`);
+  });
+}
+
 test('the portal blood bar: names keep the label rule on every deck slide and card width', async () => {
-  const f = 12, H = { portal: 9.25 * f, inflow: 9.25 * f };
+  const f = 12, H = { portal: 9.25 * f };
   const [healthy] = await runSteps([{ preset: 'healthy' }]);
   const hp = { portal: flowParts(healthy, 'portal'), inflow: flowParts(healthy, 'inflow') };
   assert.ok(hp.portal.find((p) => p.id === 'liver').pct > 80, 'healthy: most portal blood reaches the liver');
@@ -490,6 +509,7 @@ test('the portal blood bar: names keep the label rule on every deck slide and ca
       for (const of of ['portal', 'inflow']) {
         const parts = flowParts(fps[i], of);
         for (const w of [240, 260, 280, 340, 420, 560, 720]) {
+          if (of === 'inflow') { checkInflow(parts, w, f, hp[of], `${d.id}/${s.id} inflow ${w}px`); n++; continue; }
           const lay = checkRule(parts, of, w, H[of], f, `${d.id}/${s.id} ${of} ${w}px`, hp[of]);
           leads += lay.labels.filter((l) => l.lead).length; n++;
         }

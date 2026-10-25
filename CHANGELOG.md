@@ -2,6 +2,17 @@
 
 ## October 2026
 
+- **"Blood into the liver" is one centred bar with the Healthy line over it.** (Mohammad, 25 Oct: "The blood into the liver card sucks. Need
+  to think of a way to center it. It's just so off center it's bad", then his pick of three drawn options.) The two bars had a 54 px gutter
+  for "Healthy" and "Now" at their left, so they sat about 27 px right of the card's centre; on the opening slide the Now bar faded out but
+  kept its space, and "Hepatic artery" hung on a leader under the right end. Now the liver's inflow is one bar across the whole card,
+  centred top to bottom, with the healthy split as a dashed line over it, "Healthy portal 73%" above, as the pressure ladder marks its
+  Healthy line. Names stay on the segments, 4 px clear of the line: "Hepatic artery" takes "Artery" where it does not fit, then the percent
+  alone. The card is 6 em tall instead of 9.25, so the tiles under it get that room back. "Where the portal blood goes" keeps its two bars
+  and names: a Healthy bar standing alone now glides to the middle of its card (and back up when the Now bar returns), and where the card
+  has the room (the bars keep 345 px, which the six-name case needs) the right margin matches the names' gutter so the bars stand centred;
+  narrower cards keep the full width for the names. Code only; nobody has looked on screen.
+
 - **The outline, summary table, quick check and chart cards are narrower and centred on wide screens; the case card's question is centred.**
   (Mohammad, 25 Oct: "The outline card, the tables card and the questions card on wide screens like iPad side way and Mac should be more
   centered and not too wide... Need the viewer to focus"; then "The little question in the case card should be centered", then "Ladders OK but

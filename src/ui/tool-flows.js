@@ -7,8 +7,14 @@
 // on the segment in text with a halo, so they read on every colour (Mohammad, 19 Oct: "the bars should be close… healthy and
 // now should be on the same row of the bars… label on the bars… with outlines"). A Now name too wide for its segment hangs
 // under the bar on a short leader, never touching another name or leader; on the Healthy bar it shows its percent alone (its
-// name is on the same colour just under it). Shares, places and names ease as they move. tool: { kind: 'flows', of: 'inflow' }
-// splits the liver's own inflow into portal and arterial blood instead, the same bars with their two segments.
+// name is on the same colour just under it). Shares, places and names ease as they move. Both bars are centred in the card
+// where it has the room: the rows' names take a gutter at the left and the same margin is left at the right (a card narrower than
+// MIN_BAR of bar and both margins gives the right one up, down to none, for the names' width). A Healthy bar standing alone (the
+// Now bar reads the same) glides to the middle of the card, the Now bar fading in under it when a share differs.
+// tool: { kind: 'flows', of: 'inflow' } splits the liver's own inflow into portal and arterial blood instead, as one bar across
+// the card's width, centred with nothing hanging, and the healthy split as a dashed line over it with "Healthy portal 73%" above,
+// as the pressure ladder marks its Healthy line (Mohammad, 25 Oct: "the blood into the liver card ... so off center it's bad",
+// his pick of the three drawn in review/liver-inflow-card-ideas). The second bar would only repeat the one seam.
 // The parts are the slide's fingerprint's flows (at.Q), counted as the shunt fraction is (engine/metrics.js), so the liver's
 // part is always 100 less the slide's Shunted tile (table-marks.js portalSplit). The cavernoma returns blood to the liver,
 // so it counts as liver.
@@ -33,6 +39,7 @@ export const ROUTES = [
 export const LIVER = ['liver', 'Liver', '--flow-normal'];
 export const OTHER = ['other', 'Other', '--text-3'];
 export const INFLOW = [['portal', 'Portal vein', '--vein-portal'], ['artery', 'Hepatic artery', '--artery']];
+export const MIN_BAR = 345;   // (the least width the portal blood card's bars keep, px: the most names it shows, liver, four routes and Other, need 340)
 export const MAX_ROUTES = 4;   // (at most four routes by name, the rest as Other: six parts at most with the liver)
 
 /** Whole percents that keep their sum (largest remainder): shares (≥ 0) → integers adding up to total. */
@@ -221,14 +228,14 @@ export function placeLabels(segs, lw, w, geo, rowsMax = 3) {
 const PLACED = new Map();
 
 /** The whole card's layout for parts at width w, height hh, font size f: the gutter at the left that holds the rows' names
- *  ("Healthy", "Now"; the bars run from it to the card's right edge), segments [{ id, name, pct, a, b }] in bar order, the
+ *  ("Healthy", "Now"; the bars run from it to a margin as wide at the right where the card has the room, so they stand centred), segments [{ id, name, pct, a, b }] in bar order, the
  *  names' places, the Healthy bar's segments (hParts: the healthy model's parts, or null before they arrive) and what each
  *  shows (healthyMode), and the top offset that centres it all in the card. measure(text, f, weight) → px. When the names
  *  cannot keep the label rule in the rows the card holds (a narrow card, a large text size), the smallest route joins
  *  Other, then the next, until they can (one named route at least): parts is what the bar then shows. */
 export function flowLayout(parts, of, w, hh, f, measure, hParts = null) {
   let use = parts, lay = layOnce(use, of, w, hh, f, measure, hParts);
-  while (!lay.ok && of !== 'inflow') {
+  while (!lay.ok) {
     const routes = barOrder(use, of).filter((p) => p.id !== 'liver' && p.id !== 'other');
     if (routes.length < 2) break;
     const small = routes.at(-1), o = use.find((p) => p.id === 'other');
@@ -239,16 +246,75 @@ export function flowLayout(parts, of, w, hh, f, measure, hParts = null) {
 }
 function layOnce(parts, of, w, hh, f, measure, hParts) {
   const geo = flowGeo(f), { bar } = flowView(parts, of), g = geo.g;
-  const gut = gutterW(f, g, measure), bw = Math.max(1, w - gut);
+  // (A margin at the right as wide as the gutter, so the bars stand centred under the card's title, where the card has the room
+  // and still MIN_BAR of bar; in a narrower card the margin gives way, down to none: the names need the bar's width more than the
+  // centring. It depends on the card's width alone, so the bars never change width from slide to slide.)
+  const gut = gutterW(f, g, measure), bw = Math.max(1, w - gut - Math.min(gut, Math.max(0, w - gut - MIN_BAR)));
   const spans = (list) => { let acc = 0; return list.map((p) => { const a = gut + (acc / 100) * bw; acc += p.pct; return { id: p.id, name: p.name, pct: p.pct, a, b: gut + (acc / 100) * bw }; }); };
   const segs = spans(bar), hsegs = hParts ? spans(healthyOrder(hParts, bar, of)) : [];
   const lw = segs.map((s) => Math.max(measure(s.name, f, 500), measure(`${s.pct}%`, f, 700)));
   const lab = placeLabels(segs, lw, w, geo, rowsFit(hh, geo));
   const hmode = hsegs.map((s) => healthyMode(measure(s.name, f, 500), measure(`${s.pct}%`, f, 700), s.b - s.a - 2 * g));
-  return { geo, gut, segs, hsegs, hmode, ...lab, top: Math.max(0, (hh - flowHeight(lab.rows, geo)) / 2) };
+  const top = Math.max(0, (hh - flowHeight(lab.rows, geo)) / 2);
+  // (lift: how far the Healthy bar glides down to the card's middle while it stands alone, the Now bar gone; only when no
+  // name hangs, which is always so when the Now bar reads the same as Healthy: the healthy split is one segment.)
+  const lift = lab.rows === 0 ? Math.max(0, (hh - geo.barH) / 2) - top : 0;
+  return { geo, gut, bw, segs, hsegs, hmode, ...lab, top, lift };
 }
 /** The gutter the rows' names take at the bars' left: the wider name and a gap. */
 export const gutterW = (f, g, measure) => Math.max(measure('Healthy', f, 600), measure('Now', f, 600)) + Math.max(g, 0.6 * f);
+
+// ── The liver's inflow: one bar across the card ─────────────────────────────────────────────────────────────────────────
+// The portal vein's and the hepatic artery's shares as one bar the card's full width, so it stands centred with the card's title
+// and nothing hangs under it. The healthy split is not a second bar: one dashed line over this one where the portal blood ends in
+// a healthy liver, "Healthy portal 73%" above it (the pressure ladder's Healthy line, no key). Each segment's name and percent sit
+// on it, clear of the line; a name too wide takes its short form, then the percent alone, then, for a segment too narrow even for
+// that, one line above the bar over it on a short leader.
+export const INFLOW_SHORT = { portal: 'Portal', artery: 'Artery' };
+/** The inflow card's measures for font size f, from the top of its drawing: the words over the line (base is their baseline),
+ *  the bar (top, bottom), the line's overshoot under it, the whole height (h), and the bar's name and percent baselines from
+ *  its top (n1, n2) or a percent alone (mid). mc: how near a name comes to the line. */
+export function inflowGeo(f) {
+  const g = Math.max(LABEL_GAP, 0.34 * f), barH = 2.7 * f, top = 1.75 * f;
+  return { f, g, barH, mc: Math.max(6, 0.5 * f), base: 1.05 * f, top, bottom: top + barH, h: top + barH + 0.5 * f, n1: 1.15 * f, n2: 2.27 * f, mid: barH / 2 + 0.36 * f };
+}
+/** The segments' spans on a bar w wide: [{ id, pct, a, b }] in the bar's order (barOrder). */
+export function inflowSpans(bar, w) {
+  let acc = 0;
+  return bar.map((p) => { const a = (acc / 100) * w; acc += p.pct; return { id: p.id, pct: p.pct, a, b: (acc / 100) * w }; });
+}
+/** The Healthy line for the healthy split (hParts): where its portal blood ends on a bar w wide, its words and the box they take
+ *  (L…R, inside 0…w, centred on the line where they can be). null without a healthy split, or when its portal share is none or all. */
+export function inflowMarker(hParts, w, f, measure) {
+  const hp = hParts?.find((p) => p.id === 'portal')?.pct;
+  if (!(hp > 0 && hp < 100)) return null;
+  const text = `Healthy portal ${hp}%`, tw = measure(text, f, 500), x = (hp / 100) * w;
+  const L = Math.min(Math.max(x - tw / 2, 0), Math.max(0, w - tw));
+  return { x, text, L, R: L + tw, hp };
+}
+/** Where each segment's words go. tier 0: its name and percent on the segment; 1: the short name and percent; 2: the percent alone;
+ *  3: one line above the bar (a leader at lead), its box centred on cx; 4: nothing (no clear place). On the segment (tiers 0 to 2)
+ *  the words sit g inside its edges and mc from the Healthy line, as near the segment's middle as that allows. → [{ id, tier, cx,
+ *  lead, text, tw }] in the spans' order. */
+export function inflowLabels(spans, w, geo, measure, mark = null) {
+  const { f, g, mc } = geo, E = 1e-6;
+  return spans.map((s) => {
+    const full = INFLOW.find(([k]) => k === s.id)[1], short = INFLOW_SHORT[s.id], v = `${s.pct}%`, vw = measure(v, f, 700), mid = (s.a + s.b) / 2;
+    const wid = [Math.max(measure(full, f, 500), vw), Math.max(measure(short, f, 500), vw), vw];
+    const free = mark && mark.x > s.a + 0.5 && mark.x < s.b - 0.5 ? [[s.a, mark.x - mc], [mark.x + mc, s.b]] : [[s.a, s.b]];
+    for (let tier = 0; tier < 3; tier++) {
+      const fit = free.filter(([a, b]) => b - a - 2 * g >= wid[tier] - E)
+        .map(([a, b]) => ({ cx: Math.min(Math.max(mid, a + g + wid[tier] / 2), b - g - wid[tier] / 2) }));
+      if (fit.length) return { id: s.id, tier, cx: fit.sort((p, q) => Math.abs(p.cx - mid) - Math.abs(q.cx - mid))[0].cx };
+    }
+    // (Too narrow for its percent: one line over the segment above the bar, clear of the Healthy words and the line under them.)
+    const text = `${short} ${v}`, tw = measure(text, f, 600), box = mark ? [mark.L - g, mark.R + g] : null;
+    const spots = [Math.min(Math.max(mid - tw / 2, 0), Math.max(0, w - tw))];
+    if (box) spots.push(box[0] - tw, box[1]);
+    const L = spots.find((l) => l >= -E && l + tw <= w + E && l <= mid + E && mid <= l + tw + E && (!box || l + tw <= box[0] + E || l >= box[1] - E));
+    return L == null ? { id: s.id, tier: 4, cx: mid } : { id: s.id, tier: 3, cx: L + tw / 2, lead: mid, text, tw };
+  });
+}
 
 const SVGNS = 'http://www.w3.org/2000/svg';
 const sv = (tag, attrs = {}, ...kids) => {
@@ -274,6 +340,7 @@ export function createFlowsTool() {
   const reduceMQ = matchMedia('(prefers-reduced-motion: reduce)');
   const clip = `pfl-clip-${++uid}`;
   let of = 'portal', params = null, goal = null, hGoal = null, ctx0 = null, shown = null, raf = 0, size = '', memo = null, wait = 0;
+  let tiers = {};   // (the inflow's names: the wording each is drawn in now, and its opacity while it swaps for another)
   const sizeNow = () => {
     const w = el.clientWidth, z = w ? el.getBoundingClientRect().width / w : 1;
     const f = Math.max(parseFloat(getComputedStyle(el).fontSize) || 12, z > 0.2 && z < 1 ? 12 / z : 0);
@@ -282,11 +349,12 @@ export function createFlowsTool() {
   const order = () => (of === 'inflow' ? INFLOW : ALL).map(([id]) => id);
   const info = (id) => ALL.concat(INFLOW).find(([k]) => k === id);
   // The layout the shares are heading for (computed once per goal and size: the name search is not per frame).
-  function target() {
+  const target = () => (of === 'inflow' ? targetInflow() : targetRoutes());
+  function targetRoutes() {
     const pk = (ps) => (ps || []).map((p) => `${p.id}:${p.pct}`).join(',');
     const [w, hh, f] = sizeNow(), key = `${of}|${Math.round(w)}|${Math.round(hh)}|${f}|${pk(goal)}|${pk(hGoal)}`;
     if (memo?.key === key) return memo;
-    const lay = flowLayout(goal, of, w, hh, f, textW, hGoal), bw = Math.max(1, w - lay.gut);
+    const lay = flowLayout(goal, of, w, hh, f, textW, hGoal), bw = lay.bw;
     const hide = sameShares(goal, hGoal);
     const at = Object.fromEntries(lay.segs.map((s, i) => [s.id, [s, lay.labels[i]]]));
     // (With the Now bar gone, a Healthy segment too narrow for its name keeps the Now bar's name hanging under it, which
@@ -303,15 +371,77 @@ export function createFlowsTool() {
       if (!s) return [id, { x: o ? o.x : (first ? 0 : 100), pct: 0, op: 0, lx: o?.lx ?? w / 2, ex: o?.ex ?? w / 2, row: o?.row ?? 0, ld: o?.ld ?? 0, dn: o?.dn ?? 0, ...hw }];
       return [id, { x: ((s.a - lay.gut) / bw) * 100, pct: s.pct, op: 1, lx: l.L + l.lw / 2, ex: l.ex, row: Math.max(0, l.row), ld: l.lead ? 1 : 0, dn: l.lead ? 1 : 0, ...hw }];
     }));
-    want._ = { top: lay.top, nowOp: hide ? 0 : 1, x: 0, pct: 0, op: 0, lx: 0, ex: 0, row: 0, ld: 0, dn: 0, hx: 0, hpct: 0, hop: hGoal ? 1 : 0, hn: 0, hv: 0 };
-    memo = { key, want, w, hh, f, geo: lay.geo, gut: lay.gut, hide };
+    want._ = { top: lay.top, lift: lay.lift, nowOp: hide ? 0 : 1, x: 0, pct: 0, op: 0, lx: 0, ex: 0, row: 0, ld: 0, dn: 0, hx: 0, hpct: 0, hop: hGoal ? 1 : 0, hn: 0, hv: 0 };
+    memo = { key, want, w, hh, f, geo: lay.geo, gut: lay.gut, bw, hide };
     return memo;
+  }
+  // The inflow's layout: the one bar across the card, the Healthy line over it, the words' places (inflowLabels). Per part:
+  // x, pct (the bar's segment), lx (its words' centre), tier (their wording).
+  function targetInflow() {
+    const pk = (ps) => (ps || []).map((p) => `${p.id}:${p.pct}`).join(',');
+    const [w, hh, f] = sizeNow(), key = `inflow|${Math.round(w)}|${Math.round(hh)}|${f}|${pk(goal)}|${pk(hGoal)}`;
+    if (memo?.key === key) return memo;
+    const geo = inflowGeo(f), mark = inflowMarker(hGoal, w, f, textW), spans = inflowSpans(barOrder(goal, 'inflow'), w);
+    const labs = inflowLabels(spans, w, geo, textW, mark), at = Object.fromEntries(spans.map((s, i) => [s.id, [s, labs[i]]]));
+    const zero = { row: 0, ld: 0, dn: 0, hx: 0, hpct: 0, hop: 0, hn: 0, hv: 0 };
+    const want = Object.fromEntries(order().map((id, i) => {
+      const [s, l] = at[id] || [], o = shown?.[id];
+      // (A part not on this slide shrinks where it stood; the portal vein, first on the bar, stays at 0.)
+      if (!s) return [id, { ...zero, x: o ? o.x : (i ? 100 : 0), pct: 0, op: 0, lx: o?.lx ?? w / 2, ex: o?.lx ?? w / 2, tier: tiers[id]?.drawn ?? 4 }];
+      return [id, { ...zero, x: (s.a / w) * 100, pct: s.pct, op: 1, lx: l.cx, ex: l.cx, tier: l.tier }];
+    }));
+    want._ = { ...zero, top: Math.max(0, (hh - geo.h) / 2), lift: 0, nowOp: 1, x: 0, pct: 0, op: 0, lx: 0, ex: 0, hop: mark ? 1 : 0 };
+    memo = { key, want, w, hh, f, geo, mark, hide: sameShares(goal, hGoal) };
+    return memo;
+  }
+  // The inflow bar, drawn from the eased shares: the segments, the Healthy line with its words, then each part's words.
+  function drawInflow() {
+    const { w, hh, f, geo, mark } = memo, top0 = shown._.top, yT = top0 + geo.top, yB = top0 + geo.bottom;
+    size = `${Math.round(w)}x${Math.round(hh)}`;
+    const X = (pc) => (pc / 100) * w, ids = order().filter((id) => shown[id] && shown[id].op > 0.01);
+    const kids = [sv('defs', {}, sv('clipPath', { id: clip }, sv('rect', { x: 0, y: yT, width: w, height: geo.barH, rx: Math.min(6, geo.barH / 2) })))];
+    // The segments, each as wide as its share of the blood, a hairline of card between them.
+    kids.push(sv('g', { 'clip-path': `url(#${clip})` }, ids.filter((id) => shown[id].pct > 0.05).map((id) => {
+      const x = X(shown[id].x), wd = (shown[id].pct / 100) * w, inner = x > 0.5;
+      return sv('rect', { class: 'pfl-seg', 'data-part': id, style: `--tone: var(${info(id)[2]}); opacity: ${shown[id].op.toFixed(3)}`,
+        x: x + (inner ? 0.75 : 0), y: yT, width: Math.max(0.5, wd - (inner ? 0.75 : 0) - (x + wd < w - 0.5 ? 0.75 : 0)), height: geo.barH });
+    })));
+    // The healthy split: a dashed line over the bar where its portal blood ends, its words above.
+    if (mark && shown._.hop > 0.01) {
+      kids.push(sv('g', { class: 'pfl-mk', style: `opacity: ${shown._.hop.toFixed(3)}` },
+        sv('line', { x1: mark.x, y1: top0 + geo.base + 0.4 * f, x2: mark.x, y2: yB + 0.5 * f }),
+        sv('text', { x: (mark.L + mark.R) / 2, y: top0 + geo.base, 'text-anchor': 'middle' }, mark.text)));
+    }
+    // Each part's words: on its segment where they fit (tiers 0 to 2), else above the bar on a short leader (tier 3).
+    for (const id of ids) {
+      const s = shown[id], t = tiers[id] || { drawn: memo.want[id].tier, o: 1 }, op = s.op * t.o, v = `${Math.round(s.pct)}%`;
+      if (op <= 0.01 || t.drawn > 3) continue;
+      const lab = (...k) => sv('g', { class: 'pfl-lab', 'data-part': id, style: `opacity: ${op.toFixed(3)}` }, ...k);
+      const text = (cls, y, t2) => sv('text', { class: cls, x: s.lx, y, 'text-anchor': 'middle' }, t2);
+      if (t.drawn <= 1) kids.push(lab(text('n', yT + geo.n1, t.drawn ? INFLOW_SHORT[id] : info(id)[1]), text('v', yT + geo.n2, v)));
+      else if (t.drawn === 2) kids.push(lab(text('v', yT + geo.mid, v)));
+      else {
+        const line = `${INFLOW_SHORT[id]} ${v}`, half = textW(line, f, 600) / 2, cx = Math.min(Math.max(X(s.x + s.pct / 2), s.lx - half), s.lx + half);
+        kids.push(lab(sv('path', { class: 'pfl-lead', d: `M${cx.toFixed(1)} ${yT.toFixed(1)}V${(top0 + geo.base + 0.3 * f).toFixed(1)}` }), text('n', top0 + geo.base, line)));
+      }
+    }
+    finish(kids);
+  }
+  // The card's drawing: the svg round the kids, with what it shows said for a screen reader.
+  function finish(kids) {
+    const { w, hh, f } = memo, say = (ps) => barOrder(ps, of).map((p) => `${p.name} ${p.pct}%`).join(', ');
+    const br = flowView(goal, of).bracket;
+    el.replaceChildren(sv('svg', { viewBox: `0 0 ${w} ${hh}`, width: w, height: hh, role: 'img', style: `font-size: ${f.toFixed(2)}px`,
+      'aria-label': `${of === 'inflow' ? 'The liver\'s inflow' : 'Where the portal blood goes'}, ${memo.hide ? `healthy, and now the same: ${say(goal)}` : `now: ${say(goal)}${br ? `; ${br[0]} ${br[1]}%` : ''}${hGoal ? `; healthy: ${say(hGoal)}` : ''}`}` }, kids));
   }
   function draw() {
     if (!goal || !shown || !memo) { el.replaceChildren(); return; }
-    const { w, hh, f, geo, gut } = memo, g = geo.g, bw = Math.max(1, w - gut);
+    if (of === 'inflow') { drawInflow(); return; }
+    const { w, hh, f, geo, gut, bw } = memo, g = geo.g;
     size = `${Math.round(w)}x${Math.round(hh)}`;
-    const top = shown._.top, hT = top, barT = top + geo.head, barB = barT + geo.barH;
+    // (The Now bar fades out when it reads the same as Healthy; the Healthy bar then glides down to the card's middle, and back
+    // up as the Now bar returns: u is how far it has gone, the lift its whole way.)
+    const top = shown._.top, u = 1 - (shown._.nowOp ?? 1), hT = top + u * (shown._.lift || 0), barT = top + geo.head, barB = barT + geo.barH;
     const X = (pc) => gut + (pc / 100) * bw, rx = Math.min(6, geo.barH / 2);
     const ids = order().filter((id) => shown[id] && shown[id].op > 0.01);
     const kids = [sv('defs', {},
@@ -321,7 +451,7 @@ export function createFlowsTool() {
     const segRects = (XK, P, O, y) => order().filter((id) => shown[id] && shown[id][O] > 0.01 && shown[id][P] > 0.05).map((id) => {
       const x = X(shown[id][XK]), wd = (shown[id][P] / 100) * bw, inner = x > gut + 0.5;
       return sv('rect', { class: 'pfl-seg', 'data-part': id, style: `--tone: var(${info(id)[2]}); opacity: ${shown[id][O].toFixed(3)}`,
-        x: x + (inner ? 0.75 : 0), y, width: Math.max(0.5, wd - (inner ? 0.75 : 0) - (x + wd < w - 0.5 ? 0.75 : 0)), height: geo.barH });
+        x: x + (inner ? 0.75 : 0), y, width: Math.max(0.5, wd - (inner ? 0.75 : 0) - (x + wd < gut + bw - 0.5 ? 0.75 : 0)), height: geo.barH });
     });
     const rowName = (y, t, cls) => sv('text', { class: `pfl-row ${cls}`, x: 0, y: y + geo.mid }, t);
     // The healthy model's bar on top, as tall as the Now bar, in the same order and colours, each segment's name and percent
@@ -359,10 +489,7 @@ export function createFlowsTool() {
         sv('text', { class: 'v', x: y(cx, lx), y: y(barT + geo.n2, ty + 2.15 * f), 'text-anchor': 'middle' }, v)));
     }
     kids.push(...nowKids);
-    const say = (ps) => barOrder(ps, of).map((p) => `${p.name} ${p.pct}%`).join(', ');
-    const br = flowView(goal, of).bracket;
-    el.replaceChildren(sv('svg', { viewBox: `0 0 ${w} ${hh}`, width: w, height: hh, role: 'img', style: `font-size: ${f.toFixed(2)}px`,
-      'aria-label': `${of === 'inflow' ? 'The liver\'s inflow' : 'Where the portal blood goes'}, ${memo.hide ? `healthy, and now the same: ${say(goal)}` : `now: ${say(goal)}${br ? `; ${br[0]} ${br[1]}%` : ''}${hGoal ? `; healthy: ${say(hGoal)}` : ''}`}` }, kids));
+    finish(kids);
   }
   function tick() {
     raf = 0;
@@ -372,14 +499,26 @@ export function createFlowsTool() {
     const k = reduceMQ.matches || !shown ? 1 : 0.2, mix = (a, b) => a + (b - a) * k;
     // (A part that goes fades out faster than the others move; one that comes fades in where it will stay.)
     const fade = (a, b) => (k === 1 ? b : a + (b - a) * (b < a ? 0.4 : 0.2));
-    const KEYS = ['x', 'pct', 'lx', 'ex', 'row', 'top', 'nowOp', 'dn', 'hx', 'hpct', 'hn', 'hv'];
+    const KEYS = ['x', 'pct', 'lx', 'ex', 'row', 'top', 'lift', 'nowOp', 'dn', 'hx', 'hpct', 'hn', 'hv'];
     shown = Object.fromEntries(Object.keys(want).map((id) => {
       const w0 = want[id], s0 = shown?.[id] || { ...w0, op: 0, ld: 0, pct: 0 };
       const s = { op: fade(s0.op, w0.op), ld: fade(s0.ld, w0.ld), hop: fade(s0.hop ?? 0, w0.hop) };
       for (const key of KEYS) if (key in w0) s[key] = mix(s0[key] ?? w0[key], w0[key]);
       return [id, s];
     }));
-    const done = Object.keys(want).every((id) => ['x', 'pct', 'op', 'ld', 'row', 'top', 'nowOp', 'dn', 'hx', 'hpct', 'hop', 'hn', 'hv'].every((key) => !(key in want[id]) || Math.abs(shown[id][key] - want[id][key]) < 0.01)
+    // (The inflow's names: one whose wording changes (the full name for the short one, the percent alone…) fades out, is reworded
+    // and fades back in, so a word never changes under the eye.)
+    let swapping = false;
+    if (of === 'inflow') {
+      for (const id of order()) {
+        const goalTier = want[id].tier, t = (tiers[id] ||= { drawn: goalTier, o: 1 });
+        if (t.drawn === goalTier) t.o = k === 1 ? 1 : Math.min(1, t.o + 0.2);
+        else if (t.drawn > 3) { t.drawn = goalTier; t.o = 0; }   // (nothing was drawn: its words fade in as they are)
+        else { t.o = k === 1 ? 0 : Math.max(0, t.o - 0.25); if (t.o <= 0.02) { t.drawn = goalTier; t.o = 0; } }
+        if (t.drawn !== goalTier || t.o < 0.999) swapping = true;
+      }
+    }
+    const done = !swapping && Object.keys(want).every((id) => ['x', 'pct', 'op', 'ld', 'row', 'top', 'lift', 'nowOp', 'dn', 'hx', 'hpct', 'hop', 'hn', 'hv'].every((key) => !(key in want[id]) || Math.abs(shown[id][key] - want[id][key]) < 0.01)
       && Math.abs(shown[id].lx - want[id].lx) < 0.2 && Math.abs(shown[id].ex - want[id].ex) < 0.2);
     if (done) shown = Object.fromEntries(Object.keys(want).map((id) => [id, { ...want[id] }]));
     draw();
@@ -404,12 +543,12 @@ export function createFlowsTool() {
     wait = setTimeout(again, 250);
   }
   // (A new size lays the names out afresh and shows them there at once: the places are in pixels.)
-  if (typeof ResizeObserver === 'function') new ResizeObserver(() => { if (shown && el.isConnected && size !== `${Math.round(el.clientWidth)}x${Math.round(el.clientHeight)}`) { if (raf) cancelAnimationFrame(raf); shown = null; tick(); } }).observe(el);
+  if (typeof ResizeObserver === 'function') new ResizeObserver(() => { if (shown && el.isConnected && size !== `${Math.round(el.clientWidth)}x${Math.round(el.clientHeight)}`) { if (raf) cancelAnimationFrame(raf); shown = null; tiers = {}; tick(); } }).observe(el);
   return {
     el,
     configure(t, ctx) {
       const of2 = t?.of === 'inflow' ? 'inflow' : 'portal';
-      if (of2 !== of) { shown = null; memo = null; }   // (the other split: drawn afresh)
+      if (of2 !== of) { shown = null; memo = null; tiers = {}; }   // (the other split: drawn afresh)
       of = of2; params = ctx?.params || null; ctx0 = ctx || null; el.dataset.of = of;
       if (ctx?.fp) aim(ctx.fp);
     },
