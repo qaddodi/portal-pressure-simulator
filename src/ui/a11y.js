@@ -2,7 +2,7 @@
 //
 // The figure's accessible description is kept current with a one-line reading of the patient.
 
-import { store, hiddenNow } from './store.js?v=67f4341802';
+import { store, hiddenNow } from './store.js?v=926dabfaef';
 import { fmt } from './util.js?v=d2c95a1b16';
 import { EDGES } from '../engine/topology.js?v=4044766e96';
 import { judgeFlow } from './velNormal.js?v=97920ddf3f';
@@ -28,7 +28,7 @@ export function caption(f, { scenario = true } = {}) {
   const flow = jf.none ? 'no portal flow' : jf.stasis ? (jf.reversed ? 'sluggish, reversed portal flow' : 'sluggish portal flow')
     : jf.reversed ? 'flow reversed, away from the liver' : 'flow toward the liver';
   const e = [];
-  if (m.varix.d >= 2.5) e.push(`${m.varix.grade.label.toLowerCase()} varices${m.varix.redWale ? ' with red wale signs' : ''}`);
+  if (m.varix.present) e.push(`${m.varix.grade.label === 'None' ? 'banded' : m.varix.grade.label.toLowerCase()} varices${m.varix.redWale ? ' with red wale signs' : ''}`);
   if (m.ascites.grade > 0) e.push(`${fmt(m.ascites.volume / 1000, 1)} L ascites`);
   e.push(flow);
   const tail = e.join(', ');

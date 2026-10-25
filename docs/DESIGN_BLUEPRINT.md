@@ -382,7 +382,7 @@ In a healthy state, collaterals are **ghosted**: 1 px dotted and 15% opacity, vi
 
 **Esophageal varices** get special rendering: a cluster of 3–4 beaded, serpentine columns in
 the lower esophagus. Each bead is an ellipse whose radius follows the varix model. When wall
-tension goes up, the wall stroke thins and gets a **red-wale overlay** (thin red streaks), which is the
+stress goes up, the wall stroke thins and gets a **red-wale overlay** (thin red streaks), which is the
 real endoscopic sign of high risk. On rupture, a particle jet escapes into the esophageal lumen.
 
 Collaterals to model and draw (portal side → systemic side):
@@ -407,7 +407,7 @@ Double-click (or pinch past a threshold) on an organ to go deeper:
 | L0 | **Whole-body loop** | Heart → aorta → splanchnic beds → portal system → liver → IVC → heart. Shows how CO and MAP link to portal inflow. |
 | L1 | **Portal anatomy** (default) | Everything in §6.1 |
 | L2 | **Liver lobule** | A hexagonal lobule with **portal triads** at the corners (portal venule, hepatic arteriole, bile duct), **sinusoids** running radially to the **central vein**, and the **space of Disse** with lymph drainage. Shows the three resistance sites visually: **presinusoidal** (portal tract), **sinusoidal** (stellate-cell contraction, collagen in Disse, capillarization with fenestrae closing), and **postsinusoidal** (central vein / terminal hepatic venule). The fibrosis brush (§8.1) works here too. Hepatic-artery blood visibly **merges** into the sinusoids. |
-| L3 | **Varix cross-section** | A cross-section of the esophageal wall with a varix. Shows radius r, wall thickness w, transmural pressure arrows (P_varix − P_lumen), and a **tension gauge (T = ΔP·r / w)** that fills toward the rupture line. The balloon-tamponade tool works here as a visible luminal balloon. |
+| L3 | **Varix cross-section** | A cross-section of the esophageal wall with a varix. Shows radius r, wall thickness w, transmural pressure arrows (P_varix − P_lumen), and a **wall stress gauge (σ = ΔP·r / w)** that fills toward the rupture line. The balloon-tamponade tool works here as a visible luminal balloon. |
 | L2b | **Spleen** | Pulp congestion. Spleen length gauge (cm) and platelet-sequestration illustration |
 | L2c | **Peritoneum** | Side view of the abdomen with ascites level rising, an intra-abdominal pressure gauge, and a paracentesis needle |
 
@@ -536,7 +536,7 @@ column" conductance G_col, and to the neighbouring **central venules** through a
 | **Inertance** (optional, pulsatile mode) | L · dQ/dt = ΔP − R·Q | IVC, hepatic veins, and PV to carry the RA waveform |
 | **Diode (valve)** | Q = max(0, ΔP)/R, with a tiny leak | Heart valves, lower-limb veins only |
 | **Recruitable collateral** | A tube-law vessel whose baseline diameter d is a **slow state** (§7.6). Initially d ≈ d_min, so R is huge. | C1–C8 |
-| **Varix compartment** | A collapsible node with external pressure = esophageal luminal pressure (≈ 0 to −5 mmHg, inspiration-dependent) and its own wall thickness w (thins as it remodels). Computes **wall tension T = (P_var − P_lumen)·r / w**. | Esophageal varix, fundal varix |
+| **Varix compartment** | A collapsible node with external pressure = esophageal luminal pressure (≈ 0 to −5 mmHg, inspiration-dependent) and its own wall thickness w (thins as it remodels). Computes **wall stress σ = (P_var − P_lumen)·r / w**. | Esophageal varix, fundal varix |
 | **Starling filter** | J_v = K_f[(P_c − P_i) − σ(π_c − π_i)] | Sinusoids → space of Disse (σ ≈ 0.1 in normal fenestrated sinusoids, rising to about 0.6 with capillarization), and splanchnic capillaries (σ ≈ 0.9) |
 | **Lymph drain** | Q_lymph = min(J_v, Q_lymph_max), where Q_lymph_max slowly adapts upward | The overflow goes to the **peritoneal compartment** as ascites |
 | **Heart** | CO = CO_max · contractility · sigmoid((P_RA − P₀)/k) (Frank–Starling), limited by HR. The pump moves volume from RA to AO. | Closes the circulation |
@@ -587,7 +587,7 @@ clamp d ∈ [d_min, d_max]
 - Radius r comes from the tube law, on top of a **slow baseline radius** r₀ that grows with chronic
   pressure (remodeling). Wall thickness w shrinks as r₀ grows (conservation of wall mass:
   w·r₀ ≈ const).
-- **Tension:** `T = (P_var − P_lumen) · r / w`.
+- **Wall stress:** `σ = (P_var − P_lumen) · r / w`.
 - **Grade display:** small is < 5 mm, large is ≥ 5 mm. Red wale signs appear when T/T_crit > 0.7.
 - **Rupture is a stochastic hazard** evaluated each simulated second:
   `h = h₀ · max(0, T/T_crit − 1)^n` (n ≈ 3). Calibrate so that
@@ -827,9 +827,9 @@ for fairness) in the worker when the user asks. Cache the result until the state
 ### 9.5 Endoscopy panel
 
 - A stylized circular endoscopic view of the lower esophagus (with a toggle for fundus retroflexion).
-- Varices are rendered as bluish, tortuous columns whose size maps to the model's r: **F1 / F2 / F3**
-  (small straight, enlarged tortuous, large coil-shaped).
-- **Red wale signs** appear as tension rises. Rupture shows a spurting jet with a pooling blood
+- Varices are rendered as bluish, tortuous columns whose size maps to the model's r, graded by size alone: **None** under 2.5 mm,
+  **Small** under 5 mm, **Large** from 5 mm (no F-codes).
+- **Red wale signs** appear as wall stress rises. Rupture shows a spurting jet with a pooling blood
   animation. Banding shows the rubber band and a blanched knob.
 - It's a stylized illustration, never photographic. Keep it clearly schematic.
 

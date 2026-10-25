@@ -1,24 +1,24 @@
 // Application bootstrap: wires the engine host to the four surfaces (figure + action card,
 // timeline, patient chart, instruments) and to Home, the command palette and the menus.
 
-import { startHost, host } from './host.js?v=fc0bcc6ac3';
-import { store, updateParams, replaceParams, bindParamSender, clearHistory, logAction, varicesPresent, hiddenNow } from './store.js?v=67f4341802';
-import { createStage } from './stage.js?v=5a07fdc2b4';
+import { startHost, host } from './host.js?v=fa2cefa2d2';
+import { store, updateParams, replaceParams, bindParamSender, clearHistory, logAction, varicesPresent, hiddenNow } from './store.js?v=926dabfaef';
+import { createStage } from './stage.js?v=29d404008b';
 import { createCreditPlacer } from './credit.js?v=dc0666dc54';
 import { sinusoidSupported } from './gl-support.js?v=94ad2a7ff1';
-import { createInspector } from './inspector.js?v=6eaadd6e9c';
-import { createDock, CUTOFFS, savedInstruments } from './dock.js?v=063adc49fa';
-import { setHvpgStage } from './hvpg-proc.js?v=bdf42847fa';
-import { createWhy } from './why.js?v=fd826e67fc';
-import { createTimeline, LAPSES } from './timeline.js?v=40d350fe08';
-import { createCompare } from './compare.js?v=f5afbc04f1';
-import { createCard } from './card.js?v=737155ecf9';
-import { createChart } from './chart.js?v=77de636626';
-import { createMenu } from './menu.js?v=1ace137b3f';
-import { caption } from './a11y.js?v=a6b70a2169';
+import { createInspector } from './inspector.js?v=1f275f4420';
+import { createDock, CUTOFFS, savedInstruments } from './dock.js?v=b8a7fbc099';
+import { setHvpgStage } from './hvpg-proc.js?v=86b165d2a3';
+import { createWhy } from './why.js?v=d0f328712b';
+import { createTimeline, LAPSES } from './timeline.js?v=71a4ecaa73';
+import { createCompare } from './compare.js?v=6d9cc5a5b1';
+import { createCard } from './card.js?v=b9815323be';
+import { createChart } from './chart.js?v=4cb2b81c9b';
+import { createMenu } from './menu.js?v=237ecb7332';
+import { caption } from './a11y.js?v=b9689eb260';
 import { startLMS } from './lms.js?v=284ef81e94';
 import { UPDATED, CONTENT_UPDATED, VALIDATION, AUTHOR, AUTHOR_URL, FEEDBACK_EMAIL } from '../version.js?v=1767318315';
-import { normalizeSel, shuntable, edgeValue, bedStats } from './actions.js?v=2d396c6094';
+import { normalizeSel, shuntable, edgeValue, bedStats } from './actions.js?v=eb5963fb07';
 import { gradientCss, dropCss, PRESSURE_TICKS, flowCss, flowPos, velocityCss, heatCss, HEAT_MAX, oxygenCss, OXY_MIN } from './colormap.js?v=cdcf6a2f55';
 import { EDGES, PORTAL_TERRITORY } from '../engine/topology.js?v=4044766e96';
 import { dopplerVel } from './velNormal.js?v=97920ddf3f';
@@ -102,8 +102,8 @@ async function main() {
   // The Doppler and the FibroScan load after the first paint (a tab for one that has not come waits for it, dock.js). One left open when the
   // app was last used is asked for now and waited for with the model's first answers, so its pane is whole with the dock.
   const probeTo = (id) => { host.send({ type: 'probe', id }); logAction('probe', id); };
-  dopplerL = lazy(() => import('./doppler.js?v=4a8a3a9e66'), ({ createDoppler }) => createDoppler({ onProbe: probeTo }));
-  fibroL = lazy(() => import('./fibroscan.js?v=2af61823c8'), ({ createFibroScan }) => createFibroScan());
+  dopplerL = lazy(() => import('./doppler.js?v=f692112c34'), ({ createDoppler }) => createDoppler({ onProbe: probeTo }));
+  fibroL = lazy(() => import('./fibroscan.js?v=ba9a2d41a2'), ({ createFibroScan }) => createFibroScan());
   const wasOpen = savedInstruments().open;
   const openAtStart = [];
   if (Array.isArray(wasOpen)) for (const [id, l] of [['doppler', dopplerL], ['fibroscan', fibroL]]) if (wasOpen.includes(id)) openAtStart.push(l.get().catch(() => {}));
@@ -176,7 +176,7 @@ async function main() {
   dock = createDock({ strip: $('#strip'), head: $('#dockHead'), body: $('#dockBody'), onWhy: (m, el) => why.open(m, el), onAction: doAction, onProbe: probeTo, lazy: { doppler: dopplerL, fibroscan: fibroL }, onReveal: revealDock, onLobule: () => zoomLobule('R'),
     onOpen: () => openPanel('instruments'), onClose: () => setPanelTab('chart'), onLayout: () => syncDoppler(), isVisible: () => app.classList.contains('dock-open'),
     marks: () => timeline.entries(), onBeat: () => sendBeat() });
-  presenterL = lazy(() => import('./presenter.js?v=1dee951589'), ({ createPresenter }) => createPresenter({ openSettings, loadPreset, updateParams, host, stage, dock, action: doAction,
+  presenterL = lazy(() => import('./presenter.js?v=c710c4ea16'), ({ createPresenter }) => createPresenter({ openSettings, loadPreset, updateParams, host, stage, dock, action: doAction,
     projectorOn: () => { if (!projector) toggleProjector(); }, projectorOff: () => { if (projector) toggleProjector(); },
     closeHome: () => mainMenu.close(), stashCards, rerenderHome: () => mainMenu.render() }));
   mainMenu = createMenu({
@@ -184,7 +184,7 @@ async function main() {
     onPreset: (id) => openInExplore(id), share, help: (a) => openHelpMenu(a),
     onToggle: (on, sheet) => { closePopover(); app.classList.toggle('menu-sheet-open', on && !!sheet); creditPlacer?.refresh(); labelsUnderMenu(on); },
   });
-  paletteL = lazy(() => import('./palette.js?v=f39861401f'), ({ createPalette }) => createPalette({ ctx: {
+  paletteL = lazy(() => import('./palette.js?v=1ee32727c1'), ({ createPalette }) => createPalette({ ctx: {
     select, action: doAction, probe: (id) => { host.send({ type: 'probe', id }); logAction('probe', id); }, showPane: (id) => dock.show(id, { reveal: true }),
     jump: (d, l) => timeline.jump(d, l), undo: () => timeline.undo(), pin: () => timeline.togglePin(), lenses: Object.fromEntries(Object.entries(LENSES).map(([k, v]) => [k, v])),
     zoomLobule: () => zoomLobule('R'), instruments: () => dock.toggle(),
@@ -1837,7 +1837,7 @@ function openAbout(section) {
     h('p', {}, 'Created by ', h('b', {}, AUTHOR), '. ', h('a', { href: AUTHOR_URL, target: '_blank', rel: 'noopener' }, 'See all of the author’s teaching\u00a0tools'), '.'),
     h('p', {}, `The model, patients and presentations are dated ${CONTENT_UPDATED} and change only when that date does, so a class taught on them behaves the same all term.`),
     h('h3', {}, 'The model'),
-    h('p', {}, 'A lumped-parameter hemodynamic network of the splanchnic, portal, hepatic and systemic veins with the heart, arterial inflow and the hepatic arterial buffer; collateral recruitment and remodeling on a disease clock; Starling filtration and lymph for ascites; Laplace wall tension for varices; blood volume, bleeding and transfusion. Every number on screen comes out of it; nothing is scripted.'),
+    h('p', {}, 'A lumped-parameter hemodynamic network of the splanchnic, portal, hepatic and systemic veins with the heart, arterial inflow and the hepatic arterial buffer; collateral recruitment and remodeling on a disease clock; Starling filtration and lymph for ascites; Laplace wall stress for varices; blood volume, bleeding and transfusion. Every number on screen comes out of it; nothing is scripted.'),
     h('h3', {}, 'Validation targets'),
     h('p', { class: 'sub' }, 'Each is an automated test that must pass before a release:'),
     h('ol', { class: 'refs' }, VALIDATION.map((v) => h('li', {}, v))),

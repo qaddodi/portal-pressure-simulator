@@ -1,5 +1,5 @@
 // How engorged the endoscopy draws a varix of diameter d mm (grow 0..1, endo-gl.js and endo-render.js).
-// Below 5 mm (F1, Small) the drawing follows a straight scale, (d − 2) / 10. From 5 mm (F2, Large, read to a tenth as
+// Below 5 mm (Small) the drawing follows a straight scale, (d − 2) / 10. From 5 mm (Large, read to a tenth as
 // metrics.js grades it) it starts at the engorgement a 7 mm varix had on that scale and rises to full at 12 mm, so a varix
 // the slide calls large is drawn plainly large and bulging, not as the thin column a third of the way up the scale.
 export const LARGE_MM = 5;

@@ -5,13 +5,13 @@ import { NODES } from '../engine/topology.js?v=4044766e96';
 import { wallRead } from '../engine/wall-read.js?v=09449acd01';
 import { pressureColor } from './colormap.js?v=cdcf6a2f55';
 import { h, fmt, fitCanvas, cssVar, cssAlpha, clamp, icon } from './util.js?v=d2c95a1b16';
-import { simTime, isPaused } from './clock.js?v=6a1f89a5c2';
+import { simTime, isPaused } from './clock.js?v=5151312569';
 import { createEndoGL } from './endo-gl.js?v=10311b4cca';
 import { renderEndo } from './endo-render.js?v=b4ff4e6dc9';
-import { endoGrow } from './endo-size.js?v=824631d0bc';
+import { endoGrow } from './endo-size.js?v=b0a31f2bde';
 import { DEFLATE_MS, BAND_MS, BAND_DELAY_MS, fadeIn, glide } from './endo-motion.js?v=fdca92fc81';
-import { FONT } from './charts.js?v=dde7572b82';
-import { store, updateParams, varicesPresent } from './store.js?v=67f4341802';
+import { FONT } from './charts.js?v=13e20afa56';
+import { store, updateParams, varicesPresent } from './store.js?v=926dabfaef';
 import { balanceHold, balanceLine } from './balance-hold.js?v=1792704e7a';
 import { frameFor, cancelFrame } from './frame.js?v=19b3f2915c';
 const nextFrame = frameFor('instruments');
@@ -19,8 +19,6 @@ const nextFrame = frameFor('instruments');
 const NI = Object.fromEntries(NODES.map((n, i) => [n.id, i]));
 
 // ── Endoscopy ───────────────────────────────────────
-// The Tests card's grade tile has room for one short word under the code.
-const GRADE_SHORT = { 'Large, coil-shaped': 'Coil-shaped' };
 export function createEndoscopy({ onAction }) {
   const el = h('div', { class: 'dock-pane', 'data-pane': 'endoscopy' });
   const box = h('div', { class: 'chart-box square' });
@@ -33,18 +31,19 @@ export function createEndoscopy({ onAction }) {
   // The readings: the bands placed lead, then the grade, size and wall side by side,
   // and the stigmata as a chip. Built once; each frame only changes text, widths and states.
   const dd = (cls) => h('dd', { class: cls });
-  const gradeCode = h('b'), gradeLabel = h('span');
-  const grade = h('dd', { class: 'endo-grade' }, gradeCode, gradeLabel);
+  // (The grade is its word alone, Small or Large: the code slot stays empty, which the styles already lay out as "None" was.)
+  const gradeLabel = h('span');
+  const grade = h('dd', { class: 'endo-grade' }, h('b'), gradeLabel);
   const diam = dd('endo-num'), wall = dd('endo-num'), red = dd('endo-chip-v'), bands = dd('endo-chip-v');
   const redWord = h('span'), redMore = h('span', { class: 'endo-more' });   // (the sign, then its detail: a slide's compact row shows the sign alone)
   red.append(redWord, redMore);
   const item = (cls, ...kids) => h('div', { class: cls }, ...kids);
   const stats = h('dl', { class: 'endo-read' },
     item('endo-chip', h('dt', {}, 'Bands', h('span', { class: 'endo-dt-x' }, ' placed')), bands),
-    h('div', { class: 'endo-g', title: 'F1 small and straight, F2 enlarged and tortuous, F3 large and beaded.' }, h('dt', {}, 'Grade'), grade),
+    h('div', { class: 'endo-g', title: 'Small, under 5 mm; Large, 5 mm or more.' }, h('dt', {}, 'Grade'), grade),
     item('endo-tile', h('dt', {}, 'Diameter'), diam),
     item('endo-tile', h('dt', {}, 'Wall', h('span', { class: 'endo-dt-x' }, ' thickness')), wall),
-    item('endo-chip endo-red', h('dt', {}, 'Stigmata'), red));
+    h('div', { class: 'endo-chip endo-red', title: 'In the model, red wale marks and cherry spots show once the wall stress passes 70 % of its tear point.' }, h('dt', {}, 'Stigmata'), red));
   const side = h('div', { class: 'chart-side' }, stats, bandBtn);
   el.append(stage, side);
   const set = (node, v) => { if (node.textContent !== v) node.textContent = v; };
@@ -53,10 +52,10 @@ export function createEndoscopy({ onAction }) {
     const vx = view === 'eso' ? m.varix : m.gastricVarix;
     const noVx = !varicesPresent(f, view === 'eso' ? 'VAR' : 'GV');
     bandBtn.disabled = noVx; bandBtn.title = noVx ? 'No varices to band' : '';
-    set(gradeCode, vx.grade.code === '—' ? '' : vx.grade.code); set(gradeLabel, vx.grade.label); gradeLabel.dataset.short = GRADE_SHORT[vx.grade.label] || vx.grade.label;   // no varices: the label alone
-    grade.dataset.sev = vx.grade.code === 'F1' ? 'caution' : vx.grade.code === '—' ? 'ok' : 'danger';
+    set(gradeLabel, vx.grade.label);
+    grade.dataset.sev = vx.grade.label === 'Small' ? 'caution' : vx.grade.label === 'None' ? 'ok' : 'danger';
     set(diam, `${fmt(vx.d, 1)} mm`); set(wall, `${fmt(vx.w, 1)} mm`);
-    const redV = vx.d < 2.5 ? 'None' : vx.redWale ? 'Red wale, cherry spots' : 'None';
+    const redV = !vx.present ? 'None' : vx.redWale ? 'Red wale, cherry spots' : 'None';
     set(redWord, redV === 'None' ? redV : 'Red wale'); set(redMore, redV === 'None' ? '' : ', cherry spots'); if (redV === 'None') delete red.dataset.long; else red.dataset.long = ''; red.parentNode.dataset.on = String(redV !== 'None');
     const nb = String(Math.round(f.bands || 0));
     set(bands, nb); bands.parentNode.dataset.on = String(nb !== '0');
@@ -259,7 +258,7 @@ export function createVarixWall() {
   const box = h('div', { class: 'chart-box square' });
   const cv = h('canvas', { role: 'img', 'aria-label': 'Varix cross-section: transmural pressure stretches the varix wall' });
   box.append(cv);
-  const stage = h('div', { class: 'endo-stage' }, box, h('span', { class: 'endo-pos' }, h('span', { class: 'wall-cap' }, 'Laplace’s law: '), 'T = ΔP · r / w'));
+  const stage = h('div', { class: 'endo-stage' }, box, h('span', { class: 'endo-pos' }, h('span', { class: 'wall-cap' }, 'Laplace’s law: '), 'σ = ΔP · r / w'));
   const dd = (cls) => h('dd', { class: cls });
   const item = (cls, ...kids) => h('div', { class: cls }, ...kids);
   const stressTxt = dd('endo-stress-v'), stressFill = h('i'), stressBar = h('span', { class: 'endo-bar', 'aria-hidden': 'true' }, stressFill);
@@ -272,7 +271,7 @@ export function createVarixWall() {
   // A slide's screen reads the stress as one number top left and its state top right (the pane keeps its sentence).
   const wPct = h('span'), wBig = h('b', { class: 'wall-big' }, wPct, h('small', {}, '%', h('span', { class: 'wall-of' }, ' of tear point'))), wSev = h('span', { class: 'wall-sev' });
   const stats = h('dl', { class: 'endo-read' },
-    item('endo-g wall-law', h('dt', {}, 'Laplace’s law'), h('dd', { class: 'wall-formula' }, 'T = ΔP · r / w')),
+    item('endo-g wall-law', h('dt', {}, 'Laplace’s law'), h('dd', { class: 'wall-formula' }, 'σ = ΔP · r / w')),
     item('endo-stress', name('Wall stress (model)', 'Wall stress'), stressTxt, wBig, wSev, stressBar),
     item('endo-tile', name('Transmural ΔP', 'ΔP'), ptm),
     item('endo-tile', h('dt', {}, 'Radius r'), rad),
@@ -313,14 +312,14 @@ export function createVarixWall() {
     ctx.clearRect(0, 0, w, hh);
     // (On a slide the labels take the card's small size, so they never fall under 12 px; 12 px is the floor in the Tests card too.)
     const fs = cv.closest('.pz-tool') ? parseFloat(getComputedStyle(cv).fontSize) || 12 : clamp((Math.min(w, hh) / 2 - 6) / 11, 12, 14);
-    const f6 = FONT(600, fs), f5 = FONT(500, fs), inkT = inkRows(f6, 'T');
+    const f6 = FONT(600, fs), f5 = FONT(500, fs), inkT = inkRows(f6, 'σ');
     const cx = w / 2;
     // The varix and its marks for a picture of radius R round (cx, cy), at this beat's radius, wall and ΔP.
     // (most: the largest varix and ΔP the picture can show, which set its size, so the ring holds still through every beat)
     const parts = (R, cy, most) => {
       const Rl = R * 0.52, rr = most ? R * 0.3 : clamp(v.r * R * 0.05, 4, R * 0.3), vy = cy - Rl - rr * 0.25, lw = clamp((most ? Math.ceil(v.w * 10) / 10 : v.w) * R / 20, 1, 10);
       const ro = rr + lw / 2 + Math.max(5, R / 30), len = (most ? 30 : clamp(v.ptm, 0, 30)) / 30 * rr * 0.9 + 4;
-      // T beside the ΔP arrow's shaft, just right of its head; where it would sit on the wall's outline it rises until its
+      // σ beside the ΔP arrow's shaft, just right of its head; where it would sit on the wall's outline it rises until its
       // ink is 2 px or more clear of the line's soft edge (it follows the varix through the beat, so it never touches it).
       const tx = cx + (4 + R / 60) * 0.45 + 2 - Math.min(...inkT.map((q) => q[2]));
       let ty = vy - ro - fs * 0.75;
@@ -328,9 +327,9 @@ export function createVarixWall() {
       const tTop = ty + Math.min(...inkT.map((q) => q[0]));
       return { Rl, rr, vy, lw, ro, len, tx, ty, top: Math.min(vy - Math.max(rr + lw / 2, ro + 2.5, rr + 3 + len + 1), tTop) };
     };
-    // The tension's T and the ΔP arrow rise above the varix at the top of the wall: the picture, its foot 6 px above the box's
-    // foot (or lower, into those 6 px, where that is all it needs), is the largest whose T and arrow ink at the largest varix
-    // and ΔP stays 1 px or more inside the canvas (a 12 px T had its crossbar cut). The ring is set once for the box, and only
+    // The wall stress's σ and the ΔP arrow rise above the varix at the top of the wall: the picture, its foot 6 px above the box's
+    // foot (or lower, into those 6 px, where that is all it needs), is the largest whose σ and arrow ink at the largest varix
+    // and ΔP stays 1 px or more inside the canvas (a 12 px T, the symbol before σ, had its crossbar cut). The ring is set once for the box, and only
     // the varix and its marks move with the beat.
     const gk = `${w}x${hh}x${fs}x${Math.ceil(v.w * 10)}`;
     if (geo.k !== gk) {
@@ -379,7 +378,7 @@ export function createVarixWall() {
     if (rp.fill < 2) { const q = rAt(cx + 1.5 - rL); if (q.fill > rp.fill) rp = q; }
     ctx.fillStyle = cssVar('--white');
     if (keep('r', rp.fill >= 1 && rp.dash >= 2)) put('r', f6, rp.x, ry, { fill: rp.fill, dash: rp.dash });
-    // Laplace's other two terms on the picture: the tension T along the wall (two arrows pulling apart round the top,
+    // Laplace's other two terms on the picture: the wall stress σ along the wall (two arrows pulling apart round the top,
     // heavier as the stress rises) and the wall thickness w across the rim (a bracket, in the faded label ink).
     const ink = cssVar('--text-3');
     ctx.strokeStyle = rim; ctx.fillStyle = rim; ctx.lineWidth = clamp(1.25 + 2.5 * clamp(v.ratio, 0, 1.2), 1.25, 4);
@@ -390,7 +389,7 @@ export function createVarixWall() {
       ctx.beginPath(); ctx.moveTo(ex + tx * hd * 0.2, ey + ty * hd * 0.2);
       ctx.lineTo(ex - tx * hd + ty * hd * 0.55, ey - ty * hd - tx * hd * 0.55); ctx.lineTo(ex - tx * hd - ty * hd * 0.55, ey - ty * hd + tx * hd * 0.55); ctx.fill();
     }
-    put('T', f6, tx, ty, { ring: Math.max(inkIn(inkT, tx, ty, cx, cy, R - 0.5), inkOut(inkT, tx, ty, cx, cy, R + 0.5)), top: ty + Math.min(...inkT.map((q) => q[0])) });
+    put('σ', f6, tx, ty, { ring: Math.max(inkIn(inkT, tx, ty, cx, cy, R - 0.5), inkOut(inkT, tx, ty, cx, cy, R + 0.5)), top: ty + Math.min(...inkT.map((q) => q[0])) });
     const aw = Math.PI * 0.62, bx = Math.cos(aw), by = Math.sin(aw);
     const i0 = rr - lw / 2, o0 = rr + lw / 2 + 3;
     ctx.strokeStyle = ink; ctx.lineWidth = 1;

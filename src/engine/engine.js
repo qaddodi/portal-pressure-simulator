@@ -7,7 +7,7 @@ import {
   heartFlow, fillShape, systoleShape, raWave, iapFromAscites, makeRng,
 } from './physiology.js?v=6fc3ec393a';
 import { defaultParams, DRUGS, PRESETS, deepMerge, MEAL_TONE, MEAL_BLUNT } from './scenario.js?v=d7d3ea5b70';
-import { detectEvents } from './events.js?v=747cdbed9a';
+import { detectEvents } from './events.js?v=4fb56a35e5';
 
 const KNEE = { artery: [1e9, 1], bed: [14, 10], portal: [14, 10], vein: [14, 6], hepvein: [10, 3], heart: [10, 4], liver: [9, 2], wedge: [9, 5], varix: [30, 10] };
 const KD = { vein: 0.03, diode: 0.03, collateral: 0.08 };
@@ -1194,7 +1194,7 @@ export class Engine {
     const r0 = this.varixTarget(site);
     // The vein swells with the pressure above its own resting level, not with a rise shared by the whole venous
     // bed: central venous pressure above its baseline (right heart failure, constriction) lifts every vein
-    // together and is not a varix, so it is taken off the distending pressure. The wall tension below still
+    // together and is not a varix, so it is taken off the distending pressure. The wall stress below still
     // uses the full transmural pressure.
     const ra = this.ni.RA, raRise = Math.max(0, P[ra] - (this.refP ? this.refP[ra] : this.Pbase[ra]));
     // A vein that has not yet remodeled into a varix is not distended into one either.

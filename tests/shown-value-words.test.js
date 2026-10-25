@@ -38,7 +38,7 @@ test('#13: a tile word judges the value it prints', () => {
 
 test('#13: the engine grades judge the printed diameter and volume (Endoscopy, Ascites tab, Patients readouts)', () => {
   assert.equal(varixGrade(2.46).label, 'Small');
-  assert.equal(varixGrade(4.96).code, 'F2');
+  assert.equal(varixGrade(4.96).label, 'Large');
   assert.equal(varixGrade(2.44).label, 'None');
   assert.equal(ascitesGrade(4960).grade, 3);
   assert.equal(ascitesGrade(4940).grade, 2);

@@ -2,8 +2,8 @@
 // Each factor that differs from the healthy state is reverted in isolation on a scratch engine;
 // its contribution is (current − reverted). Contributions are approximate: they need not sum exactly.
 
-import { Engine } from './engine.js?v=40556d7cd0';
-import { computeMetrics } from './metrics.js?v=1db0ad7ab0';
+import { Engine } from './engine.js?v=8fb6617747';
+import { computeMetrics } from './metrics.js?v=f681c36fd7';
 import { defaultParams, DRUGS } from './scenario.js?v=d7d3ea5b70';
 import { EDGES, dMinOf } from './topology.js?v=4044766e96';
 import { wallRead } from './wall-read.js?v=09449acd01';
@@ -167,7 +167,7 @@ export function formula(eng, id, m = null) {
   if (id === 'varix') {
     const v = eng.varix('VAR');
     const t = wallRead(v);
-    return `Laplace: T = ΔP·r / w = ${t.ptm} mmHg × ${t.r} mm / ${t.w} mm = ${t.index}  (rupture ≈ ${(v.T / v.ratio).toFixed(0)})`;
+    return `Laplace: σ = ΔP·r / w = ${t.ptm} mmHg × ${t.r} mm / ${t.w} mm = ${t.index}  (rupture ≈ ${(v.T / v.ratio).toFixed(0)})`;
   }
   if (id === 'ascites') {
     const f = eng.flows;

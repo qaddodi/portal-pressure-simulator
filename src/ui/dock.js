@@ -1,17 +1,17 @@
 // Readout strip (the four key readouts in the vitals dock, and the rest behind its chevron) and the
 // Instruments card (blueprint §9.1, §9.2).
 
-import { store, hiddenNow } from './store.js?v=67f4341802';
+import { store, hiddenNow } from './store.js?v=926dabfaef';
 import { EDGES } from '../engine/topology.js?v=4044766e96';
 import { h, fmt, svgIcon, closePopover, clamp, shownOf, isPhoneLayout, SIDEWAYS_MQ, swapFade, scrollBehavior, countTo, swapText, glideOnResize } from './util.js?v=d2c95a1b16';
 import { lobuleFlows } from './lobule-model.js?v=ff8433ada2';
-import { createProfile } from './charts.js?v=dde7572b82';
-import { createPressureTime } from './pressure-time.js?v=b9ae28aa5d';
-import { createHvpgProcedure } from './hvpg-proc.js?v=bdf42847fa';
+import { createProfile } from './charts.js?v=13e20afa56';
+import { createPressureTime } from './pressure-time.js?v=15d1037987';
+import { createHvpgProcedure } from './hvpg-proc.js?v=86b165d2a3';
 import { lazyPane, holdUntilLoaded } from './lazy-pane.js?v=4fd2dfa2e7';
 import { ownsSideways, pageGo } from './swipe.js?v=3ad619631e';
-import { createEndoscopy, createVarixWall, createAbdomen } from './instruments.js?v=fbcf3d909c';
-import { createReadoutsPane } from './readouts-pane.js?v=eef296fce8';
+import { createEndoscopy, createVarixWall, createAbdomen } from './instruments.js?v=e2687182bb';
+import { createReadoutsPane } from './readouts-pane.js?v=0d3d514251';
 import { frameFor } from './frame.js?v=19b3f2915c';
 import { vitalReading } from './vital-read.js?v=e902fb66cd';
 import { setShown } from './shown.js?v=82ef5e29ec';
@@ -54,8 +54,8 @@ export const TILES = [
   { id: 'varix', group: 'effects', k: 'Varix wall stress', ks: 'Varix', why: 'varix', hideKey: 'model', v: (m) => m.varix.ratioShown * 100, d: 0, u: '%', ux: ' of rupture', title: 'Modeled esophageal varix wall stress (educational index: pressure × radius ÷ wall thickness, not a measurable force), as a % of the stress at which the model ruptures.',
     scale: [0, 100], ticks: [40, 70, 90],
     st: (v, m) => (m.varix.ratioShown >= 0.9 ? 'critical' : m.varix.ratioShown >= 0.7 ? 'danger' : m.varix.ratioShown >= 0.4 || m.varix.d >= 5 ? 'caution' : 'ok'),
-    s: (v, m) => (m.varix.d < 2.5 ? 'None' : m.varix.redWale ? 'Red wale signs' : { F1: 'Small (F1)', F2: 'Large (F2)', F3: 'Coiled (F3)' }[m.varix.grade.code]),
-    ss: (v, m) => (m.varix.d < 2.5 ? 'None' : m.varix.redWale ? 'Red wale' : { F1: 'Small', F2: 'Large', F3: 'Coiled' }[m.varix.grade.code]) },
+    s: (v, m) => (!m.varix.present ? 'None' : m.varix.redWale ? 'Red wale signs' : m.varix.grade.label),
+    ss: (v, m) => (!m.varix.present ? 'None' : m.varix.redWale ? 'Red wale' : m.varix.grade.label) },
   { id: 'ascites', group: 'effects', pane: 'abdomen', k: 'Ascites', title: 'Free fluid in the abdomen. Grade 1 is seen on ultrasound only, grade 2 is moderate, grade 3 tense.', why: 'ascites', v: (m) => m.ascites.volume / 1000, d: 1, u: 'L',
     scale: [0, 8], ticks: [0.15, 1.5, 5],
     st: (v, m) => (m.ascites.grade === 0 ? 'ok' : m.ascites.grade === 1 ? 'caution' : 'danger'), s: (v, m) => (m.ascites.grade === 0 ? 'None' : `Grade ${m.ascites.grade}`) },
@@ -327,7 +327,7 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
     scope: ['chart', (f) => (hiddenNow()?.has('trueHVPG') ? `PV ${fmt(f.metrics.pv, 1)}` : `HVPG ${fmt(f.metrics.hvpg, 1)}`)],
     hvpg: ['catheter', (f) => { const st = store.get(), meas = st.lastHVPG; return !hiddenNow(st)?.has('trueHVPG') ? `${fmt(f.metrics.hvpg, 1)} mmHg` : meas ? `${fmt(meas.hvpg, 1)} mmHg` : 'Not measured'; }],
     doppler: ['doppler', (f) => `${fmt(Math.abs(f.metrics.pvVel), 0)} cm/s`],
-    endoscopy: ['endoscope', (f) => (f.metrics.varix.d < 2.5 ? 'No varices' : `Grade ${f.metrics.varix.grade.code}`)],
+    endoscopy: ['endoscope', (f) => { const vx = f.metrics.varix; return !vx.present ? 'No varices' : vx.grade.label === 'None' ? 'Banded varices' : `${vx.grade.label} varices`; }],
     abdomen: ['needle', (f) => `${fmt(f.metrics.ascites.volume / 1000, 1)} L ascites`],
     fibroscan: ['gauge', (f) => `${fmt(f.metrics.lsm, 0)} kPa`],
     readouts: ['grid', (f) => readouts.summary(f)],

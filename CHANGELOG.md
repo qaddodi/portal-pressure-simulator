@@ -2,6 +2,19 @@
 
 ## October 2026
 
+- **Varices are graded Small or Large by size alone, with no F-codes; the wall tool says "wall stress" and uses σ.** (Mohammad, 25 Oct, "yes to
+  both" to the varix and insufflation recommendations; deck rebuild plan, A1.) The scope's Grade row, the Tests card tile, the dock chip,
+  the screen-reader summary and the inspector now read None (under 2.5 mm), Small (under 5 mm) or Large (5 mm or more). F1, F2, F3 and
+  "Large, coil-shaped" are gone from Present and Patients alike: the model reads size only, and the codes also mean shape and red signs.
+  The scope still draws a large varix beaded; that is its picture, not a grade. "Are there varices?" is one flag on the metrics
+  (`varix.present`, `gastricVarix.present`: the diameter reaches 2.5 mm, or banded columns are still on the wall) that the figure, the
+  circuit, the scope, the Tests card, the inspector's Grade stat and the screen-reader summary all read; the dock chip and the stat used
+  to cut at 2.5 and 2.4 mm on their own. After banding shrinks a varix under the cut-off, the dock chip now says "Banded varices" and no
+  longer "No varices". Laplace's ΔP · r / w is "wall stress" everywhere in the app's own words (wall tool, inspector, deck lines and
+  notes) with σ as its symbol; "wall tension" stays only where a sentence quotes AASLD. The scope's Stigmata row says the red wale rule is
+  the model's (70 % of the tear point). Code and unit tests only; nobody has looked on screen. `src/engine/metrics.js`,
+  `src/ui/store.js`, `src/ui/instruments.js`, `src/ui/dock.js`, `src/ui/a11y.js`, `src/ui/actions.js`, `src/ui/inspector.js`,
+  `tests/varix-grade.test.js`.
 - **"Blood into the liver" is one centred bar with the Healthy line over it.** (Mohammad, 25 Oct: "The blood into the liver card sucks. Need
   to think of a way to center it. It's just so off center it's bad", then his pick of three drawn options.) The two bars had a 54 px gutter
   for "Healthy" and "Now" at their left, so they sat about 27 px right of the card's centre; on the opening slide the Now bar faded out but

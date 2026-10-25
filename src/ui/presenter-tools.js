@@ -11,7 +11,7 @@
 //   tool: { kind: 'trace', range: 'talk', since: '<slide id>' }
 //                                                   the talk trace from that slide on, its days counted from it (presenter.js chainTo)
 //   tool: { kind: 'abdomen' }                       the belly with its ascites and collaterals
-//   tool: { kind: 'wall' }                          the varix in cross-section, Laplace's T, r and w (the scope's Wall mechanics)
+//   tool: { kind: 'wall' }                          the varix in cross-section, Laplace's σ, r and w (the scope's Wall mechanics)
 //   tool: { kind: 'flowtime' }                      portal pressure and portal flow around a meal, the slide's time-lapse on a
 //                                                   teaching clock in minutes (flow-time.js), drawn as it plays
 //   tool: { kind: 'flowtime', clock: 'days', lines: [lower, upper] }
@@ -24,17 +24,17 @@
 // the tool sits above the tiles. Each instrument is made once per presentation and kept, so a trace that keeps recording
 // (Doppler) carries on from slide to slide while the patient stays the same.
 
-import { store } from './store.js?v=67f4341802';
+import { store } from './store.js?v=926dabfaef';
 import { h } from './util.js?v=d2c95a1b16';
 import { EDGES } from '../engine/topology.js?v=4044766e96';
-import { createDoppler } from './doppler.js?v=4a8a3a9e66';
-import { createFibroScan } from './fibroscan.js?v=2af61823c8';
-import { createPressureTime } from './pressure-time.js?v=b9ae28aa5d';
+import { createDoppler } from './doppler.js?v=f692112c34';
+import { createFibroScan } from './fibroscan.js?v=ba9a2d41a2';
+import { createPressureTime } from './pressure-time.js?v=15d1037987';
 import { createFlowTime } from './flow-time.js?v=cb89e13e11';
-import { createEndoscopy, createAbdomen, createVarixWall } from './instruments.js?v=fbcf3d909c';
+import { createEndoscopy, createAbdomen, createVarixWall } from './instruments.js?v=e2687182bb';
 import { frameFor } from './frame.js?v=19b3f2915c';
 import { talkTrace } from './talk-trace.js?v=690f63b106';
-import { EXT, guard, safe } from './slide-ext.js?v=5deaf68f66';
+import { EXT, guard, safe } from './slide-ext.js?v=f3f4215a89';
 const nextFrame = frameFor('presenter-tools');
 
 const VESSEL = { PV_TRUNK: 'main portal vein', PVH_R: 'right portal vein', PVH_L: 'left portal vein', SV_CONF: 'splenic vein', SV_MID: 'splenic vein', V_SPL: 'splenic vein, at the hilum',

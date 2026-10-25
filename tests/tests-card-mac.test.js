@@ -39,12 +39,12 @@ test('the Tests card tiles share one style: names in sentence case, left aligned
   assert.match(tail, /\.endo-read > div \{ align-items: flex-start;[^}]*text-align: left;/);
 });
 
-test('Readouts is three to a row (two in a narrow card) with no footnote; Scope has no F1-F3 footnote', () => {
+test('Readouts is three to a row (two in a narrow card) with no footnote; Scope has no F-code footnote', () => {
   assert.match(css, /\.rp-tiles \{ grid-template-columns: repeat\(3, minmax\(0, 1fr\)\); \}/);
   assert.match(css, /@container \(max-width: 399px\) \{ \.rp-tiles \{ grid-template-columns: repeat\(2, minmax\(0, 1fr\)\); \}/);
   assert.doesNotMatch(readouts, /Each bar shows/);
   assert.doesNotMatch(instruments, /Drawn from the model/);
-  assert.match(instruments, /class: 'endo-g', title: 'F1 small and straight, F2 enlarged and tortuous, F3 large and beaded\.'/);
+  assert.match(instruments, /class: 'endo-g', title: 'Small, under 5 mm; Large, 5 mm or more\.'/);
 });
 
 test('Ascites: serum albumin uses the drain\'s stepper, and the diuretic line is plain', () => {

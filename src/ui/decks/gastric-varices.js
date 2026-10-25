@@ -35,7 +35,7 @@ export const GASTRIC = {
       cite: 'AASLD 2024',
       kicker: 'Where they lie', site: 'sin', title: 'Fundal varices drain through a shunt',
       line: 'Most fundal varices drain through a gastrorenal shunt into the [left renal vein](lrv). They grow and bleed at a lower portal pressure than esophageal varices. Colored by flow, the shunt takes much of the portal blood; the liver gets {liver} of normal.',
-      notes: 'The short and posterior gastric veins feed the fundal varices, and a spontaneous gastrorenal shunt, often by way of the left inferior phrenic vein, drains them into the left renal vein. AASLD notes that gastric varices form and bleed at a lower portal pressure than esophageal varices, and that this system competes with the portal vein for blood. The wide varix has a high wall tension even at a modest gradient. A large shunt also takes portal blood away from the liver, which raises the risk of encephalopathy. The shunt is the route BRTO uses, later in this talk.',
+      notes: 'The short and posterior gastric veins feed the fundal varices, and a spontaneous gastrorenal shunt, often by way of the left inferior phrenic vein, drains them into the left renal vein. AASLD notes that gastric varices form and bleed at a lower portal pressure than esophageal varices, and that this system competes with the portal vein for blood. The wide varix has a high wall stress even at a modest gradient. A large shunt also takes portal blood away from the liver, which raises the risk of encephalopathy. The shunt is the route BRTO uses, later in this talk.',
       ask: ['Into which vein does a gastrorenal shunt drain?', 'The left renal vein.'],
     },
     {

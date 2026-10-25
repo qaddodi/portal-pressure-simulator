@@ -21,7 +21,7 @@ export const ENDOSCOPY = {
     ['Why does banding need a beta-blocker beside it?', 'Banding closes the varices but leaves the portal pressure unchanged, so new varices form.'],
     ['After transfusion to a hemoglobin of 11 g/dL, the portal pressure rises and the varix bleeds again. Which lever moved?', 'Volume: over-transfusion fills the portal circulation and raises its pressure. Transfuse from 7 g/dL to a target of 7 to 8.'],
   ],
-  summary: 'One patient seen through the scope: screening, growing and large varices, wall tension, a bleed, transfusion, octreotide and band ligation.',
+  summary: 'One patient seen through the scope: screening, growing and large varices, wall stress, a bleed, transfusion, octreotide and band ligation.',
   slides: [
     {
       id: 'screen', preset: 'cirr-comp', cam: 'gej', labels: ['VAR', 'LGV'], tool: { kind: 'scope', open: true },
@@ -46,7 +46,7 @@ export const ENDOSCOPY = {
       data: 'tiles', tiles: ['hvpg'], key: ['hvpg'],
       compare: [{ label: 'CSPH', preset: 'csph' }, { label: 'Decompensated', own: true }],
       kicker: 'Endoscopy', site: 'sin', title: 'Size and red signs predict the first bleed',
-      line: 'Varices over 5 mm bulge into the lumen and do not flatten with air; this one is {varix}. Red wale marks show where the wall has thinned.',
+      line: 'Varices over 5 mm bulge into the lumen and do not flatten with air; this one is {varix}. In the model, red wale marks appear as the wall stress nears the tear point.',
       notes: 'The size, the red signs (red wale marks, cherry-red spots) and the Child–Pugh class predict the first bleed. Large varices, or small ones with red signs or in Child–Pugh C, need prophylaxis: a non-selective beta-blocker (carvedilol preferred) or band ligation. With ascites and varices, Baveno VIII recommends a beta-blocker, carvedilol preferred, to prevent a first bleed and to lower the risk of ascites complications, reducing or stopping it if the systolic pressure stays below 90 mmHg, the mean below 65 mmHg, or kidney injury develops.',
       ask: ['Name two endoscopic findings that predict a first bleed.', 'Size over 5 mm and red signs (red wale marks or cherry-red spots).'],
     },
@@ -54,10 +54,10 @@ export const ENDOSCOPY = {
       id: 'tension', terms: ['varix'], cam: [745, 170, 875, 335], kMax: 4.5, labels: ['VAR'], tool: { kind: 'wall', open: true },
       data: 'tiles', tiles: ['varix', 'pv'], key: ['varix'],
       kicker: 'Why varices burst', site: 'sin', title: 'Large, thin-walled varices are the ones that bleed',
-      eq: [mi('T') + mo('=') + frac('<mi mathvariant="normal">Δ</mi><mi>P</mi>' + mo('·') + mi('r'), mi('w')), 'T wall tension · ΔP pressure in the varix minus the lumen · r radius · w wall thickness'],
-      line: 'Tension rises with the pressure across the wall and the radius, and falls with wall thickness. This varix is {varix} across.',
-      notes: 'Laplace\'s law explains why size and red signs matter: a wide varix with a thin wall carries much more tension at the same pressure. Varices rarely bleed below an HVPG of about 12 mmHg, and the risk climbs steeply above it. Lowering the pressure (beta-blockers) or the radius (banding) lowers the tension.',
-      ask: ['Using Laplace\'s law, name two ways to lower the tension in a varix wall.', 'Lower the pressure in it, or its radius.'],
+      eq: [mi('σ') + mo('=') + frac('<mi mathvariant="normal">Δ</mi><mi>P</mi>' + mo('·') + mi('r'), mi('w')), 'σ wall stress · ΔP pressure in the varix minus the lumen · r radius · w wall thickness'],
+      line: 'Wall stress rises with the pressure across the wall and the radius, and falls with wall thickness. This varix is {varix} across.',
+      notes: 'Laplace\'s law explains why size and red signs matter: a wide varix with a thin wall carries much more stress at the same pressure. Varices rarely bleed below an HVPG of about 12 mmHg, and the risk climbs steeply above it. Lowering the pressure (beta-blockers) or the radius (banding) lowers the stress.',
+      ask: ['Using Laplace\'s law, name two ways to lower the stress in a varix wall.', 'Lower the pressure in it, or its radius.'],
     },
     {
       id: 'bleed', params: {}, action: [{ kind: 'hemorrhage', mL: 1000 }], cam: 'feeder', labels: ['VAR', 'CONF'], ripple: true,

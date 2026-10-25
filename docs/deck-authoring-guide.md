@@ -411,7 +411,7 @@ Inside the liver (the view's own label takes the colour with a soft glow; use wi
 | `{ kind: 'trace', range: 'talk' }` | portal, wedged, free pressure and HVPG at every slide so far (one point per state) |
 | `{ kind: 'trace', range: 'beats' }` | live pressure trace, beat by beat |
 | `{ kind: 'abdomen' }` | the belly with its ascites and collaterals |
-| `{ kind: 'wall' }` | the varix in cross-section: Laplace's T, r, w |
+| `{ kind: 'wall' }` | the varix in cross-section: Laplace's σ (wall stress), r, w |
 | `{ kind: 'flowtime' }` | portal pressure and portal flow around a meal, drawn as the slide's time-lapse plays (clock in minutes) |
 | `{ kind: 'flowtime', clock: 'days', lines: [lower, upper] }` | the same chart over a disease time-lapse: two fingerprint keys from `pv pvFlow sin asc hvpg varix`, one point a model day |
 | `style: 'milestones'` on `trace` (`range: 'talk'`) | opt-in: the HVPG line alone in its cut-off colours, with the slides that set `milestone: 'Dx'` (a short name: `'Carvedilol'`, `'TIPS'`, `'Clot'`) named over it |

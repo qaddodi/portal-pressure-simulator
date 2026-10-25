@@ -7,8 +7,8 @@ import { pressureColor, deltaColor, dropColor, flowColor, heatColor, velColorOf,
 import { forkJoins, sideEndScale } from './fork-joins.js?v=20a032142f';
 import { nodeEnds, nodeDrawn, dotRadius, bareDots } from './circuit-nodes.js?v=1040ba0ec4';
 import { STATION_VESSEL, meanVel, velNormal, judgeFlow } from './velNormal.js?v=97920ddf3f';
-import { store, updateParams, varicesPresent, varixGrowth, shownVel } from './store.js?v=67f4341802';
-import { fibroReading } from './clock.js?v=6a1f89a5c2';
+import { store, updateParams, varicesPresent, varixGrowth, shownVel } from './store.js?v=926dabfaef';
+import { fibroReading } from './clock.js?v=5151312569';
 import { s, h, fmt, fmtFlow, fp, clamp, lerp, toast, systemEdge, bloodColors, restBox, translateRest, settledBox, putText, UPRIGHT_MQ } from './util.js?v=d2c95a1b16';
 import { riseCentre } from './rise-path.js?v=c039cb7b49';
 import { sinceSource } from './since-ref.js?v=ef1a818c75';
@@ -2157,7 +2157,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const lzAnchor = document.createComment('lobule');
   wrap.append(lzAnchor);
   // (The code is fetched as soon as the figure is shown; the layer is built a moment later, when the page is quiet, or at once for a dive.)
-  const lobuleCode = () => (lzCode ||= import('./lobule-zoom.js?v=bd7e6e6753').catch((err) => { lzCode = null; throw err; }));
+  const lobuleCode = () => (lzCode ||= import('./lobule-zoom.js?v=19f3cbf3cb').catch((err) => { lzCode = null; throw err; }));
   function lobuleReady() {
     return (lzLoad ||= lobuleCode().then(({ createLobuleZoom }) => {
       lz = createLobuleZoom({ host: wrap, styles: wrapCS, before: lzAnchor });

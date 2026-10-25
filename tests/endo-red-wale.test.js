@@ -1,4 +1,4 @@
-// The scope draws the red wale marks the model reports: on a varix of 5 mm or more (F2, Large) they are at full strength,
+// The scope draws the red wale marks the model reports: on a varix of 5 mm or more (Large) they are at full strength,
 // whatever the size, in both the WebGL and the 2D drawings (pregnancy deck, 17 Oct: a 5.5 mm varix with red wale signs
 // showed them at a third of their strength).
 import { test } from 'node:test';

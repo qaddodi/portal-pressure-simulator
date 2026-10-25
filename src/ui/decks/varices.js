@@ -41,9 +41,9 @@ export const VARICES = {
     {
       id: 'burst', terms: ['varix'], cam: [690, -10, 890, 170], kMax: 4.5, labels: ['VAR'], tool: { kind: 'wall' }, data: 'tiles', tiles: ['varix', 'hvpg'], key: ['hvpg'],
       kicker: 'Varices', site: 'sin', title: 'Bleeding risk rises steeply from an HVPG of about 12',
-      eq: [mi('T') + mo('=') + frac(mi('P') + mo('⋅') + mi('r'), mi('w')), 'Laplace: T wall tension · P pressure across the varix wall · r radius · w wall thickness'],
+      eq: [mi('σ') + mo('=') + frac(mi('P') + mo('⋅') + mi('r'), mi('w')), 'Laplace: σ wall stress · P pressure across the varix wall · r radius · w wall thickness'],
       line: 'Large, thin-walled varices under high pressure are the ones that rupture. This varix measures {varix}.',
-      notes: 'By Laplace\'s law the tension in a varix wall rises with the pressure across it and its radius, and falls with the thickness of its wall. Varices rarely bleed below an HVPG of 12 mmHg. Large size, red wale marks and poor liver function (Child–Pugh B or C) predict bleeding: about 10 to 15% of patients with varices bleed each year, and a bleed carries a 6-week mortality of about 15 to 20%. Large varices are treated with a non-selective beta-blocker or banding.',
+      notes: 'By Laplace\'s law the stress in a varix wall rises with the pressure across it and its radius, and falls with the thickness of its wall. Varices rarely bleed below an HVPG of 12 mmHg. Large size, red wale marks and poor liver function (Child–Pugh B or C) predict bleeding: about 10 to 15% of patients with varices bleed each year, and a bleed carries a 6-week mortality of about 15 to 20%. Large varices are treated with a non-selective beta-blocker or banding.',
       ask: ['Two patients have 6 mm varices: one is Child–Pugh A without red signs, the other Child–Pugh C with red wale marks. Who is more likely to bleed, and why?', 'The Child–Pugh C patient: red wale marks show a thinner wall, and poor liver function goes with a higher pressure and worse clotting.'],
     },
     {

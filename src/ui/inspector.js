@@ -3,7 +3,7 @@
 import { EDGES, NODES, dMinOf } from '../engine/topology.js?v=4044766e96';
 import { dopplerVel } from './velNormal.js?v=97920ddf3f';
 import { DRUGS, PREGNANCY_INFO } from '../engine/scenario.js?v=d7d3ea5b70';
-import { store, updateParams, hiddenNow } from './store.js?v=67f4341802';
+import { store, updateParams, hiddenNow } from './store.js?v=926dabfaef';
 import { h, fmt, fmtFlow, fp, ff, clamp, tooltipFor, infoButton, icon, svgIcon, paintRange } from './util.js?v=d2c95a1b16';
 import { liveBalance } from './balance-hold.js?v=1792704e7a';
 import { frameFor, cancelFrame } from './frame.js?v=19b3f2915c';
@@ -62,8 +62,8 @@ export const CONTROLS = {
   pulsatile: { type: 'toggle', key: 'pulsatile', label: 'Pulsatile (beat-to-beat)', ...prop('pulsatile'), info: 'Adds the right-atrial waveform (a, x, v, y). Needed for Doppler pulsatility.' },
   respiration: { type: 'toggle', key: 'respiration', label: 'Respiration', ...prop('respiration') },
   respDepth: { type: 'slider', key: 'respDepth', label: 'Breath depth', min: 0, max: 3, step: 0.1, ...prop('respDepth'), format: mult, def: 1 },
-  bleeding: { type: 'toggle', key: 'bleeding', label: 'Variceal bleeding', ...prop('bleeding'), info: 'Off: varices grow but never rupture on their own. On: a varix can tear once its wall tension passes the critical value.' },
-  detRupture: { type: 'toggle', key: 'deterministicRupture', label: 'Deterministic rupture', ...prop('deterministicRupture'), info: 'Rupture exactly when wall tension exceeds the critical value, instead of a random hazard.' },
+  bleeding: { type: 'toggle', key: 'bleeding', label: 'Variceal bleeding', ...prop('bleeding'), info: 'Off: varices grow but never rupture on their own. On: a varix can tear once its wall stress passes the critical value.' },
+  detRupture: { type: 'toggle', key: 'deterministicRupture', label: 'Deterministic rupture', ...prop('deterministicRupture'), info: 'Rupture exactly when wall stress exceeds the critical value, instead of a random hazard.' },
 };
 for (const k of Object.keys(DRUGS)) CONTROLS['drug:' + k] = { type: 'drug', key: 'drugs', drug: k };
 
@@ -232,8 +232,8 @@ export function createInspector(root, { onWhy, onAction, onOpenTab, onScenarios,
   const ORGAN_ABOUT = {
     liver: ['Organ', 'Liver', 'Blood crosses three resistances in series: portal venules (presinusoidal), sinusoids and central veins (postsinusoidal). Cirrhosis raises sinusoidal resistance; schistosomiasis blocks the portal tracts; sinusoidal obstruction syndrome the central veins. The hepatic artery buffers falls in portal flow.', [['Sinusoids (R)', (f) => fp((f.Pf || f.P)[NI.SIN_R]).join(' ')], ['HVPG', (f) => (hiddenNow()?.has('trueHVPG') ? 'Not measured' : `${fmt(f.metrics.hvpg, 1)} mmHg`)], ['Liver perfusion', (f) => `${Math.round(f.metrics.liverPerfPct)} %`], ['Hepatic artery flow', (f) => `${fmtFlow(f.metrics.arterialIn)} L/min`]], 'hvpg'],
     heart: ['Organ', 'Right heart', 'The right atrium is where both cavae end. Its pressure is the floor of the whole venous system: a failing right ventricle or tricuspid regurgitation raises every pressure upstream, including the hepatic veins, so the HVPG stays normal.', [['Right atrium', (f) => fp((f.Pf || f.P)[NI.RA]).join(' ')], ['Cardiac output', (f) => `${fmtFlow(f.metrics.co)} L/min`], ['MAP', (f) => `${fmt(f.metrics.map, 0)} mmHg`], ['Heart rate', (f) => `${fmt(f.metrics.hr, 0)} /min`]], 'ra'],
-    varices: ['Collateral bed', 'Esophageal varices', 'Submucosal veins of the lower esophagus fed by the left gastric (coronary) vein and draining to the azygos. Wall tension follows Laplace: T = ΔP · r / w, so large thin-walled varices rupture.', [['Pressure', (f) => fp((f.Pf || f.P)[NI.VAR]).join(' ')], ['Diameter', (f) => `${fmt(f.metrics.varix.d, 1)} mm`], ['Wall tension', (f) => `${Math.round(f.metrics.varix.ratioShown * 100)} % of rupture`], ['Grade', (f) => f.metrics.varix.grade.code]], 'varix'],
-    gastric: ['Collateral bed', 'Fundal varices', 'Fed by the short and posterior gastric veins, often draining through a gastrorenal shunt to the left renal vein. They bleed at lower pressures than esophageal varices; BRTO occludes the shunt.', [['Pressure', (f) => fp((f.Pf || f.P)[NI.GV]).join(' ')], ['Diameter', (f) => `${fmt(f.metrics.gastricVarix.d, 1)} mm`], ['Wall tension', (f) => `${Math.round(f.metrics.gastricVarix.ratioShown * 100)} % of rupture`]], 'varix'],
+    varices: ['Collateral bed', 'Esophageal varices', 'Submucosal veins of the lower esophagus fed by the left gastric (coronary) vein and draining to the azygos. Wall stress follows Laplace: σ = ΔP · r / w, so large thin-walled varices rupture.', [['Pressure', (f) => fp((f.Pf || f.P)[NI.VAR]).join(' ')], ['Diameter', (f) => `${fmt(f.metrics.varix.d, 1)} mm`], ['Wall stress', (f) => `${Math.round(f.metrics.varix.ratioShown * 100)} % of rupture`], ['Grade', (f) => f.metrics.varix.grade.label]], 'varix'],
+    gastric: ['Collateral bed', 'Fundal varices', 'Fed by the short and posterior gastric veins, often draining through a gastrorenal shunt to the left renal vein. They bleed at lower pressures than esophageal varices; BRTO occludes the shunt.', [['Pressure', (f) => fp((f.Pf || f.P)[NI.GV]).join(' ')], ['Diameter', (f) => `${fmt(f.metrics.gastricVarix.d, 1)} mm`], ['Wall stress', (f) => `${Math.round(f.metrics.gastricVarix.ratioShown * 100)} % of rupture`]], 'varix'],
     spleen: ['Organ', 'Spleen', 'Portal hypertension congests and enlarges the spleen, which sequesters platelets. Splenic vein thrombosis isolates it: sinistral portal hypertension with fundal varices.', [['Length', (f) => `${fmt(f.metrics.spleen.length, 1)} cm`], ['Platelets (illustrative)', (f) => `${(Math.round(f.metrics.spleen.platelets) * 1000).toLocaleString('en-US')}/µL`]], 'spleen'],
     abdomen: ['Peritoneum', 'Abdomen & ascites', 'Ascites forms when filtration from the sinusoids and gut capillaries outpaces lymph drainage (Starling). Sinusoidal pressure and albumin decide the balance; intra-abdominal pressure rises as it accumulates.', [['Ascites', (f) => `${fmt(f.metrics.ascites.volume / 1000, 2)} L`], ['Formation', (f) => `${fmt(liveBalance(f.metrics.ascites.ratePerDay), 0)} mL/day`], ['IAP', (f) => `${fmt(f.metrics.ascites.iap, 1)} mmHg`], ['Hepatic lymph', (f) => `${fmt(f.metrics.ascites.hepLymph, 1)} mL/min`]], 'ascites'],
   };
@@ -250,7 +250,7 @@ export function createInspector(root, { onWhy, onAction, onOpenTab, onScenarios,
     const txt = {
       PV_TRUNK: 'Carries about 75 % of liver blood flow (≈ 1.1 L/min). Normal Doppler velocity 15–40 cm/s, toward the liver (the mean across the lumen is about 0.57 of that). The portal system has no valves: flow goes wherever the gradient points.',
       C1a: 'The left gastric (coronary) vein feeds the esophageal submucosal plexus: the source of esophageal varices.',
-      C1b: 'Esophageal varices drain to the azygos vein and SVC. Modeled wall stress follows ΔP · r / w (an educational index, not a measured tension).',
+      C1b: 'Esophageal varices drain to the azygos vein and SVC. Modeled wall stress follows ΔP · r / w (an educational index, not a measured stress).',
       C2: 'Short and posterior gastric veins connect the splenic vein to the fundus: the route of isolated gastric varices in splenic vein thrombosis.',
       C3: 'The recanalized paraumbilical vein runs from the left portal vein along the falciform ligament to the umbilicus (caput medusae, Cruveilhier–Baumgarten murmur).',
       C4: 'Superior rectal (portal) ↔ middle and inferior rectal (systemic) veins: anorectal varices, not hemorrhoids.',

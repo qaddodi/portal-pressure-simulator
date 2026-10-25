@@ -13,7 +13,7 @@
 // Enter jumps, G the slide list, Home End, B or . black screen, F full screen, ? the Guide, Esc. (The Guide lists them: PRESENT_KEYS in
 // main.js.) On a touch screen a sideways swipe anywhere on the slide goes on or back.
 
-import { store, replaceParams } from './store.js?v=67f4341802';
+import { store, replaceParams } from './store.js?v=926dabfaef';
 import { download } from './download.js?v=3564e5bf8c';
 import { h, toast, svgIcon, icon, fmt, clamp, openModal, closeModal, isModalOpen, restBox, paintRange, cssVar, swapText, STACK_MQ, SHORT_SIDE_MQ, TABLET_UP_MQ } from './util.js?v=d2c95a1b16';
 import { titleParts } from './title-units.js?v=c8d5ce1f26';
@@ -22,11 +22,11 @@ import { sinusoidSupported } from './gl-support.js?v=94ad2a7ff1';
 import { SCALE_NAME, offeredScales, scaleView, pickedScale } from './scale-switch.js?v=1b0e3acd65';
 import { DISEASE_SRC, diseasePieces } from './diseases.js?v=fb8a5451c3';
 import { nb, listCase, plateletText } from './glue.js?v=5a0f63226b';
-import { DECKS, REGIONS, LEVELS, TOPICS, withOverview, siteTag, SITE_TAGS } from './decks.js?v=b306f085e8';
+import { DECKS, REGIONS, LEVELS, TOPICS, withOverview, siteTag, SITE_TAGS } from './decks.js?v=7af8b5f33d';
 import { fingerprintOf } from '../engine/fingerprint.js?v=8faea80b59';
-import { createHvpgMonitor } from './hvpg-proc.js?v=bdf42847fa';
-import { createTools } from './presenter-tools.js?v=e756d28790';
-import { openHandout } from './handout.js?v=a2592fc4a9';
+import { createHvpgMonitor } from './hvpg-proc.js?v=86b165d2a3';
+import { createTools } from './presenter-tools.js?v=acb1e00158';
+import { openHandout } from './handout.js?v=a72224c24e';
 import { noteResume, resumeFor } from './resume.js?v=f086f80ee8';
 import { parseDeckSource, checkDeck } from './deck-source.js?v=8395c650cd';
 import { NO_ASC, TILE, tileOf, SCALE, bandsOf, rateOf, COLS, CUT, PRESS, fpv, dirAbs, dirRel, rateAbs, effOf, rateShown, tileShown, tipsGoal, liveSettled, shownSig } from './table-marks.js?v=2201eda74a';
@@ -34,7 +34,7 @@ import { frameFor, cancelFrame } from './frame.js?v=19b3f2915c';
 import { createFigureKey } from './figure-key.js?v=8bbf7a41ed';
 import { traceWhen } from './trace-labels.js?v=fc916a95c6';
 import { flowCss, heatCss, dropCss, gradientCss, oxygenCss } from './colormap.js?v=cdcf6a2f55';
-import { EXT, expandIds, stepExtra, markLabel, figureHooks, safe } from './slide-ext.js?v=5deaf68f66';
+import { EXT, expandIds, stepExtra, markLabel, figureHooks, safe } from './slide-ext.js?v=f3f4215a89';
 import { clotWords } from './callout-math.js?v=75e1ee4dc2';
 import { citeText, focusOf, oneLadder } from './teach-extras.js?v=5f5248f5a7';
 import { createProfileTool, createProfileStrip, pillReadings } from './tool-profile.js?v=9240b975c9';
@@ -839,7 +839,7 @@ function makeCalc() {
   };
   const ready = (async () => {
     try {
-      const w = new Worker(new URL('../worker.js?v=2a250df7d9', import.meta.url), { type: 'module' });
+      const w = new Worker(new URL('../worker.js?v=57b0a04208', import.meta.url), { type: 'module' });
       await new Promise((res, rej) => {
         const t = setTimeout(() => rej(new Error('worker timeout')), 15000);   // (long: a slow load still gets the worker; host.js)
         w.onmessage = (e) => { if (e.data?.type === 'presets') { clearTimeout(t); res(); } };
@@ -852,7 +852,7 @@ function makeCalc() {
       post = (m) => w.postMessage(m); kill = () => w.terminate();
     } catch {
       try {
-        const { createCore } = await import('../worker-core.js?v=6bb336c41d');
+        const { createCore } = await import('../worker-core.js?v=85e17524cc');
         const core = createCore((m) => setTimeout(() => onMsg(m), 0));
         core.handle({ type: 'visibility', visible: false }); core.handle({ type: 'run', running: false });
         post = (m) => core.handle(structuredClone(m)); kill = () => core.dispose();
