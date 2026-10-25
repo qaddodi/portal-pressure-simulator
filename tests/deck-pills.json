@@ -949,19 +949,15 @@
   "portal vein",
   "{pv}"
  ],
- "hyperdynamic/propranolol": [
+ "hyperdynamic/full": [
+  "portal vein",
+  "{bv}",
+  "{pv}"
+ ],
+ "hyperdynamic/loss": [
+  "{map}",
   "{hr}",
-  "{co}",
-  "{hvpg}"
- ],
- "hyperdynamic/carvedilol": [
-  "{hvpg}",
-  "{map}",
-  "{<65 mmHg}"
- ],
- "hyperdynamic/terli": [
-  "{map}",
-  "{hvpg}"
+  "{pv}"
  ],
  "choose-treatment/q1": [
   "{ppg}"
@@ -996,32 +992,6 @@
  "choose-treatment/a5": [
   "{ppg}",
   "{asc}"
- ],
- "blood-volume/full": [
-  "portal vein",
-  "{bv}",
-  "{pv}"
- ],
- "blood-volume/loss": [
-  "{map}",
-  "{hr}",
-  "{pv}"
- ],
- "blood-volume/reserve": [
-  "{map}",
-  "{hr}"
- ],
- "blood-volume/units": [
-  "{map}",
-  "{hr}",
-  "{pv}"
- ],
- "blood-volume/over": [
-  "{bv}",
-  "{pv}"
- ],
- "blood-volume/summary": [
-  "(a value)"
  ],
  "first-visit/a1": [
   "{lsm}",

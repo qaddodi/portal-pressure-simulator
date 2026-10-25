@@ -2,6 +2,17 @@
 
 ## October 2026
 
+- **"The circulation in cirrhosis": Hyperdynamic takes in Blood volume (8 slides).** (Mohammad, 25 Oct, "Go"; deck rebuild plan, C2.) The talk keeps
+  its id `hyperdynamic` and its Foundations place and is now `rest`, `dilate`, `resist`, `volume`, `forward`, then the old Blood volume's `full` (its case
+  card, "Losing blood") and `loss` (its question card, "What will a liter lost do to the portal pressure?"), then the summary. One vitals monitor (heart
+  rate, mean arterial pressure and cardiac output, with the EKG strip) carries the whole talk, with one or two tiles under it: blood volume and portal vein
+  pressure on `volume` and `forward`, the portal vein pressure on `full` and `loss`, whose ring marks the state before the liter. The flow lens is the second lens, on
+  `dilate`, `resist` and `volume`; the rest stay on pressure. The three drug slides (propranolol, carvedilol, terlipressin) went, since Lowering portal
+  pressure owns them, and so did the transfusion slides (reserve, units, over), which the bleed talk owns. The quick check and the summary table follow the
+  new slides; small print (`cite`, the volume caveat) moved to the notes. `?script=blood-volume` opens this talk at slide 1 (`DECK_ALIAS`, and
+  its share page). Figures: `full` and `loss` moved to `brand/handout/hyperdynamic/`; the rest of Blood volume and the drug slides' were removed; every slide's
+  is stale until the redraw. Code and unit tests only; nobody has looked on screen. `src/ui/decks/hyperdynamic.js`, `src/ui/decks.js`,
+  `tests/deck-adopted.js`, `tests/deck-pills.json`, `tests/question-card.test.js`.
 - **Acute variceal bleeding takes in "When the bleeding will not stop" (13 slides).** (Mohammad, 25 Oct, "Go"; deck rebuild plan, C1. The merged talk is
   Resuscitating an acute variceal bleed, Treatment and core.) After the pre-emptive TIPS comes a fifth section, "If it does not stop": a second case
   whose bleed octreotide and bands controlled comes back by day 5 (`controlled`, `rebleed`, `failure`, `bridge`, `rescue`). Treatment failure and
