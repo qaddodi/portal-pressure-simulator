@@ -29,7 +29,7 @@
 //                            ladderFromLabel) shows that profile instead (teach-extras.js oneLadder)
 //   tool                     an instrument in the data card, reading the live model (presenter-tools.js): { kind: 'doppler',
 //                            vessel, gate?, points? } (gate: on a stent, the third it samples, 'proximal' | 'mid' (default) | 'distal' | 'site';
-//                            points: true calls out the stent's velocity at all three points on the figure, the sampled one in green), { kind: 'scope' }, { kind: 'fibroscan' }, { kind: 'trace', range: 'talk' | 'beats' },
+//                            points: true calls out the stent's velocity at all three points on the figure, the sampled one in green), { kind: 'scope', air?, red?, readings? } (air: mmHg of air in the lumen, 0 to 20, seen view-only; red: true | false, the red wale marks; readings: true, three pressure rows), { kind: 'fibroscan' }, { kind: 'trace', range: 'talk' | 'beats' },
 //                            { kind: 'abdomen' }, { kind: 'wall' } (the varix in cross-section), { kind: 'spleen' } (ultrasound, calipers on the length),
 //                            { kind: 'vitals', show? } (a monitor: the EKG strip over hr, map, co, hb), { kind: 'hvpg' } (the catheter's tracing, played on arrival); title? names the card; waves: true
 //                            names a hepatic vein Doppler's a, S and D. With data too, the tool sits above the tiles
@@ -57,6 +57,7 @@
 //                            or [{ label, slide }, { label, own: true }]: the same, to another slide's state in the deck (a time point);
 //                            or [{ label, lens, own? }]: buttons that switch the figure's lens, the model untouched;
 //                            or [{ label, gate, own? }]: buttons that move a stent Doppler's gate (see tool), the model untouched
+//                            or [{ label, tool: { red: false }, own? }]: buttons that change the options of the slide's instrument (the scope's), the model untouched
 //   scales                   the scale switch: an Anatomy / Lobule / Sinusoid pill that flips the figure to other scales of the same patient
 //                            and back; the slide opens on its own scale (its cam), and every slide does again on Next, Back or a jump.
 //                            ['lobule', 'anatomy:fit']: the scales offered, each with where it lands; or one view per scale,
@@ -68,7 +69,8 @@
 //   notes, ask               speaker notes, and [question, expected answer] for the room
 //   whatIf                   { label, param, min, max, step?, ends?: [low, high], unit? }: a slider that drags one parameter
 //                            (a dotted path, e.g. 'tips.d', or an array of paths moved together, e.g. both lobes' fibrosis)
-//                            of the live model; the figure and the data card follow it
+//                            of the live model; the figure and the data card follow it. With tool in place of param ({ label, tool: 'air', min, max, step?, unit? })
+//                            it moves one option of the slide's instrument (the scope's air pressure) and the model is left alone
 //   procedure                'tips' | 'brto' | 'bato', or { kind, auto: true }: a Play button on the teaching card plays that catheter
 //                            procedure on the figure (proc-anim.js; auto: as the slide lands, going forward), and the live model takes
 //                            the change when it ends, as a compare button does. Opt-in: a built-in slide uses it only when

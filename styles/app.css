@@ -2505,6 +2505,7 @@ button.finding { cursor: pointer; }
 .pz.stack .pz-tool[data-kind="scope"] .endo-num, .pz.stack .pz-tool[data-kind="scope"] .endo-chip-v, .pz.stack .pz-tool[data-kind="scope"] .endo-grade, .pz.stack .pz-tool[data-kind="scope"] .endo-grade span, .pz.stack .pz-tool[data-kind="scope"] .endo-grade b { font-size: var(--s-val); }
 .pz.stack .pz-tool[data-kind="scope"] .endo-chip-v[data-long] { font-size: var(--s-lab); }
 .pz.stack .pz-tool[data-kind="scope"] .endo-num small { font-size: var(--s-cap); }
+.pz.stack .pz-tool[data-kind="scope"] .endo-read > .endo-across { grid-column: 1 / -1; }   /* (a lesson slide's three pressures: two side by side, the third across, no tile alone in a row) */
 .pz.stack .pz-tool .dop-note { display: none; }
 /* Phone: the Doppler's report in three short rows: the direction; the mean with its pattern and the normal-range gauge beside it;
    the four stats in one row. */

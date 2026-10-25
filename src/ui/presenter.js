@@ -22,11 +22,11 @@ import { sinusoidSupported } from './gl-support.js?v=94ad2a7ff1';
 import { SCALE_NAME, offeredScales, scaleView, pickedScale } from './scale-switch.js?v=1b0e3acd65';
 import { DISEASE_SRC, diseasePieces } from './diseases.js?v=fb8a5451c3';
 import { nb, listCase, plateletText } from './glue.js?v=5a0f63226b';
-import { DECKS, REGIONS, LEVELS, TOPICS, withOverview, siteTag, SITE_TAGS } from './decks.js?v=16b94395c1';
+import { DECKS, REGIONS, LEVELS, TOPICS, withOverview, siteTag, SITE_TAGS } from './decks.js?v=7d9a2ddf1c';
 import { fingerprintOf } from '../engine/fingerprint.js?v=8faea80b59';
 import { createHvpgMonitor } from './hvpg-proc.js?v=27e9c2cbb0';
-import { createTools } from './presenter-tools.js?v=2098704f6d';
-import { openHandout } from './handout.js?v=563ffce2e2';
+import { createTools } from './presenter-tools.js?v=dffba530a8';
+import { openHandout } from './handout.js?v=aa2b7884f4';
 import { noteResume, resumeFor } from './resume.js?v=f086f80ee8';
 import { parseDeckSource, checkDeck } from './deck-source.js?v=8395c650cd';
 import { NO_ASC, TILE, tileOf, SCALE, bandsOf, rateOf, COLS, CUT, PRESS, fpv, dirAbs, dirRel, rateAbs, effOf, rateShown, tileShown, tipsGoal, liveSettled, shownSig } from './table-marks.js?v=b717587a61';
@@ -34,7 +34,7 @@ import { frameFor, cancelFrame } from './frame.js?v=19b3f2915c';
 import { createFigureKey } from './figure-key.js?v=8bbf7a41ed';
 import { traceWhen } from './trace-labels.js?v=fc916a95c6';
 import { flowCss, heatCss, dropCss, gradientCss, oxygenCss } from './colormap.js?v=cdcf6a2f55';
-import { EXT, expandIds, stepExtra, markLabel, figureHooks, safe } from './slide-ext.js?v=667467e8e3';
+import { EXT, expandIds, stepExtra, markLabel, figureHooks, safe } from './slide-ext.js?v=bdbfa845ba';
 import { clotWords } from './callout-math.js?v=5879980ef9';
 import { citeText, focusOf, oneLadder } from './teach-extras.js?v=5f5248f5a7';
 import { createProfileTool, createProfileStrip, pillReadings } from './tool-profile.js?v=73f0678a53';
@@ -107,19 +107,23 @@ export const slideLens = (s) => (!s?.visual && LENS_KEY[s?.lens] ? s.lens : 'pre
 const PRESSURE_KEY = ['pressure', () => gradientCss('to right', 30), 'Low', 'High'];
 const lensButtons = (s) => !!s.compare?.some((o) => o.lens);
 const gateButtons = (s) => !!s.compare?.some((o) => o.gate);
+const toolButtons = (s) => !!s.compare?.some((o) => o.tool);
 /** What a compare slide's button k does. A lens button ({ label, lens }) crossfades the figure to that lens and a gate
- *  button ({ label, gate }) moves the stent Doppler's gate, the model untouched. A patient button ({ label, preset, block? })
+ *  button ({ label, gate }) moves the stent Doppler's gate, the model untouched; so does a tool button ({ label, tool: { red: false } }),
+ *  which changes the options of the slide's instrument (the slide's own button, { label, own: true }, puts them back). A patient button ({ label, preset, block? })
  *  eases the live model to that patient, computed with the slide's states, and a time-point button ({ label, slide }) to that
  *  slide's state in the same deck (one patient's earlier visit); the slide's own button eases back to the slide's
  *  exact state when the row has a patient button or when it names no params of its own ({ label, own: true }: the slide's
  *  state is its params, Mohammad, 19 Oct: "when i click no tips then tips again the tips doesn't come"). A normal heart is
  *  then a healthy circulation (none of the failing heart's retained fluid or ascites is left behind), and the failing heart
  *  is the slide's numbers exactly. Any other button patches the live model's params with its own.
- *  → { kind: 'lens', lens } | { kind: 'gate', gate } | { kind: 'state' } | { kind: 'params', patch } */
+ *  → { kind: 'lens', lens } | { kind: 'gate', gate } | { kind: 'tool', tool } (tool: null, the slide's own options) | { kind: 'state' } | { kind: 'params', patch } */
 export function abChoice(compare, k) {
   const o = compare[k];
   if (o.lens) return { kind: 'lens', lens: o.lens };
   if (o.gate) return { kind: 'gate', gate: o.gate };
+  if (o.tool) return { kind: 'tool', tool: o.tool };
+  if (o.own && compare.some((p) => p.tool)) return { kind: 'tool', tool: null };
   if (o.preset || o.slide || (o.own && (!o.params || compare.some((p) => p.preset || p.slide)))) return { kind: 'state' };
   return { kind: 'params', patch: o.params || {} };
 }
@@ -839,7 +843,7 @@ function makeCalc() {
   };
   const ready = (async () => {
     try {
-      const w = new Worker(new URL('../worker.js?v=128bbbc4e4', import.meta.url), { type: 'module' });
+      const w = new Worker(new URL('../worker.js?v=b93f77a500', import.meta.url), { type: 'module' });
       await new Promise((res, rej) => {
         const t = setTimeout(() => rej(new Error('worker timeout')), 15000);   // (long: a slow load still gets the worker; host.js)
         w.onmessage = (e) => { if (e.data?.type === 'presets') { clearTimeout(t); res(); } };
@@ -852,7 +856,7 @@ function makeCalc() {
       post = (m) => w.postMessage(m); kill = () => w.terminate();
     } catch {
       try {
-        const { createCore } = await import('../worker-core.js?v=ddd5bb1777');
+        const { createCore } = await import('../worker-core.js?v=76e93f8d04');
         const core = createCore((m) => setTimeout(() => onMsg(m), 0));
         core.handle({ type: 'visibility', visible: false }); core.handle({ type: 'run', running: false });
         post = (m) => core.handle(structuredClone(m)); kill = () => core.dispose();
@@ -1246,6 +1250,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     const c = abChoice(s.compare, k);
     if (c.kind === 'lens') { lensPick(c.lens, s); return; }
     if (c.kind === 'gate') { store.set({ dopGate: c.gate }); return; }
+    if (c.kind === 'tool') { ui.tools.option(c.tool); return; }
     // (A treatment button pressed while the slide's time-lapse still plays ends the lapse first: two clocks must not drive the model.)
     if (lapseOn) stopLapse();
     if (c.kind === 'state') { livePatient(s, i, s.compare[k]); return; }
@@ -1319,9 +1324,12 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   // (or several together: param an array of paths, e.g. both lobes' fibrosis); the figure, the ladder and the tiles follow
   // it as with the buttons. It starts at the slide's own value (the first path's), and the slide's computed state comes
   // back whenever the slide is shown again.
+  // With tool in place of param ({ label, tool: 'air', min, max, step, unit }) it moves one option of the slide's instrument and
+  // leaves the model alone (no worker message, no live clock): it starts at the slide's own tool.air, and the instrument is
+  // set to the slide's options again whenever the slide is shown.
   function whatIfEl(s, i, st) {
-    const w = s.whatIf, paths = [].concat(w.param).map((p) => p.split('.'));
-    const v0 = +(paths[0].reduce((o, k) => o?.[k], st?.params) ?? w.min);
+    const w = s.whatIf, paths = [].concat(w.param).map((p) => (p ? p.split('.') : []));   // (a tool slider has no param)
+    const v0 = +(w.tool ? s.tool?.[w.tool] ?? w.min : paths[0].reduce((o, k) => o?.[k], st?.params) ?? w.min);
     const patchOf = (x) => paths.reduce((a, path) => merge(a, path.reduceRight((o, k) => ({ [k]: o }), x)), {});
     const out = h('output', { class: 'pzi-v' });
     const input = h('input', { type: 'range', min: w.min, max: w.max, step: w.step ?? (w.max - w.min) / 20, value: v0, 'aria-label': `What if: ${w.label}` });
@@ -1336,6 +1344,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     let raf = 0;
     input.addEventListener('input', () => {
       paint(+input.value);
+      if (w.tool) { ui?.tools.option({ [w.tool]: +input.value }); return; }   // (an instrument's option: the model is left alone)
       if (!raf) raf = nextFrame(() => { raf = 0; liveSet(s, i, patchOf(+input.value)); });
     });
     // (A finished drag hands the arrow keys back to the slides.)
@@ -2032,7 +2041,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       const line = s.line ? h('p', { class: 'pz-line' }, rich(s.line, s, st?.fp, !!st?.params?.tips?.on)) : null;
       text.replaceChildren(...[head, s.eq ? equation(s.eq) : null, s.monitor ? monitorFor(s, i) : null,
           line, s.caveat ? h('p', { class: 'pz-caveat' }, s.caveat) : null, citeEl(s),
-          s.compare ? h('div', { class: 'pz-ab', role: 'group', 'aria-label': lensButtons(s) ? 'Color the vessels by' : gateButtons(s) ? 'Sample the stent at' : s.compare.some((o) => o.params && 'fenestrae' in o.params) ? 'Open or close the fenestrae on the live model' : 'Switch treatment on the live model' },
+          s.compare ? h('div', { class: 'pz-ab', role: 'group', 'aria-label': lensButtons(s) ? 'Color the vessels by' : gateButtons(s) ? 'Sample the stent at' : toolButtons(s) ? 'Change the instrument\'s view' : s.compare.some((o) => o.params && 'fenestrae' in o.params) ? 'Open or close the fenestrae on the live model' : 'Switch treatment on the live model' },
             s.compare.map((o, k) => h('button', { type: 'button', class: 'pz-abb', 'aria-pressed': String(!!o.own), ...(o.short ? { 'data-full': o.label, 'data-short': o.short, 'aria-label': o.label, title: o.label } : {}), onclick: () => abPick(s, i, k) }, o.label))) : null,
           s.procedure ? procEl(s, i, st) : null,
           s.whatIf ? whatIfEl(s, i, st) : null,

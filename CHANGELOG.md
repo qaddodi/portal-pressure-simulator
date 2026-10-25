@@ -2,6 +2,19 @@
 
 ## October 2026
 
+- **The scope can show a varix with air in the esophagus, and a slide can move an instrument's option.** (Mohammad, 25 Oct, "yes to both"; deck
+  rebuild plan, B1, machinery only: the lesson itself is the next push.) The engine reads the diameter a varix is seen at with 0 to 20 mmHg of air in
+  the lumen around it (`engine.varix(site, P, air)`; `metrics.varix.air`, a diameter for each mmHg): the air is taken off the pressure across the
+  wall and nothing else moves, because sending it through the solver collapses the varix and chokes its own collateral (HVPG 16.5 to 18.0 at 20 mmHg).
+  For the decompensated patient the table reads 7.2 mm at no air, 6.2 at 10 mmHg, 5.7 at 14, 4.6 at 16, 2.7 at 18 and 2.1 at 20; the pressure inside
+  the varix stays 18.2, and so do the HVPG and the portal pressure. The scope takes three options from a slide: `air` (the drawing flattens with the
+  size seen, through the scope's own 0.2 s ease; the Diameter row reads that size and the Grade row stays the size at rest), `red` (the red wale marks
+  and the Stigmata row shown or hidden whatever the wall stress) and `readings` (three more rows: the pressure in the varix, in the lumen and across
+  the wall, the last the difference of the other two as printed). The Diameter and the pressure inside now read the slide's own numbers once the
+  slide has pinned them, as the wall tool does, so they do not swing with each breath. A `whatIf` slider can take a `tool` in place of a `param`,
+  and `compare` buttons can take a `tool` patch (the slide's own button puts the options back); neither touches the model. No deck uses them
+  yet. Code and unit tests only; nobody has looked on screen. `src/engine/engine.js`, `src/engine/metrics.js`, `src/ui/instruments.js`,
+  `src/ui/endo-size.js`, `src/ui/presenter.js`, `src/ui/presenter-tools.js`, `styles/app.css`, `tests/varix-air.test.js`, `tests/scope-air.test.js`.
 - **A time-lapse can keep the data card from the slide before.** (Mohammad, 25 Oct, "yes to both"; deck rebuild plan, A5.) A run of slides that crosses a
   time-lapse (ten years, the next bleed, ascites building) no longer fades its data card out and builds the same one again when the card is the same.
   If the lapse slide has the same instrument, tiles and title as the slide before, and the patient stays, the card is already on screen when the days

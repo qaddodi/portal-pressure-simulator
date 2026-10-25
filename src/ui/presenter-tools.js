@@ -40,10 +40,10 @@ import { createSpleenUS } from './spleen-us.js?v=d569f12818';
 import { createVitalsMonitor } from './vitals-monitor.js?v=57f6b80604';
 import { createHvpgCard } from './tool-hvpg.js?v=8a8d2da1bc';
 import { createFlowTime } from './flow-time.js?v=cb89e13e11';
-import { createEndoscopy, createAbdomen, createVarixWall } from './instruments.js?v=83a8bf461e';
+import { createEndoscopy, createAbdomen, createVarixWall } from './instruments.js?v=deb63f7e48';
 import { frameFor } from './frame.js?v=19b3f2915c';
 import { talkTrace } from './talk-trace.js?v=690f63b106';
-import { EXT, guard, safe } from './slide-ext.js?v=667467e8e3';
+import { EXT, guard, safe } from './slide-ext.js?v=bdbfa845ba';
 const nextFrame = frameFor('presenter-tools');
 
 const VESSEL = { PV_TRUNK: 'main portal vein', PVH_R: 'right portal vein', PVH_L: 'left portal vein', SV_CONF: 'splenic vein', SV_MID: 'splenic vein', V_SPL: 'splenic vein, at the hilum',
@@ -72,7 +72,7 @@ export function createTools({ host, stage }) {
     if (!w || !r) continue; const k = Math.min(2, Math.max(1, 12 / (13 * r / w))); if (Math.abs(k - (+sv.style.getPropertyValue('--svk') || 1)) > 0.02) sv.style.setProperty('--svk', k.toFixed(2)); } };
   if (typeof ResizeObserver === 'function') new ResizeObserver(() => nextFrame(svk)).observe(box);
   const made = {};
-  let cur = null, kind = null, probe0, gate0, lastSt = null, lastSlide = null, held = false;
+  let cur = null, kind = null, probe0, gate0, lastSt = null, lastSlide = null, held = false, lastTool = null, lastCtx = null;
   function make(k) {
     if (made[k]) return made[k];
     const inst = k === 'doppler' ? createDoppler({ onProbe: noop, pickGate: false }) : k === 'fibroscan' ? createFibroScan() : k === 'scope' ? createEndoscopy({ onAction: noop })
@@ -117,6 +117,7 @@ export function createTools({ host, stage }) {
       }
       inst.setWaves?.(!!t.waves);
       inst.configure?.(t, ctx);   // (an instrument's own options on this slide: a deck visuals package's, slide-ext.js)
+      lastTool = t; lastCtx = ctx;
       inst.arrive?.({ forward, again: cur === inst });   // (the HVPG tracing plays going forward onto its slide, once, and is finished otherwise)
       if (cur !== inst || slide !== lastSlide) inst.autoWindow?.();   // (a new slide chooses its Doppler window again from the width it is drawn at)
       lastSlide = slide;
@@ -130,6 +131,9 @@ export function createTools({ host, stage }) {
       else { const f = store.get().frame; if (f) nextFrame(() => cur === inst && inst.update?.(f)); }
     },
     /** The flow-time chart drawn up to k (0 to 1) of its time-lapse, with its series (trail) once it is computed. */
+    /** Change the instrument's options on the slide in place, the model untouched (a compare button { tool }, a what-if slider { tool }):
+     *  the slide's own options with patch over them, or the slide's own alone when patch is null. */
+    option(patch) { if (cur && lastTool) cur.configure?.(patch ? { ...lastTool, ...patch } : lastTool, lastCtx); },
     /** The numbers the slide's tiles and words show (a fingerprint): a reading instrument shows the same, not the beat-to-beat live value. */
     pin(fp) { for (const inst of Object.values(made)) inst?.pin?.(fp); },
     progress(k, trail) { if (kind === 'flowtime') cur.set(trail, k); },
@@ -147,7 +151,7 @@ export function createTools({ host, stage }) {
     /** A question slide's answer held back (slide hold: true): the instrument showing leaves out the
      *  parts that name the answer (the Gut to heart chart's red blocks and brackets; the Doppler's words are held by the card's CSS). */
     holdAnswer(on, instant = false) { cur?.hold?.(!!on, instant); },
-    hide() { stage?.pinDoppler?.(null); stage?.setScanProbe?.(false); cur = null; kind = null; lastSlide = null; delete box.dataset.kind; },
+    hide() { stage?.pinDoppler?.(null); stage?.setScanProbe?.(false); cur = null; kind = null; lastSlide = null; lastTool = null; lastCtx = null; delete box.dataset.kind; },
     /** The presentation is over: the Doppler goes back to the vessel it had. */
     dispose() {
       if (probe0 !== undefined) { host.send({ type: 'probe', id: probe0 }); store.set({ dopGate: gate0 || 'mid' }); } probe0 = undefined; lastSt = null; lastSlide = null; this.hide();

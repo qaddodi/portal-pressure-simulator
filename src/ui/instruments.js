@@ -8,7 +8,7 @@ import { h, fmt, fitCanvas, cssVar, cssAlpha, clamp, icon } from './util.js?v=d2
 import { simTime, isPaused } from './clock.js?v=5151312569';
 import { createEndoGL } from './endo-gl.js?v=10311b4cca';
 import { renderEndo } from './endo-render.js?v=b4ff4e6dc9';
-import { endoGrow } from './endo-size.js?v=b0a31f2bde';
+import { endoGrow, airRatio, airFlat } from './endo-size.js?v=e0a58bf20e';
 import { DEFLATE_MS, BAND_MS, BAND_DELAY_MS, fadeIn, glide } from './endo-motion.js?v=1393297b61';
 import { drawScopeBleed } from './endo-bleed.js?v=2711f28cc0';
 import { poolFill } from './blood.js?v=856babbc01';
@@ -40,6 +40,12 @@ export function createEndoscopy({ onAction }) {
   const redWord = h('span'), redMore = h('span', { class: 'endo-more' });   // (the sign, then its detail: a slide's compact row shows the sign alone)
   red.append(redWord, redMore);
   const item = (cls, ...kids) => h('div', { class: cls }, ...kids);
+  // The three pressures of a lesson slide (the readings option, configure below): they join the list after the wall, in the same tiles.
+  const pIn = dd('endo-num'), pLum = dd('endo-num'), pAcross = dd('endo-num');
+  const pRows = [
+    h('div', { class: 'endo-tile', title: 'The pressure inside the varix.' }, h('dt', {}, 'In the varix'), pIn),
+    h('div', { class: 'endo-tile', title: 'The pressure of the air in the esophagus around the varix (simulated).' }, h('dt', {}, 'Lumen'), pLum),
+    h('div', { class: 'endo-tile endo-across', title: 'The pressure inside the varix less the pressure in the lumen: what stretches the wall.' }, h('dt', {}, 'Across the wall'), pAcross)];
   const stats = h('dl', { class: 'endo-read' },
     item('endo-chip', h('dt', {}, 'Bands', h('span', { class: 'endo-dt-x' }, ' placed')), bands),
     h('div', { class: 'endo-g', title: 'Small, under 5 mm; Large, 5 mm or more.' }, h('dt', {}, 'Grade'), grade),
@@ -56,8 +62,12 @@ export function createEndoscopy({ onAction }) {
     bandBtn.disabled = noVx; bandBtn.title = noVx ? 'No varices to band' : '';
     set(gradeLabel, vx.grade.label);
     grade.dataset.sev = vx.grade.label === 'Small' ? 'caution' : vx.grade.label === 'None' ? 'ok' : 'danger';
-    set(diam, `${fmt(vx.d, 1)} mm`); set(wall, `${fmt(vx.w, 1)} mm`);
-    const redV = !vx.present ? 'None' : vx.redWale ? 'Red wale, cherry spots' : 'None';
+    // The size seen: the size at rest (the slide's own number when there is one) at the air's pressure (airRatio, the beat-averaged table).
+    // The grade above stays the size at rest.
+    const pinTo = view === 'eso' && pinned, rest = pinTo && Number.isFinite(pinned.d) ? pinned.d : vx.d, inV = pinTo && Number.isFinite(pinned.ptm) ? pinned.ptm : vx.ptm;
+    set(diam, `${fmt(rest * airRatio(mv?.air ?? vx.air, opt.air), 1)} mm`); set(wall, `${fmt(vx.w, 1)} mm`);
+    if (opt.readings) { set(pIn, `${fmt(inV, 1)} mmHg`); set(pLum, `${fmt(opt.air, 1)} mmHg`); set(pAcross, `${fmt(inV - opt.air, 1)} mmHg`); }
+    const redV = !vx.present ? 'None' : (opt.red ?? vx.redWale) ? 'Red wale, cherry spots' : 'None';
     set(redWord, redV === 'None' ? redV : 'Red wale'); set(redMore, redV === 'None' ? '' : ', cherry spots'); if (redV === 'None') delete red.dataset.long; else red.dataset.long = ''; red.parentNode.dataset.on = String(redV !== 'None');
     const nb = String(Math.round(f.bands || 0));
     set(bands, nb); bands.parentNode.dataset.on = String(nb !== '0');
@@ -67,7 +77,11 @@ export function createEndoscopy({ onAction }) {
   // winding varices, drawn once per state into a cached bitmap, so it is perfectly steady. Balloon,
   // bleeding and the scope mask are drawn on top.
   const gl = createEndoGL(), glOut = document.createElement('canvas');
-  let peak = 0, peakRed = 0, an = null, lastT = 0, last = null, raf = 0, bleedLast = null, poolA = 0, cache = { key: '', img: null }, glKey = '', painted = '', mv = null, held = null;
+  let peak = 0, peakRed = 0, an = null, lastT = 0, last = null, raf = 0, bleedLast = null, poolA = 0, cache = { key: '', img: null }, glKey = '', painted = '', mv = null, held = null, pinned = null;
+  // A slide's options for this scope (configure, below): air, the air's pressure in the lumen in mmHg (the varix is drawn and measured as it is seen
+  // at that pressure; the grade, the pressure inside it and the model are not touched); red, true or false (the red wale marks shown or hidden whatever
+  // the wall stress; absent: the model's rule); readings, three more rows (the pressure in the varix, in the lumen and across the wall).
+  const opt = { air: 0, red: null, readings: false };
   const dark = matchMedia('(prefers-color-scheme: dark)'), still = matchMedia('(prefers-reduced-motion: reduce)');
   // The field as it showed before its bitmap last changed (fadeCv), the new one fading in over it from fadeT0
   // (endo-motion.js); the balloon's and the jet's strength (0..1) easing toward on or off. On the display clock, so a
@@ -110,16 +124,21 @@ export function createEndoscopy({ onAction }) {
     // each redraw and its page stopped answering), while the comment above promises a steady view. Averaged over about four seconds,
     // a breath and more: over one second the breath's swell still crossed the field's steps every second or two.
     const kb = 1 - Math.exp(-dt / 4);
-    if (!mv) mv = { d: vx.d, ratio: vx.ratio };
-    else { mv.d += (vx.d - mv.d) * kb; mv.ratio += (vx.ratio - mv.ratio) * kb; }
+    if (!mv) mv = { d: vx.d, ratio: vx.ratio, air: vx.air?.slice() };
+    else {
+      mv.d += (vx.d - mv.d) * kb; mv.ratio += (vx.ratio - mv.ratio) * kb;
+      if (mv.air && vx.air) for (let i = 0; i < mv.air.length; i++) mv.air[i] += (vx.air[i] - mv.air[i]) * kb;
+    }
     const gNow = endoGrow(mv.d); // (endo-size.js: a large varix, 5 mm or more, is drawn plainly large)
-    peak = bands > 0 ? Math.max(peak, gNow) : gNow;
-    const tg = peak, tv = bands > 0 ? 1 : clamp((mv.d - 2.5) / 1.0, 0, 1);
+    // With air in the lumen the drawing flattens with the size seen (endo-size.js airFlat); with none, as it always was.
+    const kAir = airRatio(mv.air, opt.air), gAir = gNow * airFlat(mv.d, kAir);
+    peak = bands > 0 ? Math.max(peak, gAir) : gAir;
+    const tg = peak, tv = bands > 0 ? 1 : clamp((mv.d * kAir - 2.5) / 1.0, 0, 1);
     // Stigmata follow the modeled wall stress: they start below the red-wale threshold (70 % of the
     // tear point) and are full near it. Unbanded columns keep what they showed before the first band.
     const rNow = clamp((mv.ratio - 0.55) / 0.35, 0, 1);
     peakRed = bands > 0 ? Math.max(peakRed, rNow) : rNow;
-    const tr = peakRed;
+    const tr = opt.red == null ? peakRed : +opt.red;
     // Targets: each column is deflated and knuckled once banded (the 4 bands fill columns in turn).
     const defT = [0, 0, 0, 0], knT = new Array(16).fill(0);
     for (let c = 0; c < 4; c++) {
@@ -211,7 +230,22 @@ export function createEndoscopy({ onAction }) {
     ctx.restore();
     ctx.strokeStyle = cssVar('--scope-rim'); ctx.lineWidth = 7; ctx.beginPath(); ctx.arc(cx, cy, R, 0, Math.PI * 2); ctx.stroke();
   }
-  return { id: 'endoscopy', label: 'Endoscopy', el, update, setView() {}, dispose() { offRun(); cancelFrame(raf); raf = 0; gl?.dispose(); last = null; } };
+  /** This slide's options (presenter-tools show and option): { air, red, readings } as described at opt above. Eased, never snapped: the drawing
+   *  follows the new air through the same 0.2 s ease as any change of size, the red marks through theirs. */
+  function configure(t) {
+    const air = clamp(+t?.air || 0, 0, 20), red = typeof t?.red === 'boolean' ? t.red : null, readings = !!t?.readings;
+    const changed = air !== opt.air || red !== opt.red || readings !== opt.readings;
+    Object.assign(opt, { air, red, readings });
+    if (readings) { if (pRows[0].parentNode !== stats) stats.lastElementChild.before(...pRows); } else for (const r of pRows) r.remove();
+    if (changed && last) update(last.f);
+  }
+  // The slide's own numbers (presenter-tools pin): the size and the pressure in the varix the tiles and the words show, not the beat's swing.
+  function pin(fp) {
+    const P = fp?.at?.P;
+    pinned = fp && Number.isFinite(fp.varix) ? { d: fp.varix, ptm: P ? P[NI.VAR] : NaN } : null;
+    if (last) update(last.f);
+  }
+  return { id: 'endoscopy', label: 'Endoscopy', el, update, configure, pin, setView() {}, dispose() { offRun(); cancelFrame(raf); raf = 0; gl?.dispose(); last = null; } };
 }
 
 // ── Varix wall cross-section (L3) ───────────────────

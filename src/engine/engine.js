@@ -7,7 +7,7 @@ import {
   heartFlow, fillShape, systoleShape, raWave, iapFromAscites, makeRng,
 } from './physiology.js?v=6fc3ec393a';
 import { defaultParams, DRUGS, PRESETS, deepMerge, MEAL_TONE, MEAL_BLUNT } from './scenario.js?v=d7d3ea5b70';
-import { detectEvents } from './events.js?v=4fb56a35e5';
+import { detectEvents } from './events.js?v=011e3baba4';
 
 const KNEE = { artery: [1e9, 1], bed: [14, 10], portal: [14, 10], vein: [14, 6], hepvein: [10, 3], heart: [10, 4], liver: [9, 2], wedge: [9, 5], varix: [30, 10] };
 const KD = { vein: 0.03, diode: 0.03, collateral: 0.08 };
@@ -1187,11 +1187,13 @@ export class Engine {
     return clamp((this.slow.d.C1a - chMin) / (ch.dMax - chMin) / VARIX.mature, 0, 1);
   }
 
-  varix(site, P = this.P) {
+  /** The varix at the pressures P. air (mmHg) is the pressure of the air in the lumen round it, read view-only: it is taken off the pressure
+   *  across the wall and so off the radius seen, and nothing else moves. It is never sent through the solver, which would collapse the varix
+   *  and choke its own collateral (the balloon's way; HVPG 16.5 → 18.0 at 20 mmHg). r0: the resting radius, when a caller has it already. */
+  varix(site, P = this.P, air = 0, r0 = this.varixTarget(site)) {
     const i = this.ni[site];
-    const ptm = P[i] - this.ext[i];
+    const ptm = P[i] - this.ext[i] - air;
     const ref = this.refP ? this.refP[i] : this.Pbase[i];
-    const r0 = this.varixTarget(site);
     // The vein swells with the pressure above its own resting level, not with a rise shared by the whole venous
     // bed: central venous pressure above its baseline (right heart failure, constriction) lifts every vein
     // together and is not a varix, so it is taken off the distending pressure. The wall stress below still
@@ -1203,6 +1205,12 @@ export class Engine {
     const T = Math.max(0, ptm) * r / w;
     // (ratioShown: the stress index as the tiles show it (wall-read.js), over the tear point, so every percentage printed agrees with the index beside it.)
     return { ptm, r, r0, w, T, ratio: T / VARIX.Tcrit, ratioShown: +wallRead({ ptm, r, w }).index / VARIX.Tcrit };
+  }
+
+  /** The diameter (mm) a varix is seen at with 0, 1, … n − 1 mmHg of air in the lumen round it (varix above). The pressures are held. */
+  varixAir(site, P = this.P, n = 21) {
+    const r0 = this.varixTarget(site);
+    return Array.from({ length: n }, (_, a) => 2 * this.varix(site, P, a, r0).r);
   }
 
   hvpgTrue(P = this.P) {
