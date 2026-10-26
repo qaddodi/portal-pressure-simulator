@@ -3,7 +3,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { GLASS, parseShadow, gaussTaps, glassWanted } from '../src/ui/glass-gl.js';
+import { GLASS, PANE, roundPath, parseShadow, gaussTaps, glassWanted } from '../src/ui/glass-gl.js';
 
 const STAGE = readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8');
 const CSS = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
@@ -43,12 +43,23 @@ test('the browser\'s glass stays with the blur effect off, reduced transparency,
 
 test('the stage lays the GPU glass under both callout layers, off with the other GPU layers and on a software renderer', () => {
   assert.match(STAGE, /const glassGL = veins \? createGlassGL\(wrap, vCanvas, \[cath\.labels, sites\.el\], \{ software: SOFTWARE, off: \/\[\?&\]gpulabels=0\\b\/\.test\(location\.search\), live: \(\) => wrap\.classList\.contains\('gl-on'\) \}\) : null;/);
-  assert.match(CSS, /\.cl-glass\[data-gl\] \{ background: none; -webkit-backdrop-filter: none; backdrop-filter: none; \}/);
   assert.match(CSS, /#glassGl \{ position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 4; \}/);
-  assert.match(SRC, /layers\[0\]\.before\(canvas\);/, 'under the callouts, which share its z-index and come after it');
+  assert.match(SRC, /\(pane \|\| layers\[0\]\)\.before\(canvas\);/, 'under the callouts, which share its z-index and come after it');
   // A write to a callout redraws its glass in the same frame (a microtask after the write), so it never trails the outline.
   assert.match(SRC, /queueMicrotask\(\(\) => \{ batched = false; if \(draw\(\)\) ask\(\); \}\);/);
   // Until a copy of the figure is in, and after the browser refuses one, the browser's own glass stays.
   assert.match(SRC, /if \(!ready\) return panes\.length > 0;/);
   assert.match(SRC, /if \(\+\+fails > 3\) \{ dead = true; unmark\(\); clear\(\); \}/);
+});
+
+test('the liver label\'s frosted pane is drawn the same way, under the labels, with its own blur and tint', () => {
+  const m = /\.lb-glass \{[^}]*background: var\(--frost\);[^}]*backdrop-filter: blur\((\d+)px\) saturate\(([\d.]+)\);/.exec(CSS);
+  assert.ok(m, 'the CSS pane');
+  assert.equal(+m[1], PANE.blur);
+  assert.equal(+m[2], PANE.sat);
+  assert.match(STAGE, /labelSvg\.before\(glass\);\n.*\n\s+const paneGL = veins \? createGlassGL\(wrap, vCanvas, \[\], \{ software: SOFTWARE, off: \/\[\?&\]gpulabels=0\\b\/\.test\(location\.search\), live: \(\) => wrap\.classList\.contains\('gl-on'\), pane: glass \}\) : null;/);
+  assert.match(SRC, /\(pane \|\| layers\[0\]\)\.before\(canvas\);/, 'its canvas just before the pane, so under the labels');
+  assert.match(CSS, /\.cl-glass\[data-gl\], \.lb-glass\[data-gl\] \{ background: none; -webkit-backdrop-filter: none; backdrop-filter: none; \}/);
+  assert.equal(roundPath(100, 40, 8), 'M8 0H92A8 8 0 0 1 100 8V32A8 8 0 0 1 92 40H8A8 8 0 0 1 0 32V8A8 8 0 0 1 8 0Z');
+  assert.match(roundPath(10, 6, 20), /^M3 0H7A3 3/, 'the radius kept inside the box');
 });

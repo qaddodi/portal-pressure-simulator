@@ -2880,7 +2880,8 @@ button.finding { cursor: pointer; }
 @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) { .cl-glass { background: color-mix(in srgb, var(--surface) 94%, transparent); } }
 @media (prefers-reduced-transparency: reduce) { .cl-glass { background: color-mix(in srgb, var(--surface) 96%, transparent); -webkit-backdrop-filter: none; backdrop-filter: none; } }
 /* (Its blur and tint drawn on the GPU under the callout layers instead, glass-gl.js: the outline above stays the DOM's) */
-.cl-glass[data-gl] { background: none; -webkit-backdrop-filter: none; backdrop-filter: none; }
+.cl-glass[data-gl], .lb-glass[data-gl] { background: none; -webkit-backdrop-filter: none; backdrop-filter: none; }
+.stage-view > canvas#paneGl { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
 #glassGl { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 4; }
 .cath-label[data-at="ahead"] { translate: -50% 18px; }
 .cath-label[data-at="ahead"].above { translate: -50% calc(-100% - 18px); }

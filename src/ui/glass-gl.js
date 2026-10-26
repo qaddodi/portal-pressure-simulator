@@ -10,6 +10,13 @@
 
 /** The CSS glass this draws (app.css .cl-glass: blur(16px) saturate(1.15) over 58 % of --surface). */
 export const GLASS = { blur: 16, sat: 1.15, tint: 0.58 };
+/** The liver label's pane (app.css .lb-glass: blur(9px) saturate(1.2) over --frost, its corners its border radius). */
+export const PANE = { blur: 9, sat: 1.2 };
+/** A rounded rectangle's outline (w × h, corner radius r), as an SVG path. */
+export function roundPath(w, h, r) {
+  const f = (n) => +n.toFixed(2), q = Math.max(0, Math.min(r, w / 2, h / 2));
+  return `M${f(q)} 0H${f(w - q)}A${f(q)} ${f(q)} 0 0 1 ${f(w)} ${f(q)}V${f(h - q)}A${f(q)} ${f(q)} 0 0 1 ${f(w - q)} ${f(h)}H${f(q)}A${f(q)} ${f(q)} 0 0 1 0 ${f(h - q)}V${f(q)}A${f(q)} ${f(q)} 0 0 1 ${f(q)} 0Z`;
+}
 const SCALE = 4;    // CSS px for each texel of the blurred copy
 const MARGIN = 48;  // CSS px of the figure taken around the callouts: three of the blur's sigmas (blur(16px): sigma 16 px)
 
@@ -104,13 +111,15 @@ void main() {
 
 /**
  * The GPU glass for the callouts under `layers` (the .cath-labels layers), over the figure drawn on `source` (veins-gl's canvas,
- * which keeps its drawing buffer). The canvas is laid just before `layers[0]`. `live()`: whether the figure is on that canvas now
+ * which keeps its drawing buffer). The canvas is laid just before `layers[0]`. With `pane` (an .lb-glass element), it draws that one
+ * rounded pane instead, its canvas laid just before it (under the labels, where the pane lies). `live()`: whether the figure is on that canvas now
  * (else the browser's glass, which sees the SVG figure). Null when it cannot run.
  */
-export function createGlassGL(wrap, source, layers, { software = false, off = false, live = () => true } = {}) {
+export function createGlassGL(wrap, source, layers, { software = false, off = false, live = () => true, pane = null } = {}) {
+  const look = pane ? PANE : GLASS;
   if (off || software || !source || typeof WebGL2RenderingContext === 'undefined' || typeof createImageBitmap !== 'function') return null;
   const canvas = document.createElement('canvas');
-  canvas.id = 'glassGl'; canvas.setAttribute('aria-hidden', 'true');
+  canvas.id = pane ? 'paneGl' : 'glassGl'; canvas.setAttribute('aria-hidden', 'true');
   let gl = null;
   try { gl = canvas.getContext('webgl2', { alpha: true, premultipliedAlpha: true, antialias: false, depth: false, stencil: false, failIfMajorPerformanceCaveat: true }); } catch { gl = null; }
   if (!gl) return null;
@@ -131,7 +140,7 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
   };
   const copy = tex(gl.LINEAR), pass = tex(gl.LINEAR), blurred = tex(gl.LINEAR);
   const fbPass = gl.createFramebuffer(), fbOut = gl.createFramebuffer();
-  layers[0].before(canvas);
+  (pane || layers[0]).before(canvas);
 
   let lost = false, dead = false, raf = 0, W = 0, H = 0, dpr = 1, pending = false, fails = 0, ready = null, drawn = false, fbSize = '';
   const masks = new WeakMap(), marked = new Set();
@@ -145,7 +154,7 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
   };
   const unmark = () => { for (const g of marked) g.removeAttribute('data-gl'); marked.clear(); };
   const wanted = glassCheck(document, window);
-  const glassesOf = () => layers.flatMap((l) => [...l.getElementsByClassName('cl-glass')]);
+  const glassesOf = () => (pane ? (pane.isConnected ? [pane] : []) : layers.flatMap((l) => [...l.getElementsByClassName('cl-glass')]));
 
   // A callout's shape as a mask, drawn from its own outline path (callout.js), again only when that or its size changes.
   function maskOf(g, d, w, h) {
@@ -196,7 +205,7 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
       gl.useProgram(bprog); gl.bindVertexArray(vao); gl.disable(gl.BLEND);
       gl.viewport(0, 0, bw, bh);
       gl.uniform4f(BU.uBox, 0, 0, bw, bh); gl.uniform2f(BU.uView, bw, bh); gl.uniform1i(BU.uT, 0);
-      gl.uniform1fv(BU.uW, gaussTaps(GLASS.blur / SCALE));
+      gl.uniform1fv(BU.uW, gaussTaps(look.blur / SCALE));
       gl.activeTexture(gl.TEXTURE0);
       gl.bindFramebuffer(gl.FRAMEBUFFER, fbPass); gl.bindTexture(gl.TEXTURE_2D, copy); gl.uniform2f(BU.uDir, 1, 0); gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
       gl.bindFramebuffer(gl.FRAMEBUFFER, fbOut); gl.bindTexture(gl.TEXTURE_2D, pass); gl.uniform2f(BU.uDir, 0, 1); gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
@@ -227,11 +236,13 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
       const el = g.parentElement, cs = getComputedStyle(g);
       if (!el || cs.display === 'none' || cs.visibility !== 'visible') continue;
       const a = NUM(cs.opacity);
-      const r = g.getBoundingClientRect(), d = g.firstChild?.firstChild?.getAttribute?.('d');
-      if (!r.width || !r.height || !d || !(a > 0.001)) continue;
-      const lw = NUM(g.style.width), lh = NUM(g.style.height);
-      if (!lw || !lh) continue;
-      panes.push({ g, el, a, r, d, lw, lh, er: el.getBoundingClientRect(), shadow: parseShadow(getComputedStyle(el).boxShadow), tint: cs.getPropertyValue('--surface') });
+      const r = g.getBoundingClientRect(), lw = NUM(g.style.width), lh = NUM(g.style.height);
+      if (!r.width || !r.height || !lw || !lh || !(a > 0.001)) continue;
+      // (The liver's pane: its own rounded box, tinted with --frost as it stands; its soft shadow, outside it, stays the DOM's.)
+      if (pane) { panes.push({ g, el, a, r, d: roundPath(lw, lh, NUM(cs.borderTopLeftRadius)), lw, lh, er: r, shadow: null, tint: cs.getPropertyValue('--frost'), k: 1 }); continue; }
+      const d = g.firstChild?.firstChild?.getAttribute?.('d');
+      if (!d) continue;
+      panes.push({ g, el, a, r, d, lw, lh, er: el.getBoundingClientRect(), shadow: parseShadow(getComputedStyle(el).boxShadow), tint: cs.getPropertyValue('--surface'), k: GLASS.tint });
     }
     // The figure taken around them all (CSS px from the canvas' corner).
     if (panes.length) {
@@ -246,7 +257,7 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
     gl.viewport(0, 0, W, H); gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT);
     gl.useProgram(pprog); gl.bindVertexArray(vao);
     gl.enable(gl.BLEND); gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
-    gl.uniform2f(PU.uView, W, H); gl.uniform1i(PU.uScene, 0); gl.uniform1i(PU.uMask, 1); gl.uniform1f(PU.uSat, GLASS.sat);
+    gl.uniform2f(PU.uView, W, H); gl.uniform1i(PU.uScene, 0); gl.uniform1i(PU.uMask, 1); gl.uniform1f(PU.uSat, look.sat);
     gl.uniform4f(PU.uReg, ready.x * dpr, ready.y * dpr, ready.w * dpr, ready.h * dpr);
     const ws = getComputedStyle(wrap), bg = colour(ws.backgroundColor, 'transparent');
     const base = bg[3] > 0 ? bg : colour(ws.getPropertyValue('--stage-bg').trim() || ws.getPropertyValue('--bg').trim(), 'transparent');
@@ -254,7 +265,7 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
     gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, blurred);
     const now = new Set();
     for (const p of panes) {
-      const m = maskOf(p.g, p.d, p.lw, p.lh), t = colour(p.tint.trim(), 'transparent'), ta = t[3] * GLASS.tint;
+      const m = maskOf(p.g, p.d, p.lw, p.lh), t = colour(p.tint.trim(), 'transparent'), ta = t[3] * p.k;
       const bx = (p.r.left - cr.left) * dpr, by = (p.r.top - cr.top) * dpr;
       gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, m.tex); gl.activeTexture(gl.TEXTURE0);
       gl.uniform4f(PU.uBox, bx, by, p.r.width * dpr, p.r.height * dpr);
@@ -287,7 +298,8 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
     batched = true;
     queueMicrotask(() => { batched = false; if (draw()) ask(); });
   });
-  for (const l of layers) mo.observe(l, { subtree: true, childList: true, attributes: true, attributeFilter: ['style', 'class', 'data-at'] });
+  for (const l of pane ? [pane] : layers) mo.observe(l, { subtree: true, childList: true, attributes: true, attributeFilter: ['style', 'class', 'data-at', 'hidden'] });
+  if (pane) new MutationObserver(() => ask()).observe(wrap, { attributes: true, attributeFilter: ['class'], subtree: false });
   const again = () => ask();
   new MutationObserver(again).observe(document.documentElement, { attributes: true, attributeFilter: ['data-noglass', 'data-theme', 'class'] });
   new MutationObserver(again).observe(wrap, { attributes: true, attributeFilter: ['class'] });   // (the GPU figure on or off: live())
