@@ -9,6 +9,12 @@
   539 x 400; at 1440 x 900 and on an iPad at 1180 x 820 it gains about 7% each way. Three cells by two, the card's one margin, the room above the nav pill, the title's room under the
   tab, the 12 px floor, whole-number brackets and the charts' own lettering are as before; a phone, upright or on its side, and a tablet held upright keep their layout. Code and unit
   tests only; nobody has looked on screen. `styles/app.css` (`.pz-panel.fill`), `tests/ladders-wide.test.js`.
+- **The HVPG against PPG plane says where CSPH is.** (Mohammad, 26 Oct: "make it clear that the 10/12 line is clinically significant portal hypertension".) The HVPG 10 line is now named
+  "CSPH ≥10" and the PPG 12 line "Bleed risk ≥12", each beside its own line, and the corner beyond both lines is a red zone named CSPH (the tiles' red: both readings rate red there),
+  on Sites and causes, Where HVPG misleads and Choose the treatment. Only the HVPG line defines CSPH (Baveno VIII; AASLD 2024 statement 4: HVPG ≥10 mmHg); the PPG 12 line is where the
+  risk of bleeding rises and the gradient a TIPS aims under (AASLD 2024: no beta-blocker after TIPS under 12 mmHg), so the plane never calls it CSPH, and the notes say so. Also, a name
+  that sat as near another point as its own (Portal vein thrombosis, three lines above its dot, against Schisto's name beside it) now goes to its short name beside its point or a place
+  plainly its own. Code and unit tests only; nobody has looked on screen. `src/ui/visual-plane.js`, `styles/app.css`, `tests/plane-callouts.test.js`, `tests/panels-e.test.js`.
 - **The lobules around the one in focus are grey in every lens but Pressure, like the liver they come from.** (Mohammad, 26 Oct: "when zooming out of a gray liver in the decks or
   elsewhere when we're choosing a different lens than pressure; the surrounding lobules should also be gray as the color of the liver".) In Colored by oxygen, Blood origin, change
   and the other lenses the organs in the anatomy are grey, but the neighbouring lobules kept the pressure lens's pinks: the field that comes in through the dive and the way out, the

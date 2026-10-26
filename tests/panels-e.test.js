@@ -73,7 +73,10 @@ test('the model\'s compensated patients fall where the stiffness deck says', asy
   // HVPG against PPG: presinusoidal resistance raises the PPG alone, cirrhosis both.
   const [schisto, cirr] = await runSteps([{ preset: 'schisto' }, { preset: 'cirr-decomp' }]);
   assert.equal(zoneOf(planeOf('hvpg-ppg'), schisto).t, 'PPG raised, HVPG normal');
-  assert.equal(zoneOf(planeOf('hvpg-ppg'), cirr).t, 'Both raised');
+  assert.equal(zoneOf(planeOf('hvpg-ppg'), cirr).t, 'CSPH', 'beyond both red cut-offs, HVPG 10 and PPG 12');
+  assert.equal(zoneOf(planeOf('hvpg-ppg'), { hvpg: 12, ppg: 9 }).t, 'Both raised', 'HVPG at CSPH but the PPG under 12: not the corner');
+  assert.equal(zoneOf(planeOf('hvpg-ppg'), { hvpg: 7, ppg: 14 }).t, 'Both raised', 'the PPG at 12 or more but the HVPG under 10: not the corner');
+  assert.equal(zoneOf(planeOf('hvpg-ppg'), { hvpg: 10, ppg: 12 }).t, 'CSPH', 'the cut-offs belong to the corner (≥)');
 });
 
 test('words fit whole or not at all, and names never overlap one another or leave the plot', () => {

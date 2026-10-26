@@ -33,8 +33,28 @@ test('HVPG against PPG: no key, every zone named, names beside their points and 
   for (const [W, H, fs, where, phone] of SIZES) {
     const fr = frame(W, H, fs, pl), { X, Y } = scaler(pl, fr);
     const pts = rows.map(([f, name, short]) => ({ x: X(f.hvpg), y: Y(f.ppg), name, short, f }));
-    const { names, words: zw, rules, dots } = layoutPlane(pl, fr, X, Y, fs, pts);
+    const { names, words: zw, rules, dots, lines } = layoutPlane(pl, fr, X, Y, fs, pts);
     assert.ok(names.every(Boolean), `${where}: every point is named`);
+    // The two lines carry their own names (Mohammad, 26 Oct: "make it clear that the 10/12 line is clinically significant portal
+    // hypertension"): CSPH at the HVPG 10 line, Bleed risk at the PPG 12 line (not the CSPH definition), each beside its own line.
+    assert.deepEqual(lines.map((l) => l.text), ['CSPH ≥10', 'Bleed risk ≥12'], `${where}: both lines named`);
+    const [cs, bl] = lines;
+    assert.ok(cs.box[0] >= X(10) + 5 && cs.box[1] >= fr.T && cs.box[3] <= fr.B, `${where}: CSPH ≥10 right of its line, 5 px clear`);
+    assert.ok(bl.box[3] <= Y(12) - 5 || bl.box[1] >= Y(12) + 5, `${where}: Bleed risk ≥12 beside its line, 5 px clear`);
+    for (const l of lines) {
+      assert.ok(l.box[0] >= fr.L && l.box[2] <= fr.R && l.box[1] >= fr.T && l.box[3] <= fr.B, `${where}: ${l.text} inside the plot`);
+      assert.ok(!cutSegs(pl, X, Y, fr).some((c) => touch(l.box, [Math.min(c.x1, c.x2) - 4, Math.min(c.y1, c.y2) - 4, Math.max(c.x1, c.x2) + 4, Math.max(c.y1, c.y2) + 4])), `${where}: ${l.text} keeps 4 px off every line`);
+      for (const q of pts) assert.ok(!touch(l.box, [q.x - 10, q.y - 10, q.x + 10, q.y + 10]), `${where}: ${l.text} covers no point`);
+      for (const n of names) assert.ok(!touch(l.box, n.box), `${where}: ${l.text} overlaps no name`);
+      assert.ok(fs >= 12);
+    }
+    assert.ok(!touch(cs.box, bl.box), `${where}: the two names apart`);
+    // (A name sits plainly beside its own point, not as near the next one: Portal vein thrombosis and Schistosomiasis, 1.4 mmHg apart.)
+    if (W >= 700) for (const [i, n] of names.entries()) {
+      if (n.lead) continue;
+      const to = (q) => Math.hypot(Math.max(n.box[0] - q.x, 0, q.x - n.box[2]), Math.max(n.box[1] - q.y, 0, q.y - n.box[3]));
+      for (const q of pts) if (q !== pts[i]) assert.ok(to(q) >= to(pts[i]) + 8, `${where}: ${pts[i].name}'s name is nearer its own point than ${q.name} by 8 px`);
+    }
     // (The cut-off lines as drawn, broken where a name sits across one, as thin boxes 4 px either side.)
     const drawn = gapSegs(cutSegs(pl, X, Y, fr), names.filter((n) => n.across).map((n) => n.box))
       .map((c) => [Math.min(c.x1, c.x2) - 4, Math.min(c.y1, c.y2) - 4, Math.max(c.x1, c.x2) + 4, Math.max(c.y1, c.y2) + 4]);
@@ -105,15 +125,16 @@ test('the plane\'s green, amber and red zones: words 4.5:1 on their fills, light
       assert.deepEqual([order(fill)[0], order(fill)[2]], [order(rgb(col))[0], order(rgb(col))[2]], `${name} ${k}: ${hex(fill)} reads as ${col}`);
     }
   }
-  // (Four zones, four colours: the HVPG against PPG plane's fills all differ from each other and from the card, in every theme.)
+  // (Five zones, five colours: the HVPG against PPG plane's fills all differ from each other and from the card, in every theme; the CSPH
+  // corner takes the tiles' red, which both of its readings are rated.)
   for (const [name, th] of Object.entries(T)) {
-    const rule = name === 'dark' ? dark : light, fills = ['ok', 'ppg', 'hvpg', 'both'].map((k) => val(rule, th, k));
+    const rule = name === 'dark' ? dark : light, fills = ['hi', 'ok', 'ppg', 'hvpg', 'both'].map((k) => val(rule, th, k));
     for (let i = 0; i < fills.length; i++) {
       assert.ok(ratio(fills[i], rgb(th.surface)) >= 1.15, `${name}: zone ${i} stands out from the card`);
       for (let j = 0; j < i; j++) assert.ok(Math.hypot(...fills[i].map((v, c) => v - fills[j][c])) >= 30, `${name}: zones ${i} and ${j} differ`);
     }
   }
-  assert.deepEqual(PLANES['hvpg-ppg'].zones.map((z) => z.tone), ['ok', 'ppg', 'hvpg', 'both'], 'each of the four zones has its own colour');
+  assert.deepEqual(PLANES['hvpg-ppg'].zones.map((z) => z.tone), ['hi', 'ok', 'ppg', 'hvpg', 'both'], 'each of the five zones has its own colour');
   assert.match(css, /@media \(prefers-color-scheme: dark\) \{ :root:not\(\[data-theme="light"\]\):not\(\[data-theme="soft"\]\) :is\(\.pze-plot, \.pze-ckey, \.pze-key\) \{\n {2}--pze-ok: color-mix\(in srgb, var\(--ok\) 42%, var\(--black\)\)/, 'the system dark theme matches');
   for (const k of ['ok', 'mid', 'hi', 'ppg', 'hvpg', 'both']) assert.ok(css.includes(`.pze-key li[data-tone="${k}"] i { background: var(--pze-${k}); }`) && css.includes(`.pze-ckey li[data-tone="${k}"] i { background: var(--pze-${k}); }`), `${k}: the keys' swatches are the plot's fills`);
 });

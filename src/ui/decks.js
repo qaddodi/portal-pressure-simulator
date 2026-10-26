@@ -94,8 +94,8 @@
 // (withOverview below); a deck never writes that slide itself.
 
 import { CIRCULATION } from './decks/circulation.js?v=9ce2778867';
-import { SITES } from './decks/sites.js?v=acf4a72929';
-import { HVPG } from './decks/hvpg.js?v=75a8b178bd';
+import { SITES } from './decks/sites.js?v=1ade7e63b6';
+import { HVPG } from './decks/hvpg.js?v=1cd2432e24';
 import { ASCITES } from './decks/ascites.js?v=d6d34d5904';
 import { VARICES } from './decks/varices.js?v=03633167dd';
 import { TREATMENT } from './decks/treatment.js?v=b2c0dcc11b';
@@ -119,7 +119,7 @@ import { CAUSE_TREATED } from './decks/cause-treated.js?v=70702ca374';
 import { NEXT_BLEED } from './decks/next-bleed.js?v=054db19c8f';
 import { GASTRIC } from './decks/gastric-varices.js?v=0da683e5c6';
 import { HYPERDYNAMIC } from './decks/hyperdynamic.js?v=90b476c393';
-import { CHOOSE_TREATMENT } from './decks/choose-treatment.js?v=500e52ed71';
+import { CHOOSE_TREATMENT } from './decks/choose-treatment.js?v=01f1cae8b1';
 import { TEN_YEARS } from './decks/ten-years.js?v=9fe96fabb4';
 
 // Regions of the anatomy plate the camera frames (world units, x 300-1120, y 0-920).
