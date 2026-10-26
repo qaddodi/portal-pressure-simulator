@@ -57,6 +57,7 @@ export const ADOPTED = {
   'encephalopathy/firstpass': ['scales', 'kind:flows'],
   'ascites/lymph': ['scales', 'kind:fluid'],
   'ascites/fill': ['scales', 'kind:fluid', 'mark.organ'],
+  'ascites/diuretics': ['kind:fluid'],
   'prehepatic/cath': ['kind:profile'],
   'prehepatic/anticoag': ['kind:lumen'],
   'prehepatic/cavernoma': ['kind:lumen'],

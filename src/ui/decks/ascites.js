@@ -106,8 +106,8 @@ export const ASCITES = {
       ask: ['The fluid is back two weeks after the tap. Is this refractory ascites?', 'No: he has had no diuretics. Refractory means it returns within four weeks despite the highest diuretic doses and salt restriction, or diuretics cannot be taken.'],
     },
     {
-      id: 'diuretics', params: { diuretics: true }, days: 28, cam: 'fit', tool: BELLY,
-      compare: [{ label: 'No diuretics', params: { diuretics: false } }, { label: 'Diuretics', own: true, params: { diuretics: true } }], data: 'tiles', tiles: ['asc', 'pv'], key: ['asc'], delta: 'tense',
+      id: 'diuretics', params: { diuretics: true }, days: 28, cam: 'fit', tool: FLUID,
+      compare: [{ label: 'No diuretics', params: { diuretics: false } }, { label: 'Diuretics', own: true, params: { diuretics: true } }],
       kicker: 'Treatment', site: 'sin', title: 'Diuretics counter the kidneys\' sodium retention',
       line: 'Spironolactone with furosemide, and less salt. The kidneys lose sodium and water follows, so more fluid is reabsorbed from the abdomen and the ascites settles at {asc}.',
       notes: 'The model has no kidneys, so here diuretics simply raise how much fluid the abdomen reabsorbs. Spironolactone 100 mg a day, with furosemide 40 mg for recurrent ascites; outside the US, EASL starts a first episode on spironolactone alone and adds furosemide if weight loss is slow or the potassium rises. Both rise in a 100:40 ratio to 400 and 160 mg. About 2 g of sodium (5 g of salt) a day; no fluid restriction unless the sodium is below 125. Aim for a weight loss of up to 0.5 kg a day without leg edema, 1 kg with it. Stop or reduce for kidney injury, a sodium below 125, encephalopathy or muscle cramps. Diuretics also concentrate the ascites, so its protein rises.',
