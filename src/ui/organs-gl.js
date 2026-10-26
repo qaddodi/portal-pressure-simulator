@@ -49,7 +49,7 @@ void main() {
 }`;
 
 import { createShapeGL } from './shape-gl.js?v=a5ba46162b';
-import { createOrganPaint, mul } from './organ-paint.js?v=1250d7cb89';
+import { createOrganPaint, mul } from './organ-paint.js?v=f67ce51385';
 import { netChanged } from './idle-keys.js?v=6eccd5d85a';
 
 function program(gl, vs, fs) {

@@ -97,7 +97,8 @@ test('the GPU organs are on by default and can be turned off from the address', 
 
 test('a pinch reuses the live organs\' meshes: the tolerance moves in powers of two', () => {
   const src = readFileSync(new URL('../src/ui/organ-paint.js', import.meta.url), 'utf8');
-  assert.match(src, /tol = Math\.min\(0\.5, 2 \*\* Math\.floor\(Math\.log2\(0\.2 \/ sc\)\)\);/);
+  assert.match(src, /export const detailTol = \(sc\) => Math\.min\(0\.5, 2 \*\* Math\.floor\(Math\.log2\(0\.2 \/ sc\)\)\);/);
+  assert.match(src, /tol = detailTol\(sc\);/);
 });
 
 // A new clip's coverage was cleared over the whole canvas before it was drawn, for every clipped group on every frame; a later op

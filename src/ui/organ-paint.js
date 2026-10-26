@@ -32,6 +32,10 @@ export function bindShape(el, src) { if (el) SRC.set(el, src); }
 function srcOf(el) { const s = SRC.get(el); return s && el.getAttribute('d') === s.d ? s : null; }
 /** a ∘ b: b applied first (SVG matrices [a, b, c, d, e, f]). */
 export const mul = (a, b) => [a[0] * b[0] + a[2] * b[1], a[1] * b[0] + a[3] * b[1], a[0] * b[2] + a[2] * b[3], a[1] * b[2] + a[3] * b[3], a[0] * b[4] + a[2] * b[5] + a[4], a[1] * b[4] + a[3] * b[5] + a[5]];
+// The flattening tolerance (world units) for a shape drawn at `sc` device px per unit: a fifth of a pixel or finer, in powers of
+// two, so a pinch keeps the same meshes until the zoom doubles. One rule for fills, strokes and clips alike: a clip given the
+// exact 0.2 / scale cut its outline again, and built and uploaded a new mesh, at every step of a zoom (T02, 26 Oct).
+export const detailTol = (sc) => Math.min(0.5, 2 ** Math.floor(Math.log2(0.2 / sc)));
 export const inv = (m) => { const d = m[0] * m[3] - m[1] * m[2] || 1e-12; return [m[3] / d, -m[1] / d, -m[2] / d, m[0] / d, (m[2] * m[5] - m[3] * m[4]) / d, (m[1] * m[4] - m[0] * m[5]) / d]; };
 const apply = (m, x, y) => [m[0] * x + m[2] * y + m[4], m[1] * x + m[3] * y + m[5]];
 
@@ -444,14 +448,14 @@ export function createOrganPaint(gl, shape) {
       return { b: lv.alpha > 0 ? b : null, alpha: lv.alpha, mm: mul(m, lv.m) };
     }
     // (The tolerance in powers of two, a fifth of a pixel or finer: a pinch reuses the meshes until the zoom doubles.)
-    const om = mul(m, lv.m), sc = scaleOf(om), tol = Math.min(0.5, 2 ** Math.floor(Math.log2(0.2 / sc)));
+    const om = mul(m, lv.m), sc = scaleOf(om), tol = detailTol(sc);
     const sh = meshOf(op.geom, op.kind === 'stroke' ? op.cap : 0, tol);
     const grow = op.kind === 'stroke' ? (op.w / 2) * sc + 2 : 2;
     // (At no opacity it paints nothing: no box, so a change check sees it come and go.)
     let b = lv.alpha > 0 ? devBox(sh.box, om, grow) : null, cm = null, csh = null;
     if (op.clip) {
       cm = mul(m, lv.cm);
-      csh = meshOf(op.clip.geom, 0, Math.min(0.5, 0.2 / scaleOf(cm)));
+      csh = meshOf(op.clip.geom, 0, detailTol(scaleOf(cm)));
       b = meet(b, devBox(csh.box, cm, 2));
     }
     return { om, sh, cm, csh, b, alpha: lv.alpha };
