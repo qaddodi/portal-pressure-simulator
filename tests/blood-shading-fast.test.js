@@ -262,3 +262,93 @@ test('reading the corners from the block gives vnoise\'s value at every point', 
     }
   }
 });
+
+// ── Item 6: the second lumen read only where one is ──
+test('the lumen buffer flags a second lumen in its row\'s top bit, and the fast composite reads that target only there', async () => {
+  const { LUMEN2 } = await import('../src/ui/veins-gl.js');
+  assert.equal(LUMEN2, 0x8000);
+  // The vessel shader sets the bit exactly where it writes the second target (fl && gId2 > 0).
+  assert.match(glSrc, /outFlow = fl\n\s*\? uvec4\(gId \| \(gId2 > 0u \? \$\{LUMEN2\}u : 0u\), /);
+  assert.match(glSrc, /outFlow2 = fl && gId2 > 0u\n/);
+  // Rows stay far below the bit (the anatomy's ~250, the lobule's 320).
+  assert.match(readFileSync(new URL('../src/ui/lobule-zoom.js', import.meta.url), 'utf8'), /const MAXT = 320;/);
+  for (const k of Object.keys(R)) {
+    const main = body(R[k], 'void main()');
+    // Masked off before anything reads the row (the discard above it holds with or without the bit).
+    const at = main.indexOf('g.x &= 32767u;');
+    assert.ok(at > 0 && at < main.indexOf('int id1 = int(g.x) - 1') && at < main.indexOf('float vis = g.x > 0u'));
+    assert.match(main, /bool two = \(g\.x & 32768u\) != 0u;/);
+  }
+  assert.match(body(R.fast, 'void main()'), /uvec4 g2 = two \? texelFetch\(gbuf2, ip, 0\) : uvec4\(0u\);/);
+  assert.match(body(R.classic, 'void main()'), /uvec4 g2 = texelFetch\(gbuf2, ip, 0\);/);
+});
+
+// ── Item 7: lumens whose vessels did not change are left as drawn in the blood's own pass ──
+test('the blood pass leaves a lumen alone only when neither of its vessels\' rows nor any uniform changed', () => {
+  const main = body(R.fast, 'void main()');
+  assert.match(main, /if \(bloodOnly == 1 && stillOn == 1 && texelFetch\(flow, ivec2\(4, int\(g\.x\) - 1\), 0\)\.x == 0\.0\n\s*&& \(!two \|\| texelFetch\(flow, ivec2\(4, int\(texelFetch\(gbuf2, ip, 0\)\.x\) - 1\), 0\)\.x == 0\.0\)\) discard;/);
+  assert.doesNotMatch(R.classic, /stillOn/);
+  const comp = glSrc.slice(glSrc.indexOf('    composite(look, blood = {}, full = false, part = 0) {'), glSrc.indexOf('    /** Whether organ outlines can be drawn here'));
+  // Never in a whole picture, a bleed (the one uniform left out of the comparison, the clock, moves it), the classic build, or
+  // before every row has been seen.
+  assert.match(comp, /let still = !CLASSIC && !full && !movedAll && !bl\.length && !!stillSig && sn === stillN && sn < sigNow\.length;/);
+  assert.match(comp, /for \(let i = 0; still && i < sn; i\+\+\) if \(sigNow\[i\] !== stillSig\[i\]\) still = false;/);
+  // The comparison takes every uniform the composite sets but the clock (and the bleed's, which it refuses), and the textures' version.
+  const sig = comp.slice(comp.indexOf('sn = 0;'), comp.indexOf('let still'));
+  for (const x of ['m, canvas.width, canvas.height', 'pm', 'look.plate?.alpha', 'look.plate?.sat', 'plates[0]?.rect', 'plates[1]?.rect', 'fluidRect', 'fl?.s', 'fl.ink', 'fl?.lv',
+    'blood.on', 'blood.chev', 'blood.still', 'blood.alpha', 'blood.streakA', 'blood.chevA', 'blood.originA', 'blood.chevInk', 'blood.chevLight', 'blood.vdpr',
+    'blood.origin', 'dyeAny', 'originColOf', 'blood.dyeCol', 'blood.revCol', 'blood.inkLight', 'blood.inkDark', 'ncv', 'nc.length', 'hb', 'hr', 'ho.length',
+    'layer', 'glow', 'warm', 'useStack', 'bare', 'texVer']) assert.ok(sig.includes(x), x);
+  const uniforms = [...comp.matchAll(/gl\.uniform\w+\(U\.(\w+)/g)].map((m) => m[1]);
+  for (const u of uniforms) assert.ok(['world', 'size', 'cell', 'inv', 'H', 'pxW', 'plates', 'plateAlpha', 'plateSat', 'plateRect0', 'plateRect1', 'fluidRect', 'fluidS', 'fluidInk', 'fluidLv',
+    'blood', 'chev', 'still', 'flowA', 'blendA', 'chevInk', 'chevLight', 'cssPx', 'look', 'origin', 'dyeOn', 'clock', 'rows', 'originCol', 'dyeCol', 'revCol', 'inkLight', 'inkDark',
+    'bleedE', 'bleedB', 'bleedN', 'noChev', 'noChevN', 'chevHole', 'chevHoleR', 'chevHoleN', 'bloodOnly', 'stillOn'].includes(u), `uniform ${u} is accounted for`);
+  // The rows and this picture's uniforms are taken as the last picture's only once it is drawn.
+  assert.ok(comp.indexOf('moved.fill(0); movedAll = false;') > comp.indexOf('gl.uniform1i(U.bloodOnly, 1);'));
+  // Every setter of a vessel's row marks it; a new binning or flow table marks them all; a new texture under the lumens bumps texVer.
+  const api = glSrc.slice(glSrc.indexOf('  const api = {'));
+  assert.match(api, /setTubes\(data\) \{\n\s*tubesNew = true;\n\s*markRows\(data, tubeNow, ROW_W\);/);
+  assert.match(api, /setBend\(row, pts\) \{\n\s*moved\[row\] = 1;/);
+  assert.match(api, /radRows\.add\(row\); moved\[row\] = 1;/);
+  assert.match(api, /markRows\(data, flowSent, stride\);\n\s*const span = changedRows/);
+  assert.match(api, /if \(dyeSent\) markRows\(data, dyeSent, DYE_BINS\);/);
+  assert.equal((api.match(/fboOK = false; movedAll = true;/g) || []).length, 2);
+  for (const f of ['setOrgans(bitmap, rect) {', 'setFluidSpans(halfWidths, rect) {', 'setFluidLiver(bottoms) {', 'dropPlate(slot) {', 'commit(slot, names) {']) assert.ok(body(api, f).includes('texVer++'), f);
+  assert.ok(body(api, 'setPlate(slot, job, rect) {').includes('texVer++'));
+});
+
+// ── Item 8: the blood's own pass draws the quarters of its cells a lumen can reach ──
+import { binVeins, CELL } from '../src/ui/veins-bin.js';
+test('every point a lumen reaches lies in one of the blood quarters, and the quarters lie in the blood cells', () => {
+  const N = 64;
+  let seed = 7;
+  const rnd = () => ((seed = (Math.imul(seed, 1103515245) + 12345) >>> 0) / 4294967296);
+  const tubes = [];
+  for (let id = 0; id < 12; id++) {
+    const x0 = rnd() * 600, y0 = rnd() * 400, a = rnd() * 6.28, bend = (rnd() - 0.5) * 0.02, core = 3 + rnd() * 20;
+    const pts = []; let x = x0, y = y0, d = a;
+    for (let i = 0; i < N; i++) { pts.push([x, y]); x += Math.cos(d) * 6; y += Math.sin(d) * 6; d += bend; }
+    tubes.push({ id, pts, reach: core + 18, core: id === 11 ? undefined : core });
+  }
+  const joins = [{ x: tubes[0].pts[10][0], y: tubes[0].pts[10][1], reach: 20, k: 4, members: [0, 1] }];
+  const b = binVeins(tubes, joins);
+  const Q = new Set(), C = new Set();
+  for (let k = 0; k < b.nBloodQ; k++) Q.add(`${b.bloodQ[k * 6]},${b.bloodQ[k * 6 + 1]}`);
+  for (let k = 0; k < b.nBlood; k++) C.add(`${b.blood[k * 6]},${b.blood[k * 6 + 1]}`);
+  const H = CELL / 2, key = (x, y) => `${Math.floor(x / H) * H},${Math.floor(y / H) * H}`;
+  // (The grid starts on a multiple of CELL, so a quarter's cell is its origin floored to CELL, and a point's quarter to CELL / 2.)
+  for (const q of Q) { const [x, y] = q.split(',').map(Number); assert.ok(C.has(`${Math.floor(x / CELL) * CELL},${Math.floor(y / CELL) * CELL}`), `quarter ${q} in a blood cell`); }
+  // Points within each vessel's core of its centreline, densely along and across it, and round the join.
+  for (const t of tubes) {
+    const r = t.core ?? t.reach;
+    for (let i = 0; i < N - 1; i++) {
+      const [ax, ay] = t.pts[i], [bx, by] = t.pts[i + 1];
+      for (let u = 0; u <= 1; u += 0.25) for (let v = -1; v <= 1; v += 0.125) {
+        const L = Math.hypot(bx - ax, by - ay), nx = -(by - ay) / L, ny = (bx - ax) / L;
+        const px = ax + (bx - ax) * u + nx * v * r * 0.999, py = ay + (by - ay) * u + ny * v * r * 0.999;
+        assert.ok(Q.has(key(px, py)), `vessel ${t.id} point ${px.toFixed(1)},${py.toFixed(1)} in a blood quarter`);
+      }
+    }
+  }
+  assert.ok(b.nBloodQ < b.nBlood * 4, 'tighter than the whole cells');
+});
