@@ -973,7 +973,7 @@ room: `caseQ: 'Will his HVPG be raised?'`. It stands on its own line under the c
 with the case. Ask what the next slide answers, in the case's own terms ("What will the Doppler show?", "Where is the resistance?"), and
 keep the case and the question together under 220 characters (`tests/teaching-features.test.js` counts them). One question, no choices,
 no answer on the card: the slide behind it is the answer. Used on Two inflows 4 and 6, Where is the resistance? 1 to 6, Pre-hepatic 2, After the
-sinusoids 13, Lobule 4, Doppler 5 and 7 to 11, Stiffness 6 to 10, Pregnancy 2, Treating the cause 5 and Transplant Doppler 3 to 7.
+sinusoids 13, Doppler 5 and 7 to 11, Stiffness 6 to 10, Pregnancy 2, Treating the cause 5 and Transplant Doppler 3 to 7.
 
 ### Checking one
 

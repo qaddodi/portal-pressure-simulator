@@ -1,8 +1,8 @@
 // Presenter talk: inside the lobule, where each disease sits. Slide fields as documented at the top of decks.js.
 
 export const LOBULE = {
-  id: 'lobule', level: 'advanced', title: 'Inside the lobule: where each disease sits', minutes: 10,
-  sections: [['The lobule', ['The lobule']], ['Where the resistance sits', ['Presinusoidal', 'Sinusoidal', 'Postsinusoidal', 'Cardiac']], ['Measuring', ['Measuring']]],
+  id: 'lobule', level: 'advanced', title: 'Inside the lobule: where each disease sits', minutes: 7,
+  sections: [['The lobule', ['The lobule']], ['Where the resistance sits', ['Sinusoidal', 'Cardiac']], ['Measuring', ['Measuring']]],
   objectives: [
     'Trace blood through the lobule from the portal tract to the central vein',
     'Place schistosomiasis, cirrhosis, sinusoidal obstruction and congestion in the lobule',
@@ -33,15 +33,6 @@ export const LOBULE = {
       ask: ['Why is zone 3 the vulnerable zone?', 'It is last on the path, so it gets the least oxygen, and it is where many drugs are activated.'],
     },
     {
-      id: 'schisto', terms: { 'portal venules': 'lobule:triad', sinusoids: 'lobule:sinusoid' }, preset: 'schisto', cam: 'lobule:triad', callout: { at: 'triad', label: 'Resistance' }, scales: { anatomy: { cam: 'liver', labels: ['CONF', 'SIN_R'] }, sinusoid: {} }, data: 'tiles', tiles: ['pv', 'hvpg'],
-      kicker: 'Presinusoidal', site: 'presin', title: 'Schistosomiasis raises resistance in the portal tract',
-      vignette: 'A 29-year-old man who grew up farming rice in the Philippines has a large spleen and large esophageal varices. His liver tests are normal, and there is no ascites.',
-      caseQ: 'Will the wedge see the resistance?',
-      line: 'Eggs lodge in the portal venules. Granulomas and fibrosis form around them, and the sinusoids downstream stay normal. The portal pressure is {pv}, yet the HVPG only {hvpg}.',
-      notes: 'Schistosoma mansoni and japonicum eggs are carried in portal blood and trapped in the small portal venules, where they cause granulomas and then periportal (pipestem) fibrosis. The resistance is before the sinusoids: the portal pressure is high, but the wedge reads the normal sinusoids, so the HVPG is normal or only slightly raised. Liver cells are spared, so function is kept for years. Varices and splenomegaly are the presentation; ascites is rare. Porto-sinusoidal vascular disorder behaves the same way.',
-      ask: ['A patient with schistosomiasis also has hepatitis C cirrhosis. What will the HVPG show?', 'Raised, but below the true gradient: the wedge reads the sinusoidal resistance, not the presinusoidal one before it.'],
-    },
-    {
       id: 'cirr', terms: { 'space of Disse': 'sinusoid:disse', fenestrae: 'sinusoid:fenestrae', 'stellate cells': 'sinusoid:stellate', sinusoid: 'sinusoid:lumen' }, preset: 'cirr-decomp', cam: 'sinusoid', callout: { at: 'sin', label: 'Resistance' }, scales: { anatomy: { cam: 'liver', labels: ['CONF', 'SIN_R', 'RHV'] }, lobule: { cam: 'lobule:sinusoid', glow: ['lobule:sinusoid'] } }, data: 'tiles', tiles: ['sin', 'hvpg'],
       compare: [{ label: 'Fenestrae open', short: 'Open', params: { fenestrae: 1 } }, { label: 'Closed (cirrhosis)', short: 'Closed', own: true }],
       kicker: 'Sinusoidal', site: 'sin', title: 'Cirrhosis narrows the sinusoid',
@@ -49,14 +40,6 @@ export const LOBULE = {
       line: 'Collagen fills the space of Disse, the fenestrae close, and stellate cells contract around the sinusoid.',
       notes: 'Activated stellate cells lay down collagen in the space of Disse; the endothelium loses its fenestrae and gains a basement membrane (capillarization). Scar and regenerative nodules distort and compress the sinusoids. This structural part makes up about three quarters of the raised resistance. The rest is tone: too little nitric oxide in the liver, and contracted stellate cells, which is why carvedilol can lower it. With the wall closed, protein no longer crosses freely, so the ascites of cirrhosis is low in protein.',
       ask: ['Name the two parts of the raised resistance in cirrhosis.', 'Structural (scar, nodules, capillarized sinusoids) and dynamic (vascular tone).'],
-    },
-    {
-      id: 'sos', terms: { 'central veins': 'lobule:central' }, preset: 'sos', cam: 'lobule:central', callout: { at: 'cv', label: 'Resistance' }, scales: { anatomy: { cam: 'hepatic', labels: ['SIN_R', 'RHV', 'RA'] }, sinusoid: {} }, data: 'tiles', tiles: ['hvpg', 'asc'],
-      kicker: 'Postsinusoidal', site: 'postsin', title: 'Sinusoidal obstruction syndrome adds resistance in the central veins',
-      vignette: 'A 38-year-old woman with lymphoma, 18 days after high-dose conditioning for HSCT, has tender hepatomegaly, weight gain and new ascites. Her bilirubin is 2.3 mg/dL.',
-      line: 'Injured endothelium swells and sloughs into the small central veins and raises resistance there.',
-      notes: 'Sinusoidal obstruction syndrome (veno-occlusive disease) follows injury to the sinusoidal endothelium of zone 3: myeloablative conditioning before stem cell transplantation (busulfan, cyclophosphamide, total body irradiation), oxaliplatin, and pyrrolizidine alkaloids in herbal teas. The cells round up and detach, red cells dissect into the space of Disse, and debris raises resistance in the central veins. Weight gain, painful hepatomegaly, ascites and jaundice follow, classically within three weeks of transplant. The wedge lies upstream of the resistance, so the HVPG is raised; 10 mmHg or more supports the diagnosis. Defibrotide is the treatment.',
-      ask: ['Why does the HVPG rise in sinusoidal obstruction syndrome?', 'The resistance is in the central veins, between the sinusoids the wedge reads and the free hepatic vein.'],
     },
     {
       id: 'cong', terms: { 'zone 3': 'lobule:zone3', 'central vein': 'lobule:central', sinusoids: 'lobule:sinusoid' }, layers: ['zones'], callout: { at: 'cv', label: 'Dilated zone 3 sinusoids' }, preset: 'rhf', cam: 'lobule:central', scales: { anatomy: { cam: 'heart', labels: ['RHV', 'IVCS', 'RA'] }, sinusoid: {} }, data: 'tiles', tiles: ['pv', 'hvpg'],
@@ -75,8 +58,8 @@ export const LOBULE = {
     },
     {
       id: 'summary', visual: 'table', cols: ['pv', 'hvpg'], asc: true, note: 'Site in the lobule', rowHead: 'Disease',
-      of: [{ preset: 'healthy', kicker: 'Reference', title: 'Healthy', note: 'No added resistance', ref: true }, { id: 'schisto', title: 'Schistosomiasis', note: 'Portal venules, in the tract' },
-        { id: 'cirr', title: 'Cirrhosis', note: 'Sinusoids, the space of Disse' }, { id: 'sos', title: 'Sinusoidal obstruction', note: 'Central veins' },
+      of: [{ preset: 'healthy', kicker: 'Reference', title: 'Healthy', note: 'No added resistance', ref: true }, { preset: 'schisto', title: 'Schistosomiasis', note: 'Portal venules, in the tract' },
+        { id: 'cirr', title: 'Cirrhosis', note: 'Sinusoids, the space of Disse' }, { preset: 'sos', title: 'Sinusoidal obstruction', note: 'Central veins' },
         { id: 'cong', title: 'Heart failure', note: 'No added resistance: congestion of zone 3' }],
       kicker: 'Summary', title: 'Site of resistance in each disease',
       line: 'The wedge reads the sinusoids, so HVPG rises only when the resistance sits in them or in the central veins.',

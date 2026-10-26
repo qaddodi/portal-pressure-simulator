@@ -274,20 +274,11 @@
  "lobule/zones": [
   "zone 3"
  ],
- "lobule/schisto": [
-  "portal venules",
-  "sinusoids",
-  "{pv}",
-  "{hvpg}"
- ],
  "lobule/cirr": [
   "space of disse",
   "fenestrae",
   "stellate cells",
   "sinusoid"
- ],
- "lobule/sos": [
-  "central veins"
  ],
  "lobule/cong": [
   "zone 3",

@@ -2,6 +2,11 @@
 
 ## October 2026
 
+- **Inside the lobule is six slides, down from eight.** (Mohammad, 25 Oct, "Build the new decks"; deck rebuild plan, E6.)
+  The schistosomiasis and sinusoidal obstruction slides leave: the summary table still holds all four diseases, with the schistosomiasis and obstruction rows
+  now built from their patients directly. The sections are the lobule, where the resistance sits (sinusoidal, cardiac) and measuring; it is 7 minutes. Code and unit
+  tests only; nobody has looked on screen. `src/ui/decks/lobule.js`, `tests/deck-adopted.js`, `tests/lobule-sinusoid-reading.test.js`, `tests/e2e/smoke.mjs`
+  (three Lobule slide numbers), `docs/deck-authoring-guide.md`, `brand/handout/lobule/`.
 - **The stacked card's handle comes in with the cards, never ahead of them.** (Mohammad, 25 Oct, "The handle of the stacked cards appears before the
   cards".) Found in code: with Reduce Motion on, `.pz *` turned every transition off and the handle (`.pz-lip`) was the one piece of the stacked card
   left out of the fade the cards keep, so it came up at once, and went at once, while the cards were still fading. In motion, its bar fades with the

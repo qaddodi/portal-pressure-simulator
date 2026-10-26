@@ -777,7 +777,7 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
       await page.evaluate(() => window.pps.store.set({ sinusoid: false }));
       }
       // Presenter: the HVPG deck's presinusoidal slide (its lesion pill), then the lobule deck's sinusoid slide.
-      for (const [deck, i, sin] of [['hvpg', 6, false], ...(k === String(TEXT_MIN) ? [['lobule', 4, true]] : [])]) {
+      for (const [deck, i, sin] of [['hvpg', 6, false], ...(k === String(TEXT_MIN) ? [['lobule', 3, true]] : [])]) {
         await page.evaluate(([deck, i]) => window.pps.presenter.start(deck, i), [deck, i]);
         // (Each stage waits on its own: the start's cover alone can take 15 s here, and a CI runner's shared GPU is far slower.)
         for (const ready of [() => document.querySelector('#app').classList.contains('presenting') && !document.querySelector('.pz-cover'),
@@ -2677,7 +2677,7 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     const sizes = device === 'desktop' ? [null, { width: 820, height: 1180 }] : [null];
     for (const size of sizes) {
       if (size) await page.setViewportSize(size);
-      for (const [deck, n] of [['circulation', 6], ['circulation', 7], ['two-inflows', 3], ['lobule', 7]]) {
+      for (const [deck, n] of [['circulation', 6], ['circulation', 7], ['two-inflows', 3], ['lobule', 5]]) {
         await open(page, `?script=${deck}&slide=${n}`);
         await page.waitForFunction(() => [...document.querySelectorAll('.lz.on:not(.lz-cam):not(.lz-sin) .lz-lab, .sv-region')].filter((e) => !e.hidden && e.offsetParent).length >= 2);
         // Settled: the labels hold still across two looks a moment apart.
@@ -4290,7 +4290,7 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
   await check(device, 'presenter: resistance readings and callouts show, clear of the cards and the figure labels', async (page) => {
     const sizes = device === 'desktop' ? [[820, 1180], [1180, 820], [1440, 900]] : [[390, 844], [375, 667], [320, 568]];
     // (Plus every other slide with a reading on the figure, and every slide whose words a 320 px phone had fitted under 12 px.)
-    const more = 'hvpg 4,5,8,10;right-heart 3,5,7;shunts 2,5,6,8,9;stiffness 7;treatment 10;two-inflows 8;lobule 8;ncph 4;outflow 6,8;prehepatic 3,6;doppler 2,8;sites 3,8';
+    const more = 'hvpg 4,5,8,10;right-heart 3,5,7;shunts 2,5,6,8,9;stiffness 7;treatment 10;two-inflows 8;lobule 6;ncph 4;outflow 6,8;prehepatic 3,6;doppler 2,8;sites 3,8';
     const slides = [...Array.from({ length: 11 }, (_, i) => ['circuit', i]), ['hvpg', 2],
       ...more.split(';').flatMap((x) => { const [d, n] = x.split(' '); return n.split(',').map((k) => [d, k - 1]); })];
     const out = [];

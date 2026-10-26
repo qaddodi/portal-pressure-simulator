@@ -19,9 +19,10 @@ test('the SOS preset carries the post-sinusoidal block itself', () => {
   assert.equal(p.fibrosis.L.post, 32);
 });
 
-test('no slide overrides the SOS preset, so Sites, Where, Lobule and Outflow show one patient', async () => {
+test('no slide overrides the SOS preset, so Sites, Where, the Lobule table and Outflow show one patient', async () => {
   const slides = sosSlides();
-  assert.ok(slides.length >= 4, `SOS slides found: ${slides.map((x) => x.deck).join(', ')}`);
+  assert.ok(slides.length >= 3,   // (Lobule's own slide went in the deck rebuild: its summary row takes the preset)
+     `SOS slides found: ${slides.map((x) => x.deck).join(', ')}`);
   for (const { deck, slide } of slides) assert.equal(slide.params?.fibrosis, undefined, `${deck}/${slide.id} overrides the fibrosis of the preset`);
   const [m] = await runSteps([{ preset: 'sos' }]);
   assert.ok(m.hvpg > 10, `SOS HVPG ${m.hvpg.toFixed(1)} should sit above 10 (a clear postsinusoidal block)`);
