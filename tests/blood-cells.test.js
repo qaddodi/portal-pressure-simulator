@@ -120,5 +120,7 @@ test('a frame where only the blood moved leaves the pixels with no lumen as draw
   const comp = gl.slice(gl.indexOf('    composite(look, blood = {}, full = false, part = 0) {'), gl.indexOf('    /** Whether organ outlines can be drawn here'));
   assert.match(comp, /if \(full\) \{\n\s*gl\.uniform1i\(U\.bloodOnly, 0\);/);
   assert.match(comp, /gl\.uniform1i\(U\.bloodOnly, 0\);\n\s*if \(part\) \{[^\n]*\}\n\s*gl\.uniform1i\(U\.bloodOnly, 1\);\n\s*if \(nBlood\) \{ gl\.bindVertexArray\(bloodVAO\);[^\n]*\}\n\s*gl\.uniform1i\(U\.bloodOnly, 0\);\n\s*if \(fl\?\.ripple && nFluid\)/);
-  assert.equal((comp.match(/U\.bloodOnly/g) || []).length, 4);
+  // (The fifth: the one-pass frame's picture outside the vessel cells, ?zoompass=one, also every pixel.)
+  assert.match(comp, /gl\.stencilFunc\(gl\.EQUAL, 0, 0xff\);[\s\S]*?gl\.uniform1i\(U\.bloodOnly, 0\);\n\s*gl\.bindVertexArray\(compVAO\);/);
+  assert.equal((comp.match(/U\.bloodOnly/g) || []).length, 5);
 });
