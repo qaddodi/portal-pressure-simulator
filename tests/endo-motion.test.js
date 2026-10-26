@@ -38,8 +38,9 @@ test('banding eases: the band follows the deflating vein, nothing snaps', () => 
   assert.match(src, /if \(glKey\) keep\(glOut, res\)/);
 });
 
-test('scope bleed: drops thrown on each beat ease in and out, the pool rises with the blood lost and stays in the lumen', async () => {
-  const { scopeDrops, scopePoolY, SCOPE_DROPS } = await import('../src/ui/endo-motion.js');
+test('scope bleed: drops thrown on each beat ease in and out, the tear lies on a varix column, the pool is a wedge that widens with the blood lost', async () => {
+  const { scopeDrops, scopeTear, scopePool, inScopePool, SCOPE_DROPS, SCOPE_TEAR_COLUMN } = await import('../src/ui/endo-motion.js');
+  const { columnAngle, depthAt } = await import('../src/ui/endo-columns.js');
   let prev = null;
   for (let t = 0; t < 3; t += 0.002) {
     const d = scopeDrops(t, 90, 80);
@@ -47,13 +48,25 @@ test('scope bleed: drops thrown on each beat ease in and out, the pool rises wit
     if (prev) d.forEach((x, i) => assert.ok(Math.abs(x[3] - prev[i][3]) < 0.03, `drop ${i} at ${t.toFixed(3)} s`));
     prev = d;
   }
-  // Thrown up and away from the tear, then falling back.
-  const up = scopeDrops(0.3, 90, 80).filter((x) => x[3] > 0.3);
-  assert.ok(up.some((x) => x[1] < 0), 'some drops above the tear');
-  // An ooze throws them a shorter way than a spurt (how high above the tear they rise).
-  const reach = (rate) => Math.max(...scopeDrops(0.3, rate, 80).map((x) => -x[1]));
+  // The tear is on the crest of one of the drawn columns (the same angle the field's shader gives it at that depth), in the upper
+  // half of the view, so the blood runs down the wall to the pool and the tear is never under it.
+  for (const g of [0.1, 0.5, 0.9]) {
+    const tr = scopeTear(g);
+    assert.ok(Math.abs(tr.th - columnAngle(SCOPE_TEAR_COLUMN, depthAt(Math.hypot(tr.x, tr.y)), g)) < 1e-9);
+    assert.ok(tr.y < -0.2 && Math.hypot(tr.x, tr.y) < 0.7, `tear ${tr.x.toFixed(2)}, ${tr.y.toFixed(2)}`);
+  }
+  // The drops are thrown into the lumen (toward the axis) and fall: those just born move toward the centre.
+  const tear = scopeTear(0.8);
+  const born = scopeDrops(0.3, 120, 80, tear).filter((x) => x[3] > 0.1);
+  assert.ok(born.length > 3 && born.some((x) => x[4] * -tear.x > 0), 'toward the centre');
+  // An ooze throws them a shorter way than a spurt.
+  const reach = (rate) => Math.max(...scopeDrops(0.3, rate, 80, tear).map((x) => Math.hypot(x[0], x[1])));
   assert.ok(reach(15) < 0.6 * reach(120));
-  // The pool: low at first, higher as it fills, never above the lumen's middle.
-  assert.ok(scopePoolY(0, 100, 0.12) > scopePoolY(0, 100, 0.5) && scopePoolY(0, 100, 0.5) > scopePoolY(0, 100, 1));
-  assert.ok(scopePoolY(0, 100, 1) >= 0 && scopePoolY(0, 100, 0) < 100);
+  // The pool: a narrow wedge at first, wider as it fills, never past the lumen's middle; its edges leave the centre at phi and PI - phi.
+  let last = Infinity;
+  for (const f of [0, 0.12, 0.3, 0.6, 1]) { const { h, phi } = scopePool(f); assert.ok(phi < last && h > 0 && Math.abs(Math.sin(phi) - h) < 1e-9); last = phi; }
+  assert.ok(scopePool(1).phi > 0.05 && scopePool(0).phi < 1.3);
+  assert.ok(inScopePool(0, 0.5, 0.4) && !inScopePool(0, -0.5, 0.4) && !inScopePool(0.9, 0.1, 0.4), 'a point in the wedge, one above it, one beside it');
+  // Seen end on, a flat surface's wedge holds the tear's drops only below it: the tear itself is out of reach of the pool.
+  assert.ok(!inScopePool(tear.x, tear.y, scopePool(1).phi));
 });

@@ -7,23 +7,7 @@
 // (0 none .. 1 a cinched band with its dusky knuckle).
 
 import { cssRGB } from './util.js?v=d2c95a1b16';
-
-const TAU = Math.PI * 2;
-const NCOL = 4;
-
-// Per-column constants, in the same order the CPU renderer draws them from its seeded generator.
-function columnConsts() {
-  let x = 7 >>> 0;
-  const r = () => { x = (x * 1664525 + 1013904223) >>> 0; return x / 4294967296; };
-  const c0 = [], c1 = [];
-  for (let c = 0; c < NCOL; c++) {
-    const a0 = (c / NCOL) * TAU + 0.5 + (r() - 0.5) * 0.5;
-    const ph = r() * 6.28, ph2 = r() * 6.28, ph3 = r() * 6.28;
-    const f1 = 1.15 + r() * 0.5, f2 = 2.6 + r() * 0.8, wj = (r() - 0.5) * 0.015;
-    c0.push(a0, ph, ph2, ph3); c1.push(f1, f2, wj, 0);
-  }
-  return { c0, c1 };
-}
+import { columnConsts } from './endo-columns.js?v=381d1443b7';
 
 const VS = 'attribute vec2 p; void main(){ gl_Position = vec4(p, 0.0, 1.0); }';
 // The colours are tokens (--endo-* in styles/tokens.css), written into the shader when it is built.

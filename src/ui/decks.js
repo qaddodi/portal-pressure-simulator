@@ -107,7 +107,7 @@ import { CIRCUIT } from './decks/circuit.js?v=c1f4d54f37';
 import { DOPPLER } from './decks/doppler.js?v=75cf534497';
 import { ENDOSCOPY } from './decks/endoscopy.js?v=4cb71d8e9c';
 import { PREHEPATIC } from './decks/prehepatic.js?v=6e4ae22c61';
-import { BLEED } from './decks/variceal-bleed.js?v=5f20680728';
+import { BLEED } from './decks/variceal-bleed.js?v=e95162929f';
 import { TWO_INFLOWS } from './decks/two-inflows.js?v=c654aeaa46';
 import { SPLEEN } from './decks/spleen.js?v=419f925c34';
 import { NCPH } from './decks/ncph.js?v=09a8d24ba7';
@@ -134,6 +134,7 @@ export const REGIONS = {
   dips: [450, 220, 760, 480],       // the DIPS tract, portal bifurcation up through the caudate lobe to the IVC
   heart: [440, -20, 800, 300],
   varices: [540, -20, 980, 360],
+  bleed: [640, 60, 1030, 600],      // the lower esophagus down to the bottom of the stomach: the tear, the blood falling and the pool it makes
   gej: [710, 120, 920, 480],        // lower esophagus, the gastroesophageal junction and the coronary vein feeding it
   feeder: [620, 110, 930, 600],     // the varices down the coronary vein to the portal confluence
   spleen: [840, 240, 1120, 580],

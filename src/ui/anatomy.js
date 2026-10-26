@@ -528,7 +528,6 @@ export const SPLEEN_CENTER = [1040, 362];
 export const SITES = {
   varix: [797, 232],        // lower esophagus
   fundus: [876, 304],       // gastric fundus
-  stomachPool: [880, 500],  // blood collecting in the stomach during a bleed: the centre of the bowl it fills, low in the body
   umbilicus: [500, 800],
 };
 

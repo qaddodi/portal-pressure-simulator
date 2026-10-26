@@ -6,13 +6,13 @@ import { wallRead } from '../engine/wall-read.js?v=09449acd01';
 import { pressureColor } from './colormap.js?v=cdcf6a2f55';
 import { h, fmt, fitCanvas, cssVar, cssAlpha, clamp, icon } from './util.js?v=d2c95a1b16';
 import { simTime, isPaused } from './clock.js?v=5151312569';
-import { createEndoGL } from './endo-gl.js?v=10311b4cca';
+import { createEndoGL } from './endo-gl.js?v=5a804ad526';
 import { renderEndo } from './endo-render.js?v=b4ff4e6dc9';
 import { endoGrow, airRatio, airFlat } from './endo-size.js?v=e0a58bf20e';
-import { DEFLATE_MS, BAND_MS, BAND_DELAY_MS, fadeIn, glide } from './endo-motion.js?v=1393297b61';
-import { drawScopeBleed } from './endo-bleed.js?v=2711f28cc0';
-import { poolFill } from './blood.js?v=856babbc01';
-import { FONT } from './charts.js?v=ce74d37e11';
+import { DEFLATE_MS, BAND_MS, BAND_DELAY_MS, fadeIn, glide, scopeTear } from './endo-motion.js?v=09e76ad0cb';
+import { drawScopeBleed } from './endo-bleed.js?v=4f6e2c1883';
+import { poolFill } from './blood.js?v=b1ea6de060';
+import { FONT } from './charts.js?v=ba4050e8a7';
 import { store, updateParams, varicesPresent } from './store.js?v=926dabfaef';
 import { balanceHold, balanceLine } from './balance-hold.js?v=1792704e7a';
 import { frameFor, cancelFrame } from './frame.js?v=19b3f2915c';
@@ -224,7 +224,9 @@ export function createEndoscopy({ onAction }) {
     if (jetA > 0 && bleedLast) {
       // Active bleeding: blood spurting (or oozing) from the ruptured column, running down the wall and pooling in the
       // lowest part of the lumen (endo-bleed.js). On the model's clock, so a paused bleed holds still.
-      drawScopeBleed(ctx, { cx, cy, R, jx: cx + R * 0.28, jy: cy + R * 0.05, t: still.matches ? 0.3 : simTime(), a: jetA, rate: bleedLast.rate, fill: poolA, hr: bleedLast.hr });
+      // (the tear lies on the column as the field was last drawn)
+      const tear = scopeTear(gl && held ? held[0] / 32 : an.g);
+      drawScopeBleed(ctx, { cx, cy, R, jx: cx + tear.x * R, jy: cy + tear.y * R, t: still.matches ? 0.3 : simTime(), a: jetA, rate: bleedLast.rate, fill: poolA, hr: bleedLast.hr });
     }
     if (jetA <= 0 && !bleeding) { bleedLast = null; poolA = 0; }
     ctx.restore();

@@ -33,14 +33,14 @@ export const BLEED = {
       ask: ['Name three features that predict a first variceal bleed.', 'Large varices, red signs on the varix and advanced liver disease (Child–Pugh B or C).'],
     },
     {
-      id: 'tear', clock: { at: 0, label: 'The bleed starts' }, action: { kind: 'rupture', tear: 0.35 }, cam: 'varices', mark: { edges: ['C1a', 'C1b'], label: 'Bleeding varix' }, tool: BEATS, data: 'tiles', tiles: ['map', 'hb'], key: ['map'], delta: 'before',
+      id: 'tear', clock: { at: 0, label: 'The bleed starts' }, action: { kind: 'rupture', tear: 0.35 }, cam: 'bleed', mark: { edges: ['C1a', 'C1b'], label: 'Bleeding varix' }, tool: BEATS, data: 'tiles', tiles: ['map', 'hb'], key: ['map'], delta: 'before',
       kicker: K, site: 'sin', title: 'The varix tears',
       line: 'Blood pours into the esophagus. The heart rate usually rises first, unless a beta-blocker blunts it. Blood pressure is still normal at this stage.',
       notes: 'Hematemesis or melena in a patient with cirrhosis is variceal until proved otherwise. Lost volume is replaced first by a faster heart and tighter arterioles, so the blood pressure falls late. A beta-blocker such as carvedilol blunts the rise in heart rate, and admission heart rate is neither sensitive nor specific for a large bleed, so a normal pulse does not reassure. A heart rate over 100 or a systolic pressure below 100 means a large bleed. Place two large cannulas, send blood for cross-match, and call the endoscopist and the intensive care team. Hold the diuretics and any beta-blocker while the bleed is active.',
       ask: ['A man on carvedilol vomits blood. His pulse is 88 and his blood pressure 100/60. Is he stable?', 'Not necessarily. Carvedilol blunts the rise in heart rate, and his usual pressure may be low. Judge by the trend, the blood seen, the lactate and a postural drop.'],
     },
     {
-      id: 'minutes', clock: { at: 0.2, label: 'Minutes in' }, question: 'His pulse is racing. Has the hemoglobin fallen yet?', action: [], cam: 'varices', tool: BEATS, data: 'tiles', tiles: ['map', 'hb'], key: ['hb'], delta: 'before',
+      id: 'minutes', clock: { at: 0.2, label: 'Minutes in' }, question: 'His pulse is racing. Has the hemoglobin fallen yet?', action: [], cam: 'bleed', tool: BEATS, data: 'tiles', tiles: ['map', 'hb'], key: ['hb'], delta: 'before',
       kicker: K, site: 'sin', title: 'Shock before anemia',
       line: 'Minutes later the heart rate is {hr} and the blood pressure has fallen to {map}. The hemoglobin has not moved: it falls only as fluid refills the vessels over hours.',
       notes: 'Whole blood is lost, red cells and plasma together, so the first hemoglobin is close to normal even in shock. It falls over the next 24 to 72 hours as fluid moves in from the tissues and from the infusions. Judge the bleed by the pulse, the blood pressure, the urine output and the lactate. Intubate before the scope when encephalopathy clouds consciousness or large amounts of blood keep coming up.',
@@ -55,7 +55,7 @@ export const BLEED = {
       ask: ['In the US, which drugs start before the endoscopy, and what does each do?', 'Octreotide lowers the portal pressure; ceftriaxone cuts infection, rebleeding and death; erythromycin clears the stomach for the scope.'],
     },
     {
-      id: 'blood', clock: { at: 2, label: 'Transfuse to 7 to 8' }, action: [UNIT], cam: 'varices', tool: BEATS, data: 'tiles', tiles: ['map', 'hb'], key: ['map'], delta: 'before',
+      id: 'blood', clock: { at: 2, label: 'Transfuse to 7 to 8' }, action: [UNIT], cam: 'bleed', tool: BEATS, data: 'tiles', tiles: ['map', 'hb'], key: ['map'], delta: 'before',
       kicker: 'Volume', site: 'sin', title: 'Transfuse to a hemoglobin of 7 to 8',
       line: 'A second unit brings the blood pressure up to {map}. The hemoglobin has barely moved, because it lags the bleed. Once the circulation is stable, transfuse only below 7 g/dL, to a target of 7 to 8.',
       notes: 'A restrictive transfusion strategy (transfusing below 7 g/dL, to a target of 7 to 9 in the trial, 7 to 8 in Baveno VIII and about 7 in AASLD guidance) lowered rebleeding and death compared with a liberal one (transfusing below 9 g/dL, to a target of 9 to 11). It applies once the patient is stable, and the trial excluded massive bleeding. Volume beyond what the circulation needs pushes the portal pressure back toward its level before the bleed, which makes an early rebleed more likely; it also worsens ascites and can cause pulmonary edema. In cirrhosis saline adds sodium, so a balanced crystalloid, given with care, is a common choice. Patients with heart disease or ongoing massive bleeding may need more. Fresh frozen plasma and platelet transfusion to correct the INR or the count are not advised; they add volume without proven benefit. (Baveno VIII 5.4.)',
@@ -86,14 +86,14 @@ export const BLEED = {
       ask: ['Why is a rebleed on day 3 not counted as a new bleed?', 'Baveno VIII defines treatment failure as uncontrolled bleeding or a rebleed within 5 days of the first bleed.'],
     },
     {
-      id: 'rebleed', action: { kind: 'rupture', tear: 0.6 }, cam: 'varices', labels: ['VAR'], mark: { edges: ['C1a', 'C1b'], label: 'Bleeding varix' }, tool: BEATS, data: 'tiles', tiles: ['map', 'hb'], key: ['map'], delta: 'controlled',
+      id: 'rebleed', action: { kind: 'rupture', tear: 0.6 }, cam: 'bleed', labels: ['VAR'], mark: { edges: ['C1a', 'C1b'], label: 'Bleeding varix' }, tool: BEATS, data: 'tiles', tiles: ['map', 'hb'], key: ['map'], delta: 'controlled',
       kicker: 'Failure', site: 'sin', title: 'A rebleed within 5 days counts as treatment failure',
       line: 'On day 3 he vomits blood again, on octreotide and with the bands in place. Within minutes the heart rate climbs to {hr} and the blood pressure falls to {map}.',
       notes: 'A varix that bleeds again within 5 days of the first bleed means the first treatment did not work. The heart rate climbs and the blood pressure falls as before, but now the room has less reserve. Resuscitation restarts at once, and the endoscopist and the intensive care team are called. (Baveno VIII 5.16.)',
       ask: ['A patient is banded on Monday and vomits blood on Thursday. Is that treatment failure?', 'Yes: a rebleed within 5 days of the first bleed is treatment failure.'],
     },
     {
-      id: 'failure', action: [UNIT, SALINE], cam: 'varices', labels: ['VAR'], tool: BEATS, data: 'tiles', tiles: ['map', 'hb'], key: ['map'], delta: 'controlled',
+      id: 'failure', action: [UNIT, SALINE], cam: 'bleed', labels: ['VAR'], tool: BEATS, data: 'tiles', tiles: ['map', 'hb'], key: ['map'], delta: 'controlled',
       kicker: 'Failure', site: 'sin', title: 'Failure means uncontrolled bleeding or a rebleed by day 5',
       line: 'Failure means bleeding that drugs and endoscopy do not control, or a rebleed within 5 days. Blood and fluid go in: heart rate {hr}, blood pressure {map}.',
       notes: 'Baveno VIII defines treatment failure either as bleeding that stays uncontrolled or as a rebleed within 5 days. Failure, a Child–Pugh class C, and a high MELD score are the main risk factors for death in the next 6 weeks. Keep volume at the level that holds organ perfusion and transfuse to a hemoglobin of 7 to 8 g/dL, because extra volume raises the portal pressure. The model\'s bands always close an esophageal bleed, so this slide leaves the repeat band out to show a bleed that goes on. (Baveno VIII 5.16, 5.17.)',
