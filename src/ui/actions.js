@@ -9,7 +9,7 @@ import { store, updateParams, hiddenNow } from './store.js?v=926dabfaef';
 import { fmt, fmtFlow, clamp } from './util.js?v=5ad334ebc0';
 import { PREGNANCY_INFO } from '../engine/scenario.js?v=d7d3ea5b70';
 import { aboutVessel, aboutOrgan } from './about.js?v=a824db48cf';
-import { lobuleState } from './lobule-model.js?v=bd7e1bbc99';
+import { lobuleState } from './lobule-model.js?v=d9666e6d90';
 import { oxygenFor } from './blood.js?v=7fa561f952';
 import { LABEL_VESSEL, SIN_EDGES } from './anatomy.js?v=48cc98d415';
 

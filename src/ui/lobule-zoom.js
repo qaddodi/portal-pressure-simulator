@@ -23,10 +23,11 @@ import { runFlick, FLICK } from './flick.js?v=afbef74ff2';
 import { store } from './store.js?v=926dabfaef';
 import { radiiChanged, canvasPx, fxMoves, DIVE_RIM } from './lobule-render-cache.js?v=84bf4c2222';
 import { softwareYield } from './sw-yield.js?v=e580a095b1';
-import { lobuleState, lymphRate, sinceOf, LOBE } from './lobule-model.js?v=bd7e1bbc99';
-import { SIN_NARROW, cordTone, dullSinusoid, NEIGHBOUR_FLAT, neighbourBlur, blurWrapped, bandOutline, FADE_MID, fadeOuter, padRect, wideDpr, wideTiles, FIELD_RS, fieldBlend, fieldDof } from './lobule-look.js?v=a7314b7992';
-import { createFieldGL } from './field-gl.js?v=fc2c6e1c91';
-import { createTissueGL } from './tissue-gl.js?v=1e37e33563';
+import { lobuleState, lymphRate, sinceOf, lensModeOf, LOBE } from './lobule-model.js?v=d9666e6d90';
+import { SIN_NARROW, cordTone, dullSinusoid, NEIGHBOUR_FLAT, neighbourBlur, blurWrapped, bandOutline, FADE_MID, fadeOuter, padRect, wideDpr, wideTiles, FIELD_RS, fieldBlend, fieldDof, surroundGrade, greyStep } from './lobule-look.js?v=cf14995b07';
+import { isGreyLens } from './organ-dim.js?v=9e19f2fc30';
+import { createFieldGL } from './field-gl.js?v=779561d5dd';
+import { createTissueGL } from './tissue-gl.js?v=b1a3d590ff';
 import { h, s, fmt, clamp, createEaser, systemEdge, bloodColors, cssVar, cssAlpha, cssRGB01 } from './util.js?v=5ad334ebc0';
 import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatColor, oxygenColor } from './colormap.js?v=a9284dde52';
 import { NODES, EDGES } from '../engine/topology.js?v=4044766e96';
@@ -1741,6 +1742,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     if (moving) clock = (clock + dt) % 10000;
     rzMoving = easeRadii(dt);
     if (rzMoving || lensFrom || tissueFading(now)) drawVersion++;   // a caliber still easing, the colours or a new tissue crossfading: redraw this frame
+    if (greyMoving()) drawVersion++;   // (and the surround's grey, easing with the lens)
     const drew = draw(moving ? dt : 0);
     if (drew) { noteDraw('lobule-zoom'); lzYield?.drew(now); }
     pacedVer = viewVer;
@@ -1965,6 +1967,21 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     return fsM;
   };
   const fieldState = () => { const m = !unseen() && model ? model : F ? closedModel() : model; return m ? { su: fsQ('su', m.septU), pre: fsQ('pre', m.fibPre), post: fsQ('post', m.fibPost), sin: fsQ('sin', m.fibSin), cong: fsQ('cong', m.congU) } : { su: 0, pre: 0, post: 0, sin: 0, cong: 0 }; };
+  // The surround's grey. A lens other than Pressure greys the anatomy's organs (stage.js plateTargets); the neighbouring lobules, the dive's
+  // field and the tissue round the open lobule take the same grey, so they match the liver they are zoomed into or out of (the lobule in
+  // focus keeps its lens's colours). grey.k: 0 (the tiles as drawn) … 1 (the lens's grey liver), eased over the lens crossfade; it is
+  // there at once while nothing of the surround is seen (a dive not yet begun, the lobule staged ahead). It grades the finished picture
+  // (surroundGrade, in the shaders and the 2D passes), so a lens switch needs no new tiles.
+  const grey = { k: 0, from: 0, to: 0, t0: 0 };
+  const surroundSeen = () => !unseen() || fieldOp > 0.002;
+  const greyNow = (now = performance.now()) => greyStep(grey, isGreyLens(lensModeOf(store.get())) ? 1 : 0, now, LENS_FADE, !surroundSeen() || reduce.matches);
+  const greyMoving = () => { greyNow(); return grey.k !== grey.to; };
+  // (colour-exempt: a grey for the saturation blend drains colour, it is not a colour. The organs' grey, then the page's colour over it.)
+  function fieldGrey(c, bg, [sat, dim], w, h) {
+    if (sat < 1) { c.globalCompositeOperation = 'saturation'; c.fillStyle = `rgba(128,128,128,${(1 - sat).toFixed(3)})`; c.fillRect(0, 0, w, h); }   // colour-exempt
+    c.globalCompositeOperation = 'source-over';
+    if (dim < 1) { c.fillStyle = css(bg, 1 - dim); c.fillRect(0, 0, w, h); }
+  }
   // later: the open lobule asks (#27). A tissue state that changes mid-animation (a time-lapse, a slide's morph) needs new tiles, each
   // tens of ms to draw: the open lobule keeps showing the last state's tile (its quiet surround changes slowly) while the new one is
   // drawn between frames, then redraws with it.
@@ -2220,6 +2237,9 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     if (!(d.quiet >= 1)) fieldFill(c, liverTile(t, cs, dark, bg), fx0, fy0, rd, field.width, field.height);
     // Quieting: the pre-quieted tile laid over the plain one (two pattern fills, not a blend of the whole screen).
     if (d.quiet > 0) { c.globalAlpha = d.quiet; fieldFill(c, quietTile(t, shadeOf(bg, dark)), fx0, fy0, rd, field.width, field.height); c.globalAlpha = 1; }
+    // (Grey as the anatomy's liver is in a lens other than Pressure, before the fade into the page, as the shader does.)
+    const gk = greyNow();
+    if (gk > 0) fieldGrey(c, shadeOf(bg, dark), surroundGrade(gk), field.width, field.height);
     if (fadeWhole) c.restore();
     if (f > 0) fieldFade(c, shadeOf(bg, dark), fx0, fy0, rd, fq, field.width, field.height, r0, r1, [r0 - 1, far]);
     // Emerging: the field spreads out from the dive point as it fades in.
@@ -2257,12 +2277,12 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     const r0 = f > 0 ? Math.exp(lerp(Math.log(Math.hypot(W, H) * dpr * 0.45), Math.log(Math.min(Math.hypot(W, H) * dpr * 0.45, rd * 1.1)), f)) : 0;
     const r1 = fadeOuter(r0, Math.max(...[[0, 0], [fw, 0], [0, fh], [fw, fh]].map(([x, y]) => Math.hypot(x - fx0, y - fy0))));
     const q = d.quiet >= 1 ? 1 : Math.max(0, d.quiet || 0), tone = shadeOf(bg, dark);
-    const rho = Math.hypot(W, H) * dpr * (0.2 + 1.1 * d.a + 2 * smooth(0.7, 1, d.a));
+    const rho = Math.hypot(W, H) * dpr * (0.2 + 1.1 * d.a + 2 * smooth(0.7, 1, d.a)), gk = greyNow();
     return g.draw({
       W: fw, H: fh, a: liverTile(ta, cs, dark, bg).cv, b: tb ? liverTile(tb, cs, dark, bg).cv : null,
       qa: q > 0 ? quietTile(ta, tone).cv : null, qb: q > 0 && tb ? quietTile(tb, tone).cv : null, mix: tb ? mix : 0, quiet: q,
       ox: fx0, oy: fy0, rd, fade: f > 0 ? [r0, r1, fq] : null, mid: FADE_MID, bg: tone, mask: d.a < 1 ? [d.ox * dpr, d.oy * dpr, rho] : null,
-      dof: fieldDof(d, rd, Math.hypot(fw, fh)),
+      dof: fieldDof(d, rd, Math.hypot(fw, fh)), grey: gk > 0 ? surroundGrade(gk) : null,
     });
   }
   function liverTile(t, cs, dark, bg) {
@@ -2733,7 +2753,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     const ok = tg.draw({
       W: tw, H: th, qa: qa.cv, qb: qb?.cv, mix: tb ? mix : 0, qo: surOld?.cv?.width ? surOld.cv : null, qOld: surOld ? 1 - su : 0,
       w: worldCv, wVer: worldCv.ver || 0, wo: crossfading ? worldOld : null, woVer: worldOld.ver || 0, wMix: crossfading ? xfU(xfT0, now) : 1,
-      rect: [sx * dpr, sy * dpr, 2 * B * V.k * dpr], ox, oy, rd, fade: [fIn, fOut], mid: FADE_MID, bg: tone,
+      rect: [sx * dpr, sy * dpr, 2 * B * V.k * dpr], ox, oy, rd, fade: [fIn, fOut], mid: FADE_MID, bg: tone, grey: grey.k > 0 ? surroundGrade(grey.k) : null,
     });
     if (!ok) return false;
     if (!crossfading && xfT0) { xfT0 = 0; free(worldOld); free(xfCv); }   // (faded in: the old picture is given back)
@@ -2766,8 +2786,8 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     if (!held && gpu && kept && ws === worldState && sc <= worldSc && worldSc <= sc * 2.01) sc = worldSc;
     if (held && kept && (!gpu || sc <= worldSc)) { if (hand && sc !== worldSc) holdSoon(); sc = worldSc; }
     const wk = sc.toFixed(3) + '|' + ws;
-    const now = performance.now(), fading = tissueFading(now);
-    const key = [W, H, dpr, wk, gpu, fading ? `${xfU(xfT0, now).toFixed(3)},${xfU(surT0, now).toFixed(3)}` : '', flatVessels ? [ink('sin', 1), ink('sin', 0), ink('pv'), ink('cv'), m.art.toFixed(2), [...selIds()].join('.')] : '', Object.values(fieldState()).join(','), V.k.toFixed(3), V.x.toFixed(1), V.y.toFixed(1)].join('|');
+    const now = performance.now(), fading = tissueFading(now), gk = greyNow(now);   // (gk: the surround's grey, easing with the lens)
+    const key = [W, H, dpr, wk, gpu, fading ? `${xfU(xfT0, now).toFixed(3)},${xfU(surT0, now).toFixed(3)}` : '', flatVessels ? [ink('sin', 1), ink('sin', 0), ink('pv'), ink('cv'), m.art.toFixed(2), [...selIds()].join('.')] : '', Object.values(fieldState()).join(','), V.k.toFixed(3), V.x.toFixed(1), V.y.toFixed(1), gk.toFixed(3)].join('|');
     if (key === tissueKey) return gpu;
     tissueKey = key; tissueVer++; tissueCss = [W, H];
     const tw = canvasPx(W, dpr), th = canvasPx(H, dpr);
@@ -2829,6 +2849,9 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
       if (su >= 1) { surT0 = 0; surOld = null; }
       fieldFill(c, q, sx * dpr, sy * dpr, rd, W * dpr, H * dpr);   // half resolution is plenty for the quiet surround
       if (surOld?.cv?.width) { c.globalAlpha = 1 - su; fieldFill(c, surOld, sx * dpr, sy * dpr, rd, W * dpr, H * dpr); c.globalAlpha = 1; }
+      // (Grey as the anatomy's liver is in a lens other than Pressure: only here, inside the clip, so the lobule's bitmap laid next keeps
+      // the lens's colours; before the fade into the page, as on the GPU.)
+      if (gk > 0) fieldGrey(c, shadeOf(rgb01(bg), dark), surroundGrade(gk), tw, th);
       c.restore();
     }
     c.setTransform(1, 0, 0, 1, 0, 0);

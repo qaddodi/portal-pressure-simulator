@@ -31,6 +31,7 @@ uniform float uMid;                    // FADE_MID: the fade's middle stop
 uniform vec3 uBg;                      // the page's colour
 uniform vec4 uMask;                    // ox, oy, rho (the emerging mask), on (1 / 0)
 uniform vec4 uDof;                     // the softness as mip biases: the whole field's, depth of field from r0 to r1, its bias there
+uniform vec2 uGrey;                    // the grade in a lens other than Pressure: saturation, opacity (1, 1: as drawn)
 out vec4 o;
 void main() {
   vec2 p = vec2(gl_FragCoord.x, uH - gl_FragCoord.y);
@@ -40,6 +41,9 @@ void main() {
   float bias = uDof.x + uDof.w * smoothstep(uDof.y, uDof.z, length(p - uO));
   vec3 c = mix(texture(uA, uv, bias).rgb, texture(uB, uv, bias).rgb, uMix);
   if (uQuiet > 0.0) c = mix(c, mix(texture(uQA, uv, bias).rgb, texture(uQB, uv, bias).rgb, uMix), uQuiet);
+  // Grey as the anatomy's liver is in this lens (lobule-look.js surroundGrade): toward its luma, then toward the page, so the field
+  // coming in over the grey organs is the same grey.
+  if (uGrey.x < 1.0 || uGrey.y < 1.0) c = mix(uBg, mix(vec3(dot(c, vec3(0.299, 0.587, 0.114))), c, uGrey.x), uGrey.y);
   // The fade into the page: a radial gradient from r0 (clear) through FADE_MID · q halfway to q at r1 and beyond.
   if (uFade.w > 0.0) {
     float s = clamp((length(p - uO) - uFade.x) / max(uFade.y - uFade.x, 1e-6), 0.0, 1.0);
@@ -73,7 +77,7 @@ export function createFieldGL(canvas) {
     if (prog || failed || lost) return;
     try {
       prog = checkProgram(gl, started);
-      U = Object.fromEntries(['uA', 'uB', 'uQA', 'uQB', 'uMix', 'uQuiet', 'uO', 'uRd', 'uH', 'uFade', 'uMid', 'uBg', 'uMask', 'uDof'].map((n) => [n, gl.getUniformLocation(prog, n)]));
+      U = Object.fromEntries(['uA', 'uB', 'uQA', 'uQB', 'uMix', 'uQuiet', 'uO', 'uRd', 'uH', 'uFade', 'uMid', 'uBg', 'uMask', 'uDof', 'uGrey'].map((n) => [n, gl.getUniformLocation(prog, n)]));
       gl.useProgram(prog);
       gl.uniform1i(U.uA, 0); gl.uniform1i(U.uB, 1); gl.uniform1i(U.uQA, 2); gl.uniform1i(U.uQB, 3);
       exerciseDraw(gl, () => gl.drawArrays(gl.TRIANGLES, 0, 3));
@@ -106,8 +110,9 @@ export function createFieldGL(canvas) {
       for (const [cv, t] of texs) if (!cv.width || !keep(cv)) { if (!lost) gl.deleteTexture(t.tex); texs.delete(cv); }
     },
     /** One frame of the field. W, H: the canvas's size (device px); a, b, qa, qb: the tiles' canvases (liver-toned and
-     *  quieted, at the smaller and larger size); dof: the softness (fieldDof); the rest as paintField's (see FS). */
-    draw({ W, H, a, b, qa, qb, mix, quiet, ox, oy, rd, fade, mid, bg, mask, dof = null }) {
+     *  quieted, at the smaller and larger size); dof: the softness (fieldDof); grey: the grade [saturation, opacity] (surroundGrade),
+     *  null as drawn; the rest as paintField's (see FS). */
+    draw({ W, H, a, b, qa, qb, mix, quiet, ox, oy, rd, fade, mid, bg, mask, dof = null, grey = null }) {
       publish();
       if (this.lost) return false;
       // (A tile given back, or a zero-sized canvas, would be sampled as black: the 2D canvas draws this frame instead.)
@@ -124,6 +129,7 @@ export function createFieldGL(canvas) {
       gl.uniform3f(U.uBg, bg[0], bg[1], bg[2]);
       gl.uniform4f(U.uMask, mask ? mask[0] : 0, mask ? mask[1] : 0, mask ? mask[2] : 0, mask ? 1 : 0);
       gl.uniform4f(U.uDof, dof ? dof[0] : 0, dof ? dof[1] : 0, dof ? dof[2] : 1, dof ? dof[3] : 0);
+      gl.uniform2f(U.uGrey, grey ? grey[0] : 1, grey ? grey[1] : 1);
       gl.drawArrays(gl.TRIANGLES, 0, 3);
       return true;
     },

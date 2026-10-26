@@ -2,6 +2,14 @@
 
 ## October 2026
 
+- **The lobules around the one in focus are grey in every lens but Pressure, like the liver they come from.** (Mohammad, 26 Oct: "when zooming out of a gray liver in the decks or
+  elsewhere when we're choosing a different lens than pressure; the surrounding lobules should also be gray as the color of the liver".) In Colored by oxygen, Blood origin, change
+  and the other lenses the organs in the anatomy are grey, but the neighbouring lobules kept the pressure lens's pinks: the field that comes in through the dive and the way out, the
+  tissue round the open lobule, and the thin ring of it the dive's copy keeps. They now take the organs' own grey (saturation 0.12, opacity 0.72, `LENS_GREY` in `src/ui/organ-dim.js`,
+  the two numbers `stage.js` greys the organs with), laid over the finished picture in the field's and the tissue's shaders and in both 2D fallbacks, so a lens switch needs no new
+  tiles. It eases over the lens crossfade, and is there at once where nothing of the surround is seen yet (a dive not begun, the lobule drawn ahead). The lobule in focus keeps the
+  lens's colours, and Pressure draws exactly as before. Code and unit tests only; nobody has looked on screen. `src/ui/lobule-zoom.js`, `src/ui/field-gl.js`, `src/ui/tissue-gl.js`,
+  `src/ui/lobule-look.js`, `src/ui/lobule-model.js`, `src/ui/organ-dim.js`, `tests/lobule-surround-grey.test.js`.
 - **The figure's numbered markers also show in the teaching card's words.** (Mohammad, 26 Oct, "the labels 1, 2, 3, 4, etc. should also show up in the teaching cards in a
   similar way as they appear in the figure".) A slide with `steps: true` numbers its glow on the figure with black circles; its line now names each step with the same circle,
   written `{#1}`, `{#2}` straight after the words that name that site ("the gut and spleen's capillaries (1), the liver's sinusoids (2)"). The marker is the figure's own look

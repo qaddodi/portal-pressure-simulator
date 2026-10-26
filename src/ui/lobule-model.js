@@ -21,6 +21,9 @@ export function lobuleFlows(f, H) {
   return { flow: ratio(LOBE.q), portal: ratio(LOBE.pre), portalQ: Qe(LOBE.pre), portalRef: He(LOBE.pre) ?? 0, art: ratio(LOBE.a), lymph: f.metrics?.ascites?.hepLymph ?? 0, lyProt: f.metrics?.ascites?.lymphProt ?? 0.88, sigma: f.metrics?.ascites?.lymphSigma ?? 0.15, lymph0: H?.metrics?.ascites?.hepLymph || 0.8 };
 }
 
+/** The lens a store state has the vessels coloured by: the imaging view's neutral, a comparison's change, or the chosen "Colored by". */
+export const lensModeOf = (st) => (st.imaging ? 'neutral' : st.compareSnap && st.compareView === 'D' ? 'delta' : st.colorMode);
+
 /** The network a change-since slide counts from (a Float32Array of node pressures), or null: only that lens, on a slide, takes it. */
 export const sinceOf = (st) => (!st.compareSnap && st.presenting && st.colorMode === 'since' ? sinceNow() : null);
 
@@ -41,7 +44,7 @@ export function lobuleState(f, st, since = sinceOf(st)) {
   };
   m.act = clamp(Math.max(m.fibSin, sc * 0.9), 0, 1);
   // What the vessel color encodes, as in the anatomy (the lens, a comparison, or the imaging view's neutral one).
-  m.mode = m.hide ? 'neutral' : st.compareSnap && st.compareView === 'D' ? 'delta' : st.colorMode;
+  m.mode = lensModeOf(st);
   // A "change since" slide (lens 'since', stage.js REF): change counts from the network the slide counts from, not from healthy.
   // Only that lens on a slide takes it; every other lens and Patients' pinned moment read as before.
   const ref = st.compareSnap ? st.compareSnap.P : since || H?.P;

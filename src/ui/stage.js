@@ -56,8 +56,8 @@ import { SIN_PERFUSION, sinStrandRadius } from './sin-perfusion.js?v=25a8407fdd'
 import { wavePacks, paintWave } from './scan-waves.js?v=066db7aa38';
 import { fitPose, probeShapes, beamBoxes, gateBoxes, awayFromProbe, createProbeMind, NONE_MS, SLACK, PROBE, PROBE_SVG } from './dop-probe.js?v=34cec11e48';
 import { pathPieces, piecesLength, pointsAlong } from './path-pieces.js?v=e486672c9b';
-import { organDimMatrix } from './organ-dim.js?v=7888276613';
-import { parseColor, greyOf, paintRef } from './organ-grey.js?v=e41d68222c';
+import { organDimMatrix } from './organ-dim.js?v=9e19f2fc30';
+import { parseColor, greyOf, paintRef } from './organ-grey.js?v=02072c578d';
 import { bandRing, dashRings, liftEnd, normalShown, rippleList, systemOf, SYSTEM_COLOR } from './highlight-math.js?v=e2c1816e25';
 import { organAnchor, spleenCaliper, acrossVessel, stepGroups, spanOf, spanPath, zoneBand, SPAN_TICK, insideBy, clearOf, besideLine } from './callout-math.js?v=a716cd33ea';
 const nextFrame = frameFor('stage');
@@ -2182,7 +2182,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const lzAnchor = document.createComment('lobule');
   wrap.append(lzAnchor);
   // (The code is fetched as soon as the figure is shown; the layer is built a moment later, when the page is quiet, or at once for a dive.)
-  const lobuleCode = () => (lzCode ||= import('./lobule-zoom.js?v=245b68488c').catch((err) => { lzCode = null; throw err; }));
+  const lobuleCode = () => (lzCode ||= import('./lobule-zoom.js?v=082e56e8f2').catch((err) => { lzCode = null; throw err; }));
   function lobuleReady() {
     return (lzLoad ||= lobuleCode().then(({ createLobuleZoom }) => {
       lz = createLobuleZoom({ host: wrap, styles: wrapCS, before: lzAnchor });

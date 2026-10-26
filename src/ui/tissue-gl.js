@@ -31,12 +31,16 @@ uniform vec2 uWMix;                          // the new bitmap's share, the old 
 uniform vec2 uFade;                          // r0, r1
 uniform float uMid;                          // FADE_MID
 uniform vec3 uBg;                            // the page's colour
+uniform vec2 uGrey;                          // the surround's grade in a lens other than Pressure: saturation, opacity (1, 1: as drawn)
 out vec4 o;
 void main() {
   vec2 p = vec2(gl_FragCoord.x, uH - gl_FragCoord.y);
   vec2 uv = (p - uO) / (uRd * vec2(6.0, 3.4641016151377544));
   vec3 c = mix(texture(uQA, uv).rgb, texture(uQB, uv).rgb, uMix);
   if (uQOld > 0.0) c = mix(c, texture(uQO, uv).rgb, uQOld);
+  // Grey as the anatomy's liver is in this lens (lobule-look.js surroundGrade): toward its luma, then toward the page. Only the surround:
+  // the lobule's bitmap, laid over it next, keeps the lens's colours.
+  if (uGrey.x < 1.0 || uGrey.y < 1.0) c = mix(uBg, mix(vec3(dot(c, vec3(0.299, 0.587, 0.114))), c, uGrey.x), uGrey.y);
   vec2 w = (p - uRect.xy) / uRect.z;
   if (w.x >= 0.0 && w.y >= 0.0 && w.x <= 1.0 && w.y <= 1.0) {
     vec4 l = texture(uW, w) * uWMix.x;
@@ -76,7 +80,7 @@ export function createTissueGL(canvas) {
     if (prog || failed || lost) return;
     try {
       prog = checkProgram(gl, started);
-      U = Object.fromEntries(['uQA', 'uQB', 'uQO', 'uW', 'uWO', 'uMix', 'uQOld', 'uO', 'uRd', 'uH', 'uRect', 'uWMix', 'uFade', 'uMid', 'uBg'].map((n) => [n, gl.getUniformLocation(prog, n)]));
+      U = Object.fromEntries(['uQA', 'uQB', 'uQO', 'uW', 'uWO', 'uMix', 'uQOld', 'uO', 'uRd', 'uH', 'uRect', 'uWMix', 'uFade', 'uMid', 'uBg', 'uGrey'].map((n) => [n, gl.getUniformLocation(prog, n)]));
       gl.useProgram(prog);
       gl.uniform1i(U.uQA, 0); gl.uniform1i(U.uQB, 1); gl.uniform1i(U.uQO, 2); gl.uniform1i(U.uW, 3); gl.uniform1i(U.uWO, 4);
       exerciseDraw(gl, () => gl.drawArrays(gl.TRIANGLES, 0, 3));
@@ -111,8 +115,9 @@ export function createTissueGL(canvas) {
     },
     /** One frame of the tissue. W, H: the canvas's size (device px); qa, qb, mix: the quiet tiles' canvases and the blend; qo, qOld:
      *  the last state's tile and how much of it is left; w, wVer, wo, woVer, wMix: the bitmap, the last state's, the new one's share;
-     *  rect: [x, y, side] of the bitmap; ox, oy, rd: the lobule's centre and radius; fade: [r0, r1]; mid: FADE_MID; bg: [r, g, b]. */
-    draw({ W, H, qa, qb, mix, qo = null, qOld = 0, w, wVer, wo = null, woVer = 0, wMix = 1, rect, ox, oy, rd, fade, mid, bg }) {
+     *  rect: [x, y, side] of the bitmap; ox, oy, rd: the lobule's centre and radius; fade: [r0, r1]; mid: FADE_MID; bg: [r, g, b];
+     *  grey: the surround's grade [saturation, opacity] (surroundGrade), null as drawn. */
+    draw({ W, H, qa, qb, mix, qo = null, qOld = 0, w, wVer, wo = null, woVer = 0, wMix = 1, rect, ox, oy, rd, fade, mid, bg, grey = null }) {
       publish();
       if (this.lost) return false;
       // (A tile given back, or a zero-sized canvas, would be sampled as black: the 2D canvas draws this frame instead.)
@@ -132,6 +137,7 @@ export function createTissueGL(canvas) {
       gl.uniform2f(U.uWMix, old ? wMix : 1, old ? 1 - wMix : 0);
       gl.uniform2f(U.uFade, fade[0], fade[1]); gl.uniform1f(U.uMid, mid);
       gl.uniform3f(U.uBg, bg[0], bg[1], bg[2]);
+      gl.uniform2f(U.uGrey, grey ? grey[0] : 1, grey ? grey[1] : 1);
       gl.drawArrays(gl.TRIANGLES, 0, 3);
       return true;
     },
