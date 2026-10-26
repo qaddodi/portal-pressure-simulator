@@ -178,6 +178,7 @@ export const ADOPTED = {
   'recompensation/relation': ['kind:curve'],
   'ten-years/relation': ['kind:curve'],
   'next-bleed/relation': ['kind:curve'],
+  'variceal-bleed/relation': ['kind:curve'],
 };
 
 /** Whether the slide d/s may use the field. */

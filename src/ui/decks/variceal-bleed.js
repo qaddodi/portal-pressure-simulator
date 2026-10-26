@@ -116,6 +116,18 @@ export const BLEED = {
       ask: ['What does a rescue TIPS change that a stent or a balloon does not?', 'It lowers the portal pressure feeding the varix, so the bleeding stops for good.'],
     },
     {
+      // (The relation chart before the summary: the patient before the bleed, blood taken away or given, each point read at once.
+      // The hemoglobin lags the bleed in the model as in a patient, so the blood volume runs across rather than the hemoglobin.)
+      id: 'relation', preset: 'cirr-decomp', cam: 'portal', labels: ['SMV', 'CONF'],
+      tool: { kind: 'curve', x: 'bv', lines: ['pv', 'map'],
+        points: [{ action: { kind: 'hemorrhage', mL: 1500 } }, { action: { kind: 'hemorrhage', mL: 1000 } }, { action: { kind: 'hemorrhage', mL: 500 } }, { action: [] },
+          { action: [UNIT] }, { action: [UNIT, UNIT] }, { action: [UNIT, UNIT, UNIT] }] },
+      kicker: 'Summary', title: 'Volume refills the portal pressure',
+      line: 'Blood lost lowers the portal pressure along with the blood pressure. Given back past where he started, it raises the portal pressure while the blood pressure barely moves.',
+      notes: 'The ring is the patient before the bleed. Leftward, blood is taken away; rightward, units of red cells are given on top of a full circulation. The portal pressure follows the volume both ways: the bleed lowers it, which is part of why bleeding slows, and every extra unit raises it again. The arterial pressure flattens past the start, so overfilling buys little blood pressure for a higher portal pressure and a higher risk of rebleeding. That is the case for a restrictive target: transfuse at a hemoglobin of 7 g/dL and aim for 7 to 8 (Baveno VIII 5.4; AASLD 2024 statement 28, about 7). Baveno VIII 5.23 adds that plasma for the clotting tests brings volume of its own and can raise the portal pressure. The hemoglobin is not on the axis because it lags: it falls only as fluid refills the vessels, hours after the blood is lost.',
+      ask: ['His blood pressure is back to normal after two units, and his hemoglobin is 7.5 g/dL. Do you give a third?', 'No. He is at target; more volume raises the portal pressure and the risk of rebleeding for little gain in blood pressure.'],
+    },
+    {
       id: 'summary', visual: 'table', cols: ['hr', 'map', 'hb', 'pv', 'ppg'], asc: false, vs: 'first', rowHead: 'Step',
       of: [{ id: 'before', kicker: 'Baseline', title: 'Before the bleed' }, { id: 'tear', kicker: K, title: 'The tear' }, { id: 'minutes', kicker: K, title: 'Shock, minutes later' }, { id: 'oct', kicker: 'Drug and volume', title: 'Octreotide, first unit' }, { id: 'blood', kicker: 'Volume', title: 'Second unit' }, { id: 'band', kicker: 'Scope', title: 'Banding' }, { id: 'tips', kicker: 'Shunt', title: 'Pre-emptive TIPS' }, { id: 'rebleed', kicker: 'Day 3', title: 'The rebleed' }, { id: 'rescue', kicker: 'The rescue', title: 'Rescue TIPS' }],
       kicker: 'Summary', title: 'Vital signs and portal pressure through the bleed',
