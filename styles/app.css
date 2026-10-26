@@ -1888,15 +1888,21 @@ button.finding { cursor: pointer; }
 :is(.pz.stack, .pz.low) .pz-grid-head > .pz-pstrip { display: block; width: auto; margin: 0 12px; font-size: var(--s-cap); }
 .pz.stack .pz-grid-head > :nth-child(2) { display: none; }
 /* (A big screen's six ladders letter at the data card's chart size at least, and larger where their cell has the room: Mohammad, 26 Oct, "keep what it
-   was before but each individual card graph should be bigger; bigger lines/text, not the card itself bigger". The type grows with the cell's width,
-   3.8 cqi, and is held by the cell's height (2.1 of the screen's 1 % less 6.4 px: about the chart's height over 19, so the plot keeps its room and the
-   brackets their place in it) and by 20 px; the chart's own layout (tool-profile.js profileGeo) sets its names, zone words, brackets and pills for
-   whatever size it is given. The cqi is read on the chart, the cell's child, where the container is the cell; read on the cell itself it would find none.) */
-.pz:not(.stack) .pz-cell { --ch-cap: max(12px, calc(var(--s-cap) * .74), min(3.8cqi, calc(2.1 * var(--pzh) - 6.4px), 20px)); --ch-lab: calc(var(--ch-cap) * 1.5); }
+   was before but each individual card graph should be bigger; bigger lines/text, not the card itself bigger", then "larger text size on it". The type
+   grows with the cell's width, 4.5 cqi, and is held by the cell's height (1.86 of the screen's 1 % less 1.2 px: about the chart's height over 17.7, so
+   the plot keeps its room) and by 20 px: 19.5 px on a 1877 x 1137 Mac, 14 on an iPad on its side. The chart's own layout (tool-profile.js profileGeo) sets
+   its names, zone words, brackets and pills for whatever size it is given; its zone words ease down past 16 px (zoneSize) so the strip over the plot stays
+   one line. The cqi is read on the chart, the cell's child, where the container is the cell; read on the cell itself it would find none.) */
+.pz:not(.stack) .pz-cell { --ch-cap: max(12px, calc(var(--s-cap) * .74), min(4.5cqi, calc(1.86 * var(--pzh) - 1.2px), 20px)); --ch-lab: calc(var(--ch-cap) * 1.5); }
+/* (What the card spent in height round the charts goes to them, inside the card, which keeps its size: the gap under the title, the foot, the gap
+   between the two rows and each cell's top and first gap shorter. The card's width, its side padding and the columns' gap are as they were.) */
+.pz:not(.stack):not(.low) .pz-panel.fill { gap: clamp(8px, calc(1.2 * var(--pzh)), 16px); padding-bottom: clamp(12px, calc(1.8 * var(--pzh)), 24px); }
+.pz:not(.stack):not(.low) .pz-panel.fill .pz-grid { row-gap: clamp(8px, calc(1.2 * var(--pzh)), 16px); }
+.pz:not(.stack):not(.low) .pz-panel.fill .pz-cell { padding-top: clamp(8px, calc(1.1 * var(--pzh)), 14px); gap: clamp(3px, calc(.6 * var(--pzh)), 8px); }
 /* (Its lines grow with its type, never thinner than the data card's: the line 3 px, the healthy and earlier lines 1.75, the brackets and the brace 1.5,
    the axis and the gridlines 1 px, at the 12 px type they were drawn for. The value halos and the red hatching stay: the chart's label placing
    counts a halo as 2 px.) */
-.pz:not(.stack) .pz-cell .ppf-line { stroke-width: max(3px, .24em); }
+.pz:not(.stack) .pz-cell .ppf-line { stroke-width: max(3px, .2em); }
 .pz:not(.stack) .pz-cell :is(.ppf-hl, .ppf-bf) { stroke-width: max(1.75px, .14em); }
 .pz:not(.stack) .pz-cell .ppf-hl { stroke-dasharray: max(4px, .33em) max(5px, .42em); }
 .pz:not(.stack) .pz-cell .ppf-bf { stroke-dasharray: max(1.5px, .125em) max(4.5px, .375em); }

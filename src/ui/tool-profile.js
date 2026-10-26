@@ -52,7 +52,12 @@ export function zoneSpans() {
   return i0 < 1 || i1 < i0 || i1 >= STATIONS.length - 1 ? [] : [[0, i0 - 1], [i0, i1], [i1 + 1, STATIONS.length - 1]];
 }
 // (A name's width: the text and, unless tight, the style's letter-spacing, .06 em a letter: styles/app.css .ppf-zone.)
-const zoneW = (t, f, tw, tight) => tw(t, 600) + (tight ? 0 : 0.06 * f * t.length);
+// (Up to ZONE_MAX px the names are set in the chart's own type, as ever. Past it, on the six ladders' larger charts (Mohammad, 26 Oct: bigger
+// type in each chart), they ease down towards ZONE_MIN: the strip over the plot stays one short line, the readings, the stations and the
+// brackets grow and the plot does not give up two lines of height to three captions. The numbers (profileGeo's zb, hdr) follow zoneSize.)
+export const ZONE_MAX = 16, ZONE_MIN = 13;
+export const zoneSize = (f) => (f <= ZONE_MAX ? f : Math.max(ZONE_MIN, ZONE_MAX - (f - ZONE_MAX) * 0.75));
+const zoneW = (t, f, tw, tight) => (zoneSize(f) / f) * (tw(t, 600) + (tight ? 0 : 0.06 * f * t.length));
 /** The lines of zone k's name: one, or two ("PRE" over "HEPATIC"). */
 const zoneLines = (k, lines) => (lines === 2 ? [ZONES[k].top, ZONE_SECOND] : [ZONES[k].one]);
 /** How the three names are set in a chart whose stations stand slot px apart, in type f px: { lines: 1 | 2, tight } (tight: letters closer),
@@ -67,10 +72,10 @@ export function zoneFit(slot, f, tw) {
 }
 /** The boxes the zone names take over the plot of the chart G (profileGeo), 2 px clear all round: what values, line names and brackets keep out of. */
 export function zoneBoxes(G, tw) {
-  const { f, zone } = G, cap = 0.72 * f;
+  const { f, zone } = G, zf = zoneSize(f), cap = 0.72 * zf;
   return zone.lines ? zoneSpans().map(([a, b], k) => {
     const m = (G.x(a) + G.x(b)) / 2, hw = Math.max(...zoneLines(k, zone.lines).map((t) => zoneW(t, f, tw, zone.tight))) / 2;
-    return [m - hw - 2, m + hw + 2, G.T - G.zb - cap - (zone.lines === 2 ? 1.05 * f : 0) - 2, G.T - G.zb + 2];
+    return [m - hw - 2, m + hw + 2, G.T - G.zb - cap - (zone.lines === 2 ? 1.05 * zf : 0) - 2, G.T - G.zb + 2];
   }) : [];
 }
 
@@ -172,7 +177,7 @@ export function profileGeo(w, h, f, tw, inside = false) {
   // shorter by the 1.6 em this gave back, so the plot keeps (nearly) its height. The names' baseline zb stands over the plot clear of a
   // reading at the plot's top, and of a block hanging from one (its box and its halo, 2 px over them), so a name never touches them. One line of names, or two where the narrowest
   // zone cannot hold its name; none where even that does not fit, the strip then only a lip over the readings.)
-  const zone = zoneFit(slot, f, tw), zb = 0.36 * f + 6, hdr = zone.lines ? zb + 0.84 * f + (zone.lines === 2 ? 1.05 * f : 0) : 0.36 * f + 4;
+  const zone = zoneFit(slot, f, tw), zb = 0.36 * f + 6, zf = zoneSize(f), hdr = zone.lines ? zb + 0.84 * zf + (zone.lines === 2 ? 1.05 * zf : 0) : 0.36 * f + 4;
   const T = 0.2 * f + hdr, nameH = fit.rows * 1.25 * f + 0.4 * f;
   const brFit = SPANS.map(([, name, a, b]) => bracketFit(slot * (STATIONS.indexOf(b) - STATIONS.indexOf(a)), name, tw, f));
   const brMode = brFit.map((q) => q.mode), brFs = brFit.map((q) => q.fs);
@@ -692,8 +697,9 @@ export function createProfileTool() {
       // 22 Oct, PRE / INTRA / POST written out in full): the names stand in one line, or in two where a zone is too narrow for its name.
       zoneSpans().map(([a, b], k) => {
         const m = (G.x(a) + G.x(b)) / 2, y0 = G.T - G.hdr, ls = zoneLines(k, G.zone.lines);
-        return sv('g', { class: G.zone.tight ? `${ZONES[k].cls} tight` : ZONES[k].cls }, sv('rect', { x: G.x(a) - G.slot / 2, width: G.slot * (b - a + 1), y: y0, height: G.B - y0 }),
-          G.zone.lines ? ls.map((t, j) => sv('text', { x: m, y: G.T - G.zb - (ls.length - 1 - j) * 1.05 * f, 'text-anchor': 'middle' }, t)) : null);
+        const zf = zoneSize(f);
+        return sv('g', { class: G.zone.tight ? `${ZONES[k].cls} tight` : ZONES[k].cls, style: zf < f - 0.01 ? `font-size: ${zf.toFixed(2)}px` : null }, sv('rect', { x: G.x(a) - G.slot / 2, width: G.slot * (b - a + 1), y: y0, height: G.B - y0 }),
+          G.zone.lines ? ls.map((t, j) => sv('text', { x: m, y: G.T - G.zb - (ls.length - 1 - j) * 1.05 * zf, 'text-anchor': 'middle' }, t)) : null);
       }),
       Array.from({ length: Math.floor(top / every) + 1 }, (_, k) => sv('g', { class: 'ptk-grid' }, sv('line', { x1: G.L, x2: G.R, y1: y(k * every), y2: y(k * every) }),
         sv('text', { x: G.L - 6, y: y(k * every) + 0.35 * f, 'text-anchor': 'end' }, String(k * every)))),

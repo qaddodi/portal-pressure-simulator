@@ -221,7 +221,7 @@ test('every ladder shows its card title and its three zones\' names, with no key
   assert.doesNotMatch(prof, /keyFit|ppf-key/, 'no key');
   assert.match(prof, /sv\('text', \{ class: 'ptk-unit', x: 0, y: G\.braceY \+ 1\.55 \* f \}, 'mmHg'\)/, 'mmHg level with the brace\'s name');
   assert.doesNotMatch(prof, /liverLabel/, 'no per-slide option: one look on every ladder');
-  assert.match(prof, /G\.zone\.lines \? ls\.map\(\(t, j\) => sv\('text', \{ x: m, y: G\.T - G\.zb - \(ls\.length - 1 - j\) \* 1\.05 \* f, 'text-anchor': 'middle' \}, t\)\) : null/, 'each zone named over its tint, on every ladder');
+  assert.match(prof, /G\.zone\.lines \? ls\.map\(\(t, j\) => sv\('text', \{ x: m, y: G\.T - G\.zb - \(ls\.length - 1 - j\) \* 1\.05 \* zf, 'text-anchor': 'middle' \}, t\)\) : null/, 'each zone named over its tint, on every ladder');
   assert.match(prof, /export const ZONES = \[\{ cls: 'ppf-zone ppf-pre', one: 'PRE-HEPATIC', top: 'PRE' \}, \{ cls: 'ppf-zone ppf-liver', one: 'INTRAHEPATIC', top: 'INTRA' \},\n\s*\{ cls: 'ppf-zone ppf-post', one: 'POST-HEPATIC', top: 'POST' \}\];/, 'the three zones, named in full');
   assert.match(js, /ui\.dhT\.textContent = cardTitle\(s\);/, 'every card, the ladder\'s too, shows its title');
   assert.doesNotMatch(js, /kind === 'profile' && !s\.tool\.title/, 'the title is never switched off for a profile');

@@ -11,13 +11,17 @@
   `tests/panels-e.test.js`.
 - **The six site ladders (Sites 10 of 12, Where-resistance 14) draw each chart larger inside its cell: bigger type and heavier lines, the card as it was.** (Mohammad, 26 Oct:
   "this slide could use larger diagrams", then "bigger doesn't mean the card is bigger; I mean keep what it was before but each individual card graph should be bigger; like bigger
-  lines/text, not the card itself bigger".) The card, its padding, its 1560 px cap and the room above the nav pill are unchanged. On a Mac or an iPad on its side each chart's lettering
-  (axis numbers, station values and names, zone words, HVPG and PPG brackets and pills, the brace) is now 3.8 cqi of its cell's width, at least what it was, held by the cell's height
-  (2.1 of the screen's 1 % less 6.4 px, about the chart's height over 19, so the plot keeps its room) and at 20 px; the chart's own layout sets its names, zones, brackets and pills
-  for the new size. The lines grow with it, never thinner than before: the line 3 px to 0.24 em (4 px at 16.5), the healthy and earlier lines, the brackets, the brace, the axis and
-  the gridlines in the same proportion; the value halos stay 4 px, as the label placing counts them. At 1877 x 1137 the type goes from about 14.6 to 16.5 px, at 1920 x 1080 from 13.9
-  to 16.3, at 1728 x 1000 from 12.8 to 14.6, and a laptop 900 px tall or less, whose cells have no height to spare, keeps its 12 to 12.5 px. A phone, upright or on its side, keeps
-  its strips. Code and unit tests only; nobody has looked on screen. `styles/app.css` (`.pz-cell`), `tests/ladders-chart-size.test.js`, `tests/ladder-pills.test.js`.
+  lines/text", then "I want larger text size on it, or for it to look bigger".) The card, its width, side padding, 1560 px cap and the room above the nav pill are unchanged. On a Mac or
+  an iPad on its side each chart's lettering (axis numbers, station values and names, zone words, HVPG and PPG brackets and pills, the brace) is now 4.5 cqi of its cell's width,
+  at least what it was, held by the cell's height (1.86 of the screen's 1 % less 1.2 px, about the chart's height over 17.7) and at 20 px: 14.6 to 19.5 px at 1877 x 1137, 13.9 to 18.9
+  at 1920 x 1080, 12.8 to 17.4 at 1728 x 1000, 12 to 15.5 at 1440 x 900, 12 to 14 on an iPad at 1180 x 820, 12 to 13.5 at 1440 x 790. The room comes from inside the card, not from
+  its size: the gap under the title, the foot, the gap between the two rows and each cell's top and first gap are shorter (about 27 px more height per chart at 1877 x 1137), and the
+  zone words ("PRE-HEPATIC", "INTRAHEPATIC", "POST-HEPATIC") stop growing past 16 px and ease down to 13 (`zoneSize` in `src/ui/tool-profile.js`), so the strip over the plot stays one
+  short line instead of two while the numbers, stations and brackets grow; a chart of 16 px or less, every other chart the data card draws, is as it was. The lines grow with the
+  type, never thinner than before: the line 3 px to 0.2 em (3.9 px at 19.5), the healthy and earlier lines, the brackets, the brace, the axis and the gridlines in the same proportion;
+  the value halos stay 4 px, as the label placing counts them. The brace and "mmHg" stay: they share one row, so dropping them would give back no height. Where a larger chart has no room for
+  the brackets in its plot they stand in the band at its foot, as before. A phone, upright or on its side, keeps its strips. Code and unit tests only; nobody has looked on screen.
+  `styles/app.css` (`.pz-cell`, `.pz-panel.fill`), `src/ui/tool-profile.js`, `tests/ladders-chart-size.test.js`, `tests/ladder-pills.test.js`.
 - **The lobules around the one in focus are grey in every lens but Pressure, like the liver they come from.** (Mohammad, 26 Oct: "when zooming out of a gray liver in the decks or
   elsewhere when we're choosing a different lens than pressure; the surrounding lobules should also be gray as the color of the liver".) In Colored by oxygen, Blood origin, change
   and the other lenses the organs in the anatomy are grey, but the neighbouring lobules kept the pressure lens's pinks: the field that comes in through the dive and the way out, the
