@@ -5463,14 +5463,6 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
    the room over it, so the pill never sits on its corner.) */
 .pz:not(.stack) .pz-panel { width: min(1560px, calc(100% - 2 * var(--pz-cm))); top: calc(50% - (var(--pz-cm) + 44px) / 2); max-height: calc(100% - 3 * var(--pz-cm) - 44px); }
 .pz:not(.stack) .pz-panel.fill { height: calc(100% - 3 * var(--pz-cm) - 44px); }
-/* (The six ladders on a wide screen, larger (Mohammad, 26 Oct: "this slide could use larger diagrams"): the card takes the screen between the
-   one margin at each side, no 1560 px cap (only a screen wider than 2.2 : 1 holds it, so a cell never turns into a strip), and what it spent on
-   room round the charts goes to them: shorter side and foot padding, the title closer to the grid, tighter gaps between the cells and inside
-   them. The words, the charts' lettering and the room for the nav pill under the card stay as they were; a phone and a tablet held upright keep
-   their own layout.) */
-.pz:not(.stack):not(.low) .pz-panel.fill { width: min(calc(100% - 2 * var(--pz-cm)), calc(220 * var(--pzh))); padding-inline: clamp(14px, 1.5vw, 28px); padding-bottom: clamp(12px, calc(1.8 * var(--pzh)), 24px); gap: clamp(8px, calc(1.2 * var(--pzh)), 16px); }
-.pz:not(.stack):not(.low) .pz-panel.fill .pz-grid { gap: clamp(8px, calc(1.2 * var(--pzh)), 16px); }
-.pz:not(.stack):not(.low) .pz-panel.fill .pz-cell { padding-top: clamp(8px, calc(1.1 * var(--pzh)), 14px); padding-inline: clamp(10px, calc(1.2 * var(--pzh)), 16px); gap: clamp(3px, calc(.6 * var(--pzh)), 8px); }
 /* The full cards other than the six ladders (the opening outline, a summary table, the closing quick check, the scale, the SAAG plot, the two
    capillary walls, a plane) are a column to read, not a wall: on a laptop or a
    tablet on its side each stays a centred card, a width in the teaching card's body text (--pz-b, so it grows with the words) and never

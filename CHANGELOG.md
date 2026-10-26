@@ -2,13 +2,6 @@
 
 ## October 2026
 
-- **The six site ladders (Sites 10 of 12, Where-resistance 14) draw their six charts larger on a Mac and an iPad on its side.** (Mohammad, 26 Oct: "this slide could use larger
-  diagrams please", a Mac at 1877 x 1137 with empty margins at the sides and under the cards.) The card is no longer held to 1560 px: it takes the screen between the one margin at
-  each side (only a screen wider than 2.2 : 1 holds it, so a cell never becomes a strip), and the room it spent round the charts goes to them: the side and foot padding, the gap under
-  the title, the gaps between the cells and the padding inside each are shorter, all tied to the screen height as before. A chart's plot at 1877 x 1137 goes from about 434 x 374 px to
-  539 x 400; at 1440 x 900 and on an iPad at 1180 x 820 it gains about 7% each way. Three cells by two, the card's one margin, the room above the nav pill, the title's room under the
-  tab, the 12 px floor, whole-number brackets and the charts' own lettering are as before; a phone, upright or on its side, and a tablet held upright keep their layout. Code and unit
-  tests only; nobody has looked on screen. `styles/app.css` (`.pz-panel.fill`), `tests/ladders-wide.test.js`.
 - **The HVPG against PPG plane says where CSPH is.** (Mohammad, 26 Oct: "make it clear that the 10/12 line is clinically significant portal hypertension".) The HVPG 10 line is now named
   "CSPH ≥10" and the PPG 12 line "Bleed risk ≥12", each beside its own line, and everything right of the HVPG 10 line is a red zone named CSPH, whatever the PPG (the HVPG tile's red),
   on Sites and causes, Where HVPG misleads and Choose the treatment. Only the HVPG line defines CSPH (Baveno VIII; AASLD 2024 statement 4: HVPG ≥10 mmHg); the PPG 12 line is where the
