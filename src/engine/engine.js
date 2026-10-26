@@ -7,7 +7,7 @@ import {
   heartFlow, fillShape, systoleShape, raWave, iapFromAscites, makeRng,
 } from './physiology.js?v=6fc3ec393a';
 import { defaultParams, DRUGS, PRESETS, deepMerge, MEAL_TONE, MEAL_BLUNT } from './scenario.js?v=d7d3ea5b70';
-import { detectEvents } from './events.js?v=771fa593ac';
+import { detectEvents } from './events.js?v=d4c7f93ac2';
 
 const KNEE = { artery: [1e9, 1], bed: [14, 10], portal: [14, 10], vein: [14, 6], hepvein: [10, 3], heart: [10, 4], liver: [9, 2], wedge: [9, 5], varix: [30, 10] };
 const KD = { vein: 0.03, diode: 0.03, collateral: 0.08 };
@@ -1217,6 +1217,34 @@ export class Engine {
     const lc = this.G[this.ei.WC_R], ll = this.G[this.ei.WL_R];
     const wh = (lc * P[this.ni.SIN_R] + ll * P[this.ni.CV_R]) / (lc + ll);
     return { whvp: wh, fhvp: P[this.ni.RHV], hvpg: wh - P[this.ni.RHV] };
+  }
+
+  /** The HVPG and free hepatic vein pressure this liver would read without its beta-blocker, for the stiffness (metrics.lsm).
+   *  A beta-blocker lowers the gradient through the portal inflow and the sinusoidal tone, not the scarring, and liver
+   *  stiffness does not follow the fall (AASLD 2024 p. 1189: no role for LSM in judging the HVPG response to NSBB). `hv` is
+   *  the reading as it stands (hvpgTrue); with no beta-blocker on it comes back unchanged. Otherwise a copy of this model,
+   *  the beta-blockers off and everything else as it is, is settled and read. The copy is taken again only when the
+   *  state it depends on changes (the params but the drugs, the day, the blood, the slow state), and at most every
+   *  half second of model time while a change eases in; in between, the last difference is carried on the live reading,
+   *  so the number moves smoothly while a slider is dragged. */
+  hvNoBlocker(hv) {
+    const dr = this.params.drugs;
+    if (!dr?.propranolol && !dr?.carvedilol) { this._nb = null; return hv; }
+    const to = this._ease?.to ?? this.params, s = this.slow;
+    const key = JSON.stringify([{ ...to, drugs: { ...to.drugs, propranolol: false, carvedilol: false }, seed: 0 }, this.day,
+      Math.round(this.bloodVolume() / 10), Math.round(s.splTone * 1e3), Math.round(s.volExtra), Math.round(s.ascites / 50),
+      Math.round(s.spleen * 10), this.bands > 0, this.iap != null ? Math.round(this.iap * 10) : null]);
+    const nb = this._nb;
+    if (!nb || (nb.key !== key && (!this._ease || this.t - nb.t >= 0.5 || this.t < nb.t))) {
+      const h = this._nbTwin ??= new Engine({ params: this.params });
+      h.restore(this.snapshot());
+      h.setParams({ ...h.params, drugs: { ...h.params.drugs, propranolol: false, carvedilol: false } });
+      h.bleed = { ...h.bleed, active: false }; h.infusions = [];
+      h.settle();
+      const t = h.hvpgTrue();
+      this._nb = { key, t: this.t, dHvpg: t.hvpg - hv.hvpg, dFhvp: t.fhvp - hv.fhvp };
+    }
+    return { ...hv, hvpg: hv.hvpg + this._nb.dHvpg, fhvp: hv.fhvp + this._nb.dFhvp };
   }
 
   // ───────────────────────── snapshot ─────────────────────────

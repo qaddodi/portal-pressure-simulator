@@ -30,6 +30,8 @@ export function ascitesGrade(V0) {
   return { grade: 3, label: 'Grade 3 (tense)' };
 }
 
+const lsmOf = (hv) => 5 + 2.2 * Math.max(0, Math.min(hv.hvpg, 12) - 3) + 0.8 * Math.max(0, hv.hvpg - 12) + 2 * Math.max(0, hv.fhvp - 6);
+
 export function computeMetrics(eng) {
   const P = eng.Pf || eng.P, Q = eng.Q, ni = eng.ni, ei = eng.ei, p = eng.params;
   const qf = (id) => (eng.Qf ? eng.Qf[ei[id]] : Q[ei[id]]);
@@ -88,8 +90,9 @@ export function computeMetrics(eng) {
     // Liver stiffness (transient elastography, kPa), an estimate from the model. It rises with the sinusoidal
     // gradient (about 20 kPa at an HVPG of 10), flattens above an HVPG of 12 where fibrosis is already
     // advanced, and with congestion at about 2 kPa per mmHg of free hepatic vein pressure above normal
-    // (heart failure and hepatic outflow block stiffen the liver too).
-    lsm: 5 + 2.2 * Math.max(0, Math.min(hv.hvpg, 12) - 3) + 0.8 * Math.max(0, hv.hvpg - 12) + 2 * Math.max(0, hv.fhvp - 6),
+    // (heart failure and hepatic outflow block stiffen the liver too). It reads the gradient the liver would have without a
+    // beta-blocker (Engine.hvNoBlocker): the drug lowers the HVPG, not the stiffness (AASLD 2024 p. 1189).
+    lsm: lsmOf(eng.hvNoBlocker ? eng.hvNoBlocker(hv) : hv),
     measured,
     ppg: tenthGap(P[ni.CONF], P[ni.IVCS], P[ni.CONF] - P[ni.IVCS]),
     pv: P[ni.CONF],

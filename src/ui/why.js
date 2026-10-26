@@ -1,6 +1,6 @@
 // "Why?" popover (blueprint §9.3): one causal sentence, a contribution waterfall and the formula.
 
-import { host } from './host.js?v=7c322e5490';
+import { host } from './host.js?v=ee05906fc3';
 import { h, fmt, svgIcon, visibleBottom } from './util.js?v=5ad334ebc0';
 
 export function createWhy(pop) {
