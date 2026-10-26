@@ -2,6 +2,11 @@
 
 ## October 2026
 
+- **The Spleen and the Doppler after a liver transplant talks are gone.** (Mohammad, 25 Oct, "Build the new decks"; deck rebuild plan, F7.) The spleen's teaching already lives in
+  Stiffness (the spleen's size and the platelets) and Gastric varices (the splenectomy slide, with its three-way compare, now tested there). The transplant Doppler talk's
+  cases were the least used; the Doppler talk keeps the basics. Old links keep working: `?script=spleen` opens Stiffness and `?script=transplant-doppler` opens the Doppler talk
+  at slide 1, as do their share pages. The app has 28 talks, was 30; the menu lost both rows. The words and design needed no pass because nothing new was written.
+
 - **Treating the cause: the weight-loss patient is one slide.** (Mohammad, 25 Oct, "Build the new decks"; deck rebuild plan, F6.) The MASLD cirrhosis patient and the
   weight loss slide are merged: her case card (BMI of 34, a stiffness of 15 kPa, platelets of 136,000/µL) opens the year of weight loss, and the stiffness and platelets
   play out after the card lifts. The talk is 7 slides, was 8; the gray-zone and ANTICIPATE-NASH teaching moved into the slide's notes, the 25 kPa question stays in

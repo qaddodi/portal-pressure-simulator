@@ -466,42 +466,6 @@
  "two-inflows/tips": [
   "{liver}"
  ],
- "spleen/normal": [
-  "splenic vein",
-  "spleen",
-  "portal vein",
-  "{spleen}",
-  "{plt}"
- ],
- "spleen/grown": [
-  "spleen",
-  "{pv}",
-  "{spleen}",
-  "{plt}"
- ],
- "spleen/platelets": [
-  "spleen",
-  "{plt}"
- ],
- "spleen/screen": [
-  "{lsm}",
-  "{plt}"
- ],
- "spleen/pse": [
-  "splenic vein",
-  "{pv}"
- ],
- "spleen/later": [
-  "spleen",
-  "{plt}",
-  "{spleen}"
- ],
- "spleen/splenectomy": [
-  "splenic vein",
-  "spleen",
-  "portal vein",
-  "{plt}"
- ],
  "ncph/patient": [
   "varices",
   "spleen",
@@ -794,24 +758,6 @@
  "choose-treatment/a5": [
   "{ppg}",
   "{asc}"
- ],
- "transplant-doppler/hat": [
-  "{liver}"
- ],
- "transplant-doppler/has": [
-  "(a value)"
- ],
- "transplant-doppler/pvs": [
-  "{pvVel}",
-  "{ppg}"
- ],
- "transplant-doppler/pvt": [
-  "{ppg}",
-  "{liver}"
- ],
- "transplant-doppler/outflow": [
-  "{ppg}",
-  "{liver}"
  ],
  "ten-years/d0": [
   "{hvpg}",

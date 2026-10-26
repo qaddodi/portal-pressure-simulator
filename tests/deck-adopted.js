@@ -57,8 +57,6 @@ export const ADOPTED = {
   'encephalopathy/firstpass': ['scales', 'kind:flows'],
   'ascites/lymph': ['scales', 'kind:fluid'],
   'ascites/fill': ['scales', 'kind:fluid', 'mark.organ'],
-  'spleen/grown': ['normalOutline', 'calipers'],
-  'spleen/later': ['calipers'],
   'prehepatic/cath': ['kind:profile'],
   'prehepatic/anticoag': ['kind:lumen'],
   'prehepatic/cavernoma': ['kind:lumen'],
@@ -154,13 +152,6 @@ export const ADOPTED = {
   'two-inflows/clot': ['caseQ'],
   'two-inflows/artery': ['caseQ'],
   'pregnancy/before': ['caseQ'],
-  'transplant-doppler/graft': ['cite'],
-  'transplant-doppler/hat': ['caseQ', 'cite'],
-  'transplant-doppler/has': ['caseQ', 'cite'],
-  'transplant-doppler/pvs': ['caseQ', 'cite'],
-  'transplant-doppler/pvt': ['caseQ', 'cite'],
-  'transplant-doppler/outflow': ['caseQ', 'cite'],
-  'transplant-doppler/summary': ['cols.wave', 'wave'],
 };
 
 /** Whether the slide d/s may use the field. */

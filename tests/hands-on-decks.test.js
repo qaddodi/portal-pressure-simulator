@@ -63,8 +63,9 @@ test('Outflow: the right hepatic vein clot slider shows that one open vein drain
   assert.ok(clot.pv - open.pv > 5, `portal pressure falls with the vein open (${clot.pv} → ${open.pv})`);
 });
 
-test('Spleen: no treatment, embolization and splenectomy on the embolization slide', async () => {
-  const s = slide('spleen', 'pse');
+test('Gastric varices: no treatment, embolization and splenectomy on the splenectomy slide', async () => {
+  // (The Spleen talk's embolization slide, cut in the deck rebuild, F7; its three-way compare lives on here.)
+  const s = slide('gastric-varices', 'splenectomy');
   assert.deepEqual(kinds(s), ['params', 'params', 'params']);
   assert.equal(s.compare.find((o) => o.own).params.splenicRx, s.params.splenicRx);
   const [none, pse, spx] = (await runSteps([{ preset: 'csph' }, ...s.compare.map((o) => ({ params: o.params }))])).slice(1).map(pick);

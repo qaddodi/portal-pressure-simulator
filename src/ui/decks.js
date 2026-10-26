@@ -108,7 +108,6 @@ import { ENDOSCOPY } from './decks/endoscopy.js?v=4cb71d8e9c';
 import { PREHEPATIC } from './decks/prehepatic.js?v=6e4ae22c61';
 import { BLEED } from './decks/variceal-bleed.js?v=e95162929f';
 import { TWO_INFLOWS } from './decks/two-inflows.js?v=7ed411b482';
-import { SPLEEN } from './decks/spleen.js?v=419f925c34';
 import { NCPH } from './decks/ncph.js?v=09a8d24ba7';
 import { OUTFLOW } from './decks/outflow.js?v=f854f410c6';
 import { RECOMPENSATION } from './decks/recompensation.js?v=4ed2f52eb3';
@@ -120,7 +119,6 @@ import { NEXT_BLEED } from './decks/next-bleed.js?v=8b6a2a81bf';
 import { GASTRIC } from './decks/gastric-varices.js?v=dcfad8a881';
 import { HYPERDYNAMIC } from './decks/hyperdynamic.js?v=8f06d153c4';
 import { CHOOSE_TREATMENT } from './decks/choose-treatment.js?v=78ed2ac1cc';
-import { TRANSPLANT_DOPPLER } from './decks/transplant-doppler.js?v=c310965e72';
 import { TEN_YEARS } from './decks/ten-years.js?v=6f05dc14ae';
 
 // Regions of the anatomy plate the camera frames (world units, x 300-1120, y 0-920).
@@ -185,7 +183,7 @@ export const DECKS = [CIRCULATION, SITES, HVPG, ASCITES, VARICES, TREATMENT];
 DECKS.push(STIFFNESS, CIRCUIT, LOBULE, SHUNTS);
 DECKS.push(DOPPLER, ENDOSCOPY, TIPS_DOPPLER);
 DECKS.push(PREHEPATIC, BLEED);
-DECKS.push(TWO_INFLOWS, SPLEEN, NCPH, OUTFLOW, RECOMPENSATION);
+DECKS.push(TWO_INFLOWS, NCPH, OUTFLOW, RECOMPENSATION);
 DECKS.push(WHERE);
 DECKS.push(PREGNANCY_DECK);
 DECKS.push(ENCEPHALOPATHY, CAUSE_TREATED);
@@ -193,22 +191,21 @@ DECKS.push(NEXT_BLEED);
 DECKS.push(GASTRIC);
 DECKS.push(HYPERDYNAMIC);
 DECKS.push(CHOOSE_TREATMENT);
-DECKS.push(TRANSPLANT_DOPPLER);
 DECKS.push(TEN_YEARS);
 
 // Old links and bookmarks: a talk that was merged into another, or renamed, still opens by its old id (?script=<old id>, a shared
 // c/deck-<old id>.html page), at slide 1 of the deck that took its slides. The self-running tour became the Sites presentation, the
 // bleeding lecture the treatment one, the refractory bleed the acute variceal bleed, blood volume the circulation in cirrhosis, propranolol or carvedilol lowering portal pressure, Read the Doppler the
-// Doppler of the portal system, the portal vein clot in cirrhosis the portal vein clots talk, the right heart and the liver the one after the sinusoids, the first visit the stiffness one, A TIPS from start to finish the TIPS and shunts one, a year of compensated cirrhosis the first year of the ten-year patient, Paracentesis and albumin the ascites one.
-export const DECK_ALIAS = { 'where-block': 'sites', bleed: 'treatment', 'refractory-bleed': 'variceal-bleed', 'blood-volume': 'hyperdynamic', 'beta-blockers': 'treatment', 'read-doppler': 'doppler', 'pvt-cirrhosis': 'prehepatic', 'right-heart': 'outflow', 'tips-journey': 'shunts', 'first-visit': 'stiffness', 'one-year': 'ten-years', tap: 'ascites' };
+// Doppler of the portal system, the portal vein clot in cirrhosis the portal vein clots talk, the right heart and the liver the one after the sinusoids, the first visit the stiffness one, A TIPS from start to finish the TIPS and shunts one, a year of compensated cirrhosis the first year of the ten-year patient, Paracentesis and albumin the ascites one, the spleen talk the stiffness one (its splenectomy slide lives in Gastric varices), Doppler after a liver transplant the Doppler one.
+export const DECK_ALIAS = { 'where-block': 'sites', bleed: 'treatment', 'refractory-bleed': 'variceal-bleed', 'blood-volume': 'hyperdynamic', 'beta-blockers': 'treatment', 'read-doppler': 'doppler', 'pvt-cirrhosis': 'prehepatic', 'right-heart': 'outflow', 'tips-journey': 'shunts', 'first-visit': 'stiffness', 'one-year': 'ten-years', tap: 'ascites', spleen: 'stiffness', 'transplant-doppler': 'doppler' };
 
 // The unified menu lists the presentations by topic, in teaching order, under a short title (32 characters or fewer); the
 // third name is the deck's short name in the tab at each slide card's top right corner (presenter.js deckTab; 20 or fewer).
 export const TOPICS = [
   ['foundations', 'Foundations', [['circulation', 'The portal circulation', 'Circulation'], ['circuit', 'Portal pressure as a circuit', 'Circuit'], ['two-inflows', 'The liver\'s two inflows', 'Two inflows'], ['hvpg', 'HVPG and PPG', 'HVPG and PPG'], ['hyperdynamic', 'The circulation in cirrhosis', 'Hyperdynamic']]],
   ['causes', 'Causes', [['sites', 'Sites and causes', 'Sites and causes'], ['prehepatic', 'Portal vein clots', 'Portal vein clots'], ['ncph', 'Presinusoidal PH', 'Presinusoidal PH'], ['outflow', 'After the sinusoids', 'After the sinusoids'], ['lobule', 'Inside the lobule', 'Lobule'], ['where-resistance', 'Where is the resistance?', 'Find the resistance']]],
-  ['measuring', 'Measuring', [['doppler', 'Doppler of the portal system', 'Doppler'], ['transplant-doppler', 'Doppler after a liver transplant', 'Transplant Doppler'], ['stiffness', 'Stiffness and the first visit', 'Stiffness']]],
-  ['complications', 'Complications', [['varices', 'Collaterals and varices', 'Varices'], ['endoscopy', 'The varix and insufflation', 'Insufflation'], ['variceal-bleed', 'Acute variceal bleeding', 'Variceal bleed'], ['ascites', 'Ascites and its treatment', 'Ascites'], ['encephalopathy', 'Encephalopathy and shunting', 'Encephalopathy'], ['spleen', 'The spleen: size and treatment', 'Spleen'], ['gastric-varices', 'Gastric varices', 'Gastric varices'], ['recompensation', 'Decompensation and recovery', 'Recompensation'], ['pregnancy', 'Cirrhosis in pregnancy', 'Pregnancy'], ['ten-years', 'One patient, ten years', 'Ten years']]],
+  ['measuring', 'Measuring', [['doppler', 'Doppler of the portal system', 'Doppler'], ['stiffness', 'Stiffness and the first visit', 'Stiffness']]],
+  ['complications', 'Complications', [['varices', 'Collaterals and varices', 'Varices'], ['endoscopy', 'The varix and insufflation', 'Insufflation'], ['variceal-bleed', 'Acute variceal bleeding', 'Variceal bleed'], ['ascites', 'Ascites and its treatment', 'Ascites'], ['encephalopathy', 'Encephalopathy and shunting', 'Encephalopathy'], ['gastric-varices', 'Gastric varices', 'Gastric varices'], ['recompensation', 'Decompensation and recovery', 'Recompensation'], ['pregnancy', 'Cirrhosis in pregnancy', 'Pregnancy'], ['ten-years', 'One patient, ten years', 'Ten years']]],
   ['treatment', 'Treatment', [['treatment', 'Lowering portal pressure', 'Lowering pressure'], ['next-bleed', 'Preventing the next bleed', 'Next bleed'], ['choose-treatment', 'Choose the treatment', 'Choose treatment'], ['cause-treated', 'Treating the cause', 'Treating the cause'], ['shunts', 'TIPS and shunts', 'TIPS and shunts'], ['tips-doppler', 'Doppler after TIPS', 'TIPS Doppler']]],
 ];
 for (const [topic, , list] of TOPICS) for (const [id, short, head] of list) { const d = DECKS.find((x) => x.id === id); if (d) Object.assign(d, { topic, short, head }); }
