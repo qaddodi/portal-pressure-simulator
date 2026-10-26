@@ -83,12 +83,12 @@ test('Doppler: the velocity holds to an HVPG of 10, is still normal at CSPH, and
   near(c.ring.ys[0], at(c, c.ring.x, 0), 0.5, 'the ring sits on the velocity line');
 });
 
-test('Hyperdynamic: output 5.0 to 7.0 L/min, pressure 92 to 80 mmHg, heart rate low 60s to low 90s', async () => {
+test('Hyperdynamic: output 5.0 to 7.0 L/min, pressure 92 to 80 mmHg, heart rate 63 to 94', async () => {
   const c = await chartOf('hyperdynamic');
   const co = ys(c, 0), map = ys(c, 1), hr = c.states.map((s) => s.fp.hr);
   near(co[0], 4.9, 0.15, 'output at the mild end'); near(co.at(-1), 7.0, 0.15, 'output at the severe end');
   near(map[0], 92, 1, 'pressure at the mild end'); near(map.at(-1), 80.5, 1, 'pressure at the severe end');
-  assert.ok(hr[0] >= 60 && hr[0] < 66 && hr.at(-1) > 90 && hr.at(-1) < 96, `heart rate ${hr[0]} to ${hr.at(-1)}`);
+  near(hr[0], 63, 1.5, 'heart rate at the mild end'); near(hr.at(-1), 94, 1.5, 'and at the severe end');
   assert.ok(co.every((y, i) => !i || y > co[i - 1]) && map.every((y, i) => !i || y < map[i - 1]), 'output rises and pressure falls at every step');
   near(c.ring.ys[0], at(c, c.ring.x, 0), 0.2, 'the ring sits on the output line');
 });

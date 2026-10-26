@@ -39,8 +39,8 @@
 //                     with pair: true against the slide's own sweep's (the HVPG before a drug, the HVPG on it). When the own
 //                     line is the x reading itself it is drawn as the dashed "no change" diagonal, named `own`, with no ring.
 //                     With of: 'varix' that sweep draws another reading (the fundal varix with the shunt open, the esophageal
-//                     varix with it closed), on the same scale as the first, so the two share a unit; reading: 'Varix diameter'
-//                     then names the key row and the cut-offs, which would otherwise carry the first reading's name.
+//                     varix with it closed), on the same scale as the first, so the two share a unit; reading: 'Varix' then
+//                     names the card, the key row and the cut-offs, which would otherwise carry the first reading's name.
 //   zone: { fall: 10, under: 12, label: 'Response' }
 //                     a soft band in the ok colour under y = max(under, x less fall %), dashed along its top and named in it.
 

@@ -10,6 +10,17 @@
   tiles. It eases over the lens crossfade, and is there at once where nothing of the surround is seen yet (a dive not begun, the lobule drawn ahead). The lobule in focus keeps the
   lens's colours, and Pressure draws exactly as before. Code and unit tests only; nobody has looked on screen. `src/ui/lobule-zoom.js`, `src/ui/field-gl.js`, `src/ui/tissue-gl.js`,
   `src/ui/lobule-look.js`, `src/ui/lobule-model.js`, `src/ui/organ-dim.js`, `tests/lobule-surround-grey.test.js`.
+- **Relation charts for eight more talks.** (Mohammad, 26 Oct, "I love the plan for relationship slides. please implement all!!!"; review/relation-chart-ideas.) One slide with kicker
+  `Summary` and id `relation` in Circulation (last in the talk, which has no table: the HVPG and the PPG as scarring builds, with the HVPG's 5 and 10), Doppler (the portal vein's velocity and
+  flow against the HVPG: still normal at CSPH, under 15 cm/s only from about 16), The circulation in cirrhosis (output and arterial pressure against the HVPG), Outflow (the free hepatic
+  vein pressure and the HVPG against stiffness as an IVC web narrows, heart failure and constriction as points on the same line: the HVPG stays under 2 mmHg), Presinusoidal portal
+  hypertension (the PPG and the spleen against stiffness, the schistosomiasis ring far above the cirrhosis line), Gastric varices (the fundal varix with the shunt open and closed and the
+  esophageal varix with it closed, against the HVPG), Encephalopathy (the PPG and the liver's flow against the stent's width) and Doppler of TIPS (the PPG and the portal vein's velocity
+  against the stent's narrowing, 12 mmHg at about a third, under 30 cm/s at about half). Two choices differ from the recommendations: Outflow's x axis is stiffness, not the right
+  atrial pressure, because an IVC web raises the liver's pressure with the right atrium normal; Encephalopathy charts the liver's flow, not the HE index, which is past its 0 to 1 tile
+  after a TIPS (1.2 at every width here). New curve option: an `against` sweep may carry `of: '<reading>'` to draw another reading on the same scale, and `reading` names the key row
+  and the cut-offs. Pregnancy keeps the relation chart it has. `tests/relation-slides-b.test.js` pins the numbers the words and notes quote; the handout figures are stand-ins copied
+  from a neighbouring slide until `scripts/handout-figures.mjs` runs. Code and unit tests only; nobody has looked on screen. `src/ui/tool-curve.js`, `src/ui/decks/`, `docs/`.
 - **The figure's numbered markers also show in the teaching card's words.** (Mohammad, 26 Oct, "the labels 1, 2, 3, 4, etc. should also show up in the teaching cards in a
   similar way as they appear in the figure".) A slide with `steps: true` numbers its glow on the figure with black circles; its line now names each step with the same circle,
   written `{#1}`, `{#2}` straight after the words that name that site ("the gut and spleen's capillaries (1), the liver's sinusoids (2)"). The marker is the figure's own look

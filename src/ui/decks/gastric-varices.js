@@ -81,7 +81,7 @@ export const GASTRIC = {
       // days, the fundal varix with the shunt open and with it closed, and the esophageal varix with it closed, against the HVPG. The ring is the
       // first slide's patient, shunt open; the other two rings read what closing the shunt would do at the same HVPG.)
       id: 'relation', preset: 'gastric-varix', cam: 'fundus', terms: ['gv'], mark: { edges: ['C5'], label: 'Gastrorenal shunt', kind: 'note' },
-      tool: { kind: 'curve', x: 'hvpg', param: 'cirrhosis', from: 0.5, to: 1, step: 0.0625, days: 120, lines: ['gv'], reading: 'Varix diameter',
+      tool: { kind: 'curve', x: 'hvpg', param: 'cirrhosis', from: 0.5, to: 1, step: 0.0625, days: 120, lines: ['gv'], reading: 'Varix',
         against: [{ label: 'Fundal, shunt closed', params: { occluded: { C5: true } }, own: 'Fundal, shunt open' }, { label: 'Esophageal, shunt closed', of: 'varix', params: { occluded: { C5: true } } }] },
       kicker: 'Summary', site: 'sin', title: 'Closing the shunt moves the varices up to the esophagus',
       line: 'With the shunt open the fundal varix grows with the HVPG, here to {gv}. Closed, it stays small and the esophageal varix grows in its place.',

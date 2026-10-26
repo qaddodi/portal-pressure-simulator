@@ -6,12 +6,13 @@
 //         against one or two readings, the case's ring on each line (tool-curve.js)
 //   tool: { kind: 'causes', metric: 'ppg' }   what raises the reading from healthy, a waterfall with a step per cause (tool-causes.js)
 
-import { createCurve, warmCurve, curveLines, lineMeta, axisMeta } from './tool-curve.js?v=e542585674';
-import { createCauses, metricOf } from './tool-causes.js?v=0b86c33b8b';
+import { createCurve, warmCurve, curveLines, lineMeta, axisMeta } from './tool-curve.js?v=b91e1aaf04';
+import { createCauses, metricOf } from './tool-causes.js?v=e2235f2965';
 import { TILE } from './table-marks.js?v=8458ad3bf8';
 
 const lc = (s) => (/^[A-Z]{2,}/.test(s) ? s : s.charAt(0).toLowerCase() + s.slice(1));
-const names = (t) => curveLines(t).map((k, j) => (j ? lc(lineMeta(k).name) : lineMeta(k).name));
+// (A chart whose lines are different readings of one kind, the fundal and the esophageal varix, goes by the slide's `reading`.)
+const names = (t) => (typeof t.reading === 'string' && t.reading ? [t.reading] : curveLines(t).map((k, j) => (j ? lc(lineMeta(k).name) : lineMeta(k).name)));
 const causeName = (t) => ({ ppg: 'the PPG', hvpg: 'the HVPG', pv: 'the portal pressure' })[metricOf(t)] || lc(TILE[metricOf(t)]?.t || '');
 
 export default {

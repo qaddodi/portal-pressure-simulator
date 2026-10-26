@@ -93,7 +93,7 @@
 // Every deck opens with an "Outline and objectives" slide built from its kicker groups and objectives
 // (withOverview below); a deck never writes that slide itself.
 
-import { CIRCULATION } from './decks/circulation.js?v=f28cdbfb29';
+import { CIRCULATION } from './decks/circulation.js?v=9ce2778867';
 import { SITES } from './decks/sites.js?v=acf4a72929';
 import { HVPG } from './decks/hvpg.js?v=75a8b178bd';
 import { ASCITES } from './decks/ascites.js?v=87c973114c';
@@ -102,23 +102,23 @@ import { TREATMENT } from './decks/treatment.js?v=b2c0dcc11b';
 import { STIFFNESS } from './decks/stiffness.js?v=14881cd422';
 import { LOBULE } from './decks/lobule.js?v=d52e883d47';
 import { SHUNTS } from './decks/shunts.js?v=24eabbfad8';
-import { TIPS_DOPPLER } from './decks/tips-doppler.js?v=5c053491cf';
+import { TIPS_DOPPLER } from './decks/tips-doppler.js?v=359feee3f0';
 import { CIRCUIT } from './decks/circuit.js?v=b3b5b96f55';
-import { DOPPLER } from './decks/doppler.js?v=ee5048837d';
+import { DOPPLER } from './decks/doppler.js?v=4a37e56815';
 import { ENDOSCOPY } from './decks/endoscopy.js?v=95a52270a7';
 import { PREHEPATIC } from './decks/prehepatic.js?v=f433cc0903';
 import { BLEED } from './decks/variceal-bleed.js?v=1249504d60';
 import { TWO_INFLOWS } from './decks/two-inflows.js?v=457e0910fa';
-import { NCPH } from './decks/ncph.js?v=2b19ba5919';
-import { OUTFLOW } from './decks/outflow.js?v=f968f005ed';
+import { NCPH } from './decks/ncph.js?v=fba64b2bbf';
+import { OUTFLOW } from './decks/outflow.js?v=0392956963';
 import { RECOMPENSATION } from './decks/recompensation.js?v=23183921c8';
 import { WHERE } from './decks/where.js?v=c28f096edc';
 import { PREGNANCY_DECK } from './decks/pregnancy.js?v=d79b566bbb';
-import { ENCEPHALOPATHY } from './decks/encephalopathy.js?v=164b20d14c';
+import { ENCEPHALOPATHY } from './decks/encephalopathy.js?v=7d08be79e0';
 import { CAUSE_TREATED } from './decks/cause-treated.js?v=67bfe19a38';
 import { NEXT_BLEED } from './decks/next-bleed.js?v=5d7bb73a9d';
-import { GASTRIC } from './decks/gastric-varices.js?v=728c39a025';
-import { HYPERDYNAMIC } from './decks/hyperdynamic.js?v=8f06d153c4';
+import { GASTRIC } from './decks/gastric-varices.js?v=0da683e5c6';
+import { HYPERDYNAMIC } from './decks/hyperdynamic.js?v=90b476c393';
 import { CHOOSE_TREATMENT } from './decks/choose-treatment.js?v=500e52ed71';
 import { TEN_YEARS } from './decks/ten-years.js?v=33d5d18de1';
 
