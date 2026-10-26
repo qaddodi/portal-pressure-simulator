@@ -51,8 +51,8 @@ export const SHUNTS = {
       ask: ['A patient with cirrhosis has recurrent encephalopathy despite lactulose and rifaximin. What should you look for?', 'A large spontaneous portosystemic shunt, such as a splenorenal shunt, on CT.'],
     },
     {
-      id: 'reasons', lens: 'flow', preset: 'cirr-decomp', params: { diuretics: true }, days: 120, ramp: { albumin: [2.8, 2.4] }, cam: 'fit', tool: { kind: 'criteria', title: 'When a TIPS is considered', short: 'When', ticks: false, lead: 'Each has its own criteria.', rows: ['Bleeding despite carvedilol and banding',
-        { text: 'Recurrent or refractory ascites', note: 'Every 10 days', met: true, lit: true }, 'Pre-emptive, within 72 hours of a high-risk bleed'] }, data: 'tiles', tiles: ['asc', 'ppg'], key: ['asc'],
+      id: 'reasons', lens: 'flow', preset: 'cirr-decomp', params: { diuretics: true }, days: 120, ramp: { albumin: [2.8, 2.4] }, cam: 'fit', tool: { kind: 'criteria', title: 'When a TIPS is considered', short: 'When', ticks: false, lead: 'Each has its own criteria.', rows: ['**Bleeding** despite **carvedilol** and **banding**',
+        { text: 'Recurrent or refractory ascites', note: 'Every 10 days', met: true, lit: true }, '**Pre-emptive**, within **72 hours** of a high-risk bleed'] }, data: 'tiles', tiles: ['asc', 'ppg'], key: ['asc'],
       vignette: 'A 66-year-old woman with alcohol-associated cirrhosis, sober for 3 years, has needed a paracentesis every 10 days for three months despite full diuretics. Her bilirubin is 1.6 mg/dL and she has never been confused.',
       kicker: 'Who gets a TIPS', site: 'sin', title: 'Three reasons to consider a stent',
       line: 'A TIPS is considered for bleeding that carvedilol and banding do not stop, for recurrent or refractory ascites, and early after a high-risk bleed. Her ascites is back: {asc}.',
@@ -61,7 +61,7 @@ export const SHUNTS = {
     },
     {
       id: 'check', lens: 'flow', cam: 'liver', data: 'tiles', tiles: ['asc', 'ppg'], key: ['asc'],
-      tool: { kind: 'criteria', title: 'Before the stent', short: 'Before', ticks: false, rows: ['No heart failure', 'Kidney function staged (eGFR)', 'Encephalopathy history and medicines reviewed, rifaximin considered', 'No single number rules a TIPS out'] },
+      tool: { kind: 'criteria', title: 'Before the stent', short: 'Before', ticks: false, rows: ['No **heart failure**', '**Kidney function** staged (eGFR)', '**Encephalopathy** history and medicines reviewed, **rifaximin** considered', 'No **single number** rules a TIPS out'] },
       kicker: 'Who gets a TIPS', site: 'sin', title: 'Check the heart, the kidneys and the brain first',
       line: 'A stent sends portal blood straight to the heart and past the liver to the brain, so check those first. No single number rules a TIPS out.',
       notes: 'Baveno VIII lists no heart failure, age under 75 and a creatinine under 3 mg/dL as the box for a pre-emptive TIPS, asks for kidney function to be staged before a TIPS for ascites (6.9), and asks for the encephalopathy history and medicines to be reviewed (6.14). A history of overt encephalopathy is not an absolute contraindication (6.15); rifaximin should be considered before an elective TIPS (6.16). What is not an absolute contraindication: for a pre-emptive TIPS, acute-on-chronic liver failure, overt encephalopathy, a raised bilirubin, the MELD score and severe alcohol-related hepatitis (5.33); liver cancer unless the tumor lies along the stent path (4.15); frailty or sarcopenia alone (4.19); and age 70 or over with refractory ascites, which is judged case by case (6.8). Each item is weighed with the rest, and the heart and the kidneys count for more than any of them.',

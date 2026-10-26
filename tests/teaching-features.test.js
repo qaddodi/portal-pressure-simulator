@@ -92,6 +92,31 @@ test('criteria card V3: cut-offs split for the sans signs and units, the bold le
   assert.equal(criteriaHasCase({ rows: [['No ascites', 'asc', '<', 0.15]] }), true, 'a live reading is the case\'s own value');
 });
 
+test('criteria card, plain rules (his pick 26 Oct, C with D\'s key words): a mark per row, numerals when ordered, key words marked, a foot line for a lead that follows its list', () => {
+  const used = DECKS.flatMap((d) => d.slides.filter((s) => s.tool?.kind === 'criteria').map((s) => [d, s]));
+  for (const [d, s] of used) {
+    const t = s.tool, id = `${d.id}/${s.id}`, rows = criteriaRows(t);
+    if (rows.some((r) => r.cut)) continue;
+    for (const r of rows) if (!r.lit) assert.ok(r.bold, `${id}: "${r.text}" marks its key words with **...**`);
+    assert.equal(!!t.ordered, /order/i.test(t.lead || ''), `${id}: a list that says "in this order" is ordered, and only that list`);
+  }
+  const look = DECKS.find((d) => d.id === 'encephalopathy').slides.find((s) => s.tool?.title === 'Look first for').tool;
+  assert.equal(look.lead, undefined, '"Treating them" reads after the list it points at');
+  assert.deepEqual(verdictParts(look.verdict), { bold: '', rest: 'Treating them comes first.' });
+  const src = readFileSync(new URL('../src/ui/tool-criteria.js', import.meta.url), 'utf8');
+  assert.match(src, /classList\.toggle\('ordered', t\?\.ordered === true\)/);
+  assert.match(src, /classList\.toggle\('has-lit', rows\.some\(\(r\) => r\.lit\)\)/);
+  const css = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
+  const block = css.slice(css.indexOf('/* Plain rules, no cut-off column'), css.indexOf("/* A case card's own question"));
+  assert.ok(block.length > 400);
+  assert.doesNotMatch(block, /border-(left|right)|inset \d+px 0 0|box-shadow: inset [^0]/, 'no side stripes: a ring is an outline all round');
+  assert.match(block, /\.pzc-row:not\(\.pzc-hrow\) \.pzc-c::before \{[^}]*border-radius: 50%[^}]*transition: background-color \.4s var\(--ease\), box-shadow \.4s var\(--ease\)/, 'a ring, its fill easing with the reading');
+  assert.match(block, /\[data-lit\], \[data-met="yes"\]\) \.pzc-c::before \{ background: var\(--text\)/, 'filled: the row that applies to the case');
+  assert.match(block, /counter-increment: pzcn; content: counter\(pzcn\)/, 'numerals when the order matters');
+  assert.match(block, /\.pz-crit\.has-lit:not\(\.has-cut\) \.pzc-row:not\(\[data-lit\]\) \.pzc-t > b \{ font-weight: 500/, 'key words go quiet on the rows that do not apply');
+  assert.match(block, /\.pz-crit:not\(\.has-cut\) \.pzc-row:not\(\.pzc-hrow\) \{ font-size: 1\.12em; \}/, 'the words a step larger, the case header unchanged');
+});
+
 test('criteria card V3 in the decks: every rule pill is cited in its slide\'s notes, short leads, cut-offs and verdicts, one row met at most', () => {
   const used = DECKS.flatMap((d) => d.slides.filter((s) => s.tool?.kind === 'criteria').map((s) => [d, s]));
   for (const [d, s] of used) {

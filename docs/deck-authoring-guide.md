@@ -497,6 +497,11 @@ Since 26 Oct the card reads like a handbook page (V3): its title and its rules a
 `lead` is one short sentence on how the rows combine ("Any one of these is enough."). `rule` is the guideline and its statement
 numbers in an outlined pill ("Baveno VIII 5.31"); give it only when the slide's notes cite those numbers (a test checks this).
 `verdict` is a line at the foot, its words up to the first colon in bold ("He qualifies on the first rule: a TIPS within 72 hours.").
+A list with no cut-offs (Look first for, Watch for, Before the stent, the Sarin classes) puts a mark at each row's left: a ring for a thing to check, and
+the ring filled on the row that applies to the case (`lit: true`, or a live row the model meets), so outlined is the rule and filled is the case. Set `ordered: true`
+when the order matters ("In this order.") and the rings become 1, 2, 3. Mark each row's key words with `**...**` ("**Infection** or **bleeding**"), the
+finding and not its qualifier ("Neonatal **bradycardia**"); they take full ink on the quieter words, and go quiet themselves when one row applies. A lead
+that only reads after its list ("Treating them comes first.") goes in `verdict`, not `lead`, so that "them" has something to point at. A lit row needs no marked words.
 On a row, `cut` is its cut-off ("C 10–13", "≥20 mmHg"), set large at the row's left on a card 480 px wide or more and dropped on
 narrower ones, and `met: true` or `met: false` says whether the case meets it. Any `note` or live row gives the card a "This case"
 column, set apart by space alone, with no vertical line. A met row shows its note large with "meets it ✓" under it; `met: false` adds

@@ -114,7 +114,7 @@ export const TEN_YEARS = {
     },
     {
       id: 'he-answer', tick: 'Treat first', cam: 'liver', data: 'tiles', tiles: ['shunt', 'ppg'], key: ['shunt'], delta: 'he',
-      tool: { kind: 'criteria', title: 'Encephalopathy after a TIPS', short: 'After a TIPS', ticks: false, lead: 'In this order.', rule: 'Baveno VIII 6.17', rows: ['Find and treat the trigger first', 'Lactulose, and rifaximin after a recurrence',
+      tool: { kind: 'criteria', title: 'Encephalopathy after a TIPS', short: 'After a TIPS', ticks: false, ordered: true, lead: 'In this order.', rule: 'Baveno VIII 6.17', rows: ['Find and treat the **trigger** first', '**Lactulose**, and **rifaximin** after a recurrence',
         { text: 'Narrow or close the stent only if it persists', lit: true }] },
       kicker: 'Year 9', site: 'sin', title: 'Treat the trigger and give lactulose before touching the stent',
       line: 'Look for infection, bleeding, constipation, sedatives and low sodium or potassium, and give lactulose. Add rifaximin after a recurrence. Narrow the stent only if it persists.',
@@ -124,7 +124,7 @@ export const TEN_YEARS = {
     {
       id: 'list', tick: 'Year 10', milestone: 'Transplant', cam: 'liver', data: 'tiles', tiles: ['liver', 'plt'], key: ['liver'],
       tool: { kind: 'criteria', title: 'Further decompensation', short: 'Decompensation', ticks: false, rule: 'Baveno VIII 4.1, 6.1', rows: [{ text: 'Two or more events: ascites, bleeding, encephalopathy, jaundice', note: 'Three kinds', met: true, lit: true },
-        'Or a rebleed, repeat encephalopathy, or 3 or more large taps in a year'], verdict: 'He meets the first: evaluate him for a liver transplant.' },
+        'Or a **rebleed**, repeat **encephalopathy**, or **3 or more** large taps in a year'], verdict: 'He meets the first: evaluate him for a liver transplant.' },
       kicker: 'Year 10', site: 'sin', title: 'Year 10: three decompensating events',
       line: 'He has had ascites, two bleeds and encephalopathy: further decompensation, so Baveno VIII says to evaluate him for a liver transplant. The TIPS fixed the pressure, not the liver.',
       notes: 'Further decompensation means a higher mortality than the first decompensation. Baveno VIII 6.1 says to evaluate these patients for transplant, and 4.3 says to consider it in everyone with decompensated cirrhosis. The TIPS fixed the pressure; it does not fix the liver, which keeps only the share of its blood flow shown in the tile. (Baveno VIII 4.1, 6.1.)',
