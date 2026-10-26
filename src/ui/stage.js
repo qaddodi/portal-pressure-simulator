@@ -8206,11 +8206,17 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // and glide to their new spots (labelGlide). Solving every 5 % was a full search about every third frame of a pinch.
   const SOLVE_ZOOM_HAND = 0.35;
   let carryClear = false, labelSettleT = 0;
+  // (During a hand's zoom in the Circuit, a carried reading that comes onto a station's ring is placed again by itself (carryReslot),
+  // the others carried; once let go every reading is solved again (reslotted). Its rings grow with the zoom while a reading keeps its
+  // offset, so a few per cent of a pinch had solved every reading again, nearly every frame: Mohammad, 26 Oct, "the problem is
+  // during the zoom itself it's very very choppy", and his pick "Re-place only the bumped reading".)
+  let carryReslot = false, reslotted = false;
   function labelSettleSoon() {
     clearTimeout(labelSettleT);
     labelSettleT = setTimeout(function settle() {
       if (gestureOn()) { labelSettleT = setTimeout(settle, 120); return; }
       labelSettleT = 0;
+      if (reslotted) { reslotted = false; solvedFor = null; }   // (readings placed one by one mid-gesture: all solved together now)
       if (F && !camMove && !lz?.isOpen()) { labelKey = null; updateLabels(F); }
     }, 260);
   }
@@ -8270,10 +8276,11 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       const ins = dop.all ? [...['--pz-t', '--pz-l', '--pz-b', '--pz-r'].map((k) => Math.round(pzInset(k) / 8)), ...(blockerBoxes || []).flatMap((o) => [o.x0, o.y0, o.x1, o.y1].map((v) => Math.round(v / 8)))].join() : '';   // (and the cards' boxes, which can arrive a frame after the insets)
       const dz = solvedFor ? Math.abs(Math.log(sc / solvedFor.sc)) : 0, hand = dz > SOLVE_ZOOM && gestureOn();
       const solve = !solvedFor || solvedFor.sig !== sig || solvedFor.csig !== csig || solvedFor.ins !== ins || dz > (hand ? SOLVE_ZOOM_HAND : SOLVE_ZOOM) || Math.abs(th - solvedFor.th) > SOLVE_TURN;
-      carryClear = hand;
+      carryClear = hand; carryReslot = gestureOn();
       const solved = solve || layoutLabels(f, false) === false;
+      carryReslot = false;
       if (solved) { carryClear = false; layoutLabels(f, true); solvedFor = { sig, sc, th, csig, ins }; }
-      else if (hand) labelSettleSoon();
+      else if (hand || reslotted) labelSettleSoon();
       if (gpuProbe.on) gpuProbe.note(solved ? COUNTED.labelSolve : COUNTED.labelCarry);
       carryClear = false;
       labelKey = key; stats.layouts++; stats.ms += performance.now() - t0;
@@ -8624,6 +8631,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     // (from, to: only those passes are searched this round; a round that is not final gives up without shortening or dropping.)
     const placeMulti = (it, dirs, passes, from = 0, to = passes.length, final = true, maxShort = final ? 2 : 0) => {
       const prev = prevSol.get(it.key);
+      let reslot = false;
       if (!solve) {
         // Carry: the label goes where it was put, relative to the figure point it names.
         if (!prev) { stale = true; return false; }
@@ -8639,11 +8647,19 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         // (A Circuit reading carried onto a station's ring is solved again: the figure eased a few per cent closer or farther since
         // it was solved, and the reading, kept as far from the middle of its vessel, came onto the station's ring at its end. One
         // the solve itself left on a ring (dot) is carried, or it would be solved again every frame.)
-        if (circuit && it.key.startsWith('n:') && !prev.dot && placed.some((p) => p.dot && hits(rectOf(it), p))) { stale = true; return false; }
-        // (Carried past the usual 5 % by a hand's zoom: a label that would come onto another, or onto a slide's callout, is solved again.)
-        if (carryClear && (placed.some((p) => !p.dot && hits(rectOf(it), p)) || callouts.some((b) => hits(rectOf(it), b)))) { stale = true; return false; }
-        placed.push(rectOf(it)); out.push(it);
-        return true;
+        // (During a hand's zoom it is placed again by itself, below, among the spots beside its station (passes 0-2) it was solved
+        // into; one solved further out, onto a vessel, or rescued is solved again with the rest, as before.)
+        if (circuit && it.key.startsWith('n:') && !prev.dot && placed.some((p) => p.dot && hits(rectOf(it), p))) {
+          if (!carryReslot || prev.onv || !(prev.pi >= 0 && prev.pi < 3) || from !== 0 || to > 3) { stale = true; return false; }
+          reslot = true;
+          if (!useLines) { useLines = true; buildSegs(); }
+        }
+        if (!reslot) {
+          // (Carried past the usual 5 % by a hand's zoom: a label that would come onto another, or onto a slide's callout, is solved again.)
+          if (carryClear && (placed.some((p) => !p.dot && hits(rectOf(it), p)) || callouts.some((b) => hits(rectOf(it), b)))) { stale = true; return false; }
+          placed.push(rectOf(it)); out.push(it);
+          return true;
+        }
       }
       // (Not a rescued slot's width (pi -1, below): the reading takes its usual spots at its own width again.)
       const wRes = prev && !prev.drop && prev.pi !== -1 && it.w <= prev.w && it.w > prev.w - 28 ? prev.w : it.w;
@@ -8765,6 +8781,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         const cost = (ps.tier ?? pi) * 1e4 + (inside ? 0 : 2e3) + (ps.clear ? 0 : onLine * 12) + i + near + (ps.bias || 0) - (held ? (ps.clear ? (it.point && it.col ? 5e3 : 1e5) : 4) : 0);
         if (!best || cost < best.cost) best = { cost, dx, dy, r, dir, pi, leader: ps.leader };
       }));
+      // (Placed again by itself mid-gesture: a spot that would want what only a whole solve does (shortening, a rescue, moving off a
+      // vessel, room clear of a slide's callout) has the readings solved again together, as before.)
+      if (reslot && (!best || lineHits(best.r, 2) || callouts.some((b) => hits(best.r, b)))) { stale = true; return false; }
       if (!best) {
         // No room with the value: try it without its units and change, then the name alone (up to maxShort), before giving the label up.
         if (it.canShort && (it.short || 0) < maxShort && shortenItem(it)) return placeMulti(it, dirs, passes, from, to, final, maxShort);
@@ -8783,6 +8802,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       const [wx, wy] = localToWorld(it.ax, it.ay);
       nextSol.set(it.key, { wx, wy, dx: best.dx, dy: best.dy, dir, pi: best.pi, w: wRes, h: it.h, leader: it.leader, lead, short: it.short || 0, abbr: !!it.abbr });
       it._r = best.r; placed.push(best.r); out.push(it);
+      // (Within 3 px of a vessel it takes the solid halo, as a solved one does.)
+      if (reslot) { it.onVessel = lineHits(best.r, 3) > 0; nextSol.get(it.key).onv = it.onVessel; reslotted = true; }
       return true;
     };
 
