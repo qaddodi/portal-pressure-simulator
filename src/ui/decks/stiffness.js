@@ -2,6 +2,7 @@
 // VIII's stiffness and platelet zones (the slide fields are described at the top of decks.js). Each case is one slide: its case card asks,
 // and the plane and the two tiles answer. Case 5 is the patient the zones do not fit.
 
+// (The plane already plots the stiffness and the platelets, so the tiles beside it give the two gradients the zones stand in for.)
 const PLANE = { kind: 'plane', plane: 'csph' };
 
 export const STIFFNESS = {
@@ -59,7 +60,7 @@ export const STIFFNESS = {
       ask: ['Which two numbers does a first visit use, and what are the three zones?', 'Liver stiffness and the platelet count. CSPH ruled out, CSPH ruled in, or a gray zone in between.'],
     },
     {
-      id: 'a1', preset: 'cirr-comp', cam: 'liver', glow: ['liver'], tool: PLANE, data: 'tiles', tiles: ['lsm', 'plt'], key: ['lsm', 'plt'],
+      id: 'a1', preset: 'cirr-comp', cam: 'liver', glow: ['liver'], tool: PLANE, data: 'tiles', tiles: ['hvpg', 'ppg'], key: ['hvpg', 'ppg'],
       vignette: 'A 47-year-old man had hepatitis C diagnosed ten years ago and was never treated. He feels well, drinks no alcohol and has had no ascites or bleeding.',
       caseQ: 'Is CSPH ruled out, ruled in or still open?',
       kicker: 'Case 1', site: 'sin', title: 'Case 1: CSPH is ruled out',
@@ -68,7 +69,7 @@ export const STIFFNESS = {
       ask: ['Does he need a screening scope or carvedilol?', 'Neither. CSPH is ruled out, so repeat the stiffness and the platelets in 12 months.'],
     },
     {
-      id: 'a2', preset: 'csph', params: { cirrhosis: 0.8 }, cam: 'liver', glow: ['liver'], tool: PLANE, data: 'tiles', tiles: ['lsm', 'plt'], key: ['lsm', 'plt'],
+      id: 'a2', preset: 'csph', params: { cirrhosis: 0.8 }, cam: 'liver', glow: ['liver'], tool: PLANE, data: 'tiles', tiles: ['hvpg', 'ppg'], key: ['hvpg', 'ppg'],
       vignette: 'A 58-year-old woman with alcohol-associated cirrhosis stopped drinking two years ago. She has had no ascites, confusion or bleeding, and has never had an EGD.',
       caseQ: 'Is CSPH ruled in, and does she need a scope?',
       kicker: 'Case 2', site: 'sin', title: 'Case 2: CSPH is ruled in',
@@ -77,7 +78,7 @@ export const STIFFNESS = {
       ask: ['Does she need a screening EGD before carvedilol?', 'No. She takes a non-selective beta-blocker for CSPH, so the scope would not change her treatment.'],
     },
     {
-      id: 'a3', preset: 'cirr-comp', params: { cirrhosis: 0.55 }, days: 365, cam: 'liver', glow: ['liver'], tool: PLANE, data: 'tiles', tiles: ['lsm', 'plt'], key: ['lsm', 'plt'],
+      id: 'a3', preset: 'cirr-comp', params: { cirrhosis: 0.55 }, days: 365, cam: 'liver', glow: ['liver'], tool: PLANE, data: 'tiles', tiles: ['hvpg', 'ppg'], key: ['hvpg', 'ppg'],
       vignette: 'A 61-year-old man with MASH and type 2 diabetes has a BMI of 27 and no ascites or bleeding. An ultrasound shows a nodular liver and a spleen larger than normal.',
       caseQ: 'Which zone is he in, and what comes next?',
       kicker: 'Case 3', site: 'sin', title: 'Case 3: CSPH is still open',
@@ -86,7 +87,7 @@ export const STIFFNESS = {
       ask: ['What are two ways to settle a gray-zone result without a catheter?', 'A validated model (ANTICIPATE, 75% or more) or a spleen stiffness over 55 kPa; failing both, repeat the tests in 12 months.'],
     },
     {
-      id: 'a4', preset: 'csph', params: { cirrhosis: 0.7 }, cam: 'liver', glow: ['liver'], tool: PLANE, data: 'tiles', tiles: ['lsm', 'plt'], key: ['lsm', 'plt'],
+      id: 'a4', preset: 'csph', params: { cirrhosis: 0.7 }, cam: 'liver', glow: ['liver'], tool: PLANE, data: 'tiles', tiles: ['hvpg', 'ppg'], key: ['hvpg', 'ppg'],
       vignette: 'A 49-year-old man with MASH and type 2 diabetes has a BMI of 36 and no ascites or bleeding. His platelets have been low for two years, and an ultrasound shows a nodular liver.',
       caseQ: 'Does his stiffness rule CSPH in?',
       kicker: 'Case 4', site: 'sin', title: 'Case 4: the BMI decides, not the stiffness',
@@ -95,7 +96,7 @@ export const STIFFNESS = {
       ask: ['Why does 27 kPa rule CSPH in for case 2 but not for case 4?', 'The 25 kPa rule is for a BMI under 30. At a BMI of 36 the model ANTICIPATE-NASH decides.'],
     },
     {
-      id: 'a5', preset: 'schisto', cam: 'liver', glow: ['liver', 'spleen'], tool: PLANE, data: 'tiles', tiles: ['lsm', 'plt'], key: ['lsm', 'plt'],
+      id: 'a5', preset: 'schisto', cam: 'liver', glow: ['liver', 'spleen'], tool: PLANE, data: 'tiles', tiles: ['hvpg', 'ppg'], key: ['hvpg', 'ppg'],
       vignette: 'A 41-year-old man from the Nile Delta was treated for schistosomiasis as a boy. He now has a large spleen, low platelets and normal liver tests, and an EGD shows large esophageal varices.',
       caseQ: 'Do the zones apply to him?',
       kicker: 'Case 5', site: 'presin', title: 'Case 5: the rules do not fit a soft liver',

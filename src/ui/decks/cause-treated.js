@@ -45,7 +45,7 @@ export const CAUSE_TREATED = {
     },
     {
       id: 'year2', days: 365, ramp: { cirrhosis: [0.45, 0.32] }, lapse: { seconds: 8, from: 'One year', to: 'Two years after cure' }, cam: 'liver', tool: PLANE,
-      data: 'tiles', tiles: ['lsm', 'plt', 'hvpg'], key: ['lsm'], delta: 'before',
+      data: 'tiles', tiles: ['hvpg', 'ppg'], key: ['hvpg'], delta: 'before',
       kicker: HCV, site: 'sin', title: 'Two years after cure, CSPH has resolved',
       line: 'Two years after cure the stiffness reads {lsm}, under {<10 kPa}, and the platelets {plt}: by Baveno VIII, CSPH has resolved.',
       notes: 'After treating the cause, Baveno VIII advises reassessing CSPH, and counts it as resolved when the HVPG is under 10 mmHg, the stiffness under 10 kPa, or the stiffness under 15 kPa with a spleen stiffness under 25 kPa. Liver cancer surveillance every 6 months continues, because cirrhosis was present before the cure. Recheck the stiffness and the platelets if a new cause of liver injury appears.',

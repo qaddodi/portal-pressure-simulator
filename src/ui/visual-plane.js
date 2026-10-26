@@ -18,7 +18,7 @@
 // element's own pixels, one unit a CSS pixel, so its words keep the slide's caption size (12 px or more) at any width.
 
 import { h, fmt, clamp } from './util.js?v=5ad334ebc0';
-import { TILE } from './table-marks.js?v=b717587a61';
+import { TILE, tileShown } from './table-marks.js?v=b717587a61';
 
 // ── Conditions: [key, op, value], all of which must hold ──
 const OPS = { '<': (a, b) => a < b, '<=': (a, b) => a <= b, '>': (a, b) => a > b, '>=': (a, b) => a >= b };
@@ -86,6 +86,16 @@ export function planeOf(p) {
 }
 /** The zone the values in f fall in (the first whose conditions hold), or null. */
 export const zoneOf = (pl, f) => pl.zones.find((z) => holds(z.when, f)) || null;
+/** The keys a plane reads off a reading: its two axes and whatever its zones and boxes test. */
+export const readKeys = (pl) => [...new Set([pl.x.key, pl.y.key, ...[...pl.zones, ...(pl.boxes || [])].flatMap((z) => (Array.isArray(z.when) ? z.when.map((c) => c?.[0]) : []))])];
+/** A reading as the tiles print it (table-marks tileShown: each tile's own decimals): the data card's dot, its zone and the words
+ *  under the plot all read these, so the chart never puts the case anywhere but the numbers the tiles show. */
+export function shownReading(pl, f) {
+  if (!f) return f;
+  const out = { ...f };
+  for (const k of readKeys(pl)) if (Number.isFinite(f[k])) out[k] = tileShown(k, f[k]);
+  return out;
+}
 
 // ── Layout ──
 /** The plot's frame in the element's pixels: its margins follow the lettering (fs: the caption size, px). */
@@ -473,17 +483,24 @@ export function planePlot(pl, { card = false } = {}) {
   svg.append(base, wordsG, ringG);
   el.append(svg);
   const cardWords = new Map();   // (zone → its text element in the card)
-  let pts = [], ring = null, size = '', was = null, sizeWas = '', ptsVer = 0, drawn = '';
+  let pts = [], ring = null, size = '', was = null, sizeWas = '', ptsVer = 0, drawn = '', lastSize = [0, 0];
   // (What the ring's dot and words read: its two values and whatever the zones test. A redraw with all of these, the size,
   // the font, the points and where the dot was the same as the last one draws the same picture, so it is skipped: the live
   // card pins a reading every 150 ms.)
-  const ringKeys = [...new Set([pl.x.key, pl.y.key, ...[...pl.zones, ...(pl.boxes || [])].flatMap((z) => (Array.isArray(z.when) ? z.when.map((c) => c?.[0]) : []))])];
+  const ringKeys = readKeys(pl);
   const draw = () => {
-    const W = el.clientWidth, H = el.clientHeight;
+    // (A card out of the layout has no size, and a reading pinned meanwhile still has to land: it is drawn at the size the plot
+    // last had, so the dot is where the tiles' numbers put it when the card comes back. At another size the observer draws it
+    // again then. It was left undrawn before, and the plot came back at the same size showing the slide before's case.)
+    let W = el.clientWidth, H = el.clientHeight;
+    if (!W || !H) [W, H] = lastSize;
     if (!W || !H) return;
+    lastSize = [W, H];
     size = `${W}x${H}`;
     const fs = Math.max(12, parseFloat(getComputedStyle(el).fontSize) || 13);
-    const key = `${size}|${fs}|${ptsVer}|${ring ? ringKeys.map((k) => ring[k]).join(',') : '-'}|${sizeWas}|${was ? `${was.x},${was.y}` : '-'}`;
+    // (The case is read as its tiles print it.)
+    const rg = ring ? shownReading(pl, ring) : null;
+    const key = `${size}|${fs}|${ptsVer}|${rg ? ringKeys.map((k) => rg[k]).join(',') : '-'}|${sizeWas}|${was ? `${was.x},${was.y}` : '-'}`;
     if (key === drawn) return;
     drawn = key;
     const fr = frame(W, H, fs, pl), { X, Y } = scaler(pl, fr);
@@ -498,7 +515,8 @@ export function planePlot(pl, { card = false } = {}) {
     }
     // The patients' names first, so every point keeps its name; the zones' words then take what room is left (the key names
     // every zone anyway; with no key, each zone's words search the whole zone for a clear place).
-    const at = pts.filter((p) => Number.isFinite(p.f?.[pl.x.key]) && Number.isFinite(p.f?.[pl.y.key])).map((p) => ({ ...p, x: X(p.f[pl.x.key]), y: Y(p.f[pl.y.key]) }));
+    // (Each at the numbers as printed, as the case's dot is: the zone it stands in is the one its numbers name.)
+    const at = pts.filter((p) => Number.isFinite(p.f?.[pl.x.key]) && Number.isFinite(p.f?.[pl.y.key])).map((p) => { const f = shownReading(pl, p.f); return { ...p, f, x: X(f[pl.x.key]), y: Y(f[pl.y.key]) }; });
     // (No words ever sit on a line. Each zone's words in its corner, the rest of the plane at its own point, only where they
     // fit whole.)
     const { names, words } = card ? { names: [], words: [] } : layoutPlane(pl, fr, X, Y, fs, at, card);
@@ -530,8 +548,8 @@ export function planePlot(pl, { card = false } = {}) {
     });
     // The slide's case: a dot in proportion to the plot, a gap in the card's colour around it, that eases from where it was (a
     // transform, so Safari eases it too).
-    const { r, g } = dotSize(fr), has = ring && Number.isFinite(ring[pl.x.key]) && Number.isFinite(ring[pl.y.key]);
-    const now = has ? { x: X(ring[pl.x.key]), y: Y(ring[pl.y.key]) } : null;
+    const { r, g } = dotSize(fr), has = rg && Number.isFinite(rg[pl.x.key]) && Number.isFinite(rg[pl.y.key]);
+    const now = has ? { x: X(rg[pl.x.key]), y: Y(rg[pl.y.key]) } : null;
     halo.setAttribute('r', (r + g).toFixed(1)); dot.setAttribute('r', r.toFixed(1));
     if (now) {
       ringG.style.transform = `translate(${now.x.toFixed(1)}px, ${now.y.toFixed(1)}px)`;
@@ -568,13 +586,13 @@ export function planePlot(pl, { card = false } = {}) {
     was = now; sizeWas = size;
     base.replaceChildren(...kids);
     el.setAttribute('aria-label', `${pl.y.name} against ${pl.x.name}` + (at.length ? ': ' + at.map((p) => `${p.name}, ${valOf(pl.x.key, p.f[pl.x.key])} and ${valOf(pl.y.key, p.f[pl.y.key])}, ${zoneOf(pl, p.f)?.t || ''}`).join('; ') : '')
-      + (ring ? `; this patient ${valOf(pl.x.key, ring[pl.x.key])} ${unitOf(pl.x.key)} and ${valOf(pl.y.key, ring[pl.y.key])} ${unitOf(pl.y.key)}, ${zoneOf(pl, ring)?.t || ''}` : ''));
+      + (rg ? `; this patient ${valOf(pl.x.key, rg[pl.x.key])} ${unitOf(pl.x.key)} and ${valOf(pl.y.key, rg[pl.y.key])} ${unitOf(pl.y.key)}, ${zoneOf(pl, rg)?.t || ''}` : ''));
   };
   if (typeof ResizeObserver === 'function') new ResizeObserver(() => { if (`${el.clientWidth}x${el.clientHeight}` !== size) requestAnimationFrame(draw); }).observe(el);
   return {
     el,
     set(points, r = ring) { pts = points || []; ptsVer++; ring = r; if (el.isConnected) draw(); else requestAnimationFrame(draw); },
-    ring(f) { ring = f; if (el.isConnected) draw(); },
+    ring(f) { ring = f; if (el.isConnected) draw(); else requestAnimationFrame(draw); },
   };
 }
 
@@ -588,9 +606,10 @@ export function planeKey(pl, lit = null) {
 
 /** The case's reading under the card's plot: its two values and the zone they fall in. */
 const word = (a) => (a.short || a.name || a.key).split(',')[0];
-export function planeReading(pl, f) {
-  if (!f || !Number.isFinite(f[pl.x.key]) || !Number.isFinite(f[pl.y.key])) return '';
-  const z = zoneOf(pl, f), u = (k) => (unitOf(k) ? ` ${unitOf(k)}` : '');
+export function planeReading(pl, fp) {
+  if (!fp || !Number.isFinite(fp[pl.x.key]) || !Number.isFinite(fp[pl.y.key])) return '';
+  // (The zone of the numbers printed beside it, as the tiles print them: "25.0 kPa" never reads "Indeterminate".)
+  const f = shownReading(pl, fp), z = zoneOf(pl, f), u = (k) => (unitOf(k) ? ` ${unitOf(k)}` : '');
   return `${word(pl.x)} ${valOf(pl.x.key, f[pl.x.key])}${u(pl.x.key)} · ${word(pl.y)} ${valOf(pl.y.key, f[pl.y.key])}${u(pl.y.key)}${z ? ` · ${z.t}` : ''}`;
 }
 /** The card's short key under its plot (the plot is too small for every zone's words): a swatch and a short name each. */

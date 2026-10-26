@@ -47,7 +47,7 @@ test('inside a section, consecutive slides with the same instrument keep the sam
 // patient's three markers) or a slide whose point is the third one.
 const THREE_TILES = new Set([
   'sites/healthy', 'ascites/lvp', 'treatment/terli', 'circuit/resist', 'circuit/tips', 'shunts/dsrs', 'ncph/patient',
-  'pregnancy/before', 'pregnancy/weeks', 'pregnancy/after', 'cause-treated/before', 'cause-treated/year1', 'cause-treated/year2',
+  'pregnancy/before', 'pregnancy/weeks', 'pregnancy/after', 'cause-treated/before', 'cause-treated/year1',
   'gastric-varices/tips', 'gastric-varices/brto', 'gastric-varices/svt',
 ]);
 
