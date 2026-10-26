@@ -48,7 +48,7 @@ export const CHOOSE_TREATMENT = {
       vignette: 'A 49-year-old man had necrotizing pancreatitis last year and now bleeds from fundal varices. His liver tests are normal and his spleen is large.',
       caseQ: 'What stops his fundal varices?',
       kicker: 'Clots', site: 'pre', title: 'Splenectomy, not a TIPS',
-      line: 'The splenic vein is clotted, so the pressure is high on the spleen\'s side only. A month after splenectomy the fundal varices are {gv} and the platelets {plt}.',
+      line: 'Colored by congestion, the high pressure sits on the splenic side. A month after splenectomy the fundal varices are {gv} and the platelets {plt}.',
       notes: 'Pancreatitis is the commonest cause of an isolated splenic vein clot. The spleen drains through the short gastric veins into the fundus, so fundal varices form with a normal portal pressure: left-sided, or sinistral, portal hypertension. A TIPS lowers a portal pressure that was never high. AASLD 2024: patients with bleeding gastric varices from isolated splenic vein thrombosis should be evaluated for splenectomy, splenic vein stenting or splenic artery embolization. Each one cuts the splenic outflow into the fundus, and the congestion lens shows it leaving the splenic side. Carvedilol lowers the splenic inflow only partly. (AASLD 2024 statement 47.)',
       ask: ['Which treatments fit bleeding fundal varices from an isolated splenic vein clot?', 'Splenectomy, splenic vein stenting or splenic artery embolization.'],
     },

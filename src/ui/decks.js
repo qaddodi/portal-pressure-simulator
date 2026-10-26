@@ -120,7 +120,7 @@ import { CAUSE_TREATED } from './decks/cause-treated.js?v=f2ee45fb1a';
 import { NEXT_BLEED } from './decks/next-bleed.js?v=8b6a2a81bf';
 import { GASTRIC } from './decks/gastric-varices.js?v=fc839d2a3e';
 import { HYPERDYNAMIC } from './decks/hyperdynamic.js?v=8f06d153c4';
-import { CHOOSE_TREATMENT } from './decks/choose-treatment.js?v=adf5f76770';
+import { CHOOSE_TREATMENT } from './decks/choose-treatment.js?v=78ed2ac1cc';
 import { TRANSPLANT_DOPPLER } from './decks/transplant-doppler.js?v=c310965e72';
 import { TEN_YEARS } from './decks/ten-years.js?v=6f05dc14ae';
 
