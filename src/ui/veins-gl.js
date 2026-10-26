@@ -815,10 +815,15 @@ void main() {
   vec3 d = world * vec3(org + corner * cell, 1.0);
   gl_Position = vec4(d.x / size.x * 2.0 - 1.0, 1.0 - d.y / size.y * 2.0, 0.0, 1.0);
 }`;
-// A function: the bleed's colour token (--bleed-spray) is written in when the shader is built.
-const COMP_FS = () => `#version 300 es
+// A function: the bleed's colour token (--bleed-spray) is written in when the shader is built. Two builds from this one text
+// (addendum §9, a small fixed set rather than one per switch): the full one, and `plain`, for the frames with no dye, no
+// origin colours and no bleed, where those three switches are constants 0 instead of uniforms, so the compiler drops the
+// code they gate. The composite picks plain only when those are its uniforms' values (see composite): the same arithmetic,
+// without the branches that do nothing in such a frame.
+export const COMP_FS = (plain = false) => `#version 300 es
 precision highp float;
 precision highp int;
+#define PLAIN ${plain ? 1 : 0}
 precision highp usampler2D;
 uniform sampler2D base;                // the vessel layer (premultiplied)
 uniform usampler2D gbuf;               // its frontmost lumen per pixel
@@ -851,8 +856,12 @@ uniform float cssPx;                   // canvas px per CSS px (stage.js vdpr, a
 uniform float flowA;                   // 0..1: how visible the moving blood and chevrons are (they fade in once the view is still)
 uniform vec3 blendA;                   // 0..1 each: the streaks, the chevrons and the origin colours fading in or out (switched on or off)
 uniform int look;                      // 0 parcels, 1 shimmer
+#if PLAIN == 0
 uniform int origin;                    // 1: color parcels by where their blood came from
 uniform int dyeOn;
+#else
+const int origin = 0, dyeOn = 0;
+#endif
 uniform float clock;                   // seconds (wrapped), for the drift of stagnant blood
 uniform vec3 originCol[5];
 uniform vec3 dyeCol;
@@ -860,7 +869,11 @@ uniform vec3 revCol;                   // the moving blood's color where flow ru
 uniform vec3 inkLight, inkDark;
 uniform vec4 bleedE[24];               // an active bleed (stage.js bleedSpray, blood.js bleedShapes): a jet's base and tip (world); the pool: its surface's height, ripple, where the stream lands, the stream's strength; the stream: its start, where it lands, the pool's surface
 uniform vec4 bleedB[24];               // a jet's radius at its base and at its tip, alpha, kind (1 jet, 0 pool, 2 stream); the pool: its inset from the wall; the stream: its radius, how far it breaks into drops
+#if PLAIN == 0
 uniform int bleedN;
+#else
+const int bleedN = 0;
+#endif
 uniform vec4 noChev[12];               // world boxes (x0, y0, x1, y1) where no flow arrowhead is drawn: a figure reading sits there
 uniform int noChevN;
 uniform vec4 chevHole[16];             // world boxes the flow's arrowheads keep out of (x0, y0, x1, y1), each grown by chevHoleR;
@@ -1420,11 +1433,12 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false }) {
   gl.getExtension('KHR_parallel_shader_compile');
   let started;
   try {
-    const compFS = shader(gl, gl.FRAGMENT_SHADER, COMP_FS());
+    const compFS = shader(gl, gl.FRAGMENT_SHADER, COMP_FS()), compVS = shader(gl, gl.VERTEX_SHADER, COMP_VS), compCellVS = shader(gl, gl.VERTEX_SHADER, COMP_CELL_VS);
+    const plainFS = shader(gl, gl.FRAGMENT_SHADER, COMP_FS(true));
     // (The two vessel builds share one vertex shader object, so a cell's corners land on the same device positions whichever
     // program draws it: neighbouring cells drawn by different programs meet edge to edge, no pixel left out or drawn twice.)
     const vesVS = shader(gl, gl.VERTEX_SHADER, VS);
-    started = { prog: startProgram(gl, vesVS, vesselFS(false)), simple: GENERIC ? null : startProgram(gl, vesVS, vesselFS(true)), comp: startProgram(gl, COMP_VS, compFS), compCell: startProgram(gl, COMP_CELL_VS, compFS), cath: startProgram(gl, CATH_VS, CATH_FS), line: startProgram(gl, LINE_VS, LINE_FS) };
+    started = { prog: startProgram(gl, vesVS, vesselFS(false)), simple: GENERIC ? null : startProgram(gl, vesVS, vesselFS(true)), comp: startProgram(gl, compVS, compFS), compCell: startProgram(gl, compCellVS, compFS), plain: startProgram(gl, compVS, plainFS), plainCell: startProgram(gl, compCellVS, plainFS), cath: startProgram(gl, CATH_VS, CATH_FS), line: startProgram(gl, LINE_VS, LINE_FS) };
   } catch (e) { console.warn('Veins renderer: WebGL2 shaders failed, keeping the SVG tubes.', e); return null; }
   // (Shaders are freed with the programs that hold them.)
   const freeShaders = () => { for (const x of new Set(Object.values(started).filter(Boolean).flatMap((st) => st.sh))) gl.deleteShader(x); };
@@ -1437,6 +1451,12 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false }) {
   }
   let comp, compCell;
   try { comp = finishProgram(gl, started.comp); compCell = finishProgram(gl, started.compCell); } catch (e) { console.warn('Veins renderer: composite shader failed.', e); freeShaders(); return null; }
+  // The plain composite (see COMP_FS), both passes or neither: null when it failed, and every frame keeps the full one.
+  let plain = null, plainCell = null;
+  try { plain = finishProgram(gl, started.plain); plainCell = finishProgram(gl, started.plainCell); } catch (e) {
+    console.warn('Veins renderer: the plain composite failed; every frame keeps the full one.', e);
+    gl.deleteProgram(started.plain.p); gl.deleteProgram(started.plainCell.p); plain = plainCell = null;
+  }
   const plates = [null, null];   // [whole plate, sharp view] : { tex, rect }
   // The organs as layers instead of one picture (the ?perf switch "GPU organs", stage.js): null where it cannot be made.
   const stack = createOrganStack(gl);
@@ -2228,7 +2248,10 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false }) {
       if (own) gl.bindFramebuffer(gl.FRAMEBUFFER, own.fbo);
       gl.viewport(0, 0, canvas.width, canvas.height);
       gl.disable(gl.BLEND);
-      const prg = full ? comp : compCell;
+      // (The plain build where the frame has no dye, no origin colours and no bleed: the values its constants hold.)
+      const bare = !!plainCell && !(dyeAny && blood.dye !== false) && !blood.origin && !blood.bleed?.length;
+      const prg = full ? (bare ? plain : comp) : (bare ? plainCell : compCell);
+      if (gpuProbe.on) gpuProbe.gauge('composite build', bare ? 'plain' : 'full');
       gl.useProgram(prg.p);
       const U = prg.u;
       if (!full) {
@@ -2391,7 +2414,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false }) {
         for (const t of [entTex, radTex, bendTex, rmaxTex, tubeTex, organTex, flowTex, dyeTex, fluidTex, baseTex, gTex, gTex2, depTex, depNone, lineLayer.tex, glowLayer.tex, warmLayer.tex, ...plates.map((x) => x?.tex)]) if (t) gl.deleteTexture(t);
         for (const b of [quad, cellBuf, simpleBuf, bloodBuf, partBuf, partSBuf, fluidBuf, poolBuf, dirtBuf, cathBuf, lineBuf]) gl.deleteBuffer(b);
         for (const v of [vao, oneVAO, bloodVAO, partVAO, partSVAO, fluidVAO, poolVAO, dirtVAO, compVAO, cathVAO, lineVAO]) gl.deleteVertexArray(v);
-        for (const x of [prog, simpleP, comp, compCell, cathP, lineP]) if (x) gl.deleteProgram(x.p);
+        for (const x of [prog, simpleP, comp, compCell, plain, plainCell, cathP, lineP]) if (x) gl.deleteProgram(x.p);
         stack?.dispose();
         clearTimeout(spare.timer);
         for (const t of [spare.base, spare.g, spare.g2, spare.dep]) gl.deleteTexture(t);

@@ -147,7 +147,8 @@ function fakeGL({ failSimple = false } = {}) {
   });
   const isSimple = (p) => (att.get(p) || []).some((sh) => /#define SIMPLE 1/.test(src.get(sh) || ''));
   const isVessel = (p) => (att.get(p) || []).some((sh) => /#define SIMPLE [01]/.test(src.get(sh) || ''));
-  return { gl, calls, isSimple, isVessel };
+  const compBuild = (p) => { const sh = (att.get(p) || []).map((x) => src.get(x) || '').find((t) => /#define PLAIN [01]/.test(t)); return sh ? (/#define PLAIN 1/.test(sh) ? 'plain' : 'full') : null; };
+  return { gl, calls, isSimple, isVessel, compBuild };
 }
 // The vessel program's instanced draws since `from`: { simple, count }.
 function vesselDraws(f, from) {
@@ -244,4 +245,55 @@ test('?veins=generic keeps every cell on the general program', async () => {
     assert.deepEqual(vesselDraws(f, n0), [{ simple: false, count: bins.nCells }]);
     assert.ok(!f.calls.some((c) => c[0] === 'shaderSource' && /#define SIMPLE 1/.test(c[2])), 'the one-vessel build is not even compiled');
   } finally { delete globalThis.location; }
+});
+
+// ── The composite's two builds (addendum §9): full, and plain for frames with no dye, no origin colours and no bleed ──
+test('the plain composite is the same text with those three switches as constants 0', async () => {
+  const { COMP_FS } = await import('../src/ui/veins-gl.js');
+  const full = COMP_FS(), plain = COMP_FS(true);
+  // Each build keeps one side of the PLAIN blocks; with those blocks and the define taken out, nothing else differs.
+  const strip = (t) => t.replace(/^#define PLAIN [01]\n/m, '').replace(/#if PLAIN == 0\n[\s\S]*?#endif\n/g, '');
+  assert.equal(strip(full), strip(plain));
+  const blocks = [...full.matchAll(/#if PLAIN == 0\n([\s\S]*?)#else\n([\s\S]*?)#endif\n/g)].map((m) => [m[1], m[2]]);
+  assert.equal(blocks.length, 2);
+  assert.match(blocks[0][0], /^uniform int origin;[^\n]*\nuniform int dyeOn;\n$/);
+  assert.equal(blocks[0][1], 'const int origin = 0, dyeOn = 0;\n');
+  assert.equal(blocks[1][0], 'uniform int bleedN;\n');
+  assert.equal(blocks[1][1], 'const int bleedN = 0;\n');
+  assert.match(full, /^#define PLAIN 0$/m);
+  assert.match(plain, /^#define PLAIN 1$/m);
+});
+
+test('the composite takes the plain build only when its dye, origin and bleed uniforms would all be 0', async () => {
+  const f = fakeGL();
+  const { g, look } = await renderer(f);
+  // Which composite fragment build the program in use was linked with, at each full-screen or cell draw of the composite.
+  const builds = (from) => {
+    let prog = null;
+    const out = [];
+    for (const c of f.calls.slice(from)) {
+      if (c[0] === 'useProgram') prog = c[1];
+      if ((c[0] === 'drawArrays' || c[0] === 'drawArraysInstanced') && !f.isVessel(prog)) {
+        const b = f.compBuild(prog);
+        if (b) out.push(b);
+      }
+    }
+    return [...new Set(out)];
+  };
+  let n = f.calls.length;
+  g.draw([1, 0, 0, 1, 0, 0], look, { on: true });
+  assert.deepEqual(builds(n), ['plain']);
+  n = f.calls.length;
+  g.composite(look, { on: true, origin: true });
+  assert.deepEqual(builds(n), ['full'], 'origin colours');
+  n = f.calls.length;
+  g.composite(look, { on: true, bleed: [[0, 0, 1, 1, 1, 1, 1, 1]] });
+  assert.deepEqual(builds(n), ['full'], 'a bleed');
+  g.setDye(new Float32Array(6 * 64));
+  n = f.calls.length;
+  g.composite(look, { on: true });
+  assert.ok(builds(n).every((b) => b === 'full'), 'dye in the vessels');
+  n = f.calls.length;
+  g.composite(look, { on: true, dye: false }, true);
+  assert.deepEqual(builds(n), ['plain'], 'dye switched off by the look');
 });
