@@ -4,7 +4,7 @@
 // (gpu-probe.js cpuOnly: no waiting for the GPU), every frame gap over 20 ms in the window is listed with the steps that ran
 // in it, and so is each long task the browser reports (Chrome; Safari reports none, its frame gaps still show). The panel is
 // written only when a window closes, never during a gesture, and the last five gestures stay listed with a Copy button.
-import { gpuProbe, COUNTED, TWICE, WHY } from './gpu-probe.js?v=caac436485';
+import { gpuProbe, COUNTED, TWICE, WHY, ROWS_REFUSED } from './gpu-probe.js?v=be7cefbb53';
 
 const WINDOW = 2000, GAP = 20, KEEP = 5;
 const HIDES = ['', 'no live organs', 'no figure SVG', 'no labels', 'no GPU picture'];
@@ -21,7 +21,7 @@ const TALLY = ['whole picture', 'organ picture down', 'gut live', 'gut picture',
   ...['no picture', 'art changed', 'colours changed', 'zoomed past it', 'moved off its part', 'zoomed out past it', 'moved apart'].map((w) => `gut live: ${w}`)];
 
 // Notes totalled over a window, by name (gpu-probe.js COUNTED): [times, KB, frames in which it came twice].
-const COUNT_NAMES = new Set([...Object.values(COUNTED).filter((k) => !k.endsWith('because ')), ...WHY.map((w) => COUNTED.wholeWhy + w),
+const COUNT_NAMES = new Set([...Object.values(COUNTED).filter((k) => !k.endsWith('because ')), ...WHY.map((w) => COUNTED.wholeWhy + w), ...ROWS_REFUSED.map((w) => COUNTED.rowsRefused + w),
   ...['setGeometry', 'setTubes', 'setFlow', 'setDye', 'setFluidCells', 'setRadii', 'setOrgans', 'plateRows', 'setCath', 'setLines'].map((k) => `uploaded: ${k}`)]);
 
 /**

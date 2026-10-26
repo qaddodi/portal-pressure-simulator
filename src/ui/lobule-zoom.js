@@ -19,22 +19,22 @@
 // tapped (triad, inlet venule, sinusoid, arteriole, central vein, septum, hepatocytes).
 // Without WebGL2 the vessels are drawn flat on the tissue canvas.
 
-import { runFlick, FLICK } from './flick.js?v=b37a090668';
+import { runFlick, FLICK } from './flick.js?v=25517e4aad';
 import { store } from './store.js?v=926dabfaef';
 import { radiiChanged, canvasPx, fxMoves, DIVE_RIM } from './lobule-render-cache.js?v=84bf4c2222';
 import { softwareYield } from './sw-yield.js?v=e580a095b1';
-import { lobuleState, lymphRate, sinceOf, LOBE } from './lobule-model.js?v=14aa3ece88';
+import { lobuleState, lymphRate, sinceOf, LOBE } from './lobule-model.js?v=bb1afe9c68';
 import { SIN_NARROW, cordTone, dullSinusoid, NEIGHBOUR_FLAT, neighbourBlur, blurWrapped, bandOutline, FADE_MID, fadeOuter, padRect, wideDpr, wideTiles, FIELD_RS, fieldBlend, fieldDof } from './lobule-look.js?v=a7314b7992';
 import { createFieldGL } from './field-gl.js?v=d7dba46a8b';
 import { createTissueGL } from './tissue-gl.js?v=7bfebc9510';
-import { h, s, fmt, clamp, createEaser, systemEdge, bloodColors, cssVar, cssAlpha, cssRGB01 } from './util.js?v=29a9d1a27d';
-import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatColor, oxygenColor } from './colormap.js?v=44d705bf87';
+import { h, s, fmt, clamp, createEaser, systemEdge, bloodColors, cssVar, cssAlpha, cssRGB01 } from './util.js?v=defb4c4059';
+import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatColor, oxygenColor } from './colormap.js?v=61a1db2f22';
 import { NODES, EDGES } from '../engine/topology.js?v=4044766e96';
-import { createVeinsGL, binVeins, laneSum, N_SAMPLES, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_SPEC, F_EDGE, ORIGIN_GREY } from './veins-gl.js?v=edd1d858c6';
+import { createVeinsGL, binVeins, laneSum, N_SAMPLES, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_SPEC, F_EDGE, ORIGIN_GREY } from './veins-gl.js?v=367989da0e';
 import { SLOT, PERIOD, originFractions, ORIGIN_N, DRIFT_PERIOD } from './blood.js?v=7fa561f952';
-import { createSinusoidView } from './sinusoid-view.js?v=0b326124cd';
-import { frameFor, cancelFrame, noteDraw, saver, paceMs, frame } from './frame.js?v=39b0efa1db';
-import { gpuProbe, COUNTED } from './gpu-probe.js?v=caac436485';
+import { createSinusoidView } from './sinusoid-view.js?v=f1ebe05d75';
+import { frameFor, cancelFrame, noteDraw, saver, paceMs, frame } from './frame.js?v=f9b2b8e123';
+import { gpuProbe, COUNTED } from './gpu-probe.js?v=be7cefbb53';
 import { leaderEnd, runInside } from './leader-end.js?v=8e884700ab';
 const nextFrame = frameFor('lobule-zoom');
 
@@ -2625,7 +2625,8 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
       const rows = glDirty || lsig !== glLook ? null : [...glRows];
       glDirty = false; drawKey = dk; glLook = lsig; glRows.clear(); g.draw(T, look, blood, rows);
     }
-    else if (glRows.size) { const rows = [...glRows]; glRows.clear(); if (!g.drawRows(T, look, blood, rows)) g.draw(T, look, blood); }
+    // (A refused partial draw hands its rows on to the whole draw that stands in for it.)
+    else if (glRows.size) { const rows = [...glRows]; glRows.clear(); if (!g.drawRows(T, look, blood, rows)) g.draw(T, look, blood, rows); }
     else g.composite(look, blood);
     if (gpuProbe.on) gpuProbe.note(COUNTED.lobulePicture);
   }

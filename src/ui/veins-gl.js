@@ -33,10 +33,10 @@
 
 import { CHEV_GLSL } from './chevron-glsl.js?v=96ec7c6666';
 import { SLOT, DYE_BINS } from './blood.js?v=7fa561f952';
-import { cssRGB } from './util.js?v=29a9d1a27d';
+import { cssRGB } from './util.js?v=defb4c4059';
 import { LUMEN, STO_Y0, STO_DY, STO_N } from './stomach-lumen.js?v=4fce52c62f';
 import { CELL, ENT_W, binVeins, splitRows, simpleCells, splitCells } from './veins-bin.js?v=d5372c91f9';
-import { gpuProbe, COUNTED } from './gpu-probe.js?v=caac436485';
+import { gpuProbe, COUNTED } from './gpu-probe.js?v=be7cefbb53';
 import { changedRows } from './flow-rows.js?v=bea4089714';
 import { createOrganStack } from './organs-gl.js?v=12b187850f';
 import { NOISE_W, NOISE_H, NOISE_PER_ROW, OCTAVES, noiseBlock, blockAt, tableSize } from './blood-noise.js?v=bc65994b25';
@@ -1982,6 +1982,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false }) {
   let cellsCPU = null, entCPU = null, rowCells = null, bloodCPU = null;
   // The rows whose radii changed since the layer was last drawn: a partial redraw has to include them all.
   const radRows = new Set();
+  let rowsStatus = '';
   const radCovered = (rows) => !radRows.size || (!!rows && [...radRows].every((r) => rows.includes(r)));
   // Every vessel's attributes as last sent (tubeNow) and as the layer shows them (tubeDrawn: copied at each draw, whole or
   // partial, since the rows a partial draw is given hold every change): a row whose lumen colours alone changed is
@@ -2441,15 +2442,24 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false }) {
      * drawn from its own cell's list alone, so a row can change only its own cells. Allowed only when nothing else the
      * vessel pass reads changed since the last whole draw: transform `m` and size (checked here), geometry and organ
      * covers (each clears fboOK) and `look` (the caller checks it); `rows` must include every row whose radii changed. `full`: as composite's. Returns false, drawing nothing, when it
-     * cannot stand in for draw() or would cover most of the cells anyway: the caller then calls draw().
+     * cannot stand in for draw() or would cover most of the cells anyway: the caller then calls draw(), with the same rows
+     * (nothing they hold is dropped by a refusal). `rowsStatus` says which: 'drawn', or why it was refused (ROWS_REFUSED).
      */
     drawRows(m, look, blood, rows, full = false) {
       m = whole(m);
-      if (!fboOK || lost || fboW !== canvas.width || fboH !== canvas.height || !baseM || m.some((v, i) => v !== baseM[i]) || !radCovered(rows)) return false;
+      const refuse = (why) => { rowsStatus = why; if (gpuProbe.on) gpuProbe.note(COUNTED.rowsRefused + why); return false; };
+      if (!fboOK || !baseM) return refuse('no kept layer');
+      if (lost) return refuse('context lost');
+      if (fboW !== canvas.width || fboH !== canvas.height) return refuse('size changed');
+      if (m.some((v, i) => v !== baseM[i])) return refuse('moved');
+      // (The caller's rows have to name every row whose radii changed, which this renderer keeps: they are not dropped here
+      // to let a partial draw through.)
+      if (!radCovered(rows)) return refuse('radii not listed');
       // (Rows whose lumen colours alone changed are recoloured, which draws again only the pixels those colours reach:
       // however many cells list them, that costs less than a whole draw. The rest have their cells drawn again whole.)
       const { part, tintPart } = rowParts(rows);
-      if (part.k > nCells * 0.6) return false;
+      if (part.k > nCells * 0.6) return refuse('most cells');
+      rowsStatus = 'drawn';
       tubesNew = false; radRows.clear();
       if (gpuProbe.on) gpuProbe.note(COUNTED.rows);
       cellsPass(m, look, part);
@@ -2462,6 +2472,8 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false }) {
       this.composite(look, blood, full, both);
       return true;
     },
+    /** The last drawRows call's outcome: 'drawn', or why it was refused (gpu-probe.js ROWS_REFUSED); '' before any. */
+    get rowsStatus() { return rowsStatus; },
     /** Cells redrawn by drawRows so far (whole, and recoloured only), and the cells of the whole layer (for the checks). */
     get partCells() { return partCells; },
     get tintCells() { return tintCells; },

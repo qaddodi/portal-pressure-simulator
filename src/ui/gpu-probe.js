@@ -11,6 +11,7 @@ const ORGANS_Q = typeof location !== 'undefined' ? location.search.match(/[?&]gp
  */
 export const COUNTED = {
   whole: 'vessels: whole draw', wholeWhy: 'vessels: whole draw because ', pan: 'vessels: pan shift', rows: 'vessels: rows redrawn',
+  rowsRefused: 'vessels: rows refused because ',
   picture: 'picture: drawn', pictureWhole: 'picture: whole', organs: 'organ layers: rendered',
   glassDrawn: 'glass: drawn', glassCopy: 'glass: figure copied', glassSkip: 'glass: copy skipped (figure unchanged)',
   lobulePicture: 'lobule: vessels drawn', lobuleSurface: 'lobule: surface pass', lobuleSkip: 'lobule: surface pass skipped (camera only)',
@@ -26,6 +27,11 @@ export const COUNTED = {
 export const TWICE = new Set([COUNTED.picture, COUNTED.glassDrawn, COUNTED.lobulePicture]);
 /** Why a whole draw happened, as counted: the reasons are this fixed list. */
 export const WHY = ['no kept layer', 'radii changed', 'look changed', 'same place', 'moved too far', 'zoom or turn', 'tubes changed'];
+/**
+ * Why a partial redraw (veins-gl.js drawRows) was refused, as counted and as its `rowsStatus` says ('drawn' when it was not):
+ * a fixed list. Counted apart from the whole draw that follows, whose own reason is that draw's state, not the refusal's.
+ */
+export const ROWS_REFUSED = ['no kept layer', 'context lost', 'size changed', 'moved', 'radii not listed', 'most cells'];
 export const gpuProbe = {
   on: false,
   // Script time only (the ?perf readout, perf-readout.js): no wait for the GPU, so the page runs as it does for everyone.

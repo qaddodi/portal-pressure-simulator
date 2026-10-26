@@ -17,7 +17,7 @@
 // the words up to its first colon in bold).
 // The card never changes size with the reading: each reading's slot is as wide as its widest number, the marks cross-fade.
 
-import { h, fmt } from './util.js?v=29a9d1a27d';
+import { h, fmt } from './util.js?v=defb4c4059';
 import { TILE } from './table-marks.js?v=b717587a61';
 
 export const CRITERIA_MAX = 4;

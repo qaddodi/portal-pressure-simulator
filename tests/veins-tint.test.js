@@ -215,3 +215,32 @@ test('the renderer allocates, moves, trims and frees the mark with the layer', (
   // The full passes read a texel no framebuffer holds, never the mark they write (a feedback loop).
   assert.match(vg, /gl\.bindTexture\(gl\.TEXTURE_2D, tint \? depTex : depNone\)/);
 });
+
+// T05 (smoothness review, 26 Oct): a refused partial draw says why, and the rows it was given reach the whole draw after it.
+test('a refused partial draw names its reason, and a drawn one says so', async () => {
+  const { ROWS_REFUSED } = await import('../src/ui/gpu-probe.js');
+  const { g, data, put, look, m } = await scene();
+  put(0, [0.9, 0.9, 0.2]); g.setTubes(data);
+  assert.equal(g.drawRows([1.5, 0, 0, 1.5, 0, 0], look, { on: false }, [0]), false);
+  assert.equal(g.rowsStatus, 'moved');
+  // New radii on a row the caller did not name: refused, never drawn without it.
+  g.setRadii(4, Array(64).fill(9));
+  assert.equal(g.drawRows(m, look, { on: false }, [0]), false);
+  assert.equal(g.rowsStatus, 'radii not listed');
+  assert.equal(g.drawRows(m, look, { on: false }, [0, 4]), true);
+  assert.equal(g.rowsStatus, 'drawn');
+  for (const why of ['moved', 'radii not listed']) assert.ok(ROWS_REFUSED.includes(why));
+  const gl = readFileSync(new URL('../src/ui/veins-gl.js', import.meta.url), 'utf8');
+  for (const why of ROWS_REFUSED) assert.ok(gl.includes(`refuse('${why}')`), `drawRows can refuse for "${why}"`);
+});
+
+test('the stage keeps its changed rows through a refused partial draw and lets them go only once drawn', () => {
+  const st = readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8');
+  const fn = st.slice(st.indexOf('function drawVeins('), st.indexOf('function clearJoins('));
+  assert.match(fn, /const pending = veinsRows\.size \? \[\.\.\.veinsRows\] : null;/);
+  assert.doesNotMatch(fn, /veinsRows\.clear\(\)/, 'never cleared before a draw has shown them');
+  assert.match(fn, /if \(veins\.drawRows\(T, vLook, bloodLook\(\), pending, fullComposite\)\) \{ shown\(\); return true; \}/);
+  assert.match(fn, /const rows = veinsDirty \? null : pending \|\| \[\];/);
+  const lz = readFileSync(new URL('../src/ui/lobule-zoom.js', import.meta.url), 'utf8');
+  assert.match(lz, /if \(!g\.drawRows\(T, look, blood, rows\)\) g\.draw\(T, look, blood, rows\)/);
+});

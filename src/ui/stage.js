@@ -3,17 +3,17 @@
 
 import { EDGES, dopplerK, NODES, PORTAL_TERRITORY, dMinOf, edgePresent, isOccluded, SHUNT_PORTAL, SHUNT_SYSTEMIC, customShuntId, isStent, stentSite, STENT_SITES, STENT_SPANS, stentGate, stentSegments } from '../engine/topology.js?v=4044766e96';
 import { route as metroRoute, RECTUM_FADE, LABEL_VESSEL, TIP_FADE, TIP_CONNECT, VIEW, VB_ANAT, VB_CIRC, ATLAS_COLUMNS, HIDDEN_EDGES, HIDDEN_NODES, ANAT_HIDDEN, ANAT_HIDDEN_NODES, CAUDATE, CONTEXT_EDGES, BACK_EDGES, IVC_EDGES, NEEDS_C3, NODE_POS, EDGE_PATH, CIRCUIT_PATH, metroPath, ORGANS, SEAM_D, ORGAN_DETAIL, BACKDROP, LIVER_INNER, LIVER_EDGES, LANE_CAPTIONS, ABDOMEN_CLIP, ABDOMEN_FLOOR, flankPath, abdomenOutline, cavityHalfWidths, SPLEEN_CENTER, SITES, ORGAN_LABELS, ATLAS_LABELS, SHORT, ABBR, CHIP_NODES, LIVER_SPLIT_X, CIRCUIT_ZONES, CIRCUIT_LABELS, STRANDS, STRAND_FROM, SIN_EDGES, FEEDERS, fanFeeders, CIRCUIT_TREES } from './anatomy.js?v=48cc98d415';
-import { pressureColor, deltaColor, dropColor, flowColor, heatColor, velColorOf, velocityColor, oxygenColor } from './colormap.js?v=44d705bf87';
+import { pressureColor, deltaColor, dropColor, flowColor, heatColor, velColorOf, velocityColor, oxygenColor } from './colormap.js?v=61a1db2f22';
 import { forkJoins, sideEndScale } from './fork-joins.js?v=20a032142f';
 import { nodeEnds, nodeDrawn, dotRadius, bareDots } from './circuit-nodes.js?v=1040ba0ec4';
 import { STATION_VESSEL, meanVel, velNormal, judgeFlow } from './velNormal.js?v=97920ddf3f';
 import { store, updateParams, varicesPresent, varixGrowth, shownVel } from './store.js?v=926dabfaef';
 import { fibroReading } from './clock.js?v=5151312569';
-import { s, h, fmt, fmtFlow, fp, clamp, lerp, toast, systemEdge, bloodColors, restBox, translateRest, settledBox, putText, UPRIGHT_MQ } from './util.js?v=29a9d1a27d';
+import { s, h, fmt, fmtFlow, fp, clamp, lerp, toast, systemEdge, bloodColors, restBox, translateRest, settledBox, putText, UPRIGHT_MQ } from './util.js?v=defb4c4059';
 import { riseCentre } from './rise-path.js?v=c039cb7b49';
 import { sinceSource } from './since-ref.js?v=ef1a818c75';
 import { clipBox, mapBox } from './fit-box.js?v=d5d6d4c60f';
-import { runFlick, FLICK } from './flick.js?v=b37a090668';
+import { runFlick, FLICK } from './flick.js?v=25517e4aad';
 import { inlineStyles } from './svg-inline.js?v=fc17cb73fe';
 import { fluidTarget, poolFade } from './fluid-step.js?v=2742314765';
 import { easeTo, fluidSpring, fluidSpringFor } from './organ-ease.js?v=4ebb648131';
@@ -29,19 +29,19 @@ import { LIVER_GEO } from './liver-geo-data.js?v=41a20a25ac';
 import { COLON_ART, BOWEL_ART, DUO_CLIPS, DUO_A, DUO_B } from './organ-art.js?v=a6a766d521';
 import { warmVisible, ringGrid, inGrid } from './warm-vis.js?v=ccf4f6f71b';
 import { createRouter } from './circuit-router.js?v=0ee9e02fc6';
-import { gpuProbe, COUNTED } from './gpu-probe.js?v=caac436485';
+import { gpuProbe, COUNTED } from './gpu-probe.js?v=be7cefbb53';
 import { plateStrips, premultiply, gutStep, viewReuse, copyPixels } from './plate-upload.js?v=5fc45556a1';
 import { cropToGrid } from './organs-gl.js?v=12b187850f';
 import { readGroup, shapeSource, bindShape, targetRoom } from './organ-paint.js?v=1250d7cb89';
 import { pathCmds, flattenCmds, polyBox } from './shape-gl.js?v=a5ba46162b';
-import { createLabelGL } from './label-gl.js?v=ec410bafb6';
-import { createGlassGL } from './glass-gl.js?v=d04fde6f37';
-import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, ORIGIN_GREY } from './veins-gl.js?v=edd1d858c6';
+import { createLabelGL } from './label-gl.js?v=f25ffd5dd1';
+import { createGlassGL } from './glass-gl.js?v=e16c44128f';
+import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, ORIGIN_GREY } from './veins-gl.js?v=367989da0e';
 import { varixBead, beadRadius } from './varix-bead.js?v=ac0e84fd89';
 import { advanceStream, createReversalHold, bleedShapes, stepBleedFade, fadeBleedShapes, chevFlowLevel, keyChevron, KEY_CHEV_LANES, originFractions, oxygenFor, ORIGIN_N, createBolus, DYE_BINS, KAPPA, STASIS_MIN_D, HIDDEN_SECONDS } from './blood.js?v=7fa561f952';
 import { retireRows } from './flow-rows.js?v=bea4089714';
 import { createJunctionWidths } from './junction-widths.js?v=c5726a67f9';
-import { frameFor, lateFrameFor, cancelFrame, noteDraw, setSaver as setFrameSaver, paceMs, frame } from './frame.js?v=39b0efa1db';
+import { frameFor, lateFrameFor, cancelFrame, noteDraw, setSaver as setFrameSaver, paceMs, frame } from './frame.js?v=f9b2b8e123';
 import { softwareYield } from './sw-yield.js?v=e580a095b1';
 import { portalSplit } from './table-marks.js?v=b717587a61';
 import { hashSeed, clotSide, clotSpan, clotRadius, clotShift, clotLayers, CLOT_EDGE } from './clot-shape.js?v=415ba6b9c0';
@@ -2180,7 +2180,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const lzAnchor = document.createComment('lobule');
   wrap.append(lzAnchor);
   // (The code is fetched as soon as the figure is shown; the layer is built a moment later, when the page is quiet, or at once for a dive.)
-  const lobuleCode = () => (lzCode ||= import('./lobule-zoom.js?v=1e285ef7e2').catch((err) => { lzCode = null; throw err; }));
+  const lobuleCode = () => (lzCode ||= import('./lobule-zoom.js?v=b723b76801').catch((err) => { lzCode = null; throw err; }));
   function lobuleReady() {
     return (lzLoad ||= lobuleCode().then(({ createLobuleZoom }) => {
       lz = createLobuleZoom({ host: wrap, styles: wrapCS, before: lzAnchor });
@@ -3629,12 +3629,14 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const m = CTM;
     const T = [vdpr * m.a, vdpr * m.b, vdpr * m.c, vdpr * m.d, vdpr * (m.e - wrapRect.left), vdpr * (m.f - wrapRect.top)];
     const key = T.map((v) => v.toFixed(3)).join(',') + `|${vCanvas.width}x${vCanvas.height}`;
+    // The rows changed since the layer was drawn, taken once and kept until a draw has shown them: a refused partial draw
+    // passes them on to the whole draw that stands in for it, and they are let go only once one of the two has drawn.
+    const pending = veinsRows.size ? [...veinsRows] : null;
+    const shown = () => { for (const r of pending || []) veinsRows.delete(r); };
     if (!veinsDirty && key === veinsDrawKey) {
-      if (!veinsRows.size) return false;
+      if (!pending) return false;
       // Only some vessels' attributes changed: their cells alone are drawn again (the same picture as a whole redraw).
-      const rows = [...veinsRows];
-      veinsRows.clear();
-      if (veins.drawRows(T, vLook, bloodLook(), rows, fullComposite)) return true;
+      if (veins.drawRows(T, vLook, bloodLook(), pending, fullComposite)) { shown(); return true; }
     }
     if (key !== veinsDrawKey) {
       if (plateOn()) schedulePlateView();
@@ -3643,8 +3645,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     }
     // (Moved with only some vessels' attributes changed, those vessels are named: a drag while the model plays still
     // moves the drawn layer, and draws their cells again, rather than drawing it all.)
-    const rows = veinsDirty ? null : [...veinsRows];
-    veinsDirty = false; veinsDrawKey = key; veinsRows.clear();
+    const rows = veinsDirty ? null : pending || [];
+    veinsDirty = false; veinsDrawKey = key; shown();
     glM = [m.a, m.b, m.c, m.d, m.e - wrapRect.left, m.f - wrapRect.top];
     veins.draw(T, vLook, bloodLook(), rows);
     return true;

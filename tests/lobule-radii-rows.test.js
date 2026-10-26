@@ -17,6 +17,6 @@ test('a lobule radius change names its vessel instead of dirtying the whole laye
 
 test('the renderer only stands in for a whole draw when every changed radius row is named', () => {
   assert.match(vg, /setRadii\(row, r\)[\s\S]*?radRows\.add\(row\)/);
-  assert.match(vg, /drawRows\([^)]*\) \{[\s\S]*?!radCovered\(rows\)\) return false/);
+  assert.match(vg, /drawRows\([^)]*\) \{[\s\S]*?if \(!radCovered\(rows\)\) return refuse\('radii not listed'\)/);
   assert.match(vg, /const panAt = fboOK && radCovered\(rows\)/);
 });
