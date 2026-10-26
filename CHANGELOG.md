@@ -2,6 +2,14 @@
 
 ## October 2026
 
+- **The HVPG pressure trace moves out of the words into a data card on slides 3 to 5 of HVPG and PPG.** (Mohammad, 26 Oct, "move the HVPG monitor into an instrument data
+  card ... keep the teaching card without it".) Free, Wedged and Result now carry `tool: { kind: 'hvpg', catheter: true }` instead of `monitor`: the same black tracing sits
+  in the data card under the words, follows the catheter on the figure (its balloon sets the pressure's rise, the slide's readings are the callouts' own) and stays on screen
+  from one of the three slides to the next while only the words swap (card-keep.js; the catheter card is the one catheter slide that keeps its data card). The teaching card
+  holds the words and, on Result, the equation. No other built-in talk used the teaching-card trace; the `monitor` field still works for decks of your own. The authoring
+  guides follow. Code and unit tests only; nobody has looked on screen. The three handout figures (`brand/handout/hvpg/free`, `wedge`, `hvpg`) still show the figure
+  alone until redrawn. `src/ui/tool-hvpg.js`, `src/ui/presenter-tools.js`, `src/ui/presenter.js`, `src/ui/card-keep.js`, `src/ui/decks/hvpg.js`, `tests/`, `docs/`.
+
 - **The menu leads with twelve core talks; the other sixteen are under "More talks".** (Mohammad, 25 Oct, "Build the new decks"; deck rebuild plan, G1 and G2.) The five
   topics list Circulation, Circuit, Sites and causes, HVPG and PPG, Doppler, Stiffness, Varices, Insufflation, Variceal bleed, Next bleed, Ascites and Encephalopathy, in
   teaching order; a sixth group with the same heading holds the rest, and search still finds all 28. New `tests/deck-shape.test.js` keeps every built-in talk to two lenses,

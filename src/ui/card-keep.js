@@ -14,7 +14,10 @@ const J = JSON.stringify;
 // model follows (keepData).
 const OWN = ['visual', 'lapse', 'cath', 'monitor', 'procedure', 'vignette', 'question', 'hold'];
 const own = (s) => !s || OWN.some((k) => s[k]);
-const ownData = (s) => !s || OWN.some((k) => k !== 'lapse' && s[k]);
+// A catheter slide whose data card is the catheter's own tracing (tool.catheter, presenter-tools.js) leaves the data card alone: the
+// catheter carries on from one step to the next and the tracing follows its balloon, so the card stays up between such slides.
+const cathCard = (s) => ['free', 'wedge', 'result'].includes(s?.cath) && s.tool?.kind === 'hvpg' && !!s.tool.catheter;   // (the steps a tracing follows: tool-hvpg.js STEPS)
+const ownData = (s) => !s || OWN.some((k) => k !== 'lapse' && s[k] && !(k === 'cath' && cathCard(s)));
 
 // Instruments that record the patient's flow as it passes: another patient clears their trace, so their card is built again
 // rather than kept. Charts drawn from the deck's own states (the talk's trace, the flow-time chart) are redrawn per slide.

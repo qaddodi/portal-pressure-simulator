@@ -23,7 +23,7 @@ export const HVPG = {
       ask: ['Why the right internal jugular vein?', 'It gives a straight path through the right atrium and the IVC into the hepatic veins.'],
     },
     {
-      id: 'free', cath: 'free', monitor: 'free',
+      id: 'free', cath: 'free', tool: { kind: 'hvpg', catheter: true },
       kicker: 'Measuring portal pressure', title: 'The free pressure reads the hepatic vein',
       terms: { 'hepatic vein pressure': 'fhvp', IVC: 'ivc' },
       line: 'The free hepatic vein pressure, 2 to 4 cm from the IVC, sits within about 2 mmHg of it. Subtracting it cancels the abdominal pressure ascites adds to both readings.',
@@ -31,7 +31,7 @@ export const HVPG = {
       ask: ['Why subtract the free pressure rather than the right atrial pressure?', 'The free pressure carries the same abdominal and venous pressure as the wedge, so subtracting it cancels them.'],
     },
     {
-      id: 'wedge', cath: 'wedge', monitor: 'wedge',
+      id: 'wedge', cath: 'wedge', tool: { kind: 'hvpg', catheter: true },
       kicker: 'Measuring portal pressure', title: 'The wedged pressure reads the sinusoids',
       terms: { sinusoids: 'whvp' },
       line: 'Inflating the balloon stops flow, so the blood ahead settles at the pressure of the feeding sinusoids. Record it once the tracing is stable, after at least 1 minute.',
@@ -39,7 +39,7 @@ export const HVPG = {
       ask: ['How do you check that the balloon has truly wedged the vein?', 'Inject a little contrast: it stays in the vein with no washout, and the tracing loses its pulse.'],
     },
     {
-      id: 'hvpg', cath: 'result', monitor: 'result',
+      id: 'hvpg', cath: 'result', tool: { kind: 'hvpg', catheter: true },
       kicker: 'Measuring portal pressure', site: 'sin', title: 'HVPG measures the pressure drop across the sinusoids',
       eq: [mi('HVPG') + mo('=') + '<mi class="eq-wedge">WHVP</mi>' + mo('−') + '<mi class="eq-hv">FHVP</mi>'],
       line: 'In this case the HVPG is {hvpg}: clinically significant portal hypertension.',

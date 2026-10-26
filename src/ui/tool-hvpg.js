@@ -4,6 +4,11 @@
 // since there is no catheter to read it from. Jumped to or gone back to, it shows the finished tracing at once. When the model changes on
 // the slide (a drug, a button, a time-lapse) the free and wedged levels and the HVPG ease to the new numbers. The HVPG it prints is the
 // difference of the two readings as shown (tenthGap), so WHVP minus FHVP reads exactly.
+//
+// With tool: { kind: 'hvpg', catheter: true } on a slide whose catheter is on the figure (cath: 'free', 'wedge' or 'result') the card plays
+// nothing of its own: it shows the step the catheter is at, the figure's balloon sets the pressure's rise (balloon, driven by the presenter
+// every frame), and the slide's readings are the ones the catheter's callouts print. The same card stays up from one such slide to the
+// next (card-keep.js), and the trace carries on from where the last slide left it.
 
 import { createHvpgMonitor } from './hvpg-proc.js?v=c9c5ae0694';
 import { T, ease, k01 } from './hvpg-clock.js?v=553551a92a';
@@ -18,11 +23,14 @@ export const levelsOf = (m) => (m && Number.isFinite(m.fhvp) && Number.isFinite(
 /** How long the free sweep lasts before the balloon starts, and the stretch between the balloon being up and the result taking over (ms on the procedure's clock). */
 export const SWEEP_FREE_MS = T.inflate - 80 - (T.free - 300);
 export const SWEEP_SETTLE_MS = T.callout - T.wedge;
+/** The catheter steps a card can follow (a slide's cath). */
+export const STEPS = ['free', 'wedge', 'result'];
 
 export function createHvpgCard() {
   const mon = createHvpgMonitor();
   const el = mon.el;
   let target = null, cur = null, pending = 'result', token = 0, raf = 0, last = 0, done = false;
+  let step = null, shown = false;   // (step: the catheter step this card follows, null when it plays on its own clock; shown: the card is on a slide now)
   const wait = (ms) => new Promise((r) => setTimeout(r, ms));
   const gone = (my) => my !== token || !el.isConnected;
   // The levels ease to the target on each frame they move; the monitor reads `cur` in place, so a sweep in progress picks them up too.
@@ -71,12 +79,19 @@ export function createHvpgCard() {
   }
   return {
     id: 'hvpg', label: 'HVPG, catheter tracing', el,
+    /** The slide's options: with catheter: true, the step of the slide's catheter (cath) is the one the card shows. */
+    configure(t, ctx) { step = t?.catheter && STEPS.includes(ctx?.slide?.cath) ? ctx.slide.cath : null; shown = true; },
+    /** The card has left the screen (another slide's instrument, or none): it draws nothing more. */
+    park() { shown = false; },
+    /** The catheter's balloon (0 down … 1 wedged), every frame the figure moves it: the trace rides it. */
+    balloon(b) { if (step && shown) mon.balloon(b); },
     /** The slide is shown: forward onto it from the slide before (and the card was not already this one's), the tracing plays; otherwise it is finished. */
     arrive({ forward = false, again = false } = {}) { pending = forward && !again ? 'sweep' : 'result'; },
     /** The slide's settled readings (the tiles' numbers, eased as the model changes): the levels take them. */
     pin(fp) {
       const lv = levelsOf(fp);
       if (!lv) return;
+      if (step) { if (shown) mon.set(step, fp); return; }   // (the catheter sets the pace; the readings are the slide's, as its callouts print them)
       target = lv;
       if (pending) { const how = pending; pending = null; start(how); return; }
       follow();

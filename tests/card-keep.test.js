@@ -60,6 +60,40 @@ test('slides with their own order of cards keep nothing: the catheter, a case ca
   }
 });
 
+test('the catheter\'s tracing card stays from one catheter step to the next, and nothing else on a catheter slide does', () => {
+  const tool = { kind: 'hvpg', catheter: true };
+  const free = { title: 'Free', line: 'A', cath: 'free', tool }, wedge = { title: 'Wedge', line: 'B', cath: 'wedge', tool }, result = { title: 'Result', line: 'C', cath: 'result', tool };
+  const p = dataPlan(free, O);
+  assert.equal(dataPlan(wedge, O), p, 'the three steps are one card');
+  assert.equal(dataPlan(result, O), p);
+  for (const [a, b] of [[free, wedge], [wedge, result], [result, wedge], [wedge, free]]) {
+    assert.equal(keepData({ from: p, to: p, prev: a, next: b }), true, `${a.cath} to ${b.cath}: the card stays and follows the balloon`);
+    assert.equal(keepText({ from: textPlan(a), to: textPlan(b), prev: a, next: b }), false, 'the words are built afresh on a catheter slide');
+  }
+  assert.equal(keepData({ from: p, to: p, prev: free, next: wedge, again: true }), false, 'the same slide drawn again builds its cards afresh');
+  // The step before and after: the route has no card, the next slide another one, so the card comes with the first step and leaves with the last.
+  const route = { title: 'Route', cath: 'route' }, next = { title: 'Next', line: 'D', data: 'tiles', tiles: ['hvpg'], tool: { kind: 'profile' } };
+  assert.equal(keepData({ from: null, to: p, prev: route, next: free }), false);
+  assert.equal(keepData({ from: p, to: dataPlan(next, O), prev: result, next }), false);
+  // A catheter slide with any other card still owns its order of cards, and so does the tracing without the option or on another step.
+  for (const [what, x] of [['the tracing without the option', { ...wedge, tool: { kind: 'hvpg' } }], ['another instrument', { ...wedge, tool: { kind: 'profile' } }],
+    ['the route', { ...wedge, cath: 'route' }], ['a blocked vein', { ...wedge, cath: 'blocked' }]]) {
+    const q = dataPlan(x, O);
+    assert.equal(keepData({ from: q, to: q, prev: x, next: { ...x, title: 'B' } }), false, `${what}: a catheter slide keeps nothing`);
+  }
+  // Beside the catheter, a case card, a time-lapse, a procedure or a held question still does.
+  for (const k of ['vignette', 'procedure', 'question', 'hold']) assert.equal(keepData({ from: p, to: p, prev: free, next: { ...wedge, [k]: 'x' } }), false, `${k} on a catheter step`);
+  // The shipped HVPG deck: Free, Wedged and Result keep one card between them.
+  const hv = withOverview(DECKS.find((d) => d.id === 'hvpg')).slides, ids = hv.map((x) => x.id);
+  const at = (id) => hv[ids.indexOf(id)];
+  for (const [a, b] of [['free', 'wedge'], ['wedge', 'hvpg']]) {
+    const pa = dataPlan(at(a), O), pb = dataPlan(at(b), O);
+    assert.ok(pa && pa === pb, `${a} and ${b}: one card plan`);
+    assert.equal(keepData({ from: pa, to: pb, prev: at(a), next: at(b) }), true, `${a} to ${b}`);
+  }
+  for (const id of ['free', 'wedge', 'hvpg']) assert.equal(at(id).monitor, undefined, `${id}: the teaching card holds only words`);
+});
+
 test('a time-lapse keeps a matching data card that reads the live model, with the same patient; the words, recorders, drawn charts and a lapse with a patient of its own do not', () => {
   const lapse = { seconds: 8 };
   for (const tool of [undefined, { kind: 'fibroscan' }, { kind: 'profile' }, { kind: 'flows' }]) {
@@ -206,7 +240,9 @@ test('in the shipped decks the rule keeps cards between consecutive slides, and 
         kept++; if (swap) swapKept++;
         assert.deepEqual(a.tool || null, b.tool || null, `${d.id} ${i}: kept cards hold the same instrument and options`);
         assert.deepEqual(a.tiles || [], b.tiles || [], `${d.id} ${i}: and the same tiles`);
-        assert.ok(!a.vignette && !b.vignette && !a.cath && !b.cath, `${d.id} ${i}: no slide with its own order of cards`);
+        // (A catheter slide whose card is the catheter's own tracing is the one exception: the catheter carries on from step to step.)
+        const own = (x) => x.vignette || (x.cath && !(x.tool?.kind === 'hvpg' && x.tool.catheter));
+        assert.ok(!own(a) && !own(b), `${d.id} ${i}: no slide with its own order of cards`);
         // (A time-lapse keeps only a card that reads the live model, with the patient staying into it.)
         if (a.lapse) assert.ok(eases(a.tool), `${d.id} ${i}: a time-lapse's card that stays reads the live model`);
         if (b.lapse) assert.ok(!swap && eases(b.tool), `${d.id} ${i}: a time-lapse keeps its card only with the patient staying and a card that eases`);

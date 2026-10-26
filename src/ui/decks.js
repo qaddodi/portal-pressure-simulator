@@ -31,7 +31,7 @@
 //                            vessel, gate?, points? } (gate: on a stent, the third it samples, 'proximal' | 'mid' (default) | 'distal' | 'site';
 //                            points: true calls out the stent's velocity at all three points on the figure, the sampled one in green), { kind: 'scope', air?, red?, readings? } (air: mmHg of air in the lumen, 0 to 20, seen view-only; red: true | false, the red wale marks; readings: true, three pressure rows), { kind: 'fibroscan' }, { kind: 'trace', range: 'talk' | 'beats' },
 //                            { kind: 'abdomen' }, { kind: 'wall' } (the varix in cross-section), { kind: 'spleen' } (ultrasound, calipers on the length),
-//                            { kind: 'vitals', show? } (a monitor: the EKG strip over hr, map, co, hb), { kind: 'hvpg' } (the catheter's tracing, played on arrival); title? names the card; waves: true
+//                            { kind: 'vitals', show? } (a monitor: the EKG strip over hr, map, co, hb), { kind: 'hvpg' } (the catheter's tracing, played on arrival; catheter: true follows the slide's cath instead and stays from one step to the next); title? names the card; waves: true
 //                            names a hepatic vein Doppler's a, S and D. With data too, the tool sits above the tiles
 //                            (on a phone it folds away behind a Show button; open: true keeps it open there and folds the tiles instead)
 //   lens                     the vessel colours on that slide: 'velocity', 'flow', 'direction', 'heat' (congestion), 'drop'
@@ -39,6 +39,7 @@
 //   sites                    readings on the figure: 'pv', 'ivc', 'ra', 'web' (pressures; web: the IVC below a web), 'rLiver', 'rColl' (the circuit's resistors), 'split' (portal blood to liver and shunts)
 //   cath                     the HVPG catheter instead of a camera: 'route', 'free', 'wedge', 'result' or 'blocked'
 //   monitor                  the catheter's pressure monitor (Measure › HVPG's tracing) under the slide's words: 'free', 'wedge' or 'result'
+//                            (the built-in talks put it in the data card instead: tool { kind: 'hvpg', catheter: true } on a slide with that cath)
 //   tick                     a few words for what happened at this slide's time point, over its line, at 45°, on a talk trace (else its title)
 //   when                     the time point under that line, in words, when the days so far would repeat the one before (a drug started at the same visit)
 //   lapse                    { seconds, from?, to? }: the slide's days (ramp: { param: [from, to] } eased over them; a dotted param names a nested one, 'fibrosis.R.post') play on the
@@ -94,7 +95,7 @@
 
 import { CIRCULATION } from './decks/circulation.js?v=8818f308df';
 import { SITES } from './decks/sites.js?v=672baf95f7';
-import { HVPG } from './decks/hvpg.js?v=022806d10e';
+import { HVPG } from './decks/hvpg.js?v=283a22a0f3';
 import { ASCITES } from './decks/ascites.js?v=b924d3a043';
 import { VARICES } from './decks/varices.js?v=35a51560a4';
 import { TREATMENT } from './decks/treatment.js?v=a043d963a0';

@@ -164,6 +164,39 @@ test('the HVPG card shows the finished tracing at once when jumped to, eases to 
   sweep.dispose();
 });
 
+test('an HVPG card that follows the catheter shows the slide\'s step, rides the figure\'s balloon and plays nothing of its own', () => {
+  const fp = { fhvp: 8.2, whvp: 19.6, hvpg: 11.4 };
+  const card = createHvpgCard();
+  const cv = canvasOf(card.el);
+  cv.bw = 420; cv.bh = 240;
+  let clock = performance.now();
+  const play = (frames = 500) => { for (let i = 0; i < frames && frameQueue.length; i++) runFrames(clock += 16); };
+  const step = (cath, balloon) => { card.configure({ kind: 'hvpg', catheter: true }, { slide: { cath } }); card.balloon(balloon); card.arrive({ forward: true, again: false }); card.pin(fp); };
+  // Free: stepped onto going forward, it would sweep on its own clock; following the catheter it shows the free pressure and waits.
+  fresh(cv); step('free', 0); play();
+  assert.ok(texts(cv).includes('FHVP') && texts(cv).includes('8.2'), `the free pressure: ${texts(cv)}`);
+  assert.ok(!texts(cv).includes('WHVP') && !texts(cv).includes('11.4'), 'nothing climbs without the balloon');
+  // Wedge: the next slide keeps the card; the trace waits at the free level until the figure's balloon starts to fill.
+  fresh(cv); step('wedge', 0); play();
+  assert.ok(!texts(cv).includes('WHVP') && !texts(cv).includes('11.4'), `the wedge waits for the balloon: ${texts(cv)}`);
+  card.balloon(1); fresh(cv); play();
+  assert.ok(texts(cv).includes('WHVP') && texts(cv).includes('19.6'), `the balloon up, the wedged pressure: ${texts(cv)}`);
+  // Result: the HVPG, the difference as the slide prints it.
+  fresh(cv); step('result', 1); play();
+  assert.ok(texts(cv).includes('HVPG') && texts(cv).includes('11.4'), `the result: ${texts(cv)}`);
+  assert.deepEqual(cv.log.bad, [], 'every number handed to the canvas is finite');
+  // Off the screen (another slide's card, or none) it draws nothing more, whatever the figure's balloon does.
+  card.park(); fresh(cv);
+  card.balloon(0); card.pin({ fhvp: 5, whvp: 9, hvpg: 4 }); play();
+  assert.deepEqual(texts(cv), [], 'a parked card is left alone');
+  // A step it cannot follow (no catheter option, or a slide whose catheter is not at a reading) plays as any HVPG card does.
+  const own = createHvpgCard(), cv2 = canvasOf(own.el);
+  cv2.bw = 420; cv2.bh = 240;
+  own.configure({ kind: 'hvpg' }, { slide: { cath: 'free' } }); own.arrive({ forward: false }); own.pin(fp); runFrames();
+  assert.ok(texts(cv2).includes('11.4'), 'without catheter: true the finished tracing at once, as before');
+  own.dispose(); card.dispose();
+});
+
 test('the pressure trace draws the EKG strip and the HVPG lane on a slide and in Patients mode', () => {
   for (const onSlide of [true, false]) {
     for (const bh of [320, 220, 150]) {

@@ -23,6 +23,8 @@
 //                                                   a black bedside monitor: the EKG strip over up to three of hr, map, co, hb as large numbers
 //   tool: { kind: 'hvpg' }                          the HVPG catheter's tracing on the card (no catheter on the figure): it plays free, wedge and
 //                                                   result going forward onto the slide, then holds the result and eases with the model
+//   tool: { kind: 'hvpg', catheter: true }          the same tracing following the figure's catheter (the slide's cath: 'free', 'wedge' or 'result'):
+//                                                   the balloon sets the pressure's rise, and the card stays up from one such slide to the next
 //
 // A kind a deck visuals package registers (slide-ext.js tools) is made, titled and shown the same way; built-in kinds win.
 //
@@ -42,12 +44,12 @@ import { createFibroScan } from './fibroscan.js?v=130fa6f7f8';
 import { createPressureTime } from './pressure-time.js?v=05c636832a';
 import { createSpleenUS } from './spleen-us.js?v=c6df942855';
 import { createVitalsMonitor } from './vitals-monitor.js?v=e63929db81';
-import { createHvpgCard } from './tool-hvpg.js?v=3eee4d046c';
+import { createHvpgCard } from './tool-hvpg.js?v=47d288ae13';
 import { createFlowTime } from './flow-time.js?v=1c1d1370e3';
 import { createEndoscopy, createAbdomen, createVarixWall } from './instruments.js?v=9cc1bee18d';
 import { frameFor } from './frame.js?v=226365e6e2';
 import { talkTrace } from './talk-trace.js?v=7b6079d299';
-import { EXT, guard, safe } from './slide-ext.js?v=5ac380d396';
+import { EXT, guard, safe } from './slide-ext.js?v=92fa1f355e';
 const nextFrame = frameFor('presenter-tools');
 
 const VESSEL = { PV_TRUNK: 'main portal vein', PVH_R: 'right portal vein', PVH_L: 'left portal vein', SV_CONF: 'splenic vein', SV_MID: 'splenic vein', V_SPL: 'splenic vein, at the hilum',
@@ -116,8 +118,9 @@ export function createTools({ host, stage }) {
      *  chain: for the talk trace, [{ n, title, fp }] of every state up to this slide.
      *  trail, reveal: for the flow-time chart, its series and how far along to draw it (see progress).
      *  ctx: the slide's context for an instrument's configure(t, ctx) (the presenter's ctxOf; slide-ext.js).
-     *  forward: the slide is stepped onto from the one before it (an instrument that plays on arrival, arrive()). */
-    show(t, { slide = null, stateKey = null, chain = [], trail = null, reveal = 1, ctx = null, forward = false } = {}) {
+     *  forward: the slide is stepped onto from the one before it (an instrument that plays on arrival, arrive()).
+     *  balloon: the catheter's balloon on the figure now, for a tracing that follows it (balloon()). */
+    show(t, { slide = null, stateKey = null, chain = [], trail = null, reveal = 1, ctx = null, forward = false, balloon = null } = {}) {
       const k = keyOf(t), inst = make(k);
       if (!inst) { this.hide(); return; }
       if (k !== 'doppler') stage?.pinDoppler?.(null);
@@ -132,6 +135,7 @@ export function createTools({ host, stage }) {
       inst.setWaves?.(!!t.waves);
       inst.configure?.(t, ctx);   // (an instrument's own options on this slide: a deck visuals package's, slide-ext.js)
       lastTool = t; lastCtx = ctx;
+      if (balloon != null) inst.balloon?.(balloon);   // (a tracing that follows the catheter starts from the balloon as it stands)
       inst.arrive?.({ forward, again: cur === inst });   // (the HVPG tracing plays going forward onto its slide, once, and is finished otherwise)
       if (cur !== inst || slide !== lastSlide) inst.autoWindow?.();   // (a new slide chooses its Doppler window again from the width it is drawn at)
       lastSlide = slide;
@@ -139,6 +143,7 @@ export function createTools({ host, stage }) {
       const startOver = RECORDS.includes(k) && (stateKey !== lastSt || cur !== inst);
       if (startOver) { inst.clear?.(); primeTok++; }
       lastSt = stateKey;
+      if (cur && cur !== inst) cur.park?.();
       if (cur !== inst) box.replaceChildren(inst.el, ghostEl);
       cur = inst; kind = k;
       box.dataset.kind = k;
@@ -175,7 +180,9 @@ export function createTools({ host, stage }) {
     /** A question slide's answer held back (slide hold: true): the instrument showing leaves out the
      *  parts that name the answer (the Gut to heart chart's red blocks and brackets; the Doppler's words are held by the card's CSS). */
     holdAnswer(on, instant = false) { cur?.hold?.(!!on, instant); },
-    hide() { stage?.pinDoppler?.(null); stage?.setScanProbe?.(false); cur = null; kind = null; lastSlide = null; lastTool = null; lastCtx = null; delete box.dataset.kind; },
+    /** The catheter's balloon on the figure (0 down … 1 wedged), every frame it moves: the tracing on the card, if it follows the catheter, rides it. */
+    balloon(b) { cur?.balloon?.(b); },
+    hide() { stage?.pinDoppler?.(null); stage?.setScanProbe?.(false); cur?.park?.(); cur = null; kind = null; lastSlide = null; lastTool = null; lastCtx = null; delete box.dataset.kind; },
     /** The presentation is over: the Doppler goes back to the vessel it had. */
     dispose() {
       if (probe0 !== undefined) { host.send({ type: 'probe', id: probe0 }); store.set({ dopGate: gate0 || 'mid' }); } probe0 = undefined; lastSt = null; lastSlide = null; this.hide();

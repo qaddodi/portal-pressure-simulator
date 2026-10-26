@@ -58,12 +58,14 @@ test('the earlier line keeps its name: Before TIPS and Year 8 on Ten years\' pro
   assert.match(prof, /\[bf, bfName, 'bf'\]/);
 });
 
-test('the HVPG deck still names the wedged and free readings: WHVP and FHVP tiles beside the heart chart, the catheter monitor on its own slide', () => {
+test('the HVPG deck still names the wedged and free readings: WHVP and FHVP tiles beside the heart chart, the catheter tracing in the data card of its own slides', () => {
   const heart = at('hvpg.js', 'heart'); assert.equal(heart.data, 'tiles'); assert.deepEqual(heart.tiles, ['whvp', 'fhvp']);
-  // (The catheter slide reads the two on its monitor and gives the equation; it carries no chart, tiles or buttons of its own: D5, 25 Oct.)
+  // (The catheter slide reads the two on the tracing in its data card and gives the equation in its words; it carries no chart, tiles or buttons
+  // of its own: D5, 25 Oct. The tracing moved from the teaching card to the data card on 26 Oct, and follows the figure's catheter.)
   const cath = at('hvpg.js', 'hvpg');
-  assert.equal(cath.monitor, 'result'); assert.ok(cath.eq);
-  for (const k of ['tool', 'data', 'tiles', 'compare']) assert.equal(cath[k], undefined, `hvpg slide has no ${k}`);
+  assert.deepEqual(cath.tool, { kind: 'hvpg', catheter: true }); assert.equal(cath.cath, 'result'); assert.ok(cath.eq);
+  assert.equal(cath.monitor, undefined, 'the teaching card holds only words');
+  for (const k of ['data', 'tiles', 'compare']) assert.equal(cath[k], undefined, `hvpg slide has no ${k}`);
   // (And the figure tags the wedge and the free hepatic vein on every Gut to heart slide, as it did on the ladder's.)
   assert.match(pres, /presentNames: s\.tool\?\.kind === 'profile' \|\| !!s\.cath,/);
 });

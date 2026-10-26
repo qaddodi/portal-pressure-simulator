@@ -86,7 +86,7 @@ Full guide: section 14.
 - **Glow.** `glow: ['C3', 'spleen']` lights vessels or organs the words do not name. Add `glowSeq: 550` to light them one after another.
 - **Marks.** `mark: { edges: ['PV_TRUNK'], label: 'Clot' }` rings a vessel and adds a callout. Use `kind: 'treat'` for a stent or bands and `kind: 'note'` to name a collateral.
 - **Readings on the figure.** `sites: ['pv', 'ra']` writes those pressures beside the vessels.
-- **The HVPG catheter.** `cath: 'wedge'` plays the catheter step instead of a camera move, and `monitor: 'wedge'` shows its tracing.
+- **The HVPG catheter.** `cath: 'wedge'` plays the catheter step instead of a camera move, and `tool: { kind: 'hvpg', catheter: true }` puts its tracing in the data card, which stays up from one step to the next.
 
 Full guide: section 5.1 to 5.8.
 
@@ -146,6 +146,7 @@ An instrument goes in the data card with `tool`. It reads the live model, so it 
 | A spleen ultrasound | `tool: { kind: 'spleen' }` | spleen size, with calipers and the length in cm |
 | A bedside monitor | `tool: { kind: 'vitals', show: ['hr', 'map', 'hb'] }` | the patient's heart rate, pressure, output or hemoglobin, with an EKG strip |
 | The HVPG catheter's tracing | `tool: { kind: 'hvpg' }` | how the HVPG is measured, free pressure to wedge to result |
+| The same tracing following the catheter on the figure | `tool: { kind: 'hvpg', catheter: true }` with `cath: 'free'`, `'wedge'` or `'result'` | the catheter steps with the tracing beside them, one card kept across the steps |
 | HVPG and pressures across the talk | `tool: { kind: 'trace', range: 'talk' }` | a patient followed over months |
 | The belly and its ascites | `tool: { kind: 'abdomen' }` | ascites and wall collaterals |
 | The varix wall | `tool: { kind: 'wall' }` | why a large varix bursts |

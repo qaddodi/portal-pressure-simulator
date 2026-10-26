@@ -22,11 +22,11 @@ import { sinusoidSupported } from './gl-support.js?v=94ad2a7ff1';
 import { SCALE_NAME, offeredScales, scaleView, pickedScale } from './scale-switch.js?v=1b0e3acd65';
 import { DISEASE_SRC, diseasePieces } from './diseases.js?v=fb8a5451c3';
 import { nb, listCase, plateletText } from './glue.js?v=5a0f63226b';
-import { DECKS, DECK_ALIAS, REGIONS, LEVELS, TOPICS, withOverview, siteTag, SITE_TAGS } from './decks.js?v=2d70beba2e';
+import { DECKS, DECK_ALIAS, REGIONS, LEVELS, TOPICS, withOverview, siteTag, SITE_TAGS } from './decks.js?v=200c44fd31';
 import { fingerprintOf } from '../engine/fingerprint.js?v=8faea80b59';
 import { createHvpgMonitor } from './hvpg-proc.js?v=c9c5ae0694';
-import { createTools } from './presenter-tools.js?v=2af3c0fd5d';
-import { openHandout } from './handout.js?v=ac4209c184';
+import { createTools } from './presenter-tools.js?v=9ba1fc35ae';
+import { openHandout } from './handout.js?v=27527cb5bf';
 import { noteResume, resumeFor } from './resume.js?v=f086f80ee8';
 import { parseDeckSource, checkDeck } from './deck-source.js?v=8395c650cd';
 import { NO_ASC, TILE, tileOf, SCALE, bandsOf, rateOf, COLS, CUT, PRESS, fpv, dirAbs, dirRel, rateAbs, effOf, rateShown, tileShown, tipsGoal, liveSettled, shownSig } from './table-marks.js?v=b717587a61';
@@ -34,7 +34,7 @@ import { frameFor, cancelFrame } from './frame.js?v=226365e6e2';
 import { createFigureKey } from './figure-key.js?v=498e12ab24';
 import { traceWhen } from './trace-labels.js?v=fc916a95c6';
 import { flowCss, heatCss, dropCss, gradientCss, oxygenCss } from './colormap.js?v=fd052a05e5';
-import { EXT, expandIds, stepExtra, markLabel, figureHooks, safe } from './slide-ext.js?v=5ac380d396';
+import { EXT, expandIds, stepExtra, markLabel, figureHooks, safe } from './slide-ext.js?v=92fa1f355e';
 import { clotWords } from './callout-math.js?v=8b34c1bcf1';
 import { citeText, focusOf, oneLadder } from './teach-extras.js?v=5f5248f5a7';
 import { createProfileTool, createProfileStrip, pillReadings } from './tool-profile.js?v=5a7c915373';
@@ -42,7 +42,7 @@ import { causeFit } from './cause-fit.js?v=830a6835a5';
 import { COMPACT, WIDE } from './card-type.js?v=5af5f22935';
 import { flowTimeHeight } from './flow-time.js?v=1c1d1370e3';
 import { PROCS, procBlocked, procOffered, playProcedure } from './proc-anim.js?v=04b0a47229';
-import { dataPlan, textPlan, keepData, keepText, cardSnap, cardChanged, cardBack } from './card-keep.js?v=c23d02b1d3';
+import { dataPlan, textPlan, keepData, keepText, cardSnap, cardChanged, cardBack } from './card-keep.js?v=4fc0919e34';
 const nextFrame = frameFor('presenter');
 
 const KEY = 'pps.scripts';
@@ -1128,6 +1128,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       pulse: 0.5 + 0.5 * Math.sin((now - cath.t0) / 170), clock: now - cath.t0, opacity: v.opacity, labels: cathLabels(), ostium: cath.ostium, probe,
       follow: cath.follow });   // (the view drifts after the tip as the stage lays out this frame: catheter, camera, readings)
     mon?.balloon(v.balloon);   // the monitor's trace rides the same balloon value
+    ui?.tools.balloon(v.balloon);   // (and the data card's tracing, on a slide whose tool follows the catheter)
     cath.raf = nextFrame(cathFrame);
   }
   function cathStop() {
@@ -2105,7 +2106,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     holdEase = answerAfter(s, i);
     holdAnswer(!s.visual && (!!s.hold || holdEase), true);
   }
-  const showTool = (s, i, lap = false, forward = false) => ui.tools.show(s.tool, { slide: i, stateKey: stateOf[i], forward, chain: chainTo(i, s.tool.kind === 'trace' ? s.tool.since : null), trail: states[stateOf[i]]?.trail ?? null, reveal: lap ? 0 : 1, ctx: ctxOf(s, i) });
+  const showTool = (s, i, lap = false, forward = false) => ui.tools.show(s.tool, { slide: i, stateKey: stateOf[i], forward, chain: chainTo(i, s.tool.kind === 'trace' ? s.tool.since : null), trail: states[stateOf[i]]?.trail ?? null, reveal: lap ? 0 : 1, ctx: ctxOf(s, i), balloon: s.cath ? cath.v.balloon : null });
 
   // ── Cards that stay between slides ──
   // A slide change used to fade both cards out and build both again. When the next slide's data card is the same (the same instrument
