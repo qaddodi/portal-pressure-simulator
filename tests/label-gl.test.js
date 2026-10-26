@@ -102,3 +102,48 @@ test('the FibroScan probe is drawn on the GPU over the labels, its SVGs kept as 
 test('the scan paint uses the cached stage box, not a fresh layout', () => {
   assert.match(STAGE, /const tip = scanTipLocal\(\), wr = stageBox\(\);/);
 });
+
+test('atlas packer: padded slots never overlap, freed slots are reused, pages are capped', async () => {
+  const { createAtlasPacker } = await import('../src/ui/atlas-pack.js');
+  const pk = createAtlasPacker({ size: 128, pad: 2, maxPages: 2 });
+  const slots = [];
+  for (let i = 0; i < 20; i++) { const s = pk.alloc(20 + (i % 5) * 3, 10 + (i % 3) * 4); if (s) slots.push(s); }
+  assert.ok(slots.length > 4);
+  for (const s of slots) {
+    assert.ok(s.x >= 2 && s.y >= 2 && s.x + s.w + 2 <= 128 && s.y + s.h + 2 <= 128, 'inside its page with the gutter');
+  }
+  const gutter = (s) => ({ l: s.x - 2, t: s.y - 2, r: s.x + s.w + 2, b: s.y + s.h + 2, page: s.page });
+  for (let i = 0; i < slots.length; i++) for (let j = i + 1; j < slots.length; j++) {
+    const a = gutter(slots[i]), b = gutter(slots[j]);
+    if (a.page !== b.page) continue;
+    assert.ok(a.r <= b.l || b.r <= a.l || a.b <= b.t || b.b <= a.t, `padded boxes ${i} and ${j} do not touch`);
+  }
+  assert.equal(pk.alloc(200, 10), null, 'wider than a page');
+  const big = createAtlasPacker({ size: 64, pad: 2, maxPages: 2 });
+  const held = [];
+  for (let s; (s = big.alloc(28, 28)); ) held.push(s);
+  assert.equal(big.pages, 2, 'never more than maxPages');
+  assert.equal(big.bytes, 2 * 64 * 64 * 4);
+  const where = `${held[3].page}:${held[3].x}:${held[3].y}`;
+  big.free(held[3]);
+  const again = big.alloc(28, 28);
+  assert.equal(`${again.page}:${again.x}:${again.y}`, where, 'a freed slot is found again');
+  big.free(again); big.free(held[0]);
+  assert.ok(big.used < held.length * 32 * 32);
+  big.reset();
+  assert.equal(big.pages, 0);
+});
+
+test('batches split only where the page changes, keeping painter order', async () => {
+  const { batchRuns } = await import('../src/ui/atlas-pack.js');
+  assert.deepEqual(batchRuns([]), []);
+  assert.deepEqual(batchRuns([{ page: 0 }, { page: 0 }, { page: 1 }, { page: 0 }]), [{ page: 0, from: 0, to: 2 }, { page: 1, from: 2, to: 3 }, { page: 0, from: 3, to: 4 }]);
+});
+
+test('labels draw as one instanced batch from the atlas, texel for texel', () => {
+  assert.match(LGL, /drawArraysInstanced\(gl\.TRIANGLE_STRIP, 0, 4, run\.to - run\.from\)/);
+  assert.match(LGL, /texelFetch\(uT, q, 0\) \* vT\.z/);
+  assert.match(LGL, /gl\.texSubImage2D\(gl\.TEXTURE_2D, 0, st\.slot\.x, st\.slot\.y/);
+  assert.match(LGL, /for \(const run of batchRuns\(items\)\)/);
+  assert.match(LGL, /maxPages: 2/);
+});

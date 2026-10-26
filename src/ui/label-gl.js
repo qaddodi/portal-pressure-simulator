@@ -13,6 +13,7 @@
 // once the context is lost, the SVG draws them all, as it always has.
 
 import { frameFor, cancelFrame } from './frame.js?v=226365e6e2';
+import { createAtlasPacker, batchRuns } from './atlas-pack.js?v=43b8bc019d';
 
 const nextFrame = frameFor('labels-gl');
 const VS = `#version 300 es
@@ -34,6 +35,32 @@ out vec4 o;
 void main() {
   ivec2 q = ivec2(floor(vec2(gl_FragCoord.x, uView.y - gl_FragCoord.y) - uR.xy));
   o = texelFetch(uT, q, 0) * uA;
+}`;
+
+// The labels' pictures sit in atlas pages and are drawn as one instanced batch: each instance is a box on the canvas (device px) and
+// the texel its picture starts at in the page. Instances blend in their order, which is the labels' painter order.
+const AVS = `#version 300 es
+in vec4 aR;           // the picture's box: left, top, width, height (device px, from the top left)
+in vec4 aT;           // its first texel in the page (x, y), its opacity, unused
+uniform vec2 uView;
+flat out vec4 vR;
+flat out vec3 vT;
+const vec2 Q[4] = vec2[4](vec2(0.0, 0.0), vec2(1.0, 0.0), vec2(0.0, 1.0), vec2(1.0, 1.0));
+void main() {
+  vec2 p = aR.xy + Q[gl_VertexID] * aR.zw;
+  vR = aR; vT = aT.xyz;
+  gl_Position = vec4(p.x / uView.x * 2.0 - 1.0, 1.0 - p.y / uView.y * 2.0, 0.0, 1.0);
+}`;
+const AFS = `#version 300 es
+precision highp float;
+uniform sampler2D uT;
+uniform vec2 uView;
+flat in vec4 vR;
+flat in vec3 vT;
+out vec4 o;
+void main() {
+  ivec2 q = ivec2(floor(vec2(gl_FragCoord.x, uView.y - gl_FragCoord.y) - vR.xy)) + ivec2(vT.xy);
+  o = texelFetch(uT, q, 0) * vT.z;
 }`;
 
 // The leaders and their dots, drawn as shapes (no picture: a zoom changes their length every frame). One quad over the mark; its
@@ -345,6 +372,28 @@ void main() { o = texture(uT, vUV) * uA; }`;
   if (!gl.getProgramParameter(rprog, gl.LINK_STATUS)) return null;
   const RU = Object.fromEntries(['uView', 'uP', 'uS', 'uO', 'uAng', 'uT', 'uA'].map((k) => [k, gl.getUniformLocation(rprog, k)]));
   const vao = gl.createVertexArray();
+  // The atlas: pages of pictures (each a square texture, at most two), and the instance list drawn from them.
+  const aprog = gl.createProgram();
+  gl.bindAttribLocation(aprog, 0, 'aR'); gl.bindAttribLocation(aprog, 1, 'aT');
+  gl.attachShader(aprog, sh(gl.VERTEX_SHADER, AVS)); gl.attachShader(aprog, sh(gl.FRAGMENT_SHADER, AFS)); gl.linkProgram(aprog);
+  if (!gl.getProgramParameter(aprog, gl.LINK_STATUS)) return null;
+  const AU = Object.fromEntries(['uView', 'uT'].map((k) => [k, gl.getUniformLocation(aprog, k)]));
+  const packer = createAtlasPacker({ size: Math.min(2048, gl.getParameter(gl.MAX_TEXTURE_SIZE) || 2048), pad: 2, maxPages: 2 });
+  const pageTex = [];
+  const avao = gl.createVertexArray(), abuf = gl.createBuffer();
+  gl.bindVertexArray(avao); gl.bindBuffer(gl.ARRAY_BUFFER, abuf);
+  for (const [loc, off] of [[0, 0], [1, 16]]) { gl.enableVertexAttribArray(loc); gl.vertexAttribPointer(loc, 4, gl.FLOAT, false, 32, off); gl.vertexAttribDivisor(loc, 1); }
+  gl.bindVertexArray(null);
+  let inst = new Float32Array(64 * 8), needRepack = false;
+  const pageOf = (n) => {
+    if (pageTex[n]) return pageTex[n];
+    const t = gl.createTexture();
+    gl.bindTexture(gl.TEXTURE_2D, t);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, packer.size, packer.size, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    return (pageTex[n] = t);
+  };
   svg.after(canvas);
   let lost = false, dpr = 1, W = 1, H = 1, last = [], raf = 0;
   const sprites = new WeakMap();   // group → { key, tex, ox, oy, w, h }
@@ -405,7 +454,7 @@ void main() { o = texture(uT, vUV) * uA; }`;
   // (the SVG draws it) or 'none' (it shows nothing).
   function refresh(g, rot) {
     let st = sprites.get(g);
-    if (!st) { st = { mode: 'none', key: '', tex: null }; sprites.set(g, st); }
+    if (!st) { st = { mode: 'none', key: '', slot: null }; sprites.set(g, st); }
     const d = describeBlock(g);
     st.mode = !d ? 'none' : svgOnly(d) ? 'svg' : 'gl';
     if (st.mode !== 'gl') return st;
@@ -413,16 +462,24 @@ void main() { o = texture(uT, vUV) * uA; }`;
     if (st.key !== key) {
       const at = drawBlock(scratch, d, dpr, rot);
       if (!at) { st.mode = 'none'; return st; }
-      st.tex ||= gl.createTexture();
-      gl.bindTexture(gl.TEXTURE_2D, st.tex);
+      // (Its place in the atlas: kept while the picture stays the same size, else given back and found again. Only this rectangle is uploaded.)
+      if (st.slot && (st.slot.w !== scratch.width || st.slot.h !== scratch.height)) { packer.free(st.slot); st.slot = null; }
+      if (!st.slot) st.slot = packer.alloc(scratch.width, scratch.height);
+      if (!st.slot) { needRepack = true; st.mode = 'svg'; st.key = ''; return st; }   // (the pages are full: the SVG draws it till they are packed again)
+      gl.bindTexture(gl.TEXTURE_2D, pageOf(st.slot.page));
       gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, true);
-      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, scratch);
-      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
-      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+      gl.texSubImage2D(gl.TEXTURE_2D, 0, st.slot.x, st.slot.y, gl.RGBA, gl.UNSIGNED_BYTE, scratch);
       Object.assign(st, at, { key });
     }
     st.opacity = d.opacity;
     return st;
+  }
+  // The pages were full: every picture is given back and drawn again, packed afresh (at most one such frame in a while).
+  function repack() {
+    needRepack = false;
+    packer.reset();
+    for (const s of last) { const st = sprites.get(s.g); if (st) { st.slot = null; st.key = ''; } dirty.add(s.g); }
+    ask();
   }
   function draw() {
     if (lost || gl.isContextLost()) return;
@@ -434,8 +491,8 @@ void main() { o = texture(uT, vUV) * uA; }`;
     gl.uniform2f(U.uView, W, H); gl.uniform1i(U.uT, 0); gl.activeTexture(gl.TEXTURE0);
     let moving = drawProbe(now);
     moving = drawMarks(now) || moving;
-    gl.useProgram(prog);
-    gl.uniform2f(U.uView, W, H); gl.uniform1i(U.uT, 0);
+    // (Every label's box and atlas place, in painter order; drawn below as one batch per run of pictures on a page.)
+    const items = [];
     for (const s of last) {
       const { g } = s;
       const until = live.get(g);
@@ -450,12 +507,26 @@ void main() { o = texture(uT, vUV) * uA; }`;
       // (The label's origin on a whole device pixel, the picture at its offset from it.)
       const x = Math.round(s.x * dpr) + st.ox, y = Math.round(s.y * dpr) + st.oy;
       if (x > W || y > H || x + st.w < 0 || y + st.h < 0) continue;
-      gl.bindTexture(gl.TEXTURE_2D, st.tex);
-      gl.uniform4f(U.uR, x, y, st.w, st.h); gl.uniform1f(U.uA, Math.min(1, st.opacity));
-      gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+      items.push({ page: st.slot.page, x, y, w: st.w, h: st.h, ax: st.slot.x, ay: st.slot.y, a: Math.min(1, st.opacity) });
+    }
+    if (items.length) {
+      if (inst.length < items.length * 8) inst = new Float32Array(Math.max(items.length * 8, inst.length * 2));
+      items.forEach((it, i) => inst.set([it.x, it.y, it.w, it.h, it.ax, it.ay, it.a, 0], i * 8));
+      gl.useProgram(aprog); gl.bindVertexArray(avao);
+      gl.uniform2f(AU.uView, W, H); gl.uniform1i(AU.uT, 0);
+      gl.bindBuffer(gl.ARRAY_BUFFER, abuf);
+      gl.bufferData(gl.ARRAY_BUFFER, inst.subarray(0, items.length * 8), gl.DYNAMIC_DRAW);
+      for (const run of batchRuns(items)) {
+        gl.bindTexture(gl.TEXTURE_2D, pageOf(run.page));
+        // (WebGL2 has no first-instance argument: the run's start is the attributes' byte offset.)
+        gl.vertexAttribPointer(0, 4, gl.FLOAT, false, 32, run.from * 32); gl.vertexAttribPointer(1, 4, gl.FLOAT, false, 32, run.from * 32 + 16);
+        gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, run.to - run.from);
+      }
+      gl.bindVertexArray(vao);
     }
     dirty.clear();
     moving = drawScan(now) || moving;   // (the FibroScan probe over the labels, as its layer lay)
+    if (needRepack) repack();
     if (moving) ask();
   }
   // A mark's look, read again while it may be changing.
@@ -797,7 +868,7 @@ void main() { o = texture(uT, vUV) * uA; }`;
       const was = new Set(last.map((s) => s.g));
       last = list;
       for (const s of list) was.delete(s.g);
-      for (const g of was) { g.removeAttribute('data-gl'); const st = sprites.get(g); if (st) { if (st.tex) gl.deleteTexture(st.tex); sprites.delete(g); } live.delete(g); }
+      for (const g of was) { g.removeAttribute('data-gl'); const st = sprites.get(g); if (st) { packer.free(st.slot); sprites.delete(g); } live.delete(g); }
       if (raf) { cancelFrame(raf); raf = 0; }
       draw();
     },
