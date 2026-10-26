@@ -39,6 +39,7 @@ import { CELL, ENT_W, binVeins, splitRows, simpleCells, splitCells } from './vei
 import { gpuProbe, COUNTED } from './gpu-probe.js?v=caac436485';
 import { changedRows } from './flow-rows.js?v=bea4089714';
 import { createOrganStack } from './organs-gl.js?v=50a7580426';
+import { NOISE_W, NOISE_H, NOISE_PER_ROW, OCTAVES, noiseBlock, blockAt, tableSize } from './blood-noise.js?v=bc65994b25';
 
 export { binVeins };
 
@@ -805,9 +806,29 @@ void main() {
   }
   o = vec4(c * a, a);
 }`;
+// The streaks' numbers that follow the zoom alone (bloodAt: the lane spacing, the two parcel scales and the cross-fade between
+// them, the fine octave's fade at each scale), worked out per vertex and handed to every pixel flat, instead of again at every
+// lumen pixel (two log2/exp2 and four smoothsteps). The same expressions in the same precision as bloodAt and shimN had them.
+const ZOOM_VS = `
+precision highp float;
+uniform float pxW;
+flat out vec4 zoomA;                   // the lane spacing Lg, the parcel scales sA and sB, the cross-fade lf between them
+flat out vec3 zoomB;                   // the fine octave's fade at sA and at sB, and the scale between them (sx)
+const float SLOT = ${SLOT_W}.0;
+void zoomOut() {
+  float Lg = max(2.6, 5.0 * pxW);
+  float lx = clamp(log2(max(pxW, 1e-4) * 8.0 / SLOT), -1.0, 3.0);
+  float li = smoothstep(-0.2, 0.2, lx) + smoothstep(0.8, 1.2, lx);   // 0 … 2
+  float lb = min(floor(li), 1.0), lf = li - lb;
+  float sA = SLOT * exp2(lb), sB = SLOT * exp2(lb + 1.0);
+  float cellA = 5.12 * sA, cellB = 5.12 * sB;
+  zoomA = vec4(Lg, sA, sB, lf);
+  zoomB = vec3(smoothstep(1.2 * pxW, 2.0 * pxW, cellA * 0.5), smoothstep(1.2 * pxW, 2.0 * pxW, cellB * 0.5), mix(sA, sB, lf));
+}`;
 const COMP_VS = `#version 300 es
 layout(location=0) in vec2 corner;
-void main() { gl_Position = vec4(corner * 2.0 - 1.0, 0.0, 1.0); }`;
+${ZOOM_VS}
+void main() { gl_Position = vec4(corner * 2.0 - 1.0, 0.0, 1.0); zoomOut(); }`;
 // The same pass over just the vessel cells (what moves between full redraws): the canvas keeps
 // the rest of the picture (preserveDrawingBuffer), so a frame repaints only around the vessels.
 const COMP_CELL_VS = `#version 300 es
@@ -816,9 +837,11 @@ layout(location=1) in vec2 org;
 uniform mat3 world;
 uniform vec2 size;
 uniform float cell;
+${ZOOM_VS}
 void main() {
   vec3 d = world * vec3(org + corner * cell, 1.0);
   gl_Position = vec4(d.x / size.x * 2.0 - 1.0, 1.0 - d.y / size.y * 2.0, 0.0, 1.0);
+  zoomOut();
 }`;
 // A function: the bleed's colour token (--bleed-spray) is written in when the shader is built. Two builds from this one text
 // (addendum §9, a small fixed set rather than one per switch): the full one, and `plain`, for the frames with no dye, no
@@ -900,6 +923,12 @@ uniform int glowOn;
 uniform sampler2D warmL;               // warm glows over the plate and under the vessels (the edges of a lit organ's loops), same drawing
 uniform int warmOn;
 uniform int bloodOnly;                // 1: a frame where only the blood moved (composite): a pixel with no lumen is left as drawn
+#if FAST
+flat in vec4 zoomA;                    // the zoom's numbers for the streaks, worked out per vertex (ZOOM_VS)
+flat in vec3 zoomB;
+uniform highp sampler2D noiseT;        // the streak noise's lattice corners, a block per vessel (blood-noise.js)
+uniform int noiseOn;                   // 1: the table is there (every row the streaks draw in filled before its flow goes up)
+#endif
 out vec4 outColor;
 
 const float SLOT = ${SLOT_W}.0;
@@ -926,35 +955,68 @@ float vnoise(vec2 q, uint seed, int period) {
   float c = h01(seed ^ (uint(x0) * 73856093u) ^ (y1 * 19349663u)), d = h01(seed ^ (uint(x1) * 73856093u) ^ (y1 * 19349663u));
   return mix(mix(a, b, f.x), mix(c, d, f.x), f.y);
 }
+#if FAST
+// vnoise for the streaks, its cell's four corners read from the vessel's block of noiseT (o: the octave's first texel there; yo,
+// ny: the lattice row of the block's row 0, negated, and the block's rows) instead of hashed: the same values to the bit
+// (blood-noise.js builds them with the shader's hash), so the same noise. Outside the block, hashed as vnoise does.
+float vnoiseT(vec2 q, uint seed, int period, ivec2 o, int yo, int ny) {
+  vec2 i = floor(q), f = fract(q);
+  f = f * f * (3.0 - 2.0 * f);
+  int x0 = int(i.x) % period; if (x0 < 0) x0 += period;
+  int cy = int(i.y) + yo;
+  vec4 k;
+  if (noiseOn == 1 && cy >= 0 && cy < ny) k = texelFetch(noiseT, o + ivec2(x0, cy), 0);
+  else {
+    int x1 = (x0 + 1) % period;
+    uint y0 = uint(int(i.y) + 4096), y1 = y0 + 1u;
+    k = vec4(h01(seed ^ (uint(x0) * 73856093u) ^ (y0 * 19349663u)), h01(seed ^ (uint(x1) * 73856093u) ^ (y0 * 19349663u)),
+      h01(seed ^ (uint(x0) * 73856093u) ^ (y1 * 19349663u)), h01(seed ^ (uint(x1) * 73856093u) ^ (y1 * 19349663u)));
+  }
+  return mix(mix(k.x, k.y, f.x), mix(k.z, k.w, f.x), f.y);
+}
+#endif
 
 // The shimmer's noise at one parcel scale sx (its slot): two lane speeds blended by t, the fine octave
 // faded out where it would fall under a pixel and a half (replaced by its mean, so the level holds).
-float shimN(int id, float s, float qy, float D, float k0, float t, float sx, float drift) {
+float shimN(int id, float s, float qy, float D, float k0, float t, float sx, float drift, float fw) {
   float period = 256.0 * sx, cellA = 5.12 * sx;   // 50 cells a period: the noise wraps with the stream
   int per = 50;
   vec2 qa = vec2((s - mod(D * k0 / 8.0, period)) / cellA + drift, qy);
   vec2 qb = vec2((s - mod(D * (k0 + 1.0) / 8.0, period)) / cellA + drift, qy);
   uint sd0 = uint(id) * 31u, sd1 = uint(id) * 57u + 11u;
-  float fw = smoothstep(1.2 * pxW, 2.0 * pxW, cellA * 0.5);
+#if FAST == 0
+  fw = smoothstep(1.2 * pxW, 2.0 * pxW, cellA * 0.5);
+#endif
   bool fine = fw > 0.0;
+#if FAST
+  ivec2 o0 = ivec2((id % ${NOISE_PER_ROW}) * ${NOISE_W} + ${OCTAVES[0].x}, (id / ${NOISE_PER_ROW}) * ${NOISE_H}), o1 = o0 + ivec2(${OCTAVES[1].x - OCTAVES[0].x}, 0);
+  float na = t < 1.0 ? 0.62 * vnoiseT(qa, sd0, per, o0, ${OCTAVES[0].yo}, ${OCTAVES[0].rows}) + 0.38 * (fine ? mix(0.5, vnoiseT(qa * vec2(2.0, 1.7) + vec2(0.0, 7.3), sd1, per * 2, o1, ${OCTAVES[1].yo}, ${OCTAVES[1].rows}), fw) : 0.5) : 0.0;
+  float nb = t > 0.0 ? 0.62 * vnoiseT(qb, sd0, per, o0, ${OCTAVES[0].yo}, ${OCTAVES[0].rows}) + 0.38 * (fine ? mix(0.5, vnoiseT(qb * vec2(2.0, 1.7) + vec2(0.0, 7.3), sd1, per * 2, o1, ${OCTAVES[1].yo}, ${OCTAVES[1].rows}), fw) : 0.5) : 0.0;
+#else
   float na = t < 1.0 ? 0.62 * vnoise(qa, sd0, per) + 0.38 * (fine ? mix(0.5, vnoise(qa * vec2(2.0, 1.7) + vec2(0.0, 7.3), sd1, per * 2), fw) : 0.5) : 0.0;
   float nb = t > 0.0 ? 0.62 * vnoise(qb, sd0, per) + 0.38 * (fine ? mix(0.5, vnoise(qb * vec2(2.0, 1.7) + vec2(0.0, 7.3), sd1, per * 2), fw) : 0.5) : 0.0;
+#endif
   return mix(na, nb, t);
 }
-// Moving blood in one lumen at arc length s (world, may run past either end) and across y (−1 … 1):
-// the parcels' color and coverage, to be laid over the lumen color col.
-vec4 bloodAt(int id, float s, float y, vec3 col) {
-  vec4 f0 = texelFetch(flow, ivec2(0, id), 0), f1 = texelFetch(flow, ivec2(1, id), 0);
-  if (f1.z <= 0.0) return vec4(0.0);
-  float len = max(texelFetch(tube, ivec2(5, id), 0).z, 1.0);
-  // The caliber here, interpolated between its samples (not the nearest one), so nothing scaled by it steps along the vessel.
+// The caliber at arc length s, interpolated between its samples (not the nearest one), so nothing scaled by it steps along the vessel.
+float radAt(int id, float s, float len) {
   float ui = clamp(s / len, 0.0, 1.0) * ${N_SAMPLES - 1}.0;
   int i0 = min(int(ui), ${N_SAMPLES - 2});
-  float R = max(mix(texelFetch(rad, ivec2(i0, id), 0).r, texelFetch(rad, ivec2(i0 + 1, id), 0).r, ui - float(i0)), 0.3);
+  return max(mix(texelFetch(rad, ivec2(i0, id), 0).r, texelFetch(rad, ivec2(i0 + 1, id), 0).r, ui - float(i0)), 0.3);
+}
+// Moving blood in one lumen at arc length s (world, may run past either end) and across y (−1 … 1):
+// the parcels' color and coverage, to be laid over the lumen color col. Read once in main for it and the arrowheads alike
+// (they were read by each): the vessel's flow texels f0 and f1 (f1.z > 0: main draws neither where it is not), its length,
+// the caliber R at s (radAt) and its own colour vc at s.
+vec4 bloodAt(int id, float s, float y, vec3 col, vec4 f0, vec4 f1, float len, float R, vec3 vc) {
   float D = f0.x, vd = f0.y, flux = f0.z, stasis = f0.w;
   float dir = vd < 0.0 ? -1.0 : 1.0;
   // Lanes ~5 device pixels apart (more when zoomed in), parcels at least ~8 apart along a lane.
+#if FAST
+  float Lg = zoomA.x;
+#else
   float Lg = max(2.6, 5.0 * pxW);
+#endif
   int n = clamp(int(1.7 * R / Lg), 1, 7);
   float s0 = SLOT * (pxW * 8.0 > SLOT * 2.0 ? 4.0 : pxW * 8.0 > SLOT ? 2.0 : 1.0);
   float lc = clamp(1.7 * R / Lg, 1.0, 7.0) - 1.0;   // (the continuous lane count, less one: LANE_K, laneSum)
@@ -965,7 +1027,6 @@ vec4 bloodAt(int id, float s, float y, vec3 col) {
   float ends = min(f1.x > 0.5 ? smoothstep(0.0, 1.5 * s0, s) : 1.0, f1.y > 0.5 ? smoothstep(0.0, 1.5 * s0, len - s) : 1.0);
   // Light or dark ink from the vessel's own color (not the shaded pixel, whose highlights would flip a streak
   // between white and dark as it passes), eased across a range so a vessel near the cut-off never switches.
-  vec3 vc = mix(texelFetch(tube, ivec2(0, id), 0).rgb, texelFetch(tube, ivec2(1, id), 0).rgb, clamp(s / len, 0.0, 1.0));
   float pale = origin == 0 ? smoothstep(0.58, 0.66, dot(vc, vec3(0.299, 0.587, 0.114))) : 0.0;   // the origin streams always take light ink
   // Parcels read as bright beads with a soft glow on a dark lumen, deep beads on a pale one.
   vec3 core = mix(mix(col, inkLight, 0.62), mix(col, inkDark, 0.45), pale);
@@ -1042,13 +1103,20 @@ vec4 bloodAt(int id, float s, float y, vec3 col) {
   // cell size cross-fading between the parcel scales (1, 2, 4 slots) over a band of zoom, where the beads switch at once.
   float qy = y * R / max(0.55 * 1.6 * R / clamp(1.7 * R / Lg, 1.0, 7.0), 3.2 * pxW);
   float drift = texelFetch(flow, ivec2(3, id), 0).z;   // (added up per stream on the CPU: blood.js drift)
+#if FAST
+  float sA = zoomA.y, sB = zoomA.z, lf = zoomA.w;
+  float nz = shimN(id, s, qy, D, k0, t, sA, drift, zoomB.x);
+  if (lf > 0.0) nz = mix(nz, shimN(id, s, qy, D, k0, t, sB, drift, zoomB.y), lf);
+  float sx = zoomB.z;
+#else
   float lx = clamp(log2(max(pxW, 1e-4) * 8.0 / SLOT), -1.0, 3.0);
   float li = smoothstep(-0.2, 0.2, lx) + smoothstep(0.8, 1.2, lx);   // 0 … 2
   float lb = min(floor(li), 1.0), lf = li - lb;
   float sA = SLOT * exp2(lb), sB = SLOT * exp2(lb + 1.0);
-  float nz = shimN(id, s, qy, D, k0, t, sA, drift);
-  if (lf > 0.0) nz = mix(nz, shimN(id, s, qy, D, k0, t, sB, drift), lf);
+  float nz = shimN(id, s, qy, D, k0, t, sA, drift, 0.0);
+  if (lf > 0.0) nz = mix(nz, shimN(id, s, qy, D, k0, t, sB, drift, 0.0), lf);
   float sx = mix(sA, sB, lf);
+#endif
   p = max(min(1.0, flux * sx / (max(abs(vd), 2.0) * sumK)), 0.45 * stasis);
   ends = min(f1.x > 0.5 ? smoothstep(0.0, 1.5 * sx, s) : 1.0, f1.y > 0.5 ? smoothstep(0.0, 1.5 * sx, len - s) : 1.0);
   float dens = sqrt(clamp(p, 0.0, 1.0));
@@ -1079,11 +1147,6 @@ ${CHEV_GLSL}
 float chevOrange(vec3 c) {
   return smoothstep(0.35, 0.55, c.r - c.b) * smoothstep(0.65, 0.8, c.r) * smoothstep(0.25, 0.35, c.g) * (1.0 - smoothstep(0.62, 0.78, c.g));
 }
-float radAt(int id, float s, float len) {
-  float ui = clamp(s / len, 0.0, 1.0) * ${N_SAMPLES - 1}.0;
-  int i0 = min(int(ui), ${N_SAMPLES - 2});
-  return max(mix(texelFetch(rad, ivec2(i0, id), 0).r, texelFetch(rad, ivec2(i0 + 1, id), 0).r, ui - float(i0)), 0.3);
-}
 // Flow arrowheads along the axis, pointing and moving with the mean flow: a slim filled head with
 // a notched back. Returns its coverage (x) and a soft rim just outside it (y).
 // The axis's signed curvature at arc length s (1 / world units; positive turning toward +y).
@@ -1092,10 +1155,8 @@ float bendAt(int id, float s, float len) {
   int i0 = min(int(ui), ${N_SAMPLES - 2});
   return mix(texelFetch(bend, ivec2(i0, id), 0).r, texelFetch(bend, ivec2(i0 + 1, id), 0).r, ui - float(i0));
 }
-vec2 chevAt(int id, float s, float y) {
-  vec4 f0 = texelFetch(flow, ivec2(0, id), 0), f1 = texelFetch(flow, ivec2(1, id), 0);
-  if (f1.z <= 0.0) return vec2(0.0);
-  float len = max(texelFetch(tube, ivec2(5, id), 0).z, 1.0);
+// (f0, f1, len and Rs, the caliber at s: read once in main, as for bloodAt.)
+vec2 chevAt(int id, float s, float y, vec4 f0, vec4 f1, float len, float Rs) {
   // One size and one spacing for the whole vessel (from its caliber midway), so every head is the
   // same shape and they keep an even distance; they move at the vessel's own speed, whatever the zoom.
   float R = max(texelFetch(rad, ivec2(N_LAST / 2, id), 0).r, 0.3);
@@ -1118,7 +1179,7 @@ vec2 chevAt(int id, float s, float y) {
   // Past the head and its soft rim along the course (|u| > 0.55 L + 0.19 hw + 3.4 px reaches nothing): no more reads.
   if (abs(x) > 0.6 * L + 0.15 * hw + 4.0 * pxW) return vec2(0.0);
   // Across, and the lumen where the head sits (so none overhangs a narrowing vessel), between the radius samples.
-  float yd = y * radAt(id, s, len), ay = abs(yd);
+  float yd = y * Rs, ay = abs(yd);
   float Rl = radAt(id, sc, len);
   // On a bend the arc length runs along the axis, so off it the same span of s is shorter on the inside and longer on
   // the outside: measured in s alone a head squashes and bends with the vessel. Its true distance along, at yd across,
@@ -1234,9 +1295,22 @@ void main() {
       if (b > 0.004) oc = mix(oc, texelFetch(flow, ivec2(2, id2), 0).x < -0.5 ? col : min(originAt(id2, y2, max(texelFetch(rad, ivec2(N_LAST / 2, id2), 0).r, 0.3)) * shade, vec3(1.0)), b);
       col = mix(col, oc, vis * blendA.z);
     }
-    if (blood == 1) {
+    // The front lumen's flow, length, caliber here and own colour, read once for the streaks and the arrowheads. Neither is drawn
+    // in a vessel whose strength (f1.z) is not above zero.
+    vec4 f0 = vec4(0.0), f1 = vec4(0.0);
+    float len1 = 1.0, R1 = 0.3;
+    vec3 vc1 = vec3(0.0);
+    if (blood == 1 || chev == 1) {
+      f0 = texelFetch(flow, ivec2(0, id1), 0); f1 = texelFetch(flow, ivec2(1, id1), 0);
+      if (f1.z > 0.0) {
+        len1 = max(texelFetch(tube, ivec2(5, id1), 0).z, 1.0);
+        R1 = radAt(id1, s1, len1);
+        vc1 = mix(texelFetch(tube, ivec2(0, id1), 0).rgb, texelFetch(tube, ivec2(1, id1), 0).rgb, clamp(s1 / len1, 0.0, 1.0));
+      }
+    }
+    if (blood == 1 && f1.z > 0.0) {
       // One streak field (the dominant lumen's), eased down toward the join, so two patterns never ghost over each other.
-      vec4 A = bloodAt(id1, s1, y1, col);
+      vec4 A = bloodAt(id1, s1, y1, col, f0, f1, len1, R1, vc1);
       float a = A.a * (1.0 - 0.6 * smoothstep(0.02, 0.5, b));
       if (a > 0.0) col = mix(col, A.rgb, clamp(a * vis * flowA * blendA.x, 0.0, 1.0));
     }
@@ -1248,8 +1322,8 @@ void main() {
       float inLumen = 1.0 - smoothstep(0.6, 0.85, abs(y1));
       col = mix(col, dyeCol, clamp(c, 0.0, 1.0) * 0.9 * max(smoothstep(0.0, 0.2, vis), inLumen));
     }
-    if (chev == 1) {
-      vec2 c = chevAt(id1, s1, y1);
+    if (chev == 1 && f1.z > 0.0) {
+      vec2 c = chevAt(id1, s1, y1, f0, f1, len1, R1);
       c *= 1.0 - smoothstep(0.02, 0.25, b);   // none where another vessel joins
 #if FAST
       // (The cut-outs below only ever scale a head down: where there is none, c stays zero whatever they say, so they are not
@@ -1276,12 +1350,11 @@ void main() {
       }
 #endif
       if (c.x + c.y > 0.0) {
-        float rv = texelFetch(flow, ivec2(1, id1), 0).w;
+        float rv = f1.w;
         // A faint light rim lifts the head off the lumen; the head itself dark, or orange if reversed.
         // The head keeps its dark core, tinted at most a fifth toward a deep shade of the vessel's own colour (more loses
         // contrast on the faded cava and dark lumens), with the light rim as before.
-        float ln1 = max(texelFetch(tube, ivec2(5, id1), 0).z, 1.0);
-        vec3 vc = mix(texelFetch(tube, ivec2(0, id1), 0).rgb, texelFetch(tube, ivec2(1, id1), 0).rgb, clamp(s1 / ln1, 0.0, 1.0));
+        vec3 vc = vc1;
         vec3 ink = mix(chevInk, vc * 0.3, 0.2);
         // An orange head is lost on an orange vessel (the Direction lens, an orange step of another lens's ramp): there a
         // reversed head turns near-white cream and its rim a deep shade of the vessel, so it stands clear. By the vessel's own
@@ -1697,6 +1770,21 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false }) {
   gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA32F, FLOW_TEXELS, nTubes, 0, gl.RGBA, gl.FLOAT, null);
   gl.bindTexture(gl.TEXTURE_2D, dyeTex);
   gl.texImage2D(gl.TEXTURE_2D, 0, gl.R16F, DYE_BINS, nTubes, 0, gl.RED, gl.FLOAT, new Float32Array(DYE_BINS * nTubes));
+  // The streak noise's lattice (blood-noise.js), for the fast composite: allocated empty, and each vessel's block filled the first
+  // time its flow says it draws streaks (setFlow), before that flow goes up, so no pixel ever reads a block not yet filled.
+  // (About 67 KB a vessel row; ?blood=classic hashes the noise instead and makes none.)
+  const noiseTex = CLASSIC ? null : dataTex(gl), noiseDone = new Uint8Array(nTubes);
+  let noiseBuf = null;
+  if (noiseTex) gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA32F, ...tableSize(nTubes), 0, gl.RGBA, gl.FLOAT, null);
+  const fillNoise = (data, stride) => {
+    for (let r = 0; r < nTubes; r++) {
+      if (noiseDone[r] || !(data[r * stride + 6] > 0)) continue;   // (flow texel 1, z: the streaks' strength)
+      noiseBuf = noiseBlock(r, noiseBuf || undefined);
+      gl.bindTexture(gl.TEXTURE_2D, noiseTex);
+      gl.texSubImage2D(gl.TEXTURE_2D, 0, ...blockAt(r), NOISE_W, NOISE_H, gl.RGBA, gl.FLOAT, noiseBuf);
+      noiseDone[r] = 1;
+    }
+  };
   // The vessel layer, rendered when something changes: its color, and the lumen buffer.
   let fbo = gl.createFramebuffer();
   let baseTex = dataTex(gl), gTex = dataTex(gl), gTex2 = dataTex(gl), depTex = dataTex(gl);
@@ -1987,6 +2075,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false }) {
     bind(13, warmLayer.tex, 'warmL'); gl.uniform1i(U.warmOn, warm ? 1 : 0);
     bind(12, bendTex, 'bend');
     bind(14, useStack ? stack.texture : baseTex, 'stackL'); gl.uniform1i(U.stackOn, useStack ? 1 : 0);
+    if (noiseTex) { bind(15, noiseTex, 'noiseT'); gl.uniform1i(U.noiseOn, 1); }
   }
 
   // ── The optional builds published when the driver has them ready (addendum §10.1) ──
@@ -2208,6 +2297,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false }) {
       // (Only the span of rows that differ from the last upload goes up, and nothing while they all match, as when paused:
       // flow-rows.js changedRows. The first upload of this context sends every row.)
       const stride = FLOW_TEXELS * 4;
+      if (noiseTex) fillNoise(data, stride);
       let lo = 0, hi = nTubes - 1;
       if (!flowSent) flowSent = Float32Array.from(data.subarray(0, nTubes * stride));
       else {
@@ -2537,7 +2627,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false }) {
     dispose({ lose = false } = {}) {
       canvas.removeEventListener('webglcontextlost', onLost);
       if (!lost) {
-        for (const t of [entTex, radTex, bendTex, rmaxTex, tubeTex, organTex, flowTex, dyeTex, fluidTex, baseTex, gTex, gTex2, depTex, depNone, lineLayer.tex, glowLayer.tex, warmLayer.tex, ...plates.map((x) => x?.tex)]) if (t) gl.deleteTexture(t);
+        for (const t of [entTex, radTex, bendTex, rmaxTex, tubeTex, organTex, flowTex, dyeTex, noiseTex, fluidTex, baseTex, gTex, gTex2, depTex, depNone, lineLayer.tex, glowLayer.tex, warmLayer.tex, ...plates.map((x) => x?.tex)]) if (t) gl.deleteTexture(t);
         for (const b of [quad, cellBuf, simpleBuf, bloodBuf, partBuf, partSBuf, fluidBuf, poolBuf, dirtBuf, cathBuf, lineBuf]) gl.deleteBuffer(b);
         for (const v of [vao, oneVAO, bloodVAO, partVAO, partSVAO, fluidVAO, poolVAO, dirtVAO, compVAO, cathVAO, lineVAO]) gl.deleteVertexArray(v);
         for (const x of [prog, simpleP, comp, compCell, plain, plainCell, cathP, lineP]) if (x) gl.deleteProgram(x.p);
