@@ -77,7 +77,7 @@ export const NEXT_BLEED = {
       // its wall stress against the HVPG, as on the Varices talk. The dots are this talk's visits in two walks, bands alone and carvedilol
       // with bands; the ring is both together ten months on, the slide before's state, and the late bands-alone point carries no name.)
       id: 'relation', cam: 'varices', labels: ['VAR'],
-      tool: { kind: 'curve', x: 'hvpg', xCuts: [10], patient: { preset: 'healthy' }, param: 'cirrhosis', from: 0.3, to: 1, step: 0.05, days: 365, lines: ['varix', 'wall'],
+      tool: { kind: 'curve', x: 'hvpg', xCuts: [10], cuts: 'ticks', patient: { preset: 'healthy' }, param: 'cirrhosis', from: 0.3, to: 1, step: 0.05, days: 365, lines: ['varix', 'wall'],
         dots: [{ slide: 'after', name: 'After the bleed', on: [0], walk: 'bands' }, { slide: 'bands', name: 'Bands', on: [0], walk: 'bands' }, { slide: 'slough', on: [0], walk: 'bands' },
           { slide: 'nsbb', name: 'Carvedilol', on: [0], walk: 'both' }, { slide: 'both', name: 'Both', on: [0], walk: 'both' }, { slide: 'held', on: [0], walk: 'both' }] },
       kicker: 'Summary', site: 'sin', title: 'Bands move the varix down, carvedilol moves him left',

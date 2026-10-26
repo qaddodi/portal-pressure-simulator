@@ -6479,6 +6479,8 @@ html.thumb-ui .menu.from-dock { clip-path: inset(-64px -64px calc(var(--sink, 0p
 .pcv-ax { font: 600 1em var(--font-ui); fill: var(--text-2); }
 .pcv-line { transition: opacity .42s var(--ease); }
 .pcv-at { stroke: var(--text-3); stroke-width: 1.5; stroke-dasharray: 3 4; transition: opacity .3s var(--ease); }
+/* (With a reading on x the case's mark is a short tick up from the x axis, not a second upright dashed line beside the cut-off's.) */
+.pcv-atx { stroke-dasharray: none; stroke-width: 2.5; stroke-linecap: round; }
 .pcv-ring { fill: var(--surface); stroke-width: 3; transition: opacity .3s var(--ease); }
 .pcv-v { font: 700 1.1em var(--font-ui); font-variant-numeric: tabular-nums; paint-order: stroke; stroke: var(--surface); stroke-width: 4px; stroke-linejoin: round; transition: opacity .3s var(--ease); }
 :is(.pcv-at, .pcv-ring, .pcv-v).off { opacity: 0; }
@@ -6497,6 +6499,22 @@ html.thumb-ui .menu.from-dock { clip-path: inset(-64px -64px calc(var(--sink, 0p
 .pz-curve .pcv-ref { stroke-width: 1.5; stroke-dasharray: 3 4; }
 .pcv-dot { stroke: var(--surface); stroke-width: 1.5; }
 .pcv-dname { font: 600 1em var(--font-ui); fill: var(--text-2); paint-order: stroke; stroke: var(--surface); stroke-width: 4px; stroke-linejoin: round; }
+.pcv-dname { transition: opacity .3s var(--ease); }
+.pcv-lead { stroke: var(--text-3); stroke-width: 1; transition: opacity .3s var(--ease); }
+:is(.pcv-dname, .pcv-lead).off { opacity: 0; }
+.pcv-sep { fill: var(--text-3); }
+/* (Dots numbered, the key under the chart naming them: a number is a plain bold digit beside its dot.) */
+.pz-curve .pcv-dnum { font-weight: 700; }
+.pz-curve .pcv-sk { font: 600 1em var(--font-ui); fill: var(--text-2); }
+.pz-curve .pcv-sn { font-weight: 700; }
+.pz-curve .pcv-kv { font-weight: 700; font-variant-numeric: tabular-nums; }   /* (the case's value in its key: readout 'key') */
+/* (A cut-off held as a tick on the left axis: its number bold in its rating's colour, a short stub of the colour at the plot's edge.) */
+.pz-curve .pcv-tc { font-weight: 700; }
+.pz-curve .pcv-tc[data-tc="mid"] { fill: color-mix(in oklab, var(--caution) 70%, var(--text)); }
+.pz-curve .pcv-tc[data-tc="hi"] { fill: color-mix(in oklab, var(--danger) 80%, var(--text)); }
+.pz-curve .pcv-stub { stroke-width: 2.5; stroke-linecap: round; }
+.pz-curve .pcv-stub[data-tc="mid"] { stroke: color-mix(in srgb, var(--caution) 85%, var(--text)); }
+.pz-curve .pcv-stub[data-tc="hi"] { stroke: var(--danger); }
 .pcv-walk { fill: none; stroke-width: 1.5; stroke-dasharray: 2 4; stroke-linecap: round; opacity: .7; }
 .pcv-zone-fill { fill: color-mix(in srgb, var(--ok) 12%, transparent); stroke: none; }
 .pcv-zone-edge { fill: none; stroke: var(--ok); stroke-width: 1.5; stroke-dasharray: 4 5; }

@@ -142,7 +142,7 @@ export const TEN_YEARS = {
       // its wall stress against the HVPG, as on the Varices talk. The dots are his visits, joined in order (years 6 to 9 are one: the
       // HVPG and the varix hardly move between the ascites and the rebleed); the ring is him after the TIPS, the slide before's state.)
       id: 'relation', cam: 'varices', labels: ['VAR'],
-      tool: { kind: 'curve', x: 'hvpg', xCuts: [10], patient: { preset: 'healthy' }, param: 'cirrhosis', from: 0.3, to: 1, step: 0.05, days: 365, lines: ['varix', 'wall'], walk: true,
+      tool: { kind: 'curve', x: 'hvpg', xCuts: [10], cuts: 'ticks', patient: { preset: 'healthy' }, param: 'cirrhosis', from: 0.3, to: 1, step: 0.05, days: 365, lines: ['varix', 'wall'], walk: true,
         dots: [{ slide: 'd0', name: 'Year 0', on: [0] }, { slide: 'd365', name: 'Year 1', on: [0] }, { slide: 'carv', name: 'Carvedilol', on: [0] }, { slide: 'ascites', name: 'Years 6 to 9', on: [0] },
           { slide: 'bands', name: 'Bands', on: [0] }, { slide: 'tips', name: 'TIPS', on: [0] }] },
       kicker: 'Summary', site: 'sin', title: 'Ten years on one line: the varix follows the HVPG',

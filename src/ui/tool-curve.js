@@ -25,8 +25,15 @@
 //                     hemorrhage, for a curve over blood lost); needs x.
 //   xCuts: [15, 25]   the x reading's cut-offs as upright dashes in their rating's colour, named at the top ("15 kPa");
 //                     true for every cut-off of its tile.
-//   cuts: [10] | false
-//                     the first line's cut-offs (its tile's by default), or none.
+//   readout: 'ring'  with a reading on x and two lines the case's values stand in the key row above the chart ("Varix 5.3 mm", "Wall
+//                     stress 72 % of tear") and the rings carry no words beside them, which the dots and walks leave no clear spot for;
+//                     'ring' puts them beside the rings as every other chart does.
+//   dot names         each beside its dot on the nearest clear spot, a thin leader joining one that stood off. When they cannot all sit
+//                     close and clear (a crowd of visits), the dots carry the numbers 1, 2, 3 in order and a key under the chart names them.
+//   cuts: [10] | false | 'ticks'
+//                     the first line's cut-offs (its tile's by default), or none. 'ticks': each one is a coloured number on the left
+//                     axis with a short stub, the scale chosen to hold it, in place of a dashed line and its name across the chart (a
+//                     cut-off the scale cannot hold keeps its dashed line).
 //   dots: [{ slide: 'a1', name: 'Case 1' } | { preset: 'rhf', name: 'Heart failure', params?, days? }, …]
 //                     other states as small filled points on each line (on: [0] for the first line only), named beside the
 //                     first; with walk: true joined in order by a faint line, a patient's visits along the curve, or, with a dot's own
@@ -204,7 +211,7 @@ export function cutsOf(k) {
 const PRESSURE = new Set(['ppg', 'pv', 'hvpg', 'whvp', 'fhvp', 'sin', 'ivc', 'ra']);
 /** The first line's scale: a pressure from zero (so a rise keeps its true size), up to a cut-off that lies close above its
  *  values (so its band shows); any other reading on a tight scale around its values. About four steps. */
-export function leftScale(k, vals, most = 7) {
+export function leftScale(k, vals, most = 7, must = []) {
   const v = vals.filter(Number.isFinite);
   if (!v.length) return { min: 0, max: 1, ticks: [0, 1] };
   let a = Math.min(...v), b = Math.max(...v);
@@ -216,12 +223,16 @@ export function leftScale(k, vals, most = 7) {
   // (Of the nice steps giving three to six gaps and at most `most` numbers (seven, fewer on a short chart), the one whose top wastes least above the values
   // while leaving a little room over them for a cut-off's name: 0 to 25 for an HVPG of 22, not 0 to 30. Whole numbers win
   // over halves when the range is wide.)
+  // (With must, the cut-offs inside the values that a chart wants as numbers on the axis: a scale holding every one of them wins, halves
+  // allowed when one of them is a half.)
+  const want = must.filter((c) => c >= a - 1e-9 && c <= b + 1e-9), half = want.some((c) => Math.abs(c - Math.round(c)) > 1e-9);
   let best = null;
   for (const gaps of [3, 4, 5, 6]) {
     const bh = b + 0.06 * (b - a), step = niceStep((b - a) / gaps), lo = Math.floor(a / step + 1e-9) * step, n = Math.max(2, Math.ceil((bh - lo) / step - 1e-9) + 1);
     const top = lo + step * (n - 1), waste = (top - b) / (b - a);
     if (n > most) continue;
-    const score = waste + (b - a >= 4 && step % 1 ? 0.5 : 0);
+    const held = want.filter((c) => Math.abs((c - lo) / step - Math.round((c - lo) / step)) < 1e-6).length;
+    const score = waste + (b - a >= 4 && step % 1 && !half ? 0.5 : 0) + 0.6 * (want.length - held);
     if (!best || score < best.score + 1e-9) best = { score, ticks: ticksOf(lo, step, n) };   // (a tie goes to more numbers)
   }
   // (A chart too short for any of them: the next nice steps up, until the numbers fit.)
@@ -251,6 +262,8 @@ export function xTicks(a, b, most = 6) {
 }
 const dec = (sc) => (sc.ticks.some((v) => Math.abs(v * 10 - Math.round(v * 10)) > 1e-6) ? 2 : sc.ticks.some((v) => v % 1) ? 1 : 0);
 const fmt = (v, d) => (v < 0 ? '−' : '') + Math.abs(v).toFixed(d);
+/** An axis number: a whole number stays whole whatever the axis's decimals (0, 5, 10, not 0.0, 5.0, 10.0). */
+export const fmtTick = (v, d) => fmt(v, Math.abs(v - Math.round(v)) < 1e-6 ? 0 : d);
 const cw = (t, f, b) => String(t).length * f * (b ? 0.6 : 0.56);   // (a text's width, near enough: laid out before it is drawn)
 
 // ── Where words go: clear of the lines, the cut-offs, the axes and each other ──
@@ -298,11 +311,75 @@ export function placeWord(cands, w, fs, obstacles, near = null) {
     }
     const box = [x0 - 3, c.y - 0.85 * fs - 1, x0 + w + 3, c.y + 0.3 * fs + 1];   // (with room for a line's stroke and a g's tail)
     const n = boxScore(box, obstacles);
-    const cost = n + (near ? near.k * Math.hypot(Math.max(0, box[0] - near.x, near.x - box[2]), Math.max(0, box[1] - near.y, near.y - box[3])) : 0);
+    // (near.hard: a spot that lands on anything loses to any that lands on nothing, however far that one is.)
+    const cost = (near?.hard && n ? 1e3 : 0) + n + (near ? near.k * Math.hypot(Math.max(0, box[0] - near.x, near.x - box[2]), Math.max(0, box[1] - near.y, near.y - box[3])) : 0);
     if (!best || cost < best.cost) best = { ...c, box, n, cost };
     if (!near && n === 0) break;
   }
   return best;
+}
+
+/** Whether the segments a–b and c–d cross (end to end of each, not just touching). */
+const segsCross = ([ax, ay, bx, by], [cx, cy, dx, dy]) => {
+  const o = (px, py, qx, qy, rx, ry) => Math.sign((qx - px) * (ry - py) - (qy - py) * (rx - px));
+  return o(ax, ay, bx, by, cx, cy) * o(ax, ay, bx, by, dx, dy) < 0 && o(cx, cy, dx, dy, ax, ay) * o(cx, cy, dx, dy, bx, by) < 0;
+};
+/** Whether the dots' names, as placeDotNames put them, are a crowd: one with no clear spot, or a leader longer than two and a half
+ *  lines of type, or a leader that crosses a line. Then the dots carry numbers and a key names them. */
+export const namesCrowded = (spots, f) => spots.some((q) => !q.ok || (q.lead && (Math.hypot(q.lead[2] - q.lead[0], q.lead[3] - q.lead[1]) > 2.5 * f || q.cross > 0)));
+const DOT_ANGLES = [0, 180, 270, 90, 315, 225, 45, 135, 340, 200, 20, 160, 295, 245, 65, 115];   // (degrees from the right, clockwise on the screen)
+/** The names of the dots, each beside its dot: items [{ x, y, w }] (the dot's centre and its name's width), f the type size, half the
+ *  dot's clear box (a dot is a box 2 × half wide to every word). Each name takes the nearest spot, round the dot at a few distances and
+ *  sixteen angles, that lands on nothing (no word, data line, walk, dot, ring, cut-off, or the chart's edge), and past a short way from
+ *  its dot a thin leader joins them; the leader keeps off every other word too. The most hemmed-in dots choose first. A name with no
+ *  clear spot is left out (ok: false), never drawn over something. Returns, in item order, { x, y, anchor, box, lead, ok, cross } (cross:
+ *  how many lines its leader crosses, weighted). */
+export function placeDotNames(items, f, half, ob) {
+  const boxes = [...(ob.boxes || [])], segs = [...(ob.segs || [])], lim = ob.inside, out = new Array(items.length);
+  const o = half + 3, gap = half + 4;   // (the word's padded box starts at the dot's box; a leader past a short way)
+  const spotsOf = (it) => {
+    const cs = [];
+    for (const r of [o, o + 0.7 * f, o + 1.5 * f, o + 2.5 * f, o + 3.6 * f, o + 5 * f, o + 7 * f, o + 9.5 * f, o + 12.5 * f]) for (const a of DOT_ANGLES) {
+      const c = Math.cos(a * Math.PI / 180), s = Math.sin(a * Math.PI / 180), px = it.x + r * c, py = it.y + r * s;
+      const anchor = c > 0.35 ? 'start' : c < -0.35 ? 'end' : 'middle';
+      cs.push({ x: px, y: s > 0.35 ? py + 0.9 * f : s < -0.35 ? py - 0.2 * f : py + 0.35 * f, anchor });
+    }
+    return cs;
+  };
+  const trial = (it, c, bx, sg) => {
+    let x0 = c.anchor === 'end' ? c.x - it.w : c.anchor === 'middle' ? c.x - it.w / 2 : c.x, y = c.y;
+    if (lim) {
+      const dx = clamp(x0 - 3, lim[0], Math.max(lim[0], lim[2] - it.w - 6)) - (x0 - 3), dy = clamp(y - 0.85 * f - 1, lim[1], Math.max(lim[1], lim[3] - 1.15 * f - 2)) - (y - 0.85 * f - 1);
+      x0 += dx; y += dy;
+    }
+    const box = [x0 - 3, y - 0.85 * f - 1, x0 + it.w + 3, y + 0.3 * f + 1], rect = [x0, y - 0.8 * f, x0 + it.w, y + 0.25 * f];
+    const qx = clamp(it.x, rect[0], rect[2]), qy = clamp(it.y, rect[1], rect[3]), d = Math.hypot(qx - it.x, qy - it.y);
+    const lead = d > gap ? [it.x + (qx - it.x) / d * (half - 1), it.y + (qy - it.y) / d * (half - 1), qx, qy] : null;
+    let n = boxScore(box, { ...ob, boxes: bx, segs: sg });
+    // (A leader may not run across another word, and each line it crosses costs a little: a data line or another leader a bit more
+    // than the upright cut-off line.)
+    let cross = 0;
+    if (lead) {
+      for (const b of bx) if (segHits(lead, b) && !hitBox(b, [it.x - half, it.y - half, it.x + half, it.y + half])) n += 3;
+      for (const q of sg) if (q.w !== 3 && segsCross(lead, q)) cross += q.w === 5 ? 0.4 : 0.8;
+    }
+    return { x: x0, y, anchor: 'start', box, lead, n, d, cross };
+  };
+  const hemmed = items.map((it) => spotsOf(it).filter((c) => trial(it, c, boxes, segs).n === 0).length);
+  items.map((_, i) => i).sort((a, b) => hemmed[a] - hemmed[b] || a - b).forEach((i) => {
+    const it = items[i];
+    let best = null;
+    for (const c of spotsOf(it)) {
+      const t = trial(it, c, boxes, segs), cost = (t.n ? 1e3 + t.n : 0) + t.d + (t.lead ? 0.6 * f : 0) + t.cross * f;
+      if (!best || cost < best.cost) best = { ...t, cost, anchor: c.anchor, at: c };
+    }
+    const ok = !!best && best.n === 0;
+    // (Drawn from its left edge, middle or right edge as its spot says; x is the text's anchor point.)
+    const ax = best.anchor === 'end' ? best.box[2] - 3 : best.anchor === 'middle' ? (best.box[0] + best.box[2]) / 2 : best.box[0] + 3;
+    out[i] = { x: ax, y: best.y, anchor: best.anchor, box: best.box, lead: ok ? best.lead : null, ok, cross: best.cross };
+    if (ok) { boxes.push(best.box); if (best.lead) segs.push(Object.assign([...best.lead], { w: 2 })); }
+  });
+  return out;
 }
 
 /** The x the slide's case sits at, and each line's value there (shown units): from the live params and fingerprint while a
@@ -453,7 +530,18 @@ export function createCurve() {
   };
   // The geometry for a chart w × h px in type f px, its scales from the series (or, until it is ready, from the slide's own
   // values and the axis's ends).
-  function geo(w, h, f) {
+  // The dots that carry a name, in order, and the key that names them when they carry numbers: each "1 After the bleed", left to right
+  // and wrapped to rows of the chart's width.
+  const namedDots = () => { const ls = drawnLines(t); return dots.filter((d) => d.name && ls.some((_, j) => dotXY(d, j, ls))); };
+  function stepKeyOf(w, f) {
+    let x = 0, row = 0;
+    const items = namedDots().map((d, k) => ({ n: k + 1, name: d.name, w: cw(String(k + 1), f, 1) + 0.45 * f + cw(d.name, f, 1) })).map((it) => {
+      if (x > 0 && x + it.w > w) { row++; x = 0; }
+      const at = { ...it, x, row }; x += it.w + 1.4 * f; return at;
+    });
+    return { items, rows: items.length ? row + 1 : 0 };
+  }
+  function geo(w, h, f, steps = false) {
     const ls = drawnLines(t), ax = axisMeta(t), ag = !!againstOf(t), xk = xKeyOf(t);
     const vals0 = ls.map((l, j) => [...(ser ? ser.ys[j] : [(ring || goal)?.ys[j]]), ...dots.map((d) => dotXY(d, j, ls)?.[1])].filter(Number.isFinite));
     // (With against all lines are one reading on one scale, named on the lines; the key is only the reading and its unit. With
@@ -465,21 +553,26 @@ export function createCurve() {
       const xv = [...(ser ? ser.lx.flat() : []), (ring || goal)?.x, ...dots.flatMap((d) => ls.map((_, j) => dotXY(d, j, ls)?.[0]))];
       [x0, x1] = xDomain(xv, t.xFrom, t.xTo);
     } else { const xs = curveXs(t).map((x) => x * ax.x); x0 = xs[0]; x1 = xs.at(-1); }
-    const keys0 = keyLs.length < 2 || keyLs.reduce((a, l) => a + 22 + cw(l.name, f, 1) + 6 + cw(l.unit, f), 0) + 2 * f <= w;
+    // (A reading on x and two lines: the case's values stand in the key row, a value's room in each key.)
+    const keyRead = t.readout !== 'ring' && !!xk && ls.length === 2 && !one, kvW = keyRead ? cw('888.8', f, 1) + 6 : 0;
+    const keys0 = keyLs.length < 2 || keyLs.reduce((a, l) => a + 22 + cw(l.name, f, 1) + 6 + cw(l.unit, f) + kvW, 0) + 2 * f <= w;
     // (With against, the lines' key that stands in when their names don't fit on the drawing takes a row of its own when
     // it would run into the reading's name and unit at the left.)
     const altW = ag ? ls.reduce((a, l) => a + 22 + 1.05 * cw(l.name, f, 1), 0) + f * (ls.length - 1) : 0;
     const altBelow = ag && cw(keyLs[0].name, f, 1) + 6 + cw(keyLs[0].unit, f) + altW + 2 * f > w;
     // (No more numbers up the side than fit a line and a half of type apart.)
-    const plotH = h - 2.9 * f - ((keys0 && !altBelow ? 1 : 2) * 1.5 * f + 1.6 * f), most = clamp(Math.floor(plotH / (1.6 * f)) + 1, 3, 7);
-    const sL = leftScale(ls[0].k, vals[0], most), sR = ls[1] && !one ? rightScale(vals[1], sL.ticks.length) : null;
-    const keys = keyLs.map((l) => ({ ...l, w: (l.bare ? 0 : 22) + cw(l.name, f, 1) + 6 + cw(l.unit, f) }));
+    const stepKey = steps ? stepKeyOf(w, f) : null, stepH = stepKey?.rows ? stepKey.rows * 1.5 * f + 0.3 * f : 0;
+    const plotH = h - 2.9 * f - stepH - ((keys0 && !altBelow ? 1 : 2) * 1.5 * f + 1.6 * f), most = clamp(Math.floor(plotH / (1.6 * f)) + 1, 3, 7);
+    // (cuts: 'ticks': the first line's cut-offs ask the scale to hold them, to stand as coloured numbers on the axis.)
+    const ticksOn = t.cuts === 'ticks' && !ag, sL = leftScale(ls[0].k, vals[0], most, ticksOn ? yCutsOf(t, ls[0].k).map((c) => c.v) : []), sR = ls[1] && !one ? rightScale(vals[1], sL.ticks.length) : null;
+    const tickCuts = ticksOn ? yCutsOf(t, ls[0].k).filter((c) => sL.ticks.some((v) => Math.abs(v - c.v) < 1e-6)) : [];
+    const keys = keyLs.map((l) => ({ ...l, w: (l.bare ? 0 : 22) + cw(l.name, f, 1) + 6 + cw(l.unit, f) + kvW }));
     const oneRow = keys.length < 2 || keys[0].w + keys[1].w + 2 * f <= w, rowH = 1.5 * f, legH = (oneRow && !altBelow ? 1 : 2) * rowH;
-    const tw = (sc) => Math.max(...sc.ticks.map((v) => cw(fmt(v, dec(sc)), f)));
+    const tw = (sc) => Math.max(...sc.ticks.map((v) => cw(fmtTick(v, dec(sc)), f)));
     const xt = xTicks(x0, x1, Math.max(2, Math.min(7, Math.floor((w - 4 * f) / (3.2 * f)))));
     const L = Math.ceil(tw(sL) + 8), R = Math.floor(w - (sR ? tw(sR) + 8 : Math.max(8, cw(fmt(x1, ax.d), f) / 2 + 2)));
-    const T = legH + 1.6 * f, B = h - 2.9 * f;
-    return { w, h, f, ls, ag, one, ax, x0, x1, xt, sL, sR, keys, oneRow, altBelow, rowH, L, R, T, B: Math.max(T + 3 * f, B) };
+    const T = legH + 1.6 * f, B = h - 2.9 * f - stepH;
+    return { w, h, f, ls, ag, one, ax, x0, x1, xt, sL, sR, tickCuts, keyRead, stepKey, keys, oneRow, altBelow, rowH, L, R, T, B: Math.max(T + 3 * f, B) };
   }
   const X = (x) => G.L + (G.R - G.L) * (x - G.x0) / ((G.x1 - G.x0) || 1);
   const Yof = (sc) => (v) => G.B - (G.B - G.T) * clamp((v - sc.min) / ((sc.max - sc.min) || 1), 0, 1);
@@ -494,9 +587,14 @@ export function createCurve() {
   function build() {
     const { f, L, R, T, B, sL, sR, ls, ax, xt } = G, YL = Yof(sL), YR = sR ? Yof(sR) : null;
     const tickC = G.one && !G.ag ? '--text-2' : ls[0].c;
-    const grid = sL.ticks.map((v, j) => sv('g', { class: 'ptk-grid' }, sv('line', { x1: L, x2: R, y1: YL(v), y2: YL(v) }),
-      sv('text', { x: L - 6, y: YL(v) + 0.35 * f, 'text-anchor': 'end', style: `fill: var(${G.ag ? '--text-2' : tickC})` }, fmt(v, dec(sL))),
-      sR ? sv('text', { x: R + 6, y: YL(v) + 0.35 * f, 'text-anchor': 'start', style: `fill: var(${ls[1].c})` }, fmt(sR.ticks[j], dec(sR))) : null));
+    // (A cut-off held as a tick: its number in its rating's colour and bold, with a short stub of the colour inside the plot's edge;
+    // the gridline stays the plain one.)
+    const grid = sL.ticks.map((v, j) => { const tc = G.tickCuts.find((c) => Math.abs(c.v - v) < 1e-6);
+      return sv('g', { class: 'ptk-grid' },
+        sv('line', { x1: L, x2: R, y1: YL(v), y2: YL(v) }),
+        tc ? sv('line', { class: 'pcv-stub', 'data-tc': tc.rate, x1: L, x2: L + 0.9 * f, y1: YL(v), y2: YL(v) }) : null,
+        sv('text', { class: tc ? 'pcv-tc' : null, 'data-tc': tc?.rate, x: L - 6, y: YL(v) + 0.35 * f, 'text-anchor': 'end', style: tc ? null : `fill: var(${G.ag ? '--text-2' : tickC})` }, fmtTick(v, dec(sL))),
+        sR ? sv('text', { x: R + 6, y: YL(v) + 0.35 * f, 'text-anchor': 'start', style: `fill: var(${ls[1].c})` }, fmtTick(sR.ticks[j], dec(sR))) : null); });
     // (A zone: the band under its edge in the ok colour, dashed along the top, its name placed on every paint.)
     let zone = null, zoneLab = null;
     const edge = zoneEdge(t.zone, G.x0, G.x1);
@@ -508,7 +606,7 @@ export function createCurve() {
         sv('path', { class: 'pcv-zone-edge', d: top }), zoneLab);
     }
     // (The first line's cut-offs, dashed in their rating's colour, where they fall inside its scale.)
-    const cutVs = yCutsOf(t, ls[0].k).filter((c) => c.v > sL.min && c.v < sL.max);
+    const cutVs = yCutsOf(t, ls[0].k).filter((c) => c.v > sL.min && c.v < sL.max && !G.tickCuts.some((q) => q.v === c.v));
     // (Each named, "PPG 12", in its rating's colour: over its line at the right end, else at the left, else under it, clear
     // of the data lines and of the other's name.)
     // (Placed again on every paint, so a name also keeps clear of the rings and the dashed line through them. Measured wide:
@@ -532,11 +630,16 @@ export function createCurve() {
       segs.push(Object.assign([x, T, x, B], { w: 5 }));
       return sv('g', { class: 'ptk-grid cut', 'data-rate': c.rate }, sv('line', { x1: x, x2: x, y1: T - 0.2 * f, y2: B }), el);
     });
+    // (With the values in the key row each key reads "Varix 5.3 mm": its name, the case's value in bold, its unit, the same order on both sides.)
+    const kv = [];
     const legend = G.keys.map((k, j) => { const right = j && G.oneRow, y = (j && !G.oneRow ? G.rowH : 0) + 0.75 * f, x0 = right ? G.w : 0;
+      const val = G.keyRead ? sv('tspan', { class: 'pcv-kv' }, ' ') : null;
+      if (val) kv[j] = val;
       return sv('g', { class: 'pft-key', transform: `translate(${x0} ${y})` },
         k.bare ? null : sv('line', { x1: right ? -16 : 0, x2: right ? 0 : 16, y1: 0, y2: 0, style: `stroke: var(${k.c})` }),
         sv('text', { x: k.bare ? 0 : right ? -22 : 22, y: 0.36 * f, 'text-anchor': right ? 'end' : 'start', style: `fill: var(${k.c})` },
-          right ? [sv('tspan', { class: 'pft-u' }, `${k.unit} `), sv('tspan', {}, k.name)] : [sv('tspan', {}, k.name), sv('tspan', { class: 'pft-u' }, ` ${k.unit}`)])); });
+          val ? [sv('tspan', {}, k.name), val, sv('tspan', { class: 'pft-u' }, k.unit)]
+            : right ? [sv('tspan', { class: 'pft-u' }, `${k.unit} `), sv('tspan', {}, k.name)] : [sv('tspan', {}, k.name), sv('tspan', { class: 'pft-u' }, ` ${k.unit}`)])); });
     // (With against, a key of the lines kept hidden at the right of the key row: shown only when a chart is too cramped
     // for the lines' names on the drawing, a phone held sideways.)
     let alt = null;
@@ -549,7 +652,7 @@ export function createCurve() {
     }
     const axis = [sv('line', { class: 'pft-x', x1: L, x2: R, y1: B, y2: B }),
       // (The two end numbers stand inside the plot's ends, clear of the corner numbers of the y axes.)
-      xt.map((x) => sv('text', { class: 'pft-tk', x: X(x), y: B + 1.25 * f, 'text-anchor': X(x) <= L + 1 ? 'start' : X(x) >= R - 1 ? 'end' : 'middle' }, fmt(x, ax.d))),
+      xt.map((x) => sv('text', { class: 'pft-tk', x: X(x), y: B + 1.25 * f, 'text-anchor': X(x) <= L + 1 ? 'start' : X(x) >= R - 1 ? 'end' : 'middle' }, fmtTick(x, ax.d))),
       sv('text', { class: 'pcv-ax', x: (L + R) / 2, y: B + 2.6 * f, 'text-anchor': 'middle' }, ax.unit && ax.unit !== '×' && !ax.name.toLowerCase().includes(ax.unit.toLowerCase()) ? `${ax.name}, ${ax.unit}` : ax.name)];
     const lines = ls.map((l, j) => {
       const Y = j && !G.one ? YR || YL : YL, ys = ser?.ys[j], xs = lineX(j);
@@ -562,26 +665,34 @@ export function createCurve() {
     });
     // (The other states as small filled points in their line's colour, named beside the first; a walk joins them in order.)
     const dr = Math.max(3.5, 0.3 * f), dotEls = [], walks = [];
+    let nth = 0;
     const dotPts = dots.map((d) => {
       const at = ls.map((l, j) => { const p = dotXY(d, j, ls); return p ? [X(p[0]), (j && !G.one ? YR || YL : YL)(p[1])] : null; });
       at.forEach((p, j) => { if (p) dotEls.push(sv('circle', { class: 'pcv-dot', cx: p[0].toFixed(1), cy: p[1].toFixed(1), r: dr, style: `fill: var(${ls[j].c})` })); });
-      const first = at.find(Boolean);
-      return { name: d.name ? sv('text', { class: 'pcv-dname' }, d.name) : null, txt: d.name || '', at, first };
+      const first = at.find(Boolean), num = d.name && first ? String(++nth) : '';
+      // (With a key of steps the dot carries its number, and the name stands in the key.)
+      const txt = G.stepKey && num ? num : d.name || '';
+      return { name: d.name ? sv('text', { class: `pcv-dname off${G.stepKey ? ' pcv-dnum' : ''}` }, txt) : null, lead: d.name ? sv('line', { class: 'pcv-lead off' }) : null, txt, full: d.name || '', at, first };
     });
+    const stepsKey = G.stepKey?.rows ? sv('g', { class: 'pcv-steps' }, G.stepKey.items.map((it) => sv('text', { class: 'pcv-sk', x: it.x, y: B + 4.2 * f + it.row * 1.5 * f },
+      sv('tspan', { class: 'pcv-sn' }, String(it.n)), ` ${it.name}`))) : null;
     const walkSets = walksOf(t);
     ls.forEach((l, j) => walkSets.forEach((g) => {
       const pts = g.map((i) => dotPts[i]?.at[j]).filter(Boolean);
       if (pts.length > 1) walks.push(sv('path', { class: 'pcv-walk', d: pts.map(([x, y], i) => `${i ? 'L' : 'M'}${x.toFixed(1)} ${y.toFixed(1)}`).join(''), style: `stroke: var(${l.c})` }));
+      // (The words keep off a walk's dotted line too.)
+      for (let i = 1; i < pts.length; i++) segs.push(Object.assign([pts[i - 1][0], pts[i - 1][1], pts[i][0], pts[i][1]], { w: 2 }));
     }));
     for (const d of dotPts) for (const p of d.at) if (p) segs.push(Object.assign([p[0] - dr, p[1], p[0] + dr, p[1]], { w: 3 }));
-    const at = sv('line', { class: 'pcv-at', y1: T - 0.4 * f, y2: B });
+    // (With a reading on x the case stands out by its rings: its mark is only a short tick on the x axis, not a second upright dashed line.)
+    const xk = xKeyOf(t), at = sv('line', { class: xk ? 'pcv-at pcv-atx' : 'pcv-at', y1: xk ? B - 0.8 * f : T - 0.4 * f, y2: B });
     const svg = sv('svg', { viewBox: `0 0 ${G.w} ${G.h}`, width: G.w, height: G.h, role: 'img', style: `font-size: ${f.toFixed(2)}px` },
-      zone, grid, cuts, xCuts, legend, alt, axis, at, walks, lines.map((x) => x.path), dotEls, dotPts.map((d) => d.name), lines.map((x) => [x.ring, x.val, x.name]));
+      zone, grid, cuts, xCuts, legend, alt, axis, stepsKey, at, walks, lines.map((x) => x.path), dotPts.map((d) => d.lead), dotEls, dotPts.map((d) => d.name), lines.map((x) => [x.ring, x.val, x.name]));
     svg.dataset.points = ser ? String(ser.xs.length) : '0';   // (the browser checks read it: 0 until the curve is ready)
     // (What a ring's value keeps clear of: the cut-offs and their names, the x axis, the data lines. A value on a cut-off
     // line reads as that line's name, so it would sooner cross a data line or another word.)
     const obstacles = { segs, cutLabs, xCutLabs, dotPts, zoneLab, cutBounds: [L, T - 1.2 * f, R, B - 0.1 * f], boxes: [], lines: [...cutVs.map((c) => ({ y: YL(c.v), x0: L, x1: R, w: 5 })), { y: B, x0: L, x1: R }], bounds: [L + 1, T - 1.3 * f, R - 1, B - 0.15 * f], inside: [0, 0, G.w, G.h] };
-    return { svg, lines, at, obstacles, alt };
+    return { svg, lines, at, xk: !!xk, kv, obstacles, alt };
   }
   // The rings at r: each on its line at the case's setting, its value beside it (left of it near the right edge, and the
   // lower of two close values under its ring).
@@ -596,38 +707,51 @@ export function createCurve() {
     // (Each value takes the first spot beside its ring that lands on nothing: the data lines, the cut-off lines, the x axis,
     // the dashed line through the rings, both rings and the other value; the side away from the nearer edge first.)
     const ob = parts.obstacles, dr = Math.max(3.5, 0.3 * f) + 2;
-    const boxes = [...cys.filter((y) => y != null).map((y) => [cx - rr, y - rr, cx + rr, y + rr]), ...(ok ? [[cx - 1.5, G.T - 0.4 * f, cx + 1.5, G.B]] : []),
+    const boxes = [...cys.filter((y) => y != null).map((y) => [cx - rr, y - rr, cx + rr, y + rr]), ...(ok && !parts.xk ? [[cx - 1.5, G.T - 0.4 * f, cx + 1.5, G.B]] : []),
       ...ob.dotPts.flatMap((d) => d.at.filter(Boolean).map(([x, y]) => [x - dr, y - dr, x + dr, y + dr]))];
     // (With against the upper ring's value is placed first, level with its ring or over it, and the lower one's under the
     // first value, so the two read in the same order as their rings.)
     let upperY = null;
     const ringed = parts.lines.map((_, j) => j).filter((j) => cys[j] != null);
     const order = G.ag ? ringed.sort((a, b) => cys[a] - cys[b]) : parts.lines.map((_, j) => j);
+    // (Two readings at the one case whose rings stand close: one readout, "5.3 mm · 72 %", each part in its line's colour (the unit's
+    // first word, the key above has the rest), in place of two values that crowd each other and the names about them.)
+    const merge = !G.ag && !G.keyRead && ringed.length === 2 && Math.abs(cys[ringed[0]] - cys[ringed[1]]) < 2.6 * fs;
+    const shortUnit = (u) => String(u).split(' ')[0];
     order.forEach((j, n) => {
       const p = parts.lines[j];
       const v = r.ys[j], on = cys[j] != null, cy = on ? cys[j] : G.B;
+      const lead = merge && j === ringed[0], gone = merge && on && !lead;   // (the first line's value carries both)
+      const cyP = lead ? (cys[ringed[0]] + cys[ringed[1]]) / 2 : cy;
       p.ring.setAttribute('cx', cx.toFixed(1)); p.ring.setAttribute('cy', cy.toFixed(1));
-      p.ring.classList.toggle('off', !on); p.val.classList.toggle('off', !on);
-      const txt = on ? (G.ag ? fmt(v, p.l.d) : `${fmt(v, p.l.d)} ${p.l.unit}`) : '';   // (with against the key carries the unit)
-      if (p.val.textContent !== txt) p.val.textContent = txt;
-      if (!on) return;
+      p.ring.classList.toggle('off', !on); p.val.classList.toggle('off', !on || gone || G.keyRead);
+      // (The value goes into its key, the ring alone on the chart.)
+      if (G.keyRead) { const kt = on ? ` ${fmt(v, p.l.d)} ` : ' '; if (parts.kv[j] && parts.kv[j].textContent !== kt) parts.kv[j].textContent = kt; return; }
+      const pieces = lead ? ringed.map((jj) => ({ c: parts.lines[jj].l.c, t: `${fmt(r.ys[jj], parts.lines[jj].l.d)} ${shortUnit(parts.lines[jj].l.unit)}` })) : null;
+      const txt = lead ? pieces.map((q) => q.t).join(' · ') : on && !gone ? (G.ag ? fmt(v, p.l.d) : `${fmt(v, p.l.d)} ${p.l.unit}`) : '';   // (with against the key carries the unit)
+      if (p.val.dataset.k !== txt) {
+        p.val.dataset.k = txt;
+        if (pieces) p.val.replaceChildren(...pieces.flatMap((q, i) => [i ? sv('tspan', { class: 'pcv-sep' }, ' · ') : null, sv('tspan', { style: `fill: var(${q.c})` }, q.t)]).filter(Boolean));
+        else p.val.textContent = txt;
+      }
+      if (!on || gone) return;
       const cands = [];
       // (Near the ring first: beside it, then further along, then above and below.)
       for (const d of [rr + 4, 2.6 * f]) {   // (clear of the ring itself, its box padded 3 px)
         const sides = left ? [['end', -d], ['start', d]] : [['start', d], ['end', -d]];
         // (The usual rows first, then every fifth of a line between, for a gap that only just holds the word.)
         const dys = [-0.6, 1.45, -1.7, 2.55, -2.8, 3.65, ...Array.from({ length: 34 }, (_, i) => -2.9 + 0.2 * i)];
-        for (const dy of dys) for (const [anchor, dx] of sides) cands.push({ x: cx + dx, y: cy + dy * f, anchor });
+        for (const dy of dys) for (const [anchor, dx] of sides) cands.push({ x: cx + dx, y: cyP + dy * f, anchor });
       }
-      for (const dy of [-1.2 * f, 2.1 * f]) cands.push({ x: cx, y: cy + dy, anchor: 'middle' });
+      for (const dy of [-1.2 * f, 2.1 * f]) cands.push({ x: cx, y: cyP + dy, anchor: 'middle' });
       if (G.ag && order.length > 1) {
         const keep = n === 0 ? (c) => c.y <= cy + 0.2 * f : (c) => upperY == null || c.y >= upperY + 1.1 * fs;
         const kept = cands.filter(keep);
         if (kept.length) cands.splice(0, cands.length, ...kept);
       }
       // (Each f of distance from its ring costs half a crossing; it stays on its ring's side of every cut-off.)
-      const lines = ob.lines.map((l) => (l.w ? { ...l, side: cy } : l));
-      const pl = placeWord(cands, 1.12 * cw(txt, fs, true), fs, { ...ob, lines, boxes }, { x: cx, y: cy, k: 0.5 / f });   // (measured wide, as the cut-offs' names)
+      const lines = ob.lines.map((l) => (l.w ? { ...l, side: cyP } : l));
+      const pl = placeWord(cands, 1.12 * cw(txt, fs, true), fs, { ...ob, lines, boxes }, { x: cx, y: cyP, k: 0.5 / f });   // (measured wide, as the cut-offs' names)
       boxes.push(pl.box);
       if (G.ag) { boxes.push(pl.box); if (n === 0) upperY = pl.y; }   // (two values side by side read as one: landing on the other costs double)
       p.val.setAttribute('x', pl.x.toFixed(1)); p.val.setAttribute('y', pl.y.toFixed(1)); p.val.setAttribute('text-anchor', pl.anchor);
@@ -667,16 +791,19 @@ export function createCurve() {
       parts.lines.forEach((p) => p.name?.classList.toggle('off', !ser || !fits));
       parts.alt.classList.toggle('off', fits);
     }
-    // (Each dot's name beside its first point: right, left, over, under, the nearest clear spot.)
-    for (const d of ob.dotPts) {
-      if (!d.name || !d.first) continue;
-      const [x, y] = d.first, tw = 1.08 * cw(d.txt, f, true), o = dr + 3;
-      const cands = [{ x: x + o, y: y + 0.35 * f, anchor: 'start' }, { x: x - o, y: y + 0.35 * f, anchor: 'end' }, { x, y: y - o - 0.2 * f, anchor: 'middle' }, { x, y: y + o + 0.9 * f, anchor: 'middle' },
-        { x: x + o, y: y - 0.6 * f, anchor: 'start' }, { x: x - o, y: y - 0.6 * f, anchor: 'end' }, { x: x + o, y: y + 1.3 * f, anchor: 'start' }, { x: x - o, y: y + 1.3 * f, anchor: 'end' }];
-      const pl = placeWord(cands, tw, f, { ...ob, boxes, lines: ob.lines.map((l) => ({ ...l, w: 3 })) }, { x, y, k: 0.5 / f });
-      boxes.push(pl.box);
+    // (Each dot's name beside its first point on the nearest spot that lands on nothing, a thin leader joining a name that had to
+    // stand off; a name with no clear spot is left out, never drawn over something. The values are placed first, so the dots' names
+    // keep clear of them.)
+    const nd = ob.dotPts.filter((d) => d.name && d.first), leads = [];
+    const spots = placeDotNames(nd.map((d) => ({ x: d.first[0], y: d.first[1], w: 1.08 * cw(d.txt, f, true) })), f, dr, { ...ob, boxes, lines: ob.lines.map((l) => ({ ...l, w: 3 })) });
+    nd.forEach((d, i) => {
+      const pl = spots[i];
       d.name.setAttribute('x', pl.x.toFixed(1)); d.name.setAttribute('y', pl.y.toFixed(1)); d.name.setAttribute('text-anchor', pl.anchor);
-    }
+      d.name.classList.toggle('off', !pl.ok);
+      if (pl.lead && d.lead) for (const [k, v] of [['x1', pl.lead[0]], ['y1', pl.lead[1]], ['x2', pl.lead[2]], ['y2', pl.lead[3]]]) d.lead.setAttribute(k, v.toFixed(1));
+      d.lead?.classList.toggle('off', !pl.lead);
+      if (pl.ok) { boxes.push(pl.box); if (pl.lead) leads.push(Object.assign([...pl.lead], { w: 2 })); }
+    });
     // (The zone's name inside it, low and away from the lines: the right corner, else the left.)
     if (ob.zoneLab) {
       const tw = 1.1 * cw(ob.zoneLab.textContent, f, true), cands = [];
@@ -689,7 +816,7 @@ export function createCurve() {
     for (const c of ob.cutLabs) {
       // (If both ends are taken, beside the dashed line: just left of it, or just right.)
       const near = ok ? c.cands.filter((q) => q.anchor === 'end').flatMap((q) => [{ ...q, x: cx - 0.5 * f, anchor: 'end' }, { ...q, x: cx + 0.5 * f, anchor: 'start' }]) : [];
-      const p = placeWord([...c.cands, ...near], c.tw, f, { segs: ob.segs, boxes, bounds: ob.cutBounds, lines: c.lines, inside: ob.inside });
+      const p = placeWord([...c.cands, ...near], c.tw, f, { segs: [...ob.segs, ...leads], boxes, bounds: ob.cutBounds, lines: c.lines, inside: ob.inside });
       boxes.push(p.box);
       c.el.setAttribute('x', p.x.toFixed(1)); c.el.setAttribute('y', p.y.toFixed(1)); c.el.setAttribute('text-anchor', p.anchor);
       c.el.classList.toggle('on', !!p.on);
@@ -705,7 +832,20 @@ export function createCurve() {
     const ax = G.ax;
     parts.svg.setAttribute('aria-label', `${parts.lines.map((p) => p.l.name).join(' and ')} against ${ax.name.toLowerCase()}, ${fmt(G.x0, ax.d)} to ${fmt(G.x1, ax.d)} ${ax.unit}`
       + (ok ? `; this case at ${fmt(r.x, ax.d)} ${ax.unit}: ${parts.lines.map((p, j) => (Number.isFinite(r.ys[j]) ? `${p.l.name} ${fmt(r.ys[j], p.l.d)} ${p.l.unit}` : '')).filter(Boolean).join(', ')}` : '')
-      + (ob.dotPts.length ? `; also ${ob.dotPts.map((d) => d.txt).filter(Boolean).join(', ')}` : ''));
+      + (ob.dotPts.length ? `; also ${ob.dotPts.map((d) => d.full).filter(Boolean).join(', ')}` : ''));
+  }
+  // Whether the dots' names cannot all stand close and clear (as placeDotNames would put them with the rings where they are now):
+  // then the dots carry numbers.
+  function needSteps() {
+    if (!parts || !G) return false;
+    const nd = parts.obstacles.dotPts.filter((d) => d.name && d.first);
+    if (!nd.length) return false;
+    const r = ring || goal, f = G.f, ob = parts.obstacles, half = Math.max(3.5, 0.3 * f) + 2, rr = Math.max(5, f * 0.45) + 2;
+    const cx = r && Number.isFinite(r.x) ? X(clamp(r.x, Math.min(G.x0, G.x1), Math.max(G.x0, G.x1))) : null;
+    const boxes = [...(cx == null ? [] : parts.lines.flatMap((p, j) => (Number.isFinite(r.ys[j]) ? [[cx - rr, p.Y(r.ys[j]) - rr, cx + rr, p.Y(r.ys[j]) + rr]] : []))),
+      ...ob.dotPts.flatMap((d) => d.at.filter(Boolean).map(([x, y]) => [x - half, y - half, x + half, y + half]))];
+    const sp = placeDotNames(nd.map((d) => ({ x: d.first[0], y: d.first[1], w: 1.08 * cw(d.full, f, true) })), f, half, { ...ob, boxes, lines: ob.lines.map((l) => ({ ...l, w: 3 })) });
+    return namesCrowded(sp, f);
   }
   // The rings glide after their goal (never a jump).
   function tick() {
@@ -725,6 +865,9 @@ export function createCurve() {
     G = geo(w, hh, f);
     const old = parts?.svg;
     parts = build();
+    // (A crowd of names: numbers on the dots and a key under the chart, if the plot keeps its height; on a card too short for that the
+    // names stay, and any with no clear spot is left out.)
+    if (needSteps()) { const g2 = geo(w, hh, f, true); if (g2.B - g2.T >= 5 * f) { G = g2; parts = build(); } }
     if (fade && old) {
       parts.svg.classList.add('in'); el.append(parts.svg);
       nextFrame(() => nextFrame(() => parts?.svg.classList.remove('in')));

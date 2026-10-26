@@ -97,7 +97,7 @@ import { CIRCULATION } from './decks/circulation.js?v=9ce2778867';
 import { SITES } from './decks/sites.js?v=c45fb90281';
 import { HVPG } from './decks/hvpg.js?v=551309418f';
 import { ASCITES } from './decks/ascites.js?v=d6d34d5904';
-import { VARICES } from './decks/varices.js?v=03633167dd';
+import { VARICES } from './decks/varices.js?v=437414a2e1';
 import { TREATMENT } from './decks/treatment.js?v=b2c0dcc11b';
 import { STIFFNESS } from './decks/stiffness.js?v=14881cd422';
 import { LOBULE } from './decks/lobule.js?v=d52e883d47';
@@ -116,11 +116,11 @@ import { WHERE } from './decks/where.js?v=c28f096edc';
 import { PREGNANCY_DECK } from './decks/pregnancy.js?v=d79b566bbb';
 import { ENCEPHALOPATHY } from './decks/encephalopathy.js?v=7d08be79e0';
 import { CAUSE_TREATED } from './decks/cause-treated.js?v=70702ca374';
-import { NEXT_BLEED } from './decks/next-bleed.js?v=054db19c8f';
+import { NEXT_BLEED } from './decks/next-bleed.js?v=5ff8785bca';
 import { GASTRIC } from './decks/gastric-varices.js?v=0da683e5c6';
 import { HYPERDYNAMIC } from './decks/hyperdynamic.js?v=90b476c393';
 import { CHOOSE_TREATMENT } from './decks/choose-treatment.js?v=c370a83c9f';
-import { TEN_YEARS } from './decks/ten-years.js?v=9fe96fabb4';
+import { TEN_YEARS } from './decks/ten-years.js?v=07e2909f8e';
 
 // Regions of the anatomy plate the camera frames (world units, x 300-1120, y 0-920).
 export const REGIONS = {
