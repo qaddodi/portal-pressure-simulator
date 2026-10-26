@@ -117,21 +117,6 @@ test('HVPG response tile: hvpgResp adds a live percent fall in the HVPG from a n
   assert.match(p, /ui\.tiles\.set\(respFp\(s, f\)/);
 });
 
-test('Doppler reading grid: grid on a Doppler tool shows Direction, Speed and Shape under the trace, blank while held', () => {
-  const used = DECKS.flatMap((d) => d.slides.filter((s) => s.tool?.grid !== undefined).map((s) => [d, s]));
-  assert.ok(used.length >= 12, 'the ten Doppler slides that read a trace, and TIPS Doppler 6 and 8 (20 slides before Read the Doppler joined Doppler)');
-  for (const [d, s] of used) {
-    const at = `${d.id}/${s.id}`;
-    assert.equal(s.tool.kind, 'doppler', `${at}: a Doppler slide`);
-    assert.ok(adopted(d, s, 'tool.grid'), `${at}: opt-in (tests/deck-adopted.js)`);
-    assert.ok(s.tool.grid === true || (Array.isArray(s.tool.grid) && s.tool.grid.length && s.tool.grid.every((k) => ['dir', 'speed', 'shape'].includes(k))), `${at}: true or the boxes to tint`);
-  }
-  const dop = src('doppler.js');
-  assert.match(dop, /const GRID = \[\['dir', 'Direction'\], \['speed', 'Speed'\], \['shape', 'Shape'\]\];/);
-  assert.match(dop, /setGrid\(it\.dir, none \? 'No flow' : /, 'the same reading as the strip\'s words');
-  assert.match(css, /\.pz-data\[data-held\] \.pz-tool \.dop-grid dd \{ opacity: 0; \}/, 'held, the boxes keep their names and leave their readings blank');
-});
-
 test('bleed clock: clock on a tiles slide shows the hours since the bleed on a tile\'s own bar, 0 to 72 with the 12 and 72 hour marks', () => {
   const used = slidesUsing('clock');
   assert.ok(used.length >= 8, 'Variceal bleed 3 to 8, Gastric varices 5, Choose the treatment 2');

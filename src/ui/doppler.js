@@ -152,15 +152,6 @@ export function createDoppler({ onProbe, pickGate = true }) {
     const wrap = h('div', k === 'Peak' ? { title: 'Highest velocity in the last 3 s' } : {}, h('dt', {}, btn || (k === 'Peak' ? 'Max' : k)), dd); statEls[k] = { dd, wrap, btn }; return wrap;
   }));
   const report = h('div', { class: 'dop-report' }, dirEl, h('div', { class: 'dop-velrow' }, velEl, patternEl), rangeEl, stats, noteEl);
-  // The reading grid (tool option grid, card C4, 25 Oct): Direction, Speed and Shape in three small boxes under the trace, the method
-  // Read the Doppler teaches, filled from the same reading as the strip's words; grid: ['speed'] sets the name of the box the slide is about in full white.
-  const GRID = [['dir', 'Direction'], ['speed', 'Speed'], ['shape', 'Shape']];
-  const gridDd = {};
-  const gridEl = h('dl', { class: 'dop-grid', hidden: true }, GRID.map(([k, n]) => { gridDd[k] = h('dd', {}, '—'); return h('div', { 'data-k': k }, h('dt', {}, n), gridDd[k]); }));
-  const setGrid = (dir, speed, shape) => {
-    if (gridEl.hidden) return;
-    for (const [k, t] of [['dir', dir], ['speed', speed], ['shape', shape]]) if (gridDd[k].textContent !== (t || '—')) gridDd[k].textContent = t || '—';
-  };
   // The top strip's fitting steps (see fitStrip): [type scale, the direction's short form, the pattern on its own line].
   let stripKey = '', stripStep = 0, dirFull = '—', patFull = '', stripType = '', rng = null;
   // Whether the monitor is on screen, and the widths the strip is fitted to, as the browser reports them when they change: read
@@ -180,7 +171,7 @@ export function createDoppler({ onProbe, pickGate = true }) {
   const SHORT_PAT = { 'Low velocity, jet': 'Slow, jet', 'Low velocity': 'Slow', 'High velocity': 'Fast', 'Phasic, with reversal': 'Phasic, reversal', 'Large reversal': 'Reversal', 'Open collateral': 'Open', 'Resistive index 0.00': 'RI 0.00' };
   const SHORT_DIR = { 'Portal → hepatic vein': 'PV → HV', 'Portal → IVC': 'PV → IVC', 'Portal → systemic': 'PV → systemic', 'Systemic → portal': 'Systemic → PV', 'Toward the heart': 'To the heart', 'Not available during time lapse': 'Paused in time lapse' };
   const el = h('div', { class: 'dop', 'data-pane': 'doppler' },
-    h('div', { class: 'dop-head' }, probeSel, h('div', { class: 'dop-btns' }, modeBtn, invBtn, sweepBtn)), h('div', { class: 'dop-main' }, box, report), gridEl);
+    h('div', { class: 'dop-head' }, probeSel, h('div', { class: 'dop-btns' }, modeBtn, invBtn, sweepBtn)), h('div', { class: 'dop-main' }, box, report));
 
   // ── Samples ───────────────────────────────────────
   let buf = [];
@@ -444,7 +435,6 @@ export function createDoppler({ onProbe, pickGate = true }) {
       rangeEl.hidden = true; velEl.dataset.out = 'false'; velEl.hidden = false;
       for (const e of [velEl.firstChild, patternEl, noteEl]) if (e.textContent) e.textContent = e === velEl.firstChild ? '—' : '';
       for (const k in statEls) setStat(statEls[k].dd, '—');
-      setGrid('', '', '');
       return;
     }
     const p = meta();
@@ -472,7 +462,6 @@ export function createDoppler({ onProbe, pickGate = true }) {
     shownVel.set(probe, { v: Math.abs(mean), t: performance.now(), seg: isStentProbe() ? gateOf() : null, open });
     updateGauge(p, mean, it.expected);   // (the headline's own number: the marker read 23.5 under a headline of 22, sweep batch 04, shot 12)
     patFull = it.pattern || ''; set(patternEl, STEPS[stripStep][2] ? shortPat(patFull) : patFull);
-    setGrid(it.dir, none ? 'No flow' : `${num(Math.abs(mean), Math.abs(mean) < 10 ? 1 : 0)} cm/s`, patFull);
     // peak: the extreme farthest from zero, whichever the direction
     const [pk, tr] = Math.abs(r.vmax) >= Math.abs(r.vmin) ? [r.vmax, r.vmin] : [r.vmin, r.vmax];
     setStat(statEls.Peak.dd, num(pk * gf), 'cm/s');   // (a stent's peak at its gate)
@@ -1133,9 +1122,6 @@ export function createDoppler({ onProbe, pickGate = true }) {
     const nyq = Number(t?.scale), b = Number(t?.baseline);
     const next = nyq > 0 ? { nyq: clamp(nyq, 5, 400), base: Math.round(clamp(Number.isFinite(b) ? b : 0.5, 0.15, 0.85) * 100) / 100 } : null;
     if (next?.nyq !== fixed?.nyq || next?.base !== fixed?.base) { fixed = next; scale = null; baseF = null; }
-    const g = t?.grid, lit = Array.isArray(g) ? g : [];
-    gridEl.hidden = !g;
-    for (const d of gridEl.children) d.toggleAttribute('data-lit', lit.includes(d.dataset.k));
     redraw();
   }
 

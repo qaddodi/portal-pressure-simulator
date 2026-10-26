@@ -68,7 +68,7 @@ export const TIPS_DOPPLER = {
       ask: ['What happens to main portal vein velocity after a TIPS?', 'It rises, because the stent draws more blood through it.'],
     },
     {
-      id: 'left', cam: 'liver', lens: 'direction', labels: ['LPV'], terms: ['lpv'], tool: { kind: 'doppler', grid: ['dir'], vessel: 'PVH_L' },
+      id: 'left', cam: 'liver', lens: 'direction', labels: ['LPV'], terms: ['lpv'], tool: { kind: 'doppler', vessel: 'PVH_L' },
       kicker: 'A working TIPS', title: 'Every branch flows toward the stent',
       line: 'With a working TIPS every branch flows toward the stent, so the [left portal vein](lpv) is hepatofugal, below the baseline. The right portal vein is hepatopetal only before the stent.',
       notes: 'The stent is the easiest way out of the liver, so blood in the left portal vein, much of it hepatic arterial blood that has entered the sinusoids, runs back to the bifurcation and into the stent. Before the TIPS this branch flowed toward the liver. Here hepatofugal flow is the expected finding, a sign that the stent is working, not a sign of advanced disease. Colored by direction, reversed flow is orange. The stent starts in the right portal vein, close to the bifurcation, so the short segment between the bifurcation and the stent still flows toward the liver, on its way into the stent. Beyond the stent the right portal branches drain back toward it, hepatofugal like the left. The rule is the same for every segment: flow runs toward the stent. (Lechowicz 2015, Polish Ultrasound Society standards.)',
@@ -87,7 +87,7 @@ export const TIPS_DOPPLER = {
       ask: ['A TIPS reads 60 cm/s proximally, 240 cm/s mid stent and 65 cm/s distally. Where is the narrowing?', 'Mid stent, where the jet is.'],
     },
     {
-      id: 'warn', cam: 'liver', lens: 'direction', labels: ['LPV'], terms: ['lpv'], tool: { kind: 'doppler', grid: ['dir'], vessel: 'PVH_L' },
+      id: 'warn', cam: 'liver', lens: 'direction', labels: ['LPV'], terms: ['lpv'], tool: { kind: 'doppler', vessel: 'PVH_L' },
       whatIf: { label: 'Stent narrowing', param: 'stenosis.TIPS', min: 0, max: 0.8, step: 0.05, ends: ['Open', 'Narrowed'] },
       kicker: 'TIPS stenosis', title: 'A hepatopetal left portal vein is a warning',
       line: 'Flow toward the liver looks normal, but with a TIPS the [left portal vein](lpv) should flow toward the stent. Hepatopetal flow here suggests stenosis.',

@@ -1,6 +1,5 @@
 // Presenter talk: Doppler of the portal system (Core). Slide fields as documented at the top of decks.js. The last half is Read the
-// Doppler's five cases (deck rebuild plan D1, 25 Oct 2026): each case is one slide, the case card asking before the slide answers,
-// with the reading grid under the trace the room reads. The Doppler facts follow McNaughton and Abu-Yousef (RadioGraphics 2011);
+// Doppler's five cases (deck rebuild plan D1, 25 Oct 2026): each case is one slide, the case card asking before the slide answers. The Doppler facts follow McNaughton and Abu-Yousef (RadioGraphics 2011);
 // EASL 2025 makes Doppler the first test for portal vein thrombosis and Budd–Chiari syndrome.
 
 const mi = (x) => `<mi>${x}</mi>`, mo = (x) => `<mo>${x}</mo>`;
@@ -24,7 +23,7 @@ export const DOPPLER = {
   summary: 'What the Doppler probe reads in the portal and hepatic veins, and how to read a trace in order: direction, speed, shape. Five cases to read before the answer, from reversed portal flow to a narrowed TIPS, then a table that compares them.',
   slides: [
     {
-      id: 'probe', terms: ['pv'], preset: 'healthy', cam: 'portal', labels: ['SMV', 'SV', 'CONF'], tool: { kind: 'doppler', grid: true, vessel: 'PV_TRUNK', mode: 'color' },
+      id: 'probe', terms: ['pv'], preset: 'healthy', cam: 'portal', labels: ['SMV', 'SV', 'CONF'], tool: { kind: 'doppler', vessel: 'PV_TRUNK', mode: 'color' },
       kicker: 'Doppler', title: 'The probe measures portal velocity',
       eq: [mi('Q') + mo('=') + mi('\u{1D463}̄') + mo('×') + mi('A'), 'Q flow · v̄ mean velocity · A cross-sectional area of the vein'],
       line: 'The probe plots velocity over time. Blood in the portal vein runs toward the probe and the liver, so the trace sits above the baseline, at {>=15 cm/s} or more.',
@@ -32,7 +31,7 @@ export const DOPPLER = {
       ask: ['Which way does normal portal flow run, and how fast?', 'Toward the liver (hepatopetal), at 15 cm/s or more, usually 20 to 40 cm/s.'],
     },
     {
-      id: 'hepatic', cam: 'hepatic', labels: ['RHV', 'RA'], tool: { kind: 'doppler', grid: ['shape'], vessel: 'RHV_IVC', waves: true, mode: 'color' },
+      id: 'hepatic', cam: 'hepatic', labels: ['RHV', 'RA'], tool: { kind: 'doppler', vessel: 'RHV_IVC', waves: true, mode: 'color' },
       kicker: 'Doppler', title: 'The hepatic veins pulse with the right atrium',
       line: 'Blood flows toward the heart, below the baseline, in two waves each beat (S and D). The atrium\'s contraction briefly reverses it (a), with a small turn between (v).',
       notes: 'The hepatic veins are close to the right atrium, so their waveform follows it. Flow toward the heart is drawn below the baseline in blue, and the reversal in orange-red. The normal trace has four parts: the a wave (atrial contraction) briefly reverses flow, the S wave carries blood toward the heart in ventricular systole, the small v wave turns toward the baseline as the atrium fills, and the D wave carries blood forward again in diastole. Tricuspid regurgitation enlarges the v wave. A stiff, cirrhotic liver damps the wave to biphasic or monophasic. A tall a wave and S-wave reversal point to tricuspid regurgitation or a high right atrial pressure.',
@@ -41,7 +40,7 @@ export const DOPPLER = {
     {
       // (The same meal as the Circuit talk's, eased in over 8 days, as a time-lapse from fasting, on the seconds clock so the Doppler records the rise.)
       id: 'meal', params: { respiration: false }, days: 8, ramp: { meal: [0, 1] }, lapse: { seconds: 6, from: 'Fasting', to: 'After a meal', clock: 'seconds' },
-      cam: 'portal', labels: ['SMV', 'CONF'], tool: { kind: 'doppler', grid: ['speed'], vessel: 'PV_TRUNK' },
+      cam: 'portal', labels: ['SMV', 'CONF'], tool: { kind: 'doppler', vessel: 'PV_TRUNK' },
       data: 'tiles', tiles: ['pvFlow'], key: ['pvFlow'], delta: true,
       kicker: 'Doppler', title: 'Portal flow rises after a meal',
       line: 'Within half an hour of eating, the gut arterioles open and portal flow rises by 40 to 80%. Scan fasting, or you will overestimate the velocity and miss slow flow.',
@@ -49,7 +48,7 @@ export const DOPPLER = {
       ask: ['Why is portal Doppler done fasting?', 'A meal raises portal flow and velocity, which can hide the slow flow of portal hypertension.'],
     },
     {
-      id: 'slow', lens: 'velocity', preset: 'cirr-decomp', cam: 'portal', labels: ['CONF'], tool: { kind: 'doppler', grid: ['speed'], vessel: 'PV_TRUNK' },
+      id: 'slow', lens: 'velocity', preset: 'cirr-decomp', cam: 'portal', labels: ['CONF'], tool: { kind: 'doppler', vessel: 'PV_TRUNK' },
       data: 'tiles', tiles: ['hvpg'], key: ['hvpg'],
       kicker: 'Cirrhosis', site: 'sin', title: 'Cirrhosis slows the portal vein',
       vignette: 'A 62-year-old man with alcohol-associated cirrhosis has ascites on spironolactone and furosemide and large esophageal varices. He comes fasting for a Doppler ultrasound.',
@@ -59,14 +58,14 @@ export const DOPPLER = {
       ask: ['What portal vein velocity is abnormal?', 'A velocity under 15 cm/s.'],
     },
     {
-      id: 'normal', terms: ['pv'], preset: 'healthy', cam: 'portal', labels: ['SMV', 'SV', 'CONF'], tool: { kind: 'doppler', grid: true, vessel: 'PV_TRUNK' }, data: 'tiles', tiles: ['pvVel'], key: ['pvVel'],
+      id: 'normal', terms: ['pv'], preset: 'healthy', cam: 'portal', labels: ['SMV', 'SV', 'CONF'], tool: { kind: 'doppler', vessel: 'PV_TRUNK' }, data: 'tiles', tiles: ['pvVel'], key: ['pvVel'],
       kicker: 'The method', title: 'Read every trace in the same order',
       line: 'Read direction first, then speed, then shape. In a healthy person the portal vein flows toward the liver, above the baseline, at {pvVel}, steady with a gentle ripple from breathing.',
       notes: 'Above the baseline is flow toward the probe, which for the main portal vein means toward the liver. Normal portal velocity is 15 cm/s or more, usually 20 to 40 cm/s. The trace is steady with a slight rise and fall as the patient breathes. Every case that follows is read the same way: direction, speed, then shape.',
       ask: ['Describe the normal main portal vein trace.', 'Above the baseline (hepatopetal), 15 cm/s or more, steady with a gentle ripple from breathing.'],
     },
     {
-      id: 'a1', lens: 'direction', preset: 'cirr-hepatofugal', cam: 'portal', labels: ['CONF'], tool: { kind: 'doppler', grid: ['dir'], vessel: 'PV_TRUNK' },
+      id: 'a1', lens: 'direction', preset: 'cirr-hepatofugal', cam: 'portal', labels: ['CONF'], tool: { kind: 'doppler', vessel: 'PV_TRUNK' },
       vignette: 'A 63-year-old man with hepatitis C cirrhosis has had two admissions for encephalopathy this year. He comes fasting for an ultrasound before a TIPS is considered.',
       caseQ: 'Which way will his portal blood run?',
       kicker: 'Portal inflow', site: 'sin', title: 'Below the baseline: the portal vein has reversed',
@@ -75,7 +74,7 @@ export const DOPPLER = {
       ask: ['What does hepatofugal portal flow tell you about the liver?', 'Its resistance is higher than the collaterals\', so portal blood leaves through them: advanced cirrhosis.'],
     },
     {
-      id: 'a2', terms: ['pv'], preset: 'pvt-acute', cam: 'portal', labels: ['CONF'], mark: { edges: ['PV_TRUNK'], label: 'Clot' }, tool: { kind: 'doppler', grid: true, vessel: 'PV_TRUNK' },
+      id: 'a2', terms: ['pv'], preset: 'pvt-acute', cam: 'portal', labels: ['CONF'], mark: { edges: ['PV_TRUNK'], label: 'Clot' }, tool: { kind: 'doppler', vessel: 'PV_TRUNK' },
       vignette: 'A 41-year-old woman with a JAK2-positive myeloproliferative neoplasm has had 5 days of constant abdominal pain. Her liver tests are normal.',
       caseQ: 'What will the portal vein trace show?',
       kicker: 'Portal inflow', site: 'pre', title: 'No signal: a clot fills the portal vein',
@@ -84,7 +83,7 @@ export const DOPPLER = {
       ask: ['The trace is empty with the angle and gain set right. What does that suggest?', 'No flow in the vein: an occlusive clot.'],
     },
     {
-      id: 'a3', terms: ['hv'], preset: 'budd-chiari', cam: 'hepatic', labels: ['RHV', 'RA'], mark: { edges: ['RHV_IVC', 'MHV_IVC', 'LHV_IVC'], label: 'Clot in hepatic veins', free: true }, tool: { kind: 'doppler', grid: true, vessel: 'RHV_IVC' },
+      id: 'a3', terms: ['hv'], preset: 'budd-chiari', cam: 'hepatic', labels: ['RHV', 'RA'], mark: { edges: ['RHV_IVC', 'MHV_IVC', 'LHV_IVC'], label: 'Clot in hepatic veins', free: true }, tool: { kind: 'doppler', vessel: 'RHV_IVC' },
       vignette: 'A 29-year-old woman who takes an OCP has had 6 weeks of right upper quadrant pain and a growing abdomen. Her liver is large and tender.',
       caseQ: 'What will her right hepatic vein trace show?',
       kicker: 'Outflow', site: 'post', title: 'No waves in the hepatic veins: Budd–Chiari syndrome',
@@ -93,7 +92,7 @@ export const DOPPLER = {
       ask: ['How does Doppler tell Budd–Chiari syndrome from portal vein thrombosis?', 'In Budd–Chiari the hepatic veins have no flow; in portal vein thrombosis the portal vein has none.'],
     },
     {
-      id: 'a4', terms: ['pv'], preset: 'rhf', cam: 'route', labels: ['CONF', 'RHV', 'RA'], tool: { kind: 'doppler', grid: ['shape'], vessel: 'PV_TRUNK', pair: true, calipers: true },
+      id: 'a4', terms: ['pv'], preset: 'rhf', cam: 'route', labels: ['CONF', 'RHV', 'RA'], tool: { kind: 'doppler', vessel: 'PV_TRUNK', pair: true, calipers: true },
       vignette: 'A 72-year-old woman with severe tricuspid regurgitation has ascites and leg edema. Her liver tests are mildly raised.',
       caseQ: 'What shape will her portal vein trace have?',
       kicker: 'Outflow', site: 'cardiac', title: 'A pulsing portal vein: the heart',
@@ -102,7 +101,7 @@ export const DOPPLER = {
       ask: ['A pulsing portal vein with a normal HVPG: where is the resistance?', 'Beyond the liver, in the heart: a high right atrial pressure reaches back through the sinusoids.'],
     },
     {
-      id: 'a5', lens: 'direction', preset: 'cirr-decomp', params: STENT, days: 180, cam: 'liver', labels: ['LPV'], mark: { edges: ['TIPS'], label: 'Narrowing', seg: 'site' }, tool: { kind: 'doppler', grid: ['dir'], vessel: 'PVH_L' },
+      id: 'a5', lens: 'direction', preset: 'cirr-decomp', params: STENT, days: 180, cam: 'liver', labels: ['LPV'], mark: { edges: ['TIPS'], label: 'Narrowing', seg: 'site' }, tool: { kind: 'doppler', vessel: 'PVH_L' },
       vignette: 'A 60-year-old man had a covered TIPS for refractory ascites a year ago. Over the last month his ascites has come back.',
       caseQ: 'Which way will his left portal vein flow?',
       kicker: 'After TIPS', site: 'sin', title: 'Toward the liver again: the stent has narrowed',
