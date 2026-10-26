@@ -49,3 +49,11 @@ test('never softer than the zoom wants: the bitmap is held only while at least a
   assert.match(sm, /g\.upload\(spareCv, spareCv\.ver\);/);
   assert.match(sm, /g\.upload\(quietTile\(t, tone\)\.cv, 0, true\);/, 'and the surround\'s tiles for that zoom');
 });
+
+test('nothing is ever sampled as black: the empty texture is complete, uploads use a spare unit, a tile given back skips the GPU frame', () => {
+  const fgl = readFileSync(new URL('../src/ui/field-gl.js', import.meta.url), 'utf8');
+  assert.match(gl, /gl\.TEXTURE_MIN_FILTER, gl\.NEAREST\);/, 'the 1 px stand-in has no mip levels, so it must not use a mipmap filter');
+  assert.match(gl, /gl\.activeTexture\(gl\.TEXTURE0 \+ SCRATCH\);/, 'sending a canvas must not replace a texture bound on a draw unit');
+  assert.match(gl, /if \(!qa\?\.width \|\| \(qb && !qb\.width\)\) return false;/);
+  assert.match(fgl, /if \(!a\?\.width \|\| \(b && !b\.width\) \|\| \(quiet > 0 && \(!qa\?\.width \|\| \(qb && !qb\.width\)\)\)\) return false;/);
+});

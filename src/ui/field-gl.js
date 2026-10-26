@@ -110,6 +110,8 @@ export function createFieldGL(canvas) {
     draw({ W, H, a, b, qa, qb, mix, quiet, ox, oy, rd, fade, mid, bg, mask, dof = null }) {
       publish();
       if (this.lost) return false;
+      // (A tile given back, or a zero-sized canvas, would be sampled as black: the 2D canvas draws this frame instead.)
+      if (!a?.width || (b && !b.width) || (quiet > 0 && (!qa?.width || (qb && !qb.width)))) return false;
       if (canvas.width !== W || canvas.height !== H) { canvas.width = W; canvas.height = H; }
       gl.viewport(0, 0, W, H);
       gl.useProgram(prog);

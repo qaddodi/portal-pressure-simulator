@@ -64,6 +64,9 @@ export function createTissueGL(canvas) {
   const none = gl.createTexture();
   gl.bindTexture(gl.TEXTURE_2D, none);
   gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array(4));
+  // (One level and a mipmap filter would leave it incomplete, and an incomplete texture reads opaque black.)
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
 
   let lost = false;
   canvas.addEventListener('webglcontextlost', (e) => { lost = true; texs.clear(); e.preventDefault?.(); });
@@ -82,11 +85,12 @@ export function createTissueGL(canvas) {
   publishWhenDone(gl, [started], publish);
   // A canvas's texture, sent again only when the canvas was painted again (ver, the caller's count of its paints) or resized.
   // Tiles repeat; the lobule's bitmap is premultiplied (as the 2D canvas lays it) and stops at its edges.
-  const texs = new Map();
+  const texs = new Map(), SCRATCH = 7;
   function texFor(cv, ver, tile) {
     let t = texs.get(cv);
     if (t && t.w === cv.width && t.h === cv.height && t.ver === ver) return t.tex;
     if (!t) { t = { tex: gl.createTexture() }; texs.set(cv, t); }
+    gl.activeTexture(gl.TEXTURE0 + SCRATCH);   // (a unit no draw uses, so sending a canvas never replaces a texture already bound for the frame)
     gl.bindTexture(gl.TEXTURE_2D, t.tex);
     gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false); gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, !tile);
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, gl.RGBA, gl.UNSIGNED_BYTE, cv);
@@ -111,6 +115,8 @@ export function createTissueGL(canvas) {
     draw({ W, H, qa, qb, mix, qo = null, qOld = 0, w, wVer, wo = null, woVer = 0, wMix = 1, rect, ox, oy, rd, fade, mid, bg }) {
       publish();
       if (this.lost) return false;
+      // (A tile given back, or a zero-sized canvas, would be sampled as black: the 2D canvas draws this frame instead.)
+      if (!qa?.width || (qb && !qb.width)) return false;
       if (canvas.width !== W || canvas.height !== H) { canvas.width = W; canvas.height = H; }
       gl.viewport(0, 0, W, H);
       gl.useProgram(prog);

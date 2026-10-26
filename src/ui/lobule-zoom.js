@@ -25,8 +25,8 @@ import { radiiChanged, canvasPx, fxMoves, DIVE_RIM } from './lobule-render-cache
 import { softwareYield } from './sw-yield.js?v=e580a095b1';
 import { lobuleState, lymphRate, sinceOf, LOBE } from './lobule-model.js?v=cb5f1e3242';
 import { SIN_NARROW, cordTone, dullSinusoid, NEIGHBOUR_FLAT, neighbourBlur, blurWrapped, bandOutline, FADE_MID, fadeOuter, padRect, wideDpr, wideTiles, FIELD_RS, fieldBlend, fieldDof } from './lobule-look.js?v=a7314b7992';
-import { createFieldGL } from './field-gl.js?v=80b2875a9c';
-import { createTissueGL } from './tissue-gl.js?v=ddf21bf508';
+import { createFieldGL } from './field-gl.js?v=d7dba46a8b';
+import { createTissueGL } from './tissue-gl.js?v=7bfebc9510';
 import { h, s, fmt, clamp, createEaser, systemEdge, bloodColors, cssVar, cssAlpha, cssRGB01 } from './util.js?v=d872252ef8';
 import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatColor, oxygenColor } from './colormap.js?v=6b97bf1786';
 import { NODES, EDGES } from '../engine/topology.js?v=4044766e96';
