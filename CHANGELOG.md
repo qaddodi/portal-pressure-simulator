@@ -2,6 +2,11 @@
 
 ## October 2026
 
+- **Treating the cause: the weight-loss patient is one slide.** (Mohammad, 25 Oct, "Build the new decks"; deck rebuild plan, F6.) The MASLD cirrhosis patient and the
+  weight loss slide are merged: her case card (BMI of 34, a stiffness of 15 kPa, platelets of 136,000/µL) opens the year of weight loss, and the stiffness and platelets
+  play out after the card lifts. The talk is 7 slides, was 8; the gray-zone and ANTICIPATE-NASH teaching moved into the slide's notes, the 25 kPa question stays in
+  the deck's quick checks, and the summary table reads her start from a preset row. The words went through the AI humanizer and nothing was looked at on screen.
+
 - **The foundations talks shed the slides other talks teach.** (Mohammad, 25 Oct, "Build the new decks"; deck rebuild plan, F5.) The portal circulation loses "One
   patient, five ways to color the vessels", the meal and the summary table (the meal is Portal pressure as a circuit's); its Gut to heart chart is the one
   card from the two capillary beds to the definition, including the lobule and sinusoid slides, and the talk is 6 slides, was 9. Portal pressure as a circuit

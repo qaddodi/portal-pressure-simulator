@@ -678,10 +678,6 @@
   "{lsm}",
   "{plt}"
  ],
- "cause-treated/loss": [
-  "{lsm}",
-  "{plt}"
- ],
  "next-bleed/after": [
   "varices",
   "{varix}",
