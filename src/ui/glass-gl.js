@@ -9,6 +9,7 @@
 // transparency, a browser without backdrop blur (whose solid card stays), or a copy the browser refuses.
 
 import { gpuProbe, COUNTED } from './gpu-probe.js?v=c66f99a23a';
+import { lateFrameFor } from './frame.js?v=226365e6e2';
 
 /** The CSS glass this draws (app.css .cl-glass: blur(16px) saturate(1.15) over 58 % of --surface). */
 export const GLASS = { blur: 16, sat: 1.15, tint: 0.58 };
@@ -115,9 +116,11 @@ void main() {
  * The GPU glass for the callouts under `layers` (the .cath-labels layers), over the figure drawn on `source` (veins-gl's canvas,
  * which keeps its drawing buffer). The canvas is laid just before `layers[0]`. With `pane` (an .lb-glass element), it draws that one
  * rounded pane instead, its canvas laid just before it (under the labels, where the pane lies). `live()`: whether the figure is on that canvas now
- * (else the browser's glass, which sees the SVG figure). Null when it cannot run.
+ * (else the browser's glass, which sees the SVG figure). `version()`: a number that changes whenever the figure on `source` is drawn
+ * again; while it, the region behind the callouts and the canvas' place on the page all hold, the copy already taken is still the
+ * figure, so none is taken (without it, one is taken whenever the last has arrived). Null when it cannot run.
  */
-export function createGlassGL(wrap, source, layers, { software = false, off = false, live = () => true, pane = null } = {}) {
+export function createGlassGL(wrap, source, layers, { software = false, off = false, live = () => true, pane = null, version = null } = {}) {
   const look = pane ? PANE : GLASS;
   if (off || software || !source || typeof WebGL2RenderingContext === 'undefined' || typeof createImageBitmap !== 'function') return null;
   const canvas = document.createElement('canvas');
@@ -144,7 +147,7 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
   const fbPass = gl.createFramebuffer(), fbOut = gl.createFramebuffer();
   (pane || layers[0]).before(canvas);
 
-  let lost = false, dead = false, raf = 0, W = 0, H = 0, dpr = 1, pending = false, fails = 0, ready = null, drawn = false, fbSize = '';
+  let lost = false, dead = false, raf = 0, W = 0, H = 0, dpr = 1, pending = false, fails = 0, ready = null, drawn = false, fbSize = '', takenKey = '';
   const masks = new WeakMap(), marked = new Set();
   const norm = document.createElement('canvas').getContext('2d');
   const colour = (str, fb) => {   // any CSS colour, as straight [r, g, b, a] (0–1), through the canvas' own parser
@@ -179,6 +182,9 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
   function take(reg, cr) {
     const sr = source.getBoundingClientRect();
     if (!sr.width || !sr.height || !source.width) return;
+    // (The key of the figure as it is copied now, read before the copy is asked for: the browser takes its snapshot in that call.)
+    const key = version ? `${version()}|${reg.x}|${reg.y}|${reg.w}|${reg.h}|${cr.left}|${cr.top}|${sr.left}|${sr.top}|${sr.width}|${sr.height}|${source.width}x${source.height}` : '';
+    if (key && key === takenKey && ready) { if (gpuProbe.on) gpuProbe.note(COUNTED.glassSkip); return; }
     const kx = source.width / sr.width, ky = source.height / sr.height;
     const bw = Math.max(1, Math.ceil(reg.w / SCALE)), bh = Math.max(1, Math.ceil(reg.h / SCALE));
     pending = true;
@@ -214,6 +220,7 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
       gl.bindFramebuffer(gl.FRAMEBUFFER, fbOut); gl.bindTexture(gl.TEXTURE_2D, pass); gl.uniform2f(BU.uDir, 0, 1); gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
       gl.bindFramebuffer(gl.FRAMEBUFFER, null);
       ready = { ...reg };
+      takenKey = key;
       ask();
     }, () => {
       // (A browser that refuses the copy keeps its own glass.)
@@ -294,8 +301,11 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
   }
   // Every frame while a callout shows (the blood under it moves); and at once when a callout is written (its place, its size,
   // a class), in the same frame as the write, so the glass never trails its outline and words.
+  // (On the shared scheduler's late phase: after the figure's own frame, so it blurs the figure of this frame, not the last, and
+  // the callouts' glass is drawn once in a frame whoever asked.)
+  const later = lateFrameFor(pane ? 'glass-pane' : 'glass');
   const loop = () => { raf = 0; if (draw()) ask(); };
-  function ask() { if (!raf && !lost && !dead) raf = requestAnimationFrame(loop); }
+  function ask() { if (!raf && !lost && !dead) raf = later(loop); }
   let batched = false;
   const mo = new MutationObserver(() => {
     if (batched) return;

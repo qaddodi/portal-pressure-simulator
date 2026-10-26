@@ -1432,6 +1432,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false }) {
   gl.bindVertexArray(null);
   const lineVers = [0, 0, 0], lineSigs = ['', '', ''];
   let skipped = false;
+  let pictureSeq = 0;   // counts the times the canvas was drawn on (composite, clear): what the glass compares to know its copy of the figure is still current
   let lines = null, linesWas = false, lineKey = '', glowKey = '', warmKey = '', lastMk = '';
   // The outlines are drawn into a layer of their own when they change, and the composite lays it over the picture: the
   // cells-only pass then keeps them, so an open organ card no longer repaints the whole picture every frame. Glows
@@ -2127,6 +2128,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false }) {
       const pool = full ? 0 : nPool;
       nPool = 0;
       if (!full && !nCells && !(fl?.ripple && nFluid) && !pool && !dirt) return;
+      pictureSeq++;
       if (gpuProbe.on) { if (full) gpuProbe.note('whole picture'); if (!look.plate) gpuProbe.note('organ picture down'); }
       if (gpuProbe.on) { gpuProbe.note(COUNTED.picture); if (full) gpuProbe.note(COUNTED.pictureWhole); }
       const det = m[0] * m[3] - m[1] * m[2] || 1e-9;
@@ -2258,7 +2260,9 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false }) {
       cathBase = base;
       if (cath.verts.byteLength) gl.bufferSubData(gl.ARRAY_BUFFER, at, cath.verts);
     },
-    clear() { gl.bindFramebuffer(gl.FRAMEBUFFER, null); gl.viewport(0, 0, canvas.width, canvas.height); gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT); nCells = nBlood = 0; baseM = null; fboOK = false; },
+    /** Changes whenever the canvas is drawn on again (the glass takes a new copy of the figure only then). */
+    get drawSeq() { return pictureSeq; },
+    clear() { pictureSeq++; gl.bindFramebuffer(gl.FRAMEBUFFER, null); gl.viewport(0, 0, canvas.width, canvas.height); gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT); nCells = nBlood = 0; baseM = null; fboOK = false; },
     /** The current picture as a PNG data URL (call right after draw, in the same task). */
     snapshot() { return canvas.toDataURL('image/png'); },
     /**
