@@ -8,8 +8,8 @@
 // Off (the browser's glass, as before): no WebGL2, a software renderer, ?gpulabels=0, Settings' blur effect off, reduced
 // transparency, a browser without backdrop blur (whose solid card stays), or a copy the browser refuses.
 
-import { gpuProbe, COUNTED } from './gpu-probe.js?v=95daf86f00';
-import { finalFrameFor, cancelFrame } from './frame.js?v=662cbacff1';
+import { gpuProbe, COUNTED } from './gpu-probe.js?v=dd12fc216c';
+import { finalFrameFor, cancelFrame } from './frame.js?v=7254a8a850';
 
 /** The CSS glass this draws (app.css .cl-glass: blur(16px) saturate(1.15) over 58 % of --surface). */
 export const GLASS = { blur: 16, sat: 1.15, tint: 0.58 };

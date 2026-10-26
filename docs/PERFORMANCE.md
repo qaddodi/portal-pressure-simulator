@@ -68,6 +68,19 @@ What changed:
   pan or pinch is published afterwards (`publishWhenDone`, the vessel renderer's `prepare()`), and
   the palette, presenter and dock modules are read in one at a time, each in a quiet idle moment.
   The programs the first draw needs are still compiled and finished at start-up.
+- **The corner credit's art test is kept in the figure's own coordinates** (`src/ui/credit-art.js`,
+  `worldTest` in `src/ui/credit.js`). It had read every organ, fluid and vessel shape from the page
+  (matrix, box, style) and drawn them onto a canvas it read back, again at each new camera position
+  once the camera had rested (the 11 ms `credit: art grid` step). On the GPU figure the shapes are
+  now read once into facts (outline, matrix inside the world, box, fill and stroke), kept until a
+  shape changes (a watch on the art's groups, stopped at the first change, not on the world's own
+  transform, which is the camera) or 15 s have passed, and drawn onto a grid in world coordinates
+  over the view and half a screen of margin, cells 3 to 6 px on screen. A pan inside the grid, or a
+  zoom to 1.5 times closer or twice further, reads no shape and no pixel: the credit maps each box it
+  tries into the world (a turned Circuit included, the box round the turned rectangle) and looks the
+  cells up. Past the grid it is drawn again from the facts, with no page read. The `?perf` readout
+  counts `credit art: shapes read`, `grid drawn` and `grid kept (camera only)`. The lobule's outline,
+  the SVG figure of Lite graphics and a grid over 700,000 cells keep the screen grid, as before.
 
 The sections below describe the earlier scheduling work, still in place.
 

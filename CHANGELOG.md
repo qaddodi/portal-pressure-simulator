@@ -2,6 +2,13 @@
 
 ## October 2026
 
+- **The © credit finds its spot without reading the figure again after each camera move.** (Reviewer's smoothness brief, T04; Mohammad, 26 Oct, "ok do it".) After the camera rested, the credit
+  read every organ, fluid and vessel shape from the page and drew them onto a canvas it read back, about 11 ms a look. On the GPU figure it now reads the shapes once, keeps their
+  outlines and matrices, and draws a grid in the figure's own coordinates over the view and a margin; a pan or a zoom inside that margin only maps the credit's candidate boxes into the
+  world and looks cells up (`src/ui/credit-art.js`), with no shape read and no pixel read. The shapes are read again only after one changes (a watch on the art's groups, not on the
+  camera) or after 15 s; a far pan or a big zoom draws the grid again from what was kept. The cells are never coarser than before (3 to 6 px on screen), so the credit keeps the same
+  distance from the art, and the lobule, Lite graphics and a grid over the cap keep the old screen grid. The `?perf` readout counts shapes read, grids drawn and grids kept.
+  Code and unit tests only; nobody has looked on screen. `src/ui/credit-art.js`, `src/ui/credit.js`, `src/ui/gpu-probe.js`, `docs/PERFORMANCE.md`, `tests/credit-art.test.js`, `tests/dom-shim.js`.
 - **The spleen ultrasound is gone, and Stiffness 4 of 13 shows the spleen on the figure again.** (Mohammad, 26 Oct, "i hate it; need to fix slide 4/13 stiffness".) The `spleen`
   tool kind (deck rebuild A4) is removed with its picture, its card sizing and its tests; the Stiffness and Gastric varices decks were the only two slides that used it. "A large
   spleen sequesters platelets" goes back to what the slide showed before the ultrasound: the figure's calipers and the dashed normal-spleen outline, with the spleen and platelet

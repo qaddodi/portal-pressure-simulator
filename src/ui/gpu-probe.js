@@ -24,6 +24,9 @@ export const COUNTED = {
   widthRadii: 'widths: radii-only sync', widthWhole: 'widths: whole sync',
   // (The optional refinement work, refine.js: the steps it took, and the frames it was held back from for a gesture.)
   refineStep: 'refinement: steps', refineHeld: 'refinement: frames held for a gesture',
+  // (The corner credit's art test, credit.js: the page's shapes read, the grid drawn from them, and the looks the last grid served
+  // as it was: a camera move should add only to the last.)
+  creditRead: 'credit art: shapes read', creditGrid: 'credit art: grid drawn', creditKept: 'credit art: grid kept (camera only)',
 };
 /** The counted names whose count above 1 in one frame means a surface drawn twice in it. */
 export const TWICE = new Set([COUNTED.picture, COUNTED.glassDrawn, COUNTED.lobulePicture]);
