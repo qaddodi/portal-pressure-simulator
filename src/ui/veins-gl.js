@@ -33,10 +33,10 @@
 
 import { CHEV_GLSL } from './chevron-glsl.js?v=96ec7c6666';
 import { SLOT, DYE_BINS } from './blood.js?v=7fa561f952';
-import { cssRGB } from './util.js?v=1176d4c92c';
+import { cssRGB } from './util.js?v=d872252ef8';
 import { LUMEN, STO_Y0, STO_DY, STO_N } from './stomach-lumen.js?v=4fce52c62f';
 import { CELL, ENT_W, binVeins, splitRows } from './veins-bin.js?v=17351d9767';
-import { gpuProbe } from './gpu-probe.js?v=e82dc07b45';
+import { gpuProbe, COUNTED } from './gpu-probe.js?v=c66f99a23a';
 import { createOrganStack } from './organs-gl.js?v=50a7580426';
 
 export { binVeins };
@@ -2014,6 +2014,15 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false }) {
       const panAt = fboOK && radCovered(rows) && lk === drawnLook && (dx || dy) && Math.abs(dx) < fboW / 2 && Math.abs(dy) < fboH / 2 && m.slice(0, 4).every((v, i) => v === baseM[i]);
       if (panAt && rows?.length) { parts = rowParts(rows); if (parts.part.k > nCells * 0.6) parts = null; }
       const pan = panAt && (!(tubesNew || radRows.size) || parts);
+      // (For the ?perf readout: a pan shift, or a whole draw and the first condition that made it one.)
+      if (gpuProbe.on) {
+        if (pan) gpuProbe.note(COUNTED.pan);
+        else {
+          gpuProbe.note(COUNTED.whole);
+          gpuProbe.note(COUNTED.wholeWhy + (!fboOK ? 'no kept layer' : !radCovered(rows) ? 'radii changed' : lk !== drawnLook ? 'look changed' : !(dx || dy) ? 'same place'
+            : !(Math.abs(dx) < fboW / 2 && Math.abs(dy) < fboH / 2) ? 'moved too far' : !m.slice(0, 4).every((v, i) => v === baseM[i]) ? 'zoom or turn' : 'tubes changed'));
+        }
+      }
       if (pan) { shiftLayer(m, look, dx, dy); if (parts) { cellsPass(m, look, parts.part); tintPass(m, look, parts.tintPart); } }
       else {
         gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
@@ -2042,6 +2051,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false }) {
       const { part, tintPart } = rowParts(rows);
       if (part.k > nCells * 0.6) return false;
       tubesNew = false; radRows.clear();
+      if (gpuProbe.on) gpuProbe.note(COUNTED.rows);
       cellsPass(m, look, part);
       tintPass(m, look, tintPart);
       drawnNow();
@@ -2107,6 +2117,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false }) {
       // (Only a live organ's own box changed: the cells over it are composited again, as the pool's are; the rest of the picture is as it was.)
       let dirt = 0;
       if (useStack && stack.stale(m, canvas.width, canvas.height)) {
+        if (gpuProbe.on) gpuProbe.note(COUNTED.organs);
         const r = gpuProbe.time(gl, 'organ layers', () => stack.render(m, canvas.width, canvas.height));
         if (r === true) full = true;
         else if (r) { dirtCells(r, m); dirt = nDirt; if (gpuProbe.on) gpuProbe.gauge('organ layers: box', `${r[2] - r[0]}×${r[3] - r[1]} px, ${dirt} cells`); }
@@ -2117,6 +2128,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false }) {
       nPool = 0;
       if (!full && !nCells && !(fl?.ripple && nFluid) && !pool && !dirt) return;
       if (gpuProbe.on) { if (full) gpuProbe.note('whole picture'); if (!look.plate) gpuProbe.note('organ picture down'); }
+      if (gpuProbe.on) { gpuProbe.note(COUNTED.picture); if (full) gpuProbe.note(COUNTED.pictureWhole); }
       const det = m[0] * m[3] - m[1] * m[2] || 1e-9;
       // device → world: the inverse of [a c e; b d f].
       const ia = m[3] / det, ib = -m[1] / det, ic = -m[2] / det, id = m[0] / det;
@@ -2223,6 +2235,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false }) {
       for (const d of lines.draws) sigs[d.warm ? 2 : d.soft ? 1 : 0].push(`${d.first},${d.count},${d.alpha},${d.col},${d.tri ? 1 : 0},${d.endFade ? 1 : 0}`);
       for (let i = 0; i < 3; i++) { const sig = sigs[i].join(';'); if (fresh || sig !== lineSigs[i]) { lineSigs[i] = sig; lineVers[i]++; } }
       if (!fresh) return;
+      if (gpuProbe.on) gpuProbe.note('uploaded: setLines', lines.verts.byteLength / 1024);
       gl.bindBuffer(gl.ARRAY_BUFFER, lineBuf);
       gl.bufferData(gl.ARRAY_BUFFER, lines.verts, gl.DYNAMIC_DRAW);
     },
@@ -2238,6 +2251,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false }) {
       cath = cathP && spec?.draws?.length ? spec : null;
       if (!cath) return;
       const base = cath.base || null, at = base ? base.byteLength : 0, need = at + cath.verts.byteLength;
+      if (gpuProbe.on) gpuProbe.note('uploaded: setCath', ((base && base !== cathBase ? at : 0) + cath.verts.byteLength) / 1024);
       gl.bindBuffer(gl.ARRAY_BUFFER, cathBuf);
       if (need > cathCap) { cathCap = need * 2; gl.bufferData(gl.ARRAY_BUFFER, cathCap, gl.DYNAMIC_DRAW); cathBase = null; }
       if (base && base !== cathBase) gl.bufferSubData(gl.ARRAY_BUFFER, 0, base);
@@ -2290,9 +2304,19 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false }) {
   // (Timed for the debug overlay's GPU readout: gpu-probe.js. Off, each call costs one check.)
   const steps = { draw: 'vessels', drawRows: 'vessels', composite: 'picture', setGeometry: 'uploads', setRadii: 'uploads', setTubes: 'uploads',
     setOrgans: 'uploads', plateJob: 'uploads', plateRows: 'uploads', setPlate: 'uploads', setFluidSpans: 'uploads', setFluidCells: 'uploads', setFlow: 'uploads', setDye: 'uploads' };
+  // (And, for the ?perf readout, how much each upload sent, in KB: a camera-only frame should send none of the model's.)
+  const kbOf = {
+    setGeometry: (b) => (b.ent.byteLength + b.cells.byteLength + (b.blood?.byteLength || 0)) / 1024, setRadii: () => N_SAMPLES * 8 / 1024,
+    setTubes: (d) => d.byteLength / 1024, setFlow: (d) => d.byteLength / 1024, setDye: (d) => (d ? d.byteLength / 1024 : 0), setFluidCells: (c) => c.byteLength / 1024,
+    setOrgans: (bm) => (bm.width * bm.height * 4) / 1024, plateRows: (job, y, rows, px) => px.byteLength / 1024,
+  };
   for (const [k, name] of Object.entries(steps)) {
     const f = api[k];
-    api[k] = function (...a) { return gpuProbe.on ? gpuProbe.time(gl, name, () => f.apply(this, a)) : f.apply(this, a); };
+    api[k] = function (...a) {
+      if (!gpuProbe.on) return f.apply(this, a);
+      if (kbOf[k]) { let kb = 0; try { kb = kbOf[k](...a); } catch { /* a count only */ } gpuProbe.note(`uploaded: ${k}`, kb); }
+      return gpuProbe.time(gl, name, () => f.apply(this, a));
+    };
   }
   return api;
 }

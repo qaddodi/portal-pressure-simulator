@@ -19,21 +19,22 @@
 // tapped (triad, inlet venule, sinusoid, arteriole, central vein, septum, hepatocytes).
 // Without WebGL2 the vessels are drawn flat on the tissue canvas.
 
-import { runFlick, FLICK } from './flick.js?v=33d4d7eebf';
+import { runFlick, FLICK } from './flick.js?v=be23c4ca89';
 import { store } from './store.js?v=926dabfaef';
 import { radiiChanged, canvasPx, fxMoves, DIVE_RIM } from './lobule-render-cache.js?v=84bf4c2222';
 import { softwareYield } from './sw-yield.js?v=e580a095b1';
-import { lobuleState, lymphRate, sinceOf, LOBE } from './lobule-model.js?v=0f6d4c559a';
+import { lobuleState, lymphRate, sinceOf, LOBE } from './lobule-model.js?v=cb5f1e3242';
 import { SIN_NARROW, cordTone, dullSinusoid, NEIGHBOUR_FLAT, neighbourBlur, blurWrapped, bandOutline, FADE_MID, fadeOuter, padRect, wideDpr, wideTiles, FIELD_RS, fieldBlend, fieldDof } from './lobule-look.js?v=a7314b7992';
 import { createFieldGL } from './field-gl.js?v=8921ff0785';
 import { createTissueGL } from './tissue-gl.js?v=17c5aa1b55';
-import { h, s, fmt, clamp, createEaser, systemEdge, bloodColors, cssVar, cssAlpha, cssRGB01 } from './util.js?v=1176d4c92c';
-import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatColor, oxygenColor } from './colormap.js?v=cb82eca7d4';
+import { h, s, fmt, clamp, createEaser, systemEdge, bloodColors, cssVar, cssAlpha, cssRGB01 } from './util.js?v=d872252ef8';
+import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatColor, oxygenColor } from './colormap.js?v=6b97bf1786';
 import { NODES, EDGES } from '../engine/topology.js?v=4044766e96';
-import { createVeinsGL, binVeins, laneSum, N_SAMPLES, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_SPEC, F_EDGE, ORIGIN_GREY } from './veins-gl.js?v=6c7760af87';
+import { createVeinsGL, binVeins, laneSum, N_SAMPLES, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_SPEC, F_EDGE, ORIGIN_GREY } from './veins-gl.js?v=9577e26a3f';
 import { SLOT, PERIOD, originFractions, ORIGIN_N, DRIFT_PERIOD } from './blood.js?v=7fa561f952';
-import { createSinusoidView } from './sinusoid-view.js?v=ca0271e83c';
-import { frameFor, cancelFrame, noteDraw, saver, paceMs } from './frame.js?v=3dd403a11f';
+import { createSinusoidView } from './sinusoid-view.js?v=2aaf99b40c';
+import { frameFor, cancelFrame, noteDraw, saver, paceMs } from './frame.js?v=226365e6e2';
+import { gpuProbe, COUNTED } from './gpu-probe.js?v=c66f99a23a';
 import { leaderEnd, runInside } from './leader-end.js?v=8e884700ab';
 const nextFrame = frameFor('lobule-zoom');
 
@@ -2492,6 +2493,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     // interactions and newly enabled layers refresh immediately.
     if (dt === 0 || rzMoving || lensFrom || !attrKey || !radAll || bk !== binKey || dk !== drawKey || now - lastSurface >= 80) {
       lastSurface = now;
+      if (gpuProbe.on) gpuProbe.note(COUNTED.lobuleSurface);
       // Radii, re-sent when a tube's caliber changed (they follow only these few model values).
       let reachGrew = false;
       const rkC = Object.values(rzOf()).map((x) => x.toFixed(4)).join('|') + '|' + G.W + 'x' + G.H + '|' + lymphOn, rk0 = rkC + '|' + (k * V.k).toFixed(3);
@@ -2611,6 +2613,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     }
     else if (glRows.size) { const rows = [...glRows]; glRows.clear(); if (!g.drawRows(T, look, blood, rows)) g.draw(T, look, blood); }
     else g.composite(look, blood);
+    if (gpuProbe.on) gpuProbe.note(COUNTED.lobulePicture);
   }
   const num = (cs, n, d) => { const v = parseFloat(cs.getPropertyValue(n)); return Number.isFinite(v) ? v : d; };
   let lookCs = null, lookNow = null, lookSig = '';
@@ -2641,6 +2644,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   const worldStateOf = (m, G, dark, cs) => [G.W, G.H, dark, qi(inkOf(m.mode, 'pv')), m.zone.pre.toFixed(2), m.zone.sin.toFixed(2), m.zone.post.toFixed(2), m.s.toFixed(2), congKey(m), m.hide, zonesOn, cs.getPropertyValue('--bg')].join('|');
   // The lobule in world space, painted into cv at sc px per world unit (its box: 1.3 R about the centre each way).
   function paintWorld(cv, sc, m, G, dark, cs) {
+    if (gpuProbe.on) gpuProbe.note(COUNTED.tissue);
     const v = (n, d) => cs.getPropertyValue(n).trim() || d, bg = v('--stage-bg', v('--bg'));
     const B = 1.3 * G.R, bx = G.cx - B, by = G.cy - B, n = Math.ceil(2 * B * sc);
     if (cv.width !== n || cv.height !== n) { cv.width = n; cv.height = n; }

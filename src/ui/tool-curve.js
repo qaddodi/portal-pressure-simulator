@@ -15,7 +15,7 @@
 // its curve). No marks where the lines cross a cut-off (Mohammad, 19 Oct: the dotted drop lines taken out).
 
 import { TILE, SCALE, RATE } from './table-marks.js?v=b717587a61';
-import { frameFor } from './frame.js?v=3dd403a11f';
+import { frameFor } from './frame.js?v=226365e6e2';
 const nextFrame = frameFor('tool-curve');
 
 const clamp = (x, a, b) => Math.max(a, Math.min(b, x));

@@ -3,6 +3,24 @@
 // work rather than the moment the call was queued. That slows the page, so it is only for measuring. A step timed without a
 // context (gl null) is the page's own script time.
 const ORGANS_Q = typeof location !== 'undefined' ? location.search.match(/[?&]gpuorgans=(0|1|force)\b/)?.[1] : null;
+/**
+ * The notes the ?perf readout totals over a gesture's window (perf-readout.js), by fixed name so the totals stay a few dozen numbers:
+ * what the vessel layer did (a whole draw and why, a pan shift, rows redrawn), what each surface submitted, what was uploaded,
+ * and the work a moving camera should not need (a surface pass, a label solve, a safe-area scan). `twice`: the names whose
+ * second note inside one frame is a surface drawn twice in it.
+ */
+export const COUNTED = {
+  whole: 'vessels: whole draw', wholeWhy: 'vessels: whole draw because ', pan: 'vessels: pan shift', rows: 'vessels: rows redrawn',
+  picture: 'picture: drawn', pictureWhole: 'picture: whole', organs: 'organ layers: rendered',
+  glassDrawn: 'glass: drawn', glassCopy: 'glass: figure copied', glassSkip: 'glass: copy skipped (figure unchanged)',
+  lobulePicture: 'lobule: vessels drawn', lobuleSurface: 'lobule: surface pass', lobuleSkip: 'lobule: surface pass skipped (camera only)',
+  tissue: 'tissue: bitmap painted', ductules: 'lobule: ductules drawn',
+  labelSolve: 'labels: solved', labelCarry: 'labels: carried', safe: 'safe area: cards measured',
+};
+/** The counted names whose count above 1 in one frame means a surface drawn twice in it. */
+export const TWICE = new Set([COUNTED.picture, COUNTED.glassDrawn, COUNTED.lobulePicture]);
+/** Why a whole draw happened, as counted: the reasons are this fixed list. */
+export const WHY = ['no kept layer', 'radii changed', 'look changed', 'same place', 'moved too far', 'zoom or turn', 'tubes changed'];
 export const gpuProbe = {
   on: false,
   // Script time only (the ?perf readout, perf-readout.js): no wait for the GPU, so the page runs as it does for everyone.

@@ -4,10 +4,10 @@
 // (params.thrombus and params.stenosis for the vessel, combined as engine.js occlusion), so it moves with a clot-size slider,
 // a compare button or the days of anticoagulation, easing from one state to the next.
 
-import { h, clamp } from './util.js?v=1176d4c92c';
+import { h, clamp } from './util.js?v=d872252ef8';
 import { EDGES } from '../engine/topology.js?v=4044766e96';
 import { store } from './store.js?v=926dabfaef';
-import { frameFor } from './frame.js?v=3dd403a11f';
+import { frameFor } from './frame.js?v=226365e6e2';
 const nextFrame = frameFor('lumen');
 
 const STENTS = new Set(['TIPS', 'DIPS']);

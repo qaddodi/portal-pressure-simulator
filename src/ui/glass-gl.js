@@ -8,6 +8,8 @@
 // Off (the browser's glass, as before): no WebGL2, a software renderer, ?gpulabels=0, Settings' blur effect off, reduced
 // transparency, a browser without backdrop blur (whose solid card stays), or a copy the browser refuses.
 
+import { gpuProbe, COUNTED } from './gpu-probe.js?v=c66f99a23a';
+
 /** The CSS glass this draws (app.css .cl-glass: blur(16px) saturate(1.15) over 58 % of --surface). */
 export const GLASS = { blur: 16, sat: 1.15, tint: 0.58 };
 /** The liver label's pane (app.css .lb-glass: blur(9px) saturate(1.2) over --frost, its corners its border radius). */
@@ -180,6 +182,7 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
     const kx = source.width / sr.width, ky = source.height / sr.height;
     const bw = Math.max(1, Math.ceil(reg.w / SCALE)), bh = Math.max(1, Math.ceil(reg.h / SCALE));
     pending = true;
+    if (gpuProbe.on) gpuProbe.note(COUNTED.glassCopy);
     let p;
     try {
       p = createImageBitmap(source, Math.round((reg.x + cr.left - sr.left) * kx), Math.round((reg.y + cr.top - sr.top) * ky), Math.max(1, Math.round(reg.w * kx)), Math.max(1, Math.round(reg.h * ky)),
@@ -254,6 +257,7 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
     }
     // (Until the first copy is in, the browser's own glass stays.)
     if (!ready) return panes.length > 0;
+    if (gpuProbe.on) gpuProbe.note(COUNTED.glassDrawn);
     gl.viewport(0, 0, W, H); gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT);
     gl.useProgram(pprog); gl.bindVertexArray(vao);
     gl.enable(gl.BLEND); gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
