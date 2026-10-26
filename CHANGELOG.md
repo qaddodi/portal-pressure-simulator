@@ -2,6 +2,13 @@
 
 ## October 2026
 
+- **The six site ladders (Sites 10 of 12, Where-resistance 14) draw their six charts larger on a Mac and an iPad on its side.** (Mohammad, 26 Oct: "this slide could use larger
+  diagrams please", a Mac at 1877 x 1137 with empty margins at the sides and under the cards.) The card is no longer held to 1560 px: it takes the screen between the one margin at
+  each side (only a screen wider than 2.2 : 1 holds it, so a cell never becomes a strip), and the room it spent round the charts goes to them: the side and foot padding, the gap under
+  the title, the gaps between the cells and the padding inside each are shorter, all tied to the screen height as before. A chart's plot at 1877 x 1137 goes from about 434 x 374 px to
+  539 x 400; at 1440 x 900 and on an iPad at 1180 x 820 it gains about 7% each way. Three cells by two, the card's one margin, the room above the nav pill, the title's room under the
+  tab, the 12 px floor, whole-number brackets and the charts' own lettering are as before; a phone, upright or on its side, and a tablet held upright keep their layout. Code and unit
+  tests only; nobody has looked on screen. `styles/app.css` (`.pz-panel.fill`), `tests/ladders-wide.test.js`.
 - **The lobules around the one in focus are grey in every lens but Pressure, like the liver they come from.** (Mohammad, 26 Oct: "when zooming out of a gray liver in the decks or
   elsewhere when we're choosing a different lens than pressure; the surrounding lobules should also be gray as the color of the liver".) In Colored by oxygen, Blood origin, change
   and the other lenses the organs in the anatomy are grey, but the neighbouring lobules kept the pressure lens's pinks: the field that comes in through the dive and the way out, the
