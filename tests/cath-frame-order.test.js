@@ -31,6 +31,7 @@ test('a late callback runs after every other callback of its frame, once; asked 
 });
 
 test('the figure renders as the frame\'s last callback, and the camera paths no longer draw the vessels themselves', () => {
+  assert.match(stage, /^import \{ frameFor, lateFrameFor, cancelFrame,/m);
   assert.match(stage, /const drawFrame = lateFrameFor\('stage'\);/);
   assert.doesNotMatch(stage, /nextFrame\(animate\)/);
   assert.match(stage, /function animate\(now\) \{\n {4}cathLabelsNow\(\);/);
