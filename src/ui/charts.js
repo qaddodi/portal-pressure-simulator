@@ -9,7 +9,7 @@ import { frameFor, cancelFrame, paceMs } from './frame.js?v=39b0efa1db';
 import { tenthGap } from '../engine/gap.js?v=3aabfbb29b';
 import { shownOr } from './shown.js?v=82ef5e29ec';
 import { monotoneSegs, curveTester } from './curve-near.js?v=9ff15157e9';
-import { glideMoving } from './idle-keys.js?v=4b46e6a6ef';
+import { glideMoving } from './idle-keys.js?v=6eccd5d85a';
 const nextFrame = frameFor('charts');
 
 const NI = Object.fromEntries(NODES.map((n, i) => [n.id, i]));

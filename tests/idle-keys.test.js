@@ -90,6 +90,31 @@ test('the layout watch is due from a change until it has settled, and not on unc
   w.touch(); assert.equal(w.due(), true);
 });
 
+test('records an observer delivers to its callback count, with those still queued after them', () => {
+  let t = 0;
+  const { MO, RO, mos } = fakes();
+  const card = { ...el({ class: 'card' }), matches: (s) => s.includes('[data-safe]'), querySelector: () => null, closest: () => card };
+  const root = { querySelectorAll: () => [card], ownerDocument: { addEventListener() {} } };
+  const w = createLayoutWatch({ root, now: () => t, settle: 2500, MO, RO, exclude: () => false });
+  const [groupMO, pageMO] = mos;
+  t = 3000; assert.equal(w.due(), false);
+  // A card opening, delivered to the callback (no longer queued for takeRecords) before the next check.
+  card.attrs.class = 'card open';
+  pageMO.cb([rec(card, 'class', 'card')]);
+  assert.equal(w.due(), true, 'a delivered page change is not dropped');
+  t = 6000; assert.equal(w.due(), false);
+  // A delivered change and a queued one that undoes it: no net change.
+  const g = el({ transform: 'scale(1)' });
+  g.attrs.transform = 'scale(1)';
+  groupMO.q.push(rec(g, 'transform', 'scale(2)'));
+  groupMO.cb([rec(g, 'transform', 'scale(1)')]);
+  assert.equal(w.due(), false, 'delivered first, queued after: the first record holds the value before the batch');
+  // A delivered group change.
+  g.attrs.transform = 'scale(1.1)';
+  groupMO.cb([rec(g, 'transform', 'scale(1)')]);
+  t = 6001; assert.equal(w.due(), true, 'a delivered group change is not dropped');
+});
+
 test('a transition that moves no box leaves the watch settled; one that moves a placed piece makes it due', () => {
   let t = 0;
   const { MO, RO } = fakes();

@@ -5,18 +5,18 @@ import { store, hiddenNow } from './store.js?v=926dabfaef';
 import { EDGES } from '../engine/topology.js?v=4044766e96';
 import { h, fmt, svgIcon, closePopover, clamp, shownOf, isPhoneLayout, SIDEWAYS_MQ, swapFade, scrollBehavior, countTo, swapText, glideOnResize } from './util.js?v=29a9d1a27d';
 import { lobuleFlows } from './lobule-model.js?v=14aa3ece88';
-import { createProfile } from './charts.js?v=5e21f9ac80';
-import { createPressureTime } from './pressure-time.js?v=25fccd7525';
-import { createHvpgProcedure } from './hvpg-proc.js?v=3d81263025';
+import { createProfile } from './charts.js?v=fb7dd34960';
+import { createPressureTime } from './pressure-time.js?v=0969e07d87';
+import { createHvpgProcedure } from './hvpg-proc.js?v=d6e505d982';
 import { lazyPane, holdUntilLoaded } from './lazy-pane.js?v=88097e8ff2';
 import { ownsSideways, pageGo } from './swipe.js?v=3ad619631e';
-import { createEndoscopy, createVarixWall, createAbdomen } from './instruments.js?v=b30bea3ac8';
+import { createEndoscopy, createVarixWall, createAbdomen } from './instruments.js?v=1f7aa32dea';
 import { createReadoutsPane } from './readouts-pane.js?v=eb803ea5fd';
 import { frameFor } from './frame.js?v=39b0efa1db';
 import { vitalReading, VITALS } from './vital-read.js?v=cbba41a6b7';
 import { setShown } from './shown.js?v=82ef5e29ec';
 import { tenthGap } from '../engine/gap.js?v=3aabfbb29b';
-import { compareRows } from './idle-keys.js?v=4b46e6a6ef';
+import { compareRows } from './idle-keys.js?v=6eccd5d85a';
 const nextFrame = frameFor('dock');
 
 // A number that changes rewrites its text node in place (setting textContent replaces the node: a DOM rebuild per paint).

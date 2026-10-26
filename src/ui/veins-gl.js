@@ -38,7 +38,7 @@ import { LUMEN, STO_Y0, STO_DY, STO_N } from './stomach-lumen.js?v=4fce52c62f';
 import { CELL, ENT_W, binVeins, splitRows, simpleCells, splitCells } from './veins-bin.js?v=d5372c91f9';
 import { gpuProbe, COUNTED } from './gpu-probe.js?v=caac436485';
 import { changedRows } from './flow-rows.js?v=bea4089714';
-import { createOrganStack } from './organs-gl.js?v=50a7580426';
+import { createOrganStack } from './organs-gl.js?v=12b187850f';
 import { NOISE_W, NOISE_H, NOISE_PER_ROW, OCTAVES, noiseBlock, blockAt, tableSize } from './blood-noise.js?v=bc65994b25';
 
 export { binVeins };

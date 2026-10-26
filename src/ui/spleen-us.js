@@ -4,7 +4,7 @@
 // does. It redraws only when the length changes by 0.1 cm and eases between. The platelets go in the slide's tile, not in the picture.
 
 import { h, fitCanvas, clamp, cssAlpha, cssVar } from './util.js?v=29a9d1a27d';
-import { FONT } from './charts.js?v=5e21f9ac80';
+import { FONT } from './charts.js?v=fb7dd34960';
 import { frameFor, cancelFrame } from './frame.js?v=39b0efa1db';
 const nextFrame = frameFor('spleen-us');
 

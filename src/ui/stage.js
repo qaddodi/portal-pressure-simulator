@@ -31,12 +31,12 @@ import { warmVisible, ringGrid, inGrid } from './warm-vis.js?v=ccf4f6f71b';
 import { createRouter } from './circuit-router.js?v=0ee9e02fc6';
 import { gpuProbe, COUNTED } from './gpu-probe.js?v=caac436485';
 import { plateStrips, premultiply, gutStep, viewReuse, copyPixels } from './plate-upload.js?v=5fc45556a1';
-import { cropToGrid } from './organs-gl.js?v=50a7580426';
+import { cropToGrid } from './organs-gl.js?v=12b187850f';
 import { readGroup, shapeSource, bindShape, targetRoom } from './organ-paint.js?v=1250d7cb89';
 import { pathCmds, flattenCmds, polyBox } from './shape-gl.js?v=a5ba46162b';
 import { createLabelGL } from './label-gl.js?v=ec410bafb6';
 import { createGlassGL } from './glass-gl.js?v=d04fde6f37';
-import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, ORIGIN_GREY } from './veins-gl.js?v=f158efd2c5';
+import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, ORIGIN_GREY } from './veins-gl.js?v=edd1d858c6';
 import { varixBead, beadRadius } from './varix-bead.js?v=ac0e84fd89';
 import { advanceStream, createReversalHold, bleedShapes, stepBleedFade, fadeBleedShapes, chevFlowLevel, keyChevron, KEY_CHEV_LANES, originFractions, oxygenFor, ORIGIN_N, createBolus, DYE_BINS, KAPPA, STASIS_MIN_D, HIDDEN_SECONDS } from './blood.js?v=7fa561f952';
 import { retireRows } from './flow-rows.js?v=bea4089714';
@@ -48,7 +48,7 @@ import { hashSeed, clotSide, clotSpan, clotRadius, clotShift, clotLayers, CLOT_E
 import { leaderEnd as edgeOf, leaderEndRects as edgeOfRects } from './leader-end.js?v=8e884700ab';
 import { balloonRy, balloonOutline, routeRadii } from './hvpg-balloon.js?v=35d7bb162c';
 import { outlineBox, placeSummary } from './cath-place.js?v=b5835a19ca';
-import { layoutWatch } from './idle-keys.js?v=4b46e6a6ef';
+import { layoutWatch } from './idle-keys.js?v=6eccd5d85a';
 import { writeGlowTexels } from './glow-texels.js?v=e578794a92';
 import { SIN_PERFUSION, sinStrandRadius } from './sin-perfusion.js?v=25a8407fdd';
 import { wavePacks, paintWave } from './scan-waves.js?v=066db7aa38';
@@ -2180,7 +2180,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const lzAnchor = document.createComment('lobule');
   wrap.append(lzAnchor);
   // (The code is fetched as soon as the figure is shown; the layer is built a moment later, when the page is quiet, or at once for a dive.)
-  const lobuleCode = () => (lzCode ||= import('./lobule-zoom.js?v=9da381c243').catch((err) => { lzCode = null; throw err; }));
+  const lobuleCode = () => (lzCode ||= import('./lobule-zoom.js?v=1e285ef7e2').catch((err) => { lzCode = null; throw err; }));
   function lobuleReady() {
     return (lzLoad ||= lobuleCode().then(({ createLobuleZoom }) => {
       lz = createLobuleZoom({ host: wrap, styles: wrapCS, before: lzAnchor });
@@ -2228,13 +2228,23 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   });
   wrap.dataset.quality = String(quality);
   wrap.dataset.renderer = SOFTWARE ? 'software' : 'gpu';
-  let vdpr = 1;
+  let vdpr = 1, boxW = -1, boxH = -1;
   function resizeCanvas() {
-    const r = wrap.getBoundingClientRect();
+    const r = wrap.getBoundingClientRect(), was = vdpr;
     vdpr = Math.min(2, devicePixelRatio || 1) * QUALITY[quality].res;
     wrap.dataset.res = vdpr.toFixed(2);   // (the vessel canvas's pixels per CSS pixel, for diagnosis)
-    vCanvas.width = Math.max(1, Math.round(r.width * vdpr)); vCanvas.height = Math.max(1, Math.round(r.height * vdpr));
+    const bw = Math.max(1, Math.round(r.width * vdpr)), bh = Math.max(1, Math.round(r.height * vdpr));
     wrap.classList.toggle('compact', r.height < 600);
+    // A notice that changed nothing the buffer holds (same backing size and ratio) leaves the canvas as it is: assigning a
+    // width, even the same one, clears every surface drawn on it, and the figure was drawn again in the same task. A box
+    // that moved by less than a backing pixel is drawn again on the next frame, as any change is, without the clear.
+    if (resizeReady && bw === vCanvas.width && bh === vCanvas.height && vdpr === was) {
+      CTM = null;
+      if (r.width !== boxW || r.height !== boxH) { boxW = r.width; boxH = r.height; forceDraw = true; stageWake(); }
+      return;
+    }
+    boxW = r.width; boxH = r.height;
+    vCanvas.width = bw; vCanvas.height = bh;
     CTM = null; forceDraw = true; stageWake();
     // Resizing clears the canvas, and the organs (the plate) and vessels drawn on it with it: draw
     // them again in the same task. A pinch or a layout change can land after this frame's draw
