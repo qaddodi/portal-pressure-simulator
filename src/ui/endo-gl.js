@@ -8,6 +8,7 @@
 
 import { cssRGB } from './util.js?v=d872252ef8';
 import { columnConsts } from './endo-columns.js?v=381d1443b7';
+import { startProgram, checkProgram, exerciseDraw, publishWhenDone } from './gl-compile.js?v=594ea2027c';
 
 const VS = 'attribute vec2 p; void main(){ gl_Position = vec4(p, 0.0, 1.0); }';
 // The colours are tokens (--endo-* in styles/tokens.css), written into the shader when it is built.
@@ -198,27 +199,38 @@ export function createEndoGL() {
   const cv = document.createElement('canvas');
   const gl = cv.getContext('webgl', { antialias: false, alpha: true, premultipliedAlpha: true, preserveDrawingBuffer: false });
   if (!gl) return null;
-  const sh = (type, src) => { const s = gl.createShader(type); gl.shaderSource(s, src); gl.compileShader(s); return gl.getShaderParameter(s, gl.COMPILE_STATUS) ? s : null; };
-  const vs = sh(gl.VERTEX_SHADER, VS), fs = sh(gl.FRAGMENT_SHADER, FS());
-  if (!vs || !fs) return null;
-  const pr = gl.createProgram(); gl.attachShader(pr, vs); gl.attachShader(pr, fs); gl.linkProgram(pr);
-  if (!gl.getProgramParameter(pr, gl.LINK_STATUS)) return null;
-  gl.useProgram(pr);
+  // Started now, published when the driver has finished it (gl-compile.js; this shader is the longest in the app); ready() publishes it
+  // at once if a render comes first, and says false if it failed (the CPU renderer then draws the field, as with no WebGL).
+  let started;
+  try { started = startProgram(gl, VS, FS(), [['p', 0]]); } catch { return null; }
   const buf = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, buf);
   gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 3, -1, -1, 3]), gl.STATIC_DRAW);
-  const loc = gl.getAttribLocation(pr, 'p'); gl.enableVertexAttribArray(loc); gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);
-  const U = (n) => gl.getUniformLocation(pr, n);
-  const u = { size: U('uSize'), grow: U('uGrow'), vis: U('uVis'), red: U('uRed'), c0: U('uC0'), c1: U('uC1'), def: U('uDef'), kn: U('uKn') };
+  gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
+  let u = null, failed = false;
   const { c0, c1 } = columnConsts();
-  gl.uniform4fv(u.c0, new Float32Array(c0)); gl.uniform4fv(u.c1, new Float32Array(c1));
+  function publish() {
+    if (u || failed) return;
+    try {
+      const pr = checkProgram(gl, started);
+      gl.useProgram(pr);
+      const U = (n) => gl.getUniformLocation(pr, n);
+      u = { size: U('uSize'), grow: U('uGrow'), vis: U('uVis'), red: U('uRed'), c0: U('uC0'), c1: U('uC1'), def: U('uDef'), kn: U('uKn') };
+      gl.uniform4fv(u.c0, new Float32Array(c0)); gl.uniform4fv(u.c1, new Float32Array(c1));
+      exerciseDraw(gl, () => { gl.uniform1f(u.size, 1); gl.drawArrays(gl.TRIANGLES, 0, 3); });
+    } catch { failed = true; u = null; }
+  }
+  publishWhenDone(gl, [started], publish);
   return {
     canvas: cv,
+    /** True once the shader is published (waiting for it if it is not yet); false if it failed. */
+    ready() { publish(); return !!u; },
     /** Free the GL context now (a presenter copy that is done), rather than whenever the browser gets to it. */
     dispose() { gl.getExtension('WEBGL_lose_context')?.loseContext(); cv.width = cv.height = 0; },
     // Raw RGBA of the last frame (for tests).
     pixels() { const n = cv.width, a = new Uint8Array(n * n * 4); gl.readPixels(0, 0, n, n, gl.RGBA, gl.UNSIGNED_BYTE, a); return a; },
     // st: { grow, vis, red (0..1 red-sign strength), def: [4], kn: [16] }; draws into the shared canvas at res x res.
     render(res, st) {
+      publish();
       if (cv.width !== res) { cv.width = cv.height = res; }
       gl.viewport(0, 0, res, res);
       gl.uniform1f(u.size, res); gl.uniform1f(u.grow, st.grow); gl.uniform1f(u.vis, st.vis); gl.uniform1f(u.red, +st.red || 0);

@@ -74,5 +74,5 @@ test('stage.js reads the outlines through the pieces, kept by path, and the Dopp
   assert.match(stage, /const pieces = pathPieces\(src\);/);
   assert.match(stage, /if \(olLocalMemo\.size >= 48\) olLocalMemo\.delete/);
   const gl = readFileSync(new URL('../src/ui/doppler-gl.js', import.meta.url), 'utf8');
-  assert.match(gl, /gl\.viewport\(0, 0, 1, 1\); gl\.useProgram\(prog\);/);
+  assert.match(gl, /exerciseDraw\(gl, \(\) => \{\n\s+gl\.useProgram\(prog\);/);   // (one draw into a throwaway target once the program is published)
 });

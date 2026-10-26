@@ -483,28 +483,25 @@ void main() {
   o = vec4(c * a, a);
 }`;
 
+import { startProgram, checkProgram, exerciseDraw, publishWhenDone } from './gl-compile.js?v=594ea2027c';
+
 export function createSinusoidGL(canvas) {
   let gl = null;
   try { gl = canvas.getContext('webgl2', { alpha: true, premultipliedAlpha: true, antialias: false, depth: false, stencil: false }); } catch { gl = null; }
   if (!gl) return null;
-  const compile = (type, src) => {
-    const sh = gl.createShader(type);
-    gl.shaderSource(sh, src); gl.compileShader(sh);
-    if (!gl.getShaderParameter(sh, gl.COMPILE_STATUS) && !gl.isContextLost()) { console.error('sinusoid shader:', gl.getShaderInfoLog(sh)); return null; }
-    return sh;
-  };
-  const program = (vs, fs) => {
-    const p = gl.createProgram(), a = compile(gl.VERTEX_SHADER, vs), b = compile(gl.FRAGMENT_SHADER, fs);
-    if (!a || !b) return null;
-    gl.attachShader(p, a); gl.attachShader(p, b); gl.linkProgram(p);
-    if (!gl.getProgramParameter(p, gl.LINK_STATUS) && !gl.isContextLost()) { console.error('sinusoid program:', gl.getProgramInfoLog(p)); return null; }
-    const U = {}, n = gl.getProgramParameter(p, gl.ACTIVE_UNIFORMS);
+  // A program is started (compiled and linked, nothing read) and published later, when the driver has finished it (gl-compile.js).
+  const finish = (h) => {
+    try { checkProgram(gl, h); } catch (e) { if (!gl.isContextLost()) { console.error('sinusoid program:', e.message); return null; } }
+    const p = h.p, U = {}, n = gl.getProgramParameter(p, gl.ACTIVE_UNIFORMS);
     for (let i = 0; i < n; i++) { const nm = gl.getActiveUniform(p, i).name; U[nm] = gl.getUniformLocation(p, nm); }
     return { p, U };
   };
+  let pend = null;
+  const begin = () => { if (!pend) pend = [startProgram(gl, VS, FS), startProgram(gl, PVS, PFS)]; return pend; };
   let T, P, vao, pvao, pbuf;
   function init() {
-    T = program(VS, FS); P = program(PVS, PFS);
+    const [ht, hp] = begin();
+    T = finish(ht); P = finish(hp); pend = null;
     if (!T || !P) return false;
     vao = gl.createVertexArray(); gl.bindVertexArray(vao);
     const quad = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, quad);
@@ -515,14 +512,18 @@ export function createSinusoidGL(canvas) {
     gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 4, gl.FLOAT, false, 20, 0);
     gl.enableVertexAttribArray(1); gl.vertexAttribPointer(1, 1, gl.FLOAT, false, 20, 16);
     gl.bindVertexArray(null);
+    // One small offscreen draw of each, so the first real draw has no driver work left.
+    exerciseDraw(gl, () => { gl.useProgram(T.p); gl.bindVertexArray(vao); gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4); gl.useProgram(P.p); gl.bindVertexArray(pvao); gl.bindBuffer(gl.ARRAY_BUFFER, pbuf); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(5), gl.DYNAMIC_DRAW); gl.drawArrays(gl.POINTS, 0, 1); gl.bindVertexArray(null); });
     return true;
   }
-  // The shaders are compiled at the first idle moment after start-up, not during it (nothing shows the sinusoid that early), or at the
-  // first draw if that comes sooner.
+  // The shaders are started at the first idle moment after start-up, not during it (nothing shows the sinusoid that early), and
+  // published when the driver has finished them (polled from idle moments, never waited on); or at the first draw if that comes
+  // sooner, which waits for them as it always did.
   let ok = null;
   const ready = () => (ok === null ? (ok = init()) : ok);
-  if (window.requestIdleCallback) requestIdleCallback(ready, { timeout: 8000 }); else setTimeout(ready, 3000);
-  canvas.addEventListener('webglcontextlost', (e) => { e.preventDefault(); ok = false; });
+  const startLater = () => { if (ok === null) publishWhenDone(gl, begin(), ready); };
+  if (window.requestIdleCallback) requestIdleCallback(startLater, { timeout: 8000 }); else setTimeout(startLater, 3000);
+  canvas.addEventListener('webglcontextlost', (e) => { e.preventDefault(); ok = false; pend = null; });
   canvas.addEventListener('webglcontextrestored', () => { sent.clear(); ok = init(); });
   // A uniform keeps its value in its program, so one is sent only when it changes (most colours never do).
   const sent = new Map();

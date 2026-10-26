@@ -6,7 +6,7 @@ import { wallRead } from '../engine/wall-read.js?v=09449acd01';
 import { pressureColor } from './colormap.js?v=6b97bf1786';
 import { h, fmt, fitCanvas, cssVar, cssAlpha, clamp, icon } from './util.js?v=d872252ef8';
 import { simTime, isPaused } from './clock.js?v=5151312569';
-import { createEndoGL } from './endo-gl.js?v=07e966b9af';
+import { createEndoGL } from './endo-gl.js?v=49e9fe50fb';
 import { renderEndo } from './endo-render.js?v=22f2a8572a';
 import { endoGrow, airRatio, airFlat } from './endo-size.js?v=e0a58bf20e';
 import { DEFLATE_MS, BAND_MS, BAND_DELAY_MS, fadeIn, glide, scopeTear } from './endo-motion.js?v=31f1c312f7';
@@ -76,7 +76,8 @@ export function createEndoscopy({ onAction }) {
   // Rendered endoscopic view (see endo-render.js): a per-pixel 3D shading of the lumen with raised,
   // winding varices, drawn once per state into a cached bitmap, so it is perfectly steady. Balloon,
   // bleeding and the scope mask are drawn on top.
-  const gl = createEndoGL(), glOut = document.createElement('canvas');
+  let gl = createEndoGL();
+  const glOut = document.createElement('canvas');
   let peak = 0, peakRed = 0, an = null, lastT = 0, last = null, raf = 0, bleedLast = null, poolA = 0, cache = { key: '', img: null }, glKey = '', painted = '', mv = null, held = null, pinned = null;
   // A slide's options for this scope (configure, below): air, the air's pressure in the lumen in mmHg (the varix is drawn and measured as it is seen
   // at that pressure; the grade, the pressure inside it and the model are not touched); red, true or false (the red wale marks shown or hidden whatever
@@ -164,6 +165,7 @@ export function createEndoscopy({ onAction }) {
     if (busy && !raf && !isPaused()) raf = nextFrame(() => { raf = 0; if (last) draw(last.f, last.vx); });
     const res = clamp(Math.round(2 * R * (window.devicePixelRatio || 1)), 160, 480);
     let img;
+    if (gl && !gl.ready()) { gl.dispose(); gl = null; glKey = ''; }   // (its shader failed: the CPU renderer below, as with no WebGL)
     if (gl) {
       // Drawn once per state and kept as a 2D bitmap: a steady field costs no shader pass or GPU readback.
       // (Size, presence and stigmata redraw once they have moved a step and a half of 32 from the field shown, so a slow drift

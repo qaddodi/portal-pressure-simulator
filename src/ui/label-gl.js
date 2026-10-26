@@ -13,6 +13,7 @@
 // once the context is lost, the SVG draws them all, as it always has.
 
 import { frameFor, cancelFrame } from './frame.js?v=226365e6e2';
+import { startProgram, checkProgram } from './gl-compile.js?v=594ea2027c';
 import { createAtlasPacker, batchRuns } from './atlas-pack.js?v=43b8bc019d';
 
 const nextFrame = frameFor('labels-gl');
@@ -338,15 +339,6 @@ export function createLabelGL(svg, blocks, { software = false, off = false, mark
   let gl = null;
   try { gl = canvas.getContext('webgl2', { alpha: true, premultipliedAlpha: true, antialias: false, depth: false, stencil: false, failIfMajorPerformanceCaveat: true }); } catch { gl = null; }
   if (!gl) return null;
-  const sh = (type, src) => { const s = gl.createShader(type); gl.shaderSource(s, src); gl.compileShader(s); return s; };
-  const prog = gl.createProgram();
-  gl.attachShader(prog, sh(gl.VERTEX_SHADER, VS)); gl.attachShader(prog, sh(gl.FRAGMENT_SHADER, FS)); gl.linkProgram(prog);
-  if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) return null;
-  const U = Object.fromEntries(['uR', 'uView', 'uT', 'uA'].map((k) => [k, gl.getUniformLocation(prog, k)]));
-  const mprog = gl.createProgram();
-  gl.attachShader(mprog, sh(gl.VERTEX_SHADER, MVS)); gl.attachShader(mprog, sh(gl.FRAGMENT_SHADER, MFS)); gl.linkProgram(mprog);
-  if (!gl.getProgramParameter(mprog, gl.LINK_STATUS)) return null;
-  const MU = Object.fromEntries(['uBox', 'uView', 'uKind', 'uGeo', 'uW', 'uDash', 'uStroke', 'uFill', 'uA', 'uT0', 'uT1', 'uT2', 'uG', 'uS0', 'uS1', 'uS2', 'uSO', 'uR4'].map((k) => [k, gl.getUniformLocation(mprog, k)]));
   // A picture turned on the GPU, sampled smoothly: only for what is soft anyway (the FibroScan's blurred beam), never for words.
   const RVS = `#version 300 es
 uniform vec2 uView, uP, uS;   // the pivot (device px), the picture's size (device px)
@@ -367,9 +359,12 @@ uniform float uA;
 in vec2 vUV;
 out vec4 o;
 void main() { o = texture(uT, vUV) * uA; }`;
-  const rprog = gl.createProgram();
-  gl.attachShader(rprog, sh(gl.VERTEX_SHADER, RVS)); gl.attachShader(rprog, sh(gl.FRAGMENT_SHADER, RFS)); gl.linkProgram(rprog);
-  if (!gl.getProgramParameter(rprog, gl.LINK_STATUS)) return null;
+  // All three programs are started before any is read, so the driver compiles them side by side (gl-compile.js).
+  const hp = startProgram(gl, VS, FS), hm = startProgram(gl, MVS, MFS), hr = startProgram(gl, RVS, RFS);
+  let prog, mprog, rprog;
+  try { prog = checkProgram(gl, hp); mprog = checkProgram(gl, hm); rprog = checkProgram(gl, hr); } catch { return null; }
+  const U = Object.fromEntries(['uR', 'uView', 'uT', 'uA'].map((k) => [k, gl.getUniformLocation(prog, k)]));
+  const MU = Object.fromEntries(['uBox', 'uView', 'uKind', 'uGeo', 'uW', 'uDash', 'uStroke', 'uFill', 'uA', 'uT0', 'uT1', 'uT2', 'uG', 'uS0', 'uS1', 'uS2', 'uSO', 'uR4'].map((k) => [k, gl.getUniformLocation(mprog, k)]));
   const RU = Object.fromEntries(['uView', 'uP', 'uS', 'uO', 'uAng', 'uT', 'uA'].map((k) => [k, gl.getUniformLocation(rprog, k)]));
   const vao = gl.createVertexArray();
   // The atlas: pages of pictures (each a square texture, at most two), and the instance list drawn from them.

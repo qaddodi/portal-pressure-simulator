@@ -11,6 +11,8 @@
 // Without WebGL2 (or on a software renderer, or once the context is lost) createTissueGL returns null / reports lost, and the
 // tissue is drawn on the 2D canvas as before.
 
+import { startProgram, checkProgram, exerciseDraw, publishWhenDone } from './gl-compile.js?v=594ea2027c';
+
 const VS = `#version 300 es
 in vec2 p;
 void main() { gl_Position = vec4(p, 0.0, 1.0); }`;
@@ -50,21 +52,13 @@ export function createTissueGL(canvas) {
   let gl = null;
   try { gl = canvas.getContext('webgl2', { alpha: false, premultipliedAlpha: true, antialias: false, depth: false, stencil: false, failIfMajorPerformanceCaveat: true }); } catch { gl = null; }
   if (!gl) return null;
-  const sh = (type, src) => { const s = gl.createShader(type); gl.shaderSource(s, src); gl.compileShader(s); if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(s)); return s; };
-  let prog;
-  try {
-    prog = gl.createProgram();
-    gl.attachShader(prog, sh(gl.VERTEX_SHADER, VS)); gl.attachShader(prog, sh(gl.FRAGMENT_SHADER, FS));
-    gl.bindAttribLocation(prog, 0, 'p'); gl.linkProgram(prog);
-    if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(prog));
-  } catch (err) { console.warn('The lobule tissue falls back to the 2D canvas.', err); gl.getExtension('WEBGL_lose_context')?.loseContext(); return null; }
-  const U = Object.fromEntries(['uQA', 'uQB', 'uQO', 'uW', 'uWO', 'uMix', 'uQOld', 'uO', 'uRd', 'uH', 'uRect', 'uWMix', 'uFade', 'uMid', 'uBg'].map((n) => [n, gl.getUniformLocation(prog, n)]));
+  // The program is started here and published once the driver has finished it (gl-compile.js); a draw that comes first publishes it.
+  let started;
+  try { started = startProgram(gl, VS, FS, [['p', 0]]); } catch (err) { console.warn('The lobule tissue falls back to the 2D canvas.', err); gl.getExtension('WEBGL_lose_context')?.loseContext(); return null; }
   const buf = gl.createBuffer();
   gl.bindBuffer(gl.ARRAY_BUFFER, buf);
   gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 3, -1, -1, 3]), gl.STATIC_DRAW);   // one triangle over the whole canvas
   gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
-  gl.useProgram(prog);
-  gl.uniform1i(U.uQA, 0); gl.uniform1i(U.uQB, 1); gl.uniform1i(U.uQO, 2); gl.uniform1i(U.uW, 3); gl.uniform1i(U.uWO, 4);
   gl.disable(gl.BLEND); gl.disable(gl.DEPTH_TEST);
   // (A 1 px clear texture for a bitmap or tile not given: every sampler is bound to something.)
   const none = gl.createTexture();
@@ -73,6 +67,19 @@ export function createTissueGL(canvas) {
 
   let lost = false;
   canvas.addEventListener('webglcontextlost', (e) => { lost = true; texs.clear(); e.preventDefault?.(); });
+  let prog = null, U = null, failed = false;
+  // Reads the finished program, sets its samplers and runs one small offscreen draw, so the first real draw has no driver work left.
+  function publish() {
+    if (prog || failed || lost) return;
+    try {
+      prog = checkProgram(gl, started);
+      U = Object.fromEntries(['uQA', 'uQB', 'uQO', 'uW', 'uWO', 'uMix', 'uQOld', 'uO', 'uRd', 'uH', 'uRect', 'uWMix', 'uFade', 'uMid', 'uBg'].map((n) => [n, gl.getUniformLocation(prog, n)]));
+      gl.useProgram(prog);
+      gl.uniform1i(U.uQA, 0); gl.uniform1i(U.uQB, 1); gl.uniform1i(U.uQO, 2); gl.uniform1i(U.uW, 3); gl.uniform1i(U.uWO, 4);
+      exerciseDraw(gl, () => gl.drawArrays(gl.TRIANGLES, 0, 3));
+    } catch (err) { failed = true; console.warn('The lobule tissue falls back to the 2D canvas.', err); gl.getExtension('WEBGL_lose_context')?.loseContext(); }
+  }
+  publishWhenDone(gl, [started], publish);
   // A canvas's texture, sent again only when the canvas was painted again (ver, the caller's count of its paints) or resized.
   // Tiles repeat; the lobule's bitmap is premultiplied (as the 2D canvas lays it) and stops at its edges.
   const texs = new Map();
@@ -91,7 +98,7 @@ export function createTissueGL(canvas) {
     return t.tex;
   }
   return {
-    get lost() { return lost || gl.isContextLost(); },
+    get lost() { return lost || failed || gl.isContextLost(); },
     /** Sends a canvas to the GPU now (painted ahead, so no frame of a gesture waits for it). */
     upload(cv, ver = 0, tile = false) { if (!this.lost && cv?.width) texFor(cv, ver, tile); },
     /** Gives back every texture whose canvas was given back (width 0) or is no longer wanted (keep(cv) false). */
@@ -102,6 +109,7 @@ export function createTissueGL(canvas) {
      *  the last state's tile and how much of it is left; w, wVer, wo, woVer, wMix: the bitmap, the last state's, the new one's share;
      *  rect: [x, y, side] of the bitmap; ox, oy, rd: the lobule's centre and radius; fade: [r0, r1]; mid: FADE_MID; bg: [r, g, b]. */
     draw({ W, H, qa, qb, mix, qo = null, qOld = 0, w, wVer, wo = null, woVer = 0, wMix = 1, rect, ox, oy, rd, fade, mid, bg }) {
+      publish();
       if (this.lost) return false;
       if (canvas.width !== W || canvas.height !== H) { canvas.width = W; canvas.height = H; }
       gl.viewport(0, 0, W, H);

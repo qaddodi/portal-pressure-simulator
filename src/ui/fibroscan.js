@@ -8,7 +8,7 @@ import { h, fitCanvas, clamp, cssAlpha } from './util.js?v=d872252ef8';
 import { FONT } from './charts.js?v=2572ff1cdd';
 import { simTime, isPaused, fibroReading } from './clock.js?v=5151312569';
 import { store } from './store.js?v=926dabfaef';
-import { elastogramGL } from './fibroscan-gl.js?v=0b98df8189';
+import { elastogramGL, prepareElastogramGL } from './fibroscan-gl.js?v=9341bad5de';
 import { frameFor, noteDraw, saver, paceMs } from './frame.js?v=226365e6e2';
 const nextFrame = frameFor('fibroscan');
 
@@ -98,6 +98,8 @@ function rrect(ctx, x, y, w, h2, r) {
 }
 
 export function createFibroScan() {
+  // (The map's shader is started at the next idle moment and compiles beside the page, not at the first map; a map that comes sooner starts it itself.)
+  (typeof requestIdleCallback === 'function' ? (f) => requestIdleCallback(f, { timeout: 1000 }) : (f) => setTimeout(f, 50))(() => prepareElastogramGL(fields()));
   const cv = h('canvas', { role: 'img', 'aria-label': 'Simulated FibroScan elastography panel, live' });
   const box = h('div', { class: 'chart-box fibroscan-box' }, cv);
   const note = h('p', { class: 'ctl-sub' }, 'A simulated FibroScan, live: the slope of the shear wave front gives its speed and so the stiffness. It is an estimate from the model, not a measurement. Normal is about 5 kPa; above 25 kPa with a low platelet count, clinically significant portal hypertension is near certain. A congested liver (heart, hepatic veins) is stiff too.');
