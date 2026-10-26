@@ -3,11 +3,12 @@
 
 import { startHost, host } from './host.js?v=7a3c034586';
 import { store, updateParams, replaceParams, bindParamSender, clearHistory, logAction, varicesPresent, hiddenNow } from './store.js?v=926dabfaef';
-import { createStage } from './stage.js?v=4aaa29821a';
+import { createStage } from './stage.js?v=2be6ab4eff';
 import { createCreditPlacer } from './credit.js?v=2c9b9a12fb';
+import { whenQuiet } from './quiet.js?v=82fc0f97e3';
 import { sinusoidSupported } from './gl-support.js?v=94ad2a7ff1';
 import { createInspector } from './inspector.js?v=0f73539042';
-import { createDock, CUTOFFS, savedInstruments } from './dock.js?v=b662fa3ed6';
+import { createDock, CUTOFFS, savedInstruments } from './dock.js?v=972e03e6b8';
 import { setHvpgStage } from './hvpg-proc.js?v=aac943246e';
 import { createWhy } from './why.js?v=afb11ea6f1';
 import { createTimeline, LAPSES } from './timeline.js?v=b8758d05dd';
@@ -103,8 +104,8 @@ async function main() {
   // The Doppler and the FibroScan load after the first paint (a tab for one that has not come waits for it, dock.js). One left open when the
   // app was last used is asked for now and waited for with the model's first answers, so its pane is whole with the dock.
   const probeTo = (id) => { host.send({ type: 'probe', id }); logAction('probe', id); };
-  dopplerL = lazy(() => import('./doppler.js?v=4c18365f0d'), ({ createDoppler }) => createDoppler({ onProbe: probeTo }));
-  fibroL = lazy(() => import('./fibroscan.js?v=893794bfa6'), ({ createFibroScan }) => createFibroScan());
+  dopplerL = lazy(() => import('./doppler.js?v=e8012967f2'), ({ createDoppler }) => createDoppler({ onProbe: probeTo }));
+  fibroL = lazy(() => import('./fibroscan.js?v=ab25616c91'), ({ createFibroScan }) => createFibroScan());
   const wasOpen = savedInstruments().open;
   const openAtStart = [];
   if (Array.isArray(wasOpen)) for (const [id, l] of [['doppler', dopplerL], ['fibroscan', fibroL]]) if (wasOpen.includes(id)) openAtStart.push(l.get().catch(() => {}));
@@ -177,7 +178,7 @@ async function main() {
   dock = createDock({ strip: $('#strip'), head: $('#dockHead'), body: $('#dockBody'), onWhy: (m, el) => why.open(m, el), onAction: doAction, onProbe: probeTo, lazy: { doppler: dopplerL, fibroscan: fibroL }, onReveal: revealDock, onLobule: () => zoomLobule('R'),
     onOpen: () => openPanel('instruments'), onClose: () => setPanelTab('chart'), onLayout: () => syncDoppler(), isVisible: () => app.classList.contains('dock-open'),
     marks: () => timeline.entries(), onBeat: () => sendBeat() });
-  presenterL = lazy(() => import('./presenter.js?v=3e991815d0'), ({ createPresenter }) => createPresenter({ openSettings, loadPreset, updateParams, host, stage, dock, action: doAction,
+  presenterL = lazy(() => import('./presenter.js?v=14a9df8aab'), ({ createPresenter }) => createPresenter({ openSettings, loadPreset, updateParams, host, stage, dock, action: doAction,
     projectorOn: () => { if (!projector) toggleProjector(); }, projectorOff: () => { if (projector) toggleProjector(); },
     closeHome: () => mainMenu.close(), stashCards, rerenderHome: () => mainMenu.render() }));
   mainMenu = createMenu({
@@ -307,8 +308,12 @@ async function main() {
     const reg = () => navigator.serviceWorker.register('sw.js').catch(() => { /* offline support is optional */ });
     if (window.ppsFigureReady) reg(); else addEventListener('pps:figure-ready', reg, { once: true });
   }
+  // The surfaces most sessions never open are fetched and read in once the page is idle, one at a time, each only after the page has been
+  // left alone for a moment (quiet.js): a module's read-in is tens of ms of script on a phone, and a timer alone put it in a pan or pinch.
   const idle = window.requestIdleCallback || ((fn) => setTimeout(fn, 1500));
-  setTimeout(() => idle(() => { paletteL.warm(); presenterL.warm(); idle(() => dock.load()); }), 3000);
+  const warmUp = [() => paletteL.warm(), () => presenterL.warm(), () => dock.load()];
+  const warmNext = () => { const step = warmUp.shift(); if (step) whenQuiet(() => idle(() => { step(); warmNext(); })); };
+  setTimeout(warmNext, 3000);
 }
 // Deep links, for an LMS or a syllabus: ?script=<id> (&slide=<n>), ?preset=<id>,
 // ?home=explore|present (the menu, open at Patients or Present). They open straight into that activity.

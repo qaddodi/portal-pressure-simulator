@@ -6,7 +6,7 @@
 // One small context serves every FibroScan panel: a map is drawn into it (resized to the map's size) and copied out
 // (drawImage) in the same task.
 
-import { startProgram, checkProgram, exerciseDraw, publishWhenDone } from './gl-compile.js?v=594ea2027c';
+import { startProgram, checkProgram, exerciseDraw, publishWhenDone } from './gl-compile.js?v=5c4cd6c14c';
 
 const VS = `#version 300 es
 in vec2 p;

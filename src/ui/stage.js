@@ -31,12 +31,13 @@ import { warmVisible, ringGrid, inGrid } from './warm-vis.js?v=ccf4f6f71b';
 import { createRouter } from './circuit-router.js?v=0ee9e02fc6';
 import { gpuProbe, COUNTED } from './gpu-probe.js?v=be7cefbb53';
 import { plateStrips, premultiply, gutStep, viewReuse, copyPixels } from './plate-upload.js?v=5fc45556a1';
+import { leftAlone, sinceInput } from './quiet.js?v=82fc0f97e3';
 import { cropToGrid } from './organs-gl.js?v=12b187850f';
 import { readGroup, shapeSource, bindShape, targetRoom } from './organ-paint.js?v=1250d7cb89';
 import { pathCmds, flattenCmds, polyBox } from './shape-gl.js?v=a5ba46162b';
-import { createLabelGL } from './label-gl.js?v=f25ffd5dd1';
+import { createLabelGL } from './label-gl.js?v=376b4038f8';
 import { createGlassGL } from './glass-gl.js?v=e16c44128f';
-import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, ORIGIN_GREY } from './veins-gl.js?v=367989da0e';
+import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, ORIGIN_GREY } from './veins-gl.js?v=aacda1b33d';
 import { varixBead, beadRadius } from './varix-bead.js?v=ac0e84fd89';
 import { advanceStream, createReversalHold, bleedShapes, stepBleedFade, fadeBleedShapes, chevFlowLevel, keyChevron, KEY_CHEV_LANES, originFractions, oxygenFor, ORIGIN_N, createBolus, DYE_BINS, KAPPA, STASIS_MIN_D, HIDDEN_SECONDS } from './blood.js?v=7fa561f952';
 import { retireRows } from './flow-rows.js?v=bea4089714';
@@ -2180,7 +2181,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const lzAnchor = document.createComment('lobule');
   wrap.append(lzAnchor);
   // (The code is fetched as soon as the figure is shown; the layer is built a moment later, when the page is quiet, or at once for a dive.)
-  const lobuleCode = () => (lzCode ||= import('./lobule-zoom.js?v=b723b76801').catch((err) => { lzCode = null; throw err; }));
+  const lobuleCode = () => (lzCode ||= import('./lobule-zoom.js?v=3fc40f957d').catch((err) => { lzCode = null; throw err; }));
   function lobuleReady() {
     return (lzLoad ||= lobuleCode().then(({ createLobuleZoom }) => {
       lz = createLobuleZoom({ host: wrap, styles: wrapCS, before: lzAnchor });
@@ -2429,19 +2430,10 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   let prepBusy = false, prepAt = 0;
   // A piece of the lobule's preparation takes tens of ms on a phone: it waits until the page has been left alone a moment
   // (no touch, wheel or key for 0.7 s), so it never lands in the middle of a pan, a pinch or a tap's response.
-  let inputAt = -1e9;
-  for (const ev of ['pointerdown', 'pointermove', 'wheel', 'keydown']) addEventListener(ev, (e) => { if (ev !== 'pointermove' || e.buttons) inputAt = performance.now(); }, { passive: true, capture: true });
-  // A finger or button still down, held still or not: the pictures made after a pan or pinch wait until it lifts (Mohammad, 21 Oct:
-  // "hitch as soon as I stop panning", finger still down). (A mouse let go outside the window is seen on its next move; a press
-  // held over 5 s with no input stops counting, so nothing waits for a lost release.)
-  const pressed = new Set();
-  addEventListener('pointerdown', (e) => pressed.add(e.pointerId), { passive: true, capture: true });
-  for (const ev of ['pointerup', 'pointercancel']) addEventListener(ev, (e) => pressed.delete(e.pointerId), { passive: true, capture: true });
-  addEventListener('pointermove', (e) => { if (!e.buttons) pressed.delete(e.pointerId); }, { passive: true, capture: true });
-  addEventListener('blur', () => pressed.clear());
-  const leftAlone = (ms) => !(pressed.size && performance.now() - inputAt < 5000) && performance.now() - inputAt >= ms;
+  // (One clock of input for the whole app: quiet.js. A finger or button still down, held still or not, keeps the pictures made after a
+  // pan or pinch waiting until it lifts (Mohammad, 21 Oct: "hitch as soon as I stop panning", finger still down).)
   const prepIdle = (fn) => {
-    const go = () => (performance.now() - inputAt < 700 ? setTimeout(go, 400) : window.requestIdleCallback ? requestIdleCallback(fn, { timeout: 600 }) : setTimeout(fn, 50));
+    const go = () => (sinceInput() < 700 ? setTimeout(go, 400) : window.requestIdleCallback ? requestIdleCallback(fn, { timeout: 600 }) : setTimeout(fn, 50));
     setTimeout(go, 0);
   };
   function prepLobule() {

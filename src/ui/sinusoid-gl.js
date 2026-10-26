@@ -483,7 +483,7 @@ void main() {
   o = vec4(c * a, a);
 }`;
 
-import { startProgram, checkProgram, exerciseDraw, publishWhenDone } from './gl-compile.js?v=594ea2027c';
+import { startProgram, checkProgram, exerciseDraw, publishWhenDone } from './gl-compile.js?v=5c4cd6c14c';
 
 export function createSinusoidGL(canvas) {
   let gl = null;

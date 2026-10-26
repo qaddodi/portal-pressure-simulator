@@ -223,7 +223,7 @@ test('the dock holds the two panes, loads them when the card opens, a tab is tou
   assert.match(dock, /if \(!preloaded && isVisible\(\)\) \{ preloaded = true; load\(\); \}/, 'asked for as the card opens');
   assert.match(dock, /for \(const ev of \['pointerenter', 'pointerdown', 'focus'\]\) b\.addEventListener\(ev, \(\) => byId\[id\]\.need\?\.\(\)\);/, 'and as a tab is reached');
   assert.match(dock, /function load\(\) \{ for \(const p of panes\) p\.need\?\.\(\); \}/);
-  assert.match(main, /idle\(\(\) => dock\.load\(\)\)/, 'the rest when the app is idle');
+  assert.match(main, /const warmUp = \[[^\n]*\(\) => dock\.load\(\)\];/, 'the rest when the app is idle (and left alone: quiet.js)');
   assert.match(main, /lazy: \{ doppler: dopplerL, fibroscan: fibroL \}/);
   assert.match(main, /if \(wasOpen\.includes\(id\)\) openAtStart\.push\(l\.get\(\)\.catch/, 'one left open last time is asked for at the start');
   assert.match(main, /Promise\.all\(\[host\.request\('healthyProfile'\), host\.request\('presets'\), \.\.\.openAtStart\]\)/, 'and waited for with the model\'s first answers, so its pane is whole with the dock');

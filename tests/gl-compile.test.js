@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { startProgram, compileDone, checkProgram, exerciseDraw, publishWhenDone } from '../src/ui/gl-compile.js';
+import { startProgram, compileDone, checkProgram, exerciseDraw, publishWhenDone, PUBLISH_QUIET_MS } from '../src/ui/gl-compile.js';
 
 // A GL stand-in that logs its calls; `done` is what COMPLETION_STATUS_KHR answers, `ext` whether the extension exists.
 function fakeGL({ ext = true, done = false, ok = true } = {}) {
@@ -72,6 +72,38 @@ test('a cancelled publish never runs', async () => {
   publishWhenDone(gl, [startProgram(gl, 'v', 'f')], () => { n++; })();
   await new Promise((r) => setTimeout(r, 120));
   assert.equal(n, 0);
+});
+
+test('a program that finishes mid gesture is published after it, once the page has been left alone, and the poll is not spent waiting', async () => {
+  const gl = fakeGL({ done: true });
+  const h = startProgram(gl, 'v', 'f');
+  let n = 0, calm = false;
+  const asked = [];
+  publishWhenDone(gl, [h], () => { n++; }, 1, (ms) => { asked.push(ms); return calm; });
+  await new Promise((r) => setTimeout(r, 150));
+  assert.equal(n, 0, 'not while a hand is on the figure');
+  assert.ok(asked.length > 1 && asked.every((ms) => ms === PUBLISH_QUIET_MS), 'asked again each idle moment, for the same quiet');
+  calm = true;
+  await new Promise((r) => setTimeout(r, 120));
+  assert.equal(n, 1, 'published once it was left alone, though only one poll for completion was allowed');
+  await new Promise((r) => setTimeout(r, 100));
+  assert.equal(n, 1);
+});
+
+test('the extension is asked for once per context where it exists', () => {
+  const gl = fakeGL();
+  let asks = 0;
+  const get = gl.getExtension;
+  gl.getExtension = (n) => { asks++; return get(n); };
+  const h = startProgram(gl, 'v', 'f');
+  compileDone(gl, h); compileDone(gl, h); startProgram(gl, 'v', 'f');
+  assert.equal(asks, 1);
+  const none = fakeGL({ ext: false });
+  let nAsks = 0;
+  const g2 = none.getExtension;
+  none.getExtension = (n) => { nAsks++; return g2(n); };
+  compileDone(none, h); compileDone(none, h);
+  assert.equal(nAsks, 2, 'a missing one is asked again (a context that came back from a loss may have it)');
 });
 
 // Where each module starts its programs and where it publishes them (source patterns: no GL in node).

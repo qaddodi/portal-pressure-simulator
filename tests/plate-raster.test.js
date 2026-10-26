@@ -90,9 +90,11 @@ test('after a pan at the same scale, of the same state, the view picture takes t
 
 test('the pictures made after a pan or pinch wait until the figure is let go', () => {
   // (Mohammad, 21 Oct: a hitch "as soon as I stop panning", finger still down; and 0.6 s after a pinch, as the menus faded in.)
-  assert.match(stage, /const leftAlone = \(ms\) => !\(pressed\.size && performance\.now\(\) - inputAt < 5000\) && performance\.now\(\) - inputAt >= ms;/);
-  assert.match(stage, /addEventListener\('pointerdown', \(e\) => pressed\.add\(e\.pointerId\), \{ passive: true, capture: true \}\);/);
-  assert.match(stage, /for \(const ev of \['pointerup', 'pointercancel'\]\) addEventListener\(ev, \(e\) => pressed\.delete\(e\.pointerId\)/);
+  // (The one clock of input is quiet.js now, read by the stage and everything else that waits for a gesture to end.)
+  const quiet = readFileSync(new URL('../src/ui/quiet.js', import.meta.url), 'utf8');
+  assert.match(quiet, /const leftAlone = \(ms\) => !\(pressed\.size && since\(\) < 5000\) && since\(\) >= ms;/);
+  assert.match(quiet, /on\('pointerdown', \(e\) => pressed\.add\(e\.pointerId\)\);/);
+  assert.match(quiet, /for \(const ev of \['pointerup', 'pointercancel'\]\) on\(ev, \(e\) => pressed\.delete\(e\.pointerId\)\);/);
   const sched = stage.slice(stage.indexOf('function schedulePlateView'), stage.indexOf('async function makeGutPic'));
   assert.match(sched, /if \(!leftAlone\(280\)\) \{ plateSettle = setTimeout\(settled, 120\); return; \}/);
   assert.match(sched, /const go = \(\) => \{ if \(!leftAlone\(1000\)\) \{ gutPicTimer = setTimeout\(go, 250\); return; \} makeGutPic\(\)/);

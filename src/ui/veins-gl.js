@@ -38,6 +38,8 @@ import { LUMEN, STO_Y0, STO_DY, STO_N } from './stomach-lumen.js?v=4fce52c62f';
 import { CELL, ENT_W, binVeins, splitRows, simpleCells, splitCells } from './veins-bin.js?v=d5372c91f9';
 import { gpuProbe, COUNTED } from './gpu-probe.js?v=be7cefbb53';
 import { changedRows } from './flow-rows.js?v=bea4089714';
+import { leftAlone } from './quiet.js?v=82fc0f97e3';
+import { PUBLISH_QUIET_MS } from './gl-compile.js?v=5c4cd6c14c';
 import { createOrganStack } from './organs-gl.js?v=12b187850f';
 import { NOISE_W, NOISE_H, NOISE_PER_ROW, OCTAVES, noiseBlock, blockAt, tableSize } from './blood-noise.js?v=bc65994b25';
 
@@ -2183,6 +2185,9 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false }) {
   }
   function prepare() {
     if (!later.length || lost) return;
+    // (Not mid pan or pinch: a finished program's publishing is its status read, a small draw and, for the one-vessel build, every
+    // cell uploaded again and the next frame whole. The general programs draw the same picture meanwhile.)
+    if (!leftAlone(PUBLISH_QUIET_MS)) return;
     for (const k of [...later]) {
       const sts = k === 'plain' ? [started.plain, started.plainCell] : [started.simple];
       if (!sts.every((st) => gl.getProgramParameter(st.p, pcx.COMPLETION_STATUS_KHR))) continue;
