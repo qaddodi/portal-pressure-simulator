@@ -7250,12 +7250,14 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   }
   // The camera for the procedure: the route, the tip close up, then back where it was.
   // both: the close-up holds the tip and the vein ahead of it, where the wedged reading hangs, inside the free space.
-  function cathFocus(mode, ms = 700, { both = false } = {}) {
+  // near: the route's framing for a catheter the view will follow in (cathFollow): 25% closer, the route's top held where it
+  // was, so the follow only pans (his pick, 26 Oct: zoom once, then pan; a zoom each frame redrew the whole vessel layer).
+  const FOLLOW_ZOOM = 1.25;
+  function cathFocus(mode, ms = 700, { both = false, near = false } = {}) {
     const r = cathRoute();
-    if (mode === 'home') { if (cath.saved) animateVT(cath.saved, ms); cath.saved = null; cath.k0 = 0; return true; }
+    if (mode === 'home') { if (cath.saved) animateVT(cath.saved, ms); cath.saved = null; return true; }
     if (!r) return false;
     if (!cath.saved) cath.saved = { ...(vtTarget && vtAnim ? vtTarget : vt) };
-    if (mode === 'route') cath.k0 = 0;
     const wr = wrap.getBoundingClientRect(), ins = safeInsets();
     const [fx0, fy0] = clientToVB(wr.left + ins.l, wr.top + ins.t), [fx1, fy1] = clientToVB(wr.left + ins.W - ins.r, wr.top + ins.H - ins.b);
     let cx, cy, k, cyScreen = (fy0 + fy1) / 2;
@@ -7291,6 +7293,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       const seg = cutLen(r.pts, r.cum, r.start * 0.5, r.hvEnd);
       const xs = seg.map((q) => q[0]), ys = seg.map((q) => q[1]), x0 = Math.min(...xs) - 30, x1 = Math.max(...xs) + 30, y0 = Math.min(...ys) - 30, y1 = Math.max(...ys) + 30;
       cx = (x0 + x1) / 2; cy = (y0 + y1) / 2; k = clamp(Math.min((fx1 - fx0) / (x1 - x0), (fy1 - fy0) / (y1 - y0)) * 0.9, 1, 2.6);
+      if (near) { const k1 = k * FOLLOW_ZOOM; cy = y0 + (cy - y0) * (k / k1); k = k1; }
     }
     animateVT({ k, x: (fx0 + fx1) / 2 - cx * k, y: cyScreen - cy * k }, ms);
     return true;
@@ -7318,15 +7321,13 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     // (By arithmetic, from the kept stage box and the cards' room read at most four times a second: asking the page for its
     // boxes and the figure's matrix here, after the catheter's step had written to it, laid the page out again every frame.)
     const wr = stageBox(), ins = cathInsets(now);
-    const [fx0, fy0] = clientToVBFast(wr.left + ins.l, wr.top + ins.t), [fx1, fy1] = clientToVBFast(wr.left + ins.W - ins.r, wr.top + ins.H - ins.b);
-    // Up and down only (no sideways pan), with a gentle zoom in as the tip nears the vein.
+    const [, fy0] = clientToVBFast(wr.left + ins.l, wr.top + ins.t), [, fy1] = clientToVBFast(wr.left + ins.W - ins.r, wr.top + ins.H - ins.b);
+    // Up and down only (no sideways pan), at the one scale the route's framing set (cathFocus near): a pan at a fixed scale lets
+    // the vessel layer move its last picture and draw only the strip it uncovers.
     const tp = cathAt(r, tipD).p, a = 1 - Math.exp(-dt / 450);   // (the tip itself, without cutting the route to it each frame)
-    if (!cath.k0) cath.k0 = vt.k;
-    const k = vt.k + (cath.k0 * (1 + 0.25 * clamp(st.u, 0, 1)) - vt.k) * a, sx = (fx0 + fx1) / 2;
-    const nx = sx - (sx - vt.x) * (k / vt.k), ty = (fy0 + fy1) / 2 - tp[1] * k;
-    const sy = (fy0 + fy1) / 2, ys = sy - (sy - vt.y) * (k / vt.k), ny = ys + Math.min(0, ty - ys) * a;
-    if (Math.abs(ny - vt.y) + Math.abs(nx - vt.x) + Math.abs(k - vt.k) * 100 < 0.05) return;
-    vt = { k, x: nx, y: ny }; applyVT(); CTM = null; refreshCTM();   // (the readings and the vessel layer follow, later in the frame)
+    const k = vt.k, ty = (fy0 + fy1) / 2 - tp[1] * k, ny = vt.y + Math.min(0, ty - vt.y) * a;
+    if (Math.abs(ny - vt.y) < 0.05) return;
+    vt = { k, x: vt.x, y: ny }; applyVT(); CTM = null; refreshCTM();   // (the readings and the vessel layer follow, later in the frame)
   }
   // The room the cards leave (safeInsets), kept for 250 ms and dropped when a card moves (pps:occ) or the window resizes.
   function cathInsets(now) {
@@ -10592,7 +10593,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     // (setCatheter's `follow: true` does this in the catheter's own step, in order; this is the same move on its own.)
     cathFollow() { cathFollow(); if (cath.st) cathLabelsSoon(); },
     /** Forget the view cathFocus would go back to (the presenter moves its own camera on). */
-    cathForget() { cath.saved = null; cath.k0 = 0; },
+    cathForget() { cath.saved = null; },
     /** The vessel the Doppler is reading, glowing green while the Doppler instrument is open (null: none). */
     setDoppler(id) { dop.want = id; dopApply(); },
     /** The presenter's Doppler slide pins its vessel's glow, over whatever Explore's Doppler reads (null: unpin). points: on a

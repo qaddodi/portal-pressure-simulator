@@ -79,3 +79,16 @@ test('the readings\' sizes and the cards\' room are kept until they change', () 
   assert.match(stage, /addEventListener\('pps:occ', \(\) => \{ panFit = null; cath\.lblKey = ''; cathRoom\(\); \}\);/);
   assert.match(stage, /addEventListener\('resize', \(\) => \{ panFit = null; cath\.lblKey = ''; cathRoom\(\); \}\);/);
 });
+
+test("his pick (26 Oct): the route's framing zooms in once and the follow only pans, at one scale", () => {
+  const follow = fn(stage, 'cathFollow');
+  assert.match(follow, /const k = vt\.k,/);
+  assert.match(follow, /vt = \{ k, x: vt\.x, y: ny \};/);
+  assert.doesNotMatch(follow, /k0|0\.25/);
+  assert.match(stage, /const FOLLOW_ZOOM = 1\.25;/);
+  assert.match(stage, /if \(near\) \{ const k1 = k \* FOLLOW_ZOOM; cy = y0 \+ \(cy - y0\) \* \(k \/ k1\); k = k1; \}/);
+  // every catheter whose view follows it asks for that framing
+  assert.match(read('src/ui/presenter.js'), /stage\.cathFocus\('route', ms\(1200\), \{ near: true \}\)/);
+  assert.equal((read('src/ui/hvpg-proc.js').match(/\{ near: want === 'route' \}/g) || []).length, 2);
+  assert.match(read('src/ui/proc-anim.js'), /\{ near: f\.cam === 'route' && !!P\.follow \}/);
+});

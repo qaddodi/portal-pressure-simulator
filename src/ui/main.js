@@ -3,12 +3,12 @@
 
 import { startHost, host } from './host.js?v=7a3c034586';
 import { store, updateParams, replaceParams, bindParamSender, clearHistory, logAction, varicesPresent, hiddenNow } from './store.js?v=926dabfaef';
-import { createStage } from './stage.js?v=a147dfd18b';
+import { createStage } from './stage.js?v=1d2aaa498d';
 import { createCreditPlacer } from './credit.js?v=6a0760a39d';
 import { sinusoidSupported } from './gl-support.js?v=94ad2a7ff1';
 import { createInspector } from './inspector.js?v=6a6bf334ad';
-import { createDock, CUTOFFS, savedInstruments } from './dock.js?v=9578e1a15d';
-import { setHvpgStage } from './hvpg-proc.js?v=c4a0c5ba87';
+import { createDock, CUTOFFS, savedInstruments } from './dock.js?v=a34cb31ace';
+import { setHvpgStage } from './hvpg-proc.js?v=0dfceaf877';
 import { createWhy } from './why.js?v=7c3934b4f2';
 import { createTimeline, LAPSES } from './timeline.js?v=bbc00b3bf7';
 import { createCompare } from './compare.js?v=da8d6025d1';
@@ -177,7 +177,7 @@ async function main() {
   dock = createDock({ strip: $('#strip'), head: $('#dockHead'), body: $('#dockBody'), onWhy: (m, el) => why.open(m, el), onAction: doAction, onProbe: probeTo, lazy: { doppler: dopplerL, fibroscan: fibroL }, onReveal: revealDock, onLobule: () => zoomLobule('R'),
     onOpen: () => openPanel('instruments'), onClose: () => setPanelTab('chart'), onLayout: () => syncDoppler(), isVisible: () => app.classList.contains('dock-open'),
     marks: () => timeline.entries(), onBeat: () => sendBeat() });
-  presenterL = lazy(() => import('./presenter.js?v=5374dad935'), ({ createPresenter }) => createPresenter({ openSettings, loadPreset, updateParams, host, stage, dock, action: doAction,
+  presenterL = lazy(() => import('./presenter.js?v=1570cdf8b3'), ({ createPresenter }) => createPresenter({ openSettings, loadPreset, updateParams, host, stage, dock, action: doAction,
     projectorOn: () => { if (!projector) toggleProjector(); }, projectorOff: () => { if (projector) toggleProjector(); },
     closeHome: () => mainMenu.close(), stashCards, rerenderHome: () => mainMenu.render() }));
   mainMenu = createMenu({

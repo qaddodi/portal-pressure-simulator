@@ -24,8 +24,8 @@ import { DISEASE_SRC, diseasePieces } from './diseases.js?v=fb8a5451c3';
 import { nb, listCase, plateletText } from './glue.js?v=5a0f63226b';
 import { DECKS, DECK_ALIAS, REGIONS, LEVELS, TOPICS, withOverview, siteTag, SITE_TAGS } from './decks.js?v=2d3d9a1d02';
 import { fingerprintOf } from '../engine/fingerprint.js?v=8faea80b59';
-import { createHvpgMonitor } from './hvpg-proc.js?v=c4a0c5ba87';
-import { createTools } from './presenter-tools.js?v=ede3823687';
+import { createHvpgMonitor } from './hvpg-proc.js?v=0dfceaf877';
+import { createTools } from './presenter-tools.js?v=e7a8b3b48d';
 import { openHandout } from './handout.js?v=29636fa641';
 import { noteResume, resumeFor } from './resume.js?v=f086f80ee8';
 import { parseDeckSource, checkDeck } from './deck-source.js?v=8395c650cd';
@@ -41,7 +41,7 @@ import { createProfileTool, createProfileStrip, pillReadings } from './tool-prof
 import { causeFit } from './cause-fit.js?v=830a6835a5';
 import { COMPACT, WIDE } from './card-type.js?v=5af5f22935';
 import { flowTimeHeight } from './flow-time.js?v=1c1d1370e3';
-import { PROCS, procBlocked, procOffered, playProcedure } from './proc-anim.js?v=e98e275e01';
+import { PROCS, procBlocked, procOffered, playProcedure } from './proc-anim.js?v=04b0a47229';
 import { dataPlan, textPlan, keepData, keepText, cardSnap, cardChanged, cardBack } from './card-keep.js?v=c23d02b1d3';
 const nextFrame = frameFor('presenter');
 
@@ -1195,7 +1195,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     // In along the route from wherever the tip is, the view following it down.
     if (v.u < 0.999) {
       cath.show = []; cath.ring = null;
-      if (!stage.cathFocus('route', ms(1200))) return;
+      if (!stage.cathFocus('route', ms(1200), { near: true })) return;
       cath.cam = 'route';
       await wait(ms(1000)); if (cut()) return;
       const t = 3800 * (1 - v.u);

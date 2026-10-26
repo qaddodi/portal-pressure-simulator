@@ -17,7 +17,7 @@ import { T, ease, k01, balloonAt, timeOfBalloon, pressureAt as pAt } from './hvp
 import { frameFor, cancelFrame } from './frame.js?v=226365e6e2';
 import { traceRoom, TRACE_MIN } from './trace-room.js?v=b4c0aaa97f';
 import { rateOf } from './table-marks.js?v=b717587a61';
-import { PROCS, PROC_KINDS, procBlocked, procOffered, playProcedure } from './proc-anim.js?v=e98e275e01';
+import { PROCS, PROC_KINDS, procBlocked, procOffered, playProcedure } from './proc-anim.js?v=04b0a47229';
 const nextFrame = frameFor('hvpg-proc');
 
 let stageRef = null;
@@ -135,7 +135,7 @@ export function createHvpgProcedure() {
     // The camera: the route while the catheter travels, the tip close up for the readings, then back.
     // (Each move waits until the anatomy is on screen: a switch from the circuit takes a moment.)
     const want = t < T.zoom ? 'route' : t < T.back ? 'tip' : 'home';
-    if (want !== cam && (want !== 'route' || t > 250) && sg.cathFocus(want, want === 'tip' ? 1100 : 800)) cam = want;
+    if (want !== cam && (want !== 'route' || t > 250) && sg.cathFocus(want, want === 'tip' ? 1100 : 800, { near: want === 'route' })) cam = want;
     // (While it travels the view drifts after the tip: setCatheter's follow, after the catheter's own step.)
     const follow = cam === 'route' && want === 'route';
     const v = values(), ph = phase(), pulse = 0.5 + 0.5 * Math.sin(t / 170);
@@ -165,7 +165,7 @@ export function createHvpgProcedure() {
 
   function figureBlocked(sg) {
     const want = t < T.zoom ? 'route' : t < TB.back + 1500 ? 'tip' : 'home';
-    if (want !== cam && (want !== 'route' || t > 250) && sg.cathFocus(want, want === 'tip' ? 1100 : 800)) cam = want;
+    if (want !== cam && (want !== 'route' || t > 250) && sg.cathFocus(want, want === 'tip' ? 1100 : 800, { near: want === 'route' })) cam = want;
     const follow = cam === 'route' && want === 'route';
     // Three short pushes against the clot, each easing in and back out.
     const pk = k01(t, TB.probe0, TB.probe1), probe = t < TB.probe1 ? Math.pow(Math.sin(pk * 3 * Math.PI), 2) * 0.9 : 0;

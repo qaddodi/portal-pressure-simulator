@@ -121,7 +121,7 @@ export function playProcedure(stage, kind, { apply = null, onFrame = null, onEnd
     stops ||= stage.cathStops?.() || null;
     // (Each camera move waits until the anatomy is on screen: a switch from the circuit takes a moment.)
     const ms = P.camMs || {};
-    if (f.cam !== cam && (f.cam !== 'route' || t > 250) && stage.cathFocus(f.cam, ms[f.cam] || (f.cam === 'tip' ? 1100 : 900))) cam = f.cam;
+    if (f.cam !== cam && (f.cam !== 'route' || t > 250) && stage.cathFocus(f.cam, ms[f.cam] || (f.cam === 'tip' ? 1100 : 900), { near: f.cam === 'route' && !!P.follow })) cam = f.cam;
     if (!applied && t >= P.T.apply) { applied = true; apply?.(); }
     onFrame?.(f, t);
     if (t < P.T.end) raf = nextFrame(step);
