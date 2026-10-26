@@ -73,10 +73,12 @@ test('the model\'s compensated patients fall where the stiffness deck says', asy
   // HVPG against PPG: presinusoidal resistance raises the PPG alone, cirrhosis both.
   const [schisto, cirr] = await runSteps([{ preset: 'schisto' }, { preset: 'cirr-decomp' }]);
   assert.equal(zoneOf(planeOf('hvpg-ppg'), schisto).t, 'PPG raised, HVPG normal');
-  assert.equal(zoneOf(planeOf('hvpg-ppg'), cirr).t, 'CSPH', 'beyond both red cut-offs, HVPG 10 and PPG 12');
-  assert.equal(zoneOf(planeOf('hvpg-ppg'), { hvpg: 12, ppg: 9 }).t, 'Both raised', 'HVPG at CSPH but the PPG under 12: not the corner');
-  assert.equal(zoneOf(planeOf('hvpg-ppg'), { hvpg: 7, ppg: 14 }).t, 'Both raised', 'the PPG at 12 or more but the HVPG under 10: not the corner');
-  assert.equal(zoneOf(planeOf('hvpg-ppg'), { hvpg: 10, ppg: 12 }).t, 'CSPH', 'the cut-offs belong to the corner (≥)');
+  // CSPH is an HVPG of 10 or more whatever the PPG (Baveno VIII; AASLD 2024 statement 4); the PPG 12 line is not a CSPH line.
+  const hp = planeOf('hvpg-ppg');
+  assert.equal(zoneOf(hp, cirr).t, 'CSPH');
+  for (const [hvpg, ppg] of [[12, 9], [12, 3], [10, 12], [10, 0], [25, 30]]) assert.equal(zoneOf(hp, { hvpg, ppg }).t, 'CSPH', `HVPG ${hvpg}, PPG ${ppg}`);
+  assert.equal(zoneOf(hp, { hvpg: 9.9, ppg: 14 }).t, 'Both raised', 'the PPG at 12 or more but the HVPG under 10: not CSPH');
+  assert.equal(zoneOf(hp, { hvpg: 7, ppg: 3 }).t, 'HVPG raised, PPG normal');
 });
 
 test('words fit whole or not at all, and names never overlap one another or leave the plot', () => {

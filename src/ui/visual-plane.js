@@ -49,10 +49,9 @@ export function rangeOf(when, key, min, max) {
 // Only 'Both normal' takes a rating colour (both under their amber cut-offs, as the tiles rate them); the zones where one or
 // both are raised each take a colour of the pressure ramp instead, since a zone spans readings the tiles rate amber and red alike:
 // blue for PPG only, violet for HVPG only, wine for both, so the four zones and their four swatches all differ.
-// The corner beyond both red cut-offs (HVPG >=10 and PPG >=12) is CSPH and takes the tiles' red: both tiles rate every reading in it
-// red. Only the HVPG line is the CSPH definition (Baveno VIII; AASLD 2024 statement 4: HVPG >=10 mmHg). The PPG 12 line is where
-// the portal pressure can bleed, the gradient a TIPS aims under (AASLD 2024: no beta-blocker after TIPS under 12 mmHg), so each
-// line is named for its own meaning (lineNames), never both as CSPH.
+// Everything right of the HVPG 10 line is CSPH, whatever the PPG, and takes the HVPG tile's red (Baveno VIII; AASLD 2024 statement 4:
+// CSPH is an HVPG >=10 mmHg). The PPG 12 line is not a CSPH line: it is where the portal pressure can bleed, the gradient a TIPS
+// aims under (AASLD 2024: no beta-blocker after TIPS under 12 mmHg), so each line is named for its own meaning (lineNames).
 export const PLANES = {
   csph: {
     x: { key: 'lsm', min: 0, max: 40, ticks: [0, 10, 15, 20, 25, 40], name: 'Liver stiffness, kPa', short: 'Stiffness, kPa' },
@@ -73,11 +72,11 @@ export const PLANES = {
     x: { key: 'hvpg', min: 0, max: 30, ticks: [0, 5, 10, 20, 30], name: 'HVPG, mmHg', short: 'HVPG' },
     y: { key: 'ppg', min: 0, max: 30, ticks: [0, 6, 12, 20, 30], name: 'PPG, mmHg', short: 'PPG' },
     zones: [
-      { when: [['hvpg', '>=', 10], ['ppg', '>=', 12]], t: 'CSPH', short: 'CSPH', tone: 'hi', at: [20, 21], note: 'HVPG ≥10, PPG ≥12 mmHg' },
+      { when: [['hvpg', '>=', 10]], t: 'CSPH', short: 'CSPH', tone: 'hi', at: [20, 21], note: 'HVPG ≥10 mmHg, whatever the PPG' },
       { when: [['hvpg', '<', 5], ['ppg', '<', 6]], t: 'Both normal', short: 'Both normal', tone: 'ok', note: 'HVPG <5, PPG <6 mmHg' },
       { when: [['hvpg', '<', 5]], t: 'PPG raised, HVPG normal', short: 'PPG only', tone: 'ppg', note: 'The wedge misses the resistance' },
-      { when: [['ppg', '<', 6]], t: 'HVPG raised, PPG normal', short: 'HVPG only', tone: 'hvpg', at: [20, 3], note: 'HVPG ≥5, PPG <6 mmHg' },
-      { t: 'Both raised', short: 'Both raised', tone: 'both', at: [20, 9], note: 'HVPG ≥5, PPG ≥6 mmHg' },
+      { when: [['ppg', '<', 6]], t: 'HVPG raised, PPG normal', short: 'HVPG only', tone: 'hvpg', at: [7.5, 3], note: 'HVPG 5 to <10, PPG <6 mmHg' },
+      { t: 'Both raised', short: 'Both raised', tone: 'both', at: [7.5, 18], note: 'HVPG 5 to <10, PPG ≥6 mmHg' },
     ],
     cuts: { x: [5, 10], y: [6, 12] },
     // (The two lines that carry a meaning of their own, named on the plot beside the line: { x|y: { value: words } }.)
@@ -377,7 +376,10 @@ export function placeZoneWords(pl, fr, X, Y, fs, used, dots, card = false, only 
     const [x0, x1, y0, y1] = zoneRect(pl, z), wpx = Math.min(X(x1), fr.R) - Math.max(X(x0), fr.L) - 12;
     // (A zone listed earlier lies over this one's rectangle, so its words keep out of it.)
     const over = cls === 'pze-zw' ? pl.zones.slice(0, pl.zones.indexOf(z)).map((o) => { const [a0, a1, b0, b1] = zoneRect(pl, o); return [X(a0), Y(b1), X(a1), Y(b0)]; }) : [];
-    const forms = [fitWords(z.t, wpx, fs, 2), z.short && z.short !== z.t ? fitWords(z.short, wpx, fs, 2) : null].filter(Boolean);   // (the zone's short name where its full one has no room)
+    // (its name on two lines where only a narrow strip lies clear of the zones above it, then its short name where its full one has no room)
+    const split = [...String(z.t).matchAll(/ /g)].map((m) => [z.t.slice(0, m.index), z.t.slice(m.index + 1)]).sort((a, b) => Math.max(...a.map((l) => l.length)) - Math.max(...b.map((l) => l.length)))[0];
+    const forms = [fitWords(z.t, wpx, fs, 2), split && Math.max(...split.map((l) => est(l, fs, 0.62))) <= wpx ? split : null, z.short && z.short !== z.t ? fitWords(z.short, wpx, fs, 2) : null].filter(Boolean)
+      .filter((ls, k, all) => all.findIndex((o) => o.join('\n') === ls.join('\n')) === k);
     const zl = Math.max(X(x0), fr.L) + 4, zr = Math.min(X(x1), fr.R) - 4, zt = Math.max(Y(y1), fr.T) + 4, zb = Math.min(Y(y0), fr.B) - 4;
     const inZone = (b) => b[0] >= zl && b[2] <= zr && b[1] >= zt && b[3] <= zb && !over.some((o) => b[0] < o[2] + 4 && b[2] > o[0] - 4 && b[1] < o[3] + 4 && b[3] > o[1] - 4);
     const clear = (b) => !taken.some((o) => b[0] < o[2] && b[2] > o[0] && b[1] < o[3] && b[3] > o[1]) && !dots.some((o) => b[0] < o[2] && b[2] > o[0] && b[1] < o[3] && b[3] > o[1]);
