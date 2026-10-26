@@ -70,7 +70,7 @@ export const GASTRIC = {
     {
       id: 'splenectomy', params: { splenicRx: 2 }, cam: 'splenic', terms: ['gv'],
       compare: [{ label: 'Spleen in place', short: 'None', params: { splenicRx: 0 } }, { label: 'Partial embolization', short: 'Embolized', params: { splenicRx: 1 } }, { label: 'Splenectomy', short: 'Removed', own: true, params: { splenicRx: 2 } }],
-      tool: { kind: 'spleen' }, data: 'tiles', tiles: ['gv', 'plt'], key: ['gv'], delta: 'svt',
+      data: 'tiles', tiles: ['gv', 'plt'], key: ['gv'], delta: 'svt',
       kicker: 'A clotted splenic vein', site: 'pre', title: 'Treat the spleen, and the varices empty',
       line: 'With the spleen removed, nothing feeds the fundal varices: they shrink to {gv}, and the platelets rise to {plt}. A splenic vein stent or splenic artery embolization are the alternatives.',
       notes: 'Source: AASLD 47. AASLD: bleeding gastric varices from an isolated splenic vein clot should be considered for splenectomy, a splenic vein stent or splenic artery embolization. The pressure comes from the spleen\'s own outflow, so a TIPS, which decompresses the portal vein, does not reach it. The buttons compare the spleen in place, partial embolization and splenectomy. Partial splenic embolization infarcts half to two thirds of the splenic pulp through a catheter in the splenic artery; pain and fever for a few days are common afterwards, and splenic abscess and portal vein thrombosis are rarer. Splenectomy carries real risk and splenic and portal vein thrombosis is common after it, because blood stagnates in the stump of the splenic vein, so look for a clot in the weeks after it.',

@@ -2,6 +2,16 @@
 
 ## October 2026
 
+- **The spleen ultrasound is gone, and Stiffness 4 of 13 shows the spleen on the figure again.** (Mohammad, 26 Oct, "i hate it; need to fix slide 4/13 stiffness".) The `spleen`
+  tool kind (deck rebuild A4) is removed with its picture, its card sizing and its tests; the Stiffness and Gastric varices decks were the only two slides that used it. "A large
+  spleen sequesters platelets" goes back to what the slide showed before the ultrasound: the figure's calipers and the dashed normal-spleen outline, with the spleen and platelet
+  tiles (rings from the fibrosis slide) beside it. Its line now points at the outline ("The dashed outline is a normal spleen. Hers measures 15.5 cm and traps platelets, which
+  have fallen to 90,000/µL."), and the sentence about the falling count moved to the notes. "Treat the spleen, and the varices empty" keeps its three compare buttons and its varix
+  and platelet tiles. `?script=spleen` still opens Stiffness. Code and unit tests only; nobody has looked on screen. The two handout pictures for these slides (`brand/handout/stiffness/spleen.webp`,
+  `brand/handout/gastric-varices/splenectomy.webp`) show the old card and are on the redraw list. `src/ui/spleen-us.js` (deleted), `src/ui/presenter-tools.js`, `src/ui/decks.js`,
+  `src/ui/decks/stiffness.js`, `src/ui/decks/gastric-varices.js`, `styles/app.css`, `tests/deck-adopted.js`, `tests/instruments-a4.test.js`, `tests/instruments-draw.test.js`,
+  both authoring guides.
+
 - **After a pan or pinch the figure's extra work waits its turn: one small shared allowance, nothing optional during a gesture.** (Reviewer's smoothness brief, T03 and T15;
   Mohammad, 26 Oct, "ok do it".) The organ pictures made sharper after a zoom each took 6 ms of painting a frame, a strip's drawing and read-back on top, and went on while the
   figure was still moving. They now take turns, one step a frame, from 1 ms a frame (`src/ui/refine.js`; `?refinems=` tries another), only in frames outside a gesture, and

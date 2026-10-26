@@ -83,7 +83,6 @@ async function modelFrames(preset, secs = 3) {
 const healthy = await modelFrames('healthy');
 const csph = await modelFrames('csph');
 
-const { createSpleenUS } = await import('../src/ui/spleen-us.js');
 const { createVitalsMonitor } = await import('../src/ui/vitals-monitor.js');
 const { createHvpgCard } = await import('../src/ui/tool-hvpg.js');
 const { createPressureTime } = await import('../src/ui/pressure-time.js');
@@ -91,28 +90,6 @@ const { createPressureTime } = await import('../src/ui/pressure-time.js');
 test('the model produced frames to draw with', () => {
   assert.ok(healthy.length >= 2 && csph.length >= 2, `healthy ${healthy.length}, csph ${csph.length} frames`);
   assert.ok(healthy[0].metrics && healthy[0].samples.ph.length === healthy[0].samples.t.length);
-});
-
-test('the spleen ultrasound writes the length in cm, holds still within 0.1 cm and says when there is no spleen', () => {
-  const sp = createSpleenUS();
-  const cv = canvasOf(sp.el);
-  cv.bw = 420; cv.bh = 220;
-  sp.update({ metrics: { spleen: { length: 14.2 } } });
-  assert.ok(texts(cv).includes('14.2') && texts(cv).includes('cm'), `wrote ${texts(cv)}`);
-  assert.deepEqual(cv.log.bad, [], 'every number handed to the canvas is finite');
-  fresh(cv);
-  sp.update({ metrics: { spleen: { length: 14.24 } } });
-  assert.deepEqual(texts(cv), [], 'a change under 0.1 cm is not redrawn');
-  sp.update({ metrics: { spleen: { length: 18.6 } } });
-  for (let i = 0; i < 80 && frameQueue.length; i++) runFrames(performance.now() + i * 16);
-  assert.ok(texts(cv).includes('18.6'), 'eased to the new length');
-  assert.ok(cv.log.fonts.every((f) => parseFloat(/(\d+(\.\d+)?)px/.exec(f)?.[1]) >= 12), 'no lettering under 12 px');
-  assert.equal(cv.log.gradients, 0, 'no gradient');
-  sp.pin({ spleen: 0 });
-  for (let i = 0; i < 80 && frameQueue.length; i++) runFrames(performance.now() + i * 16);
-  assert.ok(texts(cv).includes('Spleen removed'));
-  assert.match(cv.attrs['aria-label'], /no spleen/);
-  sp.dispose();
 });
 
 test('the vitals monitor draws the strip and its readings from a live frame, then from a slide\'s pinned numbers', () => {

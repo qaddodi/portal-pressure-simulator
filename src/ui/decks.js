@@ -30,7 +30,7 @@
 //   tool                     an instrument in the data card, reading the live model (presenter-tools.js): { kind: 'doppler',
 //                            vessel, gate?, points? } (gate: on a stent, the third it samples, 'proximal' | 'mid' (default) | 'distal' | 'site';
 //                            points: true calls out the stent's velocity at all three points on the figure, the sampled one in green), { kind: 'scope', air?, red?, readings? } (air: mmHg of air in the lumen, 0 to 20, seen view-only; red: true | false, the red wale marks; readings: true, three pressure rows), { kind: 'fibroscan' }, { kind: 'trace', range: 'talk' | 'beats' },
-//                            { kind: 'abdomen' }, { kind: 'wall' } (the varix in cross-section), { kind: 'spleen' } (ultrasound, calipers on the length),
+//                            { kind: 'abdomen' }, { kind: 'wall' } (the varix in cross-section),
 //                            { kind: 'vitals', show? } (a monitor: the EKG strip over hr, map, co, hb), { kind: 'hvpg' } (the catheter's tracing, played on arrival; catheter: true follows the slide's cath instead and stays from one step to the next); title? names the card; waves: true
 //                            names a hepatic vein Doppler's a, S and D. With data too, the tool sits above the tiles
 //                            (on a phone it folds away behind a Show button; open: true keeps it open there and folds the tiles instead)
@@ -99,7 +99,7 @@ import { HVPG } from './decks/hvpg.js?v=283a22a0f3';
 import { ASCITES } from './decks/ascites.js?v=c1ef6ca4e9';
 import { VARICES } from './decks/varices.js?v=35a51560a4';
 import { TREATMENT } from './decks/treatment.js?v=a043d963a0';
-import { STIFFNESS } from './decks/stiffness.js?v=6fbe2c1e4a';
+import { STIFFNESS } from './decks/stiffness.js?v=4248e8e178';
 import { LOBULE } from './decks/lobule.js?v=3e423cee4b';
 import { SHUNTS } from './decks/shunts.js?v=20dd50e442';
 import { TIPS_DOPPLER } from './decks/tips-doppler.js?v=738af5f882';
@@ -117,7 +117,7 @@ import { PREGNANCY_DECK } from './decks/pregnancy.js?v=be4cbe8c03';
 import { ENCEPHALOPATHY } from './decks/encephalopathy.js?v=164b20d14c';
 import { CAUSE_TREATED } from './decks/cause-treated.js?v=59191d27f0';
 import { NEXT_BLEED } from './decks/next-bleed.js?v=f7d4e6c707';
-import { GASTRIC } from './decks/gastric-varices.js?v=1b5dfc0336';
+import { GASTRIC } from './decks/gastric-varices.js?v=f3204c92fc';
 import { HYPERDYNAMIC } from './decks/hyperdynamic.js?v=8f06d153c4';
 import { CHOOSE_TREATMENT } from './decks/choose-treatment.js?v=e85353785d';
 import { TEN_YEARS } from './decks/ten-years.js?v=731a4cef5a';

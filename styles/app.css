@@ -2348,7 +2348,6 @@ button.finding { cursor: pointer; }
 /* (The instrument's own words at the tiles' small size: the FibroScan reads its canvas's font size.) */
 .fibroscan-box > canvas { font-size: 12px; }
 .pz-tool .fibroscan-box > canvas { font-size: var(--pz-sm, 14px); }
-.pz-tool .spleen-box > canvas { font-size: var(--pz-sm, 14px); }
 @container pzd (min-width: 420px) {
   .pz:not(.stack) .pz-data:is(.col, .under, .has-tool) .pz-tiles[data-n="3"] { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .pz:not(.stack) .pz-data:is(.col, .under, .has-tool) .pz-tiles[data-n="3"] > .pz-tile:last-child { grid-column: auto; }
@@ -2441,7 +2440,6 @@ button.finding { cursor: pointer; }
    box alone and not the card, its words and its glass round it. Nothing moves; the same pixels.) */
 .pz-data .pz-tool[data-kind="doppler"] .dop-box { will-change: transform; contain: paint; }
 .pz-tool[data-kind="fibroscan"] .fibroscan-box { width: 100%; height: clamp(250px, calc(42 * var(--pzh)), 480px); }   /* (the shear-wave map needs height to read) */
-.pz-tool[data-kind="spleen"] .spleen-box { width: 100%; height: clamp(190px, calc(32 * var(--pzh)), 360px); }   /* (the sector needs height for the spleen and its calipers) */
 .pz-tool[data-kind="vitals"] .vitals-box { width: 100%; height: clamp(170px, calc(26 * var(--pzh)), 300px); border-radius: 12px; }   /* (the strip, then three numbers) */
 .pz-tool[data-kind="hvpg"] .pz-mon { margin-top: 0; }
 /* The scope's view sits in .endo-stage, a size container in the Tests card; here the stage takes the view's own height. */
@@ -2503,7 +2501,6 @@ button.finding { cursor: pointer; }
 .pz.stack .pz-data > * { flex-shrink: 0; }   /* (parts keep their height, so a card too full reads as overflow and is fitted, not squeezed until a reading is cut) */
 .pz.stack .pz-tool[data-kind="doppler"] .dop-box { height: 140px; }
 .pz.stack .pz-tool[data-kind="fibroscan"] .fibroscan-box { height: 140px; }
-.pz.stack .pz-tool[data-kind="spleen"] .spleen-box { height: 140px; }
 .pz.stack .pz-tool[data-kind="vitals"] .vitals-box { height: 140px; }
 .pz.stack .pz-tool[data-kind="beats"] .pt-box { height: 172px; }   /* (tall enough for the pressures and the HVPG lane, trace-lanes.js; the EKG strip needs a taller card) */
 /* Phone: the scope sits beside its grade and size, and the Doppler drops its sentence, so a tile still fits under the instrument. */
@@ -6354,7 +6351,7 @@ html.thumb-ui .menu.from-dock { clip-path: inset(-64px -64px calc(var(--sink, 0p
    the card. Narrowed and zoomed with the fit as the instruments are, a short card drew the profile at a third of its width with its
    words under 12 px and its values crowded, Sites 4 and 5; its type already keeps 12 px on the screen, tool-profile.js.) */
 .pz .pz-data.pz-data.pz-data.pz-data.pz-data.pz-data > .pz-tool:is([data-kind="profile"], [data-kind="flows"]) { width: 100%; zoom: 1; }   /* (six times, to stand over the stacked card's own width rule, which narrowed them by the fit and the block step: a short window drew the ladder at a third of its card, Sites 4 and 5) */
-.pz .pz-data.pz-data.pz-data.pz-data.pz-data.pz-data > .pz-tool:is([data-kind="spleen"], [data-kind="vitals"], [data-kind="hvpg"]) { width: 100%; }   /* (the ultrasound, the vitals monitor and the catheter tracing draw to their own box, so the card's fit and block steps never narrow them; the same weight as the rule above, to stand over the stacked card's width rule) */
+.pz .pz-data.pz-data.pz-data.pz-data.pz-data.pz-data > .pz-tool:is([data-kind="vitals"], [data-kind="hvpg"]) { width: 100%; }   /* (the vitals monitor and the catheter tracing draw to their own box, so the card's fit and block steps never narrow them; the same weight as the rule above, to stand over the stacked card's width rule) */
 .pz.stack .pz-data.pz-data.pz-data.pz-data > .pz-tool[data-kind="flowtime"] { width: 100%; zoom: 1; }   /* (a phone's after-meal chart likewise: phoneTextCap shortens it, flow-time.js redraws its words at size) */
 /* Wide chart-only cards allocate the room below the words before fitting. As with the other adaptive charts,
    keep their whole width and redraw at their own pixels; only their allocated height changes. */

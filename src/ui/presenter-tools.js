@@ -21,7 +21,6 @@
 //                                                   a line the model has no number for (weight lost, %) is the slide's own: given is its
 //                                                   end value, reached in step with the time-lapse's ramp from 0; the other line is the model's
 //
-//   tool: { kind: 'spleen' }                        the spleen on ultrasound: its outline to the model's length, calipers end to end, the length in cm
 //   tool: { kind: 'vitals', show?: ['hr', 'map', 'hb'] }
 //                                                   a black bedside monitor: the EKG strip over up to three of hr, map, co, hb as large numbers
 //   tool: { kind: 'hvpg' }                          the HVPG catheter's tracing on the card (no catheter on the figure): it plays free, wedge and
@@ -45,14 +44,13 @@ import { EDGES } from '../engine/topology.js?v=4044766e96';
 import { createDoppler } from './doppler.js?v=0b43e89dcc';
 import { createFibroScan } from './fibroscan.js?v=43daacd7ba';
 import { createPressureTime } from './pressure-time.js?v=3834c6c9c4';
-import { createSpleenUS } from './spleen-us.js?v=9996309997';
 import { createVitalsMonitor } from './vitals-monitor.js?v=c96e868534';
 import { createHvpgCard } from './tool-hvpg.js?v=d617f37754';
 import { createFlowTime } from './flow-time.js?v=0222a97d6a';
 import { createEndoscopy, createAbdomen, createVarixWall } from './instruments.js?v=26b03e5bbe';
 import { frameFor, cancelFrame } from './frame.js?v=662cbacff1';
 import { talkTrace } from './talk-trace.js?v=1cb9acf97d';
-import { EXT, guard, safe } from './slide-ext.js?v=358227ca1f';
+import { EXT, guard, safe } from './slide-ext.js?v=2f83e8b149';
 const nextFrame = frameFor('presenter-tools');
 
 const VESSEL = { PV_TRUNK: 'main portal vein', PVH_R: 'right portal vein', PVH_L: 'left portal vein', SV_CONF: 'splenic vein', SV_MID: 'splenic vein', V_SPL: 'splenic vein, at the hilum',
@@ -66,7 +64,6 @@ const TITLE = {
   abdomen: () => 'The abdomen',
   wall: () => 'The varix wall, in cross-section',
   flowtime: () => 'Portal pressure and flow over time',
-  spleen: () => 'Spleen, ultrasound',
   vitals: () => 'Vital signs',
   hvpg: () => 'HVPG, catheter tracing',
 };
@@ -99,7 +96,7 @@ export function createTools({ host, stage }) {
     if (made[k]) return made[k];
     const inst = k === 'doppler' ? createDoppler({ onProbe: noop, pickGate: false }) : k === 'fibroscan' ? createFibroScan() : k === 'scope' ? createEndoscopy({ onAction: noop })
       : k === 'abdomen' ? createAbdomen({ onAction: noop }) : k === 'wall' ? createVarixWall() : k === 'beats' ? createPressureTime() : k === 'talk' ? talkTrace() : k === 'flowtime' ? createFlowTime()
-        : k === 'spleen' ? createSpleenUS() : k === 'vitals' ? createVitalsMonitor() : k === 'hvpg' ? createHvpgCard()
+        : k === 'vitals' ? createVitalsMonitor() : k === 'hvpg' ? createHvpgCard()
         : Object.hasOwn(EXT.tools, k) ? guard(safe(() => EXT.tools[k].make({ host, stage, store }), null, `tools.${k}.make`), `tools.${k}`) : null;
     if (inst && !inst.el?.classList) return null;   // (a registered instrument that made no element is left out)
     if (inst) { inst.el.classList.remove('dock-pane'); inst.el.classList.add('pz-inst'); }

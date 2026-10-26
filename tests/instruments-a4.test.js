@@ -1,12 +1,12 @@
-// Deck rebuild plan A4: three slide instruments (a spleen ultrasound, a vitals monitor, the HVPG catheter's tracing on the card) and the
+// Deck rebuild plan A4: two slide instruments (a vitals monitor, the HVPG catheter's tracing on the card) and the
 // encephalopathy-risk tile. Each is made, titled and registered like the other instruments; the ones that read numbers read the slide's own.
+// (The spleen ultrasound that came with them was taken out again on Mohammad's word, 26 Oct.)
 import './dom-shim.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { RATE, TILE, SCALE, bandsOf, rateOf, rateShown, tileShown, dirAbs, COLS, CUT } from '../src/ui/table-marks.js';
 import { VITALS, vitalReading } from '../src/ui/vital-read.js';
-import { spleenShape, caliperCm, SPLEEN_SCALE_CM } from '../src/ui/spleen-us.js';
 import { vitalsShown, vitalCells, metricsOfFp, VITALS_DEFAULT } from '../src/ui/vitals-monitor.js';
 import { levelsOf, SWEEP_FREE_MS, SWEEP_SETTLE_MS } from '../src/ui/tool-hvpg.js';
 import { eases, dataPlan } from '../src/ui/card-keep.js';
@@ -41,29 +41,6 @@ test('the he tile: the model\'s index with the scale bar, bands at 0.2 and 0.45,
   assert.equal(tileShown('he', 0.449), 0.45);
   assert.equal(rateShown('he', { he: 0.449 })[1], 'High');
   assert.equal(dirAbs('he', { he: 0.1 }), 0); assert.equal(dirAbs('he', { he: 0.3 }), 1); assert.equal(dirAbs('he', { he: 0.9 }), 2);
-});
-
-// ── The spleen ultrasound ──
-test('the spleen ultrasound: calipers end to end read the length, the scale is the same for every length, and the outline stays in the picture', () => {
-  for (const [w, h] of [[340, 140], [300, 190], [420, 260], [520, 330]]) {
-    let prev = 0;
-    for (const cm of [8, 11, 13.4, 16, 20, SPLEEN_SCALE_CM]) {
-      const s = spleenShape(cm, w, h);
-      assert.ok(Math.abs(caliperCm(s) - cm) < 1e-6, `${w}x${h}: calipers read ${cm} cm`);
-      assert.equal(spleenShape(8, w, h).pxPerCm, s.pxPerCm, 'one scale for every length');
-      assert.ok(s.len > prev, 'a longer spleen is drawn longer'); prev = s.len;
-      for (const p of s.outline) assert.ok(p.x >= 0 && p.x <= w && p.y >= 0 && p.y <= h, `${w}x${h}, ${cm} cm: the outline is inside the picture`);
-    }
-  }
-  const src = read('../src/ui/spleen-us.js');
-  assert.match(src, /pin\(fp\) \{ pinned = fp\?\.spleen \?\? null; if \(pinned != null\) aim\(pinned\); \}/, 'a slide\'s settled length, the tile\'s number');
-  assert.match(src, /update\(f\) \{ if \(pinned == null\) aim\(f\.metrics\?\.spleen\?\.length\); \}/);
-  assert.match(src, /if \(goal != null && Math\.abs\(want - goal\) < 0\.1 - 1e-9\) return;/, 'redrawn only when the length changes by 0.1 cm');
-  assert.match(src, /const reading = \(\) => \(shown == null \? '—' : shown\.toFixed\(1\)\)/, 'one decimal, as the tile prints it');
-  assert.match(src, /ctx\.strokeText\(reading\(\), .*\); ctx\.fillText\(reading\(\), /, 'the length is written white with a dark outline');
-  assert.match(src, /Spleen removed/, 'after a splenectomy the picture says so');
-  assert.doesNotMatch(src, /shadowBlur|createLinearGradient|createRadialGradient/, 'no glow or gradient');
-  assert.doesNotMatch(src, /FONT\(\d+, (?:[0-9]|1[01])\)/, 'no word under 12 px');
 });
 
 // ── The vitals monitor ──
@@ -106,9 +83,8 @@ test('the vitals read the slide\'s own numbers, decimals as its tiles print them
   assert.match(read('../src/ui/dock.js'), /export \{ VITALS \};/, 'the bottom bar keeps its list, now in vital-read.js');
 });
 
-test('the vitals monitor is a recording kind: a new patient starts its strip over, so its card is built again; the other two ride the model', () => {
+test('the vitals monitor is a recording kind: a new patient starts its strip over, so its card is built again; the HVPG card rides the model', () => {
   assert.equal(eases({ kind: 'vitals' }), false);
-  assert.equal(eases({ kind: 'spleen' }), true);
   assert.equal(eases({ kind: 'hvpg' }), true);
   assert.notEqual(dataPlan({ tool: { kind: 'vitals' }, data: 'tiles' }, {}), dataPlan({ tool: { kind: 'vitals', show: ['co'] }, data: 'tiles' }, {}), 'its options are part of the card\'s plan');
   assert.match(tools, /const RECORDS = \['doppler', 'beats', 'vitals'\];/, 'the vitals monitor is one of the recording kinds');
@@ -139,19 +115,16 @@ test('the HVPG card: the HVPG is the difference of the two readings as shown, an
 });
 
 // ── Registration ──
-test('the three kinds are made, titled, shortened for a phone and laid out like the other instruments', () => {
-  for (const [kind, creator] of [['spleen', 'createSpleenUS'], ['vitals', 'createVitalsMonitor'], ['hvpg', 'createHvpgCard']]) {
+test('the two kinds are made, titled, shortened for a phone and laid out like the other instruments', () => {
+  for (const [kind, creator] of [['vitals', 'createVitalsMonitor'], ['hvpg', 'createHvpgCard']]) {
     assert.match(tools, new RegExp(`k === '${kind}' \\? ${creator}\\(\\)`), `${kind} is made`);
     assert.match(tools, new RegExp(`${kind}: \\(\\) => '[^']+'`), `${kind} has a title`);
-    assert.ok(css.includes(`.pz ${'.pz-data'.repeat(6)} > .pz-tool:is([data-kind="spleen"], [data-kind="vitals"], [data-kind="hvpg"]) { width: 100%; }`), `${kind}: full width, over the stacked card's width rule`);
+    assert.ok(css.includes(`.pz ${'.pz-data'.repeat(6)} > .pz-tool:is([data-kind="vitals"], [data-kind="hvpg"]) { width: 100%; }`), `${kind}: full width, over the stacked card's width rule`);
   }
-  assert.match(tools, /spleen: \(\) => 'Spleen, ultrasound'/);
   assert.match(tools, /vitals: \(\) => 'Vital signs'/);
   assert.match(tools, /hvpg: \(\) => 'HVPG, catheter tracing'/);
   assert.match(presenter, /'HVPG, catheter tracing': 'HVPG tracing'/);
-  assert.match(css, /\.pz-tool\[data-kind="spleen"\] \.spleen-box \{ width: 100%; height: clamp\(/);
   assert.match(css, /\.pz-tool\[data-kind="vitals"\] \.vitals-box \{ width: 100%; height: clamp\(/);
-  assert.match(css, /\.pz\.stack \.pz-tool\[data-kind="spleen"\] \.spleen-box \{ height: 140px; \}/);
   assert.match(css, /\.pz\.stack \.pz-tool\[data-kind="vitals"\] \.vitals-box \{ height: 140px; \}/);
   assert.match(css, /\.pz-tool\[data-kind="hvpg"\] \.pz-mon \{ margin-top: 0; \}/, 'the monitor sits at the top of its card');
 });

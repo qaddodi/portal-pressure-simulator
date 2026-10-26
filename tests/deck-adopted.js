@@ -130,7 +130,7 @@ export const ADOPTED = {
   'next-bleed/nsbb': ['hvpgResp'],
   'variceal-bleed/minutes': ['clock', 'question'],
   'doppler/slow': ['caseQ'],
-  'stiffness/spleen': ['kind:spleen'],
+  'stiffness/spleen': ['calipers', 'normalOutline'],
   'stiffness/rules': ['kind:criteria'],
   'stiffness/a1': ['kind:plane', 'caseQ'],
   'stiffness/a2': ['kind:plane', 'caseQ'],

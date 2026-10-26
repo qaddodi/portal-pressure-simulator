@@ -39,11 +39,11 @@ export const STIFFNESS = {
       ask: ['Why can stiffness rule CSPH in or out, yet not follow a gradient above 12?', 'Above 10 to 12 mmHg the gradient rises mostly with inflow and vascular tone, which stiffness does not see.'],
     },
     {
-      id: 'spleen', terms: ['spleen'], preset: 'csph', cam: 'spleen', glow: ['spleen'], tool: { kind: 'spleen' }, data: 'tiles', tiles: ['plt'], key: ['plt'], delta: 'fibrosis',
+      id: 'spleen', terms: ['spleen'], preset: 'csph', cam: 'spleen', glow: ['spleen'], calipers: ['spleen'], normalOutline: ['spleen'], data: 'tiles', tiles: ['spleen', 'plt'], key: ['plt'], delta: 'fibrosis',
       kicker: 'The spleen and the platelets', site: 'sin', title: 'A large spleen sequesters platelets',
       vignette: 'A 63-year-old woman with MASH cirrhosis has had a lower platelet count at each yearly visit. She feels well and has never had ascites or bleeding.',
-      line: 'A falling platelet count is often the first sign in the blood tests. Here the spleen is {spleen} and platelets are {plt}.',
-      notes: 'Splenic congestion and hyperplasia enlarge the spleen; a normal spleen already holds about a third of the platelets and an enlarged one up to about 90%, and a lower thrombopoietin from the liver adds to the fall. Spleen length over about 12 to 13 cm and platelets below 150 support portal hypertension. Spleen stiffness, where available, tracks the portal pressure more closely than liver stiffness, including in presinusoidal disease. The tile compares with the compensated patient of "Fibrosis stiffens the liver".',
+      line: 'The dashed outline is a normal spleen. Hers measures {spleen} and traps platelets, which have fallen to {plt}.',
+      notes: 'A falling platelet count is often the first sign in the blood tests. Splenic congestion and hyperplasia enlarge the spleen; a normal spleen already holds about a third of the platelets and an enlarged one up to about 90%, and a lower thrombopoietin from the liver adds to the fall. Spleen length over about 12 to 13 cm and platelets below 150 support portal hypertension. Spleen stiffness, where available, tracks the portal pressure more closely than liver stiffness, including in presinusoidal disease. The tile compares with the compensated patient of "Fibrosis stiffens the liver".',
       ask: ['Give two reasons the platelet count falls in portal hypertension.', 'Splenic pooling in a large congested spleen, and less thrombopoietin from the liver.'],
     },
     {
