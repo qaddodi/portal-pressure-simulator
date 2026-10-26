@@ -740,11 +740,6 @@
   "fundal varices",
   "{liver}"
  ],
- "gastric-varices/nsbb": [
-  "gastric varices",
-  "{ppg}",
-  "{hr}"
- ],
  "gastric-varices/bleed": [
   "{hr}",
   "{map}"
@@ -754,7 +749,6 @@
   "{gv}"
  ],
  "gastric-varices/brto": [
-  "left renal vein",
   "{gv}",
   "{ppg}",
   "{varix}"

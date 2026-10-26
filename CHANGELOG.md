@@ -2,6 +2,14 @@
 
 ## October 2026
 
+- **Gastric varices: eight slides, and the spleen slide gets the ultrasound.** (Mohammad, 25 Oct, "Build the new decks"; deck rebuild plan, F2.) The
+  carvedilol slide leaves, because Lowering portal pressure teaches the drug; its gastric point (carvedilol first for fundal varices that have not
+  bled, glue, BRTO and a TIPS not used to prevent a first bleed) is now in the first slide's notes and the talk's objective. The bleed slide gives the
+  carvedilol itself (the heart rate stays blunted), as the dropped slide used to. "Treat the spleen, and the varices empty" shows the spleen
+  ultrasound next to the varix and platelet tiles and keeps its three buttons (spleen in place, partial embolization, splenectomy); the embolization
+  slide's pain, fever and abscess, and the clot risk after splenectomy, joined its notes. `cite` moved into the notes on every slide, and the lines
+  that ran past 30 words were trimmed (the "colored by origin" words stay). Both humanizer passes were done: no new UI. Code and unit tests only;
+  nobody has looked on screen. `src/ui/decks/gastric-varices.js`, `tests/deck-adopted.js`, `tests/deck-pills.json`, `brand/handout/gastric-varices/`.
 - **Ascites takes in Paracentesis and albumin: one talk, why it forms and how it is treated.** (Mohammad, 25 Oct, "Build the new decks"; deck rebuild plan, F1.)
   Ascites is 14 slides in three sections, was 11 and 9 in two talks. Where it forms keeps three slides (the sinusoids, the lymph along the portal tracts, two months
   of building) on one fluid card with the sinusoid and ascites tiles. The tap keeps the SAAG, heart failure, Budd–Chiari and the quadrant, now headed "Telling
