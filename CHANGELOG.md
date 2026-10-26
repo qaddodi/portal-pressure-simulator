@@ -2,6 +2,14 @@
 
 ## October 2026
 
+- **The menu leads with twelve core talks; the other sixteen are under "More talks".** (Mohammad, 25 Oct, "Build the new decks"; deck rebuild plan, G1 and G2.) The five
+  topics list Circulation, Circuit, Sites and causes, HVPG and PPG, Doppler, Stiffness, Varices, Insufflation, Variceal bleed, Next bleed, Ascites and Encephalopathy, in
+  teaching order; a sixth group with the same heading holds the rest, and search still finds all 28. New `tests/deck-shape.test.js` keeps every built-in talk to two lenses,
+  steady tiles between neighbouring slides with the same instrument, two tiles a slide, no `cite`, a `caveat` only on the TIPS Doppler jet slide and lines of 30 words or
+  fewer (it replaces the 45-word test); its allowlists are commented and fail when an entry goes stale. To pass it, 22 lines were cut to 30 words (the dropped clauses moved
+  to the notes), and the pregnancy sources and three caveats moved into the notes. The authoring guides follow. Words went through the AI humanizer; no new UI. Code and unit
+  tests only; nobody has looked on screen. `src/ui/decks.js`, `src/ui/decks/`, `tests/`, `docs/`.
+
 - **The Spleen and the Doppler after a liver transplant talks are gone.** (Mohammad, 25 Oct, "Build the new decks"; deck rebuild plan, F7.) The spleen's teaching already lives in
   Stiffness (the spleen's size and the platelets) and Gastric varices (the splenectomy slide, with its three-way compare, now tested there). The transplant Doppler talk's
   cases were the least used; the Doppler talk keeps the basics. Old links keep working: `?script=spleen` opens Stiffness and `?script=transplant-doppler` opens the Doppler talk

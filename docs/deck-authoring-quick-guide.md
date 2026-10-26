@@ -40,7 +40,7 @@ Full guide: sections 1 to 3, the template in section 10 and a complete example i
 
 ## Writing the words
 
-Each slide has a `title` that stands on its own and a `line` of fewer than 45 words. Write for a learner, in full sentences, the way a clinician teaches on rounds. Run every line through `docs/ai-humanizer.md`.
+Each slide has a `title` that stands on its own and a `line` of 30 words or fewer. Write for a learner, in full sentences, the way a clinician teaches on rounds. Run every line through `docs/ai-humanizer.md`.
 
 - **Live numbers.** Write `{hvpg}`, `{ppg}`, `{pv}` and the app fills in the patient's value in a coloured pill. Use these instead of typing a number, so the words always match the figure. `{ppg@before}` reads the value at the slide whose `id` is `before`.
 - **Cut-offs.** Write `{>=10 mmHg}` and the app draws an outlined pill reading "10 mmHg". Put the words around it: "above {>=10 mmHg}". A filled pill is the patient; an outlined pill is the rule.
@@ -255,7 +255,7 @@ Full guide: sections 12 and 13.
 
 ## The rules that matter most
 
-- One idea a slide, and a line under 45 words. A short screen (an iPad on its side) keeps every card's text at 12 px or more, so a slide with too many words fails a browser check. Shorten the words, never the text size.
+- One idea a slide, and a line of 30 words or fewer. `tests/deck-shape.test.js` also keeps a talk to two lenses, the same tiles on neighbouring slides with one instrument, two tiles a slide, no `cite`, and a `caveat` only on the TIPS Doppler jet slide (put sources and small print in `notes`). A short screen (an iPad on its side) keeps every card's text at 12 px or more, so a slide with too many words fails a browser check. Shorten the words, never the text size.
 - HVPG is WHVP minus FHVP (amber 5, red 10). PPG is portal vein minus IVC (amber 6, red 12).
 - Say numbers through live values, never typed.
 - Say "resistance" for where pressure is lost, not "block" or "obstruction".

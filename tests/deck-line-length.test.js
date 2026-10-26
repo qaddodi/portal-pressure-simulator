@@ -5,12 +5,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { DECKS } from '../src/ui/decks.js';
 
-test('no slide line reaches 45 words', () => {
-  const long = [];
-  for (const d of DECKS) for (const s of d.slides) { const n = (s.line || '').split(/\s+/).filter(Boolean).length; if (n >= 45) long.push(`${d.id}/${s.id}: ${n}`); }
-  assert.deepEqual(long, []);
-});
-
+// (Every line is 30 words or fewer: tests/deck-shape.test.js, which replaced the 45-word test.)
 test('no deck has more than four objectives', () => {
   for (const d of DECKS) assert.ok((d.objectives || []).length <= 4, `${d.id}: ${d.objectives.length}`);
 });
