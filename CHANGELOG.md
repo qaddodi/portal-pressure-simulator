@@ -2,6 +2,14 @@
 
 ## October 2026
 
+- **Decompensation and recompensation: seven slides, and the cure slide reads the HVPG monitor.** (Mohammad, 25 Oct, "Build the new decks"; deck rebuild plan,
+  F4.) The carvedilol slide leaves, because Lowering portal pressure teaches the drug; Baveno VIII's advice to cut or stop a beta-blocker when the blood
+  pressure stays low or the kidneys fail moved into the diuretics slide's notes, and the talk's chart, summary table and objectives no longer name
+  carvedilol. The first ascites and the diuretics share one belly gauge with the ascites and HVPG tiles. "Stopping alcohol lowers the portal
+  pressure" shows the HVPG monitor card (the wedged and free tracings and the result, easing as the year runs) beside the albumin and ascites
+  tiles. `cite` moved into the notes. Test lists that named the dropped slide follow it. Both humanizer passes were done: no new UI. Code and unit
+  tests only; nobody has looked on screen. `src/ui/decks/recompensation.js`, `tests/deck-adopted.js`, `tests/deck-pills.json`, `tests/one-ladder.test.js`,
+  `tests/sweep-fixes-2-brackets.test.js`, `brand/handout/recompensation/`.
 - **The vitals monitor's EKG no longer restarts when the time-lapse finishes.** (Mohammad, 26 Oct, on The circulation in cirrhosis, slide 3: "after the transition was done,
   the EKG restarted"; the build before it, 3d8bbbd3.) The presenter ends a time-lapse by easing the patient to the slide's end state and then restoring that state, and
   both put the model's own clock to the end state's (about 2 s back in the check: 2.098 s, 0.02 s, then 0.004 s). The monitor read any step back in the model's clock as a new

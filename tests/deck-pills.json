@@ -601,9 +601,6 @@
  "recompensation/diuretics": [
   "{asc}"
  ],
- "recompensation/carv": [
-  "{hvpg}"
- ],
  "recompensation/cure": [
   "{salb}",
   "{hvpg}"
