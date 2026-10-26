@@ -72,7 +72,7 @@ export const BLEED = {
       id: 'tips', clock: { at: 24, label: 'TIPS by 72 h' }, params: { tips: { on: true } }, cam: 'liver', ripple: true, data: 'tiles',
       tool: { kind: 'criteria', title: 'Who gets a pre-emptive TIPS', short: 'Who gets it', lead: 'Any one of these is enough.', rule: 'Baveno VIII 5.31',
         rows: [{ text: 'Child–Pugh C, 10 to 13 points', cut: 'C 10–13', note: 'C 10', met: true, lit: true },
-          { text: 'Child–Pugh B, over 7, with active bleeding at endoscopy', cut: 'B 8–9', note: 'not B' }, { text: 'HVPG 20 mmHg or more, where measured', cut: '≥20 mmHg' }],
+          { text: 'Child–Pugh B, over 7, with active bleeding at endoscopy', cut: 'B 8–9', note: 'not B' }, { text: 'HVPG 20 mmHg or more, where measured', cut: '≥20 mmHg', note: 'not given' }],
         verdict: 'He qualifies on the first rule: a TIPS within 72 hours.' }, tiles: ['ppg', 'varix'], key: ['ppg'], delta: true,
       kicker: 'After the scope', site: 'sin', title: 'High-risk patients get a TIPS within 72 hours',
       line: 'Child–Pugh C 10 (bilirubin 3.2 mg/dL, INR 1.9, albumin 2.8 g/dL, ascites) qualifies him. A covered TIPS within 24 hours lowers the PPG to {ppg} and cuts rebleeding and death.',

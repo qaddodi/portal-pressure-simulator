@@ -116,6 +116,9 @@ test('criteria card V3 in the decks: every rule pill is cited in its slide\'s no
   assert.doesNotMatch(block, /border-(left|right)|inset \d+px 0 0|box-shadow: inset [^0]/, 'no vertical lines or side stripes in the criteria card (his rule)');
   assert.match(block, /\.pzc-row \{[^}]*font: 400 1\.07em\/1\.35 var\(--font-display\)/, 'the rules in the serif');
   assert.match(block, /\.pzc-end \{[^}]*padding-left: 22px/, 'the case column set apart by space alone');
+  assert.match(block, /\.pz-crit \{[^}]*width: 100%/, 'the card full width: a phone had centred it shrunk and pushed the case out');
+  for (const [c, n] of [['c', 1], ['t', 2], ['end', 3]]) assert.match(block, new RegExp(`\\.pzc-${c} \\{[^}]*grid-column: ${n};`), `.pzc-${c} in column ${n}, so a hidden cut-off moves nothing`);
+  assert.match(block, /\.pzc-end \{[^}]*white-space: nowrap/, 'the case column on one line (an iPhone wrapped "This case" and "C 10")');
   assert.match(block, /\.pzc-m > i \{[^}]*transition: opacity/, 'the marks of a live row cross-fade, never snap');
 });
 

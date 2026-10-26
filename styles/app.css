@@ -6725,7 +6725,7 @@ html.thumb-ui .menu.from-dock { clip-path: inset(-64px -64px calc(var(--sink, 0p
    vertical line (his rule); hairlines between rows only, as the quick check's; the verdict at the foot. Emphasis is ink and size:
    the row the case meets in full ink with its value large, the rows it does not in quiet words. A live row's value and marks
    cross-fade and keep their size, so the card never changes size with the reading. A cut-off column on a wide card only. */
-.pz-crit { font-size: max(12px, var(--bs, 14px)); }
+.pz-crit { box-sizing: border-box; width: 100%; min-width: 0; align-self: stretch; font-size: max(12px, var(--bs, 14px)); }   /* (the card's full width: shrunk to its content, a phone centred it and pushed the case column out) */
 .pz-crit [hidden] { display: none; }
 .pzc-top { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: .35em .8em; margin: 0 0 .55em; }
 .pzc-lead { flex: 1 1 12em; min-width: 0; margin: 0; font: 400 1em/1.35 var(--font-ui); color: var(--text-2); }
@@ -6736,8 +6736,8 @@ html.thumb-ui .menu.from-dock { clip-path: inset(-64px -64px calc(var(--sink, 0p
 .pzc-row:first-child { border-top: 0; }   /* (the quick check's rows: a hairline between, no fills) */
 .pzc-row:is([data-lit], [data-met="yes"]) { color: var(--text); font-weight: 600; }   /* (the row that fits the case: full ink, as a key tile's name) */
 .pzc-hrow { padding: 0 0 .3em; font: 500 max(12px, .86em)/1.2 var(--font-ui); color: var(--text-3); }
-.pzc-t { min-width: 0; }
-.pzc-c { display: none; }
+.pzc-c { grid-column: 1; display: none; }   /* (each cell in its own column: with the cut-off hidden, auto-placement had moved the words into the cut-off's column and the case into the words') */
+.pzc-t { grid-column: 2; min-width: 0; }
 @container (min-width: 480px) {   /* (a wide card: the cut-off large at the row's left; narrower, the words carry it alone) */
   .pz-crit.has-cut .pzc-c { display: block; padding-right: .8em; white-space: nowrap; font: 400 1.4em/1 var(--font-display); font-variant-numeric: lining-nums; }
   .pz-crit .pzc-end { align-items: flex-end; text-align: right; }   /* (the case's column flush right on a wide card) */
@@ -6745,8 +6745,9 @@ html.thumb-ui .menu.from-dock { clip-path: inset(-64px -64px calc(var(--sink, 0p
 .pzc-s, .pzc-u { font-family: var(--font-ui); font-weight: 400; }   /* (the serif has no ≥ or ≤) */
 .pzc-s { font-size: .8em; margin-right: .06em; }
 .pzc-u { font-size: max(12px, .46em); margin-left: .3em; color: var(--text-3); }
-.pzc-end { display: flex; flex-direction: column; align-items: flex-start; gap: .1em; max-width: 11em; padding-left: 22px; font: 500 calc(1em / 1.07)/1.25 var(--font-ui); font-variant-numeric: tabular-nums; color: var(--text-3); }
+.pzc-end { grid-column: 3; display: flex; flex-direction: column; align-items: flex-start; gap: .1em; white-space: nowrap; padding-left: 22px; font: 500 calc(1em / 1.07)/1.25 var(--font-ui); font-variant-numeric: tabular-nums; color: var(--text-3); }
 .pzc-hrow .pzc-end { font: inherit; color: inherit; }
+.pz-crit:not(.has-case) .pzc-end { display: none; }   /* (a plain list: its words take the full width) */
 .pzc-v { transition: color .4s var(--ease); }
 .pzc-row:is([data-lit], [data-met]) .pzc-v, .pzc-live .pzc-v { font-size: 1.3em; font-weight: 600; line-height: 1.15; color: var(--text); }
 .pzc-row[data-met="no"] .pzc-v { color: var(--text-2); }

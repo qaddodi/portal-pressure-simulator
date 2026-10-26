@@ -29,7 +29,7 @@ export const CHOOSE_TREATMENT = {
       caseQ: 'Does she meet the criteria for a pre-emptive TIPS?',
       tool: { kind: 'criteria', title: 'Pre-emptive TIPS', lead: 'Any one of these is enough.', rule: 'Baveno VIII 5.31',
         rows: [{ text: 'Child–Pugh C, 10 to 13 points', cut: 'C 10–13', note: 'not C' }, { text: 'Child–Pugh B, over 7, with active bleeding at endoscopy', cut: 'B 8–9', note: 'B 8, not bleeding', met: false, lit: true },
-          { text: 'HVPG 20 mmHg or more', cut: '≥20 mmHg' }],
+          { text: 'HVPG 20 mmHg or more', cut: '≥20 mmHg', note: 'not given' }],
         verdict: 'She does not qualify: carvedilol and bands.' }, tiles: ['ppg', 'hr'], key: ['ppg'],
       kicker: 'Bleeding', site: 'sin', title: 'Carvedilol and bands, not a pre-emptive TIPS',
       line: 'Child–Pugh B 8 without active bleeding at endoscopy misses the criteria. She starts carvedilol, which lowers the PPG to {ppg}, with banding every 2 to 4 weeks.',
