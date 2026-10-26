@@ -6,7 +6,7 @@
 const SCAN = { kind: 'fibroscan' };
 // The stiffness and platelets plane on the cure slide: the dot crosses into No CSPH as the lapse plays. The words keep the
 // slide's own cut-off (under 10 kPa); the plane's zones are the rule for untreated disease, and both agree here. The
-// obese MASLD slide keeps its FibroScan, where the 25 kPa rule does not strictly apply (Baveno VIII 1.16).
+// obese MASLD slide charts its stiffness over the year instead, where the 25 kPa rule does not strictly apply (Baveno VIII 1.16).
 const PLANE = { kind: 'plane', plane: 'csph' };
 const HCV = 'Hepatitis C cured', HIGH = 'A higher start', MASLD = 'MASLD';
 
@@ -37,7 +37,7 @@ export const CAUSE_TREATED = {
     },
     {
       id: 'year1', days: 365, ramp: { cirrhosis: [0.6, 0.45] }, lapse: { seconds: 8, from: 'Cure', to: 'One year later' }, cam: 'liver',
-      tool: { kind: 'flowtime', clock: 'days', lines: ['hvpg', 'varix'] }, data: 'tiles', tiles: ['hvpg', 'varix', 'lsm', 'plt'], key: ['lsm'], delta: 'before',
+      tool: { kind: 'flowtime', clock: 'days', lines: ['hvpg', 'varix'], title: 'HVPG and varix over the year' }, data: 'tiles', tiles: ['hvpg', 'varix', 'lsm', 'plt'], key: ['lsm'], delta: 'before',
       kicker: HCV, site: 'sin', title: 'A year after cure, the pressure and the stiffness fall',
       line: 'A year after cure the stiffness reads {lsm}, the platelets have risen to {plt} and the HVPG has fallen to {hvpg}.',
       notes: 'After cure, inflammation settles first, so the stiffness falls faster than the scar regresses, and an early fall overstates how much fibrosis has gone. The HVPG falls more slowly and less completely, and in some patients with CSPH before treatment it stays at 10 mmHg or more. Whether carvedilol can stop once CSPH resolves is not settled.',
@@ -68,12 +68,14 @@ export const CAUSE_TREATED = {
       ask: ['Should she stop carvedilol now that the virus is gone?', 'No: CSPH persists, so carvedilol continues.'],
     },
     {
-      id: 'masld', preset: 'cirr-comp', params: { cirrhosis: 0.45 }, days: 365, ramp: { cirrhosis: [0.45, 0.35] }, lapse: { seconds: 8, from: 'Weight loss starts', to: 'One year later' }, cam: 'liver', tool: SCAN,
+      id: 'masld', preset: 'cirr-comp', params: { cirrhosis: 0.45 }, days: 365, ramp: { cirrhosis: [0.45, 0.35] }, lapse: { seconds: 8, from: 'Weight loss starts', to: 'One year later' }, cam: 'liver',
+      // The weight line is the slide's own 12% (the model has no weight), spread evenly over the year as the scar eases back; the stiffness line is the model's.
+      tool: { kind: 'flowtime', clock: 'days', lines: ['wt', 'lsm'], given: { wt: 12 }, title: 'Weight lost and stiffness over the year' },
       data: 'tiles', tiles: ['lsm', 'plt'], key: ['lsm'],
       kicker: MASLD, site: 'sin', title: 'Losing 12% of her weight lowers the stiffness',
       vignette: 'A 54-year-old woman with MASH cirrhosis and a BMI of 34 has a liver stiffness of 15 kPa on FibroScan. Her platelets are 136,000/µL, and she has never had ascites or bleeding.',
       line: 'Losing 12% of her weight over a year lowers the stiffness from the gray zone to {lsm} and lifts the platelets to {plt}, which now rules CSPH out.',
-      notes: 'At the start her stiffness sits in the gray zone, and at a BMI of 30 or more a stiffness of 25 kPa or more no longer rules CSPH in, because it often overstates the portal pressure in obesity. Baveno VIII then uses ANTICIPATE-NASH, which adds the BMI, and calls CSPH present at a probability of 75% or more. In MASLD-related cACLD, losing 10% or more of body weight goes with a fall in stiffness of 30% or more. Diet and exercise come first; GLP-1–based drugs can be used for their approved indications, obesity included, and bariatric surgery suits selected patients without CSPH, with CSPH only at expert centers. A stiffness of 15 kPa or less with platelets of 150,000/µL or more rules CSPH out, whatever the cause. Note: The model has no fat or weight; it eases the scar back instead.',
+      notes: 'At the start her stiffness sits in the gray zone, and at a BMI of 30 or more a stiffness of 25 kPa or more no longer rules CSPH in, because it often overstates the portal pressure in obesity. Baveno VIII then uses ANTICIPATE-NASH, which adds the BMI, and calls CSPH present at a probability of 75% or more. In MASLD-related cACLD, Baveno VIII (2.13) links a weight loss of 10% or more with a fall in stiffness of 30% or more. A confirmed change of 30% or more goes with a meaningful change in the risk of liver-related events, particularly when the stiffness crosses 15 kPa (2.9). Diet and exercise come first; GLP-1–based drugs can be used for their approved indications, obesity included, and bariatric surgery suits selected patients without CSPH, with CSPH only at expert centers. A stiffness of 15 kPa or less with platelets of 150,000/µL or more rules CSPH out, whatever the cause. Note: The model has no fat or weight. On the chart, the weight line is the 12% named on the slide, spread evenly over the year with the scar easing back in step, and the stiffness line comes from the model.',
       ask: ['How much weight loss changes the stiffness meaningfully?', 'About 10% of body weight or more, which goes with a fall in stiffness of about 30% or more.'],
     },
     {

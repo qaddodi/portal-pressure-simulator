@@ -17,6 +17,9 @@
 //   tool: { kind: 'flowtime', clock: 'days', lines: [lower, upper] }
 //                                                   the same chart over a disease time-lapse: two fingerprint keys
 //                                                   (flow-time.js LINE), one point a model day, drawn as it plays
+//   tool: { kind: 'flowtime', clock: 'days', lines: ['wt', 'lsm'], given: { wt: 12 } }
+//                                                   a line the model has no number for (weight lost, %) is the slide's own: given is its
+//                                                   end value, reached in step with the time-lapse's ramp from 0; the other line is the model's
 //
 //   tool: { kind: 'spleen' }                        the spleen on ultrasound: its outline to the model's length, calipers end to end, the length in cm
 //   tool: { kind: 'vitals', show?: ['hr', 'map', 'hb'] }
@@ -45,11 +48,11 @@ import { createPressureTime } from './pressure-time.js?v=05c636832a';
 import { createSpleenUS } from './spleen-us.js?v=c6df942855';
 import { createVitalsMonitor } from './vitals-monitor.js?v=e63929db81';
 import { createHvpgCard } from './tool-hvpg.js?v=47d288ae13';
-import { createFlowTime } from './flow-time.js?v=1c1d1370e3';
+import { createFlowTime } from './flow-time.js?v=355b04400a';
 import { createEndoscopy, createAbdomen, createVarixWall } from './instruments.js?v=9cc1bee18d';
 import { frameFor } from './frame.js?v=226365e6e2';
 import { talkTrace } from './talk-trace.js?v=7b6079d299';
-import { EXT, guard, safe } from './slide-ext.js?v=92fa1f355e';
+import { EXT, guard, safe } from './slide-ext.js?v=0e35fef902';
 const nextFrame = frameFor('presenter-tools');
 
 const VESSEL = { PV_TRUNK: 'main portal vein', PVH_R: 'right portal vein', PVH_L: 'left portal vein', SV_CONF: 'splenic vein', SV_MID: 'splenic vein', V_SPL: 'splenic vein, at the hilum',
@@ -148,7 +151,7 @@ export function createTools({ host, stage }) {
       cur = inst; kind = k;
       box.dataset.kind = k;
       if (k === 'talk') inst.set(chain);
-      else if (k === 'flowtime') inst.set(trail, reveal, { clock: t.clock, lines: t.lines });
+      else if (k === 'flowtime') inst.set(trail, reveal, { clock: t.clock, lines: t.lines, given: t.given });
       else { const f = store.get().frame; if (f) nextFrame(() => cur === inst && inst.update?.(f)); }
       if (startOver) { if (held) primeWait = true; else prime(inst, k); }
     },
