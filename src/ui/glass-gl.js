@@ -116,11 +116,11 @@ void main() {
  * The GPU glass for the callouts under `layers` (the .cath-labels layers), over the figure drawn on `source` (veins-gl's canvas,
  * which keeps its drawing buffer). The canvas is laid just before `layers[0]`. With `pane` (an .lb-glass element), it draws that one
  * rounded pane instead, its canvas laid just before it (under the labels, where the pane lies). `live()`: whether the figure is on that canvas now
- * (else the browser's glass, which sees the SVG figure). `version()`: a number that changes whenever the figure on `source` is drawn
+ * (else the browser's glass, which sees the SVG figure). `capture()`: called just before a copy is taken, so the figure is on `source` whole whether or not it keeps its own picture. `version()`: a number that changes whenever the figure on `source` is drawn
  * again; while it, the region behind the callouts and the canvas' place on the page all hold, the copy already taken is still the
  * figure, so none is taken (without it, one is taken whenever the last has arrived). Null when it cannot run.
  */
-export function createGlassGL(wrap, source, layers, { software = false, off = false, live = () => true, pane = null, version = null } = {}) {
+export function createGlassGL(wrap, source, layers, { software = false, off = false, live = () => true, pane = null, version = null, capture = null } = {}) {
   const look = pane ? PANE : GLASS;
   if (off || software || !source || typeof WebGL2RenderingContext === 'undefined' || typeof createImageBitmap !== 'function') return null;
   const canvas = document.createElement('canvas');
@@ -191,6 +191,7 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
     if (gpuProbe.on) gpuProbe.note(COUNTED.glassCopy);
     let p;
     try {
+      capture?.();   // (the figure's whole picture is on the canvas for this copy, whether or not the canvas keeps its own)
       p = createImageBitmap(source, Math.round((reg.x + cr.left - sr.left) * kx), Math.round((reg.y + cr.top - sr.top) * ky), Math.max(1, Math.round(reg.w * kx)), Math.max(1, Math.round(reg.h * ky)),
         { resizeWidth: bw, resizeHeight: bh, resizeQuality: 'medium', premultiplyAlpha: 'premultiply' });
     } catch { p = Promise.reject(); }

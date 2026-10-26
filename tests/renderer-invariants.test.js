@@ -113,3 +113,15 @@ test('the shared clock runs each surface once per frame and the late ones last, 
   assert.deepEqual(order, ['a', 'b', 'late', 'a-next']);
   assert.equal(frames.length, 0, 'nothing asked, no frame requested');
 });
+
+test('capture() hands exports the canvas with the whole current picture; the glass asks for it before each copy', async () => {
+  const { g, f, canvas, look } = await renderer();
+  g.draw([1, 0, 0, 1, 0, 0], look, { on: false });
+  const n = f.calls.length;
+  assert.equal(g.capture(), canvas);
+  assert.equal(f.calls.slice(n).filter((c) => c[0] === 'blitFramebuffer').length, 0, 'the canvas keeps its own picture: nothing to copy');
+  const glass = read('../src/ui/glass-gl.js');
+  assert.ok(glass.indexOf('capture?.()') > 0 && glass.indexOf('capture?.()') < glass.indexOf('p = createImageBitmap('));
+  const stage = read('../src/ui/stage.js');
+  assert.equal((stage.match(/capture: \(\) => veins\?\.capture\(\)/g) || []).length, 2, 'the callouts\' glass and the liver pane');
+});

@@ -2451,6 +2451,12 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false }) {
     /** The current picture as a PNG data URL (call right after draw, in the same task). */
     snapshot() { present(); return canvas.toDataURL('image/png'); },
     /**
+     * The canvas holding the whole current picture, for a reader that takes it in this same task (a download, a handout, the glass'
+     * copy, drawImage, createImageBitmap, toDataURL): with ?vesselbuf=own the kept picture is copied onto it first, so the reader
+     * never depends on the canvas having kept its own picture. Every export of the figure goes through here.
+     */
+    capture() { present(); return canvas; },
+    /**
      * With ?vesselbuf=own: copies the kept picture onto the canvas again, so a reader of the canvas outside the frame that drew it
      * (a copy for the glass, a picture taken later) reads the whole current picture. Does nothing without the switch.
      */

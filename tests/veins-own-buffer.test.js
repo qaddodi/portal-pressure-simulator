@@ -99,3 +99,14 @@ test('with ?vesselbuf=own every picture is drawn into the kept texture and copie
     assert.equal(cl.filter((c) => c[0] === 'clear').length, 2);
   } finally { delete globalThis.location; }
 });
+
+test('with ?vesselbuf=own capture() copies the kept picture onto the canvas before an export reads it', async () => {
+  globalThis.location = { search: '?vesselbuf=own' };
+  try {
+    const { g, f, canvas, look } = await renderer('../src/ui/veins-gl.js?own-capture');
+    g.draw([1, 0, 0, 1, 0, 0], look, { on: false });
+    const n = f.calls.length;
+    assert.equal(g.capture(), canvas);
+    assert.equal(blits(f, n).length, 1);
+  } finally { delete globalThis.location; }
+});
