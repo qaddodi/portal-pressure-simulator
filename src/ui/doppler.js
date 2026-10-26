@@ -5,11 +5,11 @@
 // full. It scrolls smoothly, one spectral line at a time, as the machine does.
 
 import { EDGES, dopplerK, stentSegments, stentSite, stentGate, stentCourse } from '../engine/topology.js?v=4044766e96';
-import { h, fmt, fitCanvas, clamp, icon, cssVar, cssAlpha } from './util.js?v=77c14494a8';
-import { FONT, textW } from './charts.js?v=975caa7a1e';
+import { h, fmt, fitCanvas, clamp, icon, cssVar, cssAlpha } from './util.js?v=29a9d1a27d';
+import { FONT, textW } from './charts.js?v=5e21f9ac80';
 import { logAction, shownVel, store } from './store.js?v=926dabfaef';
-import { DOPPLER_MODES, THETA, dopplerColor, shadeColor, swatchGradient } from './dopplerColor.js?v=7d83417f3a';
-import { frameFor, noteDraw, paceMs, cancelFrame } from './frame.js?v=27496e60e1';
+import { DOPPLER_MODES, THETA, dopplerColor, shadeColor, swatchGradient } from './dopplerColor.js?v=9604ee683f';
+import { frameFor, noteDraw, paceMs, cancelFrame } from './frame.js?v=39b0efa1db';
 import { windowIndexFor, scaleFor, fitScale } from './dopplerWindow.js?v=1d34e63b32';
 import { velNormal, dopplerVel, judgeFlow } from './velNormal.js?v=97920ddf3f';
 import { caliperFrame, caliperLevel, caliperX, CAL_FADE, pairOf, pairBand, pairScale, PAIR_GAP } from './doppler-marks.js?v=15fc499dcd';

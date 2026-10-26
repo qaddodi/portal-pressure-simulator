@@ -33,7 +33,7 @@
 
 import { CHEV_GLSL } from './chevron-glsl.js?v=96ec7c6666';
 import { SLOT, DYE_BINS } from './blood.js?v=7fa561f952';
-import { cssRGB } from './util.js?v=77c14494a8';
+import { cssRGB } from './util.js?v=29a9d1a27d';
 import { LUMEN, STO_Y0, STO_DY, STO_N } from './stomach-lumen.js?v=4fce52c62f';
 import { CELL, ENT_W, binVeins, splitRows, simpleCells, splitCells } from './veins-bin.js?v=e0eed8226f';
 import { gpuProbe, COUNTED } from './gpu-probe.js?v=caac436485';
@@ -1489,6 +1489,8 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false }) {
   const lineVers = [0, 0, 0], lineSigs = ['', '', ''];
   let skipped = false;
   let pictureSeq = 0;   // counts the times the canvas was drawn on (composite, clear): what the glass compares to know its copy of the figure is still current
+  const onPicture = new Set();   // (told each time: the glass over the figure, asleep while the figure stands still, wakes)
+  const pictured = () => { pictureSeq++; for (const f of onPicture) f(); };
   let lines = null, linesWas = false, lineKey = '', glowKey = '', warmKey = '', lastMk = '';
   // The outlines are drawn into a layer of their own when they change, and the composite lays it over the picture: the
   // cells-only pass then keeps them, so an open organ card no longer repaints the whole picture every frame. Glows
@@ -2329,7 +2331,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false }) {
       const pool = full ? 0 : nPool;
       nPool = 0;
       if (!full && !nCells && !(fl?.ripple && nFluid) && !pool && !dirt) return;
-      pictureSeq++;
+      pictured();
       if (gpuProbe.on) { if (full) gpuProbe.note('whole picture'); if (!look.plate) gpuProbe.note('organ picture down'); }
       if (gpuProbe.on) { gpuProbe.note(COUNTED.picture); if (full) gpuProbe.note(COUNTED.pictureWhole); }
       const det = m[0] * m[3] - m[1] * m[2] || 1e-9;
@@ -2461,7 +2463,9 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false }) {
     },
     /** Changes whenever the canvas is drawn on again (the glass takes a new copy of the figure only then). */
     get drawSeq() { return pictureSeq; },
-    clear() { pictureSeq++; if (own?.w) { gl.bindFramebuffer(gl.FRAMEBUFFER, own.fbo); gl.viewport(0, 0, own.w, own.h); gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT); } gl.bindFramebuffer(gl.FRAMEBUFFER, null); gl.viewport(0, 0, canvas.width, canvas.height); gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT); nCells = nBlood = nGen = nSimple = 0; baseM = null; fboOK = false; },
+    /** Calls f each time the canvas is drawn on again; returns the call that stops it. */
+    onPicture(f) { onPicture.add(f); return () => onPicture.delete(f); },
+    clear() { pictured(); if (own?.w) { gl.bindFramebuffer(gl.FRAMEBUFFER, own.fbo); gl.viewport(0, 0, own.w, own.h); gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT); } gl.bindFramebuffer(gl.FRAMEBUFFER, null); gl.viewport(0, 0, canvas.width, canvas.height); gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT); nCells = nBlood = nGen = nSimple = 0; baseM = null; fboOK = false; },
     /** The current picture as a PNG data URL (call right after draw, in the same task). */
     snapshot() { present(); return canvas.toDataURL('image/png'); },
     /**
