@@ -137,6 +137,8 @@ svg { flex: none; }
 .stage-view.unframed > :is(#stage, #stageOver, #labels, canvas) { opacity: 0; }
 /* A presenter's camera move: the labels ease out as it starts and back in once it settles (stage.js camSettle). */
 .stage-view.cam-move > #labels, .stage-view.cam-move > #labelGl, .stage-view.cam-move .lb-glass { opacity: 0; }
+/* A hand's zoom in the Circuit: the same, until it is let go (stage.js pinchHide). */
+.stage-view.pinch-hide > #labels, .stage-view.pinch-hide > #labelGl, .stage-view.pinch-hide .lb-glass { opacity: 0; }
 /* The labels the GPU draws (label-gl.js): their SVG copy stays, for its layout, clicks, focus and screen readers, but paints nothing;
    the canvas over it takes the label layer's rules (cam-move, unframed, the lobule, the catheter) and never takes a pointer. */
 #labels .lb[data-gl] > * { opacity: 0; }

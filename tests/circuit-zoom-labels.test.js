@@ -26,3 +26,18 @@ test('once the hand lets go, every reading is solved together', () => {
   assert.match(settle, /if \(gestureOn\(\)\) \{ labelSettleT = setTimeout\(settle, 120\); return; \}/);
   assert.match(settle, /if \(reslotted\) \{ reslotted = false; solvedFor = null; \}/, 'no solvedFor: the next layout is a whole solve');
 });
+
+test('a hand zoom in the Circuit fades the readings out, skips their layout, and shows them solved once let go', () => {
+  const css = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
+  assert.match(css, /\.stage-view\.pinch-hide > #labels, \.stage-view\.pinch-hide > #labelGl, \.stage-view\.pinch-hide \.lb-glass \{ opacity: 0; \}/);
+  const ul = stage.slice(stage.indexOf('function updateLabels(f, force = false) {'), stage.indexOf('function refreshValues('));
+  // Only in the Circuit, only under a hand, only once the scale moved (a pan keeps them, carried).
+  assert.match(ul, /if \(pinchHide \|\| \(easeInOut\(morph\) >= 0\.5 && solvedFor && gestureOn\(\) && Math\.abs\(Math\.log\(CTM\.sc \/ solvedFor\.sc\)\) > PINCH_ZOOM\)\) \{\n\s*if \(gestureOn\(\)\) \{/);
+  assert.ok(ul.indexOf('pinchRelease();\n        return;') < ul.indexOf('layoutLabels(f, false)'), 'no layout while it lasts');
+  const rel = stage.slice(stage.indexOf('function pinchRelease()'), stage.indexOf('function pinchRelease()') + 700);
+  assert.match(rel, /if \(gestureOn\(\)\) \{ pinchT = setTimeout\(rel, 120\); return; \}/, 'waits for the hand to let go');
+  assert.match(rel, /solvedFor = null;/, 'a whole solve where the view stopped');
+  assert.ok(rel.indexOf('updateLabels(F)') < rel.indexOf("classList.remove('pinch-hide')"), 'laid out first, then shown');
+  // Laid out while hidden, they take their new places at once (no glide from where they were).
+  assert.match(stage, /const snap = [^\n]*wrap\.classList\.contains\('pinch-hide'\)/);
+});

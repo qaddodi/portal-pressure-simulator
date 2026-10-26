@@ -7660,7 +7660,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const now = performance.now(), cam = [CTM.a, CTM.b, CTM.e, CTM.f].map((v) => v.toFixed(2)).join();
     const still = cam === glideCam;
     glideCam = cam;
-    const snap = reduceMotion.matches || camMove || wrap.classList.contains('cam-move') || wrap.classList.contains('cath-on') || !!lz?.isOpen();
+    const snap = reduceMotion.matches || camMove || wrap.classList.contains('cam-move') || wrap.classList.contains('pinch-hide') || wrap.classList.contains('cath-on') || !!lz?.isOpen();
     let moving = false;
     for (const it of out) {
       const b = pool.get(it.key);   // (a label with no block yet is new: it fades in where it stands)
@@ -8215,6 +8215,21 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // offset, so a few per cent of a pinch had solved every reading again, nearly every frame: Mohammad, 26 Oct, "the problem is
   // during the zoom itself it's very very choppy", and his pick "Re-place only the bumped reading".)
   let carryReslot = false, reslotted = false;
+  // A hand's zoom in the Circuit: the readings ease out as it starts, are not laid out while it lasts, and ease back in, solved for
+  // where the view stopped, once it is let go (as a presenter's camera move does: cam-move). Mohammad, 26 Oct, his pick "Both,
+  // readings first" for "the problem is during the zoom itself it's very very choppy". A pan alone keeps them, carried.
+  let pinchHide = false, pinchT = 0;
+  const PINCH_ZOOM = 0.01;   // (a 1 % change of scale under a hand is a zoom; a pan leaves the scale exactly as it was)
+  function pinchRelease() {
+    clearTimeout(pinchT);
+    pinchT = setTimeout(function rel() {
+      if (gestureOn()) { pinchT = setTimeout(rel, 120); return; }
+      pinchT = 0; pinchHide = false; reslotted = false; solvedFor = null;
+      if (F && !camMove && !lz?.isOpen()) { labelKey = null; updateLabels(F); }
+      // (Laid out at their new places first, then shown: they fade in where they stay.)
+      nextFrame(() => { if (!pinchHide) wrap.classList.remove('pinch-hide'); });
+    }, 160);
+  }
   function labelSettleSoon() {
     clearTimeout(labelSettleT);
     labelSettleT = setTimeout(function settle() {
@@ -8267,6 +8282,13 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (camMove) { if (!vtGliding) camSettle(); return; }
     const t0 = performance.now();
     refreshCTM();
+    if (pinchHide || (easeInOut(morph) >= 0.5 && solvedFor && gestureOn() && Math.abs(Math.log(CTM.sc / solvedFor.sc)) > PINCH_ZOOM)) {
+      if (gestureOn()) {
+        if (!pinchHide) { pinchHide = true; wrap.classList.add('pinch-hide'); }
+        pinchRelease();
+        return;
+      }
+    }
     const st = store.get(), sig = labelSig(f), b = stageBox();
     const key = [[CTM.a, CTM.b, CTM.e, CTM.f].map((v) => v.toFixed(2)).join(), b.width, b.height, morph, rotU, labelFonts, document.documentElement.dataset.theme,
       pzInset('--pz-l'), pzInset('--pz-t'), st.mode, !!st.compareSnap, st.compareView, paramJSON(blockerBoxes), sig,
