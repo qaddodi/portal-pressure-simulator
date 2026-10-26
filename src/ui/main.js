@@ -40,6 +40,7 @@ import { initTopbarMotion } from './topbar-motion.js?v=0843ea4859';
 import { ORIGINS } from './blood.js?v=7fa561f952';
 import { parseShare, cleanShare } from './share-link.js?v=b6f8e0f909';
 import { deepMerge, sanitizeParams } from '../engine/scenario.js?v=d7d3ea5b70';
+import { createPaintGate } from './paint-gate.js?v=68c692e8a3';
 import { frameFor, cancelFrame, perf as framePerf } from './frame.js?v=226365e6e2';
 import { easeIO3, glideShift, pillState, foldPill, stopFold } from './pill-motion.js?v=ea522a5215';
 const nextFrame = frameFor('main');
@@ -346,7 +347,7 @@ function viewFrame(f) {
 // The engine ticks ~30×/s, but pressures ease over seconds, so the anatomy, readouts and panel
 // are repainted at most ~10×/s (the chevrons animate separately). Repainting the whole SVG plate
 // on every tick kept the main thread busy and the laptop warm for no visible gain.
-let lastPaint = 0, lastDesc = 0;
+let lastDesc = 0;
 // The Doppler's vessel glows on the figure while the Doppler instrument is open.
 function syncDoppler(f = store.get().frame) { stage?.setDoppler(f && dock?.isOpen('doppler') ? f.probe : null); syncScanProbe(); }
 // The FibroScan probe and its shear wave show on the figure while the FibroScan card is open in Explore; the Presenter drives its own.
@@ -356,13 +357,16 @@ function syncScanProbe() {
   if (store.get().mode !== 'explore') { scanOwned = false; return; }
   if (want !== scanOwned) { scanOwned = want; stage?.setScanProbe(want); }
 }
-function onFrame(f) {
+// Every snapshot is taken in at once (params, events, monitor samples); only the newest waiting one is painted, next frame (paint-gate.js).
+const frameGate = createPaintGate({ ingest: ingestFrame, paint: paintFrame, ask: (cb) => frameFor('frame')(cb), cancel: cancelFrame });
+function onFrame(f) { frameGate.push(f); }
+function ingestFrame(f) {
   if (f.params) replaceParams(f.params);
   if (f.events?.length) { const hid = store.get().hiddenEvents; const ev = hid ? f.events.filter((e) => !hid.has(e.id) && !(hid.has('COLL_*') && e.id.startsWith('COLL_'))) : f.events; if (ev.length) timeline.addEvents(ev); }
   dock?.ingest(f);   // every frame's samples, even one that is not painted
+}
+function paintFrame(f) {
   const now = performance.now();
-  if (!f.changed && !f.params && !f.events?.length && now - lastPaint < 80) return;
-  lastPaint = now;
   // running and clock only when they change: their listeners (the endoscopy redraw among them) need not re-run every frame.
   const st0 = store.get();
   store.set({ frame: f, ...(st0.running !== f.running ? { running: f.running } : {}), ...(st0.clock !== f.clock ? { clock: f.clock } : {}), ...(f.clock === 'hemo' && st0.lapse ? { lapse: 0, speed: f.speed } : {}) });
