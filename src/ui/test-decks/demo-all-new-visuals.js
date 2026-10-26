@@ -1627,7 +1627,7 @@ export const DEMO_ALL = {
       "steps": true,
       "kicker": "Route",
       "title": "Gut blood crosses two capillary beds in series",
-      "line": "Blood that has crossed the gut capillaries gathers in the bowel veins and the portal vein, crosses the sinusoids and leaves through the hepatic veins to the IVC. The numbers keep the order once every vessel is lit."
+      "line": "Blood that has crossed the gut capillaries gathers in the bowel veins {#1} and the portal vein {#2}, crosses the sinusoids {#3} and leaves through the hepatic veins {#4} to the IVC {#5}. The numbers keep the order once every vessel is lit."
     },
     {
       "id": "zone",

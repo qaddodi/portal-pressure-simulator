@@ -238,7 +238,7 @@ All figure-only (no `visual`). Organ outlines, the normal spleen, organ marks, c
 * **Live readings in a mark**: a mark's `label` may hold any tile `{token}` (`'Varix {varix}'`), printed as its tile prints it and in its rating colour on a plain pill; it follows sliders, buttons and time-lapses without jumping. Do not repeat a reading a station label already shows.
 * **Marks on organs**: `mark: { organ: 'spleen', label: 'Spleen {spleen}' }`; organs `liver spleen heart stomach esophagus bowel colon duodenum kidney ascites`. `kind` defaults to `note`.
 * **`calipers: ['spleen' | 'varix' | 'TIPS' | <vessel id>]`**: a dimension line with its reading (spleen length, varix diameter, stent width in whole mm, any other vessel's modelled diameter).
-* **`steps: true`** with `glowSeq`: a small round number by each glow entry as it lights. A list inside the glow is one step: its vessels light together and its number stands between them on a leader to each (`glow: [['V_INT', 'V_SPL', 'V_IMV'], ['PVH_R', 'PVH_L'], 'SIN_RR']`); its leaders keep off every label and other leader where they can.
+* **`steps: true`** with `glowSeq`: a small round number by each glow entry as it lights. A list inside the glow is one step: its vessels light together and its number stands between them on a leader to each (`glow: [['V_INT', 'V_SPL', 'V_IMV'], ['PVH_R', 'PVH_L'], 'SIN_RR']`); its leaders keep off every label and other leader where they can. The line names every step with the same number: `{#1}`, `{#2}` after the words that name its site (section 6.5). A slide that sets `steps` must do so (`tests/step-markers.test.js`).
 * **`span: [{ from, to, label }]`** (circuit station ids; the label may hold tokens): a bracket under the circuit with its reading. **`zone: 'splanchnic' | 'portal' | 'liver' | 'hepatic' | 'heart'`** fills that part of the circuit softly.
 * Every reading pill keeps clear of vessels, lines, organs and the cards, at 12 px or more.
 
@@ -384,6 +384,17 @@ Inside the liver (the view's own label takes the colour with a soft glow; use wi
 ### 6.4 Source line: `cite`
 
 `cite: 'Baveno VIII 1.15, 1.16'` prints one small line under the line and any caveat, on a words slide or a panel slide, and in the handout. Cite Baveno VIII (never VII), EASL 2025 or AASLD 2024, matched to the statement; it counts in the card's fit, so keep it short.
+
+---
+
+### 6.5 Step markers in the words: `{#1}`
+
+A slide with `steps: true` (section 5.9) shows a black numbered circle on the figure for each glow entry. Its line shows the same circle: write `{#1}` straight after the words that name step 1's site, `{#2}` for step 2, and so on, as in "The first bed is the gut and spleen's capillaries {#1}, the second the liver's sinusoids {#2}." The number is the glow entry's place in the list (a list inside the glow is one entry), so the same number always means the same site.
+
+* **Look.** The figure's own marker: a dark circle with a light numeral, in the theme's ink and stage colours, sized from the line's type (never under 12 px) and sitting inside the line's own spacing, so a line holding one is spaced like any other. No colour, ring or glow. It keeps the word before it, and a comma or stop after it, on one line.
+* **Order and count.** Name every step once, in the order the line reads, and put the marker after the site's words (never at the start of a sentence, never two together). `tests/step-markers.test.js` fails a `steps` slide whose line misses a number, repeats one or numbers a step the figure does not have, and a marker on a slide without `steps`.
+* **Not a word, not a value.** A marker is not counted in the 30-word limit and does not stop a typed number with a unit from taking its automatic outlined pill. The handout prints it as "(1)".
+* **Every slide, every size.** Present on every device and at Regular and Compact text; no setting turns it off. A line that is not about the figure's numbered route has no use for it.
 
 ---
 

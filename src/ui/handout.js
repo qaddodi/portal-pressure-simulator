@@ -6,7 +6,7 @@
 // (decks.js, new ones included: a slide without a figure prints without one) and for the instructor's scripts.
 
 import { download } from './download.js?v=3564e5bf8c';
-import { LEVELS, withOverview } from './decks.js?v=3d32809e07';
+import { LEVELS, withOverview } from './decks.js?v=a6b087708d';
 import { TILE, cutText } from './table-marks.js?v=8458ad3bf8';
 import { plateletText } from './glue.js?v=5a0f63226b';
 import { citeText } from './teach-extras.js?v=5f5248f5a7';
@@ -92,6 +92,7 @@ export function lineText(t, fp = null, at = () => null) {
   const num = (v, dp) => { const t = v.toFixed(dp); return /^-0(\.0+)?$/.test(t) ? t.slice(1) : t.replace('-', '−'); };
   const val = (k, f) => { const T = TILE[k], v = f?.[k]; return v == null || !Number.isFinite(v) ? '—' : k === 'plt' ? plateletText(v) : `${num(v * (T.x || 1), T.d ?? 1)}${T.u === '%' ? '%' : T.u ? ` ${T.u}` : ''}`; };
   return String(t ?? '').replace(/\[([^\]]+)\]\([\w:]+\)/g, '$1').replace(/\{([^}]+)\}/g, (_, mk) => {
+    if (/^#\d+$/.test(mk)) return `(${mk.slice(1)})`;   // (a figure's step marker, {#2}: its number in brackets, as a printed line says it)
     if (TILE[mk]) return val(mk, fp);
     const m = mk.match(/^(\w+)@([\w-]+)$/);
     if (m && TILE[m[1]]) return val(m[1], at(m[2]));

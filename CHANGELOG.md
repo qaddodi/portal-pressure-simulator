@@ -2,6 +2,15 @@
 
 ## October 2026
 
+- **The figure's numbered markers also show in the teaching card's words.** (Mohammad, 26 Oct, "the labels 1, 2, 3, 4, etc. should also show up in the teaching cards in a
+  similar way as they appear in the figure".) A slide with `steps: true` numbers its glow on the figure with black circles; its line now names each step with the same circle,
+  written `{#1}`, `{#2}` straight after the words that name that site ("the gut and spleen's capillaries (1), the liver's sinusoids (2)"). The marker is the figure's own look
+  (a dark circle in the theme's ink, a light numeral), sized from the line's type with the numeral never under 12 px, set inside the line's own spacing so no line grows, and it
+  keeps its word and the stop after it on one line. It is no word in the 30-word count and no value (a typed number with a unit keeps its automatic pill); the Print notes
+  handout writes it "(1)". On for the three slides that number their glow: Circulation 3 of 8 ("Gut blood crosses two capillary beds in series"), the Sites overview (five steps, now
+  worded for them: "...through the portal veins (2) and the liver's sinusoids (3) to the systemic veins (4) and the heart (5)") and the preview-only demo deck's route slide.
+  `tests/step-markers.test.js` fails a numbered slide whose line misses a step, repeats one or numbers a step the figure lacks; both authoring guides say so (6.5, 5.9, the quick guide).
+  Code and unit tests only; nobody has looked on screen. `src/ui/presenter.js`, `src/ui/handout.js`, `styles/app.css`, `src/ui/decks/circulation.js`, `src/ui/decks/sites.js`, `docs/`.
 - **The first-visit rules card puts the platelets with the kPa, and every comparison in the app is a symbol.** (Mohammad, 26 Oct, "we should really have the platelet count next to
   the kPa column... also don't be shy to use > symbol instead of 'more than'... something 150,000+, sometimes 'more than'".) Stiffness 5 ("Baveno VIII at a first visit") had the
   platelets only inside each rule's sentence, away from the kPa cut-off. A criteria row now takes `and`, a second condition set small under its cut-off in the same cell:

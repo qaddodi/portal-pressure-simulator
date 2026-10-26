@@ -45,6 +45,7 @@ Each slide has a `title` that stands on its own and a `line` of 30 words or fewe
 - **Live numbers.** Write `{hvpg}`, `{ppg}`, `{pv}` and the app fills in the patient's value in a coloured pill. Use these instead of typing a number, so the words always match the figure. `{ppg@before}` reads the value at the slide whose `id` is `before`.
 - **Cut-offs.** Write `{>=10 mmHg}` and the app draws an outlined pill reading "10 mmHg". Put the words around it: "above {>=10 mmHg}". A filled pill is the patient; an outlined pill is the rule.
 - **Words that point at the figure.** Write `[portal vein](pv)` and the words become a pill in the portal vein's colour, and the vein lights up on the figure.
+- **Step numbers.** On a `steps: true` slide, `{#1}`, `{#2}` after the words that name each numbered site draw the figure's circle in the text. Same number, same site; name every step once.
 - **Causes.** `causes: ['Cirrhosis', 'MASH']` adds up to four short items after the line.
 - **A source line.** `cite: 'Baveno VIII 1.15, 1.16'` prints a small source under the words. Use it when a slide states a guideline rule. Cite Baveno VIII, EASL 2025 or AASLD 2024, never Baveno VII.
 - **Small print.** `caveat` adds one sentence where the model differs from real patients.
@@ -115,7 +116,7 @@ These are optional extras. Each shows only on the slides that ask for it.
 - **Gut glow in a time-lapse.** `lapseGlow: ['bowel']` on a slide with `lapse` glows those organs from the days' start and keeps them lit while the slide is up, easing in and out. Use `cam: 'gut'` so the bowel is in frame.
 - **Pressure ripple.** `ripple: true` makes the vessels whose pressure moved glow warm or cool for a moment as the slide lands. Use it on the slide where a drug or a TIPS starts.
 - **Live numbers in a callout.** A mark's label can hold a live value: `mark: { organ: 'spleen', label: 'Spleen {spleen}' }`.
-- **Numbered steps.** `steps: true` with `glowSeq` numbers each glow as it lights, for a route the eye should follow in order.
+- **Numbered steps.** `steps: true` with `glowSeq` numbers each glow as it lights, for a route the eye should follow in order. The line must name each step with the same number, `{#1}` after the words for that site ("the gut and spleen's capillaries {#1}, the liver's sinusoids {#2}"); it draws as the figure's black circle, scaled to the text.
 - **Circuit brackets and zones.** On the circuit view, `span: [{ from: 'CONF', to: 'IVCS', label: 'PPG {ppg}' }]` draws a bracket with its reading, and `zone: 'liver'` shades that part of the circuit.
 
 Full guide: section 5.9.

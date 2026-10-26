@@ -23,7 +23,7 @@ function pills(s) {
   const t = s.terms, words = !t ? [] : Array.isArray(t) ? t.map((k) => WORDS[k]).filter(Boolean) : Object.keys(t).map(esc);
   words.push(WORDS.cavernoma);   // (presenter.js AUTO_TERMS: on every slide)
   for (const w of words) { const m = plain.match(new RegExp(`\\b(?:${w})\\b`, 'i')); if (m) out.push(m[0].toLowerCase()); }
-  const marked = line.match(/\{[^}]+\}/g);
+  const marked = line.match(/\{(?!#\d+\})[^}]+\}/g);   // (as presenter.js reads it: a step marker {#2} is no value)
   if (marked) out.push(...marked);
   else if (s.pill !== false && new RegExp(VAL).test(line)) out.push('(a value)');
   return out;

@@ -22,7 +22,7 @@ export const CIRCULATION = {
     {
       id: 'series', cam: [380, 30, 1010, 745], scales: { lobule: { glow: ['lobule:sinusoid'] }, sinusoid: {} }, labels: ['CONF', 'SIN_R', 'RHV', 'RA'], terms: { sinusoids: 'sin' }, glow: [['V_INT', 'V_SPL', 'V_IMV'], ['SIN_RR', 'SIN_LL']], glowSeq: 550, steps: true, tool: { kind: 'profile' }, key: ['hvpg', 'ppg'],   // (1: the gut's and spleen's veins, the first bed; 2: both lobes' sinusoids, the second)
       kicker: 'The portal circulation', title: 'Gut blood crosses two capillary beds in series',
-      line: 'The first bed is the gut and spleen\'s capillaries, the second the liver\'s sinusoids. In series, resistance in the liver or beyond raises pressure in every vein upstream.',
+      line: 'The first bed is the gut and spleen\'s capillaries {#1}, the second the liver\'s sinusoids {#2}. In series, resistance in the liver or beyond raises pressure in every vein upstream.',
       notes: 'A portal system is a set of veins running between two capillary beds. The first bed is in the gut and spleen, the second is the hepatic sinusoids. Because the beds are in series, anything that raises resistance in the liver, or beyond it, raises the pressure in every vein upstream: the portal vein, the splenic vein and the veins of the gut.',
       ask: ['What makes a circulation a portal system?', 'Blood passes through two capillary beds in series before it returns to the heart.'],
     },

@@ -4,7 +4,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { DECKS, withOverview } from '../src/ui/decks.js';
 
-const words = (t) => (t || '').split(/\s+/).filter(Boolean).length;
+const words = (t) => (t || '').replace(/\s*\{#\d+\}/g, '').split(/\s+/).filter(Boolean).length;   // (a figure's step marker {#2} is no word)
 
 test('a talk uses at most two lenses (the lens buttons on a slide are not counted)', () => {
   const over = DECKS.map((d) => [d.id, [...new Set(d.slides.map((s) => s.lens).filter(Boolean))]]).filter(([, l]) => l.length > 2);

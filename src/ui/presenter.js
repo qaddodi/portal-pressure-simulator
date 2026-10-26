@@ -23,11 +23,11 @@ import { sinusoidSupported } from './gl-support.js?v=94ad2a7ff1';
 import { SCALE_NAME, offeredScales, scaleView, pickedScale } from './scale-switch.js?v=1b0e3acd65';
 import { DISEASE_SRC, diseasePieces } from './diseases.js?v=fb8a5451c3';
 import { nb, listCase, plateletText } from './glue.js?v=5a0f63226b';
-import { DECKS, DECK_ALIAS, REGIONS, LEVELS, TOPICS, withOverview, siteTag, SITE_TAGS } from './decks.js?v=3d32809e07';
+import { DECKS, DECK_ALIAS, REGIONS, LEVELS, TOPICS, withOverview, siteTag, SITE_TAGS } from './decks.js?v=a6b087708d';
 import { fingerprintOf } from '../engine/fingerprint.js?v=8faea80b59';
 import { createHvpgMonitor } from './hvpg-proc.js?v=aed1ad2d05';
-import { createTools } from './presenter-tools.js?v=5295ff6abf';
-import { openHandout } from './handout.js?v=3e1da49027';
+import { createTools } from './presenter-tools.js?v=fd06c5e6d9';
+import { openHandout } from './handout.js?v=b4f8076afd';
 import { noteResume, resumeFor } from './resume.js?v=f086f80ee8';
 import { parseDeckSource, checkDeck } from './deck-source.js?v=8395c650cd';
 import { NO_ASC, TILE, cutText, tileOf, SCALE, bandsOf, rateOf, COLS, CUT, PRESS, fpv, dirAbs, dirRel, rateAbs, effOf, rateShown, tileShown, tipsGoal, liveSettled, shownSig } from './table-marks.js?v=8458ad3bf8';
@@ -35,7 +35,7 @@ import { frameFor, cancelFrame } from './frame.js?v=7254a8a850';
 import { createFigureKey } from './figure-key.js?v=b6817772fb';
 import { traceWhen } from './trace-labels.js?v=fc916a95c6';
 import { flowCss, heatCss, dropCss, gradientCss, oxygenCss } from './colormap.js?v=a9284dde52';
-import { EXT, expandIds, stepExtra, markLabel, figureHooks, safe } from './slide-ext.js?v=f9e048c369';
+import { EXT, expandIds, stepExtra, markLabel, figureHooks, safe } from './slide-ext.js?v=73247e34d2';
 import { clotWords } from './callout-math.js?v=a716cd33ea';
 import { citeText, focusOf, oneLadder } from './teach-extras.js?v=5f5248f5a7';
 import { createProfileTool, createProfileStrip, pillReadings } from './tool-profile.js?v=c628225624';
@@ -54,7 +54,7 @@ const readMine = () => { try { const v = JSON.parse(localStorage.getItem(KEY) ||
 const PREVIEW = typeof location !== 'undefined' && /\/preview\//.test(location.pathname);
 // (Loaded only there: the live site's bundle carried the 53 KB deck for nothing. The menu reads TESTING when it opens, long after.)
 let TESTING = [];
-const testingLoad = PREVIEW ? import('./test-decks/demo-all-new-visuals.js?v=f4c688b5a1').then(({ DEMO_ALL }) => { TESTING = [DEMO_ALL].map((d) => ({ id: 'test-' + d.id, title: d.title, summary: d.summary || '', deck: checkDeck(d), test: true })); }).catch(() => { /* the preview's test deck only */ }) : Promise.resolve();
+const testingLoad = PREVIEW ? import('./test-decks/demo-all-new-visuals.js?v=8aeba8bb2b').then(({ DEMO_ALL }) => { TESTING = [DEMO_ALL].map((d) => ({ id: 'test-' + d.id, title: d.title, summary: d.summary || '', deck: checkDeck(d), test: true })); }).catch(() => { /* the preview's test deck only */ }) : Promise.resolve();
 const writeMine = (list) => { try { localStorage.setItem(KEY, JSON.stringify(list)); } catch { /* storage unavailable */ } };
 const enc = (o) => btoa(unescape(encodeURIComponent(JSON.stringify(o)))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 const dec = (s) => JSON.parse(decodeURIComponent(escape(atob(s.replace(/-/g, '+').replace(/_/g, '/')))));
@@ -306,13 +306,16 @@ export const LENS_TONE = { velocity: '--vel-normal', flow: '--lens-flow', direct
 const LENS_RE = String.raw`\b([Cc]olou?red by )(${Object.keys(LENS_WORDS).sort((a, b) => b.length - a.length).join('|')})\b`;
 function rich(t, s = {}, fp = null, tips = false) {
   const { re, tl } = lineRe(s);
-  const marked = /\{[^}]+\}/.test(t);
+  const marked = /\{(?!#\d+\})[^}]+\}/.test(t);   // ({#1}, a figure's step marker, is no value: it never keeps a typed number from its pill)
   const out = [], seen = new Set(), seenT = new Set(); let at = 0, bold = 0, pills = 0, m;
   t = nb(t);
   // A pill keeps the word before it and the stop after it on its line (a no-break space, one unbreakable span).
   const glue = () => { const prev = out[out.length - 1]; if (typeof prev === 'string') out[out.length - 1] = prev.replace(/ $/, '\u00a0'); };
   const pill = (v, stop, cls = '', tone = null, rate = null) => { glue();
     pills++; return h('span', { class: stop ? 'pz-nw pz-stop' : 'pz-nw' }, h('span', { class: `pz-val${cls}${tone ? ' tone' : ''}`, 'data-rate': PILL_TONE[rate] ? rate : null, style: tone ? `--tone: ${toneVar(tone)}` : null }, v.replace(/\s(?=mmHg|g\/dL|mL|kPa|cm\/s|mm\b|%)/, '\u00a0')), stop || ''); };
+  // A figure's numbered marker ({#2}, the glow step of that number, V10) in the words: the figure's own black circle and light
+  // numeral, sized to the line (styles/app.css .pz-step). It keeps the word before it and the stop after it on its line.
+  const stepMark = (n, stop) => { glue(); return h('span', { class: stop ? 'pz-nw pz-stop' : 'pz-nw' }, h('span', { class: 'pz-step', role: 'img', 'aria-label': `Step ${n}` }, String(n)), stop || ''); };
   const termPill = (w, k) => { const tone = TARGETS[k].organ === 'spleen' ? (fp && rateTone('spleen', fp)) || '--text-2' : TARGETS[k].tone;   // (the spleen's word, as its outline)
     return h('span', { class: 'pz-term', 'data-target': k, style: `--tone: ${toneVar(tone)}` }, w); };
   while ((m = re.exec(t))) {
@@ -326,6 +329,7 @@ function rich(t, s = {}, fp = null, tips = false) {
     if (lensW) out.push(lensBy.replace(/ $/, '\u00a0'), h('span', { class: 'pz-term pz-lens-t', style: `--tone: ${toneVar(LENS_TONE[LENS_WORDS[lensW]])}` }, lensW));
     else if (lw) out.push(TARGETS[lk] ? termPill(lw, lk) : lw);
     else if (tword) { seenT.add(tk); out.push(termPill(tword, tk)); }
+    else if (mk && /^#\d+$/.test(mk)) out.push(stepMark(+mk.slice(1), mkStop));
     else if (mk && TILE[mk]) out.push(pill(liveVal(mk, s, fp), mkStop, '', valTone(mk, fp, tips), pillRate(mk, fp, tips)));
     else if (mk && atRe.test(mk) && TILE[mk.match(atRe)[1]]) { const [, k, id] = mk.match(atRe), f = fpAt(id); out.push(pill(liveVal(k, s, f), mkStop, '', valTone(k, f), pillRate(k, f))); }
     else if (mk && /^[<>≥≤]=?/.test(mk)) out.push(pill(cutText(mk), mkStop, ' cut'));   // (a cut-off keeps its sign, "≥10 mmHg": a comparison is a symbol, never "at or above", Mohammad 26 Oct)
