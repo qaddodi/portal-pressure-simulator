@@ -360,7 +360,7 @@ export function createDoppler({ onProbe, pickGate = true }) {
       const jet = Math.max(a, ...stentReads(open));   // the fastest segment: a narrowing's jet
       pattern = js.none ? 'Occluded' : js.slow ? (jet > 190 ? 'Low velocity, jet' : 'Low velocity') : jet > 190 ? 'High velocity' : 'Patent';
       if (sev === 'ok' && jet > 190) sev = 'caution';
-      note = js.none ? 'No flow in the stent: occluded.' : 'Stent velocities under 90 or over 190 cm/s, or a change of more than 50 cm/s from the baseline scan, suggest stenosis.';
+      note = js.none ? 'No flow in the stent: occluded.' : 'Stent velocities <90 or >190 cm/s, or a change of >50 cm/s from the baseline scan, suggest stenosis.';
     } else if (p.kind === 'ivc') {
       dir = r.mean < 0 ? 'Reversed' : 'Toward the heart'; sev = r.mean < 0 ? 'danger' : 'ok';
       pattern = r.vminMean < -1 ? 'Phasic, with reversal' : pi > 0.3 ? 'Phasic' : 'Continuous';
@@ -402,7 +402,7 @@ export function createDoppler({ onProbe, pickGate = true }) {
     // 5 cm/s short of the band's end.)
     set2(gLo, String(n0)); set2(gHi, open ? '' : String(n1));
     if (gLo.dataset.u !== (open ? 'cm/s' : '')) gLo.dataset.u = open ? 'cm/s' : '';
-    rangeEl.title = open ? `Usual ${n0} cm/s or more` : `Usual ${n0}–${n1} cm/s`;
+    rangeEl.title = open ? `Usual ≥${n0} cm/s` : `Usual ${n0}–${n1} cm/s`;
   }
   // A slide's own state (its fingerprint's network, presenter dataTo → tools.pin): the probed vessel's velocity as the scanner reads it.
   let pinAt = null;

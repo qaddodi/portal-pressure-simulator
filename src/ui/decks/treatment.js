@@ -13,7 +13,7 @@ export const TREATMENT = {
   objectives: ['Explain how each drug lowers portal pressure: inflow, resistance or both', 'Explain why carvedilol lowers the HVPG more than propranolol only where the resistance is sinusoidal', 'Explain how a vasoactive drug lowers the pressure in an acute bleed', 'Judge a drug by the fall in the HVPG, and know when the HVPG misleads'],
   checks: [
     ['Why does carvedilol lower the HVPG more than propranolol?', 'It also blocks α1 receptors, so it lowers the resistance inside the liver as well as the inflow.'],
-    ['On propranolol the heart rate falls from 80 to 58, but the HVPG only from 18 to 17.5 mmHg. Has the portal pressure responded?', 'No. The heart rate shows the β1 blockade, not the portal response; a fall under 10% marks a non-responder.'],
+    ['On propranolol the heart rate falls from 80 to 58, but the HVPG only from 18 to 17.5 mmHg. Has the portal pressure responded?', 'No. The heart rate shows the β1 blockade, not the portal response; a fall <10% marks a non-responder.'],
     ['Why does carvedilol\'s extra effect add little in schistosomiasis?', 'The resistance is scar in the portal venules, before the sinusoids where its extra effect acts.'],
     ['On carvedilol the HVPG falls a little in schistosomiasis. Did the portal pressure fall more?', 'No. The HVPG reads the sinusoids, not the portal vein; the portal pressure fell about as much as on propranolol.'],
   ],
@@ -31,7 +31,7 @@ export const TREATMENT = {
       kicker: 'Non-selective beta-blocker', site: 'sin', title: 'Propranolol lowers portal inflow',
       line: 'β1 blockade lowers cardiac output, and β2 blockade lets the gut arterioles constrict. Portal inflow falls to {pvFlow} and the HVPG to {hvpg}.',
       notes: 'Propranolol (or nadolol) is titrated to a resting heart rate of 55 to 60 a minute, keeping systolic pressure above 90 mmHg. It prevents a first bleed from large varices and, with banding, a second one. About a third to a half of patients reach a protective fall in HVPG. In refractory ascites with low blood pressure or kidney injury the dose is reduced or stopped. The model shows a modest fall. Colored by flow, the gut veins and the portal vein thin. The tile shows the percent fall from the untreated patient: 10% or more marks a response.',
-      ask: ['How is propranolol titrated?', 'To a resting heart rate of 55 to 60 a minute, keeping systolic pressure above 90 mmHg.'],
+      ask: ['How is propranolol titrated?', 'To a resting heart rate of 55 to 60 a minute, keeping systolic pressure >90 mmHg.'],
     },
     {
       id: 'carv', question: 'Which lever does carvedilol pull?', lens: 'flow', params: { drugs: { propranolol: false, carvedilol: true } }, cam: 'liver', glow: ['liver'], tool: { kind: 'hvpg' }, data: 'tiles', key: ['hvpgFall'], tiles: [], delta: 'target', hvpgResp: 'target',

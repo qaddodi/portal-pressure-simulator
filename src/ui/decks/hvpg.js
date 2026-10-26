@@ -8,9 +8,9 @@ export const HVPG = {
   objectives: ['Describe how free and wedged hepatic pressures are recorded', 'Calculate the HVPG, state its 5 and 10 mmHg cut-offs, and say where the bleeding risk climbs', 'Recognize when the HVPG misleads', 'Use the portal pressure gradient when it does'],
   checks: [
     ['How is the HVPG calculated?', 'Wedged hepatic vein pressure minus free hepatic vein pressure (WHVP − FHVP).'],
-    ['At which HVPG levels does the risk rise?', 'Above 5 mmHg is portal hypertension, 10 mmHg or more is CSPH, and from about 12 mmHg the risk of a variceal bleed rises steeply.'],
+    ['At which HVPG levels does the risk rise?', 'An HVPG >5 mmHg is portal hypertension, ≥10 mmHg is CSPH, and from about 12 mmHg the risk of a variceal bleed rises steeply.'],
     ['When does the HVPG miss a high portal pressure, and what do you measure instead?', 'When the resistance lies before the sinusoids, as with a portal vein clot or schistosomiasis. Measure the PPG, portal vein minus IVC.'],
-    ['WHVP is 21, FHVP 20 and right atrial pressure 19 mmHg. The HVPG is 1 mmHg. Is the portal pressure normal?', 'No. Every station is high because the heart holds the pressure up, so the gradient is small while the portal pressure is above 20 mmHg.'],
+    ['WHVP is 21, FHVP 20 and right atrial pressure 19 mmHg. The HVPG is 1 mmHg. Is the portal pressure normal?', 'No. Every station is high because the heart holds the pressure up, so the gradient is small while the portal pressure is >20 mmHg.'],
   ],
   slides: [
     {
@@ -34,7 +34,7 @@ export const HVPG = {
       id: 'wedge', cath: 'wedge', tool: { kind: 'hvpg', catheter: true },
       kicker: 'Measuring portal pressure', title: 'The wedged pressure reads the sinusoids',
       terms: { sinusoids: 'whvp' },
-      line: 'Inflating the balloon stops flow, so the blood ahead settles at the pressure of the feeding sinusoids. Record it once the tracing is stable, after at least 1 minute.',
+      line: 'Inflating the balloon stops flow, so the blood ahead settles at the pressure of the feeding sinusoids. Record it once the tracing is stable, after ≥1 minute.',
       notes: 'With the balloon inflated, flow in the hepatic vein stops and the still column of blood carries the pressure of the sinusoids that feed it. A little contrast confirms the wedge: it stays still, with no washout through collaterals. The wedged hepatic venous pressure (WHVP) is read once stable, after at least 1 minute, on the last 20 to 30 seconds of the tracing. In cirrhosis the sinusoids no longer communicate freely with each other, so the WHVP closely matches the portal pressure.',
       ask: ['How do you check that the balloon has truly wedged the vein?', 'Inject a little contrast: it stays in the vein with no washout, and the tracing loses its pulse.'],
     },
@@ -44,7 +44,7 @@ export const HVPG = {
       eq: [mi('HVPG') + mo('=') + '<mi class="eq-wedge">WHVP</mi>' + mo('−') + '<mi class="eq-hv">FHVP</mi>'],
       line: 'In this case the HVPG is {hvpg}: clinically significant portal hypertension.',
       notes: 'The hepatic venous pressure gradient is the pressure drop across the sinusoids. In this case the HVPG is about 12 mmHg, which is clinically significant. A reading of 1 to 5 mmHg is normal and 6 to 9 is portal hypertension that is still subclinical. From 10 mmHg varices and decompensation become possible, and the risk rises with the gradient; Baveno VIII advises a non-selective beta-blocker, preferably carvedilol, at this stage to prevent decompensation. From about 12 the risk of a variceal bleed rises steeply, although size, red signs and liver function decide how likely a bleed is: 12 is not a cut-off, and varices can bleed below it. In an acute bleed an HVPG of 20 or more predicts failure to control it. On a beta-blocker, a fall of 10% or more from baseline, or to 12 mmHg or less, is clinically relevant (Baveno VIII Table 3, stated for primary prophylaxis). Without a catheter, liver stiffness of 25 kPa or more rules clinically significant portal hypertension in; stiffness of 15 kPa or less with platelets of 150 or more rules it out. Sources: AASLD 2024 3 and 4; Baveno VIII Table 3.',
-      ask: ['On carvedilol, the HVPG falls from 18 to 13 mmHg. Is that a response?', 'Yes. It fell by more than 10% from baseline, which Baveno VIII calls clinically relevant on a beta-blocker, and it is close to 12 mmHg.'],
+      ask: ['On carvedilol, the HVPG falls from 18 to 13 mmHg. Is that a response?', 'Yes. It fell by >10% from baseline, which Baveno VIII calls clinically relevant on a beta-blocker, and it is close to 12 mmHg.'],
     },
     {
       id: 'presin', lens: 'drop', terms: ['lobule:triad', 'lobule:sinusoid'], preset: 'schisto', cam: 'lobule:triad', callout: { at: 'triad', label: 'Resistance' }, tool: { kind: 'profile' }, key: ['pv', 'whvp', 'hvpg'],

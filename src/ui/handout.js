@@ -6,8 +6,8 @@
 // (decks.js, new ones included: a slide without a figure prints without one) and for the instructor's scripts.
 
 import { download } from './download.js?v=3564e5bf8c';
-import { LEVELS, withOverview } from './decks.js?v=b96ae5b7ef';
-import { TILE } from './table-marks.js?v=b717587a61';
+import { LEVELS, withOverview } from './decks.js?v=d7435ad521';
+import { TILE, cutText } from './table-marks.js?v=8458ad3bf8';
 import { plateletText } from './glue.js?v=5a0f63226b';
 import { citeText } from './teach-extras.js?v=5f5248f5a7';
 
@@ -95,7 +95,7 @@ export function lineText(t, fp = null, at = () => null) {
     if (TILE[mk]) return val(mk, fp);
     const m = mk.match(/^(\w+)@([\w-]+)$/);
     if (m && TILE[m[1]]) return val(m[1], at(m[2]));
-    return mk.replace(/^(?:>=|<=|[<>≥≤])\s*/, '');
+    return cutText(mk);
   });
 }
 

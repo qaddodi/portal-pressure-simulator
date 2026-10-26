@@ -13,7 +13,7 @@ export const VARICES = {
     ['Name three places where portosystemic collaterals open.', 'Any three of: the gastroesophageal junction, the umbilicus, the rectum and the retroperitoneum, including splenorenal and gastrorenal shunts.'],
     ['How does the risk of a variceal bleed change with the HVPG?', 'Varices rarely bleed below an HVPG of about 12 mmHg; above it the risk rises with the gradient, the varix size and red signs.'],
     ['Why are varices rare in heart failure?', 'Portal and systemic pressures are both high, so the PPG stays low and nothing drives blood into collaterals.'],
-    ['On a beta-blocker the HVPG falls from 16 to 11 mmHg. Is the bleeding risk gone?', 'Much lower, not gone: the fall is over 10% and below 12 mmHg, a good response, but varices can still bleed below 12, so the drug continues.'],
+    ['On a beta-blocker the HVPG falls from 16 to 11 mmHg. Is the bleeding risk gone?', 'Much lower, not gone: the fall is >10% and <12 mmHg, a good response, but varices can still bleed <12, so the drug continues.'],
   ],
   slides: [
     {

@@ -1092,7 +1092,7 @@ export const DEMO_ALL = {
       "kicker": "V23 · A source line",
       "site": "sin",
       "title": "TIPS lowers the gradient by bypassing the liver",
-      "line": "With the stent the PPG falls to {ppg}. After a variceal bleed, high-risk patients (Child–Pugh C 10 to 13, or B over 7 with active bleeding) get a pre-emptive TIPS within 72 hours.",
+      "line": "With the stent the PPG falls to {ppg}. After a variceal bleed, high-risk patients (Child–Pugh C 10 to 13, or B >7 with active bleeding) get a pre-emptive TIPS within 72 hours.",
       "cite": "Baveno VIII 5.31",
       "notes": "cite prints one line under the words and any caveat, and in the handout. Baveno VIII 5.31: pre-emptive TIPS criteria, confirmed in guidelines/baveno8-aasld.md."
     },
@@ -1118,7 +1118,7 @@ export const DEMO_ALL = {
           "plt"
         ],
         "rules": [
-          "If platelets are 150 or more",
+          "If platelets are ≥150",
           "Low platelets point to CSPH",
           "Whatever the platelets"
         ]
@@ -1146,7 +1146,7 @@ export const DEMO_ALL = {
       ],
       "kicker": "V23 · A source line on a panel",
       "title": "Stiffness and platelets rule CSPH in or out",
-      "line": "25 kPa or more means CSPH in viral, alcohol-related and non-obese MASLD cirrhosis; 15 or less with platelets of 150 or more rules it out.",
+      "line": "≥25 kPa means CSPH in viral, alcohol-related and non-obese MASLD cirrhosis; ≤15 with platelets ≥150 rules it out.",
       "cite": "Baveno VIII 1.15, 1.16",
       "notes": "A panel slide prints its source line under its words too."
     },
@@ -1231,7 +1231,7 @@ export const DEMO_ALL = {
       "kicker": "Two readings on one plane",
       "site": "sin",
       "title": "The Indeterminate zone needs a scope",
-      "line": "At a stiffness of {lsm} with platelets of {plt}, CSPH is neither ruled in nor ruled out. In this model, without spleen stiffness, the scope is spared below 20 kPa with platelets of 150,000 or more, so this patient needs one unless on a beta-blocker."
+      "line": "At a stiffness of {lsm} with platelets of {plt}, CSPH is neither ruled in nor ruled out. In this model, without spleen stiffness, the scope is spared at <20 kPa with platelets ≥150,000, so this patient needs one unless on a beta-blocker."
     },
     {
       "id": "worse",
@@ -1297,7 +1297,7 @@ export const DEMO_ALL = {
       ],
       "kicker": "Baveno VIII",
       "title": "Stiffness and platelets rule CSPH in or out",
-      "line": "15 kPa or less with platelets of 150 or more rules CSPH out. 25 kPa or more rules it in. Under 20 kPa with platelets of 150 or more spares the screening scope."
+      "line": "≤15 kPa with platelets ≥150 rules CSPH out. ≥25 kPa rules it in. <20 kPa with platelets ≥150 spares the screening scope."
     },
     {
       "id": "levels",

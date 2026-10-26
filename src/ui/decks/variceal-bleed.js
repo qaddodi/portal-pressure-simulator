@@ -18,7 +18,7 @@ export const BLEED = {
   checks: [
     ['What shows shock early in a variceal bleed?', 'The heart rate and blood pressure. The hemoglobin falls only later, as fluid refills the vessels, and a beta-blocker can blunt the heart rate.'],
     ['Minutes after octreotide starts, the portal pressure falls by about 2 mmHg, with no change in the liver. Which lever moved?', 'Inflow: octreotide constricts the gut arterioles, so less blood enters the portal vein. The resistance in the liver is unchanged.'],
-    ['To what hemoglobin do you transfuse in a variceal bleed?', '7 to 8 g/dL, transfusing below 7. More volume raises the portal pressure and the risk of rebleeding.'],
+    ['To what hemoglobin do you transfuse in a variceal bleed?', '7 to 8 g/dL, transfusing <7. More volume raises the portal pressure and the risk of rebleeding.'],
     ['A man is banded on Monday and vomits blood again on Thursday. What is that, and what comes next?', 'Treatment failure, because the rebleed is within 5 days. A covered esophageal stent or a balloon bridges the bleed to a rescue TIPS.'],
   ],
   sections: [['Before the bleed', ['Before']], ['The bleed', ['The bleed']], ['Drugs and volume', ['Before the scope', 'Volume']], ['The scope', ['Endoscopy', 'After the scope']], ['If it does not stop', ['Failure', 'The bridge', 'The rescue']]],
@@ -57,9 +57,9 @@ export const BLEED = {
     {
       id: 'blood', clock: { at: 2, label: 'Transfuse to 7 to 8' }, action: [UNIT], cam: 'bleed', tool: BEATS, data: 'tiles', tiles: ['map', 'hb'], key: ['map'], delta: 'before',
       kicker: 'Volume', site: 'sin', title: 'Transfuse to a hemoglobin of 7 to 8',
-      line: 'A second unit lifts the blood pressure to {map}. The hemoglobin lags the bleed and has barely moved. Once stable, transfuse only below 7 g/dL, aiming for 7 to 8.',
+      line: 'A second unit lifts the blood pressure to {map}. The hemoglobin lags the bleed and has barely moved. Once stable, transfuse only <7 g/dL, aiming for 7 to 8.',
       notes: 'A restrictive transfusion strategy (transfusing below 7 g/dL, to a target of 7 to 9 in the trial, 7 to 8 in Baveno VIII and about 7 in AASLD guidance) lowered rebleeding and death compared with a liberal one (transfusing below 9 g/dL, to a target of 9 to 11). It applies once the patient is stable, and the trial excluded massive bleeding. Volume beyond what the circulation needs pushes the portal pressure back toward its level before the bleed, which makes an early rebleed more likely; it also worsens ascites and can cause pulmonary edema. In cirrhosis saline adds sodium, so a balanced crystalloid, given with care, is a common choice. Patients with heart disease or ongoing massive bleeding may need more. Fresh frozen plasma and platelet transfusion to correct the INR or the count are not advised; they add volume without proven benefit. (Baveno VIII 5.4.)',
-      ask: ['What hemoglobin target is used in variceal bleeding, and why not more?', '7 to 8 g/dL, transfusing below 7. Extra volume raises the portal pressure and the risk of an early rebleed.'],
+      ask: ['What hemoglobin target is used in variceal bleeding, and why not more?', '7 to 8 g/dL, transfusing <7. Extra volume raises the portal pressure and the risk of an early rebleed.'],
     },
     {
       id: 'band', clock: { at: 10, label: 'Scope by 12 h' }, question: 'Will banding lower his portal pressure?', terms: ['varix'], action: [BAND, BAND, BAND, BAND], cam: 'varices', mark: { edges: ['C1a', 'C1b'], label: 'Banded varices', kind: 'treat' }, tool: { kind: 'scope' }, data: 'tiles', tiles: ['pv', 'map'], key: ['pv'], delta: 'blood',
@@ -72,12 +72,12 @@ export const BLEED = {
       id: 'tips', clock: { at: 24, label: 'TIPS by 72 h' }, params: { tips: { on: true } }, cam: 'liver', ripple: true, data: 'tiles',
       tool: { kind: 'criteria', title: 'Who gets a pre-emptive TIPS', short: 'Who gets it', lead: 'Any one of these is enough.', rule: 'Baveno VIII 5.31',
         rows: [{ text: 'Child–Pugh C, **10 to 13** points', cut: 'C 10–13', note: 'C 10', met: true, lit: true },
-          { text: 'Child–Pugh B, **over 7**, with active bleeding at endoscopy', cut: 'B 8–9', note: 'not B' }, { text: 'HVPG **20 mmHg** or more, where measured', cut: '20 mmHg', note: 'not given' }],
+          { text: 'Child–Pugh B, **>7**, with active bleeding at endoscopy', cut: 'B 8–9', note: 'not B' }, { text: 'HVPG **≥20 mmHg**, where measured', cut: '≥20 mmHg', note: 'not given' }],
         verdict: 'He qualifies on the first rule: a TIPS within 72 hours.' }, tiles: ['ppg', 'varix'], key: ['ppg'], delta: true,
       kicker: 'After the scope', site: 'sin', title: 'High-risk patients get a TIPS within 72 hours',
       line: 'Child–Pugh C 10 (bilirubin 3.2 mg/dL, INR 1.9, albumin 2.8 g/dL, ascites) qualifies him. A covered TIPS within 24 hours lowers the PPG to {ppg} and cuts rebleeding and death.',
       notes: 'Child–Pugh points in this case: bilirubin 3, INR 2, albumin 2, ascites 2 and no encephalopathy 1, for a total of 10. Baveno VIII: in high-risk patients a pre-emptive TIPS, ideally within 24 hours and no later than 72, reduces rebleeding and death. An HVPG of 20 mmHg or more, where measured, also marks high risk. A patient who misses the 72-hour window can still benefit from a TIPS placed later, up to about 1 week in Child–Pugh B and 2 weeks in Child–Pugh C. For everyone else, after the acute bleed: a non-selective beta-blocker with repeated banding every 2 to 4 weeks until the varices are gone. Rescue TIPS is for bleeding that drugs and banding do not control. (Baveno VIII 5.31.)',
-      ask: ['Which patients get a pre-emptive TIPS after a variceal bleed?', 'Child–Pugh C 10 to 13, or Child–Pugh B over 7 with active bleeding at endoscopy.'],
+      ask: ['Which patients get a pre-emptive TIPS after a variceal bleed?', 'Child–Pugh C 10 to 13, or Child–Pugh B >7 with active bleeding at endoscopy.'],
     },
     {
       id: 'controlled', preset: 'cirr-decomp', params: { drugs: { octreotide: true }, respiration: false }, action: [BAND], cam: 'varices', labels: ['VAR'], tool: BEATS, data: 'tiles', tiles: ['map', 'hb'], key: ['map'],
@@ -111,7 +111,7 @@ export const BLEED = {
     {
       id: 'rescue', params: { balloonEso: false, tips: { on: true } }, action: [{ kind: 'stopBleed' }], cam: 'liver', tool: { kind: 'profile', from: 'bridge', fromLabel: 'Before TIPS' }, data: 'tiles', tiles: ['map', 'liver'], key: ['ppg'], delta: true,
       kicker: 'The rescue', site: 'sin', title: 'A rescue TIPS takes the pressure off the varix',
-      line: 'A covered TIPS lowers the PPG to {ppg}, under {<12 mmHg}, and the bleeding stops. The price is the liver\'s blood supply: it keeps {liver} of its normal flow.',
+      line: 'A covered TIPS lowers the PPG to {ppg}, which is {<12 mmHg}, and the bleeding stops. The price is the liver\'s blood supply: it keeps {liver} of its normal flow.',
       notes: 'Baveno VIII recommends a salvage TIPS when bleeding cannot be controlled despite drugs and endoscopy, and AASLD 2024 calls it a rescue TIPS when the bleed returns despite vasoactive therapy and banding. The covered stent opens a channel from the portal vein to a hepatic vein, so most portal blood bypasses the liver. The gradient across the liver falls below the level where varices bleed, and the balloon can come out. No age, Child–Pugh class or MELD score rules a rescue TIPS out by itself: it is considered case by case, and transplant candidacy is assessed at once, because death rates stay high at a high MELD. Hepatic encephalopathy is the main risk afterward, and many centers give lactulose or rifaximin from the start. (Baveno VIII 5.36, 5.37; AASLD 2024 35.)',
       ask: ['What does a rescue TIPS change that a stent or a balloon does not?', 'It lowers the portal pressure feeding the varix, so the bleeding stops for good.'],
     },

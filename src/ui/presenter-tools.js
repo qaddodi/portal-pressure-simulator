@@ -41,16 +41,16 @@
 import { store } from './store.js?v=926dabfaef';
 import { h } from './util.js?v=5ad334ebc0';
 import { EDGES } from '../engine/topology.js?v=4044766e96';
-import { createDoppler } from './doppler.js?v=2cc539da6c';
-import { createFibroScan } from './fibroscan.js?v=b82f525c20';
+import { createDoppler } from './doppler.js?v=782a9de322';
+import { createFibroScan } from './fibroscan.js?v=c49e7c7d25';
 import { createPressureTime } from './pressure-time.js?v=163c97ca06';
 import { createVitalsMonitor } from './vitals-monitor.js?v=3086d48754';
-import { createHvpgCard } from './tool-hvpg.js?v=5545a20fa4';
+import { createHvpgCard } from './tool-hvpg.js?v=8bdf6dd51f';
 import { createFlowTime } from './flow-time.js?v=50a65fb244';
-import { createEndoscopy, createAbdomen, createVarixWall } from './instruments.js?v=c44be30ad1';
+import { createEndoscopy, createAbdomen, createVarixWall } from './instruments.js?v=7558bcf52c';
 import { frameFor, cancelFrame } from './frame.js?v=7254a8a850';
 import { talkTrace } from './talk-trace.js?v=493725f1dd';
-import { EXT, guard, safe } from './slide-ext.js?v=48e554c33a';
+import { EXT, guard, safe } from './slide-ext.js?v=2d0692fee8';
 const nextFrame = frameFor('presenter-tools');
 
 const VESSEL = { PV_TRUNK: 'main portal vein', PVH_R: 'right portal vein', PVH_L: 'left portal vein', SV_CONF: 'splenic vein', SV_MID: 'splenic vein', V_SPL: 'splenic vein, at the hilum',

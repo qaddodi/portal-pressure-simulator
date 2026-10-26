@@ -2,6 +2,19 @@
 
 ## October 2026
 
+- **The first-visit rules card puts the platelets with the kPa, and every comparison in the app is a symbol.** (Mohammad, 26 Oct, "we should really have the platelet count next to
+  the kPa column... also don't be shy to use > symbol instead of 'more than'... something 150,000+, sometimes 'more than'".) Stiffness 5 ("Baveno VIII at a first visit") had the
+  platelets only inside each rule's sentence, away from the kPa cut-off. A criteria row now takes `and`, a second condition set small under its cut-off in the same cell:
+  "≤15 kPa" over "platelets ≥150,000/µL", and "<20 kPa" over the same, with the row's words saying only what follows ("CSPH ruled out", "Scope skipped, even with no carvedilol");
+  a screen reader reads that cell, since the words no longer repeat it. Every comparison written as words is now `>` `<` `≥` `≤` with no space: the cut-off column of every criteria card
+  (HVPG ≥20 mmHg, Child–Pugh B >7, ≥3 large taps, ≥2 events, "for >6 months"), the summary tables' cut-off headings (`CUT`) and the HVPG response tile ("<10%"), titles, lines and quick
+  checks in 23 decks ("5 or more", "at least 6 months", "under 15 cm/s", "150,000/µL+" and the like), the legend's ends ("≥12", "≥15"), the instruments' tooltips, the stiffness
+  plane's zone notes, About, the model's check list and the preview-only demo deck. A cut-off pill in the words keeps its sign (`{>=10 mmHg}` reads "≥10 mmHg"; the automatic pill
+  takes a sign typed before a value), so the words beside it that said "above"/"at or above" are gone. Left as prose on purpose: the speaker notes (the Print notes handout), a
+  comparative with no number ("lowers the HVPG more than propranolol"), a duration in a case story, the screen-reader-only labels, and one range edge ("Above 10 to 12 mmHg").
+  `tests/comparison-symbols.test.js` scans every deck's words so the words cannot creep back; the authoring guide (6.2, the criteria card, the tile table) and the humanizer say so.
+  Code and unit tests only; nobody has looked on screen. `src/ui/tool-criteria.js`, `styles/app.css`, `src/ui/presenter.js`, `src/ui/handout.js`, `src/ui/table-marks.js`,
+  `src/ui/decks/*.js`, `docs/`.
 - **The © credit finds its spot without reading the figure again after each camera move.** (Reviewer's smoothness brief, T04; Mohammad, 26 Oct, "ok do it".) After the camera rested, the credit
   read every organ, fluid and vessel shape from the page and drew them onto a canvas it read back, about 11 ms a look. On the GPU figure it now reads the shapes once, keeps their
   outlines and matrices, and draws a grid in the figure's own coordinates over the view and a margin; a pan or a zoom inside that margin only maps the credit's candidate boxes into the

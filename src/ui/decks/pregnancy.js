@@ -26,7 +26,7 @@ export const PREGNANCY_DECK = {
       caseQ: 'What will pregnancy do to her varices?',
       data: 'tiles', tiles: ['hvpg', 'varix', 'plt'], key: ['hvpg'],
       kicker: 'Before pregnancy', site: 'sin', title: 'Compensated cirrhosis before pregnancy',
-      line: 'Her HVPG is {hvpg}, above {>=10 mmHg}, so she has clinically significant portal hypertension, with small varices.',
+      line: 'Her HVPG is {hvpg}, which is {>=10 mmHg}, so she has clinically significant portal hypertension, with small varices.',
       notes: 'Women with compensated cirrhosis can carry a pregnancy, but the risks rise with the severity of the liver disease, and a MELD score of 10 or more predicts a poorer outcome. Counseling before conception includes an endoscopy within the year before she conceives, with large varices treated first. Her medicines are reviewed for safety in pregnancy.',
       ask: ['What should a woman with cirrhosis have before she conceives?', 'Counseling on her risks and an endoscopy within the year before conception, with large varices treated first.'],
     },

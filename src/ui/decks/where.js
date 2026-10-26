@@ -17,7 +17,7 @@ export const WHERE = {
     ['The portal pressure is high, the HVPG is normal and Doppler shows an open portal vein. Where is the resistance?', 'Presinusoidal, in the portal venules, as in schistosomiasis. A clot in the portal vein would show no flow there.'],
     ['The portal pressure is high but the HVPG and the PPG are both normal. Which reading tells an IVC web from heart disease?', 'The right atrial pressure: normal above a web, high in heart disease.'],
     ['Ascites has a SAAG of 1.5 and a protein of 4.2 g/dL. Which levels fit?', 'Postsinusoidal, post-hepatic or cardiac: the sinusoids are congested from behind and leak protein-rich fluid.'],
-    ['The HVPG is raised and the ascites has a SAAG of 1.5 with a protein of 4.2 g/dL. Cirrhosis or sinusoidal obstruction syndrome?', 'Sinusoidal obstruction syndrome. In cirrhosis the closed fenestrae keep protein in the blood, so the ascitic protein is below 2.5 g/dL; here the sinusoids still leak it.'],
+    ['The HVPG is raised and the ascites has a SAAG of 1.5 with a protein of 4.2 g/dL. Cirrhosis or sinusoidal obstruction syndrome?', 'Sinusoidal obstruction syndrome. In cirrhosis the closed fenestrae keep protein in the blood, so the ascitic protein is <2.5 g/dL; here the sinusoids still leak it.'],
   ],
   slides: [
     {

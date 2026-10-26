@@ -48,7 +48,7 @@ export const GASTRIC = {
       kicker: 'After a bleed', site: 'sin', title: 'Glue stops the bleeding, a TIPS keeps it stopped',
       line: 'Glue, or EUS-guided coils with glue, stops the bleeding. A TIPS placed as soon as possible keeps it stopped: the PPG falls to {ppg} and the fundal varix to {gv}.',
       notes: 'Source: Baveno VIII 5.40, 5.41. Baveno VIII: conventional cyanoacrylate injection and EUS-guided therapy stop the bleeding about equally well; EUS-guided coils with glue may close more varices and cut late rebleeding in experienced centers. A TIPS, with or without embolization of the varix, as soon as possible, is the preferred definitive treatment. Embolizing the varix at the same time lowers rebleeding and encephalopathy (AASLD). Once the PPG is under 12 mmHg the beta-blocker is not needed. The price is the liver\'s portal blood: the liver flow tile falls to about a quarter of normal, the reason encephalopathy follows some shunts.',
-      ask: ['After a TIPS that brings the PPG under 12 mmHg, is a beta-blocker still needed?', 'No, according to AASLD.'],
+      ask: ['After a TIPS that brings the PPG <12 mmHg, is a beta-blocker still needed?', 'No, according to AASLD.'],
     },
     {
       id: 'brto', lens: 'flow', preset: 'gastric-varix', params: { occluded: { C5: true } }, cam: 'fundus', terms: ['gv'], mark: { edges: ['C5'], label: 'Shunt closed', kind: 'treat' }, tool: { kind: 'flows' }, procedure: 'brto',

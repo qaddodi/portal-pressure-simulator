@@ -44,7 +44,7 @@ test('Readouts is three to a row (two in a narrow card) with no footnote; Scope 
   assert.match(css, /@container \(max-width: 399px\) \{ \.rp-tiles \{ grid-template-columns: repeat\(2, minmax\(0, 1fr\)\); \}/);
   assert.doesNotMatch(readouts, /Each bar shows/);
   assert.doesNotMatch(instruments, /Drawn from the model/);
-  assert.match(instruments, /class: 'endo-g', title: 'Small, under 5 mm; Large, 5 mm or more\.'/);
+  assert.match(instruments, /class: 'endo-g', title: 'Small, <5 mm; Large, ≥5 mm\.'/);
 });
 
 test('Ascites: serum albumin uses the drain\'s stepper, and the diuretic line is plain', () => {

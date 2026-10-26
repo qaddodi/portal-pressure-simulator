@@ -73,7 +73,7 @@ test('every view reads present: no view keeps its own 2.5 mm test', async () => 
 
 test('the scope names the two grades in its Grade row tooltip', () => {
   const s = readFileSync(new URL('../src/ui/instruments.js', import.meta.url), 'utf8');
-  assert.match(s, /title: 'Small, under 5 mm; Large, 5 mm or more\.'/);
+  assert.match(s, /title: 'Small, <5 mm; Large, ≥5 mm\.'/);
 });
 
 test('"wall stress" is the app\'s word for ΔP · r / w, with σ as its symbol', () => {

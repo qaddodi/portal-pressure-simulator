@@ -102,7 +102,7 @@ export function aboutOrgan(id, f, st) {
       const out = ['Receives portal blood (three quarters) and hepatic arterial blood, filters it through the sinusoids and returns it by the hepatic veins. Zoom into a lobule to see where resistance builds.'];
       const c = st.params.cirrhosis;
       if (c > 0.05) out.push(c < 0.4 ? 'Early fibrosis: resistance is starting to rise in the sinusoids.' : c < 0.6 ? 'Compensated cirrhosis: sinusoidal resistance raises portal pressure.' : c < 0.85 ? 'Clinically significant portal hypertension: collaterals and varices form.' : 'Decompensated cirrhosis: ascites, bleeding and encephalopathy become likely.');
-      if (m && !st.imaging) out.push(`HVPG ${fmt(m.hvpg, 1)} mmHg (normal under 5, varices from 10).`);
+      if (m && !st.imaging) out.push(`HVPG ${fmt(m.hvpg, 1)} mmHg (normal <5, varices ≥10).`);
       return out;
     }
     case 'heart': return ['The right heart receives all venous return; its pressure is the floor every vein drains against. When it rises (failure, tricuspid regurgitation, constriction) the liver congests from behind.'];

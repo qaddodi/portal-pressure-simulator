@@ -8,8 +8,10 @@
 //                                                       following the model as the tiles do (a slider, a button, a time-lapse)
 //   lit: true                                           sets the row that applies to the case in full-white words
 //   met: true | false                                   the case meets the row (its note large, "meets it ✓" under it) or not ("not met")
-//   cut: 'C 10–13', '20 mmHg'                           the row's cut-off, set large at its left (a step larger on a card 480 px and up)
-//   **...** in text                                     the rule's numbers in bold ('Child–Pugh B, **over 7**, ...')
+//   cut: 'C 10–13', '≥20 mmHg'                          the row's cut-off, set large at its left (a step larger on a card 480 px and up)
+//   and: 'platelets ≥150,000/µL'                       a second condition of the same rule, small under the cut-off: both values read together
+//                                                       (Mohammad 26 Oct: the platelets sit with the kPa). Comparisons are always symbols, > < ≥ ≤
+//   **...** in text                                     the rule's numbers in bold ('Child–Pugh B, **>7**, ...')
 // ticks: false on the tool leaves the live marks off (a classification such as the Sarin classes, where no row is "met").
 // V3 (26 Oct, his "V3 build it"; review/guideline-cards-ideas/round8): the rules in the serif, a lead line on how they combine
 // (lead), the rule's number in an outlined pill when the slide's notes cite one (rule), a "This case" column set apart by space
@@ -22,18 +24,18 @@
 // The card never changes size with the reading: each reading's slot is as wide as its widest number, the marks cross-fade.
 
 import { h, fmt } from './util.js?v=5ad334ebc0';
-import { TILE } from './table-marks.js?v=b717587a61';
+import { TILE } from './table-marks.js?v=8458ad3bf8';
 
 export const CRITERIA_MAX = 4;
 const OPS = { '>=': (a, b) => a >= b, '>': (a, b) => a > b, '<=': (a, b) => a <= b, '<': (a, b) => a < b };
 const str = (v) => (typeof v === 'string' && v.trim() ? v.trim() : null);
-/** A row as written ('text', [text, key, op, value] or { text, key?, op?, value?, note?, lit?, met?, cut? }), read into one shape; null if it has no words. */
+/** A row as written ('text', [text, key, op, value] or { text, key?, op?, value?, note?, lit?, met?, cut?, and? }), read into one shape; null if it has no words. */
 export function criteriaRow(r) {
   const o = typeof r === 'string' ? { text: r } : Array.isArray(r) ? { text: r[0], key: r[1], op: r[2], value: r[3] } : r && typeof r === 'object' ? { ...r } : null;
   if (!o || typeof o.text !== 'string' || !o.text.trim()) return null;
   const live = typeof o.key === 'string' && !!OPS[o.op] && Number.isFinite(+o.value);
   const raw = o.text.trim();
-  return { text: raw.replace(/\*\*/g, ''), bold: raw.includes('**') ? raw.split('**') : null, note: str(o.note), lit: !!o.lit, met: typeof o.met === 'boolean' ? o.met : null, cut: str(o.cut), key: live ? o.key : null, op: live ? o.op : null, value: live ? +o.value : null };
+  return { text: raw.replace(/\*\*/g, ''), bold: raw.includes('**') ? raw.split('**') : null, note: str(o.note), lit: !!o.lit, met: typeof o.met === 'boolean' ? o.met : null, cut: str(o.cut), and: str(o.and), key: live ? o.key : null, op: live ? o.op : null, value: live ? +o.value : null };
 }
 /** The rows a tool shows: its first four rows that have words. */
 export const criteriaRows = (t) => (Array.isArray(t?.rows) ? t.rows.map(criteriaRow).filter(Boolean).slice(0, CRITERIA_MAX) : []);
@@ -87,7 +89,8 @@ export function createCriteria() {
   function cutCell(r) {
     const c = cutParts(r.cut);
     if (!c) return h('span', { class: 'pzc-c', 'aria-hidden': 'true' });
-    return h('span', { class: 'pzc-c', 'aria-hidden': 'true' }, c.sign ? h('span', { class: 'pzc-s' }, c.sign) : null, c.num, c.unit ? h('span', { class: 'pzc-u' }, c.unit) : null);
+    // (Hidden from a screen reader when the row's words say the same; a second condition is only here, so it is read.)
+    return h('span', { class: 'pzc-c', ...(r.and ? {} : { 'aria-hidden': 'true' }) }, c.sign ? h('span', { class: 'pzc-s' }, c.sign) : null, c.num, c.unit ? h('span', { class: 'pzc-u' }, c.unit) : null, r.and ? h('span', { class: 'pzc-and' }, r.and) : null);
   }
   function build(t) {
     rows = criteriaRows(t);

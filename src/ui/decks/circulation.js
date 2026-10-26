@@ -9,7 +9,7 @@ export const CIRCULATION = {
   checks: [
     ['Which two veins join to form the portal vein?', 'The splenic vein and the superior mesenteric vein, behind the pancreas.'],
     ['Why does fluid leaving the sinusoids carry protein?', 'Sinusoids have fenestrae about 100 nm wide and no basement membrane, so plasma protein crosses into the space of Disse.'],
-    ['What HVPG defines clinically significant portal hypertension (CSPH)?', '10 mmHg or more. Normal is 1 to 5 mmHg, and 6 to 9 mmHg is subclinical.'],
+    ['What HVPG defines clinically significant portal hypertension (CSPH)?', '≥10 mmHg. Normal is 1 to 5 mmHg, and 6 to 9 mmHg is subclinical.'],
   ],
   slides: [
     {
@@ -31,7 +31,7 @@ export const CIRCULATION = {
       kicker: 'The portal circulation', title: 'Normal pressures from the portal vein to the right atrium',
       line: 'About {pv} in the [portal vein](pv) and {ra} in the [right atrium](ra). Healthy [sinusoids](sin) barely resist, so the portal pressure gradient is only {ppg}.',
       notes: 'The ladder runs from the gut to the right atrium, through the portal vein, the liver\'s three stations and the hepatic vein; the wedged hepatic vein reads the sinusoids. The dashed line is the healthy reference, used on every slide. In health the whole fall from the portal vein to the IVC, the portal pressure gradient (PPG), is 5 mmHg or less, and the hepatic venous pressure gradient (HVPG), the fall across the sinusoids, is 1 to 5 mmHg. The wedge is a balloon reading of the sinusoids; the HVPG and PPG deck explains it.',
-      ask: ['What is the normal portal pressure gradient?', '5 mmHg or less, because healthy sinusoids barely resist the flow.'],
+      ask: ['What is the normal portal pressure gradient?', '≤5 mmHg, because healthy sinusoids barely resist the flow.'],
     },
     {
       id: 'lobule', pill: false, terms: { 'portal venules': 'lobule:triad', 'hepatic arterioles': 'lobule:arteriole', sinusoids: 'lobule:sinusoid', 'central vein': 'lobule:central' }, cam: 'lobule:fit', tool: { kind: 'profile' }, key: ['hvpg', 'ppg'],
@@ -49,10 +49,10 @@ export const CIRCULATION = {
     },
     {
       id: 'define', terms: ['varix'], preset: 'csph', cam: 'route', labels: ['CONF', 'SIN_R', 'RHV', 'RA'], tool: { kind: 'profile' }, key: ['hvpg', 'ppg'],
-      kicker: 'Definition', site: 'sin', title: 'Portal hypertension is a gradient above 5 mmHg',
+      kicker: 'Definition', site: 'sin', title: 'Portal hypertension is a gradient >5 mmHg',
       line: 'In cirrhosis it is the HVPG, here {hvpg}. A gradient of 6 to 9 mmHg is subclinical; from 10, varices and ascites become possible and the risk rises.',
       notes: 'Portal hypertension is a portal pressure gradient above 5 mmHg; in cirrhosis it is measured as the HVPG. An HVPG of 6 to 9 mmHg is subclinical. 10 mmHg or more is clinically significant portal hypertension (CSPH): from there varices and decompensation (ascites, variceal bleeding, encephalopathy) become possible, and the risk rises with the gradient; from about 12 mmHg the risk of variceal bleeding rises. In this cirrhotic liver the largest pressure drop is across the sinusoids.',
-      ask: ['What HVPG defines clinically significant portal hypertension?', '10 mmHg or more: from there varices and decompensation become possible, and the risk rises with the gradient.'],
+      ask: ['What HVPG defines clinically significant portal hypertension?', '≥10 mmHg: from there varices and decompensation become possible, and the risk rises with the gradient.'],
     },
   ],
 };

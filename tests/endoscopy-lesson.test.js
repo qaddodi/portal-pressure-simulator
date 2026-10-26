@@ -20,7 +20,7 @@ test('the lesson: six slides in order, three objectives and three checks, the la
   assert.equal(deck.objectives.length, 3);
   assert.equal(deck.checks.length, 3);
   const large = deck.checks.find(([q]) => q === 'When is a varix called large?');
-  assert.ok(large && /5 mm or more/.test(large[1]), 'a varix is large from 5 mm');
+  assert.ok(large && /≥5 mm/.test(large[1]), 'a varix is large from 5 mm');
   for (const s of deck.slides) assert.ok(Array.isArray(s.ask) && s.ask.length === 2, `${s.id}: an ask for the room`);
 });
 

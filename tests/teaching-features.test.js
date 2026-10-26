@@ -44,16 +44,16 @@ test('hold: the presenter sets it out of sight and lets the answer slide ease it
 
 
 test('criteria card: rows read in every written form, at most four, live rows judged as their tile prints them', () => {
-  assert.deepEqual(criteriaRow('Child–Pugh C'), { text: 'Child–Pugh C', bold: null, note: null, lit: false, met: null, cut: null, key: null, op: null, value: null });
-  assert.deepEqual(criteriaRow(['HVPG 20 mmHg or more', 'hvpg', '>=', 20]), { text: 'HVPG 20 mmHg or more', bold: null, note: null, lit: false, met: null, cut: null, key: 'hvpg', op: '>=', value: 20 });
-  assert.deepEqual(criteriaRow({ text: 'C', cut: ' C 10–13 ', note: 'C 10', met: true }), { text: 'C', bold: null, note: 'C 10', lit: false, met: true, cut: 'C 10–13', key: null, op: null, value: null });
+  assert.deepEqual(criteriaRow('Child–Pugh C'), { text: 'Child–Pugh C', bold: null, note: null, lit: false, met: null, cut: null, and: null, key: null, op: null, value: null });
+  assert.deepEqual(criteriaRow(['HVPG ≥20 mmHg', 'hvpg', '>=', 20]), { text: 'HVPG ≥20 mmHg', bold: null, note: null, lit: false, met: null, cut: null, and: null, key: 'hvpg', op: '>=', value: 20 });
+  assert.deepEqual(criteriaRow({ text: 'C', cut: ' C 10–13 ', note: 'C 10', met: true }), { text: 'C', bold: null, note: 'C 10', lit: false, met: true, cut: 'C 10–13', and: null, key: null, op: null, value: null });
   assert.equal(criteriaRow({ text: 'C', met: 'yes' }).met, null, 'met is true, false or unsaid');
-  assert.deepEqual(criteriaRow('Child–Pugh B, **over 7**, bleeding'), { ...criteriaRow('Child–Pugh B, over 7, bleeding'), bold: ['Child–Pugh B, ', 'over 7', ', bleeding'] }, 'numbers in bold; the plain words for the handout and the label');
+  assert.deepEqual(criteriaRow('Child–Pugh B, **>7**, bleeding'), { ...criteriaRow('Child–Pugh B, >7, bleeding'), bold: ['Child–Pugh B, ', '>7', ', bleeding'] }, 'numbers in bold; the plain words for the handout and the label');
   assert.equal(criteriaRow({ text: 'x', key: 'hvpg', op: '~', value: 3 }).key, null, 'an unknown comparison is a plain row');
   assert.equal(criteriaRow({ text: '  ' }), null);
   assert.equal(criteriaRows({ rows: ['a', 'b', 'c', 'd', 'e'] }).length, CRITERIA_MAX);
-  const r = criteriaRow(['HVPG 20 or more', 'hvpg', '>=', 20]);
-  assert.equal(criteriaMet(r, { hvpg: 19.96 }), true, '19.96 prints as 20.0, so it meets 20 or more');
+  const r = criteriaRow(['HVPG ≥20', 'hvpg', '>=', 20]);
+  assert.equal(criteriaMet(r, { hvpg: 19.96 }), true, '19.96 prints as 20.0, so it meets ≥20');
   assert.equal(criteriaMet(r, { hvpg: 19.94 }), false);
   assert.equal(criteriaMet(r, {}), null);
   assert.equal(criteriaReading(r, { hvpg: 21.34 }), '21.3 mmHg');
@@ -171,10 +171,10 @@ test('HVPG response tile: hvpgResp adds a live percent fall in the HVPG from a n
   assert.deepEqual(SCALE.hvpgFall, [0, 40, [10, 20]]);
   assert.equal(DERIVED_TILE.hvpgFall.u, '%');
   assert.equal(TILE.hvpgFall, undefined, 'worked out by the presenter, not read from the fingerprint');
-  assert.deepEqual(RATE.hvpgFall(25, {}), ['ok', '≥ 20%']);
-  assert.deepEqual(RATE.hvpgFall(15, { respAt: 14 }), ['mid', '≥ 10%']);
+  assert.deepEqual(RATE.hvpgFall(25, {}), ['ok', '≥20%']);
+  assert.deepEqual(RATE.hvpgFall(15, { respAt: 14 }), ['mid', '≥10%']);
   assert.deepEqual(RATE.hvpgFall(15, { respAt: 12 }), ['ok', '≤12 mmHg'], 'to 12 mmHg or less is a response too');
-  assert.deepEqual(RATE.hvpgFall(5, {}), ['hi', 'Under 10%']);
+  assert.deepEqual(RATE.hvpgFall(5, {}), ['hi', '<10%']);
   const used = slidesUsing('hvpgResp');
   assert.ok(used.length >= 4);
   for (const [d, s] of used) {

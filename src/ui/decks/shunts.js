@@ -25,7 +25,7 @@ export const SHUNTS = {
   ],
   checks: [
     ['An 8 mm TIPS is dilated to 10 mm. The PPG falls a little further and the liver loses more of its portal flow. What did the extra 2 mm buy, and at what price?', 'A small further fall in the gradient, paid for with less portal blood to the liver, so encephalopathy and liver failure become more likely. That is why stents are usually 8 to 10 mm and not wider.'],
-    ['A 72-year-old woman has refractory ascites and her bilirubin is 4 mg/dL. Is a TIPS ruled out?', 'No. Age 70 or over is judged case by case, and no bilirubin value alone rules a TIPS out. The heart, the kidneys and her encephalopathy history decide.'],
+    ['A 72-year-old woman has refractory ascites and her bilirubin is 4 mg/dL. Is a TIPS ruled out?', 'No. Age ≥70 is judged case by case, and no bilirubin value alone rules a TIPS out. The heart, the kidneys and her encephalopathy history decide.'],
     ['What does a TIPS do to the right atrial pressure and the cardiac output?', 'Both rise, because part of the portal blood now goes straight to the heart. That is why heart failure comes before the stent.'],
     ['Why does ascites not improve after a Warren shunt?', 'The portal pressure stays high: only the varices drain through the spleen to the renal vein.'],
   ],
@@ -77,8 +77,8 @@ export const SHUNTS = {
     {
       id: 'tips', lens: 'flow', terms: ['pv', 'hv'], params: { tips: { on: true, d: 8 } }, whatIf: WIDTH, cam: 'liver', sites: ['split'], mark: { edges: ['TIPS'], label: 'Covered stent', kind: 'treat' }, calipers: ['TIPS'], spot: ['TIPS', 'PV_TRUNK', 'PVH_R', 'RHV_IVC'],
       tool: { kind: 'doppler', vessel: 'TIPS' }, data: 'tiles', tiles: ['ppg', 'liver'], delta: 'reasons',
-      kicker: 'The stent', site: 'sin', title: 'A TIPS brings the PPG under 12 mmHg',
-      line: 'A covered stent, 8 to 10 mm, from a hepatic vein to the portal vein. The PPG falls to {ppg}, below 12 mmHg.',
+      kicker: 'The stent', site: 'sin', title: 'A TIPS brings the PPG <12 mmHg',
+      line: 'A covered stent, 8 to 10 mm, from a hepatic vein to the portal vein. The PPG falls to {ppg} (<12 mmHg).',
       notes: 'The stent runs through the liver from the right hepatic vein to the right portal vein, so portal blood has a low-resistance path back to the heart. The PPG is measured before and after; for bleeding the aim is below 12 mmHg. On Doppler the stent carries steady flow toward the heart along its whole length; a clear fall or rise in velocity from the last scan suggests narrowing. The tiles compare with the same patient before the stent.',
       ask: ['What does Doppler show in a working TIPS?', 'Steady flow toward the heart along the whole stent, at a velocity close to the last scan.'],
     },

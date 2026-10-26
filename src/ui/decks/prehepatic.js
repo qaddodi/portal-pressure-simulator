@@ -43,9 +43,9 @@ export const PREHEPATIC = {
       tool: { kind: 'lumen', vessel: 'PV_TRUNK' }, data: 'tiles', tiles: ['pv', 'ppg'], key: ['ppg'], delta: 'clot',
       compare: [{ label: 'Anticoagulation', own: true }, { label: 'No anticoagulation', short: 'None', preset: 'pvt-acute', params: {}, days: 180 }],
       kicker: 'Acute thrombosis', site: 'pre', title: 'Early anticoagulation can reopen the portal vein',
-      line: 'Anticoagulation starts at once and continues for at least 6 months; here the clot clears, flow returns and the PPG falls to {ppg}.',
+      line: 'Anticoagulation starts at once and continues for ≥6 months; here the clot clears, flow returns and the PPG falls to {ppg}.',
       notes: 'In recent portal vein thrombosis without cirrhosis, EASL 2025 starts anticoagulation as soon as possible, because early treatment lowers the risk of bowel ischemia and makes recanalization more likely, and continues it for at least six months. The workup for a thrombophilia should not delay it. In a European prospective study the portal vein reopened in 39% of treated patients (about 4 in 10), the splenic vein in 80% and the superior mesenteric vein in 73%; ascites and a clotted splenic vein made recanalization less likely. In the model the clot clears completely over six months; with no treatment it stays, and within six months the varices grow, the spleen enlarges and the platelets fall, the cavernoma of the next slide.',
-      ask: ['How long is anticoagulation continued for a recent portal vein clot without cirrhosis?', 'At least six months, started as soon as possible; long term when a permanent prothrombotic risk factor remains.'],
+      ask: ['How long is anticoagulation continued for a recent portal vein clot without cirrhosis?', '≥6 months, started as soon as possible; long term when a permanent prothrombotic risk factor remains.'],
     },
     {
       id: 'cavernoma', lens: 'velocity', preset: 'pvt-chronic', cam: 'portal', labels: ['CONF'], mark: { edges: ['PV_TRUNK'], label: 'Occluded portal vein' }, tool: { kind: 'lumen', vessel: 'PV_TRUNK' }, data: 'tiles', tiles: ['pv', 'ppg'], key: ['ppg'], delta: 'clot',

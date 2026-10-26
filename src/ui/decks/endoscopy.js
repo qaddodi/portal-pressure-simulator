@@ -12,12 +12,12 @@ const SAME = { cam: 'gej', labels: ['VAR', 'LGV'], terms: ['varix'], site: 'sin'
 export const ENDOSCOPY = {
   id: 'endoscopy', level: 'core', title: 'The varix changes when you insufflate', minutes: 8,
   objectives: [
-    'Tell a small varix (under 5 mm) from a large one (5 mm or more)',
+    'Tell a small varix (<5 mm) from a large one (≥5 mm)',
     'Explain why air in the esophagus flattens a varix and lowers the pressure across its wall',
     'Say why a flatter varix at endoscopy does not mean less portal hypertension',
   ],
   checks: [
-    ['When is a varix called large?', 'At 5 mm or more. Under 5 mm it is small. Red wale marks are a separate finding and do not change the size.'],
+    ['When is a varix called large?', 'At ≥5 mm. At <5 mm it is small. Red wale marks are a separate finding and do not change the size.'],
     ['What does air in the esophagus do to a varix?', 'It raises the pressure outside the varix, so less pressure stretches the wall and the varix looks flatter. The pressure inside it has not changed.'],
     ['The varix looks flatter at endoscopy. Has the portal hypertension improved?', 'No. The air changes how the varix looks, not the portal pressure. The HVPG and the pressure inside the varix are the same.'],
   ],
@@ -29,9 +29,9 @@ export const ENDOSCOPY = {
       compare: [{ label: 'Small', preset: 'csph' }, { label: 'Large', own: true }],
       kicker: 'Size and signs',
       title: 'A large varix is wider and more twisted than a small one',
-      line: 'A varix under 5 mm is small and one of 5 mm or more is large, and this one measures {varix}.',
+      line: 'A varix <5 mm is small and one of ≥5 mm is large, and this one measures {varix}.',
       notes: 'The app grades a varix by size alone: small under 5 mm, large from 5 mm. AASLD 2024 also names a medium grade. A large varix is wider and more tortuous than a small one, and the scope draws it that way. Large varices, or small ones with red wale marks or in Child–Pugh C cirrhosis, are high risk and call for primary prophylaxis (AASLD 2024). The Small button shows the patient with clinically significant portal hypertension; the Large button goes back to the decompensated patient the slide opens on. Every slide in this talk keeps that patient.',
-      ask: ['What size separates a small varix from a large one?', 'A small varix is under 5 mm and a large one is 5 mm or more.'],
+      ask: ['What size separates a small varix from a large one?', 'A small varix is <5 mm and a large one is ≥5 mm.'],
     },
     {
       id: 'red', ...SAME, tool: SCOPE,

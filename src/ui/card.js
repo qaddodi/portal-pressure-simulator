@@ -5,7 +5,7 @@
 
 import { store, updateParams } from './store.js?v=926dabfaef';
 import { h, icon, svgIcon, clamp, infoButton, sinkTo, stopSink, paintRange, isPhoneLayout, countTo, swapText, transformEndX, afterExit } from './util.js?v=5ad334ebc0';
-import { cardFor, normalizeSel } from './actions.js?v=8b3592f7e4';
+import { cardFor, normalizeSel } from './actions.js?v=a12ecc68ee';
 import { frameFor, cancelFrame } from './frame.js?v=7254a8a850';
 import { placeCard, coverCount, vesselPoints } from './card-place.js?v=4eb9859ce3';
 const nextFrame = frameFor('card');

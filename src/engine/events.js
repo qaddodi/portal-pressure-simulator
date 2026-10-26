@@ -41,7 +41,7 @@ function defs(m, eng) {
     { id: 'HIGH_SHUNT', on: m.shuntFraction > 0.5, off: m.shuntFraction < 0.45, severity: 'caution', anchor: 'TIPS',
       title: 'High portosystemic shunt fraction', detail: 'Much of the gut blood bypasses the liver: encephalopathy risk.' },
     { id: 'LIVER_HYPOPERFUSION', on: m.liverPerfPct < 60, off: m.liverPerfPct > 65, severity: 'caution', anchor: 'SIN_R',
-      title: 'Liver hypoperfusion', detail: 'Total sinusoidal flow is below 60 % of normal.' },
+      title: 'Liver hypoperfusion', detail: 'Total sinusoidal flow is <60 % of normal.' },
     { id: 'CAUDATE', on: Qf('CAUD') > 3 * (eng.refQ ? eng.refQ[eng.ei.CAUD] : 0.8), off: Qf('CAUD') < 2.5 * (eng.refQ ? eng.refQ[eng.ei.CAUD] : 0.8), severity: 'info', anchor: 'CAUD',
       title: 'Caudate lobe carries the outflow', detail: 'Its own veins drain directly into the IVC: it is spared and hypertrophies.' },
     { id: 'RA_HIGH', on: m.ra > 10, off: m.ra < 9, severity: 'caution', anchor: 'RA',

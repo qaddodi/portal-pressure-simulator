@@ -314,7 +314,7 @@ Valid tokens (the tile keys, section 8.6): `hvpg ppg pv sin whvp fhvp saag tp as
 
 ### 6.2 Cut-off pills: `{>=10 mmHg}`
 
-`{>=10 mmHg}` (also `>`, `<`, `<=`, `≥`, `≤`) renders an **outlined** pill with the comparison symbol dropped, so **write the words around it**: "above {>=5 mmHg}", "below {<12 mmHg}". A filled pill is *the patient*, an outlined pill is *the rule*. A filled pill takes its tile's rating colour (green normal, amber raised, red severe, as the tile's bar; after TIPS the PPG reads against its target of 12 mmHg); a value its tile does not rate keeps its station's colour, and an outlined pill stays plain.
+`{>=10 mmHg}` (also `>`, `<`, `<=`, `≥`, `≤`) renders an **outlined** pill that keeps its comparison symbol (`>=` reads ≥, `<=` reads ≤): "The HVPG is {hvpg}, which is {>=10 mmHg}", "a velocity {<15 cm/s} is abnormal". **Never put a comparison word beside the symbol** (no "above {>=5 mmHg}"), and never write a comparison as words anywhere on a card, a tile, a table or a line: use `>` `<` `≥` `≤` ("≥150,000/µL", "<20 kPa", "≥6 months"), not "more than", "or more", "at least", "over", "under" or a trailing plus ("150,000+"). A test (`tests/comparison-symbols.test.js`) scans every deck's words. The `notes` (the Print notes handout) stay prose, and so do a comparative with no number ("lowers the HVPG more than propranolol") and a duration in a case story. A filled pill is *the patient*, an outlined pill is *the rule*. A filled pill takes its tile's rating colour (green normal, amber raised, red severe, as the tile's bar; after TIPS the PPG reads against its target of 12 mmHg); a value its tile does not rate keeps its station's colour, and an outlined pill stays plain.
 
 Automatic pills/bold: if a line has no `{braces}`, the first `number + unit` (mmHg, g/dL, mL/min, kPa, cm/s, mm, %) becomes an outlined rule pill (a typed number is a rule or a published figure; only live values are filled). Give `pill: false` when it is neither, such as an anatomical size. Fixed key terms are auto-bold, at most 3 a line, first mention only (the cap is for these alone): CSPH, SAAG, WHVP, FHVP, central vein, portal tracts, fenestrae, space of Disse, basement membrane, capillarization, wedged pressure, free pressure, sinusoidal pressure, caput medusae, gastrorenal shunt, stellate cells, encephalopathy, periportal fibrosis, intrahepatic resistance, hepatopetal, hepatofugal, cavernoma, a wave, pulsatility, reflection coefficient, Laplace, congestion index, gray zone, red wale marks. The slide's `key` tiles' words and its `bold` terms are bold too, at their first mention, whatever the count.
 
@@ -501,8 +501,9 @@ the ring filled on the row that applies to the case (`lit: true`, or a live row 
 when the order matters ("In this order.") and the rings become 1, 2, 3. Mark each row's key words with `**...**` ("**Infection** or **bleeding**"), the
 finding and not its qualifier ("Neonatal **bradycardia**"); they take full ink on the quieter words, and go quiet themselves when one row applies. A lead
 that only reads after its list ("Treating them comes first.") goes in `verdict`, not `lead`, so that "them" has something to point at. A lit row needs no marked words.
-On a row, `cut` is its cut-off ("C 10–13", "≥20 mmHg"), set large at the row's left on a card 480 px wide or more and dropped on
-narrower ones, and `met: true` or `met: false` says whether the case meets it. Any `note` or live row gives the card a "This case"
+On a row, `cut` is its cut-off ("C 10–13", "≥20 mmHg"), set large at the row's left (a step larger on a card 480 px wide or more), `and` is a second
+condition of the same rule, small and in the sans under the cut-off, so both values read together in one cell ("≤15 kPa" over "platelets ≥150,000/µL";
+Stiffness 5), then the row's words say only what follows from it ("CSPH ruled out"), and `met: true` or `met: false` says whether the case meets it. Any `note` or live row gives the card a "This case"
 column, set apart by space alone, with no vertical line. A met row shows its note large with "meets it ✓" under it; `met: false` adds
 a quiet "not met"; a note with neither `met` nor `lit` is a quiet word ("not B"). Used on
 Variceal bleed 8, Choose the treatment 2, Recompensation 7, Gastric varices 2, Pregnancy 6 and 7, Paracentesis 8, Encephalopathy 4, Stiffness 5, Ten years 13 and 14 and TIPS and shunts 4 and 5.
@@ -680,29 +681,29 @@ The ratings mirror `RATE` in `src/ui/table-marks.js` exactly; each judges the va
 
 | Key | Name | Unit | Normal | Amber | Red |
 |---|---|---|---|---|---|
-| `hvpg` | HVPG (wedged − free) | mmHg | under 5 | 5 or more "Mild" | 10 or more "CSPH" |
-| `ppg` | PPG (portal − IVC) | mmHg | under 6 | 6 or more "High" | 12 or more "Bleed risk" |
-| `pv` | Portal vein pressure | mmHg | 10 or less | over 10 "High" | 15 or more "Severe" |
-| `sin` | Sinusoidal pressure | mmHg | under 9 | 9 or more "High" | 12 or more "Severe" |
-| `whvp` | WHVP (wedged hepatic vein) | mmHg | 10 or less | over 10 "High" | 15 or more "Severe" |
-| `fhvp` | FHVP (free hepatic vein) | mmHg | 8 or less | | over 8 "High" |
-| `ra` | Right atrial pressure | mmHg | 8 or less | | over 8 "High" |
-| `ivc` | IVC pressure | mmHg | 8 or less | | over 8 "High" |
-| `saag` | SAAG (serum − ascites albumin) | g/dL | under 1.1 "Not portal" | | 1.1 or more "Portal HTN" |
-| `tp` | Ascites protein | g/dL | under 2.5 "Low", 2.5 or more "High" (both gray) | under 1.5 "SBP risk" | |
-| `asc` | Ascites volume | L | under 0.15 "None" | under 1.5 "Grade 1" | under 5 "Grade 2", 5 or more "Grade 3" |
-| `varix` | Esophageal varix diameter | mm | under 2.5 "None" | 2.5 or more "Small" | 5 or more "Large" |
+| `hvpg` | HVPG (wedged − free) | mmHg | <5 | ≥5 "Mild" | ≥10 "CSPH" |
+| `ppg` | PPG (portal − IVC) | mmHg | <6 | ≥6 "High" | ≥12 "Bleed risk" |
+| `pv` | Portal vein pressure | mmHg | ≤10 | >10 "High" | ≥15 "Severe" |
+| `sin` | Sinusoidal pressure | mmHg | <9 | ≥9 "High" | ≥12 "Severe" |
+| `whvp` | WHVP (wedged hepatic vein) | mmHg | ≤10 | >10 "High" | ≥15 "Severe" |
+| `fhvp` | FHVP (free hepatic vein) | mmHg | ≤8 | | >8 "High" |
+| `ra` | Right atrial pressure | mmHg | ≤8 | | >8 "High" |
+| `ivc` | IVC pressure | mmHg | ≤8 | | >8 "High" |
+| `saag` | SAAG (serum − ascites albumin) | g/dL | <1.1 "Not portal" | | ≥1.1 "Portal HTN" |
+| `tp` | Ascites protein | g/dL | <2.5 "Low", ≥2.5 "High" (both gray) | <1.5 "SBP risk" | |
+| `asc` | Ascites volume | L | <0.15 "None" | <1.5 "Grade 1" | <5 "Grade 2", ≥5 "Grade 3" |
+| `varix` | Esophageal varix diameter | mm | <2.5 "None" | ≥2.5 "Small" | ≥5 "Large" |
 | `gv` | Gastric varix diameter | mm | same as `varix` | | |
-| `spleen` | Spleen length | cm | 13 or less | over 13 "Large" | over 16 "Large" |
-| `plt` | Platelets | × 10³/µL (88 = 88,000/µL) | 150 or more | under 150 "Low" | under 100 "Severe" |
-| `pvFlow` | Portal vein flow | L/min | "Hepatopetal" (uncolored) | | below 0 "Hepatofugal"; 0 "No flow" |
-| `pvVel` | Portal vein velocity (Doppler, main portal vein) | cm/s | 15 or more | under 15 "Slow" | under 9 "Stasis"; below 0 "Reversed" |
-| `liver` | Liver flow, % of normal | % | over 75 | 75 or less "Low" | 55 or less "Severe" |
-| `shunt` | Portal blood bypassing the liver | % | under 10 "Small" | 10 or more "Moderate" | 30 or more "Large" |
-| `map` | Mean arterial pressure | mmHg | 65 or more | | under 65 "Low" |
-| `hr` | Heart rate | /min | 60 to 100; under 60 "Slow" is gray, not a warning | | over 100 "Fast" |
-| `lsm` | Liver stiffness (FibroScan) | kPa | under 10 | 10 or more "cACLD", 15 or more "Borderline" | 25 or more "CSPH" |
-| `salb` | Serum albumin | g/dL | 3.5 or more | under 3.5 "Low" | |
+| `spleen` | Spleen length | cm | ≤13 | >13 "Large" | >16 "Large" |
+| `plt` | Platelets | × 10³/µL (88 = 88,000/µL) | ≥150 | <150 "Low" | <100 "Severe" |
+| `pvFlow` | Portal vein flow | L/min | "Hepatopetal" (uncolored) | | <0 "Hepatofugal"; 0 "No flow" |
+| `pvVel` | Portal vein velocity (Doppler, main portal vein) | cm/s | ≥15 | <15 "Slow" | <9 "Stasis"; <0 "Reversed" |
+| `liver` | Liver flow, % of normal | % | >75 | ≤75 "Low" | ≤55 "Severe" |
+| `shunt` | Portal blood bypassing the liver | % | <10 "Small" | ≥10 "Moderate" | ≥30 "Large" |
+| `map` | Mean arterial pressure | mmHg | ≥65 | | <65 "Low" |
+| `hr` | Heart rate | /min | 60 to 100; <60 "Slow" is gray, not a warning | | >100 "Fast" |
+| `lsm` | Liver stiffness (FibroScan) | kPa | <10 | ≥10 "cACLD", ≥15 "Borderline" | ≥25 "CSPH" |
+| `salb` | Serum albumin | g/dL | ≥3.5 | <3.5 "Low" | |
 | `hb` | Hemoglobin | g/dL | 12 or more | under 12 "Low" | under 7 "Severe" |
 | `co` | Cardiac output | L/min | 4 to 8 (resting adult); over 8 "High" is gray, not a warning | | under 4 "Low" |
 | `bv` | Blood volume | L | 4.5 to 5.5 (about 70 mL/kg); over 5.5 "High" is gray, not a warning | | under 4.5 "Low" |

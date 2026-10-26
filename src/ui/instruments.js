@@ -49,7 +49,7 @@ export function createEndoscopy({ onAction }) {
     h('div', { class: 'endo-tile endo-pr', title: 'The pressure inside the varix less the pressure in the lumen: what stretches the wall.' }, h('dt', {}, 'Across the wall'), pAcross)];
   const stats = h('dl', { class: 'endo-read' },
     item('endo-chip', h('dt', {}, 'Bands', h('span', { class: 'endo-dt-x' }, ' placed')), bands),
-    h('div', { class: 'endo-g', title: 'Small, under 5 mm; Large, 5 mm or more.' }, h('dt', {}, 'Grade'), grade),
+    h('div', { class: 'endo-g', title: 'Small, <5 mm; Large, ≥5 mm.' }, h('dt', {}, 'Grade'), grade),
     item('endo-tile', h('dt', {}, 'Diameter'), diam),
     item('endo-tile', h('dt', {}, 'Wall', h('span', { class: 'endo-dt-x' }, ' thickness')), wall),
     h('div', { class: 'endo-chip endo-red', title: 'In the model, red wale marks and cherry spots show once the wall stress passes 70 % of its tear point.' }, h('dt', {}, 'Stigmata'), red));
@@ -594,7 +594,7 @@ export function createAbdomen({ onAction }) {
     albS.textContent = albOn() ? `${Math.round(L * 8)} g` : warn ? 'Advised' : 'Optional';
     albS.classList.toggle('ab-warn', warn);
     alb.classList.toggle('ab-warn', warn);
-    alb.title = warn ? `Above 5 L, give albumin (${Math.round(L * 8)} g, 8 g per litre drained) to protect the kidneys.` : 'Albumin 8 g per litre drained: advised above 5 L, optional below.';
+    alb.title = warn ? `>5 L, give albumin (${Math.round(L * 8)} g, 8 g per litre drained) to protect the kidneys.` : 'Albumin 8 g per litre drained: advised for >5 L, optional for ≤5 L.';
     drain.textContent = hasFluid ? 'Drain' : 'No fluid';
     drain.disabled = !hasFluid;
   }
