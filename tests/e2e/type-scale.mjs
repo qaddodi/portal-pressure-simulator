@@ -115,8 +115,8 @@ export async function checkTypeScale(browser, url, log = console.log, only = nul
         if (k !== want) bad.push(`${name} slides: slide text ${k}× the roles, not ${want}×`);
       }
     }
-    // The pressure-scale slides (their HTML scale on a phone and the key under it).
-    for (const [deck, n] of [['hvpg', 6], ['stiffness', 5]]) { await at(1, `?script=${deck}&slide=${n}`); await settle(page); await look(`${deck} slide ${n} at 100%`); }
+    // The chart-and-key slides (the HVPG plane, the stiffness rules card: the chart on a phone and the key under it).
+    for (const [deck, n] of [['hvpg', 10], ['stiffness', 5]]) { await at(1, `?script=${deck}&slide=${n}`); await settle(page); await look(`${deck} slide ${n} at 100%`); }
     log(`type scale ${name}: ${bad.length} finding(s) so far`);
     await ctx.close();
   }

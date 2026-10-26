@@ -777,7 +777,7 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
       await page.evaluate(() => window.pps.store.set({ sinusoid: false }));
       }
       // Presenter: the HVPG deck's presinusoidal slide (its lesion pill), then the lobule deck's sinusoid slide.
-      for (const [deck, i, sin] of [['hvpg', 6, false], ...(k === String(TEXT_MIN) ? [['lobule', 3, true]] : [])]) {
+      for (const [deck, i, sin] of [['hvpg', 5, false], ...(k === String(TEXT_MIN) ? [['lobule', 3, true]] : [])]) {
         await page.evaluate(([deck, i]) => window.pps.presenter.start(deck, i), [deck, i]);
         // (Each stage waits on its own: the start's cover alone can take 15 s here, and a CI runner's shared GPU is far slower.)
         for (const ready of [() => document.querySelector('#app').classList.contains('presenting') && !document.querySelector('.pz-cover'),
@@ -1056,7 +1056,7 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
   if (device === 'phone') await check(device, 'Turning an iPad mid-slide keeps the data card off the words', async (page) => {
     // (reached with motion instant, as the layout checks do, and an iPad held sideways; the turns then run with the page's own fades and glides)
     const restore = await instantMotionOn(page);
-    await gotoSlide(page, server.url, 'hvpg', 4);
+    await gotoSlide(page, server.url, 'hvpg', 5);
     await page.setViewportSize({ width: 1366, height: 1024 });
     await page.waitForTimeout(1000); await quiet(page);
     await restore();
@@ -1110,7 +1110,7 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     ['sites', 7, 'ArrowLeft', true],   // backwards into it
     ['ascites', 0, 'ArrowRight', true, true], ['ascites', 5, 'ArrowRight', true, true], ['tap', 7, 'ArrowRight', true, true],   // anatomy straight to the sinusoid view, through the lobule without stopping in it
     ['ascites', 6, 'ArrowRight', false, true, true], ['ascites', 9, 'ArrowRight', false, true, true],   // and the sinusoid view straight back out to the anatomy (a new patient: the words, and so the space the camera frames into, are settled after the rise)
-    ['hvpg', 6, 'ArrowRight', false, false, true], ['outflow', 4, 'ArrowRight', true],   // out to a region, with a new patient (schisto to chronic PVT: the words settle after the rise); in from a region
+    ['hvpg', 5, 'ArrowRight', false, false, true], ['outflow', 4, 'ArrowRight', true],   // out to a region, with a new patient (schisto to chronic PVT: the words settle after the rise); in from a region
     // In Explore (the view buttons), with no slide: anatomy to the lobule, to a station in it as a slide asks for one, and straight to
     // the sinusoid view and back out.
     ['explore', 'lobule', null, true], ['explore', 'triad', null, true], ['explore', 'sinusoid', null, true, true], ['explore', 'out', null, false, true],
@@ -4290,7 +4290,7 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
   await check(device, 'presenter: resistance readings and callouts show, clear of the cards and the figure labels', async (page) => {
     const sizes = device === 'desktop' ? [[820, 1180], [1180, 820], [1440, 900]] : [[390, 844], [375, 667], [320, 568]];
     // (Plus every other slide with a reading on the figure, and every slide whose words a 320 px phone had fitted under 12 px.)
-    const more = 'hvpg 4,5,8,10;right-heart 3,5,7;shunts 2,5,6,8,9;stiffness 7;treatment 10;two-inflows 8;lobule 6;ncph 4;outflow 6,8;prehepatic 3,6;doppler 2,8;sites 3,8';
+    const more = 'hvpg 4,5,7,9;right-heart 3,5,7;shunts 2,5,6,8,9;stiffness 7;treatment 10;two-inflows 8;lobule 6;ncph 4;outflow 6,8;prehepatic 3,6;doppler 2,8;sites 3,8';
     const slides = [...Array.from({ length: 11 }, (_, i) => ['circuit', i]), ['hvpg', 2],
       ...more.split(';').flatMap((x) => { const [d, n] = x.split(' '); return n.split(',').map((k) => [d, k - 1]); })];
     const out = [];
@@ -4790,11 +4790,11 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     await look('zooming in on the anatomy', 2400, async () => { for (let i = 0; i < 4; i++) { await page.evaluate(() => document.getElementById('zoomIn').click()); await page.waitForTimeout(250); } });
     await look('zoomed in', 600);
     // A label the slide's words light: its leader stops on the pill's rounded outline, at 100 % and 200 % text.
-    await open(page, '?script=hvpg&slide=7');
+    await open(page, '?script=hvpg&slide=6');
     await page.waitForFunction(() => window.pps.stage.lobuleSettled?.() && [...document.querySelectorAll('.lz.on .lz-lab')].some((e) => !e.hidden) && +getComputedStyle(document.querySelector('.lz-call.on') || document.body).opacity > 0.9 && !!document.querySelector('.lz-call.on'), null, { timeout: 60000 });
     await page.waitForTimeout(1200);
-    if (!(await page.evaluate(() => (document.getElementById('app').dataset.lit || '').includes('lobule:')))) throw new Error('HVPG slide 7 lights no lobule label');
-    await look('a lit label (HVPG slide 7)', 800);
+    if (!(await page.evaluate(() => (document.getElementById('app').dataset.lit || '').includes('lobule:')))) throw new Error('HVPG slide 6 lights no lobule label');
+    await look('a lit label (HVPG slide 6)', 800);
     await look('a lit label at 200 % text', 2000, () => page.evaluate(() => window.pps.stage.setLabelScale(2)));
     // At rest no leader is hidden for a label passing over it: a label's own pill once hid its leader (it counted
     // the pill's square corner as another label).

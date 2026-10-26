@@ -40,10 +40,7 @@ test('Stiffness: the scarring slider moves the FibroScan reading across the Bave
 // Each built-in compare row added here: every button resolves to what the presenter does with it.
 const kinds = (s) => s.compare.map((o, k) => abChoice(s.compare, k).kind);
 
-test('HVPG: four patients\' buttons on the HVPG slide ease the ladder and the catheter readings along the scale', async () => {
-  const s = slide('hvpg', 'hvpg');
-  assert.deepEqual(kinds(s), ['state', 'state', 'state', 'state']);
-  assert.equal(s.compare.filter((o) => o.own).length, 1);
+test('HVPG: the catheter slide\'s case sits between compensated and decompensated cirrhosis on the HVPG scale', async () => {
   const st = (await deckStates(DECKS.find((d) => d.id === 'hvpg'))).map(pick)[HVPG_AT];
   const [healthy, comp, decomp] = (await runSteps(['healthy', 'cirr-comp', 'cirr-decomp'].map((preset) => ({ preset })))).map(pick);
   assert.ok(healthy.hvpg < 5 && comp.hvpg >= 5 && comp.hvpg < 10, `healthy ${healthy.hvpg}, compensated ${comp.hvpg}`);

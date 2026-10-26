@@ -520,8 +520,8 @@ HVPG, in percent, read live as the other tiles are, so a compare button or a tim
 marks at 10% and 20%; its line says which HVPG it counts from ("from 18.0 mmHg"); its word is "Under 10%" (red), "≥ 10%" (amber, a
 response before any bleed), "≥ 20%" (green, a response after a bleed too), or "≤12 mmHg" (green) when the HVPG has come down to 12
 or less. Count from the untreated patient, not from the drug before: on Lowering portal pressure 5 the fall is from slide 2, the untreated patient,
-though the slide before is carvedilol. Used on Next bleed 5, Lowering portal pressure 3 to 5 and Ten years 5. (HVPG 5 is left out: its buttons
-switch patients, and a difference between two patients is not a response.)
+though the slide before is carvedilol. Used on Next bleed 5, Lowering portal pressure 3 to 5 and Ten years 5. (HVPG 5 is left out: it shows the
+catheter and the equation only, with no tiles.)
 
 #### The Doppler reading grid: `grid` on `tool: doppler`
 

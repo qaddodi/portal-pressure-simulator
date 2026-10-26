@@ -123,7 +123,6 @@ export const ADOPTED = {
   // One chart everywhere (Mohammad, 21 Oct: "Gut to heart is good, unify it"): every slide that had the old ladder card.
   'circulation/ladder': ['scales', 'kind:profile'],
   'circulation/define': ['kind:profile'],
-  'hvpg/hvpg': ['kind:profile', 'cite'],
   'hvpg/presin': ['kind:profile'],
   'hvpg/ppg': ['kind:profile'],
   'hvpg/heart': ['kind:profile'],

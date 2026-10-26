@@ -2,6 +2,20 @@
 
 ## October 2026
 
+- **Measuring HVPG and PPG: the catheter slide shows the catheter, and the four-patient scale is gone.** (Mohammad, 25 Oct, "Build the new decks"; deck
+  rebuild plan, D5.) The HVPG talk loses "Four patients on the HVPG scale", whose job the plane on the second-to-last slide already does (it places six
+  patients by both gradients, with the cut-offs drawn on it). The slide that reads the result keeps what only it can show: the catheter on the
+  figure, the monitor with the wedged and free tracings, and the HVPG equation. Its Gut to heart chart, its two tiles and its four patient buttons
+  went; the line still says the HVPG is {hvpg}, clinically significant. The cut-offs the scale slide carried (1 to 5 normal, 6 to 9 subclinical, 10
+  or more clinically significant, the bleeding risk rising from about 12, an HVPG of 20 or more in an acute bleed) moved into this slide's notes, with
+  the guideline sources the slide used to print as a line under the words; the quick check still asks for them. The talk is 10 slides, was 11. Old
+  numbers shift by one from the pressure slides on: Normal HVPG, high portal pressure is now 6, the PPG slide 7, heart failure 8, Budd–Chiari 9, the
+  plane 10 and the summary 11. The checks that open the talk at a slide (the lit lobule label, the zoom crossing out of the lobule, the iPad turn, the
+  narrow phone sweep) follow the new numbers; the type-scale look at the dropped scale slide now looks at the plane. Tests: the four-button
+  test became a check that the catheter slide's case sits between compensated and decompensated cirrhosis; the Gut-to-heart test says the catheter
+  slide carries no chart, tiles or buttons. Code only; nobody has looked on screen. `src/ui/decks/hvpg.js`, `tests/deck-adopted.js`,
+  `tests/hands-on-decks.test.js`, `tests/one-ladder.test.js`, `tests/e2e/smoke.mjs`, `tests/e2e/type-scale.mjs`, `docs/deck-authoring-guide.md`,
+  `brand/handout/hvpg/`.
 - **Choose the treatment: one slide for each case.** (Mohammad, 25 Oct, "Go"; deck rebuild plan, C6.) The five cases were each two slides, a question with
   buttons and then the answer. Each is now one slide: the case card brings the patient in and asks one question ("Does she meet the criteria for a
   pre-emptive TIPS?", "What stops ascites that keeps coming back?", "What stops his fundal varices?", "What treatment reopens the vein?", "Which shunt

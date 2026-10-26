@@ -94,7 +94,7 @@
 
 import { CIRCULATION } from './decks/circulation.js?v=81083b0906';
 import { SITES } from './decks/sites.js?v=672baf95f7';
-import { HVPG } from './decks/hvpg.js?v=2b95017b10';
+import { HVPG } from './decks/hvpg.js?v=d52e9e34f2';
 import { ASCITES } from './decks/ascites.js?v=5b8b08ea75';
 import { VARICES } from './decks/varices.js?v=35a51560a4';
 import { TREATMENT } from './decks/treatment.js?v=a043d963a0';
