@@ -122,7 +122,7 @@ test('the one-vessel build is the same shader text with one slot and the join ga
 });
 
 // ── The renderer on a recording stand-in for WebGL2 ──
-function fakeGL({ failSimple = false, pcx = null } = {}) {
+function fakeGL({ failSimple = false, pcx = null, stencil = false } = {}) {
   const calls = [], enums = new Map(), src = new Map(), att = new Map();
   let nextObj = 1;
   const UNIFORMS = ['tint', 'redraw', 'depL', 'world'];
@@ -140,16 +140,20 @@ function fakeGL({ failSimple = false, pcx = null } = {}) {
         if (k === 'getUniformLocation') return { uniform: a[1] };
         if (k === 'getExtension') return pcx && a[0] === 'KHR_parallel_shader_compile' ? { COMPLETION_STATUS_KHR: 0x91b1 } : null;
         if (k === 'getParameter') return 'stand-in';
+        if (k === 'getContextAttributes') return { stencil };
         if (k.startsWith('create')) return { obj: nextObj++, kind: k };
         return undefined;
       };
     },
   });
-  const isSimple = (p) => (att.get(p) || []).some((sh) => /#define SIMPLE 1/.test(src.get(sh) || ''));
-  const isVessel = (p) => (att.get(p) || []).some((sh) => /#define SIMPLE [01]/.test(src.get(sh) || ''));
-  const compBuild = (p) => { const sh = (att.get(p) || []).map((x) => src.get(x) || '').find((t) => /#define PLAIN [01]/.test(t)); return sh ? (/#define PLAIN 1/.test(sh) ? 'plain' : 'full') : null; };
+  // (The one-pass builds hold both shaders' text: neither a vessel pass nor a composite build here, but isFused.)
+  const isFused = (p) => (att.get(p) || []).some((sh) => /void compMain\(\)/.test(src.get(sh) || ''));
+  const isSimple = (p) => !isFused(p) && (att.get(p) || []).some((sh) => /#define SIMPLE 1/.test(src.get(sh) || ''));
+  const isVessel = (p) => !isFused(p) && (att.get(p) || []).some((sh) => /#define SIMPLE [01]/.test(src.get(sh) || ''));
+  const compBuild = (p) => { if (isFused(p)) return null; const sh = (att.get(p) || []).map((x) => src.get(x) || '').find((t) => /#define PLAIN [01]/.test(t)); return sh ? (/#define PLAIN 1/.test(sh) ? 'plain' : 'full') : null; };
   const isPlain = (p) => compBuild(p) === 'plain';
-  return { gl, calls, isSimple, isVessel, compBuild, isPlain, src, att };
+  const fusedSimple = (p) => isFused(p) && (att.get(p) || []).some((sh) => /#define SIMPLE 1/.test(src.get(sh) || ''));
+  return { gl, calls, isSimple, isVessel, isFused, fusedSimple, compBuild, isPlain, src, att };
 }
 // The vessel program's instanced draws since `from`: { simple, count }.
 function vesselDraws(f, from) {
@@ -348,4 +352,46 @@ test('without parallel compile the optional builds are finished at construction,
   assert.ok(f.calls.slice(0, n).some((c) => c[0] === 'deleteShader'));
   assert.ok(!f.calls.slice(n).some((c) => c[0] === 'getProgramParameter' && c[2] === 0x91b1));
   assert.ok(bins.nCells > 0);
+});
+
+// ── One-pass zoom frames (on by default; ?zoompass=two goes back) ──
+test('a zoom frame draws the vessel cells with the one-pass builds over a stencil and the rest with the plain composite; a still frame after it draws the layer whole', async () => {
+  const f = fakeGL({ stencil: true });
+  const { g, bins, look } = await renderer(f);
+  const want = simpleCells(bins.cells, bins.nCells, bins.ent).reduce((a, v) => a + v, 0);
+  g.draw([1, 0, 0, 1, 0, 0], look, { on: true });
+  let n = f.calls.length;
+  g.draw([1.5, 0, 0, 1.5, 0, 0], look, { on: true });
+  assert.deepEqual(vesselDraws(f, n), [], 'no vessel pass on a zoom frame');
+  const c = f.calls.slice(n);
+  let prog = null;
+  const fused = [];
+  for (const x of c) { if (x[0] === 'useProgram') prog = x[1]; if (x[0] === 'drawArraysInstanced' && f.isFused(prog)) fused.push({ simple: f.fusedSimple(prog), count: x[4] }); }
+  assert.deepEqual(fused.sort((a, b) => a.simple - b.simple), [{ simple: false, count: bins.nCells - want }, { simple: true, count: want }], 'every cell once, by the one-pass build of its class');
+  const on = c.findIndex((x) => x[0] === 'enable' && x[1] === f.gl.STENCIL_TEST), eq = c.findIndex((x) => x[0] === 'stencilFunc' && x[1] === f.gl.EQUAL), off = c.findIndex((x) => x[0] === 'disable' && x[1] === f.gl.STENCIL_TEST);
+  assert.ok(on >= 0 && on < eq && eq < off, 'the cells mark the stencil, then the rest is drawn where it is unmarked');
+  const plainAt = c.findIndex((x, i) => i > eq && x[0] === 'drawArrays');
+  assert.ok(plainAt > eq && plainAt < off);
+  const progAt = (i) => { for (let k = i; k >= 0; k--) if (c[k][0] === 'useProgram') return c[k][1]; return null; };
+  assert.ok(f.isPlain(progAt(plainAt)), 'by the plain composite');
+  // The view held still: the layer drawn whole again (both programs, every cell) before the picture.
+  n = f.calls.length;
+  g.composite(look, { on: true });
+  const d = vesselDraws(f, n);
+  assert.equal(d.find((x) => x.simple).count, want);
+  assert.equal(d.find((x) => !x.simple).count, bins.nCells - want);
+  // A zoom frame with origin colours (not plain) keeps the two passes.
+  n = f.calls.length;
+  g.draw([2, 0, 0, 2, 0, 0], look, { on: true, origin: true });
+  assert.equal(vesselDraws(f, n).length, 2);
+});
+
+test('without a stencil (or with ?zoompass=two) a zoom frame keeps the two passes', async () => {
+  const f = fakeGL();
+  const { g, look } = await renderer(f);
+  g.draw([1, 0, 0, 1, 0, 0], look, { on: true });
+  const n = f.calls.length;
+  g.draw([1.5, 0, 0, 1.5, 0, 0], look, { on: true });
+  assert.equal(vesselDraws(f, n).length, 2);
+  assert.ok(!f.calls.slice(n).some((x) => x[0] === 'enable' && x[1] === f.gl.STENCIL_TEST));
 });

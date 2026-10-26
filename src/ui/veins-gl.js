@@ -41,7 +41,7 @@ import { changedRows } from './flow-rows.js?v=bea4089714';
 import { leftAlone } from './quiet.js?v=82fc0f97e3';
 import { PUBLISH_QUIET_MS } from './gl-compile.js?v=5c4cd6c14c';
 import { createOrganStack } from './organs-gl.js?v=efbea815e0';
-import { fusedVS, fusedFS } from './veins-fuse.js?v=fe98c10c31';
+import { fusedVS, fusedFS } from './veins-fuse.js?v=eadbf8bbef';
 import { NOISE_W, NOISE_H, NOISE_PER_ROW, OCTAVES, noiseBlock, blockAt, tableSize } from './blood-noise.js?v=bc65994b25';
 
 export { binVeins };
@@ -84,11 +84,11 @@ const OWN_BUF = typeof location !== 'undefined' && /[?&]vesselbuf=own\b/.test(lo
 // (COMP_FS `fast`): every lumen pixel lays the layers under it, hashes its noise, works out the zoom's numbers itself and keeps the
 // bead look's code. The same picture either way; the switch is there to compare on a device.
 const CLASSIC = typeof location !== 'undefined' && /[?&]blood=classic\b/.test(location.search);
-// ?zoompass=one in the address (an A/B, off by default): a frame where the view zoomed or turned, which draws the vessel layer
-// whole and then the picture whole, runs the two as one shader over the vessel cells instead (veins-fuse.js), and the picture
-// alone over the rest of the canvas (the layer there is empty). The same arithmetic, so the same picture; whether it costs less
-// is for a device to say.
-const ONE_PASS = typeof location !== 'undefined' && /[?&]zoompass=one\b/.test(location.search);
+// One-pass zoom frames (on by default since 26 Oct: the same look, a little smoother on Mohammad's Mac; ?zoompass=two in the
+// address goes back): a frame where the view zoomed or turned, which drew the vessel layer whole and then the picture whole, runs
+// the two as one shader over the vessel cells instead (veins-fuse.js), and the picture alone over the rest of the canvas (the
+// layer there is empty). The same arithmetic, so the same picture.
+const ONE_PASS = !(typeof location !== 'undefined' && /[?&]zoompass=two\b/.test(location.search));
 // The composite's per-frame uniform arrays, filled in place: it ran six `new Float32Array`s a frame. (Each is uploaded at once,
 // so one set serves every renderer.)
 // The origin colours flattened once per palette (the palette is one object for the page's life), not every frame (P8).
@@ -1612,7 +1612,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false }) {
     }
   };
   if (!later.includes('plain')) finishPlain();
-  // The one-pass builds (?zoompass=one), both or neither (the one-vessel one only where that build draws cells): null when off
+  // The one-pass builds (one-pass zoom frames), both or neither (the one-vessel one only where that build draws cells): null when off
   // or failed, and every zoom frame keeps the two passes.
   let fuseGen = null, fuseOne = null;
   const finishFuse = () => {
@@ -1951,7 +1951,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false }) {
   // What the vessel pass reads from the look (anything else in it only matters to the composite).
   const lookKey = (k) => JSON.stringify([k.reach, k.shOff, k.casing, k.shadow, k.sheen, k.shade, k.ring, k.light, k.netAlpha, k.fx, k.tierAlpha, k.tierGroup, k.organs]);
   let tubesNew = true, drawnLook = '';
-  // After a one-pass frame (?zoompass=one) the layer is left empty (cleared once, as the picture outside the vessel cells reads it)
+  // After a one-pass frame (one-pass zoom frames) the layer is left empty (cleared once, as the picture outside the vessel cells reads it)
   // and not current: any picture but the next one-pass frame draws it whole first (see composite).
   let stale = false, fusing = false;
   const ctxStencil = !!gl.getContextAttributes()?.stencil;
@@ -2166,7 +2166,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false }) {
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, own.w, own.h, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
     gl.bindFramebuffer(gl.FRAMEBUFFER, own.fbo);
     gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, own.tex, 0);
-    // (With ?zoompass=one, the stencil the one-pass frames mark the vessel cells in: see composite.)
+    // (With one-pass zoom frames, the stencil the one-pass frames mark the vessel cells in: see composite.)
     if (ONE_PASS) {
       own.rb ||= gl.createRenderbuffer();
       gl.bindRenderbuffer(gl.RENDERBUFFER, own.rb);
@@ -2481,7 +2481,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false }) {
       const panAt = fboOK && radCovered(rows) && lk === drawnLook && (dx || dy) && Math.abs(dx) < fboW / 2 && Math.abs(dy) < fboH / 2 && m.slice(0, 4).every((v, i) => v === baseM[i]);
       if (panAt && rows?.length) { parts = rowParts(rows); if (parts.part.k > nCells * 0.6) parts = null; }
       const pan = panAt && (!(tubesNew || radRows.size) || parts);
-      // A zoom or a turn with the one-pass builds (?zoompass=one): no vessel pass; the picture draws the vessels itself.
+      // A zoom or a turn with the one-pass builds (one-pass zoom frames): no vessel pass; the picture draws the vessels itself.
       if (!pan && baseM && m.slice(0, 4).some((v, i) => v !== baseM[i]) && fuseReady() && bareOf(blood || {}) && !gpuProbe.skipGL && !lost) {
         if (gpuProbe.on) gpuProbe.note('vessels: one pass');
         if (!stale) { gl.bindFramebuffer(gl.FRAMEBUFFER, fbo); gl.viewport(0, 0, fboW, fboH); gl.disable(gl.SCISSOR_TEST); clearLayer(); stale = true; }

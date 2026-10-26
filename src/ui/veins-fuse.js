@@ -1,4 +1,4 @@
-// The one-pass zoom drawing (?zoompass=one, off by default): while the view zooms or turns, the vessel layer cannot be
+// The one-pass zoom drawing (on by default; ?zoompass=two goes back to two passes): while the view zooms or turns, the vessel layer cannot be
 // moved as a pan moves it (every pixel shows a new spot of the figure, and its edges are smoothed over a new width), so each
 // such frame draws the layer whole and then composites it whole, two passes, the layer's four targets written (21 bytes a
 // pixel) and read back. The composite reads only its own pixel of them, so the two can run as one shader over the vessel
