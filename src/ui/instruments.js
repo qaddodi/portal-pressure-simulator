@@ -594,7 +594,7 @@ export function createAbdomen({ onAction }) {
     albS.textContent = albOn() ? `${Math.round(L * 8)} g` : warn ? 'Advised' : 'Optional';
     albS.classList.toggle('ab-warn', warn);
     alb.classList.toggle('ab-warn', warn);
-    alb.title = warn ? `>5 L, give albumin (${Math.round(L * 8)} g, 8 g per litre drained) to protect the kidneys.` : 'Albumin 8 g per litre drained: advised for >5 L, optional for ≤5 L.';
+    alb.title = warn ? `For >5 L, give albumin (${Math.round(L * 8)} g, 8 g per litre drained) to protect the kidneys.` : 'Albumin 8 g per litre drained: advised for >5 L, optional for ≤5 L.';
     drain.textContent = hasFluid ? 'Drain' : 'No fluid';
     drain.disabled = !hasFluid;
   }
