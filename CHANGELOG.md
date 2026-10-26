@@ -2,6 +2,14 @@
 
 ## October 2026
 
+- **The "Look first for" card and every plain-list criteria card get a mark per row and key words in ink.** (Mohammad, 26 Oct, "we need to fix this card to look much better", then
+  his pick "C with D's key words" from the mocks in `review/look-first-card-ideas`.) A list with no cut-off column now puts a ring at each row's left, for a thing to check; the ring is
+  filled on the row that applies to the case or that the model meets (outlined is the rule, filled is the case, as the rule pill), and its fill eases with the reading. A list that says
+  "In this order" takes numerals instead (`ordered: true`, Encephalopathy after a TIPS). The rules are a step larger, the key words in each row (`**...**`) in ink on the quieter words, and
+  they go quiet themselves when one row applies. "Treating them comes first." moved from above the Look first for list to its foot (`verdict`), where "them" has something to point at.
+  Ten cards in seven decks: Encephalopathy, Pregnancy (2), Shunts (2), Gastric varices, Ascites, Ten years (2) and Recompensation. The four table cards keep their cut-off column. The
+  no-dots test names the row marks as an exception on purpose. Code and unit tests only; nobody has looked on screen. `src/ui/tool-criteria.js`, `styles/app.css`, the seven decks,
+  `tests/teaching-features.test.js`, `tests/no-status-dots.test.js`, the authoring guides.
 - **The teaching card's words hold still while a what-if slider moves, on a phone and everywhere else.** (Mohammad, 26 Oct, "When using sliders on teaching cards on phone the text of the
   teaching card jitters a lot".) Three causes found by reading the code. The slider's value and the time-lapse's "Day 12 of 30" counter were plain text in a box that took the
   width of whatever they said, so a digit coming or going changed that box's width, and with it the room the label row or the bar beside it had; each now stands in a box as wide as

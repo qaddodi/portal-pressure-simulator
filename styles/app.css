@@ -6767,6 +6767,19 @@ html.thumb-ui .menu.from-dock { clip-path: inset(-64px -64px calc(var(--sink, 0p
 .pzc-note .pzc-m > i, .pzc-row[data-met="yes"] .pzc-m > .y, .pzc-row[data-met="no"] .pzc-m > .n { opacity: 1; }
 .pzc-verdict { margin: 0; padding-top: .6em; border-top: 1px solid color-mix(in srgb, var(--text) 8%, transparent); font: 400 1em/1.35 var(--font-ui); color: var(--text-2); }
 .pzc-verdict > b { font-weight: 600; color: var(--text); }
+/* Plain rules, no cut-off column (his pick 26 Oct, "C with D's key words"): a mark at each row's left, a ring for a thing to check, a numeral
+   when the order matters (tool.ordered), and the ring filled on the row that applies to the case (lit) or that the model meets: outlined is
+   the rule, filled is the case, as the rule pill. The words a step larger; the key words (**...**) in ink, kept quiet on the other rows
+   when one row applies. The mark sits level with the first line of a row that wraps, and its fill eases with the reading, never snaps. */
+.pz-crit:not(.has-cut) .pzc-row:not(.pzc-hrow) { font-size: 1.12em; }
+.pz-crit:not(.has-cut) .pzc-row:not(.pzc-hrow) .pzc-c { display: block; align-self: start; padding-right: .75em; }
+.pz-crit:not(.has-cut) .pzc-row:not(.pzc-hrow) .pzc-c::before { content: ""; display: block; box-sizing: border-box; width: .58em; height: .58em; margin-top: .385em; border-radius: 50%; background: transparent; box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--text) 45%, transparent); transition: background-color .4s var(--ease), box-shadow .4s var(--ease); }
+.pz-crit:not(.has-cut) .pzc-row:is([data-lit], [data-met="yes"]) .pzc-c::before { background: var(--text); box-shadow: inset 0 0 0 1.5px var(--text); }
+.pz-crit.ordered .pzc-list { counter-reset: pzcn; }
+.pz-crit.ordered:not(.has-cut) .pzc-row:not(.pzc-hrow) .pzc-c { align-self: baseline; }
+.pz-crit.ordered:not(.has-cut) .pzc-row:not(.pzc-hrow) .pzc-c::before { counter-increment: pzcn; content: counter(pzcn); width: auto; height: auto; margin: 0; border-radius: 0; background: none; box-shadow: none; font: 400 1.15em/1 var(--font-display); font-variant-numeric: lining-nums; color: var(--text-3); transition: color .4s var(--ease); }
+.pz-crit.ordered:not(.has-cut) .pzc-row:is([data-lit], [data-met="yes"]) .pzc-c::before { background: none; box-shadow: none; color: var(--text); font-weight: 500; }
+.pz-crit.has-lit:not(.has-cut) .pzc-row:not([data-lit]) .pzc-t > b { font-weight: 500; color: inherit; }
 /* Its title in the serif, in sentence case, as a guideline's heading: the one card whose caps header gives way (the rules' words
    below it are the serif too). On a Mac and an iPad landscape it sits left, over the rules; a phone keeps the header's centring. */
 .pz.pz .pz-data.pz-data[data-tool^="criteria:"] > .pz-dh { font: 600 calc(var(--s-cap) * 1.3)/1.2 var(--font-display); letter-spacing: 0; text-transform: none; color: var(--text); }

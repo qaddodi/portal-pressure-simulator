@@ -15,6 +15,10 @@
 // (lead), the rule's number in an outlined pill when the slide's notes cite one (rule), a "This case" column set apart by space
 // alone (no vertical line, his rule), quiet words on the rows the case does not meet, and a verdict line at the foot (verdict:
 // the words up to its first colon in bold).
+// Plain rules (no cut-off column; his pick 26 Oct, "C with D's key words", review/look-first-card-ideas): a mark at each row's left,
+// a ring for a thing to check and a numeral when the order matters (ordered: true on the tool), the ring filled for the row that
+// applies to the case (lit) or that the model meets: outlined is the rule, filled is the case, as the rule pill. Mark the rows' key
+// words with **...** (ink in quiet words); a lead that only reads after its list goes in verdict, at the foot.
 // The card never changes size with the reading: each reading's slot is as wide as its widest number, the marks cross-fade.
 
 import { h, fmt } from './util.js?v=defb4c4059';
@@ -91,6 +95,8 @@ export function createCriteria() {
     el.classList.toggle('no-ticks', !ticks);
     el.classList.toggle('has-case', hasCase);
     el.classList.toggle('has-cut', hasCut);
+    el.classList.toggle('has-lit', rows.some((r) => r.lit));
+    el.classList.toggle('ordered', t?.ordered === true);
     lead.textContent = str(t?.lead) || '';
     rule.textContent = str(t?.rule) || '';
     top.hidden = !lead.textContent && !rule.textContent;
