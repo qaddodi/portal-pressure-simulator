@@ -108,8 +108,10 @@ test('the one-vessel build is the same shader text with one slot and the join ga
   // The one block the simple build leaves out reads joins alone: it loops over the cell's join entries (vR.w, zero in
   // every simple cell), so in such a cell the general build runs it zero times.
   const blocks = gen.split('#if SIMPLE == 0\n');
-  assert.equal(blocks.length, 2);
-  const block = blocks[1].slice(0, blocks[1].indexOf('#endif'));
+  assert.equal(blocks.length, 3);
+  // The first: the second-lumen target is no output of the simple build (a plain variable, its writes dropped).
+  assert.match(blocks[1], /^layout\(location=2\) out uvec4 outFlow2;[^\n]*\n#else\nuvec4 outFlow2; [^\n]*\n#endif\n/);
+  const block = blocks[2].slice(0, blocks[2].indexOf('#endif'));
   assert.match(block, /^ {2}for \(int k = 0; k < min\(vR\.w, 64\); k\+\+\) \{/);
   assert.equal((gen.match(/vR\.w/g) || []).length, 1, 'vR.w is read nowhere else');
   assert.ok(!/\bjn\s*=(?!=)/.test(gen.replace(block, '').replace('int jn = 0;', '')), 'nothing outside it sets jn');
@@ -184,6 +186,13 @@ test('a whole draw draws each simple cell with the one-vessel build and every ot
   const want = simpleCells(bins.cells, bins.nCells, bins.ent).reduce((a, v) => a + v, 0);
   const d = vesselDraws(f, n0);
   assert.deepEqual(d.map((x) => x.simple).sort(), [false, true], 'one draw per program');
+  // Around the simple build's draw, the second-lumen target is left out of the draw buffers, then put back.
+  const seq = f.calls.slice(n0).filter((c) => c[0] === 'drawBuffers' || c[0] === 'drawArraysInstanced');
+  const at = seq.findIndex((c, i) => c[0] === 'drawArraysInstanced' && seq[i - 1]?.[0] === 'drawBuffers' && seq[i - 1][1][2] === f.gl.NONE);
+  assert.ok(at > 0, 'the simple draw follows draw buffers without the second-lumen target');
+  assert.deepEqual(seq[at - 1][1], [f.gl.COLOR_ATTACHMENT0, f.gl.COLOR_ATTACHMENT1, f.gl.NONE, f.gl.COLOR_ATTACHMENT3]);
+  assert.deepEqual(seq[at + 1][1], [f.gl.COLOR_ATTACHMENT0, f.gl.COLOR_ATTACHMENT1, f.gl.COLOR_ATTACHMENT2, f.gl.COLOR_ATTACHMENT3], 'and put back');
+  assert.equal(seq.filter((c) => c[0] === 'drawBuffers' && c[1][2] === f.gl.NONE).length, 1, 'only around that draw');
   assert.equal(d.find((x) => x.simple).count, want);
   assert.equal(d.find((x) => !x.simple).count, bins.nCells - want);
   // A pan by whole pixels: the uncovered strips are drawn by both programs, over the same split.

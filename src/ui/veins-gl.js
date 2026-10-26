@@ -121,6 +121,7 @@ void main() {
 export const vesselFS = (simple) => `#version 300 es
 precision highp float;
 precision highp int;
+#define SIMPLE ${simple ? 1 : 0}
 in vec2 vW;
 flat in ivec4 vR;
 uniform highp sampler2D ent;
@@ -152,10 +153,13 @@ uniform int tint;                      // 1: a colour-only redraw (tintPass): on
 uniform sampler2D depL;                // the last whole draw's outDep (tint 1 only)
 layout(location=0) out vec4 outColor;
 layout(location=1) out uvec4 outFlow;  // the lumen in front: vessel row + 1, 16 × (arc length + S_OFF), across (0–65535), visibility
+#if SIMPLE == 0
 layout(location=2) out uvec4 outFlow2; // near a join, the lumen it joins: row + 1, 16 × (arc + S_OFF), across, its share (0–65535)
+#else
+uvec4 outFlow2;                        // (one vessel and no join: never a second lumen, always zero; the one-vessel build's draws leave that target as it stands, zero: see vesselDraw)
+#endif
 layout(location=3) out vec4 outDep;    // 1: some vessel's lumen colour reaches this pixel (its lumen, or a glow in its own colour); 0: it does not
 
-#define SIMPLE ${simple ? 1 : 0}
 #define MAXS ${simple ? 1 : 8}
 #define MAXJ ${simple ? 1 : 6}
 #define ENT_W ${ENT_W}
@@ -1623,6 +1627,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false }) {
   gl.texImage2D(gl.TEXTURE_2D, 0, gl.R8, 1, 1, 0, gl.RED, gl.UNSIGNED_BYTE, new Uint8Array(1));
   let fboW = 0, fboH = 0, baseM = null, dyeAny = false, wasBleeding = false;
   const ATTACH = [gl.COLOR_ATTACHMENT0, gl.COLOR_ATTACHMENT1, gl.COLOR_ATTACHMENT2, gl.COLOR_ATTACHMENT3];
+  const ATTACH_ONE = [gl.COLOR_ATTACHMENT0, gl.COLOR_ATTACHMENT1, gl.NONE, gl.COLOR_ATTACHMENT3];   // (the one-vessel build's: see vesselDraw)
   // fboOK: the vessel layer holds a whole draw of the current geometry, radii and organ covers, at baseM, so a redraw of
   // some of its cells (drawRows) leaves it exactly as a whole draw would. Cleared by anything else the vessel pass reads.
   let fboOK = false;
@@ -1858,7 +1863,13 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false }) {
     gl.activeTexture(gl.TEXTURE4); gl.bindTexture(gl.TEXTURE_2D, rmaxTex); gl.uniform1i(u.rmax, 4);
     gl.activeTexture(gl.TEXTURE5); gl.bindTexture(gl.TEXTURE_2D, tint ? depTex : depNone); gl.uniform1i(u.depL, 5);
     gl.bindVertexArray(va);
+    // The one-vessel build writes no second-lumen target (8 of the layer's 21 bytes a pixel): in its cells that target is zero
+    // already, as every whole draw clears it, a pan moves each pixel with the spot of the figure it shows (so within the same
+    // cell), and nothing else writes there. (In a colour-only redraw only the colour target is bound anyway.)
+    const skip2 = !tint && p !== prog.p;
+    if (skip2) gl.drawBuffers(ATTACH_ONE);
     gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, count);
+    if (skip2) gl.drawBuffers(ATTACH);
     gl.bindVertexArray(null);
   }
   const onLost = (e) => { e.preventDefault(); lost = true; };
