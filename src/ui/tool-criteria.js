@@ -8,7 +8,8 @@
 //                                                       following the model as the tiles do (a slider, a button, a time-lapse)
 //   lit: true                                           sets the row that applies to the case in full-white words
 //   met: true | false                                   the case meets the row (its note large, "meets it ✓" under it) or not ("not met")
-//   cut: 'C 10–13', '≥20 mmHg'                          the row's cut-off, set large at its left on a wide card (480 px and up)
+//   cut: 'C 10–13', '20 mmHg'                           the row's cut-off, set large at its left (a step larger on a card 480 px and up)
+//   **...** in text                                     the rule's numbers in bold ('Child–Pugh B, **over 7**, ...')
 // ticks: false on the tool leaves the live marks off (a classification such as the Sarin classes, where no row is "met").
 // V3 (26 Oct, his "V3 build it"; review/guideline-cards-ideas/round8): the rules in the serif, a lead line on how they combine
 // (lead), the rule's number in an outlined pill when the slide's notes cite one (rule), a "This case" column set apart by space
@@ -27,7 +28,8 @@ export function criteriaRow(r) {
   const o = typeof r === 'string' ? { text: r } : Array.isArray(r) ? { text: r[0], key: r[1], op: r[2], value: r[3] } : r && typeof r === 'object' ? { ...r } : null;
   if (!o || typeof o.text !== 'string' || !o.text.trim()) return null;
   const live = typeof o.key === 'string' && !!OPS[o.op] && Number.isFinite(+o.value);
-  return { text: o.text.trim(), note: str(o.note), lit: !!o.lit, met: typeof o.met === 'boolean' ? o.met : null, cut: str(o.cut), key: live ? o.key : null, op: live ? o.op : null, value: live ? +o.value : null };
+  const raw = o.text.trim();
+  return { text: raw.replace(/\*\*/g, ''), bold: raw.includes('**') ? raw.split('**') : null, note: str(o.note), lit: !!o.lit, met: typeof o.met === 'boolean' ? o.met : null, cut: str(o.cut), key: live ? o.key : null, op: live ? o.op : null, value: live ? +o.value : null };
 }
 /** The rows a tool shows: its first four rows that have words. */
 export const criteriaRows = (t) => (Array.isArray(t?.rows) ? t.rows.map(criteriaRow).filter(Boolean).slice(0, CRITERIA_MAX) : []);
@@ -99,7 +101,7 @@ export function createCriteria() {
     parts = rows.map((r) => {
       const { end, read, mark } = caseCell(r, ticks);
       const state = r.met === true ? { 'data-met': 'yes' } : r.met === false ? { 'data-met': 'no' } : {};
-      const li = h('li', { class: r.key ? 'pzc-row pzc-live' : 'pzc-row', ...(r.lit ? { 'data-lit': '' } : {}), ...(r.note && !r.lit && r.met == null ? { 'data-quiet': '' } : {}), ...state }, cutCell(r), h('span', { class: 'pzc-t' }, r.text), end);
+      const li = h('li', { class: r.key ? 'pzc-row pzc-live' : 'pzc-row', ...(r.lit ? { 'data-lit': '' } : {}), ...(r.note && !r.lit && r.met == null ? { 'data-quiet': '' } : {}), ...state }, cutCell(r), h('span', { class: 'pzc-t' }, r.bold ? r.bold.map((t, i) => (i % 2 ? h('b', {}, t) : t)).filter((t) => t !== '') : r.text), end);
       return { r, li, read, mark };
     });
     const headRow = hasCase ? [h('li', { class: 'pzc-row pzc-hrow', 'aria-hidden': 'true' }, h('span', { class: 'pzc-c' }), h('span', { class: 'pzc-t' }), h('span', { class: 'pzc-end' }, 'This case'))] : [];

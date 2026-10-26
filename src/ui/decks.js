@@ -99,7 +99,7 @@ import { HVPG } from './decks/hvpg.js?v=283a22a0f3';
 import { ASCITES } from './decks/ascites.js?v=3b6fcc253c';
 import { VARICES } from './decks/varices.js?v=35a51560a4';
 import { TREATMENT } from './decks/treatment.js?v=a043d963a0';
-import { STIFFNESS } from './decks/stiffness.js?v=eeb346cd6b';
+import { STIFFNESS } from './decks/stiffness.js?v=6fbe2c1e4a';
 import { LOBULE } from './decks/lobule.js?v=3e423cee4b';
 import { SHUNTS } from './decks/shunts.js?v=114512f522';
 import { TIPS_DOPPLER } from './decks/tips-doppler.js?v=738af5f882';
@@ -107,7 +107,7 @@ import { CIRCUIT } from './decks/circuit.js?v=5073420934';
 import { DOPPLER } from './decks/doppler.js?v=d44e552955';
 import { ENDOSCOPY } from './decks/endoscopy.js?v=4cb71d8e9c';
 import { PREHEPATIC } from './decks/prehepatic.js?v=6e4ae22c61';
-import { BLEED } from './decks/variceal-bleed.js?v=92a375d412';
+import { BLEED } from './decks/variceal-bleed.js?v=a6cbb6e9ae';
 import { TWO_INFLOWS } from './decks/two-inflows.js?v=7ed411b482';
 import { NCPH } from './decks/ncph.js?v=a057907b61';
 import { OUTFLOW } from './decks/outflow.js?v=f854f410c6';
@@ -119,7 +119,7 @@ import { CAUSE_TREATED } from './decks/cause-treated.js?v=59191d27f0';
 import { NEXT_BLEED } from './decks/next-bleed.js?v=f7d4e6c707';
 import { GASTRIC } from './decks/gastric-varices.js?v=f8833a566f';
 import { HYPERDYNAMIC } from './decks/hyperdynamic.js?v=8f06d153c4';
-import { CHOOSE_TREATMENT } from './decks/choose-treatment.js?v=3781e9c920';
+import { CHOOSE_TREATMENT } from './decks/choose-treatment.js?v=e85353785d';
 import { TEN_YEARS } from './decks/ten-years.js?v=e9435d4d1f';
 
 // Regions of the anatomy plate the camera frames (world units, x 300-1120, y 0-920).

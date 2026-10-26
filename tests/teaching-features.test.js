@@ -44,10 +44,11 @@ test('hold: the presenter sets it out of sight and lets the answer slide ease it
 
 
 test('criteria card: rows read in every written form, at most four, live rows judged as their tile prints them', () => {
-  assert.deepEqual(criteriaRow('Child–Pugh C'), { text: 'Child–Pugh C', note: null, lit: false, met: null, cut: null, key: null, op: null, value: null });
-  assert.deepEqual(criteriaRow(['HVPG 20 mmHg or more', 'hvpg', '>=', 20]), { text: 'HVPG 20 mmHg or more', note: null, lit: false, met: null, cut: null, key: 'hvpg', op: '>=', value: 20 });
-  assert.deepEqual(criteriaRow({ text: 'C', cut: ' C 10–13 ', note: 'C 10', met: true }), { text: 'C', note: 'C 10', lit: false, met: true, cut: 'C 10–13', key: null, op: null, value: null });
+  assert.deepEqual(criteriaRow('Child–Pugh C'), { text: 'Child–Pugh C', bold: null, note: null, lit: false, met: null, cut: null, key: null, op: null, value: null });
+  assert.deepEqual(criteriaRow(['HVPG 20 mmHg or more', 'hvpg', '>=', 20]), { text: 'HVPG 20 mmHg or more', bold: null, note: null, lit: false, met: null, cut: null, key: 'hvpg', op: '>=', value: 20 });
+  assert.deepEqual(criteriaRow({ text: 'C', cut: ' C 10–13 ', note: 'C 10', met: true }), { text: 'C', bold: null, note: 'C 10', lit: false, met: true, cut: 'C 10–13', key: null, op: null, value: null });
   assert.equal(criteriaRow({ text: 'C', met: 'yes' }).met, null, 'met is true, false or unsaid');
+  assert.deepEqual(criteriaRow('Child–Pugh B, **over 7**, bleeding'), { ...criteriaRow('Child–Pugh B, over 7, bleeding'), bold: ['Child–Pugh B, ', 'over 7', ', bleeding'] }, 'numbers in bold; the plain words for the handout and the label');
   assert.equal(criteriaRow({ text: 'x', key: 'hvpg', op: '~', value: 3 }).key, null, 'an unknown comparison is a plain row');
   assert.equal(criteriaRow({ text: '  ' }), null);
   assert.equal(criteriaRows({ rows: ['a', 'b', 'c', 'd', 'e'] }).length, CRITERIA_MAX);
@@ -118,6 +119,7 @@ test('criteria card V3 in the decks: every rule pill is cited in its slide\'s no
   assert.match(block, /\.pzc-end \{[^}]*padding-left: 22px/, 'the case column set apart by space alone');
   assert.match(block, /\.pz-crit \{[^}]*width: 100%/, 'the card full width: a phone had centred it shrunk and pushed the case out');
   for (const [c, n] of [['c', 1], ['t', 2], ['end', 3]]) assert.match(block, new RegExp(`\\.pzc-${c} \\{[^}]*grid-column: ${n};`), `.pzc-${c} in column ${n}, so a hidden cut-off moves nothing`);
+  assert.match(block, /\.pz-crit\.has-cut \.pzc-c \{ display: block;/, 'the cut-offs at every width, a phone too (his V3 mock)');
   assert.match(block, /\.pzc-end \{[^}]*white-space: nowrap/, 'the case column on one line (an iPhone wrapped "This case" and "C 10")');
   assert.match(block, /\.pzc-m > i \{[^}]*transition: opacity/, 'the marks of a live row cross-fade, never snap');
 });
