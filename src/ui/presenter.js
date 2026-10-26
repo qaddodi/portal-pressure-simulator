@@ -26,7 +26,7 @@ import { nb, listCase, plateletText } from './glue.js?v=5a0f63226b';
 import { DECKS, DECK_ALIAS, REGIONS, LEVELS, TOPICS, withOverview, siteTag, SITE_TAGS } from './decks.js?v=d7435ad521';
 import { fingerprintOf } from '../engine/fingerprint.js?v=8faea80b59';
 import { createHvpgMonitor } from './hvpg-proc.js?v=aed1ad2d05';
-import { createTools } from './presenter-tools.js?v=defb4575a4';
+import { createTools } from './presenter-tools.js?v=3ac99e368b';
 import { openHandout } from './handout.js?v=fea350a724';
 import { noteResume, resumeFor } from './resume.js?v=f086f80ee8';
 import { parseDeckSource, checkDeck } from './deck-source.js?v=8395c650cd';
@@ -35,7 +35,7 @@ import { frameFor, cancelFrame } from './frame.js?v=7254a8a850';
 import { createFigureKey } from './figure-key.js?v=b6817772fb';
 import { traceWhen } from './trace-labels.js?v=fc916a95c6';
 import { flowCss, heatCss, dropCss, gradientCss, oxygenCss } from './colormap.js?v=a9284dde52';
-import { EXT, expandIds, stepExtra, markLabel, figureHooks, safe } from './slide-ext.js?v=2d0692fee8';
+import { EXT, expandIds, stepExtra, markLabel, figureHooks, safe } from './slide-ext.js?v=819dc8c1b6';
 import { clotWords } from './callout-math.js?v=a716cd33ea';
 import { citeText, focusOf, oneLadder } from './teach-extras.js?v=5f5248f5a7';
 import { createProfileTool, createProfileStrip, pillReadings } from './tool-profile.js?v=c628225624';
@@ -842,7 +842,7 @@ function makeCalc() {
   };
   const ready = (async () => {
     try {
-      const w = new Worker(new URL('../worker.js?v=f78c08060b', import.meta.url), { type: 'module' });
+      const w = new Worker(new URL('../worker.js?v=0aada47388', import.meta.url), { type: 'module' });
       await new Promise((res, rej) => {
         const t = setTimeout(() => rej(new Error('worker timeout')), 15000);   // (long: a slow load still gets the worker; host.js)
         w.onmessage = (e) => { if (e.data?.type === 'presets') { clearTimeout(t); res(); } };
@@ -855,7 +855,7 @@ function makeCalc() {
       post = (m) => w.postMessage(m); kill = () => w.terminate();
     } catch {
       try {
-        const { createCore } = await import('../worker-core.js?v=8a06c43c7a');
+        const { createCore } = await import('../worker-core.js?v=1dd66c524e');
         const core = createCore((m) => setTimeout(() => onMsg(m), 0));
         core.handle({ type: 'visibility', visible: false }); core.handle({ type: 'run', running: false });
         post = (m) => core.handle(structuredClone(m)); kill = () => core.dispose();
@@ -939,7 +939,13 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
         for (const w of waiters.filter((x) => x.i === m.i)) w.res(st);
         waiters = waiters.filter((x) => x.i !== m.i);
       });
-      if (end?.type !== 'error') { if (key) cache.set(key, { states: mine }); return; }
+      if (end?.type !== 'error') {
+        if (key) cache.set(key, { states: mine });
+        // (A data-card chart that runs its own points (a curve over model days) starts now, behind the talk, so it is ready by
+        // its slide: slide-ext.js tools' warm.)
+        if (states === mine) slides.forEach((s, i) => { const w = EXT.tools[s.tool?.kind]?.warm; if (w) safe(() => w(s.tool, ctxOf(s, i)), null, 'warm'); });
+        return;
+      }
       // The slides could not be computed (most often a page left open across an update): the next try starts a fresh
       // engine, and the show ends with a word rather than holding its cover up for ever.
       if (c.broken) { c.kill(); if (calc === c) calc = null; }

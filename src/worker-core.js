@@ -448,11 +448,14 @@ export function createCore(post) {
     // (preset → params → settle → actions → disease days → settle). Each slide is posted as it is
     // ready ('seqStep': snapshot, params, fingerprint); 'sequence' ends the chain. A slide the presenter plays
     // as a time-lapse (fine, or a ramp) steps its days one at a time, as the live 'lapse' does.
+    // A step with restart: true starts again from base (a fresh model without one): a chart's points, each its own change
+    // from the slide's state (tool-curve.js).
     *sequence({ steps, base, reqId }) {
-      const e = new Engine();
+      let e = new Engine();
       if (base) e.restore(base);
       for (let i = 0; i < (steps || []).length; i++) {
         const st = steps[i] || {};
+        if (st.restart && i) { e = new Engine(); if (base) e.restore(base); }
         if (st.preset) yield* e.loadPresetSteps(st.preset, st.presetDays != null ? { days: st.presetDays + (PRESETS.find((p) => p.id === st.preset)?.days || 0) } : {});
         if (st.params) { e.setParams(deepMerge(e.params, st.params)); e.settle(); }
         for (const a of [st.action || []].flat()) applyAction(e, a);

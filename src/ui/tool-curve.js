@@ -13,6 +13,33 @@
 // scale: the slide's own line (named `own`) and the same sweep with those params too (named `label`), each name on its line, no
 // key (a key at the top only when the card is too small for them), and the case has a ring on both lines (the second read from
 // its curve). No marks where the lines cross a cut-off (Mohammad, 19 Oct: the dotted drop lines taken out).
+//
+// Relation charts (the slide before a deck's summary, 26 Oct; review/relation-chart-ideas/recommendations.md):
+//   x: 'lsm'          the x axis is a reading (a fingerprint key, named and scaled as its tile), not the setting: the sweep
+//                     still runs underneath (param, from, to) and each point is plotted reading against reading. The axis runs
+//                     over nice numbers round the points (xFrom, xTo to set them).
+//   days: 365         each point starts from the slide's own state, its setting changed, and runs that many model days, so the
+//                     slow readings (spleen, platelets, varix, ascites) reach their level. Without days a point settles only.
+//   points: [{ params?, action?, days? }, …]
+//                     in place of param/from/to: each point its own change from the slide's state (an action such as a
+//                     hemorrhage, for a curve over blood lost); needs x.
+//   xCuts: [15, 25]   the x reading's cut-offs as upright dashes in their rating's colour, named at the top ("15 kPa");
+//                     true for every cut-off of its tile.
+//   cuts: [10] | false
+//                     the first line's cut-offs (its tile's by default), or none.
+//   dots: [{ slide: 'a1', name: 'Case 1' } | { preset: 'rhf', name: 'Heart failure', params?, days? }, …]
+//                     other states as small filled points on each line (on: [0] for the first line only), named beside the
+//                     first; with walk: true joined in order by a faint line, a patient's visits along the curve. Needs x.
+//   patient: { preset: 'healthy', params?, presetDays? }
+//                     the curve is drawn on that patient (loaded afresh for each point) rather than on the slide's own; the
+//                     ring stays the slide's case, which may sit off the line.
+//   oneScale: true    both lines on the left scale (a flat line keeps its true size).
+//   against: [{ label, params, pair? }, …]
+//                     up to two second sweeps. With x, each line's points are read against its own sweep's x reading, or
+//                     with pair: true against the slide's own sweep's (the HVPG before a drug, the HVPG on it). When the own
+//                     line is the x reading itself it is drawn as the dashed "no change" diagonal, named `own`, with no ring.
+//   zone: { fall: 10, under: 12, label: 'Response' }
+//                     a soft band in the ok colour under y = max(under, x less fall %), dashed along its top and named in it.
 
 import { TILE, SCALE, RATE } from './table-marks.js?v=8458ad3bf8';
 import { frameFor } from './frame.js?v=7254a8a850';
@@ -24,13 +51,16 @@ const MAX_PTS = 41;
 
 // The settings a curve knows by name: the axis's words, its unit, its decimals and a scale on the model's value.
 export const PARAM = {
+  'thrombus.PV_TRUNK': ['Portal vein clot', '%', 0, 100], 'stenosis.TIPS': ['Stent narrowing', '%', 0, 100], habrStrength: ['Arterial buffer', '%', 0, 100],
   'tips.d': ['TIPS diameter', 'mm', 0], 'dips.d': ['DIPS diameter', 'mm', 0],
   cirrhosis: ['Cirrhosis', '%', 0, 100], gestation: ['Weeks pregnant', 'weeks', 0], albumin: ['Serum albumin', 'g/dL', 1],
   splanchnicTone: ['Splanchnic tone', '×', 2], systemicTone: ['Systemic tone', '×', 2], contractility: ['Right heart contractility', '×', 2],
   tr: ['Tricuspid regurgitation', '%', 0, 100], pericardial: ['Pericardial constraint', '%', 0, 100], apShunt: ['Arterioportal shunting', '%', 0, 100],
 };
+// Readings a chart can draw that have no tile: the varix wall's stress, as a share of the point where it tears.
+const LINE_ONLY = { wall: { t: 'Wall stress', u: '% of tear', x: 100, d: 0 } };
 // A line's colour by reading (the app's trace colours); any other reading takes its place's.
-const COLOR = { ppg: '--tr-pv', pv: '--tr-pv', hvpg: '--tr-wedge', whvp: '--tr-wedge', sin: '--tr-wedge', fhvp: '--tr-hv', ivc: '--tr-ivc', ra: '--tr-ra', varix: '--tr-var', liver: '--tr-hv', pvFlow: '--tr-hv', shunt: '--tr-cav' };
+const COLOR = { ppg: '--tr-pv', pv: '--tr-pv', hvpg: '--tr-wedge', whvp: '--tr-wedge', sin: '--tr-wedge', fhvp: '--tr-hv', ivc: '--tr-ivc', ra: '--tr-ra', varix: '--tr-var', wall: '--tr-cav', liver: '--tr-hv', pvFlow: '--tr-hv', shunt: '--tr-cav' };
 const PLACE = ['--tr-pv', '--tr-hv'];
 
 export const pathOf = (p) => String(p || '').split('.').filter(Boolean);
@@ -52,17 +82,35 @@ export function curveXs(t) {
   const step = Math.max(Math.abs(+t.step || (b - a) / 10), Math.abs(b - a) / (MAX_PTS - 1)), n = Math.round(Math.abs(b - a) / step);
   return Array.from({ length: n + 1 }, (_, k) => +(a + (b - a) * (k / n)).toPrecision(10));
 }
+/** The x reading's key (x: a fingerprint key with a tile), or null for a curve across its setting. */
+export const xKeyOf = (t) => (typeof t?.x === 'string' && (TILE[t.x] || LINE_ONLY[t.x]) ? t.x : null);
+/** The changes along the curve: each point's { params?, action?, days? } (the setting's values, or the slide's own list). */
+function pointSteps(t, also) {
+  const days = +t.days > 0 ? Math.round(+t.days) : 0, pt = patientOf(t);
+  // (On a patient of its own, each point loads that patient afresh: its preset, then its params under the point's own.)
+  const on = (st) => (pt ? { preset: pt.preset, presetDays: pt.presetDays, ...st, params: mergeOf(pt.params, st.params), restart: true } : st);
+  if (Array.isArray(t.points) && xKeyOf(t)) return t.points.slice(0, MAX_PTS).map((q) => on({ ...q, params: mergeOf(also, q?.params), restart: true }));
+  return curveXs(t).map((x) => on({ params: patchOf(t.param, x, also), ...(days ? { days, restart: true } : {}) }));
+}
+/** The patient the curve is drawn on, when not the slide's own: { preset, params?, presetDays? }, or null. */
+export const patientOf = (t) => (typeof t?.patient?.preset === 'string' ? t.patient : null);
 /** The steps for ctx.run: each point the slide's state with the setting changed (every step carries its full patch, so no
- *  point depends on the one before). */
+ *  point depends on the one before; with days or points each starts again from the slide's state). */
 export const curveSteps = (t) => {
-  const xs = curveXs(t), ag = againstOf(t), own = xs.map((x) => ({ params: patchOf(t.param, x, t.also) }));
-  return ag ? [...own, ...xs.map((x) => ({ params: patchOf(t.param, x, mergeOf(t.also, ag.params)) }))] : own;
+  const ags = againstsOf(t), own = pointSteps(t, t.also);
+  return [...own, ...ags.flatMap((a) => pointSteps(t, mergeOf(t.also, a.params)))];
 };
+/** The second sweeps: [{ label, params, pair }] (one or two, each with a label and a params object). */
+export function againstsOf(t) {
+  return [].concat(t?.against || []).filter((a) => a && typeof a.label === 'string' && a.label && a.params && typeof a.params === 'object' && !Array.isArray(a.params))
+    .slice(0, 2).map((a) => ({ label: a.label, params: a.params, pair: !!a.pair }));
+}
 /** The second sweep's { label, params, own }, or null: needs a label and a params object. */
 export function againstOf(t) {
-  const a = t?.against;
-  if (!a || typeof a.label !== 'string' || !a.label || !a.params || typeof a.params !== 'object' || Array.isArray(a.params)) return null;
-  return { label: a.label, params: a.params, own: typeof a.own === 'string' && a.own ? a.own : 'This case' };
+  const a = againstsOf(t)[0];
+  if (!a) return null;
+  const own = [].concat(t.against).find((x) => typeof x?.own === 'string' && x.own)?.own;
+  return { label: a.label, params: a.params, own: own || 'This case' };
 }
 /** b merged over a (objects key by key, anything else replaced), a fresh copy. */
 export function mergeOf(a, b) {
@@ -70,32 +118,50 @@ export function mergeOf(a, b) {
   for (const [k, v] of Object.entries(b || {})) out[k] = v && typeof v === 'object' && !Array.isArray(v) && out[k] && typeof out[k] === 'object' ? mergeOf(out[k], v) : structuredClone(v);
   return out;
 }
-/** The readings plotted (one or two fingerprint keys; one, drawn twice, with against). */
+/** The readings plotted (one or two fingerprint keys; one, drawn once per sweep, with against). */
 export const curveLines = (t) => [].concat(t.lines || 'ppg').filter((k) => typeof k === 'string').slice(0, againstOf(t) ? 1 : 2);
-/** The lines drawn: each reading's meta, or with against the one reading twice, named and coloured by its sweep. */
+/** Whether the own line is the x reading itself (the diagonal where nothing changed). */
+export const ownIsRef = (t) => !!againstOf(t) && !!xKeyOf(t) && curveLines(t)[0] === xKeyOf(t);
+const AG_C = ['--tr-pv', '--tr-hv'];
+/** The lines drawn: each reading's meta, or with against the one reading once per sweep, named and coloured by its sweep. */
 export function drawnLines(t) {
   const ls = curveLines(t).map(lineMeta), ag = againstOf(t);
   if (!ag) return ls;
-  const l = ls[0];
+  const l = ls[0], ags = againstsOf(t);
+  if (ownIsRef(t)) return [{ ...l, name: ag.own, c: '--text-3', ref: true }, ...ags.map((a, j) => ({ ...l, name: a.label, c: AG_C[j] }))];
+  if (ags.length > 1) return [{ ...l, name: ag.own }, ...ags.map((a, j) => ({ ...l, name: a.label, c: [l.c === '--tr-hv' ? '--tr-pv' : '--tr-hv', '--tr-cav'][j] }))];
   return [{ ...l, name: ag.own }, { ...l, name: ag.label, c: l.c === '--tr-hv' ? '--tr-pv' : '--tr-hv' }];
 }
 /** A reading's name, unit, decimals, scale and colour (from its tile). */
 export function lineMeta(k, j = 0) {
-  const tl = TILE[k] || {};
+  const tl = TILE[k] || LINE_ONLY[k] || {};
   return { k, name: (tl.t?.length <= 14 ? tl.t : tl.n || tl.t) || k, unit: tl.u || '', d: tl.d ?? 1, x: tl.x ?? 1, c: COLOR[k] || PLACE[j] || PLACE[0] };
 }
 /** The x axis's words, unit, decimals and scale. */
 export function axisMeta(t) {
+  const xk = xKeyOf(t);
+  if (xk) { const m = lineMeta(xk); return { name: t.label || TILE[xk]?.t || m.name, unit: t.unit ?? m.unit, d: m.d, x: m.x, k: xk }; }
   const p = PARAM[t.param] || [];
   return { name: t.label || p[0] || pathOf(t.param).at(-1) || '', unit: t.unit ?? p[1] ?? '', d: p[2] ?? (curveXs(t).some((x) => x % 1) ? 1 : 0), x: p[3] ?? 1 };
 }
-/** The series: { xs, ys: [[…] per line] } in shown units, from the run's states (null where a point failed). */
+const valOf = (s, l) => (Number.isFinite(s?.fp?.[l.k]) ? s.fp[l.k] * l.x : null);
+/** The series: { xs, ys: [[…] per line] } in shown units, from the run's states (null where a point failed). With x, also lx: each
+ *  line's own xs, every line in order of x (a point with no reading left out). */
 export function curveSeries(t, states) {
-  const xs = curveXs(t), ls = curveLines(t).map(lineMeta), ax = axisMeta(t), ag = againstOf(t);
-  if (!Array.isArray(states) || states.length !== xs.length * (ag ? 2 : 1)) return null;
-  const val = (s, l) => (Number.isFinite(s?.fp?.[l.k]) ? s.fp[l.k] * l.x : null);
-  const ys = ag ? [0, 1].map((h) => states.slice(h * xs.length, (h + 1) * xs.length).map((s) => val(s, ls[0]))) : ls.map((l) => states.map((s) => val(s, l)));
-  return { xs: xs.map((x) => x * ax.x), ys };
+  const ls = curveLines(t).map(lineMeta), ax = axisMeta(t), ags = againstsOf(t), xk = xKeyOf(t);
+  const n = xk && Array.isArray(t.points) ? Math.min(MAX_PTS, t.points.length) : curveXs(t).length, sweeps = 1 + ags.length;
+  if (!n || !Array.isArray(states) || states.length !== n * sweeps) return null;
+  const part = (h) => states.slice(h * n, (h + 1) * n);
+  const yss = ags.length ? Array.from({ length: sweeps }, (_, h) => part(h).map((s) => valOf(s, ls[0]))) : ls.map((l) => states.map((s) => valOf(s, l)));
+  if (!xk) return { xs: curveXs(t).map((x) => x * ax.x), ys: yss };
+  const xm = lineMeta(xk), own = part(0).map((s) => valOf(s, xm));
+  const lxs = yss.map((_, j) => (ags.length ? (j && !ags[j - 1].pair ? part(j).map((s) => valOf(s, xm)) : own) : own));
+  const lx = [], ys = [];
+  yss.forEach((yv, j) => {
+    const pts = yv.map((y, i) => [lxs[j][i], y]).filter(([x, y]) => Number.isFinite(x) && Number.isFinite(y)).sort((a, b) => a[0] - b[0]);
+    lx.push(pts.map((p) => p[0])); ys.push(pts.map((p) => p[1]));
+  });
+  return { xs: lx[0], ys, lx };
 }
 
 // ── Scales ──
@@ -217,14 +283,16 @@ export function placeWord(cands, w, fs, obstacles, near = null) {
 /** The x the slide's case sits at, and each line's value there (shown units): from the live params and fingerprint while a
  *  what-if slider or compare button drives the model, else the slide's own. */
 export function ringAt(t, params, fp) {
-  const ax = axisMeta(t), x = getAt(params, t.param);
+  const ax = axisMeta(t), xk = xKeyOf(t), x = xk ? fp?.[xk] : getAt(params, t.param);
   const ys = curveLines(t).map((k) => (Number.isFinite(fp?.[k]) ? fp[k] * lineMeta(k).x : null));
-  return { x: Number.isFinite(+x) ? +x * ax.x : null, ys: againstOf(t) ? [ys[0], null] : ys };   // (the second line's from its curve)
+  // (With against the other lines' rings are read from their curves; the diagonal has none.)
+  const n = drawnLines(t).length;
+  return { x: Number.isFinite(+x) && x !== null ? +x * ax.x : null, ys: againstOf(t) ? [ownIsRef(t) ? null : ys[0], ...Array(n - 1).fill(null)] : ys };
 }
 
 /** Whether params are the slide's own (base) with only the curve's setting moved: then the case sits on the curve. */
 export function onCurve(t, params, base) {
-  if (!params || !base) return false;
+  if (!params || !base || !t.param || Array.isArray(t.points) || +t.days > 0 || patientOf(t)) return false;
   const a = structuredClone(params), keys = pathOf(t.param);
   let at = a;
   for (const k of keys.slice(0, -1)) { if (!at[k] || typeof at[k] !== 'object') return false; at = at[k]; }
@@ -232,14 +300,58 @@ export function onCurve(t, params, base) {
   if (keys.length === 2 && (keys[0] === 'tips' || keys[0] === 'dips') && keys[1] === 'd') at.on = getAt(base, `${keys[0]}.on`);
   return JSON.stringify(a) === JSON.stringify(base);
 }
-/** Each line's value on the curve at x (shown units), read between its two nearest points. */
-export function curveAt(ser, x) {
-  const xs = ser.xs;
+const lerpAt = (xs, ys, x) => {
   if (!(x >= xs[0] && x <= xs.at(-1))) return null;
   let i = 1; while (i < xs.length - 1 && xs[i] < x) i++;
   const u = (x - xs[i - 1]) / ((xs[i] - xs[i - 1]) || 1);
-  return ser.ys.map((ys) => (Number.isFinite(ys[i - 1]) && Number.isFinite(ys[i]) ? ys[i - 1] + (ys[i] - ys[i - 1]) * u : null));
+  return Number.isFinite(ys[i - 1]) && Number.isFinite(ys[i]) ? ys[i - 1] + (ys[i] - ys[i - 1]) * u : null;
+};
+/** Each line's value on the curve at x (shown units), read between its two nearest points (with lx, each on its own xs). */
+export function curveAt(ser, x) {
+  if (ser.lx) return ser.ys.map((ys, j) => lerpAt(ser.lx[j], ys, x));
+  const xs = ser.xs;
+  if (!(x >= xs[0] && x <= xs.at(-1))) return null;
+  return ser.ys.map((ys) => lerpAt(xs, ys, x));
 }
+
+/** An x axis round a reading's values: nice numbers just outside them, about five steps (from zero for a reading that is never
+ *  below it, when zero lies within a third of the range again). from/to (shown units) set either end. */
+export function xDomain(vals, from = null, to = null) {
+  const v = vals.filter(Number.isFinite);
+  let a = v.length ? Math.min(...v) : 0, b = v.length ? Math.max(...v) : 1;
+  if (b - a < 1e-6) { a -= 1; b += 1; }
+  const step = niceStep((b - a) / 5);
+  let lo = Math.floor(a / step + 1e-9) * step, hi = Math.ceil(b / step - 1e-9) * step;
+  if (a >= 0 && lo > 0 && lo <= (hi - lo) / 3 + 1e-9) lo = 0;
+  return [Number.isFinite(+from) && from !== null ? +from : +lo.toPrecision(8), Number.isFinite(+to) && to !== null ? +to : +hi.toPrecision(8)];
+}
+/** The first line's cut-offs: its tile's (cutsOf), or the slide's list (each with its rating from the tile), or none. */
+export function yCutsOf(t, k) {
+  if (t.cuts === false) return [];
+  const all = cutsOf(k);
+  if (!Array.isArray(t.cuts)) return all;
+  return t.cuts.filter(Number.isFinite).map((v) => all.find((c) => Math.abs(c.v - v) < 1e-6) || { v, rate: 'mid' });
+}
+/** The x reading's cut-offs (xCuts: a list, or true for its tile's), each with its rating. */
+export function xCutsOf(t) {
+  const k = xKeyOf(t);
+  if (!k || !t.xCuts) return [];
+  const all = cutsOf(k);
+  return t.xCuts === true ? all : [].concat(t.xCuts).filter(Number.isFinite).map((v) => all.find((c) => Math.abs(c.v - v) < 1e-6) || { v, rate: 'mid' });
+}
+/** The zone's top edge from x0 to x1 (shown units): y = max(under, x less fall %), its corner where the two meet. */
+export function zoneEdge(z, x0, x1) {
+  if (!z || !(+z.fall >= 0) || !Number.isFinite(+z.under)) return null;
+  const k = 1 - +z.fall / 100, yAt = (x) => Math.max(+z.under, x * k), xs = [x0];
+  const xc = k > 0 ? +z.under / k : Infinity;
+  if (xc > x0 && xc < x1) xs.push(xc);
+  xs.push(x1);
+  return xs.map((x) => [x, yAt(x)]);
+}
+/** The other states shown as points: each { slide } or { preset, params?, presetDays?, days? } with its name. */
+export const dotsOf = (t) => (xKeyOf(t) ? [].concat(t.dots || []).filter((d) => d && (typeof d.slide === 'string' || typeof d.preset === 'string')).slice(0, 8) : []);
+/** The steps that work out the dots made from a preset, each from a fresh model. */
+export const dotSteps = (t) => dotsOf(t).filter((d) => !d.slide).map((d) => ({ preset: d.preset, params: d.params, presetDays: d.presetDays, days: d.days, restart: true }));
 
 const SVGNS = 'http://www.w3.org/2000/svg';
 const sv = (tag, attrs = {}, ...kids) => {
@@ -253,11 +365,35 @@ const sv = (tag, attrs = {}, ...kids) => {
 const kept = new WeakMap();
 const keepOf = (deck) => { if (!deck) return new Map(); let m = kept.get(deck); if (!m) kept.set(deck, (m = new Map())); return m; };
 
+const curveKey = (tool, c) => JSON.stringify([c?.slide?.id ?? c?.index, tool]);
+/** The curve's points and dots for a slide, worked out once per deck on the presenter's worker (a promise of { s, dd }), or null
+ *  while the slide's state is not ready. */
+function curveWork(t, c, myKey = curveKey(t, c)) {
+  const store = keepOf(c.deck);
+  let p = store.get(myKey);
+  if (p) return p;
+  if (!c.snap) return null;
+  const ds = dotsOf(t), dSteps = dotSteps(t);
+  // (The dots from slides are their own states; those from a preset are worked out on a fresh model, after the curve.)
+  p = Promise.all([c.run(curveSteps(t), patientOf(t) ? null : undefined).then((states) => curveSeries(t, states)), dSteps.length ? c.run(dSteps, null) : Promise.resolve([])]).then(([s, made]) => {
+    if (!s) return null;
+    let k = 0;
+    const dd = ds.map((d) => ({ ...d, fp: d.slide ? c.fpOf?.(d.slide) ?? null : made?.[k++]?.fp ?? null }));
+    return { s, dd };
+  });
+  store.set(myKey, p);
+  p.then((s) => { if (!s) store.delete(myKey); }, () => store.delete(myKey));
+  return p;
+}
+/** Starts a slide's curve once the deck's states are in, so a curve that runs model days (seconds of work) is ready when its
+ *  slide comes up (presenter.js, after the deck's states). */
+export function warmCurve(t, c) { if (t && c) curveWork(t, c)?.catch(() => null); }
+
 export function createCurve() {
   const reduceMQ = matchMedia('(prefers-reduced-motion: reduce)');
   const el = document.createElement('div');
   el.className = 'pz-curve';
-  let t = null, ctx = null, ser = null, parts = null, G = null, key = '', lastSz = '', raf = 0;
+  let t = null, ctx = null, ser = null, dots = [], parts = null, G = null, key = '', lastSz = '', raf = 0;
   let ring = null, goal = null;   // ({ x, ys } in shown units: where the rings are drawn, and where they glide to)
 
   const size = () => {
@@ -265,45 +401,71 @@ export function createCurve() {
     const f = Math.max(parseFloat(getComputedStyle(el).fontSize) || 12, z > 0.2 && z < 1 ? CV_MIN / z : 0);
     return [Math.max(160, w || 420), Math.max(8 * f, el.clientHeight || 240), f];
   };
+  // A dot's place on line j (shown units), or null: with against every line is the one reading, so a dot sits once, on the first.
+  const dotXY = (d, j, ls) => {
+    const xk = xKeyOf(t), xm = lineMeta(xk), l = ls[j];
+    if (!d.fp || (againstOf(t) && j) || (Array.isArray(d.on) && !d.on.includes(j))) return null;
+    const x = d.fp[xk], y = d.fp[l.k];
+    return Number.isFinite(x) && Number.isFinite(y) ? [x * xm.x, y * l.x] : null;
+  };
   // The geometry for a chart w × h px in type f px, its scales from the series (or, until it is ready, from the slide's own
   // values and the axis's ends).
   function geo(w, h, f) {
-    const ls = drawnLines(t), ax = axisMeta(t), xs = curveXs(t).map((x) => x * ax.x), ag = !!againstOf(t);
-    const vals0 = ls.map((l, j) => (ser ? ser.ys[j] : [(ring || goal)?.ys[j]]).filter(Number.isFinite));
-    // (With against both lines are one reading on one scale, named on the lines; the key is only the reading and its unit.)
-    const vals = ag ? [vals0.flat()] : vals0, keyLs = ag ? [{ ...lineMeta(curveLines(t)[0]), c: '--text-2', bare: true }] : ls;
+    const ls = drawnLines(t), ax = axisMeta(t), ag = !!againstOf(t), xk = xKeyOf(t);
+    const vals0 = ls.map((l, j) => [...(ser ? ser.ys[j] : [(ring || goal)?.ys[j]]), ...dots.map((d) => dotXY(d, j, ls)?.[1])].filter(Number.isFinite));
+    // (With against all lines are one reading on one scale, named on the lines; the key is only the reading and its unit. With
+    // oneScale both readings share the left scale.)
+    const one = ag || (!!t.oneScale && ls.length > 1);
+    const vals = one ? [vals0.flat()] : vals0, keyLs = ag ? [{ ...lineMeta(curveLines(t)[0]), c: '--text-2', bare: true }] : ls;
+    let x0, x1;
+    if (xk) {
+      const xv = [...(ser ? ser.lx.flat() : []), (ring || goal)?.x, ...dots.flatMap((d) => ls.map((_, j) => dotXY(d, j, ls)?.[0]))];
+      [x0, x1] = xDomain(xv, t.xFrom, t.xTo);
+    } else { const xs = curveXs(t).map((x) => x * ax.x); x0 = xs[0]; x1 = xs.at(-1); }
     const keys0 = keyLs.length < 2 || keyLs.reduce((a, l) => a + 22 + cw(l.name, f, 1) + 6 + cw(l.unit, f), 0) + 2 * f <= w;
-    // (With against, the two lines' key that stands in when their names don't fit on the drawing takes a row of its own when
+    // (With against, the lines' key that stands in when their names don't fit on the drawing takes a row of its own when
     // it would run into the reading's name and unit at the left.)
     const altW = ag ? ls.reduce((a, l) => a + 22 + 1.05 * cw(l.name, f, 1), 0) + f * (ls.length - 1) : 0;
     const altBelow = ag && cw(keyLs[0].name, f, 1) + 6 + cw(keyLs[0].unit, f) + altW + 2 * f > w;
     // (No more numbers up the side than fit a line and a half of type apart.)
     const plotH = h - 2.9 * f - ((keys0 && !altBelow ? 1 : 2) * 1.5 * f + 1.6 * f), most = clamp(Math.floor(plotH / (1.6 * f)) + 1, 3, 7);
-    const sL = leftScale(ls[0].k, vals[0], most), sR = ls[1] && !ag ? rightScale(vals[1], sL.ticks.length) : null;
+    const sL = leftScale(ls[0].k, vals[0], most), sR = ls[1] && !one ? rightScale(vals[1], sL.ticks.length) : null;
     const keys = keyLs.map((l) => ({ ...l, w: (l.bare ? 0 : 22) + cw(l.name, f, 1) + 6 + cw(l.unit, f) }));
     const oneRow = keys.length < 2 || keys[0].w + keys[1].w + 2 * f <= w, rowH = 1.5 * f, legH = (oneRow && !altBelow ? 1 : 2) * rowH;
     const tw = (sc) => Math.max(...sc.ticks.map((v) => cw(fmt(v, dec(sc)), f)));
-    const xt = xTicks(xs[0], xs.at(-1), Math.max(2, Math.min(7, Math.floor((w - 4 * f) / (3.2 * f)))));
-    const L = Math.ceil(tw(sL) + 8), R = Math.floor(w - (sR ? tw(sR) + 8 : Math.max(8, cw(fmt(xs.at(-1), ax.d), f) / 2 + 2)));
+    const xt = xTicks(x0, x1, Math.max(2, Math.min(7, Math.floor((w - 4 * f) / (3.2 * f)))));
+    const L = Math.ceil(tw(sL) + 8), R = Math.floor(w - (sR ? tw(sR) + 8 : Math.max(8, cw(fmt(x1, ax.d), f) / 2 + 2)));
     const T = legH + 1.6 * f, B = h - 2.9 * f;
-    return { w, h, f, ls, ag, ax, xs, xt, sL, sR, keys, oneRow, altBelow, rowH, L, R, T, B: Math.max(T + 3 * f, B) };
+    return { w, h, f, ls, ag, one, ax, x0, x1, xt, sL, sR, keys, oneRow, altBelow, rowH, L, R, T, B: Math.max(T + 3 * f, B) };
   }
-  const X = (x) => G.L + (G.R - G.L) * (x - G.xs[0]) / ((G.xs.at(-1) - G.xs[0]) || 1);
+  const X = (x) => G.L + (G.R - G.L) * (x - G.x0) / ((G.x1 - G.x0) || 1);
   const Yof = (sc) => (v) => G.B - (G.B - G.T) * clamp((v - sc.min) / ((sc.max - sc.min) || 1), 0, 1);
-  // The data lines' segments on the screen.
+  const lineX = (j) => ser?.lx?.[j] || ser?.xs;
+  // The data lines' segments on the screen (the diagonal's too: words keep off it).
   function lineSegs(YL, YR) {
     if (!ser) return [];
-    return ser.ys.flatMap((ys, j) => { const Y = j ? YR || YL : YL, out = [];
-      for (let i = 1; i < ys.length; i++) if (Number.isFinite(ys[i - 1]) && Number.isFinite(ys[i])) out.push([X(ser.xs[i - 1]), Y(ys[i - 1]), X(ser.xs[i]), Y(ys[i])]);
+    return ser.ys.flatMap((ys, j) => { const Y = j && !G.one ? YR || YL : YL, xs = lineX(j), out = [];
+      for (let i = 1; i < ys.length; i++) if (Number.isFinite(ys[i - 1]) && Number.isFinite(ys[i])) out.push([X(xs[i - 1]), Y(ys[i - 1]), X(xs[i]), Y(ys[i])]);
       return out; });
   }
   function build() {
     const { f, L, R, T, B, sL, sR, ls, ax, xt } = G, YL = Yof(sL), YR = sR ? Yof(sR) : null;
+    const tickC = G.one && !G.ag ? '--text-2' : ls[0].c;
     const grid = sL.ticks.map((v, j) => sv('g', { class: 'ptk-grid' }, sv('line', { x1: L, x2: R, y1: YL(v), y2: YL(v) }),
-      sv('text', { x: L - 6, y: YL(v) + 0.35 * f, 'text-anchor': 'end', style: `fill: var(${ls[0].c})` }, fmt(v, dec(sL))),
+      sv('text', { x: L - 6, y: YL(v) + 0.35 * f, 'text-anchor': 'end', style: `fill: var(${G.ag ? '--text-2' : tickC})` }, fmt(v, dec(sL))),
       sR ? sv('text', { x: R + 6, y: YL(v) + 0.35 * f, 'text-anchor': 'start', style: `fill: var(${ls[1].c})` }, fmt(sR.ticks[j], dec(sR))) : null));
+    // (A zone: the band under its edge in the ok colour, dashed along the top, its name placed on every paint.)
+    let zone = null, zoneLab = null;
+    const edge = zoneEdge(t.zone, G.x0, G.x1);
+    if (edge) {
+      const pts = edge.map(([x, y]) => [X(x), YL(clamp(y, sL.min, sL.max))]);
+      const top = pts.map(([x, y], i) => `${i ? 'L' : 'M'}${x.toFixed(1)} ${y.toFixed(1)}`).join('');
+      zoneLab = typeof t.zone.label === 'string' && t.zone.label ? sv('text', { class: 'pcv-zone-t' }, t.zone.label) : null;
+      zone = sv('g', { class: 'pcv-zone' }, sv('path', { class: 'pcv-zone-fill', d: `${top}L${pts.at(-1)[0].toFixed(1)} ${B}L${pts[0][0].toFixed(1)} ${B}Z` }),
+        sv('path', { class: 'pcv-zone-edge', d: top }), zoneLab);
+    }
     // (The first line's cut-offs, dashed in their rating's colour, where they fall inside its scale.)
-    const cutVs = cutsOf(ls[0].k).filter((c) => c.v > sL.min && c.v < sL.max);
+    const cutVs = yCutsOf(t, ls[0].k).filter((c) => c.v > sL.min && c.v < sL.max);
     // (Each named, "PPG 12", in its rating's colour: over its line at the right end, else at the left, else under it, clear
     // of the data lines and of the other's name.)
     // (Placed again on every paint, so a name also keeps clear of the rings and the dashed line through them. Measured wide:
@@ -319,48 +481,69 @@ export function createCurve() {
           { x: R - 3, y: y + 1.05 * f, anchor: 'end' }, { x: L + 3, y: y + 1.05 * f, anchor: 'start' }] });
       return sv('g', { class: 'ptk-grid cut', 'data-rate': c.rate }, sv('line', { x1: L, x2: R, y1: y, y2: y }), el);
     });
+    // (The x reading's cut-offs, upright and dashed the same way, each named over the plot, "15 kPa".)
+    const xCutLabs = [];
+    const xCuts = xCutsOf(t).filter((c) => c.v > G.x0 && c.v < G.x1).map((c) => {
+      const x = X(c.v), txt = `${fmt(c.v, Number.isInteger(c.v) ? 0 : 1)} ${ax.unit}`.trim(), el = sv('text', { class: 'pcv-cut' }, txt);
+      xCutLabs.push({ el, x, tw: 1.12 * cw(txt, f, true) });
+      segs.push(Object.assign([x, T, x, B], { w: 5 }));
+      return sv('g', { class: 'ptk-grid cut', 'data-rate': c.rate }, sv('line', { x1: x, x2: x, y1: T - 0.2 * f, y2: B }), el);
+    });
     const legend = G.keys.map((k, j) => { const right = j && G.oneRow, y = (j && !G.oneRow ? G.rowH : 0) + 0.75 * f, x0 = right ? G.w : 0;
       return sv('g', { class: 'pft-key', transform: `translate(${x0} ${y})` },
         k.bare ? null : sv('line', { x1: right ? -16 : 0, x2: right ? 0 : 16, y1: 0, y2: 0, style: `stroke: var(${k.c})` }),
         sv('text', { x: k.bare ? 0 : right ? -22 : 22, y: 0.36 * f, 'text-anchor': right ? 'end' : 'start', style: `fill: var(${k.c})` },
           right ? [sv('tspan', { class: 'pft-u' }, `${k.unit} `), sv('tspan', {}, k.name)] : [sv('tspan', {}, k.name), sv('tspan', { class: 'pft-u' }, ` ${k.unit}`)])); });
-    // (With against, a key of the two lines kept hidden at the right of the key row: shown only when a chart is too cramped
+    // (With against, a key of the lines kept hidden at the right of the key row: shown only when a chart is too cramped
     // for the lines' names on the drawing, a phone held sideways.)
     let alt = null;
     if (G.ag) {
       let x = 0;
       const ks = [...ls].reverse().map((l) => { const kw = 22 + 1.05 * cw(l.name, f, 1); x -= kw; const at = x; x -= f;
-        return sv('g', { transform: `translate(${at.toFixed(1)} 0)` }, sv('line', { x1: 0, x2: 16, y1: 0, y2: 0, style: `stroke: var(${l.c})` }),
+        return sv('g', { transform: `translate(${at.toFixed(1)} 0)` }, sv('line', { x1: 0, x2: 16, y1: 0, y2: 0, class: l.ref ? 'pcv-ref' : null, style: `stroke: var(${l.c})` }),
           sv('text', { x: 22, y: 0.36 * f, style: `fill: var(${l.c})` }, l.name)); });
       alt = sv('g', { class: 'pft-key pcv-alt off', transform: `translate(${G.w} ${(G.altBelow ? G.rowH : 0) + 0.75 * f})` }, ks);
     }
     const axis = [sv('line', { class: 'pft-x', x1: L, x2: R, y1: B, y2: B }),
       // (The two end numbers stand inside the plot's ends, clear of the corner numbers of the y axes.)
-      xt.map((x, i) => sv('text', { class: 'pft-tk', x: X(x), y: B + 1.25 * f, 'text-anchor': X(x) <= L + 1 ? 'start' : X(x) >= R - 1 ? 'end' : 'middle' }, fmt(x, ax.d))),
+      xt.map((x) => sv('text', { class: 'pft-tk', x: X(x), y: B + 1.25 * f, 'text-anchor': X(x) <= L + 1 ? 'start' : X(x) >= R - 1 ? 'end' : 'middle' }, fmt(x, ax.d))),
       sv('text', { class: 'pcv-ax', x: (L + R) / 2, y: B + 2.6 * f, 'text-anchor': 'middle' }, ax.unit && ax.unit !== '×' && !ax.name.toLowerCase().includes(ax.unit.toLowerCase()) ? `${ax.name}, ${ax.unit}` : ax.name)];
     const lines = ls.map((l, j) => {
-      const Y = j ? YR || YL : YL, ys = ser?.ys[j];
-      const d = ys ? ys.map((y, i) => (Number.isFinite(y) ? [X(ser.xs[i]), Y(y)] : null)).filter(Boolean).map(([x, y], i) => `${i ? 'L' : 'M'}${x.toFixed(1)} ${y.toFixed(1)}`).join('') : '';
-      return { l, Y, path: sv('path', { class: 'ptk-line pcv-line', d, style: `stroke: var(${l.c})` }),
+      const Y = j && !G.one ? YR || YL : YL, ys = ser?.ys[j], xs = lineX(j);
+      const d = ys ? ys.map((y, i) => (Number.isFinite(y) ? [X(xs[i]), Y(y)] : null)).filter(Boolean).map(([x, y], i) => `${i ? 'L' : 'M'}${x.toFixed(1)} ${y.toFixed(1)}`).join('') : '';
+      return { l, Y, path: sv('path', { class: `ptk-line pcv-line${l.ref ? ' pcv-ref' : ''}`, d, style: `stroke: var(${l.c})` }),
         ring: sv('circle', { class: 'pcv-ring', r: Math.max(5, f * 0.45), style: `stroke: var(${l.c})` }),
         val: sv('text', { class: 'pcv-v', style: `fill: var(${l.c})` }),
         // (With against each line is named on the drawing, placed on every paint clear of the rings and the values.)
         name: G.ag ? sv('text', { class: 'pcv-name', style: `fill: var(${l.c})` }, l.name) : null };
     });
+    // (The other states as small filled points in their line's colour, named beside the first; a walk joins them in order.)
+    const dr = Math.max(3.5, 0.3 * f), dotEls = [], walks = [];
+    const dotPts = dots.map((d) => {
+      const at = ls.map((l, j) => { const p = dotXY(d, j, ls); return p ? [X(p[0]), (j && !G.one ? YR || YL : YL)(p[1])] : null; });
+      at.forEach((p, j) => { if (p) dotEls.push(sv('circle', { class: 'pcv-dot', cx: p[0].toFixed(1), cy: p[1].toFixed(1), r: dr, style: `fill: var(${ls[j].c})` })); });
+      const first = at.find(Boolean);
+      return { name: d.name ? sv('text', { class: 'pcv-dname' }, d.name) : null, txt: d.name || '', at, first };
+    });
+    if (t.walk) ls.forEach((l, j) => {
+      const pts = dotPts.map((d) => d.at[j]).filter(Boolean);
+      if (pts.length > 1) walks.push(sv('path', { class: 'pcv-walk', d: pts.map(([x, y], i) => `${i ? 'L' : 'M'}${x.toFixed(1)} ${y.toFixed(1)}`).join(''), style: `stroke: var(${l.c})` }));
+    });
+    for (const d of dotPts) for (const p of d.at) if (p) segs.push(Object.assign([p[0] - dr, p[1], p[0] + dr, p[1]], { w: 3 }));
     const at = sv('line', { class: 'pcv-at', y1: T - 0.4 * f, y2: B });
     const svg = sv('svg', { viewBox: `0 0 ${G.w} ${G.h}`, width: G.w, height: G.h, role: 'img', style: `font-size: ${f.toFixed(2)}px` },
-      grid, cuts, legend, alt, axis, at, lines.map((x) => x.path), lines.map((x) => [x.ring, x.val, x.name]));
+      zone, grid, cuts, xCuts, legend, alt, axis, at, walks, lines.map((x) => x.path), dotEls, dotPts.map((d) => d.name), lines.map((x) => [x.ring, x.val, x.name]));
     svg.dataset.points = ser ? String(ser.xs.length) : '0';   // (the browser checks read it: 0 until the curve is ready)
     // (What a ring's value keeps clear of: the cut-offs and their names, the x axis, the data lines. A value on a cut-off
     // line reads as that line's name, so it would sooner cross a data line or another word.)
-    const obstacles = { segs, cutLabs, cutBounds: [L, T - 1.2 * f, R, B - 0.1 * f], boxes: [], lines: [...cutVs.map((c) => ({ y: YL(c.v), x0: L, x1: R, w: 5 })), { y: B, x0: L, x1: R }], bounds: [L + 1, T - 1.3 * f, R - 1, B - 0.15 * f], inside: [0, 0, G.w, G.h] };
+    const obstacles = { segs, cutLabs, xCutLabs, dotPts, zoneLab, cutBounds: [L, T - 1.2 * f, R, B - 0.1 * f], boxes: [], lines: [...cutVs.map((c) => ({ y: YL(c.v), x0: L, x1: R, w: 5 })), { y: B, x0: L, x1: R }], bounds: [L + 1, T - 1.3 * f, R - 1, B - 0.15 * f], inside: [0, 0, G.w, G.h] };
     return { svg, lines, at, obstacles, alt };
   }
   // The rings at r: each on its line at the case's setting, its value beside it (left of it near the right edge, and the
   // lower of two close values under its ring).
   function paint(r) {
     if (!parts || !r) return;
-    const ok = Number.isFinite(r.x), cx = ok ? X(clamp(r.x, Math.min(G.xs[0], G.xs.at(-1)), Math.max(G.xs[0], G.xs.at(-1)))) : 0, f = G.f;
+    const ok = Number.isFinite(r.x), cx = ok ? X(clamp(r.x, Math.min(G.x0, G.x1), Math.max(G.x0, G.x1))) : 0, f = G.f;
     parts.at.setAttribute('x1', cx.toFixed(1)); parts.at.setAttribute('x2', cx.toFixed(1));
     parts.at.classList.toggle('off', !ok);
     parts.svg.dataset.ring = ok ? [r.x, ...r.ys.map((v) => (Number.isFinite(v) ? v.toFixed(2) : ''))].join(' ') + (goal?.on ? ' curve' : ' live') : '';   // (the browser checks read it)
@@ -368,11 +551,14 @@ export function createCurve() {
     const cys = parts.lines.map((p, j) => (ok && Number.isFinite(r.ys[j]) ? p.Y(r.ys[j]) : null));
     // (Each value takes the first spot beside its ring that lands on nothing: the data lines, the cut-off lines, the x axis,
     // the dashed line through the rings, both rings and the other value; the side away from the nearer edge first.)
-    const ob = parts.obstacles, boxes = [...cys.filter((y) => y != null).map((y) => [cx - rr, y - rr, cx + rr, y + rr]), ...(ok ? [[cx - 1.5, G.T - 0.4 * f, cx + 1.5, G.B]] : [])];
+    const ob = parts.obstacles, dr = Math.max(3.5, 0.3 * f) + 2;
+    const boxes = [...cys.filter((y) => y != null).map((y) => [cx - rr, y - rr, cx + rr, y + rr]), ...(ok ? [[cx - 1.5, G.T - 0.4 * f, cx + 1.5, G.B]] : []),
+      ...ob.dotPts.flatMap((d) => d.at.filter(Boolean).map(([x, y]) => [x - dr, y - dr, x + dr, y + dr]))];
     // (With against the upper ring's value is placed first, level with its ring or over it, and the lower one's under the
     // first value, so the two read in the same order as their rings.)
     let upperY = null;
-    const order = G.ag ? [0, 1].sort((a, b) => (cys[a] ?? Infinity) - (cys[b] ?? Infinity)) : parts.lines.map((_, j) => j);
+    const ringed = parts.lines.map((_, j) => j).filter((j) => cys[j] != null);
+    const order = G.ag ? ringed.sort((a, b) => cys[a] - cys[b]) : parts.lines.map((_, j) => j);
     order.forEach((j, n) => {
       const p = parts.lines[j];
       const v = r.ys[j], on = cys[j] != null, cy = on ? cys[j] : G.B;
@@ -390,7 +576,7 @@ export function createCurve() {
         for (const dy of dys) for (const [anchor, dx] of sides) cands.push({ x: cx + dx, y: cy + dy * f, anchor });
       }
       for (const dy of [-1.2 * f, 2.1 * f]) cands.push({ x: cx, y: cy + dy, anchor: 'middle' });
-      if (G.ag && order.length > 1 && cys[order[1 - n]] != null) {
+      if (G.ag && order.length > 1) {
         const keep = n === 0 ? (c) => c.y <= cy + 0.2 * f : (c) => upperY == null || c.y >= upperY + 1.1 * fs;
         const kept = cands.filter(keep);
         if (kept.length) cands.splice(0, cands.length, ...kept);
@@ -408,34 +594,52 @@ export function createCurve() {
     const named = [];
     if (ser) parts.lines.forEach((p, j) => {
       if (!p.name) return;
-      const ys = ser.ys[j], tw = 1.12 * cw(p.l.name, f, true), cands = [];
+      const ys = ser.ys[j], xs = lineX(j), tw = 1.12 * cw(p.l.name, f, true), cands = [];
       // (Over a rising line the words sit up and to the left of a point, under it down and to the right, where the line is
       // away from them; over a falling line the other way round.)
       // (Every point of the line, nearest the middle first.)
-      const mid = 0.45 * (ser.xs.length - 1), at = ser.xs.map((_, i) => i).sort((a, b) => Math.abs(a - mid) - Math.abs(b - mid));
+      const mid = 0.45 * (xs.length - 1), at = xs.map((_, i) => i).sort((a, b) => Math.abs(a - mid) - Math.abs(b - mid));
       for (const i of at) {
-        const y = ys[i], x = X(ser.xs[i]);
+        const y = ys[i], x = X(xs[i]);
         if (!Number.isFinite(y)) continue;
         const rise = (ys[Math.min(ys.length - 1, i + 1)] ?? y) - (ys[Math.max(0, i - 1)] ?? y) >= 0, py = p.Y(y);
         for (const k of [0, 0.7, 1.4]) cands.push({ x: x + (rise ? -0.3 : 0.3) * f, y: py - (0.5 + k) * f, anchor: rise ? 'end' : 'start' }, { x: x + (rise ? 0.3 : -0.3) * f, y: py + (1.3 + k) * f, anchor: rise ? 'start' : 'end' });
         cands.push({ x, y: py - 0.55 * f, anchor: 'middle' }, { x, y: py + 1.35 * f, anchor: 'middle' });
       }
-      // (Never with the other line between the words and their own: it would read as naming that one.)
-      const yAt = (k, px) => { const ys2 = ser.ys[k]; for (let i = 1; i < ys2.length; i++) { const a = X(ser.xs[i - 1]), b = X(ser.xs[i]);
+      // (Never with another line between the words and their own: it would read as naming that one.)
+      const yAt = (k, px) => { const ys2 = ser.ys[k], xs2 = lineX(k); for (let i = 1; i < ys2.length; i++) { const a = X(xs2[i - 1]), b = X(xs2[i]);
         if (px >= Math.min(a, b) && px <= Math.max(a, b) && Number.isFinite(ys2[i - 1]) && Number.isFinite(ys2[i])) return p.Y(ys2[i - 1] + (ys2[i] - ys2[i - 1]) * ((px - a) / ((b - a) || 1))); } return null; };
-      const own = (c) => { const x0 = c.anchor === 'end' ? c.x - tw : c.anchor === 'middle' ? c.x - tw / 2 : c.x, mx = x0 + tw / 2, my = c.y - 0.3 * f, a = yAt(j, mx), o = yAt(1 - j, mx);
-        return a == null || o == null || !((o - my) * (o - a) < 0); };
+      const own = (c) => { const x0 = c.anchor === 'end' ? c.x - tw : c.anchor === 'middle' ? c.x - tw / 2 : c.x, mx = x0 + tw / 2, my = c.y - 0.3 * f, a = yAt(j, mx);
+        return a == null || parts.lines.every((_, k) => { if (k === j) return true; const o = yAt(k, mx); return o == null || !((o - my) * (o - a) < 0); }); };
       const pl = cands.length ? placeWord(cands.filter(own), tw, f, { ...ob, boxes, lines: ob.lines.map((l) => ({ ...l, w: 3 })) }) : null;
       named.push(!!pl && pl.n === 0);
       if (!pl) return;
       boxes.push(pl.box);
       p.name.setAttribute('x', pl.x.toFixed(1)); p.name.setAttribute('y', pl.y.toFixed(1)); p.name.setAttribute('text-anchor', pl.anchor);
     });
-    // (Both names clear of everything, or neither on the drawing: then the key at the top names the lines.)
+    // (Every name clear of everything, or none on the drawing: then the key at the top names the lines.)
     if (parts.alt) {
       const fits = !ser || (named.length > 0 && named.every(Boolean));
       parts.lines.forEach((p) => p.name?.classList.toggle('off', !ser || !fits));
       parts.alt.classList.toggle('off', fits);
+    }
+    // (Each dot's name beside its first point: right, left, over, under, the nearest clear spot.)
+    for (const d of ob.dotPts) {
+      if (!d.name || !d.first) continue;
+      const [x, y] = d.first, tw = 1.08 * cw(d.txt, f, true), o = dr + 3;
+      const cands = [{ x: x + o, y: y + 0.35 * f, anchor: 'start' }, { x: x - o, y: y + 0.35 * f, anchor: 'end' }, { x, y: y - o - 0.2 * f, anchor: 'middle' }, { x, y: y + o + 0.9 * f, anchor: 'middle' },
+        { x: x + o, y: y - 0.6 * f, anchor: 'start' }, { x: x - o, y: y - 0.6 * f, anchor: 'end' }, { x: x + o, y: y + 1.3 * f, anchor: 'start' }, { x: x - o, y: y + 1.3 * f, anchor: 'end' }];
+      const pl = placeWord(cands, tw, f, { ...ob, boxes, lines: ob.lines.map((l) => ({ ...l, w: 3 })) }, { x, y, k: 0.5 / f });
+      boxes.push(pl.box);
+      d.name.setAttribute('x', pl.x.toFixed(1)); d.name.setAttribute('y', pl.y.toFixed(1)); d.name.setAttribute('text-anchor', pl.anchor);
+    }
+    // (The zone's name inside it, low and away from the lines: the right corner, else the left.)
+    if (ob.zoneLab) {
+      const tw = 1.1 * cw(ob.zoneLab.textContent, f, true), cands = [];
+      for (const dy of [0.7, 1.9, 3.1]) cands.push({ x: G.R - 0.6 * f, y: G.B - dy * f, anchor: 'end' }, { x: G.L + 0.6 * f, y: G.B - dy * f, anchor: 'start' }, { x: (G.L + G.R) / 2, y: G.B - dy * f, anchor: 'middle' });
+      const pl = placeWord(cands, tw, f, { ...ob, boxes });
+      boxes.push(pl.box);
+      ob.zoneLab.setAttribute('x', pl.x.toFixed(1)); ob.zoneLab.setAttribute('y', pl.y.toFixed(1)); ob.zoneLab.setAttribute('text-anchor', pl.anchor);
     }
     // (The cut-offs' names after the values: a value belongs by its ring, a name can go to either end or onto its line.)
     for (const c of ob.cutLabs) {
@@ -446,9 +650,18 @@ export function createCurve() {
       c.el.setAttribute('x', p.x.toFixed(1)); c.el.setAttribute('y', p.y.toFixed(1)); c.el.setAttribute('text-anchor', p.anchor);
       c.el.classList.toggle('on', !!p.on);
     }
+    // (The x cut-offs' names over the plot, on their line's top: centred, else to its right or left, clear of each other and of
+    // the dashed line through the rings.)
+    for (const c of ob.xCutLabs) {
+      const y = G.T - 0.45 * f;
+      const p = placeWord([{ x: c.x, y, anchor: 'middle' }, { x: c.x + 0.3 * f, y, anchor: 'start' }, { x: c.x - 0.3 * f, y, anchor: 'end' }], c.tw, f, { boxes, inside: ob.inside });
+      boxes.push(p.box);
+      c.el.setAttribute('x', p.x.toFixed(1)); c.el.setAttribute('y', p.y.toFixed(1)); c.el.setAttribute('text-anchor', p.anchor);
+    }
     const ax = G.ax;
-    parts.svg.setAttribute('aria-label', `${parts.lines.map((p) => p.l.name).join(' and ')} against ${ax.name.toLowerCase()}, ${fmt(G.xs[0], ax.d)} to ${fmt(G.xs.at(-1), ax.d)} ${ax.unit}`
-      + (ok ? `; this case at ${fmt(r.x, ax.d)} ${ax.unit}: ${parts.lines.map((p, j) => (Number.isFinite(r.ys[j]) ? `${p.l.name} ${fmt(r.ys[j], p.l.d)} ${p.l.unit}` : '')).filter(Boolean).join(', ')}` : ''));
+    parts.svg.setAttribute('aria-label', `${parts.lines.map((p) => p.l.name).join(' and ')} against ${ax.name.toLowerCase()}, ${fmt(G.x0, ax.d)} to ${fmt(G.x1, ax.d)} ${ax.unit}`
+      + (ok ? `; this case at ${fmt(r.x, ax.d)} ${ax.unit}: ${parts.lines.map((p, j) => (Number.isFinite(r.ys[j]) ? `${p.l.name} ${fmt(r.ys[j], p.l.d)} ${p.l.unit}` : '')).filter(Boolean).join(', ')}` : '')
+      + (ob.dotPts.length ? `; also ${ob.dotPts.map((d) => d.txt).filter(Boolean).join(', ')}` : ''));
   }
   // The rings glide after their goal (never a jump).
   function tick() {
@@ -456,7 +669,7 @@ export function createCurve() {
     if (!goal) return;
     const k = reduceMQ.matches || !ring ? 1 : 0.18, mix = (a, b) => (Number.isFinite(a) && Number.isFinite(b) ? a + (b - a) * k : b);
     ring = { x: mix(ring?.x, goal.x), ys: goal.ys.map((y, j) => mix(ring?.ys[j], y)) };
-    const near = Math.abs((ring.x ?? 0) - (goal.x ?? 0)) < 1e-3 * Math.abs((G?.xs.at(-1) ?? 1) - (G?.xs[0] ?? 0)) && ring.ys.every((y, j) => !Number.isFinite(y) || Math.abs(y - goal.ys[j]) < 0.005);
+    const near = Math.abs((ring.x ?? 0) - (goal.x ?? 0)) < 1e-3 * Math.abs((G?.x1 ?? 1) - (G?.x0 ?? 0)) && ring.ys.every((y, j) => !Number.isFinite(y) || Math.abs(y - goal.ys[j]) < 0.005);
     if (near) ring = goal;
     paint(ring);
     if (ring !== goal) raf = nextFrame(tick);
@@ -490,34 +703,28 @@ export function createCurve() {
     // slider's value, the same numbers on every screen, while the live model behind the tiles keeps running.)
     const ys = ser && params !== ctx?.params && onCurve(t, params, ctx?.params) ? curveAt(ser, goal.x) : null;
     if (ys) goal = { x: goal.x, ys, on: true };
-    // (With against, the second line's ring is read from its curve at the case's setting.)
-    else if (ser && againstOf(t)) goal = { x: goal.x, ys: [goal.ys[0], curveAt(ser, goal.x)?.[1] ?? null] };
+    // (With against, the other lines' rings are read from their curves at the case's x.)
+    else if (ser && againstOf(t)) { const at = curveAt(ser, goal.x); goal = { x: goal.x, ys: goal.ys.map((y, j) => (j ? at?.[j] ?? null : y)) }; }
     if (!raf) raf = nextFrame(tick);
   }
   async function fetchCurve(myKey, c) {
-    const store = keepOf(c.deck);
-    let p = store.get(myKey);
-    if (!p) {
-      if (!c.snap) return;   // (the slide's state is not ready: shown again, it asks again)
-      p = c.run(curveSteps(t)).then((states) => curveSeries(t, states));
-      store.set(myKey, p);
-      p.then((s) => { if (!s) store.delete(myKey); }, () => store.delete(myKey));
-    }
-    const s = await p.catch(() => null);
+    const p = curveWork(t, c, myKey);
+    if (!p) return;   // (the slide's state is not ready: shown again, it asks again)
+    const r = await p.catch(() => null);
     // (Still this slide's instrument: configured with this context and no other since. Not c.shown(), which turns true only
     // once the slide has finished coming in, after a curve worked out quickly has already arrived.)
-    if (!s || key !== myKey || ctx !== c) return;
-    ser = s; redraw(true);
+    if (!r || key !== myKey || ctx !== c) return;
+    ser = r.s; dots = r.dd; redraw(true);
     if (aimed) aim(...aimed);
-    else if (againstOf(t)) aim(ctx.params, ctx.fp);   // (the second line's ring, from its curve now it is here)
+    else if (againstOf(t)) aim(ctx.params, ctx.fp);   // (the other lines' rings, from their curves now they are here)
   }
   return {
     el,
     configure(tool, c) {
-      const k2 = JSON.stringify([c?.slide?.id ?? c?.index, tool]);
+      const k2 = curveKey(tool, c);
       t = tool; ctx = c || null;
       if (k2 !== key) {
-        key = k2; ser = null; ring = null; aimed = null;
+        key = k2; ser = null; dots = []; ring = null; aimed = null;
         goal = ringAt(t, ctx?.params, ctx?.fp);
         redraw(!!parts);
         if (ctx) fetchCurve(key, ctx);

@@ -6465,6 +6465,15 @@ html.thumb-ui .menu.from-dock { clip-path: inset(-64px -64px calc(var(--sink, 0p
 .pz-curve :is(.pcv-cut, .pcv-v).on { stroke-width: 8px; }   /* (on its own line: the dashes stop round the words) */
 .ptk-grid[data-rate="mid"] .pcv-cut { fill: color-mix(in oklab, var(--caution) 70%, var(--text)); }
 .ptk-grid[data-rate="hi"] .pcv-cut { fill: color-mix(in oklab, var(--danger) 80%, var(--text)); }
+/* (Relation charts: the "no change" diagonal, other patients as small points (a walk joins a patient's visits), and a guideline
+   zone as a soft band under a dashed edge, in the ok colour. Plain marks in the chart's own colours, nothing new.) */
+.pz-curve .pcv-ref { stroke-width: 1.5; stroke-dasharray: 3 4; }
+.pcv-dot { stroke: var(--surface); stroke-width: 1.5; }
+.pcv-dname { font: 600 1em var(--font-ui); fill: var(--text-2); paint-order: stroke; stroke: var(--surface); stroke-width: 4px; stroke-linejoin: round; }
+.pcv-walk { fill: none; stroke-width: 1.5; stroke-dasharray: 2 4; stroke-linecap: round; opacity: .7; }
+.pcv-zone-fill { fill: color-mix(in srgb, var(--ok) 12%, transparent); stroke: none; }
+.pcv-zone-edge { fill: none; stroke: var(--ok); stroke-width: 1.5; stroke-dasharray: 4 5; }
+.pcv-zone-t { font: 600 1em var(--font-ui); fill: color-mix(in oklab, var(--ok) 80%, var(--text)); paint-order: stroke; stroke: var(--surface); stroke-width: 3px; stroke-linejoin: round; }
 .pcs-l { font: 500 1em var(--font-ui); fill: var(--text); }
 .pcs-row.other .pcs-l { fill: var(--text-2); }
 .pcs-row.total .pcs-l { font-weight: 650; }

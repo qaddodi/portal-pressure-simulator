@@ -8,7 +8,8 @@
 //   lenses    { key: [name, bar, lo, hi] | (slide) => [name, bar, lo, hi] }   a lens's key under the line (presenter LENS_KEY)
 //   sets      { name: [vessel, target or organ ids] }   '@name' in a slide's glow or a mark's edges stands for these
 //   tools     { kind: { make(env), title(t), short?(t) } }   a data-card instrument (presenter-tools.js); make returns
-//             { el, update?(frame), pin?(fp), configure?(t, ctx), clear?(), dispose?() }
+//             { el, update?(frame), pin?(fp), configure?(t, ctx), clear?(), dispose?() }; warm?(t, ctx) starts its work
+//             once the deck's states are in (a curve over model days)
 //   visuals   { name: (slide, ctx) => Element }        a whole-panel visual (slide.visual)
 //   columns   { key: { heading, cut?, unit?, cell(row, ctx) => Element | string } }   a summary-table column (slide.cols)
 //   steps     [(slide) => ({ explain?, wave? }) | null]   extra work on a slide's step in the presenter's own worker
@@ -19,7 +20,7 @@
 
 import highlights from './ext-highlights.js?v=2065e5e52f';
 import charts from './ext-charts.js?v=8b04700760';
-import model from './ext-model.js?v=321a4a2bae';
+import model from './ext-model.js?v=c276c6a909';
 import panels from './ext-panels.js?v=9942a0818f';
 import callouts from './ext-callouts.js?v=41fdb794a9';
 import instruments from './ext-instruments.js?v=f649d4628c';
