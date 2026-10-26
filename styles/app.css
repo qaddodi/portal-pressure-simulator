@@ -1887,7 +1887,21 @@ button.finding { cursor: pointer; }
 :is(.pz.stack, .pz.low) .pz-grid-head { display: grid; grid-column: 1 / -1; grid-template-columns: inherit; gap: inherit; }   /* (the stations named once over the six lines, each over its column) */
 :is(.pz.stack, .pz.low) .pz-grid-head > .pz-pstrip { display: block; width: auto; margin: 0 12px; font-size: var(--s-cap); }
 .pz.stack .pz-grid-head > :nth-child(2) { display: none; }
-.pz:not(.stack) .pz-cell { --ch-cap: max(12px, calc(var(--s-cap) * .74)); --ch-lab: calc(max(12px, calc(var(--s-cap) * .74)) * 1.5); }   /* (a big screen's six ladders letter at the data card's chart size, so the plots fit their cells) */
+/* (A big screen's six ladders letter at the data card's chart size at least, and larger where their cell has the room: Mohammad, 26 Oct, "keep what it
+   was before but each individual card graph should be bigger; bigger lines/text, not the card itself bigger". The type grows with the cell's width,
+   3.8 cqi, and is held by the cell's height (2.1 of the screen's 1 % less 6.4 px: about the chart's height over 19, so the plot keeps its room and the
+   brackets their place in it) and by 20 px; the chart's own layout (tool-profile.js profileGeo) sets its names, zone words, brackets and pills for
+   whatever size it is given. The cqi is read on the chart, the cell's child, where the container is the cell; read on the cell itself it would find none.) */
+.pz:not(.stack) .pz-cell { --ch-cap: max(12px, calc(var(--s-cap) * .74), min(3.8cqi, calc(2.1 * var(--pzh) - 6.4px), 20px)); --ch-lab: calc(var(--ch-cap) * 1.5); }
+/* (Its lines grow with its type, never thinner than the data card's: the line 3 px, the healthy and earlier lines 1.75, the brackets and the brace 1.5,
+   the axis and the gridlines 1 px, at the 12 px type they were drawn for. The value halos and the red hatching stay: the chart's label placing
+   counts a halo as 2 px.) */
+.pz:not(.stack) .pz-cell .ppf-line { stroke-width: max(3px, .24em); }
+.pz:not(.stack) .pz-cell :is(.ppf-hl, .ppf-bf) { stroke-width: max(1.75px, .14em); }
+.pz:not(.stack) .pz-cell .ppf-hl { stroke-dasharray: max(4px, .33em) max(5px, .42em); }
+.pz:not(.stack) .pz-cell .ppf-bf { stroke-dasharray: max(1.5px, .125em) max(4.5px, .375em); }
+.pz:not(.stack) .pz-cell :is(.ppf-br path, .ppf-brace path) { stroke-width: max(1.5px, .11em); }
+.pz:not(.stack) .pz-cell :is(.ppf-axis, .ptk-grid line) { stroke-width: max(1px, .075em); }
 /* (A card never scrolls, in any direction: a table that is too wide or too tall is zoomed by the card's fit (presenter.js overflowOf reads its
    sideways overflow), never scrolled inside its card, and what a finger or a trackpad might pan is clipped. Mohammad, 25 Oct: on an iPad
    on its side the summary table "scrolls right and left. They should not ever scroll.") */

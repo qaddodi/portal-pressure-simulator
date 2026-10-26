@@ -12,7 +12,7 @@ const prof = readFileSync(new URL('../src/ui/tool-profile.js', import.meta.url),
 const css = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
 const approxW = (f) => (t, wt = 600) => t.length * 0.58 * f * (wt >= 700 ? 1.04 : 1);
 const hit = (a, b, g = 0) => a[0] < b[1] + g && b[0] < a[1] + g && a[2] < b[3] + g && b[2] < a[3] + g;
-const SIZES = [['phone', 13.8, 352, 248], ['iPad', 15.6, 552, 245], ['Mac', 13, 450, 280], ['grid cell', 12.02, 259, 210]];
+const SIZES = [['phone', 13.8, 352, 248], ['iPad', 15.6, 552, 245], ['Mac', 13, 450, 280], ['grid cell', 12.02, 259, 210], ['six ladders, Mac', 16, 433, 357], ['six ladders, laptop', 14, 379, 250]];
 
 test('each pill is as wide as its name and the widest value, so a number changing never moves an edge', () => {
   for (const f of [12, 13.8, 15.6]) {
