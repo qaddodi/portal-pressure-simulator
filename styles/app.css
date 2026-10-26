@@ -568,7 +568,6 @@ div.vital { cursor: default; }
    syncOrganDim, an SVG filter, since WebKit draws no CSS filter functions on SVG elements. */
 /* A lens or a selection eases the anatomy back (no one-frame dim or grey). */
 #backEdges .vg { transition: filter var(--view-fade) var(--ease-io); }
-.map-grid { opacity: .9; }
 .map-dot { fill: var(--map-dot); }
 /* Background plane: the diaphragm (no body-cavity shading). */
 #backdrop { pointer-events: none; transition: opacity .5s var(--ease); }
@@ -582,8 +581,10 @@ div.vital { cursor: default; }
 .v-select.on { stroke-opacity: .34; }
 .vg { transition: opacity .25s var(--ease); }
 #backEdges { opacity: .85; }
-.zone { fill: var(--text); fill-opacity: 0; }
-.zone.alt { fill-opacity: .028; }
+/* (A band with no tint has no fill at all: a fill at opacity 0 was still painted over its whole band, the whole screen when zoomed,
+   on every pan or zoom frame in the circuit. The same pixels.) */
+.zone { fill: none; }
+.zone.alt { fill: var(--text); fill-opacity: .028; }
 .coll-ghost .v-lumen { stroke-dasharray: 1.5 4.5; }
 .coll-ghost .v-wall { stroke-opacity: .35; stroke-dasharray: 1.5 4.5; }
 .stent-rail { fill: none; stroke: var(--stent-metal); stroke-width: var(--stent-rail-w, 1.4); stroke-linecap: round; stroke-linejoin: round; stroke-opacity: var(--stent-alpha, 1); }
@@ -6611,8 +6612,9 @@ html.thumb-ui .menu.from-dock { clip-path: inset(-64px -64px calc(var(--sink, 0p
 .fx-cal-line .fx-ink { stroke: var(--text); stroke-width: 1.6px; }
 /* V25, the circuit's bracket under a span of stations, and a zone band lit softly (stage.js fxZone). */
 .fx-span-line .fx-ink { stroke: var(--text-2); stroke-width: 1.6px; }
-.fx-zone { fill: var(--accent); fill-opacity: 0; transition: fill-opacity .5s var(--ease); pointer-events: none; }
-.fx-zone.on { fill-opacity: .09; }
+/* (Off, hidden once its fade has run: at opacity 0 it was still painted over its band on every pan or zoom frame.) */
+.fx-zone { fill: var(--accent); fill-opacity: 0; visibility: hidden; transition: fill-opacity .5s var(--ease), visibility 0s .5s; pointer-events: none; }
+.fx-zone.on { fill-opacity: .09; visibility: visible; transition: fill-opacity .5s var(--ease); }
 /* The readings (calipers, brackets) and the step numbers (V10): plain pills in the label's own glass, the words in ink. */
 #labels .lb:is(.fx-cal, .fx-span, .fx-step) text { fill: var(--text); stroke: none; }
 #labels .lb.fx-step .lb-bg { fill: var(--text); stroke: none; }

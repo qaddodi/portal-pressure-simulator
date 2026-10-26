@@ -2515,7 +2515,11 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false }) {
       linesWas = !!lines;
       wasBleeding = bleeding;
       // The organs' layers drawn into their texture when the view or the layers changed: the whole picture is drawn then.
-      const useStack = !!(look.plate?.stack && stack?.has(0));
+      // (A plate faded out whole (the circuit, alpha 0) is read as no plate: every pixel it would lay is multiplied by 0, so the
+      // organ layers were drawn into their texture on each frame of a pan or a zoom there, and read under every pixel, for nothing.
+      // Mohammad, 26 Oct: "Circuit view in particular is slow when zoomed". The same pixels: pl stays 0, as plate × 0 was.)
+      const plate = look.plate && look.plate.alpha > 0 ? look.plate : null;
+      const useStack = !!(plate?.stack && stack?.has(0));
       // (Only a live organ's own box changed: the cells over it are composited again, as the pool's are; the rest of the picture is as it was.)
       let dirt = 0;
       if (useStack && stack.stale(m, canvas.width, canvas.height)) {
@@ -2555,10 +2559,10 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false }) {
       gl.uniformMatrix3fv(U.inv, false, put(SCR.inv, [ia, ib, 0, ic, id, 0, ie, iff, 1]));
       gl.uniform1f(U.H, canvas.height);
       gl.uniform1f(U.pxW, 1 / Math.max(1e-6, Math.hypot(m[0], m[1])));
-      const pm = (look.plate && !useStack ? (plates[0] ? 1 : 0) | (plates[1] ? 2 : 0) : 0);
+      const pm = (plate && !useStack ? (plates[0] ? 1 : 0) | (plates[1] ? 2 : 0) : 0);
       gl.uniform1i(U.plates, pm);
-      gl.uniform1f(U.plateAlpha, look.plate?.alpha ?? 0);
-      gl.uniform1f(U.plateSat, look.plate?.sat ?? 1);
+      gl.uniform1f(U.plateAlpha, plate?.alpha ?? 0);
+      gl.uniform1f(U.plateSat, plate?.sat ?? 1);
       gl.uniform4f(U.plateRect0, ...(plates[0]?.rect || [0, 0, 1, 1]));
       gl.uniform4f(U.plateRect1, ...(plates[1]?.rect || [0, 0, 1, 1]));
       gl.uniform4f(U.fluidRect, ...(fluidRect || [0, 0, 1, 1]));
@@ -2601,7 +2605,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false }) {
       // The still lumens (see moved): only in the blood's own pass of the fast build, with no bleed (whose spray and pool move with
       // the clock, the one uniform left out here), when every uniform above and every texture under a lumen is the last picture's.
       sn = 0;
-      sg(m, canvas.width, canvas.height, pm, look.plate?.alpha ?? 0, look.plate?.sat ?? 1, plates[0]?.rect || [0, 0, 1, 1], plates[1]?.rect || [0, 0, 1, 1],
+      sg(m, canvas.width, canvas.height, pm, plate?.alpha ?? 0, plate?.sat ?? 1, plates[0]?.rect || [0, 0, 1, 1], plates[1]?.rect || [0, 0, 1, 1],
         fluidRect || [0, 0, 1, 1], fl?.s || [0, 0, 0, 0], fl ? fl.ink : [0, 0, 0, 0], fl?.lv || [1, 0],
         blood.on, blood.chev, blood.still, blood.alpha ?? 1, blood.streakA ?? 1, blood.chevA ?? 1, blood.originA ?? 1,
         blood.chevInk || [0.08, 0.08, 0.1], blood.chevLight || [1, 0.93, 0.86], blood.vdpr || 1, blood.origin, dyeAny && blood.dye !== false,
