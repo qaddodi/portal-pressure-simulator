@@ -10,6 +10,16 @@
   clock back and forward as the easing ends, and fails on the build before. Code and unit tests only; nobody has looked on screen. The beat trace has the same wipe on a
   step back and also clears when the day changes; that is how it shows a time-lapse as a trend and then a fresh trace, so it was left alone. `src/ui/vitals-monitor.js`,
   `tests/vitals-lapse.test.js`.
+- **Encephalopathy and shunting: eight slides, one flows card, and a question about the narrower stent.** (Mohammad, 25 Oct, "Build the new decks"; deck rebuild
+  plan, F3.) "Closing the shunt sends blood back through the liver" and "Closing the shunt brings the portal pressure back" are one slide: the shunt
+  closes, the flows empty, and a two-month time-lapse brings the PPG back and the ascites with it; its two buttons compare the shunt open and embolized. One
+  flows card and the same two tiles run through the first slides, the encephalopathy risk index beside the PPG; the spontaneous shunt slide is colored by
+  origin like the rest (it was colored by direction), flow only where the shunt closes. After a TIPS the index is already High at any stent width (it counts
+  the shunted share of the portal blood, near 94% from 6 to 12 mm), so the two stent slides keep the liver's flow and the PPG, and the notes say why. The narrowing slide asks "Will a narrower stent
+  bring the confusion down?" and is the answer: it opens on the 6 mm stent, with the 8 mm and occluded buttons, and the tiles' rings mark the 8 mm stent. `cite`
+  and the caveats moved into the notes, and long lines were trimmed to 30 words. Tests: the question-card list gains this slide; the summary-table step
+  list gains the risk tile. Both humanizer passes were done: no new UI. Code and unit tests only; nobody has looked on screen. `src/ui/decks/encephalopathy.js`,
+  `tests/deck-adopted.js`, `tests/deck-pills.json`, `tests/question-card.test.js`, `tests/table-marks.test.js`, `brand/handout/encephalopathy/`.
 - **Gastric varices: eight slides, and the spleen slide gets the ultrasound.** (Mohammad, 25 Oct, "Build the new decks"; deck rebuild plan, F2.) The
   carvedilol slide leaves, because Lowering portal pressure teaches the drug; its gastric point (carvedilol first for fundal varices that have not
   bled, glue, BRTO and a TIPS not used to prevent a first bleed) is now in the first slide's notes and the talk's objective. The bleed slide gives the
