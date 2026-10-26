@@ -62,6 +62,9 @@ test('the shaft is sampled once per route and width, and the GPU gets it once', 
   assert.match(fn(stage, 'cathShaft'), /if \(cath\.shaft\?\.key === key\) return cath\.shaft;/);
   // (a point along the route by halving, not a walk from its start)
   assert.match(fn(stage, 'cathAt'), /while \(i < hi\) \{ const m = \(i \+ hi\) >> 1;/);
+  // (and the shaft's samples, which only go further along, walk on from the last one)
+  assert.match(fn(stage, 'cathAt'), /if \(walk\) \{ i = Math\.max\(1, walk\.i \|\| 1\); while \(i < hi && r\.cum\[i\] < d\) i\+\+; walk\.i = i; \}/);
+  assert.match(fn(stage, 'cathShaft'), /q = cathAt\(r, d, walk\)/);
   assert.match(gl, /if \(base && base !== cathBase\) gl\.bufferSubData\(gl\.ARRAY_BUFFER, 0, base\);/);
   assert.match(gl, /gl\.bufferSubData\(gl\.ARRAY_BUFFER, at, cath\.verts\)/);
 });

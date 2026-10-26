@@ -6807,11 +6807,13 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     routeRadii(r.src, r.map, r.radOf || cathRadOf, r.rad);
   }
   /** The point, direction, the vein's own centre (w) and lumen radius at length d along the route. */
-  function cathAt(r, d) {
+  // walk: { i } kept between calls whose d only grows (a strip's samples): its segment is found walking on from the last one.
+  function cathAt(r, d, walk = null) {
     d = clamp(d, 0, r.total);
     // (The first point at or past d, by halving: the shaft asks for hundreds of points a frame, each had walked the route from its start.)
     let i = 1, hi = r.cum.length - 1;
-    while (i < hi) { const m = (i + hi) >> 1; if (r.cum[m] < d) i = m + 1; else hi = m; }
+    if (walk) { i = Math.max(1, walk.i || 1); while (i < hi && r.cum[i] < d) i++; walk.i = i; }
+    else while (i < hi) { const m = (i + hi) >> 1; if (r.cum[m] < d) i = m + 1; else hi = m; }
     const s0 = r.cum[i - 1], s1 = r.cum[i], u = s1 > s0 ? (d - s0) / (s1 - s0) : 0, a = r.pts[i - 1], b = r.pts[i];
     const l = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1;
     const wa = r.raw[i - 1], wb = r.raw[i];
@@ -6953,8 +6955,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (cath.shaft?.key === key) return cath.shaft;
     const step = Math.max(rc * 0.6, 0.35), n = Math.floor(r.total / step) + 1, V = new Float32Array(n * 24);
     const tube = (o, w, ox, oy) => {
+      const walk = { i: 1 };
       for (let i = 0; i < n; i++) {
-        const d = i * step, q = cathAt(r, d), nx = -q.t[1], ny = q.t[0];
+        const d = i * step, q = cathAt(r, d, walk), nx = -q.t[1], ny = q.t[0];
         for (const side of [-1, 1]) { V.set([q.p[0] + ox + nx * w * side, q.p[1] + oy + ny * w * side, nx, ny, side, d], o); o += 6; }
       }
     };
