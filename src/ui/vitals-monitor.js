@@ -4,12 +4,15 @@
 // A reading past its cut-off takes the monitor's alarm colour, held and cleared as the bottom bar's are (vitalReading), so a patient sitting on a
 // cut-off does not flicker. The model has no systolic and diastolic pressure, so the pressure is the mean arterial pressure, named MAP.
 // The strip is a schematic rhythm, not a modelled ECG. A recording kind: a new patient starts its strip over (card-keep.js records).
+// While the model's own clock stands still (a disease time-lapse runs a year in ten seconds with the beat parked, and a state easing in
+// parks it for a moment) the monitor goes on: the strip scrolls on this card's clock and lays beats at the heart rate shown, closing in as the
+// number climbs, then hands over to the live beat where the model's phase resumes, so the strip neither stalls nor jumps (ekg.js walkBeats).
 
 import { h, fmt, fitCanvas, clamp, cssVar } from './util.js?v=d2c95a1b16';
 import { FONT } from './charts.js?v=ce74d37e11';
 import { frameFor, cancelFrame } from './frame.js?v=19b3f2915c';
 import { VITALS, vitalReading } from './vital-read.js?v=cbba41a6b7';
-import { createBeatClock, ekgSeries } from './ekg.js?v=f1ff7a3880';
+import { createBeatClock, ekgSeries, beatWalk, walkBeats, seedBeats } from './ekg.js?v=bce6cba25d';
 import { olderThan, inFront } from './backfill.js?v=455d888760';
 const nextFrame = frameFor('vitals-monitor');
 
@@ -38,6 +41,9 @@ export function createVitalsMonitor() {
   const clock = createBeatClock();
   const raw = { t: [], ph: [] };   // (the (time, phase) samples the beat clock was made from: a history goes in front of them and the clock is made again)
   let ids = VITALS_DEFAULT, frame = null, pinned = null, wallAt = 0, lastT = -Infinity, firstT = Infinity;
+  // (synth: the strip on its own clock while the model's stands still, { w: the beat walk, at: when it was last moved on }; off: the model's
+  // time plus off is the strip's, which the walk moves on from; synthed: it has run since the strip was last cleared)
+  let synth = null, off = 0, synthed = false;
   const xs = new Map(), shownV = new Map();   // (xs: each vital's hold/hysteresis state; shownV: the number as eased to its reading)
   let last = 0, raf = 0, seen = false, lastLabel = '';
   const io = typeof IntersectionObserver === 'function' ? new IntersectionObserver((es) => { seen = es[es.length - 1].isIntersecting; wake(); }) : null;
@@ -46,12 +52,14 @@ export function createVitalsMonitor() {
 
   const C = (n) => cssVar(n);
   function headX() {
+    if (synth) return synth.w.x - LAG_S;   // (the beats are laid LAG_S ahead of what is drawn, as the live samples are)
     if (lastT === -Infinity) return 0;
     if (!frame?.running) return lastT;
     const rate = frame.speed || 1;
     return lastT - LAG_S * rate + Math.min((performance.now() - wallAt) / 1000, LAG_S) * rate;
   }
   function draw(now = performance.now()) {
+    advanceSynth(now);
     const { ctx, w, h: hh } = fitCanvas(cv);
     if (w < 120 || hh < 90) return;
     ctx.clearRect(0, 0, w, hh);
@@ -62,7 +70,7 @@ export function createVitalsMonitor() {
     // The strip: one QRS to a beat across the last few seconds, in the monitor's bright line.
     ctx.strokeStyle = grid; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(pad, Math.round(bot - 6) + 0.5); ctx.lineTo(pad + ew, Math.round(bot - 6) + 0.5); ctx.stroke();
     ctx.font = FONT(600, 12); ctx.fillStyle = text; ctx.fillText('EKG', pad, top + 11);
-    const x1 = headX(), x0 = Math.max(x1 - SPAN_S, firstT), hr = frame?.metrics?.hr;
+    const x1 = headX(), x0 = Math.max(x1 - SPAN_S, firstT), hr = synth ? synth.w.bpm : frame?.metrics?.hr;
     if (Number.isFinite(x1) && x1 > x0 + 0.05 && clock.times.length) {
       const e = ekgSeries(clock.times, x0, x1, 60 / (hr > 20 ? hr : 70));
       const X = (t) => pad + ((t - (x1 - SPAN_S)) / SPAN_S) * ew, Y = (v) => bot - 6 - ((v + 0.3) / 1.3) * (eh - 22);
@@ -113,9 +121,46 @@ export function createVitalsMonitor() {
   const ro = typeof ResizeObserver === 'function' ? new ResizeObserver(() => { if (!ticking) draw(); }) : null;
   ro?.observe(cv);
 
+  /** The heart rate the card shows (the slide's pinned reading, else the live one), as the beats are laid at it. */
+  const rateNow = () => { const hr = (pinned ? metricsOfFp(pinned) : frame?.metrics)?.hr; return clamp(hr > 20 ? hr : 70, 30, 220); };
+  /** The model's clock has stopped (a time-lapse's days, a state easing): the strip goes on by itself from where it is. A strip with nothing
+   *  on it is given its window only by a time-lapse (the steady state it opens on at the heart rate shown); an easing leaves it to the live samples. */
+  function startSynth(head) {
+    const lapsing = frame.clock === 'disease', times = clock.times;
+    if (!lapsing && !times.length) return;
+    const bpm = rateNow(), period = 60 / bpm, x = head + LAG_S;
+    if (!times.length) times.push(x - (Number.isFinite(frame.phase) ? frame.phase : 0) * period);   // (the beat the model is at, if nothing was seen)
+    let ph = (x - times[times.length - 1]) / period;
+    for (let k = 0; ph >= 1 && k < 4; k++) { times.push(times[times.length - 1] + period); ph = (x - times[times.length - 1]) / period; }
+    if (lapsing) {
+      if (times[0] > head - SPAN_S) seedBeats(times, period, head - SPAN_S);
+      if (head - SPAN_S < firstT) firstT = head - SPAN_S;
+    }
+    synth = { w: beatWalk(x, ph, bpm), at: performance.now() };
+    synthed = true;
+  }
+  /** Lay the beats for the time that has passed since the strip was last moved on, steering to the model's phase for when it runs again. */
+  function advanceSynth(now) {
+    if (!synth) return;
+    const dt = clamp((now - synth.at) / 1000, 0, 6);
+    synth.at = Math.max(synth.at, now);
+    if (!frame?.running || !(dt > 0)) return;
+    const left = frame.parkSecs == null ? NaN : Math.max(0, frame.parkSecs - (now - wallAt) / 1000);
+    walkBeats(synth.w, dt, rateNow(), clock.times, { ph: frame.phase, left });
+    clock.trim(synth.w.x - LAG_S - 2 * SPAN_S);
+  }
+  /** The model's clock runs again: its samples are laid on the strip's clock so that the newest sits where the strip has been laid to, which
+   *  keeps what is drawn where it is, and the beat clock starts a new run from them. */
+  function land(s) {
+    advanceSynth(performance.now());
+    off = synth.w.x - s.t[s.t.length - 1];
+    lastT = Math.min(lastT, s.t[0] + off - 1e-6);
+    clock.restart();
+    synth = null;
+  }
   function record(s) {
     for (let i = 0; i < s.t.length; i++) {
-      const t = s.t[i];
+      const t = s.t[i] + off;
       if (t <= lastT) continue;
       raw.t.push(t); raw.ph.push(s.ph[i]); clock.push(t, s.ph[i]); lastT = t; if (t < firstT) firstT = t;
     }
@@ -125,17 +170,21 @@ export function createVitalsMonitor() {
     if (cut) { raw.t.splice(0, cut); raw.ph.splice(0, cut); }
   }
   function ingest(f) {
+    const head = synth ? 0 : headX();   // (where the strip is drawn to now, by the frame it was drawn from)
     frame = f; wallAt = performance.now();
     const s = f.samples;
+    // (Parked: the samples of a frozen clock, if any, are one moment repeated, and the strip is on its own clock until the model runs.)
+    if (f.clock === 'disease' || f.morphing) { if (f.running && !synth) startSynth(head); return; }
     if (s?.t?.length && s.ph) {
-      if (s.t[0] < lastT - 1e-9) { clock.reset(); raw.t.length = raw.ph.length = 0; lastT = -Infinity; firstT = Infinity; }   // (the model's clock went back: a new patient)
+      if (synth) land(s);
+      else if (s.t[0] + off < lastT - 1e-9) { clock.reset(); raw.t.length = raw.ph.length = 0; lastT = -Infinity; firstT = Infinity; off = 0; }   // (the model's clock went back: a new patient)
       record(s);
     }
   }
   /** The strip's window filled with the steady state the card opened on (backfill.js): the samples before its first go in front, the
    *  beats found again over them, and the recording it has made itself stays. */
   function backfill(hs) {
-    if (!hs?.t?.length || !hs.ph) return false;
+    if (!hs?.t?.length || !hs.ph || synth || synthed) return false;   // (a strip that has run on its own keeps its beats)
     const n = olderThan(hs, raw.t.length ? raw.t[0] : Infinity);
     if (!n) return false;
     const all = inFront(raw, hs, ['t', 'ph'], n);
@@ -150,7 +199,7 @@ export function createVitalsMonitor() {
     update(f) { ingest(f); wake(); if (!ticking) draw(); },
     pin(fp) { pinned = fp || null; if (frame || pinned) draw(); },
     /** A new patient: the strip starts over, its numbers wait for the new state's own. */
-    clear() { clock.reset(); raw.t.length = raw.ph.length = 0; lastT = -Infinity; firstT = Infinity; xs.clear(); shownV.clear(); if (frame) draw(); },
+    clear() { clock.reset(); raw.t.length = raw.ph.length = 0; lastT = -Infinity; firstT = Infinity; synth = null; off = 0; synthed = false; xs.clear(); shownV.clear(); if (frame) draw(); },
     backfill, historySecs: () => SPAN_S,
     restart() { this.clear(); },
     dispose() { cancelFrame(raf); raf = 0; ticking = false; io?.disconnect(); ro?.disconnect(); },

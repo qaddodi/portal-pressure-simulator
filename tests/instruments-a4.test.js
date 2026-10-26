@@ -99,7 +99,7 @@ test('the vitals read the slide\'s own numbers, decimals as its tiles print them
   // (the helper and the bar share one flag: this is the same function)
   assert.equal(vitalReading({ v: VITALS[0] }, { map: 60 }, false, 0).bad, true);
   const src = read('../src/ui/vitals-monitor.js');
-  assert.match(src, /import \{ createBeatClock, ekgSeries \} from '\.\/ekg\.js(\?v=\w+)?'/, 'the strip is the pressure trace\'s');
+  assert.match(src, /import \{ createBeatClock, ekgSeries(?:, \w+)* \} from '\.\/ekg\.js(\?v=\w+)?'/, 'the strip is the pressure trace\'s');
   assert.match(src, /ctx\.fillStyle = c\.bad \? alarm : bright;/);
   assert.doesNotMatch(src, /shadowBlur|createLinearGradient|arc\(/, 'no glow, gradient or status dot');
   assert.doesNotMatch(src, /FONT\(\d+, (?:[0-9]|1[01])\)/, 'no word under 12 px');

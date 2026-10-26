@@ -178,6 +178,13 @@ export function createCore(post) {
     histTimer = setTimeout(histSlice, 0);
   }
 
+  // How long the model's own clock stands still from now, while it does (a time-lapse's days on the disease clock, a state easing in): the beat
+  // and the breath are parked then, the same moment of the same beat until it runs on. A strip drawn over the wait (the vitals monitor) keeps
+  // its own beat going and brings it to this one's phase (frame.phase) as the wait ends. Undefined when the model is running.
+  function parkSecs() {
+    if (morph) return Math.max(0, morph.t0 + morph.ms - performance.now()) / 1000;
+    return clock === 'disease' && lapse && !lapse.bedside ? Math.max(0, lapse.left - diseaseAcc) / Math.max(speed, 1e-6) : undefined;
+  }
   function frame() {
     const m = detectEvents(eng);
     const D = new Float32Array(eng.E);
@@ -186,6 +193,7 @@ export function createCore(post) {
       type: 'frame',
       changed: frameDirty,
       t: eng.t, day: eng.day, running, speed, clock, probe,
+      parkSecs: parkSecs(),
       lapseDay: lapse?.bedside ? lapse.total - lapse.left : undefined,
       pulsing: !!(eng.params.pulsatile || eng.beat),
       resp: !!eng.params.respiration,
@@ -360,6 +368,7 @@ export function createCore(post) {
     // them ({ key: [from, to] }); days 0 stops one under way.
     // bedside: the ramp plays over the slide's seconds on the seconds clock instead (see bedsideStep).
     lapse({ days, speed: s, ramp, bedside }) {
+      endHistory(false);   // (a history under way is of the state the days leave)
       morph = null;
       lapse = days > 0 ? { left: days, total: days, ramp: ramp ? Object.entries(ramp) : null, bedside: bedside ? { t0: performance.now(), ms: (days / s) * 1000 } : null } : null;
       running = true; clock = lapse && !bedside ? 'disease' : 'hemo'; speed = lapse && !bedside ? s : 1; diseaseAcc = 0;

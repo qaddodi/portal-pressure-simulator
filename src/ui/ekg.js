@@ -35,10 +35,13 @@ export function createBeatClock() {
       if (!Number.isFinite(t) || !Number.isFinite(ph)) return;
       if (Number.isFinite(prevPh) && ph < prevPh - 0.5) {
         const run = 1 - prevPh + ph;   // (the phase covered between the two samples)
-        times.push(prevT + (run > 1e-9 ? (1 - prevPh) / run : 0) * (t - prevT));
+        const at = prevT + (run > 1e-9 ? (1 - prevPh) / run : 0) * (t - prevT);
+        if (!times.length || at > times[times.length - 1]) times.push(at);   // (the beats stay in order, whatever was laid before)
       }
       prevT = t; prevPh = ph;
     },
+    /** The stream was broken (the strip ran on its own for a while): the next sample starts a new run, so no beat is read across the gap. */
+    restart() { prevT = prevPh = NaN; },
     /** Forget the beats before t (the buffer's tail), keeping the one that straddles it. */
     trim(t) { let k = 0; while (k + 1 < times.length && times[k + 1] < t) k++; if (k) times.splice(0, k); },
     reset() { times.length = 0; prevT = prevPh = NaN; },
@@ -75,4 +78,45 @@ export function ekgSeries(times, x0, x1, period) {
     }
   }
   return { x, v };
+}
+
+// ── A beat on the strip's own clock ──
+// While the model's clock stands still (a disease time-lapse runs a year in ten seconds with the beat parked, and a state easing in does the
+// same for a moment) it sends no new beats, but the monitor goes on. The strip lays beats of its own then: `w = { x, ph, bpm }` is the time it
+// has laid them to, the beat's phase there (below 0 when the last real beat sits ahead of it) and the heart rate it keeps.
+const WALK_STEP_S = 0.02, WALK_EASE_S = 0.4, WALK_PULL = 1 / 3, WALK_AIM_S = 1.5;
+const wrapHalf = (x) => (((x + 0.5) % 1) + 1) % 1 - 0.5;   // (a phase difference, as the shorter way round: -0.5 up to 0.5)
+export const beatWalk = (x, ph, bpm) => ({ x, ph, bpm });
+
+/** Walk `w` on by dt seconds toward the heart rate `bpm`, laying each beat it passes on `times`. Its own rate eases to `bpm` over about 0.4 s,
+ *  so the beats close in as a rising number climbs. `to` = { ph, left } brings the beat to phase `ph` (the phase the model's own beat resumes
+ *  at) `left` seconds from now: over the last WALK_AIM_S of the wait (the rate has hardly moved by then, so the beats it will lay are known)
+ *  the difference is spread over the steps left, by at most a third of the rate, so the live beat takes over where the last one left off. */
+export function walkBeats(w, dt, bpm, times, to = null) {
+  const n = Math.max(1, Math.ceil(dt / WALK_STEP_S)), h = dt / n;
+  for (let i = 0; i < n; i++) {
+    w.bpm += (bpm - w.bpm) * (1 - Math.exp(-h / WALK_EASE_S));
+    const rate = w.bpm / 60, rem = to ? to.left - i * h : NaN;
+    let d = rate * h;
+    if (Number.isFinite(to?.ph) && rem > h && rem < WALK_AIM_S) d += Math.max(-WALK_PULL * d, Math.min(WALK_PULL * d, wrapHalf(to.ph - (w.ph + rate * rem)) * h / rem));
+    const was = w.ph;
+    w.ph += d;
+    if (w.ph >= 1) {
+      const at = w.x + ((1 - was) / d) * h;
+      w.ph -= 1;
+      if (!times.length || at > times[times.length - 1]) times.push(at);
+    }
+    w.x += h;
+  }
+  return w;
+}
+
+/** Beats in front of the first of `times` at a steady `period`, back to one at or before `edge`: a strip that opens on a steady state
+ *  has its window of it. Returns how many were laid. */
+export function seedBeats(times, period, edge) {
+  const back = [];
+  if (!(period > 1e-6) || !times.length) return 0;
+  for (let t = times[0] - period; back.length < 400; t -= period) { back.push(t); if (t <= edge) break; }
+  times.unshift(...back.reverse());
+  return back.length;
 }

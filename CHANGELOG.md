@@ -2,6 +2,18 @@
 
 ## October 2026
 
+- **The vitals monitor's EKG keeps going through a time-lapse.** (Mohammad, 26 Oct, on The circulation in cirrhosis, slide 3, "While the compensated to decompensated is fast
+  switching the EKG bounces or starts redrawing over and over"; he picked "Keep it alive at the rising rate".) A time-lapse runs a year in ten seconds on the disease
+  clock, where the model's own beat and clock stand still. The strip scrolled by the days a second, so it jumped back about four seconds and crept forward again
+  thirty times a second, and it laid no beats until the year was over. Now the strip runs on the card's own clock while the model's stands still: it scrolls at the
+  normal speed and lays a beat at the heart rate shown in the HR number, so the beats close in as it climbs (about 68 to 89 a minute on that slide, a beat every 0.88 s
+  down to every 0.67 s). Over the last second and a half it eases the beat to the phase the model resumes at, so the live strip takes over where the last beat left off.
+  The same carries the strip through the half-second a patient eases to its end state, which used to freeze it. A strip with nothing on it when a time-lapse
+  starts is given its window of the starting steady state; an easing never makes up a window. A time-lapse also ends a history request under way, and a strip that has
+  run on its own is not backfilled afterwards. Frames carry `parkSecs`, the seconds the model's clock stands still. The check plays a worker-shaped run (live, the
+  year, the easing, live) against a fake page and follows every beat on the strip frame by frame (one steady scroll speed, no stall or jump at either end, beats
+  closing in, no crowded or missing beat at the join); it fails on the old monitor. Code and unit tests only; nobody has looked on screen. `src/ui/vitals-monitor.js`,
+  `src/ui/ekg.js`, `src/worker-core.js`, `tests/vitals-lapse.test.js`.
 - **Inside the lobule is six slides, down from eight.** (Mohammad, 25 Oct, "Build the new decks"; deck rebuild plan, E6.)
   The schistosomiasis and sinusoidal obstruction slides leave: the summary table still holds all four diseases, with the schistosomiasis and obstruction rows
   now built from their patients directly. The sections are the lobule, where the resistance sits (sinusoidal, cardiac) and measuring; it is 7 minutes. Code and unit
