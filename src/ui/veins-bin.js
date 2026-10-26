@@ -220,6 +220,42 @@ export function binVeins(tubes, joins, memo = null) {
   return out;
 }
 
+// ── Cells the simple vessel program can draw ──
+// A cell whose list holds one vessel (one head entry: a cell's list is grouped by vessel, one head per vessel, see above)
+// and no join: the vessel program's slots, tier order and join work can only ever see that one vessel there, so a program
+// built for one vessel and no join (veins-gl, MAXS 1) draws the cell exactly as the general one does. Decided from the
+// cell's own list alone, never from how the vessels look: a vessel crossing itself is still one vessel (its nearest
+// segment wins in its one slot, as in the general program), and any join, even one whose members are elsewhere, keeps
+// the cell general. `cells`: binVeins' cells (6 floats each: origin, first entry, count, first join, count).
+export function simpleCells(cells, nCells, ent) {
+  const out = new Uint8Array(nCells);
+  for (let c = 0; c < nCells; c++) {
+    const s0 = cells[c * 6 + 2], n = cells[c * 6 + 3];
+    if (cells[c * 6 + 5] !== 0 || n < 2) continue;
+    let heads = 0;
+    for (let e = s0; e < s0 + n && heads < 2; e++) if (ent[e * 8 + 5] === -1) heads++;
+    out[c] = heads === 1 ? 1 : 0;
+  }
+  return out;
+}
+
+/**
+ * The cells (all, or those marked in `mark`, a Uint8Array per cell) in two lists, each in the cells' own order: `gen`, for
+ * the general vessel program, and `one`, the cells flagged in `simple` (simpleCells; null: none), for the one-vessel build.
+ * Every cell given lands in exactly one of them.
+ */
+export function splitCells(cells, nCells, simple, mark = null) {
+  let g = 0, o = 0;
+  for (let c = 0; c < nCells; c++) if (!mark || mark[c]) { if (simple?.[c]) o++; else g++; }
+  const gen = new Float32Array(g * 6), one = new Float32Array(o * 6);
+  for (let c = 0, i = 0, j = 0; c < nCells; c++) {
+    if (mark && !mark[c]) continue;
+    const at = cells.subarray(c * 6, c * 6 + 6);
+    if (simple?.[c]) { one.set(at, j); j += 6; } else { gen.set(at, i); i += 6; }
+  }
+  return { gen, one, nGen: g, nOne: o };
+}
+
 function writeJoin(ent, e, j) {
   const q = e * 8;
   ent[q] = j.x; ent[q + 1] = j.y; ent[q + 2] = j.reach; ent[q + 3] = Math.round(j.k * 100) + 0.99 * Math.min(1, Math.max(0, j.fillet ?? 1));   // the blend width, and (as the fraction) how much of it rounds the shape
