@@ -122,7 +122,7 @@ test('the one-vessel build is the same shader text with one slot and the join ga
 });
 
 // ── The renderer on a recording stand-in for WebGL2 ──
-function fakeGL({ failSimple = false } = {}) {
+function fakeGL({ failSimple = false, pcx = null } = {}) {
   const calls = [], enums = new Map(), src = new Map(), att = new Map();
   let nextObj = 1;
   const UNIFORMS = ['tint', 'redraw', 'depL', 'world'];
@@ -135,10 +135,10 @@ function fakeGL({ failSimple = false } = {}) {
         if (k === 'shaderSource') src.set(a[0], a[1]);
         if (k === 'attachShader') { if (!att.has(a[0])) att.set(a[0], []); att.get(a[0]).push(a[1]); }
         if (k === 'getShaderParameter') return !(failSimple && /#define SIMPLE 1/.test(src.get(a[0]) || ''));
-        if (k === 'getProgramParameter') return a[1] === gl.ACTIVE_UNIFORMS ? UNIFORMS.length : true;
+        if (k === 'getProgramParameter') return a[1] === gl.ACTIVE_UNIFORMS ? UNIFORMS.length : a[1] === 0x91b1 ? pcx.done : true;
         if (k === 'getActiveUniform') return { name: UNIFORMS[a[1]] };
         if (k === 'getUniformLocation') return { uniform: a[1] };
-        if (k === 'getExtension') return null;
+        if (k === 'getExtension') return pcx && a[0] === 'KHR_parallel_shader_compile' ? { COMPLETION_STATUS_KHR: 0x91b1 } : null;
         if (k === 'getParameter') return 'stand-in';
         if (k.startsWith('create')) return { obj: nextObj++, kind: k };
         return undefined;
@@ -148,7 +148,8 @@ function fakeGL({ failSimple = false } = {}) {
   const isSimple = (p) => (att.get(p) || []).some((sh) => /#define SIMPLE 1/.test(src.get(sh) || ''));
   const isVessel = (p) => (att.get(p) || []).some((sh) => /#define SIMPLE [01]/.test(src.get(sh) || ''));
   const compBuild = (p) => { const sh = (att.get(p) || []).map((x) => src.get(x) || '').find((t) => /#define PLAIN [01]/.test(t)); return sh ? (/#define PLAIN 1/.test(sh) ? 'plain' : 'full') : null; };
-  return { gl, calls, isSimple, isVessel, compBuild };
+  const isPlain = (p) => compBuild(p) === 'plain';
+  return { gl, calls, isSimple, isVessel, compBuild, isPlain, src, att };
 }
 // The vessel program's instanced draws since `from`: { simple, count }.
 function vesselDraws(f, from) {
@@ -296,4 +297,55 @@ test('the composite takes the plain build only when its dye, origin and bleed un
   n = f.calls.length;
   g.composite(look, { on: true, dye: false }, true);
   assert.deepEqual(builds(n), ['plain'], 'dye switched off by the look');
+});
+
+// ── Prepared, then published (addendum §10.1) ──
+test('with parallel compile the optional builds are never waited on, and are published, warmed, once the driver is done', async () => {
+  const pcx = { done: false };
+  const f = fakeGL({ pcx });
+  const { g, bins, look } = await renderer(f);
+  // Nothing of the one-vessel build or the plain composite was read at construction: no compile or link status.
+  const optional = (sh) => /#define (SIMPLE|PLAIN) 1/.test(f.src.get(sh) || '');
+  const optProg = (p) => (f.att.get(p) || []).some(optional);
+  const statusReads = (from) => f.calls.slice(from).filter((c) => (c[0] === 'getShaderParameter' && optional(c[1])) || (c[0] === 'getProgramParameter' && optProg(c[1]) && c[2] === f.gl.LINK_STATUS));
+  assert.equal(statusReads(0).length, 0);
+  // While compiling: every cell and every frame on the general builds; only the completion flag is asked.
+  let n = f.calls.length;
+  g.draw([1, 0, 0, 1, 0, 0], look, { on: true });
+  assert.deepEqual(vesselDraws(f, n), [{ simple: false, count: bins.nCells }]);
+  assert.ok(f.calls.slice(n).some((c) => c[0] === 'getProgramParameter' && c[2] === 0x91b1));
+  assert.equal(statusReads(n).length, 0);
+  assert.ok(!f.calls.slice(n).some((c) => c[0] === 'useProgram' && f.isPlain(c[1])), 'the full composite draws');
+  const held = new Set([...f.att].filter(([p]) => optProg(p)).flatMap(([, sh]) => sh));
+  assert.ok(!f.calls.some((c) => c[0] === 'deleteShader' && held.has(c[1])), 'no shader of theirs freed while they are still to be finished');
+  // Done: the next composite finishes both, warms each with a draw into a 1 × 1 target, and frees the shaders.
+  pcx.done = true;
+  n = f.calls.length;
+  g.composite(look, { on: true });
+  const c = f.calls.slice(n);
+  assert.ok(statusReads(n).length > 0);
+  assert.ok(c.some((x) => x[0] === 'viewport' && x[3] === 1 && x[4] === 1), 'warmed in a 1 × 1 target');
+  const warmDraws = vesselDraws(f, n).filter((d) => d.simple);
+  assert.deepEqual(warmDraws, [{ simple: true, count: 1 }], 'the one-vessel build drawn once to warm it');
+  assert.ok([...held].every((sh) => c.some((x) => x[0] === 'deleteShader' && x[1] === sh)), 'their shaders freed after');
+  // Then: the cells split as without the extension, from a whole vessel draw (the layer is drawn again in full once).
+  n = f.calls.length;
+  assert.equal(g.drawRows([1, 0, 0, 1, 0, 0], look, { on: true }, [0]), false, 'a partial redraw gives way to one whole draw');
+  g.draw([1, 0, 0, 1, 0, 0], look, { on: true });
+  const want = simpleCells(bins.cells, bins.nCells, bins.ent).reduce((a, v) => a + v, 0);
+  const d = vesselDraws(f, n);
+  assert.equal(d.find((x) => x.simple).count, want);
+  assert.equal(d.find((x) => !x.simple).count, bins.nCells - want);
+  assert.ok(f.calls.slice(n).some((x) => x[0] === 'useProgram' && f.isPlain(x[1])), 'and the plain composite draws');
+});
+
+test('without parallel compile the optional builds are finished at construction, as before', async () => {
+  const f = fakeGL();
+  const { g, bins, look } = await renderer(f);
+  const n = f.calls.length;
+  g.draw([1, 0, 0, 1, 0, 0], look, { on: true });
+  assert.equal(vesselDraws(f, n).length, 2);
+  assert.ok(f.calls.slice(0, n).some((c) => c[0] === 'deleteShader'));
+  assert.ok(!f.calls.slice(n).some((c) => c[0] === 'getProgramParameter' && c[2] === 0x91b1));
+  assert.ok(bins.nCells > 0);
 });

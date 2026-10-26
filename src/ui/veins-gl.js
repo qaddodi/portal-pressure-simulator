@@ -1430,7 +1430,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false }) {
   let gl = null;
   try { gl = canvas.getContext('webgl2', { alpha: true, premultipliedAlpha: true, antialias: false, depth: false, stencil: false, preserveDrawingBuffer: !OWN_BUF, failIfMajorPerformanceCaveat: !force }); } catch { gl = null; }
   if (!gl) return null;
-  gl.getExtension('KHR_parallel_shader_compile');
+  const pcx = gl.getExtension('KHR_parallel_shader_compile');
   let started;
   try {
     const compFS = shader(gl, gl.FRAGMENT_SHADER, COMP_FS()), compVS = shader(gl, gl.VERTEX_SHADER, COMP_VS), compCellVS = shader(gl, gl.VERTEX_SHADER, COMP_CELL_VS);
@@ -1440,23 +1440,32 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false }) {
     const vesVS = shader(gl, gl.VERTEX_SHADER, VS);
     started = { prog: startProgram(gl, vesVS, vesselFS(false)), simple: GENERIC ? null : startProgram(gl, vesVS, vesselFS(true)), comp: startProgram(gl, compVS, compFS), compCell: startProgram(gl, compCellVS, compFS), plain: startProgram(gl, compVS, plainFS), plainCell: startProgram(gl, compCellVS, plainFS), cath: startProgram(gl, CATH_VS, CATH_FS), line: startProgram(gl, LINE_VS, LINE_FS) };
   } catch (e) { console.warn('Veins renderer: WebGL2 shaders failed, keeping the SVG tubes.', e); return null; }
-  // (Shaders are freed with the programs that hold them.)
+  // (Shaders are freed with the programs that hold them, once no program is still to be finished: see prepare.)
   const freeShaders = () => { for (const x of new Set(Object.values(started).filter(Boolean).flatMap((st) => st.sh))) gl.deleteShader(x); };
+  // The optional builds (the one-vessel vessel program, the plain composite) are not needed to draw: every cell and every
+  // frame can be drawn by the general ones. With KHR_parallel_shader_compile they are left compiling here and published by
+  // prepare() once the driver says they are done, never waited on (addendum §10.1); until then the general ones draw, the
+  // same picture. Without the extension they are finished here with the rest, as before.
+  const later = pcx ? [...(started.simple ? ['simple'] : []), 'plain'] : [];
   let prog;
   try { prog = finishProgram(gl, started.prog); } catch (e) { console.warn('Veins renderer: WebGL2 shaders failed, keeping the SVG tubes.', e); freeShaders(); return null; }
   // The one-vessel build (see vesselFS): null when it is switched off or failed, and every cell keeps the general program.
   let simpleP = null;
-  if (started.simple) {
-    try { simpleP = finishProgram(gl, started.simple); } catch (e) { console.warn('Veins renderer: the one-vessel shader failed; every cell keeps the general one.', e); gl.deleteProgram(started.simple.p); }
-  }
+  const finishSimple = () => {
+    try { simpleP = finishProgram(gl, started.simple); } catch (e) { console.warn('Veins renderer: the one-vessel shader failed; every cell keeps the general one.', e); gl.deleteProgram(started.simple.p); simpleP = null; }
+  };
+  if (started.simple && !later.includes('simple')) finishSimple();
   let comp, compCell;
   try { comp = finishProgram(gl, started.comp); compCell = finishProgram(gl, started.compCell); } catch (e) { console.warn('Veins renderer: composite shader failed.', e); freeShaders(); return null; }
   // The plain composite (see COMP_FS), both passes or neither: null when it failed, and every frame keeps the full one.
   let plain = null, plainCell = null;
-  try { plain = finishProgram(gl, started.plain); plainCell = finishProgram(gl, started.plainCell); } catch (e) {
-    console.warn('Veins renderer: the plain composite failed; every frame keeps the full one.', e);
-    gl.deleteProgram(started.plain.p); gl.deleteProgram(started.plainCell.p); plain = plainCell = null;
-  }
+  const finishPlain = () => {
+    try { plain = finishProgram(gl, started.plain); plainCell = finishProgram(gl, started.plainCell); } catch (e) {
+      console.warn('Veins renderer: the plain composite failed; every frame keeps the full one.', e);
+      gl.deleteProgram(started.plain.p); gl.deleteProgram(started.plainCell.p); plain = plainCell = null;
+    }
+  };
+  if (!later.includes('plain')) finishPlain();
   const plates = [null, null];   // [whole plate, sharp view] : { tex, rect }
   // The organs as layers instead of one picture (the ?perf switch "GPU organs", stage.js): null where it cannot be made.
   const stack = createOrganStack(gl);
@@ -1470,7 +1479,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false }) {
   let cath = null, cathWas = false, cathCap = 0, cathBase = null;   // cathCap: bytes the catheter's buffer holds (refilled in place while it fits); cathBase: the base it holds
   let lineP = null;
   try { lineP = finishProgram(gl, started.line); } catch (e) { console.warn('Veins renderer: outline shader failed.', e); }
-  freeShaders();
+  if (!later.length) freeShaders();
   const lineBuf = gl.createBuffer(), lineVAO = gl.createVertexArray();
   gl.bindVertexArray(lineVAO);
   gl.bindBuffer(gl.ARRAY_BUFFER, lineBuf);
@@ -1555,6 +1564,16 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false }) {
   };
   const oneVAO = cellVAO(simpleBuf);
   let nGen = 0, nSimple = 0, simpleOf = null;
+  // Each cell to the program that draws it: the one-vessel build where the cell's list proves it can, else the general one.
+  function uploadCells() {
+    simpleOf = simpleP && cellsCPU ? simpleCells(cellsCPU, nCells, entCPU) : null;
+    const { gen, one, nGen: g, nOne: o } = splitCells(cellsCPU || new Float32Array(0), cellsCPU ? nCells : 0, simpleOf);
+    gl.bindBuffer(gl.ARRAY_BUFFER, cellBuf);
+    gl.bufferData(gl.ARRAY_BUFFER, gen, gl.STATIC_DRAW);
+    gl.bindBuffer(gl.ARRAY_BUFFER, simpleBuf);
+    gl.bufferData(gl.ARRAY_BUFFER, one, gl.STATIC_DRAW);
+    nGen = g; nSimple = o;
+  }
   // The cells a lumen can reach (binVeins' `blood`): a frame where only the blood moved repaints these alone (see composite).
   const bloodVAO = gl.createVertexArray(), bloodBuf = gl.createBuffer();
   gl.bindVertexArray(bloodVAO);
@@ -1922,6 +1941,67 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false }) {
     gl.blitFramebuffer(0, 0, own.w, own.h, 0, 0, own.w, own.h, gl.COLOR_BUFFER_BIT, gl.NEAREST);
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
   }
+  // The composite's textures, each on its unit (U: the program's uniforms; the flags: which of the layers it lays this frame).
+  function compBind(U, layer, glow, warm, useStack) {
+    const bind = (unit, tex, name) => { gl.activeTexture(gl.TEXTURE0 + unit); gl.bindTexture(gl.TEXTURE_2D, tex); gl.uniform1i(U[name], unit); };
+    bind(0, baseTex, 'base'); bind(1, gTex, 'gbuf'); bind(2, flowTex, 'flow'); bind(3, radTex, 'rad'); bind(4, tubeTex, 'tube');
+    bind(5, dyeTex, 'dye'); bind(6, plates[0]?.tex || baseTex, 'plate0'); bind(7, plates[1]?.tex || baseTex, 'plate1'); bind(8, gTex2, 'gbuf2'); bind(9, fluidTex, 'fluidMask');
+    bind(10, lineLayer.tex, 'lineL'); gl.uniform1i(U.lineOn, layer ? 1 : 0);
+    bind(11, glowLayer.tex, 'glowL'); gl.uniform1i(U.glowOn, glow ? 1 : 0);
+    bind(13, warmLayer.tex, 'warmL'); gl.uniform1i(U.warmOn, warm ? 1 : 0);
+    bind(12, bendTex, 'bend');
+    bind(14, useStack ? stack.texture : baseTex, 'stackL'); gl.uniform1i(U.stackOn, useStack ? 1 : 0);
+  }
+
+  // ── The optional builds published when the driver has them ready (addendum §10.1) ──
+  // Polled at each composite, never waited on: a build whose compile and link the driver reports done (COMPLETION_STATUS_KHR)
+  // is finished (its status read, which no longer waits), drawn once into a 1 × 1 target of the layer's own formats with the
+  // real state (a driver can leave work for a program's first draw), and only then used. Publishing the one-vessel build
+  // sorts the cells again and asks for one whole vessel draw.
+  let lastLook = null, warmT = null;
+  function warmTarget() {
+    if (warmT) return warmT;
+    const fb = gl.createFramebuffer(), tx = ATTACH.map(() => dataTex(gl)), buf = gl.createBuffer();
+    const fmt = [[gl.RGBA8, gl.RGBA, gl.UNSIGNED_BYTE], [gl.RGBA16UI, gl.RGBA_INTEGER, gl.UNSIGNED_SHORT], [gl.RGBA16UI, gl.RGBA_INTEGER, gl.UNSIGNED_SHORT], [gl.R8, gl.RED, gl.UNSIGNED_BYTE]];
+    gl.bindFramebuffer(gl.FRAMEBUFFER, fb);
+    tx.forEach((t, i) => { gl.bindTexture(gl.TEXTURE_2D, t); gl.texImage2D(gl.TEXTURE_2D, 0, fmt[i][0], 1, 1, 0, fmt[i][1], fmt[i][2], null); gl.framebufferTexture2D(gl.FRAMEBUFFER, ATTACH[i], gl.TEXTURE_2D, t, 0); });
+    gl.drawBuffers(ATTACH);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    // (One cell far off the figure: it lists nothing, so its pixels, none of them inside the target anyway, draw nothing.)
+    gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1e6, -1e6, 0, 0, 0, 0]), gl.STATIC_DRAW);
+    return (warmT = { fb, tx, buf, va: cellVAO(buf) });
+  }
+  function warm(k) {
+    const w = warmTarget();
+    gl.bindFramebuffer(gl.FRAMEBUFFER, w.fb);
+    gl.viewport(0, 0, 1, 1);
+    gl.disable(gl.BLEND);
+    if (k === 'simple' && lastLook && baseM) vesselDraw(simpleP, baseM, lastLook, w.va, 1, false, false);
+    if (k === 'plain') {
+      gl.drawBuffers([gl.COLOR_ATTACHMENT0]);
+      for (const [P, va] of [[plain, compVAO], [plainCell, w.va]]) {
+        gl.useProgram(P.p);
+        compBind(P.u, false, false, false, false);
+        gl.bindVertexArray(va);
+        if (va === compVAO) gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4); else gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, 1);
+      }
+      gl.bindVertexArray(null);
+      gl.drawBuffers(ATTACH);
+    }
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+  }
+  function prepare() {
+    if (!later.length || lost) return;
+    for (const k of [...later]) {
+      const sts = k === 'plain' ? [started.plain, started.plainCell] : [started.simple];
+      if (!sts.every((st) => gl.getProgramParameter(st.p, pcx.COMPLETION_STATUS_KHR))) continue;
+      later.splice(later.indexOf(k), 1);
+      if (k === 'plain') { finishPlain(); if (plainCell) warm('plain'); }
+      else { finishSimple(); if (simpleP) { warm('simple'); uploadCells(); fboOK = false; } }
+    }
+    if (!later.length) freeShaders();
+  }
   const onLost = (e) => { e.preventDefault(); lost = true; };
   canvas.addEventListener('webglcontextlost', onLost);
   // A software renderer (no usable GPU: the browser draws on the CPU) is told apart so the stage
@@ -1954,14 +2034,8 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false }) {
     setGeometry(bins) {
       gl.bindTexture(gl.TEXTURE_2D, entTex);
       gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA32F, ENT_W, bins.rows || 1, 0, gl.RGBA, gl.FLOAT, bins.ent.length ? bins.ent : new Float32Array(ENT_W * 4));
-      // (Each cell to the program that draws it: the one-vessel build where the cell's list proves it can, else the general one.)
-      simpleOf = simpleP ? simpleCells(bins.cells, bins.nCells, bins.ent) : null;
-      const { gen, one, nGen: g, nOne: o } = splitCells(bins.cells, bins.nCells, simpleOf);
-      gl.bindBuffer(gl.ARRAY_BUFFER, cellBuf);
-      gl.bufferData(gl.ARRAY_BUFFER, gen, gl.STATIC_DRAW);
-      gl.bindBuffer(gl.ARRAY_BUFFER, simpleBuf);
-      gl.bufferData(gl.ARRAY_BUFFER, one, gl.STATIC_DRAW);
-      nCells = bins.nCells; nGen = g; nSimple = o;
+      cellsCPU = bins.cells; entCPU = bins.ent; nCells = bins.nCells;
+      uploadCells();
       gl.bindBuffer(gl.ARRAY_BUFFER, bloodBuf);
       gl.bufferData(gl.ARRAY_BUFFER, bins.blood || bins.cells, gl.STATIC_DRAW);
       nBlood = bins.blood ? bins.nBlood : bins.nCells;
@@ -2111,6 +2185,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false }) {
      */
     draw(m, look, blood, rows = null) {
       m = whole(m);
+      lastLook = look;
       ensureFBO();
       const lk = lookKey(look);
       const dx = baseM ? m[4] - baseM[4] : 0, dy = baseM ? m[5] - baseM[5] : 0;
@@ -2185,6 +2260,8 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false }) {
      */
     composite(look, blood = {}, full = false, part = 0) {
       if (!baseM || fboW !== canvas.width || fboH !== canvas.height) return;
+      prepare();
+      if (gpuProbe.on) gpuProbe.gauge('shaders still compiling', later.length ? later.join(', ') : 'none');
       // (The ?perf test switch "no GPU picture": no frame is drawn while it is on, and the first one after is whole.)
       if (gpuProbe.skipGL) { skipped = true; return; }
       if (skipped) { skipped = false; full = true; }
@@ -2305,14 +2382,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false }) {
       const ho = (blood.holes || []).slice(0, 16), hb = SCR.hb.fill(0), hr = SCR.hr.fill(0);
       ho.forEach((x, i) => { hb.set(x.slice(0, 4), i * 4); hr[i] = x[4] || 0; });
       gl.uniform4fv(U.chevHole, hb); gl.uniform1fv(U.chevHoleR, hr); gl.uniform1i(U.chevHoleN, ho.length);
-      const bind = (unit, tex, name) => { gl.activeTexture(gl.TEXTURE0 + unit); gl.bindTexture(gl.TEXTURE_2D, tex); gl.uniform1i(U[name], unit); };
-      bind(0, baseTex, 'base'); bind(1, gTex, 'gbuf'); bind(2, flowTex, 'flow'); bind(3, radTex, 'rad'); bind(4, tubeTex, 'tube');
-      bind(5, dyeTex, 'dye'); bind(6, plates[0]?.tex || baseTex, 'plate0'); bind(7, plates[1]?.tex || baseTex, 'plate1'); bind(8, gTex2, 'gbuf2'); bind(9, fluidTex, 'fluidMask');
-      bind(10, lineLayer.tex, 'lineL'); gl.uniform1i(U.lineOn, layer ? 1 : 0);
-      bind(11, glowLayer.tex, 'glowL'); gl.uniform1i(U.glowOn, glow ? 1 : 0);
-      bind(13, warmLayer.tex, 'warmL'); gl.uniform1i(U.warmOn, warm ? 1 : 0);
-      bind(12, bendTex, 'bend');
-      bind(14, useStack ? stack.texture : baseTex, 'stackL'); gl.uniform1i(U.stackOn, useStack ? 1 : 0);
+      compBind(U, layer, glow, warm, useStack);
       if (full) {
         gl.uniform1i(U.bloodOnly, 0);
         if (gpuProbe.on) gpuProbe.gauge('blood squares on screen', 'whole picture');
@@ -2421,6 +2491,9 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false }) {
         gl.deleteFramebuffer(spare.fbo);
         gl.deleteFramebuffer(fbo); gl.deleteFramebuffer(tintFbo); gl.deleteFramebuffer(lineLayer.fbo); gl.deleteFramebuffer(glowLayer.fbo); gl.deleteFramebuffer(warmLayer.fbo);
         if (own) { gl.deleteTexture(own.tex); gl.deleteFramebuffer(own.fbo); }
+        if (warmT) { for (const t of warmT.tx) gl.deleteTexture(t); gl.deleteFramebuffer(warmT.fb); gl.deleteBuffer(warmT.buf); gl.deleteVertexArray(warmT.va); }
+        // (Builds still compiling: given back unpublished, with every shader.)
+        if (later.length) { for (const k of later) for (const st of k === 'plain' ? [started.plain, started.plainCell] : [started.simple]) gl.deleteProgram(st.p); later.length = 0; freeShaders(); }
         if (lose) gl.getExtension('WEBGL_lose_context')?.loseContext();
       }
       plates[0] = plates[1] = null; lines = cath = null; nCells = nBlood = nFluid = nGen = nSimple = 0; baseM = null; fboW = fboH = 0;
