@@ -2,6 +2,14 @@
 
 ## October 2026
 
+- **The vitals monitor's EKG no longer restarts when the time-lapse finishes.** (Mohammad, 26 Oct, on The circulation in cirrhosis, slide 3: "after the transition was done,
+  the EKG restarted"; the build before it, 3d8bbbd3.) The presenter ends a time-lapse by easing the patient to the slide's end state and then restoring that state, and
+  both put the model's own clock to the end state's (about 2 s back in the check: 2.098 s, 0.02 s, then 0.004 s). The monitor read any step back in the model's clock as a new
+  patient and wiped the strip. Now a clock that was set, back or well ahead, only moves the strip's time on so it starts where it left off, and the beat's phase (which a
+  restore leaves alone) carries the rhythm across. A new patient still clears the strip, as it always did, from the card (`presenter-tools.js` show). The check now sets the
+  clock back and forward as the easing ends, and fails on the build before. Code and unit tests only; nobody has looked on screen. The beat trace has the same wipe on a
+  step back and also clears when the day changes; that is how it shows a time-lapse as a trend and then a fresh trace, so it was left alone. `src/ui/vitals-monitor.js`,
+  `tests/vitals-lapse.test.js`.
 - **Gastric varices: eight slides, and the spleen slide gets the ultrasound.** (Mohammad, 25 Oct, "Build the new decks"; deck rebuild plan, F2.) The
   carvedilol slide leaves, because Lowering portal pressure teaches the drug; its gastric point (carvedilol first for fundal varices that have not
   bled, glue, BRTO and a TIPS not used to prevent a first bleed) is now in the first slide's notes and the talk's objective. The bleed slide gives the

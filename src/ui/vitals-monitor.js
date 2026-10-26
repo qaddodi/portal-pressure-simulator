@@ -17,7 +17,7 @@ import { olderThan, inFront } from './backfill.js?v=455d888760';
 const nextFrame = frameFor('vitals-monitor');
 
 export const VITALS_DEFAULT = ['hr', 'map', 'hb'];
-const SPAN_S = 6, LAG_S = 0.12, EASE_S = 0.3;
+const SPAN_S = 6, LAG_S = 0.12, EASE_S = 0.3, JUMP_S = 0.3, STEP_S = 0.004;   // (JUMP_S: more than this ahead of the last sample is a clock that was set, not the next frame)
 
 /** The vitals a slide asks for: up to three of the four the monitor knows, in the order given; the default otherwise. */
 export function vitalsShown(t) {
@@ -177,14 +177,18 @@ export function createVitalsMonitor() {
     if (f.clock === 'disease' || f.morphing) { if (f.running && !synth) startSynth(head); return; }
     if (s?.t?.length && s.ph) {
       if (synth) land(s);
-      else if (s.t[0] + off < lastT - 1e-9) { clock.reset(); raw.t.length = raw.ph.length = 0; lastT = -Infinity; firstT = Infinity; off = 0; }   // (the model's clock went back: a new patient)
+      else if (lastT > -Infinity && (s.t[0] + off < lastT - 1e-9 || s.t[0] + off > lastT + JUMP_S)) {
+        // The model's clock was set (a state restored as its easing ends puts the clock back by what it has stepped since): the beat goes on, so the
+        // strip does too, its time moved to start where it left off. (A new patient clears the strip itself: presenter-tools show.)
+        off = lastT + (s.t.length > 1 ? s.t[1] - s.t[0] : STEP_S) - s.t[0];
+      }
       record(s);
     }
   }
   /** The strip's window filled with the steady state the card opened on (backfill.js): the samples before its first go in front, the
    *  beats found again over them, and the recording it has made itself stays. */
   function backfill(hs) {
-    if (!hs?.t?.length || !hs.ph || synth || synthed) return false;   // (a strip that has run on its own keeps its beats)
+    if (!hs?.t?.length || !hs.ph || synth || synthed || off) return false;   // (a strip that has run on its own keeps its beats)
     const n = olderThan(hs, raw.t.length ? raw.t[0] : Infinity);
     if (!n) return false;
     const all = inFront(raw, hs, ['t', 'ph'], n);

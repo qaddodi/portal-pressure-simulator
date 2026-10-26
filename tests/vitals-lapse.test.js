@@ -127,7 +127,7 @@ function peaksOf(strip) {
 }
 
 /** The worker's frames: the model running (4 ms samples, a frame about every 33 ms), parked on a frozen beat (a time-lapse, an easing), then running on. */
-function* scenario({ lapse = true, ease = true, live0 = 5, hr0 = 68, hr1 = 89, secs = 10, after = 6 } = {}) {
+function* scenario({ lapse = true, ease = true, live0 = 5, hr0 = 68, hr1 = 89, secs = 10, after = 6, snapT = 3 } = {}) {
   const m = { t: 10, cyc: 0.3 };
   const run = function* (n, hr) {
     for (let f = 0; f < n; f++) {
@@ -148,6 +148,11 @@ function* scenario({ lapse = true, ease = true, live0 = 5, hr0 = 68, hr1 = 89, s
     yield* run(5, hr1);
     const p0 = ph1(m.cyc);
     for (let i = 0; i < 18; i++) yield { running: true, clock: 'hemo', speed: 1, morphing: true, metrics: { hr: hr1 }, phase: p0, parkSecs: Math.max(0, 0.6 - i / 30), samples: null };
+    // (The end state's own clock is put in as the easing ends, the model steps on a few frames, and the presenter restores the state once more:
+    // the model's time goes back by what it stepped, and the beat's phase goes on, as engine.restore leaves it.)
+    m.t = snapT;
+    yield* run(2, hr1);
+    m.t = snapT;
   }
   yield* run(Math.round(after * 30), lapse || ease ? hr1 : hr0);
 }
@@ -171,8 +176,8 @@ function play(opts, setup) {
   return draws;
 }
 
-test('through the year-long time-lapse every beat on the strip scrolls at one steady speed, with no stall or jump at either end', () => {
-  const draws = play({});
+for (const [snapT, where] of [[3, 'back'], [500, 'forward']]) test(`through the year-long time-lapse every beat on the strip scrolls at one steady speed, with no stall, jump or restart at either end, the model's clock set ${where} as the easing ends`, () => {
+  const draws = play({ snapT });
   assert.ok(draws.length > 600, `${draws.length} frames`);
   let checked = 0;
   for (let i = 1; i < draws.length; i++) {
@@ -240,7 +245,9 @@ test('the wiring: the frame says how long the model stands still, a time-lapse e
   assert.match(core, /lapse\(\{ days, speed: s, ramp, bedside \}\) \{\s+endHistory\(false\);/, 'a time-lapse cancels the history of the state it leaves');
   assert.match(vm, /if \(f\.clock === 'disease' \|\| f\.morphing\) \{ if \(f\.running && !synth\) startSynth\(head\); return; \}/, 'a parked model sends the strip onto its own clock');
   assert.match(vm, /if \(synth\) return synth\.w\.x - LAG_S;/, 'the head follows that clock, not the days a second');
-  assert.match(vm, /\|\| synth \|\| synthed\) return false;/, 'a strip that ran on its own keeps its beats');
+  assert.match(vm, /\|\| synth \|\| synthed \|\| off\) return false;/, 'a strip that ran on its own keeps its beats');
+  assert.doesNotMatch(vm, /lastT = -Infinity; firstT = Infinity; off = 0; \}\s+\/\/ \(the model's clock went back/, 'a clock that was set does not wipe the strip');
+  assert.match(vm, /off = lastT \+ \(s\.t\.length > 1 \? s\.t\[1\] - s\.t\[0\] : STEP_S\) - s\.t\[0\];/, 'it moves the strip\'s time on instead');
   assert.match(vm, /clock\.restart\(\);/, 'the live beats start a new run');
   assert.match(ekg, /restart\(\) \{ prevT = prevPh = NaN; \}/);
 });
