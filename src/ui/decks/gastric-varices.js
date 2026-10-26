@@ -77,6 +77,18 @@ export const GASTRIC = {
       ask: ['Why does a TIPS not help a fundal bleed caused by a clotted splenic vein?', 'The portal vein pressure is normal; the high pressure is on the splenic side of the clot, which a TIPS does not decompress.'],
     },
     {
+      // (The relation chart before the summary: the model's cirrhosis with a gastrorenal shunt from moderate to severe, each point settled for 120
+      // days, the fundal varix with the shunt open and with it closed, and the esophageal varix with it closed, against the HVPG. The ring is the
+      // first slide's patient, shunt open; the other two rings read what closing the shunt would do at the same HVPG.)
+      id: 'relation', preset: 'gastric-varix', cam: 'fundus', terms: ['gv'], mark: { edges: ['C5'], label: 'Gastrorenal shunt', kind: 'note' },
+      tool: { kind: 'curve', x: 'hvpg', param: 'cirrhosis', from: 0.5, to: 1, step: 0.0625, days: 120, lines: ['gv'], reading: 'Varix diameter',
+        against: [{ label: 'Fundal, shunt closed', params: { occluded: { C5: true } }, own: 'Fundal, shunt open' }, { label: 'Esophageal, shunt closed', of: 'varix', params: { occluded: { C5: true } } }] },
+      kicker: 'Summary', site: 'sin', title: 'Closing the shunt moves the varices up to the esophagus',
+      line: 'With the shunt open the fundal varix grows with the HVPG, here to {gv}. Closed, it stays small and the esophageal varix grows in its place.',
+      notes: 'Each point is a patient with cirrhosis and a gastrorenal shunt, settled for 120 days, the varix diameters read against the HVPG. With the shunt open, the top line, part of the portal blood leaves through it and the fundal varix fills as the pressure rises. BRTO plugs the shunt: the fundal varix falls to about 2.4 mm at every HVPG, but the blood stays in the portal system and the esophageal varix grows with the pressure instead, from 2.0 to 8.5 mm in the model. The ring is the patient of the first slide, shunt open; the other two rings show what closing the shunt would do at the same HVPG. A surveillance endoscopy follows BRTO. (AASLD 2024: BRTO can bring more ascites and bleeding from esophageal varices; Baveno VIII 5.41.)',
+      ask: ['Why does the PPG rise and the esophageal varix grow after BRTO?', 'The shunt was an outlet for portal blood. Closed, the blood stays in the portal system, so the pressure rises and the esophageal route opens.'],
+    },
+    {
       id: 'summary', visual: 'table', cols: ['gv', 'varix', 'ppg', 'liver', 'plt'], asc: false, rowHead: 'Patient',
       of: [{ preset: 'healthy', kicker: 'Reference', title: 'Healthy', ref: true }, { id: 'classes', kicker: 'Cirrhosis', title: 'Fundal varices' }, { id: 'tips', kicker: 'Cirrhosis', title: 'TIPS' }, { id: 'brto', kicker: 'Cirrhosis', title: 'BRTO' }, { id: 'svt', kicker: 'Splenic vein', title: 'Splenic vein clot', site: 'pre' }, { id: 'splenectomy', kicker: 'Splenic vein', title: 'Splenectomy', site: 'pre' }],
       kicker: 'Summary', title: 'Gastric varices, treatment by treatment',

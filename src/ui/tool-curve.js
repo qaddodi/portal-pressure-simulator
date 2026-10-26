@@ -34,10 +34,13 @@
 //                     the curve is drawn on that patient (loaded afresh for each point) rather than on the slide's own; the
 //                     ring stays the slide's case, which may sit off the line.
 //   oneScale: true    both lines on the left scale (a flat line keeps its true size).
-//   against: [{ label, params, pair? }, …]
+//   against: [{ label, params, pair?, of? }, …]
 //                     up to two second sweeps. With x, each line's points are read against its own sweep's x reading, or
 //                     with pair: true against the slide's own sweep's (the HVPG before a drug, the HVPG on it). When the own
 //                     line is the x reading itself it is drawn as the dashed "no change" diagonal, named `own`, with no ring.
+//                     With of: 'varix' that sweep draws another reading (the fundal varix with the shunt open, the esophageal
+//                     varix with it closed), on the same scale as the first, so the two share a unit; reading: 'Varix diameter'
+//                     then names the key row and the cut-offs, which would otherwise carry the first reading's name.
 //   zone: { fall: 10, under: 12, label: 'Response' }
 //                     a soft band in the ok colour under y = max(under, x less fall %), dashed along its top and named in it.
 
@@ -104,7 +107,7 @@ export const curveSteps = (t) => {
 /** The second sweeps: [{ label, params, pair }] (one or two, each with a label and a params object). */
 export function againstsOf(t) {
   return [].concat(t?.against || []).filter((a) => a && typeof a.label === 'string' && a.label && a.params && typeof a.params === 'object' && !Array.isArray(a.params))
-    .slice(0, 2).map((a) => ({ label: a.label, params: a.params, pair: !!a.pair }));
+    .slice(0, 2).map((a) => ({ label: a.label, params: a.params, pair: !!a.pair, of: typeof a.of === 'string' && (TILE[a.of] || LINE_ONLY[a.of]) ? a.of : null }));
 }
 /** The second sweep's { label, params, own }, or null: needs a label and a params object. */
 export function againstOf(t) {
@@ -128,11 +131,13 @@ const AG_C = ['--tr-pv', '--tr-hv'];
 export function drawnLines(t) {
   const ls = curveLines(t).map(lineMeta), ag = againstOf(t);
   if (!ag) return ls;
-  const l = ls[0], ags = againstsOf(t);
-  if (ownIsRef(t)) return [{ ...l, name: ag.own, c: '--text-3', ref: true }, ...ags.map((a, j) => ({ ...l, name: a.label, c: AG_C[j] }))];
-  if (ags.length > 1) return [{ ...l, name: ag.own }, ...ags.map((a, j) => ({ ...l, name: a.label, c: [l.c === '--tr-hv' ? '--tr-pv' : '--tr-hv', '--tr-cav'][j] }))];
-  return [{ ...l, name: ag.own }, { ...l, name: ag.label, c: l.c === '--tr-hv' ? '--tr-pv' : '--tr-hv' }];
+  const l = ls[0], ags = againstsOf(t), of = (a) => (a.of ? lineMeta(a.of) : l);   // (a sweep may draw another reading, of)
+  if (ownIsRef(t)) return [{ ...l, name: ag.own, c: '--text-3', ref: true }, ...ags.map((a, j) => ({ ...of(a), name: a.label, c: AG_C[j] }))];
+  if (ags.length > 1) return [{ ...l, name: ag.own }, ...ags.map((a, j) => ({ ...of(a), name: a.label, c: [l.c === '--tr-hv' ? '--tr-pv' : '--tr-hv', '--tr-cav'][j] }))];
+  return [{ ...l, name: ag.own }, { ...of(ags[0]), name: ag.label, c: l.c === '--tr-hv' ? '--tr-pv' : '--tr-hv' }];
 }
+/** The name the key row and the cut-offs carry when sweeps draw different readings: the slide's `reading`, else the first's own. */
+export const readingName = (t) => (typeof t?.reading === 'string' && t.reading ? t.reading : lineMeta(curveLines(t)[0]).name);
 /** A reading's name, unit, decimals, scale and colour (from its tile). */
 export function lineMeta(k, j = 0) {
   const tl = TILE[k] || LINE_ONLY[k] || {};
@@ -153,7 +158,7 @@ export function curveSeries(t, states) {
   const n = xk && Array.isArray(t.points) ? Math.min(MAX_PTS, t.points.length) : curveXs(t).length, sweeps = 1 + ags.length;
   if (!n || !Array.isArray(states) || states.length !== n * sweeps) return null;
   const part = (h) => states.slice(h * n, (h + 1) * n);
-  const yss = ags.length ? Array.from({ length: sweeps }, (_, h) => part(h).map((s) => valOf(s, ls[0]))) : ls.map((l) => states.map((s) => valOf(s, l)));
+  const yss = ags.length ? Array.from({ length: sweeps }, (_, h) => { const l = h && ags[h - 1].of ? lineMeta(ags[h - 1].of) : ls[0]; return part(h).map((s) => valOf(s, l)); }) : ls.map((l) => states.map((s) => valOf(s, l)));
   if (!xk) return { xs: curveXs(t).map((x) => x * ax.x), ys: yss };
   const xm = lineMeta(xk), own = part(0).map((s) => valOf(s, xm));
   const lxs = yss.map((_, j) => (ags.length ? (j && !ags[j - 1].pair ? part(j).map((s) => valOf(s, xm)) : own) : own));
@@ -417,7 +422,7 @@ export function createCurve() {
     // (With against all lines are one reading on one scale, named on the lines; the key is only the reading and its unit. With
     // oneScale both readings share the left scale.)
     const one = ag || (!!t.oneScale && ls.length > 1);
-    const vals = one ? [vals0.flat()] : vals0, keyLs = ag ? [{ ...lineMeta(curveLines(t)[0]), c: '--text-2', bare: true }] : ls;
+    const vals = one ? [vals0.flat()] : vals0, keyLs = ag ? [{ ...lineMeta(curveLines(t)[0]), name: readingName(t), c: '--text-2', bare: true }] : ls;
     let x0, x1;
     if (xk) {
       const xv = [...(ser ? ser.lx.flat() : []), (ring || goal)?.x, ...dots.flatMap((d) => ls.map((_, j) => dotXY(d, j, ls)?.[0]))];
@@ -473,7 +478,7 @@ export function createCurve() {
     // capitals and figures run wider than the average letter.)
     const segs = lineSegs(YL, YR), cutLabs = [];
     const cuts = cutVs.map((c) => {
-      const y = YL(c.v), txt = `${G.ag ? lineMeta(curveLines(t)[0]).name : ls[0].name} ${fmt(c.v, Number.isInteger(c.v) ? 0 : 1)}`;
+      const y = YL(c.v), txt = `${G.ag ? readingName(t) : ls[0].name} ${fmt(c.v, Number.isInteger(c.v) ? 0 : 1)}`;
       const el = sv('text', { class: 'pcv-cut' }, txt);
       cutLabs.push({ el, tw: 1.12 * cw(txt, f, true), lines: cutVs.filter((o) => o !== c).map((o) => ({ y: YL(o.v), x0: L, x1: R })),
         // (Over the line; else on it, the dashes stopping round the words (a short chart's cut-offs stand close); else under.)

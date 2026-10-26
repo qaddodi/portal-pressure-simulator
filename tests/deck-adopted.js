@@ -164,6 +164,14 @@ export const ADOPTED = {
   'choose-treatment/relation': ['visual', 'plane', 'of'],
   'sites/relation': ['visual', 'plane', 'of'],
   'where-resistance/relation': ['visual', 'plane', 'of'],
+  'circulation/relation': ['kind:curve'],
+  'doppler/relation': ['kind:curve'],
+  'hyperdynamic/relation': ['kind:curve'],
+  'outflow/relation': ['kind:curve'],
+  'ncph/relation': ['kind:curve'],
+  'gastric-varices/relation': ['kind:curve'],
+  'encephalopathy/relation': ['kind:curve'],
+  'tips-doppler/relation': ['kind:curve'],
 };
 
 /** Whether the slide d/s may use the field. */

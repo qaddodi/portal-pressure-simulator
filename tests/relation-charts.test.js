@@ -4,7 +4,7 @@ import './dom-shim.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createCore } from '../src/worker-core.js';
-import { curveSteps, curveSeries, xKeyOf, axisMeta, xDomain, xCutsOf, yCutsOf, zoneEdge, dotsOf, dotSteps, ringAt, drawnLines, againstsOf, againstOf, ownIsRef, curveAt, patientOf, onCurve } from '../src/ui/tool-curve.js';
+import { curveSteps, curveSeries, xKeyOf, axisMeta, xDomain, xCutsOf, yCutsOf, zoneEdge, dotsOf, dotSteps, ringAt, drawnLines, againstsOf, againstOf, ownIsRef, curveAt, patientOf, onCurve, readingName } from '../src/ui/tool-curve.js';
 
 async function seq(steps, base = null) {
   const out = [];
@@ -129,4 +129,19 @@ test('the before-and-after and site planes sit just before their summaries, ever
     assert.equal(d.slides[i + 1].id, 'summary', id);
     for (const o of d.slides[i].of) for (const sp of [o, o.from].filter(Boolean)) assert.ok(sp.preset || d.slides.some((s) => s.id === sp.id), `${id}: ${JSON.stringify(sp)}`);
   }
+});
+
+test('a second sweep may draw another reading (of): the fundal varix open, then closed, and the esophageal varix closed, on one scale', () => {
+  const t = { x: 'hvpg', param: 'cirrhosis', from: 0.5, to: 0.6, step: 0.1, lines: ['gv'], reading: 'Varix diameter',
+    against: [{ label: 'Fundal, shunt closed', params: { occluded: { C5: true } }, own: 'Fundal, shunt open' }, { label: 'Esophageal, shunt closed', of: 'varix', params: { occluded: { C5: true } } }] };
+  assert.deepEqual(againstsOf(t).map((a) => a.of), [null, 'varix']);
+  assert.deepEqual(againstsOf({ ...t, against: [{ label: 'x', params: {}, of: 'nonsense' }] }).map((a) => a.of), [null], 'a reading the card does not know is ignored');
+  assert.deepEqual(drawnLines(t).map((l) => [l.k, l.name, l.c]), [['gv', 'Fundal, shunt open', '--tr-pv'], ['gv', 'Fundal, shunt closed', '--tr-hv'], ['varix', 'Esophageal, shunt closed', '--tr-cav']]);
+  assert.equal(readingName(t), 'Varix diameter');
+  assert.equal(readingName({ ...t, reading: undefined }), 'Gastric varix', 'without a reading of its own the key keeps the first reading\'s name');
+  assert.equal(curveSteps(t).length, 6);
+  const f = (h, gv, varix) => ({ fp: { hvpg: h, gv, varix } });
+  const ser = curveSeries(t, [f(9, 3, 2), f(12, 5, 2), f(9, 2.4, 2), f(12, 2.4, 2), f(9, 2.4, 2.1), f(12, 2.4, 4.5)]);
+  assert.deepEqual(ser.ys, [[3, 5], [2.4, 2.4], [2.1, 4.5]], 'the third sweep is read as the esophageal varix');
+  assert.deepEqual(ser.lx, [[9, 12], [9, 12], [9, 12]]);
 });

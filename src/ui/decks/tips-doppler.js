@@ -111,6 +111,16 @@ export const TIPS_DOPPLER = {
       ask: ['What does a hepatopetal left portal vein lead to after TIPS?', 'TIPS venography with a gradient, and angioplasty or a new stent if the stent is narrowed.'],
     },
     {
+      // (The relation chart before the summary, the narrowed stent of the slides before it: the PPG and the main portal vein's velocity read against the
+      // stent's narrowing, 0 to 80%, the patient otherwise as it stands. The ring is the 60% narrowing.)
+      id: 'relation', cam: 'liver', lens: 'velocity', mark: { edges: ['TIPS'], label: 'Stent', kind: 'treat' },
+      tool: { kind: 'curve', param: 'stenosis.TIPS', from: 0, to: 0.8, step: 0.05, lines: ['ppg', 'pvVel'], cuts: [12] },
+      kicker: 'Summary', title: 'A narrowing stent raises the PPG and slows the portal vein',
+      line: 'The PPG passes 12 mmHg at about a third narrowed, and the main portal vein drops {<30 cm/s} at about half. At 60% narrowed the PPG is {ppg}.',
+      notes: 'Each point is the same patient with the stent narrowed a little more, the PPG and the main portal vein\'s mean velocity read against the narrowing. The PPG climbs past the 12 mmHg target at about a third narrowed, and the portal vein drops <30 cm/s at about half narrowed, one of the Doppler signs of stenosis. The ring is the stent narrowed by 60%, the patient of the slides before. After a TIPS, a gradient under 12 mmHg means a beta-blocker is no longer needed (AASLD 2024). The velocities are the model\'s means. (AASLD 2024; McNaughton and Abu-Yousef 2011.)',
+      ask: ['A TIPS patient\'s ascites comes back and the main portal vein has slowed to 25 cm/s. What do you suspect?', 'Stenosis of the stent: the gradient climbs as it narrows and the portal vein slows with it.'],
+    },
+    {
       id: 'summary', visual: 'table', cols: ['ppg'], asc: false, vs: 'first', note: ['Stent', 'Left portal vein'], rowHead: 'Scan',
       of: [{ id: 'before', kicker: 'Reference', title: 'Before TIPS', note: ['No stent', 'Toward the liver'], ref: true },
         { id: 'jet', title: 'Working TIPS', note: ['90 to 190 cm/s at each point', 'Toward the stent'] },

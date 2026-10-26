@@ -110,6 +110,16 @@ export const DOPPLER = {
       ask: ['Name three Doppler signs of a narrowed TIPS.', 'A stent velocity <90 or >190 cm/s, a main portal vein <30 cm/s, and a portal branch that flows toward the liver again.'],
     },
     {
+      // (The relation chart before the summary: the model's cirrhosis from mild to severe, each point settled for a year, the main portal vein's
+      // velocity and the portal flow read against the HVPG. The ring is the CSPH patient: a clinically significant gradient, a normal velocity.)
+      id: 'relation', preset: 'csph', cam: 'portal', labels: ['CONF'],
+      tool: { kind: 'curve', x: 'hvpg', xCuts: [10], patient: { preset: 'healthy' }, param: 'cirrhosis', from: 0.3, to: 1, step: 0.05, days: 365, lines: ['pvVel', 'pvFlow'] },
+      kicker: 'Summary', site: 'sin', title: 'A normal portal velocity does not rule out CSPH',
+      line: 'CSPH at an HVPG of {hvpg}, and the main portal vein still runs {pvVel}. Velocity falls {<15 cm/s} only at an HVPG of about 16.',
+      notes: 'Each point is the model\'s cirrhosis from mild to severe, settled for a year: the main portal vein\'s velocity and the portal flow, read against the HVPG. The velocity holds near 26 cm/s up to an HVPG of 10 mmHg, is still 24 cm/s at 11.6, and goes <15 cm/s only at about 16. The portal flow first rises with the hyperdynamic circulation, then falls as the collaterals carry more of the inflow. So the Doppler signs are specific but insensitive: a normal portal velocity does not exclude CSPH. The model\'s velocity is the mean along the vein; the published cut-offs use the peak velocity, <16 cm/s together with a wider vein (Iranpour 2016; McNaughton and Abu-Yousef 2011), and the app marks 15 cm/s. The ring is the CSPH patient. (Iranpour 2016; McNaughton and Abu-Yousef 2011; AASLD 2024 Fig. 2.)',
+      ask: ['A patient has an HVPG of 12 mmHg and a portal vein velocity of 24 cm/s. Does the normal Doppler rule out CSPH?', 'No. The velocity usually falls <15 cm/s only at a much higher gradient, so a normal Doppler does not exclude CSPH.'],
+    },
+    {
       // The Doppler's own findings: portal flow against the healthy row, and what the trace shows.
       id: 'summary', visual: 'table', cols: ['pvFlow', 'hvpg', 'wave'], asc: false, wave: 'PV_TRUNK', note: 'What the trace shows', rowHead: 'Case',
       of: [{ id: 'normal', kicker: 'Reference', title: 'Healthy', note: 'Steady, toward the liver', ref: true }, { id: 'a1', title: 'Reversed portal flow', note: 'Below the baseline' },

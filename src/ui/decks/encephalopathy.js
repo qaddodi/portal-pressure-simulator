@@ -82,6 +82,16 @@ export const ENCEPHALOPATHY = {
       ask: ['What does narrowing the stent cost?', 'The portal pressure rises, so the ascites or bleeding the TIPS treated can come back.'],
     },
     {
+      // (The relation chart before the summary: the same TIPS patient with a stent from 6 to 12 mm, the PPG and the liver's share of flow read against
+      // the width. The model's encephalopathy index is past 1 at every width, so the liver's flow stands in, as on the stent slides. The ring is 8 mm.)
+      id: 'relation', preset: 'cirr-decomp', params: { tips: { on: true, d: 8 } }, cam: 'liver', mark: STENT,
+      tool: { kind: 'curve', param: 'tips.d', from: 6, to: 12, step: 1, lines: ['ppg', 'liver'], cuts: [12] },
+      kicker: 'Summary', site: 'sin', title: 'A wider stent lowers the PPG and takes more liver flow',
+      line: 'A wider stent lowers the PPG but takes more of the liver\'s flow. At 8 mm the PPG is {ppg}, under the {<12 mmHg} target, and the liver keeps {liver}.',
+      notes: 'Each point is the same patient with a stent of that width: the PPG falls and the liver keeps less of its flow as the stent widens. Baveno VIII advises the smallest diameter that works, to limit overshunting (encephalopathy, heart failure). The model\'s encephalopathy index counts the shunted share of the portal blood, which is near 94% at every width here, so this chart reads the liver\'s share of flow, as the stent slides before it do. The ring is the 8 mm stent. (Baveno VIII 6.5.)',
+      ask: ['An 8 mm stent brings the PPG <12 mmHg. Why not widen it to 12 mm?', 'The PPG is already at target. A wider stent lowers it a little more and costs the liver more of its flow, with more encephalopathy.'],
+    },
+    {
       id: 'summary', visual: 'table', cols: ['he', 'shunt', 'liver', 'ppg'], asc: false, rowHead: 'Patient',
       of: [{ id: 'firstpass', kicker: 'Reference', title: 'Healthy' }, { id: 'collat', kicker: 'Cirrhosis', title: 'Collaterals', ref: true }, { id: 'srs', kicker: 'Spontaneous', title: 'Splenorenal shunt', vs: 'collat' },
         { id: 'embolize', kicker: 'Spontaneous', title: 'Shunt embolized', vs: 'srs' }, { id: 'tips', kicker: 'TIPS', title: 'TIPS, 8 mm', vs: 'collat' },

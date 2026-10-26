@@ -57,6 +57,17 @@ export const NCPH = {
       ask: ['How is porto-sinusoidal vascular disorder diagnosed?', 'An adequate liver biopsy without cirrhosis, plus a specific sign of portal hypertension (varices, collaterals), or a specific lesion (obliterative portal venopathy, nodular regenerative hyperplasia, incomplete septal cirrhosis), or one non-specific sign with one non-specific lesion.'],
     },
     {
+      // (The relation chart before the summary: the model's cirrhosis from none to severe, each point settled for a year, the PPG and the spleen
+      // read against the stiffness. The ring is the schistosomiasis patient, far above the line; the point is cirrhosis with CSPH.)
+      id: 'relation', preset: 'schisto', cam: 'fit', terms: ['varix', 'spleen'],
+      tool: { kind: 'curve', x: 'lsm', xCuts: [10], patient: { preset: 'healthy' }, param: 'cirrhosis', from: 0, to: 1, step: 0.1, days: 365, lines: ['ppg', 'spleen'],
+        dots: [{ preset: 'csph', name: 'Cirrhosis, CSPH' }] },
+      kicker: 'Summary', site: 'presin', title: 'Stiffness and the PPG rise together only in cirrhosis',
+      line: 'Along the line, cirrhosis raises stiffness, PPG and spleen together. The schistosomiasis patient has a PPG of {ppg} and a spleen of {spleen}, yet a stiffness of only {lsm}.',
+      notes: 'The line is the model\'s cirrhosis from none to severe, each point settled for a year: stiffness on the x axis, the PPG and the spleen length against it. In cirrhosis the three rise together; the point marks cirrhosis with CSPH. The ring is the schistosomiasis patient: a PPG of 16 mmHg and a spleen of 17 cm at a stiffness of 6 kPa, where the cirrhosis line has a PPG of about 5 mmHg and a spleen of about 11 cm. The resistance sits before the sinusoids, so the liver stays soft while the pressure behind the portal tracts climbs. Porto-sinusoidal vascular disorder gives the same picture. The dashes mark 10 kPa: a stiffness <10 kPa with signs of portal hypertension points to vascular liver disease. (Baveno VIII 1.6; EASL 2025: stiffness normal or only slightly raised in porto-sinusoidal vascular disorder and chronic portal vein thrombosis.)',
+      ask: ['A patient has large varices, a spleen of 17 cm and a stiffness of 6 kPa. Is that cirrhosis?', 'No. The stiffness is far from the cirrhosis line. Portal hypertension with a soft liver points to resistance before the sinusoids.'],
+    },
+    {
       id: 'summary', visual: 'table', cols: ['pv', 'hvpg', 'ppg', 'lsm', 'spleen'], asc: false, rowHead: 'Patient',
       of: [{ preset: 'healthy', kicker: 'Reference', title: 'Healthy', ref: true }, { id: 'patient', kicker: 'Presinusoidal', title: 'Schistosomiasis' },
         { preset: 'csph', kicker: 'Sinusoidal', title: 'Cirrhosis with CSPH' }],

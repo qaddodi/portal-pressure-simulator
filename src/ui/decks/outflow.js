@@ -112,6 +112,17 @@ export const OUTFLOW = {
       ask: ['Congested liver, ascites, normal JVP and a normal echocardiogram. Where does the resistance lie?', 'Between the liver and the heart: the hepatic veins or the IVC.'],
     },
     {
+      // (The relation chart before the summary: the IVC web narrowed from open to tight, the free hepatic vein pressure and the HVPG read against
+      // the stiffness. Heart failure and constriction are points; the ring is the web of the slide before.)
+      id: 'relation', lens: 'heat', terms: ['hv', 'ivc', 'ra'], preset: 'ivc-web', cam: 'hepatic', labels: ['RHV'], mark: { edges: ['IVCS_RA'], label: 'Web in the IVC' },
+      tool: { kind: 'curve', x: 'lsm', xCuts: [15, 25], param: 'stenosis.IVCS_RA', from: 0, to: 0.9, step: 0.1, lines: ['hvpg', 'fhvp'], oneScale: true, cuts: [5],
+        dots: [{ preset: 'rhf', name: 'Heart failure' }, { preset: 'constrictive', name: 'Constriction' }] },
+      kicker: 'Summary', site: 'post', title: 'Congestion stiffens the liver while the HVPG stays flat',
+      line: 'Stiffness follows the free hepatic vein pressure: {fhvp} gives {lsm}, while the HVPG stays at {hvpg}. Heart failure and constriction fall on the same line.',
+      notes: 'Each point is the same patient with the IVC web narrowed a little more, stiffness on the x axis and two pressures against it. The free hepatic vein pressure climbs; the HVPG does not, because congestion lifts the free and the wedged pressures together and their difference stays under 2 mmHg. In the model stiffness rises about 2 kPa for each mmHg of free hepatic vein pressure above about 6, whatever the cause, so heart failure and constriction, drawn as points, land on the web\'s line. That slope is the model\'s own estimate, not a published figure. The dashes mark 15 and 25 kPa, the cut-offs used for cirrhosis, which congestion reaches without any scarring: check the jugular venous pressure and an echocardiogram before calling it cirrhosis. EASL 2025: in Budd–Chiari syndrome a raised stiffness may mean congestion. The ring is the IVC web of the slide before. (EASL 2025, vascular liver diseases; Baveno VIII Table 3.)',
+      ask: ['A liver reads 30 kPa and the HVPG is 1 mmHg. What do you check before calling it cirrhosis?', 'The right atrial and jugular venous pressure, and an echocardiogram: congestion stiffens the liver without raising the HVPG.'],
+    },
+    {
       id: 'summary', visual: 'table', cols: ['pv', 'whvp', 'fhvp', 'ra', 'hvpg', 'ppg'], asc: false, rowHead: 'Patient',
       of: [{ preset: 'healthy', kicker: 'Reference', title: 'Healthy', ref: true }, { id: 'bcs', kicker: 'Hepatic veins', title: 'Hepatic vein clots', blank: ['whvp', 'fhvp', 'hvpg'] }, { id: 'open', kicker: 'Hepatic veins', title: 'One vein stented' },
         { id: 'dips', kicker: 'Hepatic veins', title: 'DIPS' }, { id: 'sos', kicker: 'Central veins', title: 'Sinusoidal obstruction' }, { id: 'recover', kicker: 'Central veins', title: 'Recovered' },
