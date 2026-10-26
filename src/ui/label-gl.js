@@ -359,19 +359,15 @@ uniform float uA;
 in vec2 vUV;
 out vec4 o;
 void main() { o = texture(uT, vUV) * uA; }`;
-  // All three programs are started before any is read, so the driver compiles them side by side (gl-compile.js).
-  const hp = startProgram(gl, VS, FS), hm = startProgram(gl, MVS, MFS), hr = startProgram(gl, RVS, RFS);
-  let prog, mprog, rprog;
-  try { prog = checkProgram(gl, hp); mprog = checkProgram(gl, hm); rprog = checkProgram(gl, hr); } catch { return null; }
+  // All four programs are started before any is read, so the driver compiles them side by side (gl-compile.js).
+  const hp = startProgram(gl, VS, FS), hm = startProgram(gl, MVS, MFS), hr = startProgram(gl, RVS, RFS), ha = startProgram(gl, AVS, AFS, [['aR', 0], ['aT', 1]]);
+  let prog, mprog, rprog, aprog;
+  try { prog = checkProgram(gl, hp); mprog = checkProgram(gl, hm); rprog = checkProgram(gl, hr); aprog = checkProgram(gl, ha); } catch { return null; }
   const U = Object.fromEntries(['uR', 'uView', 'uT', 'uA'].map((k) => [k, gl.getUniformLocation(prog, k)]));
   const MU = Object.fromEntries(['uBox', 'uView', 'uKind', 'uGeo', 'uW', 'uDash', 'uStroke', 'uFill', 'uA', 'uT0', 'uT1', 'uT2', 'uG', 'uS0', 'uS1', 'uS2', 'uSO', 'uR4'].map((k) => [k, gl.getUniformLocation(mprog, k)]));
   const RU = Object.fromEntries(['uView', 'uP', 'uS', 'uO', 'uAng', 'uT', 'uA'].map((k) => [k, gl.getUniformLocation(rprog, k)]));
   const vao = gl.createVertexArray();
   // The atlas: pages of pictures (each a square texture, at most two), and the instance list drawn from them.
-  const aprog = gl.createProgram();
-  gl.bindAttribLocation(aprog, 0, 'aR'); gl.bindAttribLocation(aprog, 1, 'aT');
-  gl.attachShader(aprog, sh(gl.VERTEX_SHADER, AVS)); gl.attachShader(aprog, sh(gl.FRAGMENT_SHADER, AFS)); gl.linkProgram(aprog);
-  if (!gl.getProgramParameter(aprog, gl.LINK_STATUS)) return null;
   const AU = Object.fromEntries(['uView', 'uT'].map((k) => [k, gl.getUniformLocation(aprog, k)]));
   const packer = createAtlasPacker({ size: Math.min(2048, gl.getParameter(gl.MAX_TEXTURE_SIZE) || 2048), pad: 2, maxPages: 2 });
   const pageTex = [];

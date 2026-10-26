@@ -34,7 +34,7 @@ import { plateStrips, premultiply, gutStep, viewReuse, copyPixels } from './plat
 import { cropToGrid } from './organs-gl.js?v=50a7580426';
 import { readGroup, shapeSource, bindShape, targetRoom } from './organ-paint.js?v=1250d7cb89';
 import { pathCmds, flattenCmds, polyBox } from './shape-gl.js?v=a5ba46162b';
-import { createLabelGL } from './label-gl.js?v=3e25af2ffd';
+import { createLabelGL } from './label-gl.js?v=f3373d9aa9';
 import { createGlassGL } from './glass-gl.js?v=9a7c5bf0ab';
 import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, ORIGIN_GREY } from './veins-gl.js?v=2cf85b68c0';
 import { varixBead, beadRadius } from './varix-bead.js?v=ac0e84fd89';

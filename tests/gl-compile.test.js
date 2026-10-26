@@ -106,7 +106,7 @@ test('a failed shader hands the picture to the 2D path rather than leaving a bla
   assert.match(src('src/ui/instruments.js'), /if \(gl && !gl\.ready\(\)\) \{ gl\.dispose\(\); gl = null; glKey = ''; \}/);
 });
 
-test('the label layer starts all three programs before reading any', () => {
+test('the label layer starts all four programs before reading any', () => {
   const s = src('src/ui/label-gl.js');
-  assert.match(s, /const hp = startProgram\(gl, VS, FS\), hm = startProgram\(gl, MVS, MFS\), hr = startProgram\(gl, RVS, RFS\);/);
+  assert.match(s, /const hp = startProgram\(gl, VS, FS\), hm = startProgram\(gl, MVS, MFS\), hr = startProgram\(gl, RVS, RFS\), ha = startProgram\(gl, AVS, AFS, \[\['aR', 0\], \['aT', 1\]\]\);/);
 });
