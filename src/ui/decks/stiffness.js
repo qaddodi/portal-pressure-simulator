@@ -48,11 +48,11 @@ export const STIFFNESS = {
     },
     {
       id: 'rules', preset: 'healthy', cam: 'liver', glow: ['liver'],
-      tool: { kind: 'criteria', title: 'Baveno VIII at a first visit', short: 'First visit', ticks: false, rows: [
-        'Stiffness 15 kPa or less, platelets 150,000/µL or more: ruled out',
-        'Stiffness 25 kPa or more: CSPH ruled in, but not at a BMI of 30',
-        'In between: ANTICIPATE 75% or more, or spleen stiffness over 55 kPa',
-        'No carvedilol: scope, unless under 20 kPa with platelets 150,000/µL+'] },
+      tool: { kind: 'criteria', title: 'Baveno VIII at a first visit', short: 'First visit', ticks: false, lead: 'A fasting FibroScan and a blood count.', rule: 'Baveno VIII 1.15, 1.16, 1.19', rows: [
+        { text: 'Stiffness 15 kPa or less, platelets 150,000/µL or more: ruled out', cut: '≤15 kPa' },
+        { text: 'Stiffness 25 kPa or more: CSPH ruled in, but not at a BMI of 30', cut: '≥25 kPa' },
+        { text: 'In between: ANTICIPATE 75% or more, or spleen stiffness over 55 kPa', cut: '15–25 kPa' },
+        { text: 'No carvedilol: scope, unless under 20 kPa with platelets 150,000/µL+', cut: '<20 kPa' }] },
       kicker: 'The rules', title: 'Stiffness and platelets sort most patients at a first visit',
       line: 'Stiffness and platelets sort most compensated patients before any catheter. Baveno VIII draws three zones on them: CSPH ruled out, CSPH ruled in, and a gray zone between.',
       notes: 'These rules are for compensated advanced chronic liver disease, with the stiffness measured fasting: a meal raises it by a fifth or more for two to three hours, and a hepatitis flare raises it too, so repeat the scan once the ALT settles. A stiffness of 10 to 15 kPa suggests advanced disease and over 15 kPa makes it highly likely. The 25 kPa rule-in holds for viral and alcohol-related disease and for MASLD with a BMI under 30. The gray zone is settled by a validated model, ANTICIPATE (ANTICIPATE-NASH when the BMI is 30 or more), or by a spleen stiffness over 55 kPa, and an indeterminate result can be repeated in 12 months. A patient who cannot take a non-selective beta-blocker has a screening endoscopy, unless the stiffness is under 20 kPa with platelets of 150,000/µL or more, or the spleen stiffness is under 40 kPa. A first visit asks little of the patient: a fasting FibroScan and a blood count. (Baveno VIII 1.15, 1.16, 1.19.)',

@@ -40,7 +40,7 @@ export const ENCEPHALOPATHY = {
     },
     {
       id: 'trigger', cam: 'fit', lens: 'origin', sites: ['split'], data: 'tiles', tiles: ['he', 'ppg'], key: ['he'],
-      tool: { kind: 'criteria', title: 'Look first for', short: 'Triggers', ticks: false, rows: ['Infection or bleeding', 'Constipation or missed lactulose', 'Sedatives or opioids', 'Low sodium or potassium, or dehydration'] },
+      tool: { kind: 'criteria', title: 'Look first for', short: 'Triggers', ticks: false, lead: 'Treating them comes first.', rows: ['Infection or bleeding', 'Constipation or missed lactulose', 'Sedatives or opioids', 'Low sodium or potassium, or dehydration'] },
       kicker: 'Overt encephalopathy', site: 'sin', title: 'Overt encephalopathy: the trigger first, then lactulose, then rifaximin',
       line: 'Plain confusion at the bedside is overt encephalopathy. Find and treat the trigger, give lactulose to two or three soft stools a day, and add rifaximin after a recurrence.',
       notes: 'The model has no ammonia or brain, so it cannot show a trigger or a drug; the risk index stays as on the last slide. Source: Baveno VIII 6.16, 6.17. The triggers are infection or bleeding, constipation or missed lactulose, sedatives or opioids, and low sodium or potassium or dehydration. Treating them comes first, and often settles the episode. Lactulose goes to two or three soft stools a day, and rifaximin is added after a recurrence. Baveno VIII 6.16 considers rifaximin before an elective TIPS, and 6.17 keeps narrowing the stent or closing a shunt for encephalopathy that persists after the triggers are removed and the drugs given. The order of treatment is the deck\'s own teaching; the Baveno VIII statements name the triggers without listing them.',

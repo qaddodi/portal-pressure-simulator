@@ -8,7 +8,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { DECKS } from '../src/ui/decks.js';
 import { adopted } from './deck-adopted.js';
-import { criteriaRow, criteriaRows, criteriaMet, criteriaReading, CRITERIA_MAX } from '../src/ui/tool-criteria.js';
+import { criteriaRow, criteriaRows, criteriaMet, criteriaReading, criteriaHasCase, cutParts, verdictParts, CRITERIA_MAX } from '../src/ui/tool-criteria.js';
 import teaching from '../src/ui/ext-teaching.js';
 
 const src = (f) => readFileSync(new URL(`../src/ui/${f}`, import.meta.url), 'utf8');
@@ -44,8 +44,10 @@ test('hold: the presenter sets it out of sight and lets the answer slide ease it
 
 
 test('criteria card: rows read in every written form, at most four, live rows judged as their tile prints them', () => {
-  assert.deepEqual(criteriaRow('Child–Pugh C'), { text: 'Child–Pugh C', note: null, lit: false, key: null, op: null, value: null });
-  assert.deepEqual(criteriaRow(['HVPG 20 mmHg or more', 'hvpg', '>=', 20]), { text: 'HVPG 20 mmHg or more', note: null, lit: false, key: 'hvpg', op: '>=', value: 20 });
+  assert.deepEqual(criteriaRow('Child–Pugh C'), { text: 'Child–Pugh C', note: null, lit: false, met: null, cut: null, key: null, op: null, value: null });
+  assert.deepEqual(criteriaRow(['HVPG 20 mmHg or more', 'hvpg', '>=', 20]), { text: 'HVPG 20 mmHg or more', note: null, lit: false, met: null, cut: null, key: 'hvpg', op: '>=', value: 20 });
+  assert.deepEqual(criteriaRow({ text: 'C', cut: ' C 10–13 ', note: 'C 10', met: true }), { text: 'C', note: 'C 10', lit: false, met: true, cut: 'C 10–13', key: null, op: null, value: null });
+  assert.equal(criteriaRow({ text: 'C', met: 'yes' }).met, null, 'met is true, false or unsaid');
   assert.equal(criteriaRow({ text: 'x', key: 'hvpg', op: '~', value: 3 }).key, null, 'an unknown comparison is a plain row');
   assert.equal(criteriaRow({ text: '  ' }), null);
   assert.equal(criteriaRows({ rows: ['a', 'b', 'c', 'd', 'e'] }).length, CRITERIA_MAX);
@@ -74,6 +76,47 @@ test('criteria card: only adopted slides use it, each with 1 to 4 rows of words,
   }
   const src2 = readFileSync(new URL('../src/ui/presenter.js', import.meta.url), 'utf8');
   assert.match(src2, /s\.tool\?\.kind !== 'criteria'/, 'its tiles sit under it, never beside: the rules are sentences');
+});
+
+test('criteria card V3: cut-offs split for the sans signs and units, the bold lead of the verdict, the case column only with a case', () => {
+  assert.deepEqual(cutParts('≥20 mmHg'), { sign: '≥', num: '20', unit: 'mmHg' }, 'the serif has no ≥: the sign is set apart');
+  assert.deepEqual(cutParts('C 10–13'), { sign: '', num: 'C 10–13', unit: '' });
+  assert.deepEqual(cutParts('15–25 kPa'), { sign: '', num: '15–25', unit: 'kPa' });
+  assert.equal(cutParts(''), null);
+  assert.deepEqual(verdictParts('He qualifies on the first rule: a TIPS within 72 hours.'), { bold: 'He qualifies on the first rule:', rest: 'a TIPS within 72 hours.' });
+  assert.deepEqual(verdictParts('No colon here.'), { bold: '', rest: 'No colon here.' });
+  assert.equal(verdictParts('  '), null);
+  assert.equal(criteriaHasCase({ rows: ['a', 'b'] }), false, 'a plain list keeps its full width, no case column');
+  assert.equal(criteriaHasCase({ rows: ['a', { text: 'b', note: 'not B' }] }), true);
+  assert.equal(criteriaHasCase({ rows: [['No ascites', 'asc', '<', 0.15]] }), true, 'a live reading is the case\'s own value');
+});
+
+test('criteria card V3 in the decks: every rule pill is cited in its slide\'s notes, short leads, cut-offs and verdicts, one row met at most', () => {
+  const used = DECKS.flatMap((d) => d.slides.filter((s) => s.tool?.kind === 'criteria').map((s) => [d, s]));
+  for (const [d, s] of used) {
+    const t = s.tool, id = `${d.id}/${s.id}`;
+    if (t.rule != null) {
+      const m = /^(Baveno VIII|AASLD 2024) ([\d.]+(?:, [\d.]+)*)$/.exec(t.rule);
+      assert.ok(m, `${id}: the pill names one guideline and its statements ("${t.rule}")`);
+      for (const n of m[2].split(', ')) assert.ok(new RegExp(`\\b${n.replace('.', '\\.')}\\b`).test(s.notes || ''), `${id}: ${m[1]} ${n} is cited in the slide's notes (a pill only for a sourced rule)`);
+    }
+    if (t.lead != null) assert.ok(typeof t.lead === 'string' && t.lead.length <= 48 && /\.$/.test(t.lead), `${id}: one short lead sentence`);
+    if (t.verdict != null) assert.ok(verdictParts(t.verdict) && t.verdict.length <= 70, `${id}: a verdict on one or two lines`);
+    const rows = criteriaRows(t);
+    assert.ok(rows.filter((r) => r.met === true).length <= 1, `${id}: the case meets one row at most`);
+    for (const r of rows) {
+      if (r.cut) assert.ok(cutParts(r.cut) && r.cut.length <= 10, `${id}: "${r.cut}" is a short cut-off`);
+      if (r.note) assert.ok(r.note.length <= 20, `${id}: "${r.note}" fits the case column`);
+    }
+    if (rows.some((r) => r.cut)) assert.ok(rows.filter((r) => r.cut).length >= 2, `${id}: cut-offs on more than one row, or none`);
+  }
+  const css = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
+  const block = css.slice(css.indexOf('/* The criteria card'), css.indexOf("/* A case card's own question"));
+  assert.ok(block.length > 200);
+  assert.doesNotMatch(block, /border-(left|right)|inset \d+px 0 0|box-shadow: inset [^0]/, 'no vertical lines or side stripes in the criteria card (his rule)');
+  assert.match(block, /\.pzc-row \{[^}]*font: 400 1\.07em\/1\.35 var\(--font-display\)/, 'the rules in the serif');
+  assert.match(block, /\.pzc-end \{[^}]*padding-left: 22px/, 'the case column set apart by space alone');
+  assert.match(block, /\.pzc-m > i \{[^}]*transition: opacity/, 'the marks of a live row cross-fade, never snap');
 });
 
 test('case-card question: only adopted case slides end on one, a question, the case and its question together under 220 characters', () => {

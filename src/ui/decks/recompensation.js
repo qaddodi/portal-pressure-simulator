@@ -51,7 +51,7 @@ export const RECOMPENSATION = {
     },
     {
       id: 'recomp', tick: 'Off diuretics', params: { diuretics: false }, days: 60, cam: 'fit', data: 'tiles',
-      tool: { kind: 'criteria', title: 'Baveno VIII, all for over 6 months', short: 'Recompensation', rows: ['Cause removed or controlled', ['No ascites off diuretics', 'asc', '<', 0.15],
+      tool: { kind: 'criteria', title: 'Recompensation', lead: 'All of these, for more than 6 months.', rule: 'Baveno VIII 7.4', rows: ['Cause removed or controlled', ['No ascites off diuretics', 'asc', '<', 0.15],
         'No encephalopathy off treatment, and no rebleed', 'Back to Child–Pugh A, 5 or 6 points'] }, tiles: ['asc', 'salb'], key: ['asc'],
       kicker: 'Recompensation', site: 'sin', title: 'Baveno VIII criteria for recompensation',
       line: 'Off diuretics the ascites stays away and the albumin holds. If that lasts more than 6 months, with the liver back to Child–Pugh A, this counts as recompensation.',

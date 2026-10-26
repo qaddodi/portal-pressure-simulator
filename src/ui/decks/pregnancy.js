@@ -60,7 +60,7 @@ export const PREGNANCY_DECK = {
       id: 'propranolol', params: ON, cam: 'gej', labels: ['VAR'],
       compare: [{ label: 'No beta-blocker', params: OFF }, { label: 'Propranolol', params: ON, own: true }],
       data: 'tiles', tiles: ['hvpg', 'hr'], key: ['hvpg'], delta: true,
-      tool: { kind: 'criteria', title: 'Watch for, on propranolol', short: 'Watch for', ticks: false, rows: ['Fetal growth restriction', 'Neonatal bradycardia', 'Neonatal hypoglycemia'] },
+      tool: { kind: 'criteria', title: 'Watch for, on propranolol', short: 'Watch for', ticks: false, rule: 'Baveno VIII 8.18', rows: ['Fetal growth restriction', 'Neonatal bradycardia', 'Neonatal hypoglycemia'] },
       kicker: 'Management', site: 'sin', title: 'Propranolol is the beta-blocker in pregnancy',
       line: 'Propranolol lowers the HVPG to {hvpg} and the heart rate to {hr}. Band ligation is the choice when propranolol cannot be taken.',
       notes: 'Propranolol has the longest record in pregnancy, and carvedilol much less, so propranolol is used, titrated to a resting heart rate of 55 to 60. Fetal growth is followed on ultrasound, and the newborn is watched for a slow heart rate and low glucose. Band ligation is safe in pregnancy and is used when a beta-blocker is not tolerated or does not suffice. Source: Baveno VIII 8.18; AASLD 2024, portal hypertension in pregnancy',
@@ -69,7 +69,7 @@ export const PREGNANCY_DECK = {
     {
       id: 'delivery', params: { gestation: 38 }, cam: 'varices', labels: ['VAR'],
       data: 'tiles', tiles: ['varix', 'hvpg'], key: ['varix'], delta: 'propranolol',
-      tool: { kind: 'criteria', title: 'At delivery', ticks: false, rows: ['Propranolol continues', 'Cesarean for obstetric reasons only', 'Check platelets before a neuraxial block'] },
+      tool: { kind: 'criteria', title: 'At delivery', ticks: false, rule: 'Baveno VIII 8.19', rows: ['Propranolol continues', 'Cesarean for obstetric reasons only', 'Check platelets before a neuraxial block'] },
       kicker: 'Delivery and after', site: 'sin', title: 'A vaginal delivery with a short second stage',
       line: 'Pushing strains against a closed glottis and raises the pressure in the varices, so the second stage is kept short and assisted.',
       notes: 'Labor is the second time of highest risk for a variceal bleed. Repeated Valsalva strain raises the abdominal and portal pressure, so the second stage is shortened with forceps or vacuum. Cesarean delivery cuts through abdominal wall collaterals and can bleed heavily, so it is kept for obstetric reasons. If a varix bleeds, octreotide or somatostatin and banding are used; AASLD 2024 advises avoiding terlipressin in pregnancy because it stimulates uterine contraction. Source: Baveno VIII 8.19',

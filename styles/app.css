@@ -6719,21 +6719,50 @@ html.thumb-ui .menu.from-dock { clip-path: inset(-64px -64px calc(var(--sink, 0p
 .pz-data[data-held-now] .pzt-r, .pz-data[data-held-now] .pz-tool :is(.dop-dir, .dop-pattern, .dop-note) { transition: none; }
 .lb-alert { transition: fill-opacity .5s var(--ease); }
 .app.pz-held .lb-alert { fill-opacity: 0; }
-/* The criteria card (tool-criteria.js, teaching card C2): a guideline's rules as rows, in the card so a phone shows them. A live row ends
-   on its reading and a quiet tick (met) or dash (not), which cross-fade; lit tints the row that applies to the case. */
+/* The criteria card (tool-criteria.js, teaching card C2; V3 26 Oct, review/guideline-cards-ideas/round8): a guideline's rules as rows,
+   in the card so a phone shows them. The rules in the serif, as the guideline's own words; how they combine and the rule's number
+   (an outlined pill: outlined is the rule, filled the patient) above them; the case's column set apart by space alone, never a
+   vertical line (his rule); hairlines between rows only, as the quick check's; the verdict at the foot. Emphasis is ink and size:
+   the row the case meets in full ink with its value large, the rows it does not in quiet words. A live row's value and marks
+   cross-fade and keep their size, so the card never changes size with the reading. A cut-off column on a wide card only. */
 .pz-crit { font-size: max(12px, var(--bs, 14px)); }
-.pzc-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
-.pzc-row { display: grid; grid-template-columns: 1fr auto; align-items: baseline; column-gap: .8em; padding: .45em 0; border-top: 1px solid color-mix(in srgb, var(--text) 8%, transparent); font: 500 1em/1.3 var(--font-ui); color: var(--text-2); transition: color .3s var(--ease); }
+.pz-crit [hidden] { display: none; }
+.pzc-top { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: .35em .8em; margin: 0 0 .55em; }
+.pzc-lead { flex: 1 1 12em; min-width: 0; margin: 0; font: 400 1em/1.35 var(--font-ui); color: var(--text-2); }
+.pzc-rule { flex: none; margin: 0; font-size: max(12px, .86em); }
+.pzc-list { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: auto minmax(0, 1fr) auto; }
+.pzc-row { grid-column: 1 / -1; display: grid; grid-template-columns: subgrid; align-items: baseline; padding: .55em 0; border-top: 1px solid color-mix(in srgb, var(--text) 8%, transparent); font: 400 1.07em/1.35 var(--font-display); color: var(--text-2); transition: color .4s var(--ease); }
+@supports not (grid-template-columns: subgrid) { .pzc-row { grid-template-columns: auto minmax(0, 1fr) auto; } }
 .pzc-row:first-child { border-top: 0; }   /* (the quick check's rows: a hairline between, no fills) */
-.pzc-row[data-lit] { color: var(--text); font-weight: 600; }   /* (the row that fits the case: full-white words, as a key tile's name) */
+.pzc-row:is([data-lit], [data-met="yes"]) { color: var(--text); font-weight: 600; }   /* (the row that fits the case: full ink, as a key tile's name) */
+.pzc-hrow { padding: 0 0 .3em; font: 500 max(12px, .86em)/1.2 var(--font-ui); color: var(--text-3); }
 .pzc-t { min-width: 0; }
-.pzc-end { display: inline-flex; align-items: baseline; gap: .45em; white-space: nowrap; font-weight: 600; font-variant-numeric: tabular-nums; color: var(--text-2); }
-.pzc-note { color: var(--text); }
-.pzc-m { display: inline-grid; width: 1em; justify-items: center; }
+.pzc-c { display: none; }
+@container (min-width: 480px) {   /* (a wide card: the cut-off large at the row's left; narrower, the words carry it alone) */
+  .pz-crit.has-cut .pzc-c { display: block; padding-right: .8em; white-space: nowrap; font: 400 1.4em/1 var(--font-display); font-variant-numeric: lining-nums; }
+  .pz-crit .pzc-end { align-items: flex-end; text-align: right; }   /* (the case's column flush right on a wide card) */
+}
+.pzc-s, .pzc-u { font-family: var(--font-ui); font-weight: 400; }   /* (the serif has no ≥ or ≤) */
+.pzc-s { font-size: .8em; margin-right: .06em; }
+.pzc-u { font-size: max(12px, .46em); margin-left: .3em; color: var(--text-3); }
+.pzc-end { display: flex; flex-direction: column; align-items: flex-start; gap: .1em; max-width: 11em; padding-left: 22px; font: 500 calc(1em / 1.07)/1.25 var(--font-ui); font-variant-numeric: tabular-nums; color: var(--text-3); }
+.pzc-hrow .pzc-end { font: inherit; color: inherit; }
+.pzc-v { transition: color .4s var(--ease); }
+.pzc-row:is([data-lit], [data-met]) .pzc-v, .pzc-live .pzc-v { font-size: 1.3em; font-weight: 600; line-height: 1.15; color: var(--text); }
+.pzc-row[data-met="no"] .pzc-v { color: var(--text-2); }
+.pzc-live:not([data-met="yes"]) .pzc-v { color: var(--text-3); }
+.pzc-m { display: grid; font: 600 max(12px, .86em)/1.3 var(--font-ui); white-space: nowrap; }
 .pzc-m > i { grid-area: 1 / 1; font-style: normal; opacity: 0; transition: opacity .4s var(--ease); }
-.pzc-row[data-met="yes"] .pzc-m > .y { opacity: 1; color: var(--ok); }
-.pzc-row[data-met="no"] .pzc-m > .n { opacity: 1; color: var(--text-3); }
-.pzc-row[data-met="yes"] .pzc-v { color: var(--text); }
+.pzc-m > .y { color: var(--ok); }
+.pzc-m > .n { color: var(--text-3); font-weight: 500; }
+.pzc-note .pzc-m > i, .pzc-row[data-met="yes"] .pzc-m > .y, .pzc-row[data-met="no"] .pzc-m > .n { opacity: 1; }
+.pzc-verdict { margin: 0; padding-top: .6em; border-top: 1px solid color-mix(in srgb, var(--text) 8%, transparent); font: 400 1em/1.35 var(--font-ui); color: var(--text-2); }
+.pzc-verdict > b { font-weight: 600; color: var(--text); }
+/* Its title in the serif, in sentence case, as a guideline's heading: the one card whose caps header gives way (the rules' words
+   below it are the serif too). On a Mac and an iPad landscape it sits left, over the rules; a phone keeps the header's centring. */
+.pz.pz .pz-data.pz-data[data-tool^="criteria:"] > .pz-dh { font: 600 calc(var(--s-cap) * 1.3)/1.2 var(--font-display); letter-spacing: 0; text-transform: none; color: var(--text); }
+.pz.pz:not(.stack):not(.low) .pz-data.pz-data[data-tool^="criteria:"] > .pz-dh { font-size: calc(var(--pz-sm) * 1.3); }
+.pz.pz:not(.stack):not(.low) .pz-data.pz-data[data-tool^="criteria:"]:not(.pz-folds) > .pz-dh { justify-content: flex-start; text-align: left; }
 /* A case card's own question (slide caseQ): the case's type and size, on a line of its own under it, in the accent so it reads as the ask. */
 .pz-case-q { margin-top: .55em; }
 

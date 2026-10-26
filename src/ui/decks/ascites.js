@@ -115,7 +115,7 @@ export const ASCITES = {
     },
     {
       id: 'refractory', cam: 'fit', data: 'tiles', tiles: ['asc', 'pv'], key: ['asc'],
-      tool: { kind: 'criteria', title: 'Refractory ascites', short: 'Refractory', ticks: false, rows: ['Back within 4 weeks on top diuretic doses and a low-salt diet', 'Or diuretics cannot be given (kidney injury, sodium, potassium)'] },
+      tool: { kind: 'criteria', title: 'Refractory ascites', short: 'Refractory', ticks: false, lead: 'Either one makes it refractory.', rows: ['Back within 4 weeks on top diuretic doses and a low-salt diet', 'Or diuretics cannot be given (kidney injury, sodium, potassium)'] },
       kicker: 'Refractory ascites', site: 'sin', title: 'Refractory ascites, defined',
       line: 'Refractory ascites returns within 4 weeks of a tap despite the highest diuretic doses, or diuretics cannot be given. Here he settles at {asc}, so he is not refractory.',
       notes: 'Source: Baveno VIII 6.3 and 6.4. Refractory ascites returns within 4 weeks of a tap despite the highest diuretic doses and a low-salt diet, or diuretics cannot be given. Patients with recurrent or refractory ascites should be considered for a TIPS, and the TIPS and a liver transplant discussed together. Refractory means the highest diuretic doses (spironolactone 400 mg and furosemide 160 mg a day) and about 2 g of sodium a day fail to keep the fluid away, or diuretics have to stop for kidney injury, a sodium below 125, high potassium or encephalopathy. The definition is the one used elsewhere in this talk; the Baveno VIII statements name refractory ascites without defining it.',

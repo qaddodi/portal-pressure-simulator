@@ -51,8 +51,8 @@ export const SHUNTS = {
       ask: ['A patient with cirrhosis has recurrent encephalopathy despite lactulose and rifaximin. What should you look for?', 'A large spontaneous portosystemic shunt, such as a splenorenal shunt, on CT.'],
     },
     {
-      id: 'reasons', lens: 'flow', preset: 'cirr-decomp', params: { diuretics: true }, days: 120, ramp: { albumin: [2.8, 2.4] }, cam: 'fit', tool: { kind: 'criteria', title: 'When a TIPS is considered', short: 'When', ticks: false, rows: ['Bleeding despite carvedilol and banding',
-        { text: 'Recurrent or refractory ascites', note: 'this case', lit: true }, 'Pre-emptive, within 72 hours of a high-risk bleed'] }, data: 'tiles', tiles: ['asc', 'ppg'], key: ['asc'],
+      id: 'reasons', lens: 'flow', preset: 'cirr-decomp', params: { diuretics: true }, days: 120, ramp: { albumin: [2.8, 2.4] }, cam: 'fit', tool: { kind: 'criteria', title: 'When a TIPS is considered', short: 'When', ticks: false, lead: 'Each has its own criteria.', rows: ['Bleeding despite carvedilol and banding',
+        { text: 'Recurrent or refractory ascites', note: 'Every 10 days', met: true, lit: true }, 'Pre-emptive, within 72 hours of a high-risk bleed'] }, data: 'tiles', tiles: ['asc', 'ppg'], key: ['asc'],
       vignette: 'A 66-year-old woman with alcohol-associated cirrhosis, sober for 3 years, has needed a paracentesis every 10 days for three months despite full diuretics. Her bilirubin is 1.6 mg/dL and she has never been confused.',
       kicker: 'Who gets a TIPS', site: 'sin', title: 'Three reasons to consider a stent',
       line: 'A TIPS is considered for bleeding that carvedilol and banding do not stop, for recurrent or refractory ascites, and early after a high-risk bleed. Her ascites is back: {asc}.',

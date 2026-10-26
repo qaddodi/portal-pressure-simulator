@@ -492,7 +492,15 @@ reads litres, as the Ascites tile does). A live row ends on its reading as its t
 not, and follows the model as the tiles do. `note` is the case's own value in a few words at the row's right ("C 10", "B 8, not
 bleeding"); `lit: true` sets the row that applies to the case in full-white words (the other rows stay quieter; rows are split by a hairline, as the quick check's, with no fills). `ticks: false` leaves the marks off, for a classification such as the
 Sarin classes. `title` names the card (keep it under about 36 characters; `short` is a phone's shorter title). The slide's tiles sit under
-the card, never beside it. Give the slide no `causes` with the same list, and check every row's words against the guideline. Used on
+the card, never beside it. Give the slide no `causes` with the same list, and check every row's words against the guideline.
+Since 26 Oct the card reads like a handbook page (V3): its title and its rules are set in the serif, and four more fields are opt-in.
+`lead` is one short sentence on how the rows combine ("Any one of these is enough."). `rule` is the guideline and its statement
+numbers in an outlined pill ("Baveno VIII 5.31"); give it only when the slide's notes cite those numbers (a test checks this).
+`verdict` is a line at the foot, its words up to the first colon in bold ("He qualifies on the first rule: a TIPS within 72 hours.").
+On a row, `cut` is its cut-off ("C 10–13", "≥20 mmHg"), set large at the row's left on a card 480 px wide or more and dropped on
+narrower ones, and `met: true` or `met: false` says whether the case meets it. Any `note` or live row gives the card a "This case"
+column, set apart by space alone, with no vertical line. A met row shows its note large with "meets it ✓" under it; `met: false` adds
+a quiet "not met"; a note with neither `met` nor `lit` is a quiet word ("not B"). Used on
 Variceal bleed 8, Choose the treatment 2, Recompensation 7, Gastric varices 2, Pregnancy 6 and 7, Paracentesis 8, Encephalopathy 4, Stiffness 5, Ten years 13 and 14 and TIPS and shunts 4 and 5.
 
 **Question card: `question: 'One short question?'`.** The room is asked before the slide teaches, and the slide is the answer. Going forward

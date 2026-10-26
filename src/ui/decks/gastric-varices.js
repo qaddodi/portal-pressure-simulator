@@ -21,7 +21,7 @@ export const GASTRIC = {
   slides: [
     {
       id: 'classes', preset: 'gastric-varix', cam: 'fundus', terms: ['gv'], data: 'tiles',
-      tool: { kind: 'criteria', title: 'Sarin classes', ticks: false, rows: ['GOV1, down the lesser curve', 'GOV2, toward the fundus', { text: 'IGV1, isolated in the fundus', note: 'This case', lit: true },
+      tool: { kind: 'criteria', title: 'Sarin classes', ticks: false, lead: 'Named by where they lie.', rule: 'Baveno VIII 5.38', rows: ['GOV1, down the lesser curve', 'GOV2, toward the fundus', { text: 'IGV1, isolated in the fundus', note: 'Her varix', lit: true },
         'IGV2, elsewhere in the stomach'] }, tiles: ['gv', 'varix'], key: ['gv'],
       vignette: 'A 58-year-old woman with cirrhosis from primary biliary cholangitis has a 9 mm fundal varix and no esophageal varices on screening EGD. She has never bled. Her platelets are 63,000/µL.',
       kicker: 'Where they lie', site: 'sin', title: 'Four kinds of gastric varices',
