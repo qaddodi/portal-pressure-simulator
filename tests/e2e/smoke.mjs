@@ -851,7 +851,9 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
       const { seen, after, ratio } = await page.evaluate(() => { const seen = window.__labSeen; window.__labSeen = null; return { seen, after: document.querySelector('#app').dataset.lit || '', ratio: { ...window.__labBefore, ...window.__labRatio() } }; });
       if (!before || !after) throw new Error(`${what}: a slide lights nothing in the liver (before "${before}", after "${after}"), so this check cannot tell`);
       const ok = new Set([...before.split(' '), ...after.split(' ')]);
-      const stray = seen.filter((x) => !ok.has(x.t));
+      // (The sinusoid view keeps every name and arrow, lit or not, so a change into or out of it shows them all; the lobule's names stay strict.)
+      const sinKept = [...ok].some((t) => t.startsWith('sinusoid:'));
+      const stray = seen.filter((x) => !ok.has(x.t) && !(sinKept && x.t.startsWith('sinusoid:')));
       if (stray.length) {
         const worst = stray.reduce((m, x) => (x.text > m.text ? x : m));
         throw new Error(`${what}: ${new Set(stray.map((x) => x.t || '(no target)')).size} label(s) from neither slide showed, up to ${worst.text.toFixed(2)} (${worst.kind} ${worst.t || '(no target)'}, lit "${worst.lit}")`);

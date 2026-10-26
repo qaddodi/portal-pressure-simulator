@@ -357,7 +357,7 @@ A term becomes a pill in its **station colour**; the station's figure label take
 | `rColl` | none | circuit: collateral resistor | var | collaterals |
 | `rGut` | none | circuit: gut arterioles | smv | gut arterioles |
 
-Inside the liver (the view's own label takes the colour with a soft glow; use with a lobule/sinusoid `cam`):
+Inside the liver (the view's own label takes the colour with a soft glow; use with a lobule/sinusoid `cam`). In the lobule, the names a slide does not light ease out; in the sinusoid view every name and arrow stays (Hepatocyte, Lymph, Portal venule, Central vein, ...), the lit ones with the pill and the rest plain:
 
 | Key | Tone | Words |
 |---|---|---|

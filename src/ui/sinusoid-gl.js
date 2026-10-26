@@ -38,6 +38,33 @@ export function cellAt(x, sd) {
   if (x < cellEdge(j, sd)) j--; else if (x >= cellEdge(j + 1, sd)) j++;
   return { j, x0: cellEdge(j, sd), x1: cellEdge(j + 1, sd), nu: 0.3 + 0.4 * h1(j, sd + 1), nv: 0.4 + 0.2 * h1(j, sd + 2), nr: 2.6 + 0.5 * h1(j, sd + 3), bi: h1(j, sd + 4) < 0.12 };
 }
+/** The centre (µm along) of endothelial nucleus n of a lining (seed nsd), as the shader's nucAt. */
+export const nucAt = (n, nsd) => 38 * n + 8 + 22 * h1(n, nsd);
+/** How far (µm) from a nucleus's centre its cell's swell hides the lining's fenestrae: the swell's half length (3.3), its blend
+ * into the sheet (0.9) and a little beyond, so a fenestra counted clear of it is plainly open. */
+export const NUC_COVER = 4.4;
+/** Whether the swell of an endothelial nucleus (seed nsd) covers the lining at x. */
+export function underNucleus(x, nsd) {
+  const n = Math.floor(x / 38);
+  for (let k = -1; k <= 1; k++) if (Math.abs(x - nucAt(n + k, nsd)) < NUC_COVER) return true;
+  return false;
+}
+/** The fenestra a callout points at, of a lining's pores (poreAt's) near x: one the nuclei's swells leave showing (a pore under
+ * a cell body is not seen), open the longest (low closing threshold) and near x, on screen between lo and hi when one is (µm).
+ * By place only, so the line does not hop as the pores close. x itself when no pore is clear. */
+export function calloutPore(pores, x, lo, hi, nsd) {
+  for (const [a, b] of [[lo, hi], [-Infinity, Infinity]]) {
+    let best = null, bs = Infinity;
+    for (const p of pores) {
+      const dx = Math.abs(p.x - x);
+      if (dx > 20 || p.x < a || p.x > b || underNucleus(p.x, nsd)) continue;
+      const s = p.th + 0.02 * dx;
+      if (s < bs) { bs = s; best = p; }
+    }
+    if (best) return best.x;
+  }
+  return x;
+}
 // Seeds: the main sinusoid's linings (upper, lower), its plates (upper, lower; the next plate out adds 13).
 export const SEED = { poreUp: 3, poreDn: 5, nucUp: 41, nucDn: 42, plateUp: 29, plateDn: 71 };
 export const UM = { lum: 5, endo: 0.8, disse: 3.4, hep: 20 };

@@ -24,7 +24,7 @@ import { pressureColor } from './colormap.js?v=a9284dde52';
 import { isPaused } from './clock.js?v=5151312569';
 import { store } from './store.js?v=926dabfaef';
 import { sinusoidTargets } from './sinusoid-model.js?v=74f5d007ca';
-import { createSinusoidGL, poreAt, poreOpenness, cellAt, cellEdge, SLOT, SEED, UM } from './sinusoid-gl.js?v=ac52f4773f';
+import { createSinusoidGL, poreAt, poreOpenness, calloutPore, cellAt, cellEdge, SLOT, SEED, UM } from './sinusoid-gl.js?v=8399d8205e';
 import { frameFor, noteDraw, saver, paceMs } from './frame.js?v=7254a8a850';
 import { softwareGL, softwareYield } from './sw-yield.js?v=e580a095b1';
 import { noteSinusoidSupport } from './gl-support.js?v=94ad2a7ff1';
@@ -391,13 +391,10 @@ export function createSinusoidView({ host, before = null }) {
     const pct = fenPct();
     if (b.textContent !== pct) b.textContent = pct;
   }
-  // The fenestra a callout points at: of the upper lining's pores near x, the one that stays open longest (by place
-  // only, so the line does not hop as the pores close).
-  const fenAt = (x) => {
-    let best = null;
-    for (const p of geo.pores[0]) if (Math.abs(p.x - x) < 9 && (!best || p.th < best.th)) best = p;
-    return best ? best.x : x;
-  };
+  // The fenestra a callout points at: of the upper lining's pores near x, one in view that no endothelial cell body covers
+  // (the swell over a nucleus hides the pores under it), the one that stays open longest (by place only, so the line does
+  // not hop as the pores close).
+  const fenAt = (x) => calloutPore(geo.pores[0], x, VW.fr[0] + 3, VW.fr[1] - 3, SEED.nucUp);
   function layoutTags() {
     const g = geo, m = model, hep = UM.hep, V = g.vert;
     const pick = (u) => lerp(VW.fr[0] + 8, VW.fr[1] - 8, u);
