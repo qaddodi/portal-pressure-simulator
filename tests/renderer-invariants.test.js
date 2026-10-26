@@ -125,3 +125,16 @@ test('capture() hands exports the canvas with the whole current picture; the gla
   const stage = read('../src/ui/stage.js');
   assert.equal((stage.match(/capture: \(\) => veins\?\.capture\(\)/g) || []).length, 2, 'the callouts\' glass and the liver pane');
 });
+
+test('the vessel layer\'s second-lumen target is bounded: given back to a texel while the picture is not shown, and the pan copy after 1.5 s', async () => {
+  const { g, f, look } = await renderer();
+  g.draw([1, 0, 0, 1, 0, 0], look, { on: false });
+  const big = f.calls.filter((c) => c[0] === 'texImage2D' && c[2] === 0 && c[3] === f.gl.RGBA16UI && c[4] === 800 && c[5] === 600);
+  assert.ok(big.length >= 2, 'the integer layers were allocated at the canvas size');
+  const n = f.calls.length;
+  g.trim();
+  const small = f.calls.slice(n).filter((c) => c[0] === 'texImage2D' && c[3] === f.gl.RGBA16UI && c[4] === 1 && c[5] === 1);
+  assert.equal(small.length, 2, 'both integer layers (first and second lumen) back to a texel');
+  const src = read('../src/ui/veins-gl.js');
+  assert.match(src, /spare\.timer = setTimeout\(dropSpare, 1500\)/);
+});
