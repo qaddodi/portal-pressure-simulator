@@ -7,6 +7,7 @@
 //
 //   node scripts/handout-figures.mjs            every deck
 //   node scripts/handout-figures.mjs varices    only the named decks
+//   node scripts/handout-figures.mjs varices/burst variceal-bleed/oct    only the named slides (deck/slide id)
 
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join, dirname, resolve } from 'node:path';
@@ -19,8 +20,8 @@ import { NO_FIGURE } from '../src/ui/handout.js';
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const W = 720, WIDE = 1200;   // (a figure with its data card beside it is landscape and prints larger, so it is drawn wider)
 const only = process.argv.slice(2);
-const jobs = DECKS.filter((d) => !only.length || only.includes(d.id))
-  .flatMap((d) => withOverview(d).slides.map((s, i) => ({ d, s, i })).filter(({ s }) => !NO_FIGURE.has(s.visual)));
+const jobs = DECKS.filter((d) => !only.length || only.some((o) => o === d.id || o.startsWith(d.id + '/')))
+  .flatMap((d) => withOverview(d).slides.map((s, i) => ({ d, s, i })).filter(({ s }) => !NO_FIGURE.has(s.visual) && (only.length === 0 || only.includes(d.id) || only.includes(`${d.id}/${s.id}`))));
 const server = await serve(ROOT);
 // (SwiftShader stands in for a GPU on a machine without one, so the blood and the glows draw as on a screen.)
 const browser = await chromium.launch({ ...(process.env.CHROMIUM ? { executablePath: process.env.CHROMIUM } : {}), args: ['--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] });
