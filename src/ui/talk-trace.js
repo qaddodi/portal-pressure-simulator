@@ -167,5 +167,5 @@ export function talkTrace() {
     nextFrame(() => nextFrame(() => svg.classList.remove('in')));
     setTimeout(() => old.forEach((o) => o.remove()), 480);
   }
-  return { el, set, configure, update() {}, clear() {} };
+  return { el, set, configure, update() {}, clear() {}, dispose() { ro?.disconnect(); } };
 }

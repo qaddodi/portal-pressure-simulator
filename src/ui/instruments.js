@@ -15,8 +15,9 @@ import { poolFill } from './blood.js?v=7fa561f952';
 import { FONT } from './charts.js?v=5e21f9ac80';
 import { store, updateParams, varicesPresent } from './store.js?v=926dabfaef';
 import { balanceHold, balanceLine } from './balance-hold.js?v=1792704e7a';
-import { frameFor, cancelFrame } from './frame.js?v=39b0efa1db';
-const nextFrame = frameFor('instruments');
+import { lateFrameFor, cancelFrame, framePhase } from './frame.js?v=39b0efa1db';
+// (The endoscope's field: drawn in the late part of a frame, after the model's frame of it has been taken in, so once a frame.)
+const drawFrame = lateFrameFor('instruments');
 
 const NI = Object.fromEntries(NODES.map((n, i) => [n.id, i]));
 
@@ -71,6 +72,9 @@ export function createEndoscopy({ onAction }) {
     set(redWord, redV === 'None' ? redV : 'Red wale'); set(redMore, redV === 'None' ? '' : ', cherry spots'); if (redV === 'None') delete red.dataset.long; else red.dataset.long = ''; red.parentNode.dataset.on = String(redV !== 'None');
     const nb = String(Math.round(f.bands || 0));
     set(bands, nb); bands.parentNode.dataset.on = String(nb !== '0');
+    // A model frame taken in at the start of a frame is drawn by the field's own late callback of that frame (one already asked
+    // for by an ease, or one asked now): the field is drawn once a frame, with the newest state. Anywhere else, at once.
+    if (framePhase() === 'early') { last = { f, vx }; if (!raf) raf = drawFrame(() => { raf = 0; if (last) draw(last.f, last.vx); }); return; }
     draw(f, vx);
   }
   // Rendered endoscopic view (see endo-render.js): a per-pixel 3D shading of the lumen with raised,
@@ -162,7 +166,7 @@ export function createEndoscopy({ onAction }) {
     // The banded vein starts deflating at once; its band cinches in from a wide loop a beat later (endo-motion.js).
     for (let c = 0; c < 4; c++) busy = tween(an.def[c], defT[c], now, DEFLATE_MS, 0) || busy;
     for (let i = 0; i < 16; i++) busy = tween(an.kn[i], knT[i], now, BAND_MS, knT[i] ? BAND_DELAY_MS : 0) || busy;
-    if (busy && !raf && !isPaused()) raf = nextFrame(() => { raf = 0; if (last) draw(last.f, last.vx); });
+    if (busy && !raf && !isPaused()) raf = drawFrame(() => { raf = 0; if (last) draw(last.f, last.vx); });
     const res = clamp(Math.round(2 * R * (window.devicePixelRatio || 1)), 160, 480);
     let img;
     if (gl && !gl.ready()) { gl.dispose(); gl = null; glKey = ''; }   // (its shader failed: the CPU renderer below, as with no WebGL)
@@ -204,7 +208,7 @@ export function createEndoscopy({ onAction }) {
     if (fadeA >= 1) fadeT0 = -1;
     shown = img;
     const moving = fadeT0 >= 0 || balA !== +balloon || jetA !== +bleeding;
-    if (moving && !raf) raf = nextFrame(() => { raf = 0; if (last) draw(last.f, last.vx); });
+    if (moving && !raf) raf = drawFrame(() => { raf = 0; if (last) draw(last.f, last.vx); });
     if (!moving) uiT = 0;   // (the next ease starts from its first frame, not from the last one painted)
     const sig = [cv.width, cv.height, w, hh, gl ? glKey : cache.key, balloon, root.getAttribute('data-theme'), root.className, dark.matches].join('|');
     if (!bleeding && !moving && sig === painted) return;

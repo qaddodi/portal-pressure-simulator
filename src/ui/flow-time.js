@@ -9,7 +9,7 @@
 // day 0 to its last, drawn as it plays (Ascites builds: ascites over sinusoidal pressure; varices: varix over HVPG).
 // A line the model does not compute (weight lost, which the model has no body for) is given by the slide (tool.given: { wt: 12 }):
 // it climbs from 0 to that number in step with the time-lapse's ramp, and every other line is still the model's own.
-import { frameFor } from './frame.js?v=39b0efa1db';
+import { frameFor, cancelFrame } from './frame.js?v=39b0efa1db';
 import { RX, bandKeys } from './rx-bands.js?v=51e83c7c59';
 const nextFrame = frameFor('flow-time');
 
@@ -228,15 +228,18 @@ export function createFlowTime() {
   const make = () => { const [w, hh, f] = size(); G = geo(w, hh, f); return build(); };
   // Redrawn at once when the box changes size (a new card width, the card fitting itself): the same lines, the new geometry.
   let lastSz = '';
-  if (typeof ResizeObserver === 'function') new ResizeObserver(() => {
+  const ro = typeof ResizeObserver === 'function' ? new ResizeObserver(() => {
     if (!ser || !parts || !el.isConnected) return;
     const sz = size().map((x) => Math.round(x)).join('x'); if (sz === lastSz) return; lastSz = sz;
     const prev = parts.svg; parts = make(); prev.replaceWith(parts.svg); paint(shown);
-  }).observe(el);
+  }) : null;
+  ro?.observe(el);
   // k: how far along the time-lapse (0 to 1): its minutes on the rise; once it has ended, the held state to the end.
   const minuteOf = (k) => (k >= 1 ? ax().end : ax().rise * clamp(k, 0, 1));
   return {
     el,
+    /** The chart is done with (a presentation's own instruments go with it): its glide and its size observer are let go. */
+    dispose() { cancelFrame(raf); raf = 0; ro?.disconnect(); },
     /** trail: the time-lapse's [[day, ...the model's lines]] (null: not computed yet; undefined: keep the one drawn);
      *  k: how far along it to draw (0 to 1); spec: { clock: 'meal' | 'days', lines: [lower, upper], given? } (undefined: keep
      *  the one drawn). A new trail fades in over the old chart. */

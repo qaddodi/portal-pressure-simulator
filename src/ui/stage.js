@@ -9747,7 +9747,11 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // On a software renderer only (WebGL drawn on the CPU), a vessel frame waits for the last to finish on the GPU and gives the
   // page as long again (see sw-yield.js); on a GPU there is no yield (null) and the loop below is unchanged.
   const swYield = softwareYield(SOFTWARE, SOFTWARE ? vCanvas.getContext('webgl2') : null);
+  // The figure's pass is one owned request (animRaf): however many paths ask for it (its own loop, a wake), it is drawn once a frame.
+  let animRaf = 0;
+  const askAnimate = () => { if (!animRaf) animRaf = drawFrame(animate); };
   function animate(now) {
+    animRaf = 0;
     cathLabelsNow();
     // The blood moves by elapsed time, so speeds and transitions are the same at any frame rate.
     if (document.hidden || appEl?.classList.contains('home-open')) { lastT = flowGate = now; trimVeins(); sleep(); return; }
@@ -9760,16 +9764,16 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         stepBlood(Math.min(0.1, (now - lastT) / 1000));
         veins.composite(vLook, bloodLook(), false);
       }
-      lastT = flowGate = now; drawFrame(animate); return;
+      lastT = flowGate = now; askAnimate(); return;
     }
     // (Only the model's own motion waits its turn there: a pan, zoom, glide or forced draw is drawn in this frame, with the
     // rest of the figure that has already moved, never a frame behind it.)
-    if (swYield && !swYield.ready(now, forceDraw || drawOnce || viewVersion !== drawnView)) { drawFrame(animate); return; }
+    if (swYield && !swYield.ready(now, forceDraw || drawOnce || viewVersion !== drawnView)) { askAnimate(); return; }
     const interval = paceOf(quality);
     // A pan or zoom redraws at once (the picture must stay under the pointer); only the model's
     // own motion is paced, and only on a lower step (see QUALITY).
     const viewMoved = viewVersion !== drawnView;
-    if (interval && !viewMoved && !forceDraw && now - flowGate < interval) { drawFrame(animate); return; }
+    if (interval && !viewMoved && !forceDraw && now - flowGate < interval) { askAnimate(); return; }
     flowGate = interval ? now - ((now - flowGate) % interval) : now;
     const dt = Math.min(0.1, (now - lastT) / 1000);
     // (On a software renderer a frame waits its turn for up to 2 s: the fluid's ease catches up on the time that passed, so it
@@ -9780,7 +9784,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     // there, and leaving the lobule (a store change) wakes it. While the lobule only covers it on the way in or out, it keeps looking.
     if (lz?.isOpen()) { trimVeins(); sleep(); return; }
     veinsTrimmed = false;   // (shown again: the next draw makes what trimVeins gave back)
-    if (lz?.covers()) { drawFrame(animate); return; }
+    if (lz?.covers()) { askAnimate(); return; }
     forceDraw = false; drawOnce = false;
     const st = store.get();
     // Running, the figure moves by itself only through the blood (streaks, chevrons, a dye bolus), a bleed's spray and
@@ -9828,9 +9832,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     else if (veins && !veins.lost && vLook && F) { veins.composite(vLook, bloodLook(), fluidMoved); noteDraw('stage'); swYield?.drew(now); }
     drawnView = viewVersion;
     lastDrawKey = key; lastDrawF = F; lastDrawCTM = CTM; lastAnim = anim || bolus.active || dyeShown;
-    drawFrame(animate);
+    askAnimate();
   }
-  drawFrame(animate);
+  askAnimate();
   // Nothing to draw: the loop stops asking for frames (so the screen can idle) until something changes, and looks
   // again once a second in case a change came by a path that does not wake it. (The store, the page's visibility, the
   // figure's classes, the camera, the glows and the organ pictures landing all wake it themselves.)
@@ -9844,7 +9848,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     veins.trim(); veinsTrimmed = true; veinsDirty = true;
   }
   function sleep() { sleeping = true; clearTimeout(sleepTimer); sleepTimer = setTimeout(wake, 1000); }
-  function wake() { if (!sleeping) return; sleeping = false; clearTimeout(sleepTimer); drawFrame(animate); }
+  function wake() { if (!sleeping) return; sleeping = false; clearTimeout(sleepTimer); askAnimate(); }
   stageWake = wake;
   store.on('*', wake);
   store.on('*', () => { storeVer++; });

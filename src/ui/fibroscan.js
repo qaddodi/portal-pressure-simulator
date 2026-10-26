@@ -9,7 +9,7 @@ import { FONT } from './charts.js?v=5e21f9ac80';
 import { simTime, isPaused, fibroReading } from './clock.js?v=5151312569';
 import { store } from './store.js?v=926dabfaef';
 import { elastogramGL, prepareElastogramGL } from './fibroscan-gl.js?v=9341bad5de';
-import { frameFor, noteDraw, saver, paceMs } from './frame.js?v=39b0efa1db';
+import { frameFor, cancelFrame, noteDraw, saver, paceMs } from './frame.js?v=39b0efa1db';
 const nextFrame = frameFor('fibroscan');
 
 const WAVE_T0 = 8; // ms: the shear wave reaches the top of the window about 8 ms after the push
@@ -112,7 +112,10 @@ export function createFibroScan() {
   // Whether the panel is on screen, as the browser reports it when it changes (read every frame, offsetParent laid the page out);
   // coming on screen, it draws again at once. (No observer, as in a bare test page: read as before.)
   let seen = false, fed = false;   // (fed: the model has given it a stiffness to show)
-  const io = typeof IntersectionObserver === 'function' ? new IntersectionObserver((es) => { const was = seen; seen = es[es.length - 1].isIntersecting; if (seen && !was && !running && fed) { running = true; nextFrame(loop); } }) : null;
+  // (raf: the loop's one frame asked for, let go with the panel: dispose.)
+  let raf = 0, gone = false;
+  const start = () => { if (!running && !gone) { running = true; raf = nextFrame(loop); } };
+  const io = typeof IntersectionObserver === 'function' ? new IntersectionObserver((es) => { const was = seen; seen = es[es.length - 1].isIntersecting; if (seen && !was && fed) start(); }) : null;
   io?.observe(cv);
   const onScreen = () => cv.isConnected && (io ? seen : cv.offsetParent !== null);
 
@@ -198,17 +201,20 @@ export function createFibroScan() {
   // While it plays the map is drawn on every frame the screen offers (15 a second in Battery saver), like the lobule's flow.
   let lastPaint = -1e9;
   function loop(now) {
-    if (!onScreen() || document.hidden) { running = false; return; }
+    raf = 0;
+    if (gone || !onScreen() || document.hidden) { running = false; return; }
     const hold = REDUCED || isPaused();
     if (hold || now - lastPaint >= paceMs()) { paint(now); lastPaint = now; noteDraw('fibroscan'); }   // (paused: always drawn, so a change shows)
     if (hold) { running = false; return; }   // paused: hold this frame; resume restarts the loop
-    nextFrame(loop);
+    raf = nextFrame(loop);
   }
   let pinned = null;   // (the slide's settled stiffness, the tiles' and words' number; the live value swings with each beat)
   function update(f) {
     model = pinned ?? f.metrics.lsm; fed = true;
-    if (!running && onScreen()) { running = true; nextFrame(loop); }
+    if (onScreen()) start();
   }
-  const offRun = store.on('running', (on) => { if (on && !running && onScreen()) { running = true; nextFrame(loop); } });
-  return { id: 'fibroscan', label: 'FibroScan', el, update, pin(fp) { pinned = fp?.lsm ?? null; if (pinned != null) model = pinned; }, dispose: offRun };
+  const offRun = store.on('running', (on) => { if (on && onScreen()) start(); });
+  /** The panel is done with (a presentation's own instruments go with it): its frame, observer and store watch are let go. */
+  function dispose() { gone = true; running = false; cancelFrame(raf); raf = 0; io?.disconnect(); offRun(); }
+  return { id: 'fibroscan', label: 'FibroScan', el, update, pin(fp) { pinned = fp?.lsm ?? null; if (pinned != null) model = pinned; }, dispose };
 }

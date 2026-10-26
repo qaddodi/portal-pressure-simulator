@@ -112,12 +112,19 @@ export function createVitalsMonitor() {
     last = now;
     const label = `Vital signs: ${cells.map((c) => `${c.title} ${Number.isFinite(c.v) ? fmt(c.v, c.d) : 'not available'} ${c.u}${c.bad ? ', past its limit' : ''}`).join('; ')}.`;
     if (label !== lastLabel) { lastLabel = label; cv.setAttribute('aria-label', label); }
-    if (moving && !raf) raf = nextFrame((t) => { raf = 0; draw(t); });
+    // (While the strip scrolls its loop draws every frame, the easing numbers with it: a frame of their own would draw it twice.)
+    eased = moving;
+    if (moving && !raf && !ticking) raf = nextFrame((t) => { raf = 0; draw(t); });
   }
   // While the model runs and the card is on screen the strip scrolls on every frame the screen offers; otherwise it is drawn when something changes.
-  let ticking = false;
-  function loop(now) { if (!live()) { ticking = false; return; } draw(now); nextFrame(loop); }
-  function wake() { if (!ticking && live()) { ticking = true; nextFrame(loop); } }
+  // (One frame asked for at a time (loopRaf), let go with the strip: dispose. eased: the numbers were still easing at the last draw.)
+  let ticking = false, loopRaf = 0, eased = false, gone = false;
+  function loop(now) {
+    loopRaf = 0;
+    if (gone || !live()) { ticking = false; if (eased && !gone && !raf) raf = nextFrame((t) => { raf = 0; draw(t); }); return; }
+    draw(now); loopRaf = nextFrame(loop);
+  }
+  function wake() { if (!ticking && !gone && live()) { ticking = true; loopRaf = nextFrame(loop); } }
   const ro = typeof ResizeObserver === 'function' ? new ResizeObserver(() => { if (!ticking) draw(); }) : null;
   ro?.observe(cv);
 
@@ -206,6 +213,6 @@ export function createVitalsMonitor() {
     clear() { clock.reset(); raw.t.length = raw.ph.length = 0; lastT = -Infinity; firstT = Infinity; synth = null; off = 0; synthed = false; xs.clear(); shownV.clear(); if (frame) draw(); },
     backfill, historySecs: () => SPAN_S,
     restart() { this.clear(); },
-    dispose() { cancelFrame(raf); raf = 0; ticking = false; io?.disconnect(); ro?.disconnect(); },
+    dispose() { gone = true; cancelFrame(raf); raf = 0; cancelFrame(loopRaf); loopRaf = 0; ticking = false; io?.disconnect(); ro?.disconnect(); },
   };
 }

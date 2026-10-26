@@ -8,7 +8,7 @@
 import { store, hiddenNow } from './store.js?v=926dabfaef';
 import { h, fmt, fitCanvas, cssVar, cssAlpha, clamp } from './util.js?v=29a9d1a27d';
 import { FONT as FONT0, FONT } from './charts.js?v=5e21f9ac80';
-import { frameFor } from './frame.js?v=39b0efa1db';
+import { frameFor, cancelFrame } from './frame.js?v=39b0efa1db';
 import { tenthGap } from '../engine/gap.js?v=3aabfbb29b';
 import { firstAtOrAbove, firstAbove } from './sorted.js?v=662e543c85';
 import { limitLabelX as labelX } from './limit-label.js?v=52dcc41a1e';
@@ -274,7 +274,7 @@ export function createPressureTime({ marks = () => [] } = {}) {
     return lastT - LAG_S * rate + Math.min((performance.now() - wallAt) / 1000, LAG_S) * rate;
   }
   // The scroll loop runs only while the trace is on screen and moving; the next sample (ingest) wakes it.
-  let ticking = false;
+  let ticking = false, tickRaf = 0;   // (tickRaf: the loop's one frame asked for, let go with the chart)
   // On screen: kept by an observer, not read from cv.offsetParent, which forced a style and layout pass on every model frame
   // (the dock's chart wakes with each sample, shown or not).
   let seen = false;
@@ -282,11 +282,12 @@ export function createPressureTime({ marks = () => [] } = {}) {
   io?.observe(cv);
   const live = () => frame?.running && range !== 'days' && (io ? seen : cv.offsetParent) && !document.hidden;
   function tickLoop() {
+    tickRaf = 0;
     if (!live()) { ticking = false; return; }
-    nextFrame(tickLoop);
+    tickRaf = nextFrame(tickLoop);
     draw();
   }
-  function wake() { if (!ticking && live()) { ticking = true; nextFrame(tickLoop); } }
+  function wake() { if (!ticking && live()) { ticking = true; tickRaf = nextFrame(tickLoop); } }
 
   function draw() {
     gliding = false;
@@ -746,7 +747,7 @@ export function createPressureTime({ marks = () => [] } = {}) {
     return true;
   }
   function configure(t) { cfg = { ekg: t?.ekg !== false, lane: t?.hvpgLane !== false }; yr.pressure = yr.hvpg = null; if (frame) redraw(); }
-  return { id: 'scope', label: 'Pressure over time', el, update, ingest, redraw, clear, pin, configure, backfill, historySecs: () => RANGES[0][2], dispose() { offs.forEach((off) => off()); io?.disconnect(); frame = null; } };
+  return { id: 'scope', label: 'Pressure over time', el, update, ingest, redraw, clear, pin, configure, backfill, historySecs: () => RANGES[0][2], dispose() { offs.forEach((off) => off()); io?.disconnect(); cancelFrame(tickRaf); tickRaf = 0; ticking = false; frame = null; } };
 }
 
 // Thin a series to about two points per pixel column (a pulsatile trace has thousands of samples).

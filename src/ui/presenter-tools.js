@@ -43,15 +43,15 @@ import { store } from './store.js?v=926dabfaef';
 import { h } from './util.js?v=29a9d1a27d';
 import { EDGES } from '../engine/topology.js?v=4044766e96';
 import { createDoppler } from './doppler.js?v=2cf46c7c43';
-import { createFibroScan } from './fibroscan.js?v=cf9e74d159';
-import { createPressureTime } from './pressure-time.js?v=891060438c';
+import { createFibroScan } from './fibroscan.js?v=2ee166222d';
+import { createPressureTime } from './pressure-time.js?v=25fccd7525';
 import { createSpleenUS } from './spleen-us.js?v=b786e41031';
-import { createVitalsMonitor } from './vitals-monitor.js?v=ab4171cafb';
+import { createVitalsMonitor } from './vitals-monitor.js?v=7321277c30';
 import { createHvpgCard } from './tool-hvpg.js?v=062fa03bb7';
-import { createFlowTime } from './flow-time.js?v=6b3dd7996d';
-import { createEndoscopy, createAbdomen, createVarixWall } from './instruments.js?v=ccfa933ee8';
-import { frameFor } from './frame.js?v=39b0efa1db';
-import { talkTrace } from './talk-trace.js?v=a8e47e18a3';
+import { createFlowTime } from './flow-time.js?v=25054bed7e';
+import { createEndoscopy, createAbdomen, createVarixWall } from './instruments.js?v=b30bea3ac8';
+import { frameFor, cancelFrame } from './frame.js?v=39b0efa1db';
+import { talkTrace } from './talk-trace.js?v=d91d5aaa79';
 import { EXT, guard, safe } from './slide-ext.js?v=0b33b7082b';
 const nextFrame = frameFor('presenter-tools');
 
@@ -80,7 +80,10 @@ export function createTools({ host, stage }) {
   // 12 px or more on the screen, the chart's letters all grown by the same factor (--svk), up to twice.
   const svk = () => { for (const sv of box.querySelectorAll('svg[viewBox]')) { const w = +sv.getAttribute('viewBox').split(/[\s,]+/)[2], r = sv.getBoundingClientRect().width;
     if (!w || !r) continue; const k = Math.min(2, Math.max(1, 12 / (13 * r / w))); if (Math.abs(k - (+sv.style.getPropertyValue('--svk') || 1)) > 0.02) sv.style.setProperty('--svk', k.toFixed(2)); } };
-  if (typeof ResizeObserver === 'function') new ResizeObserver(() => nextFrame(svk)).observe(box);
+  // (One frame asked for at a time, however many sizes the card goes through in it; the observer is let go with the tools.)
+  let svkRaf = 0;
+  const ro = typeof ResizeObserver === 'function' ? new ResizeObserver(() => { if (!svkRaf) svkRaf = nextFrame(() => { svkRaf = 0; svk(); }); }) : null;
+  ro?.observe(box);
   const made = {};
   let cur = null, kind = null, probe0, gate0, lastSt = null, lastSlide = null, held = false, lastTool = null, lastCtx = null;
   let primeTok = 0, primeWait = false, primeP = null;   // (primeTok: the history asked for last; primeWait: the card is up while the state is still landing, its history asked for at the landing; primeP: that ask)
@@ -190,7 +193,7 @@ export function createTools({ host, stage }) {
     dispose() {
       if (probe0 !== undefined) { host.send({ type: 'probe', id: probe0 }); store.set({ dopGate: gate0 || 'mid' }); } probe0 = undefined; lastSt = null; lastSlide = null; this.hide();
       // Each presentation builds its own tools: let go of this one's instruments (and the endoscopy's GL context).
-      offFrame();
+      offFrame(); ro?.disconnect(); cancelFrame(svkRaf); svkRaf = 0;
       for (const k of Object.keys(made)) { made[k]?.dispose?.(); delete made[k]; }
       box.replaceChildren();
     },
