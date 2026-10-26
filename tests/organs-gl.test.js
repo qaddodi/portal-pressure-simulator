@@ -159,7 +159,9 @@ test('the organ layers are painted on the GPU from their shapes, with no SVG pic
   // The SVG copy only when a layer cannot be read; the picture given up when the state moves on, a few ms painted a frame.
   assert.match(stage, /const copyNeeded = !baked \|\| \[\.\.\.baked\.values\(\)\]\.some\(\(b\) => !b\);\n\s+if \(slot === 0 && copyNeeded\)/);
   assert.match(stage, /const gone = \(\) => seq !== plateSeq \|\| drops !== plateDrops \|\| v !== veins \|\| v\.lost \|\| !v\.organs \|\| \(slot === 1 && vseq !== viewSeq\) \|\| key !== plateStateKey\(\);/);
-  assert.match(stage, /job\.step\(performance\.now\(\) \+ 6\)/);
+  // (Not a fixed 6 ms a frame of its own any more: a step is what is left of the allowance every refinement shares, in a frame outside a gesture: refine.js.)
+  assert.match(stage, /const ms = await refineTurn\(gone\);\n\s+if \(ms === null\) return false;\n\s+const t0 = performance\.now\(\);\n\s+const done = gpuProbe\.time\(null, 'organ picture: GPU paint', \(\) => job\.step\(t0 \+ ms\)\);/);
+  assert.doesNotMatch(stage, /job\.step\(performance\.now\(\) \+ 6\)/);
   const bake = gl.slice(gl.indexOf('    bake(slot, name, groups, rect, scale, at = 0) {'), gl.indexOf('    dropKept() {'));
   assert.doesNotMatch(bake, /texSubImage2D|readPixels|getImageData|Image\(|XMLSerializer|canvas'\)/);
   assert.match(bake, /staged\[slot\]\.set\(name, \{ tex, rect, at, flip: true \}\);/);

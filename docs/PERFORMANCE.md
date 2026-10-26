@@ -51,6 +51,23 @@ What changed:
   never tests the thousands of drawn paths on pointer moves.
 - The hidden congestion-glow layer is only updated in the Congestion lens; occlusion masks are
   keyed on whole-pixel widths.
+- **Optional refinement shares one small allowance and waits out a gesture** (`src/ui/refine.js`).
+  The organ pictures made sharper after a zoom (painted on the GPU a few ops at a time, or
+  rasterized a strip at a time) and the gut's pictures each took 6 ms of painting a frame of their
+  own, a strip's drawing and read-back on top. They now take turns, one step a frame, from an
+  allowance of 1 ms a frame (`REFINE_MS`; `?refinems=3` tries another), in frames where no
+  gesture is under way (a drag, a fling, a wheel in the last 250 ms, a finger down or an input in the
+  last 120 ms). A step paints at least one op, so the allowance can be exceeded by one op: the
+  `?perf` readout lists the longest step by layer and counts the steps and the frames held for a
+  gesture. Work the state has moved on from is dropped at its next turn, not after the gesture.
+  The pictures therefore arrive over a longer stretch than before (the figure shows what it showed
+  before them meanwhile). The one indivisible operations left (a big shape's first mesh, reading
+  every organ's shapes) are not split.
+- **Shader publishing, the optional vessel programs and the module warm-up wait for the page to be
+  left alone** (`src/ui/quiet.js`, the one clock of input): a program that finishes compiling mid
+  pan or pinch is published afterwards (`publishWhenDone`, the vessel renderer's `prepare()`), and
+  the palette, presenter and dock modules are read in one at a time, each in a quiet idle moment.
+  The programs the first draw needs are still compiled and finished at start-up.
 
 The sections below describe the earlier scheduling work, still in place.
 

@@ -22,6 +22,8 @@ export const COUNTED = {
   // the whole vessel sync because something else had changed or a vessel outgrew its binned reach.)
   flowSame: 'blood: upload skipped (rows unchanged)', flowRetired: 'blood: rows cleared',
   widthRadii: 'widths: radii-only sync', widthWhole: 'widths: whole sync',
+  // (The optional refinement work, refine.js: the steps it took, and the frames it was held back from for a gesture.)
+  refineStep: 'refinement: steps', refineHeld: 'refinement: frames held for a gesture',
 };
 /** The counted names whose count above 1 in one frame means a surface drawn twice in it. */
 export const TWICE = new Set([COUNTED.picture, COUNTED.glassDrawn, COUNTED.lobulePicture]);

@@ -21,7 +21,7 @@
 // words with **...** (ink in quiet words); a lead that only reads after its list goes in verdict, at the foot.
 // The card never changes size with the reading: each reading's slot is as wide as its widest number, the marks cross-fade.
 
-import { h, fmt } from './util.js?v=defb4c4059';
+import { h, fmt } from './util.js?v=8fbd068ad3';
 import { TILE } from './table-marks.js?v=b717587a61';
 
 export const CRITERIA_MAX = 4;

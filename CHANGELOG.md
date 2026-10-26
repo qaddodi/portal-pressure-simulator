@@ -2,6 +2,14 @@
 
 ## October 2026
 
+- **After a pan or pinch the figure's extra work waits its turn: one small shared allowance, nothing optional during a gesture.** (Reviewer's smoothness brief, T03 and T15;
+  Mohammad, 26 Oct, "ok do it".) The organ pictures made sharper after a zoom each took 6 ms of painting a frame, a strip's drawing and read-back on top, and went on while the
+  figure was still moving. They now take turns, one step a frame, from 1 ms a frame (`src/ui/refine.js`; `?refinems=` tries another), only in frames outside a gesture, and
+  the longest step is listed by layer in the `?perf` readout. Shader programs that finish compiling mid gesture are published after it, the vessel renderer's optional programs
+  likewise, and the palette, presenter and dock modules are read in one at a time once the page has been left alone (`src/ui/quiet.js`, one clock of input for the app).
+  Code and unit tests only; nobody has looked on screen. The sharp view picture can take a few seconds longer to arrive than before. `src/ui/refine.js`, `src/ui/quiet.js`,
+  `src/ui/stage.js`, `src/ui/gl-compile.js`, `src/ui/veins-gl.js`, `src/ui/main.js`, `docs/PERFORMANCE.md`, `tests/refine.test.js`, `tests/quiet.test.js`.
+
 - **The "Look first for" card and every plain-list criteria card get a mark per row and key words in ink.** (Mohammad, 26 Oct, "we need to fix this card to look much better", then
   his pick "C with D's key words" from the mocks in `review/look-first-card-ideas`.) A list with no cut-off column now puts a ring at each row's left, for a thing to check; the ring is
   filled on the row that applies to the case or that the model meets (outlined is the rule, filled is the case, as the rule pill), and its fill eases with the reading. A list that says

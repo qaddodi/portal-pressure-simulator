@@ -3,17 +3,17 @@
 
 import { EDGES, dopplerK, NODES, PORTAL_TERRITORY, dMinOf, edgePresent, isOccluded, SHUNT_PORTAL, SHUNT_SYSTEMIC, customShuntId, isStent, stentSite, STENT_SITES, STENT_SPANS, stentGate, stentSegments } from '../engine/topology.js?v=4044766e96';
 import { route as metroRoute, RECTUM_FADE, LABEL_VESSEL, TIP_FADE, TIP_CONNECT, VIEW, VB_ANAT, VB_CIRC, ATLAS_COLUMNS, HIDDEN_EDGES, HIDDEN_NODES, ANAT_HIDDEN, ANAT_HIDDEN_NODES, CAUDATE, CONTEXT_EDGES, BACK_EDGES, IVC_EDGES, NEEDS_C3, NODE_POS, EDGE_PATH, CIRCUIT_PATH, metroPath, ORGANS, SEAM_D, ORGAN_DETAIL, BACKDROP, LIVER_INNER, LIVER_EDGES, LANE_CAPTIONS, ABDOMEN_CLIP, ABDOMEN_FLOOR, flankPath, abdomenOutline, cavityHalfWidths, SPLEEN_CENTER, SITES, ORGAN_LABELS, ATLAS_LABELS, SHORT, ABBR, CHIP_NODES, LIVER_SPLIT_X, CIRCUIT_ZONES, CIRCUIT_LABELS, STRANDS, STRAND_FROM, SIN_EDGES, FEEDERS, fanFeeders, CIRCUIT_TREES } from './anatomy.js?v=48cc98d415';
-import { pressureColor, deltaColor, dropColor, flowColor, heatColor, velColorOf, velocityColor, oxygenColor } from './colormap.js?v=61a1db2f22';
+import { pressureColor, deltaColor, dropColor, flowColor, heatColor, velColorOf, velocityColor, oxygenColor } from './colormap.js?v=a583560dd8';
 import { forkJoins, sideEndScale } from './fork-joins.js?v=20a032142f';
 import { nodeEnds, nodeDrawn, dotRadius, bareDots } from './circuit-nodes.js?v=1040ba0ec4';
 import { STATION_VESSEL, meanVel, velNormal, judgeFlow } from './velNormal.js?v=97920ddf3f';
 import { store, updateParams, varicesPresent, varixGrowth, shownVel } from './store.js?v=926dabfaef';
 import { fibroReading } from './clock.js?v=5151312569';
-import { s, h, fmt, fmtFlow, fp, clamp, lerp, toast, systemEdge, bloodColors, restBox, translateRest, settledBox, putText, UPRIGHT_MQ } from './util.js?v=defb4c4059';
+import { s, h, fmt, fmtFlow, fp, clamp, lerp, toast, systemEdge, bloodColors, restBox, translateRest, settledBox, putText, UPRIGHT_MQ } from './util.js?v=8fbd068ad3';
 import { riseCentre } from './rise-path.js?v=c039cb7b49';
 import { sinceSource } from './since-ref.js?v=ef1a818c75';
 import { clipBox, mapBox } from './fit-box.js?v=d5d6d4c60f';
-import { runFlick, FLICK } from './flick.js?v=25517e4aad';
+import { runFlick, FLICK } from './flick.js?v=1e070c821a';
 import { inlineStyles } from './svg-inline.js?v=fc17cb73fe';
 import { fluidTarget, poolFade } from './fluid-step.js?v=2742314765';
 import { easeTo, fluidSpring, fluidSpringFor } from './organ-ease.js?v=4ebb648131';
@@ -29,20 +29,21 @@ import { LIVER_GEO } from './liver-geo-data.js?v=41a20a25ac';
 import { COLON_ART, BOWEL_ART, DUO_CLIPS, DUO_A, DUO_B } from './organ-art.js?v=a6a766d521';
 import { warmVisible, ringGrid, inGrid } from './warm-vis.js?v=ccf4f6f71b';
 import { createRouter } from './circuit-router.js?v=0ee9e02fc6';
-import { gpuProbe, COUNTED } from './gpu-probe.js?v=be7cefbb53';
+import { gpuProbe, COUNTED } from './gpu-probe.js?v=95daf86f00';
 import { plateStrips, premultiply, gutStep, viewReuse, copyPixels } from './plate-upload.js?v=5fc45556a1';
+import { refine } from './refine.js?v=ea883e8b0f';
 import { leftAlone, sinceInput } from './quiet.js?v=82fc0f97e3';
 import { cropToGrid } from './organs-gl.js?v=efbea815e0';
 import { readGroup, shapeSource, bindShape, targetRoom } from './organ-paint.js?v=f67ce51385';
 import { pathCmds, flattenCmds, polyBox } from './shape-gl.js?v=a5ba46162b';
-import { createLabelGL } from './label-gl.js?v=376b4038f8';
-import { createGlassGL } from './glass-gl.js?v=e16c44128f';
-import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, ORIGIN_GREY } from './veins-gl.js?v=bac26f3362';
+import { createLabelGL } from './label-gl.js?v=cbdd758402';
+import { createGlassGL } from './glass-gl.js?v=2817f250a4';
+import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, ORIGIN_GREY } from './veins-gl.js?v=79f444a41d';
 import { varixBead, beadRadius } from './varix-bead.js?v=ac0e84fd89';
 import { advanceStream, createReversalHold, bleedShapes, stepBleedFade, fadeBleedShapes, chevFlowLevel, keyChevron, KEY_CHEV_LANES, originFractions, oxygenFor, ORIGIN_N, createBolus, DYE_BINS, KAPPA, STASIS_MIN_D, HIDDEN_SECONDS } from './blood.js?v=7fa561f952';
 import { retireRows } from './flow-rows.js?v=bea4089714';
 import { createJunctionWidths } from './junction-widths.js?v=c5726a67f9';
-import { frameFor, lateFrameFor, cancelFrame, noteDraw, setSaver as setFrameSaver, paceMs, frame } from './frame.js?v=f9b2b8e123';
+import { frameFor, lateFrameFor, cancelFrame, noteDraw, setSaver as setFrameSaver, paceMs, frame } from './frame.js?v=662cbacff1';
 import { softwareYield } from './sw-yield.js?v=e580a095b1';
 import { portalSplit } from './table-marks.js?v=b717587a61';
 import { hashSeed, clotSide, clotSpan, clotRadius, clotShift, clotLayers, CLOT_EDGE } from './clot-shape.js?v=415ba6b9c0';
@@ -2181,7 +2182,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const lzAnchor = document.createComment('lobule');
   wrap.append(lzAnchor);
   // (The code is fetched as soon as the figure is shown; the layer is built a moment later, when the page is quiet, or at once for a dive.)
-  const lobuleCode = () => (lzCode ||= import('./lobule-zoom.js?v=0b7e93bfb6').catch((err) => { lzCode = null; throw err; }));
+  const lobuleCode = () => (lzCode ||= import('./lobule-zoom.js?v=ff8ca3ea14').catch((err) => { lzCode = null; throw err; }));
   function lobuleReady() {
     return (lzLoad ||= lobuleCode().then(({ createLobuleZoom }) => {
       lz = createLobuleZoom({ host: wrap, styles: wrapCS, before: lzAnchor });
@@ -3888,6 +3889,15 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       return img;
     } finally { URL.revokeObjectURL(url); }
   }
+  // ── Optional refinement (refine.js) ──
+  // The pictures made sharper after a zoom, and the gut's, take their turns in frames where the figure is not in hand, a little of each
+  // frame from one allowance shared by all of them (the 6 ms a step they each took was a frame's own time, and a strip's drawing and
+  // read-back came on top of it). Work that is not wanted any more (the state moved on, a newer picture began) is dropped at its turn.
+  const refineHeld = () => gestureOn() || !leftAlone(120);
+  /** Waits for a frame in which refinement may run. Resolves with the ms the frame still has for it, or null once `gone()` says the work is not wanted. */
+  const refineTurn = (gone) => refine.turn(() => new Promise((res) => nextFrame(res)), refineHeld, gone);
+  /** Runs fn as one step of refinement, its time charged to the frame's allowance (and the longest step noted) under `name`. */
+  const refineStep = (name, fn) => { const t0 = performance.now(); try { return fn(); } finally { refine.spent(performance.now() - t0, name); } };
   async function rasterPlate(slot, rect, scale, layer = null, fresh = true, unmask = false) {
     const W = Math.max(1, Math.round(rect[2] * scale)), H = Math.max(1, Math.round(rect[3] * scale));
     const seq = plateSeq, drops = plateDrops;
@@ -3934,31 +3944,32 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     // (A state that changed on the way is given up at the next strip, not after every strip is drawn, read back and uploaded: with the
     // plate already down, another organ change hides nothing, so plateDrops does not move for it. External review, 21 Oct.)
     const gone = () => seq !== plateSeq || drops !== plateDrops || v !== veins || v.lost || vseq !== (banded ? viewSeq : 0) || drawnAs !== plateStateKey();
-    let job = v.plateJob(W, H), waited = false;
+    let job = v.plateJob(W, H);
     try {
+      // (Each half of a strip, its drawing and its read-back and upload, takes its own turn in a frame that has some of the shared
+      // allowance left (refineTurn), and is charged to it: a strip's drawing and the one before it's read-back came in one frame.)
       for (const [y, rows] of plateStrips(W, H)) {
-        if (y && !waited) await new Promise((res) => nextFrame(res));
-        waited = false;
-        if (gone()) return false;
+        if (await refineTurn(gone) === null) return false;
         if (banded) {
           const { copy, draw } = prev ? viewReuse(W, H, prev.W, prev.H, ox, oy, y, rows) : { copy: null, draw: [[0, y, W, rows]] };
-          if (copy) gpuProbe.time(null, 'organ picture: reuse', () => copyPixels(px, W, copy[0], copy[1], prev.px, prev.W, copy[0] + ox, copy[1] + oy, copy[2], copy[3]));
+          if (copy) refineStep('organ picture: reuse', () => gpuProbe.time(null, 'organ picture: reuse', () => copyPixels(px, W, copy[0], copy[1], prev.px, prev.W, copy[0] + ox, copy[1] + oy, copy[2], copy[3])));
           const mine = [];
           for (const [qx, qy, qw, qh] of draw) {
-            const band = await svgPicture(gpuProbe.time(null, 'organ picture: copy (script)', () => plateMarkup([rect[0] + qx / sx, rect[1] + qy / sy, qw / sx, qh / sy], qw, qh, false, true, layer, unmask)));
+            const band = await svgPicture(refineStep('organ picture: markup', () => gpuProbe.time(null, 'organ picture: copy (script)', () => plateMarkup([rect[0] + qx / sx, rect[1] + qy / sy, qw / sx, qh / sy], qw, qh, false, true, layer, unmask))));
             if (gone() || plateCopy?.key !== drawnAs) return false;
-            mine.push([qx, qy, drawn(qw, qh, (pg) => pg.drawImage(band, 0, 0, qw, qh))]);
+            mine.push([qx, qy, refineStep('organ picture: draw', () => drawn(qw, qh, (pg) => pg.drawImage(band, 0, 0, qw, qh)))]);
           }
-          if (mine.length) { await new Promise((res) => nextFrame(res)); waited = true; if (gone()) return false; }
-          for (const [qx, qy, p] of mine) copyPixels(px, W, qx, qy, readBack(p), p.w, 0, 0, p.w, p.h);
-          v.plateRows(job, y, rows, px.subarray(y * W * 4, (y + rows) * W * 4));
+          if (mine.length && await refineTurn(gone) === null) return false;
+          refineStep('organ picture: read + upload', () => {
+            for (const [qx, qy, p] of mine) copyPixels(px, W, qx, qy, readBack(p), p.w, 0, 0, p.w, p.h);
+            v.plateRows(job, y, rows, px.subarray(y * W * 4, (y + rows) * W * 4));
+          });
         } else {
-          const band = await svgPicture(gpuProbe.time(null, 'organ picture: copy (script)', () => plateMarkup([rect[0], rect[1] + y / sy, rect[2], rows / sy], W, rows, false, true, layer, unmask)));
+          const band = await svgPicture(refineStep('organ picture: markup', () => gpuProbe.time(null, 'organ picture: copy (script)', () => plateMarkup([rect[0], rect[1] + y / sy, rect[2], rows / sy], W, rows, false, true, layer, unmask))));
           if (gone() || plateCopy?.key !== drawnAs) return false;
-          const p = drawn(W, rows, (pg) => pg.drawImage(band, 0, 0, W, rows));
-          await new Promise((res) => nextFrame(res)); waited = true;
-          if (gone()) return false;
-          v.plateRows(job, y, rows, readBack(p));
+          const p = refineStep('organ picture: draw', () => drawn(W, rows, (pg) => pg.drawImage(band, 0, 0, W, rows)));
+          if (await refineTurn(gone) === null) return false;
+          refineStep('organ picture: read + upload', () => v.plateRows(job, y, rows, readBack(p)));
         }
       }
       // A picture of a state that ended while it was on its way in is given up (the one shown stays). Above all the colours: an
@@ -4032,11 +4043,14 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     }, 1000);
   }
   async function rasterLayers(slot, rect, scale) {
-    const v = veins, boxes = layerBoxes(), names = [], live = liveOn(), paths = new Map();
+    // (Its turn first: reading every organ's box and shape is a step of its own, tens of ms on a phone, begun from a timer.)
+    const seq0 = plateSeq, drops0 = plateDrops, v = veins;
+    if (await refineTurn(() => seq0 !== plateSeq || drops0 !== plateDrops || v !== veins || !v || v.lost) === null) return false;
+    const boxes = refineStep('organ layers: boxes', layerBoxes), names = [], live = liveOn(), paths = new Map();
     layerStarts++; if (fluidEasing()) layerStartsEasing++;
     // With the organs painted live, each layer's picture is painted on the GPU straight from its organs' shapes (bakeLayer); the SVG
     // copy is made only for a layer the painter cannot read, which is rasterized from it as before.
-    const baked = live ? bakeAll() : null;
+    const baked = live ? refineStep('organ layers: shapes read', bakeAll) : null;
     for (const L of bakeSkip) if (baked?.get(L)) { baked.set(L, null); bakeWhy.set(L, 'painting turned off for the check'); }
     const copyNeeded = !baked || [...baked.values()].some((b) => !b);
     if (slot === 0 && copyNeeded) gpuProbe.time(null, 'organ picture: copy (script)', () => { plateCopy = plateBuild(plateStateKey()); });
@@ -4093,10 +4107,15 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const job = v.organs.bake(slot, L, b.groups, rect, scale, b.at);
     if (!job) return false;
     try {
+      // (Painted a few ops in each frame that has some of the shared allowance left, none in a gesture's: a step paints at least one op,
+      // and the longest one is noted by layer.)
       for (;;) {
-        if (gone()) return false;
-        if (gpuProbe.time(null, 'organ picture: GPU paint', () => job.step(performance.now() + 6))) return true;
-        await new Promise((res) => nextFrame(res));
+        const ms = await refineTurn(gone);
+        if (ms === null) return false;
+        const t0 = performance.now();
+        const done = gpuProbe.time(null, 'organ picture: GPU paint', () => job.step(t0 + ms));
+        refine.spent(performance.now() - t0, `organ layer ${L}`);
+        if (done) return true;
       }
     } finally { if (!v.lost) job.drop(); }
   }
@@ -4473,9 +4492,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
           // (A strip per frame, as the plate's picture: drawn whole, the gut's 1,201 paths took one long frame after a pinch.)
           const cg = cv.getContext('2d');
           for (const [y, rows] of plateStrips(W, H)) {
-            if (y) await new Promise((res) => nextFrame(res));
-            if (seq !== gutPicSeq) throw new Error('overtaken');
-            cg.drawImage(img, 0, y, W, rows, 0, y, W, rows);
+            if (await refineTurn(() => seq !== gutPicSeq) === null) throw new Error('overtaken');
+            refineStep('gut picture: strip', () => cg.drawImage(img, 0, y, W, rows, 0, y, W, rows));
           }
           blob = await gpuProbe.time(null, 'gut picture: encode', () => new Promise((res) => cv.toBlob(res, 'image/png')));
           cv.width = cv.height = 0;

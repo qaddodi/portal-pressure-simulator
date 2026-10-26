@@ -40,19 +40,19 @@
 // has recorded (backfill.js), so the trace sweeps on live from there instead of in from empty.
 
 import { store } from './store.js?v=926dabfaef';
-import { h } from './util.js?v=defb4c4059';
+import { h } from './util.js?v=8fbd068ad3';
 import { EDGES } from '../engine/topology.js?v=4044766e96';
-import { createDoppler } from './doppler.js?v=e8012967f2';
-import { createFibroScan } from './fibroscan.js?v=ab25616c91';
-import { createPressureTime } from './pressure-time.js?v=b2e14b83c0';
-import { createSpleenUS } from './spleen-us.js?v=8681f35cdc';
-import { createVitalsMonitor } from './vitals-monitor.js?v=1e03e5779b';
-import { createHvpgCard } from './tool-hvpg.js?v=7ad0e1f54e';
-import { createFlowTime } from './flow-time.js?v=89b87f5057';
-import { createEndoscopy, createAbdomen, createVarixWall } from './instruments.js?v=a9f7710756';
-import { frameFor, cancelFrame } from './frame.js?v=f9b2b8e123';
-import { talkTrace } from './talk-trace.js?v=7bcf451e94';
-import { EXT, guard, safe } from './slide-ext.js?v=7f3b1907e1';
+import { createDoppler } from './doppler.js?v=0b43e89dcc';
+import { createFibroScan } from './fibroscan.js?v=43daacd7ba';
+import { createPressureTime } from './pressure-time.js?v=3834c6c9c4';
+import { createSpleenUS } from './spleen-us.js?v=9996309997';
+import { createVitalsMonitor } from './vitals-monitor.js?v=c96e868534';
+import { createHvpgCard } from './tool-hvpg.js?v=d617f37754';
+import { createFlowTime } from './flow-time.js?v=0222a97d6a';
+import { createEndoscopy, createAbdomen, createVarixWall } from './instruments.js?v=26b03e5bbe';
+import { frameFor, cancelFrame } from './frame.js?v=662cbacff1';
+import { talkTrace } from './talk-trace.js?v=1cb9acf97d';
+import { EXT, guard, safe } from './slide-ext.js?v=358227ca1f';
 const nextFrame = frameFor('presenter-tools');
 
 const VESSEL = { PV_TRUNK: 'main portal vein', PVH_R: 'right portal vein', PVH_L: 'left portal vein', SV_CONF: 'splenic vein', SV_MID: 'splenic vein', V_SPL: 'splenic vein, at the hilum',
