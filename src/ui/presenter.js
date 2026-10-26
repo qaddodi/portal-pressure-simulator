@@ -15,7 +15,7 @@
 
 import { store, replaceParams } from './store.js?v=926dabfaef';
 import { download } from './download.js?v=3564e5bf8c';
-import { h, toast, svgIcon, icon, fmt, clamp, openModal, closeModal, isModalOpen, restBox, paintRange, cssVar, swapText, STACK_MQ, SHORT_SIDE_MQ, TABLET_UP_MQ } from './util.js?v=d872252ef8';
+import { h, toast, svgIcon, icon, fmt, clamp, openModal, closeModal, isModalOpen, restBox, paintRange, cssVar, swapText, STACK_MQ, SHORT_SIDE_MQ, TABLET_UP_MQ } from './util.js?v=a7f8549e15';
 import { titleParts } from './title-units.js?v=c8d5ce1f26';
 import { swipeDir, ownsSideways, ownsTouch, cardSwipe, caseFling, caseFlight, wheelFinger, wheelGesture, ownsWheel } from './swipe.js?v=3ad619631e';
 import { sinusoidSupported } from './gl-support.js?v=94ad2a7ff1';
@@ -24,8 +24,8 @@ import { DISEASE_SRC, diseasePieces } from './diseases.js?v=fb8a5451c3';
 import { nb, listCase, plateletText } from './glue.js?v=5a0f63226b';
 import { DECKS, DECK_ALIAS, REGIONS, LEVELS, TOPICS, withOverview, siteTag, SITE_TAGS } from './decks.js?v=ae017741aa';
 import { fingerprintOf } from '../engine/fingerprint.js?v=8faea80b59';
-import { createHvpgMonitor } from './hvpg-proc.js?v=0dfceaf877';
-import { createTools } from './presenter-tools.js?v=ed552c2ab6';
+import { createHvpgMonitor } from './hvpg-proc.js?v=c9c5ae0694';
+import { createTools } from './presenter-tools.js?v=7641f3272c';
 import { openHandout } from './handout.js?v=c08a13d9a7';
 import { noteResume, resumeFor } from './resume.js?v=f086f80ee8';
 import { parseDeckSource, checkDeck } from './deck-source.js?v=8395c650cd';
@@ -33,11 +33,11 @@ import { NO_ASC, TILE, tileOf, SCALE, bandsOf, rateOf, COLS, CUT, PRESS, fpv, di
 import { frameFor, cancelFrame } from './frame.js?v=226365e6e2';
 import { createFigureKey } from './figure-key.js?v=498e12ab24';
 import { traceWhen } from './trace-labels.js?v=fc916a95c6';
-import { flowCss, heatCss, dropCss, gradientCss, oxygenCss } from './colormap.js?v=6b97bf1786';
-import { EXT, expandIds, stepExtra, markLabel, figureHooks, safe } from './slide-ext.js?v=0bb0d6958a';
+import { flowCss, heatCss, dropCss, gradientCss, oxygenCss } from './colormap.js?v=fd052a05e5';
+import { EXT, expandIds, stepExtra, markLabel, figureHooks, safe } from './slide-ext.js?v=4e20549bec';
 import { clotWords } from './callout-math.js?v=8b34c1bcf1';
 import { citeText, focusOf, oneLadder } from './teach-extras.js?v=5f5248f5a7';
-import { createProfileTool, createProfileStrip, pillReadings } from './tool-profile.js?v=2b800de855';
+import { createProfileTool, createProfileStrip, pillReadings } from './tool-profile.js?v=5a7c915373';
 import { causeFit } from './cause-fit.js?v=830a6835a5';
 import { COMPACT, WIDE } from './card-type.js?v=5af5f22935';
 import { flowTimeHeight } from './flow-time.js?v=1c1d1370e3';
