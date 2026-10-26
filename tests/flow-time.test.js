@@ -2,11 +2,11 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createCore } from '../src/worker-core.js';
 import { flowTimeSeries, MINUTES, LINE, headLeft } from '../src/ui/flow-time.js';
-import { CIRCULATION } from '../src/ui/decks/circulation.js';
 
-// The Circulation deck's meal slide, run off screen as the presenter does: its trail is the model's pressure and flow each day.
+// The meal time-lapse the Circulation deck's meal slide used to carry (the deck rebuild moved the meal to Circuit, which has no chart), run off
+// screen as the presenter does: its trail is the model's pressure and flow each day. The chart's own settings stay tested here.
 async function mealTrail() {
-  const meal = CIRCULATION.slides.find((s) => s.id === 'flow');
+  const meal = { id: 'flow', days: 8, ramp: { meal: [0, 1] }, tool: { kind: 'flowtime' } };
   const msgs = [], core = createCore((m) => msgs.push(m));
   core.handle({ type: 'init' });
   await core.handle({ type: 'sequence', reqId: 1, steps: [{ preset: 'healthy' }, { days: meal.days, ramp: meal.ramp, fine: true, trail: true }] });   // (settles once the sequence has run)
@@ -59,7 +59,7 @@ test('time-lapse charts plot every day of the lapse', async () => {
   const decks = await Promise.all(readdirSync(new URL('../src/ui/decks/', import.meta.url)).map((f) => import(`../src/ui/decks/${f}`)));
   const slides = decks.flatMap((m) => Object.values(m)).filter((d) => d?.slides).flatMap((d) => d.slides.map((s) => ({ d: d.id, s })));
   const charted = slides.filter(({ s }) => s.lapse && s.tool && (s.tool.kind === 'flowtime' || (s.tool.kind === 'trace' && s.tool.range !== 'beats')));
-  assert.ok(charted.length >= 3);
+  assert.ok(charted.length >= 2);   // (3 before the deck rebuild: the Circulation meal slide and the old Ascites time-lapse were cut, the plan's phases F1 and F5)
   for (const { d, s } of charted) {
     assert.equal(s.tool.kind, 'flowtime', `${d} ${s.id}: a time-lapse chart`);
     for (const k of s.tool.lines || []) assert.ok(LINE[k], `${d} ${s.id}: ${k} has a line`);

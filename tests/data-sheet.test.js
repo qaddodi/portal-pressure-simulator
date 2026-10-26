@@ -198,9 +198,9 @@ test('a phone\'s plan measuring a card at a given fit puts the card\'s own fit b
   assert.match(css, /\.pz\.stack\.stack \.pz-data\.pz-sheet\.pz-sheet > :not\(\.pz-tool\) \{ zoom: 1; \}/);
 });
 
-test('Circulation 8 (after a meal) lands partly open on a phone: its flowtime chart has its one size, the figure lending any room', async () => {
-  const deck = Object.values(await import('../src/ui/decks/circulation.js')).find((d) => d?.slides);
-  const s = deck.slides.find((x) => x.id === 'flow');   // (on-screen 8)
+test('Varices 3 (the time-lapse) lands partly open on a phone: its flowtime chart has its one size, the figure lending any room', async () => {
+  const deck = Object.values(await import('../src/ui/decks/varices.js')).find((d) => d?.slides);
+  const s = deck.slides.find((x) => x.id === 'lapse');
   assert.equal(s.tool?.kind, 'flowtime');
   assert.match(css, /\.pz\.stack\.stack \.pz-flowtime \{ --ft-h: min\(43cqi, 144px\); height: var\(--ft-h\); \}/, 'the size it used to give way to, for good');
   assert.match(css, /\.pz\.stack \.pz-data\.pz-data\.pz-data\.pz-data > \.pz-tool\[data-kind="flowtime"\] \{ width: 100%; zoom: 1; \}/, 'never zoomed with the card');

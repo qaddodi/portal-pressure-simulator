@@ -802,7 +802,7 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     // scale about nine times slower, a frame every few seconds, and the slide changes then took longer than the check waits.)
     if (device === 'phone') await (await page.context().newCDPSession(page)).send('Emulation.setDeviceMetricsOverride', { ...DEVICES.phone.viewport, deviceScaleFactor: 1, mobile: true });
     await open(page, '?preset=healthy');
-    await page.evaluate(() => window.pps.presenter.start('circulation', 5));
+    await page.evaluate(() => window.pps.presenter.start('circulation', 4));
     await page.waitForFunction(() => document.querySelector('#app').classList.contains('presenting') && window.pps.stage.lobuleOpen() && window.pps.stage.lobuleSettled() && !document.querySelector('.pz-cover'), null, { timeout: 60000 });   // (the start's cover gone)
     const settle = async () => {
       await page.waitForFunction(() => { const a = document.querySelector('#app'); return !a.classList.contains('pz-hush') && !a.classList.contains('pz-hush-in') && (window.pps.stage.lobuleOpen() || window.pps.store.get().sinusoid); }, null, { timeout: 30000 });
@@ -1105,7 +1105,7 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
   // moves steadily from the first frame to the last, in one direction, with no stop at an intermediate framing (the liver, the fit).
   // The presenter's slides are walked with the arrow keys, from the slide before a crossing to the one after it, and back.
   const CROSSINGS = [   // [deck, slide to start on (0-based), key, whether the key goes into the lobule, whether it is the sinusoid view that is gone to or left]
-    ['circulation', 4, 'ArrowRight', true], ['circulation', 5, 'ArrowLeft', false], ['circulation', 8, 'ArrowRight', false],   // ladder → lobule and back; central vein → the next view
+    ['circulation', 3, 'ArrowRight', true], ['circulation', 4, 'ArrowLeft', false], ['circulation', 5, 'ArrowRight', false],   // ladder → lobule and back; the sinusoid wall → the next view
     ['lobule', 0, 'ArrowRight', true],   // the outline's fit → the whole lobule
     ['ncph', 1, 'ArrowRight', true], ['ncph', 4, 'ArrowRight', true], ['ncph', 5, 'ArrowRight', false, false, true],   // a fit, then a liver close-up, before it (the last one leaves the lobule for the summary table)
     ['sites', 7, 'ArrowLeft', true],   // backwards into it
@@ -2451,7 +2451,7 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
       const ctx = await fastContext(browser, { viewport: { width: 390, height: 844 }, deviceScaleFactor: 3, isMobile: true, hasTouch: true });
       await ctx.addInitScript((s) => { try { localStorage.setItem('pps.labelScale', String(s)); localStorage.setItem('pps.labelScaleV', '2'); } catch { /* */ } }, step);
       const page = await ctx.newPage();
-      await gotoSlide(page, server.url, 'circulation', 2); await quiet(page); await page.waitForTimeout(800);
+      await gotoSlide(page, server.url, 'encephalopathy', 5); await quiet(page); await page.waitForTimeout(800);
       const r = await page.evaluate(() => {
         const t = document.querySelector('.pz-text'), a = t.querySelector('.pz-ab').getBoundingClientRect(), k = document.querySelector('.pz-fk').getBoundingClientRect();
         const names = [...document.querySelectorAll('#stageView g.lb text')].filter((x) => { const g = x.closest('g.lb'); return getComputedStyle(g).display !== 'none' && +getComputedStyle(g).opacity > 0.1; }).map((x) => x.textContent.trim()).filter((s) => /^[A-Z]+$/.test(s));
@@ -2507,8 +2507,8 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     const bad = [];
     for (const size of [{ width: 1440, height: 900 }, { width: 1180, height: 820 }, { width: 820, height: 1180 }]) {
       await page.setViewportSize(size);
-      for (const [deck, n] of [['circulation', 4], ['hvpg', 10], ['circulation', 12]]) {
-        if (size.width === 1440 && n === 4) await open(page, `?script=${deck}&slide=${n}`);
+      for (const [deck, n] of [['circulation', 3], ['hvpg', 10], ['circulation', 12]]) {
+        if (size.width === 1440 && n === 3) await open(page, `?script=${deck}&slide=${n}`);
         else await page.evaluate(([id, i]) => window.pps.presenter.start(id, i), [deck, n - 1]);
         await page.waitForFunction((k) => Number(document.querySelector('.pzb-n')?.textContent.split('/')[0]) === k && !document.querySelector('.pz-cover, .pz-load.on'), n, { timeout: 60000 });
         await page.waitForTimeout(3500);   // (longer than the old bar's idle fade)
@@ -2578,7 +2578,7 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     const sizes = device === 'desktop' ? [null, { width: 820, height: 1180 }, { width: 1024, height: 768 }, { width: 1194, height: 834 }, { width: 1366, height: 1024 }] : [null];
     for (const size of sizes) {
       if (size) await page.setViewportSize(size);
-      for (const deck of ['circulation', 'hvpg', 'sites']) {   // (sites: the most columns)
+      for (const deck of ['circuit', 'hvpg', 'sites']) {   // (sites: the most columns)
         const { DECKS, withOverview } = await import(new URL('../../src/ui/decks.js', import.meta.url));
         const at = withOverview(DECKS.find((d) => d.id === deck)).slides.findIndex((x) => x.visual === 'table') + 1;
         await open(page, `?script=${deck}&slide=${at}`);   // (the summary: the slide before the closing quick check)
@@ -2678,7 +2678,7 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     const sizes = device === 'desktop' ? [null, { width: 820, height: 1180 }] : [null];
     for (const size of sizes) {
       if (size) await page.setViewportSize(size);
-      for (const [deck, n] of [['circulation', 6], ['circulation', 7], ['two-inflows', 3], ['lobule', 5]]) {
+      for (const [deck, n] of [['circulation', 5], ['circulation', 6], ['two-inflows', 3], ['lobule', 5]]) {
         await open(page, `?script=${deck}&slide=${n}`);
         await page.waitForFunction(() => [...document.querySelectorAll('.lz.on:not(.lz-cam):not(.lz-sin) .lz-lab, .sv-region')].filter((e) => !e.hidden && e.offsetParent).length >= 2);
         // Settled: the labels hold still across two looks a moment apart.
@@ -4019,7 +4019,7 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
       await open(page, '?preset=cirr-decomp'); await tapTool(page, '#tabInstruments'); await verify(`${at} tests`);
       await page.evaluate(() => window.pps.details({ type: 'edge', id: 'PV_TRUNK' })); await verify(`${at} tests + details`);
       await open(page, '?script=circulation');
-      for (let i = 0; i < 10; i++) { await verify(`${at} slide ${i + 1}`); await page.keyboard.press('ArrowRight'); }
+      for (let i = 0; i < 8; i++) { await verify(`${at} slide ${i + 1}`); await page.keyboard.press('ArrowRight'); }
     }
   });
   // A phone held sideways is laid out like a narrow iPad: one bar row, Tests docked on the right at full height, the
@@ -4186,7 +4186,7 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     for (const [w, hgt] of cases) {
       await page.setViewportSize({ width: w, height: hgt });
       await open(page);
-      for (let n = 1; n <= 11; n++) {
+      for (let n = 1; n <= 10; n++) {
         if (n === 1) await page.evaluate(() => window.pps.presenter.start('circuit', 0)); else await page.evaluate((k) => window.pps.presenter.go(k), n - 1);
         await page.waitForFunction((k) => Number(document.querySelector('.pzb-n')?.textContent.split('/')[0]) === k && !window.pps.presenter.busy() && !document.querySelector('.pz-load.on, .pz-cover'), n, { timeout: 120000 });
         await page.waitForTimeout(4000);
@@ -4292,7 +4292,7 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     const sizes = device === 'desktop' ? [[820, 1180], [1180, 820], [1440, 900]] : [[390, 844], [375, 667], [320, 568]];
     // (Plus every other slide with a reading on the figure, and every slide whose words a 320 px phone had fitted under 12 px.)
     const more = 'hvpg 4,5,7,9;right-heart 3,5,7;shunts 2,5,6,8,9;stiffness 7;treatment 10;two-inflows 8;lobule 6;ncph 4;outflow 6,8;prehepatic 3,6;doppler 2,8;sites 3,8';
-    const slides = [...Array.from({ length: 11 }, (_, i) => ['circuit', i]), ['hvpg', 2],
+    const slides = [...Array.from({ length: 10 }, (_, i) => ['circuit', i]), ['hvpg', 2],
       ...more.split(';').flatMap((x) => { const [d, n] = x.split(' '); return n.split(',').map((k) => [d, k - 1]); })];
     const out = [];
     for (const [w, hgt] of sizes) {
@@ -4891,8 +4891,8 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
 if (!process.env.SMOKE_DEVICE || process.env.SMOKE_DEVICE === 'desktop') check('desktop', 'a software renderer has nothing left to draw after a page with the lobule and the sinusoid closes', async () => {
   const opts = { viewport: { width: 375, height: 667 }, deviceScaleFactor: 3, isMobile: true, hasTouch: true };
   let ctx = await fastContext(browser, opts), page = await ctx.newPage();
-  // (Circulation 6 to 8: into the lobule, to the portal triad, into the sinusoid.)
-  for (const i of [5, 6, 7]) await gotoSlide(page, server.url, 'circulation', i);
+  // (Circulation 5 and 6: into the lobule, into the sinusoid.)
+  for (const i of [4, 5]) await gotoSlide(page, server.url, 'circulation', i);
   await page.waitForTimeout(3000);
   await ctx.close();
   ctx = await fastContext(browser, opts); page = await ctx.newPage();

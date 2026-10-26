@@ -2,7 +2,6 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { flowTimeHeight, LINE, MEAL_LINES } from '../src/ui/flow-time.js';
-import { CIRCULATION } from '../src/ui/decks/circulation.js';
 
 test('wide meal charts shorten to their room without sacrificing the two plots', () => {
   const full = flowTimeHeight(420, 12, 500);
@@ -34,5 +33,4 @@ test('all wide chart-only cards share the protection while mixed and phone cards
   assert.match(js, /c === chart\.parentElement \? 0 : c\.getBoundingClientRect\(\)\.height/);
   assert.match(css, /\.pz\.pz-wide[^\n]+pz-flowfit > \.pz-tool\[data-kind="flowtime"\] \{ width: 100%; zoom: 1; \}/);
   assert.match(css, /pz-flowfit \.pz-flowtime \{ height: var\(--ft-room\); min-height: 0; transition: height \.32s var\(--ease\); \}/);
-  assert.equal(CIRCULATION.slides.find((s) => s.id === 'flow').line, 'Increasing flow by half adds little pressure because healthy sinusoids offer little resistance. The gut veins darken as flow rises.');
 });

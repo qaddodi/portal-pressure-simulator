@@ -209,7 +209,7 @@ export function gradientsAdd() {
 }
 export async function checkStripGaps(browser, url, log = console.log) {
   const bad = [];
-  const all = [['circulation', 11], ['sites', 3], ['sites', 6]];   // (raised, healthy and HVPG over 10: one- and two-digit readings in one strip)
+  const all = [['circulation', 7], ['sites', 3], ['sites', 6]];   // (raised, healthy and HVPG over 10: one- and two-digit readings in one strip)
   for (const size of SIZES) {
     const { name, ...opts } = size;
     const ctx = await browser.newContext({ ...opts, serviceWorkers: 'block' });
@@ -261,7 +261,7 @@ export async function checkStripSlides(browser, url, log = console.log, deck = n
 }
 export async function checkStrip(browser, url, log = console.log) {
   const bad = [];
-  for (const size of SIZES.slice(0, 2)) for (const scheme of ['light', 'dark']) for (const [q, what] of [['script=sites&slide=3', 'healthy'], ['script=circulation&slide=11', 'raised'], ['script=sites&slide=6', 'HVPG over 10']]) {
+  for (const size of SIZES.slice(0, 2)) for (const scheme of ['light', 'dark']) for (const [q, what] of [['script=sites&slide=3', 'healthy'], ['script=circulation&slide=7', 'raised'], ['script=sites&slide=6', 'HVPG over 10']]) {
     const { name, ...opts } = size;
     const ctx = await browser.newContext({ ...opts, colorScheme: scheme, serviceWorkers: 'block' });
     const page = await ctx.newPage();

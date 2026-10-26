@@ -92,7 +92,7 @@
 // Every deck opens with an "Outline and objectives" slide built from its kicker groups and objectives
 // (withOverview below); a deck never writes that slide itself.
 
-import { CIRCULATION } from './decks/circulation.js?v=81083b0906';
+import { CIRCULATION } from './decks/circulation.js?v=8818f308df';
 import { SITES } from './decks/sites.js?v=672baf95f7';
 import { HVPG } from './decks/hvpg.js?v=d52e9e34f2';
 import { ASCITES } from './decks/ascites.js?v=c3a48bdf57';
@@ -102,12 +102,12 @@ import { STIFFNESS } from './decks/stiffness.js?v=3e3cada9a5';
 import { LOBULE } from './decks/lobule.js?v=f00fea471c';
 import { SHUNTS } from './decks/shunts.js?v=0419d80c6b';
 import { TIPS_DOPPLER } from './decks/tips-doppler.js?v=738af5f882';
-import { CIRCUIT } from './decks/circuit.js?v=c1f4d54f37';
+import { CIRCUIT } from './decks/circuit.js?v=5073420934';
 import { DOPPLER } from './decks/doppler.js?v=d44e552955';
 import { ENDOSCOPY } from './decks/endoscopy.js?v=4cb71d8e9c';
 import { PREHEPATIC } from './decks/prehepatic.js?v=6e4ae22c61';
 import { BLEED } from './decks/variceal-bleed.js?v=e95162929f';
-import { TWO_INFLOWS } from './decks/two-inflows.js?v=c654aeaa46';
+import { TWO_INFLOWS } from './decks/two-inflows.js?v=7ed411b482';
 import { SPLEEN } from './decks/spleen.js?v=419f925c34';
 import { NCPH } from './decks/ncph.js?v=09a8d24ba7';
 import { OUTFLOW } from './decks/outflow.js?v=f854f410c6';

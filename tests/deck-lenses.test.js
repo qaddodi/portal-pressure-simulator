@@ -96,7 +96,8 @@ test('Oxygen: zone 3 darkest, portal blood a little darker than arterial, revers
   assert.ok(outR < inR - 0.15, `sinusoids darken toward the central vein: ${inR} → ${outR}`);
   const m = run('two-inflows', 'meet'), pv = sat(m, 'PV_TRUNK')[1], art = sat(m, 'A_HEP')[1];
   assert.ok(pv > 0.8 && pv < art && art - pv < 0.15, `portal ${pv}, arterial ${art}`);
-  const f = run('two-inflows', 'fugal');
+  const f = new Engine();
+  f.loadPreset('cirr-hepatofugal');   // (the preset Two inflows' hepatofugal slide used before the deck rebuild)
   assert.ok(f.Q[f.ei.PV_TRUNK] < 0, 'the portal vein drains the liver');
   assert.ok(Math.min(...sat(f, 'PV_TRUNK')) > SAT.artery - 0.03, `it carries arterial blood: ${sat(f, 'PV_TRUNK')}`);
 });

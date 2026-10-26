@@ -214,7 +214,9 @@ test('in the shipped decks the rule keeps cards between consecutive slides, and 
       }
     }
   }
-  assert.ok(pairs > 300);
+  // (The deck rebuild cut the shipped slides from about 370 to about 290, so the pair count floor went from 300 to 200. It counts the shipped
+  // slides and checks no behaviour; the checks above run on every pair there is.)
+  assert.ok(pairs > 200);
   assert.ok(kept > 0, 'there are slides that keep their data card');
   assert.ok(swapKept <= kept);
 });

@@ -5,8 +5,7 @@
   "portal vein"
  ],
  "circulation/series": [
-  "sinusoids",
-  "heart"
+  "sinusoids"
  ],
  "circulation/ladder": [
   "portal vein",
@@ -27,15 +26,9 @@
   "space of disse",
   "lymph"
  ],
- "circulation/flow": [
-  "sinusoids"
- ],
  "circulation/define": [
   "varices",
   "{hvpg}"
- ],
- "circulation/summary": [
-  "(a value)"
  ],
  "sites/healthy": [
   "sinusoidal pressure",
@@ -245,9 +238,6 @@
   "collaterals"
  ],
  "circuit/tips": [
-  "resistance"
- ],
- "circuit/drugs": [
   "resistance"
  ],
  "lobule/lobule": [
@@ -464,7 +454,6 @@
   "sinusoids"
  ],
  "two-inflows/clot": [
-  "portal vein",
   "{liver}"
  ],
  "two-inflows/artery": [
@@ -476,10 +465,6 @@
  ],
  "two-inflows/tips": [
   "{liver}"
- ],
- "two-inflows/fugal": [
-  "portal vein",
-  "{pvFlow}"
  ],
  "spleen/normal": [
   "splenic vein",

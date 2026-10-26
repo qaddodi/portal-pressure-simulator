@@ -2,6 +2,16 @@
 
 ## October 2026
 
+- **The foundations talks shed the slides other talks teach.** (Mohammad, 25 Oct, "Build the new decks"; deck rebuild plan, F5.) The portal circulation loses "One
+  patient, five ways to color the vessels", the meal and the summary table (the meal is Portal pressure as a circuit's); its Gut to heart chart is the one
+  card from the two capillary beds to the definition, including the lobule and sinusoid slides, and the talk is 6 slides, was 9. Portal pressure as a circuit
+  loses the propranolol and carvedilol slide (Lowering portal pressure teaches the drugs): 8 slides, was 9, its summary table one row shorter. The liver's two
+  inflows loses the hepatofugal slide (the Doppler talk's first case shows reversed flow) and keeps the hepatic artery clot, the only clotted-artery slide the
+  app has now; the talk reads in the origin lens and the pressure lens, the buffer slides in pressure and the Oxygen button for the sinusoids. `cite` and the
+  caveat moved into the notes, and lines were trimmed to 30 words. Tests: the shipped-pair floor in card-keep.test.js went from 300 to 200 because it
+  counts the shipped slides (about 290 now) and checks no behaviour; the tests that read a dropped slide follow it (the Oxygen test reads the
+  hepatofugal preset itself). Both humanizer passes were done: no new UI. Code and unit tests only; nobody has looked on screen. `src/ui/decks/circulation.js`,
+  `circuit.js`, `two-inflows.js`, `tests/`, `brand/handout/`.
 - **Decompensation and recompensation: seven slides, and the cure slide reads the HVPG monitor.** (Mohammad, 25 Oct, "Build the new decks"; deck rebuild plan,
   F4.) The carvedilol slide leaves, because Lowering portal pressure teaches the drug; Baveno VIII's advice to cut or stop a beta-blocker when the blood
   pressure stays low or the kidneys fail moved into the diuretics slide's notes, and the talk's chart, summary table and objectives no longer name

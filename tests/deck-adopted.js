@@ -78,7 +78,6 @@ export const ADOPTED = {
   'treatment/vs': ['kind:profile'],
   'circulation/inflow': ['kind:flows'],
   'circulation/series': ['scales', 'kind:profile', 'steps', 'glow:group'],
-  'circulation/flow': ['lapseGlow'],
   'pregnancy/weeks': ['kind:curve'],
   'pregnancy/scope': ['calipers', 'cite'],
   'pregnancy/propranolol': ['kind:criteria', 'cite'],
@@ -108,6 +107,8 @@ export const ADOPTED = {
   // One chart everywhere (Mohammad, 21 Oct: "Gut to heart is good, unify it"): every slide that had the old ladder card.
   'circulation/ladder': ['scales', 'kind:profile'],
   'circulation/define': ['kind:profile'],
+  'circulation/lobule': ['kind:profile'],
+  'circulation/wall': ['kind:profile'],
   'hvpg/presin': ['kind:profile'],
   'hvpg/ppg': ['kind:profile'],
   'hvpg/heart': ['kind:profile'],
