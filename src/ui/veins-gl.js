@@ -73,6 +73,10 @@ const GENERIC = typeof location !== 'undefined' && /[?&]veins=generic\b/.test(lo
 // present). The same pixels either way; which costs less (the browser keeping the canvas, or one copy a drawn frame) is for
 // the devices to say.
 const OWN_BUF = typeof location !== 'undefined' && /[?&]vesselbuf=own\b/.test(location.search);
+// ?blood=classic in the address (an A/B, off by default): the composite built as it was before the blood's speed-ups of 26 Oct
+// (COMP_FS `fast`): every lumen pixel lays the layers under it, hashes its noise, works out the zoom's numbers itself and keeps the
+// bead look's code. The same picture either way; the switch is there to compare on a device.
+const CLASSIC = typeof location !== 'undefined' && /[?&]blood=classic\b/.test(location.search);
 // The composite's per-frame uniform arrays, filled in place: it ran six `new Float32Array`s a frame. (Each is uploaded at once,
 // so one set serves every renderer.)
 // The origin colours flattened once per palette (the palette is one object for the page's life), not every frame (P8).
@@ -821,10 +825,14 @@ void main() {
 // origin colours and no bleed, where those three switches are constants 0 instead of uniforms, so the compiler drops the
 // code they gate. The composite picks plain only when those are its uniforms' values (see composite): the same arithmetic,
 // without the branches that do nothing in such a frame.
-export const COMP_FS = (plain = false) => `#version 300 es
+// `fast` (every build but ?blood=classic): the same picture with less work a lumen pixel (26 Oct, review/blood-shading-ideas):
+// the shimmer look alone (the app never draws the beads: main.js), the layers under a lumen skipped where it is opaque, the
+// arrowheads' cut-outs tested only where a head is.
+export const COMP_FS = (plain = false, fast = !CLASSIC) => `#version 300 es
 precision highp float;
 precision highp int;
 #define PLAIN ${plain ? 1 : 0}
+#define FAST ${fast ? 1 : 0}
 precision highp usampler2D;
 uniform sampler2D base;                // the vessel layer (premultiplied)
 uniform usampler2D gbuf;               // its frontmost lumen per pixel
@@ -856,7 +864,11 @@ uniform vec3 chevLight;                // a reversed chevron's head on an orange
 uniform float cssPx;                   // canvas px per CSS px (stage.js vdpr, at most 2)
 uniform float flowA;                   // 0..1: how visible the moving blood and chevrons are (they fade in once the view is still)
 uniform vec3 blendA;                   // 0..1 each: the streaks, the chevrons and the origin colours fading in or out (switched on or off)
+#if FAST == 0
 uniform int look;                      // 0 parcels, 1 shimmer
+#else
+const int look = 1;                    // (the shimmer: main.js and the lobule never ask for the beads)
+#endif
 #if PLAIN == 0
 uniform int origin;                    // 1: color parcels by where their blood came from
 uniform int dyeOn;
@@ -963,6 +975,7 @@ vec4 bloodAt(int id, float s, float y, vec3 col) {
   float rev = origin == 1 ? 0.0 : f1.w;
   if (rev > 0.0) { core = mix(core, mix(revCol, inkLight, 0.18), rev); halo = mix(halo, mix(col, revCol, 0.7), rev); }
   float laneW = 1.6 * R / float(n);
+#if FAST == 0
   if (look == 0) {
     // Beads with a short tail behind them (longer where faster), scattered within their lane so
     // the stream reads as a suspension, not a string of beads.
@@ -1018,6 +1031,7 @@ vec4 bloodAt(int id, float s, float y, vec3 col) {
     vec3 rgb = mix(halo, core, ca / max(ca + ga * (1.0 - ca), 1e-4));
     return vec4(rgb, ca + ga * (1.0 - ca));
   }
+#endif
   // Shimmer: long, soft streaks of light, like light on a flowing liquid, each carried at its own
   // lane's laminar speed (fastest on the axis, so the sheen visibly shears), over a faint glow
   // along the core. Brighter and denser where more blood passes; stagnant blood barely stirs.
@@ -1140,23 +1154,34 @@ void main() {
   // zoomed in (Mohammad's Mac at rest, zoom 4.24, 21 Oct: 86 frames in 2 s against 121 at 3.08), for the same picture.
   if (bloodOnly == 1 && g.x == 0u) discard;
   vec2 w = (inv * vec3(gl_FragCoord.x, H - gl_FragCoord.y, 1.0)).xy;
-  // The plate: the sharp view raster where it lies, else the whole-plate one.
+  vec4 v = texelFetch(base, ip, 0);
+#if FAST
+  // Under a fully opaque vessel pixel (the inside of nearly every lumen) nothing laid below it can show: over(v, under) is
+  // v + under × (1 − 1), exactly v. So the plate, its grey-down, the glows, the organ layers and the pool are not read there.
+  // The vessel layer's alpha is 8-bit, so 1.0 is exact; an edge, a faded tube or a ghosted tier (alpha under 1) lays them all.
+  bool under = v.a < 1.0;
+#else
+  const bool under = true;
+#endif
   vec4 pl = vec4(0.0);
-  if (stackOn == 1) pl = texelFetch(stackL, ip, 0);
-  else if ((plates & 2) != 0) {
-    vec2 uv = (w - plateRect1.xy) / plateRect1.zw;
-    if (all(greaterThanEqual(uv, vec2(0.0))) && all(lessThanEqual(uv, vec2(1.0)))) pl = texture(plate1, uv);
-    else if ((plates & 1) != 0) pl = texture(plate0, (w - plateRect0.xy) / plateRect0.zw);
-  } else if ((plates & 1) != 0) {
-    vec2 uv = (w - plateRect0.xy) / plateRect0.zw;
-    if (all(greaterThanEqual(uv, vec2(0.0))) && all(lessThanEqual(uv, vec2(1.0)))) pl = texture(plate0, uv);
+  // The plate: the sharp view raster where it lies, else the whole-plate one.
+  if (under) {
+    if (stackOn == 1) pl = texelFetch(stackL, ip, 0);
+    else if ((plates & 2) != 0) {
+      vec2 uv = (w - plateRect1.xy) / plateRect1.zw;
+      if (all(greaterThanEqual(uv, vec2(0.0))) && all(lessThanEqual(uv, vec2(1.0)))) pl = texture(plate1, uv);
+      else if ((plates & 1) != 0) pl = texture(plate0, (w - plateRect0.xy) / plateRect0.zw);
+    } else if ((plates & 1) != 0) {
+      vec2 uv = (w - plateRect0.xy) / plateRect0.zw;
+      if (all(greaterThanEqual(uv, vec2(0.0))) && all(lessThanEqual(uv, vec2(1.0)))) pl = texture(plate0, uv);
+    }
+    if (pl.a > 0.0) { float l = dot(pl.rgb / pl.a, vec3(0.299, 0.587, 0.114)); pl = vec4(mix(vec3(l) * pl.a, pl.rgb, plateSat), pl.a) * plateAlpha; }
+    // A glow lies behind the organs: the liver and the vessels pass over it.
+    if (glowOn == 1) pl = over(pl, texelFetch(glowL, ip, 0));
+    // A warm glow lies on the organs, under the vessels: added after the plate's dimming, so it keeps one strength whatever the lens
+    // greys the organs to, and with or without the plate (the page's own organs show under it then).
+    if (warmOn == 1) pl = over(texelFetch(warmL, ip, 0), pl);
   }
-  if (pl.a > 0.0) { float l = dot(pl.rgb / pl.a, vec3(0.299, 0.587, 0.114)); pl = vec4(mix(vec3(l) * pl.a, pl.rgb, plateSat), pl.a) * plateAlpha; }
-  // A glow lies behind the organs: the liver and the vessels pass over it.
-  if (glowOn == 1) pl = over(pl, texelFetch(glowL, ip, 0));
-  // A warm glow lies on the organs, under the vessels: added after the plate's dimming, so it keeps one strength whatever the lens
-  // greys the organs to, and with or without the plate (the page's own organs show under it then).
-  if (warmOn == 1) pl = over(texelFetch(warmL, ip, 0), pl);
   // Ascites over the plate and the vessels (they show through it), in its own color whatever the lens: a meniscus (highest at the flanks)
   // with a slow two-part ripple, deeper fluid a little denser, a soft brighter band just under the surface.
   vec4 fluidC = vec4(0.0);
@@ -1192,7 +1217,6 @@ void main() {
     }
   }
 
-  vec4 v = texelFetch(base, ip, 0);
   float vis = g.x > 0u ? clamp(float(g.w) / 65535.0 / max(v.a, 1e-3), 0.0, 1.0) : 0.0;
   if ((blood == 1 || dyeOn == 1 || chev == 1 || origin == 1) && (vis > 0.005 || (dyeOn == 1 && g.x > 0u)) && v.a > 0.01) {
     vec3 col = v.rgb / v.a;
@@ -1227,6 +1251,11 @@ void main() {
     if (chev == 1) {
       vec2 c = chevAt(id1, s1, y1);
       c *= 1.0 - smoothstep(0.02, 0.25, b);   // none where another vessel joins
+#if FAST
+      // (The cut-outs below only ever scale a head down: where there is none, c stays zero whatever they say, so they are not
+      // tested at all. Most lumen pixels have no head.)
+      if (c.x + c.y > 0.0) {
+#endif
       // None under a figure reading on its vessel (stage.js noChevBoxes): cut along the box's edge with a pixel of antialiasing,
       // as the stent points' holes are, instead of a hard unantialiased edge through a head (round 2 review, B8).
       for (int i = 0; i < 12; i++) {
@@ -1243,6 +1272,9 @@ void main() {
         else dh = length(max(max(h.xy - w, w - h.zw), 0.0)) - hr;
         c *= smoothstep(-pxW, pxW, dh);
       }
+#if FAST
+      }
+#endif
       if (c.x + c.y > 0.0) {
         float rv = texelFetch(flow, ivec2(1, id1), 0).w;
         // A faint light rim lifts the head off the lumen; the head itself dark, or orange if reversed.
@@ -1271,7 +1303,7 @@ void main() {
   vec3 bd = vec3(${cssRGB('--bleed-deep').map((v) => v.toFixed(1)).join(', ')}) / 255.0;
   vec4 inner = vec4(0.0);
   for (int i = 0; i < 24; i++) {
-    if (i >= bleedN) break;
+    if (i >= bleedN || !under) break;
     vec4 bE = bleedE[i], bB = bleedB[i];
     if (bB.w > 0.5 && bB.w < 1.5) continue;
     float a;
