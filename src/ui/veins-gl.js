@@ -67,6 +67,11 @@ const QUAD = new Float32Array([0, 0, 1, 0, 0, 1, 1, 1]);
 // ?veins=generic in the address: every cell drawn by the general vessel program (the one-vessel build left off), for an A/B
 // on a device. The picture is the same either way.
 const GENERIC = typeof location !== 'undefined' && /[?&]veins=generic\b/.test(location.search);
+// ?vesselbuf=own in the address (an A/B, off by default): the canvas is made without preserveDrawingBuffer, and the picture the
+// frames repaint in part is kept in a texture of the renderer's own, copied whole to the canvas each time it is drawn on (see
+// present). The same pixels either way; which costs less (the browser keeping the canvas, or one copy a drawn frame) is for
+// the devices to say.
+const OWN_BUF = typeof location !== 'undefined' && /[?&]vesselbuf=own\b/.test(location.search);
 // The composite's per-frame uniform arrays, filled in place: it ran six `new Float32Array`s a frame. (Each is uploaded at once,
 // so one set serves every renderer.)
 // The origin colours flattened once per palette (the palette is one object for the page's life), not every frame (P8).
@@ -1410,7 +1415,7 @@ export function bendCurvature(pts, out = new Float32Array(N_SAMPLES)) {
 
 export function createVeinsGL(canvas, { tubes: nTubes, force = false }) {
   let gl = null;
-  try { gl = canvas.getContext('webgl2', { alpha: true, premultipliedAlpha: true, antialias: false, depth: false, stencil: false, preserveDrawingBuffer: true, failIfMajorPerformanceCaveat: !force }); } catch { gl = null; }
+  try { gl = canvas.getContext('webgl2', { alpha: true, premultipliedAlpha: true, antialias: false, depth: false, stencil: false, preserveDrawingBuffer: !OWN_BUF, failIfMajorPerformanceCaveat: !force }); } catch { gl = null; }
   if (!gl) return null;
   gl.getExtension('KHR_parallel_shader_compile');
   let started;
@@ -1872,6 +1877,31 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false }) {
     if (skip2) gl.drawBuffers(ATTACH);
     gl.bindVertexArray(null);
   }
+  // The picture's own copy (?vesselbuf=own): what the canvas would keep with preserveDrawingBuffer. Every composite draws
+  // into it and present() copies it whole onto the canvas, so the canvas always holds a whole, current picture, whatever the
+  // browser did with the last one. Null without the switch (the canvas keeps its picture itself).
+  const own = OWN_BUF ? { tex: dataTex(gl), fbo: gl.createFramebuffer(), w: 0, h: 0 } : null;
+  if (own) { gl.bindTexture(gl.TEXTURE_2D, own.tex); gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, null); }
+  // (Sized to the canvas, cleared; true when it was just made, so the next picture is drawn whole.)
+  function ownSize() {
+    if (own.w === canvas.width && own.h === canvas.height) return false;
+    own.w = canvas.width; own.h = canvas.height;
+    gl.bindTexture(gl.TEXTURE_2D, own.tex);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, own.w, own.h, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, own.fbo);
+    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, own.tex, 0);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    return true;
+  }
+  // The kept picture onto the canvas, every pixel, as it is (no scaling, no filtering).
+  function present() {
+    if (!own?.w || lost) return;
+    gl.disable(gl.SCISSOR_TEST);
+    gl.bindFramebuffer(gl.READ_FRAMEBUFFER, own.fbo);
+    gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, null);
+    gl.blitFramebuffer(0, 0, own.w, own.h, 0, 0, own.w, own.h, gl.COLOR_BUFFER_BIT, gl.NEAREST);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+  }
   const onLost = (e) => { e.preventDefault(); lost = true; };
   canvas.addEventListener('webglcontextlost', onLost);
   // A software renderer (no usable GPU: the browser draws on the CPU) is told apart so the stage
@@ -2181,6 +2211,8 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false }) {
         if (r === true) full = true;
         else if (r) { dirtCells(r, m); dirt = nDirt; if (gpuProbe.on) gpuProbe.gauge('organ layers: box', `${r[2] - r[0]}×${r[3] - r[1]} px, ${dirt} cells`); }
       }
+      // (The kept picture made again, at a new canvas size: empty, so this picture is drawn whole into it.)
+      if (own && ownSize()) full = true;
       if (full) dirt = 0;
       const fl = look.fluid && fluidRect ? look.fluid : null;
       const pool = full ? 0 : nPool;
@@ -2193,6 +2225,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false }) {
       // device → world: the inverse of [a c e; b d f].
       const ia = m[3] / det, ib = -m[1] / det, ic = -m[2] / det, id = m[0] / det;
       const ie = -(ia * m[4] + ic * m[5]), iff = -(ib * m[4] + id * m[5]);
+      if (own) gl.bindFramebuffer(gl.FRAMEBUFFER, own.fbo);
       gl.viewport(0, 0, canvas.width, canvas.height);
       gl.disable(gl.BLEND);
       const prg = full ? comp : compCell;
@@ -2278,6 +2311,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false }) {
       gl.bindVertexArray(null);
       if (cath) gpuProbe.time(gl, 'catheter', () => drawCath(m));
       if (hard && !layer) gpuProbe.time(gl, 'outlines', () => drawLines(m, false));
+      if (own) present();
     },
     /** Whether organ outlines can be drawn here (else stage.js keeps its SVG ones). */
     get canLines() { return !!lineP; },
@@ -2320,9 +2354,14 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false }) {
     },
     /** Changes whenever the canvas is drawn on again (the glass takes a new copy of the figure only then). */
     get drawSeq() { return pictureSeq; },
-    clear() { pictureSeq++; gl.bindFramebuffer(gl.FRAMEBUFFER, null); gl.viewport(0, 0, canvas.width, canvas.height); gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT); nCells = nBlood = nGen = nSimple = 0; baseM = null; fboOK = false; },
+    clear() { pictureSeq++; if (own?.w) { gl.bindFramebuffer(gl.FRAMEBUFFER, own.fbo); gl.viewport(0, 0, own.w, own.h); gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT); } gl.bindFramebuffer(gl.FRAMEBUFFER, null); gl.viewport(0, 0, canvas.width, canvas.height); gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT); nCells = nBlood = nGen = nSimple = 0; baseM = null; fboOK = false; },
     /** The current picture as a PNG data URL (call right after draw, in the same task). */
-    snapshot() { return canvas.toDataURL('image/png'); },
+    snapshot() { present(); return canvas.toDataURL('image/png'); },
+    /**
+     * With ?vesselbuf=own: copies the kept picture onto the canvas again, so a reader of the canvas outside the frame that drew it
+     * (a copy for the glass, a picture taken later) reads the whole current picture. Does nothing without the switch.
+     */
+    present,
     /**
      * Gives back the vessel framebuffer (21 bytes a pixel) and the outline layer while the picture is not shown;
      * everything else stays, and the next draw reallocates them.
@@ -2338,6 +2377,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false }) {
       fboW = fboH = 0; baseM = null; fboOK = false; dropSpare();
       freeLayer(lineLayer); freeLayer(glowLayer); freeLayer(warmLayer); lineKey = glowKey = warmKey = '';
       stack?.trim();
+      if (own?.w) { own.w = own.h = 0; gl.bindTexture(gl.TEXTURE_2D, own.tex); gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, null); }
     },
     /**
      * Frees every GPU object (textures, the vessel framebuffer, buffers, programs) and stops
@@ -2357,6 +2397,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false }) {
         for (const t of [spare.base, spare.g, spare.g2, spare.dep]) gl.deleteTexture(t);
         gl.deleteFramebuffer(spare.fbo);
         gl.deleteFramebuffer(fbo); gl.deleteFramebuffer(tintFbo); gl.deleteFramebuffer(lineLayer.fbo); gl.deleteFramebuffer(glowLayer.fbo); gl.deleteFramebuffer(warmLayer.fbo);
+        if (own) { gl.deleteTexture(own.tex); gl.deleteFramebuffer(own.fbo); }
         if (lose) gl.getExtension('WEBGL_lose_context')?.loseContext();
       }
       plates[0] = plates[1] = null; lines = cath = null; nCells = nBlood = nFluid = nGen = nSimple = 0; baseM = null; fboW = fboH = 0;
