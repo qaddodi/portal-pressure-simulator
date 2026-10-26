@@ -66,6 +66,17 @@ export const RECOMPENSATION = {
       ask: ['What lowered the HVPG in this case?', 'Removing the cause: a year of abstinence.'],
     },
     {
+      // (The relation chart before the summary: the model's cirrhosis from mild to severe, each point settled for a year, read stiffness
+      // against the HVPG and the platelets. The dots are his visits, joined in order; the ring is him off diuretics, the slide before's state.)
+      id: 'relation', cam: 'liver',
+      tool: { kind: 'curve', x: 'lsm', xCuts: [15, 25], cuts: [10], patient: { preset: 'healthy' }, param: 'cirrhosis', from: 0.4, to: 1, step: 0.05, days: 365, lines: ['hvpg', 'plt'], walk: true,
+        dots: [{ slide: 'csph', name: 'Compensated', on: [0] }, { slide: 'ascites', name: 'First ascites', on: [0] }, { slide: 'cure', name: 'Cause removed', on: [0] }] },
+      kicker: 'Summary', site: 'sin', title: 'He recompensates, but his HVPG stays ≥10',
+      line: 'Ascites took him up the line and a year without alcohol brought him back: {lsm}, platelets of {plt}, HVPG {hvpg}. That is where he began, still {>=10 mmHg}.',
+      notes: 'Stiffness across, the HVPG and the platelets up: the model\'s cirrhosis from mild to severe, each point settled for a year. The dots are his visits. The ascites took him up the line, to an HVPG of 17.0 mmHg, a stiffness of 29.0 kPa and platelets of 56,000/µL; a year without alcohol took him back down the same line, to 11.2 mmHg, almost where he began at 11.6. Recompensation moves the patient back along the line, not off it, and it does not mean CSPH is gone. Baveno VIII defines recompensation by the clinical criteria (7.4), and says CSPH may resolve over time (7.15), confirmed by an HVPG under 10 mmHg measured off carvedilol (7.16); carvedilol stops only once that is confirmed (7.18). In the model he is at 11.4 mmHg off diuretics, so the beta-blocker would continue. Varices may persist after CSPH has resolved, so they are no sign that it has not (7.17). (Baveno VIII 7.4, 7.15 to 7.18, Fig. 2.)',
+      ask: ['He has recompensated, with an HVPG still ≥10 mmHg. What about the beta-blocker?', 'It continues. Baveno VIII 7.18 stops carvedilol only when CSPH resolution is confirmed: an HVPG <10 mmHg measured off the drug.'],
+    },
+    {
       id: 'summary', visual: 'table', cols: ['hvpg', 'varix', 'asc', 'plt'], asc: false, rowHead: 'Step', vs: 'first',
       of: [{ id: 'csph', kicker: 'Compensated', title: 'CSPH' }, { id: 'ascites', kicker: 'Decompensated', title: 'First ascites' }, { id: 'diuretics', kicker: 'Decompensated', title: 'Diuretics' },
         { id: 'cure', kicker: 'Recompensation', title: 'Cause removed' }, { id: 'recomp', kicker: 'Recompensation', title: 'Off diuretics' }],

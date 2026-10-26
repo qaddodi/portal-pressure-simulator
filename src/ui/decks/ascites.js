@@ -6,6 +6,9 @@ const mi = (x) => `<mi>${x}</mi>`, mo = (x) => `<mo>${x}</mo>`, sub = (b, i) => 
 
 const FLUID = { kind: 'fluid', window: true, forces: true };
 const BELLY = { kind: 'abdomen' };
+// The scarring the relation chart sweeps, with the albumin falling as it does on the time-lapse (4.0 g/dL up to 0.6, 2.8 at 0.85), a year a point.
+const scar = (c, a) => ({ params: { cirrhosis: c, albumin: a }, days: 365 });
+const SCARRING = [scar(0.45, 4), scar(0.5, 4), scar(0.55, 4), scar(0.6, 4), scar(0.65, 3.76), scar(0.7, 3.52), scar(0.75, 3.28), scar(0.8, 3.04), scar(0.85, 2.8)];
 
 export const ASCITES = {
   id: 'ascites', level: 'advanced', title: 'Ascites: why it forms and how it is treated', minutes: 18,
@@ -127,6 +130,18 @@ export const ASCITES = {
       line: 'A TIPS lowers the gradient to {ppg} and the sinusoidal pressure with it, so the fluid falls to {asc}. The price is encephalopathy in about one patient in three.',
       notes: 'Less lymph forms, and in exchange the liver gets less portal blood. In recurrent or refractory ascites, a covered TIPS improves survival over repeated paracentesis in selected patients: bilirubin under about 3 mg/dL, no recurrent encephalopathy, no heart failure or severe pulmonary hypertension. The ascites clears over weeks to months, diuretics continued at first. The model clears it faster. No target gradient is agreed for ascites; below 12 mmHg is the bleeding target.',
       ask: ['Name a reason not to place a TIPS for ascites.', 'Recurrent encephalopathy, heart failure or pulmonary hypertension, or advanced liver failure.'],
+    },
+    {
+      // (The relation chart before the summary: the model's scarring from 0.45 to 0.85, the albumin falling with it as on the two-month
+      // time-lapse (4.0 g/dL at 0.6, 2.8 at 0.85), each point settled for a year, the ascites and the blood volume read against the HVPG.
+      // The dots are this talk's own patient, joined in order; the ring is him after the TIPS, the slide before's state.)
+      id: 'relation', cam: 'fit',
+      tool: { kind: 'curve', x: 'hvpg', xCuts: [10], cuts: [1.5, 5], patient: { preset: 'healthy' }, points: SCARRING, lines: ['asc', 'bv'], walk: true,
+        dots: [{ slide: 'tense', name: 'Tense belly', on: [0] }, { slide: 'diuretics', name: 'Diuretics', on: [0] }, { slide: 'tips', name: 'TIPS', on: [0] }] },
+      kicker: 'Summary', site: 'sin', title: 'Ascites builds as the HVPG climbs and the albumin falls',
+      line: 'His belly is tense at {asc@tense} with an HVPG of {hvpg@tense}. Diuretics take the fluid to {asc@diuretics} at about the same HVPG, and the TIPS lowers the HVPG to {hvpg}.',
+      notes: 'The line is the model\'s scarring from mild to severe, each point settled for a year, with the serum albumin falling along it as it does on the two-month time-lapse (4.0 g/dL at the start, 2.8 at the far end): the ascites on the left axis, the blood volume on the right, both against the HVPG. In the model no fluid gathers below an HVPG of about 12 mmHg, a little above the CSPH cut-off of 10, because the lymphatics keep up until the sinusoidal pressure and the low albumin outrun them; then the ascites climbs steeply. Decompensation most often comes at an HVPG of 10 mmHg or more (AASLD 2024 p. 1181). The blood volume rises by about half a liter along the line. The model has no kidneys, so that rise stands in for the sodium and water they hold back (AASLD 2024 Fig. 2). The dots are this talk\'s own patient: from the tense belly, diuretics clear the fluid at the same HVPG, so he sits below the line; the TIPS lowers the HVPG itself, and the fluid goes with it. The ring is him after the TIPS. One model patient per point; real patients vary far more.',
+      ask: ['His ascites is smaller on diuretics, but the HVPG is the same. What has not changed?', 'The pressure that makes the fluid. Diuretics clear what has formed; a TIPS lowers the pressure itself.'],
     },
     {
       id: 'summary', visual: 'table', cols: ['asc', 'ppg', 'liver'], asc: false, vs: 'first', rowHead: 'Step',

@@ -138,6 +138,19 @@ export const TEN_YEARS = {
       ask: ['What did the TIPS fix, and what did it leave?', 'It fixed the portal pressure and the bleeding. It left the failing liver.'],
     },
     {
+      // (The relation chart before the summary: the model's cirrhosis from mild to severe, each point settled for a year, read the varix and
+      // its wall stress against the HVPG, as on the Varices talk. The dots are his visits, joined in order (years 6 to 9 are one: the
+      // HVPG and the varix hardly move between the ascites and the rebleed); the ring is him after the TIPS, the slide before's state.)
+      id: 'relation', cam: 'varices', labels: ['VAR'],
+      tool: { kind: 'curve', x: 'hvpg', xCuts: [10], patient: { preset: 'healthy' }, param: 'cirrhosis', from: 0.3, to: 1, step: 0.05, days: 365, lines: ['varix', 'wall'], walk: true,
+        dots: [{ slide: 'd0', name: 'Year 0', on: [0] }, { slide: 'd365', name: 'Year 1', on: [0] }, { slide: 'carv', name: 'Carvedilol', on: [0] }, { slide: 'ascites', name: 'Years 6 to 9', on: [0] },
+          { slide: 'bands', name: 'Bands', on: [0] }, { slide: 'tips', name: 'TIPS', on: [0] }] },
+      kicker: 'Summary', site: 'sin', title: 'Ten years on one line: the varix follows the HVPG',
+      line: 'Carvedilol took him from {hvpg@d365} to {hvpg@carv}, and the TIPS from {hvpg@rebleed} to {hvpg@tips}, both along the line. Bands took the varix below it, without lowering the HVPG.',
+      notes: 'The line is the model\'s cirrhosis from mild to severe, each point settled for a year, with the varix (left) and its wall stress as a share of the tear point (right) against the HVPG, as on the Varices talk. The dots are this talk\'s visits. Carvedilol at year 1 lowered the HVPG and the varix with it, along the line; the TIPS at year 9 did the same down to the flat part of the line, where the varix stays at its resting 2 mm. Banding closed the varix without changing the pressure behind it, so it sits below the line, and the varix grows back to the line within months (see Preventing the next variceal bleed). The ring is him after the TIPS. The cause was never removed, so each treatment bought time and none ended the climb. Wall stress rises faster than the diameter because it grows with the pressure across the wall and with the radius together (AASLD 2024 p. 1193). Baveno VIII 4.8 pairs carvedilol with banding after a bleed, and 4.13 says to consider a TIPS when bleeding continues. One model patient per point; real patients vary far more.',
+      ask: ['Which of his treatments moved the varix without moving the HVPG?', 'Banding: it closes the varix but leaves the pressure behind it, so the varix grows back as the bands slough.'],
+    },
+    {
       id: 'summary', visual: 'table', cols: ['hvpg', 'varix', 'asc', 'shunt'], asc: false, rowHead: 'Step', vs: 'first',
       of: [{ id: 'd0', kicker: 'Year 0', title: 'Compensated' }, { id: 'carv', kicker: 'Year 1', title: 'CSPH, carvedilol' }, { id: 'diuretics', kicker: 'Year 6', title: 'Ascites, diuretics' },
         { id: 'bands', kicker: 'Year 8', title: 'First bleed, bands' }, { id: 'tips', kicker: 'Year 9', title: 'Rebleed, TIPS' }, { id: 'he', kicker: 'Year 9', title: 'Encephalopathy' }],

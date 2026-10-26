@@ -73,6 +73,19 @@ export const NEXT_BLEED = {
       ask: ['After the same 10 months, why are the varices smaller on carvedilol than with bands alone?', 'Carvedilol keeps the portal pressure lower, so less blood refills the collaterals once the bands slough.'],
     },
     {
+      // (The relation chart before the summary: the model's cirrhosis from mild to severe, each point settled for a year, read the varix and
+      // its wall stress against the HVPG, as on the Varices talk. The dots are this talk's visits in two walks, bands alone and carvedilol
+      // with bands; the ring is both together ten months on, the slide before's state, and the late bands-alone point carries no name.)
+      id: 'relation', cam: 'varices', labels: ['VAR'],
+      tool: { kind: 'curve', x: 'hvpg', xCuts: [10], patient: { preset: 'healthy' }, param: 'cirrhosis', from: 0.3, to: 1, step: 0.05, days: 365, lines: ['varix', 'wall'],
+        dots: [{ slide: 'after', name: 'After the bleed', on: [0], walk: 'bands' }, { slide: 'bands', name: 'Bands', on: [0], walk: 'bands' }, { slide: 'slough', on: [0], walk: 'bands' },
+          { slide: 'nsbb', name: 'Carvedilol', on: [0], walk: 'both' }, { slide: 'both', name: 'Both', on: [0], walk: 'both' }, { slide: 'held', on: [0], walk: 'both' }] },
+      kicker: 'Summary', site: 'sin', title: 'Bands move the varix down, carvedilol moves him left',
+      line: 'Bands drop the varix from {varix@after} to {varix@bands} without lowering the HVPG, and ten months on it is back at {varix@slough}. Carvedilol moves him left, to {hvpg@nsbb}.',
+      notes: 'The line is the model\'s cirrhosis from mild to severe, each point settled for a year, with the varix (left) and its wall stress as a share of the tear point (right) against the HVPG, as on the Varices talk. The dots are this talk\'s visits, in two walks. Bands: after the bleed the varix is 5.4 mm; three sessions take it to 3.2 mm, below the line, while the HVPG creeps up to 17.9 mmHg, because closing the collateral takes away an escape route for portal blood. Ten months later the bands have sloughed and the varix is back on the line, at 7.2 mm. Carvedilol lowers the HVPG, so he moves left along the line, to 13.5 mmHg. With bands as well he sits at 14.4 mmHg and a varix of 2.7 mm; ten months on, the ring, the varix has grown back only to 5.3 mm, because the pressure behind it is lower. Bands treat the varix and carvedilol treats the pressure. One model patient per point; real patients vary far more. (Baveno VIII 4.8; AASLD 2024 p. 1193.)',
+      ask: ['After banding the varix is smaller and the HVPG has not fallen. Why does the varix come back?', 'The pressure that made it is still there, so blood reopens the same collaterals as the bands slough.'],
+    },
+    {
       id: 'summary', visual: 'table', cols: ['varix', 'hvpg', 'ppg'], asc: false, rowHead: 'Plan',
       of: [{ id: 'after', kicker: 'Baseline', title: 'After the bleed', ref: true }, { id: 'bands', kicker: 'Bands', title: 'Bands alone' }, { id: 'slough', kicker: 'Bands', title: 'Bands, 10 months on' },
         { id: 'nsbb', kicker: 'Drug', title: 'Carvedilol alone' }, { id: 'both', kicker: 'Both', title: 'Carvedilol and bands' }, { id: 'held', kicker: 'Both', title: 'Both, 10 months on' }],

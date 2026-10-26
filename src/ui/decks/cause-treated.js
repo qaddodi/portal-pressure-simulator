@@ -79,6 +79,19 @@ export const CAUSE_TREATED = {
       ask: ['How much weight loss changes the stiffness meaningfully?', '≥10% of body weight, which goes with a fall in stiffness of ≥30%.'],
     },
     {
+      // (The relation chart before the summary: the model's cirrhosis from mild to severe, each point settled for a year, read stiffness
+      // against the HVPG and the platelets. The dots are the two hepatitis C patients' visits, one walk each; the ring is the second
+      // patient two years on, in the same state as that slide.)
+      id: 'relation', preset: 'csph', params: { cirrhosis: 0.75 }, days: 730, ramp: { cirrhosis: [0.75, 0.57] }, cam: 'liver',
+      tool: { kind: 'curve', x: 'lsm', xCuts: [10], cuts: [10], patient: { preset: 'healthy' }, param: 'cirrhosis', from: 0.3, to: 0.85, step: 0.05, days: 365, lines: ['hvpg', 'plt'],
+        dots: [{ slide: 'before', name: 'First patient', on: [0], walk: 'first' }, { slide: 'year1', on: [0], walk: 'first' }, { slide: 'year2', name: 'CSPH gone', on: [0], walk: 'first' },
+          { slide: 'high', name: 'Higher start', on: [0], walk: 'second' }, { slide: 'high2', name: 'CSPH persists', on: [0], walk: 'second' }] },
+      kicker: 'Summary', site: 'sin', title: 'Where the HVPG starts decides whether CSPH resolves',
+      line: 'Cure took the first patient from {hvpg@before} to {hvpg@year2}, which is {<10 mmHg}. The second starts at {hvpg@high} and is at {hvpg} two years on, still {>=10 mmHg}.',
+      notes: 'Stiffness across, the HVPG and the platelets up: the model\'s cirrhosis from mild to severe, each point settled for a year. Curing the cause moves a patient down this line, not off it. Both patients are cured of hepatitis C, but the second starts higher, at an HVPG of 14.7 mmHg against 11.6, and in the model her scar regresses less over the two years, so she ends at 10.8 mmHg while he ends at 4.8, under 10 and under 10 kPa. Baveno VIII counts CSPH as resolved at an HVPG under 10 mmHg, a stiffness under 10 kPa, or a stiffness under 15 kPa with a spleen stiffness under 25 kPa (Fig. 2): the dashed lines mark 10 on both axes. Removing the cause lowers the HVPG in most patients, and how far it must fall to prevent decompensation is not yet established (Table 3). One model patient per point; real recoveries vary far more. The MASLD patient is left off: at a BMI of 30 or more the stiffness overstates the pressure, so the line does not describe her (1.16). (Baveno VIII Fig. 2, Table 3, 1.16.)',
+      ask: ['Both patients were cured of hepatitis C. Why has CSPH resolved in the man but not in the woman?', 'She started higher, at an HVPG of 14.7 mmHg, and the pressure falls only part of the way in two years, so she stays ≥10 mmHg; he started at 11.6 mmHg and fell to <10 mmHg.'],
+    },
+    {
       id: 'summary', visual: 'table', cols: ['hvpg', 'lsm', 'plt'], asc: false, rowHead: 'Patient',
       of: [{ id: 'before', kicker: 'Hepatitis C', title: 'Before cure' }, { id: 'year1', kicker: 'Hepatitis C', title: 'One year after cure', vs: 'before' }, { id: 'year2', kicker: 'Hepatitis C', title: 'Two years after cure', vs: 'before' },
         { id: 'high', kicker: 'Higher start', title: 'Before cure', ref: true }, { id: 'high2', kicker: 'Higher start', title: 'Two years after cure', vs: 'high' },

@@ -96,7 +96,7 @@
 import { CIRCULATION } from './decks/circulation.js?v=9ce2778867';
 import { SITES } from './decks/sites.js?v=acf4a72929';
 import { HVPG } from './decks/hvpg.js?v=75a8b178bd';
-import { ASCITES } from './decks/ascites.js?v=87c973114c';
+import { ASCITES } from './decks/ascites.js?v=d6d34d5904';
 import { VARICES } from './decks/varices.js?v=03633167dd';
 import { TREATMENT } from './decks/treatment.js?v=b2c0dcc11b';
 import { STIFFNESS } from './decks/stiffness.js?v=14881cd422';
@@ -111,16 +111,16 @@ import { BLEED } from './decks/variceal-bleed.js?v=1249504d60';
 import { TWO_INFLOWS } from './decks/two-inflows.js?v=457e0910fa';
 import { NCPH } from './decks/ncph.js?v=fba64b2bbf';
 import { OUTFLOW } from './decks/outflow.js?v=0392956963';
-import { RECOMPENSATION } from './decks/recompensation.js?v=23183921c8';
+import { RECOMPENSATION } from './decks/recompensation.js?v=2e51b90437';
 import { WHERE } from './decks/where.js?v=c28f096edc';
 import { PREGNANCY_DECK } from './decks/pregnancy.js?v=d79b566bbb';
 import { ENCEPHALOPATHY } from './decks/encephalopathy.js?v=7d08be79e0';
-import { CAUSE_TREATED } from './decks/cause-treated.js?v=67bfe19a38';
-import { NEXT_BLEED } from './decks/next-bleed.js?v=5d7bb73a9d';
+import { CAUSE_TREATED } from './decks/cause-treated.js?v=70702ca374';
+import { NEXT_BLEED } from './decks/next-bleed.js?v=054db19c8f';
 import { GASTRIC } from './decks/gastric-varices.js?v=0da683e5c6';
 import { HYPERDYNAMIC } from './decks/hyperdynamic.js?v=90b476c393';
 import { CHOOSE_TREATMENT } from './decks/choose-treatment.js?v=500e52ed71';
-import { TEN_YEARS } from './decks/ten-years.js?v=33d5d18de1';
+import { TEN_YEARS } from './decks/ten-years.js?v=9fe96fabb4';
 
 // Regions of the anatomy plate the camera frames (world units, x 300-1120, y 0-920).
 export const REGIONS = {

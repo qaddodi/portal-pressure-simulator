@@ -173,6 +173,11 @@ export const ADOPTED = {
   'encephalopathy/relation': ['kind:curve'],
   'tips-doppler/relation': ['kind:curve'],
   'endoscopy/relation': ['kind:curve'],
+  'ascites/relation': ['kind:curve'],
+  'cause-treated/relation': ['kind:curve'],
+  'recompensation/relation': ['kind:curve'],
+  'ten-years/relation': ['kind:curve'],
+  'next-bleed/relation': ['kind:curve'],
 };
 
 /** Whether the slide d/s may use the field. */

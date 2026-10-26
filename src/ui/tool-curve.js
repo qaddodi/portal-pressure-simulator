@@ -29,7 +29,8 @@
 //                     the first line's cut-offs (its tile's by default), or none.
 //   dots: [{ slide: 'a1', name: 'Case 1' } | { preset: 'rhf', name: 'Heart failure', params?, days? }, …]
 //                     other states as small filled points on each line (on: [0] for the first line only), named beside the
-//                     first; with walk: true joined in order by a faint line, a patient's visits along the curve. Needs x.
+//                     first; with walk: true joined in order by a faint line, a patient's visits along the curve, or, with a dot's own
+//                     walk: 'first', each name's dots (in order) on a line of their own, for two patients on one chart. Needs x.
 //   patient: { preset: 'healthy', params?, presetDays? }
 //                     the curve is drawn on that patient (loaded afresh for each point) rather than on the slide's own; the
 //                     ring stays the slide's case, which may sit off the line.
@@ -374,6 +375,16 @@ export function zoneEdge(z, x0, x1) {
 }
 /** The other states shown as points: each { slide } or { preset, params?, presetDays?, days? } with its name. */
 export const dotsOf = (t) => (xKeyOf(t) ? [].concat(t.dots || []).filter((d) => d && (typeof d.slide === 'string' || typeof d.preset === 'string')).slice(0, 8) : []);
+/** The dots joined by a faint line, as lists of indices into dotsOf(t), in order: every dot with `walk: true` on the chart, else
+ *  the dots that share a `walk` name (each name its own patient's visits). A walk of one dot draws nothing. */
+export function walksOf(t) {
+  const groups = new Map();
+  dotsOf(t).forEach((d, i) => {
+    const k = t.walk === true ? '' : typeof d.walk === 'string' && d.walk ? d.walk : null;
+    if (k !== null) groups.set(k, [...(groups.get(k) || []), i]);
+  });
+  return [...groups.values()].filter((g) => g.length > 1);
+}
 /** The steps that work out the dots made from a preset, each from a fresh model. */
 export const dotSteps = (t) => dotsOf(t).filter((d) => !d.slide).map((d) => ({ preset: d.preset, params: d.params, presetDays: d.presetDays, days: d.days, restart: true }));
 
@@ -557,10 +568,11 @@ export function createCurve() {
       const first = at.find(Boolean);
       return { name: d.name ? sv('text', { class: 'pcv-dname' }, d.name) : null, txt: d.name || '', at, first };
     });
-    if (t.walk) ls.forEach((l, j) => {
-      const pts = dotPts.map((d) => d.at[j]).filter(Boolean);
+    const walkSets = walksOf(t);
+    ls.forEach((l, j) => walkSets.forEach((g) => {
+      const pts = g.map((i) => dotPts[i]?.at[j]).filter(Boolean);
       if (pts.length > 1) walks.push(sv('path', { class: 'pcv-walk', d: pts.map(([x, y], i) => `${i ? 'L' : 'M'}${x.toFixed(1)} ${y.toFixed(1)}`).join(''), style: `stroke: var(${l.c})` }));
-    });
+    }));
     for (const d of dotPts) for (const p of d.at) if (p) segs.push(Object.assign([p[0] - dr, p[1], p[0] + dr, p[1]], { w: 3 }));
     const at = sv('line', { class: 'pcv-at', y1: T - 0.4 * f, y2: B });
     const svg = sv('svg', { viewBox: `0 0 ${G.w} ${G.h}`, width: G.w, height: G.h, role: 'img', style: `font-size: ${f.toFixed(2)}px` },
