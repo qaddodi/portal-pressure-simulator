@@ -110,25 +110,12 @@
   "lymphatics"
  ],
  "ascites/lymph": [
-  "space of disse",
   "lymphatics",
   "portal tracts",
   "{sin}"
  ],
- "ascites/pvt": [
-  "sinusoids",
-  "{pv}",
-  "{sin}"
- ],
- "ascites/presin": [
-  "portal tracts",
-  "sinusoidal pressure"
- ],
  "ascites/saag": [
   "{saag}"
- ],
- "ascites/lowprot": [
-  "fenestrae"
  ],
  "ascites/hf": [
   "lymph",
@@ -140,6 +127,26 @@
   "hepatic veins",
   "sinusoids",
   "(a value)"
+ ],
+ "ascites/tense": [
+  "renal veins"
+ ],
+ "ascites/lvp": [
+  "{asc}",
+  "{6 to 8 g}"
+ ],
+ "ascites/back": [
+  "{asc}"
+ ],
+ "ascites/diuretics": [
+  "{asc}"
+ ],
+ "ascites/refractory": [
+  "{asc}"
+ ],
+ "ascites/tips": [
+  "{ppg}",
+  "{asc}"
  ],
  "varices/lapse": [
   "{hvpg@collat}",
@@ -217,28 +224,6 @@
  ],
  "stiffness/heart": [
   "(a value)"
- ],
- "tap/tense": [
-  "renal veins"
- ],
- "tap/lvp": [
-  "{asc}"
- ],
- "tap/albumin": [
-  "{6 to 8 g}"
- ],
- "tap/back": [
-  "{asc}"
- ],
- "tap/diuretics": [
-  "{asc}"
- ],
- "tap/refractory": [
-  "{asc}"
- ],
- "tap/tips": [
-  "{ppg}",
-  "{asc}"
  ],
  "circuit/ohm": [
   "resistance"

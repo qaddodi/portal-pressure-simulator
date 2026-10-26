@@ -1109,8 +1109,8 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     ['lobule', 0, 'ArrowRight', true],   // the outline's fit → the whole lobule
     ['ncph', 1, 'ArrowRight', true], ['ncph', 4, 'ArrowRight', true], ['ncph', 5, 'ArrowRight', false, false, true],   // a fit, then a liver close-up, before it (the last one leaves the lobule for the summary table)
     ['sites', 7, 'ArrowLeft', true],   // backwards into it
-    ['ascites', 0, 'ArrowRight', true, true], ['ascites', 5, 'ArrowRight', true, true], ['tap', 7, 'ArrowRight', true, true],   // anatomy straight to the sinusoid view, through the lobule without stopping in it
-    ['ascites', 6, 'ArrowRight', false, true, true], ['ascites', 9, 'ArrowRight', false, true, true],   // and the sinusoid view straight back out to the anatomy (a new patient: the words, and so the space the camera frames into, are settled after the rise)
+    ['ascites', 0, 'ArrowRight', true, true], ['ascites', 4, 'ArrowRight', true, true],   // anatomy straight to the sinusoid view, through the lobule without stopping in it
+    ['ascites', 5, 'ArrowRight', false, true, true],   // and the sinusoid view straight back out to the anatomy (a new patient: the words, and so the space the camera frames into, are settled after the rise)
     ['hvpg', 5, 'ArrowRight', false, false, true], ['outflow', 4, 'ArrowRight', true],   // out to a region, with a new patient (schisto to chronic PVT: the words settle after the rise); in from a region
     // In Explore (the view buttons), with no slide: anatomy to the lobule, to a station in it as a slide asks for one, and straight to
     // the sinusoid view and back out.
@@ -1873,7 +1873,7 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
   if (device === 'desktop') for (const size of [{ width: 1728, height: 1000 }, { width: 1440, height: 900 }, { width: 1280, height: 800 }, { width: 820, height: 1180 }, { width: 1180, height: 820 }]) await check(device, `presenter: tiles under a chart keep their words whole and their change lines short at ${size.width}x${size.height}`, async (page) => {
     await page.setViewportSize(size);
     await open(page);
-    for (const [deck, at] of [['ascites', 4], ['varices', 2], ['shunts', 4], ['variceal-bleed', 2]]) {
+    for (const [deck, at] of [['ascites', 3], ['varices', 2], ['shunts', 4], ['variceal-bleed', 2]]) {
       await page.evaluate(([id, i]) => window.pps.presenter.start(id, i), [deck, at]);
       await page.waitForFunction((i) => window.pps.presenter.probe()?.i === i && !document.querySelector('.pz-cover') && document.querySelector('.pz-data.has-tool:not(.pz-hide) .pzt-d'), at, { timeout: 60000 });
       await page.waitForFunction(() => !window.pps.presenter.probe().playing, null, { timeout: 120000, polling: 500 });
@@ -1895,7 +1895,7 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
   });
 
   // An upright iPad (820x1180): on every slide of the decks that open the sinusoid view, its names keep off the cards.
-  if (device === 'desktop') for (const deck of ['ascites', 'tap', 'lobule']) await check(device, `presenter: on every slide of ${deck} at 820x1180 the sinusoid's names keep off the cards`, async (page) => {
+  if (device === 'desktop') for (const deck of ['ascites', 'lobule']) await check(device, `presenter: on every slide of ${deck} at 820x1180 the sinusoid's names keep off the cards`, async (page) => {
     await page.setViewportSize({ width: 820, height: 1180 });
     await open(page);
     await page.evaluate((id) => window.pps.presenter.start(id, 0), deck);

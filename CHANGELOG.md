@@ -2,6 +2,17 @@
 
 ## October 2026
 
+- **Ascites takes in Paracentesis and albumin: one talk, why it forms and how it is treated.** (Mohammad, 25 Oct, "Build the new decks"; deck rebuild plan, F1.)
+  Ascites is 14 slides in three sections, was 11 and 9 in two talks. Where it forms keeps three slides (the sinusoids, the lymph along the portal tracts, two months
+  of building) on one fluid card with the sinusoid and ascites tiles. The tap keeps the SAAG, heart failure, Budd–Chiari and the quadrant, now headed "Telling
+  them apart". The treatment runs on one belly gauge with the ascites and portal pressure tiles: tense ascites, the large-volume tap (which now carries the albumin and
+  its serum albumin tile, so "Albumin with the tap" is gone), the fluid back after two weeks, diuretics, refractory ascites defined, TIPS, and the table. Cut:
+  the gut capillary against the sinusoid wall, the portal vein clot and the schistosomiasis slides (Portal vein clots and Presinusoidal portal hypertension teach
+  them), low protein in cirrhosis (its point is in the SAAG slide's notes) and the first diagnostic tap (also in those notes). `cite` and the two caveats moved into
+  the notes. The old Paracentesis and albumin link opens Ascites at slide 1 (`DECK_ALIAS`). The crossing checks that opened Paracentesis and the old
+  portal vein clot and schistosomiasis slides follow the new slides. Both humanizer passes were done: no new UI, only the fluid card, the belly gauge and the tiles.
+  Code and unit tests only; nobody has looked on screen. `src/ui/decks/ascites.js`, `src/ui/decks.js`, `tests/deck-adopted.js`, `tests/deck-pills.json`,
+  `tests/ascites-sinusoid-label.test.js`, `tests/e2e/smoke.mjs`, `docs/deck-authoring-guide.md`, `brand/handout/ascites/`.
 - **Measuring HVPG and PPG: the catheter slide shows the catheter, and the four-patient scale is gone.** (Mohammad, 25 Oct, "Build the new decks"; deck
   rebuild plan, D5.) The HVPG talk loses "Four patients on the HVPG scale", whose job the plane on the second-to-last slide already does (it places six
   patients by both gradients, with the cut-offs drawn on it). The slide that reads the result keeps what only it can show: the catheter on the
