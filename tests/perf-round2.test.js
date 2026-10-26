@@ -41,7 +41,7 @@ test('P6: the radius sync compares a copy element by element, with no joined key
   assert.doesNotMatch(sync, /R\.join\(','\)/);
   assert.doesNotMatch(sync, /Math\.max\(\.\.\.R\)/);
   assert.doesNotMatch(sync, /tubeData\.some\(/);
-  assert.match(sync, /o\.glRSent = Float64Array\.from\(R\); o\.glR = R; o\.glMaxR = mx;/);
+  assert.match(sync, /if \(sent && sent\.length === R\.length\) sent\.set\(R\); else o\.glRSent = Float64Array\.from\(R\);\s*o\.glR = R; o\.glMaxR = mx;/);
 });
 
 test('P8: stepBlood keeps per-frame facts per model frame, syncEnds compares in place', () => {

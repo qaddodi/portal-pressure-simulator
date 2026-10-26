@@ -33,10 +33,11 @@
 
 import { CHEV_GLSL } from './chevron-glsl.js?v=96ec7c6666';
 import { SLOT, DYE_BINS } from './blood.js?v=7fa561f952';
-import { cssRGB } from './util.js?v=a7f8549e15';
+import { cssRGB } from './util.js?v=77c14494a8';
 import { LUMEN, STO_Y0, STO_DY, STO_N } from './stomach-lumen.js?v=4fce52c62f';
 import { CELL, ENT_W, binVeins, splitRows, simpleCells, splitCells } from './veins-bin.js?v=e0eed8226f';
-import { gpuProbe, COUNTED } from './gpu-probe.js?v=c66f99a23a';
+import { gpuProbe, COUNTED } from './gpu-probe.js?v=caac436485';
+import { changedRows } from './flow-rows.js?v=bea4089714';
 import { createOrganStack } from './organs-gl.js?v=50a7580426';
 
 export { binVeins };
@@ -1657,6 +1658,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false }) {
   const radRow = new Float32Array(N_SAMPLES * 2), rmaxOne = new Float32Array(1), bendRow = new Float32Array(N_SAMPLES);
   // Per-vessel blood (FLOW_TEXELS texels a row) and dye (DYE_BINS along the course).
   const flowTex = dataTex(gl), dyeTex = dataTex(gl, gl.LINEAR);
+  let flowSent = null;   // (the blood rows as last uploaded: setFlow)
   gl.bindTexture(gl.TEXTURE_2D, flowTex);
   gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA32F, FLOW_TEXELS, nTubes, 0, gl.RGBA, gl.FLOAT, null);
   gl.bindTexture(gl.TEXTURE_2D, dyeTex);
@@ -2169,8 +2171,20 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false }) {
     },
     /** Per-vessel blood: nTubes × FLOW_TEXELS × 4 floats (see stage.js). */
     setFlow(data) {
+      // (Only the span of rows that differ from the last upload goes up, and nothing while they all match, as when paused:
+      // flow-rows.js changedRows. The first upload of this context sends every row.)
+      const stride = FLOW_TEXELS * 4;
+      let lo = 0, hi = nTubes - 1;
+      if (!flowSent) flowSent = Float32Array.from(data.subarray(0, nTubes * stride));
+      else {
+        const span = changedRows(data, flowSent, stride, nTubes);
+        if (!span) { if (gpuProbe.on) gpuProbe.note(COUNTED.flowSame); return; }
+        [lo, hi] = span;
+      }
+      const sub = data.subarray(lo * stride, (hi + 1) * stride);
+      if (gpuProbe.on) gpuProbe.note('uploaded: setFlow', sub.byteLength / 1024);
       gl.bindTexture(gl.TEXTURE_2D, flowTex);
-      gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, FLOW_TEXELS, nTubes, gl.RGBA, gl.FLOAT, data);
+      gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, lo, FLOW_TEXELS, hi - lo + 1, gl.RGBA, gl.FLOAT, sub);
     },
     /** Dye along each vessel: nTubes × DYE_BINS floats, or null when there is none. */
     setDye(data) {
@@ -2512,7 +2526,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false }) {
   // (And, for the ?perf readout, how much each upload sent, in KB: a camera-only frame should send none of the model's.)
   const kbOf = {
     setGeometry: (b) => (b.ent.byteLength + b.cells.byteLength + (b.blood?.byteLength || 0)) / 1024, setRadii: () => N_SAMPLES * 8 / 1024,
-    setTubes: (d) => d.byteLength / 1024, setFlow: (d) => d.byteLength / 1024, setDye: (d) => (d ? d.byteLength / 1024 : 0), setFluidCells: (c) => c.byteLength / 1024,
+    setTubes: (d) => d.byteLength / 1024, setDye: (d) => (d ? d.byteLength / 1024 : 0), setFluidCells: (c) => c.byteLength / 1024,
     setOrgans: (bm) => (bm.width * bm.height * 4) / 1024, plateRows: (job, y, rows, px) => px.byteLength / 1024,
   };
   for (const [k, name] of Object.entries(steps)) {

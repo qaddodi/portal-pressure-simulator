@@ -16,6 +16,11 @@ export const COUNTED = {
   lobulePicture: 'lobule: vessels drawn', lobuleSurface: 'lobule: surface pass', lobuleSkip: 'lobule: surface pass skipped (camera only)',
   tissue: 'tissue: bitmap painted', ductules: 'lobule: ductules drawn',
   labelSolve: 'labels: solved', labelCarry: 'labels: carried', safe: 'safe area: cards measured',
+  // (The blood apart from the vessels' shapes: a frame whose blood rows all matched the last upload sends none; rows cleared
+  // once as their vessel stops drawing. And the width step between model frames, by the sync it took: the radii alone, or
+  // the whole vessel sync because something else had changed or a vessel outgrew its binned reach.)
+  flowSame: 'blood: upload skipped (rows unchanged)', flowRetired: 'blood: rows cleared',
+  widthRadii: 'widths: radii-only sync', widthWhole: 'widths: whole sync',
 };
 /** The counted names whose count above 1 in one frame means a surface drawn twice in it. */
 export const TWICE = new Set([COUNTED.picture, COUNTED.glassDrawn, COUNTED.lobulePicture]);

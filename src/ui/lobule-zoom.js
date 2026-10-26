@@ -19,22 +19,22 @@
 // tapped (triad, inlet venule, sinusoid, arteriole, central vein, septum, hepatocytes).
 // Without WebGL2 the vessels are drawn flat on the tissue canvas.
 
-import { runFlick, FLICK } from './flick.js?v=be23c4ca89';
+import { runFlick, FLICK } from './flick.js?v=c38284271b';
 import { store } from './store.js?v=926dabfaef';
 import { radiiChanged, canvasPx, fxMoves, DIVE_RIM } from './lobule-render-cache.js?v=84bf4c2222';
 import { softwareYield } from './sw-yield.js?v=e580a095b1';
-import { lobuleState, lymphRate, sinceOf, LOBE } from './lobule-model.js?v=14bb40d2e4';
+import { lobuleState, lymphRate, sinceOf, LOBE } from './lobule-model.js?v=dbe2fbc8fd';
 import { SIN_NARROW, cordTone, dullSinusoid, NEIGHBOUR_FLAT, neighbourBlur, blurWrapped, bandOutline, FADE_MID, fadeOuter, padRect, wideDpr, wideTiles, FIELD_RS, fieldBlend, fieldDof } from './lobule-look.js?v=a7314b7992';
 import { createFieldGL } from './field-gl.js?v=d7dba46a8b';
 import { createTissueGL } from './tissue-gl.js?v=7bfebc9510';
-import { h, s, fmt, clamp, createEaser, systemEdge, bloodColors, cssVar, cssAlpha, cssRGB01 } from './util.js?v=a7f8549e15';
-import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatColor, oxygenColor } from './colormap.js?v=fd052a05e5';
+import { h, s, fmt, clamp, createEaser, systemEdge, bloodColors, cssVar, cssAlpha, cssRGB01 } from './util.js?v=77c14494a8';
+import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatColor, oxygenColor } from './colormap.js?v=e5173636d0';
 import { NODES, EDGES } from '../engine/topology.js?v=4044766e96';
-import { createVeinsGL, binVeins, laneSum, N_SAMPLES, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_SPEC, F_EDGE, ORIGIN_GREY } from './veins-gl.js?v=3fb1b37bf4';
+import { createVeinsGL, binVeins, laneSum, N_SAMPLES, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_SPEC, F_EDGE, ORIGIN_GREY } from './veins-gl.js?v=7de4a07a98';
 import { SLOT, PERIOD, originFractions, ORIGIN_N, DRIFT_PERIOD } from './blood.js?v=7fa561f952';
-import { createSinusoidView } from './sinusoid-view.js?v=14e9e86b5b';
-import { frameFor, cancelFrame, noteDraw, saver, paceMs, frame } from './frame.js?v=226365e6e2';
-import { gpuProbe, COUNTED } from './gpu-probe.js?v=c66f99a23a';
+import { createSinusoidView } from './sinusoid-view.js?v=ca71737614';
+import { frameFor, cancelFrame, noteDraw, saver, paceMs, frame } from './frame.js?v=27496e60e1';
+import { gpuProbe, COUNTED } from './gpu-probe.js?v=caac436485';
 import { leaderEnd, runInside } from './leader-end.js?v=8e884700ab';
 const nextFrame = frameFor('lobule-zoom');
 
@@ -1040,8 +1040,9 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     const uk = u.replace(/\d/g, '0'), frame = `${name}|${short}|${uk}|${v === ''}|${!!d}`;
     if (L.frame === frame && L.b) {
       if (String(v).length !== L.b.textContent.length || (d && d.length !== L.dEl.textContent.length)) layoutKey = '';
-      L.b.textContent = v;
-      if (d) L.dEl.textContent = d;
+      // (Each part is written only when its own text changed: a new colour alone, or a new unit figure, leaves the number be.)
+      if (L.b.textContent !== String(v)) L.b.textContent = v;
+      if (d && L.dEl.textContent !== d) L.dEl.textContent = d;
       if (u !== L.u) { const [a, ...rest] = u.split(' · '); if (rest.length) { L.uEls[0].textContent = a; L.uEls[1].lastChild.textContent = rest.join(' · '); } else if (u) L.uEls[0].textContent = u; }
     } else {
       L.frame = frame;

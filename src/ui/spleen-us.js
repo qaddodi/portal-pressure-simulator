@@ -3,9 +3,9 @@
 // reading is. The length is the model's (metrics.spleen.length, a slide's settled number once pinned), so it reads as the slide's tile
 // does. It redraws only when the length changes by 0.1 cm and eases between. The platelets go in the slide's tile, not in the picture.
 
-import { h, fitCanvas, clamp, cssAlpha, cssVar } from './util.js?v=a7f8549e15';
-import { FONT } from './charts.js?v=fbaaebf534';
-import { frameFor, cancelFrame } from './frame.js?v=226365e6e2';
+import { h, fitCanvas, clamp, cssAlpha, cssVar } from './util.js?v=77c14494a8';
+import { FONT } from './charts.js?v=975caa7a1e';
+import { frameFor, cancelFrame } from './frame.js?v=27496e60e1';
 const nextFrame = frameFor('spleen-us');
 
 /** The longest spleen the picture holds (the tile's bar ends at 22 cm); the scale is the same for every length, so a bigger spleen is drawn bigger. */

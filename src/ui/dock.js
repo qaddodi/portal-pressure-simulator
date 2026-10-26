@@ -3,16 +3,16 @@
 
 import { store, hiddenNow } from './store.js?v=926dabfaef';
 import { EDGES } from '../engine/topology.js?v=4044766e96';
-import { h, fmt, svgIcon, closePopover, clamp, shownOf, isPhoneLayout, SIDEWAYS_MQ, swapFade, scrollBehavior, countTo, swapText, glideOnResize } from './util.js?v=a7f8549e15';
-import { lobuleFlows } from './lobule-model.js?v=14bb40d2e4';
-import { createProfile } from './charts.js?v=fbaaebf534';
-import { createPressureTime } from './pressure-time.js?v=05c636832a';
-import { createHvpgProcedure } from './hvpg-proc.js?v=c9c5ae0694';
-import { lazyPane, holdUntilLoaded } from './lazy-pane.js?v=76e7e99a79';
+import { h, fmt, svgIcon, closePopover, clamp, shownOf, isPhoneLayout, SIDEWAYS_MQ, swapFade, scrollBehavior, countTo, swapText, glideOnResize } from './util.js?v=77c14494a8';
+import { lobuleFlows } from './lobule-model.js?v=dbe2fbc8fd';
+import { createProfile } from './charts.js?v=975caa7a1e';
+import { createPressureTime } from './pressure-time.js?v=3236011ff7';
+import { createHvpgProcedure } from './hvpg-proc.js?v=4b304372df';
+import { lazyPane, holdUntilLoaded } from './lazy-pane.js?v=9dfa3dc9be';
 import { ownsSideways, pageGo } from './swipe.js?v=3ad619631e';
-import { createEndoscopy, createVarixWall, createAbdomen } from './instruments.js?v=9cc1bee18d';
-import { createReadoutsPane } from './readouts-pane.js?v=a11f3483a0';
-import { frameFor } from './frame.js?v=226365e6e2';
+import { createEndoscopy, createVarixWall, createAbdomen } from './instruments.js?v=b54a31b923';
+import { createReadoutsPane } from './readouts-pane.js?v=29f100c464';
+import { frameFor } from './frame.js?v=27496e60e1';
 import { vitalReading, VITALS } from './vital-read.js?v=cbba41a6b7';
 import { setShown } from './shown.js?v=82ef5e29ec';
 import { tenthGap } from '../engine/gap.js?v=3aabfbb29b';
@@ -258,8 +258,10 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
       if (A && v != null && !measured) {
         const d = v - (lz ? (st0.compareSnap.frame ? t.v(st0.compareSnap.frame, st0) : v) : t.v(A));
         const same = Math.abs(d) < Math.pow(10, -t.d) * 0.5;
-        x.cmp.textContent = same ? 'same as then' : `${d > 0 ? '+' : '−'}${fmt(Math.abs(d), t.d)} vs then`;
-        x.cmp.className = 'cmp ' + (same ? 'same' : d > 0 ? 'up' : 'down');
+        // (Written only when they change, as in the readouts pane: each model frame rewrote every tile's.)
+        const ct = same ? 'same as then' : `${d > 0 ? '+' : '−'}${fmt(Math.abs(d), t.d)} vs then`, cc = 'cmp ' + (same ? 'same' : d > 0 ? 'up' : 'down');
+        if (x.cmp.textContent !== ct) x.cmp.textContent = ct;
+        if (x.cmp.className !== cc) x.cmp.className = cc;
         x.st.hidden = true;
       } else if (x.cmp.textContent) { x.cmp.textContent = ''; x.st.hidden = false; }
       // A new band must hold for a moment before the tile takes it, so a value hovering on a

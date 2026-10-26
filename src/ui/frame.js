@@ -12,7 +12,7 @@
 //
 // window.pps.perf (see perf()) reports callbacks per second for each surface over the last second.
 
-import { gpuProbe } from './gpu-probe.js?v=c66f99a23a';
+import { gpuProbe } from './gpu-probe.js?v=caac436485';
 let queue = new Map();   // id -> [tag, cb], in request order
 let current = null;      // the batch running now
 // Asked for with lateFrame: run after every other callback of the frame (one asked for while that frame's callbacks run still

@@ -4,7 +4,7 @@
 // (gpu-probe.js cpuOnly: no waiting for the GPU), every frame gap over 20 ms in the window is listed with the steps that ran
 // in it, and so is each long task the browser reports (Chrome; Safari reports none, its frame gaps still show). The panel is
 // written only when a window closes, never during a gesture, and the last five gestures stay listed with a Copy button.
-import { gpuProbe, COUNTED, TWICE, WHY } from './gpu-probe.js?v=c66f99a23a';
+import { gpuProbe, COUNTED, TWICE, WHY } from './gpu-probe.js?v=caac436485';
 
 const WINDOW = 2000, GAP = 20, KEEP = 5;
 const HIDES = ['', 'no live organs', 'no figure SVG', 'no labels', 'no GPU picture'];

@@ -3,17 +3,17 @@
 
 import { EDGES, dopplerK, NODES, PORTAL_TERRITORY, dMinOf, edgePresent, isOccluded, SHUNT_PORTAL, SHUNT_SYSTEMIC, customShuntId, isStent, stentSite, STENT_SITES, STENT_SPANS, stentGate, stentSegments } from '../engine/topology.js?v=4044766e96';
 import { route as metroRoute, RECTUM_FADE, LABEL_VESSEL, TIP_FADE, TIP_CONNECT, VIEW, VB_ANAT, VB_CIRC, ATLAS_COLUMNS, HIDDEN_EDGES, HIDDEN_NODES, ANAT_HIDDEN, ANAT_HIDDEN_NODES, CAUDATE, CONTEXT_EDGES, BACK_EDGES, IVC_EDGES, NEEDS_C3, NODE_POS, EDGE_PATH, CIRCUIT_PATH, metroPath, ORGANS, SEAM_D, ORGAN_DETAIL, BACKDROP, LIVER_INNER, LIVER_EDGES, LANE_CAPTIONS, ABDOMEN_CLIP, ABDOMEN_FLOOR, flankPath, abdomenOutline, cavityHalfWidths, SPLEEN_CENTER, SITES, ORGAN_LABELS, ATLAS_LABELS, SHORT, ABBR, CHIP_NODES, LIVER_SPLIT_X, CIRCUIT_ZONES, CIRCUIT_LABELS, STRANDS, STRAND_FROM, SIN_EDGES, FEEDERS, fanFeeders, CIRCUIT_TREES } from './anatomy.js?v=48cc98d415';
-import { pressureColor, deltaColor, dropColor, flowColor, heatColor, velColorOf, velocityColor, oxygenColor } from './colormap.js?v=fd052a05e5';
+import { pressureColor, deltaColor, dropColor, flowColor, heatColor, velColorOf, velocityColor, oxygenColor } from './colormap.js?v=e5173636d0';
 import { forkJoins, sideEndScale } from './fork-joins.js?v=20a032142f';
 import { nodeEnds, nodeDrawn, dotRadius, bareDots } from './circuit-nodes.js?v=1040ba0ec4';
 import { STATION_VESSEL, meanVel, velNormal, judgeFlow } from './velNormal.js?v=97920ddf3f';
 import { store, updateParams, varicesPresent, varixGrowth, shownVel } from './store.js?v=926dabfaef';
 import { fibroReading } from './clock.js?v=5151312569';
-import { s, h, fmt, fmtFlow, fp, clamp, lerp, toast, systemEdge, bloodColors, restBox, translateRest, settledBox, putText, UPRIGHT_MQ } from './util.js?v=a7f8549e15';
+import { s, h, fmt, fmtFlow, fp, clamp, lerp, toast, systemEdge, bloodColors, restBox, translateRest, settledBox, putText, UPRIGHT_MQ } from './util.js?v=77c14494a8';
 import { riseCentre } from './rise-path.js?v=c039cb7b49';
 import { sinceSource } from './since-ref.js?v=ef1a818c75';
 import { clipBox, mapBox } from './fit-box.js?v=d5d6d4c60f';
-import { runFlick, FLICK } from './flick.js?v=be23c4ca89';
+import { runFlick, FLICK } from './flick.js?v=c38284271b';
 import { inlineStyles } from './svg-inline.js?v=fc17cb73fe';
 import { fluidTarget, poolFade } from './fluid-step.js?v=2742314765';
 import { easeTo, fluidSpring, fluidSpringFor } from './organ-ease.js?v=4ebb648131';
@@ -29,17 +29,19 @@ import { LIVER_GEO } from './liver-geo-data.js?v=41a20a25ac';
 import { COLON_ART, BOWEL_ART, DUO_CLIPS, DUO_A, DUO_B } from './organ-art.js?v=a6a766d521';
 import { warmVisible, ringGrid, inGrid } from './warm-vis.js?v=ccf4f6f71b';
 import { createRouter } from './circuit-router.js?v=0ee9e02fc6';
-import { gpuProbe, COUNTED } from './gpu-probe.js?v=c66f99a23a';
+import { gpuProbe, COUNTED } from './gpu-probe.js?v=caac436485';
 import { plateStrips, premultiply, gutStep, viewReuse, copyPixels } from './plate-upload.js?v=5fc45556a1';
 import { cropToGrid } from './organs-gl.js?v=50a7580426';
 import { readGroup, shapeSource, bindShape, targetRoom } from './organ-paint.js?v=1250d7cb89';
 import { pathCmds, flattenCmds, polyBox } from './shape-gl.js?v=a5ba46162b';
-import { createLabelGL } from './label-gl.js?v=f3373d9aa9';
-import { createGlassGL } from './glass-gl.js?v=e9c837a09e';
-import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, ORIGIN_GREY } from './veins-gl.js?v=3fb1b37bf4';
+import { createLabelGL } from './label-gl.js?v=f656c5a0e4';
+import { createGlassGL } from './glass-gl.js?v=6e652520c7';
+import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, ORIGIN_GREY } from './veins-gl.js?v=7de4a07a98';
 import { varixBead, beadRadius } from './varix-bead.js?v=ac0e84fd89';
 import { advanceStream, createReversalHold, bleedShapes, stepBleedFade, fadeBleedShapes, chevFlowLevel, keyChevron, KEY_CHEV_LANES, originFractions, oxygenFor, ORIGIN_N, createBolus, DYE_BINS, KAPPA, STASIS_MIN_D, HIDDEN_SECONDS } from './blood.js?v=7fa561f952';
-import { frameFor, lateFrameFor, cancelFrame, noteDraw, setSaver as setFrameSaver, paceMs, frame } from './frame.js?v=226365e6e2';
+import { retireRows } from './flow-rows.js?v=bea4089714';
+import { createJunctionWidths } from './junction-widths.js?v=c5726a67f9';
+import { frameFor, lateFrameFor, cancelFrame, noteDraw, setSaver as setFrameSaver, paceMs, frame } from './frame.js?v=27496e60e1';
 import { softwareYield } from './sw-yield.js?v=e580a095b1';
 import { portalSplit } from './table-marks.js?v=b717587a61';
 import { hashSeed, clotSide, clotSpan, clotRadius, clotShift, clotLayers, CLOT_EDGE } from './clot-shape.js?v=415ba6b9c0';
@@ -2171,7 +2173,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const lzAnchor = document.createComment('lobule');
   wrap.append(lzAnchor);
   // (The code is fetched as soon as the figure is shown; the layer is built a moment later, when the page is quiet, or at once for a dive.)
-  const lobuleCode = () => (lzCode ||= import('./lobule-zoom.js?v=3bb19b153c').catch((err) => { lzCode = null; throw err; }));
+  const lobuleCode = () => (lzCode ||= import('./lobule-zoom.js?v=2fb171bcf4').catch((err) => { lzCode = null; throw err; }));
   function lobuleReady() {
     return (lzLoad ||= lobuleCode().then(({ createLobuleZoom }) => {
       lz = createLobuleZoom({ host: wrap, styles: wrapCS, before: lzAnchor });
@@ -2557,6 +2559,17 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       }
     }
   }
+  // The width at each node the tubes ease their ends to (junction-widths.js), reused frame to frame by the width step.
+  const jWidths = createJunctionWidths();
+  function junctionWidths() {
+    jWidths.reset();
+    for (const x of EV) {
+      if (!x.vis || x.isArt || x.g.classList.contains('coll-ghost')) continue;
+      jWidths.put(x.e.from, x.width); jWidths.put(x.e.to, x.width);
+    }
+    return jWidths.answer();
+  }
+
   function updateInner(f) {
     // In the lobule, or diving into it (the anatomy is only magnified, then covered), the plate is left as it is
     // (reading the cards' boxes and restyling it each model frame stalled the zoom); it catches up on the way out,
@@ -2717,13 +2730,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     }
     // Junction widths: where vessels meet, the largest narrows to the second largest and the
     // others widen toward it, so calibers change smoothly through every junction.
-    const jw = {};
-    for (const x of EV) {
-      if (!x.vis || x.isArt || x.g.classList.contains('coll-ghost')) continue;
-      (jw[x.e.from] ||= []).push(x.width); (jw[x.e.to] ||= []).push(x.width);
-    }
-    const J = {};
-    for (const [n, ws] of Object.entries(jw)) { ws.sort((a, b) => b - a); J[n] = ws[1] ?? ws[0]; }
+    const J = junctionWidths();
     // Detect newly opened collaterals before the tubes are built: a revealing vessel is drawn as a
     // dashed stroke from its first frame (never first as a full tube that then vanishes).
     trackChanges(f, p);
@@ -2859,17 +2866,12 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       if (!labels) { const sw = sigW.get(x.e.id); labels = sw == null || Math.abs(w - sw) >= 2; }
     }
     if (!moved) return;
-    const jw = {};
-    for (const x of EV) {
-      if (!x.vis || x.isArt || x.g.classList.contains('coll-ghost')) continue;
-      (jw[x.e.from] ||= []).push(x.width); (jw[x.e.to] ||= []).push(x.width);
-    }
-    const J = {};
-    for (const [n, ws] of Object.entries(jw)) { ws.sort((a, b) => b - a); J[n] = ws[1] ?? ws[0]; }
+    const J = junctionWidths();
     const p = f.viewParams || store.get().params;
     for (const x of EV) if (x.vis && !x.isArt) renderTube(x, p, t, J);
     if (glWanted(t)) clearJoins(); else updateJoins(t);
-    if (!syncRadiiOnly(t)) syncVeins(t);
+    if (syncRadiiOnly(t)) gpuProbe.note(COUNTED.widthRadii);
+    else { gpuProbe.note(COUNTED.widthWhole); syncVeins(t); }
     updateOverlays(f, p, lerp(1, 0.8, t), t);
     updateBridges(t);
     if (labels) updateLabels(f);
@@ -3405,7 +3407,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       if (sent && sent.length === R.length) { let j = 0; while (j < R.length && sent[j] === R[j]) j++; if (j === R.length) continue; }
       let mx = -Infinity;
       for (let j = 0; j < R.length; j++) if (R[j] > mx) mx = R[j];
-      o.glRSent = Float64Array.from(R); o.glR = R; o.glMaxR = mx;
+      // (The copy is refilled in place when it is the same size: no new array per changed vessel per frame of an ease.)
+      if (sent && sent.length === R.length) sent.set(R); else o.glRSent = Float64Array.from(R);
+      o.glR = R; o.glMaxR = mx;
       // (A vessel's new radii change only its own cells: drawn again as a colour change is, see drawVeins.)
       veins.setRadii(it.row, R); veinsRows.add(it.row);
     }
@@ -9532,6 +9536,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   //   3: chevron visibility (0–1, eased: Key chevrons only fades the rest); the still chevrons' spacing level (reduced motion,
   //      chevFlowLevel); the stagnant blood's drift (shimmer cells, blood.js drift)
   const flowData = new Float32Array(GL_ROWS * FLOW_TEXELS * 4);
+  // (The rows written this frame and last: stepBlood clears a row once when its vessel stops drawing.)
+  const flowNow = new Uint8Array(GL_ROWS), flowWas = new Uint8Array(GL_ROWS);
   const dyeData = new Float32Array(GL_ROWS * DYE_BINS), dyeRow = new Float32Array(DYE_BINS);
   const streams = EDGES.map((e, k) => ({ seed: k + 1 }));
   const LARGE = EDGES.map((e) => (e.kind === 'vein' || e.kind === 'diode') && (e.d || 0) >= STASIS_MIN_D);
@@ -9637,9 +9643,11 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const on = blendA.s > 0 || blendA.c > 0 || blendA.o > 0;
     if (blendA.o > 0 && originsF !== F) { origins = originFractions(EDGES, NODES, Qf, F.Pf || F.P); originsF = F; }
     syncEnds();
-    flowData.fill(0);
+    // (Each row drawn is written whole and a row no longer drawn is cleared once after the loop (flow-rows.js retireRows): the
+    // table ends as a clear of all of it before the writes left it, without clearing and refilling every row each frame.)
     const put = (row, k, q, f0, f1, strength) => {
       const o = row * FLOW_TEXELS * 4, sm = streams[k];
+      flowData.fill(0, o, o + FLOW_TEXELS * 4); flowNow[row] = 1;
       flowData[o] = sm.D; flowData[o + 1] = sm.vd; flowData[o + 2] = KAPPA * Math.abs(q); flowData[o + 3] = sm.stasis;
       flowData[o + 4] = f0 ? 1 : 0; flowData[o + 5] = f1 ? 1 : 0; flowData[o + 6] = strength; flowData[o + 7] = sm.rev;
       if (origins) for (let c = 0; c < ORIGIN_N; c++) flowData[o + 8 + c] = origins[k * ORIGIN_N + c];
@@ -9658,15 +9666,19 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       const r = x.reveal, rs = r ? (r.out ? 1 - easeInOut(clamp((tR - r.t0) / r.dur, 0, 1)) : easeInOut(clamp((tR - r.t0) / r.dur, 0, 1))) : 1;
       const k = EI[x.e.id], q = Qf[k];
       // A braided collateral's channels share its flow by cross-section (a channel still coming in, by its share of it).
-      const strands = morph < 0.5 ? (x.strands || []).filter((sd) => (sd.live ?? 1) > 0) : [];
-      const area = 1 + strands.reduce((a, sd) => a + sd.k * sd.k * (sd.live ?? 1), 0);
+      // (Summed in place, not through a filtered copy of the strands each frame.)
+      const strands = morph < 0.5 ? x.strands : null;
+      let area = 1;
+      if (strands) for (const sd of strands) if ((sd.live ?? 1) > 0) area += sd.k * sd.k * (sd.live ?? 1);
       put(x.row, k, q / area, x.freeFrom, x.freeTo, rs);
-      for (const sd of strands) put(sd.row, k, q * sd.k * sd.k / area, true, true, rs * (sd.live ?? 1));
+      if (strands) for (const sd of strands) if ((sd.live ?? 1) > 0) put(sd.row, k, q * sd.k * sd.k / area, true, true, rs * (sd.live ?? 1));
       // Tributaries drawn into a trunk: a share of its flow by caliber.
       if (morph < 0.5) for (const fd of x.feeders || []) if ((fd.live ?? 1) > 0 && fd.w) put(fd.row, k, q * 0.5 * (fd.w / Math.max(1, x.width)) ** 2, true, false, rs * (fd.live ?? 1));
       // The liver's branches in the circuit: a share of the vessel's flow by caliber.
       if (morph >= 0.5) for (const cb of x.cbr || []) if (cb.w) put(cb.row, k, q * 0.5 * (cb.w / Math.max(1, x.width)) ** 2, true, true, rs);
     }
+    const retired = retireRows(flowData, flowWas, flowNow, FLOW_TEXELS * 4);
+    if (retired && gpuProbe.on) for (let i = 0; i < retired; i++) gpuProbe.note(COUNTED.flowRetired);
     veins.setFlow(flowData);
     // The dye bolus, through every vessel (hidden ones take a second each).
     if (bolus.active) {
