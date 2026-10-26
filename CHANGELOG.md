@@ -2,6 +2,16 @@
 
 ## October 2026
 
+- **The teaching card's words hold still while a what-if slider moves, on a phone and everywhere else.** (Mohammad, 26 Oct, "When using sliders on teaching cards on phone the text of the
+  teaching card jitters a lot".) Three causes found by reading the code. The slider's value and the time-lapse's "Day 12 of 30" counter were plain text in a box that took the
+  width of whatever they said, so a digit coming or going changed that box's width, and with it the room the label row or the bar beside it had; each now stands in a box as wide as
+  its widest words, with a hidden copy of them laid over the live words in one grid cell, in tabular figures (`src/ui/live-text.js`, `.pzv`). The card's fit signature read those
+  words too, so a digit more or less asked for a fresh fit; it now leaves them out (`wordsOf`). And a slider that moves an instrument's option instead of the model (Endoscopy 3 and
+  5, the air pressure) never set `liveOff`, the flag that keeps the cards' plan while only readings change, so a scope reading that measured the data card a hair different could lay
+  the cards out and fit the words again; every what-if slider now sets `handOn` on its first move (cleared with the next slide), and `readingsOnly` and `cardsStill` count it.
+  The authoring guide follows. Code and unit tests only; nobody has looked on screen. `src/ui/live-text.js`, `src/ui/presenter.js`, `styles/app.css`, `tests/live-text.test.js`,
+  `tests/card-text-lock.test.js`, `docs/deck-authoring-guide.md`.
+
 - **The HVPG pressure trace moves out of the words into a data card on slides 3 to 5 of HVPG and PPG.** (Mohammad, 26 Oct, "move the HVPG monitor into an instrument data
   card ... keep the teaching card without it".) Free, Wedged and Result now carry `tool: { kind: 'hvpg', catheter: true }` instead of `monitor`: the same black tracing sits
   in the data card under the words, follows the catheter on the figure (its balloon sets the pressure's rise, the slide's readings are the callouts' own) and stays on screen

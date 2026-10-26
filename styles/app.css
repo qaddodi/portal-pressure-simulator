@@ -2261,6 +2261,11 @@ button.finding { cursor: pointer; }
 .pzi-e { grid-row: 2; justify-self: start; font: 500 var(--s-cap)/1 var(--font-ui); color: var(--text-2); white-space: nowrap; }
 .pzi-e:last-child { grid-column: 2; justify-self: end; }
 .pzi-v { min-width: 3.6em; text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+/* Words that change while they show (a what-if value, a time-lapse's day count) stand in a box as wide as the widest words they will take: a hidden
+   copy of them (.pzv-s) and the live ones (.pzv-t) in one grid cell, so a digit coming or going never changes the line they stand on (live-text.js). */
+.pzv { display: grid; font-variant-numeric: tabular-nums; }
+.pzv > .pzv-s, .pzv > .pzv-t { grid-area: 1 / 1; white-space: nowrap; }
+.pzv > .pzv-s { visibility: hidden; }
 .pz.stack .pz-wi { gap: .3em .7em; }
 .pz.stack .pzi-l { flex-direction: row; align-items: baseline; gap: .5em; }
 /* (A phone: the slider takes a line of its own at the card's width, its end words at the track's ends; on one line with the label the track was a stub.) */

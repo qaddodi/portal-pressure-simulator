@@ -17,6 +17,7 @@ import { store, replaceParams } from './store.js?v=926dabfaef';
 import { download } from './download.js?v=3564e5bf8c';
 import { h, toast, svgIcon, icon, fmt, clamp, openModal, closeModal, isModalOpen, restBox, paintRange, cssVar, swapText, STACK_MQ, SHORT_SIDE_MQ, TABLET_UP_MQ } from './util.js?v=a7f8549e15';
 import { titleParts } from './title-units.js?v=c8d5ce1f26';
+import { liveText, wordsOf } from './live-text.js?v=2b6cb5dcdc';
 import { swipeDir, ownsSideways, ownsTouch, cardSwipe, caseFling, caseFlight, wheelFinger, wheelGesture, ownsWheel } from './swipe.js?v=3ad619631e';
 import { sinusoidSupported } from './gl-support.js?v=94ad2a7ff1';
 import { SCALE_NAME, offeredScales, scaleView, pickedScale } from './scale-switch.js?v=1b0e3acd65';
@@ -1234,6 +1235,10 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   let lapseOn = false, lapseLeft = 0, lastAt = -1;   // (lapseLeft: days still to run; 0 once Next has sped it up; lastAt: the slide last shown)
   // A compare slide's buttons switch the live model's params (liveOff: it no longer shows the slide's computed state).
   let liveOff = false, abGen = 0;
+  // A what-if slider has been moved on this slide, whatever it moves (the model, or an instrument's option, which leaves liveOff alone):
+  // from then on only the data card's readings change, and its cards keep the plan they came in with (readingsOnly, cardsStill).
+  // Cleared with the next slide (transitionRun).
+  let handOn = false;
   // The slide's marks as it landed (markBase), and those marks for the params now: a mark with clot: true names the clot in its
   // first vessel as the model has it (callout-math clotWords), so the what-if slider changes its words, and with no clot it goes.
   let markBase = null;
@@ -1330,18 +1335,20 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     const w = s.whatIf, paths = [].concat(w.param).map((p) => (p ? p.split('.') : []));   // (a tool slider has no param)
     const v0 = +(w.tool ? s.tool?.[w.tool] ?? w.min : paths[0].reduce((o, k) => o?.[k], st?.params) ?? w.min);
     const patchOf = (x) => paths.reduce((a, path) => merge(a, path.reduceRight((o, k) => ({ [k]: o }), x)), {});
-    const out = h('output', { class: 'pzi-v' });
     const input = h('input', { type: 'range', min: w.min, max: w.max, step: w.step ?? (w.max - w.min) / 20, value: v0, 'aria-label': `What if: ${w.label}` });
     // (A label that already names the unit, "Weeks pregnant", shows the bare number: "24", not "24 weeks".)
     const bare = !!w.unit && w.label.toLowerCase().startsWith(w.unit.toLowerCase());
     const fmtV = (x) => (w.unit ? `${fmt(x, w.step >= 1 ? 0 : 1)}${bare ? '' : ` ${w.unit}`}` : '');
+    // The value sits in a box as wide as the widest it can take (live-text.js), so the words' row never reflows as a digit comes or goes.
+    const out = liveText('output', 'pzi-v', [w.min, (w.min + w.max) / 2, w.max, v0].map(fmtV));
     // The tiles' scale bar made draggable: a dot for now, and a ring where the slide started, which stays behind as the learner
     // drags, so the distance moved shows (Mohammad's pick B, 17 Oct).
     const frac = (x) => (x - w.min) / (w.max - w.min);
     const track = h('div', { class: 'range-wrap', style: { '--s': String(clamp(frac(v0), 0, 1)) } }, h('span', { class: 'sl-start', 'aria-hidden': 'true' }), input);
-    const paint = (x) => { paintRange(input, frac(x)); out.textContent = fmtV(x); };
+    const paint = (x) => { paintRange(input, frac(x)); out.set(fmtV(x)); };
     let raf = 0;
     input.addEventListener('input', () => {
+      handOn = true;   // (before anything else: the instrument's option below leaves liveOff alone)
       paint(+input.value);
       if (w.tool) { ui?.tools.option({ [w.tool]: +input.value }); return; }   // (an instrument's option: the model is left alone)
       if (!raf) raf = nextFrame(() => { raf = 0; liveSet(s, i, patchOf(+input.value)); });
@@ -1352,7 +1359,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     return h('div', { class: 'pz-wi', role: 'group', 'aria-label': `What if: ${w.label}` },
       h('span', { class: 'pzi-l' }, h('span', { class: 'pzi-k' }, 'What if'), w.label),
       h('div', { class: 'pzi-t' }, w.ends ? h('span', { class: 'pzi-e' }, w.ends[0]) : null, track, w.ends ? h('span', { class: 'pzi-e' }, w.ends[1]) : null),
-      w.unit ? out : null);
+      w.unit ? out.el : null);
   }
   function stopLapse() { if (!lapseOn) return; lapseOn = false; host.send({ type: 'lapse', days: 0 }); shownState = -1; paintChrome(); }
   // Next during a time-lapse runs the days that are left in about 600 ms (the clock speeds up, the ramp is unchanged) and stops on its end.
@@ -1365,11 +1372,16 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   const bedside = (s) => s?.lapse?.clock === 'seconds';
   const lapseWords = (n) => (n >= 60 && n % 30 === 0 ? `${n / 30} months` : `${n} days`);
   const lapseText = (s, d, n, done) => (s.lapse.to ? (done ? s.lapse.to : `${s.lapse.from} → ${s.lapse.to}`) : done ? `${lapseWords(n)} later` : `Day ${Math.round(d)} of ${n}`);
+  // The counter under the words: its box is as wide as the widest it says (the last day, or the words after it), so the bar beside it keeps one width
+  // as the days run and the words change (live-text.js).
+  const lapseRow = (s) => h('div', { class: 'pz-lapse', role: 'status' }, h('span', { class: 'pzl-bar' }, h('i')),
+    liveText('span', 'pzl-t', [lapseText(s, 0, s.days, false), lapseText(s, s.days, s.days, false), lapseText(s, s.days, s.days, true)], lapseText(s, 0, s.days, false)).el);
   function paintLapse(s, d, n, done = false) {
     const el = ui?.text.querySelector('.pz-lapse');
     if (!el) return;
     el.style.setProperty('--k', (n ? d / n : 0).toFixed(3));
-    el.querySelector('.pzl-t').textContent = lapseText(s, d, n, done);
+    const t = el.querySelector('.pzl-t > .pzv-t'), words = lapseText(s, d, n, done);
+    if (t.textContent !== words) t.textContent = words;
     el.classList.toggle('done', done);
   }
   // (A chart over the days already draws its two lines from where they started to where they are, numbers and all: on a laptop
@@ -1666,7 +1678,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     // visual over the figure, keeps the colours already showing: they change only when a slide's lens does.
     if (!s.visual) { const lens = slideLens(s); if (store.get().colorMode !== lens) store.set({ colorMode: lens }); }
     if (!hushed) delete app.dataset.lit;   // (hushed, the lit set goes straight to the next slide's: a label on both keeps its pill)
-    stopLapse(); procStop(); abSlow();
+    stopLapse(); procStop(); abSlow(); handOn = false;
     await wait(Math.max(0, outMs - (performance.now() - outAt)));
     // (Nothing in the liver changes until its labels are gone.)
     if (hushed) { await wait(Math.max(0, HUSH_OUT - (performance.now() - hushAt))); await eased(['--lab-o'], 600); if (cut()) return; }
@@ -2049,7 +2061,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
           s.procedure ? procEl(s, i, st) : null,
           s.whatIf ? whatIfEl(s, i, st) : null,
           s.column ? wedgeColumn() : null,
-          s.lapse && i > 0 ? h('div', { class: 'pz-lapse', role: 'status' }, h('span', { class: 'pzl-bar' }, h('i')), h('span', { class: 'pzl-t' }, lapseText(s, 0, s.days, false))) : null,
+          s.lapse && i > 0 ? lapseRow(s) : null,
           s.rail ? rail(s.rail === 'all' ? 'all' : s.site) : null,
           s.causes?.length ? h('p', { class: 'pz-causes' }, h('span', { class: 'pz-sub' }, s.causesHead || 'Causes'), nb(listCase(s.causes))) : null]);
       paintKey((slideLens(s) !== 'pressure' || lensButtons(s)) ? slideLens(s) : null, s);
@@ -2661,7 +2673,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   // A card whose signature is unchanged keeps its fit without being measured again (measuring forces layouts mid-animation).
   // (A card holding the quick check grows as its answers ease open and shut; it was fitted with every answer open, so its own
   // height is left out (the window's stands in): refitting mid-ease cut the easing short and jolted the words' size.)
-  const fitSig = (el) => `${el.clientWidth}x${el.querySelector('.pz-check') ? `q${innerWidth}x${innerHeight}` : el.clientHeight}|${el.className}|${el.style.maxHeight}|${document.documentElement.style.cssText}|${el.style.getPropertyValue('--pz-reach')},${el.style.getPropertyValue('--pz-fkrow')}|${[...el.children].map((c) => (c.hidden ? 0 : c.className + (getComputedStyle(c).maxHeight !== 'none' ? ':' + c.offsetHeight : ''))).join()}|${el.textContent.replace(/\d/g, '0')}`;
+  const fitSig = (el) => `${el.clientWidth}x${el.querySelector('.pz-check') ? `q${innerWidth}x${innerHeight}` : el.clientHeight}|${el.className}|${el.style.maxHeight}|${document.documentElement.style.cssText}|${el.style.getPropertyValue('--pz-reach')},${el.style.getPropertyValue('--pz-fkrow')}|${[...el.children].map((c) => (c.hidden ? 0 : c.className + (getComputedStyle(c).maxHeight !== 'none' ? ':' + c.offsetHeight : ''))).join()}|${(el.querySelector('.pzv') ? wordsOf(el) : el.textContent).replace(/\d/g, '0')}`;
   const fitDone = new WeakMap(), smOf = new WeakMap();
   // A narrow summary table's column heads: 11 px, or as large as each column fits (down to 8), one size for the row.
   // (Only the phone and upright tablet layout reads --th-fs.)
@@ -2907,7 +2919,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   // A card whose contents grow after the layout (a time-lapse, the numbers settling) is fitted again.
   // A slide whose data card changes only its readings while it shows: a what-if slider or compare button driving the live model
   // (liveOff), or a time-lapse slide (its days running, or run). Its cards keep the plan made as the slide came in.
-  const readingsOnly = () => liveOff || lapseOn || (!!shown && shown.i === want && !!slides[want]?.lapse);
+  const readingsOnly = () => liveOff || handOn || lapseOn || (!!shown && shown.i === want && !!slides[want]?.lapse);
   // A time-lapse slide in view: as its days run the data card's readings change many times a second, and each change that measured
   // the card a hair different laid every card out again, so on an iPhone the teaching card vibrated as the days passed (Endoscopy 3,
   // 18 Oct). The data card is only fitted again in its own room; the words and their glass stay as they came in. (A resize, a turn or
@@ -2915,7 +2927,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   // (The same while a what-if slider or a compare button drives the live model (liveOff): each reading that measured the data card a
   // hair different laid the cards out again and fitted the words afresh, a pixel off each time, so the teaching card's text shook
   // under the finger: Tricuspid leak on slide 60 of the test-all deck on an iPhone, 19 Oct.)
-  const cardsStill = () => !!shown && shown.i === want && (liveOff || !!slides[want]?.lapse) && !!ui && !ui.root.classList.contains('pz-prep');
+  const cardsStill = () => !!shown && shown.i === want && (liveOff || handOn || !!slides[want]?.lapse) && !!ui && !ui.root.classList.contains('pz-prep');
   // (While the readings' card slides or a part folds, the data card's box changes size on every frame: each change laid every card out
   // again, the words fitted afresh and the figure framed, frame by frame, so the slide ran at about 10 frames a second (Mohammad, 25 Oct).
   // The card moves by its own CSS (--pz-u, --pz-grow) and is laid out once it rests: foldStill.)
@@ -4435,7 +4447,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     leaving = null;
     if (!deck) return;
     if (cover) coverDown(true);
-    stopLapse(); procStop(); cathStop(); abSlow(); liveOff = false;   // (before deck is cleared: stopping a time-lapse repaints the bar)
+    stopLapse(); procStop(); cathStop(); abSlow(); liveOff = false; handOn = false;   // (before deck is cleared: stopping a time-lapse repaints the bar)
     deck = null; shown = null; entering = null; want = 0;
     for (const w of waiters) w.res(null);
     waiters = [];
