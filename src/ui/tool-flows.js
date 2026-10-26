@@ -17,6 +17,7 @@
 // part is always 100 less the slide's Shunted tile (table-marks.js portalSplit). The cavernoma returns blood to the liver,
 // so it counts as liver.
 
+import { frame, cancelFrame } from './frame.js?v=226365e6e2';
 import { EDGES, PORTOSYSTEMIC_EDGES, SPLANCHNIC_ARTERIES } from '../engine/topology.js?v=4044766e96';
 import { portalSplit } from './table-marks.js?v=b717587a61';
 
@@ -420,14 +421,14 @@ export function createFlowsTool() {
       && Math.abs(shown[id].lx - want[id].lx) < 0.2 && Math.abs(shown[id].ex - want[id].ex) < 0.2);
     if (done) shown = Object.fromEntries(Object.keys(want).map((id) => [id, { ...want[id] }]));
     draw();
-    if (!done) raf = requestAnimationFrame(tick);
+    if (!done) raf = frame(tick, 'tool-flows');
   }
   function aim(fp) {
     const p = flowParts(fp, of, params);
     if (!p) return;
     goal = p;
     healthyNow();
-    if (!raf) raf = requestAnimationFrame(tick);
+    if (!raf) raf = frame(tick, 'tool-flows');
   }
   // The healthy model's parts (the presenter's healthy fingerprint, the one the profile's dashed line uses): it can arrive
   // after the first slide, so the card asks again for a few seconds; the Healthy marker fades in when it comes.
@@ -437,11 +438,11 @@ export function createFlowsTool() {
     if (hp) { hGoal = hp; return; }
     hGoal = null;
     let tries = 0;
-    const again = () => { wait = 0; const h = flowParts(ctx0?.healthy?.(), of); if (h) { hGoal = h; if (!raf && goal) raf = requestAnimationFrame(tick); } else if (++tries < 40 && el.isConnected !== false) wait = setTimeout(again, 250); };
+    const again = () => { wait = 0; const h = flowParts(ctx0?.healthy?.(), of); if (h) { hGoal = h; if (!raf && goal) raf = frame(tick, 'tool-flows'); } else if (++tries < 40 && el.isConnected !== false) wait = setTimeout(again, 250); };
     wait = setTimeout(again, 250);
   }
   // (A new size lays the names out afresh and shows them there at once: the places are in pixels.)
-  if (typeof ResizeObserver === 'function') new ResizeObserver(() => { if (shown && el.isConnected && size !== `${Math.round(el.clientWidth)}x${Math.round(el.clientHeight)}`) { if (raf) cancelAnimationFrame(raf); shown = null; tiers = {}; tick(); } }).observe(el);
+  if (typeof ResizeObserver === 'function') new ResizeObserver(() => { if (shown && el.isConnected && size !== `${Math.round(el.clientWidth)}x${Math.round(el.clientHeight)}`) { if (raf) cancelFrame(raf); shown = null; tiers = {}; tick(); } }).observe(el);
   return {
     el,
     configure(t, ctx) {
@@ -452,6 +453,6 @@ export function createFlowsTool() {
     },
     pin(fp) { if (el.isConnected && fp) aim(fp); },
     clear() {},
-    dispose() { if (raf) cancelAnimationFrame(raf); raf = 0; clearTimeout(wait); wait = 0; },
+    dispose() { if (raf) cancelFrame(raf); raf = 0; clearTimeout(wait); wait = 0; },
   };
 }

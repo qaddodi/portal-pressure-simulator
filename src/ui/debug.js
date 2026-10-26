@@ -1,5 +1,5 @@
 // Debug overlay: FPS and frame time, zoom, pixel ratio and build. Off by default; choices persist.
-import { cssVar, cssAlpha } from './util.js?v=d872252ef8';
+import { cssVar, cssAlpha } from './util.js?v=a7f8549e15';
 import { gpuProbe } from './gpu-probe.js?v=c66f99a23a';
 const KEY = 'pps.debug';
 const OPTS = [['fps', 'FPS and frame time'], ['zoom', 'Zoom level and scale'], ['res', 'Render resolution scale'], ['graph', 'Frame graph'], ['gpu', 'GPU time per step']];

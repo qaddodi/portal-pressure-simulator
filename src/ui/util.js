@@ -1,5 +1,5 @@
 // DOM & formatting helpers.
-import { saver } from './frame.js?v=226365e6e2';
+import { saver, frame, cancelFrame } from './frame.js?v=226365e6e2';
 
 // replaceChildren/append stringify null and arrays: flatten and drop empties instead.
 for (const m of ['replaceChildren', 'append', 'prepend']) {
@@ -438,7 +438,7 @@ function rollStep(now) {
     putNum(el, fmt(c.shown, c.d));
     if (u >= 1 || !el.isConnected) { c.t0 = null; rolling.delete(el); }
   }
-  if (rolling.size) rollRaf = requestAnimationFrame(rollStep);
+  if (rolling.size) rollRaf = frame(rollStep, 'numbers');
 }
 export function countTo(el, v, d = 1, { eased = false } = {}) {
   let c = counts.get(el);
@@ -454,7 +454,7 @@ export function countTo(el, v, d = 1, { eased = false } = {}) {
   if (eased || same || c.shown == null || reduceMotionMQ.matches || !el.isConnected || !hasBox(el)) { c.shown = v; putNum(el, fmt(v, d)); return; }
   c.from = c.shown; c.to = v; c.t0 = performance.now();
   rolling.add(el);
-  if (!rollRaf) rollRaf = requestAnimationFrame(rollStep);
+  if (!rollRaf) rollRaf = frame(rollStep, 'numbers');
 }
 export const popoverOpen = () => !!openMenu;
 /** Places the open menu again, after something it is anchored to has moved or resized. */
@@ -474,7 +474,7 @@ export function closePopover() {
  *  its resting bottom edge together). This eases --sink to px frame by frame, so the move and the cut stay in step on
  *  iOS too, then calls done. A new drag stops it (stopSink). */
 const sinking = new WeakMap();
-export function stopSink(el) { const a = sinking.get(el); if (a) { cancelAnimationFrame(a.raf); clearTimeout(a.timer); } sinking.delete(el); }
+export function stopSink(el) { const a = sinking.get(el); if (a) { cancelFrame(a.raf); clearTimeout(a.timer); } sinking.delete(el); }
 export function sinkTo(el, px, ms = 220, done) {
   stopSink(el);
   const from = parseFloat(el.style.getPropertyValue('--sink')) || 0, t0 = performance.now(), a = {};
@@ -488,12 +488,12 @@ export function sinkTo(el, px, ms = 220, done) {
     const k = Math.min(1, (now - t0) / ms);
     if (k >= 1) { finish(); return; }
     el.style.setProperty('--sink', `${from + (px - from) * (1 - (1 - k) ** 3)}px`);
-    a.raf = requestAnimationFrame(step);
+    a.raf = frame(step, 'numbers');
   };
   // (A page whose frames stall, in the background or a busy browser, still lands and closes on time.)
   a.timer = setTimeout(finish, ms + 120);
   sinking.set(el, a);
-  a.raf = requestAnimationFrame(step);
+  a.raf = frame(step, 'numbers');
 }
 /** A phone's bottom sheet follows a vertical drag from anywhere on it and closes past a short pull (or a quick
  *  flick) down; a short one eases back. Content scrolled away from its top scrolls back first, a sideways drag

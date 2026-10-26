@@ -9,11 +9,12 @@
 // Its numbers are the slide's own (its fingerprint, as the tiles read it: the same on every screen), easing to each new
 // state; a what-if slider or compare button moves it with the tiles. The Patients chart (charts.js) is not changed.
 
+import { frame, cancelFrame } from './frame.js?v=226365e6e2';
 import { PROFILE_PATHS } from './anatomy.js?v=48cc98d415';
 import { NODES } from '../engine/topology.js?v=4044766e96';
 import { RATE } from './table-marks.js?v=b717587a61';
 import { monotoneSegs } from './curve-near.js?v=9ff15157e9';
-import { pressureColor } from './colormap.js?v=6b97bf1786';
+import { pressureColor } from './colormap.js?v=fd052a05e5';
 
 const PATH = PROFILE_PATHS[0];
 export const STATIONS = PATH.nodes;
@@ -759,7 +760,7 @@ export function createProfileTool() {
     const done = shown.v.every((x, i) => Math.abs(x - goal.v[i]) < 0.02) && Math.abs(shown.top - goal.top) < 0.05;
     if (done) shown = { ...goal, v: goal.v.slice() };
     if (el.isConnected || !done || fading) draw();
-    if (!done || fading) raf = requestAnimationFrame(tick);
+    if (!done || fading) raf = frame(tick, 'tool-profile');
   }
   function aim(fp) {
     const p = profileOf(fp);
@@ -773,7 +774,7 @@ export function createProfileTool() {
       if (!b || b.a !== a) blk.set(i, { a, from: reduceMQ.matches ? a : b ? blkOp(b, t) : 0, t0: t });
     }
     stale = true;
-    if (!raf) raf = requestAnimationFrame(tick);
+    if (!raf) raf = frame(tick, 'tool-profile');
   }
   if (typeof ResizeObserver === 'function') new ResizeObserver(() => { if (shown && el.isConnected && size !== `${Math.round(el.clientWidth)}x${Math.round(el.clientHeight)}`) { plan = null; draw(); } }).observe(el);
   return {
@@ -791,10 +792,10 @@ export function createProfileTool() {
       held = on; Object.assign(heldK, { a, from: now, t0: instant ? 0 : t });
       if (lastFp) aim(lastFp);
       if (instant) for (const b of blk.values()) { b.from = b.a; b.t0 = 0; }
-      if (!raf) raf = requestAnimationFrame(tick);
+      if (!raf) raf = frame(tick, 'tool-profile');
     },
     clear() {},
-    dispose() { if (raf) cancelAnimationFrame(raf); raf = 0; },
+    dispose() { if (raf) cancelFrame(raf); raf = 0; },
   };
 }
 

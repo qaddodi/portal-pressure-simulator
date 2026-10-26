@@ -5,7 +5,7 @@
 // the slide (a drug, a button, a time-lapse) the free and wedged levels and the HVPG ease to the new numbers. The HVPG it prints is the
 // difference of the two readings as shown (tenthGap), so WHVP minus FHVP reads exactly.
 
-import { createHvpgMonitor } from './hvpg-proc.js?v=0dfceaf877';
+import { createHvpgMonitor } from './hvpg-proc.js?v=c9c5ae0694';
 import { T, ease, k01 } from './hvpg-clock.js?v=553551a92a';
 import { frameFor, cancelFrame } from './frame.js?v=226365e6e2';
 import { tenthGap } from '../engine/gap.js?v=3aabfbb29b';
