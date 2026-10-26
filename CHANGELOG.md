@@ -2,13 +2,13 @@
 
 ## October 2026
 
-- **The HVPG against PPG plane says where CSPH is.** (Mohammad, 26 Oct: "make it clear that the 10/12 line is clinically significant portal hypertension".) The HVPG 10 line is now named
-  "CSPH ≥10" and the PPG 12 line "Bleed risk ≥12", each beside its own line, and everything right of the HVPG 10 line is a red zone named CSPH, whatever the PPG (the HVPG tile's red),
-  on Sites and causes, Where HVPG misleads and Choose the treatment. Only the HVPG line defines CSPH (Baveno VIII; AASLD 2024 statement 4: HVPG ≥10 mmHg); the PPG 12 line is where the
-  risk of bleeding rises and the gradient a TIPS aims under (AASLD 2024: no beta-blocker after TIPS under 12 mmHg), so the plane never calls it CSPH, and the notes say so. The two zones beside it shrink to the strip left of the line, so their words break onto two lines
-  there (HVPG raised, / PPG normal). Also, a name
-  that sat as near another point as its own (Portal vein thrombosis, three lines above its dot, against Schisto's name beside it) now goes to its short name beside its point or a place
-  plainly its own. Code and unit tests only; nobody has looked on screen. `src/ui/visual-plane.js`, `styles/app.css`, `tests/plane-callouts.test.js`, `tests/panels-e.test.js`.
+- **The HVPG against PPG plane names its two red lines.** (Mohammad, 26 Oct: "make it clear that the 10/12 line is clinically significant portal hypertension", then "keep it 4 quadrants;
+  just label the 10/12 line".) The HVPG 10 line is named "CSPH ≥10" and the PPG 12 line "Bleed risk ≥12", each beside its own line, on Sites and causes, Where HVPG misleads and
+  Choose the treatment. The four quadrants and their colours stay as they were. Only the HVPG line defines CSPH (Baveno VIII; AASLD 2024 statement 4: HVPG ≥10 mmHg); the PPG 12 line
+  is where the risk of bleeding rises and the gradient a TIPS aims under (AASLD 2024: no beta-blocker after TIPS under 12 mmHg), so the plane never calls it CSPH, and the notes say
+  so. Also, a name that sat as near another point as its own (Portal vein thrombosis, three lines above its dot, against Schisto's name beside it) now goes to its short name beside
+  its point or a place plainly its own. Code and unit tests only; nobody has looked on screen. `src/ui/visual-plane.js`, `styles/app.css`, `tests/plane-callouts.test.js`,
+  `tests/panels-e.test.js`.
 - **The six site ladders (Sites 10 of 12, Where-resistance 14) draw each chart larger inside its cell: bigger type and heavier lines, the card as it was.** (Mohammad, 26 Oct:
   "this slide could use larger diagrams", then "bigger doesn't mean the card is bigger; I mean keep what it was before but each individual card graph should be bigger; like bigger
   lines/text, not the card itself bigger".) The card, its padding, its 1560 px cap and the room above the nav pill are unchanged. On a Mac or an iPad on its side each chart's lettering
