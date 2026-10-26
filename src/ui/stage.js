@@ -34,7 +34,7 @@ import { plateStrips, premultiply, gutStep, viewReuse, copyPixels } from './plat
 import { cropToGrid } from './organs-gl.js?v=50a7580426';
 import { readGroup, shapeSource, bindShape, targetRoom } from './organ-paint.js?v=1250d7cb89';
 import { pathCmds, flattenCmds, polyBox } from './shape-gl.js?v=a5ba46162b';
-import { createLabelGL } from './label-gl.js?v=8d172e8140';
+import { createLabelGL } from './label-gl.js?v=d8c5c0b0b8';
 import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, ORIGIN_GREY } from './veins-gl.js?v=ea99d7102b';
 import { varixBead, beadRadius } from './varix-bead.js?v=ac0e84fd89';
 import { advanceStream, createReversalHold, bleedShapes, stepBleedFade, fadeBleedShapes, chevFlowLevel, keyChevron, KEY_CHEV_LANES, originFractions, oxygenFor, ORIGIN_N, createBolus, DYE_BINS, KAPPA, STASIS_MIN_D, HIDDEN_SECONDS } from './blood.js?v=856babbc01';
@@ -6236,6 +6236,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       // A short packet: the crest, with a faint ripple ahead and behind.
       paintWave(w, fade.toFixed(3), (j) => scanArc(Math.max(1, r + (j - 1) * gap)));
     });
+    labelGL?.redraw();   // (the waves moved: the GPU copy of the probe follows in this frame)
     scan.raf = nextFrame(scanTick);
   }
   // The top left of the right lobe (the patient's right is the figure's left): the tip sits on its edge, aimed 45° down toward the portal vein.
@@ -6327,12 +6328,13 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         + '<rect class="sp-tip" x="54" y="39" width="10" height="18" rx="3"/><rect class="sp-screen" x="-3" y="39.5" width="54" height="17" rx="4"/>'
         + '<text class="sp-read" x="24" y="52.3" text-anchor="middle"><tspan class="sp-val">5.0</tspan><tspan class="sp-unit" dx="2">kPa</tspan></text></g></svg>';   // (constant markup; the screen on the body shows the live stiffness)
       sites.el.append(el); scan.el = el; scan.deg = 45;
+      labelGL?.setScan(el);   // (drawn over the labels on their GPU layer while it can be; label-gl.js)
       const t0 = scanTipLocal(); if (t0) scanTurn(t0.tx, t0.y);   // (turned before it first shows, so it fades in at its angle rather than swinging to it)
       void el.offsetWidth; el.classList.remove('cath-pre');
       if (reduceMotion.matches) { scan.fronts = [40, 90]; scan.v = 0; scan.next = scan.nextTap = Infinity; }
       if (!scan.raf) { scan.last = 0; scan.raf = nextFrame(scanTick); }
     }
-    const tip = scanTipLocal(), wr = wrap.getBoundingClientRect();
+    const tip = scanTipLocal(), wr = stageBox();   // (the cached box: reading the wrap's on each paint forced a layout)
     if (!tip) { scan.el.classList.add('off'); return; }
     const { tx, y } = tip, x = tx - SCAN_TIP[0];
     // Turned 45° down-right, the probe's body and its kPa screen reach 75 px left of the tip; where the liver sits near the
@@ -6351,7 +6353,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     setTimeout(() => { if (scan.on) return; scan.leaving = false; const b = pool.get('scan'); if (b) b.g.style.display = 'none'; }, 700);
     const el = scan.el; scan.el = null; scan.packs = null; scan.fronts = []; scan.v = 0; scan.next = 0; scan.nextTap = 0;
     if (scan.raf) { cancelFrame(scan.raf); scan.raf = 0; }
-    if (el) { el.classList.add('cath-pre'); setTimeout(() => { el._glass?.dispose(); el.remove(); }, 500); }
+    if (el) { el.classList.add('cath-pre'); setTimeout(() => { el._glass?.dispose(); el.remove(); if (!scan.el) labelGL?.setScan(null); }, 500); }
   }
   // ── The Doppler probe (dop-probe.js) ──
   // While the Doppler reads a vessel, a small probe stands off it, its line of sight runs straight through the vessel, and the sample

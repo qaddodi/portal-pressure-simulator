@@ -87,3 +87,18 @@ test('the Doppler probe is drawn on the GPU under the leaders, its SVG kept as t
   const order = ['for (const q of beam) seg(q, L.rimL);', 'for (const q of beam) seg(q, L.line);', 'for (const q of axis) seg(q, L.rimL);', 'for (const q of axis) seg(q, L.line);', 'for (const q of bars) seg(q, L.gateRim);', 'for (const q of bars) seg(q, L.gate);', "querySelector('.dpr-head')?.getAttribute('transform')"].map((k) => LGL.indexOf(k));
   assert.ok(order.every((v, i) => v > 0 && (!i || v > order[i - 1])), order.join());
 });
+
+test('the FibroScan probe is drawn on the GPU over the labels, its SVGs kept as the model and hidden while drawn', () => {
+  assert.match(STAGE, /scan\.el = el; scan\.deg = 45;\n\s+labelGL\?\.setScan\(el\);/);
+  assert.match(STAGE, /labelGL\?\.redraw\(\); {3}\/\/ \(the waves moved/, 'each frame of its waves drawn in that frame');
+  assert.match(STAGE, /el\.remove\(\); if \(!scan\.el\) labelGL\?\.setScan\(null\);/, 'gone from the GPU layer when its element goes');
+  assert.match(CSS, /\.scan-probe\[data-gl\] > svg \{ visibility: hidden; \}/);
+  assert.match(LGL, /dirty\.clear\(\);\n\s+moving = drawScan\(now\) \|\| moving;/, 'over the labels, as its layer lay');
+  assert.match(LGL, /!canvasCaps\(\)\.filter\) \{ if \(scanEl\.hasAttribute\('data-gl'\)\) scanEl\.removeAttribute\('data-gl'\)/, 'no canvas filter: the SVG keeps the probe');
+  // The waves' writes ask for a frame, not a new look (they are read as it draws).
+  assert.match(LGL, /!r\.target\.closest\?\.\('\.sp-waves'\)/);
+});
+
+test('the scan paint uses the cached stage box, not a fresh layout', () => {
+  assert.match(STAGE, /const tip = scanTipLocal\(\), wr = stageBox\(\);/);
+});

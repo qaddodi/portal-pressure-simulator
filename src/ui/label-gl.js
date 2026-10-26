@@ -54,6 +54,7 @@ uniform vec2 uT0, uT1, uT2; // the triangle (device px)
 uniform vec4 uG;            // the gradient's start and end (device px)
 uniform vec4 uS0, uS1, uS2; // its three stops, premultiplied
 uniform vec3 uSO;           // their offsets
+uniform vec4 uR4;           // an arc's start and end angles; a rectangle's turn
 uniform vec4 uGeo;          // line: x0 y0 x1 y1; circle: cx cy r 0 (device px)
 uniform float uW;           // stroke width (device px)
 uniform vec2 uDash;         // dash, gap (device px; 0: solid)
@@ -64,6 +65,25 @@ out vec4 o;
 float span(float x, float a, float b) { return clamp(min(x + 0.5, b) - max(x - 0.5, a), 0.0, 1.0); }
 void main() {
   vec2 p = vec2(gl_FragCoord.x, uView.y - gl_FragCoord.y);
+  if (uKind == 4) {
+    // An arc of the circle about uGeo.xy, radius uGeo.z, from angle uR4.x to uR4.y (radians, y down), its ends round.
+    vec2 q = p - uGeo.xy;
+    float a = atan(q.y, q.x), m = 0.5 * (uR4.x + uR4.y), h = 0.5 * (uR4.y - uR4.x);
+    float da = abs(mod(a - m + 3.14159265, 6.28318531) - 3.14159265), dist;
+    if (da <= h) dist = abs(length(q) - uGeo.z);
+    else { vec2 e0 = uGeo.xy + uGeo.z * vec2(cos(uR4.x), sin(uR4.x)), e1 = uGeo.xy + uGeo.z * vec2(cos(uR4.y), sin(uR4.y)); dist = min(length(p - e0), length(p - e1)); }
+    o = uStroke * clamp(uW * 0.5 + 0.5 - dist, 0.0, 1.0) * uA;
+    return;
+  }
+  if (uKind == 5) {
+    // A filled rounded rectangle: centre uGeo.xy, half sizes uGeo.zw, corner radius uW, turned uR4.x (radians).
+    vec2 q = p - uGeo.xy, c = vec2(cos(uR4.x), sin(uR4.x));
+    q = vec2(dot(q, c), dot(q, vec2(-c.y, c.x)));
+    vec2 b = abs(q) - uGeo.zw + uW;
+    float dist = length(max(b, 0.0)) + min(max(b.x, b.y), 0.0) - uW;
+    o = uFill * clamp(0.5 - dist, 0.0, 1.0) * uA;
+    return;
+  }
   if (uKind == 2) {
     vec2 a = uGeo.xy, d = uGeo.zw - a;
     float h = clamp(dot(p - a, d) / max(dot(d, d), 1e-6), 0.0, 1.0);
@@ -299,7 +319,31 @@ export function createLabelGL(svg, blocks, { software = false, off = false, mark
   const mprog = gl.createProgram();
   gl.attachShader(mprog, sh(gl.VERTEX_SHADER, MVS)); gl.attachShader(mprog, sh(gl.FRAGMENT_SHADER, MFS)); gl.linkProgram(mprog);
   if (!gl.getProgramParameter(mprog, gl.LINK_STATUS)) return null;
-  const MU = Object.fromEntries(['uBox', 'uView', 'uKind', 'uGeo', 'uW', 'uDash', 'uStroke', 'uFill', 'uA', 'uT0', 'uT1', 'uT2', 'uG', 'uS0', 'uS1', 'uS2', 'uSO'].map((k) => [k, gl.getUniformLocation(mprog, k)]));
+  const MU = Object.fromEntries(['uBox', 'uView', 'uKind', 'uGeo', 'uW', 'uDash', 'uStroke', 'uFill', 'uA', 'uT0', 'uT1', 'uT2', 'uG', 'uS0', 'uS1', 'uS2', 'uSO', 'uR4'].map((k) => [k, gl.getUniformLocation(mprog, k)]));
+  // A picture turned on the GPU, sampled smoothly: only for what is soft anyway (the FibroScan's blurred beam), never for words.
+  const RVS = `#version 300 es
+uniform vec2 uView, uP, uS;   // the pivot (device px), the picture's size (device px)
+uniform vec2 uO;              // the pivot's place in the picture (device px)
+uniform float uAng;
+out vec2 vUV;
+const vec2 Q[4] = vec2[4](vec2(0.0, 0.0), vec2(1.0, 0.0), vec2(0.0, 1.0), vec2(1.0, 1.0));
+void main() {
+  vec2 l = Q[gl_VertexID] * uS - uO, c = vec2(cos(uAng), sin(uAng));
+  vec2 p = uP + vec2(l.x * c.x - l.y * c.y, l.x * c.y + l.y * c.x);
+  vUV = Q[gl_VertexID];
+  gl_Position = vec4(p.x / uView.x * 2.0 - 1.0, 1.0 - p.y / uView.y * 2.0, 0.0, 1.0);
+}`;
+  const RFS = `#version 300 es
+precision highp float;
+uniform sampler2D uT;
+uniform float uA;
+in vec2 vUV;
+out vec4 o;
+void main() { o = texture(uT, vUV) * uA; }`;
+  const rprog = gl.createProgram();
+  gl.attachShader(rprog, sh(gl.VERTEX_SHADER, RVS)); gl.attachShader(rprog, sh(gl.FRAGMENT_SHADER, RFS)); gl.linkProgram(rprog);
+  if (!gl.getProgramParameter(rprog, gl.LINK_STATUS)) return null;
+  const RU = Object.fromEntries(['uView', 'uP', 'uS', 'uO', 'uAng', 'uT', 'uA'].map((k) => [k, gl.getUniformLocation(rprog, k)]));
   const vao = gl.createVertexArray();
   svg.after(canvas);
   let lost = false, dpr = 1, W = 1, H = 1, last = [], raf = 0;
@@ -341,7 +385,7 @@ export function createLabelGL(svg, blocks, { software = false, off = false, mark
     e.preventDefault(); lost = true;
     for (const s of last) s.g.removeAttribute('data-gl');
     for (const root of marks) for (const el of root.children) el.removeAttribute('data-gl');
-    probe?.removeAttribute('data-gl');
+    probe?.removeAttribute('data-gl'); scanEl?.removeAttribute('data-gl');
   });
   function size() {
     const r = svg.parentElement.getBoundingClientRect(), k = devicePixelRatio || 1;   // (the stage's box: the dive zooms the layer itself)
@@ -411,6 +455,7 @@ export function createLabelGL(svg, blocks, { software = false, off = false, mark
       gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
     }
     dirty.clear();
+    moving = drawScan(now) || moving;   // (the FibroScan probe over the labels, as its layer lay)
     if (moving) ask();
   }
   // A mark's look, read again while it may be changing.
@@ -572,9 +617,174 @@ export function createLabelGL(svg, blocks, { software = false, off = false, mark
     }
     return live;
   }
+  // ── The FibroScan probe (stage.js scanPaint and scanTick write its SVGs, the model, as before) ──
+  // Over the labels, as its layer lay. Its beam (blurred) is a picture drawn once and turned here; its waves are arcs and its cable a
+  // line, drawn as shapes each frame; its body, screen and reading a picture drawn at its angle (again only when that or the reading
+  // changes); the tip, which taps, a rounded rectangle at its place each frame.
+  let scanEl = null, sLook = null, sDirty = true, sLive = 0, beamSp = null, sHeadSp = null;
+  // (The waves' opacities and the probe's place change every frame and are read as it draws: they ask for a frame, not a new look.)
+  const smo = new MutationObserver((rs) => { if (rs.some((r) => changed(r) && r.target !== scanEl && !r.target.closest?.('.sp-waves'))) sDirty = true; ask(); });
+  const holdScan = () => { sDirty = true; sLive = performance.now() + 900; ask(); };
+  const beamCv = document.createElement('canvas'), sHeadCv = document.createElement('canvas');
+  function setScan(el) {
+    if (scanEl === el) return;
+    scanEl?.removeAttribute('data-gl');
+    scanEl = el; sDirty = true; beamSp = null; sHeadSp = null;
+    smo.disconnect();
+    ask();
+    if (!el) return;
+    smo.observe(el, { subtree: true, attributes: true, attributeOldValue: true, attributeFilter: ['class', 'style'], characterData: true, childList: true });
+    for (const t of ['transitionrun', 'transitionend', 'transitioncancel', 'animationstart', 'animationend', 'animationcancel']) el.addEventListener(t, holdScan, true);
+  }
+  const angOf = (t) => { const m = /matrix\(([^)]+)\)/.exec(t || ''); if (!m) return 0; const v = m[1].split(',').map(Number); return Math.atan2(v[1], v[0]); };
+  function scanLookRead(el) {
+    const q = (k) => el.querySelector(k), cs = (e) => getComputedStyle(e);
+    const svgs = el.querySelectorAll(':scope > svg'), beam = q('.sp-beam'), body = q('.sp-body'), tip = q('.sp-tip'), screen = q('.sp-screen'), cable = q('.sp-cable'), read = q('.sp-read');
+    if (svgs.length !== 2 || !beam || !body || !tip || !screen || !read) return null;
+    const bc = cs(beam), stops = [...el.querySelectorAll('#sp-beam stop')].map((st) => { const c = cs(st); return [NUM(st.getAttribute('offset')), c.stopColor, NUM(c.stopOpacity)]; });
+    const rect = (e) => { const c = cs(e); return { x: NUM(e.getAttribute('x')), y: NUM(e.getAttribute('y')), w: NUM(e.getAttribute('width')), h: NUM(e.getAttribute('height')), rx: NUM(e.getAttribute('rx')), fill: none(c.fill) ? '' : c.fill, stroke: none(c.stroke) ? '' : c.stroke, sw: NUM(c.strokeWidth) }; };
+    const runs = [...read.children].map((sp) => { const r = cs(sp); return { t: sp.textContent, dx: NUM(sp.getAttribute('dx')), font: `${r.fontWeight} ${r.fontSize} ${r.fontFamily}`, size: NUM(r.fontSize), ls: 0, tnum: /tabular-nums/.test(r.fontVariantNumeric), fill: none(r.fill) ? '' : r.fill }; });
+    const cc = cs(cable), wave = (k) => { const e = q(k); if (!e) return null; const c = cs(e); return { col: rgba(c.stroke), so: NUM(c.strokeOpacity), w: NUM(c.strokeWidth) }; };
+    return {
+      op: NUM(cs(el).opacity), ang: angOf(cs(svgs[1]).transform), headOp: NUM(cs(q('.sp-head')).opacity), cableOp: NUM(cc.opacity),
+      beam: { d: beam.getAttribute('d'), filter: bc.filter === 'none' ? '' : bc.filter, stops, grad: ['cx', 'cy', 'r'].map((k) => NUM(el.querySelector('#sp-beam').getAttribute(k))) },
+      body: rect(body), screen: rect(screen), tip: rect(tip), tipX: (() => { const m = /matrix\(([^)]+)\)/.exec(cs(tip).transform); return m ? Number(m[1].split(',')[4]) : 0; })(),
+      read: { x: NUM(read.getAttribute('x')), y: NUM(read.getAttribute('y')), anchor: read.getAttribute('text-anchor') || 'start', runs },
+      cable: { d: cable.getAttribute('d'), col: none(cc.stroke) ? null : rgba(cc.stroke), w: NUM(cc.strokeWidth), cap: cc.strokeLinecap },
+      rip: wave('.sp-rip'), front: wave('.sp-front'),
+    };
+  }
+  const PIV = [66, 48];   // (the tip: the point the probe turns about, in its SVGs' own px; stage.js SCAN_TIP)
+  function drawScan(now) {
+    if (!scanEl?.isConnected) return false;
+    if (sDirty || !sLook) { sLook = scanLookRead(scanEl); sDirty = false; }
+    else if (now < sLive) {
+      // (While something eases (the turn, a fade, the tip's tap) only what moves is read again, each frame.)
+      const q = (k) => scanEl.querySelector(k), cs = (e) => getComputedStyle(e), m = /matrix\(([^)]+)\)/.exec(cs(q('.sp-tip')).transform);
+      Object.assign(sLook, { op: NUM(cs(scanEl).opacity), ang: angOf(cs(scanEl.querySelectorAll(':scope > svg')[1]).transform), headOp: NUM(cs(q('.sp-head')).opacity), cableOp: NUM(cs(q('.sp-cable')).opacity), tipX: m ? Number(m[1].split(',')[4]) : 0 });
+    }
+    const live = now < sLive, L = sLook;
+    if (!L || !canvasCaps().filter) { if (scanEl.hasAttribute('data-gl')) scanEl.removeAttribute('data-gl'); return live; }
+    if (!scanEl.hasAttribute('data-gl')) scanEl.setAttribute('data-gl', '');
+    if (!(L.op > 0.001)) return live;
+    const tm = /translate\(\s*(-?[\d.]+)px,\s*(-?[\d.]+)px\)/.exec(scanEl.style.transform || '');
+    if (!tm) return live;
+    // (Its box stands at the written place, raised by half its height (app.css translate: 0 −50%); its SVGs turn about the tip.)
+    const px = +tm[1] + PIV[0], py = +tm[2], ca = Math.cos(L.ang), sa = Math.sin(L.ang);
+    const at = (u, v) => [(px + (u - PIV[0]) * ca - (v - PIV[1]) * sa) * dpr, (py + (u - PIV[0]) * sa + (v - PIV[1]) * ca) * dpr];
+    // The beam: drawn once, unturned, through its own filter, then turned here (it is soft through and through).
+    const bkey = JSON.stringify([L.beam, dpr]);
+    if (!beamSp || beamSp.key !== bkey) {
+      const m = filterReach(L.beam.filter) + 4, x0 = 66 - m, y0 = -24 - m, x1 = 216 + m, y1 = 120 + m;   // (the beam's path: the tip, out to its 150 px arc)
+      beamCv.width = Math.ceil((x1 - x0) * dpr); beamCv.height = Math.ceil((y1 - y0) * dpr);
+      const c = beamCv.getContext('2d');
+      c.setTransform(1, 0, 0, 1, 0, 0); c.clearRect(0, 0, beamCv.width, beamCv.height);
+      c.setTransform(dpr, 0, 0, dpr, -x0 * dpr, -y0 * dpr);
+      const [gx, gy, gr] = L.beam.grad, g = c.createRadialGradient(gx, gy, 0, gx, gy, gr);
+      for (const [o, col, a] of L.beam.stops) { const [r, gg, b, k] = rgba(col); const u = k > 0 ? 1 / k : 0; g.addColorStop(o, `rgba(${Math.round(r * u * 255)}, ${Math.round(gg * u * 255)}, ${Math.round(b * u * 255)}, ${a * k})`); }
+      if (L.beam.filter) c.filter = L.beam.filter.replace(/(-?[\d.]+)px/g, (_, v) => `${(+v * dpr).toFixed(3)}px`);
+      c.fillStyle = g; c.fill(new Path2D(L.beam.d));
+      c.filter = 'none';
+      beamSp ||= { tex: gl.createTexture() };
+      gl.bindTexture(gl.TEXTURE_2D, beamSp.tex);
+      gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, true);
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, beamCv);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+      Object.assign(beamSp, { key: bkey, w: beamCv.width, h: beamCv.height, o: [(PIV[0] - x0) * dpr, (PIV[1] - y0) * dpr] });
+    }
+    gl.useProgram(rprog);
+    gl.uniform2f(RU.uView, W, H); gl.uniform2f(RU.uP, px * dpr, py * dpr); gl.uniform2f(RU.uS, beamSp.w, beamSp.h); gl.uniform2f(RU.uO, ...beamSp.o);
+    gl.uniform1f(RU.uAng, L.ang); gl.uniform1i(RU.uT, 0); gl.uniform1f(RU.uA, Math.min(1, L.op));
+    gl.bindTexture(gl.TEXTURE_2D, beamSp.tex);
+    gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+    // The waves: each packet's arcs (read off the SVG every frame, where scanTick writes them), at the packet's opacity.
+    gl.useProgram(mprog);
+    gl.uniform2f(MU.uView, W, H);
+    for (const pk of scanEl.querySelectorAll('.sp-waves > g')) {
+      const po = NUM(pk.style.opacity === '' ? '1' : pk.style.opacity);
+      if (!(po > 0.001)) continue;
+      for (const path of pk.children) {
+        const n = (path.getAttribute('d') || '').match(/-?[\d.]+/g)?.map(Number);
+        if (!n || n.length < 9) continue;
+        const st = path.classList.contains('sp-front') ? L.front : L.rip;
+        if (!st) continue;
+        const r = n[2], a0 = Math.atan2(n[1] - PIV[1], n[0] - PIV[0]) + L.ang, a1 = Math.atan2(n[8] - PIV[1], n[7] - PIV[0]) + L.ang, [cx, cy] = at(PIV[0], PIV[1]), R = r * dpr, w = st.w * dpr;
+        gl.uniform1i(MU.uKind, 4);
+        gl.uniform4f(MU.uBox, cx - R - w - 2, cy - R - w - 2, cx + R + w + 2, cy + R + w + 2);
+        gl.uniform4f(MU.uGeo, cx, cy, R, 0); gl.uniform4f(MU.uR4, a0, a1 < a0 ? a1 + Math.PI * 2 : a1, 0, 0); gl.uniform1f(MU.uW, w);
+        gl.uniform4f(MU.uStroke, ...st.col.map((v) => v * st.so)); gl.uniform1f(MU.uA, Math.min(1, L.op * po));
+        gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+      }
+    }
+    // The cable's short stub (a straight line written as a curve), round-ended, fading with the head.
+    const cn = (L.cable.d || '').match(/-?[\d.]+/g)?.map(Number);
+    if (cn?.length >= 4 && L.cable.col && L.cableOp > 0.001) {
+      const [x0, y0] = at(cn[0], cn[1]), [x1, y1] = at(cn[cn.length - 2], cn[cn.length - 1]), w = L.cable.w * dpr, m = w / 2 + 2;
+      gl.uniform1i(MU.uKind, L.cable.cap === 'round' ? 2 : 0);
+      gl.uniform4f(MU.uBox, Math.min(x0, x1) - m, Math.min(y0, y1) - m, Math.max(x0, x1) + m, Math.max(y0, y1) + m);
+      gl.uniform4f(MU.uGeo, x0, y0, x1, y1); gl.uniform1f(MU.uW, w); gl.uniform2f(MU.uDash, 0, 0);
+      gl.uniform4f(MU.uStroke, ...L.cable.col); gl.uniform1f(MU.uA, Math.min(1, L.op * L.cableOp));
+      gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+    }
+    if (L.headOp > 0.001) {
+      // The body, its screen and the reading: a picture at the probe's angle, drawn again when that or the reading changes.
+      const hkey = JSON.stringify([L.body, L.screen, L.read, L.ang.toFixed(4), dpr]);
+      if (!sHeadSp || sHeadSp.key !== hkey) {
+        const pts = [[-14, 31], [62, 31], [-14, 65], [62, 65]].map(([u, v]) => [((u - PIV[0]) * ca - (v - PIV[1]) * sa) * dpr, ((u - PIV[0]) * sa + (v - PIV[1]) * ca) * dpr]);
+        const x0 = Math.floor(Math.min(...pts.map((p) => p[0]))), y0 = Math.floor(Math.min(...pts.map((p) => p[1]))), x1 = Math.ceil(Math.max(...pts.map((p) => p[0]))), y1 = Math.ceil(Math.max(...pts.map((p) => p[1])));
+        sHeadCv.width = Math.max(1, x1 - x0); sHeadCv.height = Math.max(1, y1 - y0);
+        const c = sHeadCv.getContext('2d');
+        c.setTransform(1, 0, 0, 1, 0, 0); c.clearRect(0, 0, sHeadCv.width, sHeadCv.height);
+        c.setTransform(ca * dpr, sa * dpr, -sa * dpr, ca * dpr, -x0, -y0);
+        c.translate(-PIV[0], -PIV[1]);
+        for (const b of [L.body, L.screen]) {
+          roundRect(c, b.x, b.y, b.w, b.h, b.rx);
+          if (b.fill) { c.fillStyle = b.fill; c.fill(); }
+          if (b.stroke && b.sw > 0) { c.strokeStyle = b.stroke; c.lineWidth = b.sw; c.stroke(); }
+        }
+        const rs = L.read.runs.map((r) => ({ r, ...runPieces(c, r) }));
+        let w = 0; rs.forEach((q, i) => { w += (i ? q.r.dx : 0) + q.w; });
+        let x = L.read.anchor === 'middle' ? L.read.x - w / 2 : L.read.anchor === 'end' ? L.read.x - w : L.read.x;
+        rs.forEach((q, i) => {
+          if (i) x += q.r.dx;
+          c.font = q.r.font; c.textBaseline = 'alphabetic'; c.textAlign = 'left';
+          if (q.r.fill) { c.fillStyle = q.r.fill; for (const sp of q.pieces) c.fillText(sp.t, x + sp.x, L.read.y); }
+          x += q.w;
+        });
+        sHeadSp ||= { tex: gl.createTexture() };
+        gl.bindTexture(gl.TEXTURE_2D, sHeadSp.tex);
+        gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, true);
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, sHeadCv);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+        Object.assign(sHeadSp, { key: hkey, ox: x0, oy: y0, w: sHeadCv.width, h: sHeadCv.height });
+      }
+      gl.useProgram(prog);
+      gl.uniform2f(U.uView, W, H); gl.uniform1i(U.uT, 0);
+      gl.bindTexture(gl.TEXTURE_2D, sHeadSp.tex);
+      gl.uniform4f(U.uR, Math.round(px * dpr) + sHeadSp.ox, Math.round(py * dpr) + sHeadSp.oy, sHeadSp.w, sHeadSp.h); gl.uniform1f(U.uA, Math.min(1, L.op * L.headOp));
+      gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+      // The tip, over the body, at its tap's place along the probe.
+      const t = L.tip;
+      if (t.fill) {
+        const [cx, cy] = at(t.x + t.w / 2 + L.tipX, t.y + t.h / 2);
+        gl.useProgram(mprog);
+        gl.uniform2f(MU.uView, W, H);
+        gl.uniform1i(MU.uKind, 5);
+        const R = Math.hypot(t.w, t.h) / 2 * dpr + 2;
+        gl.uniform4f(MU.uBox, cx - R, cy - R, cx + R, cy + R);
+        gl.uniform4f(MU.uGeo, cx, cy, t.w / 2 * dpr, t.h / 2 * dpr); gl.uniform1f(MU.uW, Math.min(t.rx, t.w / 2, t.h / 2) * dpr); gl.uniform4f(MU.uR4, L.ang, 0, 0, 0);
+        gl.uniform4f(MU.uFill, ...rgba(t.fill)); gl.uniform1f(MU.uA, Math.min(1, L.op * L.headOp));
+        gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+      }
+    }
+    return live;
+  }
   return {
     canvas,
     setProbe,
+    setScan,
     /** Draws now (a mark the stage just moved, outside a label layout: the probe's ease). */
     redraw() { if (!lost) { if (raf) { cancelFrame(raf); raf = 0; } draw(); } },
     get lost() { return lost; },
