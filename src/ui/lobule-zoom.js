@@ -438,7 +438,10 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   let easeT = 0;
   addEventListener('pps:labelscale', () => { labels.classList.add('lz-ease'); clearTimeout(easeT); easeT = setTimeout(easeEnd, 450); syncLeaders(); drawVersion++; viewVer++; layoutKey = ''; if (!raf && fade > 0) raf = nextFrame(loop); });
   let pacedVer = -1, viewVer = 0;   // viewVer: a pan, zoom, resize or label change, drawn without waiting
-  const viewChanged = () => { drawVersion++; viewVer++; tissueKey = ''; layoutKey = ''; if (!raf && fade > 0) raf = nextFrame(loop); };
+  // (viewBumps: the bumps of drawVersion that only moved the camera: the model's own, drawVersion less these, is what the surface pass
+  // in drawGL waits for when the model is paused.)
+  let viewBumps = 0;
+  const viewChanged = () => { drawVersion++; viewBumps++; viewVer++; tissueKey = ''; layoutKey = ''; if (!raf && fade > 0) raf = nextFrame(loop); };
   const toWorld = (p) => [(p[0] - V.x) / V.k, (p[1] - V.y) / V.k];
   const toScreen = (p) => [p[0] * V.k + V.x, p[1] * V.k + V.y];
   function resetView() {
@@ -642,6 +645,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   const UNSEEN = new Set(['frame', 'historyTick', 'details', 'found', 'presetLoading', 'presetList', 'lastHVPG', 'speed', 'lapse', 'tool', 'hiddenReadouts', 'hiddenEvents', 'booted']);
   store.on('*', (keys) => { if (!Array.isArray(keys) || keys.some((k) => !UNSEEN.has(k))) { drawVersion++; if (!raf && fade > 0) raf = nextFrame(loop); } });
   let lzYield = null;
+  let surfKey = '', surfCs = null, flowG = null, flowAt = -1;   // what the last surface pass and flow upload in drawGL were made for (see there)
   let layoutV = '', gl = null, glTried = false, binKey = '', binReach = [], radKey = [], radAll = '', radCal = '', radNow = [], inkWas = [], attrKey = '', drawKey = '', glDirty = true, tissueKey = '', worldKey = '', layoutKey = '';
   const pills = new Map();   // (a lit label's pill insets, read once per label layout, not on every frame of a glide: each read restyles the page)
   let worldCv = document.createElement('canvas');   // the lobule's tissue in world space (see paintTissue)
@@ -2491,8 +2495,15 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     const origin = originOn();
     // The flow pass stays at display speed. Shapes and colors need at most 12.5 updates/s;
     // interactions and newly enabled layers refresh immediately.
-    if (dt === 0 || rzMoving || lensFrom || !attrKey || !radAll || bk !== binKey || dk !== drawKey || now - lastSurface >= 80) {
-      lastSurface = now;
+    // Paused (dt 0), a pass is due only when something it reads changed: the model or the store (drawVersion less the camera's own bumps), the
+    // theme or the styles' copy, the canvas's size, or the scale (the radii's tolerance follows it, never where the figure is). A pan alone
+    // sends no colour, radius or flow, and the pass looks again every second in case a change came by a path that bumped none of them.
+    // Running, nothing changes: every frame of a moving camera still takes the pass, as before.
+    const sKey = `${drawVersion - viewBumps}|${dark}|${cw}x${ch}|${(k * V.k).toFixed(3)}`;
+    const panOnly = dt === 0 && !rzMoving && !lensFrom && !!attrKey && !!radAll && bk === binKey && sKey === surfKey && cs === surfCs && now - lastSurface < 1000;
+    if (panOnly && gpuProbe.on) gpuProbe.note(COUNTED.lobuleSkip);
+    if (!panOnly && (dt === 0 || rzMoving || lensFrom || !attrKey || !radAll || bk !== binKey || dk !== drawKey || now - lastSurface >= 80)) {
+      lastSurface = now; surfKey = sKey; surfCs = cs;
       if (gpuProbe.on) gpuProbe.note(COUNTED.lobuleSurface);
       // Radii, re-sent when a tube's caliber changed (they follow only these few model values).
       let reachGrew = false;
@@ -2570,9 +2581,11 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     const ease = -Math.expm1(-dt / 0.5);
     const fr = Math.max(0, m.flow), pr = m.portal, ar = Math.max(0, m.art);
     const vS = 15 * Math.sqrt(fr);
-    flowData.fill(0);
-    for (const t of live) if (t.lymph) flowData[t.id * FLOW_TEXELS * 4 + 8] = -1;   // lymph carries no blood origin
-    if (bloodOn || chev || origin) for (const t of live) {
+    // (A paused pan has the flow it sent last: the same numbers, so they are not worked out and sent again; it is redone with the surface pass.)
+    const flowSame = panOnly && g === flowG && flowA === flowAt;
+    if (!flowSame) flowData.fill(0);
+    if (!flowSame) for (const t of live) if (t.lymph) flowData[t.id * FLOW_TEXELS * 4 + 8] = -1;   // lymph carries no blood origin
+    if (!flowSame && (bloodOn || chev || origin)) for (const t of live) {
       let v, occ, oe, f0 = 0, f1 = 0, strength = 1, rev = 0, stasis = 0;
       const lv = t.kind;
       if (lv === 's0' || lv === 's1' || lv === 's2') {
@@ -2598,7 +2611,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
       flowData[o + 12] = 1;   // (each vessel's chevron weight, as the anatomy's: every lobule vessel shows them when they are on)
       if (origin && origins && !t.lymph) { const kk = EI[oe]; for (let c = 0; c < ORIGIN_N; c++) flowData[o + 8 + c] = origins[kk * ORIGIN_N + c]; }
     }
-    g.setFlow(flowData);
+    if (!flowSame) { g.setFlow(flowData); flowG = g; flowAt = flowA; }
     // (The look comes only from the styles: built and written out once per copy of them, the stage's kept copy changing
     // only with a class, the theme or a system setting, not on every frame.)
     if (cs !== lookCs) { lookCs = cs; lookNow = lookOf(cs); lookSig = JSON.stringify(lookNow); }
@@ -3156,7 +3169,12 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
       c.lineWidth = Math.max(0.3, G.R * 0.0013); c.strokeStyle = cellEdge; c.globalAlpha = 0.72;   // a little faded, so the ductule sits back in the tract
       // One ring of 16 cuboidal cells round each: as deep as they are wide, so each nucleus has room (a third of the cell's width).
       for (const d of fxDuct().duct) {
-        if (fxBoxes) { const [x, y, r] = d.disc, e = (r + c.lineWidth) * V.k * dpr + 3, X = (x * V.k + V.x) * dpr, Y = (y * V.k + V.y) * dpr; fxBoxes.push([Math.floor(X - e), Math.floor(Y - e), Math.ceil(X + e), Math.ceil(Y + e)]); }
+        // (A ductule whose disc, its stroke and a margin lie wholly off the canvas draws no pixel of it: left out, not drawn clipped, as
+        // most of them are at a close zoom. Its box is left out of the clear list too, since nothing of it was drawn there.)
+        const [x, y, r] = d.disc, e = (r + c.lineWidth) * V.k * dpr + 3, X = (x * V.k + V.x) * dpr, Y = (y * V.k + V.y) * dpr;
+        if (X + e < 0 || Y + e < 0 || X - e > fw || Y - e > fh) continue;
+        if (gpuProbe.on) gpuProbe.note(COUNTED.ductules);
+        if (fxBoxes) fxBoxes.push([Math.floor(X - e), Math.floor(Y - e), Math.ceil(X + e), Math.ceil(Y + e)]);
         c.fillStyle = lumen; c.fill(d.lumen);
         c.fillStyle = cellFill;
         for (const p of d.cells) { c.fill(p); c.stroke(p); }
