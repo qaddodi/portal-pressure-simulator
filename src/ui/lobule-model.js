@@ -7,7 +7,7 @@
 
 import { NODES, EDGES } from '../engine/topology.js?v=4044766e96';
 import { clamp } from './util.js?v=d2c95a1b16';
-import { oxygenFor } from './blood.js?v=b1ea6de060';
+import { oxygenFor } from './blood.js?v=7fa561f952';
 import { sinceNow } from './since-ref.js?v=ef1a818c75';
 
 const NI = Object.fromEntries(NODES.map((n, i) => [n.id, i]));

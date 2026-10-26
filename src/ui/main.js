@@ -3,22 +3,22 @@
 
 import { startHost, host } from './host.js?v=7a3c034586';
 import { store, updateParams, replaceParams, bindParamSender, clearHistory, logAction, varicesPresent, hiddenNow } from './store.js?v=926dabfaef';
-import { createStage } from './stage.js?v=00b7034587';
+import { createStage } from './stage.js?v=79a2d6ff2f';
 import { createCreditPlacer } from './credit.js?v=dc0666dc54';
 import { sinusoidSupported } from './gl-support.js?v=94ad2a7ff1';
 import { createInspector } from './inspector.js?v=1f275f4420';
-import { createDock, CUTOFFS, savedInstruments } from './dock.js?v=45e68c1dc9';
+import { createDock, CUTOFFS, savedInstruments } from './dock.js?v=13e61d6c9e';
 import { setHvpgStage } from './hvpg-proc.js?v=eda11b5112';
 import { createWhy } from './why.js?v=7a32e745fa';
 import { createTimeline, LAPSES } from './timeline.js?v=f1c62e08ae';
 import { createCompare } from './compare.js?v=6d9cc5a5b1';
-import { createCard } from './card.js?v=63c82c412f';
-import { createChart } from './chart.js?v=a8028d760a';
+import { createCard } from './card.js?v=58439fd5c4';
+import { createChart } from './chart.js?v=2c3d9041fc';
 import { createMenu } from './menu.js?v=237ecb7332';
 import { caption } from './a11y.js?v=b9689eb260';
 import { startLMS } from './lms.js?v=284ef81e94';
 import { UPDATED, CONTENT_UPDATED, VALIDATION, AUTHOR, AUTHOR_URL, FEEDBACK_EMAIL } from '../version.js?v=1767318315';
-import { normalizeSel, shuntable, edgeValue, bedStats } from './actions.js?v=989e57435a';
+import { normalizeSel, shuntable, edgeValue, bedStats } from './actions.js?v=5d8dc439cb';
 import { gradientCss, dropCss, PRESSURE_TICKS, flowCss, flowPos, velocityCss, heatCss, HEAT_MAX, oxygenCss, OXY_MIN } from './colormap.js?v=cdcf6a2f55';
 import { EDGES, PORTAL_TERRITORY } from '../engine/topology.js?v=4044766e96';
 import { dopplerVel } from './velNormal.js?v=97920ddf3f';
@@ -37,7 +37,7 @@ const SPEEDS = [0.25, 0.5, 1, 2, 4, 8];
 // only armed gesture left is a shunt waiting for its target.
 import { debugOptions, debugOn, setDebug, initDebug } from './debug.js?v=d5936820a0';
 import { initTopbarMotion } from './topbar-motion.js?v=1eab6ec512';
-import { ORIGINS } from './blood.js?v=b1ea6de060';
+import { ORIGINS } from './blood.js?v=7fa561f952';
 import { parseShare, cleanShare } from './share-link.js?v=b6f8e0f909';
 import { deepMerge, sanitizeParams } from '../engine/scenario.js?v=d7d3ea5b70';
 import { frameFor, cancelFrame, perf as framePerf } from './frame.js?v=19b3f2915c';
@@ -176,7 +176,7 @@ async function main() {
   dock = createDock({ strip: $('#strip'), head: $('#dockHead'), body: $('#dockBody'), onWhy: (m, el) => why.open(m, el), onAction: doAction, onProbe: probeTo, lazy: { doppler: dopplerL, fibroscan: fibroL }, onReveal: revealDock, onLobule: () => zoomLobule('R'),
     onOpen: () => openPanel('instruments'), onClose: () => setPanelTab('chart'), onLayout: () => syncDoppler(), isVisible: () => app.classList.contains('dock-open'),
     marks: () => timeline.entries(), onBeat: () => sendBeat() });
-  presenterL = lazy(() => import('./presenter.js?v=690523e55e'), ({ createPresenter }) => createPresenter({ openSettings, loadPreset, updateParams, host, stage, dock, action: doAction,
+  presenterL = lazy(() => import('./presenter.js?v=18e17efd7e'), ({ createPresenter }) => createPresenter({ openSettings, loadPreset, updateParams, host, stage, dock, action: doAction,
     projectorOn: () => { if (!projector) toggleProjector(); }, projectorOff: () => { if (projector) toggleProjector(); },
     closeHome: () => mainMenu.close(), stashCards, rerenderHome: () => mainMenu.render() }));
   mainMenu = createMenu({

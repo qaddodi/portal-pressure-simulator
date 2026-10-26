@@ -503,7 +503,7 @@ export function bleedShapes(bleed, rate, t, sites, hr = 80) {
     out.push([x, y, x - (vx / sp) * r * 1.4, y - (vy / sp) * r * 1.4, r, r * 0.7, al, 1]);
   }
   // The thread, and the blood welling at the tear, swelling with each beat.
-  out.push([tx, ty + 1, land, surf, 2.9 * Math.sqrt(k) * (0.85 + 0.25 * p), 1 - 0.7 * spurt, 0.95 * (0.8 + 0.2 * p), 2]);
+  out.push([tx, ty + 1, land, surf, 2.9 * Math.sqrt(k) * (0.85 + 0.25 * p), 1 - 0.5 * spurt, 0.95 * (0.8 + 0.2 * p), 2]);
   out.push([tx, ty, tx, ty, (2.4 + 1.8 * p) * Math.sqrt(k), 0, 0.95, 1]);
   return out;
 }

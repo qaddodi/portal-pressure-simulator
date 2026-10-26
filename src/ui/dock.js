@@ -4,13 +4,13 @@
 import { store, hiddenNow } from './store.js?v=926dabfaef';
 import { EDGES } from '../engine/topology.js?v=4044766e96';
 import { h, fmt, svgIcon, closePopover, clamp, shownOf, isPhoneLayout, SIDEWAYS_MQ, swapFade, scrollBehavior, countTo, swapText, glideOnResize } from './util.js?v=d2c95a1b16';
-import { lobuleFlows } from './lobule-model.js?v=35208a89ed';
+import { lobuleFlows } from './lobule-model.js?v=f3ba49a18e';
 import { createProfile } from './charts.js?v=ba4050e8a7';
 import { createPressureTime } from './pressure-time.js?v=5bdb16d450';
 import { createHvpgProcedure } from './hvpg-proc.js?v=eda11b5112';
 import { lazyPane, holdUntilLoaded } from './lazy-pane.js?v=9a7c26d383';
 import { ownsSideways, pageGo } from './swipe.js?v=3ad619631e';
-import { createEndoscopy, createVarixWall, createAbdomen } from './instruments.js?v=90f29491f7';
+import { createEndoscopy, createVarixWall, createAbdomen } from './instruments.js?v=4739a3c722';
 import { createReadoutsPane } from './readouts-pane.js?v=0a1a8818d1';
 import { frameFor } from './frame.js?v=19b3f2915c';
 import { vitalReading, VITALS } from './vital-read.js?v=cbba41a6b7';

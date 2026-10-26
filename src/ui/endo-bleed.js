@@ -4,10 +4,10 @@
 // off the jet and falling. Blood on the wall runs down it round the tube as a rivulet that widens as it goes, over a soft stain;
 // blood that settles lies flat, so the pool is the wedge between the two lines where its surface meets the wall, running toward
 // the dark centre, its far end fading into the dark, its edges uneven and thin and see-through, widening as it fills, with the
-// scope's light streaked on its surface and ripples running out from where the rivulet joins it. A red haze thickens with the
+// scope's light as a soft patch on its surface and ripples running out from where the rivulet joins it. A red haze thickens with the
 // blood lost. Few gradients and fills a frame: the spot and the stain are two small reused sprites.
-import { bleedPulse } from './blood.js?v=b1ea6de060';
-import { scopeDrops, scopePool, inScopePool } from './endo-motion.js?v=09e76ad0cb';
+import { bleedPulse } from './blood.js?v=7fa561f952';
+import { scopeDrops, scopePool, inScopePool } from './endo-motion.js?v=31f1c312f7';
 import { cssVar, cssAlpha } from './util.js?v=d2c95a1b16';
 
 const frac = (x) => ((x % 1) + 1) % 1;
@@ -68,12 +68,13 @@ export function drawScopeBleed(ctx, o) {
 
   // Blood on the wall: a rivulet runs down from the tear round the tube (a little deeper as it goes), wider as it nears the pool,
   // over a soft stain where the wall is wet.
-  const span = phi - th0;
+  // It ends where the pool shows: the pool's far end fades in at `far`, so the rivulet runs on to just past it.
+  const span = phi - th0, far = 0.52 - 0.42 * fill, rhoEnd = Math.min(0.8, Math.max(0.4, far + 0.1));
   const run = (dRho, u0, u1, N) => {
     const pts = [];
     for (let i = 0; i <= N; i++) {
       const u = u0 + ((u1 - u0) * i) / N, bow = Math.sin(Math.PI * (u - u0) / (u1 - u0));
-      pts.push(at(th0 + span * u, rho0 * (1 - 0.17 * u) + dRho * bow + 0.006 * Math.sin(u * 9 + 1.7)));
+      pts.push(at(th0 + span * u, rho0 + (rhoEnd - rho0) * u + dRho * bow + 0.006 * Math.sin(u * 9 + 1.7)));
     }
     return pts;
   };
@@ -111,7 +112,7 @@ export function drawScopeBleed(ctx, o) {
     ctx.closePath();
     return [er, el];
   };
-  const far = 0.52 - 0.42 * fill, dark = (al) => cssAlpha('--scope-blood-pool', al);
+  const dark = (al) => cssAlpha('--scope-blood-pool', al);
   const pg = ctx.createRadialGradient(cx, cy, 0, cx, cy, R);
   pg.addColorStop(0, dark(0)); pg.addColorStop(Math.max(0.02, far - 0.1), dark(0)); pg.addColorStop(far + 0.2, dark(0.97));
   pg.addColorStop(0.5, cssVar('--scope-blood-pool')); pg.addColorStop(0.92, cssVar('--scope-blood-pool-top')); pg.addColorStop(1, cssAlpha('--scope-blood-pool-edge', 0.92));
@@ -120,15 +121,15 @@ export function drawScopeBleed(ctx, o) {
   wedge(0); ctx.fillStyle = pg; ctx.fill();
   const [er, el] = [edge(1, 0), edge(-1, 0)];
   ctx.save(); wedge(0); ctx.clip();
-  // Brighter toward the lens, where the scope's light is strong, and its reflection streaked down the middle of the surface.
+  // Brighter toward the lens, where the scope's light is strong, and its reflection as one soft patch low on the surface.
   const lg = ctx.createLinearGradient(0, cy + R * 0.2, 0, cy + R);
   lg.addColorStop(0, cssAlpha('--scope-blood-fresh', 0)); lg.addColorStop(1, cssAlpha('--scope-blood-fresh', 0.26));
   ctx.fillStyle = lg; ctx.fillRect(cx - R, cy, 2 * R, R + 4);
   ctx.save();
-  ctx.translate(cx + Math.sin(t * 0.9) * R * 0.012, cy + R * 0.62); ctx.scale(0.16, 1);
-  const gl = ctx.createRadialGradient(0, 0, 0, 0, 0, R * 0.42);
-  gl.addColorStop(0, cssAlpha('--white', 0.26)); gl.addColorStop(1, cssAlpha('--white', 0));
-  ctx.fillStyle = gl; ctx.beginPath(); ctx.arc(0, 0, R * 0.42, 0, Math.PI * 2); ctx.fill();
+  ctx.translate(cx + R * 0.05 + Math.sin(t * 0.9) * R * 0.012, cy + R * 0.7); ctx.scale(1, 0.4);
+  const gl = ctx.createRadialGradient(0, 0, 0, 0, 0, R * 0.2);
+  gl.addColorStop(0, cssAlpha('--white', 0.22)); gl.addColorStop(1, cssAlpha('--white', 0));
+  ctx.fillStyle = gl; ctx.beginPath(); ctx.arc(0, 0, R * 0.2, 0, Math.PI * 2); ctx.fill();
   ctx.restore();
   // Ripples: arcs about the centre moving out across the surface, broken up by the light's reflection.
   ctx.strokeStyle = cssAlpha('--scope-blood-fresh', 1); ctx.lineWidth = Math.max(1, R * 0.005);
@@ -139,7 +140,7 @@ export function drawScopeBleed(ctx, o) {
   }
   // Rings where the rivulet runs into the pool.
   if (span > 0.06) {
-    const [lx, ly] = at(phi, rho0 * 0.83);
+    const [lx, ly] = at(phi, rhoEnd);
     for (let i = 0; i < 2; i++) {
       const u = frac(t * 0.7 + i / 2), rx = R * (0.015 + 0.09 * u);
       ctx.globalAlpha = a * 0.5 * (1 - u) * smooth(0, 0.12, u);
@@ -167,14 +168,14 @@ export function drawScopeBleed(ctx, o) {
     ribbon(ctx, pts, (i) => R * 0.026 * (1 - i / (N + 1)) * (0.7 + 0.3 * p));
     ctx.globalAlpha = a * spurt * (0.55 + 0.45 * p); ctx.fillStyle = jg; ctx.fill();
   }
-  // The drops: short streaks along their path, not beads.
+  // The drops: short, fat streaks along their path (a drop with a trail), not dashes and not round beads.
   ctx.strokeStyle = cssVar('--scope-blood-jet');
   for (const [x, y, r, al, vx, vy] of scopeDrops(t, rate, hr, { x: tx, y: ty })) {
     if (al <= 0.01) continue;
     const X = jx + x * R, Y = jy + y * R;
     if (Math.hypot(X - cx, Y - cy) > R || inScopePool((X - cx) / R, (Y - cy) / R, phi)) continue;   // (gone into the pool)
-    ctx.globalAlpha = a * al * 0.9; ctx.lineWidth = Math.max(1, 1.4 * r * R);
-    ctx.beginPath(); ctx.moveTo(X - vx * 0.035 * R, Y - vy * 0.035 * R); ctx.lineTo(X, Y); ctx.stroke();
+    ctx.globalAlpha = a * al * 0.9; ctx.lineWidth = Math.max(1.5, 2 * r * R);
+    ctx.beginPath(); ctx.moveTo(X - vx * 0.02 * R, Y - vy * 0.02 * R); ctx.lineTo(X, Y); ctx.stroke();
   }
   // The tear: the mucosa stained round it, and the wet spot itself, swelling on each beat.
   const sr = R * (0.07 + 0.02 * p);

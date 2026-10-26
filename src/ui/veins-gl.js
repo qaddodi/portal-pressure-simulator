@@ -32,7 +32,7 @@
 // createVeinsGL(canvas) returns null only when WebGL2 is unavailable altogether.
 
 import { CHEV_GLSL } from './chevron-glsl.js?v=96ec7c6666';
-import { SLOT, DYE_BINS } from './blood.js?v=b1ea6de060';
+import { SLOT, DYE_BINS } from './blood.js?v=7fa561f952';
 import { cssRGB } from './util.js?v=d2c95a1b16';
 import { LUMEN, STO_Y0, STO_DY, STO_N } from './stomach-lumen.js?v=4fce52c62f';
 import { CELL, ENT_W, binVeins, splitRows } from './veins-bin.js?v=17351d9767';
@@ -1249,11 +1249,16 @@ void main() {
       float sw = (bE.z - bE.x) * exp(-u / lam);
       float xc = bE.z - sw + 0.7 * sin(w.y * 0.06 - clock * 2.3) * smoothstep(0.1, 0.6, fall);
       float slope = sw / lam;
-      float r = bB.x * mix(1.0, 0.55, smoothstep(0.0, 0.9, fall));
+      // Lower down it pinches into drops, each swelling in the middle and trailing a thin neck to the next, uneven in size and
+      // spacing, sliding down as they fall.
+      float brk = bB.y * smoothstep(0.25, 0.85, fall);
+      float ph = (w.y * 0.31 * (1.0 + 0.22 * sin(w.y * 0.047 + 1.3)) - clock * 9.0) / 6.2831853;
+      float cell = floor(ph), bead = pow(max(sin(3.14159265 * (ph - cell)), 0.0), 0.55);
+      float hv = fract(sin(cell * 12.9898 + 4.1) * 43758.5453);
+      float r = bB.x * mix(1.0, 0.55, smoothstep(0.0, 0.9, fall)) * mix(1.0, 0.12 + (0.9 + 0.5 * hv) * bead, brk);
       float d = abs(w.x - xc) / sqrt(1.0 + slope * slope) - r;
-      float lum = 0.5 + 0.5 * sin(w.y * 0.42 - clock * 13.0);
-      float brk = bB.y * smoothstep(0.3, 0.9, fall) * smoothstep(0.1, 0.9, 1.0 - lum);
-      a = (1.0 - smoothstep(-0.75 * pxW, 0.75 * pxW, d)) * bB.z * (1.0 - brk) * smoothstep(0.0, 3.0, w.y - bE.y) * (1.0 - smoothstep(bE.w - 1.5, bE.w + 0.5, w.y));
+      float lum = mix(0.5 + 0.5 * sin(w.y * 0.42 - clock * 13.0), bead, brk);
+      a = (1.0 - smoothstep(-0.75 * pxW, 0.75 * pxW, d)) * bB.z * smoothstep(0.0, 3.0, w.y - bE.y) * (1.0 - smoothstep(bE.w - 1.5, bE.w + 0.5, w.y));
       bcol = mix(bc * 0.85, bf, 0.55 * lum + 0.35 * smoothstep(0.1, 0.9, clamp(-d / max(r, 1e-3), 0.0, 1.0)));
     } else {
       float dxl = w.x - bE.z;
