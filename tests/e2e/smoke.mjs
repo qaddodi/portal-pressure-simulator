@@ -576,8 +576,9 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
       window.clearTimeout = (i) => { if (i >= 1e9) timers = timers.filter(([j]) => j !== i); else ct(i); };
       const due = () => { for (;;) { timers.sort((a, b) => a[1] - b[1]); const t = timers[0]; if (!t || t[1] > T) return; timers.shift(); t[2](...t[3]); } };
       window.__step = (dt) => { T += dt; due(); const run = q; q = []; for (const cb of run) cb(T); due(); };
-      // Every canvas of the lobule view shown scaled down whose corners are not clear (the vessels' WebGL canvas is not read).
-      window.__opaqueCorners = () => [...document.querySelectorAll('.lz canvas:not(.lz-gl)')].filter((c) => {
+      // Every canvas of the lobule view shown scaled down whose corners are not clear (the WebGL canvases, the vessels' and the tissue's,
+      // are not read: the tissue's is hidden through the dive and the rise, which show the 2D canvas's copy).
+      window.__opaqueCorners = () => [...document.querySelectorAll('.lz canvas:not(.lz-gl):not(.lz-tissue-gl)')].filter((c) => {
         const cs = getComputedStyle(c);
         if (cs.visibility === 'hidden' || !c.width || !/matrix/.test(cs.transform) || new DOMMatrix(cs.transform).a > 0.999) return false;
         const x = c.getContext('2d'), px = (u, v) => x.getImageData(u, v, 1, 1).data[3];
