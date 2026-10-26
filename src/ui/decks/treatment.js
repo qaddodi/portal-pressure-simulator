@@ -88,6 +88,17 @@ export const TREATMENT = {
       ask: ['Switch to propranolol. What happens to the portal vein pressure, and why?', 'It barely changes: carvedilol\'s extra effect acts on the sinusoids, beyond the resistance in the portal venules.'],
     },
     {
+      // (The relation chart before the summary: this patient's liver with more or less scarring, the HVPG on each drug read against
+      // the HVPG before it. At her own 16.5 mmHg the rings are the Propranolol and Carvedilol slides' readings.)
+      id: 'relation', preset: 'cirr-decomp', cam: 'liver', glow: ['liver'],
+      tool: { kind: 'curve', x: 'hvpg', param: 'cirrhosis', from: 0.5, to: 1, step: 0.05, lines: ['hvpg'], label: 'HVPG before the drug',
+        against: [{ label: 'Carvedilol', params: CARV, pair: true, own: 'No change' }, { label: 'Propranolol', params: PROP, pair: true }], zone: { fall: 10, under: 12, label: 'Response' } },
+      kicker: 'Summary', site: 'sin', title: 'Carvedilol lowers the HVPG further from any starting point',
+      line: 'The dashed diagonal is no change. From {hvpg}, carvedilol takes her to {hvpg@carv} and propranolol to {hvpg@prop}, both inside the response zone.',
+      notes: 'Each point is this patient with more or less scarring, the HVPG read before a drug (across) and on it (up). The dashed diagonal is no change. The green zone is a response: a fall of 10% or more from baseline, or to 12 mmHg or less, which Baveno VIII carries from Baveno V and VI. Carvedilol lies below propranolol all the way along, because it also lowers the sinusoidal tone. In the model every patient responds to some degree; in practice about half do not respond to propranolol, which is why the HVPG fall, not the heart rate, is the measure. One model patient per point: real responses vary far more. (Baveno VIII Table 3; AASLD 2024 statement 12, carvedilol at CSPH.)',
+      ask: ['Her HVPG falls from 16.5 to 15.5 mmHg on propranolol. Has she responded?', 'No. That is a 6% fall and still >12 mmHg; a response needs a fall of ≥10% or a gradient ≤12 mmHg.'],
+    },
+    {
       id: 'summary', visual: 'table', cols: ['hvpg', 'ppg', 'varix', 'liver'], asc: false, vs: 'first', rowHead: 'Treatment', note: 'How it works',
       // (Terlipressin is left out: it treats HRS-AKI, not bleeding, and has its own slide.)
       of: [{ id: 'target', kicker: 'Baseline', title: 'Decompensated cirrhosis', note: 'HVPG 17, large varices, ascites' }, { id: 'prop', title: 'Propranolol', note: 'Less inflow' }, { id: 'carv', title: 'Carvedilol', note: 'Less inflow and resistance' }, { id: 'oct', kicker: 'Vasoactive drug', title: 'Octreotide', note: 'Less inflow, in a bleed' },

@@ -101,6 +101,16 @@ export const PREHEPATIC = {
       ask: ['How is recanalization checked during anticoagulation?', 'By repeat imaging, Doppler or CT, about every three months.'],
     },
     {
+      // (The relation chart before the summary: a healthy liver as a clot fills more of the portal vein, the PPG and the HVPG on one
+      // scale. The ring is the acute clot of the first slide, the vein closed.)
+      id: 'relation', preset: 'pvt-acute', cam: 'portal', labels: ['CONF'], mark: { edges: ['PV_TRUNK'], clot: true },
+      tool: { kind: 'curve', x: 'clot', xFrom: 0, xTo: 100, xCuts: [50], patient: { preset: 'healthy' }, param: 'thrombus.PV_TRUNK', from: 0, to: 1, step: 0.05, lines: ['ppg', 'hvpg'], oneScale: true },
+      kicker: 'Summary', site: 'pre', title: 'The clot raises the PPG, never the HVPG',
+      line: 'Once the clot fills more than half the vein, the PPG climbs steeply, to {ppg} when the vein is closed. The HVPG stays near {hvpg} all the way.',
+      notes: 'Each point is a healthy liver with the clot filling more of the portal vein, the PPG and the HVPG on the same scale. Below half the lumen the gradient barely moves; above it the narrowing takes most of the pressure, and a closed vein raises the PPG about sixfold. The HVPG stays flat because the wedged catheter reads the sinusoids, beyond the clot. Baveno VIII separates a recent partial clot that leaves less than half the lumen open, or a complete one, from a minor one (9.19). EASL 2025: the HVPG does not reflect the portal hypertension of portal vein thrombosis. The model has no collaterals yet at this point, as in a recent clot. (Baveno VIII 9.19; EASL 2025, vascular liver diseases.)',
+      ask: ['A patient with a portal vein clot has an HVPG of 3 mmHg. Does that rule out portal hypertension?', 'No. The clot sits before the sinusoids, so the wedged catheter does not see the pressure behind it.'],
+    },
+    {
       id: 'summary', visual: 'table', cols: ['pv', 'hvpg', 'ppg', 'plt', 'wave'], wave: 'PV_TRUNK', asc: false, rowHead: 'Patient',
       of: [{ preset: 'healthy', kicker: 'Reference', title: 'Healthy', ref: true }, { id: 'clot', kicker: 'No cirrhosis', title: 'Acute thrombosis' }, { id: 'cavernoma', kicker: 'No cirrhosis', title: 'Cavernoma' },
         { id: 'base', kicker: 'Cirrhosis', title: 'Before the clot' }, { id: 'gradients', kicker: 'Cirrhosis', title: 'Partial clot' }, { id: 'pvt-anticoag', kicker: 'Cirrhosis', title: 'Six months on' }],

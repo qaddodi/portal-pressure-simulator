@@ -88,6 +88,16 @@ export const CIRCUIT = withPoints({
       ask: ['What does TIPS cost the liver?', 'Most of its portal blood; and gut blood, with its ammonia, now reaches the brain unfiltered.'],
     },
     {
+      // (The relation chart before the summary: the CSPH liver and a healthy one, each swept from narrow to wide gut arterioles,
+      // the PPG read against the portal flow it carries. The ring is this patient.)
+      id: 'relation', preset: 'csph', view: C, sites: R,
+      tool: { kind: 'curve', x: 'pvFlow', param: 'splanchnicTone', from: 0.6, to: 1.6, step: 0.1, lines: ['ppg'], against: { label: 'Healthy liver', params: { cirrhosis: 0 }, own: 'Cirrhosis' } },
+      kicker: 'Summary', site: 'sin', title: 'The slope of each line is its resistance',
+      line: 'Each line is one liver as its inflow changes. The same rise in flow lifts the PPG about three times as much in cirrhosis; this liver carries {pvFlow} at {ppg}.',
+      notes: 'Each line holds the liver fixed and changes only the gut arterioles, from narrow to wide, so the flow into the portal vein changes. Read as ΔP = Q × R, the slope of each line is the resistance the flow meets: about 2 mmHg per L/min in the healthy liver and about 6 in cirrhosis. That is why a meal or splanchnic vasodilation lifts the gradient more in cirrhosis, and why a drug that lowers the inflow lowers it more there too. The ring is this patient with CSPH. (AASLD 2024 p. 1181: portal pressure is proportional to the splanchnic inflow and to the resistance opposing it.)',
+      ask: ['Two livers get the same extra 0.5 L/min of portal flow. Why does the cirrhotic one gain more pressure?', 'Its resistance is higher, so each L/min of flow costs more pressure: the line is steeper.'],
+    },
+    {
       // Each row against the row it changes (vs), in the circuit's own terms: portal flow (Q), the liver's own resistance (R) and the gradient.
       id: 'summary', visual: 'table', cols: ['pvFlow', 'res', 'ppg'], asc: false, rowHead: 'Circuit',
       foot: 'Across the whole circuit R = PPG ÷ Q; collaterals and TIPS lower it as resistors in parallel, while the liver R column shows the liver itself.',

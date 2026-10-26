@@ -62,6 +62,17 @@ export const VARICES = {
       ask: ['Why do varices form in Budd–Chiari syndrome but rarely in heart failure?', 'In Budd–Chiari the resistance lies between the liver and the heart, so the veins the collaterals drain into (the azygos, the right atrium) stay normal and a gradient opens; in heart failure those veins are high too.'],
     },
     {
+      // (The relation chart before the summary: the model's cirrhosis from mild to severe, each point settled for a year, the varix
+      // and its wall stress read against the HVPG. CSPH and the Varices slide's patient are points; the ring is decompensated cirrhosis.)
+      id: 'relation', preset: 'cirr-decomp', cam: 'varices', labels: ['VAR'],
+      tool: { kind: 'curve', x: 'hvpg', xCuts: [10], patient: { preset: 'healthy' }, param: 'cirrhosis', from: 0.3, to: 1, step: 0.05, days: 365, lines: ['varix', 'wall'],
+        dots: [{ slide: 'collat', name: 'CSPH' }] },
+      kicker: 'Summary', site: 'sin', title: 'Varices grow once the HVPG passes 10',
+      line: 'Below an HVPG of 10 mmHg the varix stays a normal vein. Above it the varix and its wall stress climb together: at {hvpg}, the varix is {varix}.',
+      notes: 'Each point is the model\'s cirrhosis settled for a year, the varix diameter and its wall stress (as a share of the stress at which it tears) read against the HVPG. Collaterals form once the gradient reaches about 10 mmHg (AASLD 2024 Fig. 2), and the varix then widens with it. The wall stress rises faster than the size, because by Laplace\'s law it grows with the pressure across the wall and with the radius together (AASLD 2024 p. 1193). Red wale marks show from about 70% of the tear point. The dashed lines are the small and large varix cut-offs, 2.5 and 5 mm. The ring is decompensated cirrhosis; the point is CSPH, the first slide\'s patient. (AASLD 2024 Fig. 2, p. 1193.)',
+      ask: ['Why does the wall stress climb faster than the varix diameter?', 'Wall stress grows with the pressure across the wall times the radius, so both rising together multiply.'],
+    },
+    {
       id: 'summary', visual: 'table', cols: ['hvpg', 'varix'], asc: false, note: 'Risk of a bleed', rowHead: 'Patient',
       of: [{ preset: 'healthy', kicker: 'Reference', title: 'Healthy', note: 'None', ref: true }, { preset: 'cirr-comp', site: 'sin', kicker: 'Sinusoidal', title: 'Compensated cirrhosis', note: 'None yet: no varices' },
         { id: 'collat', kicker: 'Sinusoidal', title: 'CSPH', note: 'Rising: small varices can grow' }, { id: 'burst', kicker: 'Sinusoidal', title: 'Decompensated cirrhosis', note: 'Highest: large varices' }],

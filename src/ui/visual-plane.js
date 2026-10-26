@@ -14,6 +14,9 @@
 // key: 'never' leaves it off everywhere, the data card and an iPhone too (the CSPH plane, whose zones are wide enough to name themselves). Zone words are the guideline's, checked against
 // /mnt/project-files/guidelines/baveno8-aasld.md before a deck uses them.
 //
+// diag: { label } (or true) draws the dashed line where the two readings are equal (the wedge against the portal pressure: a point
+// on it means the wedge reads the portal vein), named along its upper end, the points' names keeping clear of it.
+//
 // Everything that decides a place or a size is a pure function here (tests/panels-e.test.js); the drawing is at the
 // element's own pixels, one unit a CSS pixel, so its words keep the slide's caption size (12 px or more) at any width.
 
@@ -163,8 +166,23 @@ export function cutSegs(pl, X, Y, fr) {
   }
   return out;
 }
-/** The plane's lines as thin boxes words keep clear of: the cut-offs and the outlined boxes' edges. */
-export function lineBoxes(pl, X, Y, fr) {
+/** The plane's diagonal, where the two readings are equal: its segment in px, the boxes words keep clear of along it (every 6 px,
+ *  4 px either side), and its name over its upper end, or null without diag (or where the axes share no range). */
+export function diagOf(pl, X, Y, fs = 13) {
+  if (!pl.diag) return null;
+  const lo = Math.max(pl.x.min ?? 0, pl.y.min ?? 0), hi = Math.min(pl.x.max, pl.y.max);
+  if (!(hi > lo)) return null;
+  const seg = { x1: X(lo), y1: Y(lo), x2: X(hi), y2: Y(hi) }, n = Math.max(1, Math.ceil(Math.hypot(seg.x2 - seg.x1, seg.y2 - seg.y1) / 6)), boxes = [];
+  for (let i = 0; i <= n; i++) { const x = seg.x1 + (seg.x2 - seg.x1) * i / n, y = seg.y1 + (seg.y2 - seg.y1) * i / n; boxes.push([x - 4, y - 4, x + 4, y + 4]); }
+  const text = typeof pl.diag === 'object' && pl.diag.label ? String(pl.diag.label) : '';
+  // (Over the line, left of a point near its top: on the side where the wedge would read above the portal pressure, which no patient does.)
+  const at = { x: seg.x1 + (seg.x2 - seg.x1) * 0.9, y: seg.y1 + (seg.y2 - seg.y1) * 0.9 }, w = est(text, fs);
+  const label = text ? { text, x: at.x - 6, y: at.y - 6, anchor: 'end', box: [at.x - 6 - w - 2, at.y - 6 - fs, at.x - 4, at.y - 2] } : null;
+  if (label) boxes.push(label.box);
+  return { seg, boxes, label };
+}
+/** The plane's lines as thin boxes words keep clear of: the cut-offs, the outlined boxes' edges and the diagonal. */
+export function lineBoxes(pl, X, Y, fr, fs = 13) {
   const out = [];
   // (4 px either side, so a word never sits against a line either.)
   for (const c of cutSegs(pl, X, Y, fr)) out.push([Math.min(c.x1, c.x2) - 4, Math.min(c.y1, c.y2) - 4, Math.max(c.x1, c.x2) + 4, Math.max(c.y1, c.y2) + 4]);
@@ -172,6 +190,7 @@ export function lineBoxes(pl, X, Y, fr) {
     const [x0, x1, y0, y1] = zoneRect(pl, b), L = X(x0), R = X(x1), T = Y(y1), B = Y(y0);
     out.push([L - 2, T, L + 2, B], [R - 2, T, R + 2, B], [L, T - 2, R, T + 2], [L, B - 2, R, B + 2]);
   }
+  out.push(...(diagOf(pl, X, Y, fs)?.boxes || []));
   return out;
 }
 /** A cut-off line broken where a name sits across it, pad px clear of the name's box either side: the segments left to draw.
@@ -377,7 +396,7 @@ export function placeZoneWords(pl, fr, X, Y, fs, used, dots, card = false, only 
  *  placeZoneWords). at: the points in px. The names come first; with no key, a zone whose words found no room then takes its
  *  place first and the names are placed again around it, so every zone keeps its words and every point its name. */
 export function layoutPlane(pl, fr, X, Y, fs, at, card = false) {
-  const rules = lineBoxes(pl, X, Y, fr), dots = at.map((p) => [p.x - 12, p.y - 12, p.x + 12, p.y + 12]);
+  const rules = lineBoxes(pl, X, Y, fr, fs), dots = at.map((p) => [p.x - 12, p.y - 12, p.x + 12, p.y + 12]);
   // (The cut-off lines come first among the rules: a name may sit across one of those, the line broken behind it.)
   const cross = rules.slice(0, cutSegs(pl, X, Y, fr).length);
   const boxesOf = (ns) => ns.filter(Boolean).map((n) => n.box);
@@ -426,7 +445,7 @@ export function dotBoxes(at, from, R) {
  *  behind them). */
 export function placeCardWords(pl, fr, X, Y, fs, avoid = []) {
   // (o: a box [x0, y0, x1, y1], or a circle [x, y, r] the box must keep out of.)
-  const rules = lineBoxes(pl, X, Y, fr), out = [];
+  const rules = lineBoxes(pl, X, Y, fr, fs), out = [];
   const hit = (b, o) => (o.length === 3 ? Math.hypot(Math.max(b[0] - o[0], 0, o[0] - b[2]), Math.max(b[1] - o[1], 0, o[1] - b[3])) < o[2] : b[0] < o[2] && b[2] > o[0] && b[1] < o[3] && b[3] > o[1]);
   const sizes = [fs, ...[fs - 1, fs - 2, 12].filter((v, i, a) => v >= 12 && v < fs && a.indexOf(v) === i)];
   for (const z of pl.zones) {
@@ -530,6 +549,8 @@ export function planePlot(pl, { card = false } = {}) {
     // The cut-off lines, the axes and their ticks.
     // (Broken 4 px clear of a name that sits across one.)
     for (const c of gapSegs(cutSegs(pl, X, Y, fr), names.filter((n) => n?.across).map((n) => n.box))) kids.push(sv('line', { class: 'pze-cut', ...c }));
+    const dg = diagOf(pl, X, Y, fs);
+    if (dg) kids.push(sv('line', { class: 'pze-diag', ...dg.seg }), dg.label ? sv('text', { class: 'pze-dt', x: dg.label.x, y: dg.label.y, 'text-anchor': dg.label.anchor, style: `font-size:${fs}px` }, dg.label.text) : null);
     kids.push(sv('line', { class: 'pze-axis', x1: fr.L, x2: fr.R, y1: fr.B, y2: fr.B }), sv('line', { class: 'pze-axis', x1: fr.L, x2: fr.L, y1: fr.T, y2: fr.B }));
     const on = (a, v) => (pl.cuts?.[a] || []).includes(v);
     // (x ticks that would touch drop out, the cut-offs kept first)

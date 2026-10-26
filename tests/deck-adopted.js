@@ -153,6 +153,14 @@ export const ADOPTED = {
   'two-inflows/clot': ['caseQ'],
   'two-inflows/artery': ['caseQ'],
   'pregnancy/before': ['caseQ'],
+  // (The relation charts before each deck's summary, 26 Oct: Mohammad, "I love the plan for relationship slides. please implement all!!!")
+  'stiffness/relation': ['kind:curve'],
+  'circuit/relation': ['kind:curve'],
+  'treatment/relation': ['kind:curve'],
+  'prehepatic/relation': ['kind:curve'],
+  'varices/relation': ['kind:curve'],
+  'two-inflows/relation': ['kind:curve'],
+  'lobule/relation': ['visual', 'plane', 'of'],
 };
 
 /** Whether the slide d/s may use the field. */

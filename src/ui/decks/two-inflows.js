@@ -78,6 +78,17 @@ export const TWO_INFLOWS = {
       ask: ['Which way does blood run in the intrahepatic portal branches after a TIPS?', 'Usually toward the stent, away from the liver tissue, because the stent is the path of least resistance.'],
     },
     {
+      // (The relation chart before the summary: a healthy liver as a clot fills more of the portal vein, the liver's blood flow with
+      // the arterial buffer and without it. The ring is the clot slide's patient, the vein closed.)
+      id: 'relation', preset: 'pvt-acute', cam: 'portal', mark: { edges: ['PV_TRUNK'], label: 'Clot' },
+      tool: { kind: 'curve', x: 'clot', xFrom: 0, xTo: 100, patient: { preset: 'healthy' }, param: 'thrombus.PV_TRUNK', from: 0, to: 1, step: 0.1, lines: ['liver'],
+        against: { label: 'No buffer', params: { habrStrength: 0 }, own: 'With the buffer' } },
+      kicker: 'Summary', site: 'pre', title: 'Without the buffer the liver loses far more blood',
+      line: 'With the portal vein closed, the buffer keeps {liver} of normal liver flow. Without it, less than half would reach the liver.',
+      notes: 'Each point is a healthy liver with the clot filling more of the portal vein. Both lines barely move until the clot passes about half the lumen. With the buffer, the hepatic artery dilates as portal flow falls and the liver keeps most of its blood; with the buffer switched off in the model, the loss is about twice as large. This is why acute portal vein thrombosis rarely infarcts the liver, and why a hepatic artery clot, which nothing buffers, does more harm. (Iranpour 2016: hepatic artery flow and velocity rise when portal flow falls. Baveno VIII, AASLD 2024 and EASL 2025 do not give these numbers.)',
+      ask: ['Why does the liver keep most of its blood flow when the portal vein clots?', 'The hepatic artery dilates as the portal flow falls: the arterial buffer response.'],
+    },
+    {
       id: 'summary', visual: 'table', cols: ['pvFlow', 'liver', 'shunt', 'wave'], wave: 'A_HEP', asc: false, vs: 'first', rowHead: 'Patient',
       of: [{ preset: 'healthy', kicker: 'Reference', title: 'Healthy', ref: true }, { id: 'clot', kicker: 'Portal vein', title: 'Portal vein clot' }, { id: 'artery', kicker: 'Artery', title: 'Hepatic artery clot' },
         { id: 'cirr', kicker: 'Cirrhosis', title: 'Decompensated' }, { id: 'tips', kicker: 'Cirrhosis', title: 'After TIPS' }],

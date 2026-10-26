@@ -57,6 +57,19 @@ export const LOBULE = {
       ask: ['Which diseases does the wedge miss?', 'Pre-hepatic and presinusoidal resistance, such as portal vein thrombosis and schistosomiasis.'],
     },
     {
+      // (The relation chart before the summary: each disease's wedged pressure against its portal vein pressure, on a plane with the
+      // line where the two are equal. On the line the wedge reads the portal vein; under it, the resistance lies before the sinusoids.)
+      id: 'relation', cam: 'fit', visual: 'plane',
+      plane: { x: { key: 'pv', min: 0, max: 30, ticks: [0, 10, 20, 30], name: 'Portal vein pressure, mmHg', short: 'Portal, mmHg' },
+        y: { key: 'whvp', min: 0, max: 30, ticks: [0, 10, 20, 30], name: 'Wedged pressure, mmHg', short: 'WHVP, mmHg' }, zones: [], key: 'never', diag: { label: 'WHVP = portal' } },
+      of: [{ preset: 'healthy', name: 'Healthy' }, { id: 'cirr', name: 'Cirrhosis' }, { preset: 'sos', name: 'Sinusoidal obstruction', short: 'SOS', site: 'postsin' },
+        { id: 'cong', name: 'Heart failure', short: 'Heart' }, { id: 'wedge', name: 'Schistosomiasis', short: 'Schisto' }, { preset: 'pvt-chronic', name: 'Portal vein clot', short: 'Clot', site: 'pre' }],
+      kicker: 'Summary', title: 'The wedge reads the portal vein only from the sinusoids on',
+      line: 'On the dashed line the wedged pressure equals the portal pressure. Below it, the resistance sits before the sinusoids, and the wedge misses it.',
+      notes: 'Each disease is a point: its portal vein pressure across, its wedged pressure up. Cirrhosis and sinusoidal obstruction sit on the line, because the resistance lies in or after the sinusoids and the wedge reads the pressure behind it. Heart failure sits on it too, with every pressure high and no gradient. Schistosomiasis and a portal vein clot fall far below it: the portal vein is high, but the wedge reads near-normal sinusoids, so the HVPG is normal. Only a direct portal pressure, or the PPG, shows those. (AASLD 2024 Table 1 and p. 1181; Baveno VIII Table 3, the right atrial pressure measured to rule out a post-hepatic cause; EASL 2025: the HVPG misses the portal hypertension of PSVD and portal vein thrombosis.)',
+      ask: ['A patient has varices, a portal vein pressure of 20 mmHg and a wedged pressure of 8 mmHg. Where is the resistance?', 'Before the sinusoids: in the portal vein or the portal venules, such as a clot or schistosomiasis.'],
+    },
+    {
       id: 'summary', visual: 'table', cols: ['pv', 'hvpg'], asc: true, note: 'Site in the lobule', rowHead: 'Disease',
       of: [{ preset: 'healthy', kicker: 'Reference', title: 'Healthy', note: 'No added resistance', ref: true }, { preset: 'schisto', title: 'Schistosomiasis', note: 'Portal venules, in the tract' },
         { id: 'cirr', title: 'Cirrhosis', note: 'Sinusoids, the space of Disse' }, { preset: 'sos', title: 'Sinusoidal obstruction', note: 'Central veins' },

@@ -6560,6 +6560,8 @@ html.thumb-ui .menu.from-dock { clip-path: inset(-64px -64px calc(var(--sink, 0p
 .pze-zt[data-tone="ppg"] { fill: var(--pze-ppg-ink); } .pze-zt[data-tone="hvpg"] { fill: var(--pze-hvpg-ink); } .pze-zt[data-tone="both"] { fill: var(--pze-both-ink); }   /* (4.5:1 or more on its own fill, tests/plane-callouts.test.js) */
 .pze-zt.pze-bxw { font-weight: 600; fill: var(--text-2); }
 .pze-cut { stroke: var(--text-3); stroke-width: 1; stroke-dasharray: 3 4; }
+.pze-diag { stroke: var(--text-3); stroke-width: 1.5; stroke-dasharray: 3 4; }   /* (where the two readings are equal) */
+.pze-dt { font-weight: 600; fill: var(--text-2); }
 .pze-axis { stroke: var(--border-strong); stroke-width: 1.5; }
 .pze-t { fill: var(--text-3); font-weight: 500; font-variant-numeric: tabular-nums; }
 .pze-t.on { fill: var(--text); font-weight: 700; }

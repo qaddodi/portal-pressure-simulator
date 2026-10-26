@@ -98,7 +98,8 @@ export const patientOf = (t) => (typeof t?.patient?.preset === 'string' ? t.pati
  *  point depends on the one before; with days or points each starts again from the slide's state). */
 export const curveSteps = (t) => {
   const ags = againstsOf(t), own = pointSteps(t, t.also);
-  return [...own, ...ags.flatMap((a) => pointSteps(t, mergeOf(t.also, a.params)))];
+  // (Each second sweep starts again from the slide's state, so one sweep's params never carry into the next.)
+  return [...own, ...ags.flatMap((a) => pointSteps(t, mergeOf(t.also, a.params)).map((st, i) => (i ? st : { ...st, restart: true })))];
 };
 /** The second sweeps: [{ label, params, pair }] (one or two, each with a label and a params object). */
 export function againstsOf(t) {

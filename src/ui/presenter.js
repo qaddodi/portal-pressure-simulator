@@ -23,11 +23,11 @@ import { sinusoidSupported } from './gl-support.js?v=94ad2a7ff1';
 import { SCALE_NAME, offeredScales, scaleView, pickedScale } from './scale-switch.js?v=1b0e3acd65';
 import { DISEASE_SRC, diseasePieces } from './diseases.js?v=fb8a5451c3';
 import { nb, listCase, plateletText } from './glue.js?v=5a0f63226b';
-import { DECKS, DECK_ALIAS, REGIONS, LEVELS, TOPICS, withOverview, siteTag, SITE_TAGS } from './decks.js?v=d7435ad521';
+import { DECKS, DECK_ALIAS, REGIONS, LEVELS, TOPICS, withOverview, siteTag, SITE_TAGS } from './decks.js?v=3d32809e07';
 import { fingerprintOf } from '../engine/fingerprint.js?v=8faea80b59';
 import { createHvpgMonitor } from './hvpg-proc.js?v=aed1ad2d05';
-import { createTools } from './presenter-tools.js?v=3ac99e368b';
-import { openHandout } from './handout.js?v=fea350a724';
+import { createTools } from './presenter-tools.js?v=5295ff6abf';
+import { openHandout } from './handout.js?v=3e1da49027';
 import { noteResume, resumeFor } from './resume.js?v=f086f80ee8';
 import { parseDeckSource, checkDeck } from './deck-source.js?v=8395c650cd';
 import { NO_ASC, TILE, cutText, tileOf, SCALE, bandsOf, rateOf, COLS, CUT, PRESS, fpv, dirAbs, dirRel, rateAbs, effOf, rateShown, tileShown, tipsGoal, liveSettled, shownSig } from './table-marks.js?v=8458ad3bf8';
@@ -35,7 +35,7 @@ import { frameFor, cancelFrame } from './frame.js?v=7254a8a850';
 import { createFigureKey } from './figure-key.js?v=b6817772fb';
 import { traceWhen } from './trace-labels.js?v=fc916a95c6';
 import { flowCss, heatCss, dropCss, gradientCss, oxygenCss } from './colormap.js?v=a9284dde52';
-import { EXT, expandIds, stepExtra, markLabel, figureHooks, safe } from './slide-ext.js?v=819dc8c1b6';
+import { EXT, expandIds, stepExtra, markLabel, figureHooks, safe } from './slide-ext.js?v=f9e048c369';
 import { clotWords } from './callout-math.js?v=a716cd33ea';
 import { citeText, focusOf, oneLadder } from './teach-extras.js?v=5f5248f5a7';
 import { createProfileTool, createProfileStrip, pillReadings } from './tool-profile.js?v=c628225624';
@@ -2254,7 +2254,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       const [i, k] = rowAt(o), sl = i >= 0 ? slides[i] : null, x = typeof o === 'object' ? o : {};
       if (k == null || k < 0) return null;
       const title = x.title ?? sl?.title ?? '';
-      return { i, k, f: states[k]?.fp, kicker: x.kicker ?? sl?.kicker ?? '', title, name: x.name || title, site: x.site ?? sl?.site, note: x.note, blank: x.blank || [], ref: !!x.ref, vs: x.vs, key: x.key, calm: x.calm || [] };
+      return { i, k, f: states[k]?.fp, kicker: x.kicker ?? sl?.kicker ?? '', title, name: x.name || title, short: x.short, site: x.site ?? sl?.site, note: x.note, blank: x.blank || [], ref: !!x.ref, vs: x.vs, key: x.key, calm: x.calm || [] };
     }).filter(Boolean);
   }
   // The six levels side by side (visual: 'ladders'), each patient's Gut to heart profile in a cell of its own, the healthy line named
