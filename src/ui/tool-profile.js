@@ -13,7 +13,7 @@ import { PROFILE_PATHS } from './anatomy.js?v=48cc98d415';
 import { NODES } from '../engine/topology.js?v=4044766e96';
 import { RATE } from './table-marks.js?v=b717587a61';
 import { monotoneSegs } from './curve-near.js?v=9ff15157e9';
-import { pressureColor } from './colormap.js?v=cdcf6a2f55';
+import { pressureColor } from './colormap.js?v=cb82eca7d4';
 
 const PATH = PROFILE_PATHS[0];
 export const STATIONS = PATH.nodes;

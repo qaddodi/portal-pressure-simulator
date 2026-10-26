@@ -1,5 +1,5 @@
 // DOM & formatting helpers.
-import { saver } from './frame.js?v=19b3f2915c';
+import { saver } from './frame.js?v=3dd403a11f';
 
 // replaceChildren/append stringify null and arrays: flatten and drop empties instead.
 for (const m of ['replaceChildren', 'append', 'prepend']) {

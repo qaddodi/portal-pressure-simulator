@@ -3,19 +3,19 @@
 
 import { NODES } from '../engine/topology.js?v=4044766e96';
 import { wallRead } from '../engine/wall-read.js?v=09449acd01';
-import { pressureColor } from './colormap.js?v=cdcf6a2f55';
-import { h, fmt, fitCanvas, cssVar, cssAlpha, clamp, icon } from './util.js?v=d2c95a1b16';
+import { pressureColor } from './colormap.js?v=cb82eca7d4';
+import { h, fmt, fitCanvas, cssVar, cssAlpha, clamp, icon } from './util.js?v=1176d4c92c';
 import { simTime, isPaused } from './clock.js?v=5151312569';
-import { createEndoGL } from './endo-gl.js?v=5a804ad526';
-import { renderEndo } from './endo-render.js?v=b4ff4e6dc9';
+import { createEndoGL } from './endo-gl.js?v=423f10ed2a';
+import { renderEndo } from './endo-render.js?v=4bb22a656b';
 import { endoGrow, airRatio, airFlat } from './endo-size.js?v=e0a58bf20e';
 import { DEFLATE_MS, BAND_MS, BAND_DELAY_MS, fadeIn, glide, scopeTear } from './endo-motion.js?v=31f1c312f7';
-import { drawScopeBleed } from './endo-bleed.js?v=0771a7e11e';
+import { drawScopeBleed } from './endo-bleed.js?v=2546df91e4';
 import { poolFill } from './blood.js?v=7fa561f952';
-import { FONT } from './charts.js?v=ba4050e8a7';
+import { FONT } from './charts.js?v=94de83fffe';
 import { store, updateParams, varicesPresent } from './store.js?v=926dabfaef';
 import { balanceHold, balanceLine } from './balance-hold.js?v=1792704e7a';
-import { frameFor, cancelFrame } from './frame.js?v=19b3f2915c';
+import { frameFor, cancelFrame } from './frame.js?v=3dd403a11f';
 const nextFrame = frameFor('instruments');
 
 const NI = Object.fromEntries(NODES.map((n, i) => [n.id, i]));

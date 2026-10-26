@@ -8,16 +8,16 @@
 // readout tile. In Explore the live HVPG readouts stay hidden until this has run for the patient
 // (store.hvpgMeasured, hiddenNow); the tracing's small waves are illustrative.
 
-import { h, fmt, fitCanvas, clamp, icon, cssVar, toast } from './util.js?v=d2c95a1b16';
-import { FONT } from './charts.js?v=ba4050e8a7';
-import { pressureColor } from './colormap.js?v=cdcf6a2f55';
+import { h, fmt, fitCanvas, clamp, icon, cssVar, toast } from './util.js?v=1176d4c92c';
+import { FONT } from './charts.js?v=94de83fffe';
+import { pressureColor } from './colormap.js?v=cb82eca7d4';
 import { store, logAction, hiddenNow, updateParams } from './store.js?v=926dabfaef';
 import { shownOr } from './shown.js?v=82ef5e29ec';
 import { T, ease, k01, balloonAt, timeOfBalloon, pressureAt as pAt } from './hvpg-clock.js?v=553551a92a';
-import { frameFor, cancelFrame } from './frame.js?v=19b3f2915c';
+import { frameFor, cancelFrame } from './frame.js?v=3dd403a11f';
 import { traceRoom, TRACE_MIN } from './trace-room.js?v=b4c0aaa97f';
 import { rateOf } from './table-marks.js?v=b717587a61';
-import { PROCS, PROC_KINDS, procBlocked, procOffered, playProcedure } from './proc-anim.js?v=b2351a24c6';
+import { PROCS, PROC_KINDS, procBlocked, procOffered, playProcedure } from './proc-anim.js?v=1995a0b73f';
 const nextFrame = frameFor('hvpg-proc');
 
 let stageRef = null;
@@ -136,7 +136,8 @@ export function createHvpgProcedure() {
     // (Each move waits until the anatomy is on screen: a switch from the circuit takes a moment.)
     const want = t < T.zoom ? 'route' : t < T.back ? 'tip' : 'home';
     if (want !== cam && (want !== 'route' || t > 250) && sg.cathFocus(want, want === 'tip' ? 1100 : 800)) cam = want;
-    if (cam === 'route' && want === 'route') sg.cathFollow?.();
+    // (While it travels the view drifts after the tip: setCatheter's follow, after the catheter's own step.)
+    const follow = cam === 'route' && want === 'route';
     const v = values(), ph = phase(), pulse = 0.5 + 0.5 * Math.sin(t / 170);
     const labels = [];
     // (A reading is the mean, as a monitor's number is: the trace wavers with the breath and the beat, the number holds.)
@@ -158,14 +159,14 @@ export function createHvpgProcedure() {
       columnColor: pressureColor(v.whvp),
       ring: ph === 'free' ? C.free : ph === 'wedge' && t > T.wedge ? C.wedge : null, pulse, clock: t,
       opacity: 1 - k01(t, T.back + 300, T.end),
-      labels,
+      labels, follow,
     });
   }
 
   function figureBlocked(sg) {
     const want = t < T.zoom ? 'route' : t < TB.back + 1500 ? 'tip' : 'home';
     if (want !== cam && (want !== 'route' || t > 250) && sg.cathFocus(want, want === 'tip' ? 1100 : 800)) cam = want;
-    if (cam === 'route' && want === 'route') sg.cathFollow?.();
+    const follow = cam === 'route' && want === 'route';
     // Three short pushes against the clot, each easing in and back out.
     const pk = k01(t, TB.probe0, TB.probe1), probe = t < TB.probe1 ? Math.pow(Math.sin(pk * 3 * Math.PI), 2) * 0.9 : 0;
     const labels = t >= TB.probe0 && t < TB.abort ? [{ key: 'p', at: 'tip', kicker: 'Hepatic vein', text: 'Occluded', unit: '', cls: 'wedge' }]
@@ -174,7 +175,7 @@ export function createHvpgProcedure() {
       ostium: true, probe,
       u: ease(k01(t, T.travel0, T.travel1)) * (1 - ease(k01(t, TB.back, TB.end - 500))),
       balloon: 0, column: 0, ring: t >= TB.abort ? C.danger : null, pulse: 0.5 + 0.5 * Math.sin(t / 170), clock: t,
-      opacity: 1 - k01(t, TB.end - 900, TB.end), labels,
+      opacity: 1 - k01(t, TB.end - 900, TB.end), labels, follow,
     });
   }
 

@@ -7,7 +7,7 @@
 //   BRTO: right femoral vein → IVC → left renal vein → the gastrorenal shunt, its balloon near the renal end.
 //   BATO: through the liver into the right portal vein → portal and splenic veins → the short gastric feeder of the varices.
 
-import { frameFor, cancelFrame } from './frame.js?v=19b3f2915c';
+import { frameFor, cancelFrame } from './frame.js?v=3dd403a11f';
 import { ease, k01 } from './hvpg-clock.js?v=553551a92a';
 const nextFrame = frameFor('proc-anim');
 
@@ -113,14 +113,15 @@ export function playProcedure(stage, kind, { apply = null, onFrame = null, onEnd
     const s = P.steps[f.step];
     // The step's word on the tip, while the catheter is in (it goes as the catheter starts out).
     const labels = s && t < P.T.back + 600 ? [{ key: s[0], at: 'side', kicker: P.name, text: s[1], unit: '', cls: 'step' }] : [];
+    // (Between the route's framing and the close-up, the view drifts after the tip as it travels, as the HVPG catheter's does:
+    // setCatheter's follow, laid out with the catheter's step. The camera stays where it is meanwhile, so cathFocus below is not asked.)
+    const follow = cam === 'route' && f.cam === 'route' && !!P.follow;
     stage.setCatheter({ route: kind, u: f.u, balloon: f.balloon, balloonSpan: P.balloonSpan, column: f.column, columnColor: 'var(--tr-scler)',
-      ring: null, clock: t, opacity: f.opacity, labels });
+      ring: null, clock: t, opacity: f.opacity, labels, follow });
     stops ||= stage.cathStops?.() || null;
     // (Each camera move waits until the anatomy is on screen: a switch from the circuit takes a moment.)
     const ms = P.camMs || {};
     if (f.cam !== cam && (f.cam !== 'route' || t > 250) && stage.cathFocus(f.cam, ms[f.cam] || (f.cam === 'tip' ? 1100 : 900))) cam = f.cam;
-    // (Between the route's framing and the close-up, the view drifts after the tip as it travels, as the HVPG catheter's does.)
-    else if (cam === 'route' && f.cam === 'route' && P.follow) stage.cathFollow?.();
     if (!applied && t >= P.T.apply) { applied = true; apply?.(); }
     onFrame?.(f, t);
     if (t < P.T.end) raf = nextFrame(step);

@@ -3,17 +3,17 @@
 
 import { EDGES, dopplerK, NODES, PORTAL_TERRITORY, dMinOf, edgePresent, isOccluded, SHUNT_PORTAL, SHUNT_SYSTEMIC, customShuntId, isStent, stentSite, STENT_SITES, STENT_SPANS, stentGate, stentSegments } from '../engine/topology.js?v=4044766e96';
 import { route as metroRoute, RECTUM_FADE, LABEL_VESSEL, TIP_FADE, TIP_CONNECT, VIEW, VB_ANAT, VB_CIRC, ATLAS_COLUMNS, HIDDEN_EDGES, HIDDEN_NODES, ANAT_HIDDEN, ANAT_HIDDEN_NODES, CAUDATE, CONTEXT_EDGES, BACK_EDGES, IVC_EDGES, NEEDS_C3, NODE_POS, EDGE_PATH, CIRCUIT_PATH, metroPath, ORGANS, SEAM_D, ORGAN_DETAIL, BACKDROP, LIVER_INNER, LIVER_EDGES, LANE_CAPTIONS, ABDOMEN_CLIP, ABDOMEN_FLOOR, flankPath, abdomenOutline, cavityHalfWidths, SPLEEN_CENTER, SITES, ORGAN_LABELS, ATLAS_LABELS, SHORT, ABBR, CHIP_NODES, LIVER_SPLIT_X, CIRCUIT_ZONES, CIRCUIT_LABELS, STRANDS, STRAND_FROM, SIN_EDGES, FEEDERS, fanFeeders, CIRCUIT_TREES } from './anatomy.js?v=48cc98d415';
-import { pressureColor, deltaColor, dropColor, flowColor, heatColor, velColorOf, velocityColor, oxygenColor } from './colormap.js?v=cdcf6a2f55';
+import { pressureColor, deltaColor, dropColor, flowColor, heatColor, velColorOf, velocityColor, oxygenColor } from './colormap.js?v=cb82eca7d4';
 import { forkJoins, sideEndScale } from './fork-joins.js?v=20a032142f';
 import { nodeEnds, nodeDrawn, dotRadius, bareDots } from './circuit-nodes.js?v=1040ba0ec4';
 import { STATION_VESSEL, meanVel, velNormal, judgeFlow } from './velNormal.js?v=97920ddf3f';
 import { store, updateParams, varicesPresent, varixGrowth, shownVel } from './store.js?v=926dabfaef';
 import { fibroReading } from './clock.js?v=5151312569';
-import { s, h, fmt, fmtFlow, fp, clamp, lerp, toast, systemEdge, bloodColors, restBox, translateRest, settledBox, putText, UPRIGHT_MQ } from './util.js?v=d2c95a1b16';
+import { s, h, fmt, fmtFlow, fp, clamp, lerp, toast, systemEdge, bloodColors, restBox, translateRest, settledBox, putText, UPRIGHT_MQ } from './util.js?v=1176d4c92c';
 import { riseCentre } from './rise-path.js?v=c039cb7b49';
 import { sinceSource } from './since-ref.js?v=ef1a818c75';
 import { clipBox, mapBox } from './fit-box.js?v=d5d6d4c60f';
-import { runFlick, FLICK } from './flick.js?v=9602697f46';
+import { runFlick, FLICK } from './flick.js?v=33d4d7eebf';
 import { inlineStyles } from './svg-inline.js?v=fc17cb73fe';
 import { fluidTarget, poolFade } from './fluid-step.js?v=2742314765';
 import { easeTo, fluidSpring, fluidSpringFor } from './organ-ease.js?v=4ebb648131';
@@ -34,12 +34,12 @@ import { plateStrips, premultiply, gutStep, viewReuse, copyPixels } from './plat
 import { cropToGrid } from './organs-gl.js?v=50a7580426';
 import { readGroup, shapeSource, bindShape, targetRoom } from './organ-paint.js?v=1250d7cb89';
 import { pathCmds, flattenCmds, polyBox } from './shape-gl.js?v=a5ba46162b';
-import { createLabelGL } from './label-gl.js?v=d8c5c0b0b8';
+import { createLabelGL } from './label-gl.js?v=9e94e6933b';
 import { createGlassGL } from './glass-gl.js?v=e85c6ae740';
-import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, ORIGIN_GREY } from './veins-gl.js?v=b7d9f011dd';
+import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, ORIGIN_GREY } from './veins-gl.js?v=6c7760af87';
 import { varixBead, beadRadius } from './varix-bead.js?v=ac0e84fd89';
 import { advanceStream, createReversalHold, bleedShapes, stepBleedFade, fadeBleedShapes, chevFlowLevel, keyChevron, KEY_CHEV_LANES, originFractions, oxygenFor, ORIGIN_N, createBolus, DYE_BINS, KAPPA, STASIS_MIN_D, HIDDEN_SECONDS } from './blood.js?v=7fa561f952';
-import { frameFor, cancelFrame, noteDraw, setSaver as setFrameSaver, paceMs } from './frame.js?v=19b3f2915c';
+import { frameFor, cancelFrame, noteDraw, setSaver as setFrameSaver, paceMs } from './frame.js?v=3dd403a11f';
 import { softwareYield } from './sw-yield.js?v=e580a095b1';
 import { portalSplit } from './table-marks.js?v=b717587a61';
 import { hashSeed, clotSide, clotSpan, clotRadius, clotShift, clotLayers, CLOT_EDGE } from './clot-shape.js?v=415ba6b9c0';
@@ -57,6 +57,9 @@ import { parseColor, greyOf, paintRef } from './organ-grey.js?v=e41d68222c';
 import { bandRing, dashRings, liftEnd, normalShown, rippleList, systemOf, SYSTEM_COLOR } from './highlight-math.js?v=e2c1816e25';
 import { organAnchor, spleenCaliper, acrossVessel, stepGroups, spanOf, spanPath, zoneBand, SPAN_TICK, insideBy, clearOf, besideLine } from './callout-math.js?v=8b34c1bcf1';
 const nextFrame = frameFor('stage');
+// The figure's render pass (animate) runs after every other callback of its frame: a glide's step, the catheter's state and its
+// camera, the labels are all set first, and the vessel layer is drawn once, as they left it.
+const drawFrame = lateFrameFor('stage');
 
 const N_SAMPLES = 64;
 // Shorter circuit zone titles, tried in turn when the full one is wider than its zone.
@@ -1386,7 +1389,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (!F || lz?.isOpen()) return;
     refreshCTM();
     gpuProbe.time(null, 'labels (script)', () => updateLabels(F));
-    if (cath.st) cathLabels();
+    if (cath.st) cathLabelsSoon();
     // (updateLabels ends by painting the callouts and both probes, unless a camera glide held the labels back: they are painted here
     // only then, not a second time, whose reads came after the first paint's writes.)
     if (!labelPainted) {
@@ -2068,8 +2071,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       const u = easeInOut(clamp((now - t0) / ms, 0, 1));
       vt = lerpVT(from, to, u);
       applyVT(); CTM = null;
-      // With the catheter in, the vessels, the catheter and its labels follow the camera in this very frame.
-      if (cath.st) { refreshCTM(); cathLabels(); if (drawVeins()) drawnView = viewVersion; }
+      // With the catheter in, the vessels, the catheter and its labels follow the camera in this very frame (the labels and the
+      // vessel layer after the frame's other steps: cathLabelsSoon, then animate's one render pass).
+      if (cath.st) { refreshCTM(); cathLabelsSoon(); }
       if (sites.list) { refreshCTM(); sitesPaint(); }
       if (scan.on) scanPaint();
       dprobePaint();
@@ -2165,7 +2169,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const lzAnchor = document.createComment('lobule');
   wrap.append(lzAnchor);
   // (The code is fetched as soon as the figure is shown; the layer is built a moment later, when the page is quiet, or at once for a dive.)
-  const lobuleCode = () => (lzCode ||= import('./lobule-zoom.js?v=dc5d0cb7c6').catch((err) => { lzCode = null; throw err; }));
+  const lobuleCode = () => (lzCode ||= import('./lobule-zoom.js?v=f60649a00e').catch((err) => { lzCode = null; throw err; }));
   function lobuleReady() {
     return (lzLoad ||= lobuleCode().then(({ createLobuleZoom }) => {
       lz = createLobuleZoom({ host: wrap, styles: wrapCS, before: lzAnchor });
@@ -6805,8 +6809,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   /** The point, direction, the vein's own centre (w) and lumen radius at length d along the route. */
   function cathAt(r, d) {
     d = clamp(d, 0, r.total);
-    let i = 1;
-    while (i < r.cum.length - 1 && r.cum[i] < d) i++;
+    // (The first point at or past d, by halving: the shaft asks for hundreds of points a frame, each had walked the route from its start.)
+    let i = 1, hi = r.cum.length - 1;
+    while (i < hi) { const m = (i + hi) >> 1; if (r.cum[m] < d) i = m + 1; else hi = m; }
     const s0 = r.cum[i - 1], s1 = r.cum[i], u = s1 > s0 ? (d - s0) / (s1 - s0) : 0, a = r.pts[i - 1], b = r.pts[i];
     const l = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1;
     const wa = r.raw[i - 1], wb = r.raw[i];
@@ -6859,14 +6864,22 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (gpu) cathGL(st, r, tipD, rc);
     else cathSVG(st, r, tipD, rc * 2, Rf * 2);
     cathVer++; stageWake();
-    cathLabels();
+    // In order, once a frame: the catheter (above), the camera following it, its readings for both, then the one render pass
+    // (animate, the frame's last callback).
+    if (st.follow) cathFollow();
+    cathLabelsSoon();
   }
+  // The readings laid out after everything else of the frame has moved (the catheter, the camera), once; asked for outside a
+  // frame, at the next. (Each lay out read the page's layout after the step before had written to it.)
+  function cathLabelsSoon() { if (!cath.lblRaf) cath.lblRaf = drawFrame(cathLabelsNow); }
+  // (The render pass runs a lay out still waiting first, so the frame goes catheter, camera, readings, render.)
+  function cathLabelsNow() { if (!cath.lblRaf) return; cancelFrame(cath.lblRaf); cath.lblRaf = 0; if (cath.st) cathLabels(); }
   let cathVer = 0;
   // On the GPU (veins-gl.js): the still column, the shaft and its shadow, the marker band and rounded tip,
   // the balloon behind the tip and the reading ripples, as tubes and discs in world units.
   function cathGL(st, r, tipD, rc) {
     const V = [], draws = [], op = st.opacity ?? 1, cs = wrapCS();
-    const begin = () => V.length / 6;
+    const sh = cathShaft(r, rc), begin = () => sh.count + V.length / 6;
     const tube = (a, b, rOf, mode, col, alpha, fade, ox = 0, oy = 0) => {
       const first = begin(), step = Math.max(rc * 0.6, 0.35);
       const n = Math.max(2, Math.ceil((b - a) / step) + 1);
@@ -6882,8 +6895,24 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       draws.push({ mode, first, count: 4, col, alpha: alpha * op });
     };
     const shaft = [0.93, 0.95, 0.98];
-    tube(0, tipD - rc * 0.4, () => rc * 2.1, 0, [0.03, 0.05, 0.12], 0.34, [60, 0], rc * 0.7, rc * 1.1);
-    tube(0, tipD - rc * 0.4, () => rc, 2, shaft, 1, [60, 0]);
+    // The shaft and its shadow: the part of the whole route's tubes (sampled once, cathShaft) in to the last sample short of the
+    // end, then the piece from there to the end itself, so only that piece is new in a frame.
+    const b = tipD - rc * 0.4, k = Math.min(sh.n, Math.ceil(b / sh.step));
+    const shaftPart = (first, w, mode, col, alpha, ox = 0, oy = 0) => {
+      if (k < 1) return;
+      draws.push({ mode, first, count: k * 2, col, alpha: alpha * op, fade: [60, 0], len: b });
+      const a = (k - 1) * sh.step;
+      if (b > a) {
+        const f = begin();
+        for (const d of [a, b]) {
+          const q = cathAt(r, d), nx = -q.t[1], ny = q.t[0];
+          for (const side of [-1, 1]) V.push(q.p[0] + ox + nx * w * side, q.p[1] + oy + ny * w * side, nx, ny, side, d);
+        }
+        draws.push({ mode, first: f, count: 4, col, alpha: alpha * op, fade: [60, 0], len: b });
+      }
+    };
+    shaftPart(0, rc * 2.1, 0, [0.03, 0.05, 0.12], 0.34, rc * 0.7, rc * 1.1);
+    shaftPart(sh.n * 2, rc, 2, shaft, 1);
     // The pressure-reading tip: a dark marker band, then the rounded end.
     tube(Math.max(0, tipD - rc * 3.2), tipD - rc * 1.6, () => rc * 1.06, 3, [0.2, 0.23, 0.29], 1, [0, 0]);
     const tp = cathAt(r, tipD);
@@ -6913,9 +6942,26 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     }
     if (cathV.length < V.length) cathV = new Float32Array(V.length * 2);
     cathV.set(V);
-    veins.setCath(cathLast = { verts: cathV.subarray(0, V.length), draws, light: LIGHT });
+    veins.setCath(cathLast = { base: sh.verts, verts: cathV.subarray(0, V.length), draws, light: LIGHT });
   }
   let cathV = new Float32Array(0), cathLast = null;
+  // The shaft's tube and its shadow's along the whole route, at the shaft's one width (cath.rc), sampled every `step` from the
+  // start: made once per route and width and sent to the GPU once (veins-gl.js setCath's base); a frame draws them in to the tip.
+  // (It was every sample of both rebuilt and sent again each frame, the ripples alone changing as a reading showed.)
+  function cathShaft(r, rc) {
+    const key = `${r.kind}|${r.pts.length}|${r.total}|${r.pts[0]}|${r.pts.at(-1)}|${rc}`;
+    if (cath.shaft?.key === key) return cath.shaft;
+    const step = Math.max(rc * 0.6, 0.35), n = Math.floor(r.total / step) + 1, V = new Float32Array(n * 24);
+    const tube = (o, w, ox, oy) => {
+      for (let i = 0; i < n; i++) {
+        const d = i * step, q = cathAt(r, d), nx = -q.t[1], ny = q.t[0];
+        for (const side of [-1, 1]) { V.set([q.p[0] + ox + nx * w * side, q.p[1] + oy + ny * w * side, nx, ny, side, d], o); o += 6; }
+      }
+    };
+    tube(0, rc * 2.1, rc * 0.7, rc * 1.1);   // the shadow
+    tube(n * 12, rc, 0, 0);                   // the shaft
+    return (cath.shaft = { key, step, n, count: n * 4, verts: V });
+  }
   // When the procedure ends or is cancelled the catheter, its balloon and its labels fade out over .22 s instead of vanishing
   // in one frame (MOTION_HEAT_REVIEW P21). A new catheter meanwhile ends the fade at once.
   let cathFade = null;
@@ -6981,7 +7027,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       if (Math.hypot(jx, jy) > 4 && !matchMedia('(prefers-reduced-motion: reduce)').matches) { el._gl = { x, y, ax, ay, ox: ox - jx, oy: oy - jy, t0: now }; ox -= jx; oy -= jy; }
       else el._gl = { ...g, x, y, ax, ay };
     } else el._gl = { x, y, ax, ay, ox: 0, oy: 0, t0: now };
-    if (left(el._gl)[2] && !cath.glideRaf) cath.glideRaf = nextFrame(() => { cath.glideRaf = 0; cath.lblKey = ''; cathLabels(); });
+    if (left(el._gl)[2] && !cath.glideRaf) cath.glideRaf = nextFrame(() => { cath.glideRaf = 0; cath.lblKey = ''; cathLabelsSoon(); });
     return [x + ox, y + oy];
   }
   function cathLabels() {
@@ -7046,10 +7092,11 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const live = [...[...want].map(([k, l]) => [made.get(k), l]), ...leaving];
     const pills = live.filter(([, l]) => l && l.at !== 'sum');
     for (const [el, l] of pills) fill(el, l);
-    const W = wrap.clientWidth, H = wrap.clientHeight;
+    // (The stage's size, the cards' room and the readings' own sizes are kept until they change: cathRoomNow, cathSize.)
+    const room = cathRoomNow(), W = room.W, H = room.H;
     // The readings stay in the space the cards leave (a phone's Measure card sits over the bottom).
-    const sp = cardSpace(), lim = H - sp.b;
-    const size = new Map(pills.map(([el]) => [el, [el.offsetWidth, el.offsetHeight]]));
+    const sp = room.sp, lim = H - sp.b;
+    const size = new Map(pills.map(([el, l]) => [el, cathSize(el, `${l.kicker}|${l.text}|${l.unit}`, () => [el.offsetWidth, el.offsetHeight])]));
     const fEl = made.get('f'), fW = fEl ? (size.get(fEl) || [fEl.offsetWidth])[0] : 0;
     for (const [el] of pills) {
       const [w, h] = size.get(el);
@@ -7074,8 +7121,10 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       rows.forEach((r, j) => fill(r, l.rows[j]));
       fill(box.querySelector('.calc'), l.calc);
       const A = Object.fromEntries(['tip', 'ahead'].map((k) => [k, worldToLocal(at[k][0], at[k][1])]));
-      const bw = box.offsetWidth, bh = box.offsetHeight, top = Math.max(70, sp.t + 6), gap = lim < 440 ? 40 : 64;
-      const R = rows.map((r) => [r.offsetLeft, r.offsetTop, r.offsetWidth, r.offsetHeight]);   // (read before any write below)
+      // (read before any write below; kept while the readings' texts and classes stay as they are)
+      const [bw, bh, R] = cathSize(box, [...l.rows, l.calc].map((q) => `${q.kicker}|${q.text}|${q.unit}|${q.cls}`).join('/'),
+        () => [box.offsetWidth, box.offsetHeight, rows.map((r) => [r.offsetLeft, r.offsetTop, r.offsetWidth, r.offsetHeight])]);
+      const top = Math.max(70, sp.t + 6), gap = lim < 440 ? 40 : 64;
       // Above the readings, centred between them; below them when there is no room above. Either way it sits in the
       // free figure, clear of the cards, the slide's panel and its controls, and never over what it names: the tip,
       // the wedged balloon and the point ahead (cath-place.js). Its leaders stay on the vein.
@@ -7084,7 +7133,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         const b = cath.balBox, cs = [[b.x0, b.y0], [b.x1, b.y0], [b.x0, b.y1], [b.x1, b.y1]].map(([px, py]) => worldToLocal(px, py));
         keep.push({ x0: Math.min(...cs.map((c) => c[0])), y0: Math.min(...cs.map((c) => c[1])), x1: Math.max(...cs.map((c) => c[0])), y1: Math.max(...cs.map((c) => c[1])) });
       }
-      let { x, y } = placeSummary({ A, bw, bh, W, top, lim, gap, blockers: readBlockers(), keep });
+      let { x, y } = placeSummary({ A, bw, bh, W, top, lim, gap, blockers: room.blk, keep });
       [x, y] = cathGlide(box, x, y, (A.tip[0] + A.ahead[0]) / 2, (A.tip[1] + A.ahead[1]) / 2);
       box.style.transform = `translate(${x.toFixed(1)}px, ${y.toFixed(1)}px)`;
       el._box = { x0: x, y0: y, x1: x + bw, y1: y + bh };
@@ -7124,6 +7173,24 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       }
     });
   }
+  // What the readings' layout reads from the page, kept: the stage's size, the cards' room and the blockers (the cards, the
+  // slide's glass), until a card moves (pps:occ), the window resizes, or 250 ms pass (a card still sliding in); and each
+  // reading's size (cathSize) while its text, its classes and the label size stay as they are. Digits count as one (the
+  // readings' numbers are tabular), so a value counting up does not measure it again each frame.
+  let cathEpoch = 0;
+  function cathRoom() { cath.room = null; cath.ins = null; cathEpoch++; }
+  function cathRoomNow() {
+    const now = performance.now();
+    if (!cath.room || now - cath.room.t > 250) cath.room = { t: now, W: wrap.clientWidth, H: wrap.clientHeight, sp: cardSpace(), blk: readBlockers() };
+    return cath.room;
+  }
+  function cathSize(el, text, read) {
+    const rs = document.documentElement.style;   // (the label sizes, as set inline: read without a layout)
+    const key = `${cathEpoch}|${rs.getPropertyValue('--label-k')}|${rs.getPropertyValue('--label-scale')}|${appEl?.classList.contains('presenting')}|${el.className}|${el.dataset.at || ''}|${text.replace(/\d/g, '0')}`;
+    if (el._sz?.key !== key) el._sz = { key, v: read() };
+    return el._sz.v;
+  }
+  if (document.fonts) document.fonts.addEventListener?.('loadingdone', () => cathRoom());
   // A treatment's step callout (proc-anim.js): near the catheter's tip, with a thin leader that stops short of it, on a spot
   // that keeps off the vessels as drawn (the catheter's own route included), the cards and the slide's glass, inside the
   // free space. Spots all round the tip at a few distances are scored (vessels crossed weigh most, then cover, then how far
@@ -7243,16 +7310,23 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const st = cath.st;
     if (!r || !st || !cath.saved || vtGliding || reduceMotion.matches) return;
     const end = st.ostium ? r.hv0 - 2 : r.free, tipD = r.start + (end - r.start) * clamp(st.u, 0, 1);
-    const wr = wrap.getBoundingClientRect(), ins = safeInsets();
-    const [fx0, fy0] = clientToVB(wr.left + ins.l, wr.top + ins.t), [fx1, fy1] = clientToVB(wr.left + ins.W - ins.r, wr.top + ins.H - ins.b);
+    // (By arithmetic, from the kept stage box and the cards' room read at most four times a second: asking the page for its
+    // boxes and the figure's matrix here, after the catheter's step had written to it, laid the page out again every frame.)
+    const wr = stageBox(), ins = cathInsets(now);
+    const [fx0, fy0] = clientToVBFast(wr.left + ins.l, wr.top + ins.t), [fx1, fy1] = clientToVBFast(wr.left + ins.W - ins.r, wr.top + ins.H - ins.b);
     // Up and down only (no sideways pan), with a gentle zoom in as the tip nears the vein.
-    const tp = cutLen(r.pts, r.cum, 0, tipD).at(-1), a = 1 - Math.exp(-dt / 450);
+    const tp = cathAt(r, tipD).p, a = 1 - Math.exp(-dt / 450);   // (the tip itself, without cutting the route to it each frame)
     if (!cath.k0) cath.k0 = vt.k;
     const k = vt.k + (cath.k0 * (1 + 0.25 * clamp(st.u, 0, 1)) - vt.k) * a, sx = (fx0 + fx1) / 2;
     const nx = sx - (sx - vt.x) * (k / vt.k), ty = (fy0 + fy1) / 2 - tp[1] * k;
     const sy = (fy0 + fy1) / 2, ys = sy - (sy - vt.y) * (k / vt.k), ny = ys + Math.min(0, ty - ys) * a;
     if (Math.abs(ny - vt.y) + Math.abs(nx - vt.x) + Math.abs(k - vt.k) * 100 < 0.05) return;
-    vt = { k, x: nx, y: ny }; applyVT(); CTM = null; refreshCTM(); if (drawVeins()) drawnView = viewVersion;   // (the step's setCatheter lays out the labels next)
+    vt = { k, x: nx, y: ny }; applyVT(); CTM = null; refreshCTM();   // (the readings and the vessel layer follow, later in the frame)
+  }
+  // The room the cards leave (safeInsets), kept for 250 ms and dropped when a card moves (pps:occ) or the window resizes.
+  function cathInsets(now) {
+    if (!cath.ins || now - cath.insT > 250) { cath.ins = safeInsets(); cath.insT = now; }
+    return cath.ins;
   }
 
   // Overlays (stenosis, thrombus, stents, varices, balloons, catheter…)
@@ -9654,6 +9728,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // page as long again (see sw-yield.js); on a GPU there is no yield (null) and the loop below is unchanged.
   const swYield = softwareYield(SOFTWARE, SOFTWARE ? vCanvas.getContext('webgl2') : null);
   function animate(now) {
+    cathLabelsNow();
     // The blood moves by elapsed time, so speeds and transitions are the same at any frame rate.
     if (document.hidden || appEl?.classList.contains('home-open')) { lastT = flowGate = now; trimVeins(); sleep(); return; }
     // The dive magnifies the figure as it stands (a compositor scale): nothing under it is redrawn until it lands.
@@ -9665,16 +9740,16 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         stepBlood(Math.min(0.1, (now - lastT) / 1000));
         veins.composite(vLook, bloodLook(), false);
       }
-      lastT = flowGate = now; nextFrame(animate); return;
+      lastT = flowGate = now; drawFrame(animate); return;
     }
     // (Only the model's own motion waits its turn there: a pan, zoom, glide or forced draw is drawn in this frame, with the
     // rest of the figure that has already moved, never a frame behind it.)
-    if (swYield && !swYield.ready(now, forceDraw || drawOnce || viewVersion !== drawnView)) { nextFrame(animate); return; }
+    if (swYield && !swYield.ready(now, forceDraw || drawOnce || viewVersion !== drawnView)) { drawFrame(animate); return; }
     const interval = paceOf(quality);
     // A pan or zoom redraws at once (the picture must stay under the pointer); only the model's
     // own motion is paced, and only on a lower step (see QUALITY).
     const viewMoved = viewVersion !== drawnView;
-    if (interval && !viewMoved && !forceDraw && now - flowGate < interval) { nextFrame(animate); return; }
+    if (interval && !viewMoved && !forceDraw && now - flowGate < interval) { drawFrame(animate); return; }
     flowGate = interval ? now - ((now - flowGate) % interval) : now;
     const dt = Math.min(0.1, (now - lastT) / 1000);
     // (On a software renderer a frame waits its turn for up to 2 s: the fluid's ease catches up on the time that passed, so it
@@ -9685,7 +9760,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     // there, and leaving the lobule (a store change) wakes it. While the lobule only covers it on the way in or out, it keeps looking.
     if (lz?.isOpen()) { trimVeins(); sleep(); return; }
     veinsTrimmed = false;   // (shown again: the next draw makes what trimVeins gave back)
-    if (lz?.covers()) { nextFrame(animate); return; }
+    if (lz?.covers()) { drawFrame(animate); return; }
     forceDraw = false; drawOnce = false;
     const st = store.get();
     // Running, the figure moves by itself only through the blood (streaks, chevrons, a dye bolus), a bleed's spray and
@@ -9733,9 +9808,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     else if (veins && !veins.lost && vLook && F) { veins.composite(vLook, bloodLook(), fluidMoved); noteDraw('stage'); swYield?.drew(now); }
     drawnView = viewVersion;
     lastDrawKey = key; lastDrawF = F; lastDrawCTM = CTM; lastAnim = anim || bolus.active || dyeShown;
-    nextFrame(animate);
+    drawFrame(animate);
   }
-  nextFrame(animate);
+  drawFrame(animate);
   // Nothing to draw: the loop stops asking for frames (so the screen can idle) until something changes, and looks
   // again once a second in case a change came by a path that does not wake it. (The store, the page's visibility, the
   // figure's classes, the camera, the glows and the organ pictures landing all wake it themselves.)
@@ -9749,7 +9824,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     veins.trim(); veinsTrimmed = true; veinsDirty = true;
   }
   function sleep() { sleeping = true; clearTimeout(sleepTimer); sleepTimer = setTimeout(wake, 1000); }
-  function wake() { if (!sleeping) return; sleeping = false; clearTimeout(sleepTimer); nextFrame(animate); }
+  function wake() { if (!sleeping) return; sleeping = false; clearTimeout(sleepTimer); drawFrame(animate); }
   stageWake = wake;
   store.on('*', wake);
   store.on('*', () => { storeVer++; });
@@ -10029,8 +10104,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (!panFit || panFit.c !== c || panFit.r !== rotTarget) panFit = { c, r: rotTarget, d: defaultVT(c) };
     return panFit.d;
   }
-  addEventListener('pps:occ', () => { panFit = null; cath.lblKey = ''; });
-  addEventListener('resize', () => { panFit = null; cath.lblKey = ''; });
+  addEventListener('pps:occ', () => { panFit = null; cath.lblKey = ''; cathRoom(); });
+  addEventListener('resize', () => { panFit = null; cath.lblKey = ''; cathRoom(); });
   function hardPan(v) {
     const d = fitForPan();
     if (v.k <= d.k * 1.001) return { k: v.k, x: d.x, y: d.y };   // at the fit zoom the bounds are the fit position itself, as the lobule at its framing
@@ -10459,13 +10534,14 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     labelEff: () => labelScale * deskK(),   // what the figure shows outside a presentation (a desktop's baseline included)
     /** The HVPG catheter: null removes it; else { u (0..1 of the way in), balloon, column (0..1), columnColor, ring, pulse,
      *  opacity, labels: [{ key, at: 'tip' | 'ahead', kicker, text, unit, cls }] }. route: 'tips' | 'brto' | 'bato' takes a
-     *  treatment's route instead (PROC_ROUTES), where column is its sclerosant and balloonSpan names the stretch a long balloon fills. */
+     *  treatment's route instead (PROC_ROUTES), where column is its sclerosant and balloonSpan names the stretch a long balloon fills.
+     *  follow: the view drifts after the tip (cathFollow) in the same step, before the readings are laid out for it. */
     setCatheter(st) {
       if (st) cathFade?.done();
       else if (cathFade || !cath.st) { cath.st = null; return; }
       cath.st = st; wrap.classList.toggle('cath-on', !!st);
       if (st && (st.route || 'hvpg') !== cath.kind) { cath.kind = st.route || 'hvpg'; cath.route = null; cath.rc = 0; }
-      if (!st) { cath.rc = 0; cath.route = null; cath.sideOff = null; cath.rsegs = null; cath.blk = null; cathVer++; if (cathTint) { cathTint = null; cath.tintKey = ''; syncVeins(easeInOut(morph)); } cath.at = null; cathFadeOut(); return; }
+      if (!st) { cath.rc = 0; cath.route = null; cath.sideOff = null; cath.rsegs = null; cath.blk = null; cath.shaft = null; cath.room = null; cath.ins = null; cathVer++; if (cathTint) { cathTint = null; cath.tintKey = ''; syncVeins(easeInOut(morph)); } cath.at = null; cathFadeOut(); return; }
       cathPaint();
     },
     /** A presenter slide's measuring sites, e.g. ['pv', 'ivc'] (see SITE_DEF), read from fp (the slide's numbers, so they
@@ -10506,7 +10582,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       const u = (d) => (d - r.start) / (r.free - r.start || 1);
       return Object.fromEntries(Object.entries(r.spans).map(([k, [a, b]]) => [k, [u(a), u(b)]]));
     },
-    cathFollow,
+    // (setCatheter's `follow: true` does this in the catheter's own step, in order; this is the same move on its own.)
+    cathFollow() { cathFollow(); if (cath.st) cathLabelsSoon(); },
     /** Forget the view cathFocus would go back to (the presenter moves its own camera on). */
     cathForget() { cath.saved = null; cath.k0 = 0; },
     /** The vessel the Doppler is reading, glowing green while the Doppler instrument is open (null: none). */

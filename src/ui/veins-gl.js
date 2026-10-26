@@ -33,7 +33,7 @@
 
 import { CHEV_GLSL } from './chevron-glsl.js?v=96ec7c6666';
 import { SLOT, DYE_BINS } from './blood.js?v=7fa561f952';
-import { cssRGB } from './util.js?v=d2c95a1b16';
+import { cssRGB } from './util.js?v=1176d4c92c';
 import { LUMEN, STO_Y0, STO_DY, STO_N } from './stomach-lumen.js?v=4fce52c62f';
 import { CELL, ENT_W, binVeins, splitRows } from './veins-bin.js?v=17351d9767';
 import { gpuProbe } from './gpu-probe.js?v=e82dc07b45';
@@ -1421,7 +1421,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false }) {
   gl.bindBuffer(gl.ARRAY_BUFFER, cathBuf);
   for (let i = 0; i < 3; i++) { gl.enableVertexAttribArray(i); gl.vertexAttribPointer(i, 2, gl.FLOAT, false, 24, i * 8); }
   gl.bindVertexArray(null);
-  let cath = null, cathWas = false, cathCap = 0;   // cathCap: bytes the catheter's buffer holds (refilled in place while it fits)
+  let cath = null, cathWas = false, cathCap = 0, cathBase = null;   // cathCap: bytes the catheter's buffer holds (refilled in place while it fits); cathBase: the base it holds
   let lineP = null;
   try { lineP = finishProgram(gl, started.line); } catch (e) { console.warn('Veins renderer: outline shader failed.', e); }
   freeShaders();
@@ -2229,15 +2229,20 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false }) {
     /** Whether the catheter can be drawn here (else stage.js keeps its SVG one). */
     get canCath() { return !!cathP; },
     /**
-     * The HVPG catheter, or null: { verts: Float32Array (x, y, dirX, dirY, u, v per vertex),
-     * draws: [{ mode, first, count, col: [r, g, b], alpha, fade: [in, out], len }], light: [x, y] }.
+     * The HVPG catheter, or null: { base: Float32Array | null, verts: Float32Array (x, y, dirX, dirY, u, v per vertex),
+     * draws: [{ mode, first, count, col: [r, g, b], alpha, fade: [in, out], len }], light: [x, y] }. base: vertices that stay
+     * frame to frame (the shaft along the whole route), first in the buffer and sent only when it is a new array; verts follow
+     * it, sent every time; a draw's `first` counts from the start of base.
      */
     setCath(spec) {
       cath = cathP && spec?.draws?.length ? spec : null;
       if (!cath) return;
+      const base = cath.base || null, at = base ? base.byteLength : 0, need = at + cath.verts.byteLength;
       gl.bindBuffer(gl.ARRAY_BUFFER, cathBuf);
-      if (cath.verts.byteLength <= cathCap) gl.bufferSubData(gl.ARRAY_BUFFER, 0, cath.verts);
-      else { cathCap = cath.verts.byteLength * 2; gl.bufferData(gl.ARRAY_BUFFER, cathCap, gl.DYNAMIC_DRAW); gl.bufferSubData(gl.ARRAY_BUFFER, 0, cath.verts); }
+      if (need > cathCap) { cathCap = need * 2; gl.bufferData(gl.ARRAY_BUFFER, cathCap, gl.DYNAMIC_DRAW); cathBase = null; }
+      if (base && base !== cathBase) gl.bufferSubData(gl.ARRAY_BUFFER, 0, base);
+      cathBase = base;
+      if (cath.verts.byteLength) gl.bufferSubData(gl.ARRAY_BUFFER, at, cath.verts);
     },
     clear() { gl.bindFramebuffer(gl.FRAMEBUFFER, null); gl.viewport(0, 0, canvas.width, canvas.height); gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT); nCells = nBlood = 0; baseM = null; fboOK = false; },
     /** The current picture as a PNG data URL (call right after draw, in the same task). */

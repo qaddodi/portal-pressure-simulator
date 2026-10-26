@@ -15,7 +15,7 @@
 
 import { store, replaceParams } from './store.js?v=926dabfaef';
 import { download } from './download.js?v=3564e5bf8c';
-import { h, toast, svgIcon, icon, fmt, clamp, openModal, closeModal, isModalOpen, restBox, paintRange, cssVar, swapText, STACK_MQ, SHORT_SIDE_MQ, TABLET_UP_MQ } from './util.js?v=d2c95a1b16';
+import { h, toast, svgIcon, icon, fmt, clamp, openModal, closeModal, isModalOpen, restBox, paintRange, cssVar, swapText, STACK_MQ, SHORT_SIDE_MQ, TABLET_UP_MQ } from './util.js?v=1176d4c92c';
 import { titleParts } from './title-units.js?v=c8d5ce1f26';
 import { swipeDir, ownsSideways, ownsTouch, cardSwipe, caseFling, caseFlight, wheelFinger, wheelGesture, ownsWheel } from './swipe.js?v=3ad619631e';
 import { sinusoidSupported } from './gl-support.js?v=94ad2a7ff1';
@@ -24,24 +24,24 @@ import { DISEASE_SRC, diseasePieces } from './diseases.js?v=fb8a5451c3';
 import { nb, listCase, plateletText } from './glue.js?v=5a0f63226b';
 import { DECKS, DECK_ALIAS, REGIONS, LEVELS, TOPICS, withOverview, siteTag, SITE_TAGS } from './decks.js?v=ad2ca10b61';
 import { fingerprintOf } from '../engine/fingerprint.js?v=8faea80b59';
-import { createHvpgMonitor } from './hvpg-proc.js?v=eda11b5112';
-import { createTools } from './presenter-tools.js?v=b97231b146';
+import { createHvpgMonitor } from './hvpg-proc.js?v=eb779847a2';
+import { createTools } from './presenter-tools.js?v=5cecc357b2';
 import { openHandout } from './handout.js?v=1535efb206';
 import { noteResume, resumeFor } from './resume.js?v=f086f80ee8';
 import { parseDeckSource, checkDeck } from './deck-source.js?v=8395c650cd';
 import { NO_ASC, TILE, tileOf, SCALE, bandsOf, rateOf, COLS, CUT, PRESS, fpv, dirAbs, dirRel, rateAbs, effOf, rateShown, tileShown, tipsGoal, liveSettled, shownSig } from './table-marks.js?v=b717587a61';
-import { frameFor, cancelFrame } from './frame.js?v=19b3f2915c';
-import { createFigureKey } from './figure-key.js?v=8bbf7a41ed';
+import { frameFor, cancelFrame } from './frame.js?v=3dd403a11f';
+import { createFigureKey } from './figure-key.js?v=8308d2b307';
 import { traceWhen } from './trace-labels.js?v=fc916a95c6';
-import { flowCss, heatCss, dropCss, gradientCss, oxygenCss } from './colormap.js?v=cdcf6a2f55';
-import { EXT, expandIds, stepExtra, markLabel, figureHooks, safe } from './slide-ext.js?v=c4c5536031';
+import { flowCss, heatCss, dropCss, gradientCss, oxygenCss } from './colormap.js?v=cb82eca7d4';
+import { EXT, expandIds, stepExtra, markLabel, figureHooks, safe } from './slide-ext.js?v=061d99f418';
 import { clotWords } from './callout-math.js?v=8b34c1bcf1';
 import { citeText, focusOf, oneLadder } from './teach-extras.js?v=5f5248f5a7';
-import { createProfileTool, createProfileStrip, pillReadings } from './tool-profile.js?v=1c1732a06a';
+import { createProfileTool, createProfileStrip, pillReadings } from './tool-profile.js?v=07b885e007';
 import { causeFit } from './cause-fit.js?v=830a6835a5';
 import { COMPACT, WIDE } from './card-type.js?v=5af5f22935';
-import { flowTimeHeight } from './flow-time.js?v=cb89e13e11';
-import { PROCS, procBlocked, procOffered, playProcedure } from './proc-anim.js?v=b2351a24c6';
+import { flowTimeHeight } from './flow-time.js?v=b2738dc4bc';
+import { PROCS, procBlocked, procOffered, playProcedure } from './proc-anim.js?v=1995a0b73f';
 import { dataPlan, textPlan, keepData, keepText, cardSnap, cardChanged, cardBack } from './card-keep.js?v=c23d02b1d3';
 const nextFrame = frameFor('presenter');
 
@@ -1125,9 +1125,9 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     // Three short pushes against the clot (Budd–Chiari), each easing in and back out.
     const pk = cath.probeT0 ? clamp((now - cath.probeT0) / 3600, 0, 1) : 1, probe = pk < 1 ? Math.sin(pk * 3 * Math.PI) ** 2 * 0.9 : 0;
     stage.setCatheter({ u: v.u, balloon: v.balloon, column: v.column, columnColor: wedgeInk(), ring: cath.ring,
-      pulse: 0.5 + 0.5 * Math.sin((now - cath.t0) / 170), clock: now - cath.t0, opacity: v.opacity, labels: cathLabels(), ostium: cath.ostium, probe });
+      pulse: 0.5 + 0.5 * Math.sin((now - cath.t0) / 170), clock: now - cath.t0, opacity: v.opacity, labels: cathLabels(), ostium: cath.ostium, probe,
+      follow: cath.follow });   // (the view drifts after the tip as the stage lays out this frame: catheter, camera, readings)
     mon?.balloon(v.balloon);   // the monitor's trace rides the same balloon value
-    if (cath.follow) stage.cathFollow();
     cath.raf = nextFrame(cathFrame);
   }
   function cathStop() {

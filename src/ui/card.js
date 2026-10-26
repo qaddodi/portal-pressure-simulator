@@ -4,9 +4,9 @@
 // entry in the timeline; nothing stays "armed".
 
 import { store, updateParams } from './store.js?v=926dabfaef';
-import { h, icon, svgIcon, clamp, infoButton, sinkTo, stopSink, paintRange, isPhoneLayout, countTo, swapText, transformEndX, afterExit } from './util.js?v=d2c95a1b16';
-import { cardFor, normalizeSel } from './actions.js?v=5d8dc439cb';
-import { frameFor, cancelFrame } from './frame.js?v=19b3f2915c';
+import { h, icon, svgIcon, clamp, infoButton, sinkTo, stopSink, paintRange, isPhoneLayout, countTo, swapText, transformEndX, afterExit } from './util.js?v=1176d4c92c';
+import { cardFor, normalizeSel } from './actions.js?v=d148c4cac7';
+import { frameFor, cancelFrame } from './frame.js?v=3dd403a11f';
 import { placeCard, coverCount, vesselPoints } from './card-place.js?v=4eb9859ce3';
 const nextFrame = frameFor('card');
 // A reading's printed number ("12.5", "−3.0"), with its decimals, or null for one that isn't a plain number.

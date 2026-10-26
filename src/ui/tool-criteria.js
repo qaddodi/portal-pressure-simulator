@@ -10,7 +10,7 @@
 // ticks: false on the tool leaves the marks off (a classification such as the Sarin classes, where no row is "met").
 // The card never changes size with the reading: each reading's slot is as wide as its widest number, the marks cross-fade.
 
-import { h, fmt } from './util.js?v=d2c95a1b16';
+import { h, fmt } from './util.js?v=1176d4c92c';
 import { TILE } from './table-marks.js?v=b717587a61';
 
 export const CRITERIA_MAX = 4;

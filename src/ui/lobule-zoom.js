@@ -19,21 +19,21 @@
 // tapped (triad, inlet venule, sinusoid, arteriole, central vein, septum, hepatocytes).
 // Without WebGL2 the vessels are drawn flat on the tissue canvas.
 
-import { runFlick, FLICK } from './flick.js?v=9602697f46';
+import { runFlick, FLICK } from './flick.js?v=33d4d7eebf';
 import { store } from './store.js?v=926dabfaef';
 import { radiiChanged, canvasPx, fxMoves, DIVE_RIM } from './lobule-render-cache.js?v=84bf4c2222';
 import { softwareYield } from './sw-yield.js?v=e580a095b1';
-import { lobuleState, lymphRate, sinceOf, LOBE } from './lobule-model.js?v=f3ba49a18e';
+import { lobuleState, lymphRate, sinceOf, LOBE } from './lobule-model.js?v=0f6d4c559a';
 import { SIN_NARROW, cordTone, dullSinusoid, NEIGHBOUR_FLAT, neighbourBlur, blurWrapped, bandOutline, FADE_MID, fadeOuter, padRect, wideDpr, wideTiles, FIELD_RS, fieldBlend, fieldDof } from './lobule-look.js?v=a7314b7992';
 import { createFieldGL } from './field-gl.js?v=8921ff0785';
 import { createTissueGL } from './tissue-gl.js?v=17c5aa1b55';
-import { h, s, fmt, clamp, createEaser, systemEdge, bloodColors, cssVar, cssAlpha, cssRGB01 } from './util.js?v=d2c95a1b16';
-import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatColor, oxygenColor } from './colormap.js?v=cdcf6a2f55';
+import { h, s, fmt, clamp, createEaser, systemEdge, bloodColors, cssVar, cssAlpha, cssRGB01 } from './util.js?v=1176d4c92c';
+import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatColor, oxygenColor } from './colormap.js?v=cb82eca7d4';
 import { NODES, EDGES } from '../engine/topology.js?v=4044766e96';
-import { createVeinsGL, binVeins, laneSum, N_SAMPLES, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_SPEC, F_EDGE, ORIGIN_GREY } from './veins-gl.js?v=b7d9f011dd';
+import { createVeinsGL, binVeins, laneSum, N_SAMPLES, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_SPEC, F_EDGE, ORIGIN_GREY } from './veins-gl.js?v=6c7760af87';
 import { SLOT, PERIOD, originFractions, ORIGIN_N, DRIFT_PERIOD } from './blood.js?v=7fa561f952';
-import { createSinusoidView } from './sinusoid-view.js?v=bdc20295ed';
-import { frameFor, cancelFrame, noteDraw, saver, paceMs } from './frame.js?v=19b3f2915c';
+import { createSinusoidView } from './sinusoid-view.js?v=ca0271e83c';
+import { frameFor, cancelFrame, noteDraw, saver, paceMs } from './frame.js?v=3dd403a11f';
 import { leaderEnd, runInside } from './leader-end.js?v=8e884700ab';
 const nextFrame = frameFor('lobule-zoom');
 
