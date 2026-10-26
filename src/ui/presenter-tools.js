@@ -37,14 +37,14 @@
 import { store } from './store.js?v=926dabfaef';
 import { h } from './util.js?v=1176d4c92c';
 import { EDGES } from '../engine/topology.js?v=4044766e96';
-import { createDoppler } from './doppler.js?v=782777a7ce';
-import { createFibroScan } from './fibroscan.js?v=57bc2b56eb';
+import { createDoppler } from './doppler.js?v=d7298d34bc';
+import { createFibroScan } from './fibroscan.js?v=15b05b8598';
 import { createPressureTime } from './pressure-time.js?v=b1a603aa16';
 import { createSpleenUS } from './spleen-us.js?v=e611c85d72';
 import { createVitalsMonitor } from './vitals-monitor.js?v=7a419cdbb6';
 import { createHvpgCard } from './tool-hvpg.js?v=17abdbaea5';
 import { createFlowTime } from './flow-time.js?v=b2738dc4bc';
-import { createEndoscopy, createAbdomen, createVarixWall } from './instruments.js?v=67226f752a';
+import { createEndoscopy, createAbdomen, createVarixWall } from './instruments.js?v=1b36f96486';
 import { frameFor } from './frame.js?v=3dd403a11f';
 import { talkTrace } from './talk-trace.js?v=6e430b638e';
 import { EXT, guard, safe } from './slide-ext.js?v=6584862627';

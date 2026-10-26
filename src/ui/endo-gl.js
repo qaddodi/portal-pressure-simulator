@@ -192,9 +192,11 @@ void main() {
 }
 `;
 
+// The drawing buffer is not preserved: every render() draws the whole field and the one reader (instruments.js) copies it with
+// drawImage in the same task, before the browser presents and clears it.
 export function createEndoGL() {
   const cv = document.createElement('canvas');
-  const gl = cv.getContext('webgl', { antialias: false, alpha: true, premultipliedAlpha: true, preserveDrawingBuffer: true });
+  const gl = cv.getContext('webgl', { antialias: false, alpha: true, premultipliedAlpha: true, preserveDrawingBuffer: false });
   if (!gl) return null;
   const sh = (type, src) => { const s = gl.createShader(type); gl.shaderSource(s, src); gl.compileShader(s); return gl.getShaderParameter(s, gl.COMPILE_STATUS) ? s : null; };
   const vs = sh(gl.VERTEX_SHADER, VS), fs = sh(gl.FRAGMENT_SHADER, FS());

@@ -8,7 +8,7 @@ import { h, fitCanvas, clamp, cssAlpha } from './util.js?v=1176d4c92c';
 import { FONT } from './charts.js?v=94de83fffe';
 import { simTime, isPaused, fibroReading } from './clock.js?v=5151312569';
 import { store } from './store.js?v=926dabfaef';
-import { elastogramGL } from './fibroscan-gl.js?v=c1e9f0f60b';
+import { elastogramGL } from './fibroscan-gl.js?v=0b98df8189';
 import { frameFor, noteDraw, saver, paceMs } from './frame.js?v=3dd403a11f';
 const nextFrame = frameFor('fibroscan');
 
