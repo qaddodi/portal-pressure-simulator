@@ -73,6 +73,17 @@ export const CHOOSE_TREATMENT = {
       ask: ['Why is a DIPS often needed in Budd–Chiari syndrome?', 'The hepatic veins are clotted, so a standard TIPS has no vein to drain into; the DIPS drains straight into the IVC.'],
     },
     {
+      // (The relation chart before the summary: each patient before treatment as a ring, after it as the dot, on the HVPG against
+      // PPG plane. The splenic vein clot is left off: both gradients are normal before and after, its pressure beyond either.)
+      id: 'relation', cam: 'fit', visual: 'plane', plane: 'hvpg-ppg',
+      of: [{ id: 'a1', from: { preset: 'cirr-decomp' }, name: 'Carvedilol and bands', short: 'Carvedilol' }, { id: 'a2', from: { preset: 'cirr-decomp' }, name: 'TIPS' },
+        { id: 'a4', from: { preset: 'pvt-acute' }, name: 'Anticoagulation', short: 'Anticoag.' }, { id: 'a5', from: { preset: 'budd-chiari' }, name: 'DIPS' }],
+      kicker: 'Summary', title: 'What each treatment does to the two gradients',
+      line: 'Each ring is a patient before treatment and its dot after. Carvedilol and a TIPS lower both gradients. Anticoagulation and a DIPS lower the PPG alone.',
+      notes: 'The HVPG runs across and the PPG up, with the app\'s cut-offs (HVPG 5 and 10, PPG 6 and 12 mmHg). The two cirrhosis patients start from the same ring. Carvedilol lowers the inflow, so both gradients fall a little; the TIPS opens a channel beside the sinusoids and takes both down much further. The portal vein clot and Budd–Chiari start high on the PPG with a low HVPG, and their treatments bring the PPG down without moving the HVPG. In Budd–Chiari the hepatic veins cannot be wedged, so its HVPG is a number the model gives and no catheter takes. The splenic vein clot is not on the plane: its pressure sits in the splenic vein, and both gradients stay normal before and after the splenectomy. (AASLD 2024 Table 1; Baveno VIII 6.3, TIPS for recurrent ascites, and 9.19, anticoagulation for portal vein thrombosis.)',
+      ask: ['A patient with a portal vein clot starts anticoagulation. Which gradient shows whether it worked?', 'The PPG. The HVPG is normal before and after, because the clot lies before the sinusoids.'],
+    },
+    {
       id: 'summary', visual: 'table', cols: ['ppg', 'asc', 'liver'], asc: false, note: 'Choice', rowHead: 'Case',
       of: [{ preset: 'healthy', kicker: 'Reference', title: 'Healthy', note: 'None', ref: true },
         { id: 'a1', kicker: 'Bleeding', title: 'Bleed, Child–Pugh B 8', note: 'Carvedilol and bands' }, { id: 'a2', kicker: 'Ascites', title: 'Refractory ascites', note: 'TIPS' },

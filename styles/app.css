@@ -6577,6 +6577,8 @@ html.thumb-ui .menu.from-dock { clip-path: inset(-64px -64px calc(var(--sink, 0p
 .pze-pt circle { fill: var(--site, var(--text-2)); stroke: var(--surface); stroke-width: 3; }
 .pze-pt text { fill: var(--text); font-weight: 600; paint-order: stroke; stroke: var(--surface); stroke-width: 3px; stroke-linejoin: round; }
 .pze-lead { stroke: var(--text-2); stroke-width: 1; opacity: .7; }
+.pze-path { stroke: var(--site, var(--text-2)); stroke-width: 1.5; opacity: .5; }   /* (from where the patient started) */
+.pze-pt .pze-was { fill: var(--surface); stroke: var(--site, var(--text-2)); stroke-width: 2; }
 .pze-ring { transition: transform .7s var(--ease), opacity .4s var(--ease); }
 .pze-ring .pze-halo { fill: var(--surface); }   /* (the clear gap around the case's dot, in the card's own colour) */
 .pze-ring .pze-dot { fill: var(--text); }

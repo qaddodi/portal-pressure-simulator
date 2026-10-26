@@ -14,6 +14,9 @@
 // key: 'never' leaves it off everywhere, the data card and an iPhone too (the CSPH plane, whose zones are wide enough to name themselves). Zone words are the guideline's, checked against
 // /mnt/project-files/guidelines/baveno8-aasld.md before a deck uses them.
 //
+// A row of `of` may name where its patient started, from: a slide id or { preset, params?, days? } (choose-treatment: before the
+// treatment). The plane draws it as a ring joined to the point by a faint line, the names keeping clear of both.
+//
 // diag: { label } (or true) draws the dashed line where the two readings are equal (the wedge against the portal pressure: a point
 // on it means the wedge reads the portal vein), named along its upper end, the points' names keeping clear of it.
 //
@@ -392,11 +395,24 @@ export function placeZoneWords(pl, fr, X, Y, fs, used, dots, card = false, only 
   return out;
 }
 
+/** Where a point started (its row's from: a ring joined to the point by a line), in px, or null. */
+export function wasAt(pl, from, X, Y) {
+  if (!from) return null;
+  const f = shownReading(pl, from);
+  return Number.isFinite(f[pl.x.key]) && Number.isFinite(f[pl.y.key]) ? { x: X(f[pl.x.key]), y: Y(f[pl.y.key]) } : null;
+}
+/** The boxes words keep clear of along a point's way from where it started: the ring and the line (every 6 px, 4 px either side). */
+export function wasBoxes(p) {
+  if (!p.was) return [];
+  const out = [[p.was.x - 10, p.was.y - 10, p.was.x + 10, p.was.y + 10]], n = Math.max(1, Math.ceil(Math.hypot(p.x - p.was.x, p.y - p.was.y) / 6));
+  for (let i = 1; i < n; i++) { const x = p.was.x + (p.x - p.was.x) * i / n, y = p.was.y + (p.y - p.was.y) * i / n; out.push([x - 4, y - 4, x + 4, y + 4]); }
+  return out;
+}
 /** The plot's words: the cut-off lines' boxes (rules), each point's name (names, as placeNames) and the zones' words (words, as
  *  placeZoneWords). at: the points in px. The names come first; with no key, a zone whose words found no room then takes its
  *  place first and the names are placed again around it, so every zone keeps its words and every point its name. */
 export function layoutPlane(pl, fr, X, Y, fs, at, card = false) {
-  const rules = lineBoxes(pl, X, Y, fr, fs), dots = at.map((p) => [p.x - 12, p.y - 12, p.x + 12, p.y + 12]);
+  const rules = [...lineBoxes(pl, X, Y, fr, fs), ...at.flatMap((p) => wasBoxes(p))], dots = at.map((p) => [p.x - 12, p.y - 12, p.x + 12, p.y + 12]);
   // (The cut-off lines come first among the rules: a name may sit across one of those, the line broken behind it.)
   const cross = rules.slice(0, cutSegs(pl, X, Y, fr).length);
   const boxesOf = (ns) => ns.filter(Boolean).map((n) => n.box);
@@ -492,7 +508,7 @@ const valOf = (k, v) => (v == null || !Number.isFinite(v) ? '—' : fmt(v * (TIL
 const unitOf = (k) => TILE[k]?.u || '';
 
 /** The plot itself: an element whose CSS gives it a size; draw(points, ring) redraws it at that size.
- *  points: [{ f, name, site }]; ring: the case's fingerprint or null. */
+ *  points: [{ f, from?, name, site }] (from: where the patient started, drawn as a ring with a line to the point); ring: the case's fingerprint or null. */
 export function planePlot(pl, { card = false } = {}) {
   const el = h('div', { class: 'pze-plot' + (card ? ' pze-incard' : '') + (card && pl.key === 'never' ? ' pze-ownwords' : ''), role: 'img' });
   const svg = sv('svg', { class: 'pze-plane', 'aria-hidden': 'true' });
@@ -535,7 +551,7 @@ export function planePlot(pl, { card = false } = {}) {
     // The patients' names first, so every point keeps its name; the zones' words then take what room is left (the key names
     // every zone anyway; with no key, each zone's words search the whole zone for a clear place).
     // (Each at the numbers as printed, as the case's dot is: the zone it stands in is the one its numbers name.)
-    const at = pts.filter((p) => Number.isFinite(p.f?.[pl.x.key]) && Number.isFinite(p.f?.[pl.y.key])).map((p) => { const f = shownReading(pl, p.f); return { ...p, f, x: X(f[pl.x.key]), y: Y(f[pl.y.key]) }; });
+    const at = pts.filter((p) => Number.isFinite(p.f?.[pl.x.key]) && Number.isFinite(p.f?.[pl.y.key])).map((p) => { const f = shownReading(pl, p.f); return { ...p, f, x: X(f[pl.x.key]), y: Y(f[pl.y.key]), was: wasAt(pl, p.from, X, Y) }; });
     // (No words ever sit on a line. Each zone's words in its corner, the rest of the plane at its own point, only where they
     // fit whole.)
     const { names, words } = card ? { names: [], words: [] } : layoutPlane(pl, fr, X, Y, fs, at, card);
@@ -564,7 +580,9 @@ export function planePlot(pl, { card = false } = {}) {
     // The patients: a point each, its name beside it.
     at.forEach((p, i) => {
       const n = names[i];
-      kids.push(sv('g', { class: 'pze-pt', 'data-site': p.site || 'none', style: `--i:${i}` }, n?.lead ? sv('line', { class: 'pze-lead', x1: p.x, y1: p.y, x2: n.lead[0], y2: n.lead[1] }) : null, sv('circle', { cx: p.x, cy: p.y, r: 8 }),
+      kids.push(sv('g', { class: 'pze-pt', 'data-site': p.site || 'none', style: `--i:${i}` }, p.was ? sv('line', { class: 'pze-path', x1: p.was.x, y1: p.was.y, x2: p.x, y2: p.y }) : null,
+        p.was ? sv('circle', { class: 'pze-was', cx: p.was.x, cy: p.was.y, r: 6 }) : null,
+        n?.lead ? sv('line', { class: 'pze-lead', x1: p.x, y1: p.y, x2: n.lead[0], y2: n.lead[1] }) : null, sv('circle', { cx: p.x, cy: p.y, r: 8 }),
         n ? sv('text', { x: n.x, y: n.y, 'text-anchor': n.anchor, style: `font-size:${fs}px` }, n.lines.map((l, j) => sv('tspan', { x: n.x, dy: j ? fs * 1.2 : null }, l))) : null));
     });
     // The slide's case: a dot in proportion to the plot, a gap in the card's colour around it, that eases from where it was (a
@@ -647,7 +665,7 @@ export function planeVisual(s, ctx, rowsFp) {
   // (key: false hides it but on an iPhone, app.css; key: 'never' leaves only the source line under the plot.)
   const wrap = h('div', { class: 'pz-visual pze-planewrap' + (pl.key === false || pl.key === 'never' ? ' pze-nokey' : '') }, plot.el,
     pl.key === 'never' ? (pl.source ? h('p', { class: 'pze-src' }, pl.source) : null) : planeKey(pl));
-  rowsFp(s, ctx, (rows) => plot.set(rows.map((r) => ({ f: r.f, name: r.name, short: r.short, site: r.site }))));
+  rowsFp(s, ctx, (rows) => plot.set(rows.map((r) => ({ f: r.f, from: r.from, name: r.name, short: r.short, site: r.site }))));
   return wrap;
 }
 /** A tool's plane: its plane field, its own x, y and zones, or the CSPH plane. */

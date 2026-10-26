@@ -161,6 +161,9 @@ export const ADOPTED = {
   'varices/relation': ['kind:curve'],
   'two-inflows/relation': ['kind:curve'],
   'lobule/relation': ['visual', 'plane', 'of'],
+  'choose-treatment/relation': ['visual', 'plane', 'of'],
+  'sites/relation': ['visual', 'plane', 'of'],
+  'where-resistance/relation': ['visual', 'plane', 'of'],
 };
 
 /** Whether the slide d/s may use the field. */

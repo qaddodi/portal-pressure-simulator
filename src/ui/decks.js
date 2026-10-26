@@ -94,7 +94,7 @@
 // (withOverview below); a deck never writes that slide itself.
 
 import { CIRCULATION } from './decks/circulation.js?v=f28cdbfb29';
-import { SITES } from './decks/sites.js?v=be895e4fb5';
+import { SITES } from './decks/sites.js?v=acf4a72929';
 import { HVPG } from './decks/hvpg.js?v=75a8b178bd';
 import { ASCITES } from './decks/ascites.js?v=87c973114c';
 import { VARICES } from './decks/varices.js?v=03633167dd';
@@ -112,14 +112,14 @@ import { TWO_INFLOWS } from './decks/two-inflows.js?v=457e0910fa';
 import { NCPH } from './decks/ncph.js?v=2b19ba5919';
 import { OUTFLOW } from './decks/outflow.js?v=f968f005ed';
 import { RECOMPENSATION } from './decks/recompensation.js?v=23183921c8';
-import { WHERE } from './decks/where.js?v=ec31b6a254';
+import { WHERE } from './decks/where.js?v=c28f096edc';
 import { PREGNANCY_DECK } from './decks/pregnancy.js?v=d79b566bbb';
 import { ENCEPHALOPATHY } from './decks/encephalopathy.js?v=164b20d14c';
 import { CAUSE_TREATED } from './decks/cause-treated.js?v=67bfe19a38';
 import { NEXT_BLEED } from './decks/next-bleed.js?v=5d7bb73a9d';
 import { GASTRIC } from './decks/gastric-varices.js?v=728c39a025';
 import { HYPERDYNAMIC } from './decks/hyperdynamic.js?v=8f06d153c4';
-import { CHOOSE_TREATMENT } from './decks/choose-treatment.js?v=a376b96e0c';
+import { CHOOSE_TREATMENT } from './decks/choose-treatment.js?v=500e52ed71';
 import { TEN_YEARS } from './decks/ten-years.js?v=33d5d18de1';
 
 // Regions of the anatomy plate the camera frames (world units, x 300-1120, y 0-920).

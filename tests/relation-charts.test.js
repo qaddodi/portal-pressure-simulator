@@ -102,3 +102,31 @@ test('the model: carvedilol lowers the HVPG further than propranolol at every HV
     assert.ok(ser.ys[1][i] < ser.ys[2][i] && ser.ys[2][i] < ser.lx[0][i], `at ${ser.lx[0][i].toFixed(1)}: carvedilol ${ser.ys[1][i].toFixed(1)} < propranolol ${ser.ys[2][i].toFixed(1)} < before`);
   }
 });
+
+test('a plane row with from: the ring where the patient started, its line, and the boxes the names keep clear of', async () => {
+  const { planeOf, wasAt, wasBoxes, scaler } = await import('../src/ui/visual-plane.js');
+  const { rowsFp } = await import('../src/ui/ext-panels.js');
+  const pl = planeOf('hvpg-ppg'), { X, Y } = scaler(pl, { L: 0, R: 300, T: 0, B: 300 });
+  assert.equal(wasAt(pl, null, X, Y), null);
+  const w = wasAt(pl, { hvpg: 16.5, ppg: 17.4 }, X, Y);
+  assert.deepEqual([w.x, w.y].map((v) => +v.toFixed(1)), [165, 126]);
+  assert.deepEqual(wasBoxes({ x: 10, y: 10 }), [], 'no from, nothing to keep clear of');
+  const bx = wasBoxes({ x: 0, y: 0, was: { x: 30, y: 0 } });
+  assert.deepEqual(bx[0], [20, -10, 40, 10], 'the ring');
+  assert.ok(bx.length >= 5 && bx.slice(1).every((b) => b[1] === -4 && b[3] === 4), 'the line, every 6 px');
+  // (A row waits for both readings; the slide's own state and the run of the patient before.)
+  const runs = [], rows = await new Promise((done) => rowsFp({ of: [{ id: 'a1', from: { preset: 'cirr-decomp' }, name: 'Carvedilol' }] },
+    { fpOf: (id) => (id === 'a1' ? { hvpg: 13.5 } : null), run: (steps) => { runs.push(steps); return Promise.resolve([{ fp: { hvpg: 16.5 } }]); } }, (r) => { if (r.length) done(r); }));
+  assert.equal(rows[0].f.hvpg, 13.5);
+  assert.equal(rows[0].from.hvpg, 16.5);
+  assert.equal(runs.length, 1);
+});
+
+test('the before-and-after and site planes sit just before their summaries, every row a slide of the deck or a preset', async () => {
+  const { DECKS } = await import('../src/ui/decks.js');
+  for (const id of ['choose-treatment', 'sites', 'where-resistance']) {
+    const d = DECKS.find((x) => x.id === id), i = d.slides.findIndex((s) => s.id === 'relation');
+    assert.equal(d.slides[i + 1].id, 'summary', id);
+    for (const o of d.slides[i].of) for (const sp of [o, o.from].filter(Boolean)) assert.ok(sp.preset || d.slides.some((s) => s.id === sp.id), `${id}: ${JSON.stringify(sp)}`);
+  }
+});

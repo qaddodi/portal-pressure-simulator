@@ -93,6 +93,16 @@ export const SITES = {
       ask: ['Which two levels raise the HVPG?', 'Sinusoidal and postsinusoidal: only there does the resistance lie between the wedge and the free reading.'],
     },
     {
+      // (The relation chart before the summary: each site as a point on the HVPG against PPG plane.)
+      id: 'relation', cam: 'fit', visual: 'plane', plane: 'hvpg-ppg',
+      of: [{ id: 'healthy', name: 'Healthy' }, { id: 'pvt', name: 'Portal vein thrombosis', short: 'PVT' }, { id: 'presin', name: 'Schistosomiasis', short: 'Schisto' },
+        { id: 'sin', name: 'Cirrhosis' }, { id: 'postsin', name: 'Sinusoidal obstruction', short: 'SOS' }, { id: 'post', name: 'Budd–Chiari' }, { id: 'cardiac', name: 'Heart failure' }],
+      kicker: 'Summary', title: 'Each site sits in its own corner of the two gradients',
+      line: 'A clot, schistosomiasis and Budd–Chiari raise the PPG and leave the HVPG normal. Cirrhosis and sinusoidal obstruction raise both. Right heart failure raises neither.',
+      notes: 'Each point is one patient from this talk, placed by the HVPG across and the PPG up, with the app\'s cut-offs (HVPG 5 and 10, PPG 6 and 12 mmHg). Pre-hepatic and presinusoidal resistance lies before the wedge, so the HVPG stays normal while the PPG rises. Sinusoidal and postsinusoidal resistance lies inside the HVPG bracket, so both rise. In Budd–Chiari the hepatic veins cannot be wedged at all; the model\'s HVPG there is a number no catheter takes. In right heart failure every station is high, so neither gradient is. (AASLD 2024 Table 1; Baveno VIII Table 3; EASL 2025: the HVPG misses the portal hypertension of portal vein thrombosis and PSVD.)',
+      ask: ['A patient has varices, an HVPG of 3 mmHg and a PPG of 15 mmHg. Which sites fit?', 'Pre-hepatic or presinusoidal (a portal vein clot, schistosomiasis), or Budd–Chiari.'],
+    },
+    {
       id: 'summary', visual: 'table', cols: ['pv', 'whvp', 'fhvp', 'ra', 'hvpg', 'ppg'], asc: true, of: [{ preset: 'healthy', kicker: 'Reference', title: 'Healthy', ref: true }, ...SIX],
       kicker: 'Summary', title: 'HVPG rises only with sinusoidal and postsinusoidal resistance',
       line: 'Portal pressure is high at every site. For the other levels, read the PPG, the free hepatic pressure and the right atrium.',

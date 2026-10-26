@@ -82,6 +82,20 @@ export const WHERE = {
       ask: ['Which two cases did neither gradient find?', 'Case 6, the IVC web, and case 3, the heart.'],
     },
     {
+      // (The relation chart before the summary: each case's portal pressure across and its HVPG up. The portal pressure is high in
+      // all six; the HVPG only where the resistance lies in the sinusoids or just past them.)
+      id: 'relation', cam: 'fit', visual: 'plane',
+      plane: { x: { key: 'pv', min: 0, max: 30, ticks: [0, 10, 20, 30], name: 'Portal vein pressure, mmHg', short: 'Portal, mmHg' },
+        y: { key: 'hvpg', min: 0, max: 20, ticks: [0, 5, 10, 20], name: 'HVPG, mmHg' },
+        zones: [{ when: [['hvpg', '<', 5]], t: 'HVPG normal', tone: 'ok' }, { t: 'HVPG raised', tone: 'hvpg' }], cuts: { y: [5] }, key: 'never' },
+      of: [{ preset: 'healthy', name: 'Healthy' }, { id: 'a2', name: 'Portal vein thrombosis', short: 'PVT' }, { id: 'a5', name: 'Schistosomiasis', short: 'Schisto' },
+        { id: 'a1', name: 'Cirrhosis' }, { id: 'a4', name: 'Sinusoidal obstruction', short: 'SOS' }, { id: 'a6', name: 'IVC web' }, { id: 'a3', name: 'Constrictive pericarditis', short: 'Pericarditis' }],
+      kicker: 'Summary', title: 'The portal pressure is high in all six; the HVPG finds two',
+      line: 'Every case sits right of the healthy liver. Only cirrhosis and sinusoidal obstruction reach an HVPG ≥5 mmHg: their resistance lies inside the wedge\'s bracket.',
+      notes: 'Each case is a point: its portal vein pressure across, its HVPG up. All six have portal hypertension, but the HVPG reads only the fall between the wedged and the free hepatic pressure. A clot or schistosomiasis lies before the wedge, the IVC web and the pericardium after the hepatic veins, so their HVPG stays normal. A normal HVPG with varices or a high portal pressure sends you to the PPG, the IVC and the right atrium. (AASLD 2024 Table 1 and p. 1181; Baveno VIII Table 3; EASL 2025: the HVPG misses the portal hypertension of PSVD and portal vein thrombosis.)',
+      ask: ['A patient has varices and an HVPG of 3 mmHg. Does that rule out portal hypertension?', 'No. The resistance may lie before the sinusoids, in the IVC or in the heart: read the PPG and the right atrium.'],
+    },
+    {
       id: 'summary', visual: 'table', cols: ['pv', 'whvp', 'fhvp', 'ivc', 'ra', 'hvpg', 'ppg'], asc: true, of: [{ preset: 'healthy', kicker: 'Reference', title: 'Healthy', ref: true }, ...SIX],
       kicker: 'Summary', title: 'The largest fall on the ladder names the level',
       line: 'The HVPG sees only sinusoidal and postsinusoidal resistance. A high portal pressure with a normal PPG points to the IVC or the heart.',
