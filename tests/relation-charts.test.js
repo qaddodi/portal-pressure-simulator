@@ -4,7 +4,7 @@ import './dom-shim.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createCore } from '../src/worker-core.js';
-import { curveSteps, curveSeries, xKeyOf, axisMeta, xDomain, xCutsOf, yCutsOf, zoneEdge, dotsOf, dotSteps, ringAt, drawnLines, againstsOf, againstOf, ownIsRef, curveAt, patientOf, onCurve, readingName } from '../src/ui/tool-curve.js';
+import { scopeStates, overScope, curveSteps, curveSeries, xKeyOf, axisMeta, xDomain, xCutsOf, yCutsOf, zoneEdge, dotsOf, dotSteps, ringAt, drawnLines, againstsOf, againstOf, ownIsRef, curveAt, patientOf, onCurve, readingName } from '../src/ui/tool-curve.js';
 
 async function seq(steps, base = null) {
   const out = [];
@@ -144,4 +144,20 @@ test('a second sweep may draw another reading (of): the fundal varix open, then 
   const ser = curveSeries(t, [f(9, 3, 2), f(12, 5, 2), f(9, 2.4, 2), f(12, 2.4, 2), f(9, 2.4, 2.1), f(12, 2.4, 4.5)]);
   assert.deepEqual(ser.ys, [[3, 5], [2.4, 2.4], [2.1, 4.5]], 'the third sweep is read as the esophageal varix');
   assert.deepEqual(ser.lx, [[9, 12], [9, 12], [9, 12]]);
+});
+
+test('a curve over the scope\'s air: the varix seen and the pressure across its wall, from the slide\'s own reading, nothing run', () => {
+  const t = { param: 'scope.air', from: 0, to: 20, step: 1, lines: ['seen', 'across'] };
+  assert.equal(overScope(t), true);
+  assert.equal(overScope({ param: 'tips.d' }), false);
+  const P = new Float32Array(200).fill(18), air = Array.from({ length: 21 }, (_, a) => 7 - a * 0.25);
+  const st = scopeStates(t, { varix: 7, varixAir: air, at: { P } });
+  assert.equal(st.length, 21);
+  assert.equal(st[0].fp.seen, 7, 'no air: the size at rest, as the tile reads it');
+  assert.ok(Math.abs(st[10].fp.seen - 4.5) < 1e-9);
+  assert.equal(st[10].fp.across, 8, 'the pressure inside less the air\'s');
+  assert.equal(scopeStates(t, { varix: 7 }), null, 'no pressure inside, no curve');
+  const s = curveSeries(t, st);
+  assert.deepEqual([s.xs[0], s.xs.at(-1)], [0, 20]);
+  assert.deepEqual(axisMeta(t), { name: 'Air in the esophagus', unit: 'mmHg', d: 0, x: 1 });
 });

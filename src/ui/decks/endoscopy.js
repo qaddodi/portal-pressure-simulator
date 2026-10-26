@@ -75,5 +75,14 @@ export const ENDOSCOPY = {
       notes: 'The scope grades and treats the varix; it does not measure the pressure behind it, which the HVPG does. Beta-blockers, banding and TIPS are taught in Lowering portal pressure and in Preventing the next variceal bleed.',
       ask: ['What does the HVPG tell you that the scope does not?', 'The pressure behind the varix, which stays high however the varix looks.'],
     },
+    {
+      // (The relation chart: the scope's air across, the varix it sees and the pressure across its wall up, worked out from this
+      // slide's varix as the scope works them. The model is untouched, so the HVPG tile holds still.)
+      id: 'relation', ...SAME, tool: { kind: 'curve', param: 'scope.air', from: 0, to: 20, step: 1, lines: ['seen', 'across'], cuts: [5] },
+      kicker: 'Summary', title: 'Air flattens the varix, not the pressure behind it',
+      line: 'As the air pressure rises, the varix seen narrows and the pressure across its wall falls, while the HVPG stays {hvpg}.',
+      notes: 'Both lines come from the same varix, at rest about 7 mm across, a large one. The air presses on it from outside, so the pressure across its wall is the pressure inside less the air\'s, and it falls one for one. The size seen falls slowly at first and then quickly as the wall goes slack, and from about 16 mmHg of air the scope would call the varix small (<5 mm). Its grade at rest has not changed, and neither has the HVPG. The range is a teaching one, not a setting on a gastroscope. AASLD 2024 ties the tension in the varix wall to the pressure across it, the diameter and the wall thickness (p. 1193); the shape of the lines is Laplace\'s law worked through the model, and no guideline gives these numbers.',
+      ask: ['The same varix looks small at one scope and large at the next. What else should you ask?', 'How much air was in the esophagus each time. Size it with the same insufflation, or the change may be the air.'],
+    },
   ],
 };

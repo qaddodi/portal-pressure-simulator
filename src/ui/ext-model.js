@@ -6,8 +6,8 @@
 //         against one or two readings, the case's ring on each line (tool-curve.js)
 //   tool: { kind: 'causes', metric: 'ppg' }   what raises the reading from healthy, a waterfall with a step per cause (tool-causes.js)
 
-import { createCurve, warmCurve, curveLines, lineMeta, axisMeta } from './tool-curve.js?v=b91e1aaf04';
-import { createCauses, metricOf } from './tool-causes.js?v=e2235f2965';
+import { createCurve, warmCurve, curveLines, lineMeta, axisMeta } from './tool-curve.js?v=a85ab2bc2f';
+import { createCauses, metricOf } from './tool-causes.js?v=a7d171f281';
 import { TILE } from './table-marks.js?v=8458ad3bf8';
 
 const lc = (s) => (/^[A-Z]{2,}/.test(s) ? s : s.charAt(0).toLowerCase() + s.slice(1));

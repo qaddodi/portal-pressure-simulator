@@ -41,11 +41,16 @@
 //                     With of: 'varix' that sweep draws another reading (the fundal varix with the shunt open, the esophageal
 //                     varix with it closed), on the same scale as the first, so the two share a unit; reading: 'Varix' then
 //                     names the card, the key row and the cut-offs, which would otherwise carry the first reading's name.
+//   param: 'scope.air' (from 0, to 20), lines: ['seen', 'across']
+//                     a curve over the scope's air in the esophagus, an instrument option, not a model setting: worked out from
+//                     the slide's own varix as the scope works it (the size seen, the pressure across the wall), nothing run.
 //   zone: { fall: 10, under: 12, label: 'Response' }
 //                     a soft band in the ok colour under y = max(under, x less fall %), dashed along its top and named in it.
 
 import { TILE, SCALE, RATE } from './table-marks.js?v=8458ad3bf8';
 import { frameFor } from './frame.js?v=7254a8a850';
+import { airRatio } from './endo-size.js?v=e0a58bf20e';
+import { NODES } from '../engine/topology.js?v=4044766e96';
 const nextFrame = frameFor('tool-curve');
 
 const clamp = (x, a, b) => Math.max(a, Math.min(b, x));
@@ -58,12 +63,14 @@ export const PARAM = {
   'tips.d': ['TIPS diameter', 'mm', 0], 'dips.d': ['DIPS diameter', 'mm', 0],
   cirrhosis: ['Cirrhosis', '%', 0, 100], gestation: ['Weeks pregnant', 'weeks', 0], albumin: ['Serum albumin', 'g/dL', 1],
   splanchnicTone: ['Splanchnic tone', '×', 2], systemicTone: ['Systemic tone', '×', 2], contractility: ['Right heart contractility', '×', 2],
+  'scope.air': ['Air in the esophagus', 'mmHg', 0],
   tr: ['Tricuspid regurgitation', '%', 0, 100], pericardial: ['Pericardial constraint', '%', 0, 100], apShunt: ['Arterioportal shunting', '%', 0, 100],
 };
-// Readings a chart can draw that have no tile: the varix wall's stress, as a share of the point where it tears.
-const LINE_ONLY = { wall: { t: 'Wall stress', u: '% of tear', x: 100, d: 0 } };
+// Readings a chart can draw that have no tile: the varix wall's stress, as a share of the point where it tears; and on a curve
+// over the scope's air (param 'scope.air'), the varix's diameter as the scope sees it and the pressure across its wall.
+const LINE_ONLY = { wall: { t: 'Wall stress', u: '% of tear', x: 100, d: 0 }, seen: { t: 'Varix seen', u: 'mm', d: 1 }, across: { t: 'Across the wall', u: 'mmHg', d: 1 } };
 // A line's colour by reading (the app's trace colours); any other reading takes its place's.
-const COLOR = { ppg: '--tr-pv', pv: '--tr-pv', hvpg: '--tr-wedge', whvp: '--tr-wedge', sin: '--tr-wedge', fhvp: '--tr-hv', ivc: '--tr-ivc', ra: '--tr-ra', varix: '--tr-var', wall: '--tr-cav', liver: '--tr-hv', pvFlow: '--tr-hv', shunt: '--tr-cav' };
+const COLOR = { ppg: '--tr-pv', pv: '--tr-pv', hvpg: '--tr-wedge', whvp: '--tr-wedge', sin: '--tr-wedge', fhvp: '--tr-hv', ivc: '--tr-ivc', ra: '--tr-ra', varix: '--tr-var', seen: '--tr-var', wall: '--tr-cav', across: '--tr-cav', liver: '--tr-hv', pvFlow: '--tr-hv', shunt: '--tr-cav' };
 const PLACE = ['--tr-pv', '--tr-hv'];
 
 export const pathOf = (p) => String(p || '').split('.').filter(Boolean);
@@ -97,6 +104,17 @@ function pointSteps(t, also) {
 }
 /** The patient the curve is drawn on, when not the slide's own: { preset, params?, presetDays? }, or null. */
 export const patientOf = (t) => (typeof t?.patient?.preset === 'string' ? t.patient : null);
+/** Whether the curve runs over the scope's air (param 'scope.air'): an instrument option, the model untouched. */
+export const overScope = (t) => pathOf(t?.param)[0] === 'scope';
+const VAR = NODES.findIndex((n) => n.id === 'VAR');
+/** A curve over the scope's air, worked out from the slide's own reading as the scope works it (instruments.js): at each air
+ *  pressure the varix seen (its size at rest times the model's share for that air, endo-size.js airRatio) and the pressure
+ *  across its wall (the pressure inside less the air's). States as a run gives them, or null without the slide's reading. */
+export function scopeStates(t, fp) {
+  const pIn = fp?.at?.P?.[VAR];
+  if (!Number.isFinite(fp?.varix) || !Number.isFinite(pIn)) return null;
+  return curveXs(t).map((a) => ({ fp: { seen: fp.varix * airRatio(fp.varixAir, a), across: pIn - a } }));
+}
 /** The steps for ctx.run: each point the slide's state with the setting changed (every step carries its full patch, so no
  *  point depends on the one before; with days or points each starts again from the slide's state). */
 export const curveSteps = (t) => {
@@ -298,7 +316,7 @@ export function ringAt(t, params, fp) {
 
 /** Whether params are the slide's own (base) with only the curve's setting moved: then the case sits on the curve. */
 export function onCurve(t, params, base) {
-  if (!params || !base || !t.param || Array.isArray(t.points) || +t.days > 0 || patientOf(t)) return false;
+  if (!params || !base || !t.param || Array.isArray(t.points) || +t.days > 0 || patientOf(t) || overScope(t)) return false;
   const a = structuredClone(params), keys = pathOf(t.param);
   let at = a;
   for (const k of keys.slice(0, -1)) { if (!at[k] || typeof at[k] !== 'object') return false; at = at[k]; }
@@ -379,6 +397,14 @@ function curveWork(t, c, myKey = curveKey(t, c)) {
   let p = store.get(myKey);
   if (p) return p;
   if (!c.snap) return null;
+  if (overScope(t)) {
+    // (Nothing to run: the slide's own reading holds it all.)
+    const st = scopeStates(t, c.fp);
+    if (!st) return null;
+    p = Promise.resolve({ s: curveSeries(t, st), dd: [] });
+    store.set(myKey, p);
+    return p;
+  }
   const ds = dotsOf(t), dSteps = dotSteps(t);
   // (The dots from slides are their own states; those from a preset are worked out on a fresh model, after the curve.)
   p = Promise.all([c.run(curveSteps(t), patientOf(t) ? null : undefined).then((states) => curveSeries(t, states)), dSteps.length ? c.run(dSteps, null) : Promise.resolve([])]).then(([s, made]) => {

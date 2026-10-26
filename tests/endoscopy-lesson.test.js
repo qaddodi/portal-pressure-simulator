@@ -13,10 +13,10 @@ const deck = DECKS.find((d) => d.id === 'endoscopy');
 const at = (id) => deck.slides.find((s) => s.id === id);
 const plan = (s) => dataPlan(s, { keys: s.key, ref: false, title: '', ghost: null, under: false, sin: true });
 
-test('the lesson: six slides in order, three objectives and three checks, the large-varix check kept', () => {
+test('the lesson: six slides in order and the relation chart after them, three objectives and three checks, the large-varix check kept', () => {
   assert.equal(deck.title, 'The varix changes when you insufflate');
   assert.equal(deck.level, 'core');
-  assert.deepEqual(deck.slides.map((s) => s.id), ['size', 'red', 'air', 'across', 'flat', 'bridge']);
+  assert.deepEqual(deck.slides.map((s) => s.id), ['size', 'red', 'air', 'across', 'flat', 'bridge', 'relation']);
   assert.equal(deck.objectives.length, 3);
   assert.equal(deck.checks.length, 3);
   const large = deck.checks.find(([q]) => q === 'When is a varix called large?');
@@ -44,7 +44,7 @@ test('the lesson: one patient, the same camera and tile, and no change to the mo
   for (const s of deck.slides) {
     assert.equal(s.cam, 'gej', `${s.id}: the camera stays on the junction`);
     assert.deepEqual(s.tiles, ['hvpg'], `${s.id}: the HVPG is the one tile`);
-    assert.equal(s.tool.kind, 'scope');
+    assert.equal(s.tool.kind, s.id === 'relation' ? 'curve' : 'scope', `${s.id}: the scope, and the relation chart its curve over the air`);
   }
   const fps = await deckStates(deck);
   for (const fp of fps) assert.equal(fp.hvpg, fps[0].hvpg, 'the HVPG is the same on every slide');

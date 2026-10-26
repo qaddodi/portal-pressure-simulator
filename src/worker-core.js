@@ -3,7 +3,7 @@
 
 import { Engine } from './engine/engine.js?v=7b05bd5e84';
 import { computeMetrics } from './engine/metrics.js?v=703f122bba';
-import { fingerprintOf } from './engine/fingerprint.js?v=8faea80b59';
+import { fingerprintOf } from './engine/fingerprint.js?v=ca81723393';
 import { detectEvents } from './engine/events.js?v=d4c7f93ac2';
 import { explain } from './engine/explain.js?v=dd0234f23f';
 import { deepMerge, sanitizeParams, PRESETS } from './engine/scenario.js?v=d7d3ea5b70';

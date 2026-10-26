@@ -172,6 +172,7 @@ export const ADOPTED = {
   'gastric-varices/relation': ['kind:curve'],
   'encephalopathy/relation': ['kind:curve'],
   'tips-doppler/relation': ['kind:curve'],
+  'endoscopy/relation': ['kind:curve'],
 };
 
 /** Whether the slide d/s may use the field. */

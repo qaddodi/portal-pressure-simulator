@@ -23,11 +23,11 @@ import { sinusoidSupported } from './gl-support.js?v=94ad2a7ff1';
 import { SCALE_NAME, offeredScales, scaleView, pickedScale } from './scale-switch.js?v=1b0e3acd65';
 import { DISEASE_SRC, diseasePieces } from './diseases.js?v=fb8a5451c3';
 import { nb, listCase, plateletText } from './glue.js?v=5a0f63226b';
-import { DECKS, DECK_ALIAS, REGIONS, LEVELS, TOPICS, withOverview, siteTag, SITE_TAGS } from './decks.js?v=335848e218';
-import { fingerprintOf } from '../engine/fingerprint.js?v=8faea80b59';
+import { DECKS, DECK_ALIAS, REGIONS, LEVELS, TOPICS, withOverview, siteTag, SITE_TAGS } from './decks.js?v=a43fa1bfa2';
+import { fingerprintOf } from '../engine/fingerprint.js?v=ca81723393';
 import { createHvpgMonitor } from './hvpg-proc.js?v=aed1ad2d05';
-import { createTools } from './presenter-tools.js?v=e0b6f7a3d9';
-import { openHandout } from './handout.js?v=0468f226e7';
+import { createTools } from './presenter-tools.js?v=ccfddd8995';
+import { openHandout } from './handout.js?v=2df899bfb3';
 import { noteResume, resumeFor } from './resume.js?v=f086f80ee8';
 import { parseDeckSource, checkDeck } from './deck-source.js?v=8395c650cd';
 import { NO_ASC, TILE, cutText, tileOf, SCALE, bandsOf, rateOf, COLS, CUT, PRESS, fpv, dirAbs, dirRel, rateAbs, effOf, rateShown, tileShown, tipsGoal, liveSettled, shownSig } from './table-marks.js?v=8458ad3bf8';
@@ -35,7 +35,7 @@ import { frameFor, cancelFrame } from './frame.js?v=7254a8a850';
 import { createFigureKey } from './figure-key.js?v=b6817772fb';
 import { traceWhen } from './trace-labels.js?v=fc916a95c6';
 import { flowCss, heatCss, dropCss, gradientCss, oxygenCss } from './colormap.js?v=a9284dde52';
-import { EXT, expandIds, stepExtra, markLabel, figureHooks, safe } from './slide-ext.js?v=8077264e4a';
+import { EXT, expandIds, stepExtra, markLabel, figureHooks, safe } from './slide-ext.js?v=6f5a72b48e';
 import { clotWords } from './callout-math.js?v=a716cd33ea';
 import { citeText, focusOf, oneLadder } from './teach-extras.js?v=5f5248f5a7';
 import { createProfileTool, createProfileStrip, pillReadings } from './tool-profile.js?v=c628225624';
@@ -846,7 +846,7 @@ function makeCalc() {
   };
   const ready = (async () => {
     try {
-      const w = new Worker(new URL('../worker.js?v=0aada47388', import.meta.url), { type: 'module' });
+      const w = new Worker(new URL('../worker.js?v=e1211f73af', import.meta.url), { type: 'module' });
       await new Promise((res, rej) => {
         const t = setTimeout(() => rej(new Error('worker timeout')), 15000);   // (long: a slow load still gets the worker; host.js)
         w.onmessage = (e) => { if (e.data?.type === 'presets') { clearTimeout(t); res(); } };
@@ -859,7 +859,7 @@ function makeCalc() {
       post = (m) => w.postMessage(m); kill = () => w.terminate();
     } catch {
       try {
-        const { createCore } = await import('../worker-core.js?v=1dd66c524e');
+        const { createCore } = await import('../worker-core.js?v=8214c900dc');
         const core = createCore((m) => setTimeout(() => onMsg(m), 0));
         core.handle({ type: 'visibility', visible: false }); core.handle({ type: 'run', running: false });
         post = (m) => core.handle(structuredClone(m)); kill = () => core.dispose();
