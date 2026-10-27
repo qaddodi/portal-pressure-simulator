@@ -166,6 +166,17 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
   const wanted = glassCheck(document, window);
   const glassesOf = () => (pane ? (pane.isConnected ? [pane] : []) : layers.flatMap((l) => [...l.getElementsByClassName('cl-glass')]));
 
+  // What fades a glass from above: the opacity of whatever holds it, up to where the canvas takes over (the callout, its layer). The DOM
+  // applies such a fade to the callout's words and outline as one, so the glass beside them takes it too: a layer faded as a whole once
+  // left every pill solid until its words were removed. (A pane's canvas lies beside the pane: nothing holds it.)
+  const heldBy = (g) => {
+    let a = 1;
+    for (let e = g.parentElement; e && e !== canvas.parentNode && a > 0.001; e = e.parentElement) {
+      const v = parseFloat(getComputedStyle(e).opacity);
+      if (v < 1) a *= v;   // (a missing or odd value is no fade)
+    }
+    return a;
+  };
   // A callout's shape as a mask, drawn from its own outline path (callout.js), again only when that or its size changes.
   function maskOf(g, d, w, h) {
     const key = `${d}|${w}|${h}|${dpr}`;
@@ -254,7 +265,7 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
     for (const g of list) {
       const el = g.parentElement, cs = getComputedStyle(g);
       if (!el || cs.display === 'none' || cs.visibility !== 'visible') continue;
-      const a = NUM(cs.opacity);
+      const a = NUM(cs.opacity) * heldBy(g);
       const r = g.getBoundingClientRect(), lw = NUM(g.style.width), lh = NUM(g.style.height);
       if (!r.width || !r.height || !lw || !lh || !(a > 0.001)) continue;
       // (The liver's pane: its own rounded box, tinted with --frost as it stands; its soft shadow, outside it, stays the DOM's.)
@@ -338,8 +349,9 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
     if (lost || dead) return;
     quiet = r === 'same' ? quiet + 1 : 0;
     const running = performance.now() < liveUntil;
-    // (Showing: on while it drew, a copy is on its way, or for two quiet frames. Not showing: on only while a transition may bring it in.)
-    if (r ? r === true || pending || quiet < 2 || running : running) { ask(); return; }
+    // (Showing: on while it drew, a copy is on its way, or for two quiet frames. Not showing: on only while a transition may bring it in.
+    // Either way, never asleep while something in the layers is still animating: a script's fade sends no event.)
+    if ((r ? r === true || pending || quiet < 2 : false) || running || animating()) { ask(); return; }
     // (Asleep: a slow look while any glass is on the page; none, and only a new callout (a write to the layers) wakes it.)
     if (glassesOf().length) poll = setTimeout(() => { poll = 0; ask(); }, 1000);
   }
@@ -351,6 +363,15 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
   });
   const watched = pane ? [pane] : layers;
   for (const l of watched) mo.observe(l, { subtree: true, childList: true, attributes: true, attributeFilter: ['style', 'class', 'data-at', 'hidden'] });
+  // Whether a callout layer still holds an animation that will end: a transition (its delay included), a keyframe animation or a
+  // script's fade. Transitions and keyframes announce themselves (held, below); a script's (the Web Animations API) does not.
+  const animating = () => {
+    for (const l of watched) {
+      const list = l.getAnimations?.({ subtree: true });
+      if (list?.some((an) => an.playState === 'running' && Number.isFinite(an.effect?.getComputedTiming?.().endTime))) return true;
+    }
+    return false;
+  };
   const again = () => wake();
   const observers = [mo, new MutationObserver(again), new MutationObserver(again)];
   observers[1].observe(document.documentElement, { attributes: true, attributeFilter: ['data-noglass', 'data-theme', 'class'] });

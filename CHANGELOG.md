@@ -14,6 +14,18 @@
   edge of the screen). A view too narrow for all three places the pill alone, then the old steps. Open or closed fenestrae, any name length, Present, Patients and Explore, and every
   wide screen size are covered; the portrait layout, whose names sit in their own rows, is as it was. Code and unit tests only; nobody has looked on screen. `src/ui/tissue-gl.js`,
   `src/ui/fen-place.js`, `src/ui/sinusoid-view.js`, `tests/tissue-gl-edge.test.js`, `tests/fen-place.test.js`, `tests/tissue-gl.test.js`, `tests/lobule-surround-grey.test.js`.
+- **The FHVP and WHVP callouts' backgrounds leave and move with their words.** (Mohammad, 27 Oct: "the callouts for FHVP and WHVP backgrounds glitch; sometimes remain on slide when
+  next slide is transitioning, sometimes they're slow to move".) Each callout's frosted background is drawn on the GPU, on a canvas beside the callout layers
+  (`src/ui/glass-gl.js`), from what the page says about that callout. Two things reached the words but not that background. When the catheter went (a slide that leaves the
+  procedure, the end of a talk, a finished measurement), the whole layer of readings faded as one, which the background never saw: the pills stayed solid until the
+  readings were removed, after their words had gone. The readings now leave as every other reading does, each one's own children fading, so the background fades with its
+  words; the glass also takes the opacity of everything that holds it up to its layer, and no longer goes to sleep while a script's fade is still running in the layers (that
+  fade sends no event). And when the two readings travelled into the HVPG summary, their move was a CSS transition, which the browser runs a frame ahead of anything the page
+  draws, so each background trailed its words by a few dozen pixels at the start of the move. The offset is now worked out and written each frame, on the same thread as the
+  glass (`src/ui/cath-flip.js`), with the same curve (`--ease`) and the same 0.6 s, so nothing about the look of the move changes. This applies wherever those readings show:
+  the HVPG deck, Measure › HVPG, the treatment procedures (TIPS, BRTO, BATO) and the Budd–Chiari slide, on a Mac, an iPad and a phone; the measuring sites' callouts and the liver
+  pane's glass share the glass changes. Code and unit tests only; nobody has looked on screen. `src/ui/stage.js`, `src/ui/glass-gl.js`, `src/ui/cath-flip.js`,
+  `tests/glass-follow.test.js`.
 - **The HVPG against PPG plane names its two red lines.** (Mohammad, 26 Oct: "make it clear that the 10/12 line is clinically significant portal hypertension", then "keep it 4 quadrants;
   just label the 10/12 line".) The HVPG 10 line is named "CSPH ≥10" and the PPG 12 line "Bleed risk ≥12", each beside its own line, on Sites and causes, Where HVPG misleads and
   Choose the treatment. The four quadrants and their colours stay as they were. Only the HVPG line defines CSPH (Baveno VIII; AASLD 2024 statement 4: HVPG ≥10 mmHg); the PPG 12 line

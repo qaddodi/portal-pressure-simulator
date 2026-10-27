@@ -21,6 +21,7 @@ import { spleenMotion } from './spleen-motion.js?v=4e87db0dbb';
 import { subpathsIn, foldOpacity, dropInvisible, mergeClipRuns, boxOutside, paintBox, maskRegionIn, maskSlot, fillMaskHead, pruneDefs } from './plate-copy.js?v=0b5acb0928';
 import { gridHits, segHitsBox } from './seg-hits.js?v=e7cde76929';
 import { glassCallout } from './callout.js?v=d5524b6a11';
+import { flipFrom, flipAt } from './cath-flip.js?v=6b016952c4';
 import { TEXT_MIN, TEXT_MAX, rolePx, roleOf } from './type-scale.js?v=d7cca3fb73';
 import { seeded, strHash, nodularSites, nodularCells } from './liver-geo.js?v=977185f80a';
 import { diaphragmLine, diaphragmD } from './diaphragm.js?v=8012ab6b28';
@@ -37,7 +38,7 @@ import { cropToGrid } from './organs-gl.js?v=efbea815e0';
 import { readGroup, shapeSource, bindShape, targetRoom } from './organ-paint.js?v=f67ce51385';
 import { pathCmds, flattenCmds, polyBox } from './shape-gl.js?v=a5ba46162b';
 import { createLabelGL } from './label-gl.js?v=92dddad509';
-import { createGlassGL } from './glass-gl.js?v=6810d703be';
+import { createGlassGL } from './glass-gl.js?v=bdfe978487';
 import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, ORIGIN_GREY } from './veins-gl.js?v=c85b05b353';
 import { varixBead, beadRadius } from './varix-bead.js?v=ac0e84fd89';
 import { advanceStream, createReversalHold, bleedShapes, stepBleedFade, fadeBleedShapes, chevFlowLevel, keyChevron, KEY_CHEV_LANES, originFractions, oxygenFor, ORIGIN_N, createBolus, DYE_BINS, KAPPA, STASIS_MIN_D, HIDDEN_SECONDS } from './blood.js?v=7fa561f952';
@@ -7000,32 +7001,46 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     tube(n * 12, rc, 0, 0);                   // the shaft
     return (cath.shaft = { key, step, n, count: n * 4, verts: V });
   }
-  // When the procedure ends or is cancelled the catheter, its balloon and its labels fade out over .22 s instead of vanishing
-  // in one frame (MOTION_HEAT_REVIEW P21). A new catheter meanwhile ends the fade at once.
+  // When the procedure ends or is cancelled the catheter, its balloon and its labels fade out instead of vanishing in one frame
+  // (MOTION_HEAT_REVIEW P21). A new catheter meanwhile ends the fade at once.
+  // The catheter fades over .22 s. The readings leave as every reading does (cathLabels: cath-pre, cath-out): each label's own children
+  // fade, so its glass, drawn on the GPU from the glass element's own opacity (glass-gl.js), fades with its words. A fade of the whole
+  // layer was one that glass could not follow: the pills stayed solid after their words had gone.
+  const CATH_OUT_MS = 220, READING_OUT_MS = 450;
   let cathFade = null;
   function cathFadeOut() {
     const gs = veins?.canCath ? cathLast : null, anims = [];
-    for (const el of [cath.labels, cath.g]) if (!el.hidden && el.style.display !== 'none' && el.animate) anims.push(el.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 220, easing: 'cubic-bezier(.4, 0, 1, 1)', fill: 'forwards' }));
-    const me = { raf: 0, done: null }, t0 = performance.now();
-    me.done = () => {
-      if (cathFade !== me) return;
-      cathFade = null; cancelFrame(me.raf);
+    for (const el of cath.made?.values() || []) el.classList.add('cath-pre', 'cath-out');
+    if (cath.g.style.display !== 'none' && cath.g.animate) anims.push(cath.g.animate([{ opacity: 1 }, { opacity: 0 }], { duration: CATH_OUT_MS, easing: 'cubic-bezier(.4, 0, 1, 1)', fill: 'forwards' }));
+    const me = { raf: 0, done: null, cleared: false }, t0 = performance.now();
+    // The catheter itself: gone once its fade has run.
+    const catheterGone = () => {
+      if (me.cleared) return;
+      me.cleared = true;
       for (const a of anims) a.cancel();
       if (veins?.canCath) veins.setCath(null);
       cathVer++; stageWake();
-      cath.g.style.display = 'none'; cath.labels.hidden = true;
+      cath.g.style.display = 'none';
+    };
+    // Everything: the readings are removed once faded (or at once, when a new catheter ends the fade).
+    me.done = () => {
+      if (cathFade !== me) return;
+      cathFade = null; cancelFrame(me.raf); clearTimeout(me.timer);
+      catheterGone();
+      cath.labels.hidden = true;
       for (const el of cath.made?.values() || []) el._glass?.dispose();
       cath.labels.replaceChildren(); cath.made?.clear();
     };
     const step = (now) => {
-      const k = Math.min(1, (now - t0) / 220);
-      if (k >= 1) { me.done(); return; }
-      if (gs && veins?.canCath) { const a = (1 - k) * (1 - k); veins.setCath({ ...gs, draws: gs.draws.map((d) => ({ ...d, alpha: d.alpha * a })) }); cathVer++; stageWake(); }
+      const el = now - t0, k = Math.min(1, el / CATH_OUT_MS);
+      if (el >= READING_OUT_MS) { me.done(); return; }
+      if (k >= 1) catheterGone();
+      else if (gs && veins?.canCath) { const a = (1 - k) * (1 - k); veins.setCath({ ...gs, draws: gs.draws.map((d) => ({ ...d, alpha: d.alpha * a })) }); cathVer++; stageWake(); }
       me.raf = frame(step, 'stage-ease');
     };
     cathFade = me;
     me.raf = frame(step, 'stage-ease');
-    setTimeout(me.done, 400);   // (frames stalled in a background tab: it still ends)
+    me.timer = setTimeout(me.done, READING_OUT_MS + 150);   // (frames stalled in a background tab: it still ends)
   }   // the catheter's vertices, reused frame to frame
   const rFree = (r) => cathAt(r, r.free).r;
   // Without WebGL: the same catheter in SVG.
@@ -7203,12 +7218,20 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         rows.forEach((r, j) => {
           const a = el._from[l.rows[j].at]; if (!a) return;
           const b = r.getBoundingClientRect();
-          r.style.transition = 'none'; r.style.transform = `translate(${(a.left - b.left).toFixed(1)}px, ${(a.top - b.top).toFixed(1)}px)`;
-          void r.offsetWidth; r.style.transition = 'transform .6s var(--ease)'; r.style.transform = '';
-          setTimeout(() => { r.style.transition = ''; }, 650);   // then back to the stylesheet's (the shadow's fade-out)
+          r._flip = flipFrom(a.left - b.left, a.top - b.top, performance.now());
         });
         el._from = null; nextFrame(() => el.classList.remove('cath-travel'));
       }
+      // (The travel is written by hand each frame, not a CSS transition, which the browser runs a frame ahead of the page: the
+      // glass drawn under each reading follows the page, and trailed it. cath-flip.js.)
+      let travelling = false;
+      rows.forEach((r) => {
+        const f = r._flip; if (!f) return;
+        const q = flipAt(f, performance.now());
+        r.style.transform = q.done ? '' : `translate(${q.x.toFixed(1)}px, ${q.y.toFixed(1)}px)`;
+        if (q.done) r._flip = null; else travelling = true;
+      });
+      if (travelling && !cath.glideRaf) cath.glideRaf = nextFrame(() => { cath.glideRaf = 0; cath.lblKey = ''; cathLabelsSoon(); });
     });
   }
   // What the readings' layout reads from the page, kept: the stage's size, the cards' room and the blockers (the cards, the
