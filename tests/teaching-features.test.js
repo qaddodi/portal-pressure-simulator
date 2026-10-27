@@ -8,7 +8,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { DECKS } from '../src/ui/decks.js';
 import { adopted } from './deck-adopted.js';
-import { criteriaRow, criteriaRows, criteriaMet, criteriaReading, criteriaHasCase, cutParts, verdictParts, CRITERIA_MAX } from '../src/ui/tool-criteria.js';
+import { criteriaRow, criteriaRows, criteriaMet, criteriaReading, criteriaHasCase, cutParts, verdictParts, CRITERIA_MAX, ZONES, keyLine } from '../src/ui/tool-criteria.js';
 import teaching from '../src/ui/ext-teaching.js';
 
 const src = (f) => readFileSync(new URL(`../src/ui/${f}`, import.meta.url), 'utf8');
@@ -69,8 +69,17 @@ test('criteria card: only adopted slides use it, each with 1 to 4 rows of words,
   for (const [d, s] of used) {
     assert.ok(adopted(d, s, 'kind:criteria'), `${d.id}/${s.id}: the criteria card is opt-in (tests/deck-adopted.js)`);
     const rows = criteriaRows(s.tool);
-    assert.equal(rows.length, s.tool.rows.length, `${d.id}/${s.id}: every row has words`);
-    assert.ok(rows.length >= 1 && rows.length <= CRITERIA_MAX, `${d.id}/${s.id}: 1 to 4 rows`);
+    if (s.tool.zones) {
+      // (A zones card draws its rule as a graph in place of rows, with 1 to 4 key lines under it.)
+      assert.ok(ZONES[s.tool.zones], `${d.id}/${s.id}: a known zones graph`);
+      assert.ok(!s.tool.rows, `${d.id}/${s.id}: a graph or rows, never both`);
+      const keys = s.tool.key.map(keyLine);
+      assert.ok(keys.length >= 1 && keys.length <= CRITERIA_MAX && keys.every(Boolean), `${d.id}/${s.id}: 1 to 4 key lines with words`);
+      for (const k of keys) assert.ok(k.plain.length <= 50, `${d.id}/${s.id}: "${k.plain}" fits one line on a phone`);
+    } else {
+      assert.equal(rows.length, s.tool.rows.length, `${d.id}/${s.id}: every row has words`);
+      assert.ok(rows.length >= 1 && rows.length <= CRITERIA_MAX, `${d.id}/${s.id}: 1 to 4 rows`);
+    }
     assert.ok(s.tool.title && s.tool.title.length <= 36, `${d.id}/${s.id}: a short card title`);
     assert.ok(!s.causes, `${d.id}/${s.id}: the rules live in the card, not in the causes line a phone drops`);
     for (const r of rows) assert.ok(r.text.length <= 70, `${d.id}/${s.id}: "${r.text}" fits a row`);

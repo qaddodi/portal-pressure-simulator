@@ -8,7 +8,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { DECKS } from '../src/ui/decks.js';
 import { CUT, RATE, cutText } from '../src/ui/table-marks.js';
-import { criteriaRows, cutParts } from '../src/ui/tool-criteria.js';
+import { ZONES, keyLine } from '../src/ui/tool-criteria.js';
 
 const WORDS = /\b(more|less|fewer|greater|higher|lower) than [\d{]|\d[\d,.]*(?:\/µL|%)?\+(?![\w])|(?:[\d}%)*]|mmHg|kPa|mm|cm\/s|g\/dL|mg\/dL|µL|points?|months?|weeks?|days?|hours?|minutes?|liters?|L) or (more|less|fewer|higher|lower|greater|above|below|over|under)\b|\b(one|two|three|four|five|six) or (more|fewer)\b|\bat (least|most) [\d{]|\b(over|under|above|below) [\d{]|\bat or (above|below)\b|\bjust (above|below)\b|\b(age|aged) \d+ or (over|more|older)\b/i;
 // What stays, with its reason: a range's edge ("above 10 to 12" is not one cut-off) and a duration in a case story.
@@ -56,21 +56,23 @@ test('the legend ends and the model\'s checks use the symbol, not a trailing plu
   assert.doesNotMatch(ver, /at least [\d]|below (HVPG )?12/);
 });
 
-test('Stiffness, the first visit: the platelets sit with the kPa cut-off on one line, both values read together, lowest kPa first', () => {
+test('Stiffness, the first visit: a graph of distinct zones, the EGD area hatched over them, short key lines in symbols (his G2, 27 Oct)', () => {
   const s = DECKS.find((d) => d.id === 'stiffness').slides.find((x) => x.id === 'rules');
-  const rows = criteriaRows(s.tool), withPlt = rows.filter((r) => r.and);
-  assert.equal(withPlt.length, 2, 'the rule-out and the scope-sparing rule each take platelets');
-  for (const r of withPlt) {
-    assert.ok(cutParts(r.cut)?.unit === 'kPa', `${r.text}: its cut-off is the stiffness`);
-    assert.match(r.and, /^PLT ≥150K$/, 'the platelet cut-off, a symbol and the number, short enough for the cut-off\'s own line');
-    assert.doesNotMatch(r.text, /150,000|platelets/i, 'the row\'s words do not say it again');
+  assert.equal(s.tool.zones, 'first-visit');
+  const z = ZONES['first-visit'];
+  // Baveno VIII 1.15, 1.16, 1.19: ruled out ≤15 kPa with PLT ≥150K, ruled in ≥25 kPa, the gray zone between; the EGD skipped at <20 kPa with PLT ≥150K.
+  assert.deepEqual(z.zones.filter((a) => a.name).map((a) => [a.name, a.x, a.y]), [['No CSPH', [5, 15], [150, 250]], ['Gray', [15, 25], [50, 250]], ['CSPH', [25, 35], [50, 250]]]);
+  assert.deepEqual([z.hatch.x, z.hatch.y], [[5, 20], [150, 250]], 'the EGD area: <20 kPa with PLT ≥150K');
+  assert.deepEqual(z.xTicks, [15, 20, 25]);
+  const keys = s.tool.key.map(keyLine);
+  assert.equal(keys[0].swatch, 'hatch', 'the hatched area named first, with the same hatch');
+  for (const k of keys) {
+    assert.doesNotMatch(k.plain, /\bscope\b|more than|or more|at least/i, `"${k.plain}": EGD and symbols`);
   }
-  assert.deepEqual(rows.map((r) => r.cut), ['≤15 kPa', '<20 kPa', '15–25 kPa', '≥25 kPa'], 'the rows run from the lowest kPa to the highest');
-  const js = readFileSync(new URL('../src/ui/tool-criteria.js', import.meta.url), 'utf8');
-  assert.match(js, /r\.and \? h\('span', \{ class: 'pzc-and' \}, `\+ \$\{r\.and\}`\) : null/, 'the second condition is set inside the cut-off\'s own cell');
-  assert.match(js, /\.\.\.\(r\.and \? \{\} : \{ 'aria-hidden': 'true' \}\)/, 'a screen reader reads a cell that holds more than the row\'s words');
+  assert.ok(keys.some((k) => /ANTICIPATE ≥75% or SSM >55 kPa = CSPH/.test(k.plain)), 'what the gray zone tests mean: CSPH');
+  assert.ok(keys.some((k) => /BMI ≥30/.test(k.plain)), 'the BMI exception to the 25 kPa rule');
   const css = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
-  assert.match(css, /\.pzc-and \{[^}]*font: 500 max\(12px,/, 'on the cut-off\'s own line, 12 px or more');
-  assert.doesNotMatch(css.slice(css.indexOf('.pzc-and {'), css.indexOf('.pzc-and {') + 120), /display: block/, 'not a second line');
-  assert.doesNotMatch(css.slice(css.indexOf('.pzc-and {'), css.indexOf('.pzc-and {') + 400), /border-(left|right)|box-shadow|ellipsis/, 'no stripe, glow or ellipsis');
+  const blk = css.slice(css.indexOf('/* A zones card'), css.indexOf('.pzz-swl'));
+  assert.doesNotMatch(blk, /border-(left|right)|box-shadow|ellipsis/, 'no stripe, glow or ellipsis');
+  assert.match(blk, /\.pzc-key \{[^}]*align-items: center;[^}]*text-align: center;[^}]*font: 500 max\(12px,/, 'the key centred, 12 px or more');
 });

@@ -22,11 +22,42 @@
 // applies to the case (lit) or that the model meets: outlined is the rule, filled is the case, as the rule pill. Mark the rows' key
 // words with **...** (ink in quiet words); a lead that only reads after its list goes in verdict, at the foot.
 // The card never changes size with the reading: each reading's slot is as wide as its widest number, the marks cross-fade.
+// Zones (27 Oct, his pick G2, review/first-visit-card-ideas/graph): zones: 'first-visit' draws a rule as regions on a graph in place
+// of rows (a rule whose cut-offs overlap, such as the EGD's <20 kPa inside the 15–25 gray zone, reads as distinct regions there):
+// the zones in the tiles' band colours on a rounded plot the card's full width, a hatched area for a second question laid over them,
+// and the axis numbers inside the plot on the lines they mark, white with a dark outline as the FibroScan readings. key: lines under
+// the graph, centred ('**Gray:** ...', or { text, swatch: 'hatch' } for the hatched area's line). The plot's height follows its width
+// only, so the card never changes size with the case.
 
 import { h, fmt } from './util.js?v=5ad334ebc0';
 import { TILE } from './table-marks.js?v=8458ad3bf8';
 
 export const CRITERIA_MAX = 4;
+/** The graphs a criteria card can draw (zones), in their own units: x and y ranges, the zones, the hatched area and the axis marks. */
+export const ZONES = {
+  // Baveno VIII 1.15, 1.16, 1.19: CSPH ruled out at ≤15 kPa with PLT ≥150K, ruled in at ≥25 kPa, the gray zone between; with no
+  // carvedilol the EGD can be skipped at <20 kPa with PLT ≥150K (the hatched area).
+  'first-visit': {
+    x: [5, 35], y: [50, 250],
+    zones: [
+      { rate: 'ok', x: [5, 15], y: [150, 250], name: 'No CSPH', at: [10, 190] },
+      { rate: 'mid', x: [15, 25], y: [50, 250], name: 'Gray', at: [20, 112] },
+      { rate: 'mid', x: [5, 15], y: [50, 150] },
+      { rate: 'hi', x: [25, 35], y: [50, 250], name: 'CSPH', at: [30, 150] },
+    ],
+    hatch: { x: [5, 20], y: [150, 250] },
+    xTicks: [15, 20, 25], xName: 'LSM kPa', yTick: [150, '150K'], yName: 'PLT',
+  },
+};
+const SVGNS = 'http://www.w3.org/2000/svg';
+const svg = (tag, attrs = {}, ...kids) => { const e = document.createElementNS(SVGNS, tag); for (const [k, v] of Object.entries(attrs)) e.setAttribute(k, v); e.append(...kids.filter(Boolean)); return e; };
+let zoneN = 0;
+/** A key line as written ('**Gray:** ...' or { text, swatch }), read into its words (bold parts) and swatch; null if it has no words. */
+export function keyLine(k) {
+  const o = typeof k === 'string' ? { text: k } : k && typeof k === 'object' ? k : null;
+  const t = str(o?.text);
+  return t ? { parts: t.split('**'), swatch: o.swatch === 'hatch' ? 'hatch' : null, plain: t.replace(/\*\*/g, '') } : null;
+}
 const OPS = { '>=': (a, b) => a >= b, '>': (a, b) => a > b, '<=': (a, b) => a <= b, '<': (a, b) => a < b };
 const str = (v) => (typeof v === 'string' && v.trim() ? v.trim() : null);
 /** A row as written ('text', [text, key, op, value] or { text, key?, op?, value?, note?, lit?, met?, cut?, and? }), read into one shape; null if it has no words. */
@@ -74,8 +105,39 @@ export function createCriteria() {
   const top = h('div', { class: 'pzc-top' }, lead, rule);
   const list = h('ul', { class: 'pzc-list', role: 'list' });
   const verdict = h('p', { class: 'pzc-verdict' });
-  const el = h('div', { class: 'pz-crit' }, top, list, verdict);
-  let rows = [], parts = [];
+  const plot = h('div', { class: 'pzc-zones' });
+  const key = h('div', { class: 'pzc-key' });
+  const el = h('div', { class: 'pz-crit' }, top, list, plot, key, verdict);
+  let rows = [], parts = [], fig = null, drawnW = 0;
+  const id = `pzz${++zoneN}`;
+  // The zones graph at the card's width: drawn again only when the width changes.
+  function drawZones() {
+    const W = Math.round(plot.clientWidth);
+    if (!fig || !W || W === drawnW) return;
+    drawnW = W;
+    const fs = Math.max(12, Math.min(14, (parseFloat(getComputedStyle(el).fontSize) || 14) * 0.93)), sm = 12;
+    const ph = Math.round(W * (W < 420 ? 0.46 : 0.34));
+    const X = (k) => ((k - fig.x[0]) / (fig.x[1] - fig.x[0])) * W, Y = (p) => ((fig.y[1] - p) / (fig.y[1] - fig.y[0])) * ph;
+    const box = (a, extra = {}) => svg('rect', { x: X(a.x[0]), y: Y(a.y[1]), width: X(a.x[1]) - X(a.x[0]), height: Y(a.y[0]) - Y(a.y[1]), ...extra });
+    const word = (x, y, t, cls, anchor = 'middle', size = fs) => svg('text', { x, y, class: `pzz-w ${cls || ''}`, 'text-anchor': anchor, 'font-size': size }, t);
+    const g = svg('g', { 'clip-path': `url(#${id}c)` }, ...fig.zones.map((z) => box(z, { class: 'pzz-z', 'data-rate': z.rate })), fig.hatch ? box(fig.hatch, { fill: `url(#${id}h)` }) : null);
+    const by = ph - 8;
+    plot.replaceChildren(svg('svg', { width: W, height: ph, viewBox: `0 0 ${W} ${ph}`, role: 'img', 'aria-label': fig.label || '' },
+      svg('defs', {}, svg('clipPath', { id: `${id}c` }, svg('rect', { width: W, height: ph, rx: 10 })),
+        svg('pattern', { id: `${id}h`, width: 7, height: 7, patternUnits: 'userSpaceOnUse', patternTransform: 'rotate(45)' }, svg('rect', { width: 2, height: 7, class: 'pzz-hl' }))),
+      g,
+      ...fig.zones.filter((z) => z.name).map((z) => word(X(z.at[0]), Y(z.at[1]) + fs * 0.36, z.name, 'n')),
+      ...fig.xTicks.map((k) => word(X(k), by, String(k), 'v', 'middle', sm)),
+      word(W - 8, by, fig.xName, 'q', 'end', sm),
+      word(8, Y(fig.yTick[0]) + 4, fig.yTick[1], 'v', 'start', sm),
+      word(8, 8 + sm, fig.yName, 'q', 'start', sm)));
+  }
+  if (typeof ResizeObserver === 'function') new ResizeObserver(() => { if (fig && el.isConnected) drawZones(); }).observe(plot);
+  function swatch() {
+    return svg('svg', { class: 'pzc-sw', width: 22, height: 14, viewBox: '0 0 22 14', 'aria-hidden': 'true' },
+      svg('defs', {}, svg('clipPath', { id: `${id}s` }, svg('rect', { width: 22, height: 14, rx: 4 }))),
+      svg('g', { 'clip-path': `url(#${id}s)` }, svg('rect', { width: 22, height: 14, class: 'pzz-swb' }), ...[-14, -7, 0, 7, 14, 21, 28].map((x) => svg('line', { x1: x, y1: 14, x2: x + 14, y2: 0, class: 'pzz-swl' }))));
+  }
   function caseCell(r, ticks) {
     if (r.key) {
       const read = h('span', { class: 'pzc-v' }, '—');
@@ -104,6 +166,13 @@ export function createCriteria() {
     rule.textContent = str(t?.rule) || '';
     top.hidden = !lead.textContent && !rule.textContent;
     lead.hidden = !lead.textContent; rule.hidden = !rule.textContent;
+    fig = ZONES[t?.zones] ? { ...ZONES[t.zones], label: str(t?.title) || '' } : null; drawnW = 0;
+    el.classList.toggle('has-zones', !!fig);
+    plot.hidden = !fig;
+    if (!fig) plot.replaceChildren(); else drawZones();
+    const keys = (Array.isArray(t?.key) ? t.key : []).map(keyLine).filter(Boolean);
+    key.replaceChildren(...keys.map((k) => h('p', { class: 'pzc-kl' }, k.swatch ? swatch() : null, h('span', {}, ...k.parts.map((x, i) => (i % 2 ? h('b', {}, x) : x)).filter((x) => x !== '')))));
+    key.hidden = !keys.length;
     const v = verdictParts(t?.verdict);
     verdict.replaceChildren(...(v ? [v.bold ? h('b', {}, v.bold) : null, v.bold ? ' ' : null, v.rest].filter(Boolean) : []));
     verdict.hidden = !v;
@@ -115,6 +184,7 @@ export function createCriteria() {
     });
     const headRow = hasCase ? [h('li', { class: 'pzc-row pzc-hrow', 'aria-hidden': 'true' }, h('span', { class: 'pzc-c' }), h('span', { class: 'pzc-t' }), h('span', { class: 'pzc-end' }, 'This case'))] : [];
     list.replaceChildren(...headRow, ...parts.map((p) => p.li));
+    list.hidden = !rows.length;
   }
   function pin(fp) {
     for (const p of parts) {
