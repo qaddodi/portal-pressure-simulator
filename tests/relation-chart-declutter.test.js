@@ -5,7 +5,7 @@
 import './dom-shim.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { leftScale, rightScale, fmtTick, yCutsOf, placeWord, placeDotNames, namesCrowded, segHits } from '../src/ui/tool-curve.js';
+import { leftScale, rightScale, fmtTick, yCutsOf, placeWord, placeDotNames, namesCrowded, segHits, walkArrow, spellAxis, xAxisName, xCutName, ringAt, axisMeta } from '../src/ui/tool-curve.js';
 import { NEXT_BLEED } from '../src/ui/decks/next-bleed.js';
 import { TEN_YEARS } from '../src/ui/decks/ten-years.js';
 import { VARICES } from '../src/ui/decks/varices.js';
@@ -108,4 +108,48 @@ test('names that sit close and clear stay names', () => {
   const sp = placeDotNames([{ x: 200, y: 100, w: 60 }, { x: 300, y: 60, w: 50 }], 12, 5.6, { boxes: [], segs: [], lines: [], inside: [0, 0, 440, 260] });
   assert.ok(sp.every((p) => p.ok && !p.lead), 'a name beside its dot needs no leader');
   assert.ok(!namesCrowded(sp, 12));
+});
+
+// The Ascites chart (27 Oct, "what are the dots? it's so busy ... no idea what x axis is ... completely illegible"): one line, the grades as
+// the axis numbers, the visits joined by arrows, the HVPG axis written out, the HVPG 10 line named, no ring that floats off the line.
+test('cut-offs no even scale can hold become the axis numbers themselves, only where a chart asks (cutTicks), never changing the even scales', () => {
+  const asc = [0, 0, 0.3, 1.2, 2.4, 4.3, 5.1];
+  const even = leftScale('asc', asc, 7, [1.5, 5]).ticks;
+  assert.ok(!(even.includes(1.5) && even.includes(5)), 'no even scale holds both 1.5 and 5');
+  assert.deepEqual(leftScale('asc', asc, 7, [1.5, 5], true), { min: 0, max: 5.5, ticks: [0, 1.5, 5] }, 'the baseline, then each cut-off');
+  assert.deepEqual(leftScale('asc', asc, 3, [1.5, 5], true).ticks, [0, 1.5, 5], 'a short chart keeps them too');
+  assert.deepEqual(leftScale('varix', [2, 2.4, 3.1, 5.4, 8.4], 7, [2.5, 5], true).ticks, [0, 2.5, 5, 7.5, 10], 'an even scale that holds them is kept');
+  assert.deepEqual(leftScale('asc', [0, 0.5, 1], 7, [1.5, 5], true), leftScale('asc', [0, 0.5, 1]), 'cut-offs beyond the values ask for nothing');
+  assert.deepEqual(leftScale('asc', asc, 7, [1.5, 5]).ticks, leftScale('asc', asc, 7, [1.5, 5], false).ticks, 'without cutTicks nothing changes');
+});
+
+test('a walk\'s step wears one arrowhead on its middle, pointing the way it runs, and none where the dots leave no room for it', () => {
+  const a = walkArrow([10, 100], [210, 100], 3.6, 12);
+  assert.ok(a, 'a long step has one');
+  const [bx, by, tx, ty] = a.seg;
+  assert.ok(tx > bx && Math.abs(ty - by) < 1e-6, 'pointing right along a rightward step');
+  assert.ok(Math.abs((bx + tx) / 2 - 110) < 1, 'on its middle');
+  assert.equal(walkArrow([10, 100], [30, 100], 3.6, 12), null, 'a step too short to keep it clear of both dots');
+  const down = walkArrow([50, 20], [50, 120], 3.6, 12);
+  assert.ok(down.seg[3] > down.seg[1] && Math.abs(down.seg[2] - down.seg[0]) < 1e-6, 'pointing down a downward step');
+  const big = walkArrow([0, 0], [300, 0], 3.6, 18);
+  assert.ok(big.seg[2] - big.seg[0] > a.seg[2] - a.seg[0], 'the head grows with the type');
+  assert.match(a.d, /^M[\d. ]+L[\d. ]+L[\d. ]+Z$/, 'a filled triangle');
+});
+
+test('the HVPG axis is written out as the app defines it, and the HVPG 10 line is named for what it marks', () => {
+  assert.equal(xAxisName(spellAxis(axisMeta({ x: 'hvpg', param: 'cirrhosis' }))), 'HVPG (wedged − free), mmHg');
+  assert.equal(axisMeta({ x: 'hvpg', param: 'cirrhosis' }).name, 'HVPG', 'the card\'s title still says HVPG');
+  const lsm = axisMeta({ x: 'lsm', param: 'cirrhosis' });
+  assert.equal(spellAxis(lsm), lsm, 'a reading with a plain name is left alone');
+  assert.equal(xCutName('hvpg', 10), 'CSPH');
+  assert.equal(xCutName('hvpg', 5), '');
+  assert.equal(xCutName('lsm', 10), '', 'only the HVPG 10 line');
+});
+
+test('ring: false marks no case on the chart: no x, no value on any line', () => {
+  const t = { x: 'hvpg', lines: ['asc'], ring: false, points: [{}] }, fp = { hvpg: 7, asc: 0 };
+  assert.deepEqual(ringAt(t, {}, fp), { x: null, ys: [null] });
+  assert.equal(ringAt({ ...t, ring: undefined }, {}, fp).x, 7, 'a chart without the option still rings its case');
+  assert.deepEqual(ringAt({ ...t, lines: ['asc', 'bv'] }, {}, fp).ys, [null, null]);
 });

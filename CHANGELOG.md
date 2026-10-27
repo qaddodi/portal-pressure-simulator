@@ -2,6 +2,15 @@
 
 ## October 2026
 
+- **The Ascites relation chart reads at a glance: one line, the visits named and joined by arrows, an axis that says what it is.** (Mohammad, 27 Oct: "what are the dots? it's so busy", "no idea what x axis is", "it's completely illegible".)
+  The chart ("Ascites by HVPG", Ascites, the slide before the summary) draws only the ascites now: the blood volume, its second axis, the blue ring that floated off the line, the live values in the key row and the
+  numbers-and-key for the dots are gone (the notes still quote the blood volume's half liter). His three visits, Tense belly, Diuretics and TIPS, are named on their dots, joined by the dotted walk with an arrowhead on
+  each step (so the order reads as a path, not as a time axis), the HVPG axis runs on to 22 so the names have room to the right of the dots, and the ascites cut-offs stand as the axis numbers, 0, 1.5 and 5, with
+  "Grade 2" and "Grade 3" over their gridlines. In `src/ui/tool-curve.js`, for every relation chart: `ring: false` (no ring for a slide with no state of its own), `cutTicks` and `cutNames` (cut-offs no even scale can
+  hold become the axis numbers; names for them), the arrowheads on every walk (`walkArrow`), an HVPG axis written "HVPG (wedged − free), mmHg" and the HVPG 10 line named "CSPH ≥10", the x cut-offs' names placed before
+  the dots' names (which have sixteen ways round their dots) so a name no longer lands on one. Layout was run on the real chart code in node (a stand-in DOM, the model's own numbers) at card sizes from 315 × 170 to
+  700 × 330 px, with no word on another word, a line, a dot or an arrow; code only, nobody has looked on screen. `tests/relation-ascites-chart.test.js`, `tests/relation-chart-declutter.test.js`,
+  `tests/relation-charts-batch-a.test.js`.
 - **The two Explore charts, Along the circuit and Over time, sit on the rounded plot panel.** (Mohammad, 27 Oct: the G2 look for the graphs, Explore dock.) Both are drawn on a canvas, so
   `src/ui/plot-look.js` gained `plotFill(ctx, x, y, w, h, fill)`, the same rounded panel the slide charts use, in the same tile tone (`--surface-2`), 10 px corners. The panel is the chart's
   whole box. The axis numbers stand in a strip inside its left edge, 8 px in, 6 px clear of the lines (as wide as the widest number: two digits, three only as the pressure axis passes 100,

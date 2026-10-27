@@ -5,7 +5,7 @@ import './dom-shim.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createCore } from '../src/worker-core.js';
-import { curveSteps, curveSeries, curveAt, dotsOf, ringAt, walksOf } from '../src/ui/tool-curve.js';
+import { curveSteps, curveSeries, curveAt, curveLines, dotsOf, ringAt, walksOf } from '../src/ui/tool-curve.js';
 import { deckStates } from './deck-states.js';
 import { ASCITES } from '../src/ui/decks/ascites.js';
 import { CAUSE_TREATED } from '../src/ui/decks/cause-treated.js';
@@ -24,8 +24,8 @@ async function seq(steps, base = null) {
 
 // A deck's relation slide, its states, its curve (worked out once per distinct sweep: ten years and the next bleed share one) and its dots.
 const swept = new Map();
-async function chart(d) {
-  const i = d.slides.findIndex((s) => s.id === 'relation'), slide = d.slides[i], t = slide.tool, st = await deckStates(d);
+async function chart(d, over = {}) {
+  const i = d.slides.findIndex((s) => s.id === 'relation'), slide = d.slides[i], t = { ...slide.tool, ...over }, st = await deckStates(d);
   const key = JSON.stringify(curveSteps(t));
   if (!swept.has(key)) swept.set(key, seq(curveSteps(t), null).then((states) => curveSeries(t, states)));
   const ser = await swept.get(key);
@@ -53,8 +53,10 @@ test('every relation slide sits just before its summary, names slides that exist
   }
 });
 
-test('Ascites: no fluid below an HVPG of about 12, then it climbs with the blood volume; diuretics sit below the line, the TIPS at its left end', async () => {
-  const c = await chart(ASCITES), [x, asc, bv] = [c.ser.xs, c.ser.ys[0], c.ser.ys[1]];
+test('Ascites: no fluid below an HVPG of about 12, then it climbs (the blood volume with it, in the notes); diuretics sit below the line, the TIPS at its left end', async () => {
+  // (The chart draws the ascites alone, one story on one scale; the blood volume the notes quote is read from the same sweep with its line put back.)
+  assert.deepEqual(curveLines(ASCITES.slides.find((s) => s.id === 'relation').tool), ['asc'], 'one line on the chart');
+  const c = await chart(ASCITES, { lines: ['asc', 'bv'] }), [x, asc, bv] = [c.ser.xs, c.ser.ys[0], c.ser.ys[1]];
   x.forEach((v, k) => { if (v < 11.9) assert.equal(asc[k], 0, `no ascites at ${v.toFixed(1)}`); });
   assert.ok(x.some((v) => v < 11.9) && x.some((v) => v > 12.5 && asc[x.indexOf(v)] > 0), 'the onset lies inside the chart');
   for (let k = 1; k < asc.length; k++) assert.ok(asc[k] >= asc[k - 1] - 1e-9, 'the ascites never falls along the line');
@@ -65,7 +67,9 @@ test('Ascites: no fluid below an HVPG of about 12, then it climbs with the blood
   near(diur.x, tense.x, 0.5, 'diuretics change the fluid, not the HVPG');
   assert.ok(tense.f.asc / 1000 > tense.on[0] - 0.1, 'the tense belly sits on or above the line');
   assert.ok(tips.x < 8 && tips.f.asc === 0, `the TIPS puts him at the left end, with no fluid: ${tips.x} mmHg`);
-  near(c.ring.x, tips.x, 1e-9, 'the ring is the TIPS slide\'s state');
+  // (No ring: the slide has no state of its own, and he after the TIPS is the walk's last dot.)
+  assert.equal(ringAt(ASCITES.slides.find((s) => s.id === 'relation').tool, {}, c.fp).x, null, 'no ring on the chart');
+  assert.deepEqual(walksOf(c.t), [[0, 1, 2]], 'the three visits joined in order');
 });
 
 test('Treating the cause: both hepatitis C patients sit on the line; the first ends under 10 on both cut-offs, the second does not', async () => {
