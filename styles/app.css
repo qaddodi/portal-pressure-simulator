@@ -6793,8 +6793,8 @@ html.thumb-ui .menu.from-dock { clip-path: inset(-64px -64px calc(var(--sink, 0p
    cross-fade and keep their size, so the card never changes size with the reading. A cut-off column on a wide card only. */
 .pz-crit { box-sizing: border-box; width: 100%; min-width: 0; align-self: stretch; font-size: max(12px, var(--bs, 14px)); }   /* (the card's full width: shrunk to its content, a phone centred it and pushed the case column out) */
 .pz-crit [hidden] { display: none; }
-.pzc-top { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: .35em .8em; margin: 0 0 .55em; }
-.pzc-lead { flex: 1 1 12em; min-width: 0; margin: 0; font: 400 1em/1.35 var(--font-ui); color: var(--text-2); }
+.pzc-top { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: center; gap: .35em .8em; margin: 0 0 .55em; }   /* (centred like the first-visit graph's, 27 Oct: the lead and the rule's source as one group, each on its own centred line where they do not fit together) */
+.pzc-lead { flex: 0 1 auto; min-width: 0; margin: 0; text-align: center; font: 400 1em/1.35 var(--font-ui); color: var(--text-2); }
 .pzc-rule { flex: none; margin: 0; font-size: max(12px, .86em); }
 .pzc-list { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: auto minmax(0, 1fr) auto; }
 .pzc-row { grid-column: 1 / -1; display: grid; grid-template-columns: subgrid; align-items: baseline; padding: .55em 0; border-top: 1px solid color-mix(in srgb, var(--text) 8%, transparent); font: 400 1.07em/1.35 var(--font-display); color: var(--text-2); transition: color .4s var(--ease); }

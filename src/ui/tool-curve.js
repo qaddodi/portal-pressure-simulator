@@ -266,6 +266,26 @@ const fmt = (v, d) => (v < 0 ? '−' : '') + Math.abs(v).toFixed(d);
 /** An axis number: a whole number stays whole whatever the axis's decimals (0, 5, 10, not 0.0, 5.0, 10.0). */
 export const fmtTick = (v, d) => fmt(v, Math.abs(v - Math.round(v)) < 1e-6 ? 0 : d);
 const cw = (t, f, b) => String(t).length * f * (b ? 0.6 : 0.56);   // (a text's width, near enough: laid out before it is drawn)
+/** The x axis's name as written under the numbers: the unit after it unless the name already holds it. */
+export const xAxisName = (ax) => (ax.unit && ax.unit !== '×' && !ax.name.toLowerCase().includes(ax.unit.toLowerCase()) ? `${ax.name}, ${ax.unit}` : ax.name);
+/** The x axis's numbers and where its name stands (his G2 look, 27 Oct: the name on the numbers' row, as the planes' x name is, so the plot gains
+ *  the row it had of its own). The name takes the widest stretch between the numbers (each 6 px clear, and 8 px in from the panel's edges) when it
+ *  fits there with at least three numbers kept: the most numbers that leave it room, `most` at the most. { xt, nameAt }: nameAt the name's centre
+ *  in px, null where it fits nowhere (it then stands on a row of its own under the numbers, centred, with the numbers `most` at the most). */
+export function xAxisRow(x0, x1, L, R, w, f, ax, most) {
+  const nameW = cw(xAxisName(ax), f, 1), at = (v) => L + (R - L) * (v - x0) / ((x1 - x0) || 1);
+  for (let m = most; m >= 3; m--) {
+    const ts = xTicks(x0, x1, m);
+    if (ts.length < 3) continue;
+    const boxes = ts.map((v) => { const x = at(v), tw = cw(fmtTick(v, ax.d), f); return x <= L + 1 ? [x, x + tw] : x >= R - 1 ? [x - tw, x] : [x - tw / 2, x + tw / 2]; });
+    let best = null;
+    for (const [a, b] of [...boxes.map((q, i) => [i ? boxes[i - 1][1] + 6 : 8, q[0] - 6]), [boxes.at(-1)[1] + 6, w - 8]]) {
+      if (b - a >= nameW && (!best || b - a > best[1] - best[0])) best = [a, b];
+    }
+    if (best) return { xt: ts, nameAt: (best[0] + best[1]) / 2 };
+  }
+  return { xt: xTicks(x0, x1, most), nameAt: null };
+}
 
 // ── Where words go: clear of the lines, the cut-offs, the axes and each other ──
 const hitBox = (a, b) => a[0] < b[2] && b[0] < a[2] && a[1] < b[3] && b[1] < a[3];
@@ -570,11 +590,13 @@ export function createCurve() {
     const keys = keyLs.map((l) => ({ ...l, w: (l.bare ? 0 : 22) + cw(l.name, f, 1) + 6 + cw(l.unit, f) + kvW }));
     const oneRow = keys.length < 2 || keys[0].w + keys[1].w + 2 * f <= w, rowH = 1.5 * f, legH = (oneRow && !altBelow ? 1 : 2) * rowH;
     const tw = (sc) => Math.max(...sc.ticks.map((v) => cw(fmtTick(v, dec(sc)), f)));
-    const xt = xTicks(x0, x1, Math.max(2, Math.min(7, Math.floor((w - 4 * f) / (3.2 * f)))));
+    const most0 = Math.max(2, Math.min(7, Math.floor((w - 4 * f) / (3.2 * f))));
     // (The plot is one rounded panel the chart's full width, his G2 look, plot-look.js: its numbers stand in the strips inside its edge, 8 px in from it, where no line runs.)
     const L = Math.ceil(tw(sL) + 14), R = Math.floor(w - (sR ? tw(sR) + 14 : 10));
-    const T = legH + 2 * f, B = h - 3.3 * f - stepH;
-    return { w, h, f, ls, ag, one, ax, x0, x1, xt, sL, sR, tickCuts, keyRead, stepKey, keys, oneRow, altBelow, rowH, keyH: legH, L, R, T, B: Math.max(T + 3 * f, B) };
+    const { xt, nameAt } = xAxisRow(x0, x1, L, R, w, f, ax, most0);
+    // (The panel's foot: 1.7 em under the axis when the x axis's name stands on the numbers' row, else 3.1 em with the name on a row of its own.)
+    const foot = (nameAt == null ? 3.1 : 1.7) * f, T = legH + 2 * f, B = h - foot - 0.2 * f - stepH;
+    return { w, h, f, ls, ag, one, ax, x0, x1, xt, nameAt, foot, sL, sR, tickCuts, keyRead, stepKey, keys, oneRow, altBelow, rowH, keyH: legH, L, R, T, B: Math.max(T + 3 * f, B) };
   }
   const X = (x) => G.L + (G.R - G.L) * (x - G.x0) / ((G.x1 - G.x0) || 1);
   const Yof = (sc) => (v) => G.B - (G.B - G.T) * clamp((v - sc.min) / ((sc.max - sc.min) || 1), 0, 1);
@@ -655,7 +677,8 @@ export function createCurve() {
     const axis = [sv('line', { class: 'pft-x', x1: L, x2: R, y1: B, y2: B }),
       // (The two end numbers stand inside the plot's ends, clear of the corner numbers of the y axes.)
       xt.map((x) => sv('text', { class: 'pft-tk', x: X(x), y: B + 1.25 * f, 'text-anchor': X(x) <= L + 1 ? 'start' : X(x) >= R - 1 ? 'end' : 'middle' }, fmtTick(x, ax.d))),
-      sv('text', { class: 'pcv-ax', x: (L + R) / 2, y: B + 2.6 * f, 'text-anchor': 'middle' }, ax.unit && ax.unit !== '×' && !ax.name.toLowerCase().includes(ax.unit.toLowerCase()) ? `${ax.name}, ${ax.unit}` : ax.name)];
+      // (The name on the numbers' row where it fits between them, else on a row of its own under them, xAxisRow.)
+      sv('text', { class: 'pcv-ax', x: G.nameAt ?? (L + R) / 2, y: B + (G.nameAt == null ? 2.6 : 1.25) * f, 'text-anchor': 'middle' }, xAxisName(ax))];
     const lines = ls.map((l, j) => {
       const Y = j && !G.one ? YR || YL : YL, ys = ser?.ys[j], xs = lineX(j);
       const d = ys ? ys.map((y, i) => (Number.isFinite(y) ? [X(xs[i]), Y(y)] : null)).filter(Boolean).map(([x, y], i) => `${i ? 'L' : 'M'}${x.toFixed(1)} ${y.toFixed(1)}`).join('') : '';
@@ -676,7 +699,7 @@ export function createCurve() {
       const txt = G.stepKey && num ? num : d.name || '';
       return { name: d.name ? sv('text', { class: `pcv-dname off${G.stepKey ? ' pcv-dnum' : ''}` }, txt) : null, lead: d.name ? sv('line', { class: 'pcv-lead off' }) : null, txt, full: d.name || '', at, first };
     });
-    const stepsKey = G.stepKey?.rows ? sv('g', { class: 'pcv-steps' }, G.stepKey.items.map((it) => sv('text', { class: 'pcv-sk', x: it.x, y: B + 4.4 * f + it.row * 1.5 * f },
+    const stepsKey = G.stepKey?.rows ? sv('g', { class: 'pcv-steps' }, G.stepKey.items.map((it) => sv('text', { class: 'pcv-sk', x: it.x, y: B + G.foot + 1.3 * f + it.row * 1.5 * f },
       sv('tspan', { class: 'pcv-sn' }, String(it.n)), ` ${it.name}`))) : null;
     const walkSets = walksOf(t);
     ls.forEach((l, j) => walkSets.forEach((g) => {
@@ -689,7 +712,7 @@ export function createCurve() {
     // (With a reading on x the case stands out by its rings: its mark is only a short tick on the x axis, not a second upright dashed line.)
     const xk = xKeyOf(t), at = sv('line', { class: xk ? 'pcv-at pcv-atx' : 'pcv-at', y1: xk ? B - 0.8 * f : T - 0.4 * f, y2: B });
     // (The panel under everything: from just under the key row to under the axis's name, the chart's full width.)
-    const panel = plotPanel(sv, 0, G.keyH + 0.2 * f, G.w, B + 3.1 * f - (G.keyH + 0.2 * f));
+    const panel = plotPanel(sv, 0, G.keyH + 0.2 * f, G.w, B + G.foot - (G.keyH + 0.2 * f));
     const svg = sv('svg', { viewBox: `0 0 ${G.w} ${G.h}`, width: G.w, height: G.h, role: 'img', style: `font-size: ${f.toFixed(2)}px` },
       sv('defs', {}, panel.clip), panel.back, zone, grid, cuts, xCuts, legend, alt, axis, stepsKey, at, walks, lines.map((x) => x.path), dotPts.map((d) => d.lead), dotEls, dotPts.map((d) => d.name), lines.map((x) => [x.ring, x.val, x.name]));
     svg.dataset.points = ser ? String(ser.xs.length) : '0';   // (the browser checks read it: 0 until the curve is ready)

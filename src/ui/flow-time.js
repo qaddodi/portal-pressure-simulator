@@ -120,7 +120,7 @@ export function createFlowTime() {
   let G = null;
   // (The treatments under the clock: their names on one row, then a thin bar each. The chart is that much taller
   // (styles/app.css .pz-flowtime.has-bands sets the same room, in em), so the plot keeps the height it has without them.)
-  const bandRoom = (f) => (rx.length ? (1.2 + 0.32 * rx.length) * f : 0);
+  const bandRoom = (f) => (rx.length ? (1.4 + 0.32 * rx.length) * f : 0);
   // The geometry for a chart w × h px in type f px.
   function geo(w, h, f) {
     const meal = clock !== 'days', keysL = legendOf(keys, f);
@@ -176,8 +176,9 @@ export function createFlowTime() {
     const bandEls = rx.length ? sv('g', { class: 'pft-bands' },
       sv('text', { class: 'pft-band-n', x: L, y: B + 2.55 * f }, rx.map((k, j) => sv('tspan', { style: `--rx: var(${RX[k][2]})` }, (j ? '  ·  ' : '') + RX[k][0]))),
       rx.map((k, j) => sv('rect', { class: 'pft-band', 'data-rx': k, style: `--rx: var(${RX[k][2]})`, x: L, width: Math.max(2, R - L), y: B + 2.8 * f + j * 0.32 * f, height: 0.2 * f, rx: 0.1 * f }))) : null;
-    // (The panel under everything: from just under the legend to under the clock's numbers, the chart's full width.)
-    const panel = plotPanel(sv, 0, G.keyH + 0.1 * f, G.w, B + 1.7 * f - (G.keyH + 0.1 * f));
+    // (The panel under everything: from just under the legend to the chart's foot, its full width, so the treatments' names and bars under the
+    // clock stand inside it; with none, the foot is 1.7 em under the axis, under the clock's numbers.)
+    const panel = plotPanel(sv, 0, G.keyH + 0.1 * f, G.w, G.h - (G.keyH + 0.1 * f));
     const svg = sv('svg', { viewBox: `0 0 ${G.w} ${G.h}`, width: G.w, height: G.h, role: 'img', style: `font-size: ${G.f.toFixed(2)}px` },
       sv('defs', {}, panel.clip), panel.back, bandEls, grid(ser.fScale, lf.Y, R + 6, 'start', lf.c), grid(ser.pScale, lp.Y, L - 6 - (rx.length ? Math.max(3, f * 0.3) + 2 : 0), 'end', lp.c), legend,
       sv('line', { class: 'pft-x', x1: L, x2: R, y1: B, y2: B }),
@@ -270,7 +271,7 @@ export function createFlowTime() {
     configure(t, ctx) {
       rx = bandKeys(t).filter((k) => RX[k][1](ctx?.params));
       el.classList.toggle('has-bands', rx.length > 0);
-      el.style.setProperty('--band-room', `${rx.length ? 1.2 + 0.32 * rx.length : 0}em`);
+      el.style.setProperty('--band-room', `${rx.length ? 1.4 + 0.32 * rx.length : 0}em`);
     },
     update() {}, clear() {},
   };

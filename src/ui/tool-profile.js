@@ -685,8 +685,10 @@ export function createProfileTool() {
     const valY = (cy, k) => cy + sides[k].by, t = performance.now();
     // (The blocks showing, each where the shown line falls so it moves with the line as it eases, and how far each has faded in.)
     const bk = [...blk].map(([i, b]) => ({ op: blkOp(b, t), box: blockBox(G, tw, shown, i) })).filter((q) => q.op >= 0.005);
-    // (The three zones' tints are one rounded shape, his G2 look, plot-look.js: the corners of the whole band, not of each zone.)
-    const band = plotPanel(sv, G.x(0) - G.slot / 2, G.T - G.hdr, G.slot * STATIONS.length, G.B - (G.T - G.hdr), { fill: false });
+    // (The three zones' tints are one rounded shape the chart's full width, his G2 look, plot-look.js: the corners of the whole band, not of
+    // each zone. The first tint reaches the chart's left edge and the last its right, so the axis numbers stand inside the band, in the strip
+    // the lines never enter; the zones' names stay centred over their own stations.)
+    const band = plotPanel(sv, 0, G.T - G.hdr, w, G.B - (G.T - G.hdr), { fill: false });
     const blkRect = ([x0, x1, y0, y1], at = {}) => sv('rect', { x: x0, y: y0, width: x1 - x0, height: y1 - y0, rx: Math.min(4, (x1 - x0) / 2), ...at });
     const svg = sv('svg', { viewBox: `0 0 ${w} ${hh}`, width: w, height: hh, role: 'img', style: `font-size: ${f.toFixed(2)}px`,
       'aria-label': `Pressure from gut to heart: ${STATIONS.map((n, i) => `${SPOKEN[n]} ${labels[i]}`).join(', ')} mmHg. HVPG ${whole(shown.hvpg)}, PPG ${whole(shown.ppg)}.` },
@@ -698,10 +700,10 @@ export function createProfileTool() {
           now.map(([cx, cy], i) => { const hw = tw(labels[i], 700) / 2; return sv('rect', { x: cx - hw - NUM_PAD, y: cy - 0.36 * f - NUM_PAD, width: 2 * (hw + NUM_PAD), height: 0.72 * f + 2 * NUM_PAD, rx: NUM_PAD, fill: '#000' }); }))),   // colour-exempt: a mask
       // The route's three zones on soft tints, each named over the plot (every ladder, every deck: Mohammad, 21 Oct, "return the word liver",
       // 22 Oct, PRE / INTRA / POST written out in full): the names stand in one line, or in two where a zone is too narrow for its name.
-      zoneSpans().map(([a, b], k) => {
+      zoneSpans().map(([a, b], k, sp) => {
         const m = (G.x(a) + G.x(b)) / 2, y0 = G.T - G.hdr, ls = zoneLines(k, G.zone.lines);
-        const zf = zoneSize(f);
-        return sv('g', { class: G.zone.tight ? `${ZONES[k].cls} tight` : ZONES[k].cls, style: zf < f - 0.01 ? `font-size: ${zf.toFixed(2)}px` : null }, sv('rect', { x: G.x(a) - G.slot / 2, width: G.slot * (b - a + 1), y: y0, height: G.B - y0, 'clip-path': band.url }),
+        const zf = zoneSize(f), tx0 = k ? G.x(a) - G.slot / 2 : 0, tx1 = k < sp.length - 1 ? G.x(b) + G.slot / 2 : w;
+        return sv('g', { class: G.zone.tight ? `${ZONES[k].cls} tight` : ZONES[k].cls, style: zf < f - 0.01 ? `font-size: ${zf.toFixed(2)}px` : null }, sv('rect', { x: tx0, width: tx1 - tx0, y: y0, height: G.B - y0, 'clip-path': band.url }),
           G.zone.lines ? ls.map((t, j) => sv('text', { x: m, y: G.T - G.zb - (ls.length - 1 - j) * 1.05 * zf, 'text-anchor': 'middle' }, t)) : null);
       }),
       Array.from({ length: Math.floor(top / every) + 1 }, (_, k) => sv('g', { class: 'ptk-grid' }, sv('line', { x1: G.L, x2: G.R, y1: y(k * every), y2: y(k * every) }),

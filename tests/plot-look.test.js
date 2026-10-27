@@ -8,6 +8,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { plotR, plotPanel, PLOT_R } from '../src/ui/plot-look.js';
 import { planeOf, frame, bleed, scaler, plotNumbers, PAD, est } from '../src/ui/visual-plane.js';
+import { xAxisRow, xAxisName, xTicks, fmtTick } from '../src/ui/tool-curve.js';
 
 const read = (p) => readFileSync(new URL(p, import.meta.url), 'utf8');
 const css = read('../styles/app.css');
@@ -93,8 +94,11 @@ test('the charts all put their plot on a rounded panel, the planes draw their zo
 
 test('the ladder\'s three zones are one rounded band, the corners of the whole', () => {
   const src = read('../src/ui/tool-profile.js');
-  assert.match(src, /const band = plotPanel\(sv, G\.x\(0\) - G\.slot \/ 2, G\.T - G\.hdr, G\.slot \* STATIONS\.length, G\.B - \(G\.T - G\.hdr\), \{ fill: false \}\)/);
-  assert.match(src, /height: G\.B - y0, 'clip-path': band\.url \}\)/, 'each zone\'s tint clipped to the band');
+  // (The band is the chart's full width, its first tint out to the left edge and its last to the right, so the axis numbers stand inside it.)
+  assert.match(src, /const band = plotPanel\(sv, 0, G\.T - G\.hdr, w, G\.B - \(G\.T - G\.hdr\), \{ fill: false \}\)/);
+  assert.match(src, /tx0 = k \? G\.x\(a\) - G\.slot \/ 2 : 0, tx1 = k < sp\.length - 1 \? G\.x\(b\) \+ G\.slot \/ 2 : w;/, 'the first tint reaches the left edge, the last the right');
+  assert.match(src, /sv\('rect', \{ x: tx0, width: tx1 - tx0, y: y0, height: G\.B - y0, 'clip-path': band\.url \}\)/, 'each zone\'s tint clipped to the band');
+  assert.match(src, /sv\('text', \{ x: G\.L - 6, y: y\(k \* every\) \+ 0\.35 \* f, 'text-anchor': 'end' \}/, 'the numbers stand in the strip left of the lines, inside the band');
 });
 
 test('the charts\' numbers sit inside the panel, 8 px in from its edge, and nothing is left outside it that the card\'s edge would cut', () => {
@@ -103,5 +107,45 @@ test('the charts\' numbers sit inside the panel, 8 px in from its edge, and noth
   assert.match(ft, /L = Math\.ceil\(tw\(ser\.pScale\) \+ 14 \+/, 'the flow-time numbers 8 px in');
   assert.match(talk, /B2 = HT - fs - 16/, 'the talk chart\'s times keep a few px of the panel under them');
   // (The key under a chart's panel starts under it: the steps' key sits 1.3 lines under the axis's name row.)
-  assert.match(curve, /y: B \+ 4\.4 \* f \+ it\.row \* 1\.5 \* f/);
+  assert.match(curve, /y: B \+ G\.foot \+ 1\.3 \* f \+ it\.row \* 1\.5 \* f/);
+});
+
+// The curve's x axis name stands on the numbers' row where it fits between them (as the planes' x name does), so the plot has the row back.
+const stand = (x0, x1, L, R, w, f, ax, most) => {
+  const r = xAxisRow(x0, x1, L, R, w, f, ax, most), at = (v) => L + (R - L) * (v - x0) / (x1 - x0), tw = (v) => String(fmtTick(v, ax.d)).length * f * 0.56;
+  return { ...r, boxes: r.xt.map((v) => { const x = at(v); return x <= L + 1 ? [x, x + tw(v)] : x >= R - 1 ? [x - tw(v), x] : [x - tw(v) / 2, x + tw(v) / 2]; }) };
+};
+test('the x axis name stands on the numbers\' row between them, apart from each, inside the panel, with three numbers or more kept', () => {
+  for (const [w, f, ax] of [[360, 12, { name: 'Months', unit: '', d: 0 }], [520, 14, { name: 'Albumin', unit: 'g/dL', d: 1 }], [900, 16, { name: 'Stiffness', unit: 'kPa', d: 0 }], [345, 14, { name: 'Days', unit: '', d: 0 }]]) {
+    const L = 40, R = w - 36, r = stand(0, 12, L, R, w, f, ax, 7), nameW = xAxisName(ax).length * f * 0.6;
+    assert.notEqual(r.nameAt, null, `${w} px: the name fits on the row`);
+    assert.ok(r.xt.length >= 3, `${w} px: ${r.xt.length} numbers kept`);
+    assert.ok(r.nameAt - nameW / 2 >= 8 - 1e-9 && r.nameAt + nameW / 2 <= w - 8 + 1e-9, `${w} px: the name inside the panel, 8 px in`);
+    for (const b of r.boxes) assert.ok(r.nameAt + nameW / 2 <= b[0] - 6 + 1e-9 || r.nameAt - nameW / 2 >= b[1] + 6 - 1e-9, `${w} px: the name 6 px clear of the number at ${b[0].toFixed(0)}`);
+  }
+});
+test('a name too long for the row keeps its row of its own, centred, and the numbers as many as before', () => {
+  const ax = { name: 'Months on carvedilol before the second reading', unit: 'mmHg', d: 0 }, r = xAxisRow(0, 12, 40, 250, 290, 14, ax, 5);
+  assert.equal(r.nameAt, null);
+  assert.deepEqual(r.xt, xTicks(0, 12, 5));
+});
+test('the panel\'s foot follows the name: 1.7 em under the axis on the row, 3.1 em with a row of its own, the steps\' key under it either way', () => {
+  const curve = read('../src/ui/tool-curve.js');
+  assert.match(curve, /const foot = \(nameAt == null \? 3\.1 : 1\.7\) \* f, T = legH \+ 2 \* f, B = h - foot - 0\.2 \* f - stepH;/);
+  assert.match(curve, /plotPanel\(sv, 0, G\.keyH \+ 0\.2 \* f, G\.w, B \+ G\.foot - \(G\.keyH \+ 0\.2 \* f\)\)/);
+  assert.match(curve, /y: B \+ \(G\.nameAt == null \? 2\.6 : 1\.25\) \* f, 'text-anchor': 'middle' \}, xAxisName\(ax\)\)/, 'the name at the numbers\' baseline, or 2.6 em under the axis');
+});
+
+test('a flow-time chart with treatments keeps their names and bars inside the panel, which runs to the chart\'s foot', () => {
+  const ft = read('../src/ui/flow-time.js');
+  assert.match(ft, /plotPanel\(sv, 0, G\.keyH \+ 0\.1 \* f, G\.w, G\.h - \(G\.keyH \+ 0\.1 \* f\)\)/);
+  assert.match(ft, /bandRoom = \(f\) => \(rx\.length \? \(1\.4 \+ 0\.32 \* rx\.length\) \* f : 0\)/);
+  assert.match(ft, /--band-room', `\$\{rx\.length \? 1\.4 \+ 0\.32 \* rx\.length : 0\}em`/, 'the stylesheet\'s room is the same');
+  // (The last bar ends 0.42 em over the foot: as far above it as the clock's numbers are over the foot with no treatments.)
+  for (const n of [1, 2, 3]) assert.ok(1.4 + 0.32 * n - (2.8 - 1.7 + (n - 1) * 0.32 + 0.2) >= 0.4, `${n} bars: room under the last`);
+});
+
+test('the criteria cards\' lead line and rule stand centred, as the first-visit graph\'s do', () => {
+  assert.match(css, /\.pzc-top \{ display: flex; flex-wrap: wrap; align-items: baseline; justify-content: center;/);
+  assert.match(css, /\.pzc-lead \{ flex: 0 1 auto; min-width: 0; margin: 0; text-align: center;/);
 });
