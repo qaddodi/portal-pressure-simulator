@@ -83,7 +83,7 @@
 //                            figure: spot, normalOutline, ripple, lens 'system' | 'since' (since, sinceLabel), calipers,
 //                            lapseGlow ['bowel'] (those organs glow from the time-lapse's start, while the slide is up), steps (with glowSeq), span, zone,
 //                            mark { organ } and {tokens} in a mark's label, '@sets' in glow/spot/edges;
-//                            words: cite; card: tool kinds 'profile' (from, fromLabel), 'flows', 'curve', 'causes',
+//                            words: cite; card: tool kinds 'profile' (from, fromLabel), 'flows', 'curve', 'causes', 'course',
 //                            'plane', 'lumen', 'fluid', Doppler mode/calipers/pair, bands on trace and flowtime;
 //                            panels: visual 'plane', table col 'wave', focusRow
 //
@@ -96,7 +96,7 @@
 import { CIRCULATION } from './decks/circulation.js?v=9ce2778867';
 import { SITES } from './decks/sites.js?v=c45fb90281';
 import { HVPG } from './decks/hvpg.js?v=551309418f';
-import { ASCITES } from './decks/ascites.js?v=3711d084c7';
+import { ASCITES } from './decks/ascites.js?v=30d3e9d45e';
 import { VARICES } from './decks/varices.js?v=437414a2e1';
 import { TREATMENT } from './decks/treatment.js?v=b2c0dcc11b';
 import { STIFFNESS } from './decks/stiffness.js?v=5b2d2385cf';

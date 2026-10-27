@@ -6,9 +6,16 @@ const mi = (x) => `<mi>${x}</mi>`, mo = (x) => `<mo>${x}</mo>`, sub = (b, i) => 
 
 const FLUID = { kind: 'fluid', window: true, forces: true };
 const BELLY = { kind: 'abdomen' };
-// The scarring the relation chart sweeps, with the albumin falling as it does on the time-lapse (4.0 g/dL up to 0.6, 2.8 at 0.85), a year a point.
-const scar = (c, a) => ({ params: { cirrhosis: c, albumin: a }, days: 365 });
-const SCARRING = [scar(0.45, 4), scar(0.5, 4), scar(0.55, 4), scar(0.6, 4), scar(0.65, 3.76), scar(0.7, 3.52), scar(0.75, 3.28), scar(0.8, 3.04), scar(0.85, 2.8)];
+// The relation chart's course: the same patient as the Tense ascites and Large-volume paracentesis slides (tests/relation-ascites-chart.test.js
+// keeps them equal), day by day from the tap, two weeks with nothing done, then each treatment from that day for four weeks.
+const COURSE = {
+  kind: 'course', reading: 'asc',
+  from: { preset: 'cirr-decomp', params: { diuretics: false }, days: 120, ramp: { albumin: [2.8, 2.4] } },
+  event: { params: { albumin: 2.74 }, action: { kind: 'paracentesis', mL: 8000 } },
+  wait: 14, after: 28,
+  then: [{ name: 'Diuretics', params: { diuretics: true } }, { name: 'Diuretics + TIPS', params: { diuretics: true, tips: { on: true } } }],
+  words: { event: 'Tap', before: 'Tense belly', start: 'Treatment starts', rise: 'Refills', axis: 'Weeks after the tap', label: 'Ascites, liters', title: 'Ascites after the tap', short: 'After the tap' },
+};
 
 export const ASCITES = {
   id: 'ascites', level: 'advanced', title: 'Ascites: why it forms and how it is treated', minutes: 18,
@@ -138,12 +145,11 @@ export const ASCITES = {
       // One line, the ascites: the blood volume and its second axis made the chart too busy to read, so it stays in the notes only. The axis runs on to
       // 22 so the names of the dots at 16.8 have room on their right, and the grades' numbers (1.5 and 5) are the axis.)
       id: 'relation', cam: 'fit',
-      tool: { kind: 'curve', x: 'hvpg', xTo: 22, xCuts: [10], cuts: [1.5, 5], cutTicks: true, cutNames: { 1.5: 'Grade 2', 5: 'Grade 3' }, ring: false, patient: { preset: 'healthy' }, points: SCARRING, lines: ['asc'], walk: true,
-        dots: [{ slide: 'tense', name: 'Tense belly', on: [0] }, { slide: 'diuretics', name: 'Diuretics', on: [0] }, { slide: 'tips', name: 'TIPS', on: [0] }] },
-      kicker: 'Summary', site: 'sin', title: 'Ascites builds as the HVPG climbs and the albumin falls',
-      line: 'His belly is tense at {asc@tense} with an HVPG of {hvpg@tense}. Diuretics take the fluid to {asc@diuretics} at about the same HVPG, and the TIPS lowers the HVPG to {hvpg}.',
-      notes: 'The line is the model\'s scarring from mild to severe, each point settled for a year, with the serum albumin falling along it as it does on the two-month time-lapse (4.0 g/dL at the start, 2.8 at the far end): the ascites against the HVPG, one story on one scale. In the model no fluid gathers below an HVPG of about 12 mmHg, a little above the CSPH cut-off of 10, because the lymphatics keep up until the sinusoidal pressure and the low albumin outrun them; then the ascites climbs steeply. Decompensation most often comes at an HVPG of 10 mmHg or more (AASLD 2024 p. 1181). The dots are this talk\'s own patient, joined in order by the arrows: from the tense belly, diuretics clear the fluid at the same HVPG, so he sits below the line; the TIPS lowers the HVPG itself, and the fluid goes with it, to the left end of the line. The numbers on the left are the app\'s own grades (its data card uses them too): grade 2 from 1.5 L, grade 3 from 5 L; at the bedside the grade comes from the examination, not from the volume. The chart leaves out the blood volume, which rises along the line by about half a liter: the model has no kidneys, so that rise stands in for the sodium and water they hold back (AASLD 2024 Fig. 2). One model patient per point; real patients vary far more.',
-      ask: ['His ascites is smaller on diuretics, but the HVPG is the same. What has not changed?', 'The pressure that makes the fluid. Diuretics clear what has formed; a TIPS lowers the pressure itself.'],
+      tool: COURSE,
+      kicker: 'Summary', site: 'sin', title: 'The fluid comes back after the tap unless it is treated',
+      line: 'The tap empties the belly, but the fluid is back at {asc@back} by week 2. Diuretics bring it down to {asc@diuretics} by week 6, and adding a TIPS clears it.',
+      notes: 'The chart follows the model\'s own patient day by day. Day 0 is the tap: 8 L out with albumin, from the tense belly he had after four months without diuretics. The grey line is the two weeks with nothing done: the fluid fills again because the pressure that makes it, and the kidneys\' hold on salt and water, are unchanged. From week 2 each treatment starts from that same day: diuretics alone, and diuretics with a TIPS. The zones are the app\'s own grades (its data card uses them too): grade 1 ≥0.15 L, grade 2 ≥1.5 L, grade 3 ≥5 L; at the bedside the grade comes from the examination, not from the volume. The timing is the model\'s, not a patient\'s, so no speed here is a promise; the model has no kidneys, and the chart shows the order of events and the size of each effect. One model patient; real patients vary far more.',
+      ask: ['The tap emptied his belly, yet the fluid is back in two weeks. What did the tap leave unchanged?', 'The pressure that makes the fluid. Diuretics clear what has formed; a TIPS lowers the pressure itself, and the fluid stays away.'],
     },
     {
       id: 'summary', visual: 'table', cols: ['asc', 'ppg', 'liver'], asc: false, vs: 'first', rowHead: 'Step',

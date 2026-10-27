@@ -5,9 +5,12 @@
 //   tool: { kind: 'curve', param: 'tips.d', from: 6, to: 12, step: 1, lines: ['ppg', 'liver'] }   a setting across its range
 //         against one or two readings, the case's ring on each line (tool-curve.js)
 //   tool: { kind: 'causes', metric: 'ppg' }   what raises the reading from healthy, a waterfall with a step per cause (tool-causes.js)
+//   tool: { kind: 'course', reading: 'asc', from, event, wait, after, then }   one reading over the days after an event, on the rating's zones, a line per
+//         treatment from the same day (tool-course.js)
 
 import { createCurve, warmCurve, curveLines, lineMeta, axisMeta } from './tool-curve.js?v=799a802d0e';
 import { createCauses, metricOf } from './tool-causes.js?v=a52a8f7d04';
+import { createCourse, warmCourse, courseOf } from './tool-course.js?v=7f69feb034';
 import { TILE } from './table-marks.js?v=8458ad3bf8';
 
 const lc = (s) => (/^[A-Z]{2,}/.test(s) ? s : s.charAt(0).toLowerCase() + s.slice(1));
@@ -27,6 +30,12 @@ export default {
       make: (env) => createCauses(env),
       title: (t) => `What raises ${causeName(t)}`,
       short: () => 'What raises it',
+    },
+    course: {
+      make: () => createCourse(),
+      warm: (t, ctx) => warmCourse(t, ctx),
+      title: (t) => courseOf(t).words.title,
+      short: (t) => courseOf(t).words.short,
     },
   },
   // (The causes are the slide's own Why? contributions, worked out with its step on the presenter's worker.)

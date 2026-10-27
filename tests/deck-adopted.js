@@ -173,7 +173,7 @@ export const ADOPTED = {
   'encephalopathy/relation': ['kind:curve'],
   'tips-doppler/relation': ['kind:curve'],
   'endoscopy/relation': ['kind:curve'],
-  'ascites/relation': ['kind:curve'],
+  'ascites/relation': ['kind:course'],
   'cause-treated/relation': ['kind:curve'],
   'recompensation/relation': ['kind:curve'],
   'ten-years/relation': ['kind:curve'],

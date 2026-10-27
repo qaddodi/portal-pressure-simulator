@@ -2,6 +2,16 @@
 
 ## October 2026
 
+- **The Ascites relation chart is now the course after the tap: the fluid day by day, with the grades as zones.** (Mohammad, 27 Oct: "ughhhh" on the HVPG curve; he picked J of the mocks, "more smooth", "show 1.5 and 5 are liters".)
+  "Ascites after the tap" (Ascites, the slide before the summary) replaces the HVPG curve. One patient, the one from the Tense ascites and Large-volume paracentesis slides, day by day from the tap: the tense belly as a
+  dot, the tap emptying the belly, the fluid refilling for two weeks with nothing done (grey), then diuretics alone and diuretics with a TIPS from that same day for four weeks, each in its own colour with its name at
+  its end. The line runs smoothly through the model's own number for every day and never overshoots one. The grades are the plot's zones (None, Grade 1, 2, 3, the app's own bands), named at the left, with 0, 1.5 L
+  and 5 L on the axis; the x axis is in weeks, the tap named at 0. A new chart kind in `src/ui/tool-course.js` (`tool: { kind: 'course', from, event, wait, after, then, words }`, registered in `ext-model.js`,
+  zone colours `.pco-z` in `styles/app.css`); the days are worked out once on the presenter's worker and kept, started when the deck opens. A name with no clear spot beside its line stands in a key row under the
+  caption, and "Treatment starts" (with its upright line) is left out on a card too short for it. The slide's line quotes the Two weeks later and Treatment slides' own numbers, and the notes say the speeds are the
+  model's, not a patient's (the model has no kidneys); nothing says how fast a TIPS clears ascites. The HVPG curve's options stay in `tool-curve.js` for other decks. Layout was run on the real chart code in node
+  (a stand-in DOM, the model's own numbers) at card sizes from 250 × 170 to 700 × 330 px, with no word on another word, a line or a dot; code only, nobody has looked on screen.
+  `tests/relation-ascites-chart.test.js` (rewritten for it), `tests/deck-adopted.js`, `docs/deck-authoring-guide.md`, `docs/deck-authoring-quick-guide.md`.
 - **The Ascites relation chart reads at a glance: one line, the visits named and joined by arrows, an axis that says what it is.** (Mohammad, 27 Oct: "what are the dots? it's so busy", "no idea what x axis is", "it's completely illegible".)
   The chart ("Ascites by HVPG", Ascites, the slide before the summary) draws only the ascites now: the blood volume, its second axis, the blue ring that floated off the line, the live values in the key row and the
   numbers-and-key for the dots are gone (the notes still quote the blood volume's half liter). His three visits, Tense belly, Diuretics and TIPS, are named on their dots, joined by the dotted walk with an arrowhead on
