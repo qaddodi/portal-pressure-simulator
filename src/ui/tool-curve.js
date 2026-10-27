@@ -57,7 +57,7 @@
 
 import { TILE, SCALE, RATE } from './table-marks.js?v=8458ad3bf8';
 import { frameFor } from './frame.js?v=7254a8a850';
-import { plotPanel } from './plot-look.js?v=965ae2241f';
+import { plotPanel } from './plot-look.js?v=5037697da7';
 import { airRatio } from './endo-size.js?v=e0a58bf20e';
 import { NODES } from '../engine/topology.js?v=4044766e96';
 const nextFrame = frameFor('tool-curve');

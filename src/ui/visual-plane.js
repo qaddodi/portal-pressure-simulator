@@ -25,7 +25,7 @@
 
 import { h, fmt, clamp } from './util.js?v=5ad334ebc0';
 import { TILE, tileShown } from './table-marks.js?v=8458ad3bf8';
-import { plotPanel } from './plot-look.js?v=965ae2241f';
+import { plotPanel } from './plot-look.js?v=5037697da7';
 
 // ── Conditions: [key, op, value], all of which must hold ──
 const OPS = { '<': (a, b) => a < b, '<=': (a, b) => a <= b, '>': (a, b) => a > b, '>=': (a, b) => a >= b };

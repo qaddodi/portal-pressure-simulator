@@ -14,7 +14,7 @@ import { PROFILE_PATHS } from './anatomy.js?v=48cc98d415';
 import { NODES } from '../engine/topology.js?v=4044766e96';
 import { RATE } from './table-marks.js?v=8458ad3bf8';
 import { monotoneSegs } from './curve-near.js?v=9ff15157e9';
-import { plotPanel } from './plot-look.js?v=965ae2241f';
+import { plotPanel } from './plot-look.js?v=5037697da7';
 import { pressureColor } from './colormap.js?v=a9284dde52';
 
 const PATH = PROFILE_PATHS[0];

@@ -5,7 +5,7 @@
 import { h, fmt, clamp } from './util.js?v=5ad334ebc0';
 import { traceLabel, traceLabelRoom } from './trace-labels.js?v=fc916a95c6';
 import { frameFor } from './frame.js?v=7254a8a850';
-import { plotPanel } from './plot-look.js?v=965ae2241f';
+import { plotPanel } from './plot-look.js?v=5037697da7';
 import { bandKeys, bandRuns, bandSpan, namePlaces } from './rx-bands.js?v=51e83c7c59';
 const nextFrame = frameFor('presenter-tools');
 

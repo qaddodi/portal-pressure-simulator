@@ -9,6 +9,9 @@
 //   const p = plotPanel(sv, x, y, w, h);       p.clip (a <clipPath> for defs), p.url (its clip-path value), p.back (the panel's rect)
 //
 // sv is the caller's own element builder (sv(tag, attrs, ...kids)), so each chart keeps its way of writing numbers into attributes.
+//
+// The Explore dock's charts draw on a canvas, not SVG: plotFill(ctx, x, y, w, h, fill) lays the same panel (same corners, the same tile tone,
+// --surface-2) under what they draw, and they keep their numbers in strips inside its edge as the slide charts do.
 
 export const PLOT_R = 10;
 /** The corner radius of a plot w × h px: 10 px, less on a plot too small for it (a quarter of its shorter side). */
@@ -23,4 +26,15 @@ export function plotPanel(sv, x, y, w, h, { fill = true } = {}) {
     clip: sv('clipPath', { id }, sv('rect', { x, y, width: w, height: h, rx: r })),
     back: fill ? sv('rect', { class: 'pz-plotbg', x, y, width: w, height: h, rx: r }) : null,
   };
+}
+/** The panel on a 2D canvas: x, y, w, h filled with `fill` (the tile tone, --surface-2, as the SVG charts' pz-plotbg), its corners plotR(w, h).
+ *  Returns that radius. */
+export function plotFill(ctx, x, y, w, h, fill) {
+  const r = plotR(w, h);
+  ctx.save();
+  ctx.beginPath();
+  if (ctx.roundRect) ctx.roundRect(x, y, w, h, r); else ctx.rect(x, y, w, h);
+  ctx.fillStyle = fill; ctx.fill();
+  ctx.restore();
+  return r;
 }

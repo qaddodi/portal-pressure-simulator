@@ -2,6 +2,12 @@
 
 ## October 2026
 
+- **The two Explore charts, Along the circuit and Over time, sit on the rounded plot panel.** (Mohammad, 27 Oct: the G2 look for the graphs, Explore dock.) Both are drawn on a canvas, so
+  `src/ui/plot-look.js` gained `plotFill(ctx, x, y, w, h, fill)`, the same rounded panel the slide charts use, in the same tile tone (`--surface-2`), 10 px corners. The panel is the chart's
+  whole box. The axis numbers stand in a strip inside its left edge, 8 px in, 6 px clear of the lines (as wide as the widest number: two digits, three only as the pressure axis passes 100,
+  eased in); the unit, the station names, the times and the readings at the right end all stay 8 px or more inside it; the separate axis line under the profile is gone (the panel's edge and
+  the grid's bottom line are the axis); the grid hairlines use the stronger border tone so they read on the panel; the plates behind cut-off names, the dots' rings and the markers' halos
+  take the panel's tone, so no patch shows. Over time is also the slide `beats` card, so it changes the same way in Present and Patients. Code only: nobody has looked on screen.
 - **The faint line round the lobule's tissue is gone, and the Fenestrae callout no longer sits on the stellate cell's name.** (Mohammad, 27 Oct: "fix the seam on the left side (it's a
   square/rectangular seam around the lobule); this also appears in other lobule view in decks", and "fix the callout for fenestrae; it's competing with the stellate cell call out".)
   The seam, measured in his screenshot of Lobule 5/9, is a line one device pixel wide at 1.28 R from the lobule's centre, the edge of the tissue's bitmap (a 2.6 R square, drawn on

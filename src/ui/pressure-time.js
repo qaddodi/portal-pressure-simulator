@@ -7,7 +7,7 @@
 
 import { store, hiddenNow } from './store.js?v=926dabfaef';
 import { h, fmt, fitCanvas, cssVar, cssAlpha, clamp } from './util.js?v=5ad334ebc0';
-import { FONT as FONT0, FONT } from './charts.js?v=f7ca3c2b35';
+import { FONT as FONT0, FONT } from './charts.js?v=14bbd315e1';
 import { frameFor, cancelFrame } from './frame.js?v=7254a8a850';
 import { tenthGap } from '../engine/gap.js?v=3aabfbb29b';
 import { firstAtOrAbove, firstAbove } from './sorted.js?v=662e543c85';
@@ -16,6 +16,7 @@ import { wrapLabel } from './wrap-label.js?v=1af9654a99';
 import { createBeatClock, ekgSeries } from './ekg.js?v=bce6cba25d';
 import { laneRoom } from './trace-lanes.js?v=3d3cb1915e';
 import { olderThan, inFront } from './backfill.js?v=455d888760';
+import { plotFill } from './plot-look.js?v=5037697da7';
 const nextFrame = frameFor('pressure-time');
 
 // hide: the readout that can stay unmeasured (store.hiddenReadouts); day: the value on the
@@ -299,7 +300,10 @@ export function createPressureTime({ marks = () => [] } = {}) {
     ctx.clearRect(0, 0, w, hh);
     if (w < 10 || hh < 10 || !frame) return;
     const col = (v) => cssVar(v);
-    const text = col('--text'), muted = col('--text-2'), faint = col('--text-3'), grid = col('--grid'), surface = col('--surface');
+    // (The plot is one rounded panel the chart's full width, his G2 look, plot-look.js, in the app's tile tone: what must hide a line or ring a dot
+    // there, a label's plate, a dot's ring, a marker's halo, takes the panel's tone so no patch shows; the readout card keeps the surface tone.)
+    const text = col('--text'), muted = col('--text-2'), faint = col('--text-3'), grid = col('--grid'), surface = col('--surface'), panel = col('--surface-2'), gridOn = col('--border-strong');
+    plotFill(ctx, 0, 0, w, hh, panel);
     const hidden = hiddenSet();
     const showHvpg = !hidden.has('trueHVPG');
     const slide = onSlide();   // (a slide's card: its own window, one scale, steady readings and larger lettering, below)
@@ -307,7 +311,8 @@ export function createPressureTime({ marks = () => [] } = {}) {
     const traces = TRACES.filter((t) => chosen.has(t.id) && !hidden.has(t.hide) && (range !== 'days' || t.day) && (!slide || t.id === 'CONF'));
     const FONT = (wt, px) => FONT0(wt, slide ? px * 13 / 12 : px);
     const narrow = w < 460, tiny = !slide && w < 300 && (hh - 52) * 0.55 >= traces.length * 27;   // (tiny: a tablet's card with its tiles beside; each end's name goes under its value, where the lane has room to stack them)
-    const L = 34, R = tiny ? 62 : narrow ? (slide ? 96 : 90) : 104, B = 22, GAP = slide ? 30 : 16;   // (a slide's lanes stand apart, the lower one named)
+    // (The numbers stand inside the panel's edge, 8 px in, and the readings at the right end keep 8 px or more of it: so L = 36, R a few px wider than before, B 2 more for the times' own room.)
+    const L = 36, R = tiny ? 62 : narrow ? (slide ? 100 : 94) : 104, B = 24, GAP = slide ? 30 : 16;   // (a slide's lanes stand apart, the lower one named)
     let T = 30;
     const plotW = w - L - R;
 
@@ -345,16 +350,16 @@ export function createPressureTime({ marks = () => [] } = {}) {
     }
 
     // Marker labels stack in up to three rows, so each stays readable; the plot starts below them.
-    const markLayout = layoutMarkers(markers(x0, x1), X, L + plotW + R - 4);
-    const T0 = Math.max(T, 24 + markLayout.rows * ROW);
+    const markLayout = layoutMarkers(markers(x0, x1), X, w - 8);
+    const T0 = Math.max(T, 30 + markLayout.rows * ROW);
     // lanes: the EKG strip (the last beats only) over the pressures over the HVPG lane; where the room is short the strip goes first, then the lane
     // (trace-lanes.js). The strip stands at the very top when no marker labels need the space there, so it never sits under them.
     const EGAP = slide ? 22 : 16;
     const wantLane = showHvpg && (slide ? cfg.lane : showLane || !traces.length);
     const wantEkg = range === 'beats' && (slide ? cfg.ekg : showEkg);
     const want = { pressure: traces.length > 0, hvpg: wantLane, gap: GAP, egap: EGAP, two: slide ? 0.66 : 0.64 };   // (two lanes: a slide's pressure lane holds the portal vein alone but keeps two thirds, as the dock's keeps 0.64)
-    let plan = wantEkg ? laneRoom(hh - (markLayout.rows ? T0 : 8) - B, { ...want, ekg: true }) : null;
-    if (plan?.ekg) T = markLayout.rows ? T0 : 8; else { T = T0; plan = laneRoom(hh - T - B, want); }
+    let plan = wantEkg ? laneRoom(hh - (markLayout.rows ? T0 : 10) - B, { ...want, ekg: true }) : null;
+    if (plan?.ekg) T = markLayout.rows ? T0 : 10; else { T = T0; plan = laneRoom(hh - T - B, want); }
     const lanes = [];
     let ey = T;
     const ekgLane = plan.ekg ? { key: 'ekg', top: ey, bot: (ey += plan.ekg) } : null;
@@ -429,8 +434,8 @@ export function createPressureTime({ marks = () => [] } = {}) {
       ctx.lineWidth = 1; ctx.font = FONT(500, 12); ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
       for (let v = Math.ceil(lo / tick) * tick; v <= hi + 1e-9; v += tick) {
         const yy = Math.round(Y(v)) + 0.5;
-        ctx.strokeStyle = grid; ctx.beginPath(); ctx.moveTo(L, yy); ctx.lineTo(L + plotW, yy); ctx.stroke();
-        ctx.fillStyle = faint; ctx.fillText(fmt(v, tick < 1 ? 1 : 0), L - 8, yy);
+        ctx.strokeStyle = gridOn; ctx.globalAlpha = 0.7; ctx.beginPath(); ctx.moveTo(L, yy); ctx.lineTo(L + plotW, yy); ctx.stroke(); ctx.globalAlpha = 1;
+        ctx.fillStyle = faint; ctx.fillText(fmt(v, tick < 1 ? 1 : 0), L - 6, yy);
       }
       ctx.textBaseline = 'alphabetic';
 
@@ -452,7 +457,7 @@ export function createPressureTime({ marks = () => [] } = {}) {
         for (const [label, yy] of labs) {
           ctx.font = FONT(600, 12); const tw = ctx.measureText(label).width;
           const lx = labelX(prevLab, yy, L + 6);
-          ctx.fillStyle = surface; ctx.fillRect(lx, yy - 6, tw + 8, 12);
+          ctx.fillStyle = panel; ctx.fillRect(lx, yy - 6, tw + 8, 12);
           ctx.fillStyle = col('--danger'); ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
           ctx.fillText(label, lx + 4, yy); ctx.textBaseline = 'alphabetic';
           prevLab = { x1: lx + tw + 8, y: yy };
@@ -485,7 +490,7 @@ export function createPressureTime({ marks = () => [] } = {}) {
           const c = col(t.c);
           if (s.lo) band(ctx, s, X, Y, c, 0.16);
           line(ctx, s, X, Y, c, t.id === 'CONF' ? 2 : 1.75, plotW);
-          if (range === 'days' && s.x.length < 60) dots(ctx, s, X, Y, c, surface);
+          if (range === 'days' && s.x.length < 60) dots(ctx, s, X, Y, c, panel);
           const e = range === 'days' ? recent(s) : (slide && Number.isFinite(endOf(t.id)) ? endOf(t.id) : t.day?.(frame.metrics)) ?? recent(s); ends.push({ y: Y(range !== 'days' && slide && Number.isFinite(recent(s)) ? recent(s) : e), v: e, label: t.abbr, c, lane });   // (on a slide, written at the line's end, its steady number; the live readings, so wedged − free is the header's HVPG)
         }
       }
@@ -511,11 +516,11 @@ export function createPressureTime({ marks = () => [] } = {}) {
         for (let i = 0; i < e.x.length; i++) ctx[i ? 'lineTo' : 'moveTo'](X(e.x[i]), Ye(e.v[i]));
         ctx.stroke(); ctx.restore();
       }
-      ctx.font = FONT(500, 12); ctx.fillStyle = faint; ctx.textAlign = 'left'; ctx.textBaseline = 'middle'; ctx.fillText('EKG', 4, mid); ctx.textBaseline = 'alphabetic';
+      ctx.font = FONT(500, 12); ctx.fillStyle = faint; ctx.textAlign = 'left'; ctx.textBaseline = 'middle'; ctx.fillText('EKG', 8, mid); ctx.textBaseline = 'alphabetic';
       if (Number.isFinite(hr)) ends.push({ y: mid, v: hr, dec: 0, label: 'HR', c: text, lane: ekgLane });
     }
-    ctx.font = FONT(500, 12); ctx.fillStyle = faint; ctx.textAlign = 'left'; ctx.fillText('mmHg', 4, (lanes[0] ? lanes[0].top : T) - (ekgLane ? 8 : 12));
-    if (slide && lanes.length > 1) ctx.fillText('HVPG, mmHg', 4, lanes[1].top - 10);
+    ctx.font = FONT(500, 12); ctx.fillStyle = faint; ctx.textAlign = 'left'; ctx.fillText('mmHg', 8, (lanes[0] ? lanes[0].top : T) - (ekgLane ? 8 : 12));
+    if (slide && lanes.length > 1) ctx.fillText('HVPG, mmHg', 8, lanes[1].top - 10);
 
     // markers: learner changes and events, where they happened
     const allBot = drawMarkers(markLayout, ekgLane ? [ekgLane, ...lanes] : lanes);
@@ -545,24 +550,24 @@ export function createPressureTime({ marks = () => [] } = {}) {
     const span = x1 - x0;
     if (range === 'days') {
       const step = nice(span, narrow ? 3 : 5);
-      for (let d = Math.ceil(x0 / step) * step; d <= x1 + 1e-9; d += step) { const xx = X(d); if (xx > L + 20 && xx < L + plotW - 30) ctx.fillText(`Day ${Math.round(d)}`, xx, hh - 6); }
-      ctx.textAlign = 'right'; ctx.fillStyle = muted; ctx.fillText(`Day ${Math.round(x1)}`, L + plotW, hh - 6);
+      for (let d = Math.ceil(x0 / step) * step; d <= x1 + 1e-9; d += step) { const xx = X(d); if (xx > L + 20 && xx < L + plotW - 30) ctx.fillText(`Day ${Math.round(d)}`, xx, hh - 8); }
+      ctx.textAlign = 'right'; ctx.fillStyle = muted; ctx.fillText(`Day ${Math.round(x1)}`, L + plotW, hh - 8);
     } else {
       const step = range === 'beats' ? (narrow ? 5 : 2) : (narrow ? 60 : 30);
       for (let s = step; xNow - s > x0 + 1e-9; s += step) {
         const xx = X(xNow - s);
         if (xx < L + 12) break;
-        ctx.fillText(range === 'beats' ? `−${s} s` : s % 60 === 0 ? `−${s / 60} min` : `−${s} s`, xx, hh - 6);
+        ctx.fillText(range === 'beats' ? `−${s} s` : s % 60 === 0 ? `−${s / 60} min` : `−${s} s`, xx, hh - 8);
       }
       const nowX = X(xNow);
-      ctx.textAlign = nowX > L + plotW - 14 ? 'right' : 'center'; ctx.fillStyle = muted; ctx.fillText('now', Math.min(nowX, L + plotW), hh - 6);
+      ctx.textAlign = nowX > L + plotW - 14 ? 'right' : 'center'; ctx.fillStyle = muted; ctx.fillText('now', Math.min(nowX, L + plotW), hh - 8);
     }
 
     // crosshair and its readout card
     if (cx != null && crossRows.length) {
       ctx.strokeStyle = text; ctx.globalAlpha = 0.3; ctx.lineWidth = 1;
       ctx.beginPath(); ctx.moveTo(Math.round(cx) + 0.5, (ekgLane || lanes[0]).top); ctx.lineTo(Math.round(cx) + 0.5, allBot); ctx.stroke(); ctx.globalAlpha = 1;
-      for (const r of crossRows) { ctx.fillStyle = surface; ctx.beginPath(); ctx.arc(cx, r.y, 4.5, 0, 7); ctx.fill(); ctx.fillStyle = r.c; ctx.beginPath(); ctx.arc(cx, r.y, 3, 0, 7); ctx.fill(); }
+      for (const r of crossRows) { ctx.fillStyle = panel; ctx.beginPath(); ctx.arc(cx, r.y, 4.5, 0, 7); ctx.fill(); ctx.fillStyle = r.c; ctx.beginPath(); ctx.arc(cx, r.y, 3, 0, 7); ctx.fill(); }
       const when = range === 'days' ? `Day ${Math.round(xAtCross)}` : Math.abs(xNow - xAtCross) < 0.05 ? 'now' : `${fmt(xNow - xAtCross, range === 'beats' ? 1 : 0)} s ago`;
       ctx.font = FONT(600, 12);
       const rowH = 18, padX = 10;
@@ -638,7 +643,7 @@ export function createPressureTime({ marks = () => [] } = {}) {
       const tw = fit.w, n = fit.lines.length;
       place: for (let r = 0; r + n <= MAX_ROWS; r++) for (const toRight of [true, false]) {
         const x0 = toRight ? g.xx - 4 : g.xx - 11 - tw, x1 = toRight ? g.xx + 7 + tw : g.xx + 4;
-        if (x1 > right || x0 < 2) continue;
+        if (x1 > right || x0 < 8) continue;
         if (spans.some((sp) => sp.row >= r && sp.row < r + n && x0 < sp.x1 + 8 && x1 > sp.x0 - 8)) continue;
         g.row = r; g.text = fit.lines; g.toRight = toRight;
         for (let i = 0; i < n; i++) spans.push({ x0, x1, row: r + i });
@@ -651,9 +656,9 @@ export function createPressureTime({ marks = () => [] } = {}) {
   function drawMarkers({ groups }, lanes) {
     const ctx = cv.getContext('2d');
     const top = lanes[0].top, allBot = lanes[lanes.length - 1].bot;
-    const muted = cssVar('--text-2'), halo = cssVar('--surface');
+    const muted = cssVar('--text-2'), halo = cssVar('--surface-2');
     const colOf = (g) => cssVar(g.sev ? `--${g.sev}` : '--accent');
-    const yOf = (g) => (g.row >= 0 ? 8 + g.row * ROW : top - 8);
+    const yOf = (g) => (g.row >= 0 ? 14 + g.row * ROW : top - 8);
     for (const g of groups) {
       ctx.strokeStyle = colOf(g); ctx.globalAlpha = 0.55; ctx.lineWidth = 1; ctx.setLineDash([2, 3]);
       ctx.beginPath(); ctx.moveTo(g.xx, yOf(g) + 4); ctx.lineTo(g.xx, allBot); ctx.stroke();

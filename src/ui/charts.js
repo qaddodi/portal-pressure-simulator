@@ -10,12 +10,13 @@ import { tenthGap } from '../engine/gap.js?v=3aabfbb29b';
 import { shownOr } from './shown.js?v=82ef5e29ec';
 import { monotoneSegs, curveTester } from './curve-near.js?v=9ff15157e9';
 import { glideMoving } from './idle-keys.js?v=6eccd5d85a';
+import { plotFill } from './plot-look.js?v=5037697da7';
 const nextFrame = frameFor('charts');
 
 const NI = Object.fromEntries(NODES.map((n, i) => [n.id, i]));
 const ARTERIAL = new Set(['AO', 'HA']);
 export const theme = () => ({
-  text: cssVar('--text'), muted: cssVar('--text-2'), faint: cssVar('--text-3'), border: cssVar('--grid'), axis: cssVar('--axis'),
+  text: cssVar('--text'), muted: cssVar('--text-2'), faint: cssVar('--text-3'), border: cssVar('--grid'), axis: cssVar('--axis'), gridOn: cssVar('--border-strong'),
   surface: cssVar('--surface'), surface2: cssVar('--surface-2'), accent: cssVar('--accent'), danger: cssVar('--danger'),
   rev: cssVar('--flow-reversed'), ok: cssVar('--flow-normal'), artery: cssVar('--artery'), caution: cssVar('--caution'),
   series: [1, 2, 3, 4, 5, 6, 7, 8].map((i) => cssVar('--s' + i)),
@@ -118,16 +119,31 @@ export function createProfile() {
     const slot0 = (w - 56) / stations.length;
     // Close together, the station names turn 30° on one row (each ending under its point).
     const stagger = slot0 < 74;
+    const m = cv.getContext('2d'); m.font = FONT(500, 12);
     let tilt = 0;
-    if (stagger) { const m = cv.getContext('2d'); m.font = FONT(500, 12); tilt = Math.max(...stations.map((n) => textW(m, nm(n)))) * 0.5; }
+    if (stagger) tilt = Math.max(...stations.map((n) => textW(m, nm(n)))) * 0.5;
     // Arterial stations sit far above the venous scale: they are drawn in a band above a broken
     // axis (//) with their true value, never clipped.
     const hasArt = stations.some((n) => ARTERIAL.has(n));
     const roomy = hh > 230;
-    const L = 40, R = 16, T = hasArt ? (roomy ? 58 : 34) : 28, B = (stagger ? Math.ceil(tilt) + 20 : 26) + (band ? (path.dims || []).length * BAND_ROW + 2 : 0);
-    const slot = (w - L - R) / stations.length;
     // The axis follows the highest point (now, healthy or the compared moment), eased, not fixed at 30.
     const maxP = axisMax;
+    // The plot is one rounded panel the chart's full width (his G2 look, plot-look.js): the axis numbers stand in a strip inside its edge,
+    // 8 px in from it and 6 px clear of the lines, as wide as the widest number (two digits, three only as the axis passes 100, eased in).
+    const w2 = textW(m, '88'), w3 = textW(m, '888');
+    let L = Math.ceil(w2 + (w3 - w2) * clamp((maxP - 95) / 5, 0, 1)) + 14;
+    const R = 10, T = hasArt ? (roomy ? 58 : 34) : 28, B = (stagger ? Math.ceil(tilt) + 20 : 26) + (band ? (path.dims || []).length * BAND_ROW + 2 : 0);
+    // (Names turned 30° end under their points and run down and left: the strip widens until the first starts 8 px in from the panel's edge.)
+    if (stagger) {
+      const nws = stations.map((n) => textW(m, nm(n))), c30 = Math.cos(Math.PI / 6);
+      for (let k = 0; k < 3; k++) {
+        const sl = (w - L - R) / stations.length;
+        const need = Math.max(...nws.map((nw, i) => 8 + c30 * nw + 3 - (L + sl * (i + 0.5) + 3)));
+        if (need <= 0) break;
+        L += Math.ceil(need);
+      }
+    }
+    const slot = (w - L - R) / stations.length;
     const y = (p) => T + (hh - T - B) * (1 - clamp(p, -2, maxP) / maxP);
     const x = (i) => L + slot * (i + 0.5);
     const artY = roomy ? T - 24 : T - 20;
@@ -232,16 +248,17 @@ export function createProfile() {
     ctx.clearRect(0, 0, w, hh);
     const toStrip = () => { formLock.strip = true; ctx.clearRect(0, 0, w, hh); setForm(true); drawStrip(ctx, c, w, hh); };
     if (stripNow(g) || (formLock.strip && !predict?.on)) { toStrip(); return; }
+    plotFill(ctx, 0, 0, w, hh, c.surface2);   // (the rounded panel under the plot, the numbers and the names)
     ctx.font = FONT(500, 12);
     // grid (solid hairlines): absolute pressure has no clinical threshold, so none is drawn
-    ctx.strokeStyle = c.border; ctx.fillStyle = c.faint; ctx.lineWidth = 1;
+    ctx.strokeStyle = c.gridOn; ctx.fillStyle = c.faint; ctx.lineWidth = 1;
     // (A short chart, a 320 px phone's half sheet, numbers only every so many lines so no two touch: their 30, 25, 20 had
     // stacked into one smudge. 16 px apart at least, the lines 6 px.)
     const step0 = maxP > 40 ? 10 : 5, per = Math.abs(y(0) - y(step0)) || 1;
     const step = step0 * Math.max(1, Math.ceil(6 / per)), lstep = step0 * Math.max(1, Math.ceil(16 / per));
     for (let p = 0; p <= maxP; p += step) {
-      ctx.globalAlpha = 0.55; ctx.beginPath(); ctx.moveTo(L, Math.round(y(p)) + 0.5); ctx.lineTo(w - R, Math.round(y(p)) + 0.5); ctx.stroke(); ctx.globalAlpha = 1;
-      if (p % lstep === 0) { ctx.textAlign = 'right'; ctx.fillText(String(p), L - 8, y(p) + 4); }
+      ctx.globalAlpha = 0.7; ctx.beginPath(); ctx.moveTo(L, Math.round(y(p)) + 0.5); ctx.lineTo(w - R, Math.round(y(p)) + 0.5); ctx.stroke(); ctx.globalAlpha = 1;
+      if (p % lstep === 0) { ctx.textAlign = 'right'; ctx.fillText(String(p), L - 6, y(p) + 4); }
     }
     // The liver: a soft band behind its stations, named at the top.
     const lv = curPath().liver;
@@ -256,8 +273,8 @@ export function createProfile() {
         ctx.restore();
       }
     }
-    ctx.strokeStyle = c.axis; ctx.beginPath(); ctx.moveTo(L, Math.round(y(0)) + 0.5); ctx.lineTo(w - R, Math.round(y(0)) + 0.5); ctx.stroke();
-    if (roomy || !hasArt) { ctx.textAlign = 'left'; ctx.fillText('mmHg', 6, 12); } else { ctx.textAlign = 'right'; ctx.fillText('mmHg', w - R, artY + 4); }
+    // (No axis line: the panel's edge and the grid's own bottom line are the axis.)
+    if (roomy || !hasArt) { ctx.textAlign = 'left'; ctx.fillText('mmHg', 8, 16); } else { ctx.textAlign = 'right'; ctx.fillText('mmHg', w - R, artY + 4); }
     // station labels: horizontal, or turned 30° (ending under their point) when close together
     ctx.fillStyle = c.muted; ctx.font = FONT(500, 12);
     stations.forEach((n, i) => {
@@ -271,7 +288,7 @@ export function createProfile() {
     if (hasArt) {
       ctx.strokeStyle = c.axis; ctx.lineWidth = 1.2;
       for (const dy of [-3, 3]) { ctx.beginPath(); ctx.moveTo(L - 6, T - 10 + dy + 3); ctx.lineTo(L + 6, T - 10 + dy - 3); ctx.stroke(); }
-      ctx.fillStyle = c.faint; ctx.textAlign = 'left'; ctx.font = FONT(500, 12); ctx.fillText('arterial', 4, artY + 4);
+      ctx.fillStyle = c.faint; ctx.textAlign = 'left'; ctx.font = FONT(500, 12); ctx.fillText('arterial', 8, artY + 4);
     }
     const Y = (v, i) => (ARTERIAL.has(stations[i]) ? artY : y(v));
     // The curve runs through the venous stations only; an arterial station sits in its band above
@@ -339,7 +356,7 @@ export function createProfile() {
     // station dots, ringed in the surface colour so they sit cleanly on the line
     const dots = stations.map((n, i) => ({ i, cx: x(i), cy: Y(now[i], i), col: ARTERIAL.has(n) ? c.artery : pressureColor(now[i]) }));
     for (const d of dots) {
-      ctx.fillStyle = c.surface; ctx.beginPath(); ctx.arc(d.cx, d.cy, 6.5, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = c.surface2; ctx.beginPath(); ctx.arc(d.cx, d.cy, 6.5, 0, Math.PI * 2); ctx.fill();
       ctx.fillStyle = d.col; ctx.beginPath(); ctx.arc(d.cx, d.cy, 4.5, 0, Math.PI * 2); ctx.fill();
     }
     // Labels: the value at each station when there is room, and ΔP between stations that matter
@@ -371,12 +388,10 @@ export function createProfile() {
       // below-left of a falling segment reads naturally (the fill side); above as a fallback
       const r = place(xm, [ym + 16, ym - 16, ym + 30, ym - 30], tw, th);
       if (!r) continue;
-      // An opaque plate first, so no line shows through the number.
+      // An opaque plate first, so no line shows through the number (the panel's own lighter tone, a tile on the panel).
       ctx.beginPath(); ctx.roundRect ? ctx.roundRect(r.x0, r.y0, tw, th, 8.5) : ctx.rect(r.x0, r.y0, tw, th);
       ctx.fillStyle = c.surface; ctx.fill();
-      ctx.fillStyle = main ? c.danger : c.surface2;
-      ctx.globalAlpha = main ? 0.14 : 1; ctx.fill();
-      ctx.globalAlpha = 1;
+      if (main) { ctx.fillStyle = c.danger; ctx.globalAlpha = 0.14; ctx.fill(); ctx.globalAlpha = 1; }
       ctx.fillStyle = dp < 0 ? c.rev : main ? c.danger : c.muted;
       ctx.fillText(txt, (r.x0 + r.x1) / 2, (r.y0 + r.y1) / 2 + 0.5);
     }

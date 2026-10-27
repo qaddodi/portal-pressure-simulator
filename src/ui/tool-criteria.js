@@ -31,7 +31,7 @@
 
 import { h, fmt } from './util.js?v=5ad334ebc0';
 import { TILE } from './table-marks.js?v=8458ad3bf8';
-import { plotPanel } from './plot-look.js?v=965ae2241f';
+import { plotPanel } from './plot-look.js?v=5037697da7';
 
 export const CRITERIA_MAX = 4;
 /** The graphs a criteria card can draw (zones), in their own units: x and y ranges, the zones, the hatched area and the axis marks. */

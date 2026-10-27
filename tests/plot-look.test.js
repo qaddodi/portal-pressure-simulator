@@ -6,7 +6,7 @@ import './dom-shim.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { plotR, plotPanel, PLOT_R } from '../src/ui/plot-look.js';
+import { plotR, plotPanel, plotFill, PLOT_R } from '../src/ui/plot-look.js';
 import { planeOf, frame, bleed, scaler, plotNumbers, PAD, est } from '../src/ui/visual-plane.js';
 import { xAxisRow, xAxisName, xTicks, fmtTick } from '../src/ui/tool-curve.js';
 
@@ -148,4 +148,32 @@ test('a flow-time chart with treatments keeps their names and bars inside the pa
 test('the criteria cards\' lead line and rule stand centred, as the first-visit graph\'s do', () => {
   assert.match(css, /\.pzc-top \{ display: flex; flex-wrap: wrap; align-items: baseline; justify-content: center;/);
   assert.match(css, /\.pzc-lead \{ flex: 0 1 auto; min-width: 0; margin: 0; text-align: center;/);
+});
+
+test('the Explore dock\'s canvas charts lay the same rounded panel: plotFill is the panel\'s rect in the tile tone, laid first, and neither chart keeps an axis line', () => {
+  const calls = [];
+  const ctx = { save() {}, restore() {}, beginPath() {}, roundRect: (...a) => calls.push(['roundRect', ...a]), rect: (...a) => calls.push(['rect', ...a]), fill() { calls.push(['fill', this.fillStyle]); } };
+  assert.equal(plotFill(ctx, 0, 0, 300, 200, '#f6f5f1'), 10, 'the corner is the plot\'s');
+  assert.deepEqual(calls, [['roundRect', 0, 0, 300, 200, 10], ['fill', '#f6f5f1']]);
+  calls.length = 0;
+  assert.equal(plotFill({ ...ctx, roundRect: undefined }, 0, 0, 30, 20, 'red'), 5, 'a small box takes a quarter of its shorter side');
+  assert.deepEqual(calls[0], ['rect', 0, 0, 30, 20], 'a canvas without roundRect still gets the panel, square');
+
+  const charts = read('../src/ui/charts.js'), pt = read('../src/ui/pressure-time.js');
+  for (const [name, src] of [['charts', charts], ['pressure-time', pt]]) {
+    assert.match(src, /import \{ plotFill \} from '\.\/plot-look\.js/, `${name} uses the shared rounded plot`);
+  }
+  assert.match(charts, /plotFill\(ctx, 0, 0, w, hh, c\.surface2\);/, 'the profile\'s panel is its whole box in the tile tone');
+  assert.match(pt, /plotFill\(ctx, 0, 0, w, hh, panel\);/, 'so is Over time\'s');
+  assert.match(pt, /panel = col\('--surface-2'\)/, 'the tile tone, --surface-2, as the SVG charts\' pz-plotbg');
+  assert.doesNotMatch(charts, /c\.axis; ctx\.beginPath\(\); ctx\.moveTo\(L, Math\.round\(y\(0\)\)/, 'no axis line under the profile: the panel\'s edge is the axis');
+  // (Where a label must hide a line, or a dot is ringed, the panel's tone is used, not the card's, so no patch shows on the panel.)
+  assert.match(pt, /ctx\.fillStyle = panel; ctx\.fillRect\(lx, yy - 6, tw \+ 8, 12\)/, 'the cut-off names\' plates');
+  assert.match(pt, /dots\(ctx, s, X, Y, c, panel\)/, 'the day dots\' rings');
+  assert.match(pt, /halo = cssVar\('--surface-2'\)/, 'the markers\' halos');
+  assert.match(charts, /ctx\.fillStyle = c\.surface2; ctx\.beginPath\(\); ctx\.arc\(d\.cx, d\.cy, 6\.5/, 'the station dots\' rings');
+  // (The numbers: 8 px in from the edge, 6 px clear of the lines, in both.)
+  assert.match(charts, /ctx\.fillText\(String\(p\), L - 6, y\(p\) \+ 4\)/);
+  assert.match(pt, /ctx\.fillText\(fmt\(v, tick < 1 \? 1 : 0\), L - 6, yy\)/);
+  assert.match(pt, /const L = 36, R = tiny \? 62 : narrow \? \(slide \? 100 : 94\) : 104, B = 24/);
 });
