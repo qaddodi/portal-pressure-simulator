@@ -10,7 +10,7 @@ import { adopted } from './deck-adopted.js';
 import { EXT } from '../src/ui/slide-ext.js';
 import { NODES } from '../src/engine/topology.js';
 import { portalSplit } from '../src/ui/table-marks.js';
-import { profileOf, STATIONS, TIGHT_NAMES, NAME_GAP, axisTop, nameFit, profileGeo, valueSides, placeValues, curveRuns, labelPlacer, bracketLabel, bracketFit, oneLineGap, LABEL_PAD, BAR_MIN, BR_CLEAR, BR_MIN, BRACE_NAME, SPANS, placeBrackets, bracketBox, BR_PAD, ZONES, ZONE_GAP, zoneSpans, zoneFit, zoneBoxes } from '../src/ui/tool-profile.js';
+import { profileOf, STATIONS, TIGHT_NAMES, NAME_GAP, axisTop, nameFit, profileGeo, valueSides, placeValues, curveRuns, labelPlacer, bracketLabel, bracketFit, oneLineGap, LABEL_PAD, BAR_MIN, BR_CLEAR, BR_MIN, BRACE_NAME, SPANS, placeBrackets, bracketBox, BR_PAD, ZONES, ZONE_GAP, ZONE_TOP, zoneSize, zoneSpans, zoneFit, zoneBoxes } from '../src/ui/tool-profile.js';
 import { flowParts, routeFlows, wholeShares, flowView, MAX_ROUTES, routeLayout, routeRows, routeHeight, LABEL_GAP, inflowGeo, inflowMarker, inflowSpans, inflowLabels, barOrder } from '../src/ui/tool-flows.js';
 import { milePlaces } from '../src/ui/talk-trace.js';
 import { RX, bandKeys, bandRuns, bandSpan, namePlaces } from '../src/ui/rx-bands.js';
@@ -125,16 +125,17 @@ test('the station names fit their slots on one row: full where there is room, el
 // Mohammad, 21 Oct (iPhone, Ascites 8/13): "better compaction or less wasted space on top". The key row over the plot is gone: the zones'
 // tints rise over the plot in a strip that carries their names (22 Oct: PRE-HEPATIC, INTRAHEPATIC, POST-HEPATIC), and the layouts' boxes
 // (styles/app.css) are 1.6 em shorter. The strip is only as tall as the names need: a line of them, two where the zones are too narrow
-// for one, none where nothing fits.
+// for one, none where nothing fits. (27 Oct, Mohammad: "the space above is tight, needs some margin above PRE, INTRA, POST-hepatic": the names keep
+// ZONE_TOP of their own size between the band's top edge and their capitals, and the strip is that much taller.)
 test('the ladder keeps no empty row over its plot: the zones\' tints and their names fill the strip above it', () => {
   for (const [w, h, f] of [[335, 250, 12], [352, 270, 13.8], [552, 300, 15.6], [259, 200, 12.02], [430, 260, 12], [100, 200, 12]]) {
-    const tw = approxW(f), G = profileGeo(w, h, f, tw, true), lines = G.zone.lines, top = G.T - G.hdr, base = G.T - G.zb;
+    const tw = approxW(f), G = profileGeo(w, h, f, tw, true), lines = G.zone.lines, top = G.T - G.hdr, base = G.T - G.zb, zf = zoneSize(f);
     assert.ok(Math.abs(top - 0.2 * f) < 1e-9, `${w}x${h}: the tints start 0.2 em down, inside the chart`);
     // (A name's baseline stands clear of the highest reading a plot can hold: its box and its halo, over the plot's top.)
     assert.ok(base <= G.T - 0.36 * f - 4, `${w}x${h}: names clear of a reading standing at the plot's top`);
-    if (lines) assert.ok(base - 0.72 * f - (lines === 2 ? 1.05 * f : 0) > top, `${w}x${h}: ${lines} line(s) of names stand inside the tints`);
+    if (lines) assert.ok(base - 0.72 * zf - (lines === 2 ? 1.05 * zf : 0) - top >= ZONE_TOP * zf - 1e-9, `${w}x${h}: ${lines} line(s) of names stand inside the tints, ${ZONE_TOP} em under the band's top edge`);
     else assert.ok(G.T <= 0.56 * f + 4 + 1e-9, `${w}x${h}: no names, no empty strip`);
-    assert.ok(G.T <= 2 * f + (lines === 2 ? 1.1 * f : 0), `${w}x${h}: the strip costs the plot under half an em more than the old one line (1.5 em), one em more for a second`);
+    assert.ok(G.T <= 2 * f + (lines ? ZONE_TOP * zf : 0) + (lines === 2 ? 1.1 * f : 0), `${w}x${h}: the strip costs the plot half an em more than the old one line (1.5 em) for its margin, one em more for a second line`);
     assert.equal(G.keyH, undefined, 'no key row');
   }
 });

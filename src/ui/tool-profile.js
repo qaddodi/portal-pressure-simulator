@@ -57,6 +57,9 @@ export function zoneSpans() {
 // type in each chart), they ease down towards ZONE_MIN: the strip over the plot stays one short line, the readings, the stations and the
 // brackets grow and the plot does not give up two lines of height to three captions. The numbers (profileGeo's zb, hdr) follow zoneSize.)
 export const ZONE_MAX = 16, ZONE_MIN = 13;
+/** The room kept over the zones' names, between the band's top edge and the tops of the capitals, in zone-name em (Mohammad, 27 Oct: "the space above is
+ *  tight, needs some margin above PRE, INTRA, POST-hepatic"): 0.5 em, about 8 px. */
+export const ZONE_TOP = 0.5;
 export const zoneSize = (f) => (f <= ZONE_MAX ? f : Math.max(ZONE_MIN, ZONE_MAX - (f - ZONE_MAX) * 0.75));
 const zoneW = (t, f, tw, tight) => (zoneSize(f) / f) * (tw(t, 600) + (tight ? 0 : 0.06 * f * t.length));
 /** The lines of zone k's name: one, or two ("PRE" over "HEPATIC"). */
@@ -178,7 +181,7 @@ export function profileGeo(w, h, f, tw, inside = false) {
   // shorter by the 1.6 em this gave back, so the plot keeps (nearly) its height. The names' baseline zb stands over the plot clear of a
   // reading at the plot's top, and of a block hanging from one (its box and its halo, 2 px over them), so a name never touches them. One line of names, or two where the narrowest
   // zone cannot hold its name; none where even that does not fit, the strip then only a lip over the readings.)
-  const zone = zoneFit(slot, f, tw), zb = 0.36 * f + 6, zf = zoneSize(f), hdr = zone.lines ? zb + 0.84 * zf + (zone.lines === 2 ? 1.05 * zf : 0) : 0.36 * f + 4;
+  const zone = zoneFit(slot, f, tw), zb = 0.36 * f + 6, zf = zoneSize(f), hdr = zone.lines ? zb + (0.84 + ZONE_TOP) * zf + (zone.lines === 2 ? 1.05 * zf : 0) : 0.36 * f + 4;
   const T = 0.2 * f + hdr, nameH = fit.rows * 1.25 * f + 0.4 * f;
   const brFit = SPANS.map(([, name, a, b]) => bracketFit(slot * (STATIONS.indexOf(b) - STATIONS.indexOf(a)), name, tw, f));
   const brMode = brFit.map((q) => q.mode), brFs = brFit.map((q) => q.fs);
@@ -707,7 +710,8 @@ export function createProfileTool() {
           G.zone.lines ? ls.map((t, j) => sv('text', { x: m, y: G.T - G.zb - (ls.length - 1 - j) * 1.05 * zf, 'text-anchor': 'middle' }, t)) : null);
       }),
       Array.from({ length: Math.floor(top / every) + 1 }, (_, k) => sv('g', { class: 'ptk-grid' }, sv('line', { x1: G.L, x2: G.R, y1: y(k * every), y2: y(k * every) }),
-        sv('text', { x: G.L - 6, y: y(k * every) + 0.35 * f, 'text-anchor': 'end' }, String(k * every)))),
+        // (No 0 on the axis, Mohammad, 27 Oct: "0 is kinda implied"; its line stays.)
+        k ? sv('text', { x: G.L - 6, y: y(k * every) + 0.35 * f, 'text-anchor': 'end' }, String(k * every)) : null)),
       // (The unit in the bottom row, at the left, level with the brace's name: Mohammad, 21 Oct, "Remove mmHg from above put it below".)
       sv('text', { class: 'ptk-unit', x: 0, y: G.braceY + 1.55 * f }, 'mmHg'),
       hl ? sv('path', { class: 'ppf-hl', d: smoothD(pts(hl)), mask: `url(#${gid}-m)` }) : null,

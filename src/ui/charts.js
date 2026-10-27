@@ -258,7 +258,7 @@ export function createProfile() {
     const step = step0 * Math.max(1, Math.ceil(6 / per)), lstep = step0 * Math.max(1, Math.ceil(16 / per));
     for (let p = 0; p <= maxP; p += step) {
       ctx.globalAlpha = 0.7; ctx.beginPath(); ctx.moveTo(L, Math.round(y(p)) + 0.5); ctx.lineTo(w - R, Math.round(y(p)) + 0.5); ctx.stroke(); ctx.globalAlpha = 1;
-      if (p % lstep === 0) { ctx.textAlign = 'right'; ctx.fillText(String(p), L - 6, y(p) + 4); }
+      if (p && p % lstep === 0) { ctx.textAlign = 'right'; ctx.fillText(String(p), L - 6, y(p) + 4); }   // (No 0: it is implied, Mohammad, 27 Oct; its line stays.)
     }
     // The liver: a soft band behind its stations, named at the top.
     const lv = curPath().liver;
