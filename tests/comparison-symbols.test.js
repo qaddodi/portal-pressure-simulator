@@ -56,20 +56,21 @@ test('the legend ends and the model\'s checks use the symbol, not a trailing plu
   assert.doesNotMatch(ver, /at least [\d]|below (HVPG )?12/);
 });
 
-test('Stiffness, the first visit: the platelets sit with the kPa cut-off in one cell, both values read together', () => {
+test('Stiffness, the first visit: the platelets sit with the kPa cut-off on one line, both values read together, lowest kPa first', () => {
   const s = DECKS.find((d) => d.id === 'stiffness').slides.find((x) => x.id === 'rules');
   const rows = criteriaRows(s.tool), withPlt = rows.filter((r) => r.and);
   assert.equal(withPlt.length, 2, 'the rule-out and the scope-sparing rule each take platelets');
   for (const r of withPlt) {
     assert.ok(cutParts(r.cut)?.unit === 'kPa', `${r.text}: its cut-off is the stiffness`);
-    assert.match(r.and, /^platelets ≥150,000\/µL$/, 'the platelet cut-off, a symbol and the number');
+    assert.match(r.and, /^PLT ≥150K$/, 'the platelet cut-off, a symbol and the number, short enough for the cut-off\'s own line');
     assert.doesNotMatch(r.text, /150,000|platelets/i, 'the row\'s words do not say it again');
   }
-  assert.deepEqual(rows.map((r) => r.cut), ['≤15 kPa', '≥25 kPa', '15–25 kPa', '<20 kPa']);
+  assert.deepEqual(rows.map((r) => r.cut), ['≤15 kPa', '<20 kPa', '15–25 kPa', '≥25 kPa'], 'the rows run from the lowest kPa to the highest');
   const js = readFileSync(new URL('../src/ui/tool-criteria.js', import.meta.url), 'utf8');
-  assert.match(js, /r\.and \? h\('span', \{ class: 'pzc-and' \}, r\.and\) : null/, 'the second condition is set inside the cut-off\'s own cell');
+  assert.match(js, /r\.and \? h\('span', \{ class: 'pzc-and' \}, `\+ \$\{r\.and\}`\) : null/, 'the second condition is set inside the cut-off\'s own cell');
   assert.match(js, /\.\.\.\(r\.and \? \{\} : \{ 'aria-hidden': 'true' \}\)/, 'a screen reader reads a cell that holds more than the row\'s words');
   const css = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
-  assert.match(css, /\.pzc-and \{[^}]*display: block[^}]*font: 500 max\(12px,/, 'one line under the cut-off, 12 px or more');
+  assert.match(css, /\.pzc-and \{[^}]*font: 500 max\(12px,/, 'on the cut-off\'s own line, 12 px or more');
+  assert.doesNotMatch(css.slice(css.indexOf('.pzc-and {'), css.indexOf('.pzc-and {') + 120), /display: block/, 'not a second line');
   assert.doesNotMatch(css.slice(css.indexOf('.pzc-and {'), css.indexOf('.pzc-and {') + 400), /border-(left|right)|box-shadow|ellipsis/, 'no stripe, glow or ellipsis');
 });

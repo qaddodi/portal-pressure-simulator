@@ -6809,7 +6809,7 @@ html.thumb-ui .menu.from-dock { clip-path: inset(-64px -64px calc(var(--sink, 0p
 .pzc-s, .pzc-u { font-family: var(--font-ui); font-weight: 400; }   /* (the serif has no ≥ or ≤) */
 .pzc-s { font-size: .8em; margin-right: .06em; }
 .pzc-u { font-size: max(12px, .46em); margin-left: .3em; color: var(--text-3); }
-.pzc-and { display: block; margin-top: .35em; font: 500 max(12px, .66em)/1.2 var(--font-ui); font-variant-numeric: tabular-nums lining-nums; color: var(--text-2); }   /* (the rule's second condition under its cut-off, small and in the sans: "platelets ≥150,000/µL" sits with the kPa, one line, 12 px floor) */
+.pzc-and { margin-left: .5em; font: 500 max(12px, .5em)/1 var(--font-ui); font-variant-numeric: tabular-nums lining-nums; color: var(--text-2); }   /* (the rule's second condition on the cut-off's own line, small in the sans, after a "+": "≤15 kPa + PLT ≥150K", never two lines; 12 px floor) */
 .pzc-end { grid-column: 3; display: flex; flex-direction: column; align-items: flex-start; gap: .1em; white-space: nowrap; padding-left: 22px; font: 500 calc(1em / 1.07)/1.25 var(--font-ui); font-variant-numeric: tabular-nums; color: var(--text-3); }
 .pzc-hrow .pzc-end { font: inherit; color: inherit; }
 .pz-crit:not(.has-case) .pzc-end { display: none; }   /* (a plain list: its words take the full width) */

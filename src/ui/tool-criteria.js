@@ -9,8 +9,8 @@
 //   lit: true                                           sets the row that applies to the case in full-white words
 //   met: true | false                                   the case meets the row (its note large, "meets it ✓" under it) or not ("not met")
 //   cut: 'C 10–13', '≥20 mmHg'                          the row's cut-off, set large at its left (a step larger on a card 480 px and up)
-//   and: 'platelets ≥150,000/µL'                       a second condition of the same rule, small under the cut-off: both values read together
-//                                                       (Mohammad 26 Oct: the platelets sit with the kPa). Comparisons are always symbols, > < ≥ ≤
+//   and: 'PLT ≥150K'                                    a second condition of the same rule, small on the cut-off's own line after a "+" ('≤15 kPa + PLT ≥150K'):
+//                                                       both values read together (Mohammad 26–27 Oct). Comparisons are always symbols, > < ≥ ≤
 //   **...** in text                                     the rule's numbers in bold ('Child–Pugh B, **>7**, ...')
 // ticks: false on the tool leaves the live marks off (a classification such as the Sarin classes, where no row is "met").
 // V3 (26 Oct, his "V3 build it"; review/guideline-cards-ideas/round8): the rules in the serif, a lead line on how they combine
@@ -90,7 +90,7 @@ export function createCriteria() {
     const c = cutParts(r.cut);
     if (!c) return h('span', { class: 'pzc-c', 'aria-hidden': 'true' });
     // (Hidden from a screen reader when the row's words say the same; a second condition is only here, so it is read.)
-    return h('span', { class: 'pzc-c', ...(r.and ? {} : { 'aria-hidden': 'true' }) }, c.sign ? h('span', { class: 'pzc-s' }, c.sign) : null, c.num, c.unit ? h('span', { class: 'pzc-u' }, c.unit) : null, r.and ? h('span', { class: 'pzc-and' }, r.and) : null);
+    return h('span', { class: 'pzc-c', ...(r.and ? {} : { 'aria-hidden': 'true' }) }, c.sign ? h('span', { class: 'pzc-s' }, c.sign) : null, c.num, c.unit ? h('span', { class: 'pzc-u' }, c.unit) : null, r.and ? h('span', { class: 'pzc-and' }, `+ ${r.and}`) : null);
   }
   function build(t) {
     rows = criteriaRows(t);
