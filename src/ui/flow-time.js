@@ -10,6 +10,7 @@
 // A line the model does not compute (weight lost, which the model has no body for) is given by the slide (tool.given: { wt: 12 }):
 // it climbs from 0 to that number in step with the time-lapse's ramp, and every other line is still the model's own.
 import { frameFor, cancelFrame } from './frame.js?v=7254a8a850';
+import { plotPanel } from './plot-look.js?v=965ae2241f';
 import { RX, bandKeys } from './rx-bands.js?v=51e83c7c59';
 const nextFrame = frameFor('flow-time');
 
@@ -119,7 +120,7 @@ export function createFlowTime() {
   let G = null;
   // (The treatments under the clock: their names on one row, then a thin bar each. The chart is that much taller
   // (styles/app.css .pz-flowtime.has-bands sets the same room, in em), so the plot keeps the height it has without them.)
-  const bandRoom = (f) => (rx.length ? (0.95 + 0.32 * rx.length) * f : 0);
+  const bandRoom = (f) => (rx.length ? (1.2 + 0.32 * rx.length) * f : 0);
   // The geometry for a chart w × h px in type f px.
   function geo(w, h, f) {
     const meal = clock !== 'days', keysL = legendOf(keys, f);
@@ -127,10 +128,11 @@ export function createFlowTime() {
     const tw = (sc) => Math.max(...sc.ticks.map((v) => cw(fmt(v, dec(sc)), f)));
     // (Right of the plot: the upper line's numbers, and the clock's unit in capitals after half its last number.)
     // (On a slide with treatment bars the left numbers stand clear of the start ring too.)
-    const half = cw(`+${ax().end}`, f) / 2 + 6, L = Math.ceil(tw(ser.pScale) + 8 + (rx.length ? Math.max(3, f * 0.3) + 2 : 0)), R = Math.floor(w - Math.max(tw(ser.fScale) + 8, half + (meal ? 3 : 4) * f * 0.78 + 4));
+    // (The plot is one rounded panel the chart's full width, his G2 look, plot-look.js: the numbers stand inside its edge, 8 px in from it.)
+    const half = cw(`+${ax().end}`, f) / 2 + 6, L = Math.ceil(tw(ser.pScale) + 14 + (rx.length ? Math.max(3, f * 0.3) + 2 : 0)), R = Math.floor(w - Math.max(tw(ser.fScale) + 14, half + (meal ? 3 : 4) * f * 0.78 + 10));
     // (Room over the plot for the "Fasting" and "Meal" row, else for the upper line's value over its head.)
     const T = legH + (meal ? 1.9 * f : 1.9 * f), B = h - 1.7 * f - bandRoom(f), ph = Math.max(4 * f, B - T);
-    return { w, h, f, half, meal, keysL, oneRow, rowH, L, R, T, B, FB: [T, T + 0.36 * ph], PB: [T + 0.62 * ph, T + ph] };
+    return { w, h, f, half, meal, keysL, oneRow, rowH, keyH: legH, L, R, T, B, FB: [T, T + 0.36 * ph], PB: [T + 0.62 * ph, T + ph] };
   }
   const X = (m) => G.L + (G.R - G.L) * (m - ax().from) / (ax().end - ax().from);
   function build() {
@@ -172,10 +174,12 @@ export function createFlowTime() {
     // under the clock, then a thin bar each in the same order and colour, over the plot's whole time, so every bar starts
     // where the treatment does and no line, value or number can run into them.
     const bandEls = rx.length ? sv('g', { class: 'pft-bands' },
-      sv('text', { class: 'pft-band-n', x: L, y: B + 2.3 * f }, rx.map((k, j) => sv('tspan', { style: `--rx: var(${RX[k][2]})` }, (j ? '  ·  ' : '') + RX[k][0]))),
-      rx.map((k, j) => sv('rect', { class: 'pft-band', 'data-rx': k, style: `--rx: var(${RX[k][2]})`, x: L, width: Math.max(2, R - L), y: B + 2.55 * f + j * 0.32 * f, height: 0.2 * f, rx: 0.1 * f }))) : null;
+      sv('text', { class: 'pft-band-n', x: L, y: B + 2.55 * f }, rx.map((k, j) => sv('tspan', { style: `--rx: var(${RX[k][2]})` }, (j ? '  ·  ' : '') + RX[k][0]))),
+      rx.map((k, j) => sv('rect', { class: 'pft-band', 'data-rx': k, style: `--rx: var(${RX[k][2]})`, x: L, width: Math.max(2, R - L), y: B + 2.8 * f + j * 0.32 * f, height: 0.2 * f, rx: 0.1 * f }))) : null;
+    // (The panel under everything: from just under the legend to under the clock's numbers, the chart's full width.)
+    const panel = plotPanel(sv, 0, G.keyH + 0.1 * f, G.w, B + 1.7 * f - (G.keyH + 0.1 * f));
     const svg = sv('svg', { viewBox: `0 0 ${G.w} ${G.h}`, width: G.w, height: G.h, role: 'img', style: `font-size: ${G.f.toFixed(2)}px` },
-      bandEls, grid(ser.fScale, lf.Y, R + 6, 'start', lf.c), grid(ser.pScale, lp.Y, L - 6 - (rx.length ? Math.max(3, f * 0.3) + 2 : 0), 'end', lp.c), legend,
+      sv('defs', {}, panel.clip), panel.back, bandEls, grid(ser.fScale, lf.Y, R + 6, 'start', lf.c), grid(ser.pScale, lp.Y, L - 6 - (rx.length ? Math.max(3, f * 0.3) + 2 : 0), 'end', lp.c), legend,
       sv('line', { class: 'pft-x', x1: L, x2: R, y1: B, y2: B }),
       mins.map((m) => sv('text', { class: 'pft-tk', x: X(m), y: B + 1.25 * f, 'text-anchor': 'middle' }, m > 0 ? `+${m}` : m < 0 ? `−${-m}` : '0')),
       sv('text', { class: 'ptk-ax', x: R + G.half, y: B + 1.25 * f }, meal ? 'min' : 'days'),
@@ -266,7 +270,7 @@ export function createFlowTime() {
     configure(t, ctx) {
       rx = bandKeys(t).filter((k) => RX[k][1](ctx?.params));
       el.classList.toggle('has-bands', rx.length > 0);
-      el.style.setProperty('--band-room', `${rx.length ? 0.95 + 0.32 * rx.length : 0}em`);
+      el.style.setProperty('--band-room', `${rx.length ? 1.2 + 0.32 * rx.length : 0}em`);
     },
     update() {}, clear() {},
   };

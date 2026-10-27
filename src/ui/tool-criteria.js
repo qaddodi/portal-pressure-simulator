@@ -31,6 +31,7 @@
 
 import { h, fmt } from './util.js?v=5ad334ebc0';
 import { TILE } from './table-marks.js?v=8458ad3bf8';
+import { plotPanel } from './plot-look.js?v=965ae2241f';
 
 export const CRITERIA_MAX = 4;
 /** The graphs a criteria card can draw (zones), in their own units: x and y ranges, the zones, the hatched area and the axis marks. */
@@ -120,10 +121,11 @@ export function createCriteria() {
     const X = (k) => ((k - fig.x[0]) / (fig.x[1] - fig.x[0])) * W, Y = (p) => ((fig.y[1] - p) / (fig.y[1] - fig.y[0])) * ph;
     const box = (a, extra = {}) => svg('rect', { x: X(a.x[0]), y: Y(a.y[1]), width: X(a.x[1]) - X(a.x[0]), height: Y(a.y[0]) - Y(a.y[1]), ...extra });
     const word = (x, y, t, cls, anchor = 'middle', size = fs) => svg('text', { x, y, class: `pzz-w ${cls || ''}`, 'text-anchor': anchor, 'font-size': size }, t);
-    const g = svg('g', { 'clip-path': `url(#${id}c)` }, ...fig.zones.map((z) => box(z, { class: 'pzz-z', 'data-rate': z.rate })), fig.hatch ? box(fig.hatch, { fill: `url(#${id}h)` }) : null);
+    const panel = plotPanel(svg, 0, 0, W, ph, { fill: false });   // (the shared rounded plot, plot-look.js)
+    const g = svg('g', { 'clip-path': panel.url }, ...fig.zones.map((z) => box(z, { class: 'pzz-z', 'data-rate': z.rate })), fig.hatch ? box(fig.hatch, { fill: `url(#${id}h)` }) : null);
     const by = ph - 8;
     plot.replaceChildren(svg('svg', { width: W, height: ph, viewBox: `0 0 ${W} ${ph}`, role: 'img', 'aria-label': fig.label || '' },
-      svg('defs', {}, svg('clipPath', { id: `${id}c` }, svg('rect', { width: W, height: ph, rx: 10 })),
+      svg('defs', {}, panel.clip,
         svg('pattern', { id: `${id}h`, width: 7, height: 7, patternUnits: 'userSpaceOnUse', patternTransform: 'rotate(45)' }, svg('rect', { width: 2, height: 7, class: 'pzz-hl' }))),
       g,
       ...fig.zones.filter((z) => z.name).map((z) => word(X(z.at[0]), Y(z.at[1]) + fs * 0.36, z.name, 'n')),

@@ -14,6 +14,7 @@ import { PROFILE_PATHS } from './anatomy.js?v=48cc98d415';
 import { NODES } from '../engine/topology.js?v=4044766e96';
 import { RATE } from './table-marks.js?v=8458ad3bf8';
 import { monotoneSegs } from './curve-near.js?v=9ff15157e9';
+import { plotPanel } from './plot-look.js?v=965ae2241f';
 import { pressureColor } from './colormap.js?v=a9284dde52';
 
 const PATH = PROFILE_PATHS[0];
@@ -684,10 +685,12 @@ export function createProfileTool() {
     const valY = (cy, k) => cy + sides[k].by, t = performance.now();
     // (The blocks showing, each where the shown line falls so it moves with the line as it eases, and how far each has faded in.)
     const bk = [...blk].map(([i, b]) => ({ op: blkOp(b, t), box: blockBox(G, tw, shown, i) })).filter((q) => q.op >= 0.005);
+    // (The three zones' tints are one rounded shape, his G2 look, plot-look.js: the corners of the whole band, not of each zone.)
+    const band = plotPanel(sv, G.x(0) - G.slot / 2, G.T - G.hdr, G.slot * STATIONS.length, G.B - (G.T - G.hdr), { fill: false });
     const blkRect = ([x0, x1, y0, y1], at = {}) => sv('rect', { x: x0, y: y0, width: x1 - x0, height: y1 - y0, rx: Math.min(4, (x1 - x0) / 2), ...at });
     const svg = sv('svg', { viewBox: `0 0 ${w} ${hh}`, width: w, height: hh, role: 'img', style: `font-size: ${f.toFixed(2)}px`,
       'aria-label': `Pressure from gut to heart: ${STATIONS.map((n, i) => `${SPOKEN[n]} ${labels[i]}`).join(', ')} mmHg. HVPG ${whole(shown.hvpg)}, PPG ${whole(shown.ppg)}.` },
-      sv('defs', {}, hatchDef(`${gid}-h`, 8), bk.length ? sv('clipPath', { id: `${gid}-c` }, bk.map((q) => blkRect(q.box))) : null, sv('linearGradient', { id: gid, gradientUnits: 'userSpaceOnUse', x1: G.x(0), x2: G.x(STATIONS.length - 1), y1: 0, y2: 0 },
+      sv('defs', {}, band.clip, hatchDef(`${gid}-h`, 8), bk.length ? sv('clipPath', { id: `${gid}-c` }, bk.map((q) => blkRect(q.box))) : null, sv('linearGradient', { id: gid, gradientUnits: 'userSpaceOnUse', x1: G.x(0), x2: G.x(STATIONS.length - 1), y1: 0, y2: 0 },
         shown.v.map((v, i) => sv('stop', { offset: (i / (STATIONS.length - 1)).toFixed(3), 'stop-color': col(v) }))),
         // (The lines stop NUM_PAD px short of each number written on them.)
         sv('mask', { id: `${gid}-m`, maskUnits: 'userSpaceOnUse', x: 0, y: 0, width: w, height: hh },
@@ -698,7 +701,7 @@ export function createProfileTool() {
       zoneSpans().map(([a, b], k) => {
         const m = (G.x(a) + G.x(b)) / 2, y0 = G.T - G.hdr, ls = zoneLines(k, G.zone.lines);
         const zf = zoneSize(f);
-        return sv('g', { class: G.zone.tight ? `${ZONES[k].cls} tight` : ZONES[k].cls, style: zf < f - 0.01 ? `font-size: ${zf.toFixed(2)}px` : null }, sv('rect', { x: G.x(a) - G.slot / 2, width: G.slot * (b - a + 1), y: y0, height: G.B - y0 }),
+        return sv('g', { class: G.zone.tight ? `${ZONES[k].cls} tight` : ZONES[k].cls, style: zf < f - 0.01 ? `font-size: ${zf.toFixed(2)}px` : null }, sv('rect', { x: G.x(a) - G.slot / 2, width: G.slot * (b - a + 1), y: y0, height: G.B - y0, 'clip-path': band.url }),
           G.zone.lines ? ls.map((t, j) => sv('text', { x: m, y: G.T - G.zb - (ls.length - 1 - j) * 1.05 * zf, 'text-anchor': 'middle' }, t)) : null);
       }),
       Array.from({ length: Math.floor(top / every) + 1 }, (_, k) => sv('g', { class: 'ptk-grid' }, sv('line', { x1: G.L, x2: G.R, y1: y(k * every), y2: y(k * every) }),

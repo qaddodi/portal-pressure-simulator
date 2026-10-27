@@ -36,7 +36,7 @@ const { fmt } = await import('../src/ui/util.js');
 const csph = planeOf('csph');
 // The plot's dot, in data units' pixels: where the card's ring group stands, and the words under the plot.
 const SIZE = [420, 200];
-const place = (f) => { const fr = frame(SIZE[0], SIZE[1], 14, csph), { X, Y } = scaler(csph, fr); return `translate(${X(f.lsm).toFixed(1)}px, ${Y(f.plt).toFixed(1)}px)`; };
+const place = (f) => { const fr = frame(SIZE[0], SIZE[1]), { X, Y } = scaler(csph, fr); return `translate(${X(f.lsm).toFixed(1)}px, ${Y(f.plt).toFixed(1)}px)`; };
 function card() {
   const tool = createPlaneTool();
   tool.configure({ kind: 'plane', plane: 'csph' });
@@ -70,7 +70,7 @@ test('a card that comes back at another size draws the pinned reading at that si
   size(0, 0); settle();
   tool.pin(a2); settle();
   size(360, 168); settle();
-  const fr = frame(360, 168, 14, csph), { X, Y } = scaler(csph, fr);
+  const fr = frame(360, 168), { X, Y } = scaler(csph, fr);
   assert.equal(ring.style.transform, `translate(${X(29.8).toFixed(1)}px, ${Y(90).toFixed(1)}px)`);
 });
 

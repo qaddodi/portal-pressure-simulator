@@ -57,6 +57,7 @@
 
 import { TILE, SCALE, RATE } from './table-marks.js?v=8458ad3bf8';
 import { frameFor } from './frame.js?v=7254a8a850';
+import { plotPanel } from './plot-look.js?v=965ae2241f';
 import { airRatio } from './endo-size.js?v=e0a58bf20e';
 import { NODES } from '../engine/topology.js?v=4044766e96';
 const nextFrame = frameFor('tool-curve');
@@ -562,7 +563,7 @@ export function createCurve() {
     const altBelow = ag && cw(keyLs[0].name, f, 1) + 6 + cw(keyLs[0].unit, f) + altW + 2 * f > w;
     // (No more numbers up the side than fit a line and a half of type apart.)
     const stepKey = steps ? stepKeyOf(w, f) : null, stepH = stepKey?.rows ? stepKey.rows * 1.5 * f + 0.3 * f : 0;
-    const plotH = h - 2.9 * f - stepH - ((keys0 && !altBelow ? 1 : 2) * 1.5 * f + 1.6 * f), most = clamp(Math.floor(plotH / (1.6 * f)) + 1, 3, 7);
+    const plotH = h - 3.3 * f - stepH - ((keys0 && !altBelow ? 1 : 2) * 1.5 * f + 2 * f), most = clamp(Math.floor(plotH / (1.6 * f)) + 1, 3, 7);
     // (cuts: 'ticks': the first line's cut-offs ask the scale to hold them, to stand as coloured numbers on the axis.)
     const ticksOn = t.cuts === 'ticks' && !ag, sL = leftScale(ls[0].k, vals[0], most, ticksOn ? yCutsOf(t, ls[0].k).map((c) => c.v) : []), sR = ls[1] && !one ? rightScale(vals[1], sL.ticks.length) : null;
     const tickCuts = ticksOn ? yCutsOf(t, ls[0].k).filter((c) => sL.ticks.some((v) => Math.abs(v - c.v) < 1e-6)) : [];
@@ -570,9 +571,10 @@ export function createCurve() {
     const oneRow = keys.length < 2 || keys[0].w + keys[1].w + 2 * f <= w, rowH = 1.5 * f, legH = (oneRow && !altBelow ? 1 : 2) * rowH;
     const tw = (sc) => Math.max(...sc.ticks.map((v) => cw(fmtTick(v, dec(sc)), f)));
     const xt = xTicks(x0, x1, Math.max(2, Math.min(7, Math.floor((w - 4 * f) / (3.2 * f)))));
-    const L = Math.ceil(tw(sL) + 8), R = Math.floor(w - (sR ? tw(sR) + 8 : Math.max(8, cw(fmt(x1, ax.d), f) / 2 + 2)));
-    const T = legH + 1.6 * f, B = h - 2.9 * f - stepH;
-    return { w, h, f, ls, ag, one, ax, x0, x1, xt, sL, sR, tickCuts, keyRead, stepKey, keys, oneRow, altBelow, rowH, L, R, T, B: Math.max(T + 3 * f, B) };
+    // (The plot is one rounded panel the chart's full width, his G2 look, plot-look.js: its numbers stand in the strips inside its edge, 8 px in from it, where no line runs.)
+    const L = Math.ceil(tw(sL) + 14), R = Math.floor(w - (sR ? tw(sR) + 14 : 10));
+    const T = legH + 2 * f, B = h - 3.3 * f - stepH;
+    return { w, h, f, ls, ag, one, ax, x0, x1, xt, sL, sR, tickCuts, keyRead, stepKey, keys, oneRow, altBelow, rowH, keyH: legH, L, R, T, B: Math.max(T + 3 * f, B) };
   }
   const X = (x) => G.L + (G.R - G.L) * (x - G.x0) / ((G.x1 - G.x0) || 1);
   const Yof = (sc) => (v) => G.B - (G.B - G.T) * clamp((v - sc.min) / ((sc.max - sc.min) || 1), 0, 1);
@@ -674,7 +676,7 @@ export function createCurve() {
       const txt = G.stepKey && num ? num : d.name || '';
       return { name: d.name ? sv('text', { class: `pcv-dname off${G.stepKey ? ' pcv-dnum' : ''}` }, txt) : null, lead: d.name ? sv('line', { class: 'pcv-lead off' }) : null, txt, full: d.name || '', at, first };
     });
-    const stepsKey = G.stepKey?.rows ? sv('g', { class: 'pcv-steps' }, G.stepKey.items.map((it) => sv('text', { class: 'pcv-sk', x: it.x, y: B + 4.2 * f + it.row * 1.5 * f },
+    const stepsKey = G.stepKey?.rows ? sv('g', { class: 'pcv-steps' }, G.stepKey.items.map((it) => sv('text', { class: 'pcv-sk', x: it.x, y: B + 4.4 * f + it.row * 1.5 * f },
       sv('tspan', { class: 'pcv-sn' }, String(it.n)), ` ${it.name}`))) : null;
     const walkSets = walksOf(t);
     ls.forEach((l, j) => walkSets.forEach((g) => {
@@ -686,8 +688,10 @@ export function createCurve() {
     for (const d of dotPts) for (const p of d.at) if (p) segs.push(Object.assign([p[0] - dr, p[1], p[0] + dr, p[1]], { w: 3 }));
     // (With a reading on x the case stands out by its rings: its mark is only a short tick on the x axis, not a second upright dashed line.)
     const xk = xKeyOf(t), at = sv('line', { class: xk ? 'pcv-at pcv-atx' : 'pcv-at', y1: xk ? B - 0.8 * f : T - 0.4 * f, y2: B });
+    // (The panel under everything: from just under the key row to under the axis's name, the chart's full width.)
+    const panel = plotPanel(sv, 0, G.keyH + 0.2 * f, G.w, B + 3.1 * f - (G.keyH + 0.2 * f));
     const svg = sv('svg', { viewBox: `0 0 ${G.w} ${G.h}`, width: G.w, height: G.h, role: 'img', style: `font-size: ${f.toFixed(2)}px` },
-      zone, grid, cuts, xCuts, legend, alt, axis, stepsKey, at, walks, lines.map((x) => x.path), dotPts.map((d) => d.lead), dotEls, dotPts.map((d) => d.name), lines.map((x) => [x.ring, x.val, x.name]));
+      sv('defs', {}, panel.clip), panel.back, zone, grid, cuts, xCuts, legend, alt, axis, stepsKey, at, walks, lines.map((x) => x.path), dotPts.map((d) => d.lead), dotEls, dotPts.map((d) => d.name), lines.map((x) => [x.ring, x.val, x.name]));
     svg.dataset.points = ser ? String(ser.xs.length) : '0';   // (the browser checks read it: 0 until the curve is ready)
     // (What a ring's value keeps clear of: the cut-offs and their names, the x axis, the data lines. A value on a cut-off
     // line reads as that line's name, so it would sooner cross a data line or another word.)
