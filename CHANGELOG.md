@@ -2,6 +2,18 @@
 
 ## October 2026
 
+- **The faint line round the lobule's tissue is gone, and the Fenestrae callout no longer sits on the stellate cell's name.** (Mohammad, 27 Oct: "fix the seam on the left side (it's a
+  square/rectangular seam around the lobule); this also appears in other lobule view in decks", and "fix the callout for fenestrae; it's competing with the stellate cell call out".)
+  The seam, measured in his screenshot of Lobule 5/9, is a line one device pixel wide at 1.28 R from the lobule's centre, the edge of the tissue's bitmap (a 2.6 R square, drawn on
+  the GPU by `src/ui/tissue-gl.js`). The shader looked the bitmap up inside the test for being in its box, where the derivatives that choose a mipmap level are undefined, so a pixel
+  along the edge could take the coarsest level, the bitmap's average colour (diagnosed from the screenshot and the code; no GPU ran here). The lookups now carry their own gradients (`textureGrad`), and the outermost two device pixels of
+  the box fade out. Every lobule view in Present, Patients and Explore draws through it. On a wide sinusoid view the Fenestrae pill was set beside the stellate name and, when they
+  overlapped, shoved up by the declutter step while its leader still ran down through the stellate name. `src/ui/fen-place.js` now places the pill, its pore and the Space of Disse's
+  name together, in the view's resting frame: the pill keeps a gap of at least 2 × 16 px from the stellate name, its leader ends at the pore that stays open longest (so an open pore
+  even at 15 % open) that no nucleus covers, and the Disse name keeps clear of the pill, its leader and the stellate name, inside the free stretch (before, it could be pushed to the
+  edge of the screen). A view too narrow for all three places the pill alone, then the old steps. Open or closed fenestrae, any name length, Present, Patients and Explore, and every
+  wide screen size are covered; the portrait layout, whose names sit in their own rows, is as it was. Code and unit tests only; nobody has looked on screen. `src/ui/tissue-gl.js`,
+  `src/ui/fen-place.js`, `src/ui/sinusoid-view.js`, `tests/tissue-gl-edge.test.js`, `tests/fen-place.test.js`, `tests/tissue-gl.test.js`, `tests/lobule-surround-grey.test.js`.
 - **The HVPG against PPG plane names its two red lines.** (Mohammad, 26 Oct: "make it clear that the 10/12 line is clinically significant portal hypertension", then "keep it 4 quadrants;
   just label the 10/12 line".) The HVPG 10 line is named "CSPH ≥10" and the PPG 12 line "Bleed risk ≥12", each beside its own line, on Sites and causes, Where HVPG misleads and
   Choose the treatment. The four quadrants and their colours stay as they were. Only the HVPG line defines CSPH (Baveno VIII; AASLD 2024 statement 4: HVPG ≥10 mmHg); the PPG 12 line

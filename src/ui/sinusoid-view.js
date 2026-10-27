@@ -25,6 +25,7 @@ import { isPaused } from './clock.js?v=5151312569';
 import { store } from './store.js?v=926dabfaef';
 import { sinusoidTargets } from './sinusoid-model.js?v=74f5d007ca';
 import { createSinusoidGL, poreAt, poreOpenness, calloutPore, cellAt, cellEdge, SLOT, SEED, UM } from './sinusoid-gl.js?v=8399d8205e';
+import { placeFenDisse } from './fen-place.js?v=20401deb9e';
 import { frameFor, noteDraw, saver, paceMs } from './frame.js?v=7254a8a850';
 import { softwareGL, softwareYield } from './sw-yield.js?v=e580a095b1';
 import { noteSinusoidSupport } from './gl-support.js?v=94ad2a7ff1';
@@ -407,21 +408,37 @@ export function createSinusoidView({ host, before = null }) {
     region('sin', 'Sinusoid', num(m.P2, 1, 'mmHg'), xc, 0, { along: true });
     kupName();
     // In the plates: the stellate cell named just beyond its body; the fenestrae beside it in the same plate, with a
-    // thin callout down to an open fenestra in the lining (to the name's left), clear of the stellate cell's name.
+    // thin callout down to an open fenestra in the lining, clear of the stellate cell's name, of the Space of Disse's and of
+    // the callout's own line (fen-place.js). Placed in the view's resting frame and scale (not the one a glide is passing
+    // through), so the names keep their places in the figure as the view eases.
     const hs = region('hsc', S.act > 0.5 ? 'Activated stellate cell' : 'Stellate cell', '', g.xs, -(hepIn(g.xs) + 1), { side: -1, along: V });
     const fp = 16 / VW.k, fen = (xp, dx) => region('fen', 'Fenestrae', fenTxt(), xp + dx, -(hepIn(xp) + 1), { side: -1 });
-    let xp = fenAt(pick(0.6)), rf = fen(xp, 0);
-    rf = fen(xp, rf.half + fp * 0.8);
-    if (Math.abs(rf.x - hs.x) - rf.half - hs.half < fp) { xp = fenAt(hs.x + hs.half + fp * 2); rf = fen(xp, rf.half + fp * 0.8); }
+    const disse = (x) => region('disse', 'Space of Disse', '', x, (V ? 1 : -1) * (wallIn(x) + disseW(x) * 0.5), { along: true });
+    const tk = VW.tk, hsHalf = hs.w / 2 / tk;
+    const spot = placeFenDisse({
+      pores: g.pores[0], nsd: SEED.nucUp, lo: (VW.f.l - VW.tC[0] + 6) / tk, hi: (VW.f.r - VW.tC[0] - 6) / tk,
+      hs: [g.xs - hsHalf, g.xs + hsHalf], fh: fen(0, 0).w / 2 / tk, dh: disse(0).w / 2 / tk, fp: 16 / tk, xs: g.xs,
+    });
+    let xp, rf, xq = spot ? spot.xq : null;
+    if (spot) { xp = spot.xp; rf = fen(xp, spot.xc - xp); }
+    else {
+      xp = fenAt(pick(0.6)); rf = fen(xp, 0);
+      rf = fen(xp, rf.half + fp * 0.8);
+      if (Math.abs(rf.x - hs.x) - rf.half - hs.half < fp) { xp = fenAt(hs.x + hs.half + fp * 2); rf = fen(xp, rf.half + fp * 0.8); }
+    }
     leader('fen', rf, xp, -(halfW(xp) + UM.endo * 0.5));
     // In Disse: its name (on the stellate cell's side on a wide screen, clear of it and of the fenestrae's callout),
     // and the lymph it carries, read in the plate just beyond it on the other side.
-    let xq = V ? pick(0.24) : away(pick(0.86), g.xs, 40);
-    const rq = region('disse', 'Space of Disse', '', xq, (V ? 1 : -1) * (wallIn(xq) + disseW(xq) * 0.5), { along: true });
-    if (!V && xq - rq.half < rf.x + rf.half + fp && xq + rq.half > xp - fp) {
-      xq = rf.x + rf.half + rq.half + fp;
-      if (xq + rq.half > VW.fr[1]) xq = xp - fp - rq.half;
-      region('disse', 'Space of Disse', '', xq, -(wallIn(xq) + disseW(xq) * 0.5), { along: true });
+    if (xq != null) disse(xq);
+    else {
+      // (Too narrow for the three side by side: the callout is placed alone, and this name steps clear of it, or the declutter does.)
+      xq = V ? pick(0.24) : away(pick(0.86), g.xs, 40);
+      const rq = disse(xq);
+      if (!V && xq - rq.half < rf.x + rf.half + fp && xq + rq.half > xp - fp) {
+        xq = rf.x + rf.half + rq.half + fp;
+        if (xq + rq.half > VW.fr[1]) xq = xp - fp - rq.half;
+        disse(xq);
+      }
     }
     const xd = pick(V ? 0.55 : 0.32), lymph = (x) => region('lymph', 'Lymph', m.hide ? '?' : `${fmt(m.lymph, 1)}~mL/min · Protein ${Math.round(m.lyProt * 100)}%`, x, hepIn(x) + 1.2, { side: 1 });
     let ly = lymph(xd);

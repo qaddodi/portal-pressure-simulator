@@ -54,7 +54,7 @@ test('both shaders grade the surround before the lobule\'s bitmap and the fade i
   // The field: after the quieted tile is laid over the liver-toned one, before the fade and the emerging mask.
   assert.ok(fgl.indexOf('if (uQuiet > 0.0) c = ') < fgl.search(line) && fgl.search(line) < fgl.indexOf('if (uFade.w > 0.0)') && fgl.indexOf('if (uFade.w > 0.0)') < fgl.indexOf('float m = 1.0;'));
   // The tissue: after the last state's tile, before the bitmap goes over: the lobule in focus keeps the lens's colours.
-  assert.ok(tgl.indexOf('if (uQOld > 0.0) c = ') < tgl.search(line) && tgl.search(line) < tgl.indexOf('vec4 l = texture(uW, w)') && tgl.indexOf('vec4 l = texture(uW, w)') < tgl.indexOf('float s = clamp('));
+  assert.ok(tgl.indexOf('if (uQOld > 0.0) c = ') < tgl.search(line) && tgl.search(line) < tgl.indexOf('vec4 l = textureGrad(uW, w') && tgl.indexOf('vec4 l = textureGrad(uW, w') < tgl.indexOf('float s = clamp('));
   for (const src of [fgl, tgl]) {
     assert.match(src, /'uGrey'\]\.map/, 'the uniform is looked up');
     assert.match(src, /gl\.uniform2f\(U\.uGrey, grey \? grey\[0\] : 1, grey \? grey\[1\] : 1\);/, 'and set each frame (1, 1 when nothing greys)');

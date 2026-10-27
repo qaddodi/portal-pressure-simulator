@@ -43,8 +43,15 @@ void main() {
   if (uGrey.x < 1.0 || uGrey.y < 1.0) c = mix(uBg, mix(vec3(dot(c, vec3(0.299, 0.587, 0.114))), c, uGrey.x), uGrey.y);
   vec2 w = (p - uRect.xy) / uRect.z;
   if (w.x >= 0.0 && w.y >= 0.0 && w.x <= 1.0 && w.y <= 1.0) {
-    vec4 l = texture(uW, w) * uWMix.x;
-    if (uWMix.y > 0.0) l += texture(uWO, w) * uWMix.y;
+    // The bitmap's lookups sit in a branch only the pixels inside its box take, where the implicit derivatives that pick a mipmap level
+    // are undefined: along the box's edge the first pixel of each pair read the coarsest level (the bitmap's average colour) and drew a
+    // faint line round the whole box. So the step of one device px is given outright, and the outermost two pixels fade out (the lobule
+    // itself lies well within the box, so nothing of the picture is lost).
+    vec2 gx = vec2(1.0 / uRect.z, 0.0), gy = vec2(0.0, 1.0 / uRect.z);
+    float e = clamp(min(min(w.x, 1.0 - w.x), min(w.y, 1.0 - w.y)) * uRect.z / 2.0, 0.0, 1.0);
+    vec4 l = textureGrad(uW, w, gx, gy) * uWMix.x;
+    if (uWMix.y > 0.0) l += textureGrad(uWO, w, gx, gy) * uWMix.y;
+    l *= e;
     c = l.rgb + c * (1.0 - l.a);
   }
   float s = clamp((length(p - uO) - uFade.x) / max(uFade.y - uFade.x, 1e-6), 0.0, 1.0);
