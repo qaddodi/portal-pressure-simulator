@@ -173,13 +173,13 @@ test('before the days are there: the zones, the numbers, the axes and the captio
   assert.ok(go, 'and the days were asked for');
 });
 
-test('the grades are the plot\'s zones, named at the left, with liters on the numbers: 0, 1.5 L, 5 L', async () => {
+test('the grades are the plot\'s zones, each named on its own band, with liters on the numbers at the left: 0, 1.5 L, 5 L', async () => {
   const r = await draw(330, 178, 12);
   assert.deepEqual(r.rects.filter((x) => x.cls === 'pco-z').map((x) => [x.rate, x.deep || null]), [['ok', null], ['mid', null], ['hi', null], ['hi', '1']], 'none, grade 1, grade 2, grade 3 (the deepest)');
   const zones = r.rects.filter((x) => x.cls === 'pco-z');
   for (let i = 1; i < zones.length; i++) near(zones[i].y + zones[i].height, zones[i - 1].y, 0.2, 'the zones stack with no gap');
   const tk = r.texts.filter((t) => /pcv-tc/.test(t.cls));
-  assert.deepEqual(tk.filter((t) => t.x < 110 && /L$/.test(t.txt)).map((t) => t.txt).sort(), ['1.5 L', '5 L'], 'the cut-offs say liters');
+  assert.deepEqual(tk.filter((t) => t.x < 60 && /L$/.test(t.txt)).map((t) => t.txt).sort(), ['1.5 L', '5 L'], 'the cut-offs say liters');
   assert.ok(r.texts.some((t) => t.txt === '0' && t.anchor === 'end'), 'the baseline is 0');
   assert.deepEqual(tk.filter((t) => /^Grade/.test(t.txt)).map((t) => t.txt), ['Grade 1', 'Grade 2', 'Grade 3']);
   assert.deepEqual(tk.filter((t) => /^Grade/.test(t.txt)).map((t) => t.tc), ['mid', 'hi', 'hi'], 'in their rating\'s colour');
@@ -189,6 +189,9 @@ test('the grades are the plot\'s zones, named at the left, with liters on the nu
   assert.ok(y(name('Grade 1')) < zones[1].y + zones[1].height && y(name('Grade 1')) > zones[1].y);
   assert.ok(y(name('Grade 2')) < zones[2].y + zones[2].height && y(name('Grade 2')) > zones[2].y);
   assert.ok(y(name('Grade 3')) < zones[3].y + zones[3].height && y(name('Grade 3')) > zones[3].y);
+  const tickX = r.texts.find((t) => t.txt === '0').x;
+  assert.ok(['Grade 1', 'Grade 2', 'Grade 3'].every((n) => name(n).x > tickX + 20), 'the names are on the plot, not in the strip with the numbers');
+  assert.equal(name('Grade 2').x, name('Grade 3').x, 'the two upper grades stand in one column at the right');
   near(y(tk.find((t) => t.txt === '1.5 L')), zones[2].y + zones[2].height, 0.2, 'the 1.5 L is level with the grade 2 line');
   near(y(tk.find((t) => t.txt === '5 L')), zones[3].y + zones[3].height, 0.2, 'the 5 L is level with the grade 3 line');
   assert.equal(r.svg.dataset.points, '72', 'the points the browser checks count: the dot, 15 days to week 2, 28 on each treatment');
@@ -239,11 +242,11 @@ test('no word touches another word, a line, a dot, or leaves the chart, at any c
     for (let i = 0; i < words.length; i++) for (let j = i + 1; j < words.length; j++) if (hit(words[i].b, words[j].b)) bad.push(`"${words[i].t.txt}" on "${words[j].t.txt}"`);
     const segs = [];
     r.paths.filter((p) => /ptk-line/.test(p.cls)).forEach((p) => { const q = pathPts(p.d); for (let i = 1; i < q.length; i++) segs.push([...q[i - 1], ...q[i]]); });
-    const up = r.lines.find((l) => /pcv-at/.test(l.cls));
+    const tickX = r.texts.find((t) => t.txt === '0').x, up = r.lines.find((l) => /pcv-at/.test(l.cls));
     if (up) segs.push([up.x1, up.y1, up.x2, up.y2]);
     for (const { t, b } of words) {
       if (/pft-tk|pcv-ax/.test(t.cls)) { if (b[0] < 0 || b[2] > W || b[3] > H) bad.push(`"${t.txt}" outside`); continue; }
-      const strip = /pcv-tc/.test(t.cls) || t.txt === '0';
+      const strip = t.anchor === 'end' && t.x <= tickX + 0.5 && (/pcv-tc/.test(t.cls) || t.txt === '0');
       if (!strip && segs.some((sg) => segHits(sg, b))) bad.push(`"${t.txt}" on a line`);
       if (r.circles.some((c) => hit(b, [c.cx - c.r, c.cy - c.r, c.cx + c.r, c.cy + c.r]))) bad.push(`"${t.txt}" on a dot`);
       if (b[0] < 0 || b[2] > W || b[1] < 0 || b[3] > H) bad.push(`"${t.txt}" outside`);
@@ -256,17 +259,22 @@ test('no word touches another word, a line, a dot, or leaves the chart, at any c
   }
 });
 
-test('the zones\' names go when the plot would be left narrower than thirteen lines of type; the numbers stay, and so does everything else', async () => {
-  const wide = await draw(330, 178, 12), narrow = await draw(250, 170, 12);
-  assert.ok(wide.texts.some((t) => t.txt === 'Grade 2'));
-  assert.ok(!narrow.texts.some((t) => /^Grade/.test(t.txt)), 'no grade names at 250 px');
-  assert.ok(narrow.texts.some((t) => t.txt === '5 L') && narrow.texts.some((t) => t.txt === '1.5 L'));
+test('the strip at the left is only the numbers, the grades are named on the plot wherever the lines leave a spot, and the plot keeps its size', async () => {
   const c = courseOf(tool), ser = (await model2()).ser;
   for (const [W, H, f] of SIZES) {
-    const { G } = compose(W, H, f, c, ser);
-    if (G.names) assert.ok(G.R - G.L >= 13 * f - 1, `${W}: names on, the plot ${G.R - G.L} px keeps thirteen lines`);
-    else assert.ok(W - 10 - (G.L + G.Nw + 6) < 13 * f, `${W}: names off only where they would leave the plot under thirteen lines`);
+    const { G, zoneNames } = compose(W, H, f, c, ser);
+    assert.ok(G.L <= 8 + G.Tw + 8 + 1, `${W}: the strip is the widest number and 8 px either side`);
+    assert.ok(G.L < 0.2 * W, `${W}: ${G.L} px of ${W} at the left`);
     assert.ok(G.B - G.T >= 4 * f, `${W} × ${H}: the plot keeps its height`);
+    for (const { zone, p } of zoneNames) if (p) {
+      assert.equal(p.n, 0, `${W}: ${zone.name} is clear`);
+      assert.ok(p.box[0] >= G.L && p.box[1] >= G.Y(zone.to) && p.box[3] <= G.Y(zone.from), `${W}: ${zone.name} stands on its own band, on the plot`);
+    }
+    assert.ok(zoneNames.filter((q) => q.p).length >= 2, `${W} × ${H}: at least the upper two grades are named`);
+  }
+  for (const [W, H, f] of SIZES.filter(([w, h]) => w >= 330 && h >= 178)) {
+    const r = await draw(W, H, f);
+    assert.deepEqual(r.texts.filter((t) => /^Grade/.test(t.txt)).map((t) => t.txt), ['Grade 1', 'Grade 2', 'Grade 3'], `${W} × ${H}: all three grades are named`);
   }
 });
 

@@ -14,8 +14,8 @@
 // each from that same day) for `after` more days. The model's own number for every day is a point on the line; the line is drawn
 // smoothly through them and never overshoots one. Before the event the case is one dot (words.before); the first stretch is
 // grey, each treatment its own colour (c: a colour token, else pink and blue) with its name at the line's end and a dot there.
-// The reading's rating bands (its tile's: ascites None, Grade 1, 2, 3) are the plot's zones, their names at the left on the band
-// (where the chart is wide enough) and the cut-offs as coloured numbers with their unit ("1.5 L", "5 L"). A dashed upright line marks the day the
+// The reading's rating bands (its tile's: ascites None, Grade 1, 2, 3) are the plot's zones, each named on its own band where the lines leave a clear spot
+// (a name with none is left out) and the cut-offs are the coloured numbers at the left with their unit ("1.5 L", "5 L"), the strip no wider than they are. A dashed upright line marks the day the
 // treatments start (words.start). The x axis is in weeks (a number every two, the event named at 0), its name words.axis.
 // The days are worked out once per deck on the presenter's calculation worker (ctx.run: the head from a fresh model, then the
 // treatments from its last state) and kept; until they are there the zones, numbers and axes show and the lines then fade in.
@@ -121,10 +121,9 @@ export function layout(w, h, f, c, ser, keyRow = false) {
     const last = ticks.at(-1);
     if (!last || Y(last.v) - Y(v) >= 1.4 * f) ticks.push({ v, rate: v ? cuts.find((q) => q.v === v).rate : null, text: v ? `${fmtTick(v, m.d)} ${m.unit}` : '0' });
   }
-  const Tw = Math.max(...ticks.map((q) => cw(q.text, f))), Nw = Math.max(0, ...zones.filter((z) => z.name).map((z) => cw(z.name, f)));
-  // (The zones' names stand left of the numbers when the plot keeps at least thirteen lines of type across.)
-  const names = Nw > 0 && w - (8 + Nw + 6 + Tw + 8) - 10 >= 13 * f;
-  const L = Math.ceil(names ? 8 + Nw + 6 + Tw + 8 : 8 + Tw + 8), R = Math.floor(w - 10);
+  // (The strip at the left is the numbers and no more: the zones' names stand on the plot, placeLabels.)
+  const Tw = Math.max(...ticks.map((q) => cw(q.text, f)));
+  const L = Math.ceil(8 + Tw + 8), R = Math.floor(w - 10);
   const lead = Math.max(2, 0.075 * total), x0 = -lead * 1.6, x1 = total * 1.025, X = (d) => L + (R - L) * (d - x0) / (x1 - x0);
   const step = xStep(total), xt = [];
   for (let d = 0; d <= total + 1e-9; d += step) xt.push({ d, text: d ? fmtTick(d / 7, 1) : c.words.event });
@@ -132,10 +131,26 @@ export function layout(w, h, f, c, ser, keyRow = false) {
   // narrow to put them by the lines' ends, where they would land on the lines.)
   let kx = 0;
   const keys = keyRow && ser ? ser.tails.map((q) => { const k = { x: kx, name: q.name, c: q.c, w: 22 + cw(q.name, f) }; kx += k.w + 14; return k; }) : [];
-  return { w, h, f, c, m, top, zones, ticks, Tw, Nw, names, L, R, T, B, H, py, foot, keyH, keyRow, keys, lead, x0, x1, total, xt, X, Y, tickX: L - 6, nameX: L - 6 - Tw - 6 };
+  return { w, h, f, c, m, top, zones, ticks, Tw, L, R, T, B, H, py, foot, keyH, keyRow, keys, lead, x0, x1, total, xt, X, Y, tickX: L - 6 };
 }
 
-/** Where the words that name the drawing stand, clear of the lines, the dots, the cut-offs and each other: { before, start, rise, tails: [..], vTop } with
+/** Where each zone's name stands, on its own band: of the spots tried (the right end level with the band's middle first, then up and down it, then
+ *  further in along it, then the left of the plot) the first that lands on nothing. Returns [{ zone, p }] with p null where no spot is clear: that
+ *  name is left out. obs is what the words keep clear of ({ segs, boxes, lines }); the names added to its boxes as they are placed. */
+export function placeZoneNames(G, obs, wait = null) {
+  const { f, L, R, X, Y } = G, out = [];
+  for (const z of G.zones.filter((q) => q.name)) {
+    const top = Y(z.to), bot = Y(z.from), mid = (top + bot) / 2 + 0.35 * f, inside = [L + 2, top + 1, R - 2, bot - 1];
+    const ys = [0, -0.9, 0.9, -1.8, 1.8].map((k) => mid + k * f).filter((y) => y - 0.85 * f - 1 >= top && y + 0.3 * f + 1 <= bot);
+    const xs = [{ x: R - 0.5 * f, anchor: 'end' }, { x: R - 0.5 * f - 0.3 * (R - L), anchor: 'end' }, ...(wait == null ? [] : [{ x: X(wait) - 0.5 * f, anchor: 'end' }]), { x: L + 0.5 * f, anchor: 'start' }, { x: X(1.5), anchor: 'start' }];
+    const p = placeWord(ys.flatMap((y) => xs.map((q) => ({ ...q, y }))), cw(z.name, f), f, { ...obs, inside });
+    out.push({ zone: z, p: p && !p.n ? p : null });
+    if (p && !p.n) obs.boxes.push(p.box);
+  }
+  return out;
+}
+
+/** Where the words that name the drawing stand, clear of the lines, the dots, the cut-offs and each other: { before, start, rise, tails: [..], zoneNames, vTop } with
  *  each { x, y, anchor, n, box } (n: what it lands on, 0 when it is clear; start and rise, the optional ones, are null when they have no clear spot: the
  *  upright line and its name are then both left out, the lines parting on that day say it). With the
  *  lines' names in a key row (G.keyRow) the tails are left out. */
@@ -164,16 +179,19 @@ export function placeLabels(G, ser) {
   });
   const before = c.words.before ? put(c.words.before, [-1.0, -1.3, -1.6, -0.8].map((k) => ({ x: xd + 0.5 * f, y: yd + k * f, anchor: 'start' }))) : null;
   const start = c.words.start ? put(c.words.start, [1.35, 1.7, 2.1, 2.6].map((k) => ({ x: xw + 0.5 * f, y: Y(lastCut) + k * f, anchor: 'start' })), true) : null;
+  const zoneNames = placeZoneNames(G, obs, ser.wait);
   const rise = c.words.rise ? put(c.words.rise, [4.55, 4.3, 4.8, 4.1].flatMap((v) => [1.2, 2.4].map((d) => ({ x: X(d), y: Y(v), anchor: 'start' }))), true) : null;
-  return { before, start, rise, tails, vTop };
+  return { before, start, rise, tails, zoneNames, vTop };
 }
 
 /** The geometry and the words' places for a card w × h px in type f px: the lines named at their ends, or, where a name has no clear spot there, in a key
- *  row under the caption (the plot a row shorter). { G, labels }; labels is null until the series is there. */
+ *  row under the caption (the plot a row shorter). { G, labels, zoneNames }; labels is null until the series is there. */
 export function compose(w, h, f, c, ser) {
   let G = layout(w, h, f, c, ser), labels = ser ? placeLabels(G, ser) : null;
   if (labels?.tails.some((p) => p.n)) { G = layout(w, h, f, c, ser, true); labels = placeLabels(G, ser); }
-  return { G, labels };
+  // (Until the series is there the zones' names stand alone, with only the gridlines to keep clear of.)
+  const zoneNames = labels ? labels.zoneNames : placeZoneNames(G, { segs: [], boxes: [], lines: G.ticks.filter((q) => q.v > 0).map((q) => ({ y: G.Y(q.v), x0: G.L, x1: G.R, w: 2 })) });
+  return { G, labels, zoneNames };
 }
 
 const SVGNS = 'http://www.w3.org/2000/svg';
@@ -208,7 +226,7 @@ export function warmCourse(t, c) { if (t && c) courseWork(t, c)?.catch(() => nul
 export function createCourse() {
   const el = document.createElement('div');
   el.className = 'pz-curve pz-course';   // (the curve's card: its height, type and number styles)
-  let t = null, c = null, ctx = null, ser = null, parts = null, G = null, labels = null, key = '', lastSz = '';
+  let t = null, c = null, ctx = null, ser = null, parts = null, G = null, labels = null, zoneNames = [], key = '', lastSz = '';
 
   const size = () => {
     const w = el.clientWidth, z = w ? el.getBoundingClientRect().width / w : 1;
@@ -219,9 +237,9 @@ export function createCourse() {
   function build() {
     const { f, L, R, B, X, Y } = G, r = Math.max(3.5, 0.3 * f);
     const panel = plotPanel(sv, 0, G.py, G.w, B + G.foot - G.py);
-    // (The zones from the top of the scale to the baseline, the panel's corners on them; their names and the numbers on the cut-offs in the strip at the left.)
+    // (The zones from the top of the scale to the baseline, the panel's corners on them, each named where the lines leave room; the numbers on the cut-offs in the strip at the left.)
     const zones = sv('g', { 'clip-path': panel.url }, G.zones.map((z) => sv('rect', { class: 'pco-z', 'data-rate': z.rate, 'data-deep': z.deep ? '1' : null, x: 0, width: G.w, y: Y(z.to).toFixed(1), height: (Y(z.from) - Y(z.to)).toFixed(1) })));
-    const names = G.names ? sv('g', { class: 'ptk-grid' }, G.zones.filter((z) => z.name).map((z) => sv('text', { class: 'pcv-tc', 'data-tc': z.rate, x: G.nameX, y: (Y((z.from + z.to) / 2) + 0.35 * f).toFixed(1), 'text-anchor': 'end' }, z.name))) : null;
+    const names = sv('g', { class: 'ptk-grid' }, zoneNames.filter((q) => q.p).map(({ zone: z, p }) => sv('text', { class: 'pcv-tc', 'data-tc': z.rate, x: p.x.toFixed(1), y: p.y.toFixed(1), 'text-anchor': p.anchor }, z.name)));
     const grid = G.ticks.map((q) => sv('g', { class: 'ptk-grid' },
       q.v ? sv('line', { x1: L, x2: R, y1: Y(q.v).toFixed(1), y2: Y(q.v).toFixed(1) }) : null,
       q.v ? sv('line', { class: 'pcv-stub', 'data-tc': q.rate, x1: L, x2: L + 0.9 * f, y1: Y(q.v).toFixed(1), y2: Y(q.v).toFixed(1) }) : null,
@@ -259,7 +277,7 @@ export function createCourse() {
     if (!t) return;
     const [w, hh, f] = size(); lastSz = [w, hh, f].map(Math.round).join('x');
     const old = parts?.svg;
-    ({ G, labels } = compose(w, hh, f, c, ser));
+    ({ G, labels, zoneNames } = compose(w, hh, f, c, ser));
     parts = build();
     if (fade && old) {
       parts.svg.classList.add('in'); el.append(parts.svg);

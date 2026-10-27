@@ -10,7 +10,7 @@
 
 import { createCurve, warmCurve, curveLines, lineMeta, axisMeta } from './tool-curve.js?v=799a802d0e';
 import { createCauses, metricOf } from './tool-causes.js?v=a52a8f7d04';
-import { createCourse, warmCourse, courseOf } from './tool-course.js?v=7f69feb034';
+import { createCourse, warmCourse, courseOf } from './tool-course.js?v=536887dda9';
 import { TILE } from './table-marks.js?v=8458ad3bf8';
 
 const lc = (s) => (/^[A-Z]{2,}/.test(s) ? s : s.charAt(0).toLowerCase() + s.slice(1));
