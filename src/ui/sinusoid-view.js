@@ -62,8 +62,9 @@ export function createSinusoidView({ host, before = null }) {
     }
     return R;
   }
-  function region(key, name, value, x, y, { along = false, side = 0 } = {}) {
+  function region(key, name, value, x, y, { along = false, side = 0, slide = false } = {}) {
     const R = caption(key, `sv-region sv-region-${key}`, name, value);
+    if (slide) { R.tx = x; x += R.sd || 0; }   // (a place the layout moved at once starts where the name stood: see noteJumps)
     R.at = [x, y];   // (what it names, µm)
     // side ±1: the caption sits wholly on that side of y (across the vessel), its near edge at y.
     const w = R.el.offsetWidth, hh = R.el.offsetHeight, ang = along && !geo.vert ? geo.ang : 0;   // (always level on a top-down sinusoid)
@@ -76,7 +77,7 @@ export function createSinusoidView({ host, before = null }) {
       // Across the screen every caption is level: it steps clear of the ends' names and stays in the free space
       // (a narrow one, beside a presenter's words).
       for (const b of ENDBOX) if (b && cy + hh / 2 > b.y0 - 4 && cy - hh / 2 < b.y1 + 4) cx = b.u ? Math.min(cx, b.x0 - 14 - w / 2) : Math.max(cx, b.x1 + 14 + w / 2);
-      cx = clamp(cx, Math.min(VW.f.l + w / 2 + 4, geo.W / 2), Math.max(VW.f.r - w / 2 - 4, geo.W / 2));
+      cx = clamp(cx, Math.min(VW.fe.l + w / 2 + 4, geo.W / 2), Math.max(VW.fe.r - w / 2 - 4, geo.W / 2));
     }
     { const c = Math.abs(Math.cos(ang)), sn = Math.abs(Math.sin(ang)), bw = (w * c + hh * sn) / 2, bh = (w * sn + hh * c) / 2; R.box = { l: cx - bw, r: cx + bw, t: cy - bh, b: cy + bh }; }
     R.el.style.transform = `translate(${cx.toFixed(1)}px, ${cy.toFixed(1)}px) translate(-50%, -50%)${ang ? ` rotate(${((ang * 180) / Math.PI).toFixed(2)}deg)` : ''}`;
@@ -91,6 +92,9 @@ export function createSinusoidView({ host, before = null }) {
   function leader(key, R, x, y) {
     let L = lead[key];
     if (!L) { L = lead[key] = document.createElementNS(NS, 'g'); for (const t of ['line', 'circle']) L.append(document.createElementNS(NS, t)); leaders.append(L); }
+    // (The fenestrae's callout ends on a pore picked by where its name stands, so the pick can pass to another pore: the end slides
+    // along the lining to that one, on the lining's own line, and never hops.)
+    if (key === 'fen') { L.tx = x; const sd = L.sd || 0; y += halfW(x) - halfW(x + sd); x += sd; }
     L.setAttribute('class', `sv-lead sv-lead-${key}`);
     L.setAttribute('data-target', `sinusoid:${SV_TARGET[key] || key}`);
     const [tx, ty] = toScreen(x, y), sx = R.cx + Math.sign(tx - R.cx) * (R.w / 2 + 3), sy = clamp(ty, R.cy - R.hh / 2 + 4, R.cy + R.hh / 2 - 4);
@@ -118,6 +122,8 @@ export function createSinusoidView({ host, before = null }) {
   let model = null, shown = 0, open = false, raf = 0, last = 0, dive = null, drewNow = false;
   const S = {};          // the drawing's state, easing toward sinusoidTargets(model)
   let geo = null, geoKey = '';
+  // The share of the way the view's own glide (stepView) takes each frame, and whether a name is still catching up (see noteJumps).
+  let easeA = 0, layoutBusy = false;
 
   // Where the sinusoid sits: centred in the space the floating pieces leave (a row kept for the legend).
   const appStyle = document.getElementById('app')?.style;
@@ -184,23 +190,35 @@ export function createSinusoidView({ host, before = null }) {
     // edges), so the wall and its traffic stay large enough to follow.
     const short = geo.vert ? fw : fh, across = lerp(40, 54, smooth(380, 720, short));
     VW.f = f; VW.tk = clamp(short / across, 3, 14);
+    // (And what the names keep clear of, as the space the cards leave: under the top bar and a card, and the stage's span for the names to stay in.)
+    VW.insT = [cssN('--top-safe') + cssN('--cmp-h') + cssN('--pz-t'), cssN('--top-safe') + cssN('--pz-t') + 2, H - cssN('--pz-b') - 2];
     // Its names are the lobule's size on every device (only the app's label-size setting scales them).
     { const lk = String(labelK()); if (el.style.getPropertyValue('--label-k') !== lk) el.style.setProperty('--label-k', lk); }   // (written only when it changes: a write each frame restyled the page)
     VW.tC = [(f.l + f.r) / 2, (f.t + f.b) / 2];
-    if (!VW.k) { VW.k = VW.tk; VW.C = [...VW.tC]; }
+    if (!VW.k || !VW.fe) { VW.k = VW.tk; VW.C = [...VW.tC]; VW.fe = { ...f }; VW.ins = [...VW.insT]; }
     return geo;
   }
   // The lobule's own label size (--label-k: the label setting, the desktop's baseline, a presentation's projector size),
   // a touch smaller since these capitals are bolder and spaced.
   const labelK = () => (parseFloat(document.documentElement.style.getPropertyValue('--label-k')) || 1) * 0.9;
-  const VW = { k: 0, C: [0, 0], tk: 0, tC: [0, 0], f: null, vis: [0, 0], fr: [0, 0] };
+  // f: the free space where it rests (tk, tC: the scale and centre that fit it); fe, ins: the same space and insets as the view has
+  // glided to so far, which every name, arrow and the legend is laid against, so they go with the view and never ahead of it.
+  const VW = { k: 0, C: [0, 0], tk: 0, tC: [0, 0], f: null, fe: null, insT: null, ins: null, vis: [0, 0], fr: [0, 0] };
   // Where it is drawn this frame: the view's own placement, carried by the zoom from the lobule while that runs.
   const CAM = { C: [0, 0], k: 1, ang: 0, ca: 1, sa: 0 };
   function stepView(dt) {
-    const a = dt > 0.001 ? 1 - Math.exp(-dt / 0.22) : 0;
-    const d = Math.abs(VW.tk - VW.k) * 40 + Math.abs(VW.tC[0] - VW.C[0]) + Math.abs(VW.tC[1] - VW.C[1]);
-    if (d < 0.05 || dive) { VW.k = VW.tk; VW.C = [...VW.tC]; }   // (held at its mark while the zoom carries it)
-    else { VW.k += (VW.tk - VW.k) * a; VW.C = VW.C.map((c, i) => c + (VW.tC[i] - c) * a); }
+    const a = easeA = dt > 0.001 ? 1 - Math.exp(-dt / 0.22) : 0;
+    const { f, fe, insT, ins } = VW, E = ['l', 't', 'r', 'b'];
+    const d = Math.abs(VW.tk - VW.k) * 40 + Math.abs(VW.tC[0] - VW.C[0]) + Math.abs(VW.tC[1] - VW.C[1])
+      + E.reduce((s, e) => s + Math.abs(f[e] - fe[e]), 0) + insT.reduce((s, v, i) => s + Math.abs(v - ins[i]), 0);
+    if (d < 0.05 || dive) { VW.k = VW.tk; VW.C = [...VW.tC]; for (const e of E) fe[e] = f[e]; for (let i = 0; i < ins.length; i++) ins[i] = insT[i]; }   // (held at its mark while the zoom carries it)
+    else {
+      VW.k += (VW.tk - VW.k) * a; VW.C = VW.C.map((c, i) => c + (VW.tC[i] - c) * a);
+      // (The free space glides with the centre and scale it fits: the names and arrows are laid out against it each frame, so they
+      // ride the glide. Laid against where it comes to rest, they stood there at once while the vessel was still on its way.)
+      for (const e of E) fe[e] += (f[e] - fe[e]) * a;
+      for (let i = 0; i < ins.length; i++) ins[i] += (insT[i] - ins[i]) * a;
+    }
     // The zoom from the lobule (lobule-zoom.js): a turn and scale about the view's centre c, moved toward the lobule's sinusoid.
     let C = VW.C, k = VW.k, ang = geo.ang;
     if (dive) {
@@ -216,7 +234,7 @@ export function createSinusoidView({ host, before = null }) {
     const span = (pts) => { const v = pts.map(loc); return [Math.min(...v), Math.max(...v)]; };
     const [a0, a1] = span([[0, 0], [g.W, 0], [0, g.H], [g.W, g.H]]);
     VW.vis = [Math.max(g.x0, a0 - 8), Math.min(g.x1, a1 + 8)];
-    VW.fr = span([[VW.f.l, VW.f.t], [VW.f.r, VW.f.b]]);
+    VW.fr = span([[fe.l, fe.t], [fe.r, fe.b]]);
     return d >= 0.05;
   }
   // Local (µm, along/across) → stage px, where the view rests (for the labels).
@@ -412,8 +430,8 @@ export function createSinusoidView({ host, before = null }) {
     // the callout's own line (fen-place.js). Placed in the view's resting frame and scale (not the one a glide is passing
     // through), so the names keep their places in the figure as the view eases.
     const hs = region('hsc', S.act > 0.5 ? 'Activated stellate cell' : 'Stellate cell', '', g.xs, -(hepIn(g.xs) + 1), { side: -1, along: V });
-    const fp = 16 / VW.k, fen = (xp, dx) => region('fen', 'Fenestrae', fenTxt(), xp + dx, -(hepIn(xp) + 1), { side: -1 });
-    const disse = (x) => region('disse', 'Space of Disse', '', x, (V ? 1 : -1) * (wallIn(x) + disseW(x) * 0.5), { along: true });
+    const fp = 16 / VW.k, fen = (xp, dx) => region('fen', 'Fenestrae', fenTxt(), xp + dx, -(hepIn(xp) + 1), { side: -1, slide: true });
+    const disse = (x) => region('disse', 'Space of Disse', '', x, (V ? 1 : -1) * (wallIn(x) + disseW(x) * 0.5), { along: true, slide: true });
     const tk = VW.tk, hsHalf = hs.w / 2 / tk;
     const spot = placeFenDisse({
       pores: g.pores[0], nsd: SEED.nucUp, lo: (VW.f.l - VW.tC[0] + 6) / tk, hi: (VW.f.r - VW.tC[0] - 6) / tk,
@@ -483,6 +501,24 @@ export function createSinusoidView({ host, before = null }) {
     leader('lymph', region('lymph', 'Lymph', m.hide ? '?' : `${fmt(m.lymph, 1)}~mL/min · Protein ${Math.round(m.lyProt * 100)}%`, x, mid(x)), x + 2, dis(x + 2));
     kupName();
   }
+  // The fenestrae's and Disse's names on a wide screen are placed for the view at rest, and the pore the fenestrae's callout ends on by
+  // where its name stands, so a card that opens or closes (or a pore picked anew) can move one at once, along the vessel. It is drawn
+  // where it stood and catches up with the view's glide, `sd` µm behind its place, and never jumps. (The names laid against the eased
+  // room, and every name on a portrait screen, move with it and need none.)
+  const slid = () => [regions.fen, regions.disse, lead.fen];
+  function noteJumps() {
+    let moved = false;
+    for (const o of slid()) {
+      if (!o || o.tx == null) continue;
+      if (o.pt == null || o.pv !== geo.vert || dive) { if (o.sd) moved = true; o.sd = 0; }   // (a first look, a turn, or the zoom carrying the view)
+      else if (Math.abs(o.tx - o.pt) * VW.k > 0.5) { o.sd = (o.sd || 0) + o.pt - o.tx; moved = true; }   // (half a pixel or less is no move)
+      o.pt = o.tx; o.pv = geo.vert;
+    }
+    return moved;
+  }
+  function settleJumps() {
+    for (const o of slid()) if (o?.sd) { o.sd *= 1 - easeA; if (Math.abs(o.sd) * VW.k < 0.3) o.sd = 0; else layoutBusy = true; }
+  }
   // The Kupffer cell is named inside itself, over its body above the nucleus (its name tinted as the cell).
   const kupName = () => region('kup', 'Kupffer\ncell', '', geo.xk - 0.3, halfW(geo.xk) - 3.3 * clamp(halfW(geo.xk) / 5.2, 0.6, 1), { along: true });
   const BAND = [0, 0];   // a portrait screen's band for the other names, between the ends' (px down the screen)
@@ -513,10 +549,10 @@ export function createSinusoidView({ host, before = null }) {
   const blockKey = () => { const now = performance.now(); if (now - bkAt < 250) return bk; bkAt = now; let k = ''; for (const c of document.querySelectorAll('.stage-blocker:not([hidden])')) { const r = c.getBoundingClientRect(); if (r.width) k += `${r.left | 0},${r.top | 0},${r.right | 0},${r.bottom | 0};`; } return (bk = k); };
   function declutter() {
     // (From the boxes the layout recorded, not the screen: the view may be mid-zoom, scaled by the compositor.)
-    const W = geo.W, H = geo.H, lk = labelK();
+    const W = geo.W, lk = labelK();
     const gx = 6 + 2 * lk, gy = 2 + 2 * lk;   // (clear of each other's halo, which grows with the text)
     // (Within the stage, below the top bar and a presenter's words, above a presenter's bar.)
-    const T = cssN('--top-safe') + cssN('--pz-t') + 2, B = H - cssN('--pz-b') - 2;
+    const T = VW.ins[1], B = VW.ins[2];
     const hit = (a, b) => a.l < b.r + gx && b.l < a.r + gx && a.t < b.b + gy && b.t < a.b + gy;
     const placed = [];
     if (LEG.w) placed.push({ l: LEG.x, r: LEG.x + LEG.w, t: LEG.y, b: LEG.y + LEG.h });
@@ -591,10 +627,10 @@ export function createSinusoidView({ host, before = null }) {
     }
   }
   function layoutEnds() {
-    const g = geo, f = VW.f;
+    const g = geo, f = VW.fe;
     // The ends: the portal venule the blood comes from and the central vein it goes to, with their pressures (as the lobule labels them).
     // The legend: at the top left, under the top bar.
-    const lx = f.l + 2, ly = cssN('--top-safe') + cssN('--cmp-h') + cssN('--pz-t') + 12;
+    const lx = f.l + 2, ly = VW.ins[0] + 12;
     // (On a top-down sinusoid it stays in the plate on the left, clear of the vessel and the portal venule's name.)
     const lr = g.vert ? toScreen(0, hepIn(0))[0] - 8 : geo.W - 12;
     legend.style.maxWidth = `${Math.max(90, lr - lx)}px`;
@@ -624,7 +660,7 @@ export function createSinusoidView({ host, before = null }) {
     }
     END[2] = Math.min(22 / VW.k, UM.lum * S.lum * 0.95);   // (a bold head, as wide as the names' capitals are tall, within the lumen)
     // (On a top-down sinusoid the other names keep below the legend too.)
-    if (g.vert) BAND[0] = Math.max(BAND[0], cssN('--top-safe') + cssN('--cmp-h') + cssN('--pz-t') + 12 + legend.offsetHeight + 8);
+    if (g.vert) BAND[0] = Math.max(BAND[0], VW.ins[0] + 12 + legend.offsetHeight + 8);
   }
 
   // ── The frame ──
@@ -636,7 +672,7 @@ export function createSinusoidView({ host, before = null }) {
     const [W, H] = hostSize();
     ensureGeo(W, H);
     if (ease > 0 || S.lum == null) stepState(ease);
-    stepView(ease);
+    const gliding = stepView(ease);
     go += ((isPaused() ? 0 : 1) - go) * (ease > 0 ? 1 - Math.exp(-ease / 0.25) : 0);
     if (go < 0.002) go = 0;
     if (run && dt > 0 && go > 0) stepMovers(dt * go);
@@ -646,8 +682,15 @@ export function createSinusoidView({ host, before = null }) {
     const dark = document.documentElement.dataset.theme === 'dark' || (!document.documentElement.dataset.theme && darkMQ.matches);
     // The names are laid out where the view will rest, during the zoom too (hidden until it lands), so the end arrows
     // the shader draws are in place from the first frame and nothing moves when the names fade in.
-    const lk = [geoKey, VW.k.toFixed(3), VW.C.map((v) => v.toFixed(0)), S.lum.toFixed(3), S.act > 0.5, Math.round(S.por * 20), model.hide, model.P2.toFixed(1), model.lymph.toFixed(1), Math.round(model.lyProt * 100), model.P1.toFixed(1), model.P3.toFixed(1), phoneMQ.matches, labelK(), blockKey()].join('|');
-    if (lk !== lastKey) { lastKey = lk; layoutEnds(); layoutTags(); declutter(); }
+    const lk = [geoKey, VW.k.toFixed(3), VW.C.map((v) => v.toFixed(0)), [VW.f.l, VW.f.t, VW.f.r, VW.f.b, VW.fe.l, VW.fe.t, VW.fe.r, VW.fe.b, ...VW.ins].map(Math.round), S.lum.toFixed(3), S.act > 0.5, Math.round(S.por * 20), model.hide, model.P2.toFixed(1), model.lymph.toFixed(1), Math.round(model.lyProt * 100), model.P1.toFixed(1), model.P3.toFixed(1), phoneMQ.matches, labelK(), blockKey()].join('|');
+    // (A name still on its way to a place the layout moved it to is laid out again next frame, until it has arrived.)
+    if (lk !== lastKey || layoutBusy) {
+      lastKey = lk; layoutBusy = false;
+      layoutEnds(); layoutTags();
+      if (noteJumps()) layoutTags();   // (laid out again from where the names stood, so the frame they move in shows no step)
+      settleJumps();
+      declutter();
+    }
     fenTick();
     if (gpu) {
       const u = palette(dark);
@@ -683,6 +726,9 @@ export function createSinusoidView({ host, before = null }) {
       if (!gk || gk !== gpuKey) { gpu.draw(u, pts, n); noteDraw('sinusoid-view'); svYield?.drew(performance.now()); } else settled = true;
       gpuKey = gk;
     }
+    // (Not settled while the view is still gliding to the space the cards left, or a name to its place: the loop must not go to
+    // sleep with the glide half done, which a paused simulation did.)
+    if (gliding || layoutBusy) settled = false;
     const dk = [Math.round(S.por * 4), S.col > 0.15, S.act > 0.4, model.hide, model.P2.toFixed(0), model.lymph.toFixed(1), Math.round(model.lyProt * 100)].join('|');
     if (dk !== descKey) { descKey = dk; canvas.setAttribute('aria-label', describe()); }
   }
@@ -703,6 +749,7 @@ export function createSinusoidView({ host, before = null }) {
   let lastPaint = 0, sleepT = 0;
   const wake = () => { if (shown > 0 && !raf && model) raf = nextFrame(loop); };
   store.on('*', wake);
+  addEventListener('pps:occ', wake);   // (the room the cards leave changed: the view starts gliding to it at once, asleep or not)
   function loop(now) {
     raf = 0;
     if (shown <= 0 || !model) return;
@@ -739,6 +786,7 @@ export function createSinusoidView({ host, before = null }) {
       if (opacity <= 0 && was > 0) { canvas.width = 0; canvas.height = 0; gpuKey = ''; }
       if (opacity > 0 && was <= 0) {
         last = 0; lastKey = ''; VW.k = 0; movers.length = 0; spawnAcc = 0; bounceAcc = 0;
+        for (const o of [...slid(), ...Object.values(regions)]) if (o) { o.sd = 0; o.pt = null; o.tx = null; }
         if (model) {
           for (const k in S) delete S[k];
           // Arrive with the wall already at work: a few seconds of traffic run before the first frame.
