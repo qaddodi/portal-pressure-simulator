@@ -869,7 +869,7 @@ function openSettings(anchor, withSearch = false) {
     textSizeControl(),
     // (Blur effect is one setting for the app and the talks: the same switch and the same stored value in both.)
     h('div', { class: 'menu-title' }, 'Accessibility'),
-    menuToggle(!document.documentElement.hasAttribute('data-noglass'), 'layers', 'Blur effect', 'Frosted glass behind cards and labels. Off: solid cards and glowing labels, lighter on a hot device', (on) => {
+    menuToggle(!document.documentElement.hasAttribute('data-noglass'), 'layers', 'Blur effect', 'Frosted glass behind cards and labels. Off: solid cards and label pills, lighter on a hot device', (on) => {
       try { localStorage.setItem('pps.noGlass', on ? '0' : '1'); } catch { /* storage unavailable */ }
       document.documentElement.toggleAttribute('data-noglass', !on);
     }),

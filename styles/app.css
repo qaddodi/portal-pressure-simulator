@@ -4872,7 +4872,7 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
 }
 
 /* A slide's terms inside the liver (presenter.js TARGETS, .app[data-lit~=<target>]):
-   the label takes the term's colour (--term-c) with a soft glow, eased in and out. */
+   the label takes the term's colour (--term-c) and a pill and ring in it (below), eased in and out. */
 [data-target="lobule:triad"] { --term-c: var(--tr-pv); }
 [data-target="lobule:arteriole"] { --term-c: var(--artery); }
 [data-target="lobule:ductule"] { --term-c: var(--bile-duct); }
@@ -5942,28 +5942,18 @@ html.thumb-ui .menu.from-dock { clip-path: inset(-64px -64px calc(var(--sink, 0p
 .history-card .tl-pop.tl-history { width: auto; max-height: none; overflow: visible; padding: 2px 0 6px; }
 
 /* Settings › "Frosted glass" off (html[data-noglass]): no live blur anywhere, which spares the GPU re-blurring the
-   moving figure every frame. Cards turn solid; the figure's label pills glow in their own colour instead. */
+   moving figure every frame. Cards and the figure's label pills turn solid instead. */
 :root[data-noglass] *, :root[data-noglass] *::before, :root[data-noglass] *::after { -webkit-backdrop-filter: none !important; backdrop-filter: none !important; }
 :root[data-noglass] :is(.lb-glass, .sv-legend, .pz-fk, .pz .pz-fk.pz-fk, .toast) { background: var(--surface); }
 :root[data-noglass] :is(.pz-shade, .pz-shade.pz-card, .pz-shade.stack, .pz-data.pz-data, .pz-case, .pz-bar, .pz.stack .pz-bar, .pz-scales, .cl-glass) { background: var(--surface); }
 /* (The upright split sheet's two glass pieces: its own fill is none, the pieces carry the glass, so they turn solid with the rest.) */
 :root[data-noglass] .pz.stack.stack .pz-data.pz-sheet::before, :root[data-noglass] .pz.stack.stack .pz-data.pz-sheet::after { background: var(--surface); }
 :root[data-noglass] .pz.pz-wide.pz-wide .pz-data.pz-sheet::before, :root[data-noglass] .pz.pz-wide.pz-wide .pz-data.pz-sheet::after { background: var(--surface); }
-/* (Settings › Blur effect off.) Labels lose their pill and glow in their own colour instead. The lit lobule and sinusoid names: the
-   text glows in the term's colour, faded in and out with the pill's own --pill-o. */
-:root[data-noglass] :is(.lz-lab, .lz-zone, .sv-region)::before { inset: calc(-1 * var(--pill-y) - 9px) calc(-1 * var(--pill-x) - 20px); border-radius: 50%; background: radial-gradient(closest-side, color-mix(in srgb, var(--term-c, var(--accent)) 62%, transparent) 15%, transparent 100%) !important; box-shadow: none !important; }   /* (a soft cloud, not a pill: it fades with the label's own --pill-o, so it eases in and out with the pill's timing) */
-/* The resistance and problem pills (lobule view and the main figure's focus label): no fill, the words in the mark's colour, glowing. */
-:root[data-noglass] .lz-call { --cc: var(--danger); background: none; box-shadow: none; border: 0; color: var(--cc); -webkit-text-stroke: 3px var(--label-halo); paint-order: stroke fill; text-shadow: 0 0 6px color-mix(in srgb, var(--cc) 85%, transparent), 0 0 14px color-mix(in srgb, var(--cc) 55%, transparent); }
-:root[data-noglass] .lz-call[data-kind="treat"] { --cc: var(--accent); }
-:root[data-noglass] .lz-call[data-kind="note"] { --cc: var(--text); }
-:root[data-noglass] #labels .lb.term { --lbc: var(--term); }
-:root[data-noglass] #labels .lb.focus { --lbc: var(--danger); }
-:root[data-noglass] #labels :is(.lb.focus, .lb.term) { animation: glow-in .5s var(--ease) both; filter: drop-shadow(0 0 5px color-mix(in srgb, var(--lbc) 80%, transparent)) drop-shadow(0 0 12px color-mix(in srgb, var(--lbc) 45%, transparent)); }
-:root[data-noglass] #labels .lb.focus.k-treat { --lbc: var(--accent); }
-:root[data-noglass] #labels .lb.focus.k-note { --lbc: var(--text); }
-:root[data-noglass] #labels :is(.lb.focus, .lb.term) .lb-bg { fill: transparent !important; stroke: none !important; filter: none; }
-:root[data-noglass] #labels :is(.lb.focus, .lb.term) text { fill: var(--lbc) !important; stroke: var(--label-halo) !important; }
-@keyframes glow-in { from { filter: drop-shadow(0 0 5px transparent) drop-shadow(0 0 12px transparent); } }
+/* (Settings › Blur effect off.) The frost goes; the pill stays. A lit lobule or sinusoid name keeps the tinted fill and the ring it has with the blur
+   (the slide's own term pill), the tint laid on the solid surface as the cards are, so it reads over the tissue and nothing glows. Same box as with
+   the blur, so the labels' spacing and the way it eases in and out (--pill-o) are unchanged. The resistance and problem pills and the figure's
+   focus and term labels are solid fills or plain coloured words in both settings, so they need nothing here. */
+:root[data-noglass] :is(.lz-lab, .lz-zone, .sv-region)::before { background: color-mix(in srgb, var(--term-c, var(--accent)) 18%, var(--surface)) !important; }
 /* The figure key: a small pill, its name with the colour scale under it (no "None" or "Large" words; a key of named swatches keeps its names). */
 .pz-fk.grad, .pz-fk.grad.col { flex-direction: column; align-items: center; gap: .2em; padding: .28em 14px .34em; font-size: max(12px, calc(var(--s-cap) * .78)); }   /* (the 12 px floor: a key's words had read 11 px, and 10 here) */
 .pz-fk.grad .pz-lens-bar { width: 4em; height: .5em; }
