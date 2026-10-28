@@ -853,7 +853,7 @@ function wireTopbar() {
 // use it, what it is, and who made it).
 function openSettings(anchor, withSearch = false) {
   const cur = document.documentElement.getAttribute('data-theme') || 'system';
-  // While presenting, only what changes how the talk looks (appearance, full screen, text size), and Send feedback.
+  // While presenting, only what changes how the talk looks (appearance, full screen, text size, blur effect), and Send feedback.
   const talk = presenter.active();
   popover(anchor, [
     // (Send feedback heads the sheet in every mode and on every device, above the dock's Search and Help, talks included, so a tester reaches it in one tap from any Settings button.)
@@ -867,12 +867,13 @@ function openSettings(anchor, withSearch = false) {
     ...(talk ? presenterSettings() : []),
     h('div', { class: 'menu-title' }, 'Text size on the figure'),
     textSizeControl(),
+    // (Blur effect is one setting for the app and the talks: the same switch and the same stored value in both.)
+    h('div', { class: 'menu-title' }, 'Accessibility'),
+    menuToggle(!document.documentElement.hasAttribute('data-noglass'), 'layers', 'Blur effect', 'Frosted glass behind cards and labels. Off: solid cards and glowing labels, lighter on a hot device', (on) => {
+      try { localStorage.setItem('pps.noGlass', on ? '0' : '1'); } catch { /* storage unavailable */ }
+      document.documentElement.toggleAttribute('data-noglass', !on);
+    }),
     ...(talk ? [] : [
-      h('div', { class: 'menu-title' }, 'Accessibility'),
-      menuToggle(!document.documentElement.hasAttribute('data-noglass'), 'layers', 'Blur effect', 'Frosted glass behind cards and labels. Off: solid cards and glowing labels, lighter on a hot device', (on) => {
-        try { localStorage.setItem('pps.noGlass', on ? '0' : '1'); } catch { /* storage unavailable */ }
-        document.documentElement.toggleAttribute('data-noglass', !on);
-      }),
       menuToggle(store.get().showHvpg, 'gauge', 'Always show HVPG', 'Show the HVPG without measuring it first (Tests › HVPG)', (on) => {
         try { localStorage.setItem('pps.showHvpg', on ? '1' : '0'); } catch { /* storage unavailable */ }
         document.body.classList.remove('hvpg-swap'); void document.body.offsetWidth; document.body.classList.add('hvpg-swap');
