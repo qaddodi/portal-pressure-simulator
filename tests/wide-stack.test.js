@@ -60,14 +60,14 @@ test('the gap under the words is the same with the readings tucked, out or on th
   // Runs the real liftTo against a stand-in stage, then places the cards as styles/app.css does: the readings' card's top is 25 px above
   // the box tucked and 1 px out (top: -1px - 24px * (1 - u)), the instrument card's top is u * d - 1 px under the box's, and the box and
   // the words rise by --pz-lift and --pz-rise.
-  const src = js.match(/const riseOn = [^\n]*\n\s*const setRise = [^\n]*\n\s*const liftTo = [^\n]*/)?.[0];
-  assert.ok(src, 'riseOn, setRise and liftTo are in presenter.js');
+  const src = js.match(/const riseOn = [\s\S]*?\n\s*const liftTo = [^\n]*/)?.[0];
+  assert.ok(src, 'riseOn, setRise, the words\' rise and liftTo are in presenter.js');
   const LIP = 24, Y = 600, Tb = 480;   // (the box's top at rest, the words' card's foot at rest)
   for (const base of [0, 70]) for (const d of [60, 128, 210]) {
     const props = new Map(), slip = { lift: d + base, base };
     const card = () => ({ style: { getPropertyValue: (n) => props.get(n) ?? '', setProperty: (n, v) => props.set(n, v), removeProperty: (n) => props.delete(n) } });
     const ui = { data: card(), lip: card(), text: card(), shade: card() };
-    const { liftTo } = new Function('ui', 'slip', 'LIP', 'zoomFollow', `${src}; return { liftTo };`)(ui, slip, LIP, () => {});   // (no card zoomed: the zoom hears nothing)
+    const { liftTo } = new Function('ui', 'slip', 'LIP', 'zoomFollow', 'slideTell', `${src}; return { liftTo };`)(ui, slip, LIP, () => {}, () => {});   // (no card zoomed: the zoom hears nothing)
     const at = (u) => {
       liftTo(u);
       const lift = parseFloat(props.get('--pz-lift')) || 0, rise = parseFloat(props.get('--pz-rise')) || 0;
@@ -111,7 +111,8 @@ test('a Gut to heart chart too tall for the room under the words lifts the pair 
   assert.match(js, /if \(wideSheet\(dd\) && dd\.hasAttribute\('data-ladder'\)\) \{\n\s*const b = Math\.max\(0, Math\.min\(top0 \+ t\.height \+ 2 \* pad \+ gap \+ ch - foot, t\.height \+ 2 \* pad \+ gap\)\) \/ k;\n\s*slip\.base = b > 0\.5 \? b : 0;/);
   assert.match(js, /if \(!\(below && t && wideSheet\(dd\)\)\) \{ slip\.lift = 0; slip\.base = 0; \}/);
   // (The rise is the base always, and the readings add the rest of their lift on top, by u.)
-  assert.match(js, /const liftTo = \(u\) => \{ const trav = Math\.max\(0, slip\.lift - slip\.base\), f = u > 0 \? u : 0; setRise\('--pz-lift', slip\.base \+ f \* trav\); setRise\('--pz-rise', slip\.base \+ f \* Math\.max\(0, trav - LIP\)\);/);
+  assert.match(js, /const liftTo = \(u\) => \{ const trav = Math\.max\(0, slip\.lift - slip\.base\), f = u > 0 \? u : 0; setRise\('--pz-lift', slip\.base \+ f \* trav\); words\.u = f; words\.trav = trav; setWords\(wordsAt\(\)\);/);
+  assert.match(js, /const wordsAt = \(\) => slip\.base \+ \(words\.held \? 0 : words\.u\) \* Math\.max\(0, words\.trav - LIP\);/);
 });
 
 // (Mohammad, 25 Oct: "moving the cards up sliding tucking untucking is very very laggy. Like 10fps maybe".)

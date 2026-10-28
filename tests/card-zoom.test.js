@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { zoomPlan, zoomMargin, unionBox, emptyTap, tapTracker, createCardZoom, ZOOM_MAX, ZOOM_MIN } from '../src/ui/card-zoom.js';
+import { zoomPlan, zoomMargin, unionBox, emptyTap, tapTracker, createCardZoom, ZOOM_MAX, ZOOM_MIN, ZOOM_MS, SHUT_MS } from '../src/ui/card-zoom.js';
 
 // The data card zoomed to the middle of the screen (Mohammad, 28 Oct): "can we add a feature on large screens and ipad landscape for data card
 // instrument card to display it bigger when clicking on it directly; however it shouldn't like make the text smaller. the camera should like zoom
@@ -359,7 +359,7 @@ test('zoom: the readings move only once the glide in has ended, and not on its w
 
 test('the readings come out and tuck away under a zoomed card, the zoom fitted again on every frame of it', () => {
   // (liftTo runs on every frame of the readings' slide, a finger's pull included; the zoom hears the change since the card zoomed.)
-  assert.match(js, /setRise\('--pz-rise', slip\.base \+ f \* Math\.max\(0, trav - LIP\)\); zoomFollow\(f, trav\); \};/);
+  assert.match(js, /words\.u = f; words\.trav = trav; setWords\(wordsAt\(\)\); zoomFollow\(f, trav\); \};/);
   assert.match(js, /const zoomFolds = \(\) => zoomSteady\(\) && slip\.lift - slip\.base > 0\.5;/);
   assert.match(js, /ui\.zoom\.follow\(\(f - zoomU0\) \* \(trav - LIP\), \(f - zoomU0\) \* trav\);/);
   assert.match(js, /zoomU0 = underU\(ui\.data\);\n {4}if \(z\.open\(\)\) paintZoom\(\);/);
@@ -369,4 +369,144 @@ test('the readings come out and tuck away under a zoomed card, the zoom fitted a
   // (The rise is the cards' own CSS translate, which a zoom's transform does not scale: card-zoom.js makes up for it.)
   assert.match(css, /\.pz\.pz-wide \.pz-data\.col, \.pz\.pz-wide \.pz-lip \{ translate: 0 calc\(-1 \* var\(--pz-lift, 0px\)\); \}/);
   assert.match(zoomSrc, /lift \* k \* \(1 - sc\)/);
+});
+
+// The words' card behind a zoomed card (Mohammad, 28 Oct: "when the stacked cards are zoomed in (in focus) and i open untuck the stacked card, the
+// TEACHING card in the background is reacting still by going up; it shouldn't in fact, if the stack is unstacked, and i zoom into it, the teaching
+// card should go back to original location").
+test('zoom: the card tells what stands behind it as it glides in and back, and at once when it is put back at once', async () => {
+  const mk = () => {
+    const card = new El({ left: 40, top: 300, width: 420, height: 380 }), lip = new El({ left: 40, top: 276, width: 420, height: 24 });
+    const scrim = new El({ left: 0, top: 0, width: 1440, height: 900 }), app = new El({ left: 0, top: 0, width: 1440, height: 900 });
+    const log = [];
+    const z = createCardZoom({ card, along: [lip], scrim, app, area: () => ({ left: 0, top: 0, width: 1440, height: 900 }), reduce: () => z.reduceNow, behind: (up, ms) => log.push([up, ms]) });
+    z.reduceNow = false;
+    return { card, lip, log, z };
+  };
+  const back = stands();
+  try {
+    { const { z, card, lip, log } = mk();
+      z.open(); assert.deepEqual(log, [[true, ZOOM_MS]], 'in: for as long as the glide');
+      for (const x of [...card.anims, ...lip.anims]) x.done();
+      await new Promise((r) => setTimeout(r, 0)); log.length = 0;
+      const shut = z.close(); assert.deepEqual(log, [[false, SHUT_MS]], 'back: for as long as the glide back');
+      z.close(); assert.equal(log.length, 1, 'closing twice tells once');
+      for (const x of [...card.anims, ...lip.anims]) x.done();
+      await shut; assert.equal(log.length, 1, 'the card landing has nothing more to tell'); }
+    { const { z, log } = mk();
+      z.reduceNow = true; z.open(); assert.deepEqual(log, [[true, 0]], 'Reduce Motion: at once'); log.length = 0;
+      z.close(); assert.deepEqual(log, [[false, 0]]); }
+    { const { z, log } = mk();
+      z.open(); log.length = 0; z.close({ instant: true }); assert.deepEqual(log, [[false, 0]], 'put back at once'); }
+    { const { z, log } = mk();
+      z.open(); log.length = 0; z.reset(); assert.deepEqual(log, [[false, 0]], 'a slide, a resize or the end of the talk'); z.reset(); assert.equal(log.length, 1, 'nothing up: nothing to tell'); }
+    { const { z, card, log } = mk();
+      card.rect = { left: 0, top: 0, width: 1400, height: 880 };
+      assert.equal(z.open(), false); assert.deepEqual(log, [], 'a card that cannot grow tells no one'); }
+  } finally { back(); }
+});
+
+// The presenter's half, run on stand-ins: the words' rise as the zoom holds it, and the glide that carries it.
+const wordsWorld = ({ base = 0, d = 126 } = {}) => {
+  const src = js.match(/const riseOn = [\s\S]*?\n\s*const liftTo = [^\n]*/)?.[0];
+  assert.ok(src, 'the words\' rise is in presenter.js');
+  const LIP = 24, slip = { lift: d + base, base }, events = [], ticks = [];
+  const card = () => {
+    const props = new Map();
+    return { props, anims: [], style: { getPropertyValue: (n) => props.get(n) ?? '', setProperty: (n, v) => props.set(n, v), removeProperty: (n) => props.delete(n) },
+      // (Where the card is seen: under a glide still running, its frame; else the style's.)
+      shown() { const a = this.anims.findLast((x) => !x.cancelled && !x.over); return a ? a.at : `0px ${-(parseFloat(props.get('--pz-rise')) || 0)}px`; },
+      animate(frames, o) { const a = { frames, o, cancelled: false, over: false, onfinish: null, at: frames[0].translate, cancel() { this.cancelled = true; } }; this.anims.push(a); return a; } };
+  };
+  const ui = { data: card(), lip: card(), text: card(), shade: card() };
+  const gcs = (el) => ({ translate: el.shown() });
+  const api = new Function('ui', 'slip', 'LIP', 'zoomFollow', 'slideTell', 'getComputedStyle', 'dispatchEvent', 'Event', `${src}; return { liftTo, words, wordsGlide, wordsAt };`)(
+    ui, slip, LIP, () => {}, () => ticks.push('slide'), gcs, (e) => events.push(e.type), class { constructor(t) { this.type = t; } });
+  return { ...api, ui, slip, events, ticks, rise: () => parseFloat(ui.text.props.get('--pz-rise')) || 0, lift: () => parseFloat(ui.data.props.get('--pz-lift')) || 0, LIP };
+};
+
+test('the words\' card stays at its tucked place while a card is zoomed, however the readings move under it', () => {
+  const w = wordsWorld({ d: 126 });
+  w.liftTo(0);
+  assert.equal(w.rise(), 0);
+  w.words.held = true;   // (the card zooms: zoomBehind)
+  for (const u of [0, 0.3, 0.7, 1, 0.5, 0]) {
+    w.liftTo(u);
+    assert.equal(w.rise(), 0, `readings ${u} of the way out: the words stay`);
+    assert.equal(w.ui.shade.props.get('--pz-rise') ?? '', '', 'and so does their glass');
+    assert.ok(Math.abs(w.lift() - u * 126) < 0.06 || u === 0, 'the readings\' card and its handle still rise');
+  }
+  // (Released: the rise owed to where the readings stand.)
+  w.liftTo(1); w.words.held = false; w.liftTo(1);
+  assert.ok(Math.abs(w.rise() - (126 - w.LIP)) < 0.06, 'out: the words rise by the travel less the handle\'s edge');
+});
+
+test('the words\' card eases back to its tucked place as the card zooms in, and to where the readings need it as the card comes back', () => {
+  const w = wordsWorld({ d: 126 });
+  w.liftTo(1);   // (the readings were out as the card zoomed)
+  const out = 126 - w.LIP;
+  assert.equal(w.rise(), out);
+  // In: the rise is written where it ends (the tucked place) and the card's translate glides there from where it stands.
+  w.words.held = true; w.wordsGlide(520);
+  assert.equal(w.rise(), 0);
+  assert.deepEqual(w.ticks, ['slide'], 'the probe is told the cards are moving');
+  for (const el of [w.ui.text, w.ui.shade]) {
+    assert.equal(el.anims.length, 1);
+    assert.deepEqual(el.anims[0].frames, [{ translate: `0px ${-out}px` }, { translate: '0px 0px' }], 'from its raised place to its original one');
+    assert.equal(el.anims[0].o.duration, 520); assert.equal(el.anims[0].o.easing, 'cubic-bezier(.2, .8, .2, 1)', 'the zoom\'s own ease');
+    assert.notEqual(el.anims[0].o.fill, 'forwards', 'it lets go at its end: the style already says where it ends');
+  }
+  // (Done: the cards announce their place once.)
+  w.ui.text.anims[0].over = true; w.ui.text.anims[0].onfinish(); assert.deepEqual(w.events, [], 'not until both have landed');
+  w.ui.shade.anims[0].over = true; w.ui.shade.anims[0].onfinish(); assert.deepEqual(w.events, ['pps:occ']);
+  // (The readings come out and tuck away under the zoom: the words do not stir, nothing is glided.)
+  w.liftTo(0.5); w.liftTo(1); w.liftTo(0);
+  assert.equal(w.rise(), 0); assert.equal(w.ui.text.anims.length, 1);
+  // Back with the readings out: the rise they need, glided from the tucked place.
+  w.liftTo(1); w.words.held = false; w.wordsGlide(440);
+  assert.equal(w.rise(), out);
+  const a = w.ui.text.anims.at(-1);
+  assert.deepEqual(a.frames, [{ translate: '0px 0px' }, { translate: `0px ${-out}px` }]);
+  assert.equal(a.o.duration, 440);
+  // Back with the readings tucked: the original place, nothing to glide.
+  { const t = wordsWorld({ d: 126 });
+    t.liftTo(0); t.words.held = true; t.wordsGlide(520);
+    t.words.held = false; t.wordsGlide(440);
+    assert.equal(t.rise(), 0); assert.equal(t.ui.text.anims.length, 0, 'it never left its place: no motion'); assert.deepEqual(t.ticks, []); }
+});
+
+test('the words\' card at once for Reduce Motion, a slide or a resize; a glide caught by a pull or a slide is let go; a Gut to heart chart\'s rise stays', () => {
+  { const w = wordsWorld({ d: 126 });
+    w.liftTo(1); w.words.held = true; w.wordsGlide(0);
+    assert.equal(w.rise(), 0); assert.equal(w.ui.text.anims.length, 0); assert.deepEqual(w.ticks, []); }
+  // (A glide caught half way is taken up from where the card stands.)
+  { const w = wordsWorld({ d: 126 });
+    w.liftTo(1); w.words.held = true; w.wordsGlide(520);
+    const first = w.ui.text.anims[0]; first.at = '0px -40px';   // (half way)
+    w.words.held = false; w.wordsGlide(440);
+    assert.equal(first.cancelled, true);
+    assert.equal(w.ui.text.anims.at(-1).frames[0].translate, '0px -40px'); }
+  // (A pull or a slide that writes another place takes the glide's place: the card follows the finger.)
+  { const w = wordsWorld({ d: 126 });
+    w.liftTo(1); w.words.held = true; w.wordsGlide(520); w.words.held = false;
+    const a = w.ui.text.anims[0];
+    w.liftTo(0.2);
+    assert.equal(a.cancelled, true); assert.equal(w.ui.text.shown(), `0px ${-w.rise()}px`, 'the card is where the style says');
+    assert.ok(Math.abs(w.rise() - 0.2 * (126 - w.LIP)) < 0.06); }
+  // (A Gut to heart chart's own rise, slip.base, is the tucked place: the words never go below it.)
+  { const w = wordsWorld({ base: 70, d: 126 });
+    w.liftTo(1);
+    assert.ok(Math.abs(w.rise() - (70 + 126 - w.LIP)) < 0.06);
+    w.words.held = true; w.wordsGlide(520);
+    assert.equal(w.rise(), 70, 'the card goes back to where it stands tucked, which is raised by the chart already');
+    assert.equal(w.wordsAt(), 70); }
+});
+
+test('the presenter hands the card\'s cue to the words\' card and lets the slide take over once the card is back', () => {
+  assert.match(js, /behind: zoomBehind \}\);/);
+  assert.match(js, /const zoomBehind = \(up, ms\) => \{ words\.held = up; wordsGlide\(ms\); \};/);
+  // (Written once, where it ends: the layout that follows the zoom reads the rise back from the style, wide-stack.test.js.)
+  assert.match(js, /words\.now = to; setRise\('--pz-rise', to\);/);
+  // (The words' card is not under the zoom's transform: only its own translate moves, never the stage or its figure.)
+  assert.equal(/el\.animate\?\.\(\[\{ translate: from\[i\] \}, \{ translate: getComputedStyle\(el\)\.translate \}\]/.test(js), true);
 });

@@ -68,9 +68,10 @@ export function tapTracker(card, { ok = () => true, onTap }) {
  * The zoom itself. card: the data card; along: pieces that ride with it (its handle); scrim: the
  * veil; app: the app's root (class pz-zoomed while it is up). area(): the screen's room, { left, top, width, height }; scale(): screen px per
  * layout px; reduce(): Reduce Motion. boost(k): the pictures drawn at k times the screen's density while the card is large; hold(on): the
- * corner credit sits out; settled(): the card is back (anything laid out meanwhile is laid out now).
+ * corner credit sits out; settled(): the card is back (anything laid out meanwhile is laid out now); behind(up, ms): the card starts its glide
+ * in (up) or back, lasting ms (0: at once), as the cue for whatever stands behind it to move in step (the words' card: presenter.js wordsGlide).
  */
-export function createCardZoom({ card, along = [], scrim, app, area, scale = () => 1, reduce = () => false, boost = () => {}, hold = () => {}, settled = () => {} }) {
+export function createCardZoom({ card, along = [], scrim, app, area, scale = () => 1, reduce = () => false, boost = () => {}, hold = () => {}, settled = () => {}, behind = () => {} }) {
   let st = null;   // { plan, riders: [{ el, rest, own, anim }], closing, steady, box, mid, k, s, boosted }
   // The card and what rides with it, as they rest: a stacked card's handle stands on its top edge (the readings' card tucked behind it), so the
   // box that is centred and fitted to the screen is the whole of them, never the card's box alone (Mohammad, 28 Oct: a stacked card sat off the
@@ -124,7 +125,7 @@ export function createCardZoom({ card, along = [], scrim, app, area, scale = () 
         pin(r);
       }
       card.dataset.zoomed = '';
-      app.classList.add('pz-zoomed'); hold(true); boost(plan.s);
+      app.classList.add('pz-zoomed'); hold(true); boost(plan.s); behind(true, ms);
       const to = `translate(${(plan.dx / k).toFixed(2)}px, ${(plan.dy / k).toFixed(2)}px) scale(${plan.s.toFixed(4)})`;
       for (const r of riders) r.anim = glide(r.el, 'transform', to, ms);
       scrim.classList.add('on');
@@ -165,8 +166,9 @@ export function createCardZoom({ card, along = [], scrim, app, area, scale = () 
       if (!st) return Promise.resolve();
       if (st.closing) return st.closing;
       scrim.classList.remove('on');
-      if (instant || reduce()) { end(); return Promise.resolve(); }
+      if (instant || reduce()) { behind(false, 0); end(); return Promise.resolve(); }
       const s = st;
+      behind(false, SHUT_MS);
       for (const r of s.riders) r.anim = glide(r.el, 'transform', 'none', SHUT_MS, r.anim);
       // (A glide that never reports its end, a tab hidden mid-way, is let go after its time.)
       const guard = new Promise((res) => setTimeout(res, SHUT_MS + 120));
@@ -175,6 +177,6 @@ export function createCardZoom({ card, along = [], scrim, app, area, scale = () 
     },
     toggle() { return this.up ? this.close() : this.open(); },
     /** Everything put back at once: a slide, a resize or the end of the talk comes first. */
-    reset() { if (st) { scrim.classList.remove('on'); end(); } },
+    reset() { if (st) { scrim.classList.remove('on'); behind(false, 0); end(); } },
   };
 }

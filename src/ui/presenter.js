@@ -44,7 +44,7 @@ import { COMPACT, WIDE } from './card-type.js?v=5af5f22935';
 import { flowTimeHeight, trailKeys } from './flow-time.js?v=026ab2f37c';
 import { PROCS, procBlocked, procOffered, playProcedure } from './proc-anim.js?v=3075a0efa7';
 import { dataPlan, textPlan, keepData, keepText, cardSnap, cardChanged, cardBack } from './card-keep.js?v=4fc0919e34';
-import { createCardZoom, tapTracker } from './card-zoom.js?v=250557e82d';
+import { createCardZoom, tapTracker } from './card-zoom.js?v=d0e4ed8bd1';
 const nextFrame = frameFor('presenter');
 
 const KEY = 'pps.scripts';
@@ -2530,7 +2530,32 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   // about 10 frames a second on a Mac, Mohammad, 25 Oct: "moving the cards up sliding tucking untucking is very very laggy".)
   const riseOn = (name) => (name === '--pz-lift' ? [ui?.data, ui?.lip] : [ui?.text, ui?.shade]);
   const setRise = (name, w) => { const v = w > 0.5 ? `${w.toFixed(1)}px` : ''; for (const el of riseOn(name)) if (el && el.style.getPropertyValue(name) !== v) { if (v) el.style.setProperty(name, v); else el.style.removeProperty(name); } };
-  const liftTo = (u) => { const trav = Math.max(0, slip.lift - slip.base), f = u > 0 ? u : 0; setRise('--pz-lift', slip.base + f * trav); setRise('--pz-rise', slip.base + f * Math.max(0, trav - LIP)); zoomFollow(f, trav); };
+  // (The words' card while a card is zoomed: it stays at its tucked, original place, whatever the readings do under the zoom, and the rise
+  // owed to them is taken up once the card is back (Mohammad, 28 Oct: "when the stacked cards are zoomed in and i untuck the stacked card, the
+  // TEACHING card in the background is reacting still by going up; ... if the stack is unstacked, and i zoom into it, the teaching card should go
+  // back to original location"). words.held: the zoom is up, so the words' rise is slip.base alone; u, trav: the readings' last place and travel
+  // (liftTo), what the rise is once released; now: the rise as written.)
+  // (A change of that rise that is the zoom's, not a finger's or a slide's, is eased by wordsGlide: the rise is written at once, where it ends,
+  // and the card's translate is animated from where it stands to it, in step with the zoom's glide. A rise written per frame by liftTo takes
+  // the glide's place.)
+  const words = { held: false, u: 0, trav: 0, now: 0, anims: [] };
+  const wordsAt = () => slip.base + (words.held ? 0 : words.u) * Math.max(0, words.trav - LIP);
+  const stopWords = () => { for (const a of words.anims) a.cancel(); words.anims = []; };
+  const setWords = (w) => { if (Math.abs(w - words.now) > 0.5) stopWords(); words.now = w; setRise('--pz-rise', w); };
+  function wordsGlide(ms) {
+    const to = wordsAt(), els = [ui?.text, ui?.shade].filter(Boolean), from = els.map((el) => getComputedStyle(el).translate), moves = Math.abs(to - words.now) > 0.5;
+    stopWords();
+    words.now = to; setRise('--pz-rise', to);
+    if (!ms || !moves) return;
+    slideTell();
+    els.forEach((el, i) => {
+      const a = el.animate?.([{ translate: from[i] }, { translate: getComputedStyle(el).translate }], { duration: ms, easing: 'cubic-bezier(.2, .8, .2, 1)' });
+      if (!a) return;
+      words.anims.push(a);
+      a.onfinish = () => { if (words.anims.includes(a)) { words.anims = words.anims.filter((x) => x !== a); if (!words.anims.length) dispatchEvent(new Event('pps:occ')); } };
+    });
+  }
+  const liftTo = (u) => { const trav = Math.max(0, slip.lift - slip.base), f = u > 0 ? u : 0; setRise('--pz-lift', slip.base + f * trav); words.u = f; words.trav = trav; setWords(wordsAt()); zoomFollow(f, trav); };
   // (Told when the readings' card starts to move, so the Doppler probe is placed against the cards frame by frame as they go: stage.js dprTrack.)
   const slideTell = () => dispatchEvent(new Event('pps:slide'));
   const underU = (d) => (d.classList.contains('pz-sliding') ? parseFloat(d.style.getPropertyValue('--pz-u')) || 0 : d.classList.contains('tool-open') ? 1 : 0);
@@ -3026,6 +3051,9 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     creditHolds = Math.max(0, creditHolds - 1);
     creditT = setTimeout(() => { if (!creditHolds) app.classList.remove('pz-moving'); }, 120);
   };
+  // (The words' card behind it eases back to its tucked place as the card zooms in, and to where the readings need it as the card comes back:
+  // wordsAt, wordsGlide.)
+  const zoomBehind = (up, ms) => { words.held = up; wordsGlide(ms); };
   // (The card is back: a layout asked for while it was up runs now, once.)
   const zoomSettled = () => nextFrame(() => { if (!ui || !zoomMissed || ui.zoom.on) return; zoomMissed = false; fitDone.delete(ui.data); onResize(); });
   let shiftLock = null;   // (the stacked pair's centring, keyed as the words' lock: layout)
@@ -4436,7 +4464,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     // The zoom's veil sits over the words and the figure and under the card, its handle and the controls: a tap on it puts the card back.
     const zscrim = h('div', { class: 'pz-zscrim', 'aria-hidden': 'true', onclick: () => zoom.close().then(paintZoom) });
     const zoom = createCardZoom({ card: data, along: [lip], scrim: zscrim, app, area: () => wrap.getBoundingClientRect(), scale: () => wrap.getBoundingClientRect().width / (wrap.clientWidth || 1) || 1,
-      reduce: () => reduce.matches, boost: setCanvasBoost, hold: zoomCredit, settled: zoomSettled });
+      reduce: () => reduce.matches, boost: setCanvasBoost, hold: zoomCredit, settled: zoomSettled, behind: zoomBehind });
     tapTracker(data, { ok: () => zoomReady() || zoom.up, onTap: () => zoomToggle() });
     const root = h('div', { class: 'pz' }, safe, veil, load, fk, text, zscrim, data, lip, panel, vcase, prog, scl, bar, jump, blackEl, say);
     wrap.insertBefore(shade, wrap.querySelector('.stage-credit'));
