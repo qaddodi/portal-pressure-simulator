@@ -1,13 +1,13 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { zoomPlan, zoomMargin, emptyTap, tapTracker, createCardZoom, ZOOM_MAX, ZOOM_MIN, PUSH } from '../src/ui/card-zoom.js';
+import { zoomPlan, zoomMargin, emptyTap, tapTracker, createCardZoom, ZOOM_MAX, ZOOM_MIN } from '../src/ui/card-zoom.js';
 
 // The data card zoomed to the middle of the screen (Mohammad, 28 Oct): "can we add a feature on large screens and ipad landscape for data card
 // instrument card to display it bigger when clicking on it directly; however it shouldn't like make the text smaller. the camera should like zoom
 // on the card to display it centered large in middle of the screen". Code only: the controller is run against stand-in elements.
 const read = (p) => readFileSync(new URL(p, import.meta.url), 'utf8');
-const js = read('../src/ui/presenter.js'), css = read('../styles/app.css'), util = read('../src/ui/util.js'), stage = read('../src/ui/stage.js'), html = read('../index.html');
+const zoomSrc = read('../src/ui/card-zoom.js'), js = read('../src/ui/presenter.js'), css = read('../styles/app.css'), util = read('../src/ui/util.js'), stage = read('../src/ui/stage.js'), html = read('../index.html');
 
 test('the card grows to the screen\'s room and goes to its middle, never past the most, and not at all when it is large already', () => {
   const area = { left: 0, top: 0, width: 1440, height: 900 };
@@ -89,17 +89,17 @@ class El {
 }
 const world = () => {
   const card = new El({ left: 40, top: 300, width: 420, height: 380 }), lip = new El({ left: 40, top: 276, width: 420, height: 24 });
-  const view = new El({ left: 0, top: 0, width: 1440, height: 900 }), scrim = new El({ left: 0, top: 0, width: 1440, height: 900 }), app = new El({ left: 0, top: 0, width: 1440, height: 900 });
+  const scrim = new El({ left: 0, top: 0, width: 1440, height: 900 }), app = new El({ left: 0, top: 0, width: 1440, height: 900 });
   const log = [];
-  const z = createCardZoom({ card, along: [lip], view, scrim, app, area: () => ({ left: 0, top: 0, width: 1440, height: 900 }), scale: () => 1, reduce: () => z.reduceNow,
+  const z = createCardZoom({ card, along: [lip], scrim, app, area: () => ({ left: 0, top: 0, width: 1440, height: 900 }), scale: () => 1, reduce: () => z.reduceNow,
     boost: (k) => log.push(['boost', +k.toFixed(2)]), hold: (on) => log.push(['hold', on]), settled: () => log.push(['settled']) });
   z.reduceNow = false;
-  return { card, lip, view, scrim, app, log, z };
+  return { card, lip, scrim, app, log, z };
 };
 const stands = (el, prop) => { const old = globalThis.getComputedStyle; globalThis.getComputedStyle = (e) => e.style; return () => { globalThis.getComputedStyle = old; }; };
 
-test('zoom: the card and its handle glide together about the card\'s middle, the figure comes in, the veil comes up, and the card reports where it rests', () => {
-  const { card, lip, view, scrim, app, log, z } = world(); const back = stands();
+test('zoom: the card and its handle glide together about the card\'s middle, the figure stays still, the veil comes up, and the card reports where it rests', () => {
+  const { card, lip, scrim, app, log, z } = world(); const back = stands();
   try {
     assert.equal(z.open(), true);
     assert.equal(z.on, true); assert.equal(z.up, true);
@@ -112,11 +112,9 @@ test('zoom: the card and its handle glide together about the card\'s middle, the
     assert.equal(card.style.transformOrigin, '210.00px 190.00px');
     assert.equal(lip.style.transformOrigin, '210.00px 214.00px', 'the card\'s middle, seen from the handle');
     assert.equal(t.o.fill, 'forwards'); assert.equal(t.o.easing, 'cubic-bezier(.2, .8, .2, 1)');
-    // (The figure behind pushes in by PUSH about the card's place.)
-    const v = view.anims[0];
-    assert.equal(v.prop, 'scale'); assert.equal(v.frames[1].scale, String(1 + PUSH));
-    assert.equal(view.style.transformOrigin, '250.00px 490.00px');
-    assert.ok(PUSH >= 0.05 && PUSH <= 0.08, 'about 5 to 8 per cent');
+    // (The figure behind does not move, Mohammad's "don't move anything": the controller is not given it, and the only thing it glides is a transform.)
+    assert.equal(zoomSrc.includes('PUSH'), false); assert.equal(/glide\([^)]*'scale'/.test(zoomSrc), false); assert.equal(/\bview\b/.test(zoomSrc.replace(/\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '')), false);
+    assert.deepEqual([...zoomSrc.matchAll(/glide\(\w+(?:\.\w+)?, '(\w+)'/g)].map((m) => m[1]), ['transform', 'transform']);
     assert.ok(scrim.classList.contains('on')); assert.ok(app.classList.contains('pz-zoomed')); assert.equal('zoomed' in card.dataset, true);
     assert.deepEqual(log, [['hold', true], ['boost', +p.s.toFixed(2)]]);
     // (Everyone who asks the card or its handle where they are hears where they rest, however far the glide has come.)
@@ -128,10 +126,10 @@ test('zoom: the card and its handle glide together about the card\'s middle, the
 });
 
 test('zoom: closing glides back from where it stands, then puts everything as it was and says it is back', async () => {
-  const { card, lip, view, scrim, app, log, z } = world(); const back = stands();
+  const { card, lip, scrim, app, log, z } = world(); const back = stands();
   try {
     z.open(); log.length = 0;
-    card.style.transform = 'matrix(1.9, 0, 0, 1.9, 300, 80)'; view.style.scale = '1.03';   // (caught half way)
+    card.style.transform = 'matrix(1.9, 0, 0, 1.9, 300, 80)';   // (caught half way)
     const shut = z.close();
     assert.equal(z.up, false, 'on its way back');
     assert.equal(z.on, true, 'but still held: nothing is laid out yet');
@@ -139,27 +137,26 @@ test('zoom: closing glides back from where it stands, then puts everything as it
     const [a0, a1] = [card.anims[0], card.anims[1]];
     assert.equal(a0.cancelled, true, 'the open glide is let go');
     assert.deepEqual([a1.frames[0].transform, a1.frames[1].transform], ['matrix(1.9, 0, 0, 1.9, 300, 80)', 'none'], 'from where it stands to where it rests');
-    assert.deepEqual([view.anims[1].frames[0].scale, view.anims[1].frames[1].scale], ['1.03', 'none']);
     assert.equal(z.close(), shut, 'closing twice is one close');
     assert.equal(z.open(), false, 'and it cannot open meanwhile');
-    for (const x of [...card.anims, ...lip.anims, ...view.anims]) x.done();
+    for (const x of [...card.anims, ...lip.anims]) x.done();
     await shut;
     assert.equal(z.on, false);
     assert.equal(Object.hasOwn(card, 'getBoundingClientRect'), false, 'the card answers for itself again');
     assert.equal(card.getBoundingClientRect().width, 420);
-    assert.equal(card.style.transformOrigin, ''); assert.equal(lip.style.transformOrigin, ''); assert.equal(view.style.transformOrigin, '');
+    assert.equal(card.style.transformOrigin, ''); assert.equal(lip.style.transformOrigin, '');
     assert.equal('zoomed' in card.dataset, false); assert.ok(!app.classList.contains('pz-zoomed'));
     assert.ok(a1.cancelled, 'the glide\'s last frame is no longer held');
     assert.deepEqual(log, [['boost', 1], ['hold', false], ['settled']]);
   } finally { back(); }
 });
 
-test('zoom: Reduce Motion moves it at once, with no push of the figure', () => {
-  { const { card, view, z, log, scrim } = world(); const back = stands();
+test('zoom: Reduce Motion moves it at once', () => {
+  { const { card, z, log, scrim } = world(); const back = stands();
     try {
       z.reduceNow = true;
       z.open();
-      assert.equal(card.anims[0].o.duration, 0); assert.equal(view.anims.length, 0, 'the figure stays');
+      assert.equal(card.anims[0].o.duration, 0);
       assert.ok(scrim.classList.contains('on'), 'the veil still fades');
       log.length = 0;
       return z.close().then(() => { assert.equal(z.on, false); assert.deepEqual(log, [['boost', 1], ['hold', false], ['settled']]); });

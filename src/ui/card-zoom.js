@@ -1,13 +1,13 @@
 // The data card zoomed to the middle of the screen (Mac and iPad landscape; Mohammad, 28 Oct: "the camera should like zoom on the card to
 // display it centered large in middle of the screen", the text "shouldn't like make the text smaller"). The card, and the handle that rides
-// on its edge, glide and grow as one piece by a transform, so its words and pictures only get larger; the figure behind eases in a few per
-// cent toward the card, and a veil dims everything else. Nothing pauses: the instrument, the model and the figure run on under it.
+// on its edge, glide and grow as one piece by a transform, so its words and pictures only get larger; a veil dims everything else, and
+// the figure behind stays exactly where it is (Mohammad, 28 Oct: "don't move anything"). Nothing pauses: the instrument, the model and the
+// figure run on under it.
 // The presenter lays nothing out while the card is up (the card and the handle report the places they rest, so the figure's labels and
 // the camera keep to them) and puts the card back before a slide changes.
 
 export const ZOOM_MAX = 2.2;    // the most the card grows
 export const ZOOM_MIN = 1.2;    // under this the card is large enough; no zoom is offered
-export const PUSH = 0.06;       // how far the figure behind comes in
 export const ZOOM_MS = 520;     // in
 export const SHUT_MS = 440;     // and back
 const EASE = 'cubic-bezier(.2, .8, .2, 1)';   // (tokens.css --ease)
@@ -54,13 +54,13 @@ export function tapTracker(card, { ok = () => true, onTap }) {
 }
 
 /**
- * The zoom itself. card: the data card; along: pieces that ride with it (its handle); view: the figure's holder, which comes in; scrim: the
+ * The zoom itself. card: the data card; along: pieces that ride with it (its handle); scrim: the
  * veil; app: the app's root (class pz-zoomed while it is up). area(): the screen's room, { left, top, width, height }; scale(): screen px per
  * layout px; reduce(): Reduce Motion. boost(k): the pictures drawn at k times the screen's density while the card is large; hold(on): the
  * corner credit sits out; settled(): the card is back (anything laid out meanwhile is laid out now).
  */
-export function createCardZoom({ card, along = [], view, scrim, app, area, scale = () => 1, reduce = () => false, boost = () => {}, hold = () => {}, settled = () => {} }) {
-  let st = null;   // { plan, riders: [{ el, rest, own, anim }], push, closing }
+export function createCardZoom({ card, along = [], scrim, app, area, scale = () => 1, reduce = () => false, boost = () => {}, hold = () => {}, settled = () => {} }) {
+  let st = null;   // { plan, riders: [{ el, rest, own, anim }], closing }
   // The piece's box as it rests, for everyone who asks the element (the figure's labels keep clear of the cards by it): a copy that does
   // not move with the glide. Its own getBoundingClientRect is put back as it was.
   const pin = (r) => {
@@ -81,7 +81,6 @@ export function createCardZoom({ card, along = [], view, scrim, app, area, scale
     if (!st) return;
     const s = st; st = null;
     for (const r of s.riders) { r.anim?.cancel(); unpin(r); r.el.style.transformOrigin = ''; }
-    s.push?.cancel(); view.style.transformOrigin = '';
     delete card.dataset.zoomed;
     app.classList.remove('pz-zoomed'); scrim.classList.remove('on');
     boost(1); hold(false);
@@ -102,7 +101,7 @@ export function createCardZoom({ card, along = [], view, scrim, app, area, scale
       const k = scale() || 1, ms = reduce() ? 0 : ZOOM_MS;
       const q = card.getBoundingClientRect(), cx = q.left + q.width / 2, cy = q.top + q.height / 2;
       const riders = [card, ...along].map((el) => ({ el, rest: el === card ? q : el.hidden ? null : el.getBoundingClientRect(), own: null, anim: null })).filter((r) => r.rest && r.rest.width > 0);
-      st = { plan, riders, push: null, closing: null };
+      st = { plan, riders, closing: null };
       for (const r of riders) {
         // (Each piece turns about the card's middle, so they move as one.)
         r.el.style.transformOrigin = `${((cx - r.rest.left) / k).toFixed(2)}px ${((cy - r.rest.top) / k).toFixed(2)}px`;
@@ -112,11 +111,6 @@ export function createCardZoom({ card, along = [], view, scrim, app, area, scale
       app.classList.add('pz-zoomed'); hold(true); boost(plan.s);
       const to = `translate(${(plan.dx / k).toFixed(2)}px, ${(plan.dy / k).toFixed(2)}px) scale(${plan.s.toFixed(4)})`;
       for (const r of riders) r.anim = glide(r.el, 'transform', to, ms);
-      if (!reduce()) {
-        const vq = view.getBoundingClientRect();
-        view.style.transformOrigin = `${((cx - vq.left) / k).toFixed(2)}px ${((cy - vq.top) / k).toFixed(2)}px`;
-        st.push = glide(view, 'scale', String(1 + PUSH), ms);
-      }
       scrim.classList.add('on');
       return true;
     },
@@ -128,10 +122,9 @@ export function createCardZoom({ card, along = [], view, scrim, app, area, scale
       if (instant || reduce()) { end(); return Promise.resolve(); }
       const s = st;
       for (const r of s.riders) r.anim = glide(r.el, 'transform', 'none', SHUT_MS, r.anim);
-      if (s.push) s.push = glide(view, 'scale', 'none', SHUT_MS, s.push);
       // (A glide that never reports its end, a tab hidden mid-way, is let go after its time.)
       const guard = new Promise((res) => setTimeout(res, SHUT_MS + 120));
-      s.closing = Promise.race([done([...s.riders.map((r) => r.anim), s.push]), guard]).then(() => { if (st === s) end(); });
+      s.closing = Promise.race([done(s.riders.map((r) => r.anim)), guard]).then(() => { if (st === s) end(); });
       return s.closing;
     },
     toggle() { return this.up ? this.close() : this.open(); },

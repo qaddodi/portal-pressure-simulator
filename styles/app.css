@@ -5447,8 +5447,8 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
 @media (prefers-reduced-transparency: reduce) { .pz.pz-wide.pz-wide .pz-data.pz-sheet::before, .pz.pz-wide.pz-wide .pz-data.pz-sheet::after { background: var(--surface-2); -webkit-backdrop-filter: none; backdrop-filter: none; } }
 /* The data card zoomed to the middle of the screen (Mac and iPad landscape; presenter.js zoomOpen, src/ui/card-zoom.js; Mohammad, 28 Oct: "the
    camera should like zoom on the card to display it centered large in middle of the screen"). The card and its handle glide and grow by a
-   transform, so the words only get larger; the veil dims the words and the figure under them (the figure also comes in a few per cent, by
-   the script) and takes a tap to put the card back. The icon is the corner of the card's header row, quiet like the header's own small
+   transform, so the words only get larger; the veil dims the words and the figure under them (the figure itself stays where it is) and takes a
+   tap to put the card back. The icon is the corner of the card's header row, quiet like the header's own small
    caps: the text's grey, the app's corner brackets, a soft tint under the finger. Nothing but the icon and the cursor shows before the tap. */
 .pz-zscrim { position: absolute; inset: 0; background: color-mix(in srgb, var(--stage-bg) 58%, transparent); opacity: 0; pointer-events: none; cursor: zoom-out; transition: opacity .45s var(--ease); }
 .pz-zscrim.on { opacity: 1; pointer-events: auto; }

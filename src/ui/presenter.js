@@ -44,7 +44,7 @@ import { COMPACT, WIDE } from './card-type.js?v=5af5f22935';
 import { flowTimeHeight, trailKeys } from './flow-time.js?v=026ab2f37c';
 import { PROCS, procBlocked, procOffered, playProcedure } from './proc-anim.js?v=3075a0efa7';
 import { dataPlan, textPlan, keepData, keepText, cardSnap, cardChanged, cardBack } from './card-keep.js?v=4fc0919e34';
-import { createCardZoom, tapTracker } from './card-zoom.js?v=5140024e56';
+import { createCardZoom, tapTracker } from './card-zoom.js?v=8e6a9813d8';
 const nextFrame = frameFor('presenter');
 
 const KEY = 'pps.scripts';
@@ -2949,7 +2949,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   const cardMoving = () => !!ui && (ui.data.classList.contains('pz-sliding') || 'folding' in ui.data.dataset || zoomHeld());
   // ── The data card zoomed to the middle of the screen (Mac and iPad landscape; src/ui/card-zoom.js; Mohammad, 28 Oct) ──
   // A tap on an empty part of the instrument's card, or its corner icon, glides the card to the middle and grows it as one piece, its words
-  // and pictures larger, never smaller; the figure behind comes in a few per cent and dims. Nothing pauses: the instrument, the model and
+  // and pictures larger, never smaller; the veil dims the figure behind, which stays where it is. Nothing pauses: the instrument, the model and
   // the figure run on. Only the layout waits (zoomHeld: a pass asked for meanwhile, zoomMissed, runs once the card is back), because the card
   // is then where the glide put it, not where it rests. A slide, a resize, Esc or a tap outside puts it back first.
   let zoomMissed = false;
@@ -4391,7 +4391,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     const scl = h('div', { class: 'pz-scales stage-blocker pz-leave', role: 'group', 'aria-label': 'Scale', hidden: true });
     // The zoom's veil sits over the words and the figure and under the card, its handle and the controls: a tap on it puts the card back.
     const zscrim = h('div', { class: 'pz-zscrim', 'aria-hidden': 'true', onclick: () => zoom.close().then(paintZoom) });
-    const zoom = createCardZoom({ card: data, along: [lip], view, scrim: zscrim, app, area: () => wrap.getBoundingClientRect(), scale: () => wrap.getBoundingClientRect().width / (wrap.clientWidth || 1) || 1,
+    const zoom = createCardZoom({ card: data, along: [lip], scrim: zscrim, app, area: () => wrap.getBoundingClientRect(), scale: () => wrap.getBoundingClientRect().width / (wrap.clientWidth || 1) || 1,
       reduce: () => reduce.matches, boost: setCanvasBoost, hold: zoomCredit, settled: zoomSettled });
     tapTracker(data, { ok: () => zoomReady() || zoom.up, onTap: () => zoomToggle() });
     const root = h('div', { class: 'pz' }, safe, veil, load, fk, text, zscrim, data, lip, panel, vcase, prog, scl, bar, jump, blackEl, say);
