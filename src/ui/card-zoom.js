@@ -4,13 +4,21 @@
 // the figure behind stays exactly where it is (Mohammad, 28 Oct: "don't move anything"). Nothing pauses: the instrument, the model and the
 // figure run on under it.
 // The presenter lays nothing out while the card is up (the card and the handle report the places they rest, so the figure's labels and
-// the camera keep to them) and puts the card back before a slide changes.
+// the camera keep to them) and puts the card back before a slide changes. Nor does it measure the card: what the card answers while it is up
+// is where it rests, so a measure of how far the readings travel would read none.
 
 export const ZOOM_MAX = 2.2;    // the most the card grows
 export const ZOOM_MIN = 1.2;    // under this the card is large enough; no zoom is offered
 export const ZOOM_MS = 520;     // in
 export const SHUT_MS = 440;     // and back
 const EASE = 'cubic-bezier(.2, .8, .2, 1)';   // (tokens.css --ease)
+
+// The box round some rects: { left, top, width, height }.
+export function unionBox(rects) {
+  if (!rects.length) return { left: 0, top: 0, width: 0, height: 0 };
+  const left = Math.min(...rects.map((r) => r.left)), top = Math.min(...rects.map((r) => r.top));
+  return { left, top, width: Math.max(...rects.map((r) => r.left + r.width)) - left, height: Math.max(...rects.map((r) => r.top + r.height)) - top };
+}
 
 // The room left round the card on the screen: a tenth of the shorter side, between 72 and 110 px (the nav pill and the scale switch, 44 px
 // tall a margin up from the foot, stay clear of it).
@@ -61,6 +69,11 @@ export function tapTracker(card, { ok = () => true, onTap }) {
  */
 export function createCardZoom({ card, along = [], scrim, app, area, scale = () => 1, reduce = () => false, boost = () => {}, hold = () => {}, settled = () => {} }) {
   let st = null;   // { plan, riders: [{ el, rest, own, anim }], closing }
+  // The card and what rides with it, as they rest: a stacked card's handle stands on its top edge (the readings' card tucked behind it), so the
+  // box that is centred and fitted to the screen is the whole of them, never the card's box alone (Mohammad, 28 Oct: a stacked card sat off the
+  // middle and ran off the bottom).
+  const pieces = () => [card, ...along].map((el) => ({ el, rest: el.hidden && el !== card ? null : el.getBoundingClientRect(), own: null, anim: null })).filter((r) => r.rest && r.rest.width > 0);
+  const whole = (riders) => (riders.some((r) => r.el === card) ? unionBox(riders.map((r) => r.rest)) : null);
   // The piece's box as it rests, for everyone who asks the element (the figure's labels keep clear of the cards by it): a copy that does
   // not move with the glide. Its own getBoundingClientRect is put back as it was.
   const pin = (r) => {
@@ -93,17 +106,16 @@ export function createCardZoom({ card, along = [], scrim, app, area, scale = () 
     /** Up and staying (not on its way back). */
     get up() { return !!st && !st.closing; },
     /** The plan for the card as it stands, or null when it would not grow enough. */
-    plan() { return zoomPlan(card.getBoundingClientRect(), area()); },
+    plan() { const q = whole(pieces()); return q && zoomPlan(q, area()); },
     open() {
       if (st) return false;
-      const a = area(), plan = zoomPlan(card.getBoundingClientRect(), a, zoomMargin(a));
+      const a = area(), riders = pieces(), q = whole(riders), plan = q && zoomPlan(q, a, zoomMargin(a));
       if (!plan) return false;
       const k = scale() || 1, ms = reduce() ? 0 : ZOOM_MS;
-      const q = card.getBoundingClientRect(), cx = q.left + q.width / 2, cy = q.top + q.height / 2;
-      const riders = [card, ...along].map((el) => ({ el, rest: el === card ? q : el.hidden ? null : el.getBoundingClientRect(), own: null, anim: null })).filter((r) => r.rest && r.rest.width > 0);
+      const cx = q.left + q.width / 2, cy = q.top + q.height / 2;
       st = { plan, riders, closing: null };
       for (const r of riders) {
-        // (Each piece turns about the card's middle, so they move as one.)
+        // (Each piece turns about the middle of them all, so they move as one.)
         r.el.style.transformOrigin = `${((cx - r.rest.left) / k).toFixed(2)}px ${((cy - r.rest.top) / k).toFixed(2)}px`;
         pin(r);
       }

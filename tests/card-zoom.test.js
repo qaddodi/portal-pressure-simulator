@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { zoomPlan, zoomMargin, emptyTap, tapTracker, createCardZoom, ZOOM_MAX, ZOOM_MIN } from '../src/ui/card-zoom.js';
+import { zoomPlan, zoomMargin, unionBox, emptyTap, tapTracker, createCardZoom, ZOOM_MAX, ZOOM_MIN } from '../src/ui/card-zoom.js';
 
 // The data card zoomed to the middle of the screen (Mohammad, 28 Oct): "can we add a feature on large screens and ipad landscape for data card
 // instrument card to display it bigger when clicking on it directly; however it shouldn't like make the text smaller. the camera should like zoom
@@ -98,7 +98,7 @@ const world = () => {
 };
 const stands = (el, prop) => { const old = globalThis.getComputedStyle; globalThis.getComputedStyle = (e) => e.style; return () => { globalThis.getComputedStyle = old; }; };
 
-test('zoom: the card and its handle glide together about the card\'s middle, the figure stays still, the veil comes up, and the card reports where it rests', () => {
+test('zoom: the card and its handle glide together about their common middle, the figure stays still, the veil comes up, and the card reports where it rests', () => {
   const { card, lip, scrim, app, log, z } = world(); const back = stands();
   try {
     assert.equal(z.open(), true);
@@ -107,10 +107,11 @@ test('zoom: the card and its handle glide together about the card\'s middle, the
     const t = card.anims[0], tl = lip.anims[0];
     assert.equal(t.prop, 'transform'); assert.equal(tl.prop, 'transform');
     assert.equal(t.frames[1].transform, tl.frames[1].transform);
-    const p = zoomPlan({ left: 40, top: 300, width: 420, height: 380 }, { left: 0, top: 0, width: 1440, height: 900 });
+    // (The handle stands 24 px over the card's top edge: the plan is for the two together, 404 px tall from the handle's top.)
+    const p = zoomPlan({ left: 40, top: 276, width: 420, height: 404 }, { left: 0, top: 0, width: 1440, height: 900 });
     assert.equal(t.frames[1].transform, `translate(${p.dx.toFixed(2)}px, ${p.dy.toFixed(2)}px) scale(${p.s.toFixed(4)})`);
-    assert.equal(card.style.transformOrigin, '210.00px 190.00px');
-    assert.equal(lip.style.transformOrigin, '210.00px 214.00px', 'the card\'s middle, seen from the handle');
+    assert.equal(card.style.transformOrigin, '210.00px 178.00px');
+    assert.equal(lip.style.transformOrigin, '210.00px 202.00px', 'their middle, seen from the handle');
     assert.equal(t.o.fill, 'forwards'); assert.equal(t.o.easing, 'cubic-bezier(.2, .8, .2, 1)');
     // (The figure behind does not move, Mohammad's "don't move anything": the controller is not given it, and the only thing it glides is a transform.)
     assert.equal(zoomSrc.includes('PUSH'), false); assert.equal(/glide\([^)]*'scale'/.test(zoomSrc), false); assert.equal(/\bview\b/.test(zoomSrc.replace(/\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '')), false);
@@ -123,6 +124,31 @@ test('zoom: the card and its handle glide together about the card\'s middle, the
     // (A second open while it is up does nothing.)
     assert.equal(z.open(), false);
   } finally { back(); }
+});
+
+test('zoom: a stacked card sits whole in the middle: the handle on its top edge is part of what is centred and fitted', () => {
+  const area = { left: 0, top: 0, width: 1440, height: 900 }, m = zoomMargin(area);
+  assert.deepEqual(unionBox([{ left: 40, top: 300, width: 420, height: 380 }, { left: 40, top: 276, width: 420, height: 24 }]), { left: 40, top: 276, width: 420, height: 404 });
+  assert.deepEqual(unionBox([]), { left: 0, top: 0, width: 0, height: 0 });
+  { const { z, card, lip } = world(); const back = stands();
+    try {
+      const p = z.plan();
+      assert.ok(Math.abs(p.s - (900 - 2 * m) / 404) < 1e-9, 'fitted by the height of the two');
+      assert.equal(p.dy, 450 - (276 + 202), 'their middle goes to the screen\'s, not the card\'s');
+      assert.equal(p.dx, 720 - (40 + 210));
+      // (Once up, the whole stands where the plan put it: scaled about its middle, then moved.)
+      z.open();
+      const at = (y) => 478 + (y - 478) * p.s + p.dy, top = (r) => at(r.top), bottom = (r) => at(r.top + r.height);
+      assert.ok(Math.abs((top(lip.rect) + bottom(card.rect)) / 2 - 450) < 1e-9, 'centred on the screen');
+      assert.ok(top(lip.rect) >= m - 1e-9 && bottom(card.rect) <= 900 - m + 1e-9, 'whole, inside the margin top and bottom');
+    } finally { back(); } }
+  // (A handle that is not there leaves the card's own box: a card with nothing to tuck behind it.)
+  { const { z, lip } = world(); const back = stands();
+    try {
+      lip.hidden = true;
+      const p = z.plan();
+      assert.equal(p.dy, 450 - (300 + 190)); assert.equal(p.s, zoomPlan({ left: 40, top: 300, width: 420, height: 380 }, area).s);
+    } finally { back(); } }
 });
 
 test('zoom: closing glides back from where it stands, then puts everything as it was and says it is back', async () => {
@@ -184,8 +210,8 @@ test('the presenter lays nothing out while the card is up, and puts it back befo
   assert.match(js, /const zoomSettled = \(\) => nextFrame\(\(\) => \{ if \(!ui \|\| !zoomMissed \|\| ui\.zoom\.on\) return; zoomMissed = false; fitDone\.delete\(ui\.data\); onResize\(\); \}\);/);
   // (A slide: the card glides back, and only then does the slide run.)
   assert.match(js, /if \(zoomOn\(\)\) \{ ui\.zoom\.close\(\)\.then\(\(\) => \{ paintZoom\(\); zoomMissed = false; if \(deck && !busy\) run\(\); \}\); return; \}[^\n]*\n {4}if \(!busy\) run\(\);/);
-  // (Any move that did not come by go, a new text size, puts it back at once.)
-  assert.match(js, /async function transition\(to\) \{\n {4}if \(zoomOn\(\)\) \{ ui\.zoom\.reset\(\); paintZoom\(\); zoomMissed = false; \}/);
+  // (Any move that did not come by go, a slide asked for while a time-lapse plays, a new text size: the card glides back first, it never snaps.)
+  assert.match(js, /async function transition\(to\) \{\n(?: {4}\/\/[^\n]*\n)+ {4}if \(zoomOn\(\)\) \{ await ui\.zoom\.close\(\); paintZoom\(\); zoomMissed = false; if \(!deck \|\| !ui\) return; \}/);
   // (Esc first glides the card back; the talk ends on the next one.)
   assert.match(js, /else if \(k === 'Escape'\) \{ if \(black\) toggleBlack\(false\); else if \(zoomOn\(\)\) ui\.zoom\.close\(\)\.then\(paintZoom\); else stop\(\); \}/);
   assert.match(js, /if \(e\?\.type === 'resize' && zoomOn\(\)\) \{ ui\.zoom\.reset\(\); paintZoom\(\); \}/);
@@ -199,7 +225,7 @@ test('the presenter lays nothing out while the card is up, and puts it back befo
 });
 
 test('the card zooms on a wide screen for an instrument that stands whole, by a tap on an empty part, the corner icon or nothing else', () => {
-  assert.match(js, /const zoomReady = \(\) => !!ui && !!deck && !!shown && shown\.i === want && !busy && !leaving && !black && !caseStands\(\) && ui\.jump\.hidden && !isModalOpen\(\)\n\s+&& ui\.root\.classList\.contains\('pz-wide'\) && ui\.data\.classList\.contains\('has-tool'\) && dataStands\(\)/);
+  assert.match(js, /const zoomReady = \(\) => !!ui && !!deck && !!shown && shown\.i === want && shown\.gen === gen && \(!busy \|\| playing\) && !leaving && !black && !caseStands\(\) && ui\.jump\.hidden && !isModalOpen\(\)\n\s+&& ui\.root\.classList\.contains\('pz-wide'\) && ui\.data\.classList\.contains\('has-tool'\) && dataStands\(\)/);
   assert.match(js, /tapTracker\(data, \{ ok: \(\) => zoomReady\(\) \|\| zoom\.up, onTap: \(\) => zoomToggle\(\) \}\);/);
   assert.match(js, /h\('div', \{ class: 'pz-dh' \}, dhT, fold, zbtn\)/);
   assert.match(js, /ui\.data\.classList\.toggle\('pz-zoomable', wide && !ui\.data\.hidden && ui\.data\.classList\.contains\('has-tool'\) && !!ui\.zoom\.plan\(\)\);/);
@@ -231,4 +257,30 @@ test('the icon is quiet and the app\'s own: the text\'s grey, corner brackets, a
   assert.match(rule('.pz-zscrim.on'), /pointer-events: auto/);
   assert.match(html, /<symbol id="i-shrink" viewBox="0 0 24 24">/);
   assert.match(html, /<symbol id="i-fullscreen" viewBox="0 0 24 24">/);
+});
+
+test('a stacked card zoomed is never measured: the card answers for where it rests, so the readings\' travel would read none and their room open above the header', () => {
+  // (measureUnder reads the card's height with the readings in and out; a zoomed card reports one height for both, --pz-d came out 0, the tucked
+  // readings' room stood empty above the header and the card ran off the bottom. Mohammad, 28 Oct, a stacked Doppler card.)
+  assert.match(js, /function measureUnder\(d\) \{\n(?: {4}\/\/[^\n]*\n)+ {4}if \(zoomOn\(\)\) return;\n {4}const parts = /);
+  // (The card's own style change as it zooms, the transform origin, told its watcher, which placed the handle and measured: the guard is what stops it.)
+  assert.match(js, /lipMO\.observe\(data, \{ attributes: true, attributeFilter: \['class', 'hidden', 'style'\] \}\);/);
+  assert.match(js, /if \(split && !sliding && dock\.lvl === dock\.to\) measureUnder\(d\);/);
+  assert.match(zoomSrc, /r\.el\.style\.transformOrigin = /);
+  assert.match(zoomSrc, /r\.el\.getBoundingClientRect = \(\) => \(\{ x: left, y: top, left, top, width, height,/);
+  // (Nothing else reads the readings' travel from a box while the card is up: layout is held, and the fold does nothing.)
+  assert.deepEqual([...js.matchAll(/measureUnder\(/g)].length, 4, 'its definition and three callers: the handle, the layout, the fold');
+});
+
+test('the card zooms while a time-lapse plays or its answer eases in: the slide has landed, only the figure is moving', () => {
+  // (The whole slide's move, run(), is busy until the days have played; the days run after the slide has landed (shown is set), so the card
+  // that stands whole may zoom: a tap on it, the corner icon. Mohammad, 28 Oct: "it doesn't want to zoom while a timeline is going".)
+  assert.match(js, /busy = false, playing = false, gen = 0/);
+  assert.match(js, /playing = true;\n {4}try \{\n {6}if \(lap\) await playLapse\(s, to, cut\);\n {6}else if \(holdQ\) await answerPlay\(s, to, cut\);\n[^\n]*\n {4}\} finally \{ playing = false; \}/);
+  // (It is set only after the slide is shown, never during the move to it.)
+  assert.ok(js.indexOf('shown = { i: to, gen: g }; lastAt = to;') < js.indexOf('playing = true;'));
+  assert.equal([...js.matchAll(/playing = true/g)].length, 1);
+  // (Skipping the days forward, Next, keeps the card where it is; the next slide puts it back first.)
+  assert.match(js, /if \(lapseOn && lapseLeft > 0 && shown\?\.i === want\) skipLapse\(\);/);
+  assert.match(js, /if \(zoomOn\(\)\) \{ ui\.zoom\.close\(\)\.then\(\(\) => \{ paintZoom\(\); zoomMissed = false; if \(deck && !busy\) run\(\); \}\); return; \}/);
 });

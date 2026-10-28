@@ -44,7 +44,7 @@ import { COMPACT, WIDE } from './card-type.js?v=5af5f22935';
 import { flowTimeHeight, trailKeys } from './flow-time.js?v=026ab2f37c';
 import { PROCS, procBlocked, procOffered, playProcedure } from './proc-anim.js?v=3075a0efa7';
 import { dataPlan, textPlan, keepData, keepText, cardSnap, cardChanged, cardBack } from './card-keep.js?v=4fc0919e34';
-import { createCardZoom, tapTracker } from './card-zoom.js?v=8e6a9813d8';
+import { createCardZoom, tapTracker } from './card-zoom.js?v=bfbdc195e2';
 const nextFrame = frameFor('presenter');
 
 const KEY = 'pps.scripts';
@@ -887,7 +887,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   const cache = new Map();   // deck id → computed states, reused the next time it is presented
   let deck = null, slides = [], states = [], waiters = [], stateOf = [], base = null, extraOf = new Map();
   // `gen` counts redraws asked of the slide in place: a transition under way for an older one starts over.
-  let want = 0, shown = null, shownState = -1, busy = false, gen = 0, redrawn = -1;   // (redrawn: the cards drawn again for a new text size, see pps:labelscale)
+  let want = 0, shown = null, shownState = -1, busy = false, playing = false, gen = 0, redrawn = -1;   // (redrawn: the cards drawn again for a new text size, see pps:labelscale)
   let entering = null;   // (the slide whose cards are coming in, from their last unseen layout: its sizes hold from there, see layout's lockKey)
   let ui = null, black = false, digits = '', digitT = 0;
   let saved = null, layersBefore = null;   // (the viewer's own lobule layers, put back when the show ends)
@@ -1637,7 +1637,9 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   // comes back once, at its final spot, after the cards are in and the camera has eased to fit around them.
   let creditHolds = 0, creditT = 0;   // (moves running; the timer that lifts the hold)
   async function transition(to) {
-    if (zoomOn()) { ui.zoom.reset(); paintZoom(); zoomMissed = false; }   // (a slide drawn again for a new text size, or any move that did not come by go: the card is put back at once)
+    // (A card still zoomed as a slide starts, a move that did not come by go, a slide asked for while the days of a time-lapse played, or a new
+    // text size: it glides back first, never snaps.)
+    if (zoomOn()) { await ui.zoom.close(); paintZoom(); zoomMissed = false; if (!deck || !ui) return; }
     stage.holdHome(true);
     creditHolds++; clearTimeout(creditT); app.classList.add('pz-moving');
     try { await transitionRun(to); } finally {
@@ -1825,9 +1827,13 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     paintChrome();
     if (s.lapse && to > 0 && back) paintLapse(s, s.days, s.days, true);
     if (booting) await coverDown();
-    if (lap) await playLapse(s, to, cut);
-    else if (holdQ) await answerPlay(s, to, cut);
-    else if (s.lapse) figureHooks('lapse', s);   // (back or jumped to the slide: it shows where its days ended, the glow with it)
+    // (The slide stands whole while its days or its answer play on the live figure: the card may zoom meanwhile, zoomReady.)
+    playing = true;
+    try {
+      if (lap) await playLapse(s, to, cut);
+      else if (holdQ) await answerPlay(s, to, cut);
+      else if (s.lapse) figureHooks('lapse', s);   // (back or jumped to the slide: it shows where its days ended, the glow with it)
+    } finally { playing = false; }
     if (s.procedure?.auto && !back && !cut()) procPlay(s, to);   // (like a time-lapse, it plays only going forward)
   }
 
@@ -2531,6 +2537,10 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   // How far the readings' card travels: the card's height with them out less its height without them, read in the card's own px (its
   // parts are zoomed by the fit, so their own boxes are not read). (--pz-o: a second part's place under the first, for its cut.)
   function measureUnder(d) {
+    // (Never while the card is zoomed to the middle: it answers for the place it rests, so with the readings in and out it reads the same
+    // height, their travel comes out none, --pz-d 0, and their room opens above the header: a big empty card running off the bottom. It is
+    // measured again the moment the card is back, zoomSettled.)
+    if (zoomOn()) return;
     const parts = [...d.children].filter((c) => c.matches('.pz-tiles') && getComputedStyle(c).display !== 'none');
     if (!parts.length || !d.getClientRects().length) return;
     const kw = wrap.getBoundingClientRect().width / (wrap.clientWidth || 1) || 1, hh = () => d.getBoundingClientRect().height / kw;
@@ -2958,7 +2968,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   // The readings' card comes out as the card zooms (false: it stays tucked, behind the instrument card, and a tap on its handle brings it out).
   const ZOOM_OPENS_READINGS = false;
   // Whether the card may zoom now: it stands whole, on a wide screen, with an instrument, and nothing else is going on.
-  const zoomReady = () => !!ui && !!deck && !!shown && shown.i === want && !busy && !leaving && !black && !caseStands() && ui.jump.hidden && !isModalOpen()
+  const zoomReady = () => !!ui && !!deck && !!shown && shown.i === want && shown.gen === gen && (!busy || playing) && !leaving && !black && !caseStands() && ui.jump.hidden && !isModalOpen()
     && ui.root.classList.contains('pz-wide') && ui.data.classList.contains('has-tool') && dataStands() && !ui.root.classList.contains('pz-prep');
   const caseStands = () => !!caseCard && !caseCard.flown;
   async function zoomOpen() {
