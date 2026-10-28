@@ -44,7 +44,7 @@ import { COMPACT, WIDE } from './card-type.js?v=5af5f22935';
 import { flowTimeHeight, trailKeys } from './flow-time.js?v=026ab2f37c';
 import { PROCS, procBlocked, procOffered, playProcedure } from './proc-anim.js?v=3075a0efa7';
 import { dataPlan, textPlan, keepData, keepText, cardSnap, cardChanged, cardBack } from './card-keep.js?v=4fc0919e34';
-import { createCardZoom, tapTracker } from './card-zoom.js?v=bfbdc195e2';
+import { createCardZoom, tapTracker } from './card-zoom.js?v=250557e82d';
 const nextFrame = frameFor('presenter');
 
 const KEY = 'pps.scripts';
@@ -2511,7 +2511,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   // about 10 frames a second on a Mac, Mohammad, 25 Oct: "moving the cards up sliding tucking untucking is very very laggy".)
   const riseOn = (name) => (name === '--pz-lift' ? [ui?.data, ui?.lip] : [ui?.text, ui?.shade]);
   const setRise = (name, w) => { const v = w > 0.5 ? `${w.toFixed(1)}px` : ''; for (const el of riseOn(name)) if (el && el.style.getPropertyValue(name) !== v) { if (v) el.style.setProperty(name, v); else el.style.removeProperty(name); } };
-  const liftTo = (u) => { const trav = Math.max(0, slip.lift - slip.base), f = u > 0 ? u : 0; setRise('--pz-lift', slip.base + f * trav); setRise('--pz-rise', slip.base + f * Math.max(0, trav - LIP)); };
+  const liftTo = (u) => { const trav = Math.max(0, slip.lift - slip.base), f = u > 0 ? u : 0; setRise('--pz-lift', slip.base + f * trav); setRise('--pz-rise', slip.base + f * Math.max(0, trav - LIP)); zoomFollow(f, trav); };
   // (Told when the readings' card starts to move, so the Doppler probe is placed against the cards frame by frame as they go: stage.js dprTrack.)
   const slideTell = () => dispatchEvent(new Event('pps:slide'));
   const underU = (d) => (d.classList.contains('pz-sliding') ? parseFloat(d.style.getPropertyValue('--pz-u')) || 0 : d.classList.contains('tool-open') ? 1 : 0);
@@ -2964,6 +2964,18 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   // is then where the glide put it, not where it rests. A slide, a resize, Esc or a tap outside puts it back first.
   let zoomMissed = false;
   const zoomOn = () => !!ui?.zoom.on;
+  // The readings' card may come out or tuck away under the zoomed card once its glide in has ended (the handle, a pull up, the trackpad, the arrow
+  // keys; Mohammad, 28 Oct: "allow me to untuck the card when zoomed in to instrument stacked cards and adjust the zoom ease"). The zoom is then
+  // fitted again to the whole stack on every frame of it (zoomFollow), so the stack stays in the middle of the screen and whole, smaller as it
+  // gets taller and larger as it shortens, and nothing snaps. zoomU0: how far out the readings stood as the card zoomed.
+  // (Only where the readings' card rises with its travel, slip.lift: the stack the zoom is fitted to then grows upward, as it models.)
+  const zoomSteady = () => !!ui?.zoom.steady;
+  const zoomFolds = () => zoomSteady() && slip.lift - slip.base > 0.5;
+  let zoomU0 = 0;
+  const zoomFollow = (f, trav) => {
+    if (!zoomFolds()) return;
+    ui.zoom.follow((f - zoomU0) * (trav - LIP), (f - zoomU0) * trav);
+  };
   const zoomHeld = () => { if (!ui?.zoom.on) return false; zoomMissed = true; return true; };
   // The readings' card comes out as the card zooms (false: it stays tucked, behind the instrument card, and a tap on its handle brings it out).
   const ZOOM_OPENS_READINGS = false;
@@ -2979,6 +2991,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       await until(() => !ui || !('folding' in ui.data.dataset), 1500);
       if (!zoomReady()) return;
     }
+    zoomU0 = underU(ui.data);
     if (z.open()) paintZoom();
   }
   function zoomToggle() { if (!ui) return; if (ui.zoom.up) ui.zoom.close().then(paintZoom); else zoomOpen(); }
@@ -4062,7 +4075,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   wrap.addEventListener('touchstart', (e) => {
     if (far) { farLet('touchcancel'); return; }   // (a second finger: a pinch, not a swipe)
     const d = ui?.data;
-    if (!deck || !d || zoomOn() || e.touches.length !== 1 || !(phone() || wideSheet(d)) || d.hidden || d.classList.contains('pz-hide') || !ui.cardTouch
+    if (!deck || !d || (zoomOn() && !zoomFolds()) || e.touches.length !== 1 || !(phone() || wideSheet(d)) || d.hidden || d.classList.contains('pz-hide') || !ui.cardTouch
       || d.contains(e.target) || ui.lip.contains(e.target) || caseOn(e) || ownsTouch(e.target, { stop: wrap })) return;
     const t = e.touches[0];
     far = { x: t.clientX, y: t.clientY, lx: t.clientX, ly: t.clientY, on: false };
@@ -4089,7 +4102,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   function stackFold(open) {
     const d = ui?.data;
     if (!d || (caseCard && !caseCard.flown) || !wideSheet(d) || d.hidden || d.classList.contains('pz-hide')) return false;
-    if (zoomOn()) return true;   // (a zoomed card keeps its readings as they are)
+    if (zoomOn() && !zoomFolds()) return true;   // (a zoomed card brings its readings out or tucks them once it has glided in; not on its way in or back)
     if (open !== d.classList.contains('tool-open')) ui.setFold(open);
     return true;
   }
@@ -4256,9 +4269,10 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       g = null;
       const sheet = el.classList.contains('pz-sheet'), open = el.classList.contains('tool-open');
       const split = splitSheet(el);
-      if (e.touches.length !== 1 || (!btn.offsetWidth && !sheet) || (sheet && open && !split) || dock.lvl > 0 || btn.contains(e.target) || zoomOn()) return;
+      if (e.touches.length !== 1 || (!btn.offsetWidth && !sheet) || (sheet && open && !split) || dock.lvl > 0 || btn.contains(e.target) || (zoomOn() && !zoomFolds())) return;
       const t = e.touches[0];
       g = grab(t.clientX, t.clientY, open);
+      g.zk = zoomOn() ? ui.zoom.scale : 1;   // (a zoomed card's readings travel that much further on the screen: the finger is followed by that much less)
       g.dir = wideSheet(el) ? -1 : 1;   // (Mac and iPad landscape: the readings come out upward, a pull up; a push down tucks them)
     }, { passive: true });
     on('touchmove', (e) => {
@@ -4271,7 +4285,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       }
       e.stopImmediatePropagation();
       if (e.cancelable) e.preventDefault();
-      follow(g, dy * g.dir);
+      follow(g, dy * g.dir / (g.zk || 1));
     }, { passive: false });
     const end = (e) => {
       const gg = g; g = null;
@@ -4303,7 +4317,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     // (A phone's sheet holds what is under the instrument: its tiles.)
     const partOf = () => (data.classList.contains('tool-lead') || (data.classList.contains('pz-sheet') && !data.classList.contains('tool-only')) ? tiles.el : tools.el);
     const setFold = (open) => {
-      if (zoomOn()) return;   // (a zoomed card keeps its readings as they are)
+      if (zoomOn() && !zoomFolds()) return;   // (a zoomed card too: the zoom fits the stack again as they move, zoomFollow; not while it glides in or back)
       // (Upright: fitted at rest as it will be, then the readings' card slides there from wherever it stood, slideUnder.)
       if (splitSheet(data)) {
         const u0 = underU(data);
@@ -4342,8 +4356,9 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     // card's own pulls and pushes do: partly open, fully open, closed to its edge at the top, partly open again.
     const lip = h('button', { class: 'pz-lip stage-blocker', type: 'button', hidden: true, 'data-safe-rest': '', 'aria-label': 'Show the rest of the card', onclick: () => {
       if (performance.now() - (dock.tapAt || 0) < 700) return;   // (a touch that already opened the closed card, dockTouch)
-      // (On a zoomed card the handle rides with it: a tap puts the card back, then brings the readings out, as it does on the card at rest.)
-      if (zoomOn()) { zoom.close().then(() => { paintZoom(); if (ui && wideSheet(data) && !data.classList.contains('tool-open')) setFold(true); }); return; }
+      // (On a zoomed card the handle rides with it: a tap brings the readings out or tucks them away there, the zoom fitted to the stack as they go;
+      // not while the card glides in or back.)
+      if (zoomOn()) { if (zoomFolds() && wideSheet(data)) setFold(!data.classList.contains('tool-open')); return; }
       // (Upright: partly open, fully open, partly open (its readings' card tucked away), closed, partly open again.)
       const split = splitSheet(data);
       if (dock.to === 1) { dock.auto = false; dockTo(0); }

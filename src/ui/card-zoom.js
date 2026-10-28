@@ -24,11 +24,14 @@ export function unionBox(rects) {
 // tall a margin up from the foot, stay clear of it).
 export const zoomMargin = (area) => Math.min(110, Math.max(72, 0.1 * Math.min(area.width, area.height)));
 
+// How much a box could grow and still leave the margin round it (no cap).
+export const fitScale = (box, area, margin = zoomMargin(area)) => Math.min((area.width - 2 * margin) / box.width, (area.height - 2 * margin) / box.height);
+
 /** Where the card goes and how much it grows: { s, dx, dy } (screen px, dx and dy from the card's middle to the area's), or null when
  *  it would grow under ZOOM_MIN. card and area: { left, top, width, height }. */
 export function zoomPlan(card, area, margin = zoomMargin(area)) {
   if (!(card.width > 0) || !(card.height > 0) || !(area.width > 0) || !(area.height > 0)) return null;
-  const s = Math.min(ZOOM_MAX, (area.width - 2 * margin) / card.width, (area.height - 2 * margin) / card.height);
+  const s = Math.min(ZOOM_MAX, fitScale(card, area, margin));
   if (!(s >= ZOOM_MIN)) return null;
   return { s, dx: area.left + area.width / 2 - (card.left + card.width / 2), dy: area.top + area.height / 2 - (card.top + card.height / 2) };
 }
@@ -68,7 +71,7 @@ export function tapTracker(card, { ok = () => true, onTap }) {
  * corner credit sits out; settled(): the card is back (anything laid out meanwhile is laid out now).
  */
 export function createCardZoom({ card, along = [], scrim, app, area, scale = () => 1, reduce = () => false, boost = () => {}, hold = () => {}, settled = () => {} }) {
-  let st = null;   // { plan, riders: [{ el, rest, own, anim }], closing }
+  let st = null;   // { plan, riders: [{ el, rest, own, anim }], closing, steady, box, mid, k, s, boosted }
   // The card and what rides with it, as they rest: a stacked card's handle stands on its top edge (the readings' card tucked behind it), so the
   // box that is centred and fitted to the screen is the whole of them, never the card's box alone (Mohammad, 28 Oct: a stacked card sat off the
   // middle and ran off the bottom).
@@ -113,7 +116,8 @@ export function createCardZoom({ card, along = [], scrim, app, area, scale = () 
       if (!plan) return false;
       const k = scale() || 1, ms = reduce() ? 0 : ZOOM_MS;
       const cx = q.left + q.width / 2, cy = q.top + q.height / 2;
-      st = { plan, riders, closing: null };
+      // (box and mid: the whole as it rests as the card zooms, and its middle, for follow below; steady: the glide in has ended.)
+      st = { plan, riders, closing: null, steady: ms === 0, box: q, mid: { x: cx, y: cy }, k, s: plan.s, boosted: plan.s };
       for (const r of riders) {
         // (Each piece turns about the middle of them all, so they move as one.)
         r.el.style.transformOrigin = `${((cx - r.rest.left) / k).toFixed(2)}px ${((cy - r.rest.top) / k).toFixed(2)}px`;
@@ -124,6 +128,36 @@ export function createCardZoom({ card, along = [], scrim, app, area, scale = () 
       const to = `translate(${(plan.dx / k).toFixed(2)}px, ${(plan.dy / k).toFixed(2)}px) scale(${plan.s.toFixed(4)})`;
       for (const r of riders) r.anim = glide(r.el, 'transform', to, ms);
       scrim.classList.add('on');
+      if (ms) {
+        // (A glide that never reports its end is let go after its time.)
+        const me = st;
+        Promise.race([done(riders.map((r) => r.anim)), new Promise((res) => setTimeout(res, ZOOM_MS + 120))]).then(() => { if (st === me) me.steady = true; });
+      }
+      return true;
+    },
+    /** Up, its glide in over: the readings' card may come out or tuck away under it, and follow keeps the whole in the middle. */
+    get steady() { return !!st && !st.closing && st.steady; },
+    /** The zoom now: how many times larger the card is than at rest. */
+    get scale() { return st ? st.s : 1; },
+    /**
+     * The readings' card comes out above the zoomed card or tucks away (presenter.js liftTo, every frame of it): the zoom is fitted again to
+     * the whole stack, so it stays in the middle and inside the screen, smaller as it gets taller and larger as it shortens; every frame is
+     * one transform, so nothing snaps. rise: how far the top of the whole has gone up since the card zoomed (layout px, down is negative);
+     * lift: how far the cards' own rise (the readings' travel, an unscaled translate: styles/app.css --pz-lift) has gone up since.
+     * That rise is not scaled by the zoom, so the transform makes up for the difference: the whole lands exactly in the middle.
+     */
+    follow(rise, lift) {
+      if (!st || st.closing || !st.steady) return false;
+      const a = area(), { box: b, mid, k } = st, up = rise * k;
+      const q = { left: b.left, top: b.top - up, width: b.width, height: b.height + up };
+      const sc = Math.min(ZOOM_MAX, Math.max(1, fitScale(q, a, zoomMargin(a))));
+      const dx = a.left + a.width / 2 - mid.x;
+      const dy = a.top + a.height / 2 - mid.y - sc * (q.top + q.height / 2 - mid.y) + lift * k * (1 - sc);
+      const to = `translate(${(dx / k).toFixed(2)}px, ${(dy / k).toFixed(2)}px) scale(${sc.toFixed(4)})`;
+      // (A new frame over the last: the card's own CSS eases a transform written to its style, so the glide's own kind is used.)
+      for (const r of st.riders) { const prev = r.anim; r.anim = r.el.animate?.([{ transform: to }, { transform: to }], { duration: 1, fill: 'forwards' }) || null; prev?.cancel(); }
+      st.s = sc;
+      if (sc > st.boosted + 0.01) { st.boosted = sc; boost(sc); }
       return true;
     },
     /** Glides back (or at once: instant, Reduce Motion). Resolves when the card is where it was. */
