@@ -634,6 +634,10 @@ export const bloodColors = () => bloodCols || (bloodCols = {
 // Each canvas's box is tracked by a ResizeObserver instead of measured on every draw (a
 // forced layout when it follows other DOM writes).
 const boxes = new WeakMap();
+// The instruments drawn at this many times the screen's density: a zoomed data card (card-zoom.js) shows them larger than they were
+// laid out, so they are drawn for the size they are seen at. 1 otherwise.
+let canvasBoost = 1;
+export const setCanvasBoost = (k) => { canvasBoost = Math.max(1, +k || 1); };
 const boxObserver = new ResizeObserver((entries) => { for (const e of entries) boxes.set(e.target, { width: e.contentRect.width, height: e.contentRect.height }); });
 export function fitCanvas(canvas) {
   let r = boxes.get(canvas);
@@ -643,7 +647,7 @@ export function fitCanvas(canvas) {
   }
   // The instruments (Doppler, FibroScan, the HVPG tracing, scope, wall, charts) at the screen's own density, up to 3x: a 3x iPhone drew
   // their words at 2x, slightly soft (#34). Battery saver keeps 2x.
-  const dpr = Math.min(saver() ? 2 : 3, window.devicePixelRatio || 1);
+  const dpr = Math.min(saver() ? 2 : 3, (window.devicePixelRatio || 1) * canvasBoost);
   const w = Math.max(1, Math.round(r.width * dpr)), hh = Math.max(1, Math.round(r.height * dpr));
   if (canvas.width !== w || canvas.height !== hh) { canvas.width = w; canvas.height = hh; }
   const ctx = canvas.getContext('2d');
@@ -776,6 +780,7 @@ export function translateRest(el, q = el.getBoundingClientRect()) {
 }
 // An element's box without its own transform (a card's entrance offset): where it rests.
 export function restBox(el, q = el.getBoundingClientRect()) {
+  if (el.dataset?.zoomed != null) return q;   // (a zoomed card, card-zoom.js, reports the place it rests: its glide is no entrance to take off)
   const t = getComputedStyle(el).transform;
   if (!t || t === 'none') return q;
   const m = new DOMMatrixReadOnly(t), z = el.offsetHeight ? q.height / el.offsetHeight : 1;

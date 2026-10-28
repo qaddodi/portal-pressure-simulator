@@ -15,9 +15,9 @@
 
 import { store, replaceParams } from './store.js?v=926dabfaef';
 import { download } from './download.js?v=3564e5bf8c';
-import { h, toast, svgIcon, icon, fmt, clamp, openModal, closeModal, isModalOpen, restBox, paintRange, cssVar, swapText, STACK_MQ, SHORT_SIDE_MQ, TABLET_UP_MQ } from './util.js?v=5ad334ebc0';
+import { h, toast, svgIcon, icon, fmt, clamp, openModal, closeModal, isModalOpen, restBox, paintRange, cssVar, swapText, setCanvasBoost, STACK_MQ, SHORT_SIDE_MQ, TABLET_UP_MQ } from './util.js?v=58b547f8d4';
 import { titleParts } from './title-units.js?v=c8d5ce1f26';
-import { liveText, wordsOf } from './live-text.js?v=adbb08e2ea';
+import { liveText, wordsOf } from './live-text.js?v=ee322be28c';
 import { swipeDir, ownsSideways, ownsTouch, cardSwipe, caseFling, caseFlight, wheelFinger, wheelGesture, ownsWheel } from './swipe.js?v=3ad619631e';
 import { sinusoidSupported } from './gl-support.js?v=94ad2a7ff1';
 import { SCALE_NAME, offeredScales, scaleView, pickedScale } from './scale-switch.js?v=1b0e3acd65';
@@ -25,8 +25,8 @@ import { DISEASE_SRC, diseasePieces } from './diseases.js?v=fb8a5451c3';
 import { nb, listCase, plateletText } from './glue.js?v=5a0f63226b';
 import { DECKS, DECK_ALIAS, REGIONS, LEVELS, TOPICS, withOverview, siteTag, SITE_TAGS } from './decks.js?v=faa951f1ce';
 import { fingerprintOf } from '../engine/fingerprint.js?v=ca81723393';
-import { createHvpgMonitor } from './hvpg-proc.js?v=af945d56b7';
-import { createTools } from './presenter-tools.js?v=7b5374e2d7';
+import { createHvpgMonitor } from './hvpg-proc.js?v=870c2a8be4';
+import { createTools } from './presenter-tools.js?v=86cf353723';
 import { openHandout } from './handout.js?v=b0f38454b7';
 import { noteResume, resumeFor } from './resume.js?v=f086f80ee8';
 import { parseDeckSource, checkDeck } from './deck-source.js?v=8395c650cd';
@@ -34,16 +34,17 @@ import { NO_ASC, TILE, cutText, tileOf, SCALE, bandsOf, rateOf, COLS, CUT, PRESS
 import { frameFor, cancelFrame } from './frame.js?v=7254a8a850';
 import { createFigureKey } from './figure-key.js?v=b6817772fb';
 import { traceWhen } from './trace-labels.js?v=fc916a95c6';
-import { flowCss, heatCss, dropCss, gradientCss, oxygenCss } from './colormap.js?v=a9284dde52';
-import { EXT, expandIds, stepExtra, markLabel, figureHooks, safe } from './slide-ext.js?v=7f8ae3fb4e';
+import { flowCss, heatCss, dropCss, gradientCss, oxygenCss } from './colormap.js?v=05a231b880';
+import { EXT, expandIds, stepExtra, markLabel, figureHooks, safe } from './slide-ext.js?v=854170fe52';
 import { clotWords } from './callout-math.js?v=a716cd33ea';
 import { citeText, focusOf, oneLadder } from './teach-extras.js?v=5f5248f5a7';
-import { createProfileTool, createProfileStrip, pillReadings } from './tool-profile.js?v=c040edab92';
+import { createProfileTool, createProfileStrip, pillReadings } from './tool-profile.js?v=2a3bd1cbd0';
 import { causeFit } from './cause-fit.js?v=830a6835a5';
 import { COMPACT, WIDE } from './card-type.js?v=5af5f22935';
 import { flowTimeHeight, trailKeys } from './flow-time.js?v=026ab2f37c';
 import { PROCS, procBlocked, procOffered, playProcedure } from './proc-anim.js?v=3075a0efa7';
 import { dataPlan, textPlan, keepData, keepText, cardSnap, cardChanged, cardBack } from './card-keep.js?v=4fc0919e34';
+import { createCardZoom, tapTracker } from './card-zoom.js?v=5140024e56';
 const nextFrame = frameFor('presenter');
 
 const KEY = 'pps.scripts';
@@ -1581,6 +1582,8 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     want = clamp(i, 0, slides.length - 1);
     noteResume(deck.id, want, slides.length);   // (the Present menu offers to resume here; the first or last slide forgets it)
     paintChrome();
+    // (A zoomed card glides back first: the slide is laid out, and its cards kept or changed, with the card where it rests.)
+    if (zoomOn()) { ui.zoom.close().then(() => { paintZoom(); zoomMissed = false; if (deck && !busy) run(); }); return; }   // (the slide lays everything out afresh)
     if (!busy) run();
   }
   const next = () => {
@@ -1634,6 +1637,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   // comes back once, at its final spot, after the cards are in and the camera has eased to fit around them.
   let creditHolds = 0, creditT = 0;   // (moves running; the timer that lifts the hold)
   async function transition(to) {
+    if (zoomOn()) { ui.zoom.reset(); paintZoom(); zoomMissed = false; }   // (a slide drawn again for a new text size, or any move that did not come by go: the card is put back at once)
     stage.holdHome(true);
     creditHolds++; clearTimeout(creditT); app.classList.add('pz-moving');
     try { await transitionRun(to); } finally {
@@ -1861,7 +1865,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   }
   // The fonts in and two frames for the cards' charts and refits to run, then one last fit; then the cards show (eased in).
   // (The cards were fitted unseen; once in place, every chart is lettered again for its size, before the next paint.)
-  const reFit = () => fitted.forEach(fitNow);
+  const reFit = () => { if (zoomHeld()) return; fitted.forEach(fitNow); };
   // (at: the slide coming in. Its last layout, here while it is still unseen, keys the words' lock, so the size the cards come in
   // at is the size they keep: keyed only once the slide was shown, the passes while the cards eased in measured afresh, and on a
   // tight iPad a reading settling or a chart lettered stepped the title or folded the ladder, so the card came in and then snapped.)
@@ -2941,7 +2945,47 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   // (While the readings' card slides or a part folds, the data card's box changes size on every frame: each change laid every card out
   // again, the words fitted afresh and the figure framed, frame by frame, so the slide ran at about 10 frames a second (Mohammad, 25 Oct).
   // The card moves by its own CSS (--pz-u, --pz-grow) and is laid out once it rests: foldStill.)
-  const cardMoving = () => !!ui && (ui.data.classList.contains('pz-sliding') || 'folding' in ui.data.dataset);
+  // (And while the card is zoomed to the middle of the screen, zoomHeld below: it too is laid out once it rests.)
+  const cardMoving = () => !!ui && (ui.data.classList.contains('pz-sliding') || 'folding' in ui.data.dataset || zoomHeld());
+  // ── The data card zoomed to the middle of the screen (Mac and iPad landscape; src/ui/card-zoom.js; Mohammad, 28 Oct) ──
+  // A tap on an empty part of the instrument's card, or its corner icon, glides the card to the middle and grows it as one piece, its words
+  // and pictures larger, never smaller; the figure behind comes in a few per cent and dims. Nothing pauses: the instrument, the model and
+  // the figure run on. Only the layout waits (zoomHeld: a pass asked for meanwhile, zoomMissed, runs once the card is back), because the card
+  // is then where the glide put it, not where it rests. A slide, a resize, Esc or a tap outside puts it back first.
+  let zoomMissed = false;
+  const zoomOn = () => !!ui?.zoom.on;
+  const zoomHeld = () => { if (!ui?.zoom.on) return false; zoomMissed = true; return true; };
+  // The readings' card comes out as the card zooms (false: it stays tucked, behind the instrument card, and a tap on its handle brings it out).
+  const ZOOM_OPENS_READINGS = false;
+  // Whether the card may zoom now: it stands whole, on a wide screen, with an instrument, and nothing else is going on.
+  const zoomReady = () => !!ui && !!deck && !!shown && shown.i === want && !busy && !leaving && !black && !caseStands() && ui.jump.hidden && !isModalOpen()
+    && ui.root.classList.contains('pz-wide') && ui.data.classList.contains('has-tool') && dataStands() && !ui.root.classList.contains('pz-prep');
+  const caseStands = () => !!caseCard && !caseCard.flown;
+  async function zoomOpen() {
+    if (!zoomReady() || ui.zoom.on) return;
+    const z = ui.zoom;
+    if (ZOOM_OPENS_READINGS && wideSheet(ui.data) && !ui.data.classList.contains('tool-open')) {
+      ui.setFold(true);
+      await until(() => !ui || !('folding' in ui.data.dataset), 1500);
+      if (!zoomReady()) return;
+    }
+    if (z.open()) paintZoom();
+  }
+  function zoomToggle() { if (!ui) return; if (ui.zoom.up) ui.zoom.close().then(paintZoom); else zoomOpen(); }
+  const paintZoom = () => {
+    if (!ui) return;
+    const up = ui.zoom.up;
+    ui.zbtn.setAttribute('aria-expanded', String(up)); ui.zbtn.setAttribute('aria-label', up ? 'Put the card back' : 'Enlarge this card'); ui.zbtn.title = up ? 'Put back' : 'Enlarge';
+  };
+  // (The corner credit sits out the glide as it does a slide change, and comes back once the card is.)
+  const zoomCredit = (on) => {
+    clearTimeout(creditT);
+    if (on) { creditHolds++; app.classList.add('pz-moving'); return; }
+    creditHolds = Math.max(0, creditHolds - 1);
+    creditT = setTimeout(() => { if (!creditHolds) app.classList.remove('pz-moving'); }, 120);
+  };
+  // (The card is back: a layout asked for while it was up runs now, once.)
+  const zoomSettled = () => nextFrame(() => { if (!ui || !zoomMissed || ui.zoom.on) return; zoomMissed = false; fitDone.delete(ui.data); onResize(); });
   let shiftLock = null;   // (the stacked pair's centring, keyed as the words' lock: layout)
   let textLock = null, foldHeld = null;   // (foldHeld: the foldKey the data card was last folded for, layout)
   let fitRO = null, fitRaf = 0, clearRO = null, clearT = 0, paneRaf = 0, fitKids = [], clearFor = null;
@@ -2986,6 +3030,8 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   };
   function layout() {
     if (!ui) return;
+    if (zoomHeld()) return;   // (the zoomed card is not where it rests: it is laid out once it is back, zoomSettled)
+    zoomMissed = false;
     // k: screen px per CSS px of the figure's box (1 unless the page is scaled): rects are screen px, inline sizes are the page's own (screen / k).
     const p = phone(), wr = wrap.getBoundingClientRect(), W = wr.width, H = wr.height, k = wr.width / (wrap.clientWidth || wr.width) || 1;
     ui.root.classList.toggle('stack', p); ui.shade.classList.toggle('stack', p);
@@ -3277,6 +3323,8 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     set('--pz-t', p && d ? (ui.data.offsetTop + ui.data.offsetHeight + (lipOn(ui.data) ? LIP : 0) + dv[1] * dock.to) * k + 4 : 0);   // (offsets: a card coming in is still shifted by its entry transform)
     set('--pz-b', p && t ? B + 34 : 0);
     if (!dock.drag) dockPaint();
+    // (The corner icon is offered where the card has room to grow, and only on a wide screen with an instrument: card-zoom.js.)
+    ui.data.classList.toggle('pz-zoomable', wide && !ui.data.hidden && ui.data.classList.contains('has-tool') && !!ui.zoom.plan());
     placeBar();
     dispatchEvent(new Event('pps:occ'));
   }
@@ -3523,6 +3571,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   const sizeNow = () => { const r = wrap.getBoundingClientRect(); return `${innerWidth}x${innerHeight}:${Math.round(r.width)}x${Math.round(r.height)}`; };
   const onResize = (e) => {
     if (!ui) return;
+    if (e?.type === 'resize' && zoomOn()) { ui.zoom.reset(); paintZoom(); }   // (a new size: the card is put back, laid out and zoomed again by a tap)
     if (e?.type === 'resize') sizeSeen = sizeNow();
     // (Turned between upright (a phone's or tablet's stacked cards) and a wider layout: a data card closed in the one comes in open in
     // the other, at once with everything else. Kept closed, an iPad's card turned on its side stood off the screen's left edge.)
@@ -4003,7 +4052,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   wrap.addEventListener('touchstart', (e) => {
     if (far) { farLet('touchcancel'); return; }   // (a second finger: a pinch, not a swipe)
     const d = ui?.data;
-    if (!deck || !d || e.touches.length !== 1 || !(phone() || wideSheet(d)) || d.hidden || d.classList.contains('pz-hide') || !ui.cardTouch
+    if (!deck || !d || zoomOn() || e.touches.length !== 1 || !(phone() || wideSheet(d)) || d.hidden || d.classList.contains('pz-hide') || !ui.cardTouch
       || d.contains(e.target) || ui.lip.contains(e.target) || caseOn(e) || ownsTouch(e.target, { stop: wrap })) return;
     const t = e.touches[0];
     far = { x: t.clientX, y: t.clientY, lx: t.clientX, ly: t.clientY, on: false };
@@ -4030,6 +4079,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   function stackFold(open) {
     const d = ui?.data;
     if (!d || (caseCard && !caseCard.flown) || !wideSheet(d) || d.hidden || d.classList.contains('pz-hide')) return false;
+    if (zoomOn()) return true;   // (a zoomed card keeps its readings as they are)
     if (open !== d.classList.contains('tool-open')) ui.setFold(open);
     return true;
   }
@@ -4098,7 +4148,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     else if (lk === 'g') toggleJump(true);
     else if (lk === 'n' || lk === 's' || lk === 'l') { /* the app's own N, S and L (such as the lens) stay off while presenting */ }
     else if (k === 'F5') { /* a clicker's "start show": never reload the page */ }
-    else if (k === 'Escape') { if (black) toggleBlack(false); else stop(); }
+    else if (k === 'Escape') { if (black) toggleBlack(false); else if (zoomOn()) ui.zoom.close().then(paintZoom); else stop(); }   // (a zoomed card first glides back)
     else used = false;
     if (used) { e.preventDefault(); e.stopImmediatePropagation(); }
   }
@@ -4196,7 +4246,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       g = null;
       const sheet = el.classList.contains('pz-sheet'), open = el.classList.contains('tool-open');
       const split = splitSheet(el);
-      if (e.touches.length !== 1 || (!btn.offsetWidth && !sheet) || (sheet && open && !split) || dock.lvl > 0 || btn.contains(e.target)) return;
+      if (e.touches.length !== 1 || (!btn.offsetWidth && !sheet) || (sheet && open && !split) || dock.lvl > 0 || btn.contains(e.target) || zoomOn()) return;
       const t = e.touches[0];
       g = grab(t.clientX, t.clientY, open);
       g.dir = wideSheet(el) ? -1 : 1;   // (Mac and iPad landscape: the readings come out upward, a pull up; a push down tucks them)
@@ -4243,6 +4293,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     // (A phone's sheet holds what is under the instrument: its tiles.)
     const partOf = () => (data.classList.contains('tool-lead') || (data.classList.contains('pz-sheet') && !data.classList.contains('tool-only')) ? tiles.el : tools.el);
     const setFold = (open) => {
+      if (zoomOn()) return;   // (a zoomed card keeps its readings as they are)
       // (Upright: fitted at rest as it will be, then the readings' card slides there from wherever it stood, slideUnder.)
       if (splitSheet(data)) {
         const u0 = underU(data);
@@ -4275,10 +4326,14 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       delete data.dataset.folding; fitDone.delete(data); onResize();
     };
     const fold = h('button', { class: 'pz-fold', type: 'button', 'aria-expanded': 'false', onclick: () => setFold(!data.classList.contains('tool-open')) }, 'Show');
+    // The corner icon that zooms the instrument's card (Mac and iPad landscape; shown by styles/app.css .pz-zbtn only where the card has room to grow).
+    const zbtn = h('button', { class: 'pz-zbtn', type: 'button', 'aria-label': 'Enlarge this card', 'aria-expanded': 'false', title: 'Enlarge', onclick: () => zoomToggle() }, icon('fullscreen'), icon('shrink'));
     // A phone's sheet under the card (.pz-sheet, dockVec): its edge carries the handle. A tap steps through the three states, as the
     // card's own pulls and pushes do: partly open, fully open, closed to its edge at the top, partly open again.
     const lip = h('button', { class: 'pz-lip stage-blocker', type: 'button', hidden: true, 'data-safe-rest': '', 'aria-label': 'Show the rest of the card', onclick: () => {
       if (performance.now() - (dock.tapAt || 0) < 700) return;   // (a touch that already opened the closed card, dockTouch)
+      // (On a zoomed card the handle rides with it: a tap puts the card back, then brings the readings out, as it does on the card at rest.)
+      if (zoomOn()) { zoom.close().then(() => { paintZoom(); if (ui && wideSheet(data) && !data.classList.contains('tool-open')) setFold(true); }); return; }
       // (Upright: partly open, fully open, partly open (its readings' card tucked away), closed, partly open again.)
       const split = splitSheet(data);
       if (dock.to === 1) { dock.auto = false; dockTo(0); }
@@ -4288,7 +4343,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       else setFold(true);
     } });
     const data = h('section', { class: 'pz-data stage-blocker pz-hide', 'data-safe': 'right', 'data-safe-rest': '', 'data-safe-waits': '', 'data-gone': '', hidden: true, 'aria-label': 'The numbers' },
-      h('div', { class: 'pz-dh' }, dhT, fold), tools.el, tiles.el, clock.el, h('span', { class: 'pz-grip', 'aria-hidden': 'true' }));
+      h('div', { class: 'pz-dh' }, dhT, fold, zbtn), tools.el, tiles.el, clock.el, h('span', { class: 'pz-grip', 'aria-hidden': 'true' }));
     const foldHs = foldTouch(data, fold, setFold, partOf, (on) => { if (on) { clearTimeout(foldT); data.dataset.folding = ''; } else foldT = setTimeout(foldStill, reduce.matches ? 0 : 450); }, lip);
     const dockHs = dockTouch(data, lip);
     const cardTouch = [foldHs, dockHs];   // (fold first: it stops the dock drag when it takes a move, as on the card)
@@ -4334,14 +4389,19 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     // The slide's scale switch (slide field scales): Anatomy, Lobule, Sinusoid, as Explore's pill. It comes and goes with the
     // teaching card; the figure's labels keep clear of it, and on a phone the camera frames above it (data-safe, set in placeScales).
     const scl = h('div', { class: 'pz-scales stage-blocker pz-leave', role: 'group', 'aria-label': 'Scale', hidden: true });
-    const root = h('div', { class: 'pz' }, safe, veil, load, fk, text, data, lip, panel, vcase, prog, scl, bar, jump, blackEl, say);
+    // The zoom's veil sits over the words and the figure and under the card, its handle and the controls: a tap on it puts the card back.
+    const zscrim = h('div', { class: 'pz-zscrim', 'aria-hidden': 'true', onclick: () => zoom.close().then(paintZoom) });
+    const zoom = createCardZoom({ card: data, along: [lip], view, scrim: zscrim, app, area: () => wrap.getBoundingClientRect(), scale: () => wrap.getBoundingClientRect().width / (wrap.clientWidth || 1) || 1,
+      reduce: () => reduce.matches, boost: setCanvasBoost, hold: zoomCredit, settled: zoomSettled });
+    tapTracker(data, { ok: () => zoomReady() || zoom.up, onTap: () => zoomToggle() });
+    const root = h('div', { class: 'pz' }, safe, veil, load, fk, text, zscrim, data, lip, panel, vcase, prog, scl, bar, jump, blackEl, say);
     wrap.insertBefore(shade, wrap.querySelector('.stage-credit'));
     // The teaching card's glass is the card itself: it leaves and arrives with the words, never resizing in view.
     new MutationObserver(() => shade.classList.toggle('pz-leave', text.classList.contains('pz-leave'))).observe(text, { attributes: true, attributeFilter: ['class'] });
     wrap.append(root);
     // (It comes in with the teaching card, in the card's own fade, once the card is fitted (pz-prep gone), and leaves with it.)
     const figKey = createFigureKey({ el: fk, app, watch: [text, root], ready: () => !text.hidden && !text.classList.contains('pz-leave') && !root.classList.contains('pz-prep') });
-    return { root, shade, safe, load, text, data, clock, lip, lipRO, lipMO, cardTouch, setFold, partOf, vcase, fk, figKey, dhT, tiles, tools, veil, panel, prog, scl, bar, black: blackEl, jump, say };
+    return { root, shade, safe, load, text, data, clock, lip, lipRO, lipMO, cardTouch, setFold, zoom, zbtn, partOf, vcase, fk, figKey, dhT, tiles, tools, veil, panel, prog, scl, bar, black: blackEl, jump, say };
   }
   // The start's cover (see start). While it is up (booting) the camera cuts instead of gliding.
   let cover = null, booting = false, coverT = 0, noCase = false;   // (noCase: the slide a start lands on, a reload's included, does not play its case card)
@@ -4471,7 +4531,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     cancelFrame(slip.raf); slip.d = null; slip.h0 = null;
     clearTimeout(idleT); clearTimeout(dock.fit); cancelFrame(dock.raf); dock.lvl = 0; dock.to = 0; dock.drag = false; dock.auto = false; dock.autoKey = '';
     dataOn = textOn = null; keepNow = NO_KEEP; keepSnap = null; keepBad = []; keepArgs = null;
-    pillW = 0; ui?.tools.dispose(); ui?.figKey.dispose(); ui?.lipRO?.disconnect(); ui?.root.remove(); ui?.shade.remove(); ui = null; app.classList.remove('pz-blacked');
+    pillW = 0; ui?.zoom.reset(); ui?.tools.dispose(); ui?.figKey.dispose(); ui?.lipRO?.disconnect(); ui?.root.remove(); ui?.shade.remove(); ui = null; app.classList.remove('pz-blacked');
     view.classList.remove('pz-out');
     for (const k of ['--pz-l', '--pz-r', '--pz-t', '--pz-b']) app.style.removeProperty(k);
     stage.lobuleHold?.(false);   // (a way out of the lobule left unfinished: the lobule follows the free space again)

@@ -30,7 +30,7 @@ const glassIn = (root) => {
 };
 
 test('the handle sits right after the data card, so its out look follows the card\'s own class', () => {
-  assert.match(js, /h\('div', \{ class: 'pz' \}, safe, veil, load, fk, text, data, lip, panel,/);
+  assert.match(js, /h\('div', \{ class: 'pz' \}, safe, veil, load, fk, text, zscrim, data, lip, panel,/);   // (the zoom's veil between the words and the card, still the handle right after the card)
   assert.match(css, /\.pz \.pz-data\.pz-hide \+ \.pz-lip:not\(\[hidden\]\) \{ opacity: 0;/);
 });
 

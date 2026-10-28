@@ -5445,6 +5445,24 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
 .pz.pz-wide .pz-text, .pz-shade.pz-card:not(.stack):not(.low) { translate: 0 calc(-1 * var(--pz-rise, 0px)); }
 @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) { .pz.pz-wide.pz-wide .pz-data.pz-sheet::before, .pz.pz-wide.pz-wide .pz-data.pz-sheet::after { background: color-mix(in srgb, var(--surface) 96%, transparent); } }
 @media (prefers-reduced-transparency: reduce) { .pz.pz-wide.pz-wide .pz-data.pz-sheet::before, .pz.pz-wide.pz-wide .pz-data.pz-sheet::after { background: var(--surface-2); -webkit-backdrop-filter: none; backdrop-filter: none; } }
+/* The data card zoomed to the middle of the screen (Mac and iPad landscape; presenter.js zoomOpen, src/ui/card-zoom.js; Mohammad, 28 Oct: "the
+   camera should like zoom on the card to display it centered large in middle of the screen"). The card and its handle glide and grow by a
+   transform, so the words only get larger; the veil dims the words and the figure under them (the figure also comes in a few per cent, by
+   the script) and takes a tap to put the card back. The icon is the corner of the card's header row, quiet like the header's own small
+   caps: the text's grey, the app's corner brackets, a soft tint under the finger. Nothing but the icon and the cursor shows before the tap. */
+.pz-zscrim { position: absolute; inset: 0; background: color-mix(in srgb, var(--stage-bg) 58%, transparent); opacity: 0; pointer-events: none; cursor: zoom-out; transition: opacity .45s var(--ease); }
+.pz-zscrim.on { opacity: 1; pointer-events: auto; }
+.pz-zbtn { display: none; }
+.pz.pz-wide .pz-data.pz-zoomable { cursor: zoom-in; }
+.pz-zoomed .pz.pz-wide .pz-data { cursor: zoom-out; }
+.pz.pz-wide .pz-data.pz-zoomable > .pz-dh { position: relative; }
+.pz.pz-wide .pz-data.pz-zoomable > .pz-dh > .pz-zbtn { display: grid; place-items: center; position: absolute; right: calc(-4px / var(--pz-z, 1)); top: 50%; translate: 0 -50%; width: calc(24px / var(--pz-z, 1)); height: calc(24px / var(--pz-z, 1)); margin: 0; padding: 0; border: 0; border-radius: calc(8px / var(--pz-z, 1)); background: none; color: var(--text-3); cursor: pointer; -webkit-tap-highlight-color: transparent; transition: color .25s var(--ease), background .25s var(--ease); }
+.pz-zbtn::before { content: ''; position: absolute; inset: calc(-8px / var(--pz-z, 1)) calc(-6px / var(--pz-z, 1)); }
+.pz-zbtn svg { width: calc(15px / var(--pz-z, 1)); height: calc(15px / var(--pz-z, 1)); stroke: currentColor; fill: none; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+.pz-zbtn svg:last-child, .pz-zoomed .pz-zbtn svg:first-child { display: none; }
+.pz-zoomed .pz-zbtn svg:last-child { display: block; }
+@media (hover: hover) { .pz-zbtn:hover { color: var(--text); background: var(--hairline); } }
+.pz-zbtn:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 /* Mac and iPad landscape: when even the smallest steps leave the pair too tall, the instrument folds behind Show as on a phone
    (presenter.js layout, pz-folds), its tiles in a row at the card's full width; Show fades it in, Hide out. */
 .pz:not(.stack):not(.low) .pz-data.pz-folds .pz-dh { position: relative; padding-inline: max(64px, calc(var(--pz-chip-em, 0) * 1em + 24px / var(--pz-z, 1) + 10px)); }   /* (the chip's own width, its words (presenter.js chipRoom), padding and edge, and 8 px) */

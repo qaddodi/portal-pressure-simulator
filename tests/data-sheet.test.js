@@ -18,7 +18,7 @@ test('a phone instrument card shows the instrument first, its readings on a shee
   assert.doesNotMatch(css, /\.pz:is\(\.stack, \.low\) \.pz-data\.has-tool:not\(\.tool-only\):not\(\.tool-open\) \.pz-tool \{ max-height: 0/, 'the instrument never folds away on a phone');
   assert.doesNotMatch(css, /tool-only:has\(\.pz-tool\[data-kind="flowtime"\]\):not\(\.tool-open\) \.pz-tool/, 'nor the after-meal chart alone');
   // (The edge is the card's sibling, kept at its foot: inside the card, its glass clipped it away on an iPhone.)
-  assert.match(js, /fk, text, data, lip, panel,/);
+  assert.match(js, /fk, text, zscrim, data, lip, panel,/);   // (the zoom's veil between the words and the card: card-zoom.js)
   assert.match(js, /l\.style\.left = px\(d\.offsetLeft\); l\.style\.width = px\(d\.offsetWidth\); l\.style\.top = px\(wideSheet\(d\) \? d\.offsetTop - LIP \* \(1 - ut\) : d\.offsetTop \+ \(sliding && slip\.h0 != null \? slip\.h0 \+ u \* slip\.d : d\.offsetHeight\)\);/);
   assert.match(js, /l\.style\.translate = d\.style\.translate;/, 'it moves with the card');
   assert.match(js, /dockTouch\(data, lip\);/, 'and takes the card\'s own pulls and pushes');

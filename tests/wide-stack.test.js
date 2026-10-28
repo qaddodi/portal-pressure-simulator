@@ -121,7 +121,8 @@ test('a slide of the readings\' card never restyles the figure or lays the cards
   const rise = js.match(/const setRise = [^\n]*/)?.[0] || '';
   assert.ok(rise && !/wrap\./.test(rise), 'the rise is not written on the stage\'s box');
   // (The data card's box changes size on every frame of a slide: its watchers wait until it rests, and foldStill lays it out once then.)
-  assert.match(js, /const cardMoving = \(\) => !!ui && \(ui\.data\.classList\.contains\('pz-sliding'\) \|\| 'folding' in ui\.data\.dataset\);/);
+  // (And a zoomed card, card-zoom.js: laid out once it is back.)
+  assert.match(js, /const cardMoving = \(\) => !!ui && \(ui\.data\.classList\.contains\('pz-sliding'\) \|\| 'folding' in ui\.data\.dataset \|\| zoomHeld\(\)\);/);
   assert.ok(js.indexOf('const cardMoving') < js.indexOf('const fitWatch'));
   assert.match(js, /if \(data\.classList\.contains\('pz-sliding'\) \|\| partOf\(\)\.getAnimations\?\.\(\)\.some\(\(a\) => a\.playState === 'running'\)\) \{ foldT = setTimeout\(foldStill, 100\); return; \}/);
   assert.match(js, /delete data\.dataset\.folding; fitDone\.delete\(data\); onResize\(\);/, 'laid out once it rests');

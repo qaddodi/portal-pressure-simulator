@@ -29,7 +29,7 @@
 // the graph, centred ('**Gray:** ...', or { text, swatch: 'hatch' } for the hatched area's line). The plot's height follows its width
 // only, so the card never changes size with the case.
 
-import { h, fmt } from './util.js?v=5ad334ebc0';
+import { h, fmt } from './util.js?v=58b547f8d4';
 import { TILE } from './table-marks.js?v=8458ad3bf8';
 import { plotPanel } from './plot-look.js?v=5037697da7';
 
