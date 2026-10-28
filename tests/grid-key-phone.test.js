@@ -22,7 +22,8 @@ test('each cell draws the Gut to heart chart and its one-line strip, with no leg
   assert.match(grid, /const P = createProfileTool\(\), S = createProfileStrip\(\);/);
   assert.match(grid, /P\.configure\(\{ kind: 'profile' \}, \{ fp: r\.f, healthy: \(\) => base \}\);/, 'read against the healthy line, as on every card');
   assert.match(grid, /S\.set\(r\.f, \(\) => base\);/);
-  assert.match(grid, /grid\.append\(h\('div', \{ class: 'pz-cell' \}, k, P\.el, S\.el\)\);/);
+  assert.match(grid, /const cc = h\('div', \{ class: 'pz-cc' \}, P\.el\);/);
+  assert.match(grid, /grid\.append\(h\('div', \{ class: 'pz-cell' \}, k, cc, S\.el\)\);/);
   assert.doesNotMatch(js, /bigLadder|pz-grid-key|RUNGS|gridOwn|gridNames/);
   assert.doesNotMatch(css, /pz-grid-key|\.pz-cell\.strip|\.pz-grid\.big/);
 });
@@ -45,9 +46,9 @@ test('the first row names the site and the cause, the cause stepping down to fit
 });
 
 test('a wide screen shows the chart; a phone, upright or sideways, the line, under one row of station names', () => {
-  assert.match(css, /\.pz-cell > \.pz-prof \{ flex: 0 1 auto; min-height: 0; height: var\(--prof-h, auto\); font-size: var\(--ch-cap, 12px\); \}/);
+  assert.match(css, /\.pz-cc \{ position: relative; width: 100%; flex: none; \}/);
   assert.match(css, /\.pz-pstrip \{ display: none; width: 100%; \}/);
-  assert.match(css, /:is\(\.pz\.stack, \.pz\.low\) \.pz-cell > \.pz-prof \{ display: none; \}/);
+  assert.match(css, /:is\(\.pz\.stack, \.pz\.low\) \.pz-cell > \.pz-cc \{ display: none; \}/);
   assert.match(css, /:is\(\.pz\.stack, \.pz\.low\) \.pz-cell > \.pz-pstrip \{ display: block;/);
   assert.match(grid, /h\('div', \{ class: 'pz-grid-head', 'aria-hidden': 'true' \}, createProfileStrip\(true\)\.el, createProfileStrip\(true\)\.el\)/);
   assert.match(css, /\.pz-grid-head \{ display: none; \}/);
@@ -166,7 +167,7 @@ test('a phone\'s first row ends in the case\'s HVPG and PPG pills, tinted as the
 test('a wide screen\'s six ladders: the title one step down, each case\'s foot gives back the blank under its sinusoidal brace', () => {
   assert.match(css, /\.pz:not\(\.stack\):not\(\.low\) \.pz-panel\.fill \.pz-h \{ font-size: calc\(var\(--s-big\) \* \.8\); \}/, 'the Compact step of the other titles (card-type.js WIDE.title)');
   assert.match(css, /\.pz:not\(\.stack\):not\(\.low\) \.pz-cell \{ padding-bottom: clamp\(4px, calc\(\.6 \* var\(--pzh\)\), 8px\); \}/);
-  assert.match(css, /\.pz:not\(\.stack\):not\(\.low\) \.pz-cell > \.pz-prof \{ margin-bottom: -\.5em; \}/, 'half a type size, overflow visible: the chart\'s picture has that much blank under the brace\'s name');
+  assert.match(css, /\.pz:not\(\.stack\) \.pz-cc \{ height: calc\(\(var\(--lad-h\) - \.5 \* var\(--lad-f\)\) \* var\(--lad-s, 1\) \* var\(--lad-k, 1\)\); \}/, 'half a type size, overflow visible: the chart\'s picture has that much blank under the brace\'s name');
   assert.equal(WIDE.title, 0.8, 'the 0.8 in the rule is the app\'s own Compact title step');
   // (The picture draws its brace's name 0.9 em over its foot and its svg is not clipped, so the half em it reaches into the padding stays blank.)
   assert.match(css, /\.pz-prof svg, \.pz-flows svg \{ grid-area: 1 \/ 1; width: 100%; height: 100%; overflow: visible; \}/);

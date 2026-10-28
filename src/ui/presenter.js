@@ -26,7 +26,7 @@ import { nb, listCase, plateletText } from './glue.js?v=5a0f63226b';
 import { DECKS, DECK_ALIAS, REGIONS, LEVELS, TOPICS, withOverview, siteTag, SITE_TAGS } from './decks.js?v=faa951f1ce';
 import { fingerprintOf } from '../engine/fingerprint.js?v=ca81723393';
 import { createHvpgMonitor } from './hvpg-proc.js?v=870c2a8be4';
-import { createTools } from './presenter-tools.js?v=86cf353723';
+import { createTools } from './presenter-tools.js?v=dc112d901d';
 import { openHandout } from './handout.js?v=b0f38454b7';
 import { noteResume, resumeFor } from './resume.js?v=f086f80ee8';
 import { parseDeckSource, checkDeck } from './deck-source.js?v=8395c650cd';
@@ -35,10 +35,10 @@ import { frameFor, cancelFrame } from './frame.js?v=7254a8a850';
 import { createFigureKey } from './figure-key.js?v=b6817772fb';
 import { traceWhen } from './trace-labels.js?v=fc916a95c6';
 import { flowCss, heatCss, dropCss, gradientCss, oxygenCss } from './colormap.js?v=05a231b880';
-import { EXT, expandIds, stepExtra, markLabel, figureHooks, safe } from './slide-ext.js?v=854170fe52';
+import { EXT, expandIds, stepExtra, markLabel, figureHooks, safe } from './slide-ext.js?v=abaa5bc948';
 import { clotWords } from './callout-math.js?v=a716cd33ea';
 import { citeText, focusOf, oneLadder } from './teach-extras.js?v=5f5248f5a7';
-import { createProfileTool, createProfileStrip, pillReadings } from './tool-profile.js?v=2a3bd1cbd0';
+import { createProfileTool, createProfileStrip, pillReadings, chartScale } from './tool-profile.js?v=989103eab0';
 import { causeFit } from './cause-fit.js?v=830a6835a5';
 import { COMPACT, WIDE } from './card-type.js?v=5af5f22935';
 import { flowTimeHeight, trailKeys } from './flow-time.js?v=026ab2f37c';
@@ -2298,6 +2298,22 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     k.classList.toggle('under', fit.under);
   };
   const rowRO = typeof ResizeObserver === 'function' ? new ResizeObserver((es) => es.forEach((e) => fitRow(e.target.closest('.pz-cell-k')))) : null;
+  // (A wide screen's chart in each cell is the data card's instrument, drawn once at the instrument's own size and scaled down as one piece to its cell
+  // (Mohammad, 28 Oct, Sites 10: "each cell to be the instrument drawn exactly, scaled down"): the same layout, label places, plot shape and
+  // relative type; chartScale. Its words never come under 12 px on the screen: where the scale would take them, the picture is drawn in
+  // larger type by s and scaled by the same k. The holder takes the scaled height; styles/app.css .pz-cc.)
+  const fitChart = (cc, P) => {
+    const p = cc?.firstElementChild;
+    if (!p) return;
+    const s0 = parseFloat(cc.style.getPropertyValue('--lad-s')) || 1, W = cc.clientWidth, w0 = p.offsetWidth, f0 = (parseFloat(getComputedStyle(p).fontSize) || 0) / s0;
+    if (!(W > 0 && w0 > 0 && f0 > 0)) return;
+    const { k, s } = chartScale(W, w0, f0), ks = k.toFixed(4), ss = s.toFixed(4);
+    if (cc.style.getPropertyValue('--lad-k') !== ks) cc.style.setProperty('--lad-k', ks);
+    // (The box stays the instrument's, so a new type size is no change of box: the chart is drawn again for it.)
+    if (cc.style.getPropertyValue('--lad-s') !== ss) { cc.style.setProperty('--lad-s', ss); P.redraw(); }
+  };
+  const chartOf = new WeakMap();
+  const chartRO = typeof ResizeObserver === 'function' ? new ResizeObserver((es) => es.forEach((e) => { const c = chartOf.get(e.target); if (c) fitChart(c.cc, c.P); })) : null;
   function laddersGrid(s) {
     const grid = h('div', { class: 'pz-grid' });
     grid.append(h('div', { class: 'pz-grid-head', 'aria-hidden': 'true' }, createProfileStrip(true).el, createProfileStrip(true).el));
@@ -2312,7 +2328,10 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
         h('div', { class: 'pz-cell-t' }, r.name),   // (a row's `name` where its title is too long for the first row: Sites 10 "Sinusoidal obstr. synd.")
         h('div', { class: 'pz-gpills' }, pillReadings(r.f).map((q) => h('span', { class: 'pz-gpill', 'data-k': q.k, 'data-rate': q.rate }, h('span', { class: 'k' }, `${q.name} `), q.v))));
       rowRO?.observe(k); for (const c of k.children) rowRO?.observe(c);   // (and the site, the cause and the pills themselves: a font loading late widens them, not the row)
-      grid.append(h('div', { class: 'pz-cell' }, k, P.el, S.el));
+      const cc = h('div', { class: 'pz-cc' }, P.el);
+      chartOf.set(cc, { cc, P }); chartOf.set(P.el, { cc, P });
+      chartRO?.observe(cc); chartRO?.observe(P.el);   // (the room it has, and the instrument's own size, which follows the window)
+      grid.append(h('div', { class: 'pz-cell' }, k, cc, S.el));
     }
     return grid;
   }

@@ -1879,21 +1879,22 @@ button.finding { cursor: pointer; }
    itself shorter. The name and the unit stay inside the cell, over 12 px from its edge.) */
 .pz:not(.stack):not(.low) .pz-panel.fill .pz-h { font-size: calc(var(--s-big) * .8); }
 .pz:not(.stack):not(.low) .pz-cell { padding-bottom: clamp(4px, calc(.6 * var(--pzh)), 8px); }
-.pz:not(.stack):not(.low) .pz-cell > .pz-prof { margin-bottom: -.5em; }
-.pz-cell > .pz-prof { flex: 0 1 auto; min-height: 0; height: var(--prof-h, auto); font-size: var(--ch-cap, 12px); }   /* (each case's Gut to heart chart is the data card's instrument at the cell's width: its height from that width as the instrument's is, lettered at the instrument's own size) */
-.pz:not(.stack) .pz-cell > .pz-prof { --prof-h: max(calc(62cqi - 1.6em), 16.5em); }   /* (the instrument's height, .pz:not(.stack) .pz-tool[data-kind="profile"] .pz-prof, from the width alone: 62 % of it less the 1.6 em the chart gave back. The cell is the container, so the cqi is the chart's own width. Not the instrument's floor of 28 % of the window's height: that is for a card too narrow for its chart, and here it would stretch every cell. The 16.5 em is for a narrow cell, a 1024 px window, where the names take two rows and the brackets stand over their values: the chart's least (tool-profile.js profileGeo need, 12 to 14.4 em) and the plot 5 em, so the box never grows after it is drawn. The instrument has the same floor in its own terms, 28 % of the window's height.) */
-:is(.pz.stack, .pz.low) .pz-cell > .pz-prof { display: none; }   /* (a phone draws each case on one line instead) */
+.pz-cc { position: relative; width: 100%; flex: none; }   /* (the chart's holder: the instrument drawn at its own size inside it, scaled down whole to the cell's width: presenter.js fitChart) */
+.pz-cc > .pz-prof { position: absolute; left: 0; top: 0; width: var(--lad-w); height: calc(var(--lad-h) * var(--lad-s, 1)); min-height: 0; font-size: calc(var(--lad-f) * var(--lad-s, 1)); transform: scale(var(--lad-k, 1)); transform-origin: 0 0; }   /* (its own width, height and type are the instrument's: the cell's --lad-w, --lad-h and --lad-f; --lad-k is the scale, and --lad-s the larger type that keeps the scaled words at 12 px, in a box as much taller (1 where the instrument's own type holds, a few percent on a Mac, a third on an iPad on its side) so the plot keeps its room) */
+.pz:not(.stack) .pz-cc { height: calc((var(--lad-h) - .5 * var(--lad-f)) * var(--lad-s, 1) * var(--lad-k, 1)); }   /* (the scaled picture's height, less half a type size, overflow visible: the picture has that much blank under the brace's name) */
+:is(.pz.stack, .pz.low) .pz-cell > .pz-cc { display: none; }   /* (a phone draws each case on one line instead) */
 :is(.pz.stack, .pz.low) .pz-cell > .pz-pstrip { display: block; margin-top: 3px; font-size: var(--s-lab); }
 .pz-grid-head { display: none; }
 :is(.pz.stack, .pz.low) .pz-grid-head { display: grid; grid-column: 1 / -1; grid-template-columns: inherit; gap: inherit; }   /* (the stations named once over the six lines, each over its column) */
 :is(.pz.stack, .pz.low) .pz-grid-head > .pz-pstrip { display: block; width: auto; margin: 0 12px; font-size: var(--s-cap); }
 .pz.stack .pz-grid-head > :nth-child(2) { display: none; }
-/* (A big screen's six ladders are the data card's instrument at the cell's width (Mohammad, 28 Oct, on Sites 10: "each graph should look in proportions
-   exactly as the instrument so we just fit the slide borders around; now the individual instrument graph ladders look too tall and not similar to the
-   instrument"): the same height for its width (62 % less 1.6 em, above) and the same type, the instrument's own size, 12 px at least, so its names,
-   zone words, brackets and pills keep the instrument's spacing. The card hugs the six; it no longer fills the screen's height, which had stretched each
-   chart to 0.8 of its width. This took back the 26 Oct larger lettering (4.5 cqi, to 20 px), which kept the plot's room only on a chart that tall.) */
-.pz:not(.stack) .pz-cell { --ch-cap: max(12px, calc(var(--s-cap) * .74)); --ch-lab: calc(var(--ch-cap) * 1.5); }
+/* (A big screen's six ladders are the data card's instrument, drawn once and scaled down as one piece to each cell (Mohammad, 28 Oct, Sites 10, after "looks
+   wrong": "each cell the instrument drawn exactly, scaled down", the slide 8 card as the reference): the instrument's own width (a card's width less its
+   padding), type size (the data card's chart size, 12 px at least) and height (62 % of its width, its floor of 28 % of the window's height, less the 1.6 em the
+   chart gave back; the same formulas as the instrument's), then scaled by presenter.js fitChart. The cell's chart then has the instrument's layout, label
+   places, plot shape and relative type; the card hugs the six. This took back the 26 Oct larger lettering (4.5 cqi, to 20 px) and the first 28 Oct try, which
+   laid the chart out afresh at the cell's size and crowded its plot.) */
+.pz:not(.stack) .pz-cell { --ch-cap: max(12px, calc(var(--s-cap) * .74)); --ch-lab: calc(var(--ch-cap) * 1.5); --lad-w: calc(var(--pz-cw) - 2 * var(--pz-cp)); --lad-f: var(--ch-cap); --lad-h: calc(min(max(.62 * var(--lad-w), 28 * var(--pzh)), 40 * var(--pzh)) - 1.6 * var(--lad-f)); }
 /* (What the card spends in height round the charts is kept short (Mohammad, 23 Oct, "wasting some space"): the gap under the title, the foot, the gap
    between the two rows and each cell's top and first gap. The card's width, its side padding and the columns' gap are as they were.) */
 .pz:not(.stack):not(.low) .pz-panel.fill { gap: clamp(8px, calc(1.2 * var(--pzh)), 16px); padding-bottom: clamp(12px, calc(1.8 * var(--pzh)), 24px); }

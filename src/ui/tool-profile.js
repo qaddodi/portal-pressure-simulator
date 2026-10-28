@@ -124,6 +124,14 @@ export function profileOf(fp) {
   return { v, hvpg: fp.hvpg, ppg: fp.ppg };
 }
 
+/** The instrument drawn once at its own size (w0 px wide, type f0) and scaled down as one piece to the room W it has: k, never above 1. Its type
+ *  stays 12 px at least on the screen: where k would take it under, the picture is drawn in type larger by s (the chart's own layout then keeps
+ *  everything clear at that size) and scaled by the same k, so the words come to 12 and the rest is the instrument's. (six site ladders) */
+export function chartScale(W, w0, f0, floor = 12.02) {
+  const k = Math.min(1, W / w0);
+  return { k, s: Math.max(1, floor / (f0 * k)) };
+}
+
 /** The axis's top: the highest point of the lines drawn, up to the next 5 (10 over 40), at least 15. */
 export const axisTop = (...lines) => {
   const top = Math.max(15, ...lines.filter(Boolean).flatMap((l) => l.v));
@@ -809,6 +817,8 @@ export function createProfileTool() {
       if (instant) for (const b of blk.values()) { b.from = b.a; b.t0 = 0; }
       if (!raf) raf = frame(tick, 'tool-profile');
     },
+    /** Drawn again at once for a type size that changed in a box that did not (the six ladders' scaled copies, presenter.js fitChart). */
+    redraw() { if (shown && el.isConnected) { plan = null; draw(); } },
     clear() {},
     dispose() { if (raf) cancelFrame(raf); raf = 0; },
   };
