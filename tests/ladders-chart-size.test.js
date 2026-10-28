@@ -1,8 +1,8 @@
-// The six ladders' charts on a wide screen, larger inside their cells (Mohammad, 26 Oct: "keep what it was before but each individual card graph
-// should be bigger; like bigger lines/text, not the card itself bigger"). Sites 10 and Where-resistance 14 share the card (`.pz-panel.fill`), which
-// keeps its size, its padding and its 1560 px cap; each chart is lettered larger where its cell has the room, and its lines grow with its type.
-// (Mohammad, 26 Oct, a second time: "i want larger text size on it ... bigger size text etc": about 20 px on a 1877 x 1137 Mac, a larger floor on a
-// laptop and an iPad on its side; the room comes from the card's own vertical padding and from the zone words, never from the card or the type.)
+// The six ladders' charts on a wide screen: each the data card's instrument at its cell's width (Mohammad, 28 Oct, Sites 10: "each graph should look in
+// proportions exactly as the instrument so we just fit the slide borders around; now the individual instrument graph ladders look too tall and not
+// similar to the instrument"). Sites 10 and Where-resistance 14 share the card (`.pz-panel.fill`). Each chart's height comes from its width as the
+// instrument's does (62 % less 1.6 em), its type is the instrument's own size, and the card is as tall as its two rows of them and no taller.
+// (This replaced the 26 Oct sizing, "larger text size on it": 4.5 cqi up to 20 px in a cell as tall as the screen left, a chart 0.8 of its width tall.)
 import './dom-shim.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -14,12 +14,16 @@ const css = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
 const CELL = '.pz:not(.stack) .pz-cell';
 const rule = (sel) => css.match(new RegExp(`^${sel.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')} \\{([^}]*)\\}`, 'm'))?.[1] ?? '';
 
-test('the card keeps its size, its padding and its 1560 px cap', () => {
+test('the card keeps its width, its padding and its 1560 px cap, and is as tall as its charts and no taller', () => {
   assert.match(css, /\.pz:not\(\.stack\) \.pz-panel \{ width: min\(1560px, calc\(100% - 2 \* var\(--pz-cm\)\)\);/);
-  assert.match(css, /\.pz:not\(\.stack\) \.pz-panel\.fill \{ height: calc\(100% - 3 \* var\(--pz-cm\) - 44px\); \}/);
   assert.match(css, /\.pz-panel \{ position: absolute;[^}]*padding: clamp\(18px, calc\(3\.4 \* var\(--pzh\)\), 44px\) clamp\(20px, 3vw, 52px\);/);
   assert.match(css, /\.pz-grid \{ display: grid; grid-template-columns: repeat\(3, minmax\(0, 1fr\)\); gap: clamp\(10px, calc\(2 \* var\(--pzh\)\), 26px\); \}/);
-  assert.doesNotMatch(css, /\.pz-panel\.fill[^{]*\{[^}]*220 \* var\(--pzh\)/);
+  // (No rule gives the card the screen's height any more: it fits round its two rows, and the room above the nav pill centres it.)
+  assert.doesNotMatch(css, /\.pz-panel\.fill \{[^}]*\bheight: calc/);
+  assert.match(css, /\.pz-panel\.fill \.pz-grid \{ flex: 0 1 auto; min-height: 0; grid-template-rows: repeat\(2, minmax\(0, 1fr\)\); \}/);
+  assert.match(css, /\.pz:not\(\.stack\) \.pz-panel \{[^}]*max-height: calc\(100% - 3 \* var\(--pz-cm\) - 44px\);/, 'on a window too short for two rows the card keeps its limit and the charts shrink');
+  assert.match(css, /\.pz\.stack \.pz-panel\.fill \{ height: fit-content; \}/);
+  assert.match(css, /\.pz\.low \.pz-panel\.fill \{ height: auto; \}/);
 });
 
 test('the card gives its charts back its own vertical padding, in height only', () => {
@@ -32,12 +36,16 @@ test('the card gives its charts back its own vertical padding, in height only', 
   assert.doesNotMatch(css, /\.pz\.(?:stack|low)[^{]*\.pz-panel\.fill[^{]*\{[^}]*clamp\(8px, calc\(1\.2/);
 });
 
-test('a chart is lettered at the data card\'s chart size at least, larger by its cell\'s width, held by its height and at 20 px', () => {
-  const r = rule(CELL);
-  assert.match(r, /--ch-cap: max\(12px, calc\(var\(--s-cap\) \* \.74\), min\(4\.5cqi, calc\(1\.86 \* var\(--pzh\) - 1\.2px\), 20px\)\);/);
+test('a chart has the instrument\'s height for its width and the instrument\'s own type', () => {
+  // (The type: the data card's chart size, 12 px at least, the same expression as the instrument's --pz-sm.)
+  assert.match(rule(CELL), /--ch-cap: max\(12px, calc\(var\(--s-cap\) \* \.74\)\);/);
+  assert.match(css, /\.pz:not\(\.stack\) \.pz-data \{ --pz-sm: max\(12px, calc\(var\(--s-cap\) \* \.74\)\);/);
+  // (The height: the instrument's 62 % of its width less 1.6 em, from the cell's width; not the instrument's floor of 28 % of the window's height.)
+  assert.match(css, /\.pz:not\(\.stack\) \.pz-cell > \.pz-prof \{ --prof-h: max\(calc\(62cqi - 1\.6em\), 16\.5em\); \}/);
+  assert.match(css, /\.pz:not\(\.stack\) \.pz-tool\[data-kind="profile"\] \.pz-prof \{ --prof-h: calc\(min\(max\(62cqi, /);
+  assert.match(css, /\.pz-cell > \.pz-prof \{ flex: 0 1 auto; min-height: 0; height: var\(--prof-h, auto\); font-size: var\(--ch-cap, 12px\); \}/);
   // (The chart is the cell's child, so its cqi finds the cell as its container: the cell's own rule makes it one.)
   assert.match(css, /\.pz-cell \{ container-type: inline-size; \}/);
-  assert.match(css, /\.pz-cell > \.pz-prof \{ flex: 1 1 0; min-height: 0; height: auto; font-size: var\(--ch-cap, 12px\); \}/);
   // (A phone, upright or on its side, keeps the strip and its type: a later rule of the same weight gives it the roles' own.)
   assert.match(css, /:is\(\.pz\.stack, \.pz\.low\) \.pz-cell \{[^}]*--ch-cap: var\(--s-cap\);/);
   assert.ok(css.indexOf(`${CELL} { --ch-cap`) < css.indexOf(':is(.pz.stack, .pz.low) .pz-cell { display: block'));
@@ -58,33 +66,40 @@ test('its lines grow with its type and are never thinner than they were at 12 px
 });
 
 // (The chart's box in px from the same clamps as the CSS: pzh = 1vh, B = clamp(17, 2.311 pzh, 28), the card's margin cm, its padding, the title,
-// the gaps and each cell's first row, the card's vertical padding as trimmed; the type as the rule above sets it.)
+// the gaps and each cell's first row, the card's vertical padding as trimmed; the type and the height as the rules above set them.)
 const clamp = (lo, v, hi) => Math.min(hi, Math.max(lo, v));
 function chart(W, H) {
   const p = H / 100, B = clamp(17, 2.311 * p, 28), cm = clamp(16, Math.min(0.026 * W, 1.8 * B), 60), cp = clamp(18, 1.4 * B, 40);
   const sbig = clamp(28, 4.622 * p, 56), sbody = clamp(17, 2.311 * p, 28), sc = clamp(12, 1.733 * p, 21);
-  const cardH = H - 3 * cm - 44, cardW = Math.min(1560, W - 2 * cm);
+  const room = H - 3 * cm - 44, cardW = Math.min(1560, W - 2 * cm);
   const title = sbig * 0.8 * 1.06 + 0.3 * sbig * 0.8 + 2, trim = clamp(8, 1.2 * p, 16);
   const head = Math.max(clamp(18, 3.4 * p, 44), cp * 0.72 + 10) + trim + title + clamp(12, 1.8 * p, 24);
-  const cellH = (cardH - head - trim) / 2, cellW = (cardW - 2 * clamp(20, 0.03 * W, 52) - 2 * clamp(10, 2 * p, 26)) / 3;
-  const f0 = Math.max(12, sc * 0.74), w = cellW - 2 * clamp(12, 1.6 * p, 20), f = Math.max(f0, Math.min(0.045 * w, 1.86 * p - 1.2, 20));
-  const h = cellH - clamp(8, 1.1 * p, 14) - clamp(4, 0.6 * p, 8) - 1.15 * sbody - clamp(3, 0.6 * p, 8) + 0.5 * f0;
-  return { f0, f, w, h };
+  const cellW = (cardW - 2 * clamp(20, 0.03 * W, 52) - 2 * clamp(10, 2 * p, 26)) / 3;
+  const f = Math.max(12, sc * 0.74), w = cellW - 2 * clamp(12, 1.6 * p, 20), h = Math.max(0.62 * w - 1.6 * f, 16.5 * f);
+  const cell = clamp(8, 1.1 * p, 14) + 1.15 * sbody + clamp(3, 0.6 * p, 8) + h - 0.5 * f + clamp(4, 0.6 * p, 8);
+  // (The instrument on the same screen: its card's width less its padding, its height from the same 62 % less 1.6 em; on a very large window its
+  // own floor of 28 % of the window's height makes it taller still, which the cells do not copy.)
+  const wi = Math.min(Math.min(0.38 * W, 640), 0.42 * W) - 2 * cp, hi = 0.62 * wi - 1.6 * f;
+  return { f, w, h, card: head + 2 * cell + trim, room, wi, hi };
 }
 const SCREENS = [[1024, 768], [1180, 820], [1366, 768], [1440, 790], [1440, 900], [1512, 982], [1728, 1000], [1728, 1117], [1877, 1137], [1920, 1080], [2560, 1300], [2560, 1440]];
 
-test('the type is never smaller than before, never over 20 px, and clearly larger on a Mac, a laptop and an iPad on its side', () => {
+test('each chart is the instrument at the cell\'s width: its proportions, its type, never under 12 px', () => {
   for (const [W, H] of SCREENS) {
-    const { f0, f } = chart(W, H);
-    assert.ok(f >= f0 && f <= 20, `${W}x${H}: ${f0.toFixed(1)} -> ${f.toFixed(1)}`);
+    const { f, w, h, wi, hi } = chart(W, H);
+    assert.ok(f >= 12, `${W}x${H}: ${f.toFixed(1)}`);
+    // (Too tall was the complaint: a chart 0.8 of its width tall against the instrument's 0.58. A cell with the room for it is within a tenth of the
+    // instrument's; only a narrow one, a 1024 px window, rests on the floor of 16.5 em, where the names take two rows.)
+    const ac = h / w, ai = hi / wi;
+    if (0.62 * w - 1.6 * f >= 16.5 * f) assert.ok(Math.abs(ac - ai) <= 0.1 * ai, `${W}x${H}: cell ${ac.toFixed(2)} of its width, instrument ${ai.toFixed(2)}`);
+    else assert.ok(Math.abs(h - 16.5 * f) < 1e-9 && ac < 0.8, `${W}x${H}: the floor, ${ac.toFixed(2)}`);
   }
-  // (A Mac at 1877 x 1137: from about 14.6 to 19.5 px, about 20.)
-  const mac = chart(1877, 1137);
-  assert.ok(mac.f >= 19 && mac.f >= 1.3 * mac.f0, `${mac.f0.toFixed(1)} -> ${mac.f.toFixed(1)}`);
-  // (A laptop and an iPad on its side read clearly larger too, where the cell's height and width allow.)
-  for (const [W, H, least] of [[1180, 820, 13.5], [1440, 900, 15], [1512, 982, 16.5], [1728, 1000, 17], [1920, 1080, 18]]) {
-    const { f0, f } = chart(W, H);
-    assert.ok(f >= least && f >= 1.12 * f0, `${W}x${H}: ${f0.toFixed(1)} -> ${f.toFixed(1)}`);
+});
+
+test('the card is as tall as its charts, centred, and fits the room above the nav pill on every wide screen', () => {
+  for (const [W, H] of SCREENS) {
+    const { card, room } = chart(W, H);
+    assert.ok(card <= room, `${W}x${H}: the card ${card.toFixed(0)} px of the ${room.toFixed(0)} px it has`);
   }
 });
 
@@ -103,7 +118,7 @@ test('the zone words keep the chart\'s own size up to 16 px and ease down past i
   assert.ok(zoneFit(48.4, 20, tw(20)).lines <= zoneFit(48.4, 16, tw(16)).lines, 'at 20 px the words take no more lines than at 16');
 });
 
-test('at the larger type each of the six cases still names its zones, keeps its two pills and finds room for its brackets', async () => {
+test('at the instrument\'s proportions each of the six cases still names its zones, keeps its two pills and finds room for its brackets', async () => {
   const ids = ['healthy', 'pvt-chronic', 'schisto', 'cirr-decomp', 'sos', 'budd-chiari', 'rhf'];
   const [hl, ...six] = (await runSteps(ids.map((preset) => ({ preset })))).map(profileOf);
   // (A little wider than Inter's: the safe side.)
@@ -119,8 +134,7 @@ test('at the larger type each of the six cases still names its zones, keeps its 
       const brk = placeBrackets(G, tw, goal, hl, null, s, null, pl || []);
       // (Where the brackets have no place in the plot they stand in the band at its foot, which the plot still has room for.)
       const Gb = brk ? G : profileGeo(w, h, f, tw);
-      assert.ok(Gb.Z - Gb.T >= 0.38 * h, `${W}x${H} ${ids[k + 1]}: the plot keeps ${(Gb.Z - Gb.T).toFixed(0)} of ${h.toFixed(0)} px`);
-      if (f > chart(W, H).f0 + 0.5) assert.ok(pl, `${W}x${H} ${ids[k + 1]}: both pills have a place`);
+      assert.ok(Gb.Z - Gb.T >= Math.min(0.38 * h, 5 * f), `${W}x${H} ${ids[k + 1]}: the plot keeps ${(Gb.Z - Gb.T).toFixed(0)} of ${h.toFixed(0)} px`);
     });
   }
 });

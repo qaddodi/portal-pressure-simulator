@@ -230,7 +230,8 @@ test('every ladder shows its card title and its three zones\' names, with no key
 
 // Mohammad, 21 Oct: "less wasted space on top": every layout's box is 1.6 em shorter, the chart's plot the same (tool-profile.js profileGeo).
 test('the ladder\'s box is 1.6 em shorter on every layout, as the chart no longer keeps a key row over its plot', () => {
-  const rules = [...css.matchAll(/[^}\n]*\.pz-prof[^{]*\{[^}]*--prof-h:[^}]*\}/g)].map((m) => m[0]);
+  // (The six ladders' cells set a --prof-h of their own, the instrument's 62 % of the cell's width less the same 1.6 em, with a floor: tests/ladders-chart-size.test.js.)
+  const rules = [...css.matchAll(/[^}\n]*\.pz-prof[^{]*\{[^}]*--prof-h:[^}]*\}/g)].map((m) => m[0]).filter((r) => !r.includes('.pz-cell'));
   assert.equal(rules.length, 4, 'Mac and iPad, upright phone, phone on its side, the phone\'s full size');
   for (const r of rules) assert.match(r, /--prof-h: calc\(min\([^;]*\) - 1\.6em\)/, r.trim());
 });

@@ -1868,9 +1868,9 @@ button.finding { cursor: pointer; }
 .pz.stack .pz-cell-k .pz-kick { font-size: min(var(--s-lab), 6.4cqi); letter-spacing: .05em; }
 /* (The HVPG is a pill, top right of every tile: it never wraps under the site tag; both shrink with the tile.) */
 .pz-cell-t { font: 600 var(--s-body)/1.15 var(--font-display); color: var(--text); }
-/* The six ladders fill the panel: two rows share its height and each chart shrinks to its cell. */
-.pz-panel.fill { height: calc(100% - 2 * clamp(16px, calc(4 * var(--pzh)), 56px)); }
-.pz-panel.fill .pz-grid { flex: 1; min-height: 0; grid-template-rows: repeat(2, minmax(0, 1fr)); }
+/* The six ladders: each chart has the instrument's own proportions (below), so the card is as tall as its two rows of them and no taller; only on a
+   window too short for that do the rows shrink to the room (the grid and the charts may shrink, never grow). */
+.pz-panel.fill .pz-grid { flex: 0 1 auto; min-height: 0; grid-template-rows: repeat(2, minmax(0, 1fr)); }
 .pz-panel.fill .pz-cell { min-height: 0; }
 /* (A wide screen's six ladders (Mohammad, 23 Oct: "the cards are wasting some space below sinusoidal within each card; also the title is wasting
    space"): the title one step down, the Compact step of the other titles (card-type.js WIDE.title, 0.8), so it stands on one line where it had
@@ -1880,22 +1880,22 @@ button.finding { cursor: pointer; }
 .pz:not(.stack):not(.low) .pz-panel.fill .pz-h { font-size: calc(var(--s-big) * .8); }
 .pz:not(.stack):not(.low) .pz-cell { padding-bottom: clamp(4px, calc(.6 * var(--pzh)), 8px); }
 .pz:not(.stack):not(.low) .pz-cell > .pz-prof { margin-bottom: -.5em; }
-.pz-cell > .pz-prof { flex: 1 1 0; min-height: 0; height: auto; font-size: var(--ch-cap, 12px); }   /* (each case's Gut to heart chart takes its cell's room under the title, lettered at the data card's chart size) */
+.pz-cell > .pz-prof { flex: 0 1 auto; min-height: 0; height: var(--prof-h, auto); font-size: var(--ch-cap, 12px); }   /* (each case's Gut to heart chart is the data card's instrument at the cell's width: its height from that width as the instrument's is, lettered at the instrument's own size) */
+.pz:not(.stack) .pz-cell > .pz-prof { --prof-h: max(calc(62cqi - 1.6em), 16.5em); }   /* (the instrument's height, .pz:not(.stack) .pz-tool[data-kind="profile"] .pz-prof, from the width alone: 62 % of it less the 1.6 em the chart gave back. The cell is the container, so the cqi is the chart's own width. Not the instrument's floor of 28 % of the window's height: that is for a card too narrow for its chart, and here it would stretch every cell. The 16.5 em is for a narrow cell, a 1024 px window, where the names take two rows and the brackets stand over their values: the chart's least (tool-profile.js profileGeo need, 12 to 14.4 em) and the plot 5 em, so the box never grows after it is drawn. The instrument has the same floor in its own terms, 28 % of the window's height.) */
 :is(.pz.stack, .pz.low) .pz-cell > .pz-prof { display: none; }   /* (a phone draws each case on one line instead) */
 :is(.pz.stack, .pz.low) .pz-cell > .pz-pstrip { display: block; margin-top: 3px; font-size: var(--s-lab); }
 .pz-grid-head { display: none; }
 :is(.pz.stack, .pz.low) .pz-grid-head { display: grid; grid-column: 1 / -1; grid-template-columns: inherit; gap: inherit; }   /* (the stations named once over the six lines, each over its column) */
 :is(.pz.stack, .pz.low) .pz-grid-head > .pz-pstrip { display: block; width: auto; margin: 0 12px; font-size: var(--s-cap); }
 .pz.stack .pz-grid-head > :nth-child(2) { display: none; }
-/* (A big screen's six ladders letter at the data card's chart size at least, and larger where their cell has the room: Mohammad, 26 Oct, "keep what it
-   was before but each individual card graph should be bigger; bigger lines/text, not the card itself bigger", then "larger text size on it". The type
-   grows with the cell's width, 4.5 cqi, and is held by the cell's height (1.86 of the screen's 1 % less 1.2 px: about the chart's height over 17.7, so
-   the plot keeps its room) and by 20 px: 19.5 px on a 1877 x 1137 Mac, 14 on an iPad on its side. The chart's own layout (tool-profile.js profileGeo) sets
-   its names, zone words, brackets and pills for whatever size it is given; its zone words ease down past 16 px (zoneSize) so the strip over the plot stays
-   one line. The cqi is read on the chart, the cell's child, where the container is the cell; read on the cell itself it would find none.) */
-.pz:not(.stack) .pz-cell { --ch-cap: max(12px, calc(var(--s-cap) * .74), min(4.5cqi, calc(1.86 * var(--pzh) - 1.2px), 20px)); --ch-lab: calc(var(--ch-cap) * 1.5); }
-/* (What the card spent in height round the charts goes to them, inside the card, which keeps its size: the gap under the title, the foot, the gap
-   between the two rows and each cell's top and first gap shorter. The card's width, its side padding and the columns' gap are as they were.) */
+/* (A big screen's six ladders are the data card's instrument at the cell's width (Mohammad, 28 Oct, on Sites 10: "each graph should look in proportions
+   exactly as the instrument so we just fit the slide borders around; now the individual instrument graph ladders look too tall and not similar to the
+   instrument"): the same height for its width (62 % less 1.6 em, above) and the same type, the instrument's own size, 12 px at least, so its names,
+   zone words, brackets and pills keep the instrument's spacing. The card hugs the six; it no longer fills the screen's height, which had stretched each
+   chart to 0.8 of its width. This took back the 26 Oct larger lettering (4.5 cqi, to 20 px), which kept the plot's room only on a chart that tall.) */
+.pz:not(.stack) .pz-cell { --ch-cap: max(12px, calc(var(--s-cap) * .74)); --ch-lab: calc(var(--ch-cap) * 1.5); }
+/* (What the card spends in height round the charts is kept short (Mohammad, 23 Oct, "wasting some space"): the gap under the title, the foot, the gap
+   between the two rows and each cell's top and first gap. The card's width, its side padding and the columns' gap are as they were.) */
 .pz:not(.stack):not(.low) .pz-panel.fill { gap: clamp(8px, calc(1.2 * var(--pzh)), 16px); padding-bottom: clamp(12px, calc(1.8 * var(--pzh)), 24px); }
 .pz:not(.stack):not(.low) .pz-panel.fill .pz-grid { row-gap: clamp(8px, calc(1.2 * var(--pzh)), 16px); }
 .pz:not(.stack):not(.low) .pz-panel.fill .pz-cell { padding-top: clamp(8px, calc(1.1 * var(--pzh)), 14px); gap: clamp(3px, calc(.6 * var(--pzh)), 8px); }
@@ -5498,9 +5498,8 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
    whole, the ladder's own lettering with it.) */
 .pz:not(.stack):not(.low) .pz-data.col.tiles-only:not(.has-tool) > :is(.pz-tiles, .pz-dh) { zoom: var(--pz-z, 1); }
 /* (A full panel, the six ladders or a table, keeps the cards' one margin at every edge and ends above the nav pill, centred in
-   the room over it, so the pill never sits on its corner.) */
+   the room over it, so the pill never sits on its corner. The six ladders, .fill, are as tall as their charts and no taller: centred in that room.) */
 .pz:not(.stack) .pz-panel { width: min(1560px, calc(100% - 2 * var(--pz-cm))); top: calc(50% - (var(--pz-cm) + 44px) / 2); max-height: calc(100% - 3 * var(--pz-cm) - 44px); }
-.pz:not(.stack) .pz-panel.fill { height: calc(100% - 3 * var(--pz-cm) - 44px); }
 /* The full cards other than the six ladders (the opening outline, a summary table, the closing quick check, the scale, the SAAG plot, the two
    capillary walls, a plane) are a column to read, not a wall: on a laptop or a
    tablet on its side each stays a centred card, a width in the teaching card's body text (--pz-b, so it grows with the words) and never

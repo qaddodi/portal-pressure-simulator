@@ -45,7 +45,7 @@ test('the first row names the site and the cause, the cause stepping down to fit
 });
 
 test('a wide screen shows the chart; a phone, upright or sideways, the line, under one row of station names', () => {
-  assert.match(css, /\.pz-cell > \.pz-prof \{ flex: 1 1 0; min-height: 0; height: auto; font-size: var\(--ch-cap, 12px\); \}/);
+  assert.match(css, /\.pz-cell > \.pz-prof \{ flex: 0 1 auto; min-height: 0; height: var\(--prof-h, auto\); font-size: var\(--ch-cap, 12px\); \}/);
   assert.match(css, /\.pz-pstrip \{ display: none; width: 100%; \}/);
   assert.match(css, /:is\(\.pz\.stack, \.pz\.low\) \.pz-cell > \.pz-prof \{ display: none; \}/);
   assert.match(css, /:is\(\.pz\.stack, \.pz\.low\) \.pz-cell > \.pz-pstrip \{ display: block;/);
