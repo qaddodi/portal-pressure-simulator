@@ -10,7 +10,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { DECKS } from '../src/ui/decks.js';
 import { readFileSync } from 'node:fs';
-import { PLANES, planeOf, frame, scaler, layoutPlane, crosses, cutSegs, gapSegs } from '../src/ui/visual-plane.js';
+import { PLANES, planeOf, frame, scaler, layoutPlane, plotNumbers, crosses, cutSegs, gapSegs } from '../src/ui/visual-plane.js';
 import { deckStates } from './deck-states.js';
 
 const touch = (a, o) => a[0] < o[2] && a[2] > o[0] && a[1] < o[3] && a[3] > o[1];
@@ -31,10 +31,37 @@ test('HVPG against PPG: no key, every zone named, names beside their points and 
   assert.match(css, /\.pze-planewrap\.pze-nokey > \.pze-key \{ display: none; \}/, 'no key beside the plot');
   assert.match(css, /\.pz\.stack \.pze-planewrap\.pze-nokey > \.pze-key \{ display: block; \}/, 'an iPhone keeps the key under it');
   for (const [W, H, fs, where, phone] of SIZES) {
-    const fr = frame(W, H, fs, pl), { X, Y } = scaler(pl, fr);
+    const fr = frame(W, H), { X, Y } = scaler(pl, fr);
     const pts = rows.map(([f, name, short]) => ({ x: X(f.hvpg), y: Y(f.ppg), name, short, f }));
-    const { names, words: zw, rules, dots } = layoutPlane(pl, fr, X, Y, fs, pts);
+    // (The axes' names stand first, the points' names, the zones' words and the lines' names round them, the numbers last in what room is left:
+    // his G2 look, 27 Oct, the numbers on the plot.)
+    const keep = pts.map((p) => [p.x - 12, p.y - 12, p.x + 12, p.y + 12]), axes = plotNumbers(pl, fr, X, Y, fs, keep, 'names');
+    const { names, words: zw, rules, dots, lines } = layoutPlane(pl, fr, X, Y, fs, pts, false, axes.map((n) => n.box));
+    const nums = plotNumbers(pl, fr, X, Y, fs, [...keep, ...axes.map((n) => n.box), ...names.map((n) => n.box), ...zw.map((w) => w.box), ...lines.map((l) => l.box)], 'ticks');
+    for (const n of [...axes, ...nums]) for (const o of [...names.map((q) => q.box), ...zw.map((w) => w.box), ...lines.map((l) => l.box)]) assert.ok(!touch(n.box, o), `${where}: the number ${n.text} clear of every name and word`);
+    for (const n of nums) for (const q of pts) assert.ok(!touch(n.box, [q.x - 10, q.y - 10, q.x + 10, q.y + 10]), `${where}: the number ${n.text} covers no point`);
     assert.ok(names.every(Boolean), `${where}: every point is named`);
+    // The two lines carry their own names (Mohammad, 26 Oct: "make it clear that the 10/12 line is clinically significant portal
+    // hypertension"): CSPH at the HVPG 10 line, Bleed risk at the PPG 12 line (not the CSPH definition), each beside its own line; the four
+    // quadrants stay as they were.
+    assert.deepEqual(lines.map((l) => l.text), ['CSPH ≥10', 'Bleed risk ≥12'], `${where}: both lines named`);
+    const [cs, bl] = lines;
+    assert.ok(cs.box[0] >= X(10) + 5 && cs.box[1] >= fr.T && cs.box[3] <= fr.B, `${where}: CSPH ≥10 right of its line, 5 px clear`);
+    assert.ok(bl.box[3] <= Y(12) - 5 || bl.box[1] >= Y(12) + 5, `${where}: Bleed risk ≥12 beside its line, 5 px clear`);
+    for (const l of lines) {
+      assert.ok(l.box[0] >= fr.L && l.box[2] <= fr.R && l.box[1] >= fr.T && l.box[3] <= fr.B, `${where}: ${l.text} inside the plot`);
+      assert.ok(!cutSegs(pl, X, Y, fr).some((c) => touch(l.box, [Math.min(c.x1, c.x2) - 4, Math.min(c.y1, c.y2) - 4, Math.max(c.x1, c.x2) + 4, Math.max(c.y1, c.y2) + 4])), `${where}: ${l.text} keeps 4 px off every line`);
+      for (const q of pts) assert.ok(!touch(l.box, [q.x - 10, q.y - 10, q.x + 10, q.y + 10]), `${where}: ${l.text} covers no point`);
+      for (const n of names) assert.ok(!touch(l.box, n.box), `${where}: ${l.text} overlaps no name`);
+      assert.ok(fs >= 12);
+    }
+    assert.ok(!touch(cs.box, bl.box), `${where}: the two names apart`);
+    // (A name sits plainly beside its own point, not as near the next one: Portal vein thrombosis and Schistosomiasis, 1.4 mmHg apart.)
+    if (W >= 700) for (const [i, n] of names.entries()) {
+      if (n.lead) continue;
+      const to = (q) => Math.hypot(Math.max(n.box[0] - q.x, 0, q.x - n.box[2]), Math.max(n.box[1] - q.y, 0, q.y - n.box[3]));
+      for (const q of pts) if (q !== pts[i]) assert.ok(to(q) >= to(pts[i]) + 8, `${where}: ${pts[i].name}'s name is nearer its own point than ${q.name} by 8 px`);
+    }
     // (The cut-off lines as drawn, broken where a name sits across one, as thin boxes 4 px either side.)
     const drawn = gapSegs(cutSegs(pl, X, Y, fr), names.filter((n) => n.across).map((n) => n.box))
       .map((c) => [Math.min(c.x1, c.x2) - 4, Math.min(c.y1, c.y2) - 4, Math.max(c.x1, c.x2) + 4, Math.max(c.y1, c.y2) + 4]);

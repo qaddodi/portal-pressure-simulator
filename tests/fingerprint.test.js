@@ -28,6 +28,8 @@ test('the live fingerprint has every key the worker\'s has, and the same value f
     assert.deepEqual(Object.keys(b).sort(), Object.keys(a).sort());
     for (const k of Object.keys(a)) {
       if (k === 'at' || FLUID_ONLY.includes(k)) continue;
+      // (The varix's diameter at each air pressure is a list: compared number by number.)
+      if (Array.isArray(a[k])) { assert.equal(b[k]?.length, a[k].length, k); a[k].forEach((v, i) => assert.ok(Math.abs(v - b[k][i]) < 1e-5, `${k}[${i}]: ${v} vs ${b[k][i]}`)); continue; }
       assert.ok(Math.abs(a[k] - b[k]) < 1e-5 || Object.is(a[k], b[k]), `${k}: ${a[k]} vs ${b[k]}`);
     }
     for (const k of FLUID_ONLY) { assert.equal(b[k], undefined, `${k} is the engine's alone (undefined: tool-fluid reads a null as 0)`); assert.ok(Number.isFinite(a[k]), `${k} on the engine side`); }

@@ -55,6 +55,8 @@ export const PLACED = '[data-safe], .stage-blocker, .pz-shade, #zoomPill, .pz-fk
  */
 const SVG_NS = 'http://www.w3.org/2000/svg';
 export const inSvg = (n) => n.namespaceURI === SVG_NS;
+// The records an observer was handed, followed by those still queued on it (in the order they happened).
+const withQueued = (given, mo) => { const q = mo.takeRecords(); return given?.length ? (q.length ? [...given, ...q] : [...given]) : q; };
 export function createLayoutWatch({ root, exclude = inSvg, settle = 2500, now = () => performance.now(), MO = globalThis.MutationObserver, RO = globalThis.ResizeObserver, sel = PLACED } = {}) {
   let until = now() + settle;   // (the first look is always taken)
   const touch = () => { until = Math.max(until, now() + settle); };
@@ -72,12 +74,14 @@ export function createLayoutWatch({ root, exclude = inSvg, settle = 2500, now = 
     if (r.type === 'childList') return [...(r.addedNodes || []), ...(r.removedNodes || [])].some(places);
     return r.attributeName === 'data-safe' || places(r.target);
   };
-  const groupMO = MO ? new MO(() => flush()) : null;
-  const pageMO = MO ? new MO(() => flush()) : null;
-  function flush() {
-    if (groupMO) { const rs = groupMO.takeRecords(); if (rs.length && netChanged(rs)) touch(); }
+  // An observer's callback is handed the records delivered to it, and they are no longer queued for takeRecords(): they
+  // are read here with whatever was queued after them (a change landing between two due() checks counted, not dropped).
+  const groupMO = MO ? new MO((rs) => flush(rs, null)) : null;
+  const pageMO = MO ? new MO((rs) => flush(null, rs)) : null;
+  function flush(groupGiven = null, pageGiven = null) {
+    if (groupMO) { const rs = withQueued(groupGiven, groupMO); if (rs.length && netChanged(rs)) touch(); }
     if (pageMO) {
-      const rs = pageMO.takeRecords().filter(relevant);
+      const rs = withQueued(pageGiven, pageMO).filter(relevant);
       if (rs.length && netChanged(rs)) { touch(); if (rs.some((r) => r.type === 'childList' || r.attributeName === 'data-safe' || r.attributeName === 'class')) resync(); }
     }
   }

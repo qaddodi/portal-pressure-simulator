@@ -1,28 +1,29 @@
 // Application bootstrap: wires the engine host to the four surfaces (figure + action card,
 // timeline, patient chart, instruments) and to Home, the command palette and the menus.
 
-import { startHost, host } from './host.js?v=fc0bcc6ac3';
-import { store, updateParams, replaceParams, bindParamSender, clearHistory, logAction, varicesPresent, hiddenNow } from './store.js?v=67f4341802';
-import { createStage } from './stage.js?v=30e7122756';
-import { createCreditPlacer } from './credit.js?v=dc0666dc54';
+import { startHost, host } from './host.js?v=5d29eb0f1b';
+import { store, updateParams, replaceParams, bindParamSender, clearHistory, logAction, varicesPresent, hiddenNow } from './store.js?v=926dabfaef';
+import { createStage } from './stage.js?v=38f7203f41';
+import { createCreditPlacer } from './credit.js?v=fa8c256d94';
+import { whenQuiet } from './quiet.js?v=82fc0f97e3';
 import { sinusoidSupported } from './gl-support.js?v=94ad2a7ff1';
-import { createInspector } from './inspector.js?v=6eaadd6e9c';
-import { createDock, CUTOFFS, savedInstruments } from './dock.js?v=19efd6f1f8';
-import { setHvpgStage } from './hvpg-proc.js?v=ed0101ef84';
-import { createWhy } from './why.js?v=fd826e67fc';
-import { createTimeline, LAPSES } from './timeline.js?v=40d350fe08';
-import { createCompare } from './compare.js?v=f5afbc04f1';
-import { createCard } from './card.js?v=737155ecf9';
-import { createChart } from './chart.js?v=77de636626';
-import { createMenu } from './menu.js?v=1ace137b3f';
-import { caption } from './a11y.js?v=a6b70a2169';
+import { createInspector } from './inspector.js?v=bc8186fa9d';
+import { createDock, CUTOFFS, savedInstruments } from './dock.js?v=d9efedf42d';
+import { setHvpgStage } from './hvpg-proc.js?v=870c2a8be4';
+import { createWhy } from './why.js?v=30e0aea01c';
+import { createTimeline, LAPSES } from './timeline.js?v=7caa424518';
+import { createCompare } from './compare.js?v=3b2803586a';
+import { createCard } from './card.js?v=7ea6501f8c';
+import { createChart } from './chart.js?v=735034750e';
+import { createMenu } from './menu.js?v=1011a04b27';
+import { caption } from './a11y.js?v=3e75c4ca85';
 import { startLMS } from './lms.js?v=284ef81e94';
-import { UPDATED, CONTENT_UPDATED, VALIDATION, AUTHOR, AUTHOR_URL, FEEDBACK_EMAIL } from '../version.js?v=1767318315';
-import { normalizeSel, shuntable, edgeValue, bedStats } from './actions.js?v=2d396c6094';
-import { gradientCss, dropCss, PRESSURE_TICKS, flowCss, flowPos, velocityCss, heatCss, HEAT_MAX, oxygenCss, OXY_MIN } from './colormap.js?v=cdcf6a2f55';
+import { UPDATED, CONTENT_UPDATED, VALIDATION, AUTHOR, AUTHOR_URL, FEEDBACK_EMAIL } from '../version.js?v=a9debc0de8';
+import { normalizeSel, shuntable, edgeValue, bedStats } from './actions.js?v=76ca3152d4';
+import { gradientCss, dropCss, PRESSURE_TICKS, flowCss, flowPos, velocityCss, heatCss, HEAT_MAX, oxygenCss, OXY_MIN } from './colormap.js?v=05a231b880';
 import { EDGES, PORTAL_TERRITORY } from '../engine/topology.js?v=4044766e96';
 import { dopplerVel } from './velNormal.js?v=97920ddf3f';
-import { $, $$, h, icon, afterExit, fmt, fmtFlow, toast, tooltipFor, openModal, closeModal, isModalOpen, popover, closePopover, popoverOpen, menuItem, svgIcon, isPhoneLayout, TABLET_UP_MQ, markGone, enterAfterGone, enhanceRanges, systemEdge, sinkTo, stopSink, swapFade, scrollBehavior, reconcile } from './util.js?v=d2c95a1b16';
+import { $, $$, h, icon, afterExit, fmt, fmtFlow, toast, tooltipFor, openModal, closeModal, isModalOpen, popover, closePopover, popoverOpen, menuItem, svgIcon, isPhoneLayout, TABLET_UP_MQ, markGone, enterAfterGone, enhanceRanges, systemEdge, sinkTo, stopSink, swapFade, scrollBehavior, reconcile } from './util.js?v=58b547f8d4';
 import { TEXT_STEPS } from './type-scale.js?v=d7cca3fb73';
 
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
@@ -35,12 +36,13 @@ const SPEEDS = [0.25, 0.5, 1, 2, 4, 8];
 
 // Everything the learner does is a verb on the structure they click (actions.js, card.js); the
 // only armed gesture left is a shunt waiting for its target.
-import { debugOptions, debugOn, setDebug, initDebug } from './debug.js?v=d5936820a0';
-import { initTopbarMotion } from './topbar-motion.js?v=1eab6ec512';
-import { ORIGINS } from './blood.js?v=e668d01823';
+import { debugOptions, debugOn, setDebug, initDebug } from './debug.js?v=ba54b3e81b';
+import { initTopbarMotion } from './topbar-motion.js?v=d5e1184cd9';
+import { ORIGINS } from './blood.js?v=7fa561f952';
 import { parseShare, cleanShare } from './share-link.js?v=b6f8e0f909';
 import { deepMerge, sanitizeParams } from '../engine/scenario.js?v=d7d3ea5b70';
-import { frameFor, cancelFrame, perf as framePerf } from './frame.js?v=19b3f2915c';
+import { createPaintGate } from './paint-gate.js?v=68c692e8a3';
+import { frameFor, cancelFrame, perf as framePerf } from './frame.js?v=7254a8a850';
 import { easeIO3, glideShift, pillState, foldPill, stopFold } from './pill-motion.js?v=ea522a5215';
 const nextFrame = frameFor('main');
 
@@ -102,8 +104,8 @@ async function main() {
   // The Doppler and the FibroScan load after the first paint (a tab for one that has not come waits for it, dock.js). One left open when the
   // app was last used is asked for now and waited for with the model's first answers, so its pane is whole with the dock.
   const probeTo = (id) => { host.send({ type: 'probe', id }); logAction('probe', id); };
-  dopplerL = lazy(() => import('./doppler.js?v=59e996c376'), ({ createDoppler }) => createDoppler({ onProbe: probeTo }));
-  fibroL = lazy(() => import('./fibroscan.js?v=2af61823c8'), ({ createFibroScan }) => createFibroScan());
+  dopplerL = lazy(() => import('./doppler.js?v=2da811ff4d'), ({ createDoppler }) => createDoppler({ onProbe: probeTo }));
+  fibroL = lazy(() => import('./fibroscan.js?v=b5042eabbc'), ({ createFibroScan }) => createFibroScan());
   const wasOpen = savedInstruments().open;
   const openAtStart = [];
   if (Array.isArray(wasOpen)) for (const [id, l] of [['doppler', dopplerL], ['fibroscan', fibroL]]) if (wasOpen.includes(id)) openAtStart.push(l.get().catch(() => {}));
@@ -176,7 +178,7 @@ async function main() {
   dock = createDock({ strip: $('#strip'), head: $('#dockHead'), body: $('#dockBody'), onWhy: (m, el) => why.open(m, el), onAction: doAction, onProbe: probeTo, lazy: { doppler: dopplerL, fibroscan: fibroL }, onReveal: revealDock, onLobule: () => zoomLobule('R'),
     onOpen: () => openPanel('instruments'), onClose: () => setPanelTab('chart'), onLayout: () => syncDoppler(), isVisible: () => app.classList.contains('dock-open'),
     marks: () => timeline.entries(), onBeat: () => sendBeat() });
-  presenterL = lazy(() => import('./presenter.js?v=19b947b6d6'), ({ createPresenter }) => createPresenter({ openSettings, loadPreset, updateParams, host, stage, dock, action: doAction,
+  presenterL = lazy(() => import('./presenter.js?v=1c32a647cc'), ({ createPresenter }) => createPresenter({ openSettings, loadPreset, updateParams, host, stage, dock, action: doAction,
     projectorOn: () => { if (!projector) toggleProjector(); }, projectorOff: () => { if (projector) toggleProjector(); },
     closeHome: () => mainMenu.close(), stashCards, rerenderHome: () => mainMenu.render() }));
   mainMenu = createMenu({
@@ -184,7 +186,7 @@ async function main() {
     onPreset: (id) => openInExplore(id), share, help: (a) => openHelpMenu(a),
     onToggle: (on, sheet) => { closePopover(); app.classList.toggle('menu-sheet-open', on && !!sheet); creditPlacer?.refresh(); labelsUnderMenu(on); },
   });
-  paletteL = lazy(() => import('./palette.js?v=f39861401f'), ({ createPalette }) => createPalette({ ctx: {
+  paletteL = lazy(() => import('./palette.js?v=a81401588b'), ({ createPalette }) => createPalette({ ctx: {
     select, action: doAction, probe: (id) => { host.send({ type: 'probe', id }); logAction('probe', id); }, showPane: (id) => dock.show(id, { reveal: true }),
     jump: (d, l) => timeline.jump(d, l), undo: () => timeline.undo(), pin: () => timeline.togglePin(), lenses: Object.fromEntries(Object.entries(LENSES).map(([k, v]) => [k, v])),
     zoomLobule: () => zoomLobule('R'), instruments: () => dock.toggle(),
@@ -306,8 +308,12 @@ async function main() {
     const reg = () => navigator.serviceWorker.register('sw.js').catch(() => { /* offline support is optional */ });
     if (window.ppsFigureReady) reg(); else addEventListener('pps:figure-ready', reg, { once: true });
   }
+  // The surfaces most sessions never open are fetched and read in once the page is idle, one at a time, each only after the page has been
+  // left alone for a moment (quiet.js): a module's read-in is tens of ms of script on a phone, and a timer alone put it in a pan or pinch.
   const idle = window.requestIdleCallback || ((fn) => setTimeout(fn, 1500));
-  setTimeout(() => idle(() => { paletteL.warm(); presenterL.warm(); idle(() => dock.load()); }), 3000);
+  const warmUp = [() => paletteL.warm(), () => presenterL.warm(), () => dock.load()];
+  const warmNext = () => { const step = warmUp.shift(); if (step) whenQuiet(() => idle(() => { step(); warmNext(); })); };
+  setTimeout(warmNext, 3000);
 }
 // Deep links, for an LMS or a syllabus: ?script=<id> (&slide=<n>), ?preset=<id>,
 // ?home=explore|present (the menu, open at Patients or Present). They open straight into that activity.
@@ -346,7 +352,7 @@ function viewFrame(f) {
 // The engine ticks ~30×/s, but pressures ease over seconds, so the anatomy, readouts and panel
 // are repainted at most ~10×/s (the chevrons animate separately). Repainting the whole SVG plate
 // on every tick kept the main thread busy and the laptop warm for no visible gain.
-let lastPaint = 0, lastDesc = 0;
+let lastDesc = 0;
 // The Doppler's vessel glows on the figure while the Doppler instrument is open.
 function syncDoppler(f = store.get().frame) { stage?.setDoppler(f && dock?.isOpen('doppler') ? f.probe : null); syncScanProbe(); }
 // The FibroScan probe and its shear wave show on the figure while the FibroScan card is open in Explore; the Presenter drives its own.
@@ -356,13 +362,16 @@ function syncScanProbe() {
   if (store.get().mode !== 'explore') { scanOwned = false; return; }
   if (want !== scanOwned) { scanOwned = want; stage?.setScanProbe(want); }
 }
-function onFrame(f) {
+// Every snapshot is taken in at once (params, events, monitor samples); only the newest waiting one is painted, next frame (paint-gate.js).
+const frameGate = createPaintGate({ ingest: ingestFrame, paint: paintFrame, ask: (cb) => frameFor('frame')(cb), cancel: cancelFrame });
+function onFrame(f) { frameGate.push(f); }
+function ingestFrame(f) {
   if (f.params) replaceParams(f.params);
   if (f.events?.length) { const hid = store.get().hiddenEvents; const ev = hid ? f.events.filter((e) => !hid.has(e.id) && !(hid.has('COLL_*') && e.id.startsWith('COLL_'))) : f.events; if (ev.length) timeline.addEvents(ev); }
   dock?.ingest(f);   // every frame's samples, even one that is not painted
+}
+function paintFrame(f) {
   const now = performance.now();
-  if (!f.changed && !f.params && !f.events?.length && now - lastPaint < 80) return;
-  lastPaint = now;
   // running and clock only when they change: their listeners (the endoscopy redraw among them) need not re-run every frame.
   const st0 = store.get();
   store.set({ frame: f, ...(st0.running !== f.running ? { running: f.running } : {}), ...(st0.clock !== f.clock ? { clock: f.clock } : {}), ...(f.clock === 'hemo' && st0.lapse ? { lapse: 0, speed: f.speed } : {}) });
@@ -398,6 +407,8 @@ async function loadPreset(id, opts = {}) {
   const res = await host.request('preset', { id, days: opts.days });
   // Patients tapped in quick succession: the engine loads them in order, so only the last one's answer is applied.
   if (gen !== presetGen) return;
+  // The traces start from the steady state the patient opens on: its last seconds are made beside the first live ones (backfill.js).
+  host.request('history', { secs: 12 }).then((m) => { if (gen === presetGen && m?.samples) dock?.backfillTraces({ ...m.samples, probe: m.probe }); }).catch(() => { /* the traces fill as they record */ });
   replaceParams(res.params);
   store.set({ presetParams: { id, params: structuredClone(res.params) } });   // what the patient came with (chart.js: About this patient)
   clearHistory();
@@ -600,7 +611,7 @@ function renderLegend() {
     const max = 30, at = (p) => (p / max) * 100;
     put(h('div', { class: 'lg-title' }, m === 'pressure' ? 'Mean venous pressure' : 'Pressure drop', h('small', {}, 'mmHg')), cap(m === 'pressure' ? 'Pressure' : 'Drop', 'mmHg'),
       m === 'pressure' ? scale(gradientCss('to right', max), PRESSURE_TICKS.map((p) => [at(p), String(p)]), PRESSURE_TICKS.map(at))
-        : scale(dropCss('to right'), [[0, '0'], [100, '12+']]));
+        : scale(dropCss('to right'), [[0, '0'], [100, '≥12']]));
     el.setAttribute('aria-label', m === 'pressure' ? 'Legend: mean venous pressure at each vessel, 0 to 30 millimeters of mercury, pale blue to dark magenta' : 'Legend: pressure drop across each vessel, 0 to 12 or more millimeters of mercury, pale to deep green');
   } else if (m === 'flow') {
     const at = (v) => flowPos(v) * 100;
@@ -614,7 +625,7 @@ function renderLegend() {
   } else if (m === 'heat') {
     const at = (v) => (v / HEAT_MAX) * 100;
     put(h('div', { class: 'lg-title' }, 'Congestion', h('small', {}, `mmHg above ${ref}`)), cap('Congestion', 'mmHg'),
-      scale(heatCss('to right'), [[at(0), '0'], [at(5), '5'], [at(10), '10', 1], [at(15), '15+']], []));
+      scale(heatCss('to right'), [[at(0), '0'], [at(5), '5'], [at(10), '10', 1], [at(15), '≥15']], []));
     el.setAttribute('aria-label', `Legend: pressure above ${ref}, 0 to 15 millimeters of mercury, grey to yellow to deep red, with a glow where congestion is highest`);
   } else if (m === 'oxygen') {
     const at = (p) => ((p / 100 - OXY_MIN) / (1 - OXY_MIN)) * 100;
@@ -827,7 +838,7 @@ function renderBanner() {
 function wireTopbar() {
   initDebug(() => stage.zoomLevel());
   // ?perf in the address: the readout of what blocks frames after a pan or pinch (perf-readout.js). Without it, never loaded.
-  if (new URLSearchParams(location.search).has('perf')) import('./perf-readout.js?v=ee79221426').then(({ startPerfReadout }) => startPerfReadout({ zoom: () => stage.zoomLevel() })).catch(() => { /* a measuring aid only */ });
+  if (new URLSearchParams(location.search).has('perf')) import('./perf-readout.js?v=20c5f19de5').then(({ startPerfReadout }) => startPerfReadout({ zoom: () => stage.zoomLevel() })).catch(() => { /* a measuring aid only */ });
   $('#btnMenu').addEventListener('click', () => mainMenu.toggle());
   $('#btnSettings').addEventListener('click', (e) => openSettings(e.currentTarget));
   $('#btnPalette').addEventListener('click', () => palette.open());
@@ -842,7 +853,7 @@ function wireTopbar() {
 // use it, what it is, and who made it).
 function openSettings(anchor, withSearch = false) {
   const cur = document.documentElement.getAttribute('data-theme') || 'system';
-  // While presenting, only what changes how the talk looks (appearance, full screen, text size), and Send feedback.
+  // While presenting, only what changes how the talk looks (appearance, full screen, text size, blur effect), and Send feedback.
   const talk = presenter.active();
   popover(anchor, [
     // (Send feedback heads the sheet in every mode and on every device, above the dock's Search and Help, talks included, so a tester reaches it in one tap from any Settings button.)
@@ -856,12 +867,13 @@ function openSettings(anchor, withSearch = false) {
     ...(talk ? presenterSettings() : []),
     h('div', { class: 'menu-title' }, 'Text size on the figure'),
     textSizeControl(),
+    // (Blur effect is one setting for the app and the talks: the same switch and the same stored value in both.)
+    h('div', { class: 'menu-title' }, 'Accessibility'),
+    menuToggle(!document.documentElement.hasAttribute('data-noglass'), 'layers', 'Blur effect', 'Frosted glass behind cards and labels. Off: solid cards and label pills, lighter on a hot device', (on) => {
+      try { localStorage.setItem('pps.noGlass', on ? '0' : '1'); } catch { /* storage unavailable */ }
+      document.documentElement.toggleAttribute('data-noglass', !on);
+    }),
     ...(talk ? [] : [
-      h('div', { class: 'menu-title' }, 'Accessibility'),
-      menuToggle(!document.documentElement.hasAttribute('data-noglass'), 'layers', 'Blur effect', 'Frosted glass behind cards and labels. Off: solid cards and glowing labels, lighter on a hot device', (on) => {
-        try { localStorage.setItem('pps.noGlass', on ? '0' : '1'); } catch { /* storage unavailable */ }
-        document.documentElement.toggleAttribute('data-noglass', !on);
-      }),
       menuToggle(store.get().showHvpg, 'gauge', 'Always show HVPG', 'Show the HVPG without measuring it first (Tests › HVPG)', (on) => {
         try { localStorage.setItem('pps.showHvpg', on ? '1' : '0'); } catch { /* storage unavailable */ }
         document.body.classList.remove('hvpg-swap'); void document.body.offsetWidth; document.body.classList.add('hvpg-swap');
@@ -1797,7 +1809,7 @@ const PRESENT_KEYS = [
   ['→ · Space · Enter', 'Next slide (during a time-lapse, run it to its end)'], ['← · Backspace', 'Previous slide'],
   ['↑ · ↓', 'Show / tuck the readings under the instrument card (Mac, iPad on its side)'],
   ['Home · End', 'First / last slide'], ['Number, then Enter', 'Jump to that slide'], ['G', 'The slide list'],
-  ['B or .', 'Black screen'], ['F', 'Full screen'], ['?', 'This guide'], ['Esc', 'Stop presenting'],
+  ['B or .', 'Black screen'], ['F', 'Full screen'], ['?', 'This guide'], ['Esc', 'Put an enlarged card back, then stop presenting'],
 ];
 function openHelp(section) {
   const rows = [
@@ -1837,7 +1849,7 @@ function openAbout(section) {
     h('p', {}, 'Created by ', h('b', {}, AUTHOR), '. ', h('a', { href: AUTHOR_URL, target: '_blank', rel: 'noopener' }, 'See all of the author’s teaching\u00a0tools'), '.'),
     h('p', {}, `The model, patients and presentations are dated ${CONTENT_UPDATED} and change only when that date does, so a class taught on them behaves the same all term.`),
     h('h3', {}, 'The model'),
-    h('p', {}, 'A lumped-parameter hemodynamic network of the splanchnic, portal, hepatic and systemic veins with the heart, arterial inflow and the hepatic arterial buffer; collateral recruitment and remodeling on a disease clock; Starling filtration and lymph for ascites; Laplace wall tension for varices; blood volume, bleeding and transfusion. Every number on screen comes out of it; nothing is scripted.'),
+    h('p', {}, 'A lumped-parameter hemodynamic network of the splanchnic, portal, hepatic and systemic veins with the heart, arterial inflow and the hepatic arterial buffer; collateral recruitment and remodeling on a disease clock; Starling filtration and lymph for ascites; Laplace wall stress for varices; blood volume, bleeding and transfusion. Every number on screen comes out of it; nothing is scripted.'),
     h('h3', {}, 'Validation targets'),
     h('p', { class: 'sub' }, 'Each is an automated test that must pass before a release:'),
     h('ol', { class: 'refs' }, VALIDATION.map((v) => h('li', {}, v))),
@@ -1848,7 +1860,7 @@ function openAbout(section) {
       h('tbody', {}, CUTOFFS.map((r) => h('tr', {}, r.map((c) => h('td', {}, c))))))),
     h('p', { class: 'sub' }, 'Thresholds belong to gradients, not to the color of a vessel. HVPG ≥ 10 mmHg is clinically significant portal hypertension in cirrhosis. HVPG ≥ 20 mmHg matters as a prognostic finding when measured during an acute variceal bleed. 12 mmHg is not a bleeding threshold: varices can bleed below it, and it is only a usual post-TIPS target for the direct gradient.'),
     h('h3', {}, 'Reference review'),
-    h('p', {}, 'The presentations follow Baveno VIII (J Hepatol, August 2026), with AASLD guidance where US practice differs (octreotide). Baveno VIII changed the recompensation criteria (more than 6 months, Child–Pugh A), the gray zone for stiffness (ANTICIPATE probability of 75% or more, or spleen stiffness above 55 kPa on the 100 Hz probe), the window for pre-emptive TIPS and anticoagulation for portal vein thrombosis. Baveno VIII statements were taken from published summaries; a line-by-line check against the full text is still pending.'),
+    h('p', {}, 'The presentations follow Baveno VIII (J Hepatol, August 2026), with AASLD guidance where US practice differs (octreotide). Baveno VIII changed the recompensation criteria (>6 months, Child–Pugh A), the gray zone for stiffness (ANTICIPATE probability ≥75%, or spleen stiffness >55 kPa on the 100 Hz probe), the window for pre-emptive TIPS and anticoagulation for portal vein thrombosis. Baveno VIII statements were taken from published summaries; a line-by-line check against the full text is still pending.'),
     h('h3', {}, 'Clinical review'),
     h('p', {}, 'Presentation and patient content follows the guidance below. An external clinical advisory review with named reviewers is pending; their sign-off will be listed here.'),
     h('h3', { 'data-sec': 'refs' }, 'References'),
@@ -1858,7 +1870,7 @@ function openAbout(section) {
       h('li', {}, 'Kaplan DE, et al. AASLD Practice Guidance on risk stratification and management of portal hypertension and varices in cirrhosis. Hepatology 2024;79:1180–1211.'),
       h('li', {}, 'Bosch J, Groszmann RJ, et al. Measurement of portal pressure (HVPG). Hepatology / Semin Liver Dis.'),
       h('li', {}, 'Prognostic role of endoscopic ultrasound-guided direct portal pressure gradient measurement in porto-sinusoidal vascular disorder. Liver Int 2025. Mean direct gradient 16.7 and mean HVPG 5.5 mmHg. ', pmid(40251984)),
-      h('li', {}, 'Directly measured portal pressure gradient and variceal hemorrhage in patients undergoing TIPS: bleeding occurred below 12 mmHg. ', pmid(7485008)),
+      h('li', {}, 'Directly measured portal pressure gradient and variceal hemorrhage in patients undergoing TIPS: bleeding occurred at <12 mmHg. ', pmid(7485008)),
       h('li', {}, 'Hepatic venous pressure gradient and prognosis in patients with acute variceal bleeding treated with pharmacologic and endoscopic therapy. ', pmid(18093686)),
       h('li', {}, 'Lautt WW. Hepatic Circulation: Physiology and Pathophysiology. Morgan & Claypool, 2009.'),
       h('li', {}, 'Guyton AC. Venous return and the systemic filling pressure.')),

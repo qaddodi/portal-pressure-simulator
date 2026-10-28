@@ -97,7 +97,8 @@ test('the GPU organs are on by default and can be turned off from the address', 
 
 test('a pinch reuses the live organs\' meshes: the tolerance moves in powers of two', () => {
   const src = readFileSync(new URL('../src/ui/organ-paint.js', import.meta.url), 'utf8');
-  assert.match(src, /tol = Math\.min\(0\.5, 2 \*\* Math\.floor\(Math\.log2\(0\.2 \/ sc\)\)\);/);
+  assert.match(src, /export const detailTol = \(sc\) => Math\.min\(0\.5, 2 \*\* Math\.floor\(Math\.log2\(0\.2 \/ sc\)\)\);/);
+  assert.match(src, /tol = detailTol\(sc\);/);
 });
 
 // A new clip's coverage was cleared over the whole canvas before it was drawn, for every clipped group on every frame; a later op
@@ -158,7 +159,9 @@ test('the organ layers are painted on the GPU from their shapes, with no SVG pic
   // The SVG copy only when a layer cannot be read; the picture given up when the state moves on, a few ms painted a frame.
   assert.match(stage, /const copyNeeded = !baked \|\| \[\.\.\.baked\.values\(\)\]\.some\(\(b\) => !b\);\n\s+if \(slot === 0 && copyNeeded\)/);
   assert.match(stage, /const gone = \(\) => seq !== plateSeq \|\| drops !== plateDrops \|\| v !== veins \|\| v\.lost \|\| !v\.organs \|\| \(slot === 1 && vseq !== viewSeq\) \|\| key !== plateStateKey\(\);/);
-  assert.match(stage, /job\.step\(performance\.now\(\) \+ 6\)/);
+  // (Not a fixed 6 ms a frame of its own any more: a step is what is left of the allowance every refinement shares, in a frame outside a gesture: refine.js.)
+  assert.match(stage, /const ms = await refineTurn\(gone\);\n\s+if \(ms === null\) return false;\n\s+const t0 = performance\.now\(\);\n\s+const done = gpuProbe\.time\(null, 'organ picture: GPU paint', \(\) => job\.step\(t0 \+ ms\)\);/);
+  assert.doesNotMatch(stage, /job\.step\(performance\.now\(\) \+ 6\)/);
   const bake = gl.slice(gl.indexOf('    bake(slot, name, groups, rect, scale, at = 0) {'), gl.indexOf('    dropKept() {'));
   assert.doesNotMatch(bake, /texSubImage2D|readPixels|getImageData|Image\(|XMLSerializer|canvas'\)/);
   assert.match(bake, /staged\[slot\]\.set\(name, \{ tex, rect, at, flip: true \}\);/);
@@ -191,7 +194,7 @@ test("a picture's painting stops at its time limit at any depth of nested groups
   // again meanwhile (the canvas grew) starts its picture over rather than lay a wiped layer.
   assert.match(paint, /if \(holder && holder !== me\) return 'wait';/);
   assert.match(paint, /\} else if \(ver !== allocVer\) \{ holder = null; return 'lost'; \}/);
-  assert.match(paint, /AW = Math\.max\(AW, w\); AH = Math\.max\(AH, h\);\n\s+allocVer\+\+;/, 'only when the targets are made again, not when a deeper pair is first made');
+  assert.match(paint, /if \(gw \* gh <= targetRoom\(BW, BH\)\) \{ AW = gw; AH = gh; \} else \{ AW = Math\.max\(w, BW\); AH = Math\.max\(h, BH\); \}\n\s+allocVer\+\+;/, 'only when the targets are made again, not when a deeper pair is first made');
   assert.match(paint, /drop\(\) \{ if \(holder === me\) holder = null; job = null; \},/);
   // The live painting never uses those layers (it reads no nested groups): the picture's start at depth 1.
   assert.match(paint, /const \[g, k\] = depth\(1\);/);

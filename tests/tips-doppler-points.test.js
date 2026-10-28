@@ -1,5 +1,5 @@
 // TIPS Doppler's stent slides call out the stent's velocity at all three points (proximal, mid, distal), not only the sampled one
-// (Mohammad, 15 Oct): the slide that teaches the three points, the narrowed stent, where it narrows and the reopened stent. Each
+// (Mohammad, 15 Oct): the slide that teaches the three points, the narrowed stent (where it narrows too) and the reopened stent. Each
 // callout reads what the Doppler's tile for its point reads, and the sampled one is named in the Doppler's green. After review the three
 // stand in a column beside their own dots, in order, on one side chosen without the pick, and the "60 %" goes to the other side.
 import { test } from 'node:test';
@@ -13,7 +13,7 @@ const stage = read('src/ui/stage.js'), doppler = read('src/ui/doppler.js'), tool
 
 test('the stent slides, and only they, call out all three points', () => {
   const on = TIPS_DOPPLER.slides.filter((s) => s.tool?.points).map((s) => s.id);
-  assert.deepEqual(on, ['jet', 'narrow', 'where', 'fix']);
+  assert.deepEqual(on, ['jet', 'narrow', 'fix']);
   for (const s of TIPS_DOPPLER.slides.filter((x) => x.tool?.points)) assert.equal(s.tool.vessel, 'TIPS', `${s.id} samples the stent`);
 });
 

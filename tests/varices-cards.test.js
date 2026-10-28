@@ -1,38 +1,36 @@
-// Collaterals and varices, the slides that took up the new deck cards (review/deck-card-ideas-2/recs.md, section 4): the
-// vein-system colours on the opening slide, the varix caliper and the normal spleen on the time-lapse, the spotlight on the
-// esophageal route, and the portal blood bars on the paraumbilical slide. Their words and numbers agree with the model.
+// Collaterals and varices, the slides that took up the new deck cards (review/deck-card-ideas-2/recs.md, section 4) and the rebuild (deck
+// rebuild plan B2): the flow colours over the first three slides, the varix caliper on the time-lapse, the spotlight on the esophageal
+// route, and the portal blood bars on the slide that holds the paraumbilical and rectal routes. Their words and numbers agree with the model.
 import './dom-shim.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { DECKS } from '../src/ui/decks.js';
 import { EXT } from '../src/ui/slide-ext.js';
 import { EDGES } from '../src/engine/topology.js';
-import { LENS_WORDS, LENS_TONE } from '../src/ui/presenter.js';
 import { flowParts } from '../src/ui/tool-flows.js';
-import { NORMAL_ON } from '../src/ui/highlight-math.js';
 import { deckStates } from './deck-states.js';
 
 const VARICES = DECKS.find((d) => d.id === 'varices');
 const slide = (id) => VARICES.slides.find((s) => s.id === id);
 const states = async () => { const fps = await deckStates(VARICES); return Object.fromEntries(VARICES.slides.map((s, i) => [s.id, fps[i]])); };
 
-test('Collaterals open: the vein-system colours, and the words name them with a pill', () => {
-  const s = slide('collat');
-  assert.equal(s.lens, 'system');
-  assert.match(s.line, /Colored by vein system, the collaterals stand out between the portal and systemic veins\.$/);
-  assert.doesNotMatch(`${s.line} ${s.notes}`, /colored by origin/i, 'the words describe the colours the slide shows');
-  assert.equal(LENS_WORDS['vein system'], 'system');
-  assert.equal(LENS_TONE.system, '--tr-var', 'the pill takes the shunts\' colour');
-  assert.equal(EXT.lenses.system[0], 'vein system');
+test('Collaterals open and Esophageal varices: the flow colours run over the first three slides and the pressure colours come back for the wall', () => {
+  assert.deepEqual(['collat', 'lapse', 'eso', 'burst'].map((id) => slide(id).lens), ['flow', 'flow', 'flow', undefined]);
+  for (const id of ['collat', 'lapse', 'eso', 'burst']) assert.deepEqual(slide(id).tiles, ['hvpg', 'varix'], `${id}: the HVPG and the varix are the two tiles`);
+  assert.equal(slide('burst').dataTitle, 'Wall stress');
+  assert.match(slide('burst').line, /^Wall stress rises with the pressure across the wall/);
+  const lenses = new Set(VARICES.slides.map((s) => s.lens).filter(Boolean));
+  assert.deepEqual([...lenses], ['flow'], 'one lens besides the home pressure colours');
 });
 
-test('Varices grow: the varix caliper and the normal spleen outline follow the time-lapse', async () => {
+test('Varices grow: the varix caliper follows the time-lapse, and the spleen and platelets are left to the notes', async () => {
   const s = slide('lapse'), at = await states();
   assert.deepEqual(s.calipers, ['varix']);
-  assert.deepEqual(s.normalOutline, ['spleen']);
+  assert.equal(s.normalOutline, undefined);
+  assert.equal(s.caveat, undefined, 'the small print is in the notes');
+  assert.match(s.notes, /about 1 in 10 small varices become large each year/);
   assert.ok(at.lapse.varix > at.collat.varix + 3, 'the varix grows through the six months');
-  assert.ok(at.lapse.spleen / 11 >= NORMAL_ON, 'the spleen is past the size where the normal outline shows');
-  assert.ok(at.lapse.spleen > at.collat.spleen, 'and it keeps growing');
+  assert.ok(at.lapse.spleen > at.collat.spleen, 'and the spleen keeps growing');
 });
 
 test('Esophageal varices: the spotlight names the esophageal route, each vessel of it on the figure', () => {
@@ -42,8 +40,11 @@ test('Esophageal varices: the spotlight names the esophageal route, each vessel 
   assert.ok(EXT.sets.esophageal.length > 0 && EXT.sets.esophageal.every((id) => ids.has(id)), 'every vessel of the set exists');
 });
 
-test('The paraumbilical vein reopens: the bar shows the paraumbilical route, and the liver part is 100 less what is shunted', async () => {
+test('Other collaterals: the bar shows the paraumbilical route, and the liver part is 100 less what is shunted', async () => {
   const s = slide('umbilical'), at = await states();
+  assert.deepEqual(s.marks.map((m) => m.edges[0]), ['C3', 'C4'], 'the paraumbilical and the rectal route are both marked');
+  assert.equal(VARICES.slides.find((x) => x.id === 'rectal'), undefined, 'the rectal slide is folded into this one');
+  assert.equal(VARICES.slides.find((x) => x.id === 'fundal'), undefined, 'gastric varices have their own talk');
   assert.equal(s.tool.kind, 'flows');
   assert.deepEqual(s.tiles, ['liver']);
   const parts = flowParts(at.umbilical), pum = parts.find((p) => p.id === 'pum'), liver = parts.find((p) => p.id === 'liver');

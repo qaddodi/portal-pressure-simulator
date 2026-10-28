@@ -2,15 +2,12 @@
 // resistance in the portal tracts that the wedge and the stiffness both miss (the slide fields are described at the top
 // of decks.js).
 
-const BAND = { kind: 'band' };
-
 export const NCPH = {
-  id: 'ncph', level: 'core', title: 'Presinusoidal portal hypertension', minutes: 9,
+  id: 'ncph', level: 'core', title: 'Presinusoidal portal hypertension', minutes: 7,
   objectives: [
     'Recognize portal hypertension with a working liver: varices, a big spleen, normal stiffness',
     'Explain why the HVPG is near normal in presinusoidal resistance',
     'Name the two main causes: schistosomiasis and porto-sinusoidal vascular disorder',
-    'Treat the varices as in cirrhosis',
   ],
   checks: [
     ['Name the two main causes of presinusoidal portal hypertension.', 'Schistosomiasis and porto-sinusoidal vascular disorder.'],
@@ -30,8 +27,9 @@ export const NCPH = {
     },
     {
       id: 'tract', lens: 'drop', cam: 'lobule:triad', callout: { at: 'triad', label: 'Resistance' }, terms: { 'portal venules': 'lobule:triad', sinusoids: 'lobule:sinusoid' }, data: 'tiles', tiles: ['pv', 'sin'], key: ['pv'],
+      whatIf: { label: 'Periportal fibrosis', param: ['fibrosis.R.pre', 'fibrosis.L.pre'], min: 1, max: 80, step: 1, ends: ['None', 'Severe'] },
       kicker: 'Where the resistance sits', site: 'presin', title: 'The resistance is in the portal tracts',
-      line: 'Schistosome eggs lodge in the small portal venules; granulomas and scar narrow them, while the sinusoids beyond stay at {sin}. Colored by pressure drop, the large drop sits in the portal venules.',
+      line: 'Schistosome eggs lodge in the portal venules; granulomas and scar narrow them, while the sinusoids beyond stay at {sin}. Colored by pressure drop, the drop sits in the portal venules.',
       notes: 'Schistosoma mansoni and japonicum live in the mesenteric veins, and their eggs are carried to the liver and trapped in the portal venules. Granulomas form around them and heal as periportal (pipestem) fibrosis. The sinusoids and the liver cells are spared, which is why liver function lasts and ascites is rare.',
       ask: ['Why does liver function last for years in schistosomiasis?', 'The resistance is in the portal venules; the sinusoids and liver cells are spared.'],
     },
@@ -46,7 +44,7 @@ export const NCPH = {
     {
       id: 'stiff', cam: 'liver', terms: ['liver'], tool: { kind: 'fibroscan' }, data: 'tiles', tiles: ['lsm'], key: ['lsm'],
       kicker: 'Where the resistance sits', site: 'presin', title: 'Stiffness stays low despite high portal pressure',
-      line: 'Stiffness reflects scar and congestion, not portal pressure, so it stays at {lsm}, under 10 kPa. Varices with a soft liver point to a non-cirrhotic cause.',
+      line: 'Stiffness reflects scar and congestion, not portal pressure, so it stays at {lsm}, which is <10 kPa. Varices with a soft liver point to a non-cirrhotic cause.',
       notes: 'Liver stiffness rises with scar and with congestion in the liver, so it stays normal or only slightly raised in presinusoidal and pre-hepatic disease. Stiffness below 10 kPa with clear signs of portal hypertension should prompt a search for a non-cirrhotic cause. Spleen stiffness, where it is measured, is high, because it follows the portal pressure. The stiffness and platelet rules that spare a scope do not apply in porto-sinusoidal vascular disorder: screen with endoscopy at diagnosis.',
       ask: ['Stiffness 6 kPa with large varices. Does that rule out portal hypertension?', 'No: it argues against cirrhosis. Portal hypertension with a normal stiffness points to a non-cirrhotic cause.'],
     },
@@ -59,24 +57,20 @@ export const NCPH = {
       ask: ['How is porto-sinusoidal vascular disorder diagnosed?', 'An adequate liver biopsy without cirrhosis, plus a specific sign of portal hypertension (varices, collaterals), or a specific lesion (obliterative portal venopathy, nodular regenerative hyperplasia, incomplete septal cirrhosis), or one non-specific sign with one non-specific lesion.'],
     },
     {
-      id: 'nsbb', params: { drugs: { propranolol: true } }, cam: 'portal', terms: ['pv'], data: 'tiles', tiles: ['pv', 'hr'], key: ['pv'], cite: 'Baveno VIII 8.9',
-      kicker: 'Treatment', site: 'presin', title: 'A beta-blocker works here too',
-      line: 'Propranolol cuts gut inflow: portal vein pressure falls to {pv}. EASL 2025 and Baveno VIII see no proven advantage for carvedilol when resistance is presinusoidal.',
-      caveat: 'In the model, its extra effect is sinusoidal; here it mostly lowers blood pressure.',
-      notes: 'Bleeding prophylaxis in non-cirrhotic portal hypertension follows the rules for cirrhosis: a non-selective beta-blocker or banding for large varices, and both after a bleed. In schistosomiasis, praziquantel treats the infection, but established portal hypertension still needs its own treatment.',
-      ask: ['Is variceal prophylaxis any different here from cirrhosis?', 'No: a non-selective beta-blocker or banding, as in cirrhosis, because the varices come from the same high portal pressure.'],
-    },
-    {
-      id: 'band', terms: ['varix'], action: [BAND, BAND, BAND, BAND], cam: 'varices', mark: { edges: ['C1a', 'C1b'], label: 'Banded varices', kind: 'treat' }, tool: { kind: 'scope' }, data: 'tiles', tiles: ['varix'], key: ['varix'],
-      kicker: 'Treatment', site: 'presin', title: 'Banding closes the varices',
-      line: 'Banding is repeated every two to four weeks until the varices are gone. Here they are down to {varix}. The beta-blocker continues. Because liver function is good, survival after a bleed is much better than in cirrhosis.',
-      notes: 'After a bleed, banding is repeated until the varices are eradicated and is combined with the beta-blocker. Because the liver works well, survival after a bleed is far better than in cirrhosis. A TIPS or a surgical shunt is kept for bleeding that recurs despite this.',
-      ask: ['After a bleed, how often are the bands repeated, and until when?', 'Every two to four weeks until the varices are gone, with the beta-blocker, because banding treats the varix, not the pressure.'],
+      // (The relation chart before the summary: the model's cirrhosis from none to severe, each point settled for a year, the PPG and the spleen
+      // read against the stiffness. The ring is the schistosomiasis patient, far above the line; the point is cirrhosis with CSPH.)
+      id: 'relation', preset: 'schisto', cam: 'fit', terms: ['varix', 'spleen'],
+      tool: { kind: 'curve', x: 'lsm', xCuts: [10], patient: { preset: 'healthy' }, param: 'cirrhosis', from: 0, to: 1, step: 0.1, days: 365, lines: ['ppg', 'spleen'],
+        dots: [{ preset: 'csph', name: 'Cirrhosis, CSPH' }] },
+      kicker: 'Summary', site: 'presin', title: 'Stiffness and the PPG rise together only in cirrhosis',
+      line: 'Along the line, cirrhosis raises stiffness, PPG and spleen together. The schistosomiasis patient has a PPG of {ppg} and a spleen of {spleen}, yet a stiffness of only {lsm}.',
+      notes: 'The line is the model\'s cirrhosis from none to severe, each point settled for a year: stiffness on the x axis, the PPG and the spleen length against it. In cirrhosis the three rise together; the point marks cirrhosis with CSPH. The ring is the schistosomiasis patient: a PPG of 16 mmHg and a spleen of 17 cm at a stiffness of 6 kPa, where the cirrhosis line has a PPG of about 5 mmHg and a spleen of about 11 cm. The resistance sits before the sinusoids, so the liver stays soft while the pressure behind the portal tracts climbs. Porto-sinusoidal vascular disorder gives the same picture. The dashes mark 10 kPa: a stiffness <10 kPa with signs of portal hypertension points to vascular liver disease. (Baveno VIII 1.6; EASL 2025: stiffness normal or only slightly raised in porto-sinusoidal vascular disorder and chronic portal vein thrombosis.)',
+      ask: ['A patient has large varices, a spleen of 17 cm and a stiffness of 6 kPa. Is that cirrhosis?', 'No. The stiffness is far from the cirrhosis line. Portal hypertension with a soft liver points to resistance before the sinusoids.'],
     },
     {
       id: 'summary', visual: 'table', cols: ['pv', 'hvpg', 'ppg', 'lsm', 'spleen'], asc: false, rowHead: 'Patient',
       of: [{ preset: 'healthy', kicker: 'Reference', title: 'Healthy', ref: true }, { id: 'patient', kicker: 'Presinusoidal', title: 'Schistosomiasis' },
-        { preset: 'csph', kicker: 'Sinusoidal', title: 'Cirrhosis with CSPH' }, { id: 'band', kicker: 'Presinusoidal', title: 'After treatment' }],
+        { preset: 'csph', kicker: 'Sinusoidal', title: 'Cirrhosis with CSPH' }],
       kicker: 'Summary', title: 'Presinusoidal resistance versus cirrhosis',
       line: 'Both have a high PPG and a big spleen. Only cirrhosis raises the HVPG and liver stiffness.',
       notes: 'Suspect a non-cirrhotic cause when signs of portal hypertension come with normal liver tests, a normal or near-normal stiffness and a low HVPG. Image the portal vein, ask about travel and drugs, and take a biopsy. The varices are treated exactly as in cirrhosis.',

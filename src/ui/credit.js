@@ -1,9 +1,10 @@
 // The corner credit finds a free spot on the figure: never on or touching a card, a sheet, a bar or a menu.
 // It keeps its corner while that corner stays free and is never animated (no glide, no fade): any move hides it at once,
 // holds it hidden only until the cards have settled (a slide change lifts its hold 120 ms after the camera move; a move off a spot a card now covers is hidden for 80 ms), then shows it at once at the new spot; with no figure left anywhere it stays hidden.
-import { frameFor } from './frame.js?v=19b3f2915c';
-import { gpuProbe } from './gpu-probe.js?v=e82dc07b45';
-import { layoutWatch, PLACED } from './idle-keys.js?v=4b46e6a6ef';
+import { frameFor } from './frame.js?v=7254a8a850';
+import { gpuProbe, COUNTED } from './gpu-probe.js?v=dd12fc216c';
+import { CELL, cellFor, regionFor, contains, touches, artTest, boxThrough, multiply, invert } from './credit-art.js?v=77b95dafe8';
+import { layoutWatch, PLACED } from './idle-keys.js?v=6eccd5d85a';
 const nextFrame = frameFor('credit');
 
 // Corners in order of preference. A bottom corner rises above whatever covers it (up to the middle of the figure);
@@ -154,13 +155,15 @@ export function labelRects(wr, wrap, kept = null) {
 }
 
 // A test for spots over the figure's art (wrap px): the credit sits on bare background, never on an organ or a vessel nor
-// touching an outline (Mohammad, 14 Oct). The art (each shape's fill and stroke) is drawn once per layout onto a small canvas,
-// one pixel per 6 px cell, and any cell it touches counts; the grid is grown by `pad` px all round, and a box is tested
-// against every cell it covers. (Testing each cell's centre against the shapes, thousands of isPointInStroke calls along
-// the vessels, took a few hundred ms per look and made panning and zooming lag.)
+// touching an outline (Mohammad, 14 Oct). The art (each shape's fill and stroke) is drawn once onto a small canvas, one pixel per
+// cell, and any cell it touches counts; a box is tested against every cell it covers, grown by `pad` px all round. (Testing each
+// cell's centre against the shapes, thousands of isPointInStroke calls along the vessels, took a few hundred ms per look and made
+// panning and zooming lag.)
+// On the GPU figure (worldTest below) the grid is in the figure's own coordinates and the shapes are read once: a camera move reads
+// no shape and no pixel, the credit only maps its candidate boxes into the world. Elsewhere (the lobule's outline, the SVG figure
+// of Lite graphics, a grid over the cap) screenTest draws the art on the screen's own grid, 6 px cells, as it always did.
 // Organs and vessels are kept in two grids. On the GPU figure the vessel tubes are not in the page at all (their SVG tubes are
 // display:none), only their transparent hit strokes are, so those stand for the vessels there, at 0.7 of their width (a hit stroke is wider than its tube).
-const CELL = 6;
 const ORGANS = 'g.organ :is(path, circle, ellipse, rect, polygon):not(.org-shade)';
 const VESSELS = '#edges :is(.v-lumen, .v-lumenP, .v-strand), #world .v-hit';
 // (The ascites fluid and the flanks' outline count as organs' art, as drawn: their fill where they have one, their stroke where
@@ -195,7 +198,8 @@ let organMemo = { key: '', test: null };
 // test(box, { pad, org, ves }): true when the box, grown by pad, touches the organs and/or the vessels.
 // ring: the lobule's outline (client px) while the lobule fills the view. Its art is then the lobule, not the anatomy hidden under it
 // (the credit had landed on the hepatocytes).
-export function organTest(wr, ring = null) {
+// The screen's own grid: the art drawn again, from the page, whenever the camera or the lobule's ring moved.
+function screenTest(wr, ring = null) {
   const glows = ring ? [] : window.pps?.stage?.steadyGlows?.() || [];
   const world = document.getElementById('world')?.getScreenCTM(), key = [wr.left, wr.top, wr.width, wr.height, world && [world.a, world.d, world.e, world.f].map((v) => v.toFixed(2)), ring && ring.flat().map((v) => v.toFixed(1)), glows.flat().join()].join('|');
   if (organMemo.key === key) return organMemo.test;
@@ -272,6 +276,124 @@ export function organTest(wr, ring = null) {
   test.cover = cover;
   organMemo = { key, test };
   return test;
+}
+
+// The GPU figure's art in the figure's own coordinates. Two things are kept, and each is rebuilt only when it must be:
+//  - the FACTS (worldFacts): for each shape that counts, its outline, its matrix inside the world, its box and what it draws.
+//    Read from the page once, then again only after a shape changed (a mutation on the art's own groups: the organs' outlines and
+//    transforms, the fluid, a vessel's hit width, a shape added or removed), after 15 s, or once the GPU figure has been off.
+//    A camera move changes none of them: the world's own transform is not one of the watched.
+//  - the GRID (worldLevel): the facts drawn onto a canvas over the world rectangle the view and a margin round it cover, one pixel
+//    per cell, and read back once. It is reused while the view stays inside that rectangle at a zoom no more than CELL px a cell (a
+//    pan of up to half a screen, a zoom in or out by up to twice); past that it is drawn again from the facts, with no page read.
+// So a camera move reads no shape and no pixel; the credit maps each box it asks about into the world (credit-art.js artTest).
+const ART_MAX_AGE = 15000;
+const ART_ATTRS = ['d', 'transform', 'class', 'style', 'hidden', 'cx', 'cy', 'r', 'rx', 'ry', 'x', 'y', 'width', 'height', 'points'];
+const ART_QUIET = '#overlays, #nodes, #guides, #focus, #grid';   // (the figure's groups that hold none of the art tested)
+let artFacts = null, artLevel = null, artDirty = true, artMo = null, artCanvas = null;
+
+// One shape's facts (kind: 'organ', 'fluid' as drawn, or 'ves'): the same shapes, fills and strokes the screen grid draws below.
+function readShapes(sel, kind, inv) {
+  const out = [], asDrawn = kind === 'fluid', vessel = kind === 'ves';
+  for (const el of document.querySelectorAll(sel)) {
+    const m = el.getScreenCTM?.(), r = el.getBoundingClientRect();
+    if (!m || !r.width) continue;
+    const cs = getComputedStyle(el);
+    if (cs.display === 'none') continue;
+    const w = parseFloat(cs.strokeWidth) || 0, hit = el.classList.contains('v-hit'), rel = multiply(inv, m);
+    // (The shape's box is the fill's, grown by the most its stroke reaches, a miter at the default limit: twice the stroke width.)
+    const g = 2 * w * Math.max(Math.hypot(rel.a, rel.b), Math.hypot(rel.c, rel.d)), bb = boxThrough(inv, r.left, r.top, r.right, r.bottom);
+    const fill = asDrawn ? cs.fill !== 'none' : !vessel || (cs.fill !== 'none' && !hit);
+    const stroke = w > 0 && (asDrawn ? cs.stroke !== 'none' : !vessel || cs.stroke !== 'none' || hit);
+    out.push({ path: shapePath(el), m: rel, l: bb.l - g, t: bb.t - g, r: bb.r + g, b: bb.b + g, fill, lw: stroke ? (hit ? w * 0.7 : w) : 0, cap: cs.strokeLinecap || 'butt', join: cs.strokeLinejoin || 'miter' });
+  }
+  return out;
+}
+// A lit vessel's hit strokes, for its glow (read when a glow first asks for the vessel, then kept with the facts).
+function hitsOf(facts, id, inv) {
+  let out = facts.hits.get(id);
+  if (out) return out;
+  out = [];
+  for (const el of document.querySelectorAll(`#world .v-hit[data-id="${CSS.escape(id)}"]`)) {
+    const m = el.getScreenCTM?.(), lumen = el.parentNode?.querySelector('.v-lumen');
+    if (!m) continue;
+    out.push({ path: shapePath(el), m: multiply(inv, m), w: (lumen ? parseFloat(getComputedStyle(lumen).strokeWidth) || 0 : parseFloat(getComputedStyle(el).strokeWidth) || 0) });
+  }
+  facts.hits.set(id, out);
+  return out;
+}
+// Watches the art's groups: the first change that can move a shape marks the facts stale and the watch stops (until they are read
+// again), so a morph's thousands of writes cost one batch of records, not one per frame.
+function watchArt(world) {
+  artMo ??= new MutationObserver(() => { artDirty = true; artMo.disconnect(); });
+  artMo.disconnect();
+  for (const g of world.children) if (!g.matches(ART_QUIET)) artMo.observe(g, { subtree: true, childList: true, attributes: true, attributeFilter: ART_ATTRS });
+}
+function worldFacts(world, inv) {
+  const now = performance.now();
+  if (artFacts && !artDirty && artFacts.world === world && artFacts.kids === world.childElementCount && now - artFacts.at < ART_MAX_AGE) return artFacts;
+  gpuProbe.note(COUNTED.creditRead);
+  const facts = { at: now, world, kids: world.childElementCount, org: [...readShapes(ORGANS, 'organ', inv), ...readShapes(FLUID, 'fluid', inv)], ves: readShapes(VESSELS, 'ves', inv), hits: new Map() };
+  watchArt(world);
+  artDirty = !facts.org.length;   // (a figure with no organ in it is not built yet, or hidden: read again at the next look)
+  return (artFacts = facts);
+}
+// The facts drawn over `reg` (credit-art.js regionFor), one canvas pixel per cell: cell (i, j) covers the world square at
+// (x0 + i c, y0 + j c), c wide. Organs and the fluid in one grid, the vessels (and the lit ones' glow) in the other.
+function worldLevel(facts, reg, glows, gk, inv) {
+  gpuProbe.note(COUNTED.creditGrid);
+  const { cols, rows, c, x0, y0 } = reg, n = cols * rows, org = new Uint8Array(n), ves = new Uint8Array(n);
+  artCanvas ||= document.createElement('canvas');
+  if (artCanvas.width !== cols || artCanvas.height !== rows) { artCanvas.width = cols; artCanvas.height = rows; }
+  const ctx = artCanvas.getContext('2d', { willReadFrequently: true });
+  if (ctx) {
+    const paint = (list, grid, glow) => {
+      ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, cols, rows);
+      const at = (m) => ctx.setTransform(m.a / c, m.b / c, m.c / c, m.d / c, (m.e - x0) / c, (m.f - y0) / c);
+      for (const s of list) {
+        if (!touches(reg, s)) continue;   // (zoomed in, most shapes are off the grid: not drawn)
+        at(s.m);
+        if (s.fill) ctx.fill(s.path);
+        if (s.lw > 0) { ctx.lineWidth = s.lw; ctx.lineCap = s.cap; ctx.lineJoin = s.join; ctx.stroke(s.path); }
+      }
+      // A lit vessel's glow, the soft band 12 × its width setting (world units) beyond each wall (veins-gl.js), counts as the vessel
+      // (sweep 01 review: an iPad zoomed in had put the credit on a glow).
+      if (glow) {
+        for (const [id, wide] of glows) for (const h of hitsOf(facts, id, inv)) {
+          at(h.m);
+          ctx.lineWidth = h.w + 2 * 12 * Math.min(1.3, Math.max(0.5, wide));
+          ctx.lineCap = ctx.lineJoin = 'round'; ctx.stroke(h.path);
+        }
+      }
+      const px = ctx.getImageData(0, 0, cols, rows).data;
+      for (let k = 0; k < n; k++) grid[k] = px[k * 4 + 3] > 0 ? 1 : 0;
+    };
+    paint(facts.org, org, false);
+    paint(facts.ves, ves, glows.length > 0);
+  }
+  return { facts, reg, gk, org, ves };
+}
+// The art test of the GPU figure in the world's coordinates, or null where it does not apply (the Lite graphics' SVG figure, a
+// view whose grid would pass the cap): organTest then draws the screen grid.
+function worldTest(wr) {
+  const world = document.getElementById('world'), wm = world?.getScreenCTM?.(), inv = wm && invert(wm), sc = wm ? Math.hypot(wm.a, wm.b) : 0;
+  if (!inv || !(sc > 1e-6)) return null;
+  if (!world.closest('.stage-view')?.classList.contains('gl-on')) { artDirty = true; return null; }   // (the SVG tubes show: what counts differs, so the facts are read again when the GPU figure is back)
+  const glows = window.pps?.stage?.steadyGlows?.() || [], gk = glows.flat().join();
+  const pad = 40 / sc, view = boxThrough(inv, wr.left, wr.top, wr.left + wr.width, wr.top + wr.height);   // (pad: past the view, what a box's own padding reaches)
+  const facts = worldFacts(world, inv);
+  let lv = artLevel;
+  if (lv && lv.facts === facts && lv.gk === gk && lv.reg.c * sc <= CELL + 1e-6 && contains(lv.reg, { l: view.l - pad, t: view.t - pad, r: view.r + pad, b: view.b + pad })) gpuProbe.note(COUNTED.creditKept);
+  else {
+    const reg = regionFor(view, cellFor(sc), pad);
+    if (!reg) return null;
+    lv = artLevel = worldLevel(facts, reg, glows, gk, inv);
+  }
+  return artTest(lv, wm, wr);
+}
+/** The art test: test(box, { pad, org, ves }) over the figure's organs and vessels, in wrap px (see worldTest, screenTest). */
+export function organTest(wr, ring = null) {
+  return (!ring && worldTest(wr)) || screenTest(wr, ring);
 }
 
 // In the sinusoid view, or zooming into or out of it (pps: window.pps, the app's handles).
@@ -457,7 +579,7 @@ export function createCreditPlacer(credit, { keptStyle = null } = {}) {
     moveT = setTimeout(() => { moving = false; if (app?.classList.contains('pz-moving')) return soon(); place(c, p, tight); soon(); }, 80);
   }
   function soon() { if (!raf) raf = nextFrame(check); }
-  addEventListener('resize', () => { resizedAt = performance.now(); soon(); });
+  addEventListener('resize', () => { resizedAt = performance.now(); artDirty = true; soon(); });   // (a media query can change a stroke's width: the shapes are read again)
   addEventListener('pps:occ', soon);
   // Readout bars ease on every value and never cover the figure: their transitions are not a reason to look again. Nor is a
   // transition that can move nothing the look measures: only one on the figure (its labels), or on, in or around a card, bar or

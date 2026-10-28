@@ -3,6 +3,40 @@
 // work rather than the moment the call was queued. That slows the page, so it is only for measuring. A step timed without a
 // context (gl null) is the page's own script time.
 const ORGANS_Q = typeof location !== 'undefined' ? location.search.match(/[?&]gpuorgans=(0|1|force)\b/)?.[1] : null;
+/**
+ * The notes the ?perf readout totals over a gesture's window (perf-readout.js), by fixed name so the totals stay a few dozen numbers:
+ * what the vessel layer did (a whole draw and why, a pan shift, rows redrawn), what each surface submitted, what was uploaded,
+ * and the work a moving camera should not need (a surface pass, a label solve, a safe-area scan). `twice`: the names whose
+ * second note inside one frame is a surface drawn twice in it.
+ */
+export const COUNTED = {
+  whole: 'vessels: whole draw', wholeWhy: 'vessels: whole draw because ', pan: 'vessels: pan shift', rows: 'vessels: rows redrawn',
+  rowsRefused: 'vessels: rows refused because ',
+  picture: 'picture: drawn', pictureWhole: 'picture: whole', organs: 'organ layers: rendered',
+  glassDrawn: 'glass: drawn', glassCopy: 'glass: figure copied', glassSkip: 'glass: copy skipped (figure unchanged)',
+  lobulePicture: 'lobule: vessels drawn', lobuleSurface: 'lobule: surface pass', lobuleSkip: 'lobule: surface pass skipped (camera only)',
+  tissue: 'tissue: bitmap painted', ductules: 'lobule: ductules drawn',
+  labelSolve: 'labels: solved', labelCarry: 'labels: carried', safe: 'safe area: cards measured',
+  // (The blood apart from the vessels' shapes: a frame whose blood rows all matched the last upload sends none; rows cleared
+  // once as their vessel stops drawing. And the width step between model frames, by the sync it took: the radii alone, or
+  // the whole vessel sync because something else had changed or a vessel outgrew its binned reach.)
+  flowSame: 'blood: upload skipped (rows unchanged)', flowRetired: 'blood: rows cleared',
+  widthRadii: 'widths: radii-only sync', widthWhole: 'widths: whole sync',
+  // (The optional refinement work, refine.js: the steps it took, and the frames it was held back from for a gesture.)
+  refineStep: 'refinement: steps', refineHeld: 'refinement: frames held for a gesture',
+  // (The corner credit's art test, credit.js: the page's shapes read, the grid drawn from them, and the looks the last grid served
+  // as it was: a camera move should add only to the last.)
+  creditRead: 'credit art: shapes read', creditGrid: 'credit art: grid drawn', creditKept: 'credit art: grid kept (camera only)',
+};
+/** The counted names whose count above 1 in one frame means a surface drawn twice in it. */
+export const TWICE = new Set([COUNTED.picture, COUNTED.glassDrawn, COUNTED.lobulePicture]);
+/** Why a whole draw happened, as counted: the reasons are this fixed list. */
+export const WHY = ['no kept layer', 'radii changed', 'look changed', 'same place', 'moved too far', 'zoom or turn', 'tubes changed'];
+/**
+ * Why a partial redraw (veins-gl.js drawRows) was refused, as counted and as its `rowsStatus` says ('drawn' when it was not):
+ * a fixed list. Counted apart from the whole draw that follows, whose own reason is that draw's state, not the refusal's.
+ */
+export const ROWS_REFUSED = ['no kept layer', 'context lost', 'size changed', 'moved', 'radii not listed', 'most cells'];
 export const gpuProbe = {
   on: false,
   // Script time only (the ?perf readout, perf-readout.js): no wait for the GPU, so the page runs as it does for everyone.

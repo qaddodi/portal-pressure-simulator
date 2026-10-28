@@ -89,9 +89,10 @@ test('an organ picture whose state moved on stops at the next strip, before draw
   const body = src.slice(at, src.indexOf('\n  }\n', at));
   // (External review, 21 Oct: with the plate already down, a further organ change moves no counter, so every strip was still sent.)
   assert.match(body, /const gone = \(\) => [^\n]*\|\| drawnAs !== plateStateKey\(\);/);
-  // Checked before every strip (the first included) and after each wait for a frame.
-  assert.match(body, /for \(const \[y, rows\] of plateStrips\(W, H\)\) \{\n\s*if \(y && !waited\) await new Promise\(\(res\) => nextFrame\(res\)\);\n\s*waited = false;\n\s*if \(gone\(\)\) return false;/);
-  assert.match(body, /await new Promise\(\(res\) => nextFrame\(res\)\); waited = true;\n\s*if \(gone\(\)\) return false;\n\s*v\.plateRows\(job, y, rows, readBack\(p\)\);/);
+  // Checked at every strip's turn (the first included) and at the turn between a strip's drawing and its read-back: refineTurn asks
+  // gone() after each frame it waits, so a picture overtaken while it waits out a gesture is given up at once, not drawn on.
+  assert.match(body, /for \(const \[y, rows\] of plateStrips\(W, H\)\) \{\n\s*if \(await refineTurn\(gone\) === null\) return false;/);
+  assert.match(body, /if \(await refineTurn\(gone\) === null\) return false;\n\s*refineStep\('organ picture: read \+ upload', \(\) => v\.plateRows\(job, y, rows, readBack\(p\)\)\);/);
 });
 
 test('a fluid level that moves while the fluid is drawn at no opacity asks for no whole repaint', () => {

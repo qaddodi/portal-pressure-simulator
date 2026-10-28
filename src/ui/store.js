@@ -70,14 +70,13 @@ export function hiddenNow(st = state) {
   return hidCache.set;
 }
 
-/** The one test for "this patient has varices": the model's varix diameter reaches the app's "none" cut-off (2.5 mm), or
- *  banded columns are still on the wall. The endoscopy pane, the figure and the circuit all use it, so they cannot disagree.
- *  site: 'VAR' (esophageal) or 'GV' (fundal). */
+/** The one test for "this patient has varices": the model's `present` flag (metrics.js): the varix diameter reaches the app's
+ *  "none" cut-off (2.5 mm), or banded columns are still on the wall. The endoscopy pane, the figure, the circuit, the Tests card
+ *  and the screen-reader summary all read it, so they cannot disagree. site: 'VAR' (esophageal) or 'GV' (fundal). */
 export function varicesPresent(f, site = 'VAR') {
   const m = f?.metrics;
   if (!m) return false;
-  const vx = site === 'VAR' ? m.varix : m.gastricVarix;
-  return vx.d >= 2.5 || (site === 'VAR' && f.bands > 0);
+  return (site === 'VAR' ? m.varix : m.gastricVarix).present;
 }
 /** How far the varices have grown (0 at the cut-off, 1 at about 5.5 mm), for drawing their feeding channels. */
 export const varixGrowth = (f, site = 'VAR') => (varicesPresent(f, site) ? Math.min(1, Math.max(0.2, ((site === 'VAR' ? f.metrics.varix : f.metrics.gastricVarix).d - 2.5) / 3)) : 0);

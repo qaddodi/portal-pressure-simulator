@@ -10,6 +10,8 @@
 // smoothing), the noise is added and clamped as 'lighter' adds it, and the band darkens as the gradient's black did.
 // doppler.js keeps its 2D path where WebGL2 is missing, on a software renderer (the browser checks), or when the context is lost.
 
+import { startProgram, checkProgram, exerciseDraw, publishWhenDone } from './gl-compile.js?v=5c4cd6c14c';
+
 const VS = `#version 300 es
 in vec2 p;
 void main() { gl_Position = vec4(p, 0.0, 1.0); }`;
@@ -40,7 +42,7 @@ export function createDopplerGL() {
   if (typeof document === 'undefined') return null;
   const canvas = document.createElement('canvas');
   canvas.width = canvas.height = 1;
-  const gl = canvas.getContext('webgl2', { alpha: false, antialias: false, depth: false, stencil: false, premultipliedAlpha: false, preserveDrawingBuffer: true, powerPreference: 'low-power' });
+  const gl = canvas.getContext('webgl2', { alpha: false, antialias: false, depth: false, stencil: false, premultipliedAlpha: false, preserveDrawingBuffer: false, powerPreference: 'low-power' });
   if (!gl) return null;
   try {
     const ri = gl.getExtension('WEBGL_debug_renderer_info');
@@ -48,40 +50,44 @@ export function createDopplerGL() {
   } catch { /* the renderer's name withheld: taken as a GPU */ }
   let lost = false;
   canvas.addEventListener('webglcontextlost', (e) => { e.preventDefault(); lost = true; });
-  let prog, U;
-  try {
-    const sh = (type, src) => { const s = gl.createShader(type); gl.shaderSource(s, src); gl.compileShader(s); if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(s)); return s; };
-    prog = gl.createProgram();
-    gl.attachShader(prog, sh(gl.VERTEX_SHADER, VS)); gl.attachShader(prog, sh(gl.FRAGMENT_SHADER, FS));
-    gl.linkProgram(prog);
-    if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(prog));
-    U = Object.fromEntries(['ring', 'noise', 'size', 'org', 'p', 'nOff', 'noiseA', 'wall'].map((k) => [k, gl.getUniformLocation(prog, k)]));
-  } catch (e) { console.warn('Doppler on the GPU: shader failed; the 2D monitor stays.', e); return null; }
+  // The program is started now and published once the driver has finished it (gl-compile.js); render() publishes it if it comes first.
+  let started;
+  try { started = startProgram(gl, VS, FS, [['p', 0]]); } catch (e) { console.warn('Doppler on the GPU: shader failed; the 2D monitor stays.', e); return null; }
   const quad = gl.createBuffer();
   gl.bindBuffer(gl.ARRAY_BUFFER, quad);
   gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]), gl.STATIC_DRAW);
   const vao = gl.createVertexArray();
   gl.bindVertexArray(vao);
-  const loc = gl.getAttribLocation(prog, 'p');
-  gl.enableVertexAttribArray(loc); gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);
+  gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
   gl.bindVertexArray(null);
   const tex = () => { const t = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, t); for (const [k, v] of [[gl.TEXTURE_MIN_FILTER, gl.NEAREST], [gl.TEXTURE_MAG_FILTER, gl.NEAREST], [gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE], [gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE]]) gl.texParameteri(gl.TEXTURE_2D, k, v); return t; };
   const ringT = tex(), noiseT = tex();
-  // One draw now, into the 1 × 1 canvas with two black texels: the browser builds the shader's GPU pipeline at its first draw
-  // (Safari's Metal does it then, not at the link above), which fell on the monitor's first frame as it opened. Nothing shows:
-  // the canvas is resized and cleared by the first real draw, and both textures are filled again then.
-  try {
-    for (const t of [ringT, noiseT]) { gl.bindTexture(gl.TEXTURE_2D, t); gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array([0, 0, 0, 255])); }
-    gl.viewport(0, 0, 1, 1); gl.useProgram(prog);
-    gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, ringT); gl.uniform1i(U.ring, 0);
-    gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, noiseT); gl.uniform1i(U.noise, 1);
-    gl.uniform2i(U.size, 1, 1);
-    gl.bindVertexArray(vao); gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4); gl.bindVertexArray(null);
-  } catch { /* only a head start */ }
+  let prog = null, U = null, failed = false;
+  // The finished program read, and one draw of it into a throwaway 1 × 1 target: the browser builds the shader's GPU pipeline at its
+  // first draw (Safari's Metal does it then, not at the link), which fell on the monitor's first frame as it opened. The ring's and the
+  // noise's textures are not touched (they may already hold the monitor's data); render() binds both again.
+  function publish() {
+    if (prog || failed || lost) return;
+    try {
+      prog = checkProgram(gl, started);
+      U = Object.fromEntries(['ring', 'noise', 'size', 'org', 'p', 'nOff', 'noiseA', 'wall'].map((k) => [k, gl.getUniformLocation(prog, k)]));
+      const dummy = [gl.createTexture(), gl.createTexture()];
+      for (const t of dummy) { gl.bindTexture(gl.TEXTURE_2D, t); gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array([0, 0, 0, 255])); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST); }
+      exerciseDraw(gl, () => {
+        gl.useProgram(prog);
+        gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, dummy[0]); gl.uniform1i(U.ring, 0);
+        gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, dummy[1]); gl.uniform1i(U.noise, 1);
+        gl.uniform2i(U.size, 1, 1);
+        gl.bindVertexArray(vao); gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4); gl.bindVertexArray(null);
+      });
+      for (const t of dummy) gl.deleteTexture(t);
+    } catch (e) { failed = true; console.warn('Doppler on the GPU: shader failed; the 2D monitor stays.', e); }
+  }
+  publishWhenDone(gl, [started], publish);
   let rw = 0, rh = 0;
   const bytes = (d) => (d instanceof Uint8Array ? d : new Uint8Array(d.buffer, d.byteOffset, d.byteLength));
   return {
-    get lost() { return lost; },
+    get lost() { return lost || failed; },
     canvas,
     /** The whole ring from an ImageData or a canvas of the ring's size (its first row the top). */
     ringAll(src, w, h) {
@@ -113,7 +119,8 @@ export function createDopplerGL() {
      * trace's top, half height wf px). The rest of the canvas is black (the 2D canvas covers it anyway).
      */
     render({ W, H, dx, dy, RW, RH, p, nx, ny, noiseA, base, wf }) {
-      if (lost || RW !== rw || RH !== rh || gl.isContextLost()) return false;
+      publish();
+      if (lost || failed || RW !== rw || RH !== rh || gl.isContextLost()) return false;
       if (canvas.width !== W || canvas.height !== H) { canvas.width = W; canvas.height = H; }
       const oy = H - dy - RH;
       gl.disable(gl.SCISSOR_TEST);

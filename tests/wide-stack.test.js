@@ -31,7 +31,7 @@ test('each slide comes in with the readings tucked; the card starts in its place
   assert.match(js, /if \(e\.touches\.length !== 1 \|\| !deck \|\| ui\?\.root\.classList\.contains\('pz-wide'\)\) \{ reset\(\); return; \}/);
   // (A pull up brings the readings out, a push down tucks them.)
   assert.match(js, /g\.dir = wideSheet\(el\) \? -1 : 1;/);
-  assert.match(js, /follow\(g, dy \* g\.dir\);/);
+  assert.match(js, /follow\(g, dy \* g\.dir( \/ \(g\.zk \|\| 1\))?\);/);   // (a zoomed card follows the finger over what it shows: card-zoom.test.js)
 });
 
 test('the instrument is fitted to the tucked room; readings that need more room lift the pair, frame by frame, and it comes back down', () => {
@@ -53,20 +53,21 @@ test('the instrument is fitted to the tucked room; readings that need more room 
   // (The card and its handle rise by the readings' travel, --pz-lift; the words and their glass by LIP less, --pz-rise: see the next test.)
   assert.ok(css.includes('.pz.pz-wide .pz-data.col, .pz.pz-wide .pz-lip { translate: 0 calc(-1 * var(--pz-lift, 0px)); }'), 'the card and its handle rise by the readings\' travel');
   assert.ok(css.includes('.pz.pz-wide .pz-text, .pz-shade.pz-card:not(.stack):not(.low) { translate: 0 calc(-1 * var(--pz-rise, 0px)); }'), 'the words and their glass rise together, by LIP less');
-  assert.match(js, /const lf = \(parseFloat\(wrap\.style\.getPropertyValue\('--pz-rise'\)\) \|\| 0\) \* k;/, 'the glass reads back the words\' rise');
+  assert.match(js, /const lf = \(parseFloat\(ui\.text\.style\.getPropertyValue\('--pz-rise'\)\) \|\| 0\) \* k;/, 'the glass reads back the words\' rise');
 });
 
 test('the gap under the words is the same with the readings tucked, out or on the way (Mohammad, 22 Oct)', () => {
   // Runs the real liftTo against a stand-in stage, then places the cards as styles/app.css does: the readings' card's top is 25 px above
   // the box tucked and 1 px out (top: -1px - 24px * (1 - u)), the instrument card's top is u * d - 1 px under the box's, and the box and
   // the words rise by --pz-lift and --pz-rise.
-  const src = js.match(/const setRise = [^\n]*\n\s*const liftTo = [^\n]*/)?.[0];
-  assert.ok(src, 'setRise and liftTo are in presenter.js');
+  const src = js.match(/const riseOn = [\s\S]*?\n\s*const liftTo = [^\n]*/)?.[0];
+  assert.ok(src, 'riseOn, setRise, the words\' rise and liftTo are in presenter.js');
   const LIP = 24, Y = 600, Tb = 480;   // (the box's top at rest, the words' card's foot at rest)
   for (const base of [0, 70]) for (const d of [60, 128, 210]) {
     const props = new Map(), slip = { lift: d + base, base };
-    const wrap = { style: { getPropertyValue: (n) => props.get(n) ?? '', setProperty: (n, v) => props.set(n, v), removeProperty: (n) => props.delete(n) } };
-    const { liftTo } = new Function('wrap', 'slip', 'LIP', `${src}; return { liftTo };`)(wrap, slip, LIP);
+    const card = () => ({ style: { getPropertyValue: (n) => props.get(n) ?? '', setProperty: (n, v) => props.set(n, v), removeProperty: (n) => props.delete(n) } });
+    const ui = { data: card(), lip: card(), text: card(), shade: card() };
+    const { liftTo } = new Function('ui', 'slip', 'LIP', 'zoomFollow', 'slideTell', `${src}; return { liftTo };`)(ui, slip, LIP, () => {}, () => {});   // (no card zoomed: the zoom hears nothing)
     const at = (u) => {
       liftTo(u);
       const lift = parseFloat(props.get('--pz-lift')) || 0, rise = parseFloat(props.get('--pz-rise')) || 0;
@@ -110,5 +111,21 @@ test('a Gut to heart chart too tall for the room under the words lifts the pair 
   assert.match(js, /if \(wideSheet\(dd\) && dd\.hasAttribute\('data-ladder'\)\) \{\n\s*const b = Math\.max\(0, Math\.min\(top0 \+ t\.height \+ 2 \* pad \+ gap \+ ch - foot, t\.height \+ 2 \* pad \+ gap\)\) \/ k;\n\s*slip\.base = b > 0\.5 \? b : 0;/);
   assert.match(js, /if \(!\(below && t && wideSheet\(dd\)\)\) \{ slip\.lift = 0; slip\.base = 0; \}/);
   // (The rise is the base always, and the readings add the rest of their lift on top, by u.)
-  assert.match(js, /const liftTo = \(u\) => \{ const trav = Math\.max\(0, slip\.lift - slip\.base\), f = u > 0 \? u : 0; setRise\('--pz-lift', slip\.base \+ f \* trav\); setRise\('--pz-rise', slip\.base \+ f \* Math\.max\(0, trav - LIP\)\);/);
+  assert.match(js, /const liftTo = \(u\) => \{ const trav = Math\.max\(0, slip\.lift - slip\.base\), f = u > 0 \? u : 0; setRise\('--pz-lift', slip\.base \+ f \* trav\); words\.u = f; words\.trav = trav; setWords\(wordsAt\(\)\);/);
+  assert.match(js, /const wordsAt = \(\) => slip\.base \+ \(words\.held \? 0 : words\.u\) \* Math\.max\(0, words\.trav - LIP\);/);
+});
+
+// (Mohammad, 25 Oct: "moving the cards up sliding tucking untucking is very very laggy. Like 10fps maybe".)
+test('a slide of the readings\' card never restyles the figure or lays the cards out again on every frame', () => {
+  // (The rise is written on the four cards it moves, never on the stage's box, whose style the stage watches and every vessel inherits.)
+  assert.match(js, /const riseOn = \(name\) => \(name === '--pz-lift' \? \[ui\?\.data, ui\?\.lip\] : \[ui\?\.text, ui\?\.shade\]\);/);
+  const rise = js.match(/const setRise = [^\n]*/)?.[0] || '';
+  assert.ok(rise && !/wrap\./.test(rise), 'the rise is not written on the stage\'s box');
+  // (The data card's box changes size on every frame of a slide: its watchers wait until it rests, and foldStill lays it out once then.)
+  // (And a zoomed card, card-zoom.js: laid out once it is back.)
+  assert.match(js, /const cardMoving = \(\) => !!ui && \(ui\.data\.classList\.contains\('pz-sliding'\) \|\| 'folding' in ui\.data\.dataset \|\| zoomHeld\(\)\);/);
+  assert.ok(js.indexOf('const cardMoving') < js.indexOf('const fitWatch'));
+  assert.match(js, /if \(data\.classList\.contains\('pz-sliding'\) \|\| partOf\(\)\.getAnimations\?\.\(\)\.some\(\(a\) => a\.playState === 'running'\)\) \{ foldT = setTimeout\(foldStill, 100\); return; \}/);
+  assert.match(js, /delete data\.dataset\.folding; fitDone\.delete\(data\); onResize\(\);/, 'laid out once it rests');
+  assert.match(js, /new ResizeObserver\(\(\) => \{ if \(!data\.classList\.contains\('pz-sliding'\)\) placeLip\(\); \}\)/, 'the handle is placed by the slide itself while it slides');
 });

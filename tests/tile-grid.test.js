@@ -31,10 +31,10 @@ test('the FibroScan reads the model median, the number in the tile and words', (
 
 test('a ladder card shows no HVPG or PPG tiles: its brackets give them, so no number is shown twice, rounded two ways', () => {
   const pres = readFileSync(new URL('../src/ui/presenter.js', import.meta.url), 'utf8');
-  assert.match(pres, /const tileKeys = \(s\) => \(s\.tiles \|\| \[\]\)\.filter\(\(k\) => !\(s\.tool\?\.kind === 'flowtime' && s\.tool\.lines\?\.includes\(k\) && !phone\(\)\)\);/, 'a chart over the days drops tiles for its own two lines, on a laptop or tablet');
+  assert.match(pres, /const ownKeys = \(s\) => \(s\.tiles \|\| \[\]\)\.filter\(\(k\) => !\(s\.tool\?\.kind === 'flowtime' && s\.tool\.lines\?\.includes\(k\) && !phone\(\)\)\);/, 'a chart over the days drops tiles for its own two lines, on a laptop or tablet');
   assert.match(pres, /if \(sg !== sig \|\| !draw\)/, 'an empty tile set still builds');
   assert.ok(css.includes('.pz-tiles[data-n="0"] { display: none; }'));
-  const decks = ['hvpg', 'ncph', 'one-year', 'outflow', 'prehepatic', 'pvt-cirrhosis', 'recompensation', 'right-heart', 'treatment']
+  const decks = ['hvpg', 'ncph', 'outflow', 'prehepatic', 'recompensation', 'treatment']
     .map((d) => readFileSync(new URL(`../src/ui/decks/${d}.js`, import.meta.url), 'utf8')).join('\n');
   assert.doesNotMatch(decks, /data: 'ladder'/, 'every ladder is the Gut to heart chart');
   const lines = decks.split('\n').filter((l) => /kind: 'profile'/.test(l));
@@ -57,8 +57,8 @@ test('an instrument with tiles: the instrument on the left, the tiles stacked be
   assert.doesNotMatch(css, /pz-data[^{]*:has\(> \.pz-tiles/, 'no :has() on the data card (it made every layout of the page slow)');
   const pres = readFileSync(new URL('../src/ui/presenter.js', import.meta.url), 'utf8');
   // (All but the portal blood bar, which needs the card's full width for its segments' names, and the fluid balance's capacity
-  // window, whose rows of numbers need it too: their tiles go under them.)
-  assert.match(pres, /data\.classList\.toggle\('pz-beside', !!s\.tool && !!s\.data && tileKeys\(s\)\.length > 0 && s\.tool\?\.kind !== 'flows' && !\(s\.tool\?\.kind === 'fluid' && s\.tool\.window\)\)/, 'every instrument, the Gut to heart chart among them, not only the FibroScan');
+  // window, whose rows of numbers need it too, and the criteria card, whose rules are sentences: their tiles go under them.)
+  assert.match(pres, /data\.classList\.toggle\('pz-beside', !!s\.tool && !!s\.data && tileKeys\(s\)\.length > 0 && s\.tool\?\.kind !== 'flows' && s\.tool\?\.kind !== 'criteria' && !\(s\.tool\?\.kind === 'fluid' && s\.tool\.window\)\)/, 'every instrument, the Gut to heart chart among them, not only the FibroScan');
   assert.match(pres, /if \(c === side\) continue;/);
 });
 

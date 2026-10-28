@@ -29,7 +29,7 @@ can use? If the sentence could be pasted onto any other slide, it says nothing. 
 | AI-sounding | Human |
 |---|---|
 | It is important to note that the portal vein carries blood to the liver. | The portal vein carries blood to the liver. |
-| It's worth mentioning that HVPG ≥ 10 mmHg is clinically significant. | HVPG ≥ 10 mmHg is clinically significant. |
+| It's worth mentioning that HVPG ≥10 mmHg is clinically significant. | HVPG ≥10 mmHg is clinically significant. |
 | In conclusion, treating the cause matters most. | Treat the cause first. |
 | Let's dive into how pressure builds. | How pressure builds: |
 | Overall, this highlights the role of resistance. | Resistance is the main driver here. |
@@ -83,6 +83,7 @@ risk climbs gradually and does not switch on at a cutoff.
 - Define a term the first time it appears on a slide (HVPG, PPG, WHVP, FHVP), then use it plainly.
 - Lead with the mechanism or the clinical consequence, then the number. "Resistance rises in the sinusoids, so portal pressure climbs: HVPG 14 mmHg."
 - Use the same word for the same thing across all decks (portal vein, not "main portal conduit").
+- Comparisons are symbols, never words (Mohammad, 26 Oct): `>` `<` `≥` `≤` with no space, "≥150,000/µL", "<20 kPa", "≥6 months", "BMI ≥30". Not "more than", "or more", "at least", "over", "under", "above", "below" with a number, and never a trailing plus ("150,000+"). Do not put a word beside a cut-off pill (no "above {>=5 mmHg}"). A comparative with no number ("carvedilol lowers the HVPG more than propranolol") and a duration ("over 3 weeks") stay words.
 - Keep thresholds as rising risk, as in the app: HVPG 5 mmHg (amber) and 10 mmHg (red); PPG 6 mmHg (amber) and 12 mmHg (red).
 - Numbers: whole numbers only on the "Pressure, portal vein to heart" ladder card; one decimal everywhere else. Any HVPG or PPG must equal the difference of the readings shown.
 - US audience: octreotide, not terlipressin or somatostatin. SOS is post-sinusoidal.
@@ -98,7 +99,7 @@ risk climbs gradually and does not switch on at a cutoff.
 
 **Threshold**
 - Before: *An HVPG significantly above 10 mmHg is a pivotal marker of clinically significant portal hypertension.*
-- After: *At an HVPG of 10 mmHg or more, varices and decompensation become much more likely.*
+- After: *At an HVPG ≥10 mmHg, varices and decompensation become much more likely.*
 
 **Title**
 - Before: *Unlocking the Secrets of the Portal Vein*

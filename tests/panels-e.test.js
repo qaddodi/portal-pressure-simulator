@@ -73,22 +73,24 @@ test('the model\'s compensated patients fall where the stiffness deck says', asy
   // HVPG against PPG: presinusoidal resistance raises the PPG alone, cirrhosis both.
   const [schisto, cirr] = await runSteps([{ preset: 'schisto' }, { preset: 'cirr-decomp' }]);
   assert.equal(zoneOf(planeOf('hvpg-ppg'), schisto).t, 'PPG raised, HVPG normal');
+  // (Four quadrants, as before the lines were named: Mohammad, 26 Oct, "keep it 4 quadrants; just label the 10/12 line".)
   assert.equal(zoneOf(planeOf('hvpg-ppg'), cirr).t, 'Both raised');
+  assert.deepEqual(planeOf('hvpg-ppg').zones.map((z) => z.t), ['Both normal', 'PPG raised, HVPG normal', 'HVPG raised, PPG normal', 'Both raised']);
 });
 
 test('words fit whole or not at all, and names never overlap one another or leave the plot', () => {
   assert.deepEqual(fitWords('Gray zone', 200, 13), ['Gray zone']);
   assert.deepEqual(fitWords('No screening scope', 80, 13), ['No', 'screening', 'scope']);
   assert.equal(fitWords('Unbreakableveryveryverylongword', 60, 13), null);
-  const pl = planeOf('csph'), fr = frame(360, 260, 13, pl);
-  assert.ok(fr.L > 13 && fr.R < 360 && fr.T > 0 && fr.B < 260);
+  const fr = frame(360, 260);
+  assert.ok(fr.L > 0 && fr.R < 360 && fr.T > 0 && fr.B < 260, 'the plot is the element but a few px (the shape reaches its edge; its numbers stand on it)');
   const pts = [[200, 120, 'Compensated, CSPH by HVPG'], [206, 126, 'Compensated, CSPH'], [80, 60, 'Healthy'], [90, 70, 'Compensated, no CSPH'], [300, 200, 'Heart failure']].map(([x, y, name]) => ({ x, y, name }));
   const out = placeNames(pts, fr, 13);
   const boxes = out.filter(Boolean).map((o) => o.box);
   assert.equal(boxes.length, pts.length, 'every point keeps its name');
   // (The levels slide on a phone: six patients, four of them near the left axis; a name with no room beside its point sits
   // further out on a thin line.)
-  const hp = planeOf('hvpg-ppg'), hf = frame(345, 290, 16, hp);   // (the phone's plot and its 16 px caption)
+  const hp = planeOf('hvpg-ppg'), hf = frame(345, 290);   // (the phone's plot and its 16 px caption)
   const crowd = [[0.4, 22, 'Budd–Chiari'], [2, 15, 'Portal vein thrombosis', 'PVT'], [3.5, 16.5, 'Schistosomiasis'], [16, 17, 'Cirrhosis'], [2.2, 4, 'Healthy'], [0.5, 1.5, 'Heart failure']]
     .map(([a, b, name, short]) => ({ x: hf.L + (hf.R - hf.L) * a / 30, y: hf.B - (hf.B - hf.T) * b / 30, name, short }));
   const { X, Y } = scaler(hp, hf), rules = lineBoxes(hp, X, Y, hf);

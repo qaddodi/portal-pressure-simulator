@@ -576,8 +576,9 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
       window.clearTimeout = (i) => { if (i >= 1e9) timers = timers.filter(([j]) => j !== i); else ct(i); };
       const due = () => { for (;;) { timers.sort((a, b) => a[1] - b[1]); const t = timers[0]; if (!t || t[1] > T) return; timers.shift(); t[2](...t[3]); } };
       window.__step = (dt) => { T += dt; due(); const run = q; q = []; for (const cb of run) cb(T); due(); };
-      // Every canvas of the lobule view shown scaled down whose corners are not clear (the vessels' WebGL canvas is not read).
-      window.__opaqueCorners = () => [...document.querySelectorAll('.lz canvas:not(.lz-gl)')].filter((c) => {
+      // Every canvas of the lobule view shown scaled down whose corners are not clear (the WebGL canvases, the vessels' and the tissue's,
+      // are not read: the tissue's is hidden through the dive and the rise, which show the 2D canvas's copy).
+      window.__opaqueCorners = () => [...document.querySelectorAll('.lz canvas:not(.lz-gl):not(.lz-tissue-gl)')].filter((c) => {
         const cs = getComputedStyle(c);
         if (cs.visibility === 'hidden' || !c.width || !/matrix/.test(cs.transform) || new DOMMatrix(cs.transform).a > 0.999) return false;
         const x = c.getContext('2d'), px = (u, v) => x.getImageData(u, v, 1, 1).data[3];
@@ -777,7 +778,7 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
       await page.evaluate(() => window.pps.store.set({ sinusoid: false }));
       }
       // Presenter: the HVPG deck's presinusoidal slide (its lesion pill), then the lobule deck's sinusoid slide.
-      for (const [deck, i, sin] of [['hvpg', 6, false], ...(k === String(TEXT_MIN) ? [['lobule', 4, true]] : [])]) {
+      for (const [deck, i, sin] of [['hvpg', 5, false], ...(k === String(TEXT_MIN) ? [['lobule', 3, true]] : [])]) {
         await page.evaluate(([deck, i]) => window.pps.presenter.start(deck, i), [deck, i]);
         // (Each stage waits on its own: the start's cover alone can take 15 s here, and a CI runner's shared GPU is far slower.)
         for (const ready of [() => document.querySelector('#app').classList.contains('presenting') && !document.querySelector('.pz-cover'),
@@ -801,7 +802,7 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     // scale about nine times slower, a frame every few seconds, and the slide changes then took longer than the check waits.)
     if (device === 'phone') await (await page.context().newCDPSession(page)).send('Emulation.setDeviceMetricsOverride', { ...DEVICES.phone.viewport, deviceScaleFactor: 1, mobile: true });
     await open(page, '?preset=healthy');
-    await page.evaluate(() => window.pps.presenter.start('circulation', 5));
+    await page.evaluate(() => window.pps.presenter.start('circulation', 4));
     await page.waitForFunction(() => document.querySelector('#app').classList.contains('presenting') && window.pps.stage.lobuleOpen() && window.pps.stage.lobuleSettled() && !document.querySelector('.pz-cover'), null, { timeout: 60000 });   // (the start's cover gone)
     const settle = async () => {
       await page.waitForFunction(() => { const a = document.querySelector('#app'); return !a.classList.contains('pz-hush') && !a.classList.contains('pz-hush-in') && (window.pps.stage.lobuleOpen() || window.pps.store.get().sinusoid); }, null, { timeout: 30000 });
@@ -850,7 +851,9 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
       const { seen, after, ratio } = await page.evaluate(() => { const seen = window.__labSeen; window.__labSeen = null; return { seen, after: document.querySelector('#app').dataset.lit || '', ratio: { ...window.__labBefore, ...window.__labRatio() } }; });
       if (!before || !after) throw new Error(`${what}: a slide lights nothing in the liver (before "${before}", after "${after}"), so this check cannot tell`);
       const ok = new Set([...before.split(' '), ...after.split(' ')]);
-      const stray = seen.filter((x) => !ok.has(x.t));
+      // (The sinusoid view keeps every name and arrow, lit or not, so a change into or out of it shows them all; the lobule's names stay strict.)
+      const sinKept = [...ok].some((t) => t.startsWith('sinusoid:'));
+      const stray = seen.filter((x) => !ok.has(x.t) && !(sinKept && x.t.startsWith('sinusoid:')));
       if (stray.length) {
         const worst = stray.reduce((m, x) => (x.text > m.text ? x : m));
         throw new Error(`${what}: ${new Set(stray.map((x) => x.t || '(no target)')).size} label(s) from neither slide showed, up to ${worst.text.toFixed(2)} (${worst.kind} ${worst.t || '(no target)'}, lit "${worst.lit}")`);
@@ -1056,7 +1059,7 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
   if (device === 'phone') await check(device, 'Turning an iPad mid-slide keeps the data card off the words', async (page) => {
     // (reached with motion instant, as the layout checks do, and an iPad held sideways; the turns then run with the page's own fades and glides)
     const restore = await instantMotionOn(page);
-    await gotoSlide(page, server.url, 'hvpg', 4);
+    await gotoSlide(page, server.url, 'hvpg', 5);
     await page.setViewportSize({ width: 1366, height: 1024 });
     await page.waitForTimeout(1000); await quiet(page);
     await restore();
@@ -1104,13 +1107,13 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
   // moves steadily from the first frame to the last, in one direction, with no stop at an intermediate framing (the liver, the fit).
   // The presenter's slides are walked with the arrow keys, from the slide before a crossing to the one after it, and back.
   const CROSSINGS = [   // [deck, slide to start on (0-based), key, whether the key goes into the lobule, whether it is the sinusoid view that is gone to or left]
-    ['circulation', 4, 'ArrowRight', true], ['circulation', 5, 'ArrowLeft', false], ['circulation', 8, 'ArrowRight', false],   // ladder → lobule and back; central vein → the next view
+    ['circulation', 3, 'ArrowRight', true], ['circulation', 4, 'ArrowLeft', false], ['circulation', 5, 'ArrowRight', false],   // ladder → lobule and back; the sinusoid wall → the next view
     ['lobule', 0, 'ArrowRight', true],   // the outline's fit → the whole lobule
-    ['ncph', 1, 'ArrowRight', true], ['ncph', 4, 'ArrowRight', true], ['ncph', 5, 'ArrowRight', false, false, true],   // a fit, then a liver close-up, before it (the last one changes the patient: propranolol)
+    ['ncph', 1, 'ArrowRight', true], ['ncph', 4, 'ArrowRight', true], ['ncph', 5, 'ArrowRight', false, false, true],   // a fit, then a liver close-up, before it (the last one leaves the lobule for the summary table)
     ['sites', 7, 'ArrowLeft', true],   // backwards into it
-    ['ascites', 0, 'ArrowRight', true, true], ['ascites', 5, 'ArrowRight', true, true], ['tap', 7, 'ArrowRight', true, true],   // anatomy straight to the sinusoid view, through the lobule without stopping in it
-    ['ascites', 6, 'ArrowRight', false, true, true], ['ascites', 9, 'ArrowRight', false, true, true],   // and the sinusoid view straight back out to the anatomy (a new patient: the words, and so the space the camera frames into, are settled after the rise)
-    ['hvpg', 6, 'ArrowRight', false, false, true], ['outflow', 5, 'ArrowRight', true],   // out to a region, with a new patient (schisto to chronic PVT: the words settle after the rise); in from a region
+    ['ascites', 0, 'ArrowRight', true, true], ['ascites', 4, 'ArrowRight', true, true],   // anatomy straight to the sinusoid view, through the lobule without stopping in it
+    ['ascites', 5, 'ArrowRight', false, true, true],   // and the sinusoid view straight back out to the anatomy (a new patient: the words, and so the space the camera frames into, are settled after the rise)
+    ['hvpg', 5, 'ArrowRight', false, false, true], ['outflow', 4, 'ArrowRight', true],   // out to a region, with a new patient (schisto to chronic PVT: the words settle after the rise); in from a region
     // In Explore (the view buttons), with no slide: anatomy to the lobule, to a station in it as a slide asks for one, and straight to
     // the sinusoid view and back out.
     ['explore', 'lobule', null, true], ['explore', 'triad', null, true], ['explore', 'sinusoid', null, true, true], ['explore', 'out', null, false, true],
@@ -1525,7 +1528,7 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     const deck = withOverview(DECKS.find((d) => d.id === 'tips-doppler'));
     for (const [w, h] of [[1440, 900], [1280, 800], [1024, 768]]) {
       await page.setViewportSize({ width: w, height: h });
-      for (const id of ['narrow', 'where']) {
+      for (const id of ['narrow', 'fix']) {
         await open(page, `?script=tips-doppler&slide=${deck.slides.findIndex((s) => s.id === id) + 1}`);
         await page.waitForFunction(() => document.querySelector('.pz-data:not(.pz-hide) .dop-pattern')?.textContent.trim() && document.querySelector('.pz-data:not(.pz-hide) .dop-pattern').closest('.dop-report').style.getPropertyValue('--dop-k'), null, { timeout: 60000 });
         // (a short window folds the instrument behind Show: opened, as a presenter would)
@@ -1872,7 +1875,7 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
   if (device === 'desktop') for (const size of [{ width: 1728, height: 1000 }, { width: 1440, height: 900 }, { width: 1280, height: 800 }, { width: 820, height: 1180 }, { width: 1180, height: 820 }]) await check(device, `presenter: tiles under a chart keep their words whole and their change lines short at ${size.width}x${size.height}`, async (page) => {
     await page.setViewportSize(size);
     await open(page);
-    for (const [deck, at] of [['ascites', 4], ['varices', 2], ['shunts', 4], ['variceal-bleed', 2]]) {
+    for (const [deck, at] of [['ascites', 3], ['varices', 2], ['shunts', 4], ['variceal-bleed', 2]]) {
       await page.evaluate(([id, i]) => window.pps.presenter.start(id, i), [deck, at]);
       await page.waitForFunction((i) => window.pps.presenter.probe()?.i === i && !document.querySelector('.pz-cover') && document.querySelector('.pz-data.has-tool:not(.pz-hide) .pzt-d'), at, { timeout: 60000 });
       await page.waitForFunction(() => !window.pps.presenter.probe().playing, null, { timeout: 120000, polling: 500 });
@@ -1894,7 +1897,7 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
   });
 
   // An upright iPad (820x1180): on every slide of the decks that open the sinusoid view, its names keep off the cards.
-  if (device === 'desktop') for (const deck of ['ascites', 'tap', 'lobule']) await check(device, `presenter: on every slide of ${deck} at 820x1180 the sinusoid's names keep off the cards`, async (page) => {
+  if (device === 'desktop') for (const deck of ['ascites', 'lobule']) await check(device, `presenter: on every slide of ${deck} at 820x1180 the sinusoid's names keep off the cards`, async (page) => {
     await page.setViewportSize({ width: 820, height: 1180 });
     await open(page);
     await page.evaluate((id) => window.pps.presenter.start(id, 0), deck);
@@ -2071,7 +2074,7 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     });
     if (d.h > 300 || d.hit) throw new Error(`Doppler card ${Math.round(d.h)}px tall (cap 300)${d.hit ? ', the direction runs into the stats' : ''}`);
     // The DIPS slide's ascites rating ("Grade 1") stays inside its tile, clear of the other tiles' words.
-    await page.evaluate(() => window.pps.presenter.start('outflow', 5));
+    await page.evaluate(() => window.pps.presenter.start('outflow', 4));
     await page.waitForFunction(() => /Grade/.test(document.querySelector('.pz-data:not(.pz-hide) .pz-tiles')?.textContent || ''), null, { timeout: 60000 });
     await page.waitForTimeout(800);
     const hits = await page.evaluate(() => {
@@ -2260,10 +2263,10 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
         if (odd) bad.push(`${w}: ${want ? 'opening' : 'shutting'} by a handle tap passed through ${show({ ...odd, dh: rest.dh })}; rests at ${show(rest)}`);
       }
     }
-    // A folded card (a 320 px iPhone, TIPS Doppler slide 9): its header at full size, 12 px words or more.
+    // A folded card (a 320 px iPhone, TIPS Doppler slide 6): its header at full size, 12 px words or more.
     await page.setViewportSize({ width: 320, height: 568 });
     await open(page);
-    await page.evaluate(() => window.pps.presenter.start('tips-doppler', 8));
+    await page.evaluate(() => window.pps.presenter.start('tips-doppler', 5));
     await page.waitForFunction(() => document.querySelector('#app').classList.contains('presenting') && !document.querySelector('.pz-cover')
       && document.querySelector('.pz-data.pz-sheet')?.offsetWidth, null, { timeout: 60000 });
     await page.waitForTimeout(1500);
@@ -2450,7 +2453,7 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
       const ctx = await fastContext(browser, { viewport: { width: 390, height: 844 }, deviceScaleFactor: 3, isMobile: true, hasTouch: true });
       await ctx.addInitScript((s) => { try { localStorage.setItem('pps.labelScale', String(s)); localStorage.setItem('pps.labelScaleV', '2'); } catch { /* */ } }, step);
       const page = await ctx.newPage();
-      await gotoSlide(page, server.url, 'circulation', 2); await quiet(page); await page.waitForTimeout(800);
+      await gotoSlide(page, server.url, 'encephalopathy', 5); await quiet(page); await page.waitForTimeout(800);
       const r = await page.evaluate(() => {
         const t = document.querySelector('.pz-text'), a = t.querySelector('.pz-ab').getBoundingClientRect(), k = document.querySelector('.pz-fk').getBoundingClientRect();
         const names = [...document.querySelectorAll('#stageView g.lb text')].filter((x) => { const g = x.closest('g.lb'); return getComputedStyle(g).display !== 'none' && +getComputedStyle(g).opacity > 0.1; }).map((x) => x.textContent.trim()).filter((s) => /^[A-Z]+$/.test(s));
@@ -2506,8 +2509,8 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     const bad = [];
     for (const size of [{ width: 1440, height: 900 }, { width: 1180, height: 820 }, { width: 820, height: 1180 }]) {
       await page.setViewportSize(size);
-      for (const [deck, n] of [['circulation', 4], ['hvpg', 10], ['circulation', 12]]) {
-        if (size.width === 1440 && n === 4) await open(page, `?script=${deck}&slide=${n}`);
+      for (const [deck, n] of [['circulation', 3], ['hvpg', 10], ['circulation', 12]]) {
+        if (size.width === 1440 && n === 3) await open(page, `?script=${deck}&slide=${n}`);
         else await page.evaluate(([id, i]) => window.pps.presenter.start(id, i), [deck, n - 1]);
         await page.waitForFunction((k) => Number(document.querySelector('.pzb-n')?.textContent.split('/')[0]) === k && !document.querySelector('.pz-cover, .pz-load.on'), n, { timeout: 60000 });
         await page.waitForTimeout(3500);   // (longer than the old bar's idle fade)
@@ -2571,11 +2574,13 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
 
   await check(device, 'presenter: summary table cells stay under their headings', async (page) => {
     // Each cell's contents sit inside its column heading's width, and no two cells overlap, at each size (the desktop run
-    // also tries an upright iPad). (A phone's control padding once pushed the names into the HVPG column.)
-    const sizes = device === 'desktop' ? [null, { width: 820, height: 1180 }] : [null];
+    // also tries an upright iPad and an iPad on its side, small and large), and the table never scrolls sideways: a card
+    // never scrolls (Mohammad, 25 Oct: the nine-column tables scrolled on an iPad on its side).
+    // (A phone's control padding once pushed the names into the HVPG column.)
+    const sizes = device === 'desktop' ? [null, { width: 820, height: 1180 }, { width: 1024, height: 768 }, { width: 1194, height: 834 }, { width: 1366, height: 1024 }] : [null];
     for (const size of sizes) {
       if (size) await page.setViewportSize(size);
-      for (const deck of ['circulation', 'hvpg', 'sites']) {   // (sites: the most columns)
+      for (const deck of ['circuit', 'hvpg', 'sites']) {   // (sites: the most columns)
         const { DECKS, withOverview } = await import(new URL('../../src/ui/decks.js', import.meta.url));
         const at = withOverview(DECKS.find((d) => d.id === deck)).slides.findIndex((x) => x.visual === 'table') + 1;
         await open(page, `?script=${deck}&slide=${at}`);   // (the summary: the slide before the closing quick check)
@@ -2613,6 +2618,7 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
               seen.push({ b, name });
             }
           }
+          if (!document.querySelector('.pz.stack') && t.scrollWidth > t.clientWidth + 1) out.push(`the table scrolls sideways (${t.scrollWidth} px of content in ${t.clientWidth})`);
           return out;
         });
         if (bad.length) throw new Error(`${deck}${size ? ` at ${size.width}x${size.height}` : ''}: ${bad.slice(0, 4).join('; ')}`);
@@ -2674,7 +2680,7 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     const sizes = device === 'desktop' ? [null, { width: 820, height: 1180 }] : [null];
     for (const size of sizes) {
       if (size) await page.setViewportSize(size);
-      for (const [deck, n] of [['circulation', 6], ['circulation', 7], ['two-inflows', 3], ['lobule', 7]]) {
+      for (const [deck, n] of [['circulation', 5], ['circulation', 6], ['two-inflows', 3], ['lobule', 5]]) {
         await open(page, `?script=${deck}&slide=${n}`);
         await page.waitForFunction(() => [...document.querySelectorAll('.lz.on:not(.lz-cam):not(.lz-sin) .lz-lab, .sv-region')].filter((e) => !e.hidden && e.offsetParent).length >= 2);
         // Settled: the labels hold still across two looks a moment apart.
@@ -3498,7 +3504,7 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     // no points and found nothing to fail on), and the presenter's buttons are waited for, as they arrive after the figure.)
     const { DECKS, withOverview } = await import(new URL('../../src/ui/decks.js', import.meta.url));
     const tips = withOverview(DECKS.find((d) => d.id === 'tips-doppler'));
-    for (const id of ['jet', 'narrow', 'where', 'fix']) for (const unfold of device === 'phone' ? [false, true] : [false]) {
+    for (const id of ['jet', 'narrow', 'fix']) for (const unfold of device === 'phone' ? [false, true] : [false]) {
       const n = tips.slides.findIndex((s) => s.id === id) + 1;
       if (!n) throw new Error(`TIPS Doppler has no slide "${id}"`);
       await open(page, `?script=tips-doppler&slide=${n}`);
@@ -3581,8 +3587,8 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
         const apart = await page.waitForFunction(agree, null, { polling: 'raf', timeout: 10000 }).then(() => '', () => page.evaluate(() => `the monitor reads ${document.querySelector('.pz-data .dop-vel > b').textContent}, the green callout ${document.querySelector('#labels g.lb[data-key^="n:TIPS:"] .lb-gate').closest('g.lb').textContent}`));
         if (apart) got.err.push(apart);
         if (got.err.length) throw new Error(`TIPS Doppler ${at}, button ${k + 1}: ${[...new Set(got.err)].join('; ')}`);
-        // (The "where" and "fix" slides move or open the narrowing itself with the pick; elsewhere only the sampled point changes, and nothing moves.)
-        if (id !== 'where' && id !== 'fix' && k && Object.entries(got.at).some(([p, [x, y]]) => Math.abs(x - first[p][0]) > 2 || Math.abs(y - first[p][1]) > 2)) throw new Error(`TIPS Doppler ${at}, button ${k + 1}: a callout moved when another point was picked (${JSON.stringify(first)} → ${JSON.stringify(got.at)})`);
+        // (The "narrow" and "fix" slides move or open the narrowing itself with the pick; elsewhere only the sampled point changes, and nothing moves.)
+        if (id !== 'narrow' && id !== 'fix' && k && Object.entries(got.at).some(([p, [x, y]]) => Math.abs(x - first[p][0]) > 2 || Math.abs(y - first[p][1]) > 2)) throw new Error(`TIPS Doppler ${at}, button ${k + 1}: a callout moved when another point was picked (${JSON.stringify(first)} → ${JSON.stringify(got.at)})`);
         if (!k) first = got.at;
       }
     }
@@ -3594,7 +3600,7 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
   await check(device, 'presenter TIPS Doppler: the narrowing\'s "60 %" keeps clear of every callout, label and arrow', async (page) => {
     const { DECKS, withOverview } = await import(new URL('../../src/ui/decks.js', import.meta.url));
     const tips = withOverview(DECKS.find((d) => d.id === 'tips-doppler'));
-    for (const id of ['narrow', 'where']) {
+    for (const id of ['narrow']) {
       await open(page, `?script=tips-doppler&slide=${tips.slides.findIndex((s) => s.id === id) + 1}`);
       await page.waitForFunction(() => document.querySelector('.clamp-label') && document.querySelectorAll('#labels g.lb[data-key^="n:TIPS:"]:not(.lb-off)').length === 3, null, { timeout: 60000 });
       await page.waitForFunction(() => { const now = JSON.stringify(window.pps.stage.labelClearance()), same = now === window.__tipsClear; window.__tipsClear = now; return same; }, null, { polling: 500, timeout: 30000 }).catch(() => {});
@@ -4015,7 +4021,7 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
       await open(page, '?preset=cirr-decomp'); await tapTool(page, '#tabInstruments'); await verify(`${at} tests`);
       await page.evaluate(() => window.pps.details({ type: 'edge', id: 'PV_TRUNK' })); await verify(`${at} tests + details`);
       await open(page, '?script=circulation');
-      for (let i = 0; i < 10; i++) { await verify(`${at} slide ${i + 1}`); await page.keyboard.press('ArrowRight'); }
+      for (let i = 0; i < 8; i++) { await verify(`${at} slide ${i + 1}`); await page.keyboard.press('ArrowRight'); }
     }
   });
   // A phone held sideways is laid out like a narrow iPad: one bar row, Tests docked on the right at full height, the
@@ -4182,7 +4188,7 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     for (const [w, hgt] of cases) {
       await page.setViewportSize({ width: w, height: hgt });
       await open(page);
-      for (let n = 1; n <= 11; n++) {
+      for (let n = 1; n <= 10; n++) {
         if (n === 1) await page.evaluate(() => window.pps.presenter.start('circuit', 0)); else await page.evaluate((k) => window.pps.presenter.go(k), n - 1);
         await page.waitForFunction((k) => Number(document.querySelector('.pzb-n')?.textContent.split('/')[0]) === k && !window.pps.presenter.busy() && !document.querySelector('.pz-load.on, .pz-cover'), n, { timeout: 120000 });
         await page.waitForTimeout(4000);
@@ -4254,7 +4260,7 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
       await open(page);
       const restore = await instantMotionOn(page);
       let started = false;
-      for (const k of [4, 9, 2]) {   // (TIPS Doppler 5, 10 and 3: an instrument folded, and slides with the velocity key)
+      for (const k of [2, 5, 8]) {   // (TIPS Doppler 3, 6 and 9: an instrument folded, and the velocity and direction keys)
         if (!started) { await page.evaluate((n) => window.pps.presenter.start('tips-doppler', n), k); started = true; }
         else await page.evaluate((n) => window.pps.presenter.go(n), k);
         await page.waitForFunction((n) => Number(document.querySelector('.pzb-n')?.textContent.split('/')[0]) === n + 1 && !window.pps.presenter.busy(), k, { timeout: 60000 });
@@ -4287,8 +4293,8 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
   await check(device, 'presenter: resistance readings and callouts show, clear of the cards and the figure labels', async (page) => {
     const sizes = device === 'desktop' ? [[820, 1180], [1180, 820], [1440, 900]] : [[390, 844], [375, 667], [320, 568]];
     // (Plus every other slide with a reading on the figure, and every slide whose words a 320 px phone had fitted under 12 px.)
-    const more = 'hvpg 4,5,8,10;right-heart 3,5,7;shunts 2,5,6,8,9;stiffness 7;treatment 10;two-inflows 8;lobule 8;ncph 4;one-year 3,6;outflow 6,8;prehepatic 3,6;doppler 2,8;sites 3,8';
-    const slides = [...Array.from({ length: 11 }, (_, i) => ['circuit', i]), ['hvpg', 2],
+    const more = 'hvpg 4,5,7,9;right-heart 3,5,7;shunts 2,5,6,8,9;stiffness 7;treatment 10;two-inflows 8;lobule 6;ncph 4;outflow 6,8;prehepatic 3,6;doppler 2,8;sites 3,8';
+    const slides = [...Array.from({ length: 10 }, (_, i) => ['circuit', i]), ['hvpg', 2],
       ...more.split(';').flatMap((x) => { const [d, n] = x.split(' '); return n.split(',').map((k) => [d, k - 1]); })];
     const out = [];
     for (const [w, hgt] of sizes) {
@@ -4424,12 +4430,12 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
       await open(page, '?script=stiffness');
       await page.waitForSelector('.pz-h'); await page.waitForTimeout(2000);
       let withProbe = 0;
-      const FIBRO = [2, 3, 6, 7, 8, 9];   // the stiffness deck's slides with the FibroScan card (the overview is slide 1)
-      for (let n = 1; n <= 10; n++) {
+      const FIBRO = [2, 3, 11];   // the stiffness deck's slides with the FibroScan card (the overview is slide 1; 12 slides in all)
+      for (let n = 1; n <= 12; n++) {
         if (n > 1) { await page.keyboard.type(String(n)); await page.keyboard.press('Enter'); }
         if (await settle(`${at} slide ${n}`, FIBRO.includes(n))) withProbe++;
       }
-      if (withProbe < 3) throw new Error(`${at}: only ${withProbe} FibroScan slides showed the probe`);
+      if (withProbe < Math.ceil(FIBRO.length / 2)) throw new Error(`${at}: only ${withProbe} of ${FIBRO.length} FibroScan slides showed the probe`);
     }
   });
   // One type scale and one icon scale (styles/tokens.css): every menu, card and sheet the owner can
@@ -4787,11 +4793,11 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     await look('zooming in on the anatomy', 2400, async () => { for (let i = 0; i < 4; i++) { await page.evaluate(() => document.getElementById('zoomIn').click()); await page.waitForTimeout(250); } });
     await look('zoomed in', 600);
     // A label the slide's words light: its leader stops on the pill's rounded outline, at 100 % and 200 % text.
-    await open(page, '?script=hvpg&slide=7');
+    await open(page, '?script=hvpg&slide=6');
     await page.waitForFunction(() => window.pps.stage.lobuleSettled?.() && [...document.querySelectorAll('.lz.on .lz-lab')].some((e) => !e.hidden) && +getComputedStyle(document.querySelector('.lz-call.on') || document.body).opacity > 0.9 && !!document.querySelector('.lz-call.on'), null, { timeout: 60000 });
     await page.waitForTimeout(1200);
-    if (!(await page.evaluate(() => (document.getElementById('app').dataset.lit || '').includes('lobule:')))) throw new Error('HVPG slide 7 lights no lobule label');
-    await look('a lit label (HVPG slide 7)', 800);
+    if (!(await page.evaluate(() => (document.getElementById('app').dataset.lit || '').includes('lobule:')))) throw new Error('HVPG slide 6 lights no lobule label');
+    await look('a lit label (HVPG slide 6)', 800);
     await look('a lit label at 200 % text', 2000, () => page.evaluate(() => window.pps.stage.setLabelScale(2)));
     // At rest no leader is hidden for a label passing over it: a label's own pill once hid its leader (it counted
     // the pill's square corner as another label).
@@ -4807,8 +4813,8 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
 // minutes on every scope slide (15 Oct: the browser checks ran past their time limit). Over 8 s of a steady patient
 // with the heartbeat running, it is drawn again at most twice.
 check('desktop', 'endoscopy: a steady patient\'s field is not redrawn with every heartbeat', async (page) => {
-  // (One year on, slide 5: small varices, whose beat-by-beat swell crossed the field's steps.)
-  await open(page, '?script=one-year&slide=5');
+  // (Ten years, slide 9: small varices after the bands, whose beat-by-beat swell crossed the field's steps.)
+  await open(page, '?script=ten-years&slide=9');
   const field = '.pz-data .pz-inst canvas';
   await page.waitForFunction((sel) => { window.pps.presenter.skipLapse?.(); return !window.pps.presenter.busy() && !document.querySelector('.pz-cover') && +(document.querySelector(sel)?.dataset.renders || 0) > 0; }, field, { timeout: 90000, polling: 200 });
   await page.waitForFunction(() => window.pps.store.get().frame.pulsing && !window.pps.presenter.probe()?.playing, null, { timeout: 60000 });
@@ -4887,8 +4893,8 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
 if (!process.env.SMOKE_DEVICE || process.env.SMOKE_DEVICE === 'desktop') check('desktop', 'a software renderer has nothing left to draw after a page with the lobule and the sinusoid closes', async () => {
   const opts = { viewport: { width: 375, height: 667 }, deviceScaleFactor: 3, isMobile: true, hasTouch: true };
   let ctx = await fastContext(browser, opts), page = await ctx.newPage();
-  // (Circulation 6 to 8: into the lobule, to the portal triad, into the sinusoid.)
-  for (const i of [5, 6, 7]) await gotoSlide(page, server.url, 'circulation', i);
+  // (Circulation 5 and 6: into the lobule, into the sinusoid.)
+  for (const i of [4, 5]) await gotoSlide(page, server.url, 'circulation', i);
   await page.waitForTimeout(3000);
   await ctx.close();
   ctx = await fastContext(browser, opts); page = await ctx.newPage();

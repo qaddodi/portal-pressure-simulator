@@ -7,7 +7,7 @@ import './dom-shim.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { planeOf, frame, scaler, placeCardWords, dotBoxes, dotSize, cutSegs, lineBoxes, layoutPlane, planeReading, zoneOf } from '../src/ui/visual-plane.js';
+import { planeOf, frame, scaler, placeCardWords, dotBoxes, dotSize, cutSegs, lineBoxes, layoutPlane, plotNumbers, planeReading, zoneOf } from '../src/ui/visual-plane.js';
 import { runSteps } from './deck-states.js';
 
 const pl = planeOf('csph');
@@ -41,14 +41,14 @@ test('the data card: no key, a dot in proportion to the plot with a gap around i
   assert.match(css, /\.pze-ring \.pze-halo \{ fill: var\(--surface\); \}/);
   assert.match(css, /\.pze-ring \{ transition: transform \.7s var\(--ease\)/, 'the dot eases to each new reading');
   for (const [W, H, fs, where] of CARD) {
-    const fr = frame(W, H, fs, pl), { X, Y } = scaler(pl, fr), { r, g } = dotSize(fr), R = r + g, rules = lineBoxes(pl, X, Y, fr);
+    const fr = frame(W, H), { X, Y } = scaler(pl, fr), { r, g } = dotSize(fr), R = r + g, rules = lineBoxes(pl, X, Y, fr), numBoxes = plotNumbers(pl, fr, X, Y, fs).map((n) => n.box);
     assert.ok(r >= 4 && r <= Math.min(fr.R - fr.L, fr.B - fr.T) * 0.05 && g >= 2.5, `${where}: the dot in proportion (r ${r.toFixed(1)})`);
     // (The slides' own readings and the moves between them, then the whole plane.)
     const moves = [[null, [12.5, 159]], [[12.5, 159], [24, 88]], [[16, 140], [27, 120]], [null, null]];
     for (let a = 0; a <= 40; a += 4) for (let b = 0; b <= 300; b += 30) moves.push([null, [a, b]]);
     for (const [from, to] of moves) {
       const px = (p) => p && { x: X(p[0]), y: Y(p[1]) }, at = px(to), was = px(from);
-      const words = placeCardWords(pl, fr, X, Y, fs, dotBoxes(at, was, R));
+      const words = placeCardWords(pl, fr, X, Y, fs, [...numBoxes, ...dotBoxes(at, was, R)]);
       const tag = `${where}, dot ${to}${from ? ` from ${from}` : ''}`;
       assert.deepEqual(words.map((w) => w.z.t), ['CSPH', 'No CSPH', 'Indeterminate'], `${tag}: every zone named`);
       for (const w of words) {
@@ -59,6 +59,7 @@ test('the data card: no key, a dot in proportion to the plot with a gap around i
         if (at) assert.ok(gapTo(w.box, at.x, at.y) >= R + 4 - 0.01, `${tag}: ${w.z.t} 4 px clear of the dot and its gap`);
         if (at && was) for (let k = 0; k <= 20; k++) assert.ok(gapTo(w.box, was.x + (at.x - was.x) * k / 20, was.y + (at.y - was.y) * k / 20) >= R + 4 - 2.5, `${tag}: ${w.z.t} clear of the dot's way`);
         for (const v of words) if (v !== w) assert.ok(!touch(w.box, v.box), `${tag}: words apart`);
+        for (const n of numBoxes) assert.ok(!touch(w.box, n), `${tag}: ${w.z.t} clear of the numbers on the plot`);
       }
     }
   }
@@ -68,9 +69,13 @@ test('the summary (slide "plane"): no key anywhere, every zone named beside the 
   const [healthy, comp, csph, csph2] = await runSteps([{ preset: 'healthy' }, { preset: 'cirr-comp' }, { preset: 'csph' }, { preset: 'csph', params: { cirrhosis: 0.75 } }]);
   const rows = [[healthy, 'Healthy'], [comp, 'Compensated, no CSPH', 'No CSPH'], [csph, 'Between the cut-offs', 'Undecided'], [csph2, 'Six months on', '6 months']];
   for (const [W, H, fs, where] of [[345, 300, 16, 'iPhone upright'], [620, 260, 14, 'iPhone sideways'], [800, 450, 16, 'iPad'], [1290, 570, 18, 'Mac']]) {
-    const fr = frame(W, H, fs, pl), { X, Y } = scaler(pl, fr);
+    const fr = frame(W, H), { X, Y } = scaler(pl, fr);
     const pts = rows.map(([f, name, short]) => ({ x: X(f.lsm), y: Y(f.plt), name, short }));
-    const { names, words, rules } = layoutPlane(pl, fr, X, Y, fs, pts);
+    const keep = pts.map((p) => [p.x - 12, p.y - 12, p.x + 12, p.y + 12]), axes = plotNumbers(pl, fr, X, Y, fs, keep, 'names');
+    const { names, words, rules } = layoutPlane(pl, fr, X, Y, fs, pts, false, axes.map((n) => n.box));
+    for (const n of plotNumbers(pl, fr, X, Y, fs, [...keep, ...axes.map((q) => q.box), ...names.map((q) => q.box), ...words.map((w) => w.box)], 'ticks')) {
+      for (const o of [...names.map((q) => q.box), ...words.map((w) => w.box)]) assert.ok(!touch(n.box, o), `${where}: the number ${n.text} clear of every name and word`);
+    }
     assert.ok(names.every(Boolean), `${where}: every patient named`);
     assert.deepEqual(words.map((w) => w.z.t).sort(), ['CSPH', 'Indeterminate', 'No CSPH'], `${where}: every zone named`);
     for (const w of words) {

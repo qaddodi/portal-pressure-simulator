@@ -7,9 +7,7 @@ import { readFileSync } from 'node:fs';
 import { DOPPLER } from '../src/ui/decks/doppler.js';
 import { createCore } from '../src/worker-core.js';
 import { PRESETS, defaultParams } from '../src/engine/scenario.js';
-import { CIRCULATION } from '../src/ui/decks/circulation.js';
 import { CIRCUIT } from '../src/ui/decks/circuit.js';
-import { STIFFNESS } from '../src/ui/decks/stiffness.js';
 
 test('the meal slide is a bedside time-lapse with its meal ramp', () => {
   const s = DOPPLER.slides.find((x) => x.id === 'meal');
@@ -53,8 +51,8 @@ test('a bedside lapse runs time on the seconds clock, ramps the meal, keeps samp
 });
 
 test('every meal slide ramps to the same meal, the post-prandial patient\'s', () => {
-  const meals = [DOPPLER.slides.find((x) => x.id === 'meal'), CIRCULATION.slides.find((x) => x.id === 'flow'),
-    ...CIRCUIT.slides.filter((x) => x.id === 'meal' || x.id === 'both'), STIFFNESS.slides.find((x) => x.id === 'meal')];
+  const meals = [DOPPLER.slides.find((x) => x.id === 'meal'),
+    ...CIRCUIT.slides.filter((x) => x.id === 'meal' || x.id === 'both')];
   for (const s of meals) assert.deepEqual(s.ramp, { meal: [0, 1] }, s.id);
   assert.deepEqual(PRESETS.find((x) => x.id === 'postprandial').apply(defaultParams()).meal, 1);
 });

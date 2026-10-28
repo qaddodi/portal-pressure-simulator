@@ -140,27 +140,47 @@ export function polyBox(polys) {
 }
 
 /**
- * The GPU's form of polylines: a fan of triangles per run (for the stencil's winding), and its segments, each with its two
- * ends' caps (0 butt, 1 round, 2 square: an open run's two ends take the line's cap, every joint is round).
- * `drop(ax, ay, bx, by)`: segments to leave out of the edge (a fill's edges that lie inside another of its runs).
+ * The GPU's form of polylines: a fan of triangles per run (for the stencil's winding), and its segments, SEG floats each: its
+ * two ends, their caps (0 butt, 1 round, 2 square: an open run's two ends take the line's cap, every joint is round), and the
+ * directions of the segments before and after it (0, 0 at an open run's end). A round joint is the browser's: a wedge on the
+ * outside of the turn, between the two segments' ends, not a whole disc, which reached past a butt end whose last segment is
+ * shorter than the line's half width (every loop of the small bowel: its ends showed round, the loop under it covered).
+ * Repeated points are skipped. `drop(ax, ay, bx, by)`: segments to leave out of the edge (a fill's edges that lie inside another
+ * of its runs).
  */
+export const SEG = 10;
 export function polyMesh(polys, cap = 0, drop = null) {
   let nt = 0, ns = 0;
-  for (const { pts, closed } of polys) { const n = pts.length / 2; if (n >= 3) nt += n - 2; ns += closed ? n : n - 1; }
-  const tri = new Float32Array(nt * 6), seg = new Float32Array(ns * 6);
+  const runs = polys.map(({ pts, closed }) => {
+    const n = pts.length / 2;
+    if (n >= 3) nt += n - 2;
+    // (Its points without repeats, for the segments: a segment of no length has no direction to join by.)
+    const q = [];
+    for (let k = 0; k < n; k++) { const x = pts[2 * k], y = pts[2 * k + 1]; if (!q.length || x !== q[q.length - 2] || y !== q[q.length - 1]) q.push(x, y); }
+    if (closed && q.length > 2 && q[0] === q[q.length - 2] && q[1] === q[q.length - 1]) q.length -= 2;
+    const u = q.length > 2 ? q : Array.from(pts.slice(0, 4));
+    const m = closed && u.length > 4 ? u.length / 2 : u.length / 2 - 1;
+    ns += Math.max(m, 0);
+    return { u, m, closed: closed && u.length > 4 };
+  });
+  const tri = new Float32Array(nt * 6), seg = new Float32Array(ns * SEG);
   let a = 0, b = 0;
-  for (const { pts, closed } of polys) {
+  polys.forEach(({ pts }, r) => {
     const n = pts.length / 2;
     for (let k = 1; k < n - 1; k++) { tri[a++] = pts[0]; tri[a++] = pts[1]; tri[a++] = pts[2 * k]; tri[a++] = pts[2 * k + 1]; tri[a++] = pts[2 * k + 2]; tri[a++] = pts[2 * k + 3]; }
-    const m = closed ? n : n - 1;
+    const { u, m, closed } = runs[r], nu = u.length / 2;
+    const dir = (k) => { k = (k + m) % m; const j = (k + 1) % nu; return [u[2 * j] - u[2 * k], u[2 * j + 1] - u[2 * k + 1]]; };
     for (let k = 0; k < m; k++) {
-      const j = (k + 1) % n, ax = pts[2 * k], ay = pts[2 * k + 1], bx = pts[2 * j], by = pts[2 * j + 1];
+      const j = (k + 1) % nu, ax = u[2 * k], ay = u[2 * k + 1], bx = u[2 * j], by = u[2 * j + 1];
       if (drop && drop(ax, ay, bx, by)) continue;
+      const first = !closed && k === 0, last = !closed && k === m - 1;
+      const [px, py] = first ? [0, 0] : dir(k - 1), [qx, qy] = last ? [0, 0] : dir(k + 1);
       seg[b++] = ax; seg[b++] = ay; seg[b++] = bx; seg[b++] = by;
-      seg[b++] = !closed && k === 0 ? cap : 1; seg[b++] = !closed && k === m - 1 ? cap : 1;
+      seg[b++] = first ? cap : 1; seg[b++] = last ? cap : 1;
+      seg[b++] = px; seg[b++] = py; seg[b++] = qx; seg[b++] = qy;
     }
-  }
-  return { tri, nTri: nt * 3, seg: b === seg.length ? seg : seg.slice(0, b), nSeg: b / 6 };
+  });
+  return { tri, nTri: nt * 3, seg: b === seg.length ? seg : seg.slice(0, b), nSeg: b / SEG };
 }
 
 /** Whether (x, y) is inside a closed polyline (even-odd, which is non-zero for a simple outline). */
@@ -218,18 +238,23 @@ const SEG_VS = `#version 300 es
 layout(location=0) in vec2 corner;   // (0 or 1 along, -1 or 1 across)
 layout(location=1) in vec4 seg;      // a, b (the shape's own units)
 layout(location=2) in vec2 caps;     // a's and b's: 0 butt, 1 round, 2 square
+layout(location=3) in vec4 nbr;      // the directions of the segments before a and after b (0, 0: none)
 uniform mat3 world;
 uniform vec2 size;
 uniform float ext;
 out vec2 vP;
 flat out vec4 vSeg;
 flat out vec2 vCaps;
+flat out vec4 vNbr;
 void main() {
   vec2 a = (world * vec3(seg.xy, 1.0)).xy, b = (world * vec3(seg.zw, 1.0)).xy;
   vec2 d = b - a;
   float L = length(d);
   vec2 t = L > 1e-6 ? d / L : vec2(1.0, 0.0), n = vec2(-t.y, t.x);
   vec2 p = mix(a - t * ext, b + t * ext, corner.x) + n * ext * corner.y;
+  mat2 lin = mat2(world);
+  vec2 pa = lin * nbr.xy, nb = lin * nbr.zw;
+  vNbr = vec4(length(pa) > 1e-9 ? normalize(pa) : vec2(0.0), length(nb) > 1e-9 ? normalize(nb) : vec2(0.0));
   vP = p; vSeg = vec4(a, b); vCaps = caps;
   gl_Position = vec4(p.x / size.x * 2.0 - 1.0, 1.0 - p.y / size.y * 2.0, 0.0, 1.0);
 }`;
@@ -253,6 +278,7 @@ precision highp float;
 in vec2 vP;
 flat in vec4 vSeg;
 flat in vec2 vCaps;
+flat in vec4 vNbr;
 uniform float hw;     // a stroke's half width (device pixels)
 uniform int mode;     // 0 stroke, 1 a fill's edge inside, 2 outside
 out vec4 o;
@@ -274,6 +300,12 @@ void main() {
       float across = L > 1e-6 ? abs(pa.x * ba.y - pa.y * ba.x) / L : d;
       c = band(hw, across, nrm) * cover((cap == 2.0 ? hw : 0.0) - past, t);
     } else c = band(hw, d, n);
+    // Past a joint, only the wedge outside the turn: what lies on the far side of the neighbour's own end is the neighbour's
+    // (its band, or its joint's wedge), so the joint never reaches past it.
+    if (past > 0.0 && cap == 1.0) {
+      vec2 nb = h < 0.0 ? vNbr.xy : vNbr.zw;
+      if (dot(nb, nb) > 0.5 && (h < 0.0 ? dot(vP - vSeg.xy, nb) < 0.0 : dot(vP - vSeg.zw, nb) > 0.0)) c = 0.0;
+    }
   } else if (mode == 1) c = cover(d, n);
   else c = cover(-d, n);
   o = vec4(c);
@@ -324,8 +356,9 @@ export function createShapeGL(gl) {
       gl.bindBuffer(gl.ARRAY_BUFFER, corner);
       gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
       gl.bindBuffer(gl.ARRAY_BUFFER, g.seg); gl.bufferData(gl.ARRAY_BUFFER, mesh.seg, gl.STATIC_DRAW);
-      gl.enableVertexAttribArray(1); gl.vertexAttribPointer(1, 4, gl.FLOAT, false, 24, 0); gl.vertexAttribDivisor(1, 1);
-      gl.enableVertexAttribArray(2); gl.vertexAttribPointer(2, 2, gl.FLOAT, false, 24, 16); gl.vertexAttribDivisor(2, 1);
+      gl.enableVertexAttribArray(1); gl.vertexAttribPointer(1, 4, gl.FLOAT, false, 4 * SEG, 0); gl.vertexAttribDivisor(1, 1);
+      gl.enableVertexAttribArray(2); gl.vertexAttribPointer(2, 2, gl.FLOAT, false, 4 * SEG, 16); gl.vertexAttribDivisor(2, 1);
+      gl.enableVertexAttribArray(3); gl.vertexAttribPointer(3, 4, gl.FLOAT, false, 4 * SEG, 24); gl.vertexAttribDivisor(3, 1);
     }
     gl.bindVertexArray(null);
     own.add(mesh);

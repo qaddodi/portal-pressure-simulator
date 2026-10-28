@@ -15,6 +15,8 @@
 // and a dye bolus that travels the network, conserved along each vessel and mixed (flow-weighted)
 // only at junctions.
 
+import { lumenSurface, lumenAt } from './stomach-lumen.js?v=4fce52c62f';
+
 // Display speed, world units per second, for a mean velocity in cm/s.
 export const SPEED_K = 9.5;
 // (Below 0.25 cm/s it stands; up to 0.6 it rises from 0, so the blood and the chevrons' fade start from rest, never in a jump.)
@@ -435,12 +437,17 @@ export function createBolus(edges, nodes) {
 export const HIDDEN_SECONDS = HIDDEN_S;
 
 // ── An active variceal bleed on the figure (veins-gl.js draws it) ──
-// Blood jets from the rupture into the lumen (up the esophagus from an esophageal varix, down into the fundus from a
-// gastric one): four tapered streaks, each spurting in its turn, longer and faster with the bleeding rate, and the pool
-// in the stomach, growing with the square root of the blood lost. t: seconds (0 holds every jet at its own stage).
+// Blood wells at the tear in time with the heartbeat and spurts a short way into the lumen (a slow bleed oozes instead: no
+// jets, a few faint drops), then falls: a thread leaves the wall, curves out and drops straight down through the stomach
+// to the pool, thinning and breaking into drops as it goes. The pool is the stomach's own lumen filled from the bottom, a
+// flat surface at the level that share of its area makes (stomach-lumen.js), rippling where the thread lands. The figure is
+// the upright plate (ascites pools at the pelvis the same way), so blood settles in the lowest part of the stomach.
+// t: seconds (0 holds every jet and drop at its own stage); hr: the heart rate (beats a minute).
 // Each shape: [x0, y0, x1, y1, r0, r1, alpha, kind]: a jet (kind 1) from its base (x0, y0; radius r0) to its tip
-// (x1, y1; radius r1), or the pool (kind 0), an ellipse at (x0, y0) with radii x1, y1.
-export const BLEED_JETS = 4;
+// (x1, y1; radius r1); the pool (kind 0): x0 its surface's height, y0 its ripple, x1 where the thread lands, y1 the thread's
+// strength (0..1), r0 its inset from the wall; the thread (kind 2): from (x0, y0) to (x1, y1) the pool's surface, r0 its
+// radius, r1 how far it breaks into drops (0..1).
+export const BLEED_JETS = 2;
 // A bleed's jets and pool come and go over BLEED_FADE seconds (never in one frame): the share shown steps toward 1 while
 // the bleed runs and toward 0 once it stops (Reduce Motion: at once), and every shape's alpha is scaled by its eased value.
 export const BLEED_FADE = 0.5;
@@ -451,19 +458,52 @@ export const fadeBleedShapes = (shapes, a) => {
   return k ? shapes.map((sh) => { const o = sh.slice(); o[6] *= k; return o; }) : [];
 };
 
-export function bleedShapes(bleed, rate, t, sites) {
+export const BLEED_DROPS = 8;
+const DROP_LIFE = 0.8, GRAV = 150;
+const frac = (x) => ((x % 1) + 1) % 1;
+const clamp = (x, lo, hi) => Math.min(hi, Math.max(lo, x));
+const smooth = (e0, e1, x) => { const u = Math.min(1, Math.max(0, (x - e0) / (e1 - e0))); return u * u * (3 - 2 * u); };
+// The heartbeat's surge at time t: a sharp systolic peak over a quieter flow between beats, periodic and smooth.
+export const bleedPulse = (t, hr = 80) => 0.25 + 0.75 * Math.max(0, Math.cos(2 * Math.PI * (frac((t * Math.min(160, Math.max(45, hr || 80))) / 60) - 0.12))) ** 4;
+// How full the pool is (0..1) for the blood lost so far: a puddle at once, full by 1.5 L (the scope's pool uses it as well).
+export const poolFill = (total) => Math.min(1, Math.max(0.12, Math.sqrt(Math.max(0, total || 0) / 1500)));
+// The share of the stomach's lumen the figure's pool fills at most (the rest is gas and the fundus above the level).
+export const POOL_SHARE = 0.8;
+/** The pool's surface (world y, down the page) for the blood lost so far. */
+export const poolSurface = (total) => lumenSurface(POOL_SHARE * poolFill(total));
+const hash = (i) => frac(Math.sin(i * 127.1 + 311.7) * 43758.5453);
+
+export function bleedShapes(bleed, rate, t, sites, hr = 80) {
   const gv = bleed.site === 'GV';
-  const site = gv ? [sites.fundus[0], sites.fundus[1] - 4] : [sites.varix[0] + 8, sites.varix[1] + 12];
-  const k = Math.min(1.8, Math.max(0.7, (rate || 50) / 90));
-  const pool = Math.min(40, Math.max(4, Math.sqrt((bleed.total || 0) / 5)));
-  const out = [[sites.stomachPool[0], sites.stomachPool[1], pool * 1.4, pool * 0.6, 0, 0, 0.34, 0]];
-  for (let i = 0; i < BLEED_JETS; i++) {
-    const a = (gv ? Math.PI / 2 : -Math.PI / 2) + (i - (BLEED_JETS - 1) / 2) * 0.2;
-    const ph = (((t * 0.9 + i / BLEED_JETS) % 1) + 1) % 1;
-    // Out fast, then slowing (√): each spurt eases in, so none pops on, and thins away as it reaches its length.
-    const len = (8 + 22 * Math.sqrt(ph)) * k;
-    const al = 0.9 * Math.min(1, ph / 0.12) * (1 - ph) ** 1.5;
-    out.push([site[0], site[1], site[0] + Math.cos(a) * len * 0.55, site[1] + Math.sin(a) * len, 1.6 * k, 0.45 * k, al, 1]);
+  const tx = gv ? sites.fundus[0] : sites.varix[0] + 8, ty = gv ? sites.fundus[1] - 4 : sites.varix[1] + 12;
+  const k = clamp((rate || 50) / 90, 0.7, 1.8);
+  const spurt = smooth(25, 70, rate || 50);   // 0 an ooze, 1 a spurting bleed
+  const p = bleedPulse(t, hr);
+  // The pool, and the thread that falls into it: it leaves the tear toward the lumen and lands a little way in.
+  const surf = poolSurface(bleed.total), [lo, hi] = lumenAt(surf);
+  const land = clamp(gv ? tx + 3 : tx + 62, lo + 14, hi - 14), flow = 0.35 + 0.65 * spurt;
+  const out = [[surf, 0.5, land, flow, 4, 0, 0.92, 0]];
+  // The jets: short and pulsing, into the lumen (to the right from the esophagus, down from the fundus).
+  const into = gv ? Math.PI / 2 : 0.05;
+  for (const [da, w] of [[-0.3, 1], [0.3, 0.7]].slice(0, BLEED_JETS)) {
+    const len = (2 + (4 + 16 * p) * spurt) * k * w, a = into + da;
+    out.push([tx, ty, tx + Math.cos(a) * len, ty + Math.sin(a) * len, 1.8 * k * w, 0.5 * k, 0.95 * (0.6 + 0.4 * p), 1]);
   }
+  // The drops: each thrown off at its birth, as hard as that moment's surge throws it, and falling; each eases in from
+  // nothing and thins to nothing before it is thrown again, so none pops on or off.
+  for (let i = 0; i < BLEED_DROPS; i++) {
+    const age = frac(t / DROP_LIFE + i / BLEED_DROPS) * DROP_LIFE, pb = bleedPulse(t - age, hr);
+    const a = into - 0.3 + (hash(i) - 0.5) * 1.1, v = (28 + (32 + 50 * pb) * spurt) * Math.sqrt(k);
+    const x = tx + Math.cos(a) * v * age, y = ty + Math.sin(a) * v * age + 0.5 * GRAV * age * age;
+    const r = (0.7 + 0.7 * hash(i + 40)) * Math.sqrt(k);
+    // (Gone where it falls into the pool.)
+    const fall = 1 - smooth(surf - 4, surf, y);
+    const al = 0.9 * smooth(0, 0.12, age) * (1 - age / DROP_LIFE) ** 1.2 * (0.15 + 0.85 * spurt) * fall;
+    const vy = Math.sin(a) * v + GRAV * age, vx = Math.cos(a) * v, sp = Math.hypot(vx, vy) || 1;
+    out.push([x, y, x - (vx / sp) * r * 1.4, y - (vy / sp) * r * 1.4, r, r * 0.7, al, 1]);
+  }
+  // The thread, and the blood welling at the tear, swelling with each beat.
+  out.push([tx, ty + 1, land, surf, 2.9 * Math.sqrt(k) * (0.85 + 0.25 * p), 1 - 0.5 * spurt, 0.95 * (0.8 + 0.2 * p), 2]);
+  out.push([tx, ty, tx, ty, (2.4 + 1.8 * p) * Math.sqrt(k), 0, 0.95, 1]);
   return out;
 }

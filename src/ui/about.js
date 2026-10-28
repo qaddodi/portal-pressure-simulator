@@ -3,8 +3,8 @@
 // first sentence is fixed; the rest is read from the live model.
 
 import { EDGES, NODES, dMinOf } from '../engine/topology.js?v=4044766e96';
-import { fmt, clamp } from './util.js?v=d2c95a1b16';
-import { LABEL_VESSEL } from './anatomy.js?v=aeef116188';
+import { fmt, clamp } from './util.js?v=58b547f8d4';
+import { LABEL_VESSEL } from './anatomy.js?v=48cc98d415';
 import { judgeFlow } from './velNormal.js?v=97920ddf3f';
 
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
@@ -102,7 +102,7 @@ export function aboutOrgan(id, f, st) {
       const out = ['Receives portal blood (three quarters) and hepatic arterial blood, filters it through the sinusoids and returns it by the hepatic veins. Zoom into a lobule to see where resistance builds.'];
       const c = st.params.cirrhosis;
       if (c > 0.05) out.push(c < 0.4 ? 'Early fibrosis: resistance is starting to rise in the sinusoids.' : c < 0.6 ? 'Compensated cirrhosis: sinusoidal resistance raises portal pressure.' : c < 0.85 ? 'Clinically significant portal hypertension: collaterals and varices form.' : 'Decompensated cirrhosis: ascites, bleeding and encephalopathy become likely.');
-      if (m && !st.imaging) out.push(`HVPG ${fmt(m.hvpg, 1)} mmHg (normal under 5, varices from 10).`);
+      if (m && !st.imaging) out.push(`HVPG ${fmt(m.hvpg, 1)} mmHg (normal <5, varices ≥10).`);
       return out;
     }
     case 'heart': return ['The right heart receives all venous return; its pressure is the floor every vein drains against. When it rises (failure, tricuspid regurgitation, constriction) the liver congests from behind.'];

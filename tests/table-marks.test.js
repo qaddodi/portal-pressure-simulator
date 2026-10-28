@@ -53,7 +53,7 @@ test('every summary-table arrow matches its row\'s model state', async () => {
           let want;
           if (rel) {
             const a = atShown(k, fpv(k, r.f)), b = atShown(k, fpv(k, r.vs ? fpOf(r.vs) : rows[0].f)), dd = a - b;
-            const step = { asc: 100, varix: .3, liver: 2, shunt: .05, pvFlow: .15, res: 1.5, map: 2, hr: 2 }[k] ?? (k === 'lsm' || k === 'spleen' || k === 'plt' ? 1 : .5);
+            const step = { asc: 100, varix: .3, liver: 2, shunt: .05, pvFlow: .15, res: 1.5, map: 2, hr: 2, he: .05 }[k] ?? (k === 'lsm' || k === 'spleen' || k === 'plt' ? 1 : .5);
             want = Math.abs(dd) < step ? 0 : Math.sign(dd) * (Math.abs(dd) / Math.max(Math.abs(b), 1e-6) >= 0.4 ? 2 : 1);
           } else {
             if (!SPEC[k]) continue;
@@ -67,7 +67,7 @@ test('every summary-table arrow matches its row\'s model state', async () => {
   }
   assert.deepEqual(bad, []);
   // Pinned by name.
-  assert.equal(cells['circulation/After a meal/pvFlow'], 1, 'a meal raises portal flow above the fasting range');
+  assert.ok(cells['circuit/Healthy, after a meal/pvFlow'] > 0, 'a meal raises portal flow above the fasting range');   // (Circuit holds the meal since the deck rebuild)
   assert.equal(cells['two-inflows/Hepatic artery clot/liver'], -1, 'a hepatic artery clot lowers liver blood flow');
   assert.equal(cells['two-inflows/Portal vein clot/pvFlow'], -2, 'a portal vein clot stops portal flow');
   assert.ok(cells['circuit/With collaterals/ppg'] < 0, 'against the same liver, collaterals lower the gradient');

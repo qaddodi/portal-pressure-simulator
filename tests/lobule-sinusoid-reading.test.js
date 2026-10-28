@@ -30,5 +30,5 @@ test('"Most patients recover" and the other central-vein slides get the sinusoid
   const recover = DECKS.find((d) => d.id === 'outflow').slides.find((s) => s.id === 'recover');
   assert.ok(litOf(recover).includes('lobule:central'), 'the slide lights the central veins, so the sinusoids light with them');
   const hit = DECKS.flatMap((d) => d.slides.filter((s) => litOf(s).some((k) => k === 'lobule:central' || k === 'lobule:triad')).map((s) => `${d.id}/${s.id}`));
-  for (const id of ['outflow/recover', 'outflow/sos', 'lobule/sos', 'ncph/psvd']) assert.ok(hit.includes(id), id);
+  for (const id of ['outflow/recover', 'outflow/sos', 'ncph/psvd']) assert.ok(hit.includes(id), id);
 });

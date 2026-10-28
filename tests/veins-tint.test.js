@@ -50,7 +50,7 @@ test('the lymph tint and the pulse, as the lobule sends them, are colour-only ch
 });
 
 test('the vessel shader marks the pixels a lumen colour reaches, and a colour-only pass draws only those', () => {
-  const fs = vg.slice(vg.indexOf('const FS = `'), vg.indexOf('// ── Composite'));
+  const fs = vg.slice(vg.indexOf('export const vesselFS = (simple) => `'), vg.indexOf('// ── Composite'));
   assert.match(fs, /layout\(location=3\) out vec4 outDep;/);
   // The pass returns before any vessel is looked up, for a pixel no lumen colour reaches.
   const skip = fs.indexOf('if (tint == 1 && texelFetch(depL, ivec2(gl_FragCoord.xy), 0).r < 0.5) discard;');
@@ -117,26 +117,29 @@ async function scene() {
   g.draw(m, look, { on: false });
   return { g, gl, calls, data, put, look, m };
 }
-// The vessel passes since `from`: { tint, count, fbo } per instanced draw of the vessel program.
+// The vessel passes since `from`: { tint, count, fbo, prog } per instanced draw of a vessel program (the general one or the
+// one-vessel build: each takes the `tint` uniform).
 function passes(calls, gl, from) {
-  const out = [];
-  let tint = 0, fbo = null, prog = null, vessel = null;
+  const out = [], vessel = new Set();
+  let tint = 0, fbo = null, prog = null;
   for (const c of calls.slice(from)) {
     if (c[0] === 'useProgram') prog = c[1];
-    if (c[0] === 'uniform1i' && c[1]?.uniform === 'tint') { tint = c[2]; vessel = prog; }
+    if (c[0] === 'uniform1i' && c[1]?.uniform === 'tint') { tint = c[2]; vessel.add(prog); }
     if (c[0] === 'bindFramebuffer' && c[1] === gl.FRAMEBUFFER) fbo = c[2];
-    if (c[0] === 'drawArraysInstanced' && prog === vessel) out.push({ tint, count: c[4], fbo });
+    if (c[0] === 'drawArraysInstanced' && vessel.has(prog)) out.push({ tint, count: c[4], fbo, prog });
   }
   return out;
 }
+const total = (ps) => ps.reduce((a, p) => a + p.count, 0);
 
 test('a colour-only change recolours its cells, draws none again whole, and its colours reach the GPU', async () => {
   const { g, gl, calls, data, put, look, m } = await scene();
   const whole = passes(calls, gl, 0);
-  assert.equal(whole.length, 1, 'the first draw is one whole pass');
-  assert.equal(whole[0].tint, 0);
-  assert.equal(whole[0].count, g.nCells);
+  assert.ok(whole.length >= 1 && whole.length <= 2 && new Set(whole.map((p) => p.prog)).size === whole.length, 'the first draw is one whole pass, one draw per vessel program');
+  assert.ok(whole.every((p) => p.tint === 0));
+  assert.equal(total(whole), g.nCells, 'every cell drawn once');
   const wholeFbo = whole[0].fbo;
+  assert.ok(whole.every((p) => p.fbo === wholeFbo));
   // The pulse: two joined vessels' colours move.
   put(1, [0.9, 0.3, 0.2]); put(2, [0.3, 0.8, 0.3]);
   const n0 = calls.length;
@@ -149,10 +152,10 @@ test('a colour-only change recolours its cells, draws none again whole, and its 
   const tinted = g.tintCells - t0;
   assert.ok(tinted > 0 && tinted < g.nCells, `${tinted} of ${g.nCells} cells recoloured`);
   const ps = passes(calls, gl, n1);
-  assert.equal(ps.length, 1);
-  assert.equal(ps[0].tint, 1, 'the colour-only pass');
-  assert.equal(ps[0].count, tinted);
-  assert.notEqual(ps[0].fbo, wholeFbo, 'into the colour target alone, not the layer with its flow and mark targets');
+  assert.ok(ps.length >= 1 && ps.length <= 2);
+  assert.ok(ps.every((p) => p.tint === 1), 'the colour-only pass');
+  assert.equal(total(ps), tinted);
+  assert.ok(ps.every((p) => p.fbo !== wholeFbo), 'into the colour target alone, not the layer with its flow and mark targets');
   // In it the mark is read from unit 5, and the colour target alone is written.
   const tp = calls.slice(n1);
   assert.ok(tp.some((c) => c[0] === 'drawBuffers' && c[1].length === 1 && c[1][0] === gl.COLOR_ATTACHMENT0));
@@ -211,4 +214,33 @@ test('the renderer allocates, moves, trims and frees the mark with the layer', (
   assert.match(vg, /gl\.deleteFramebuffer\(tintFbo\)/);
   // The full passes read a texel no framebuffer holds, never the mark they write (a feedback loop).
   assert.match(vg, /gl\.bindTexture\(gl\.TEXTURE_2D, tint \? depTex : depNone\)/);
+});
+
+// T05 (smoothness review, 26 Oct): a refused partial draw says why, and the rows it was given reach the whole draw after it.
+test('a refused partial draw names its reason, and a drawn one says so', async () => {
+  const { ROWS_REFUSED } = await import('../src/ui/gpu-probe.js');
+  const { g, data, put, look, m } = await scene();
+  put(0, [0.9, 0.9, 0.2]); g.setTubes(data);
+  assert.equal(g.drawRows([1.5, 0, 0, 1.5, 0, 0], look, { on: false }, [0]), false);
+  assert.equal(g.rowsStatus, 'moved');
+  // New radii on a row the caller did not name: refused, never drawn without it.
+  g.setRadii(4, Array(64).fill(9));
+  assert.equal(g.drawRows(m, look, { on: false }, [0]), false);
+  assert.equal(g.rowsStatus, 'radii not listed');
+  assert.equal(g.drawRows(m, look, { on: false }, [0, 4]), true);
+  assert.equal(g.rowsStatus, 'drawn');
+  for (const why of ['moved', 'radii not listed']) assert.ok(ROWS_REFUSED.includes(why));
+  const gl = readFileSync(new URL('../src/ui/veins-gl.js', import.meta.url), 'utf8');
+  for (const why of ROWS_REFUSED) assert.ok(gl.includes(`refuse('${why}')`), `drawRows can refuse for "${why}"`);
+});
+
+test('the stage keeps its changed rows through a refused partial draw and lets them go only once drawn', () => {
+  const st = readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8');
+  const fn = st.slice(st.indexOf('function drawVeins('), st.indexOf('function clearJoins('));
+  assert.match(fn, /const pending = veinsRows\.size \? \[\.\.\.veinsRows\] : null;/);
+  assert.doesNotMatch(fn, /veinsRows\.clear\(\)/, 'never cleared before a draw has shown them');
+  assert.match(fn, /if \(veins\.drawRows\(T, vLook, bloodLook\(\), pending, fullComposite\)\) \{ shown\(\); return true; \}/);
+  assert.match(fn, /const rows = veinsDirty \? null : pending \|\| \[\];/);
+  const lz = readFileSync(new URL('../src/ui/lobule-zoom.js', import.meta.url), 'utf8');
+  assert.match(lz, /if \(!g\.drawRows\(T, look, blood, rows\)\) g\.draw\(T, look, blood, rows\)/);
 });

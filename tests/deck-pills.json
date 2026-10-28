@@ -5,8 +5,7 @@
   "portal vein"
  ],
  "circulation/series": [
-  "sinusoids",
-  "heart"
+  "sinusoids"
  ],
  "circulation/ladder": [
   "portal vein",
@@ -22,28 +21,14 @@
   "sinusoids",
   "central vein"
  ],
- "circulation/triad": [
-  "portal venule",
-  "hepatic arteriole",
-  "bile ductule"
- ],
  "circulation/wall": [
   "fenestrae",
   "space of disse",
   "lymph"
  ],
- "circulation/central": [
-  "central veins"
- ],
- "circulation/flow": [
-  "sinusoids"
- ],
  "circulation/define": [
   "varices",
   "{hvpg}"
- ],
- "circulation/summary": [
-  "(a value)"
  ],
  "sites/healthy": [
   "sinusoidal pressure",
@@ -118,25 +103,12 @@
   "lymphatics"
  ],
  "ascites/lymph": [
-  "space of disse",
   "lymphatics",
   "portal tracts",
   "{sin}"
  ],
  "ascites/saag": [
   "{saag}"
- ],
- "ascites/lowprot": [
-  "fenestrae"
- ],
- "ascites/pvt": [
-  "sinusoids",
-  "{pv}",
-  "{sin}"
- ],
- "ascites/presin": [
-  "portal tracts",
-  "sinusoidal pressure"
  ],
  "ascites/hf": [
   "lymph",
@@ -149,29 +121,37 @@
   "sinusoids",
   "(a value)"
  ],
+ "ascites/tense": [
+  "renal veins"
+ ],
+ "ascites/lvp": [
+  "{asc}",
+  "{6 to 8 g}"
+ ],
+ "ascites/back": [
+  "{asc}"
+ ],
+ "ascites/diuretics": [
+  "{asc}"
+ ],
+ "ascites/refractory": [
+  "{asc}"
+ ],
+ "ascites/tips": [
+  "{ppg}",
+  "{asc}"
+ ],
  "varices/lapse": [
   "{hvpg@collat}",
   "{hvpg}"
  ],
  "varices/eso": [
   "left gastric vein",
-  "azygos",
-  "varices",
-  "(a value)"
+  "azygos vein",
+  "esophageal varices"
  ],
  "varices/burst": [
-  "varices",
-  "{varix}"
- ],
- "varices/fundal": [
-  "fundal varices",
-  "left renal vein"
- ],
- "varices/svt": [
-  "splenic vein",
-  "portal vein",
-  "spleen",
-  "gastric varices"
+  "varices"
  ],
  "varices/umbilical": [
   "left portal vein",
@@ -184,25 +164,25 @@
   "{hvpg}"
  ],
  "treatment/prop": [
-  "{pvFlow}"
+  "{pvFlow}",
+  "{hvpg}"
+ ],
+ "treatment/carv": [
+  "{hvpg}"
+ ],
+ "treatment/carv-sin": [
+  "sinusoids",
+  "{hvpg}"
  ],
  "treatment/oct": [
   "{pvFlow}"
  ],
- "treatment/band": [
-  "varices"
- ],
- "treatment/tips": [
-  "sinusoids",
-  "portal vein",
-  "hepatic vein",
-  "{ppg}"
- ],
- "treatment/after": [
-  "{ppg}"
- ],
  "treatment/vs": [
   "{ppg}"
+ ],
+ "treatment/schisto": [
+  "portal venules",
+  "{pv}"
  ],
  "stiffness/measure": [
   "(a value)"
@@ -216,59 +196,27 @@
   "{spleen}",
   "{plt}"
  ],
- "stiffness/rule": [
-  "{lsm@spleen}",
-  "{hvpg@spleen}"
- ],
- "stiffness/heart": [
-  "(a value)"
- ],
- "stiffness/year": [
-  "{lsm}",
-  "{hvpg}"
- ],
- "one-year/cath": [
-  "{hvpg}"
- ],
- "one-year/d90": [
+ "stiffness/a1": [
   "{lsm}",
   "{plt}"
  ],
- "one-year/d180": [
-  "varices"
+ "stiffness/a2": [
+  "{lsm}",
+  "{>=25 kPa}"
  ],
- "one-year/d365": [
-  "{hvpg}"
+ "stiffness/a3": [
+  "{lsm}",
+  "{plt}"
  ],
- "one-year/doppler": [
-  "{<15 cm/s}"
+ "stiffness/a4": [
+  "{lsm}"
  ],
- "one-year/belly": [
+ "stiffness/a5": [
+  "{lsm}",
   "{spleen}"
  ],
- "tap/tense": [
-  "renal veins"
- ],
- "tap/lvp": [
-  "{asc}"
- ],
- "tap/albumin": [
-  "{6 to 8 g}"
- ],
- "tap/back": [
-  "{asc}"
- ],
- "tap/diuretics": [
-  "{asc}"
- ],
- "tap/tips": [
-  "{ppg}",
-  "{asc}"
- ],
- "tap/heart": [
-  "sinusoid",
-  "{saag}",
-  "{tp}"
+ "stiffness/heart": [
+  "(a value)"
  ],
  "circuit/ohm": [
   "resistance"
@@ -292,9 +240,6 @@
  "circuit/tips": [
   "resistance"
  ],
- "circuit/drugs": [
-  "resistance"
- ],
  "lobule/lobule": [
   "portal venules",
   "hepatic arterioles",
@@ -304,20 +249,11 @@
  "lobule/zones": [
   "zone 3"
  ],
- "lobule/schisto": [
-  "portal venules",
-  "sinusoids",
-  "{pv}",
-  "{hvpg}"
- ],
  "lobule/cirr": [
   "space of disse",
   "fenestrae",
   "stellate cells",
   "sinusoid"
- ],
- "lobule/sos": [
-  "central veins"
  ],
  "lobule/cong": [
   "zone 3",
@@ -326,23 +262,25 @@
   "{pv}",
   "{hvpg}"
  ],
- "shunts/grs": [
-  "fundal varices",
-  "left renal vein"
+ "shunts/reasons": [
+  "{asc}"
  ],
  "shunts/tips": [
   "portal vein",
   "hepatic vein",
   "{ppg}"
  ],
+ "shunts/heart": [
+  "{co@reasons}",
+  "{co}",
+  "{ra}"
+ ],
  "shunts/wide": [
-  "(a value)"
+  "{ppg}",
+  "{liver}"
  ],
  "shunts/dsrs": [
   "{ppg}"
- ],
- "shunts/brto": [
-  "fundal varices"
  ],
  "doppler/probe": [
   "portal vein",
@@ -354,57 +292,61 @@
  "doppler/slow": [
   "{<15 cm/s}"
  ],
- "doppler/clot": [
-  "superior mesenteric vein"
- ],
- "doppler/smv": [
-  "superior mesenteric vein",
-  "cavernoma"
- ],
- "doppler/bc": [
-  "hepatic vein"
- ],
- "doppler/rhf": [
+ "doppler/normal": [
   "portal vein",
-  "sinusoids"
+  "{pvVel}"
  ],
- "doppler/tips": [
-  "{<90 cm/s}",
-  "{>190 cm/s}"
+ "doppler/a1": [
+  "{pvFlow}"
  ],
- "endoscopy/grow": [
-  "varices",
+ "doppler/a2": [
+  "portal vein",
   "{hvpg}"
  ],
- "endoscopy/large": [
-  "varices",
-  "{varix}"
+ "doppler/a3": [
+  "hepatic veins",
+  "{pvVel}"
  ],
- "endoscopy/tension": [
+ "doppler/a4": [
+  "portal vein",
+  "{>=30%}",
+  "{ra}",
+  "{hvpg}"
+ ],
+ "doppler/a5": [
+  "{ppg}"
+ ],
+ "endoscopy/size": [
   "varix",
   "{varix}"
  ],
- "endoscopy/bleed": [
-  "{map}",
-  "{pv}"
+ "endoscopy/red": [
+  "varix"
  ],
- "endoscopy/transfuse": [
-  "{pv}"
+ "endoscopy/air": [
+  "varix"
+ ],
+ "endoscopy/across": [
+  "varix"
+ ],
+ "endoscopy/flat": [
+  "varix",
+  "{hvpg}"
+ ],
+ "endoscopy/bridge": [
+  "varix"
  ],
  "tips-doppler/before": [
   "{<15 cm/s}"
  ],
- "tips-doppler/shunted": [
-  "{shunt}"
- ],
- "tips-doppler/stent": [
-  "right portal vein",
-  "{ppg@before}",
-  "{ppg}"
- ],
  "tips-doppler/jet": [
+  "{ppg@before}",
+  "{ppg}",
   "{<90 cm/s}",
   "{>190 cm/s}"
+ ],
+ "tips-doppler/alias": [
+  "(a value)"
  ],
  "tips-doppler/mpv": [
   "{>30 cm/s}",
@@ -413,17 +355,10 @@
  "tips-doppler/left": [
   "left portal vein"
  ],
- "tips-doppler/right": [
-  "right portal vein"
- ],
  "tips-doppler/narrow": [
   "{>190 cm/s}",
   "{<90 cm/s}",
   "{ppg}"
- ],
- "tips-doppler/where": [
-  "{>190 cm/s}",
-  "{<90 cm/s}"
  ],
  "tips-doppler/warn": [
   "left portal vein"
@@ -445,36 +380,29 @@
   "{hvpg}",
   "{ppg}"
  ],
+ "prehepatic/anticoag": [
+  "{ppg}"
+ ],
  "prehepatic/cavernoma": [
   "cavernoma"
  ],
  "prehepatic/liver": [
   "{lsm}"
  ],
- "prehepatic/svt": [
-  "portal vein"
+ "prehepatic/base": [
+  "portal vein",
+  "{pv}"
  ],
- "right-heart/tr": [
-  "right atrium",
-  "hepatic veins",
-  "{ra}"
+ "prehepatic/gradients": [
+  "{hvpg}",
+  "{ppg}"
  ],
- "right-heart/pulse": [
-  "portal vein"
+ "prehepatic/carv": [
+  "{pv}"
  ],
- "right-heart/cath": [
-  "{ra}"
- ],
- "right-heart/constrict": [
-  "right atrial pressure",
-  "{ra}"
- ],
- "right-heart/web": [
-  "hepatic veins",
-  "ivc",
-  "right atrium",
-  "{ivc}",
-  "{ra}"
+ "prehepatic/pvt-anticoag": [
+  "portal vein",
+  "{pv}"
  ],
  "variceal-bleed/before": [
   "varix",
@@ -497,6 +425,25 @@
  "variceal-bleed/tips": [
   "{ppg}"
  ],
+ "variceal-bleed/controlled": [
+  "{hr}"
+ ],
+ "variceal-bleed/rebleed": [
+  "{hr}",
+  "{map}"
+ ],
+ "variceal-bleed/failure": [
+  "{hr}",
+  "{map}"
+ ],
+ "variceal-bleed/bridge": [
+  "{map}"
+ ],
+ "variceal-bleed/rescue": [
+  "{ppg}",
+  "{<12 mmHg}",
+  "{liver}"
+ ],
  "two-inflows/dual": [
   "portal vein",
   "{pvFlow}"
@@ -507,7 +454,6 @@
   "sinusoids"
  ],
  "two-inflows/clot": [
-  "portal vein",
   "{liver}"
  ],
  "two-inflows/artery": [
@@ -519,69 +465,6 @@
  ],
  "two-inflows/tips": [
   "{liver}"
- ],
- "two-inflows/fugal": [
-  "portal vein",
-  "{pvFlow}"
- ],
- "pvt-cirrhosis/base": [
-  "portal vein",
-  "{pv}"
- ],
- "pvt-cirrhosis/clot": [
-  "portal vein",
-  "{pv}"
- ],
- "pvt-cirrhosis/gradients": [
-  "{hvpg}",
-  "{ppg}"
- ],
- "pvt-cirrhosis/scope": [
-  "varices",
-  "{varix}"
- ],
- "pvt-cirrhosis/carv": [
-  "{pv}"
- ],
- "pvt-cirrhosis/anticoag": [
-  "portal vein",
-  "{pv}"
- ],
- "spleen/normal": [
-  "splenic vein",
-  "spleen",
-  "portal vein",
-  "{spleen}",
-  "{plt}"
- ],
- "spleen/grown": [
-  "spleen",
-  "{pv}",
-  "{spleen}",
-  "{plt}"
- ],
- "spleen/platelets": [
-  "spleen",
-  "{plt}"
- ],
- "spleen/screen": [
-  "{lsm}",
-  "{plt}"
- ],
- "spleen/pse": [
-  "splenic vein",
-  "{pv}"
- ],
- "spleen/later": [
-  "spleen",
-  "{plt}",
-  "{spleen}"
- ],
- "spleen/splenectomy": [
-  "splenic vein",
-  "spleen",
-  "portal vein",
-  "{plt}"
  ],
  "ncph/patient": [
   "varices",
@@ -606,26 +489,15 @@
  "ncph/psvd": [
   "portal venules"
  ],
- "ncph/nsbb": [
-  "portal vein",
-  "{pv}"
- ],
- "ncph/band": [
-  "varices",
-  "{varix}"
- ],
  "outflow/bcs": [
   "hepatic veins",
   "ivc",
   "right atrium",
   "{pv}"
  ],
- "outflow/caudate": [
-  "ivc",
-  "caudate lobe"
- ],
  "outflow/nowedge": [
   "hepatic vein",
+  "caudate lobe",
   "{pv}"
  ],
  "outflow/open": [
@@ -648,8 +520,28 @@
   "central veins",
   "{hvpg}"
  ],
+ "outflow/tr": [
+  "right atrium",
+  "hepatic veins",
+  "{ra}"
+ ],
+ "outflow/pulse": [
+  "portal vein"
+ ],
+ "outflow/constrict": [
+  "right atrial pressure",
+  "{ra}"
+ ],
+ "outflow/web": [
+  "hepatic veins",
+  "ivc",
+  "right atrium",
+  "{ivc}",
+  "{ra}"
+ ],
  "recompensation/csph": [
-  "{hvpg}"
+  "{hvpg}",
+  "{>=10 mmHg}"
  ],
  "recompensation/ascites": [
   "{hvpg}",
@@ -658,60 +550,27 @@
  "recompensation/diuretics": [
   "{asc}"
  ],
- "recompensation/carv": [
-  "{hvpg}"
- ],
  "recompensation/cure": [
   "{salb}",
   "{hvpg}"
- ],
- "where-resistance/q1": [
-  "{pv}",
-  "{hvpg}",
-  "{ppg}"
  ],
  "where-resistance/a1": [
   "sinusoids",
   "{hvpg}"
  ],
- "where-resistance/q2": [
-  "{hvpg}",
-  "{ppg}"
- ],
  "where-resistance/a2": [
   "cavernoma",
   "{hvpg}"
  ],
- "where-resistance/q3": [
-  "{pv}",
-  "{ra}",
-  "{hvpg}",
-  "{ppg}"
- ],
  "where-resistance/a3": [
   "right atrial pressure"
- ],
- "where-resistance/q4": [
-  "{hvpg}",
-  "{ppg}"
  ],
  "where-resistance/a4": [
   "central veins"
  ],
- "where-resistance/q5": [
-  "{hvpg}",
-  "{ppg}"
- ],
  "where-resistance/a5": [
   "portal venules",
   "{hvpg}"
- ],
- "where-resistance/q6": [
-  "{pv}",
-  "{hvpg}",
-  "{ppg}",
-  "{ivc}",
-  "{ra}"
  ],
  "where-resistance/a6": [
   "right atrium"
@@ -739,29 +598,207 @@
   "{bv}",
   "{hvpg}"
  ],
- "beta-blockers/ohm": [
+ "encephalopathy/firstpass": [
+  "{shunt}"
+ ],
+ "encephalopathy/collat": [
+  "{shunt}"
+ ],
+ "encephalopathy/srs": [
+  "{liver}"
+ ],
+ "encephalopathy/embolize": [
+  "{ppg}",
+  "{asc}"
+ ],
+ "encephalopathy/tips": [
+  "{ppg}",
+  "{<12 mmHg}",
+  "{liver}"
+ ],
+ "cause-treated/before": [
+  "{lsm}",
+  "{plt}",
   "{hvpg}"
  ],
- "beta-blockers/prop-sin": [
-  "{pvFlow}",
+ "cause-treated/year1": [
+  "{lsm}",
+  "{plt}",
   "{hvpg}"
  ],
- "beta-blockers/carv-sin": [
-  "sinusoids",
+ "cause-treated/year2": [
+  "{lsm}",
+  "{<10 kPa}",
+  "{plt}"
+ ],
+ "cause-treated/high": [
   "{hvpg}"
  ],
- "beta-blockers/schisto": [
-  "portal venules",
-  "{pv}",
+ "cause-treated/high2": [
+  "{hvpg}",
+  "{>=10 mmHg}"
+ ],
+ "cause-treated/masld": [
+  "{lsm}",
+  "{plt}"
+ ],
+ "next-bleed/after": [
+  "varices",
+  "{varix}",
   "{hvpg}"
  ],
- "beta-blockers/prop-pre": [
-  "{pvFlow}",
+ "next-bleed/bands": [
+  "varices",
+  "{varix}",
+  "{hvpg}"
+ ],
+ "next-bleed/slough": [
+  "varices",
+  "{varix}"
+ ],
+ "next-bleed/nsbb": [
+  "{hvpg@after}",
+  "{hvpg}",
+  "{hr}",
+  "{<=12 mmHg}"
+ ],
+ "next-bleed/both": [
+  "varices",
+  "{varix}",
+  "{hvpg}",
+  "{hvpg@bands}"
+ ],
+ "next-bleed/held": [
+  "varices",
+  "{varix}",
+  "{varix@slough}"
+ ],
+ "gastric-varices/classes": [
+  "gastric varices",
+  "{gv}"
+ ],
+ "gastric-varices/shunt": [
+  "left renal vein",
+  "fundal varices",
+  "{liver}"
+ ],
+ "gastric-varices/bleed": [
+  "{hr}",
+  "{map}"
+ ],
+ "gastric-varices/tips": [
+  "{ppg}",
+  "{gv}"
+ ],
+ "gastric-varices/brto": [
+  "{gv}",
+  "{ppg}",
+  "{varix}"
+ ],
+ "gastric-varices/svt": [
+  "splenic vein",
+  "fundal varices",
+  "spleen",
+  "{gv}",
   "{pv}"
  ],
- "beta-blockers/carv-pre": [
-  "portal venules",
-  "{pv}",
-  "{pv@prop-pre}"
+ "gastric-varices/splenectomy": [
+  "fundal varices",
+  "{gv}",
+  "{plt}"
+ ],
+ "hyperdynamic/rest": [
+  "{co}",
+  "{hr}",
+  "{map}",
+  "{bv}"
+ ],
+ "hyperdynamic/dilate": [
+  "{hr}",
+  "{co}",
+  "{map}"
+ ],
+ "hyperdynamic/resist": [
+  "{co}",
+  "{map}"
+ ],
+ "hyperdynamic/volume": [
+  "{bv}",
+  "{asc}"
+ ],
+ "hyperdynamic/forward": [
+  "portal vein",
+  "{pv}"
+ ],
+ "hyperdynamic/full": [
+  "portal vein",
+  "{bv}",
+  "{pv}"
+ ],
+ "hyperdynamic/loss": [
+  "{map}",
+  "{hr}",
+  "{pv}"
+ ],
+ "choose-treatment/a1": [
+  "{ppg}"
+ ],
+ "choose-treatment/a2": [
+  "{asc}",
+  "{liver}"
+ ],
+ "choose-treatment/a3": [
+  "{gv}",
+  "{plt}"
+ ],
+ "choose-treatment/a4": [
+  "{pvFlow}",
+  "{ppg}"
+ ],
+ "choose-treatment/a5": [
+  "{ppg}",
+  "{asc}"
+ ],
+ "ten-years/d0": [
+  "{hvpg}",
+  "{>=10 mmHg}"
+ ],
+ "ten-years/d90": [
+  "{lsm}",
+  "{plt}"
+ ],
+ "ten-years/d365": [
+  "{hvpg}",
+  "{hvpg@d0}",
+  "{>=10 mmHg}"
+ ],
+ "ten-years/carv": [
+  "{hvpg@d365}",
+  "{hvpg}"
+ ],
+ "ten-years/ascites": [
+  "{hvpg}",
+  "{salb}",
+  "{asc}"
+ ],
+ "ten-years/diuretics": [
+  "{asc}"
+ ],
+ "ten-years/bleed": [
+  "{varix}"
+ ],
+ "ten-years/bands": [
+  "{hvpg}",
+  "{varix}"
+ ],
+ "ten-years/rebleed": [
+  "{varix}"
+ ],
+ "ten-years/tips": [
+  "{ppg}",
+  "{liver}"
+ ],
+ "ten-years/he": [
+  "{shunt}"
  ]
 }

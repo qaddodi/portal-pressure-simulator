@@ -1,5 +1,7 @@
 // The lobule's look (G21): pure helpers the lobule view draws with, kept here so they can be tested without a canvas.
 
+import { LENS_GREY } from './organ-dim.js?v=9e19f2fc30';
+
 /** The sinusoids' lumen against the hepatocyte cords: a quarter narrower than it was, so the cords read as cords. */
 export const SIN_NARROW = 0.75;
 
@@ -27,6 +29,31 @@ export function dullSinusoid(rgb, shade, fibSin) {
 
 /** The neighbouring lobules' contrast, cut by this much (an overlay of the page's own colour) in the lobule view (G22). */
 export const NEIGHBOUR_FLAT = 0.3;
+
+/** The grade the surround takes in a lens other than Pressure, at grey amount k (0: its own tones … 1: the anatomy's grey liver):
+ *  [saturation, opacity against the page]. At 1 these are the two numbers the organs are greyed with (organ-dim.js LENS_GREY), so the
+ *  neighbouring lobules match the liver they are zoomed into or out of; in between, the same straight line the organs ease along. */
+export function surroundGrade(k) {
+  const x = Math.min(1, Math.max(0, k || 0));
+  return [1 + (LENS_GREY.sat - 1) * x, 1 + (LENS_GREY.dim - 1) * x];
+}
+/** One surround colour (rgb 0–1) graded as the shaders and the 2D passes do, against the page's colour bg: toward its luma by the
+ *  saturation (as the organs' grey, organ-dim.js), then toward the page by the opacity. Grade [1, 1] leaves it as it is. */
+export function gradeSurround(rgb, bg, [sat, dim]) {
+  const l = 0.299 * rgb[0] + 0.587 * rgb[1] + 0.114 * rgb[2];
+  return rgb.map((x, i) => bg[i] + (l + (x - l) * sat - bg[i]) * dim);
+}
+/** The grey amount easing toward `want` (0 or 1) over `ms`, on the state s ({ k, from, to, t0 }) the caller keeps; returns k at `now`.
+ *  A new target starts from where k is (a turn mid-way glides back), on the organs' ease (stage.js easeInOut); `snap`: nothing is
+ *  seen, so it is there at once. */
+export function greyStep(s, want, now, ms, snap = false) {
+  if (snap || !(ms > 0)) { s.k = s.from = s.to = want; return s.k; }
+  if (want !== s.to) { s.from = s.k; s.to = want; s.t0 = now; }
+  if (s.k === s.to) return s.k;
+  const u = Math.min(1, Math.max(0, (now - s.t0) / ms)), e = u < 0.5 ? 2 * u * u : 1 - (-2 * u + 2) ** 2 / 2;
+  s.k = u >= 1 ? s.to : s.from + (s.to - s.from) * e;
+  return s.k;
+}
 
 /** The surround's fade into the page round the lobule in focus: clear inside r0, FADE_MID of the page's colour halfway out,
  *  all of it at the outer edge, which sits FADE_SPAN × r0 out (the lobule view's 1.1 R to 3.2 R). */

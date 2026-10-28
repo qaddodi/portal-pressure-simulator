@@ -3,10 +3,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { EDGES } from '../src/engine/topology.js';
-import { sameShares, flowParts, flowLayout } from '../src/ui/tool-flows.js';
+import { sameShares, flowParts } from '../src/ui/tool-flows.js';
 
 const inflow = (pv, ha) => [{ id: 'portal', name: 'Portal vein', tone: '--vein-portal', pct: pv }, { id: 'artery', name: 'Hepatic artery', tone: '--artery', pct: ha }];
-const measure = (t, f) => t.length * f * 0.55;
 
 test('splits read the same on whole percents, in any order, and differ on any share or part', () => {
   assert.ok(sameShares(inflow(73, 27), inflow(73, 27)));
@@ -25,16 +24,6 @@ test('the percents the card shows decide: a model wobble that rounds to the same
   assert.ok(sameShares(flowParts(fp(73.3, 26.7), 'inflow'), healthy), '0.3% of wobble reads the same');
   assert.ok(sameShares(flowParts(fp(72.8, 27.2), 'inflow'), healthy));
   assert.ok(!sameShares(flowParts(fp(70, 30), 'inflow'), healthy), 'a 3% move shows');
-});
-
-test('on a card too narrow for a Healthy segment\'s name, the bar still collapses and the name hangs under it', () => {
-  const h = inflow(73, 27);
-  const narrow = flowLayout(h, 'inflow', 300, 160, 14, measure, h);
-  assert.notDeepEqual(narrow.hmode, ['both', 'both'], 'the artery name does not fit its segment at this size');
-  assert.ok(narrow.labels.some((l) => l.lead), 'the Now row\'s name for it hangs on a leader, which stays when the Now bar fades');
-  const wide = flowLayout(h, 'inflow', 600, 160, 14, measure, h);
-  assert.deepEqual(wide.hmode, ['both', 'both']);
-  assert.ok(wide.labels.every((l) => !l.lead));
 });
 
 test('a different split is not the same as Healthy, so the Now bar returns', () => {

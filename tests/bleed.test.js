@@ -151,10 +151,4 @@ test('the bleed decks: shock is a class II loss with a fast heart, and the press
   // Banding comes "as soon as the blood pressure holds": no lower than the unit before it.
   assert.ok(at.band.map >= at.blood.map, `band ${at.band.map.toFixed(0)} vs blood ${at.blood.map.toFixed(0)}`);
 
-  const { ENDOSCOPY } = await import('../src/ui/decks/endoscopy.js');
-  const ef = await deckStates(ENDOSCOPY), ea = Object.fromEntries(ENDOSCOPY.slides.map((s, i) => [s.id, ef[i]]));
-  // "A liter is lost" from decompensated cirrhosis: class II, a fast heart, the pressure lower but not shock.
-  // (The pressure lower but not shock: measured from this patient's own pressure, in the low 80s since 22 Oct, and above 65.)
-  assert.ok(ea.bleed.lossPct >= 15 && ea.bleed.lossPct < 30 && ea.bleed.hr > 100 && ea.bleed.map > 65 && ea.bleed.map >= ea.tension.map - 13 && ea.bleed.map < ea.tension.map - 5,
-    `endoscopy bleed: ${ea.bleed.lossPct.toFixed(0)} %, HR ${ea.bleed.hr.toFixed(0)}, MAP ${ea.bleed.map.toFixed(0)}`);
 });

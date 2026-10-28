@@ -9,13 +9,18 @@ const STENTS = new Set(['TIPS', 'DIPS']);   // the stents from the portal side: 
 // The grades judge the number every readout prints (a diameter to 0.1 mm, a volume to 0.1 L), so "5.0 mm" is never Small
 // and "5.0 L" never Grade 2.
 const tenth = (v) => Math.round(+v.toFixed(1) * 10) / 10;
+// A varix is graded by its size alone: None under 2.5 mm, Small under 5 mm, Large from 5 mm. There are no F-codes: they
+// describe shape and red signs as well as size, and the model reads size only.
+export const VARIX_NONE_MM = 2.5;
 export function varixGrade(d0) {
   const d = Number.isFinite(d0) ? tenth(d0) : d0;
-  if (d < 2.5) return { code: '—', label: 'None' };
-  if (d < 5) return { code: 'F1', label: 'Small' };
-  if (d < 10) return { code: 'F2', label: 'Large' };
-  return { code: 'F3', label: 'Large, coil-shaped' };
+  if (d < VARIX_NONE_MM) return { label: 'None' };
+  if (d < 5) return { label: 'Small' };
+  return { label: 'Large' };
 }
+// Whether there are varices to look at: the diameter reaches the "none" cut-off, or banded columns are still on the wall
+// (esophageal only; bands shrink a varix under the cut-off for weeks). The one answer every view reads (store.varicesPresent).
+const varixPresent = (d, banded) => d >= VARIX_NONE_MM || banded;
 
 export function ascitesGrade(V0) {
   const V = Number.isFinite(V0) ? Math.round(+(V0 / 1000).toFixed(1) * 10) * 100 : V0;
@@ -24,6 +29,8 @@ export function ascitesGrade(V0) {
   if (V < 5000) return { grade: 2, label: 'Grade 2 (moderate)' };
   return { grade: 3, label: 'Grade 3 (tense)' };
 }
+
+const lsmOf = (hv) => 5 + 2.2 * Math.max(0, Math.min(hv.hvpg, 12) - 3) + 0.8 * Math.max(0, hv.hvpg - 12) + 2 * Math.max(0, hv.fhvp - 6);
 
 export function computeMetrics(eng) {
   const P = eng.Pf || eng.P, Q = eng.Q, ni = eng.ni, ei = eng.ei, p = eng.params;
@@ -83,8 +90,9 @@ export function computeMetrics(eng) {
     // Liver stiffness (transient elastography, kPa), an estimate from the model. It rises with the sinusoidal
     // gradient (about 20 kPa at an HVPG of 10), flattens above an HVPG of 12 where fibrosis is already
     // advanced, and with congestion at about 2 kPa per mmHg of free hepatic vein pressure above normal
-    // (heart failure and hepatic outflow block stiffen the liver too).
-    lsm: 5 + 2.2 * Math.max(0, Math.min(hv.hvpg, 12) - 3) + 0.8 * Math.max(0, hv.hvpg - 12) + 2 * Math.max(0, hv.fhvp - 6),
+    // (heart failure and hepatic outflow block stiffen the liver too). It reads the gradient the liver would have without a
+    // beta-blocker (Engine.hvNoBlocker): the drug lowers the HVPG, not the stiffness (AASLD 2024 p. 1189).
+    lsm: lsmOf(eng.hvNoBlocker ? eng.hvNoBlocker(hv) : hv),
     measured,
     ppg: tenthGap(P[ni.CONF], P[ni.IVCS], P[ni.CONF] - P[ni.IVCS]),
     pv: P[ni.CONF],
@@ -105,8 +113,8 @@ export function computeMetrics(eng) {
     splanchnicIn: splIn * 0.06,
     shuntFraction,
     collateralFlows,
-    varix: { ...varE, d: 2 * varE.r, grade: varixGrade(2 * varE.r), redWale: varE.ratio > 0.7, ratioMean: eng.vitM?.[4] ?? varE.ratio },
-    gastricVarix: noGRS ? { ...varG, d: 0, grade: varixGrade(0), redWale: false } : { ...varG, d: 2 * varG.r, grade: varixGrade(2 * varG.r), redWale: varG.ratio > 0.7 },
+    varix: { ...varE, d: 2 * varE.r, air: eng.varixAir('VAR', P), grade: varixGrade(2 * varE.r), present: varixPresent(2 * varE.r, eng.bands > 0), redWale: varE.ratio > 0.7, ratioMean: eng.vitM?.[4] ?? varE.ratio },
+    gastricVarix: noGRS ? { ...varG, d: 0, grade: varixGrade(0), present: false, redWale: false } : { ...varG, d: 2 * varG.r, grade: varixGrade(2 * varG.r), present: varixPresent(2 * varG.r, false), redWale: varG.ratio > 0.7 },
     ascites: { volume: eng.slow.ascites, ratePerDay: st.net * 1440, iap: eng.iap ?? 5, ...asc, highProtein: st.highProtein, totalProtein: st.ascTP, albumin: st.ascAlb, saag: st.saag, lymphProt: st.prot.lymphProt, lymphSigma: st.prot.sigma, hepLymph: st.hep, splLymph: st.spl, lymphCap: eng.slow.lymphCap },
     spleen: eng.params.splenicRx === 2 ? { length: 0, platelets: 380 } : { length: eng.slow.spleen, platelets: clamp(250 * Math.pow(11 / eng.slow.spleen, 3), 25, 400) },
     map, co, hr: eng.hr, svr: (map - ra) / Math.max(0.5, co),

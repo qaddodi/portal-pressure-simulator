@@ -3,10 +3,10 @@
 // and the change, readouts report "vs then", and this section of the panel names both states and
 // tabulates every difference. There is no Compare mode: unpinning ends it.
 
-import { store } from './store.js?v=67f4341802';
-import { h, fmt, svgIcon } from './util.js?v=d2c95a1b16';
+import { store } from './store.js?v=926dabfaef';
+import { h, fmt, svgIcon } from './util.js?v=58b547f8d4';
 import { liveBalance } from './balance-hold.js?v=1792704e7a';
-import { activeInterventions } from './inspector.js?v=6eaadd6e9c';
+import { activeInterventions } from './inspector.js?v=bc8186fa9d';
 
 const ROWS = [
   ['HVPG', (m) => m.hvpg, 1, 'mmHg'], ['Portal pressure', (m) => m.pv, 1, 'mmHg'], ['PPG (portal vein − IVC)', (m) => m.ppg, 1, 'mmHg'], ['Portal flow', (m) => m.pvFlow, 1, 'L/min'],

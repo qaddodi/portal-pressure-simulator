@@ -1,8 +1,8 @@
 // Presenter talk: inside the lobule, where each disease sits. Slide fields as documented at the top of decks.js.
 
 export const LOBULE = {
-  id: 'lobule', level: 'advanced', title: 'Inside the lobule: where each disease sits', minutes: 10,
-  sections: [['The lobule', ['The lobule']], ['Where the resistance sits', ['Presinusoidal', 'Sinusoidal', 'Postsinusoidal', 'Cardiac']], ['Measuring', ['Measuring']]],
+  id: 'lobule', level: 'advanced', title: 'Inside the lobule: where each disease sits', minutes: 7,
+  sections: [['The lobule', ['The lobule']], ['Where the resistance sits', ['Sinusoidal', 'Cardiac']], ['Measuring', ['Measuring']]],
   objectives: [
     'Trace blood through the lobule from the portal tract to the central vein',
     'Place schistosomiasis, cirrhosis, sinusoidal obstruction and congestion in the lobule',
@@ -13,7 +13,7 @@ export const LOBULE = {
     ['Which zone of the lobule is injured first by low flow or congestion?', 'Zone 3, around the central vein, which gets the least oxygen.'],
     ['Where does schistosomiasis add resistance to the flow?', 'In the portal venules of the portal tract, upstream of the sinusoids, so the HVPG stays near normal.'],
     ['Why does the HVPG rise in sinusoidal obstruction syndrome?', 'The resistance sits in the small central veins, upstream of the free reading, so the wedged pressure rises.'],
-    ['In cirrhosis the fenestrae close. What happens to the ascitic protein?', 'It falls: a sinusoid without open pores lets less protein out, so the fluid has a high SAAG and a protein below 2.5 g/dL.'],
+    ['In cirrhosis the fenestrae close. What happens to the ascitic protein?', 'It falls: a sinusoid without open pores lets less protein out, so the fluid has a high SAAG and a protein <2.5 g/dL.'],
   ],
   summary: 'The lobule from portal tract to central vein, and the point in it where each disease adds resistance. Ends with what the wedge reads at each site.',
   slides: [
@@ -28,17 +28,9 @@ export const LOBULE = {
       id: 'zones', lens: 'oxygen', terms: ['lobule:zone3'], cam: 'lobule', layers: ['zones'],
       compare: [{ label: 'Oxygen', lens: 'oxygen', own: true }, { label: 'Pressure', lens: 'pressure' }],
       kicker: 'The lobule', title: 'Zone 3 gets the least oxygen',
-      line: 'Blood loses oxygen as it crosses the lobule: colored by oxygen, it darkens from the portal tract to the central vein. Zone 3 cells, closest to hypoxia, are injured first by low flow, congestion and toxins such as acetaminophen.',
-      notes: 'The zones belong to Rappaport\'s acinus, the unit pathology texts use. In the acinus, zone 1 lies next to the portal tract and zone 3 around the central vein. Blood gives up oxygen as it runs, so zone 3 cells work closest to hypoxia; they also hold most of the cytochrome P450 enzymes. Zone 3 is the first injured by low flow (ischemic hepatitis), by congestion and by toxins activated there, such as acetaminophen. Zone 1 is hit first by toxins that arrive directly, and is where periportal disease begins.',
+      line: 'Colored by oxygen, blood darkens as it crosses the lobule from the portal tract to the central vein. Zone 3 cells, nearest hypoxia, are injured first.',
+      notes: 'The zones belong to Rappaport\'s acinus, the unit pathology texts use. In the acinus, zone 1 lies next to the portal tract and zone 3 around the central vein. Blood gives up oxygen as it runs, so zone 3 cells work closest to hypoxia; they also hold most of the cytochrome P450 enzymes. Zone 3 is the first injured by low flow (ischemic hepatitis), by congestion and by toxins activated there, such as acetaminophen. Zone 1 is hit first by toxins that arrive directly, and is where periportal disease begins. Zone 3 is injured first by low flow, congestion and toxins such as acetaminophen.',
       ask: ['Why is zone 3 the vulnerable zone?', 'It is last on the path, so it gets the least oxygen, and it is where many drugs are activated.'],
-    },
-    {
-      id: 'schisto', terms: { 'portal venules': 'lobule:triad', sinusoids: 'lobule:sinusoid' }, preset: 'schisto', cam: 'lobule:triad', callout: { at: 'triad', label: 'Resistance' }, scales: { anatomy: { cam: 'liver', labels: ['CONF', 'SIN_R'] }, sinusoid: {} }, data: 'tiles', tiles: ['pv', 'hvpg'],
-      kicker: 'Presinusoidal', site: 'presin', title: 'Schistosomiasis raises resistance in the portal tract',
-      vignette: 'A 29-year-old man who grew up farming rice in the Philippines has a large spleen and large esophageal varices. His liver tests are normal, and there is no ascites.',
-      line: 'Eggs lodge in the portal venules. Granulomas and fibrosis form around them, and the sinusoids downstream stay normal. The portal pressure is {pv}, yet the HVPG only {hvpg}.',
-      notes: 'Schistosoma mansoni and japonicum eggs are carried in portal blood and trapped in the small portal venules, where they cause granulomas and then periportal (pipestem) fibrosis. The resistance is before the sinusoids: the portal pressure is high, but the wedge reads the normal sinusoids, so the HVPG is normal or only slightly raised. Liver cells are spared, so function is kept for years. Varices and splenomegaly are the presentation; ascites is rare. Porto-sinusoidal vascular disorder behaves the same way.',
-      ask: ['A patient with schistosomiasis also has hepatitis C cirrhosis. What will the HVPG show?', 'Raised, but below the true gradient: the wedge reads the sinusoidal resistance, not the presinusoidal one before it.'],
     },
     {
       id: 'cirr', terms: { 'space of Disse': 'sinusoid:disse', fenestrae: 'sinusoid:fenestrae', 'stellate cells': 'sinusoid:stellate', sinusoid: 'sinusoid:lumen' }, preset: 'cirr-decomp', cam: 'sinusoid', callout: { at: 'sin', label: 'Resistance' }, scales: { anatomy: { cam: 'liver', labels: ['CONF', 'SIN_R', 'RHV'] }, lobule: { cam: 'lobule:sinusoid', glow: ['lobule:sinusoid'] } }, data: 'tiles', tiles: ['sin', 'hvpg'],
@@ -50,32 +42,37 @@ export const LOBULE = {
       ask: ['Name the two parts of the raised resistance in cirrhosis.', 'Structural (scar, nodules, capillarized sinusoids) and dynamic (vascular tone).'],
     },
     {
-      id: 'sos', terms: { 'central veins': 'lobule:central' }, preset: 'sos', cam: 'lobule:central', callout: { at: 'cv', label: 'Resistance' }, scales: { anatomy: { cam: 'hepatic', labels: ['SIN_R', 'RHV', 'RA'] }, sinusoid: {} }, data: 'tiles', tiles: ['hvpg', 'asc'],
-      kicker: 'Postsinusoidal', site: 'postsin', title: 'Sinusoidal obstruction syndrome adds resistance in the central veins',
-      vignette: 'A 38-year-old woman with lymphoma, 18 days after high-dose conditioning for HSCT, has tender hepatomegaly, weight gain and new ascites. Her bilirubin is 2.3 mg/dL.',
-      line: 'Injured endothelium swells and sloughs into the small central veins and raises resistance there.',
-      notes: 'Sinusoidal obstruction syndrome (veno-occlusive disease) follows injury to the sinusoidal endothelium of zone 3: myeloablative conditioning before stem cell transplantation (busulfan, cyclophosphamide, total body irradiation), oxaliplatin, and pyrrolizidine alkaloids in herbal teas. The cells round up and detach, red cells dissect into the space of Disse, and debris raises resistance in the central veins. Weight gain, painful hepatomegaly, ascites and jaundice follow, classically within three weeks of transplant. The wedge lies upstream of the resistance, so the HVPG is raised; 10 mmHg or more supports the diagnosis. Defibrotide is the treatment.',
-      ask: ['Why does the HVPG rise in sinusoidal obstruction syndrome?', 'The resistance is in the central veins, between the sinusoids the wedge reads and the free hepatic vein.'],
-    },
-    {
       id: 'cong', terms: { 'zone 3': 'lobule:zone3', 'central vein': 'lobule:central', sinusoids: 'lobule:sinusoid' }, layers: ['zones'], callout: { at: 'cv', label: 'Dilated zone 3 sinusoids' }, preset: 'rhf', cam: 'lobule:central', scales: { anatomy: { cam: 'heart', labels: ['RHV', 'IVCS', 'RA'] }, sinusoid: {} }, data: 'tiles', tiles: ['pv', 'hvpg'],
       kicker: 'Cardiac', site: 'cardiac', title: 'Congestion dilates the sinusoids of zone 3',
       vignette: 'A 71-year-old woman with pulmonary hypertension and severe TR has a raised JVP, ascites and a tender, enlarged liver. Her ALT is mildly raised.',
-      line: 'Back pressure from the heart dilates the sinusoids around the central vein, and zone 3 cells die first. Colored by congestion, every vessel in the lobule is backed up. The portal vein reads {pv}, the HVPG {hvpg}.',
+      line: 'Back pressure dilates the sinusoids around the central vein, so zone 3 cells die first. Colored by congestion, every vessel is backed up. The portal vein reads {pv}, HVPG {hvpg}.',
       notes: 'A high right atrial pressure passes back through the hepatic veins into the central veins and the sinusoids of zone 3, which dilate and fill with blood; the cut liver looks like a nutmeg. Low cardiac output adds hypoxia, and zone 3 cells atrophy and die. Years of this lay down fibrosis that links the central veins (cardiac cirrhosis). Every pressure from the portal vein to the atrium is high, so the HVPG is normal. The sinusoid wall is still open, so the ascites is rich in protein.',
       ask: ['Why is the HVPG normal in congestive hepatopathy although the portal pressure is high?', 'The wedged and free pressures rise together with the right atrium.'],
     },
     {
       id: 'wedge', preset: 'schisto', cath: 'wedge', tool: { kind: 'profile' }, key: ['hvpg'], column: true,
       kicker: 'Measuring', site: 'presin', title: 'The wedge reads the sinusoids',
-      line: 'In cirrhosis sinusoidal pressure is close to portal pressure, so the wedge is a good stand-in. In this case the portal vein pressure is high but the sinusoids are not, so the wedge and the HVPG stay normal.',
-      notes: 'Wedging the catheter, or inflating its balloon, stops the flow in that hepatic vein. The column of blood behind it then equals the pressure where it next meets moving blood: the sinusoids. In cirrhosis the sinusoids are at about portal pressure, so the wedged pressure stands in for it. In schistosomiasis, shown here, the portal vein is high but the sinusoids are not, so the wedged pressure, and the HVPG, are normal. Only a direct portal pressure or the PPG shows presinusoidal resistance.',
+      line: 'In cirrhosis the sinusoids sit near portal pressure, so the wedge is a good stand-in. Here the portal vein is high but the sinusoids are not: the wedge stays normal.',
+      notes: 'Wedging the catheter, or inflating its balloon, stops the flow in that hepatic vein. The column of blood behind it then equals the pressure where it next meets moving blood: the sinusoids. In cirrhosis the sinusoids are at about portal pressure, so the wedged pressure stands in for it. In schistosomiasis, shown here, the portal vein is high but the sinusoids are not, so the wedged pressure, and the HVPG, are normal. Only a direct portal pressure or the PPG shows presinusoidal resistance. The wedge and the HVPG both stay normal here.',
       ask: ['Which diseases does the wedge miss?', 'Pre-hepatic and presinusoidal resistance, such as portal vein thrombosis and schistosomiasis.'],
     },
     {
+      // (The relation chart before the summary: each disease's wedged pressure against its portal vein pressure, on a plane with the
+      // line where the two are equal. On the line the wedge reads the portal vein; under it, the resistance lies before the sinusoids.)
+      id: 'relation', cam: 'fit', visual: 'plane',
+      plane: { x: { key: 'pv', min: 0, max: 30, ticks: [0, 10, 20, 30], name: 'Portal vein pressure, mmHg', short: 'Portal, mmHg' },
+        y: { key: 'whvp', min: 0, max: 30, ticks: [0, 10, 20, 30], name: 'Wedged pressure, mmHg', short: 'WHVP, mmHg' }, zones: [], key: 'never', diag: { label: 'WHVP = portal' } },
+      of: [{ preset: 'healthy', name: 'Healthy' }, { id: 'cirr', name: 'Cirrhosis' }, { preset: 'sos', name: 'Sinusoidal obstruction', short: 'SOS', site: 'postsin' },
+        { id: 'cong', name: 'Heart failure', short: 'Heart' }, { id: 'wedge', name: 'Schistosomiasis', short: 'Schisto' }, { preset: 'pvt-chronic', name: 'Portal vein clot', short: 'Clot', site: 'pre' }],
+      kicker: 'Summary', title: 'The wedge reads the portal vein only from the sinusoids on',
+      line: 'On the dashed line the wedged pressure equals the portal pressure. Below it, the resistance sits before the sinusoids, and the wedge misses it.',
+      notes: 'Each disease is a point: its portal vein pressure across, its wedged pressure up. Cirrhosis and sinusoidal obstruction sit on the line, because the resistance lies in or after the sinusoids and the wedge reads the pressure behind it. Heart failure sits on it too, with every pressure high and no gradient. Schistosomiasis and a portal vein clot fall far below it: the portal vein is high, but the wedge reads near-normal sinusoids, so the HVPG is normal. Only a direct portal pressure, or the PPG, shows those. (AASLD 2024 Table 1 and p. 1181; Baveno VIII Table 3, the right atrial pressure measured to rule out a post-hepatic cause; EASL 2025: the HVPG misses the portal hypertension of PSVD and portal vein thrombosis.)',
+      ask: ['A patient has varices, a portal vein pressure of 20 mmHg and a wedged pressure of 8 mmHg. Where is the resistance?', 'Before the sinusoids: in the portal vein or the portal venules, such as a clot or schistosomiasis.'],
+    },
+    {
       id: 'summary', visual: 'table', cols: ['pv', 'hvpg'], asc: true, note: 'Site in the lobule', rowHead: 'Disease',
-      of: [{ preset: 'healthy', kicker: 'Reference', title: 'Healthy', note: 'No added resistance', ref: true }, { id: 'schisto', title: 'Schistosomiasis', note: 'Portal venules, in the tract' },
-        { id: 'cirr', title: 'Cirrhosis', note: 'Sinusoids, the space of Disse' }, { id: 'sos', title: 'Sinusoidal obstruction', note: 'Central veins' },
+      of: [{ preset: 'healthy', kicker: 'Reference', title: 'Healthy', note: 'No added resistance', ref: true }, { preset: 'schisto', title: 'Schistosomiasis', note: 'Portal venules, in the tract' },
+        { id: 'cirr', title: 'Cirrhosis', note: 'Sinusoids, the space of Disse' }, { preset: 'sos', title: 'Sinusoidal obstruction', note: 'Central veins' },
         { id: 'cong', title: 'Heart failure', note: 'No added resistance: congestion of zone 3' }],
       kicker: 'Summary', title: 'Site of resistance in each disease',
       line: 'The wedge reads the sinusoids, so HVPG rises only when the resistance sits in them or in the central veins.',

@@ -91,3 +91,16 @@ test('a frame interval is timed by the clock when the readout runs, so the steps
   // (External review, 21 Oct: with the frame's shared timestamp a 24 ms frame was listed with 139 ms of Doppler.)
   assert.match(src, /const tick = \(\) => \{\n\s+const t = performance\.now\(\);\n\s+const parts = gpuProbe\.take\(\)/);
 });
+
+// The counters added for the navigation work (26 Oct): what the vessel layer, the glass and the lobule did over a window, by fixed name.
+test('the readout totals the counted notes over a window: whole draws and why, pan shifts, uploads in KB, frames with a surface drawn twice', async () => {
+  const { COUNTED, TWICE, WHY } = await import('../src/ui/gpu-probe.js');
+  const t = gestureText({ n: 6, kind: 'pan', view: 'lobule', zoom: '6.00', frames: 120, worst: 40, gaps: [], tasks: [],
+    counts: { [COUNTED.pan]: [110, 0, 0], [COUNTED.whole]: [10, 0, 0], [COUNTED.wholeWhy + 'zoom or turn']: [10, 0, 0], [COUNTED.picture]: [130, 0, 10], 'uploaded: setFlow': [120, 4500.4, 0] } });
+  assert.match(t, /counted: vessels: pan shift ×110; vessels: whole draw ×10; vessels: whole draw because zoom or turn ×10; picture: drawn ×130, 10 frames with two; uploaded: setFlow ×120 \(4500 KB\)/);
+  // Only a surface's own final draw can be "drawn twice in a frame"; the reasons are a closed list, so the totals stay a few dozen numbers.
+  assert.deepEqual([...TWICE].sort(), [COUNTED.glassDrawn, COUNTED.lobulePicture, COUNTED.picture].sort());
+  assert.equal(new Set(WHY).size, WHY.length);
+  const gl = readFileSync(new URL('../src/ui/veins-gl.js', import.meta.url), 'utf8');
+  for (const why of WHY) assert.ok(gl.includes(`'${why}'`), `veins-gl.js counts a whole draw "${why}"`);
+});

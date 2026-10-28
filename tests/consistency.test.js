@@ -33,15 +33,17 @@ test('liver stiffness estimate: congestion adds about 2 kPa per mmHg and the cur
   assert.ok(lsm(20, 6) - lsm(12, 6) < 0.8 * 8 + 1e-9);
 });
 
-// One test for "has varices": the figure, circuit and endoscopy pane all call varicesPresent, which must follow the
-// model's varix diameter (the 2.5 mm "none" cut-off) so no view shows varices another hides.
+// One test for "has varices": the figure, circuit and endoscopy pane all call varicesPresent, which reads the metrics' `present`
+// flag: the model's varix diameter reaches the 2.5 mm "none" cut-off, or banded columns are still on the wall, so no view
+// shows varices another hides.
 test('varicesPresent follows the model varix diameter and bands', async () => {
   const { varicesPresent } = await import('../src/ui/store.js');
-  const fr = (d, bands = 0) => ({ metrics: { varix: { d }, gastricVarix: { d } }, bands });
+  const fr = (d, bands = 0) => ({ metrics: { varix: { d, present: d >= 2.5 || bands > 0 }, gastricVarix: { d, present: d >= 2.5 } }, bands });
   assert.equal(varicesPresent(fr(2.4)), false);
   assert.equal(varicesPresent(fr(2.5)), true);
   assert.equal(varicesPresent(fr(2.0, 2)), true);
   assert.equal(varicesPresent(fr(2.0, 2), 'GV'), false);
+  // (The flag itself, from a real engine, is tested in varix-grade.test.js.)
 });
 
 // Varices grow with the portosystemic gradient, not with absolute venous pressure: congestion from the heart

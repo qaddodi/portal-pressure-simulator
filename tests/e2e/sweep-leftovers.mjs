@@ -45,17 +45,17 @@ for (const size of [[1280, 800], [1440, 900], [1180, 820]]) {
   await close();
 }
 
-// 2. The platelets dot on a sideways phone (spleen deck, slide 8).
+// 2. The platelets dot on a sideways phone (gastric varices, slide 8: the splenectomy slide the Spleen talk's was merged into).
 {
-  const { page, close } = await open([844, 390], '?script=spleen&slide=8');
+  const { page, close } = await open([844, 390], '?script=gastric-varices&slide=8');
   await page.waitForSelector('.pzb-now:not([hidden])', { state: 'attached' });
   await sleep(3000);
   const out = await page.evaluate(() => [...document.querySelectorAll('.pzb-now:not([hidden])')].map((d) => {
     const t = d.closest('.pzb-track').getBoundingClientRect(), b = d.getBoundingClientRect();
     return b.width ? Math.max(t.left - b.left, b.right - t.right) : -1;
   }));
-  if (!out.length) fail('spleen 8: no scale dot to measure');
-  for (const o of out) if (o > 0.5) fail(`spleen 8: a scale dot runs ${o.toFixed(1)} px past the end of its track`);
+  if (!out.length) fail('gastric varices 8: no scale dot to measure');
+  for (const o of out) if (o > 0.5) fail(`gastric varices 8: a scale dot runs ${o.toFixed(1)} px past the end of its track`);
   await close();
 }
 

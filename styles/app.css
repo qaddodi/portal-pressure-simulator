@@ -136,7 +136,14 @@ svg { flex: none; }
 .stage-view > :is(#stage, #stageOver, #labels, canvas) { transition: opacity .25s ease; }
 .stage-view.unframed > :is(#stage, #stageOver, #labels, canvas) { opacity: 0; }
 /* A presenter's camera move: the labels ease out as it starts and back in once it settles (stage.js camSettle). */
-.stage-view.cam-move > #labels, .stage-view.cam-move .lb-glass { opacity: 0; }
+.stage-view.cam-move > #labels, .stage-view.cam-move > #labelGl, .stage-view.cam-move .lb-glass { opacity: 0; }
+/* A hand's zoom in the Circuit: the same, until it is let go (stage.js pinchHide). */
+.stage-view.pinch-hide > #labels, .stage-view.pinch-hide > #labelGl, .stage-view.pinch-hide .lb-glass { opacity: 0; }
+/* The labels the GPU draws (label-gl.js): their SVG copy stays, for its layout, clicks, focus and screen readers, but paints nothing;
+   the canvas over it takes the label layer's rules (cam-move, unframed, the lobule, the catheter) and never takes a pointer. */
+#labels .lb[data-gl] > * { opacity: 0; }
+#labels :is(.lb-leaders, .lb-scan) > [data-gl] { visibility: hidden; }   /* (a leader or dot the GPU draws: its fades still run here, and are read) */
+.stage-view > canvas#labelGl { pointer-events: none; }
 .stage-view .lb-glass { transition: opacity .25s ease; }
 .stage-view.panning #stage { cursor: grabbing; }
 
@@ -563,7 +570,6 @@ div.vital { cursor: default; }
    syncOrganDim, an SVG filter, since WebKit draws no CSS filter functions on SVG elements. */
 /* A lens or a selection eases the anatomy back (no one-frame dim or grey). */
 #backEdges .vg { transition: filter var(--view-fade) var(--ease-io); }
-.map-grid { opacity: .9; }
 .map-dot { fill: var(--map-dot); }
 /* Background plane: the diaphragm (no body-cavity shading). */
 #backdrop { pointer-events: none; transition: opacity .5s var(--ease); }
@@ -577,8 +583,10 @@ div.vital { cursor: default; }
 .v-select.on { stroke-opacity: .34; }
 .vg { transition: opacity .25s var(--ease); }
 #backEdges { opacity: .85; }
-.zone { fill: var(--text); fill-opacity: 0; }
-.zone.alt { fill-opacity: .028; }
+/* (A band with no tint has no fill at all: a fill at opacity 0 was still painted over its whole band, the whole screen when zoomed,
+   on every pan or zoom frame in the circuit. The same pixels.) */
+.zone { fill: none; }
+.zone.alt { fill: var(--text); fill-opacity: .028; }
 .coll-ghost .v-lumen { stroke-dasharray: 1.5 4.5; }
 .coll-ghost .v-wall { stroke-opacity: .35; stroke-dasharray: 1.5 4.5; }
 .stent-rail { fill: none; stroke: var(--stent-metal); stroke-width: var(--stent-rail-w, 1.4); stroke-linecap: round; stroke-linejoin: round; stroke-opacity: var(--stent-alpha, 1); }
@@ -1410,7 +1418,7 @@ button.finding { cursor: pointer; }
 :root[data-theme="dark"] .lz-zone b { font-weight: 700; }
 .lz-zone span { font-size: calc(var(--t-cap) * var(--label-scale, 1) * var(--zk, 1)); font-weight: 600; letter-spacing: .08em; opacity: calc(.8 * var(--lab-o, 1) * var(--lit-o, 1) * var(--sv-in, 1) * var(--off-o, 1)); }
 .lz-zone.z1 { --zc: var(--zone-1); } .lz-zone.z2 { --zc: var(--zone-2); } .lz-zone.z3 { --zc: var(--zone-3); }
-.stage-view.in-lobule #labels, .stage-view.in-lobule #veins, .stage-view.in-lobule #stageOver, .stage-view.in-lobule #overlay { visibility: hidden; }
+.stage-view.in-lobule #labels, .stage-view.in-lobule #labelGl, .stage-view.in-lobule #veins, .stage-view.in-lobule #stageOver, .stage-view.in-lobule #overlay { visibility: hidden; }
 /* Phone: snugger cards (labels keep the one size every screen uses) */
 @media (max-width: 720px) {
   .lz-lab { padding: 3px 7px 4px; }
@@ -1477,7 +1485,8 @@ button.finding { cursor: pointer; }
 :root { --pz-b: calc(clamp(17px, calc(2.311 * var(--pzh)), 28px) * var(--ts, 1));   /* (B: the teaching card's body text on a wide screen; the cards' geometry follows it) */
   --pz-cm: clamp(16px, min(2.6vw, calc(1.8 * var(--pz-b))), 60px);   /* (one margin: sides, top, bottom and the nav pill) */
   --pz-cp: clamp(18px, calc(1.4 * var(--pz-b)), 40px);   /* (one padding, both cards) */
-  --pz-cw: min(calc(clamp(340px, min(38vw, calc(23.5 * var(--pz-b))), 640px) * var(--pz-wk, 1)), 42vw); }   /* (one card width, about 40 characters of body text) */
+  --pz-cw: min(calc(clamp(340px, min(38vw, calc(23.5 * var(--pz-b))), 640px) * var(--pz-wk, 1)), 42vw);   /* (one card width, about 40 characters of body text) */
+  --pz-rw-outline: min(calc(50 * var(--pz-b)), 82%); --pz-rw-table: min(calc(54 * var(--pz-b)), 82%); --pz-rw-check: min(calc(42 * var(--pz-b)), 82%); --pz-rw-chart: min(calc(54 * var(--pz-b)), 82%); }   /* (the reading cards' widths on a wide screen, below) */
 .pz-shade.pz-card:not(.stack) { --pz-glass-drop: rgb(var(--black-rgb) / .14); --pz-r: clamp(16px, calc(2.2 * var(--pzh)), 28px); left: var(--pz-cm); top: var(--pz-cm); bottom: var(--pz-cm); background: color-mix(in srgb, var(--surface) 58%, transparent); border: 1px solid color-mix(in srgb, var(--text) 22%, transparent); border-radius: var(--pz-r); box-shadow: 0 14px 34px -10px var(--pz-glass-drop), 0 2px 6px -1px var(--pz-glass-drop); }
 :root[data-theme="dark"] .pz-shade.pz-card:not(.stack) { --pz-glass-drop: rgb(var(--black-rgb) / .45); }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]):not([data-theme="soft"]) .pz-shade.pz-card:not(.stack) { --pz-glass-drop: rgb(var(--black-rgb) / .45); } }
@@ -1650,6 +1659,13 @@ button.finding { cursor: pointer; }
 .pz-eq .eq-wedge { color: var(--tr-wedge); } .pz-eq .eq-hv { color: var(--tr-hv); } .pz-eq .eq-pv { color: var(--tr-pv); } .pz-eq .eq-ivc { color: var(--tr-ivc); } .pz-eq .eq-var { color: var(--tr-var); }
 .pz-eqk { margin: 4px 0 0; font: 400 var(--s-cap)/1.4 var(--font-ui); color: var(--text-3); }
 .pz-nw { white-space: nowrap; }
+/* A figure's numbered marker ({#1} in a slide's line, presenter.js stepMark) as the figure draws it: a dark circle (--text) with the
+   numeral in the stage's own colour, so it turns light on dark in the dark theme as the figure's does. It sizes from its own type,
+   never under 12 px. Its baseline is its numeral's (the grid's first item), so the numeral stands on the words' baseline and the circle
+   centres on their x-height; the negative block margin keeps the circle inside the line's own 1.4 spacing, so a line holding one is
+   spaced like any other. No gap before it (the space ahead of it is its gap). */
+.pz-step { display: inline-grid; place-items: center; box-sizing: border-box; min-width: 1.5em; height: 1.5em; padding: 0 .3em; margin-block: -.3em; border-radius: var(--r-pill); background: var(--text); color: var(--stage-bg); font-family: var(--font-ui); font-size: max(12px, .68em); font-weight: 750; line-height: 1; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.pz-stop > .pz-step { margin-inline-end: .1em; }
 .app.pz-hi .pz-val { background: color-mix(in srgb, var(--text) 12%, transparent); box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--text) 55%, transparent); }
 /* A pill in a station's colour (--tone): a live value ({pv}) or a term that points at the figure ([portal vein](pv)). */
 .pz-val.tone, .pz-term { background: color-mix(in srgb, var(--tone) 15%, transparent); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--tone) 50%, transparent); color: color-mix(in srgb, var(--tone) 72%, var(--text)); }
@@ -1822,7 +1838,7 @@ button.finding { cursor: pointer; }
 .pz.stack .pz-case { --case-max: 2; }   /* (a phone: the case words a fifth smaller, so the card no longer fills the screen) */
 /* An upright tablet: the case card is the teaching card's width (70%, centred as it is), as tall as its words need, centred both ways (Mohammad, 17 Oct). */
 .pz.stack.tab .pz-case { width: 70%; }
-.pz-case-p { margin: 0; text-align: center; font: 500 calc(var(--s-body) * var(--case-k, var(--case-max)))/1.25 var(--font-display); letter-spacing: -.01em; color: var(--text); text-wrap: pretty; }
+.pz-case-p { align-self: stretch; margin: 0; text-align: center; font: 500 calc(var(--s-body) * var(--case-k, var(--case-max)))/1.25 var(--font-display); letter-spacing: -.01em; color: var(--text); text-wrap: pretty; }
 .pz-veil { position: absolute; inset: 0; background: color-mix(in srgb, var(--stage-bg) 92%, transparent); opacity: 0; transition: opacity .5s var(--ease); }
 .pz-veil.on { opacity: 1; }
 .pz-panel { position: absolute; left: 50%; top: 50%; translate: -50% -50%; width: min(1560px, calc(100% - 2 * clamp(16px, 3vw, 64px))); max-height: calc(100% - 2 * clamp(16px, calc(4 * var(--pzh)), 56px)); overflow: clip; display: flex; flex-direction: column; gap: clamp(12px, calc(2.4 * var(--pzh)), 32px); padding: clamp(18px, calc(3.4 * var(--pzh)), 44px) clamp(20px, 3vw, 52px); background: var(--surface); border: 1px solid var(--border); border-radius: clamp(18px, calc(2.6 * var(--pzh)), 32px); box-shadow: var(--shadow-3); pointer-events: auto; animation: pz-in .55s var(--ease) both; transition: opacity .22s var(--ease), transform .22s var(--ease); }
@@ -1852,9 +1868,9 @@ button.finding { cursor: pointer; }
 .pz.stack .pz-cell-k .pz-kick { font-size: min(var(--s-lab), 6.4cqi); letter-spacing: .05em; }
 /* (The HVPG is a pill, top right of every tile: it never wraps under the site tag; both shrink with the tile.) */
 .pz-cell-t { font: 600 var(--s-body)/1.15 var(--font-display); color: var(--text); }
-/* The six ladders fill the panel: two rows share its height and each chart shrinks to its cell. */
-.pz-panel.fill { height: calc(100% - 2 * clamp(16px, calc(4 * var(--pzh)), 56px)); }
-.pz-panel.fill .pz-grid { flex: 1; min-height: 0; grid-template-rows: repeat(2, minmax(0, 1fr)); }
+/* The six ladders: each chart has the instrument's own proportions (below), so the card is as tall as its two rows of them and no taller; only on a
+   window too short for that do the rows shrink to the room (the grid and the charts may shrink, never grow). */
+.pz-panel.fill .pz-grid { flex: 0 1 auto; min-height: 0; grid-template-rows: repeat(2, minmax(0, 1fr)); }
 .pz-panel.fill .pz-cell { min-height: 0; }
 /* (A wide screen's six ladders (Mohammad, 23 Oct: "the cards are wasting some space below sinusoidal within each card; also the title is wasting
    space"): the title one step down, the Compact step of the other titles (card-type.js WIDE.title, 0.8), so it stands on one line where it had
@@ -1863,20 +1879,47 @@ button.finding { cursor: pointer; }
    itself shorter. The name and the unit stay inside the cell, over 12 px from its edge.) */
 .pz:not(.stack):not(.low) .pz-panel.fill .pz-h { font-size: calc(var(--s-big) * .8); }
 .pz:not(.stack):not(.low) .pz-cell { padding-bottom: clamp(4px, calc(.6 * var(--pzh)), 8px); }
-.pz:not(.stack):not(.low) .pz-cell > .pz-prof { margin-bottom: -.5em; }
-.pz-cell > .pz-prof { flex: 1 1 0; min-height: 0; height: auto; font-size: var(--ch-cap, 12px); }   /* (each case's Gut to heart chart takes its cell's room under the title, lettered at the data card's chart size) */
-:is(.pz.stack, .pz.low) .pz-cell > .pz-prof { display: none; }   /* (a phone draws each case on one line instead) */
+.pz-cc { position: relative; width: 100%; flex: none; }   /* (the chart's holder: the instrument drawn at its own size inside it, scaled down whole to the cell's width: presenter.js fitChart) */
+.pz-cc > .pz-prof { position: absolute; left: 0; top: 0; width: var(--lad-w); height: calc(var(--lad-h) * var(--lad-s, 1)); min-height: 0; font-size: calc(var(--lad-f) * var(--lad-s, 1)); transform: scale(var(--lad-k, 1)); transform-origin: 0 0; }   /* (its own width, height and type are the instrument's: the cell's --lad-w, --lad-h and --lad-f; --lad-k is the scale, and --lad-s the larger type that keeps the scaled words at 12 px, in a box as much taller (1 where the instrument's own type holds, a few percent on a Mac, a third on an iPad on its side) so the plot keeps its room) */
+.pz:not(.stack) .pz-cc { height: calc((var(--lad-h) - .5 * var(--lad-f)) * var(--lad-s, 1) * var(--lad-k, 1)); }   /* (the scaled picture's height, less half a type size, overflow visible: the picture has that much blank under the brace's name) */
+:is(.pz.stack, .pz.low) .pz-cell > .pz-cc { display: none; }   /* (a phone draws each case on one line instead) */
 :is(.pz.stack, .pz.low) .pz-cell > .pz-pstrip { display: block; margin-top: 3px; font-size: var(--s-lab); }
 .pz-grid-head { display: none; }
 :is(.pz.stack, .pz.low) .pz-grid-head { display: grid; grid-column: 1 / -1; grid-template-columns: inherit; gap: inherit; }   /* (the stations named once over the six lines, each over its column) */
 :is(.pz.stack, .pz.low) .pz-grid-head > .pz-pstrip { display: block; width: auto; margin: 0 12px; font-size: var(--s-cap); }
 .pz.stack .pz-grid-head > :nth-child(2) { display: none; }
-.pz:not(.stack) .pz-cell { --ch-cap: max(12px, calc(var(--s-cap) * .74)); --ch-lab: calc(max(12px, calc(var(--s-cap) * .74)) * 1.5); }   /* (a big screen's six ladders letter at the data card's chart size, so the plots fit their cells) */
-.pz-table { overflow: auto; border: 1px solid var(--border); border-radius: clamp(12px, calc(1.8 * var(--pzh)), 20px); }
+/* (A big screen's six ladders are the data card's instrument, drawn once and scaled down as one piece to each cell (Mohammad, 28 Oct, Sites 10, after "looks
+   wrong": "each cell the instrument drawn exactly, scaled down", the slide 8 card as the reference): the instrument's own width (a card's width less its
+   padding), type size (the data card's chart size, 12 px at least) and height (62 % of its width, its floor of 28 % of the window's height, less the 1.6 em the
+   chart gave back; the same formulas as the instrument's), then scaled by presenter.js fitChart. The cell's chart then has the instrument's layout, label
+   places, plot shape and relative type; the card hugs the six. This took back the 26 Oct larger lettering (4.5 cqi, to 20 px) and the first 28 Oct try, which
+   laid the chart out afresh at the cell's size and crowded its plot.) */
+.pz:not(.stack) .pz-cell { --ch-cap: max(12px, calc(var(--s-cap) * .74)); --ch-lab: calc(var(--ch-cap) * 1.5); --lad-w: calc(var(--pz-cw) - 2 * var(--pz-cp)); --lad-f: var(--ch-cap); --lad-h: calc(min(max(.62 * var(--lad-w), 28 * var(--pzh)), 40 * var(--pzh)) - 1.6 * var(--lad-f)); }
+/* (What the card spends in height round the charts is kept short (Mohammad, 23 Oct, "wasting some space"): the gap under the title, the foot, the gap
+   between the two rows and each cell's top and first gap. The card's width, its side padding and the columns' gap are as they were.) */
+.pz:not(.stack):not(.low) .pz-panel.fill { gap: clamp(8px, calc(1.2 * var(--pzh)), 16px); padding-bottom: clamp(12px, calc(1.8 * var(--pzh)), 24px); }
+.pz:not(.stack):not(.low) .pz-panel.fill .pz-grid { row-gap: clamp(8px, calc(1.2 * var(--pzh)), 16px); }
+.pz:not(.stack):not(.low) .pz-panel.fill .pz-cell { padding-top: clamp(8px, calc(1.1 * var(--pzh)), 14px); gap: clamp(3px, calc(.6 * var(--pzh)), 8px); }
+/* (Its lines grow with its type, never thinner than the data card's: the line 3 px, the healthy and earlier lines 1.75, the brackets and the brace 1.5,
+   the axis and the gridlines 1 px, at the 12 px type they were drawn for. The value halos and the red hatching stay: the chart's label placing
+   counts a halo as 2 px.) */
+.pz:not(.stack) .pz-cell .ppf-line { stroke-width: max(3px, .2em); }
+.pz:not(.stack) .pz-cell :is(.ppf-hl, .ppf-bf) { stroke-width: max(1.75px, .14em); }
+.pz:not(.stack) .pz-cell .ppf-hl { stroke-dasharray: max(4px, .33em) max(5px, .42em); }
+.pz:not(.stack) .pz-cell .ppf-bf { stroke-dasharray: max(1.5px, .125em) max(4.5px, .375em); }
+.pz:not(.stack) .pz-cell :is(.ppf-br path, .ppf-brace path) { stroke-width: max(1.5px, .11em); }
+.pz:not(.stack) .pz-cell :is(.ppf-axis, .ptk-grid line) { stroke-width: max(1px, .075em); }
+/* (A card never scrolls, in any direction: a table that is too wide or too tall is zoomed by the card's fit (presenter.js overflowOf reads its
+   sideways overflow), never scrolled inside its card, and what a finger or a trackpad might pan is clipped. Mohammad, 25 Oct: on an iPad
+   on its side the summary table "scrolls right and left. They should not ever scroll.") */
+.pz-table { overflow: hidden; border: 1px solid var(--border); border-radius: clamp(12px, calc(1.8 * var(--pzh)), 20px); }
 .pz-table table { width: 100%; border-collapse: collapse; font: 500 var(--s-body)/1.25 var(--font-ui); }
 .pz-table th, .pz-table td { padding: .55em .75em; text-align: left; vertical-align: middle; }
-.pz-table thead th { background: var(--surface-2); font: var(--caps-w) var(--s-cap)/1.2 var(--font-ui); letter-spacing: var(--caps-ls); text-transform: uppercase; color: var(--text-3); white-space: nowrap; }
+.pz-table thead th { background: var(--surface-2); font: var(--caps-w) var(--s-cap)/1.2 var(--font-ui); letter-spacing: var(--caps-ls); text-transform: uppercase; color: var(--text-3); }   /* (a heading wraps between its words when the card is tight; it never breaks inside one) */
 .pz-table .num { text-align: center; font-variant-numeric: tabular-nums; white-space: nowrap; }
+/* A wide screen's value columns keep less padding at the sides than the row names: their arrows and numbers are centred, so a roomy table
+   looks as before, and a tight one (nine columns on an iPad on its side) gives the room to the columns instead of scrolling. */
+.pz:not(.stack) .pz-table :is(thead th.num, tbody td.num) { padding-inline: .45em; }
 .pz-table tbody tr { border-top: 1px solid var(--border); cursor: pointer; transition: background-color .2s var(--ease); }
 @media (hover: hover) { .pz-table tbody tr:hover { background: var(--accent-soft); } }
 .pz-table tbody th .pz-kick { font-size: var(--s-cap); }
@@ -2249,6 +2292,11 @@ button.finding { cursor: pointer; }
 .pzi-e { grid-row: 2; justify-self: start; font: 500 var(--s-cap)/1 var(--font-ui); color: var(--text-2); white-space: nowrap; }
 .pzi-e:last-child { grid-column: 2; justify-self: end; }
 .pzi-v { min-width: 3.6em; text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+/* Words that change while they show (a what-if value, a time-lapse's day count) stand in a box as wide as the widest words they will take: a hidden
+   copy of them (.pzv-s) and the live ones (.pzv-t) in one grid cell, so a digit coming or going never changes the line they stand on (live-text.js). */
+.pzv { display: grid; font-variant-numeric: tabular-nums; }
+.pzv > .pzv-s, .pzv > .pzv-t { grid-area: 1 / 1; white-space: nowrap; }
+.pzv > .pzv-s { visibility: hidden; }
 .pz.stack .pz-wi { gap: .3em .7em; }
 .pz.stack .pzi-l { flex-direction: row; align-items: baseline; gap: .5em; }
 /* (A phone: the slider takes a line of its own at the card's width, its end words at the track's ends; on one line with the label the track was a stub.) */
@@ -2420,6 +2468,8 @@ button.finding { cursor: pointer; }
    box alone and not the card, its words and its glass round it. Nothing moves; the same pixels.) */
 .pz-data .pz-tool[data-kind="doppler"] .dop-box { will-change: transform; contain: paint; }
 .pz-tool[data-kind="fibroscan"] .fibroscan-box { width: 100%; height: clamp(250px, calc(42 * var(--pzh)), 480px); }   /* (the shear-wave map needs height to read) */
+.pz-tool[data-kind="vitals"] .vitals-box { width: 100%; height: clamp(170px, calc(26 * var(--pzh)), 300px); border-radius: 12px; }   /* (the strip, then three numbers) */
+.pz-tool[data-kind="hvpg"] .pz-mon { margin-top: 0; }
 /* The scope's view sits in .endo-stage, a size container in the Tests card; here the stage takes the view's own height. */
 .pz-tool:is([data-kind="scope"], [data-kind="wall"]) .endo-stage { container-type: normal; min-height: 0; }
 .pz-tool[data-kind="scope"] .endo-stage { width: min(100%, calc(40 * var(--pzh)), 30vw); margin: 0 auto; }
@@ -2479,7 +2529,8 @@ button.finding { cursor: pointer; }
 .pz.stack .pz-data > * { flex-shrink: 0; }   /* (parts keep their height, so a card too full reads as overflow and is fitted, not squeezed until a reading is cut) */
 .pz.stack .pz-tool[data-kind="doppler"] .dop-box { height: 140px; }
 .pz.stack .pz-tool[data-kind="fibroscan"] .fibroscan-box { height: 140px; }
-.pz.stack .pz-tool[data-kind="beats"] .pt-box { height: 140px; }
+.pz.stack .pz-tool[data-kind="vitals"] .vitals-box { height: 140px; }
+.pz.stack .pz-tool[data-kind="beats"] .pt-box { height: 172px; }   /* (tall enough for the pressures and the HVPG lane, trace-lanes.js; the EKG strip needs a taller card) */
 /* Phone: the scope sits beside its grade and size, and the Doppler drops its sentence, so a tile still fits under the instrument. */
 .pz.stack .pz-tool[data-kind="scope"] .pz-inst { flex-direction: row; align-items: center; gap: 12px; }
 .pz.stack .pz-tool[data-kind="scope"] .endo-stage { width: min(40%, 24vh); flex: none; margin: 0; }
@@ -2554,6 +2605,10 @@ button.finding { cursor: pointer; }
      in and out is harder to follow. */
   .pz > :is(.pz-text, .pz-data, .pz-panel), .pz-text > *, .pz-shade { transition: opacity .3s var(--ease) !important; }
   .pz > :is(.pz-text, .pz-data, .pz-panel), .pz-text > .pz-leave, .pz-shade { transform: none !important; }
+  /* The stacked card's handle (.pz-lip) fades with the cards too, in once the glass is in and out before it, never popping in or out
+     ahead of them: with every transition off it came up at once while the cards were still fading in (Mohammad, 25 Oct). */
+  .pz > .pz-lip { transition: opacity .3s var(--ease) .3s !important; transform: none !important; }
+  .pz > .pz-data.pz-hide + .pz-lip { transition: opacity .15s var(--ease) !important; }
 }
 /* Menu › Present: the presentations and your scripts. */
 /* High contrast (P while presenting, or Settings): colour only, never a size. Stronger words, ratings as filled chips, a deeper shade. Organ art unchanged. */
@@ -2577,7 +2632,6 @@ button.finding { cursor: pointer; }
 .pz.stack .pz-outline { --pzo-fs: calc(var(--s-body) * .85); gap: 14px; }   /* (a phone: the outline's words a little smaller) */
 .pz.stack .pz-panel[data-visual="outline"] .pz-dtitle { font-size: calc(var(--s-big) * .85); }
 .pz.stack .pzo-obj { padding: 12px 14px; border-radius: 14px; }
-.pz-panel[data-visual="outline"] { width: min(1180px, calc(100% - 2 * clamp(16px, 3vw, 64px))); }
 .app.pz-hi .pzt-r { align-self: center; padding: .22em .7em; border-radius: var(--r-pill); background: var(--text-2); color: var(--surface); transition: background-color .4s var(--ease), color .4s var(--ease); }
 .app.pz-hi .pz-tile[data-rate="hi"] .pzt-r { background: var(--danger); color: var(--stage-bg); }
 .app.pz-hi .pz-tile[data-rate="mid"] .pzt-r { background: var(--caution); color: var(--on-caution); }
@@ -2840,8 +2894,8 @@ button.finding { cursor: pointer; }
 .cath-balloon { fill: var(--cath-balloon); stroke: var(--white); stroke-width: .6; }
 .cath-column { fill: none; stroke-linecap: round; stroke-linejoin: round; stroke-opacity: .9; }
 /* While the catheter is in, the figure's own readouts are hidden so its labels read clearly. */
-.stage-view #labels { transition: opacity .4s var(--ease); }
-.cath-on #labels { opacity: 0; visibility: hidden; transition: opacity .25s var(--ease-in), visibility 0s linear .25s; }
+.stage-view #labels, .stage-view #labelGl { transition: opacity .4s var(--ease); }
+.cath-on :is(#labels, #labelGl) { opacity: 0; visibility: hidden; transition: opacity .25s var(--ease-in), visibility 0s linear .25s; }
 .cath-labels { position: absolute; inset: 0; pointer-events: none; z-index: 4; }
 .cath-labels[hidden] { display: none; }
 .cath-label { position: absolute; left: 0; top: 0; isolation: isolate; display: inline-flex; flex-direction: column; align-items: center; gap: 1px; padding: 7px 16px 8px; border: 2px solid transparent; border-radius: 14px; white-space: nowrap;
@@ -2858,6 +2912,10 @@ button.finding { cursor: pointer; }
 .cl-glass path { fill: none; stroke: var(--rg); stroke-width: 4; stroke-linejoin: miter; }
 @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) { .cl-glass { background: color-mix(in srgb, var(--surface) 94%, transparent); } }
 @media (prefers-reduced-transparency: reduce) { .cl-glass { background: color-mix(in srgb, var(--surface) 96%, transparent); -webkit-backdrop-filter: none; backdrop-filter: none; } }
+/* (Its blur and tint drawn on the GPU under the callout layers instead, glass-gl.js: the outline above stays the DOM's) */
+.cl-glass[data-gl], .lb-glass[data-gl] { background: none; -webkit-backdrop-filter: none; backdrop-filter: none; }
+.stage-view > canvas#paneGl { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+#glassGl { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 4; }
 .cath-label[data-at="ahead"] { translate: -50% 18px; }
 .cath-label[data-at="ahead"].above { translate: -50% calc(-100% - 18px); }
 .cath-label small { color: var(--c); font-weight: 700; font-size: 12px; letter-spacing: .06em; }
@@ -2885,7 +2943,9 @@ button.finding { cursor: pointer; }
 /* The FibroScan probe on the skin over the liver; its shear wave eases out into the right lobe and fades. */
 .scan-probe { --scan: var(--fibroscan); /* the orange of the FibroScan card's readout (ORANGE in fibroscan.js) */ position: absolute; left: 0; top: 0; width: 220px; height: 96px; translate: 0 -50%; transition: opacity .6s var(--ease); pointer-events: none; }
 .scan-probe.cath-pre, .scan-probe.off { opacity: 0; }
-.scan-probe svg { width: 220px; height: 96px; overflow: visible; transform: rotate(var(--sp-turn, 45deg)); transform-origin: 66px 48px; transition: transform .5s var(--ease); }   /* probe and beam turned 45° about the tip, pointing down-right (steeper beside the screen's left edge: stage.js scanPaint) */
+.scan-probe svg { position: absolute; left: 0; top: 0; width: 220px; height: 96px; overflow: visible; transform: rotate(var(--sp-turn, 45deg)); transform-origin: 66px 48px; transition: transform .5s var(--ease); }
+.scan-probe[data-gl] > svg { visibility: hidden; }   /* (drawn on the labels' GPU layer instead: label-gl.js) */
+.scan-probe .sp-beam-svg { will-change: transform; }   /* (the beam's blur kept as drawn: the waves over it change every frame, it does not) */   /* probe and beam turned 45° about the tip, pointing down-right (steeper beside the screen's left edge: stage.js scanPaint) */
 .scan-probe .sp-body { fill: var(--surface); stroke: var(--text-2); stroke-width: 1.6; }
 .scan-probe .sp-tip { fill: var(--text-2); }
 .scan-probe .sp-screen { fill: var(--fibroscan); }   /* the probe's own display: the live stiffness, along its 45° axis */
@@ -2905,6 +2965,7 @@ button.finding { cursor: pointer; }
 /* The Doppler probe (dop-probe.js, stage.js dprobePaint), drawn as a scanner marks it: placed at the sample volume, turned toward the probe; the line of sight, the flow axis, the sample volume's bars and the probe are white-lined on a black rim, so they read on every vessel colour and theme. */
 .dop-probe { position: absolute; left: 0; top: 0; width: 0; height: 0; transition: opacity .36s var(--ease); pointer-events: none; }
 .dop-probe.off { opacity: 0; }
+.dop-probe[data-gl] .dpr-svg { visibility: hidden; }   /* (drawn on the GPU with the labels, label-gl.js: its fades still run here, and are read) */
 .dop-probe .dpr-svg { position: absolute; left: 0; top: 0; overflow: visible; }
 .dop-probe .dpr-wedge { fill: url(#dpr-wedge); }   /* (the faded ultrasound beam, in the Doppler glow's colour, under every mark) */
 .dop-probe .dpr-rim-l { fill: none; stroke: var(--dop-rim); stroke-width: 4.4; stroke-linecap: round; stroke-linejoin: round; }
@@ -3129,6 +3190,7 @@ button.finding { cursor: pointer; }
 .pt-chip i { width: 12px; height: 3px; border-radius: 2px; background: color-mix(in srgb, var(--chip) 35%, transparent); }
 .pt-chip[aria-pressed="true"] { color: var(--text); background: var(--surface-2); border-color: transparent; }
 .pt-chip[aria-pressed="true"] i { background: var(--chip); }
+.pt-chip:disabled { opacity: 0.4; cursor: default; }   /* (the EKG pill outside the last-beats range) */
 @media (hover: hover) { .pt-chip:hover { border-color: var(--border-strong); } }
 @media (max-width: 767px), (max-width: 1100px) and (orientation: portrait) {
   .pt-num { font-size: var(--fs-28); }
@@ -4811,7 +4873,7 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
 }
 
 /* A slide's terms inside the liver (presenter.js TARGETS, .app[data-lit~=<target>]):
-   the label takes the term's colour (--term-c) with a soft glow, eased in and out. */
+   the label takes the term's colour (--term-c) and a pill and ring in it (below), eased in and out. */
 [data-target="lobule:triad"] { --term-c: var(--tr-pv); }
 [data-target="lobule:arteriole"] { --term-c: var(--artery); }
 [data-target="lobule:ductule"] { --term-c: var(--bile-duct); }
@@ -4842,10 +4904,10 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
 .lz.lz-cam :is(.lz-lab, .lz-zone)::before { transition: --pill-o .01s linear .2s, background-color .01s linear .2s, box-shadow .01s linear .2s; }
 .lz.lz-sin :is(.lz-lab, .lz-zone)::before { transition: --pill-o .01s linear .18s, background-color .01s linear .18s, box-shadow .01s linear .18s; }
 .sv:not(.on) .sv-region::before { transition: --pill-o .01s linear .6s, background-color .01s linear .6s, box-shadow .01s linear .6s; }
-/* Presenting, on a slide that lights something in the lobule or sinusoid: the labels it is not talking about ease out (and their leaders), so the crowded figure shows only the pilled ones. */
+/* Presenting, on a slide that lights something in the lobule or sinusoid: the lobule's labels it is not talking about ease out (and their leaders), so the crowded figure shows only the pilled ones. The sinusoid view keeps every name and arrow (Hepatocyte, Lymph, Portal venule, Central vein, ...): its slide's lit ones take the pill, the rest stay plain, as in Explore. */
 .lz-leaders :is(.leader, .leader-dot), .sv-lead { transition: opacity .5s var(--ease); }
-.app.presenting:is([data-lit*="lobule:"], [data-lit*="sinusoid:"]) :is(.lz-lab, .lz-zone, .sv-region):not(:is(.app[data-lit~="lobule:triad"] [data-target="lobule:triad"], .app[data-lit~="lobule:arteriole"] [data-target="lobule:arteriole"], .app[data-lit~="lobule:ductule"] [data-target="lobule:ductule"], .app[data-lit~="lobule:sinusoid"] [data-target="lobule:sinusoid"], .app[data-lit~="lobule:central"] [data-target="lobule:central"], .app[data-lit~="lobule:lymph"] [data-target="lobule:lymph"], .app[data-lit~="lobule:zone1"] [data-target="lobule:zone1"], .app[data-lit~="lobule:zone3"] [data-target="lobule:zone3"], .app[data-lit~="sinusoid:fenestrae"] [data-target="sinusoid:fenestrae"], .app[data-lit~="sinusoid:disse"] [data-target="sinusoid:disse"], .app[data-lit~="sinusoid:stellate"] [data-target="sinusoid:stellate"], .app[data-lit~="sinusoid:kupffer"] [data-target="sinusoid:kupffer"], .app[data-lit~="sinusoid:hepatocyte"] [data-target="sinusoid:hepatocyte"], .app[data-lit~="sinusoid:lymph"] [data-target="sinusoid:lymph"], .app[data-lit~="sinusoid:lumen"] [data-target="sinusoid:lumen"])) { --lit-o: 0; pointer-events: none; }
-.app.presenting:is([data-lit*="lobule:"], [data-lit*="sinusoid:"]) :is(.lz-leaders .leader, .lz-leaders .leader-dot, .sv-lead)[data-target]:not(:is(.app[data-lit~="lobule:triad"] [data-target="lobule:triad"], .app[data-lit~="lobule:arteriole"] [data-target="lobule:arteriole"], .app[data-lit~="lobule:ductule"] [data-target="lobule:ductule"], .app[data-lit~="lobule:sinusoid"] [data-target="lobule:sinusoid"], .app[data-lit~="lobule:central"] [data-target="lobule:central"], .app[data-lit~="lobule:lymph"] [data-target="lobule:lymph"], .app[data-lit~="lobule:zone1"] [data-target="lobule:zone1"], .app[data-lit~="lobule:zone3"] [data-target="lobule:zone3"], .app[data-lit~="sinusoid:fenestrae"] [data-target="sinusoid:fenestrae"], .app[data-lit~="sinusoid:disse"] [data-target="sinusoid:disse"], .app[data-lit~="sinusoid:stellate"] [data-target="sinusoid:stellate"], .app[data-lit~="sinusoid:kupffer"] [data-target="sinusoid:kupffer"], .app[data-lit~="sinusoid:hepatocyte"] [data-target="sinusoid:hepatocyte"], .app[data-lit~="sinusoid:lymph"] [data-target="sinusoid:lymph"], .app[data-lit~="sinusoid:lumen"] [data-target="sinusoid:lumen"])) { opacity: 0; }
+.app.presenting:is([data-lit*="lobule:"], [data-lit*="sinusoid:"]) :is(.lz-lab, .lz-zone):not(:is(.app[data-lit~="lobule:triad"] [data-target="lobule:triad"], .app[data-lit~="lobule:arteriole"] [data-target="lobule:arteriole"], .app[data-lit~="lobule:ductule"] [data-target="lobule:ductule"], .app[data-lit~="lobule:sinusoid"] [data-target="lobule:sinusoid"], .app[data-lit~="lobule:central"] [data-target="lobule:central"], .app[data-lit~="lobule:lymph"] [data-target="lobule:lymph"], .app[data-lit~="lobule:zone1"] [data-target="lobule:zone1"], .app[data-lit~="lobule:zone3"] [data-target="lobule:zone3"], .app[data-lit~="sinusoid:fenestrae"] [data-target="sinusoid:fenestrae"], .app[data-lit~="sinusoid:disse"] [data-target="sinusoid:disse"], .app[data-lit~="sinusoid:stellate"] [data-target="sinusoid:stellate"], .app[data-lit~="sinusoid:kupffer"] [data-target="sinusoid:kupffer"], .app[data-lit~="sinusoid:hepatocyte"] [data-target="sinusoid:hepatocyte"], .app[data-lit~="sinusoid:lymph"] [data-target="sinusoid:lymph"], .app[data-lit~="sinusoid:lumen"] [data-target="sinusoid:lumen"])) { --lit-o: 0; pointer-events: none; }
+.app.presenting:is([data-lit*="lobule:"], [data-lit*="sinusoid:"]) :is(.lz-leaders .leader, .lz-leaders .leader-dot)[data-target]:not(:is(.app[data-lit~="lobule:triad"] [data-target="lobule:triad"], .app[data-lit~="lobule:arteriole"] [data-target="lobule:arteriole"], .app[data-lit~="lobule:ductule"] [data-target="lobule:ductule"], .app[data-lit~="lobule:sinusoid"] [data-target="lobule:sinusoid"], .app[data-lit~="lobule:central"] [data-target="lobule:central"], .app[data-lit~="lobule:lymph"] [data-target="lobule:lymph"], .app[data-lit~="lobule:zone1"] [data-target="lobule:zone1"], .app[data-lit~="lobule:zone3"] [data-target="lobule:zone3"], .app[data-lit~="sinusoid:fenestrae"] [data-target="sinusoid:fenestrae"], .app[data-lit~="sinusoid:disse"] [data-target="sinusoid:disse"], .app[data-lit~="sinusoid:stellate"] [data-target="sinusoid:stellate"], .app[data-lit~="sinusoid:kupffer"] [data-target="sinusoid:kupffer"], .app[data-lit~="sinusoid:hepatocyte"] [data-target="sinusoid:hepatocyte"], .app[data-lit~="sinusoid:lymph"] [data-target="sinusoid:lymph"], .app[data-lit~="sinusoid:lumen"] [data-target="sinusoid:lumen"])) { opacity: 0; }
 /* A presenter slide change in the liver (presenter.js hush): every label, pill, ring, leader and callout eases out together and
    stays out while the camera moves and the lit set changes underneath; then only the new slide's ease in together. Ahead of
    every other label state (the camera's, the sinusoid's, the lit set's), so none can bring a label back for a frame. */
@@ -5155,6 +5217,11 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
 :is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool, .pz.low .pz-data.has-tool) .pz-tool[data-kind="scope"] .endo-read > .endo-g { grid-area: 1 / 1; }
 :is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool, .pz.low .pz-data.has-tool) .pz-tool[data-kind="scope"] .endo-read > .endo-red { grid-area: 1 / 2; justify-self: end; }
 :is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool, .pz.low .pz-data.has-tool) .pz-tool[data-kind="scope"] .endo-read > .endo-red > dt { display: none; }
+/* A lesson slide's pressures (the scope's readings option): one row under the grade, the name over its number in three columns, the picture below as before. */
+:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool, .pz.low .pz-data.has-tool) .pz-tool[data-kind="scope"] .pz-inst[data-readings] { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool, .pz.low .pz-data.has-tool) .pz-tool[data-kind="scope"] .pz-inst[data-readings] .endo-read > .endo-g { grid-area: 1 / 1 / 2 / 3; }
+:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool, .pz.low .pz-data.has-tool) .pz-tool[data-kind="scope"] .pz-inst[data-readings] .endo-read > .endo-red { grid-area: 1 / 3; }
+:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool, .pz.low .pz-data.has-tool) .pz-tool[data-kind="scope"] .endo-read > .endo-pr { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; grid-row: 2; min-width: 0; margin: 0; padding: 0; border: 0; border-radius: 0; background: none; box-shadow: none; }
 :is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool, .pz.low .pz-data.has-tool) .pz-tool[data-kind="scope"] .endo-more { display: none; }
 :is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool, .pz.low .pz-data.has-tool) .pz-tool[data-kind="wall"] .endo-read > .endo-stress.endo-stress { grid-area: 1 / 1 / 2 / -1; display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: baseline; gap: 6px 12px; }
 :is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool, .pz.low .pz-data.has-tool) .pz-tool[data-kind="wall"] .endo-read > .endo-stress > dt { flex: none; }
@@ -5230,7 +5297,7 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
    up to its edge and the sheet's (dockVec). A slide whose card does not fit comes in closed, never folded behind Show. */
 .pz-lip { display: none; }
 .pz:is(.stack, .low) .pz-lip:not([hidden]) { display: block; position: absolute; height: 24px; margin: 0; padding: 0; border: 0; background: none; pointer-events: auto; touch-action: none;
-  cursor: pointer; -webkit-tap-highlight-color: transparent; transition: opacity .5s var(--ease) .12s, transform .5s var(--ease) .12s, margin-top .36s var(--ease); }
+  cursor: pointer; -webkit-tap-highlight-color: transparent; transition: opacity .3s var(--ease) .42s, transform .5s var(--ease) .12s, margin-top .36s var(--ease); }
 .pz:is(.stack, .low) .pz-lip::before { content: ''; position: absolute; inset: 0 14px; border: 1px solid color-mix(in srgb, var(--text) 9%, transparent); border-top: 0; border-radius: 0 0 16px 16px;
   background: color-mix(in srgb, var(--surface-2) 94%, transparent); box-shadow: 0 6px 14px -8px rgb(var(--black-rgb) / .14), 0 1px 2px rgb(var(--black-rgb) / .14);
   transition: inset .36s var(--ease), background-color .36s var(--ease), border-color .36s var(--ease), box-shadow .36s var(--ease); }
@@ -5239,8 +5306,13 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
 .pz:is(.stack, .low) .pz-data.tool-open + .pz-lip { margin-top: -24px; }
 .pz:is(.stack, .low) .pz-data.tool-open + .pz-lip::before { inset: 0; background-color: transparent; border-color: transparent; box-shadow: none; }
 .app.pz-hi .pz:is(.stack, .low) .pz-data:not(.tool-open) + .pz-lip::before { border-color: color-mix(in srgb, var(--text) 32%, transparent); }
-/* (It comes and goes with the card: the same fade and the same small shift.) */
-.pz .pz-data.pz-hide + .pz-lip:not([hidden]) { opacity: 0; transform: translateX(18px); pointer-events: none; transition: opacity .32s var(--ease), transform .32s var(--ease), margin-top .36s var(--ease); }
+/* (It comes and goes with the card, the same small shift, and its bar never shows ahead of the card: the bar is a crisp mark on glass that is
+   nearly clear while it fades, so faded with the glass it read as the first thing to arrive and the last to go (Mohammad, 25 Oct: "the
+   handle of the stacked cards appears before the cards"). It fades in once the glass is in (the card's own fade runs .12 s to .62 s, the bar's .42 s
+   to .72 s) and out first, in .2 s. A card that has just come to stand with its glass already on (pz-lip-in, presenter.js lipSync) starts
+   from this same out look.) */
+.pz .pz-data.pz-hide + .pz-lip:not([hidden]) { opacity: 0; transform: translateX(18px); pointer-events: none; transition: opacity .2s var(--ease), transform .32s var(--ease), margin-top .36s var(--ease); }
+.pz .pz-lip.pz-lip-in:not([hidden]) { opacity: 0; transition: none !important; }
 .pz.stack .pz-data.pz-hide + .pz-lip { transform: translateY(-18px); }
 .pz.pz-turning .pz-lip, .pz.pz-turning .pz-lip::before { transition: none !important; }
 .pz.stack .pz-data.pz-sheet > .pz-grip { display: none; }   /* (its handle is the sheet's) */
@@ -5291,12 +5363,16 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
   --pz-cut: calc(((1 - var(--pz-u)) * (var(--pz-d, 0px) - 24px) + 10px - var(--pz-gap, 6px)) - 14px - var(--pz-o, 0px));
   clip-path: polygon(-60px var(--pz-cut), calc(100% + 60px) var(--pz-cut), calc(100% + 60px) calc(100% + 60px), -60px calc(100% + 60px)); }
 .pz.stack.stack .pz-data.pz-sheet.pz-sheet.tiles-only > .pz-tiles { margin-top: calc(14px - (1 - var(--pz-u)) * var(--pz-d, 0px)); }
+/* (Only the first readings part travels; a second (the bleed clock's row) rides under it. With the travel in its own margin too, the
+   card's measure of the travel changed the travel, without end: Variceal bleed 3 to 4 froze.) */
+.pz.stack.stack .pz-data.pz-sheet.pz-sheet.tiles-only > .pz-tiles ~ .pz-tiles { margin-top: 0; }
 .pz.stack.stack .pz-data.pz-sheet.pz-sheet > .pz-tiles { margin-bottom: 16px; }
 .pz.stack.stack .pz-data.pz-sheet.pz-sheet.pz-sheet.pz-sliding > .pz-tiles { transition: none; }
 .pz.stack.stack .pz-data.pz-sheet.pz-sheet:not(.tool-open):not(.pz-sliding) > .pz-tiles { visibility: hidden; }
 /* (The handle rides in the readings' card's foot, tucked or out: --pz-u is copied to it by presenter.js placeLip, frame by frame.) */
 .pz.stack .pz-data.pz-sheet + .pz-lip::before { content: none; }
-.pz.stack .pz-data.pz-sheet.pz-sliding + .pz-lip { margin-top: calc(-24px * var(--pz-u, 0)); transition: opacity .5s var(--ease) .12s, transform .5s var(--ease) .12s; }
+.pz.stack .pz-data.pz-sheet.pz-sliding + .pz-lip { margin-top: calc(-24px * var(--pz-u, 0)); transition: opacity .3s var(--ease) .42s, transform .5s var(--ease) .12s; }
+.pz.stack .pz-data.pz-sheet.pz-sliding.pz-hide + .pz-lip { transition: opacity .2s var(--ease), transform .32s var(--ease); }   /* (a slide that changes mid-pull: the bar still leaves first) */
 /* (Inside a fading card a glass piece loses its blur until the fade ends, so here the card stays opaque and its parts and its two
    pieces fade, the card hidden once they have gone. The readings fade by their own ease.) */
 .pz.stack.stack .pz-data.pz-sheet.pz-hide { opacity: 1; visibility: hidden; transition: transform .32s var(--ease), visibility 0s linear .32s; }
@@ -5322,7 +5398,7 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
    to the side here, so it has no edge handle. */
 .pz.pz-wide .pz-data > .pz-grip { display: none; }
 .pz.pz-wide .pz-lip:not([hidden]) { display: block; position: absolute; height: 24px; margin: 0; padding: 0; border: 0; background: none; pointer-events: auto; touch-action: none;
-  cursor: pointer; -webkit-tap-highlight-color: transparent; transition: opacity .5s var(--ease) .12s, transform .5s var(--ease) .12s; }
+  cursor: pointer; -webkit-tap-highlight-color: transparent; transition: opacity .3s var(--ease) .42s, transform .5s var(--ease) .12s; }
 .pz.pz-wide .pz-lip::after { content: ''; position: absolute; left: 50%; top: 50%; width: 34px; height: 4px; translate: -50% -50%; border-radius: 2px; background: color-mix(in srgb, var(--text) 32%, transparent); }
 .pz.pz-wide .pz-data.pz-hide + .pz-lip { transform: translateX(-18px); }   /* (as the card leaves, .pz-data.col) */
 .pz.pz-wide.pz-wide .pz-data.pz-sheet.pz-sheet { --pz-u: 0; --pz-sr: clamp(16px, calc(2.2 * var(--pzh)), 28px); --pz-in: 8px; padding-top: 10px; background: none; -webkit-backdrop-filter: none; backdrop-filter: none; border-color: transparent; box-shadow: none; overflow: visible; isolation: isolate; }
@@ -5350,6 +5426,7 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
   translate: 0 calc((1 - var(--pz-u)) * (var(--pz-d, 0px) - 24px));
   --pz-cut: calc(var(--pz-u) * var(--pz-d, 0px) - 26px + 24px * (1 - var(--pz-u)));
   clip-path: polygon(-60px -60px, calc(100% + 60px) -60px, calc(100% + 60px) var(--pz-cut), -60px var(--pz-cut)); }
+.pz.pz-wide.pz-wide .pz-data.pz-sheet.pz-sheet > .pz-tiles ~ .pz-tiles { margin-top: 0; }   /* (rides under the first: see the phone's) */
 .pz.pz-wide.pz-wide .pz-data.pz-sheet.pz-sheet.pz-sheet.pz-sliding > .pz-tiles { transition: none; }
 .pz.pz-wide.pz-wide .pz-data.pz-sheet.pz-sheet:not(.tool-open):not(.pz-sliding) > .pz-tiles { visibility: hidden; }
 .pz.pz-wide.pz-wide .pz-data.pz-sheet.pz-hide { opacity: 1; visibility: hidden; transition: transform .32s var(--ease), visibility 0s linear .32s; }
@@ -5369,6 +5446,24 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
 .pz.pz-wide .pz-text, .pz-shade.pz-card:not(.stack):not(.low) { translate: 0 calc(-1 * var(--pz-rise, 0px)); }
 @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) { .pz.pz-wide.pz-wide .pz-data.pz-sheet::before, .pz.pz-wide.pz-wide .pz-data.pz-sheet::after { background: color-mix(in srgb, var(--surface) 96%, transparent); } }
 @media (prefers-reduced-transparency: reduce) { .pz.pz-wide.pz-wide .pz-data.pz-sheet::before, .pz.pz-wide.pz-wide .pz-data.pz-sheet::after { background: var(--surface-2); -webkit-backdrop-filter: none; backdrop-filter: none; } }
+/* The data card zoomed to the middle of the screen (Mac and iPad landscape; presenter.js zoomOpen, src/ui/card-zoom.js; Mohammad, 28 Oct: "the
+   camera should like zoom on the card to display it centered large in middle of the screen"). The card and its handle glide and grow by a
+   transform, so the words only get larger; the veil dims the words and the figure under them (the figure itself stays where it is) and takes a
+   tap to put the card back. The icon is the corner of the card's header row, quiet like the header's own small
+   caps: the text's grey, the app's corner brackets, a soft tint under the finger. Nothing but the icon and the cursor shows before the tap. */
+.pz-zscrim { position: absolute; inset: 0; background: color-mix(in srgb, var(--stage-bg) 58%, transparent); opacity: 0; pointer-events: none; cursor: zoom-out; transition: opacity .45s var(--ease); }
+.pz-zscrim.on { opacity: 1; pointer-events: auto; }
+.pz-zbtn { display: none; }
+.pz.pz-wide .pz-data.pz-zoomable { cursor: zoom-in; }
+.pz-zoomed .pz.pz-wide .pz-data { cursor: zoom-out; }
+.pz.pz-wide .pz-data.pz-zoomable > .pz-dh { position: relative; }
+.pz.pz-wide .pz-data.pz-zoomable > .pz-dh > .pz-zbtn { display: grid; place-items: center; position: absolute; right: calc(-4px / var(--pz-z, 1)); top: 50%; translate: 0 -50%; width: calc(24px / var(--pz-z, 1)); height: calc(24px / var(--pz-z, 1)); margin: 0; padding: 0; border: 0; border-radius: calc(8px / var(--pz-z, 1)); background: none; color: var(--text-3); cursor: pointer; -webkit-tap-highlight-color: transparent; transition: color .25s var(--ease), background .25s var(--ease); }
+.pz-zbtn::before { content: ''; position: absolute; inset: calc(-8px / var(--pz-z, 1)) calc(-6px / var(--pz-z, 1)); }
+.pz-zbtn svg { width: calc(15px / var(--pz-z, 1)); height: calc(15px / var(--pz-z, 1)); stroke: currentColor; fill: none; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+.pz-zbtn svg:last-child, .pz-zoomed .pz-zbtn svg:first-child { display: none; }
+.pz-zoomed .pz-zbtn svg:last-child { display: block; }
+@media (hover: hover) { .pz-zbtn:hover { color: var(--text); background: var(--hairline); } }
+.pz-zbtn:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 /* Mac and iPad landscape: when even the smallest steps leave the pair too tall, the instrument folds behind Show as on a phone
    (presenter.js layout, pz-folds), its tiles in a row at the card's full width; Show fades it in, Hide out. */
 .pz:not(.stack):not(.low) .pz-data.pz-folds .pz-dh { position: relative; padding-inline: max(64px, calc(var(--pz-chip-em, 0) * 1em + 24px / var(--pz-z, 1) + 10px)); }   /* (the chip's own width, its words (presenter.js chipRoom), padding and edge, and 8 px) */
@@ -5404,9 +5499,18 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
    whole, the ladder's own lettering with it.) */
 .pz:not(.stack):not(.low) .pz-data.col.tiles-only:not(.has-tool) > :is(.pz-tiles, .pz-dh) { zoom: var(--pz-z, 1); }
 /* (A full panel, the six ladders or a table, keeps the cards' one margin at every edge and ends above the nav pill, centred in
-   the room over it, so the pill never sits on its corner.) */
+   the room over it, so the pill never sits on its corner. The six ladders, .fill, are as tall as their charts and no taller: centred in that room.) */
 .pz:not(.stack) .pz-panel { width: min(1560px, calc(100% - 2 * var(--pz-cm))); top: calc(50% - (var(--pz-cm) + 44px) / 2); max-height: calc(100% - 3 * var(--pz-cm) - 44px); }
-.pz:not(.stack) .pz-panel.fill { height: calc(100% - 3 * var(--pz-cm) - 44px); }
+/* The full cards other than the six ladders (the opening outline, a summary table, the closing quick check, the scale, the SAAG plot, the two
+   capillary walls, a plane) are a column to read, not a wall: on a laptop or a
+   tablet on its side each stays a centred card, a width in the teaching card's body text (--pz-b, so it grows with the words) and never
+   more than 82% of the screen, so the eye has one place to land and the veiled figure shows round it (Mohammad, 25 Oct). The
+   fit (presenter.js fitCards) judges the card at this width; a phone keeps its full-width card (.stack, .low).
+   (The widths are :root tokens, read where --pz-b is the body text: presenter.js sets --pz-b on the app element as the bottom room in px.) */
+.pz:not(.stack):not(.low) .pz-panel:not(.fill) { width: var(--pz-rw-chart); }   /* (every other full card, the scale, the SAAG plot, the two walls, a plane: the table's width; only the six ladders, .fill, keep the screen) */
+.pz:not(.stack):not(.low) .pz-panel[data-visual="outline"] { width: var(--pz-rw-outline); }
+.pz:not(.stack):not(.low) .pz-panel[data-visual="table"] { width: var(--pz-rw-table); }
+.pz:not(.stack):not(.low) .pz-panel[data-visual="check"] { width: var(--pz-rw-check); }
 /* A ladder card on a laptop or tablet: the ladder's words at the cards' sizes (presenter.js fitNow reads --ch-<role>), never
    zoomed; the ladder takes the card's width and the fit shortens only its plot (presenter.js LADDER_FILL). With a tile, the
    tile stands beside it, as beside an instrument; with an instrument, the instrument above it. */
@@ -5856,28 +5960,18 @@ html.thumb-ui .menu.from-dock { clip-path: inset(-64px -64px calc(var(--sink, 0p
 .history-card .tl-pop.tl-history { width: auto; max-height: none; overflow: visible; padding: 2px 0 6px; }
 
 /* Settings › "Frosted glass" off (html[data-noglass]): no live blur anywhere, which spares the GPU re-blurring the
-   moving figure every frame. Cards turn solid; the figure's label pills glow in their own colour instead. */
+   moving figure every frame. Cards and the figure's label pills turn solid instead. */
 :root[data-noglass] *, :root[data-noglass] *::before, :root[data-noglass] *::after { -webkit-backdrop-filter: none !important; backdrop-filter: none !important; }
 :root[data-noglass] :is(.lb-glass, .sv-legend, .pz-fk, .pz .pz-fk.pz-fk, .toast) { background: var(--surface); }
 :root[data-noglass] :is(.pz-shade, .pz-shade.pz-card, .pz-shade.stack, .pz-data.pz-data, .pz-case, .pz-bar, .pz.stack .pz-bar, .pz-scales, .cl-glass) { background: var(--surface); }
 /* (The upright split sheet's two glass pieces: its own fill is none, the pieces carry the glass, so they turn solid with the rest.) */
 :root[data-noglass] .pz.stack.stack .pz-data.pz-sheet::before, :root[data-noglass] .pz.stack.stack .pz-data.pz-sheet::after { background: var(--surface); }
 :root[data-noglass] .pz.pz-wide.pz-wide .pz-data.pz-sheet::before, :root[data-noglass] .pz.pz-wide.pz-wide .pz-data.pz-sheet::after { background: var(--surface); }
-/* (Settings › Blur effect off.) Labels lose their pill and glow in their own colour instead. The lit lobule and sinusoid names: the
-   text glows in the term's colour, faded in and out with the pill's own --pill-o. */
-:root[data-noglass] :is(.lz-lab, .lz-zone, .sv-region)::before { inset: calc(-1 * var(--pill-y) - 9px) calc(-1 * var(--pill-x) - 20px); border-radius: 50%; background: radial-gradient(closest-side, color-mix(in srgb, var(--term-c, var(--accent)) 62%, transparent) 15%, transparent 100%) !important; box-shadow: none !important; }   /* (a soft cloud, not a pill: it fades with the label's own --pill-o, so it eases in and out with the pill's timing) */
-/* The resistance and problem pills (lobule view and the main figure's focus label): no fill, the words in the mark's colour, glowing. */
-:root[data-noglass] .lz-call { --cc: var(--danger); background: none; box-shadow: none; border: 0; color: var(--cc); -webkit-text-stroke: 3px var(--label-halo); paint-order: stroke fill; text-shadow: 0 0 6px color-mix(in srgb, var(--cc) 85%, transparent), 0 0 14px color-mix(in srgb, var(--cc) 55%, transparent); }
-:root[data-noglass] .lz-call[data-kind="treat"] { --cc: var(--accent); }
-:root[data-noglass] .lz-call[data-kind="note"] { --cc: var(--text); }
-:root[data-noglass] #labels .lb.term { --lbc: var(--term); }
-:root[data-noglass] #labels .lb.focus { --lbc: var(--danger); }
-:root[data-noglass] #labels :is(.lb.focus, .lb.term) { animation: glow-in .5s var(--ease) both; filter: drop-shadow(0 0 5px color-mix(in srgb, var(--lbc) 80%, transparent)) drop-shadow(0 0 12px color-mix(in srgb, var(--lbc) 45%, transparent)); }
-:root[data-noglass] #labels .lb.focus.k-treat { --lbc: var(--accent); }
-:root[data-noglass] #labels .lb.focus.k-note { --lbc: var(--text); }
-:root[data-noglass] #labels :is(.lb.focus, .lb.term) .lb-bg { fill: transparent !important; stroke: none !important; filter: none; }
-:root[data-noglass] #labels :is(.lb.focus, .lb.term) text { fill: var(--lbc) !important; stroke: var(--label-halo) !important; }
-@keyframes glow-in { from { filter: drop-shadow(0 0 5px transparent) drop-shadow(0 0 12px transparent); } }
+/* (Settings › Blur effect off.) The frost goes; the pill stays. A lit lobule or sinusoid name keeps the tinted fill and the ring it has with the blur
+   (the slide's own term pill), the tint laid on the solid surface as the cards are, so it reads over the tissue and nothing glows. Same box as with
+   the blur, so the labels' spacing and the way it eases in and out (--pill-o) are unchanged. The resistance and problem pills and the figure's
+   focus and term labels are solid fills or plain coloured words in both settings, so they need nothing here. */
+:root[data-noglass] :is(.lz-lab, .lz-zone, .sv-region)::before { background: color-mix(in srgb, var(--term-c, var(--accent)) 18%, var(--surface)) !important; }
 /* The figure key: a small pill, its name with the colour scale under it (no "None" or "Large" words; a key of named swatches keeps its names). */
 .pz-fk.grad, .pz-fk.grad.col { flex-direction: column; align-items: center; gap: .2em; padding: .28em 14px .34em; font-size: max(12px, calc(var(--s-cap) * .78)); }   /* (the 12 px floor: a key's words had read 11 px, and 10 here) */
 .pz-fk.grad .pz-lens-bar { width: 4em; height: .5em; }
@@ -6292,6 +6386,7 @@ html.thumb-ui .menu.from-dock { clip-path: inset(-64px -64px calc(var(--sink, 0p
    the card. Narrowed and zoomed with the fit as the instruments are, a short card drew the profile at a third of its width with its
    words under 12 px and its values crowded, Sites 4 and 5; its type already keeps 12 px on the screen, tool-profile.js.) */
 .pz .pz-data.pz-data.pz-data.pz-data.pz-data.pz-data > .pz-tool:is([data-kind="profile"], [data-kind="flows"]) { width: 100%; zoom: 1; }   /* (six times, to stand over the stacked card's own width rule, which narrowed them by the fit and the block step: a short window drew the ladder at a third of its card, Sites 4 and 5) */
+.pz .pz-data.pz-data.pz-data.pz-data.pz-data.pz-data > .pz-tool:is([data-kind="vitals"], [data-kind="hvpg"]) { width: 100%; }   /* (the vitals monitor and the catheter tracing draw to their own box, so the card's fit and block steps never narrow them; the same weight as the rule above, to stand over the stacked card's width rule) */
 .pz.stack .pz-data.pz-data.pz-data.pz-data > .pz-tool[data-kind="flowtime"] { width: 100%; zoom: 1; }   /* (a phone's after-meal chart likewise: phoneTextCap shortens it, flow-time.js redraws its words at size) */
 /* Wide chart-only cards allocate the room below the words before fitting. As with the other adaptive charts,
    keep their whole width and redraw at their own pixels; only their allocated height changes. */
@@ -6331,17 +6426,18 @@ html.thumb-ui .menu.from-dock { clip-path: inset(-64px -64px calc(var(--sink, 0p
 .ppf-pill rect { fill: color-mix(in srgb, var(--tone) 15%, var(--surface)); stroke: color-mix(in srgb, var(--tone) 50%, transparent); stroke-width: 1; }
 .ppf-pill text { font: 700 1em var(--font-ui); font-variant-numeric: tabular-nums; fill: color-mix(in srgb, var(--tone) 82%, var(--text)); }
 .ppf-pill text .k { font-weight: 600; }
-/* (The Healthy bar and the Now bar, as tall and close together, each named at its left, and room for one row of names under
-   the Now bar, whatever the slide holds, the inflow's bars too: the card never resizes from slide to slide, and the drawing
-   centres itself in it, tool-flows.js. The bars take the card's full width, its tiles under them, presenter.js. Names and
-   percents on the bars carry a halo in the card's colour, so they read on every segment.) */
-.pz-flows { height: var(--flows-h, 9.25em); min-height: 9.25em; }
+/* (One bar across the whole card, the Healthy bracket or line over it and the pills of the names too narrow for the bar under it, the
+   drawing centred in the card whatever the slide holds, tool-flows.js. The portal blood card has room for two rows of pills; the
+   inflow's has none. Names and percents on the bars carry a halo in the card's colour, so they read on every segment.) */
+.pz-flows { height: var(--flows-h, 10em); min-height: 10em; }
+.pz-flows[data-of="inflow"] { --flows-h: 6em; min-height: 6em; }   /* (the liver's inflow is one bar with the Healthy line over it: the words above, the bar, the line's overshoot; nothing hangs under it, tool-flows.js inflowGeo) */
 .pfl-seg { fill: color-mix(in srgb, var(--tone) 70%, transparent); }
 .pfl-lab text { font: 500 1em var(--font-ui); fill: var(--text); font-variant-numeric: tabular-nums; paint-order: stroke; stroke: var(--surface); stroke-width: 3px; stroke-linejoin: round; }
 .pfl-lab .v { font-weight: 700; }
-.pfl-row { font: 600 1em var(--font-ui); fill: var(--text-2); }
-.pfl-row.now { fill: var(--text); }
+.ppf-pill.pfl-pill text { fill: var(--text); }   /* (a route's pill is tinted with its colour like the segment; its words stay in the text colour, which reads on every tint, amber included) */
 .pfl-lead { fill: none; stroke: var(--text-3); stroke-width: 1; stroke-linejoin: round; }
+.pfl-mk :is(line, path) { fill: none; stroke: var(--text-3); stroke-width: 1.75; stroke-dasharray: 4 5; stroke-linecap: round; stroke-linejoin: round; }   /* (the ladder's Healthy line: .ppf-hl) */
+.pfl-mk text { font: 500 1em var(--font-ui); fill: var(--text-2); font-variant-numeric: tabular-nums; paint-order: stroke; stroke: var(--surface); stroke-width: 3px; stroke-linejoin: round; }
 /* Treatment bands on the over-time charts (rx-bands.js). On the talk trace a soft band in the treatment's colour, its name in a
    deeper shade over the lines with a halo; the chart grows by the names' rows (talk-trace.js sets --band-room). On a flowtime
    chart the treatments' names on a row under the clock and a thin bar each, the chart taller by them (flow-time.js sets
@@ -6383,7 +6479,7 @@ html.thumb-ui .menu.from-dock { clip-path: inset(-64px -64px calc(var(--sink, 0p
 .pz.low .pz-data.has-tool :is(.pz-curve, .pz-cbars) { --cv-h: min(48cqi, 150px); --cs-h: min(50cqi, 160px); min-height: 0; }
 /* (On a phone held sideways with no tiles beside them, the bars take the height a tile would: six causes and a key of two rows.) */
 .pz.low .pz-data.tool-only .pz-cbars { --cs-h: min(62cqi, 212px); }
-.pz:not(.stack) .pz-data.has-tool:has(.pz-tool:is([data-kind="curve"], [data-kind="causes"])) { width: clamp(340px, 44vw, 480px); }
+.pz:not(.stack) .pz-data.has-tool:has(.pz-tool:is([data-kind="curve"], [data-kind="causes"], [data-kind="course"])) { width: clamp(340px, 44vw, 480px); }
 .pz-curve svg, .pz-cbars svg { grid-area: 1 / 1; width: 100%; height: 100%; overflow: visible; transition: opacity .42s var(--ease); }
 .pz-curve svg.in { opacity: 0; }
 .pz-curve :is(.pft-key text, .pft-tk, .ptk-grid text, .pcv-ax) { font-size: 1em; }
@@ -6391,6 +6487,8 @@ html.thumb-ui .menu.from-dock { clip-path: inset(-64px -64px calc(var(--sink, 0p
 .pcv-ax { font: 600 1em var(--font-ui); fill: var(--text-2); }
 .pcv-line { transition: opacity .42s var(--ease); }
 .pcv-at { stroke: var(--text-3); stroke-width: 1.5; stroke-dasharray: 3 4; transition: opacity .3s var(--ease); }
+/* (With a reading on x the case's mark is a short tick up from the x axis, not a second upright dashed line beside the cut-off's.) */
+.pcv-atx { stroke-dasharray: none; stroke-width: 2.5; stroke-linecap: round; }
 .pcv-ring { fill: var(--surface); stroke-width: 3; transition: opacity .3s var(--ease); }
 .pcv-v { font: 700 1.1em var(--font-ui); font-variant-numeric: tabular-nums; paint-order: stroke; stroke: var(--surface); stroke-width: 4px; stroke-linejoin: round; transition: opacity .3s var(--ease); }
 :is(.pcv-at, .pcv-ring, .pcv-v).off { opacity: 0; }
@@ -6404,6 +6502,37 @@ html.thumb-ui .menu.from-dock { clip-path: inset(-64px -64px calc(var(--sink, 0p
 .pz-curve :is(.pcv-cut, .pcv-v).on { stroke-width: 8px; }   /* (on its own line: the dashes stop round the words) */
 .ptk-grid[data-rate="mid"] .pcv-cut { fill: color-mix(in oklab, var(--caution) 70%, var(--text)); }
 .ptk-grid[data-rate="hi"] .pcv-cut { fill: color-mix(in oklab, var(--danger) 80%, var(--text)); }
+/* (Relation charts: the "no change" diagonal, other patients as small points (a walk joins a patient's visits), and a guideline
+   zone as a soft band under a dashed edge, in the ok colour. Plain marks in the chart's own colours, nothing new.) */
+.pz-curve .pcv-ref { stroke-width: 1.5; stroke-dasharray: 3 4; }
+.pcv-dot { stroke: var(--surface); stroke-width: 1.5; }
+.pcv-dname { font: 600 1em var(--font-ui); fill: var(--text-2); paint-order: stroke; stroke: var(--surface); stroke-width: 4px; stroke-linejoin: round; }
+.pcv-dname { transition: opacity .3s var(--ease); }
+.pcv-lead { stroke: var(--text-3); stroke-width: 1; transition: opacity .3s var(--ease); }
+:is(.pcv-dname, .pcv-lead).off { opacity: 0; }
+.pcv-sep { fill: var(--text-3); }
+/* (Dots numbered, the key under the chart naming them: a number is a plain bold digit beside its dot.) */
+.pz-curve .pcv-dnum { font-weight: 700; }
+.pz-curve .pcv-sk { font: 600 1em var(--font-ui); fill: var(--text-2); }
+.pz-curve .pcv-sn { font-weight: 700; }
+.pz-curve .pcv-kv { font-weight: 700; font-variant-numeric: tabular-nums; }   /* (the case's value in its key: readout 'key') */
+/* (A cut-off held as a tick on the left axis: its number bold in its rating's colour, a short stub of the colour at the plot's edge.) */
+.pz-curve .pcv-tc { font-weight: 700; }
+.pz-curve .pcv-tc[data-tc="mid"] { fill: color-mix(in oklab, var(--caution) 70%, var(--text)); }
+.pz-curve .pcv-tc[data-tc="hi"] { fill: color-mix(in oklab, var(--danger) 80%, var(--text)); }
+.pz-curve .pcv-stub { stroke-width: 2.5; stroke-linecap: round; }
+.pz-curve .pcv-stub[data-tc="mid"] { stroke: color-mix(in srgb, var(--caution) 85%, var(--text)); }
+.pz-curve .pcv-stub[data-tc="hi"] { stroke: var(--danger); }
+.pcv-walk { fill: none; stroke-width: 1.5; stroke-dasharray: 2 4; stroke-linecap: round; opacity: .7; }
+.pcv-arrow { stroke: none; opacity: .85; }   /* (the head on the middle of each step of a walk: which way he went) */
+.pcv-zone-fill { fill: color-mix(in srgb, var(--ok) 12%, transparent); stroke: none; }
+.pcv-zone-edge { fill: none; stroke: var(--ok); stroke-width: 1.5; stroke-dasharray: 4 5; }
+.pcv-zone-t { font: 600 1em var(--font-ui); fill: color-mix(in oklab, var(--ok) 80%, var(--text)); paint-order: stroke; stroke: var(--surface); stroke-width: 3px; stroke-linejoin: round; }
+/* The course chart's zones (tool-course.js): the reading's rating bands behind the lines, the first and last of them (none, the deepest) a little stronger. */
+.pco-z { fill: color-mix(in srgb, var(--ok) 22%, transparent); }
+.pco-z[data-rate="mid"] { fill: color-mix(in srgb, var(--caution) 17%, transparent); }
+.pco-z[data-rate="hi"] { fill: color-mix(in srgb, var(--danger) 12%, transparent); }
+.pco-z[data-deep] { fill: color-mix(in srgb, var(--danger) 24%, transparent); }
 .pcs-l { font: 500 1em var(--font-ui); fill: var(--text); }
 .pcs-row.other .pcs-l { fill: var(--text-2); }
 .pcs-row.total .pcs-l { font-weight: 650; }
@@ -6490,14 +6619,20 @@ html.thumb-ui .menu.from-dock { clip-path: inset(-64px -64px calc(var(--sink, 0p
 .pze-zt[data-tone="ppg"] { fill: var(--pze-ppg-ink); } .pze-zt[data-tone="hvpg"] { fill: var(--pze-hvpg-ink); } .pze-zt[data-tone="both"] { fill: var(--pze-both-ink); }   /* (4.5:1 or more on its own fill, tests/plane-callouts.test.js) */
 .pze-zt.pze-bxw { font-weight: 600; fill: var(--text-2); }
 .pze-cut { stroke: var(--text-3); stroke-width: 1; stroke-dasharray: 3 4; }
-.pze-axis { stroke: var(--border-strong); stroke-width: 1.5; }
-.pze-t { fill: var(--text-3); font-weight: 500; font-variant-numeric: tabular-nums; }
+.pze-diag { stroke: var(--text-3); stroke-width: 1.5; stroke-dasharray: 3 4; }   /* (where the two readings are equal) */
+.pze-dt { font-weight: 600; fill: var(--text-2); }
+.pze-ln { font-weight: 600; fill: var(--text); }   /* (a cut-off line's own name: CSPH ≥10, Bleed risk ≥12) */
+/* (His G2 look, 27 Oct: no axis lines, the plot's rounded edge is the axis; the numbers and the axes' names stand on the plot in the FibroScan readings' style, white with a dark outline, a cut-off's number full and the rest and the names quieter.) */
+.pze-t, .pze-ax { paint-order: stroke; stroke: rgb(var(--black-rgb) / .55); stroke-width: 3px; stroke-linejoin: round; }
+.pze-t { fill: var(--text-2); font-weight: 600; font-variant-numeric: tabular-nums; }
 .pze-t.on { fill: var(--text); font-weight: 700; }
-.pze-ax { fill: var(--text-2); font-weight: 600; }
+.pze-ax { fill: var(--text-2); font-weight: 500; }
 .pze-pt { animation: pz-in .6s var(--ease) both; animation-delay: calc(var(--i, 0) * 140ms + 200ms); }
 .pze-pt circle { fill: var(--site, var(--text-2)); stroke: var(--surface); stroke-width: 3; }
 .pze-pt text { fill: var(--text); font-weight: 600; paint-order: stroke; stroke: var(--surface); stroke-width: 3px; stroke-linejoin: round; }
 .pze-lead { stroke: var(--text-2); stroke-width: 1; opacity: .7; }
+.pze-path { stroke: var(--site, var(--text-2)); stroke-width: 1.5; opacity: .5; }   /* (from where the patient started) */
+.pze-pt .pze-was { fill: var(--surface); stroke: var(--site, var(--text-2)); stroke-width: 2; }
 .pze-ring { transition: transform .7s var(--ease), opacity .4s var(--ease); }
 .pze-ring .pze-halo { fill: var(--surface); }   /* (the clear gap around the case's dot, in the card's own colour) */
 .pze-ring .pze-dot { fill: var(--text); }
@@ -6550,8 +6685,9 @@ html.thumb-ui .menu.from-dock { clip-path: inset(-64px -64px calc(var(--sink, 0p
 .fx-cal-line .fx-ink { stroke: var(--text); stroke-width: 1.6px; }
 /* V25, the circuit's bracket under a span of stations, and a zone band lit softly (stage.js fxZone). */
 .fx-span-line .fx-ink { stroke: var(--text-2); stroke-width: 1.6px; }
-.fx-zone { fill: var(--accent); fill-opacity: 0; transition: fill-opacity .5s var(--ease); pointer-events: none; }
-.fx-zone.on { fill-opacity: .09; }
+/* (Off, hidden once its fade has run: at opacity 0 it was still painted over its band on every pan or zoom frame.) */
+.fx-zone { fill: var(--accent); fill-opacity: 0; visibility: hidden; transition: fill-opacity .5s var(--ease), visibility 0s .5s; pointer-events: none; }
+.fx-zone.on { fill-opacity: .09; visibility: visible; transition: fill-opacity .5s var(--ease); }
 /* The readings (calipers, brackets) and the step numbers (V10): plain pills in the label's own glass, the words in ink. */
 #labels .lb:is(.fx-cal, .fx-span, .fx-step) text { fill: var(--text); stroke: none; }
 #labels .lb.fx-step .lb-bg { fill: var(--text); stroke: none; }
@@ -6648,8 +6784,110 @@ html.thumb-ui .menu.from-dock { clip-path: inset(-64px -64px calc(var(--sink, 0p
    between small version and large version": "Just make it one version everywhere"). The after-meal chart's is the one it used to give way to,
    so Circulation 10 still arrives partly open; the ladder keeps its full size; a card too tall borrows from the figure. */
 .pz.stack.stack .pz-prof { --prof-h: calc(min(74cqi, 270px) - 1.6em); height: var(--prof-h); }   /* (its full size: at 216 px the brackets left the plot for a band at its foot, the chart grew by its min-height after landing and the card cut off its sinusoidal brace and handle, Sites 4, Mohammad, 21 Oct) */
-.pz.stack.stack .pz-flows { height: 9.25em; }
+.pz.stack.stack .pz-flows { height: 10em; }
+.pz.stack.stack .pz-flows[data-of="inflow"] { height: 6em; }
 .pz.stack.stack .pz-flowtime { --ft-h: min(43cqi, 144px); height: var(--ft-h); }
 .pz.stack.stack .pz-flowtime.has-bands { height: calc(var(--ft-h) + var(--band-room, 0em)); }
 /* The ?organpaths readout (stage.js): which organ layers are painted on the GPU and which fall back to a picture. Opt-in only. */
 .organ-paths { position: fixed; left: 8px; top: calc(env(safe-area-inset-top, 0px) + 64px); z-index: 9999; max-width: calc(100vw - 16px); padding: 6px 8px; border-radius: 6px; background: var(--surface); color: var(--text); border: 1px solid var(--border-strong); font: 12px/1.35 ui-monospace, SFMono-Regular, Menlo, monospace; white-space: pre-wrap; pointer-events: none; }
+/* A question slide's answer held back (slide hold: true; presenter.js holdAnswer): the tiles keep
+   their numbers but not their rating words, the Doppler's top strip keeps its trace and reading but not its direction, pattern and note,
+   and the figure's "no flow" and "stasis" words stand down. On the answer slide they ease back in, never snap. The Gut to
+   heart chart's red blocks and brackets are held by the chart itself (tool-profile.js hold). */
+.pz-data .pzt-r, .pz-data .pz-tool :is(.dop-dir, .dop-pattern, .dop-note) { transition: color .4s var(--ease), opacity .5s var(--ease); }
+.pz-data[data-held] .pzt-r, .pz-data[data-held] .pz-tool :is(.dop-dir, .dop-pattern, .dop-note) { opacity: 0; }
+.pz-data[data-held-now] .pzt-r, .pz-data[data-held-now] .pz-tool :is(.dop-dir, .dop-pattern, .dop-note) { transition: none; }
+.lb-alert { transition: fill-opacity .5s var(--ease); }
+.app.pz-held .lb-alert { fill-opacity: 0; }
+/* The criteria card (tool-criteria.js, teaching card C2; V3 26 Oct, review/guideline-cards-ideas/round8): a guideline's rules as rows,
+   in the card so a phone shows them. The rules in the serif, as the guideline's own words; how they combine and the rule's number
+   (an outlined pill: outlined is the rule, filled the patient) above them; the case's column set apart by space alone, never a
+   vertical line (his rule); hairlines between rows only, as the quick check's; the verdict at the foot. Emphasis is ink and size:
+   the row the case meets in full ink with its value large, the rows it does not in quiet words. A live row's value and marks
+   cross-fade and keep their size, so the card never changes size with the reading. A cut-off column on a wide card only. */
+.pz-crit { box-sizing: border-box; width: 100%; min-width: 0; align-self: stretch; font-size: max(12px, var(--bs, 14px)); }   /* (the card's full width: shrunk to its content, a phone centred it and pushed the case column out) */
+.pz-crit [hidden] { display: none; }
+.pzc-top { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: center; gap: .35em .8em; margin: 0 0 .55em; }   /* (centred like the first-visit graph's, 27 Oct: the lead and the rule's source as one group, each on its own centred line where they do not fit together) */
+.pzc-lead { flex: 0 1 auto; min-width: 0; margin: 0; text-align: center; font: 400 1em/1.35 var(--font-ui); color: var(--text-2); }
+.pzc-rule { flex: none; margin: 0; font-size: max(12px, .86em); }
+.pzc-list { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: auto minmax(0, 1fr) auto; }
+.pzc-row { grid-column: 1 / -1; display: grid; grid-template-columns: subgrid; align-items: baseline; padding: .55em 0; border-top: 1px solid color-mix(in srgb, var(--text) 8%, transparent); font: 400 1.07em/1.35 var(--font-display); color: var(--text-2); transition: color .4s var(--ease); }
+@supports not (grid-template-columns: subgrid) { .pzc-row { grid-template-columns: auto minmax(0, 1fr) auto; } }
+.pzc-row:first-child { border-top: 0; }   /* (the quick check's rows: a hairline between, no fills) */
+.pzc-row:is([data-lit], [data-met="yes"]) { color: var(--text); font-weight: 600; }   /* (the row that fits the case: full ink, as a key tile's name) */
+.pzc-hrow { padding: 0 0 .3em; font: 500 max(12px, .86em)/1.2 var(--font-ui); color: var(--text-3); }
+.pzc-c { grid-column: 1; display: none; }
+.pz-crit.has-cut .pzc-c { display: block; padding-right: .8em; white-space: nowrap; font: 400 1.25em/1 var(--font-display); font-variant-numeric: lining-nums; }   /* (the cut-off large at the row's left, as the V3 mock, on a phone too) */   /* (each cell in its own column: with the cut-off hidden, auto-placement had moved the words into the cut-off's column and the case into the words') */
+.pzc-t { grid-column: 2; min-width: 0; }
+@container (min-width: 480px) { .pz-crit.has-cut .pzc-c { font-size: 1.4em; } }   /* (a wide card's cut-offs a step larger) */
+.pzc-t > b { font-weight: 600; color: var(--text); }   /* (the rule's numbers in bold, as the mock: "over 7", "20 mmHg") */
+.pzc-s, .pzc-u { font-family: var(--font-ui); font-weight: 400; }   /* (the serif has no ≥ or ≤) */
+.pzc-s { font-size: .8em; margin-right: .06em; }
+.pzc-u { font-size: max(12px, .46em); margin-left: .3em; color: var(--text-3); }
+.pzc-and { margin-left: .5em; font: 500 max(12px, .5em)/1 var(--font-ui); font-variant-numeric: tabular-nums lining-nums; color: var(--text-2); }   /* (the rule's second condition on the cut-off's own line, small in the sans, after a "+": "≤15 kPa + PLT ≥150K", never two lines; 12 px floor) */
+.pzc-end { grid-column: 3; display: flex; flex-direction: column; align-items: flex-start; gap: .1em; white-space: nowrap; padding-left: 22px; font: 500 calc(1em / 1.07)/1.25 var(--font-ui); font-variant-numeric: tabular-nums; color: var(--text-3); }
+.pzc-hrow .pzc-end { font: inherit; color: inherit; }
+.pz-crit:not(.has-case) .pzc-end { display: none; }   /* (a plain list: its words take the full width) */
+.pzc-v { transition: color .4s var(--ease); }
+.pzc-row:is([data-lit], [data-met]) .pzc-v, .pzc-live .pzc-v { font-size: 1.3em; font-weight: 600; line-height: 1.15; color: var(--text); }
+.pzc-row[data-met="no"] .pzc-v { color: var(--text-2); }
+.pzc-live:not([data-met="yes"]) .pzc-v { color: var(--text-3); }
+.pzc-m { display: grid; font: 600 max(12px, .86em)/1.3 var(--font-ui); white-space: nowrap; }
+.pzc-m > i { grid-area: 1 / 1; font-style: normal; opacity: 0; transition: opacity .4s var(--ease); }
+.pzc-m > .y { color: var(--ok); }
+.pzc-m > .n { color: var(--text-3); font-weight: 500; }
+.pzc-note .pzc-m > i, .pzc-row[data-met="yes"] .pzc-m > .y, .pzc-row[data-met="no"] .pzc-m > .n { opacity: 1; }
+.pzc-verdict { margin: 0; padding-top: .6em; border-top: 1px solid color-mix(in srgb, var(--text) 8%, transparent); font: 400 1em/1.35 var(--font-ui); color: var(--text-2); }
+.pzc-verdict > b { font-weight: 600; color: var(--text); }
+/* Plain rules, no cut-off column (his pick 26 Oct, "C with D's key words"): a mark at each row's left, a ring for a thing to check, a numeral
+   when the order matters (tool.ordered), and the ring filled on the row that applies to the case (lit) or that the model meets: outlined is
+   the rule, filled is the case, as the rule pill. The words a step larger; the key words (**...**) in ink, kept quiet on the other rows
+   when one row applies. The mark sits level with the first line of a row that wraps, and its fill eases with the reading, never snaps. */
+.pz-crit:not(.has-cut) .pzc-row:not(.pzc-hrow) { font-size: 1.12em; }
+.pz-crit:not(.has-cut) .pzc-row:not(.pzc-hrow) .pzc-c { display: block; align-self: start; padding-right: .75em; }
+.pz-crit:not(.has-cut) .pzc-row:not(.pzc-hrow) .pzc-c::before { content: ""; display: block; box-sizing: border-box; width: .58em; height: .58em; margin-top: .385em; border-radius: 50%; background: transparent; box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--text) 45%, transparent); transition: background-color .4s var(--ease), box-shadow .4s var(--ease); }
+.pz-crit:not(.has-cut) .pzc-row:is([data-lit], [data-met="yes"]) .pzc-c::before { background: var(--text); box-shadow: inset 0 0 0 1.5px var(--text); }
+.pz-crit.ordered .pzc-list { counter-reset: pzcn; }
+.pz-crit.ordered:not(.has-cut) .pzc-row:not(.pzc-hrow) .pzc-c { align-self: baseline; }
+.pz-crit.ordered:not(.has-cut) .pzc-row:not(.pzc-hrow) .pzc-c::before { counter-increment: pzcn; content: counter(pzcn); width: auto; height: auto; margin: 0; border-radius: 0; background: none; box-shadow: none; font: 400 1.15em/1 var(--font-display); font-variant-numeric: lining-nums; color: var(--text-3); transition: color .4s var(--ease); }
+.pz-crit.ordered:not(.has-cut) .pzc-row:is([data-lit], [data-met="yes"]) .pzc-c::before { background: none; box-shadow: none; color: var(--text); font-weight: 500; }
+.pz-crit.has-lit:not(.has-cut) .pzc-row:not([data-lit]) .pzc-t > b { font-weight: 500; color: inherit; }
+/* Its title in the serif, in sentence case, as a guideline's heading: the one card whose caps header gives way (the rules' words
+   below it are the serif too). On a Mac and an iPad landscape it sits left, over the rules; a phone keeps the header's centring. */
+.pz.pz .pz-data.pz-data[data-tool^="criteria:"] > .pz-dh { font: 600 calc(var(--s-cap) * 1.3)/1.2 var(--font-display); letter-spacing: 0; text-transform: none; color: var(--text); }
+.pz.pz:not(.stack):not(.low) .pz-data.pz-data[data-tool^="criteria:"] > .pz-dh { font-size: calc(var(--pz-sm) * 1.3); }
+.pz.pz:not(.stack):not(.low) .pz-data.pz-data[data-tool^="criteria:"]:not(.pz-folds) > .pz-dh { justify-content: flex-start; text-align: left; }
+.pz.pz:is(.stack, .low) .pz-data.pz-data.has-tool[data-tool^="criteria:"] > .pz-dh { text-align: left; }   /* (a phone too: the title at the left over its rules, as the mock) */
+.pz.pz:is(.stack, .low) .pz-data.pz-data.has-tool[data-tool^="criteria:"] > .pz-dh::before { flex: 0 0 0; }
+/* A zones card (zones: 'first-visit', his pick G2 27 Oct): everything on the card's centre line, the title, the lead with its rule
+   pill on one row, the graph the card's full width, the key under it. The zones in the tiles' band colours, the hatch the text at 30%,
+   the plot's words white with a dark outline as the FibroScan readings; the key's swatch the same hatch as the graph. */
+.pz.pz.pz .pz-data.pz-data[data-tool^="criteria:"]:has(.pz-crit.has-zones) > .pz-dh { justify-content: center; text-align: center; }
+.pz-crit.has-zones .pzc-top { flex-wrap: nowrap; align-items: center; justify-content: center; gap: .8em; margin-bottom: .75em; }
+.pz-crit.has-zones .pzc-lead { flex: none; white-space: nowrap; }
+.pzc-zones > svg { display: block; overflow: visible; }
+.pzz-z { fill: color-mix(in srgb, var(--text-3) 22%, transparent); }
+.pzz-z[data-rate="ok"] { fill: color-mix(in srgb, var(--ok) 34%, transparent); }
+.pzz-z[data-rate="mid"] { fill: color-mix(in srgb, var(--caution) 28%, transparent); }
+.pzz-z[data-rate="hi"] { fill: color-mix(in srgb, var(--danger) 32%, transparent); }
+.pzz-hl { fill: color-mix(in srgb, var(--text) 30%, transparent); }
+.pzz-w { font-family: var(--font-ui); font-weight: 600; font-variant-numeric: tabular-nums; fill: var(--text); paint-order: stroke; stroke: rgb(var(--black-rgb) / .55); stroke-width: 3px; stroke-linejoin: round; }
+.pzz-w.q { font-weight: 500; fill: var(--text-2); }
+.pzc-key { display: flex; flex-direction: column; align-items: center; gap: .3em; margin-top: .7em; text-align: center; font: 500 max(12px, .86em)/1.3 var(--font-ui); color: var(--text-2); }
+.pzc-kl { margin: 0; display: inline-flex; align-items: center; gap: .5em; }
+.pzc-kl b { font-weight: 600; color: var(--text); }
+.pzc-sw { display: block; flex: none; }
+.pzz-swb { fill: var(--surface-3); }
+.pzz-swl { stroke: color-mix(in srgb, var(--text) 42%, transparent); stroke-width: 2; }
+/* The rounded plot (his G2 look, 27 Oct; plot-look.js): the panel behind a chart's lines, the app's own tile tone, its corners the plot's. */
+.pz-plotbg { fill: var(--surface-2); }
+:is(.pz-curve, .pz-flowtime, .pz-talk) { --surface: var(--surface-2); }   /* (inside these charts the halos round words and the rings' fill are the panel's own tone, so none shows as a patch on it) */
+:is(.pz-curve, .pz-flowtime, .pz-talk) .ptk-grid:not(.cut) line { stroke: color-mix(in srgb, var(--border-strong) 70%, transparent); }   /* (the hairlines read on the panel's tone as they did on the card's) */
+/* A case card's own question (slide caseQ): the case's type and size, on a line of its own under it, in the accent so it reads as the ask. */
+.pz-case-q { margin-top: .55em; }
+
+/* The bleed clock (slide field clock, presenter.js bleedClock): one tile of its own under the slide's tiles, a tile's own bar from 0
+   to 72 hours, its dot easing to the slide's moment. Beside an instrument it runs the card's full width under the two. */
+.pz:not(.stack):not(.low) .pz-data.pz-beside > .pz-tiles.pz-clockrow:not([data-n="0"]) { grid-column: 1 / -1; grid-row: 3; }
+.pz-clockrow[hidden] { display: none; }
+.pz-clock .pzb-now { transition: left .6s var(--ease), background-color .4s var(--ease); }

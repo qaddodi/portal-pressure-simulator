@@ -25,5 +25,5 @@ test('a run\'s class and fill are set on its existing tspan', () => {
 
 test('a vessel\'s width change redraws its own cells only', () => {
   assert.match(stage, /veins\.setRadii\(it\.row, R\); veinsRows\.add\(it\.row\);/);
-  assert.match(stage, /if \(veins\.drawRows\(T, vLook, bloodLook\(\), rows, fullComposite\)\) return true;/);
+  assert.match(stage, /if \(veins\.drawRows\(T, vLook, bloodLook\(\), pending, fullComposite\)\) \{ shown\(\); return true; \}/);
 });

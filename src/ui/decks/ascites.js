@@ -1,21 +1,44 @@
-// Presenter talk: ascites: where it comes from and what is in it (the slide fields are described at the top of decks.js).
+// Presenter talk: ascites, why it forms, what the tap shows and how it is treated (the slide fields are described at the top of decks.js).
+// One fluid card runs through where it forms (the sinusoids and the ascites as tiles); one belly gauge runs through the treatment
+// (the ascites and the portal pressure). The old Paracentesis and albumin talk is its last section (decks.js DECK_ALIAS).
 
 const mi = (x) => `<mi>${x}</mi>`, mo = (x) => `<mo>${x}</mo>`, sub = (b, i) => `<msub>${b}<mtext>${i}</mtext></msub>`;
 
+const FLUID = { kind: 'fluid', window: true, forces: true };
+const BELLY = { kind: 'abdomen' };
+// The relation chart's course: the same patient as the Tense ascites and Large-volume paracentesis slides (tests/relation-ascites-chart.test.js
+// keeps them equal), day by day from the tap, two weeks with nothing done, then each treatment from that day for four weeks.
+const COURSE = {
+  kind: 'course', reading: 'asc',
+  from: { preset: 'cirr-decomp', params: { diuretics: false }, days: 120, ramp: { albumin: [2.8, 2.4] } },
+  event: { params: { albumin: 2.74 }, action: { kind: 'paracentesis', mL: 8000 } },
+  wait: 14, after: 28,
+  then: [{ name: 'Diuretics', params: { diuretics: true } }, { name: 'Diuretics + TIPS', params: { diuretics: true, tips: { on: true } } }],
+  words: { event: 'Tap', before: 'Tense belly', start: 'Treatment starts', rise: 'Refills', axis: 'Weeks after the tap', label: 'Ascites, liters', title: 'Ascites after the tap', short: 'After the tap' },
+};
+
 export const ASCITES = {
-  id: 'ascites', level: 'advanced', title: 'How ascites forms, and what the tap shows', minutes: 15,
-  summary: 'How ascites forms in the sinusoids and why presinusoidal disease rarely causes it. Ends with SAAG and protein.',
-  sections: [['Where ascites forms', ['Ascites']], ['Tapping the fluid', ['Tapping the fluid']], ['Resistance before the sinusoids', ['Pre-hepatic resistance', 'Presinusoidal resistance']], ['Protein-rich ascites', ['Protein-rich ascites']]],
-  objectives: ['Explain how sinusoidal pressure and lymph make ascites', 'Interpret the SAAG and ascitic protein', 'Explain why pre-hepatic and presinusoidal resistance rarely causes ascites', 'Tell cirrhosis from heart failure and Budd–Chiari by the tap'],
+  id: 'ascites', level: 'advanced', title: 'Ascites: why it forms and how it is treated', minutes: 18,
+  summary: 'How ascites forms in the sinusoids, what the tap shows, and what each treatment does: paracentesis with albumin, diuretics and TIPS.',
+  sections: [['Where ascites forms', ['Ascites']], ['Tapping the fluid', ['Tapping the fluid', 'Protein-rich ascites', 'Telling them apart']], ['Treating it', ['Tense ascites', 'Large-volume paracentesis', 'Two weeks later', 'Treatment', 'Refractory ascites', 'Summary']]],
+  objectives: [
+    'Explain how sinusoidal pressure and lymph make ascites',
+    'Interpret the SAAG and ascitic protein, and tell cirrhosis from heart failure and Budd–Chiari by the tap',
+    'Give albumin correctly after a large-volume paracentesis',
+    'Use diuretics and TIPS for ascites that keeps coming back, and define refractory ascites',
+  ],
   checks: [
-    ['What SAAG points to portal hypertension?', '1.1 g/dL or more.'],
-    ['A high SAAG with ascitic protein of 2.5 g/dL or more. Where is the problem?', 'Post-hepatic or cardiac: Budd–Chiari syndrome or heart failure. The sinusoid wall is still open and lets protein through.'],
-    ['Why does portal vein thrombosis rarely cause ascites?', 'The sinusoids beyond the clot stay at normal pressure, and ascites comes from sinusoidal pressure.'],
+    ['What SAAG points to portal hypertension?', '≥1.1 g/dL.'],
+    ['A high SAAG with ascitic protein of ≥2.5 g/dL. Where is the problem?', 'Post-hepatic or cardiac: Budd–Chiari syndrome or heart failure. The sinusoid wall is still open and lets protein through.'],
     ['The SAAG is 1.8, the ascitic protein 3.1 g/dL and the HVPG normal. Where is the resistance?', 'After the sinusoids, most often a failing right heart: it raises the wedged and free pressures together, so the HVPG stays normal, and the open sinusoids let protein through.'],
+    ['How much albumin goes with a large-volume paracentesis?', '6 to 8 g for each liter removed, when >5 liters come out.'],
+    ['Why does ascites come back after a tap alone?', 'Sinusoidal pressure and the kidneys\' sodium retention are unchanged. Diuretics or a TIPS keep it away.'],
+    ['When is ascites called refractory?', 'It returns within 4 weeks of a tap despite the highest diuretic doses and a low-salt diet, or diuretics cannot be given because of kidney injury, low sodium or high potassium.'],
+    ['Ten days after a 6 L tap with albumin, the belly is full again on full-dose diuretics. What has not changed?', 'The portal pressure: the tap removes the fluid, not its cause. Ascites that returns on full diuretics is refractory, and TIPS is the next step to consider.'],
   ],
   slides: [
     {
-      id: 'start', terms: { 'space of Disse': 'sinusoid:disse', lymphatics: 'sinusoid:lymph' }, glow: ['sinusoid:lumen'], preset: 'csph', cam: 'sinusoid', scales: { lobule: { glow: ['lobule:sinusoid'] }, anatomy: { cam: 'fit' } }, data: 'tiles', tiles: ['sin', 'asc'], key: ['sin'],
+      id: 'start', terms: { 'space of Disse': 'sinusoid:disse', lymphatics: 'sinusoid:lymph' }, glow: ['sinusoid:lumen'], preset: 'csph', cam: 'sinusoid', scales: { lobule: { glow: ['lobule:sinusoid'] }, anatomy: { cam: 'fit' } }, tool: FLUID, data: 'tiles', tiles: ['sin', 'asc'], key: ['sin'],
       kicker: 'Ascites', site: 'sin', title: 'Ascites starts in the sinusoids',
       vignette: 'A 55-year-old woman with MASH cirrhosis comes for a routine visit. She feels well and has no ascites. Her platelets are 88,000/µL, and EGD shows small esophageal varices.',
       line: 'Sinusoidal pressure drives plasma into the space of Disse. Hepatic lymphatics drain it until they cannot keep up.',
@@ -23,82 +46,118 @@ export const ASCITES = {
       ask: ['What carries the sinusoids\' filtrate away before ascites forms?', 'The hepatic lymphatics, to the thoracic duct.'],
     },
     {
-      id: 'walls', visual: 'walls',
-      kicker: 'Ascites', title: 'Gut capillary wall versus sinusoid wall',
-      line: 'Gut capillaries hold back protein, so oncotic pressure limits filtration when their pressure rises. Sinusoids do not, so sinusoidal pressure drives ascites.',
-      notes: 'Starling: filtration = Kf × [(capillary − tissue pressure) − σ × (plasma − tissue oncotic pressure)]. Gut capillaries hold back most protein (σ about 0.9), even where their lining is fenestrated, as in the intestinal mucosa: the plasma\'s oncotic pressure, about 25 mmHg, holds the fluid in, so a raised capillary pressure makes only a little more fluid, which the lymphatics carry away. In the sinusoid σ is near zero: oncotic pressure offers almost no opposition, and each rise in pressure adds to lymph flow. Capillarization in cirrhosis raises σ part of the way, which is why cirrhotic ascites is thin.',
-      ask: ['What does a reflection coefficient (σ) near zero mean for the sinusoid wall?', 'Protein crosses freely, so oncotic pressure cannot hold the fluid back, and any rise in pressure becomes lymph.'],
-    },
-    {
-      id: 'lymph', terms: { 'space of Disse': 'lobule:sinusoid', lymphatics: 'lobule:lymph', 'portal tracts': 'lobule:triad' }, cam: 'lobule', scales: { sinusoid: {}, anatomy: { cam: 'fit' } }, layers: ['lymph'],
-      tool: { kind: 'fluid', window: true }, data: 'tiles', tiles: ['sin', 'asc'], key: ['sin'],
+      id: 'lymph', terms: { lymphatics: 'lobule:lymph', 'portal tracts': 'lobule:triad' }, cam: 'lobule', scales: { sinusoid: {}, anatomy: { cam: 'fit' } }, layers: ['lymph'],
+      tool: FLUID, data: 'tiles', tiles: ['sin', 'asc'], key: ['sin'], delta: 'start',
       kicker: 'Ascites', site: 'sin', title: 'Lymph leaves the liver along the portal tracts',
-      line: 'Fluid from the space of Disse runs back against the blood to lymphatics in the portal tracts. Here the sinusoids are at {sin}, and the lymphatics carry almost all of it, so almost no ascites forms.',
-      notes: 'Plasma filtered into the space of Disse flows toward the portal tracts, against the direction of the blood, and enters lymphatics that run with the portal vein branches to the hilum, then to the cisterna chyli and the thoracic duct. A smaller share leaves along the hepatic veins and under the capsule. The liver makes a quarter to a half of the body\'s lymph, and its flow rises with sinusoidal pressure. The lymphatics widen and carry many times their usual flow before they are overwhelmed; only then does lymph weep from the liver surface into the peritoneum. In the data card the lymphatics carry almost all of the lymph made, about 10 mL a day leaks and nothing is left to spare, so a further rise in sinusoidal pressure will overflow.',
+      line: 'With the sinusoids at {sin}, the lymphatics along the portal tracts carry almost all the fluid away, so almost no ascites forms. They can carry only so much.',
+      notes: 'Fluid from the space of Disse runs back against the blood to the lymphatics. Plasma filtered into the space of Disse flows toward the portal tracts, against the direction of the blood, and enters lymphatics that run with the portal vein branches to the hilum, then to the cisterna chyli and the thoracic duct. A smaller share leaves along the hepatic veins and under the capsule. The liver makes a quarter to a half of the body\'s lymph, and its flow rises with sinusoidal pressure. The lymphatics widen and carry many times their usual flow before they are overwhelmed; only then does lymph weep from the liver surface into the peritoneum. In the data card the lymphatics carry almost all of the lymph made, about 10 mL a day leaks and nothing is left to spare, so a further rise in sinusoidal pressure will overflow.',
       ask: ['Where does the fluid filtered in the sinusoids go before ascites forms?', 'Back along the space of Disse to lymphatics in the portal tracts, then to the thoracic duct.'],
     },
     {
-      id: 'fill', days: 60, ramp: { cirrhosis: [0.6, 0.85], albumin: [4, 2.8] }, lapse: { seconds: 9 }, cam: 'fit', scales: { lobule: { glow: ['lobule:sinusoid'] }, sinusoid: {} }, glow: ['liver'], mark: { organ: 'ascites', label: 'Ascites {asc}' }, tool: { kind: 'fluid', window: true, forces: true }, data: 'tiles', tiles: ['sin', 'asc', 'tp'], key: ['asc'], delta: true,
+      id: 'fill', days: 60, ramp: { cirrhosis: [0.6, 0.85], albumin: [4, 2.8] }, lapse: { seconds: 9 }, cam: 'fit', scales: { lobule: { glow: ['lobule:sinusoid'] }, sinusoid: {} }, glow: ['liver'], mark: { organ: 'ascites', label: 'Ascites {asc}' }, tool: FLUID, data: 'tiles', tiles: ['sin', 'asc'], key: ['asc'], delta: 'start',
       kicker: 'Ascites', site: 'sin', title: 'Ascites builds over two months',
       line: 'As fibrosis advances, sinusoidal pressure rises and lymph outruns the lymphatics. The fluid spills into the peritoneum, and the kidneys, retaining sodium and water, keep replacing it.',
-      caveat: 'The model builds the fluid from pressure and albumin; it does not model the kidneys.',
-      notes: 'The time-lapse runs the model\'s disease clock: cirrhosis advances and serum albumin falls from 4.0 to 2.8 g/dL over 60 days, without diuretics. The sinusoids climb from about 17 to 25 mmHg, hepatic lymph overflows and the ascites reaches several liters. In the data card the lymph made outgrows what the lymphatics can carry, and the leak outruns what the belly reabsorbs, so the difference, in amber, builds up. The strip below it shows the Starling forces, the pressure pushing fluid out of the sinusoids against the pull of the protein. In patients, splanchnic vasodilation lowers the effective blood volume, and the kidneys retain sodium and water through renin–angiotensin–aldosterone, the sympathetic system and vasopressin. High sinusoidal pressure puts the fluid in the peritoneum; renal sodium and water retention keep replacing it. Treatment: less salt, spironolactone with furosemide, large-volume paracentesis with albumin, TIPS.',
+      notes: 'The model builds the fluid from pressure and albumin; it does not model the kidneys. The time-lapse runs the model\'s disease clock: cirrhosis advances and serum albumin falls from 4.0 to 2.8 g/dL over 60 days, without diuretics. The sinusoids climb from about 17 to 25 mmHg, hepatic lymph overflows and the ascites reaches several liters. In the data card the lymph made outgrows what the lymphatics can carry, and the leak outruns what the belly reabsorbs, so the difference, in amber, builds up. The strip below it shows the Starling forces, the pressure pushing fluid out of the sinusoids against the pull of the protein. In patients, splanchnic vasodilation lowers the effective blood volume, and the kidneys retain sodium and water through renin–angiotensin–aldosterone, the sympathetic system and vasopressin. High sinusoidal pressure puts the fluid in the peritoneum; renal sodium and water retention keep replacing it. Treatment: less salt, spironolactone with furosemide, large-volume paracentesis with albumin, TIPS.',
       ask: ['Which hormone system drives sodium retention in cirrhotic ascites, and which drug blocks it?', 'Renin–angiotensin–aldosterone; spironolactone.'],
     },
     {
-      id: 'saag', cam: 'fit', tool: { kind: 'abdomen' }, data: 'tiles', tiles: ['saag', 'tp'], key: ['saag'],
+      id: 'saag', preset: 'csph', days: 60, ramp: { cirrhosis: [0.6, 0.85], albumin: [4, 2.8] }, cam: 'fit', tool: { kind: 'abdomen' }, data: 'tiles', tiles: ['saag', 'tp'], key: ['saag'],
       kicker: 'Tapping the fluid', site: 'sin', title: 'Serum–ascites albumin gradient',
       eq: [mi('SAAG') + mo('=') + sub(mi('Albumin'), 'serum') + mo('−') + sub(mi('Albumin'), 'ascites')],
-      cite: 'AASLD 2021 ascites guidance',
-      line: 'In this case, the SAAG is {saag}. A value of 1.1 g/dL or more indicates portal hypertension.',
-      notes: 'The serum–ascites albumin gradient uses serum and ascites taken the same day. A SAAG of 1.1 g/dL or more identifies portal hypertension as the cause with about 97% accuracy, whatever causes the portal hypertension. Below 1.1, the fluid comes from a leaky peritoneum or a very low serum albumin: cancer, tuberculosis, pancreatitis, nephrotic syndrome. Send a cell count as well (more than 250 neutrophils per mm³ is spontaneous bacterial peritonitis), the total protein, and a culture in blood-culture bottles.',
-      ask: ['The SAAG is 0.8 g/dL. Is portal hypertension the cause?', 'No: below 1.1 portal pressure is not pushing the fluid out. Look for peritoneal disease or a very low serum albumin.'],
+      line: 'Tapped, the SAAG is {saag}. A value ≥1.1 g/dL means portal hypertension is the cause.',
+      notes: 'Source: AASLD 2021 ascites guidance. The first tap is diagnostic (30 to 60 mL from the left lower quadrant, no need to correct the INR or platelets), and so is every admission with ascites. The serum–ascites albumin gradient uses serum and ascites taken the same day. A SAAG of 1.1 g/dL or more identifies portal hypertension as the cause with about 97% accuracy, whatever causes the portal hypertension. Below 1.1, the fluid comes from a leaky peritoneum or a very low serum albumin: cancer, tuberculosis, pancreatitis, nephrotic syndrome. Send a cell count as well (more than 250 neutrophils per mm³ is spontaneous bacterial peritonitis), the total protein, and a culture in blood-culture bottles at the bedside. Cirrhotic ascites is protein-poor, with a total protein below 2.5 g/dL, because fibrosis closes the sinusoid\'s fenestrae and lays down a basement membrane (capillarization). A protein below 1.5 g/dL means weak opsonic activity and a higher risk of spontaneous bacterial peritonitis, so prophylactic antibiotics are considered.',
+      ask: ['The SAAG is 0.8 g/dL. Is portal hypertension the cause?', 'No: a SAAG <1.1 means portal pressure is not pushing the fluid out. Look for peritoneal disease or a very low serum albumin.'],
     },
     {
-      id: 'lowprot', terms: { fenestrae: 'sinusoid:fenestrae' }, cam: 'sinusoid', data: 'tiles', tiles: ['tp', 'saag'], key: ['tp'],
-      kicker: 'Tapping the fluid', site: 'sin', title: 'Low protein in cirrhosis',
-      line: 'Fibrosis closes the fenestrae and lays down a basement membrane (capillarization). Less protein crosses, so the fluid is protein-poor.',
-      notes: 'In cirrhosis the sinusoids capillarize: the fenestrae close and a basement membrane and collagen form in the space of Disse. The wall now holds protein back, so the lymph and the ascites are thin, with a total protein below 2.5 g/dL. Diuretics concentrate the fluid and raise its protein somewhat. A protein below 1.5 g/dL means weak opsonic activity and a higher risk of spontaneous bacterial peritonitis, so prophylactic antibiotics are considered.',
-      ask: ['Why does an ascites protein below 1.5 g/dL matter?', 'Weak opsonic activity: a higher risk of spontaneous bacterial peritonitis, so prophylaxis is considered.'],
-    },
-    {
-      id: 'pvt', terms: ['sin'], preset: 'pvt-chronic', cam: 'portal', labels: ['CONF'], mark: { edges: ['PV_TRUNK'], label: 'Clot' }, tool: { kind: 'profile' }, data: 'tiles', tiles: ['pv', 'sin', 'asc'], key: ['sin'],
-      kicker: 'Pre-hepatic resistance', site: 'pre', title: 'Portal vein thrombosis',
-      vignette: 'A 34-year-old woman with protein C deficiency has had an enlarged spleen for several months, and EGD shows small esophageal varices. Her liver tests are normal, and ultrasound shows no ascites.',
-      line: 'Portal pressure is {pv}, but the sinusoids beyond the clot are at {sin}, so little or no ascites forms.',
-      notes: 'Pre-hepatic portal hypertension raises the pressure in the gut and spleen, so varices and a large spleen are common, but the sinusoids lie downstream of the clot at normal pressure: on the profile the line falls before the liver band and runs close to the dashed healthy line through it. The gut\'s capillaries hold their fluid (see "Gut capillary wall versus sinusoid wall"), and their extra lymph drains away. Ascites is uncommon: it appears briefly in acute thrombosis, after a variceal bleed with fluid loading, or when the serum albumin falls.',
-      ask: ['Why does a portal vein clot raise portal pressure but rarely cause ascites?', 'The sinusoids, where ascites starts, lie downstream of the clot at normal pressure.'],
-    },
-    {
-      id: 'presin', terms: { 'portal tracts': 'lobule:triad', 'sinusoidal pressure': 'lobule:sinusoid' }, preset: 'schisto', cam: 'lobule:triad', tool: { kind: 'profile' }, data: 'tiles', tiles: ['pv', 'sin', 'asc'], key: ['sin'],
-      kicker: 'Presinusoidal resistance', site: 'presin', title: 'Schistosomiasis',
-      vignette: 'A 30-year-old man who grew up in Yemen has a large spleen, low platelets and large esophageal varices. His liver tests are normal, and there is no ascites.',
-      line: 'Resistance in the portal tracts leaves sinusoidal pressure near normal, so ascites is uncommon despite high portal pressure.',
-      notes: 'In presinusoidal disease the scar sits around the portal venules and the sinusoids are spared: their pressure is near normal, liver function is preserved and ascites is rare, while varices bleed. On the profile the fall comes at the portal venules, inside the liver band but before the sinusoid station. When ascites does appear in schistosomiasis or porto-sinusoidal vascular disorder, it usually follows a bleed, an infection or a falling albumin, or marks advanced or mixed disease.',
-      ask: ['Bleeding varices, no ascites and normal liver tests. Where does the resistance lie, and what will the HVPG show?', 'Presinusoidal, in the portal tracts, as in schistosomiasis. The HVPG is near normal: the wedge reads the sinusoids, beyond the resistance.'],
-    },
-    {
-      id: 'hf', terms: { lymph: 'sinusoid:lymph', sinusoid: 'sinusoid:lumen' }, preset: 'rhf', cam: 'sinusoid', data: 'tiles', tiles: ['tp', 'saag', 'sin'], key: ['tp'],
+      id: 'hf', terms: { lymph: 'sinusoid:lymph', sinusoid: 'sinusoid:lumen' }, preset: 'rhf', cam: 'sinusoid', data: 'tiles', tiles: ['saag', 'tp'], key: ['tp'],
       kicker: 'Protein-rich ascites', site: 'cardiac', title: 'High protein in heart failure',
       vignette: 'A 74-year-old man with ischemic cardiomyopathy and severe TR has a swollen abdomen and leg edema. His JVP is raised to the earlobes, and his liver tests are only mildly abnormal.',
-      line: 'The sinusoid wall is still open. Congestion drives protein-rich lymph through it: SAAG {saag}, 1.1 g/dL or more, and protein {tp}, 2.5 g/dL or more.',
+      line: 'The sinusoid wall is still open. Congestion drives protein-rich lymph through it: SAAG {saag}, ≥1.1 g/dL, and protein {tp}, ≥2.5 g/dL.',
       notes: 'In heart failure and constrictive pericarditis the sinusoids are congested but not scarred: the fenestrae stay open, so the lymph is nearly as rich in protein as plasma. The ascites has a high SAAG (portal hypertension of cardiac origin) and a total protein of 2.5 g/dL or more. A raised jugular venous pressure and a high BNP point to the heart.',
       ask: ['Ascites with a SAAG of 1.5 and protein of 3.8 g/dL. What do you examine next?', 'The heart: the jugular venous pressure, an echocardiogram, BNP.'],
     },
     {
-      id: 'bc', terms: ['hv', 'sin'], preset: 'budd-chiari', cam: 'hepatic', labels: ['RHV', 'RA'], mark: { edges: ['RHV_IVC', 'MHV_IVC', 'LHV_IVC'], label: 'Clot in hepatic veins', free: true }, data: 'tiles', tiles: ['tp', 'saag', 'sin'], key: ['tp'],
+      id: 'bc', terms: ['hv', 'sin'], preset: 'budd-chiari', cam: 'hepatic', labels: ['RHV', 'RA'], mark: { edges: ['RHV_IVC', 'MHV_IVC', 'LHV_IVC'], label: 'Clot in hepatic veins', free: true }, data: 'tiles', tiles: ['saag', 'tp'], key: ['tp'],
       kicker: 'Protein-rich ascites', site: 'post', title: 'High protein in Budd–Chiari syndrome',
       vignette: 'A 26-year-old woman, 3 months postpartum, has had RUQ pain for 2 months and now has tense ascites. Her liver is large and tender.',
-      line: 'Resistance in the hepatic veins congests a liver that is not yet scarred. Its sinusoids are still open, so the SAAG is high and protein is 2.5 g/dL or more.',
+      line: 'Resistance in the hepatic veins congests a liver that is not yet scarred. Its sinusoids are still open, so the SAAG is high and protein is ≥2.5 g/dL.',
       notes: 'Hepatic venous outflow obstruction gives the same high-SAAG, high-protein ascites as heart failure, but with a normal jugular venous pressure. Over months the congested liver can scar and capillarize, and the protein falls toward the cirrhotic range. Ascites with abdominal pain and a large liver, in a patient with a myeloproliferative neoplasm or in pregnancy, calls for a Doppler of the hepatic veins.',
       ask: ['High-SAAG, high-protein ascites and a normal jugular venous pressure. Where do you look?', 'At the hepatic veins and the IVC, for Budd–Chiari syndrome (Doppler ultrasound).'],
     },
     {
       id: 'map', visual: 'quadrant', of: [{ id: 'fill', name: 'Cirrhosis' }, { id: 'hf', name: 'Heart failure' }, { id: 'bc', name: 'Budd–Chiari' }],
-      kicker: 'Summary', title: 'Interpreting SAAG and protein',
+      kicker: 'Telling them apart', title: 'Interpreting SAAG and protein',
       line: 'SAAG shows whether portal hypertension is the cause. Ascitic protein shows whether the sinusoid wall is capillarized or still permeable.',
-      notes: 'Read the SAAG first: 1.1 g/dL or more is portal hypertension. Then the protein: below 2.5 g/dL fits cirrhosis (sealed, capillarized sinusoids); 2.5 or more with a high SAAG fits the heart or early Budd–Chiari (open, congested sinusoids). A low SAAG with high protein means a leaky peritoneum: peritoneal cancer, tuberculosis, pancreatic ascites. A low SAAG with low protein is rare: nephrotic syndrome. Portal vein thrombosis and presinusoidal disease have no point here, because they rarely cause ascites. The points are the model\'s patients.',
+      notes: 'Read the SAAG first: 1.1 g/dL or more is portal hypertension. Then the protein: below 2.5 g/dL fits cirrhosis (sealed, capillarized sinusoids); 2.5 or more with a high SAAG fits the heart or early Budd–Chiari (open, congested sinusoids). A low SAAG with high protein means a leaky peritoneum: peritoneal cancer, tuberculosis, pancreatic ascites. A low SAAG with low protein is rare: nephrotic syndrome. Portal vein thrombosis and presinusoidal disease have no point here, because they rarely cause ascites: the sinusoids lie beyond the resistance at near-normal pressure (see Portal vein clots and Presinusoidal portal hypertension). The points are the model\'s patients.',
       ask: ['SAAG 0.6, protein 4.2 g/dL and weight loss. What is likely, and what next?', 'Peritoneal cancer or tuberculous peritonitis: cytology, adenosine deaminase, peritoneal biopsy.'],
+    },
+    {
+      id: 'tense', preset: 'cirr-decomp', params: { diuretics: false }, days: 120, ramp: { albumin: [2.8, 2.4] }, cam: 'fit', terms: { 'renal veins': 'lrv' }, tool: BELLY, data: 'tiles', tiles: ['asc', 'pv'], key: ['asc'],
+      kicker: 'Tense ascites', site: 'sin', title: 'Grade 3 ascites presses on the kidneys',
+      vignette: 'A 61-year-old man with alcohol-associated cirrhosis stopped his diuretics 4 months ago. His abdomen is now tense, and he is short of breath lying flat. His albumin is 2.4 g/dL.',
+      line: 'Tense ascites raises the pressure inside the abdomen, which presses on the renal veins and the kidneys.',
+      notes: 'Decompensated cirrhosis without diuretics for four months, the serum albumin falling. Tense ascites raises intra-abdominal pressure, which lowers kidney perfusion, splints the diaphragm and adds to the pressure on the varices. Breathlessness, early satiety and an umbilical hernia are common. Grade 3 is treated first with large-volume paracentesis.',
+      ask: ['Name two effects of tense ascites outside the abdomen.', 'Breathlessness from a splinted diaphragm, and lower kidney perfusion.'],
+    },
+    {
+      id: 'lvp', action: { kind: 'paracentesis', mL: 8000 }, params: { albumin: 2.74 }, cam: 'fit', tool: BELLY,
+      // (A third tile, where the slide's point needs it: the albumin given with the tap.)
+      data: 'tiles', tiles: ['asc', 'pv', 'salb'], key: ['salb'], delta: 'tense',
+      kicker: 'Large-volume paracentesis', site: 'sin', title: 'A large-volume tap comes with albumin',
+      line: 'The tap leaves {asc} and the portal pressure falls a little. After >5 liters, give {6 to 8 g} of albumin for each liter removed.',
+      notes: 'The model has no kidneys or renin: albumin here raises the serum albumin and the plasma oncotic pressure, and the fluid comes back more slowly on "Ascites returns in two weeks". For a 6 L tap, about 40 g of 20% albumin, given during or after the tap; it prevents post-paracentesis circulatory dysfunction better than saline or synthetic colloids. Under 5 L, albumin is optional. Large-volume paracentesis removes all the fluid in one go, safely, in a few hours. Taking off the intra-abdominal pressure lowers the portal and variceal pressure a little. After more than 5 L, splanchnic vessels dilate further and the effective blood volume falls over the next days: post-paracentesis circulatory dysfunction, with renin rising, hyponatremia, kidney injury and faster return of the ascites.',
+      ask: ['Why give albumin rather than saline after an 8 L tap, and how much?', 'It prevents post-paracentesis circulatory dysfunction better: less kidney injury, less hyponatremia, slower return. About 50 to 65 g, 6 to 8 g for each liter.'],
+    },
+    {
+      id: 'back', days: 14, lapse: { seconds: 7 }, cam: 'fit', tool: BELLY, data: 'tiles', tiles: ['asc', 'pv'], key: ['asc'], delta: 'tense',
+      kicker: 'Two weeks later', site: 'sin', title: 'Ascites returns in two weeks',
+      line: 'Sinusoidal pressure and the kidneys\' sodium retention have not changed, so without diuretics the fluid refills the abdomen to {asc}.',
+      notes: 'The liver and gut still make more lymph than the lymphatics carry. The sinusoidal pressure and the kidneys\' sodium retention are unchanged, so lymph keeps weeping from the liver. Here he has had no diuretics at all.',
+      ask: ['The fluid is back two weeks after the tap. Is this refractory ascites?', 'No: he has had no diuretics. Refractory means it returns within four weeks despite the highest diuretic doses and salt restriction, or diuretics cannot be taken.'],
+    },
+    {
+      id: 'diuretics', params: { diuretics: true }, days: 28, cam: 'fit', tool: FLUID,
+      compare: [{ label: 'No diuretics', params: { diuretics: false } }, { label: 'Diuretics', own: true, params: { diuretics: true } }],
+      kicker: 'Treatment', site: 'sin', title: 'Diuretics counter the kidneys\' sodium retention',
+      line: 'Spironolactone with furosemide, and less salt. The kidneys lose sodium and water follows, so more fluid is reabsorbed from the abdomen and the ascites settles at {asc}.',
+      notes: 'The model has no kidneys, so here diuretics simply raise how much fluid the abdomen reabsorbs. Spironolactone 100 mg a day, with furosemide 40 mg for recurrent ascites; outside the US, EASL starts a first episode on spironolactone alone and adds furosemide if weight loss is slow or the potassium rises. Both rise in a 100:40 ratio to 400 and 160 mg. About 2 g of sodium (5 g of salt) a day; no fluid restriction unless the sodium is below 125. Aim for a weight loss of up to 0.5 kg a day without leg edema, 1 kg with it. Stop or reduce for kidney injury, a sodium below 125, encephalopathy or muscle cramps. Diuretics also concentrate the ascites, so its protein rises.',
+      ask: ['Starting doses of spironolactone and furosemide?', 'Spironolactone 100 mg a day, with furosemide 40 mg for recurrent ascites (outside the US, EASL starts a first episode on spironolactone alone); both rise in a 100:40 ratio to 400 and 160 mg.'],
+    },
+    {
+      id: 'refractory', cam: 'fit', data: 'tiles', tiles: ['asc', 'pv'], key: ['asc'],
+      tool: { kind: 'criteria', title: 'Refractory ascites', short: 'Refractory', ticks: false, lead: 'Either one makes it refractory.', rows: ['Back **within 4 weeks** on **top diuretic doses** and a **low-salt diet**', 'Or **diuretics cannot be given** (kidney injury, sodium, potassium)'] },
+      kicker: 'Refractory ascites', site: 'sin', title: 'Refractory ascites, defined',
+      line: 'Refractory ascites returns within 4 weeks of a tap despite the highest diuretic doses, or diuretics cannot be given. Here he settles at {asc}, so he is not refractory.',
+      notes: 'Source: Baveno VIII 6.3 and 6.4. Refractory ascites returns within 4 weeks of a tap despite the highest diuretic doses and a low-salt diet, or diuretics cannot be given. Patients with recurrent or refractory ascites should be considered for a TIPS, and the TIPS and a liver transplant discussed together. Refractory means the highest diuretic doses (spironolactone 400 mg and furosemide 160 mg a day) and about 2 g of sodium a day fail to keep the fluid away, or diuretics have to stop for kidney injury, a sodium below 125, high potassium or encephalopathy. The definition is the one used elsewhere in this talk; the Baveno VIII statements name refractory ascites without defining it.',
+      ask: ['Fluid back three weeks after a tap, on spironolactone 400 mg and furosemide 160 mg. What is the label, and what do you consider?', 'Refractory ascites. Consider a TIPS and discuss transplantation, if there is no recurrent encephalopathy, heart failure or severe pulmonary hypertension.'],
+    },
+    {
+      id: 'tips', params: { tips: { on: true } }, days: 28, lapse: { seconds: 7 }, cam: 'liver', tool: BELLY, mark: { edges: ['TIPS'], label: 'Covered stent', kind: 'treat' }, data: 'tiles', tiles: ['asc', 'pv'], key: ['asc'], delta: 'tense',
+      kicker: 'Refractory ascites', site: 'sin', title: 'TIPS for refractory ascites',
+      line: 'A TIPS lowers the gradient to {ppg} and the sinusoidal pressure with it, so the fluid falls to {asc}. The price is encephalopathy in about one patient in three.',
+      notes: 'Less lymph forms, and in exchange the liver gets less portal blood. In recurrent or refractory ascites, a covered TIPS improves survival over repeated paracentesis in selected patients: bilirubin under about 3 mg/dL, no recurrent encephalopathy, no heart failure or severe pulmonary hypertension. The ascites clears over weeks to months, diuretics continued at first. The model clears it faster. No target gradient is agreed for ascites; below 12 mmHg is the bleeding target.',
+      ask: ['Name a reason not to place a TIPS for ascites.', 'Recurrent encephalopathy, heart failure or pulmonary hypertension, or advanced liver failure.'],
+    },
+    {
+      // (The relation chart before the summary: the model's scarring from 0.45 to 0.85, the albumin falling with it as on the two-month
+      // time-lapse (4.0 g/dL at 0.6, 2.8 at 0.85), each point settled for a year, the ascites read against the HVPG.
+      // The dots are this talk's own patient, joined in order by arrows; no ring (the slide has no state of its own: he after the TIPS is the last dot).
+      // One line, the ascites: the blood volume and its second axis made the chart too busy to read, so it stays in the notes only. The axis runs on to
+      // 22 so the names of the dots at 16.8 have room on their right, and the grades' numbers (1.5 and 5) are the axis.)
+      id: 'relation', cam: 'fit',
+      tool: COURSE,
+      kicker: 'Summary', site: 'sin', title: 'The fluid comes back after the tap unless it is treated',
+      line: 'The tap empties the belly, but the fluid is back at {asc@back} by week 2. Diuretics bring it down to {asc@diuretics} by week 6, and adding a TIPS clears it.',
+      notes: 'The chart follows the model\'s own patient day by day. Day 0 is the tap: 8 L out with albumin, from the tense belly he had after four months without diuretics. The grey line is the two weeks with nothing done: the fluid fills again because the pressure that makes it, and the kidneys\' hold on salt and water, are unchanged. From week 2 each treatment starts from that same day: diuretics alone, and diuretics with a TIPS. The zones are the app\'s own grades (its data card uses them too): grade 1 ≥0.15 L, grade 2 ≥1.5 L, grade 3 ≥5 L; at the bedside the grade comes from the examination, not from the volume. The timing is the model\'s, not a patient\'s, so no speed here is a promise; the model has no kidneys, and the chart shows the order of events and the size of each effect. One model patient; real patients vary far more.',
+      ask: ['The tap emptied his belly, yet the fluid is back in two weeks. What did the tap leave unchanged?', 'The pressure that makes the fluid. Diuretics clear what has formed; a TIPS lowers the pressure itself, and the fluid stays away.'],
+    },
+    {
+      id: 'summary', visual: 'table', cols: ['asc', 'ppg', 'liver'], asc: false, vs: 'first', rowHead: 'Step',
+      of: [{ id: 'tense', kicker: 'Baseline', title: 'Tense ascites' }, { id: 'lvp', kicker: 'Tap', title: 'Paracentesis with albumin' }, { id: 'back', kicker: 'No treatment', title: 'Two weeks on' }, { id: 'diuretics', kicker: 'Drugs', title: 'Diuretics, 4 weeks' }, { id: 'tips', kicker: 'Shunt', title: 'TIPS, 4 weeks' }],
+      kicker: 'Summary', title: 'What each ascites treatment does',
+      line: 'The tap empties the abdomen, but only diuretics or TIPS keep the fluid from returning.',
+      notes: 'The tap clears the fluid at once but leaves its cause; albumin protects the circulation; diuretics clear it more slowly and keep it away; TIPS clears it by lowering the sinusoidal pressure, at the cost of the liver\'s portal blood. Each patient with refractory ascites is also assessed for transplantation. Avoid NSAIDs, and ACE inhibitors and ARBs, in ascites; long-term albumin is used in some centers for decompensated cirrhosis.',
+      ask: ['Which step acts on the mechanism rather than only the fluid?', 'TIPS lowers the sinusoidal pressure and diuretics counter the sodium retention; the tap does neither. Only treating the liver disease removes the cause.'],
     },
   ],
 };

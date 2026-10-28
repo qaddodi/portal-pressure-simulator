@@ -176,9 +176,9 @@ test('clot mark: words follow the cross-section card, gone with no clot', async 
   assert.equal(clotWords(0.995), 'Occlusive clot');
   assert.equal(clotWords(1), 'Occlusive clot');
 });
-test('clot mark: the PVT talk\'s clot slide names the clot live, never "partial"', async () => {
+test('clot mark: the portal vein clots talk\'s gradients slide names the clot live, never "partial"', async () => {
   const fs = await import('node:fs');
-  const src = fs.readFileSync(new URL('../src/ui/decks/pvt-cirrhosis.js', import.meta.url), 'utf8');
+  const src = fs.readFileSync(new URL('../src/ui/decks/prehepatic.js', import.meta.url), 'utf8');
   assert.match(src, /mark: \{ edges: \['PV_TRUNK'\], clot: true \}/);
   assert.doesNotMatch(src, /label: 'Partial clot'/);
 });

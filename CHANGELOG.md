@@ -2,6 +2,676 @@
 
 ## October 2026
 
+- **The teaching card stays put while a stacked card is zoomed, and settles where the stack needs it when the zoom closes.** (Mohammad, 28 Oct: "when the stacked cards are zoomed in (in focus) and i open untuck the stacked card, the TEACHING card in the background is reacting still by going up; it shouldn't in fact, if the stack is unstacked, and i zoom into it, the teaching card should go back to original location".)
+  Mac and iPad on its side, Present, every stacked instrument card in every deck. Untucking or tucking the readings under a zoomed card used to lift or lower the teaching card and its glass behind the veil, because `liftTo` in `src/ui/presenter.js` wrote their rise on every frame. While the card is zoomed their rise is now held at the tucked place (`words.held`, `wordsAt`): the readings and the zoom still follow each other as before, and the teaching card does not stir. If the readings were already out when the card zooms, the teaching card eases down to its original place as the card glides in (`wordsGlide`: the rise is written where it ends and the card's translate is animated from where it stands, on the zoom's own ease and for as long as its glide, so the two move together). When the zoom closes, the teaching card eases to the place the stack needs, up if the readings are still out, its original place if they are tucked, in step with the card gliding back. Esc, a tap outside, a slide change and a resize all go through the same cue (`behind` in `src/ui/card-zoom.js`); Reduce Motion, a resize and the end of the talk move it at once. A Gut to heart chart's own rise (`slip.base`) counts as the original place. A pull or a slide that writes another place takes over from a glide in flight. Code only, nobody has looked on screen. `tests/card-zoom.test.js`, `tests/wide-stack.test.js`.
+- **The six site ladders are the instrument itself, drawn once at its own size and scaled down whole into each cell; the card fits round them.** (Mohammad, 28 Oct, Sites 10: "each graph should look in proportions exactly as the instrument so we just fit the slide borders around; now the individual instrument graph ladders look too tall and not similar to the instrument"; then, on the first try, with the Sites slide 8 card beside slide 10: "looks wrong to me".)
+  The cells had filled the card's whole height, so each chart came out about 0.8 of its width tall (the instrument's is about 0.58). The first fix laid each chart out afresh at the cell's size in the instrument's type, which left the plot far flatter than the instrument's, moved the HVPG and PPG brackets and pills (PPG on top in Cirrhosis and SOS, the pills on the line in Right heart failure) and cost the Budd–Chiari axis its ticks. Now a cell holds the chart at the instrument's own width (a card's width less its padding), type size and height (the instrument's formulas, in `--lad-w`, `--lad-f`, `--lad-h` on `.pz-cell`), and `fitChart` in `src/ui/presenter.js` scales that picture down as one piece with a transform (`chartScale` in `src/ui/tool-profile.js`), so the layout, label places, plot shape and relative type are the instrument's. The words never come under 12 px on the screen: where the scale would take them under, the picture is drawn in type larger by that much, in a box as much taller (a few percent on a Mac, about a quarter on an iPad on its side) and scaled by the same amount, and the chart is drawn again for it (`redraw` on the profile tool). The card (`.pz-panel.fill`) no longer takes the screen's height: it is as tall as its two rows and centred in the room over the nav pill. This takes back the 26 Oct lettering that grew with the cell (4.5 cqi, up to 20 px): the words are about 12 px, the instrument's type scaled with it. Sites 10 and Where-resistance 14 share the grid, so both change; a phone, upright or sideways, and an upright iPad draw each case as one line and are untouched. In `styles/app.css`; code only, nobody has looked on screen. `tests/ladders-chart-size.test.js` (rewritten for it), `tests/grid-key-phone.test.js`, `tests/data-sheet.test.js`, `docs/deck-authoring-guide.md`.
+- **On a zoomed stacked card the readings come out and tuck away, and the zoom fits the whole stack as they go.** (Mohammad, 28 Oct: "allow me to untuck the card when zoomed in to instrument stacked cards and adjust the zoom ease".)
+  Mac and iPad on its side, Present: with an instrument card zoomed, a tap on the handle, a pull up or down on the handle or the card (or a swipe anywhere on the veil), two fingers up or down on the trackpad, and the Up and Down arrow keys bring the readings' card out above it or tuck it away, as they do on the card at rest. The zoom is fitted again on every frame of it (`follow` in `src/ui/card-zoom.js`, fed from `liftTo` in `src/ui/presenter.js`): out, the stack is taller, so the zoom eases smaller and the whole stack stays centred and inside the screen; tucked, it eases larger again. The card's own rise with the readings is an unscaled CSS translate that a zoom's transform does not scale, so the transform makes up for the difference and the whole lands exactly in the middle at both ends. A pull follows the finger over the travel as the zoomed card shows it (divided by the zoom). The readings move only once the glide in has ended, never while the card glides in or back, and Reduce Motion moves them at once. The pictures are drawn for the largest the zoom gets. It holds for every stacked instrument card in every deck. Code only, nobody has looked on screen. `tests/card-zoom.test.js`.
+- **A stacked instrument card zooms whole and centred, and the card zooms while a time-lapse plays.** (Mohammad, 28 Oct, a stacked Doppler card zoomed: "this is a stacked card; the zoom is glitchy. fix; also it doesn't want to zoom while a timeline is going", then "like timeline skipping forward".)
+  The glitch: a stacked card (instrument card with the readings' card tucked behind it, Mac and iPad on its side) was measured while it was up. The zoom makes the card report the place it rests, so the measure of how far the readings travel read none (`--pz-d` 0): the tucked readings' room opened above the header as a big empty glass, the card grew past the plan and ran off the bottom. A zoomed card is no longer measured (`measureUnder` in `src/ui/presenter.js`); it is measured again the moment the card is back. The handle on the card's top edge now counts in the box that is centred and fitted (`src/ui/card-zoom.js`), so the whole card sits in the middle, not the card's box with the handle hanging over it. This holds for every stacked instrument card in every deck; a card with nothing to tuck behind it is as it was.
+  The time-lapse: the slide's move stayed busy until the days had played, and a busy move allowed no zoom. The slide stands whole once it has landed, so the card may zoom while its days (or its answer) play on the live figure; Next still skips the days forward with the card zoomed, and the next slide, or a slide asked for meanwhile, glides it back first instead of snapping it. Code only, nobody has looked on screen. `tests/card-zoom.test.js`.
+- **The zoomed card no longer moves the liver or anything behind it.** (Mohammad, 28 Oct: "the zoom moves the liver in the background; don't move anything; I actually like the zoom as is, without moving the liver and background stuff".)
+  The figure used to come in 6 % toward the card as it zoomed. That push-in is gone (`PUSH` and the figure's holder are out of `src/ui/card-zoom.js`): only the card and its handle move, and the veil still dims the rest. Everything else about the zoom is as it was. Code only, nobody has looked on screen. `tests/card-zoom.test.js`.
+- **The instrument's data card zooms to the middle of the screen.** (Mohammad, 28 Oct: "display it bigger when clicking on it directly; however it shouldn't like make the text smaller. the camera should like zoom on the card to display it centered large in middle of the screen"; "VERY subtle and clean" icon; "will the instrument card and the physics engine and everything keep running while zoomed? i vote yes.")
+  Mac and iPad on its side, in Present: a tap on an empty part of the card, or the small corner brackets at the right end of its header row, glides the card to the middle and grows it as one piece (up to 2.2 times, never past the room the screen leaves), so its words and pictures only get larger. The readings' card stays tucked behind it, the handle riding on its edge. A veil dims the figure and the words (the figure itself stays exactly where it is); a tap on the veil, on the card, on the icon, Esc, or a slide change (the card glides back first, then the slide runs) puts it back. Sliders, buttons, pills and the handle keep their own taps; a drag is not a tap. Nothing pauses: the instrument, the model and the figure run on, and the canvas pictures are drawn for the size they are seen at (`setCanvasBoost` in `src/ui/util.js`). Only the layout waits while the card is up (`zoomHeld` in `src/ui/presenter.js`; one pass runs when it is back), and the card and its handle report the places they rest, so the figure's labels and the camera keep still. The corner credit sits out the glide as it does a slide change; Reduce Motion moves the card at once. Phone and upright iPad are unchanged. `ZOOM_OPENS_READINGS` in the presenter brings the readings out as the card zooms (off). New `src/ui/card-zoom.js` (plan, tap, controller), the icon `i-shrink` in `index.html`, `.pz-zscrim` and `.pz-zbtn` in `styles/app.css`; `tests/card-zoom.test.js`. Code only, nobody has looked on screen.
+- **Blur effect off: a lit lobule or sinusoid name keeps its pill instead of a glowing cloud.** (Mohammad, 28 Oct: "the non blur effect in the lobule sucks ... it looks childish now, i don't like the glow".)
+  With the blur off, the lit names in the lobule and sinusoid views (Portal venule, Sinusoids, Central vein, the zones and the sinusoid's own names) sat in a soft coloured cloud. They now show the pill they
+  have with the blur, same box and ring, the 18 % tint laid on the solid surface as the cards are, so nothing glows and nothing about the labels' spacing or easing changes. The other glows the setting added are
+  gone too: the lobule's resistance and problem pills keep their solid fill and white words, and the figure's focus and term labels keep their usual pill and colour, as with the blur on. The Settings hint
+  and the README no longer say "glowing labels". In `styles/app.css`; code only, nobody has looked on screen. `tests/blur-off-labels.test.js`.
+- **The sinusoid view glides when a data card tucks, untucks, hides or docks, names and arrows included.** (Mohammad, 28 Oct: "in the slide decks, on iphone and upright ipad, in sinusoid view, when opening and closing data cards, tucking, untucking, hiding, the whole view jumps instead of transition/ease/glide".)
+  The vessel always glided to its new centre (`stepView` in `src/ui/sinusoid-view.js`), but everything laid against the room the cards leave (the Portal venule and Central vein names and their arrows, the legend, the band the other names are spread over, the names' keep-in limits) was laid against the room where it comes to rest, so it stood there at once while the vessel was still on its way. The free room and the insets under the top bar and above the words now ease with the centre and scale they fit (`VW.fe`, `VW.ins`), and every name is laid out against that each frame. Runs on the real view in node (a stand-in DOM and frame scheduler) over a phone, an upright iPad and a wide screen: before, the portal venule's name moved 150 px in one frame (320 px with the card hidden on the iPad, 376 px for Disse's name on a wide screen); now each frame moves a share of the way. Also: on a wide screen the fenestrae's and Disse's names, which are placed for the view at rest, and the pore the Fenestrae callout ends on, catch up with the view's glide instead of stepping (`noteJumps`); a card change (`pps:occ`) wakes a sleeping view; and a view still gliding no longer counts as settled (a paused simulation could leave it half way). The lobule already glides its framing (`refit`, `glideTo`) and carries its names with it, and was not changed. Code only: nobody has looked on screen. `tests/sinusoid-view-glide.test.js`.
+- **The Ascites relation chart is now the course after the tap: the fluid day by day, with the grades as zones.** (Mohammad, 27 Oct: "ughhhh" on the HVPG curve; he picked J of the mocks, "more smooth", "show 1.5 and 5 are liters".)
+  "Ascites after the tap" (Ascites, the slide before the summary) replaces the HVPG curve. One patient, the one from the Tense ascites and Large-volume paracentesis slides, day by day from the tap: the tense belly as a
+  dot, the tap emptying the belly, the fluid refilling for two weeks with nothing done (grey), then diuretics alone and diuretics with a TIPS from that same day for four weeks, each in its own colour with its name at
+  its end. The line runs smoothly through the model's own number for every day and never overshoots one. The grades are the plot's zones (None, Grade 1, 2, 3, the app's own bands), each named on its own band (his 17:34Z: "so much wasted space on the left of the y axis", so the left strip is only the numbers
+  now, 0, 1.5 L and 5 L, 48 px on a phone against 102); the x axis is in weeks, the tap named at 0. A new chart kind in `src/ui/tool-course.js` (`tool: { kind: 'course', from, event, wait, after, then, words }`, registered in `ext-model.js`,
+  zone colours `.pco-z` in `styles/app.css`); the days are worked out once on the presenter's worker and kept, started when the deck opens. A name with no clear spot beside its line stands in a key row under the
+  caption, and "Treatment starts" (with its upright line) and any grade name with no clear spot are left out on a card too short for them. The slide's line quotes the Two weeks later and Treatment slides' own numbers, and the notes say the speeds are the
+  model's, not a patient's (the model has no kidneys); nothing says how fast a TIPS clears ascites. The HVPG curve's options stay in `tool-curve.js` for other decks. Layout was run on the real chart code in node
+  (a stand-in DOM, the model's own numbers) at card sizes from 250 × 170 to 700 × 330 px, with no word on another word, a line or a dot; code only, nobody has looked on screen.
+  `tests/relation-ascites-chart.test.js` (rewritten for it), `tests/deck-adopted.js`, `docs/deck-authoring-guide.md`, `docs/deck-authoring-quick-guide.md`.
+- **The Ascites relation chart reads at a glance: one line, the visits named and joined by arrows, an axis that says what it is.** (Mohammad, 27 Oct: "what are the dots? it's so busy", "no idea what x axis is", "it's completely illegible".)
+  The chart ("Ascites by HVPG", Ascites, the slide before the summary) draws only the ascites now: the blood volume, its second axis, the blue ring that floated off the line, the live values in the key row and the
+  numbers-and-key for the dots are gone (the notes still quote the blood volume's half liter). His three visits, Tense belly, Diuretics and TIPS, are named on their dots, joined by the dotted walk with an arrowhead on
+  each step (so the order reads as a path, not as a time axis), the HVPG axis runs on to 22 so the names have room to the right of the dots, and the ascites cut-offs stand as the axis numbers, 0, 1.5 and 5, with
+  "Grade 2" and "Grade 3" over their gridlines. In `src/ui/tool-curve.js`, for every relation chart: `ring: false` (no ring for a slide with no state of its own), `cutTicks` and `cutNames` (cut-offs no even scale can
+  hold become the axis numbers; names for them), the arrowheads on every walk (`walkArrow`), an HVPG axis written "HVPG (wedged − free), mmHg" and the HVPG 10 line named "CSPH ≥10", the x cut-offs' names placed before
+  the dots' names (which have sixteen ways round their dots) so a name no longer lands on one. Layout was run on the real chart code in node (a stand-in DOM, the model's own numbers) at card sizes from 315 × 170 to
+  700 × 330 px, with no word on another word, a line, a dot or an arrow; code only, nobody has looked on screen. `tests/relation-ascites-chart.test.js`, `tests/relation-chart-declutter.test.js`,
+  `tests/relation-charts-batch-a.test.js`.
+- **The two Explore charts, Along the circuit and Over time, sit on the rounded plot panel.** (Mohammad, 27 Oct: the G2 look for the graphs, Explore dock.) Both are drawn on a canvas, so
+  `src/ui/plot-look.js` gained `plotFill(ctx, x, y, w, h, fill)`, the same rounded panel the slide charts use, in the same tile tone (`--surface-2`), 10 px corners. The panel is the chart's
+  whole box. The axis numbers stand in a strip inside its left edge, 8 px in, 6 px clear of the lines (as wide as the widest number: two digits, three only as the pressure axis passes 100,
+  eased in); the unit, the station names, the times and the readings at the right end all stay 8 px or more inside it; the separate axis line under the profile is gone (the panel's edge and
+  the grid's bottom line are the axis); the grid hairlines use the stronger border tone so they read on the panel; the plates behind cut-off names, the dots' rings and the markers' halos
+  take the panel's tone, so no patch shows. Over time is also the slide `beats` card, so it changes the same way in Present and Patients. Code only: nobody has looked on screen.
+- **The faint line round the lobule's tissue is gone, and the Fenestrae callout no longer sits on the stellate cell's name.** (Mohammad, 27 Oct: "fix the seam on the left side (it's a
+  square/rectangular seam around the lobule); this also appears in other lobule view in decks", and "fix the callout for fenestrae; it's competing with the stellate cell call out".)
+  The seam, measured in his screenshot of Lobule 5/9, is a line one device pixel wide at 1.28 R from the lobule's centre, the edge of the tissue's bitmap (a 2.6 R square, drawn on
+  the GPU by `src/ui/tissue-gl.js`). The shader looked the bitmap up inside the test for being in its box, where the derivatives that choose a mipmap level are undefined, so a pixel
+  along the edge could take the coarsest level, the bitmap's average colour (diagnosed from the screenshot and the code; no GPU ran here). The lookups now carry their own gradients (`textureGrad`), and the outermost two device pixels of
+  the box fade out. Every lobule view in Present, Patients and Explore draws through it. On a wide sinusoid view the Fenestrae pill was set beside the stellate name and, when they
+  overlapped, shoved up by the declutter step while its leader still ran down through the stellate name. `src/ui/fen-place.js` now places the pill, its pore and the Space of Disse's
+  name together, in the view's resting frame: the pill keeps a gap of at least 2 × 16 px from the stellate name, its leader ends at the pore that stays open longest (so an open pore
+  even at 15 % open) that no nucleus covers, and the Disse name keeps clear of the pill, its leader and the stellate name, inside the free stretch (before, it could be pushed to the
+  edge of the screen). A view too narrow for all three places the pill alone, then the old steps. Open or closed fenestrae, any name length, Present, Patients and Explore, and every
+  wide screen size are covered; the portrait layout, whose names sit in their own rows, is as it was. Code and unit tests only; nobody has looked on screen. `src/ui/tissue-gl.js`,
+  `src/ui/fen-place.js`, `src/ui/sinusoid-view.js`, `tests/tissue-gl-edge.test.js`, `tests/fen-place.test.js`, `tests/tissue-gl.test.js`, `tests/lobule-surround-grey.test.js`.
+- **The FHVP and WHVP callouts' backgrounds leave and move with their words.** (Mohammad, 27 Oct: "the callouts for FHVP and WHVP backgrounds glitch; sometimes remain on slide when
+  next slide is transitioning, sometimes they're slow to move".) Each callout's frosted background is drawn on the GPU, on a canvas beside the callout layers
+  (`src/ui/glass-gl.js`), from what the page says about that callout. Two things reached the words but not that background. When the catheter went (a slide that leaves the
+  procedure, the end of a talk, a finished measurement), the whole layer of readings faded as one, which the background never saw: the pills stayed solid until the
+  readings were removed, after their words had gone. The readings now leave as every other reading does, each one's own children fading, so the background fades with its
+  words; the glass also takes the opacity of everything that holds it up to its layer, and no longer goes to sleep while a script's fade is still running in the layers (that
+  fade sends no event). And when the two readings travelled into the HVPG summary, their move was a CSS transition, which the browser runs a frame ahead of anything the page
+  draws, so each background trailed its words by a few dozen pixels at the start of the move. The offset is now worked out and written each frame, on the same thread as the
+  glass (`src/ui/cath-flip.js`), with the same curve (`--ease`) and the same 0.6 s, so nothing about the look of the move changes. This applies wherever those readings show:
+  the HVPG deck, Measure › HVPG, the treatment procedures (TIPS, BRTO, BATO) and the Budd–Chiari slide, on a Mac, an iPad and a phone; the measuring sites' callouts and the liver
+  pane's glass share the glass changes. Code and unit tests only; nobody has looked on screen. `src/ui/stage.js`, `src/ui/glass-gl.js`, `src/ui/cath-flip.js`,
+  `tests/glass-follow.test.js`.
+- **The HVPG against PPG plane names its two red lines.** (Mohammad, 26 Oct: "make it clear that the 10/12 line is clinically significant portal hypertension", then "keep it 4 quadrants;
+  just label the 10/12 line".) The HVPG 10 line is named "CSPH ≥10" and the PPG 12 line "Bleed risk ≥12", each beside its own line, on Sites and causes, Where HVPG misleads and
+  Choose the treatment. The four quadrants and their colours stay as they were. Only the HVPG line defines CSPH (Baveno VIII; AASLD 2024 statement 4: HVPG ≥10 mmHg); the PPG 12 line
+  is where the risk of bleeding rises and the gradient a TIPS aims under (AASLD 2024: no beta-blocker after TIPS under 12 mmHg), so the plane never calls it CSPH, and the notes say
+  so. Also, a name that sat as near another point as its own (Portal vein thrombosis, three lines above its dot, against Schisto's name beside it) now goes to its short name beside
+  its point or a place plainly its own. Code and unit tests only; nobody has looked on screen. `src/ui/visual-plane.js`, `styles/app.css`, `tests/plane-callouts.test.js`,
+  `tests/panels-e.test.js`.
+- **The six site ladders (Sites 10 of 12, Where-resistance 14) draw each chart larger inside its cell: bigger type and heavier lines, the card as it was.** (Mohammad, 26 Oct:
+  "this slide could use larger diagrams", then "bigger doesn't mean the card is bigger; I mean keep what it was before but each individual card graph should be bigger; like bigger
+  lines/text", then "I want larger text size on it, or for it to look bigger".) The card, its width, side padding, 1560 px cap and the room above the nav pill are unchanged. On a Mac or
+  an iPad on its side each chart's lettering (axis numbers, station values and names, zone words, HVPG and PPG brackets and pills, the brace) is now 4.5 cqi of its cell's width,
+  at least what it was, held by the cell's height (1.86 of the screen's 1 % less 1.2 px, about the chart's height over 17.7) and at 20 px: 14.6 to 19.5 px at 1877 x 1137, 13.9 to 18.9
+  at 1920 x 1080, 12.8 to 17.4 at 1728 x 1000, 12 to 15.5 at 1440 x 900, 12 to 14 on an iPad at 1180 x 820, 12 to 13.5 at 1440 x 790. The room comes from inside the card, not from
+  its size: the gap under the title, the foot, the gap between the two rows and each cell's top and first gap are shorter (about 27 px more height per chart at 1877 x 1137), and the
+  zone words ("PRE-HEPATIC", "INTRAHEPATIC", "POST-HEPATIC") stop growing past 16 px and ease down to 13 (`zoneSize` in `src/ui/tool-profile.js`), so the strip over the plot stays one
+  short line instead of two while the numbers, stations and brackets grow; a chart of 16 px or less, every other chart the data card draws, is as it was. The lines grow with the
+  type, never thinner than before: the line 3 px to 0.2 em (3.9 px at 19.5), the healthy and earlier lines, the brackets, the brace, the axis and the gridlines in the same proportion;
+  the value halos stay 4 px, as the label placing counts them. The brace and "mmHg" stay: they share one row, so dropping them would give back no height. Where a larger chart has no room for
+  the brackets in its plot they stand in the band at its foot, as before. A phone, upright or on its side, keeps its strips. Code and unit tests only; nobody has looked on screen.
+  `styles/app.css` (`.pz-cell`, `.pz-panel.fill`), `src/ui/tool-profile.js`, `tests/ladders-chart-size.test.js`, `tests/ladder-pills.test.js`.
+- **The lobules around the one in focus are grey in every lens but Pressure, like the liver they come from.** (Mohammad, 26 Oct: "when zooming out of a gray liver in the decks or
+  elsewhere when we're choosing a different lens than pressure; the surrounding lobules should also be gray as the color of the liver".) In Colored by oxygen, Blood origin, change
+  and the other lenses the organs in the anatomy are grey, but the neighbouring lobules kept the pressure lens's pinks: the field that comes in through the dive and the way out, the
+  tissue round the open lobule, and the thin ring of it the dive's copy keeps. They now take the organs' own grey (saturation 0.12, opacity 0.72, `LENS_GREY` in `src/ui/organ-dim.js`,
+  the two numbers `stage.js` greys the organs with), laid over the finished picture in the field's and the tissue's shaders and in both 2D fallbacks, so a lens switch needs no new
+  tiles. It eases over the lens crossfade, and is there at once where nothing of the surround is seen yet (a dive not begun, the lobule drawn ahead). The lobule in focus keeps the
+  lens's colours, and Pressure draws exactly as before. Code and unit tests only; nobody has looked on screen. `src/ui/lobule-zoom.js`, `src/ui/field-gl.js`, `src/ui/tissue-gl.js`,
+  `src/ui/lobule-look.js`, `src/ui/lobule-model.js`, `src/ui/organ-dim.js`, `tests/lobule-surround-grey.test.js`.
+- **Relation charts for eight more talks.** (Mohammad, 26 Oct, "I love the plan for relationship slides. please implement all!!!"; review/relation-chart-ideas.) One slide with kicker
+  `Summary` and id `relation` in Circulation (last in the talk, which has no table: the HVPG and the PPG as scarring builds, with the HVPG's 5 and 10), Doppler (the portal vein's velocity and
+  flow against the HVPG: still normal at CSPH, under 15 cm/s only from about 16), The circulation in cirrhosis (output and arterial pressure against the HVPG), Outflow (the free hepatic
+  vein pressure and the HVPG against stiffness as an IVC web narrows, heart failure and constriction as points on the same line: the HVPG stays under 2 mmHg), Presinusoidal portal
+  hypertension (the PPG and the spleen against stiffness, the schistosomiasis ring far above the cirrhosis line), Gastric varices (the fundal varix with the shunt open and closed and the
+  esophageal varix with it closed, against the HVPG), Encephalopathy (the PPG and the liver's flow against the stent's width) and Doppler of TIPS (the PPG and the portal vein's velocity
+  against the stent's narrowing, 12 mmHg at about a third, under 30 cm/s at about half). Two choices differ from the recommendations: Outflow's x axis is stiffness, not the right
+  atrial pressure, because an IVC web raises the liver's pressure with the right atrium normal; Encephalopathy charts the liver's flow, not the HE index, which is past its 0 to 1 tile
+  after a TIPS (1.2 at every width here). New curve option: an `against` sweep may carry `of: '<reading>'` to draw another reading on the same scale, and `reading` names the key row
+  and the cut-offs. Pregnancy keeps the relation chart it has. `tests/relation-slides-b.test.js` pins the numbers the words and notes quote; the handout figures are stand-ins copied
+  from a neighbouring slide until `scripts/handout-figures.mjs` runs. Code and unit tests only; nobody has looked on screen. `src/ui/tool-curve.js`, `src/ui/decks/`, `docs/`.
+- **The figure's numbered markers also show in the teaching card's words.** (Mohammad, 26 Oct, "the labels 1, 2, 3, 4, etc. should also show up in the teaching cards in a
+  similar way as they appear in the figure".) A slide with `steps: true` numbers its glow on the figure with black circles; its line now names each step with the same circle,
+  written `{#1}`, `{#2}` straight after the words that name that site ("the gut and spleen's capillaries (1), the liver's sinusoids (2)"). The marker is the figure's own look
+  (a dark circle in the theme's ink, a light numeral), sized from the line's type with the numeral never under 12 px, set inside the line's own spacing so no line grows, and it
+  keeps its word and the stop after it on one line. It is no word in the 30-word count and no value (a typed number with a unit keeps its automatic pill); the Print notes
+  handout writes it "(1)". On for the three slides that number their glow: Circulation 3 of 8 ("Gut blood crosses two capillary beds in series"), the Sites overview (five steps, now
+  worded for them: "...through the portal veins (2) and the liver's sinusoids (3) to the systemic veins (4) and the heart (5)") and the preview-only demo deck's route slide.
+  `tests/step-markers.test.js` fails a numbered slide whose line misses a step, repeats one or numbers a step the figure lacks; both authoring guides say so (6.5, 5.9, the quick guide).
+  Code and unit tests only; nobody has looked on screen. `src/ui/presenter.js`, `src/ui/handout.js`, `styles/app.css`, `src/ui/decks/circulation.js`, `src/ui/decks/sites.js`, `docs/`.
+- **The first-visit rules card puts the platelets with the kPa, and every comparison in the app is a symbol.** (Mohammad, 26 Oct, "we should really have the platelet count next to
+  the kPa column... also don't be shy to use > symbol instead of 'more than'... something 150,000+, sometimes 'more than'".) Stiffness 5 ("Baveno VIII at a first visit") had the
+  platelets only inside each rule's sentence, away from the kPa cut-off. A criteria row now takes `and`, a second condition set small under its cut-off in the same cell:
+  "≤15 kPa" over "platelets ≥150,000/µL", and "<20 kPa" over the same, with the row's words saying only what follows ("CSPH ruled out", "Scope skipped, even with no carvedilol");
+  a screen reader reads that cell, since the words no longer repeat it. Every comparison written as words is now `>` `<` `≥` `≤` with no space: the cut-off column of every criteria card
+  (HVPG ≥20 mmHg, Child–Pugh B >7, ≥3 large taps, ≥2 events, "for >6 months"), the summary tables' cut-off headings (`CUT`) and the HVPG response tile ("<10%"), titles, lines and quick
+  checks in 23 decks ("5 or more", "at least 6 months", "under 15 cm/s", "150,000/µL+" and the like), the legend's ends ("≥12", "≥15"), the instruments' tooltips, the stiffness
+  plane's zone notes, About, the model's check list and the preview-only demo deck. A cut-off pill in the words keeps its sign (`{>=10 mmHg}` reads "≥10 mmHg"; the automatic pill
+  takes a sign typed before a value), so the words beside it that said "above"/"at or above" are gone. Left as prose on purpose: the speaker notes (the Print notes handout), a
+  comparative with no number ("lowers the HVPG more than propranolol"), a duration in a case story, the screen-reader-only labels, and one range edge ("Above 10 to 12 mmHg").
+  `tests/comparison-symbols.test.js` scans every deck's words so the words cannot creep back; the authoring guide (6.2, the criteria card, the tile table) and the humanizer say so.
+  Code and unit tests only; nobody has looked on screen. `src/ui/tool-criteria.js`, `styles/app.css`, `src/ui/presenter.js`, `src/ui/handout.js`, `src/ui/table-marks.js`,
+  `src/ui/decks/*.js`, `docs/`.
+- **The © credit finds its spot without reading the figure again after each camera move.** (Reviewer's smoothness brief, T04; Mohammad, 26 Oct, "ok do it".) After the camera rested, the credit
+  read every organ, fluid and vessel shape from the page and drew them onto a canvas it read back, about 11 ms a look. On the GPU figure it now reads the shapes once, keeps their
+  outlines and matrices, and draws a grid in the figure's own coordinates over the view and a margin; a pan or a zoom inside that margin only maps the credit's candidate boxes into the
+  world and looks cells up (`src/ui/credit-art.js`), with no shape read and no pixel read. The shapes are read again only after one changes (a watch on the art's groups, not on the
+  camera) or after 15 s; a far pan or a big zoom draws the grid again from what was kept. The cells are never coarser than before (3 to 6 px on screen), so the credit keeps the same
+  distance from the art, and the lobule, Lite graphics and a grid over the cap keep the old screen grid. The `?perf` readout counts shapes read, grids drawn and grids kept.
+  Code and unit tests only; nobody has looked on screen. `src/ui/credit-art.js`, `src/ui/credit.js`, `src/ui/gpu-probe.js`, `docs/PERFORMANCE.md`, `tests/credit-art.test.js`, `tests/dom-shim.js`.
+- **The spleen ultrasound is gone, and Stiffness 4 of 13 shows the spleen on the figure again.** (Mohammad, 26 Oct, "i hate it; need to fix slide 4/13 stiffness".) The `spleen`
+  tool kind (deck rebuild A4) is removed with its picture, its card sizing and its tests; the Stiffness and Gastric varices decks were the only two slides that used it. "A large
+  spleen sequesters platelets" goes back to what the slide showed before the ultrasound: the figure's calipers and the dashed normal-spleen outline, with the spleen and platelet
+  tiles (rings from the fibrosis slide) beside it. Its line now points at the outline ("The dashed outline is a normal spleen. Hers measures 15.5 cm and traps platelets, which
+  have fallen to 90,000/µL."), and the sentence about the falling count moved to the notes. "Treat the spleen, and the varices empty" keeps its three compare buttons and its varix
+  and platelet tiles. `?script=spleen` still opens Stiffness. Code and unit tests only; nobody has looked on screen. The two handout pictures for these slides (`brand/handout/stiffness/spleen.webp`,
+  `brand/handout/gastric-varices/splenectomy.webp`) show the old card and are on the redraw list. `src/ui/spleen-us.js` (deleted), `src/ui/presenter-tools.js`, `src/ui/decks.js`,
+  `src/ui/decks/stiffness.js`, `src/ui/decks/gastric-varices.js`, `styles/app.css`, `tests/deck-adopted.js`, `tests/instruments-a4.test.js`, `tests/instruments-draw.test.js`,
+  both authoring guides.
+
+- **After a pan or pinch the figure's extra work waits its turn: one small shared allowance, nothing optional during a gesture.** (Reviewer's smoothness brief, T03 and T15;
+  Mohammad, 26 Oct, "ok do it".) The organ pictures made sharper after a zoom each took 6 ms of painting a frame, a strip's drawing and read-back on top, and went on while the
+  figure was still moving. They now take turns, one step a frame, from 1 ms a frame (`src/ui/refine.js`; `?refinems=` tries another), only in frames outside a gesture, and
+  the longest step is listed by layer in the `?perf` readout. Shader programs that finish compiling mid gesture are published after it, the vessel renderer's optional programs
+  likewise, and the palette, presenter and dock modules are read in one at a time once the page has been left alone (`src/ui/quiet.js`, one clock of input for the app).
+  Code and unit tests only; nobody has looked on screen. The sharp view picture can take a few seconds longer to arrive than before. `src/ui/refine.js`, `src/ui/quiet.js`,
+  `src/ui/stage.js`, `src/ui/gl-compile.js`, `src/ui/veins-gl.js`, `src/ui/main.js`, `docs/PERFORMANCE.md`, `tests/refine.test.js`, `tests/quiet.test.js`.
+
+- **The "Look first for" card and every plain-list criteria card get a mark per row and key words in ink.** (Mohammad, 26 Oct, "we need to fix this card to look much better", then
+  his pick "C with D's key words" from the mocks in `review/look-first-card-ideas`.) A list with no cut-off column now puts a ring at each row's left, for a thing to check; the ring is
+  filled on the row that applies to the case or that the model meets (outlined is the rule, filled is the case, as the rule pill), and its fill eases with the reading. A list that says
+  "In this order" takes numerals instead (`ordered: true`, Encephalopathy after a TIPS). The rules are a step larger, the key words in each row (`**...**`) in ink on the quieter words, and
+  they go quiet themselves when one row applies. "Treating them comes first." moved from above the Look first for list to its foot (`verdict`), where "them" has something to point at.
+  Ten cards in seven decks: Encephalopathy, Pregnancy (2), Shunts (2), Gastric varices, Ascites, Ten years (2) and Recompensation. The four table cards keep their cut-off column. The
+  no-dots test names the row marks as an exception on purpose. Code and unit tests only; nobody has looked on screen. `src/ui/tool-criteria.js`, `styles/app.css`, the seven decks,
+  `tests/teaching-features.test.js`, `tests/no-status-dots.test.js`, the authoring guides.
+- **The teaching card's words hold still while a what-if slider moves, on a phone and everywhere else.** (Mohammad, 26 Oct, "When using sliders on teaching cards on phone the text of the
+  teaching card jitters a lot".) Three causes found by reading the code. The slider's value and the time-lapse's "Day 12 of 30" counter were plain text in a box that took the
+  width of whatever they said, so a digit coming or going changed that box's width, and with it the room the label row or the bar beside it had; each now stands in a box as wide as
+  its widest words, with a hidden copy of them laid over the live words in one grid cell, in tabular figures (`src/ui/live-text.js`, `.pzv`). The card's fit signature read those
+  words too, so a digit more or less asked for a fresh fit; it now leaves them out (`wordsOf`). And a slider that moves an instrument's option instead of the model (Endoscopy 3 and
+  5, the air pressure) never set `liveOff`, the flag that keeps the cards' plan while only readings change, so a scope reading that measured the data card a hair different could lay
+  the cards out and fit the words again; every what-if slider now sets `handOn` on its first move (cleared with the next slide), and `readingsOnly` and `cardsStill` count it.
+  The authoring guide follows. Code and unit tests only; nobody has looked on screen. `src/ui/live-text.js`, `src/ui/presenter.js`, `styles/app.css`, `tests/live-text.test.js`,
+  `tests/card-text-lock.test.js`, `docs/deck-authoring-guide.md`.
+
+- **The HVPG pressure trace moves out of the words into a data card on slides 3 to 5 of HVPG and PPG.** (Mohammad, 26 Oct, "move the HVPG monitor into an instrument data
+  card ... keep the teaching card without it".) Free, Wedged and Result now carry `tool: { kind: 'hvpg', catheter: true }` instead of `monitor`: the same black tracing sits
+  in the data card under the words, follows the catheter on the figure (its balloon sets the pressure's rise, the slide's readings are the callouts' own) and stays on screen
+  from one of the three slides to the next while only the words swap (card-keep.js; the catheter card is the one catheter slide that keeps its data card). The teaching card
+  holds the words and, on Result, the equation. No other built-in talk used the teaching-card trace; the `monitor` field still works for decks of your own. The authoring
+  guides follow. Code and unit tests only; nobody has looked on screen. The three handout figures (`brand/handout/hvpg/free`, `wedge`, `hvpg`) still show the figure
+  alone until redrawn. `src/ui/tool-hvpg.js`, `src/ui/presenter-tools.js`, `src/ui/presenter.js`, `src/ui/card-keep.js`, `src/ui/decks/hvpg.js`, `tests/`, `docs/`.
+
+- **The menu leads with twelve core talks; the other sixteen are under "More talks".** (Mohammad, 25 Oct, "Build the new decks"; deck rebuild plan, G1 and G2.) The five
+  topics list Circulation, Circuit, Sites and causes, HVPG and PPG, Doppler, Stiffness, Varices, Insufflation, Variceal bleed, Next bleed, Ascites and Encephalopathy, in
+  teaching order; a sixth group with the same heading holds the rest, and search still finds all 28. New `tests/deck-shape.test.js` keeps every built-in talk to two lenses,
+  steady tiles between neighbouring slides with the same instrument, two tiles a slide, no `cite`, a `caveat` only on the TIPS Doppler jet slide and lines of 30 words or
+  fewer (it replaces the 45-word test); its allowlists are commented and fail when an entry goes stale. To pass it, 22 lines were cut to 30 words (the dropped clauses moved
+  to the notes), and the pregnancy sources and three caveats moved into the notes. The authoring guides follow. Words went through the AI humanizer; no new UI. Code and unit
+  tests only; nobody has looked on screen. `src/ui/decks.js`, `src/ui/decks/`, `tests/`, `docs/`.
+
+- **The Spleen and the Doppler after a liver transplant talks are gone.** (Mohammad, 25 Oct, "Build the new decks"; deck rebuild plan, F7.) The spleen's teaching already lives in
+  Stiffness (the spleen's size and the platelets) and Gastric varices (the splenectomy slide, with its three-way compare, now tested there). The transplant Doppler talk's
+  cases were the least used; the Doppler talk keeps the basics. Old links keep working: `?script=spleen` opens Stiffness and `?script=transplant-doppler` opens the Doppler talk
+  at slide 1, as do their share pages. The app has 28 talks, was 30; the menu lost both rows. The words and design needed no pass because nothing new was written.
+
+- **Treating the cause: the weight-loss patient is one slide.** (Mohammad, 25 Oct, "Build the new decks"; deck rebuild plan, F6.) The MASLD cirrhosis patient and the
+  weight loss slide are merged: her case card (BMI of 34, a stiffness of 15 kPa, platelets of 136,000/µL) opens the year of weight loss, and the stiffness and platelets
+  play out after the card lifts. The talk is 7 slides, was 8; the gray-zone and ANTICIPATE-NASH teaching moved into the slide's notes, the 25 kPa question stays in
+  the deck's quick checks, and the summary table reads her start from a preset row. The words went through the AI humanizer and nothing was looked at on screen.
+
+- **The foundations talks shed the slides other talks teach.** (Mohammad, 25 Oct, "Build the new decks"; deck rebuild plan, F5.) The portal circulation loses "One
+  patient, five ways to color the vessels", the meal and the summary table (the meal is Portal pressure as a circuit's); its Gut to heart chart is the one
+  card from the two capillary beds to the definition, including the lobule and sinusoid slides, and the talk is 6 slides, was 9. Portal pressure as a circuit
+  loses the propranolol and carvedilol slide (Lowering portal pressure teaches the drugs): 8 slides, was 9, its summary table one row shorter. The liver's two
+  inflows loses the hepatofugal slide (the Doppler talk's first case shows reversed flow) and keeps the hepatic artery clot, the only clotted-artery slide the
+  app has now; the talk reads in the origin lens and the pressure lens, the buffer slides in pressure and the Oxygen button for the sinusoids. `cite` and the
+  caveat moved into the notes, and lines were trimmed to 30 words. Tests: the shipped-pair floor in card-keep.test.js went from 300 to 200 because it
+  counts the shipped slides (about 290 now) and checks no behaviour; the tests that read a dropped slide follow it (the Oxygen test reads the
+  hepatofugal preset itself). Both humanizer passes were done: no new UI. Code and unit tests only; nobody has looked on screen. `src/ui/decks/circulation.js`,
+  `circuit.js`, `two-inflows.js`, `tests/`, `brand/handout/`.
+- **Decompensation and recompensation: seven slides, and the cure slide reads the HVPG monitor.** (Mohammad, 25 Oct, "Build the new decks"; deck rebuild plan,
+  F4.) The carvedilol slide leaves, because Lowering portal pressure teaches the drug; Baveno VIII's advice to cut or stop a beta-blocker when the blood
+  pressure stays low or the kidneys fail moved into the diuretics slide's notes, and the talk's chart, summary table and objectives no longer name
+  carvedilol. The first ascites and the diuretics share one belly gauge with the ascites and HVPG tiles. "Stopping alcohol lowers the portal
+  pressure" shows the HVPG monitor card (the wedged and free tracings and the result, easing as the year runs) beside the albumin and ascites
+  tiles. `cite` moved into the notes. Test lists that named the dropped slide follow it. Both humanizer passes were done: no new UI. Code and unit
+  tests only; nobody has looked on screen. `src/ui/decks/recompensation.js`, `tests/deck-adopted.js`, `tests/deck-pills.json`, `tests/one-ladder.test.js`,
+  `tests/sweep-fixes-2-brackets.test.js`, `brand/handout/recompensation/`.
+- **The vitals monitor's EKG no longer restarts when the time-lapse finishes.** (Mohammad, 26 Oct, on The circulation in cirrhosis, slide 3: "after the transition was done,
+  the EKG restarted"; the build before it, 3d8bbbd3.) The presenter ends a time-lapse by easing the patient to the slide's end state and then restoring that state, and
+  both put the model's own clock to the end state's (about 2 s back in the check: 2.098 s, 0.02 s, then 0.004 s). The monitor read any step back in the model's clock as a new
+  patient and wiped the strip. Now a clock that was set, back or well ahead, only moves the strip's time on so it starts where it left off, and the beat's phase (which a
+  restore leaves alone) carries the rhythm across. A new patient still clears the strip, as it always did, from the card (`presenter-tools.js` show). The check now sets the
+  clock back and forward as the easing ends, and fails on the build before. Code and unit tests only; nobody has looked on screen. The beat trace has the same wipe on a
+  step back and also clears when the day changes; that is how it shows a time-lapse as a trend and then a fresh trace, so it was left alone. `src/ui/vitals-monitor.js`,
+  `tests/vitals-lapse.test.js`.
+- **Encephalopathy and shunting: eight slides, one flows card, and a question about the narrower stent.** (Mohammad, 25 Oct, "Build the new decks"; deck rebuild
+  plan, F3.) "Closing the shunt sends blood back through the liver" and "Closing the shunt brings the portal pressure back" are one slide: the shunt
+  closes, the flows empty, and a two-month time-lapse brings the PPG back and the ascites with it; its two buttons compare the shunt open and embolized. One
+  flows card and the same two tiles run through the first slides, the encephalopathy risk index beside the PPG; the spontaneous shunt slide is colored by
+  origin like the rest (it was colored by direction), flow only where the shunt closes. After a TIPS the index is already High at any stent width (it counts
+  the shunted share of the portal blood, near 94% from 6 to 12 mm), so the two stent slides keep the liver's flow and the PPG, and the notes say why. The narrowing slide asks "Will a narrower stent
+  bring the confusion down?" and is the answer: it opens on the 6 mm stent, with the 8 mm and occluded buttons, and the tiles' rings mark the 8 mm stent. `cite`
+  and the caveats moved into the notes, and long lines were trimmed to 30 words. Tests: the question-card list gains this slide; the summary-table step
+  list gains the risk tile. Both humanizer passes were done: no new UI. Code and unit tests only; nobody has looked on screen. `src/ui/decks/encephalopathy.js`,
+  `tests/deck-adopted.js`, `tests/deck-pills.json`, `tests/question-card.test.js`, `tests/table-marks.test.js`, `brand/handout/encephalopathy/`.
+- **Gastric varices: eight slides, and the spleen slide gets the ultrasound.** (Mohammad, 25 Oct, "Build the new decks"; deck rebuild plan, F2.) The
+  carvedilol slide leaves, because Lowering portal pressure teaches the drug; its gastric point (carvedilol first for fundal varices that have not
+  bled, glue, BRTO and a TIPS not used to prevent a first bleed) is now in the first slide's notes and the talk's objective. The bleed slide gives the
+  carvedilol itself (the heart rate stays blunted), as the dropped slide used to. "Treat the spleen, and the varices empty" shows the spleen
+  ultrasound next to the varix and platelet tiles and keeps its three buttons (spleen in place, partial embolization, splenectomy); the embolization
+  slide's pain, fever and abscess, and the clot risk after splenectomy, joined its notes. `cite` moved into the notes on every slide, and the lines
+  that ran past 30 words were trimmed (the "colored by origin" words stay). Both humanizer passes were done: no new UI. Code and unit tests only;
+  nobody has looked on screen. `src/ui/decks/gastric-varices.js`, `tests/deck-adopted.js`, `tests/deck-pills.json`, `brand/handout/gastric-varices/`.
+- **Ascites takes in Paracentesis and albumin: one talk, why it forms and how it is treated.** (Mohammad, 25 Oct, "Build the new decks"; deck rebuild plan, F1.)
+  Ascites is 14 slides in three sections, was 11 and 9 in two talks. Where it forms keeps three slides (the sinusoids, the lymph along the portal tracts, two months
+  of building) on one fluid card with the sinusoid and ascites tiles. The tap keeps the SAAG, heart failure, Budd–Chiari and the quadrant, now headed "Telling
+  them apart". The treatment runs on one belly gauge with the ascites and portal pressure tiles: tense ascites, the large-volume tap (which now carries the albumin and
+  its serum albumin tile, so "Albumin with the tap" is gone), the fluid back after two weeks, diuretics, refractory ascites defined, TIPS, and the table. Cut:
+  the gut capillary against the sinusoid wall, the portal vein clot and the schistosomiasis slides (Portal vein clots and Presinusoidal portal hypertension teach
+  them), low protein in cirrhosis (its point is in the SAAG slide's notes) and the first diagnostic tap (also in those notes). `cite` and the two caveats moved into
+  the notes. The old Paracentesis and albumin link opens Ascites at slide 1 (`DECK_ALIAS`). The crossing checks that opened Paracentesis and the old
+  portal vein clot and schistosomiasis slides follow the new slides. Both humanizer passes were done: no new UI, only the fluid card, the belly gauge and the tiles.
+  Code and unit tests only; nobody has looked on screen. `src/ui/decks/ascites.js`, `src/ui/decks.js`, `tests/deck-adopted.js`, `tests/deck-pills.json`,
+  `tests/ascites-sinusoid-label.test.js`, `tests/e2e/smoke.mjs`, `docs/deck-authoring-guide.md`, `brand/handout/ascites/`.
+- **Measuring HVPG and PPG: the catheter slide shows the catheter, and the four-patient scale is gone.** (Mohammad, 25 Oct, "Build the new decks"; deck
+  rebuild plan, D5.) The HVPG talk loses "Four patients on the HVPG scale", whose job the plane on the second-to-last slide already does (it places six
+  patients by both gradients, with the cut-offs drawn on it). The slide that reads the result keeps what only it can show: the catheter on the
+  figure, the monitor with the wedged and free tracings, and the HVPG equation. Its Gut to heart chart, its two tiles and its four patient buttons
+  went; the line still says the HVPG is {hvpg}, clinically significant. The cut-offs the scale slide carried (1 to 5 normal, 6 to 9 subclinical, 10
+  or more clinically significant, the bleeding risk rising from about 12, an HVPG of 20 or more in an acute bleed) moved into this slide's notes, with
+  the guideline sources the slide used to print as a line under the words; the quick check still asks for them. The talk is 10 slides, was 11. Old
+  numbers shift by one from the pressure slides on: Normal HVPG, high portal pressure is now 6, the PPG slide 7, heart failure 8, Budd–Chiari 9, the
+  plane 10 and the summary 11. The checks that open the talk at a slide (the lit lobule label, the zoom crossing out of the lobule, the iPad turn, the
+  narrow phone sweep) follow the new numbers; the type-scale look at the dropped scale slide now looks at the plane. Tests: the four-button
+  test became a check that the catheter slide's case sits between compensated and decompensated cirrhosis; the Gut-to-heart test says the catheter
+  slide carries no chart, tiles or buttons. Code only; nobody has looked on screen. `src/ui/decks/hvpg.js`, `tests/deck-adopted.js`,
+  `tests/hands-on-decks.test.js`, `tests/one-ladder.test.js`, `tests/e2e/smoke.mjs`, `tests/e2e/type-scale.mjs`, `docs/deck-authoring-guide.md`,
+  `brand/handout/hvpg/`.
+- **Choose the treatment: one slide for each case.** (Mohammad, 25 Oct, "Go"; deck rebuild plan, C6.) The five cases were each two slides, a question with
+  buttons and then the answer. Each is now one slide: the case card brings the patient in and asks one question ("Does she meet the criteria for a
+  pre-emptive TIPS?", "What stops ascites that keeps coming back?", "What stops his fundal varices?", "What treatment reopens the vein?", "Which shunt
+  decompresses her liver?"), and the slide behind it plays the choice the guidelines make. Four of the five are time-lapses, so the card covers the patient at
+  the time-lapse's start and the days run once it lifts. The option buttons and the "before" arrows on the summary are gone (the summary table still shows
+  each case after its treatment). The deck is six slides, not eleven; the end states are the same as before (checked with the deck-state numbers: the
+  bleeding case's PPG 14.3, the ascites case 8.8 and an empty belly, the splenic vein case 2.6 for the fundal varices, the portal vein clot 4.2, Budd–Chiari 8.3).
+  `cite` and the two caveats moved into the notes, with their ADOPTED entries; a few vignettes and lines were trimmed to fit the case card's 220 characters and
+  the 30-word line. Both humanizer passes were done. Code and unit tests only; nobody has looked on screen. `src/ui/decks/choose-treatment.js`,
+  `tests/deck-adopted.js`, `tests/deck-pills.json`, `docs/deck-authoring-guide.md`, `docs/deck-authoring-quick-guide.md`, `brand/handout/choose-treatment/`.
+- **The vitals monitor's EKG keeps going through a time-lapse.** (Mohammad, 26 Oct, on The circulation in cirrhosis, slide 3, "While the compensated to decompensated is fast
+  switching the EKG bounces or starts redrawing over and over"; he picked "Keep it alive at the rising rate".) A time-lapse runs a year in ten seconds on the disease
+  clock, where the model's own beat and clock stand still. The strip scrolled by the days a second, so it jumped back about four seconds and crept forward again
+  thirty times a second, and it laid no beats until the year was over. Now the strip runs on the card's own clock while the model's stands still: it scrolls at the
+  normal speed and lays a beat at the heart rate shown in the HR number, so the beats close in as it climbs (about 68 to 89 a minute on that slide, a beat every 0.88 s
+  down to every 0.67 s). Over the last second and a half it eases the beat to the phase the model resumes at, so the live strip takes over where the last beat left off.
+  The same carries the strip through the half-second a patient eases to its end state, which used to freeze it. A strip with nothing on it when a time-lapse
+  starts is given its window of the starting steady state; an easing never makes up a window. A time-lapse also ends a history request under way, and a strip that has
+  run on its own is not backfilled afterwards. Frames carry `parkSecs`, the seconds the model's clock stands still. The check plays a worker-shaped run (live, the
+  year, the easing, live) against a fake page and follows every beat on the strip frame by frame (one steady scroll speed, no stall or jump at either end, beats
+  closing in, no crowded or missing beat at the join); it fails on the old monitor. Code and unit tests only; nobody has looked on screen. `src/ui/vitals-monitor.js`,
+  `src/ui/ekg.js`, `src/worker-core.js`, `tests/vitals-lapse.test.js`.
+- **Inside the lobule is six slides, down from eight.** (Mohammad, 25 Oct, "Build the new decks"; deck rebuild plan, E6.)
+  The schistosomiasis and sinusoidal obstruction slides leave: the summary table still holds all four diseases, with the schistosomiasis and obstruction rows
+  now built from their patients directly. The sections are the lobule, where the resistance sits (sinusoidal, cardiac) and measuring; it is 7 minutes. Code and unit
+  tests only; nobody has looked on screen. `src/ui/decks/lobule.js`, `tests/deck-adopted.js`, `tests/lobule-sinusoid-reading.test.js`, `tests/e2e/smoke.mjs`
+  (three Lobule slide numbers), `docs/deck-authoring-guide.md`, `brand/handout/lobule/`.
+- **The stacked card's handle comes in with the cards, never ahead of them.** (Mohammad, 25 Oct, "The handle of the stacked cards appears before the
+  cards".) Found in code: with Reduce Motion on, `.pz *` turned every transition off and the handle (`.pz-lip`) was the one piece of the stacked card
+  left out of the fade the cards keep, so it came up at once, and went at once, while the cards were still fading. In motion, its bar fades with the
+  same start and ease as the glass but is a crisp mark on glass that is nearly clear while it fades, so it read as first in and last out. It now fades in
+  once the glass is in (opacity .3 s after .42 s, where the card's own fade runs .12 s to .62 s) and out first (.2 s), still sliding with the card, on the
+  phone's sheet and the Mac and iPad stack. With Reduce Motion it fades in after the glass and out before it, with no slide. A handle that is shown with its
+  card already standing (a move cut short) starts from its out look and eases in instead of coming up at full strength; a slide
+  that changes in the middle of a pull lets it leave first too. Code and unit tests only; nobody has looked on screen. `styles/app.css`,
+  `src/ui/presenter.js` (`lipSync`), `tests/handle-with-card.test.js`.
+- **One patient, ten years: the first year is now the one-year follow-up.** (Mohammad, 25 Oct, "Build the new decks"; deck rebuild plan, D4.) "A year of
+  compensated cirrhosis" is gone; its four best slides open Ten years as Year 0 to Year 1, and the clock moves to match: CSPH and carvedilol at year 1,
+  not year 3. The case card and the plane (Year 0, HVPG just below 10), the FibroScan at month 3, the HVPG monitor card at year 1 (the HVPG above 12,
+  from the diagnosis reading), and carvedilol with the percent fall in the HVPG and the blood pressure. Then the same chain as before: the first
+  ascites at year 6 (five more years of injury now, not three), diuretics, the bleeds of years 8 and 9, the TIPS, the confusion, the transplant
+  evaluation. Dropped: the catheter on the figure, the small-varices slide, the Doppler and the first-fluid slides (their own talks teach them),
+  the plane summary and the day buttons. The state chain was read slide by slide against the old one with `deck-states`: the later steps keep the
+  same HVPG, PPG and varix within a tenth or two (the ascites volume at year 6 is 1388 mL, was 1443), and the threshold checks still hold. The
+  quick check's first question now says "an HVPG of 10 mmHg or more". Lines are 30 words or fewer, sources moved into the notes, the second
+  "Year 9" label is now "Confusion" (the chart's labels had two the same). Old link `?script=one-year` opens Ten years at slide 1. Words went
+  through the AI humanizer and no new visual device was added. Handout figures of the four kept slides moved with them; the stale ones are listed
+  for the redraw. Tests: the thresholds, adopted, ladder and tile checks follow the new ids; the day-button test became a check that the HVPG rises
+  visit by visit and falls on carvedilol; the smoke check of the scope's redraw now opens Ten years 9; the catheter-callout size check lost its
+  One year slides (no slide of Ten years has a catheter on the figure). Code only; nobody has looked on screen. `src/ui/decks/ten-years.js`,
+  `src/ui/decks.js`, `tests/deck-adopted.js`, `tests/deck-pills.json`, `tests/deck-thresholds.test.js`, `tests/engine-solver.test.js`,
+  `tests/hands-on-decks.test.js`, `tests/one-ladder.test.js`, `tests/review-doppler-text.test.js`, `tests/tile-grid.test.js`,
+  `tests/trace-labels.test.js`, `tests/e2e/smoke.mjs`, `docs/deck-authoring-guide.md`.
+- **Presinusoidal portal hypertension is six slides, down from eight.** (Mohammad, 25 Oct, "Build the new decks"; deck rebuild plan, E5.)
+  The beta-blocker and banding slides leave: treating the varices is the same as in cirrhosis and has its own talks. The talk ends on the table of the healthy liver,
+  schistosomiasis and cirrhosis (the "After treatment" row goes), its objectives are three, and it is 7 minutes. Code and unit tests only; nobody has looked on screen.
+  `src/ui/decks/ncph.js`, `tests/deck-adopted.js`, `tests/e2e/smoke.mjs` (the last lobule crossing now ends on the summary), `brand/handout/ncph/`.
+- **Where is the resistance? is eight slides, down from fourteen.** (Mohammad, 25 Oct, "Build the new decks"; deck rebuild plan, E4.)
+  Each case is now one slide: the case card holds the patient and asks "Where is the resistance?", and the slide behind it shows the Gut to heart chart with the
+  Pressure and Pressure drop buttons and names the level. The six question slides, their held data cards and the two Doppler cards leave (the open or clotted portal
+  vein is said in the case 2 and case 5 lines), so the talk is the six cases, the six ladders on one chart and the summary table. Lines are 30 words or fewer. The
+  talk is 12 minutes. Code and unit tests only; nobody has looked on screen. `src/ui/decks/where.js`, `tests/deck-adopted.js`, `tests/one-ladder.test.js`,
+  `tests/teaching-features.test.js` (no slide is on hold any more once First visit's five go, so the count is no longer asserted), `tests/grid-key-phone.test.js`,
+  `docs/deck-authoring-guide.md`, `brand/handout/where-resistance/`.
+- **TIPS and shunts is one 11-slide talk: the spontaneous shunt, the woman's TIPS and the surgical shunt.** (Mohammad, 25 Oct, "Go"; deck rebuild plan, C5.)
+  "A TIPS from start to finish" is folded into the shunts talk (`?script=tips-journey` and its share page still open it, at slide 1). The talk runs
+  in four sections: the spontaneous splenorenal shunt (own flow, then the shunt's effect on the pressure), who gets a TIPS (the woman with recurrent
+  ascites and a four-row criteria card ending "No single number rules a TIPS out"), the stent and the flow (the procedure, the pressure it
+  buys, the heart's response with its compare button, the 12 mm stent and the stepwise dilation, and the closed stent), and the surgical distal
+  splenorenal shunt. The gastric-variceal shunt and BRTO slides left (Gastric varices teaches them), and so did "TIPS around the stent" and
+  "What a TIPS does not decide"; the criteria card's last row says the second one. Each section runs one instrument; no slide shows more than two
+  tiles except the distal shunt, which keeps three and says why in a code comment. The talk uses the flow lens on every slide but the last (blood
+  origin). Lines are 30 words or fewer; every `cite` and caveat moved into the notes, with the field and its ADOPTED entry removed. Both
+  humanizer passes were done. Code and unit tests only; nobody has looked on screen. Menu title now "TIPS and shunts". `src/ui/decks/shunts.js`,
+  `src/ui/decks.js`, `tests/deck-adopted.js`, `tests/deck-pills.json`, `docs/deck-authoring-guide.md`, `brand/handout/shunts/`.
+- **The EKG strip and the other recording traces open already full.** (Mohammad, 25 Oct, "In the heart ekg card while things are happening in the
+  slide the ekg is empty it takes a while for it to show up so needs to be fixed somehow".) The vitals monitor's strip, the beat trace (its EKG strip and
+  its pressures) and the Doppler were held empty while a slide's patient changed, then started over and swept in from the left for six to twelve seconds.
+  Now the model makes the steady state's last seconds on a scratch copy of itself and the instrument takes them in front of what it records
+  (`history` in `src/worker-core.js`, `src/ui/backfill.js`). The copy runs between the live ticks and never stops the clock. It ends on the last sample the
+  model posted, on the same moment of the same beat and breath, so the live samples follow on with no seam: in the check, the phase matches exactly, the heart
+  rate to within one beat a minute and the portal pressure steps by about 0.15 mmHg at the join. A card waits up to 0.9 s for its window before it comes in; on
+  Patients, a loaded patient's Over time and Doppler traces open the same way. Nothing is made for a state that is still changing (an easing patient, a
+  time-lapse, the disease clock), and a newer state cancels one under way. The instruments are let go at the landing, not after the cards are in. An
+  instrument coming back after another card showed starts over (it had missed the frames between). Code and unit tests only; nobody has looked on screen.
+  `src/worker-core.js`, `src/ui/backfill.js`, `src/ui/presenter-tools.js`, `src/ui/presenter.js`, `src/ui/pressure-time.js`, `src/ui/vitals-monitor.js`,
+  `src/ui/doppler.js`, `src/ui/lazy-pane.js`, `src/ui/dock.js`, `src/ui/main.js`, `tests/history-backfill.test.js`.
+- **Stiffness, platelets and the first visit: one talk of 12 slides.** (Mohammad, 25 Oct, "Build the new decks"; deck rebuild plan, D3.) Liver stiffness takes
+  in "Stage the patient at the first visit". It has three sections. The measurements: the shear wave, "Fibrosis stiffens the liver", and a large spleen
+  with the new spleen ultrasound (calipers and the length in cm) and the platelet tile. The first visit: the Baveno VIII rules card, then five cases,
+  each on one slide. The case card asks ("Is CSPH ruled out, ruled in or still open?"), and the stiffness and platelet plane with its two tiles
+  answers; the plane and the tiles stay up from case to case, and the ring moves. Cases 4 and 5 were on a rules card and now sit on the plane too,
+  with their point (the BMI, the soft liver) in the line. Where stiffness misleads: congestion from the heart, with the HVPG tile gone. The summary is
+  the plane with cases 1 to 4. The first visit's 5 question slides, the meal, the year on, the schistosomiasis slide, the stiffness rule slide and
+  the old summary table are gone (case 5 makes the schistosomiasis point; the meal and the hepatitis flare moved into the rules slide's notes). The
+  old link `?script=first-visit` opens Stiffness at slide 1. Lines are 30 words or fewer, the sources and caveats are in the notes, the quick
+  check has four questions, and each case card plus its question is under 220 characters. The spleen slide no longer draws calipers and the normal
+  outline on the figure, since the ultrasound shows the length. Words went through the AI humanizer and no new visual device was added. Figures moved
+  with their slides; the stale ones are listed for the redraw. The smoke check that counts FibroScan slides names the three that are left
+  (half of them must show the probe, as before). Code only; nobody has looked on screen. `src/ui/decks/stiffness.js`, `src/ui/decks.js`,
+  `tests/deck-adopted.js`, `tests/deck-pills.json`, `tests/doppler-meal-plays.test.js`, `tests/e2e/smoke.mjs`, `docs/deck-authoring-guide.md`,
+  `docs/deck-authoring-quick-guide.md`.
+- **Sites and causes: a lighter talk, one question for the room.** (Mohammad, 25 Oct, "Build the new decks"; deck rebuild plan, E3.)
+  The six level slides drop the case questions, the extra sliders and buttons (except the heart buttons on the cardiac slide), the causes list and the scale
+  switch; the causes moved into each slide's notes, and the periportal fibrosis slider moved to the presinusoidal talk's "Where the resistance sits" slide so
+  the control is kept. Slide lines are 30 words or fewer. The tag that names the level is not said twice when the kicker already says it. The ladders slide
+  asks "Which of the six raised the HVPG?" on a question card. Code and unit tests only; nobody has looked on screen. `src/ui/decks/sites.js`,
+  `src/ui/decks/ncph.js`, `src/ui/decks.js`, `tests/deck-adopted.js`, `tests/question-card.test.js`, `tests/sites-what-if.test.js`, `docs/deck-authoring-guide.md`.
+- **Collaterals and varices: fundal varices and the rectal slide leave, the other routes share one slide, and one pair of tiles runs through the first four.**
+  (Mohammad, 25 Oct, "Sure"; deck rebuild plan, B2.) Gastric varices have their own talk, so the fundal slide is gone, and the paraumbilical and rectal
+  slides are one, "Other collaterals: the paraumbilical and rectal routes", with both routes marked and the camera framing the two. The HVPG and the varix
+  are the two tiles on slides 2 to 5 (the spleen and platelet tiles and the normal-spleen outline left the time-lapse; they are in its notes), the wall
+  slide's card is titled "Wall stress" and its line says it, and the vein-system colours give way to the flow colours as the one second lens, over the
+  first three slides, with pressure home. Every line is one sentence of 30 words or fewer, the time-lapse's caveat is in its notes, "over 5 mm" now
+  reads "5 mm or more", and the two cases no longer say "EGD". Three objectives (the fundal one left with its slide). Both humanizer passes
+  were done. Code and unit tests only; nobody has looked on screen. `src/ui/decks/varices.js`, `tests/varices-cards.test.js`, `tests/deck-adopted.js`,
+  `tests/deck-pills.json`, `brand/handout/varices/`.
+- **Preventing the next variceal bleed: one scope card through seven slides.** (Mohammad, 25 Oct, "Go"; deck rebuild plan, C4.) The scope, with the varix and
+  the HVPG as tiles, now runs from "The bleed is over" to the last slide, `nsbb` (carvedilol) included; the tiles' ring marks the state after the bleed on every slide
+  of the run, and `nsbb` adds the percent-fall tile as a third tile, because the fall is the point of the slide. The first slide reads the HVPG instead of
+  the PPG, as the carvedilol slide's words do. The TIPS slide left: the bleed talk's last section and A TIPS from start to finish carry it, and the summary's
+  last line and notes say when a rebleed despite both means a TIPS (the carvedilol stop, rifaximin and the encephalopathy cost went into the notes). The summary
+  table loses the liver column and the TIPS row. Small print (`cite`, the slough caveat) moved into the notes. The scope-timing and banding-ulcer points
+  from the Endoscopy talk are already in `slough`'s notes. Code and unit tests only; nobody has looked on screen. `src/ui/decks/next-bleed.js`,
+  `tests/deck-adopted.js`, `tests/deck-pills.json`.
+- **Doppler ultrasound of TIPS is 10 slides, down from 15.** (Mohammad, 25 Oct, "Build the new decks"; deck rebuild plan, D2.) The talk now runs: the scan
+  before the stent, the working stent read at its three points, aliasing, the main portal vein, the left portal vein, the narrowed stent, the warning
+  sign, the portal vein slowing again, venography and the summary. The three-points slide takes the working stent's state and says what the stent did
+  to the PPG (its live value before the stent and after it); the stent slide, the shunted-share slide (Two inflows and Spontaneous shunts and TIPS teach that), the baseline
+  fix, the right portal vein and "where it narrows" are gone. The aliasing slide has a "Baseline down" button that moves the baseline in place, with
+  the instrument buttons from the last push (it took a second slide before). The narrowed stent's Proximal, Mid and Distal buttons now move
+  the narrowing itself and the gate follows it. The left portal vein slide says in one sentence that the right portal vein flows toward the liver only
+  before the stent; a button cannot switch the Doppler's vessel without new code, so the slide keeps the left. The talk uses two lenses, velocity and
+  direction (direction on the two branch slides only); flow, congestion and blood origin went with the slides that used them. The data card is on the
+  narrowed and reopened stent only, with the PPG as its one tile. The on-screen caveat stays on the three-points slide; the narrowing's caveat and the
+  left portal vein's source moved into the notes. Lines are 30 words or fewer. Words went through the AI humanizer and no new visual device was added.
+  The old slide ids are gone from the checks (the smoke checks now name `narrow` and `fix`; the callout-moves check treats `narrow` as a slide whose
+  buttons move the narrowing, as `where` was). Handout figures of the five dropped slides were removed; eight of the rest are listed for the figure
+  redraw at the end of the rebuild. Code only; nobody has looked on screen. `src/ui/decks/tips-doppler.js`, `tests/deck-adopted.js`,
+  `tests/deck-pills.json`, `tests/tips-doppler.test.js`, `tests/tips-doppler-points.test.js`, `tests/teaching-features.test.js`,
+  `tests/e2e/smoke.mjs`, `docs/deck-authoring-guide.md`, `docs/deck-authoring-quick-guide.md`.
+- **After the sinusoids: one talk for the hepatic veins, sinusoidal obstruction and the heart.** (Mohammad, 25 Oct, "Build the new decks"; deck rebuild plan, E2.)
+  Hepatic venous outflow obstruction takes the right heart slides and is renamed "After the sinusoids: hepatic veins and the heart" (id `outflow`, Causes). Its three
+  sections are the hepatic veins (Budd–Chiari syndrome, the missing wedge, a stent, a DIPS), sinusoidal obstruction (the case, the wedge, recovery) and the heart and IVC
+  (the normal waveform, tricuspid regurgitation, the pulsatile portal vein, constriction and the IVC web), ending on one table that holds all of them. The caudate lobe
+  slide and the heart catheter slide leave (their words moved into the notes). The congestion view is the talk's own colouring on every slide, with the flow view on the DIPS
+  slide only; the heart slides share one hepatic vein Doppler and one right atrial pressure tile. Slide lines are 30 words or fewer, the citation moved to the notes, and
+  Budd–Chiari 2 and the IVC web lost their extra tiles and readings. The old id `right-heart` opens this talk (`?script=right-heart`, `c/deck-right-heart.html`).
+  Code and unit tests only; nobody has looked on screen. `src/ui/decks/outflow.js`, `src/ui/decks.js`, `tests/deck-adopted.js`, `tests/deck-pills.json`,
+  `tests/e2e/smoke.mjs` (the two Outflow slide numbers), `docs/deck-authoring-guide.md`.
+- **Endoscopy is now a six-slide lesson, "The varix changes when you insufflate".** (Mohammad, 25 Oct, "Sure"; deck rebuild plan, B1.) One
+  decompensated patient and one scope all the way through, and nothing changes in the model after the case card, so the HVPG is the same on every
+  slide. Slide 2 compares a small varix (under 5 mm) with a large one (5 mm or more); slide 3 switches the red wale marks off and on to show they are
+  a finding of their own and the size does not move; slide 4 has a slider for the pressure of the air in the esophagus, 0 to 20 mmHg (a teaching
+  range, said in the notes), and the varix narrows and flattens; slide 5 adds the pressure inside the varix, in the lumen and across the wall;
+  slide 6 asks on a question card whether a flatter varix means less portal hypertension (it does not: the HVPG is unchanged) and lets the slider
+  answer it; slide 7 points to Preventing the next variceal bleed. Three objectives and three checks (the large-varix check is kept; the other two
+  come from the lesson). Every line is one sentence of 30 words or fewer; the sources and the study the 9 mmHg comes from are in the notes. The menu
+  reads "The varix and insufflation" (tab "Insufflation"). The old slides (screening, growth, large, wall stress, bleed, octreotide, transfusion,
+  banding, summary) and their figures are gone; the follow-up scope after banding and the banding-ulcer note moved to the notes of the Preventing
+  the next variceal bleed slide on bands sloughing, and the transfusion check ("To what hemoglobin do you transfuse?") replaced the octreotide-dose
+  check in Acute variceal bleeding, which repeated that deck's own slide. Both humanizer passes were done on the words and the design (the lesson
+  reuses the scope, the Small/Large and red-sign buttons, the slider and the HVPG tile as they are).
+  The scope's compact card in the presenter hides every tile but the grade and the stigmata, so the three pressures got a row of their own under the
+  grade (three columns, the name over its number); the Tests card's scope is unchanged. Code and unit tests only apart from the six
+  handout figures, which are drawn on a desktop; nobody has looked on a phone or an iPad. `src/ui/decks/endoscopy.js`, `src/ui/decks/variceal-bleed.js`, `src/ui/decks/next-bleed.js`,
+  `src/ui/decks.js`, `tests/endoscopy-lesson.test.js`, `tests/bleed.test.js`, `tests/review-doppler-text.test.js`, `tests/deck-adopted.js`,
+  `tests/deck-pills.json`, `tests/deck-thresholds.test.js`, `tests/hands-on-decks.test.js`, `tests/question-card.test.js`, `brand/handout/endoscopy/`.
+- **Portal vein clots: one talk for the clot without cirrhosis and the clot in cirrhosis.** (Mohammad, 25 Oct, "Build the new decks"; deck rebuild plan, E1.)
+  Pre-hepatic portal hypertension takes the slides of Portal vein thrombosis in cirrhosis and is renamed Portal vein clots (id `prehepatic`, Causes). Section 1
+  keeps the acute clot, the catheter, anticoagulation, the cavernoma and the soft liver; section 2 follows a patient with cirrhosis through the case, the partial
+  clot that raises the PPG and not the HVPG, carvedilol, six months of anticoagulation and the course on one chart (its chart now starts at the cirrhosis
+  patient). The splenic vein clot slide leaves (Gastric varices teaches it), as do the partial-clot and endoscopy slides of the old talk (their words moved into
+  the gradients and carvedilol notes). The clot-without-cirrhosis anticoagulation and cavernoma slides share one card (the portal vein in section, with the
+  portal pressure and the PPG), colored by velocity; the pressure-drop view is gone from the talk. Slide lines are 30 words or fewer and the citations moved to
+  the notes. The old talk's id `pvt-cirrhosis` is removed (`brand/handout` figures moved with their slides). Code and unit tests only; nobody has looked on
+  screen. `src/ui/decks/prehepatic.js`, `src/ui/decks.js`, `tests/deck-adopted.js`, `tests/deck-pills.json`, `docs/deck-authoring-guide.md`.
+- **Doppler of the portal system takes in Read the Doppler: five cases, one slide each.** (Mohammad, 25 Oct, "Build the new decks"; deck rebuild
+  plan, D1.) The talk is now 11 slides: the probe, the hepatic veins, the meal, cirrhosis, the reading order (Read the Doppler's "Read every trace in
+  the same order"), the five cases and a table of the five traces. Each case is one slide: its case card asks ("Which way will his portal blood run?"),
+  and the slide that follows is the answer, with the reading grid under the trace the room reads (the portal vein for the first, second and fourth, the
+  right hepatic vein for Budd–Chiari, the left portal vein after a TIPS). Nothing is held back any more, so the Doppler no longer blanks its direction
+  and shape words, and the five cases carry no tiles; the lines quote their numbers live. The slides the cases cover (reversed flow, portal vein
+  thrombosis, the cavernoma, Budd–Chiari, heart failure and the stent) and Read the Doppler's five question slides are gone, as is the deck. The old
+  link `?script=read-doppler` opens Doppler of the portal system at slide 1. Lines are 30 words or fewer; the two sources moved into the notes. Words
+  went through the AI humanizer and no new visual device was added. Handout figures moved with their slides; the eight slides whose look changed are
+  listed for the figure redraw at the end of the rebuild. Code only; nobody has looked on screen. `src/ui/decks/doppler.js`, `src/ui/decks.js`,
+  `src/ui/presenter.js`, `tests/deck-adopted.js`, `tests/deck-pills.json`, `tests/teaching-features.test.js`, `tests/deck-lenses.test.js`,
+  `tests/deck-terms.test.js`.
+- **Lowering portal pressure takes in Propranolol or carvedilol (9 slides).** (Mohammad, 25 Oct, "Go"; deck rebuild plan, C3.) The talk is now
+  `target`, `prop`, `carv`, `carv-sin`, `oct`, `terli`, `vs`, then the old beta-blocker talk's schistosomiasis case (`schisto`, with its case card and
+  the question "Will carvedilol add much to propranolol here?") and the summary. The three beta-blocker slides (`prop`, `carv`, `carv-sin`) share one
+  card, the HVPG catheter's tracing with the percent-fall tile counted from the untreated patient; `carv` opens with a question card ("Which lever
+  does carvedilol pull?") and `carv-sin` keeps the Propranolol and Carvedilol buttons. `oct` and `terli` keep their tiles. Flow is the second lens, on the drug
+  slides; the drop, origin and since lenses are gone. The banding, TIPS, after-TIPS and cost slides left (Preventing the next bleed, TIPS and shunts and the
+  bleed talk own them), as did the beta-blocker talk's other slides: its circuit slide, the propranolol slides, the carvedilol-in-schistosomiasis slide and
+  "In practice", which went into the notes of `carv-sin` and `schisto`. `vs` sets its own state (a TIPS) so it does not inherit the schistosomiasis
+  patient. The quick check and the summary table follow. Because the talk now teaches two levels its slides carry the level tab. `?script=beta-blockers`
+  opens this talk (`DECK_ALIAS`, and its share page). Figures: `carv-sin` and `schisto` moved; the others of both talks that left were removed, and every figure that
+  stays is stale until the redraw. Code and unit tests only; nobody has looked on screen. `src/ui/decks/treatment.js`, `src/ui/decks.js`,
+  `tests/deck-adopted.js`, `tests/deck-pills.json`, `tests/one-ladder.test.js`, `tests/site-tags.test.js`, `tests/question-card.test.js`.
+- **"The circulation in cirrhosis": Hyperdynamic takes in Blood volume (8 slides).** (Mohammad, 25 Oct, "Go"; deck rebuild plan, C2.) The talk keeps
+  its id `hyperdynamic` and its Foundations place and is now `rest`, `dilate`, `resist`, `volume`, `forward`, then the old Blood volume's `full` (its case
+  card, "Losing blood") and `loss` (its question card, "What will a liter lost do to the portal pressure?"), then the summary. One vitals monitor (heart
+  rate, mean arterial pressure and cardiac output, with the EKG strip) carries the whole talk, with one or two tiles under it: blood volume and portal vein
+  pressure on `volume` and `forward`, the portal vein pressure on `full` and `loss`, whose ring marks the state before the liter. The flow lens is the second lens, on
+  `dilate`, `resist` and `volume`; the rest stay on pressure. The three drug slides (propranolol, carvedilol, terlipressin) went, since Lowering portal
+  pressure owns them, and so did the transfusion slides (reserve, units, over), which the bleed talk owns. The quick check and the summary table follow the
+  new slides; small print (`cite`, the volume caveat) moved to the notes. `?script=blood-volume` opens this talk at slide 1 (`DECK_ALIAS`, and
+  its share page). Figures: `full` and `loss` moved to `brand/handout/hyperdynamic/`; the rest of Blood volume and the drug slides' were removed; every slide's
+  is stale until the redraw. Code and unit tests only; nobody has looked on screen. `src/ui/decks/hyperdynamic.js`, `src/ui/decks.js`,
+  `tests/deck-adopted.js`, `tests/deck-pills.json`, `tests/question-card.test.js`.
+- **Acute variceal bleeding takes in "When the bleeding will not stop" (13 slides).** (Mohammad, 25 Oct, "Go"; deck rebuild plan, C1. The merged talk is
+  Resuscitating an acute variceal bleed, Treatment and core.) After the pre-emptive TIPS comes a fifth section, "If it does not stop": a second case
+  whose bleed octreotide and bands controlled comes back by day 5 (`controlled`, `rebleed`, `failure`, `bridge`, `rescue`). Treatment failure and
+  who is considered for a rescue TIPS now sit in the words and notes of those slides; the two refractory slides on who gets a rescue TIPS and on
+  encephalopathy afterward went into the notes, since Choose the treatment, TIPS and shunts and Encephalopathy carry those points. The whole bleed runs on
+  one card, the beat trace (EKG strip, portal pressure, HVPG lane) over the map and hemoglobin tiles, whose ring marks where the run began; the
+  vitals monitor goes to the circulation talk. Two question cards: on "Shock before anemia" ("His pulse is racing. Has the hemoglobin fallen yet?") and
+  on "Bands stop the bleeding" ("Will banding lower his portal pressure?"). Bands opens the scope on the active bleed (the question card holds the
+  slide before's state, so the scope arrives bleeding) and the jet fades as the bands go on; its tiles are the portal vein pressure and the map, so the
+  answer is on the card. The summary table gains the rebleed and the rescue TIPS; the quick check's weakest question became the failure one. Small print
+  (`cite`, the failure and bridge caveats) moved into the notes. Old links keep working: `DECK_ALIAS` is now in `decks.js` and holds `refractory-bleed`
+  as well as `where-block` and `bleed`; an aliased id opens its deck at slide 1, and the share pages (`c/deck-refractory-bleed.html`) point at the
+  new deck. `src/ui/decks/refractory-bleed.js` is gone; its figures moved to `brand/handout/variceal-bleed/` (the stale ones are listed for the
+  redraw). Code and unit tests only; nobody has looked on screen. `src/ui/decks/variceal-bleed.js`, `src/ui/decks.js`, `src/ui/presenter.js`,
+  `scripts/share-pages.mjs`, `tests/deck-adopted.js`, `tests/deck-pills.json`, `tests/ekg-lane.test.js`, `tests/question-card.test.js`,
+  `tests/share-pages.test.js`.
+- **The scope can show a varix with air in the esophagus, and a slide can move an instrument's option.** (Mohammad, 25 Oct, "yes to both"; deck
+  rebuild plan, B1, machinery only: the lesson itself is the next push.) The engine reads the diameter a varix is seen at with 0 to 20 mmHg of air in
+  the lumen around it (`engine.varix(site, P, air)`; `metrics.varix.air`, a diameter for each mmHg): the air is taken off the pressure across the
+  wall and nothing else moves, because sending it through the solver collapses the varix and chokes its own collateral (HVPG 16.5 to 18.0 at 20 mmHg).
+  For the decompensated patient the table reads 7.2 mm at no air, 6.2 at 10 mmHg, 5.7 at 14, 4.6 at 16, 2.7 at 18 and 2.1 at 20; the pressure inside
+  the varix stays 18.2, and so do the HVPG and the portal pressure. The scope takes three options from a slide: `air` (the drawing flattens with the
+  size seen, through the scope's own 0.2 s ease; the Diameter row reads that size and the Grade row stays the size at rest), `red` (the red wale marks
+  and the Stigmata row shown or hidden whatever the wall stress) and `readings` (three more rows: the pressure in the varix, in the lumen and across
+  the wall, the last the difference of the other two as printed). The Diameter and the pressure inside now read the slide's own numbers once the
+  slide has pinned them, as the wall tool does, so they do not swing with each breath. A `whatIf` slider can take a `tool` in place of a `param`,
+  and `compare` buttons can take a `tool` patch (the slide's own button puts the options back); neither touches the model. No deck uses them
+  yet. Code and unit tests only; nobody has looked on screen. `src/engine/engine.js`, `src/engine/metrics.js`, `src/ui/instruments.js`,
+  `src/ui/endo-size.js`, `src/ui/presenter.js`, `src/ui/presenter-tools.js`, `styles/app.css`, `tests/varix-air.test.js`, `tests/scope-air.test.js`.
+- **A time-lapse can keep the data card from the slide before.** (Mohammad, 25 Oct, "yes to both"; deck rebuild plan, A5.) A run of slides that crosses a
+  time-lapse (ten years, the next bleed, ascites building) no longer fades its data card out and builds the same one again when the card is the same.
+  If the lapse slide has the same instrument, tiles and title as the slide before, and the patient stays, the card is already on screen when the days
+  start and its readings climb with them, which the presenter already sets from each frame of the lapse; it stays on into the next slide too. This is
+  only for a card that reads the live model (tiles alone, the ladder, the flows bars, the FibroScan, the spleen and the HVPG tracing). A lapse that
+  opens on a patient of its own (it has `params`), and the Doppler, the vitals monitor, the beat trace, the flow-time chart and the talk trace, are built for
+  the lapse as before, and the teaching card of a lapse slide is still built afresh (its bar is in it). No shipped deck has such a pair today, so
+  nothing on screen changes until the rebuilt decks use it. The keep decision now counts a lapse's patient as the transition does (a lapse plays
+  from the slide before's state, so it is not a new patient unless it has its own start). Code and unit tests only; nobody has looked on screen.
+  `src/ui/card-keep.js`, `src/ui/presenter.js`, `tests/card-keep.test.js`.
+- **Three new instruments for a slide's data card, and an encephalopathy tile: a spleen ultrasound, a vitals monitor and the HVPG catheter's
+  tracing.** (Mohammad, 25 Oct, "yes to both"; deck rebuild plan, A4. No deck uses them yet; phase C does.) `tool: { kind: 'spleen' }` is a grey
+  sector on the monitor's black with the spleen cut along its long axis, calipers end to end and the length in cm written in the picture in
+  white with a dark outline, as the FibroScan's reading is. The scale is the same for every length, so a bigger spleen is drawn bigger; the
+  picture redraws only when the length changes by 0.1 cm and eases between; with no spleen it says "Spleen removed". `tool: { kind: 'vitals',
+  show? }` is a bedside monitor: the EKG strip across the top and up to three of heart rate, mean arterial pressure (named MAP, since the model
+  has no systolic and diastolic), cardiac output and hemoglobin as large numbers, past-limit readings in the monitor's alarm red with the bottom
+  bar's hold and hysteresis. `tool: { kind: 'hvpg' }` is the HVPG procedure's monitor with no catheter on the figure: going forward onto the
+  slide it plays free pressure, balloon, wedge and result (about 9 s), and jumped to or gone back to it shows the finished tracing at once; a
+  model change on the slide eases the levels, and the HVPG it prints is the difference of the two readings as shown. The `he` tile (HE risk,
+  the model's index from 0 to 1; Low under 0.2, Moderate from 0.2, High from 0.45) joins the tiles, and the keyword highlighter knows
+  "encephalopathy risk". The vitals monitor counts as a recording card, so a new patient starts its strip over. No gradients, glow, stripes
+  or live dots on any of them; the numbers and words stay at 12 px or more. The tests run each instrument against a fake page with a real
+  model's frames (no browser): `tests/instruments-a4.test.js`, `tests/instruments-draw.test.js`. Code and unit tests only; nobody has looked
+  on screen. `src/ui/spleen-us.js`, `src/ui/vitals-monitor.js`, `src/ui/tool-hvpg.js`, `src/ui/hvpg-proc.js`, `src/ui/presenter-tools.js`,
+  `src/ui/presenter.js`, `src/ui/card-keep.js`, `src/ui/table-marks.js`, `src/ui/vital-read.js`, `src/ui/dock.js`, `styles/app.css`.
+- **"Where the portal blood goes" is one centred bar too, with its names under it in pills, none hanging.** (Mohammad, 25 Oct, on an iPhone:
+  "The data card should be fixed similar to the other one (all of those kinds) centered", of the Next bleed slide's card.) Its two bars
+  kept "Healthy" and "Now" in a gutter at the left, so on a phone the bars sat well right of the card's centre, and the names of small
+  routes hung under the bar on leaders. Now the card is one bar across the whole card: the liver's segment first, then each route in its
+  colour, largest first. The healthy split (all of it to the liver) is a dashed bracket over the bar with "Healthy: liver 100%" centred
+  above it, drawn as the pressure ladder draws its Healthy line, so the liver's segment compares with the whole it would fill. A segment
+  wide enough carries its name and percent; one that fits only its percent carries that; one too narrow for even that is named in a
+  pill under the bar in its colour (the app's value pills), the pills in the bar's order in rows centred on the card. The card is ten em
+  tall (it was 9.25) and holds two rows of pills; on a card or text size where they would not fit, the smallest routes join Other until
+  they do, as before. A name that moves between the bar and a pill fades out and in. There is no gutter, no leader and no second bar
+  left on either flow card, and no Now/Healthy row names. The causes waterfall, which has its own Healthy bar, is a different chart and
+  is unchanged. Code and unit tests only; nobody has looked on screen. `src/ui/tool-flows.js`, `styles/app.css`,
+  `tests/flows-inflow.test.js`, `tests/deck-charts.test.js`, `tests/data-sheet.test.js`, the authoring guides.
+
+- **The beat trace gets a schematic EKG strip, the HVPG lane stays on small cards, and the three bleed runs turn breathing off.** (Mohammad, 25 Oct,
+  "yes to both"; deck rebuild plan, A3.) The model's cardiac phase now travels with every pressure sample, and a thin EKG strip over the
+  pressures lays a P wave, a QRS and a T wave on each beat, one QRS to a beat, in the text colour, with the heart rate at its right end
+  like the other lanes' readings. It is a rhythm timed to the model's heartbeat, not a modelled ECG (the first slide of each run says so in
+  its notes). On a slide the pressure lane now holds the portal pressure alone, since the HVPG lane under it is wedged minus free, and the
+  HVPG lane is no longer dropped on a small card; it draws faint lines at 5, 10 and 12 mmHg, named once on a short lane. Where the room
+  is short the strip goes first, then the HVPG lane (EKG about 15 %, pressures 50 %, HVPG 35 % of the room when all three show). A phone's
+  trace box is 172 px instead of 140 so the HVPG lane fits there; the strip needs a taller card. Patients mode keeps its two lanes and
+  gains two pills in the chart's pill row, EKG (off) and HVPG lane (on, as before). Breathing is off on Variceal bleed 2, Gastric varices 5
+  and When the bleeding will not stop 2 (`params: { respiration: false }`), so the pressures show the heartbeat alone; a later preset
+  brings it back, and the Doppler decks keep it. Code and unit tests only; nobody has looked on screen. `src/worker-core.js`,
+  `src/ui/ekg.js`, `src/ui/trace-lanes.js`, `src/ui/pressure-time.js`, `tests/ekg-lane.test.js`.
+- **A summary table never scrolls, on an iPad on its side or anywhere else.** (Mohammad, 25 Oct: "The tables on the slide before last scrolls
+  right and left on iPad. They should not ever scroll.") The summary table was a scroll box of its own inside its card, so a table wider than
+  the narrower, centred card (the 25 Oct width cap) scrolled sideways, and the card's fit never saw it: it only measured the card, and the
+  box swallowed the overflow. Now the table is clipped, not scrollable, and the card's fit reads the table's own sideways overflow and
+  zooms the card until every column is in view (first only as far as the lettering stays 12 px, then past it as a last resort, as the
+  compact layout's cards do). Before it comes to a zoom, the table gives room itself: a column heading wraps between its words, never
+  inside one, and the value columns keep less padding at their sides (the row names and notes keep theirs). A phone's and an upright
+  tablet's rows are a grid that fits its width and are unchanged. The smoke check for summary tables now also runs an iPad on its side
+  (1024 x 768, 1194 x 834, 1366 x 1024) and fails if the table scrolls sideways. Code and unit tests only; nobody has looked on screen.
+  `src/ui/presenter.js`, `styles/app.css`, `tests/table-no-scroll.test.js`, `tests/e2e/smoke.mjs`.
+- **Predict is gone; a slide can ask one short question on a glass card instead.** (Mohammad, 25 Oct, "yes to both"; deck rebuild plan, A2.)
+  The four Predict slides (Circuit 6, Blood volume 3, Next bleed 4, Beta-blockers 7) no longer show choices, a tinted right answer or an
+  answer line, and nothing about a guess is kept. Stepping onto one now brings up the case card's glass over the figure as it stands,
+  tagged Question, with one question in large type; a tap, Next or a swipe lifts it. There is no camera pull-back and no new patient. A slide
+  that changes the model lands holding the numbers before the change and plays the change after the lift (the time-lapse, or the eased
+  change a compare button makes), the numbers following. The slide is the answer. Going back or jumping to the slide shows no card. A slide
+  field `question` replaces `predict`; the handout prints the question before the slide's words. A case card can now also open a
+  time-lapse: it covers the patient at the time-lapse's own start, and the days play after the lift. The question card keeps no data or
+  teaching card from the slide before. Code and unit tests only; nobody has looked on screen. No handout figure changes. `src/ui/presenter.js`,
+  `src/ui/card-keep.js`, `src/ui/handout.js`, `styles/app.css`, `tests/question-card.test.js`, `tests/case-card.test.js`.
+- **Varices are graded Small or Large by size alone, with no F-codes; the wall tool says "wall stress" and uses σ.** (Mohammad, 25 Oct, "yes to
+  both" to the varix and insufflation recommendations; deck rebuild plan, A1.) The scope's Grade row, the Tests card tile, the dock chip,
+  the screen-reader summary and the inspector now read None (under 2.5 mm), Small (under 5 mm) or Large (5 mm or more). F1, F2, F3 and
+  "Large, coil-shaped" are gone from Present and Patients alike: the model reads size only, and the codes also mean shape and red signs.
+  The scope still draws a large varix beaded; that is its picture, not a grade. "Are there varices?" is one flag on the metrics
+  (`varix.present`, `gastricVarix.present`: the diameter reaches 2.5 mm, or banded columns are still on the wall) that the figure, the
+  circuit, the scope, the Tests card, the inspector's Grade stat and the screen-reader summary all read; the dock chip and the stat used
+  to cut at 2.5 and 2.4 mm on their own. After banding shrinks a varix under the cut-off, the dock chip now says "Banded varices" and no
+  longer "No varices". Laplace's ΔP · r / w is "wall stress" everywhere in the app's own words (wall tool, inspector, deck lines and
+  notes) with σ as its symbol; "wall tension" stays only where a sentence quotes AASLD. The scope's Stigmata row says the red wale rule is
+  the model's (70 % of the tear point). Code and unit tests only; nobody has looked on screen. `src/engine/metrics.js`,
+  `src/ui/store.js`, `src/ui/instruments.js`, `src/ui/dock.js`, `src/ui/a11y.js`, `src/ui/actions.js`, `src/ui/inspector.js`,
+  `tests/varix-grade.test.js`.
+- **"Blood into the liver" is one centred bar with the Healthy line over it.** (Mohammad, 25 Oct: "The blood into the liver card sucks. Need
+  to think of a way to center it. It's just so off center it's bad", then his pick of three drawn options.) The two bars had a 54 px gutter
+  for "Healthy" and "Now" at their left, so they sat about 27 px right of the card's centre; on the opening slide the Now bar faded out but
+  kept its space, and "Hepatic artery" hung on a leader under the right end. Now the liver's inflow is one bar across the whole card,
+  centred top to bottom, with the healthy split as a dashed line over it, "Healthy portal 73%" above, as the pressure ladder marks its
+  Healthy line. Names stay on the segments, 4 px clear of the line: "Hepatic artery" takes "Artery" where it does not fit, then the percent
+  alone. The card is 6 em tall instead of 9.25, so the tiles under it get that room back. "Where the portal blood goes" took the same treatment in the entry above this one.
+  Code only; nobody has looked on screen.
+
+- **The outline, summary table, quick check and chart cards are narrower and centred on wide screens; the case card's question is centred.**
+  (Mohammad, 25 Oct: "The outline card, the tables card and the questions card on wide screens like iPad side way and Mac should be more
+  centered and not too wide... Need the viewer to focus"; then "The little question in the case card should be centered", then "Ladders OK but
+  the rest can be narrowed".) On a Mac or an iPad on its side each full card is a centred card of its own width, in multiples of the
+  teaching card's body text so it grows with the words: the outline 50, the table 54 and the quick check 42, and never more than 82% of the
+  screen. The scale, the SAAG plot, the two capillary walls and the planes (stiffness against platelets and the others) take the table's
+  width; only the six ladders keep the whole screen. A 1440 x 900 Mac, where they took 1366 px, now shows the outline about 1040 px
+  wide, the table and the charts about 1120 and the quick check about 870; an iPad at 1024 x 768 shows them at 840 (the outline keeps its
+  two columns down to 1024 wide). Phones and the upright iPad keep their full-width and 70% cards. The outline
+  had a 1180 px width rule that never applied (the wide panel's own rule was more specific); it is gone. The case card's short question
+  (`caseQ`) sat at the left of the card under its centred text, because the card is a flex column that starts its lines at the left and a
+  line shorter than the card keeps its own width; each line of the case card now stretches across the card, on every device and deck.
+  Code and unit tests only; nobody has looked on screen. `styles/app.css`, `tests/reading-cards-width.test.js`, `tests/case-card.test.js`.
+- **Self-study is gone.** (Mohammad, 25 Oct: "I hate self study and question with it. Remove".) The Settings switch that showed each slide's
+  handout question under a Question handle, the handle and its card, Show answer, their styles, their unit test and the guides' sections
+  are removed; no slide, deck or other feature changed. Each slide's `ask` still prints in the handout, and a unit test still checks that
+  every content slide has one. The two beta tester guide PDFs are back to the 18 Oct build, which never showed the switch. Anyone who had
+  turned it on keeps an unused `pps.selfStudy` entry in their browser, which nothing reads. Code and unit tests only; nobody has looked
+  on screen. `src/ui/presenter.js`, `src/ui/main.js`, `styles/app.css`, `tests/teaching-features.test.js`.
+- **Five new talks, a Refractory ascites slide and an Overt encephalopathy slide.** (Mohammad, 25 Oct:
+  "All and make sure to run by humanizer and update author guides", then "Yes" to the browser run for the figures and the two new slides.)
+  New talks, each from the deck-teaching recommendations (F1 to F5), every line through the humanizer rules and every medical claim
+  checked against the guideline files: **Stage the patient at the first visit** (Measuring, 12 slides; Baveno VIII 1.15, 1.16 and 1.19, five
+  held cases), **When the bleeding will not stop** (Treatment, 8; Baveno VIII 5.16 and 5.35 to 5.37, AASLD 2024), **Doppler after a liver
+  transplant** (Measuring, 7; Lechowicz et al., J Ultrason 2015), **One patient, ten years** (Complications, 14; Baveno VIII 3.15, 3.16, 4.1,
+  4.3, 4.4, 4.6, 4.8, 4.13, 6.1, 6.16, 6.17) and **A TIPS from start to finish** (Treatment, 8; Baveno VIII 4.13, 4.15, 4.19, 5.31, 5.33,
+  5.34, 6.3 to 6.11, 6.14, 6.16). Each uses only slide options that already exist (criteria card, held cases, hold rule, procedure, milestones,
+  calipers, summary table); no Predict slide. Every number on a slide was read off the engine, and where the model cannot draw what the
+  guideline describes the slide says so: one band stops a bleed but three sessions shrink a varix; the shunt tile reads 94% for any stent
+  of 6 mm or more, so the stent-width slide uses the gradient and liver flow; a narrowed portal vein speeds the Doppler about 1.6 times,
+  where a real jet is 3 to 4; there is no ammonia. Paracentesis: slide 9 (high-protein ascites, which repeated the Ascites talk) is
+  gone, and a new slide 8, Refractory ascites, defined, a criteria card, comes before the TIPS slide; objective 4 and quick check 3 follow, and the definition
+  is the deck's own wording (the Baveno VIII statements, 6.3 and 6.4, name refractory ascites without defining it). Encephalopathy: a new
+  slide 4, Overt encephalopathy: the trigger first, then lactulose, then rifaximin, with the triggers on a criteria card in place of the
+  phone-hidden list on the spontaneous-shunt slide; the order of treatment is the deck's own teaching. Handout figures for every new slide
+  were drawn in a headless browser, the first browser run since 23 Oct, and the one for the removed slide deleted. Authoring guides: counts and the id list, rules 28
+  (a decision talk follows one patient), 29 (state the source criteria and caveat what the model cannot draw) and 30 (model facts found).
+  Nobody has looked at the new slides on a device. `src/ui/decks/{first-visit,refractory-bleed,transplant-doppler,ten-years,tips-journey}.js`,
+  `src/ui/decks.js`, `tests/deck-adopted.js`.
+
+- **A card that stays the same stays on screen when the slide changes.** (Mohammad, 25 Oct: "If the instrument data card on a deck is gonna
+  stay the same for the next slide and only teaching card is changed or other way around we shouldn't reload the data card or vice versa
+  keep it while you load the other card".) Every slide change used to fade both cards out and build both again. Now, when the next slide's
+  data card is the same (same instrument and options, same tiles, title and layout), it stays up and live while the words swap; its tiles
+  count to the new slide's numbers, and with a new patient the card follows the model as it eases rather than jumping ahead of the figure.
+  When the words are the same and the patient is, the teaching card stays and only the data card swaps. A kept card that the new slide's
+  layout would change (its size, fit or fold) is put back at once and leaves and returns as before. Not kept: the Doppler and the
+  beat-by-beat trace through a new patient (their trace starts over), and slides with a time-lapse, the catheter, a case card (a new
+  patient's), a question or a Predict slide. Present on Mac, iPad and iPhone, in every deck. In the decks as they stand it applies to two
+  slide changes (Circulation 4 to 5 and HVPG 7 to 8), because almost every other slide that repeats an instrument brings a new patient
+  behind a case card, runs a time-lapse, asks a question or changes its tiles; the words card is never the same twice in them. It is
+  there for the decks being written. Code and unit checks only; nobody has looked on screen. `src/ui/card-keep.js`; tests:
+  `tests/card-keep.test.js`.
+- **The decks' wording, order and quick checks were gone over (words and data only; nothing on screen has been looked at).** (Mohammad, 25 Oct:
+  "All" from the deck-teaching recommendations.) Lines: a second "Colored by" sentence is cut where the key already says it (Circulation,
+  Two inflows, Sites, Outflow, Treatment, Beta-blockers); lines of 42 to 44 words are shorter (Doppler 2 and 10, Varices 2, Variceal bleed 5,
+  Shunts 6, One year 2 and 10); the slide before a reveal ends on the puzzle (Circulation 5, Hyperdynamic 3, Ascites 4); titles name the
+  finding (Circuit 9, Two inflows 5 and 6, Right heart 5, Shunts 3 to 5); a slide that loads another patient says so (Ascites, Spleen 8);
+  Where is the resistance? ends all six question slides on one sentence. Order: Stiffness 9 follows the rule; Ascites 6 and 7 (portal vein
+  clot, schistosomiasis) follow the mechanism; Circulation's three lobule slides are one; Varices lost its splenic vein slide, which
+  Pre-hepatic and Gastric varices teach. Quick checks: a reasoning question in Circulation, Circuit, Two inflows, HVPG, Hyperdynamic,
+  Where is the resistance?, Blood volume, Encephalopathy, Recompensation, Pregnancy, Treating the cause, Shunts and TIPS Doppler. Medical,
+  each against the guideline files: octreotide is a 50 µg bolus then 25 to 50 µg an hour (AASLD 2024); a covered stent is preferred to a
+  balloon tube (Baveno VIII 5.35); the HVPG response (10% or to 12 mmHg) is Baveno VIII Table 3, stated for primary prophylaxis, and the
+  20% figure is gone from HVPG 5; Budd–Chiari starts with anticoagulation (EASL 2025); the 4 in 10 and 7 in 10 recanalization rates name
+  their populations; Recompensation 2 says Baveno VIII starts carvedilol at CSPH; Next bleed 8 stops carvedilol under 12 mmHg (AASLD 2024);
+  Choose the treatment's case 4 and Outflow 6 (a TIPS beside the DIPS) get live buttons. The authoring guides gained the rules behind this (guide rules 24 to 27).
 - **The organs' pictures are painted on the GPU from their own shapes.** (Mohammad, 25 Oct: no more SVG → image → canvas → read back →
   upload.) The heart and esophagus, the gut, the kidney, the stomach and the bowel were each a picture made by copying the SVG, loading
   it as an image, drawing it on a 2D canvas, reading its pixels back and uploading them, after every change and every settled pan or zoom.

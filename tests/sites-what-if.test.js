@@ -1,10 +1,12 @@
-// Review U19: the Sites talk's portal vein thrombosis, schistosomiasis and right heart failure slides carry live controls
-// (a clot-size slider, a fibrosis slider over both lobes, normal and failing heart buttons). The slides' own states are
-// unchanged; the controls move only the live model, and each shows what its slide teaches.
+// Review U19: the schistosomiasis and right heart failure teaching carries live controls (a fibrosis slider over both lobes,
+// on the presinusoidal deck's "tract" slide, and the normal and failing heart buttons on the Sites cardiac slide). The clot
+// slider lives on the Portal vein clots deck (hands-on-decks.test.js). The controls move only the live model, and each shows
+// what its slide teaches.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { SITES } from '../src/ui/decks/sites.js';
+import { NCPH } from '../src/ui/decks/ncph.js';
 import { PRESETS, defaultParams } from '../src/engine/scenario.js';
 import { runSteps } from './deck-states.js';
 
@@ -18,15 +20,16 @@ const patchOf = (w, x) => {
 };
 const presetParams = (id) => PRESETS.find((p) => p.id === id).apply(defaultParams());
 
-test('the clot slider starts at the slide\'s occlusive clot and the fibrosis slider moves both lobes from their shared value', () => {
-  const pvt = slide('pvt').whatIf, sch = slide('presin').whatIf;
-  assert.deepEqual(paths(pvt), ['thrombus.PV_TRUNK']);
-  assert.equal(at(presetParams('pvt-chronic'), 'thrombus.PV_TRUNK'), pvt.max);
+const tract = NCPH.slides.find((s) => s.id === 'tract');
+
+test('the fibrosis slider moves both lobes from their shared value', () => {
+  const sch = tract.whatIf;
   assert.deepEqual(paths(sch).sort(), ['fibrosis.L.pre', 'fibrosis.R.pre']);
   const p = presetParams('schisto');
   for (const k of paths(sch)) { const v = at(p, k); assert.ok(v >= sch.min && v <= sch.max, `${k} ${v} in range`); }
   assert.equal(at(p, 'fibrosis.R.pre'), at(p, 'fibrosis.L.pre'), 'both lobes start equal, so one slider can hold them');
   assert.deepEqual(patchOf(sch, 40), { fibrosis: { R: { pre: 40 }, L: { pre: 40 } } });
+  for (const id of ['pvt', 'presin', 'sin', 'postsin', 'post']) assert.ok(!slide(id).whatIf, `${id}: the Sites levels carry no control`);
 });
 
 test('the heart buttons: the failing heart is the slide\'s own patient, the normal one a healthy circulation', () => {
@@ -47,11 +50,8 @@ test('the presenter moves every path of a what-if slider together', () => {
 });
 
 const pick = (f) => f.metrics ?? f;
-test('the controls teach their slides: portal pressure follows the clot and the fibrosis with HVPG flat; the heart moves every station together', async () => {
-  const pvt = slide('pvt').whatIf, sch = slide('presin').whatIf, c = slide('cardiac').compare;
-  const [clot, none] = (await runSteps([{ preset: 'pvt-chronic' }, { params: patchOf(pvt, pvt.min) }])).map(pick);
-  assert.ok(clot.pv - none.pv > 5, `portal pressure falls without the clot (${clot.pv} → ${none.pv})`);
-  assert.ok(Math.abs(clot.hvpg - none.hvpg) < 1.5 && clot.hvpg < 5, `HVPG stays normal (${clot.hvpg}, ${none.hvpg})`);
+test('the controls teach their slides: portal pressure follows the fibrosis with HVPG flat; the heart moves every station together', async () => {
+  const sch = tract.whatIf, c = slide('cardiac').compare;
   const [fib, clear] = (await runSteps([{ preset: 'schisto' }, { params: patchOf(sch, sch.min) }])).map(pick);
   assert.ok(fib.pv - clear.pv > 5, `portal pressure falls with the fibrosis (${fib.pv} → ${clear.pv})`);
   assert.ok(Math.abs(fib.hvpg - clear.hvpg) < 1.5 && fib.hvpg < 5 && clear.hvpg < 5, `HVPG stays near normal (${fib.hvpg}, ${clear.hvpg})`);

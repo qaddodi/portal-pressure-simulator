@@ -11,3 +11,9 @@ export function organDimMatrix(dim, sat) {
   const row = (i) => [...LUMA.map((l, j) => f(a * l + (i === j ? sat : 0))), 0, 0];
   return [...row(0), ...row(1), ...row(2), 0, 0, 0, f(dim), 0].join(' ');
 }
+
+/** What a lens other than Pressure does to the anatomy's organs: their saturation and opacity there (stage.js plateTargets, which
+ *  holds the same two numbers; tests/lobule-surround-grey.test.js keeps them equal). The lobule view's surround takes the same. */
+export const LENS_GREY = { sat: 0.12, dim: 0.72 };
+/** Whether a lens (the mode a vessel's colour encodes) greys the organs: every one but Pressure, and the imaging view's neutral. */
+export const isGreyLens = (mode) => !['pressure', 'neutral'].includes(mode);

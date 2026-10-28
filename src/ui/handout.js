@@ -6,8 +6,8 @@
 // (decks.js, new ones included: a slide without a figure prints without one) and for the instructor's scripts.
 
 import { download } from './download.js?v=3564e5bf8c';
-import { LEVELS, withOverview } from './decks.js?v=43c54b4a26';
-import { TILE } from './table-marks.js?v=15f059172f';
+import { LEVELS, withOverview } from './decks.js?v=faa951f1ce';
+import { TILE, cutText } from './table-marks.js?v=8458ad3bf8';
 import { plateletText } from './glue.js?v=5a0f63226b';
 import { citeText } from './teach-extras.js?v=5f5248f5a7';
 
@@ -56,6 +56,8 @@ h2 { margin: 0; font-size: 19px; font-weight: 600; line-height: 1.25; }
 .checks p { margin: 0; }
 .checks .a { margin-top: 2px; color: var(--ink-2); }
 .ask .a b { color: var(--ink); }
+.q { margin: 0 0 6px; }
+.q p { margin: 0; }
 @media (max-width: 680px) {
   body { padding-top: 20px; }
   article { flex-direction: column; gap: 12px; }
@@ -90,10 +92,11 @@ export function lineText(t, fp = null, at = () => null) {
   const num = (v, dp) => { const t = v.toFixed(dp); return /^-0(\.0+)?$/.test(t) ? t.slice(1) : t.replace('-', '−'); };
   const val = (k, f) => { const T = TILE[k], v = f?.[k]; return v == null || !Number.isFinite(v) ? '—' : k === 'plt' ? plateletText(v) : `${num(v * (T.x || 1), T.d ?? 1)}${T.u === '%' ? '%' : T.u ? ` ${T.u}` : ''}`; };
   return String(t ?? '').replace(/\[([^\]]+)\]\([\w:]+\)/g, '$1').replace(/\{([^}]+)\}/g, (_, mk) => {
+    if (/^#\d+$/.test(mk)) return `(${mk.slice(1)})`;   // (a figure's step marker, {#2}: its number in brackets, as a printed line says it)
     if (TILE[mk]) return val(mk, fp);
     const m = mk.match(/^(\w+)@([\w-]+)$/);
     if (m && TILE[m[1]]) return val(m[1], at(m[2]));
-    return mk.replace(/^(?:>=|<=|[<>≥≤])\s*/, '');
+    return cutText(mk);
   });
 }
 
@@ -104,12 +107,14 @@ function slideBlock(d, base, s, i, fp, at) {
   ${fig(base, d, s)}
   <div class="txt">
     <p class="cap"><span class="n">${i + 1}</span>${s.kicker ? ` · ${esc(s.kicker)}` : ''}</p>
+    ${typeof s.question === 'string' && s.question.trim() ? `<div class="q"><p class="cap">Question</p><p>${esc(s.question)}</p></div>` : ''}
     <h2>${esc(s.title || 'Slide')}</h2>
     ${s.line ? `<p class="line">${esc(lineText(s.line, fp, at))}</p>` : ''}
     ${ml ? `<div class="eq"><math display="block">${ml}</math>${legend ? `<small>${esc(legend)}</small>` : ''}</div>` : ''}
     ${citeText(s.cite) ? `<p class="cite">${esc(citeText(s.cite))}</p>` : ''}
     ${s.notes ? `<div class="notes"><p class="cap">Notes</p><p>${esc(s.notes)}</p></div>` : ''}
     ${s.checks ? `<ol class="checks">${s.checks.map(([cq, ca]) => `<li><p>${esc(cq)}</p><p class="a"><b>Answer:</b> ${esc(ca)}</p></li>`).join('')}</ol>` : ''}
+    ${s.tool?.kind === 'criteria' && (Array.isArray(s.tool.rows) || Array.isArray(s.tool.key)) ? `<div class="notes"><p class="cap">${esc(s.tool.title || 'Criteria')}</p><ul>${(Array.isArray(s.tool.rows) ? s.tool.rows : s.tool.key).map((r) => (typeof r === 'string' ? r : Array.isArray(r) ? r[0] : r?.text)).filter(Boolean).map((t) => t.replace(/\*\*/g, '')).map((t) => `<li>${esc(t)}</li>`).join('')}</ul></div>` : ''}
     ${q ? `<div class="ask"><p class="cap">Ask the room</p><p>${esc(q)}</p>${a ? `<p class="a"><b>Answer:</b> ${esc(a)}</p>` : ''}</div>` : ''}
   </div>
 </article>`;

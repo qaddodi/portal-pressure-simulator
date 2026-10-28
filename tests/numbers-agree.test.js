@@ -92,7 +92,7 @@ test('a vital holds steady through a breath, and its red flag does not flicker',
   assert.equal(vitalReading(x, { co: 6.2 }, true, 1800).bad, false);
   assert.equal(vitalReading(x, { co: 6.7 }, false, 1900).bad, true);
   for (const s of [src('dock.js'), src('readouts-pane.js')]) { assert.match(s, /vitalReading\(x, m, st0\.running, now\)/); assert.doesNotMatch(s, /\.bad\(m\)/); }
-  assert.match(src('dock.js'), /v: \(m\) => m\.vitals\?\.co \?\? m\.co/);
+  assert.match(src('vital-read.js'), /v: \(m\) => m\.vitals\?\.co \?\? m\.co/, 'the vitals\' definitions (vital-read.js) read output over two breaths');
 });
 
 test('paused, the bar repaints on a measurement or a new patient and takes a new band at once', () => {
@@ -131,7 +131,7 @@ test('the right atrium is read over two breaths everywhere it is shown, and that
   assert.match(src('../engine/fingerprint.js'), /ra: m\.vitals\?\.ra \?\? m\.ra/, 'the slide data card reads RA over two breaths');
   assert.match(src('presenter.js'), /const liveFp = \(fr\) => fingerprintOf\(/, 'the live slide data is that fingerprint');
   assert.match(readFileSync(new URL('../src/worker-core.js', import.meta.url), 'utf8'), /fingerprintOf\(m,/, 'and so are the slide states');
-  assert.match(src('dock.js'), /m\.vitals\?\.ra \?\? m\.ra/, 'the bar reads RA over two breaths');
+  assert.match(src('vital-read.js'), /m\.vitals\?\.ra \?\? m\.ra/, 'the bar reads RA over two breaths');
 });
 
 // Sweep batch 02, shot 14: the Doppler panel said −31 cm/s over a ±5 scale with the trace clipped into a block. The scale

@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { SCALE, TILE, RATE, bandsOf, rateOf, rateShown, dirAbs } from '../src/ui/table-marks.js';
+import { SCALE, TILE, tileOf, RATE, bandsOf, rateOf, rateShown, dirAbs } from '../src/ui/table-marks.js';
 
 // Each data card tile's scale bar (layout A): its bands take the tile's own rating, so the bar and the status word agree.
 const bandRates = (k) => bandsOf(k).map((z) => rateOf(k, { asc: 1e4, [k]: z.m })[0] || 'info');
@@ -9,7 +9,7 @@ const bandRates = (k) => bandsOf(k).map((z) => rateOf(k, { asc: 1e4, [k]: z.m })
 test('every rated tile has a scale, with its cut-offs in order inside it', () => {
   for (const k of Object.keys(RATE)) assert.ok(SCALE[k], `${k} has no scale`);
   for (const [k, [a, b, cuts]] of Object.entries(SCALE)) {
-    assert.ok(TILE[k], `${k} is a tile`);
+    assert.ok(tileOf(k), `${k} is a tile`);
     assert.ok(a < b, k);
     cuts.forEach((c, i) => assert.ok(c > a && c < b && (i === 0 || c > cuts[i - 1]), `${k} cut-off ${c}`));
   }

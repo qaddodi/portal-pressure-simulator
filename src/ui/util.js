@@ -1,5 +1,5 @@
 // DOM & formatting helpers.
-import { saver } from './frame.js?v=19b3f2915c';
+import { saver, frame, cancelFrame } from './frame.js?v=7254a8a850';
 
 // replaceChildren/append stringify null and arrays: flatten and drop empties instead.
 for (const m of ['replaceChildren', 'append', 'prepend']) {
@@ -438,7 +438,7 @@ function rollStep(now) {
     putNum(el, fmt(c.shown, c.d));
     if (u >= 1 || !el.isConnected) { c.t0 = null; rolling.delete(el); }
   }
-  if (rolling.size) rollRaf = requestAnimationFrame(rollStep);
+  if (rolling.size) rollRaf = frame(rollStep, 'numbers');
 }
 export function countTo(el, v, d = 1, { eased = false } = {}) {
   let c = counts.get(el);
@@ -454,7 +454,7 @@ export function countTo(el, v, d = 1, { eased = false } = {}) {
   if (eased || same || c.shown == null || reduceMotionMQ.matches || !el.isConnected || !hasBox(el)) { c.shown = v; putNum(el, fmt(v, d)); return; }
   c.from = c.shown; c.to = v; c.t0 = performance.now();
   rolling.add(el);
-  if (!rollRaf) rollRaf = requestAnimationFrame(rollStep);
+  if (!rollRaf) rollRaf = frame(rollStep, 'numbers');
 }
 export const popoverOpen = () => !!openMenu;
 /** Places the open menu again, after something it is anchored to has moved or resized. */
@@ -474,7 +474,7 @@ export function closePopover() {
  *  its resting bottom edge together). This eases --sink to px frame by frame, so the move and the cut stay in step on
  *  iOS too, then calls done. A new drag stops it (stopSink). */
 const sinking = new WeakMap();
-export function stopSink(el) { const a = sinking.get(el); if (a) { cancelAnimationFrame(a.raf); clearTimeout(a.timer); } sinking.delete(el); }
+export function stopSink(el) { const a = sinking.get(el); if (a) { cancelFrame(a.raf); clearTimeout(a.timer); } sinking.delete(el); }
 export function sinkTo(el, px, ms = 220, done) {
   stopSink(el);
   const from = parseFloat(el.style.getPropertyValue('--sink')) || 0, t0 = performance.now(), a = {};
@@ -488,12 +488,12 @@ export function sinkTo(el, px, ms = 220, done) {
     const k = Math.min(1, (now - t0) / ms);
     if (k >= 1) { finish(); return; }
     el.style.setProperty('--sink', `${from + (px - from) * (1 - (1 - k) ** 3)}px`);
-    a.raf = requestAnimationFrame(step);
+    a.raf = frame(step, 'numbers');
   };
   // (A page whose frames stall, in the background or a busy browser, still lands and closes on time.)
   a.timer = setTimeout(finish, ms + 120);
   sinking.set(el, a);
-  a.raf = requestAnimationFrame(step);
+  a.raf = frame(step, 'numbers');
 }
 /** A phone's bottom sheet follows a vertical drag from anywhere on it and closes past a short pull (or a quick
  *  flick) down; a short one eases back. Content scrolled away from its top scrolls back first, a sideways drag
@@ -634,6 +634,10 @@ export const bloodColors = () => bloodCols || (bloodCols = {
 // Each canvas's box is tracked by a ResizeObserver instead of measured on every draw (a
 // forced layout when it follows other DOM writes).
 const boxes = new WeakMap();
+// The instruments drawn at this many times the screen's density: a zoomed data card (card-zoom.js) shows them larger than they were
+// laid out, so they are drawn for the size they are seen at. 1 otherwise.
+let canvasBoost = 1;
+export const setCanvasBoost = (k) => { canvasBoost = Math.max(1, +k || 1); };
 const boxObserver = new ResizeObserver((entries) => { for (const e of entries) boxes.set(e.target, { width: e.contentRect.width, height: e.contentRect.height }); });
 export function fitCanvas(canvas) {
   let r = boxes.get(canvas);
@@ -643,7 +647,7 @@ export function fitCanvas(canvas) {
   }
   // The instruments (Doppler, FibroScan, the HVPG tracing, scope, wall, charts) at the screen's own density, up to 3x: a 3x iPhone drew
   // their words at 2x, slightly soft (#34). Battery saver keeps 2x.
-  const dpr = Math.min(saver() ? 2 : 3, window.devicePixelRatio || 1);
+  const dpr = Math.min(saver() ? 2 : 3, (window.devicePixelRatio || 1) * canvasBoost);
   const w = Math.max(1, Math.round(r.width * dpr)), hh = Math.max(1, Math.round(r.height * dpr));
   if (canvas.width !== w || canvas.height !== hh) { canvas.width = w; canvas.height = hh; }
   const ctx = canvas.getContext('2d');
@@ -776,6 +780,7 @@ export function translateRest(el, q = el.getBoundingClientRect()) {
 }
 // An element's box without its own transform (a card's entrance offset): where it rests.
 export function restBox(el, q = el.getBoundingClientRect()) {
+  if (el.dataset?.zoomed != null) return q;   // (a zoomed card, card-zoom.js, reports the place it rests: its glide is no entrance to take off)
   const t = getComputedStyle(el).transform;
   if (!t || t === 'none') return q;
   const m = new DOMMatrixReadOnly(t), z = el.offsetHeight ? q.height / el.offsetHeight : 1;

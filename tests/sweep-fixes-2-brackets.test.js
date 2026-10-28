@@ -13,11 +13,9 @@ import { profileOf, blocksOf, blockBox, profileGeo, axisTop, BLOCK_FALL, STATION
 const prof = readFileSync(new URL('../src/ui/tool-profile.js', import.meta.url), 'utf8');
 const css = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
 const lob = readFileSync(new URL('../src/ui/decks/lobule.js', import.meta.url), 'utf8');
-const rec = readFileSync(new URL('../src/ui/decks/recompensation.js', import.meta.url), 'utf8');
 
-test('Lobule 8 and Recompensation 5 show the Gut to heart chart', () => {
+test('Lobule 8 shows the Gut to heart chart (Recompensation\'s carvedilol slide, which also did, left in the deck rebuild)', () => {
   assert.match(lob, /id: 'wedge'[^\n]*tool: \{ kind: 'profile' \}/);
-  assert.match(rec, /id: 'carv'[^\n]*tool: \{ kind: 'profile' \}/);
 });
 
 test('a bracket\'s bar breaks round its own label, never running through "HVPG"', () => {

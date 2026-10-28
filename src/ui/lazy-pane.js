@@ -4,7 +4,7 @@
 // The dock goes on feeding it meanwhile, and what it is fed is kept, so it starts with what it would have had: the Doppler's trace holds the
 // frames it was sent (`history` of them, each cut down by `slim`), the FibroScan the last it was given.
 // An instrument that was loaded ahead (the handle already has it) is returned as it is.
-import { h } from './util.js?v=d2c95a1b16';
+import { h } from './util.js?v=58b547f8d4';
 
 /**
  * handle: lazy()'s { get, now }. cls: the classes the real pane has on its own element (so the empty one lays out as it will).
@@ -15,7 +15,7 @@ export function lazyPane({ id, label, handle, cls = '', history = 0, slim = (f) 
   const here = handle.now();
   if (here) return here;
   const hole = h('div', { class: `instrument-view ${cls}`.trim() });   // (shown only if the load fails: the dock waits for the instrument before it shows the pane)
-  let inst = null, waiting = null, past = [], last = null, fed = null;
+  let inst = null, waiting = null, past = [], last = null, fed = null, hist = null;
   /** Ask for the instrument's code. null once the instrument is in its pane; else a promise that settles (it never rejects) when it has
    *  come, or has failed (the pane then says so, and asking again tries again). */
   function need() {
@@ -28,7 +28,8 @@ export function lazyPane({ id, label, handle, cls = '', history = 0, slim = (f) 
       for (const f of past) i.ingest?.(f);
       if (last) i.ingest?.(last);
       if (fed) i.update?.(fed);
-      past = []; last = fed = null;
+      if (hist) i.backfill?.(hist);   // (the steady state's last seconds, if one was sent before the instrument came: backfill.js)
+      past = []; last = fed = hist = null;
       onReady();
     }, (err) => {
       console.warn(`The ${label} did not load.`, err);
@@ -44,7 +45,8 @@ export function lazyPane({ id, label, handle, cls = '', history = 0, slim = (f) 
     },
     update(f) { if (inst) inst.update(f); else fed = f; },
     redraw() { inst?.redraw?.(); },
-    clear() { if (inst) inst.clear(); else { past = []; last = null; } },
+    clear() { if (inst) inst.clear(); else { past = []; last = null; hist = null; } },
+    backfill(hs) { if (inst) return inst.backfill?.(hs) ?? false; hist = hs; return false; },
   };
 }
 

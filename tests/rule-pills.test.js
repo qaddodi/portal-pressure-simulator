@@ -18,7 +18,7 @@ test('every live token in the words names a reading, and every @slide a slide of
     const ids = new Set(d.slides.map((s) => s.id).filter(Boolean));
     d.slides.forEach((s, i) => {
       for (const [, mk] of (s.line || '').matchAll(/\{([^}]+)\}/g)) {
-        if (/^\d|^[<>≥≤]/.test(mk)) continue;   // (a typed rule or cut-off)
+        if (/^\d|^[<>≥≤]|^#\d+$/.test(mk)) continue;   // (a typed rule or cut-off, or a figure's step marker {#2}: tests/step-markers.test.js)
         const [, k, at] = mk.match(/^(\w+)(?:@([\w-]+))?$/) || [];
         if (!k || !TILE[k]) bad.push(`${d.id} ${i + 1}: {${mk}} is not a reading`);
         else if (at && !ids.has(at)) bad.push(`${d.id} ${i + 1}: {${mk}} names no slide of the deck`);

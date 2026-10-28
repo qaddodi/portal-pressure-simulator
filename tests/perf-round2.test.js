@@ -41,7 +41,7 @@ test('P6: the radius sync compares a copy element by element, with no joined key
   assert.doesNotMatch(sync, /R\.join\(','\)/);
   assert.doesNotMatch(sync, /Math\.max\(\.\.\.R\)/);
   assert.doesNotMatch(sync, /tubeData\.some\(/);
-  assert.match(sync, /o\.glRSent = Float64Array\.from\(R\); o\.glR = R; o\.glMaxR = mx;/);
+  assert.match(sync, /if \(sent && sent\.length === R\.length\) sent\.set\(R\); else o\.glRSent = Float64Array\.from\(R\);\s*o\.glR = R; o\.glMaxR = mx;/);
 });
 
 test('P8: stepBlood keeps per-frame facts per model frame, syncEnds compares in place', () => {
@@ -55,9 +55,11 @@ test('P8: stepBlood keeps per-frame facts per model frame, syncEnds compares in 
 
 test('P10: the composite fragment shader is compiled once per context, and every program starts before any is waited on', () => {
   const gl = read('src/ui/veins-gl.js');
+  // (Each of its two builds, full and plain (addendum §9), once; the two passes of each share it.)
   assert.equal((gl.match(/COMP_FS\(\)/g) || []).length, 1);
+  assert.equal((gl.match(/COMP_FS\(true\)/g) || []).length, 1);
   assert.match(gl, /gl\.getExtension\('KHR_parallel_shader_compile'\);/);
-  assert.match(gl, /comp: startProgram\(gl, COMP_VS, compFS\), compCell: startProgram\(gl, COMP_CELL_VS, compFS\)/);
+  assert.match(gl, /comp: startProgram\(gl, compVS, compFS\), compCell: startProgram\(gl, compCellVS, compFS\), plain: startProgram\(gl, compVS, plainFS\), plainCell: startProgram\(gl, compCellVS, plainFS\)/);
   // All five started before the first status read.
   assert.ok(gl.indexOf("line: startProgram(gl, LINE_VS, LINE_FS)") < gl.indexOf('prog = finishProgram(gl, started.prog)'));
 });
@@ -138,7 +140,7 @@ test('B8: label keep-out boxes are taken after the glide, and cut the arrowheads
 
 test('B11: bleed jets and the ascites ripple run on clocks that stand still while paused; the dye front reads the caliber between samples', () => {
   const stage = read('src/ui/stage.js'), gl = read('src/ui/veins-gl.js');
-  assert.match(stage, /return fadeBleedShapes\(bleedShapes\(sprayLast\.bleed, sprayLast\.rate, reduceMotion\.matches \? 0 : bloodClock, SITES\), sprayA\);/);   // (fading in and out: deck-review-bugs)
+  assert.match(stage, /return fadeBleedShapes\(bleedShapes\(sprayLast\.bleed, sprayLast\.rate, reduceMotion\.matches \? 0 : bloodClock, SITES, sprayLast\.hr\), sprayA\);/);   // (fading in and out: deck-review-bugs)
   assert.match(stage, /if \(run\) fluidPh = \(fluidPh \+ dt \/ 1\.1\) % \(20 \* Math\.PI\);/);
   assert.doesNotMatch(stage.replace(/^\s*\/\/.*$/gm, ''), /performance\.now\(\) \/ 1100/);
   const dye = gl.slice(gl.indexOf('float dyeAt('), gl.indexOf('void main()', gl.indexOf('float dyeAt(')));

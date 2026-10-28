@@ -3,24 +3,25 @@
 
 import { NODES } from '../engine/topology.js?v=4044766e96';
 import { wallRead } from '../engine/wall-read.js?v=09449acd01';
-import { pressureColor } from './colormap.js?v=cdcf6a2f55';
-import { h, fmt, fitCanvas, cssVar, cssAlpha, clamp, icon } from './util.js?v=d2c95a1b16';
-import { simTime, isPaused } from './clock.js?v=6a1f89a5c2';
-import { createEndoGL } from './endo-gl.js?v=10311b4cca';
-import { renderEndo } from './endo-render.js?v=b4ff4e6dc9';
-import { endoGrow } from './endo-size.js?v=824631d0bc';
-import { DEFLATE_MS, BAND_MS, BAND_DELAY_MS, fadeIn, glide } from './endo-motion.js?v=fdca92fc81';
-import { FONT } from './charts.js?v=dde7572b82';
-import { store, updateParams, varicesPresent } from './store.js?v=67f4341802';
+import { pressureColor } from './colormap.js?v=05a231b880';
+import { h, fmt, fitCanvas, cssVar, cssAlpha, clamp, icon } from './util.js?v=58b547f8d4';
+import { simTime, isPaused } from './clock.js?v=5151312569';
+import { createEndoGL } from './endo-gl.js?v=f193cb7345';
+import { renderEndo } from './endo-render.js?v=4ff328cb91';
+import { endoGrow, airRatio, airFlat } from './endo-size.js?v=e0a58bf20e';
+import { DEFLATE_MS, BAND_MS, BAND_DELAY_MS, fadeIn, glide, scopeTear } from './endo-motion.js?v=31f1c312f7';
+import { drawScopeBleed } from './endo-bleed.js?v=40a77c7a08';
+import { poolFill } from './blood.js?v=7fa561f952';
+import { FONT } from './charts.js?v=8462faa7c6';
+import { store, updateParams, varicesPresent } from './store.js?v=926dabfaef';
 import { balanceHold, balanceLine } from './balance-hold.js?v=1792704e7a';
-import { frameFor, cancelFrame } from './frame.js?v=19b3f2915c';
-const nextFrame = frameFor('instruments');
+import { lateFrameFor, cancelFrame, framePhase } from './frame.js?v=7254a8a850';
+// (The endoscope's field: drawn in the late part of a frame, after the model's frame of it has been taken in, so once a frame.)
+const drawFrame = lateFrameFor('instruments');
 
 const NI = Object.fromEntries(NODES.map((n, i) => [n.id, i]));
 
 // ── Endoscopy ───────────────────────────────────────
-// The Tests card's grade tile has room for one short word under the code.
-const GRADE_SHORT = { 'Large, coil-shaped': 'Coil-shaped' };
 export function createEndoscopy({ onAction }) {
   const el = h('div', { class: 'dock-pane', 'data-pane': 'endoscopy' });
   const box = h('div', { class: 'chart-box square' });
@@ -33,18 +34,25 @@ export function createEndoscopy({ onAction }) {
   // The readings: the bands placed lead, then the grade, size and wall side by side,
   // and the stigmata as a chip. Built once; each frame only changes text, widths and states.
   const dd = (cls) => h('dd', { class: cls });
-  const gradeCode = h('b'), gradeLabel = h('span');
-  const grade = h('dd', { class: 'endo-grade' }, gradeCode, gradeLabel);
+  // (The grade is its word alone, Small or Large: the code slot stays empty, which the styles already lay out as "None" was.)
+  const gradeLabel = h('span');
+  const grade = h('dd', { class: 'endo-grade' }, h('b'), gradeLabel);
   const diam = dd('endo-num'), wall = dd('endo-num'), red = dd('endo-chip-v'), bands = dd('endo-chip-v');
   const redWord = h('span'), redMore = h('span', { class: 'endo-more' });   // (the sign, then its detail: a slide's compact row shows the sign alone)
   red.append(redWord, redMore);
   const item = (cls, ...kids) => h('div', { class: cls }, ...kids);
+  // The three pressures of a lesson slide (the readings option, configure below): they join the list after the wall, in the same tiles.
+  const pIn = dd('endo-num'), pLum = dd('endo-num'), pAcross = dd('endo-num');
+  const pRows = [
+    h('div', { class: 'endo-tile endo-pr', title: 'The pressure inside the varix.' }, h('dt', {}, 'In the varix'), pIn),
+    h('div', { class: 'endo-tile endo-pr', title: 'The pressure of the air in the esophagus around the varix (simulated).' }, h('dt', {}, 'Lumen'), pLum),
+    h('div', { class: 'endo-tile endo-pr', title: 'The pressure inside the varix less the pressure in the lumen: what stretches the wall.' }, h('dt', {}, 'Across the wall'), pAcross)];
   const stats = h('dl', { class: 'endo-read' },
     item('endo-chip', h('dt', {}, 'Bands', h('span', { class: 'endo-dt-x' }, ' placed')), bands),
-    h('div', { class: 'endo-g', title: 'F1 small and straight, F2 enlarged and tortuous, F3 large and beaded.' }, h('dt', {}, 'Grade'), grade),
+    h('div', { class: 'endo-g', title: 'Small, <5 mm; Large, ≥5 mm.' }, h('dt', {}, 'Grade'), grade),
     item('endo-tile', h('dt', {}, 'Diameter'), diam),
     item('endo-tile', h('dt', {}, 'Wall', h('span', { class: 'endo-dt-x' }, ' thickness')), wall),
-    item('endo-chip endo-red', h('dt', {}, 'Stigmata'), red));
+    h('div', { class: 'endo-chip endo-red', title: 'In the model, red wale marks and cherry spots show once the wall stress passes 70 % of its tear point.' }, h('dt', {}, 'Stigmata'), red));
   const side = h('div', { class: 'chart-side' }, stats, bandBtn);
   el.append(stage, side);
   const set = (node, v) => { if (node.textContent !== v) node.textContent = v; };
@@ -53,21 +61,32 @@ export function createEndoscopy({ onAction }) {
     const vx = view === 'eso' ? m.varix : m.gastricVarix;
     const noVx = !varicesPresent(f, view === 'eso' ? 'VAR' : 'GV');
     bandBtn.disabled = noVx; bandBtn.title = noVx ? 'No varices to band' : '';
-    set(gradeCode, vx.grade.code === '—' ? '' : vx.grade.code); set(gradeLabel, vx.grade.label); gradeLabel.dataset.short = GRADE_SHORT[vx.grade.label] || vx.grade.label;   // no varices: the label alone
-    grade.dataset.sev = vx.grade.code === 'F1' ? 'caution' : vx.grade.code === '—' ? 'ok' : 'danger';
-    set(diam, `${fmt(vx.d, 1)} mm`); set(wall, `${fmt(vx.w, 1)} mm`);
-    const redV = vx.d < 2.5 ? 'None' : vx.redWale ? 'Red wale, cherry spots' : 'None';
+    set(gradeLabel, vx.grade.label);
+    grade.dataset.sev = vx.grade.label === 'Small' ? 'caution' : vx.grade.label === 'None' ? 'ok' : 'danger';
+    // The size seen: the size at rest (the slide's own number when there is one) at the air's pressure (airRatio, the beat-averaged table).
+    // The grade above stays the size at rest.
+    const pinTo = view === 'eso' && pinned, rest = pinTo && Number.isFinite(pinned.d) ? pinned.d : vx.d, inV = pinTo && Number.isFinite(pinned.ptm) ? pinned.ptm : vx.ptm;
+    set(diam, `${fmt(rest * airRatio(mv?.air ?? vx.air, opt.air), 1)} mm`); set(wall, `${fmt(vx.w, 1)} mm`);
+    if (opt.readings) { set(pIn, `${fmt(inV, 1)} mmHg`); set(pLum, `${fmt(opt.air, 1)} mmHg`); set(pAcross, `${fmt(inV - opt.air, 1)} mmHg`); }
+    const redV = !vx.present ? 'None' : (opt.red ?? vx.redWale) ? 'Red wale, cherry spots' : 'None';
     set(redWord, redV === 'None' ? redV : 'Red wale'); set(redMore, redV === 'None' ? '' : ', cherry spots'); if (redV === 'None') delete red.dataset.long; else red.dataset.long = ''; red.parentNode.dataset.on = String(redV !== 'None');
     const nb = String(Math.round(f.bands || 0));
     set(bands, nb); bands.parentNode.dataset.on = String(nb !== '0');
+    // A model frame taken in at the start of a frame is drawn by the field's own late callback of that frame (one already asked
+    // for by an ease, or one asked now): the field is drawn once a frame, with the newest state. Anywhere else, at once.
+    if (framePhase() === 'early') { last = { f, vx }; if (!raf) raf = drawFrame(() => { raf = 0; if (last) draw(last.f, last.vx); }); return; }
     draw(f, vx);
   }
   // Rendered endoscopic view (see endo-render.js): a per-pixel 3D shading of the lumen with raised,
   // winding varices, drawn once per state into a cached bitmap, so it is perfectly steady. Balloon,
   // bleeding and the scope mask are drawn on top.
-  const rnd = (seed) => { let x = seed >>> 0; return () => { x = (x * 1664525 + 1013904223) >>> 0; return x / 4294967296; }; };
-  const gl = createEndoGL(), glOut = document.createElement('canvas');
-  let peak = 0, peakRed = 0, an = null, lastT = 0, last = null, raf = 0, bleedT = 0, cache = { key: '', img: null }, glKey = '', painted = '', mv = null, held = null;
+  let gl = createEndoGL();
+  const glOut = document.createElement('canvas');
+  let peak = 0, peakRed = 0, an = null, lastT = 0, last = null, raf = 0, bleedLast = null, poolA = 0, cache = { key: '', img: null }, glKey = '', painted = '', mv = null, held = null, pinned = null;
+  // A slide's options for this scope (configure, below): air, the air's pressure in the lumen in mmHg (the varix is drawn and measured as it is seen
+  // at that pressure; the grade, the pressure inside it and the model are not touched); red, true or false (the red wale marks shown or hidden whatever
+  // the wall stress; absent: the model's rule); readings, three more rows (the pressure in the varix, in the lumen and across the wall).
+  const opt = { air: 0, red: null, readings: false };
   const dark = matchMedia('(prefers-color-scheme: dark)'), still = matchMedia('(prefers-reduced-motion: reduce)');
   // The field as it showed before its bitmap last changed (fadeCv), the new one fading in over it from fadeT0
   // (endo-motion.js); the balloon's and the jet's strength (0..1) easing toward on or off. On the display clock, so a
@@ -110,16 +129,21 @@ export function createEndoscopy({ onAction }) {
     // each redraw and its page stopped answering), while the comment above promises a steady view. Averaged over about four seconds,
     // a breath and more: over one second the breath's swell still crossed the field's steps every second or two.
     const kb = 1 - Math.exp(-dt / 4);
-    if (!mv) mv = { d: vx.d, ratio: vx.ratio };
-    else { mv.d += (vx.d - mv.d) * kb; mv.ratio += (vx.ratio - mv.ratio) * kb; }
+    if (!mv) mv = { d: vx.d, ratio: vx.ratio, air: vx.air?.slice() };
+    else {
+      mv.d += (vx.d - mv.d) * kb; mv.ratio += (vx.ratio - mv.ratio) * kb;
+      if (mv.air && vx.air) for (let i = 0; i < mv.air.length; i++) mv.air[i] += (vx.air[i] - mv.air[i]) * kb;
+    }
     const gNow = endoGrow(mv.d); // (endo-size.js: a large varix, 5 mm or more, is drawn plainly large)
-    peak = bands > 0 ? Math.max(peak, gNow) : gNow;
-    const tg = peak, tv = bands > 0 ? 1 : clamp((mv.d - 2.5) / 1.0, 0, 1);
+    // With air in the lumen the drawing flattens with the size seen (endo-size.js airFlat); with none, as it always was.
+    const kAir = airRatio(mv.air, opt.air), gAir = gNow * airFlat(mv.d, kAir);
+    peak = bands > 0 ? Math.max(peak, gAir) : gAir;
+    const tg = peak, tv = bands > 0 ? 1 : clamp((mv.d * kAir - 2.5) / 1.0, 0, 1);
     // Stigmata follow the modeled wall stress: they start below the red-wale threshold (70 % of the
     // tear point) and are full near it. Unbanded columns keep what they showed before the first band.
     const rNow = clamp((mv.ratio - 0.55) / 0.35, 0, 1);
     peakRed = bands > 0 ? Math.max(peakRed, rNow) : rNow;
-    const tr = peakRed;
+    const tr = opt.red == null ? peakRed : +opt.red;
     // Targets: each column is deflated and knuckled once banded (the 4 bands fill columns in turn).
     const defT = [0, 0, 0, 0], knT = new Array(16).fill(0);
     for (let c = 0; c < 4; c++) {
@@ -142,9 +166,10 @@ export function createEndoscopy({ onAction }) {
     // The banded vein starts deflating at once; its band cinches in from a wide loop a beat later (endo-motion.js).
     for (let c = 0; c < 4; c++) busy = tween(an.def[c], defT[c], now, DEFLATE_MS, 0) || busy;
     for (let i = 0; i < 16; i++) busy = tween(an.kn[i], knT[i], now, BAND_MS, knT[i] ? BAND_DELAY_MS : 0) || busy;
-    if (busy && !raf && !isPaused()) raf = nextFrame(() => { raf = 0; if (last) draw(last.f, last.vx); });
+    if (busy && !raf && !isPaused()) raf = drawFrame(() => { raf = 0; if (last) draw(last.f, last.vx); });
     const res = clamp(Math.round(2 * R * (window.devicePixelRatio || 1)), 160, 480);
     let img;
+    if (gl && !gl.ready()) { gl.dispose(); gl = null; glKey = ''; }   // (its shader failed: the CPU renderer below, as with no WebGL)
     if (gl) {
       // Drawn once per state and kept as a 2D bitmap: a steady field costs no shader pass or GPU readback.
       // (Size, presence and stigmata redraw once they have moved a step and a half of 32 from the field shown, so a slow drift
@@ -172,15 +197,18 @@ export function createEndoscopy({ onAction }) {
     // as it is. It is asked for on every frame of the model, and a full repaint each time (a scaled bitmap and the rim) held
     // a phone's or a browser without a GPU's main thread for most of every frame.
     const bleeding = !!(f.bleed?.active && f.bleed.site === 'VAR'), balloon = !!f.params?.balloonEso, root = document.documentElement;
+    // (The last bleed seen: its jet and pool keep drawing from it while they fade out after the bleed stops.)
+    if (bleeding) bleedLast = { rate: f.metrics?.bleeding?.rate, total: f.bleed.total, hr: f.metrics?.vitals?.hr ?? f.metrics?.hr };
     // The new field fades in over the old; the balloon and the jet ease in and out (endo-motion.js).
     const tu = performance.now(), du = uiT ? Math.min(100, tu - uiT) : 0; uiT = tu;
-    if (still.matches) { fadeT0 = -1; balA = +balloon; jetA = +bleeding; }
-    else { balA = glide(balA, +balloon, du); jetA = glide(jetA, +bleeding, du); }
+    const poolT = bleedLast ? poolFill(bleedLast.total) : 0;
+    if (still.matches) { fadeT0 = -1; balA = +balloon; jetA = +bleeding; poolA = poolT; }
+    else { balA = glide(balA, +balloon, du); jetA = glide(jetA, +bleeding, du); poolA = poolA ? glide(poolA, poolT, du, 600) : poolT; }
     fadeA = fadeT0 < 0 ? 1 : fadeIn(tu - fadeT0);
     if (fadeA >= 1) fadeT0 = -1;
     shown = img;
     const moving = fadeT0 >= 0 || balA !== +balloon || jetA !== +bleeding;
-    if (moving && !raf) raf = nextFrame(() => { raf = 0; if (last) draw(last.f, last.vx); });
+    if (moving && !raf) raf = drawFrame(() => { raf = 0; if (last) draw(last.f, last.vx); });
     if (!moving) uiT = 0;   // (the next ease starts from its first frame, not from the last one painted)
     const sig = [cv.width, cv.height, w, hh, gl ? glKey : cache.key, balloon, root.getAttribute('data-theme'), root.className, dark.matches].join('|');
     if (!bleeding && !moving && sig === painted) return;
@@ -199,23 +227,34 @@ export function createEndoscopy({ onAction }) {
       ctx.strokeStyle = cssAlpha('--white', 0.5); ctx.lineWidth = 2; ctx.stroke();
       ctx.globalAlpha = 1;
     }
-    if (jetA > 0) {
-      ctx.globalAlpha = jetA;
-      // Active bleeding: a jet from the ruptured column and blood pooling dependently.
-      bleedT = (bleedT + 1) % 1000;
-      const jx = cx + R * 0.28, jy = cy + R * 0.05;
-      const pool = ctx.createRadialGradient(cx, cy + R * 0.8, R * 0.1, cx, cy + R * 0.8, R * 0.75);
-      pool.addColorStop(0, cssVar('--scope-blood-pool')); pool.addColorStop(1, cssAlpha('--scope-blood-pool-edge', 0));
-      ctx.fillStyle = pool; ctx.fillRect(cx - R, cy, 2 * R, R);
-      const jr = rnd(77), sway = 0.1 * Math.sin(bleedT * 0.02);
-      ctx.fillStyle = cssVar('--scope-blood-jet');
-      for (let i = 0; i < 70; i++) { const u = jr(), a = -1.9 + sway + (jr() - 0.5) * 0.5; ctx.beginPath(); ctx.arc(jx + Math.cos(a) * u * R * 0.5, jy + Math.sin(a) * u * R * 0.5 + u * u * R * 0.4, 1.2 + 2.2 * (1 - u), 0, Math.PI * 2); ctx.fill(); }
-      ctx.globalAlpha = 1;
+    if (jetA > 0 && bleedLast) {
+      // Active bleeding: blood spurting (or oozing) from the ruptured column, running down the wall and pooling in the
+      // lowest part of the lumen (endo-bleed.js). On the model's clock, so a paused bleed holds still.
+      // (the tear lies on the column as the field was last drawn)
+      const tear = scopeTear(gl && held ? held[0] / 32 : an.g);
+      drawScopeBleed(ctx, { cx, cy, R, jx: cx + tear.x * R, jy: cy + tear.y * R, t: still.matches ? 0.3 : simTime(), a: jetA, rate: bleedLast.rate, fill: poolA, hr: bleedLast.hr });
     }
+    if (jetA <= 0 && !bleeding) { bleedLast = null; poolA = 0; }
     ctx.restore();
     ctx.strokeStyle = cssVar('--scope-rim'); ctx.lineWidth = 7; ctx.beginPath(); ctx.arc(cx, cy, R, 0, Math.PI * 2); ctx.stroke();
   }
-  return { id: 'endoscopy', label: 'Endoscopy', el, update, setView() {}, dispose() { offRun(); cancelFrame(raf); raf = 0; gl?.dispose(); last = null; } };
+  /** This slide's options (presenter-tools show and option): { air, red, readings } as described at opt above. Eased, never snapped: the drawing
+   *  follows the new air through the same 0.2 s ease as any change of size, the red marks through theirs. */
+  function configure(t) {
+    const air = clamp(+t?.air || 0, 0, 20), red = typeof t?.red === 'boolean' ? t.red : null, readings = !!t?.readings;
+    const changed = air !== opt.air || red !== opt.red || readings !== opt.readings;
+    Object.assign(opt, { air, red, readings });
+    if (readings) { if (pRows[0].parentNode !== stats) stats.lastElementChild.before(...pRows); } else for (const r of pRows) r.remove();
+    el.toggleAttribute('data-readings', readings);   // (a slide's card lays them out in a row of their own, styles/app.css)
+    if (changed && last) update(last.f);
+  }
+  // The slide's own numbers (presenter-tools pin): the size and the pressure in the varix the tiles and the words show, not the beat's swing.
+  function pin(fp) {
+    const P = fp?.at?.P;
+    pinned = fp && Number.isFinite(fp.varix) ? { d: fp.varix, ptm: P ? P[NI.VAR] : NaN } : null;
+    if (last) update(last.f);
+  }
+  return { id: 'endoscopy', label: 'Endoscopy', el, update, configure, pin, setView() {}, dispose() { offRun(); cancelFrame(raf); raf = 0; gl?.dispose(); last = null; } };
 }
 
 // ── Varix wall cross-section (L3) ───────────────────
@@ -259,7 +298,7 @@ export function createVarixWall() {
   const box = h('div', { class: 'chart-box square' });
   const cv = h('canvas', { role: 'img', 'aria-label': 'Varix cross-section: transmural pressure stretches the varix wall' });
   box.append(cv);
-  const stage = h('div', { class: 'endo-stage' }, box, h('span', { class: 'endo-pos' }, h('span', { class: 'wall-cap' }, 'Laplace’s law: '), 'T = ΔP · r / w'));
+  const stage = h('div', { class: 'endo-stage' }, box, h('span', { class: 'endo-pos' }, h('span', { class: 'wall-cap' }, 'Laplace’s law: '), 'σ = ΔP · r / w'));
   const dd = (cls) => h('dd', { class: cls });
   const item = (cls, ...kids) => h('div', { class: cls }, ...kids);
   const stressTxt = dd('endo-stress-v'), stressFill = h('i'), stressBar = h('span', { class: 'endo-bar', 'aria-hidden': 'true' }, stressFill);
@@ -272,7 +311,7 @@ export function createVarixWall() {
   // A slide's screen reads the stress as one number top left and its state top right (the pane keeps its sentence).
   const wPct = h('span'), wBig = h('b', { class: 'wall-big' }, wPct, h('small', {}, '%', h('span', { class: 'wall-of' }, ' of tear point'))), wSev = h('span', { class: 'wall-sev' });
   const stats = h('dl', { class: 'endo-read' },
-    item('endo-g wall-law', h('dt', {}, 'Laplace’s law'), h('dd', { class: 'wall-formula' }, 'T = ΔP · r / w')),
+    item('endo-g wall-law', h('dt', {}, 'Laplace’s law'), h('dd', { class: 'wall-formula' }, 'σ = ΔP · r / w')),
     item('endo-stress', name('Wall stress (model)', 'Wall stress'), stressTxt, wBig, wSev, stressBar),
     item('endo-tile', name('Transmural ΔP', 'ΔP'), ptm),
     item('endo-tile', h('dt', {}, 'Radius r'), rad),
@@ -313,14 +352,14 @@ export function createVarixWall() {
     ctx.clearRect(0, 0, w, hh);
     // (On a slide the labels take the card's small size, so they never fall under 12 px; 12 px is the floor in the Tests card too.)
     const fs = cv.closest('.pz-tool') ? parseFloat(getComputedStyle(cv).fontSize) || 12 : clamp((Math.min(w, hh) / 2 - 6) / 11, 12, 14);
-    const f6 = FONT(600, fs), f5 = FONT(500, fs), inkT = inkRows(f6, 'T');
+    const f6 = FONT(600, fs), f5 = FONT(500, fs), inkT = inkRows(f6, 'σ');
     const cx = w / 2;
     // The varix and its marks for a picture of radius R round (cx, cy), at this beat's radius, wall and ΔP.
     // (most: the largest varix and ΔP the picture can show, which set its size, so the ring holds still through every beat)
     const parts = (R, cy, most) => {
       const Rl = R * 0.52, rr = most ? R * 0.3 : clamp(v.r * R * 0.05, 4, R * 0.3), vy = cy - Rl - rr * 0.25, lw = clamp((most ? Math.ceil(v.w * 10) / 10 : v.w) * R / 20, 1, 10);
       const ro = rr + lw / 2 + Math.max(5, R / 30), len = (most ? 30 : clamp(v.ptm, 0, 30)) / 30 * rr * 0.9 + 4;
-      // T beside the ΔP arrow's shaft, just right of its head; where it would sit on the wall's outline it rises until its
+      // σ beside the ΔP arrow's shaft, just right of its head; where it would sit on the wall's outline it rises until its
       // ink is 2 px or more clear of the line's soft edge (it follows the varix through the beat, so it never touches it).
       const tx = cx + (4 + R / 60) * 0.45 + 2 - Math.min(...inkT.map((q) => q[2]));
       let ty = vy - ro - fs * 0.75;
@@ -328,9 +367,9 @@ export function createVarixWall() {
       const tTop = ty + Math.min(...inkT.map((q) => q[0]));
       return { Rl, rr, vy, lw, ro, len, tx, ty, top: Math.min(vy - Math.max(rr + lw / 2, ro + 2.5, rr + 3 + len + 1), tTop) };
     };
-    // The tension's T and the ΔP arrow rise above the varix at the top of the wall: the picture, its foot 6 px above the box's
-    // foot (or lower, into those 6 px, where that is all it needs), is the largest whose T and arrow ink at the largest varix
-    // and ΔP stays 1 px or more inside the canvas (a 12 px T had its crossbar cut). The ring is set once for the box, and only
+    // The wall stress's σ and the ΔP arrow rise above the varix at the top of the wall: the picture, its foot 6 px above the box's
+    // foot (or lower, into those 6 px, where that is all it needs), is the largest whose σ and arrow ink at the largest varix
+    // and ΔP stays 1 px or more inside the canvas (a 12 px T, the symbol before σ, had its crossbar cut). The ring is set once for the box, and only
     // the varix and its marks move with the beat.
     const gk = `${w}x${hh}x${fs}x${Math.ceil(v.w * 10)}`;
     if (geo.k !== gk) {
@@ -379,7 +418,7 @@ export function createVarixWall() {
     if (rp.fill < 2) { const q = rAt(cx + 1.5 - rL); if (q.fill > rp.fill) rp = q; }
     ctx.fillStyle = cssVar('--white');
     if (keep('r', rp.fill >= 1 && rp.dash >= 2)) put('r', f6, rp.x, ry, { fill: rp.fill, dash: rp.dash });
-    // Laplace's other two terms on the picture: the tension T along the wall (two arrows pulling apart round the top,
+    // Laplace's other two terms on the picture: the wall stress σ along the wall (two arrows pulling apart round the top,
     // heavier as the stress rises) and the wall thickness w across the rim (a bracket, in the faded label ink).
     const ink = cssVar('--text-3');
     ctx.strokeStyle = rim; ctx.fillStyle = rim; ctx.lineWidth = clamp(1.25 + 2.5 * clamp(v.ratio, 0, 1.2), 1.25, 4);
@@ -390,7 +429,7 @@ export function createVarixWall() {
       ctx.beginPath(); ctx.moveTo(ex + tx * hd * 0.2, ey + ty * hd * 0.2);
       ctx.lineTo(ex - tx * hd + ty * hd * 0.55, ey - ty * hd - tx * hd * 0.55); ctx.lineTo(ex - tx * hd - ty * hd * 0.55, ey - ty * hd + tx * hd * 0.55); ctx.fill();
     }
-    put('T', f6, tx, ty, { ring: Math.max(inkIn(inkT, tx, ty, cx, cy, R - 0.5), inkOut(inkT, tx, ty, cx, cy, R + 0.5)), top: ty + Math.min(...inkT.map((q) => q[0])) });
+    put('σ', f6, tx, ty, { ring: Math.max(inkIn(inkT, tx, ty, cx, cy, R - 0.5), inkOut(inkT, tx, ty, cx, cy, R + 0.5)), top: ty + Math.min(...inkT.map((q) => q[0])) });
     const aw = Math.PI * 0.62, bx = Math.cos(aw), by = Math.sin(aw);
     const i0 = rr - lw / 2, o0 = rr + lw / 2 + 3;
     ctx.strokeStyle = ink; ctx.lineWidth = 1;
@@ -555,7 +594,7 @@ export function createAbdomen({ onAction }) {
     albS.textContent = albOn() ? `${Math.round(L * 8)} g` : warn ? 'Advised' : 'Optional';
     albS.classList.toggle('ab-warn', warn);
     alb.classList.toggle('ab-warn', warn);
-    alb.title = warn ? `Above 5 L, give albumin (${Math.round(L * 8)} g, 8 g per litre drained) to protect the kidneys.` : 'Albumin 8 g per litre drained: advised above 5 L, optional below.';
+    alb.title = warn ? `For >5 L, give albumin (${Math.round(L * 8)} g, 8 g per litre drained) to protect the kidneys.` : 'Albumin 8 g per litre drained: advised for >5 L, optional for ≤5 L.';
     drain.textContent = hasFluid ? 'Drain' : 'No fluid';
     drain.disabled = !hasFluid;
   }

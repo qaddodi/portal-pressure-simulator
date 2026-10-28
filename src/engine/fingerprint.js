@@ -31,7 +31,7 @@ export function fingerprintOf(m, { P = null, Q = null, D = null, copy = false, p
   return {
     pv: m.pv, whvp: m.whvp, fhvp: m.fhvp, hvpg: tenthGap(m.whvp, m.fhvp, m.hvpg), ra: m.vitals?.ra ?? m.ra, ivc: m.ivc, ppg: tenthGap(m.pv, m.ivc, m.ppg),
     asc: a.volume, saag: a.saag, tp: a.totalProtein, aalb: a.albumin, salb: params?.albumin, sigma: a.lymphSigma, hepLymph: a.hepLymph, splLymph: a.splLymph,
-    sin: P ? P[NI.SIN_R] : null, cv: P ? P[NI.CV_R] : null, int: P ? P[NI.INT] : null, varix: m.varix.d, wall: m.varix.ratioShown, gv: m.gastricVarix.d, spleen: m.spleen.length, plt: m.spleen.platelets,
+    sin: P ? P[NI.SIN_R] : null, cv: P ? P[NI.CV_R] : null, int: P ? P[NI.INT] : null, varix: m.varix.d, varixAir: m.varix.air, wall: m.varix.ratioShown, gv: m.gastricVarix.d, spleen: m.spleen.length, plt: m.spleen.platelets,
     pvFlow: m.pvFlowMean, shunt: m.shuntFraction, he: m.heRisk?.index, liver: m.liverPerfPct, lsm: m.lsm, pvVel: m.pvVelMean, map: m.map, hr: m.hr, hb: m.blood?.hb, co: m.co, bv: m.blood?.volume,
     rih: P && Q ? liverRes(P, Q) : null,
     lymphCap: a.lymphCap, lymphOver: fluid?.excess, lymphBack: fluid ? fluid.bulk + fluid.water : undefined, lymphNet: fluid?.net,

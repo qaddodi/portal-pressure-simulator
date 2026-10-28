@@ -9,11 +9,13 @@
 // Its numbers are the slide's own (its fingerprint, as the tiles read it: the same on every screen), easing to each new
 // state; a what-if slider or compare button moves it with the tiles. The Patients chart (charts.js) is not changed.
 
-import { PROFILE_PATHS } from './anatomy.js?v=aeef116188';
+import { frame, cancelFrame } from './frame.js?v=7254a8a850';
+import { PROFILE_PATHS } from './anatomy.js?v=48cc98d415';
 import { NODES } from '../engine/topology.js?v=4044766e96';
-import { RATE } from './table-marks.js?v=15f059172f';
+import { RATE } from './table-marks.js?v=8458ad3bf8';
 import { monotoneSegs } from './curve-near.js?v=9ff15157e9';
-import { pressureColor } from './colormap.js?v=cdcf6a2f55';
+import { plotPanel } from './plot-look.js?v=5037697da7';
+import { pressureColor } from './colormap.js?v=05a231b880';
 
 const PATH = PROFILE_PATHS[0];
 export const STATIONS = PATH.nodes;
@@ -51,7 +53,15 @@ export function zoneSpans() {
   return i0 < 1 || i1 < i0 || i1 >= STATIONS.length - 1 ? [] : [[0, i0 - 1], [i0, i1], [i1 + 1, STATIONS.length - 1]];
 }
 // (A name's width: the text and, unless tight, the style's letter-spacing, .06 em a letter: styles/app.css .ppf-zone.)
-const zoneW = (t, f, tw, tight) => tw(t, 600) + (tight ? 0 : 0.06 * f * t.length);
+// (Up to ZONE_MAX px the names are set in the chart's own type, as ever. Past it, on the six ladders' larger charts (Mohammad, 26 Oct: bigger
+// type in each chart), they ease down towards ZONE_MIN: the strip over the plot stays one short line, the readings, the stations and the
+// brackets grow and the plot does not give up two lines of height to three captions. The numbers (profileGeo's zb, hdr) follow zoneSize.)
+export const ZONE_MAX = 16, ZONE_MIN = 13;
+/** The room kept over the zones' names, between the band's top edge and the tops of the capitals, in zone-name em (Mohammad, 27 Oct: "the space above is
+ *  tight, needs some margin above PRE, INTRA, POST-hepatic"): 0.5 em, about 8 px. */
+export const ZONE_TOP = 0.5;
+export const zoneSize = (f) => (f <= ZONE_MAX ? f : Math.max(ZONE_MIN, ZONE_MAX - (f - ZONE_MAX) * 0.75));
+const zoneW = (t, f, tw, tight) => (zoneSize(f) / f) * (tw(t, 600) + (tight ? 0 : 0.06 * f * t.length));
 /** The lines of zone k's name: one, or two ("PRE" over "HEPATIC"). */
 const zoneLines = (k, lines) => (lines === 2 ? [ZONES[k].top, ZONE_SECOND] : [ZONES[k].one]);
 /** How the three names are set in a chart whose stations stand slot px apart, in type f px: { lines: 1 | 2, tight } (tight: letters closer),
@@ -66,10 +76,10 @@ export function zoneFit(slot, f, tw) {
 }
 /** The boxes the zone names take over the plot of the chart G (profileGeo), 2 px clear all round: what values, line names and brackets keep out of. */
 export function zoneBoxes(G, tw) {
-  const { f, zone } = G, cap = 0.72 * f;
+  const { f, zone } = G, zf = zoneSize(f), cap = 0.72 * zf;
   return zone.lines ? zoneSpans().map(([a, b], k) => {
     const m = (G.x(a) + G.x(b)) / 2, hw = Math.max(...zoneLines(k, zone.lines).map((t) => zoneW(t, f, tw, zone.tight))) / 2;
-    return [m - hw - 2, m + hw + 2, G.T - G.zb - cap - (zone.lines === 2 ? 1.05 * f : 0) - 2, G.T - G.zb + 2];
+    return [m - hw - 2, m + hw + 2, G.T - G.zb - cap - (zone.lines === 2 ? 1.05 * zf : 0) - 2, G.T - G.zb + 2];
   }) : [];
 }
 
@@ -112,6 +122,14 @@ export function profileOf(fp) {
   const v = STATIONS.map((n) => { const k = AT_FP[n], x = k && Number.isFinite(fp[k]) ? fp[k] : P ? P[NI[n]] : NaN; return Number.isFinite(x) ? +x : NaN; });
   if (v.some((x) => !Number.isFinite(x))) return null;
   return { v, hvpg: fp.hvpg, ppg: fp.ppg };
+}
+
+/** The instrument drawn once at its own size (w0 px wide, type f0) and scaled down as one piece to the room W it has: k, never above 1. Its type
+ *  stays 12 px at least on the screen: where k would take it under, the picture is drawn in type larger by s (the chart's own layout then keeps
+ *  everything clear at that size) and scaled by the same k, so the words come to 12 and the rest is the instrument's. (six site ladders) */
+export function chartScale(W, w0, f0, floor = 12.02) {
+  const k = Math.min(1, W / w0);
+  return { k, s: Math.max(1, floor / (f0 * k)) };
 }
 
 /** The axis's top: the highest point of the lines drawn, up to the next 5 (10 over 40), at least 15. */
@@ -171,7 +189,7 @@ export function profileGeo(w, h, f, tw, inside = false) {
   // shorter by the 1.6 em this gave back, so the plot keeps (nearly) its height. The names' baseline zb stands over the plot clear of a
   // reading at the plot's top, and of a block hanging from one (its box and its halo, 2 px over them), so a name never touches them. One line of names, or two where the narrowest
   // zone cannot hold its name; none where even that does not fit, the strip then only a lip over the readings.)
-  const zone = zoneFit(slot, f, tw), zb = 0.36 * f + 6, hdr = zone.lines ? zb + 0.84 * f + (zone.lines === 2 ? 1.05 * f : 0) : 0.36 * f + 4;
+  const zone = zoneFit(slot, f, tw), zb = 0.36 * f + 6, zf = zoneSize(f), hdr = zone.lines ? zb + (0.84 + ZONE_TOP) * zf + (zone.lines === 2 ? 1.05 * zf : 0) : 0.36 * f + 4;
   const T = 0.2 * f + hdr, nameH = fit.rows * 1.25 * f + 0.4 * f;
   const brFit = SPANS.map(([, name, a, b]) => bracketFit(slot * (STATIONS.indexOf(b) - STATIONS.indexOf(a)), name, tw, f));
   const brMode = brFit.map((q) => q.mode), brFs = brFit.map((q) => q.fs);
@@ -582,6 +600,10 @@ export function createProfileTool() {
   // (Each block as it fades: its goal, 1 shown or 0 gone, the opacity it fades from, and when it began. A block comes and goes with
   // an ease, never at once.)
   const blk = new Map();
+  // (A question slide's hold (slide hold: true): the red blocks and the HVPG and PPG brackets stay
+  // out, as the answer would be read off them; heldK eases the brackets out and in as a block fades, and the blocks go and come by blk.)
+  let held = false, lastFp = null;
+  const heldK = { a: 1, from: 1, t0: 0 };
   const blkOp = (b, now) => b.from + (b.a - b.from) * (0.5 - 0.5 * Math.cos(Math.PI * Math.min(1, Math.max(0, (now - b.t0) / FADE_MS))));
   // (The numbers drawn: the goal's, eased; the healthy and earlier lines as they are.)
   const healthy = () => profileOf(ctx0?.healthy?.());
@@ -674,10 +696,14 @@ export function createProfileTool() {
     const valY = (cy, k) => cy + sides[k].by, t = performance.now();
     // (The blocks showing, each where the shown line falls so it moves with the line as it eases, and how far each has faded in.)
     const bk = [...blk].map(([i, b]) => ({ op: blkOp(b, t), box: blockBox(G, tw, shown, i) })).filter((q) => q.op >= 0.005);
+    // (The three zones' tints are one rounded shape the chart's full width, his G2 look, plot-look.js: the corners of the whole band, not of
+    // each zone. The first tint reaches the chart's left edge and the last its right, so the axis numbers stand inside the band, in the strip
+    // the lines never enter; the zones' names stay centred over their own stations.)
+    const band = plotPanel(sv, 0, G.T - G.hdr, w, G.B - (G.T - G.hdr), { fill: false });
     const blkRect = ([x0, x1, y0, y1], at = {}) => sv('rect', { x: x0, y: y0, width: x1 - x0, height: y1 - y0, rx: Math.min(4, (x1 - x0) / 2), ...at });
     const svg = sv('svg', { viewBox: `0 0 ${w} ${hh}`, width: w, height: hh, role: 'img', style: `font-size: ${f.toFixed(2)}px`,
       'aria-label': `Pressure from gut to heart: ${STATIONS.map((n, i) => `${SPOKEN[n]} ${labels[i]}`).join(', ')} mmHg. HVPG ${whole(shown.hvpg)}, PPG ${whole(shown.ppg)}.` },
-      sv('defs', {}, hatchDef(`${gid}-h`, 8), bk.length ? sv('clipPath', { id: `${gid}-c` }, bk.map((q) => blkRect(q.box))) : null, sv('linearGradient', { id: gid, gradientUnits: 'userSpaceOnUse', x1: G.x(0), x2: G.x(STATIONS.length - 1), y1: 0, y2: 0 },
+      sv('defs', {}, band.clip, hatchDef(`${gid}-h`, 8), bk.length ? sv('clipPath', { id: `${gid}-c` }, bk.map((q) => blkRect(q.box))) : null, sv('linearGradient', { id: gid, gradientUnits: 'userSpaceOnUse', x1: G.x(0), x2: G.x(STATIONS.length - 1), y1: 0, y2: 0 },
         shown.v.map((v, i) => sv('stop', { offset: (i / (STATIONS.length - 1)).toFixed(3), 'stop-color': col(v) }))),
         // (The lines stop NUM_PAD px short of each number written on them.)
         sv('mask', { id: `${gid}-m`, maskUnits: 'userSpaceOnUse', x: 0, y: 0, width: w, height: hh },
@@ -685,13 +711,15 @@ export function createProfileTool() {
           now.map(([cx, cy], i) => { const hw = tw(labels[i], 700) / 2; return sv('rect', { x: cx - hw - NUM_PAD, y: cy - 0.36 * f - NUM_PAD, width: 2 * (hw + NUM_PAD), height: 0.72 * f + 2 * NUM_PAD, rx: NUM_PAD, fill: '#000' }); }))),   // colour-exempt: a mask
       // The route's three zones on soft tints, each named over the plot (every ladder, every deck: Mohammad, 21 Oct, "return the word liver",
       // 22 Oct, PRE / INTRA / POST written out in full): the names stand in one line, or in two where a zone is too narrow for its name.
-      zoneSpans().map(([a, b], k) => {
+      zoneSpans().map(([a, b], k, sp) => {
         const m = (G.x(a) + G.x(b)) / 2, y0 = G.T - G.hdr, ls = zoneLines(k, G.zone.lines);
-        return sv('g', { class: G.zone.tight ? `${ZONES[k].cls} tight` : ZONES[k].cls }, sv('rect', { x: G.x(a) - G.slot / 2, width: G.slot * (b - a + 1), y: y0, height: G.B - y0 }),
-          G.zone.lines ? ls.map((t, j) => sv('text', { x: m, y: G.T - G.zb - (ls.length - 1 - j) * 1.05 * f, 'text-anchor': 'middle' }, t)) : null);
+        const zf = zoneSize(f), tx0 = k ? G.x(a) - G.slot / 2 : 0, tx1 = k < sp.length - 1 ? G.x(b) + G.slot / 2 : w;
+        return sv('g', { class: G.zone.tight ? `${ZONES[k].cls} tight` : ZONES[k].cls, style: zf < f - 0.01 ? `font-size: ${zf.toFixed(2)}px` : null }, sv('rect', { x: tx0, width: tx1 - tx0, y: y0, height: G.B - y0, 'clip-path': band.url }),
+          G.zone.lines ? ls.map((t, j) => sv('text', { x: m, y: G.T - G.zb - (ls.length - 1 - j) * 1.05 * zf, 'text-anchor': 'middle' }, t)) : null);
       }),
       Array.from({ length: Math.floor(top / every) + 1 }, (_, k) => sv('g', { class: 'ptk-grid' }, sv('line', { x1: G.L, x2: G.R, y1: y(k * every), y2: y(k * every) }),
-        sv('text', { x: G.L - 6, y: y(k * every) + 0.35 * f, 'text-anchor': 'end' }, String(k * every)))),
+        // (No 0 on the axis, Mohammad, 27 Oct: "0 is kinda implied"; its line stays.)
+        k ? sv('text', { x: G.L - 6, y: y(k * every) + 0.35 * f, 'text-anchor': 'end' }, String(k * every)) : null)),
       // (The unit in the bottom row, at the left, level with the brace's name: Mohammad, 21 Oct, "Remove mmHg from above put it below".)
       sv('text', { class: 'ptk-unit', x: 0, y: G.braceY + 1.55 * f }, 'mmHg'),
       hl ? sv('path', { class: 'ppf-hl', d: smoothD(pts(hl)), mask: `url(#${gid}-m)` }) : null,
@@ -729,9 +757,10 @@ export function createProfileTool() {
             stack ? sv('text', { x: lb.x, y: yy - 0.19 * f, 'text-anchor': 'middle' }, sv('tspan', { class: 'k' }, name), sv('tspan', { x: lb.x, dy: `${(1.1 * f).toFixed(2)}` }, val))
               : sv('text', { x: lb.x, y: yy + 0.36 * fs, 'text-anchor': 'middle' }, sv('tspan', { class: 'k' }, `${name} `), val));
         };
-        const row = rows[r] || { y: plan.inside ? plan.brk[r] : G.brY(r), from: null }, e = fadeK(row, t);
+        const row = rows[r] || { y: plan.inside ? plan.brk[r] : G.brY(r), from: null }, e = fadeK(row, t), hk = blkOp(heldK, t);
         if (row.from != null && e >= 1) row.from = null;
-        return row.from == null ? [brk1(row.y, 1)] : [brk1(row.from, 1 - e), brk1(row.y, e)];
+        if (hk < 0.005) return [];
+        return row.from == null ? [brk1(row.y, hk)] : [brk1(row.from, (1 - e) * hk), brk1(row.y, e * hk)];
       }),
       // The two readings as pills in the plot's top right, tinted as the brackets rate them, over everything else (the plan keeps them clear).
       !pillK.boxes || blkOp(pillK, t) < 0.005 ? null : pillK.boxes.map(([px0, px1, py0, py1], k) => {
@@ -740,7 +769,7 @@ export function createProfileTool() {
           sv('text', { x: gx + (px1 - px0) / 2, y: gy + (py1 - py0) / 2 + 0.36 * f, 'text-anchor': 'middle' }, sv('tspan', { class: 'k' }, `${name} `), whole(v)));
       }));
     for (const [i, b] of blk) if (!b.a && t - b.t0 >= FADE_MS) blk.delete(i);
-    fading = rows.some((row) => row?.from != null) || Object.values(nameAt).some((a) => t - a.t0 < FADE_MS) || pillAt.some((a) => a && t - a.t0 < FADE_MS) || t - pillK.t0 < FADE_MS || [...blk.values()].some((b) => t - b.t0 < FADE_MS);
+    fading = rows.some((row) => row?.from != null) || Object.values(nameAt).some((a) => t - a.t0 < FADE_MS) || pillAt.some((a) => a && t - a.t0 < FADE_MS) || t - pillK.t0 < FADE_MS || t - heldK.t0 < FADE_MS || [...blk.values()].some((b) => t - b.t0 < FADE_MS);
     el.replaceChildren(svg);
   }
   const glideAt = (a, now) => { const e = 0.5 - 0.5 * Math.cos(Math.PI * Math.min(1, Math.max(0, (now - a.t0) / FADE_MS))); return [lerp(a.fx, a.x, e), lerp(a.fy, a.y, e)]; };
@@ -754,20 +783,21 @@ export function createProfileTool() {
     const done = shown.v.every((x, i) => Math.abs(x - goal.v[i]) < 0.02) && Math.abs(shown.top - goal.top) < 0.05;
     if (done) shown = { ...goal, v: goal.v.slice() };
     if (el.isConnected || !done || fading) draw();
-    if (!done || fading) raf = requestAnimationFrame(tick);
+    if (!done || fading) raf = frame(tick, 'tool-profile');
   }
   function aim(fp) {
     const p = profileOf(fp);
     if (!p) return;
+    lastFp = fp;
     ref = before();
     goal = { ...p, top: axisTop(p, healthy(), ref) };
-    const want = new Set(blocksOf(goal, healthy())), t = performance.now();
+    const want = new Set(held ? [] : blocksOf(goal, healthy())), t = performance.now();
     for (const i of new Set([...blk.keys(), ...want])) {
       const a = want.has(i) ? 1 : 0, b = blk.get(i);
       if (!b || b.a !== a) blk.set(i, { a, from: reduceMQ.matches ? a : b ? blkOp(b, t) : 0, t0: t });
     }
     stale = true;
-    if (!raf) raf = requestAnimationFrame(tick);
+    if (!raf) raf = frame(tick, 'tool-profile');
   }
   if (typeof ResizeObserver === 'function') new ResizeObserver(() => { if (shown && el.isConnected && size !== `${Math.round(el.clientWidth)}x${Math.round(el.clientHeight)}`) { plan = null; draw(); } }).observe(el);
   return {
@@ -776,8 +806,21 @@ export function createProfileTool() {
     configure(t, ctx) { cfg = { from: t?.from ?? null, fromLabel: typeof t?.fromLabel === 'string' && t.fromLabel.trim() ? t.fromLabel.trim() : 'Before' }; ctx0 = ctx || null; if (ctx?.fp) aim(ctx.fp); },
     /** The numbers the slide's tiles show: the slide's state, or a what-if slider's or a compare button's. */
     pin(fp) { if (el.isConnected && fp) aim(fp); },
+    /** The answer held back (a question slide): no red blocks and no HVPG or PPG brackets, the line and its numbers as they are. On release
+     *  they ease in; instant: set at once (the card is still out of sight). */
+    hold(on, instant = false) {
+      on = !!on;
+      const t = performance.now(), a = on ? 0 : 1, now = instant || reduceMQ.matches ? a : blkOp(heldK, t);
+      if (on === held && heldK.a === a && (!instant || heldK.from === a)) return;
+      held = on; Object.assign(heldK, { a, from: now, t0: instant ? 0 : t });
+      if (lastFp) aim(lastFp);
+      if (instant) for (const b of blk.values()) { b.from = b.a; b.t0 = 0; }
+      if (!raf) raf = frame(tick, 'tool-profile');
+    },
+    /** Drawn again at once for a type size that changed in a box that did not (the six ladders' scaled copies, presenter.js fitChart). */
+    redraw() { if (shown && el.isConnected) { plan = null; draw(); } },
     clear() {},
-    dispose() { if (raf) cancelAnimationFrame(raf); raf = 0; },
+    dispose() { if (raf) cancelFrame(raf); raf = 0; },
   };
 }
 

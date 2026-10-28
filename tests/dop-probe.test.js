@@ -638,7 +638,7 @@ test('stage: while the readings slide, the cards are read on every frame and the
   const tr = stage.slice(stage.indexOf('function dprTrack() {'), stage.indexOf('function dprCards() {'));
   assert.match(tr, /document\.querySelector\('\.pz-data\.pz-sliding'\) \? 0 : dprTrackQuiet \+ 1/);
   assert.match(tr, /dpr\.track = dprTrackQuiet <= 6;/);
-  assert.match(tr, /if \(dop\.id\) \{ dprStale\(\); dprobePaint\(\); \}/);
+  assert.match(tr, /if \(dop\.id\) \{ dprStale\(\); dprobePaint\(\); labelGL\?\.redraw\(\); \}/);   // (and drawn by the GPU's label layer in that frame)
   assert.match(tr, /if \(dpr\.track\) dprTrackRaf = nextFrame\(dprTrack\);/);
   // (While they slide a card's leading edge is read a moment ahead, so the probe is out of its way as it arrives; from the speed it has
   // just moved at, in ms, never from a stale read, and by at most DPR_REACH px.)

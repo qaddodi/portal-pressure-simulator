@@ -119,14 +119,15 @@ test('a new patient eases into the lobule: the tissue crossfades instead of snap
   assert.match(lz, /const XF_MS = 900;/);
   assert.match(lz, /if \(worldState && ws !== worldState && !unseen\(\) && worldGeo === G && worldCv\.width && !\(xfT0 && now - xfT0 < XF_MS\)\) \{ \[worldOld, worldCv\] = \[worldCv, worldOld\];/,
     'swapped, not copied, and a change mid-fade does not restart it');
-  assert.match(lz, /const ws = \[G\.W, G\.H, dark,[^\n]*wk = sc\.toFixed\(3\) \+ '\|' \+ ws;/, 'only a new state fades, never a new drawing scale');
+  assert.match(lz, /const worldStateOf = \(m, G, dark, cs\) => \[G\.W, G\.H, dark,/);
+  assert.match(lz, /const ws = worldStateOf\(m, G, dark, cs\);[\s\S]*?const wk = sc\.toFixed\(3\) \+ '\|' \+ ws;/, 'only a new state fades, never a new drawing scale');
   // (Mixed (1 − u)·old + u·new at the bitmap's own size, then placed: see tests/fibrous-band-ends.test.js for why not one over the other.)
   assert.match(lz, /const u = xfU\(xfT0, now\)[^\n]*\n[^\n]*\n[^\n]*x\.globalAlpha = 1 - u; x\.drawImage\(worldOld, 0, 0, n, xfCv\.height\);\n[^\n]*x\.globalAlpha = u; x\.drawImage\(worldCv, 0, 0\);[^\n]*\n\s+c\.drawImage\(xfCv, sx \* dpr, sy \* dpr, side, side\);/, 'the old picture under the new one, both sharp');
   assert.match(lz, /if \(xfT0\) \{ xfT0 = 0; free\(worldOld\); free\(xfCv\); \}/, 'the old picture is given back once faded');
   // The surround's tiles too, and the frame loop keeps drawing while either fades.
   assert.match(lz, /if \(surNow && t\.set !== surNow\.set && surNow\.q\.cv\?\.width && !unseen\(\)\) \{ surOld = surNow\.q; surT0 = now; \}/);
   assert.match(lz, /if \(rzMoving \|\| lensFrom \|\| tissueFading\(now\)\) drawVersion\+\+;/);
-  assert.match(lz, /\[W, H, dpr, wk, fading \?/, 'each fading frame draws the tissue again');
+  assert.match(lz, /\[W, H, dpr, wk, gpu, fading \?/, 'each fading frame draws the tissue again');
   // The sinusoids' dulling follows the eased resistance, as their calibers do.
   assert.match(lz, /const sinFib = \(\) => clamp\(Math\.log\(rzOf\(\)\.sin\) \/ 3\.2, 0, 1\);/);
 });
@@ -137,7 +138,7 @@ test('a patient changed while the lobule is closed dives into that patient\'s lo
   assert.ok(fn, 'snapState exists');
   for (const part of ['easeP = createEaser();', 'rz = null;', 'xfT0 = 0;', 'surOld = null;', 'surT0 = 0;', 'snapNext = true;']) assert.ok(fn[1].includes(part), part);
   assert.match(lz, /const unseen = \(\) => fade <= 0 \|\| staging \|\| snapNext;/);
-  assert.match(lz, /paintTissue\(W, H, dpr, dark, cs, !g\);\n\s+snapNext = false;/, 'one frame only');
+  assert.match(lz, /showTissueGL\(paintTissue\(W, H, dpr, dark, cs, !g, [^\n]*\)\);\n\s+snapNext = false;/, 'one frame only');
   // Every way the lobule is drawn out of sight starts from the patient's state: the dive's staging, the idle preparation, a reopen.
   assert.match(lz, /staging = true; snapState\(\);\n\s+try \{ update\(F\); \}/);
   assert.match(lz, /snapState\(\);\n\s+model = lobuleState\(\{ \.\.\.F, P: F\.Pf \|\| F\.P \}, st\);/);

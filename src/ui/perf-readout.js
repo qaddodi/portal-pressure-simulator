@@ -4,7 +4,7 @@
 // (gpu-probe.js cpuOnly: no waiting for the GPU), every frame gap over 20 ms in the window is listed with the steps that ran
 // in it, and so is each long task the browser reports (Chrome; Safari reports none, its frame gaps still show). The panel is
 // written only when a window closes, never during a gesture, and the last five gestures stay listed with a Copy button.
-import { gpuProbe } from './gpu-probe.js?v=e82dc07b45';
+import { gpuProbe, COUNTED, TWICE, WHY, ROWS_REFUSED } from './gpu-probe.js?v=dd12fc216c';
 
 const WINDOW = 2000, GAP = 20, KEEP = 5;
 const HIDES = ['', 'no live organs', 'no figure SVG', 'no labels', 'no GPU picture'];
@@ -12,13 +12,17 @@ const HIDES = ['', 'no live organs', 'no figure SVG', 'no labels', 'no GPU pictu
 const HIDE_CSS = {
   'no live organs': '#stageView svg#stage :is(#backdrop, #organs, #ascites, #ghosts) { visibility: hidden !important; }',
   'no figure SVG': '#stageView :is(svg#stage, svg#stageOver) { visibility: hidden !important; }',
-  'no labels': '#stageView svg#labels { visibility: hidden !important; }',
+  'no labels': '#stageView svg#labels, #stageView #labelGl { visibility: hidden !important; }',
 };
 let hideAt = 0;
 // Notes counted frame by frame over a window (veins-gl.js composite): a frame that redrew the whole picture, a frame with the organ
 // picture down (the live organs drawn by the page, as while the liver, the spleen or the fluid eases).
 const TALLY = ['whole picture', 'organ picture down', 'gut live', 'gut picture', 'liver easing', 'fluid easing', 'spleen easing',
   ...['no picture', 'art changed', 'colours changed', 'zoomed past it', 'moved off its part', 'zoomed out past it', 'moved apart'].map((w) => `gut live: ${w}`)];
+
+// Notes totalled over a window, by name (gpu-probe.js COUNTED): [times, KB, frames in which it came twice].
+const COUNT_NAMES = new Set([...Object.values(COUNTED).filter((k) => !k.endsWith('because ')), ...WHY.map((w) => COUNTED.wholeWhy + w), ...ROWS_REFUSED.map((w) => COUNTED.rowsRefused + w),
+  ...['setGeometry', 'setTubes', 'setFlow', 'setDye', 'setFluidCells', 'setRadii', 'setOrgans', 'plateRows', 'setCath', 'setLines'].map((k) => `uploaded: ${k}`)]);
 
 /**
  * One frame gap as a line: when after the gesture ended, how long, and the steps in it, largest first. What no step of the
@@ -44,6 +48,10 @@ export function gestureText(r) {
   // (Frames counted by what they drew, over the whole window: the whole picture redrawn, the organ picture down.)
   const tally = Object.entries(r.tally || {}).map(([k, n]) => `${k} in ${n} of ${r.frames} frames`);
   if (tally.length) gauges.push(`  ${tally.join(', ')}`);
+  // (What the window did, by name: the vessel layer's whole draws and why, pan shifts, the pictures submitted and how often one
+  // surface drew twice in a frame, uploads in KB, and the work a moving camera should not need. Totals over the window, not rates.)
+  const counted = Object.entries(r.counts || {}).map(([k, [n, kb, two]]) => `${k} ×${n}${kb ? ` (${kb.toFixed(0)} KB)` : ''}${two ? `, ${two} frames with two` : ''}`);
+  if (counted.length) gauges.push(`  counted: ${counted.join('; ')}`);
   const gaps = r.gaps.length ? r.gaps.map(gapLine) : ['  no frame over 20 ms'];
   const tasks = r.tasks.map((t) => `  long task +${t.at.toFixed(0)} ms: ${t.dt.toFixed(0)} ms${t.src ? ` (${t.src})` : ''}`);
   return [head, ...gauges, ...gaps, ...tasks].join('\n');
@@ -72,7 +80,7 @@ export function startPerfReadout({ zoom = () => '?' } = {}) {
   };
   const begin = (kind, win = WINDOW) => {
     const was = !!cur;
-    cur = { n: ++n, kind, win, tally: {}, view: view(), zoom: (+zoom() || 0).toFixed(2), t0: performance.now(), frames: 0, worst: 0, gaps: [], tasks: [], gauges: {}, gpu: !gpuProbe.cpuOnly, hide: HIDES[hideAt], orgs: gpuProbe.gpuOrgans };
+    cur = { n: ++n, kind, win, tally: {}, counts: {}, view: view(), zoom: (+zoom() || 0).toFixed(2), t0: performance.now(), frames: 0, worst: 0, gaps: [], tasks: [], gauges: {}, gpu: !gpuProbe.cpuOnly, hide: HIDES[hideAt], orgs: gpuProbe.gpuOrgans };
     gpuProbe.take(); gpuProbe.takeNotes(); gpuProbe.takeGauges();
     if (!was && !beatT) { beatAt = performance.now(); busy = 0; beatT = setTimeout(beat, 0); }
   };
@@ -109,7 +117,10 @@ export function startPerfReadout({ zoom = () => '?' } = {}) {
   const tick = () => {
     const t = performance.now();
     const parts = gpuProbe.take(), notes = gpuProbe.takeNotes(), gauges = gpuProbe.takeGauges(), was = busy;
-    if (cur) { Object.assign(cur.gauges, gauges); for (const k of TALLY) if (notes[k]) cur.tally[k] = (cur.tally[k] || 0) + 1; }
+    if (cur) {
+      Object.assign(cur.gauges, gauges); for (const k of TALLY) if (notes[k]) cur.tally[k] = (cur.tally[k] || 0) + 1;
+      for (const k in notes) if (COUNT_NAMES.has(k)) { const c = cur.counts[k] || (cur.counts[k] = [0, 0, 0]); c[0] += notes[k][0]; c[1] += notes[k][1]; if (notes[k][0] > 1 && TWICE.has(k)) c[2]++; }
+    }
     busy = 0; frameAt = t;
     if (cur && prevT && t >= cur.t0) {
       const dt = t - prevT, at = prevT - cur.t0;

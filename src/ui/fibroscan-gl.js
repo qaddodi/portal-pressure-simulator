@@ -6,6 +6,8 @@
 // One small context serves every FibroScan panel: a map is drawn into it (resized to the map's size) and copied out
 // (drawImage) in the same task.
 
+import { startProgram, checkProgram, exerciseDraw, publishWhenDone } from './gl-compile.js?v=5c4cd6c14c';
+
 const VS = `#version 300 es
 in vec2 p;
 void main() { gl_Position = vec4(p, 0.0, 1.0); }`;
@@ -50,27 +52,19 @@ void main() {
   o = vec4((20.0 + 220.0 * k) / 255.0, (10.0 + 126.0 * k) / 255.0, (8.0 + 64.0 * k) / 255.0, 1.0);
 }`;
 
-let st = null;   // { canvas, gl, prog, U, tex } once made; false when WebGL2 is unavailable
+let st = null;   // { canvas, gl, U, publish, lost } once made; false when WebGL2 is unavailable
 
 function make(F) {
   const canvas = document.createElement('canvas');
   canvas.width = canvas.height = 1;
-  const gl = canvas.getContext('webgl2', { alpha: false, antialias: false, depth: false, stencil: false, premultipliedAlpha: false, preserveDrawingBuffer: true, powerPreference: 'low-power' });
+  const gl = canvas.getContext('webgl2', { alpha: false, antialias: false, depth: false, stencil: false, premultipliedAlpha: false, preserveDrawingBuffer: false, powerPreference: 'low-power' });
   if (!gl) return false;
-  const sh = (type, src) => { const s = gl.createShader(type); gl.shaderSource(s, src); gl.compileShader(s); if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(s)); return s; };
-  const prog = gl.createProgram();
-  gl.attachShader(prog, sh(gl.VERTEX_SHADER, VS)); gl.attachShader(prog, sh(gl.FRAGMENT_SHADER, FS));
-  gl.bindAttribLocation(prog, 0, 'p');
-  gl.linkProgram(prog);
-  if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(prog));
-  gl.useProgram(prog);
+  const started = startProgram(gl, VS, FS, [['p', 0]]);
   const buf = gl.createBuffer();
   gl.bindBuffer(gl.ARRAY_BUFFER, buf);
   gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]), gl.STATIC_DRAW);
   gl.enableVertexAttribArray(0);
   gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
-  const U = {};
-  for (const n of ['uA1', 'uA2', 'uB1', 'uB2', 'uP1', 'uP2', 'uCell', 'uOffA', 'uOffB', 'uOffP', 'uN', 'uNB', 'uC', 'uT0', 'uCos', 'uSin']) U[n] = gl.getUniformLocation(prog, n);
   // The noise grids, as they are (one float a texel, fetched exactly).
   ['a1', 'a2', 'b1', 'b2', 'p1', 'p2'].forEach((k, i) => {
     const f = F[k], t = gl.createTexture();
@@ -79,11 +73,25 @@ function make(F) {
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.R32F, f.gw, f.gh, 0, gl.RED, gl.FLOAT, Float32Array.from(f.grid));
-    gl.uniform1i(U[`u${k.toUpperCase()}`], i);
   });
   let lost = false;
   canvas.addEventListener('webglcontextlost', (e) => { e.preventDefault(); lost = true; });
-  return { canvas, gl, U, get lost() { return lost; } };
+  const U = {};
+  const s = { canvas, gl, U, failed: false, published: false, get lost() { return lost || s.failed; } };
+  // The finished program read, its samplers set and one draw made into a throwaway 1 × 1 target, so the first map has no driver work left.
+  s.publish = () => {
+    if (s.published || s.failed || lost) return;
+    try {
+      const prog = checkProgram(gl, started);
+      gl.useProgram(prog);
+      for (const n of ['uA1', 'uA2', 'uB1', 'uB2', 'uP1', 'uP2', 'uCell', 'uOffA', 'uOffB', 'uOffP', 'uN', 'uNB', 'uC', 'uT0', 'uCos', 'uSin']) U[n] = gl.getUniformLocation(prog, n);
+      ['a1', 'a2', 'b1', 'b2', 'p1', 'p2'].forEach((k, i) => gl.uniform1i(U[`u${k.toUpperCase()}`], i));
+      exerciseDraw(gl, () => { gl.uniform1f(U.uN, 1); gl.uniform1f(U.uNB, 1); gl.uniform1f(U.uC, 1); gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4); });
+      s.published = true;
+    } catch (e) { s.failed = true; console.warn('FibroScan map: WebGL2 shader failed, drawn on the CPU.', e); }
+  };
+  publishWhenDone(gl, [started], s.publish);
+  return s;
 }
 
 /**
@@ -94,6 +102,8 @@ function make(F) {
 export function elastogramGL(F, NB, t0, N, c, t) {
   if (st === null) { try { st = make(F); } catch (e) { console.warn('FibroScan map: WebGL2 unavailable, drawn on the CPU.', e); st = false; } }
   if (!st || st.lost) return null;
+  st.publish();
+  if (st.lost) return null;
   const { gl, U, canvas } = st;
   if (canvas.width !== N || canvas.height !== N) { canvas.width = canvas.height = N; }
   gl.viewport(0, 0, N, N);
@@ -109,4 +119,13 @@ export function elastogramGL(F, NB, t0, N, c, t) {
   gl.uniform3f(U.uSin, Math.sin(th1), Math.sin(th2), Math.sin(th3));
   gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
   return canvas;
+}
+
+/**
+ * Starts the map's shader ahead of the first map (the panel's creation calls it), so the compile runs beside the page and is published
+ * when the driver has finished; the first map publishes it itself if it comes sooner. A no-op once made.
+ */
+export function prepareElastogramGL(F) {
+  if (st !== null) return;
+  try { st = make(F); } catch (e) { console.warn('FibroScan map: WebGL2 unavailable, drawn on the CPU.', e); st = false; }
 }

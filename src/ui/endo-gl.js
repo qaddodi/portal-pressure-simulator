@@ -6,24 +6,9 @@
 // the four columns a deflation (0 engorged .. 1 strangulated) and up to four knuckle strengths
 // (0 none .. 1 a cinched band with its dusky knuckle).
 
-import { cssRGB } from './util.js?v=d2c95a1b16';
-
-const TAU = Math.PI * 2;
-const NCOL = 4;
-
-// Per-column constants, in the same order the CPU renderer draws them from its seeded generator.
-function columnConsts() {
-  let x = 7 >>> 0;
-  const r = () => { x = (x * 1664525 + 1013904223) >>> 0; return x / 4294967296; };
-  const c0 = [], c1 = [];
-  for (let c = 0; c < NCOL; c++) {
-    const a0 = (c / NCOL) * TAU + 0.5 + (r() - 0.5) * 0.5;
-    const ph = r() * 6.28, ph2 = r() * 6.28, ph3 = r() * 6.28;
-    const f1 = 1.15 + r() * 0.5, f2 = 2.6 + r() * 0.8, wj = (r() - 0.5) * 0.015;
-    c0.push(a0, ph, ph2, ph3); c1.push(f1, f2, wj, 0);
-  }
-  return { c0, c1 };
-}
+import { cssRGB } from './util.js?v=58b547f8d4';
+import { columnConsts } from './endo-columns.js?v=381d1443b7';
+import { startProgram, checkProgram, exerciseDraw, publishWhenDone } from './gl-compile.js?v=5c4cd6c14c';
 
 const VS = 'attribute vec2 p; void main(){ gl_Position = vec4(p, 0.0, 1.0); }';
 // The colours are tokens (--endo-* in styles/tokens.css), written into the shader when it is built.
@@ -208,31 +193,44 @@ void main() {
 }
 `;
 
+// The drawing buffer is not preserved: every render() draws the whole field and the one reader (instruments.js) copies it with
+// drawImage in the same task, before the browser presents and clears it.
 export function createEndoGL() {
   const cv = document.createElement('canvas');
-  const gl = cv.getContext('webgl', { antialias: false, alpha: true, premultipliedAlpha: true, preserveDrawingBuffer: true });
+  const gl = cv.getContext('webgl', { antialias: false, alpha: true, premultipliedAlpha: true, preserveDrawingBuffer: false });
   if (!gl) return null;
-  const sh = (type, src) => { const s = gl.createShader(type); gl.shaderSource(s, src); gl.compileShader(s); return gl.getShaderParameter(s, gl.COMPILE_STATUS) ? s : null; };
-  const vs = sh(gl.VERTEX_SHADER, VS), fs = sh(gl.FRAGMENT_SHADER, FS());
-  if (!vs || !fs) return null;
-  const pr = gl.createProgram(); gl.attachShader(pr, vs); gl.attachShader(pr, fs); gl.linkProgram(pr);
-  if (!gl.getProgramParameter(pr, gl.LINK_STATUS)) return null;
-  gl.useProgram(pr);
+  // Started now, published when the driver has finished it (gl-compile.js; this shader is the longest in the app); ready() publishes it
+  // at once if a render comes first, and says false if it failed (the CPU renderer then draws the field, as with no WebGL).
+  let started;
+  try { started = startProgram(gl, VS, FS(), [['p', 0]]); } catch { return null; }
   const buf = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, buf);
   gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 3, -1, -1, 3]), gl.STATIC_DRAW);
-  const loc = gl.getAttribLocation(pr, 'p'); gl.enableVertexAttribArray(loc); gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);
-  const U = (n) => gl.getUniformLocation(pr, n);
-  const u = { size: U('uSize'), grow: U('uGrow'), vis: U('uVis'), red: U('uRed'), c0: U('uC0'), c1: U('uC1'), def: U('uDef'), kn: U('uKn') };
+  gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
+  let u = null, failed = false;
   const { c0, c1 } = columnConsts();
-  gl.uniform4fv(u.c0, new Float32Array(c0)); gl.uniform4fv(u.c1, new Float32Array(c1));
+  function publish() {
+    if (u || failed) return;
+    try {
+      const pr = checkProgram(gl, started);
+      gl.useProgram(pr);
+      const U = (n) => gl.getUniformLocation(pr, n);
+      u = { size: U('uSize'), grow: U('uGrow'), vis: U('uVis'), red: U('uRed'), c0: U('uC0'), c1: U('uC1'), def: U('uDef'), kn: U('uKn') };
+      gl.uniform4fv(u.c0, new Float32Array(c0)); gl.uniform4fv(u.c1, new Float32Array(c1));
+      exerciseDraw(gl, () => { gl.uniform1f(u.size, 1); gl.drawArrays(gl.TRIANGLES, 0, 3); });
+    } catch { failed = true; u = null; }
+  }
+  publishWhenDone(gl, [started], publish);
   return {
     canvas: cv,
+    /** True once the shader is published (waiting for it if it is not yet); false if it failed. */
+    ready() { publish(); return !!u; },
     /** Free the GL context now (a presenter copy that is done), rather than whenever the browser gets to it. */
     dispose() { gl.getExtension('WEBGL_lose_context')?.loseContext(); cv.width = cv.height = 0; },
     // Raw RGBA of the last frame (for tests).
     pixels() { const n = cv.width, a = new Uint8Array(n * n * 4); gl.readPixels(0, 0, n, n, gl.RGBA, gl.UNSIGNED_BYTE, a); return a; },
     // st: { grow, vis, red (0..1 red-sign strength), def: [4], kn: [16] }; draws into the shared canvas at res x res.
     render(res, st) {
+      publish();
       if (cv.width !== res) { cv.width = cv.height = res; }
       gl.viewport(0, 0, res, res);
       gl.uniform1f(u.size, res); gl.uniform1f(u.grow, st.grow); gl.uniform1f(u.vis, st.vis); gl.uniform1f(u.red, +st.red || 0);

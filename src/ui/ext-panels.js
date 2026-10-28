@@ -5,43 +5,46 @@
 //   tool kind 'plane'    the same in the data card, read from the slide's case
 //   table column 'wave' (col-wave.js)
 
-import { planeVisual, createPlaneTool, toolPlane } from './visual-plane.js?v=351594f998';
-import { waveColumn } from './col-wave.js?v=61c8e39cc1';
+import { planeVisual, createPlaneTool, toolPlane } from './visual-plane.js?v=1c068c7cf8';
+import { waveColumn } from './col-wave.js?v=b5d9025aa5';
 
 // A plane's rows: the slide's `of`, as a table's (a slide id, { id, name }, or { preset, params?, days?, name } for a patient no
 // slide shows). A slide's row reads its state's numbers (redrawn as they come); a patient row is worked out once in the
-// presenter's calculation worker and kept for the talk.
+// presenter's calculation worker and kept for the talk. from: where the row's patient started (a slide id, or { preset,
+// params?, days? }), read the same way: the plane draws it as a ring joined to the point (before and after a treatment).
 const presetFp = new Map();
 const keyOf = (o) => JSON.stringify([o.preset, o.params ?? null, o.days ?? null, o.presetDays ?? null]);
 export function rowsFp(s, ctx, done) {
   const of = Array.isArray(s.of) ? s.of : [];
   const slideOf = (id) => ctx?.deck?.slides?.find((x) => x.id === id) || null;
+  const specOf = (o) => (typeof o === 'string' ? { id: o } : o && typeof o === 'object' ? o : null);
   const rows = of.map((o) => {
-    const x = typeof o === 'string' ? { id: o } : o && typeof o === 'object' ? o : null;
+    const x = specOf(o);
     if (!x) return null;
     const sl = x.id ? slideOf(x.id) : null;
-    return { x, name: x.name || x.title || sl?.title || '', short: x.short || '', site: x.site ?? sl?.site, f: null };
+    return { x, name: x.name || x.title || sl?.title || '', short: x.short || '', site: x.site ?? sl?.site, f: null, from: null, fx: x.from ? specOf(x.from) : null };
   }).filter(Boolean);
-  const fill = () => {
-    let missing = 0;
-    for (const r of rows) {
-      if (r.f) continue;
-      if (r.x.id) { r.f = ctx?.fpOf?.(r.x.id) ?? null; if (!r.f) missing++; continue; }
-      if (!r.x.preset || !ctx?.run) continue;
-      const k = keyOf(r.x);
-      if (!presetFp.has(k)) presetFp.set(k, ctx.run([{ preset: r.x.preset, params: r.x.params, days: r.x.days, presetDays: r.x.presetDays }], null).then((out) => out?.[0]?.fp ?? null));
-      missing++;
-      if (r.wait) continue;
-      r.wait = true;
-      presetFp.get(k).then((f) => { r.wait = false; if (!f) { presetFp.delete(k); return; } if (!r.f) { r.f = f; const have = rows.filter((q) => q.f); shown = have.length; done(have); } });
+  const ready = (r) => r.f && (!r.fx || r.from);
+  const show = () => { const have = rows.filter(ready); if (have.length !== shown) { shown = have.length; done(have); } };
+  // (One reading, f or from: a slide's state, or a patient's run; true while it is still missing.)
+  const get = (r, sp, slot) => {
+    if (r[slot]) return false;
+    if (sp.id) { r[slot] = ctx?.fpOf?.(sp.id) ?? null; return !r[slot]; }
+    if (!sp.preset || !ctx?.run) return false;
+    const k = keyOf(sp);
+    if (!presetFp.has(k)) presetFp.set(k, ctx.run([{ preset: sp.preset, params: sp.params, days: sp.days, presetDays: sp.presetDays }], null).then((out) => out?.[0]?.fp ?? null));
+    if (!r['w' + slot]) {
+      r['w' + slot] = true;
+      presetFp.get(k).then((f) => { r['w' + slot] = false; if (!f) { presetFp.delete(k); return; } if (!r[slot]) { r[slot] = f; show(); } });
     }
-    return missing;
+    return true;
   };
+  const fill = () => rows.reduce((n, r) => n + get(r, r.x, 'f') + (r.fx ? get(r, r.fx, 'from') : 0), 0);
   const tries = { n: 0 };
   let shown = -1;
   const again = () => {
-    const missing = fill(), have = rows.filter((r) => r.f);
-    if (have.length !== shown) { shown = have.length; done(have); }   // (redrawn only when a row arrives)
+    const missing = fill();
+    show();   // (redrawn only when a row arrives)
     // (A slide's state not yet computed, or a patient's run that failed: looked for again for half a minute, from before the
     // slide is up (it is built while the one before still shows); a patient's run under way is waited for, not started twice.)
     if (missing && tries.n++ < 100) setTimeout(again, 300);

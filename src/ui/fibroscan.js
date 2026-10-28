@@ -4,12 +4,12 @@
 // are left out. The map is a continuously evolving reading: coherent speckle that morphs smoothly, one
 // dominant dark shear-wave band, and a slope that drifts gently around the model's value.
 
-import { h, fitCanvas, clamp, cssAlpha } from './util.js?v=d2c95a1b16';
-import { FONT } from './charts.js?v=dde7572b82';
-import { simTime, isPaused, fibroReading } from './clock.js?v=6a1f89a5c2';
-import { store } from './store.js?v=67f4341802';
-import { elastogramGL } from './fibroscan-gl.js?v=c1e9f0f60b';
-import { frameFor, noteDraw, saver, paceMs } from './frame.js?v=19b3f2915c';
+import { h, fitCanvas, clamp, cssAlpha } from './util.js?v=58b547f8d4';
+import { FONT } from './charts.js?v=8462faa7c6';
+import { simTime, isPaused, fibroReading } from './clock.js?v=5151312569';
+import { store } from './store.js?v=926dabfaef';
+import { elastogramGL, prepareElastogramGL } from './fibroscan-gl.js?v=2c4804ca17';
+import { frameFor, cancelFrame, noteDraw, saver, paceMs } from './frame.js?v=7254a8a850';
 const nextFrame = frameFor('fibroscan');
 
 const WAVE_T0 = 8; // ms: the shear wave reaches the top of the window about 8 ms after the push
@@ -98,9 +98,11 @@ function rrect(ctx, x, y, w, h2, r) {
 }
 
 export function createFibroScan() {
+  // (The map's shader is started at the next idle moment and compiles beside the page, not at the first map; a map that comes sooner starts it itself.)
+  (typeof requestIdleCallback === 'function' ? (f) => requestIdleCallback(f, { timeout: 1000 }) : (f) => setTimeout(f, 50))(() => prepareElastogramGL(fields()));
   const cv = h('canvas', { role: 'img', 'aria-label': 'Simulated FibroScan elastography panel, live' });
   const box = h('div', { class: 'chart-box fibroscan-box' }, cv);
-  const note = h('p', { class: 'ctl-sub' }, 'A simulated FibroScan, live: the slope of the shear wave front gives its speed and so the stiffness. It is an estimate from the model, not a measurement. Normal is about 5 kPa; above 25 kPa with a low platelet count, clinically significant portal hypertension is near certain. A congested liver (heart, hepatic veins) is stiff too.');
+  const note = h('p', { class: 'ctl-sub' }, 'A simulated FibroScan, live: the slope of the shear wave front gives its speed and so the stiffness. It is an estimate from the model, not a measurement. Normal is about 5 kPa; >25 kPa with a low platelet count, clinically significant portal hypertension is near certain. A congested liver (heart, hepatic veins) is stiff too.');
   const el = h('div', { class: 'dock-pane', 'data-pane': 'fibroscan' }, box, note);
   const off = document.createElement('canvas'), octx = off.getContext('2d');
   let N = 0, img = null;
@@ -110,7 +112,10 @@ export function createFibroScan() {
   // Whether the panel is on screen, as the browser reports it when it changes (read every frame, offsetParent laid the page out);
   // coming on screen, it draws again at once. (No observer, as in a bare test page: read as before.)
   let seen = false, fed = false;   // (fed: the model has given it a stiffness to show)
-  const io = typeof IntersectionObserver === 'function' ? new IntersectionObserver((es) => { const was = seen; seen = es[es.length - 1].isIntersecting; if (seen && !was && !running && fed) { running = true; nextFrame(loop); } }) : null;
+  // (raf: the loop's one frame asked for, let go with the panel: dispose.)
+  let raf = 0, gone = false;
+  const start = () => { if (!running && !gone) { running = true; raf = nextFrame(loop); } };
+  const io = typeof IntersectionObserver === 'function' ? new IntersectionObserver((es) => { const was = seen; seen = es[es.length - 1].isIntersecting; if (seen && !was && fed) start(); }) : null;
   io?.observe(cv);
   const onScreen = () => cv.isConnected && (io ? seen : cv.offsetParent !== null);
 
@@ -196,17 +201,20 @@ export function createFibroScan() {
   // While it plays the map is drawn on every frame the screen offers (15 a second in Battery saver), like the lobule's flow.
   let lastPaint = -1e9;
   function loop(now) {
-    if (!onScreen() || document.hidden) { running = false; return; }
+    raf = 0;
+    if (gone || !onScreen() || document.hidden) { running = false; return; }
     const hold = REDUCED || isPaused();
     if (hold || now - lastPaint >= paceMs()) { paint(now); lastPaint = now; noteDraw('fibroscan'); }   // (paused: always drawn, so a change shows)
     if (hold) { running = false; return; }   // paused: hold this frame; resume restarts the loop
-    nextFrame(loop);
+    raf = nextFrame(loop);
   }
   let pinned = null;   // (the slide's settled stiffness, the tiles' and words' number; the live value swings with each beat)
   function update(f) {
     model = pinned ?? f.metrics.lsm; fed = true;
-    if (!running && onScreen()) { running = true; nextFrame(loop); }
+    if (onScreen()) start();
   }
-  const offRun = store.on('running', (on) => { if (on && !running && onScreen()) { running = true; nextFrame(loop); } });
-  return { id: 'fibroscan', label: 'FibroScan', el, update, pin(fp) { pinned = fp?.lsm ?? null; if (pinned != null) model = pinned; }, dispose: offRun };
+  const offRun = store.on('running', (on) => { if (on && onScreen()) start(); });
+  /** The panel is done with (a presentation's own instruments go with it): its frame, observer and store watch are let go. */
+  function dispose() { gone = true; running = false; cancelFrame(raf); raf = 0; io?.disconnect(); offRun(); }
+  return { id: 'fibroscan', label: 'FibroScan', el, update, pin(fp) { pinned = fp?.lsm ?? null; if (pinned != null) model = pinned; }, dispose };
 }

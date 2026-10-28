@@ -1,9 +1,11 @@
 // The case card: a new patient's case covers the figure while the patient loads, and Next lifts it before the slide goes on.
+import './dom-shim.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, readdirSync } from 'node:fs';
 import { SITES } from '../src/ui/decks/sites.js';
 import { withOverview } from '../src/ui/decks.js';
+import { createCore } from '../src/worker-core.js';
 
 const src = readFileSync(new URL('../src/ui/presenter.js', import.meta.url), 'utf8');
 const css = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
@@ -35,11 +37,11 @@ test('every case in every deck sits on a slide with a preset and stays under 220
 test('Next lifts an open case card before it changes the slide', () => {
   assert.match(src, /const next = \(\) => \{\s*if \(caseLift\) \{ caseLift\(\); return; \}/);
   // Shown only going forward onto a new patient, and loaded behind the card before it lifts.
-  assert.match(src, /s\.vignette && ui && !booting && !lap && to > lastAt && \(si !== shownState \|\| liveOff\)/);
+  assert.match(src, /s\.vignette && ui && !booting && \(!lap \|\| !!own\) && to > lastAt && \(si !== shownState \|\| liveOff \|\| !!own\)/);
 });
 
 test('behind the case card the camera eases out to the whole patient, then the patient changes; the tap zooms once to the slide', () => {
-  const run = src.slice(src.indexOf('async function caseRun('), src.indexOf('function caseGone('));
+  const run = src.slice(src.indexOf('async function caseRun('), src.indexOf('// A question card (slide field question)'));
   // The leaving slide's cards stop counting for the framing, then the camera eases out to the fit and is still before the morph.
   assert.match(run, /ui\.safe\.hidden = true;/);
   const fit = run.indexOf('stage.fitSlow(gl)'), still = run.indexOf('!stage.gliding()'), morph = run.indexOf('await morphTo(st, cut');
@@ -58,7 +60,7 @@ test('behind the case card the camera eases out to the whole patient, then the p
   // The words are fitted unseen before that; a catheter slide's cards still wait for the lift before they come in.
   assert.match(src, /await settleRun\(\);\s*if \(!bare\) \{ await caseEnd\(cut\); if \(cut\(\)\) return; cardsIn\(\{ i: to, gen: g \}\); \}/);
   // (Between the patient's change and the lift, only the waits for a quiet figure, so the cards' fade is seen: slide-fade.test.js.)
-  assert.match(src, /if \(later\) \{ if \(!await morphTo\(st, cut\)\) return; shownState = own \? -1 : si; \}\s*(?:\/\/[^\n]*\n\s*)*if \(swap\) \{ await until\(\(\) => cut\(\) \|\| stage\.organsSettled\(\), 1500\); if \(cut\(\)\) return; \}\s*await unseen\(cut\); if \(cut\(\)\) return;\s*await caseEnd\(cut\); if \(cut\(\)\) return;\s*bare = false; cardsIn\(\{ i: to, gen: g \}\);/);
+  assert.match(src, /if \(later\) \{ if \(!await morphTo\(st, cut\)\) return; shownState = own \? -1 : si; ui\?\.tools\.hold\(false\); \}\s*(?:\/\/[^\n]*\n\s*)*if \(swap\) \{ await until\(\(\) => cut\(\) \|\| stage\.organsSettled\(\), 1500\); if \(cut\(\)\) return; \}\s*await unseen\(cut\); if \(cut\(\)\) return;\s*await ui\.tools\.ready\(900\); if \(cut\(\)\) return;[^\n]*\n\s*await caseEnd\(cut\); if \(cut\(\)\) return;\s*bare = false; cardsIn\(\{ i: to, gen: g \}\);/);
   const gl = src.indexOf("await until(() => cut() || !stage.gliding(), 1500)");
   assert.ok(gl > 0 && gl < src.indexOf('await caseEnd(cut); if (cut()) return;\n      bare = false'));
   // A move cut short, or one that ends otherwise, never leaves the card up.
@@ -99,6 +101,11 @@ test('the Case pill is set at the teaching card body size or larger, not the sma
 test('the Case pill and the case text are centred on the card', () => {
   assert.match(css, /\.pz-case-tag \{[^}]*align-self: center/);
   assert.match(css.match(/\.pz-case-p \{[^}]*\}/)[0], /text-align: center/);
+  // (The card is a flex column that starts its items at the left: a line shorter than the card, such as the case's own short question
+  // (caseQ), sat at the left under its centred text-align until each line stretched across the card.)
+  assert.match(css.match(/\.pz-case \{[^}]*\}/)[0], /align-items: flex-start/);
+  assert.match(css.match(/\.pz-case-p \{[^}]*\}/)[0], /align-self: stretch/);
+  assert.doesNotMatch(css.match(/\.pz-case-q \{[^}]*\}/)[0], /align-self|text-align|margin-inline|width/);
 });
 
 test('a let-go case card flies off when far out or flicked, either way, and springs back otherwise', async () => {
@@ -169,4 +176,24 @@ test('no slide card shows while a case card is up, a catheter slide included; th
   // A non-bare slide brings its cards in only after caseEnd (the lift), and cardsIn is what lets the words go.
   assert.match(src, /if \(!bare\) \{ await caseEnd\(cut\); if \(cut\(\)\) return; cardsIn\(\{ i: to, gen: g \}\); \}/);
   assert.match(src, /function cardsIn\(at\) \{ if \(ui\) \{ if \(at\) \{ entering = at; layout\(\); \} reFit\(\); if \(!bare\) \{ ui\.text\.classList\.remove\('pz-leave'\);/);
+});
+
+test('a case card may open a time-lapse: it covers the patient as it loads at the time-lapse\'s own start, and the days play after the lift', async () => {
+  // The presenter: no longer skipped on a lapse slide, but only where the lapse has a start of its own to cover; the card's morph leaves the
+  // live figure at that start (not at a slide's state), and the slide does not morph to it a second time.
+  assert.match(src, /let loaded = false;\s*if \(!skipCase && s\.vignette && ui && !booting && \(!lap \|\| !!own\) && to > lastAt && \(si !== shownState \|\| liveOff \|\| !!own\)\) \{ if \(!await caseRun\(s, si, st, cut, !!own\)\) return; loaded = true; \}/);
+  assert.match(src, /const swap = !loaded && \(si !== shownState \|\| liveOff \|\| !!own\);/);
+  const run = src.slice(src.indexOf('async function caseRun('), src.indexOf('// A question card (slide field question)'));
+  assert.match(run, /shownState = own \? -1 : si;/);
+  // The days play only once the cards are in, which is after the lift.
+  assert.ok(src.indexOf('await caseEnd(cut); if (cut()) return;\n      bare = false') < src.indexOf('if (lap) await playLapse(s, to, cut);'));
+  // The worker gives a time-lapse step a start of its own only with params: a case slide with a preset, a vignette and a lapse names its params.
+  const out = [];
+  const core = createCore((m) => { if (m.type === 'seqStep') out[m.i] = m; });
+  core.handle({ type: 'run', running: false });
+  await core.handle({ type: 'sequence', steps: [{ preset: 'healthy' }, { preset: 'csph', params: { cirrhosis: 0.75 }, days: 365, fine: true }, { preset: 'csph', days: 365, fine: true }], reqId: 1 });
+  core.dispose();
+  assert.ok(out[1].start?.snap && out[1].start.fp, 'with params the lapse has its own start');
+  assert.ok(out[1].start.fp.hvpg > out[1].fp.hvpg, 'the start is the patient before the days run (the cure has not yet lowered it), not where they end');
+  assert.equal(out[2].start, null, 'without params there is no start to cover');
 });

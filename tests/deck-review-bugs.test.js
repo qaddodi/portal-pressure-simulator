@@ -58,7 +58,7 @@ test('every summary-table column has a heading, and hemoglobin reads as higher-i
     for (const s of d.slides) for (const k of (s.visual === 'table' && s.cols) || []) assert.ok(!!COLS[k] !== !!EXT.columns[k]?.heading, `${d.id}/${s.id}: column "${k}" has no heading, or two`);
   }
   assert.equal(COLS.hb, 'Hb');
-  assert.match(CUT.hb, /under 12.*under 7 g\/dL/);
+  assert.match(CUT.hb, /<12.*<7 g\/dL/);
   assert.equal(effOf('hb', -1), 'bad', 'a falling hemoglobin is worse');
   assert.equal(effOf('hb', 1), 'good');
   assert.equal(dirAbs('hb', { hb: 6.5 }), -2);

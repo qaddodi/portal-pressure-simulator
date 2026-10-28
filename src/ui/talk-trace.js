@@ -2,9 +2,10 @@
 // every state up to the slide, one point each, and the HVPG in its own lane with its cut-offs. (Moved here unchanged from
 // presenter-tools.js, so the deck visuals' chart package can extend it without touching the instruments' file.)
 
-import { h, fmt, clamp } from './util.js?v=d2c95a1b16';
+import { h, fmt, clamp } from './util.js?v=58b547f8d4';
 import { traceLabel, traceLabelRoom } from './trace-labels.js?v=fc916a95c6';
-import { frameFor } from './frame.js?v=19b3f2915c';
+import { frameFor } from './frame.js?v=7254a8a850';
+import { plotPanel } from './plot-look.js?v=5037697da7';
 import { bandKeys, bandRuns, bandSpan, namePlaces } from './rx-bands.js?v=51e83c7c59';
 const nextFrame = frameFor('presenter-tools');
 
@@ -62,7 +63,7 @@ export function talkTrace() {
     const runs = bands.length ? bandRuns(pts.map((p) => p.params), bands) : [], room = runs.length ? (runs.length > 1 ? 2 : 1) * (fs + 4) : 0;
     el.classList.toggle('has-bands', !!room);
     if (room) el.style.setProperty('--band-room', `${room}px`); else el.style.removeProperty('--band-room');
-    const T = pad + fs + 18, B2 = HT - fs - 12, T2 = B2 - Math.max(28, 0.2 * (B2 - T)), B1 = Math.max(T + 30, T2 - fs - 26 - Math.max(0, room - fs - 4));
+    const T = pad + fs + 18, B2 = HT - fs - 16, T2 = B2 - Math.max(28, 0.2 * (B2 - T)), B1 = Math.max(T + 30, T2 - fs - 26 - Math.max(0, room - fs - 4));
     const n = Math.max(pts.length, 2), X = (i) => L + (R - L) * (pts.length < 2 ? 0.5 : i / (n - 1));
     const top = Math.max(20, ...pts.flatMap((p) => LINES.map(([k]) => p.fp[k] || 0)));
     const pMax = Math.ceil(top / 10) * 10, Y = (v) => B1 - (B1 - T) * clamp(v, 0, pMax) / pMax;
@@ -91,9 +92,11 @@ export function talkTrace() {
     const bandEls = runs.map((r, k) => sv('g', { class: 'ptk-band', 'data-rx': r.key, style: `--rx: var(${r.tone})` },
       sv('rect', { x: spans[k][0], width: Math.max(2, spans[k][1] - spans[k][0]), y: T - fs - 8, height: B2 + 4 - (T - fs - 8) })));
     const bandNames = runs.map((r, k) => sv('text', { class: 'ptk-band-n', style: `--rx: var(${r.tone})`, x: at[k].x, y: rowY(at[k].row) }, r.name));
+    // (The plot is one rounded panel the chart's full width, his G2 look, plot-look.js: from where the marks start to under the times, the numbers and the line names inside its edge.)
+    const panel = plotPanel(sv, 0, T - fs - 12, W, HT - 1.5 - (T - fs - 12));
     const svg = sv('svg', { viewBox: `0 0 ${W} ${HT}`, role: 'img', 'aria-label': 'Pressures over the talk so far: ' + pts.map((p) => `${p.when || `slide ${p.n}`}${p.tick ? `, ${p.tick}` : ''}, PV ${fmt(p.fp.pv, 0)}, HVPG ${fmt(p.fp.hvpg, 1)}`).join('; ')
       + runs.map((r) => `. ${r.name} from ${pts[r.i0].when || `slide ${pts[r.i0].n}`}`).join('') },
-      bandEls,
+      sv('defs', {}, panel.clip), panel.back, bandEls,
       Array.from({ length: pMax / gStep + 1 }, (_, k) => sv('g', { class: 'ptk-grid' }, sv('line', { x1: L, x2: R, y1: Y(k * gStep), y2: Y(k * gStep) }), sv('text', { x: L - 8, y: Y(k * gStep) + 0.35 * fs, 'text-anchor': 'end' }, String(k * gStep)))),
       // The unit sits once at the top of each axis, above its numbers; the top lane needs no name, the HVPG lane keeps its own (nothing wedged under the event labels).
       sv('text', { class: 'ptk-unit', x: L - 8, y: T - 8, 'text-anchor': 'end' }, 'mmHg'),
@@ -130,7 +133,7 @@ export function talkTrace() {
     const bat0 = namePlaces(nameK.map((k) => spans[k]), nameK.map((k) => runs[k].name), (t) => textW(t, fs), { rows: nameK.length > 1 ? 2 : 1, maxX: W - 4, grow: true, ends0: [L + textW('HVPG', fs) + 0.2 * fs] });
     const bRows = nameK.length ? Math.max(...bat0.map((a) => a.row)) + 1 : 0;
     const rowH = fs + 6, nameY = (r) => 4 + fs + (rows - 1 - r) * rowH, T0 = 4 + rows * rowH, bandY = (r) => T0 + fs + (bRows - 1 - r) * (fs + 4);
-    const T = T0 + bRows * (fs + 4) + 0.6 * fs + 6, B = HT - fs - 12;
+    const T = T0 + bRows * (fs + 4) + 0.6 * fs + 6, B = HT - fs - 16;
     const gMax = Math.max(15, Math.ceil(Math.max(0, ...pts.map((p) => p.fp.hvpg || 0)) / 5) * 5), Y = (v) => B - (B - T) * clamp(v, 0, gMax) / gMax;
     const ticks = Array.from({ length: gMax / 5 + 1 }, (_, k) => k * 5).filter((v, k, a) => (B - T) / a.length >= 1.2 * fs || v % 10 === 0 || v === 5);
     // (The time under the line: at each milestone and the last point, where it keeps clear of its neighbour.)
@@ -140,8 +143,10 @@ export function talkTrace() {
       const i = list[k], half = whenW(pts[i]) / 2;
       if (X(i) + half + 8 <= edge && X(i) - half >= 0) { named.add(i); edge = X(i) - half; }
     }
+    const panel = plotPanel(sv, 0, T0 - 6, W, HT - 1.5 - (T0 - 6));
     return sv('svg', { viewBox: `0 0 ${W} ${HT}`, role: 'img', 'aria-label': 'HVPG over the talk so far: ' + pts.map((p) => `${p.when || `slide ${p.n}`}${p.mile ? `, ${p.mile}` : ''}, ${fmt(p.fp.hvpg, 1)}`).join('; ')
       + runs.map((r) => `. ${r.name} from ${pts[r.i0].when || `slide ${pts[r.i0].n}`}`).join('') },
+      sv('defs', {}, panel.clip), panel.back,
       runs.map((r, k) => sv('g', { class: 'ptk-band', 'data-rx': r.key, style: `--rx: var(${r.tone})` },
         sv('rect', { x: spans[k][0], width: Math.max(2, spans[k][1] - spans[k][0]), y: T0 - 2, height: B + 4 - (T0 - 2) }))),
       ticks.map((v) => sv('g', { class: 'ptk-grid' + (v === 5 || v === 10 ? ' cut' : ''), 'data-rate': v === 10 ? 'hi' : v === 5 ? 'mid' : null },
@@ -167,5 +172,5 @@ export function talkTrace() {
     nextFrame(() => nextFrame(() => svg.classList.remove('in')));
     setTimeout(() => old.forEach((o) => o.remove()), 480);
   }
-  return { el, set, configure, update() {}, clear() {} };
+  return { el, set, configure, update() {}, clear() {}, dispose() { ro?.disconnect(); } };
 }

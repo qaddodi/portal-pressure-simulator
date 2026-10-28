@@ -218,10 +218,9 @@ test('a lapse glow eases the named organs in when the time-lapse starts and stay
   assert.match(STAGE, /glowOrgans\(list\) \{ pinOrgans\(null, list \|\| \[\]\); \}/);
 });
 
-test('the Circulation meal slide glows the small bowel from the start of its time-lapse, framed so the whole pile and its glow are in view', () => {
-  const circ = DECKS.find((d) => d.id === 'circulation'), s = circ.slides.find((x) => x.id === 'flow');
-  assert.deepEqual(s.lapseGlow, ['bowel']);
-  assert.ok(s.lapse && adopted(circ, s, 'lapseGlow'));
+test('the gut frame holds the whole small bowel pile and its glow, with the portal system in view', () => {
+  // (The Circulation meal slide that used this frame, with lapseGlow ['bowel'], was cut in the deck rebuild, F5; the frame stays guarded for any slide on cam 'gut'.)
+  const s = { cam: 'gut' };
   // The pile as drawn (its outline ring is the whole pile as one), and the outline glow's reach (stage.js HEART_GLOW) around it.
   const ring = ORGANS.find((o) => o.id === 'bowel').d, pts = (ring.match(/-?[\d.]+[ ,]-?[\d.]+/g) || []).map((t) => t.split(/[ ,]/).map(Number));
   const [x0, y0, x1, y1] = [Math.min(...pts.map((p) => p[0])), Math.min(...pts.map((p) => p[1])), Math.max(...pts.map((p) => p[0])), Math.max(...pts.map((p) => p[1]))];

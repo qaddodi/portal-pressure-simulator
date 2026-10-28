@@ -40,10 +40,7 @@ test('Stiffness: the scarring slider moves the FibroScan reading across the Bave
 // Each built-in compare row added here: every button resolves to what the presenter does with it.
 const kinds = (s) => s.compare.map((o, k) => abChoice(s.compare, k).kind);
 
-test('HVPG: four patients\' buttons on the HVPG slide ease the ladder and the catheter readings along the scale', async () => {
-  const s = slide('hvpg', 'hvpg');
-  assert.deepEqual(kinds(s), ['state', 'state', 'state', 'state']);
-  assert.equal(s.compare.filter((o) => o.own).length, 1);
+test('HVPG: the catheter slide\'s case sits between compensated and decompensated cirrhosis on the HVPG scale', async () => {
   const st = (await deckStates(DECKS.find((d) => d.id === 'hvpg'))).map(pick)[HVPG_AT];
   const [healthy, comp, decomp] = (await runSteps(['healthy', 'cirr-comp', 'cirr-decomp'].map((preset) => ({ preset })))).map(pick);
   assert.ok(healthy.hvpg < 5 && comp.hvpg >= 5 && comp.hvpg < 10, `healthy ${healthy.hvpg}, compensated ${comp.hvpg}`);
@@ -66,8 +63,9 @@ test('Outflow: the right hepatic vein clot slider shows that one open vein drain
   assert.ok(clot.pv - open.pv > 5, `portal pressure falls with the vein open (${clot.pv} → ${open.pv})`);
 });
 
-test('Spleen: no treatment, embolization and splenectomy on the embolization slide', async () => {
-  const s = slide('spleen', 'pse');
+test('Gastric varices: no treatment, embolization and splenectomy on the splenectomy slide', async () => {
+  // (The Spleen talk's embolization slide, cut in the deck rebuild, F7; its three-way compare lives on here.)
+  const s = slide('gastric-varices', 'splenectomy');
   assert.deepEqual(kinds(s), ['params', 'params', 'params']);
   assert.equal(s.compare.find((o) => o.own).params.splenicRx, s.params.splenicRx);
   const [none, pse, spx] = (await runSteps([{ preset: 'csph' }, ...s.compare.map((o) => ({ params: o.params }))])).slice(1).map(pick);
@@ -75,23 +73,23 @@ test('Spleen: no treatment, embolization and splenectomy on the embolization sli
 });
 
 test('Endoscopy and NCPH: the patient buttons go to a preset and back to the slide', async () => {
-  const e = slide('endoscopy', 'large'), n = slide('ncph', 'wedge');
+  const e = slide('endoscopy', 'size'), n = slide('ncph', 'wedge');
   assert.deepEqual(kinds(e), ['state', 'state']);
   assert.deepEqual(kinds(n), ['state', 'state']);
+  assert.deepEqual(e.compare.map((o) => o.label), ['Small', 'Large']);
   assert.equal(e.preset, 'cirr-decomp');
   const [csph, decomp, schisto, comp] = (await runSteps(['csph', 'cirr-decomp', 'schisto', 'cirr-comp'].map((preset) => ({ preset })))).map(pick);
   assert.ok(csph.varix < 5 && decomp.varix > 5, `small varices with CSPH (${csph.varix}), large ones decompensated (${decomp.varix})`);
   assert.ok(schisto.hvpg < 5 && comp.hvpg > schisto.hvpg && schisto.pv > comp.pv, `the wedge misses schistosomiasis (HVPG ${schisto.hvpg}, PV ${schisto.pv}) and reads cirrhosis (HVPG ${comp.hvpg}, PV ${comp.pv})`);
 });
 
-test('One year: the day buttons on the last catheter slide go back to the earlier visits\' states', async () => {
-  const d = DECKS.find((x) => x.id === 'one-year'), s = slide('one-year', 'd365');
-  assert.deepEqual(kinds(s), ['state', 'state', 'state', 'state']);
+test('Ten years: the HVPG rises visit by visit through the first year, and carvedilol brings it down', async () => {
+  const d = DECKS.find((x) => x.id === 'ten-years');
   const at = (id) => d.slides.findIndex((x) => x.id === id);
-  for (const o of s.compare) if (o.slide) assert.ok(at(o.slide) >= 0 && at(o.slide) < at('d365'), `${o.slide} is an earlier slide`);
   const fps = (await deckStates(d)).map(pick);
-  const hv = ['d0', 'd90', 'd180', 'd365'].map((id) => fps[at(id)].hvpg);
+  const hv = ['d0', 'd90', 'd365'].map((id) => fps[at(id)].hvpg);
   hv.slice(1).forEach((v, k) => assert.ok(v > hv[k], `HVPG rises visit by visit (${hv.join(', ')})`));
+  assert.ok(fps[at('carv')].hvpg < fps[at('d365')].hvpg, 'carvedilol lowers it');
 });
 
 test('the presenter eases a time-point button to that slide\'s state, and a catheter slide\'s callouts follow the live model', () => {

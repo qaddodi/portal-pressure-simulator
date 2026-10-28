@@ -6,9 +6,10 @@
 // (engine.js starling), read from the slide's fingerprint at rest and from the live model while a time-lapse, a what-if or a
 // compare button moves it.
 
-import { h, fmt, clamp } from './util.js?v=d2c95a1b16';
+import { frame } from './frame.js?v=7254a8a850';
+import { h, fmt, clamp } from './util.js?v=58b547f8d4';
 import { NODES } from '../engine/topology.js?v=4044766e96';
-import { store } from './store.js?v=67f4341802';
+import { store } from './store.js?v=926dabfaef';
 
 const NI = Object.fromEntries(NODES.map((n, i) => [n.id, i]));
 const num = (x) => (Number.isFinite(+x) ? +x : null);
@@ -298,9 +299,9 @@ export function createFluid() {
       for (const k of ['out', 'pull']) { const d = fGoal[k] - fShown[k]; if (Math.abs(d) > 1e-3) { fShown[k] += a * d; moving = true; } else fShown[k] = fGoal[k]; }
     }
     draw();
-    if (moving) raf = requestAnimationFrame(tick); else last = 0;
+    if (moving) raf = frame(tick, 'tool-fluid'); else last = 0;
   }
-  const kick = () => { if (!raf && typeof requestAnimationFrame === 'function') raf = requestAnimationFrame(tick); };
+  const kick = () => { if (!raf && typeof requestAnimationFrame === 'function') raf = frame(tick, 'tool-fluid'); };
   if (typeof ResizeObserver === 'function') {
     new ResizeObserver(() => { W = flow.getBoundingClientRect().width; labSig = ''; draw(); labels(); }).observe(el);
   }

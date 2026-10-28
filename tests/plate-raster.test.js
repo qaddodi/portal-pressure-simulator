@@ -19,13 +19,14 @@ test('a plate raster draws into a canvas of its own and sends it as pixel strips
   // pinch (21 Oct). The view's picture is a picture per strip, of only the shapes that meet it, so its markup, its parse and
   // its drawing are a strip's too. Same scale, cut at whole rows: the same pixels. A strip is read back a frame after it is
   // drawn (Safari paints a canvas's drawing on its own: read at once, the read waited out the painting, 70–130 ms a strip in
-  // his ?perf readout, 21 Oct), and the next strip follows in that frame, never two strips' reads in one.
+  // his ?perf readout, 21 Oct). Each half of a strip, its drawing and its read-back with the upload, takes its own turn in a frame that
+  // has some of the shared refinement allowance left, outside a gesture (refine.js), and is charged to it.
   assert.match(body, /const gone = \(\) => seq !== plateSeq \|\| drops !== plateDrops \|\| v !== veins \|\| v\.lost \|\| vseq !== \(banded \? viewSeq : 0\) \|\| drawnAs !== plateStateKey\(\);/);
-  assert.match(body, /for \(const \[y, rows\] of plateStrips\(W, H\)\) \{\n\s+if \(y && !waited\) await new Promise\(\(res\) => nextFrame\(res\)\);\n\s+waited = false;\n\s+if \(gone\(\)\) return false;\n\s+if \(banded\) \{/, 'a raster overtaken on its way in is given up (a view picture, by a newer view picture too)');
-  assert.match(body, /if \(gone\(\) \|\| plateCopy\?\.key !== drawnAs\) return false;\n\s+mine\.push\(\[qx, qy, drawn\(qw, qh, \(pg\) => pg\.drawImage\(band, 0, 0, qw, qh\)\)\]\);/, 'a strip whose copy changed state is given up');
-  assert.match(body, /if \(mine\.length\) \{ await new Promise\(\(res\) => nextFrame\(res\)\); waited = true; if \(gone\(\)\) return false; \}\n\s+for \(const \[qx, qy, p\] of mine\) copyPixels\(px, W, qx, qy, readBack\(p\), p\.w, 0, 0, p\.w, p\.h\);/, 'read a frame after it is drawn, and given up if overtaken meanwhile');
+  assert.match(body, /for \(const \[y, rows\] of plateStrips\(W, H\)\) \{\n\s+if \(await refineTurn\(gone\) === null\) return false;\n\s+if \(banded\) \{/, 'a raster overtaken on its way in is given up (a view picture, by a newer view picture too), at its turn');
+  assert.match(body, /if \(gone\(\) \|\| plateCopy\?\.key !== drawnAs\) return false;\n\s+mine\.push\(\[qx, qy, refineStep\('organ picture: draw', \(\) => drawn\(qw, qh, \(pg\) => pg\.drawImage\(band, 0, 0, qw, qh\)\)\)\]\);/, 'a strip whose copy changed state is given up');
+  assert.match(body, /if \(mine\.length && await refineTurn\(gone\) === null\) return false;\n\s+refineStep\('organ picture: read \+ upload', \(\) => \{\n\s+for \(const \[qx, qy, p\] of mine\) copyPixels\(px, W, qx, qy, readBack\(p\), p\.w, 0, 0, p\.w, p\.h\);/, 'read a frame after it is drawn, and given up if overtaken meanwhile');
   assert.match(body, /v\.plateRows\(job, y, rows, px\.subarray\(y \* W \* 4, \(y \+ rows\) \* W \* 4\)\);/);
-  assert.match(body, /if \(gone\(\) \|\| plateCopy\?\.key !== drawnAs\) return false;\n\s+const p = drawn\(W, rows, \(pg\) => pg\.drawImage\(band, 0, 0, W, rows\)\);\n\s+await new Promise\(\(res\) => nextFrame\(res\)\); waited = true;\n\s+if \(gone\(\)\) return false;\n\s+v\.plateRows\(job, y, rows, readBack\(p\)\);/);
+  assert.match(body, /if \(gone\(\) \|\| plateCopy\?\.key !== drawnAs\) return false;\n\s+const p = refineStep\('organ picture: draw', \(\) => drawn\(W, rows, \(pg\) => pg\.drawImage\(band, 0, 0, W, rows\)\)\);\n\s+if \(await refineTurn\(gone\) === null\) return false;\n\s+refineStep\('organ picture: read \+ upload', \(\) => v\.plateRows\(job, y, rows, readBack\(p\)\)\);/);
   assert.doesNotMatch(body, /drawImage\([a-z]+, 0, 0, W, H\)/, 'never the whole picture in one frame');
   assert.match(body, /if \(layer\) v\.organs\.stage\(slot, layer, job, rect, layer === 'bowel' \? plateCopy\.bowelDy : 0\); else v\.setPlate\(slot, job, rect\);\n\s+job = null;/, 'shown only once every strip is in (a layer of the organs: held until the whole set is in)');
   assert.match(body, /finally \{ if \(job && !v\.lost\) v\.dropJob\(job\); px = null; for \(const p of pend\) p\.pc\.width = p\.pc\.height = 0; \}/, 'a canvas drawn and not yet read is let go when the picture is given up');
@@ -71,7 +72,7 @@ test('highlighting an organ never draws the organ picture again (its look is the
 
 test("the gut's picture is drawn a strip per frame too", () => {
   const body = stage.slice(stage.indexOf('async function makeGutPic'), stage.indexOf('function clientToWorldFast'));
-  assert.match(body, /for \(const \[y, rows\] of plateStrips\(W, H\)\) \{\n\s+if \(y\) await new Promise\(\(res\) => nextFrame\(res\)\);\n\s+if \(seq !== gutPicSeq\) throw new Error\('overtaken'\);\n\s+cg\.drawImage\(img, 0, y, W, rows, 0, y, W, rows\);/);
+  assert.match(body, /for \(const \[y, rows\] of plateStrips\(W, H\)\) \{\n\s+if \(await refineTurn\(\(\) => seq !== gutPicSeq\) === null\) throw new Error\('overtaken'\);\n\s+refineStep\('gut picture: strip', \(\) => cg\.drawImage\(img, 0, y, W, rows, 0, y, W, rows\)\);/);
   assert.doesNotMatch(body, /drawImage\(img, 0, 0, W, H\)/);
 });
 
@@ -90,9 +91,11 @@ test('after a pan at the same scale, of the same state, the view picture takes t
 
 test('the pictures made after a pan or pinch wait until the figure is let go', () => {
   // (Mohammad, 21 Oct: a hitch "as soon as I stop panning", finger still down; and 0.6 s after a pinch, as the menus faded in.)
-  assert.match(stage, /const leftAlone = \(ms\) => !\(pressed\.size && performance\.now\(\) - inputAt < 5000\) && performance\.now\(\) - inputAt >= ms;/);
-  assert.match(stage, /addEventListener\('pointerdown', \(e\) => pressed\.add\(e\.pointerId\), \{ passive: true, capture: true \}\);/);
-  assert.match(stage, /for \(const ev of \['pointerup', 'pointercancel'\]\) addEventListener\(ev, \(e\) => pressed\.delete\(e\.pointerId\)/);
+  // (The one clock of input is quiet.js now, read by the stage and everything else that waits for a gesture to end.)
+  const quiet = readFileSync(new URL('../src/ui/quiet.js', import.meta.url), 'utf8');
+  assert.match(quiet, /const leftAlone = \(ms\) => !\(pressed\.size && since\(\) < 5000\) && since\(\) >= ms;/);
+  assert.match(quiet, /on\('pointerdown', \(e\) => pressed\.add\(e\.pointerId\)\);/);
+  assert.match(quiet, /for \(const ev of \['pointerup', 'pointercancel'\]\) on\(ev, \(e\) => pressed\.delete\(e\.pointerId\)\);/);
   const sched = stage.slice(stage.indexOf('function schedulePlateView'), stage.indexOf('async function makeGutPic'));
   assert.match(sched, /if \(!leftAlone\(280\)\) \{ plateSettle = setTimeout\(settled, 120\); return; \}/);
   assert.match(sched, /const go = \(\) => \{ if \(!leftAlone\(1000\)\) \{ gutPicTimer = setTimeout\(go, 250\); return; \} makeGutPic\(\)/);

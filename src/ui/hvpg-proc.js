@@ -8,16 +8,16 @@
 // readout tile. In Explore the live HVPG readouts stay hidden until this has run for the patient
 // (store.hvpgMeasured, hiddenNow); the tracing's small waves are illustrative.
 
-import { h, fmt, fitCanvas, clamp, icon, cssVar, toast } from './util.js?v=d2c95a1b16';
-import { FONT } from './charts.js?v=dde7572b82';
-import { pressureColor } from './colormap.js?v=cdcf6a2f55';
-import { store, logAction, hiddenNow, updateParams } from './store.js?v=67f4341802';
+import { h, fmt, fitCanvas, clamp, icon, cssVar, toast } from './util.js?v=58b547f8d4';
+import { FONT } from './charts.js?v=8462faa7c6';
+import { pressureColor } from './colormap.js?v=05a231b880';
+import { store, logAction, hiddenNow, updateParams } from './store.js?v=926dabfaef';
 import { shownOr } from './shown.js?v=82ef5e29ec';
 import { T, ease, k01, balloonAt, timeOfBalloon, pressureAt as pAt } from './hvpg-clock.js?v=553551a92a';
-import { frameFor, cancelFrame } from './frame.js?v=19b3f2915c';
+import { frameFor, cancelFrame } from './frame.js?v=7254a8a850';
 import { traceRoom, TRACE_MIN } from './trace-room.js?v=b4c0aaa97f';
-import { rateOf } from './table-marks.js?v=15f059172f';
-import { PROCS, PROC_KINDS, procBlocked, procOffered, playProcedure } from './proc-anim.js?v=b2351a24c6';
+import { rateOf } from './table-marks.js?v=8458ad3bf8';
+import { PROCS, PROC_KINDS, procBlocked, procOffered, playProcedure } from './proc-anim.js?v=3075a0efa7';
 const nextFrame = frameFor('hvpg-proc');
 
 let stageRef = null;
@@ -32,7 +32,7 @@ const STEPS = [
   ['enter', 'Catheter in', 'In through the right internal jugular vein, down the SVC, through the right atrium and the IVC into the right hepatic vein.', 'Catheter'],
   ['free', 'Free pressure (FHVP)', 'The vein is open: the tip reads the pressure where the liver drains.', 'Free'],
   ['wedge', 'Wedged pressure (WHVP)', 'The balloon inflates just behind the tip and blocks the vein. Once the pressure settles, the still vein in front of it reads the sinusoids.', 'Wedged'],
-  ['result', 'HVPG = WHVP − FHVP', 'The pressure drop across the sinusoids. Normal below 5 mmHg; 10 or more is clinically significant portal hypertension.', 'HVPG'],
+  ['result', 'HVPG = WHVP − FHVP', 'The pressure drop across the sinusoids. Normal <5 mmHg; ≥10 is clinically significant portal hypertension.', 'HVPG'],
 ];
 // The tracing is a monitor, dark in both themes (the Over time chart's dark trace colours).
 const C = Object.defineProperties({}, Object.fromEntries(Object.entries({ bg: '--mon-bg', grid: '--mon-grid', line: '--mon-line', text: '--mon-text', bright: '--mon-bright',
@@ -135,8 +135,9 @@ export function createHvpgProcedure() {
     // The camera: the route while the catheter travels, the tip close up for the readings, then back.
     // (Each move waits until the anatomy is on screen: a switch from the circuit takes a moment.)
     const want = t < T.zoom ? 'route' : t < T.back ? 'tip' : 'home';
-    if (want !== cam && (want !== 'route' || t > 250) && sg.cathFocus(want, want === 'tip' ? 1100 : 800)) cam = want;
-    if (cam === 'route' && want === 'route') sg.cathFollow?.();
+    if (want !== cam && (want !== 'route' || t > 250) && sg.cathFocus(want, want === 'tip' ? 1100 : 800, { near: want === 'route' })) cam = want;
+    // (While it travels the view drifts after the tip: setCatheter's follow, after the catheter's own step.)
+    const follow = cam === 'route' && want === 'route';
     const v = values(), ph = phase(), pulse = 0.5 + 0.5 * Math.sin(t / 170);
     const labels = [];
     // (A reading is the mean, as a monitor's number is: the trace wavers with the breath and the beat, the number holds.)
@@ -158,14 +159,14 @@ export function createHvpgProcedure() {
       columnColor: pressureColor(v.whvp),
       ring: ph === 'free' ? C.free : ph === 'wedge' && t > T.wedge ? C.wedge : null, pulse, clock: t,
       opacity: 1 - k01(t, T.back + 300, T.end),
-      labels,
+      labels, follow,
     });
   }
 
   function figureBlocked(sg) {
     const want = t < T.zoom ? 'route' : t < TB.back + 1500 ? 'tip' : 'home';
-    if (want !== cam && (want !== 'route' || t > 250) && sg.cathFocus(want, want === 'tip' ? 1100 : 800)) cam = want;
-    if (cam === 'route' && want === 'route') sg.cathFollow?.();
+    if (want !== cam && (want !== 'route' || t > 250) && sg.cathFocus(want, want === 'tip' ? 1100 : 800, { near: want === 'route' })) cam = want;
+    const follow = cam === 'route' && want === 'route';
     // Three short pushes against the clot, each easing in and back out.
     const pk = k01(t, TB.probe0, TB.probe1), probe = t < TB.probe1 ? Math.pow(Math.sin(pk * 3 * Math.PI), 2) * 0.9 : 0;
     const labels = t >= TB.probe0 && t < TB.abort ? [{ key: 'p', at: 'tip', kicker: 'Hepatic vein', text: 'Occluded', unit: '', cls: 'wedge' }]
@@ -174,7 +175,7 @@ export function createHvpgProcedure() {
       ostium: true, probe,
       u: ease(k01(t, T.travel0, T.travel1)) * (1 - ease(k01(t, TB.back, TB.end - 500))),
       balloon: 0, column: 0, ring: t >= TB.abort ? C.danger : null, pulse: 0.5 + 0.5 * Math.sin(t / 170), clock: t,
-      opacity: 1 - k01(t, TB.end - 900, TB.end), labels,
+      opacity: 1 - k01(t, TB.end - 900, TB.end), labels, follow,
     });
   }
 
@@ -279,7 +280,8 @@ export function createHvpgMonitor() {
     raf = el.isConnected && (t < t1 || falling() || rising()) ? nextFrame(step) : 0;
   }
   const go = () => { cancelFrame(raf); raf = nextFrame((now) => { last = now; step(now); }); };
-  function set(m, f = null, b = bal) {
+  // (instant: the finished tracing at once, a slide jumped to or gone back to; a card with no catheter on the figure.)
+  function set(m, f = null, b = bal, instant = false) {
     const span = SPAN[m];
     fp = f; bal = b;
     if (!span || (m === mode && (raf || t >= t1))) { if (!raf) draw(); return; }
@@ -289,7 +291,7 @@ export function createHvpgMonitor() {
     // Already wedged (back from the result slide): the pressure is on its plateau, nothing climbs again.
     if (m !== 'free' && bal >= 1) t = Math.max(t, T.wedge);
     mode = m; t1 = span[1];
-    if (matchMedia('(prefers-reduced-motion: reduce)').matches && !falling()) t = t1;
+    if ((instant || matchMedia('(prefers-reduced-motion: reduce)').matches) && !falling()) t = t1;
     // (Once the card is laid out: the canvas sizes itself to it.)
     go();
   }

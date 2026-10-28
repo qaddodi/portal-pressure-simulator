@@ -25,7 +25,7 @@ function run(upTo) {
 }
 
 test('a working TIPS: fast stent, faster portal vein, every branch toward the stent', () => {
-  const before = run('before'), e = run('stent');
+  const before = run('before'), e = run('jet');
   assert.ok(vel(e, 'TIPS') >= 90 && vel(e, 'TIPS') <= 190, `stent ${vel(e, 'TIPS')}`);
   assert.ok(vel(e, 'PV_TRUNK') > 30 && vel(e, 'PV_TRUNK') > vel(before, 'PV_TRUNK') + 10, `the main portal vein speeds up past 30 cm/s (${vel(e, 'PV_TRUNK')})`);
   assert.ok(vel(before, 'PV_TRUNK') < 15, 'slow before the stent');
@@ -37,7 +37,7 @@ test('a working TIPS: fast stent, faster portal vein, every branch toward the st
 });
 
 test('a narrowed TIPS: slow stent, slower portal vein, a hepatopetal left portal vein, varices back', () => {
-  const ok = run('stent'), e = run('narrow');
+  const ok = run('jet'), e = run('narrow');
   assert.ok(vel(e, 'TIPS') > 2 && vel(e, 'TIPS') < 90, `stent ${vel(e, 'TIPS')}`);
   assert.ok(vel(e, 'PV_TRUNK') < 30 && vel(e, 'PV_TRUNK') < vel(ok, 'PV_TRUNK') - 5, `the main portal vein slows under 30 cm/s (${vel(e, 'PV_TRUNK')})`);
   assert.ok(vel(e, 'PVH_L') > 9, `left portal vein back toward the liver (${vel(e, 'PVH_L')})`);
@@ -46,17 +46,19 @@ test('a narrowed TIPS: slow stent, slower portal vein, a hepatopetal left portal
   assert.ok(m.varix.r > computeMetrics(ok).varix.r, 'the varices grow again');
 });
 
-test('the talk uses the lenses it teaches, and every lens is one the presenter knows', () => {
+test('the talk uses two lenses, velocity and direction, and the slides name the vessels and options it teaches', () => {
   const lenses = new Set(TIPS_DOPPLER.slides.map((s) => s.lens).filter(Boolean));
-  for (const k of ['velocity', 'flow', 'direction', 'heat']) assert.ok(lenses.has(k), k);
-  for (const k of lenses) assert.ok(['velocity', 'flow', 'direction', 'heat', 'drop', 'delta', 'origin'].includes(k), k);
+  assert.deepEqual([...lenses].sort(), ['direction', 'velocity']);
+  assert.deepEqual(TIPS_DOPPLER.slides.filter((s) => s.lens === 'direction').map((s) => s.id), ['left', 'warn'], 'direction on the two branch slides only');
   assert.equal(slide('left').tool.vessel, 'PVH_L');
   assert.equal(slide('warn').whatIf.param, 'stenosis.TIPS');
+  assert.deepEqual(slide('alias').compare.map((o) => o.tool?.baseline ?? null), [null, 0.85], 'the aliasing button moves the baseline in place');
+  assert.ok(!slide('alias').compare.some((o) => o.params), 'and does not touch the model');
 });
 
 test('proximal, mid and distal stent velocities: the narrowed stent slows along its length and jets through its hepatic vein end', async () => {
   const { stentSegments } = await import('../src/engine/topology.js');
-  const ok = run('stent'), [p0, m0, d0] = stentSegments(vel(ok, 'TIPS'), 0);
+  const ok = run('jet'), [p0, m0, d0] = stentSegments(vel(ok, 'TIPS'), 0);
   assert.ok(p0 < d0 && d0 < m0 && p0 >= 90 && m0 <= 190, `a working stent reads slowest at its portal end and fastest mid stent, all within 90–190 (${p0}, ${m0}, ${d0})`);
   assert.ok(Math.abs(p0 / m0 - 0.9) < 1e-9 && Math.abs(d0 / m0 - 0.95) < 1e-9 && m0 - p0 < 50, 'a small spread, under the 50 cm/s stenosis cut-off');
   // The spread fades out as a narrowing grows, and a mild one never makes a jump.
@@ -74,7 +76,7 @@ test('a stent narrows at a short pinch in the segment its card names', async () 
   const [p, m, d] = stentSegments(100, 0.5, 'proximal');
   assert.ok(p === 400 && m === 100 && d === 100, 'only the narrowed segment speeds up');
   // A short pinch costs far less than the old whole-stent narrowing: a mild one barely slows the stent.
-  const e = run('stent'), open = vel(e, 'TIPS');
+  const e = run('jet'), open = vel(e, 'TIPS');
   e.setParams(deepMerge(e.params, { stenosis: { TIPS: 0.2 } })); e.settle();
   assert.ok(vel(e, 'TIPS') > 0.85 * open, `a 20 % pinch keeps most of the flow (${vel(e, 'TIPS')} vs ${open})`);
   // The model's flow does not depend on where the pinch sits; only the readings move.
@@ -82,7 +84,7 @@ test('a stent narrows at a short pinch in the segment its card names', async () 
   e.setParams(deepMerge(e.params, { stenosisSite: { TIPS: 'proximal' } })); e.settle();
   assert.ok(Math.abs(e.Q[e.ei.TIPS] - q) < 1e-6 * Math.max(1, Math.abs(q)), 'same flow wherever the pinch sits');
   // A shunt drawn with the stent tool narrows the same way, and a full occlusion closes it.
-  const c = run('stent'), id = 'X_SMV_IVCS';
+  const c = run('jet'), id = 'X_SMV_IVCS';
   c.setParams(deepMerge(c.params, { customShunts: { [id]: 10 } })); c.settle();
   const q0 = c.Q[c.ei[id]];
   c.setParams(deepMerge(c.params, { stenosis: { [id]: 0.6 } })); c.settle();
@@ -103,9 +105,9 @@ test('the Doppler gate reads one third of a stent, and slides name gates and seg
     for (const m of s.marks || (s.mark ? [s.mark] : [])) if (m.seg) assert.ok(ok.has(m.seg), `${s.id}: seg ${m.seg}`);
     for (const o of s.compare || []) if (o.gate) assert.ok(ok.has(o.gate) && s.tool?.kind === 'doppler', `${s.id}: compare gate`);
   }
-  // Moving the narrowing along the stent (the 'where' slide): the jet moves with it, and only that third runs over 190 cm/s.
+  // Moving the narrowing along the stent (the 'narrow' slide's buttons): the jet moves with it, and only that third runs over 190 cm/s.
   const e = run('narrow'), v = vel(e, 'TIPS'), s0 = slide('narrow').params.stenosis.TIPS;
-  for (const o of slide('where').compare) {
+  for (const o of slide('narrow').compare) {
     const site = o.params.stenosisSite.TIPS, reads = stentSegments(v, s0, site);
     reads.forEach((r, i) => assert.ok(['proximal', 'mid', 'distal'][i] === site ? r > 190 : r < 90, `${site}: ${reads}`));
   }

@@ -63,19 +63,19 @@ test('Two inflows: after TIPS the sinusoids carry arterial blood and the stent c
 });
 
 test('Doppler: hepatofugal flow reverses the portal and splenic veins, draining by the splenorenal shunt', () => {
-  const e = run('doppler', 'reverse');
+  const e = run('doppler', 'a1');
   for (const k of ['PV_TRUNK', 'SV_CONF', 'SV_MID']) assert.ok(e.Q[e.ei[k]] < 0, k);
   assert.ok(e.Q[e.ei.C6] > 10, 'splenorenal shunt carries the blood away');
 });
 
 test('Shunts and varices: the origin lens separates splenic from gut blood', () => {
-  for (const [d, id] of [['shunts', 'dsrs'], ['varices', 'svt'], ['prehepatic', 'svt']]) {
+  for (const [d, id] of [['shunts', 'dsrs'], ['gastric-varices', 'svt']]) {
     const e = run(d, id), pv = origin(e, 'PV_TRUNK');
     assert.ok(pv.spleen < 0.05 && pv.smv > 0.9, `${d}/${id}: the portal vein carries gut blood`);
   }
   const s = run('shunts', 'dsrs');
   assert.ok(origin(s, 'S_DSR').spleen > 0.95 && s.Q[s.ei.S_DSR] > 4, 'Warren shunt carries splenic blood');
-  const v = run('varices', 'svt');
+  const v = run('gastric-varices', 'svt');
   assert.ok(origin(v, 'C2').spleen > 0.95 && v.Q[v.ei.C2] > 2, 'gastric varices carry splenic blood');
 });
 
@@ -83,7 +83,7 @@ test('Right heart: congestion reaches the upper body with TR, not with an IVC we
   const NIx = (id) => NI.get(id);
   const h = new Engine(); h.loadPreset('healthy');
   const rise = (e, node) => e.P[NIx(node)] - h.P[NIx(node)];
-  const tr = run('right-heart', 'tr'), web = run('right-heart', 'web');
+  const tr = run('outflow', 'tr'), web = run('outflow', 'web');
   for (const n of ['SVC', 'IVCI', 'CONF']) assert.ok(rise(tr, n) > 8, `TR: ${n} backed up`);
   assert.ok(rise(web, 'IVCI') > 8 && rise(web, 'CONF') > 6, 'web: veins below it backed up');
   assert.ok(Math.abs(rise(web, 'SVC')) < 2, 'web: the upper body is clear');
@@ -96,7 +96,8 @@ test('Oxygen: zone 3 darkest, portal blood a little darker than arterial, revers
   assert.ok(outR < inR - 0.15, `sinusoids darken toward the central vein: ${inR} → ${outR}`);
   const m = run('two-inflows', 'meet'), pv = sat(m, 'PV_TRUNK')[1], art = sat(m, 'A_HEP')[1];
   assert.ok(pv > 0.8 && pv < art && art - pv < 0.15, `portal ${pv}, arterial ${art}`);
-  const f = run('two-inflows', 'fugal');
+  const f = new Engine();
+  f.loadPreset('cirr-hepatofugal');   // (the preset Two inflows' hepatofugal slide used before the deck rebuild)
   assert.ok(f.Q[f.ei.PV_TRUNK] < 0, 'the portal vein drains the liver');
   assert.ok(Math.min(...sat(f, 'PV_TRUNK')) > SAT.artery - 0.03, `it carries arterial blood: ${sat(f, 'PV_TRUNK')}`);
 });

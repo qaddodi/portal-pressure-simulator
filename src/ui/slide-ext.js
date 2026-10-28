@@ -8,7 +8,8 @@
 //   lenses    { key: [name, bar, lo, hi] | (slide) => [name, bar, lo, hi] }   a lens's key under the line (presenter LENS_KEY)
 //   sets      { name: [vessel, target or organ ids] }   '@name' in a slide's glow or a mark's edges stands for these
 //   tools     { kind: { make(env), title(t), short?(t) } }   a data-card instrument (presenter-tools.js); make returns
-//             { el, update?(frame), pin?(fp), configure?(t, ctx), clear?(), dispose?() }
+//             { el, update?(frame), pin?(fp), configure?(t, ctx), clear?(), dispose?() }; warm?(t, ctx) starts its work
+//             once the deck's states are in (a curve over model days)
 //   visuals   { name: (slide, ctx) => Element }        a whole-panel visual (slide.visual)
 //   columns   { key: { heading, cut?, unit?, cell(row, ctx) => Element | string } }   a summary-table column (slide.cols)
 //   steps     [(slide) => ({ explain?, wave? }) | null]   extra work on a slide's step in the presenter's own worker
@@ -17,14 +18,15 @@
 // Built-in names win, and a name two packages register is kept from the first only: tests/slide-ext.test.js fails on both.
 // Every call into a package is guarded, so a package that throws loses its own feature and never stops a talk.
 
-import highlights from './ext-highlights.js?v=9ac3735e29';
-import charts from './ext-charts.js?v=71eb2077a8';
-import model from './ext-model.js?v=f1df8c5238';
-import panels from './ext-panels.js?v=1e2f307083';
-import callouts from './ext-callouts.js?v=d0c311586b';
-import instruments from './ext-instruments.js?v=1ac842f9f8';
+import highlights from './ext-highlights.js?v=472ba4d01c';
+import charts from './ext-charts.js?v=328bf3d212';
+import model from './ext-model.js?v=e0bb5fedb7';
+import panels from './ext-panels.js?v=fb920dc460';
+import callouts from './ext-callouts.js?v=41fdb794a9';
+import instruments from './ext-instruments.js?v=b7e6e2d30d';
+import teaching from './ext-teaching.js?v=ad0f63efc8';
 
-export const PACKAGES = { A: highlights, B: charts, C: model, E: panels, F: callouts, G: instruments };
+export const PACKAGES = { A: highlights, B: charts, C: model, E: panels, F: callouts, G: instruments, H: teaching };
 const NAMED = ['targets', 'lenses', 'sets', 'tools', 'visuals', 'columns'];
 const LISTS = ['organs', 'steps', 'figure', 'labels'];
 // The extra work a step may ask of the worker (worker-core.js 'sequence'); anything else a step function returns is dropped,

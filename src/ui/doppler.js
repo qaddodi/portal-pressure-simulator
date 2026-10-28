@@ -5,15 +5,16 @@
 // full. It scrolls smoothly, one spectral line at a time, as the machine does.
 
 import { EDGES, dopplerK, stentSegments, stentSite, stentGate, stentCourse } from '../engine/topology.js?v=4044766e96';
-import { h, fmt, fitCanvas, clamp, icon, cssVar, cssAlpha } from './util.js?v=d2c95a1b16';
-import { FONT, textW } from './charts.js?v=dde7572b82';
-import { logAction, shownVel, store } from './store.js?v=67f4341802';
-import { DOPPLER_MODES, THETA, dopplerColor, shadeColor, swatchGradient } from './dopplerColor.js?v=bf0ae549b2';
-import { frameFor, noteDraw, paceMs, cancelFrame } from './frame.js?v=19b3f2915c';
+import { h, fmt, fitCanvas, clamp, icon, cssVar, cssAlpha } from './util.js?v=58b547f8d4';
+import { FONT, textW } from './charts.js?v=8462faa7c6';
+import { logAction, shownVel, store } from './store.js?v=926dabfaef';
+import { DOPPLER_MODES, THETA, dopplerColor, shadeColor, swatchGradient } from './dopplerColor.js?v=0a393e637e';
+import { frameFor, noteDraw, paceMs, cancelFrame } from './frame.js?v=7254a8a850';
 import { windowIndexFor, scaleFor, fitScale } from './dopplerWindow.js?v=1d34e63b32';
 import { velNormal, dopplerVel, judgeFlow } from './velNormal.js?v=97920ddf3f';
 import { caliperFrame, caliperLevel, caliperX, CAL_FADE, pairOf, pairBand, pairScale, PAIR_GAP } from './doppler-marks.js?v=15fc499dcd';
-import { createDopplerGL } from './doppler-gl.js?v=6ef76c6bca';
+import { createDopplerGL } from './doppler-gl.js?v=85427ed298';
+import { olderThan } from './backfill.js?v=455d888760';
 const nextFrame = frameFor('doppler');
 
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
@@ -359,7 +360,7 @@ export function createDoppler({ onProbe, pickGate = true }) {
       const jet = Math.max(a, ...stentReads(open));   // the fastest segment: a narrowing's jet
       pattern = js.none ? 'Occluded' : js.slow ? (jet > 190 ? 'Low velocity, jet' : 'Low velocity') : jet > 190 ? 'High velocity' : 'Patent';
       if (sev === 'ok' && jet > 190) sev = 'caution';
-      note = js.none ? 'No flow in the stent: occluded.' : 'Stent velocities under 90 or over 190 cm/s, or a change of more than 50 cm/s from the baseline scan, suggest stenosis.';
+      note = js.none ? 'No flow in the stent: occluded.' : 'Stent velocities <90 or >190 cm/s, or a change of >50 cm/s from the baseline scan, suggest stenosis.';
     } else if (p.kind === 'ivc') {
       dir = r.mean < 0 ? 'Reversed' : 'Toward the heart'; sev = r.mean < 0 ? 'danger' : 'ok';
       pattern = r.vminMean < -1 ? 'Phasic, with reversal' : pi > 0.3 ? 'Phasic' : 'Continuous';
@@ -401,7 +402,7 @@ export function createDoppler({ onProbe, pickGate = true }) {
     // 5 cm/s short of the band's end.)
     set2(gLo, String(n0)); set2(gHi, open ? '' : String(n1));
     if (gLo.dataset.u !== (open ? 'cm/s' : '')) gLo.dataset.u = open ? 'cm/s' : '';
-    rangeEl.title = open ? `Usual ${n0} cm/s or more` : `Usual ${n0}–${n1} cm/s`;
+    rangeEl.title = open ? `Usual ≥${n0} cm/s` : `Usual ${n0}–${n1} cm/s`;
   }
   // A slide's own state (its fingerprint's network, presenter dataTo → tools.pin): the probed vessel's velocity as the scanner reads it.
   let pinAt = null;
@@ -1184,6 +1185,23 @@ export function createDoppler({ onProbe, pickGate = true }) {
     if (!raf) raf = nextFrame(loop);
   }
   function update(f) { ingest(f); redraw(); }
+  /** The window ahead of the record filled with the steady state the vessel opened on (backfill.js): the history's samples before the
+   *  first of the trace go in front, in the same form, and the trace the monitor has recorded itself stays. Only for the vessel it was
+   *  made for, and not over a time-lapse's replay. */
+  function backfill(hs) {
+    if (!hs?.t?.length || !hs.vel || hs.probe !== probe || synth || frame?.clock === 'disease') return false;
+    const n = olderThan({ t: hs.t.map((t) => t + tOff) }, buf.length ? buf[0][0] : Infinity);
+    if (!n) return false;
+    const ps = hs[pairOf(meta().kind) === 'PV_TRUNK' ? 'pvVel' : 'hvVel'];
+    const rows = [];
+    for (let i = 0; i < n; i++) rows.push([hs.t[i] + tOff, hs.vel[i], ps?.[i] ?? NaN]);
+    buf = rows.concat(buf);
+    const tNow = buf[buf.length - 1][0];
+    let cut = 0; while (cut < buf.length && buf[cut][0] < tNow - KEEP) cut++;
+    if (cut) buf.splice(0, cut);
+    redraw();
+    return true;
+  }
   function clear() { buf = []; wl = null; redraw(); }
   // (A new recording of the same vessel: as a new probe, the trace, its scale and its reading start over.)
   function restart() { buf = []; wl = null; tOff = 0; synth = null; scale = null; heldTo = null; steady.probe = null; redraw(); }
@@ -1200,5 +1218,5 @@ export function createDoppler({ onProbe, pickGate = true }) {
     io?.disconnect(); ro?.disconnect(); frame = null;
     gpu?.dispose(); gpu?.canvas.remove();
   }
-  return { id: 'doppler', label: 'Doppler', el, update, ingest, redraw, clear, restart, setInvert, setWaves, autoWindow, pin, configure, dispose };
+  return { id: 'doppler', label: 'Doppler', el, update, ingest, redraw, clear, restart, backfill, historySecs: () => sweepSeconds, setInvert, setWaves, autoWindow, pin, configure, dispose };
 }

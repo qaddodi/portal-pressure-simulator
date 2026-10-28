@@ -18,7 +18,7 @@ test('a phone instrument card shows the instrument first, its readings on a shee
   assert.doesNotMatch(css, /\.pz:is\(\.stack, \.low\) \.pz-data\.has-tool:not\(\.tool-only\):not\(\.tool-open\) \.pz-tool \{ max-height: 0/, 'the instrument never folds away on a phone');
   assert.doesNotMatch(css, /tool-only:has\(\.pz-tool\[data-kind="flowtime"\]\):not\(\.tool-open\) \.pz-tool/, 'nor the after-meal chart alone');
   // (The edge is the card's sibling, kept at its foot: inside the card, its glass clipped it away on an iPhone.)
-  assert.match(js, /fk, text, data, lip, panel,/);
+  assert.match(js, /fk, text, zscrim, data, lip, panel,/);   // (the zoom's veil between the words and the card: card-zoom.js)
   assert.match(js, /l\.style\.left = px\(d\.offsetLeft\); l\.style\.width = px\(d\.offsetWidth\); l\.style\.top = px\(wideSheet\(d\) \? d\.offsetTop - LIP \* \(1 - ut\) : d\.offsetTop \+ \(sliding && slip\.h0 != null \? slip\.h0 \+ u \* slip\.d : d\.offsetHeight\)\);/);
   assert.match(js, /l\.style\.translate = d\.style\.translate;/, 'it moves with the card');
   assert.match(js, /dockTouch\(data, lip\);/, 'and takes the card\'s own pulls and pushes');
@@ -183,7 +183,7 @@ test('every chart in a phone\'s card has one size on every slide: none gives way
   assert.doesNotMatch(js, /CHART_GIVE|elastic/, 'no shrink path');
   assert.match(js, /const data = full;/);
   assert.match(js, /if \(key\) phoneLock = \{ key, cap, shut, data: full, fig: phoneFig \};/, 'the plan is kept against the card at its one size');
-  for (const [sel, h] of [['pz-prof', /--prof-h: calc\(min\(74cqi, 270px\) - 1\.6em\); height: var\(--prof-h\);/], ['pz-flows', /height: 9\.25em;/], ['pz-flowtime', /--ft-h: min\(43cqi, 144px\); height: var\(--ft-h\);/], ['pz-flowtime\\.has-bands', /height: calc\(var\(--ft-h\) \+ var\(--band-room, 0em\)\);/]]) {
+  for (const [sel, h] of [['pz-prof', /--prof-h: calc\(min\(74cqi, 270px\) - 1\.6em\); height: var\(--prof-h\);/], ['pz-flows', /height: 10em;/], ['pz-flowtime', /--ft-h: min\(43cqi, 144px\); height: var\(--ft-h\);/], ['pz-flowtime\\.has-bands', /height: calc\(var\(--ft-h\) \+ var\(--band-room, 0em\)\);/]]) {
     const rule = css.match(new RegExp(`\\.pz\\.stack\\.stack \\.${sel} \\{([^}]*)\\}`))?.[1] ?? '';
     assert.match(rule, h, sel);
     assert.doesNotMatch(rule, /--pz-fit/, `${sel} never follows the fit`);
@@ -198,9 +198,9 @@ test('a phone\'s plan measuring a card at a given fit puts the card\'s own fit b
   assert.match(css, /\.pz\.stack\.stack \.pz-data\.pz-sheet\.pz-sheet > :not\(\.pz-tool\) \{ zoom: 1; \}/);
 });
 
-test('Circulation 10 (after a meal) lands partly open on a phone: its flowtime chart has its one size, the figure lending any room', async () => {
-  const deck = Object.values(await import('../src/ui/decks/circulation.js')).find((d) => d?.slides);
-  const s = deck.slides[8];   // (on-screen 10)
+test('Varices 3 (the time-lapse) lands partly open on a phone: its flowtime chart has its one size, the figure lending any room', async () => {
+  const deck = Object.values(await import('../src/ui/decks/varices.js')).find((d) => d?.slides);
+  const s = deck.slides.find((x) => x.id === 'lapse');
   assert.equal(s.tool?.kind, 'flowtime');
   assert.match(css, /\.pz\.stack\.stack \.pz-flowtime \{ --ft-h: min\(43cqi, 144px\); height: var\(--ft-h\); \}/, 'the size it used to give way to, for good');
   assert.match(css, /\.pz\.stack \.pz-data\.pz-data\.pz-data\.pz-data > \.pz-tool\[data-kind="flowtime"\] \{ width: 100%; zoom: 1; \}/, 'never zoomed with the card');
@@ -221,7 +221,7 @@ test('every ladder shows its card title and its three zones\' names, with no key
   assert.doesNotMatch(prof, /keyFit|ppf-key/, 'no key');
   assert.match(prof, /sv\('text', \{ class: 'ptk-unit', x: 0, y: G\.braceY \+ 1\.55 \* f \}, 'mmHg'\)/, 'mmHg level with the brace\'s name');
   assert.doesNotMatch(prof, /liverLabel/, 'no per-slide option: one look on every ladder');
-  assert.match(prof, /G\.zone\.lines \? ls\.map\(\(t, j\) => sv\('text', \{ x: m, y: G\.T - G\.zb - \(ls\.length - 1 - j\) \* 1\.05 \* f, 'text-anchor': 'middle' \}, t\)\) : null/, 'each zone named over its tint, on every ladder');
+  assert.match(prof, /G\.zone\.lines \? ls\.map\(\(t, j\) => sv\('text', \{ x: m, y: G\.T - G\.zb - \(ls\.length - 1 - j\) \* 1\.05 \* zf, 'text-anchor': 'middle' \}, t\)\) : null/, 'each zone named over its tint, on every ladder');
   assert.match(prof, /export const ZONES = \[\{ cls: 'ppf-zone ppf-pre', one: 'PRE-HEPATIC', top: 'PRE' \}, \{ cls: 'ppf-zone ppf-liver', one: 'INTRAHEPATIC', top: 'INTRA' \},\n\s*\{ cls: 'ppf-zone ppf-post', one: 'POST-HEPATIC', top: 'POST' \}\];/, 'the three zones, named in full');
   assert.match(js, /ui\.dhT\.textContent = cardTitle\(s\);/, 'every card, the ladder\'s too, shows its title');
   assert.doesNotMatch(js, /kind === 'profile' && !s\.tool\.title/, 'the title is never switched off for a profile');
@@ -230,7 +230,8 @@ test('every ladder shows its card title and its three zones\' names, with no key
 
 // Mohammad, 21 Oct: "less wasted space on top": every layout's box is 1.6 em shorter, the chart's plot the same (tool-profile.js profileGeo).
 test('the ladder\'s box is 1.6 em shorter on every layout, as the chart no longer keeps a key row over its plot', () => {
-  const rules = [...css.matchAll(/[^}\n]*\.pz-prof[^{]*\{[^}]*--prof-h:[^}]*\}/g)].map((m) => m[0]);
+  // (The six ladders' cells set a --prof-h of their own, the instrument's 62 % of the cell's width less the same 1.6 em, with a floor: tests/ladders-chart-size.test.js.)
+  const rules = [...css.matchAll(/[^}\n]*\.pz-prof[^{]*\{[^}]*--prof-h:[^}]*\}/g)].map((m) => m[0]).filter((r) => !r.includes('.pz-cell'));
   assert.equal(rules.length, 4, 'Mac and iPad, upright phone, phone on its side, the phone\'s full size');
   for (const r of rules) assert.match(r, /--prof-h: calc\(min\([^;]*\) - 1\.6em\)/, r.trim());
 });

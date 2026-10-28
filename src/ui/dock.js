@@ -1,22 +1,22 @@
 // Readout strip (the four key readouts in the vitals dock, and the rest behind its chevron) and the
 // Instruments card (blueprint §9.1, §9.2).
 
-import { store, hiddenNow } from './store.js?v=67f4341802';
+import { store, hiddenNow } from './store.js?v=926dabfaef';
 import { EDGES } from '../engine/topology.js?v=4044766e96';
-import { h, fmt, svgIcon, closePopover, clamp, shownOf, isPhoneLayout, SIDEWAYS_MQ, swapFade, scrollBehavior, countTo, swapText, glideOnResize } from './util.js?v=d2c95a1b16';
-import { lobuleFlows } from './lobule-model.js?v=ff8433ada2';
-import { createProfile } from './charts.js?v=dde7572b82';
-import { createPressureTime } from './pressure-time.js?v=b9ae28aa5d';
-import { createHvpgProcedure } from './hvpg-proc.js?v=ed0101ef84';
-import { lazyPane, holdUntilLoaded } from './lazy-pane.js?v=4fd2dfa2e7';
+import { h, fmt, svgIcon, closePopover, clamp, shownOf, isPhoneLayout, SIDEWAYS_MQ, swapFade, scrollBehavior, countTo, swapText, glideOnResize } from './util.js?v=58b547f8d4';
+import { lobuleFlows } from './lobule-model.js?v=4dfd9a9929';
+import { createProfile } from './charts.js?v=8462faa7c6';
+import { createPressureTime } from './pressure-time.js?v=2452a42601';
+import { createHvpgProcedure } from './hvpg-proc.js?v=870c2a8be4';
+import { lazyPane, holdUntilLoaded } from './lazy-pane.js?v=54ae4f0118';
 import { ownsSideways, pageGo } from './swipe.js?v=3ad619631e';
-import { createEndoscopy, createVarixWall, createAbdomen } from './instruments.js?v=fbcf3d909c';
-import { createReadoutsPane } from './readouts-pane.js?v=edb3df7687';
-import { frameFor } from './frame.js?v=19b3f2915c';
-import { vitalReading } from './vital-read.js?v=e902fb66cd';
+import { createEndoscopy, createVarixWall, createAbdomen } from './instruments.js?v=6f71415263';
+import { createReadoutsPane } from './readouts-pane.js?v=dc75eb4135';
+import { frameFor } from './frame.js?v=7254a8a850';
+import { vitalReading, VITALS } from './vital-read.js?v=cbba41a6b7';
 import { setShown } from './shown.js?v=82ef5e29ec';
 import { tenthGap } from '../engine/gap.js?v=3aabfbb29b';
-import { compareRows } from './idle-keys.js?v=4b46e6a6ef';
+import { compareRows } from './idle-keys.js?v=6eccd5d85a';
 const nextFrame = frameFor('dock');
 
 // A number that changes rewrites its text node in place (setting textContent replaces the node: a DOM rebuild per paint).
@@ -54,8 +54,8 @@ export const TILES = [
   { id: 'varix', group: 'effects', k: 'Varix wall stress', ks: 'Varix', why: 'varix', hideKey: 'model', v: (m) => m.varix.ratioShown * 100, d: 0, u: '%', ux: ' of rupture', title: 'Modeled esophageal varix wall stress (educational index: pressure × radius ÷ wall thickness, not a measurable force), as a % of the stress at which the model ruptures.',
     scale: [0, 100], ticks: [40, 70, 90],
     st: (v, m) => (m.varix.ratioShown >= 0.9 ? 'critical' : m.varix.ratioShown >= 0.7 ? 'danger' : m.varix.ratioShown >= 0.4 || m.varix.d >= 5 ? 'caution' : 'ok'),
-    s: (v, m) => (m.varix.d < 2.5 ? 'None' : m.varix.redWale ? 'Red wale signs' : { F1: 'Small (F1)', F2: 'Large (F2)', F3: 'Coiled (F3)' }[m.varix.grade.code]),
-    ss: (v, m) => (m.varix.d < 2.5 ? 'None' : m.varix.redWale ? 'Red wale' : { F1: 'Small', F2: 'Large', F3: 'Coiled' }[m.varix.grade.code]) },
+    s: (v, m) => (!m.varix.present ? 'None' : m.varix.redWale ? 'Red wale signs' : m.varix.grade.label),
+    ss: (v, m) => (!m.varix.present ? 'None' : m.varix.redWale ? 'Red wale' : m.varix.grade.label) },
   { id: 'ascites', group: 'effects', pane: 'abdomen', k: 'Ascites', title: 'Free fluid in the abdomen. Grade 1 is seen on ultrasound only, grade 2 is moderate, grade 3 tense.', why: 'ascites', v: (m) => m.ascites.volume / 1000, d: 1, u: 'L',
     scale: [0, 8], ticks: [0.15, 1.5, 5],
     st: (v, m) => (m.ascites.grade === 0 ? 'ok' : m.ascites.grade === 1 ? 'caution' : 'danger'), s: (v, m) => (m.ascites.grade === 0 ? 'None' : `Grade ${m.ascites.grade}`) },
@@ -100,14 +100,8 @@ export const CUTOFFS = [
   ['Spleen length', '≤ 13 cm', '13–16 cm', '> 16 cm', '—'],
 ];
 
-// Systemic circulation: a compact obstruction at the end of the strip.
-export const VITALS = [
-  { id: 'map', k: 'MAP', title: 'Mean arterial pressure', why: 'map', v: (m) => m.vitals?.map ?? m.map, d: 0, u: 'mmHg', cut: 65, low: true, hys: 2 },
-  { id: 'hr', k: 'HR', title: 'Heart rate', why: 'hr', v: (m) => m.vitals?.hr ?? m.hr, d: 0, u: '/min', cut: 110, hys: 3 },
-  { id: 'co', k: 'CO', title: 'Cardiac output', why: 'co', v: (m) => m.vitals?.co ?? m.co, d: 1, u: 'L/min', cut: 8, hys: 0.2 },   // (the data card tile's top of normal: table-marks RATE.co)
-  { id: 'ra', k: 'RA', title: 'Right atrial pressure', why: 'ra', hideKey: 'ra', v: (m) => m.vitals?.ra ?? m.ra, d: 1, u: 'mmHg', cut: 10, hys: 0.5 },
-  { id: 'hb', k: 'Hb', title: 'Hemoglobin', why: 'hb', v: (m) => m.blood.hb, d: 1, u: 'g/dL', cut: 7, low: true, hys: 0.2 },
-];
+// Systemic circulation: a compact obstruction at the end of the strip. (The list is in vital-read.js, where the vitals monitor on a slide reads it too.)
+export { VITALS };
 
 // The key readouts: collapsed, the bar shows only the two gradients (HVPG and the portosystemic
 // gradient) on every device; the rest open with the chevron.
@@ -264,8 +258,10 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
       if (A && v != null && !measured) {
         const d = v - (lz ? (st0.compareSnap.frame ? t.v(st0.compareSnap.frame, st0) : v) : t.v(A));
         const same = Math.abs(d) < Math.pow(10, -t.d) * 0.5;
-        x.cmp.textContent = same ? 'same as then' : `${d > 0 ? '+' : '−'}${fmt(Math.abs(d), t.d)} vs then`;
-        x.cmp.className = 'cmp ' + (same ? 'same' : d > 0 ? 'up' : 'down');
+        // (Written only when they change, as in the readouts pane: each model frame rewrote every tile's.)
+        const ct = same ? 'same as then' : `${d > 0 ? '+' : '−'}${fmt(Math.abs(d), t.d)} vs then`, cc = 'cmp ' + (same ? 'same' : d > 0 ? 'up' : 'down');
+        if (x.cmp.textContent !== ct) x.cmp.textContent = ct;
+        if (x.cmp.className !== cc) x.cmp.className = cc;
         x.st.hidden = true;
       } else if (x.cmp.textContent) { x.cmp.textContent = ''; x.st.hidden = false; }
       // A new band must hold for a moment before the tile takes it, so a value hovering on a
@@ -327,7 +323,7 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
     scope: ['chart', (f) => (hiddenNow()?.has('trueHVPG') ? `PV ${fmt(f.metrics.pv, 1)}` : `HVPG ${fmt(f.metrics.hvpg, 1)}`)],
     hvpg: ['catheter', (f) => { const st = store.get(), meas = st.lastHVPG; return !hiddenNow(st)?.has('trueHVPG') ? `${fmt(f.metrics.hvpg, 1)} mmHg` : meas ? `${fmt(meas.hvpg, 1)} mmHg` : 'Not measured'; }],
     doppler: ['doppler', (f) => `${fmt(Math.abs(f.metrics.pvVel), 0)} cm/s`],
-    endoscopy: ['endoscope', (f) => (f.metrics.varix.d < 2.5 ? 'No varices' : `Grade ${f.metrics.varix.grade.code}`)],
+    endoscopy: ['endoscope', (f) => { const vx = f.metrics.varix; return !vx.present ? 'No varices' : vx.grade.label === 'None' ? 'Banded varices' : `${vx.grade.label} varices`; }],
     abdomen: ['needle', (f) => `${fmt(f.metrics.ascites.volume / 1000, 1)} L ascites`],
     fibroscan: ['gauge', (f) => `${fmt(f.metrics.lsm, 0)} kPa`],
     readouts: ['grid', (f) => readouts.summary(f)],
@@ -780,12 +776,14 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
   // Both keep a fixed window (seconds of samples, two minutes of bins), so memory stays flat.
   function ingest(f) { byId.scope.ingest(f); byId.doppler.ingest(f); }
   function clearTraces() { byId.scope.clear(); byId.doppler.clear(); }
+  /** A new patient's traces open with the steady state's last seconds already drawn (backfill.js); what they have recorded since stays. */
+  function backfillTraces(hs) { byId.scope.backfill(hs); byId.doppler.backfill(hs); }
   addEventListener('resize', () => { updateSize(); layout(); });
   setState('open'); updateSize(); layout();
   /** Bring in the instruments that load after the first paint (main.js calls it when the app is idle). */
   function load() { for (const p of panes) p.need?.(); }
   return {
-    update, ingest, clearTraces, show, toggle, close, ensure, openGrid, profile, load,
+    update, ingest, clearTraces, backfillTraces, show, toggle, close, ensure, openGrid, profile, load,
     pane: (id) => id === 'landscape' ? profile : id === 'varixwall' ? wall : byId[id],
     isOpen: (id) => isVisible() && open.includes(id === 'landscape' ? 'profile' : id === 'varixwall' ? 'endoscopy' : id),
     setState,

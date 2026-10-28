@@ -7,7 +7,7 @@ import {
   heartFlow, fillShape, systoleShape, raWave, iapFromAscites, makeRng,
 } from './physiology.js?v=6fc3ec393a';
 import { defaultParams, DRUGS, PRESETS, deepMerge, MEAL_TONE, MEAL_BLUNT } from './scenario.js?v=d7d3ea5b70';
-import { detectEvents } from './events.js?v=747cdbed9a';
+import { detectEvents } from './events.js?v=d4c7f93ac2';
 
 const KNEE = { artery: [1e9, 1], bed: [14, 10], portal: [14, 10], vein: [14, 6], hepvein: [10, 3], heart: [10, 4], liver: [9, 2], wedge: [9, 5], varix: [30, 10] };
 const KD = { vein: 0.03, diode: 0.03, collateral: 0.08 };
@@ -1187,14 +1187,16 @@ export class Engine {
     return clamp((this.slow.d.C1a - chMin) / (ch.dMax - chMin) / VARIX.mature, 0, 1);
   }
 
-  varix(site, P = this.P) {
+  /** The varix at the pressures P. air (mmHg) is the pressure of the air in the lumen round it, read view-only: it is taken off the pressure
+   *  across the wall and so off the radius seen, and nothing else moves. It is never sent through the solver, which would collapse the varix
+   *  and choke its own collateral (the balloon's way; HVPG 16.5 → 18.0 at 20 mmHg). r0: the resting radius, when a caller has it already. */
+  varix(site, P = this.P, air = 0, r0 = this.varixTarget(site)) {
     const i = this.ni[site];
-    const ptm = P[i] - this.ext[i];
+    const ptm = P[i] - this.ext[i] - air;
     const ref = this.refP ? this.refP[i] : this.Pbase[i];
-    const r0 = this.varixTarget(site);
     // The vein swells with the pressure above its own resting level, not with a rise shared by the whole venous
     // bed: central venous pressure above its baseline (right heart failure, constriction) lifts every vein
-    // together and is not a varix, so it is taken off the distending pressure. The wall tension below still
+    // together and is not a varix, so it is taken off the distending pressure. The wall stress below still
     // uses the full transmural pressure.
     const ra = this.ni.RA, raRise = Math.max(0, P[ra] - (this.refP ? this.refP[ra] : this.Pbase[ra]));
     // A vein that has not yet remodeled into a varix is not distended into one either.
@@ -1205,10 +1207,44 @@ export class Engine {
     return { ptm, r, r0, w, T, ratio: T / VARIX.Tcrit, ratioShown: +wallRead({ ptm, r, w }).index / VARIX.Tcrit };
   }
 
+  /** The diameter (mm) a varix is seen at with 0, 1, … n − 1 mmHg of air in the lumen round it (varix above). The pressures are held. */
+  varixAir(site, P = this.P, n = 21) {
+    const r0 = this.varixTarget(site);
+    return Array.from({ length: n }, (_, a) => 2 * this.varix(site, P, a, r0).r);
+  }
+
   hvpgTrue(P = this.P) {
     const lc = this.G[this.ei.WC_R], ll = this.G[this.ei.WL_R];
     const wh = (lc * P[this.ni.SIN_R] + ll * P[this.ni.CV_R]) / (lc + ll);
     return { whvp: wh, fhvp: P[this.ni.RHV], hvpg: wh - P[this.ni.RHV] };
+  }
+
+  /** The HVPG and free hepatic vein pressure this liver would read without its beta-blocker, for the stiffness (metrics.lsm).
+   *  A beta-blocker lowers the gradient through the portal inflow and the sinusoidal tone, not the scarring, and liver
+   *  stiffness does not follow the fall (AASLD 2024 p. 1189: no role for LSM in judging the HVPG response to NSBB). `hv` is
+   *  the reading as it stands (hvpgTrue); with no beta-blocker on it comes back unchanged. Otherwise a copy of this model,
+   *  the beta-blockers off and everything else as it is, is settled and read. The copy is taken again only when the
+   *  state it depends on changes (the params but the drugs, the day, the blood, the slow state), and at most every
+   *  half second of model time while a change eases in; in between, the last difference is carried on the live reading,
+   *  so the number moves smoothly while a slider is dragged. */
+  hvNoBlocker(hv) {
+    const dr = this.params.drugs;
+    if (!dr?.propranolol && !dr?.carvedilol) { this._nb = null; return hv; }
+    const to = this._ease?.to ?? this.params, s = this.slow;
+    const key = JSON.stringify([{ ...to, drugs: { ...to.drugs, propranolol: false, carvedilol: false }, seed: 0 }, this.day,
+      Math.round(this.bloodVolume() / 10), Math.round(s.splTone * 1e3), Math.round(s.volExtra), Math.round(s.ascites / 50),
+      Math.round(s.spleen * 10), this.bands > 0, this.iap != null ? Math.round(this.iap * 10) : null]);
+    const nb = this._nb;
+    if (!nb || (nb.key !== key && (!this._ease || this.t - nb.t >= 0.5 || this.t < nb.t))) {
+      const h = this._nbTwin ??= new Engine({ params: this.params });
+      h.restore(this.snapshot());
+      h.setParams({ ...h.params, drugs: { ...h.params.drugs, propranolol: false, carvedilol: false } });
+      h.bleed = { ...h.bleed, active: false }; h.infusions = [];
+      h.settle();
+      const t = h.hvpgTrue();
+      this._nb = { key, t: this.t, dHvpg: t.hvpg - hv.hvpg, dFhvp: t.fhvp - hv.fhvp };
+    }
+    return { ...hv, hvpg: hv.hvpg + this._nb.dHvpg, fhvp: hv.fhvp + this._nb.dFhvp };
   }
 
   // ───────────────────────── snapshot ─────────────────────────
