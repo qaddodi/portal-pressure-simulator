@@ -5796,7 +5796,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // an 8 MB upload, several times per ease). The slow creep of a running model stays within a step, so it never holds the plate.
   const fluidEasing = () => ascTarget !== null && Math.abs(clamp(ascTarget / 8500, 0, 1) - clamp(ascShown / 8500, 0, 1)) * 34 > 0.5;
   let ascTarget = null, ascShown = 0, ascVel = 0, fluidMaskB = null, fluidMaskOf = null, fluidMaskOfB = null, fluidBandH = -1, fluidH = 0, fluidAmp = 0, fluidInkRGBA = [0.9, 0.75, 0.28, 0.4];
-  const FLUID_TOP = 485, FLUID_DROP = 80;   // the surface's rise at the fullest belly, and how far below the floor a pool starts
+  const FLUID_TOP = 485, FLUID_DROP = 250;   // the surface's rise at the fullest belly, and how far below the floor a pool starts
   const fluidLook = { s: [0, 0, 0, 0], ink: [0, 0, 0, 0], ripple: false };
   const abdomenClipEl = defs.querySelector('#abdomenClip path');
   // (The ripple's phase advances with the running model's frames, so it carries on from where it stood after a pause instead of
