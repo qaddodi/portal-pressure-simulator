@@ -11,22 +11,27 @@ import { frameFor, cancelFrame } from './frame.js?v=7254a8a850';
 import { ease, k01 } from './hvpg-clock.js?v=553551a92a';
 const nextFrame = frameFor('proc-anim');
 
-// Each step: [id, the word on the tip's callout, the caption]. T: the sequence in ms from the start (apply: the model takes
-// the change; back: the catheter starts out; end: it has gone; zoom: the camera closes on the stretch it works on; work: closer
-// still, on the vein it treats, while the sclerosant fills it).
-// (BRTO and BATO play at about two thirds of their first speed, each step long enough to read and watch: review 23 Oct.)
-const OBLIT_T = { travel0: 600, travel1: 7600, zoom: 6600, inflate0: 8400, inflate1: 10200, work: 10400, fill0: 10800, fill1: 15800, apply: 16400, fillOut: 17000, deflate: 18400, back: 19600, end: 24000 };
-// How long each camera move glides (ms): slow and even, so the eye can follow the catheter from the route into the close-up.
-const CAM_MS = { route: 1400, tip: 2000, work: 1800, home: 1800 };
+// Each step: [id, its word (the callout on the vessel it works on, and its button in the teaching card), the caption, the
+// button's short word (a narrow card), the shot it plays in, the vessel its callout names, the station names shown with it].
+// Shots: 'way', the whole route from where it enters, while the catheter travels; 'tip', the stretch it works on, close. A step
+// plays whole inside its shot with the camera still; a new shot glides in only between steps, and playProcedure waits for it to
+// land before anything moves (his ask, 29 Oct: the zoom jumped and the callouts moved; recs in review/procedure-animation-ideas).
+// T: the sequence in ms from the start (apply: the model takes the change; back: the catheter starts out; end: it has gone).
+// stops: where each step ends; presented, one Next plays one step and holds at its stop.
+const OBLIT_T = { travel0: 300, travel1: 6500, inflate0: 7400, inflate1: 9000, fill0: 10200, fill1: 15200, apply: 15500, fillOut: 16500, deflate: 17700, back: 18900, end: 22000 };
+const OBLIT_STOPS = [7100, 9900, 16300, 22000];
+// How long a shot glides (ms), as a slide's own camera does; the procedure waits this long, and a little more, at each new shot.
+const SHOT_MS = 1500;
 export const PROCS = {
   tips: {
     name: 'TIPS', label: 'TIPS', balloonSpan: 'tract',
-    T: { travel0: 300, travel1: 3800, zoom: 3400, needle0: 4200, needle1: 6000, wire1: 7000, inflate0: 7400, inflate1: 8600, deflate0: 9000, deflate1: 9800, apply: 10000, back: 10800, end: 13600 },
+    T: { travel0: 300, travel1: 4000, needle0: 4900, needle1: 6700, wire1: 7600, inflate0: 8100, inflate1: 9300, deflate0: 9900, deflate1: 10700, apply: 10800, back: 11400, end: 14400 },
+    stops: [4600, 7900, 9700, 14400],
     steps: [
-      ['enter', 'Catheter in', 'In through the right internal jugular vein, down the SVC and the IVC into the right hepatic vein.'],
-      ['needle', 'Needle across', 'A needle crosses the liver from the hepatic vein into the right portal vein, and a wire follows it into the portal trunk.'],
-      ['dilate', 'Tract dilated', 'A balloon opens the tract through the liver to the width of the stent.'],
-      ['done', 'Stent in', 'A covered stent holds the tract open: portal blood now reaches the hepatic vein without crossing the sinusoids.'],
+      ['enter', 'Catheter in', 'In through the right internal jugular vein, down the SVC and the IVC into the right hepatic vein.', 'In', 'way', 'RHV_IVC', ['SVC', 'IVCS']],
+      ['needle', 'Needle across', 'A needle crosses the liver from the hepatic vein into the right portal vein, and a wire follows it into the portal trunk.', 'Needle', 'tip', 'PVH_R', ['RHV']],
+      ['dilate', 'Tract dilated', 'A balloon opens the tract through the liver to the width of the stent.', 'Balloon', 'tip', 'PVH_R', ['RHV']],
+      ['done', 'Stent in', 'A covered stent holds the tract open: portal blood now reaches the hepatic vein without crossing the sinusoids.', 'Stent', 'tip', 'TIPS', ['RHV', 'RPV']],
     ],
     can: (p) => (p.tips?.on ? 'A TIPS is already in place.' : (p.thrombus?.RHV_IVC || 0) >= 0.8 ? 'The right hepatic vein is clotted, so a TIPS has no route.' : ''),
     apply: (p) => { p.tips = { ...p.tips, on: true, d: p.tips?.d || 8 }; return p; },
@@ -34,23 +39,23 @@ export const PROCS = {
     undo: (p) => { p.tips = { ...p.tips, on: false }; return p; },
   },
   brto: {
-    name: 'BRTO', label: 'BRTO', T: OBLIT_T, camMs: CAM_MS, follow: true,
+    name: 'BRTO', label: 'BRTO', T: OBLIT_T, stops: OBLIT_STOPS,
     steps: [
-      ['enter', 'Catheter in', 'Up from the right femoral vein, through the IVC and the left renal vein into the gastrorenal shunt.'],
-      ['balloon', 'Balloon up', 'The balloon blocks the shunt near the renal vein, so nothing washes out into it.'],
-      ['fill', 'Sclerosant', 'Sclerosant fills the shunt back up to the fundal varices, and they clot.'],
-      ['done', 'Shunt closed', 'The shunt and the varices are closed. Their blood stays in the portal system, so the portal pressure rises.'],
+      ['enter', 'Catheter in', 'Up from the right femoral vein, through the IVC and the left renal vein into the gastrorenal shunt.', 'In', 'way', 'LRV_IVC', ['IVCI']],
+      ['balloon', 'Balloon up', 'The balloon blocks the shunt near the renal vein, so nothing washes out into it.', 'Balloon', 'tip', 'C5', ['LRV']],
+      ['fill', 'Sclerosant', 'Sclerosant fills the shunt back up to the fundal varices, and they clot.', 'Fill', 'tip', 'C5', ['LRV']],
+      ['done', 'Shunt closed', 'The shunt and the varices are closed. Their blood stays in the portal system, so the portal pressure rises.', 'Closed', 'tip', 'C5', ['LRV']],
     ],
     can: oblitCan,
     apply: oblitApply, had: oblitHad, undo: oblitUndo,
   },
   bato: {
-    name: 'BATO', label: 'BATO', T: OBLIT_T, camMs: CAM_MS, follow: true,
+    name: 'BATO', label: 'BATO', T: OBLIT_T, stops: OBLIT_STOPS,
     steps: [
-      ['enter', 'Catheter in', 'Through the liver into the right portal vein, then along the portal and splenic veins into the short gastric veins.'],
-      ['balloon', 'Balloon up', 'The balloon blocks the feeding vein, so the inflow to the varices stops.'],
-      ['fill', 'Sclerosant', 'Sclerosant fills the varices from the portal side, and they clot.'],
-      ['done', 'Varices closed', 'The varices and their gastrorenal shunt are closed. Their blood stays in the portal system, so the portal pressure rises.'],
+      ['enter', 'Catheter in', 'Through the liver into the right portal vein, then along the portal and splenic veins into the short gastric veins.', 'In', 'way', 'SV_CONF', ['RPV', 'CONF']],
+      ['balloon', 'Balloon up', 'The balloon blocks the feeding vein, so the inflow to the varices stops.', 'Balloon', 'tip', 'C2', ['SV']],
+      ['fill', 'Sclerosant', 'Sclerosant fills the varices from the portal side, and they clot.', 'Fill', 'tip', 'C2', ['SV']],
+      ['done', 'Varices closed', 'The varices and their gastrorenal shunt are closed. Their blood stays in the portal system, so the portal pressure rises.', 'Closed', 'tip', 'C2', ['SV']],
     ],
     can: (p, m) => oblitCan(p, m) || ((p.thrombus?.PV_TRUNK || 0) >= 0.8 ? 'The portal vein is clotted, so BATO has no route.' : ''),
     apply: oblitApply, had: oblitHad, undo: oblitUndo,
@@ -76,65 +81,106 @@ export const procBlocked = (kind, p, m = null) => (PROCS[kind] ? PROCS[kind].can
  *  procedure has already closed them, so it can be watched again). TIPS always is (dimmed when it cannot run). */
 export const procOffered = (kind, p, m = null) => !!PROCS[kind] && (kind === 'tips' || PROCS[kind].had(p || {}) || (p?.spontaneous?.C5 !== false && hasGastricVarices(m)));
 
+/** The step a time falls in (pure): each runs up to and including its stop, so a procedure held at a stop still shows that step. */
+export const stepAt = (kind, t) => { const S = PROCS[kind].stops, i = S.findIndex((x) => t <= x); return i < 0 ? S.length - 1 : i; };
+/** The callout a step puts on the figure: a slide's own mark (a treatment's), on the vessel it works on. */
+export const stepMark = (kind, i) => { const s = PROCS[kind]?.steps[i]; return s ? { edges: [s[5]], label: s[1], kind: 'treat' } : null; };
+
 /**
  * The procedure at t ms (pure): { u (0..1 of the way in), balloon, column (the sclerosant, 0..1), opacity, step (index into
- * steps, -1 once it has gone), cam ('route' | 'tip' | 'home') }. stops: the route's stretches as u (stage.cathStops), for the
- * TIPS its tract ({ tract: [u0, u1] }); without them the tract sits where it usually does.
+ * steps, -1 once it has gone), shot ('way' | 'tip', '' once it has gone) }. stops: the route's stretches as u (stage.cathStops),
+ * for the TIPS its tract ({ tract: [u0, u1] }); without them the tract sits where it usually does.
  */
 export function procFrame(kind, t, stops = null) {
   const P = PROCS[kind], T = P.T, back = ease(k01(t, T.back, T.end - 400));
   const opacity = 1 - k01(t, T.end - 800, T.end);
-  const cam = t < T.zoom ? 'route' : t < T.back ? (T.work != null && t >= T.work ? 'work' : 'tip') : 'home';
+  const step = t >= T.end ? -1 : stepAt(kind, t), shot = step >= 0 ? P.steps[step][4] : '';
   if (kind === 'tips') {
     const [a, b] = stops?.tract || [0.62, 0.86];
     const u = (t < T.needle0 ? a * ease(k01(t, T.travel0, T.travel1)) : t < T.needle1 ? a + (b - a) * ease(k01(t, T.needle0, T.needle1)) : b + (1 - b) * ease(k01(t, T.needle1, T.wire1))) * (1 - back);
     const balloon = ease(k01(t, T.inflate0, T.inflate1)) * (1 - ease(k01(t, T.deflate0, T.deflate1)));
-    const step = t >= T.end ? -1 : t < T.needle0 ? 0 : t < T.inflate0 ? 1 : t < T.apply ? 2 : 3;
-    return { u, balloon, column: 0, opacity, step, cam };
+    return { u, balloon, column: 0, opacity, step, shot };
   }
   const u = ease(k01(t, T.travel0, T.travel1)) * (1 - back);
   const balloon = ease(k01(t, T.inflate0, T.inflate1)) * (1 - ease(k01(t, T.deflate, T.back)));
   const column = ease(k01(t, T.fill0, T.fill1)) * (1 - ease(k01(t, T.fillOut, T.deflate)));
-  const step = t >= T.end ? -1 : t < T.inflate0 ? 0 : t < T.fill0 ? 1 : t < T.apply ? 2 : 3;
-  return { u, balloon, column, opacity, step, cam };
+  return { u, balloon, column, opacity, step, shot };
 }
 
+// Going back through a step runs it backwards (the balloon goes down, the sclerosant drains, the catheter backs out), a little
+// faster than forward. Autoplay (Tests) holds at each stop for AUTO_HOLD ms before the next step.
+const BACK_SPEED = 1.6, AUTO_HOLD = 1600, LAND_MS = 160;
+
 /**
- * Plays a procedure on the figure. apply(): the model takes the change (called once, at T.apply, unless stopped first);
- * onFrame(frame, t): each frame; onEnd(): once the catheter has gone. Returns { stop({ home }) } (the catheter fades out, the
- * camera goes back unless home is false, and the model is left as it is).
+ * Plays a procedure on the figure, step by step. stepped: hold at each step's stop until next(), back() or to(k) (a
+ * presentation: Next and Back); otherwise each step follows the last after a short hold (Tests). to: the stop to play to first.
+ * apply() / unapply(): the model takes the change as the sequence passes T.apply, and gives it back when going back past it.
+ * onStep(i): the step on show changed. onMark(mark, names): the step's callout (a treatment mark) and the station names it shows,
+ * or (null) once it has gone. onFrame(frame, t): each frame. onEnd({ done, rewound }): it ended, played through or gone back to
+ * before its start. Returns { next, back, to, stop({ home }), running, at, step }.
  */
-export function playProcedure(stage, kind, { apply = null, onFrame = null, onEnd = null } = {}) {
-  const P = PROCS[kind];
-  const t0 = performance.now();
-  let raf = 0, cam = '', applied = false, stops = null, over = false;
-  function step() {
-    const t = performance.now() - t0, f = procFrame(kind, t, stops);
-    const s = P.steps[f.step];
-    // The step's word on the tip, while the catheter is in (it goes as the catheter starts out).
-    const labels = s && t < P.T.back + 600 ? [{ key: s[0], at: 'side', kicker: P.name, text: s[1], unit: '', cls: 'step' }] : [];
-    // (Between the route's framing and the close-up, the view drifts after the tip as it travels, as the HVPG catheter's does:
-    // setCatheter's follow, laid out with the catheter's step. The camera stays where it is meanwhile, so cathFocus below is not asked.)
-    const follow = cam === 'route' && f.cam === 'route' && !!P.follow;
+export function playProcedure(stage, kind, { stepped = false, to = 0, apply = null, unapply = null, onFrame = null, onStep = null, onMark = null, onEnd = null } = {}) {
+  const P = PROCS[kind], T = P.T, n = P.stops.length;
+  let at = stepped ? Math.max(0, Math.min(n - 1, to | 0)) : 0, goal = P.stops[at];
+  let t = 0, raf = 0, last = performance.now(), shot = '', landT = 0, holdT = 0, applied = false, stops = null, over = false, step = -2;
+  function wake() { if (!over && !raf) { last = performance.now(); raf = nextFrame(tick); } }
+  function tick() {
+    raf = 0;
+    const now = performance.now(), dt = Math.min(64, now - last); last = now;
+    const f = procFrame(kind, t, stops);
+    if (f.step !== step && f.step >= 0) {
+      step = f.step;
+      onStep?.(step);
+      onMark?.(stepMark(kind, step), P.steps[step][6] || []);
+    }
     stage.setCatheter({ route: kind, u: f.u, balloon: f.balloon, balloonSpan: P.balloonSpan, column: f.column, columnColor: 'var(--tr-scler)',
-      ring: null, clock: t, opacity: f.opacity, labels, follow });
+      ring: null, clock: t, opacity: f.opacity, labels: [], keep: true });
     stops ||= stage.cathStops?.() || null;
-    // (Each camera move waits until the anatomy is on screen: a switch from the circuit takes a moment.)
-    const ms = P.camMs || {};
-    if (f.cam !== cam && (f.cam !== 'route' || t > 250) && stage.cathFocus(f.cam, ms[f.cam] || (f.cam === 'tip' ? 1100 : 900), { near: f.cam === 'route' && !!P.follow })) cam = f.cam;
-    if (!applied && t >= P.T.apply) { applied = true; apply?.(); }
+    // The step's shot, glided to once (a slide's own glide, arcing on a long move). Until it lands nothing moves: no step starts
+    // with the camera on its way. (A switch from the circuit takes a moment: cathFocus says no until the route is drawn.)
+    if (f.shot && f.shot !== shot && stage.cathFocus(f.shot, SHOT_MS, { arc: true })) shot = f.shot;
+    if (!shot || stage.gliding?.()) landT = now;
+    const still = !shot || now - landT < LAND_MS;
+    if (!applied && t >= T.apply) { applied = true; apply?.(); }
+    else if (applied && t < T.apply) { applied = false; unapply?.(); }
     onFrame?.(f, t);
-    if (t < P.T.end) raf = nextFrame(step);
-    else finish();
+    if (t >= T.end) { finish(false); return; }
+    if (at < 0 && t <= 0) { finish(true); return; }
+    const t0 = t;
+    if (!still && t !== goal) { t = t < goal ? Math.min(goal, t + dt) : Math.max(goal, t - dt * BACK_SPEED); holdT = 0; }
+    else if (!still && !stepped && at < n - 1) { holdT ||= now; if (now - holdT >= AUTO_HOLD) { at++; goal = P.stops[at]; holdT = 0; } }
+    // (Held at a stop with the camera landed and its last frame drawn: no frames until Next, Back or a step's button asks.)
+    if (still || t !== t0 || t !== goal || !stepped || at < 0) raf = nextFrame(tick);
   }
-  function finish() { raf = 0; over = true; stage.setCatheter(null); onEnd?.(); }
+  function finish(rewound) {
+    over = true; raf = 0;
+    stage.setCatheter(null);
+    if (shot) stage.cathFocus('home', SHOT_MS, { arc: true });
+    onMark?.(null, null);
+    onEnd?.({ done: !rewound, rewound });
+  }
   function stop({ home = true } = {}) {
     if (over) return;
     cancelFrame(raf); raf = 0; over = true;
     stage.setCatheter(null);
-    if (home && cam && cam !== 'home') stage.cathFocus('home', P.camMs?.home || 700);
-    onEnd?.();
+    if (home && shot) stage.cathFocus('home', SHOT_MS, { arc: true });
+    onMark?.(null, null);
+    onEnd?.({ done: false, rewound: false });
   }
-  step();
-  return { stop, get running() { return !over; } };
+  // (The first frame next frame, never inside this call: a caller's callbacks may name the run this returns.)
+  wake();
+  return {
+    /** On to the next step's stop (false on the last: the caller moves on). */
+    next() { if (over || at >= n - 1) return false; at++; goal = P.stops[at]; holdT = 0; wake(); return true; },
+    /** Back to the stop before, running the step backwards; from the first, back to before the start, where it ends. */
+    back() { if (over) return false; at = at > 0 ? at - 1 : -1; goal = at < 0 ? 0 : P.stops[at]; holdT = 0; wake(); return true; },
+    /** To step k's stop, forward or back. */
+    to(k) { if (over) return false; at = Math.max(0, Math.min(n - 1, k | 0)); goal = P.stops[at]; holdT = 0; wake(); return true; },
+    stop,
+    /** The cards changed the room: the shot on show framed again (false when there is none yet). */
+    refit(ms = 700) { if (over || !shot) return false; stage.cathFocus(shot, ms); return true; },
+    get running() { return !over; },
+    get at() { return at; },
+    get step() { return step; },
+  };
 }

@@ -27,8 +27,8 @@ import { DISEASE_SRC, diseasePieces } from './diseases.js?v=fb8a5451c3';
 import { nb, listCase, plateletText } from './glue.js?v=5a0f63226b';
 import { DECKS, DECK_ALIAS, REGIONS, LEVELS, TOPICS, withOverview, siteTag, SITE_TAGS } from './decks.js?v=e81cad26e8';
 import { fingerprintOf } from '../engine/fingerprint.js?v=ca81723393';
-import { createHvpgMonitor } from './hvpg-proc.js?v=870c2a8be4';
-import { createTools } from './presenter-tools.js?v=a3ae62c546';
+import { createHvpgMonitor } from './hvpg-proc.js?v=7c7e6a39a8';
+import { createTools } from './presenter-tools.js?v=29e93f5cf5';
 import { openHandout } from './handout.js?v=548e2d045e';
 import { noteResume, resumeFor } from './resume.js?v=f086f80ee8';
 import { parseDeckSource, checkDeck } from './deck-source.js?v=8395c650cd';
@@ -45,7 +45,7 @@ import { causeFit } from './cause-fit.js?v=830a6835a5';
 import { anchorsOf, roomFor } from './cam-room.js?v=4ed6a6545e';
 import { COMPACT, WIDE } from './card-type.js?v=5af5f22935';
 import { flowTimeHeight, trailKeys } from './flow-time.js?v=026ab2f37c';
-import { PROCS, procBlocked, procOffered, playProcedure } from './proc-anim.js?v=3075a0efa7';
+import { PROCS, procBlocked, procOffered, playProcedure } from './proc-anim.js?v=72cebaac1f';
 import { dataPlan, textPlan, keepData, keepText, cardSnap, cardChanged, cardBack } from './card-keep.js?v=4fc0919e34';
 import { createCardZoom, tapTracker } from './card-zoom.js?v=f589271cc7';
 import { tileKeys as cardKeys, toolOnly } from './card-tiles.js?v=884156ad01';
@@ -1160,45 +1160,86 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     if (cath.on) { stage.setCatheter(null); stage.cathForget(); }
     Object.assign(cath, { on: false, v: { u: 0, balloon: 0, column: 0, opacity: 1 }, tr: {}, show: [], ring: null, ostium: false, probeT0: 0, follow: false, cam: null, fp: null });
   }
-  // ── A slide's procedure (proc-anim.js): TIPS, BRTO or BATO played on the live figure from the teaching card's Play button, or
-  // as the slide lands going forward (auto: true). When it ends the live model takes the change, as a treatment button does
-  // (liveSet). A slide whose own patient has already had it (the BRTO slides show the shunt closed) plays it from just before:
-  // the live model takes it back first (the shunt opens again while the catheter travels), then the procedure puts it back.
-  // Leaving the slide stops it where it is; the next slide's camera takes over.
-  let procRun = null;
+  // ── A slide's procedure (proc-anim.js): TIPS, BRTO or BATO played on the live figure, one step at a time. The teaching card
+  // holds a button for each step (in place of one Play button): a step's button plays the procedure up to it, and once it plays,
+  // Next plays the next step and Back runs the last one backwards (his pick, 29 Oct). Each step holds still in its shot with its
+  // callout, the slide's own mark style, on the vessel it works on. It may also start as the slide lands going forward (auto:
+  // true). As it passes its change the live model takes it, as a treatment button does (liveSet), and gives it back going back.
+  // A slide whose own patient has already had it (the BRTO slides show the shunt closed) plays it from just before: the live
+  // model takes it back first (the shunt opens again while the catheter travels), then the procedure puts it back; going back to
+  // before the first step puts the slide as it was. Leaving the slide stops it where it is; the next slide's camera takes over.
+  let procRun = null, procWait = false, procShown = -1;
   const procKind = (s) => (typeof s.procedure === 'string' ? s.procedure : s.procedure?.kind) || null;
-  function procStop() { if (!procRun) return; const r = procRun; procRun = null; r.stop({ home: false }); stage.cathForget(); procPaint(); }
-  function procPaint() { ui?.text.querySelectorAll('.pz-proc').forEach((b) => { b.disabled = !!procRun || !!b.dataset.why; b.setAttribute('aria-pressed', String(!!procRun)); }); }
-  async function procPlay(s, i) {
+  // (home: the slide stays, so the camera glides back and its own marks and names come back through onMark; leaving it, the next
+  // slide's camera and marks take over.)
+  function procStop(home = false) {
+    if (!procRun) return;
+    const r = procRun;
+    if (home) r.stop({ home }); else { procRun = null; r.stop({ home }); stage.cathForget(); }
+    procRun = null; procShown = -1; procPaint();
+  }
+  // (The step on show is the pressed one; after it has played through, the last stays pressed until the slide changes.)
+  function procPaint() {
+    ui?.text.querySelectorAll('.pz-proc').forEach((b, k) => { b.disabled = procWait || !!b.dataset.why; b.setAttribute('aria-pressed', String(k === procShown)); });
+  }
+  // (The slide's treatment buttons press the one that now matches the live model.)
+  function procCompare(s) {
+    const has = (o, p) => Object.entries(o).every(([k, v]) => (v && typeof v === 'object' ? has(v, p?.[k] || {}) : !!p?.[k] === !!v && (typeof v === 'boolean' || p?.[k] === v)));
+    const k = s.compare?.findIndex((o) => o.params && has(o.params, store.get().params)) ?? -1;
+    if (k >= 0) ui?.text.querySelectorAll('.pz-abb:not(.pz-proc)').forEach((btn, j) => btn.setAttribute('aria-pressed', String(j === k)));
+  }
+  // The slide's own callouts and names, as it landed (a clot mark's words as the model now has them).
+  const slideMarks = (i) => (markBase?.i === i ? markFocus(clotMarks(markBase.marks, store.get().params)) : null);
+  async function procPlay(s, i, to = 0) {
     const kind = procKind(s), mine = () => !!deck && shown?.i === i && slides[i] === s;
-    if (!PROCS[kind] || !mine() || procRun || cath.on) return;
+    if (!PROCS[kind] || !mine() || cath.on || procWait) return;
+    if (procRun) { procRun.to(to); return; }
     if (lapseOn) stopLapse();
-    await toAnatomy();
-    if (store.get().view !== 'anatomic') { store.set({ view: 'anatomic' }); await wait(700); }
-    if (!mine() || procRun) return;
+    procWait = true; procPaint();
+    try {
+      await toAnatomy();
+      if (store.get().view !== 'anatomic') { store.set({ view: 'anatomic' }); await wait(700); }
+    } finally { procWait = false; }
+    if (!mine() || procRun) { procPaint(); return; }
+    const before = structuredClone(store.get().params), names = store.get().presentLabels || [];
     // (Through liveSet as the change itself is: the slide's own state comes back whenever it is shown again.)
-    if (PROCS[kind].had(store.get().params)) liveSet(s, i, PROCS[kind].undo(structuredClone(store.get().params)));
+    if (PROCS[kind].had(before)) liveSet(s, i, PROCS[kind].undo(structuredClone(before)));
     const run = procRun = playProcedure(stage, kind, {
+      stepped: true, to,
       apply: () => {
         if (procRun !== run || !mine() || procBlocked(kind, store.get().params, store.get().frame?.metrics)) return;
-        liveSet(s, i, PROCS[kind].apply(structuredClone(store.get().params)));
-        // (The slide's treatment buttons press the one that now matches the live model.)
-        const has = (o, p) => Object.entries(o).every(([k, v]) => (v && typeof v === 'object' ? has(v, p?.[k] || {}) : !!p?.[k] === !!v && (typeof v === 'boolean' || p?.[k] === v)));
-        const k = s.compare?.findIndex((o) => o.params && has(o.params, store.get().params)) ?? -1;
-        if (k >= 0) ui?.text.querySelectorAll('.pz-abb:not(.pz-proc)').forEach((btn, j) => btn.setAttribute('aria-pressed', String(j === k)));
+        liveSet(s, i, PROCS[kind].apply(structuredClone(store.get().params))); procCompare(s);
       },
-      onEnd: () => { if (procRun === run) { procRun = null; procPaint(); } },
+      unapply: () => { if (procRun === run && mine()) { liveSet(s, i, PROCS[kind].undo(structuredClone(store.get().params))); procCompare(s); } },
+      onStep: (k) => { if (procRun === run) { procShown = k; procPaint(); } },
+      // (The step's callout stands in for the slide's marks while it plays; its names join the slide's. Then the slide's come back:
+      // on the BRTO slides the last step's "Shunt closed" is the slide's own mark, so it stays where it is.)
+      onMark: (m, add) => {
+        if (procRun !== run || !mine()) return;
+        store.set(m ? { focus: markFocus([m]), presentLabels: [...new Set([...names, ...(add || [])])] } : { focus: slideMarks(i), presentLabels: names });
+      },
+      onEnd: ({ rewound }) => {
+        if (procRun !== run) return;
+        procRun = null;
+        if (rewound && mine()) { liveSet(s, i, before); procCompare(s); procShown = -1; }
+        procPaint();
+      },
     });
     procPaint();
   }
+  // Next and Back while a procedure plays: its next step, or the last one run backwards (false: nothing to do, the slide moves on).
+  const procNext = () => !!procRun && shown?.i === want && procRun.next();
+  const procBack = () => !!procRun && shown?.i === want && procRun.back();
   function procEl(s, i, st) {
-    const kind = procKind(s), p = st?.params || store.get().params, m = st ? null : store.get().frame?.metrics;
+    const kind = procKind(s), P = PROCS[kind], p = st?.params || store.get().params, m = st ? null : store.get().frame?.metrics;
     // (BRTO and BATO only on a patient with gastric varices, or one who has had it already, so it plays from just before.)
-    if (PROCS[kind] && !procOffered(kind, p, m)) return null;
-    const why = !PROCS[kind] ? 'Unknown procedure.' : PROCS[kind].had(p) ? '' : procBlocked(kind, p, m);
-    return h('div', { class: 'pz-ab pz-procs', role: 'group', 'aria-label': 'Play the procedure on the figure' },
-      h('button', { type: 'button', class: 'pz-abb pz-proc', 'aria-pressed': 'false', ...(why ? { disabled: '', 'data-why': why, title: why } : {}), onclick: () => procPlay(s, i) },
-        `Play ${PROCS[kind]?.name || kind}`));
+    if (P && !procOffered(kind, p, m)) return null;
+    const why = !P ? 'Unknown procedure.' : P.had(p) ? '' : procBlocked(kind, p, m);
+    // One button per step, numbered, in one row: where the full words would wrap, each takes its short word (abShort).
+    return h('div', { class: 'pz-ab pz-procs', role: 'group', 'aria-label': `Play ${P?.name || kind} step by step on the figure` },
+      (P?.steps || [['play', `Play ${kind}`, '', `Play ${kind}`]]).map((st0, k) => h('button', { type: 'button', class: 'pz-abb pz-proc', 'aria-pressed': String(!!procRun && k === procShown),
+        'data-full': `${k + 1} ${st0[1]}`, 'data-short': `${k + 1} ${st0[3]}`, 'aria-label': `${P?.name || kind}, step ${k + 1}: ${st0[1]}`, title: why || st0[2],
+        ...(why ? { disabled: '', 'data-why': why } : procWait ? { disabled: '' } : {}), onclick: () => procPlay(s, i, k) }, `${k + 1} ${st0[1]}`)));
   }
   // Out: the readings go, the balloon goes down and the catheter fades (at once when the figure is fading anyway).
   async function cathOut(fading) {
@@ -1280,6 +1321,8 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     if (c.kind === 'tool') { ui.tools.option(c.tool); return; }
     // (A treatment button pressed while the slide's time-lapse still plays ends the lapse first: two clocks must not drive the model.)
     if (lapseOn) stopLapse();
+    // (So does a procedure, which glides home: the button's patient is shown as the slide frames it.)
+    procStop(true);
     if (c.kind === 'state') { livePatient(s, i, s.compare[k]); return; }
     liveSet(s, i, c.patch);
   }
@@ -1599,9 +1642,10 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   const next = () => {
     if (caseLift) { caseLift(); return; }
     if (lapseOn && lapseLeft > 0 && shown?.i === want) skipLapse();
+    else if (procNext()) return;   // (a procedure's next step: proc-anim.js)
     else if (want < slides.length - 1) go(want + 1); else stop();
   };
-  const prev = () => { if (want > 0) go(want - 1); };
+  const prev = () => { if (procBack()) return; if (want > 0) go(want - 1); };
   async function run() {
     busy = true;
     try {
@@ -3644,6 +3688,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   function fitAround(s, cam, ms) {
     framedSig = cardSig();
     if (cath.on && cath.cam) stage.cathFocus(cath.cam, ms, { both: true });
+    else if (procRun?.refit(ms)) return;   // (a procedure holds its own shot: the cards changing frame that shot again)
     else if (cam && !LOBULE_CAM.test(cam) && !store.get().lobule) { if (cam === 'fit') stage.fitSlow(ms); else stage.frameBox(camBox(cam, s), ms, s.kMax || 3.2, !!s.clear); }
   }
   // (A resize or a turn letters every chart again for its new size.)

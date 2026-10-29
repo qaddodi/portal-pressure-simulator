@@ -2,7 +2,8 @@
 // takes the change the Treat buttons make, one the patient cannot have says why, and built-in slides use it only where adopted.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { PROCS, PROC_KINDS, procBlocked, procOffered, procFrame, GV_MIN_MM } from '../src/ui/proc-anim.js';
+import { PROCS, PROC_KINDS, procBlocked, procOffered, procFrame, stepAt, stepMark, playProcedure, GV_MIN_MM } from '../src/ui/proc-anim.js';
+import { LABEL_VESSEL } from '../src/ui/anatomy.js';
 import { defaultParams } from '../src/engine/scenario.js';
 import { isOccluded } from '../src/engine/topology.js';
 import { DECKS } from '../src/ui/decks.js';
@@ -36,7 +37,7 @@ test('the steps run in order, the work happens with the catheter in, and the cha
     assert.equal(last, PROCS[k].steps.length - 1);
     assert.ok(T.apply < T.back, `${k}: applied before the catheter starts out`);
     assert.equal(procFrame(k, T.apply - 1).u, 1, `${k}: the tip is all the way in while it works`);
-    assert.equal(procFrame(k, T.apply).step, PROCS[k].steps.length - 1);
+    assert.ok(procFrame(k, T.apply).step >= PROCS[k].steps.length - 2, `${k}: the change lands in the last steps`);
   }
   // The TIPS's needle crosses the tract between the hepatic vein and the portal vein (the route's stops).
   const stops = { tract: [0.5, 0.8] };
@@ -108,15 +109,122 @@ test('BRTO and BATO are offered only with gastric varices (TIPS always), and say
   assert.equal(procBlocked('tips', p, none), '');
 });
 
-test('BRTO and BATO run slowly, close in on the vein they treat while they work, and glide the camera home', () => {
+test('BRTO and BATO run slowly enough to follow', () => {
   for (const k of ['brto', 'bato']) {
     const T = PROCS[k].T;
     assert.ok(T.end >= 22000, `${k} lasts ${T.end} ms`);
     assert.ok(T.travel1 - T.travel0 >= 6000, `${k}: the catheter travels for at least 6 s`);
     assert.ok(T.fill1 - T.fill0 >= 4000, `${k}: the sclerosant fills for at least 4 s`);
-    const cams = [...new Set(times(T).map((t) => procFrame(k, t).cam))];
-    assert.deepEqual(cams, ['route', 'tip', 'work', 'home'], `${k} camera order`);
-    assert.equal(procFrame(k, T.fill0).cam, 'work', `${k}: close in before the sclerosant`);
-    for (const m of ['route', 'tip', 'work', 'home']) assert.ok(PROCS[k].camMs[m] >= 1400, `${k} ${m} glide`);
   }
+});
+
+// His ask, 29 Oct: the zoom jumped, the callouts moved and looked unlike the app's, and the steps were hard to follow. Each step
+// now plays whole inside one still shot, its callout the slide's own mark on a vessel, one step per Next.
+test('every step plays inside one shot, the camera moving only between steps, two shots and in order', () => {
+  for (const k of PROC_KINDS) {
+    const P = PROCS[k], T = P.T;
+    assert.equal(P.stops.length, P.steps.length, `${k}: a stop for every step`);
+    assert.equal(P.stops.at(-1), T.end, `${k}: the last step ends with the catheter gone`);
+    for (let i = 1; i < P.stops.length; i++) assert.ok(P.stops[i] > P.stops[i - 1], `${k}: stops in order`);
+    // (shots: the whole way in first, then the close-up for the rest; never back out mid-procedure)
+    assert.deepEqual(P.steps.map((s) => s[4]), ['way', 'tip', 'tip', 'tip'], `${k} shots`);
+    for (const t of times(T)) {
+      const f = procFrame(k, t);
+      if (f.step >= 0) { assert.equal(f.step, stepAt(k, t)); assert.equal(f.shot, P.steps[f.step][4], `${k} at ${t}`); }
+      else assert.equal(f.shot, '');
+    }
+    // Held at a stop, the step is the one that just played (its callout stays up) and nothing is moving.
+    P.stops.slice(0, -1).forEach((x, i) => {
+      assert.equal(stepAt(k, x), i, `${k}: held at stop ${i}`);
+      const a = procFrame(k, x - 40), b = procFrame(k, x + 40);
+      for (const key of ['u', 'balloon', 'column']) assert.ok(Math.abs(a[key] - b[key]) < 1e-9, `${k}: ${key} still across stop ${i}`);
+    });
+    // Where the shot changes, nothing moves for a while after it (the camera lands first; playProcedure also waits for it).
+    const cut = P.stops[P.steps.findIndex((s) => s[4] === 'tip') - 1];
+    const c0 = procFrame(k, cut), c1 = procFrame(k, cut + 250);
+    for (const key of ['u', 'balloon', 'column']) assert.ok(Math.abs(c0[key] - c1[key]) < 1e-9, `${k}: ${key} still as the close-up lands`);
+  }
+});
+
+test("each step's callout is a treatment mark on a vessel of its own route, and its names are the figure's stations", () => {
+  const routes = { tips: ['SVC_RA', 'IVCS_RA', 'IVC_IS', 'RHV_IVC', 'TIPS', 'PVH_R', 'PV_TRUNK'], brto: ['ILI_IVC', 'IVC_IS', 'LRV_IVC', 'C5'], bato: ['PVH_R', 'PV_TRUNK', 'SV_CONF', 'C2'] };
+  for (const k of PROC_KINDS) PROCS[k].steps.forEach((s, i) => {
+    const m = stepMark(k, i);
+    assert.deepEqual(m, { edges: [s[5]], label: s[1], kind: 'treat' });
+    assert.ok(routes[k].includes(s[5]), `${k} step ${i}: ${s[5]} is on its route`);
+    for (const n of s[6]) assert.ok(LABEL_VESSEL[n], `${k} step ${i}: ${n} is a station label`);
+    assert.ok(s[3] && s[3].length <= 8, `${k} step ${i}: short word "${s[3]}"`);
+  });
+  assert.equal(stepMark('brto', 99), null);
+  // The BRTO slide's own mark is the last step's callout, so the procedure ends on it without a change.
+  const s = DECKS.find((d) => d.id === 'gastric-varices').slides.find((x) => x.id === 'brto');
+  const last = stepMark('brto', PROCS.brto.steps.length - 1);
+  assert.deepEqual({ edges: s.mark.edges, label: s.mark.label, kind: s.mark.kind }, last);
+});
+
+// A stand-in for the stage and the frame clock: playProcedure on a clock the test moves by hand.
+function rig() {
+  const q = [];
+  let now = 0, gl = 0;
+  globalThis.performance = { now: () => now };
+  globalThis.requestAnimationFrame = (fn) => { q.push(fn); return q.length; };
+  globalThis.cancelAnimationFrame = () => {};
+  const moves = [], cats = [];
+  const stage = {
+    setCatheter: (st) => cats.push(st), cathStops: () => null, gliding: () => now < gl,
+    cathFocus: (mode, ms) => { moves.push({ mode, at: now, ms }); gl = now + ms; return true; },
+  };
+  const run = (ms, step = 16) => { for (let t = 0; t < ms; t += step) { now += step; const f = q.splice(0); for (const fn of f) fn(now); } };
+  return { stage, run, moves, cats, idle: () => q.length === 0, now: () => now };
+}
+
+test('presented, it holds at each step until Next, waits for each shot to land, and Back runs a step backwards', async () => {
+  const saved = { p: globalThis.performance, r: globalThis.requestAnimationFrame, c: globalThis.cancelAnimationFrame };
+  try {
+    const R = rig(), steps = [], marks = [], ends = [];
+    let applied = 0;
+    const play = playProcedure(R.stage, 'brto', { stepped: true, apply: () => applied++, unapply: () => applied--, onStep: (k) => steps.push(k), onMark: (m) => marks.push(m && m.label), onEnd: (e) => ends.push(e) });
+    assert.deepEqual([steps.length, marks.length], [0, 0], 'no callback runs inside the call (the caller names the run it returns)');
+    R.run(12000);
+    const P = PROCS.brto;
+    assert.deepEqual(R.moves.map((m) => m.mode), ['way'], 'one shot for the way in');
+    assert.equal(play.at, 0); assert.ok(R.idle(), 'held at the first stop with no frames running');
+    assert.deepEqual(steps, [0]); assert.deepEqual(marks, ['Catheter in']);
+    // (nothing moved while the first shot glided in)
+    const during = R.cats.filter((c, i) => i < R.cats.length && c && c.u > 0).length;
+    assert.ok(during > 0 && R.cats[0].u === 0 && R.cats[0].keep === true, 'the figure keeps its names');
+    assert.ok(play.next());
+    R.run(30000);
+    assert.deepEqual(R.moves.map((m) => m.mode), ['way', 'tip']);
+    assert.equal(steps.at(-1), 1); assert.equal(marks.at(-1), 'Balloon up');
+    assert.ok(play.next()); R.run(30000);
+    assert.equal(applied, 1, 'the model took the change as the sclerosant filled');
+    assert.ok(play.back()); R.run(30000);
+    assert.equal(applied, 0, 'and gave it back going back');
+    assert.equal(steps.at(-1), 1);
+    assert.ok(play.back()); R.run(30000);
+    assert.deepEqual(R.moves.map((m) => m.mode), ['way', 'tip', 'way'], 'back to the way in, between steps');
+    assert.ok(play.back()); R.run(30000);
+    assert.equal(play.running, false); assert.deepEqual(ends, [{ done: false, rewound: true }]);
+    assert.equal(R.moves.at(-1).mode, 'home'); assert.equal(marks.at(-1), null);
+    assert.equal(R.cats.at(-1), null, 'the catheter is gone');
+    void P;
+  } finally { Object.assign(globalThis, { performance: saved.p, requestAnimationFrame: saved.r, cancelAnimationFrame: saved.c }); }
+});
+
+test('in Tests it plays through by itself, every step in turn, and leaves the change made', () => {
+  const saved = { p: globalThis.performance, r: globalThis.requestAnimationFrame, c: globalThis.cancelAnimationFrame };
+  try {
+    for (const k of PROC_KINDS) {
+      const R = rig(), steps = [], ends = [];
+      let applied = 0;
+      playProcedure(R.stage, k, { apply: () => applied++, onStep: (i) => steps.push(i), onEnd: (e) => ends.push(e) });
+      R.run(60000);
+      assert.deepEqual(steps, [0, 1, 2, 3], k);
+      assert.equal(applied, 1, k);
+      assert.deepEqual(ends, [{ done: true, rewound: false }], k);
+      assert.deepEqual(R.moves.map((m) => m.mode), ['way', 'tip', 'home'], `${k}: three camera moves in all`);
+      assert.ok(R.moves.every((m) => m.ms >= 1400), `${k}: every move glides as a slide's camera does`);
+    }
+  } finally { Object.assign(globalThis, { performance: saved.p, requestAnimationFrame: saved.r, cancelAnimationFrame: saved.c }); }
 });

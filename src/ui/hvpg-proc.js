@@ -17,7 +17,7 @@ import { T, ease, k01, balloonAt, timeOfBalloon, pressureAt as pAt } from './hvp
 import { frameFor, cancelFrame } from './frame.js?v=7254a8a850';
 import { traceRoom, TRACE_MIN } from './trace-room.js?v=b4c0aaa97f';
 import { rateOf } from './table-marks.js?v=8458ad3bf8';
-import { PROCS, PROC_KINDS, procBlocked, procOffered, playProcedure } from './proc-anim.js?v=3075a0efa7';
+import { PROCS, PROC_KINDS, procBlocked, procOffered, playProcedure } from './proc-anim.js?v=72cebaac1f';
 const nextFrame = frameFor('hvpg-proc');
 
 let stageRef = null;
@@ -99,9 +99,14 @@ export function createHvpgProcedure() {
     if (st.lobule) store.set({ lobule: false });
     if (st.view !== 'anatomic') store.set({ view: 'anatomic' });
     procKind = kind; procStep = 0;
+    // (Each step names the vessel it works on with the figure's own callout, as a slide's mark; whatever was called out before
+    // comes back when it ends. Here it plays through by itself, holding a moment at each step.)
+    const focus0 = store.get().focus;
+    let applied = false;
     proc = playProcedure(stageRef, kind, {
-      apply: () => updateParams((p) => PROCS[kind].apply(p), { label: PROCS[kind].label }),
-      onFrame: (f) => { if (f.step !== procStep) { procStep = f.step; paintSide(); } },
+      apply: () => { if (!applied) { applied = true; updateParams((p) => PROCS[kind].apply(p), { label: PROCS[kind].label }); } },
+      onStep: (k) => { procStep = k; paintSide(); },
+      onMark: (m) => store.set({ focus: m ? { ...m, marks: [m] } : focus0 }),
       onEnd: () => { proc = null; procKind = ''; procStep = -1; paintSide(); },
     });
     logAction('procedure', PROCS[kind].name);

@@ -51,7 +51,9 @@ test('the catheter\'s step moves the camera before its readings are laid out, in
   assert.match(read('src/ui/presenter.js'), /follow: cath\.follow \}\);/);
   const hv = read('src/ui/hvpg-proc.js'), pa = read('src/ui/proc-anim.js');
   assert.equal((hv.match(/labels, follow,/g) || []).length, 2);
-  assert.match(pa, /ring: null, clock: t, opacity: f\.opacity, labels, follow \}\);/);
+  // (a treatment holds still shots and never follows: proc-anim.js, his ask 29 Oct)
+  assert.match(pa, /ring: null, clock: t, opacity: f\.opacity, labels: \[\], keep: true \}\);/);
+  assert.doesNotMatch(pa, /\bfollow[:,]/);
   for (const src of [hv, pa, read('src/ui/presenter.js')]) assert.doesNotMatch(src, /cathFollow/);
 });
 
@@ -90,5 +92,4 @@ test("his pick (26 Oct): the route's framing zooms in once and the follow only p
   // every catheter whose view follows it asks for that framing
   assert.match(read('src/ui/presenter.js'), /stage\.cathFocus\('route', ms\(1200\), \{ near: true \}\)/);
   assert.equal((read('src/ui/hvpg-proc.js').match(/\{ near: want === 'route' \}/g) || []).length, 2);
-  assert.match(read('src/ui/proc-anim.js'), /\{ near: f\.cam === 'route' && !!P\.follow \}/);
 });

@@ -215,7 +215,7 @@ Put buttons and sliders on key slides only. 32 of the 40 built-in decks have at 
 
 ### A catheter treatment
 
-`procedure: 'tips'` (or `'brto'`, `'bato'`) puts a Play button on the teaching card. It plays the procedure on the real vessels: the camera follows the catheter, closes in on the balloon, the sclerosant or the stent, and goes back. When it ends, the live model keeps the change, as a treatment button would. `procedure: { kind: 'tips', auto: true }` plays it as the slide lands, going forward only. The patient must not have had the procedure yet and needs the vessels it uses (a gastrorenal shunt for BRTO and BATO). Otherwise the button is dimmed and says why. Do not put it on a slide with the HVPG catheter. A built-in slide uses it only when `tests/deck-adopted.js` lists it.
+`procedure: 'tips'` (or `'brto'`, `'bato'`) puts four numbered step buttons on the teaching card. They play the procedure on the real vessels one step at a time: Next plays the next step and Back runs the last one backwards. Each step holds still in its shot (the whole route, then the stretch it works on), its word a treatment mark on the vessel; the camera moves only between steps and goes back at the end. The live model keeps the change, as a treatment button would. `procedure: { kind: 'tips', auto: true }` plays it as the slide lands, going forward only. The patient must not have had the procedure yet and needs the vessels it uses (a gastrorenal shunt for BRTO and BATO). Otherwise the button is dimmed and says why. Do not put it on a slide with the HVPG catheter. A built-in slide uses it only when `tests/deck-adopted.js` lists it.
 
 Full guide: section 7.4.
 
