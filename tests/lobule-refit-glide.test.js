@@ -12,5 +12,5 @@ test('refit of a zoomed-in lobule glides to the clamped framing', () => {
   assert.doesNotMatch(refit, /else \{ clampV\(\); viewChanged\(\); \}/, 'no snap to the clamp');
   const re = js.match(/function reclamp\(\) \{[\s\S]*?\n {2}\}/)[0];
   assert.match(re, /Object\.assign\(V, saved\)/, 'the clamp is measured on a copy');
-  assert.match(re, /glideTo\(to, \d+\)/, 'and glided to');
+  assert.match(re, /glideTo\(to, \d+, false, null, 'inOut', true\)/, 'and glided to');
 });

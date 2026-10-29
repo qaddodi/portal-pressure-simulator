@@ -23,6 +23,7 @@ import { h, fmt, clamp, lerp } from './util.js?v=58b547f8d4';
 import { pressureColor } from './colormap.js?v=05a231b880';
 import { isPaused } from './clock.js?v=5151312569';
 import { store } from './store.js?v=926dabfaef';
+import { STEP_MAX } from './glide-clock.js?v=220d7f875c';
 import { sinusoidTargets } from './sinusoid-model.js?v=74f5d007ca';
 import { createSinusoidGL, poreAt, poreOpenness, calloutPore, cellAt, cellEdge, SLOT, SEED, UM } from './sinusoid-gl.js?v=8399d8205e';
 import { placeFenDisse } from './fen-place.js?v=20401deb9e';
@@ -195,7 +196,7 @@ export function createSinusoidView({ host, before = null }) {
     // Its names are the lobule's size on every device (only the app's label-size setting scales them).
     { const lk = String(labelK()); if (el.style.getPropertyValue('--label-k') !== lk) el.style.setProperty('--label-k', lk); }   // (written only when it changes: a write each frame restyled the page)
     VW.tC = [(f.l + f.r) / 2, (f.t + f.b) / 2];
-    if (!VW.k || !VW.fe) { VW.k = VW.tk; VW.C = [...VW.tC]; VW.fe = { ...f }; VW.ins = [...VW.insT]; }
+    if (!VW.k || !VW.fe) { VW.k = VW.tk; VW.C = [...VW.tC]; VW.fe = { ...f }; VW.ins = [...VW.insT]; VW.vel = null; }
     return geo;
   }
   // The lobule's own label size (--label-k: the label setting, the desktop's baseline, a presentation's projector size),
@@ -203,21 +204,40 @@ export function createSinusoidView({ host, before = null }) {
   const labelK = () => (parseFloat(document.documentElement.style.getPropertyValue('--label-k')) || 1) * 0.9;
   // f: the free space where it rests (tk, tC: the scale and centre that fit it); fe, ins: the same space and insets as the view has
   // glided to so far, which every name, arrow and the legend is laid against, so they go with the view and never ahead of it.
-  const VW = { k: 0, C: [0, 0], tk: 0, tC: [0, 0], f: null, fe: null, insT: null, ins: null, vis: [0, 0], fr: [0, 0] };
+  // vel: how fast each of those is moving (viewVec's order), so a glide begins from rest and a new target carries it on.
+  const VW = { k: 0, C: [0, 0], tk: 0, tC: [0, 0], f: null, fe: null, insT: null, ins: null, vel: null, vis: [0, 0], fr: [0, 0] };
   // Where it is drawn this frame: the view's own placement, carried by the zoom from the lobule while that runs.
   const CAM = { C: [0, 0], k: 1, ang: 0, ca: 1, sa: 0 };
+  // The view's placement as numbers: its scale, centre, the free space it lays names against, and its insets (the target's, or as it is).
+  const viewTo = () => [VW.tk, VW.tC[0], VW.tC[1], VW.f.l, VW.f.t, VW.f.r, VW.f.b, ...VW.insT];
+  const viewVec = () => [VW.k, VW.C[0], VW.C[1], VW.fe.l, VW.fe.t, VW.fe.r, VW.fe.b, ...VW.ins];
+  const viewPut = (v) => { VW.k = v[0]; VW.C = [v[1], v[2]]; VW.fe.l = v[3]; VW.fe.t = v[4]; VW.fe.r = v[5]; VW.fe.b = v[6]; for (let i = 0; i < VW.ins.length; i++) VW.ins[i] = v[7 + i]; };
+  // (The scale counts forty times: its steps are small beside a centre's pixels.)
+  const viewGap = (a, b) => a.reduce((sum, v, i) => sum + Math.abs(v - b[i]) * (i === 0 ? 40 : 1), 0);
+  // The glide to the room the cards leave runs as a critically damped spring: it sets out from rest, so there is no kick as a card starts to
+  // move, it reaches 60% of the way in 0.2 s and 95% in 0.47 s, and a target that moves on (the second layout pass after a tuck) carries it on
+  // with no stop. A frame is counted at most STEP_MAX long (glide-clock.js): after a slow one, the layout the change set off, the view has not
+  // jumped a third of the way, it goes on from where it was.
+  const SPRING = 10;
   function stepView(dt) {
-    const a = easeA = dt > 0.001 ? 1 - Math.exp(-dt / 0.22) : 0;
-    const { f, fe, insT, ins } = VW, E = ['l', 't', 'r', 'b'];
-    const d = Math.abs(VW.tk - VW.k) * 40 + Math.abs(VW.tC[0] - VW.C[0]) + Math.abs(VW.tC[1] - VW.C[1])
-      + E.reduce((s, e) => s + Math.abs(f[e] - fe[e]), 0) + insT.reduce((s, v, i) => s + Math.abs(v - ins[i]), 0);
-    if (d < 0.05 || dive) { VW.k = VW.tk; VW.C = [...VW.tC]; for (const e of E) fe[e] = f[e]; for (let i = 0; i < ins.length; i++) ins[i] = insT[i]; }   // (held at its mark while the zoom carries it)
+    const to = viewTo(), cur = viewVec();
+    if (!VW.vel) VW.vel = to.map(() => 0);
+    const vel = VW.vel, gap0 = viewGap(cur, to), still = vel.every((v, i) => Math.abs(v) * (i === 0 ? 40 : 1) < 0.5);
+    easeA = 0;
+    let moving = false;
+    if (dive || (gap0 < 0.05 && still)) { viewPut(to); vel.fill(0); }   // (held at its mark while the zoom carries it)
     else {
-      VW.k += (VW.tk - VW.k) * a; VW.C = VW.C.map((c, i) => c + (VW.tC[i] - c) * a);
+      moving = true;
       // (The free space glides with the centre and scale it fits: the names and arrows are laid out against it each frame, so they
       // ride the glide. Laid against where it comes to rest, they stood there at once while the vessel was still on its way.)
-      for (const e of E) fe[e] += (f[e] - fe[e]) * a;
-      for (let i = 0; i < ins.length; i++) ins[i] += (insT[i] - ins[i]) * a;
+      const s = Math.min(Math.max(dt, 0), STEP_MAX / 1000), e = Math.exp(-SPRING * s);
+      for (let i = 0; i < cur.length; i++) {
+        const dx = cur[i] - to[i], t = vel[i] + SPRING * dx;
+        cur[i] = to[i] + (dx + t * s) * e; vel[i] = (vel[i] - SPRING * t * s) * e;
+      }
+      const gap1 = viewGap(cur, to);
+      easeA = gap0 > 1e-6 ? Math.min(1, Math.max(0, 1 - gap1 / gap0)) : 0;   // (the share of the way left that this frame went: what the names' lags decay by)
+      if (gap1 < 0.05 && vel.every((v, i) => Math.abs(v) * (i === 0 ? 40 : 1) < 0.5)) { viewPut(to); vel.fill(0); } else viewPut(cur);
     }
     // The zoom from the lobule (lobule-zoom.js): a turn and scale about the view's centre c, moved toward the lobule's sinusoid.
     let C = VW.C, k = VW.k, ang = geo.ang;
@@ -234,8 +254,8 @@ export function createSinusoidView({ host, before = null }) {
     const span = (pts) => { const v = pts.map(loc); return [Math.min(...v), Math.max(...v)]; };
     const [a0, a1] = span([[0, 0], [g.W, 0], [0, g.H], [g.W, g.H]]);
     VW.vis = [Math.max(g.x0, a0 - 8), Math.min(g.x1, a1 + 8)];
-    VW.fr = span([[fe.l, fe.t], [fe.r, fe.b]]);
-    return d >= 0.05;
+    VW.fr = span([[VW.fe.l, VW.fe.t], [VW.fe.r, VW.fe.b]]);
+    return moving;
   }
   // Local (µm, along/across) → stage px, where the view rests (for the labels).
   const toScreen = (x, y) => { const ca = Math.cos(geo.ang), sa = Math.sin(geo.ang); return [VW.C[0] + VW.k * (x * ca - y * sa), VW.C[1] + VW.k * (x * sa + y * ca)]; };

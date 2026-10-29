@@ -27,8 +27,8 @@ import { DISEASE_SRC, diseasePieces } from './diseases.js?v=fb8a5451c3';
 import { nb, listCase, plateletText } from './glue.js?v=5a0f63226b';
 import { DECKS, DECK_ALIAS, REGIONS, LEVELS, TOPICS, withOverview, siteTag, SITE_TAGS } from './decks.js?v=d730c0d923';
 import { fingerprintOf } from '../engine/fingerprint.js?v=ca81723393';
-import { createHvpgMonitor } from './hvpg-proc.js?v=47cd2bc3d8';
-import { createTools } from './presenter-tools.js?v=4136f159a7';
+import { createHvpgMonitor } from './hvpg-proc.js?v=e835486100';
+import { createTools } from './presenter-tools.js?v=f1afe13308';
 import { openHandout } from './handout.js?v=935e67c6be';
 import { noteResume, resumeFor } from './resume.js?v=f086f80ee8';
 import { parseDeckSource, checkDeck } from './deck-source.js?v=8395c650cd';
@@ -46,7 +46,7 @@ import { anchorsOf, roomFor } from './cam-room.js?v=b3215322be';
 import { beatCount, beatView } from './slide-beats.js?v=2aded612c4';
 import { COMPACT, WIDE } from './card-type.js?v=5af5f22935';
 import { flowTimeHeight, trailKeys } from './flow-time.js?v=026ab2f37c';
-import { PROCS, procBlocked, procOffered, playProcedure, stepMark } from './proc-anim.js?v=e0d218dbf4';
+import { PROCS, procBlocked, procOffered, playProcedure, stepMark } from './proc-anim.js?v=da8ff85ef2';
 import { dataPlan, textPlan, keepData, keepText, cardSnap, cardChanged, cardBack } from './card-keep.js?v=982397f8fb';
 import { createCardZoom, tapTracker } from './card-zoom.js?v=f589271cc7';
 import { createScopeTile } from './scope-tile.js?v=b05945714a';
@@ -1141,7 +1141,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   // labels, lit vessels, probe and readings, so none of them stands outside the frame (cam-room.js).
   // The one move to a framing on the plate: the whole figure, or a slide's box (opt.drift: a slow push, see pushTo).
   function frameTo(cam, s, ms, opt = {}) {
-    if (cam === 'fit') { if (opt.drift) stage.fitDrift(ms); else stage.fitSlow(ms); } else stage.frameBox(camBox(cam, s), ms, s.kMax || 3.2, !!s.clear, opt);
+    if (cam === 'fit') { if (opt.drift) stage.fitDrift(ms); else stage.fitSlow(ms, opt); } else stage.frameBox(camBox(cam, s), ms, s.kMax || 3.2, !!s.clear, opt);
   }
   function camBox(cam, s) {
     let r = regionBox(isCamOn(cam) ? cam.near : cam, REGIONS);
@@ -3776,12 +3776,13 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   // The camera eases to fit a slide's framing into the space its cards leave (the lobule refits itself on pps:occ).
   function fitAround(s, cam, ms) {
     framedSig = cardSig();
-    if (cath.on && cath.cam) stage.cathFocus(cath.cam, ms, { both: true });
+    // (Steady: timed so a slow frame at its start holds the glide back instead of carrying it part of the way at once, glide-clock.js.)
+    if (cath.on && cath.cam) stage.cathFocus(cath.cam, ms, { both: true, steady: true });
     else if (procRun?.refit(ms)) return;   // (a procedure holds its own shot: the cards changing frame that shot again)
     else if (cam && !LOBULE_CAM.test(cam) && !store.get().lobule) {
       // (While a time-lapse pushes, a refit (the cards moved, the screen turned) keeps pushing, to the new fit, over the seconds left.)
       const left = push && push.i === shown?.i ? push.until - performance.now() : 0;
-      frameTo(cam, s, left > 0 ? left : ms, left > 0 ? { drift: true } : {});
+      frameTo(cam, s, left > 0 ? left : ms, left > 0 ? { drift: true } : { steady: true });
     }
   }
   // (A resize or a turn letters every chart again for its new size.)
@@ -3825,7 +3826,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     layout();
     // (Judged once the cards have their new layout's classes, then laid out again if that changed the title.)
     if (turn && !ui.text.hidden) { const was = !!ui.text.querySelector('.pz-h.long'); markLong(ui.text); if (was !== !!ui.text.querySelector('.pz-h.long')) { textLock = null; layout(); } }
-    setLabels();
+    setLabels(!turn);
     if (!shown) return;
     // (Under the start's cover, the projector layout landing or a window settling: framed at once, so the reveal shows it framed.)
     if (booting) { clearTimeout(reframeT); reframeT = 0; reframe(0); return; }
@@ -3835,8 +3836,15 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     reframeT = setTimeout(() => { reframeT = 0; if (ui && shown) reframe(400); }, 250);
   };
   // Projector-size labels on the figure, for the screen it is on (2 at 1080 lines).
-  function setLabels() {
+  // (unchanged: left out when the projector size and the text size are the ones it set last. A card that only folded, docked or settled
+  // (onResize with no resize) changes neither, and the figure's labels laid out again and every stage style read again in the very frame
+  // the camera's refit to that card began: on a phone a long frame, which carried the glide part of the way at once.)
+  let labelsFor = '';
+  function setLabels(unchanged = false) {
     const k = (phone() ? 1.15 : clamp(Math.min(innerHeight / 540, innerWidth / 960), 1.25, 2.4));
+    const key = `${k}|${stage.labelScale()}`;
+    if (unchanged && key === labelsFor) return;
+    labelsFor = key;
     stage.setProjection(k);
     { const lv = String(Math.min(k, 2.2) * stage.labelScale()); document.documentElement.style.setProperty('--label-k', lv); document.documentElement.style.setProperty('--label-scale', String(Math.max(1, Math.min(k, 2.2) / 1.5) * stage.labelScale())); }   // (font roles: the projector's size over Explore's, never below it)
     labelling = true; dispatchEvent(new Event('pps:labelscale')); labelling = false;
@@ -4812,7 +4820,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     view.classList.remove('pz-out');
     for (const k of ['--pz-l', '--pz-r', '--pz-t', '--pz-b']) app.style.removeProperty(k);
     stage.lobuleHold?.(false);   // (a way out of the lobule left unfinished: the lobule follows the free space again)
-    stage.setProjection(false);
+    stage.setProjection(false); labelsFor = '';
     document.documentElement.style.setProperty('--label-k', String(stage.labelEff())); document.documentElement.style.setProperty('--label-scale', String(stage.labelScale()));
     dispatchEvent(new Event('pps:labelscale'));
     if (document.fullscreenElement) document.exitFullscreen?.();

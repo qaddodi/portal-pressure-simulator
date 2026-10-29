@@ -181,10 +181,73 @@ test('turned from upright to sideways, and closed and opened again: the names st
 
 test('the view lays its names against the eased room, not the room where it comes to rest (source)', () => {
   const src = readFileSync(new URL('../src/ui/sinusoid-view.js', import.meta.url), 'utf8');
-  assert.match(src, /for \(const e of E\) fe\[e\] \+= \(f\[e\] - fe\[e\]\) \* a;/, 'the room eases with the centre and scale');
+  assert.match(src, /const viewVec = \(\) => \[VW\.k, VW\.C\[0\], VW\.C\[1\], VW\.fe\.l, VW\.fe\.t, VW\.fe\.r, VW\.fe\.b, \.\.\.VW\.ins\];/, 'the room eases with the centre and scale, in one spring');
   assert.match(src, /const g = geo, f = VW\.fe;/, 'the end names and the legend take the eased room');
   assert.match(src, /const lx = f\.l \+ 2, ly = VW\.ins\[0\] \+ 12;/);
-  assert.match(src, /VW\.fr = span\(\[\[fe\.l, fe\.t\], \[fe\.r, fe\.b\]\]\);/, 'the band for the other names is the eased room too');
+  assert.match(src, /VW\.fr = span\(\[\[VW\.fe\.l, VW\.fe\.t\], \[VW\.fe\.r, VW\.fe\.b\]\]\);/, 'the band for the other names is the eased room too');
   assert.match(src, /if \(gliding \|\| layoutBusy\) settled = false;/, 'the loop never sleeps with a glide half done');
   assert.match(src, /addEventListener\('pps:occ', wake\);/, 'a change of room wakes a sleeping view');
+});
+
+// Mohammad, 29 Oct (iPhone): "when I untuck and tuck card stacked ... the view is snapping into new camera position instead of easing". The
+// glide began with a kick (an exponential approach moves 7% of the way in its first frame) and took the whole of a slow frame: the layout the
+// tuck sets off is a long frame on a phone, and 0.2 s of it carried the view 60% of the way in one step. It now sets out from rest as a spring
+// and counts a frame at most STEP_MAX long.
+test('the glide sets out from rest: its first frame moves a sliver, then it gathers pace', () => {
+  const o = open(PHONE, { width: 390, height: 844, left: 0, top: 0 });
+  const rd = () => at(o.name('in'))[1];
+  const y0 = rd();
+  o.set({ '--pz-t': '150px' });
+  const ys = glide(o, rd, 110), total = ys.at(-1) - y0;
+  assert.ok(Math.abs(total) > 20, `the name moves (${total.toFixed(1)} px)`);
+  const steps = ys.slice(1).map((y, i) => Math.abs(y - ys[i]));
+  assert.ok(steps[0] < Math.abs(total) * 0.03, `the first frame moves ${(100 * steps[0] / Math.abs(total)).toFixed(1)}% of the way, not a kick`);
+  assert.ok(Math.max(...steps) > steps[0] * 2.5, 'and the steps grow after it (an ease in)');
+  // ... and eases out: the last frames before it rests move less than its fastest
+  const peak = steps.indexOf(Math.max(...steps));
+  assert.ok(steps[peak + 12] < steps[peak] * 0.7, 'and slows towards the end (an ease out)');
+});
+
+test('a slow frame at the start of the glide holds it back instead of carrying the view part of the way at once', () => {
+  const o = open(PHONE, { width: 390, height: 844, left: 0, top: 0 });
+  const rd = () => at(o.name('in'))[1];
+  const y0 = rd();
+  o.set({ '--pz-t': '150px' });
+  frames(1, 200);   // (the layout pass the tuck set off, a 200 ms frame)
+  const y1 = rd();
+  frames(110);
+  const total = rd() - y0;
+  assert.ok(Math.abs(total) > 20, `the name moves (${total.toFixed(1)} px)`);
+  assert.ok(Math.abs(y1 - y0) < Math.abs(total) * 0.1, `a 200 ms frame moved it ${(100 * Math.abs(y1 - y0) / Math.abs(total)).toFixed(1)}% of the way`);
+});
+
+test('a slow frame in the middle of the glide moves it no further than two ordinary frames would', () => {
+  const o = open(PHONE, { width: 390, height: 844, left: 0, top: 0 });
+  const rd = () => at(o.name('in'))[1];
+  const y0 = rd();
+  o.set({ '--pz-t': '150px' });
+  frames(12);
+  const a = rd();
+  frames(1, 250);
+  const b = rd();
+  frames(120);
+  const total = rd() - y0;
+  assert.ok(Math.abs(b - a) < Math.abs(total) * 0.16, `a 250 ms frame moved it ${(100 * Math.abs(b - a) / Math.abs(total)).toFixed(1)}% of the way`);
+});
+
+test('a target that moves on while the view glides (the layout pass after a tuck) carries it on with no stop and no turn back', () => {
+  const o = open(PHONE, { width: 390, height: 844, left: 0, top: 0 });
+  const rd = () => at(o.name('in'))[1];
+  const y0 = rd();
+  o.set({ '--pz-t': '150px' });
+  const ys = [y0];
+  for (let i = 0; i < 20; i++) { frames(1); ys.push(rd()); }
+  o.set({ '--pz-t': '140px' });   // (the second layout pass lands 10 px higher)
+  for (let i = 0; i < 100; i++) { frames(1); ys.push(rd()); }
+  const total = ys.at(-1) - y0, dir = Math.sign(total);
+  for (let i = 1; i < ys.length; i++) assert.ok((ys[i] - ys[i - 1]) * dir >= -0.6, `frame ${i} turns back (${ys[i - 1].toFixed(1)} to ${ys[i].toFixed(1)})`);
+  const mid = ys.slice(18, 24).map((y, i, a) => (i ? Math.abs(y - a[i - 1]) : 0)).slice(1);
+  assert.ok(Math.min(...mid) > 0.05, 'it does not stop where the first target was');
+  const rest = open({ ...PHONE, '--pz-t': '140px' }, { width: 390, height: 844, left: 0, top: 0 });
+  assert.ok(Math.abs(ys.at(-1) - at(rest.name('in'))[1]) < 0.6, 'and comes to rest where the second puts it');
 });

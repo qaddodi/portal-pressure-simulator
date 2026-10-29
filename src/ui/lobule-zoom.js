@@ -21,6 +21,7 @@
 
 import { runFlick, FLICK } from './flick.js?v=afbef74ff2';
 import { store } from './store.js?v=926dabfaef';
+import { glideClock } from './glide-clock.js?v=220d7f875c';
 import { radiiChanged, canvasPx, fxMoves, DIVE_RIM } from './lobule-render-cache.js?v=84bf4c2222';
 import { softwareYield } from './sw-yield.js?v=e580a095b1';
 import { lobuleState, lymphRate, sinceOf, lensModeOf, LOBE } from './lobule-model.js?v=d8b47d9e79';
@@ -33,7 +34,7 @@ import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatCol
 import { NODES, EDGES } from '../engine/topology.js?v=4044766e96';
 import { createVeinsGL, binVeins, laneSum, N_SAMPLES, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_SPEC, F_EDGE, ORIGIN_GREY } from './veins-gl.js?v=32120c90b3';
 import { SLOT, PERIOD, originFractions, ORIGIN_N, DRIFT_PERIOD } from './blood.js?v=2667e8cf8d';
-import { createSinusoidView } from './sinusoid-view.js?v=5fcef43896';
+import { createSinusoidView } from './sinusoid-view.js?v=5561545222';
 import { frameFor, cancelFrame, noteDraw, saver, paceMs, frame } from './frame.js?v=7254a8a850';
 import { gpuProbe, COUNTED } from './gpu-probe.js?v=dd12fc216c';
 import { leaderEnd, runInside } from './leader-end.js?v=8e884700ab';
@@ -389,7 +390,9 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     nextFrame(() => { if (camMove) return; el.classList.remove('lz-cam'); el.classList.add('lz-cam-in'); clearTimeout(camInT); camInT = setTimeout(() => el.classList.remove('lz-cam-in'), 400); });
   }
   // (ease 'in': from rest and still at speed where it lands, for a glide another move carries on from: the way out to the rise.)
-  function glideTo(to, ms = 260, cam = false, aim = null, ease = 'inOut') {
+  // (steady: a refit to cards that moved: timed by glideClock, so a slow frame at its start (the layout the same change set off) holds
+  // the glide back a little instead of carrying it part of the way at once.)
+  function glideTo(to, ms = 260, cam = false, aim = null, ease = 'inOut', steady = false) {
     stopInertia();
     cancelFrame(glide); gliding = false;
     camAim = aim;   // (any other glide, or a hand on the lobule, replaces the presenter's)
@@ -397,8 +400,9 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     // (Lite mode: the presenter's camera jumps, and the lobule fades in at its new framing.)
     if (reduce.matches || !fade) { camAim = null; Object.assign(V, to); viewChanged(); camSettle(); return; }
     if (cam && Math.abs(from.k - to.k) + Math.abs(from.x - to.x) + Math.abs(from.y - to.y) > 0.5) { camMove = true; camUntil = t0 + ms + 50; el.classList.remove('lz-cam-in'); el.classList.add('lz-cam'); setTimeout(() => { if (camMove && performance.now() >= camUntil) camSettle(); }, ms + 80); } else camSettle();
+    const clock = steady ? glideClock() : null;
     const step = (now) => {
-      const u = clamp((now - t0) / ms, 0, 1), e = ease === 'in' ? u * u : u < 0.5 ? 2 * u * u : 1 - (-2 * u + 2) ** 2 / 2;
+      const u = clamp((clock ? clock(now) : now - t0) / ms, 0, 1), e = ease === 'in' ? u * u : u < 0.5 ? 2 * u * u : 1 - (-2 * u + 2) ** 2 / 2;
       const k = from.k * Math.pow(to.k / from.k, e), a = (k - from.k) / ((to.k - from.k) || 1);
       V.k = k; V.x = from.x + (to.x - from.x) * (to.k === from.k ? e : a); V.y = from.y + (to.y - from.y) * (to.k === from.k ? e : a);
       viewChanged();
@@ -426,13 +430,13 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     { const r = host.getBoundingClientRect(); if (r.width >= 2 && r.height >= 2) ensureGeo(Math.round(r.width), Math.round(r.height)); }
     // (Mid-glide to a station, the glide's target follows the new space: clampV would read the glide's first, still unzoomed frames as the fit
     // and send the lobule back there, so a slide's zoom never arrived.)
-    refitLater = false; const F0 = fitV(); kFit = F0.k; if (atFit) glideTo(F0); else if (camAim) Object.assign(camAim.to, framing(camAim.part, camAim.zoom)); else if (aimed && fade <= 0.98) glideTo(framing(aimed.part, aimed.zoom)); else reclamp(); }
+    refitLater = false; const F0 = fitV(); kFit = F0.k; if (atFit) glideTo(F0, 260, false, null, 'inOut', true); else if (camAim) Object.assign(camAim.to, framing(camAim.part, camAim.zoom)); else if (aimed && fade <= 0.98) glideTo(framing(aimed.part, aimed.zoom)); else reclamp(); }
   // Zoomed in (a presenter's station, or a hand's pan) when the free space changes: the new framing is glided to, never jumped to.
   // (A presenter slide's cards change the space as the next slide comes in: on the way out of the lobule from a central-vein close-up
   // the clamp used to snap the lobule sideways before the zoom out began, 20 Oct, Mohammad.)
   function reclamp() {
     const saved = { ...V }, wasFit = atFit; clampV(); const to = { ...V }, fit = atFit; Object.assign(V, saved); atFit = wasFit;
-    if (Math.abs(to.k - V.k) + Math.abs(to.x - V.x) + Math.abs(to.y - V.y) > 0.5) { glideTo(to, 420); atFit = fit; } else { clampV(); viewChanged(); }
+    if (Math.abs(to.k - V.k) + Math.abs(to.x - V.x) + Math.abs(to.y - V.y) > 0.5) { glideTo(to, 420, false, null, 'inOut', true); atFit = fit; } else { clampV(); viewChanged(); }
   }
   addEventListener('pps:occ', () => { if (fade > 0) { layoutKey = ''; refit(); } });
   // A new text size: the labels glide to their new places instead of jumping.

@@ -66,7 +66,7 @@ test('the presenter pushes while the days run, finishes with Next, and opens on 
   assert.match(fn(PZ, 'function skipLapse('), /pushEnd\(slides\[want\], want, 600\)/, 'Next runs the push out with the days, in 600 ms');
   assert.match(fn(PZ, 'async function transitionRun('), /const b0 = Math\.min\(beat, lastBeat\(to\)\), fv = figView\(beatView\(s, b0\), lap\); fig = \{ i: to, s: fv \}; push = null;/, 'a slide opens on its end framing unless it plays');
   assert.match(fn(PZ, 'function reframe('), /const s = figOf\(shown\.i\);/, 'a refit keeps the framing the figure shows');
-  assert.match(fn(PZ, 'function fitAround('), /left > 0 \? \{ drift: true \} : \{\}/, 'a refit during the push keeps pushing, over the seconds left');
+  assert.match(fn(PZ, 'function fitAround('), /left > 0 \? \{ drift: true \} : \{ steady: true \}/, 'a refit during the push keeps pushing, over the seconds left');
   const pt = fn(PZ, 'function pushTo(');
   assert.match(pt, /reduce\.matches \|\| !stage\.canDrift\?\.\(\)/, 'no drift with reduced motion, or where the live organs would make it stutter');
 });
@@ -74,7 +74,7 @@ test('the presenter pushes while the days run, finishes with Next, and opens on 
 test('the stage\'s drift keeps the labels up and carried, and every cut ends it', () => {
   const a = fn(ST, 'function animateVT(');
   assert.match(a, /store\.get\(\)\.presenting && !drift && !sameView\(from, to\)\) \{ camMove = true;/, 'a drift never fades the labels (cam-move)');
-  assert.match(ST, /if \(opt\.drift\) animateVT\(to, ms, \{ drift: true \}\); else animateVT\(to, ms, \{ arc: true \}\);/, 'and never arcs');
+  assert.match(ST, /if \(opt\.drift\) animateVT\(to, ms, \{ drift: true \}\); else animateVT\(to, ms, \{ arc: true, steady: !!opt\.steady \}\);/, 'and never arcs');
   assert.match(a, /\(drift \? driftEase : easeInOut\)/, 'its own ease');
   assert.match(ST, /ride = drifting && !hand;\n\s*const solve = [^\n]*\(!ride && dz > \(hand \? SOLVE_ZOOM_HAND : SOLVE_ZOOM\)\)/, 'labels are carried through it however far it zooms');
   assert.match(ST, /if \(ride && dz > SOLVE_ZOOM\) carryClear = true;/, 'never onto each other');

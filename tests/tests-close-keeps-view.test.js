@@ -27,7 +27,7 @@ test('closeView fits again a fitted view, whatever the tools did with the camera
   // every fit marks the view fitted
   assert.match(stage, /function refit\(\) \{[\s\S]*?fitted = true;[\s\S]*?\n {2}\}/);
   assert.match(stage, /const fit = \(\) => \{[\s\S]*?fitted = true;[\s\S]*?\n {2}\};/);
-  assert.match(stage, /fitSlow\(ms = 1300\) \{[^\n]*fitted = true;/);
+  assert.match(stage, /fitSlow\(ms = 1300, opt = \{\}\) \{[^\n]*fitted = true;/);
   assert.match(stage, /if \(!sameView\(d, homeAt\)\) \{ homeAt = d; fitted = true;/, 'home following');
   // a pinch, a drag, the wheel and the zoom steps mark it moved
   assert.match(stage, /vt = \{ k, x: vx - drag\.wx \* k, y: vy - drag\.wy \* k \}; fitted = false;/);

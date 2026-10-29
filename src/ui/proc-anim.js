@@ -193,7 +193,7 @@ export function playProcedure(stage, kind, { stepped = false, to = 0, apply = nu
     to(k) { if (over) return false; at = Math.max(0, Math.min(n - 1, k | 0)); goal = P.stops[at]; holdT = 0; wake(); return true; },
     stop,
     /** The cards changed the room: the shot on show framed again (false when there is none yet). */
-    refit(ms = 700) { if (over || !shot) return false; stage.cathFocus(shot, ms); return true; },
+    refit(ms = 700) { if (over || !shot) return false; stage.cathFocus(shot, ms, { steady: true }); return true; },   // (the cards moved: a slow frame at its start holds the glide back, stage animateVT)
     get running() { return !over; },
     get at() { return at; },
     get step() { return step; },
