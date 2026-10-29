@@ -17,6 +17,8 @@ import { createBeatClock, ekgSeries } from './ekg.js?v=bce6cba25d';
 import { laneRoom } from './trace-lanes.js?v=3d3cb1915e';
 import { olderThan, inFront } from './backfill.js?v=455d888760';
 import { plotFill } from './plot-look.js?v=5037697da7';
+import { beatTop, beatLayout, colPlan, paperFine, beforeLabelY, sinceText } from './beat-card.js?v=9841676af2';
+import { VITALS } from './vital-read.js?v=cbba41a6b7';
 const nextFrame = frameFor('pressure-time');
 
 // hide: the readout that can stay unmeasured (store.hiddenReadouts); day: the value on the
@@ -68,7 +70,8 @@ export function createPressureTime({ marks = () => [] } = {}) {
   // The two lanes beside the pressures: the EKG strip (the beats range only) and the HVPG lane. Patients mode turns them on and off here; a slide's
   // card does not use the pills (hidden there): it takes both lanes where its room allows, as the slide's tool says (configure).
   let showEkg = false, showLane = true;
-  let cfg = { ekg: true, lane: true };   // (a slide's tool: ekg: false leaves the strip off, hvpgLane: false the HVPG lane)
+  let cfg = { ekg: true, lane: true };
+  let before = null;   // (a slide's card: { fp, label }, where the patient stood before the slide's event, its delta; beat-card.js)   // (a slide's tool: ekg: false leaves the strip off, hvpgLane: false the HVPG lane)
   const laneChip = (key, label, title, on, set) => {
     const b = h('button', { class: 'pt-chip', 'data-lane': key, 'aria-pressed': String(on), title, 'aria-label': title, style: { '--chip': 'var(--text)' } }, h('i'), label);
     b.addEventListener('click', () => { set(b.getAttribute('aria-pressed') !== 'true'); b.setAttribute('aria-pressed', String(b.getAttribute('aria-pressed') !== 'true')); yr.pressure = yr.hvpg = null; draw(); });
@@ -295,6 +298,170 @@ export function createPressureTime({ marks = () => [] } = {}) {
     drawNow();
     if (gliding && !glideReq && !(ticking && live())) { glideReq = true; nextFrame(() => { glideReq = false; draw(); }); }
   }
+  // ── The slide's card (beat-card.js) ───────────────
+  // The paper's squares are 1 mmHg high, and as wide, so the EKG strip runs on into the pressures below it on one sheet. The wedged and free
+  // hepatic pressures with the HVPG shaded between them in its status colour; the portal pressure dashed over the wedged (they read nearly
+  // the same); a caliper at "now" spans the gap. Where the patient stood before the slide's event (the slide's delta), the two dotted lines
+  // and the old gap faint grey behind, named once. The readings in a column beside, or on a narrow card one line on top and the values at
+  // the lines' ends. Every number is the slide's own (pinned), as the tiles show it.
+  const MMHG = 'mmHg';
+  const HR_CUT = VITALS.find((v) => v.id === 'hr')?.cut ?? 110;
+  function drawBeatCard(ctx, w, hh, x0, x1, xNow, FONT, noPv, { text, muted, faint, panel }) {
+    const col = (v) => cssVar(v);
+    const lay = beatLayout(w, hh, cfg.ekg), { L, R, top, bot } = lay, plotW = R - L;
+    const X = (x) => L + ((x - x0) / Math.max(1e-9, x1 - x0)) * plotW;
+    const wNow = endOf('whvp'), fNow = endOf('RHV'), pvNow = endOf('CONF'), hv = steadyHvpg();
+    const hr = Number.isFinite(pinned?.hr) ? pinned.hr : frame.metrics.hr;
+    const was = before?.fp, wWas = was?.whvp, fWas = was?.fhvp;
+    const showWas = Number.isFinite(wWas) && Number.isFinite(fWas) && (Math.abs(wWas - wNow) >= 0.3 || Math.abs(fWas - fNow) >= 0.3);
+    const data = { whvp: series('whvp', x0, x1), RHV: series('RHV', x0, x1), CONF: series('CONF', x0, x1) };
+    let mx = -Infinity;
+    for (const k of ['whvp', 'CONF']) { if (k === 'CONF' && noPv) continue; for (const v of data[k].mid) if (v > mx) mx = v; }
+    const hi = beatTop([mx, wNow, noPv ? NaN : pvNow, showWas ? wWas : NaN]);
+    const sq = (bot - top) / hi, Y = (v) => bot - v * sq;
+    const wc = col('--tr-wedge'), fc = col('--tr-hv'), pc = col('--tr-pv');
+
+    // the paper, from the plot's bottom left corner up through the strip: a heavy line every 5 squares
+    const paperTop = lay.ekg ? lay.ekg.top : top;
+    ctx.save(); ctx.beginPath(); ctx.rect(L, paperTop - 2, plotW, bot - paperTop + 2); ctx.clip();
+    ctx.lineWidth = 1;
+    for (const heavy of [false, true]) {
+      if (!heavy && !paperFine(sq)) continue;
+      ctx.strokeStyle = cssAlpha('--danger', heavy ? 0.26 : 0.11); ctx.beginPath();
+      for (let i = 0; L + i * sq <= R + 0.5; i++) { if ((i % 5 === 0) !== heavy) continue; const x = Math.round(L + i * sq) + 0.5; ctx.moveTo(x, paperTop - 2); ctx.lineTo(x, bot); }
+      for (let j = 0; bot - j * sq >= paperTop - 2; j++) { if ((j % 5 === 0) !== heavy) continue; const y = Math.round(bot - j * sq) + 0.5; ctx.moveTo(L, y); ctx.lineTo(R, y); }
+      ctx.stroke();
+    }
+    ctx.restore();
+    ctx.font = FONT(500, 12); ctx.fillStyle = faint; ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
+    for (let v = 0; v <= hi; v += 5) ctx.fillText(String(v), L - 6, Y(v));
+    ctx.textBaseline = 'alphabetic'; ctx.textAlign = 'left';
+    if (top - 10 > (lay.ekg ? lay.ekg.bot : 0)) ctx.fillText(MMHG, 8, top - 10);
+
+    // the EKG strip, in the text colour, over the model's own beats
+    if (lay.ekg && fine.t.length > 1) {
+      const { top: et, bot: eb } = lay.ekg;
+      const e = ekgSeries(beatClock.times, Math.max(x0, fine.t[0]), x1, 60 / (hr > 20 ? hr : 70));
+      const Ye = (v) => eb - 3 - ((v + 0.3) / 1.3) * (eb - et - 6);
+      if (e.x.length > 1) {
+        ctx.save(); ctx.beginPath(); ctx.rect(L, et - 2, plotW, eb - et + 4); ctx.clip();
+        ctx.strokeStyle = text; ctx.lineWidth = 1.6; ctx.lineJoin = 'round'; ctx.lineCap = 'round'; ctx.beginPath();
+        for (let i = 0; i < e.x.length; i++) ctx[i ? 'lineTo' : 'moveTo'](X(e.x[i]), Ye(e.v[i]));
+        ctx.stroke(); ctx.restore();
+      }
+    }
+
+    ctx.save(); ctx.beginPath(); ctx.rect(L, top - 6, plotW, bot - top + 8); ctx.clip();
+    // before: the old gap faint grey, its edges dotted in the lines' own colours
+    if (showWas) {
+      ctx.fillStyle = cssAlpha('--text-3', 0.08); ctx.fillRect(L, Y(wWas), plotW, Y(fWas) - Y(wWas));
+      ctx.lineWidth = 1.4; ctx.lineCap = 'round'; ctx.setLineDash([0.1, 4.5]);
+      for (const [v, c] of [[wWas, wc], [fWas, fc]]) { ctx.strokeStyle = c; ctx.globalAlpha = 0.7; ctx.beginPath(); ctx.moveTo(L + 1, Y(v)); ctx.lineTo(R, Y(v)); ctx.stroke(); }
+      ctx.setLineDash([]); ctx.globalAlpha = 1;
+    }
+    // the HVPG, shaded between wedged and free in the colour of its status
+    const sw = data.whvp, sf = data.RHV;
+    if (sw.x.length > 1 && sw.x.length === sf.x.length) {
+      ctx.globalAlpha = 0.12; ctx.fillStyle = col(`--${sevOf(hv)}`); ctx.beginPath();
+      for (let i = 0; i < sw.x.length; i++) ctx[i ? 'lineTo' : 'moveTo'](X(sw.x[i]), Y(sw.mid[i]));
+      for (let i = sf.x.length - 1; i >= 0; i--) ctx.lineTo(X(sf.x[i]), Y(sf.mid[i]));
+      ctx.closePath(); ctx.fill(); ctx.globalAlpha = 1;
+    }
+    if (!noPv) { ctx.setLineDash([6, 4]); line(ctx, data.CONF, X, Y, pc, 2, plotW); ctx.setLineDash([]); }
+    line(ctx, sw, X, Y, wc, 2, plotW);
+    line(ctx, sf, X, Y, fc, 2, plotW);
+    ctx.restore();
+
+    // the old gap named once, on a plate, where no line passes under the words
+    if (showWas && before.label) {
+      ctx.font = FONT(500, 12);
+      const tw = ctx.measureText(before.label).width, lx = L + 6, rx = lx + tw + 12;
+      const spans = [];
+      for (const s of noPv ? [sw, sf] : [sw, sf, data.CONF]) {
+        let a = Infinity, b = -Infinity;
+        for (let i = 0; i < s.x.length; i++) { const x = X(s.x[i]); if (x < lx - 2 || x > rx + 2) continue; const y = Y(s.mid[i]); if (y < a) a = y; if (y > b) b = y; }
+        if (a <= b) spans.push([a - 2, b + 2]);
+      }
+      const ly = beforeLabelY(Y(wWas), Y(fWas), spans, top, bot);
+      if (ly != null) {
+        ctx.fillStyle = panel; ctx.beginPath(); ctx.roundRect ? ctx.roundRect(lx, ly, tw + 12, 18, 5) : ctx.rect(lx, ly, tw + 12, 18); ctx.fill();
+        ctx.fillStyle = faint; ctx.textBaseline = 'middle'; ctx.fillText(before.label, lx + 6, ly + 9.5); ctx.textBaseline = 'alphabetic';
+      }
+    }
+
+    // the caliper at "now", from the wedged to the free pressure
+    if (Number.isFinite(wNow) && Number.isFinite(fNow)) {
+      const cx = Math.round(R + 12) + 0.5, ya = Y(wNow), yb = Y(fNow);
+      ctx.strokeStyle = text; ctx.lineWidth = 1.4; ctx.beginPath();
+      ctx.moveTo(cx - 5, ya); ctx.lineTo(cx + 5, ya); ctx.moveTo(cx, ya); ctx.lineTo(cx, yb); ctx.moveTo(cx - 5, yb); ctx.lineTo(cx + 5, yb); ctx.stroke();
+    }
+
+    // time: every 2 s back from now
+    ctx.font = FONT(500, 12); ctx.fillStyle = faint; ctx.textAlign = 'center';
+    for (let s = 2; xNow - s > x0 + 1e-9; s += 2) { const xx = X(xNow - s); if (xx < L + 12) break; ctx.fillText(`−${s} s`, xx, hh - 8); }
+    const nowX = X(xNow);
+    ctx.textAlign = nowX > R - 14 ? 'right' : 'center'; ctx.fillStyle = muted; ctx.fillText('now', Math.min(nowX, R), hh - 8);
+    ctx.textAlign = 'left';
+
+    const sevC = col(`--${sevOf(hv)}`), hrC = hr >= HR_CUT ? col('--danger') : text;
+    const hvWas = showWas ? tenthGap(wWas, fWas, was.hvpg) : was?.hvpg;
+    const keyRows = [[pc, 'Portal vein', pvNow, true], [wc, 'Wedged', wNow, false], [fc, 'Free', fNow, false]].filter((r) => !(noPv && r[1] === 'Portal vein'));
+    if (lay.wide) {
+      // the column: heart rate, the HVPG and its status, then the three lines named, the quick check's way (hairlines between, no fills)
+      const hrSince = sinceText(hr, was?.hr, 0), hvSince = sinceText(hv, hvWas, 1);
+      const plan = colPlan(hh, !!(hrSince || hvSince)), k = plan.k, x = lay.colX, cw = w - x - 14, hair = cssAlpha('--text', 0.12);
+      const rule = (y) => { ctx.strokeStyle = hair; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(x, Math.round(y) + 0.5); ctx.lineTo(x + cw, Math.round(y) + 0.5); ctx.stroke(); };
+      const big = (y, v, unit, px, c) => {
+        ctx.font = FONT(650, px); ctx.fillStyle = c; ctx.fillText(v, x, y);
+        const vw = ctx.measureText(v).width; ctx.font = FONT(500, 12); ctx.fillStyle = faint; ctx.fillText(unit, x + vw + 6, y);
+      };
+      // (a change upward is the bad way for both: red; downward green)
+      const since = (y, t) => { if (!t) return; ctx.font = FONT(600, 12); ctx.fillStyle = col(t.startsWith('▲') ? '--danger' : '--ok'); ctx.fillText(t, x, y); };
+      let y = 26;
+      ctx.font = FONT(600, 12); ctx.fillStyle = muted; ctx.fillText('HEART RATE', x, y);
+      y += 32 * k; big(y, Number.isFinite(hr) ? fmt(hr, 0) : '—', '/min', Math.max(20, 28 * k), hrC);
+      if (plan.deltas) { y += 20 * k; since(y, hrSince); }
+      y += 14 * k; rule(y);
+      y += 24 * k; ctx.font = FONT(600, 12); ctx.fillStyle = muted; ctx.fillText('HVPG', x, y);
+      y += 36 * k; big(y, Number.isFinite(hv) ? fmt(hv, 1) : '—', 'mmHg', Math.max(22, 32 * k), text);
+      y += 21 * k; ctx.font = FONT(600, 12); ctx.fillStyle = sevC; ctx.fillText(wordOf(hv), x, y);
+      if (plan.deltas) { y += 18 * k; since(y, hvSince); }
+      if (plan.rows) {
+        y += 14 * k; rule(y);
+        for (const [c, name, v, dashed] of keyRows) {
+          y += 26 * k;
+          ctx.strokeStyle = c; ctx.lineWidth = 3; ctx.lineCap = 'round'; ctx.setLineDash(dashed ? [4, 3] : []);
+          ctx.beginPath(); ctx.moveTo(x + 1, y - 4); ctx.lineTo(x + 12, y - 4); ctx.stroke(); ctx.setLineDash([]); ctx.lineCap = 'butt';
+          ctx.font = FONT(500, 12); ctx.fillStyle = muted; ctx.fillText(name, x + 18, y);
+          ctx.font = FONT(650, 12.5); ctx.fillStyle = text; ctx.textAlign = 'right'; ctx.fillText(Number.isFinite(v) ? fmt(v, 1) : '—', x + cw, y); ctx.textAlign = 'left';
+          y += 10 * k; rule(y);
+        }
+      }
+    } else {
+      // a narrow card: the HVPG and its status on one line on top, the heart rate at its right; each line's value at its end
+      const y = 24;
+      ctx.font = FONT(600, 12); ctx.fillStyle = muted; ctx.fillText('HVPG', 8, y);
+      let x = 8 + ctx.measureText('HVPG').width + 6;
+      ctx.font = FONT(650, 17); ctx.fillStyle = text; const hvT = Number.isFinite(hv) ? fmt(hv, 1) : '—'; ctx.fillText(hvT, x, y); x += ctx.measureText(hvT).width + 4;
+      ctx.font = FONT(500, 12); ctx.fillStyle = faint; ctx.fillText(MMHG, x, y); x += ctx.measureText(MMHG).width + 8;
+      ctx.font = FONT(600, 12); ctx.fillStyle = sevC; ctx.fillText(wordOf(hv), x, y);
+      const hrT = Number.isFinite(hr) ? fmt(hr, 0) : '—';
+      ctx.textAlign = 'right'; ctx.font = FONT(650, 13); ctx.fillStyle = hrC; ctx.fillText(hrT, w - 8, y);
+      const hw = ctx.measureText(hrT).width; ctx.font = FONT(600, 12); ctx.fillStyle = muted; ctx.fillText('HR', w - 12 - hw, y); ctx.textAlign = 'left';
+      const es = keyRows.map(([c, name, v]) => ({ c, v, y: Y(v), label: name === 'Portal vein' ? 'PV' : name === 'Wedged' ? 'WHVP' : 'FHVP' })).filter((e) => Number.isFinite(e.v)).sort((a, b) => a.y - b.y);
+      for (let i = 1; i < es.length; i++) es[i].y = Math.max(es[i].y, es[i - 1].y + 16);
+      const over = es.length ? es[es.length - 1].y - bot : 0;
+      if (over > 0) for (const e of es) e.y -= over;
+      ctx.textBaseline = 'middle';
+      for (const e of es) {
+        ctx.fillStyle = e.c; ctx.fillRect(R + 22, e.y - 1.5, 9, 3);
+        const vt = fmt(e.v, 1); ctx.font = FONT(650, 12.5); ctx.fillStyle = text; ctx.fillText(vt, R + 35, e.y);
+        ctx.font = FONT(600, 12); ctx.fillStyle = e.c; ctx.fillText(e.label, R + 39 + ctx.measureText(vt).width, e.y);
+      }
+      ctx.textBaseline = 'alphabetic';
+    }
+  }
+
   function drawNow() {
     const { ctx, w, h: hh } = fitCanvas(cv);
     ctx.clearRect(0, 0, w, hh);
@@ -342,6 +509,8 @@ export function createPressureTime({ marks = () => [] } = {}) {
       }
     }
     const X = (x) => L + ((x - x0) / Math.max(1e-9, x1 - x0)) * plotW;
+    // (A slide's card, with the HVPG measured: the wedged and free pressures on EKG paper, beat-card.js. Any other card, as before.)
+    if (slide && range === 'beats' && showHvpg) { drawBeatCard(ctx, w, hh, x0, x1, xNow, FONT, hidden.has('pv'), { text, muted, faint, panel }); return; }
 
     if (!traces.length && !showHvpg) {
       ctx.fillStyle = faint; ctx.font = FONT(500, 13); ctx.textAlign = 'center';
@@ -751,7 +920,11 @@ export function createPressureTime({ marks = () => [] } = {}) {
     if (frame) redraw();
     return true;
   }
-  function configure(t) { cfg = { ekg: t?.ekg !== false, lane: t?.hvpgLane !== false }; yr.pressure = yr.hvpg = null; if (frame) redraw(); }
+  function configure(t, ctx) {
+    cfg = { ekg: t?.ekg !== false, lane: t?.hvpgLane !== false }; yr.pressure = yr.hvpg = null;
+    before = ctx?.ref ? { fp: ctx.ref, label: t?.deltaLabel || 'before' } : null;
+    if (frame) redraw();
+  }
   return { id: 'scope', label: 'Pressure over time', el, update, ingest, redraw, clear, pin, configure, backfill, historySecs: () => RANGES[0][2], dispose() { offs.forEach((off) => off()); io?.disconnect(); cancelFrame(tickRaf); tickRaf = 0; ticking = false; frame = null; } };
 }
 

@@ -2486,6 +2486,7 @@ button.finding { cursor: pointer; }
 .pz-tool[data-kind="scope"] .chart-box.square { width: 100%; height: auto; aspect-ratio: 1; max-width: none; margin: 0; }
 .pz-tool[data-kind="scope"] .chart-side { width: 100%; max-width: none; }
 .pz-tool[data-kind="beats"] .pt-box { width: 100%; height: clamp(180px, calc(30 * var(--pzh)), 360px); }
+.pz-tool[data-kind="beats"] .pt-head { display: none !important; }   /* (a slide's card writes its HVPG and heart rate on the chart, beat-card.js: a header would repeat them) */
 .pz-tool .dop-report, .pz-tool[data-kind="scope"] .endo-read { transition: opacity .32s var(--ease); }
 /* The talk so far: pressures at each slide, HVPG in its own lane. */
 .pz-talk { display: grid; }

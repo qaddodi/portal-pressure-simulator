@@ -4,7 +4,8 @@
 // that octreotide and bands controlled comes back by day 5, and the bleed stays open until the slide that stops it.
 
 const K = 'The bleed';
-const BEATS = { kind: 'trace', range: 'beats' };
+// (deltaLabel: the name of the dotted lines and grey band on the beat-by-beat card, where the patient stood before; beat-card.js)
+const BEATS = { kind: 'trace', range: 'beats', deltaLabel: 'before the bleed' }, REBEATS = { ...BEATS, deltaLabel: 'before the rebleed' };
 const SALINE = { kind: 'infuse', fluid: 'crystalloid' }, UNIT = { kind: 'infuse', fluid: 'prbc' }, BAND = { kind: 'band' };
 
 export const BLEED = {
@@ -88,21 +89,21 @@ export const BLEED = {
       ask: ['Why is a rebleed on day 3 not counted as a new bleed?', 'Baveno VIII defines treatment failure as uncontrolled bleeding or a rebleed within 5 days of the first bleed.'],
     },
     {
-      id: 'rebleed', action: { kind: 'rupture', tear: 0.6 }, cam: 'bleed', labels: ['VAR'], mark: { edges: ['C1a', 'C1b'], label: 'Bleeding varix' }, tool: BEATS, data: 'tiles', tiles: ['map', 'hb'], key: ['map'], delta: 'controlled',
+      id: 'rebleed', action: { kind: 'rupture', tear: 0.6 }, cam: 'bleed', labels: ['VAR'], mark: { edges: ['C1a', 'C1b'], label: 'Bleeding varix' }, tool: REBEATS, data: 'tiles', tiles: ['map', 'hb'], key: ['map'], delta: 'controlled',
       kicker: 'Failure', site: 'sin', title: 'A rebleed within 5 days counts as treatment failure',
       line: 'On day 3 he vomits blood again, on octreotide and with the bands in place. Within minutes the heart rate climbs to {hr} and the blood pressure falls to {map}.',
       notes: 'A varix that bleeds again within 5 days of the first bleed means the first treatment did not work. The heart rate climbs and the blood pressure falls as before, but now the room has less reserve. Resuscitation restarts at once, and the endoscopist and the intensive care team are called. (Baveno VIII 5.16.)',
       ask: ['A patient is banded on Monday and vomits blood on Thursday. Is that treatment failure?', 'Yes: a rebleed within 5 days of the first bleed is treatment failure.'],
     },
     {
-      id: 'failure', action: [UNIT, SALINE], cam: 'bleed', labels: ['VAR'], tool: BEATS, data: 'tiles', tiles: ['map', 'hb'], key: ['map'], delta: 'controlled',
+      id: 'failure', action: [UNIT, SALINE], cam: 'bleed', labels: ['VAR'], tool: REBEATS, data: 'tiles', tiles: ['map', 'hb'], key: ['map'], delta: 'controlled',
       kicker: 'Failure', site: 'sin', title: 'Failure means uncontrolled bleeding or a rebleed by day 5',
       line: 'Failure means bleeding that drugs and endoscopy do not control, or a rebleed within 5 days. Blood and fluid go in: heart rate {hr}, blood pressure {map}.',
       notes: 'Baveno VIII defines treatment failure either as bleeding that stays uncontrolled or as a rebleed within 5 days. Failure, a Child–Pugh class C, and a high MELD score are the main risk factors for death in the next 6 weeks. Keep volume at the level that holds organ perfusion and transfuse to a hemoglobin of 7 to 8 g/dL, because extra volume raises the portal pressure. The model\'s bands always close an esophageal bleed, so this slide leaves the repeat band out to show a bleed that goes on. (Baveno VIII 5.16, 5.17.)',
       ask: ['Name two ways an acute variceal bleed counts as treatment failure.', 'Bleeding that stays uncontrolled despite drugs and endoscopy, or a rebleed within 5 days.'],
     },
     {
-      id: 'bridge', params: { balloonEso: true }, action: [UNIT], cam: 'varices', labels: ['VAR'], mark: { edges: ['C1a', 'C1b'], label: 'Tamponade', kind: 'treat' }, tool: BEATS, data: 'tiles', tiles: ['map', 'hb'], key: ['map'], delta: 'controlled',
+      id: 'bridge', params: { balloonEso: true }, action: [UNIT], cam: 'varices', labels: ['VAR'], mark: { edges: ['C1a', 'C1b'], label: 'Tamponade', kind: 'treat' }, tool: REBEATS, data: 'tiles', tiles: ['map', 'hb'], key: ['map'], delta: 'controlled',
       kicker: 'The bridge', site: 'sin', title: 'A stent or a balloon holds the bleed until a TIPS',
       line: 'A covered esophageal stent is the preferred bridge, a balloon tube the fallback. Pressure on the varix stops the bleed and the blood pressure recovers to {map}.',
       notes: 'In refractory esophageal variceal bleeding a dedicated covered self-expanding metal stent is preferred over balloon tamponade, as a bridge to a TIPS or a transplant. AASLD 2024 notes that a stent can stay in place for up to a week and a balloon for 24 hours at most, and that specialized esophageal stents were not FDA approved in the United States, so many US centers have only the balloon. Intubate before the tube or the stent goes in. The model draws the tamponade of a balloon; it has no stent. (Baveno VIII 5.35; AASLD 2024 34.)',

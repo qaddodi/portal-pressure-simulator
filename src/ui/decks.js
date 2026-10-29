@@ -31,7 +31,7 @@
 //                            ladderFromLabel) shows that profile instead (teach-extras.js oneLadder)
 //   tool                     an instrument in the data card, reading the live model (presenter-tools.js): { kind: 'doppler',
 //                            vessel, gate?, points? } (gate: on a stent, the third it samples, 'proximal' | 'mid' (default) | 'distal' | 'site';
-//                            points: true calls out the stent's velocity at all three points on the figure, the sampled one in green), { kind: 'scope', air?, red?, readings? } (air: mmHg of air in the lumen, 0 to 20, seen view-only; red: true | false, the red wale marks; readings: true, three pressure rows), { kind: 'fibroscan' }, { kind: 'trace', range: 'talk' | 'beats' },
+//                            points: true calls out the stent's velocity at all three points on the figure, the sampled one in green), { kind: 'scope', air?, red?, readings? } (air: mmHg of air in the lumen, 0 to 20, seen view-only; red: true | false, the red wale marks; readings: true, three pressure rows), { kind: 'fibroscan' }, { kind: 'trace', range: 'talk' | 'beats', deltaLabel? } (deltaLabel: on the beats card, the name of where the patient stood before, the slide's delta: 'before the bleed'),
 //                            { kind: 'abdomen' }, { kind: 'wall' } (the varix in cross-section),
 //                            { kind: 'vitals', show? } (a monitor: the EKG strip over hr, map, co, hb), { kind: 'hvpg' } (the catheter's tracing, played on arrival; catheter: true follows the slide's cath instead and stays from one step to the next); title? names the card; waves: true
 //                            names a hepatic vein Doppler's a, S and D. With data too, the tool sits above the tiles
@@ -109,7 +109,7 @@ import { CIRCUIT } from './decks/circuit.js?v=b3b5b96f55';
 import { DOPPLER } from './decks/doppler.js?v=4a37e56815';
 import { ENDOSCOPY } from './decks/endoscopy.js?v=1557bde3cb';
 import { PREHEPATIC } from './decks/prehepatic.js?v=7916930ff2';
-import { BLEED } from './decks/variceal-bleed.js?v=4acd9fd6c6';
+import { BLEED } from './decks/variceal-bleed.js?v=9716538348';
 import { TWO_INFLOWS } from './decks/two-inflows.js?v=bac786bc6d';
 import { NCPH } from './decks/ncph.js?v=fba64b2bbf';
 import { OUTFLOW } from './decks/outflow.js?v=0392956963';
@@ -119,7 +119,7 @@ import { PREGNANCY_DECK } from './decks/pregnancy.js?v=d79b566bbb';
 import { ENCEPHALOPATHY } from './decks/encephalopathy.js?v=7d08be79e0';
 import { CAUSE_TREATED } from './decks/cause-treated.js?v=70702ca374';
 import { NEXT_BLEED } from './decks/next-bleed.js?v=5ff8785bca';
-import { GASTRIC } from './decks/gastric-varices.js?v=459e74ec22';
+import { GASTRIC } from './decks/gastric-varices.js?v=63878e4704';
 import { HYPERDYNAMIC } from './decks/hyperdynamic.js?v=90b476c393';
 import { CHOOSE_TREATMENT } from './decks/choose-treatment.js?v=c370a83c9f';
 import { TEN_YEARS } from './decks/ten-years.js?v=72b87e59ee';

@@ -25,11 +25,11 @@ import { isCamOn, unionBox, regionBox, growBox, camNames } from './cam-frame.js?
 import { NODE_POS } from './anatomy.js?v=48cc98d415';
 import { DISEASE_SRC, diseasePieces } from './diseases.js?v=fb8a5451c3';
 import { nb, listCase, plateletText } from './glue.js?v=5a0f63226b';
-import { DECKS, DECK_ALIAS, REGIONS, LEVELS, TOPICS, withOverview, siteTag, SITE_TAGS } from './decks.js?v=b9395a5c72';
+import { DECKS, DECK_ALIAS, REGIONS, LEVELS, TOPICS, withOverview, siteTag, SITE_TAGS } from './decks.js?v=73eb730f1a';
 import { fingerprintOf } from '../engine/fingerprint.js?v=ca81723393';
 import { createHvpgMonitor } from './hvpg-proc.js?v=c793a707c4';
-import { createTools } from './presenter-tools.js?v=b8c1d71a4c';
-import { openHandout } from './handout.js?v=0fe303f1c1';
+import { createTools } from './presenter-tools.js?v=ead139eae7';
+import { openHandout } from './handout.js?v=11532e22a8';
 import { noteResume, resumeFor } from './resume.js?v=f086f80ee8';
 import { parseDeckSource, checkDeck } from './deck-source.js?v=8395c650cd';
 import { NO_ASC, TILE, cutText, tileOf, SCALE, bandsOf, rateOf, COLS, CUT, PRESS, fpv, dirAbs, dirRel, rateAbs, effOf, rateShown, tileShown, tipsGoal, liveSettled, shownSig } from './table-marks.js?v=bca5ebb624';
@@ -37,12 +37,12 @@ import { frameFor, cancelFrame } from './frame.js?v=7254a8a850';
 import { createFigureKey } from './figure-key.js?v=b6817772fb';
 import { traceWhen } from './trace-labels.js?v=fc916a95c6';
 import { flowCss, heatCss, dropCss, gradientCss, oxygenCss } from './colormap.js?v=05a231b880';
-import { EXT, expandIds, stepExtra, markLabel, figureHooks, safe } from './slide-ext.js?v=670863fa6e';
+import { EXT, expandIds, stepExtra, markLabel, figureHooks, safe } from './slide-ext.js?v=6717599883';
 import { clotWords } from './callout-math.js?v=dd2fe6d554';
 import { citeText, focusOf, oneLadder } from './teach-extras.js?v=5f5248f5a7';
 import { createProfileTool, createProfileStrip, pillReadings, chartScale } from './tool-profile.js?v=3e6716e522';
 import { causeFit } from './cause-fit.js?v=830a6835a5';
-import { anchorsOf, roomFor } from './cam-room.js?v=9211d6cd78';
+import { anchorsOf, roomFor } from './cam-room.js?v=209be9ae4b';
 import { beatCount, beatView } from './slide-beats.js?v=2aded612c4';
 import { COMPACT, WIDE } from './card-type.js?v=5af5f22935';
 import { flowTimeHeight, trailKeys } from './flow-time.js?v=026ab2f37c';
@@ -2388,6 +2388,8 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     return {
       slide: s, index: i, deck: d, slides, stage, store, app,
       state: st, snap: st?.snap ?? null, params: st?.params ?? null, fp: st?.fp ?? null,
+      // (ref: the fingerprint the slide counts its changes from, its delta or its tool's; the beat-by-beat card draws where the patient stood)
+      ref: s.tool || s.delta != null ? refOf(s.tool?.delta != null ? { ...s, delta: s.tool.delta } : s, i) : null,
       extra: states[i]?.extra ?? null,
       whenExtra: () => stateReady(i).then((x) => x?.extra ?? null),
       liveParams: () => store.get().params,

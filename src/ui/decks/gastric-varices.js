@@ -1,7 +1,7 @@
 // Presenter talk: gastric varices, from the Sarin classes through the bleed, TIPS and BRTO to the
 // clotted splenic vein that a splenectomy cures (carvedilol before a first bleed is in the first slide's notes; Lowering portal pressure teaches the drug) (the slide fields are described at the top of decks.js).
 
-const BEATS = { kind: 'trace', range: 'beats' };
+const BEATS = { kind: 'trace', range: 'beats', deltaLabel: 'before the bleed' };
 
 export const GASTRIC = {
   id: 'gastric-varices', level: 'core', title: 'Gastric varices', minutes: 8,
