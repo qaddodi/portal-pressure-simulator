@@ -5786,13 +5786,17 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // an 8 MB upload, several times per ease). The slow creep of a running model stays within a step, so it never holds the plate.
   const fluidEasing = () => ascTarget !== null && Math.abs(clamp(ascTarget / 8500, 0, 1) - clamp(ascShown / 8500, 0, 1)) * 34 > 0.5;
   let ascTarget = null, ascShown = 0, ascVel = 0, fluidMaskB = null, fluidMaskOf = null, fluidMaskOfB = null, fluidBandH = -1, fluidH = 0, fluidAmp = 0, fluidInkRGBA = [0.9, 0.75, 0.28, 0.4];
+  const FLUID_TOP = 485, FLUID_DROP = 80;   // the surface's rise at the fullest belly, and how far below the floor a pool starts
   const fluidLook = { s: [0, 0, 0, 0], ink: [0, 0, 0, 0], ripple: false };
   const abdomenClipEl = defs.querySelector('#abdomenClip path');
   // (The ripple's phase advances with the running model's frames, so it carries on from where it stood after a pause instead of
   // jumping to the wall clock's; round 2 review, B11.)
   let fluidPh = 0;
   const fluidPhase = () => fluidPh;   // both ripple terms are periodic over 20π
-  const fluidSurfAt = (x, ph) => { const c = (x - 712) / 400; return ABDOMEN_FLOOR + 5 - fluidH * (0.8 + 0.2 * c * c) + (Math.sin(x / 38 + ph) * 0.7 + Math.sin(x / 23 - ph * 1.3) * 0.3) * fluidAmp; };
+  // The level the surface is measured from: FLUID_DROP below the cavity's floor when the pool starts (it first shows below the
+  // appendix, which it used to cover), easing up to the old floor by the fullest belly, so the top of the scale does not move.
+  const fluidFloor = (h) => ABDOMEN_FLOOR + 5 + FLUID_DROP * (1 - clamp(h / FLUID_TOP, 0, 1));
+  const fluidSurfAt = (x, ph) => { const c = (x - 712) / 400; return fluidFloor(fluidH) - fluidH * (0.8 + 0.2 * c * c) + (Math.sin(x / 38 + ph) * 0.7 + Math.sin(x / 23 - ph * 1.3) * 0.3) * fluidAmp; };
   // No pool while the readout grades the belly "None"; past that it fades in as it fills and out as it drains, so it never pops.
   const fluidFade = () => poolFade(ascShown);
   function drawAscites() {
@@ -5818,7 +5822,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     // top of the scale (about 8.5 L) the surface reaches the lower edge of the spleen: clearly concave (about 100 units
     // lower in the middle than at the flanks), the same on both sides.
     const uv = Math.pow(u, 0.6);
-    fluidH = uv * 485; fluidAmp = 2 * Math.min(1, uv * 4);
+    fluidH = uv * FLUID_TOP; fluidAmp = 2 * Math.min(1, uv * 4);
     fluidSurf = null;
     if (fluidFade() <= 0) { putA(ascitesPath, 'd', ''); putA(ascitesLine, 'd', ''); }
     else {
@@ -5835,7 +5839,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         fluidBandH = fluidH;
         const cells = [];
         for (let x = 288; x < 1136; x += 16) {
-          const base = (z) => { const c = (z - 712) / 400; return ABDOMEN_FLOOR + 5 - fluidH * (0.8 + 0.2 * c * c); };
+          const base = (z) => { const c = (z - 712) / 400; return fluidFloor(fluidH) - fluidH * (0.8 + 0.2 * c * c); };
           const a = base(x), b = base(x + 16);
           const y0 = Math.min(a, b) - fluidAmp - 2, y1 = Math.max(a, b) + fluidAmp + 10;
           for (let y = y0; y < y1; y += 16) cells.push(x, y);
@@ -5866,7 +5870,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     // (Under a slide's spotlight the fluid eases with the organs' dim: the plate's own value, less a lens's share of it.)
     const spotK = spot.live && plateDim != null ? clamp(plateDim / (wrap.classList.contains('data-layer') ? 0.72 : 1), SEL_DIM, 1) : 1;
     const t = easeInOut(morph), k = (1 - t) * (wrap.classList.contains('has-sel') ? SEL_DIM : spotK);
-    fluidLook.s = [ABDOMEN_FLOOR + 5, fluidH, fluidAmp, run ? fluidPhase() : fluidLook.s[3]];
+    fluidLook.s = [fluidFloor(fluidH), fluidH, fluidAmp, run ? fluidPhase() : fluidLook.s[3]];
     fluidLook.ink = [fluidInkRGBA[0], fluidInkRGBA[1], fluidInkRGBA[2], fluidInkRGBA[3] * k * fluidFade()];
     fluidLook.ripple = run && fluidFade() > 0 && k > 0;
     fluidLook.lv = [liverScale, liverFluidCut];
