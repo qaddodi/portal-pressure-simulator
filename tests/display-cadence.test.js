@@ -43,7 +43,8 @@ test('no surface steps its own resolution or frame rate down', () => {
   assert.ok(!/localStorage\.setItem\('pps\.(quality|q)'/.test(stage), 'stage.js stores a quality level again');
   assert.match(stage, /removeItem\('pps\.quality'\)/, 'an old stored level is dropped');
   assert.match(stage, /removeItem\('pps\.q'\)/, 'an old stored level is dropped');
-  assert.match(stage, /vdpr = Math\.min\(2, devicePixelRatio \|\| 1\) \* QUALITY\[quality\]\.res;/, 'the vessel canvas follows only the explicit step');
+  // (Besides the step, only Settings › Figure resolution, which the viewer picks: frame.js renderScale, 1 unless chosen.)
+  assert.match(stage, /vdpr = Math\.min\(2, devicePixelRatio \|\| 1\) \* QUALITY\[quality\]\.res \* renderScale\(\);/, 'the vessel canvas follows only the explicit step and setting');
   const lob = readFileSync(new URL('lobule-zoom.js', SRC), 'utf8');
   assert.ok(!/\blzRes\b/.test(lob), 'lobule-zoom.js: its resolution governor is back');
   const fib = readFileSync(new URL('fibroscan.js', SRC), 'utf8');

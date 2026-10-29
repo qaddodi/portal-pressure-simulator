@@ -127,5 +127,21 @@ export const saver = () => saverOn;
 export function setSaver(on) { saverOn = !!on; }
 // (Battery saver's pacing: a little under 67 ms, so a frame lands on the screen's next refresh, not the one after.)
 export const SAVER_MS = 1000 / 15 - 4;
+// Render resolution (Settings, 29 Oct, an experiment): the figure's canvases (the anatomy's vessels, organs, blood and glows on
+// the GPU, the lobule and the sinusoid) are drawn at this share of their usual pixels, and the browser scales them up. Words
+// (labels, cards, the instruments' readings) are not on those canvases and stay sharp. 1 (Full) changes nothing.
+export const RENDER_SCALES = [1, 0.75, 0.5, 0.25];
+let renderK = 1;
+try { const v = +localStorage.getItem('pps.renderScale'); if (RENDER_SCALES.includes(v)) renderK = v; } catch { /* storage unavailable */ }
+const renderSubs = new Set();
+export const renderScale = () => renderK;
+export function setRenderScale(k) {
+  if (!RENDER_SCALES.includes(k) || k === renderK) return;
+  renderK = k;
+  try { if (k === 1) localStorage.removeItem('pps.renderScale'); else localStorage.setItem('pps.renderScale', String(k)); } catch { /* storage unavailable */ }
+  for (const f of renderSubs) f(k);
+}
+/** Called with the new scale each time Settings changes it. */
+export function onRenderScale(f) { renderSubs.add(f); return () => renderSubs.delete(f); }
 /** The least time between two drawn frames of steady motion: 0 (every frame) unless Battery saver is on. */
 export const paceMs = () => (saverOn ? SAVER_MS : 0);

@@ -2,7 +2,7 @@
 // registered for slide-ext.js (see its header for each part's shape). A deck that sets none of its fields is unchanged.
 //   tool: { kind: 'criteria', title?, rows, ticks? }   C2: a guideline's rule list in the data card, a live tick on rows read from the
 //                                                     model (tool-criteria.js)
-import { createCriteria } from './tool-criteria.js?v=7c224eaa30';
+import { createCriteria } from './tool-criteria.js?v=32b9e5de24';
 
 export default {
   tools: {

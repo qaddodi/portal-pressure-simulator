@@ -19,15 +19,15 @@
 // the sinusoid exactly over the lobule's one at every step: first the vessel itself, then the tissue
 // around it.
 
-import { h, fmt, clamp, lerp } from './util.js?v=58b547f8d4';
-import { pressureColor } from './colormap.js?v=05a231b880';
+import { h, fmt, clamp, lerp } from './util.js?v=6f9bd7ddee';
+import { pressureColor } from './colormap.js?v=c4496633e4';
 import { isPaused } from './clock.js?v=5151312569';
 import { store } from './store.js?v=926dabfaef';
 import { STEP_MAX } from './glide-clock.js?v=220d7f875c';
 import { sinusoidTargets } from './sinusoid-model.js?v=74f5d007ca';
 import { createSinusoidGL, poreAt, poreOpenness, calloutPore, cellAt, cellEdge, SLOT, SEED, UM } from './sinusoid-gl.js?v=8399d8205e';
 import { placeFenDisse } from './fen-place.js?v=20401deb9e';
-import { frameFor, noteDraw, saver, paceMs } from './frame.js?v=7254a8a850';
+import { frameFor, noteDraw, saver, paceMs, renderScale } from './frame.js?v=ecade0bf08';
 import { softwareGL, softwareYield } from './sw-yield.js?v=e580a095b1';
 import { noteSinusoidSupport } from './gl-support.js?v=94ad2a7ff1';
 const nextFrame = frameFor('sinusoid-view');
@@ -697,7 +697,7 @@ export function createSinusoidView({ host, before = null }) {
     if (go < 0.002) go = 0;
     if (run && dt > 0 && go > 0) stepMovers(dt * go);
     if (!paint) return;
-    const dpr = Math.min(saver() ? 1 : 2, devicePixelRatio || 1);   // (Battery saver: one pixel per CSS pixel)
+    const dpr = Math.min(saver() ? 1 : 2, devicePixelRatio || 1) * renderScale();   // (Battery saver: one pixel per CSS pixel)
     if (canvas.width !== Math.round(W * dpr) || canvas.height !== Math.round(H * dpr)) { canvas.width = Math.round(W * dpr); canvas.height = Math.round(H * dpr); }
     const dark = document.documentElement.dataset.theme === 'dark' || (!document.documentElement.dataset.theme && darkMQ.matches);
     // The names are laid out where the view will rest, during the zoom too (hidden until it lands), so the end arrows

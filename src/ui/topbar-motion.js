@@ -7,7 +7,7 @@
 // frame). Positions are read from offsetLeft/offsetTop, which ignore transforms, so a measure taken while
 // a glide is still playing is the true layout and an interrupted glide continues from where it was.
 // Nothing moves on a window resize or with reduced motion: the bar just takes its new layout.
-import { frameFor } from './frame.js?v=7254a8a850';
+import { frameFor } from './frame.js?v=ecade0bf08';
 const nextFrame = frameFor('topbar-motion');
 
 const ITEMS = '.tb-id, .tb-id > *, .sb-left, .sb-right, #viewSeg, #viewSeg > button, .sb-right > *, .top-right, .top-right > *';

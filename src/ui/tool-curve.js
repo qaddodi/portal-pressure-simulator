@@ -65,7 +65,7 @@
 //                     a soft band in the ok colour under y = max(under, x less fall %), dashed along its top and named in it.
 
 import { TILE, SCALE, RATE } from './table-marks.js?v=bca5ebb624';
-import { frameFor } from './frame.js?v=7254a8a850';
+import { frameFor } from './frame.js?v=ecade0bf08';
 import { plotPanel } from './plot-look.js?v=5037697da7';
 import { airRatio } from './endo-size.js?v=e0a58bf20e';
 import { NODES } from '../engine/topology.js?v=4044766e96';
