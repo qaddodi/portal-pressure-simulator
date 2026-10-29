@@ -42,6 +42,7 @@ import { clotWords } from './callout-math.js?v=a716cd33ea';
 import { citeText, focusOf, oneLadder } from './teach-extras.js?v=5f5248f5a7';
 import { createProfileTool, createProfileStrip, pillReadings, chartScale } from './tool-profile.js?v=989103eab0';
 import { causeFit } from './cause-fit.js?v=830a6835a5';
+import { anchorsOf, roomFor } from './cam-room.js?v=40c12a8802';
 import { COMPACT, WIDE } from './card-type.js?v=5af5f22935';
 import { flowTimeHeight, trailKeys } from './flow-time.js?v=026ab2f37c';
 import { PROCS, procBlocked, procOffered, playProcedure } from './proc-anim.js?v=3075a0efa7';
@@ -250,12 +251,13 @@ export function slideTargets(s, line = s.line || '') {
   const keys = new Set();
   for (const m of line.matchAll(/\[([^\]]+)\]\(([\w:]+)\)/g)) if (TARGETS[m[2]]) keys.add(m[2]);
   for (const [w, k] of termList(s)) if (new RegExp(`\\b(?:${w})\\b`, 'i').test(line)) keys.add(k);
-  const labels = [], terms = {}, soft = new Set(), glow = new Map(), organs = new Map(), res = new Map(), lit = new Set(), sites = new Set();
+  const labels = [], terms = {}, soft = new Set(), glow = new Map(), organs = new Map(), res = new Map(), lit = new Set(), sites = new Set(), groups = [];
   for (const k of keys) {
     const t = TARGETS[k];
     if (t.node) { labels.push(t.node); terms[t.node] = t.tone; }
     if (t.lit) lit.add(k);
     if (t.site) sites.add(t.site);
+    if (t.edges?.length) groups.push(t.edges);   // (groups: each thing the slide lights as the vessels that make it up, for the camera's room: cam-room.js)
     for (const e of t.edges || []) glow.set(e, t.tone);
     if (t.organ) organs.set(t.organ, t.tone);
     if (t.res) res.set(t.res, t.tone);
@@ -268,15 +270,15 @@ export function slideTargets(s, line = s.line || '') {
     const id = typeof g === 'string' ? g : g.id, tone = typeof g === 'string' ? null : g.tone, ms = s.glowSeq ? i * s.glowSeq : 0;
     // { id, soft: true }: a supporting vessel, lit more gently than the one the slide is about.
     const add = (e, tn) => { glow.delete(e); glow.set(e, tn); if (ms) at.set(e, ms); if (g.soft) soft.add(e); else soft.delete(e); };
-    if (TARGETS[id]) { const t = TARGETS[id]; if (t.lit) lit.add(id); if (t.res) res.set(t.res, tone || t.tone); for (const e of t.edges || []) add(e, tone || t.tone); if (t.organ) organs.set(t.organ, tone || t.tone); }
+    if (TARGETS[id]) { const t = TARGETS[id]; if (t.lit) lit.add(id); if (t.res) res.set(t.res, tone || t.tone); if (t.edges?.length) groups.push(t.edges); for (const e of t.edges || []) add(e, tone || t.tone); if (t.organ) organs.set(t.organ, tone || t.tone); }
     else if (ORGANS.has(id)) organs.set(id, tone || TARGETS[id]?.tone);
-    else add(id, tone || EDGE_TONE[id] || 'accent');
+    else { groups.push([id]); add(id, tone || EDGE_TONE[id] || 'accent'); }
   } });
   // A lobule slide that lights the portal venule's or the central vein's reading lights the sinusoids' as well: the
   // sinusoidal pressure sits between the two, and the other labels are faded out (Mohammad, 16 Oct).
   if (lit.has('lobule:central') || lit.has('lobule:triad')) lit.add('lobule:sinusoid');
   if (isDop(s)) { const v = s.tool.vessel || 'PV_TRUNK'; if (glow.has(v)) glow.set(v, '--dop-glow'); }
-  return { labels, terms, glow: [...glow].map(([id, tone]) => ({ id, tone, at: at.get(id) || 0, soft: soft.has(id) || undefined })), organs: [...organs].map(([id, tone]) => ({ id, tone })), res: [...res].map(([id, tone]) => ({ id, tone })), lit: [...lit], sites: [...sites] };
+  return { labels, terms, glow: [...glow].map(([id, tone]) => ({ id, tone, at: at.get(id) || 0, soft: soft.has(id) || undefined })), organs: [...organs].map(([id, tone]) => ({ id, tone })), res: [...res].map(([id, tone]) => ({ id, tone })), lit: [...lit], sites: [...sites], groups };
 }
 /** What the names of a slide's `cam: { on: [names] }` point at, as { organs, edges, points, unknown }: the vessels, organs and station
  *  places the camera frames ('@name': a named set, slide-ext.js). The same names a glow takes, plus a station's id (CONF, AO). */
@@ -1100,7 +1102,8 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   // Where the way out of the lobule should land for a slide: its framing, asked for when the rise begins (null: the fit).
   const riseFor = (cam, s) => (cam === 'fit' ? null : { box: () => camBox(cam, s), kMax: s.kMax || 3.2, clear: !!s.clear });
   // A slide's framing: its region of the plate (or, by name, the box its names fill), grown to take in all of what the slide points
-  // at (its outlined organs as drawn now, an enlarged spleen whole), with a little room for the outline's glow.
+  // at (its outlined organs as drawn now, an enlarged spleen whole), with a little room for the outline's glow, and room for its marks,
+  // labels, lit vessels, probe and readings, so none of them stands outside the frame (cam-room.js).
   function camBox(cam, s) {
     let r = regionBox(isCamOn(cam) ? cam.near : cam, REGIONS);
     if (isCamOn(cam)) {
@@ -1110,7 +1113,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     }
     // (A slide with softly lit supporting veins frames every vessel it lights, so none runs off the edge.)
     const tg = slideTargets(s), f = stage.focusBox({ organs: tg.organs.map((o) => o.id), edges: tg.glow.some((g) => g.soft) ? tg.glow.map((g) => g.id) : [] });
-    return growBox(r || REGIONS.route, f);
+    return roomFor(growBox(r || REGIONS.route, f), anchorsOf(s, tg));
   }
 
   // ── The HVPG catheter (stage.setCatheter, as Measure › HVPG draws it), choreographed slide by slide: in along
