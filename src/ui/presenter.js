@@ -25,11 +25,11 @@ import { isCamOn, unionBox, regionBox, growBox, camNames } from './cam-frame.js?
 import { NODE_POS } from './anatomy.js?v=48cc98d415';
 import { DISEASE_SRC, diseasePieces } from './diseases.js?v=fb8a5451c3';
 import { nb, listCase, plateletText } from './glue.js?v=5a0f63226b';
-import { DECKS, DECK_ALIAS, REGIONS, LEVELS, TOPICS, withOverview, siteTag, SITE_TAGS } from './decks.js?v=d9cb2e1a97';
+import { DECKS, DECK_ALIAS, REGIONS, LEVELS, TOPICS, withOverview, siteTag, SITE_TAGS } from './decks.js?v=57e95ce7a9';
 import { fingerprintOf } from '../engine/fingerprint.js?v=ca81723393';
-import { createHvpgMonitor } from './hvpg-proc.js?v=2b6df681da';
-import { createTools } from './presenter-tools.js?v=24a70f73af';
-import { openHandout } from './handout.js?v=517a1c75a8';
+import { createHvpgMonitor } from './hvpg-proc.js?v=6831354271';
+import { createTools } from './presenter-tools.js?v=9b4cf2926f';
+import { openHandout } from './handout.js?v=d52d874d06';
 import { noteResume, resumeFor } from './resume.js?v=f086f80ee8';
 import { parseDeckSource, checkDeck } from './deck-source.js?v=8395c650cd';
 import { NO_ASC, TILE, cutText, tileOf, SCALE, bandsOf, rateOf, COLS, CUT, PRESS, fpv, dirAbs, dirRel, rateAbs, effOf, rateShown, tileShown, tipsGoal, liveSettled, shownSig } from './table-marks.js?v=bca5ebb624';
@@ -37,16 +37,16 @@ import { frameFor, cancelFrame } from './frame.js?v=7254a8a850';
 import { createFigureKey } from './figure-key.js?v=b6817772fb';
 import { traceWhen } from './trace-labels.js?v=fc916a95c6';
 import { flowCss, heatCss, dropCss, gradientCss, oxygenCss } from './colormap.js?v=05a231b880';
-import { EXT, expandIds, stepExtra, markLabel, figureHooks, safe } from './slide-ext.js?v=81b55f24dd';
+import { EXT, expandIds, stepExtra, markLabel, figureHooks, safe } from './slide-ext.js?v=80ee81b127';
 import { clotWords } from './callout-math.js?v=dd2fe6d554';
 import { citeText, focusOf, oneLadder } from './teach-extras.js?v=5f5248f5a7';
 import { createProfileTool, createProfileStrip, pillReadings, chartScale } from './tool-profile.js?v=3e6716e522';
 import { causeFit } from './cause-fit.js?v=830a6835a5';
-import { anchorsOf, roomFor } from './cam-room.js?v=7dd99fca21';
+import { anchorsOf, roomFor } from './cam-room.js?v=493436af25';
 import { beatCount, beatView } from './slide-beats.js?v=2aded612c4';
 import { COMPACT, WIDE } from './card-type.js?v=5af5f22935';
 import { flowTimeHeight, trailKeys } from './flow-time.js?v=026ab2f37c';
-import { PROCS, procBlocked, procOffered, playProcedure } from './proc-anim.js?v=72cebaac1f';
+import { PROCS, procBlocked, procOffered, playProcedure } from './proc-anim.js?v=dbdd8e9fec';
 import { dataPlan, textPlan, keepData, keepText, cardSnap, cardChanged, cardBack } from './card-keep.js?v=982397f8fb';
 import { createCardZoom, tapTracker } from './card-zoom.js?v=f589271cc7';
 import { createScopeTile } from './scope-tile.js?v=b05945714a';
@@ -1196,15 +1196,16 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     if (cath.on) { stage.setCatheter(null); stage.cathForget(); }
     Object.assign(cath, { on: false, v: { u: 0, balloon: 0, column: 0, opacity: 1 }, tr: {}, show: [], ring: null, ostium: false, probeT0: 0, follow: false, cam: null, fp: null });
   }
-  // ── A slide's procedure (proc-anim.js): TIPS, BRTO or BATO played on the live figure, one step at a time. The teaching card
-  // holds a button for each step (in place of one Play button): a step's button plays the procedure up to it, and once it plays,
-  // Next plays the next step and Back runs the last one backwards (his pick, 29 Oct). Each step holds still in its shot with its
-  // callout, the slide's own mark style, on the vessel it works on. It may also start as the slide lands going forward (auto:
+  // ── A slide's procedure (proc-anim.js): TIPS, BRTO or BATO played on the live figure, guided by Next (his ask, 29 Oct): on the
+  // slide, the first Next puts the catheter in, each Next after it plays the next step, and the Next after the last moves on;
+  // Back runs the last step backwards, and from the first puts the slide as it was. The teaching card shows the steps as a row
+  // of numbered pills, the one on show lit: progress only, never buttons. Each step holds still in its shot with its callout,
+  // the slide's own mark style, on the vessel it works on. It may also start as the slide lands going forward (auto:
   // true). As it passes its change the live model takes it, as a treatment button does (liveSet), and gives it back going back.
   // A slide whose own patient has already had it (the BRTO slides show the shunt closed) plays it from just before: the live
   // model takes it back first (the shunt opens again while the catheter travels), then the procedure puts it back; going back to
   // before the first step puts the slide as it was. Leaving the slide stops it where it is; the next slide's camera takes over.
-  let procRun = null, procWait = false, procShown = -1;
+  let procRun = null, procWait = false, procShown = -1, procDoneAt = -1;
   const procKind = (s) => (typeof s.procedure === 'string' ? s.procedure : s.procedure?.kind) || null;
   // (home: the slide stays, so the camera glides back and its own marks and names come back through onMark; leaving it, the next
   // slide's camera and marks take over.)
@@ -1216,7 +1217,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   }
   // (The step on show is the pressed one; after it has played through, the last stays pressed until the slide changes.)
   function procPaint() {
-    ui?.text.querySelectorAll('.pz-proc').forEach((b, k) => { b.disabled = procWait || !!b.dataset.why; b.setAttribute('aria-pressed', String(k === procShown)); });
+    ui?.text.querySelectorAll('.pz-proc').forEach((b, k) => { b.classList.toggle('on', k === procShown); if (k === procShown) b.setAttribute('aria-current', 'step'); else b.removeAttribute('aria-current'); });
   }
   // (The slide's treatment buttons press the one that now matches the live model.)
   function procCompare(s) {
@@ -1250,32 +1251,49 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       onStep: (k) => { if (procRun === run) { procShown = k; procPaint(); } },
       // (The step's callout stands in for the slide's marks while it plays; its names join the slide's. Then the slide's come back:
       // on the BRTO slides the last step's "Shunt closed" is the slide's own mark, so it stays where it is.)
+      // (false: no callout while the catheter travels in, the names for its way kept.)
       onMark: (m, add) => {
         if (procRun !== run || !mine()) return;
-        store.set(m ? { focus: markFocus([m]), presentLabels: [...new Set([...names, ...(add || [])])] } : { focus: slideMarks(i), presentLabels: names });
+        store.set(m !== null ? { focus: m ? markFocus([m]) : null, presentLabels: [...new Set([...names, ...(add || [])])] } : { focus: slideMarks(i), presentLabels: names });
       },
       onEnd: ({ rewound }) => {
         if (procRun !== run) return;
         procRun = null;
-        if (rewound && mine()) { liveSet(s, i, before); procCompare(s); procShown = -1; }
+        if (rewound && mine()) { liveSet(s, i, before); procCompare(s); procShown = -1; procDoneAt = -1; }
+        else if (mine()) procDoneAt = i;   // (played through: the next Next moves on)
         procPaint();
       },
     });
     procPaint();
   }
-  // Next and Back while a procedure plays: its next step, or the last one run backwards (false: nothing to do, the slide moves on).
-  const procNext = () => !!procRun && shown?.i === want && procRun.next();
+  // Whether the slide's procedure can play on the live patient (as its card shows it).
+  function procCan(s) {
+    const kind = procKind(s), P = PROCS[kind], p = store.get().params, m = store.get().frame?.metrics;
+    return !!P && procOffered(kind, p, m) && (P.had(p) || !procBlocked(kind, p, m));
+  }
+  // Next and Back on a procedure's slide (true: they did a step; false: the slide moves on). Next starts it (the catheter goes
+  // in), then plays each next step; once it has played through, Next moves on. (While the figure turns to the anatomy before
+  // the first step, a Next waits with it rather than leaving.)
+  const procNext = () => {
+    if (shown?.i !== want) return false;
+    if (procRun) return procRun.next();
+    if (procWait) return true;
+    const s = slides[want];
+    if (!s?.procedure || procDoneAt === want || cath.on || !procCan(s)) return false;
+    procPlay(s, want, 0);
+    return true;
+  };
   const procBack = () => !!procRun && shown?.i === want && procRun.back();
   function procEl(s, i, st) {
     const kind = procKind(s), P = PROCS[kind], p = st?.params || store.get().params, m = st ? null : store.get().frame?.metrics;
     // (BRTO and BATO only on a patient with gastric varices, or one who has had it already, so it plays from just before.)
     if (P && !procOffered(kind, p, m)) return null;
     const why = !P ? 'Unknown procedure.' : P.had(p) ? '' : procBlocked(kind, p, m);
-    // One button per step, numbered, in one row: where the full words would wrap, each takes its short word (abShort).
-    return h('div', { class: 'pz-ab pz-procs', role: 'group', 'aria-label': `Play ${P?.name || kind} step by step on the figure` },
-      (P?.steps || [['play', `Play ${kind}`, '', `Play ${kind}`]]).map((st0, k) => h('button', { type: 'button', class: 'pz-abb pz-proc', 'aria-pressed': String(!!procRun && k === procShown),
-        'data-full': `${k + 1} ${st0[1]}`, 'data-short': `${k + 1} ${st0[3]}`, 'aria-label': `${P?.name || kind}, step ${k + 1}: ${st0[1]}`, title: why || st0[2],
-        ...(why ? { disabled: '', 'data-why': why } : procWait ? { disabled: '' } : {}), onclick: () => procPlay(s, i, k) }, `${k + 1} ${st0[1]}`)));
+    // The steps in one row, numbered, the one on show lit: progress, not buttons (Next plays them). Where the full words would wrap,
+    // each takes its short word (abShort). One the patient cannot have shows dimmed with why.
+    return h('div', { class: 'pz-ab pz-procs', role: 'list', 'aria-label': `${P?.name || kind}, step by step: Next plays each step`, ...(why ? { 'data-why': why, title: why } : {}) },
+      (P?.steps || [['play', kind, '', kind]]).map((st0, k) => h('span', { class: `pz-abb pz-proc${procRun && k === procShown ? ' on' : ''}`, role: 'listitem',
+        'data-full': `${k + 1} ${st0[1]}`, 'data-short': `${k + 1} ${st0[3]}`, 'aria-label': `Step ${k + 1}: ${st0[1]}`, title: why || st0[2] }, `${k + 1} ${st0[1]}`)));
   }
   // Out: the readings go, the balloon goes down and the catheter fades (at once when the figure is fading anyway).
   async function cathOut(fading) {
@@ -1805,7 +1823,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     // visual over the figure, keeps the colours already showing: they change only when a slide's lens does.
     if (!s.visual) { const lens = slideLens(s); if (store.get().colorMode !== lens) store.set({ colorMode: lens }); }
     if (!hushed) delete app.dataset.lit;   // (hushed, the lit set goes straight to the next slide's: a label on both keeps its pill)
-    stopLapse(); procStop(); abSlow(); handOn = false;
+    stopLapse(); procStop(); abSlow(); handOn = false; procDoneAt = -1;
     await wait(Math.max(0, outMs - (performance.now() - outAt)));
     // (Nothing in the liver changes until its labels are gone.)
     if (hushed) { await wait(Math.max(0, HUSH_OUT - (performance.now() - hushAt))); await eased(['--lab-o'], 600); if (cut()) return; }

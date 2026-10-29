@@ -109,7 +109,7 @@ import { CIRCUIT } from './decks/circuit.js?v=b3b5b96f55';
 import { DOPPLER } from './decks/doppler.js?v=4a37e56815';
 import { ENDOSCOPY } from './decks/endoscopy.js?v=1557bde3cb';
 import { PREHEPATIC } from './decks/prehepatic.js?v=7916930ff2';
-import { BLEED } from './decks/variceal-bleed.js?v=8589581b29';
+import { BLEED } from './decks/variceal-bleed.js?v=4acd9fd6c6';
 import { TWO_INFLOWS } from './decks/two-inflows.js?v=bac786bc6d';
 import { NCPH } from './decks/ncph.js?v=fba64b2bbf';
 import { OUTFLOW } from './decks/outflow.js?v=0392956963';
@@ -119,10 +119,10 @@ import { PREGNANCY_DECK } from './decks/pregnancy.js?v=d79b566bbb';
 import { ENCEPHALOPATHY } from './decks/encephalopathy.js?v=7d08be79e0';
 import { CAUSE_TREATED } from './decks/cause-treated.js?v=70702ca374';
 import { NEXT_BLEED } from './decks/next-bleed.js?v=5ff8785bca';
-import { GASTRIC } from './decks/gastric-varices.js?v=0da683e5c6';
+import { GASTRIC } from './decks/gastric-varices.js?v=a92761ded1';
 import { HYPERDYNAMIC } from './decks/hyperdynamic.js?v=90b476c393';
 import { CHOOSE_TREATMENT } from './decks/choose-treatment.js?v=c370a83c9f';
-import { TEN_YEARS } from './decks/ten-years.js?v=07e2909f8e';
+import { TEN_YEARS } from './decks/ten-years.js?v=72b87e59ee';
 
 // Regions of the anatomy plate the camera frames (world units, x 300-1120, y 0-920).
 export const REGIONS = {

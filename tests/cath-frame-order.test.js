@@ -51,9 +51,8 @@ test('the catheter\'s step moves the camera before its readings are laid out, in
   assert.match(read('src/ui/presenter.js'), /follow: cath\.follow \}\);/);
   const hv = read('src/ui/hvpg-proc.js'), pa = read('src/ui/proc-anim.js');
   assert.equal((hv.match(/labels, follow,/g) || []).length, 2);
-  // (a treatment holds still shots and never follows: proc-anim.js, his ask 29 Oct)
-  assert.match(pa, /ring: null, clock: t, opacity: f\.opacity, labels: \[\], keep: true \}\);/);
-  assert.doesNotMatch(pa, /\bfollow[:,]/);
+  // (a treatment follows its tip in only on its first step, once that shot has landed: proc-anim.js, his ask 29 Oct)
+  assert.match(pa, /ring: null, clock: t, opacity: f\.opacity, labels: \[\], keep: true, follow: f\.shot === 'way' && shot === 'way' && !stage\.gliding\?\.\(\) \}\);/);
   for (const src of [hv, pa, read('src/ui/presenter.js')]) assert.doesNotMatch(src, /cathFollow/);
 });
 

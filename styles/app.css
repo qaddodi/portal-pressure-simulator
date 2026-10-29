@@ -1811,6 +1811,10 @@ button.finding { cursor: pointer; }
 /* Each option is its own outlined button, so it reads as something to tap; the chosen one is in full ink with an accent edge, the others grey.
    No shared track and no filled pill, an iOS switch's look (DG4, 17 Oct). */
 .pz-abb[aria-pressed="true"] { color: var(--text); border-color: var(--accent); box-shadow: inset 0 0 0 .5px var(--accent); }
+/* A procedure's steps (presenter.js procEl): progress, not buttons (Next plays them); the one on show lit as a pressed choice. */
+.pz-proc { cursor: default; pointer-events: none; }
+.pz-proc.on { color: var(--text); border-color: var(--accent); box-shadow: inset 0 0 0 .5px var(--accent); }
+.pz-procs[data-why] .pz-proc { opacity: .5; }
 .pz-abb:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 /* Projector-size catheter readings. */
 .app.presenting .cath-label { padding: calc(7px * min(var(--label-k, 1), 1.7)) calc(16px * min(var(--label-k, 1), 1.7)) calc(8px * min(var(--label-k, 1), 1.7)); border-radius: calc(14px * min(var(--label-k, 1), 1.7)); }

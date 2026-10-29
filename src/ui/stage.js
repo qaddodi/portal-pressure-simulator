@@ -2119,7 +2119,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (!sameView(from, to)) logMove({ t: t0, ms, restart: vtGliding, kind: drift ? 'drift' : 'glide', arc: !!arcRun, zoom: Math.abs(Math.log(to.k / from.k)), pan: Math.hypot(to.x - from.x, to.y - from.y) });
     const left = Math.max(0, t0 + ms - performance.now());
     vtGliding = true;
-    if (store.get().presenting && !drift && !sameView(from, to)) { camMove = true; dpr.carry = dpr.on && performance.now() < dpr.refitUntil; wrap.classList.add('cam-move'); setTimeout(() => { if (!vtGliding) camSettle(); }, left + 80); } else camSettle();
+    if ((store.get().presenting || cath.st?.keep) && !drift && !sameView(from, to)) { camMove = true; dpr.carry = dpr.on && performance.now() < dpr.refitUntil; wrap.classList.add('cam-move'); setTimeout(() => { if (!vtGliding) camSettle(); }, left + 80); } else camSettle();
     dprLet();   // (a probe waiting for the slide's framing: a move hides it till it lands, a refit shows it now)
     const step = (now) => {
       // A newer glide (or a framing set outright) took over: this one stops. A glide started from inside this step's
@@ -6912,7 +6912,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const tipD = r.start + (end - r.start) * clamp(st.u, 0, 1) + (st.probe || 0) * Rf * 1.6;
     // A 5 F catheter in the hepatic vein, held at one width in the world for the whole procedure (never
     // thinner than about 3 px at the start, nor so thick it crowds the vein), so it scales with the anatomy as the camera moves.
-    if (!cath.rc) cath.rc = clamp(1.5 / (CTM.sc || 1), Rf * 0.17, Rf * 0.28);
+    // (A treatment's catheter is a real one in the narrowest vein it goes through: half that vein's lumen, so it reads as a tube
+    // with a tip and a rim, never a line: his ask, 29 Oct.)
+    if (!cath.rc) cath.rc = r.parts ? procRc(r, Rf) : clamp(1.5 / (CTM.sc || 1), Rf * 0.17, Rf * 0.28);
     const rc = cath.rc, ahead = cathAt(r, Math.min(r.total, tipD + Rf * 6.4));
     const tp = cathAt(r, tipD);
     cath.at = { tip: tp.p, ahead: ahead.p, nx: -tp.t[1], ny: tp.t[0] };
@@ -6955,6 +6957,12 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // (The render pass runs a lay out still waiting first, so the frame goes catheter, camera, readings, render.)
   function cathLabelsNow() { if (!cath.lblRaf) return; cancelFrame(cath.lblRaf); cath.lblRaf = 0; if (cath.st) cathLabels(); }
   let cathVer = 0;
+  // A treatment catheter's radius: half the narrowest lumen it passes, from where the route enters the figure to where the tip stops.
+  function procRc(r, Rf) {
+    let m = Rf;
+    for (let i = 0; i < r.pts.length; i++) if (r.cum[i] >= procIn(r) && r.cum[i] <= r.free) m = Math.min(m, r.rad[i]);
+    return Math.max(m, 0.5) * 0.5;
+  }
   // On the GPU (veins-gl.js): the still column, the shaft and its shadow, the marker band and rounded tip,
   // the balloon behind the tip and the reading ripples, as tubes and discs in world units.
   function cathGL(st, r, tipD, rc) {
@@ -6991,11 +6999,13 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         draws.push({ mode, first: f, count: 4, col, alpha: alpha * op, fade: [60, 0], len: b });
       }
     };
-    shaftPart(0, rc * 2.1, 0, [0.03, 0.05, 0.12], 0.34, rc * 0.7, rc * 1.1);
+    if (r.parts) shaftPart(0, rc * 1.45, 0, [0.06, 0.08, 0.14], 0.9);
+    else shaftPart(0, rc * 2.1, 0, [0.03, 0.05, 0.12], 0.34, rc * 0.7, rc * 1.1);
     shaftPart(sh.n * 2, rc, 2, shaft, 1);
     // The pressure-reading tip: a dark marker band, then the rounded end.
     tube(Math.max(0, tipD - rc * 3.2), tipD - rc * 1.6, () => rc * 1.06, 3, [0.2, 0.23, 0.29], 1, [0, 0]);
     const tp = cathAt(r, tipD);
+    if (r.parts) disc(tp.p, tp.t, rc * 1.45, rc * 1.45, 4, [0.06, 0.08, 0.14], 0.9);   // (the rim round the rounded tip)
     disc(tp.p, tp.t, rc, rc, 4, shaft, 1);
     // The balloon sits just behind the tip; inflated, it fills the vein and wedges, held inside its walls.
     const bl = clamp(st.balloon || 0, 0, 1);
@@ -7003,8 +7013,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (bl > 0.001) {
       const gap = rc * 4.2, Rb = cathAt(r, tipD - gap - rFree(r) * 1.6).r, sp = r.spans?.[st.balloonSpan];
       // (A TIPS's angioplasty balloon lies along the tract it opens, its whole length; the others sit just behind the tip.)
-      const rx = sp ? (sp[1] - sp[0]) * 0.45 : lerp(rc * 3.4, Rb * 1.6, bl), dC = sp ? (sp[0] + sp[1]) / 2 : tipD - gap - rx;
-      const at = (d) => cathAt(r, d), ry0 = balloonRy(at, dC, rx, rc * 1.35, { floor: rc * 1.05 });
+      // (A treatment's occlusion balloon fills the vein from wall to wall and is longer, so it reads at a glance: his ask, 29 Oct.)
+      const rx = sp ? (sp[1] - sp[0]) * 0.45 : r.parts ? lerp(rc * 3.4, Rb * 2.6, bl) : lerp(rc * 3.4, Rb * 1.6, bl), dC = sp ? (sp[0] + sp[1]) / 2 : tipD - gap - rx;
+      const at = (d) => cathAt(r, d), ry0 = balloonRy(at, dC, rx, r.parts ? Math.max(rc * 1.35, Rb) : rc * 1.35, { floor: rc * 1.05 });
       // Bent with the vein: a strip whose sides are the outline, its local coords on the unit circle at the
       // sides so it shades and edges as the latex disc does.
       const first = begin(), ol = balloonOutline(at, dC, rx, ry0, bl, { floor: rc * 1.05 });
@@ -7013,7 +7024,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         const nx = -o.t[1], ny = o.t[0], v = Math.sqrt(Math.max(0, 1 - o.s * o.s));
         for (const side of [-1, 1]) V.push(o.c[0] + nx * o.h * side, o.c[1] + ny * o.h * side, o.t[0], o.t[1], o.s, v * side);
       }
-      draws.push({ mode: 5, first, count: begin() - first, col: [0.99, 0.9, 0.7], alpha: (0.55 + 0.45 * bl) * op });   // latex
+      draws.push({ mode: 5, first, count: begin() - first, col: [0.99, 0.9, 0.7], alpha: (r.parts ? 0.8 + 0.2 * bl : 0.55 + 0.45 * bl) * op });   // latex
     }
     // The tip reading: two ripples running out from it.
     if (st.ring) {
@@ -7039,7 +7050,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         for (const side of [-1, 1]) { V.set([q.p[0] + ox + nx * w * side, q.p[1] + oy + ny * w * side, nx, ny, side, d], o); o += 6; }
       }
     };
-    tube(0, rc * 2.1, rc * 0.7, rc * 1.1);   // the shadow
+    // the shadow; a treatment's is its dark rim, round the shaft, so the catheter stands out on any vein
+    if (r.parts) tube(0, rc * 1.45, 0, 0); else tube(0, rc * 2.1, rc * 0.7, rc * 1.1);
     tube(n * 12, rc, 0, 0);                   // the shaft
     return (cath.shaft = { key, step, n, count: n * 4, verts: V });
   }
@@ -7296,7 +7308,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // near: the route's framing for a catheter the view will follow in (cathFollow): 25% closer, the route's top held where it
   // was, so the follow only pans (his pick, 26 Oct: zoom once, then pan; a zoom each frame redrew the whole vessel layer).
   const FOLLOW_ZOOM = 1.25;
-  const PROC_K_MAX = 3.5;   // (a treatment's close-up: at 5x and 7x the anatomy round it was lost; recs, 29 Oct)
+  const PROC_K_MAX = 5;   // (a treatment's close-up: the catheter and its balloon must show; the old 7x work zoom is gone)
+  // Where a treatment's route enters the plate (its lead-in from outside ends there): the view never follows the tip off the figure.
+  const procIn = (r) => r.parts?.[1]?.d0 ?? r.start;
   function cathFocus(mode, ms = 700, { both = false, near = false, arc = false } = {}) {
     const r = cathRoute();
     if (mode === 'home') { if (cath.saved) animateVT(cath.saved, ms, { arc }); cath.saved = null; return true; }
@@ -7306,15 +7320,24 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const [fx0, fy0] = clientToVB(wr.left + ins.l, wr.top + ins.t), [fx1, fy1] = clientToVB(wr.left + ins.W - ins.r, wr.top + ins.H - ins.b);
     let cx, cy, k, cyScreen = (fy0 + fy1) / 2;
     if ((mode === 'tip' || mode === 'way') && r.focus) {
-      // A treatment's two shots, each held still while its steps play (proc-anim.js): 'way', the whole route from where it
-      // enters, for the catheter's travel; 'tip', the stretch it works on (the hepatic vein, the tract and the portal vein; the
-      // renal vein and the shunt; the splenic vein and the feeder), whole. Never closer than PROC_K_MAX, so the anatomy round it
-      // still reads. (Framed in the space the cards leave, so neither sits under the Tests card or a slide's words.)
-      const [d0, d1] = mode === 'way' ? [r.start * 0.5, r.total] : r.focus, pad = mode === 'way' ? 30 : 24;
-      const seg = cutLen(r.pts, r.cum, d0, d1);
+      // A treatment's two shots, at one scale, the stretch it works on (the hepatic vein, the tract and the portal vein; the renal
+      // vein and the shunt; the splenic vein and the feeder) filling the space the cards leave, up to PROC_K_MAX: close enough to
+      // see the catheter and its balloon (his ask, 29 Oct: zoomed too far out to follow it). 'tip' frames that stretch, held
+      // still while the work's steps play; 'way' starts on the tip where it enters, and the view then follows the tip in
+      // (cathFollow) at that scale, panning only, so it never zooms while the catheter moves.
+      const seg = cutLen(r.pts, r.cum, r.focus[0], r.focus[1]), pad = 24;
       const xs = seg.map((q) => q[0]), ys = seg.map((q) => q[1]), x0 = Math.min(...xs) - pad, x1 = Math.max(...xs) + pad, y0 = Math.min(...ys) - pad, y1 = Math.max(...ys) + pad;
       const fr = cathFree(wr, ins);
-      cx = (x0 + x1) / 2; cy = (y0 + y1) / 2; k = clamp(Math.min((fr.x1 - fr.x0) / (x1 - x0), (fr.y1 - fr.y0) / (y1 - y0)) * (mode === 'way' ? 0.9 : 0.72), 1, PROC_K_MAX);
+      k = clamp(Math.min((fr.x1 - fr.x0) / (x1 - x0), (fr.y1 - fr.y0) / (y1 - y0)) * 0.72, 1, PROC_K_MAX);
+      cath.followPx = fr.px;
+      if (mode === 'way' && reduceMotion.matches) {
+        // (Reduced motion: no following, so the way in is framed whole, still, as close as it fits.)
+        const all = cutLen(r.pts, r.cum, procIn(r), r.free), ax = all.map((q) => q[0]), ay = all.map((q) => q[1]);
+        const w = Math.max(...ax) - Math.min(...ax) + 60, hh = Math.max(...ay) - Math.min(...ay) + 60;
+        k = clamp(Math.min((fr.x1 - fr.x0) / w, (fr.y1 - fr.y0) / hh) * 0.9, 1, PROC_K_MAX);
+        cx = (Math.min(...ax) + Math.max(...ax)) / 2; cy = (Math.min(...ay) + Math.max(...ay)) / 2;
+      } else if (mode === 'way') [cx, cy] = cathAt(r, Math.max(r.start + (r.free - r.start) * clamp(cath.st?.u || 0, 0, 1), procIn(r))).p;
+      else { cx = (x0 + x1) / 2; cy = (y0 + y1) / 2; }
       animateVT({ k, x: (fr.x0 + fr.x1) / 2 - cx * k, y: (fr.y0 + fr.y1) / 2 - cy * k }, ms, { arc });
       return true;
     } else if (mode === 'tip') {
@@ -7347,11 +7370,12 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // (the Tests card at the side, a slide's words, a phone's sheet), whichever side leaves the most room.
   function cathFree(wr, ins) {
     const [ax, ay] = clientToVB(wr.left + ins.l, wr.top + ins.t), [bx, by] = clientToVB(wr.left + ins.W - ins.r, wr.top + ins.H - ins.b);
-    let f = { x0: ax, y0: ay, x1: bx, y1: by };
+    // (px: its middle in the stage's own pixels, where a treatment's tip is held while the view follows it: cathFollow.)
+    let f = { x0: ax, y0: ay, x1: bx, y1: by, px: [(ins.l + ins.W - ins.r) / 2, (ins.t + ins.H - ins.b) / 2] };
     const sp = cardSpace(), L = ins.l, T = Math.max(ins.t, sp.t), R = ins.W - Math.max(ins.r, sp.r || 0), B = ins.H - Math.max(ins.b, sp.b);
     if (R - L > 160 && B - T > 160) {
       const [px, py] = clientToVB(wr.left + L, wr.top + T), [qx, qy] = clientToVB(wr.left + R, wr.top + B);
-      f = { x0: px, y0: py, x1: qx, y1: qy };
+      f = { x0: px, y0: py, x1: qx, y1: qy, px: [(L + R) / 2, (T + B) / 2] };
     }
     return f;
   }
@@ -7366,6 +7390,16 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     // (By arithmetic, from the kept stage box and the cards' room read at most four times a second: asking the page for its
     // boxes and the figure's matrix here, after the catheter's step had written to it, laid the page out again every frame.)
     const wr = stageBox(), ins = cathInsets(now);
+    // A treatment: the tip held where its shot put it, in the middle of the space the cards leave, the view panning after it both
+    // ways at the shot's one scale, eased (never a snap), from where the route enters the figure.
+    if (r.parts) {
+      const tq = cathAt(r, Math.max(tipD, procIn(r))).p, px = cath.followPx || [(ins.l + ins.W - ins.r) / 2, (ins.t + ins.H - ins.b) / 2];
+      const [mx, my] = clientToVBFast(wr.left + px[0], wr.top + px[1]), e = 1 - Math.exp(-dt / 320), kk = vt.k;
+      const nx = vt.x + (mx - tq[0] * kk - vt.x) * e, ny2 = vt.y + (my - tq[1] * kk - vt.y) * e;
+      if (Math.hypot(nx - vt.x, ny2 - vt.y) < 0.05) return;
+      vt = { k: kk, x: nx, y: ny2 }; applyVT(); CTM = null; refreshCTM();
+      return;
+    }
     const [, fy0] = clientToVBFast(wr.left + ins.l, wr.top + ins.t), [, fy1] = clientToVBFast(wr.left + ins.W - ins.r, wr.top + ins.H - ins.b);
     // Up and down only (no sideways pan), at the one scale the route's framing set (cathFocus near): a pan at a fixed scale lets
     // the vessel layer move its last picture and draw only the strip it uncovers.
@@ -9252,7 +9286,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       const passes = dop.all && [...reach(true), { grid: true }, ...reach(false)].flatMap((ps, tier) => (ps.grid ? MARK_GRID.map((at) => ({ at, gap: 0, leader: true, uncrossed: true, clear: true, tier })) : NUDGE.map((shift) => ({ ...ps, shift, tier }))));
       // (A mark with live readings (package F) keeps its side as its numbers and the vessels under it change: its side first, a little
       // farther out if need be, before it tries another.)
-      const side = lv && !dop.all && prevSol.get(it.key);
+      // (So does a treatment's step callout (pin): it names the vessel the step works on and stays on its side through the steps.)
+      const side = (lv || m.pin) && !dop.all && prevSol.get(it.key);
       // (Its pill also touches nothing drawn: 6 px clear of every vessel, a varix's strands and glow included, and 12 px inside the stage.)
       const tidy = lv && !dop.all ? [gap, gap + 14, gap + 30, gap + 50].map((g) => ({ gap: g, leader: true, clear: true, inView: true, pad: 6, edge: 12 })) : null;
       if (tidy) buildLines();

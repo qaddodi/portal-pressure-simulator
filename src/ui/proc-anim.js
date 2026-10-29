@@ -13,9 +13,10 @@ const nextFrame = frameFor('proc-anim');
 
 // Each step: [id, its word (the callout on the vessel it works on, and its button in the teaching card), the caption, the
 // button's short word (a narrow card), the shot it plays in, the vessel its callout names, the station names shown with it].
-// Shots: 'way', the whole route from where it enters, while the catheter travels; 'tip', the stretch it works on, close. A step
-// plays whole inside its shot with the camera still; a new shot glides in only between steps, and playProcedure waits for it to
-// land before anything moves (his ask, 29 Oct: the zoom jumped and the callouts moved; recs in review/procedure-animation-ideas).
+// Shots, both close enough to see the catheter and its balloon: 'way', on the tip from where it enters, the view following it
+// in (panning only, at one scale); 'tip', the stretch it works on, held still. A new shot glides in only between steps, and
+// playProcedure waits for it to land before anything moves (his asks, 29 Oct: the zoom jumped, the callouts moved, the catheter
+// could not be seen; recs in review/procedure-animation-ideas). The first step's callout comes once the catheter has arrived.
 // T: the sequence in ms from the start (apply: the model takes the change; back: the catheter starts out; end: it has gone).
 // stops: where each step ends; presented, one Next plays one step and holds at its stop.
 const OBLIT_T = { travel0: 300, travel1: 6500, inflate0: 7400, inflate1: 9000, fill0: 10200, fill1: 15200, apply: 15500, fillOut: 16500, deflate: 17700, back: 18900, end: 22000 };
@@ -28,7 +29,7 @@ export const PROCS = {
     T: { travel0: 300, travel1: 4000, needle0: 4900, needle1: 6700, wire1: 7600, inflate0: 8100, inflate1: 9300, deflate0: 9900, deflate1: 10700, apply: 10800, back: 11400, end: 14400 },
     stops: [4600, 7900, 9700, 14400],
     steps: [
-      ['enter', 'Catheter in', 'In through the right internal jugular vein, down the SVC and the IVC into the right hepatic vein.', 'In', 'way', 'RHV_IVC', ['SVC', 'IVCS']],
+      ['enter', 'Catheter in', 'In through the right internal jugular vein, down the SVC and the IVC into the right hepatic vein.', 'In', 'way', 'RHV_IVC', ['IVCS', 'RHV']],
       ['needle', 'Needle across', 'A needle crosses the liver from the hepatic vein into the right portal vein, and a wire follows it into the portal trunk.', 'Needle', 'tip', 'PVH_R', ['RHV']],
       ['dilate', 'Tract dilated', 'A balloon opens the tract through the liver to the width of the stent.', 'Balloon', 'tip', 'PVH_R', ['RHV']],
       ['done', 'Stent in', 'A covered stent holds the tract open: portal blood now reaches the hepatic vein without crossing the sinusoids.', 'Stent', 'tip', 'TIPS', ['RHV', 'RPV']],
@@ -41,7 +42,7 @@ export const PROCS = {
   brto: {
     name: 'BRTO', label: 'BRTO', T: OBLIT_T, stops: OBLIT_STOPS,
     steps: [
-      ['enter', 'Catheter in', 'Up from the right femoral vein, through the IVC and the left renal vein into the gastrorenal shunt.', 'In', 'way', 'LRV_IVC', ['IVCI']],
+      ['enter', 'Catheter in', 'Up from the right femoral vein, through the IVC and the left renal vein into the gastrorenal shunt.', 'In', 'way', 'C5', ['IVCI', 'LRV']],
       ['balloon', 'Balloon up', 'The balloon blocks the shunt near the renal vein, so nothing washes out into it.', 'Balloon', 'tip', 'C5', ['LRV']],
       ['fill', 'Sclerosant', 'Sclerosant fills the shunt back up to the fundal varices, and they clot.', 'Fill', 'tip', 'C5', ['LRV']],
       ['done', 'Shunt closed', 'The shunt and the varices are closed. Their blood stays in the portal system, so the portal pressure rises.', 'Closed', 'tip', 'C5', ['LRV']],
@@ -52,7 +53,7 @@ export const PROCS = {
   bato: {
     name: 'BATO', label: 'BATO', T: OBLIT_T, stops: OBLIT_STOPS,
     steps: [
-      ['enter', 'Catheter in', 'Through the liver into the right portal vein, then along the portal and splenic veins into the short gastric veins.', 'In', 'way', 'SV_CONF', ['RPV', 'CONF']],
+      ['enter', 'Catheter in', 'Through the liver into the right portal vein, then along the portal and splenic veins into the short gastric veins.', 'In', 'way', 'C2', ['CONF', 'SV']],
       ['balloon', 'Balloon up', 'The balloon blocks the feeding vein, so the inflow to the varices stops.', 'Balloon', 'tip', 'C2', ['SV']],
       ['fill', 'Sclerosant', 'Sclerosant fills the varices from the portal side, and they clot.', 'Fill', 'tip', 'C2', ['SV']],
       ['done', 'Varices closed', 'The varices and their gastrorenal shunt are closed. Their blood stays in the portal system, so the portal pressure rises.', 'Closed', 'tip', 'C2', ['SV']],
@@ -115,26 +116,26 @@ const BACK_SPEED = 1.6, AUTO_HOLD = 1600, LAND_MS = 160;
  * Plays a procedure on the figure, step by step. stepped: hold at each step's stop until next(), back() or to(k) (a
  * presentation: Next and Back); otherwise each step follows the last after a short hold (Tests). to: the stop to play to first.
  * apply() / unapply(): the model takes the change as the sequence passes T.apply, and gives it back when going back past it.
- * onStep(i): the step on show changed. onMark(mark, names): the step's callout (a treatment mark) and the station names it shows,
- * or (null) once it has gone. onFrame(frame, t): each frame. onEnd({ done, rewound }): it ended, played through or gone back to
+ * onStep(i): the step on show changed. onMark(mark, names): the step's callout (a treatment mark) and the station names it shows;
+ * false while it has none (the catheter on its way in); null once the procedure has gone. onFrame(frame, t): each frame. onEnd({ done, rewound }): it ended, played through or gone back to
  * before its start. Returns { next, back, to, stop({ home }), running, at, step }.
  */
 export function playProcedure(stage, kind, { stepped = false, to = 0, apply = null, unapply = null, onFrame = null, onStep = null, onMark = null, onEnd = null } = {}) {
   const P = PROCS[kind], T = P.T, n = P.stops.length;
   let at = stepped ? Math.max(0, Math.min(n - 1, to | 0)) : 0, goal = P.stops[at];
-  let t = 0, raf = 0, last = performance.now(), shot = '', landT = 0, holdT = 0, applied = false, stops = null, over = false, step = -2;
+  let t = 0, raf = 0, last = performance.now(), shot = '', landT = 0, holdT = 0, applied = false, stops = null, over = false, step = -2, shownMark = -3;
   function wake() { if (!over && !raf) { last = performance.now(); raf = nextFrame(tick); } }
   function tick() {
     raf = 0;
     const now = performance.now(), dt = Math.min(64, now - last); last = now;
     const f = procFrame(kind, t, stops);
-    if (f.step !== step && f.step >= 0) {
-      step = f.step;
-      onStep?.(step);
-      onMark?.(stepMark(kind, step), P.steps[step][6] || []);
-    }
+    if (f.step !== step && f.step >= 0) { step = f.step; onStep?.(step); }
+    // (The callout: none while the catheter travels in, a step's word on its vessel once it is there, held through the step.)
+    const mk = f.step < 0 ? -2 : f.step === 0 && t < T.travel1 ? -1 : f.step;
+    if (mk !== shownMark && mk > -2) { shownMark = mk; onMark?.(mk >= 0 ? stepMark(kind, mk) : false, P.steps[f.step][6] || []); }
+    // (The view follows the tip in on the first step, once its shot has landed.)
     stage.setCatheter({ route: kind, u: f.u, balloon: f.balloon, balloonSpan: P.balloonSpan, column: f.column, columnColor: 'var(--tr-scler)',
-      ring: null, clock: t, opacity: f.opacity, labels: [], keep: true });
+      ring: null, clock: t, opacity: f.opacity, labels: [], keep: true, follow: f.shot === 'way' && shot === 'way' && !stage.gliding?.() });
     stops ||= stage.cathStops?.() || null;
     // The step's shot, glided to once (a slide's own glide, arcing on a long move). Until it lands nothing moves: no step starts
     // with the camera on its way. (A switch from the circuit takes a moment: cathFocus says no until the route is drawn.)

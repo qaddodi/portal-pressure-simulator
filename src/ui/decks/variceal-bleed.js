@@ -69,7 +69,7 @@ export const BLEED = {
       ask: ['What bridges a bleed that banding cannot control?', 'A covered esophageal stent (preferred) or a balloon tube, as a bridge to a rescue TIPS.'],
     },
     {
-      id: 'tips', clock: { at: 24, label: 'TIPS by 72 h' }, params: { tips: { on: true } }, cam: 'liver', ripple: true, data: 'tiles',
+      id: 'tips', clock: { at: 24, label: 'TIPS by 72 h' }, params: { tips: { on: true } }, procedure: 'tips', cam: 'liver', ripple: true, data: 'tiles',
       tool: { kind: 'criteria', title: 'Who gets a pre-emptive TIPS', short: 'Who gets it', lead: 'Any one of these is enough.', rule: 'Baveno VIII 5.31',
         rows: [{ text: 'Child–Pugh C, **10 to 13** points', cut: 'C 10–13', note: 'C 10', met: true, lit: true },
           { text: 'Child–Pugh B, **>7**, with active bleeding at endoscopy', cut: 'B 8–9', note: 'not B' }, { text: 'HVPG **≥20 mmHg**, where measured', cut: '≥20 mmHg', note: 'not given' }],

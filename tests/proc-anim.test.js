@@ -189,7 +189,7 @@ test('presented, it holds at each step until Next, waits for each shot to land, 
     const P = PROCS.brto;
     assert.deepEqual(R.moves.map((m) => m.mode), ['way'], 'one shot for the way in');
     assert.equal(play.at, 0); assert.ok(R.idle(), 'held at the first stop with no frames running');
-    assert.deepEqual(steps, [0]); assert.deepEqual(marks, ['Catheter in']);
+    assert.deepEqual(steps, [0]); assert.deepEqual(marks, [false, 'Catheter in'], 'no callout while it travels in, then the step on its vessel');
     // (nothing moved while the first shot glided in)
     const during = R.cats.filter((c, i) => i < R.cats.length && c && c.u > 0).length;
     assert.ok(during > 0 && R.cats[0].u === 0 && R.cats[0].keep === true, 'the figure keeps its names');
@@ -227,4 +227,39 @@ test('in Tests it plays through by itself, every step in turn, and leaves the ch
       assert.ok(R.moves.every((m) => m.ms >= 1400), `${k}: every move glides as a slide's camera does`);
     }
   } finally { Object.assign(globalThis, { performance: saved.p, requestAnimationFrame: saved.r, cancelAnimationFrame: saved.c }); }
+});
+
+// His asks, 29 Oct (10:05 AM ET): "this should be guided ... i click next, and then the first step happens, catheter in ... and
+// then it steps through them one by one as i click next", and there was no catheter to see.
+test('presented, Next drives it: the first Next starts it, each Next plays a step, then the slide moves on; the steps are progress only', async () => {
+  const { readFileSync } = await import('node:fs');
+  const pz = readFileSync(new URL('../src/ui/presenter.js', import.meta.url), 'utf8');
+  const st = readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8');
+  const next = pz.match(/const next = \(\) => \{[\s\S]*?\n {2}\};/)[0];
+  assert.ok(next.indexOf('procNext()') > 0 && next.indexOf('procNext()') < next.indexOf('go(want + 1)'), 'a procedure step comes before the next slide');
+  assert.match(pz, /const prev = \(\) => \{ if \(procBack\(\)\) return;/);
+  const pn = pz.match(/const procNext = \(\) => \{[\s\S]*?\n {2}\};/)[0];
+  assert.match(pn, /if \(procRun\) return procRun\.next\(\);/);
+  assert.match(pn, /procDoneAt === want/, 'once played through, Next moves on');
+  assert.match(pn, /procPlay\(s, want, 0\);\n\s+return true;/, 'the first Next puts the catheter in');
+  const el = pz.match(/function procEl\([\s\S]*?\n {2}\}/)[0];
+  assert.doesNotMatch(el, /onclick|'button'/, 'the steps are not buttons');
+  assert.match(pz, /stopLapse\(\); procStop\(\); abSlow\(\); handOn = false; procDoneAt = -1;/, 'a new slide starts it afresh');
+  // A catheter you can see: half the narrowest vein, a dark rim, a balloon wall to wall, and a close shot that follows the tip.
+  assert.match(st, /cath\.rc = r\.parts \? procRc\(r, Rf\) :/);
+  assert.match(st, /return Math\.max\(m, 0\.5\) \* 0\.5;/);
+  assert.match(st, /if \(r\.parts\) shaftPart\(0, rc \* 1\.45, 0, \[0\.06, 0\.08, 0\.14\], 0\.9\);/);
+  assert.match(st, /r\.parts \? Math\.max\(rc \* 1\.35, Rb\) : rc \* 1\.35/);
+  assert.match(st, /const PROC_K_MAX = 5;/);
+  assert.match(st, /if \(r\.parts\) \{\n\s+const tq = cathAt\(r, Math\.max\(tipD, procIn\(r\)\)\)\.p/, 'the view follows the tip in');
+});
+
+test('a TIPS is placed step by step only where a slide teaches the placement; elsewhere it is simply there', () => {
+  const guided = new Set();
+  for (const d of DECKS) for (const s of d.slides) if (s.procedure === 'tips') guided.add(`${d.id}/${s.id}`);
+  assert.deepEqual([...guided].sort(), ['gastric-varices/tips', 'shunts/play', 'ten-years/tips', 'variceal-bleed/tips']);
+  for (const d of DECKS) {
+    assert.ok(d.slides.filter((s) => s.procedure === 'tips').length <= 1, `${d.id}: one guided TIPS at most`);
+    for (const s of d.slides) if (s.procedure) assert.ok(!s.lapse && !s.cath && !s.question, `${d.id}/${s.id}: no time-lapse, catheter or question with it`);
+  }
 });
