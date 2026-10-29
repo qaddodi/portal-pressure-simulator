@@ -11,7 +11,7 @@ import { store, updateParams, varicesPresent, varixGrowth, shownVel } from './st
 import { fibroReading } from './clock.js?v=5151312569';
 import { s, h, fmt, fmtFlow, fp, clamp, lerp, toast, systemEdge, bloodColors, restBox, translateRest, settledBox, putText, UPRIGHT_MQ } from './util.js?v=58b547f8d4';
 import { riseCentre } from './rise-path.js?v=c039cb7b49';
-import { lerpVT, camPath, blendPaths, viewsOverlap } from './cam-arc.js?v=5a7737ea51';
+import { lerpVT, camPath, blendPaths, viewsOverlap, driftEase } from './cam-arc.js?v=2e5111e648';
 import { sinceSource } from './since-ref.js?v=ef1a818c75';
 import { clipBox, mapBox } from './fit-box.js?v=d5d6d4c60f';
 import { runFlick, FLICK } from './flick.js?v=afbef74ff2';
@@ -1767,7 +1767,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     try { localStorage.setItem('pps.circuitRot', String(on)); } catch { /* storage unavailable */ }
     if (on === rotTarget) return;
     // Mid-glide (Fit, a zoom button), the turn starts from where the glide was going.
-    if (vtGliding) { cancelFrame(vtAnim); vtGliding = false; vt = { ...vtTarget }; applyVT(); CTM = null; }
+    if (vtGliding) { cancelFrame(vtAnim); driftEnd(); vtGliding = false; vt = { ...vtTarget }; applyVT(); CTM = null; }
     const whole = morphTarget !== 1 || vt.k <= 1.001 || sameView(vt, circWhole());
     rotHold = null;
     if (!whole) {
@@ -1777,7 +1777,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       rotHold = { w: clientToWorld(sx, sy), sx, sy, sc: CTM.sc };
     }
     rotTarget = on;
-    cancelFrame(vtAnim);
+    cancelFrame(vtAnim); driftEnd();
     if (whole) vt = morphTarget === 1 ? circWhole() : { k: 1, x: 0, y: 0 };
     if (morphTarget !== 1 || reduceMotion.matches) { rotU = on; setViewBox(easeInOut(morph)); if (rotHold) { holdView(rotHold); rotHold = null; } }
   }
@@ -2002,7 +2002,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         // Leaving from the sinusoid, its focus class (main.js) still hides the dock and bars until the store's other
         // listeners run: drop it first, or the fit is measured without them and lands too close, cutting off the ascites.
         if (!store.get().lobule) document.getElementById('app')?.classList.remove('sin-focus');
-        cancelFrame(vtAnim); vtGliding = false;
+        cancelFrame(vtAnim); driftEnd(); vtGliding = false;
         refreshCTM(); const zOld = Math.log(CTM.sc);
         const d = defaultVT(false); vt = { ...d }; homeAt = d; fitted = true; applyVT(); CTM = null; refreshCTM();
         // The plate stopped updating under the lobule, so it still holds the old zoom's culling and detail: bring it up to date for the fit now, not when the zoom lands.
@@ -2065,6 +2065,10 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // A presenter's camera move: the labels ease out as it starts, are not laid out while it runs, and ease
   // back in at their new places once it settles (they never slide across the figure).
   let camMove = false;
+  // A slow push (opt.drift: a time-lapse's lapse.cam) is not a move of that kind: the labels stay up and ride with the figure, each kept
+  // on its side as a hand's zoom keeps them (updateLabels), and are solved again for where it stopped once it lands, gliding there.
+  let drifting = false;
+  function driftEnd() { if (!drifting) return; drifting = false; labelSettleSoon(); }
   function camSettle() {
     if (!camMove) return;
     camMove = false; dpr.carry = false;
@@ -2085,12 +2089,16 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   function animateVT(to, ms = 700, opt = {}) {
     cancelFrame(vtAnim);
     const prev = arcRun; arcRun = null;
+    const drift = !!opt.drift && ms > 0 && !reduceMotion.matches;   // (reduced motion: a drift is the short plain glide)
+    if (drifting && !drift) driftEnd();
+    drifting = drift;
     vtTarget = to;
     const from = { ...vt };
     let t0 = performance.now();
     if (reduceMotion.matches) ms = Math.min(ms, 300);   // (reduced motion: a short glide, never a jump)
     // Lite mode: a jump, and a move that changes the view (not a small refit) fades the figure in at its new framing.
     if (ms <= 0) {
+      drifting = false;
       if (!sameView(from, to)) logMove({ t: t0, ms, restart: vtGliding, kind: 'glide', zoom: Math.abs(Math.log(to.k / from.k)), pan: Math.hypot(to.x - from.x, to.y - from.y) });
       vtGliding = false; vt = to; applyVT(); CTM = null; camSettle(); dprLet(); return;
     }
@@ -2108,16 +2116,16 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       const path = camPath(from, to, room.vb, room.wMax);
       if (path.arc) { ms = Math.round(ms * path.stretch); at = path.at; arcRun = { from, to, t0, ms, at }; }
     }
-    if (!sameView(from, to)) logMove({ t: t0, ms, restart: vtGliding, kind: 'glide', arc: !!arcRun, zoom: Math.abs(Math.log(to.k / from.k)), pan: Math.hypot(to.x - from.x, to.y - from.y) });
+    if (!sameView(from, to)) logMove({ t: t0, ms, restart: vtGliding, kind: drift ? 'drift' : 'glide', arc: !!arcRun, zoom: Math.abs(Math.log(to.k / from.k)), pan: Math.hypot(to.x - from.x, to.y - from.y) });
     const left = Math.max(0, t0 + ms - performance.now());
     vtGliding = true;
-    if (store.get().presenting && !sameView(from, to)) { camMove = true; dpr.carry = dpr.on && performance.now() < dpr.refitUntil; wrap.classList.add('cam-move'); setTimeout(() => { if (!vtGliding) camSettle(); }, left + 80); } else camSettle();
+    if (store.get().presenting && !drift && !sameView(from, to)) { camMove = true; dpr.carry = dpr.on && performance.now() < dpr.refitUntil; wrap.classList.add('cam-move'); setTimeout(() => { if (!vtGliding) camSettle(); }, left + 80); } else camSettle();
     dprLet();   // (a probe waiting for the slide's framing: a move hides it till it lands, a refit shows it now)
     const step = (now) => {
       // A newer glide (or a framing set outright) took over: this one stops. A glide started from inside this step's
       // frame (a refit a view change set off) left two running, and the older could land last, where nobody wanted it.
       if (vtTarget !== to) return;
-      const u = easeInOut(clamp((now - t0) / ms, 0, 1));
+      const u = (drift ? driftEase : easeInOut)(clamp((now - t0) / ms, 0, 1));
       vt = at(u);
       applyVT(); CTM = null;
       // With the catheter in, the vessels, the catheter and its labels follow the camera in this very frame (the labels and the
@@ -2126,7 +2134,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       if (sites.list) { refreshCTM(); sitesPaint(); }
       if (scan.on) scanPaint();
       dprobePaint();
-      if (u < 1) vtAnim = nextFrame(step); else { vtGliding = false; arcRun = null; camSettle(); }
+      if (u < 1) vtAnim = nextFrame(step); else { vtGliding = false; arcRun = null; camSettle(); if (drift) driftEnd(); }
     };
     vtAnim = nextFrame(step);
   }
@@ -2159,11 +2167,13 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const cx = VB_ANAT[0] + VB_ANAT[2] / 2 + ((f.l + f.r) / 2 - r.width / 2) / s0, cy = VB_ANAT[1] + VB_ANAT[3] / 2 + ((f.t + f.b) / 2 - r.height / 2) / s0;
     return { k, x: cx - k * ((x0 + x1) / 2), y: cy - k * ((y0 + y1) / 2) };
   }
-  function frameBox(box, ms = 1300, kMax = 4, clear = false) {
+  // (opt.drift: a slow push, see drifting.)
+  function frameBox(box, ms = 1300, kMax = 4, clear = false, opt = {}) {
     fitted = false;
     if (morphTarget !== 0) return;
     const to = boxVT(box, kMax, clear);
-    if (to && !sameView(to, vtGliding ? vtTarget : vt)) animateVT(to, ms, { arc: true });
+    if (!to || sameView(to, vtGliding ? vtTarget : vt)) return;
+    if (opt.drift) animateVT(to, ms, { drift: true }); else animateVT(to, ms, { arc: true });   // (a drift never arcs)
   }
   // Where the way out of the lobule lands when the next slide frames somewhere other than the fit: the rise itself
   // zooms straight to that framing, so there is no stop at the fit on the way. The box is asked for when the rise
@@ -2451,7 +2461,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       if (morphTarget === 0 && !userMoved && !store.get().presenting) {
         const d = defaultVT(false);
         if (figureShown) { homeAt = d; fitted = true; if (!sameView(d, vtGliding ? vtTarget : vt)) animateVT(d, 450); }
-        else { cancelFrame(vtAnim); vtGliding = false; vt = { ...d }; homeAt = d; vtTarget = { ...d }; fitted = true; applyVT(); CTM = null; }   // (three views, not one object: see zoomAt)
+        else { cancelFrame(vtAnim); driftEnd(); vtGliding = false; vt = { ...d }; homeAt = d; vtTarget = { ...d }; fitted = true; applyVT(); CTM = null; }   // (three views, not one object: see zoomAt)
       }
       showFigure();
     });
@@ -8254,6 +8264,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     clearTimeout(labelSettleT);
     labelSettleT = setTimeout(function settle() {
       if (gestureOn()) { labelSettleT = setTimeout(settle, 120); return; }
+      if (drifting) { labelSettleT = setTimeout(settle, 120); return; }   // (and a slow push lands first)
       labelSettleT = 0;
       if (reslotted) { reslotted = false; solvedFor = null; }   // (readings placed one by one mid-gesture: all solved together now)
       if (F && !camMove && !lz?.isOpen()) { labelKey = null; updateLabels(F); }
@@ -8320,9 +8331,12 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       // (A stent called out at its three points is solved again when the presenter's cards move (the monitor folded or opened): carried,
       // its callouts and the slide's mark would hide under a card or keep spots chosen for another view: Review 16 Oct.)
       const ins = dop.all ? [...['--pz-t', '--pz-l', '--pz-b', '--pz-r'].map((k) => Math.round(pzInset(k) / 8)), ...(blockerBoxes || []).flatMap((o) => [o.x0, o.y0, o.x1, o.y1].map((v) => Math.round(v / 8)))].join() : '';   // (and the cards' boxes, which can arrive a frame after the insets)
-      const dz = solvedFor ? Math.abs(Math.log(sc / solvedFor.sc)) : 0, hand = dz > SOLVE_ZOOM && gestureOn();
-      const solve = !solvedFor || solvedFor.sig !== sig || solvedFor.csig !== csig || solvedFor.ins !== ins || dz > (hand ? SOLVE_ZOOM_HAND : SOLVE_ZOOM) || Math.abs(th - solvedFor.th) > SOLVE_TURN;
+      // (A slow push (ride) carries them however far it zooms, while none comes onto another: a label changing sides mid-push would
+      // jump. They are solved again as it lands: driftEnd.)
+      const dz = solvedFor ? Math.abs(Math.log(sc / solvedFor.sc)) : 0, hand = dz > SOLVE_ZOOM && gestureOn(), ride = drifting && !hand;
+      const solve = !solvedFor || solvedFor.sig !== sig || solvedFor.csig !== csig || solvedFor.ins !== ins || (!ride && dz > (hand ? SOLVE_ZOOM_HAND : SOLVE_ZOOM)) || Math.abs(th - solvedFor.th) > SOLVE_TURN;
       carryClear = hand; carryReslot = gestureOn();
+      if (ride && dz > SOLVE_ZOOM) carryClear = true;   // (carried, but never onto each other)
       const solved = solve || layoutLabels(f, false) === false;
       carryReslot = false;
       if (solved) { carryClear = false; layoutLabels(f, true); solvedFor = { sig, sc, th, csig, ins }; }
@@ -10141,7 +10155,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const now = performance.now();
     if (wheelMute) { if (now - wheelAt < 250) { wheelAt = now; return; } wheelMute = false; }
     // The hand takes over from any camera glide (as a press does): the glide would overwrite each step of the scroll or pinch.
-    if (vtGliding) { cancelFrame(vtAnim); vtGliding = false; camSettle(); }
+    if (vtGliding) { cancelFrame(vtAnim); driftEnd(); vtGliding = false; camSettle(); }
     stopGlide(); userMoved = true; fitted = false;
     const dx = wheelPx(ev, ev.deltaX), dy = wheelPx(ev, ev.deltaY);
     if (ev.ctrlKey || ev.metaKey) { zoomAt(ev.clientX, ev.clientY, Math.exp(-clamp(dy, -50, 50) * 0.01), true); settleSoon(); return; }
@@ -10286,7 +10300,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     pointers.set(ev.pointerId, [ev.clientX, ev.clientY]);
     panFit = null;
     userMoved = true;
-    cancelFrame(vtAnim); vtGliding = false; stopGlide(); clearTimeout(settleT);
+    cancelFrame(vtAnim); driftEnd(); vtGliding = false; stopGlide(); clearTimeout(settleT);
     try { svg.setPointerCapture(ev.pointerId); } catch { /* pointer already gone */ }
     clearPress();
     if (pointers.size >= 2) {
@@ -10813,12 +10827,19 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     /** The camera is about to glide only to refit the figure to cards that changed (the same slide): a probe showing rides that glide out, never hides. */
     carryProbe() { dpr.refitUntil = performance.now() + 300; },
     fitSlow(ms = 1300) { if (lobuleOn) return; const to = defaultVT(morphTarget === 1); if (morphTarget !== 1) homeAt = to; fitted = true; if (!sameView(to, vtGliding ? vtTarget : vt)) animateVT(to, ms); },
+    /** The same fit as a slow push (a time-lapse's lapse.cam 'fit'): see drifting. */
+    fitDrift(ms) { if (lobuleOn) return; const to = defaultVT(morphTarget === 1); if (morphTarget !== 1) homeAt = to; fitted = true; if (!sameView(to, vtGliding ? vtTarget : vt)) animateVT(to, ms, { drift: true }); },
     /** The anatomy/circuit camera (where it is headed, if gliding), and a glide back to one saved earlier (the presenter puts the view back). */
     cameraState: () => ({ ...(vtGliding && vtTarget ? vtTarget : vt) }),
     /** The organs are drawn from the GPU copy again after a patient change (or never will be: no WebGL), so a camera move costs only the GPU's draw. */
     organsSettled: () => plateOn() || !glWanted(),
     /** The camera is still gliding (a slide's cards wait for it to land). */
     gliding: () => vtGliding,
+    /** A slow push is under way (frameBox or fitSlow with { drift: true }): the labels ride with it. */
+    drifting: () => drifting,
+    /** A slow push can run smoothly here: the organs are drawn live on the GPU while a time-lapse changes them (otherwise every frame of
+     *  a move over the live SVG drawing paints the organs again whole, as the catheter's route once did at about 1 fps). */
+    canDrift: () => liveOn(),
     setCamera(to, ms = 900) { if (lobuleOn || !to || sameView(to, vtGliding ? vtTarget : vt)) return; fitted = false; animateVT({ ...to }, ms); },
     cameraKey: () => `${vt.k.toFixed(3)}|${vt.x.toFixed(1)}|${vt.y.toFixed(1)}`,
     zoomLobule, zoomLiver, lobuleOpen: () => !!lz?.isOpen(), lobuleViewKey: () => lz?.viewKey(),

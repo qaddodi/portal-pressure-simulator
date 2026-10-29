@@ -31,7 +31,7 @@ test('hold: the presenter sets it out of sight and lets the answer slide ease it
   const p = src('presenter.js');
   assert.match(p, /function holdAnswer\(on, instant = false\)/);
   assert.match(p, /holdAnswer\(!s\.visual && \(!!s\.hold \|\| holdEase/);
-  assert.match(p, /paintOverlays\(s, to, st\);\n\s*if \(holdEase\) \{ holdEase = false; holdAnswer\(false\); \}/);
+  assert.match(p, /paintOverlays\(fv, to, st\);\n\s*if \(holdEase\) \{ holdEase = false; holdAnswer\(false\); \}/);
   assert.match(src('presenter-tools.js'), /holdAnswer\(on, instant = false\) \{ cur\?\.hold\?\.\(!!on, instant\); \}/);
   const prof = src('tool-profile.js');
   assert.match(prof, /new Set\(held \? \[\] : blocksOf\(goal, healthy\(\)\)\)/, 'held, the chart asks for no red blocks (they fade out as any block does)');

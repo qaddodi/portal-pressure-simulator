@@ -100,6 +100,6 @@ test('the presenter frames by name through camBox, and the older forms through t
   assert.match(body, /growBox\(r, unionBox\(\[stage\.focusBox\(n\), pts\]\.filter\(Boolean\)\), 30\)/, 'the names, as drawn now, with the stations where they stand');
   assert.match(body, /growBox\(r \|\| REGIONS\.route, f\)/, 'the slide\'s outlines and soft glows still grow it, as before, and a region the plate lacks is still the route');
   // Every place that frames a slide goes through camBox, so a camera by name works at the slide, in a flip of scales and on the rise out of the lobule.
-  assert.equal((pz.match(/camBox\(/g) || []).length, 4, 'the glide, the rise, the refit and the definition');
+  assert.equal((pz.match(/camBox\(/g) || []).length, 3, 'the one move to a framing (frameTo: the glide, the refit, a time-lapse\'s push), the rise and the definition');
   assert.doesNotMatch(pz, /Array\.isArray\(cam\) \? cam : REGIONS/, 'no second reading of a camera that skips the sums');
 });
