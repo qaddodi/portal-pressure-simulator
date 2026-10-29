@@ -1,7 +1,6 @@
 // Presenter talk: one patient over two years, from CSPH to the first ascites and back to recompensation once the
 // cause is removed (the slide fields are described at the top of decks.js).
 
-const OFF = { carvedilol: false };
 const BELLY = { kind: 'abdomen' };
 
 export const RECOMPENSATION = {

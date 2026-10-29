@@ -1,7 +1,5 @@
 // Presenter talk: the portal circulation (the slide fields are described at the top of decks.js).
 
-const mi = (x) => `<mi>${x}</mi>`, mo = (x) => `<mo>${x}</mo>`;
-
 export const CIRCULATION = {
   id: 'circulation', level: 'foundation', title: 'The portal circulation', minutes: 8,
   summary: 'The normal portal system, from the gut to the right atrium. Ends with the definition of portal hypertension.',

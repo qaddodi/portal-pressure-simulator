@@ -95,7 +95,7 @@
 // Every deck opens with an "Outline and objectives" slide built from its kicker groups and objectives
 // (withOverview below); a deck never writes that slide itself.
 
-import { CIRCULATION } from './decks/circulation.js?v=9ce2778867';
+import { CIRCULATION } from './decks/circulation.js?v=6f34425bc2';
 import { SITES } from './decks/sites.js?v=c45fb90281';
 import { HVPG } from './decks/hvpg.js?v=551309418f';
 import { ASCITES } from './decks/ascites.js?v=30d3e9d45e';
@@ -113,7 +113,7 @@ import { BLEED } from './decks/variceal-bleed.js?v=8589581b29';
 import { TWO_INFLOWS } from './decks/two-inflows.js?v=bac786bc6d';
 import { NCPH } from './decks/ncph.js?v=fba64b2bbf';
 import { OUTFLOW } from './decks/outflow.js?v=0392956963';
-import { RECOMPENSATION } from './decks/recompensation.js?v=2e51b90437';
+import { RECOMPENSATION } from './decks/recompensation.js?v=0c98a198a5';
 import { WHERE } from './decks/where.js?v=c28f096edc';
 import { PREGNANCY_DECK } from './decks/pregnancy.js?v=d79b566bbb';
 import { ENCEPHALOPATHY } from './decks/encephalopathy.js?v=7d08be79e0';
