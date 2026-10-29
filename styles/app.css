@@ -5427,7 +5427,7 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
    would lie behind the instrument card is cut away at its edge.) */
 .pz.pz-wide.pz-wide .pz-data.pz-sheet.pz-sheet > .pz-tiles { order: -1; max-height: none; overflow: visible; opacity: 1; margin-inline: calc(var(--pz-in)); margin-top: calc(16px - (1 - var(--pz-u)) * var(--pz-d, 0px)); margin-bottom: calc(20px - var(--pz-gap, 6px)); transition: opacity .26s var(--ease);
   translate: 0 calc((1 - var(--pz-u)) * (var(--pz-d, 0px) - 24px));
-  --pz-cut: calc(var(--pz-u) * var(--pz-d, 0px) - 26px + 24px * (1 - var(--pz-u)));
+  --pz-cut: calc(var(--pz-u) * var(--pz-d, 0px) - 26px + 24px * (1 - var(--pz-u)) - var(--pz-o, 0px));   /* (--pz-o: a later part's place under the first, so its cut is the first's, in its own coordinates, as on the phone) */
   clip-path: polygon(-60px -60px, calc(100% + 60px) -60px, calc(100% + 60px) var(--pz-cut), -60px var(--pz-cut)); }
 .pz.pz-wide.pz-wide .pz-data.pz-sheet.pz-sheet > .pz-tiles ~ .pz-tiles { margin-top: 0; }   /* (rides under the first: see the phone's) */
 .pz.pz-wide.pz-wide .pz-data.pz-sheet.pz-sheet.pz-sheet.pz-sliding > .pz-tiles { transition: none; }
