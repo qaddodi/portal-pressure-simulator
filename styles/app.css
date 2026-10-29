@@ -609,15 +609,10 @@ div.vital { cursor: default; }
 .circuit .node-dot.off { opacity: 0; pointer-events: none; }   /* (one class more than the line above: a station with no vessel drawn at it shows no dot in the circuit either, faded as the vessels are) */
 .band-ring { fill: none; stroke: var(--text); stroke-width: 2.4; }
 /* The tamponade balloons look like the HVPG wedge balloon (veins-gl.js mode 5): cream latex, clear in the middle, denser at the rim */
-.balloon-latex { fill: url(#latexX); stroke: var(--latex-edge); stroke-opacity: .8; stroke-width: .7; stroke-linejoin: round; }
-.balloon-latex.round { fill: url(#latexR); }
-.lx-in { stop-color: var(--latex); stop-opacity: .4; }
-.lx-rim { stop-color: var(--latex); stop-opacity: .72; }
-.lx-edge { stop-color: var(--latex-edge); stop-opacity: .85; }
-.balloon-hi { fill: url(#latexHi); }
-.lx-hi { stop-color: var(--white); stop-opacity: .9; }
-.lx-hi-mid { stop-color: var(--white); stop-opacity: .45; }
-.lx-hi-out { stop-color: var(--white); stop-opacity: 0; }
+.balloon-latex { fill: var(--latex); fill-opacity: .34; stroke: none; }
+.balloon-latex-rim { fill: var(--latex); fill-opacity: .2; fill-rule: evenodd; stroke: none; }
+.balloon-edge { fill: none; stroke: var(--latex-edge); stroke-opacity: .85; stroke-width: .7; stroke-linejoin: round; }
+.balloon-hi ellipse { fill: var(--white); fill-opacity: .28; }
 .balloon-shaft-rim { fill: none; stroke: var(--cath-shadow); stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
 .balloon-shaft { fill: none; stroke: var(--cath-body); stroke-width: 1.4; stroke-linecap: round; stroke-linejoin: round; }
 .balloon-marker { fill: var(--cath-tip); }

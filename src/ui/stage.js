@@ -497,9 +497,6 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     <radialGradient id="congest" cx=".42" cy=".42" r=".7"><stop offset=".35" class="cg-in"/><stop offset="1" class="cg-out"/></radialGradient>
     <linearGradient id="fluid" x1="0" y1="0" x2="0" y2="1"><stop offset="0" class="fl-top"/><stop offset="1" class="fl-bot"/></linearGradient>
     <radialGradient id="skin" cx=".5" cy=".5" r=".5"><stop offset="0" class="sk-in"/><stop offset=".8" class="sk-mid"/><stop offset="1" class="sk-out"/></radialGradient>
-    <linearGradient id="latexX" x1="0" y1="0" x2="1" y2="0"><stop offset="0" class="lx-edge"/><stop offset=".14" class="lx-rim"/><stop offset=".34" class="lx-in"/><stop offset=".66" class="lx-in"/><stop offset=".86" class="lx-rim"/><stop offset="1" class="lx-edge"/></linearGradient>
-    <radialGradient id="latexR" cx=".5" cy=".5" r=".5"><stop offset=".55" class="lx-in"/><stop offset=".86" class="lx-rim"/><stop offset="1" class="lx-edge"/></radialGradient>
-    <radialGradient id="latexHi" cx=".5" cy=".5" r=".5"><stop offset="0" class="lx-hi"/><stop offset=".45" class="lx-hi-mid"/><stop offset="1" class="lx-hi-out"/></radialGradient>
     <linearGradient id="metal" x1="0" y1="0" x2="1" y2="1"><stop offset="0" class="mt-a"/><stop offset=".5" class="mt-b"/><stop offset="1" class="mt-a"/></linearGradient>
     <linearGradient id="esoFadeG" gradientUnits="userSpaceOnUse" x1="0" y1="40" x2="0" y2="-40"><stop offset="0" stop-color="#fff"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient>
     <mask id="esoFade" maskUnits="userSpaceOnUse" x="0" y="-150" width="${VIEW.w}" height="${VIEW.h + 150}"><rect x="0" y="-150" width="${VIEW.w}" height="${VIEW.h + 150}" fill="url(#esoFadeG)"/></mask>
@@ -7539,9 +7536,16 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   function balloonDraw(anat) {
     ov.balloons.innerHTML = '';
     if (!anat) return;
-    // Drawn as the HVPG catheter's wedge balloon is (veins-gl.js mode 5): cream latex, clear in the middle and denser at the
-    // rim, a thin warm edge, and a soft round highlight up top; on the white shaft with its dark rim and two marker bands.
-    const hi = (cx, cy, rx, ry, k) => s('ellipse', { cx, cy, rx, ry, class: 'balloon-hi', opacity: Math.min(1, (k - 0.3) / 0.4).toFixed(3) });
+    // Drawn as the HVPG catheter's wedge balloon is (veins-gl.js mode 5): cream latex, clear in the middle and denser toward
+    // the rim, a thin warm edge, a soft round highlight up top; on the white shaft with its dark rim and two marker bands.
+    // Plain translucent fills stacked as rings (no SVG gradients: on the iPhone a gradient in the other SVG's defs left
+    // only the outline once the balloon was up), so the latex reads the same at every step of the inflation.
+    const RINGS = [[1, 'balloon-latex'], [0.86, 'balloon-latex-rim'], [0.7, 'balloon-latex-rim']];
+    const hi = (cx, cy, rx, ry, k) => {
+      const g = s('g', { class: 'balloon-hi', opacity: Math.min(1, (k - 0.3) / 0.4).toFixed(3) });
+      for (const f of [1, 0.66, 0.36]) g.append(s('ellipse', { cx, cy, rx: rx * f, ry: ry * f }));
+      return g;
+    };
     const e = bal.eso;
     if (e.adv > 0) {
       const k = balEase(e.k), sh = balloonShape(k, balEase(e.adv)), up = e.k > 0.01 || e.adv >= 1;
@@ -7549,14 +7553,21 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       ov.balloons.append(s('path', { d: shaft, class: 'balloon-shaft-rim' }), s('path', { d: shaft, class: 'balloon-shaft' }));
       if (up) {
         for (const y of sh.bands) { const q = esoAt(y); ov.balloons.append(s('rect', { x: q.c - BALLOON.shaftR - 0.3, y: y - 0.5, width: 2 * BALLOON.shaftR + 0.6, height: 1, rx: 0.3, class: 'balloon-marker' })); }
-        ov.balloons.append(s('path', { d: smoothPath(sh.outline, true), class: 'balloon-latex' }));
+        // The whole balloon, then two rims (the outline less a narrower copy of it), denser toward the edge.
+        const ring = (f) => sh.outline.map(([x, y]) => { const c = esoAt(y).c; return [c + (x - c) * f, y]; });
+        ov.balloons.append(s('path', { d: smoothPath(sh.outline, true), class: RINGS[0][1] }));
+        for (const [f, cls] of RINGS.slice(1)) ov.balloons.append(s('path', { d: smoothPath(sh.outline, true) + ' ' + smoothPath(ring(f), true), class: cls }));
+        ov.balloons.append(s('path', { d: smoothPath(sh.outline, true), class: 'balloon-edge' }));
         if (k > 0.3) { const y = BALLOON.top + 14, h = sh.half(y); ov.balloons.append(hi(esoAt(y).c - h * 0.22, y, h * 0.34, h * 0.5, k)); }
       }
     }
     const g = bal.gas;
     if (g.k > 0.01 || g.adv > 0) {
       const k = balEase(g.k), r = 4 + 20 * k, [cx, cy] = SITES.fundus;
-      ov.balloons.append(s('circle', { cx, cy, r, class: 'balloon-latex round' }));
+      const circ = (rr) => `M${(cx - rr).toFixed(2)} ${cy}a${rr.toFixed(2)} ${rr.toFixed(2)} 0 1 0 ${(2 * rr).toFixed(2)} 0a${rr.toFixed(2)} ${rr.toFixed(2)} 0 1 0 ${(-2 * rr).toFixed(2)} 0Z`;
+      ov.balloons.append(s('path', { d: circ(r), class: RINGS[0][1] }));
+      for (const [f, cls] of RINGS.slice(1)) ov.balloons.append(s('path', { d: circ(r) + ' ' + circ(r * f), class: cls }));
+      ov.balloons.append(s('path', { d: circ(r), class: 'balloon-edge' }));
       if (k > 0.3) ov.balloons.append(hi(cx - r * 0.28, cy - r * 0.5, r * 0.26, r * 0.16, k));
     }
   }
