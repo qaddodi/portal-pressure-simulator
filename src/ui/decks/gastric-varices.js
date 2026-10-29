@@ -80,8 +80,8 @@ export const GASTRIC = {
       // days, the fundal varix with the shunt open and with it closed, and the esophageal varix with it closed, against the HVPG. The ring is the
       // first slide's patient, shunt open; the other two rings read what closing the shunt would do at the same HVPG.)
       id: 'relation', preset: 'gastric-varix', cam: 'fundus', terms: ['gv'], mark: { edges: ['C5'], label: 'Gastrorenal shunt', kind: 'note' },
-      tool: { kind: 'curve', x: 'hvpg', param: 'cirrhosis', from: 0.5, to: 1, step: 0.0625, days: 120, lines: ['gv'], reading: 'Varix',
-        against: [{ label: 'Fundal, gastrorenal shunt closed', params: { occluded: { C5: true } }, own: 'Fundal, gastrorenal shunt open' }, { label: 'Esophageal, gastrorenal shunt closed', of: 'varix', params: { occluded: { C5: true } } }] },
+      tool: { kind: 'curve', x: 'hvpg', param: 'cirrhosis', from: 0.5, to: 1, step: 0.0625, days: 120, lines: ['gv'], reading: 'Varix', cuts: 'ticks',
+        against: [{ label: 'Fundal, shunt closed', params: { occluded: { C5: true } }, own: 'Fundal, shunt open' }, { label: 'Esophageal', of: 'varix', params: { occluded: { C5: true } } }] },
       kicker: 'Summary', site: 'sin', title: 'Closing the shunt moves the varices up to the esophagus',
       line: 'With the shunt open the fundal varix grows with the HVPG, here to {gv}. Closed, it stays small and the esophageal varix grows in its place.',
       notes: 'Each point is a patient with cirrhosis and a gastrorenal shunt, settled for 120 days, the varix diameters read against the HVPG. With the shunt open, the top line, part of the portal blood leaves through it and the fundal varix fills as the pressure rises. BRTO plugs the shunt: the fundal varix falls to about 2.4 mm at every HVPG, but the blood stays in the portal system and the esophageal varix grows with the pressure instead, from 2.0 to 8.5 mm in the model. The ring is the patient of the first slide, shunt open; the other two rings show what closing the shunt would do at the same HVPG. A surveillance endoscopy follows BRTO. (AASLD 2024: BRTO can bring more ascites and bleeding from esophageal varices; Baveno VIII 5.41.)',

@@ -144,7 +144,8 @@ test('a name too long for the row keeps its row of its own, centred, and the num
 });
 test('the panel\'s foot follows the name: 1.7 em under the axis on the row, 3.1 em with a row of its own, the steps\' key under it either way', () => {
   const curve = read('../src/ui/tool-curve.js');
-  assert.match(curve, /const foot = \(nameAt == null \? 3\.1 : 1\.7\) \* f, T = legH \+ 2 \* f, B = h - foot - 0\.2 \* f - stepH;/);
+  // (Over the plot: 2 em where the x cut-offs' names stand there, 1.4 em where none does, so a chart without them gives the room to the plot.)
+  assert.match(curve, /const foot = \(nameAt == null \? 3\.1 : 1\.7\) \* f, T = legH \+ \(xCutsOf\(t\)\.length \? 2 : 1\.4\) \* f, B = h - foot - 0\.2 \* f - stepH;/);
   assert.match(curve, /plotPanel\(sv, 0, G\.keyH \+ 0\.2 \* f, G\.w, B \+ G\.foot - \(G\.keyH \+ 0\.2 \* f\)\)/);
   assert.match(curve, /y: B \+ \(G\.nameAt == null \? 2\.6 : 1\.25\) \* f, 'text-anchor': 'middle' \}, xAxisName\(ax\)\)/, 'the name at the numbers\' baseline, or 2.6 em under the axis');
 });

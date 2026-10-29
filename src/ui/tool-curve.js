@@ -569,6 +569,7 @@ export function createCurve() {
   el.className = 'pz-curve';
   let t = null, ctx = null, ser = null, dots = [], parts = null, G = null, key = '', lastSz = '', raf = 0;
   let ring = null, goal = null;   // ({ x, ys } in shown units: where the rings are drawn, and where they glide to)
+  let altNow = false;   // (with against: the lines' key stands in, with rows of its own, because their names did not fit on the drawing)
 
   const size = () => {
     const w = el.clientWidth, z = w ? el.getBoundingClientRect().width / w : 1;
@@ -595,7 +596,7 @@ export function createCurve() {
     });
     return { items, rows: items.length ? row + 1 : 0 };
   }
-  function geo(w, h, f, steps = false) {
+  function geo(w, h, f, steps = false, alt = false) {
     const ls = drawnLines(t), ax = spellAxis(axisMeta(t)), ag = !!againstOf(t), xk = xKeyOf(t);
     const vals0 = ls.map((l, j) => [...(ser ? ser.ys[j] : [(ring || goal)?.ys[j]]), ...dots.map((d) => dotXY(d, j, ls)?.[1])].filter(Number.isFinite));
     // (With against all lines are one reading on one scale, named on the lines; the key is only the reading and its unit. With
@@ -610,19 +611,19 @@ export function createCurve() {
     // (A reading on x and two lines: the case's values stand in the key row, a value's room in each key.)
     const keyRead = false, kvW = 0;   // (no current-state readings in the key row: his 29 Oct, no more circles)
     const keys0 = keyLs.length < 2 || keyLs.reduce((a, l) => a + 22 + cw(l.name, f, 1) + 6 + cw(l.unit, f) + kvW, 0) + 2 * f <= w;
-    // (With against, the lines' key that stands in when their names don't fit on the drawing takes a row of its own when
-    // it would run into the reading's name and unit at the left.)
-    const altW = ag ? ls.reduce((a, l) => a + 22 + 1.05 * cw(l.name, f, 1), 0) + f * (ls.length - 1) : 0;
-    const altBelow = ag && cw(keyLs[0].name, f, 1) + 6 + cw(keyLs[0].unit, f) + altW + 2 * f > w;
-    // (Below, the names wrap onto as many right-aligned rows as the width asks, none run off the card's edge: altRows, each row's list of line numbers.)
+    // (With against the lines are named on the drawing and the key holds only the reading and its unit. When the names don't fit there,
+    // alt: a key of the lines stands in, taking a row of its own when it would run into the reading's name and unit at the left.)
+    const altW = ag && alt ? ls.reduce((a, l) => a + 22 + 1.05 * cw(l.name, f, 1), 0) + f * (ls.length - 1) : 0;
+    const altBelow = ag && alt && cw(keyLs[0].name, f, 1) + 6 + cw(keyLs[0].unit, f) + altW + 2 * f > w;
+    // (Below, the names wrap onto as many rows as the width asks, none run off the card's edge: altRows, each row's list of line numbers.)
     const altRows = [];
-    if (altBelow) { let used = 0; [...ls].reverse().forEach((l, i) => { const kw = 22 + 1.05 * cw(l.name, f, 1); if (!altRows.length || used + kw > w) { altRows.push([]); used = 0; } altRows.at(-1).push(i); used += kw + f; }); }
+    if (altBelow) { let used = 0; ls.forEach((l, j) => { const kw = 22 + 1.05 * cw(l.name, f, 1); if (!altRows.length || used + kw > w) { altRows.push([]); used = 0; } altRows.at(-1).push(j); used += kw + f; }); }
     // (No more numbers up the side than fit a line and a half of type apart.)
     const stepKey = steps ? stepKeyOf(w, f) : null, stepH = stepKey?.rows ? stepKey.rows * 1.5 * f + 0.3 * f : 0;
     const plotH = h - 3.3 * f - stepH - ((keys0 && !altBelow ? 1 : keys0 ? 1 + altRows.length : 2) * 1.5 * f + 2 * f), most = clamp(Math.floor(plotH / (1.6 * f)) + 1, 3, 7);
     // (cuts: 'ticks': the first line's cut-offs ask the scale to hold them, to stand as coloured numbers on the axis.)
     // (cutTicks: with a list of cut-offs, as 'ticks' does for the tile's own; and the numbers are the cut-offs themselves where no even scale holds them.)
-    const ticksOn = (t.cuts === 'ticks' || !!t.cutTicks) && !ag, sL = leftScale(ls[0].k, vals[0], most, ticksOn ? yCutsOf(t, ls[0].k).map((c) => c.v) : [], !!t.cutTicks), sR = ls[1] && !one ? rightScale(vals[1], sL.ticks.length) : null;
+    const ticksOn = t.cuts === 'ticks' || !!t.cutTicks, sL = leftScale(ls[0].k, vals[0], most, ticksOn ? yCutsOf(t, ls[0].k).map((c) => c.v) : [], !!t.cutTicks), sR = ls[1] && !one ? rightScale(vals[1], sL.ticks.length) : null;
     const tickCuts = ticksOn ? yCutsOf(t, ls[0].k).filter((c) => sL.ticks.some((v) => Math.abs(v - c.v) < 1e-6)) : [];
     const keys = keyLs.map((l) => ({ ...l, w: (l.bare ? 0 : 22) + cw(l.name, f, 1) + 6 + cw(l.unit, f) + kvW }));
     const oneRow = keys.length < 2 || keys[0].w + keys[1].w + 2 * f <= w, rowH = 1.5 * f, legH = (oneRow && !altBelow ? 1 : oneRow ? 1 + altRows.length : 2) * rowH;
@@ -632,8 +633,9 @@ export function createCurve() {
     const L = Math.ceil(tw(sL) + 14), R = Math.floor(w - (sR ? tw(sR) + 14 : 10));
     const { xt, nameAt } = xAxisRow(x0, x1, L, R, w, f, ax, most0);
     // (The panel's foot: 1.7 em under the axis when the x axis's name stands on the numbers' row, else 3.1 em with the name on a row of its own.)
-    const foot = (nameAt == null ? 3.1 : 1.7) * f, T = legH + 2 * f, B = h - foot - 0.2 * f - stepH;
-    return { w, h, f, ls, ag, one, ax, x0, x1, xt, nameAt, foot, sL, sR, tickCuts, keyRead, stepKey, keys, oneRow, altBelow, altRows, rowH, keyH: legH, L, R, T, B: Math.max(T + 3 * f, B) };
+    // (Over the plot, room for the x cut-offs' names, 2 em; a plot with none keeps only what its top number and a name beside a line's end need.)
+    const foot = (nameAt == null ? 3.1 : 1.7) * f, T = legH + (xCutsOf(t).length ? 2 : 1.4) * f, B = h - foot - 0.2 * f - stepH;
+    return { w, h, f, ls, ag, alt, one, ax, x0, x1, xt, nameAt, foot, sL, sR, tickCuts, keyRead, stepKey, keys, oneRow, altBelow, altRows, rowH, keyH: legH, L, R, T, B: Math.max(T + 3 * f, B) };
   }
   const X = (x) => G.L + (G.R - G.L) * (x - G.x0) / ((G.x1 - G.x0) || 1);
   const Yof = (sc) => (v) => G.B - (G.B - G.T) * clamp((v - sc.min) / ((sc.max - sc.min) || 1), 0, 1);
@@ -712,9 +714,11 @@ export function createCurve() {
     // for the lines' names on the drawing, a phone held sideways.)
     let alt = null;
     if (G.ag) {
-      const rev = [...ls].reverse(), at = rev.map(() => null);
-      (G.altBelow ? G.altRows : [rev.map((_, i) => i)]).forEach((row, r) => { let x = 0; row.forEach((i) => { x -= 22 + 1.05 * cw(rev[i].name, f, 1); at[i] = [x, r * G.rowH]; x -= f; }); });
-      const ks = rev.map((l, i) => sv('g', { transform: `translate(${at[i][0].toFixed(1)} ${at[i][1].toFixed(1)})` }, sv('line', { x1: 0, x2: 16, y1: 0, y2: 0, class: l.ref ? 'pcv-ref' : null, style: `stroke: var(${l.c})` }),
+      // (Beside the reading, run in from the card's right edge in the lines' order; below it, in rows from the left edge, the way the reading above stands.)
+      const kw = (l) => 22 + 1.05 * cw(l.name, f, 1), at = ls.map(() => null);
+      if (G.altBelow) G.altRows.forEach((row, r) => { let x = -G.w; row.forEach((j) => { at[j] = [x, r * G.rowH]; x += kw(ls[j]) + f; }); });
+      else { let x = 0; for (let j = ls.length - 1; j >= 0; j--) { x -= kw(ls[j]); at[j] = [x, 0]; x -= f; } }
+      const ks = ls.map((l, i) => sv('g', { transform: `translate(${at[i][0].toFixed(1)} ${at[i][1].toFixed(1)})` }, sv('line', { x1: 0, x2: 16, y1: 0, y2: 0, class: l.ref ? 'pcv-ref' : null, style: `stroke: var(${l.c})` }),
         sv('text', { x: 22, y: 0.36 * f, style: `fill: var(${l.c})` }, l.name)));
       alt = sv('g', { class: 'pft-key pcv-alt off', transform: `translate(${G.w} ${(G.altBelow ? G.rowH : 0) + 0.75 * f})` }, ks);
     }
@@ -782,7 +786,8 @@ export function createCurve() {
     // (Each value takes the first spot beside its ring that lands on nothing: the data lines, the cut-off lines, the x axis,
     // the dashed line through the rings, both rings and the other value; the side away from the nearer edge first.)
     const ob = parts.obstacles, dr = Math.max(3.5, 0.3 * f) + 2;
-    const boxes = [...cys.filter((y) => y != null).map((y) => [cx - rr, y - rr, cx + rr, y + rr]), ...(ok && !parts.xk ? [[cx - 1.5, G.T - 0.4 * f, cx + 1.5, G.B]] : []),
+    // (With a reading on x the case's mark is the short tick on the x axis: no word stands on it.)
+    const boxes = [...cys.filter((y) => y != null).map((y) => [cx - rr, y - rr, cx + rr, y + rr]), ...(ok ? [parts.xk ? [cx - 1.5, G.B - 0.8 * f, cx + 1.5, G.B] : [cx - 1.5, G.T - 0.4 * f, cx + 1.5, G.B]] : []),
       ...ob.dotPts.flatMap((d) => d.at.filter(Boolean).map(([x, y]) => [x - dr, y - dr, x + dr, y + dr]))];
     // (With against the upper ring's value is placed first, level with its ring or over it, and the lower one's under the
     // first value, so the two read in the same order as their rings.)
@@ -840,8 +845,8 @@ export function createCurve() {
       const ys = ser.ys[j], xs = lineX(j), tw = 1.12 * cw(p.l.name, f, true), cands = [];
       // (Over a rising line the words sit up and to the left of a point, under it down and to the right, where the line is
       // away from them; over a falling line the other way round.)
-      // (Every point of the line, nearest the middle first.)
-      const mid = 0.45 * (xs.length - 1), at = xs.map((_, i) => i).sort((a, b) => Math.abs(a - mid) - Math.abs(b - mid));
+      // (Every point of the line, from its right end back: a name stands at the end of its line when it can.)
+      const at = xs.map((_, i) => xs.length - 1 - i);
       for (const i of at) {
         const y = ys[i], x = X(xs[i]);
         if (!Number.isFinite(y)) continue;
@@ -865,6 +870,7 @@ export function createCurve() {
       const fits = !ser || (named.length > 0 && named.every(Boolean));
       parts.lines.forEach((p) => p.name?.classList.toggle('off', !ser || !fits));
       parts.alt.classList.toggle('off', fits);
+      parts.fits = fits;
     }
     // (The x cut-offs' names over the plot, on their line's top: centred, else to its right or left, clear of each other and of
     // the dashed line through the rings. Before the dots' names, which have sixteen ways round their dots to keep clear of one.)
@@ -931,18 +937,23 @@ export function createCurve() {
     const near = Math.abs((ring.x ?? 0) - (goal.x ?? 0)) < 1e-3 * Math.abs((G?.x1 ?? 1) - (G?.x0 ?? 0)) && ring.ys.every((y, j) => !Number.isFinite(y) || Math.abs(y - goal.ys[j]) < 0.005);
     if (near) ring = goal;
     paint(ring);
+    if (G?.ag && !altNow && parts?.fits === false) { altNow = true; redraw(false); return; }
     if (ring !== goal) raf = nextFrame(tick);
   }
   // A new chart (a new curve, or its points arriving) fades in over the old one.
   function redraw(fade) {
     if (!t) return;
     const [w, hh, f] = size(); lastSz = [w, hh, f].map(Math.round).join('x');
-    G = geo(w, hh, f);
+    G = geo(w, hh, f, false, altNow);
     const old = parts?.svg;
     parts = build();
     // (A crowd of names: numbers on the dots and a key under the chart, if the plot keeps its height; on a card too short for that the
     // names stay, and any with no clear spot is left out.)
-    if (needSteps()) { const g2 = geo(w, hh, f, true); if (g2.B - g2.T >= 5 * f) { G = g2; parts = build(); } }
+    if (needSteps()) { const g2 = geo(w, hh, f, true, altNow); if (g2.B - g2.T >= 5 * f) { G = g2; parts = build(); } }
+    // (The lines' names are placed on every paint: if one finds no clear spot on the drawing, the chart is drawn again with the lines' key
+    // above the plot and rows for it, the plot a little shorter.)
+    paint(ring || goal);
+    if (G.ag && !altNow && parts.fits === false) { altNow = true; G = geo(w, hh, f, !!G.stepKey, true); parts = build(); }
     if (fade && old) {
       parts.svg.classList.add('in'); el.append(parts.svg);
       nextFrame(() => nextFrame(() => parts?.svg.classList.remove('in')));
@@ -953,6 +964,7 @@ export function createCurve() {
   if (typeof ResizeObserver === 'function') new ResizeObserver(() => {
     if (!t || !parts || !el.isConnected) return;
     const sz = size().map(Math.round).join('x'); if (sz === lastSz) return;
+    altNow = false;
     redraw(false);
   }).observe(el);
 
@@ -986,7 +998,7 @@ export function createCurve() {
       const k2 = curveKey(tool, c);
       t = tool; ctx = c || null;
       if (k2 !== key) {
-        key = k2; ser = null; dots = []; ring = null; aimed = null;
+        key = k2; ser = null; dots = []; ring = null; aimed = null; altNow = false;
         goal = ringAt(t, ctx?.params, ctx?.fp);
         redraw(!!parts);
         if (ctx) fetchCurve(key, ctx);

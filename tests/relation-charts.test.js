@@ -133,10 +133,10 @@ test('the before-and-after and site planes sit just before their summaries, ever
 
 test('a second sweep may draw another reading (of): the fundal varix open, then closed, and the esophageal varix closed, on one scale', () => {
   const t = { x: 'hvpg', param: 'cirrhosis', from: 0.5, to: 0.6, step: 0.1, lines: ['gv'], reading: 'Varix',
-    against: [{ label: 'Fundal, gastrorenal shunt closed', params: { occluded: { C5: true } }, own: 'Fundal, gastrorenal shunt open' }, { label: 'Esophageal, gastrorenal shunt closed', of: 'varix', params: { occluded: { C5: true } } }] };
+    against: [{ label: 'Fundal, shunt closed', params: { occluded: { C5: true } }, own: 'Fundal, shunt open' }, { label: 'Esophageal', of: 'varix', params: { occluded: { C5: true } } }] };
   assert.deepEqual(againstsOf(t).map((a) => a.of), [null, 'varix']);
   assert.deepEqual(againstsOf({ ...t, against: [{ label: 'x', params: {}, of: 'nonsense' }] }).map((a) => a.of), [null], 'a reading the card does not know is ignored');
-  assert.deepEqual(drawnLines(t).map((l) => [l.k, l.name, l.c]), [['gv', 'Fundal, gastrorenal shunt open', '--tr-pv'], ['gv', 'Fundal, gastrorenal shunt closed', '--tr-hv'], ['varix', 'Esophageal, gastrorenal shunt closed', '--tr-cav']]);
+  assert.deepEqual(drawnLines(t).map((l) => [l.k, l.name, l.c]), [['gv', 'Fundal, shunt open', '--tr-pv'], ['gv', 'Fundal, shunt closed', '--tr-hv'], ['varix', 'Esophageal', '--tr-cav']]);
   assert.equal(readingName(t), 'Varix');
   assert.equal(readingName({ ...t, reading: undefined }), 'Gastric varix', 'without a reading of its own the key keeps the first reading\'s name');
   assert.equal(curveSteps(t).length, 6);
