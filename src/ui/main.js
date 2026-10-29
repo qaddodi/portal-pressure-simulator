@@ -1,17 +1,21 @@
 // Application bootstrap: wires the engine host to the four surfaces (figure + action card,
 // timeline, patient chart, instruments) and to Home, the command palette and the menus.
 
-import { startHost, host } from './host.js?v=5d29eb0f1b';
+import { startHost, host } from './host.js?v=164ee7d975';
 import { store, updateParams, replaceParams, bindParamSender, clearHistory, logAction, varicesPresent, hiddenNow } from './store.js?v=926dabfaef';
-import { createStage } from './stage.js?v=b2fd485cc9';
+<<<<<<< HEAD
+import { createStage } from './stage.js?v=402c1ae21e';
+=======
+import { createStage } from './stage.js?v=402c1ae21e';
+>>>>>>> 7821eb2 (Procedures: one TIPS caliber, BRTO/BATO balloon close-up, numbered callouts on the part they name and clear of vessels, inline step circles, guided slides open before the procedure, GV6 just plays BRTO; restamp)
 import { createCreditPlacer } from './credit.js?v=fa8c256d94';
 import { whenQuiet } from './quiet.js?v=82fc0f97e3';
 import { sinusoidSupported } from './gl-support.js?v=94ad2a7ff1';
 import { createInspector } from './inspector.js?v=bc8186fa9d';
-import { createDock, CUTOFFS, savedInstruments } from './dock.js?v=e4a14a1966';
-import { setHvpgStage } from './hvpg-proc.js?v=6831354271';
-import { createWhy } from './why.js?v=30e0aea01c';
-import { createTimeline, LAPSES } from './timeline.js?v=7caa424518';
+import { createDock, CUTOFFS, savedInstruments } from './dock.js?v=96741dae1f';
+import { setHvpgStage } from './hvpg-proc.js?v=c793a707c4';
+import { createWhy } from './why.js?v=aedf70dd8b';
+import { createTimeline, LAPSES } from './timeline.js?v=69945bdd61';
 import { createCompare } from './compare.js?v=3b2803586a';
 import { createCard } from './card.js?v=7ea6501f8c';
 import { createChart } from './chart.js?v=735034750e';
@@ -178,7 +182,7 @@ async function main() {
   dock = createDock({ strip: $('#strip'), head: $('#dockHead'), body: $('#dockBody'), onWhy: (m, el) => why.open(m, el), onAction: doAction, onProbe: probeTo, lazy: { doppler: dopplerL, fibroscan: fibroL }, onReveal: revealDock, onLobule: () => zoomLobule('R'),
     onOpen: () => openPanel('instruments'), onClose: () => setPanelTab('chart'), onLayout: () => syncDoppler(), isVisible: () => app.classList.contains('dock-open'),
     marks: () => timeline.entries(), onBeat: () => sendBeat() });
-  presenterL = lazy(() => import('./presenter.js?v=6cb79e9722'), ({ createPresenter }) => createPresenter({ openSettings, loadPreset, updateParams, host, stage, dock, action: doAction,
+  presenterL = lazy(() => import('./presenter.js?v=ae4a61ba97'), ({ createPresenter }) => createPresenter({ openSettings, loadPreset, updateParams, host, stage, dock, action: doAction,
     projectorOn: () => { if (!projector) toggleProjector(); }, projectorOff: () => { if (projector) toggleProjector(); },
     closeHome: () => mainMenu.close(), stashCards, rerenderHome: () => mainMenu.render() }));
   mainMenu = createMenu({

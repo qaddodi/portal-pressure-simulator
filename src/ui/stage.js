@@ -6957,11 +6957,15 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // (The render pass runs a lay out still waiting first, so the frame goes catheter, camera, readings, render.)
   function cathLabelsNow() { if (!cath.lblRaf) return; cancelFrame(cath.lblRaf); cath.lblRaf = 0; if (cath.st) cathLabels(); }
   let cathVer = 0;
-  // A treatment catheter's radius: half the narrowest lumen it passes, from where the route enters the figure to where the tip stops.
+  // A treatment catheter's radius: one caliber for all three, the TIPS one (his ask, 29 Oct: the BRTO catheter was hair thin), half
+  // the narrowest lumen on the TIPS way (the right hepatic vein, and the tract as wide as the stent), never wider than 0.85 of the
+  // narrowest lumen on this route, so it always fits inside its vessels.
   function procRc(r, Rf) {
     let m = Rf;
     for (let i = 0; i < r.pts.length; i++) if (r.cum[i] >= procIn(r) && r.cum[i] <= r.free) m = Math.min(m, r.rad[i]);
-    return Math.max(m, 0.5) * 0.5;
+    let t = E.PVH_R ? cathRadOf('PVH_R', 0.5) * 0.8 : m * 2;
+    if (E.RHV_IVC) for (let f = 0.2; f <= 1.001; f += 0.1) t = Math.min(t, cathRadOf('RHV_IVC', f));
+    return Math.max(0.5, Math.min(t * 0.5, m * 0.85));
   }
   // On the GPU (veins-gl.js): the still column, the shaft and its shadow, the marker band and rounded tip,
   // the balloon behind the tip and the reading ripples, as tubes and discs in world units.
@@ -7309,6 +7313,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // was, so the follow only pans (his pick, 26 Oct: zoom once, then pan; a zoom each frame redrew the whole vessel layer).
   const FOLLOW_ZOOM = 1.25;
   const PROC_K_MAX = 5;   // (a treatment's close-up: the catheter and its balloon must show; the old 7x work zoom is gone)
+  const PROC_K_TIP = 8;   // (BRTO and BATO's balloon close-up)
   // Where a treatment's route enters the plate (its lead-in from outside ends there): the view never follows the tip off the figure.
   const procIn = (r) => r.parts?.[1]?.d0 ?? r.start;
   function cathFocus(mode, ms = 700, { both = false, near = false, arc = false } = {}) {
@@ -7319,16 +7324,21 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const wr = wrap.getBoundingClientRect(), ins = safeInsets();
     const [fx0, fy0] = clientToVB(wr.left + ins.l, wr.top + ins.t), [fx1, fy1] = clientToVB(wr.left + ins.W - ins.r, wr.top + ins.H - ins.b);
     let cx, cy, k, cyScreen = (fy0 + fy1) / 2;
-    if ((mode === 'tip' || mode === 'way') && r.focus) {
+    if ((mode === 'tip' || mode === 'way' || mode === 'work') && r.focus) {
       // A treatment's two shots, at one scale, the stretch it works on (the hepatic vein, the tract and the portal vein; the renal
       // vein and the shunt; the splenic vein and the feeder) filling the space the cards leave, up to PROC_K_MAX: close enough to
       // see the catheter and its balloon (his ask, 29 Oct: zoomed too far out to follow it). 'tip' frames that stretch, held
       // still while the work's steps play; 'way' starts on the tip where it enters, and the view then follows the tip in
       // (cathFollow) at that scale, panning only, so it never zooms while the catheter moves.
-      const seg = cutLen(r.pts, r.cum, r.focus[0], r.focus[1]), pad = 24;
+      // BRTO and BATO frame their balloon steps closer (his ask, 29 Oct: "zoom into the balloon catheter tip"): 'tip', the tip and its
+      // balloon alone, up to PROC_K_TIP; 'work', the tip on to the route's end, the varices the sclerosant fills included.
+      const Rf = cathAt(r, r.free).r, close = r.kind !== 'tips' && mode === 'tip';
+      const [d0, d1] = close ? [Math.max(procIn(r), r.free - Rf * 14), Math.min(r.total, r.free + Rf * 4)]
+        : mode === 'work' && r.kind !== 'tips' ? [Math.max(procIn(r), r.free - Rf * 4), r.total] : r.focus;
+      const seg = cutLen(r.pts, r.cum, d0, d1), pad = close ? 10 : 24;
       const xs = seg.map((q) => q[0]), ys = seg.map((q) => q[1]), x0 = Math.min(...xs) - pad, x1 = Math.max(...xs) + pad, y0 = Math.min(...ys) - pad, y1 = Math.max(...ys) + pad;
       const fr = cathFree(wr, ins);
-      k = clamp(Math.min((fr.x1 - fr.x0) / (x1 - x0), (fr.y1 - fr.y0) / (y1 - y0)) * 0.72, 1, PROC_K_MAX);
+      k = clamp(Math.min((fr.x1 - fr.x0) / (x1 - x0), (fr.y1 - fr.y0) / (y1 - y0)) * 0.72, 1, close ? PROC_K_TIP : PROC_K_MAX);
       cath.followPx = fr.px;
       if (mode === 'way' && reduceMotion.matches) {
         // (Reduced motion: no following, so the way in is framed whole, still, as close as it fits.)
@@ -9261,9 +9271,10 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     // Focus callout
     const foc = st.focus;
     (foc ? foc.marks || [foc] : []).forEach((m, i) => {
-      if (!m.edges?.length || !E[m.edges[0]]?.vis || (i && !m.label)) return;
+      // (ghost: a procedure's step may name a vessel it has not opened yet, the tract before the stent; f: where along it.)
+      if (!m.edges?.length || !E[m.edges[0]] || !(E[m.edges[0]].vis || (m.ghost && geo[m.edges[0]]?.cur?.length)) || (i && !m.label)) return;
       // (A mark on one third of a stent points at that third.)
-      const segAt = m.seg && isStent(EDGES[EI[m.edges[0]]]) ? STENT_SITES[stentGate(m.seg, f.viewParams || st.params, m.edges[0])] : 0.5;
+      const segAt = m.f ?? (m.seg && isStent(EDGES[EI[m.edges[0]]]) ? STENT_SITES[stentGate(m.seg, f.viewParams || st.params, m.edges[0])] : 0.5);
       const [x, y] = pointAt(geo[m.edges[0]].cur, segAt);
       const [ax, ay] = worldToLocal(x, y);
       const key = i || m.kind ? `focus${i}${m.kind || ''}` : 'focus', cls = 'focus' + (m.kind ? ` k-${m.kind}` : '');
@@ -9288,8 +9299,10 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       // farther out if need be, before it tries another.)
       // (So does a treatment's step callout (pin): it names the vessel the step works on and stays on its side through the steps.)
       const side = (lv || m.pin) && !dop.all && prevSol.get(it.key);
-      // (Its pill also touches nothing drawn: 6 px clear of every vessel, a varix's strands and glow included, and 12 px inside the stage.)
-      const tidy = lv && !dop.all ? [gap, gap + 14, gap + 30, gap + 50].map((g) => ({ gap: g, leader: true, clear: true, inView: true, pad: 6, edge: 12 })) : null;
+      // (Its pill also touches nothing drawn: 6 px clear of every vessel, a varix's strands and glow included, and 12 px inside the stage.
+      // So does a step callout, on a short leader, farther out where the close-up's vessels are wide: his ask, 29 Oct, the
+      // "Sclerosant" pill covered the shunt.)
+      const tidy = (lv || m.pin) && !dop.all ? [gap, gap + 14, gap + 30, gap + 50, ...(m.pin ? [gap + 80, gap + 120] : [])].map((g) => ({ gap: g, leader: true, clear: true, inView: true, pad: 6, edge: 12 })) : null;
       if (tidy) buildLines();
       let marked = dop.all ? placeMulti(it, FAR_DIRS, passes) : (tidy && ((side && !side.drop && placeMulti(it, [side.dir], tidy)) || placeMulti(it, ['E', 'W', 'NE', 'SE', 'N', 'S', 'NW', 'SW'], tidy))) || (side && !side.drop && place(it, [side.dir], [gap, gap + 16, gap + 32], true)) || place(it, ['E', 'W', 'NE', 'SE', 'N', 'S'], gap, true);
       // (A mark that found no spot off the vessels, where the column's "60 %" blocks its way: the "60 %" tries its next spots off the

@@ -70,7 +70,7 @@ export const SHUNTS = {
     {
       id: 'play', lens: 'flow', cam: 'liver', labels: ['CONF'], procedure: 'tips', data: 'tiles', tiles: ['ppg', 'liver'], key: ['ppg'],
       kicker: 'The stent', site: 'sin', title: 'The catheter goes from the neck vein to the portal vein',
-      line: 'The catheter enters the right jugular vein and reaches the right hepatic vein. A needle crosses to the right portal vein, and a covered stent holds the tract. Press Play.',
+      line: 'The catheter enters the right jugular vein and reaches the right hepatic vein. A needle crosses to the right portal vein, and a covered stent holds the tract. Press Next.',
       notes: 'A TIPS is a tunnel inside the liver between a hepatic vein and a branch of the portal vein. The catheter reaches it from the jugular vein, so there is no incision in the belly. A covered stent keeps the tunnel open: Baveno VIII names polytetrafluoroethylene-covered stents. When the stent opens, the portal pressure falls at once. (Baveno VIII 5.31.)',
       ask: ['Which kind of stent does Baveno VIII name for a pre-emptive TIPS?', 'A polytetrafluoroethylene (PTFE) covered stent.'],
     },
