@@ -64,7 +64,7 @@ test('the presenter pushes while the days run, finishes with Next, and opens on 
   assert.match(play, /host\.send\(\{ type: 'lapse'[^\n]*\n\s*pushTo\(s, to, \(s\.lapse\.seconds \|\| 8\) \* 1000\)/, 'the push starts with the days, over their seconds');
   assert.match(play, /lapseOn = false; paintChrome\(\);\n\s*pushEnd\(s, to,/, 'and lands (measured afresh) as they end');
   assert.match(fn(PZ, 'function skipLapse('), /pushEnd\(slides\[want\], want, 600\)/, 'Next runs the push out with the days, in 600 ms');
-  assert.match(fn(PZ, 'async function transitionRun('), /const fv = figView\(s, lap\); fig = \{ i: to, s: fv \}; push = null;/, 'a slide opens on its end framing unless it plays');
+  assert.match(fn(PZ, 'async function transitionRun('), /const b0 = Math\.min\(beat, lastBeat\(to\)\), fv = figView\(beatView\(s, b0\), lap\); fig = \{ i: to, s: fv \}; push = null;/, 'a slide opens on its end framing unless it plays');
   assert.match(fn(PZ, 'function reframe('), /const s = figOf\(shown\.i\);/, 'a refit keeps the framing the figure shows');
   assert.match(fn(PZ, 'function fitAround('), /left > 0 \? \{ drift: true \} : \{\}/, 'a refit during the push keeps pushing, over the seconds left');
   const pt = fn(PZ, 'function pushTo(');
@@ -82,4 +82,38 @@ test('the stage\'s drift keeps the labels up and carried, and every cut ends it'
   assert.match(ST, /function driftEnd\(\) \{ if \(!drifting\) return; drifting = false; labelSettleSoon\(\); \}/);
   const cuts = ST.match(/cancelFrame\(vtAnim\);( driftEnd\(\);)?/g);
   assert.equal(cuts.filter((c) => !c.includes('driftEnd')).length, 1, 'every cut but animateVT\'s own (which sets it afresh) ends the drift');
+});
+
+test('Next goes through a slide\'s beats before the next slide, Back the other way; a slide opened any other way shows its last', () => {
+  const nx = fn(PZ, 'const next = () => {');
+  assert.ok(nx.indexOf('skipLapse()') < nx.indexOf('procNext()') && nx.indexOf('procNext()') < nx.indexOf('toBeat(beat + 1)') && nx.indexOf('toBeat(beat + 1)') < nx.indexOf('go(want + 1)'),
+    'a case card, a time-lapse, a procedure step, then a beat, then the next slide');
+  assert.match(nx, /\{ firstBeat = true; go\(want \+ 1\); firstBeat = false; \}/, 'stepping on opens the first beat');
+  assert.match(PZ, /const prev = \(\) => \{ if \(procBack\(\)\) return; if \(beat > 0\) toBeat\(beat - 1\); else if \(want > 0\) go\(want - 1\); \};/, 'Back: the beat before, then the slide before (its last beat)');
+  assert.match(fn(PZ, 'function go(i) {'), /beat = firstBeat \? 0 : lastBeat\(want\);/, 'a jump, Back, a reload or resume: the last beat');
+  const tb = fn(PZ, 'function toBeat(k) {');
+  assert.match(tb, /if \(zoomOn\(\)\) \{ ui\.zoom\.close\(\)\.then\(/, 'a zoomed card glides back first, as for a slide');
+  const run = fn(PZ, 'async function run() {');
+  assert.match(run, /shownBeat !== beat/); assert.match(run, /if \(landed\) await beatMove\(want, beat\); else await transition\(want\);/, 'one loop moves slides and beats, so a quick Next twice lands once');
+  assert.match(fn(PZ, 'async function transitionRun('), /shown = \{ i: to, gen: g \}; lastAt = to; shownBeat = b0;/);
+});
+
+test('a beat moves only the figure: call-outs out, the camera, call-outs in; the cards and the model stay', () => {
+  const bm = fn(PZ, 'async function beatMove(');
+  assert.match(bm, /beat !== k/, 'a newer beat or slide cuts it');
+  assert.match(bm, /if \(scalePick\) \{ scalePick = null;/, 'a flip of the scale ends at a beat');
+  assert.ok(bm.indexOf('figureHooks(\'clear\')') < bm.indexOf('await camera(cam, v, cut)') && bm.indexOf('await camera(cam, v, cut)') < bm.indexOf('paintOverlays(v, i,'), 'out, move, in');
+  assert.match(bm, /fig = \{ i, s: v \};/, 'a refit keeps the beat\'s framing');
+  for (const no of ['wordsIn(', 'cardsIn(', 'morphTo(', 'applyState(', 'keepFor(', 'dataTo(']) assert.ok(!bm.includes(no), `no ${no}`);
+  assert.match(PZ, /if \(shownBeat !== beat\) return; {3}\/\/ \(a beat still on its way\)/, 'no flip while a beat moves');
+  const chrome = fn(PZ, 'function paintChrome() {');
+  assert.match(chrome, /more = !skip && beat < lastBeat\(i\), last = i === n - 1 && !skip && !more;/, 'Next stays on for the last slide\'s beats');
+  assert.match(chrome, /`Next view, \$\{beat \+ 2\} of \$\{lastBeat\(i\) \+ 1\}`/);
+});
+
+test('Varices, Other collaterals: the paraumbilical vein, then the rectal varices, then both, each framed and called out on its own', () => {
+  const s = DECKS.find((d) => d.id === 'varices').slides.find((x) => x.id === 'umbilical');
+  assert.equal(beatCount(s), 3);
+  assert.deepEqual([0, 1, 2].map((b) => beatView(s, b).cam), ['wall', 'rectum', [380, 330, 1020, 960]], 'the last beat is the framing the slide had before');
+  assert.deepEqual(beatView(s, 2).labels, s.labels); assert.deepEqual(beatView(s, 2).terms, s.terms);
 });

@@ -25,11 +25,11 @@ import { isCamOn, unionBox, regionBox, growBox, camNames } from './cam-frame.js?
 import { NODE_POS } from './anatomy.js?v=48cc98d415';
 import { DISEASE_SRC, diseasePieces } from './diseases.js?v=fb8a5451c3';
 import { nb, listCase, plateletText } from './glue.js?v=5a0f63226b';
-import { DECKS, DECK_ALIAS, REGIONS, LEVELS, TOPICS, withOverview, siteTag, SITE_TAGS } from './decks.js?v=54ed054c36';
+import { DECKS, DECK_ALIAS, REGIONS, LEVELS, TOPICS, withOverview, siteTag, SITE_TAGS } from './decks.js?v=cfd3686a0a';
 import { fingerprintOf } from '../engine/fingerprint.js?v=ca81723393';
 import { createHvpgMonitor } from './hvpg-proc.js?v=7c7e6a39a8';
-import { createTools } from './presenter-tools.js?v=e44b425347';
-import { openHandout } from './handout.js?v=acc5c998c0';
+import { createTools } from './presenter-tools.js?v=e2a79aabbc';
+import { openHandout } from './handout.js?v=378d5e7a19';
 import { noteResume, resumeFor } from './resume.js?v=f086f80ee8';
 import { parseDeckSource, checkDeck } from './deck-source.js?v=8395c650cd';
 import { NO_ASC, TILE, cutText, tileOf, SCALE, bandsOf, rateOf, COLS, CUT, PRESS, fpv, dirAbs, dirRel, rateAbs, effOf, rateShown, tileShown, tipsGoal, liveSettled, shownSig } from './table-marks.js?v=8458ad3bf8';
@@ -37,16 +37,17 @@ import { frameFor, cancelFrame } from './frame.js?v=7254a8a850';
 import { createFigureKey } from './figure-key.js?v=b6817772fb';
 import { traceWhen } from './trace-labels.js?v=fc916a95c6';
 import { flowCss, heatCss, dropCss, gradientCss, oxygenCss } from './colormap.js?v=05a231b880';
-import { EXT, expandIds, stepExtra, markLabel, figureHooks, safe } from './slide-ext.js?v=fa851a9b6d';
+import { EXT, expandIds, stepExtra, markLabel, figureHooks, safe } from './slide-ext.js?v=c68990636a';
 import { clotWords } from './callout-math.js?v=a716cd33ea';
 import { citeText, focusOf, oneLadder } from './teach-extras.js?v=5f5248f5a7';
 import { createProfileTool, createProfileStrip, pillReadings, chartScale } from './tool-profile.js?v=989103eab0';
 import { causeFit } from './cause-fit.js?v=830a6835a5';
-import { anchorsOf, roomFor } from './cam-room.js?v=b2c2f52614';
+import { anchorsOf, roomFor } from './cam-room.js?v=298e3c2fd9';
+import { beatCount, beatView } from './slide-beats.js?v=2aded612c4';
 import { COMPACT, WIDE } from './card-type.js?v=5af5f22935';
 import { flowTimeHeight, trailKeys } from './flow-time.js?v=026ab2f37c';
 import { PROCS, procBlocked, procOffered, playProcedure } from './proc-anim.js?v=72cebaac1f';
-import { dataPlan, textPlan, keepData, keepText, cardSnap, cardChanged, cardBack } from './card-keep.js?v=4fc0919e34';
+import { dataPlan, textPlan, keepData, keepText, cardSnap, cardChanged, cardBack } from './card-keep.js?v=982397f8fb';
 import { createCardZoom, tapTracker } from './card-zoom.js?v=f589271cc7';
 import { tileKeys as cardKeys, toolOnly } from './card-tiles.js?v=884156ad01';
 const nextFrame = frameFor('presenter');
@@ -1663,10 +1664,16 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   }
 
   // ── Slides ──
+  // Camera beats (slide field beats, slide-beats.js): the slide's views of the figure, one per Next. beat: the one asked for on slide
+  // want; shownBeat: the one on screen once it has landed. A slide opens on its first going forward one at a time (opening: 0), and on
+  // its last any other way (Back from the next slide, a jump, a reload), so it stands with its whole point made.
+  let beat = 0, shownBeat = 0, firstBeat = false;
+  const lastBeat = (i) => beatCount(slides[i]) - 1;
   function go(i) {
     if (!deck || leaving) return;
     want = clamp(i, 0, slides.length - 1);
     noteResume(deck.id, want, slides.length);   // (the Present menu offers to resume here; the first or last slide forgets it)
+    beat = firstBeat ? 0 : lastBeat(want);
     paintChrome();
     // (A zoomed card glides back first: the slide is laid out, and its cards kept or changed, with the card where it rests.)
     if (zoomOn()) { ui.zoom.close().then(() => { paintZoom(); zoomMissed = false; if (deck && !busy) run(); }); return; }   // (the slide lays everything out afresh)
@@ -1676,20 +1683,30 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     if (caseLift) { caseLift(); return; }
     if (lapseOn && lapseLeft > 0 && shown?.i === want) skipLapse();
     else if (procNext()) return;   // (a procedure's next step: proc-anim.js)
-    else if (want < slides.length - 1) go(want + 1); else stop();
+    else if (beat < lastBeat(want)) toBeat(beat + 1);   // (the slide's next view of the figure)
+    else if (want < slides.length - 1) { firstBeat = true; go(want + 1); firstBeat = false; } else stop();
   };
-  const prev = () => { if (procBack()) return; if (want > 0) go(want - 1); };
+  const prev = () => { if (procBack()) return; if (beat > 0) toBeat(beat - 1); else if (want > 0) go(want - 1); };
+  // A beat asked for: the cards stay, the figure moves (beatMove, run). A zoomed card glides back first, as for a slide.
+  function toBeat(k) {
+    if (!deck || leaving) return;
+    beat = clamp(k, 0, lastBeat(want));
+    paintChrome();
+    if (zoomOn()) { ui.zoom.close().then(() => { paintZoom(); zoomMissed = false; if (deck && !busy) run(); }); return; }
+    if (!busy) run();
+  }
   async function run() {
     busy = true;
     try {
       // (A move that ends without landing and without being cut, for the same slide twice running, is not tried a third time: a
       // slide that could not land had the loop rebuild it without end, and the talk froze. Next or a jump tries it again.)
       let tries = 0, key = '';
-      while (deck && (!shown || shown.i !== want || shown.gen !== gen)) {
-        const k = `${want}|${gen}`;
+      while (deck && (!shown || shown.i !== want || shown.gen !== gen || shownBeat !== beat)) {
+        const landed = !!shown && shown.i === want && shown.gen === gen, k = `${want}|${gen}|${landed ? beat : ''}`;
         tries = k === key ? tries + 1 : 1; key = k;
+        if (tries > 2 && landed) { console.warn(`presenter: slide ${want + 1}, view ${beat + 1}, did not land`); break; }
         if (tries > 2) { console.warn(`presenter: slide ${want + 1} did not land`); break; }
-        await transition(want);
+        if (landed) await beatMove(want, beat); else await transition(want);
       }
     } finally { busy = false; }
   }
@@ -1746,7 +1763,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     // Coming back to it from a later slide shows its end at once: it plays only going forward.
     const back = to < lastAt, lap = !!s.lapse && to > 0 && !back, ct = !s.visual ? s.cath || null : null;
     // (What the figure shows: the slide, framed where its days end when they are not played: lapse.cam.)
-    const fv = figView(s, lap); fig = { i: to, s: fv }; push = null;
+    const b0 = Math.min(beat, lastBeat(to)), fv = figView(beatView(s, b0), lap); fig = { i: to, s: fv }; push = null;
     const cam = fv.visual ? fv.cam || null : fv.cam || 'fit';
     // Leaving the lobule: the organs' picture for the way out is begun at once, while the old words leave and the new ones come in,
     // so the rise does not wait for it (stage.js prepRise; it does nothing outside a landed lobule).
@@ -1905,7 +1922,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     lastCam = cam; framedSig = cardSig();
     await unhush(cut);
     if (cut()) return;
-    shown = { i: to, gen: g }; lastAt = to;
+    shown = { i: to, gen: g }; lastAt = to; shownBeat = b0;
     // A lobule slide whose next slide leaves the lobule: once it has settled, the organs' picture for the way out is made ahead,
     // unseen under the lobule, so Next goes straight out with no wait (see toAnatomy).
     { const nx = slides[to + 1], nCam = nx ? (nx.visual ? nx.cam || null : nx.cam || 'fit') : null;
@@ -3888,7 +3905,8 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   // turns it to the new scale once its present step ends; Next, Back or a jump cuts it.
   async function flipScale(k) {
     if (!deck || !ui || caseCard || !shown || shown.i !== want || shown.gen !== gen) return;
-    const i = shown.i, s = slides[i];
+    if (shownBeat !== beat) return;   // (a beat still on its way)
+    const i = shown.i, s = figOf(i);   // (the beat on screen: its scales, and its anatomy view to come back to)
     if (!scalesOf(s).includes(k)) return;
     scalePick = { i, scale: k }; paintScaleSel(k);
     if (flipping) return;
@@ -3920,6 +3938,35 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     if (cut()) return;
     paintOverlays(v, i, states[stateOf[i]] || null, false);
     await unhush(cut);
+  }
+  // One beat (slide-beats.js): as a flip does, the slide's call-outs leave (in the liver, all its labels first), the camera makes the
+  // beat's move and the beat calls out what it names. The words, the data card and the model stay as they are. A flip of the scale
+  // is a detour that ends here: the beat opens on the slide's own scale.
+  async function beatMove(i, k) {
+    const g = gen, s = slides[i], cut = () => !deck || want !== i || gen !== g || beat !== k || shown?.i !== i;
+    const v = beatView(s, k), cam = v.cam || 'fit';
+    if (scalePick) { scalePick = null; paintScaleSel(pickedScale(null, i, v)); }
+    if (flipping) { await until(() => !flipping, 9000); if (cut()) return; }
+    creditHolds++; clearTimeout(creditT); app.classList.add('pz-moving');
+    try {
+      if ((store.get().lobule || store.get().sinusoid) && !booting) hush();
+      markBase = null;
+      store.set({ focus: null, presentLabels: [], presentTerms: null, lobuleCallout: null }); stage.setSites(null); stage.setGlow(null); stage.pinOrgans(null);
+      figureHooks('clear');
+      if (hushed) { await wait(Math.max(0, HUSH_OUT - (performance.now() - hushAt))); await eased(['--lab-o'], 600); if (cut()) return; }
+      fig = { i, s: v };
+      stage.holdHome(true);
+      try { await camera(cam, v, cut); } finally { stage.holdHome(false); }
+      if (cut()) return;
+      lastCam = cam; framedSig = cardSig();
+      paintOverlays(v, i, states[stateOf[i]] || null);
+      await unhush(cut);
+      if (cut()) return;
+      shownBeat = k; paintChrome();
+    } finally {
+      creditHolds--; clearTimeout(creditT);
+      creditT = setTimeout(() => { if (!creditHolds) app.classList.remove('pz-moving'); }, 120);
+    }
   }
 
   // The words' last shown block keeps clear of a phone's pill: a line of words (or the station key) ends with a gap the pill's
@@ -4042,13 +4089,13 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     const n = slides.length, i = want;
     ui.prog.style.setProperty('--p', String((i + 1) / n));
     { const t = `Slide ${i + 1} of ${n}${slides[i]?.title ? `: ${slides[i].title}` : ''}`; if (ui.say.textContent !== t) ui.say.textContent = t; }
-    const ph = phone(), skip = lapseOn && lapseLeft > 0, last = i === n - 1 && !skip;
+    const ph = phone(), skip = lapseOn && lapseLeft > 0, more = !skip && beat < lastBeat(i), last = i === n - 1 && !skip && !more;
     // The count opens the slide list (G).
     // (A list still fading out after a pick counts as closed: the count must not stay grey, as if the list were open, on the slide picked.)
     const countLabel = `Slide ${i + 1} of ${n}: list the slides`, listOpen = String(!ui.jump.hidden && !ui.jump.classList.contains('pz-leave'));
     ui.bar.classList.toggle('phone', ph); ui.bar.classList.toggle('pzb-pill', !ph);
     ui.bar.dataset.kind = pillKind();
-    const nextLabel = skip ? 'Run the time-lapse to its end' : 'Next slide', nextTitle = skip ? 'Skip to the end of the time-lapse (→)' : 'Next (→)';
+    const nextLabel = skip ? 'Run the time-lapse to its end' : more ? `Next view, ${beat + 2} of ${lastBeat(i) + 1}` : 'Next slide', nextTitle = skip ? 'Skip to the end of the time-lapse (→)' : 'Next (→)';
     if (ph) ui.bar.classList.remove('idle');
     // The same pill from slide to slide is updated in place, its count crossfading to the new number; it was rebuilt on
     // every slide, its buttons popping out and back (MOTION_HEAT_REVIEW P16). A new layout builds it afresh.
@@ -4057,13 +4104,13 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       // (The pill's width is measured again once the new count is in: 9 to 10 widens it.)
       swapText(k.count, `${i + 1} / ${n}`, () => { if (ui?.bar._pill === k) placeBar(); });
       k.count.setAttribute('aria-label', countLabel); k.count.setAttribute('aria-expanded', listOpen);
-      if (k.prev) k.prev.disabled = i === 0;
+      if (k.prev) k.prev.disabled = i === 0 && beat === 0;
       if (k.next) { k.next.disabled = last; k.next.classList.toggle('skipping', skip); k.next.setAttribute('aria-label', nextLabel); k.next.title = nextTitle; }
       placeBar();
       return;
     }
     const countBtn = h('button', { class: 'pzb-n', 'aria-label': countLabel, title: 'Slide list (G)', 'aria-expanded': listOpen, onclick: () => toggleJump() }, `${i + 1} / ${n}`);
-    const prevBtn = () => h('button', { class: 'ib', 'aria-label': 'Previous slide', title: 'Previous (←)', disabled: i === 0, onclick: prev }, icon('chev-left'));
+    const prevBtn = () => h('button', { class: 'ib', 'aria-label': 'Previous slide', title: 'Previous (←)', disabled: i === 0 && beat === 0, onclick: prev }, icon('chev-left'));
     const nextBtn = () => h('button', { class: `ib pzb-next${skip ? ' skipping' : ''}`, 'aria-label': nextLabel, title: nextTitle, disabled: last, onclick: next }, icon('chev-right'));
     if (ph) {
       // A phone's pill: the count (it opens the slide list), settings, exit. Slides change by swiping. An upright tablet's

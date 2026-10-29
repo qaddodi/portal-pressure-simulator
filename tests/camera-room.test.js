@@ -14,6 +14,7 @@ import { slideTargets, camOn } from '../src/ui/presenter.js';
 import { isCamOn, regionBox, unionBox, growBox } from '../src/ui/cam-frame.js';
 import { ORGANS } from '../src/ui/anatomy.js';
 import { pathCmds, flattenCmds } from '../src/ui/shape-gl.js';
+import { beatCount, beatView } from '../src/ui/slide-beats.js';
 import { anchorsOf, missed, roomFor, vesselRun, middleOf, stationAnchor, ROOM, INSET } from '../src/ui/cam-room.js';
 
 const MAX_GROWTH = 1.75;   // (a frame may grow to this many times the region's width or height, no more)
@@ -38,14 +39,14 @@ function regionOf(cam) {
   return r || REGIONS.route;
 }
 
-// Every slide the camera frames by region: not a visual or a catheter slide (their own cameras), not the circuit, the whole figure or the lobule.
+// Every slide the camera frames by region, and each of its beats (slide-beats.js): not a visual or a catheter slide (their own cameras), not the circuit, the whole figure or the lobule.
 function framed() {
   const out = [];
-  for (const d of DECKS) d.slides.forEach((s, i) => {
+  for (const d of DECKS) d.slides.flatMap((s0) => Array.from({ length: beatCount(s0) }, (_, b) => [beatView(s0, b), b])).forEach(([s, b], i) => {
     const cam = s.cam || 'fit';
     if (s.visual || s.cath || (s.view && s.view !== 'anatomic') || cam === 'fit' || (typeof cam === 'string' && /^(lobule|sinusoid)/.test(cam))) return;
     const tg = slideTargets(s);
-    out.push({ name: `${d.id}/${s.id || i}`, cam, region: regionOf(cam), tg, anchors: anchorsOf(s, tg), focus: focusOf(tg) });
+    out.push({ name: `${d.id}/${s.id || i}${b ? ` beat ${b + 1}` : ''}`, cam, region: regionOf(cam), tg, anchors: anchorsOf(s, tg), focus: focusOf(tg) });
   });
   return out;
 }

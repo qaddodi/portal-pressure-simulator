@@ -47,7 +47,12 @@ export const VARICES = {
       ask: ['Two patients have 6 mm varices: one is Child–Pugh A without red signs, the other Child–Pugh C with red wale marks. Who is more likely to bleed, and why?', 'The Child–Pugh C patient: red wale marks show a thinner wall, and poor liver function goes with a higher pressure and worse clotting.'],
     },
     {
-      id: 'umbilical', preset: 'cirr-decomp', cam: [380, 330, 1020, 960], labels: ['LPV'], terms: ['lpv', 'pv'], marks: [{ edges: ['C3'], label: 'Paraumbilical vein', kind: 'note' }, { edges: ['C4'], label: 'Rectal varices', kind: 'note' }], tool: { kind: 'flows' }, data: 'tiles', tiles: ['liver'],
+      // (Three views, one per Next: the paraumbilical vein, then the rectal varices, then both routes together, which a jump or Back opens on.)
+      id: 'umbilical', preset: 'cirr-decomp', cam: 'wall', labels: ['LPV'], terms: ['lpv', 'pv'], marks: [{ edges: ['C3'], label: 'Paraumbilical vein', kind: 'note' }], tool: { kind: 'flows' }, data: 'tiles', tiles: ['liver'],
+      beats: [
+        { cam: 'rectum', labels: [], terms: [], marks: [{ edges: ['C4'], label: 'Rectal varices', kind: 'note' }] },
+        { cam: [380, 330, 1020, 960], labels: ['LPV'], terms: ['lpv', 'pv'], marks: [{ edges: ['C3'], label: 'Paraumbilical vein', kind: 'note' }, { edges: ['C4'], label: 'Rectal varices', kind: 'note' }] },
+      ],
       kicker: 'Other collaterals', site: 'sin', title: 'Other collaterals: the paraumbilical and rectal routes',
       line: 'The paraumbilical vein from the left portal vein and the rectal veins both carry portal blood past the liver to systemic veins.',
       notes: 'The paraumbilical veins run in the falciform ligament from the left portal vein to the abdominal wall. When they enlarge, dilated veins radiating from the umbilicus form a caput medusae, and a venous hum may be heard over them (Cruveilhier–Baumgarten). The flow runs away from the umbilicus, unlike the upward flow of IVC obstruction. The superior rectal vein drains to the portal system and the middle and inferior rectal veins to the systemic, so rectal varices form where they meet; hemorrhoids are vascular cushions and are no more common in portal hypertension. The retroperitoneal veins of Retzius and spontaneous splenorenal shunts carry portal blood to the IVC and the renal veins. These collaterals rarely bleed, but large ones divert portal blood, and the ammonia it carries from the gut, past the liver and raise the risk of encephalopathy.',

@@ -83,6 +83,8 @@ Full guide: section 14.
 
 - **Camera.** `cam: 'portal'` frames a named region such as `liver`, `spleen`, `varices`, `heart` or `gut` (the portal system with the whole small bowel). `cam: 'lobule:central'` dives into the liver lobule.
 - **Camera by name.** `cam: { on: ['PV_TRUNK', 'SV', 'spleen'] }` frames what the names point at (vessel ids, organs, term targets, station ids or `@sets`, the ones `glow` takes) with a little room round it, no closer than `kMax`. `cam: { on: ['@collaterals'], near: 'portal' }` starts from that region and grows it to take them in; `cam: ['portal', 'spleen']` is the union of two regions. Use it instead of a raw `[x0, y0, x1, y1]` box. Guide 5.1.
+- **Camera beats.** `beats: [{ cam: 'rectum', marks: [...] }, { cam: 'fit' }]`: up to two more views of the figure on the same slide, one per Next (figure fields only; the words and card stay). A jump or Back opens the last view, so make it the whole point. Guide 5.1.
+- **Push during a time-lapse.** `lapse: { seconds: 10, cam: 'varices' }`: the camera drifts there while the days run, labels riding along. Guide 4.
 - **Circuit view.** `view: 'circuit'` shows the electrical-circuit map instead of the body.
 - **Labels.** `labels: ['CONF', 'RHV', 'RA']` names those stations on the figure. Only the stations you list appear.
 - **Glow.** `glow: ['C3', 'spleen']` lights vessels or organs the words do not name. Add `glowSeq: 550` to light them one after another.

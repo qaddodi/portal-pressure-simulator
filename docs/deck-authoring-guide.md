@@ -161,6 +161,18 @@ cam: ['portal', 'spleen'],                               // the union of two reg
 
 **Room for what the slide points at.** The camera grows a slide's frame (a region, a list of regions, or the box a `cam: { on }` names fill) to hold the slide's outlined organs (5.9) and softly lit veins (5.5), and also to hold everything else the slide points at: a mark's ring (the middle of its first vessel; a `free` mark, any of its vessels), each station label (hung from the middle of the vessel it names, as the figure draws it), the vessels a term in the line or a `glow` entry lights (several vessels show when any one does), a Doppler probe's vessel and a `sites` reading, with a little room round the nearest one (`ROOM`, 28 units, in `src/ui/cam-room.js`). So `labels: ['IVCS']` on a `dips` slide brings the IVC into frame with no raw box, and the frame never cuts a ring or a label in half. The cost is that a close-up loosens to hold what it names; to keep it tight, drop the label or the term. `tests/camera-room.test.js` walks every deck, lists the slides a region leaves something out of (`ROOMED`, each with its reason) and fails when a slide would need its frame grown past 1.75 times (name a wider region then).
 
+**Camera beats (opt-in): `beats`.** A slide can show the figure two or three ways, one per Next, without a new slide: the cause, then where it leads. The slide's own fields are the first view; `beats` lists up to two more, each with only figure fields (`cam`, `zoom`, `kMax`, `clear`, `labels`, `terms`, `mark`, `marks`, `sites`, `glow`, `glowSeq`, `steps`, `spot`, `callout`). A field a beat leaves out keeps the view before it; `null` clears it (`mark: null`). The words, the data card and the model stay the same through the beats.
+
+```js
+cam: 'wall', marks: [{ edges: ['C3'], label: 'Paraumbilical vein', kind: 'note' }],        // view 1: the slide itself
+beats: [
+  { cam: 'rectum', labels: [], terms: [], marks: [{ edges: ['C4'], label: 'Rectal varices', kind: 'note' }] },   // view 2
+  { cam: [380, 330, 1020, 960], marks: [/* both */] },                                    // view 3: the whole point
+],
+```
+
+Next goes through the views before the next slide and Back goes the other way; the Next button says "Next view, 2 of 3". Stepping onto the slide with Next opens view 1; Back from the next slide, a jump, the slide list, a reload or Resume open the last view, so make the last one show the slide's whole point. Each view gets its own room for what it points at (a beat's labels, terms and marks grow its frame), so drop the call-outs a close-up cannot hold (`labels: [], terms: []`). Not on a slide with a time-lapse, a catheter, a procedure or a visual, nor in the circuit; every view stays on one side (all anatomy, or all lobule stations). A scale switch (`scales`) works on each view, and a beat ends a flip. Example: Varices, Other collaterals.
+
 **Inside the liver** (these dive in from the anatomy; the view returns to the body plate for the next normal `cam`):
 `'lobule'` (whole lobule) · `'lobule:fit'` · `'lobule:triad'` (portal tract) · `'lobule:sinusoid'` · `'lobule:central'` (central vein) · `'sinusoid'` (the sinusoid wall, cross-section). Some devices cannot draw `'sinusoid'` and fall back to the lobule.
 

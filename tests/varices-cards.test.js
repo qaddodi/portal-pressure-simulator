@@ -8,6 +8,7 @@ import { DECKS } from '../src/ui/decks.js';
 import { EXT } from '../src/ui/slide-ext.js';
 import { EDGES } from '../src/engine/topology.js';
 import { flowParts } from '../src/ui/tool-flows.js';
+import { beatView } from '../src/ui/slide-beats.js';
 import { deckStates } from './deck-states.js';
 
 const VARICES = DECKS.find((d) => d.id === 'varices');
@@ -42,7 +43,8 @@ test('Esophageal varices: the spotlight names the esophageal route, each vessel 
 
 test('Other collaterals: the bar shows the paraumbilical route, and the liver part is 100 less what is shunted', async () => {
   const s = slide('umbilical'), at = await states();
-  assert.deepEqual(s.marks.map((m) => m.edges[0]), ['C3', 'C4'], 'the paraumbilical and the rectal route are both marked');
+  // (Three views, one per Next: the paraumbilical route, the rectal, then both together, which a jump or Back opens on: beats.)
+  assert.deepEqual([0, 1, 2].map((b) => beatView(s, b).marks.map((m) => m.edges[0])), [['C3'], ['C4'], ['C3', 'C4']], 'the paraumbilical and the rectal route are both marked');
   assert.equal(VARICES.slides.find((x) => x.id === 'rectal'), undefined, 'the rectal slide is folded into this one');
   assert.equal(VARICES.slides.find((x) => x.id === 'fundal'), undefined, 'gastric varices have their own talk');
   assert.equal(s.tool.kind, 'flows');
