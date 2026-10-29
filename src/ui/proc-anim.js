@@ -46,8 +46,8 @@ export const PROCS = {
   brto: {
     name: 'BRTO', label: 'BRTO', T: OBLIT_T, stops: OBLIT_STOPS,
     steps: [
-      ['enter', 'Catheter in', 'Up from the right femoral vein, through the IVC and the left renal vein into the gastrorenal shunt.', 'In', 'way', 'C5', ['IVCI', 'LRV'], 0.7],
-      ['balloon', 'Balloon up', 'The balloon blocks the shunt near the renal vein, so nothing washes out into it.', 'Balloon', 'tip', 'C5', ['LRV'], 0.74],
+      ['enter', 'Catheter in', 'Up from the right femoral vein, through the IVC and the left renal vein into the gastrorenal shunt.', 'In', 'way', 'C5', ['IVCI', 'LRV'], 0.8],
+      ['balloon', 'Balloon up', 'The balloon blocks the shunt near the renal vein, so nothing washes out into it.', 'Balloon', 'tip', 'C5', ['LRV'], 0.84],
       ['fill', 'Sclerosant', 'Sclerosant fills the shunt back up to the fundal varices, and they clot.', 'Fill', 'work', 'C5', ['LRV'], 0.35],
       ['done', 'Shunt closed', 'The shunt and the varices are closed. Their blood stays in the portal system, so the portal pressure rises.', 'Closed', 'work', 'C5', ['LRV'], 0.5],
     ],

@@ -42,6 +42,7 @@ import { createLabelGL } from './label-gl.js?v=92dddad509';
 import { createGlassGL } from './glass-gl.js?v=bdfe978487';
 import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, ORIGIN_GREY } from './veins-gl.js?v=32120c90b3';
 import { varixBead, beadRadius } from './varix-bead.js?v=ac0e84fd89';
+import { GV_CHANNELS, gvSize, gvHold, gvWidthK, gvSpreadK, gvOpacity } from './gv-look.js?v=eba60363d7';
 import { advanceStream, createReversalHold, bleedShapes, stepBleedFade, fadeBleedShapes, chevFlowLevel, keyChevron, KEY_CHEV_LANES, originFractions, oxygenFor, ORIGIN_N, createBolus, DYE_BINS, KAPPA, STASIS_MIN_D, HIDDEN_SECONDS } from './blood.js?v=2667e8cf8d';
 import { retireRows } from './flow-rows.js?v=bea4089714';
 import { createJunctionWidths } from './junction-widths.js?v=c5726a67f9';
@@ -2371,7 +2372,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       // Strands fan out from the shared ends (or from where the trunk breaks up) and fold back
       // onto the lane in the circuit.
       if (x.strands) for (const sd of x.strands) {
-        let sp = sd.span ? braid(base, sd.off * (1 - t), 0, sd.span, sd.ph) : wiggle(braid(base, sd.off * (1 - t), u0), (0.8 * g.wig + 3) * (1 - t), sd.ph);
+        // (The fundal feeder's strands fan out as far as its varix is big: g.spr, eased, see gv-look.js.)
+        const fan = sd.off * (1 - t) * (g.spr ?? 1);
+        let sp = sd.span ? braid(base, fan, 0, sd.span, sd.ph) : wiggle(braid(base, fan, u0), (0.8 * g.wig + 3) * (1 - t), sd.ph);
         if (u0) sp = blendFrom(pts, sp, u0);
         sd.u0 = u0;
         const d = polyD(sp);
@@ -2500,6 +2503,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     prepIdle(run);
   }
   let catchUp = false, wAt = 0, widthEasing = false;
+  const gvHeld = {};   // the fundal varix's diameter held in steps (gv-look.js)
   // (What the last full update was drawn from, and whether a coil or an organ was still easing then: see stepWidths.)
   let widthF = null, widthVer = -1, widthCTM = null, coilEasing = false, organsEasing = false, storeVer = 0;
   // A presenter's slide change holds the fit still while it runs: the words leaving or arriving change the space the camera
@@ -2661,6 +2665,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     // Colored by oxygen: each vessel's saturation at its two ends (the sinusoids darken toward the central vein).
     const oxy = mode === 'oxygen' ? oxygenFor(EDGES, NODES, f).edge : null;
 
+    // The fundal varices' size now, held in steps (gv-look.js): their channels, strands and opacity are drawn as big as the varix is.
+    const gvS = gvSize(gvHold(gvHeld, f.metrics?.gastricVarix?.d));
     // collateral tortuosity
     const coiling = [];
     for (const x of EV) {
@@ -2670,6 +2676,11 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       const g = geo[x.e.id];
       if (g.wigT == null || Math.abs(w - g.wigT) > 0.6) g.wigT = w;
       if (g.wig !== g.wigT) { const d = g.wigT - g.wig; g.wig = Math.abs(d) < 0.03 ? g.wigT : g.wig + d * kW; coiling.push(x); if (g.wig !== g.wigT) widthEasing = coilEasing = true; }
+      // The fundal feeder's strands fan out less as its varix shrinks, eased the same way (a closed shunt keeps its full spread).
+      if (x.strands && GV_CHANNELS.has(x.e.id)) {
+        const sprT = isOccluded(p, x.e.id) ? 1 : gvSpreadK(gvS), spr = g.spr ?? 1;
+        if (spr !== sprT) { const d = sprT - spr; g.spr = Math.abs(d) < 0.005 ? sprT : spr + d * kW; if (!coiling.includes(x)) coiling.push(x); if (g.spr !== sprT) widthEasing = coilEasing = true; }
+      }
     }
     gpuProbe.time(null, 'update: geometry', () => updateGeometry(false, coiling));
 
@@ -2708,6 +2719,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       if (e.id === 'C8') w *= lerp(0.6, 1, t);
       // The spontaneous splenorenal shunt never reads fatter than the splenic vein it leaves.
       if (e.id === 'C6' && mode !== 'flow' && EI.V_SPL != null) w = Math.min(w, lerp(vesselPx(f.D[EI.V_SPL]), clamp(vesselPx(f.D[EI.V_SPL]) * 0.95, 6, 15) * circBoost, t));
+      // The fundal varices' channels are drawn as big as the varix is now, not as the weeks of remodeling left them (gv-look.js):
+      // in the anatomy only, as the bands' shrink above; the flow lens keeps its flow widths and a closed shunt its ghost.
+      if (GV_CHANNELS.has(e.id) && mode !== 'flow' && !isOccluded(p, e.id)) w *= lerp(gvWidthK(gvS), 1, t);
       // The caudate vein hypertrophies when it becomes the liver's outflow (Budd–Chiari).
       if (e.id === 'CAUD' && t < 1) { const ref = store.get().healthy?.Q?.[k]; if (ref) w *= 0.8 * clamp(Math.sqrt(Math.abs(f.Qf ? f.Qf[k] : f.Q[k]) / Math.abs(ref)), 1, 1.8); }
       // A vessel leaving keeps its width. While the views morph, the width follows the morph frame by frame.
@@ -2756,7 +2770,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         const openNow = collOpen(e.id, f);
         if (!openNow && wasDrawn && !x.g.classList.contains('coll-ghost') && !x.reveal && !quietFx()) startExit(x, f);
         cls(x, 'coll-ghost', !openNow && !x.reveal?.out);
-        x.opa = isOccluded(p, e.id) ? 0.45 : 0.3 + 0.7 * Math.min(1, Math.max(fr * 2.5, qa / 1.5));
+        x.opa = isOccluded(p, e.id) ? 0.45 : Math.min(0.3 + 0.7 * Math.min(1, Math.max(fr * 2.5, qa / 1.5)), GV_CHANNELS.has(e.id) ? gvOpacity(gvS) : 1);   // (the fundal varices' channels fade with their varix)
         setLevel(x, nearestLevel(x.opa));
       }
       x.rev = REVERSAL_WATCH.has(e.id) && reversedShown(e);
@@ -6821,7 +6835,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         B.vessel('TIPS', { rev: true, name: 'tract', r: cathRadOf('PVH_R', 0.5) * 0.8 });
         B.vessel('PVH_R', { rev: true }); B.vessel('PV_TRUNK', { rev: true, b: 0.6, name: 'trunk' });
       } },
-    brto: { ids: ['ILI_IVC', 'IVC_IS', 'LRV_IVC', 'C5'], start: 0.55, tip: ['shunt', 0.3], focus: ['lrv', 'shunt'],
+    // (BRTO's balloon sits near the renal end of the shunt, 0.2 of the way up it: at 0.3 the tip and balloon lay on the splenic vein,
+    // which crosses the shunt from 0.30 to 0.34, and the catheter drew over it. Now the tip stops about 36 px below it.)
+    brto: { ids: ['ILI_IVC', 'IVC_IS', 'LRV_IVC', 'C5'], start: 0.55, tip: ['shunt', 0.2], focus: ['lrv', 'shunt'],
       build(B) {
         const bot = geo.ILI_IVC.cur[0], lrv = geo.LRV_IVC.cur[geo.LRV_IVC.cur.length - 1];
         B.pts([[bot[0] + 4, bot[1] + 150], [bot[0] + 1, bot[1] + 60], bot], 'ILI_IVC', 0);
