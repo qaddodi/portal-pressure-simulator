@@ -548,7 +548,7 @@ showing those numbers, and plays the change once the card is lifted (the time-la
 numbers following. Jumped to, or gone back to, the slide shows as any other. Write one question under 100 characters, starting with a
 capital and ending in a question mark, with no number in it. At most one question card in any three slides, one per section and three per deck, never two in a
 row. The handout prints the question before the slide's words, with no answer line. Used on Circuit 6, The circulation in cirrhosis 8, Next bleed 4, Lowering portal pressure 4 and
-Variceal bleed 4 and 7 (the first four slides asked with Predict until 25 Oct; Predict is gone, its choices and its reveal with it). A built-in slide
+Variceal bleed 4 and 7, Two inflows 8 and Pre-hepatic 8 (the first four slides asked with Predict until 25 Oct; Predict is gone, its choices and its reveal with it). A built-in slide
 uses it only when `tests/deck-adopted.js` lists it.
 
 ```js

@@ -71,12 +71,12 @@ export const PREHEPATIC = {
       ask: ['Does a high INR protect a patient with cirrhosis from portal vein thrombosis?', 'No: the anticoagulant proteins fall too, so clotting is rebalanced.'],
     },
     {
-      id: 'gradients', tick: 'Partial clot', params: { thrombus: { PV_TRUNK: 0.6 } }, cam: 'route', labels: ['CONF', 'SIN_R', 'RHV', 'IVCS'], mark: { edges: ['PV_TRUNK'], clot: true }, tool: { kind: 'profile' }, key: ['hvpg', 'ppg'], delta: 'base',
+      id: 'gradients', question: 'Will a partial portal vein clot raise the HVPG, the PPG or both?', tick: 'Partial clot', params: { thrombus: { PV_TRUNK: 0.6 } }, cam: 'route', labels: ['CONF', 'SIN_R', 'RHV', 'IVCS'], mark: { edges: ['PV_TRUNK'], clot: true }, tool: { kind: 'profile' }, key: ['hvpg', 'ppg'], delta: 'base',
       eq: [mi('PPG') + mo('=') + sub(mi('P'), 'portal vein') + mo('−') + sub(mi('P'), 'IVC')],
       kicker: 'Clot in cirrhosis', site: 'pre', title: 'HVPG stays flat while PPG rises',
       line: 'A partial clot fills over half of the portal vein, and the wedge reads the sinusoids beyond it, so the HVPG stays near {hvpg} while the PPG rises to {ppg}.',
       notes: 'On ultrasound the clot is echogenic material in the vein, with color flow around it and a faster jet through the narrowing; an occlusive clot shows no flow at all. Contrast CT or MR comes next: first to rule out tumor thrombus from a liver cancer, which enhances in the arterial phase and expands the vein, then to show how far it extends into the splenic and superior mesenteric veins, which guides treatment. In cirrhosis the HVPG measures the sinusoidal part of the resistance. A clot adds a second site of resistance before the liver, which only a direct portal pressure shows, so the HVPG underestimates the portal pressure and a TIPS gradient is taken from the portal vein itself. Colored by pressure drop, a second large drop would appear at the clot. The varices enlarge as the pressure behind the clot rises.',
-      ask: ['A patient with cirrhosis develops a partial portal vein clot. Will the HVPG show it?', 'No: the clot is before the sinusoids. The PPG, from a direct portal reading, shows it.'],
+      ask: ['A patient with cirrhosis has a partial portal vein clot and an HVPG that has not changed. Does that rule the clot out?', 'No: the clot is before the sinusoids, so the HVPG cannot show it. The PPG, from a direct portal reading, does.'],
     },
     {
       id: 'carv', tick: 'Carvedilol', params: { drugs: { carvedilol: true } }, ripple: true, cam: 'portal', terms: ['pv'], data: 'tiles', tiles: ['pv', 'hr'], key: ['pv'], delta: true,
