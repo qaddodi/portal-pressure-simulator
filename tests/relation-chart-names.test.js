@@ -30,7 +30,7 @@ globalThis.addEventListener = () => {};
 globalThis.requestAnimationFrame = (cb) => setTimeout(() => cb(performance.now()), 0);
 globalThis.cancelAnimationFrame = (id) => clearTimeout(id);
 
-const { createCurve, curveSteps, patientOf, segHits, drawnLines } = await import('../src/ui/tool-curve.js');
+const { createCurve, curveSteps, patientOf, segHits, drawnLines, stylesOf } = await import('../src/ui/tool-curve.js');
 const { createCore } = await import('../src/worker-core.js');
 const { DECKS } = await import('../src/ui/decks.js');
 const { deckStates, changes } = await import('./deck-states.js');
@@ -92,25 +92,32 @@ const boxOf = (t, f) => { const w = [...t.txt].length * f * 0.55, x0 = t.anchor 
 const hit = (a, b) => a[0] < b[2] && b[0] < a[2] && a[1] < b[3] && b[1] < a[3];
 const pathPts = (d) => { const nums = [...d.matchAll(/-?\d+(?:\.\d+)?/g)].map((m) => +m[0]); const out = []; for (let i = 0; i + 1 < nums.length; i += 2) out.push([nums[i], nums[i + 1]]); return out; };
 
-const NAMES = ['Fundal, shunt open', 'Fundal, shunt closed', 'Esophageal'];
+// (His 29 Oct follow-up, "shunt open? what shunt dude?" and "too many words": colour names the varix, fundal pink and esophageal green, the dashes
+// the gastrorenal shunt (GRS) closed, and the key row says so once: "GRS open", "GRS closed".)
+const NAMES = ['Fundal', 'Fundal', 'Esophageal'];
 // A small phone held sideways, phone, big phone, iPad, Mac, big Mac (width × height px, type size).
 const ROOMY = [[352, 195, 13.8], [330, 178, 12], [440, 250, 14], [480, 270, 14], [700, 330, 15]];
 
-test('the three lines are named in a few words: the fundal varix with the shunt open and closed, and the esophageal varix', () => {
-  const { s } = slideOf('gastric-varices');
-  assert.deepEqual(drawnLines(s.tool).map((l) => l.name), NAMES);
-  assert.ok(NAMES.every((n) => n.split(' ').length <= 3), 'three words at the most');
+test('the three lines are named in one word each: colour says which varix, dashes say the GRS is closed', () => {
+  const { s } = slideOf('gastric-varices'), ls = drawnLines(s.tool);
+  assert.deepEqual(ls.map((l) => l.name), NAMES);
+  assert.deepEqual(ls.map((l) => !!l.dash), [false, true, true], 'solid with the GRS open, dashed with it closed');
+  assert.equal(ls[0].c, ls[1].c, 'both fundal lines in one colour');
+  assert.notEqual(ls[2].c, ls[0].c, 'the esophageal line in its own');
+  assert.deepEqual(stylesOf(s.tool), ['GRS open', 'GRS closed']);
 });
 
 test('Gastric varices, Varix by HVPG: each name stands on the drawing beside its own line, and no key of the lines stands over the plot', async () => {
   for (const [W, H, f] of ROOMY) {
     const r = await draw('gastric-varices', W, H, f), say = (c) => r.texts.filter((t) => c.test(t.cls)).map((t) => t.txt);
     assert.deepEqual(say(/pcv-name/), NAMES, `${W} × ${H}: the names on the lines`);
+    assert.deepEqual(say(/pcv-sty/), ['GRS open', 'GRS closed'], `${W} × ${H}: the key row names the solid and the dashed lines`);
     assert.equal(r.alt.hidden, true, `${W} × ${H}: the key of the lines is not shown`);
     assert.equal(r.texts.filter((t) => /^Varix\b/.test(t.txt)).map((t) => t.txt.trim()).join(), 'Varix mm', `${W} × ${H}: the key row is only the reading and its unit`);
     // (Pink, over the green, then blue: the names stand in the same order as their lines, top to bottom, and the first two at the right of the chart.)
-    const y = (n) => r.texts.find((t) => t.txt === n).y;
-    assert.ok(y(NAMES[0]) < y(NAMES[2]) && y(NAMES[2]) < y(NAMES[1]), `${W} × ${H}: pink over green over blue`);
+    const [yOpen, yClosed, yEso] = r.texts.filter((t) => /pcv-name/.test(t.cls)).map((t) => t.y);
+    assert.ok(yOpen < yEso && yEso < yClosed, `${W} × ${H}: solid pink over dashed green over dashed pink`);
+    assert.equal(r.paths.filter((p) => /pcv-dash/.test(p.cls)).length, 2, `${W} × ${H}: two dashed lines`);
   }
 });
 
@@ -146,11 +153,16 @@ test('a card too small for the names keeps a key of the lines instead, in rows f
   const r = await draw('gastric-varices', 315, 150, 12);
   assert.equal(r.alt.hidden, false, 'the key shows');
   assert.deepEqual(r.texts.filter((t) => /pcv-name/.test(t.cls)), [], 'and no name over the lines');
-  const keys = NAMES.map((n) => r.texts.find((t) => t.txt === n));
-  assert.ok(keys.every(Boolean), 'every line named in it');
+  const keys = r.texts.filter((t) => t.cls === '' && NAMES.includes(t.txt));
+  assert.deepEqual(keys.map((k) => k.txt), NAMES, 'every line named in it');
+  const sty = r.texts.filter((t) => /pcv-sty/.test(t.cls));
+  assert.deepEqual(sty.map((t) => t.txt), ['GRS open', 'GRS closed'], 'the solid and dashed lines still named');
+  for (const a of [...keys, ...sty]) for (const b of [...keys, ...sty]) if (a !== b) assert.ok(!hit(boxOf(a, 12), boxOf(b, 12)), `"${a.txt}" clear of "${b.txt}"`);
   assert.ok(keys[0].y <= keys[1].y && keys[1].y <= keys[2].y, 'top to bottom in the lines\' order');
-  assert.equal(new Set(keys.map((k) => k.x)).size <= 2, true, 'each row starts at the same left edge (the swatch column), not ragged');
-  for (const k of keys) assert.ok(boxOf(k, 12)[2] <= 315, `${k.txt} stays on the card`);
+  const rows = [...new Set(keys.map((k) => k.y))].map((y) => keys.filter((k) => k.y === y));
+  assert.equal(new Set(rows.map((row) => row[0].x)).size, 1, 'each row starts at the same left edge (the swatch column), not ragged');
+  for (const row of rows) assert.ok(row.every((k, j) => !j || k.x > row[j - 1].x), 'left to right in a row');
+  for (const k of [...keys, ...sty]) assert.ok(boxOf(k, 12)[2] <= 315 && boxOf(k, 12)[0] >= 0, `${k.txt} stays on the card`);
 });
 
 test('the other charts that name their lines keep their names too: on the lines where they fit, the key above only where they do not', async () => {

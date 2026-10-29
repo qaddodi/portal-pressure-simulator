@@ -6527,6 +6527,8 @@ html.thumb-ui .menu.from-dock { clip-path: inset(-64px -64px calc(var(--sink, 0p
 /* (Relation charts: the "no change" diagonal, other patients as small points (a walk joins a patient's visits), and a guideline
    zone as a soft band under a dashed edge, in the ok colour. Plain marks in the chart's own colours, nothing new.) */
 .pz-curve .pcv-ref { stroke-width: 1.5; stroke-dasharray: 3 4; }
+.pz-curve .pcv-dash { stroke-dasharray: 5 7; }   /* (a sweep after a change, against's dash: true; round caps lengthen each dash by the stroke's width, so the gaps are set wide) */
+.pz-curve .pft-key .pcv-dash { stroke-dasharray: 3 9; }
 .pcv-dot { stroke: var(--surface); stroke-width: 1.5; }
 .pcv-dname { font: 600 1em var(--font-ui); fill: var(--text-2); paint-order: stroke; stroke: var(--surface); stroke-width: 4px; stroke-linejoin: round; }
 .pcv-dname { transition: opacity .3s var(--ease); }

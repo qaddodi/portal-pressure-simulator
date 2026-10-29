@@ -122,7 +122,7 @@ test('NCPH: cirrhosis raises stiffness, PPG and spleen together; the schistosomi
 
 test('Gastric varices: closing the shunt flattens the fundal varix and grows the esophageal one, the same pressure by a new route', async () => {
   const c = await chartOf('gastric-varices');
-  assert.deepEqual(drawnLines(c.t).map((l) => [l.k, l.name]), [['gv', 'Fundal, shunt open'], ['gv', 'Fundal, shunt closed'], ['varix', 'Esophageal']]);
+  assert.deepEqual(drawnLines(c.t).map((l) => [l.k, l.name, !!l.dash]), [['gv', 'Fundal', false], ['gv', 'Fundal', true], ['varix', 'Esophageal', true]]);
   assert.equal(againstsOf(c.t)[1].of, 'varix');
   const open = ys(c, 0), closed = ys(c, 1), eso = ys(c, 2);
   assert.ok(open.every((y, i) => !i || y > open[i - 1]), 'the open shunt\'s fundal varix grows with the HVPG');

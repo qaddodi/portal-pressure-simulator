@@ -58,6 +58,9 @@
 //                     With of: 'varix' that sweep draws another reading (the fundal varix with the shunt open, the esophageal
 //                     varix with it closed), on the same scale as the first, so the two share a unit; reading: 'Varix' then
 //                     names the card, the key row and the cut-offs, which would otherwise carry the first reading's name.
+//                     dash: true on a sweep draws it dashed (in the own line's colour for the same reading): the state after a change.
+//   styles: ['GRS open', 'GRS closed']
+//                     with against, the solid and the dashed lines named once in the key row, so each line's name is one word.
 //   param: 'scope.air' (from 0, to 20), lines: ['seen', 'across']
 //                     a curve over the scope's air in the esophagus, an instrument option, not a model setting: worked out from
 //                     the slide's own varix as the scope works it (the size seen, the pressure across the wall), nothing run.
@@ -143,7 +146,7 @@ export const curveSteps = (t) => {
 /** The second sweeps: [{ label, params, pair }] (one or two, each with a label and a params object). */
 export function againstsOf(t) {
   return [].concat(t?.against || []).filter((a) => a && typeof a.label === 'string' && a.label && a.params && typeof a.params === 'object' && !Array.isArray(a.params))
-    .slice(0, 2).map((a) => ({ label: a.label, params: a.params, pair: !!a.pair, of: typeof a.of === 'string' && (TILE[a.of] || LINE_ONLY[a.of]) ? a.of : null }));
+    .slice(0, 2).map((a) => ({ label: a.label, params: a.params, pair: !!a.pair, of: typeof a.of === 'string' && (TILE[a.of] || LINE_ONLY[a.of]) ? a.of : null, dash: !!a.dash }));
 }
 /** The second sweep's { label, params, own }, or null: needs a label and a params object. */
 export function againstOf(t) {
@@ -169,9 +172,14 @@ export function drawnLines(t) {
   if (!ag) return ls;
   const l = ls[0], ags = againstsOf(t), of = (a) => (a.of ? lineMeta(a.of) : l);   // (a sweep may draw another reading, of)
   if (ownIsRef(t)) return [{ ...l, name: ag.own, c: '--text-3', ref: true }, ...ags.map((a, j) => ({ ...of(a), name: a.label, c: AG_C[j] }))];
-  if (ags.length > 1) return [{ ...l, name: ag.own }, ...ags.map((a, j) => ({ ...of(a), name: a.label, c: [l.c === '--tr-hv' ? '--tr-pv' : '--tr-hv', '--tr-cav'][j] }))];
-  return [{ ...l, name: ag.own }, { ...of(ags[0]), name: ag.label, c: l.c === '--tr-hv' ? '--tr-pv' : '--tr-hv' }];
+  // (A dashed sweep (dash: true, the state after a change, named in the key row by styles) of the same reading keeps the own line's colour:
+  // the colour says which reading, the dashes which state.)
+  const cOf = (a, c) => (a.dash && !a.of ? l.c : c);
+  if (ags.length > 1) return [{ ...l, name: ag.own }, ...ags.map((a, j) => ({ ...of(a), name: a.label, dash: a.dash, c: cOf(a, [l.c === '--tr-hv' ? '--tr-pv' : '--tr-hv', '--tr-cav'][j]) }))];
+  return [{ ...l, name: ag.own }, { ...of(ags[0]), name: ag.label, dash: ags[0].dash, c: cOf(ags[0], l.c === '--tr-hv' ? '--tr-pv' : '--tr-hv') }];
 }
+/** With against, the key row's names for the solid and the dashed lines (styles: ['GRS open', 'GRS closed']), or null. */
+export const stylesOf = (t) => (againstOf(t) && Array.isArray(t.styles) && t.styles.length === 2 && t.styles.every((x) => typeof x === 'string' && x) ? t.styles : null);
 /** The name the key row and the cut-offs carry when sweeps draw different readings: the slide's `reading`, else the first's own. */
 export const readingName = (t) => (typeof t?.reading === 'string' && t.reading ? t.reading : lineMeta(curveLines(t)[0]).name);
 /** A reading's name, unit, decimals, scale and colour (from its tile). */
@@ -613,20 +621,23 @@ export function createCurve() {
     const keys0 = keyLs.length < 2 || keyLs.reduce((a, l) => a + 22 + cw(l.name, f, 1) + 6 + cw(l.unit, f) + kvW, 0) + 2 * f <= w;
     // (With against the lines are named on the drawing and the key holds only the reading and its unit. When the names don't fit there,
     // alt: a key of the lines stands in, taking a row of its own when it would run into the reading's name and unit at the left.)
+    // (styles: the solid and the dashed lines named at the right of the key row, or on a row of their own under the reading when they don't fit beside it.)
+    const sty = stylesOf(t), styW = sty ? sty.reduce((a, s) => a + 22 + 1.05 * cw(s, f, 1), 0) + f : 0, readW = ag ? cw(keyLs[0].name, f, 1) + 6 + cw(keyLs[0].unit, f) : 0;
+    const styBelow = !!sty && readW + styW + 2 * f > w, styRows = styBelow ? 1 : 0;
     const altW = ag && alt ? ls.reduce((a, l) => a + 22 + 1.05 * cw(l.name, f, 1), 0) + f * (ls.length - 1) : 0;
-    const altBelow = ag && alt && cw(keyLs[0].name, f, 1) + 6 + cw(keyLs[0].unit, f) + altW + 2 * f > w;
+    const altBelow = ag && alt && (styBelow || readW + (sty ? styW + f : 0) + altW + 2 * f > w);
     // (Below, the names wrap onto as many rows as the width asks, none run off the card's edge: altRows, each row's list of line numbers.)
     const altRows = [];
     if (altBelow) { let used = 0; ls.forEach((l, j) => { const kw = 22 + 1.05 * cw(l.name, f, 1); if (!altRows.length || used + kw > w) { altRows.push([]); used = 0; } altRows.at(-1).push(j); used += kw + f; }); }
     // (No more numbers up the side than fit a line and a half of type apart.)
     const stepKey = steps ? stepKeyOf(w, f) : null, stepH = stepKey?.rows ? stepKey.rows * 1.5 * f + 0.3 * f : 0;
-    const plotH = h - 3.3 * f - stepH - ((keys0 && !altBelow ? 1 : keys0 ? 1 + altRows.length : 2) * 1.5 * f + 2 * f), most = clamp(Math.floor(plotH / (1.6 * f)) + 1, 3, 7);
+    const plotH = h - 3.3 * f - stepH - ((keys0 && !altBelow ? 1 : keys0 ? 1 + altRows.length : 2) * 1.5 * f + styRows * 1.5 * f + 2 * f), most = clamp(Math.floor(plotH / (1.6 * f)) + 1, 3, 7);
     // (cuts: 'ticks': the first line's cut-offs ask the scale to hold them, to stand as coloured numbers on the axis.)
     // (cutTicks: with a list of cut-offs, as 'ticks' does for the tile's own; and the numbers are the cut-offs themselves where no even scale holds them.)
     const ticksOn = t.cuts === 'ticks' || !!t.cutTicks, sL = leftScale(ls[0].k, vals[0], most, ticksOn ? yCutsOf(t, ls[0].k).map((c) => c.v) : [], !!t.cutTicks), sR = ls[1] && !one ? rightScale(vals[1], sL.ticks.length) : null;
     const tickCuts = ticksOn ? yCutsOf(t, ls[0].k).filter((c) => sL.ticks.some((v) => Math.abs(v - c.v) < 1e-6)) : [];
     const keys = keyLs.map((l) => ({ ...l, w: (l.bare ? 0 : 22) + cw(l.name, f, 1) + 6 + cw(l.unit, f) + kvW }));
-    const oneRow = keys.length < 2 || keys[0].w + keys[1].w + 2 * f <= w, rowH = 1.5 * f, legH = (oneRow && !altBelow ? 1 : oneRow ? 1 + altRows.length : 2) * rowH;
+    const oneRow = keys.length < 2 || keys[0].w + keys[1].w + 2 * f <= w, rowH = 1.5 * f, legH = ((oneRow && !altBelow ? 1 : oneRow ? 1 + altRows.length : 2) + styRows) * rowH;
     const tw = (sc) => Math.max(...sc.ticks.map((v) => cw(fmtTick(v, dec(sc)), f)));
     const most0 = Math.max(2, Math.min(7, Math.floor((w - 4 * f) / (3.2 * f))));
     // (The plot is one rounded panel the chart's full width, his G2 look, plot-look.js: its numbers stand in the strips inside its edge, 8 px in from it, where no line runs.)
@@ -635,7 +646,7 @@ export function createCurve() {
     // (The panel's foot: 1.7 em under the axis when the x axis's name stands on the numbers' row, else 3.1 em with the name on a row of its own.)
     // (Over the plot, room for the x cut-offs' names, 2 em; a plot with none keeps only what its top number and a name beside a line's end need.)
     const foot = (nameAt == null ? 3.1 : 1.7) * f, T = legH + (xCutsOf(t).length ? 2 : 1.4) * f, B = h - foot - 0.2 * f - stepH;
-    return { w, h, f, ls, ag, alt, one, ax, x0, x1, xt, nameAt, foot, sL, sR, tickCuts, keyRead, stepKey, keys, oneRow, altBelow, altRows, rowH, keyH: legH, L, R, T, B: Math.max(T + 3 * f, B) };
+    return { w, h, f, ls, ag, alt, sty, styBelow, one, ax, x0, x1, xt, nameAt, foot, sL, sR, tickCuts, keyRead, stepKey, keys, oneRow, altBelow, altRows, rowH, keyH: legH, L, R, T, B: Math.max(T + 3 * f, B) };
   }
   const X = (x) => G.L + (G.R - G.L) * (x - G.x0) / ((G.x1 - G.x0) || 1);
   const Yof = (sc) => (v) => G.B - (G.B - G.T) * clamp((v - sc.min) / ((sc.max - sc.min) || 1), 0, 1);
@@ -718,9 +729,21 @@ export function createCurve() {
       const kw = (l) => 22 + 1.05 * cw(l.name, f, 1), at = ls.map(() => null);
       if (G.altBelow) G.altRows.forEach((row, r) => { let x = -G.w; row.forEach((j) => { at[j] = [x, r * G.rowH]; x += kw(ls[j]) + f; }); });
       else { let x = 0; for (let j = ls.length - 1; j >= 0; j--) { x -= kw(ls[j]); at[j] = [x, 0]; x -= f; } }
-      const ks = ls.map((l, i) => sv('g', { transform: `translate(${at[i][0].toFixed(1)} ${at[i][1].toFixed(1)})` }, sv('line', { x1: 0, x2: 16, y1: 0, y2: 0, class: l.ref ? 'pcv-ref' : null, style: `stroke: var(${l.c})` }),
+      // (Beside the reading the key of the lines stands left of the styles' key, which keeps the right end.)
+      const shift = G.sty && !G.styBelow && !G.altBelow ? G.sty.reduce((a, s) => a + 22 + 1.05 * cw(s, f, 1), 0) + 2 * f : 0;
+      const ks = ls.map((l, i) => sv('g', { transform: `translate(${(at[i][0] - shift).toFixed(1)} ${at[i][1].toFixed(1)})` }, sv('line', { x1: 0, x2: 16, y1: 0, y2: 0, class: l.ref ? 'pcv-ref' : l.dash ? 'pcv-dash' : null, style: `stroke: var(${l.c})` }),
         sv('text', { x: 22, y: 0.36 * f, style: `fill: var(${l.c})` }, l.name)));
-      alt = sv('g', { class: 'pft-key pcv-alt off', transform: `translate(${G.w} ${(G.altBelow ? G.rowH : 0) + 0.75 * f})` }, ks);
+      alt = sv('g', { class: 'pft-key pcv-alt off', transform: `translate(${G.w} ${(G.altBelow ? G.rowH * (G.styBelow ? 2 : 1) : 0) + 0.75 * f})` }, ks);
+    }
+    // (styles: a solid and a dashed swatch in the plain text colour, each with its name ("GRS open", "GRS closed"), at the right of the key row
+    // or on the row under the reading, from the left edge.)
+    let styKey = null;
+    if (G.sty) {
+      let x = 0;
+      const ks = G.sty.map((s, i) => { const g = sv('g', { transform: `translate(${x.toFixed(1)} 0)` }, sv('line', { x1: 0, x2: 16, y1: 0, y2: 0, class: i ? 'pcv-dash' : null, style: 'stroke: var(--text-2)' }),
+        sv('text', { class: 'pcv-sty', x: 22, y: 0.36 * f, style: 'fill: var(--text-2)' }, s)); x += 22 + 1.05 * cw(s, f, 1) + f; return g; });
+      const wAll = x - f;
+      styKey = sv('g', { class: 'pft-key pcv-styles', transform: `translate(${(G.styBelow ? 0 : G.w - wAll).toFixed(1)} ${((G.styBelow ? G.rowH : 0) + 0.75 * f).toFixed(1)})` }, ks);
     }
     const axis = [sv('line', { class: 'pft-x', x1: L, x2: R, y1: B, y2: B }),
       // (The two end numbers stand inside the plot's ends, clear of the corner numbers of the y axes.)
@@ -730,7 +753,7 @@ export function createCurve() {
     const lines = ls.map((l, j) => {
       const Y = j && !G.one ? YR || YL : YL, ys = ser?.ys[j], xs = lineX(j);
       const d = ys ? ys.map((y, i) => (Number.isFinite(y) ? [X(xs[i]), Y(y)] : null)).filter(Boolean).map(([x, y], i) => `${i ? 'L' : 'M'}${x.toFixed(1)} ${y.toFixed(1)}`).join('') : '';
-      return { l, Y, path: sv('path', { class: `ptk-line pcv-line${l.ref ? ' pcv-ref' : ''}`, d, style: `stroke: var(${l.c})` }),
+      return { l, Y, path: sv('path', { class: `ptk-line pcv-line${l.ref ? ' pcv-ref' : l.dash ? ' pcv-dash' : ''}`, d, style: `stroke: var(${l.c})` }),
         ring: sv('circle', { class: 'pcv-ring off', r: Math.max(5, f * 0.45), style: `stroke: var(${l.c})` }),
         val: sv('text', { class: 'pcv-v', style: `fill: var(${l.c})` }),
         // (With against each line is named on the drawing, placed on every paint clear of the rings and the values.)
@@ -766,7 +789,7 @@ export function createCurve() {
     // (The panel under everything: from just under the key row to under the axis's name, the chart's full width.)
     const panel = plotPanel(sv, 0, G.keyH + 0.2 * f, G.w, B + G.foot - (G.keyH + 0.2 * f));
     const svg = sv('svg', { viewBox: `0 0 ${G.w} ${G.h}`, width: G.w, height: G.h, role: 'img', style: `font-size: ${f.toFixed(2)}px` },
-      sv('defs', {}, panel.clip), panel.back, zone, grid, cuts, xCuts, legend, alt, axis, stepsKey, at, walks, arrows, lines.map((x) => x.path), dotPts.map((d) => d.lead), dotEls, dotPts.map((d) => d.name), lines.map((x) => [x.ring, x.val, x.name]));
+      sv('defs', {}, panel.clip), panel.back, zone, grid, cuts, xCuts, legend, alt, styKey, axis, stepsKey, at, walks, arrows, lines.map((x) => x.path), dotPts.map((d) => d.lead), dotEls, dotPts.map((d) => d.name), lines.map((x) => [x.ring, x.val, x.name]));
     svg.dataset.points = ser ? String(ser.xs.length) : '0';   // (the browser checks read it: 0 until the curve is ready)
     // (What a ring's value keeps clear of: the cut-offs and their names, the x axis, the data lines. A value on a cut-off
     // line reads as that line's name, so it would sooner cross a data line or another word.)
