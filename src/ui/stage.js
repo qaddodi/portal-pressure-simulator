@@ -2119,7 +2119,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (!sameView(from, to)) logMove({ t: t0, ms, restart: vtGliding, kind: drift ? 'drift' : 'glide', arc: !!arcRun, zoom: Math.abs(Math.log(to.k / from.k)), pan: Math.hypot(to.x - from.x, to.y - from.y) });
     const left = Math.max(0, t0 + ms - performance.now());
     vtGliding = true;
-    if ((store.get().presenting || cath.st?.keep) && !drift && !sameView(from, to)) { camMove = true; dpr.carry = dpr.on && performance.now() < dpr.refitUntil; wrap.classList.add('cam-move'); setTimeout(() => { if (!vtGliding) camSettle(); }, left + 80); } else camSettle();
+    if (cath.st?.keep && !sameView(from, to) || store.get().presenting && !drift && !sameView(from, to)) { camMove = true; dpr.carry = dpr.on && performance.now() < dpr.refitUntil; wrap.classList.add('cam-move'); setTimeout(() => { if (!vtGliding) camSettle(); }, left + 80); } else camSettle();
     dprLet();   // (a probe waiting for the slide's framing: a move hides it till it lands, a refit shows it now)
     const step = (now) => {
       // A newer glide (or a framing set outright) took over: this one stops. A glide started from inside this step's
