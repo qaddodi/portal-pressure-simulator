@@ -1274,7 +1274,7 @@ void main() {
     vec2 fu = (w - fluidRect.xy) / fluidRect.zw;
     if (all(greaterThanEqual(fu, vec2(0.0))) && all(lessThanEqual(fu, vec2(1.0)))) {
       float c = (w.x - 712.0) / 400.0;
-      float s = fluidS.x - fluidS.y * (0.8 + 0.2 * c * c) + (sin(w.x / 38.0 + fluidS.w) * 0.7 + sin(w.x / 23.0 - fluidS.w * 1.3) * 0.3) * fluidS.z;
+      float s = fluidS.x - fluidS.y * (0.8 + 0.2 * c * c * clamp(fluidS.y / 485.0, 0.0, 1.0)) + (sin(w.x / 38.0 + fluidS.w) * 0.7 + sin(w.x / 23.0 - fluidS.w * 1.3) * 0.3) * fluidS.z;
       float d = w.y - s;
       // Inside the cavity: the row's half-width (between the two nearest rows) less the distance from the mirror line, over
       // the edge's slope there to give the distance across it, smoothed over a world unit or a pixel, whichever is more

@@ -40,7 +40,7 @@ import { readGroup, shapeSource, bindShape, targetRoom } from './organ-paint.js?
 import { pathCmds, flattenCmds, polyBox } from './shape-gl.js?v=a5ba46162b';
 import { createLabelGL } from './label-gl.js?v=92dddad509';
 import { createGlassGL } from './glass-gl.js?v=bdfe978487';
-import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, ORIGIN_GREY } from './veins-gl.js?v=014dda87f3';
+import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, ORIGIN_GREY } from './veins-gl.js?v=d03245e50c';
 import { varixBead, beadRadius } from './varix-bead.js?v=ac0e84fd89';
 import { advanceStream, createReversalHold, bleedShapes, stepBleedFade, fadeBleedShapes, chevFlowLevel, keyChevron, KEY_CHEV_LANES, originFractions, oxygenFor, ORIGIN_N, createBolus, DYE_BINS, KAPPA, STASIS_MIN_D, HIDDEN_SECONDS } from './blood.js?v=7fa561f952';
 import { retireRows } from './flow-rows.js?v=bea4089714';
@@ -2223,7 +2223,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const lzAnchor = document.createComment('lobule');
   wrap.append(lzAnchor);
   // (The code is fetched as soon as the figure is shown; the layer is built a moment later, when the page is quiet, or at once for a dive.)
-  const lobuleCode = () => (lzCode ||= import('./lobule-zoom.js?v=3d85cdd470').catch((err) => { lzCode = null; throw err; }));
+  const lobuleCode = () => (lzCode ||= import('./lobule-zoom.js?v=c221ebe4cc').catch((err) => { lzCode = null; throw err; }));
   function lobuleReady() {
     return (lzLoad ||= lobuleCode().then(({ createLobuleZoom }) => {
       lz = createLobuleZoom({ host: wrap, styles: wrapCS, before: lzAnchor });
@@ -5796,17 +5796,15 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // an 8 MB upload, several times per ease). The slow creep of a running model stays within a step, so it never holds the plate.
   const fluidEasing = () => ascTarget !== null && Math.abs(clamp(ascTarget / 8500, 0, 1) - clamp(ascShown / 8500, 0, 1)) * 34 > 0.5;
   let ascTarget = null, ascShown = 0, ascVel = 0, fluidMaskB = null, fluidMaskOf = null, fluidMaskOfB = null, fluidBandH = -1, fluidH = 0, fluidAmp = 0, fluidInkRGBA = [0.9, 0.75, 0.28, 0.4];
-  const FLUID_TOP = 485, FLUID_DROP = 90, FLUID_DROP_H = 120;   // the surface's rise at the fullest belly, and how far below the floor a pool starts
+  const FLUID_TOP = 485, FLUID_CURVE = 3.2;   // the surface's rise at the fullest belly, and how slowly it leaves the floor (a small pool stays under the appendix)
   const fluidLook = { s: [0, 0, 0, 0], ink: [0, 0, 0, 0], ripple: false };
   const abdomenClipEl = defs.querySelector('#abdomenClip path');
   // (The ripple's phase advances with the running model's frames, so it carries on from where it stood after a pause instead of
   // jumping to the wall clock's; round 2 review, B11.)
   let fluidPh = 0;
   const fluidPhase = () => fluidPh;   // both ripple terms are periodic over 20π
-  // The level the surface is measured from: FLUID_DROP below the cavity's floor when the pool starts (it first shows below the
-  // appendix, which it used to cover), easing up to the old floor by the fullest belly, so the top of the scale does not move.
-  const fluidFloor = (h) => ABDOMEN_FLOOR + 5 + FLUID_DROP * (1 - clamp(h / FLUID_DROP_H, 0, 1));
-  const fluidSurfAt = (x, ph) => { const c = (x - 712) / 400; return fluidFloor(fluidH) - fluidH * (0.8 + 0.2 * c * c) + (Math.sin(x / 38 + ph) * 0.7 + Math.sin(x / 23 - ph * 1.3) * 0.3) * fluidAmp; };
+  const fluidFloor = () => ABDOMEN_FLOOR + 5;
+  const fluidSurfAt = (x, ph) => { const c = (x - 712) / 400; return fluidFloor(fluidH) - fluidH * (0.8 + 0.2 * c * c * clamp(fluidH / FLUID_TOP, 0, 1)) + (Math.sin(x / 38 + ph) * 0.7 + Math.sin(x / 23 - ph * 1.3) * 0.3) * fluidAmp; };
   // No pool while the readout grades the belly "None"; past that it fades in as it fills and out as it drains, so it never pops.
   const fluidFade = () => poolFade(ascShown);
   function drawAscites() {
@@ -5832,7 +5830,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     // top of the scale (about 8.5 L) the surface reaches the lower edge of the spleen: clearly concave (about 100 units
     // lower in the middle than at the flanks), the same on both sides.
     const uv = Math.pow(u, 0.6);
-    fluidH = uv * FLUID_TOP; fluidAmp = 2 * Math.min(1, uv * 4);
+    fluidH = FLUID_TOP * Math.pow(uv, FLUID_CURVE);   // slow off the floor, so a 1 L pool is a thin layer below the appendix; the top of the scale is unchanged fluidAmp = 2 * Math.min(1, uv * 4);
     fluidSurf = null;
     if (fluidFade() <= 0) { putA(ascitesPath, 'd', ''); putA(ascitesLine, 'd', ''); }
     else {
@@ -5849,7 +5847,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         fluidBandH = fluidH;
         const cells = [];
         for (let x = 288; x < 1136; x += 16) {
-          const base = (z) => { const c = (z - 712) / 400; return fluidFloor(fluidH) - fluidH * (0.8 + 0.2 * c * c); };
+          const base = (z) => { const c = (z - 712) / 400; return fluidFloor(fluidH) - fluidH * (0.8 + 0.2 * c * c * clamp(fluidH / FLUID_TOP, 0, 1)); };
           const a = base(x), b = base(x + 16);
           const y0 = Math.min(a, b) - fluidAmp - 2, y1 = Math.max(a, b) + fluidAmp + 10;
           for (let y = y0; y < y1; y += 16) cells.push(x, y);
