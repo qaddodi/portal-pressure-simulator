@@ -48,6 +48,7 @@ import { flowTimeHeight, trailKeys } from './flow-time.js?v=026ab2f37c';
 import { PROCS, procBlocked, procOffered, playProcedure } from './proc-anim.js?v=3075a0efa7';
 import { dataPlan, textPlan, keepData, keepText, cardSnap, cardChanged, cardBack } from './card-keep.js?v=4fc0919e34';
 import { createCardZoom, tapTracker } from './card-zoom.js?v=d0e4ed8bd1';
+import { tileKeys as cardKeys, toolOnly } from './card-tiles.js?v=884156ad01';
 const nextFrame = frameFor('presenter');
 
 const KEY = 'pps.scripts';
@@ -1406,10 +1407,8 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     if (t.textContent !== words) t.textContent = words;
     el.classList.toggle('done', done);
   }
-  // (A chart over the days already draws its two lines from where they started to where they are, numbers and all: on a laptop
-  // or tablet, where the chart is always in view beside the tiles, tiles for those two would repeat it.)
-  const ownKeys = (s) => (s.tiles || []).filter((k) => !(s.tool?.kind === 'flowtime' && s.tool.lines?.includes(k) && !phone()));   // (a ladder already brackets the HVPG and PPG: tiles there would repeat them, rounded differently)
-  const tileKeys = (s) => [...ownKeys(s), ...(s.hvpgResp && !s.tiles?.includes('hvpgFall') ? ['hvpgFall'] : [])];
+  // (card-tiles.js: a chart over the days drops tiles for its own two lines on a laptop or tablet, a ladder its HVPG and PPG.)
+  const tileKeys = (s) => cardKeys(s, phone());
   // The HVPG response tile (slide field hvpgResp: a slide id, or true for the slide before; card C3, 25 Oct): the percent fall in the
   // HVPG from that slide's, read live as the other tiles are (a compare button or a time-lapse moves it).
   function respFp(s, f) {
@@ -2113,7 +2112,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       data.classList.toggle('under', under(s));
       data.toggleAttribute('data-sin-tiles', sinTiles(s));
       data.classList.toggle('has-tool', !!s.tool);
-      data.classList.toggle('tool-only', !!s.tool && !s.data);
+      data.classList.toggle('tool-only', toolOnly(s, phone()));   // (no tiles to tuck: no readings card behind it, so no handle)
       // (The portal blood bar takes the card's full width, its tiles under it: beside them its column was too narrow for the
       // segments' names, a 320 px card left it about 120 px, tool-flows.js.)
       // (The fluid balance's capacity window too: its rows of numbers need the card's width; tool-fluid.js. And the criteria card: its rules
