@@ -50,7 +50,7 @@ import { softwareYield } from './sw-yield.js?v=e580a095b1';
 import { portalSplit } from './table-marks.js?v=bca5ebb624';
 import { hashSeed, clotSide, clotSpan, clotRadius, clotShift, clotLayers, CLOT_EDGE } from './clot-shape.js?v=415ba6b9c0';
 import { leaderEnd as edgeOf, leaderEndRects as edgeOfRects } from './leader-end.js?v=8e884700ab';
-import { balloonShape, esoAt, BALLOON } from './balloon-eso.js?v=2e217646b1';
+import { balloonShape, esoAt, smoothPath, BALLOON } from './balloon-eso.js?v=421bc5a4b7';
 import { balloonRy, balloonOutline, routeRadii } from './hvpg-balloon.js?v=35d7bb162c';
 import { outlineBox, placeSummary } from './cath-place.js?v=b5835a19ca';
 import { layoutWatch } from './idle-keys.js?v=6eccd5d85a';
@@ -7539,24 +7539,34 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   function balloonDraw(anat) {
     ov.balloons.innerHTML = '';
     if (!anat) return;
-    const pts = (a) => a.map((q) => q[0].toFixed(1) + ' ' + q[1].toFixed(1)).join(' L');
+    // A clear catheter balloon on the app's catheter colours: a thin shaft with a dark rim, a see-through balloon (the
+    // varices show through it) under a fine rim, two thin marker bands on the shaft, and a soft highlight along its curve.
     const e = bal.eso;
     if (e.adv > 0) {
-      const sh = balloonShape(balEase(e.k), balEase(e.adv));
-      ov.balloons.append(s('path', { d: 'M' + pts(sh.shaft), class: 'balloon-shaft' }));
-      if (e.k > 0.01 || e.adv >= 1) {
-        ov.balloons.append(s('path', { d: 'M' + pts(sh.outline) + ' Z', class: 'balloon-shape' }));
-        const hl = [];
-        for (let y = BALLOON.top + 10; y <= BALLOON.bottom - 10; y += 8) hl.push([esoAt(y).c - sh.half(y) * 0.55, y]);
-        if (e.k > 0.3) ov.balloons.append(s('path', { d: 'M' + pts(hl), class: 'balloon-sheen', 'stroke-opacity': Math.min(1, (e.k - 0.3) / 0.4) }));
-        for (const y of sh.bands) { const q = esoAt(y); ov.balloons.append(s('rect', { x: q.c - Math.max(sh.half(y), 1.3) - 0.5, y: y - 1.6, width: 2 * Math.max(sh.half(y), 1.3) + 1, height: 3.2, class: 'balloon-marker' })); }
-      } else ov.balloons.append(s('circle', { cx: sh.shaft.at(-1)[0], cy: sh.tipY, r: 1.6, class: 'balloon-marker' }));
+      const sh = balloonShape(balEase(e.k), balEase(e.adv)), up = e.k > 0.01 || e.adv >= 1;
+      const shaft = smoothPath(sh.shaft);
+      if (up) ov.balloons.append(s('path', { d: smoothPath(sh.outline, true), class: 'balloon-fill' }));
+      ov.balloons.append(s('path', { d: shaft, class: 'balloon-shaft-rim' }), s('path', { d: shaft, class: 'balloon-shaft' }));
+      if (up) {
+        for (const y of sh.bands) { const q = esoAt(y); ov.balloons.append(s('rect', { x: q.c - BALLOON.shaftR - 0.3, y: y - 0.5, width: 2 * BALLOON.shaftR + 0.6, height: 1, rx: 0.3, class: 'balloon-marker' })); }
+        ov.balloons.append(s('path', { d: smoothPath(sh.outline, true), class: 'balloon-rim' }));
+        if (e.k > 0.3) ov.balloons.append(s('path', { d: smoothPath(sh.sheen, true), class: 'balloon-sheen', 'fill-opacity': (0.3 * Math.min(1, (e.k - 0.3) / 0.4)).toFixed(3) }));
+      }
     }
     const g = bal.gas;
     if (g.k > 0.01 || g.adv > 0) {
-      const k = balEase(g.k), r = 4 + 20 * k;
-      ov.balloons.append(s('circle', { cx: SITES.fundus[0], cy: SITES.fundus[1], r, class: 'balloon-shape' }));
-      if (k > 0.3) ov.balloons.append(s('path', { d: `M${SITES.fundus[0] - r * 0.6} ${SITES.fundus[1] - r * 0.15} A ${r * 0.62} ${r * 0.62} 0 0 1 ${SITES.fundus[0] - r * 0.1} ${SITES.fundus[1] - r * 0.62}`, class: 'balloon-sheen', 'stroke-opacity': Math.min(1, (k - 0.3) / 0.4) }));
+      const k = balEase(g.k), r = 4 + 20 * k, [cx, cy] = SITES.fundus;
+      ov.balloons.append(s('circle', { cx, cy, r, class: 'balloon-fill' }), s('circle', { cx, cy, r, class: 'balloon-rim' }));
+      if (k > 0.3) {
+        // The same soft highlight, a crescent inside the upper-left rim that follows the circle.
+        const out = [], inn = [], m = 16;
+        for (let i = 0; i <= m; i++) {
+          const th = Math.PI * (1.05 + 0.5 * i / m), u = Math.sin((Math.PI * i) / m);
+          out.push([cx + Math.cos(th) * r * 0.8, cy + Math.sin(th) * r * 0.8]);
+          inn.push([cx + Math.cos(th) * r * (0.8 - 0.14 * u), cy + Math.sin(th) * r * (0.8 - 0.14 * u)]);
+        }
+        ov.balloons.append(s('path', { d: smoothPath([...out, ...inn.reverse()], true), class: 'balloon-sheen', 'fill-opacity': (0.3 * Math.min(1, (k - 0.3) / 0.4)).toFixed(3) }));
+      }
     }
   }
   let balloonSqueeze = 1;
