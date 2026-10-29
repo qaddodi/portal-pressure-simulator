@@ -84,6 +84,8 @@ export const PLANES = {
       { t: 'Both raised', short: 'Both raised', tone: 'both', at: [14, 24], note: 'HVPG ≥5, PPG ≥6 mmHg' },
     ],
     cuts: { x: [5, 10], y: [6, 12] },
+    // (HVPG 5 and PPG 6 keep their numbers but draw no line: the zone colours already mark them, Mohammad 29 Oct.)
+    noLine: { x: [5], y: [6] },
     // (The two lines that carry a meaning of their own, named on the plot beside the line: { x|y: { value: words } }.)
     lineNames: { x: { 10: 'CSPH ≥10' }, y: { 12: 'Bleed risk ≥12' } },
     source: '',
@@ -196,7 +198,9 @@ export function crosses(ax, ay, bx, by, o) {
 }
 /** The cut-off lines in px, { x1, y1, x2, y2 }: across the whole plot, or with edges: true only where two zones meet, so a zone
  *  reads as one shape (the CSPH plane's amber L, Mohammad 19 Oct: one "Indeterminate" zone, its words with room). */
-export function cutSegs(pl, X, Y, fr) {
+export function cutSegs(pl, X, Y, fr, drawn = false) {
+  // (drawn: only the lines the plane shows; words still keep to their own side of the others, the zone colours' edges.)
+  const shown = (a, c) => !drawn || !pl.noLine?.[a]?.includes(c);
   const out = [], x0 = pl.x.min ?? 0, y0 = pl.y.min ?? 0;
   const seg = (along, lo, hi, differ, mk) => {
     // (Sampled at 1/400 of the axis: a run of samples where the zones either side differ is one segment.)
@@ -208,12 +212,12 @@ export function cutSegs(pl, X, Y, fr) {
       if (!d && from != null) { out.push(mk(from, t)); from = null; }
     }
   };
-  for (const v of pl.cuts?.x || []) {
+  for (const v of (pl.cuts?.x || []).filter((c) => shown('x', c))) {
     if (!pl.edges) { out.push({ x1: X(v), x2: X(v), y1: fr.T, y2: fr.B }); continue; }
     const e = (pl.x.max - x0) / 1000;
     seg('y', y0, pl.y.max, (y) => zoneOf(pl, { [pl.x.key]: v - e, [pl.y.key]: y }) !== zoneOf(pl, { [pl.x.key]: v + e, [pl.y.key]: y }), (a, b) => ({ x1: X(v), x2: X(v), y1: Y(a), y2: Y(b) }));
   }
-  for (const v of pl.cuts?.y || []) {
+  for (const v of (pl.cuts?.y || []).filter((c) => shown('y', c))) {
     if (!pl.edges) { out.push({ x1: fr.L, x2: fr.R, y1: Y(v), y2: Y(v) }); continue; }
     const e = (pl.y.max - y0) / 1000;
     seg('x', x0, pl.x.max, (x) => zoneOf(pl, { [pl.x.key]: x, [pl.y.key]: v - e }) !== zoneOf(pl, { [pl.x.key]: x, [pl.y.key]: v + e }), (a, b) => ({ x1: X(a), x2: X(b), y1: Y(v), y2: Y(v) }));
@@ -653,7 +657,7 @@ export function planePlot(pl, { card = false } = {}) {
     // The cut-off lines, the axes and their ticks.
     // (Broken 4 px clear of a name that sits across one, and of a number a line runs to: the numbers carry no outline to hide it, which
     // smeared them on a light card.)
-    for (const c of gapSegs(cutSegs(pl, X, Y, fr), [...names.filter((n) => n?.across).map((n) => n.box), ...nums.map((n) => n.box)])) kids.push(sv('line', { class: 'pze-cut', ...bleed(c, fr, W, H) }));
+    for (const c of gapSegs(cutSegs(pl, X, Y, fr, true), [...names.filter((n) => n?.across).map((n) => n.box), ...nums.map((n) => n.box)])) kids.push(sv('line', { class: 'pze-cut', ...bleed(c, fr, W, H) }));
     for (const l of lines) kids.push(sv('text', { class: 'pze-ln', x: l.x, y: l.y, 'text-anchor': l.anchor, style: `font-size:${fs}px` }, l.text));
     const dg = diagOf(pl, X, Y, fs);
     if (dg) kids.push(sv('line', { class: 'pze-diag', ...dg.seg }), dg.label ? sv('text', { class: 'pze-dt', x: dg.label.x, y: dg.label.y, 'text-anchor': dg.label.anchor, style: `font-size:${fs}px` }, dg.label.text) : null);

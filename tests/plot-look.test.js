@@ -100,7 +100,7 @@ test('the charts all put their plot on a rounded panel, the planes draw their zo
   // card's own dark text, on a light card. No outline now; the cut-off lines break behind the numbers instead, visual-plane.js.)
   assert.doesNotMatch(css, /\.pze-t, \.pze-ax \{[^}]*stroke/, 'the plane\'s numbers and names carry no outline');
   assert.doesNotMatch(css, /\.pzz-w \{[^}]*stroke: rgb\(var\(--black-rgb\)/, 'nor do the criteria graph\'s words: a dark outline round dark text smears it, so the halo is the card\'s own colour');
-  assert.match(plane, /gapSegs\(cutSegs\(pl, X, Y, fr\), \[\.\.\.names\.filter\(\(n\) => n\?\.across\)\.map\(\(n\) => n\.box\), \.\.\.nums\.map\(\(n\) => n\.box\)\]\)/, 'a cut-off line breaks behind a number it runs to');
+  assert.match(plane, /gapSegs\(cutSegs\(pl, X, Y, fr, true\), \[\.\.\.names\.filter\(\(n\) => n\?\.across\)\.map\(\(n\) => n\.box\), \.\.\.nums\.map\(\(n\) => n\.box\)\]\)/, 'a cut-off line breaks behind a number it runs to');
 });
 
 test('the ladder\'s three zones are one rounded band, the corners of the whole', () => {
