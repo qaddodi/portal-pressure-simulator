@@ -581,6 +581,13 @@ or less. Count from the untreated patient, not from the drug before: on Lowering
 though the slide before is carvedilol. Used on Next bleed 5, Lowering portal pressure 3 to 5 and Ten years 5. (HVPG 5 is left out: it shows the
 catheter and the equation only, with no tiles.)
 
+#### The endoscopic view: `scopeTile`
+
+`scopeTile: true` on a `data: 'tiles'` slide with an instrument adds one tile to the readings card behind it: a round endoscopic view of the
+distal esophagus at the varix's size now, with Small, Large or No varices under it. In a time-lapse the picture swells with the days, each
+step eased from the one before. It counts as a tile, so a slide whose only other tiles are its chart's own two lines still stacks and its
+handle opens the view. Used on Varices 3.
+
 #### The bleed clock: `clock`
 
 The bleed decks' timings are their most-tested facts, so a tiles slide can show where the case stands on them. `clock: { at: 10,

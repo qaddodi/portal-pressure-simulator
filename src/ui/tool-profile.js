@@ -12,7 +12,7 @@
 import { frame, cancelFrame } from './frame.js?v=7254a8a850';
 import { PROFILE_PATHS } from './anatomy.js?v=48cc98d415';
 import { NODES } from '../engine/topology.js?v=4044766e96';
-import { RATE } from './table-marks.js?v=8458ad3bf8';
+import { RATE } from './table-marks.js?v=bca5ebb624';
 import { monotoneSegs } from './curve-near.js?v=9ff15157e9';
 import { plotPanel } from './plot-look.js?v=5037697da7';
 import { pressureColor } from './colormap.js?v=05a231b880';

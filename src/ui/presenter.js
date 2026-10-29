@@ -25,31 +25,32 @@ import { isCamOn, unionBox, regionBox, growBox, camNames } from './cam-frame.js?
 import { NODE_POS } from './anatomy.js?v=48cc98d415';
 import { DISEASE_SRC, diseasePieces } from './diseases.js?v=fb8a5451c3';
 import { nb, listCase, plateletText } from './glue.js?v=5a0f63226b';
-import { DECKS, DECK_ALIAS, REGIONS, LEVELS, TOPICS, withOverview, siteTag, SITE_TAGS } from './decks.js?v=cfd3686a0a';
+import { DECKS, DECK_ALIAS, REGIONS, LEVELS, TOPICS, withOverview, siteTag, SITE_TAGS } from './decks.js?v=d9cb2e1a97';
 import { fingerprintOf } from '../engine/fingerprint.js?v=ca81723393';
-import { createHvpgMonitor } from './hvpg-proc.js?v=7c7e6a39a8';
-import { createTools } from './presenter-tools.js?v=e2a79aabbc';
-import { openHandout } from './handout.js?v=378d5e7a19';
+import { createHvpgMonitor } from './hvpg-proc.js?v=2b6df681da';
+import { createTools } from './presenter-tools.js?v=24a70f73af';
+import { openHandout } from './handout.js?v=517a1c75a8';
 import { noteResume, resumeFor } from './resume.js?v=f086f80ee8';
 import { parseDeckSource, checkDeck } from './deck-source.js?v=8395c650cd';
-import { NO_ASC, TILE, cutText, tileOf, SCALE, bandsOf, rateOf, COLS, CUT, PRESS, fpv, dirAbs, dirRel, rateAbs, effOf, rateShown, tileShown, tipsGoal, liveSettled, shownSig } from './table-marks.js?v=8458ad3bf8';
+import { NO_ASC, TILE, cutText, tileOf, SCALE, bandsOf, rateOf, COLS, CUT, PRESS, fpv, dirAbs, dirRel, rateAbs, effOf, rateShown, tileShown, tipsGoal, liveSettled, shownSig } from './table-marks.js?v=bca5ebb624';
 import { frameFor, cancelFrame } from './frame.js?v=7254a8a850';
 import { createFigureKey } from './figure-key.js?v=b6817772fb';
 import { traceWhen } from './trace-labels.js?v=fc916a95c6';
 import { flowCss, heatCss, dropCss, gradientCss, oxygenCss } from './colormap.js?v=05a231b880';
-import { EXT, expandIds, stepExtra, markLabel, figureHooks, safe } from './slide-ext.js?v=c68990636a';
-import { clotWords } from './callout-math.js?v=a716cd33ea';
+import { EXT, expandIds, stepExtra, markLabel, figureHooks, safe } from './slide-ext.js?v=81b55f24dd';
+import { clotWords } from './callout-math.js?v=dd2fe6d554';
 import { citeText, focusOf, oneLadder } from './teach-extras.js?v=5f5248f5a7';
-import { createProfileTool, createProfileStrip, pillReadings, chartScale } from './tool-profile.js?v=989103eab0';
+import { createProfileTool, createProfileStrip, pillReadings, chartScale } from './tool-profile.js?v=3e6716e522';
 import { causeFit } from './cause-fit.js?v=830a6835a5';
-import { anchorsOf, roomFor } from './cam-room.js?v=298e3c2fd9';
+import { anchorsOf, roomFor } from './cam-room.js?v=7dd99fca21';
 import { beatCount, beatView } from './slide-beats.js?v=2aded612c4';
 import { COMPACT, WIDE } from './card-type.js?v=5af5f22935';
 import { flowTimeHeight, trailKeys } from './flow-time.js?v=026ab2f37c';
 import { PROCS, procBlocked, procOffered, playProcedure } from './proc-anim.js?v=72cebaac1f';
 import { dataPlan, textPlan, keepData, keepText, cardSnap, cardChanged, cardBack } from './card-keep.js?v=982397f8fb';
 import { createCardZoom, tapTracker } from './card-zoom.js?v=f589271cc7';
-import { tileKeys as cardKeys, toolOnly } from './card-tiles.js?v=884156ad01';
+import { createScopeTile } from './scope-tile.js?v=b05945714a';
+import { tileKeys as cardKeys, toolOnly } from './card-tiles.js?v=e547c76c7f';
 const nextFrame = frameFor('presenter');
 
 const KEY = 'pps.scripts';
@@ -587,13 +588,16 @@ function bigTiles() {
       const ls = S ? S[2].map((c) => h('span', { class: 'pzb-l', style: `left:${at(k, c / (T.x ?? 1))}%` }, fmt(c, Math.abs(c % 1) > 1e-9 ? 1 : 0))) : [];
       const link = withRef ? h('i', { class: 'pzb-link' }) : null, was = withRef ? h('i', { class: 'pzb-was' }) : null, now = h('i', { class: 'pzb-now' });
       const bar = bars ? h('span', { class: 'pzt-bar' + (S ? '' : ' empty'), 'aria-hidden': 'true' }, h('span', { class: 'pzb-track' }, h('span', { class: 'pzb-zs' }, zs), ts, link, was, S ? now : null), ls) : null;
-      const tile = h('div', { class: 'pz-tile' + (S ? ' scaled' : '') }, h('span', { class: 'pzt-k', 'data-s': T.n || null }, T.t), h('span', { class: 'pzt-vu' }, v, u), r, withRef || resp ? d : null, bar);
-      return { k, T, tile, v, u, r, d, S, bands, zs, link, was, now, zr: '' };
+      const pic = k === 'scope' ? createScopeTile() : null;   // (the endoscopic view: a picture in place of a number; v, u and r stay unplaced)
+      const tile = pic ? h('div', { class: 'pz-tile pz-scope' }, h('span', { class: 'pzt-k' }, T.t), pic.el)
+        : h('div', { class: 'pz-tile' + (S ? ' scaled' : '') }, h('span', { class: 'pzt-k', 'data-s': T.n || null }, T.t), h('span', { class: 'pzt-vu' }, v, u), r, withRef || resp ? d : null, bar);
+      return { k, T, tile, v, u, r, d, S, bands, zs, link, was, now, zr: '', pic };
     });
     el.replaceChildren(...parts.map((p) => p.tile));
     el.classList.remove('pzb-nonum');   // (new bars keep their numbers' row until the card's fit has seen them: fitCards)
     el.dataset.n = String(parts.length);
     draw = tweener((f) => parts.forEach((p) => {
+      if (p.pic) { p.pic.set(f.varix); return; }
       const [cls, word] = ratedShown(p.k, f), none = cls == null && (p.k === 'saag' || p.k === 'tp');
       setT(p.v, none ? '—' : tileVal(p.k, f[p.k]));
       p.u.hidden = none || !p.T.u;
@@ -645,6 +649,7 @@ function bigTiles() {
       parts.forEach((p) => p.tile.classList.toggle('key', key.includes(p.k)));
       paintBands(f);
       const to = Object.fromEntries([...ks, 'asc'].map((k) => [k, f[k]]));
+      if (ks.includes('scope')) to.varix = f.varix;   // (the endoscopic view follows the varix's size)
       if (ref) for (const k of ks) to['ref_' + k] = ref[k];
       if (ks.includes('hvpgFall')) Object.assign(to, { respFrom: f.respFrom, respAt: f.respAt });
       for (const p of parts) p.fin = tileVal(p.k, to[p.k]);

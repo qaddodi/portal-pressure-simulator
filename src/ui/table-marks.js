@@ -91,7 +91,7 @@ export const TILE = {
 };
 // Tiles worked out by the presenter rather than read from the live fingerprint: the HVPG response (slide field hvpgResp), the fall
 // from a named slide's HVPG.
-export const DERIVED_TILE = { hvpgFall: { t: 'HVPG fall', s: 'From the slide named', u: '%', d: 0, better: 1 } };
+export const DERIVED_TILE = { scope: { t: 'Endoscopic view', s: '', u: '' }, hvpgFall: { t: 'HVPG fall', s: 'From the slide named', u: '%', d: 0, better: 1 } };
 export const tileOf = (k) => TILE[k] ?? DERIVED_TILE[k];
 // After TIPS the PPG is read against its target (below 12 mmHg): its tile, and the pill that prints it, never say "High" under a
 // line that says the target is reached.

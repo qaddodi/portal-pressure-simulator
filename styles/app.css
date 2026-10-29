@@ -6894,3 +6894,11 @@ html.thumb-ui .menu.from-dock { clip-path: inset(-64px -64px calc(var(--sink, 0p
 .pz:not(.stack):not(.low) .pz-data.pz-beside > .pz-tiles.pz-clockrow:not([data-n="0"]) { grid-column: 1 / -1; grid-row: 3; }
 .pz-clockrow[hidden] { display: none; }
 .pz-clock .pzb-now { transition: left .6s var(--ease), background-color .4s var(--ease); }
+
+/* The endoscopic view in the readings card (scope-tile.js): a round picture with its name over it and what it shows under it. The tile
+   keeps one size whatever the varix does, so the card never changes height as the varices swell. */
+.pz .pz-data .pz-tiles .pz-tile.pz-scope { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; padding: 8px 10px; }
+.pz-scope .pzs-pic { display: flex; flex-direction: column; align-items: center; gap: 4px; min-width: 0; }
+.pz-scope .pzs-disc { position: relative; display: block; width: clamp(96px, 20vh, 140px); aspect-ratio: 1; border-radius: 50%; overflow: hidden; background: var(--endo-mucosa-deep); }
+.pz-scope .pzs-disc canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+.pz-scope .pzs-word { font-size: max(12px, var(--pz-psm, 12px)); line-height: 1.3; white-space: nowrap; }

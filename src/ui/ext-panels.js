@@ -5,7 +5,7 @@
 //   tool kind 'plane'    the same in the data card, read from the slide's case
 //   table column 'wave' (col-wave.js)
 
-import { planeVisual, createPlaneTool, toolPlane } from './visual-plane.js?v=a1b176b42d';
+import { planeVisual, createPlaneTool, toolPlane } from './visual-plane.js?v=a68e180340';
 import { waveColumn } from './col-wave.js?v=b5d9025aa5';
 
 // A plane's rows: the slide's `of`, as a table's (a slide id, { id, name }, or { preset, params?, days?, name } for a patient no

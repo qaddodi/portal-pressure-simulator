@@ -193,7 +193,7 @@ test('HVPG response tile: hvpgResp adds a live percent fall in the HVPG from a n
     assert.ok(s.hvpgResp === true || d.slides.findIndex((x) => x.id === s.hvpgResp) >= 0 && d.slides.findIndex((x) => x.id === s.hvpgResp) < d.slides.indexOf(s), `${at}: counted from an earlier slide`);
   }
   const p = src('presenter.js');
-  assert.match(src('card-tiles.js'), /export const tileKeys = \(s, onPhone\) => \[\.\.\.ownKeys\(s, onPhone\), \.\.\.\(s\.hvpgResp && !s\.tiles\?\.includes\('hvpgFall'\) \? \['hvpgFall'\] : \[\]/, 'the tile joins the slide\'s tiles');
+  assert.match(src('card-tiles.js'), /export const tileKeys = \(s, onPhone\) => \[\.\.\.ownKeys\(s, onPhone\), \.\.\.\(s\.scopeTile \? \['scope'\] : \[\]\), \.\.\.\(s\.hvpgResp && !s\.tiles\?\.includes\('hvpgFall'\) \? \['hvpgFall'\] : \[\]/, 'the tile joins the slide\'s tiles');
   assert.match(p, /hvpgFall: \(\(base - f\.hvpg\) \/ base\) \* 100/, 'the fall in percent, live');
   assert.match(p, /ui\.tiles\.set\(respFp\(s, now\.fp\)/);
   assert.match(p, /ui\.tiles\.set\(respFp\(s, f\)/);

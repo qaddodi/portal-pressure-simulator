@@ -5,7 +5,7 @@
 // or tablet, where the chart is always in view beside the tiles, tiles for those two would repeat it. A ladder already brackets the
 // HVPG and PPG: tiles there would repeat them, rounded differently.)
 export const ownKeys = (s, onPhone) => (s.tiles || []).filter((k) => !(s.tool?.kind === 'flowtime' && s.tool.lines?.includes(k) && !onPhone));
-export const tileKeys = (s, onPhone) => [...ownKeys(s, onPhone), ...(s.hvpgResp && !s.tiles?.includes('hvpgFall') ? ['hvpgFall'] : [])];
+export const tileKeys = (s, onPhone) => [...ownKeys(s, onPhone), ...(s.scopeTile ? ['scope'] : []), ...(s.hvpgResp && !s.tiles?.includes('hvpgFall') ? ['hvpgFall'] : [])];
 
 // An instrument with no tiles to tuck behind it is a card of the instrument alone: no readings card, no handle, no stacked look.
 // (Varices 3: a time-lapse chart whose tiles were its own two lines had `data: 'tiles'`, so the card stacked on a laptop with an

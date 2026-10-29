@@ -8,12 +8,12 @@ import { tileKeys, toolOnly } from '../src/ui/card-tiles.js';
 
 const cards = DECKS.flatMap((d) => withOverview(d).slides.map((s, i) => ({ d, s, at: `${d.id}/${s.id} (slide ${i + 1})` }))).filter(({ s }) => !s.visual && s.tool);
 
-test('Varices 3: its tiles are the chart\'s own two lines, so on a laptop or tablet the card is the chart alone, and on a phone it keeps its readings', () => {
+test('Varices 3: the endoscopic view stands behind the chart; its tiles are the chart\'s own two lines, so on a laptop or tablet the card is the chart alone, and on a phone it keeps its readings', () => {
   const s = DECKS.find((d) => d.id === 'varices').slides.find((x) => x.id === 'lapse');
   assert.equal(s.tool.kind, 'flowtime');
-  assert.deepEqual(tileKeys(s, false), [], 'the chart already shows both numbers');
-  assert.equal(toolOnly(s, false), true, 'nothing to tuck: no handle');
-  assert.deepEqual(tileKeys(s, true), ['hvpg', 'varix']);
+  assert.deepEqual(tileKeys(s, false), ['scope'], 'the chart already shows both numbers; the endoscopic view is what stands behind it');
+  assert.equal(toolOnly(s, false), false, 'the endoscopic view is real content to tuck: the handle opens it');
+  assert.deepEqual(tileKeys(s, true), ['hvpg', 'varix', 'scope']);
   assert.equal(toolOnly(s, true), false, 'a phone shows the chart without its numbers, so the readings stay behind it');
 });
 

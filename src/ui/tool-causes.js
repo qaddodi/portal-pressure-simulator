@@ -14,8 +14,8 @@
 // While a compare button or what-if slider moves the live model, the causes are worked out again on the live state and the
 // steps ease to their new places. These are the model's own shares: a deck line that quotes them needs a source.
 
-import { TILE, RATE, tileShown } from './table-marks.js?v=8458ad3bf8';
-import { cutsOf } from './tool-curve.js?v=799a802d0e';
+import { TILE, RATE, tileShown } from './table-marks.js?v=bca5ebb624';
+import { cutsOf } from './tool-curve.js?v=8a9e81ab9f';
 import { DRUGS } from '../engine/scenario.js?v=d7d3ea5b70';
 import { frameFor } from './frame.js?v=7254a8a850';
 const nextFrame = frameFor('tool-causes');
