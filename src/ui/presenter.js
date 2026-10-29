@@ -25,11 +25,11 @@ import { isCamOn, unionBox, regionBox, growBox, camNames } from './cam-frame.js?
 import { NODE_POS } from './anatomy.js?v=48cc98d415';
 import { DISEASE_SRC, diseasePieces } from './diseases.js?v=fb8a5451c3';
 import { nb, listCase, plateletText } from './glue.js?v=5a0f63226b';
-import { DECKS, DECK_ALIAS, REGIONS, LEVELS, TOPICS, withOverview, siteTag, SITE_TAGS } from './decks.js?v=82319812a3';
+import { DECKS, DECK_ALIAS, REGIONS, LEVELS, TOPICS, withOverview, siteTag, SITE_TAGS } from './decks.js?v=965680ce5f';
 import { fingerprintOf } from '../engine/fingerprint.js?v=ca81723393';
 import { createHvpgMonitor } from './hvpg-proc.js?v=6f454a27c1';
-import { createTools } from './presenter-tools.js?v=a9c055393d';
-import { openHandout } from './handout.js?v=bf2ca7ee16';
+import { createTools } from './presenter-tools.js?v=4eef22d647';
+import { openHandout } from './handout.js?v=4ef6d26294';
 import { noteResume, resumeFor } from './resume.js?v=f086f80ee8';
 import { parseDeckSource, checkDeck } from './deck-source.js?v=8395c650cd';
 import { NO_ASC, TILE, cutText, tileOf, SCALE, bandsOf, rateOf, COLS, CUT, PRESS, fpv, dirAbs, dirRel, rateAbs, effOf, rateShown, tileShown, tipsGoal, liveSettled, shownSig } from './table-marks.js?v=bca5ebb624';
@@ -37,12 +37,12 @@ import { frameFor, cancelFrame } from './frame.js?v=7254a8a850';
 import { createFigureKey } from './figure-key.js?v=b6817772fb';
 import { traceWhen } from './trace-labels.js?v=fc916a95c6';
 import { flowCss, heatCss, dropCss, gradientCss, oxygenCss } from './colormap.js?v=05a231b880';
-import { EXT, expandIds, stepExtra, markLabel, figureHooks, safe } from './slide-ext.js?v=b74ba256f4';
+import { EXT, expandIds, stepExtra, markLabel, figureHooks, safe } from './slide-ext.js?v=0e8ede8178';
 import { clotWords } from './callout-math.js?v=dd2fe6d554';
 import { citeText, focusOf, oneLadder } from './teach-extras.js?v=5f5248f5a7';
 import { createProfileTool, createProfileStrip, pillReadings, chartScale } from './tool-profile.js?v=3e6716e522';
 import { causeFit } from './cause-fit.js?v=830a6835a5';
-import { anchorsOf, roomFor } from './cam-room.js?v=c8352a57c6';
+import { anchorsOf, roomFor } from './cam-room.js?v=4b3a8c6618';
 import { beatCount, beatView } from './slide-beats.js?v=2aded612c4';
 import { COMPACT, WIDE } from './card-type.js?v=5af5f22935';
 import { flowTimeHeight, trailKeys } from './flow-time.js?v=026ab2f37c';
@@ -3299,7 +3299,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     // smaller), decided once per slide and size, so it never changes while the slide is in view. (Capped only at 62 % before:
     // with a tall data card, a 667 px iPhone kept 24 to 70 px of figure on a dozen slides and Circuit 2 hid its R liver.)
     // (Before the words are measured for the phone's cap: measured with the full names on two rows, the card kept 12 px it no longer needed.)
-    abShort(ui.text, p || ui.root.classList.contains('low'));   // (a phone, upright or on its side; a wider card may take two rows of full names)
+    abShort(ui.text, true);   // (a row that would wrap takes its compact labels on every screen)
     // (A phone's card with a second part keeps that part on its sheet (.pz-lip, dockVec); each slide arrives partly open.)
     // (Mac and iPad landscape: the same, stacked under the words, every instrument with readings, the Gut to heart chart too: pz-wide.)
     const wide = cardOn && !low;
