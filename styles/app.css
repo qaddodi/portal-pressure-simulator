@@ -1486,7 +1486,7 @@ button.finding { cursor: pointer; }
   --pz-cm: clamp(16px, min(2.6vw, calc(1.8 * var(--pz-b))), 60px);   /* (one margin: sides, top, bottom and the nav pill) */
   --pz-cp: clamp(18px, calc(1.4 * var(--pz-b)), 40px);   /* (one padding, both cards) */
   --pz-cw: min(calc(clamp(340px, min(38vw, calc(23.5 * var(--pz-b))), 640px) * var(--pz-wk, 1)), 42vw);   /* (one card width, about 40 characters of body text) */
-  --pz-rw-outline: min(calc(50 * var(--pz-b)), 82%); --pz-rw-table: min(calc(54 * var(--pz-b)), 82%); --pz-rw-check: min(calc(42 * var(--pz-b)), 82%); --pz-rw-chart: min(calc(54 * var(--pz-b)), 82%); }   /* (the reading cards' widths on a wide screen, below) */
+  --pz-rw-outline: min(calc(50 * var(--pz-b)), 82%); --pz-rw-table: min(calc(54 * var(--pz-b)), 82%); --pz-rw-check: min(calc(42 * var(--pz-b)), 82%); --pz-rw-chart: min(calc(54 * var(--pz-b)), 82%); --pz-rw-plane: min(calc(48 * var(--pz-b)), 74%); }   /* (the reading cards' widths on a wide screen, below) */
 .pz-shade.pz-card:not(.stack) { --pz-glass-drop: rgb(var(--black-rgb) / .14); --pz-r: clamp(16px, calc(2.2 * var(--pzh)), 28px); left: var(--pz-cm); top: var(--pz-cm); bottom: var(--pz-cm); background: color-mix(in srgb, var(--surface) 58%, transparent); border: 1px solid color-mix(in srgb, var(--text) 22%, transparent); border-radius: var(--pz-r); box-shadow: 0 14px 34px -10px var(--pz-glass-drop), 0 2px 6px -1px var(--pz-glass-drop); }
 :root[data-theme="dark"] .pz-shade.pz-card:not(.stack) { --pz-glass-drop: rgb(var(--black-rgb) / .45); }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]):not([data-theme="soft"]) .pz-shade.pz-card:not(.stack) { --pz-glass-drop: rgb(var(--black-rgb) / .45); } }
@@ -5514,6 +5514,7 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
 .pz:not(.stack):not(.low) .pz-panel[data-visual="outline"] { width: var(--pz-rw-outline); }
 .pz:not(.stack):not(.low) .pz-panel[data-visual="table"] { width: var(--pz-rw-table); }
 .pz:not(.stack):not(.low) .pz-panel[data-visual="check"] { width: var(--pz-rw-check); }
+.pz:not(.stack):not(.low) .pz-panel[data-visual="plane"] { width: var(--pz-rw-plane); }   /* (a plane is an illustration, not a table: a narrower card than the other charts', its margin wider on every side) */
 /* A ladder card on a laptop or tablet: the ladder's words at the cards' sizes (presenter.js fitNow reads --ch-<role>), never
    zoomed; the ladder takes the card's width and the fit shortens only its plot (presenter.js LADDER_FILL). With a tile, the
    tile stands beside it, as beside an instrument; with an instrument, the instrument above it. */
@@ -6579,9 +6580,9 @@ html.thumb-ui .menu.from-dock { clip-path: inset(-64px -64px calc(var(--sink, 0p
    over navy reads as olive), their words 4.5:1 or more on them; a deck's own box is a dashed outline; the case in the card is a
    ring that eases. */
 .pze-plot, .pze-ckey, .pze-key {
-  --pze-ok: color-mix(in srgb, var(--ok) 30%, var(--surface)); --pze-mid: color-mix(in srgb, var(--caution) 40%, var(--surface)); --pze-hi: color-mix(in srgb, var(--danger) 30%, var(--surface));
+  --pze-ok: color-mix(in srgb, var(--ok) 28%, var(--surface)); --pze-mid: color-mix(in srgb, var(--caution) 40%, var(--surface)); --pze-hi: color-mix(in srgb, var(--danger) 30%, var(--surface));
   --pze-ok-ink: color-mix(in srgb, var(--ok) 55%, var(--text)); --pze-mid-ink: color-mix(in srgb, var(--caution) 40%, var(--text)); --pze-hi-ink: color-mix(in srgb, var(--danger) 55%, var(--text));
-  --pze-ppg: color-mix(in srgb, var(--tr-hv) 45%, var(--surface)); --pze-hvpg: color-mix(in srgb, var(--ramp-violet) 45%, var(--surface)); --pze-both: color-mix(in srgb, var(--ramp-wine) 45%, var(--surface));   /* (blue, and the pressure ramp's violet and wine stops) */
+  --pze-ppg: color-mix(in srgb, var(--tr-hv) 32%, var(--surface)); --pze-hvpg: color-mix(in srgb, var(--ramp-violet) 24%, var(--surface)); --pze-both: color-mix(in srgb, var(--ramp-wine) 26%, var(--surface));   /* (blue, and the pressure ramp's violet and wine stops; quieter tints of the same colours, Mohammad 29 Oct, each still 30 apart from the others, plane-callouts test) */
   --pze-ppg-ink: color-mix(in srgb, var(--tr-hv) 30%, var(--text)); --pze-hvpg-ink: color-mix(in srgb, var(--ramp-violet) 25%, var(--text)); --pze-both-ink: color-mix(in srgb, var(--ramp-wine) 35%, var(--text));
 }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]):not([data-theme="soft"]) :is(.pze-plot, .pze-ckey, .pze-key) {
@@ -6601,7 +6602,7 @@ html.thumb-ui .menu.from-dock { clip-path: inset(-64px -64px calc(var(--sink, 0p
 .pze-planewrap.pze-nokey { grid-template-columns: minmax(0, 1fr); }   /* (a plane whose zones name themselves: the plot takes the key's width too) */
 .pze-planewrap.pze-nokey > .pze-key { display: none; }
 .pz.stack .pze-planewrap.pze-nokey > .pze-key { display: block; }   /* (an iPhone's plot is too narrow for every zone's words: the key stays under it) */
-.pze-plot { position: relative; width: 100%; height: calc(52 * var(--pzh)); min-height: 240px; font-size: var(--s-cap); }
+.pze-plot { position: relative; width: 100%; height: calc(44 * var(--pzh)); min-height: 240px; font-size: var(--s-cap); }   /* (a summary's plot is an illustration: lower than the 52 it was, so its card stands smaller on every side, Mohammad 29 Oct) */
 .pz.stack .pze-plot { height: auto; aspect-ratio: 1.15; min-height: 0; }
 .pze-plot.pze-incard { height: clamp(200px, calc(30 * var(--pzh)), 360px); min-height: 0; font-size: var(--ch-cap, var(--s-cap)); }
 .pz.stack .pze-plot.pze-incard { height: 168px; aspect-ratio: auto; }
@@ -6625,8 +6626,7 @@ html.thumb-ui .menu.from-dock { clip-path: inset(-64px -64px calc(var(--sink, 0p
 .pze-diag { stroke: var(--text-3); stroke-width: 1.5; stroke-dasharray: 3 4; }   /* (where the two readings are equal) */
 .pze-dt { font-weight: 600; fill: var(--text-2); }
 .pze-ln { font-weight: 600; fill: var(--text); }   /* (a cut-off line's own name: CSPH ≥10, Bleed risk ≥12) */
-/* (His G2 look, 27 Oct: no axis lines, the plot's rounded edge is the axis; the numbers and the axes' names stand on the plot in the FibroScan readings' style, white with a dark outline, a cut-off's number full and the rest and the names quieter.) */
-.pze-t, .pze-ax { paint-order: stroke; stroke: rgb(var(--black-rgb) / .55); stroke-width: 3px; stroke-linejoin: round; }
+/* (His G2 look, 27 Oct: no axis lines, the plot's rounded edge is the axis; the numbers and the axes' names stand on the plot, a cut-off's number full and the rest and the names quieter. They carry no outline: the 55 % black one the FibroScan readings wear on a picture smeared these in the card's own dark text on a light card, Mohammad 29 Oct; the cut-off lines break behind them instead, visual-plane.js.) */
 .pze-t { fill: var(--text-2); font-weight: 600; font-variant-numeric: tabular-nums; }
 .pze-t.on { fill: var(--text); font-weight: 700; }
 .pze-ax { fill: var(--text-2); font-weight: 500; }
@@ -6864,7 +6864,7 @@ html.thumb-ui .menu.from-dock { clip-path: inset(-64px -64px calc(var(--sink, 0p
 .pz.pz:is(.stack, .low) .pz-data.pz-data.has-tool[data-tool^="criteria:"] > .pz-dh::before { flex: 0 0 0; }
 /* A zones card (zones: 'first-visit', his pick G2 27 Oct): everything on the card's centre line, the title, the lead with its rule
    pill on one row, the graph the card's full width, the key under it. The zones in the tiles' band colours, the hatch the text at 30%,
-   the plot's words white with a dark outline as the FibroScan readings; the key's swatch the same hatch as the graph. */
+   the plot's words in the card's own text colour with a halo in the card's colour; the key's swatch the same hatch as the graph. */
 .pz.pz.pz .pz-data.pz-data[data-tool^="criteria:"]:has(.pz-crit.has-zones) > .pz-dh { justify-content: center; text-align: center; }
 .pz-crit.has-zones .pzc-top { flex-wrap: nowrap; align-items: center; justify-content: center; gap: .8em; margin-bottom: .75em; }
 .pz-crit.has-zones .pzc-lead { flex: none; white-space: nowrap; }
@@ -6874,7 +6874,7 @@ html.thumb-ui .menu.from-dock { clip-path: inset(-64px -64px calc(var(--sink, 0p
 .pzz-z[data-rate="mid"] { fill: color-mix(in srgb, var(--caution) 28%, transparent); }
 .pzz-z[data-rate="hi"] { fill: color-mix(in srgb, var(--danger) 32%, transparent); }
 .pzz-hl { fill: color-mix(in srgb, var(--text) 30%, transparent); }
-.pzz-w { font-family: var(--font-ui); font-weight: 600; font-variant-numeric: tabular-nums; fill: var(--text); paint-order: stroke; stroke: rgb(var(--black-rgb) / .55); stroke-width: 3px; stroke-linejoin: round; }
+.pzz-w { font-family: var(--font-ui); font-weight: 600; font-variant-numeric: tabular-nums; fill: var(--text); paint-order: stroke; stroke: var(--surface); stroke-width: 3px; stroke-linejoin: round; }   /* (the card's own colour, as every chart's words: the 55 % black outline smeared the dark text on a light card) */
 .pzz-w.q { font-weight: 500; fill: var(--text-2); }
 .pzc-key { display: flex; flex-direction: column; align-items: center; gap: .3em; margin-top: .7em; text-align: center; font: 500 max(12px, .86em)/1.3 var(--font-ui); color: var(--text-2); }
 .pzc-kl { margin: 0; display: inline-flex; align-items: center; gap: .5em; }

@@ -109,7 +109,7 @@ test('a plane row with from: the ring where the patient started, its line, and t
   const pl = planeOf('hvpg-ppg'), { X, Y } = scaler(pl, { L: 0, R: 300, T: 0, B: 300 });
   assert.equal(wasAt(pl, null, X, Y), null);
   const w = wasAt(pl, { hvpg: 16.5, ppg: 17.4 }, X, Y);
-  assert.deepEqual([w.x, w.y].map((v) => +v.toFixed(1)), [165, 126]);
+  assert.deepEqual([w.x, w.y].map((v) => +v.toFixed(1)), [+(300 * 16.5 / pl.x.max).toFixed(1), +(300 * (1 - 17.4 / pl.y.max)).toFixed(1)], 'the ring at the start\'s own numbers on the plane\'s scale');
   assert.deepEqual(wasBoxes({ x: 10, y: 10 }), [], 'no from, nothing to keep clear of');
   const bx = wasBoxes({ x: 0, y: 0, was: { x: 30, y: 0 } });
   assert.deepEqual(bx[0], [20, -10, 40, 10], 'the ring');

@@ -71,13 +71,17 @@ export const PLANES = {
     edges: true,
   },
   'hvpg-ppg': {
-    x: { key: 'hvpg', min: 0, max: 30, ticks: [0, 5, 10, 20, 30], name: 'HVPG, mmHg', short: 'HVPG' },
-    y: { key: 'ppg', min: 0, max: 30, ticks: [0, 6, 12, 20, 30], name: 'PPG, mmHg', short: 'PPG' },
+    // (Illustrative, Mohammad 29 Oct: "we shouldn't have the labels of the x and y axis ... don't stretch the x axis all the way to like 40".
+    // No axis names, only the four cut-offs' numbers. PPG runs past the highest point on any slide (26.8); HVPG to 24 (the farthest is 16.5),
+    // so that on a narrow phone plot the Sinusoidal obstruction point leaves room right of it for 'Bleed risk ≥12' on its level line.)
+    x: { key: 'hvpg', min: 0, max: 24, ticks: [5, 10], name: 'HVPG, mmHg', short: 'HVPG' },
+    y: { key: 'ppg', min: 0, max: 28, ticks: [6, 12], name: 'PPG, mmHg', short: 'PPG' },
+    axisNames: false,
     zones: [
       { when: [['hvpg', '<', 5], ['ppg', '<', 6]], t: 'Both normal', short: 'Both normal', tone: 'ok', note: 'HVPG <5, PPG <6 mmHg' },
       { when: [['hvpg', '<', 5]], t: 'PPG raised, HVPG normal', short: 'PPG only', tone: 'ppg', note: 'The wedge misses the resistance' },
-      { when: [['ppg', '<', 6]], t: 'HVPG raised, PPG normal', short: 'HVPG only', tone: 'hvpg', at: [20, 3], note: 'HVPG ≥5, PPG <6 mmHg' },
-      { t: 'Both raised', short: 'Both raised', tone: 'both', at: [20, 24], note: 'HVPG ≥5, PPG ≥6 mmHg' },
+      { when: [['ppg', '<', 6]], t: 'HVPG raised, PPG normal', short: 'HVPG only', tone: 'hvpg', at: [14, 3], note: 'HVPG ≥5, PPG <6 mmHg' },
+      { t: 'Both raised', short: 'Both raised', tone: 'both', at: [14, 24], note: 'HVPG ≥5, PPG ≥6 mmHg' },
     ],
     cuts: { x: [5, 10], y: [6, 12] },
     // (The two lines that carry a meaning of their own, named on the plot beside the line: { x|y: { value: words } }.)
@@ -162,7 +166,8 @@ export function plotNumbers(pl, fr, X, Y, fs, keepOff = [], part = 'all') {
     const ok = forms.find((t) => !taken.some((o) => hit(boxOf(t, x, y, anchor), o)));
     put(ok ?? forms.at(-1) ?? a.key, x, y, anchor, 'pze-ax', true);
   };
-  if (part !== 'ticks') {
+  // (axisNames: false leaves the names off a plane drawn only to show the zones' shape.)
+  if (part !== 'ticks' && pl.axisNames !== false) {
     name(pl.x, W - PAD - 3, foot, 'end', W * 0.6);
     name(pl.y, PAD + 3, PAD + 3 + fs * 0.8, 'start', W * 0.6);
   }
@@ -646,8 +651,9 @@ export function planePlot(pl, { card = false } = {}) {
       kids.push(sv('text', { class: 'pze-zt ' + w.cls, 'data-tone': w.z.tone || 'none', x: w.x, y: w.y, 'text-anchor': w.anchor, style: `font-size:${fs}px` }, w.lines.map((l, i) => sv('tspan', { x: w.x, dy: i ? fs * 1.2 : null }, l))));
     }
     // The cut-off lines, the axes and their ticks.
-    // (Broken 4 px clear of a name that sits across one.)
-    for (const c of gapSegs(cutSegs(pl, X, Y, fr), names.filter((n) => n?.across).map((n) => n.box))) kids.push(sv('line', { class: 'pze-cut', ...bleed(c, fr, W, H) }));
+    // (Broken 4 px clear of a name that sits across one, and of a number a line runs to: the numbers carry no outline to hide it, which
+    // smeared them on a light card.)
+    for (const c of gapSegs(cutSegs(pl, X, Y, fr), [...names.filter((n) => n?.across).map((n) => n.box), ...nums.map((n) => n.box)])) kids.push(sv('line', { class: 'pze-cut', ...bleed(c, fr, W, H) }));
     for (const l of lines) kids.push(sv('text', { class: 'pze-ln', x: l.x, y: l.y, 'text-anchor': l.anchor, style: `font-size:${fs}px` }, l.text));
     const dg = diagOf(pl, X, Y, fs);
     if (dg) kids.push(sv('line', { class: 'pze-diag', ...dg.seg }), dg.label ? sv('text', { class: 'pze-dt', x: dg.label.x, y: dg.label.y, 'text-anchor': dg.label.anchor, style: `font-size:${fs}px` }, dg.label.text) : null);

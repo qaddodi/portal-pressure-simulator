@@ -50,7 +50,7 @@ test('the numbers stand on the plot: inside it, apart from each other, the names
     for (const [W, H, fs, where] of SIZES) {
       const fr = frame(W, H), { X, Y } = scaler(pl, fr), nums = plotNumbers(pl, fr, X, Y, fs), tag = `${name}, ${where}`;
       const names = nums.filter((n) => n.cls === 'pze-ax'), ticks = nums.filter((n) => n.cls.startsWith('pze-t'));
-      assert.equal(names.length, 2, `${tag}: both axes named`);
+      assert.equal(names.length, pl.axisNames === false ? 0 : 2, `${tag}: ${pl.axisNames === false ? 'no axis named (an illustration)' : 'both axes named'}`);
       for (const n of nums) {
         assert.ok(n.box[0] >= 0 && n.box[2] <= W && n.box[1] >= 0 && n.box[3] <= H, `${tag}: ${n.text} inside the plot`);
         assert.ok(n.text.length > 0);
@@ -60,22 +60,28 @@ test('the numbers stand on the plot: inside it, apart from each other, the names
       for (const v of pl.cuts.x) assert.ok(ticks.some((n) => n.text === String(v) && n.cls.includes('on')), `${tag}: the x cut-off ${v} is numbered`);
       // (Nothing on the origin twice: the y axis's bottom number is the x axis's first.)
       assert.ok(!ticks.some((n) => n.anchor === 'start' && n.y > H - fs - PAD - 2 && n.x < PAD + 4 && n.text === String(pl.y.min ?? 0) && ticks.filter((m) => m.text === n.text && m.x === n.x).length > 1), `${tag}: no number twice on the origin`);
-      assert.ok(est(names[0].text, fs, 0.62) <= W, `${tag}: the names fit the plot`);
+      if (names.length) assert.ok(est(names[0].text, fs, 0.62) <= W, `${tag}: the names fit the plot`);
     }
   }
 });
 
 test('a number never sits on a point: a box kept off takes the number out, the axes\' names stay', () => {
-  const pl = planeOf('hvpg-ppg'), fr = frame(800, 450), { X, Y } = scaler(pl, fr), fs = 16;
-  const all = plotNumbers(pl, fr, X, Y, fs), at20 = all.find((n) => n.text === '20' && n.anchor === 'start');
-  assert.ok(at20, 'the y 20 is on the plot with nothing in the way');
-  // (A point at the plot's left edge level with the 20, 8 px round it and its halo.)
-  const p = { x: X(0.4), y: Y(20.3) }, keep = [[p.x - 12, p.y - 12, p.x + 12, p.y + 12]];
+  // (The CSPH plane keeps its axes' names; the HVPG against PPG plane's numbers are its cut-offs alone.)
+  const pl = planeOf('csph'), fr = frame(800, 450), { X, Y } = scaler(pl, fr), fs = 16;
+  const all = plotNumbers(pl, fr, X, Y, fs), at100 = all.find((n) => n.text === '100' && n.anchor === 'start');
+  assert.ok(at100, 'the y 100 is on the plot with nothing in the way');
+  // (A point at the plot's left edge level with the 100, 8 px round it and its halo.)
+  const p = { x: X(1), y: Y(101) }, keep = [[p.x - 12, p.y - 12, p.x + 12, p.y + 12]];
   const some = plotNumbers(pl, fr, X, Y, fs, keep);
   assert.ok(!some.some((n) => touch(n.box, keep[0])), 'none touches the point');
-  assert.ok(!some.some((n) => n.text === '20' && n.anchor === 'start'), 'the y 20 beside it is left out');
+  assert.ok(!some.some((n) => n.text === '100' && n.anchor === 'start'), 'the y 100 beside it is left out');
   assert.equal(some.filter((n) => n.cls === 'pze-ax').length, 2, 'the names stay');
-  assert.ok(some.some((n) => n.text === '12' && n.anchor === 'start'), 'the y 12, clear of it, stays');
+  assert.ok(some.some((n) => n.text === '150' && n.anchor === 'start'), 'the y 150, clear of it, stays');
+  // (The same on the HVPG against PPG plane: no names, and a point by the 12 takes only that number out.)
+  const hp = planeOf('hvpg-ppg'), hf = frame(800, 450), h = scaler(hp, hf), hk = [[h.X(0.4) - 12, h.Y(12.3) - 12, h.X(0.4) + 12, h.Y(12.3) + 12]];
+  const hs = plotNumbers(hp, hf, h.X, h.Y, fs, hk);
+  assert.equal(hs.filter((n) => n.cls === 'pze-ax').length, 0, 'no axis named');
+  assert.deepEqual(hs.map((n) => n.text).sort(), ['10', '5', '6'], 'the y 12 beside the point is left out, the other cut-offs stay');
 });
 
 test('the charts all put their plot on a rounded panel, the planes draw their zones out to the edge, and no plane keeps an axis line', () => {
@@ -90,7 +96,11 @@ test('the charts all put their plot on a rounded panel, the planes draw their zo
   assert.doesNotMatch(plane, /pze-axis/, 'no axis lines: the rounded edge is the axis');
   assert.doesNotMatch(plane, /rotate\(-90\)/, 'no rotated axis name: the names stand on the plot');
   assert.match(css, /\.pz-plotbg \{ fill: var\(--surface-2\); \}/, 'the panel is the app\'s own tile tone');
-  assert.match(css, /\.pze-t, \.pze-ax \{ paint-order: stroke; stroke: rgb\(var\(--black-rgb\) \/ \.55\); stroke-width: 3px;/, 'numbers white with a dark outline, as the FibroScan readings');
+  // (Mohammad, 29 Oct: the 55 % black outline the FibroScan readings wear on a picture smeared the plane's numbers and axis names, drawn in the
+  // card's own dark text, on a light card. No outline now; the cut-off lines break behind the numbers instead, visual-plane.js.)
+  assert.doesNotMatch(css, /\.pze-t, \.pze-ax \{[^}]*stroke/, 'the plane\'s numbers and names carry no outline');
+  assert.doesNotMatch(css, /\.pzz-w \{[^}]*stroke: rgb\(var\(--black-rgb\)/, 'nor do the criteria graph\'s words: a dark outline round dark text smears it, so the halo is the card\'s own colour');
+  assert.match(plane, /gapSegs\(cutSegs\(pl, X, Y, fr\), \[\.\.\.names\.filter\(\(n\) => n\?\.across\)\.map\(\(n\) => n\.box\), \.\.\.nums\.map\(\(n\) => n\.box\)\]\)/, 'a cut-off line breaks behind a number it runs to');
 });
 
 test('the ladder\'s three zones are one rounded band, the corners of the whole', () => {
