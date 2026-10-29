@@ -71,6 +71,8 @@ test('the slide card draws the new layout; the Patients chart and an unmeasured 
   assert.match(pt, /ctx\.strokeStyle = text; ctx\.lineWidth = 1\.6;/, 'the EKG in the text colour');
   assert.match(pt, /fillStyle = cssAlpha\('--text-3', 0\.08\); ctx\.fillRect\(L, Y\(wWas\)/, 'the old gap faint grey');
   assert.ok(css.includes('.pz-tool[data-kind="beats"] .pt-head { display: none !important; }'), 'the header leaves the slide card');
+  assert.match(pt, /const BEAT_CARD_S = 5;/, 'the slide card shows the last 5 s');
+  assert.match(pt, /const span = slide && range === 'beats' && showHvpg \? BEAT_CARD_S :/);
   assert.match(presenter, /ref: s\.tool \|\| s\.delta != null \? refOf\(/, 'the slide\'s context carries its delta\'s fingerprint');
 });
 

@@ -35,6 +35,7 @@ const TRACES = [
 ];
 const KEYS = [...TRACES.map((t) => t.id), 'hvpg'];
 const SMOOTH_S = 6; // seconds averaged by the Smooth toggle
+const BEAT_CARD_S = 5;
 const RANGES = [['beats', '10 s', 10], ['minutes', '2 min', 120], ['days', 'Days', null]];
 const LAG_S = 0.12; // wall seconds the trace runs behind the newest sample, so it can glide between frames
 const FINE_S = 22, COARSE_S = 140, BIN = 0.25;
@@ -497,7 +498,8 @@ export function createPressureTime({ marks = () => [] } = {}) {
       x0 = Math.max(first, x1 - 730);
       if (x1 - x0 < 14) x0 = x1 - 14;
     } else {
-      const span = RANGES.find((r) => r[0] === range)[2];
+      // (A slide's beat-by-beat card shows the last 5 s, Mohammad 29 Oct: 10 s was too much; the Patients chart keeps its 10 s.)
+      const span = slide && range === 'beats' && showHvpg ? BEAT_CARD_S : RANGES.find((r) => r[0] === range)[2];
       xNow = headX();
       x1 = xNow; x0 = x1 - span;
       // (On a slide the window starts where its record does: a slide just arrived has no empty left part.)
