@@ -1,11 +1,12 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { abdomenOutline, cavityHalfWidths } from '../src/ui/anatomy.js';
+import { readFileSync } from 'node:fs';
+import { abdomenOutline, cavityHalfWidths, CAVITY_LOW } from '../src/ui/anatomy.js';
 
 // The GPU fills the ascites inside the peritoneal cavity from its half-width per row (cavityHalfWidths), where it once took a
 // raster of the outline (abdomenOutline). Both must be the same shape: checked here against the outline itself, flattened
 // independently and tested point by point (even-odd), at every bulge step.
-const R = [284, 430, 856, 600], N = R[3] * 2 + 1;
+const R = [284, 430, 856, 650], N = R[3] * 2 + 1;
 
 function polygon(d) {
   const n = d.match(/-?\d+(?:\.\d+)?/g).map(Number), pts = [[n[0], n[1]]];
@@ -56,11 +57,17 @@ test('the half-widths draw the same cavity as the outline, at every bulge', () =
   }
 });
 
+test('the GPU fluid rectangle reaches past the floor', () => {
+  const stage = readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8');
+  assert.match(stage, /const FLUID_R = \[284, 430, 856, 650\]/);
+  assert.ok(R[1] + R[3] > CAVITY_LOW + 10);
+});
+
 test('the floor closes at its lowest point and the rows past it lie outside', () => {
   for (const b of [0, 17, 34]) {
     const hw = cavityHalfWidths(b, R[1], R[3], N);
-    assert.ok(Math.abs(halfWidthAt(hw, 997.5)) < 0.5, `bulge ${b}: ${halfWidthAt(hw, 997.5)}`);
-    for (let y = 998; y < R[1] + R[3]; y += 1) assert.ok(halfWidthAt(hw, y) < 0, `bulge ${b} at y ${y}`);
+    assert.ok(Math.abs(halfWidthAt(hw, CAVITY_LOW)) < 0.5, `bulge ${b}: ${halfWidthAt(hw, CAVITY_LOW)}`);
+    for (let y = CAVITY_LOW + 0.5; y < R[1] + R[3]; y += 1) assert.ok(halfWidthAt(hw, y) < 0, `bulge ${b} at y ${y}`);
     for (let y = R[1]; y < 439.5; y += 1) assert.ok(halfWidthAt(hw, y) < 0, `bulge ${b} above the top at y ${y}`);
     assert.ok(hw.every(Number.isFinite));
   }

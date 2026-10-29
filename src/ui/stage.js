@@ -2,7 +2,7 @@
 // over an SVG scene that holds the organ artwork, hit targets and overlays, and screen-space labels.
 
 import { EDGES, dopplerK, NODES, PORTAL_TERRITORY, dMinOf, edgePresent, isOccluded, SHUNT_PORTAL, SHUNT_SYSTEMIC, customShuntId, isStent, stentSite, STENT_SITES, STENT_SPANS, stentGate, stentSegments } from '../engine/topology.js?v=4044766e96';
-import { route as metroRoute, RECTUM_FADE, LABEL_VESSEL, TIP_FADE, TIP_CONNECT, VIEW, VB_ANAT, VB_CIRC, ATLAS_COLUMNS, HIDDEN_EDGES, HIDDEN_NODES, ANAT_HIDDEN, ANAT_HIDDEN_NODES, CAUDATE, CONTEXT_EDGES, BACK_EDGES, IVC_EDGES, NEEDS_C3, NODE_POS, EDGE_PATH, CIRCUIT_PATH, metroPath, ORGANS, SEAM_D, ORGAN_DETAIL, BACKDROP, LIVER_INNER, LIVER_EDGES, LANE_CAPTIONS, ABDOMEN_CLIP, ABDOMEN_FLOOR, flankPath, abdomenOutline, cavityHalfWidths, SPLEEN_CENTER, SITES, ORGAN_LABELS, ATLAS_LABELS, SHORT, ABBR, CHIP_NODES, LIVER_SPLIT_X, CIRCUIT_ZONES, CIRCUIT_LABELS, STRANDS, STRAND_FROM, SIN_EDGES, FEEDERS, fanFeeders, CIRCUIT_TREES } from './anatomy.js?v=48cc98d415';
+import { route as metroRoute, RECTUM_FADE, LABEL_VESSEL, TIP_FADE, TIP_CONNECT, VIEW, VB_ANAT, VB_CIRC, ATLAS_COLUMNS, HIDDEN_EDGES, HIDDEN_NODES, ANAT_HIDDEN, ANAT_HIDDEN_NODES, CAUDATE, CONTEXT_EDGES, BACK_EDGES, IVC_EDGES, NEEDS_C3, NODE_POS, EDGE_PATH, CIRCUIT_PATH, metroPath, ORGANS, SEAM_D, ORGAN_DETAIL, BACKDROP, LIVER_INNER, LIVER_EDGES, LANE_CAPTIONS, ABDOMEN_CLIP, ABDOMEN_FLOOR, CAVITY_LOW, flankPath, abdomenOutline, cavityHalfWidths, SPLEEN_CENTER, SITES, ORGAN_LABELS, ATLAS_LABELS, SHORT, ABBR, CHIP_NODES, LIVER_SPLIT_X, CIRCUIT_ZONES, CIRCUIT_LABELS, STRANDS, STRAND_FROM, SIN_EDGES, FEEDERS, fanFeeders, CIRCUIT_TREES } from './anatomy.js?v=1902c96a72';
 import { pressureColor, deltaColor, dropColor, flowColor, heatColor, velColorOf, velocityColor, oxygenColor } from './colormap.js?v=05a231b880';
 import { forkJoins, sideEndScale } from './fork-joins.js?v=20a032142f';
 import { nodeEnds, nodeDrawn, dotRadius, bareDots } from './circuit-nodes.js?v=1040ba0ec4';
@@ -16,7 +16,7 @@ import { sinceSource } from './since-ref.js?v=ef1a818c75';
 import { clipBox, mapBox } from './fit-box.js?v=d5d6d4c60f';
 import { runFlick, FLICK } from './flick.js?v=afbef74ff2';
 import { inlineStyles } from './svg-inline.js?v=fc17cb73fe';
-import { fluidTarget, poolFade } from './fluid-step.js?v=2742314765';
+import { fluidTarget, poolFade, fluidLevel, fluidFloorAt, fluidBase } from './fluid-step.js?v=0dd50a92f7';
 import { easeTo, fluidSpring, fluidSpringFor } from './organ-ease.js?v=4ebb648131';
 import { spleenMotion } from './spleen-motion.js?v=4e87db0dbb';
 import { subpathsIn, foldOpacity, dropInvisible, mergeClipRuns, boxOutside, paintBox, maskRegionIn, maskSlot, fillMaskHead, pruneDefs } from './plate-copy.js?v=0b5acb0928';
@@ -26,7 +26,7 @@ import { flipFrom, flipAt } from './cath-flip.js?v=6b016952c4';
 import { TEXT_MIN, TEXT_MAX, rolePx, roleOf } from './type-scale.js?v=d7cca3fb73';
 import { seeded, strHash, nodularSites, nodularCells } from './liver-geo.js?v=977185f80a';
 import { diaphragmLine, diaphragmD } from './diaphragm.js?v=8012ab6b28';
-import { CIRR, smooth01, liverField, liverShrink, outlineNormals, contourNodules, morphOutline, fix1 } from './liver-morph.js?v=2f7f2762dd';
+import { CIRR, smooth01, liverField, liverShrink, outlineNormals, contourNodules, morphOutline, fix1 } from './liver-morph.js?v=3b1228043a';
 import { LIVER_GEO } from './liver-geo-data.js?v=41a20a25ac';
 import { COLON_ART, BOWEL_ART, DUO_CLIPS, DUO_A, DUO_B } from './organ-art.js?v=a6a766d521';
 import { warmVisible, ringGrid, inGrid } from './warm-vis.js?v=ccf4f6f71b';
@@ -40,9 +40,9 @@ import { readGroup, shapeSource, bindShape, targetRoom } from './organ-paint.js?
 import { pathCmds, flattenCmds, polyBox } from './shape-gl.js?v=a5ba46162b';
 import { createLabelGL } from './label-gl.js?v=92dddad509';
 import { createGlassGL } from './glass-gl.js?v=bdfe978487';
-import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, ORIGIN_GREY } from './veins-gl.js?v=d03245e50c';
+import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, ORIGIN_GREY } from './veins-gl.js?v=32120c90b3';
 import { varixBead, beadRadius } from './varix-bead.js?v=ac0e84fd89';
-import { advanceStream, createReversalHold, bleedShapes, stepBleedFade, fadeBleedShapes, chevFlowLevel, keyChevron, KEY_CHEV_LANES, originFractions, oxygenFor, ORIGIN_N, createBolus, DYE_BINS, KAPPA, STASIS_MIN_D, HIDDEN_SECONDS } from './blood.js?v=7fa561f952';
+import { advanceStream, createReversalHold, bleedShapes, stepBleedFade, fadeBleedShapes, chevFlowLevel, keyChevron, KEY_CHEV_LANES, originFractions, oxygenFor, ORIGIN_N, createBolus, DYE_BINS, KAPPA, STASIS_MIN_D, HIDDEN_SECONDS } from './blood.js?v=2667e8cf8d';
 import { retireRows } from './flow-rows.js?v=bea4089714';
 import { createJunctionWidths } from './junction-widths.js?v=c5726a67f9';
 import { frameFor, lateFrameFor, cancelFrame, noteDraw, setSaver as setFrameSaver, paceMs } from './frame.js?v=7254a8a850';
@@ -62,7 +62,7 @@ import { pathPieces, piecesLength, pointsAlong } from './path-pieces.js?v=e48667
 import { organDimMatrix } from './organ-dim.js?v=9e19f2fc30';
 import { parseColor, greyOf, paintRef } from './organ-grey.js?v=02072c578d';
 import { bandRing, dashRings, liftEnd, normalShown, rippleList, systemOf, SYSTEM_COLOR } from './highlight-math.js?v=e2c1816e25';
-import { organAnchor, spleenCaliper, acrossVessel, stepGroups, spanOf, spanPath, zoneBand, SPAN_TICK, insideBy, clearOf, besideLine } from './callout-math.js?v=dd2fe6d554';
+import { organAnchor, spleenCaliper, acrossVessel, stepGroups, spanOf, spanPath, zoneBand, SPAN_TICK, insideBy, clearOf, besideLine } from './callout-math.js?v=0a546774fb';
 const nextFrame = frameFor('stage');
 // The figure's render pass (animate) runs after every other callback of its frame: a glide's step, the catheter's state and its
 // camera, the labels are all set first, and the vessel layer is drawn once, as they left it.
@@ -637,7 +637,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // which highlights, anchors and the vessels' cover read.
   const GUT_DRAW = { colon: COLON_ART, bowel: BOWEL_ART, duodenum: `<g clip-path="url(#du-Bc)">${DUO_B}</g>` };
   const GUT_HIDE = ['liver', 'stomach', 'spleen'];
-  const FLUID_R = [284, 430, 856, 600], FLUID_COLS = 1201;   // the GPU ascites' rectangle (world x, y, w, h), and its rows and columns
+  const FLUID_R = [284, 430, 856, 650], FLUID_COLS = 1201;   // the GPU ascites' rectangle (world x, y, w, h), and its rows and columns
   const MASK_BOX = 'x="200" y="-200" width="1020" height="1320"';   // (the plate's rectangle, PLATE_RECT)
   defs.insertAdjacentHTML('beforeend', `${DUO_CLIPS}`
     // colour-exempt: masks (white shows, black hides)
@@ -2227,7 +2227,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const lzAnchor = document.createComment('lobule');
   wrap.append(lzAnchor);
   // (The code is fetched as soon as the figure is shown; the layer is built a moment later, when the page is quiet, or at once for a dive.)
-  const lobuleCode = () => (lzCode ||= import('./lobule-zoom.js?v=c221ebe4cc').catch((err) => { lzCode = null; throw err; }));
+  const lobuleCode = () => (lzCode ||= import('./lobule-zoom.js?v=57c180aae0').catch((err) => { lzCode = null; throw err; }));
   function lobuleReady() {
     return (lzLoad ||= lobuleCode().then(({ createLobuleZoom }) => {
       lz = createLobuleZoom({ host: wrap, styles: wrapCS, before: lzAnchor });
@@ -5801,15 +5801,13 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // an 8 MB upload, several times per ease). The slow creep of a running model stays within a step, so it never holds the plate.
   const fluidEasing = () => ascTarget !== null && Math.abs(clamp(ascTarget / 8500, 0, 1) - clamp(ascShown / 8500, 0, 1)) * 34 > 0.5;
   let ascTarget = null, ascShown = 0, ascVel = 0, fluidMaskB = null, fluidMaskOf = null, fluidMaskOfB = null, fluidBandH = -1, fluidH = 0, fluidAmp = 0, fluidInkRGBA = [0.9, 0.75, 0.28, 0.4];
-  const FLUID_TOP = 485, FLUID_CURVE = 3.2;   // the surface's rise at the fullest belly, and how slowly it leaves the floor (a small pool stays under the appendix)
   const fluidLook = { s: [0, 0, 0, 0], ink: [0, 0, 0, 0], ripple: false };
   const abdomenClipEl = defs.querySelector('#abdomenClip path');
   // (The ripple's phase advances with the running model's frames, so it carries on from where it stood after a pause instead of
   // jumping to the wall clock's; round 2 review, B11.)
   let fluidPh = 0;
   const fluidPhase = () => fluidPh;   // both ripple terms are periodic over 20π
-  const fluidFloor = () => ABDOMEN_FLOOR + 5;
-  const fluidSurfAt = (x, ph) => { const c = (x - 712) / 400; return fluidFloor(fluidH) - fluidH * (0.8 + 0.2 * c * c * clamp(fluidH / FLUID_TOP, 0, 1)) + (Math.sin(x / 38 + ph) * 0.7 + Math.sin(x / 23 - ph * 1.3) * 0.3) * fluidAmp; };
+  const fluidSurfAt = (x, ph) => fluidBase(x, fluidH) + (Math.sin(x / 38 + ph) * 0.7 + Math.sin(x / 23 - ph * 1.3) * 0.3) * fluidAmp;
   // No pool while the readout grades the belly "None"; past that it fades in as it fills and out as it drains, so it never pops.
   const fluidFade = () => poolFade(ascShown);
   function drawAscites() {
@@ -5831,28 +5829,27 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       veins.setFluidSpans(cavityHalfWidths(bulge, R[1], R[3], FLUID_COLS), R);   // (its second row: the liver's edge, setFluidLiver)
     }
     putA(organG.bowel, 'transform', `translate(0 ${(-bulge / 34 * 26).toFixed(1)})`);
-    // The fluid level rises on a compressed scale (u^0.6), so a grade 1–2 effusion is a visible pool, not a sliver. Near the
+    // The fluid level (fluidLevel): the first pool lies under the appendix's tip, and a 1 L pool is a thin layer there. Near the
     // top of the scale (about 8.5 L) the surface reaches the lower edge of the spleen: clearly concave (about 100 units
     // lower in the middle than at the flanks), the same on both sides.
-    const uv = Math.pow(u, 0.6);
-    fluidH = FLUID_TOP * Math.pow(uv, FLUID_CURVE);   // slow off the floor, so a 1 L pool is a thin layer below the appendix; the top of the scale is unchanged fluidAmp = 2 * Math.min(1, uv * 4);
+    ({ h: fluidH, amp: fluidAmp } = fluidLevel(ascShown));
     fluidSurf = null;
     if (fluidFade() <= 0) { putA(ascitesPath, 'd', ''); putA(ascitesLine, 'd', ''); }
     else {
-      const floor = ABDOMEN_FLOOR + 5, ph = reduceMotion.matches || plateOn() ? 0 : fluidPhase();
+      const ph = reduceMotion.matches || plateOn() ? 0 : fluidPhase();
       const surf = (x) => fluidSurfAt(x, ph);
       fluidSurf = surf;
       let line = '';
       for (let x = 296; x <= 1128; x += 8) line += `${x === 296 ? 'M' : ' L'}${x} ${surf(x).toFixed(1)}`;
       putA(ascitesLine, 'd', line);
       if (gAscites.style.getPropertyValue('--fluid-fade') !== fluidFade().toFixed(3)) gAscites.style.setProperty('--fluid-fade', fluidFade().toFixed(3));
-      putA(ascitesPath, 'd', `${line} L 1128 ${floor + 70} L 296 ${floor + 70} Z`);   // down past the rounded pelvic floor; the clip shapes it
+      putA(ascitesPath, 'd', `${line} L 1128 ${CAVITY_LOW + 20} L 296 ${CAVITY_LOW + 20} Z`);   // down past the rounded pelvic floor; the clip shapes it
       // The cells the rippling surface (and its light band) passes through, redrawn each frame on the GPU.
       if (veins && !veins.lost && Math.abs(fluidH - fluidBandH) > 0.25) {
         fluidBandH = fluidH;
         const cells = [];
         for (let x = 288; x < 1136; x += 16) {
-          const base = (z) => { const c = (z - 712) / 400; return fluidFloor(fluidH) - fluidH * (0.8 + 0.2 * c * c * clamp(fluidH / FLUID_TOP, 0, 1)); };
+          const base = (z) => fluidBase(z, fluidH);
           const a = base(x), b = base(x + 16);
           const y0 = Math.min(a, b) - fluidAmp - 2, y1 = Math.max(a, b) + fluidAmp + 10;
           for (let y = y0; y < y1; y += 16) cells.push(x, y);
@@ -5883,7 +5880,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     // (Under a slide's spotlight the fluid eases with the organs' dim: the plate's own value, less a lens's share of it.)
     const spotK = spot.live && plateDim != null ? clamp(plateDim / (wrap.classList.contains('data-layer') ? 0.72 : 1), SEL_DIM, 1) : 1;
     const t = easeInOut(morph), k = (1 - t) * (wrap.classList.contains('has-sel') ? SEL_DIM : spotK);
-    fluidLook.s = [fluidFloor(fluidH), fluidH, fluidAmp, run ? fluidPhase() : fluidLook.s[3]];
+    fluidLook.s = [fluidFloorAt(fluidH), fluidH, fluidAmp, run ? fluidPhase() : fluidLook.s[3]];
     fluidLook.ink = [fluidInkRGBA[0], fluidInkRGBA[1], fluidInkRGBA[2], fluidInkRGBA[3] * k * fluidFade()];
     fluidLook.ripple = run && fluidFade() > 0 && k > 0;
     fluidLook.lv = [liverScale, liverFluidCut];

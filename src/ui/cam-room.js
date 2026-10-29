@@ -11,10 +11,10 @@
 //   lit vessels  a glow entry, or the vessels a term in the line lights (presenter.js slideTargets groups)
 //   probe        the vessel a Doppler probe lies on
 //   reading      a site's pressure pill (a station's reading on the figure)
-import { NODE_POS, EDGE_PATH, LABEL_VESSEL, HIDDEN_EDGES, HIDDEN_NODES, ANAT_HIDDEN_NODES } from './anatomy.js?v=48cc98d415';
+import { NODE_POS, EDGE_PATH, LABEL_VESSEL, HIDDEN_EDGES, HIDDEN_NODES, ANAT_HIDDEN_NODES } from './anatomy.js?v=1902c96a72';
 import { EDGES } from '../engine/topology.js?v=4044766e96';
 import { pathCmds, flattenCmds } from './shape-gl.js?v=a5ba46162b';
-import { expandIds } from './slide-ext.js?v=0e8ede8178';
+import { expandIds } from './slide-ext.js?v=a9bbc6e6ad';
 
 /** The room kept round an anchor that the frame grows to hold, in world units (a ring and a label's dot need a little air). */
 export const ROOM = 28;

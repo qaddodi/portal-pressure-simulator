@@ -1,7 +1,7 @@
 // The stomach's lumen as rows of the figure's own outline, for blood that collects in it (blood.js bleedShapes, veins-gl.js).
 // One span (left x, right x) at each of STO_N heights from STO_Y0 down in steps of STO_DY, read off the stomach drawn with the
 // esophagus (anatomy.js SEAM_D); a row below the stomach's lowest point is empty. Pure geometry, no DOM.
-import { SEAM_D } from './anatomy.js?v=48cc98d415';
+import { SEAM_D } from './anatomy.js?v=1902c96a72';
 
 export const STO_Y0 = 258, STO_DY = 4, STO_N = 80;
 

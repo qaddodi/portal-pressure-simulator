@@ -412,6 +412,25 @@ export const LABEL_VESSEL = {
   LRV: 'LRV_IVC', ILI: 'ILI_IVC', VAR: 'C1a', TIPS: 'TIPS', DIPS: 'DIPS',
 };
 
+// The appendix's centre line, and its tip: the lowest point it is drawn to (the line's lowest point, sampled along its cubics,
+// plus half its widest stroke, .org-appendix.band-ao in app.css). The ascites starts below it (fluid-step.js).
+export const APPENDIX_D = gutPath('M473 916.2 C 479 939.5 491 957.5 509 963.9 C 519 967 527 963.9 531 957.5');
+export const APPENDIX_HALF_W = 5.5;
+export function pathLowest(d) {
+  // (An absolute M then C commands: every second number is a y.)
+  const ys = d.match(/-?\d+(?:\.\d+)?/g).map(Number).filter((_, i) => i % 2 === 1);
+  let low = ys[0];
+  for (let k = 1; k + 2 < ys.length; k += 3) {
+    const [y0, b, e, y1] = ys.slice(k - 1, k + 3);
+    for (let i = 1; i <= 400; i++) {
+      const t = i / 400, u = 1 - t;
+      low = Math.max(low, u * u * u * y0 + 3 * u * u * t * b + 3 * u * t * t * e + t * t * t * y1);
+    }
+  }
+  return low;
+}
+export const APPENDIX_TIP = pathLowest(APPENDIX_D) + APPENDIX_HALF_W;
+
 // Organ artwork (anatomic view only): a frontal plate drawn back to front, as a medical
 // illustrator layers it. Retroperitoneal structures first (the left kidney), then the heart,
 // the colon framing the small
@@ -435,7 +454,7 @@ export const ORGANS = [
   // The three are drawn in one see-through group, cut away under the liver, stomach, spleen and kidney (stage.js). `art`:
   // drawn from that markup; `ring`: the visible outline a highlight draws; `cover`: the shape the vessels behind fade under
   // (the tubes' earlier centre lines and widths, so the vessel tiers keep their look).
-  { id: 'appendix', tone: 'gut', cls: 'org-appendix', band: true, d: gutPath('M473 916.2 C 479 939.5 491 957.5 509 963.9 C 519 967 527 963.9 531 957.5') },
+  { id: 'appendix', tone: 'gut', cls: 'org-appendix', band: true, d: APPENDIX_D },
   { id: 'bowel', tone: 'gut', cls: 'org-bowel', art: 'bowel', d: BOWEL_RING, cover: { d: gutPath('M604 729.3 C 650 712.4 700 720.8 742 729.3 C 786 737.8 830 718.7 872 731.4 C 904 742 906 773.8 878 782.3 C 840 792.9 800 773.8 760 780.2 C 716 786.6 684 801.4 646 792.9 C 610 784.4 590 801.4 598 820.5 C 606 839.6 640 843.8 676 837.4 C 720 829 760 848 800 843.8 C 846 839.6 884 824.7 906 839.6 C 928 856.5 918 886.2 888 890.4 C 846 896.8 810 877.7 764 884.1 C 716 890.4 680 905.3 630 896.8 C 580 888.3 540 875.6 500 877.7 C 470 879.8 446 886.2 424 890.4'), w: 19 } },
   { id: 'duodenum', tone: 'stomach', cls: 'org-duodenum', art: 'duodenum', band: true, ringW: 26, d: DUO_D, cover: { d: 'M726 514 C 690 506 652 526 644 566 C 636 612 650 650 688 668 C 724 684 772 680 806 664', w: 19 } },
   { id: 'colon', tone: 'gut', cls: 'org-colon', art: 'colon', band: true, d: COLON_D, ring: COLON_RING, cover: { d: gutPath('M460 920.4 C 457 899.2 451 882.2 448 863.2 C 440 822.9 437 776.2 439 712.6 C 440 651.2 449 598.2 473 568.5 C 503 555.8 534 589.7 568 632.1 C 611 685.1 664 708.4 727 708.4 C 799 708.4 862 666 903 602.4 C 930 560 952 507 964 462.5 C 971 560 968 708.4 953 803.8 C 944 865.3 910 899.2 860 911.9 C 833 918.3 809 922.5 788 926.8'), w: 25 } },
@@ -486,7 +505,10 @@ export const BACKDROP = {
 // ascites pools in a basin when the view is zoomed out instead of ending in a flat cut.
 // One outline, mirror-symmetric about x = 712, for the flanks drawn on the plate and the cavity the
 // fluid fills, so the fluid always meets the body wall. `b`: how far the flanks bulge with ascites.
-export const flankPath = (b = 0) => `M336 470 C ${324 - b} 610 ${330 - b} 780 ${372 - b * 0.4} 954 C 470 1012 954 1012 ${1052 + b * 0.4} 954 C ${1094 + b} 780 ${1100 + b} 610 1088 470`;
+// The pelvic floor runs between the two flanks' feet (y 954) through two control points at PELVIC_C, so its lowest point (x 712)
+// is CAVITY_LOW: deep enough that the first pool, which starts under the appendix's tip, still shows as a layer.
+export const PELVIC_C = 1072, CAVITY_LOW = 0.25 * 954 + 0.75 * PELVIC_C;
+export const flankPath = (b = 0) => `M336 470 C ${324 - b} 610 ${330 - b} 780 ${372 - b * 0.4} 954 C 470 ${PELVIC_C} 954 ${PELVIC_C} ${1052 + b * 0.4} 954 C ${1094 + b} 780 ${1100 + b} 610 1088 470`;
 export const abdomenOutline = (b = 0) => `M336 440 L${flankPath(b).slice(1)} L1088 440 Z`;
 export const ABDOMEN_CLIP = abdomenOutline(0);
 
@@ -501,7 +523,7 @@ export function cavityHalfWidths(b, y0, h, n) {
   // first half of the floor's.
   const xs = [], ys = [], K = 512;
   for (let i = 0; i <= K; i++) { const t = i / K; xs.push(cub(336, 324 - b, 330 - b, 372 - b * 0.4, t)); ys.push(cub(470, 610, 780, 954, t)); }
-  for (let i = 1; i <= K; i++) { const t = 0.5 * i / K; xs.push(cub(372 - b * 0.4, 470, 954, 1052 + b * 0.4, t)); ys.push(cub(954, 1012, 1012, 954, t)); }
+  for (let i = 1; i <= K; i++) { const t = 0.5 * i / K; xs.push(cub(372 - b * 0.4, 470, 954, 1052 + b * 0.4, t)); ys.push(cub(954, PELVIC_C, PELVIC_C, 954, t)); }
   const yEnd = ys[ys.length - 1];
   const out = new Float32Array(n);
   let j = 0;
