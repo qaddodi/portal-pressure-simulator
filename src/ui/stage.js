@@ -11,6 +11,7 @@ import { store, updateParams, varicesPresent, varixGrowth, shownVel } from './st
 import { fibroReading } from './clock.js?v=5151312569';
 import { s, h, fmt, fmtFlow, fp, clamp, lerp, toast, systemEdge, bloodColors, restBox, translateRest, settledBox, putText, UPRIGHT_MQ } from './util.js?v=58b547f8d4';
 import { riseCentre } from './rise-path.js?v=c039cb7b49';
+import { lerpVT, camPath, blendPaths, viewsOverlap } from './cam-arc.js?v=5a7737ea51';
 import { sinceSource } from './since-ref.js?v=ef1a818c75';
 import { clipBox, mapBox } from './fit-box.js?v=d5d6d4c60f';
 import { runFlick, FLICK } from './flick.js?v=afbef74ff2';
@@ -2070,23 +2071,54 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (F) updateLabels(F);
     nextFrame(() => { if (!camMove) wrap.classList.remove('cam-move'); });
   }
-  function animateVT(to, ms = 700) {
+  // The arc a presenter's long move is taking (see cam-arc.js), so a refit while it runs bends it to the new framing instead of starting over.
+  let arcRun = null;
+  // The viewBox units the stage really shows (the svg meets its viewBox, so the spare room on one axis shows more), and the widest
+  // view an arc may pull back to: the whole figure's fit.
+  function arcRoom() {
+    const cw = svg.clientWidth, ch = svg.clientHeight;
+    if (!cw || !ch) return null;
+    const s0 = Math.min(cw / VIEW.w, ch / VIEW.h), vb = { w: cw / s0, h: ch / s0, cx: VIEW.w / 2, cy: VIEW.h / 2 };
+    return { vb, wMax: vb.w / defaultVT(false).k };
+  }
+  // opt.arc: a presenter's framing. A long move (the two views share nothing) pulls back and comes in rather than panning across at full zoom.
+  function animateVT(to, ms = 700, opt = {}) {
     cancelFrame(vtAnim);
+    const prev = arcRun; arcRun = null;
     vtTarget = to;
-    const from = { ...vt }, t0 = performance.now();
-    if (!sameView(from, to)) logMove({ t: t0, ms, restart: vtGliding, kind: 'glide', zoom: Math.abs(Math.log(to.k / from.k)), pan: Math.hypot(to.x - from.x, to.y - from.y) });
+    const from = { ...vt };
+    let t0 = performance.now();
     if (reduceMotion.matches) ms = Math.min(ms, 300);   // (reduced motion: a short glide, never a jump)
     // Lite mode: a jump, and a move that changes the view (not a small refit) fades the figure in at its new framing.
-    if (ms <= 0) { vtGliding = false; vt = to; applyVT(); CTM = null; camSettle(); dprLet(); return; }
+    if (ms <= 0) {
+      if (!sameView(from, to)) logMove({ t: t0, ms, restart: vtGliding, kind: 'glide', zoom: Math.abs(Math.log(to.k / from.k)), pan: Math.hypot(to.x - from.x, to.y - from.y) });
+      vtGliding = false; vt = to; applyVT(); CTM = null; camSettle(); dprLet(); return;
+    }
+    let at = (u) => (u >= 1 ? { ...to } : lerpVT(from, to, u));
+    const room = opt.arc && !reduceMotion.matches ? arcRoom() : null;   // (reduced motion: no pull-back, the plain short glide)
+    if (room && prev && vtGliding && performance.now() < prev.t0 + prev.ms && viewsOverlap(prev.to, to, room.vb)) {
+      // A refit while an arc runs (the cards settled, the screen turned): the same arc from where it began, now to the new framing,
+      // taken over gradually from here on, keeping its pace and its end time. Nothing jumps and it does not start over from rest.
+      const u = easeInOut(clamp((performance.now() - prev.t0) / prev.ms, 0, 1));
+      const path = camPath(prev.from, to, room.vb, room.wMax);
+      at = blendPaths(prev.at, path.at, u, room.vb);
+      t0 = prev.t0; ms = prev.ms;
+      arcRun = { from: prev.from, to, t0, ms, at };
+    } else if (room) {
+      const path = camPath(from, to, room.vb, room.wMax);
+      if (path.arc) { ms = Math.round(ms * path.stretch); at = path.at; arcRun = { from, to, t0, ms, at }; }
+    }
+    if (!sameView(from, to)) logMove({ t: t0, ms, restart: vtGliding, kind: 'glide', arc: !!arcRun, zoom: Math.abs(Math.log(to.k / from.k)), pan: Math.hypot(to.x - from.x, to.y - from.y) });
+    const left = Math.max(0, t0 + ms - performance.now());
     vtGliding = true;
-    if (store.get().presenting && !sameView(from, to)) { camMove = true; dpr.carry = dpr.on && performance.now() < dpr.refitUntil; wrap.classList.add('cam-move'); setTimeout(() => { if (!vtGliding) camSettle(); }, ms + 80); } else camSettle();
+    if (store.get().presenting && !sameView(from, to)) { camMove = true; dpr.carry = dpr.on && performance.now() < dpr.refitUntil; wrap.classList.add('cam-move'); setTimeout(() => { if (!vtGliding) camSettle(); }, left + 80); } else camSettle();
     dprLet();   // (a probe waiting for the slide's framing: a move hides it till it lands, a refit shows it now)
     const step = (now) => {
       // A newer glide (or a framing set outright) took over: this one stops. A glide started from inside this step's
       // frame (a refit a view change set off) left two running, and the older could land last, where nobody wanted it.
       if (vtTarget !== to) return;
       const u = easeInOut(clamp((now - t0) / ms, 0, 1));
-      vt = lerpVT(from, to, u);
+      vt = at(u);
       applyVT(); CTM = null;
       // With the catheter in, the vessels, the catheter and its labels follow the camera in this very frame (the labels and the
       // vessel layer after the frame's other steps: cathLabelsSoon, then animate's one render pass).
@@ -2094,14 +2126,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       if (sites.list) { refreshCTM(); sitesPaint(); }
       if (scan.on) scanPaint();
       dprobePaint();
-      if (u < 1) vtAnim = nextFrame(step); else { vtGliding = false; camSettle(); }
+      if (u < 1) vtAnim = nextFrame(step); else { vtGliding = false; arcRun = null; camSettle(); }
     };
     vtAnim = nextFrame(step);
-  }
-  // Interpolate the zoom geometrically so the approach feels even at every scale.
-  function lerpVT(from, to, u) {
-    const k = from.k * Math.pow(to.k / from.k, u), a = to.k === from.k ? u : (k - from.k) / (to.k - from.k);
-    return { k, x: from.x + (to.x - from.x) * a, y: from.y + (to.y - from.y) * a };
   }
   function zoomToBox(x0, y0, x1, y1) {
     fitted = false;
@@ -2136,7 +2163,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     fitted = false;
     if (morphTarget !== 0) return;
     const to = boxVT(box, kMax, clear);
-    if (to && !sameView(to, vtGliding ? vtTarget : vt)) animateVT(to, ms);
+    if (to && !sameView(to, vtGliding ? vtTarget : vt)) animateVT(to, ms, { arc: true });
   }
   // Where the way out of the lobule lands when the next slide frames somewhere other than the fit: the rise itself
   // zooms straight to that framing, so there is no stop at the fit on the way. The box is asked for when the rise
