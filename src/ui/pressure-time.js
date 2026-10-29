@@ -13,11 +13,11 @@ import { tenthGap } from '../engine/gap.js?v=3aabfbb29b';
 import { firstAtOrAbove, firstAbove } from './sorted.js?v=662e543c85';
 import { limitLabelX as labelX } from './limit-label.js?v=52dcc41a1e';
 import { wrapLabel } from './wrap-label.js?v=1af9654a99';
-import { createBeatClock, ekgSeries } from './ekg.js?v=bce6cba25d';
+import { createBeatClock, ekgSeries, leadIISeries } from './ekg.js?v=f27505b539';
 import { laneRoom } from './trace-lanes.js?v=3d3cb1915e';
 import { olderThan, inFront } from './backfill.js?v=455d888760';
 import { plotFill } from './plot-look.js?v=5037697da7';
-import { beatTop, beatLayout, colPlan, paperFine, beforeLabelY, sinceText } from './beat-card.js?v=9841676af2';
+import { beatTop, beatLayout, colPlan, paperFine, beforeLabelY, sinceText } from './beat-card.js?v=1c985e2f61';
 import { VITALS } from './vital-read.js?v=cbba41a6b7';
 const nextFrame = frameFor('pressure-time');
 
@@ -325,11 +325,13 @@ export function createPressureTime({ marks = () => [] } = {}) {
     // the paper, from the plot's bottom left corner up through the strip: a heavy line every 5 squares
     const paperTop = lay.ekg ? lay.ekg.top : top;
     ctx.save(); ctx.beginPath(); ctx.rect(L, paperTop - 2, plotW, bot - paperTop + 2); ctx.clip();
+    // (Its upright lines are laid on time, not on the card: the paper scrolls left with the traces, as a strip runs out of a monitor, Mohammad 29 Oct.)
+    const pxS = plotW / Math.max(1e-9, x1 - x0), X0 = L - x0 * pxS, i0 = Math.floor((L - X0) / sq);
     ctx.lineWidth = 1;
     for (const heavy of [false, true]) {
       if (!heavy && !paperFine(sq)) continue;
       ctx.strokeStyle = cssAlpha('--danger', heavy ? 0.26 : 0.11); ctx.beginPath();
-      for (let i = 0; L + i * sq <= R + 0.5; i++) { if ((i % 5 === 0) !== heavy) continue; const x = Math.round(L + i * sq) + 0.5; ctx.moveTo(x, paperTop - 2); ctx.lineTo(x, bot); }
+      for (let i = i0; X0 + i * sq <= R + 0.5; i++) { if ((((i % 5) + 5) % 5 === 0) !== heavy) continue; const x = Math.round(X0 + i * sq) + 0.5; if (x < L) continue; ctx.moveTo(x, paperTop - 2); ctx.lineTo(x, bot); }
       for (let j = 0; bot - j * sq >= paperTop - 2; j++) { if ((j % 5 === 0) !== heavy) continue; const y = Math.round(bot - j * sq) + 0.5; ctx.moveTo(L, y); ctx.lineTo(R, y); }
       ctx.stroke();
     }
@@ -342,8 +344,9 @@ export function createPressureTime({ marks = () => [] } = {}) {
     // the EKG strip, in the text colour, over the model's own beats
     if (lay.ekg && fine.t.length > 1) {
       const { top: et, bot: eb } = lay.ekg;
-      const e = ekgSeries(beatClock.times, Math.max(x0, fine.t[0]), x1, 60 / (hr > 20 ? hr : 70));
-      const Ye = (v) => eb - 3 - ((v + 0.3) / 1.3) * (eb - et - 6);
+      // (lead II with its waves in seconds, not stretched to the beat: a narrow QRS, a rounded P and T; it ends at "now", with the pressures)
+      const e = leadIISeries(beatClock.times, Math.max(x0, fine.t[0]), Math.min(x1, fine.t[fine.t.length - 1]), 60 / (hr > 20 ? hr : 70));
+      const Ye = (v) => eb - 2 - ((v + 0.25) / 1.25) * (eb - et - 4);
       if (e.x.length > 1) {
         ctx.save(); ctx.beginPath(); ctx.rect(L, et - 2, plotW, eb - et + 4); ctx.clip();
         ctx.strokeStyle = text; ctx.lineWidth = 1.6; ctx.lineJoin = 'round'; ctx.lineCap = 'round'; ctx.beginPath();
@@ -499,11 +502,13 @@ export function createPressureTime({ marks = () => [] } = {}) {
       if (x1 - x0 < 14) x0 = x1 - 14;
     } else {
       // (A slide's beat-by-beat card shows the last 5 s, Mohammad 29 Oct: 10 s was too much; the Patients chart keeps its 10 s.)
-      const span = slide && range === 'beats' && showHvpg ? BEAT_CARD_S : RANGES.find((r) => r[0] === range)[2];
+      const beatCard = slide && range === 'beats' && showHvpg;
+      const span = beatCard ? BEAT_CARD_S : RANGES.find((r) => r[0] === range)[2];
       xNow = headX();
       x1 = xNow; x0 = x1 - span;
-      // (On a slide the window starts where its record does: a slide just arrived has no empty left part.)
-      if (slide) {
+      // (On a slide the window starts where its record does: a slide just arrived has no empty left part. Not the beat-by-beat card: like a
+      // monitor its readings come in at "now" on the right and run left from the first frame, Mohammad 29 Oct.)
+      if (slide && !beatCard) {
         const firstIn = (q) => { for (let i = 0; i < q.x.length; i++) if (Number.isFinite(q.mid[i])) return q.x[i]; return Infinity; };   // (its first reading in the window: after a restart, or a stall that dropped samples, the window starts there)
         const first = Math.min(...[...traces.map((t) => t.id), 'hvpg'].map((k) => firstIn(series(k, x0, x1))));
         // (The scale stays fixed: recording starts at the left edge and fills to the right, then scrolls left.)

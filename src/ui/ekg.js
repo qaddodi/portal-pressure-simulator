@@ -120,3 +120,38 @@ export function seedBeats(times, period, edge) {
   times.unshift(...back.reverse());
   return back.length;
 }
+
+// ── Lead II for the beat-by-beat slide card ──
+// The waves in seconds about each R peak, so the QRS stays narrow (about 80 ms) whatever the rate and the T wave closes in as the heart
+// speeds up (QT about 0.4 √RR). A beat's R peak sits where ekgAt puts it (phase 0.02), so each QRS still lands on the model's own beat.
+const gauss = (t, at, wide, high) => high * Math.exp(-(((t - at) / wide) ** 2));
+/** The waveform `dt` seconds from an R peak, in a beat `rr` seconds long, as a fraction of the R wave. */
+export const leadIIAt = (dt, rr) => {
+  const tPeak = 0.4 * Math.sqrt(Math.max(0.3, rr)) - 0.11;
+  return gauss(dt, -0.15, 0.03, 0.12)     // P
+    + gauss(dt, -0.022, 0.008, -0.07)      // Q
+    + gauss(dt, 0, 0.011, 1)               // R
+    + gauss(dt, 0.024, 0.009, -0.17)       // S
+    + gauss(dt, tPeak, 0.055, 0.28);       // T
+};
+
+/** The strip between two times as points { x, v }, every 4 ms, from the beats' start times as ekgSeries takes them. Each point sums the
+ *  waves of the beats around it, so a fast heart's T runs into the next P as it does on a monitor. Nothing is laid past the last beat's end. */
+export function leadIISeries(times, x0, x1, period, step = 0.004) {
+  const x = [], v = [];
+  if (!times.length || !(x1 > x0)) return { x, v };
+  const starts = times.slice();
+  const lead = starts.length > 1 ? starts[1] - starts[0] : period;
+  if (Number.isFinite(lead) && lead > 1e-6) starts.unshift(starts[0] - lead);
+  const lens = starts.map((t, k) => (k + 1 < starts.length ? starts[k + 1] - t : period));
+  const peaks = starts.map((t, k) => t + 0.02 * lens[k]);
+  const end = Math.min(x1, starts[starts.length - 1] + period);
+  let k = 0;
+  for (let t = Math.max(x0, starts[0]); t <= end + 1e-9; t += step) {
+    while (k + 1 < peaks.length && peaks[k + 1] <= t) k++;
+    let s = 0;
+    for (let j = Math.max(0, k - 1); j <= Math.min(peaks.length - 1, k + 2); j++) s += leadIIAt(t - peaks[j], lens[j]);
+    x.push(t); v.push(s);
+  }
+  return { x, v };
+}

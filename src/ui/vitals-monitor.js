@@ -12,7 +12,7 @@ import { h, fmt, fitCanvas, clamp, cssVar } from './util.js?v=58b547f8d4';
 import { FONT } from './charts.js?v=8462faa7c6';
 import { frameFor, cancelFrame } from './frame.js?v=7254a8a850';
 import { VITALS, vitalReading } from './vital-read.js?v=cbba41a6b7';
-import { createBeatClock, ekgSeries, beatWalk, walkBeats, seedBeats } from './ekg.js?v=bce6cba25d';
+import { createBeatClock, ekgSeries, beatWalk, walkBeats, seedBeats } from './ekg.js?v=f27505b539';
 import { olderThan, inFront } from './backfill.js?v=455d888760';
 const nextFrame = frameFor('vitals-monitor');
 

@@ -71,8 +71,9 @@ test('the slide card draws the new layout; the Patients chart and an unmeasured 
   assert.match(pt, /ctx\.strokeStyle = text; ctx\.lineWidth = 1\.6;/, 'the EKG in the text colour');
   assert.match(pt, /fillStyle = cssAlpha\('--text-3', 0\.08\); ctx\.fillRect\(L, Y\(wWas\)/, 'the old gap faint grey');
   assert.ok(css.includes('.pz-tool[data-kind="beats"] .pt-head { display: none !important; }'), 'the header leaves the slide card');
+  assert.match(pt, /X0 = L - x0 \* pxS/, 'the paper\'s upright lines ride on time, so the grid scrolls with the traces');
   assert.match(pt, /const BEAT_CARD_S = 5;/, 'the slide card shows the last 5 s');
-  assert.match(pt, /const span = slide && range === 'beats' && showHvpg \? BEAT_CARD_S :/);
+  assert.match(pt, /const beatCard = slide && range === 'beats' && showHvpg;\s+const span = beatCard \? BEAT_CARD_S :/);
   assert.match(presenter, /ref: s\.tool \|\| s\.delta != null \? refOf\(/, 'the slide\'s context carries its delta\'s fingerprint');
 });
 
@@ -82,4 +83,24 @@ test('the bleed decks name what the dotted lines are', () => {
   for (const [d, id, t] of tools) assert.match(t.deltaLabel || '', /^before the (re)?bleed$/, `${d} ${id}`);
   const vb = DECKS.find((d) => d.id === 'variceal-bleed');
   for (const id of ['rebleed', 'failure', 'bridge']) assert.equal(vb.slides.find((s) => s.id === id).tool.deltaLabel, 'before the rebleed');
+});
+
+test('the slide card\'s EKG is lead II in seconds: a narrow QRS at any rate, a T that closes in as the heart speeds up', async () => {
+  const { leadIIAt, leadIISeries } = await import('../src/ui/ekg.js');
+  assert.ok(Math.abs(leadIIAt(0, 0.8) - 1) < 0.01, 'the R peak');
+  assert.ok(leadIIAt(0.045, 0.5) < 0.05 && leadIIAt(-0.045, 1.2) < 0.05, 'the QRS is over within about 45 ms either side, fast or slow');
+  const tPeak = (rr) => { let best = 0, at = 0; for (let t = 0.08; t < rr; t += 0.002) { const v = leadIIAt(t, rr); if (v > best) { best = v; at = t; } } return at; };
+  assert.ok(tPeak(0.5) < tPeak(1.0) - 0.05, 'the T wave nearer the QRS at 120/min than at 60/min');
+  const beats = [10, 10.5, 11, 11.5];
+  const s = leadIISeries(beats, 10.6, 12.5, 0.5);
+  assert.ok(s.x[0] >= 10.6 - 1e-9 && s.x.at(-1) <= 12 + 1e-9, 'it starts at the window and ends with the last beat');
+  for (let i = 1; i < s.x.length; i++) assert.ok(s.x[i] > s.x[i - 1]);
+  assert.equal(s.v.filter((v, i) => i && i + 1 < s.v.length && v > 0.9 && v >= s.v[i - 1] && v >= s.v[i + 1]).length, 2, 'one R peak a beat: 11.01 and 11.51 (10.51 is before the window)');
+});
+
+test('the beat card scrolls like a monitor: readings come in at "now" from the first frame, the EKG stops there too', () => {
+  assert.match(pt, /if \(slide && !beatCard\) \{/, 'no left-to-right fill on the beat card');
+  assert.match(pt, /leadIISeries\(beatClock\.times, Math\.max\(x0, fine\.t\[0\]\), Math\.min\(x1, fine\.t\[fine\.t\.length - 1\]\)/);
+  const l = beatLayout(560, 400);
+  assert.ok(l.ekg.bot - l.ekg.top <= 46, 'the strip stays a strip');
 });

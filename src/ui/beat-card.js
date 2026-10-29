@@ -34,7 +34,7 @@ export function beatLayout(w, h, withEkg = true) {
   const L = 36, R = wide ? w - colW - 30 : w - 96;   // (wide: the caliper's room between the plot and the column; narrow: the end values)
   const head = wide ? 0 : 30, B = 24;
   const avail = h - head - B - 14;
-  const ekgH = withEkg && avail >= 100 ? Math.round(Math.min(72, Math.max(28, avail * 0.22))) : 0;
+  const ekgH = withEkg && avail >= 100 ? Math.round(Math.min(46, Math.max(26, avail * 0.15))) : 0;   // (a strip, not a chart: Mohammad 29 Oct, "not that long")
   const y0 = 10 + head;
   const ekg = ekgH ? { top: y0, bot: y0 + ekgH } : null;
   const top = (ekg ? ekg.bot + 12 : y0) + 4, bot = h - B;
