@@ -3,11 +3,7 @@
 
 import { startHost, host } from './host.js?v=164ee7d975';
 import { store, updateParams, replaceParams, bindParamSender, clearHistory, logAction, varicesPresent, hiddenNow } from './store.js?v=926dabfaef';
-<<<<<<< HEAD
 import { createStage } from './stage.js?v=402c1ae21e';
-=======
-import { createStage } from './stage.js?v=402c1ae21e';
->>>>>>> 7821eb2 (Procedures: one TIPS caliber, BRTO/BATO balloon close-up, numbered callouts on the part they name and clear of vessels, inline step circles, guided slides open before the procedure, GV6 just plays BRTO; restamp)
 import { createCreditPlacer } from './credit.js?v=fa8c256d94';
 import { whenQuiet } from './quiet.js?v=82fc0f97e3';
 import { sinusoidSupported } from './gl-support.js?v=94ad2a7ff1';
