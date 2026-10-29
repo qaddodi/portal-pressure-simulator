@@ -608,7 +608,7 @@ export function createCurve() {
       [x0, x1] = xDomain(xv, t.xFrom, t.xTo);
     } else { const xs = curveXs(t).map((x) => x * ax.x); x0 = xs[0]; x1 = xs.at(-1); }
     // (A reading on x and two lines: the case's values stand in the key row, a value's room in each key.)
-    const keyRead = t.readout !== 'ring' && t.ring !== false && !!xk && ls.length === 2 && !one, kvW = keyRead ? cw('888.8', f, 1) + 6 : 0;
+    const keyRead = false, kvW = 0;   // (no current-state readings in the key row: his 29 Oct, no more circles)
     const keys0 = keyLs.length < 2 || keyLs.reduce((a, l) => a + 22 + cw(l.name, f, 1) + 6 + cw(l.unit, f) + kvW, 0) + 2 * f <= w;
     // (With against, the lines' key that stands in when their names don't fit on the drawing takes a row of its own when
     // it would run into the reading's name and unit at the left.)
@@ -775,7 +775,7 @@ export function createCurve() {
     parts.at.classList.toggle('off', !ok);
     parts.svg.dataset.ring = ok ? [r.x, ...r.ys.map((v) => (Number.isFinite(v) ? v.toFixed(2) : ''))].join(' ') + (goal?.on ? ' curve' : ' live') : '';   // (the browser checks read it)
     const left = cx > (G.L + G.R) / 2, fs = 1.1 * f, rr = Math.max(5, f * 0.45) + 2;
-    const cys = parts.lines.map((p, j) => (ok && Number.isFinite(r.ys[j]) ? p.Y(r.ys[j]) : null));
+    const cys = parts.lines.map(() => null);   // (no ring or value for the current state on any chart: his 29 Oct; the case is still read into data-ring)
     // (Each value takes the first spot beside its ring that lands on nothing: the data lines, the cut-off lines, the x axis,
     // the dashed line through the rings, both rings and the other value; the side away from the nearer edge first.)
     const ob = parts.obstacles, dr = Math.max(3.5, 0.3 * f) + 2;
