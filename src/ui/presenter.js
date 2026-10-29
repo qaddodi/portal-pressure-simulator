@@ -1095,16 +1095,46 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     // (Reduced motion keeps the glide, short: a jump of the whole figure is harder to follow than a quick move. Under the start's
     // cover it is set outright, so the reveal never catches it on its way.)
     const gl = booting ? 0 : ms || 300;
-    if (cam === 'fit' || v === 'circuit') stage.fitSlow(gl);
-    else stage.frameBox(camBox(cam, s), gl, s.kMax || 3.2, !!s.clear);
+    frameTo(v === 'circuit' ? 'fit' : cam, s, gl);
     await wait(gl);
   }
   const cardsEntering = () => [ui?.text, ui?.panel, ui?.data].some((el) => el && !el.hidden && el.getAnimations({ subtree: true }).some((a) => a.playState === 'running' && Number.isFinite(a.effect?.getComputedTiming().endTime)));
   // Where the way out of the lobule should land for a slide: its framing, asked for when the rise begins (null: the fit).
   const riseFor = (cam, s) => (cam === 'fit' ? null : { box: () => camBox(cam, s), kMax: s.kMax || 3.2, clear: !!s.clear });
+  // What the figure shows for the slide on screen (fig: { i, s }): the slide itself, framed where its time-lapse ends (lapse.cam) once
+  // its days are run or when they are not played (back, a jump back, the first slide). Refits read it, so they keep that framing.
+  // push: the slow push under way to lapse.cam, { i, until }.
+  let fig = null, push = null;
+  const figOf = (i) => (fig && fig.i === i ? fig.s : slides[i]);
+  const lapseCam = (s) => (!s?.visual && !s?.cath && s?.lapse?.cam) || null;
+  const figView = (s, lap) => (lapseCam(s) && !lap ? { ...s, cam: s.lapse.cam } : s);
+  // The push: the camera drifts from the slide's framing to lapse.cam over `ms`, slow and even, the labels riding with it (stage.js
+  // drifting). Where it cannot run smoothly (no live GPU organs: each frame of a move over the live drawing paints every organ), with
+  // reduced motion, or in the circuit or the liver, the camera stays put and one eased move takes it there as the days end (pushEnd).
+  function pushTo(s, to, ms) {
+    const pc = lapseCam(s);
+    if (!pc) return;
+    fig = { i: to, s: { ...s, cam: pc } };
+    if (reduce.matches || !stage.canDrift?.() || (s.view || 'anatomic') !== 'anatomic' || store.get().lobule || store.get().sinusoid) return;
+    push = { i: to, until: performance.now() + ms };
+    frameTo(pc, fig.s, ms, { drift: true });
+  }
+  // The days have ended (or Next ran them out): what is left of the push takes `ms`; with no push it is one eased move there. Measured
+  // afresh, so an organ that grew through the days (the spleen) is framed as it ends.
+  function pushEnd(s, to, ms) {
+    if (!lapseCam(s) || fig?.i !== to) return;
+    const v = fig.s, pc = v.cam, drift = !!push && push.i === to;
+    push = drift ? { i: to, until: performance.now() + ms } : null;
+    if ((s.view || 'anatomic') !== 'anatomic' || store.get().lobule || store.get().sinusoid) return;
+    frameTo(pc, v, drift ? ms : Math.max(ms, reduce.matches ? 300 : 900), drift ? { drift: true } : {});
+  }
   // A slide's framing: its region of the plate (or, by name, the box its names fill), grown to take in all of what the slide points
   // at (its outlined organs as drawn now, an enlarged spleen whole), with a little room for the outline's glow, and room for its marks,
   // labels, lit vessels, probe and readings, so none of them stands outside the frame (cam-room.js).
+  // The one move to a framing on the plate: the whole figure, or a slide's box (opt.drift: a slow push, see pushTo).
+  function frameTo(cam, s, ms, opt = {}) {
+    if (cam === 'fit') { if (opt.drift) stage.fitDrift(ms); else stage.fitSlow(ms); } else stage.frameBox(camBox(cam, s), ms, s.kMax || 3.2, !!s.clear, opt);
+  }
   function camBox(cam, s) {
     let r = regionBox(isCamOn(cam) ? cam.near : cam, REGIONS);
     if (isCamOn(cam)) {
@@ -1433,6 +1463,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     if (!lapseOn || lapseLeft < 1) return;
     host.send(bedside(slides[want]) ? { type: 'lapseFast', ms: 600 } : { type: 'run', speed: Math.max(1, lapseLeft / 0.6) });
     lapseLeft = 0; paintChrome();
+    if (push?.i === want) pushEnd(slides[want], want, 600);   // (the push runs out with the days, from wherever it has reached)
   }
   // (A bedside time-lapse, lapse.clock 'seconds': the ramp plays on the seconds clock, so an instrument such as the Doppler keeps recording.)
   const bedside = (s) => s?.lapse?.clock === 'seconds';
@@ -1476,6 +1507,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     let seen = false;
     ui?.tools.progress(0, end.trail);
     host.send({ type: 'lapse', days, speed: days / (s.lapse.seconds || 8), ramp: s.ramp || null, bedside: bedside(s) });
+    pushTo(s, to, (s.lapse.seconds || 8) * 1000);
     paintChrome();
     figureHooks('lapse', s);   // (a deck visuals package's glow from the days' start: slide-ext.js)
     while (lapseOn && !cut()) {
@@ -1495,6 +1527,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     }
     if (!lapseOn || cut()) { stopLapse(); return; }
     lapseOn = false; paintChrome();
+    pushEnd(s, to, reduce.matches ? 0 : 600);
     paintLapse(s, days, days, true);
     ui?.tools.progress(1);
     // (The live days land a hair off the computed end: the last step eases there too.)
@@ -1709,16 +1742,18 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     // slide (summary table included) draws it afresh instead of leaving the half-changed screen.
     scalePick = null; const was = shown;   // (a flip of the scale is a detour: every slide opens on its own scale; was: the slide on screen, for the cards it may keep)
     shown = null; entering = null;
-    const cam = s.visual ? s.cam || null : s.cam || 'fit';
+    // A time-lapse starts from the slide before's state; a catheter slide drives its own camera.
+    // Coming back to it from a later slide shows its end at once: it plays only going forward.
+    const back = to < lastAt, lap = !!s.lapse && to > 0 && !back, ct = !s.visual ? s.cath || null : null;
+    // (What the figure shows: the slide, framed where its days end when they are not played: lapse.cam.)
+    const fv = figView(s, lap); fig = { i: to, s: fv }; push = null;
+    const cam = fv.visual ? fv.cam || null : fv.cam || 'fit';
     // Leaving the lobule: the organs' picture for the way out is begun at once, while the old words leave and the new ones come in,
     // so the rise does not wait for it (stage.js prepRise; it does nothing outside a landed lobule).
     if (!LOBULE_CAM.test(cam || '')) stage.prepRise?.();
     // And the lobule's framing is held in the space the leaving slide's cards left, before the new cards change it: they come in
     // before the rise, and a lobule that followed them zoomed in and down before going out (Mohammad, 21 Oct, Ascites 4 to 5).
     if ((!s.visual && s.cath) || (cam && !LOBULE_CAM.test(cam))) stage.lobuleHold?.(true);
-    // A time-lapse starts from the slide before's state; a catheter slide drives its own camera.
-    // Coming back to it from a later slide shows its end at once: it plays only going forward.
-    const back = to < lastAt, lap = !!s.lapse && to > 0 && !back, ct = !s.visual ? s.cath || null : null;
     // A question card is shown only stepping onto the slide going forward (never on a jump or Back). A slide that changes the model then lands
     // holding the state before it, and its change plays once the card is lifted (answerPlay, or its time-lapse). A slide whose answer is a
     // control the learner moves, or a visual, changes nothing and holds nothing.
@@ -1730,7 +1765,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     }
     // In the liver, with a new framing or new lit labels: all labels out first (see hush).
     const inLiver = store.get().lobule || store.get().sinusoid;
-    const litNext = !s.visual ? slideTargets(s).lit.join(' ') : '';
+    const litNext = !s.visual ? slideTargets(fv).lit.join(' ') : '';
     if (inLiver && !booting && (hushed || cam !== lastCam || litNext !== (app.dataset.lit || '') || s.visual || ct)) hush();
     // The cards fade out first, and are on screen fading (two frames painted) before anything changes on the figure: the marks,
     // the lens and the glows can each cost a long frame, which would otherwise swallow the fade.
@@ -1763,7 +1798,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     // see camera.)
     const inAnatomy = !ct && cam && !LOBULE_CAM.test(cam) && (s.view || 'anatomic') === 'anatomic';
     if ((ct || (cam && !LOBULE_CAM.test(cam))) && (store.get().lobule || store.get().sinusoid)) {
-      if (!inAnatomy || si !== shownState || liveOff) { await toAnatomy(inAnatomy ? riseFor(cam, s) : null); if (cut()) return; }
+      if (!inAnatomy || si !== shownState || liveOff) { await toAnatomy(inAnatomy ? riseFor(cam, fv) : null); if (cut()) return; }
     }
     // (A patient still being computed off screen: after a short wait the arc shows.)
     const lateT = states[si] && (!lap || states[stateOf[to]]) ? 0 : setTimeout(() => loading(true), 260);
@@ -1827,9 +1862,9 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     if (!bare) { await caseEnd(cut); if (cut()) return; cardsIn({ i: to, gen: g }); }
     if (cut()) return;
     // The liver's own labels light with the words, so their glow fades in during the dive rather than after it.
-    if (!s.visual) app.dataset.lit = slideTargets(s).lit.join(' ');
+    if (!s.visual) app.dataset.lit = slideTargets(fv).lit.join(' ');
     if (s.visual === 'table') fillTable(s, cut);
-    const lead = swap && !glide && !ct && cam && !LOBULE_CAM.test(cam) && !store.get().lobule && !reduce.matches && !booting ? camera(cam, s, cut) : null;
+    const lead = swap && !glide && !ct && cam && !LOBULE_CAM.test(cam) && !store.get().lobule && !reduce.matches && !booting ? camera(cam, fv, cut) : null;
     if (lead) await wait(150);
     if (swap || view.classList.contains('pz-out')) figureIn(); else loading(false);
     if (cut()) return;
@@ -1842,7 +1877,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     if (caseCard) { await caseLifted(cut); if (cut()) return; }
     if (ct) await cathTo(ct, st.fp, cut);
     else if (lead) await lead;
-    else if (cam) await camera(cam, s, cut);
+    else if (cam) await camera(cam, fv, cut);
     if (cut()) return;
     if (bare) {
       // (A glide's last frame can land just after the wait that timed it: the cards wait for the camera to be still.)
@@ -1865,7 +1900,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     }
     // The slide's state has landed (the recording instruments were let go at the landing, never with the leaving state's flow).
     ui?.tools.hold(false);
-    paintOverlays(s, to, st);
+    paintOverlays(fv, to, st);
     if (holdEase) { holdEase = false; holdAnswer(false); }   // (an answer slide: what its question slide held back eases in now)
     lastCam = cam; framedSig = cardSig();
     await unhush(cut);
@@ -3674,7 +3709,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   let framedSig = '';
   const cardSig = () => (ui ? [ui.text, ui.data].map((el) => (el.hidden ? '-' : ((r) => [r.left, r.top, r.width, r.height].map((v) => Math.round(v / 4)).join())(el.getBoundingClientRect()))).join('|') : '');
   function reframe(ms) {
-    const s = slides[shown.i];
+    const s = figOf(shown.i);
     // (Under the start's cover the framing is set outright: unseen, a glide only kept the reveal waiting, or was caught by it.)
     const cam = s.visual ? s.cam : s.cam || 'fit';
     // (A slide with no framing of its own (the outline, a table) leaves the figure at the stage's fit, which follows the cards:
@@ -3689,7 +3724,11 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     framedSig = cardSig();
     if (cath.on && cath.cam) stage.cathFocus(cath.cam, ms, { both: true });
     else if (procRun?.refit(ms)) return;   // (a procedure holds its own shot: the cards changing frame that shot again)
-    else if (cam && !LOBULE_CAM.test(cam) && !store.get().lobule) { if (cam === 'fit') stage.fitSlow(ms); else stage.frameBox(camBox(cam, s), ms, s.kMax || 3.2, !!s.clear); }
+    else if (cam && !LOBULE_CAM.test(cam) && !store.get().lobule) {
+      // (While a time-lapse pushes, a refit (the cards moved, the screen turned) keeps pushing, to the new fit, over the seconds left.)
+      const left = push && push.i === shown?.i ? push.until - performance.now() : 0;
+      frameTo(cam, s, left > 0 ? left : ms, left > 0 ? { drift: true } : {});
+    }
   }
   // (A resize or a turn letters every chart again for its new size.)
   let refitT = 0;

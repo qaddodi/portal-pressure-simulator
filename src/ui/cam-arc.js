@@ -84,3 +84,13 @@ export function blendPaths(older, newer, uR, vb) {
     return geomView({ cx: g0.cx + (g1.cx - g0.cx) * a, cy: g0.cy + (g1.cy - g0.cy) * a, w: g0.w * Math.pow(g1.w / g0.w, a) }, vb);
   };
 }
+
+/** A slow push's progress (a time-lapse's drift, lapse.cam): it gathers speed over the first fifth, moves evenly, and settles over
+ *  the last fifth, so a push of several seconds neither crawls at its ends nor rushes in its middle as an ease-in-out would. */
+export function driftEase(u, ramp = 0.2) {
+  u = Math.min(1, Math.max(0, u));
+  const v = 1 / (1 - ramp);   // (the even speed: the ramps give up half their width each)
+  if (u < ramp) return (v * u * u) / (2 * ramp);
+  if (u > 1 - ramp) return 1 - (v * (1 - u) ** 2) / (2 * ramp);
+  return v * (u - ramp / 2);
+}
