@@ -510,3 +510,100 @@ test('the presenter hands the card\'s cue to the words\' card and lets the slide
   // (The words' card is not under the zoom's transform: only its own translate moves, never the stage or its figure.)
   assert.equal(/el\.animate\?\.\(\[\{ translate: from\[i\] \}, \{ translate: getComputedStyle\(el\)\.translate \}\]/.test(js), true);
 });
+
+// One of the six ladders zoomed to the middle (Mohammad, 29 Oct, Sites 10: "i feel we should be allowed to click individual ladder cards and
+// have them zoom in similar to how we do it in the slides"). The card's own controller, taken to a cell. Code only: run against stand-ins.
+test('a ladder cell grows to the screen\'s room and goes to the middle, a Mac and an iPad on its side alike', () => {
+  // (A cell as the grid lays it out: a Mac's 1769 x 1007 stage has three across, 470 x 310; an iPad on its side's 1180 x 820 has them 330 x 230.)
+  const mac = zoomPlan({ left: 120, top: 150, width: 470, height: 310 }, { left: 0, top: 0, width: 1769, height: 1007 });
+  assert.equal(mac.s, ZOOM_MAX, 'a small cell stops at the most');
+  assert.ok(Math.abs(mac.dx - (884.5 - 355)) < 1e-9 && Math.abs(mac.dy - (503.5 - 305)) < 1e-9, 'to the middle');
+  const ipad = zoomPlan({ left: 60, top: 100, width: 330, height: 230 }, { left: 0, top: 0, width: 1180, height: 820 });
+  assert.ok(ipad.s >= ZOOM_MIN && ipad.s <= ZOOM_MAX);
+  assert.ok(ipad.s * 230 <= 820 - 2 * zoomMargin({ width: 1180, height: 820 }) + 1e-9, 'inside the margin down the screen');
+});
+
+test('zoom: a part glides and grows alone, dims the page and the panel, never takes the readings, the credit or the words, and goes back whole', async () => {
+  const { card: data, scrim: page, app, log, z } = world(); const back = stands();
+  try {
+    const cell = new El({ left: 120, top: 150, width: 470, height: 310 }), panelVeil = new El({ left: 0, top: 0, width: 1440, height: 900 });
+    assert.equal(z.open({ card: cell, along: [], scrim: [page, panelVeil], part: true }), true);
+    const p = zoomPlan({ left: 120, top: 150, width: 470, height: 310 }, { left: 0, top: 0, width: 1440, height: 900 });
+    // (One transform on the cell alone, about its middle; the data card and its handle are not touched.)
+    assert.equal(cell.anims.length, 1); assert.equal(data.anims.length, 0);
+    assert.equal(cell.anims[0].frames[1].transform, `translate(${p.dx.toFixed(2)}px, ${p.dy.toFixed(2)}px) scale(${p.s.toFixed(4)})`);
+    assert.equal(cell.style.transformOrigin, '235.00px 155.00px');
+    assert.equal('zoomed' in cell.dataset, true); assert.equal(cell.dataset.zoomed, '', 'up: the shadow of the card');
+    assert.equal('zoomed' in data.dataset, false);
+    assert.ok(page.classList.contains('on') && panelVeil.classList.contains('on'), 'both veils come up');
+    assert.ok(app.classList.contains('pz-zoomed'));
+    assert.deepEqual(log, [], 'no boost, no credit sitting out: those are the instrument\'s');
+    // (The cell answers for where it rests while it is up, as the card does.)
+    assert.deepEqual([cell.getBoundingClientRect().left, cell.getBoundingClientRect().width], [120, 470]);
+    // (Nothing to bring out under it: it never counts as steady, so follow does nothing and the readings' handlers stay shut.)
+    assert.equal(z.steady, false); assert.equal(z.follow(10, 10), false);
+    assert.equal(z.up, true); assert.equal(z.on, true);
+    assert.equal(z.open({ card: data }), false, 'a second open while it is up does nothing');
+    // (Back: both veils fade at once, the cell's shadow eases out, it glides home, and only then is it laid out as before.)
+    const shut = z.close();
+    assert.equal(z.up, false); assert.equal(z.on, true);
+    assert.ok(!page.classList.contains('on') && !panelVeil.classList.contains('on'));
+    assert.equal(cell.dataset.zoomed, 'back');
+    assert.deepEqual(log, [], 'the words\' card is not asked to move');
+    for (const x of cell.anims) x.done();
+    await shut;
+    assert.equal(z.on, false);
+    assert.equal('zoomed' in cell.dataset, false); assert.equal(cell.style.transformOrigin, '');
+    assert.equal(Object.hasOwn(cell, 'getBoundingClientRect'), false);
+    assert.ok(!app.classList.contains('pz-zoomed'));
+    assert.deepEqual(log, [['settled']], 'only the layout that waited runs');
+  } finally { back(); }
+});
+
+test('zoom: a part put back at once (a slide, a resize, Reduce Motion) leaves the card\'s own session as it was', async () => {
+  const { z, app, log, scrim } = world(); const back = stands();
+  try {
+    const cell = new El({ left: 120, top: 150, width: 470, height: 310 }), veil = new El({ left: 0, top: 0, width: 1440, height: 900 });
+    z.open({ card: cell, scrim: [scrim, veil], part: true }); z.reset();
+    assert.equal(z.on, false); assert.ok(!scrim.classList.contains('on') && !veil.classList.contains('on')); assert.ok(!app.classList.contains('pz-zoomed'));
+    assert.equal('zoomed' in cell.dataset, false);
+    assert.deepEqual(log, [['settled']]);
+    // (Reduce Motion: at once, the veils still fade.)
+    z.reduceNow = true; log.length = 0;
+    z.open({ card: cell, scrim: [scrim, veil], part: true });
+    assert.equal(cell.anims.at(-1).o.duration, 0); assert.ok(veil.classList.contains('on'));
+    await z.close();
+    assert.equal(z.on, false); assert.ok(!veil.classList.contains('on')); assert.deepEqual(log, [['settled']]);
+    // (And the data card still zooms as before, with everything it takes.)
+    assert.equal(z.open(), true); assert.deepEqual(log.slice(1).map((x) => x[0]), ['hold', 'boost']);
+  } finally { back(); }
+});
+
+test('a tap on one of the six ladders zooms it, a tap on it, outside it, Esc, a slide or a resize puts it back, and only where each cell draws a chart', () => {
+  const rule = (sel) => css.split('\n').find((l) => l.startsWith(sel)) || '';
+  // (Gated as the card is, except for the card: the panel stands, on a layout that draws a chart in each cell: not a phone, upright or sideways, nor an upright iPad.)
+  assert.match(js, /const cellReady = \(\) => !!ui && !!deck && !!shown && shown\.i === want && shown\.gen === gen && \(!busy \|\| playing\) && !leaving && !black && !caseStands\(\) && ui\.jump\.hidden && !isModalOpen\(\)\n\s+&& !ui\.panel\.hidden && !ui\.panel\.classList\.contains\('pz-leave'\) && !ui\.root\.classList\.contains\('pz-prep'\) && !ui\.root\.classList\.contains\('stack'\) && !ui\.root\.classList\.contains\('low'\);/);
+  assert.match(js, /tapTracker\(panel, \{ ok: \(\) => cellReady\(\) \|\| zoom\.up, onTap: cellTap \}\);/);
+  // (The cell under the tap opens; while one is up any tap on the panel puts it back.)
+  assert.match(js, /function cellTap\(e\) \{\n\s+if \(!ui\) return;\n\s+if \(ui\.zoom\.up\) \{ ui\.zoom\.close\(\)\.then\(paintZoom\); return; \}\n\s+cellOpen\(e\.target\?\.closest\?\.\('\.pz-cell'\)\);/);
+  assert.match(js, /ui\.zoom\.open\(\{ card: cell, along: \[\], scrim: \[ui\.pscrim, own\]\.filter\(Boolean\), part: true \}\);/);
+  // (The same controller: its holds, Esc, a slide and a resize cover it with no new path.)
+  assert.match(js, /const zoomOn = \(\) => !!ui\?\.zoom\.on;/);
+  assert.match(js, /const zoomHeld = \(\) => \{ if \(!ui\?\.zoom\.on\) return false;/);
+  // (Two veils: the page's under the panel, the panel's in its grid; a tap on either puts the cell back.)
+  assert.match(js, /const pscrim = h\('div', \{ class: 'pz-pscrim', 'aria-hidden': 'true', onclick: \(\) => zoom\.close\(\)\.then\(paintZoom\) \}\);/);
+  assert.match(js, /veil\.after\(pscrim\);/);
+  assert.match(js, /grid\.append\(h\('div', \{ class: 'pz-gscrim', 'aria-hidden': 'true', onclick: \(\) => ui\?\.zoom\.close\(\)\.then\(paintZoom\) \}\)\);\n\s+return grid;/);
+  // (The cell is scaled as it sits in the panel's fit zoom, which the card is not.)
+  assert.match(js, /scale: \(el\) => \(el && el !== data && el\.offsetWidth \? el\.getBoundingClientRect\(\)\.width \/ el\.offsetWidth : wrap\.getBoundingClientRect\(\)\.width \/ \(wrap\.clientWidth \|\| 1\)\) \|\| 1,/);
+  // (The app's own scrim, never snapping: both veils fade, the shadow eases, the cell shows the pointer that says what a tap does.)
+  assert.match(rule('.pz-pscrim, .pz-gscrim {'), /background: var\(--scrim\)/); assert.match(rule('.pz-pscrim, .pz-gscrim {'), /transition: opacity \.45s var\(--ease\)/);
+  assert.match(rule('.pz-pscrim.on'), /pointer-events: auto/);
+  assert.match(rule('.pz-gscrim {'), /z-index: 1/);
+  assert.match(css, /^\.pz:not\(\.stack\):not\(\.low\) \.pz-cell \{ cursor: zoom-in; transition: box-shadow \.45s var\(--ease\); \}$/m);
+  assert.match(rule('.pz:not(.stack):not(.low) .pz-cell[data-zoomed] {'), /z-index: 2/, 'over its veil');
+  assert.match(rule('.pz:not(.stack):not(.low) .pz-cell[data-zoomed=""]'), /box-shadow: var\(--shadow-3\)/);
+  for (const sel of ['.pz-pscrim, .pz-gscrim {', '.pz:not(.stack):not(.low) .pz-cell[data-zoomed=""]']) assert.doesNotMatch(rule(sel), /gradient|glow/);
+  // (Only the six-ladders grid draws cells: nothing else needs it.)
+  assert.equal([...js.matchAll(/class: 'pz-cell'/g)].length, 1);
+});

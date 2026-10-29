@@ -47,7 +47,7 @@ import { COMPACT, WIDE } from './card-type.js?v=5af5f22935';
 import { flowTimeHeight, trailKeys } from './flow-time.js?v=026ab2f37c';
 import { PROCS, procBlocked, procOffered, playProcedure } from './proc-anim.js?v=3075a0efa7';
 import { dataPlan, textPlan, keepData, keepText, cardSnap, cardChanged, cardBack } from './card-keep.js?v=4fc0919e34';
-import { createCardZoom, tapTracker } from './card-zoom.js?v=d0e4ed8bd1';
+import { createCardZoom, tapTracker } from './card-zoom.js?v=f589271cc7';
 import { tileKeys as cardKeys, toolOnly } from './card-tiles.js?v=884156ad01';
 const nextFrame = frameFor('presenter');
 
@@ -2343,6 +2343,8 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       chartRO?.observe(cc); chartRO?.observe(P.el);   // (the room it has, and the instrument's own size, which follows the window)
       grid.append(h('div', { class: 'pz-cell' }, k, cc, S.el));
     }
+    // (The panel's dimming while one cell is zoomed: out of the grid's flow, over the panel and under the cell that is zoomed; styles/app.css .pz-gscrim.)
+    grid.append(h('div', { class: 'pz-gscrim', 'aria-hidden': 'true', onclick: () => ui?.zoom.close().then(paintZoom) }));
     return grid;
   }
   // Purpose-drawn arrows: a solid head on a shaft of real weight, one per symbol; a large change is two arrows side by side.
@@ -3049,6 +3051,25 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     if (z.open()) paintZoom();
   }
   function zoomToggle() { if (!ui) return; if (ui.zoom.up) ui.zoom.close().then(paintZoom); else zoomOpen(); }
+  // ── One of the six ladders zoomed to the middle (Sites 10, Where-resistance 14; Mohammad, 29 Oct: "on this slide i feel we should be allowed to
+  // click individual ladder cards and have them zoom in similar to how we do it in the slides") ──
+  // The same zoom as the data card's (src/ui/card-zoom.js), taken to one cell of the panel's grid: a tap on a cell glides it to the middle of
+  // the screen and grows it as one piece, its words and chart only larger; the page and the rest of the panel dim under it, which stays where it
+  // is. It goes back by a tap on the cell or outside it, Esc, a slide or a resize, as the card does (zoomOn covers both). Where the grid draws
+  // each case on a line (a phone, upright or sideways, an upright iPad) there is no chart to enlarge, and no zoom.
+  const cellReady = () => !!ui && !!deck && !!shown && shown.i === want && shown.gen === gen && (!busy || playing) && !leaving && !black && !caseStands() && ui.jump.hidden && !isModalOpen()
+    && !ui.panel.hidden && !ui.panel.classList.contains('pz-leave') && !ui.root.classList.contains('pz-prep') && !ui.root.classList.contains('stack') && !ui.root.classList.contains('low');
+  function cellOpen(cell) {
+    if (!cell || !cellReady() || ui.zoom.on) return;
+    const own = cell.parentElement?.querySelector(':scope > .pz-gscrim');
+    ui.zoom.open({ card: cell, along: [], scrim: [ui.pscrim, own].filter(Boolean), part: true });
+  }
+  // (A tap on the panel: a zoomed cell goes back, whichever part of the panel it lands on; otherwise the cell under it zooms.)
+  function cellTap(e) {
+    if (!ui) return;
+    if (ui.zoom.up) { ui.zoom.close().then(paintZoom); return; }
+    cellOpen(e.target?.closest?.('.pz-cell'));
+  }
   const paintZoom = () => {
     if (!ui) return;
     const up = ui.zoom.up;
@@ -4473,17 +4494,23 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     const scl = h('div', { class: 'pz-scales stage-blocker pz-leave', role: 'group', 'aria-label': 'Scale', hidden: true });
     // The zoom's veil sits over the words and the figure and under the card, its handle and the controls: a tap on it puts the card back.
     const zscrim = h('div', { class: 'pz-zscrim', 'aria-hidden': 'true', onclick: () => zoom.close().then(paintZoom) });
-    const zoom = createCardZoom({ card: data, along: [lip], scrim: zscrim, app, area: () => wrap.getBoundingClientRect(), scale: () => wrap.getBoundingClientRect().width / (wrap.clientWidth || 1) || 1,
+    // (A cell of the six ladders zoomed to the middle (cellOpen): the page behind the panel is dimmed by this veil, the panel's own by the one in its grid.
+    // The scale is read at the element: a cell sits in the panel's fit zoom, which the card does not.)
+    const pscrim = h('div', { class: 'pz-pscrim', 'aria-hidden': 'true', onclick: () => zoom.close().then(paintZoom) });
+    const zoom = createCardZoom({ card: data, along: [lip], scrim: zscrim, app, area: () => wrap.getBoundingClientRect(),
+      scale: (el) => (el && el !== data && el.offsetWidth ? el.getBoundingClientRect().width / el.offsetWidth : wrap.getBoundingClientRect().width / (wrap.clientWidth || 1)) || 1,
       reduce: () => reduce.matches, boost: setCanvasBoost, hold: zoomCredit, settled: zoomSettled, behind: zoomBehind });
     tapTracker(data, { ok: () => zoomReady() || zoom.up, onTap: () => zoomToggle() });
+    tapTracker(panel, { ok: () => cellReady() || zoom.up, onTap: cellTap });
     const root = h('div', { class: 'pz' }, safe, veil, load, fk, text, zscrim, data, lip, panel, vcase, prog, scl, bar, jump, blackEl, say);
+    veil.after(pscrim);   // (above the page's veil, under everything else)
     wrap.insertBefore(shade, wrap.querySelector('.stage-credit'));
     // The teaching card's glass is the card itself: it leaves and arrives with the words, never resizing in view.
     new MutationObserver(() => shade.classList.toggle('pz-leave', text.classList.contains('pz-leave'))).observe(text, { attributes: true, attributeFilter: ['class'] });
     wrap.append(root);
     // (It comes in with the teaching card, in the card's own fade, once the card is fitted (pz-prep gone), and leaves with it.)
     const figKey = createFigureKey({ el: fk, app, watch: [text, root], ready: () => !text.hidden && !text.classList.contains('pz-leave') && !root.classList.contains('pz-prep') });
-    return { root, shade, safe, load, text, data, clock, lip, lipRO, lipMO, cardTouch, setFold, zoom, zbtn, partOf, vcase, fk, figKey, dhT, tiles, tools, veil, panel, prog, scl, bar, black: blackEl, jump, say };
+    return { root, shade, safe, load, text, data, clock, lip, lipRO, lipMO, cardTouch, setFold, zoom, zbtn, pscrim, partOf, vcase, fk, figKey, dhT, tiles, tools, veil, panel, prog, scl, bar, black: blackEl, jump, say };
   }
   // The start's cover (see start). While it is up (booting) the camera cuts instead of gliding.
   let cover = null, booting = false, coverT = 0, noCase = false;   // (noCase: the slide a start lands on, a reload's included, does not play its case card)

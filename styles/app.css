@@ -5464,6 +5464,17 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
 .pz-zoomed .pz-zbtn svg:last-child { display: block; }
 @media (hover: hover) { .pz-zbtn:hover { color: var(--text); background: var(--hairline); } }
 .pz-zbtn:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+/* One of the six ladders zoomed to the middle (Sites 10, Where-resistance 14; presenter.js cellOpen, the same controller as the card's; Mohammad,
+   29 Oct: "allowed to click individual ladder cards and have them zoom in similar to how we do it in the slides"). The cell glides and grows by a
+   transform, so its words and chart only get larger. Two veils, the app's own scrim, dim what is behind it: the page's (.pz-pscrim, under the
+   panel) and the panel's (.pz-gscrim, a child of the grid, out of its flow, over the other cells and under the zoomed one). A tap on either puts it back.
+   The cell takes the card's shadow while it is up, and eases it out as it goes back. Only where the grid draws a chart in each cell. */
+.pz-pscrim, .pz-gscrim { position: absolute; inset: 0; background: var(--scrim); opacity: 0; pointer-events: none; cursor: zoom-out; transition: opacity .45s var(--ease); }
+.pz-pscrim.on, .pz-gscrim.on { opacity: 1; pointer-events: auto; }
+.pz-gscrim { z-index: 1; }
+.pz:not(.stack):not(.low) .pz-cell { cursor: zoom-in; transition: box-shadow .45s var(--ease); }
+.pz:not(.stack):not(.low) .pz-cell[data-zoomed] { position: relative; z-index: 2; cursor: zoom-out; }
+.pz:not(.stack):not(.low) .pz-cell[data-zoomed=""] { box-shadow: var(--shadow-3); }
 /* Mac and iPad landscape: when even the smallest steps leave the pair too tall, the instrument folds behind Show as on a phone
    (presenter.js layout, pz-folds), its tiles in a row at the card's full width; Show fades it in, Hide out. */
 .pz:not(.stack):not(.low) .pz-data.pz-folds .pz-dh { position: relative; padding-inline: max(64px, calc(var(--pz-chip-em, 0) * 1em + 24px / var(--pz-z, 1) + 10px)); }   /* (the chip's own width, its words (presenter.js chipRoom), padding and edge, and 8 px) */

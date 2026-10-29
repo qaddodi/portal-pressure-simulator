@@ -66,18 +66,21 @@ export function tapTracker(card, { ok = () => true, onTap }) {
 
 /**
  * The zoom itself. card: the data card; along: pieces that ride with it (its handle); scrim: the
- * veil; app: the app's root (class pz-zoomed while it is up). area(): the screen's room, { left, top, width, height }; scale(): screen px per
- * layout px; reduce(): Reduce Motion. boost(k): the pictures drawn at k times the screen's density while the card is large; hold(on): the
+ * veil; app: the app's root (class pz-zoomed while it is up). area(): the screen's room, { left, top, width, height }; scale(el): screen px per
+ * layout px (at el, the card or the part zoomed); reduce(): Reduce Motion. boost(k): the pictures drawn at k times the screen's density while the card is large; hold(on): the
  * corner credit sits out; settled(): the card is back (anything laid out meanwhile is laid out now); behind(up, ms): the card starts its glide
  * in (up) or back, lasting ms (0: at once), as the cue for whatever stands behind it to move in step (the words' card: presenter.js wordsGlide).
+ * open() may take another element for the card (Mohammad, 29 Oct: "click individual ladder cards and have them zoom in similar to how we do it in
+ * the slides"): one of the six cells of the ladders panel, { card: cell, scrim: [the page's veil, the panel's], part: true }. A part is only
+ * centred and enlarged: the instrument's boost, the credit's sitting out, the words' cue and the readings' follow are for the data card.
  */
 export function createCardZoom({ card, along = [], scrim, app, area, scale = () => 1, reduce = () => false, boost = () => {}, hold = () => {}, settled = () => {}, behind = () => {} }) {
-  let st = null;   // { plan, riders: [{ el, rest, own, anim }], closing, steady, box, mid, k, s, boosted }
+  let st = null;   // { card, veils, part, plan, riders: [{ el, rest, own, anim }], closing, steady, box, mid, k, s, boosted }
   // The card and what rides with it, as they rest: a stacked card's handle stands on its top edge (the readings' card tucked behind it), so the
   // box that is centred and fitted to the screen is the whole of them, never the card's box alone (Mohammad, 28 Oct: a stacked card sat off the
   // middle and ran off the bottom).
-  const pieces = () => [card, ...along].map((el) => ({ el, rest: el.hidden && el !== card ? null : el.getBoundingClientRect(), own: null, anim: null })).filter((r) => r.rest && r.rest.width > 0);
-  const whole = (riders) => (riders.some((r) => r.el === card) ? unionBox(riders.map((r) => r.rest)) : null);
+  const pieces = (el = card, rides = along) => [el, ...rides].map((x) => ({ el: x, rest: x.hidden && x !== el ? null : x.getBoundingClientRect(), own: null, anim: null })).filter((r) => r.rest && r.rest.width > 0);
+  const whole = (riders, el = card) => (riders.some((r) => r.el === el) ? unionBox(riders.map((r) => r.rest)) : null);
   // The piece's box as it rests, for everyone who asks the element (the figure's labels keep clear of the cards by it): a copy that does
   // not move with the glide. Its own getBoundingClientRect is put back as it was.
   const pin = (r) => {
@@ -98,9 +101,9 @@ export function createCardZoom({ card, along = [], scrim, app, area, scale = () 
     if (!st) return;
     const s = st; st = null;
     for (const r of s.riders) { r.anim?.cancel(); unpin(r); r.el.style.transformOrigin = ''; }
-    delete card.dataset.zoomed;
-    app.classList.remove('pz-zoomed'); scrim.classList.remove('on');
-    boost(1); hold(false);
+    delete s.card.dataset.zoomed;
+    app.classList.remove('pz-zoomed'); for (const v of s.veils) v.classList.remove('on');
+    if (!s.part) { boost(1); hold(false); }
     settled();
   }
 
@@ -111,25 +114,27 @@ export function createCardZoom({ card, along = [], scrim, app, area, scale = () 
     get up() { return !!st && !st.closing; },
     /** The plan for the card as it stands, or null when it would not grow enough. */
     plan() { const q = whole(pieces()); return q && zoomPlan(q, area()); },
-    open() {
+    open({ card: el = card, along: rides = along, scrim: veil = scrim, part = false } = {}) {
       if (st) return false;
-      const a = area(), riders = pieces(), q = whole(riders), plan = q && zoomPlan(q, a, zoomMargin(a));
+      const a = area(), riders = pieces(el, rides), q = whole(riders, el), plan = q && zoomPlan(q, a, zoomMargin(a));
       if (!plan) return false;
-      const k = scale() || 1, ms = reduce() ? 0 : ZOOM_MS;
+      const k = scale(el) || 1, ms = reduce() ? 0 : ZOOM_MS;
       const cx = q.left + q.width / 2, cy = q.top + q.height / 2;
-      // (box and mid: the whole as it rests as the card zooms, and its middle, for follow below; steady: the glide in has ended.)
-      st = { plan, riders, closing: null, steady: ms === 0, box: q, mid: { x: cx, y: cy }, k, s: plan.s, boosted: plan.s };
+      // (box and mid: the whole as it rests as the card zooms, and its middle, for follow below; steady: the glide in has ended, for the
+      // data card only: a part has no readings to bring out.)
+      st = { card: el, veils: [veil].flat(), part, plan, riders, closing: null, steady: ms === 0 && !part, box: q, mid: { x: cx, y: cy }, k, s: plan.s, boosted: plan.s };
       for (const r of riders) {
         // (Each piece turns about the middle of them all, so they move as one.)
         r.el.style.transformOrigin = `${((cx - r.rest.left) / k).toFixed(2)}px ${((cy - r.rest.top) / k).toFixed(2)}px`;
         pin(r);
       }
-      card.dataset.zoomed = '';
-      app.classList.add('pz-zoomed'); hold(true); boost(plan.s); behind(true, ms);
+      el.dataset.zoomed = '';
+      app.classList.add('pz-zoomed');
+      if (!part) { hold(true); boost(plan.s); behind(true, ms); }
       const to = `translate(${(plan.dx / k).toFixed(2)}px, ${(plan.dy / k).toFixed(2)}px) scale(${plan.s.toFixed(4)})`;
       for (const r of riders) r.anim = glide(r.el, 'transform', to, ms);
-      scrim.classList.add('on');
-      if (ms) {
+      for (const v of st.veils) v.classList.add('on');
+      if (ms && !part) {
         // (A glide that never reports its end is let go after its time.)
         const me = st;
         Promise.race([done(riders.map((r) => r.anim)), new Promise((res) => setTimeout(res, ZOOM_MS + 120))]).then(() => { if (st === me) me.steady = true; });
@@ -165,10 +170,11 @@ export function createCardZoom({ card, along = [], scrim, app, area, scale = () 
     close({ instant = false } = {}) {
       if (!st) return Promise.resolve();
       if (st.closing) return st.closing;
-      scrim.classList.remove('on');
-      if (instant || reduce()) { behind(false, 0); end(); return Promise.resolve(); }
       const s = st;
-      behind(false, SHUT_MS);
+      for (const v of s.veils) v.classList.remove('on');
+      if (instant || reduce()) { if (!s.part) behind(false, 0); end(); return Promise.resolve(); }
+      s.card.dataset.zoomed = 'back';   // (on its way back: its shadow eases out, styles/app.css)
+      if (!s.part) behind(false, SHUT_MS);
       for (const r of s.riders) r.anim = glide(r.el, 'transform', 'none', SHUT_MS, r.anim);
       // (A glide that never reports its end, a tab hidden mid-way, is let go after its time.)
       const guard = new Promise((res) => setTimeout(res, SHUT_MS + 120));
@@ -177,6 +183,6 @@ export function createCardZoom({ card, along = [], scrim, app, area, scale = () 
     },
     toggle() { return this.up ? this.close() : this.open(); },
     /** Everything put back at once: a slide, a resize or the end of the talk comes first. */
-    reset() { if (st) { scrim.classList.remove('on'); behind(false, 0); end(); } },
+    reset() { if (st) { for (const v of st.veils) v.classList.remove('on'); if (!st.part) behind(false, 0); end(); } },
   };
 }
