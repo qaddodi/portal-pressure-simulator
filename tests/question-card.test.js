@@ -60,7 +60,7 @@ test('the presenter asks it only going forward one step, on the case card\'s gla
 test('a slide that changes the model lands holding the state before it and plays its change after the lift', () => {
   assert.match(presenter, /const ask = questionable\(s, to, ct\), holdQ = ask && !s\.visual && \(!!s\.lapse \|\| changes\(s\)\);/);
   assert.match(presenter, /const si = lap \|\| holdQ \? stateOf\[to - 1\] : stateOf\[to\];/, 'it lands on the slide before\'s state');
-  assert.match(presenter, /const said = lap \|\| holdQ \? await stateReady\(stateOf\[to\]\) : st;/);
+  assert.match(presenter, /const said = lap \|\| holdQ \|\| own \? await stateReady\(stateOf\[to\]\) : st;/);
   assert.match(presenter, /if \(lap\) await playLapse\(s, to, cut\);\n\s*else if \(holdQ\) await answerPlay\(s, to, cut\);/, 'its change plays after its cards are in');
   // (the card is lifted before the camera and the cards move: the case card's own waits)
   assert.match(presenter, /if \(caseCard\) \{ await caseLifted\(cut\); if \(cut\(\)\) return; \}/);

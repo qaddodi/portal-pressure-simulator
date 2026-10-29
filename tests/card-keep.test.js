@@ -180,7 +180,7 @@ test('the presenter decides before the cards leave and falls back if the layout 
   const out = run.indexOf('keepNow = keepFor('), words = run.indexOf('outMs = wordsOut(s)');
   assert.ok(out > 0 && out < words, 'chosen as the change begins, before any card fades');
   // (A time-lapse changes the patient as transitionRun counts it: from the slide before's state, or from a start of its own.)
-  assert.match(run, /const si = lap \|\| holdQ \? stateOf\[to - 1\] : stateOf\[to\];\n\s+keepNow = keepFor\(was && slides\[was\.i\], s, to, si !== shownState \|\| liveOff \|\| \(lap && !!states\[stateOf\[to\]\]\?\.start\), \{ again: !was \|\| was\.i === to \}\)/);
+  assert.match(run, /const si = lap \|\| holdQ \? stateOf\[to - 1\] : stateOf\[to\];\n\s+keepNow = keepFor\(was && slides\[was\.i\], s, to, si !== shownState \|\| liveOff \|\| \(lap && !!states\[stateOf\[to\]\]\?\.start\) \|\| \(pre && !!states\[to\]\?\.before\), \{ again: !was \|\| was\.i === to \}\)/);
   assert.equal(run.split('const si = ').length, 2, 'one count of the patient');
   // (a kept card is not built; its fall back is checked after each layout of the unseen cards, before they come in)
   assert.match(src, /if \(!keepNow\.text\) textIn\(s, st, i\);\n\s+if \(keepNow\.data\) dataKept\(s, i, now\); else dataIn\(s, st, i, fresh, lap, now\);\n\s+layout\(\);\n\s+keepNote\(\);/);

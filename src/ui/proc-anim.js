@@ -11,14 +11,17 @@ import { frameFor, cancelFrame } from './frame.js?v=7254a8a850';
 import { ease, k01 } from './hvpg-clock.js?v=553551a92a';
 const nextFrame = frameFor('proc-anim');
 
-// Each step: [id, its word (the callout on the vessel it works on, and its button in the teaching card), the caption, the
-// button's short word (a narrow card), the shot it plays in, the vessel its callout names, the station names shown with it].
-// Shots, both close enough to see the catheter and its balloon: 'way', on the tip from where it enters, the view following it
-// in (panning only, at one scale); 'tip', the stretch it works on, held still. A new shot glides in only between steps, and
+// Each step: [id, its word (the callout on the part it works on, and its numbered step in the teaching card), the caption, a
+// short word, the shot it plays in, the vessel its callout names, the station names shown with it, where along that vessel the
+// callout points (0..1 of its drawn course: the tract for a TIPS, the balloon on the shunt, the varices the sclerosant fills)].
+// Shots, all close enough to see the catheter and its balloon: 'way', on the tip from where it enters, the view following it
+// in (panning only, at one scale); 'tip', the stretch it works on, held still (for BRTO and BATO the tip and its balloon alone,
+// closer); 'work', BRTO and BATO's tip on to the varices. A new shot glides in only between steps, and
 // playProcedure waits for it to land before anything moves (his asks, 29 Oct: the zoom jumped, the callouts moved, the catheter
 // could not be seen; recs in review/procedure-animation-ideas). The first step's callout comes once the catheter has arrived.
 // T: the sequence in ms from the start (apply: the model takes the change; back: the catheter starts out; end: it has gone).
 // stops: where each step ends; presented, one Next plays one step and holds at its stop.
+// before: what a slide that plays it opens on, the procedure not done yet (no TIPS, the shunt open): its words keep the after state.
 const OBLIT_T = { travel0: 300, travel1: 6500, inflate0: 7400, inflate1: 9000, fill0: 10200, fill1: 15200, apply: 15500, fillOut: 16500, deflate: 17700, back: 18900, end: 22000 };
 const OBLIT_STOPS = [7100, 9900, 16300, 22000];
 // How long a shot glides (ms), as a slide's own camera does; the procedure waits this long, and a little more, at each new shot.
@@ -29,37 +32,38 @@ export const PROCS = {
     T: { travel0: 300, travel1: 4000, needle0: 4900, needle1: 6700, wire1: 7600, inflate0: 8100, inflate1: 9300, deflate0: 9900, deflate1: 10700, apply: 10800, back: 11400, end: 14400 },
     stops: [4600, 7900, 9700, 14400],
     steps: [
-      ['enter', 'Catheter in', 'In through the right internal jugular vein, down the SVC and the IVC into the right hepatic vein.', 'In', 'way', 'RHV_IVC', ['IVCS', 'RHV']],
-      ['needle', 'Needle across', 'A needle crosses the liver from the hepatic vein into the right portal vein, and a wire follows it into the portal trunk.', 'Needle', 'tip', 'PVH_R', ['RHV']],
-      ['dilate', 'Tract dilated', 'A balloon opens the tract through the liver to the width of the stent.', 'Balloon', 'tip', 'PVH_R', ['RHV']],
-      ['done', 'Stent in', 'A covered stent holds the tract open: portal blood now reaches the hepatic vein without crossing the sinusoids.', 'Stent', 'tip', 'TIPS', ['RHV', 'RPV']],
+      ['enter', 'Catheter in', 'In through the right internal jugular vein, down the SVC and the IVC into the right hepatic vein.', 'In', 'way', 'RHV_IVC', ['IVCS', 'RHV'], 0.5],
+      ['needle', 'Needle across', 'A needle crosses the liver from the hepatic vein into the right portal vein, and a wire follows it into the portal trunk.', 'Needle', 'tip', 'TIPS', ['RHV'], 0.5],
+      ['dilate', 'Tract dilated', 'A balloon opens the tract through the liver to the width of the stent.', 'Balloon', 'tip', 'TIPS', ['RHV'], 0.5],
+      ['done', 'Stent in', 'A covered stent holds the tract open: portal blood now reaches the hepatic vein without crossing the sinusoids.', 'Stent', 'tip', 'TIPS', ['RHV', 'RPV'], 0.5],
     ],
     can: (p) => (p.tips?.on ? 'A TIPS is already in place.' : (p.thrombus?.RHV_IVC || 0) >= 0.8 ? 'The right hepatic vein is clotted, so a TIPS has no route.' : ''),
     apply: (p) => { p.tips = { ...p.tips, on: true, d: p.tips?.d || 8 }; return p; },
     had: (p) => !!p.tips?.on,
     undo: (p) => { p.tips = { ...p.tips, on: false }; return p; },
+    before: { tips: { on: false } },
   },
   brto: {
     name: 'BRTO', label: 'BRTO', T: OBLIT_T, stops: OBLIT_STOPS,
     steps: [
-      ['enter', 'Catheter in', 'Up from the right femoral vein, through the IVC and the left renal vein into the gastrorenal shunt.', 'In', 'way', 'C5', ['IVCI', 'LRV']],
-      ['balloon', 'Balloon up', 'The balloon blocks the shunt near the renal vein, so nothing washes out into it.', 'Balloon', 'tip', 'C5', ['LRV']],
-      ['fill', 'Sclerosant', 'Sclerosant fills the shunt back up to the fundal varices, and they clot.', 'Fill', 'tip', 'C5', ['LRV']],
-      ['done', 'Shunt closed', 'The shunt and the varices are closed. Their blood stays in the portal system, so the portal pressure rises.', 'Closed', 'tip', 'C5', ['LRV']],
+      ['enter', 'Catheter in', 'Up from the right femoral vein, through the IVC and the left renal vein into the gastrorenal shunt.', 'In', 'way', 'C5', ['IVCI', 'LRV'], 0.7],
+      ['balloon', 'Balloon up', 'The balloon blocks the shunt near the renal vein, so nothing washes out into it.', 'Balloon', 'tip', 'C5', ['LRV'], 0.74],
+      ['fill', 'Sclerosant', 'Sclerosant fills the shunt back up to the fundal varices, and they clot.', 'Fill', 'work', 'C5', ['LRV'], 0.35],
+      ['done', 'Shunt closed', 'The shunt and the varices are closed. Their blood stays in the portal system, so the portal pressure rises.', 'Closed', 'work', 'C5', ['LRV'], 0.5],
     ],
     can: oblitCan,
-    apply: oblitApply, had: oblitHad, undo: oblitUndo,
+    apply: oblitApply, had: oblitHad, undo: oblitUndo, before: { occluded: { C5: false } },
   },
   bato: {
     name: 'BATO', label: 'BATO', T: OBLIT_T, stops: OBLIT_STOPS,
     steps: [
-      ['enter', 'Catheter in', 'Through the liver into the right portal vein, then along the portal and splenic veins into the short gastric veins.', 'In', 'way', 'C2', ['CONF', 'SV']],
-      ['balloon', 'Balloon up', 'The balloon blocks the feeding vein, so the inflow to the varices stops.', 'Balloon', 'tip', 'C2', ['SV']],
-      ['fill', 'Sclerosant', 'Sclerosant fills the varices from the portal side, and they clot.', 'Fill', 'tip', 'C2', ['SV']],
-      ['done', 'Varices closed', 'The varices and their gastrorenal shunt are closed. Their blood stays in the portal system, so the portal pressure rises.', 'Closed', 'tip', 'C2', ['SV']],
+      ['enter', 'Catheter in', 'Through the liver into the right portal vein, then along the portal and splenic veins into the short gastric veins.', 'In', 'way', 'C2', ['CONF', 'SV'], 0.35],
+      ['balloon', 'Balloon up', 'The balloon blocks the feeding vein, so the inflow to the varices stops.', 'Balloon', 'tip', 'C2', ['SV'], 0.31],
+      ['fill', 'Sclerosant', 'Sclerosant fills the varices from the portal side, and they clot.', 'Fill', 'work', 'C2', ['SV'], 0.7],
+      ['done', 'Varices closed', 'The varices and their gastrorenal shunt are closed. Their blood stays in the portal system, so the portal pressure rises.', 'Closed', 'work', 'C2', ['SV'], 0.5],
     ],
     can: (p, m) => oblitCan(p, m) || ((p.thrombus?.PV_TRUNK || 0) >= 0.8 ? 'The portal vein is clotted, so BATO has no route.' : ''),
-    apply: oblitApply, had: oblitHad, undo: oblitUndo,
+    apply: oblitApply, had: oblitHad, undo: oblitUndo, before: { occluded: { C5: false } },
   },
 };
 export const PROC_KINDS = Object.keys(PROCS);
@@ -84,8 +88,14 @@ export const procOffered = (kind, p, m = null) => !!PROCS[kind] && (kind === 'ti
 
 /** The step a time falls in (pure): each runs up to and including its stop, so a procedure held at a stop still shows that step. */
 export const stepAt = (kind, t) => { const S = PROCS[kind].stops, i = S.findIndex((x) => t <= x); return i < 0 ? S.length - 1 : i; };
-/** The callout a step puts on the figure: a slide's own mark (a treatment's), on the vessel it works on. */
-export const stepMark = (kind, i) => { const s = PROCS[kind]?.steps[i]; return s ? { edges: [s[5]], label: s[1], kind: 'treat' } : null; };
+// (The step's number on its callout, as a filled circle: the same number as its step in the teaching card.)
+export const STEP_NUM = ['\u278A', '\u278B', '\u278C', '\u278D', '\u278E', '\u278F'];
+/** The callout a step puts on the figure: a slide's own mark (a treatment's), numbered, at its point on the part it works on, kept
+ *  on its side and clear of every vessel (pin); ghost: it may name a vessel not drawn yet (the tract, before the stent is in). */
+export const stepMark = (kind, i) => {
+  const s = PROCS[kind]?.steps[i];
+  return s ? { edges: [s[5]], label: `${STEP_NUM[i]} ${s[1]}`, kind: 'treat', f: s[7] ?? 0.5, pin: true, ghost: true } : null;
+};
 
 /**
  * The procedure at t ms (pure): { u (0..1 of the way in), balloon, column (the sclerosant, 0..1), opacity, step (index into

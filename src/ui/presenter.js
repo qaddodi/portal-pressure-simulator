@@ -25,11 +25,11 @@ import { isCamOn, unionBox, regionBox, growBox, camNames } from './cam-frame.js?
 import { NODE_POS } from './anatomy.js?v=48cc98d415';
 import { DISEASE_SRC, diseasePieces } from './diseases.js?v=fb8a5451c3';
 import { nb, listCase, plateletText } from './glue.js?v=5a0f63226b';
-import { DECKS, DECK_ALIAS, REGIONS, LEVELS, TOPICS, withOverview, siteTag, SITE_TAGS } from './decks.js?v=57e95ce7a9';
+import { DECKS, DECK_ALIAS, REGIONS, LEVELS, TOPICS, withOverview, siteTag, SITE_TAGS } from './decks.js?v=b9395a5c72';
 import { fingerprintOf } from '../engine/fingerprint.js?v=ca81723393';
-import { createHvpgMonitor } from './hvpg-proc.js?v=6831354271';
-import { createTools } from './presenter-tools.js?v=a1695a5799';
-import { openHandout } from './handout.js?v=d52d874d06';
+import { createHvpgMonitor } from './hvpg-proc.js?v=c793a707c4';
+import { createTools } from './presenter-tools.js?v=b8c1d71a4c';
+import { openHandout } from './handout.js?v=0fe303f1c1';
 import { noteResume, resumeFor } from './resume.js?v=f086f80ee8';
 import { parseDeckSource, checkDeck } from './deck-source.js?v=8395c650cd';
 import { NO_ASC, TILE, cutText, tileOf, SCALE, bandsOf, rateOf, COLS, CUT, PRESS, fpv, dirAbs, dirRel, rateAbs, effOf, rateShown, tileShown, tipsGoal, liveSettled, shownSig } from './table-marks.js?v=bca5ebb624';
@@ -37,16 +37,16 @@ import { frameFor, cancelFrame } from './frame.js?v=7254a8a850';
 import { createFigureKey } from './figure-key.js?v=b6817772fb';
 import { traceWhen } from './trace-labels.js?v=fc916a95c6';
 import { flowCss, heatCss, dropCss, gradientCss, oxygenCss } from './colormap.js?v=05a231b880';
-import { EXT, expandIds, stepExtra, markLabel, figureHooks, safe } from './slide-ext.js?v=d0011aa59f';
+import { EXT, expandIds, stepExtra, markLabel, figureHooks, safe } from './slide-ext.js?v=670863fa6e';
 import { clotWords } from './callout-math.js?v=dd2fe6d554';
 import { citeText, focusOf, oneLadder } from './teach-extras.js?v=5f5248f5a7';
 import { createProfileTool, createProfileStrip, pillReadings, chartScale } from './tool-profile.js?v=3e6716e522';
 import { causeFit } from './cause-fit.js?v=830a6835a5';
-import { anchorsOf, roomFor } from './cam-room.js?v=2af5290245';
+import { anchorsOf, roomFor } from './cam-room.js?v=9211d6cd78';
 import { beatCount, beatView } from './slide-beats.js?v=2aded612c4';
 import { COMPACT, WIDE } from './card-type.js?v=5af5f22935';
 import { flowTimeHeight, trailKeys } from './flow-time.js?v=026ab2f37c';
-import { PROCS, procBlocked, procOffered, playProcedure } from './proc-anim.js?v=dbdd8e9fec';
+import { PROCS, procBlocked, procOffered, playProcedure, stepMark } from './proc-anim.js?v=793bf84863';
 import { dataPlan, textPlan, keepData, keepText, cardSnap, cardChanged, cardBack } from './card-keep.js?v=982397f8fb';
 import { createCardZoom, tapTracker } from './card-zoom.js?v=f589271cc7';
 import { createScopeTile } from './scope-tile.js?v=b05945714a';
@@ -861,7 +861,7 @@ function makeCalc() {
   };
   const ready = (async () => {
     try {
-      const w = new Worker(new URL('../worker.js?v=e1211f73af', import.meta.url), { type: 'module' });
+      const w = new Worker(new URL('../worker.js?v=b5cf98c8e7', import.meta.url), { type: 'module' });
       await new Promise((res, rej) => {
         const t = setTimeout(() => rej(new Error('worker timeout')), 15000);   // (long: a slow load still gets the worker; host.js)
         w.onmessage = (e) => { if (e.data?.type === 'presets') { clearTimeout(t); res(); } };
@@ -874,7 +874,7 @@ function makeCalc() {
       post = (m) => w.postMessage(m); kill = () => w.terminate();
     } catch {
       try {
-        const { createCore } = await import('../worker-core.js?v=8214c900dc');
+        const { createCore } = await import('../worker-core.js?v=56bb3affe4');
         const core = createCore((m) => setTimeout(() => onMsg(m), 0));
         core.handle({ type: 'visibility', visible: false }); core.handle({ type: 'run', running: false });
         post = (m) => core.handle(structuredClone(m)); kill = () => core.dispose();
@@ -926,7 +926,8 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   // ── Slide states ──
   // stateOf[i]: the slide whose model state slide i shows (itself, or the last one before it that changed the model).
   const changes = (s) => !!(s.preset || s.params || s.action || s.days);
-  const modelStep = (s) => (changes(s) ? { preset: s.preset, presetDays: s.presetDays, params: s.params, action: s.action, days: s.days, ramp: s.ramp, fine: !!s.lapse, trail: s.tool?.kind === 'flowtime' && trailKeys(s.tool) } : {});
+  // (before: a slide that plays its procedure also gets the state it opens on, the procedure not done yet: see the landing.)
+  const modelStep = (s) => (changes(s) ? { preset: s.preset, presetDays: s.presetDays, params: s.params, action: s.action, days: s.days, ramp: s.ramp, fine: !!s.lapse, trail: s.tool?.kind === 'flowtime' && trailKeys(s.tool), before: s.procedure ? PROCS[s.procedure.kind || s.procedure]?.before : undefined } : {});
   // (With the extra work a deck visuals package asks for at the slide's state, kept with it as st.extra: slide-ext.js stepExtra.)
   const stepOf = (s) => { const x = stepExtra(s); return x ? { ...modelStep(s), ...x } : modelStep(s); };
   function prepare() {
@@ -952,6 +953,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       const end = await c.sequence(steps, first, (m) => {
         const st = { snap: m.snap, params: m.params, fp: m.fp, trail: m.trail, presetId: presetAt[m.i] };
         if (m.start) st.start = { ...m.start, presetId: presetAt[m.i] };
+        if (m.before) st.before = { ...m.before, presetId: presetAt[m.i] };
         if (m.extra) st.extra = m.extra;
         mine[m.i] = st;
         if (states !== mine) return;   // a newer presentation has started
@@ -1254,7 +1256,10 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       // (false: no callout while the catheter travels in, the names for its way kept.)
       onMark: (m, add) => {
         if (procRun !== run || !mine()) return;
-        store.set(m !== null ? { focus: m ? markFocus([m]) : null, presentLabels: [...new Set([...names, ...(add || [])])] } : { focus: slideMarks(i), presentLabels: names });
+        // (Played through, a slide with no mark of its own keeps the last step's callout, which names what the procedure left: "Stent in".)
+        const last = PROCS[kind].stops.length - 1;
+        store.set(m !== null ? { focus: m ? markFocus([m]) : null, presentLabels: [...new Set([...names, ...(add || [])])] }
+          : { focus: slideMarks(i) || (run.at === last ? markFocus([stepMark(kind, last)]) : null), presentLabels: names });
       },
       onEnd: ({ rewound }) => {
         if (procRun !== run) return;
@@ -1289,11 +1294,13 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     // (BRTO and BATO only on a patient with gastric varices, or one who has had it already, so it plays from just before.)
     if (P && !procOffered(kind, p, m)) return null;
     const why = !P ? 'Unknown procedure.' : P.had(p) ? '' : procBlocked(kind, p, m);
-    // The steps in one row, numbered, the one on show lit: progress, not buttons (Next plays them). Where the full words would wrap,
-    // each takes its short word (abShort). One the patient cannot have shows dimmed with why.
-    return h('div', { class: 'pz-ab pz-procs', role: 'list', 'aria-label': `${P?.name || kind}, step by step: Next plays each step`, ...(why ? { 'data-why': why, title: why } : {}) },
-      (P?.steps || [['play', kind, '', kind]]).map((st0, k) => h('span', { class: `pz-abb pz-proc${procRun && k === procShown ? ' on' : ''}`, role: 'listitem',
-        'data-full': `${k + 1} ${st0[1]}`, 'data-short': `${k + 1} ${st0[3]}`, 'aria-label': `Step ${k + 1}: ${st0[1]}`, title: why || st0[2] }, `${k + 1} ${st0[1]}`)));
+    // The steps as a line of words, each after its number in the slides' own step circle ({#n}, as the Circulation slides number
+    // theirs), the one on show lit: progress, never buttons (his ask, 29 Oct: Next plays them). The callout on the figure carries the
+    // same number. One the patient cannot have shows dimmed with why.
+    const steps = P?.steps || [['play', kind, '', kind]];
+    return h('p', { class: 'pz-procs', role: 'list', 'aria-label': `${P?.name || kind}, step by step: Next plays each step`, ...(why ? { 'data-why': why, title: why } : {}) },
+      ...steps.flatMap((st0, k) => [k ? ' ' : null, h('span', { class: `pz-proc${procRun && k === procShown ? ' on' : ''}`, role: 'listitem', 'aria-label': `Step ${k + 1}: ${st0[1]}`, title: why || st0[2] },
+        h('span', { class: 'pz-step', 'aria-hidden': 'true' }, String(k + 1)), nb(` ${st0[1]}`))]).filter(Boolean));
   }
   // Out: the readings go, the balloon goes down and the catheter fades (at once when the figure is fading anyway).
   async function cathOut(fading) {
@@ -1811,8 +1818,11 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     // the lens and the glows can each cost a long frame, which would otherwise swallow the fade.
     // Which cards stay: the data card when this slide's is the same instrument and tiles, the words when they are the same (keepFor).
     // (The patient changes as transitionRun counts it below: a time-lapse plays from the slide before's state, or from a start of its own.)
+    // (A slide that plays its procedure, going forward, opens on its state before it: no TIPS yet, the shunt still open. The stent or
+    // the closed shunt appears only at the step that makes it, and its words keep the numbers it ends on: his ask, 29 Oct.)
+    const pre = !lap && !back && to > 0 && !!s.procedure && stateOf[to] === to && !holdQ;
     const si = lap || holdQ ? stateOf[to - 1] : stateOf[to];
-    keepNow = keepFor(was && slides[was.i], s, to, si !== shownState || liveOff || (lap && !!states[stateOf[to]]?.start), { again: !was || was.i === to }); keepCut = cut;
+    keepNow = keepFor(was && slides[was.i], s, to, si !== shownState || liveOff || (lap && !!states[stateOf[to]]?.start) || (pre && !!states[to]?.before), { again: !was || was.i === to }); keepCut = cut;
     const outAt = performance.now(), outMs = wordsOut(s);
     if (outMs) { await painted(); await painted(); }
     // Words out, and the marks: they belong to the slide that is leaving.
@@ -1823,7 +1833,8 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     // visual over the figure, keeps the colours already showing: they change only when a slide's lens does.
     if (!s.visual) { const lens = slideLens(s); if (store.get().colorMode !== lens) store.set({ colorMode: lens }); }
     if (!hushed) delete app.dataset.lit;   // (hushed, the lit set goes straight to the next slide's: a label on both keeps its pill)
-    stopLapse(); procStop(); abSlow(); handOn = false; procDoneAt = -1;
+    // (Back onto a procedure's slide lands on it done, so Next moves on.)
+    stopLapse(); procStop(); abSlow(); handOn = false; procDoneAt = back && s.procedure ? to : -1;
     await wait(Math.max(0, outMs - (performance.now() - outAt)));
     // (Nothing in the liver changes until its labels are gone.)
     if (hushed) { await wait(Math.max(0, HUSH_OUT - (performance.now() - hushAt))); await eased(['--lab-o'], 600); if (cut()) return; }
@@ -1843,7 +1854,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     // (A patient still being computed off screen: after a short wait the arc shows.)
     const lateT = states[si] && (!lap || states[stateOf[to]]) ? 0 : setTimeout(() => loading(true), 260);
     // (A time-lapse with its own params plays from them set and settled: the chain's start state, not the slide before's.)
-    const own = lap ? (await stateReady(stateOf[to]))?.start || null : null;
+    const own = lap ? (await stateReady(stateOf[to]))?.start || null : pre ? (await stateReady(to))?.before || null : null;
     const st = own || await stateReady(si);
     clearTimeout(lateT);
     if (!st || cut()) return;
@@ -1882,7 +1893,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     // through its fade back in, so the eye sees one motion, not a fade and then a move.
     // (The words come first: they set the space the camera frames into.)
     // A time-lapse's words tell where it ends ("six months on, the HVPG is {hvpg}"), so their values are the end state's.
-    const said = lap || holdQ ? await stateReady(stateOf[to]) : st;
+    const said = lap || holdQ || own ? await stateReady(stateOf[to]) : st;
     if (!said || cut()) return;
     // (Its card starts from the state the time-lapse plays from, and climbs with it.)
     // The new cards are built unseen (pz-prep) and fitted at their final size before they fade in, so they never grow on screen

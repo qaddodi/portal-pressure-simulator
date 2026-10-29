@@ -477,7 +477,14 @@ export function createCore(post) {
         const m = computeMetrics(e);
         if (trail) trail.push(at(st.days, m));
         const extra = yield* stepExtras(e, st);
-        post({ type: 'seqStep', reqId, i, snap: e.snapshot(), params: structuredClone(e.params), fp: fingerprint(m, e), trail, start, ...(extra ? { extra } : {}) });
+        // before: a slide that plays a procedure opens on its state with the procedure not done yet (st.before undoes it, settled on a
+        // copy, so the chain goes on from the slide's own state).
+        let before = null;
+        if (st.before) {
+          const b = new Engine(); b.restore(e.snapshot()); b.setParams(deepMerge(b.params, st.before)); b.settle();
+          before = { snap: b.snapshot(), params: structuredClone(b.params), fp: fingerprint(computeMetrics(b), b) };
+        }
+        post({ type: 'seqStep', reqId, i, snap: e.snapshot(), params: structuredClone(e.params), fp: fingerprint(m, e), trail, start, before, ...(extra ? { extra } : {}) });
         yield;
       }
       post({ type: 'sequence', reqId });

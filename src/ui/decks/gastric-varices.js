@@ -51,8 +51,7 @@ export const GASTRIC = {
       ask: ['After a TIPS that brings the PPG <12 mmHg, is a beta-blocker still needed?', 'No, according to AASLD.'],
     },
     {
-      id: 'brto', lens: 'flow', preset: 'gastric-varix', params: { occluded: { C5: true } }, cam: 'fundus', terms: ['gv'], mark: { edges: ['C5'], label: 'Shunt closed', kind: 'treat' }, tool: { kind: 'flows' }, procedure: 'brto',
-      compare: [{ label: 'Shunt open', short: 'Open', params: { occluded: { C5: false } } }, { label: 'Shunt closed', short: 'Closed', own: true, params: { occluded: { C5: true } } }],
+      id: 'brto', lens: 'flow', preset: 'gastric-varix', params: { occluded: { C5: true } }, cam: 'fundus', terms: ['gv'], tool: { kind: 'flows' }, procedure: 'brto',
       data: 'tiles', tiles: ['gv', 'varix', 'ppg'], key: ['gv'], delta: 'classes',
       kicker: 'After a bleed', site: 'sin', title: 'BRTO closes the shunt from below',
       line: 'Plugging the shunt shrinks the fundal varix to {gv}, but the blood stays in the portal system: the PPG rises to {ppg} and esophageal varices grow to {varix}.',

@@ -2,7 +2,7 @@
 // takes the change the Treat buttons make, one the patient cannot have says why, and built-in slides use it only where adopted.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { PROCS, PROC_KINDS, procBlocked, procOffered, procFrame, stepAt, stepMark, playProcedure, GV_MIN_MM } from '../src/ui/proc-anim.js';
+import { PROCS, PROC_KINDS, procBlocked, procOffered, procFrame, stepAt, stepMark, STEP_NUM, playProcedure, GV_MIN_MM } from '../src/ui/proc-anim.js';
 import { LABEL_VESSEL } from '../src/ui/anatomy.js';
 import { defaultParams } from '../src/engine/scenario.js';
 import { isOccluded } from '../src/engine/topology.js';
@@ -126,8 +126,9 @@ test('every step plays inside one shot, the camera moving only between steps, tw
     assert.equal(P.stops.length, P.steps.length, `${k}: a stop for every step`);
     assert.equal(P.stops.at(-1), T.end, `${k}: the last step ends with the catheter gone`);
     for (let i = 1; i < P.stops.length; i++) assert.ok(P.stops[i] > P.stops[i - 1], `${k}: stops in order`);
-    // (shots: the whole way in first, then the close-up for the rest; never back out mid-procedure)
-    assert.deepEqual(P.steps.map((s) => s[4]), ['way', 'tip', 'tip', 'tip'], `${k} shots`);
+    // (shots: the whole way in first, then the close-up for the rest; never back out mid-procedure. BRTO and BATO frame the
+    // balloon closer still, then the tip on to the varices for the sclerosant: his ask, 29 Oct, "zoom into the balloon catheter tip")
+    assert.deepEqual(P.steps.map((s) => s[4]), k === 'tips' ? ['way', 'tip', 'tip', 'tip'] : ['way', 'tip', 'work', 'work'], `${k} shots`);
     for (const t of times(T)) {
       const f = procFrame(k, t);
       if (f.step >= 0) { assert.equal(f.step, stepAt(k, t)); assert.equal(f.shot, P.steps[f.step][4], `${k} at ${t}`); }
@@ -150,16 +151,20 @@ test("each step's callout is a treatment mark on a vessel of its own route, and 
   const routes = { tips: ['SVC_RA', 'IVCS_RA', 'IVC_IS', 'RHV_IVC', 'TIPS', 'PVH_R', 'PV_TRUNK'], brto: ['ILI_IVC', 'IVC_IS', 'LRV_IVC', 'C5'], bato: ['PVH_R', 'PV_TRUNK', 'SV_CONF', 'C2'] };
   for (const k of PROC_KINDS) PROCS[k].steps.forEach((s, i) => {
     const m = stepMark(k, i);
-    assert.deepEqual(m, { edges: [s[5]], label: s[1], kind: 'treat' });
+    // (numbered as its step in the teaching card, at its own point on the part it names, kept clear of the vessels: his asks, 29 Oct)
+    assert.deepEqual(m, { edges: [s[5]], label: `${STEP_NUM[i]} ${s[1]}`, kind: 'treat', f: s[7], pin: true, ghost: true });
+    assert.ok(s[7] > 0 && s[7] < 1, `${k} step ${i}: a point along its vessel`);
     assert.ok(routes[k].includes(s[5]), `${k} step ${i}: ${s[5]} is on its route`);
     for (const n of s[6]) assert.ok(LABEL_VESSEL[n], `${k} step ${i}: ${n} is a station label`);
     assert.ok(s[3] && s[3].length <= 8, `${k} step ${i}: short word "${s[3]}"`);
   });
   assert.equal(stepMark('brto', 99), null);
-  // The BRTO slide's own mark is the last step's callout, so the procedure ends on it without a change.
+  // The TIPS callouts after the catheter is in name the tract (his ask, 29 Oct: "the callout should be on the tract").
+  assert.deepEqual(PROCS.tips.steps.slice(1).map((s) => s[5]), ['TIPS', 'TIPS', 'TIPS']);
+  // The BRTO slide just plays BRTO (his ask, 29 Oct): no Shunt open / Shunt closed buttons and no mark of its own; played through,
+  // the last step's callout stays.
   const s = DECKS.find((d) => d.id === 'gastric-varices').slides.find((x) => x.id === 'brto');
-  const last = stepMark('brto', PROCS.brto.steps.length - 1);
-  assert.deepEqual({ edges: s.mark.edges, label: s.mark.label, kind: s.mark.kind }, last);
+  assert.equal(s.compare, undefined); assert.equal(s.mark, undefined); assert.equal(s.procedure, 'brto');
 });
 
 // A stand-in for the stage and the frame clock: playProcedure on a clock the test moves by hand.
@@ -189,21 +194,21 @@ test('presented, it holds at each step until Next, waits for each shot to land, 
     const P = PROCS.brto;
     assert.deepEqual(R.moves.map((m) => m.mode), ['way'], 'one shot for the way in');
     assert.equal(play.at, 0); assert.ok(R.idle(), 'held at the first stop with no frames running');
-    assert.deepEqual(steps, [0]); assert.deepEqual(marks, [false, 'Catheter in'], 'no callout while it travels in, then the step on its vessel');
+    assert.deepEqual(steps, [0]); assert.deepEqual(marks, [false, '\u278A Catheter in'], 'no callout while it travels in, then the step on its vessel');
     // (nothing moved while the first shot glided in)
     const during = R.cats.filter((c, i) => i < R.cats.length && c && c.u > 0).length;
     assert.ok(during > 0 && R.cats[0].u === 0 && R.cats[0].keep === true, 'the figure keeps its names');
     assert.ok(play.next());
     R.run(30000);
     assert.deepEqual(R.moves.map((m) => m.mode), ['way', 'tip']);
-    assert.equal(steps.at(-1), 1); assert.equal(marks.at(-1), 'Balloon up');
+    assert.equal(steps.at(-1), 1); assert.equal(marks.at(-1), '\u278B Balloon up');
     assert.ok(play.next()); R.run(30000);
     assert.equal(applied, 1, 'the model took the change as the sclerosant filled');
     assert.ok(play.back()); R.run(30000);
     assert.equal(applied, 0, 'and gave it back going back');
     assert.equal(steps.at(-1), 1);
     assert.ok(play.back()); R.run(30000);
-    assert.deepEqual(R.moves.map((m) => m.mode), ['way', 'tip', 'way'], 'back to the way in, between steps');
+    assert.deepEqual(R.moves.map((m) => m.mode), ['way', 'tip', 'work', 'tip', 'way'], 'back through each shot, between steps');
     assert.ok(play.back()); R.run(30000);
     assert.equal(play.running, false); assert.deepEqual(ends, [{ done: false, rewound: true }]);
     assert.equal(R.moves.at(-1).mode, 'home'); assert.equal(marks.at(-1), null);
@@ -223,7 +228,7 @@ test('in Tests it plays through by itself, every step in turn, and leaves the ch
       assert.deepEqual(steps, [0, 1, 2, 3], k);
       assert.equal(applied, 1, k);
       assert.deepEqual(ends, [{ done: true, rewound: false }], k);
-      assert.deepEqual(R.moves.map((m) => m.mode), ['way', 'tip', 'home'], `${k}: three camera moves in all`);
+      assert.deepEqual(R.moves.map((m) => m.mode), k === 'tips' ? ['way', 'tip', 'home'] : ['way', 'tip', 'work', 'home'], `${k}: a move only between shots`);
       assert.ok(R.moves.every((m) => m.ms >= 1400), `${k}: every move glides as a slide's camera does`);
     }
   } finally { Object.assign(globalThis, { performance: saved.p, requestAnimationFrame: saved.r, cancelAnimationFrame: saved.c }); }
@@ -244,10 +249,25 @@ test('presented, Next drives it: the first Next starts it, each Next plays a ste
   assert.match(pn, /procPlay\(s, want, 0\);\n\s+return true;/, 'the first Next puts the catheter in');
   const el = pz.match(/function procEl\([\s\S]*?\n {2}\}/)[0];
   assert.doesNotMatch(el, /onclick|'button'/, 'the steps are not buttons');
-  assert.match(pz, /stopLapse\(\); procStop\(\); abSlow\(\); handOn = false; procDoneAt = -1;/, 'a new slide starts it afresh');
+  assert.match(pz, /stopLapse\(\); procStop\(\); abSlow\(\); handOn = false; procDoneAt = back && s\.procedure \? to : -1;/, 'a new slide starts it afresh (back onto it, it is done)');
+  // The steps are a line of the slides' own numbered circles, not pills.
+  assert.match(el, /class: 'pz-step'/); assert.doesNotMatch(el, /pz-abb/);
+  // Going forward, the slide opens on its state before the procedure (the worker's before), its words on the state after.
+  assert.match(pz, /const own = lap \? \(await stateReady\(stateOf\[to\]\)\)\?\.start \|\| null : pre \? \(await stateReady\(to\)\)\?\.before \|\| null : null;/);
+  assert.match(pz, /before: s\.procedure \? PROCS\[s\.procedure\.kind \|\| s\.procedure\]\?\.before : undefined/);
+  const wk = readFileSync(new URL('../src/worker-core.js', import.meta.url), 'utf8');
+  assert.match(wk, /if \(st\.before\) \{\n\s+const b = new Engine\(\); b\.restore\(e\.snapshot\(\)\); b\.setParams\(deepMerge\(b\.params, st\.before\)\); b\.settle\(\);/);
+  for (const k of PROC_KINDS) assert.ok(PROCS[k].before && PROCS[k].had(PROCS[k].apply({})) && !PROCS[k].had(structuredClone(PROCS[k].before)), `${k}: before undoes it`);
   // A catheter you can see: half the narrowest vein, a dark rim, a balloon wall to wall, and a close shot that follows the tip.
   assert.match(st, /cath\.rc = r\.parts \? procRc\(r, Rf\) :/);
-  assert.match(st, /return Math\.max\(m, 0\.5\) \* 0\.5;/);
+  // (one caliber for all three, the TIPS one: his ask, 29 Oct, the BRTO catheter was hair thin)
+  assert.match(st, /if \(E\.RHV_IVC\) for \(let f = 0\.2; f <= 1\.001; f \+= 0\.1\) t = Math\.min\(t, cathRadOf\('RHV_IVC', f\)\);/);
+  assert.match(st, /return Math\.max\(0\.5, Math\.min\(t \* 0\.5, m \* 0\.85\)\);/);
+  assert.match(st, /const PROC_K_TIP = 8;/);
+  // A step callout keeps clear of every vessel on a short leader, at its own point, on a vessel not drawn yet too (the tract).
+  assert.match(st, /const tidy = \(lv \|\| m\.pin\) && !dop\.all \?/);
+  assert.match(st, /const segAt = m\.f \?\? /);
+  assert.match(st, /m\.ghost && geo\[m\.edges\[0\]\]\?\.cur\?\.length/);
   assert.match(st, /if \(r\.parts\) shaftPart\(0, rc \* 1\.45, 0, \[0\.06, 0\.08, 0\.14\], 0\.9\);/);
   assert.match(st, /r\.parts \? Math\.max\(rc \* 1\.35, Rb\) : rc \* 1\.35/);
   assert.match(st, /const PROC_K_MAX = 5;/);

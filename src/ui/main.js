@@ -1,17 +1,17 @@
 // Application bootstrap: wires the engine host to the four surfaces (figure + action card,
 // timeline, patient chart, instruments) and to Home, the command palette and the menus.
 
-import { startHost, host } from './host.js?v=5d29eb0f1b';
+import { startHost, host } from './host.js?v=164ee7d975';
 import { store, updateParams, replaceParams, bindParamSender, clearHistory, logAction, varicesPresent, hiddenNow } from './store.js?v=926dabfaef';
-import { createStage } from './stage.js?v=91ca821803';
+import { createStage } from './stage.js?v=e6dbbf8aec';
 import { createCreditPlacer } from './credit.js?v=fa8c256d94';
 import { whenQuiet } from './quiet.js?v=82fc0f97e3';
 import { sinusoidSupported } from './gl-support.js?v=94ad2a7ff1';
 import { createInspector } from './inspector.js?v=bc8186fa9d';
-import { createDock, CUTOFFS, savedInstruments } from './dock.js?v=e4a14a1966';
-import { setHvpgStage } from './hvpg-proc.js?v=6831354271';
-import { createWhy } from './why.js?v=30e0aea01c';
-import { createTimeline, LAPSES } from './timeline.js?v=7caa424518';
+import { createDock, CUTOFFS, savedInstruments } from './dock.js?v=96741dae1f';
+import { setHvpgStage } from './hvpg-proc.js?v=c793a707c4';
+import { createWhy } from './why.js?v=aedf70dd8b';
+import { createTimeline, LAPSES } from './timeline.js?v=69945bdd61';
 import { createCompare } from './compare.js?v=3b2803586a';
 import { createCard } from './card.js?v=7ea6501f8c';
 import { createChart } from './chart.js?v=735034750e';
@@ -178,7 +178,7 @@ async function main() {
   dock = createDock({ strip: $('#strip'), head: $('#dockHead'), body: $('#dockBody'), onWhy: (m, el) => why.open(m, el), onAction: doAction, onProbe: probeTo, lazy: { doppler: dopplerL, fibroscan: fibroL }, onReveal: revealDock, onLobule: () => zoomLobule('R'),
     onOpen: () => openPanel('instruments'), onClose: () => setPanelTab('chart'), onLayout: () => syncDoppler(), isVisible: () => app.classList.contains('dock-open'),
     marks: () => timeline.entries(), onBeat: () => sendBeat() });
-  presenterL = lazy(() => import('./presenter.js?v=d3f2ec99f6'), ({ createPresenter }) => createPresenter({ openSettings, loadPreset, updateParams, host, stage, dock, action: doAction,
+  presenterL = lazy(() => import('./presenter.js?v=b3871a8e46'), ({ createPresenter }) => createPresenter({ openSettings, loadPreset, updateParams, host, stage, dock, action: doAction,
     projectorOn: () => { if (!projector) toggleProjector(); }, projectorOff: () => { if (projector) toggleProjector(); },
     closeHome: () => mainMenu.close(), stashCards, rerenderHome: () => mainMenu.render() }));
   mainMenu = createMenu({

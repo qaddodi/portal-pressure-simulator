@@ -1811,10 +1811,16 @@ button.finding { cursor: pointer; }
 /* Each option is its own outlined button, so it reads as something to tap; the chosen one is in full ink with an accent edge, the others grey.
    No shared track and no filled pill, an iOS switch's look (DG4, 17 Oct). */
 .pz-abb[aria-pressed="true"] { color: var(--text); border-color: var(--accent); box-shadow: inset 0 0 0 .5px var(--accent); }
-/* A procedure's steps (presenter.js procEl): progress, not buttons (Next plays them); the one on show lit as a pressed choice. */
-.pz-proc { cursor: default; pointer-events: none; }
-.pz-proc.on { color: var(--text); border-color: var(--accent); box-shadow: inset 0 0 0 .5px var(--accent); }
-.pz-procs[data-why] .pz-proc { opacity: .5; }
+/* A procedure's steps (presenter.js procEl): a line of words, each after the slides' own step circle, progress only (Next plays
+   them). The step on show takes the text colour and an accent circle, the rest stay quiet; only colours change, so the line never
+   reflows. */
+.pz-procs { margin: 0; font: 400 var(--s-body)/1.4 var(--font-ui); color: var(--text-3); text-wrap: pretty; }
+.pz.stack .pz-procs { font-size: var(--s-lab); }
+.pz-proc { white-space: nowrap; transition: color .3s ease; }
+.pz-proc .pz-step { transition: background-color .3s ease, color .3s ease; }
+.pz-proc.on { color: var(--text); }
+.pz-proc.on .pz-step { background: var(--accent); color: var(--on-accent); }
+.pz-procs[data-why] { opacity: .5; }
 .pz-abb:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 /* Projector-size catheter readings. */
 .app.presenting .cath-label { padding: calc(7px * min(var(--label-k, 1), 1.7)) calc(16px * min(var(--label-k, 1), 1.7)) calc(8px * min(var(--label-k, 1), 1.7)); border-radius: calc(14px * min(var(--label-k, 1), 1.7)); }
