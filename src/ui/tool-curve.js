@@ -614,15 +614,18 @@ export function createCurve() {
     // it would run into the reading's name and unit at the left.)
     const altW = ag ? ls.reduce((a, l) => a + 22 + 1.05 * cw(l.name, f, 1), 0) + f * (ls.length - 1) : 0;
     const altBelow = ag && cw(keyLs[0].name, f, 1) + 6 + cw(keyLs[0].unit, f) + altW + 2 * f > w;
+    // (Below, the names wrap onto as many right-aligned rows as the width asks, none run off the card's edge: altRows, each row's list of line numbers.)
+    const altRows = [];
+    if (altBelow) { let used = 0; [...ls].reverse().forEach((l, i) => { const kw = 22 + 1.05 * cw(l.name, f, 1); if (!altRows.length || used + kw > w) { altRows.push([]); used = 0; } altRows.at(-1).push(i); used += kw + f; }); }
     // (No more numbers up the side than fit a line and a half of type apart.)
     const stepKey = steps ? stepKeyOf(w, f) : null, stepH = stepKey?.rows ? stepKey.rows * 1.5 * f + 0.3 * f : 0;
-    const plotH = h - 3.3 * f - stepH - ((keys0 && !altBelow ? 1 : 2) * 1.5 * f + 2 * f), most = clamp(Math.floor(plotH / (1.6 * f)) + 1, 3, 7);
+    const plotH = h - 3.3 * f - stepH - ((keys0 && !altBelow ? 1 : keys0 ? 1 + altRows.length : 2) * 1.5 * f + 2 * f), most = clamp(Math.floor(plotH / (1.6 * f)) + 1, 3, 7);
     // (cuts: 'ticks': the first line's cut-offs ask the scale to hold them, to stand as coloured numbers on the axis.)
     // (cutTicks: with a list of cut-offs, as 'ticks' does for the tile's own; and the numbers are the cut-offs themselves where no even scale holds them.)
     const ticksOn = (t.cuts === 'ticks' || !!t.cutTicks) && !ag, sL = leftScale(ls[0].k, vals[0], most, ticksOn ? yCutsOf(t, ls[0].k).map((c) => c.v) : [], !!t.cutTicks), sR = ls[1] && !one ? rightScale(vals[1], sL.ticks.length) : null;
     const tickCuts = ticksOn ? yCutsOf(t, ls[0].k).filter((c) => sL.ticks.some((v) => Math.abs(v - c.v) < 1e-6)) : [];
     const keys = keyLs.map((l) => ({ ...l, w: (l.bare ? 0 : 22) + cw(l.name, f, 1) + 6 + cw(l.unit, f) + kvW }));
-    const oneRow = keys.length < 2 || keys[0].w + keys[1].w + 2 * f <= w, rowH = 1.5 * f, legH = (oneRow && !altBelow ? 1 : 2) * rowH;
+    const oneRow = keys.length < 2 || keys[0].w + keys[1].w + 2 * f <= w, rowH = 1.5 * f, legH = (oneRow && !altBelow ? 1 : oneRow ? 1 + altRows.length : 2) * rowH;
     const tw = (sc) => Math.max(...sc.ticks.map((v) => cw(fmtTick(v, dec(sc)), f)));
     const most0 = Math.max(2, Math.min(7, Math.floor((w - 4 * f) / (3.2 * f))));
     // (The plot is one rounded panel the chart's full width, his G2 look, plot-look.js: its numbers stand in the strips inside its edge, 8 px in from it, where no line runs.)
@@ -630,7 +633,7 @@ export function createCurve() {
     const { xt, nameAt } = xAxisRow(x0, x1, L, R, w, f, ax, most0);
     // (The panel's foot: 1.7 em under the axis when the x axis's name stands on the numbers' row, else 3.1 em with the name on a row of its own.)
     const foot = (nameAt == null ? 3.1 : 1.7) * f, T = legH + 2 * f, B = h - foot - 0.2 * f - stepH;
-    return { w, h, f, ls, ag, one, ax, x0, x1, xt, nameAt, foot, sL, sR, tickCuts, keyRead, stepKey, keys, oneRow, altBelow, rowH, keyH: legH, L, R, T, B: Math.max(T + 3 * f, B) };
+    return { w, h, f, ls, ag, one, ax, x0, x1, xt, nameAt, foot, sL, sR, tickCuts, keyRead, stepKey, keys, oneRow, altBelow, altRows, rowH, keyH: legH, L, R, T, B: Math.max(T + 3 * f, B) };
   }
   const X = (x) => G.L + (G.R - G.L) * (x - G.x0) / ((G.x1 - G.x0) || 1);
   const Yof = (sc) => (v) => G.B - (G.B - G.T) * clamp((v - sc.min) / ((sc.max - sc.min) || 1), 0, 1);
@@ -709,10 +712,10 @@ export function createCurve() {
     // for the lines' names on the drawing, a phone held sideways.)
     let alt = null;
     if (G.ag) {
-      let x = 0;
-      const ks = [...ls].reverse().map((l) => { const kw = 22 + 1.05 * cw(l.name, f, 1); x -= kw; const at = x; x -= f;
-        return sv('g', { transform: `translate(${at.toFixed(1)} 0)` }, sv('line', { x1: 0, x2: 16, y1: 0, y2: 0, class: l.ref ? 'pcv-ref' : null, style: `stroke: var(${l.c})` }),
-          sv('text', { x: 22, y: 0.36 * f, style: `fill: var(${l.c})` }, l.name)); });
+      const rev = [...ls].reverse(), at = rev.map(() => null);
+      (G.altBelow ? G.altRows : [rev.map((_, i) => i)]).forEach((row, r) => { let x = 0; row.forEach((i) => { x -= 22 + 1.05 * cw(rev[i].name, f, 1); at[i] = [x, r * G.rowH]; x -= f; }); });
+      const ks = rev.map((l, i) => sv('g', { transform: `translate(${at[i][0].toFixed(1)} ${at[i][1].toFixed(1)})` }, sv('line', { x1: 0, x2: 16, y1: 0, y2: 0, class: l.ref ? 'pcv-ref' : null, style: `stroke: var(${l.c})` }),
+        sv('text', { x: 22, y: 0.36 * f, style: `fill: var(${l.c})` }, l.name)));
       alt = sv('g', { class: 'pft-key pcv-alt off', transform: `translate(${G.w} ${(G.altBelow ? G.rowH : 0) + 0.75 * f})` }, ks);
     }
     const axis = [sv('line', { class: 'pft-x', x1: L, x2: R, y1: B, y2: B }),
@@ -724,7 +727,7 @@ export function createCurve() {
       const Y = j && !G.one ? YR || YL : YL, ys = ser?.ys[j], xs = lineX(j);
       const d = ys ? ys.map((y, i) => (Number.isFinite(y) ? [X(xs[i]), Y(y)] : null)).filter(Boolean).map(([x, y], i) => `${i ? 'L' : 'M'}${x.toFixed(1)} ${y.toFixed(1)}`).join('') : '';
       return { l, Y, path: sv('path', { class: `ptk-line pcv-line${l.ref ? ' pcv-ref' : ''}`, d, style: `stroke: var(${l.c})` }),
-        ring: sv('circle', { class: 'pcv-ring', r: Math.max(5, f * 0.45), style: `stroke: var(${l.c})` }),
+        ring: sv('circle', { class: 'pcv-ring off', r: Math.max(5, f * 0.45), style: `stroke: var(${l.c})` }),
         val: sv('text', { class: 'pcv-v', style: `fill: var(${l.c})` }),
         // (With against each line is named on the drawing, placed on every paint clear of the rings and the values.)
         name: G.ag ? sv('text', { class: 'pcv-name', style: `fill: var(${l.c})` }, l.name) : null };

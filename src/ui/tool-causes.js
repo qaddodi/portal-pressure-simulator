@@ -15,7 +15,7 @@
 // steps ease to their new places. These are the model's own shares: a deck line that quotes them needs a source.
 
 import { TILE, RATE, tileShown } from './table-marks.js?v=bca5ebb624';
-import { cutsOf } from './tool-curve.js?v=2787c2b5d7';
+import { cutsOf } from './tool-curve.js?v=9e6a721317';
 import { DRUGS } from '../engine/scenario.js?v=d7d3ea5b70';
 import { frameFor } from './frame.js?v=7254a8a850';
 const nextFrame = frameFor('tool-causes');
