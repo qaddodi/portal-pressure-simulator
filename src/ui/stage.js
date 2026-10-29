@@ -50,6 +50,7 @@ import { softwareYield } from './sw-yield.js?v=e580a095b1';
 import { portalSplit } from './table-marks.js?v=bca5ebb624';
 import { hashSeed, clotSide, clotSpan, clotRadius, clotShift, clotLayers, CLOT_EDGE } from './clot-shape.js?v=415ba6b9c0';
 import { leaderEnd as edgeOf, leaderEndRects as edgeOfRects } from './leader-end.js?v=8e884700ab';
+import { balloonShape, esoAt, BALLOON } from './balloon-eso.js?v=2e217646b1';
 import { balloonRy, balloonOutline, routeRadii } from './hvpg-balloon.js?v=35d7bb162c';
 import { outlineBox, placeSummary } from './cath-place.js?v=b5835a19ca';
 import { layoutWatch } from './idle-keys.js?v=6eccd5d85a';
@@ -3247,7 +3248,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       return [`${x.shadeKey}|${ra.shadeKey}|${f.toFixed(4)}`, (i) => { const u = i / (N_SAMPLES - 1); return u < f ? x.rOf(u / f) : ra.rOf((u - f) / (1 - f)); }];
     }
     if (kind === 'v' && !x.isArt) return [x.shadeKey, (i) => x.rOf(i / (N_SAMPLES - 1))];
-    const r = kind === 'v' ? Math.max(0.5, x.width / 2) : kind === 's' ? Math.max(1.6, x.width * it.obj.k) / 2 : it.obj.w / 2;
+    // (The esophageal balloon squeezes the varices' strands while it is up: balloonSqueeze, 1 … 0.55.)
+    const r = (kind === 'v' ? Math.max(0.5, x.width / 2) : kind === 's' ? Math.max(1.6, x.width * it.obj.k) / 2 : it.obj.w / 2) * (kind === 's' && x.e.id === 'C1a' ? balloonSqueeze : 1);
     // (A varix strand beaded by the varix's size: varix-bead.js.)
     const b = kind === 's' ? it.obj.bead || 0 : 0, o = it.obj;
     keep(o, 'kr', r, widthMoving(x) ? edgeQ() : 0);
@@ -7513,12 +7515,58 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       hold('gd', m.gastricVarix.d, 0.5), hold('c3', recruitFrac('C3', f), 0.1), lastMorph]);
   }
   const setVar = (el, k, v) => { const c = el._v || (el._v = {}); if (c[k] === v) return; c[k] = v; el.style.setProperty(k, v); };
+  // The tamponade balloons go in deflated, then fill: the shaft slides in (adv), then the balloon inflates (k), both eased
+  // and run back when the balloon is switched off. Drawn again every frame while either is moving.
+  const bal = { eso: { adv: 0, k: 0 }, gas: { adv: 0, k: 0 }, last: 0, on: { eso: false, gas: false }, anat: true, dirty: true };
+  const BAL_ADV_MS = 900, BAL_INF_MS = 1500;
+  const balEase = (x) => x * x * (3 - 2 * x);
+  function balloonStep(p, anat) {
+    const now = performance.now(), dt = Math.min(100, bal.last ? now - bal.last : 0);
+    bal.last = now;
+    for (const [id, want] of [['eso', !!p.balloonEso], ['gas', !!p.balloonGas]]) {
+      const b = bal[id], on = want && anat;
+      if (on !== bal.on[id]) { bal.on[id] = on; bal.dirty = true; }
+      const d = dt / (on ? 1 : 0.6);   // (out quicker than in)
+      const oadv = b.adv, ok = b.k;
+      if (on) { b.adv = Math.min(1, b.adv + d / BAL_ADV_MS); if (b.adv >= 1) b.k = Math.min(1, b.k + d / BAL_INF_MS); }
+      else { b.k = Math.max(0, b.k - d / BAL_INF_MS * 1.5); if (b.k <= 0) b.adv = Math.max(0, b.adv - d / BAL_ADV_MS * 1.5); }
+      if (b.adv !== oadv || b.k !== ok) bal.dirty = true;
+    }
+    bal.anat = anat;
+    balloonSqueeze = 1 - 0.45 * balEase(bal.eso.k);
+    if (bal.dirty) { bal.dirty = false; balloonDraw(anat); }
+  }
+  function balloonDraw(anat) {
+    ov.balloons.innerHTML = '';
+    if (!anat) return;
+    const pts = (a) => a.map((q) => q[0].toFixed(1) + ' ' + q[1].toFixed(1)).join(' L');
+    const e = bal.eso;
+    if (e.adv > 0) {
+      const sh = balloonShape(balEase(e.k), balEase(e.adv));
+      ov.balloons.append(s('path', { d: 'M' + pts(sh.shaft), class: 'balloon-shaft' }));
+      if (e.k > 0.01 || e.adv >= 1) {
+        ov.balloons.append(s('path', { d: 'M' + pts(sh.outline) + ' Z', class: 'balloon-shape' }));
+        const hl = [];
+        for (let y = BALLOON.top + 10; y <= BALLOON.bottom - 10; y += 8) hl.push([esoAt(y).c - sh.half(y) * 0.55, y]);
+        if (e.k > 0.3) ov.balloons.append(s('path', { d: 'M' + pts(hl), class: 'balloon-sheen', 'stroke-opacity': Math.min(1, (e.k - 0.3) / 0.4) }));
+        for (const y of sh.bands) { const q = esoAt(y); ov.balloons.append(s('rect', { x: q.c - Math.max(sh.half(y), 1.3) - 0.5, y: y - 1.6, width: 2 * Math.max(sh.half(y), 1.3) + 1, height: 3.2, class: 'balloon-marker' })); }
+      } else ov.balloons.append(s('circle', { cx: sh.shaft.at(-1)[0], cy: sh.tipY, r: 1.6, class: 'balloon-marker' }));
+    }
+    const g = bal.gas;
+    if (g.k > 0.01 || g.adv > 0) {
+      const k = balEase(g.k), r = 4 + 20 * k;
+      ov.balloons.append(s('circle', { cx: SITES.fundus[0], cy: SITES.fundus[1], r, class: 'balloon-shape' }));
+      if (k > 0.3) ov.balloons.append(s('path', { d: `M${SITES.fundus[0] - r * 0.6} ${SITES.fundus[1] - r * 0.15} A ${r * 0.62} ${r * 0.62} 0 0 1 ${SITES.fundus[0] - r * 0.1} ${SITES.fundus[1] - r * 0.62}`, class: 'balloon-sheen', 'stroke-opacity': Math.min(1, (k - 0.3) / 0.4) }));
+    }
+  }
+  let balloonSqueeze = 1;
   function updateOverlays(f, p, gain, t) {
     // Colors follow pressure continuously through CSS variables; geometry rebuilds only on change.
     const PM = f.Pf || f.P;
     setVar(ov.varices, '--vx', pressureColor(qP(PM[NI.VAR])));
     setVar(ov.gvarices, '--vx', pressureColor(qP(PM[NI.GV])));
     const key = overlayInputs(f, p, t);
+    balloonStep(p, t < 0.5);
     if (key === overlayKey) return;
     overlayKey = key;
     const anat = t < 0.5;
@@ -7621,10 +7669,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       const nb = Math.round(f.bands || 0);
       for (let i = 0; i < nb; i++) { const y = 272 - i * 16; ov.bands.append(s('ellipse', { cx: eso(y), cy: y, rx: 11, ry: 3, class: 'band-ring' })); }
     }
-    // Balloons
-    ov.balloons.innerHTML = '';
-    if (anat && p.balloonEso) ov.balloons.append(s('rect', { x: 792, y: 190, width: 20, height: 84, rx: 10, class: 'balloon-shape' }));
-    if (anat && p.balloonGas) ov.balloons.append(s('circle', { cx: SITES.fundus[0], cy: SITES.fundus[1], r: 24, class: 'balloon-shape' }));
+    balloonDraw(anat);
     mk.ver++;
     marksSync();
   }

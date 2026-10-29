@@ -608,7 +608,10 @@ div.vital { cursor: default; }
 .circuit .circuit-only { opacity: 1; }
 .circuit .node-dot.off { opacity: 0; pointer-events: none; }   /* (one class more than the line above: a station with no vessel drawn at it shows no dot in the circuit either, faded as the vessels are) */
 .band-ring { fill: none; stroke: var(--text); stroke-width: 2.4; }
-.balloon-shape { fill: var(--balloon); fill-opacity: .8; stroke: var(--balloon-line); stroke-width: 1.4; }
+.balloon-shape { fill: var(--balloon); fill-opacity: .55; stroke: var(--balloon-line); stroke-width: 1.2; stroke-linejoin: round; }
+.balloon-shaft { fill: none; stroke: var(--balloon-line); stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; opacity: .9; }
+.balloon-sheen { fill: none; stroke: var(--white); stroke-width: 1.6; stroke-linecap: round; stroke-opacity: .6; }
+.balloon-marker { fill: var(--balloon-line); }
 .ascites-fill { stroke: none; opacity: var(--fluid-fade, 1); }
 .ascites-line { fill: none; stroke: var(--ascites); stroke-opacity: calc(.3 * var(--fluid-fade, 1)); stroke-width: 4; stroke-linejoin: round; }   /* a soft meniscus band, not a hard rule */
 .stent-guide { fill: none; stroke: var(--accent); stroke-width: 2.5; stroke-dasharray: 6 4; stroke-linecap: round; }
