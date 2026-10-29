@@ -2,7 +2,8 @@
 // takes the change the Treat buttons make, one the patient cannot have says why, and built-in slides use it only where adopted.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { PROCS, PROC_KINDS, procBlocked, procOffered, procFrame, stepAt, stepMark, STEP_NUM, playProcedure, GV_MIN_MM } from '../src/ui/proc-anim.js';
+import { readFileSync } from 'node:fs';
+import { PROCS, PROC_KINDS, procBlocked, procOffered, procFrame, stepAt, stepMark, STEP_NUM, markAt, playProcedure, GV_MIN_MM } from '../src/ui/proc-anim.js';
 import { LABEL_VESSEL } from '../src/ui/anatomy.js';
 import { defaultParams } from '../src/engine/scenario.js';
 import { isOccluded } from '../src/engine/topology.js';
@@ -237,7 +238,7 @@ test('in Tests it plays through by itself, every step in turn, and leaves the ch
 // His asks, 29 Oct (10:05 AM ET): "this should be guided ... i click next, and then the first step happens, catheter in ... and
 // then it steps through them one by one as i click next", and there was no catheter to see.
 test('presented, Next drives it: the first Next starts it, each Next plays a step, then the slide moves on; the steps are progress only', async () => {
-  const { readFileSync } = await import('node:fs');
+
   const pz = readFileSync(new URL('../src/ui/presenter.js', import.meta.url), 'utf8');
   const st = readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8');
   const next = pz.match(/const next = \(\) => \{[\s\S]*?\n {2}\};/)[0];
@@ -249,7 +250,7 @@ test('presented, Next drives it: the first Next starts it, each Next plays a ste
   assert.match(pn, /procPlay\(s, want, 0\);\n\s+return true;/, 'the first Next puts the catheter in');
   const el = pz.match(/function procEl\([\s\S]*?\n {2}\}/)[0];
   assert.doesNotMatch(el, /onclick|'button'/, 'the steps are not buttons');
-  assert.match(pz, /stopLapse\(\); procStop\(\); abSlow\(\); handOn = false; procDoneAt = back && s\.procedure \? to : -1;/, 'a new slide starts it afresh (back onto it, it is done)');
+  assert.match(pz, /stopLapse\(\); procStop\(\); abSlow\(\); handOn = false; procDoneAt = done && s\.procedure \? to : -1;/, 'a new slide starts it afresh (back onto it, it is done)');
   // The steps are a line of the slides' own numbered circles, not pills.
   assert.match(el, /class: 'pz-step'/); assert.doesNotMatch(el, /pz-abb/);
   // Going forward, the slide opens on its state before the procedure (the worker's before), its words on the state after.
@@ -282,4 +283,22 @@ test('a TIPS is placed step by step only where a slide teaches the placement; el
     assert.ok(d.slides.filter((s) => s.procedure === 'tips').length <= 1, `${d.id}: one guided TIPS at most`);
     for (const s of d.slides) if (s.procedure) assert.ok(!s.lapse && !s.cath && !s.question, `${d.id}/${s.id}: no time-lapse, catheter or question with it`);
   }
+});
+
+// His ask, 29 Oct: "the callout should show up AFTER the step happens". Each step's callout comes once its step has played.
+test("a step's callout comes only once its step has happened", () => {
+  for (const k of PROC_KINDS) {
+    const P = PROCS[k];
+    P.stops.forEach((x, i) => {
+      const a = markAt(k, i), from = i ? P.stops[i - 1] : 0;
+      assert.ok(a > from && a <= x, `${k} step ${i}: its callout at ${a} ms, inside the step and at its end`);
+      if (i < P.stops.length - 1) assert.equal(a, x, `${k} step ${i}: at its stop, where the step has played`);
+    });
+    assert.ok(markAt(k, P.stops.length - 1) >= P.T.apply, `${k}: the last callout once the change is made`);
+  }
+  const pa = readFileSync(new URL('../src/ui/proc-anim.js', import.meta.url), 'utf8');
+  assert.match(pa, /const mk = f\.step < 0 \? -2 : t >= markAt\(kind, f\.step\) \? f\.step : -1;/);
+  // (and it keeps off the catheter, its balloon and the part it names, which the vessels' lines do not hold)
+  const st = readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8');
+  assert.match(st, /const av = m\.pin \? pinAvoid\(m\.edges\[0\]\) : undefined;/);
 });

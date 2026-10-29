@@ -90,6 +90,9 @@ export const procOffered = (kind, p, m = null) => !!PROCS[kind] && (kind === 'ti
 export const stepAt = (kind, t) => { const S = PROCS[kind].stops, i = S.findIndex((x) => t <= x); return i < 0 ? S.length - 1 : i; };
 // (The step's number on its callout, as a filled circle: the same number as its step in the teaching card.)
 export const STEP_NUM = ['\u278A', '\u278B', '\u278C', '\u278D', '\u278E', '\u278F'];
+/** When a step's callout comes (pure, ms): once the step has played, at its stop; the last step's once the stent is in or the
+ *  balloon is down, as the catheter starts out. */
+export const markAt = (kind, i) => { const P = PROCS[kind]; return i >= P.stops.length - 1 ? P.T.back : P.stops[i]; };
 /** The callout a step puts on the figure: a slide's own mark (a treatment's), numbered, at its point on the part it works on, kept
  *  on its side and clear of every vessel (pin); ghost: it may name a vessel not drawn yet (the tract, before the stent is in). */
 export const stepMark = (kind, i) => {
@@ -140,8 +143,9 @@ export function playProcedure(stage, kind, { stepped = false, to = 0, apply = nu
     const now = performance.now(), dt = Math.min(64, now - last); last = now;
     const f = procFrame(kind, t, stops);
     if (f.step !== step && f.step >= 0) { step = f.step; onStep?.(step); }
-    // (The callout: none while the catheter travels in, a step's word on its vessel once it is there, held through the step.)
-    const mk = f.step < 0 ? -2 : f.step === 0 && t < T.travel1 ? -1 : f.step;
+    // (The callout: a step's word once its step has happened (his ask, 29 Oct: "the callout should show up AFTER the step happens"),
+    // none while it plays.)
+    const mk = f.step < 0 ? -2 : t >= markAt(kind, f.step) ? f.step : -1;
     if (mk !== shownMark && mk > -2) { shownMark = mk; onMark?.(mk >= 0 ? stepMark(kind, mk) : false, P.steps[f.step][6] || []); }
     // (The view follows the tip in on the first step, once its shot has landed.)
     stage.setCatheter({ route: kind, u: f.u, balloon: f.balloon, balloonSpan: P.balloonSpan, column: f.column, columnColor: 'var(--tr-scler)',

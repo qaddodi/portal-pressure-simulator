@@ -27,8 +27,8 @@ import { DISEASE_SRC, diseasePieces } from './diseases.js?v=fb8a5451c3';
 import { nb, listCase, plateletText } from './glue.js?v=5a0f63226b';
 import { DECKS, DECK_ALIAS, REGIONS, LEVELS, TOPICS, withOverview, siteTag, SITE_TAGS } from './decks.js?v=73eb730f1a';
 import { fingerprintOf } from '../engine/fingerprint.js?v=ca81723393';
-import { createHvpgMonitor } from './hvpg-proc.js?v=c793a707c4';
-import { createTools } from './presenter-tools.js?v=ead139eae7';
+import { createHvpgMonitor } from './hvpg-proc.js?v=6f454a27c1';
+import { createTools } from './presenter-tools.js?v=23b237625f';
 import { openHandout } from './handout.js?v=11532e22a8';
 import { noteResume, resumeFor } from './resume.js?v=f086f80ee8';
 import { parseDeckSource, checkDeck } from './deck-source.js?v=8395c650cd';
@@ -46,7 +46,7 @@ import { anchorsOf, roomFor } from './cam-room.js?v=209be9ae4b';
 import { beatCount, beatView } from './slide-beats.js?v=2aded612c4';
 import { COMPACT, WIDE } from './card-type.js?v=5af5f22935';
 import { flowTimeHeight, trailKeys } from './flow-time.js?v=026ab2f37c';
-import { PROCS, procBlocked, procOffered, playProcedure, stepMark } from './proc-anim.js?v=793bf84863';
+import { PROCS, procBlocked, procOffered, playProcedure, stepMark } from './proc-anim.js?v=390a3a2de7';
 import { dataPlan, textPlan, keepData, keepText, cardSnap, cardChanged, cardBack } from './card-keep.js?v=982397f8fb';
 import { createCardZoom, tapTracker } from './card-zoom.js?v=f589271cc7';
 import { createScopeTile } from './scope-tile.js?v=b05945714a';
@@ -1820,7 +1820,8 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     // (The patient changes as transitionRun counts it below: a time-lapse plays from the slide before's state, or from a start of its own.)
     // (A slide that plays its procedure, going forward, opens on its state before it: no TIPS yet, the shunt still open. The stent or
     // the closed shunt appears only at the step that makes it, and its words keep the numbers it ends on: his ask, 29 Oct.)
-    const pre = !lap && !back && to > 0 && !!s.procedure && stateOf[to] === to && !holdQ;
+    // (Only Back from the slide after it lands on it done; a jump back to it, like any other way in, opens before it.)
+    const done = back && lastAt === to + 1, pre = !lap && !done && to > 0 && !!s.procedure && stateOf[to] === to && !holdQ;
     const si = lap || holdQ ? stateOf[to - 1] : stateOf[to];
     keepNow = keepFor(was && slides[was.i], s, to, si !== shownState || liveOff || (lap && !!states[stateOf[to]]?.start) || (pre && !!states[to]?.before), { again: !was || was.i === to }); keepCut = cut;
     const outAt = performance.now(), outMs = wordsOut(s);
@@ -1833,8 +1834,8 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     // visual over the figure, keeps the colours already showing: they change only when a slide's lens does.
     if (!s.visual) { const lens = slideLens(s); if (store.get().colorMode !== lens) store.set({ colorMode: lens }); }
     if (!hushed) delete app.dataset.lit;   // (hushed, the lit set goes straight to the next slide's: a label on both keeps its pill)
-    // (Back onto a procedure's slide lands on it done, so Next moves on.)
-    stopLapse(); procStop(); abSlow(); handOn = false; procDoneAt = back && s.procedure ? to : -1;
+    // (Back onto a procedure's slide from the next lands on it done, so Next moves on.)
+    stopLapse(); procStop(); abSlow(); handOn = false; procDoneAt = done && s.procedure ? to : -1;
     await wait(Math.max(0, outMs - (performance.now() - outAt)));
     // (Nothing in the liver changes until its labels are gone.)
     if (hushed) { await wait(Math.max(0, HUSH_OUT - (performance.now() - hushAt))); await eased(['--lab-o'], 600); if (cut()) return; }

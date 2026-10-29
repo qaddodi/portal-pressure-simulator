@@ -9268,6 +9268,19 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       const col = out.filter((o) => o.point).map(rectOf);
       if (col.length > 1) placed.push({ x0: Math.min(...col.map((r) => r.x0)), y0: Math.min(...col.map((r) => r.y0)), x1: Math.max(...col.map((r) => r.x1)), y1: Math.max(...col.map((r) => r.y1)) });
     }
+    // Boxes round what a procedure draws, in the stage's px (see the step callout below): the catheter's route as far as the tip has
+    // gone, as wide as its balloon, and the vessel the step names, as wide as it is drawn or will be.
+    const pinAvoid = (id) => {
+      const out = [], box = (q, R) => {
+        const [x, y] = worldToLocal(q[0], q[1]), [x2, y2] = worldToLocal(q[0] + R, q[1]), w = Math.hypot(x2 - x, y2 - y) + 3;
+        out.push({ x0: x - w, y0: y - w, x1: x + w, y1: y + w });
+      };
+      const r = cath.st && cath.route, P = geo[id]?.cur;
+      if (r) for (let j = 0; j < r.pts.length; j += 2) if (r.cum[j] >= procIn(r)) box(r.pts[j], (r.rad[j] || 2) * 1.4);
+      const R = Math.max(E[id]?.width || 0, id === 'TIPS' ? cathRadOf('PVH_R', 0.5) * 1.6 : 0, 4) * 0.7;
+      if (P?.length) for (let j = 0; j <= 48; j++) box(pointAt(P, j / 48), R);
+      return out;
+    };
     // Focus callout
     const foc = st.focus;
     (foc ? foc.marks || [foc] : []).forEach((m, i) => {
@@ -9302,7 +9315,12 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       // (Its pill also touches nothing drawn: 6 px clear of every vessel, a varix's strands and glow included, and 12 px inside the stage.
       // So does a step callout, on a short leader, farther out where the close-up's vessels are wide: his ask, 29 Oct, the
       // "Sclerosant" pill covered the shunt.)
-      const tidy = (lv || m.pin) && !dop.all ? [gap, gap + 14, gap + 30, gap + 50, ...(m.pin ? [gap + 80, gap + 120] : [])].map((g) => ({ gap: g, leader: true, clear: true, inView: true, pad: 6, edge: 12 })) : null;
+      // (A step callout also keeps off what the procedure draws, which the vessels' lines do not hold: the catheter and its balloon
+      // on their route, and the vessel it names, drawn or not yet (the tract and its balloon): his ask, 29 Oct, "Tract dilated" sat on
+      // the tract. Where no spot is clear of the vessels too, it still keeps off those.)
+      const av = m.pin ? pinAvoid(m.edges[0]) : undefined;
+      const tidy = (lv || m.pin) && !dop.all ? [gap, gap + 14, gap + 30, gap + 50, ...(m.pin ? [gap + 80, gap + 120, gap + 170] : [])].map((g) => ({ gap: g, leader: true, clear: true, inView: true, pad: 6, edge: 12, avoid: av }))
+        .concat(m.pin ? [gap, gap + 30, gap + 80, gap + 140].map((g) => ({ gap: g, leader: true, inView: true, pad: 6, edge: 12, avoid: av })) : []) : null;
       if (tidy) buildLines();
       let marked = dop.all ? placeMulti(it, FAR_DIRS, passes) : (tidy && ((side && !side.drop && placeMulti(it, [side.dir], tidy)) || placeMulti(it, ['E', 'W', 'NE', 'SE', 'N', 'S', 'NW', 'SW'], tidy))) || (side && !side.drop && place(it, [side.dir], [gap, gap + 16, gap + 32], true)) || place(it, ['E', 'W', 'NE', 'SE', 'N', 'S'], gap, true);
       // (A mark that found no spot off the vessels, where the column's "60 %" blocks its way: the "60 %" tries its next spots off the
