@@ -136,12 +136,27 @@ How a time-lapse behaves:
 | Field | Values | Default |
 |---|---|---|
 | `view` | `'anatomic'` (the body plate) \| `'circuit'` (the electrical-circuit map) | `'anatomic'` (a circuit deck sets `view: 'circuit'` on **every** slide; the camera is always fit there) |
-| `cam` | a named region, a box, `'fit'`, or a lobule/sinusoid view | `'fit'` |
+| `cam` | a named region, a box, a list of regions, `{ on: [names] }` (frame by name, below), `'fit'`, or a lobule/sinusoid view | `'fit'` |
 | `kMax` | number | max zoom for a region camera, default 3.2 (existing decks use 4.5 for tight shots) |
 | `zoom` | number | zoom multiplier for lobule cameras, default 2.3 |
 | `clear` | `true` | frame the region so its vessels stay clear of the cards' exact edges (no softened margin); for slides whose vessels would otherwise run under a card (existing use: the meal time-lapse) |
 
 **Named regions** (`REGIONS`, anatomy world units x 300–1120, y 0–920): `route` portal vein to heart · `liver` · `portal` confluence, trunk, splenic vein, SMV · `gut` the portal system and the whole small bowel, with room for the bowel's glow (the meal time-lapse) · `hepatic` hepatic veins, IVC, right atrium · `heart` · `varices` · `spleen` · `rectum` · `wall` paraumbilical vein and abdominal wall · `fundus` fundal varices, gastrorenal shunt, left renal vein · `splenic` splenic vein to the confluence, spleen, fundus · `dips` the DIPS tract, portal bifurcation up through the caudate lobe to the IVC · `gej` lower esophagus, the gastroesophageal junction and the coronary vein feeding it · `feeder` the varices down the coronary vein to the portal confluence. Also `'fit'` (whole figure) and a box `[x0, y0, x1, y1]` (e.g. `[690, -10, 890, 170]`). The camera also grows to include any organ the slide outlines.
+
+**Frame by name (opt-in): `cam: { on: [...] }`.** Instead of numbers, name what the slide is about and the camera frames it. The names are the ones `glow` takes: a vessel id (`'PV_TRUNK'`, `'C5'`), an organ (`'spleen'`), a term target (`'varix'`, `'pv'`), a station id (`'CONF'`, `'AO'`) or a named set (`'@collaterals'`, `'@hepatic-veins'`; the sets are listed in 8.5). The camera lands on the box those things fill, as drawn now (an enlarged spleen whole), with the usual 8 % room for their glow, centred in the room the cards leave and no closer than `kMax`. A lone station or a thin vessel still gets a box to frame.
+
+```js
+cam: { on: ['PV_TRUNK', 'SV', 'spleen'] },              // frame these three
+cam: { on: ['@collaterals'], near: 'portal' },           // the portal region, grown to take in every collateral
+cam: ['portal', 'spleen'],                               // the union of two regions
+```
+
+* `near: '<region>'` starts from that region and grows it to take in the names; without it the box is just what the names fill.
+* A list of region names (`['portal', 'spleen']`) is the union of those regions. Four numbers are still a raw box, so the two never clash.
+* The slide's own outlined organs and softly lit veins still grow the box, as with a region.
+* A name the camera does not know frames nothing (and with no other name or `near` the camera falls back to `route`, as an unknown region does). `tests/cam-frame.test.js` fails on an unknown name in a built-in deck or in the examples in these guides.
+* It works wherever a slide has a camera: the slide's `cam`, an anatomy view of `scales` (5.10), and a visual's `cam`. It does not apply to `'fit'`, a lobule station or `'sinusoid'`, and the circuit view is always the fit.
+* Every camera still glides: 1.5 s, eased in and out, with the labels fading while it moves.
 
 **Inside the liver** (these dive in from the anatomy; the view returns to the body plate for the next normal `cam`):
 `'lobule'` (whole lobule) · `'lobule:fit'` · `'lobule:triad'` (portal tract) · `'lobule:sinusoid'` · `'lobule:central'` (central vein) · `'sinusoid'` (the sinusoid wall, cross-section). Some devices cannot draw `'sinusoid'` and fall back to the lobule.
@@ -266,7 +281,7 @@ A scale's view may set these fields, which work as the slide fields of the same 
 
 | Field | At which scale | What it does |
 |---|---|---|
-| `cam` | anatomy: a region, `'fit'` or `[x0, y0, x1, y1]`; lobule: `'lobule:fit'`, `'lobule:triad'`, `'lobule:sinusoid'`, `'lobule:central'` | Where the camera lands. Defaults: the liver for the anatomy, the whole lobule for the lobule. The sinusoid always shows the wall. |
+| `cam` | anatomy: a region, `'fit'`, `[x0, y0, x1, y1]`, a list of regions or `{ on: [names] }` (5.1); lobule: `'lobule:fit'`, `'lobule:triad'`, `'lobule:sinusoid'`, `'lobule:central'` | Where the camera lands. Defaults: the liver for the anatomy, the whole lobule for the lobule. The sinusoid always shows the wall. |
 | `zoom` | lobule | How close the lobule station is framed (× its framing, default 2.3). |
 | `kMax`, `clear` | anatomy | The anatomy's closest zoom and its clear framing, as on a slide. |
 | `labels` | anatomy | The stations named on the anatomy. |
@@ -684,7 +699,7 @@ Liver: `PRE_R` / `PRE_L` portal venules · `SIN_RR` / `SIN_LL` sinusoids · `POS
 Veins to the heart: `RHV_IVC`, `MHV_IVC`, `LHV_IVC` hepatic veins · `IVC_IS` IVC · `IVCS_RA` IVC (suprahepatic) to the atrium · `SVC_RA` · `V_UP` brachiocephalic · `AZY_SVC` azygos arch · `LRV_IVC` / `RRV_IVC` renal veins · `V_KID_L` · `ILI_IVC` · `EPI_ILI`, `EPI_SVC` epigastric veins.
 Collaterals: `C1a` coronary vein → esophageal varices · `C1b` esophageal varices → azygos · `C2` short/posterior gastric veins · `C3` paraumbilical vein · `C4` rectal (superior ↔ middle/inferior rectal veins) · `C5` gastrorenal shunt · `C6` spontaneous splenorenal shunt · `C7` retroperitoneal (Retzius) veins · `C8` periportal collaterals (cavernoma) · `C9` ascending lumbar → azygos.
 Interventions: `TIPS` · `DIPS` · `S_PC` portocaval · `S_DSR` distal splenorenal (Warren) · `S_MC` mesocaval.
-Named sets (opt-in, for `glow`, `spot`, `mark.edges`): `@portal`, `@hepatic-veins` (`RHV_IVC MHV_IVC LHV_IVC`), `@collaterals` (`C1a`, `C1b`, `C2`–`C9`), `@esophageal` (`LGV_CONF C1a C1b AZY_SVC`), `@gastrorenal` (`C2 C5 LRV_IVC`), `@splenorenal` (`C6 LRV_IVC`), `@shunts` (`TIPS DIPS S_PC S_DSR S_MC`), `@caval`, `@gut-arteries` (`A_SMA A_IMA A_SPL A_LGA`). A vessel the patient lacks is skipped.
+Named sets (opt-in, for `glow`, `spot`, `mark.edges` and `cam: { on }`): `@portal`, `@hepatic-veins` (`RHV_IVC MHV_IVC LHV_IVC`), `@collaterals` (`C1a`, `C1b`, `C2`–`C9`), `@esophageal` (`LGV_CONF C1a C1b AZY_SVC`), `@gastrorenal` (`C2 C5 LRV_IVC`), `@splenorenal` (`C6 LRV_IVC`), `@shunts` (`TIPS DIPS S_PC S_DSR S_MC`), `@caval`, `@gut-arteries` (`A_SMA A_IMA A_SPL A_LGA`). A vessel the patient lacks is skipped.
 
 Edge tones used when you glow an id by hand: portal vessels follow their station colour; collaterals and shunts (`C3`–`C9`, `S_PC`, `S_DSR`, `S_MC`) use the varices' colour `var`.
 

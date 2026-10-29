@@ -20,14 +20,16 @@ import { titleParts } from './title-units.js?v=c8d5ce1f26';
 import { liveText, wordsOf } from './live-text.js?v=ee322be28c';
 import { swipeDir, ownsSideways, ownsTouch, cardSwipe, caseFling, caseFlight, wheelFinger, wheelGesture, ownsWheel } from './swipe.js?v=3ad619631e';
 import { sinusoidSupported } from './gl-support.js?v=94ad2a7ff1';
-import { SCALE_NAME, offeredScales, scaleView, pickedScale } from './scale-switch.js?v=1b0e3acd65';
+import { SCALE_NAME, offeredScales, scaleView, pickedScale } from './scale-switch.js?v=072bfa63c1';
+import { isCamOn, unionBox, regionBox, growBox, camNames } from './cam-frame.js?v=3c321f5f7f';
+import { NODE_POS } from './anatomy.js?v=48cc98d415';
 import { DISEASE_SRC, diseasePieces } from './diseases.js?v=fb8a5451c3';
 import { nb, listCase, plateletText } from './glue.js?v=5a0f63226b';
-import { DECKS, DECK_ALIAS, REGIONS, LEVELS, TOPICS, withOverview, siteTag, SITE_TAGS } from './decks.js?v=faa951f1ce';
+import { DECKS, DECK_ALIAS, REGIONS, LEVELS, TOPICS, withOverview, siteTag, SITE_TAGS } from './decks.js?v=3eb58bbf8a';
 import { fingerprintOf } from '../engine/fingerprint.js?v=ca81723393';
 import { createHvpgMonitor } from './hvpg-proc.js?v=870c2a8be4';
-import { createTools } from './presenter-tools.js?v=dc112d901d';
-import { openHandout } from './handout.js?v=b0f38454b7';
+import { createTools } from './presenter-tools.js?v=40b2e59f20';
+import { openHandout } from './handout.js?v=1f5e6bdc73';
 import { noteResume, resumeFor } from './resume.js?v=f086f80ee8';
 import { parseDeckSource, checkDeck } from './deck-source.js?v=8395c650cd';
 import { NO_ASC, TILE, cutText, tileOf, SCALE, bandsOf, rateOf, COLS, CUT, PRESS, fpv, dirAbs, dirRel, rateAbs, effOf, rateShown, tileShown, tipsGoal, liveSettled, shownSig } from './table-marks.js?v=8458ad3bf8';
@@ -35,7 +37,7 @@ import { frameFor, cancelFrame } from './frame.js?v=7254a8a850';
 import { createFigureKey } from './figure-key.js?v=b6817772fb';
 import { traceWhen } from './trace-labels.js?v=fc916a95c6';
 import { flowCss, heatCss, dropCss, gradientCss, oxygenCss } from './colormap.js?v=05a231b880';
-import { EXT, expandIds, stepExtra, markLabel, figureHooks, safe } from './slide-ext.js?v=abaa5bc948';
+import { EXT, expandIds, stepExtra, markLabel, figureHooks, safe } from './slide-ext.js?v=ff7b146f61';
 import { clotWords } from './callout-math.js?v=a716cd33ea';
 import { citeText, focusOf, oneLadder } from './teach-extras.js?v=5f5248f5a7';
 import { createProfileTool, createProfileStrip, pillReadings, chartScale } from './tool-profile.js?v=989103eab0';
@@ -276,6 +278,9 @@ export function slideTargets(s, line = s.line || '') {
   if (isDop(s)) { const v = s.tool.vessel || 'PV_TRUNK'; if (glow.has(v)) glow.set(v, '--dop-glow'); }
   return { labels, terms, glow: [...glow].map(([id, tone]) => ({ id, tone, at: at.get(id) || 0, soft: soft.has(id) || undefined })), organs: [...organs].map(([id, tone]) => ({ id, tone })), res: [...res].map(([id, tone]) => ({ id, tone })), lit: [...lit], sites: [...sites] };
 }
+/** What the names of a slide's `cam: { on: [names] }` point at, as { organs, edges, points, unknown }: the vessels, organs and station
+ *  places the camera frames ('@name': a named set, slide-ext.js). The same names a glow takes, plus a station's id (CONF, AO). */
+export const camOn = (on) => camNames(expandIds(on), { targets: TARGETS, organs: ORGANS, nodes: NODE_POS });
 // A live value pill ({pv}): the model's reading for this slide, to its usual decimal.
 // {ppg@before}: the value at another slide of the deck (its id), set by the presenter while a deck plays.
 let fpAt = () => null;
@@ -1094,15 +1099,18 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   const cardsEntering = () => [ui?.text, ui?.panel, ui?.data].some((el) => el && !el.hidden && el.getAnimations({ subtree: true }).some((a) => a.playState === 'running' && Number.isFinite(a.effect?.getComputedTiming().endTime)));
   // Where the way out of the lobule should land for a slide: its framing, asked for when the rise begins (null: the fit).
   const riseFor = (cam, s) => (cam === 'fit' ? null : { box: () => camBox(cam, s), kMax: s.kMax || 3.2, clear: !!s.clear });
-  // A slide's framing: its region of the plate, grown to take in all of what the slide points at (its outlined
-  // organs as drawn now, an enlarged spleen whole), with a little room for the outline's glow.
+  // A slide's framing: its region of the plate (or, by name, the box its names fill), grown to take in all of what the slide points
+  // at (its outlined organs as drawn now, an enlarged spleen whole), with a little room for the outline's glow.
   function camBox(cam, s) {
-    const r = Array.isArray(cam) ? cam : REGIONS[cam] || REGIONS.route;
+    let r = regionBox(isCamOn(cam) ? cam.near : cam, REGIONS);
+    if (isCamOn(cam)) {
+      // (cam: { on: [names] }: the vessels and organs as drawn now, the stations where they stand; a lone station or a thin vessel still gets room.)
+      const n = camOn(cam.on), pts = unionBox(n.points.map(([x, y]) => [x, y, x, y]));
+      r = growBox(r, unionBox([stage.focusBox(n), pts].filter(Boolean)), 30);
+    }
     // (A slide with softly lit supporting veins frames every vessel it lights, so none runs off the edge.)
     const tg = slideTargets(s), f = stage.focusBox({ organs: tg.organs.map((o) => o.id), edges: tg.glow.some((g) => g.soft) ? tg.glow.map((g) => g.id) : [] });
-    if (!f) return r;
-    const m = 0.08 * Math.max(f[2] - f[0], f[3] - f[1]);
-    return [Math.min(r[0], f[0] - m), Math.min(r[1], f[1] - m), Math.max(r[2], f[2] + m), Math.max(r[3], f[3] + m)];
+    return growBox(r || REGIONS.route, f);
   }
 
   // ── The HVPG catheter (stage.setCatheter, as Measure › HVPG draws it), choreographed slide by slide: in along

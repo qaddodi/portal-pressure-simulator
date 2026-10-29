@@ -9,6 +9,8 @@
 //             lobule: { cam: 'lobule:triad', zoom: 2.6, glow: ['lobule:triad'], callout: { ... } },
 //             sinusoid: {} }                         full form: each scale's view (fields in VIEW_KEYS)
 
+import { camProblems } from './cam-frame.js?v=3c321f5f7f';
+
 export const SCALES = ['anatomy', 'lobule', 'sinusoid'];
 export const SCALE_NAME = { anatomy: 'Anatomy', lobule: 'Lobule', sinusoid: 'Sinusoid' };
 // Where each scale lands when the slide names no framing for it: the liver from inside it, the whole lobule, the wall.
@@ -100,7 +102,7 @@ export function scalesProblems(s, regions = {}, lens = 'pressure') {
     if (cam !== undefined) {
       if (k === 'sinusoid' && cam !== 'sinusoid') out.push('sinusoid: its cam is always the wall');
       if (k === 'lobule' && !(typeof cam === 'string' && STATIONS.includes(cam.replace(/^lobule:?/, '') || 'fit') && /^lobule/.test(cam))) out.push(`lobule: no station ${cam}`);
-      if (k === 'anatomy' && !(Array.isArray(cam) ? cam.length === 4 && cam.every(Number.isFinite) : cam === 'fit' || !!regions[cam])) out.push(`anatomy: no region ${cam}`);
+      if (k === 'anatomy') for (const p of typeof cam === 'string' && /^(lobule|sinusoid)/.test(cam) ? [`no region ${cam}`] : camProblems(cam, regions)) out.push(`anatomy: ${p}`);
     }
     if (k === 'sinusoid' && lens !== 'pressure') out.push('sinusoid is offered only on a pressure-lens slide');
   }
