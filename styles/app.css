@@ -608,11 +608,18 @@ div.vital { cursor: default; }
 .circuit .circuit-only { opacity: 1; }
 .circuit .node-dot.off { opacity: 0; pointer-events: none; }   /* (one class more than the line above: a station with no vessel drawn at it shows no dot in the circuit either, faded as the vessels are) */
 .band-ring { fill: none; stroke: var(--text); stroke-width: 2.4; }
-.balloon-fill { fill: var(--cath-balloon); fill-opacity: .2; stroke: none; }   /* clear tamponade balloon: the varices show through */
-.balloon-rim { fill: none; stroke: var(--cath-body); stroke-opacity: .55; stroke-width: .7; stroke-linejoin: round; }
+/* The tamponade balloons look like the HVPG wedge balloon (veins-gl.js mode 5): cream latex, clear in the middle, denser at the rim */
+.balloon-latex { fill: url(#latexX); stroke: var(--latex-edge); stroke-opacity: .8; stroke-width: .7; stroke-linejoin: round; }
+.balloon-latex.round { fill: url(#latexR); }
+.lx-in { stop-color: var(--latex); stop-opacity: .4; }
+.lx-rim { stop-color: var(--latex); stop-opacity: .72; }
+.lx-edge { stop-color: var(--latex-edge); stop-opacity: .85; }
+.balloon-hi { fill: url(#latexHi); }
+.lx-hi { stop-color: var(--white); stop-opacity: .9; }
+.lx-hi-mid { stop-color: var(--white); stop-opacity: .45; }
+.lx-hi-out { stop-color: var(--white); stop-opacity: 0; }
 .balloon-shaft-rim { fill: none; stroke: var(--cath-shadow); stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
 .balloon-shaft { fill: none; stroke: var(--cath-body); stroke-width: 1.4; stroke-linecap: round; stroke-linejoin: round; }
-.balloon-sheen { fill: var(--white); stroke: none; }
 .balloon-marker { fill: var(--cath-tip); }
 .ascites-fill { stroke: none; opacity: var(--fluid-fade, 1); }
 .ascites-line { fill: none; stroke: var(--ascites); stroke-opacity: calc(.3 * var(--fluid-fade, 1)); stroke-width: 4; stroke-linejoin: round; }   /* a soft meniscus band, not a hard rule */

@@ -212,6 +212,7 @@
   --lapse: var(--caution); --lapse-ink: #8a5200; --exam-no: var(--danger);
   /* catheter (drawn the same in both themes), FibroScan probe, Doppler mode chips */
   --cath-body: #F4F6FA; --cath-tip: #1B2230; --cath-balloon: rgba(226, 233, 244, .78); --cath-shadow: rgba(10, 14, 22, .55);
+  --latex: #FCE6B3; --latex-edge: #B08A59;   /* the wedge balloon's latex (veins-gl.js mode 5: col and its rim, col x .7 .6 .5), shared by the tamponade balloons */
   --fibroscan: #f0924a; --dop-chip-away: var(--dop-away); --dop-chip-toward: var(--dop-toward);
   /* lobule art (canvas): tract, congestion, nutmeg, acinar zone fills, cells, lymph, albumin beads, collagen */
   --lz-shade: #603A5C; --lz-lumen-hidden: var(--sv-lumen-hidden); --collagen: rgb(237, 222, 186); --lz-field-sin-pale: var(--collagen);

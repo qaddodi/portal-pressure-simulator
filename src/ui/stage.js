@@ -50,7 +50,7 @@ import { softwareYield } from './sw-yield.js?v=e580a095b1';
 import { portalSplit } from './table-marks.js?v=bca5ebb624';
 import { hashSeed, clotSide, clotSpan, clotRadius, clotShift, clotLayers, CLOT_EDGE } from './clot-shape.js?v=415ba6b9c0';
 import { leaderEnd as edgeOf, leaderEndRects as edgeOfRects } from './leader-end.js?v=8e884700ab';
-import { balloonShape, esoAt, smoothPath, BALLOON } from './balloon-eso.js?v=421bc5a4b7';
+import { balloonShape, esoAt, smoothPath, BALLOON } from './balloon-eso.js?v=7f0feb412c';
 import { balloonRy, balloonOutline, routeRadii } from './hvpg-balloon.js?v=35d7bb162c';
 import { outlineBox, placeSummary } from './cath-place.js?v=b5835a19ca';
 import { layoutWatch } from './idle-keys.js?v=6eccd5d85a';
@@ -497,6 +497,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     <radialGradient id="congest" cx=".42" cy=".42" r=".7"><stop offset=".35" class="cg-in"/><stop offset="1" class="cg-out"/></radialGradient>
     <linearGradient id="fluid" x1="0" y1="0" x2="0" y2="1"><stop offset="0" class="fl-top"/><stop offset="1" class="fl-bot"/></linearGradient>
     <radialGradient id="skin" cx=".5" cy=".5" r=".5"><stop offset="0" class="sk-in"/><stop offset=".8" class="sk-mid"/><stop offset="1" class="sk-out"/></radialGradient>
+    <linearGradient id="latexX" x1="0" y1="0" x2="1" y2="0"><stop offset="0" class="lx-edge"/><stop offset=".14" class="lx-rim"/><stop offset=".34" class="lx-in"/><stop offset=".66" class="lx-in"/><stop offset=".86" class="lx-rim"/><stop offset="1" class="lx-edge"/></linearGradient>
+    <radialGradient id="latexR" cx=".5" cy=".5" r=".5"><stop offset=".55" class="lx-in"/><stop offset=".86" class="lx-rim"/><stop offset="1" class="lx-edge"/></radialGradient>
+    <radialGradient id="latexHi" cx=".5" cy=".5" r=".5"><stop offset="0" class="lx-hi"/><stop offset=".45" class="lx-hi-mid"/><stop offset="1" class="lx-hi-out"/></radialGradient>
     <linearGradient id="metal" x1="0" y1="0" x2="1" y2="1"><stop offset="0" class="mt-a"/><stop offset=".5" class="mt-b"/><stop offset="1" class="mt-a"/></linearGradient>
     <linearGradient id="esoFadeG" gradientUnits="userSpaceOnUse" x1="0" y1="40" x2="0" y2="-40"><stop offset="0" stop-color="#fff"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient>
     <mask id="esoFade" maskUnits="userSpaceOnUse" x="0" y="-150" width="${VIEW.w}" height="${VIEW.h + 150}"><rect x="0" y="-150" width="${VIEW.w}" height="${VIEW.h + 150}" fill="url(#esoFadeG)"/></mask>
@@ -7539,34 +7542,25 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   function balloonDraw(anat) {
     ov.balloons.innerHTML = '';
     if (!anat) return;
-    // A clear catheter balloon on the app's catheter colours: a thin shaft with a dark rim, a see-through balloon (the
-    // varices show through it) under a fine rim, two thin marker bands on the shaft, and a soft highlight along its curve.
+    // Drawn as the HVPG catheter's wedge balloon is (veins-gl.js mode 5): cream latex, clear in the middle and denser at the
+    // rim, a thin warm edge, and a soft round highlight up top; on the white shaft with its dark rim and two marker bands.
+    const hi = (cx, cy, rx, ry, k) => s('ellipse', { cx, cy, rx, ry, class: 'balloon-hi', opacity: Math.min(1, (k - 0.3) / 0.4).toFixed(3) });
     const e = bal.eso;
     if (e.adv > 0) {
-      const sh = balloonShape(balEase(e.k), balEase(e.adv)), up = e.k > 0.01 || e.adv >= 1;
+      const k = balEase(e.k), sh = balloonShape(k, balEase(e.adv)), up = e.k > 0.01 || e.adv >= 1;
       const shaft = smoothPath(sh.shaft);
-      if (up) ov.balloons.append(s('path', { d: smoothPath(sh.outline, true), class: 'balloon-fill' }));
       ov.balloons.append(s('path', { d: shaft, class: 'balloon-shaft-rim' }), s('path', { d: shaft, class: 'balloon-shaft' }));
       if (up) {
         for (const y of sh.bands) { const q = esoAt(y); ov.balloons.append(s('rect', { x: q.c - BALLOON.shaftR - 0.3, y: y - 0.5, width: 2 * BALLOON.shaftR + 0.6, height: 1, rx: 0.3, class: 'balloon-marker' })); }
-        ov.balloons.append(s('path', { d: smoothPath(sh.outline, true), class: 'balloon-rim' }));
-        if (e.k > 0.3) ov.balloons.append(s('path', { d: smoothPath(sh.sheen, true), class: 'balloon-sheen', 'fill-opacity': (0.3 * Math.min(1, (e.k - 0.3) / 0.4)).toFixed(3) }));
+        ov.balloons.append(s('path', { d: smoothPath(sh.outline, true), class: 'balloon-latex' }));
+        if (k > 0.3) { const y = BALLOON.top + 14, h = sh.half(y); ov.balloons.append(hi(esoAt(y).c - h * 0.22, y, h * 0.34, h * 0.5, k)); }
       }
     }
     const g = bal.gas;
     if (g.k > 0.01 || g.adv > 0) {
       const k = balEase(g.k), r = 4 + 20 * k, [cx, cy] = SITES.fundus;
-      ov.balloons.append(s('circle', { cx, cy, r, class: 'balloon-fill' }), s('circle', { cx, cy, r, class: 'balloon-rim' }));
-      if (k > 0.3) {
-        // The same soft highlight, a crescent inside the upper-left rim that follows the circle.
-        const out = [], inn = [], m = 16;
-        for (let i = 0; i <= m; i++) {
-          const th = Math.PI * (1.05 + 0.5 * i / m), u = Math.sin((Math.PI * i) / m);
-          out.push([cx + Math.cos(th) * r * 0.8, cy + Math.sin(th) * r * 0.8]);
-          inn.push([cx + Math.cos(th) * r * (0.8 - 0.14 * u), cy + Math.sin(th) * r * (0.8 - 0.14 * u)]);
-        }
-        ov.balloons.append(s('path', { d: smoothPath([...out, ...inn.reverse()], true), class: 'balloon-sheen', 'fill-opacity': (0.3 * Math.min(1, (k - 0.3) / 0.4)).toFixed(3) }));
-      }
+      ov.balloons.append(s('circle', { cx, cy, r, class: 'balloon-latex round' }));
+      if (k > 0.3) ov.balloons.append(hi(cx - r * 0.28, cy - r * 0.5, r * 0.26, r * 0.16, k));
     }
   }
   let balloonSqueeze = 1;

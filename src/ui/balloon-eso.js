@@ -21,7 +21,7 @@ export function esoAt(y) {
   return { c: (l + r) / 2, h: (r - l) / 2 };
 }
 
-export const BALLOON = { top: 166, bottom: 246, shoulder: 18, shaftR: 0.8, wall: 2.2, from: -40 };
+export const BALLOON = { top: 170, bottom: 244, shaftR: 0.8, wall: 2.2, from: -40 };
 
 /** A smooth path through points (Catmull-Rom as cubic Béziers), so the outline has no facets at any zoom. */
 export function smoothPath(P, closed = false) {
@@ -38,31 +38,26 @@ export function smoothPath(P, closed = false) {
 
 /**
  * The balloon's geometry at inflation k (0 deflated … 1 up) with the shaft in by adv (0 … 1): the outline as a closed
- * ring of points, the shaft's points, the two marker bands on the shaft (y), a soft highlight that follows the balloon's
- * curve (a closed ring of points, a thin crescent on the lit side), and half(y), the balloon's half width.
- * The shoulders taper smoothly (smootherstep) into the shaft, so the ends are round, never stepped.
+ * ring of points, the shaft's points, the two marker bands on the shaft (y) and half(y), the balloon's half width.
+ * Shaped as the HVPG wedge balloon is (hvpg-balloon.js balloonOutline): a superellipse along its length that turns from
+ * an ellipse (deflated) into a pillow with rounded ends (up), filling the esophagus to just inside its walls.
  */
 export function balloonShape(k, adv = 1, n = 64) {
-  const { top, bottom, shoulder, shaftR, wall } = BALLOON;
-  const tipY = BALLOON.from + (bottom + 7 - BALLOON.from) * adv;
+  const { top, bottom, shaftR, wall } = BALLOON;
+  const tipY = BALLOON.from + (bottom + 7 - BALLOON.from) * adv, mid = (top + bottom) / 2, rx = (bottom - top) / 2;
+  const p = 2 + 2 * k, h0 = shaftR * 1.15;
   const half = (y) => {
-    const e = esoAt(y), full = Math.max(shaftR, e.h - wall);
-    const t = Math.min(1, Math.max(0, Math.min((y - top) / shoulder, (bottom - y) / shoulder)));
-    const sm = t * t * t * (t * (6 * t - 15) + 10);
-    return shaftR + (full - shaftR) * k * sm;
+    const s = Math.abs(y - mid) / rx;
+    if (s >= 1) return shaftR;
+    const full = Math.max(h0, esoAt(y).h - wall), prof = (1 - s ** p) ** (1 / p);
+    return Math.max(shaftR, (h0 + (full - h0) * k) * prof);
   };
+  // Denser toward the ends, where the outline turns.
   const ys = [];
-  for (let i = 0; i <= n; i++) ys.push(top + ((bottom - top) * i) / n);
+  for (let i = 0; i <= n; i++) ys.push(mid - rx * Math.cos((Math.PI * i) / n));
   const L = ys.map((y) => [esoAt(y).c - half(y), y]), R = ys.map((y) => [esoAt(y).c + half(y), y]).reverse();
   const shaft = [];
   for (let y = BALLOON.from; y < tipY; y += 8) shaft.push([esoAt(y).c, y]);
   shaft.push([esoAt(tipY).c, tipY]);
-  // The highlight: inside the lit (left) side, following the wall, widest at the middle and fading to a point at the shoulders.
-  const a = top + shoulder * 0.55, b = bottom - shoulder * 0.55, m = 24, out = [], inn = [];
-  for (let i = 0; i <= m; i++) {
-    const y = a + ((b - a) * i) / m, u = Math.sin((Math.PI * i) / m), h = half(y), c = esoAt(y).c;
-    out.push([c - h * 0.72, y]);
-    inn.push([c - h * (0.72 - 0.2 * u), y]);
-  }
-  return { outline: [...L, ...R], shaft, bands: [top + 2, bottom - 2], sheen: [...out, ...inn.reverse()], tipY, half };
+  return { outline: [...L, ...R], shaft, bands: [top + 3, bottom - 3], tipY, half };
 }
