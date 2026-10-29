@@ -377,6 +377,7 @@ export function createPressureTime({ marks = () => [] } = {}) {
     ctx.restore();
 
     // the old gap named once, on a plate, where no line passes under the words
+    let wasBox = null;   // (the "before the bleed" plate, so the HVPG's own keeps clear of it)
     if (showWas && before.label) {
       ctx.font = FONT(500, 12);
       const tw = ctx.measureText(before.label).width, lx = L + 6, rx = lx + tw + 12;
@@ -388,6 +389,7 @@ export function createPressureTime({ marks = () => [] } = {}) {
       }
       const ly = beforeLabelY(Y(wWas), Y(fWas), spans, top, bot);
       if (ly != null) {
+        wasBox = [lx, ly, lx + tw + 12, ly + 18];
         ctx.fillStyle = panel; ctx.beginPath(); ctx.roundRect ? ctx.roundRect(lx, ly, tw + 12, 18, 5) : ctx.rect(lx, ly, tw + 12, 18); ctx.fill();
         ctx.fillStyle = faint; ctx.textBaseline = 'middle'; ctx.fillText(before.label, lx + 6, ly + 9.5); ctx.textBaseline = 'alphabetic';
       }
@@ -398,6 +400,16 @@ export function createPressureTime({ marks = () => [] } = {}) {
       const cx = Math.round(R + 12) + 0.5, ya = Y(wNow), yb = Y(fNow);
       ctx.strokeStyle = text; ctx.lineWidth = 1.4; ctx.beginPath();
       ctx.moveTo(cx - 5, ya); ctx.lineTo(cx + 5, ya); ctx.moveTo(cx, ya); ctx.lineTo(cx, yb); ctx.moveTo(cx - 5, yb); ctx.lineTo(cx + 5, yb); ctx.stroke();
+    }
+    // the HVPG named in its gap, beside the caliper's end, so the chart reads without the column (Mohammad 29 Oct); left out where the gap is too low
+    if (Number.isFinite(hv) && Number.isFinite(wNow) && Number.isFinite(fNow)) {
+      const label = `HVPG ${fmt(hv, 1)}`, ym = (Y(wNow) + Y(fNow)) / 2;
+      ctx.font = FONT(700, 13); const lw = ctx.measureText(label).width + 12;
+      const lx = R - 8 - lw, clear = !wasBox || wasBox[2] + 6 < lx || wasBox[3] + 4 < ym - 10 || wasBox[1] - 4 > ym + 10;
+      if (Y(fNow) - Y(wNow) >= 26 && R - L >= lw + 40 && clear) {
+        ctx.fillStyle = panel; ctx.beginPath(); ctx.roundRect ? ctx.roundRect(lx, ym - 10, lw, 20, 6) : ctx.rect(lx, ym - 10, lw, 20); ctx.fill();
+        ctx.fillStyle = col(`--${sevOf(hv)}`); ctx.textBaseline = 'middle'; ctx.fillText(label, lx + 6, ym + 0.5); ctx.textBaseline = 'alphabetic';
+      }
     }
 
     // time: every 2 s back from now

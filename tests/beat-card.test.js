@@ -72,6 +72,8 @@ test('the slide card draws the new layout; the Patients chart and an unmeasured 
   assert.match(pt, /fillStyle = cssAlpha\('--text-3', 0\.08\); ctx\.fillRect\(L, Y\(wWas\)/, 'the old gap faint grey');
   assert.ok(css.includes('.pz-tool[data-kind="beats"] .pt-head { display: none !important; }'), 'the header leaves the slide card');
   assert.match(pt, /X0 = L - x0 \* pxS/, 'the paper\'s upright lines ride on time, so the grid scrolls with the traces');
+  assert.match(pt, /const label = `HVPG \$\{fmt\(hv, 1\)\}`/, 'the HVPG named on the chart, in its gap');
+  assert.ok(css.includes('height: calc(56cqi * var(--pz-fit, 1))'), 'a compact card');
   assert.match(pt, /const BEAT_CARD_S = 5;/, 'the slide card shows the last 5 s');
   assert.match(pt, /const beatCard = slide && range === 'beats' && showHvpg;\s+const span = beatCard \? BEAT_CARD_S :/);
   assert.match(presenter, /ref: s\.tool \|\| s\.delta != null \? refOf\(/, 'the slide\'s context carries its delta\'s fingerprint');
