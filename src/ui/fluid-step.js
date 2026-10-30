@@ -15,16 +15,16 @@ export const fluidTarget = (drawn, v, step = FLUID_STEP) => (drawn === null || M
 export const POOL_MIN = 150;   // mL
 export const poolFade = (v) => Math.min(1, Math.max(0, (v - POOL_MIN) / 150));
 
-// How high the pool stands at volume `v` (mL), on the drawn scale (volume^0.6, then slow off the floor so a small pool stays a
-// thin layer): its height above the level it rises from (h), its ripple's amplitude, and that level (floor). An empty belly's
+// How high the pool stands at volume `v` (mL), close to in step with the volume (volume^1.1: each litre lifts it by about the same,
+// so 3.6 L stands well up over the lower bowel; Mohammad, 30 Oct), a touch slower at first so the first pool is a layer): its height above the level it rises from (h), its ripple's amplitude, and that level (floor). An empty belly's
 // level is POOL_GAP below the appendix's drawn tip (anatomy.js APPENDIX_TIP: the same path and world space the stage draws it
 // in), so the first pool lies wholly under the appendix; the level then rises with the pool to the cavity's old floor by the
 // fullest belly, so the top of the scale does not move. The level moves only with the eased volume, so it never jumps.
-export const FLUID_TOP = 485, FLUID_CURVE = 3.2, POOL_GAP = 12;
+export const FLUID_TOP = 485, FLUID_POW = 1.1, POOL_GAP = 12;
 export const POOL_START = APPENDIX_TIP + POOL_GAP;
 export const fluidFloorAt = (h) => POOL_START + (ABDOMEN_FLOOR + 5 - POOL_START) * Math.min(1, h / FLUID_TOP);
 export function fluidLevel(v) {
-  const uv = Math.pow(Math.min(1, Math.max(0, v / 8500)), 0.6), h = FLUID_TOP * Math.pow(uv, FLUID_CURVE);
+  const u = Math.min(1, Math.max(0, v / 8500)), uv = Math.pow(u, 0.6), h = FLUID_TOP * Math.pow(u, FLUID_POW);
   return { h, amp: 2 * Math.min(1, uv * 4), floor: fluidFloorAt(h) };
 }
 /** The surface's resting height at world x for a pool `h` high: a meniscus that deepens as it fills (no ripple). */

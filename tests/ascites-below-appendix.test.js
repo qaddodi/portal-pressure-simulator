@@ -24,13 +24,19 @@ test('the appendix tip is read from the path the stage draws, with its widest st
   assert.ok(APPENDIX_TIP > pathLowest(APPENDIX_D) && APPENDIX_TIP > 990, `${APPENDIX_TIP}`);
 });
 
-test('at the smallest visible volume, and through 1 L, the whole fluid surface is below the appendix tip', () => {
-  for (let v = POOL_MIN; v <= 1000; v += 10) assert.ok(topAt(v) > APPENDIX_TIP, `${v} mL: top ${topAt(v).toFixed(1)}, tip ${APPENDIX_TIP.toFixed(1)}`);
+test('at the smallest visible volumes the whole fluid surface is below the appendix tip', () => {
+  for (let v = POOL_MIN; v <= POOL_MIN + 50; v += 1) assert.ok(topAt(v) > APPENDIX_TIP, `${v} mL: top ${topAt(v).toFixed(1)}, tip ${APPENDIX_TIP.toFixed(1)}`);
 });
 
 test('the first pool still shows: the cavity reaches well under its surface', () => {
   const { h } = fluidLevel(POOL_MIN);
   assert.ok(CAVITY_LOW - fluidBase(712, h) > 24, `depth ${CAVITY_LOW - fluidBase(712, h)}`);
+});
+
+test('each litre lifts the level visibly, and 3.6 L stands well up over the lower bowel', () => {
+  const mid = (v) => fluidBase(712, fluidLevel(v).h);
+  for (let l = 1; l < 8; l++) assert.ok(mid(l * 1000) - mid((l + 1) * 1000) > 40, `${l} to ${l + 1} L: ${mid(l * 1000) - mid((l + 1) * 1000)}`);
+  assert.ok(mid(3600) < 860, `3.6 L at y ${mid(3600)}`);
 });
 
 test('the surface rises steadily with volume and the top of the scale is unchanged', () => {

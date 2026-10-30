@@ -17,7 +17,7 @@ import { sinceSource } from './since-ref.js?v=ef1a818c75';
 import { clipBox, mapBox } from './fit-box.js?v=d5d6d4c60f';
 import { runFlick, FLICK } from './flick.js?v=744a0b5b0c';
 import { inlineStyles } from './svg-inline.js?v=fc17cb73fe';
-import { fluidTarget, poolFade, fluidLevel, fluidFloorAt, fluidBase } from './fluid-step.js?v=0dd50a92f7';
+import { fluidTarget, poolFade, fluidLevel, fluidFloorAt, fluidBase } from './fluid-step.js?v=2c9b2ac797';
 import { easeTo, fluidSpring, fluidSpringFor } from './organ-ease.js?v=4ebb648131';
 import { spleenMotion } from './spleen-motion.js?v=4e87db0dbb';
 import { subpathsIn, foldOpacity, dropInvisible, mergeClipRuns, boxOutside, paintBox, maskRegionIn, maskSlot, fillMaskHead, pruneDefs } from './plate-copy.js?v=0b5acb0928';
@@ -5846,7 +5846,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       veins.setFluidSpans(cavityHalfWidths(bulge, R[1], R[3], FLUID_COLS), R);   // (its second row: the liver's edge, setFluidLiver)
     }
     putA(organG.bowel, 'transform', `translate(0 ${(-bulge / 34 * 26).toFixed(1)})`);
-    // The fluid level (fluidLevel): the first pool lies under the appendix's tip, and a 1 L pool is a thin layer there. Near the
+    // The fluid level (fluidLevel): the first pool lies under the appendix's tip, then each litre lifts it about as much. Near the
     // top of the scale (about 8.5 L) the surface reaches the lower edge of the spleen: clearly concave (about 100 units
     // lower in the middle than at the flanks), the same on both sides.
     ({ h: fluidH, amp: fluidAmp } = fluidLevel(ascShown));
