@@ -6487,7 +6487,10 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       el.classList.toggle('off', x < x0 || x > x1 || y < y0 || y > y1 || (!!d.res && (ratio == null || t < 0.5)) || (!d.res && !!el._half && 2 * el._half > x1 - x0 + 1));
       if (el._below == null && el.offsetHeight) { el._below = d.below ? y + 18 + el.offsetHeight < y1 : y - 18 - el.offsetHeight < y0; el.dataset.at = el._below ? 'ahead' : ''; }
       // (Its width read again only when its words or classes change: a read after each frame's new number forced a layout.)
-      const wk = `${el.className}|${el.textContent}|${W}|${labelBase()}|${labelFonts}`;
+      // (Its digits are tabular, every one as wide as a zero (app.css .cath-label b), so a number counting to its next value keeps the
+      // width and is not read again: with each counted step it was, a layout of the whole page forced in the middle of the labels'
+      // update, after the figure's writes, 20 to 53 ms on his Mac (30 Oct). The labels' own widths are taken the same way: textW.)
+      const wk = `${el.className}|${el.textContent.replace(/\d/g, '0')}|${W}|${labelBase()}|${labelFonts}`;
       if (el._wk !== wk || !el._half) { el._wk = wk; el._half = el.offsetWidth / 2; el._h = el.offsetHeight; el._kwid = d.res ? el.querySelector('.res-k')?.offsetWidth || 0 : 0; }
       const half = el._half, cx = clamp(x, Math.min(x0 + half, (x0 + x1) / 2), Math.max(x1 - half, (x0 + x1) / 2));
       el._box = el.classList.contains('off') ? null : calloutBox(el, d, cx, y, half, el._h || 0);
