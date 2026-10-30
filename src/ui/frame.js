@@ -178,7 +178,7 @@ export function setFigOpt(k, v) {
 //   onto it by a sharper filter than the browser's (veins-gl.js UP_FS). The lobule and the sinusoid are not included.
 // lymphBoxes: in the lobule with the GPU's vessels, the lymph's layer is cleared and drawn again only in the tiles its drops left or
 //   reached, while nothing else on it changed (lobule-zoom.js lyKey).
-export const FIG_LAB = { motion60: [false, true], glassCache: [false, true], creditLean: [false, true], lymphBoxes: [false, true], pinchReuse: [0, 2, 3], upscale: [false, true] };
+export const FIG_LAB = { motion60: [false, true], glassCache: [false, true], creditLean: [false, true], lymphBoxes: [false, true], pinchReuse: [0, 2, 3], upscale: [false, true], lightArt: [false, true] };
 const figLabs = Object.fromEntries(Object.entries(FIG_LAB).map(([k, v]) => [k, v[0]]));
 for (const k of Object.keys(figLabs)) {
   try { const t = localStorage.getItem(`pps.fig.${k}`), v = t === 'true' ? true : +t; if (t != null && FIG_LAB[k].includes(v)) figLabs[k] = v; } catch { /* storage unavailable */ }

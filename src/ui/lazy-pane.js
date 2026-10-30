@@ -4,7 +4,7 @@
 // The dock goes on feeding it meanwhile, and what it is fed is kept, so it starts with what it would have had: the Doppler's trace holds the
 // frames it was sent (`history` of them, each cut down by `slim`), the FibroScan the last it was given.
 // An instrument that was loaded ahead (the handle already has it) is returned as it is.
-import { h } from './util.js?v=b8c22bcef5';
+import { h } from './util.js?v=f7abb6eb4f';
 
 /**
  * handle: lazy()'s { get, now }. cls: the classes the real pane has on its own element (so the empty one lays out as it will).
