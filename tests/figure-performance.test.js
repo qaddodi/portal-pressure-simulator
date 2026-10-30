@@ -127,3 +127,44 @@ test('Callout glass kept: the kept path draws from the same reads, through the s
   assert.match(k, /return paint\(panes, cr, bgs, bg, bgVar\);/);
   assert.match(g, /function take\(reg, cr, srKept = null\) \{\n\s*const sr = srKept \|\| source\.getBoundingClientRect\(\);/, 'off: take reads the figure’s box as before');
 });
+
+test('Lymph redrawn where it moves: off, the layer is cleared and the drops stepped as before; on, only the tiles they touch', () => {
+  const lz = src('lobule-zoom.js');
+  const fx = lz.slice(lz.indexOf('  function paintFx(W, H, dpr, dark, dt, flat) {'), lz.indexOf('  // ── Hit testing and the card ──'));
+  assert.match(fx, /if \(moving && lymphOn && !flat && !m\.hide && figLab\('lymphBoxes'\)\) \{/, 'only with the switch, the GPU vessels and moving lymph');
+  assert.match(fx, /\} else if \(lyKey\) \{ lyKey = ''; lyTiles = null; lyPaths = null; \}/);
+  // Off: lyPre and lyClip stay null, lyKey stays '', and the clear is the old one.
+  assert.match(fx, /else if \(fxBoxes\) \{ c\.setTransform\(1, 0, 0, 1, 0, 0\); for \(const \[x0, y0, x1, y1\] of fxBoxes\) c\.clearRect\(x0, y0, x1 - x0, y1 - y0\); c\.setTransform\(dpr, 0, 0, dpr, 0, 0\); \}\n\s+else c\.clearRect\(0, 0, W, H\);/);
+  assert.match(fx, /const \{ lw, seal, beads, minR, view, drops \} = lyPre \|\| lyDrops\(G, m, dt, W, H, dpr\);/, 'the drops stepped once a frame either way');
+  assert.equal(fx.split('lyDrops(G, m, dt, W, H, dpr)').length - 1, 2);
+  // On: a partial redraw only while everything but the drops is unchanged, and under half the screen; the clip is let go at the end.
+  assert.match(fx, /if \(key === lyKey && paths === lyPaths && lyTiles\) \{/);
+  assert.match(fx, /if \(dirty\.size \* LY_TILE \* LY_TILE < 0\.5 \* fw \* fh\) lyClip = /);
+  assert.match(fx, /if \(lyClip\) c\.restore\(\);/);
+  assert.equal((fx.match(/c\.save\(\)/g) || []).length, (fx.match(/c\.restore\(\)/g) || []).length, 'saves and restores balance');
+  // Every reset of the layer resets the key too, so a cleared or resized canvas is drawn whole.
+  assert.equal((lz.match(/(?<!let )fxBoxes = null;/g) || []).length, lz.split('fxBoxes = null; lyKey = \'\';').length - 1);
+  // The drops' tiles reach past each drop by its ring and a few pixels of antialiasing.
+  assert.match(lz, /e = \(drops\[j \+ 2\] \+ ringW\) \* V\.k \* dpr \+ 3;/);
+  assert.match(fx, /lyTilesOf\(lyPre\.drops, Math\.max\(0\.5 \/ V\.k, lyPre\.minR \* 0\.22\), fw, fh, dpr\)/, 'the ring as the drawing strokes it');
+  assert.match(lz, /c\.lineWidth = Math\.max\(0\.5 \/ V\.k, minR \* 0\.22\);/);
+});
+
+test('Pinch frame reuse: off, the one-pass frame is as before; on, only while a hand zooms, and the stop is shaded whole', () => {
+  const v = src('veins-gl.js'), stage = src('stage.js');
+  const fn = v.slice(v.indexOf('    draw(m, look, blood, rows = null) {'), v.indexOf('    drawRows(m, look, blood, rows, full = false) {'));
+  assert.match(fn, /if \(reuseEvery && reuseOn && stale && reuseN % reuseEvery !== 0 && reuseDraw\(m\)\) \{/, 'nothing reused unless switched on and zooming');
+  assert.match(fn, /baseM = m; fboOK = false; reused = true;\n\s+return;/, 'a reused frame leaves the layer to be drawn whole');
+  assert.match(fn, /this\.composite\(look, blood, true\);\n\s+if \(reuseEvery && reuseOn\) \{ reuseKeep\(m\); reuseN = 1; \} else rz\.m = null;\n\s+return;/);
+  assert.match(fn, /\n\s+rz\.m = null;\n\s+\/\/ \(For the \?perf readout/, 'any other picture: nothing kept to reuse');
+  // Off, the one-pass branch's own lines are unchanged.
+  assert.match(fn, /if \(!stale\) \{ gl\.bindFramebuffer\(gl\.FRAMEBUFFER, fbo\); gl\.viewport\(0, 0, fboW, fboH\); gl\.disable\(gl\.SCISSOR_TEST\); clearLayer\(\); stale = true; \}\n\s+baseM = m; drawnLook = lk; tubesNew = false; radRows\.clear\(\); drawnNow\(\);\n\s+fboOK = false;\n\s+gl\.bindFramebuffer\(gl\.FRAMEBUFFER, null\);\n\s+fusing = true;/);
+  const rd = v.slice(v.indexOf('  function reuseDraw(m) {'), v.indexOf('  // The composite\'s textures, each on its unit'));
+  assert.match(rd, /if \(!rz\.m \|\| rz\.w !== canvas\.width \|\| rz\.h !== canvas\.height\) return false;/);
+  assert.match(rd, /if \(!reuseCovers\(k, rz\.w, rz\.h\)\) return false;/);
+  assert.match(rd, /if \(own\) present\(\);\n\s+pictured\(\);/, 'the glass and the own buffer hear of it');
+  assert.match(stage, /const reuse = figLab\('pinchReuse'\);\n\s+veins\.setReuse\?\.\(reuse, !!reuse && gestureOn\(\)\);\n\s+veins\.draw\(T, vLook, bloodLook\(\), rows\);\n\s+if \(veins\.reused\) veinsDirty = true;/);
+  // (The kept picture is the canvas's, through the own buffer when there is one; freed when the switch goes off.)
+  assert.match(v, /gl\.bindFramebuffer\(gl\.READ_FRAMEBUFFER, own \? own\.fbo : null\);\n\s+gl\.bindFramebuffer\(gl\.DRAW_FRAMEBUFFER, rz\.fbo\);/);
+  assert.match(v, /if \(!every && rz\.w && !lost\) \{ rz\.w = rz\.h = 0;/);
+});

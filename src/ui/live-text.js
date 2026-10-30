@@ -2,7 +2,7 @@
 // as the widest words they will ever take, the live words at its right, so the line they stand on never reflows as a digit comes
 // or goes (Mohammad, 26 Oct: on a phone the teaching card's text jittered while a slider moved). The box's own words are a hidden
 // copy of the widest text (the live ones are what a screen reader reads), laid over each other in one grid cell: styles/app.css .pzv.
-import { h } from './util.js?v=8d39a24839';
+import { h } from './util.js?v=b5b4023c4e';
 
 /** The longest of some words (the first of equals): with the tabular figures every digit is as wide as another, so the longest
  *  string is the widest. */

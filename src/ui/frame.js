@@ -172,7 +172,11 @@ export function setFigOpt(k, v) {
 //   screen; pans and zooms stay at the screen's rate. A 60 Hz screen draws as before.
 // glassCache: the callouts' GPU glass keeps each callout's box, fade and shadow until something says they changed (glass-gl.js).
 // creditLean: in Present, the corner credit's once-a-second look runs only when the layout may have changed (credit.js).
-export const FIG_LAB = { motion60: [false, true], glassCache: [false, true], creditLean: [false, true] };
+// pinchReuse: while a hand zooms, all but one in 2 (2) or in 3 (3) of the one-pass zoom frames lay the last shaded picture again,
+//   moved and scaled to the view now (veins-gl.js reuseDraw); a zoom out, which uncovers the edges, is shaded every frame.
+// lymphBoxes: in the lobule with the GPU's vessels, the lymph's layer is cleared and drawn again only in the tiles its drops left or
+//   reached, while nothing else on it changed (lobule-zoom.js lyKey).
+export const FIG_LAB = { motion60: [false, true], glassCache: [false, true], creditLean: [false, true], lymphBoxes: [false, true], pinchReuse: [0, 2, 3] };
 const figLabs = Object.fromEntries(Object.entries(FIG_LAB).map(([k, v]) => [k, v[0]]));
 for (const k of Object.keys(figLabs)) {
   try { const t = localStorage.getItem(`pps.fig.${k}`), v = t === 'true' ? true : +t; if (t != null && FIG_LAB[k].includes(v)) figLabs[k] = v; } catch { /* storage unavailable */ }

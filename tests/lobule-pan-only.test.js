@@ -37,7 +37,7 @@ test('the surface pass is still counted for the ?perf readout', () => {
 });
 
 test('the ductule layer leaves out a ductule that lies wholly off the canvas, and keeps its clear box list to the ones drawn', () => {
-  const fx = src.slice(src.indexOf('function paintFx('), src.indexOf('function paintFx(') + 4500);
+  const fx = src.slice(src.indexOf('function paintFx('), src.indexOf('// ── Hit testing and the card ──'));
   assert.match(fx, /if \(X \+ e < 0 \|\| Y \+ e < 0 \|\| X - e > fw \|\| Y - e > fh\) continue;/);
   assert.match(fx, /if \(fxBoxes\) fxBoxes\.push\(\[Math\.floor\(X - e\), Math\.floor\(Y - e\), Math\.ceil\(X \+ e\), Math\.ceil\(Y \+ e\)\]\);/);
   // (The bound is the ring's outer radius, its stroke and 3 px: the same box the clear list always used for what it drew.)

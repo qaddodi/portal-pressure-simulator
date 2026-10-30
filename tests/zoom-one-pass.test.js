@@ -139,7 +139,7 @@ test('veins-gl: on by default (?zoompass=two goes back), a zoom or turn only, pl
   assert.ok(fuse, 'one pass only when the scale or turn changed, the builds are ready and the frame is plain');
   assert.match(fuse[1], /fboOK = false;/, 'the layer is not current after it');
   assert.match(fuse[1], /clearLayer\(\); stale = true;/, 'the layer is cleared once, for the pixels outside the cells');
-  assert.match(fuse[1], /fusing = true;\s*this\.composite\(look, blood, true\);\s*return;/);
+  assert.match(fuse[1], /fusing = true;\s*this\.composite\(look, blood, true\);\s*if \(reuseEvery && reuseOn\) \{ reuseKeep\(m\); reuseN = 1; \} else rz\.m = null;\s*return;/, '(Pinch frame reuse: the picture kept only while that is on and a hand zooms)');
   assert.match(draw, /fboOK = true; stale = false;/, 'a whole draw makes the layer current again');
   const comp = body(src, '    composite(look, blood = {}, full = false, part = 0) {');
   assert.match(comp, /const fused = fusing;\s*fusing = false;\s*if \(stale && !fused\) \{ this\.draw\(baseM, look, blood\); return; \}/, 'any other picture draws the layer whole first');

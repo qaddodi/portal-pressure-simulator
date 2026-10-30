@@ -33,7 +33,7 @@
 
 import { CHEV_GLSL } from './chevron-glsl.js?v=96ec7c6666';
 import { SLOT, DYE_BINS } from './blood.js?v=96774a5b6a';
-import { cssRGB } from './util.js?v=8d39a24839';
+import { cssRGB } from './util.js?v=b5b4023c4e';
 import { LUMEN, STO_Y0, STO_DY, STO_N } from './stomach-lumen.js?v=9077feffd5';
 import { CELL, ENT_W, binVeins, splitRows, simpleCells, splitCells } from './veins-bin.js?v=d5372c91f9';
 import { gpuProbe, COUNTED } from './gpu-probe.js?v=dd12fc216c';
@@ -89,6 +89,41 @@ const CLASSIC = typeof location !== 'undefined' && /[?&]blood=classic\b/.test(lo
 // the two as one shader over the vessel cells instead (veins-fuse.js), and the picture alone over the rest of the canvas (the
 // layer there is empty). The same arithmetic, so the same picture.
 const ONE_PASS = !(typeof location !== 'undefined' && /[?&]zoompass=two\b/.test(location.search));
+// Settings › Figure performance › Pinch frame reuse (frame.js pinchReuse, off by default; stage.js passes it only while a hand zooms):
+// on some of the one-pass zoom frames, the last picture the one-pass shader drew is laid again, moved and scaled by the zoom since,
+// instead of shading the figure afresh. REUSE_FS maps each pixel of the canvas now to where the same world point was in that picture
+// (device px, y down) and reads it there, filtered.
+const REUSE_VS = `#version 300 es
+layout(location = 0) in vec2 aQ;
+void main() { gl_Position = vec4(aQ * 2.0 - 1.0, 0.0, 1.0); }`;
+const REUSE_FS = `#version 300 es
+precision highp float;
+uniform sampler2D uT;
+uniform vec2 uSize;
+uniform mat3 uMap;
+out vec4 o;
+void main() {
+  vec2 p = vec2(gl_FragCoord.x, uSize.y - gl_FragCoord.y);
+  vec2 q = (uMap * vec3(p, 1.0)).xy;
+  o = texture(uT, vec2(q.x / uSize.x, 1.0 - q.y / uSize.y));
+}`;
+/** Device px now → device px in the picture drawn with `then` (both world → device [a, b, c, d, e, f]): then ∘ now⁻¹, or null. */
+export function reuseMap(then, now) {
+  const [a, b, c, d, e, f] = now, det = a * d - b * c;
+  if (!det) return null;
+  const ia = d / det, ib = -b / det, ic = -c / det, id = a / det, ie = (c * f - d * e) / det, iff = (b * e - a * f) / det;
+  const [A, B, C, D, E, G] = then;
+  return [A * ia + C * ib, B * ia + D * ib, A * ic + C * id, B * ic + D * id, A * ie + C * iff + E, B * ie + D * iff + G];
+}
+/** Whether the picture mapped by `k` (reuseMap) covers a w × h canvas: every corner lands inside it (half a pixel's slack). */
+export function reuseCovers(k, w, h) {
+  if (!k) return false;
+  for (const [x, y] of [[0, 0], [w, 0], [0, h], [w, h]]) {
+    const qx = k[0] * x + k[2] * y + k[4], qy = k[1] * x + k[3] * y + k[5];
+    if (!(qx >= -0.5 && qx <= w + 0.5 && qy >= -0.5 && qy <= h + 0.5)) return false;
+  }
+  return true;
+}
 // The composite's per-frame uniform arrays, filled in place: it ran six `new Float32Array`s a frame. (Each is uploaded at once,
 // so one set serves every renderer.)
 // The origin colours flattened once per palette (the palette is one object for the page's life), not every frame (P8).
@@ -2221,6 +2256,51 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false }) {
     gl.blitFramebuffer(0, 0, own.w, own.h, 0, 0, own.w, own.h, gl.COLOR_BUFFER_BIT, gl.NEAREST);
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
   }
+  // Pinch frame reuse (REUSE_FS): every: reuse on all but 1 frame in `every` of the one-pass frames (0: off, nothing here runs); the
+  // last one-pass picture kept in `rz.tex` with the transform it was drawn in (`rz.m`, null when none can be reused: any other picture
+  // since, a new size, a lost context). `reused`: this draw laid the kept picture rather than shading the figure.
+  let reuseEvery = 0, reuseOn = false, reuseN = 0, reused = false;
+  const rz = { tex: null, fbo: null, w: 0, h: 0, m: null, P: null };
+  function reuseKeep(m) {
+    if (!rz.tex) { rz.tex = dataTex(gl, gl.LINEAR); rz.fbo = gl.createFramebuffer(); }
+    if (rz.w !== canvas.width || rz.h !== canvas.height) {
+      rz.w = canvas.width; rz.h = canvas.height;
+      gl.bindTexture(gl.TEXTURE_2D, rz.tex);
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, rz.w, rz.h, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+      gl.bindFramebuffer(gl.FRAMEBUFFER, rz.fbo);
+      gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, rz.tex, 0);
+    }
+    gl.disable(gl.SCISSOR_TEST);
+    gl.bindFramebuffer(gl.READ_FRAMEBUFFER, own ? own.fbo : null);
+    gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, rz.fbo);
+    gl.blitFramebuffer(0, 0, rz.w, rz.h, 0, 0, rz.w, rz.h, gl.COLOR_BUFFER_BIT, gl.NEAREST);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    rz.m = m;
+  }
+  // The kept picture laid for the transform `m`, when it covers the whole canvas; false (nothing drawn) otherwise.
+  function reuseDraw(m) {
+    if (!rz.m || rz.w !== canvas.width || rz.h !== canvas.height) return false;
+    const k = reuseMap(rz.m, m);
+    if (!reuseCovers(k, rz.w, rz.h)) return false;
+    if (!rz.P) {
+      try { rz.P = finishProgram(gl, startProgram(gl, REUSE_VS, REUSE_FS)); } catch (e) { console.warn('Veins renderer: the pinch reuse shader could not be made; every zoom frame is shaded.', e); rz.P = false; }
+    }
+    if (!rz.P) return false;
+    gl.bindFramebuffer(gl.FRAMEBUFFER, own ? own.fbo : null);
+    gl.viewport(0, 0, canvas.width, canvas.height);
+    gl.disable(gl.BLEND); gl.disable(gl.SCISSOR_TEST); gl.disable(gl.STENCIL_TEST);
+    gl.useProgram(rz.P.p);
+    gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, rz.tex); gl.uniform1i(rz.P.u.uT, 0);
+    gl.uniform2f(rz.P.u.uSize, canvas.width, canvas.height);
+    gl.uniformMatrix3fv(rz.P.u.uMap, false, new Float32Array([k[0], k[1], 0, k[2], k[3], 0, k[4], k[5], 1]));
+    gl.bindVertexArray(compVAO);
+    gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+    gl.bindVertexArray(null);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    if (own) present();
+    pictured();
+    return true;
+  }
   // The composite's textures, each on its unit (U: the program's uniforms; the flags: which of the layers it lays this frame).
   function compBind(U, layer, glow, warm, useStack) {
     const bind = (unit, tex, name) => { gl.activeTexture(gl.TEXTURE0 + unit); gl.bindTexture(gl.TEXTURE_2D, tex); gl.uniform1i(U[name], unit); };
@@ -2504,6 +2584,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false }) {
      */
     draw(m, look, blood, rows = null) {
       m = whole(m);
+      reused = false;
       lastLook = look;
       ensureFBO();
       const lk = lookKey(look);
@@ -2518,6 +2599,14 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false }) {
       const pan = panAt && (!(tubesNew || radRows.size) || parts);
       // A zoom or a turn with the one-pass builds (one-pass zoom frames): no vessel pass; the picture draws the vessels itself.
       if (!pan && baseM && m.slice(0, 4).some((v, i) => v !== baseM[i]) && fuseReady() && bareOf(blood || {}) && !gpuProbe.skipGL && !lost) {
+        // (Pinch frame reuse, when on: this frame lays the last one-pass picture again, moved to the view now, if it covers the canvas.
+        // The layer is left stale and baseM is the view now, so the next picture at this view (the pinch let go) is shaded whole.)
+        if (reuseEvery && reuseOn && stale && reuseN % reuseEvery !== 0 && reuseDraw(m)) {
+          if (gpuProbe.on) gpuProbe.note('vessels: reused');
+          reuseN++;
+          baseM = m; fboOK = false; reused = true;
+          return;
+        }
         if (gpuProbe.on) gpuProbe.note('vessels: one pass');
         if (!stale) { gl.bindFramebuffer(gl.FRAMEBUFFER, fbo); gl.viewport(0, 0, fboW, fboH); gl.disable(gl.SCISSOR_TEST); clearLayer(); stale = true; }
         baseM = m; drawnLook = lk; tubesNew = false; radRows.clear(); drawnNow();
@@ -2525,8 +2614,10 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false }) {
         gl.bindFramebuffer(gl.FRAMEBUFFER, null);
         fusing = true;
         this.composite(look, blood, true);
+        if (reuseEvery && reuseOn) { reuseKeep(m); reuseN = 1; } else rz.m = null;
         return;
       }
+      rz.m = null;
       // (For the ?perf readout: a pan shift, or a whole draw and the first condition that made it one.)
       if (gpuProbe.on) {
         if (pan) gpuProbe.note(COUNTED.pan);
@@ -2585,6 +2676,19 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false }) {
       this.composite(look, blood, full, both);
       return true;
     },
+    /**
+     * Pinch frame reuse: `every` (0 off, 2 or 3: all but one one-pass frame in that many lay the last picture again) and `now` (a hand
+     * is zooming: only then is a picture kept or laid again). Off gives the kept picture's memory back.
+     */
+    setReuse(every, now) {
+      reuseOn = !!now;
+      if (!reuseOn) rz.m = null;
+      if (every === reuseEvery) return;
+      reuseEvery = every; reuseN = 0; rz.m = null;
+      if (!every && rz.w && !lost) { rz.w = rz.h = 0; gl.bindTexture(gl.TEXTURE_2D, rz.tex); gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, null); }
+    },
+    /** Whether the last draw laid the kept picture again (Pinch frame reuse): the next one at that view has to be shaded whole. */
+    get reused() { return reused; },
     /** The last drawRows call's outcome: 'drawn', or why it was refused (gpu-probe.js ROWS_REFUSED); '' before any. */
     get rowsStatus() { return rowsStatus; },
     /** Cells redrawn by drawRows so far (whole, and recoloured only), and the cells of the whole layer (for the checks). */
@@ -2902,6 +3006,8 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false }) {
         gl.deleteFramebuffer(spare.fbo);
         gl.deleteFramebuffer(fbo); gl.deleteFramebuffer(tintFbo); gl.deleteFramebuffer(lineLayer.fbo); gl.deleteFramebuffer(glowLayer.fbo); gl.deleteFramebuffer(warmLayer.fbo);
         if (own) { gl.deleteTexture(own.tex); gl.deleteFramebuffer(own.fbo); if (own.rb) gl.deleteRenderbuffer(own.rb); }
+        if (rz.tex) { gl.deleteTexture(rz.tex); gl.deleteFramebuffer(rz.fbo); }
+        if (rz.P) gl.deleteProgram(rz.P.p);
         if (warmT) { for (const t of warmT.tx) gl.deleteTexture(t); gl.deleteFramebuffer(warmT.fb); gl.deleteBuffer(warmT.buf); gl.deleteVertexArray(warmT.va); }
         // (Builds still compiling: given back unpublished, with every shader.)
         if (later.length) { for (const k of later) for (const st of startsOf(k)) gl.deleteProgram(st.p); later.length = 0; freeShaders(); }

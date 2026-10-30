@@ -10,7 +10,7 @@
 // so the figure blinked out and in at every change (Mohammad, 30 Oct: "it flashes whenever it switches resolution"). The mix is
 // moved by the canvas's own sub-pixel translate (stage.js subPixel), so neither picture shifts as the mix comes and goes, and it
 // is drawn in the frame's final phase, after the figure's own pass, so the new picture in it is this frame's.
-import { finalFrameFor } from './frame.js?v=b6c7956af4';
+import { finalFrameFor } from './frame.js?v=9f2b0fae80';
 
 export const FADE_MS = 350;
 /** The old picture's weight u of the way through the fade: 1 to 0, smoothstep (no step at either end). */

@@ -19,23 +19,23 @@
 // tapped (triad, inlet venule, sinusoid, arteriole, central vein, septum, hepatocytes).
 // Without WebGL2 the vessels are drawn flat on the tissue canvas.
 
-import { runFlick, FLICK } from './flick.js?v=b72fe35afc';
+import { runFlick, FLICK } from './flick.js?v=a6cf413e06';
 import { store } from './store.js?v=a926bea9d4';
 import { glideClock } from './glide-clock.js?v=220d7f875c';
 import { radiiChanged, canvasPx, fxMoves, DIVE_RIM } from './lobule-render-cache.js?v=84bf4c2222';
 import { softwareYield } from './sw-yield.js?v=e580a095b1';
-import { lobuleState, lymphRate, sinceOf, lensModeOf, LOBE } from './lobule-model.js?v=912fb4b6d6';
+import { lobuleState, lymphRate, sinceOf, lensModeOf, LOBE } from './lobule-model.js?v=84f34c8856';
 import { SIN_NARROW, cordTone, dullSinusoid, NEIGHBOUR_FLAT, neighbourBlur, blurWrapped, bandOutline, FADE_MID, fadeOuter, padRect, wideDpr, wideTiles, FIELD_RS, fieldBlend, fieldDof, surroundGrade, greyStep } from './lobule-look.js?v=cf14995b07';
 import { isGreyLens } from './organ-dim.js?v=9e19f2fc30';
 import { createFieldGL } from './field-gl.js?v=779561d5dd';
 import { createTissueGL } from './tissue-gl.js?v=8b86e77a93';
-import { h, s, fmt, clamp, createEaser, systemEdge, bloodColors, cssVar, cssAlpha, cssRGB01 } from './util.js?v=8d39a24839';
-import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatColor, oxygenColor } from './colormap.js?v=9864bff6eb';
+import { h, s, fmt, clamp, createEaser, systemEdge, bloodColors, cssVar, cssAlpha, cssRGB01 } from './util.js?v=b5b4023c4e';
+import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatColor, oxygenColor } from './colormap.js?v=47043505af';
 import { NODES, EDGES } from '../engine/topology.js?v=4044766e96';
-import { createVeinsGL, binVeins, laneSum, N_SAMPLES, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_SPEC, F_EDGE, ORIGIN_GREY } from './veins-gl.js?v=9ed0f17c47';
+import { createVeinsGL, binVeins, laneSum, N_SAMPLES, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_SPEC, F_EDGE, ORIGIN_GREY } from './veins-gl.js?v=dbf8738076';
 import { SLOT, PERIOD, originFractions, ORIGIN_N, DRIFT_PERIOD } from './blood.js?v=96774a5b6a';
-import { createSinusoidView } from './sinusoid-view.js?v=9271945ede';
-import { frameFor, cancelFrame, noteDraw, saver, paceMs, renderScale, onRenderScale, frame } from './frame.js?v=b6c7956af4';
+import { createSinusoidView } from './sinusoid-view.js?v=8f74e9c325';
+import { frameFor, cancelFrame, noteDraw, saver, paceMs, renderScale, onRenderScale, frame, figLab } from './frame.js?v=9f2b0fae80';
 import { gpuProbe, COUNTED } from './gpu-probe.js?v=dd12fc216c';
 import { leaderEnd, runInside } from './leader-end.js?v=8e884700ab';
 const nextFrame = frameFor('lobule-zoom');
@@ -1864,7 +1864,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
         const c = cv.getContext('2d');
         // (The vessels at one size for every tile, cropped: their canvas is sized once for the copy, not once a tile.)
         if (g && !g.lost) { drawKey = ''; drawGL(TW, TH, dpr, dark, cs, 0); c.drawImage(glCv, 0, 0, cv.width, cv.height, 0, 0, cv.width, cv.height); }
-        fxDrawn = ''; fxBoxes = null; paintFx(w, hh, dpr, dark, 0, flat);
+        fxDrawn = ''; fxBoxes = null; lyKey = ''; paintFx(w, hh, dpr, dark, 0, flat);
         if (!probe(fx)) { ok = false; free(fx); free(cv); break; }
         c.drawImage(fx, 0, 0, cv.width, cv.height); free(fx);
         if (or) opaqueOnly(c, cv.width - 2, 0, 2, cv.height);
@@ -1873,7 +1873,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
       tiles.push(cv); box0.append(cv);
     }
     diveCopyKey = ''; diveRim = null;
-    tissueKey = ''; drawKey = ''; glDirty = true; fxDrawn = ''; fxBoxes = null; idleDrawn = '';
+    tissueKey = ''; drawKey = ''; glDirty = true; fxDrawn = ''; fxBoxes = null; lyKey = ''; idleDrawn = '';
     if (!ok) { for (const cv of tiles) free(cv); return null; }
     el.insertBefore(box0, leaders);
     return { el: box0, tiles, box, soft: dpr < dpr0 };
@@ -1887,7 +1887,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   function wideChecked(wd) {
     if (!wd || (probe(tissue) && probe(fx))) return wd;
     for (const cv of wd.tiles) free(cv); wd.el.remove();
-    tissueKey = ''; idleDrawn = ''; fxDrawn = ''; fxBoxes = null; draw(0);
+    tissueKey = ''; idleDrawn = ''; fxDrawn = ''; fxBoxes = null; lyKey = ''; draw(0);
     return null;
   }
   function trimFieldStates() {
@@ -3180,9 +3180,57 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   const meets = (b, v) => b[2] >= v[0] && b[0] <= v[2] && b[3] >= v[1] && b[1] <= v[3];
   let fxDrawn = '';
   let fxBoxes = null;   // (device-pixel boxes round all the layer holds, when that is only the ductules; null: anything)
+  // Settings › Figure performance › Lymph redrawn where it moves (frame.js lymphBoxes, off by default): with the GPU's vessels, the
+  // layer holds the ductules, the lymph's drops and the lining. Only the drops move; the rest changes only with what lyKey holds. So
+  // while that key holds, only the tiles the drops covered last frame or cover now are cleared and drawn again (the same drawing, the
+  // same order, clipped to them: inside them every pixel is drawn as a full redraw draws it, and outside them nothing changed).
+  // lyKey: everything but the drops that the layer is drawn from; lyTiles: the tiles last frame's drops covered.
+  let lyKey = '', lyTiles = null, lyPaths = null;
+  const LY_TILE = 32;   // device px
+  function lyTilesOf(drops, ringW, fw, fh, dpr) {
+    const out = new Set(), cols = Math.ceil(fw / LY_TILE), rows = Math.ceil(fh / LY_TILE);
+    for (let j = 0; j < drops.length; j += 4) {
+      const X = (drops[j] * V.k + V.x) * dpr, Y = (drops[j + 1] * V.k + V.y) * dpr, e = (drops[j + 2] + ringW) * V.k * dpr + 3;
+      const c0 = Math.max(0, Math.floor((X - e) / LY_TILE)), c1 = Math.min(cols - 1, Math.floor((X + e) / LY_TILE));
+      const r0 = Math.max(0, Math.floor((Y - e) / LY_TILE)), r1 = Math.min(rows - 1, Math.floor((Y + e) / LY_TILE));
+      for (let r = r0; r <= r1; r++) for (let c = c0; c <= c1; c++) out.add(r * cols + c);
+    }
+    return out;
+  }
+  // The lymph's drops this frame, [x, y, r, seed] each, and what drawing them needs. (Each drop's motion steps here, once a frame.)
+  function lyDrops(G, m, dt, W, H, dpr) {
+    const p = lyProt(m), still = reduce.matches, lw = 0.9 / V.k, seal = 1 - smooth(0.15, 0.6, p);
+    // Lymph as drops drifting along the space of Disse and the terminal lymphatics to the portal tract:
+    // faster as more fluid filters (the volume); each carries albumin beads, as many as its protein allows
+    // (the concentration). A fixed number of drops per vessel (a count that followed the rate would make
+    // them all jump to new places), and speed eased toward the model's. One path per ink, no blur.
+    const lyR = clamp(lymphRate(m), 0.2, 6), beads = Math.round(1 + 4 * p);
+    const gapW = G.R * 0.06, minR = 2.6 / V.k;
+    lyV = lyV == null ? lyR : lyV + (lyR - lyV) * -Math.expm1(-dt / 0.5);
+    const vW = G.R * 0.035 * Math.sqrt(lyV);
+    // (Every drop is drawn, on the screen or not: the drops and beads go out as one path each, and a path with fewer
+    // circles in it comes out a shade different at a few edges. The eraser and the lining below draw only what reaches the screen.)
+    const view = fxView(W, H, dpr);
+    const drops = [];
+    for (const t of G.tubes) {
+      if (t.kind !== 'ly' && t.kind !== 'lt') continue;
+      const L = t.len || 1, n = Math.max(1, Math.round(L / gapW)), dir = t.kind === 'ly' ? -1 : 1;   // the space of Disse is drawn from the edge inward
+      const mo = motionOf(t);
+      mo.lu = ((mo.lu ?? (t.id * 0.371) % 1) + (still ? 0 : dir * dt * vW / L) + 1) % 1;
+      const r = Math.max(minR, (radiusAt(t, N >> 1) / (t.kind === 'ly' ? lyTaper(t.rho[N >> 1]) : 1)) * 0.7);
+      for (let i = 0; i < n; i++) {
+        const u = (mo.lu + i / n) % 1, e = Math.min(u, 1 - u) * n;   // fading in and out at the ends
+        if (e < 0.25) continue;
+        const [x, y] = at(t.pts, u), tp = t.kind === 'ly' ? lyTaper(Math.hypot(x - G.cx, y - G.cy) / G.R) : 1;
+        if (tp < 0.2) continue;   // too far in: the channel has thinned out
+        drops.push(x, y, r * Math.min(1, e) * smooth(0.2, 0.8, tp), t.id + i);
+      }
+    }
+    return { lw, seal, beads, minR, view, drops };
+  }
   function paintFx(W, H, dpr, dark, dt, flat) {
     const fw = canvasPx(W, dpr), fh = canvasPx(H, dpr);
-    if (fx.width !== fw || fx.height !== fh) { fx.width = fw; fx.height = fh; fxDrawn = ''; fxBoxes = null; }
+    if (fx.width !== fw || fx.height !== fh) { fx.width = fw; fx.height = fh; fxDrawn = ''; fxBoxes = null; lyKey = ''; }
     const G = geo, m = model;
     // With nothing moving on this layer (no lymph, WebGL vessels), it holds only the ductules' epithelium: drawn again only when
     // the view, a caliber or the theme changes, not every frame (clearing and redrawing a full-screen canvas the screen then re-uploads).
@@ -3192,9 +3240,39 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     fxDrawn = fk;
     const c = fx.getContext('2d');
     c.setTransform(dpr, 0, 0, dpr, 0, 0);
+    // (Lymph redrawn where it moves (lyKey), when on: the drops are stepped here, before the clear, so the tiles they leave and the
+    // tiles they reach are both known; the drawing below takes them from lyPre instead of stepping them again.)
+    let lyPre = null, lyClip = null;
+    if (moving && lymphOn && !flat && !m.hide && figLab('lymphBoxes')) {
+      lyPre = lyDrops(G, m, dt, W, H, dpr);
+      const tiles = lyTilesOf(lyPre.drops, Math.max(0.5 / V.k, lyPre.minR * 0.22), fw, fh, dpr), paths = fxPaths();
+      const key = [fw, fh, dpr, dark, fxAll, fxDuct().key, V.k, V.x, V.y, lyPre.lw, lyPre.seal, tk('--lz-duct-cell'), tk('--lz-duct-edge'), tk('--lz-duct-nucleus'), tk('--lz-duct-lumen'), tk('--lz-lymph'), tk('--lz-albumin-ring'), tk('--lz-albumin'), tk('--lz-collagen', ((dark ? 0.6 : 0.5) * lyPre.seal).toFixed(3))].join('|');
+      if (key === lyKey && paths === lyPaths && lyTiles) {
+        const dirty = new Set([...lyTiles, ...tiles]);
+        if (dirty.size * LY_TILE * LY_TILE < 0.5 * fw * fh) lyClip = [...dirty].sort((a, b) => a - b);
+      }
+      lyKey = key; lyPaths = paths; lyTiles = tiles;
+    } else if (lyKey) { lyKey = ''; lyTiles = null; lyPaths = null; }
+    if (lyClip) {
+      // (The dirty tiles as runs along each row, in device pixels; cleared, and everything below drawn inside them only.)
+      const cols = Math.ceil(fw / LY_TILE);
+      c.save();
+      c.setTransform(1, 0, 0, 1, 0, 0);
+      c.beginPath();
+      for (let i = 0; i < lyClip.length;) {
+        let j = i;
+        while (j + 1 < lyClip.length && lyClip[j + 1] === lyClip[j] + 1 && lyClip[j + 1] % cols !== 0) j++;
+        const row = Math.floor(lyClip[i] / cols), c0 = lyClip[i] % cols;
+        c.rect(c0 * LY_TILE, row * LY_TILE, (j - i + 1) * LY_TILE, LY_TILE);
+        i = j + 1;
+      }
+      c.clip();
+      c.clearRect(0, 0, fw, fh);
+      c.setTransform(dpr, 0, 0, dpr, 0, 0);
+    }
     // Holding only the ductules (nothing moving), the layer is clear but for them: only where they were drawn is cleared, not the
     // whole screen each frame a pan or a slide's camera moves (the same picture; any other layer drawn last clears it all).
-    if (fxBoxes) { c.setTransform(1, 0, 0, 1, 0, 0); for (const [x0, y0, x1, y1] of fxBoxes) c.clearRect(x0, y0, x1 - x0, y1 - y0); c.setTransform(dpr, 0, 0, dpr, 0, 0); }
+    else if (fxBoxes) { c.setTransform(1, 0, 0, 1, 0, 0); for (const [x0, y0, x1, y1] of fxBoxes) c.clearRect(x0, y0, x1 - x0, y1 - y0); c.setTransform(dpr, 0, 0, dpr, 0, 0); }
     else c.clearRect(0, 0, W, H);
     fxBoxes = moving ? null : [];
     c.setTransform(dpr * V.k, 0, 0, dpr * V.k, dpr * V.x, dpr * V.y);
@@ -3259,33 +3337,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
       c.restore();
     }
     if (lymphOn && !flat && !m.hide) {
-      const p = lyProt(m), still = reduce.matches, lw = 0.9 / V.k, seal = 1 - smooth(0.15, 0.6, p);
-      // Lymph as drops drifting along the space of Disse and the terminal lymphatics to the portal tract:
-      // faster as more fluid filters (the volume); each carries albumin beads, as many as its protein allows
-      // (the concentration). A fixed number of drops per vessel (a count that followed the rate would make
-      // them all jump to new places), and speed eased toward the model's. One path per ink, no blur.
-      const lyR = clamp(lymphRate(m), 0.2, 6), beads = Math.round(1 + 4 * p);
-      const gapW = G.R * 0.06, minR = 2.6 / V.k;
-      lyV = lyV == null ? lyR : lyV + (lyR - lyV) * -Math.expm1(-dt / 0.5);
-      const vW = G.R * 0.035 * Math.sqrt(lyV);
-      // (Every drop is drawn, on the screen or not: the drops and beads go out as one path each, and a path with fewer
-      // circles in it comes out a shade different at a few edges. The eraser and the lining below draw only what reaches the screen.)
-      const view = fxView(W, H, dpr);
-      const drops = [];
-      for (const t of G.tubes) {
-        if (t.kind !== 'ly' && t.kind !== 'lt') continue;
-        const L = t.len || 1, n = Math.max(1, Math.round(L / gapW)), dir = t.kind === 'ly' ? -1 : 1;   // the space of Disse is drawn from the edge inward
-        const mo = motionOf(t);
-        mo.lu = ((mo.lu ?? (t.id * 0.371) % 1) + (still ? 0 : dir * dt * vW / L) + 1) % 1;
-        const r = Math.max(minR, (radiusAt(t, N >> 1) / (t.kind === 'ly' ? lyTaper(t.rho[N >> 1]) : 1)) * 0.7);
-        for (let i = 0; i < n; i++) {
-          const u = (mo.lu + i / n) % 1, e = Math.min(u, 1 - u) * n;   // fading in and out at the ends
-          if (e < 0.25) continue;
-          const [x, y] = at(t.pts, u), tp = t.kind === 'ly' ? lyTaper(Math.hypot(x - G.cx, y - G.cy) / G.R) : 1;
-          if (tp < 0.2) continue;   // too far in: the channel has thinned out
-          drops.push(x, y, r * Math.min(1, e) * smooth(0.2, 0.8, tp), t.id + i);
-        }
-      }
+      const { lw, seal, beads, minR, view, drops } = lyPre || lyDrops(G, m, dt, W, H, dpr);
       c.fillStyle = tk('--lz-lymph');
       c.beginPath();
       for (let j = 0; j < drops.length; j += 4) { const [x, y, rr] = [drops[j], drops[j + 1], drops[j + 2]]; c.moveTo(x + rr, y); c.arc(x, y, rr, 0, TAU); }
@@ -3338,6 +3390,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
       }
       c.fill();
     }
+    if (lyClip) c.restore();   // (the clip goes: the next frame's clear is its own)
   }
 
   // ── Hit testing and the card ──
