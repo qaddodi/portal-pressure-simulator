@@ -1,7 +1,7 @@
 // The corner credit finds a free spot on the figure: never on or touching a card, a sheet, a bar or a menu.
 // It keeps its corner while that corner stays free and is never animated (no glide, no fade): any move hides it at once,
 // holds it hidden only until the cards have settled (a slide change lifts its hold 120 ms after the camera move; a move off a spot a card now covers is hidden for 80 ms), then shows it at once at the new spot; with no figure left anywhere it stays hidden.
-import { frameFor } from './frame.js?v=c868718bdd';
+import { frameFor, figLab } from './frame.js?v=b6c7956af4';
 import { gpuProbe, COUNTED } from './gpu-probe.js?v=dd12fc216c';
 import { CELL, cellFor, regionFor, contains, touches, artTest, boxThrough, multiply, invert } from './credit-art.js?v=77b95dafe8';
 import { layoutWatch, PLACED } from './idle-keys.js?v=6eccd5d85a';
@@ -606,7 +606,8 @@ export function createCreditPlacer(credit, { keptStyle = null } = {}) {
   setInterval(() => {
     if (document.hidden) return;
     const st = window.pps?.store?.get(), k = pollKey();
-    if (watch.due() || k !== polled || st?.lobule || st?.sinusoid || app?.classList.contains('presenting')) soon();
+    // (Settings › Figure performance › Credit check in talks (frame.js): in Present too, only when one of those may have changed.)
+    if (watch.due() || k !== polled || st?.lobule || st?.sinusoid || (app?.classList.contains('presenting') && !figLab('creditLean'))) soon();
     polled = k;
   }, 1000);
   soon();

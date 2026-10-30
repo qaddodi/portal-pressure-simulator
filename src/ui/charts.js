@@ -2,10 +2,10 @@
 
 import { NODES } from '../engine/topology.js?v=4044766e96';
 import { PROFILE_PATHS, SHORT } from './anatomy.js?v=97811cb4dd';
-import { pressureColor } from './colormap.js?v=64a49af74c';
+import { pressureColor } from './colormap.js?v=9864bff6eb';
 import { store, hiddenNow } from './store.js?v=a926bea9d4';
-import { h, fmt, fitCanvas, cssVar, cssAlpha, clamp, createEaser, axisTop } from './util.js?v=8664598769';
-import { frameFor, cancelFrame, paceMs } from './frame.js?v=c868718bdd';
+import { h, fmt, fitCanvas, cssVar, cssAlpha, clamp, createEaser, axisTop } from './util.js?v=8d39a24839';
+import { frameFor, cancelFrame, paceMs } from './frame.js?v=b6c7956af4';
 import { tenthGap } from '../engine/gap.js?v=3aabfbb29b';
 import { shownOr } from './shown.js?v=82ef5e29ec';
 import { monotoneSegs, curveTester } from './curve-near.js?v=9ff15157e9';

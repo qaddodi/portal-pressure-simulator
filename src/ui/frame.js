@@ -166,5 +166,29 @@ export function setFigOpt(k, v) {
   try { if (v === FIG_OPTS[k][0]) localStorage.removeItem(`pps.fig.${k}`); else localStorage.setItem(`pps.fig.${k}`, String(v)); } catch { /* storage unavailable */ }
   for (const f of renderSubs) f(renderK);
 }
-/** The least time between two drawn frames of steady motion: 0 (every frame) unless Battery saver is on. */
-export const paceMs = () => (saverOn ? SAVER_MS : 0);
+// Figure performance (30 Oct, Round 3 of the review, each off until chosen; Settings › Figure performance). Unlike the options above,
+// none of these changes the canvas's size, so a change is told only to its own listeners (onFigLab), never to the resolution's.
+// motion60: steady motion (the blood, the lobule, the sinusoid, the instruments) is drawn at most about 60 times a second on a faster
+//   screen; pans and zooms stay at the screen's rate. A 60 Hz screen draws as before.
+// glassCache: the callouts' GPU glass keeps each callout's box, fade and shadow until something says they changed (glass-gl.js).
+// creditLean: in Present, the corner credit's once-a-second look runs only when the layout may have changed (credit.js).
+export const FIG_LAB = { motion60: [false, true], glassCache: [false, true], creditLean: [false, true] };
+const figLabs = Object.fromEntries(Object.entries(FIG_LAB).map(([k, v]) => [k, v[0]]));
+for (const k of Object.keys(figLabs)) {
+  try { const t = localStorage.getItem(`pps.fig.${k}`), v = t === 'true' ? true : +t; if (t != null && FIG_LAB[k].includes(v)) figLabs[k] = v; } catch { /* storage unavailable */ }
+}
+const labSubs = new Set();
+export const figLab = (k) => figLabs[k];
+export function setFigLab(k, v) {
+  if (!FIG_LAB[k]?.includes(v) || figLabs[k] === v) return;
+  figLabs[k] = v;
+  try { if (v === FIG_LAB[k][0]) localStorage.removeItem(`pps.fig.${k}`); else localStorage.setItem(`pps.fig.${k}`, String(v)); } catch { /* storage unavailable */ }
+  for (const f of labSubs) f(k, v);
+}
+/** Called with (key, value) each time one of the Figure performance switches changes. */
+export function onFigLab(f) { labSubs.add(f); return () => labSubs.delete(f); }
+// (Motion at 60: a frame of steady motion is skipped when the last was drawn under 10 ms ago. A 120 Hz screen's frames come 8.3 ms
+// apart, so every other one is drawn; a 60 Hz screen's 16.7 ms, so all of them, as before; a 90 Hz screen's 11.1 ms, all of them.)
+export const MOTION60_MS = 10;
+/** The least time between two drawn frames of steady motion: 0 (every frame) unless Battery saver or Motion at 60 is on. */
+export const paceMs = () => (saverOn ? SAVER_MS : figLabs.motion60 ? MOTION60_MS : 0);
