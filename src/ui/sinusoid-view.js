@@ -30,6 +30,7 @@ import { placeFenDisse } from './fen-place.js?v=20401deb9e';
 import { frameFor, noteDraw, saver, paceMs, renderScale, onRenderScale } from './frame.js?v=2c89eeeae6';
 import { softwareGL, softwareYield } from './sw-yield.js?v=e580a095b1';
 import { noteSinusoidSupport } from './gl-support.js?v=94ad2a7ff1';
+import { FADE_MS, fadeAlpha, mixInto } from './res-fade.js?v=5ef150fc7c';
 const nextFrame = frameFor('sinusoid-view');
 
 const smooth = (a, b, x) => { const t = clamp((x - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };
@@ -121,10 +122,57 @@ export function createSinusoidView({ host, before = null }) {
   // ── State ──
   let go = 1;   // 1 while the simulation runs, eased to 0 when paused: the flow, lymph, particles and proteins slow to a stop and resume without a jump
   let model = null, shown = 0, open = false, raf = 0, last = 0, dive = null, drewNow = false;
-  // (Figure resolution: taken up while the sinusoid is hidden, never while it shows; see lobule-zoom.js lzScale.)
-  let svK = renderScale();
+  // Figure resolution: taken up as the sinusoid opens and at once while it is hidden. A change made while it shows (30 Oct, Mohammad:
+  // "the lobule and sinusoid are not obeying resolutions") waits (svWant) for it to be open and still (not mid-zoom), then eases in:
+  // svSwap.
+  let svK = renderScale(), svWant = null;
   const svScale = () => svK;
-  onRenderScale(() => { if (!(shown > 0)) svK = renderScale(); });
+  onRenderScale(() => {
+    const k = renderScale();
+    if (!(shown > 0)) { svK = k; svWant = null; return; }
+    svWant = k === svK ? null : k;
+    if (svWant != null) wake();
+  });
+  // The change, as the anatomy's (res-fade.js): the picture as it stands is drawn once more and copied in that frame (the GPU canvas
+  // keeps nothing after the frame it is drawn in), the canvas is hidden under a 2D canvas showing old × a + new × (1 − a) (mixInto,
+  // remade after each draw of the canvas, which draws every frame meanwhile), and shown again once a reaches 0, drawn that frame.
+  // Hidden by its visibility, not its opacity: nothing eases it. The zoom back to the lobule starting meanwhile ends it.
+  let svFade = null;   // { cv (shown: the mix), c, old (the picture before), t0 }
+  function svSwap() {
+    const k = svWant;
+    svWant = null;
+    if (k === svK) return;
+    gpuKey = '';
+    draw(0, false);   // (the picture as it stands, drawn again in this frame so it can be read; a fade still running: its mix, remade)
+    const src = svFade ? svFade.cv : canvas, old = document.createElement('canvas');
+    old.width = src.width; old.height = src.height;
+    try { old.getContext('2d').drawImage(src, 0, 0); } catch { svFadeEnd(); svK = k; return; }
+    let f = svFade;
+    if (!f) {
+      const cv = h('canvas', { class: 'sv-canvas sv-res', 'aria-hidden': 'true' });
+      f = svFade = { cv, c: cv.getContext('2d'), old: null, t0: 0 };
+      canvas.after(cv);
+    } else f.old.width = f.old.height = 0;
+    f.old = old; f.t0 = performance.now();
+    f.cv.width = old.width; f.cv.height = old.height;
+    f.c.drawImage(old, 0, 0);
+    canvas.style.visibility = 'hidden';
+    svK = k;
+  }
+  // (Called right after the canvas was drawn, in the same frame.)
+  function svFadeStep() {
+    const f = svFade, u = (performance.now() - f.t0) / FADE_MS;
+    if (u >= 1 || dive) { svFadeEnd(); return; }
+    if (canvas.width > f.cv.width || canvas.height > f.cv.height) { f.cv.width = Math.max(f.cv.width, canvas.width); f.cv.height = Math.max(f.cv.height, canvas.height); }
+    try { mixInto(f.c, f.cv, f.old, canvas, fadeAlpha(u), null); } catch { svFadeEnd(); }
+  }
+  function svFadeEnd() {
+    const f = svFade;
+    if (!f) return;
+    svFade = null;
+    f.cv.remove(); f.cv.width = f.cv.height = 0; f.old.width = f.old.height = 0;
+    canvas.style.visibility = '';
+  }
   const S = {};          // the drawing's state, easing toward sinusoidTargets(model)
   let geo = null, geoKey = '';
   // The share of the way the view's own glide (stepView) takes each frame, and whether a name is still catching up (see noteJumps).
@@ -701,6 +749,7 @@ export function createSinusoidView({ host, before = null }) {
     if (go < 0.002) go = 0;
     if (run && dt > 0 && go > 0) stepMovers(dt * go);
     if (!paint) return;
+    if (svWant != null && gpu && open && !dive) svSwap();
     const dpr = Math.min(saver() ? 1 : 2, devicePixelRatio || 1) * svScale();   // (Battery saver: one pixel per CSS pixel)
     if (canvas.width !== Math.round(W * dpr) || canvas.height !== Math.round(H * dpr)) { canvas.width = Math.round(W * dpr); canvas.height = Math.round(H * dpr); }
     const dark = document.documentElement.dataset.theme === 'dark' || (!document.documentElement.dataset.theme && darkMQ.matches);
@@ -746,9 +795,10 @@ export function createSinusoidView({ host, before = null }) {
       spriteDt = Math.max(0, dt) * go;
       const n = sprites();
       // Paused and settled (nothing eases, no zoom): the same picture as last frame, so the two full-screen passes are skipped.
-      const gk = go === 0 && !dive ? canvas.width + 'x' + canvas.height + '|' + n + '|' + JSON.stringify(u) : '';
+      const gk = go === 0 && !dive && !svFade ? canvas.width + 'x' + canvas.height + '|' + n + '|' + JSON.stringify(u) : '';
       if (!gk || gk !== gpuKey) { gpu.draw(u, pts, n); noteDraw('sinusoid-view'); svYield?.drew(performance.now()); } else settled = true;
       gpuKey = gk;
+      if (svFade) svFadeStep();
     }
     // (Not settled while the view is still gliding to the space the cards left, or a name to its place: the loop must not go to
     // sleep with the glide half done, which a paused simulation did.)
@@ -807,9 +857,9 @@ export function createSinusoidView({ host, before = null }) {
       el.classList.toggle('on', isOpen);
       el.setAttribute('aria-hidden', String(!isOpen));
       // Closed: the drawing buffer is given back (it is sized again on the way in).
-      if (opacity <= 0 && was > 0) { canvas.width = 0; canvas.height = 0; gpuKey = ''; }
+      if (opacity <= 0 && was > 0) { svFadeEnd(); canvas.width = 0; canvas.height = 0; gpuKey = ''; }
       if (opacity > 0 && was <= 0) {
-        svK = renderScale();   // (Figure resolution, as it is now: taken up as it opens)
+        svK = renderScale(); svWant = null;   // (Figure resolution, as it is now: taken up as it opens)
         last = 0; lastKey = ''; VW.k = 0; movers.length = 0; spawnAcc = 0; bounceAcc = 0;
         for (const o of [...slid(), ...Object.values(regions)]) if (o) { o.sd = 0; o.pt = null; o.tx = null; }
         if (model) {

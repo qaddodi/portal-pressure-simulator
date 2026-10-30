@@ -113,3 +113,28 @@ export function fadeStop(canvas) { const f = fades.get(canvas); if (f) end(canva
 
 /** Whether a mix is still showing over canvas (for tests). */
 export const fading = (canvas) => fades.has(canvas);
+
+// The lobule and the sinusoid (30 Oct, Mohammad: "when I check manual 25% for example the lobule doesn't change"): a change made
+// while either shows is taken up at once, under the same FADE_MS ease. Their GPU canvases keep no picture after the frame they are
+// drawn in, so the picture before is copied in the frame that draws it, never from a Settings click (lobule-zoom.js resSwap,
+// sinusoid-view.js svSwap).
+/** The layers that show, stacked into cv as the page stacks them (each stretched over the whole box, as its CSS stretches it).
+ *  Skipped: a canvas out of the page, with no pixels, or hidden by its inline opacity or visibility. False when none shows or one
+ *  cannot be read. */
+export function stackInto(cv, layers) {
+  const shown = layers.filter((l) => l?.isConnected && l.width > 0 && l.height > 0 && l.style.opacity !== '0' && l.style.visibility !== 'hidden');
+  if (!shown.length) return false;
+  cv.width = Math.max(...shown.map((l) => l.width)); cv.height = Math.max(...shown.map((l) => l.height));
+  const c = cv.getContext('2d');
+  c.setTransform(1, 0, 0, 1, 0, 0); c.globalCompositeOperation = 'source-over'; c.globalAlpha = 1;
+  c.clearRect(0, 0, cv.width, cv.height);
+  try { for (const l of shown) c.drawImage(l, 0, 0, cv.width, cv.height); } catch { return false; }
+  return true;
+}
+/** The CSS transform that carries a picture drawn at view v0 ({ k, x, y }: screen = world × k + (x, y)) to where view v puts it
+ *  ('' when the view has not moved). With transform-origin 0 0. */
+export function viewFollow(v0, v) {
+  if (v0.k === v.k && v0.x === v.x && v0.y === v.y) return '';
+  const r = v.k / v0.k;
+  return `matrix(${r}, 0, 0, ${r}, ${v.x - v0.x * r}, ${v.y - v0.y * r})`;
+}

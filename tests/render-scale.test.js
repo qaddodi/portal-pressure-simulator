@@ -48,14 +48,16 @@ test('the anatomy canvas, the lobule and the sinusoid read it; the instruments a
   for (const f of ['util.js', 'label-gl.js', 'glass-gl.js', 'instruments.js']) assert.ok(!src(f).includes('renderScale'), f);
 });
 
-test('the lobule and the sinusoid take a change up only while hidden, so their picture never snaps on screen', () => {
+test('the lobule and the sinusoid take a change up while hidden and as they open, and ease one made while they show', () => {
   const lz = src('lobule-zoom.js'), sv = src('sinusoid-view.js');
   assert.match(lz, /const lzScale = \(\) => lzK;/);
-  assert.match(lz, /onRenderScale\(\(\) => \{ if \(fade <= 0\) lzK = renderScale\(\); \}\);/, 'a change made while hidden is taken up at once');
-  assert.match(lz, /if \(fade > 0 && was === 0\) lzK = renderScale\(\);/, 'and as it opens: never a share from before');
+  assert.match(lz, /if \(fade <= 0\) \{ lzK = k; lzWant = null; return; \}/, 'a change made while hidden is taken up at once');
+  assert.match(lz, /lzWant = k === lzK \? null : k;/, 'one made while it shows waits for resSwap (none when the share is the same)');
+  assert.match(lz, /if \(fade > 0 && was === 0\) \{ lzK = renderScale\(\); lzWant = null; \}/, 'and as it opens: never a share from before');
   assert.match(sv, /const svScale = \(\) => svK;/);
-  assert.match(sv, /onRenderScale\(\(\) => \{ if \(!\(shown > 0\)\) svK = renderScale\(\); \}\);/);
-  assert.match(sv, /if \(opacity > 0 && was <= 0\) \{\n\s*svK = renderScale\(\);/);
+  assert.match(sv, /if \(!\(shown > 0\)\) \{ svK = k; svWant = null; return; \}/);
+  assert.match(sv, /svWant = k === svK \? null : k;/);
+  assert.match(sv, /if \(opacity > 0 && was <= 0\) \{\n\s*svK = renderScale\(\); svWant = null;/);
 });
 
 test('Auto: 1/zoom past the home framing, in steps down to 10%, changed only once the view settles', () => {

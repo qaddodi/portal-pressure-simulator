@@ -34,9 +34,10 @@ import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatCol
 import { NODES, EDGES } from '../engine/topology.js?v=4044766e96';
 import { createVeinsGL, binVeins, laneSum, N_SAMPLES, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_SPEC, F_EDGE, ORIGIN_GREY } from './veins-gl.js?v=8f7f42a6cc';
 import { SLOT, PERIOD, originFractions, ORIGIN_N, DRIFT_PERIOD } from './blood.js?v=300b3b5267';
-import { createSinusoidView } from './sinusoid-view.js?v=7205e96e14';
+import { createSinusoidView } from './sinusoid-view.js?v=afd52fa933';
 import { frameFor, cancelFrame, noteDraw, saver, paceMs, renderScale, onRenderScale, frame, figLab } from './frame.js?v=2c89eeeae6';
 import { gpuProbe, COUNTED } from './gpu-probe.js?v=dd12fc216c';
+import { FADE_MS, fadeAlpha, stackInto, viewFollow } from './res-fade.js?v=5ef150fc7c';
 import { leaderEnd, runInside } from './leader-end.js?v=8e884700ab';
 const nextFrame = frameFor('lobule-zoom');
 
@@ -638,13 +639,17 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
 
   // ── State ──
   let F = null, fade = 0, raf = 0, last = 0, lastPaint = 0;
-  // Figure resolution: a change is taken up while the lobule is hidden, so the lobule's own picture never changes sharpness on screen
-  // (nothing snaps, Mohammad, 30 Oct); one made while it shows applies the next time it opens.
-  // (Taken up as the lobule opens and whenever Settings changes it while hidden. Read only while it shows, the latch never moved
-  // before, so a share chosen once stayed on the lobule after Full was chosen again (Mohammad, 30 Oct: "no resolution drop").)
-  let lzK = renderScale();
+  // Figure resolution: taken up as the lobule opens and at once while it is hidden. A change made while it shows (30 Oct, Mohammad:
+  // "when I check manual 25% for example the lobule doesn't change") waits (lzWant) for the lobule to stand still and whole (not
+  // mid-dive, mid-rise or inside a sinusoid), then eases in: resSwap.
+  let lzK = renderScale(), lzWant = null;
   const lzScale = () => lzK;
-  onRenderScale(() => { if (fade <= 0) lzK = renderScale(); });
+  onRenderScale(() => {
+    const k = renderScale();
+    if (fade <= 0) { lzK = k; lzWant = null; return; }
+    lzWant = k === lzK ? null : k;
+    if (lzWant != null && !raf) raf = nextFrame(loop);
+  });
   let geo = null, geoKey = '', model = null;
   // Where each vessel's moving marks are (blood stream, chevrons, lymph drops), kept by tube id so a
   // rebuilt geometry (a resize, the phone's toolbar sliding) carries on from the same place, not a jump.
@@ -694,6 +699,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   const free = (cv) => { if (cv.width || cv.height) { cv.width = 0; cv.height = 0; } };
   function release() {
     dropWide();
+    resCoverEnd();
     free(tissue); free(tissueG); free(fx); free(glCv); free(diveCv); free(rimCv); diveCopyKey = '';
     clearTimeout(spareT); spareT = 0; free(spareCv); spare = null;
     gl?.trim?.();   // (the vessels' framebuffer: the shaders and the uploaded network are kept)
@@ -1754,13 +1760,15 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     rzMoving = easeRadii(dt);
     if (rzMoving || lensFrom || tissueFading(now)) drawVersion++;   // a caliber still easing, the colours or a new tissue crossfading: redraw this frame
     if (greyMoving()) drawVersion++;   // (and the surround's grey, easing with the lens)
+    if (lzWant != null && resSteady()) resSwap();
     const drew = draw(moving ? dt : 0);
     if (drew) { noteDraw('lobule-zoom'); lzYield?.drew(now); }
+    if (resCover) resCoverStep(now);
     pacedVer = viewVer;
     // Paused and settled (nothing drawn, nothing easing): the loop stops asking for frames, as the figure does, so the
     // screen can idle. Every change wakes it (update, a pan or zoom, a glide, the store, a label size, the dive), and it
     // looks again four times a second in case a change came by a path that does not.
-    if (!drew && !moving && !rzMoving && (flowA === 0 || flowA === 1)) {
+    if (!drew && !moving && !rzMoving && (flowA === 0 || flowA === 1) && !resCover) {
       last = 0;   // (on waking, the first frame steps nothing: no jump in the flow)
       clearTimeout(sleepT); sleepT = setTimeout(() => { if (!raf && fade > 0) raf = nextFrame(loop); }, 250);
       return;
@@ -1768,6 +1776,50 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     raf = nextFrame(loop);
   }
   let sleepT = 0;
+  // A Figure resolution change made while the lobule shows: the layers are drawn once more as they stand (in this frame, so the GPU
+  // ones can be read), stacked into one opaque picture laid over them (resCover, under the labels), and the loop then draws them at
+  // the new share under it while it fades out over FADE_MS, the same smoothstep as the anatomy's (res-fade.js). The layers
+  // themselves never change opacity or visibility for it, and the tissue fills every pixel, so the cover at opacity a shows exactly
+  // old × a + new × (1 − a). It follows a pan or a zoom (viewFollow). A dive or a rise starting meanwhile (they scale the layers
+  // one by one, under a copy of their own) takes the cover away; the lobule leaving gives it back (setFade, release).
+  let resCover = null, resT0 = 0, resV0 = null;
+  const resSteady = () => fade > 0.98 && !diveScaled && sinU === 0 && !sinTo && !wide && !keep2D && !staging && !!geo && !!model;
+  function resSwap() {
+    const k = lzWant;
+    lzWant = null;
+    if (k === lzK) return;
+    const fresh = () => { tissueKey = ''; drawKey = ''; glDirty = true; fxDrawn = ''; fxBoxes = null; lyKey = ''; idleDrawn = ''; };
+    fresh();
+    if (draw(0)) {
+      const cv = h('canvas', { class: 'lz-canvas lz-res', 'aria-hidden': 'true', style: { transformOrigin: '0 0' } });
+      if (stackInto(cv, [tissue, tissueG, glCv, fx])) {
+        // (A change while one still fades starts from the mix as it shows: the cover before, laid over at its weight and place.)
+        if (resCover) {
+          const [W, H] = hostSize(), sx = cv.width / W, sy = cv.height / H, a = +resCover.style.opacity, r = V.k / resV0.k;
+          const c = cv.getContext('2d');
+          c.globalAlpha = a; c.setTransform(sx * r, 0, 0, sy * r, sx * (V.x - resV0.x * r), sy * (V.y - resV0.y * r));
+          try { c.drawImage(resCover, 0, 0, W, H); } catch { /* (unreadable: the layers alone) */ }
+          c.setTransform(1, 0, 0, 1, 0, 0); c.globalAlpha = 1;
+          resCover.replaceWith(cv); resCover.width = resCover.height = 0;
+        } else fx.after(cv);
+        cv.style.opacity = '1';
+        resCover = cv; resT0 = performance.now(); resV0 = { ...V };
+      } else resCoverEnd();
+    }
+    lzK = k;
+    fresh();
+  }
+  function resCoverStep(now) {
+    const u = (now - resT0) / FADE_MS;
+    if (u >= 1 || diveScaled || wide || fade <= 0) { resCoverEnd(); return; }
+    resCover.style.opacity = fadeAlpha(u).toFixed(4);
+    const t = viewFollow(resV0, V);
+    if (resCover.style.transform !== t) resCover.style.transform = t;
+  }
+  function resCoverEnd() {
+    if (!resCover) return;
+    resCover.remove(); resCover.width = resCover.height = 0; resCover = null;
+  }
   // The flow marks (shimmer and chevrons) fade out as the dive starts and back in once the lobule has landed, over about
   // 0.3 s each way. Ordinary panning and zooming inside the lobule view leave them alone.
   let flowA = 1, flowT = 0;
@@ -1837,6 +1889,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     return seen;
   }
   function buildWide(W, H, box) {
+    resCoverEnd();
     // Only the newest field state's tiles are kept for the dive (each older state is tens of MB), and no crossfade's old picture.
     trimFieldStates();
     const dpr0 = Math.min(saver() ? 1 : 2, devicePixelRatio || 1) * lzScale(), dpr = wideDpr(dpr0, box.w, box.h, apple());
@@ -3607,12 +3660,12 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
       // (Drawn ahead in the dive (staged), and still framed the same: nothing more to draw, the loop just starts.)
       // (A copy built for a framing the dive no longer lands on is dropped: the layers are drawn again for the new one below.)
       if (fade > 0 && was === 0 && wide && !(staged && staged === api.viewKey() && model)) dropWide();
-      if (fade > 0 && was === 0) lzK = renderScale();
+      if (fade > 0 && was === 0) { lzK = renderScale(); lzWant = null; }
       if (fade > 0 && was === 0) { flowA = 0; flowT = 0; resetView(); relLater = false; if (staged && staged === api.viewKey() && model) { if (!raf) raf = nextFrame(loop); } else { diveDrawn = false; snapState(); if (F) update(F); } staged = ''; }
       // Leaving the lobule closes a part's card, so it is not waiting next time.
       if (was > 0.98 && fade <= 0.98) { stopInertia(); if (store.get().selection?.type === 'lobule') store.set({ selection: null }); }
       // (Mid-zoom out, the canvases are given back when the zoom ends: freeing them there is one more thing in a moving frame.)
-      if (fade === 0) { cancelFrame(raf); raf = 0; last = 0; if (was > 0) { if (diveScaled) relLater = true; else release(); } }
+      if (fade === 0) { resCoverEnd(); cancelFrame(raf); raf = 0; last = 0; if (was > 0) { if (diveScaled) relLater = true; else release(); } }
       // Out of the lobule: a presenter's aim is spent (the next way in frames the whole lobule).
       if (fade === 0 && was > 0) { aimed = null; camHeld = false; heldFree = null; if (camMove) { camMove = false; el.classList.remove('lz-cam'); } }
       // Leaving the lobule view from inside a sinusoid: the sinusoid fades out with it.
@@ -3642,6 +3695,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     covers: () => fade > 0.98 || fieldOp >= 0.999,
     /** During the dive: the tissue (not its card) still zooming in, by k (≤ 1) about the stage point x, y. */
     setDiveZoom(k, x, y, tx = x, ty = y) {
+      if (k < 0.9999) resCoverEnd();
       diveScaled = k < 0.9999; if (!diveScaled) diveDrawn = false;
       if (!diveScaled && fade <= 0) { staged = ''; if (relLater) { relLater = false; release(); } }   // the dive is over with the lobule unseen
       // Landed with a Sinusoid tap waiting (made during the dive): on into the sinusoid now.
