@@ -64,6 +64,7 @@ import { fitPose, probeShapes, beamBoxes, gateBoxes, awayFromProbe, createProbeM
 import { pathPieces, piecesLength, pointsAlong } from './path-pieces.js?v=e486672c9b';
 import { organDimMatrix } from './organ-dim.js?v=9e19f2fc30';
 import { parseColor, greyOf, paintRef } from './organ-grey.js?v=02072c578d';
+import { encodePNG } from './png-encode.js?v=514301c9f4';
 import { bandRing, dashRings, liftEnd, normalShown, rippleList, systemOf, SYSTEM_COLOR } from './highlight-math.js?v=e2c1816e25';
 import { organAnchor, spleenCaliper, acrossVessel, stepGroups, spanOf, spanPath, zoneBand, SPAN_TICK, insideBy, clearOf, besideLine } from './callout-math.js?v=560dae8ba1';
 const nextFrame = frameFor('stage');
@@ -4756,7 +4757,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
             if (await refineTurn(() => seq !== gutPicSeq) === null) throw new Error('overtaken');
             refineStep('gut picture: strip', () => cg.drawImage(img, 0, y, W, rows, 0, y, W, rows));
           }
-          blob = await gpuProbe.time(null, 'gut picture: encode', () => new Promise((res) => cv.toBlob(res, 'image/png')));
+          // (Encoded in a worker where the browser can: Safari encodes toBlob on the page, 91 ms a picture on his Mac, 30 Oct. The same
+          // pixels either way: png-encode.js.)
+          blob = await gpuProbe.time(null, 'gut picture: encode', () => encodePNG(cv));
           cv.width = cv.height = 0;
         } finally { URL.revokeObjectURL(src); }
         if (!blob) throw new Error('gut picture');
