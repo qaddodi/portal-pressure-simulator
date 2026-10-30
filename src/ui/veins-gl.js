@@ -33,10 +33,10 @@
 
 import { CHEV_GLSL } from './chevron-glsl.js?v=96ec7c6666';
 import { SLOT, DYE_BINS } from './blood.js?v=300b3b5267';
-import { cssRGB } from './util.js?v=52643a47e0';
+import { cssRGB } from './util.js?v=543287bde4';
 import { LUMEN, STO_Y0, STO_DY, STO_N } from './stomach-lumen.js?v=dfcc262e2a';
 import { CELL, ENT_W, binVeins, splitRows, simpleCells, splitCells, cellsOfJoinEntries } from './veins-bin.js?v=d8d72f1157';
-import { gpuProbe, COUNTED } from './gpu-probe.js?v=dba5ffd848';
+import { gpuProbe, COUNTED } from './gpu-probe.js?v=d7af4bd517';
 import { changedRows } from './flow-rows.js?v=bea4089714';
 import { leftAlone } from './quiet.js?v=82fc0f97e3';
 import { PUBLISH_QUIET_MS } from './gl-compile.js?v=5c4cd6c14c';

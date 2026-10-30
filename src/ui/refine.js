@@ -16,7 +16,7 @@
 // once the figure is let go the jobs that were waiting trickle through the allowance, not all at once.
 // The allowance is REFINE_MS a frame (?refinems=3 in the address tries another).
 
-import { gpuProbe, COUNTED } from './gpu-probe.js?v=dba5ffd848';
+import { gpuProbe, COUNTED } from './gpu-probe.js?v=d7af4bd517';
 
 export const REFINE_MS = 1;
 

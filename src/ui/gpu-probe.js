@@ -25,7 +25,7 @@ export const COUNTED = {
   // for 2.8 s over 8 whole draws and two sizings, and the caller is not in the readout otherwise. One of the fixed list BY.)
   wholeBy: 'vessels: whole draw, asked by ', fboAllocBy: 'targets: sized again, asked by ',
   lobulePicture: 'lobule: vessels drawn', lobuleSurface: 'lobule: surface pass', lobuleSkip: 'lobule: surface pass skipped (camera only)',
-  tissue: 'tissue: bitmap painted', ductules: 'lobule: ductules drawn',
+  tissue: 'tissue: bitmap painted', tissueWhy: 'tissue: painted because ', ductules: 'lobule: ductules drawn',
   labelSolve: 'labels: solved', labelCarry: 'labels: carried', safe: 'safe area: cards measured',
   // (The blood apart from the vessels' shapes: a frame whose blood rows all matched the last upload sends none; rows cleared
   // once as their vessel stops drawing. And the width step between model frames, by the sync it took: the radii alone, or
@@ -52,6 +52,8 @@ export const WHY = ['no kept layer', 'radii changed', 'look changed', 'same plac
  * composite) as 'stage, outside a draw call'.
  */
 export const BY = ['frame', 'resize', 'plate hidden', 'tab hidden', 'plate shown', 'plate landed', 'check', 'lobule', 'stage, outside a draw call'];
+/** Why the lobule's tissue bitmap was painted again (lobule-zoom.js paintTissue), as counted with its size: a fixed list. */
+export const TISSUE_WHY = ['first', 'state changed', 'zoomed in', 'zoomed out'];
 export const ROWS_REFUSED = ['no kept layer', 'context lost', 'size changed', 'moved', 'radii not listed', 'most cells'];
 export const gpuProbe = {
   on: false,

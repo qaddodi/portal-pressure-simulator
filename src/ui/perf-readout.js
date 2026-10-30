@@ -4,8 +4,8 @@
 // (gpu-probe.js cpuOnly: no waiting for the GPU), every frame that missed the screen's refresh in the window is listed with the
 // steps that ran in it (and every interval counted in a histogram at that refresh, with p50/p95/p99), and so is each long task the browser reports (Chrome; Safari reports none, its frame gaps still show). The panel is
 // written only when a window closes, never during a gesture, and the last five gestures stay listed with a Copy button.
-import { gpuProbe, COUNTED, TWICE, WHY, ROWS_REFUSED, BY } from './gpu-probe.js?v=dba5ffd848';
-import { perf } from './frame.js?v=727fc96f91';
+import { gpuProbe, COUNTED, TWICE, WHY, ROWS_REFUSED, BY, TISSUE_WHY } from './gpu-probe.js?v=d7af4bd517';
+import { perf } from './frame.js?v=28a4369504';
 
 const WINDOW = 2000, KEEP = 5, GAP_LINES = 40;
 // The display's own refresh, as the browser offers it, from the frame intervals the readout sees (30 Oct, review 6a: a list of gaps
@@ -55,7 +55,7 @@ const TALLY = ['whole picture', 'organ picture down', 'gut live', 'gut picture',
 
 // Notes totalled over a window, by name (gpu-probe.js COUNTED): [times, KB, frames in which it came twice].
 const COUNT_NAMES = new Set([...Object.values(COUNTED).filter((k) => !k.endsWith(' ')), ...WHY.map((w) => COUNTED.wholeWhy + w), ...ROWS_REFUSED.map((w) => COUNTED.rowsRefused + w),
-  ...BY.flatMap((b) => [COUNTED.wholeBy + b, COUNTED.fboAllocBy + b]),
+  ...BY.flatMap((b) => [COUNTED.wholeBy + b, COUNTED.fboAllocBy + b]), ...TISSUE_WHY.map((w) => COUNTED.tissueWhy + w),
   ...['setGeometry', 'patchGeometry', 'setBend', 'noise', 'setTubes', 'setFlow', 'setDye', 'setFluidCells', 'setRadii', 'setOrgans', 'plateRows', 'setCath', 'setLines'].map((k) => `uploaded: ${k}`)]);
 
 /**
