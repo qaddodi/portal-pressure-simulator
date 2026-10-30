@@ -19,23 +19,23 @@
 // tapped (triad, inlet venule, sinusoid, arteriole, central vein, septum, hepatocytes).
 // Without WebGL2 the vessels are drawn flat on the tissue canvas.
 
-import { runFlick, FLICK } from './flick.js?v=9ca337ad72';
+import { runFlick, FLICK } from './flick.js?v=001223c763';
 import { store } from './store.js?v=926dabfaef';
 import { glideClock } from './glide-clock.js?v=220d7f875c';
 import { radiiChanged, canvasPx, fxMoves, DIVE_RIM } from './lobule-render-cache.js?v=84bf4c2222';
 import { softwareYield } from './sw-yield.js?v=e580a095b1';
-import { lobuleState, lymphRate, sinceOf, lensModeOf, LOBE } from './lobule-model.js?v=a3a00c0fbf';
+import { lobuleState, lymphRate, sinceOf, lensModeOf, LOBE } from './lobule-model.js?v=00faa75af2';
 import { SIN_NARROW, cordTone, dullSinusoid, NEIGHBOUR_FLAT, neighbourBlur, blurWrapped, bandOutline, FADE_MID, fadeOuter, padRect, wideDpr, wideTiles, FIELD_RS, fieldBlend, fieldDof, surroundGrade, greyStep } from './lobule-look.js?v=cf14995b07';
 import { isGreyLens } from './organ-dim.js?v=9e19f2fc30';
 import { createFieldGL } from './field-gl.js?v=779561d5dd';
 import { createTissueGL } from './tissue-gl.js?v=8b86e77a93';
-import { h, s, fmt, clamp, createEaser, systemEdge, bloodColors, cssVar, cssAlpha, cssRGB01 } from './util.js?v=65bdd79f7b';
-import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatColor, oxygenColor } from './colormap.js?v=d8088dfde7';
+import { h, s, fmt, clamp, createEaser, systemEdge, bloodColors, cssVar, cssAlpha, cssRGB01 } from './util.js?v=446096f407';
+import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatColor, oxygenColor } from './colormap.js?v=5ab8f9fd13';
 import { NODES, EDGES } from '../engine/topology.js?v=4044766e96';
-import { createVeinsGL, binVeins, laneSum, N_SAMPLES, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_SPEC, F_EDGE, ORIGIN_GREY } from './veins-gl.js?v=2e167d790e';
+import { createVeinsGL, binVeins, laneSum, N_SAMPLES, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_SPEC, F_EDGE, ORIGIN_GREY } from './veins-gl.js?v=648c7ce534';
 import { SLOT, PERIOD, originFractions, ORIGIN_N, DRIFT_PERIOD } from './blood.js?v=2667e8cf8d';
-import { createSinusoidView } from './sinusoid-view.js?v=156955afb2';
-import { frameFor, cancelFrame, noteDraw, saver, paceMs, renderScale, frame } from './frame.js?v=fb33388f52';
+import { createSinusoidView } from './sinusoid-view.js?v=83244c718a';
+import { frameFor, cancelFrame, noteDraw, saver, paceMs, renderScale, frame } from './frame.js?v=2a020ae210';
 import { gpuProbe, COUNTED } from './gpu-probe.js?v=dd12fc216c';
 import { leaderEnd, runInside } from './leader-end.js?v=8e884700ab';
 const nextFrame = frameFor('lobule-zoom');
@@ -638,6 +638,10 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
 
   // ── State ──
   let F = null, fade = 0, raf = 0, last = 0, lastPaint = 0;
+  // Figure resolution: a change is taken up while the lobule is hidden, so the lobule's own picture never changes sharpness on screen
+  // (nothing snaps, Mohammad, 30 Oct); one made while it shows applies the next time it opens.
+  let lzK = renderScale();
+  const lzScale = () => (fade > 0 ? lzK : (lzK = renderScale()));
   let geo = null, geoKey = '', model = null;
   // Where each vessel's moving marks are (blood stream, chevrons, lymph drops), kept by tube id so a
   // rebuilt geometry (a resize, the phone's toolbar sliding) carries on from the same place, not a jump.
@@ -1785,7 +1789,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     diveDrawn = scaled;
     const [W, H] = hostSize();
     ensureGeo(W, H);
-    const dpr = Math.min(saver() ? 1 : 2, devicePixelRatio || 1) * renderScale();   // (Battery saver: one pixel per CSS pixel)
+    const dpr = Math.min(saver() ? 1 : 2, devicePixelRatio || 1) * lzScale();   // (Battery saver: one pixel per CSS pixel)
     const dark = isDark();
     // Keep watching for view/theme/size changes, but leave a settled paused picture alone.
     const idleKey = [W, H, dpr, dark, V.k, V.x, V.y, drawVersion, flowA.toFixed(2)].join('|');
@@ -1832,7 +1836,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   function buildWide(W, H, box) {
     // Only the newest field state's tiles are kept for the dive (each older state is tens of MB), and no crossfade's old picture.
     trimFieldStates();
-    const dpr0 = Math.min(saver() ? 1 : 2, devicePixelRatio || 1) * renderScale(), dpr = wideDpr(dpr0, box.w, box.h, apple());
+    const dpr0 = Math.min(saver() ? 1 : 2, devicePixelRatio || 1) * lzScale(), dpr = wideDpr(dpr0, box.w, box.h, apple());
     const dark = isDark(), cs = styles(), g = ensureGL(), flat = !g || g.lost, [cx, cy] = toScreen([geo.cx, geo.cy]), r = geo.R * V.k;
     // The tiles sit in one box, and only the box is scaled. Scaled, the compositor still softens each tile's own edges, and edge to
     // edge they showed a pale hairline (WebKit, 20 Oct): so each reaches OV (2 device px) under its right and lower neighbours,
@@ -2705,7 +2709,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     if (!g || !G || !m || fade < 0.98 || diveScaled || sinU > 0 || worldGeo !== G || !tissueOnGL) return;
     if (handOn() || gliding) { spareSoon(); return; }
     // (Twice the zoom's own sharpness, stepped as paintTissue steps it, within the bitmap's largest size.)
-    const dpr = Math.min(saver() ? 1 : 2, devicePixelRatio || 1) * renderScale(), cap = 3600 / (2.6 * G.R);
+    const dpr = Math.min(saver() ? 1 : 2, devicePixelRatio || 1) * lzScale(), cap = 3600 / (2.6 * G.R);
     const dark = isDark(), cs = styles(), ws = worldStateOf(m, G, dark, cs), sc = Math.min(2 ** (Math.ceil(Math.log2(Math.max(0.05, dpr * V.k)) * 2) / 2) * 2, cap);
     if (sc > worldSc * 1.01 && !(spare && spare.G === G && spare.ws === ws && spare.sc >= sc)) {
       paintWorld(spareCv, sc, m, G, dark, cs);
@@ -2734,7 +2738,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     if (!tissueOnGL || !geo || !model) return;
     const [W, H] = hostSize(), g = ensureGL();
     tissueKey = ''; idleDrawn = '';
-    paintTissue(W, H, Math.min(saver() ? 1 : 2, devicePixelRatio || 1) * renderScale(), isDark(), styles(), !g, null);
+    paintTissue(W, H, Math.min(saver() ? 1 : 2, devicePixelRatio || 1) * lzScale(), isDark(), styles(), !g, null);
     showTissueGL(false);
   }
   // The tissue on the GPU: the same picture as the 2D passes below (the quiet surround, the lobule's bitmap over it, crossfading with
@@ -3673,7 +3677,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     fxCheck() {
       if (!geo || !model || fade <= 0.98 || !fx.width) return null;
       const rect = host.getBoundingClientRect(), W = Math.max(1, Math.round(rect.width)), H = Math.max(1, Math.round(rect.height));
-      const dpr = Math.min(saver() ? 1 : 2, devicePixelRatio || 1) * renderScale(), flat = !gl || gl.lost, c = fx.getContext('2d');
+      const dpr = Math.min(saver() ? 1 : 2, devicePixelRatio || 1) * lzScale(), flat = !gl || gl.lost, c = fx.getContext('2d');
       const read = () => { fxDrawn = ''; paintFx(W, H, dpr, isDark(), 0, flat); return c.getImageData(0, 0, fx.width, fx.height).data; };
       const a = read();
       fxAll = true;

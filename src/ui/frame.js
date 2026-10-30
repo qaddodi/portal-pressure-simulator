@@ -146,7 +146,24 @@ export function setRenderScale(k) {
   try { if (k === 1) localStorage.removeItem('pps.renderScale'); else localStorage.setItem('pps.renderScale', String(k)); } catch { /* storage unavailable */ }
   for (const f of renderSubs) f(k);
 }
-/** Called with the new scale each time Settings changes it. */
+/** Called with the new scale each time Settings changes it (and each time one of the options below changes). */
 export function onRenderScale(f) { renderSubs.add(f); return () => renderSubs.delete(f); }
+// The figure's further resolution options (30 Oct, experiments, all off until chosen; the anatomy's canvas only, stage.js):
+// move: the share while the view moves (a pinch, a pan, a glide), Full again once it has settled; 1 = off.
+// glow: the share the glow layers (an organ's soft glow, a lit organ's warm edge) are drawn at, the vessels and organs at Full.
+// cap: the most megapixels the canvas holds (a big screen draws fewer, a phone is under it); 0 = off.
+// adapt: after each move, one step lower if the frames came slowly, one step back up when they came at the screen's pace.
+export const FIG_OPTS = { move: [1, 0.75, 0.5, 0.25], glow: [1, 0.5, 0.25], cap: [0, 8, 4, 2], adapt: [false, true] };
+const figOpts = { move: 1, glow: 1, cap: 0, adapt: false };
+for (const k of Object.keys(figOpts)) {
+  try { const t = localStorage.getItem(`pps.fig.${k}`), v = t === 'true' ? true : +t; if (t != null && FIG_OPTS[k].includes(v)) figOpts[k] = v; } catch { /* storage unavailable */ }
+}
+export const figOpt = (k) => figOpts[k];
+export function setFigOpt(k, v) {
+  if (!FIG_OPTS[k]?.includes(v) || figOpts[k] === v) return;
+  figOpts[k] = v;
+  try { if (v === FIG_OPTS[k][0]) localStorage.removeItem(`pps.fig.${k}`); else localStorage.setItem(`pps.fig.${k}`, String(v)); } catch { /* storage unavailable */ }
+  for (const f of renderSubs) f(renderK);
+}
 /** The least time between two drawn frames of steady motion: 0 (every frame) unless Battery saver is on. */
 export const paceMs = () => (saverOn ? SAVER_MS : 0);

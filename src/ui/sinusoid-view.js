@@ -19,15 +19,15 @@
 // the sinusoid exactly over the lobule's one at every step: first the vessel itself, then the tissue
 // around it.
 
-import { h, fmt, clamp, lerp } from './util.js?v=65bdd79f7b';
-import { pressureColor } from './colormap.js?v=d8088dfde7';
+import { h, fmt, clamp, lerp } from './util.js?v=446096f407';
+import { pressureColor } from './colormap.js?v=5ab8f9fd13';
 import { isPaused } from './clock.js?v=5151312569';
 import { store } from './store.js?v=926dabfaef';
 import { STEP_MAX } from './glide-clock.js?v=220d7f875c';
 import { sinusoidTargets } from './sinusoid-model.js?v=74f5d007ca';
 import { createSinusoidGL, poreAt, poreOpenness, calloutPore, cellAt, cellEdge, SLOT, SEED, UM } from './sinusoid-gl.js?v=8399d8205e';
 import { placeFenDisse } from './fen-place.js?v=20401deb9e';
-import { frameFor, noteDraw, saver, paceMs, renderScale } from './frame.js?v=fb33388f52';
+import { frameFor, noteDraw, saver, paceMs, renderScale } from './frame.js?v=2a020ae210';
 import { softwareGL, softwareYield } from './sw-yield.js?v=e580a095b1';
 import { noteSinusoidSupport } from './gl-support.js?v=94ad2a7ff1';
 const nextFrame = frameFor('sinusoid-view');
@@ -121,6 +121,9 @@ export function createSinusoidView({ host, before = null }) {
   // ── State ──
   let go = 1;   // 1 while the simulation runs, eased to 0 when paused: the flow, lymph, particles and proteins slow to a stop and resume without a jump
   let model = null, shown = 0, open = false, raf = 0, last = 0, dive = null, drewNow = false;
+  // (Figure resolution: taken up while the sinusoid is hidden, never while it shows; see lobule-zoom.js lzScale.)
+  let svK = renderScale();
+  const svScale = () => (shown > 0 ? svK : (svK = renderScale()));
   const S = {};          // the drawing's state, easing toward sinusoidTargets(model)
   let geo = null, geoKey = '';
   // The share of the way the view's own glide (stepView) takes each frame, and whether a name is still catching up (see noteJumps).
@@ -697,7 +700,7 @@ export function createSinusoidView({ host, before = null }) {
     if (go < 0.002) go = 0;
     if (run && dt > 0 && go > 0) stepMovers(dt * go);
     if (!paint) return;
-    const dpr = Math.min(saver() ? 1 : 2, devicePixelRatio || 1) * renderScale();   // (Battery saver: one pixel per CSS pixel)
+    const dpr = Math.min(saver() ? 1 : 2, devicePixelRatio || 1) * svScale();   // (Battery saver: one pixel per CSS pixel)
     if (canvas.width !== Math.round(W * dpr) || canvas.height !== Math.round(H * dpr)) { canvas.width = Math.round(W * dpr); canvas.height = Math.round(H * dpr); }
     const dark = document.documentElement.dataset.theme === 'dark' || (!document.documentElement.dataset.theme && darkMQ.matches);
     // The names are laid out where the view will rest, during the zoom too (hidden until it lands), so the end arrows

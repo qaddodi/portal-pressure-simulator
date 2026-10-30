@@ -3,19 +3,19 @@
 
 import { EDGES, dopplerK, NODES, PORTAL_TERRITORY, dMinOf, edgePresent, isOccluded, SHUNT_PORTAL, SHUNT_SYSTEMIC, customShuntId, isStent, stentSite, STENT_SITES, STENT_SPANS, stentGate, stentSegments } from '../engine/topology.js?v=4044766e96';
 import { route as metroRoute, RECTUM_FADE, LABEL_VESSEL, TIP_FADE, TIP_CONNECT, VIEW, VB_ANAT, VB_CIRC, ATLAS_COLUMNS, HIDDEN_EDGES, HIDDEN_NODES, ANAT_HIDDEN, ANAT_HIDDEN_NODES, CAUDATE, CONTEXT_EDGES, BACK_EDGES, IVC_EDGES, NEEDS_C3, NODE_POS, EDGE_PATH, CIRCUIT_PATH, metroPath, ORGANS, SEAM_D, ORGAN_DETAIL, BACKDROP, LIVER_INNER, LIVER_EDGES, LANE_CAPTIONS, ABDOMEN_CLIP, ABDOMEN_FLOOR, CAVITY_LOW, flankPath, abdomenOutline, cavityHalfWidths, SPLEEN_CENTER, SITES, ORGAN_LABELS, ATLAS_LABELS, SHORT, ABBR, CHIP_NODES, LIVER_SPLIT_X, CIRCUIT_ZONES, CIRCUIT_LABELS, STRANDS, STRAND_FROM, SIN_EDGES, FEEDERS, fanFeeders, CIRCUIT_TREES } from './anatomy.js?v=1902c96a72';
-import { pressureColor, deltaColor, dropColor, flowColor, heatColor, velColorOf, velocityColor, oxygenColor } from './colormap.js?v=d8088dfde7';
+import { pressureColor, deltaColor, dropColor, flowColor, heatColor, velColorOf, velocityColor, oxygenColor } from './colormap.js?v=5ab8f9fd13';
 import { forkJoins, sideEndScale } from './fork-joins.js?v=20a032142f';
 import { nodeEnds, nodeDrawn, dotRadius, bareDots } from './circuit-nodes.js?v=1040ba0ec4';
 import { STATION_VESSEL, meanVel, velNormal, judgeFlow } from './velNormal.js?v=97920ddf3f';
 import { store, updateParams, varicesPresent, varixGrowth, shownVel } from './store.js?v=926dabfaef';
 import { fibroReading } from './clock.js?v=5151312569';
-import { s, h, fmt, fmtFlow, fp, clamp, lerp, toast, systemEdge, bloodColors, restBox, translateRest, settledBox, putText, UPRIGHT_MQ } from './util.js?v=65bdd79f7b';
+import { s, h, fmt, fmtFlow, fp, clamp, lerp, toast, systemEdge, bloodColors, restBox, translateRest, settledBox, putText, UPRIGHT_MQ } from './util.js?v=446096f407';
 import { riseCentre } from './rise-path.js?v=c039cb7b49';
 import { lerpVT, camPath, blendPaths, viewsOverlap, driftEase } from './cam-arc.js?v=2e5111e648';
 import { glideClock } from './glide-clock.js?v=220d7f875c';
 import { sinceSource } from './since-ref.js?v=ef1a818c75';
 import { clipBox, mapBox } from './fit-box.js?v=d5d6d4c60f';
-import { runFlick, FLICK } from './flick.js?v=9ca337ad72';
+import { runFlick, FLICK } from './flick.js?v=001223c763';
 import { inlineStyles } from './svg-inline.js?v=fc17cb73fe';
 import { fluidTarget, poolFade, fluidLevel, fluidFloorAt, fluidBase } from './fluid-step.js?v=2c9b2ac797';
 import { easeTo, fluidSpring, fluidSpringFor } from './organ-ease.js?v=4ebb648131';
@@ -35,19 +35,20 @@ import { createRouter } from './circuit-router.js?v=0ee9e02fc6';
 import { gpuProbe, COUNTED } from './gpu-probe.js?v=dd12fc216c';
 import { plateStrips, premultiply, gutStep, viewReuse, copyPixels } from './plate-upload.js?v=5fc45556a1';
 import { refine } from './refine.js?v=b6b6fd7588';
+import { fadeOver } from './res-fade.js?v=b3fca1f3e0';
 import { leftAlone, sinceInput } from './quiet.js?v=82fc0f97e3';
 import { cropToGrid } from './organs-gl.js?v=efbea815e0';
 import { readGroup, shapeSource, bindShape, targetRoom } from './organ-paint.js?v=f67ce51385';
 import { pathCmds, flattenCmds, polyBox } from './shape-gl.js?v=a5ba46162b';
-import { createLabelGL } from './label-gl.js?v=bfd79d4057';
-import { createGlassGL } from './glass-gl.js?v=f975fc150d';
-import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, ORIGIN_GREY } from './veins-gl.js?v=2e167d790e';
+import { createLabelGL } from './label-gl.js?v=ae2d4ba9bd';
+import { createGlassGL } from './glass-gl.js?v=c0d1727fef';
+import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, ORIGIN_GREY } from './veins-gl.js?v=648c7ce534';
 import { varixBead, beadRadius } from './varix-bead.js?v=ac0e84fd89';
 import { LOOK_SITE, varixSize, varixHold, varixWidthK, varixSpreadK, varixOpacity } from './varix-look.js?v=6656962d05';
 import { advanceStream, createReversalHold, bleedShapes, stepBleedFade, fadeBleedShapes, chevFlowLevel, keyChevron, KEY_CHEV_LANES, originFractions, oxygenFor, ORIGIN_N, createBolus, DYE_BINS, KAPPA, STASIS_MIN_D, HIDDEN_SECONDS } from './blood.js?v=2667e8cf8d';
 import { retireRows } from './flow-rows.js?v=bea4089714';
 import { createJunctionWidths } from './junction-widths.js?v=c5726a67f9';
-import { frameFor, lateFrameFor, cancelFrame, noteDraw, setSaver as setFrameSaver, paceMs, renderScale, renderSetting, onRenderScale } from './frame.js?v=fb33388f52';
+import { frameFor, lateFrameFor, cancelFrame, noteDraw, setSaver as setFrameSaver, paceMs, renderScale, renderSetting, onRenderScale, figOpt } from './frame.js?v=2a020ae210';
 import { softwareYield } from './sw-yield.js?v=e580a095b1';
 import { portalSplit } from './table-marks.js?v=bca5ebb624';
 import { hashSeed, clotSide, clotSpan, clotRadius, clotShift, clotLayers, CLOT_EDGE } from './clot-shape.js?v=415ba6b9c0';
@@ -1383,6 +1384,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   let drawOnce = false;   // draw the vessels once through the dive's freeze: the camera moved while hidden
   let stageWake = () => {};   // set once the frame loop exists: anything that may need a redraw calls it
   let resizeReady = false, forceDraw = false;   // forceDraw: the vessel canvas was just resized (and so cleared): the next frame draws it at once
+  let glM = null;   // the world → stage transform (CSS px) the vessels were last drawn in (for the tests; and res-fade's follow)
+  let moveLow = false;   // Figure resolution › While moving: the canvas is at its moving share until the view settles (see settleRes)
   let clampFs = '', clampBase = 12;   // clampBase: the "60 %"'s size on screen (clampFontAt: the labels' own name size)
   // A narrowing's label stands level on screen whatever the figure's turn, at the spot the layout chose for it (clampLabelAt: the
   // column's side, a spot off the probe) or, where it chose none, just clear of its clamp on the vessel's side, at the labels' name size
@@ -1398,6 +1401,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     worldOver?.setAttribute('transform', world.getAttribute('transform'));
     syncSemantic();
     CTM = null; viewVersion++; stageWake();
+    // (While moving: the first step of a move drops the canvas to its moving share, once; it is back at rest when the view settles.)
+    if (resizeReady && !moveLow && figOpt('move') < 1) { moveLow = true; easeRes(); settleRes(); }
     if (!viewRaf) viewRaf = nextFrame(syncView);
   };
   function syncView() {
@@ -2230,7 +2235,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const lzAnchor = document.createComment('lobule');
   wrap.append(lzAnchor);
   // (The code is fetched as soon as the figure is shown; the layer is built a moment later, when the page is quiet, or at once for a dive.)
-  const lobuleCode = () => (lzCode ||= import('./lobule-zoom.js?v=615b453f68').catch((err) => { lzCode = null; throw err; }));
+  const lobuleCode = () => (lzCode ||= import('./lobule-zoom.js?v=ca49e8845a').catch((err) => { lzCode = null; throw err; }));
   function lobuleReady() {
     return (lzLoad ||= lobuleCode().then(({ createLobuleZoom }) => {
       lz = createLobuleZoom({ host: wrap, styles: wrapCS, before: lzAnchor });
@@ -2270,6 +2275,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   vCanvas.addEventListener('webglcontextrestored', () => {
     veins?.dispose();   // the lost instance's listener goes with it (one per restore otherwise)
     veins = createVeinsGL(vCanvas, { tubes: GL_ROWS, force: true });
+    veins?.setLayerScale?.(figOpt('glow'));
     if (!veins) { wrap.classList.remove('gl-on', 'gl-plate'); syncPlateLook(); return; }   // (no context this time: the SVG stays)
     vBinKey = ''; binShown = null; bendShown = null; glOrgans = false; plateKey = ''; tubesShown = null;   // (a new context holds no vessels yet)
     liverKey = '';   // (nor the liver's lower edge the ascites stops at: morphLiver sends it again)
@@ -2285,20 +2291,67 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   let autoK = 1, autoT = 0;
   const AUTO_STEPS = [1, 0.75, 0.5, 0.35, 0.25, 0.18, 0.14, 0.1];
   const autoScale = (zoom) => { const want = 1 / Math.max(1, zoom); return AUTO_STEPS.reduce((b, s) => (s >= want - 1e-6 ? s : b), 1); };
-  function autoResSoon() {
-    if (renderSetting() !== 'auto' && autoK === 1) return;
+  // Figure resolution › Adapt to frame rate: the gaps between the frames of each move (moveGaps, from drawVeins); once it settles,
+  // one step lower (down to 25%) when they ran half again as long as the screen's own pace (the shortest gaps seen, fastGap), one
+  // step back up when they kept up with it. Once a move, never during one.
+  let adaptK = 1, moveGaps = [], lastMoveAt = 0, fastGap = Infinity;
+  function adaptStep() {
+    if (!figOpt('adapt')) { adaptK = 1; moveGaps = []; return; }
+    if (moveGaps.length < 20) return;
+    const g = [...moveGaps].sort((a, b) => a - b), med = g[g.length >> 1];
+    fastGap = Math.max(4, Math.min(fastGap, g[Math.floor(g.length * 0.1)]));
+    moveGaps = [];
+    const at = AUTO_STEPS.indexOf(adaptK);
+    if (med > fastGap * 1.5 && adaptK > 0.25) adaptK = AUTO_STEPS[at + 1];
+    else if (med < fastGap * 1.15 && adaptK < 1) adaptK = AUTO_STEPS[at - 1];
+  }
+  function noteMoveFrame() {
+    const t = performance.now();
+    if (t - lastMoveAt < 250) { moveGaps.push(t - lastMoveAt); if (moveGaps.length > 240) moveGaps.shift(); }
+    lastMoveAt = t;
+  }
+  // Once the view has settled and been let go: Auto's step for the zoom, the canvas back from its moving share, Adapt's next step.
+  function settleRes() {
+    if (renderSetting() !== 'auto' && autoK === 1 && !moveLow && !figOpt('adapt') && adaptK === 1) return;
     clearTimeout(autoT);
     autoT = setTimeout(function settled() {
       if (!leftAlone(280) || vtGliding) { autoT = setTimeout(settled, 120); return; }
-      const k = renderSetting() === 'auto' ? autoScale(vt.k / Math.max(1e-6, homeAt?.k ?? 1)) : 1;
-      if (k === autoK) return;
-      autoK = k; resizeCanvas();
+      const k = renderSetting() === 'auto' ? autoScale(vt.k / Math.max(1e-6, homeAt?.k ?? 1)) : 1, a = adaptK;
+      adaptStep();
+      if (k === autoK && !moveLow && a === adaptK) return;
+      autoK = k; moveLow = false; easeRes();
       if (plateOn()) schedulePlateView();   // (the view's sharp picture, made again for the new resolution)
     }, 200);
   }
+  // Every change of the share eases (Mohammad, 30 Oct: "nothing snaps"): the picture as drawn is laid over the canvas and fades out
+  // (res-fade.js) while the canvas is resized and drawn again under it; the copy follows the view from the transform it was drawn
+  // in (glM then) to the one each frame is drawn in.
+  let fadeM0 = null;
+  function resFollow() {
+    if (!fadeM0 || !glM) return '';
+    const [a, b, c, d, e, f] = fadeM0, det = a * d - b * c;
+    if (!det) return '';
+    const ia = d / det, ib = -b / det, ic = -c / det, id = a / det, ie = (c * f - d * e) / det, iff = (b * e - a * f) / det;
+    const [A, B, C, D, E, G] = glM;   // (now ∘ then⁻¹)
+    return `matrix(${A * ia + C * ib}, ${B * ia + D * ib}, ${A * ic + C * id}, ${B * ic + D * id}, ${A * ie + C * iff + E}, ${B * ie + D * iff + G})`;
+  }
+  function easeRes() {
+    if (glM && !(lz?.isOpen() || lz?.covers())) { fadeOver(vCanvas, resFollow); fadeM0 = [...glM]; }
+    resizeCanvas();
+  }
+  // (The canvas's share of its pixels: the setting (or Auto's step), While moving's share during a move, Adapt's step, and at most
+  // Size cap's megapixels; never under a tenth of the screen's density.)
+  function figShare(w, h, base) {
+    let k = (renderSetting() === 'auto' ? autoK : renderScale()) * (moveLow ? figOpt('move') : 1) * adaptK;
+    const cap = figOpt('cap') * 1e6, px = w * h * (base * k) ** 2;
+    if (cap > 0 && px > cap) k *= Math.sqrt(cap / px);
+    return Math.max(0.1, k);
+  }
   function resizeCanvas() {
     const r = wrap.getBoundingClientRect(), was = vdpr;
-    vdpr = Math.min(2, devicePixelRatio || 1) * QUALITY[quality].res * (renderSetting() === 'auto' ? autoK : renderScale());   // (Settings › Figure resolution)
+    const base = Math.min(2, devicePixelRatio || 1) * QUALITY[quality].res;
+    vdpr = base * figShare(r.width, r.height, base);   // (Settings › Figure resolution)
+    veins?.setLayerScale?.(figOpt('glow'));   // (Figure resolution › Glows: the glow layers' own share)
     wrap.dataset.res = vdpr.toFixed(2);   // (the vessel canvas's pixels per CSS pixel, for diagnosis)
     const bw = Math.max(1, Math.round(r.width * vdpr)), bh = Math.max(1, Math.round(r.height * vdpr));
     wrap.classList.toggle('compact', r.height < 600);
@@ -2319,7 +2372,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (resizeReady && F && !inUpdate && !(lz?.isOpen() || lz?.covers())) { veinsDirty = true; drawVeins(); }
   }
   new ResizeObserver(resizeCanvas).observe(wrap);
-  onRenderScale(() => { autoK = 1; resizeCanvas(); autoResSoon(); });
+  // (A change that leaves the canvas's size as it is (Glows alone) still draws the figure again, its glow layers remade.)
+  onRenderScale(() => { autoK = 1; moveLow = false; adaptK = 1; moveGaps = []; easeRes(); veinsDirty = true; forceDraw = true; stageWake(); settleRes(); });
   resizeCanvas(); resizeReady = true;
 
   // ── Frame state ───────────────────────────────────
@@ -3693,7 +3747,6 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (!plateWas && plateOn()) drawVeins();
   }
   /** Redraws the vessel layer (and the picture) if anything in it changed; true when it did. */
-  let glM = null;   // the world → stage transform (CSS px) the vessels were last drawn in (for the tests)
   function drawVeins(fullComposite = false) {
     if (liveSet || liveOn()) { syncLiveOrgans(); if (liveSet) veins.organs.shift('bowel', bowelDy()); }
     syncGutPic();
@@ -3712,7 +3765,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       if (veins.drawRows(T, vLook, bloodLook(), pending, fullComposite)) { shown(); return true; }
     }
     if (key !== veinsDrawKey) {
-      autoResSoon();   // (the view moved: Figure resolution › Auto looks again once it settles)
+      settleRes();   // (the view moved: Figure resolution looks again once it settles)
+      if (figOpt('adapt')) noteMoveFrame();
       if (plateOn()) schedulePlateView();
       // (The organs drawn live, the view moved: once it is let go, the gut's picture for it, if none kept will do.)
       else if (gutCopy && gGut && morphTarget === 0 && !(morph > 0) && !gutPicFor(vdpr * m.sc)) gutPicSoon();
@@ -4376,6 +4430,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     plateSettle = setTimeout(async function settled() {
       // (Not with a finger or button still down, nor within 0.28 s of the last input: it is begun once the figure is let go.)
       if (!leftAlone(280)) { plateSettle = setTimeout(settled, 120); return; }
+      if (moveLow) { plateSettle = setTimeout(settled, 120); return; }   // (While moving: made for the canvas at rest)
       if (!veins || !plateOn() || !CTM) return;
       // (Not in the circuit, or on the way to it: the organs are faded out there, and their sharp picture and the gut's were
       // drawn after every pan and pinch for nothing (Mohammad, 21 Oct: the lag "also happens in circuit view"). The way back to

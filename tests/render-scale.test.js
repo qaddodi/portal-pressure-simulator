@@ -1,5 +1,6 @@
 // Figure resolution (29 Oct, an experiment): one Settings row, shown in the app and in a talk, that draws the figure's canvases
 // at a share of their pixels. Words are not on those canvases, so they stay sharp. Full (1) changes nothing.
+// 30 Oct: Auto, While moving, Glows, Size cap and Adapt, all off until chosen; every change eases (res-fade.js), nothing snaps.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -11,8 +12,7 @@ const settings = main.slice(main.indexOf('function openSettings('), main.indexOf
 test('one Figure resolution row, ahead of the block a talk leaves out', () => {
   assert.equal(settings.split("'Figure resolution'").length - 1, 1);
   assert.ok(settings.indexOf("'Figure resolution'") < settings.indexOf('...(talk ? [] : ['), 'a talk shows it too');
-  assert.match(settings, /RENDER_SCALES\.map/);
-  assert.match(settings, /setRenderScale\(v\)/);
+  assert.match(settings, /figSeg\(RENDER_SCALES, renderSetting, setRenderScale/);
 });
 
 test('the scales, the stored value and the listeners', async () => {
@@ -40,11 +40,17 @@ test('the scales, the stored value and the listeners', async () => {
 
 test('the anatomy canvas, the lobule and the sinusoid read it; the instruments and labels do not', () => {
   const stage = src('stage.js');
-  assert.match(stage, /vdpr = Math\.min\(2, devicePixelRatio \|\| 1\) \* QUALITY\[quality\]\.res \* \(renderSetting\(\) === 'auto' \? autoK : renderScale\(\)\)/);
-  assert.match(stage, /onRenderScale\(\(\) => \{ autoK = 1; resizeCanvas\(\); autoResSoon\(\); \}\)/);
-  assert.equal(src('lobule-zoom.js').split('* renderScale()').length - 1, 5);
-  assert.equal(src('sinusoid-view.js').split('* renderScale()').length - 1, 1);
+  assert.match(stage, /vdpr = base \* figShare\(r\.width, r\.height, base\);/);
+  assert.match(stage, /let k = \(renderSetting\(\) === 'auto' \? autoK : renderScale\(\)\) \* \(moveLow \? figOpt\('move'\) : 1\) \* adaptK;/);
+  assert.match(stage, /onRenderScale\(\(\) => \{ autoK = 1; moveLow = false; adaptK = 1; moveGaps = \[\]; easeRes\(\); veinsDirty = true; forceDraw = true; stageWake\(\); settleRes\(\); \}\)/);
+  assert.equal(src('lobule-zoom.js').split('* lzScale()').length - 1, 5);
+  assert.equal(src('sinusoid-view.js').split('* svScale()').length - 1, 1);
   for (const f of ['util.js', 'label-gl.js', 'glass-gl.js', 'instruments.js']) assert.ok(!src(f).includes('renderScale'), f);
+});
+
+test('the lobule and the sinusoid take a change up only while hidden, so their picture never snaps on screen', () => {
+  assert.match(src('lobule-zoom.js'), /const lzScale = \(\) => \(fade > 0 \? lzK : \(lzK = renderScale\(\)\)\);/);
+  assert.match(src('sinusoid-view.js'), /const svScale = \(\) => \(shown > 0 \? svK : \(svK = renderScale\(\)\)\);/);
 });
 
 test('Auto: 1/zoom past the home framing, in steps down to 10%, changed only once the view settles', () => {
@@ -60,10 +66,112 @@ test('Auto: 1/zoom past the home framing, in steps down to 10%, changed only onc
   assert.equal(autoScale(4), 0.25);
   assert.equal(autoScale(10), 0.1);
   assert.equal(autoScale(40), 0.1, 'never under 10%');
-  const fn = stage.slice(stage.indexOf('function autoResSoon('), stage.indexOf('function resizeCanvas('));
+  const fn = stage.slice(stage.indexOf('function settleRes('), stage.indexOf('// Every change of the share eases'));
   assert.match(fn, /leftAlone\(280\)/, 'not while a finger or a glide is moving the view');
   assert.match(fn, /vtGliding/);
-  assert.match(fn, /if \(k === autoK\) return;/, 'no reallocation unless the step changes');
-  assert.match(stage, /autoResSoon\(\); {3}\/\/ \(the view moved/);
+  assert.match(fn, /if \(k === autoK && !moveLow && a === adaptK\) return;/, 'no reallocation unless the share changes');
+  assert.match(fn, /autoK = k; moveLow = false; easeRes\(\);/, 'and that change eases');
+  assert.match(stage, /settleRes\(\); {3}\/\/ \(the view moved/);
   assert.match(main, /v === 'auto' \? 'Auto'/);
+});
+
+test('every resize for a share goes through easeRes; the copy is laid over first, then the canvas is resized', () => {
+  const stage = src('stage.js');
+  const fn = stage.slice(stage.indexOf('function easeRes('), stage.indexOf('// (The canvas\'s share of its pixels:'));
+  assert.ok(fn.indexOf('fadeOver(vCanvas, resFollow)') < fn.indexOf('resizeCanvas()'), 'copied before the resize clears it');
+  assert.ok(!/moveLow = true; resizeCanvas\(\)/.test(stage) && !/autoK = k; moveLow = false; resizeCanvas\(\)/.test(stage), 'no share change resizes without the fade');
+  assert.match(src('../../styles/app.css'), /\.stage-view\.in-lobule \.res-fade/);
+});
+
+test('resFollow: the copy moves from the transform it was drawn in to the one drawn now', () => {
+  const stage = src('stage.js');
+  const body = stage.slice(stage.indexOf('function resFollow('), stage.indexOf('function easeRes('));
+  const follow = (m0, m1) => new Function('fadeM0', 'glM', `${body}; return resFollow();`)(m0, m1);
+  assert.equal(follow([2, 0, 0, 2, 10, 20], [2, 0, 0, 2, 10, 20]), 'matrix(1, 0, 0, 1, 0, 0)');
+  // (zoomed in twice about a point and panned: a world point drawn at p then is at 2p + t now)
+  const m = follow([1, 0, 0, 1, 5, 5], [2, 0, 0, 2, 3, -4]).match(/[-\d.]+/g).map(Number);
+  assert.deepEqual(m, [2, 0, 0, 2, -7, -14]);
+  assert.equal(follow(null, [1, 0, 0, 1, 0, 0]), '');
+});
+
+test('res-fade: the opacity eases 1 → 0 with no step at either end', async () => {
+  const { fadeAlpha, FADE_MS } = await import('../src/ui/res-fade.js');
+  assert.equal(fadeAlpha(0), 1); assert.equal(fadeAlpha(1), 0); assert.equal(fadeAlpha(-1), 1); assert.equal(fadeAlpha(2), 0);
+  assert.ok(Math.abs(fadeAlpha(0.5) - 0.5) < 1e-9);
+  assert.ok(fadeAlpha(0.01) > 0.999 && fadeAlpha(0.99) < 0.001, 'flat at both ends');
+  assert.ok(FADE_MS >= 250 && FADE_MS <= 500);
+  const rf = src('res-fade.js');
+  assert.ok(rf.indexOf('c.drawImage(canvas, 0, 0)') < rf.indexOf('c.drawImage(old.cv'), 'a second change keeps the first copy as it shows');
+});
+
+test('the further options: all off by default, stored, and each one heard', async () => {
+  const store = new Map();
+  globalThis.localStorage = { getItem: (k) => (store.has(k) ? store.get(k) : null), setItem: (k, v) => store.set(k, String(v)), removeItem: (k) => store.delete(k) };
+  const f = await import(`../src/ui/frame.js?t=opts${Date.now()}`);
+  assert.deepEqual(f.FIG_OPTS, { move: [1, 0.75, 0.5, 0.25], glow: [1, 0.5, 0.25], cap: [0, 8, 4, 2], adapt: [false, true] });
+  for (const [k, v] of Object.entries({ move: 1, glow: 1, cap: 0, adapt: false })) assert.equal(f.figOpt(k), v, `${k} off by default`);
+  let heard = 0;
+  f.onRenderScale(() => heard++);
+  f.setFigOpt('move', 0.5); f.setFigOpt('glow', 0.25); f.setFigOpt('cap', 4); f.setFigOpt('adapt', true);
+  f.setFigOpt('move', 0.3); f.setFigOpt('nope', 1); f.setFigOpt('cap', 4);   // (not choices, or no change: not heard)
+  assert.equal(heard, 4);
+  assert.deepEqual(['move', 'glow', 'cap', 'adapt'].map((k) => store.get(`pps.fig.${k}`)), ['0.5', '0.25', '4', 'true']);
+  f.setFigOpt('adapt', false); f.setFigOpt('cap', 0);
+  assert.ok(!store.has('pps.fig.adapt') && !store.has('pps.fig.cap'), 'off stores nothing');
+  delete globalThis.localStorage;
+});
+
+test('figShare: the setting, While moving, Adapt and Size cap together', () => {
+  const stage = src('stage.js');
+  const body = stage.slice(stage.indexOf('function figShare('), stage.indexOf('function resizeCanvas('));
+  const make = (o) => new Function('renderSetting', 'renderScale', 'autoK', 'moveLow', 'figOpt', 'adaptK', `${body}; return figShare;`)(
+    () => o.set ?? 1, () => (o.set === 'auto' ? 1 : o.set ?? 1), o.autoK ?? 1, !!o.moving, (k) => ({ move: 1, cap: 0, ...o.opts })[k], o.adaptK ?? 1);
+  assert.equal(make({})(1000, 800, 2), 1, 'everything off: Full');
+  assert.equal(make({ moving: true })(1000, 800, 2), 1, 'While moving off');
+  assert.equal(make({ moving: true, opts: { move: 0.5 } })(1000, 800, 2), 0.5);
+  assert.equal(make({ opts: { move: 0.5 } })(1000, 800, 2), 1, 'at rest: Full');
+  assert.equal(make({ set: 0.5, moving: true, opts: { move: 0.5 } })(1000, 800, 2), 0.25, 'shares multiply');
+  const capped = make({ opts: { cap: 2 } })(1728, 1117, 2);
+  assert.ok(Math.abs(1728 * 1117 * (2 * capped) ** 2 - 2e6) < 1, 'a big screen held to the cap');
+  assert.equal(make({ opts: { cap: 8 } })(390, 844, 2), 1, 'a phone is under it');
+  assert.equal(make({ set: 0.25, adaptK: 0.25, moving: true, opts: { move: 0.25 } })(1000, 800, 2), 0.1, 'never under a tenth');
+});
+
+test('While moving drops the canvas once per move and back once it settles; the plate picture waits for rest', () => {
+  const stage = src('stage.js');
+  const vt = stage.slice(stage.indexOf('const applyVT = () => {'), stage.indexOf('function syncView()'));
+  assert.match(vt, /if \(resizeReady && !moveLow && figOpt\('move'\) < 1\) \{ moveLow = true; easeRes\(\); settleRes\(\); \}/);
+  assert.match(stage, /if \(moveLow\) \{ plateSettle = setTimeout\(settled, 120\); return; \}/);
+  assert.ok(stage.indexOf('let glM = null') < stage.indexOf('const applyVT = () => {'), 'declared before applyVT can read it');
+});
+
+test('Adapt: one step a move, down when frames ran half again as long as the fastest, up when they kept pace', () => {
+  const stage = src('stage.js');
+  const body = stage.slice(stage.indexOf('function adaptStep('), stage.indexOf('function noteMoveFrame('));
+  const run = (gaps, k0, fast = Infinity, on = true) => new Function('figOpt', 'AUTO_STEPS', 'g0', 'k0', 'f0', `let moveGaps = g0, adaptK = k0, fastGap = f0; ${body}; adaptStep(); return [adaptK, fastGap, moveGaps.length];`)(
+    () => on, [1, 0.75, 0.5, 0.35, 0.25, 0.18, 0.14, 0.1], gaps, k0, fast);
+  const steady = (ms, n = 40) => Array(n).fill(ms);
+  assert.deepEqual(run(steady(8.3), 1), [1, 8.3, 0], 'keeping pace at Full: stays');
+  assert.equal(run(steady(25), 1, 8.3)[0], 0.75, 'slow: one step down');
+  assert.equal(run(steady(25), 0.25, 8.3)[0], 0.25, 'never under 25%');
+  assert.equal(run(steady(8.5), 0.5, 8.3)[0], 0.75, 'kept pace: one step up');
+  assert.equal(run(steady(25, 5), 1, 8.3)[0], 1, 'too few frames: no step');
+  assert.equal(run(steady(25), 0.5, 8.3, false)[0], 1, 'off: Full');
+});
+
+test('Glows: the two glow layers at their own share, read filtered; the outlines and Full unchanged', () => {
+  const gl = src('veins-gl.js');
+  assert.match(gl, /if \(glowOn == 1\) pl = over\(pl, texelFetch\(glowL, ip, 0\)\);\n.*\n\s*else if \(glowOn == 2\)/);
+  assert.match(gl, /else if \(warmOn == 2\)/);
+  assert.match(gl, /gl\.uniform1i\(U\.glowOn, glow \? \(layerK < 1 \? 2 : 1\) : 0\)/);
+  assert.match(gl, /const k = L\.k \? layerK : 1/);
+  assert.match(gl, /for \(const L of \[glowLayer, warmLayer\]\) \{ L\.k = 1;/, 'only the glow layers, not the outlines');
+  assert.match(gl, /setLayerScale\(k\) \{[^}]*glowKey = warmKey = '';/);
+});
+
+test('Settings: the four further rows, in the menu a talk shows too', () => {
+  for (const t of ["'Resolution while moving'", "'Glow resolution'", "'Figure size cap'", "'Adapt to frame rate'"]) {
+    assert.equal(settings.split(t).length - 1, 1, t);
+    assert.ok(settings.indexOf(t) < settings.indexOf('...(talk ? [] : ['), `${t}: a talk shows it too`);
+  }
 });

@@ -33,7 +33,7 @@
 
 import { CHEV_GLSL } from './chevron-glsl.js?v=96ec7c6666';
 import { SLOT, DYE_BINS } from './blood.js?v=2667e8cf8d';
-import { cssRGB } from './util.js?v=65bdd79f7b';
+import { cssRGB } from './util.js?v=446096f407';
 import { LUMEN, STO_Y0, STO_DY, STO_N } from './stomach-lumen.js?v=85fe152232';
 import { CELL, ENT_W, binVeins, splitRows, simpleCells, splitCells } from './veins-bin.js?v=d5372c91f9';
 import { gpuProbe, COUNTED } from './gpu-probe.js?v=dd12fc216c';
@@ -1263,9 +1263,12 @@ void main() {
     if (pl.a > 0.0) { float l = dot(pl.rgb / pl.a, vec3(0.299, 0.587, 0.114)); pl = vec4(mix(vec3(l) * pl.a, pl.rgb, plateSat), pl.a) * plateAlpha; }
     // A glow lies behind the organs: the liver and the vessels pass over it.
     if (glowOn == 1) pl = over(pl, texelFetch(glowL, ip, 0));
+    // (2: the layer drawn at a share of the canvas's pixels (Figure resolution › Glows), read filtered at this pixel's place in it)
+    else if (glowOn == 2) { vec2 ts = vec2(textureSize(glowL, 0)); pl = over(pl, texture(glowL, (vec2(ip) + 0.5) / vec2(ts.x * H / ts.y, H))); }
     // A warm glow lies on the organs, under the vessels: added after the plate's dimming, so it keeps one strength whatever the lens
     // greys the organs to, and with or without the plate (the page's own organs show under it then).
     if (warmOn == 1) pl = over(texelFetch(warmL, ip, 0), pl);
+    else if (warmOn == 2) { vec2 ts = vec2(textureSize(warmL, 0)); pl = over(texture(warmL, (vec2(ip) + 0.5) / vec2(ts.x * H / ts.y, H)), pl); }
   }
   // Ascites over the plate and the vessels (they show through it), in its own color whatever the lens: a meniscus (highest at the flanks)
   // with a slow two-part ripple, deeper fluid a little denser, a soft brighter band just under the surface.
@@ -1653,10 +1656,14 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false }) {
   // (draws marked soft) have a layer too, which the composite lays under the organs.
   const makeLayer = () => { const tex = dataTex(gl); gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, null); return { tex, fbo: gl.createFramebuffer(), w: 0, h: 0 }; };
   const lineLayer = makeLayer(), glowLayer = makeLayer(), warmLayer = makeLayer();
+  // The glow layers may be drawn at a share of the canvas's pixels (setLayerScale), and are then read filtered (glowOn 2).
+  let layerK = 1;
+  for (const L of [glowLayer, warmLayer]) { L.k = 1; gl.bindTexture(gl.TEXTURE_2D, L.tex); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR); }
   const hasSoft = () => !!lines?.draws.some((d) => d.soft && !d.warm), hasHard = () => !!lines?.draws.some((d) => !d.soft), hasWarm = () => !!lines?.draws.some((d) => d.warm);
   function renderLayer(L, m, soft, warm = false) {
-    if (L.w !== canvas.width || L.h !== canvas.height) {
-      L.w = canvas.width; L.h = canvas.height;
+    const k = L.k ? layerK : 1, w = Math.max(1, Math.round(canvas.width * k)), h = Math.max(1, Math.round(canvas.height * k));
+    if (L.w !== w || L.h !== h) {
+      L.w = w; L.h = h;
       gl.bindTexture(gl.TEXTURE_2D, L.tex);
       gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, L.w, L.h, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
       gl.bindFramebuffer(gl.FRAMEBUFFER, L.fbo);
@@ -2192,8 +2199,8 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false }) {
     bind(0, baseTex, 'base'); bind(1, gTex, 'gbuf'); bind(2, flowTex, 'flow'); bind(3, radTex, 'rad'); bind(4, tubeTex, 'tube');
     bind(5, dyeTex, 'dye'); bind(6, plates[0]?.tex || baseTex, 'plate0'); bind(7, plates[1]?.tex || baseTex, 'plate1'); bind(8, gTex2, 'gbuf2'); bind(9, fluidTex, 'fluidMask');
     bind(10, lineLayer.tex, 'lineL'); gl.uniform1i(U.lineOn, layer ? 1 : 0);
-    bind(11, glowLayer.tex, 'glowL'); gl.uniform1i(U.glowOn, glow ? 1 : 0);
-    bind(13, warmLayer.tex, 'warmL'); gl.uniform1i(U.warmOn, warm ? 1 : 0);
+    bind(11, glowLayer.tex, 'glowL'); gl.uniform1i(U.glowOn, glow ? (layerK < 1 ? 2 : 1) : 0);
+    bind(13, warmLayer.tex, 'warmL'); gl.uniform1i(U.warmOn, warm ? (layerK < 1 ? 2 : 1) : 0);
     bind(12, bendTex, 'bend');
     bind(14, useStack ? stack.texture : baseTex, 'stackL'); gl.uniform1i(U.stackOn, useStack ? 1 : 0);
     if (noiseTex && noiseRows) bind(15, noiseTex, 'noiseT');
@@ -2788,6 +2795,8 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false }) {
       gl.bindBuffer(gl.ARRAY_BUFFER, lineBuf);
       gl.bufferData(gl.ARRAY_BUFFER, lines.verts, gl.DYNAMIC_DRAW);
     },
+    /** Figure resolution › Glows: the glow layers drawn at this share of the canvas's pixels (1: every pixel, read unfiltered). */
+    setLayerScale(k) { k = Math.min(1, Math.max(0.1, +k || 1)); if (k === layerK) return; layerK = k; glowKey = warmKey = ''; },
     /** Whether the catheter can be drawn here (else stage.js keeps its SVG one). */
     get canCath() { return !!cathP; },
     /**
