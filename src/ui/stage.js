@@ -35,7 +35,7 @@ import { createRouter } from './circuit-router.js?v=0ee9e02fc6';
 import { gpuProbe, COUNTED } from './gpu-probe.js?v=dd12fc216c';
 import { plateStrips, premultiply, gutStep, viewReuse, copyPixels } from './plate-upload.js?v=5fc45556a1';
 import { refine } from './refine.js?v=b6b6fd7588';
-import { fadeOver } from './res-fade.js?v=3ff88bfef5';
+import { fadeOver } from './res-fade.js?v=3d1df7c126';
 import { leftAlone, sinceInput } from './quiet.js?v=82fc0f97e3';
 import { cropToGrid } from './organs-gl.js?v=efbea815e0';
 import { readGroup, shapeSource, bindShape, targetRoom } from './organ-paint.js?v=f67ce51385';
@@ -2330,12 +2330,12 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // in (glM then) to the one each frame is drawn in.
   let fadeM0 = null;
   function resFollow() {
-    if (!fadeM0 || !glM) return '';
+    if (!fadeM0 || !glM) return null;
     const [a, b, c, d, e, f] = fadeM0, det = a * d - b * c;
-    if (!det) return '';
+    if (!det) return null;
     const ia = d / det, ib = -b / det, ic = -c / det, id = a / det, ie = (c * f - d * e) / det, iff = (b * e - a * f) / det;
     const [A, B, C, D, E, G] = glM;   // (now ∘ then⁻¹)
-    return `matrix(${A * ia + C * ib}, ${B * ia + D * ib}, ${A * ic + C * id}, ${B * ic + D * id}, ${A * ie + C * iff + E}, ${B * ie + D * iff + G})`;
+    return [A * ia + C * ib, B * ia + D * ib, A * ic + C * id, B * ic + D * id, A * ie + C * iff + E, B * ie + D * iff + G];
   }
   function easeRes() {
     if (glM && !(lz?.isOpen() || lz?.covers())) { fadeOver(vCanvas, resFollow); fadeM0 = [...glM]; }

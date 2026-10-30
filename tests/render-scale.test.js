@@ -83,15 +83,14 @@ test('every resize for a share goes through easeRes; the copy is laid over first
   assert.match(src('../../styles/app.css'), /\.stage-view\.in-lobule \.res-fade/);
 });
 
-test('resFollow: the copy moves from the transform it was drawn in to the one drawn now', () => {
+test('resFollow: the old picture moves from the transform it was drawn in to the one drawn now', () => {
   const stage = src('stage.js');
   const body = stage.slice(stage.indexOf('function resFollow('), stage.indexOf('function easeRes('));
   const follow = (m0, m1) => new Function('fadeM0', 'glM', `${body}; return resFollow();`)(m0, m1);
-  assert.equal(follow([2, 0, 0, 2, 10, 20], [2, 0, 0, 2, 10, 20]), 'matrix(1, 0, 0, 1, 0, 0)');
-  // (zoomed in twice about a point and panned: a world point drawn at p then is at 2p + t now)
-  const m = follow([1, 0, 0, 1, 5, 5], [2, 0, 0, 2, 3, -4]).match(/[-\d.]+/g).map(Number);
-  assert.deepEqual(m, [2, 0, 0, 2, -7, -14]);
-  assert.equal(follow(null, [1, 0, 0, 1, 0, 0]), '');
+  assert.deepEqual(follow([2, 0, 0, 2, 10, 20], [2, 0, 0, 2, 10, 20]), [1, 0, 0, 1, 0, 0]);
+  // (zoomed in twice and panned: a world point drawn at p then is at 2p + t now)
+  assert.deepEqual(follow([1, 0, 0, 1, 5, 5], [2, 0, 0, 2, 3, -4]), [2, 0, 0, 2, -7, -14]);
+  assert.equal(follow(null, [1, 0, 0, 1, 0, 0]), null);
 });
 
 test('res-fade: the opacity eases 1 → 0 with no step at either end', async () => {
@@ -101,7 +100,8 @@ test('res-fade: the opacity eases 1 → 0 with no step at either end', async () 
   assert.ok(fadeAlpha(0.01) > 0.999 && fadeAlpha(0.99) < 0.001, 'flat at both ends');
   assert.ok(FADE_MS >= 250 && FADE_MS <= 500);
   const rf = src('res-fade.js');
-  assert.ok(rf.indexOf('c.drawImage(canvas, 0, 0)') < rf.indexOf('c.drawImage(old.cv'), 'a second change keeps the first copy as it shows');
+  assert.match(rf, /const src = was \? was\.cv : canvas;/, 'a second change starts from the mix as it shows');
+  assert.match(rf, /canvas\.style\.opacity = '0';/, 'the canvas hides under the mix, not under a copy laid over it');
 });
 
 test('the further options: all off by default, stored, and each one heard', async () => {
@@ -190,4 +190,31 @@ test('Auto’s lowest: Auto never goes under the chosen floor (10% unless chosen
   assert.equal(run(1, 0.5), 1, 'zoomed out: still Full');
   assert.equal(run(20, 0.1, 1), 1, 'not Auto: no step');
   for (const f of [0.1, 0.25, 0.5]) assert.ok(steps.includes(f), `${f} is one of Auto's steps`);
+});
+
+// (Mohammad, 30 Oct: the figure brightened mid-fade. The old copy laid over the new canvas at opacity a gave a·old + (1 − a·α)·new,
+// so every translucent pixel (a glow, an organ) showed more of both; the mix now weights them a and 1 − a, adding to exactly 1.)
+test('res-fade mixes old × a + new × (1 − a): a translucent pixel keeps its brightness all through the fade', async () => {
+  const { mixInto, fadeAlpha } = await import('../src/ui/res-fade.js');
+  // A one-pixel 2D context that composites premultiplied RGBA as a canvas does (source-over and lighter).
+  const px = (r, g, b, a) => ({ width: 1, height: 1, offsetWidth: 1, offsetHeight: 1, px: [r * a, g * a, b * a, a] });
+  const ctx = () => {
+    const c = { buf: [0, 0, 0, 0], globalAlpha: 1, globalCompositeOperation: 'source-over' };
+    c.setTransform = () => {}; c.clearRect = () => { c.buf = [0, 0, 0, 0]; };
+    c.drawImage = (img) => {
+      const s = img.px.map((v) => v * c.globalAlpha);
+      c.buf = c.globalCompositeOperation === 'lighter' ? c.buf.map((v, i) => Math.min(1, v + s[i])) : c.buf.map((v, i) => s[i] + v * (1 - s[3]));
+    };
+    return c;
+  };
+  const glow = px(1, 0.8, 0.3, 0.4);   // (the same translucent glow before and after: nothing should change)
+  for (const u of [0, 0.25, 0.5, 0.75, 1]) {
+    const c = ctx();
+    mixInto(c, { width: 1, height: 1 }, glow, glow, fadeAlpha(u), null);
+    c.buf.forEach((v, i) => assert.ok(Math.abs(v - glow.px[i]) < 1e-9, `u ${u}: channel ${i} ${v} vs ${glow.px[i]}`));
+  }
+  // And between two pictures the result is the weighted sum, never more than either at full.
+  const a = px(1, 1, 1, 0.3), b = px(1, 1, 1, 0.6), c = ctx();
+  mixInto(c, { width: 1, height: 1 }, a, b, 0.5, null);
+  assert.ok(Math.abs(c.buf[3] - 0.45) < 1e-9);
 });
