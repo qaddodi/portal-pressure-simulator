@@ -4,7 +4,7 @@
 // use, so the list never grows wider than the decks. Fields: 'kind:<tool kind>', 'tool.<option>', 'cols.<column>',
 // 'lens:<deck-only lens>', 'mark.<option>' (on the slide's mark or any of its marks), or a slide field.
 export const ADOPTED = {
-  'choose-treatment/a1': ['clock', 'kind:criteria', 'caseQ'],
+  'choose-treatment/a1': ['kind:criteria', 'caseQ'],
   'choose-treatment/a2': ['kind:fluid', 'caseQ'],
   'choose-treatment/a3': ['caseQ'],
   'choose-treatment/a4': ['kind:lumen', 'caseQ'],
@@ -90,7 +90,7 @@ export const ADOPTED = {
   'variceal-bleed/before': ['calipers'],
   'variceal-bleed/oct': ['clock', 'ripple'],
   'variceal-bleed/blood': ['clock'],
-  'variceal-bleed/tips': ['clock', 'kind:criteria', 'ripple', 'procedure'],
+  'variceal-bleed/tips': ['kind:criteria', 'ripple', 'procedure'],
   'variceal-bleed/rescue': ['kind:profile', 'tool.from', 'tool.fromLabel'],
   'sites/overview': ['lens:system', 'steps', 'glow:group'],
   'sites/healthy': ['kind:profile'],

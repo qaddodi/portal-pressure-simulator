@@ -201,7 +201,7 @@ test('HVPG response tile: hvpgResp adds a live percent fall in the HVPG from a n
 
 test('bleed clock: clock on a tiles slide shows the hours since the bleed on a tile\'s own bar, 0 to 72 with the 12 and 72 hour marks', () => {
   const used = slidesUsing('clock');
-  assert.ok(used.length >= 8, 'Variceal bleed 3 to 8, Gastric varices 5, Choose the treatment 2');
+  assert.ok(used.length >= 6, 'Variceal bleed 3 to 7, Gastric varices 5 (off the pre-emptive TIPS slides, his 30 Oct: Variceal bleed 8, Choose the treatment 2)');
   for (const [d, s] of used) {
     const at = `${d.id}/${s.id}`;
     assert.ok(adopted(d, s, 'clock'), `${at}: opt-in (tests/deck-adopted.js)`);

@@ -24,12 +24,12 @@ export const CHOOSE_TREATMENT = {
   summary: 'Five cases, one slide each: a variceal bleed, refractory ascites, splenic vein thrombosis, a recent portal vein clot and Budd–Chiari syndrome, each with the choice the guidelines make and why.',
   slides: [
     {
-      id: 'a1', clock: { at: 24, label: 'TIPS by 72 h' }, preset: 'cirr-decomp', action: BAND, params: CARV, cam: 'liver', labels: ['CONF', 'VAR'], data: 'tiles',
+      id: 'a1', preset: 'cirr-decomp', action: BAND, params: CARV, cam: 'liver', labels: ['CONF', 'VAR'], data: 'tiles',
       vignette: 'A 61-year-old woman with alcohol-associated cirrhosis vomited blood yesterday. One band stopped it, with no active bleeding at endoscopy. She is Child–Pugh B 8.',
       caseQ: 'Does she meet the criteria for a pre-emptive TIPS?',
       tool: { kind: 'criteria', title: 'Pre-emptive TIPS', lead: 'Any one of these is enough.', rule: 'Baveno VIII 5.31',
-        rows: [{ text: 'Child–Pugh C, **10 to 13** points', cut: 'C 10–13', note: 'not C' }, { text: 'Child–Pugh B, **>7**, with active bleeding at endoscopy', cut: 'B 8–9', note: 'B 8, not bleeding', met: false, lit: true },
-          { text: 'HVPG **≥20 mmHg**', cut: '≥20 mmHg', note: 'not given' }],
+        rows: [{ text: 'Child–Pugh C', cut: 'C 10–13', note: 'not C' }, { text: 'Child–Pugh B, bleeding at endoscopy', cut: 'B 8–9', note: 'B 8, not bleeding', met: false, lit: true },
+          { text: 'HVPG, where measured', cut: '≥20 mmHg', note: 'not given' }],
         verdict: 'She does not qualify: carvedilol and bands.' }, tiles: ['ppg', 'hr'], key: ['ppg'],
       kicker: 'Bleeding', site: 'sin', title: 'Carvedilol and bands, not a pre-emptive TIPS',
       line: 'Child–Pugh B 8 without active bleeding at endoscopy misses the criteria. She starts carvedilol, which lowers the PPG to {ppg}, with banding every 2 to 4 weeks.',
