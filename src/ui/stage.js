@@ -2668,6 +2668,11 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (home && !wasHome) watch.touch();
     wasHome = home;
     if (home && now - homeCheck > 500 && watch.due()) {
+      // (Not while a slide's stacked card folds, its readings' card sliding or under the finger: measured part way, the home look glided
+      // the figure to a room the card was only passing through, then the presenter's refit glided it on to where the card came to rest,
+      // two moves for one tuck. The presenter frames that card's resting room as it starts to move; the look comes once it rests, when
+      // its layout announces the new room, pps:occ.)
+      if (store.get().presenting && document.querySelector('.pz-data[data-folding], .pz-data.pz-sliding')) return;
       homeCheck = now;
       if (keptNow()) return;   // (the Tests card alone has changed the space: see keepView)
       const d = defaultVT(false);

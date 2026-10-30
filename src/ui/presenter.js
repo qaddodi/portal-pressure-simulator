@@ -4555,6 +4555,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
         data.dataset.openFor = String(want);
         delete data.dataset.folding; fitDone.delete(data); layout();
         measureUnder(data);
+        foldFrame();
         data.dataset.folding = '';
         slideUnder(u0, open ? 1 : 0);
         clearTimeout(foldT); foldT = setTimeout(foldStill, reduce.matches ? 0 : 450);
@@ -4570,6 +4571,18 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       for (const [n, v] of from) p.style[n] = v;
       p.getBoundingClientRect(); p.style.transition = ''; for (const [n] of from) p.style[n] = '';
       clearTimeout(foldT); foldT = setTimeout(foldStill, reduce.matches ? 0 : 450);
+    };
+    // The camera starts for the room the cards will leave as the readings' card starts to move, in step with it (Mohammad, 30 Oct, iPhone:
+    // "The view still snaps/jumps when I untuck a stacked card"). Framed once the card had come to rest (foldStill, 450 ms or more after the
+    // tap), the readings' card slid over the figure and stopped, and only then did the figure move off from under it. Framed here, between
+    // the layout and the slide: the card stands as it will rest (its class set, not yet sliding) and its handle is placed at its foot, so the
+    // camera reads the room it will have. foldStill's own refit then finds the camera already headed there (frameBox and fitSlow leave a
+    // glide to the same view alone). (Not while a slide comes in or goes, a dock moves the card (dockTo frames for where it goes), a zoomed
+    // card (it frames itself) or a resize still settling.)
+    const foldFrame = () => {
+      if (!shown || shown.i !== want || shown.gen !== gen || (busy && !playing) || leaving || dock.to !== 0 || dock.lvl !== 0 || zoomOn() || reframeT) return;
+      placeLip();
+      reframe(400);
     };
     let foldT = 0;
     const foldStill = () => {
