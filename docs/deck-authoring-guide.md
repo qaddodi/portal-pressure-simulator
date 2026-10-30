@@ -91,7 +91,7 @@ Every field is optional unless marked. Fields are grouped by what they do. Unkno
 
 ### 3.4 The data card (section 7)
 
-`data`, `tiles`, `key`, `delta`, `dataTitle`, `tool`, `visual` (+ `cols`, `asc`, `rowHead`, `note`, `vs`, `foot`, `calm`, `of`, `scale`), `compare`, `whatIf`, `procedure` (7.4); opt-in: `wave`, `waveMax`, `focusRow` (7.3); opt-in teaching features (7.5): `hold`, `tool: { kind: 'criteria' }`, `question`, `hvpgResp`, `clock`; `caseQ` (section 14).
+`data`, `tiles`, `key`, `delta`, `dataTitle`, `tool`, `visual` (+ `cols`, `asc`, `rowHead`, `note`, `vs`, `foot`, `calm`, `of`, `scale`), `compare`, `whatIf`, `procedure` (7.4); opt-in: `wave`, `waveMax`, `focusRow` (7.3); opt-in teaching features (7.5): `hold`, `tool: { kind: 'criteria' }`, `question`, `hvpgResp`; `caseQ` (section 14).
 
 ### Slide order and carry-over
 
@@ -590,16 +590,6 @@ catheter and the equation only, with no tiles.)
 distal esophagus at the varix's size now, with Small, Large or No varices under it. In a time-lapse the picture swells with the days, each
 step eased from the one before. It counts as a tile, so a slide whose only other tiles are its chart's own two lines still stacks and its
 handle opens the view. Used on Varices 3.
-
-#### The bleed clock: `clock`
-
-The bleed decks' timings are their most-tested facts, so a tiles slide can show where the case stands on them. `clock: { at: 10,
-label: 'Scope by 12 h' }` adds one tile under the slide's tiles, **Since the bleed**: the hours (`at`, 0 to 72) as its number, the
-label as its word, and a tile's own bar from 0 to 72 hours with marks at 12 (the scope, Baveno VIII 5.18) and 72 (a pre-emptive
-TIPS, 5.31). The dot eases along the bar from one slide to the next. The hours are the clinical timeline the slide's words give, not
-the model's clock, which runs faster; never let them run backward through a deck (the test checks). Keep the label short, a few
-words ("Drugs at once", "TIPS by 72 h"). Beside an instrument on a Mac the tile runs the card's full width under the two. Used on
-Variceal bleed 3 to 8, Gastric varices 5 and Choose the treatment 2.
 
 ## 8. Catalogue
 

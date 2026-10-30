@@ -199,22 +199,10 @@ test('HVPG response tile: hvpgResp adds a live percent fall in the HVPG from a n
   assert.match(p, /ui\.tiles\.set\(respFp\(s, f\)/);
 });
 
-test('bleed clock: clock on a tiles slide shows the hours since the bleed on a tile\'s own bar, 0 to 72 with the 12 and 72 hour marks', () => {
-  const used = slidesUsing('clock');
-  assert.ok(used.length >= 6, 'Variceal bleed 3 to 7, Gastric varices 5 (off the pre-emptive TIPS slides, his 30 Oct: Variceal bleed 8, Choose the treatment 2)');
-  for (const [d, s] of used) {
-    const at = `${d.id}/${s.id}`;
-    assert.ok(adopted(d, s, 'clock'), `${at}: opt-in (tests/deck-adopted.js)`);
-    assert.equal(s.data, 'tiles', `${at}: in the data card, under the tiles`);
-    assert.ok(Number.isFinite(s.clock.at) && s.clock.at >= 0 && s.clock.at <= 72, `${at}: a moment within 72 hours`);
-    assert.ok(s.clock.label.length <= 22 && s.clock.label.split(' ').length <= 5, `${at}: a short word for the tile, "${s.clock.label}"`);
-  }
-  // The clock never runs backward through a deck.
-  for (const d of DECKS) { let t = -1; for (const s of d.slides) if (s.clock) { assert.ok(s.clock.at >= t, `${d.id}/${s.id}: later than the slide before`); t = s.clock.at; } }
-  const p = src('presenter.js');
-  assert.match(p, /export const CLOCK_END = 72, CLOCK_MARKS = \[12, 72\];/);
-  assert.match(p, /ui\.clock\.set\(s\.data \? s\.clock : null\);/);
-  assert.match(css, /\.pz-clock \.pzb-now \{ transition: left \.6s var\(--ease\)/, 'the dot eases to the slide\'s moment');
+test('no Since the bleed tile (his 30 Oct, "I kinda hate the time since bleed tile and it should go"): no slide sets clock, the card has no clock row', () => {
+  assert.deepEqual(slidesUsing('clock').map(([d, s]) => `${d.id}/${s.id}`), []);
+  assert.doesNotMatch(src('presenter.js'), /Since the bleed|pz-clockrow|bleedClock/);
+  assert.doesNotMatch(css, /\.pz-clock/);
 });
 
 test('a slide that cannot land is not rebuilt without end (Variceal bleed 3 to 4 froze the talk, 25 Oct)', () => {

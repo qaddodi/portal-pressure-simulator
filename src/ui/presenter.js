@@ -25,11 +25,11 @@ import { isCamOn, unionBox, regionBox, growBox, camNames } from './cam-frame.js?
 import { NODE_POS } from './anatomy.js?v=97811cb4dd';
 import { DISEASE_SRC, diseasePieces } from './diseases.js?v=fb8a5451c3';
 import { nb, listCase, plateletText } from './glue.js?v=5a0f63226b';
-import { DECKS, DECK_ALIAS, REGIONS, LEVELS, TOPICS, withOverview, siteTag, SITE_TAGS } from './decks.js?v=8614437248';
+import { DECKS, DECK_ALIAS, REGIONS, LEVELS, TOPICS, withOverview, siteTag, SITE_TAGS } from './decks.js?v=94fa362cec';
 import { fingerprintOf } from '../engine/fingerprint.js?v=ca81723393';
 import { createHvpgMonitor } from './hvpg-proc.js?v=758ab0b150';
-import { createTools } from './presenter-tools.js?v=438f3509b1';
-import { openHandout } from './handout.js?v=5f7c40d242';
+import { createTools } from './presenter-tools.js?v=fc7825539e';
+import { openHandout } from './handout.js?v=5aa72be403';
 import { noteResume, resumeFor } from './resume.js?v=f086f80ee8';
 import { parseDeckSource, checkDeck } from './deck-source.js?v=8395c650cd';
 import { NO_ASC, TILE, cutText, tileOf, SCALE, bandsOf, rateOf, COLS, CUT, PRESS, fpv, dirAbs, dirRel, rateAbs, effOf, rateShown, tileShown, tipsGoal, liveSettled, shownSig } from './table-marks.js?v=bca5ebb624';
@@ -37,12 +37,12 @@ import { frameFor, cancelFrame } from './frame.js?v=c868718bdd';
 import { createFigureKey } from './figure-key.js?v=fd5b5c6ed6';
 import { traceWhen } from './trace-labels.js?v=fc916a95c6';
 import { flowCss, heatCss, dropCss, gradientCss, oxygenCss } from './colormap.js?v=64a49af74c';
-import { EXT, expandIds, stepExtra, markLabel, figureHooks, safe } from './slide-ext.js?v=be7972beca';
+import { EXT, expandIds, stepExtra, markLabel, figureHooks, safe } from './slide-ext.js?v=d0de1745b3';
 import { clotWords } from './callout-math.js?v=50f20e0fe1';
 import { citeText, focusOf, oneLadder } from './teach-extras.js?v=5f5248f5a7';
 import { createProfileTool, createProfileStrip, pillReadings, chartScale } from './tool-profile.js?v=e4c86ac39a';
 import { causeFit } from './cause-fit.js?v=830a6835a5';
-import { anchorsOf, roomFor } from './cam-room.js?v=b7f849f588';
+import { anchorsOf, roomFor } from './cam-room.js?v=dc3e7e8d99';
 import { beatCount, beatView } from './slide-beats.js?v=2aded612c4';
 import { COMPACT, WIDE } from './card-type.js?v=5af5f22935';
 import { flowTimeHeight, trailKeys } from './flow-time.js?v=b13799c106';
@@ -508,34 +508,6 @@ function railBlock() {
 }
 /** Big number tiles, each rated; set() counts to the new values. Given ref (an earlier state's numbers), each
  *  tile also says how far it moved from there, green when it went the better way (and plain within normal). */
-// The bleed clock (slide field clock, card C6, 25 Oct): one more tile under the slide's tiles, the hours since the bleed on the
-// clinical timeline the slide's words give (not the model's clock, which runs faster), on a tile's own bar from 0 to 72 hours with
-// the guideline's marks: the scope within 12 hours, a pre-emptive TIPS within 72 (Baveno VIII 5.18, 5.31). The slide's moment is the
-// tile's dot, which eases along the bar from slide to slide; its word says what is due then.
-//   clock: { at: 10, label: 'Scope by 12 h' }
-export const CLOCK_END = 72, CLOCK_MARKS = [12, 72];
-export const clockOk = (c) => !!c && Number.isFinite(c.at) && c.at >= 0 && c.at <= CLOCK_END && typeof c.label === 'string' && !!c.label.trim();
-function bleedClock() {
-  const v = h('span', { class: 'pzt-v' }), r = h('span', { class: 'pzt-r' }), now = h('i', { class: 'pzb-now' });
-  const pc = (x) => (x / CLOCK_END) * 100;
-  const bar = h('span', { class: 'pzt-bar', 'aria-hidden': 'true' }, h('span', { class: 'pzb-track' }, h('span', { class: 'pzb-zs' }), CLOCK_MARKS.map((x) => h('i', { class: 'pzb-t', style: `left:${pc(x)}%` })), now),
-    CLOCK_MARKS.map((x) => h('span', { class: 'pzb-l', style: `left:${pc(x)}%` }, String(x))));
-  const tile = h('div', { class: 'pz-tile scaled pz-clock' }, h('span', { class: 'pzt-k', 'data-s': 'Clock' }, 'Since the bleed'), h('span', { class: 'pzt-vu' }, v, h('small', {}, 'h')), r, bar);
-  const el = h('div', { class: 'pz-tiles pz-clockrow', 'data-n': '1', hidden: true }, tile);
-  return {
-    el,
-    set(c) {
-      const on = clockOk(c);
-      el.hidden = !on;
-      if (!on) return;
-      const t = fmt(c.at, c.at % 1 ? 1 : 0), w = pc(c.at);
-      if (v.textContent !== t) v.textContent = t;
-      if (r.textContent !== c.label.trim()) r.textContent = c.label.trim();
-      tile.setAttribute('aria-label', `${t} hours since the bleed: ${c.label.trim()}`);
-      if (now._w !== w) { now._w = w; now.style.left = `clamp(6px, ${w}%, calc(100% - 6px))`; }
-    },
-  };
-}
 function bigTiles() {
   const el = h('div', { class: 'pz-tiles' });
   let sig = '', parts = [], draw = null, goal = false;
@@ -2268,7 +2240,6 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       // work each frame of it, and was over before they came in.)
       const ms = fresh || (bare && ui.root.classList.contains('pz-prep')) ? 0 : undefined;
       if (s.data) ui.tiles.set(respFp(s, now.fp), tileKeys(s), s.key || [], refOf(s, i), ms, now.params?.tips?.on);
-      ui.clock.set(s.data ? s.clock : null);
       ui.tools.pin(now.fp);
       if (data.hidden) { data.hidden = false; data.classList.add('pz-hide'); void data.offsetWidth; }
       if (!ui.root.classList.contains('pz-prep')) data.classList.remove('pz-hide');   // (else once fitted: settle)
@@ -2742,7 +2713,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     const was = parts.map((c) => c.style.cssText), cap = d.style.maxHeight;
     d.style.maxHeight = 'none';
     parts[0].style.marginTop = wideSheet(d) ? '16px' : '14px';   // (out: styles/app.css)
-    // (A part after the first rides under it with no travel of its own: the bleed clock's row. Measured with the card's --pz-d in its
+    // (A part after the first rides under it with no travel of its own: the bleed clock's row, removed 30 Oct. Measured with the card's --pz-d in its
     // margin, the travel read back changed the travel, every write of --pz-d told the watcher again, and the page froze: Variceal bleed 3 to 4.)
     for (const c of parts.slice(1)) c.style.marginTop = '0px';
     const h1 = hh(), z = (parseFloat(getComputedStyle(parts[0]).zoom) || 1) * kw;
@@ -4562,7 +4533,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
 
   // ── Start and stop ──
   function build() {
-    const tiles = bigTiles(), clock = bleedClock();
+    const tiles = bigTiles();
     const text = h('section', { class: 'pz-text stage-blocker' });
     const dhT = h('span', {}, 'The patient');
     const tools = createTools({ host, stage });
@@ -4626,7 +4597,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       else setFold(true);
     } });
     const data = h('section', { class: 'pz-data stage-blocker pz-hide', 'data-safe': 'right', 'data-safe-rest': '', 'data-safe-waits': '', 'data-gone': '', hidden: true, 'aria-label': 'The numbers' },
-      h('div', { class: 'pz-dh' }, dhT, fold, zbtn), tools.el, tiles.el, clock.el, h('span', { class: 'pz-grip', 'aria-hidden': 'true' }));
+      h('div', { class: 'pz-dh' }, dhT, fold, zbtn), tools.el, tiles.el, h('span', { class: 'pz-grip', 'aria-hidden': 'true' }));
     const foldHs = foldTouch(data, fold, setFold, partOf, (on) => { if (on) { clearTimeout(foldT); data.dataset.folding = ''; } else foldT = setTimeout(foldStill, reduce.matches ? 0 : 450); }, lip);
     const dockHs = dockTouch(data, lip);
     const cardTouch = [foldHs, dockHs];   // (fold first: it stops the dock drag when it takes a move, as on the card)
@@ -4690,7 +4661,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     wrap.append(root);
     // (It comes in with the teaching card, in the card's own fade, once the card is fitted (pz-prep gone), and leaves with it.)
     const figKey = createFigureKey({ el: fk, app, watch: [text, root], ready: () => !text.hidden && !text.classList.contains('pz-leave') && !root.classList.contains('pz-prep') });
-    return { root, shade, safe, load, text, data, clock, lip, lipRO, lipMO, cardTouch, setFold, zoom, zbtn, pscrim, partOf, vcase, fk, figKey, dhT, tiles, tools, veil, panel, prog, scl, bar, black: blackEl, jump, say };
+    return { root, shade, safe, load, text, data, lip, lipRO, lipMO, cardTouch, setFold, zoom, zbtn, pscrim, partOf, vcase, fk, figKey, dhT, tiles, tools, veil, panel, prog, scl, bar, black: blackEl, jump, say };
   }
   // The start's cover (see start). While it is up (booting) the camera cuts instead of gliding.
   let cover = null, booting = false, coverT = 0, noCase = false;   // (noCase: the slide a start lands on, a reload's included, does not play its case card)

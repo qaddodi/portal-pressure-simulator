@@ -6909,11 +6909,6 @@ html.thumb-ui .menu.from-dock { clip-path: inset(-64px -64px calc(var(--sink, 0p
 /* A case card's own question (slide caseQ): the case's type and size, on a line of its own under it, in the accent so it reads as the ask. */
 .pz-case-q { margin-top: .55em; }
 
-/* The bleed clock (slide field clock, presenter.js bleedClock): one tile of its own under the slide's tiles, a tile's own bar from 0
-   to 72 hours, its dot easing to the slide's moment. Beside an instrument it runs the card's full width under the two. */
-.pz:not(.stack):not(.low) .pz-data.pz-beside > .pz-tiles.pz-clockrow:not([data-n="0"]) { grid-column: 1 / -1; grid-row: 3; }
-.pz-clockrow[hidden] { display: none; }
-.pz-clock .pzb-now { transition: left .6s var(--ease), background-color .4s var(--ease); }
 
 /* The endoscopic view in the readings card (scope-tile.js): a round picture with its name over it and what it shows under it. The tile
    keeps one size whatever the varix does, so the card never changes height as the varices swell. */

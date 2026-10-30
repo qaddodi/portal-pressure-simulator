@@ -37,7 +37,7 @@ export const GASTRIC = {
       ask: ['Into which vein does a gastrorenal shunt drain?', 'The left renal vein.'],
     },
     {
-      id: 'bleed', clock: { at: 6, label: 'Scope by 12 h' }, params: { respiration: false, drugs: { carvedilol: true } }, action: { kind: 'rupture', site: 'GV', tear: 0.4 }, cam: 'fundus', mark: { edges: ['C2'], label: 'Bleeding fundal varix' }, tool: BEATS, data: 'tiles', tiles: ['hr', 'map'], key: ['map'], delta: true,
+      id: 'bleed', params: { respiration: false, drugs: { carvedilol: true } }, action: { kind: 'rupture', site: 'GV', tear: 0.4 }, cam: 'fundus', mark: { edges: ['C2'], label: 'Bleeding fundal varix' }, tool: BEATS, data: 'tiles', tiles: ['hr', 'map'], key: ['map'], delta: true,
       kicker: 'After a bleed', site: 'sin', title: 'A fundal varix bleeds',
       line: 'The first hours follow any variceal bleed: octreotide, ceftriaxone, restrictive transfusion, a scope within 12 hours. Carvedilol blunts the heart rate at {hr} while the blood pressure falls to {map}.',
       notes: 'Source: Baveno VIII 5.39; AASLD 43, 44. Baveno VIII calls a bleed from GOV2 or IGV1 a high-risk event that needs a team: one phase stops the bleeding, the other gives lasting control, and the two start in parallel or as close together as possible. Hold the beta-blocker while the bleed is active. AASLD adds contrast CT or MRI to map the shunts and look for a clot, which guides the choice of treatment. If the first measures fail, a gastric balloon (Linton–Nachlas or the gastric balloon of a Minnesota tube) bridges to definitive treatment. The strip over the pressures is a schematic rhythm timed to the model\'s heartbeat, not a modelled ECG.',
