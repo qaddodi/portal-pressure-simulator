@@ -158,7 +158,7 @@ test('Pinch frame reuse: off, the one-pass frame is as before; on, only while a 
   assert.match(fn, /this\.composite\(look, blood, true\);\n\s+if \(reuseEvery && reuseOn\) \{ reuseKeep\(m\); reuseN = 1; \} else rz\.m = null;\n\s+return;/);
   assert.match(fn, /\n\s+rz\.m = null;\n\s+\/\/ \(For the \?perf readout/, 'any other picture: nothing kept to reuse');
   // Off, the one-pass branch's own lines are unchanged.
-  assert.match(fn, /if \(!stale\) \{ gl\.bindFramebuffer\(gl\.FRAMEBUFFER, fbo\); gl\.viewport\(0, 0, fboW, fboH\); gl\.disable\(gl\.SCISSOR_TEST\); clearLayer\(\); stale = true; \}\n\s+baseM = m; drawnLook = lk; tubesNew = false; radRows\.clear\(\); drawnNow\(\);\n\s+fboOK = false;\n\s+gl\.bindFramebuffer\(gl\.FRAMEBUFFER, null\);\n\s+fusing = true;/);
+  assert.match(fn, /if \(!stale\) \{ gl\.bindFramebuffer\(gl\.FRAMEBUFFER, fbo\); gl\.viewport\(0, 0, fboW, fboH\); gl\.disable\(gl\.SCISSOR_TEST\); clearLayer\(\); stale = true; \}\n\s+baseM = m; drawnLook = lk; tubesNew = false; clearMarks\(\); drawnNow\(\);\n\s+fboOK = false;\n\s+gl\.bindFramebuffer\(gl\.FRAMEBUFFER, null\);\n\s+fusing = true;/);
   const rd = v.slice(v.indexOf('  function reuseDraw(m) {'), v.indexOf('  // The composite\'s textures, each on its unit'));
   assert.match(rd, /if \(!rz\.m \|\| rz\.w !== PW\(\) \|\| rz\.h !== PH\(\)\) return false;/);
   assert.match(rd, /if \(!reuseCovers\(k, rz\.w, rz\.h\)\) return false;/);

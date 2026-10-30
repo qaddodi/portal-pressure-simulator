@@ -35,7 +35,7 @@ import { CHEV_GLSL } from './chevron-glsl.js?v=96ec7c6666';
 import { SLOT, DYE_BINS } from './blood.js?v=300b3b5267';
 import { cssRGB } from './util.js?v=f338042275';
 import { LUMEN, STO_Y0, STO_DY, STO_N } from './stomach-lumen.js?v=dfcc262e2a';
-import { CELL, ENT_W, binVeins, splitRows, simpleCells, splitCells } from './veins-bin.js?v=5086ab2d02';
+import { CELL, ENT_W, binVeins, splitRows, simpleCells, splitCells, cellsOfJoinEntries } from './veins-bin.js?v=d8d72f1157';
 import { gpuProbe, COUNTED } from './gpu-probe.js?v=b9f4077160';
 import { changedRows } from './flow-rows.js?v=bea4089714';
 import { leftAlone } from './quiet.js?v=82fc0f97e3';
@@ -2148,6 +2148,9 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false }) {
   let cellsCPU = null, entCPU = null, rowCells = null, bloodCPU = null;
   // The rows whose radii changed since the layer was last drawn: a partial redraw has to include them all.
   const radRows = new Set();
+  // The cells holding join entries a geometry patch wrote again (patchGeometry): drawn again whole with the next partial draw or pan.
+  let patchMark = null, patchK = 0;
+  const clearMarks = () => { radRows.clear(); patchMark = null; patchK = 0; };
   let rowsStatus = '';
   const radCovered = (rows) => !radRows.size || (!!rows && [...radRows].every((r) => rows.includes(r)));
   // Every vessel's attributes as last sent (tubeNow) and as the layer shows them (tubeDrawn: copied at each draw, whole or
@@ -2160,6 +2163,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false }) {
   function rowParts(rows) {
     const { shape, tint } = splitRows(rows, tubeNow, tubeDrawn, ROW_W, radRows);
     const part = cellsOfRows(shape);
+    if (patchK) for (let c = 0; c < nCells; c++) if (patchMark[c] && !part.mark[c]) { part.mark[c] = 1; part.k++; }
     return { part, tintPart: cellsOfRows(tint, part.mark) };
   }
   // The marked cells' quads, for partVAO (the general program's) and partSVAO (the one-vessel build's).
@@ -2546,7 +2550,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false }) {
       gl.bufferData(gl.ARRAY_BUFFER, bl, gl.STATIC_DRAW);
       nBlood = q ? bins.nBloodQ : bins.blood ? bins.nBlood : bins.nCells;
       bloodCPU = bl;
-      cellsCPU = bins.cells; entCPU = bins.ent; rowCells = null; fboOK = false; movedAll = true;
+      cellsCPU = bins.cells; entCPU = bins.ent; rowCells = null; fboOK = false; movedAll = true; patchMark = null; patchK = 0;
     },
     /**
      * Uploads a binning patched in place (binVeins' `patch`: the spans of rows [r0, r1] of the entries that changed; the
@@ -2556,12 +2560,19 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false }) {
       figVer++;
       gl.bindTexture(gl.TEXTURE_2D, entTex);
       for (const [r0, r1] of bins.patch) gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, r0, ENT_W, r1 - r0 + 1, gl.RGBA, gl.FLOAT, bins.ent.subarray(r0 * ENT_W * 4, (r1 + 1) * ENT_W * 4));
-      // A patch that moved only vessels' points, no join: each in the same cells, with the same segments and blood cells (binVeins), so
-      // only the pixels of the cells that list them can change, as with a change of their radii. They are marked so: drawRows (and a
-      // pan's shift) may redraw those cells alone, and must be given those rows. A coiling collateral had made every frame of its coil
-      // a whole redraw of the vessel layer (his Mac readouts, 30 Oct). A patch with a join in it keeps the whole redraw.
-      if (bins.patchTubes && !bins.patchJoins) for (const r of bins.patchTubes) { radRows.add(r); moved[r] = 1; }
-      else { fboOK = false; movedAll = true; }
+      // A patch keeps every cell and its list as they were (binVeins): only entries' values changed, and a cell is drawn from its own
+      // list alone, so only the cells listing a moved vessel or holding a join entry written again can change. They are marked: the
+      // moved vessels as a change of their radii is (drawRows, and a pan's shift, must be given those rows), the joins' cells to be
+      // drawn again whole with them (patchMark), and the joins' members as moved (the blood's own pass). A coiling collateral had made
+      // every frame of its coil a whole redraw of the vessel layer: with no join (a01bbff9), and then with its joins too, which ease
+      // with the widths (his Mac readouts on the catheter slide, 30 Oct: every frame "no kept layer").
+      if (bins.patchTubes && bins.cells === cellsCPU && bins.ent === entCPU) {
+        for (const r of bins.patchTubes) { radRows.add(r); moved[r] = 1; }
+        if (bins.patchJoinEnts?.length) {
+          patchK += cellsOfJoinEntries(cellsCPU, nCells, bins.patchJoinEnts, patchMark ||= new Uint8Array(nCells)).k;
+          for (const r of bins.patchRows || []) if (r >= 0 && r < nTubes) moved[r] = 1;
+        }
+      } else { fboOK = false; movedAll = true; }
     },
     /** A vessel's lumen radius at each of its N_SAMPLES samples. */
     setRadii(row, r) {
@@ -2744,13 +2755,13 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false }) {
       // them all; the moved layer then has their cells drawn again too (a model playing while the figure is dragged).
       let parts = null;
       const panAt = fboOK && radCovered(rows) && lk === drawnLook && (dx || dy) && Math.abs(dx) < fboW / 2 && Math.abs(dy) < fboH / 2 && m.slice(0, 4).every((v, i) => v === baseM[i]);
-      if (panAt && rows?.length) { parts = rowParts(rows); if (parts.part.k > nCells * 0.6) parts = null; }
-      const pan = panAt && (!(tubesNew || radRows.size) || parts);
+      if (panAt && (rows?.length || patchK)) { parts = rowParts(rows || []); if (parts.part.k > nCells * 0.6) parts = null; }
+      const pan = panAt && (!(tubesNew || radRows.size || patchK) || parts);
       // (Vessels lower while pinching, when on and Pinch frame reuse is off: a zoom frame under a hand draws the layer lower: lowPass.)
       if (lowK && lowOn && !reuseEvery && !pan && baseM && m.slice(0, 4).some((v, i) => v !== baseM[i]) && !gpuProbe.skipGL && !lost) {
         if (gpuProbe.on) gpuProbe.note('vessels: lower');
         lowPass(m, look);
-        baseM = m; drawnLook = lk; tubesNew = false; radRows.clear(); drawnNow();
+        baseM = m; drawnLook = lk; tubesNew = false; clearMarks(); drawnNow();
         fboOK = false; stale = false; soft = true; rz.m = null;
         gl.bindFramebuffer(gl.FRAMEBUFFER, null);
         this.composite(look, blood, true);
@@ -2768,7 +2779,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false }) {
         }
         if (gpuProbe.on) gpuProbe.note('vessels: one pass');
         if (!stale) { gl.bindFramebuffer(gl.FRAMEBUFFER, fbo); gl.viewport(0, 0, fboW, fboH); gl.disable(gl.SCISSOR_TEST); clearLayer(); stale = true; }
-        baseM = m; drawnLook = lk; tubesNew = false; radRows.clear(); drawnNow();
+        baseM = m; drawnLook = lk; tubesNew = false; clearMarks(); drawnNow();
         fboOK = false;
         gl.bindFramebuffer(gl.FRAMEBUFFER, null);
         fusing = true;
@@ -2793,7 +2804,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false }) {
         clearLayer();
         vesselPass(m, look, [vao, nGen], [oneVAO, nSimple]);
       }
-      baseM = m; drawnLook = lk; tubesNew = false; radRows.clear(); drawnNow();
+      baseM = m; drawnLook = lk; tubesNew = false; clearMarks(); drawnNow();
       fboOK = true; stale = false;
       if (gpuProbe.on) gpuProbe.gauge('vessel cells, one-vessel program', simpleP ? `${nSimple} of ${nCells}` : 'off');
       gl.bindFramebuffer(gl.FRAMEBUFFER, null);
@@ -2823,7 +2834,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false }) {
       const { part, tintPart } = rowParts(rows);
       if (part.k > nCells * 0.6) return refuse('most cells');
       rowsStatus = 'drawn';
-      tubesNew = false; radRows.clear();
+      tubesNew = false; clearMarks();
       if (gpuProbe.on) gpuProbe.note(COUNTED.rows);
       cellsPass(m, look, part);
       tintPass(m, look, tintPart);

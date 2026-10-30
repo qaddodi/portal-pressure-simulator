@@ -48,7 +48,7 @@ test('the geometry is not rebuilt while nothing about it changed', () => {
 test('the figure uploads the vessel geometry only when binning gave a new result', async () => {
   const { readFileSync } = await import('node:fs');
   const stage = readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8');
-  assert.match(stage, /binVeins\([^;]*, binMemo\);\s*\n(?:\s*\/\/.*\n)*\s*let patched = null;\s*if \(bins !== binShown\) \{\s*if \(bins\.patch && binShown\?\.ent === bins\.ent\) \{ veins\.patchGeometry\(bins\); if \(bins\.patchTubes && !bins\.patchJoins\) patched = bins\.patchTubes; \} else veins\.setGeometry\(bins\);\s*binShown = bins;\s*\}/);
+  assert.match(stage, /binVeins\([^;]*, binMemo\);\s*\n(?:\s*\/\/.*\n)*\s*let patched = null;\s*if \(bins !== binShown\) \{\s*if \(bins\.patch && binShown\?\.ent === bins\.ent\) \{ veins\.patchGeometry\(bins\); if \(bins\.patchRows\) patched = bins\.patchRows; \} else veins\.setGeometry\(bins\);\s*binShown = bins;\s*\}/);
 });
 
 // A coiling collateral on the catheter slide: each coil step was a whole redraw of the vessel layer (his Mac readouts, 30 Oct). A patch
@@ -73,21 +73,69 @@ test('a coil patch names the vessels it moved, and every entry it changed lies i
     assert.ok(ok, `entry ${e} changed outside the moved vessels' cells`);
   }
   assert.ok(changed > 0);
-  // A join written again: named, so the figure keeps the whole redraw.
+  // A join written again: its entries named, and its members among the rows the figure names to its next draw.
   const j = scene(0.5006);
   j.joins[0].k = 0.55;
   const rj = binVeins(j.tubes, j.joins, memo);
   assert.ok(rj.patch && rj.patchJoins === 1 && rj.patchTubes.length === 0);
+  assert.ok(rj.patchJoinEnts.length > 0);
+  assert.deepEqual([...rj.patchRows].sort(), [0, 1]);
 });
 
-test('the renderer keeps its vessel layer for a patch of points alone, and the figure names those rows to the next draw', () => {
+// The catheter slide (his Mac readout on f6a1c24, 30 Oct): its collaterals' joins ease with the widths, so nearly every coil step wrote
+// a join again too, and each was a whole redraw ("no kept layer" in every frame). The cells a patch can change are now the moved
+// vessels' cells and the cells holding the join entries it wrote: every entry that changed is in one of them.
+test('every entry a patch changes, a join\'s included, lies in a moved vessel\'s cell or a cell marked for its joins', async () => {
+  const { cellsOfJoinEntries } = await import('../src/ui/veins-bin.js');
+  const memo = new Map();
+  const a = binVeins(scene(0.5).tubes, scene(0.5).joins, memo);
+  const ent0 = Float32Array.from(a.ent);
+  const j = scene(0.5006);
+  j.joins[0].k = 0.47;
+  const r = binVeins(j.tubes, j.joins, memo);
+  assert.ok(r.patch && r.ent === a.ent && r.patchJoins === 1 && r.patchTubes.length === 1);
+  const { mark, k } = cellsOfJoinEntries(r.cells, r.nCells, r.patchJoinEnts);
+  // (By brute force: the cells whose join part holds an entry.)
+  const want = new Set();
+  for (const e of r.patchJoinEnts) for (let c = 0; c < r.nCells; c++) if (e >= r.cells[c * 6 + 4] && e < r.cells[c * 6 + 4] + r.cells[c * 6 + 5]) want.add(c);
+  assert.deepEqual([...mark.keys()].filter((c) => mark[c]), [...want].sort((x, y) => x - y));
+  assert.equal(k, want.size);
+  assert.ok(k > 0);
+  const lists = (c, id) => { for (let e = r.cells[c * 6 + 2], e1 = e + r.cells[c * 6 + 3]; e < e1; e++) if (r.ent[e * 8 + 4] === id) return true; return false; };
+  let changed = 0;
+  for (let e = 0; e < r.nEnt; e++) {
+    let diff = false;
+    for (let f = 0; f < 8; f++) if (!Object.is(ent0[e * 8 + f], r.ent[e * 8 + f])) diff = true;
+    if (!diff) continue;
+    changed++;
+    let ok = false;
+    for (let c = 0; c < r.nCells && !ok; c++) {
+      const inSegs = e >= r.cells[c * 6 + 2] && e < r.cells[c * 6 + 2] + r.cells[c * 6 + 3], inJoins = e >= r.cells[c * 6 + 4] && e < r.cells[c * 6 + 4] + r.cells[c * 6 + 5];
+      if ((inSegs && r.patchTubes.some((id) => lists(c, id))) || (inJoins && mark[c])) ok = true;
+    }
+    assert.ok(ok, `entry ${e} changed outside the cells marked`);
+  }
+  assert.ok(changed > 0);
+  // Several entries, a mark already holding some: only the new ones are counted.
+  const again = cellsOfJoinEntries(r.cells, r.nCells, r.patchJoinEnts, mark);
+  assert.equal(again.k, 0);
+});
+
+test('the renderer keeps its vessel layer for a geometry patch, and the figure names its rows to the next draw', () => {
   const gl = readFileSync(new URL('../src/ui/veins-gl.js', import.meta.url), 'utf8');
   const body = gl.slice(gl.indexOf('patchGeometry(bins) {'), gl.indexOf('/** A vessel\'s lumen radius'));
   assert.match(body, /figVer\+\+;/);
-  assert.match(body, /if \(bins\.patchTubes && !bins\.patchJoins\) for \(const r of bins\.patchTubes\) \{ radRows\.add\(r\); moved\[r\] = 1; \}\s*else \{ fboOK = false; movedAll = true; \}/);
-  // (radRows: a partial draw or a pan's shift is refused unless it is given every one of those rows: radCovered.)
+  assert.match(body, /if \(bins\.patchTubes && bins\.cells === cellsCPU && bins\.ent === entCPU\) \{\s*for \(const r of bins\.patchTubes\) \{ radRows\.add\(r\); moved\[r\] = 1; \}/);
+  assert.match(body, /patchK \+= cellsOfJoinEntries\(cellsCPU, nCells, bins\.patchJoinEnts, patchMark \|\|= new Uint8Array\(nCells\)\)\.k;/);
+  assert.match(body, /\} else \{ fboOK = false; movedAll = true; \}/);
+  // (radRows: a partial draw or a pan's shift is refused unless it is given every one of those rows: radCovered. The joins' cells go
+  // with the cells drawn again (rowParts), a pan takes them too, and every draw that lets go of radRows lets go of them.)
   assert.match(gl, /if \(!radCovered\(rows\)\) return refuse\('radii not listed'\);/);
   assert.match(gl, /const panAt = fboOK && radCovered\(rows\)/);
+  assert.match(gl, /if \(patchK\) for \(let c = 0; c < nCells; c\+\+\) if \(patchMark\[c\] && !part\.mark\[c\]\) \{ part\.mark\[c\] = 1; part\.k\+\+; \}/);
+  assert.match(gl, /const pan = panAt && \(!\(tubesNew \|\| radRows\.size \|\| patchK\) \|\| parts\);/);
+  assert.doesNotMatch(gl, /radRows\.clear\(\)(?!; patchMark = null)/, 'every let-go of radRows lets go of the joins\' cells');
+  assert.match(gl, /movedAll = true; patchMark = null; patchK = 0;/, 'a whole binning drops them');
   const stage = readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8');
   assert.match(stage, /if \(patched\) for \(const r of patched\) veinsRows\.add\(r\);\s*else tubesNew = true;/);
   // (Rows waiting keep the loop from sleeping, as a dirty layer does, and a hidden page draws them as it draws a dirty layer.)

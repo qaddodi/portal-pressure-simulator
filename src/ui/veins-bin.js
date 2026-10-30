@@ -139,9 +139,15 @@ export function binVeins(tubes, joins, memo = null) {
     for (const ji of jMoved) for (const e of js[ji]) { writeJoin(ent, e, joins[ji]); mark(e); }
     const rs = [...rowsOf].sort((a, b) => a - b), patch = [];
     for (const r of rs) { if (patch.length && patch[patch.length - 1][1] === r - 1) patch[patch.length - 1][1] = r; else patch.push([r, r]); }
-    // (patchTubes: the vessels whose points moved, by id; patchJoins: how many joins were written again. With no join, every pixel
-    // that can change is in a cell that lists one of those vessels: veins-gl patchGeometry.)
-    const out = { ...memo.last, patch, patchTubes: moved.map((ti) => tubes[ti].id), patchJoins: jMoved.length };
+    // (patchTubes: the vessels whose points moved, by id; patchJoins: how many joins were written again, and patchJoinEnts their
+    // entries. Every pixel that can change is in a cell that lists one of those vessels or holds one of those entries: a cell is
+    // drawn from its own list alone. veins-gl patchGeometry.)
+    const patchJoinEnts = [];
+    for (const ji of jMoved) patchJoinEnts.push(...js[ji]);
+    // (patchRows: those vessels and the joins' members, the rows the figure names to its next draw so that one is made.)
+    const patchTubes = moved.map((ti) => tubes[ti].id), patchRows = new Set(patchTubes);
+    for (const ji of jMoved) { for (const r of joins[ji].members) patchRows.add(r); if (joins[ji].trunk != null) patchRows.add(joins[ji].trunk); }
+    const out = { ...memo.last, patch, patchTubes, patchJoins: jMoved.length, patchJoinEnts, patchRows: [...patchRows] };
     memo.last = out; memo.jv = jv;
     return out;
   }
@@ -235,6 +241,23 @@ export function binVeins(tubes, joins, memo = null) {
     memo.place = { es: tubes.map((_, ti) => entOf.slice(tFrom[ti], tFrom[ti + 1])), hs, js };
   }
   return out;
+}
+
+/**
+ * The cells (binVeins' `cells`, by their index there) whose join lists hold any of the entries `ents`: a mark per cell (Uint8Array)
+ * and how many are marked. A join's entries lie in the join part of a cell's list (first join, count), and those parts follow
+ * one another in the cells' order.
+ */
+export function cellsOfJoinEntries(cells, nCells, ents, mark = new Uint8Array(nCells)) {
+  let k = 0;
+  for (const e of ents) {
+    let lo = 0, hi = nCells - 1, c = -1;
+    while (lo <= hi) { const mid = (lo + hi) >> 1; if (cells[mid * 6 + 4] <= e) { c = mid; lo = mid + 1; } else hi = mid - 1; }
+    // (The last cell whose join part starts at or before e: a cell with no join starts where the next one does, so no cell after the
+    // one holding e starts at or before e.)
+    if (c >= 0 && e < cells[c * 6 + 4] + cells[c * 6 + 5] && !mark[c]) { mark[c] = 1; k++; }
+  }
+  return { mark, k };
 }
 
 // ── Cells the simple vessel program can draw ──
