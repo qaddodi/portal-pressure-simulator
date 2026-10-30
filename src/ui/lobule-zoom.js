@@ -32,10 +32,10 @@ import { createTissueGL } from './tissue-gl.js?v=8b86e77a93';
 import { h, s, fmt, clamp, createEaser, systemEdge, bloodColors, cssVar, cssAlpha, cssRGB01 } from './util.js?v=8664598769';
 import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatColor, oxygenColor } from './colormap.js?v=64a49af74c';
 import { NODES, EDGES } from '../engine/topology.js?v=4044766e96';
-import { createVeinsGL, binVeins, laneSum, N_SAMPLES, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_SPEC, F_EDGE, ORIGIN_GREY } from './veins-gl.js?v=209a54f4d5';
+import { createVeinsGL, binVeins, laneSum, N_SAMPLES, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_SPEC, F_EDGE, ORIGIN_GREY } from './veins-gl.js?v=5ff5c30aea';
 import { SLOT, PERIOD, originFractions, ORIGIN_N, DRIFT_PERIOD } from './blood.js?v=96774a5b6a';
-import { createSinusoidView } from './sinusoid-view.js?v=4ab9b82417';
-import { frameFor, cancelFrame, noteDraw, saver, paceMs, renderScale, frame } from './frame.js?v=c868718bdd';
+import { createSinusoidView } from './sinusoid-view.js?v=cac875ced4';
+import { frameFor, cancelFrame, noteDraw, saver, paceMs, renderScale, onRenderScale, frame } from './frame.js?v=c868718bdd';
 import { gpuProbe, COUNTED } from './gpu-probe.js?v=dd12fc216c';
 import { leaderEnd, runInside } from './leader-end.js?v=8e884700ab';
 const nextFrame = frameFor('lobule-zoom');
@@ -640,8 +640,11 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   let F = null, fade = 0, raf = 0, last = 0, lastPaint = 0;
   // Figure resolution: a change is taken up while the lobule is hidden, so the lobule's own picture never changes sharpness on screen
   // (nothing snaps, Mohammad, 30 Oct); one made while it shows applies the next time it opens.
+  // (Taken up as the lobule opens and whenever Settings changes it while hidden. Read only while it shows, the latch never moved
+  // before, so a share chosen once stayed on the lobule after Full was chosen again (Mohammad, 30 Oct: "no resolution drop").)
   let lzK = renderScale();
-  const lzScale = () => (fade > 0 ? lzK : (lzK = renderScale()));
+  const lzScale = () => lzK;
+  onRenderScale(() => { if (fade <= 0) lzK = renderScale(); });
   let geo = null, geoKey = '', model = null;
   // Where each vessel's moving marks are (blood stream, chevrons, lymph drops), kept by tube id so a
   // rebuilt geometry (a resize, the phone's toolbar sliding) carries on from the same place, not a jump.
@@ -3551,6 +3554,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
       // (Drawn ahead in the dive (staged), and still framed the same: nothing more to draw, the loop just starts.)
       // (A copy built for a framing the dive no longer lands on is dropped: the layers are drawn again for the new one below.)
       if (fade > 0 && was === 0 && wide && !(staged && staged === api.viewKey() && model)) dropWide();
+      if (fade > 0 && was === 0) lzK = renderScale();
       if (fade > 0 && was === 0) { flowA = 0; flowT = 0; resetView(); relLater = false; if (staged && staged === api.viewKey() && model) { if (!raf) raf = nextFrame(loop); } else { diveDrawn = false; snapState(); if (F) update(F); } staged = ''; }
       // Leaving the lobule closes a part's card, so it is not waiting next time.
       if (was > 0.98 && fade <= 0.98) { stopInertia(); if (store.get().selection?.type === 'lobule') store.set({ selection: null }); }

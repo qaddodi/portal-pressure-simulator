@@ -49,8 +49,13 @@ test('the anatomy canvas, the lobule and the sinusoid read it; the instruments a
 });
 
 test('the lobule and the sinusoid take a change up only while hidden, so their picture never snaps on screen', () => {
-  assert.match(src('lobule-zoom.js'), /const lzScale = \(\) => \(fade > 0 \? lzK : \(lzK = renderScale\(\)\)\);/);
-  assert.match(src('sinusoid-view.js'), /const svScale = \(\) => \(shown > 0 \? svK : \(svK = renderScale\(\)\)\);/);
+  const lz = src('lobule-zoom.js'), sv = src('sinusoid-view.js');
+  assert.match(lz, /const lzScale = \(\) => lzK;/);
+  assert.match(lz, /onRenderScale\(\(\) => \{ if \(fade <= 0\) lzK = renderScale\(\); \}\);/, 'a change made while hidden is taken up at once');
+  assert.match(lz, /if \(fade > 0 && was === 0\) lzK = renderScale\(\);/, 'and as it opens: never a share from before');
+  assert.match(sv, /const svScale = \(\) => svK;/);
+  assert.match(sv, /onRenderScale\(\(\) => \{ if \(!\(shown > 0\)\) svK = renderScale\(\); \}\);/);
+  assert.match(sv, /if \(opacity > 0 && was <= 0\) \{\n\s*svK = renderScale\(\);/);
 });
 
 test('Auto: 1/zoom past the home framing, in steps down to 10%, changed only once the view settles', () => {
@@ -159,17 +164,15 @@ test('Adapt: one step a move, down when frames ran half again as long as the fas
   assert.equal(run(steady(25), 0.5, 8.3, false)[0], 1, 'off: Full');
 });
 
-test('Glows: the two glow layers at their own share, read filtered; the outlines and Full unchanged', () => {
+test('Glows: under Full the glow lines go to a smaller target and are stretched into the layer; the composite shader is untouched', () => {
   const gl = src('veins-gl.js');
-  assert.match(gl, /if \(glowOn == 1\) pl = over\(pl, texelFetch\(glowL, ip, 0\)\);\n.*\n\s*else if \(glowOn == 2\)/);
-  assert.match(gl, /else if \(warmOn == 2\)/);
-  assert.match(gl, /gl\.uniform1i\(U\.glowOn, glow \? \(layerK < 1 \? 2 : 1\) : 0\)/);
-  assert.match(gl, /const k = L\.k \? layerK : 1/);
-  assert.match(gl, /for \(const L of \[glowLayer, warmLayer\]\) L\.k = 1;/, 'only the glow layers, not the outlines');
-  // (Off, the GL state is as before the setting: the glow textures stay NEAREST; LINEAR only while a share under 1 is chosen.)
-  assert.ok(!/L\.k = 1; gl\.bindTexture/.test(gl), 'no filter change at start-up');
-  assert.match(gl, /if \(\(k < 1\) !== \(layerK < 1\)\) layerFilter\(k < 1 \? gl\.LINEAR : gl\.NEAREST\);/);
-  assert.match(gl, /setLayerScale\(k\) \{[^}]*glowKey = warmKey = '';/);
+  assert.ok(!/glowOn == 2|warmOn == 2|texture\(glowL|texture\(warmL/.test(gl), 'the shader reads the glow layers as it always has');
+  assert.match(gl, /gl\.uniform1i\(U\.glowOn, glow \? 1 : 0\);/);
+  assert.match(gl, /gl\.uniform1i\(U\.warmOn, warm \? 1 : 0\);/);
+  assert.match(gl, /if \(layerK < 1 && L !== lineLayer\) \{ renderLayerLow\(L, m, soft, warm\); return; \}/, 'at Full the layer is drawn as before');
+  assert.match(gl, /gl\.blitFramebuffer\(0, 0, w, h, 0, 0, L\.w, L\.h, gl\.COLOR_BUFFER_BIT, gl\.LINEAR\);/);
+  assert.match(gl, /setLayerScale\(k\) \{[\s\S]*?glowKey = warmKey = '';/);
+  assert.ok(!/TEXTURE_MIN_FILTER, gl\.LINEAR\); gl\.texParameteri\(gl\.TEXTURE_2D, gl\.TEXTURE_MAG_FILTER, gl\.LINEAR\); \}/.test(gl), 'no filter change on the layers');
 });
 
 test('Settings: the four further rows, in the menu a talk shows too', () => {
@@ -183,8 +186,9 @@ test('Auto’s lowest: Auto never goes under the chosen floor (10% unless chosen
   const stage = src('stage.js');
   const steps = JSON.parse(stage.match(/const AUTO_STEPS = (\[[^\]]+\])/)[1]);
   const body = stage.match(/const autoScale = (\(zoom\) => \{[^\n]+\});/)[1];
-  const now = stage.match(/const autoNow = (\(\) => [^\n]+\));/)[1];
-  const run = (zoom, floor, set = 'auto') => new Function('AUTO_STEPS', 'renderSetting', 'figOpt', 'vt', 'homeAt', `const autoScale = ${body}; return (${now})();`)(
+  const now = stage.match(/const autoNow = (\(cur = 0\) => [^\n]+\));/)[1];
+  const sticky = stage.slice(stage.indexOf('const AUTO_HOLD'), stage.indexOf("// (Auto's step for the view now"));
+  const run = (zoom, floor, set = 'auto') => new Function('AUTO_STEPS', 'renderSetting', 'figOpt', 'vt', 'homeAt', `const autoScale = ${body}; ${sticky} return (${now})();`)(
     steps, () => set, () => floor, { k: zoom }, { k: 1 });
   assert.equal(run(20, 0.1), 0.1);
   assert.equal(run(20, 0.25), 0.25);
@@ -264,4 +268,40 @@ test('A dive takes the canvas over at once from a resolution fade', () => {
   assert.ok(fade.indexOf('fadeStop(vCanvas)') > 0 && fade.indexOf('fadeStop(vCanvas)') < fade.indexOf('for (const el of diveEls())'));
   assert.match(stage, /el\.style\.transformOrigin = o; \}\n\s*fadeStop\(vCanvas\);/);
   assert.match(src('res-fade.js'), /export function fadeStop\(canvas\) \{ const f = fades\.get\(canvas\); if \(f\) end\(canvas, f\); \}/);
+});
+
+test('Auto keeps its step near an edge: no flip between 75% and 50% when the zoom is let go about 2×', () => {
+  const stage = src('stage.js');
+  const steps = JSON.parse(stage.match(/const AUTO_STEPS = (\[[^\]]+\])/)[1]);
+  const body = stage.match(/const autoScale = (\(zoom\) => \{[^\n]+\});/)[1];
+  const sticky = stage.slice(stage.indexOf('const AUTO_HOLD'), stage.indexOf("// (Auto's step for the view now"));
+  const f = new Function('AUTO_STEPS', `const autoScale = ${body}; ${sticky} return { autoScale, autoSticky };`)(steps);
+  assert.equal(f.autoSticky(2.02, 0.75), 0.75, 'just past 2× from 75%: stays');
+  assert.equal(f.autoSticky(1.98, 0.5), 0.5, 'just under 2× from 50%: stays');
+  assert.equal(f.autoSticky(2.3, 0.75), 0.5, 'clearly past: steps');
+  assert.equal(f.autoSticky(1.7, 0.5), 0.75, 'clearly back: steps');
+  assert.equal(f.autoSticky(1.2, 0.5), 1, 'far back: to the step the zoom asks for');
+  for (const z of [0.8, 1, 1.5, 2, 3, 4, 7, 12]) assert.equal(f.autoSticky(z, 0), f.autoScale(z), `from nothing (a new setting): the table's own step at ${z}×`);
+  // (The table and its edges unchanged: 75% from 1.34×.)
+  assert.equal(f.autoScale(1.34), 0.75);
+  assert.match(stage, /const k = autoNow\(autoK\), a = adaptK;/);
+});
+
+// (Mohammad, 30 Oct: "no resolution drop unless I choose to".)
+test('Full with every option off: the canvas at the screen’s own density (up to 2×), as on the live site', async () => {
+  const stage = src('stage.js');
+  const body = stage.slice(stage.indexOf('function figShare('), stage.indexOf('function resizeCanvas('));
+  const store = new Map();
+  globalThis.localStorage = { getItem: (k) => (store.has(k) ? store.get(k) : null), setItem: (k, v) => store.set(k, String(v)), removeItem: (k) => store.delete(k) };
+  const f = await import(`../src/ui/frame.js?t=full${Date.now()}`);
+  const share = new Function('renderSetting', 'renderScale', 'autoK', 'moveLow', 'figOpt', 'adaptK', `${body}; return figShare;`)(f.renderSetting, f.renderScale, 1, false, f.figOpt, 1);
+  for (const [w, h, dpr] of [[1728, 1117, 2], [2560, 1440, 2], [1194, 802, 2], [390, 844, 3], [1920, 1080, 1]]) {
+    const base = Math.min(2, dpr);
+    assert.equal(base * share(w, h, base), Math.min(2, dpr), `${w}×${h} @${dpr}×`);
+  }
+  assert.equal(f.renderScale(), 1, 'the lobule and the sinusoid at Full');
+  delete globalThis.localStorage;
+  // (Every stage path that lowers the canvas is gated on a choice: While moving, Auto, Adapt, the cap.)
+  assert.match(stage, /if \(resizeReady && !moveLow && figOpt\('move'\) < 1\)/);
+  assert.match(stage, /if \(renderSetting\(\) !== 'auto' && autoK === 1 && !moveLow && !figOpt\('adapt'\) && adaptK === 1\) return;/);
 });

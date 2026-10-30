@@ -42,7 +42,7 @@ import { readGroup, shapeSource, bindShape, targetRoom } from './organ-paint.js?
 import { pathCmds, flattenCmds, polyBox } from './shape-gl.js?v=a5ba46162b';
 import { createLabelGL } from './label-gl.js?v=576c5aeae3';
 import { createGlassGL } from './glass-gl.js?v=82f96b73b7';
-import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, ORIGIN_GREY } from './veins-gl.js?v=209a54f4d5';
+import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, ORIGIN_GREY } from './veins-gl.js?v=5ff5c30aea';
 import { varixBead, beadRadius } from './varix-bead.js?v=ac0e84fd89';
 import { LOOK_SITE, varixSize, varixHold, varixWidthK, varixSpreadK, varixOpacity } from './varix-look.js?v=6656962d05';
 import { advanceStream, createReversalHold, bleedShapes, stepBleedFade, fadeBleedShapes, chevFlowLevel, keyChevron, KEY_CHEV_LANES, originFractions, oxygenFor, ORIGIN_N, createBolus, DYE_BINS, KAPPA, STASIS_MIN_D, HIDDEN_SECONDS } from './blood.js?v=96774a5b6a';
@@ -2244,7 +2244,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const lzAnchor = document.createComment('lobule');
   wrap.append(lzAnchor);
   // (The code is fetched as soon as the figure is shown; the layer is built a moment later, when the page is quiet, or at once for a dive.)
-  const lobuleCode = () => (lzCode ||= import('./lobule-zoom.js?v=f8ea4579dd').catch((err) => { lzCode = null; throw err; }));
+  const lobuleCode = () => (lzCode ||= import('./lobule-zoom.js?v=3dca7767a7').catch((err) => { lzCode = null; throw err; }));
   function lobuleReady() {
     return (lzLoad ||= lobuleCode().then(({ createLobuleZoom }) => {
       lz = createLobuleZoom({ host: wrap, styles: wrapCS, before: lzAnchor });
@@ -2300,8 +2300,19 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   let autoK = 1, autoT = 0;
   const AUTO_STEPS = [1, 0.75, 0.5, 0.35, 0.25, 0.18, 0.14, 0.1];
   const autoScale = (zoom) => { const want = 1 / Math.max(1, zoom); return AUTO_STEPS.reduce((b, s) => (s >= want - 1e-6 ? s : b), 1); };
+  // (A margin at each step's edges: the step Auto is on is kept while 1/zoom stays within AUTO_HOLD of it, so a zoom let go near 2×
+  // does not flip between 75% and 50% from one settle to the next, each reallocating and fading (review, 30 Oct). The steps
+  // themselves, and where each starts, are as chosen.)
+  const AUTO_HOLD = 1.08;
+  const autoSticky = (zoom, cur) => {
+    const k = autoScale(zoom), want = 1 / Math.max(1, zoom), i = AUTO_STEPS.indexOf(cur);
+    if (i < 0 || k === cur) return k;
+    if (k > cur && want <= cur * AUTO_HOLD) return cur;   // (a little sharper wanted: not yet)
+    if (k < cur && i + 1 < AUTO_STEPS.length && want * AUTO_HOLD > AUTO_STEPS[i + 1]) return cur;   // (a little softer allowed: not yet)
+    return k;
+  };
   // (Auto's step for the view now, no lower than Settings › Auto's lowest.)
-  const autoNow = () => (renderSetting() === 'auto' ? Math.max(figOpt('floor'), autoScale(vt.k / Math.max(1e-6, homeAt?.k ?? 1))) : 1);
+  const autoNow = (cur = 0) => (renderSetting() === 'auto' ? Math.max(figOpt('floor'), autoSticky(vt.k / Math.max(1e-6, homeAt?.k ?? 1), cur)) : 1);
   // Figure resolution › Adapt to frame rate: the gaps between the frames of each move (moveGaps, from drawVeins); once it settles,
   // one step lower (down to 25%) when they ran half again as long as the screen's own pace (the shortest gaps seen, fastGap), one
   // step back up when they kept up with it. Once a move, never during one.
@@ -2330,7 +2341,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     clearTimeout(autoT);
     autoT = setTimeout(function settled() {
       if (!leftAlone(280) || vtGliding) { autoT = setTimeout(settled, 120); return; }
-      const k = autoNow(), a = adaptK;
+      const k = autoNow(autoK), a = adaptK;
       adaptStep();
       if (k === autoK && !moveLow && a === adaptK) return;
       autoK = k; moveLow = false; easeRes();

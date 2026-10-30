@@ -27,7 +27,7 @@ import { STEP_MAX } from './glide-clock.js?v=220d7f875c';
 import { sinusoidTargets } from './sinusoid-model.js?v=74f5d007ca';
 import { createSinusoidGL, poreAt, poreOpenness, calloutPore, cellAt, cellEdge, SLOT, SEED, UM } from './sinusoid-gl.js?v=8399d8205e';
 import { placeFenDisse } from './fen-place.js?v=20401deb9e';
-import { frameFor, noteDraw, saver, paceMs, renderScale } from './frame.js?v=c868718bdd';
+import { frameFor, noteDraw, saver, paceMs, renderScale, onRenderScale } from './frame.js?v=c868718bdd';
 import { softwareGL, softwareYield } from './sw-yield.js?v=e580a095b1';
 import { noteSinusoidSupport } from './gl-support.js?v=94ad2a7ff1';
 const nextFrame = frameFor('sinusoid-view');
@@ -123,7 +123,8 @@ export function createSinusoidView({ host, before = null }) {
   let model = null, shown = 0, open = false, raf = 0, last = 0, dive = null, drewNow = false;
   // (Figure resolution: taken up while the sinusoid is hidden, never while it shows; see lobule-zoom.js lzScale.)
   let svK = renderScale();
-  const svScale = () => (shown > 0 ? svK : (svK = renderScale()));
+  const svScale = () => svK;
+  onRenderScale(() => { if (!(shown > 0)) svK = renderScale(); });
   const S = {};          // the drawing's state, easing toward sinusoidTargets(model)
   let geo = null, geoKey = '';
   // The share of the way the view's own glide (stepView) takes each frame, and whether a name is still catching up (see noteJumps).
@@ -808,6 +809,7 @@ export function createSinusoidView({ host, before = null }) {
       // Closed: the drawing buffer is given back (it is sized again on the way in).
       if (opacity <= 0 && was > 0) { canvas.width = 0; canvas.height = 0; gpuKey = ''; }
       if (opacity > 0 && was <= 0) {
+        svK = renderScale();   // (Figure resolution, as it is now: taken up as it opens)
         last = 0; lastKey = ''; VW.k = 0; movers.length = 0; spawnAcc = 0; bounceAcc = 0;
         for (const o of [...slid(), ...Object.values(regions)]) if (o) { o.sd = 0; o.pt = null; o.tx = null; }
         if (model) {
