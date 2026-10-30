@@ -6,9 +6,9 @@
 // a crosshair (hover, or drag on a touch screen) reads every trace at one moment.
 
 import { store, hiddenNow } from './store.js?v=a926bea9d4';
-import { h, fmt, fitCanvas, cssVar, cssAlpha, clamp } from './util.js?v=b5b4023c4e';
-import { FONT as FONT0, FONT } from './charts.js?v=530af57589';
-import { frameFor, cancelFrame } from './frame.js?v=9f2b0fae80';
+import { h, fmt, fitCanvas, cssVar, cssAlpha, clamp } from './util.js?v=b8c22bcef5';
+import { FONT as FONT0, FONT } from './charts.js?v=36d961d997';
+import { frameFor, cancelFrame } from './frame.js?v=f83d70f0ee';
 import { tenthGap } from '../engine/gap.js?v=3aabfbb29b';
 import { firstAtOrAbove, firstAbove } from './sorted.js?v=662e543c85';
 import { limitLabelX as labelX } from './limit-label.js?v=52dcc41a1e';

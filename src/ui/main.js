@@ -3,27 +3,27 @@
 
 import { startHost, host } from './host.js?v=164ee7d975';
 import { store, updateParams, replaceParams, bindParamSender, clearHistory, logAction, varicesPresent, hiddenNow } from './store.js?v=a926bea9d4';
-import { createStage } from './stage.js?v=a7672492b0';
-import { createCreditPlacer } from './credit.js?v=8fef2d36d8';
+import { createStage } from './stage.js?v=942ea9dd5d';
+import { createCreditPlacer } from './credit.js?v=2ee05610b1';
 import { whenQuiet } from './quiet.js?v=82fc0f97e3';
 import { sinusoidSupported } from './gl-support.js?v=94ad2a7ff1';
-import { createInspector } from './inspector.js?v=e78655c854';
-import { createDock, CUTOFFS, savedInstruments } from './dock.js?v=c0f50bfb44';
-import { setHvpgStage } from './hvpg-proc.js?v=6345b6628f';
-import { createWhy } from './why.js?v=a72c39260d';
-import { createTimeline, LAPSES } from './timeline.js?v=f50806c56c';
-import { createCompare } from './compare.js?v=2d54fdbe69';
-import { createCard } from './card.js?v=9f19f99ed8';
-import { createChart } from './chart.js?v=dbc44a8b7b';
-import { createMenu } from './menu.js?v=989b0a52e0';
-import { caption } from './a11y.js?v=bf7e04d5fd';
+import { createInspector } from './inspector.js?v=8a8b1eed0e';
+import { createDock, CUTOFFS, savedInstruments } from './dock.js?v=dabf2541b3';
+import { setHvpgStage } from './hvpg-proc.js?v=3b66b9c16a';
+import { createWhy } from './why.js?v=300b612f5f';
+import { createTimeline, LAPSES } from './timeline.js?v=73a876fff7';
+import { createCompare } from './compare.js?v=82dd6e6f45';
+import { createCard } from './card.js?v=4ecaaff51a';
+import { createChart } from './chart.js?v=f4696a65fa';
+import { createMenu } from './menu.js?v=cd97c94eaa';
+import { caption } from './a11y.js?v=a798d8d9e9';
 import { startLMS } from './lms.js?v=284ef81e94';
 import { UPDATED, CONTENT_UPDATED, VALIDATION, AUTHOR, AUTHOR_URL, FEEDBACK_EMAIL } from '../version.js?v=a9debc0de8';
-import { normalizeSel, shuntable, edgeValue, bedStats } from './actions.js?v=029a525df8';
-import { gradientCss, dropCss, PRESSURE_TICKS, flowCss, flowPos, velocityCss, heatCss, HEAT_MAX, oxygenCss, OXY_MIN } from './colormap.js?v=47043505af';
+import { normalizeSel, shuntable, edgeValue, bedStats } from './actions.js?v=43ac746861';
+import { gradientCss, dropCss, PRESSURE_TICKS, flowCss, flowPos, velocityCss, heatCss, HEAT_MAX, oxygenCss, OXY_MIN } from './colormap.js?v=06ec565ff0';
 import { EDGES, PORTAL_TERRITORY } from '../engine/topology.js?v=4044766e96';
 import { dopplerVel } from './velNormal.js?v=97920ddf3f';
-import { $, $$, h, icon, afterExit, fmt, fmtFlow, toast, tooltipFor, openModal, closeModal, isModalOpen, popover, closePopover, popoverOpen, menuItem, svgIcon, isPhoneLayout, TABLET_UP_MQ, markGone, enterAfterGone, enhanceRanges, systemEdge, sinkTo, stopSink, swapFade, scrollBehavior, reconcile } from './util.js?v=b5b4023c4e';
+import { $, $$, h, icon, afterExit, fmt, fmtFlow, toast, tooltipFor, openModal, closeModal, isModalOpen, popover, closePopover, popoverOpen, menuItem, svgIcon, isPhoneLayout, TABLET_UP_MQ, markGone, enterAfterGone, enhanceRanges, systemEdge, sinkTo, stopSink, swapFade, scrollBehavior, reconcile } from './util.js?v=b8c22bcef5';
 import { TEXT_STEPS } from './type-scale.js?v=d7cca3fb73';
 
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
@@ -36,13 +36,13 @@ const SPEEDS = [0.25, 0.5, 1, 2, 4, 8];
 
 // Everything the learner does is a verb on the structure they click (actions.js, card.js); the
 // only armed gesture left is a shunt waiting for its target.
-import { debugOptions, debugOn, setDebug, initDebug } from './debug.js?v=704e908203';
-import { initTopbarMotion } from './topbar-motion.js?v=5a05bb466e';
+import { debugOptions, debugOn, setDebug, initDebug } from './debug.js?v=d6e2319959';
+import { initTopbarMotion } from './topbar-motion.js?v=019a0f745b';
 import { ORIGINS } from './blood.js?v=96774a5b6a';
 import { parseShare, cleanShare } from './share-link.js?v=b6f8e0f909';
 import { deepMerge, sanitizeParams } from '../engine/scenario.js?v=d7d3ea5b70';
 import { createPaintGate } from './paint-gate.js?v=68c692e8a3';
-import { frameFor, cancelFrame, perf as framePerf, RENDER_SCALES, renderSetting, setRenderScale, FIG_OPTS, figOpt, setFigOpt, FIG_LAB, figLab, setFigLab } from './frame.js?v=9f2b0fae80';
+import { frameFor, cancelFrame, perf as framePerf, RENDER_SCALES, renderSetting, setRenderScale, FIG_OPTS, figOpt, setFigOpt, FIG_LAB, figLab, setFigLab } from './frame.js?v=f83d70f0ee';
 import { easeIO3, glideShift, pillState, foldPill, stopFold } from './pill-motion.js?v=ea522a5215';
 const nextFrame = frameFor('main');
 
@@ -104,8 +104,8 @@ async function main() {
   // The Doppler and the FibroScan load after the first paint (a tab for one that has not come waits for it, dock.js). One left open when the
   // app was last used is asked for now and waited for with the model's first answers, so its pane is whole with the dock.
   const probeTo = (id) => { host.send({ type: 'probe', id }); logAction('probe', id); };
-  dopplerL = lazy(() => import('./doppler.js?v=2d9c64d719'), ({ createDoppler }) => createDoppler({ onProbe: probeTo }));
-  fibroL = lazy(() => import('./fibroscan.js?v=10c7d74440'), ({ createFibroScan }) => createFibroScan());
+  dopplerL = lazy(() => import('./doppler.js?v=97af8e1c0d'), ({ createDoppler }) => createDoppler({ onProbe: probeTo }));
+  fibroL = lazy(() => import('./fibroscan.js?v=0af1805075'), ({ createFibroScan }) => createFibroScan());
   const wasOpen = savedInstruments().open;
   const openAtStart = [];
   if (Array.isArray(wasOpen)) for (const [id, l] of [['doppler', dopplerL], ['fibroscan', fibroL]]) if (wasOpen.includes(id)) openAtStart.push(l.get().catch(() => {}));
@@ -178,7 +178,7 @@ async function main() {
   dock = createDock({ strip: $('#strip'), head: $('#dockHead'), body: $('#dockBody'), onWhy: (m, el) => why.open(m, el), onAction: doAction, onProbe: probeTo, lazy: { doppler: dopplerL, fibroscan: fibroL }, onReveal: revealDock, onLobule: () => zoomLobule('R'),
     onOpen: () => openPanel('instruments'), onClose: () => setPanelTab('chart'), onLayout: () => syncDoppler(), isVisible: () => app.classList.contains('dock-open'),
     marks: () => timeline.entries(), onBeat: () => sendBeat() });
-  presenterL = lazy(() => import('./presenter.js?v=34398f41bb'), ({ createPresenter }) => createPresenter({ openSettings, loadPreset, updateParams, host, stage, dock, action: doAction,
+  presenterL = lazy(() => import('./presenter.js?v=03713c6d5d'), ({ createPresenter }) => createPresenter({ openSettings, loadPreset, updateParams, host, stage, dock, action: doAction,
     projectorOn: () => { if (!projector) toggleProjector(); }, projectorOff: () => { if (projector) toggleProjector(); },
     closeHome: () => mainMenu.close(), stashCards, rerenderHome: () => mainMenu.render() }));
   mainMenu = createMenu({
@@ -186,7 +186,7 @@ async function main() {
     onPreset: (id) => openInExplore(id), share, help: (a) => openHelpMenu(a),
     onToggle: (on, sheet) => { closePopover(); app.classList.toggle('menu-sheet-open', on && !!sheet); creditPlacer?.refresh(); labelsUnderMenu(on); },
   });
-  paletteL = lazy(() => import('./palette.js?v=be472f970e'), ({ createPalette }) => createPalette({ ctx: {
+  paletteL = lazy(() => import('./palette.js?v=beca8a9e4a'), ({ createPalette }) => createPalette({ ctx: {
     select, action: doAction, probe: (id) => { host.send({ type: 'probe', id }); logAction('probe', id); }, showPane: (id) => dock.show(id, { reveal: true }),
     jump: (d, l) => timeline.jump(d, l), undo: () => timeline.undo(), pin: () => timeline.togglePin(), lenses: Object.fromEntries(Object.entries(LENSES).map(([k, v]) => [k, v])),
     zoomLobule: () => zoomLobule('R'), instruments: () => dock.toggle(),
@@ -912,6 +912,7 @@ function figLabRows() {
     sw('motion60', 'Motion at 60', 'On a 120 Hz screen the blood, the lobule and the instruments move 60 times a second. Pans and zooms stay at the full rate'),
     sw('glassCache', 'Callout glass kept', 'The callouts’ glass measures their boxes only when something moves them, not on every frame of the blood'),
     sw('creditLean', 'Credit check in talks', 'In a talk, the corner credit looks for a new spot only when a card or the view has changed'),
+    sw('upscale', 'Sharper upscaling', 'Under Full, the figure is enlarged to the screen with a sharper filter than the browser’s, so 75% and 50% look crisper'),
     sw('lymphBoxes', 'Lymph redrawn where it moves', 'In the lobule, the lymph’s layer is redrawn only around its moving drops, not over the whole screen'),
     h('div', { class: 'menu-title' }, 'Pinch frame reuse'),
     figSeg(FIG_LAB.pinchReuse, () => figLab('pinchReuse'), (v) => setFigLab('pinchReuse', v), (v) => (v === 0 ? 'Off' : v === 2 ? 'Every other' : 'Two of three')),

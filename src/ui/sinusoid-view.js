@@ -19,15 +19,15 @@
 // the sinusoid exactly over the lobule's one at every step: first the vessel itself, then the tissue
 // around it.
 
-import { h, fmt, clamp, lerp } from './util.js?v=b5b4023c4e';
-import { pressureColor } from './colormap.js?v=47043505af';
+import { h, fmt, clamp, lerp } from './util.js?v=b8c22bcef5';
+import { pressureColor } from './colormap.js?v=06ec565ff0';
 import { isPaused } from './clock.js?v=73bb847dde';
 import { store } from './store.js?v=a926bea9d4';
 import { STEP_MAX } from './glide-clock.js?v=220d7f875c';
 import { sinusoidTargets } from './sinusoid-model.js?v=74f5d007ca';
 import { createSinusoidGL, poreAt, poreOpenness, calloutPore, cellAt, cellEdge, SLOT, SEED, UM } from './sinusoid-gl.js?v=8399d8205e';
 import { placeFenDisse } from './fen-place.js?v=20401deb9e';
-import { frameFor, noteDraw, saver, paceMs, renderScale, onRenderScale } from './frame.js?v=9f2b0fae80';
+import { frameFor, noteDraw, saver, paceMs, renderScale, onRenderScale } from './frame.js?v=f83d70f0ee';
 import { softwareGL, softwareYield } from './sw-yield.js?v=e580a095b1';
 import { noteSinusoidSupport } from './gl-support.js?v=94ad2a7ff1';
 const nextFrame = frameFor('sinusoid-view');

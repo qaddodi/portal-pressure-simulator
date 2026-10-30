@@ -3,19 +3,19 @@
 
 import { EDGES, dopplerK, NODES, PORTAL_TERRITORY, dMinOf, edgePresent, isOccluded, SHUNT_PORTAL, SHUNT_SYSTEMIC, customShuntId, isStent, stentSite, STENT_SITES, STENT_SPANS, stentGate, stentSegments } from '../engine/topology.js?v=4044766e96';
 import { route as metroRoute, RECTUM_FADE, LABEL_VESSEL, TIP_FADE, TIP_CONNECT, VIEW, VB_ANAT, VB_CIRC, ATLAS_COLUMNS, HIDDEN_EDGES, HIDDEN_NODES, ANAT_HIDDEN, ANAT_HIDDEN_NODES, CAUDATE, CONTEXT_EDGES, BACK_EDGES, IVC_EDGES, NEEDS_C3, NODE_POS, EDGE_PATH, CIRCUIT_PATH, metroPath, ORGANS, SEAM_D, ORGAN_DETAIL, BACKDROP, LIVER_INNER, LIVER_EDGES, LANE_CAPTIONS, ABDOMEN_CLIP, ABDOMEN_FLOOR, CAVITY_LOW, flankPath, abdomenOutline, cavityHalfWidths, SPLEEN_CENTER, SITES, ORGAN_LABELS, ATLAS_LABELS, SHORT, ABBR, CHIP_NODES, LIVER_SPLIT_X, CIRCUIT_ZONES, CIRCUIT_LABELS, STRANDS, STRAND_FROM, SIN_EDGES, FEEDERS, fanFeeders, CIRCUIT_TREES } from './anatomy.js?v=97811cb4dd';
-import { pressureColor, deltaColor, dropColor, flowColor, heatColor, velColorOf, velocityColor, oxygenColor } from './colormap.js?v=47043505af';
+import { pressureColor, deltaColor, dropColor, flowColor, heatColor, velColorOf, velocityColor, oxygenColor } from './colormap.js?v=06ec565ff0';
 import { forkJoins, sideEndScale } from './fork-joins.js?v=20a032142f';
 import { nodeEnds, nodeDrawn, dotRadius, bareDots } from './circuit-nodes.js?v=1040ba0ec4';
 import { STATION_VESSEL, meanVel, velNormal, judgeFlow } from './velNormal.js?v=97920ddf3f';
 import { store, updateParams, varicesPresent, varixGrowth, shownVel } from './store.js?v=a926bea9d4';
 import { fibroReading } from './clock.js?v=73bb847dde';
-import { s, h, fmt, fmtFlow, fp, clamp, lerp, toast, systemEdge, bloodColors, restBox, translateRest, settledBox, putText, UPRIGHT_MQ } from './util.js?v=b5b4023c4e';
+import { s, h, fmt, fmtFlow, fp, clamp, lerp, toast, systemEdge, bloodColors, restBox, translateRest, settledBox, putText, UPRIGHT_MQ } from './util.js?v=b8c22bcef5';
 import { riseCentre } from './rise-path.js?v=c039cb7b49';
 import { lerpVT, camPath, blendPaths, viewsOverlap, driftEase } from './cam-arc.js?v=2e5111e648';
 import { glideClock } from './glide-clock.js?v=220d7f875c';
 import { sinceSource } from './since-ref.js?v=ef1a818c75';
 import { clipBox, mapBox } from './fit-box.js?v=d5d6d4c60f';
-import { runFlick, FLICK } from './flick.js?v=a6cf413e06';
+import { runFlick, FLICK } from './flick.js?v=a0caaa84fc';
 import { inlineStyles } from './svg-inline.js?v=fc17cb73fe';
 import { fluidTarget, poolFade, fluidLevel, fluidFloorAt, fluidBase } from './fluid-step.js?v=171653c056';
 import { easeTo, fluidSpring, fluidSpringFor } from './organ-ease.js?v=4ebb648131';
@@ -35,20 +35,20 @@ import { createRouter } from './circuit-router.js?v=0ee9e02fc6';
 import { gpuProbe, COUNTED } from './gpu-probe.js?v=dd12fc216c';
 import { plateStrips, premultiply, gutStep, viewReuse, copyPixels } from './plate-upload.js?v=5fc45556a1';
 import { refine } from './refine.js?v=b6b6fd7588';
-import { fadeOver, fadeStop } from './res-fade.js?v=a5c2d68d34';
+import { fadeOver, fadeStop } from './res-fade.js?v=a12b2cf9ba';
 import { leftAlone, sinceInput } from './quiet.js?v=82fc0f97e3';
 import { cropToGrid } from './organs-gl.js?v=efbea815e0';
 import { readGroup, shapeSource, bindShape, targetRoom } from './organ-paint.js?v=f67ce51385';
 import { pathCmds, flattenCmds, polyBox } from './shape-gl.js?v=a5ba46162b';
-import { createLabelGL } from './label-gl.js?v=382b415572';
-import { createGlassGL } from './glass-gl.js?v=5315f6253f';
-import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, ORIGIN_GREY } from './veins-gl.js?v=dbf8738076';
+import { createLabelGL } from './label-gl.js?v=91856990e1';
+import { createGlassGL } from './glass-gl.js?v=1fc27d5c57';
+import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, ORIGIN_GREY } from './veins-gl.js?v=f6c4269f9a';
 import { varixBead, beadRadius } from './varix-bead.js?v=ac0e84fd89';
 import { LOOK_SITE, varixSize, varixHold, varixWidthK, varixSpreadK, varixOpacity } from './varix-look.js?v=6656962d05';
 import { advanceStream, createReversalHold, bleedShapes, stepBleedFade, fadeBleedShapes, chevFlowLevel, keyChevron, KEY_CHEV_LANES, originFractions, oxygenFor, ORIGIN_N, createBolus, DYE_BINS, KAPPA, STASIS_MIN_D, HIDDEN_SECONDS } from './blood.js?v=96774a5b6a';
 import { retireRows } from './flow-rows.js?v=bea4089714';
 import { createJunctionWidths } from './junction-widths.js?v=c5726a67f9';
-import { frameFor, lateFrameFor, cancelFrame, noteDraw, setSaver as setFrameSaver, paceMs, renderScale, renderSetting, onRenderScale, figOpt, figLab, onFigLab, MOTION60_MS } from './frame.js?v=9f2b0fae80';
+import { frameFor, lateFrameFor, cancelFrame, noteDraw, setSaver as setFrameSaver, paceMs, renderScale, renderSetting, onRenderScale, figOpt, figLab, onFigLab, MOTION60_MS } from './frame.js?v=f83d70f0ee';
 import { softwareYield } from './sw-yield.js?v=e580a095b1';
 import { portalSplit } from './table-marks.js?v=bca5ebb624';
 import { hashSeed, clotSide, clotSpan, clotRadius, clotShift, clotLayers, CLOT_EDGE } from './clot-shape.js?v=415ba6b9c0';
@@ -2249,7 +2249,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const lzAnchor = document.createComment('lobule');
   wrap.append(lzAnchor);
   // (The code is fetched as soon as the figure is shown; the layer is built a moment later, when the page is quiet, or at once for a dive.)
-  const lobuleCode = () => (lzCode ||= import('./lobule-zoom.js?v=7670914d0d').catch((err) => { lzCode = null; throw err; }));
+  const lobuleCode = () => (lzCode ||= import('./lobule-zoom.js?v=1a041f00cf').catch((err) => { lzCode = null; throw err; }));
   function lobuleReady() {
     return (lzLoad ||= lobuleCode().then(({ createLobuleZoom }) => {
       lz = createLobuleZoom({ host: wrap, styles: wrapCS, before: lzAnchor });
@@ -2290,6 +2290,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     veins?.dispose();   // the lost instance's listener goes with it (one per restore otherwise)
     veins = createVeinsGL(vCanvas, { tubes: GL_ROWS, force: true });
     veins?.setLayerScale?.(figOpt('glow'));
+    if (picNow) veins?.setPicture?.(picNow);   // (Sharper upscaling: the new context draws the picture at the same share)
     if (!veins) { wrap.classList.remove('gl-on', 'gl-plate'); syncPlateLook(); return; }   // (no context this time: the SVG stays)
     vBinKey = ''; binShown = null; bendShown = null; glOrgans = false; plateKey = ''; tubesShown = null;   // (a new context holds no vessels yet)
     liverKey = '';   // (nor the liver's lower edge the ascites stops at: morphLiver sends it again)
@@ -2389,24 +2390,32 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (cap > 0 && px > cap) k *= Math.sqrt(cap / px);
     return Math.max(0.1, k);
   }
+  // Settings › Figure performance › Sharper upscaling (frame.js): under Full the canvas stays at Full and the figure is drawn at its
+  // share into the renderer's own buffer, then upscaled onto it (veins-gl setPicture). picNow: that share's size, or null (off, at Full,
+  // or no GPU renderer): the canvas is then the picture, as before.
+  let picNow = null;
   function resizeCanvas() {
     const r = wrap.getBoundingClientRect(), was = vdpr;
     const base = Math.min(2, devicePixelRatio || 1) * QUALITY[quality].res;
     vdpr = base * figShare(r.width, r.height, base); vBase = base;   // (Settings › Figure resolution)
     veins?.setLayerScale?.(figOpt('glow'));   // (Figure resolution › Glows: the glow layers' own share)
     wrap.dataset.res = vdpr.toFixed(2);   // (the vessel canvas's pixels per CSS pixel, for diagnosis)
-    const bw = Math.max(1, Math.round(r.width * vdpr)), bh = Math.max(1, Math.round(r.height * vdpr));
+    let bw = Math.max(1, Math.round(r.width * vdpr)), bh = Math.max(1, Math.round(r.height * vdpr));
+    const pw = bw, ph = bh;
+    if (figLab('upscale') && veins?.setPicture && !SOFTWARE && vdpr < base - 1e-9) { bw = Math.max(1, Math.round(r.width * base)); bh = Math.max(1, Math.round(r.height * base)); }
+    const pic = bw !== pw || bh !== ph ? [pw, ph] : null;
     wrap.classList.toggle('compact', r.height < 600);
     // A notice that changed nothing the buffer holds (same backing size and ratio) leaves the canvas as it is: assigning a
     // width, even the same one, clears every surface drawn on it, and the figure was drawn again in the same task. A box
     // that moved by less than a backing pixel is drawn again on the next frame, as any change is, without the clear.
-    if (resizeReady && bw === vCanvas.width && bh === vCanvas.height && vdpr === was) {
+    if (resizeReady && bw === vCanvas.width && bh === vCanvas.height && vdpr === was && `${pic}` === `${picNow}`) {
       CTM = null;
       if (r.width !== boxW || r.height !== boxH) { boxW = r.width; boxH = r.height; forceDraw = true; stageWake(); }
       return;
     }
     boxW = r.width; boxH = r.height;
     vCanvas.width = bw; vCanvas.height = bh;
+    if (pic || picNow) { picNow = pic; veins?.setPicture?.(pic); }
     CTM = null; forceDraw = true; stageWake();
     // Resizing clears the canvas, and the organs (the plate) and vessels drawn on it with it: draw
     // them again in the same task. A pinch or a layout change can land after this frame's draw
@@ -4506,9 +4515,10 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       // picture is painted through the painter's targets, which hold its width and the canvas's height, or the other way round:
       // its sides are kept so those stay within the room the canvas gives them (organ-paint targetRoom). A view taller than the
       // screen and one wider made them 4096 square on an iPad at 2×, and Safari ended the page (Mohammad, 25 Oct).
-      const room = targetRoom(vCanvas.width, vCanvas.height);
+      const [roomW, roomH] = picNow || [vCanvas.width, vCanvas.height];   // (the picture's pixels: under Sharper upscaling the canvas is larger)
+      const room = targetRoom(roomW, roomH);
       const scale = Math.min(need, 4094 / (x1 - x0), 4094 / (y1 - y0), Math.sqrt(4.2e6 / ((x1 - x0) * (y1 - y0))),
-        room / (Math.max(1, vCanvas.height) * (x1 - x0)), room / (Math.max(1, vCanvas.width) * (y1 - y0)));
+        room / (Math.max(1, roomH) * (x1 - x0)), room / (Math.max(1, roomW) * (y1 - y0)));
       // On the scale's pixel grid (grown outward to whole pixels): two views at one scale sit whole pixels apart, so the next pan
       // can take the pixels they share (rasterPlate).
       x0 = Math.floor(x0 * scale) / scale; y0 = Math.floor(y0 * scale) / scale; x1 = Math.ceil(x1 * scale) / scale; y1 = Math.ceil(y1 * scale) / scale;
@@ -7902,6 +7912,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // (Drawn on the GPU under the labels while it can be, as the callouts' glass is: glass-gl.js.)
   const paneGL = veins ? createGlassGL(wrap, vCanvas, [], { software: SOFTWARE, off: /[?&]gpulabels=0\b/.test(location.search), live: () => wrap.classList.contains('gl-on'), pane: glass, version: () => veins.drawSeq, capture: () => veins?.capture(), onFigure: (f) => veins.onPicture(f), keep: () => figLab('glassCache'), due: () => watch.due() }) : null;
   onFigLab((k) => { if (k === 'glassCache') { glassGL?.redraw(); paneGL?.redraw(); } });
+  // (Sharper upscaling on or off: the canvas takes its new size and picture under the eased change every resolution change takes.)
+  onFigLab((k) => { if (k === 'upscale') { easeRes(); veinsDirty = true; forceDraw = true; stageWake(); } });
   wrap.dataset.pane = paneGL ? 'gpu' : 'css';
   const gLeaders = s('g', { class: 'lb-leaders' });
   const gLabels = s('g', { class: 'lb-blocks' });

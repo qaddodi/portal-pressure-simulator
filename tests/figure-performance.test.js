@@ -160,7 +160,7 @@ test('Pinch frame reuse: off, the one-pass frame is as before; on, only while a 
   // Off, the one-pass branch's own lines are unchanged.
   assert.match(fn, /if \(!stale\) \{ gl\.bindFramebuffer\(gl\.FRAMEBUFFER, fbo\); gl\.viewport\(0, 0, fboW, fboH\); gl\.disable\(gl\.SCISSOR_TEST\); clearLayer\(\); stale = true; \}\n\s+baseM = m; drawnLook = lk; tubesNew = false; radRows\.clear\(\); drawnNow\(\);\n\s+fboOK = false;\n\s+gl\.bindFramebuffer\(gl\.FRAMEBUFFER, null\);\n\s+fusing = true;/);
   const rd = v.slice(v.indexOf('  function reuseDraw(m) {'), v.indexOf('  // The composite\'s textures, each on its unit'));
-  assert.match(rd, /if \(!rz\.m \|\| rz\.w !== canvas\.width \|\| rz\.h !== canvas\.height\) return false;/);
+  assert.match(rd, /if \(!rz\.m \|\| rz\.w !== PW\(\) \|\| rz\.h !== PH\(\)\) return false;/);
   assert.match(rd, /if \(!reuseCovers\(k, rz\.w, rz\.h\)\) return false;/);
   assert.match(rd, /if \(own\) present\(\);\n\s+pictured\(\);/, 'the glass and the own buffer hear of it');
   assert.match(stage, /const reuse = figLab\('pinchReuse'\);\n\s+veins\.setReuse\?\.\(reuse, !!reuse && gestureOn\(\)\);\n\s+veins\.draw\(T, vLook, bloodLook\(\), rows\);\n\s+if \(veins\.reused\) veinsDirty = true;/);
