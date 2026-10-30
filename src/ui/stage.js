@@ -3,19 +3,19 @@
 
 import { EDGES, dopplerK, NODES, PORTAL_TERRITORY, dMinOf, edgePresent, isOccluded, SHUNT_PORTAL, SHUNT_SYSTEMIC, customShuntId, isStent, stentSite, STENT_SITES, STENT_SPANS, stentGate, stentSegments } from '../engine/topology.js?v=4044766e96';
 import { route as metroRoute, RECTUM_FADE, LABEL_VESSEL, TIP_FADE, TIP_CONNECT, VIEW, VB_ANAT, VB_CIRC, ATLAS_COLUMNS, HIDDEN_EDGES, HIDDEN_NODES, ANAT_HIDDEN, ANAT_HIDDEN_NODES, CAUDATE, CONTEXT_EDGES, BACK_EDGES, IVC_EDGES, NEEDS_C3, NODE_POS, EDGE_PATH, CIRCUIT_PATH, metroPath, ORGANS, SEAM_D, ORGAN_DETAIL, BACKDROP, LIVER_INNER, LIVER_EDGES, LANE_CAPTIONS, ABDOMEN_CLIP, ABDOMEN_FLOOR, CAVITY_LOW, flankPath, abdomenOutline, cavityHalfWidths, SPLEEN_CENTER, SITES, ORGAN_LABELS, ATLAS_LABELS, SHORT, ABBR, CHIP_NODES, LIVER_SPLIT_X, CIRCUIT_ZONES, CIRCUIT_LABELS, STRANDS, STRAND_FROM, SIN_EDGES, FEEDERS, fanFeeders, CIRCUIT_TREES } from './anatomy.js?v=9f55a095a6';
-import { pressureColor, deltaColor, dropColor, flowColor, heatColor, velColorOf, velocityColor, oxygenColor } from './colormap.js?v=d2af226127';
+import { pressureColor, deltaColor, dropColor, flowColor, heatColor, velColorOf, velocityColor, oxygenColor } from './colormap.js?v=2a8783cd9a';
 import { forkJoins, sideEndScale } from './fork-joins.js?v=20a032142f';
 import { nodeEnds, nodeDrawn, dotRadius, bareDots } from './circuit-nodes.js?v=1040ba0ec4';
 import { STATION_VESSEL, meanVel, velNormal, judgeFlow } from './velNormal.js?v=97920ddf3f';
 import { store, updateParams, varicesPresent, varixGrowth, shownVel } from './store.js?v=a926bea9d4';
 import { fibroReading } from './clock.js?v=73bb847dde';
-import { s, h, fmt, fmtFlow, fp, clamp, lerp, toast, systemEdge, bloodColors, restBox, translateRest, settledBox, putText, UPRIGHT_MQ } from './util.js?v=f338042275';
+import { s, h, fmt, fmtFlow, fp, clamp, lerp, toast, systemEdge, bloodColors, restBox, translateRest, settledBox, putText, UPRIGHT_MQ } from './util.js?v=52643a47e0';
 import { riseCentre } from './rise-path.js?v=c039cb7b49';
 import { lerpVT, camPath, blendPaths, viewsOverlap, driftEase } from './cam-arc.js?v=2e5111e648';
 import { glideClock } from './glide-clock.js?v=220d7f875c';
 import { sinceSource } from './since-ref.js?v=ef1a818c75';
 import { clipBox, mapBox } from './fit-box.js?v=d5d6d4c60f';
-import { runFlick, FLICK } from './flick.js?v=f70123c633';
+import { runFlick, FLICK } from './flick.js?v=4b19c02441';
 import { inlineStyles } from './svg-inline.js?v=fc17cb73fe';
 import { fluidTarget, poolFade, fluidLevel, fluidFloorAt, fluidBase } from './fluid-step.js?v=4060c5dd8c';
 import { easeTo, fluidSpring, fluidSpringFor } from './organ-ease.js?v=4ebb648131';
@@ -32,23 +32,23 @@ import { LIVER_GEO } from './liver-geo-data.js?v=41a20a25ac';
 import { COLON_ART, BOWEL_ART, DUO_CLIPS, DUO_A, DUO_B } from './organ-art.js?v=a6a766d521';
 import { warmVisible, ringGrid, inGrid } from './warm-vis.js?v=ccf4f6f71b';
 import { createRouter } from './circuit-router.js?v=0ee9e02fc6';
-import { gpuProbe, COUNTED } from './gpu-probe.js?v=b9f4077160';
+import { gpuProbe, COUNTED } from './gpu-probe.js?v=dba5ffd848';
 import { plateStrips, premultiply, gutStep, viewReuse, copyPixels, noteStripRead, stripPx } from './plate-upload.js?v=ea6a71d855';
-import { refine } from './refine.js?v=e45ef3c6a8';
-import { fadeOver, fadeStop } from './res-fade.js?v=155e763d11';
+import { refine } from './refine.js?v=627e42aa25';
+import { fadeOver, fadeStop } from './res-fade.js?v=35f6ce6c79';
 import { leftAlone, sinceInput } from './quiet.js?v=82fc0f97e3';
 import { cropToGrid } from './organs-gl.js?v=bf1e9cc689';
 import { readGroup, shapeSource, bindShape, targetRoom } from './organ-paint.js?v=f67ce51385';
 import { pathCmds, flattenCmds, polyBox } from './shape-gl.js?v=a5ba46162b';
-import { createLabelGL } from './label-gl.js?v=90ea445e70';
-import { createGlassGL } from './glass-gl.js?v=0637be4523';
-import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, ORIGIN_GREY } from './veins-gl.js?v=537a7c1427';
+import { createLabelGL } from './label-gl.js?v=d37f0338b4';
+import { createGlassGL } from './glass-gl.js?v=3cc70ef85a';
+import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, ORIGIN_GREY } from './veins-gl.js?v=2d66624903';
 import { varixBead, beadRadius } from './varix-bead.js?v=ac0e84fd89';
 import { LOOK_SITE, varixSize, varixHold, varixWidthK, varixSpreadK, varixOpacity } from './varix-look.js?v=6656962d05';
 import { advanceStream, createReversalHold, bleedShapes, stepBleedFade, fadeBleedShapes, chevFlowLevel, keyChevron, KEY_CHEV_LANES, originFractions, oxygenFor, ORIGIN_N, createBolus, DYE_BINS, KAPPA, STASIS_MIN_D, HIDDEN_SECONDS } from './blood.js?v=300b3b5267';
 import { retireRows } from './flow-rows.js?v=bea4089714';
 import { createJunctionWidths } from './junction-widths.js?v=c5726a67f9';
-import { frameFor, lateFrameFor, cancelFrame, noteDraw, setSaver as setFrameSaver, paceMs, renderScale, renderSetting, onRenderScale, figOpt, figLab, onFigLab, MOTION60_MS, PINCH_LOW_K } from './frame.js?v=b1e94b177f';
+import { frameFor, lateFrameFor, cancelFrame, noteDraw, setSaver as setFrameSaver, paceMs, renderScale, renderSetting, onRenderScale, figOpt, figLab, onFigLab, MOTION60_MS, PINCH_LOW_K } from './frame.js?v=727fc96f91';
 import { softwareYield } from './sw-yield.js?v=e580a095b1';
 import { portalSplit } from './table-marks.js?v=bca5ebb624';
 import { hashSeed, clotSide, clotSpan, clotRadius, clotShift, clotLayers, CLOT_EDGE } from './clot-shape.js?v=415ba6b9c0';
@@ -2292,7 +2292,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const lzAnchor = document.createComment('lobule');
   wrap.append(lzAnchor);
   // (The code is fetched as soon as the figure is shown; the layer is built a moment later, when the page is quiet, or at once for a dive.)
-  const lobuleCode = () => (lzCode ||= import('./lobule-zoom.js?v=94bc840d20').catch((err) => { lzCode = null; throw err; }));
+  const lobuleCode = () => (lzCode ||= import('./lobule-zoom.js?v=fb39f6dc85').catch((err) => { lzCode = null; throw err; }));
   function lobuleReady() {
     return (lzLoad ||= lobuleCode().then(({ createLobuleZoom }) => {
       lz = createLobuleZoom({ host: wrap, styles: wrapCS, before: lzAnchor });
@@ -2463,7 +2463,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     // Resizing clears the canvas, and the organs (the plate) and vessels drawn on it with it: draw
     // them again in the same task. A pinch or a layout change can land after this frame's draw
     // (Safari delivers touches outside the frame loop), and the figure would vanish for a frame.
-    if (resizeReady && F && !inUpdate && !(lz?.isOpen() || lz?.covers())) { veinsDirty = true; drawVeins(); }
+    if (resizeReady && F && !inUpdate && !(lz?.isOpen() || lz?.covers())) { veinsDirty = true; drawVeins(false, 'resize'); }
   }
   new ResizeObserver(resizeCanvas).observe(wrap);
   // (A change that leaves the canvas's size as it is (Glows alone) still draws the figure again, its glow layers remade.)
@@ -2688,7 +2688,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     try { gpuProbe.time(null, 'update (script)', () => updateInner(f)); } finally { inUpdate = false; fxAt = null; }
     // (Hidden, no animation frame comes to draw the vessels again: they are drawn now, so the canvas never keeps colours the
     // page no longer has, as after a change of the device's light or dark setting in the background.)
-    if (plateRedraw || (document.hidden && (veinsDirty || veinsRows.size))) { plateRedraw = false; drawVeins(); }
+    if (plateRedraw || (document.hidden && (veinsDirty || veinsRows.size))) { const by = plateRedraw ? 'plate hidden' : 'tab hidden'; plateRedraw = false; drawVeins(false, by); }
     // The first framing waits for the patient (the first frames are drawn before it has loaded, without its
     // ascites or spleen), and the figure stays hidden until it is framed, so it appears once, in place.
     firstFrame();
@@ -3093,7 +3093,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         if (fx) fxSync(f, t);
       });
     } finally { inUpdate = false; fxAt = null; }
-    if (plateRedraw) { plateRedraw = false; drawVeins(); }
+    if (plateRedraw) { plateRedraw = false; drawVeins(false, 'plate hidden'); }
     firstFrame();
     prepLobule();
     followHome();
@@ -3859,10 +3859,16 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     glowMemo.selK = selAKey();   // (the selection's ease sets the vessels' alpha, which the glow-only sync does not write)
     glowMemo.wide = items.map((it) => it.x.width >= 3.4);   // (the sheen's width: syncRadiiOnly)
     // The SVG organs just hid for the GPU plate: draw it now, so no frame shows neither.
-    if (!plateWas && plateOn()) drawVeins();
+    if (!plateWas && plateOn()) drawVeins(false, 'plate shown');
   }
-  /** Redraws the vessel layer (and the picture) if anything in it changed; true when it did. */
-  function drawVeins(fullComposite = false) {
+  /** Redraws the vessel layer (and the picture) if anything in it changed; true when it did. `by`: who asked (gpu-probe.js BY). */
+  function drawVeins(fullComposite = false, by = 'frame') {
+    // (For the ?perf readout: the caller, counted with each whole draw and each target sized again in it.)
+    const byWas = gpuProbe.by;
+    gpuProbe.by = by;
+    try { return drawVeinsNow(fullComposite); } finally { gpuProbe.by = byWas; }
+  }
+  function drawVeinsNow(fullComposite) {
     if (liveSet || liveOn()) { syncLiveOrgans(); if (liveSet) veins.organs.shift('bowel', bowelDy()); }
     syncGutPic();
     if (!veins || veins.lost || !vLook || !F) return false;
@@ -3945,7 +3951,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     plateDrops++;   // (a raster still on its way in is of the state before: rasterPlate gives it up)
     veins.dropPlate(0); veins.dropPlate(1); plateView = null; plateViewKey = ''; plateCopy = null; dropViewKeep();
     wrap.classList.remove('gl-plate'); veinsDirty = true; syncPlateLook();
-    if (inUpdate) plateRedraw = true; else drawVeins();
+    if (inUpdate) plateRedraw = true; else drawVeins(false, 'plate hidden');
   }
   // The inlined copy of the backdrop and organs for the current state (plateStateKey), built with the whole-plate raster
   // and reused by the view rasters that follow it (a pan changes only the window): inlining every element's styles is
@@ -4532,7 +4538,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
             // hide the SVG organs only together with a GPU draw that shows the plate, or a frame
             // would show neither (a flash of the dark stage through the organs).
             wrap.classList.add('gl-plate'); syncPlateLook();
-            if (!drawVeins()) { wrap.classList.remove('gl-plate'); syncPlateLook(); }
+            if (!drawVeins(false, 'plate landed')) { wrap.classList.remove('gl-plate'); syncPlateLook(); }
           } else syncPlateLook();
           plateMiss = plateOn() ? 0 : Math.min(3, plateMiss + 1);
           if (!plateOn()) plateKey = '';   // not shown (the liver moved meanwhile): raster again once it settles
@@ -11273,7 +11279,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       const now = veins.snapshot();
       // (compositeOnly: the picture composited again whole from the same vessel layer and look, as a partial composite stands in for.)
       if (compositeOnly) { veins.composite(vLook, bloodLook(), true); return { now, whole: veins.snapshot() }; }
-      veinsDirty = true; drawVeins();
+      veinsDirty = true; drawVeins(false, 'check');
       return { now, whole: veins.snapshot() };
     },
     cameraZoom: () => ((diveT <= 0 || diveT >= 1) && !lz?.sinBusy() ? null : (refreshCTM(), Math.log(CTM.sc) + diveZ + lz.sinZoom() + zShift)),

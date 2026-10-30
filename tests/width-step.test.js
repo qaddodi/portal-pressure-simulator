@@ -51,7 +51,7 @@ test('between model frames, an organ ease alone steps the organs alone, under th
   assert.match(fn, /if \(anatCovered\(\) \|\| hid\.at \|\| plateStale \|\| blockersStale \|\| \(performance\.now\(\) - blockersAt > 100 && watch\.due\(\)\)\) return false;/);
   assert.match(fn, /if \(morph !== morphTarget \|\| tubesHidden !== wrap\.classList\.contains\('gl-on'\) \|\| EV\.some\(\(x\) => x\.reveal \|\| \(x\.vis && widthMoving\(x\)\)\)\) return false;/, 'any vessel width still moving takes the full update');
   assert.match(fn, /widthEasing = organsEasing = false;\n\s+updateOrgans\(f, f\.viewParams \|\| store\.get\(\)\.params, t\);/, 'the organs set their own easing flags again');
-  assert.match(fn, /if \(plateRedraw\) \{ plateRedraw = false; drawVeins\(\); \}/, 'a plate redraw it asks for is drawn, as after an update');
+  assert.match(fn, /if \(plateRedraw\) \{ plateRedraw = false; drawVeins\(false, 'plate hidden'\); \}/, 'a plate redraw it asks for is drawn, as after an update');
   assert.match(src, /\} else if \(widthEasing && F && !stepOrgans\(\) && !stepWidths\(\)\) update\(F\);/);
   // Nothing else in the update follows the liver's ease: only the organs and the fluid read it.
   for (const name of ['updateOverlays', 'updateLabels', 'updateBridges', 'updateNodesCircuit', 'fxSync', 'updateFocus', 'updateOrganSel']) {

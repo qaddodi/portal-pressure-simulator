@@ -102,7 +102,7 @@ test('a resize notice that leaves the backing size and ratio as they were neithe
   const guard = fn.indexOf('bw === vCanvas.width && bh === vCanvas.height && vdpr === was');
   assert.ok(guard > 0, 'the unchanged size is checked');
   assert.ok(guard < fn.indexOf('vCanvas.width = bw'), 'before the width is assigned');
-  assert.ok(fn.indexOf('return;', guard) < fn.indexOf('drawVeins()'), 'and returns before the same-task draw');
+  assert.ok(fn.indexOf('return;', guard) < fn.indexOf("drawVeins(false, 'resize')"), 'and returns before the same-task draw');
 });
 
 test('the shared clock runs each surface once per frame and the late ones last, from one browser frame', async () => {

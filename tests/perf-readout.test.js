@@ -104,3 +104,23 @@ test('the readout totals the counted notes over a window: whole draws and why, p
   const gl = readFileSync(new URL('../src/ui/veins-gl.js', import.meta.url), 'utf8');
   for (const why of WHY) assert.ok(gl.includes(`'${why}'`), `veins-gl.js counts a whole draw "${why}"`);
 });
+
+// (30 Oct: who asked for each whole draw and each target sized again, so one readout of the step into the lobule names the path.)
+test('a whole draw and a target sized again name who asked, from a fixed list the readout totals', async () => {
+  const { COUNTED, BY } = await import('../src/ui/gpu-probe.js');
+  const { readFileSync } = await import('node:fs');
+  const gl = readFileSync(new URL('../src/ui/veins-gl.js', import.meta.url), 'utf8');
+  const st = readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8');
+  const pr = readFileSync(new URL('../src/ui/perf-readout.js', import.meta.url), 'utf8');
+  assert.equal(new Set(BY).size, BY.length);
+  assert.match(gl, /gpuProbe\.note\(COUNTED\.whole\);\n\s+gpuProbe\.note\(COUNTED\.wholeBy \+ askedBy\(\)\);/);
+  assert.equal((gl.match(/if \(gpuProbe\.on\) noteAlloc\(/g) || []).length, 3, 'every target sized again names its caller');
+  assert.doesNotMatch(gl, /note\(COUNTED\.fboAlloc, [^k]/, 'no sizing counted without its caller');
+  assert.match(pr, /BY\.flatMap\(\(b\) => \[COUNTED\.wholeBy \+ b, COUNTED\.fboAllocBy \+ b\]\)/);
+  // Every caller stage.js names is on the list, and the stage resets it after each draw.
+  const named = [...st.matchAll(/drawVeins\(false, '([^']+)'\)/g)].map((m) => m[1]);
+  assert.ok(named.length >= 6);
+  for (const b of [...named, 'frame', 'tab hidden', 'lobule', 'stage, outside a draw call']) assert.ok(BY.includes(b), b);
+  assert.match(st, /gpuProbe\.by = by;\n\s+try \{ return drawVeinsNow\(fullComposite\); \} finally \{ gpuProbe\.by = byWas; \}/);
+  assert.ok(COUNTED.wholeBy.endsWith(' ') && COUNTED.fboAllocBy.endsWith(' '));
+});

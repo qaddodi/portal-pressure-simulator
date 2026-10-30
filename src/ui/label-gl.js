@@ -12,7 +12,7 @@
 // know, a keyboard focus ring) stays drawn by the SVG, label by label. Without WebGL2, on a software renderer, with ?gpulabels=0, or
 // once the context is lost, the SVG draws them all, as it always has.
 
-import { frameFor, cancelFrame } from './frame.js?v=b1e94b177f';
+import { frameFor, cancelFrame } from './frame.js?v=727fc96f91';
 import { classOnly, GESTURE_LOOK } from './idle-keys.js?v=235443a2a3';
 import { startProgram, checkProgram } from './gl-compile.js?v=5c4cd6c14c';
 import { createAtlasPacker, batchRuns } from './atlas-pack.js?v=43b8bc019d';

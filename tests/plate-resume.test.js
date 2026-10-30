@@ -55,7 +55,7 @@ test('a picture in colours the page no longer has is dropped while hidden, and n
 
 test('hidden, the vessel layer is drawn in the same task as the update (no animation frame comes)', () => {
   const u = body('update');
-  assert.match(u, /if \(plateRedraw \|\| \(document\.hidden && \(veinsDirty \|\| veinsRows\.size\)\)\) \{ plateRedraw = false; drawVeins\(\); \}/);
+  assert.match(u, /if \(plateRedraw \|\| \(document\.hidden && \(veinsDirty \|\| veinsRows\.size\)\)\) \{ const by = plateRedraw \? 'plate hidden' : 'tab hidden'; plateRedraw = false; drawVeins\(false, by\); \}/);
 });
 
 test('a change of the device light or dark setting redraws the figure at once, with no crossfade', () => {

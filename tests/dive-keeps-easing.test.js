@@ -74,6 +74,6 @@ test('Figure resolution never changes the canvas mid-zoom: no fade copy that sta
   assert.match(st, /if \(resizeReady && !moveLow && figOpt\('move'\) < 1 && !\(diveT > 0\)\) \{ moveLow = true;/);
   assert.match(fn('  function easeRes() {'), /!\(lz\?\.isOpen\(\) \|\| lz\?\.covers\(\)\) && !diveOrig\) \{ fadeOver\(vCanvas/);
   // A redraw through the zoom keeps the camera it started with, so it never counts as a move (settleRes, Adapt's frame gaps).
-  const draw = fn('  function drawVeins(fullComposite = false) {');
+  const draw = fn('  function drawVeinsNow(fullComposite) {');
   assert.ok(draw.indexOf('if (key !== veinsDrawKey) {') < draw.indexOf('settleRes();'));
 });

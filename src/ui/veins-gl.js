@@ -33,10 +33,10 @@
 
 import { CHEV_GLSL } from './chevron-glsl.js?v=96ec7c6666';
 import { SLOT, DYE_BINS } from './blood.js?v=300b3b5267';
-import { cssRGB } from './util.js?v=f338042275';
+import { cssRGB } from './util.js?v=52643a47e0';
 import { LUMEN, STO_Y0, STO_DY, STO_N } from './stomach-lumen.js?v=dfcc262e2a';
 import { CELL, ENT_W, binVeins, splitRows, simpleCells, splitCells, cellsOfJoinEntries } from './veins-bin.js?v=d8d72f1157';
-import { gpuProbe, COUNTED } from './gpu-probe.js?v=b9f4077160';
+import { gpuProbe, COUNTED } from './gpu-probe.js?v=dba5ffd848';
 import { changedRows } from './flow-rows.js?v=bea4089714';
 import { leftAlone } from './quiet.js?v=82fc0f97e3';
 import { PUBLISH_QUIET_MS } from './gl-compile.js?v=5c4cd6c14c';
@@ -1619,7 +1619,10 @@ export function bendCurvature(pts, out = new Float32Array(N_SAMPLES)) {
   return out;
 }
 
-export function createVeinsGL(canvas, { tubes: nTubes, force = false }) {
+export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'stage' }) {
+  // (For the ?perf readout: who asked for a whole draw or a target sized again, gpu-probe.js BY.)
+  const askedBy = () => (who === 'lobule' ? 'lobule' : gpuProbe.by || 'stage, outside a draw call');
+  const noteAlloc = (kb) => { gpuProbe.note(COUNTED.fboAlloc, kb); gpuProbe.note(COUNTED.fboAllocBy + askedBy()); };
   let gl = null;
   try { gl = canvas.getContext('webgl2', { alpha: true, premultipliedAlpha: true, antialias: false, depth: false, stencil: ONE_PASS, preserveDrawingBuffer: !OWN_BUF, failIfMajorPerformanceCaveat: !force }); } catch { gl = null; }
   if (!gl) return null;
@@ -2003,7 +2006,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false }) {
   function ensureFBO() {
     if (fboW === PW() && fboH === PH()) return;
     fboW = PW(); fboH = PH(); fboOK = false; dropSpare();
-    if (gpuProbe.on) gpuProbe.note(COUNTED.fboAlloc, fboW * fboH * 21 / 1024);
+    if (gpuProbe.on) noteAlloc(fboW * fboH * 21 / 1024);
     gl.bindTexture(gl.TEXTURE_2D, baseTex);
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, fboW, fboH, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
     gl.bindTexture(gl.TEXTURE_2D, gTex);
@@ -2088,7 +2091,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false }) {
   const spare = { fbo: gl.createFramebuffer(), base: dataTex(gl), g: dataTex(gl), g2: dataTex(gl), dep: dataTex(gl), w: 0, h: 0, timer: 0 };
   function spareSize(w, h) {
     spare.w = w; spare.h = h;
-    if (gpuProbe.on) gpuProbe.note(COUNTED.fboAlloc, w * h * 21 / 1024);
+    if (gpuProbe.on) noteAlloc(w * h * 21 / 1024);
     gl.bindTexture(gl.TEXTURE_2D, spare.base);
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, w, h, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
     for (const t of [spare.g, spare.g2]) { gl.bindTexture(gl.TEXTURE_2D, t); gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA16UI, w, h, 0, gl.RGBA_INTEGER, gl.UNSIGNED_SHORT, null); }
@@ -2298,7 +2301,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false }) {
   function ownSize() {
     if (own.w === PW() && own.h === PH()) return false;
     own.w = PW(); own.h = PH();
-    if (gpuProbe.on) gpuProbe.note(COUNTED.fboAlloc, own.w * own.h * 4 / 1024);
+    if (gpuProbe.on) noteAlloc(own.w * own.h * 4 / 1024);
     gl.bindTexture(gl.TEXTURE_2D, own.tex);
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, own.w, own.h, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
     gl.bindFramebuffer(gl.FRAMEBUFFER, own.fbo);
@@ -2793,6 +2796,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false }) {
         if (pan) gpuProbe.note(COUNTED.pan);
         else {
           gpuProbe.note(COUNTED.whole);
+          gpuProbe.note(COUNTED.wholeBy + askedBy());
           gpuProbe.note(COUNTED.wholeWhy + (!fboOK ? 'no kept layer' : !radCovered(rows) ? 'radii changed' : lk !== drawnLook ? 'look changed' : !(dx || dy) ? 'same place'
             : !(Math.abs(dx) < fboW / 2 && Math.abs(dy) < fboH / 2) ? 'moved too far' : !m.slice(0, 4).every((v, i) => v === baseM[i]) ? 'zoom or turn' : 'tubes changed'));
         }

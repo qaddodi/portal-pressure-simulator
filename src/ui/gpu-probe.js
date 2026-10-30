@@ -21,6 +21,9 @@ export const COUNTED = {
   // picture's targets sized again.)
   panBlit: 'copies: pan blit (per target)', present: 'copies: kept picture onto the canvas', fadeCopy: 'copies: resolution fade',
   fboAlloc: 'targets: sized again',
+  // (Who asked for each whole draw and each target sized again, 30 Oct: the step from the catheter slide into the lobule held a frame
+  // for 2.8 s over 8 whole draws and two sizings, and the caller is not in the readout otherwise. One of the fixed list BY.)
+  wholeBy: 'vessels: whole draw, asked by ', fboAllocBy: 'targets: sized again, asked by ',
   lobulePicture: 'lobule: vessels drawn', lobuleSurface: 'lobule: surface pass', lobuleSkip: 'lobule: surface pass skipped (camera only)',
   tissue: 'tissue: bitmap painted', ductules: 'lobule: ductules drawn',
   labelSolve: 'labels: solved', labelCarry: 'labels: carried', safe: 'safe area: cards measured',
@@ -43,12 +46,19 @@ export const WHY = ['no kept layer', 'radii changed', 'look changed', 'same plac
  * Why a partial redraw (veins-gl.js drawRows) was refused, as counted and as its `rowsStatus` says ('drawn' when it was not):
  * a fixed list. Counted apart from the whole draw that follows, whose own reason is that draw's state, not the refusal's.
  */
+/**
+ * Who asked the vessel layer to draw (stage.js drawVeins' callers, gpuProbe.by while one runs), as counted with a whole draw or a
+ * target sized again: a fixed list. The lobule's own renderer counts as the lobule; the stage's outside drawVeins (its blood-only
+ * composite) as 'stage, outside a draw call'.
+ */
+export const BY = ['frame', 'resize', 'plate hidden', 'tab hidden', 'plate shown', 'plate landed', 'check', 'lobule', 'stage, outside a draw call'];
 export const ROWS_REFUSED = ['no kept layer', 'context lost', 'size changed', 'moved', 'radii not listed', 'most cells'];
 export const gpuProbe = {
   on: false,
   // Script time only (the ?perf readout, perf-readout.js): no wait for the GPU, so the page runs as it does for everyone.
   cpuOnly: false,
   skipGL: false,   // (the ?perf test switch: the vessels' screen picture is not drawn)
+  by: '',          // (who asked for the draw under way: stage.js drawVeins sets it, one of BY)
   // The organs drawn as layers on the GPU (organs-gl.js), the changing ones painted live, instead of one picture: on by default
   // (Mohammad, 22 Oct: "Do the GPU draw for everything"), off with the ?perf switch "GPU organs" or ?gpuorgans=0 in the address;
   // never on a software renderer (stage.js gpuOrgansOn). onOrgans: the stage's call to make its picture again the other way.

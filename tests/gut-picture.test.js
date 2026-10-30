@@ -35,7 +35,7 @@ test('the picture is used only while the plate is down, in the look and art it w
   assert.match(fn('syncGutPic'), /const pic = gutPicFor\(vdpr \* CTM\.sc\);\n\s+if \(pic !== gutPic\) \{ gutPic = pic; gGutPics\.replaceChildren\(\.\.\.pic\.runs\.map\(\(r\) => r\.img\)\); \}/);
   assert.match(ok, /r\.kids\.every\(\(k\) => trOf\(k\) === trOf\(r\.kids\[0\]\)\)/, 'groups drawn as one image move together');
   assert.match(fn('syncGutPic'), /organDimMatrix\(1, plateSat\)/, 'the live grey of a lens is applied to the picture too');
-  for (const f of ['drawVeins', 'syncPlateLook']) assert.match(fn(f), /syncGutPic\(\)/, f);
+  for (const f of ['drawVeinsNow', 'syncPlateLook']) assert.match(fn(f), /syncGutPic\(\)/, f);
 });
 
 test('the picture is made from the gut\'s copy (kept across the plate\'s drops, of the same art and colours), never baked into the plate, and never measured by Fit', () => {
