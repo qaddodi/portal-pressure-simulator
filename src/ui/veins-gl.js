@@ -35,7 +35,7 @@ import { CHEV_GLSL } from './chevron-glsl.js?v=96ec7c6666';
 import { SLOT, DYE_BINS } from './blood.js?v=300b3b5267';
 import { cssRGB } from './util.js?v=f338042275';
 import { LUMEN, STO_Y0, STO_DY, STO_N } from './stomach-lumen.js?v=dfcc262e2a';
-import { CELL, ENT_W, binVeins, splitRows, simpleCells, splitCells } from './veins-bin.js?v=d5372c91f9';
+import { CELL, ENT_W, binVeins, splitRows, simpleCells, splitCells } from './veins-bin.js?v=5086ab2d02';
 import { gpuProbe, COUNTED } from './gpu-probe.js?v=b9f4077160';
 import { changedRows } from './flow-rows.js?v=bea4089714';
 import { leftAlone } from './quiet.js?v=82fc0f97e3';
@@ -2556,7 +2556,12 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false }) {
       figVer++;
       gl.bindTexture(gl.TEXTURE_2D, entTex);
       for (const [r0, r1] of bins.patch) gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, r0, ENT_W, r1 - r0 + 1, gl.RGBA, gl.FLOAT, bins.ent.subarray(r0 * ENT_W * 4, (r1 + 1) * ENT_W * 4));
-      fboOK = false; movedAll = true;
+      // A patch that moved only vessels' points, no join: each in the same cells, with the same segments and blood cells (binVeins), so
+      // only the pixels of the cells that list them can change, as with a change of their radii. They are marked so: drawRows (and a
+      // pan's shift) may redraw those cells alone, and must be given those rows. A coiling collateral had made every frame of its coil
+      // a whole redraw of the vessel layer (his Mac readouts, 30 Oct). A patch with a join in it keeps the whole redraw.
+      if (bins.patchTubes && !bins.patchJoins) for (const r of bins.patchTubes) { radRows.add(r); moved[r] = 1; }
+      else { fboOK = false; movedAll = true; }
     },
     /** A vessel's lumen radius at each of its N_SAMPLES samples. */
     setRadii(row, r) {

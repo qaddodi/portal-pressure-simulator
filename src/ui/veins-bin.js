@@ -139,7 +139,9 @@ export function binVeins(tubes, joins, memo = null) {
     for (const ji of jMoved) for (const e of js[ji]) { writeJoin(ent, e, joins[ji]); mark(e); }
     const rs = [...rowsOf].sort((a, b) => a - b), patch = [];
     for (const r of rs) { if (patch.length && patch[patch.length - 1][1] === r - 1) patch[patch.length - 1][1] = r; else patch.push([r, r]); }
-    const out = { ...memo.last, patch };
+    // (patchTubes: the vessels whose points moved, by id; patchJoins: how many joins were written again. With no join, every pixel
+    // that can change is in a cell that lists one of those vessels: veins-gl patchGeometry.)
+    const out = { ...memo.last, patch, patchTubes: moved.map((ti) => tubes[ti].id), patchJoins: jMoved.length };
     memo.last = out; memo.jv = jv;
     return out;
   }

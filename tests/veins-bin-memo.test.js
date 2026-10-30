@@ -48,7 +48,51 @@ test('the geometry is not rebuilt while nothing about it changed', () => {
 test('the figure uploads the vessel geometry only when binning gave a new result', async () => {
   const { readFileSync } = await import('node:fs');
   const stage = readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8');
-  assert.match(stage, /binVeins\([^;]*, binMemo\);\s*\n(?:\s*\/\/.*\n)*\s*if \(bins !== binShown\) \{ if \(bins\.patch && binShown\?\.ent === bins\.ent\) veins\.patchGeometry\(bins\); else veins\.setGeometry\(bins\); binShown = bins; \}/);
+  assert.match(stage, /binVeins\([^;]*, binMemo\);\s*\n(?:\s*\/\/.*\n)*\s*let patched = null;\s*if \(bins !== binShown\) \{\s*if \(bins\.patch && binShown\?\.ent === bins\.ent\) \{ veins\.patchGeometry\(bins\); if \(bins\.patchTubes && !bins\.patchJoins\) patched = bins\.patchTubes; \} else veins\.setGeometry\(bins\);\s*binShown = bins;\s*\}/);
+});
+
+// A coiling collateral on the catheter slide: each coil step was a whole redraw of the vessel layer (his Mac readouts, 30 Oct). A patch
+// that moved vessels' points alone now names them, and the figure draws their cells again as it does for vessels whose radii changed.
+test('a coil patch names the vessels it moved, and every entry it changed lies in a cell that lists one of them', () => {
+  const memo = new Map();
+  const a = binVeins(scene(0.5).tubes, scene(0.5).joins, memo);
+  const ent0 = Float32Array.from(a.ent);
+  const r = binVeins(scene(0.5006).tubes, scene(0.5006).joins, memo);
+  assert.ok(r.patch && r.ent === a.ent, 'a patch');
+  assert.deepEqual(r.patchTubes, [2], 'the coil alone');
+  assert.equal(r.patchJoins, 0);
+  const lists = (c, id) => { for (let e = r.cells[c * 6 + 2], e1 = e + r.cells[c * 6 + 3]; e < e1; e++) if (r.ent[e * 8 + 4] === id) return true; return false; };
+  let changed = 0;
+  for (let e = 0; e < r.nEnt; e++) {
+    let diff = false;
+    for (let f = 0; f < 8; f++) if (!Object.is(ent0[e * 8 + f], r.ent[e * 8 + f])) diff = true;
+    if (!diff) continue;
+    changed++;
+    let ok = false;
+    for (let c = 0; c < r.nCells && !ok; c++) if (e >= r.cells[c * 6 + 2] && e < r.cells[c * 6 + 2] + r.cells[c * 6 + 3] && r.patchTubes.some((id) => lists(c, id))) ok = true;
+    assert.ok(ok, `entry ${e} changed outside the moved vessels' cells`);
+  }
+  assert.ok(changed > 0);
+  // A join written again: named, so the figure keeps the whole redraw.
+  const j = scene(0.5006);
+  j.joins[0].k = 0.55;
+  const rj = binVeins(j.tubes, j.joins, memo);
+  assert.ok(rj.patch && rj.patchJoins === 1 && rj.patchTubes.length === 0);
+});
+
+test('the renderer keeps its vessel layer for a patch of points alone, and the figure names those rows to the next draw', () => {
+  const gl = readFileSync(new URL('../src/ui/veins-gl.js', import.meta.url), 'utf8');
+  const body = gl.slice(gl.indexOf('patchGeometry(bins) {'), gl.indexOf('/** A vessel\'s lumen radius'));
+  assert.match(body, /figVer\+\+;/);
+  assert.match(body, /if \(bins\.patchTubes && !bins\.patchJoins\) for \(const r of bins\.patchTubes\) \{ radRows\.add\(r\); moved\[r\] = 1; \}\s*else \{ fboOK = false; movedAll = true; \}/);
+  // (radRows: a partial draw or a pan's shift is refused unless it is given every one of those rows: radCovered.)
+  assert.match(gl, /if \(!radCovered\(rows\)\) return refuse\('radii not listed'\);/);
+  assert.match(gl, /const panAt = fboOK && radCovered\(rows\)/);
+  const stage = readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8');
+  assert.match(stage, /if \(patched\) for \(const r of patched\) veinsRows\.add\(r\);\s*else tubesNew = true;/);
+  // (Rows waiting keep the loop from sleeping, as a dirty layer does, and a hidden page draws them as it draws a dirty layer.)
+  assert.match(stage, /const rowsWait = veinsRows\.size > 0 && !!veins && !veins\.lost && !!vLook && !!F;\s*if \(still && !veinsDirty && !rowsWait && /);
+  assert.match(stage, /if \(plateRedraw \|\| \(document\.hidden && \(veinsDirty \|\| veinsRows\.size\)\)\) \{/);
 });
 
 // A coil step moves one vessel's points without changing which cells list it: the last result is patched in place, entry for

@@ -42,7 +42,7 @@ import { readGroup, shapeSource, bindShape, targetRoom } from './organ-paint.js?
 import { pathCmds, flattenCmds, polyBox } from './shape-gl.js?v=a5ba46162b';
 import { createLabelGL } from './label-gl.js?v=90ea445e70';
 import { createGlassGL } from './glass-gl.js?v=0637be4523';
-import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, ORIGIN_GREY } from './veins-gl.js?v=cdbfd98744';
+import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, ORIGIN_GREY } from './veins-gl.js?v=30a9f01c8f';
 import { varixBead, beadRadius } from './varix-bead.js?v=ac0e84fd89';
 import { LOOK_SITE, varixSize, varixHold, varixWidthK, varixSpreadK, varixOpacity } from './varix-look.js?v=6656962d05';
 import { advanceStream, createReversalHold, bleedShapes, stepBleedFade, fadeBleedShapes, chevFlowLevel, keyChevron, KEY_CHEV_LANES, originFractions, oxygenFor, ORIGIN_N, createBolus, DYE_BINS, KAPPA, STASIS_MIN_D, HIDDEN_SECONDS } from './blood.js?v=300b3b5267';
@@ -2291,7 +2291,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const lzAnchor = document.createComment('lobule');
   wrap.append(lzAnchor);
   // (The code is fetched as soon as the figure is shown; the layer is built a moment later, when the page is quiet, or at once for a dive.)
-  const lobuleCode = () => (lzCode ||= import('./lobule-zoom.js?v=8a71e56c3c').catch((err) => { lzCode = null; throw err; }));
+  const lobuleCode = () => (lzCode ||= import('./lobule-zoom.js?v=cec6de75c1').catch((err) => { lzCode = null; throw err; }));
   function lobuleReady() {
     return (lzLoad ||= lobuleCode().then(({ createLobuleZoom }) => {
       lz = createLobuleZoom({ host: wrap, styles: wrapCS, before: lzAnchor });
@@ -2687,7 +2687,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     try { gpuProbe.time(null, 'update (script)', () => updateInner(f)); } finally { inUpdate = false; fxAt = null; }
     // (Hidden, no animation frame comes to draw the vessels again: they are drawn now, so the canvas never keeps colours the
     // page no longer has, as after a change of the device's light or dark setting in the background.)
-    if (plateRedraw || (document.hidden && veinsDirty)) { plateRedraw = false; drawVeins(); }
+    if (plateRedraw || (document.hidden && (veinsDirty || veinsRows.size))) { plateRedraw = false; drawVeins(); }
     // The first framing waits for the patient (the first frames are drawn before it has loaded, without its
     // ascites or spleen), and the figure stays hidden until it is framed, so it appears once, in place.
     firstFrame();
@@ -3723,10 +3723,17 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       // changed (another vessel's coil easing while it is hidden), nothing is uploaded.)
       const bins = binVeins(items.map((it) => binTube(it, smooth.get(it.row) || it.pts)), J, binMemo);
       // (Patched in place, only the rows that changed go up again: the cells and every other entry are as uploaded.)
-      if (bins !== binShown) { if (bins.patch && binShown?.ent === bins.ent) veins.patchGeometry(bins); else veins.setGeometry(bins); binShown = bins; }
+      // (A patch of vessels' points alone (no join) changes only their cells: they are drawn again as vessels whose radii changed are,
+      // veinsRows, instead of the whole layer. Anything else draws the whole layer, as before.)
+      let patched = null;
+      if (bins !== binShown) {
+        if (bins.patch && binShown?.ent === bins.ent) { veins.patchGeometry(bins); if (bins.patchTubes && !bins.patchJoins) patched = bins.patchTubes; } else veins.setGeometry(bins);
+        binShown = bins;
+      }
       // (Each axis's curvature with it, so the flow arrowheads keep their shape on a bend: veins-gl chevAt.)
       if (bins !== bendShown) { bendShown = bins; for (const it of items) veins.setBend(it.row, smooth.get(it.row) || it.pts); }
-      tubesNew = true;
+      if (patched) for (const r of patched) veinsRows.add(r);
+      else tubesNew = true;
     });
     // Attributes, every frame.
     const T0 = easeInOut(morph), now = performance.now();
@@ -10324,7 +10331,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (still && bloodKeyVer !== storeVer) { bloodKey = JSON.stringify(st.blood); bloodKeyVer = storeVer; }   // (the store sets blood whole: its text changes only with a store write)
     const key = still ? `${cathVer}|${morph}|${rotU}|${wrap.className}|${st.layers.flow}|${bloodKey}|${vCanvas.width}x${vCanvas.height}|${holesKey}` : null;
     // A plate raster that lands while the figure is still (paused, or reduced motion) marks the vessel layer dirty: draw it.
-    if (still && !veinsDirty && !glowSync && !(glLines && olDirty) && (!glLines || marksKey() === mk.key) && !(glLines && olList.some((o) => o.a !== (o.on ? 1 : 0))) && !clampFading() && !widthEasing && !bloodEasing && !plateEasing() && !sprayFading() && !lensFrom && ascShown === ascTarget && morph === morphTarget && rotU === rotTarget && key === lastDrawKey && fSame && CTM === lastDrawCTM && !EV.some((x) => x.reveal)) { sleep(); return; }
+    // (So do vessel rows waiting to be drawn again, veinsRows: a coil's last step is drawn as its cells alone, no longer as a dirty layer.)
+    const rowsWait = veinsRows.size > 0 && !!veins && !veins.lost && !!vLook && !!F;
+    if (still && !veinsDirty && !rowsWait && !glowSync && !(glLines && olDirty) && (!glLines || marksKey() === mk.key) && !(glLines && olList.some((o) => o.a !== (o.on ? 1 : 0))) && !clampFading() && !widthEasing && !bloodEasing && !plateEasing() && !sprayFading() && !lensFrom && ascShown === ascTarget && morph === morphTarget && rotU === rotTarget && key === lastDrawKey && fSame && CTM === lastDrawCTM && !EV.some((x) => x.reveal)) { sleep(); return; }
     stepPlateEase();
     if (morph !== morphTarget) {
       morph = clamp(morph + Math.sign(morphTarget - morph) * dt / 0.6, 0, 1);
