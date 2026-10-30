@@ -8,9 +8,9 @@
 // parks it for a moment) the monitor goes on: the strip scrolls on this card's clock and lays beats at the heart rate shown, closing in as the
 // number climbs, then hands over to the live beat where the model's phase resumes, so the strip neither stalls nor jumps (ekg.js walkBeats).
 
-import { h, fmt, fitCanvas, clamp, cssVar } from './util.js?v=e88848482f';
-import { FONT } from './charts.js?v=f817addcda';
-import { frameFor, cancelFrame } from './frame.js?v=2c89eeeae6';
+import { h, fmt, fitCanvas, clamp, cssVar } from './util.js?v=f338042275';
+import { FONT } from './charts.js?v=2eb8d2f59a';
+import { frameFor, cancelFrame, paceMs, noteDraw } from './frame.js?v=b1e94b177f';
 import { VITALS, vitalReading } from './vital-read.js?v=cbba41a6b7';
 import { createBeatClock, ekgSeries, beatWalk, walkBeats, seedBeats } from './ekg.js?v=f27505b539';
 import { olderThan, inFront } from './backfill.js?v=455d888760';
@@ -118,11 +118,15 @@ export function createVitalsMonitor() {
   }
   // While the model runs and the card is on screen the strip scrolls on every frame the screen offers; otherwise it is drawn when something changes.
   // (One frame asked for at a time (loopRaf), let go with the strip: dispose. eased: the numbers were still easing at the last draw.)
-  let ticking = false, loopRaf = 0, eased = false, gone = false;
+  // (Battery saver or Settings › Figure performance › Motion at 60: the strip scrolls at that pace, as the figure's steady motion does;
+  // otherwise on every frame, as before. loopAt: when the loop last drew.)
+  let ticking = false, loopRaf = 0, eased = false, gone = false, loopAt = -Infinity;
   function loop(now) {
     loopRaf = 0;
     if (gone || !live()) { ticking = false; if (eased && !gone && !raf) raf = nextFrame((t) => { raf = 0; draw(t); }); return; }
-    draw(now); loopRaf = nextFrame(loop);
+    const pace = paceMs();
+    if (!pace || now - loopAt >= pace) { loopAt = now; draw(now); noteDraw('vitals-monitor'); }
+    loopRaf = nextFrame(loop);
   }
   function wake() { if (!ticking && !gone && live()) { ticking = true; loopRaf = nextFrame(loop); } }
   const ro = typeof ResizeObserver === 'function' ? new ResizeObserver(() => { if (!ticking) draw(); }) : null;

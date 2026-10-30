@@ -35,19 +35,19 @@ test('without the readout the probe is off and never waits for the GPU; with it,
   // The panel is written only when a gesture's window closes, never on each frame.
   const tick = src.slice(src.indexOf('const tick'), src.indexOf('requestAnimationFrame(tick);\n  };'));
   assert.equal((tick.match(/paint\(\)/g) || []).length, 1);
-  assert.match(tick, /if \(t - cur\.t0 >= cur\.win\) \{ reports\.unshift\(cur\); reports\.length = Math\.min\(reports\.length, KEEP\); cur = null; paint\(\); \}/);
+  assert.match(tick, /if \(t - cur\.t0 >= cur\.win\) \{\n[^}]*reports\.unshift\(cur\); reports\.length = Math\.min\(reports\.length, KEEP\); cur = null; paint\(\);\n\s+\}/);
 });
 
 test('a gesture reads as one line per slow frame, with its steps largest first and the rest of the page', () => {
   assert.equal(gapLine({ at: 312.4, dt: 64.2, parts: { 'vessel sync (script)': 11.6, 'organ picture: draw': 30.2, tiny: 0.2 } }),
     '  +312 ms: frame took 64 ms (organ picture: draw 30, vessel sync (script) 12, rest of page 22)');
   const t = gestureText({ n: 3, kind: 'pan', view: 'circuit', zoom: '1.25', frames: 110, worst: 64.2, gaps: [], tasks: [{ at: 300, dt: 70, src: 'syncVeins stage.js 50 ms' }] });
-  assert.equal(t, '#3 pan in circuit, zoom 1.25, 110 frames in 2 s, worst 64 ms\n  no frame over 20 ms\n  long task +300 ms: 70 ms (syncVeins stage.js 50 ms)');
+  assert.equal(t, '#3 pan in circuit, zoom 1.25, 110 frames in 2 s, worst 64 ms\n  no frame missed\n  long task +300 ms: 70 ms (syncVeins stage.js 50 ms)');
 });
 
 test('a window lists what it measured as it stood (the blood squares a frame repaints) and says when it was GPU timed', () => {
   const t = gestureText({ n: 4, kind: 'at rest', view: 'anatomy', zoom: '4.24', frames: 86, worst: 50, gaps: [], tasks: [], gpu: true, gauges: { 'blood squares on screen': '310 of 1031, 5.7 MP of 8.6, 136 px each', empty: '' } });
-  assert.equal(t, '#4 at rest in anatomy, zoom 4.24, 86 frames in 2 s, worst 50 ms, GPU timed\n  blood squares on screen: 310 of 1031, 5.7 MP of 8.6, 136 px each\n  no frame over 20 ms');
+  assert.equal(t, '#4 at rest in anatomy, zoom 4.24, 86 frames in 2 s, worst 50 ms, GPU timed (gl.finish waits for the GPU: frame times slower than shipped)\n  blood squares on screen: 310 of 1031, 5.7 MP of 8.6, 136 px each\n  no frame missed');
   try {
     gpuProbe.on = false; gpuProbe.gauge('x', 1); assert.deepEqual(gpuProbe.takeGauges(), {}, 'off, nothing is kept');
     gpuProbe.on = true; gpuProbe.gauge('x', 1); gpuProbe.gauge('x', 2); assert.deepEqual(gpuProbe.takeGauges(), { x: 2 });
@@ -60,7 +60,7 @@ test('a window lists what it measured as it stood (the blood squares a frame rep
 
 test('a recording runs 6 s and counts the frames that redrew the whole picture or had the organ picture down', () => {
   const t = gestureText({ n: 5, kind: 'recording', view: 'anatomy', zoom: '0.84', win: 6000, frames: 300, worst: 90, gaps: [], tasks: [], tally: { 'whole picture': 120, 'organ picture down': 200 } });
-  assert.equal(t, '#5 recording in anatomy, zoom 0.84, 300 frames in 6 s, worst 90 ms\n  whole picture in 120 of 300 frames, organ picture down in 200 of 300 frames\n  no frame over 20 ms');
+  assert.equal(t, '#5 recording in anatomy, zoom 0.84, 300 frames in 6 s, worst 90 ms\n  whole picture in 120 of 300 frames, organ picture down in 200 of 300 frames\n  no frame missed');
   const src = readFileSync(new URL('../src/ui/perf-readout.js', import.meta.url), 'utf8');
   assert.match(src, /rec\.onclick = \(\) => \{ begin\('recording', 6000\);/);
   const gl = readFileSync(new URL('../src/ui/veins-gl.js', import.meta.url), 'utf8');
@@ -78,7 +78,7 @@ test('the ?perf test switch leaves out the live organs or the GPU picture for a 
   const src = readFileSync(new URL('../src/ui/perf-readout.js', import.meta.url), 'utf8');
   assert.match(src, /const HIDES = \['', 'no live organs', 'no figure SVG', 'no labels', 'no GPU picture'\];/);
   assert.match(src, /hideStyle\.textContent = HIDE_CSS\[HIDES\[hideAt\]\] \|\| '';/);
-  assert.match(src, /hide: HIDES\[hideAt\], orgs: gpuProbe\.gpuOrgans \};/);
+  assert.match(src, /hide: HIDES\[hideAt\], orgs: gpuProbe\.gpuOrgans, dts: \[\], totals: perf\(\)\.totals \};/);
   assert.match(src, /\$\{r\.orgs \? ', GPU organs' : ''\}/, 'a report says when the organs were drawn as GPU layers');
   assert.match(src, /\$\{r\.hide \? `, TEST: \$\{r\.hide\}` : ''\}/);
   assert.match(src, /gpuProbe\.skipGL = HIDES\[hideAt\] === 'no GPU picture';/);
@@ -99,7 +99,7 @@ test('the readout totals the counted notes over a window: whole draws and why, p
     counts: { [COUNTED.pan]: [110, 0, 0], [COUNTED.whole]: [10, 0, 0], [COUNTED.wholeWhy + 'zoom or turn']: [10, 0, 0], [COUNTED.picture]: [130, 0, 10], 'uploaded: setFlow': [120, 4500.4, 0] } });
   assert.match(t, /counted: vessels: pan shift ×110; vessels: whole draw ×10; vessels: whole draw because zoom or turn ×10; picture: drawn ×130, 10 frames with two; uploaded: setFlow ×120 \(4500 KB\)/);
   // Only a surface's own final draw can be "drawn twice in a frame"; the reasons are a closed list, so the totals stay a few dozen numbers.
-  assert.deepEqual([...TWICE].sort(), [COUNTED.glassDrawn, COUNTED.lobulePicture, COUNTED.picture].sort());
+  assert.deepEqual([...TWICE].sort(), [COUNTED.glassDrawn, COUNTED.paneDrawn, COUNTED.lobulePicture, COUNTED.picture].sort());
   assert.equal(new Set(WHY).size, WHY.length);
   const gl = readFileSync(new URL('../src/ui/veins-gl.js', import.meta.url), 'utf8');
   for (const why of WHY) assert.ok(gl.includes(`'${why}'`), `veins-gl.js counts a whole draw "${why}"`);

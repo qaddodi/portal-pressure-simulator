@@ -102,7 +102,7 @@ test('Callout glass kept: off, draw() reads the page as before; on, it reads it 
   // Every way a glass can change marks the boxes stale: a write in the layers (in the frame or after it), the page's own signals,
   // a callout's transition or pointer, a parent's style or class, a size change, a scroll.
   assert.match(g, /const loop = \(\) => \{ raf = 0; if \(mo\.takeRecords\(\)\.length\) keptStale = true; settle\(draw\(\)\); \};/);
-  assert.match(g, /batched = true;\n\s*keptStale = true;/);
+  assert.match(g, /const mo = new MutationObserver\(\(\) => \{ keptStale = true; quiet = 0; ask\(\); \}\);/);
   assert.match(g, /const again = \(\) => \{ keptStale = true; wake\(\); \};/);
   assert.match(g, /const held = \(\) => \{ liveUntil = performance\.now\(\) \+ 800; keptStale = true; wake\(\); \};/);
   assert.match(g, /keptMo\.observe\(e, \{ attributes: true, attributeFilter: \['style', 'class', 'hidden'\] \}\)/);
@@ -118,7 +118,7 @@ test('Callout glass kept: off, draw() reads the page as before; on, it reads it 
 test('Callout glass kept: the kept path draws from the same reads, through the same paint', () => {
   const g = src('glass-gl.js');
   const m = g.slice(g.indexOf('  function measure(list) {'), g.indexOf('  function drawKept(list) {'));
-  assert.match(m, /const cr = canvas\.getBoundingClientRect\(\), k = window\.devicePixelRatio \|\| 1;/);
+  assert.match(m, /const cr = canvas\.getBoundingClientRect\(\), k = glassDpr\(\);/);
   assert.match(m, /const panes = readPanes\(list\);/);
   assert.match(m, /const ws = getComputedStyle\(wrap\), bgs = ws\.backgroundColor, bg = colour\(bgs, 'transparent'\);/);
   assert.match(m, /sr: source\.getBoundingClientRect\(\), anim: animating\(\)/);

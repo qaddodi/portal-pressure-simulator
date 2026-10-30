@@ -3,20 +3,20 @@
 
 import { store, hiddenNow } from './store.js?v=a926bea9d4';
 import { EDGES } from '../engine/topology.js?v=4044766e96';
-import { h, fmt, svgIcon, closePopover, clamp, shownOf, isPhoneLayout, SIDEWAYS_MQ, swapFade, scrollBehavior, countTo, swapText, glideOnResize } from './util.js?v=e88848482f';
-import { lobuleFlows } from './lobule-model.js?v=994cae78d1';
-import { createProfile } from './charts.js?v=f817addcda';
-import { createPressureTime } from './pressure-time.js?v=9afb357294';
-import { createHvpgProcedure } from './hvpg-proc.js?v=d1ff63e5fe';
-import { lazyPane, holdUntilLoaded } from './lazy-pane.js?v=85ecacb281';
+import { h, fmt, svgIcon, closePopover, clamp, shownOf, isPhoneLayout, SIDEWAYS_MQ, swapFade, scrollBehavior, countTo, swapText, glideOnResize } from './util.js?v=f338042275';
+import { lobuleFlows } from './lobule-model.js?v=395886d6e7';
+import { createProfile } from './charts.js?v=2eb8d2f59a';
+import { createPressureTime } from './pressure-time.js?v=9209e5ce76';
+import { createHvpgProcedure } from './hvpg-proc.js?v=9af095946a';
+import { lazyPane, holdUntilLoaded } from './lazy-pane.js?v=eebe4ca5b1';
 import { ownsSideways, pageGo } from './swipe.js?v=3ad619631e';
-import { createEndoscopy, createVarixWall, createAbdomen } from './instruments.js?v=a39d022368';
-import { createReadoutsPane } from './readouts-pane.js?v=909dbd1ba3';
-import { frameFor } from './frame.js?v=2c89eeeae6';
+import { createEndoscopy, createVarixWall, createAbdomen } from './instruments.js?v=e17267f1a8';
+import { createReadoutsPane } from './readouts-pane.js?v=c3c063f1cc';
+import { frameFor } from './frame.js?v=b1e94b177f';
 import { vitalReading, VITALS } from './vital-read.js?v=cbba41a6b7';
 import { setShown } from './shown.js?v=82ef5e29ec';
 import { tenthGap } from '../engine/gap.js?v=3aabfbb29b';
-import { compareRows } from './idle-keys.js?v=6eccd5d85a';
+import { compareRows } from './idle-keys.js?v=235443a2a3';
 const nextFrame = frameFor('dock');
 
 // A number that changes rewrites its text node in place (setting textContent replaces the node: a DOM rebuild per paint).

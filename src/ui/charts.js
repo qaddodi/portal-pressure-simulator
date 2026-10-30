@@ -2,14 +2,14 @@
 
 import { NODES } from '../engine/topology.js?v=4044766e96';
 import { PROFILE_PATHS, SHORT } from './anatomy.js?v=9f55a095a6';
-import { pressureColor } from './colormap.js?v=e42d49d645';
+import { pressureColor } from './colormap.js?v=d2af226127';
 import { store, hiddenNow } from './store.js?v=a926bea9d4';
-import { h, fmt, fitCanvas, cssVar, cssAlpha, clamp, createEaser, axisTop } from './util.js?v=e88848482f';
-import { frameFor, cancelFrame, paceMs } from './frame.js?v=2c89eeeae6';
+import { h, fmt, fitCanvas, cssVar, cssAlpha, clamp, createEaser, axisTop } from './util.js?v=f338042275';
+import { frameFor, cancelFrame, paceMs } from './frame.js?v=b1e94b177f';
 import { tenthGap } from '../engine/gap.js?v=3aabfbb29b';
 import { shownOr } from './shown.js?v=82ef5e29ec';
 import { monotoneSegs, curveTester } from './curve-near.js?v=9ff15157e9';
-import { glideMoving } from './idle-keys.js?v=6eccd5d85a';
+import { glideMoving } from './idle-keys.js?v=235443a2a3';
 import { plotFill } from './plot-look.js?v=5037697da7';
 const nextFrame = frameFor('charts');
 

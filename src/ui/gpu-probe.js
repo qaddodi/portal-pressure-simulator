@@ -14,6 +14,13 @@ export const COUNTED = {
   rowsRefused: 'vessels: rows refused because ',
   picture: 'picture: drawn', pictureWhole: 'picture: whole', organs: 'organ layers: rendered',
   glassDrawn: 'glass: drawn', glassCopy: 'glass: figure copied', glassSkip: 'glass: copy skipped (figure unchanged)',
+  // (The liver label's pane is a second glass of its own, counted apart: two glasses drawn in one frame are not one drawn twice.)
+  paneDrawn: 'pane glass: drawn', paneCopy: 'pane glass: figure copied', paneSkip: 'pane glass: copy skipped (figure unchanged)',
+  // (Every other copy of a picture and every target made again at a new size, 30 Oct (review 6a): the vessel layer's pan blit (one per
+  // target), the kept picture laid onto the canvas, a resolution fade's canvas copies, and the layer's, the spare's and the kept
+  // picture's targets sized again.)
+  panBlit: 'copies: pan blit (per target)', present: 'copies: kept picture onto the canvas', fadeCopy: 'copies: resolution fade',
+  fboAlloc: 'targets: sized again',
   lobulePicture: 'lobule: vessels drawn', lobuleSurface: 'lobule: surface pass', lobuleSkip: 'lobule: surface pass skipped (camera only)',
   tissue: 'tissue: bitmap painted', ductules: 'lobule: ductules drawn',
   labelSolve: 'labels: solved', labelCarry: 'labels: carried', safe: 'safe area: cards measured',
@@ -29,7 +36,7 @@ export const COUNTED = {
   creditRead: 'credit art: shapes read', creditGrid: 'credit art: grid drawn', creditKept: 'credit art: grid kept (camera only)',
 };
 /** The counted names whose count above 1 in one frame means a surface drawn twice in it. */
-export const TWICE = new Set([COUNTED.picture, COUNTED.glassDrawn, COUNTED.lobulePicture]);
+export const TWICE = new Set([COUNTED.picture, COUNTED.glassDrawn, COUNTED.paneDrawn, COUNTED.lobulePicture]);
 /** Why a whole draw happened, as counted: the reasons are this fixed list. */
 export const WHY = ['no kept layer', 'radii changed', 'look changed', 'same place', 'moved too far', 'zoom or turn', 'tubes changed'];
 /**

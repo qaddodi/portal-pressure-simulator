@@ -45,8 +45,10 @@ test('the stage lays the GPU glass under both callout layers, off with the other
   assert.match(STAGE, /const glassGL = veins \? createGlassGL\(wrap, vCanvas, \[cath\.labels, sites\.el\], \{ software: SOFTWARE, off: \/\[\?&\]gpulabels=0\\b\/\.test\(location\.search\), live: \(\) => wrap\.classList\.contains\('gl-on'\), version: \(\) => veins\.drawSeq, capture: \(\) => veins\?\.capture\(\), onFigure: \(f\) => veins\.onPicture\(f\), keep: \(\) => figLab\('glassCache'\), due: \(\) => watch\.due\(\) \}\) : null;/);
   assert.match(CSS, /#glassGl \{ position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 4; \}/);
   assert.match(SRC, /\(pane \|\| layers\[0\]\)\.before\(canvas\);/, 'under the callouts, which share its z-index and come after it');
-  // A write to a callout redraws its glass in the same frame (a microtask after the write), so it never trails the outline.
-  assert.match(SRC, /keptStale = true;\n\s+queueMicrotask\(\(\) => \{ batched = false; quiet = 0; settle\(draw\(\)\); \}\);/);
+  // A write to a callout asks for the glass's own frame (its final phase, before that frame shows), so it never trails the outline and is
+  // drawn once in it; no draw of its own in a microtask (review H4b, 30 Oct).
+  assert.match(SRC, /const mo = new MutationObserver\(\(\) => \{ keptStale = true; quiet = 0; ask\(\); \}\);/);
+  assert.doesNotMatch(SRC, /queueMicrotask/);
   // Until a copy of the figure is in, and after the browser refuses one, the browser's own glass stays.
   assert.match(SRC, /if \(!panes\.length\) \{ clear\(\); return false; \}\n\s+\/\/ \(Until the first copy is in, the browser's own glass stays\.\)\n\s+if \(!ready\) return true;/);
   assert.match(SRC, /if \(\+\+fails > 3\) \{ dead = true; unmark\(\); clear\(\); \}/);
@@ -69,19 +71,20 @@ test('the glass takes a new copy of the figure only when the figure, the region 
   // The key: the figure's draw count, the region behind the callouts, and where both canvases lie, and how big the source is.
   assert.match(SRC, /const key = version \? `\$\{version\(\)\}\|\$\{reg\.x\}\|\$\{reg\.y\}\|\$\{reg\.w\}\|\$\{reg\.h\}\|\$\{cr\.left\}\|\$\{cr\.top\}\|\$\{sr\.left\}\|\$\{sr\.top\}\|\$\{sr\.width\}\|\$\{sr\.height\}\|\$\{source\.width\}x\$\{source\.height\}` : '';/);
   // A copy still current is not asked for again; the key is read before the copy is asked for and kept only once it has arrived.
-  assert.match(SRC, /if \(key && key === takenKey && ready\) \{ if \(gpuProbe\.on\) gpuProbe\.note\(COUNTED\.glassSkip\); return; \}/);
+  assert.match(SRC, /if \(key && key === takenKey && ready\) \{ if \(gpuProbe\.on\) gpuProbe\.note\(pane \? COUNTED\.paneSkip : COUNTED\.glassSkip\); return; \}/);
   assert.match(SRC, /ready = \{ \.\.\.reg \};\n\s+takenKey = key;/);
   assert.ok(SRC.indexOf('const key = version') < SRC.indexOf('createImageBitmap(source'), 'the key is read before the snapshot');
   // Without a version the old rule stands: a copy whenever the last has arrived.
   assert.match(SRC, /version = null, capture = null, onFigure = null, keep = null, due = null \} = \{\}\) \{/);
   // The figure counts every time its canvas is drawn on: a composite that drew something, and a clear; and the stage hands that on.
-  assert.match(VEINS, /if \(!full && !nCells && !\(fl\?\.ripple && nFluid\) && !pool && !dirt\) return;\n\s+pictured\(\);/);
+  // (But for a frame of the moving blood alone, whose streaks the glass's blur evens out: review H4, 30 Oct.)
+  assert.match(VEINS, /pictured\(!full && !part && !dirt && !pool && !\(fl\?\.ripple && nFluid\) && !cath && bare && same && !figNew\);/);
   assert.match(VEINS, /clear\(\) \{ pictured\(\);/);
-  assert.match(VEINS, /const pictured = \(\) => \{ pictureSeq\+\+; for \(const f of onPicture\) f\(\); \};/, 'and each time, it tells the glass');
+  assert.match(VEINS, /const pictured = \(blood = false\) => \{ if \(blood\) \{ bloodSeq\+\+; return; \} pictureSeq\+\+; for \(const f of onPicture\) f\(\); \};/, 'and each time, it tells the glass');
 });
 
 test('the glass is drawn on the shared final phase, once a frame, after the figure\'s own frame', () => {
-  assert.match(SRC, /import \{ finalFrameFor, cancelFrame \} from '\.\/frame\.js\?v=[0-9a-f]+';/);
+  assert.match(SRC, /import \{ finalFrameFor, cancelFrame, noteDraw \} from '\.\/frame\.js\?v=[0-9a-f]+';/);
   assert.match(SRC, /const later = finalFrameFor\(pane \? 'glass-pane' : 'glass'\);/);
   assert.match(SRC, /const loop = \(\) => \{ raf = 0; if \(mo\.takeRecords\(\)\.length\) keptStale = true; settle\(draw\(\)\); \};/, 'the writes made before it in its frame are drawn by it, not again after');
   assert.match(SRC, /function ask\(\) \{ if \(!raf && !lost && !dead\) raf = later\(loop\); \}/);

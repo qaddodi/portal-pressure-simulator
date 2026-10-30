@@ -12,7 +12,8 @@
 // know, a keyboard focus ring) stays drawn by the SVG, label by label. Without WebGL2, on a software renderer, with ?gpulabels=0, or
 // once the context is lost, the SVG draws them all, as it always has.
 
-import { frameFor, cancelFrame } from './frame.js?v=2c89eeeae6';
+import { frameFor, cancelFrame } from './frame.js?v=b1e94b177f';
+import { classOnly, GESTURE_LOOK } from './idle-keys.js?v=235443a2a3';
 import { startProgram, checkProgram } from './gl-compile.js?v=5c4cd6c14c';
 import { createAtlasPacker, batchRuns } from './atlas-pack.js?v=43b8bc019d';
 
@@ -405,7 +406,9 @@ void main() { o = texture(uT, vUV) * uA; }`;
   mo.observe(blocks, { subtree: true, childList: true, characterData: true, attributes: true, attributeOldValue: true, attributeFilter: ['class', 'style', 'x', 'y', 'dx', 'width', 'height', 'rx', 'fill', 'font-size', 'font-weight', 'letter-spacing', 'text-anchor'] });
   // Anything outside them that can change how they look (the theme, the glass setting, the text size, a mode's class): every label.
   const all = () => { for (const s of last) { dirty.add(s.g); live.set(s.g, performance.now() + 700); } allMarks(); ask(); };
-  const outer = new MutationObserver((rs) => { if (rs.some(changed)) all(); });
+  // (Not for a gesture's own classes, which change no label's look (idle-keys.js GESTURE_LOOK): each one made every label and mark read
+  // again on every frame for 0.7 s as a pan or pinch began and as it ended. 30 Oct, review G3.)
+  const outer = new MutationObserver((rs) => { if (rs.some((r) => changed(r) && !classOnly(r, GESTURE_LOOK))) all(); });
   for (let el = svg.parentElement; el; el = el.parentElement) outer.observe(el, { attributes: true, attributeOldValue: true, attributeFilter: ['class', 'data-theme', 'data-noglass', 'data-mode'] });
   matchMedia('(prefers-color-scheme: dark)').addEventListener?.('change', all);
   addEventListener('pps:labelscale', all);   // (the text size: --label-k on the page)

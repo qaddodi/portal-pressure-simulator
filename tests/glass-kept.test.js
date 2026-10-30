@@ -106,9 +106,9 @@ test('on: the blood moving under a still callout reads nothing, yet the glass fo
 test('on: a write to a callout reads it again, and its new place is drawn', async () => {
   const r = reads, d = n.draw;
   card.getBoundingClientRect = () => { reads++; return rect(140, 100, 200, 80); }; glass.getBoundingClientRect = () => { reads++; return rect(140, 100, 200, 80); };
-  moOf().cb([]); await flush();
+  moOf().cb([]); frame(); await flush();
   assert.ok(reads > r, 'read again');
-  assert.equal(n.draw, d + 1, 'drawn at once');
+  assert.equal(n.draw, d + 1, 'drawn in the next frame');
   await frames(4);
   const r2 = reads;
   await blood(3);

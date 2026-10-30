@@ -8,8 +8,8 @@
 // Off (the browser's glass, as before): no WebGL2, a software renderer, ?gpulabels=0, Settings' blur effect off, reduced
 // transparency, a browser without backdrop blur (whose solid card stays), or a copy the browser refuses.
 
-import { gpuProbe, COUNTED } from './gpu-probe.js?v=dd12fc216c';
-import { finalFrameFor, cancelFrame } from './frame.js?v=2c89eeeae6';
+import { gpuProbe, COUNTED } from './gpu-probe.js?v=b9f4077160';
+import { finalFrameFor, cancelFrame, noteDraw } from './frame.js?v=b1e94b177f';
 
 /** The CSS glass this draws (app.css .cl-glass: blur(16px) saturate(1.15) over 58 % of --surface). */
 export const GLASS = { blur: 16, sat: 1.15, tint: 0.58 };
@@ -21,6 +21,10 @@ export function roundPath(w, h, r) {
   return `M${f(q)} 0H${f(w - q)}A${f(q)} ${f(q)} 0 0 1 ${f(w)} ${f(q)}V${f(h - q)}A${f(q)} ${f(q)} 0 0 1 ${f(w - q)} ${f(h)}H${f(q)}A${f(q)} ${f(q)} 0 0 1 0 ${f(h - q)}V${f(q)}A${f(q)} ${f(q)} 0 0 1 ${f(q)} 0Z`;
 }
 const SCALE = 4;    // CSS px for each texel of the blurred copy
+// The glass's canvas holds at most 2 device px per CSS px (30 Oct, review H3): what it draws is a blur, a flat tint and a soft shadow,
+// whose edge lies under the callout's own 2 px outline (the DOM's, at the screen's full density), so a 3× screen shows the same glass
+// from four ninths of the pixels. The masks are drawn at the same density.
+export const glassDpr = () => Math.min(2, window.devicePixelRatio || 1);
 const MARGIN = 48;  // CSS px of the figure taken around the callouts: three of the blur's sigmas (blur(16px): sigma 16 px)
 
 const NUM = (v) => parseFloat(v) || 0;
@@ -206,11 +210,11 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
     if (!sr.width || !sr.height || !source.width) return;
     // (The key of the figure as it is copied now, read before the copy is asked for: the browser takes its snapshot in that call.)
     const key = version ? `${version()}|${reg.x}|${reg.y}|${reg.w}|${reg.h}|${cr.left}|${cr.top}|${sr.left}|${sr.top}|${sr.width}|${sr.height}|${source.width}x${source.height}` : '';
-    if (key && key === takenKey && ready) { if (gpuProbe.on) gpuProbe.note(COUNTED.glassSkip); return; }
+    if (key && key === takenKey && ready) { if (gpuProbe.on) gpuProbe.note(pane ? COUNTED.paneSkip : COUNTED.glassSkip); return; }
     const kx = source.width / sr.width, ky = source.height / sr.height;
     const bw = Math.max(1, Math.ceil(reg.w / SCALE)), bh = Math.max(1, Math.ceil(reg.h / SCALE));
     pending = true;
-    if (gpuProbe.on) gpuProbe.note(COUNTED.glassCopy);
+    if (gpuProbe.on) gpuProbe.note(pane ? COUNTED.paneCopy : COUNTED.glassCopy);
     const job = gen;
     let p;
     try {
@@ -281,7 +285,7 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
     if (!list.length || !wanted() || !live()) { unmark(); clear(); kept = null; return false; }
     if (keep?.()) return drawKept(list);
     kept = null;
-    const cr = canvas.getBoundingClientRect(), k = window.devicePixelRatio || 1;
+    const cr = canvas.getBoundingClientRect(), k = glassDpr();
     const w = Math.max(1, Math.round(cr.width * k)), h = Math.max(1, Math.round(cr.height * k));
     if (w !== W || h !== H) { W = w; H = h; canvas.width = w; canvas.height = h; }
     dpr = k;
@@ -313,7 +317,8 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
         + (pane ? '' : `,${e.left},${e.top},${e.right},${e.bottom},${s ? `${s.c},${s.x},${s.y},${s.blur},${s.spread}` : '-'}`);
     }
     if (drawn && key === drawnKey) return 'same';
-    if (gpuProbe.on) gpuProbe.note(COUNTED.glassDrawn);
+    noteDraw(pane ? 'glass-pane' : 'glass');
+    if (gpuProbe.on) gpuProbe.note(pane ? COUNTED.paneDrawn : COUNTED.glassDrawn);
     gl.viewport(0, 0, W, H); gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT);
     gl.useProgram(pprog); gl.bindVertexArray(vao);
     gl.enable(gl.BLEND); gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
@@ -354,7 +359,7 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
   // script's fade started on a callout with no write to the layers would go unseen until one of those; nothing does that today.)
   const sameList = (a, b) => a.length === b.length && a.every((g, i) => g === b[i]);
   function measure(list) {
-    const cr = canvas.getBoundingClientRect(), k = window.devicePixelRatio || 1;
+    const cr = canvas.getBoundingClientRect(), k = glassDpr();
     const panes = readPanes(list);
     const ws = getComputedStyle(wrap), bgs = ws.backgroundColor, bg = colour(bgs, 'transparent');
     const bgVar = bg[3] > 0 ? '' : ws.getPropertyValue('--stage-bg').trim() || ws.getPropertyValue('--bg').trim();
@@ -362,7 +367,7 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
   }
   function drawKept(list) {
     keepWatch();
-    const k0 = window.devicePixelRatio || 1;
+    const k0 = glassDpr();
     if (!kept || keptStale || !sameList(kept.list, list) || kept.k !== k0 || kept.anim || performance.now() < liveUntil || due?.()) {
       keptStale = false;
       kept = measure(list);
@@ -386,7 +391,7 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
   // written (its place, its size, a class), or one of its transitions or animations running. A frame that would draw the same
   // picture draws nothing, and two such frames in a row put the glass to sleep (a paused figure, settled callouts): no copy, no
   // blur, no draw and no frame asked for, only a look once a second in case a change came by a path that does not wake it.
-  // A callout written outside a frame is drawn at once, in the microtask after the write, so the glass never trails its outline.
+  // A callout written outside a frame is drawn in the next frame's final phase, before that frame is shown, so the glass never trails its outline.
   // (On the shared scheduler's final phase: after every other surface's frame, the figure's own pass and the callouts' writes
   // included, so it blurs the figure of this frame, not the last, and is drawn once in a frame whoever asked.)
   const later = finalFrameFor(pane ? 'glass-pane' : 'glass');
@@ -406,13 +411,11 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
     // (Asleep: a slow look while any glass is on the page; none, and only a new callout (a write to the layers) wakes it.)
     if (glassesOf().length) poll = setTimeout(() => { poll = 0; ask(); }, 1000);
   }
-  let batched = false;
-  const mo = new MutationObserver(() => {
-    if (batched) return;
-    batched = true;
-    keptStale = true;
-    queueMicrotask(() => { batched = false; quiet = 0; settle(draw()); });
-  });
+  // (A write to the callouts asks for the glass's frame, not a draw of its own: a write made in a task (an event, a timer) is drawn in the
+  // final phase of the frame that shows it, so the glass still never trails its outline, and one made in a frame before the glass's turn
+  // is taken by its loop (takeRecords). The microtask draw it was had drawn a second time in a frame while callouts moved; 30 Oct,
+  // review H4b.)
+  const mo = new MutationObserver(() => { keptStale = true; quiet = 0; ask(); });
   const watched = pane ? [pane] : layers;
   for (const l of watched) mo.observe(l, { subtree: true, childList: true, attributes: true, attributeFilter: ['style', 'class', 'data-at', 'hidden'] });
   // Whether a callout layer still holds an animation that will end: a transition (its delay included), a keyframe animation or a

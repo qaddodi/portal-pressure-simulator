@@ -10,7 +10,8 @@
 // so the figure blinked out and in at every change (Mohammad, 30 Oct: "it flashes whenever it switches resolution"). The mix is
 // moved by the canvas's own sub-pixel translate (stage.js subPixel), so neither picture shifts as the mix comes and goes, and it
 // is drawn in the frame's final phase, after the figure's own pass, so the new picture in it is this frame's.
-import { finalFrameFor } from './frame.js?v=2c89eeeae6';
+import { finalFrameFor, noteDraw } from './frame.js?v=b1e94b177f';
+import { gpuProbe, COUNTED } from './gpu-probe.js?v=b9f4077160';
 
 export const FADE_MS = 350;
 /** The old picture's weight u of the way through the fade: 1 to 0, smoothstep (no step at either end). */
@@ -74,7 +75,9 @@ function step() {
     if (canvas.width > f.cv.width || canvas.height > f.cv.height) { f.cv.width = Math.max(f.cv.width, canvas.width); f.cv.height = Math.max(f.cv.height, canvas.height); }
     const tr = canvas.style.translate || '';
     if (f.cv.style.translate !== tr) f.cv.style.translate = tr;
-    try { mixInto(f.c, f.cv, f.old, canvas, fadeAlpha(u), oldPlace(f.follow?.(), f.at, translateOf(tr))); } catch { end(canvas, f); }
+    try { mixInto(f.c, f.cv, f.old, canvas, fadeAlpha(u), oldPlace(f.follow?.(), f.at, translateOf(tr))); } catch { end(canvas, f); continue; }
+    noteDraw('res-fade');
+    if (gpuProbe.on) gpuProbe.note(COUNTED.fadeCopy, f.cv.width * f.cv.height * 4 / 1024);
   }
   if (fades.size) { asked = true; late(step); }
 }
@@ -89,6 +92,7 @@ export function fadeOver(canvas, follow = null) {
   const old = document.createElement('canvas');
   old.width = src.width; old.height = src.height;
   try { old.getContext('2d').drawImage(src, 0, 0); } catch { return; }   // (a canvas that cannot be read: it changes as it is)
+  if (gpuProbe.on) gpuProbe.note(COUNTED.fadeCopy, old.width * old.height * 4 / 1024);
   let f = was;
   if (!f) {
     const cv = document.createElement('canvas');
@@ -129,6 +133,7 @@ export function stackInto(cv, layers) {
   c.setTransform(1, 0, 0, 1, 0, 0); c.globalCompositeOperation = 'source-over'; c.globalAlpha = 1;
   c.clearRect(0, 0, cv.width, cv.height);
   try { for (const l of shown) c.drawImage(l, 0, 0, cv.width, cv.height); } catch { return false; }
+  if (gpuProbe.on) gpuProbe.note(COUNTED.fadeCopy, cv.width * cv.height * 4 * shown.length / 1024);
   return true;
 }
 /** The CSS transform that carries a picture drawn at view v0 ({ k, x, y }: screen = world × k + (x, y)) to where view v puts it

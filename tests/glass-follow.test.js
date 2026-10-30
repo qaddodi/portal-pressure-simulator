@@ -80,7 +80,7 @@ const { createGlassGL } = await import('../src/ui/glass-gl.js');
 const flush = async () => { await new Promise((r) => setImmediate(r)); };
 const frame = () => { clock += 16; const q = rafs.splice(0); for (const cb of q) cb(clock); };
 const frames = async (k) => { for (let i = 0; i < k; i++) { frame(); await flush(); } };
-const write = async () => { [...observers][0].cb([]); await flush(); };   // (a callout written: drawn in the microtask after it)
+const write = async () => { [...observers][0].cb([]); frame(); await flush(); };   // (a callout written: drawn in the next frame's final phase)
 
 const G = createGlassGL(stageEl, source, [layer], { version: () => 1, capture() {}, onFigure: () => () => {} });
 

@@ -291,10 +291,11 @@ test('the blood pass leaves a lumen alone only when neither of its vessels\' row
   const comp = glSrc.slice(glSrc.indexOf('    composite(look, blood = {}, full = false, part = 0) {'), glSrc.indexOf('    /** Whether organ outlines can be drawn here'));
   // Never in a whole picture, a bleed (the one uniform left out of the comparison, the clock, moves it), the classic build, or
   // before every row has been seen.
-  assert.match(comp, /let still = !CLASSIC && !full && !movedAll && !bl\.length && !!stillSig && sn === stillN && sn < sigNow\.length;/);
-  assert.match(comp, /for \(let i = 0; still && i < sn; i\+\+\) if \(sigNow\[i\] !== stillSig\[i\]\) still = false;/);
+  assert.match(comp, /let same = !!stillSig && sn === stillN && sn < sigNow\.length;/);
+  assert.match(comp, /for \(let i = 0; same && i < sn; i\+\+\) if \(sigNow\[i\] !== stillSig\[i\]\) same = false;/);
+  assert.match(comp, /const still = !CLASSIC && !full && !movedAll && !bl\.length && same;/);
   // The comparison takes every uniform the composite sets but the clock (and the bleed's, which it refuses), and the textures' version.
-  const sig = comp.slice(comp.indexOf('sn = 0;'), comp.indexOf('let still'));
+  const sig = comp.slice(comp.indexOf('sn = 0;'), comp.indexOf('let same'));
   for (const x of ['m, PW(), PH()', 'pm', 'plate?.alpha', 'plate?.sat', 'plates[0]?.rect', 'plates[1]?.rect', 'fluidRect', 'fl?.s', 'fl.ink', 'fl?.lv',
     'blood.on', 'blood.chev', 'blood.still', 'blood.alpha', 'blood.streakA', 'blood.chevA', 'blood.originA', 'blood.chevInk', 'blood.chevLight', 'blood.vdpr',
     'blood.origin', 'dyeAny', 'originColOf', 'blood.dyeCol', 'blood.revCol', 'blood.inkLight', 'blood.inkDark', 'ncv', 'nc.length', 'hb', 'hr', 'ho.length',
@@ -307,8 +308,8 @@ test('the blood pass leaves a lumen alone only when neither of its vessels\' row
   assert.ok(comp.indexOf('moved.fill(0); movedAll = false;') > comp.indexOf('gl.uniform1i(U.bloodOnly, 1);'));
   // Every setter of a vessel's row marks it; a new binning or flow table marks them all; a new texture under the lumens bumps texVer.
   const api = glSrc.slice(glSrc.indexOf('  const api = {'));
-  assert.match(api, /setTubes\(data\) \{\n\s*tubesNew = true;\n\s*markRows\(data, tubeNow, ROW_W\);/);
-  assert.match(api, /setBend\(row, pts\) \{\n\s*moved\[row\] = 1;/);
+  assert.match(api, /setTubes\(data\) \{\n\s*figVer\+\+;\n\s*tubesNew = true;\n\s*markRows\(data, tubeNow, ROW_W\);/);
+  assert.match(api, /setBend\(row, pts\) \{\n\s*figVer\+\+;\n\s*moved\[row\] = 1;/);
   assert.match(api, /radRows\.add\(row\); moved\[row\] = 1;/);
   assert.match(api, /markRows\(data, flowSent, stride\);\n\s*const span = changedRows/);
   assert.match(api, /if \(dyeSent\) markRows\(data, dyeSent, DYE_BINS\);/);

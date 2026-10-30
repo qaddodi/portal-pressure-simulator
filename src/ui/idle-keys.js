@@ -16,6 +16,22 @@ export function compareRows(a, b, hvpg, model, fmt) {
   ].filter(Boolean);
 }
 
+// The classes a pan, a pinch or a slide's camera glide puts on and takes off. GESTURE_LOOK: what they change is no label's own look
+// (the stage view's: the cursor, panning; the label layer's and the liver pane's opacity as a whole, pinch-hide and cam-move; the
+// app's: the floating buttons' fade, stage-busy, and the phone's bars and zoom pill, figure-focus). GESTURE_MOVE_FREE: those of them
+// that also move, size, hide or fade no placed piece (PLACED), so no box a layout watch's readers measure changes with them.
+export const GESTURE_LOOK = new Set(['panning', 'stage-busy', 'figure-focus', 'pinch-hide', 'cam-move']);
+export const GESTURE_MOVE_FREE = new Set(['panning', 'pinch-hide', 'cam-move']);
+/** Whether two class attribute values differ only by classes in `set` (the same, too). */
+export function onlyClasses(a, b, set) {
+  const A = new Set((a || '').split(/\s+/).filter(Boolean)), B = new Set((b || '').split(/\s+/).filter(Boolean));
+  for (const c of A) if (!B.has(c) && !set.has(c)) return false;
+  for (const c of B) if (!A.has(c) && !set.has(c)) return false;
+  return true;
+}
+/** A class record whose change, from its old value to the class as it stands now, is only classes in `set`. */
+export const classOnly = (r, set) => r.type === 'attributes' && r.attributeName === 'class' && onlyClasses(r.oldValue, r.target.getAttribute('class'), set);
+
 // Whether mutation records leave anything different from before them. The figure writes the same attribute values over and
 // over on its model frames (a transform, a path); a write of the value already there changes nothing, and a value changed
 // and changed back within the batch does not either. (Each attribute is compared once: its first record holds the value it
@@ -70,8 +86,11 @@ export function createLayoutWatch({ root, exclude = inSvg, settle = 2500, now = 
     for (const el of next) if (!sized.has(el)) ro.observe(el);
     sized = next;
   };
+  // (A pan's, a pinch's or a glide's own classes move no placed piece: their records are passed over, so a gesture alone does not keep
+  // the watch due for its settle time. 30 Oct, review G3.)
   const relevant = (r) => {
     if (r.type === 'childList') return [...(r.addedNodes || []), ...(r.removedNodes || [])].some(places);
+    if (classOnly(r, GESTURE_MOVE_FREE)) return false;
     return r.attributeName === 'data-safe' || places(r.target);
   };
   // An observer's callback is handed the records delivered to it, and they are no longer queued for takeRecords(): they
@@ -79,7 +98,7 @@ export function createLayoutWatch({ root, exclude = inSvg, settle = 2500, now = 
   const groupMO = MO ? new MO((rs) => flush(rs, null)) : null;
   const pageMO = MO ? new MO((rs) => flush(null, rs)) : null;
   function flush(groupGiven = null, pageGiven = null) {
-    if (groupMO) { const rs = withQueued(groupGiven, groupMO); if (rs.length && netChanged(rs)) touch(); }
+    if (groupMO) { const rs = withQueued(groupGiven, groupMO).filter((r) => !classOnly(r, GESTURE_MOVE_FREE)); if (rs.length && netChanged(rs)) touch(); }
     if (pageMO) {
       const rs = withQueued(pageGiven, pageMO).filter(relevant);
       if (rs.length && netChanged(rs)) { touch(); if (rs.some((r) => r.type === 'childList' || r.attributeName === 'data-safe' || r.attributeName === 'class')) resync(); }

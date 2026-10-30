@@ -120,7 +120,9 @@ test('a callout written wakes it at once, and draws only when its glass changed'
   const mo = [...observers][0];
   card.getBoundingClientRect = () => rect(120, 100, 200, 80); glass.getBoundingClientRect = () => rect(120, 100, 200, 80);
   mo.cb([]); await flush();
-  assert.equal(n.draw, d + 1, 'drawn in the microtask after the write');
+  assert.equal(n.draw, d, 'no draw of its own after the write (review H4b)');
+  frame(); await flush();
+  assert.equal(n.draw, d + 1, 'drawn in the next frame, before it shows');
   await frames(4);
   assert.equal(n.draw, d + 2, 'and once more with the copy of its new place');
   mo.cb([]); await flush();
@@ -132,7 +134,7 @@ test('a callout written wakes it at once, and draws only when its glass changed'
 test('with no glass showing it clears once and stops', async () => {
   look.opacity = '0';
   const c = n.clear, d = n.draw;
-  [...observers][0].cb([]); await flush();
+  [...observers][0].cb([]); frame(); await flush();
   assert.equal(n.clear, c + 1, 'cleared once');
   await frames(4);
   assert.equal(n.clear, c + 1); assert.equal(n.draw, d);

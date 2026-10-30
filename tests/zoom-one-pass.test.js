@@ -144,7 +144,7 @@ test('veins-gl: on by default (?zoompass=two goes back), a zoom or turn only, pl
   const comp = body(src, '    composite(look, blood = {}, full = false, part = 0) {');
   assert.match(comp, /const fused = fusing;\s*fusing = false;\s*if \(stale && !fused\) \{ this\.draw\(baseM, look, blood\); return; \}/, 'any other picture draws the layer whole first');
   assert.match(comp, /gl\.stencilFunc\(gl\.ALWAYS, 1, 0xff\); gl\.stencilOp\(gl\.KEEP, gl\.KEEP, gl\.REPLACE\);[\s\S]*fuseBind\(P, m, look, layer, glow, warm, useStack\);[\s\S]*gl\.stencilFunc\(gl\.EQUAL, 0, 0xff\);[\s\S]*gl\.drawArrays\(gl\.TRIANGLE_STRIP, 0, 4\);\s*gl\.disable\(gl\.STENCIL_TEST\);/);
-  assert.match(comp, /for \(const P of \[\.\.\.fuseP, prg\]\) \{/, 'the one-pass builds get the picture\'s uniforms, the picture\'s own build last');
+  assert.match(comp, /for \(const P of \[\.\.\.fuseP, \.\.\.sides, prg\]\) \{/, 'the one-pass builds get the picture\'s uniforms, the picture\'s own build last');
   assert.match(src, /const fuseReady = \(\) => !!fuseGen && !!plain && \(!nSimple \|\| !!fuseOne\)/);
   // (Torn down with the rest.)
   assert.match(src, /plain, plainCell, fuseGen, fuseOne, cathP, lineP\]\) if \(x\) gl\.deleteProgram/);

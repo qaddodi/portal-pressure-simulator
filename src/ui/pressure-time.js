@@ -6,9 +6,9 @@
 // a crosshair (hover, or drag on a touch screen) reads every trace at one moment.
 
 import { store, hiddenNow } from './store.js?v=a926bea9d4';
-import { h, fmt, fitCanvas, cssVar, cssAlpha, clamp } from './util.js?v=e88848482f';
-import { FONT as FONT0, FONT } from './charts.js?v=f817addcda';
-import { frameFor, cancelFrame } from './frame.js?v=2c89eeeae6';
+import { h, fmt, fitCanvas, cssVar, cssAlpha, clamp } from './util.js?v=f338042275';
+import { FONT as FONT0, FONT } from './charts.js?v=2eb8d2f59a';
+import { frameFor, cancelFrame, paceMs, noteDraw } from './frame.js?v=b1e94b177f';
 import { tenthGap } from '../engine/gap.js?v=3aabfbb29b';
 import { firstAtOrAbove, firstAbove } from './sorted.js?v=662e543c85';
 import { limitLabelX as labelX } from './limit-label.js?v=52dcc41a1e';
@@ -286,11 +286,18 @@ export function createPressureTime({ marks = () => [] } = {}) {
   const io = typeof IntersectionObserver === 'function' ? new IntersectionObserver((es) => { seen = es[es.length - 1].isIntersecting; wake(); }) : null;
   io?.observe(cv);
   const live = () => frame?.running && range !== 'days' && (io ? seen : cv.offsetParent) && !document.hidden;
-  function tickLoop() {
+  // (Battery saver or Settings › Figure performance › Motion at 60: the scroll is drawn at that pace, as the figure's steady motion is;
+  // otherwise on every frame, as before. tickAt: when the loop last drew.)
+  let tickAt = -Infinity;
+  function tickLoop(now = performance.now()) {
     tickRaf = 0;
     if (!live()) { ticking = false; return; }
     tickRaf = nextFrame(tickLoop);
+    const pace = paceMs();
+    if (pace && now - tickAt < pace) return;
+    tickAt = now;
     draw();
+    noteDraw('pressure-time');
   }
   function wake() { if (!ticking && live()) { ticking = true; tickRaf = nextFrame(tickLoop); } }
 

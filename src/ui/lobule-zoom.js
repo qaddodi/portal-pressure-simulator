@@ -19,25 +19,25 @@
 // tapped (triad, inlet venule, sinusoid, arteriole, central vein, septum, hepatocytes).
 // Without WebGL2 the vessels are drawn flat on the tissue canvas.
 
-import { runFlick, FLICK } from './flick.js?v=64cc635fb7';
+import { runFlick, FLICK } from './flick.js?v=f70123c633';
 import { store } from './store.js?v=a926bea9d4';
 import { glideClock } from './glide-clock.js?v=220d7f875c';
 import { radiiChanged, canvasPx, fxMoves, DIVE_RIM } from './lobule-render-cache.js?v=84bf4c2222';
 import { softwareYield } from './sw-yield.js?v=e580a095b1';
-import { lobuleState, lymphRate, sinceOf, lensModeOf, LOBE } from './lobule-model.js?v=994cae78d1';
+import { lobuleState, lymphRate, sinceOf, lensModeOf, LOBE } from './lobule-model.js?v=395886d6e7';
 import { SIN_NARROW, cordTone, dullSinusoid, NEIGHBOUR_FLAT, neighbourBlur, blurWrapped, bandOutline, FADE_MID, fadeOuter, padRect, wideDpr, wideTiles, FIELD_RS, fieldBlend, fieldDof, surroundGrade, greyStep } from './lobule-look.js?v=cf14995b07';
 import { isGreyLens } from './organ-dim.js?v=9e19f2fc30';
 import { createFieldGL } from './field-gl.js?v=779561d5dd';
 import { createTissueGL } from './tissue-gl.js?v=8b86e77a93';
-import { h, s, fmt, clamp, createEaser, systemEdge, bloodColors, cssVar, cssAlpha, cssRGB01 } from './util.js?v=e88848482f';
-import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatColor, oxygenColor } from './colormap.js?v=e42d49d645';
+import { h, s, fmt, clamp, createEaser, systemEdge, bloodColors, cssVar, cssAlpha, cssRGB01 } from './util.js?v=f338042275';
+import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatColor, oxygenColor } from './colormap.js?v=d2af226127';
 import { NODES, EDGES } from '../engine/topology.js?v=4044766e96';
-import { createVeinsGL, binVeins, laneSum, N_SAMPLES, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_SPEC, F_EDGE, ORIGIN_GREY } from './veins-gl.js?v=8f7f42a6cc';
+import { createVeinsGL, binVeins, laneSum, N_SAMPLES, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_SPEC, F_EDGE, ORIGIN_GREY } from './veins-gl.js?v=6cfc96fb03';
 import { SLOT, PERIOD, originFractions, ORIGIN_N, DRIFT_PERIOD } from './blood.js?v=300b3b5267';
-import { createSinusoidView } from './sinusoid-view.js?v=afd52fa933';
-import { frameFor, cancelFrame, noteDraw, saver, paceMs, renderScale, onRenderScale, frame, figLab } from './frame.js?v=2c89eeeae6';
-import { gpuProbe, COUNTED } from './gpu-probe.js?v=dd12fc216c';
-import { FADE_MS, fadeAlpha, stackInto, viewFollow } from './res-fade.js?v=5ef150fc7c';
+import { createSinusoidView } from './sinusoid-view.js?v=c7dede7e63';
+import { frameFor, cancelFrame, noteDraw, saver, paceMs, renderScale, onRenderScale, frame, figLab } from './frame.js?v=b1e94b177f';
+import { gpuProbe, COUNTED } from './gpu-probe.js?v=b9f4077160';
+import { FADE_MS, fadeAlpha, stackInto, viewFollow } from './res-fade.js?v=155e763d11';
 import { leaderEnd, runInside } from './leader-end.js?v=8e884700ab';
 const nextFrame = frameFor('lobule-zoom');
 

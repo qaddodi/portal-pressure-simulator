@@ -16,7 +16,7 @@ test('E: while the view moves the outlines are drawn straight onto the whole rep
   const js = read('../src/ui/veins-gl.js');
   const body = js.slice(js.indexOf('    composite(look'), js.indexOf('get canLines()'));
   assert.match(body, /const moving = mk !== lastMk;/);
-  assert.match(body, /layer = hard && !cath && !moving/);
+  assert.match(body, /layer = hard && \(!cath \|\| !!cathRect\) && !moving/);
   assert.match(body, /else if \(moving\) \{ lineKey = ''; full = true; \}/, 'a moving frame is a whole repaint, and the layer is rebuilt when still');
   assert.match(body, /if \(hard && !layer\) gpuProbe\.time\(gl, 'outlines', \(\) => drawLines\(m, false\)\);/, 'drawn last, over the picture');
 });
