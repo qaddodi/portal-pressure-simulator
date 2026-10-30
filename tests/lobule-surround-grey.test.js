@@ -75,7 +75,7 @@ test('every place the surround is drawn takes the grade: the field on the GPU an
   assert.ok(pt.indexOf('fieldGrey(') < pt.indexOf('c.drawImage(worldCv'), 'the 2D bitmap is laid after it: the lobule in focus is not greyed');
   assert.ok(pt.indexOf('fieldGrey(') < pt.indexOf('fieldFade(c,'));
   // The dive's and the rise's copies are made from the 2D tissue, so they carry the grey.
-  assert.match(lz, /if \(rim && !wide\) \{ paint2D\(\); diveCopy\(\); \}/);
+  assert.match(lz, /if \(rim && !wide\) \{ paint2D\(\); diveCopy\(\); \}/, 'the copy is made from a fresh 2D drawing');
   assert.match(fn('function paint2D() {'), /tissueKey = ''; idleDrawn = '';[\s\S]*paintTissue\(W, H,/);
 });
 

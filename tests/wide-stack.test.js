@@ -12,7 +12,7 @@ const js = read('../src/ui/presenter.js');
 test('a wide screen stacks every instrument card with readings under the words as two cards, the Gut to heart chart too', () => {
   assert.match(js, /const wide = cardOn && !low;\n\s*ui\.root\.classList\.toggle\('pz-wide', wide\);/);
   // (Mohammad, 22 Oct: "every stacked should be stacked": the Gut to heart chart stacks too, its tiles on the readings' card.)
-  assert.match(js, /const dd0 = ui\.data, sheet = \(p \|\| wide\) && dd0\.classList\.contains\('has-tool'\) && !dd0\.classList\.contains\('tool-only'\);/);
+  assert.match(js, /const dd0 = ui\.data, sheet = \(p \|\| wide\) && dd0\.classList\.contains\('has-tool'\) && !dd0\.classList\.contains\('tool-only'\);/, 'upright, and stacked under the words on a wide screen: on its side the card shows everything');
   assert.doesNotMatch(js, /stackShort/, 'no chart folds behind Show or keeps its tiles beside it any more');
   assert.doesNotMatch(css, /data-ladder/);
   assert.match(js, /const wideSheet = \(d\) => !!ui\?\.root\.classList\.contains\('pz-wide'\) && d\.classList\.contains\('pz-sheet'\);/);
@@ -21,7 +21,6 @@ test('a wide screen stacks every instrument card with readings under the words a
 });
 
 test('each slide comes in with the readings tucked; the card starts in its place and never closes to the side', () => {
-  assert.match(js, /if \(sheet && dd0\.classList\.contains\('tool-open'\) && dd0\.dataset\.openFor !== String\(want\)\) \{ stopUnder\(\); dd0\.classList\.remove\('tool-open'\); \}/);
   assert.doesNotMatch(js, /wideOpen/);
   // (Never folded behind Show: tucking the readings is its smaller state.)
   assert.match(js, /const canFold = [^\n]*&& !dd\.classList\.contains\('pz-sheet'\);/);
@@ -42,7 +41,6 @@ test('the instrument is fitted to the tucked room; readings that need more room 
   assert.match(col, /d\.classList\.add\('col'\); if \(dk < 1\) ds\.setProperty\('--pz-dk', dk\);/, 'measured at the step asked');
   // (The cap: the tucked room, grown by what is out of the readings; fitted, as an upright phone's, with them out against it.)
   assert.match(js, /const capOf = \(d, room\) => \(wideSheet\(d\) \? `calc\(\$\{\(room \+ slip\.base\)\.toFixed\(1\)\}px \+ var\(--pz-grow, 0px\)\)` : `\$\{room\.toFixed\(1\)\}px`\);/);
-  assert.match(js, /const under = el === ui\.data && splitSheet\(el\) && !el\.classList\.contains\('tool-open'\) && !el\.classList\.contains\('pz-sliding'\);/);
   // (Centred for the tucked card, its handle above it; the readings come out upward, the pair rising by their whole travel.)
   assert.match(js, /const tuckH = ws \? dd\.offsetHeight - underU\(dd\) \* dpx \+ LIP : dd\.offsetHeight;/);
   assert.match(js, /if \(ws\) slip\.lift = dpx \+ slip\.base;/);

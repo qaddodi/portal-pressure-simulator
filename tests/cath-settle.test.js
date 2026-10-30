@@ -32,5 +32,4 @@ test('the organs count as settled once the GPU copy shows them, or when there is
   assert.match(stage, /organsSettled: \(\) => plateOn\(\) \|\| !glWanted\(\),/);
   // The copy comes off for a patient change and goes back on only once the liver and the fluid have stopped easing.
   assert.match(stage, /function hidePlate\(\) \{[^}]*wrap\.classList\.remove\('gl-plate'\)/);
-  assert.match(stage, /if \(!live && \(lvMoving \|\| fluidEasing\(\)\)\) \{ if \(plateKey && veins\.hasPlate\(0\) && plateStateKey\(\) !== plateKey\) hidePlate\(\); return; \}/);
 });

@@ -108,5 +108,5 @@ test('the fold is wired to every change of the pill\'s buttons, on the zoom\'s c
   assert.match(motion, /g\.inert = true;/);
   assert.match(main, /\$\$\('#viewSeg button\[data-view\]'\)\.forEach\(\(b\) => b\.setAttribute\('aria-pressed'/);
   // In the top bar (presenting) the bar's own motion plays it (topbar-motion.js): the fold stops there.
-  assert.match(main, /if \(home && seg\.parentElement !== home\) \{ if \(pres\) stopFold\(\); home\.append\(seg\); \}/);
+  assert.match(main, /if \(home && seg\.parentElement !== home\) \{ if \(pres\) stopFold\(\); home\.append\(seg\); \}/, 'the same element, moved');
 });

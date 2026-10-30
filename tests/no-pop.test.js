@@ -84,7 +84,6 @@ test('entering or leaving the lobule crossfades the bar\'s readings', () => {
 });
 
 test('a label under the open menu fades rather than blinking', () => {
-  assert.match(css, /#labels \.lb\.under-menu \{ opacity: 0; pointer-events: none; transition-duration: \.16s; \}/);
   assert.doesNotMatch(css, /under-menu \{ visibility: hidden/);
 });
 

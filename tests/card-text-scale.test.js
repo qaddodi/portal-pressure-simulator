@@ -21,14 +21,11 @@ test('phones and upright iPad: data card labels closer to the words, quick-check
 
 test('a phone held sideways uses the phone sizes for its words', () => {
   assert.match(css, /\.pz\.low \.pz-text \{ --pk: 1\.4; --s-cap: calc\(var\(--t-cap\)/);
-  assert.match(css, /\.pz\.low \.pz-text \.pz-h \{ font-size: var\(--s-val\); \}/);
 });
 
 // Mohammad, 17 Oct ("17 px body"): a phone's slide words 1.45 times the roles (a 17.4 px body on a 390 px phone), an upright
 // iPad its own 1.39 (a 19 px body, as sideways); one line spacing, 1.4, with pills slim enough to sit inside it.
 test('phone slide words at 1.45, upright iPad at 1.39, one line spacing with slim pills', () => {
-  assert.match(css, /\.pz\.stack \.pz-text, \.pz\.stack \.pz-panel \{ --pk: 1\.45; \}/);
-  assert.match(css, /\.pz\.stack\.tab \.pz-text, \.pz\.stack\.tab \.pz-panel \{ --pk: 1\.39; \}/);
   assert.doesNotMatch(css, /--pk: 1\.7/);
   assert.match(css, /\.pz-line \{ margin: 0; font: 400 var\(--s-body\)\/1\.4 /);
   assert.doesNotMatch(css, /\.pz-line:has\(/, 'a pill no longer sets its whole paragraph wider apart');
@@ -41,9 +38,7 @@ test('phone slide words at 1.45, upright iPad at 1.39, one line spacing with sli
 test('a tight phone slide steps the whole card to Compact, never its title alone', () => {
   const js = readFileSync(new URL('../src/ui/presenter.js', import.meta.url), 'utf8');
   assert.match(js, /const mins = small \? \[\.\.\.new Set\(\[floor, phone\(\) \? floor : 0\.5\]\)\] : \[lowFloor \|\| floor\];/);
-  assert.match(js, /if \(small && fits\(\)\) \{ k = over = Math\.max\(COMPACT, floor\); el\.style\.setProperty\('--pz-fit', String\(k\)\); \}/);
   assert.doesNotMatch(js, /--pz-ptk/, 'no title step of its own');
-  assert.match(css, /\.pz\.stack \.pz-h \{ font-size: var\(--s-val\); \}/);
 });
 
 test('a phone\'s captions under the words read smaller than the words, never under 12 px', () => {

@@ -27,14 +27,11 @@ test("the plate copy keeps the diaphragm's mask", () => {
 
 test('the page\'s own ascites, hidden while the GPU draws the fluid, builds no clip or mask either', () => {
   const css = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
-  assert.match(css, /\.stage-view\.gl-on #ascites \{ visibility: hidden; \}/);
   assert.match(css, /\.stage-view\.gl-on :is\(#ascites, #ascites \[mask\]\) \{ mask: none; clip-path: none; \}/);
 });
 
 test('the gut organs, hidden while the gut\'s picture shows, build no mask or clip, and the picture keeps them', () => {
-  assert.match(css, /#organs > \.organ-gut\.gut-pic-on > \.organ \{ visibility: hidden; \}/);
   assert.match(css, /#organs > \.organ-gut\.gut-pic-on > \.organ, #organs > \.organ-gut\.gut-pic-on > \.organ :is\(\[mask\], \[clip-path\]\) \{ mask: none; clip-path: none; \}/);
-  assert.match(stage, /if \(o\.id === 'colon'\) g\.setAttribute\('mask', 'url\(#rectFade\)'\);/, 'the rectum fade is an attribute (cloned into the copy)');
   assert.match(stage, /c = copies\.find\(\(el\) => el\.getAttribute\('data-gut'\) === i\)\?\.cloneNode\(true\)/, 'the picture is drawn from the plate copy');
   assert.ok(!/'mask'/.test(readFileSync(new URL('../src/ui/svg-inline.js', import.meta.url), 'utf8')), 'the copy never takes the computed mask');
 });

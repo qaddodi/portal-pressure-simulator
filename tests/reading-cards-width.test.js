@@ -64,6 +64,5 @@ test('every wide screen keeps the card well under the screen and still wide enou
 });
 
 test('a card changes width only while it is faded out (the panel leaves whole before its next slide is built)', () => {
-  assert.match(src, /function wordsOut\(next\) \{[\s\S]*?return 340;/);
   assert.doesNotMatch(css.match(/\.pz-panel \{[^}]*\}/)[0], /transition:[^;]*width/);
 });

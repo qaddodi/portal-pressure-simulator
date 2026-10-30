@@ -62,7 +62,7 @@ test('the rectum fades out at its end through a mask on the colon\'s own group, 
   // (As the esophagus's esoFade: the mask rides on the organ's group, so every copy of the group carries it.)
   assert.match(stage, /<linearGradient id="rectFadeG" gradientUnits="userSpaceOnUse" x1="0" y1="\$\{RECTUM_FADE\[0\]\}" x2="0" y2="\$\{RECTUM_FADE\[1\]\}"><stop offset="0" stop-color="#fff"\/><stop offset="1" stop-color="#fff" stop-opacity="0"\/>/);
   assert.match(stage, /<mask id="rectFade" maskUnits="userSpaceOnUse" x="0" y="0" width="\$\{VIEW\.w\}" height="1100"><rect [^>]*fill="url\(#rectFadeG\)"\/>/);
-  assert.match(stage, /if \(o\.id === 'colon'\) g\.setAttribute\('mask', 'url\(#rectFade\)'\);/);
+  assert.match(stage, /if \(o\.id === 'colon'\) g\.setAttribute\('mask', 'url\(#rectFade\)'\);/, 'the rectum fade is an attribute (cloned into the copy)');
   // The gut's mask no longer cuts the rectum off at 1040: it runs to 1080, past the end of the art and the fade.
   assert.match(stage, /<mask id="gutHide"[^>]*height="660"><rect [^>]*height="660" fill="#fff"\/>/);
   const rect = stage.match(/const GUT_RECT = \[(\d+), (\d+), (\d+), (\d+)\]/).slice(1).map(Number);

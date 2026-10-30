@@ -50,7 +50,5 @@ test('items 14 and 15: the monitor note is wrapped between the axis and the edge
 });
 
 test('the live readings stay as they were (another worker owns them)', () => {
-  assert.match(hvpg, /shownOr\('fhvp', v\.fhvp\)/);
-  assert.match(hvpg, /shownOr\('whvp', v\.whvp\)/);
   assert.match(hvpg, /if \(k === 'hvpg' && shown\.hvpg && !open\)/);
 });

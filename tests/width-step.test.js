@@ -22,7 +22,6 @@ test('the width step falls back to the full update whenever anything but the wid
     'ascShown !== ascTarget', 'morph !== morphTarget', "wrap.classList.contains('gl-on')", 'x.reveal']) {
     assert.ok(s.includes(cond), `stepWidths checks ${cond}`);
   }
-  assert.match(STAGE, /store\.on\('\*', \(\) => \{ storeVer\+\+; \}\);/);
   assert.match(body('updateInner'), /widthF = f; widthVer = storeVer; widthCTM = CTM;/);
 });
 

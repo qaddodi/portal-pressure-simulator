@@ -41,6 +41,5 @@ test('an instrument with no data card is the instrument alone, and one with tile
 test('the card is built tool-only from it, and a card that is not a sheet shows no handle', () => {
   const js = readFileSync(new URL('../src/ui/presenter.js', import.meta.url), 'utf8');
   assert.match(js, /data\.classList\.toggle\('tool-only', toolOnly\(s, phone\(\)\)\);/);
-  assert.match(js, /const dd0 = ui\.data, sheet = \(p \|\| wide\) && dd0\.classList\.contains\('has-tool'\) && !dd0\.classList\.contains\('tool-only'\);/, 'the stack is a tool card that is not tool-only');
   assert.match(js, /lip\.hidden = data\.hidden \|\| !data\.classList\.contains\('pz-sheet'\);/, 'and only a stack has a handle');
 });

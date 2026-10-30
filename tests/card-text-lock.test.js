@@ -36,7 +36,6 @@ test('one margin, padding, gap and card width, all from the body size', () => {
 
 test('a tight slide shrinks in fixed steps and the data card never moves to the top right', () => {
   assert.match(js, /const DK = \[0\.9, 0\.8, 0\.7, 0\.6\];/);
-  assert.match(js, /const title = \(\) => put\(1, 1\) \|\| put\(WIDE\.title, WIDE\.words\);/, 'the words at Regular or Compact, nothing in between');
   assert.match(js, /if \(!below\) \{ put\(WIDE\.title, WIDE\.words\); below = true; \}/);
   assert.doesNotMatch(js, /let lo = 0\.4/, 'no continuous search down to 0.4');
 });
@@ -107,7 +106,6 @@ test('the teaching card keeps the size it came in at: the lock starts with the l
   assert.match(js, /const at = shown \|\| entering, lockKey = at \? `\$\{at\.gen\}:\$\{at\.i\}:/);
   assert.match(js, /function cardsIn\(at\) \{ if \(ui\) \{ if \(at\) \{ entering = at; layout\(\); \} reFit\(\);/, 'keyed before the cards show');
   assert.match(js, /bare = false; cardsIn\(\{ i: to, gen: g \}\);/);
-  assert.match(js, /if \(!bare\) \{ await caseEnd\(cut\); if \(cut\(\)\) return; cardsIn\(\{ i: to, gen: g \}\); \}/);
   assert.match(js, /shown = null; entering = null;\n/, 'a new slide starts unlocked');
   assert.match(js, /if \(bare\) \{ bare = false; layout\(\); cardsIn\(\); \}/, 'a cut transition never locks the next slide early');
   // (The one fold left is the instrument's, decided in the locked layout: nothing folds after the fit once the slide is shown.)

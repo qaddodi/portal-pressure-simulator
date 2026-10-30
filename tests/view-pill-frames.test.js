@@ -71,7 +71,6 @@ test('nothing hides or rebuilds the pill on the way: it is moved, whole, in one 
   const change = fn('pillChange'), m = fn('sinMotion');
   // Moved to its new home straight after the buttons change, before anything is drawn (never a frame homeless or in a hidden home).
   assert.match(change, /change\(\);\n {2}syncThumb\(\);/);
-  assert.match(main, /if \(home && seg\.parentElement !== home\) \{ if \(pres\) stopFold\(\); home\.append\(seg\); \}/, 'the same element, moved');
   for (const body of [change, m]) assert.doesNotMatch(body, /opacity|visibility|\.hidden =|display|innerHTML|cloneNode|replaceWith|remove\(\)/, 'the pill itself is only moved');
   assert.ok(m.includes('if (now > t0) publishNow();') && m.includes('vd.style.translate = u >= 1'));
   assert.ok(m.indexOf('if (now > t0) publishNow();') < m.indexOf('vd.style.translate = u >= 1') && m.indexOf('if (now > t0) publishNow();') < m.indexOf('el.getBoundingClientRect()'), 'the space first');

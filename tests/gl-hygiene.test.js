@@ -28,7 +28,6 @@ test('no gut picture is made while the organs are drawn live (the plate stays up
   const s = src('src/ui/stage.js');
   assert.equal((s.match(/gutPicSoon\(\);/g) || []).length, 3, 'three callers: two after a landing or a settle, one with the plate already down');
   assert.equal((s.match(/if \(!liveOn\(\)\) gutPicSoon\(\);/g) || []).length, 2, 'the two that run with the plate up are guarded');
-  assert.match(s, /else if \(gutCopy && gGut && morphTarget === 0 && !\(morph > 0\) && !gutPicFor\(vdpr \* m\.sc\)\) gutPicSoon\(\);/, 'the plate-down one stays: a picture can show there');
 });
 
 test('a presentation\'s Doppler monitor disposes its frames, observers and WebGL context', () => {

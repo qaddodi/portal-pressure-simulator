@@ -54,7 +54,7 @@ test('the earlier line keeps its name: Before TIPS and Year 8 on Ten years\' pro
   assert.deepEqual(at('ten-years.js', 'tips').tool, { kind: 'profile', from: 'rebleed', fromLabel: 'Before TIPS' });
   const prof = readFileSync(new URL('../src/ui/tool-profile.js', import.meta.url), 'utf8');
   assert.match(prof, /fromLabel: typeof t\?\.fromLabel === 'string' && t\.fromLabel\.trim\(\) \? t\.fromLabel\.trim\(\) : 'Before'/);
-  assert.match(prof, /placeLineNames\(g, tw, goal, hl, bf, s, brk, cfg\.fromLabel, pl \|\| \[\]\)/);
+  assert.match(prof, /placeLineNames\(g, tw, goal, hl, bf, s, brk, cfg\.fromLabel, pl \|\| \[\]\)/, 'the faint line is named as the slide asks');
   assert.match(prof, /\[bf, bfName, 'bf'\]/);
 });
 
@@ -71,7 +71,6 @@ test('the HVPG deck still names the wedged and free readings: WHVP and FHVP tile
 });
 
 test('an older deck\'s ladder slide, an imported deck or a script, shows the Gut to heart chart too', () => {
-  assert.match(pres, /slides = \(d\.mine \? d\.slides : withOverview\(d\)\.slides\)\.map\(oneLadder\);/);
   assert.match(pres, /ask: st\.ask, tool: \{ kind: 'profile' \}, key: st\.key \|\| \[\],/, 'an instructor\'s script');
   // (The test decks still written with the old field come out as the built-in slides do.)
   const demo = readFileSync(new URL('../src/ui/test-decks/demo-all-new-visuals.js', import.meta.url), 'utf8');

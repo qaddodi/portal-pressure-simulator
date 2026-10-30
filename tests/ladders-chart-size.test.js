@@ -42,12 +42,11 @@ test('a cell\'s chart is the instrument at its own size: its width, type and hei
   // (The instrument's own: the card's width less its padding (--pz-cw, --pz-cp), the data card's chart size (--pz-sm), 62 % of the width with a floor of 28 % and
   // a ceiling of 40 % of the window's height, less the 1.6 em the chart gave back: the same numbers in the cell's tokens.)
   assert.match(css, /\.pz:not\(\.stack\) \.pz-data \{ --pz-sm: max\(12px, calc\(var\(--s-cap\) \* \.74\)\);/);
-  assert.match(css, /\.pz:not\(\.stack\) \.pz-tool\[data-kind="profile"\] \.pz-prof \{ --prof-h: calc\(min\(max\(62cqi, calc\(28 \* var\(--pzh\)\)\), calc\(40 \* var\(--pzh\)\)\) \* var\(--pz-dk, 1\) - 1\.6em\); \}/);
   assert.match(rule(CELL), /--ch-cap: max\(12px, calc\(var\(--s-cap\) \* \.74\)\);/);
   assert.match(rule(CELL), /--lad-w: calc\(var\(--pz-cw\) - 2 \* var\(--pz-cp\)\); --lad-f: var\(--ch-cap\); --lad-h: calc\(min\(max\(\.62 \* var\(--lad-w\), 28 \* var\(--pzh\)\), 40 \* var\(--pzh\)\) - 1\.6 \* var\(--lad-f\)\);/);
   // (The picture at that size inside its holder, scaled from the corner; the holder is as tall as the scaled picture less half a type size.)
   assert.match(css, /\.pz-cc > \.pz-prof \{ position: absolute; left: 0; top: 0; width: var\(--lad-w\); height: calc\(var\(--lad-h\) \* var\(--lad-s, 1\)\); min-height: 0; font-size: calc\(var\(--lad-f\) \* var\(--lad-s, 1\)\); transform: scale\(var\(--lad-k, 1\)\); transform-origin: 0 0; \}/);
-  assert.match(css, /\.pz:not\(\.stack\) \.pz-cc \{ height: calc\(\(var\(--lad-h\) - \.5 \* var\(--lad-f\)\) \* var\(--lad-s, 1\) \* var\(--lad-k, 1\)\); \}/);
+  assert.match(css, /\.pz:not\(\.stack\) \.pz-cc \{ height: calc\(\(var\(--lad-h\) - \.5 \* var\(--lad-f\)\) \* var\(--lad-s, 1\) \* var\(--lad-k, 1\)\); \}/, 'half a type size, overflow visible: the chart\'s picture has that much blank under the brace\'s name');
   assert.match(css, /\.pz-cc \{ position: relative; width: 100%; flex: none; \}/);
   // (Not laid out afresh at the cell's size: no cell rule gives the chart a height of its own, and no container query unit reads the cell.)
   assert.doesNotMatch(css, /\.pz-cell > \.pz-prof|--prof-h: max\(calc\(62cqi/);

@@ -30,7 +30,6 @@ test("the shader's fade is fieldFade's gradient (fadeAt)", () => {
 test('the screen draws on the GPU; the dive, the rise and their copies keep the 2D canvas', () => {
   assert.match(fn('function draw(dt) {'), /showTissueGL\(paintTissue\(W, H, dpr, dark, cs, !g, !keep2D && !scaled && g \? tissueGLOn\(\) : null\)\);/);
   assert.match(lz, /if \(gpu && tissueOnGPU\(tg, tw, th, dpr, dark, cs, bg, now\)\) \{ if \(!held\) spareSoon\(\); return true; \}/);
-  assert.match(lz, /if \(rim && !wide\) \{ paint2D\(\); diveCopy\(\); \}/, 'the copy is made from a fresh 2D drawing');
   assert.match(lz, /tissue\.style\.visibility = tissueG\.style\.visibility = show === tissue \? '' : 'hidden';/);
   assert.match(lz, /for \(const e of \[tissue, tissueG, diveCv, glCv, fx, leaders, labels\]\) \{/, 'zoomed with the others through the dive');
   assert.match(lz, /const WIDE_HIDE = \[tissue, tissueG, diveCv, glCv, fx\];/);

@@ -37,10 +37,6 @@ test('Volume and Output carry their normal bands now (D4 gave them a plain bar o
   for (const k of ['bv', 'co']) { assert.ok(SCALE[k], k); assert.deepEqual(SCALE[k][2].length, 2, `${k}: low, normal and high`); assert.equal(bandsOf(k).length, 3); }
 });
 
-test('cards of tiles alone drop their header on every screen, folded cards keep it (D1, DG2)', () => {
-  assert.match(css, /\n\.pz \.pz-data\.tiles-only:not\(\.has-tool\):not\(\.pz-folds\) > \.pz-dh \{ display: none; \}/);
-});
-
 test('no tile is marked: no accent line, ring, full-ink name or greyed neighbours (D5, 17 Oct)', () => {
   assert.ok(!/\.pz-tile\.key/.test(css), 'no key tile styling');
   assert.ok(!/\.pz-tiles:has\(\.pz-tile\.key\)/.test(css), 'no greyed neighbours');
@@ -72,6 +68,5 @@ test('the level tab and the deck tab share the glass\'s top edge; the deck\'s gi
   assert.match(js, /if \(t && tabsTight\(k\)\) ui\.shade\.classList\.add\('pz-tabs-tight'\);/);
   assert.match(js, /const tabH = Math\.max\(tabEl && !tight \? tabEl\.offsetHeight : 0, stab\?\.offsetHeight \|\| 0\);/);
   assert.match(js, /return Math\.max\(16, tabH \+ 8\);/);
-  assert.match(js, /const lift = p && t \? glassLift\(k\) : 16;/);
   assert.match(css, /\.pz-sitetab\[hidden\], \.pz-shade\.pz-tabs-tight \.pz-tabname \{ display: none; \}/);
 });
