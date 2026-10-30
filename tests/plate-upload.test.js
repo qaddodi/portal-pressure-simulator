@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { plateStrips, premultiply, PLATE_STRIP } from '../src/ui/plate-upload.js';
+import { readFileSync } from 'node:fs';
 
 // The plate rasters reach the GPU as pixel strips (plate-upload.js): every row exactly once, each strip about 2 MB.
 test('the strips cover every row once, in order, each within the strip size', () => {
@@ -70,4 +71,38 @@ test('a block of pixels is copied row by row to its place, and nothing else is t
     const want = inside ? src[((y - 1 + 2) * sW + (x - 2 + 1)) * 4 + c] : 7;
     assert.equal(dst[(y * dW + x) * 4 + c], want, `${x},${y}`);
   }
+});
+
+// Safari paints an organ strip only when it is read back: a whole strip's read took 20 to 36 ms on his Mac (30 Oct). The strips
+// are halved, down to a quarter, while a read of one would take over READ_MS, from the reads seen so far.
+test('organ strips shrink while their reads are slow, never below a quarter, and grow back when they are fast', async () => {
+  const { noteStripRead, stripPx, resetStripReads, READ_MS, STRIP_MIN } = await import('../src/ui/plate-upload.js');
+  resetStripReads();
+  assert.equal(stripPx(), PLATE_STRIP, 'no read seen: the whole strip');
+  noteStripRead(4, PLATE_STRIP);
+  assert.equal(stripPx(), PLATE_STRIP, 'a fast read keeps it');
+  resetStripReads();
+  noteStripRead(27, PLATE_STRIP);
+  assert.equal(stripPx(), PLATE_STRIP / 2, '27 ms for a whole strip: half, about 13.5 ms a read');
+  assert.ok(stripPx() * 27 / PLATE_STRIP <= READ_MS);
+  noteStripRead(200, PLATE_STRIP / 2);
+  assert.equal(stripPx(), STRIP_MIN, 'never below a quarter');
+  for (let i = 0; i < 30; i++) noteStripRead(1, PLATE_STRIP / 2);
+  assert.equal(stripPx(), PLATE_STRIP, 'fast again: back to whole strips');
+  noteStripRead(500, 100);
+  assert.equal(stripPx(), PLATE_STRIP, 'a sliver\'s read is not counted');
+  resetStripReads();
+  // The strips still cover every row once, whatever their size.
+  for (const px of [STRIP_MIN, PLATE_STRIP / 2]) {
+    const s = plateStrips(2212, 2306, px);
+    let y = 0;
+    for (const [y0, rows] of s) { assert.equal(y0, y); assert.ok(2212 * rows <= px); y += rows; }
+    assert.equal(y, 2306);
+  }
+});
+
+test('the organ pictures are read in strips sized by stripPx, each read timed for it', () => {
+  const stage = readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8');
+  assert.match(stage, /for \(const \[y, rows\] of plateStrips\(W, H, stripPx\(\)\)\) \{\s*if \(await refineTurn\(gone\) === null\) return false;\s*if \(banded\) \{/);
+  assert.match(stage, /finally \{ noteStripRead\(performance\.now\(\) - t0, p\.w \* p\.h\); p\.pc\.width = p\.pc\.height = 0;/);
 });

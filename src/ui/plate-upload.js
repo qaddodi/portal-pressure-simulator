@@ -6,6 +6,28 @@
 /** Pixels per strip: about 2 MB, a few milliseconds to read and upload. */
 export const PLATE_STRIP = 1 << 19;
 
+// The organ pictures' strips are made smaller where reading one back is slow: Safari paints a strip's picture only when it is read,
+// and a whole strip's read took 20 to 36 ms on his Mac (?perf readout, 30 Oct), a long frame each time. From the reads seen so far
+// (ms per pixel, eased), the strip is halved, down to a quarter of its size, until one read fits READ_MS. Each strip is the same
+// world rows at the same scale (stage.js rasterPlate), so the picture is the same pixels in more strips; it takes more frames to
+// come in, the picture before it showing meanwhile.
+export const READ_MS = 14, STRIP_MIN = PLATE_STRIP >> 2;
+let readCost = 0;
+/** One strip's read-back: `ms` for `px` pixels. */
+export function noteStripRead(ms, px) {
+  if (!(px >= 4096) || !(ms >= 0) || !Number.isFinite(ms)) return;   // (a sliver's read says little about a strip's)
+  const c = ms / px;
+  readCost = readCost ? readCost * 0.7 + c * 0.3 : c;
+}
+/** Pixels per strip for the next organ picture: PLATE_STRIP, halved while a read of that many would take over READ_MS. */
+export function stripPx() {
+  let px = PLATE_STRIP;
+  while (readCost && px > STRIP_MIN && px * readCost > READ_MS) px >>= 1;
+  return px;
+}
+/** For the unit tests: forget the reads seen. */
+export function resetStripReads() { readCost = 0; }
+
 /** The rows of each strip of a W × H raster: [y, rows] pairs from the top. */
 export function plateStrips(W, H, px = PLATE_STRIP) {
   const step = Math.max(1, Math.floor(px / Math.max(1, W))), out = [];

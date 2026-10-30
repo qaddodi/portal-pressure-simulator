@@ -13,7 +13,7 @@ test('a plate raster draws into a canvas of its own and sends it as pixel strips
   // Every piece is drawn into a small canvas of its own and read back from it: read back from one canvas the size of the whole
   // picture, each strip took Safari longer than the one above (25 ms to over 200 ms; Mohammad's ?perf readout, Mac, 21 Oct).
   assert.match(body, /const drawn = \(w, h, paint\) => \{\n\s+const pc = document\.createElement\('canvas'\);\n\s+pc\.width = w; pc\.height = h;\n\s+const pg = pc\.getContext\('2d', \{ willReadFrequently: true \}\), p = \{ pc, pg, w, h \};\n\s+pend\.push\(p\);\n\s+gpuProbe\.time\(null, 'organ picture: draw', \(\) => paint\(pg\)\);/);
-  assert.match(body, /const readBack = \(p\) => \{\n\s+try \{ return gpuProbe\.time\(null, 'organ picture: read', \(\) => premultiply\(p\.pg\.getImageData\(0, 0, p\.w, p\.h\)\.data\)\); \} finally \{ p\.pc\.width = p\.pc\.height = 0; pend\.splice\(pend\.indexOf\(p\), 1\); \}/);
+  assert.match(body, /const readBack = \(p\) => \{\n\s+const t0 = performance\.now\(\);\n\s+try \{ return gpuProbe\.time\(null, 'organ picture: read', \(\) => premultiply\(p\.pg\.getImageData\(0, 0, p\.w, p\.h\)\.data\)\); \} finally \{ noteStripRead\(performance\.now\(\) - t0, p\.w \* p\.h\); p\.pc\.width = p\.pc\.height = 0; pend\.splice\(pend\.indexOf\(p\), 1\); \}/);
   assert.doesNotMatch(body, /getImageData\(0, y,/, 'never read from a canvas the size of the whole picture');
   // Each strip is drawn in its own frame too: the whole picture drawn at once was one long frame after every zoomed pan or
   // pinch (21 Oct). The view's picture is a picture per strip, of only the shapes that meet it, so its markup, its parse and
@@ -22,7 +22,7 @@ test('a plate raster draws into a canvas of its own and sends it as pixel strips
   // his ?perf readout, 21 Oct). Each half of a strip, its drawing and its read-back with the upload, takes its own turn in a frame that
   // has some of the shared refinement allowance left, outside a gesture (refine.js), and is charged to it.
   assert.match(body, /const gone = \(\) => seq !== plateSeq \|\| drops !== plateDrops \|\| v !== veins \|\| v\.lost \|\| vseq !== \(banded \? viewSeq : 0\) \|\| drawnAs !== plateStateKey\(\);/);
-  assert.match(body, /for \(const \[y, rows\] of plateStrips\(W, H\)\) \{\n\s+if \(await refineTurn\(gone\) === null\) return false;\n\s+if \(banded\) \{/, 'a raster overtaken on its way in is given up (a view picture, by a newer view picture too), at its turn');
+  assert.match(body, /for \(const \[y, rows\] of plateStrips\(W, H, stripPx\(\)\)\) \{\n\s+if \(await refineTurn\(gone\) === null\) return false;\n\s+if \(banded\) \{/, 'a raster overtaken on its way in is given up (a view picture, by a newer view picture too), at its turn');
   assert.match(body, /if \(gone\(\) \|\| plateCopy\?\.key !== drawnAs\) return false;\n\s+mine\.push\(\[qx, qy, refineStep\('organ picture: draw', \(\) => drawn\(qw, qh, \(pg\) => pg\.drawImage\(band, 0, 0, qw, qh\)\)\)\]\);/, 'a strip whose copy changed state is given up');
   assert.match(body, /if \(mine\.length && await refineTurn\(gone\) === null\) return false;\n\s+refineStep\('organ picture: read \+ upload', \(\) => \{\n\s+for \(const \[qx, qy, p\] of mine\) copyPixels\(px, W, qx, qy, readBack\(p\), p\.w, 0, 0, p\.w, p\.h\);/, 'read a frame after it is drawn, and given up if overtaken meanwhile');
   assert.match(body, /v\.plateRows\(job, y, rows, px\.subarray\(y \* W \* 4, \(y \+ rows\) \* W \* 4\)\);/);

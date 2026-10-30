@@ -33,7 +33,7 @@ import { COLON_ART, BOWEL_ART, DUO_CLIPS, DUO_A, DUO_B } from './organ-art.js?v=
 import { warmVisible, ringGrid, inGrid } from './warm-vis.js?v=ccf4f6f71b';
 import { createRouter } from './circuit-router.js?v=0ee9e02fc6';
 import { gpuProbe, COUNTED } from './gpu-probe.js?v=b9f4077160';
-import { plateStrips, premultiply, gutStep, viewReuse, copyPixels } from './plate-upload.js?v=5fc45556a1';
+import { plateStrips, premultiply, gutStep, viewReuse, copyPixels, noteStripRead, stripPx } from './plate-upload.js?v=96cf11e1a3';
 import { refine } from './refine.js?v=e45ef3c6a8';
 import { fadeOver, fadeStop } from './res-fade.js?v=155e763d11';
 import { leftAlone, sinceInput } from './quiet.js?v=82fc0f97e3';
@@ -4197,7 +4197,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       return p;
     };
     const readBack = (p) => {
-      try { return gpuProbe.time(null, 'organ picture: read', () => premultiply(p.pg.getImageData(0, 0, p.w, p.h).data)); } finally { p.pc.width = p.pc.height = 0; pend.splice(pend.indexOf(p), 1); }
+      const t0 = performance.now();
+      try { return gpuProbe.time(null, 'organ picture: read', () => premultiply(p.pg.getImageData(0, 0, p.w, p.h).data)); } finally { noteStripRead(performance.now() - t0, p.w * p.h); p.pc.width = p.pc.height = 0; pend.splice(pend.indexOf(p), 1); }
     };
     const v = veins, sx = W / rect[2], sy = H / rect[3];
     // (A state that changed on the way is given up at the next strip, not after every strip is drawn, read back and uploaded: with the
@@ -4207,7 +4208,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     try {
       // (Each half of a strip, its drawing and its read-back and upload, takes its own turn in a frame that has some of the shared
       // allowance left (refineTurn), and is charged to it: a strip's drawing and the one before it's read-back came in one frame.)
-      for (const [y, rows] of plateStrips(W, H)) {
+      // (As many rows a strip as one read of them fits in a frame: stripPx, from the reads seen so far.)
+      for (const [y, rows] of plateStrips(W, H, stripPx())) {
         if (await refineTurn(gone) === null) return false;
         if (banded) {
           const { copy, draw } = prev ? viewReuse(W, H, prev.W, prev.H, ox, oy, y, rows) : { copy: null, draw: [[0, y, W, rows]] };

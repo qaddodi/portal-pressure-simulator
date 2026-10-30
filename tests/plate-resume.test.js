@@ -91,7 +91,7 @@ test('an organ picture whose state moved on stops at the next strip, before draw
   assert.match(body, /const gone = \(\) => [^\n]*\|\| drawnAs !== plateStateKey\(\);/);
   // Checked at every strip's turn (the first included) and at the turn between a strip's drawing and its read-back: refineTurn asks
   // gone() after each frame it waits, so a picture overtaken while it waits out a gesture is given up at once, not drawn on.
-  assert.match(body, /for \(const \[y, rows\] of plateStrips\(W, H\)\) \{\n\s*if \(await refineTurn\(gone\) === null\) return false;/);
+  assert.match(body, /for \(const \[y, rows\] of plateStrips\(W, H, stripPx\(\)\)\) \{\n\s*if \(await refineTurn\(gone\) === null\) return false;/);
   assert.match(body, /if \(await refineTurn\(gone\) === null\) return false;\n\s*refineStep\('organ picture: read \+ upload', \(\) => v\.plateRows\(job, y, rows, readBack\(p\)\)\);/);
 });
 
