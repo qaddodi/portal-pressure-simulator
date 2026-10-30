@@ -10,11 +10,14 @@ import { COUNTED, TWICE } from '../src/ui/gpu-probe.js';
 const src = (f) => readFileSync(new URL(`../src/ui/${f}`, import.meta.url), 'utf8');
 
 // ── Group 1: the ruler ──
-test('the refresh is told from the shortest intervals, even with half the frames dropped', () => {
+test('the refresh is told from the lower quartile of the intervals, even with half the frames dropped', () => {
   const at120 = Array.from({ length: 200 }, (_, i) => (i % 2 ? 16.67 : 8.33));
   assert.equal(refreshOf(at120), 120);
   assert.equal(refreshOf(Array.from({ length: 100 }, () => 16.7)), 60);
-  assert.equal(refreshOf(Array.from({ length: 100 }, (_, i) => (i % 5 ? 33.4 : 11.1))), 90);
+  assert.equal(refreshOf(Array.from({ length: 99 }, (_, i) => (i % 3 ? 22.2 : 11.1))), 90, 'two in three frames missed');
+  // Safari at 60 Hz under load: a late frame (26 ms) then a short one (7 ms) one time in eight, the rest 16 and 17 (1 ms clock).
+  const safari = Array.from({ length: 400 }, (_, i) => (i % 16 === 0 ? 26 : i % 16 === 1 ? 7 : i % 2 ? 16 : 17));
+  assert.equal(refreshOf(safari), 60);
   assert.equal(refreshOf([8.3, 8.3]), 0, 'too few to tell');
 });
 

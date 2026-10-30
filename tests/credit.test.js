@@ -173,7 +173,7 @@ test('the credit keeps its inset from the top and bottom edges in the whole-figu
 test('the credit holds its spot while it stays good, keeps off the lobule and the ascites, and clear of the home bar and progress line', () => {
   const src = readFileSync(new URL('../src/ui/credit.js', import.meta.url), 'utf8');
   assert.match(src, /if \(pos && !fresh && !credit\.matches\('\.moving, \.covered'\)\)/, 'a spot still good is kept');
-  assert.match(src, /organTest\(wr, ring\)/, 'the lobule is the art while it fills the view');
+  assert.match(src, /organTest\(wr, ring, soon\)/, 'the lobule is the art while it fills the view');
   assert.match(src, /#ascites \.ascites-fill/, 'the ascites fluid counts as art');
   assert.match(src, /safe-area-inset-bottom/, 'the home indicator strip is kept clear');
   assert.match(OBSTACLES, /\.pz-prog/, 'the slide progress line is kept clear');

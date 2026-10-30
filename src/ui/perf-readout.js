@@ -10,14 +10,15 @@ import { perf } from './frame.js?v=b1e94b177f';
 const WINDOW = 2000, KEEP = 5, GAP_LINES = 40;
 // The display's own refresh, as the browser offers it, from the frame intervals the readout sees (30 Oct, review 6a: a list of gaps
 // over 20 ms could never show a missed frame at 120 Hz, whose frames are 8.3 ms apart, a missed one 16.7 ms). The rates screens run
-// at; the measured one is the nearest to the median of the shortest tenth of the last few seconds' intervals (a page dropping frames
-// still has a tenth of them on time).
+// at; the measured one is the nearest to the lower quartile of the last 600 intervals (about 10 s, calm frames among them). Not the
+// shortest ones: in Safari a frame that starts late is followed by a short one (a 26 ms interval, then 7), so the shortest tenth of a
+// 60 Hz page under load had read as 144 Hz (his Mac readouts, 30 Oct). A quarter of the frames on time is enough.
 const RATES = [30, 48, 50, 60, 72, 75, 90, 100, 120, 144, 165, 240];
-/** The refresh rate (Hz) closest to the shortest tenth of `dts` (frame intervals, ms), or 0 with too few to tell. */
+/** The refresh rate (Hz) closest to the lower quartile of `dts` (frame intervals, ms), or 0 with too few to tell. */
 export function refreshOf(dts) {
   const v = dts.filter((d) => d > 2 && d < 100).sort((a, b) => a - b);
   if (v.length < 20) return 0;
-  const low = v.slice(0, Math.max(3, Math.ceil(v.length / 10))), mid = low[low.length >> 1], hz = 1000 / mid;
+  const hz = 1000 / v[Math.floor(v.length / 4)];
   return RATES.reduce((a, b) => (Math.abs(b - hz) < Math.abs(a - hz) ? b : a));
 }
 /** Frame intervals at a refresh of `hz`: how many came on time, one, two or three and more refreshes late, and p50/p95/p99 (ms). An

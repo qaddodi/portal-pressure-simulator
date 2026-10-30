@@ -294,20 +294,23 @@ let artFacts = null, artLevel = null, artDirty = true, artMo = null, artCanvas =
 
 // One shape's facts (kind: 'organ', 'fluid' as drawn, or 'ves'): the same shapes, fills and strokes the screen grid draws below.
 function readShapes(sel, kind, inv) {
-  const out = [], asDrawn = kind === 'fluid', vessel = kind === 'ves';
-  for (const el of document.querySelectorAll(sel)) {
-    const m = el.getScreenCTM?.(), r = el.getBoundingClientRect();
-    if (!m || !r.width) continue;
-    const cs = getComputedStyle(el);
-    if (cs.display === 'none') continue;
-    const w = parseFloat(cs.strokeWidth) || 0, hit = el.classList.contains('v-hit'), rel = multiply(inv, m);
-    // (The shape's box is the fill's, grown by the most its stroke reaches, a miter at the default limit: twice the stroke width.)
-    const g = 2 * w * Math.max(Math.hypot(rel.a, rel.b), Math.hypot(rel.c, rel.d)), bb = boxThrough(inv, r.left, r.top, r.right, r.bottom);
-    const fill = asDrawn ? cs.fill !== 'none' : !vessel || (cs.fill !== 'none' && !hit);
-    const stroke = w > 0 && (asDrawn ? cs.stroke !== 'none' : !vessel || cs.stroke !== 'none' || hit);
-    out.push({ path: shapePath(el), m: rel, l: bb.l - g, t: bb.t - g, r: bb.r + g, b: bb.b + g, fill, lw: stroke ? (hit ? w * 0.7 : w) : 0, cap: cs.strokeLinecap || 'butt', join: cs.strokeLinejoin || 'miter' });
-  }
+  const out = [];
+  for (const el of document.querySelectorAll(sel)) { const f = readShape(el, kind, inv); if (f) out.push(f); }
   return out;
+}
+// (One shape's facts, or null for one that draws nothing: shown nowhere, or not shown.)
+function readShape(el, kind, inv) {
+  const asDrawn = kind === 'fluid', vessel = kind === 'ves';
+  const m = el.getScreenCTM?.(), r = el.getBoundingClientRect();
+  if (!m || !r.width) return null;
+  const cs = getComputedStyle(el);
+  if (cs.display === 'none') return null;
+  const w = parseFloat(cs.strokeWidth) || 0, hit = el.classList.contains('v-hit'), rel = multiply(inv, m);
+  // (The shape's box is the fill's, grown by the most its stroke reaches, a miter at the default limit: twice the stroke width.)
+  const g = 2 * w * Math.max(Math.hypot(rel.a, rel.b), Math.hypot(rel.c, rel.d)), bb = boxThrough(inv, r.left, r.top, r.right, r.bottom);
+  const fill = asDrawn ? cs.fill !== 'none' : !vessel || (cs.fill !== 'none' && !hit);
+  const stroke = w > 0 && (asDrawn ? cs.stroke !== 'none' : !vessel || cs.stroke !== 'none' || hit);
+  return { path: shapePath(el), m: rel, l: bb.l - g, t: bb.t - g, r: bb.r + g, b: bb.b + g, fill, lw: stroke ? (hit ? w * 0.7 : w) : 0, cap: cs.strokeLinecap || 'butt', join: cs.strokeLinejoin || 'miter' };
 }
 // A lit vessel's hit strokes, for its glow (read when a glow first asks for the vessel, then kept with the facts).
 function hitsOf(facts, id, inv) {
@@ -342,45 +345,61 @@ function worldFacts(world, inv) {
 // (x0 + i c, y0 + j c), c wide. Organs and the fluid in one grid, the vessels (and the lit ones' glow) in the other.
 function worldLevel(facts, reg, glows, gk, inv) {
   gpuProbe.note(COUNTED.creditGrid);
-  const { cols, rows, c, x0, y0 } = reg, n = cols * rows, org = new Uint8Array(n), ves = new Uint8Array(n);
+  const { cols, rows } = reg, n = cols * rows, org = new Uint8Array(n), ves = new Uint8Array(n);
   artCanvas ||= document.createElement('canvas');
   if (artCanvas.width !== cols || artCanvas.height !== rows) { artCanvas.width = cols; artCanvas.height = rows; }
   const ctx = artCanvas.getContext('2d', { willReadFrequently: true });
   if (ctx) {
     const paint = (list, grid, glow) => {
-      ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, cols, rows);
-      const at = (m) => ctx.setTransform(m.a / c, m.b / c, m.c / c, m.d / c, (m.e - x0) / c, (m.f - y0) / c);
-      for (const s of list) {
-        if (!touches(reg, s)) continue;   // (zoomed in, most shapes are off the grid: not drawn)
-        at(s.m);
-        if (s.fill) ctx.fill(s.path);
-        if (s.lw > 0) { ctx.lineWidth = s.lw; ctx.lineCap = s.cap; ctx.lineJoin = s.join; ctx.stroke(s.path); }
-      }
-      // A lit vessel's glow, the soft band 12 × its width setting (world units) beyond each wall (veins-gl.js), counts as the vessel
-      // (sweep 01 review: an iPad zoomed in had put the credit on a glow).
-      if (glow) {
-        for (const [id, wide] of glows) for (const h of hitsOf(facts, id, inv)) {
-          at(h.m);
-          ctx.lineWidth = h.w + 2 * 12 * Math.min(1.3, Math.max(0.5, wide));
-          ctx.lineCap = ctx.lineJoin = 'round'; ctx.stroke(h.path);
-        }
-      }
-      const px = ctx.getImageData(0, 0, cols, rows).data;
-      for (let k = 0; k < n; k++) grid[k] = px[k * 4 + 3] > 0 ? 1 : 0;
+      gridBegin(ctx, reg);
+      gridShapes(ctx, reg, list, 0, Infinity);
+      if (glow) gridGlows(ctx, reg, facts, glows, inv);
+      gridRead(ctx, reg, grid);
     };
     paint(facts.org, org, false);
     paint(facts.ves, ves, glows.length > 0);
   }
   return { facts, reg, gk, org, ves };
 }
+// (A grid's drawing, in its parts: cleared, its shapes from `from` until `until` (performance.now()) has passed, at least one of
+// them, returning where it stopped; its lit vessels' glow; and read back into `grid`. worldLevel draws them in one go, a spread job
+// (artStep) a frame's share at a time, the same calls in the same order on the same canvas.)
+function gridBegin(ctx, reg) { ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, reg.cols, reg.rows); }
+const gridAt = (ctx, { c, x0, y0 }, m) => ctx.setTransform(m.a / c, m.b / c, m.c / c, m.d / c, (m.e - x0) / c, (m.f - y0) / c);
+function gridShapes(ctx, reg, list, from, until) {
+  let i = from;
+  while (i < list.length) {
+    const s = list[i++];
+    if (!touches(reg, s)) continue;   // (zoomed in, most shapes are off the grid: not drawn)
+    gridAt(ctx, reg, s.m);
+    if (s.fill) ctx.fill(s.path);
+    if (s.lw > 0) { ctx.lineWidth = s.lw; ctx.lineCap = s.cap; ctx.lineJoin = s.join; ctx.stroke(s.path); }
+    if (performance.now() >= until) break;
+  }
+  return i;
+}
+// A lit vessel's glow, the soft band 12 × its width setting (world units) beyond each wall (veins-gl.js), counts as the vessel
+// (sweep 01 review: an iPad zoomed in had put the credit on a glow).
+function gridGlows(ctx, reg, facts, glows, inv) {
+  for (const [id, wide] of glows) for (const h of hitsOf(facts, id, inv)) {
+    gridAt(ctx, reg, h.m);
+    ctx.lineWidth = h.w + 2 * 12 * Math.min(1.3, Math.max(0.5, wide));
+    ctx.lineCap = ctx.lineJoin = 'round'; ctx.stroke(h.path);
+  }
+}
+function gridRead(ctx, reg, grid) {
+  const px = ctx.getImageData(0, 0, reg.cols, reg.rows).data;
+  for (let k = 0; k < grid.length; k++) grid[k] = px[k * 4 + 3] > 0 ? 1 : 0;
+}
 // The art test of the GPU figure in the world's coordinates, or null where it does not apply (the Lite graphics' SVG figure, a
 // view whose grid would pass the cap): organTest then draws the screen grid.
-function worldTest(wr) {
+function worldTest(wr, spread = null) {
   const world = document.getElementById('world'), wm = world?.getScreenCTM?.(), inv = wm && invert(wm), sc = wm ? Math.hypot(wm.a, wm.b) : 0;
   if (!inv || !(sc > 1e-6)) return null;
-  if (!world.closest('.stage-view')?.classList.contains('gl-on')) { artDirty = true; return null; }   // (the SVG tubes show: what counts differs, so the facts are read again when the GPU figure is back)
+  if (!world.closest('.stage-view')?.classList.contains('gl-on')) { artDirty = true; artJob = null; return null; }   // (the SVG tubes show: what counts differs, so the facts are read again when the GPU figure is back)
   const glows = window.pps?.stage?.steadyGlows?.() || [], gk = glows.flat().join();
   const pad = 40 / sc, view = boxThrough(inv, wr.left, wr.top, wr.left + wr.width, wr.top + wr.height);   // (pad: past the view, what a box's own padding reaches)
+  if (spread) return spreadTest(world, wm, wr, sc, glows, gk, view, pad, spread);
   const facts = worldFacts(world, inv);
   let lv = artLevel;
   if (lv && lv.facts === facts && lv.gk === gk && lv.reg.c * sc <= CELL + 1e-6 && contains(lv.reg, { l: view.l - pad, t: view.t - pad, r: view.r + pad, b: view.b + pad })) gpuProbe.note(COUNTED.creditKept);
@@ -391,9 +410,99 @@ function worldTest(wr) {
   }
   return artTest(lv, wm, wr);
 }
-/** The art test: test(box, { pad, org, ves }) over the figure's organs and vessels, in wrap px (see worldTest, screenTest). */
-export function organTest(wr, ring = null) {
-  return (!ring && worldTest(wr)) || screenTest(wr, ring);
+// ── A look spread over frames (the placer's) ──
+// The art read again (every shape's facts) and its grid drawn again took one frame of 105 to 150 ms on his Mac, after each pinch and
+// on slides whose art moves (his ?perf readouts, 30 Oct). Spread, the same work is done ART_SLICE ms a frame: the same reads, the same
+// drawing in the same order on a canvas of its own, so the grid is the one a single frame would have drawn from the page as it then
+// stood. It waits while the camera moves (a slice in a pan or pinch would add to it). Meanwhile the look answers PENDING: the placer
+// leaves the credit as it is and waits, and the job calls it back (`done`) once its grid is in. A grid a job made is taken by the
+// looks that follow for ART_TAKE ms even if the art changed since: art that changes on every frame (a breath eases a vessel's width
+// by a fraction of a pixel) would otherwise make every look wait for another job, and never land.
+export const PENDING = Symbol('art pending');
+const ART_SLICE = 8, ART_TAKE = 400;
+const READS = [[ORGANS, 'organ', 'org'], [FLUID, 'fluid', 'org'], [VESSELS, 'ves', 'ves']];
+let artJob = null, artMade = null, jobCanvas = null;
+const covers = (lv, sc, gk, view, pad) => lv.gk === gk && lv.reg.c * sc <= CELL + 1e-6 && contains(lv.reg, { l: view.l - pad, t: view.t - pad, r: view.r + pad, b: view.b + pad });
+function spreadTest(world, wm, wr, sc, glows, gk, view, pad, done) {
+  const now = performance.now();
+  if (artMade && (artMade.lv.facts.world !== world || now - artMade.at >= ART_TAKE)) artMade = null;
+  if (artMade && covers(artMade.lv, sc, gk, view, pad)) return artTest(artMade.lv, wm, wr);
+  // (A job under way: its look waits for it. Its facts are not in yet, and the ones it replaces only look fresh, as it watches from its start.)
+  if (artJob && artJob.world === world) { artJob.done = done; return PENDING; }
+  const fresh = artFacts && !artDirty && artFacts.world === world && artFacts.kids === world.childElementCount && now - artFacts.at < ART_MAX_AGE;
+  if (fresh && artLevel?.facts === artFacts && covers(artLevel, sc, gk, view, pad)) { gpuProbe.note(COUNTED.creditKept); return artTest(artLevel, wm, wr); }
+  const reg = regionFor(view, cellFor(sc), pad);
+  if (!reg) return null;   // (past the cap: the screen grid, as before)
+  // (The facts the job reads are watched from its start: a change while it runs leaves them stale for the look after ART_TAKE.)
+  const facts = fresh ? artFacts : null;
+  if (!facts) { gpuProbe.note(COUNTED.creditRead); artDirty = false; watchArt(world); }
+  artJob = { world, done, reg, glows, gk, wk: null, facts, at: now, kids: world.childElementCount, ri: 0, list: null, i: 0, acc: { org: [], ves: [] }, stage: facts ? 1 : 0, org: null, ves: null };
+  nextFrame(artStep);
+  return PENDING;
+}
+function artStep() {
+  const j = artJob;
+  if (!j) return;
+  const world = document.getElementById('world'), wm = world?.getScreenCTM?.(), inv = wm && invert(wm);
+  if (world !== j.world || !inv || !world.closest('.stage-view')?.classList.contains('gl-on')) { artJob = null; artDirty = true; j.done?.(); return; }
+  const wk = [wm.a, wm.b, wm.c, wm.d, wm.e, wm.f].join();
+  const still = j.wk === null || wk === j.wk;
+  j.wk = wk;
+  if (still) gpuProbe.time(null, 'credit: art grid', () => artSlice(j, inv, performance.now() + ART_SLICE));
+  if (artJob !== j) return;
+  if (j.stage < 4) { nextFrame(artStep); return; }
+  artJob = null;
+  artLevel = { facts: j.facts, reg: j.reg, gk: j.gk, org: j.org, ves: j.ves };
+  artMade = { lv: artLevel, at: performance.now() };
+  j.done?.();
+}
+// One frame's share: the facts (stage 0), then the organs' grid (1, 2) and the vessels' (3), as worldFacts and worldLevel do them.
+function artSlice(j, inv, until) {
+  while (j.stage === 0) {
+    if (!j.list) {
+      if (j.ri === READS.length) {
+        j.facts = artFacts = { at: j.at, world: j.world, kids: j.kids, org: j.acc.org, ves: j.acc.ves, hits: new Map() };
+        if (!j.facts.org.length) artDirty = true;   // (a figure with no organ in it is not built yet, or hidden: read again at the next look)
+        j.stage = 1;
+        break;
+      }
+      j.list = document.querySelectorAll(READS[j.ri][0]); j.i = 0;
+    }
+    const [, kind, into] = READS[j.ri];
+    while (j.i < j.list.length) {
+      const f = readShape(j.list[j.i++], kind, inv);
+      if (f) j.acc[into].push(f);
+      if (performance.now() >= until) return;
+    }
+    j.list = null; j.ri++;
+  }
+  jobCanvas ||= document.createElement('canvas');
+  const { cols, rows } = j.reg;
+  if (j.stage === 1) {
+    gpuProbe.note(COUNTED.creditGrid);
+    if (jobCanvas.width !== cols || jobCanvas.height !== rows) { jobCanvas.width = cols; jobCanvas.height = rows; }
+    j.org = new Uint8Array(cols * rows); j.ves = new Uint8Array(cols * rows);
+    j.stage = 2; j.i = 0; j.list = null;
+    j.ctx = jobCanvas.getContext('2d', { willReadFrequently: true });
+    if (!j.ctx) { j.stage = 4; return; }   // (no canvas: empty grids, as worldLevel leaves them)
+    gridBegin(j.ctx, j.reg);
+  }
+  while (j.stage === 2 || j.stage === 3) {
+    const list = j.stage === 2 ? j.facts.org : j.facts.ves;
+    if (j.i < list.length) { j.i = gridShapes(j.ctx, j.reg, list, j.i, until); if (j.i < list.length) return; }
+    if (j.stage === 3 && j.glows.length) gridGlows(j.ctx, j.reg, j.facts, j.glows, inv);
+    gridRead(j.ctx, j.reg, j.stage === 2 ? j.org : j.ves);
+    j.stage++; j.i = 0;
+    if (j.stage === 3) gridBegin(j.ctx, j.reg);
+    if (performance.now() >= until) return;
+  }
+}
+
+/** The art test: test(box, { pad, org, ves }) over the figure's organs and vessels, in wrap px (see worldTest, screenTest). With
+ *  `spread` (a callback), a look that has to read or draw the art again answers PENDING and calls `spread` once the art is in. */
+export function organTest(wr, ring = null, spread = null) {
+  if (!ring) { const t = worldTest(wr, spread); if (t) return t; }
+  return screenTest(wr, ring);
 }
 
 // In the sinusoid view, or zooming into or out of it (pps: window.pps, the app's handles).
@@ -525,11 +634,14 @@ export function createCreditPlacer(credit, { keptStyle = null } = {}) {
     if (look === kept && !settling) { for (const k of keptBlocked) blocked[k] = now; return; }
     kept = '';
     const opt = { gap: wr.width < 768 ? 12 : 24, inset: sr?.width ? Math.max(12, Math.round(sr.left - wr.left - fig.l)) : wr.width < 768 ? 12 : 24 };   // (a clear gap from every card: 24 px on a laptop or tablet)
-    const art = gpuProbe.time(null, 'credit: art grid', () => organTest(wr, ring));
+    // (The art read or drawn again is spread over frames: PENDING until it is in, when the job looks again. Meanwhile the credit
+    // stays as it is; a new spot's wait for a steady view, below, runs alongside it.)
+    const art = gpuProbe.time(null, 'credit: art grid', () => organTest(wr, ring, soon)), artWait = art === PENDING;
     // It holds its spot while that spot stays good: inside the figure, clear of every card and label by the gap, and as clear of the
     // art as when it was chosen. A better spot freeing up is no reason to move (a label's live number changing width beside it
     // had it hop between spots every few seconds; Circuit 7 on a phone). After a slide change or a resize it picks anew.
     if (pos && !fresh && !credit.matches('.moving, .covered')) {
+      if (artWait) return;
       const z = curTight ? measure('tight') : { w, h }, bx = { l: pos.x, t: pos.y, r: pos.x + z.w, b: pos.y + z.h };
       const inside = bx.l >= fig.l && bx.r <= fig.r && bx.t >= fig.t + Math.min(opt.inset, 12) && bx.b <= fig.b - 4;
       const clear = !obs.some((o) => hit({ l: bx.l - opt.gap, t: bx.t - opt.gap, r: bx.r + opt.gap, b: bx.b + opt.gap }, o));
@@ -545,6 +657,7 @@ export function createCreditPlacer(credit, { keptStyle = null } = {}) {
     // iPad showed it for a second, then hid it). Never longer than 1.6 s.
     if (steadyAt && now - steadyAt > 2000) { steady = ''; steadyAt = 0; }   // (a wait left behind by a look that kept its spot)
     if (look !== steady && (!steadyAt || now - steadyAt < 1600)) { steadyAt ||= now; steady = look; clearTimeout(waitT); waitT = setTimeout(soon, 150); return; }
+    if (artWait) return;   // (a steady view: the search waits for the art, and lands when it is in)
     steady = ''; steadyAt = 0;
     stuck = ''; fresh = false; searches++;
     const covered = CORNERS.filter((k) => !freeSpots(fig, obs, w, h, opt)[k]);

@@ -216,7 +216,35 @@ test("a lit vessel's glow counts as the vessel, and a changed glow draws the gri
 
 test('the credit falls back to the screen grid in the lobule, with Lite graphics, and where a grid would be over the cap', () => {
   const src = readFileSync(new URL('../src/ui/credit.js', import.meta.url), 'utf8');
-  assert.match(src, /export function organTest\(wr, ring = null\) \{\n\s+return \(!ring && worldTest\(wr\)\) \|\| screenTest\(wr, ring\);/);
-  assert.match(src, /if \(!world\.closest\('\.stage-view'\)\?\.classList\.contains\('gl-on'\)\) \{ artDirty = true; return null; \}/);
+  assert.match(src, /export function organTest\(wr, ring = null, spread = null\) \{\n\s+if \(!ring\) \{ const t = worldTest\(wr, spread\); if \(t\) return t; \}\n\s+return screenTest\(wr, ring\);/);
+  assert.match(src, /if \(!world\.closest\('\.stage-view'\)\?\.classList\.contains\('gl-on'\)\) \{ artDirty = true; artJob = null; return null; \}/);
   assert.match(src, /const reg = regionFor\(view, cellFor\(sc\), pad\);\n\s+if \(!reg\) return null;/);
+});
+
+test('spread over frames, the look answers PENDING, draws a slice a frame, and lands on the same grid one frame draws', async () => {
+  const { PENDING } = await import('../src/ui/credit.js');
+  const rafs = [];
+  const raf0 = globalThis.requestAnimationFrame;
+  globalThis.requestAnimationFrame = (cb) => { rafs.push(cb); return rafs.length; };
+  const now0 = performance.now;
+  let clock = now0.call(performance);
+  performance.now = () => (clock += 5);   // (every reading of the clock 5 ms on: a slice holds a shape or two)
+  try {
+    const sync = organTest(wr);
+    const boxes = [screenOf(organA.rect), screenOf(fluid.rect), screenOf(vessel.rect), { l: 700, t: 500, r: 760, b: 560 }];
+    for (const o of observers) o.cb([]);   // (the art changed: read again)
+    let called = 0;
+    assert.equal(organTest(wr, null, () => called++), PENDING);
+    assert.equal(organTest(wr, null, () => called++), PENDING, 'one job at a time');
+    let frames = 0;
+    while (!called && frames < 50) { const q = rafs.splice(0); for (const cb of q) cb(clock); frames++; }
+    assert.equal(called, 1, 'called back once its grid is in');
+    assert.ok(frames > 2, `spread over ${frames} frames`);
+    const art = organTest(wr, null, () => called++);
+    assert.notEqual(art, PENDING);
+    for (const b of boxes) for (const pad of [0, 4, 18]) assert.equal(art(b, { pad }), sync(b, { pad }), JSON.stringify([b, pad]));
+    // (Taken for a while after, even with the art changed again: a breath would otherwise keep every look waiting.)
+    for (const o of observers) o.cb([]);
+    assert.notEqual(organTest(wr, null, () => called++), PENDING);
+  } finally { performance.now = now0; globalThis.requestAnimationFrame = raf0; }
 });
