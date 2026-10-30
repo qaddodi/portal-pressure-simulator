@@ -18,7 +18,7 @@ test('B10: a reversed colour or chevron fade still on its way keeps the figure a
 });
 
 test('B9: while the anatomy still shows during the lobule dive, its blood keeps moving (the plate itself holds still)', () => {
-  const i = stage.indexOf('if (diveT > 0 && diveT < 1 && !drawOnce && !forceDraw) {');
+  const i = stage.indexOf('if (diveT > 0 && diveT < 1 && !drawOnce && !forceDraw && !anatEasing()) {');
   assert.ok(i > 0);
   const block = stage.slice(i, stage.indexOf('lastT = flowGate = now; askAnimate(); return;', i));
   assert.match(block, /!diveHid && diveFadeO !== 0 && store\.get\(\)\.running/);

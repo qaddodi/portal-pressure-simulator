@@ -15,14 +15,15 @@ const ready = st.match(/function riseReady\(\) \{[\s\S]*?\n {2}\}\n/)[0];
 test('before the way out, the covered anatomy follows the model again and its picture is made for the patient now', () => {
   assert.match(prep, /if \(!lobuleOn \|\| diveT < 1 \|\| morphTarget !== 0 \|\| risePrep\) return;/, 'only from a landed lobule');
   assert.match(prep, /if \(F && !inUpdate\) update\(F\);\n\s+platePoke\(\);/);
-  assert.match(st, /const under = \(lobuleOn \|\| lz\?\.isOpen\(\)\) && !catchUp && !risePrep;/, 'model frames reach the organs meanwhile');
+  assert.match(st, /const under = anatCovered\(\) && !catchUp && !risePrep;/, 'model frames reach the organs meanwhile');
   // Done when the picture of the patient now lands; never left on.
   assert.match(st, /if \(!plateOn\(\)\) plateKey = '';[^\n]*\n\s+else if \(risePrep\) \{ risePrep = false; clearTimeout\(risePrepT\); \}/);
   assert.match(st, /function setLobule\(on\) \{\n[^\n]*\n\s+risePrep = false; clearTimeout\(risePrepT\);/);
 });
 
 test('ready means the picture shown is the state now: its key is the organs\' key, and nothing in it still eases', () => {
-  assert.match(ready, /return plateOn\(\) && !plateBusy && !lvMoving && !fluidEasing\(\) && !spleenMoving\(\) && plateKey === plateStateKey\(\);/);
+  // (With the changing organs painted live the picture holds none of them, so their eases play on through the rise instead.)
+  assert.match(ready, /return plateOn\(\) && !plateBusy && \(liveOn\(\) \|\| \(!lvMoving && !fluidEasing\(\) && !spleenMoving\(\)\)\) && plateKey === plateStateKey\(\);/);
   assert.match(ready, /if \(!risePrep \|\|/, 'nothing to wait for once it is made (or none was asked for)');
 });
 

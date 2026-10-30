@@ -1868,6 +1868,11 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     diveHid = on; labHid = lab;
     for (const el of diveEls()) el.style.visibility = (el.id === 'labels' ? lab : on) ? 'hidden' : '';
   }
+  // The anatomy is out of sight: under the landed lobule (or the sinusoid), or under the dive's field once it is whole. Until then,
+  // through the start of a dive and the end of a rise, it shows, magnified, and goes on following the patient as it does anywhere:
+  // the ascites filling, a varix growing, the liver changing play on through the zoom (Mohammad, 30 Oct: they paused while the
+  // view zoomed into or out of the lobule, and went on once it landed).
+  const anatCovered = () => (lobuleOn && diveT >= 1) || !!lz?.isOpen() || !!lz?.covers() || (diveHid && diveT > 0 && diveT < 1);
   // The field fades in over the anatomy, which stays whole beneath it and is hidden only once the field covers it, so nothing pops out
   // of or into view at either end of the zoom and the page never shows through between them (see diveFrame). Opacity on layers the zoom already composites costs nothing per frame;
   // their usual .25s opacity transition is held off while it is driven frame by frame (and eases the anatomy back in under the landed lobule).
@@ -1976,7 +1981,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // The organs' picture is made for the patient now (prepRise is done: it ends when that picture lands), or there is none to wait for.
   function riseReady() {
     if (!risePrep || !F || !veins || veins.lost || !glWanted(easeInOut(morph)) || figureHidden() || !lobuleOn) return true;
-    return plateOn() && !plateBusy && !lvMoving && !fluidEasing() && !spleenMoving() && plateKey === plateStateKey();
+    // (With the changing organs painted live, the picture holds none of them: the rise sets off while the fluid, the liver or the
+    // spleen still ease, and they go on easing in view as it zooms out, drawn live, rather than finishing unseen first.)
+    return plateOn() && !plateBusy && (liveOn() || (!lvMoving && !fluidEasing() && !spleenMoving())) && plateKey === plateStateKey();
   }
   function setLobule(on) {
     if (on && morphTarget !== 0) return;
@@ -2707,10 +2714,11 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   }
 
   function updateInner(f) {
-    // In the lobule, or diving into it (the anatomy is only magnified, then covered), the plate is left as it is
-    // (reading the cards' boxes and restyling it each model frame stalled the zoom); it catches up on the way out,
-    // with its eases already where they have got to (followHidden).
-    const under = (lobuleOn || lz?.isOpen()) && !catchUp && !risePrep;
+    // Covered by the lobule or the dive's field (anatCovered), the plate is left as it is (reading the cards' boxes and
+    // restyling it each model frame, unseen, stalled the zoom); it catches up on the way out, with its eases already where they
+    // have got to (followHidden). While the anatomy still shows through a dive or a rise it is updated as usual, so what eases on
+    // it keeps moving through the zoom.
+    const under = anatCovered() && !catchUp && !risePrep;
     // The cards' boxes, read at most every 100 ms (each read forces a layout in the middle of the model's frames);
     // a card that opens, closes or moves announces itself (pps:occ, resize) and is read at once.
     // (And only while one of them may have moved: layoutWatch.)
@@ -2893,7 +2901,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     updateFocus();
     dopApply();
     gpuProbe.time(null, 'update: bridges', () => updateBridges(t));
-    gpuProbe.time(null, 'update: labels', () => updateLabels(f));
+    // (Not through a dive or a rise: the anatomy's labels fade out as it starts, and the way out lays them out once, for its landing.)
+    if (!(diveT > 0 && diveT < 1)) gpuProbe.time(null, 'update: labels', () => updateLabels(f));
     gpuProbe.time(null, 'update: organs', () => updateOrgans(f, p, t));
     gpuProbe.time(null, 'update: slide marks', () => fxSync(f, t));
     widthF = f; widthVer = storeVer; widthCTM = CTM;
@@ -2954,7 +2963,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   function stepWidths() {
     const f = F;
     if (!f || f !== widthF || storeVer !== widthVer || !CTM || CTM !== widthCTM || coilEasing || organsEasing || catchUp) return false;
-    if (lobuleOn || lz?.isOpen() || hid.at || plateStale || plateRedraw || blockersStale || (performance.now() - blockersAt > 100 && watch.due())) return false;
+    if (anatCovered() || hid.at || plateStale || plateRedraw || blockersStale || (performance.now() - blockersAt > 100 && watch.due())) return false;
     if (ascShown !== ascTarget || morph !== morphTarget || tubesHidden !== wrap.classList.contains('gl-on') || EV.some((x) => x.reveal)) return false;
     stageWake();
     inUpdate = true;
@@ -2974,7 +2983,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     // (A pan moves no drawn size, and the view's own frame lays the labels out again (syncView): it takes this step too. A zoom or a
     // turn changes the sizes kept in screen pixels, and takes the full update.)
     if (!organsEasing || !f || f !== widthF || storeVer !== widthVer || !CTM || !widthCTM || CTM.sc !== widthCTM.sc || CTM.a !== widthCTM.a || CTM.b !== widthCTM.b || coilEasing || catchUp) return false;
-    if (lobuleOn || lz?.isOpen() || hid.at || plateStale || blockersStale || (performance.now() - blockersAt > 100 && watch.due())) return false;
+    if (anatCovered() || hid.at || plateStale || blockersStale || (performance.now() - blockersAt > 100 && watch.due())) return false;
     if (morph !== morphTarget || tubesHidden !== wrap.classList.contains('gl-on') || EV.some((x) => x.reveal || (x.vis && widthMoving(x)))) return false;
     stageWake();
     inUpdate = true;
@@ -2984,7 +2993,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         widthEasing = organsEasing = false;
         updateOrgans(f, f.viewParams || store.get().params, t);
         // (What the width step lays out every frame, it does here too: the site labels, a scan, a slide's moving camera, TIPS or DIPS.)
-        if (sites.list || scan.on || camMove || E.TIPS?.vis || E.DIPS?.vis) updateLabels(f);
+        if ((sites.list || scan.on || camMove || E.TIPS?.vis || E.DIPS?.vis) && !(diveT > 0 && diveT < 1)) updateLabels(f);
         if (fx) fxSync(f, t);
       });
     } finally { inUpdate = false; fxAt = null; }
@@ -3020,7 +3029,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     else { gpuProbe.note(COUNTED.widthWhole); syncVeins(t); }
     updateOverlays(f, p, lerp(1, 0.8, t), t);
     updateBridges(t);
-    if (labels) updateLabels(f);
+    if (labels && !(diveT > 0 && diveT < 1)) updateLabels(f);
     if (fx) fxSync(f, t);
   }
 
@@ -10100,6 +10109,10 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   }
 
   let lastT = performance.now(), lastDrawKey = null, lastDrawF = null, lastDrawCTM = null, lastAnim = true;
+  // The anatomy shows through a dive or a rise (not yet covered, not faded out under the landing) and something on it moves: the
+  // fluid, a vessel's width or coil, an organ, a vessel drawing on or off, a fade, or a vessel layer to draw again.
+  const anatEasing = () => !!F && !anatCovered() && !diveHid && diveFadeO !== 0 &&
+    (widthEasing || ascShown !== ascTarget || veinsDirty || lvMoving || spleenMoving() || plateEasing() || clampFading() || EV.some((x) => x.reveal));
   // Whether the figure moves by itself while the model runs (see animate).
   function figureMoves(st) {
     if (!st.running || reduceMotion.matches) return false;
@@ -10118,8 +10131,10 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     cathLabelsNow();
     // The blood moves by elapsed time, so speeds and transitions are the same at any frame rate.
     if (document.hidden || appEl?.classList.contains('home-open')) { lastT = flowGate = now; trimVeins(); sleep(); return; }
-    // The dive magnifies the figure as it stands (a compositor scale): nothing under it is redrawn until it lands.
-    if (diveT > 0 && diveT < 1 && !drawOnce && !forceDraw) {
+    // The dive magnifies the figure as it stands (a compositor scale): at rest, nothing under it is redrawn until it lands. While the
+    // anatomy still shows and something on it eases (anatEasing), the frame goes on below and draws it, as anywhere else: the
+    // patient's changes never pause for the zoom. (The box is measured without the dive's scale: measureBox.)
+    if (diveT > 0 && diveT < 1 && !drawOnce && !forceDraw && !anatEasing()) {
       // (The plate holds still through the dive, measured before its zoom, but while the anatomy still shows, its blood keeps
       // moving: never frozen physiology. No update or refreshCTM here: the box measured under the zoom would be wrong.
       // Round 2 review, B9.)
