@@ -2683,11 +2683,11 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     const d = ui.data;
     cancelFrame(slip.raf);
     if (reduce.matches) ms = 0; else ms *= Math.max(0.4, Math.abs(to - from));
-    d.classList.add('pz-sliding'); d.style.setProperty('--pz-u', from.toFixed(4)); liftTo(from); slideTell();
+    d.classList.add('pz-sliding'); d.style.setProperty('--pz-u', from.toFixed(4)); liftTo(from); slideTell(); camAt(from);   // (camAt: the view with the card, camFollow)
     const t0 = performance.now();
     const step = (now) => {
       const t = ms ? clamp((now - t0) / ms, 0, 1) : 1;
-      if (t < 1) { const u = from + (to - from) * (1 - (1 - t) ** 3); d.style.setProperty('--pz-u', u.toFixed(4)); liftTo(u); slip.raf = nextFrame(step); }
+      if (t < 1) { const u = from + (to - from) * (1 - (1 - t) ** 3); d.style.setProperty('--pz-u', u.toFixed(4)); liftTo(u); camAt(u); slip.raf = nextFrame(step); }
       else stopUnder();
     };
     slip.raf = nextFrame(step);
@@ -2696,7 +2696,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   function stopUnder() {
     cancelFrame(slip.raf);
     if (!ui?.data.classList.contains('pz-sliding')) return;
-    ui.data.style.removeProperty('--pz-u'); ui.data.classList.remove('pz-sliding'); liftTo(underU(ui.data));
+    ui.data.style.removeProperty('--pz-u'); ui.data.classList.remove('pz-sliding'); liftTo(underU(ui.data)); camAt(underU(ui.data));
   }
   // How far the readings' card travels: the card's height with them out less its height without them, read in the card's own px (its
   // parts are zoomed by the fit, so their own boxes are not read). (--pz-o: a second part's place under the first, for its cut.)
@@ -3748,6 +3748,44 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     stage.carryProbe?.();   // (a refit to the cards, not a new slide's framing: a Doppler probe that shows rides it out)
     fitAround(s, cam, booting ? 0 : ms);
   }
+  // The view follows the stacked card's readings' card frame by frame as they come out or tuck away, under the finger or on their own
+  // ease (stage.js followAt; Mohammad, 30 Oct, iPhone: "The view still snaps/jumps when I untuck a stacked card"): the framing for them
+  // tucked and for them out are worked out once (stage.aimView, the slide's own camera asked where it would go), and liftTo sets the view
+  // between the two at the share the card has travelled. Only for a slide framed at the fit or on a box, its view standing still at that
+  // framing; a catheter, a procedure's shot, a time-lapse's push, the lobule, a zoomed card, a dock moving or reduced motion keep the
+  // refit glide (foldFrame, foldStill). (Mac and iPad landscape: the figure's column is the same tucked or out, the two framings agree,
+  // and nothing follows.)
+  // (camSlide: the slide the view follows a card on; a move to another slide ends it, so the card put back for the new slide never takes
+  // the view back to the old slide's framing.)
+  let camSlide = '';
+  const camAt = (u) => { if (!stage.following?.()) return; if (camSlide === `${want}|${gen}` && shown?.i === want) stage.followAt(u); else stage.followEnd?.(); };
+  const camKind = () => { const s = figOf(shown.i); return s.visual ? s.cam : s.cam || 'fit'; };
+  const camFollowOk = () => !!ui && !!shown && shown.i === want && shown.gen === gen && !(busy && !playing) && !leaving && !booting && !reduce.matches
+    && dock.to === 0 && dock.lvl === 0 && !zoomOn() && !reframeT && !(cath.on && cath.cam) && !procRun?.running
+    && !(push && push.i === shown.i && push.until > performance.now()) && !store.get().lobule && ((c) => !!c && !LOBULE_CAM.test(c))(camKind());
+  // (Where the slide's camera would frame the cards as they stand now: the handle placed at the card's foot first, as it rests.)
+  const camAim = () => { placeLip(); const s = figOf(shown.i); return stage.aimView?.(() => frameTo(camKind(), s, 400, { steady: true })); };
+  // From the view now, framed for the readings as they rest (open: out), to the framing for the cards as they stand now (the other state).
+  function camFollow(vNow, open) {
+    const vTo = camAim();
+    if (!vNow || !vTo || !stage.follow?.(open ? vNow : vTo, open ? vTo : vNow)) return false;
+    stage.carryProbe?.();   // (a Doppler probe that shows rides it out)
+    camSlide = `${shown.i}|${shown.gen}`; framedSig = cardSig();
+    return true;
+  }
+  // A finger takes the readings' card at rest: the framing for the other state is worked out with the card turned to it for the measure
+  // only (its class and its handle, put back before anything is drawn), so the view can follow the finger from the first move.
+  function camGrab() {
+    const d = ui?.data;
+    if (!d || stage.following?.() || !camFollowOk() || d.classList.contains('pz-sliding')) return;
+    const vNow = stage.viewNow?.();
+    if (!vNow) return;
+    const open = d.classList.contains('tool-open');
+    d.classList.toggle('tool-open', !open);
+    let vOther;
+    try { vOther = camAim(); } finally { d.classList.toggle('tool-open', open); placeLip(); ui.lipMO?.takeRecords(); }
+    if (vOther && stage.follow?.(open ? vOther : vNow, open ? vNow : vOther)) { stage.carryProbe?.(); camSlide = `${shown.i}|${shown.gen}`; }
+  }
   // The camera eases to fit a slide's framing into the space its cards leave (the lobule refits itself on pps:occ).
   function fitAround(s, cam, ms) {
     framedSig = cardSig();
@@ -4475,12 +4513,12 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       const p = part(), split = splitSheet(el);
       return { x, y, p, open, shown: open, split, u0: split ? underU(el) : open ? 1 : 0, full: split ? slip.d || p.scrollHeight : Math.min(p.scrollHeight, innerHeight * 0.4), on: false, pts: [] };   // (open: its part shown, the tiles under a lead instrument or the instrument over its tiles)
     };
-    const take = (gg) => { gg.on = true; if (gg.split) { cancelFrame(slip.raf); slideTell(); } else gg.p.style.transition = 'none'; hold(true); };
+    const take = (gg) => { gg.on = true; if (gg.split) { cancelFrame(slip.raf); slideTell(); } else gg.p.style.transition = 'none'; if (gg.split && (gg.u0 === 0 || gg.u0 === 1)) camGrab(); hold(true); };   // (camGrab: the view follows the finger, from rest)
     // (dy: how far the finger has moved since the part began to follow it, down positive.)
     const follow = (gg, dy) => {
       const u = clamp(gg.u0 * gg.full + dy, 0, gg.full) / (gg.full || 1);
       gg.u = u; gg.pts.push([performance.now(), dy]);
-      if (gg.split) { el.classList.add('pz-sliding'); el.style.setProperty('--pz-u', u.toFixed(4)); liftTo(u); return; }
+      if (gg.split) { el.classList.add('pz-sliding'); el.style.setProperty('--pz-u', u.toFixed(4)); liftTo(u); camAt(u); return; }
       gg.p.style.maxHeight = `${(u * gg.full).toFixed(1)}px`; gg.p.style.opacity = u.toFixed(3);
     };
     // (From where the finger left it to the class's own state: the part's transition, or the readings' card's slide, eases the
@@ -4550,12 +4588,14 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       // (Upright: fitted at rest as it will be, then the readings' card slides there from wherever it stood, slideUnder.)
       if (splitSheet(data)) {
         const u0 = underU(data);
+        // (The view as the readings rest now, to follow from: camFollow. Already following (a finger let go), it follows on.)
+        const vNow = !stage.following?.() && (u0 === 0 || u0 === 1) && camFollowOk() ? stage.viewNow?.() : null;
         stopUnder();
         data.classList.toggle('tool-open', open); fold.setAttribute('aria-expanded', String(open)); fold.textContent = open ? 'Hide' : 'Show';
         data.dataset.openFor = String(want);
         delete data.dataset.folding; fitDone.delete(data); layout();
         measureUnder(data);
-        foldFrame();
+        if (!stage.following?.() && !(vNow && camFollow(vNow, open))) foldFrame();
         data.dataset.folding = '';
         slideUnder(u0, open ? 1 : 0);
         clearTimeout(foldT); foldT = setTimeout(foldStill, reduce.matches ? 0 : 450);
@@ -4589,6 +4629,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       clearTimeout(foldT);
       if (!('folding' in data.dataset)) return;
       if (data.classList.contains('pz-sliding') || partOf().getAnimations?.().some((a) => a.playState === 'running')) { foldT = setTimeout(foldStill, 100); return; }   // (still easing: a slow frame)
+      stage.followEnd?.();   // (at rest: the view stands at the framing for where it rests, and the refit below finds it there)
       delete data.dataset.folding; fitDone.delete(data); onResize();
     };
     const fold = h('button', { class: 'pz-fold', type: 'button', 'aria-expanded': 'false', onclick: () => setFold(!data.classList.contains('tool-open')) }, 'Show');
@@ -4801,7 +4842,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     store.set({ presenting: false, presentLabels: null, presentTerms: null, presentNames: false, focus: null, stented: [], lobuleCallout: null, presentFp: null }); stage.setSites(null); stage.setGlow(null); stage.pinOrgans(null); delete app.dataset.lit;
     figureHooks('clear');
     hushed = false; lastCam = null; clearTimeout(hushInT); app.classList.remove('pz-hush', 'pz-hush-in', 'pz-held'); heldNow = false; holdEase = false;
-    cancelFrame(slip.raf); slip.d = null; slip.h0 = null;
+    cancelFrame(slip.raf); slip.d = null; slip.h0 = null; stage.followEnd?.();
     clearTimeout(idleT); clearTimeout(dock.fit); cancelFrame(dock.raf); dock.lvl = 0; dock.to = 0; dock.drag = false; dock.auto = false; dock.autoKey = '';
     dataOn = textOn = null; keepNow = NO_KEEP; keepSnap = null; keepBad = []; keepArgs = null;
     pillW = 0; ui?.zoom.reset(); ui?.tools.dispose(); ui?.figKey.dispose(); ui?.lipRO?.disconnect(); ui?.root.remove(); ui?.shade.remove(); ui = null; app.classList.remove('pz-blacked');

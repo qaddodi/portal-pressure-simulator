@@ -2110,9 +2110,49 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     return { vb, wMax: vb.w / defaultVT(false).k };
   }
   // opt.arc: a presenter's framing. A long move (the two views share nothing) pulls back and comes in rather than panning across at full zoom.
+  // The view following a presenter's card frame by frame (Mohammad, 30 Oct, iPhone: "The view still snaps/jumps when I untuck a stacked
+  // card"): as the readings' card slides out or tucks away, under the finger or on its own ease, the view is set each frame between the
+  // framing for the readings tucked (v0) and the framing for them out (v1), at the same share u the card has travelled. The figure then
+  // moves with the card, never after it: a glide begun as the card came to rest, or even as it began, was a second move beside the card's,
+  // and a finger's pull slid the card over a figure that only moved once it was let go. The labels ride with it as they do with a slow
+  // push (drifting) and are solved again once it ends (followEnd, driftEnd). Any glide or framing set outright ends it (animateVT).
+  // aimView: where a framing would go, without moving: the camera functions run with animateVT only noting its target.
+  let following = false, follow0 = null, follow1 = null, aiming = false, aimed = null;
+  function aimView(fn) {
+    aiming = true; aimed = null;
+    try { fn(); } finally { aiming = false; }
+    const v = aimed || (vtGliding ? vtTarget : vt); aimed = null;
+    return v ? { k: v.k, x: v.x, y: v.y } : null;
+  }
+  // (The view as it stands, when it stands still at a framing a card's room can be followed from: not mid-glide or push, nor in the
+  // lobule, the circuit or a morph or dive.)
+  const viewNow = () => (following || vtGliding || drifting || lobuleOn || morphTarget !== 0 || morph > 0 || diveT > 0 ? null : { k: vt.k, x: vt.x, y: vt.y });
+  function followStart(v0, v1) {
+    if (!v0 || !v1 || sameView(v0, v1) || !viewNow()) return false;
+    cancelFrame(vtAnim); driftEnd();
+    following = true; follow0 = { ...v0 }; follow1 = { ...v1 };
+    drifting = true;   // (the labels ride, see drifting; driftEnd solves them again)
+    return true;
+  }
+  function followAt(u) {
+    if (!following) return;
+    const f = clamp(u, 0, 1), a = follow0, b = follow1;
+    vt = { k: a.k + (b.k - a.k) * f, x: a.x + (b.x - a.x) * f, y: a.y + (b.y - a.y) * f };
+    applyVT(); CTM = null;
+    if (cath.st) { refreshCTM(); cathLabelsSoon(); }
+    if (sites.list) { refreshCTM(); sitesPaint(); }
+    if (scan.on) scanPaint(); dprobePaint();
+  }
+  function followEnd() {
+    if (!following) return;
+    following = false; follow0 = follow1 = null;
+    driftEnd();
+  }
   // opt.steady: a refit to cards that moved (a data card tucked or untucked, a turn): timed by glideClock, so a slow frame at its start
   // (the layout and label passes the same change set off) holds it back a little instead of carrying it part of the way in one step.
   function animateVT(to, ms = 700, opt = {}) {
+    if (aiming) { aimed = { k: to.k, x: to.x, y: to.y }; return; }   // (asked only where it would go: aimView)
+    following = false;   // (a glide or a framing set outright takes over from a card the view was following)
     cancelFrame(vtAnim);
     const prev = arcRun; arcRun = null;
     const drift = !!opt.drift && ms > 0 && !reduceMotion.matches;   // (reduced motion: a drift is the short plain glide)
@@ -11218,6 +11258,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     riseTo, holdHome, prepRise, riseReady,
     /** The camera is about to glide only to refit the figure to cards that changed (the same slide): a probe showing rides that glide out, never hides. */
     carryProbe() { dpr.refitUntil = performance.now() + 300; },
+    /** The presenter's card followed frame by frame: aimView(fn) (where fn's framing would go), viewNow(), follow(v0, v1), followAt(u), followEnd(), following(). */
+    aimView, viewNow, follow: followStart, followAt, followEnd, following: () => following,
     fitSlow(ms = 1300, opt = {}) { if (lobuleOn) return; const to = defaultVT(morphTarget === 1); if (morphTarget !== 1) homeAt = to; fitted = true; if (!sameView(to, vtGliding ? vtTarget : vt)) animateVT(to, ms, opt.steady ? { steady: true } : undefined); },
     /** The same fit as a slow push (a time-lapse's lapse.cam 'fit'): see drifting. */
     fitDrift(ms) { if (lobuleOn) return; const to = defaultVT(morphTarget === 1); if (morphTarget !== 1) homeAt = to; fitted = true; if (!sameView(to, vtGliding ? vtTarget : vt)) animateVT(to, ms, { drift: true }); },

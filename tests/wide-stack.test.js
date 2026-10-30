@@ -45,9 +45,9 @@ test('the instrument is fitted to the tucked room; readings that need more room 
   assert.match(js, /const tuckH = ws \? dd\.offsetHeight - underU\(dd\) \* dpx \+ LIP : dd\.offsetHeight;/);
   assert.match(js, /if \(ws\) slip\.lift = dpx \+ slip\.base;/);
   // (Moved with the readings' card every frame, by the finger or the ease, and put back when it rests.)
-  assert.match(js, /d\.style\.setProperty\('--pz-u', u\.toFixed\(4\)\); liftTo\(u\); slip\.raf = nextFrame\(step\);/);
-  assert.match(js, /ui\.data\.classList\.remove\('pz-sliding'\); liftTo\(underU\(ui\.data\)\);/);
-  assert.match(js, /el\.style\.setProperty\('--pz-u', u\.toFixed\(4\)\); liftTo\(u\); return;/);
+  assert.match(js, /d\.style\.setProperty\('--pz-u', u\.toFixed\(4\)\); liftTo\(u\); camAt\(u\); slip\.raf = nextFrame\(step\);/);
+  assert.match(js, /ui\.data\.classList\.remove\('pz-sliding'\); liftTo\(underU\(ui\.data\)\); camAt\(underU\(ui\.data\)\);/);
+  assert.match(js, /el\.style\.setProperty\('--pz-u', u\.toFixed\(4\)\); liftTo\(u\); camAt\(u\); return;/);
   // (The card and its handle rise by the readings' travel, --pz-lift; the words and their glass by LIP less, --pz-rise: see the next test.)
   assert.ok(css.includes('.pz.pz-wide .pz-data.col, .pz.pz-wide .pz-lip { translate: 0 calc(-1 * var(--pz-lift, 0px)); }'), 'the card and its handle rise by the readings\' travel');
   assert.ok(css.includes('.pz.pz-wide .pz-text, .pz-shade.pz-card:not(.stack):not(.low) { translate: 0 calc(-1 * var(--pz-rise, 0px)); }'), 'the words and their glass rise together, by LIP less');

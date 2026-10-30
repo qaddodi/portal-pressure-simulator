@@ -74,7 +74,7 @@ test('an upright phone\'s or tablet\'s deck instrument card opens its readings o
   // (Measured in the card's own px, without its height cap; frame by frame, never a CSS transition: the card is frosted glass.)
   assert.match(js, /d\.style\.maxHeight = 'none';\n\s*parts\[0\]\.style\.marginTop = wideSheet\(d\) \? '16px' : '14px';/);
   assert.match(js, /d\.style\.maxHeight = cap; ui\.lipMO\?\.takeRecords\(\);/, 'its own measure never sets it measuring again');
-  assert.match(js, /if \(t < 1\) \{ const u = from \+ \(to - from\) \* \(1 - \(1 - t\) \*\* 3\); d\.style\.setProperty\('--pz-u', u\.toFixed\(4\)\); liftTo\(u\); slip\.raf = nextFrame\(step\); \}/);
+  assert.match(js, /if \(t < 1\) \{ const u = from \+ \(to - from\) \* \(1 - \(1 - t\) \*\* 3\); d\.style\.setProperty\('--pz-u', u\.toFixed\(4\)\); liftTo\(u\); camAt\(u\); slip\.raf = nextFrame\(step\); \}/);
   assert.doesNotMatch(css + js, /--pz-top|sheetTop|tabMargins/, 'no measure of the instrument\'s own box');
   // (The handle rides in the readings' card's foot.)
   assert.match(css, /\.pz\.stack \.pz-data\.pz-sheet\.pz-sliding \+ \.pz-lip \{ margin-top: calc\(-24px \* var\(--pz-u, 0\)\);/);
@@ -110,7 +110,7 @@ test('a pull down on the closed card brings out the instrument card, and carried
   // (The same follow and settle as the readings' own pull: margins, fade and the eased rest, setFold.)
   assert.match(js, /sheetPull = \{ begin: \(\) => \{ const gg = grab\(0, 0, false\); take\(gg\); return gg; \}, follow, settle \};/);
   assert.match(js, /const u = clamp\(gg\.u0 \* gg\.full \+ dy, 0, gg\.full\) \/ \(gg\.full \|\| 1\);/, 'from wherever the readings stand');
-  assert.match(js, /if \(gg\.split\) \{ el\.classList\.add\('pz-sliding'\); el\.style\.setProperty\('--pz-u', u\.toFixed\(4\)\); liftTo\(u\); return; \}/, 'the whole readings\' card follows the finger');
+  assert.match(js, /if \(gg\.split\) \{ el\.classList\.add\('pz-sliding'\); el\.style\.setProperty\('--pz-u', u\.toFixed\(4\)\); liftTo\(u\); camAt\(u\); return; \}/, 'the whole readings\' card follows the finger');
   // (Closing stays two steps: a push up from fully open is the readings' own, a push up from partly open the card's.)
   assert.match(js, /\|\| dock\.lvl > 0 \|\|/, 'the readings\' pull never starts on a closed card: the card\'s drag owns it');
 });
