@@ -145,7 +145,7 @@ test('figShare: the setting, While moving, Adapt and Size cap together', () => {
 test('While moving drops the canvas once per move and back once it settles; the plate picture waits for rest', () => {
   const stage = src('stage.js');
   const vt = stage.slice(stage.indexOf('const applyVT = () => {'), stage.indexOf('function syncView()'));
-  assert.match(vt, /if \(resizeReady && !moveLow && figOpt\('move'\) < 1\) \{ moveLow = true; easeRes\(\); settleRes\(\); \}/);
+  assert.match(vt, /if \(resizeReady && !moveLow && figOpt\('move'\) < 1 && !\(diveT > 0\)\) \{ moveLow = true; easeRes\(\); settleRes\(\); \}/);
   assert.match(stage, /if \(moveLow\) \{ plateSettle = setTimeout\(settled, 120\); return; \}/);
   assert.ok(stage.indexOf('let glM = null') < stage.indexOf('const applyVT = () => {'), 'declared before applyVT can read it');
 });
@@ -302,6 +302,6 @@ test('Full with every option off: the canvas at the screen’s own density (up t
   assert.equal(f.renderScale(), 1, 'the lobule and the sinusoid at Full');
   delete globalThis.localStorage;
   // (Every stage path that lowers the canvas is gated on a choice: While moving, Auto, Adapt, the cap.)
-  assert.match(stage, /if \(resizeReady && !moveLow && figOpt\('move'\) < 1\)/);
+  assert.match(stage, /if \(resizeReady && !moveLow && figOpt\('move'\) < 1 && !\(diveT > 0\)\)/);
   assert.match(stage, /if \(renderSetting\(\) !== 'auto' && autoK === 1 && !moveLow && !figOpt\('adapt'\) && adaptK === 1\) return;/);
 });

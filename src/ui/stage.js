@@ -1402,7 +1402,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     syncSemantic();
     CTM = null; viewVersion++; stageWake();
     // (While moving: the first step of a move drops the canvas to its moving share, once; it is back at rest when the view settles.)
-    if (resizeReady && !moveLow && figOpt('move') < 1) { moveLow = true; easeRes(); settleRes(); }
+    // (Not for the lobule's own moves: the unseen refit as a rise begins is no move of the viewer's, and dropping the share there
+    // showed the whole rise soft, then faded back up partway through it.)
+    if (resizeReady && !moveLow && figOpt('move') < 1 && !(diveT > 0)) { moveLow = true; easeRes(); settleRes(); }
     if (!viewRaf) viewRaf = nextFrame(syncView);
   };
   function syncView() {
@@ -1872,7 +1874,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // through the start of a dive and the end of a rise, it shows, magnified, and goes on following the patient as it does anywhere:
   // the ascites filling, a varix growing, the liver changing play on through the zoom (Mohammad, 30 Oct: they paused while the
   // view zoomed into or out of the lobule, and went on once it landed).
-  const anatCovered = () => (lobuleOn && diveT >= 1) || !!lz?.isOpen() || !!lz?.covers() || (diveHid && diveT > 0 && diveT < 1);
+  // (Only with the changing organs painted live: otherwise an ease drops the organs' picture for the live SVG, which Safari, scaled by
+  // the dive, drew without its masked groups (the stomach, the gut). There the anatomy holds through the dive as before.)
+  const anatCovered = () => (lobuleOn && diveT >= 1) || !!lz?.isOpen() || !!lz?.covers() || (diveHid && diveT > 0 && diveT < 1) || (lobuleOn && !liveOn());
   // The field fades in over the anatomy, which stays whole beneath it and is hidden only once the field covers it, so nothing pops out
   // of or into view at either end of the zoom and the page never shows through between them (see diveFrame). Opacity on layers the zoom already composites costs nothing per frame;
   // their usual .25s opacity transition is held off while it is driven frame by frame (and eases the anatomy back in under the landed lobule).
@@ -2048,6 +2052,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       else if (on) setTimeout(() => { if (lobuleOn && lz.isOpen()) platePoke(); }, 600);   // the anatomy's raster, held back during the dive, catches up under the lobule
       else if (!on) {
         setDiveScale(1); lz.setDiveZoom(1, 0, 0); diveLand = null;
+        platePoke();   // (held through the rise: the organs' picture for the state it landed on, if it changed on the way)
         zShift = 0;
         // Out of the lobule the anatomy always ends on its full fit, not where the dive began (often the liver close-up).
         // (Already taken to its fit when the way out began; measuring it again here read the floating pieces mid-change and sent the view down, then back.)
@@ -2340,7 +2345,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (renderSetting() !== 'auto' && autoK === 1 && !moveLow && !figOpt('adapt') && adaptK === 1) return;
     clearTimeout(autoT);
     autoT = setTimeout(function settled() {
-      if (!leftAlone(280) || vtGliding) { autoT = setTimeout(settled, 120); return; }
+      // (Never during a dive or a rise: its copy, laid over the canvas, would stand still while the dive's scale zooms the rest.)
+      if (!leftAlone(280) || vtGliding || (diveT > 0 && diveT < 1)) { autoT = setTimeout(settled, 120); return; }
       const k = autoNow(autoK), a = adaptK;
       adaptStep();
       if (k === autoK && !moveLow && a === adaptK) return;
@@ -2372,7 +2378,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (vCanvas.style.translate !== v) vCanvas.style.translate = v;
   }
   function easeRes() {
-    if (glM && !(lz?.isOpen() || lz?.covers())) { fadeOver(vCanvas, resFollow); fadeM0 = [...glM]; }
+    if (glM && !(lz?.isOpen() || lz?.covers()) && !diveOrig) { fadeOver(vCanvas, resFollow); fadeM0 = [...glM]; }
     resizeCanvas();
   }
   // (The canvas's share of its pixels: the setting (or Auto's step), While moving's share during a move, Adapt's step, and at most
@@ -4380,8 +4386,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   let plateStale = false;
   let plateMiss = 0, fluidStillAt = 0, fluidWas = false;   // (pictures given up in a row; when the fluid last stopped)
   function platePoke() {
-    // Not while diving into the lobule (the anatomy is only magnified, then covered): once landed, under the lobule.
-    if (lobuleOn && !lz?.isOpen()) return;
+    // Not while diving into the lobule (the anatomy is only magnified, then covered): once landed, under the lobule. Nor through a
+    // rise: the organs ease on in view (anatEasing), and a picture dropped or swapped mid-zoom flashed; it is made once it lands.
+    if ((lobuleOn && !lz?.isOpen()) || (diveT > 0 && diveT < 1)) return;
     // In the background no picture is begun (below), but one in colours the page no longer has is dropped at once, for the live
     // drawing (already in the colours now, drawn in the same task): the system turns the page light for the app switcher's
     // pictures and dark again while it is hidden, and the light picture stayed on the canvas until the next one replaced it, so
@@ -4428,7 +4435,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     clearTimeout(plateTimer);
     plateTimer = setTimeout(async () => {
       const moving = !liveOn() && (lvMoving || fluidEasing() || spleenMoving());
-      if (figureHidden() || moving || (lobuleOn && !lz?.isOpen()) || circuitInk() || document.hidden) return;   // hidden, moving or diving meanwhile: a later poke rasterizes
+      if (figureHidden() || moving || (lobuleOn && !lz?.isOpen()) || (diveT > 0 && diveT < 1) || circuitInk() || document.hidden) return;   // hidden, moving or diving meanwhile: a later poke rasterizes
       const k = plateStateKey();
       if (k === plateKey && veins?.hasPlate(0)) return;   // it changed and changed back
       plateBusy = true; plateLast = performance.now();
@@ -10139,7 +10146,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   let lastT = performance.now(), lastDrawKey = null, lastDrawF = null, lastDrawCTM = null, lastAnim = true;
   // The anatomy shows through a dive or a rise (not yet covered, not faded out under the landing) and something on it moves: the
   // fluid, a vessel's width or coil, an organ, a vessel drawing on or off, a fade, or a vessel layer to draw again.
-  const anatEasing = () => !!F && !anatCovered() && !diveHid && diveFadeO !== 0 &&
+  const anatEasing = () => !!F && liveOn() && !anatCovered() && !diveHid && diveFadeO !== 0 &&
     (widthEasing || ascShown !== ascTarget || veinsDirty || lvMoving || spleenMoving() || plateEasing() || clampFading() || EV.some((x) => x.reveal));
   // Whether the figure moves by itself while the model runs (see animate).
   function figureMoves(st) {
