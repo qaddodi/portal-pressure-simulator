@@ -93,19 +93,27 @@ test('Hyperdynamic: output 5.0 to 7.0 L/min, pressure 92 to 80 mmHg, heart rate 
   near(c.ring.ys[0], at(c, c.ring.x, 0), 0.2, 'the ring sits on the output line');
 });
 
-test('Outflow: stiffness follows the free hepatic vein pressure whatever the cause, and the HVPG stays under 2 mmHg', async () => {
+test('Outflow: in cirrhosis the HVPG climbs with the stiffness; heart failure, constriction and the web stiffen the liver with an HVPG under 2', async () => {
   const c = await chartOf('outflow');
-  assert.deepEqual(drawnLines(c.t).map((l) => l.k), ['hvpg', 'fhvp']);
-  assert.ok(Math.max(...ys(c, 0)) < 2, `the web's HVPG stays under 2: ${Math.max(...ys(c, 0))}`);
-  assert.ok(ys(c, 1).every((y, i, a) => !i || y > a[i - 1]) && ys(c, 1)[0] < 11 && ys(c, 1).at(-1) > 20, 'the free pressure climbs with the stiffness');
-  near(c.ring.ys[1], at(c, c.ring.x, 1), 0.3, 'the ring sits on the free pressure line');
+  assert.deepEqual(drawnLines(c.t).map((l) => l.k), ['hvpg']);
+  assert.ok(ys(c, 0).every((y, i, a) => !i || y > a[i - 1]), 'the cirrhosis HVPG climbs with every step');
+  const x10 = cross(c, 0, 10, 1);
+  assert.ok(x10 > 18 && x10 < 23, `the cirrhosis line passes an HVPG of 10 at about 20 kPa, as the notes say: ${x10}`);
   const dots = await seq(dotSteps(c.t), null);
-  assert.equal(dotsOf(c.t).length, 2);
-  for (const [k, d] of dots.entries()) {
-    assert.ok(d.fp.hvpg < 2, `dot ${k}: HVPG ${d.fp.hvpg}`);
-    near(d.fp.fhvp, at(c, d.fp.lsm, 1), 0.6, `dot ${k} (stiffness ${d.fp.lsm.toFixed(1)}) falls on the web's free pressure line`);
+  assert.equal(dotsOf(c.t).length, 4);
+  const [csph, ...cong] = dots;
+  assert.ok(csph.fp.hvpg >= 10, `the Cirrhosis point has CSPH: ${csph.fp.hvpg}`);
+  near(csph.fp.hvpg, at(c, csph.fp.lsm, 0), 1.5, `the Cirrhosis point (${csph.fp.lsm}) sits on the cirrhosis line`);
+  const pts = [...cong.map((d) => d.fp), c.fp];   // (heart failure, constriction, and the web: the slide's own state is the web slide's)
+  for (const [k, fp] of pts.entries()) {
+    assert.ok(fp.hvpg < 2, `point ${k}: HVPG ${fp.hvpg}`);
+    assert.ok(fp.lsm > 15, `point ${k}: stiffness ${fp.lsm} past 15 kPa`);
+    const line = at(c, Math.min(fp.lsm, xs(c).at(-1)), 0);   // (heart failure stands past the line's stiff end, which is higher still)
+    assert.ok(line - fp.hvpg > 4, `point ${k} sits far under the cirrhosis line: ${fp.hvpg} against ${line}`);
   }
-  assert.ok(dots[0].fp.lsm > 25 && dots[1].fp.lsm > 10 && dots[1].fp.lsm < 20, 'heart failure past 25 kPa, constriction between 10 and 20');
+  const web = await stateOf(slideOf('outflow', 'web'));
+  near(web.fp.lsm, c.fp.lsm, 0.05, 'the web dot and the words read the same stiffness');
+  near(web.fp.hvpg, c.fp.hvpg, 0.05, 'and the same HVPG');
 });
 
 test('NCPH: cirrhosis raises stiffness, PPG and spleen together; the schistosomiasis ring sits far above the line', async () => {
