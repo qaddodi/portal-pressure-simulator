@@ -9,7 +9,7 @@
 // (store.hvpgMeasured, hiddenNow); the tracing's small waves are illustrative.
 
 import { h, fmt, fitCanvas, clamp, icon, cssVar, toast } from './util.js?v=8664598769';
-import { FONT } from './charts.js?v=784f18536c';
+import { FONT } from './charts.js?v=f932e0c4c3';
 import { pressureColor } from './colormap.js?v=64a49af74c';
 import { store, logAction, hiddenNow, updateParams } from './store.js?v=a926bea9d4';
 import { shownOr } from './shown.js?v=82ef5e29ec';

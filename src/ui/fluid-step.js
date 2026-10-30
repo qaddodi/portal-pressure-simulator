@@ -1,4 +1,4 @@
-import { APPENDIX_TIP, ABDOMEN_FLOOR } from './anatomy.js?v=1902c96a72';
+import { APPENDIX_TIP, ABDOMEN_FLOOR } from './anatomy.js?v=97811cb4dd';
 
 // The ascites volume the figure draws. The model's volume trickles in or out on every update, by a fraction of a mL; drawn
 // as it comes, each trickle counted as the fluid moving, and repainted the whole picture ten or more times a second. The

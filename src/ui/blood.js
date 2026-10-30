@@ -15,7 +15,7 @@
 // and a dye bolus that travels the network, conserved along each vessel and mixed (flow-weighted)
 // only at junctions.
 
-import { lumenSurface, lumenAt } from './stomach-lumen.js?v=85fe152232';
+import { lumenSurface, lumenAt } from './stomach-lumen.js?v=9077feffd5';
 
 // Display speed, world units per second, for a mean velocity in cm/s.
 export const SPEED_K = 9.5;
@@ -158,9 +158,8 @@ export function createReversalHold(n, breath = 4) {
 // Key chevrons only (Blood menu; always while presenting): chevrons keep to the portal story (the portal
 // inflow, the liver's beds, the hepatic veins, any open collateral or shunt); the rest fade.
 const KEY_CHEV_IDS = new Set(['V_INT', 'V_COL', 'V_IMV', 'V_SPL', 'SV_MID', 'V_STO', 'SMV_CONF', 'SV_CONF', 'LGV_CONF', 'PV_TRUNK', 'PVH_R', 'PVH_L', 'RHV_IVC', 'MHV_IVC', 'LHV_IVC']);
-// A vein drawn in an open collateral's own lane: the ascending lumbar collateral (C9) runs up the azygos
-// trunk's lane into the arch, so that stretch of its course is the azygos (AZY_SVC) on screen and keeps its
-// chevrons while the collateral is open.
+// A vein that carries an open collateral's blood on: the ascending lumbar collateral (C9) empties into the azygos
+// arch, so the azygos (AZY_SVC) beside it keeps its chevrons while the collateral is open.
 export const KEY_CHEV_LANES = { AZY_SVC: ['C9'] };
 /** Whether vessel `e` keeps its chevrons under Key chevrons only; `open(id)`: whether collateral `id` is drawn open. */
 export function keyChevron(e, open = () => false) {
