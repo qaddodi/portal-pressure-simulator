@@ -19,7 +19,7 @@ test('the scales, the stored value and the listeners', async () => {
   const store = new Map();
   globalThis.localStorage = { getItem: (k) => (store.has(k) ? store.get(k) : null), setItem: (k, v) => store.set(k, String(v)), removeItem: (k) => store.delete(k) };
   const f = await import(`../src/ui/frame.js?t=${Date.now()}`);
-  assert.deepEqual(f.RENDER_SCALES, [1, 0.75, 0.5, 0.25]);
+  assert.deepEqual(f.RENDER_SCALES, ['auto', 1, 0.75, 0.5, 0.25]);
   assert.equal(f.renderScale(), 1, 'Full by default');
   const seen = [];
   f.onRenderScale((k) => seen.push(k));
@@ -28,17 +28,42 @@ test('the scales, the stored value and the listeners', async () => {
   assert.equal(store.get('pps.renderScale'), '0.5');
   f.setRenderScale(0.3);   // (not a choice: ignored)
   f.setRenderScale(0.5);   // (no change: no call)
+  f.setRenderScale('auto');
+  assert.equal(f.renderSetting(), 'auto');
+  assert.equal(f.renderScale(), 1, 'Auto leaves the lobule and the sinusoid at Full');
+  assert.equal(store.get('pps.renderScale'), 'auto');
   f.setRenderScale(1);
   assert.equal(store.has('pps.renderScale'), false, 'Full stores nothing');
-  assert.deepEqual(seen, [0.5, 1]);
+  assert.deepEqual(seen, [0.5, 'auto', 1]);
   delete globalThis.localStorage;
 });
 
 test('the anatomy canvas, the lobule and the sinusoid read it; the instruments and labels do not', () => {
   const stage = src('stage.js');
-  assert.match(stage, /vdpr = Math\.min\(2, devicePixelRatio \|\| 1\) \* QUALITY\[quality\]\.res \* renderScale\(\)/);
-  assert.match(stage, /onRenderScale\(\(\) => resizeCanvas\(\)\)/);
+  assert.match(stage, /vdpr = Math\.min\(2, devicePixelRatio \|\| 1\) \* QUALITY\[quality\]\.res \* \(renderSetting\(\) === 'auto' \? autoK : renderScale\(\)\)/);
+  assert.match(stage, /onRenderScale\(\(\) => \{ autoK = 1; resizeCanvas\(\); autoResSoon\(\); \}\)/);
   assert.equal(src('lobule-zoom.js').split('* renderScale()').length - 1, 5);
   assert.equal(src('sinusoid-view.js').split('* renderScale()').length - 1, 1);
   for (const f of ['util.js', 'label-gl.js', 'glass-gl.js', 'instruments.js']) assert.ok(!src(f).includes('renderScale'), f);
+});
+
+test('Auto: 1/zoom past the home framing, in steps down to 10%, changed only once the view settles', () => {
+  const stage = src('stage.js');
+  const steps = stage.match(/const AUTO_STEPS = (\[[^\]]+\])/)[1];
+  const body = stage.match(/const autoScale = (\(zoom\) => \{[^\n]+\});/)[1];
+  const autoScale = new Function('AUTO_STEPS', `return ${body}`)(JSON.parse(steps));
+  assert.equal(autoScale(0.6), 1, 'zoomed out: Full');
+  assert.equal(autoScale(1), 1);
+  assert.equal(autoScale(1.3), 1, 'never below 1/zoom');
+  assert.equal(autoScale(2), 0.5);
+  assert.equal(autoScale(3), 0.35);
+  assert.equal(autoScale(4), 0.25);
+  assert.equal(autoScale(10), 0.1);
+  assert.equal(autoScale(40), 0.1, 'never under 10%');
+  const fn = stage.slice(stage.indexOf('function autoResSoon('), stage.indexOf('function resizeCanvas('));
+  assert.match(fn, /leftAlone\(280\)/, 'not while a finger or a glide is moving the view');
+  assert.match(fn, /vtGliding/);
+  assert.match(fn, /if \(k === autoK\) return;/, 'no reallocation unless the step changes');
+  assert.match(stage, /autoResSoon\(\); {3}\/\/ \(the view moved/);
+  assert.match(main, /v === 'auto' \? 'Auto'/);
 });

@@ -130,11 +130,16 @@ export const SAVER_MS = 1000 / 15 - 4;
 // Render resolution (Settings, 29 Oct, an experiment): the figure's canvases (the anatomy's vessels, organs, blood and glows on
 // the GPU, the lobule and the sinusoid) are drawn at this share of their usual pixels, and the browser scales them up. Words
 // (labels, cards, the instruments' readings) are not on those canvases and stay sharp. 1 (Full) changes nothing.
-export const RENDER_SCALES = [1, 0.75, 0.5, 0.25];
+// 'auto' (30 Oct): the anatomy follows its zoom (stage.js autoScale), 100% zoomed out down to 10% zoomed in; the lobule and the
+// sinusoid stay at Full.
+export const RENDER_SCALES = ['auto', 1, 0.75, 0.5, 0.25];
 let renderK = 1;
-try { const v = +localStorage.getItem('pps.renderScale'); if (RENDER_SCALES.includes(v)) renderK = v; } catch { /* storage unavailable */ }
+try { const t = localStorage.getItem('pps.renderScale'), v = t === 'auto' ? t : +t; if (RENDER_SCALES.includes(v)) renderK = v; } catch { /* storage unavailable */ }
 const renderSubs = new Set();
-export const renderScale = () => renderK;
+/** The chosen setting: 'auto' or a fixed share. */
+export const renderSetting = () => renderK;
+/** The fixed share of the pixels (1 under Auto, which only the anatomy applies, by its zoom). */
+export const renderScale = () => (renderK === 'auto' ? 1 : renderK);
 export function setRenderScale(k) {
   if (!RENDER_SCALES.includes(k) || k === renderK) return;
   renderK = k;

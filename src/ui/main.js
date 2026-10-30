@@ -3,27 +3,27 @@
 
 import { startHost, host } from './host.js?v=164ee7d975';
 import { store, updateParams, replaceParams, bindParamSender, clearHistory, logAction, varicesPresent, hiddenNow } from './store.js?v=926dabfaef';
-import { createStage } from './stage.js?v=c077efbe83';
-import { createCreditPlacer } from './credit.js?v=460f38f9c5';
+import { createStage } from './stage.js?v=854bb8a5e4';
+import { createCreditPlacer } from './credit.js?v=b6ab611667';
 import { whenQuiet } from './quiet.js?v=82fc0f97e3';
 import { sinusoidSupported } from './gl-support.js?v=94ad2a7ff1';
-import { createInspector } from './inspector.js?v=fc43b5958a';
-import { createDock, CUTOFFS, savedInstruments } from './dock.js?v=35683b5c1d';
-import { setHvpgStage } from './hvpg-proc.js?v=913901c2c6';
-import { createWhy } from './why.js?v=ab6a7c8498';
-import { createTimeline, LAPSES } from './timeline.js?v=8fb10665d0';
-import { createCompare } from './compare.js?v=2751d090b6';
-import { createCard } from './card.js?v=663d8f3d9f';
-import { createChart } from './chart.js?v=f5739d1d1a';
-import { createMenu } from './menu.js?v=97480079e1';
-import { caption } from './a11y.js?v=087be8e28f';
+import { createInspector } from './inspector.js?v=88a2de0f04';
+import { createDock, CUTOFFS, savedInstruments } from './dock.js?v=9e0c76ca73';
+import { setHvpgStage } from './hvpg-proc.js?v=f363ef22fa';
+import { createWhy } from './why.js?v=9b1fc8dab1';
+import { createTimeline, LAPSES } from './timeline.js?v=7c74867ba1';
+import { createCompare } from './compare.js?v=192063b303';
+import { createCard } from './card.js?v=08d1166a8c';
+import { createChart } from './chart.js?v=aee25acf59';
+import { createMenu } from './menu.js?v=b4c4445688';
+import { caption } from './a11y.js?v=2f93ef6748';
 import { startLMS } from './lms.js?v=284ef81e94';
 import { UPDATED, CONTENT_UPDATED, VALIDATION, AUTHOR, AUTHOR_URL, FEEDBACK_EMAIL } from '../version.js?v=a9debc0de8';
-import { normalizeSel, shuntable, edgeValue, bedStats } from './actions.js?v=977354177a';
-import { gradientCss, dropCss, PRESSURE_TICKS, flowCss, flowPos, velocityCss, heatCss, HEAT_MAX, oxygenCss, OXY_MIN } from './colormap.js?v=c4496633e4';
+import { normalizeSel, shuntable, edgeValue, bedStats } from './actions.js?v=6718868e94';
+import { gradientCss, dropCss, PRESSURE_TICKS, flowCss, flowPos, velocityCss, heatCss, HEAT_MAX, oxygenCss, OXY_MIN } from './colormap.js?v=d8088dfde7';
 import { EDGES, PORTAL_TERRITORY } from '../engine/topology.js?v=4044766e96';
 import { dopplerVel } from './velNormal.js?v=97920ddf3f';
-import { $, $$, h, icon, afterExit, fmt, fmtFlow, toast, tooltipFor, openModal, closeModal, isModalOpen, popover, closePopover, popoverOpen, menuItem, svgIcon, isPhoneLayout, TABLET_UP_MQ, markGone, enterAfterGone, enhanceRanges, systemEdge, sinkTo, stopSink, swapFade, scrollBehavior, reconcile } from './util.js?v=6f9bd7ddee';
+import { $, $$, h, icon, afterExit, fmt, fmtFlow, toast, tooltipFor, openModal, closeModal, isModalOpen, popover, closePopover, popoverOpen, menuItem, svgIcon, isPhoneLayout, TABLET_UP_MQ, markGone, enterAfterGone, enhanceRanges, systemEdge, sinkTo, stopSink, swapFade, scrollBehavior, reconcile } from './util.js?v=65bdd79f7b';
 import { TEXT_STEPS } from './type-scale.js?v=d7cca3fb73';
 
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
@@ -36,13 +36,13 @@ const SPEEDS = [0.25, 0.5, 1, 2, 4, 8];
 
 // Everything the learner does is a verb on the structure they click (actions.js, card.js); the
 // only armed gesture left is a shunt waiting for its target.
-import { debugOptions, debugOn, setDebug, initDebug } from './debug.js?v=e5de3c9968';
-import { initTopbarMotion } from './topbar-motion.js?v=d4e996b97c';
+import { debugOptions, debugOn, setDebug, initDebug } from './debug.js?v=90675d2e25';
+import { initTopbarMotion } from './topbar-motion.js?v=34f6ce92cc';
 import { ORIGINS } from './blood.js?v=2667e8cf8d';
 import { parseShare, cleanShare } from './share-link.js?v=b6f8e0f909';
 import { deepMerge, sanitizeParams } from '../engine/scenario.js?v=d7d3ea5b70';
 import { createPaintGate } from './paint-gate.js?v=68c692e8a3';
-import { frameFor, cancelFrame, perf as framePerf, RENDER_SCALES, renderScale, setRenderScale } from './frame.js?v=ecade0bf08';
+import { frameFor, cancelFrame, perf as framePerf, RENDER_SCALES, renderSetting, setRenderScale } from './frame.js?v=fb33388f52';
 import { easeIO3, glideShift, pillState, foldPill, stopFold } from './pill-motion.js?v=ea522a5215';
 const nextFrame = frameFor('main');
 
@@ -104,8 +104,8 @@ async function main() {
   // The Doppler and the FibroScan load after the first paint (a tab for one that has not come waits for it, dock.js). One left open when the
   // app was last used is asked for now and waited for with the model's first answers, so its pane is whole with the dock.
   const probeTo = (id) => { host.send({ type: 'probe', id }); logAction('probe', id); };
-  dopplerL = lazy(() => import('./doppler.js?v=4ca3ec1988'), ({ createDoppler }) => createDoppler({ onProbe: probeTo }));
-  fibroL = lazy(() => import('./fibroscan.js?v=270bf559af'), ({ createFibroScan }) => createFibroScan());
+  dopplerL = lazy(() => import('./doppler.js?v=f1676b20cc'), ({ createDoppler }) => createDoppler({ onProbe: probeTo }));
+  fibroL = lazy(() => import('./fibroscan.js?v=bb81d7bb3d'), ({ createFibroScan }) => createFibroScan());
   const wasOpen = savedInstruments().open;
   const openAtStart = [];
   if (Array.isArray(wasOpen)) for (const [id, l] of [['doppler', dopplerL], ['fibroscan', fibroL]]) if (wasOpen.includes(id)) openAtStart.push(l.get().catch(() => {}));
@@ -178,7 +178,7 @@ async function main() {
   dock = createDock({ strip: $('#strip'), head: $('#dockHead'), body: $('#dockBody'), onWhy: (m, el) => why.open(m, el), onAction: doAction, onProbe: probeTo, lazy: { doppler: dopplerL, fibroscan: fibroL }, onReveal: revealDock, onLobule: () => zoomLobule('R'),
     onOpen: () => openPanel('instruments'), onClose: () => setPanelTab('chart'), onLayout: () => syncDoppler(), isVisible: () => app.classList.contains('dock-open'),
     marks: () => timeline.entries(), onBeat: () => sendBeat() });
-  presenterL = lazy(() => import('./presenter.js?v=2ee30b2806'), ({ createPresenter }) => createPresenter({ openSettings, loadPreset, updateParams, host, stage, dock, action: doAction,
+  presenterL = lazy(() => import('./presenter.js?v=d4a861d814'), ({ createPresenter }) => createPresenter({ openSettings, loadPreset, updateParams, host, stage, dock, action: doAction,
     projectorOn: () => { if (!projector) toggleProjector(); }, projectorOff: () => { if (projector) toggleProjector(); },
     closeHome: () => mainMenu.close(), stashCards, rerenderHome: () => mainMenu.render() }));
   mainMenu = createMenu({
@@ -186,7 +186,7 @@ async function main() {
     onPreset: (id) => openInExplore(id), share, help: (a) => openHelpMenu(a),
     onToggle: (on, sheet) => { closePopover(); app.classList.toggle('menu-sheet-open', on && !!sheet); creditPlacer?.refresh(); labelsUnderMenu(on); },
   });
-  paletteL = lazy(() => import('./palette.js?v=379470af83'), ({ createPalette }) => createPalette({ ctx: {
+  paletteL = lazy(() => import('./palette.js?v=67ce1366a8'), ({ createPalette }) => createPalette({ ctx: {
     select, action: doAction, probe: (id) => { host.send({ type: 'probe', id }); logAction('probe', id); }, showPane: (id) => dock.show(id, { reveal: true }),
     jump: (d, l) => timeline.jump(d, l), undo: () => timeline.undo(), pin: () => timeline.togglePin(), lenses: Object.fromEntries(Object.entries(LENSES).map(([k, v]) => [k, v])),
     zoomLobule: () => zoomLobule('R'), instruments: () => dock.toggle(),
@@ -869,7 +869,7 @@ function openSettings(anchor, withSearch = false) {
     textSizeControl(),
     // (One setting for the app and the talks, like Blur effect. The figure's drawing only; words stay sharp. frame.js)
     h('div', { class: 'menu-title' }, 'Figure resolution'),
-    h('div', { class: 'seg full menu-seg' }, RENDER_SCALES.map((v) => { const b = h('button', { 'aria-pressed': String(renderScale() === v) }, v === 1 ? 'Full' : `${v * 100}%`); b.addEventListener('click', () => { setRenderScale(v); b.parentElement.querySelectorAll('button').forEach((x) => x.setAttribute('aria-pressed', String(x === b))); }); return b; })),
+    h('div', { class: 'seg full menu-seg' }, RENDER_SCALES.map((v) => { const b = h('button', { 'aria-pressed': String(renderSetting() === v) }, v === 'auto' ? 'Auto' : v === 1 ? 'Full' : `${v * 100}%`); b.addEventListener('click', () => { setRenderScale(v); b.parentElement.querySelectorAll('button').forEach((x) => x.setAttribute('aria-pressed', String(x === b))); }); return b; })),
     // (Blur effect is one setting for the app and the talks: the same switch and the same stored value in both.)
     h('div', { class: 'menu-title' }, 'Accessibility'),
     menuToggle(!document.documentElement.hasAttribute('data-noglass'), 'layers', 'Blur effect', 'Frosted glass behind cards and labels. Off: solid cards and label pills, lighter on a hot device', (on) => {
