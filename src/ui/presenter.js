@@ -13,7 +13,7 @@
 // Enter jumps, G the slide list, Home End, B or . black screen, F full screen, ? the Guide, Esc. (The Guide lists them: PRESENT_KEYS in
 // main.js.) On a touch screen a sideways swipe anywhere on the slide goes on or back.
 
-import { store, replaceParams } from './store.js?v=926dabfaef';
+import { store, replaceParams } from './store.js?v=a926bea9d4';
 import { download } from './download.js?v=3564e5bf8c';
 import { h, toast, svgIcon, icon, fmt, clamp, openModal, closeModal, isModalOpen, restBox, paintRange, cssVar, swapText, setCanvasBoost, STACK_MQ, SHORT_SIDE_MQ, TABLET_UP_MQ } from './util.js?v=8664598769';
 import { titleParts } from './title-units.js?v=c8d5ce1f26';
@@ -25,11 +25,11 @@ import { isCamOn, unionBox, regionBox, growBox, camNames } from './cam-frame.js?
 import { NODE_POS } from './anatomy.js?v=1902c96a72';
 import { DISEASE_SRC, diseasePieces } from './diseases.js?v=fb8a5451c3';
 import { nb, listCase, plateletText } from './glue.js?v=5a0f63226b';
-import { DECKS, DECK_ALIAS, REGIONS, LEVELS, TOPICS, withOverview, siteTag, SITE_TAGS } from './decks.js?v=4254cd4f98';
+import { DECKS, DECK_ALIAS, REGIONS, LEVELS, TOPICS, withOverview, siteTag, SITE_TAGS } from './decks.js?v=d01e2677fe';
 import { fingerprintOf } from '../engine/fingerprint.js?v=ca81723393';
-import { createHvpgMonitor } from './hvpg-proc.js?v=235c5f8d31';
-import { createTools } from './presenter-tools.js?v=59887ded92';
-import { openHandout } from './handout.js?v=bb3aadcd72';
+import { createHvpgMonitor } from './hvpg-proc.js?v=2786afb804';
+import { createTools } from './presenter-tools.js?v=783b72d776';
+import { openHandout } from './handout.js?v=5c1d40d59d';
 import { noteResume, resumeFor } from './resume.js?v=f086f80ee8';
 import { parseDeckSource, checkDeck } from './deck-source.js?v=8395c650cd';
 import { NO_ASC, TILE, cutText, tileOf, SCALE, bandsOf, rateOf, COLS, CUT, PRESS, fpv, dirAbs, dirRel, rateAbs, effOf, rateShown, tileShown, tipsGoal, liveSettled, shownSig } from './table-marks.js?v=bca5ebb624';
@@ -37,12 +37,12 @@ import { frameFor, cancelFrame } from './frame.js?v=c868718bdd';
 import { createFigureKey } from './figure-key.js?v=fd5b5c6ed6';
 import { traceWhen } from './trace-labels.js?v=fc916a95c6';
 import { flowCss, heatCss, dropCss, gradientCss, oxygenCss } from './colormap.js?v=64a49af74c';
-import { EXT, expandIds, stepExtra, markLabel, figureHooks, safe } from './slide-ext.js?v=9adc462ea9';
+import { EXT, expandIds, stepExtra, markLabel, figureHooks, safe } from './slide-ext.js?v=2a487794fb';
 import { clotWords } from './callout-math.js?v=0a546774fb';
 import { citeText, focusOf, oneLadder } from './teach-extras.js?v=5f5248f5a7';
 import { createProfileTool, createProfileStrip, pillReadings, chartScale } from './tool-profile.js?v=3884ca5d07';
 import { causeFit } from './cause-fit.js?v=830a6835a5';
-import { anchorsOf, roomFor } from './cam-room.js?v=936ecba987';
+import { anchorsOf, roomFor } from './cam-room.js?v=7d6d4201f4';
 import { beatCount, beatView } from './slide-beats.js?v=2aded612c4';
 import { COMPACT, WIDE } from './card-type.js?v=5af5f22935';
 import { flowTimeHeight, trailKeys } from './flow-time.js?v=b13799c106';
@@ -1369,6 +1369,10 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   let markBase = null;
   const clotMarks = (marks, params) => marks.flatMap((m) => { if (!m.clot) return [m]; const t = clotWords(params?.thrombus?.[m.edges[0]]); return t ? [{ ...m, label: t }] : []; });
   const markFocus = (marks) => (marks.length ? { ...marks[0], marks } : null);
+  // The veins a slide shows stented (its `stented`, edge ids or '@sets'): the figure draws the mesh over them and the cross-section its ring.
+  // They land with the slide's marks; leaving a slide takes with it only those the next slide does not stent too, so a stent that stays stays.
+  const stentedOf = (s) => (!s.visual && Array.isArray(s.stented) ? [...expandIds(s.stented)].filter((id) => typeof id === 'string') : []);
+  const stentedKept = (s) => { const next = stentedOf(s); return (store.get().stented || []).filter((id) => next.includes(id)); };
   const merge = (a, b) => { for (const [k, v] of Object.entries(b)) a[k] = v && typeof v === 'object' && !Array.isArray(v) ? merge({ ...(a[k] || {}) }, v) : v; return a; };
   function abSlow() { abGen++; }
   // The new treatment takes effect on the live figure at real time (a faster clock would make the Doppler and tracings
@@ -1828,7 +1832,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     if (outMs) { await painted(); await painted(); }
     // Words out, and the marks: they belong to the slide that is leaving.
     markBase = null;
-    store.set({ focus: null, presentLabels: [], presentTerms: null, lobuleCallout: null, presentFp: null }); stage.setSites(null); stage.setGlow(null); stage.pinOrgans(null);
+    store.set({ focus: null, stented: stentedKept(s), presentLabels: [], presentTerms: null, lobuleCallout: null, presentFp: null }); stage.setSites(null); stage.setGlow(null); stage.pinOrgans(null);
     figureHooks('clear');   // (and what a deck visuals package put on the figure: slide-ext.js)
     // The slide's lens: the figure crossfades to its colours (stage.js) while the old words leave. A question, or a
     // visual over the figure, keeps the colours already showing: they change only when a slide's lens does.
@@ -1999,7 +2003,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       marks = clotMarks(marks, st?.params || store.get().params);
       store.set({ presentLabels: [...new Set([...(s.labels || []), ...tg.labels])], presentTerms: tg.terms || null,
         presentNames: s.tool?.kind === 'profile' || !!s.cath, presentFp: st?.fp || null,
-        focus: markFocus(marks), lobuleCallout: !s.callout ? null : { kind: 'block', ...s.callout } });
+        focus: markFocus(marks), stented: stentedOf(s), lobuleCallout: !s.callout ? null : { kind: 'block', ...s.callout } });
       if (tg) { stage.setGlow(tg.glow); stage.pinOrgans(tg.organs.map((o) => (o.id === 'spleen' && st?.fp ? { id: o.id, tone: rateTone('spleen', st.fp) } : o))); stage.setResGlow(tg.res); }
       app.dataset.lit = tg?.lit.join(' ') || '';
       if (hooks) figureHooks('show', xc);   // (a deck visuals package's own marks on the figure: slide-ext.js; a flip leaves them as they are)
@@ -4762,7 +4766,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     closeHome?.();
     const st0 = store.get();
     if (!layersBefore) layersBefore = { ...st0.lobuleLayers };
-    store.set({ presenting: true, selection: null, details: null, compareSnap: null, colorMode: 'pressure', presentLabels: [], focus: null, ...(st0.mode !== 'explore' ? { mode: 'explore' } : {}) });
+    store.set({ presenting: true, selection: null, details: null, compareSnap: null, colorMode: 'pressure', presentLabels: [], focus: null, stented: [], ...(st0.mode !== 'explore' ? { mode: 'explore' } : {}) });
     if (st0.view !== 'anatomic' && !st0.lobule) store.set({ view: 'anatomic' });
     projectorOn();
     app.classList.add('presenting');
@@ -4810,7 +4814,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     wrapRO?.disconnect();
     document.fonts?.removeEventListener('loadingdone', onFonts);
     fitRO?.disconnect(); clearRO?.disconnect(); fitKids = []; clearFor = null; clearTimeout(clearT); cancelFrame(fitRaf);
-    store.set({ presenting: false, presentLabels: null, presentTerms: null, presentNames: false, focus: null, lobuleCallout: null, presentFp: null }); stage.setSites(null); stage.setGlow(null); stage.pinOrgans(null); delete app.dataset.lit;
+    store.set({ presenting: false, presentLabels: null, presentTerms: null, presentNames: false, focus: null, stented: [], lobuleCallout: null, presentFp: null }); stage.setSites(null); stage.setGlow(null); stage.pinOrgans(null); delete app.dataset.lit;
     figureHooks('clear');
     hushed = false; lastCam = null; clearTimeout(hushInT); app.classList.remove('pz-hush', 'pz-hush-in', 'pz-held'); heldNow = false; holdEase = false;
     cancelFrame(slip.raf); slip.d = null; slip.h0 = null;

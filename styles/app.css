@@ -6731,7 +6731,7 @@ html.thumb-ui .menu.from-dock { clip-path: inset(-64px -64px calc(var(--sink, 0p
 .gl-open { fill: var(--gl-v); transition: opacity .25s ease; }
 .gl-in { font: 650 22px/1 var(--font-ui); fill: var(--gl-in-ink); stroke: var(--gl-in-edge); stroke-width: 1.9; stroke-linejoin: round; paint-order: stroke; font-variant-numeric: tabular-nums; pointer-events: none; }
 .gl-word { font-size: max(9px, min(12px, calc(12px / var(--gl-u, 1.4)))); font-weight: 600; stroke-width: 1.3; }
-.gl-stent { fill: none; stroke: var(--stent-metal); stroke-width: 2.2; stroke-dasharray: 4.6 2.2; }
+.gl-stent { fill: none; stroke: var(--stent-metal); stroke-width: 2.2; stroke-dasharray: 4.6 2.2; transition: opacity .6s var(--ease); }
 .pz.stack .pz-tool[data-kind="lumen"] .gl-stage { width: min(44%, calc(18 * var(--pzh, 8px))); }
 
 /* V27, the fluid balance (src/ui/tool-fluid.js): the lymph made flowing into what the lymphatics carry, what the belly takes

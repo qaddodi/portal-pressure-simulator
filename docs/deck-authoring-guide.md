@@ -87,7 +87,7 @@ Every field is optional unless marked. Fields are grouped by what they do. Unkno
 
 ### 3.3 The figure (section 5)
 
-`view`, `cam`, `scales` (5.10), `kMax`, `zoom`, `clear`, `lens`, `labels`, `tint`, `terms`, `glow`, `glowSeq`, `mark`, `marks`, `sites`, `layers`, `callout`, `cath`, `monitor`; opt-in (5.9): `spot`, `normalOutline`, `ripple`, `lapseGlow`, `since`, `sinceLabel`, `calipers`, `steps`, `span`, `zone`.
+`view`, `cam`, `scales` (5.10), `kMax`, `zoom`, `clear`, `lens`, `labels`, `tint`, `terms`, `glow`, `glowSeq`, `mark`, `marks`, `stented`, `sites`, `layers`, `callout`, `cath`, `monitor`; opt-in (5.9): `spot`, `normalOutline`, `ripple`, `lapseGlow`, `since`, `sinceLabel`, `calipers`, `steps`, `span`, `zone`.
 
 ### 3.4 The data card (section 7)
 
@@ -218,6 +218,7 @@ On Gut to heart chart (`tool: { kind: 'profile' }`) and catheter (`cath`) slides
 ### 5.6 Marks (callouts on a vessel)
 
 `mark: { edges, label, kind, seg?, free?, clot? }` or `marks: [ … ]` (several). `edges` = vessel ids (section 8.5). Only labelled marks get a callout box. `free: true` sets the label on its own with no leader line, for one name over several vessels (the three hepatic veins). `seg` on a stent (`'proximal'` | `'mid'` | `'distal'` | `'site'`, the third that holds its narrowing) lights and points at that third only.
+`stented: ['RHV_IVC']` (a slide field beside `mark`) shows a stent in a vein the model has no device for, a hepatic vein or the IVC: the figure draws the TIPS's metal mesh over the middle of the vein, unrolled from its heart end while it fades in (it rolls back when the next slide does not stent it), and a `tool: { kind: 'lumen', vessel }` on the same vein shows the stent's ring. A mark that says "Stent" on such a vein needs it, or the label points at nothing (a unit test checks this). The TIPS, the DIPS and drawn shunts always show their mesh and need no field.
 `clot: true` (opt-in, in place of `label`) names the clot in the mark's first vessel as the model has it, so a what-if slider on the clot changes the words: "Nonocclusive clot", "Occlusive clot" once the cross-section card reads 100 %, and no mark at all at 0 %. The new words fade in place.
 
 | `kind` | Look | Use for |

@@ -36,7 +36,7 @@ export const OUTFLOW = {
       ask: ['What is the first imaging test for suspected Budd–Chiari syndrome?', 'Doppler ultrasound of the hepatic veins and the IVC: it is quick, at the bedside, and shows absent or reversed flow.'],
     },
     {
-      id: 'open', lens: 'heat', terms: ['hv'], params: { thrombus: { RHV_IVC: 0 } }, days: 60, lapse: { seconds: 7 }, cam: 'hepatic', mark: { edges: ['RHV_IVC'], label: 'Stent', kind: 'treat' }, tool: { kind: 'lumen', vessel: 'RHV_IVC' }, data: 'tiles', tiles: ['pv', 'asc'], key: ['asc'], delta: 'bcs',
+      id: 'open', lens: 'heat', terms: ['hv'], params: { thrombus: { RHV_IVC: 0 } }, days: 60, lapse: { seconds: 7 }, cam: 'hepatic', mark: { edges: ['RHV_IVC'], label: 'Stent', kind: 'treat' }, stented: ['RHV_IVC'], tool: { kind: 'lumen', vessel: 'RHV_IVC' }, data: 'tiles', tiles: ['pv', 'asc'], key: ['asc'], delta: 'bcs',
       kicker: 'Opening the outflow', site: 'post', title: 'One open hepatic vein is enough',
       line: 'Anticoagulation comes first; then a stent reopens a short narrowing of the right hepatic vein, and two months later the portal pressure is {pv} and the ascites has gone.',
       notes: 'Treatment is stepwise (EASL 2025). Every patient is anticoagulated, unless it is contraindicated, and the cause is treated. A short narrowing of a hepatic vein or of the IVC is opened by angioplasty, usually with a stent, and one good hepatic vein can drain the whole liver, as here. Patients who still worsen go on to a shunt, and those with liver failure to transplantation.',

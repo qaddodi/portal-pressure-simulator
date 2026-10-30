@@ -88,7 +88,7 @@ Full guide: section 14.
 - **Circuit view.** `view: 'circuit'` shows the electrical-circuit map instead of the body.
 - **Labels.** `labels: ['CONF', 'RHV', 'RA']` names those stations on the figure. Only the stations you list appear.
 - **Glow.** `glow: ['C3', 'spleen']` lights vessels or organs the words do not name. Add `glowSeq: 550` to light them one after another.
-- **Marks.** `mark: { edges: ['PV_TRUNK'], label: 'Clot' }` rings a vessel and adds a callout. Use `kind: 'treat'` for a stent or bands and `kind: 'note'` to name a collateral.
+- **Marks.** `mark: { edges: ['PV_TRUNK'], label: 'Clot' }` rings a vessel and adds a callout. Use `kind: 'treat'` for a stent or bands and `kind: 'note'` to name a collateral. A mark labelled "Stent" on a hepatic vein or the IVC also needs `stented: ['RHV_IVC']` on the slide, which draws the mesh on the figure and the ring in a cross-section tool (the TIPS and DIPS draw theirs on their own).
 - **Readings on the figure.** `sites: ['pv', 'ra']` writes those pressures beside the vessels.
 - **The HVPG catheter.** `cath: 'wedge'` plays the catheter step instead of a camera move, and `tool: { kind: 'hvpg', catheter: true }` puts its tracing in the data card, which stays up from one step to the next.
 

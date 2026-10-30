@@ -7,8 +7,8 @@ import { pressureColor, deltaColor, dropColor, flowColor, heatColor, velColorOf,
 import { forkJoins, sideEndScale } from './fork-joins.js?v=20a032142f';
 import { nodeEnds, nodeDrawn, dotRadius, bareDots } from './circuit-nodes.js?v=1040ba0ec4';
 import { STATION_VESSEL, meanVel, velNormal, judgeFlow } from './velNormal.js?v=97920ddf3f';
-import { store, updateParams, varicesPresent, varixGrowth, shownVel } from './store.js?v=926dabfaef';
-import { fibroReading } from './clock.js?v=5151312569';
+import { store, updateParams, varicesPresent, varixGrowth, shownVel } from './store.js?v=a926bea9d4';
+import { fibroReading } from './clock.js?v=73bb847dde';
 import { s, h, fmt, fmtFlow, fp, clamp, lerp, toast, systemEdge, bloodColors, restBox, translateRest, settledBox, putText, UPRIGHT_MQ } from './util.js?v=8664598769';
 import { riseCentre } from './rise-path.js?v=c039cb7b49';
 import { lerpVT, camPath, blendPaths, viewsOverlap, driftEase } from './cam-arc.js?v=2e5111e648';
@@ -1191,7 +1191,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
 
   // Overlays
   const ov = {
-    clamps: s('g'), clampsOut: s('g'), thrombi: s('g'), stents: s('g'), plugs: s('g'), varices: s('g'), gvarices: s('g'),
+    clamps: s('g'), clampsOut: s('g'), thrombi: s('g'), stents: s('g'), venous: s('g'), plugs: s('g'), varices: s('g'), gvarices: s('g'),
     balloons: s('g'), bands: s('g'),
   };
   Object.values(ov).forEach((g) => gOver.append(g));
@@ -2235,7 +2235,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const lzAnchor = document.createComment('lobule');
   wrap.append(lzAnchor);
   // (The code is fetched as soon as the figure is shown; the layer is built a moment later, when the page is quiet, or at once for a dive.)
-  const lobuleCode = () => (lzCode ||= import('./lobule-zoom.js?v=0593335031').catch((err) => { lzCode = null; throw err; }));
+  const lobuleCode = () => (lzCode ||= import('./lobule-zoom.js?v=b64a37ecd4').catch((err) => { lzCode = null; throw err; }));
   function lobuleReady() {
     return (lzLoad ||= lobuleCode().then(({ createLobuleZoom }) => {
       lz = createLobuleZoom({ host: wrap, styles: wrapCS, before: lzAnchor });
@@ -6005,31 +6005,85 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const n = Math.hypot(dx, dy) || 1;
     return { x, y, tx: dx / n, ty: dy / n, nx: -dy / n, ny: dx / n };
   }
-  // TIPS: a self-expanding metal stent over the lumen (two rails, a diamond lattice of struts,
-  // radiopaque markers at both ends), so the shunt reads as a device, not a vessel.
-  // A narrowed stent pinches with its lumen (the same waist, in the segment its card names).
-  function stentMesh(id, p) {
-    const x = E[id], L = geo[id].len;
+  // A self-expanding metal stent over the lumen (two rails, a diamond lattice of struts, radiopaque markers at both
+  // ends), so a shunt or a stented vein reads as a device, not a vessel. It runs from d0 to d1 along the vessel's drawn
+  // path (either way round) and is drawn k of the way (0 to 1) from d0, the lattice anchored there, so a growing stent
+  // unrolls instead of stretching. A narrowed stent pinches with its lumen (the same waist, in the segment its card names).
+  // Returns the paths, to append where the mesh belongs.
+  function meshPaths(id, p, d0, d1, k = 1) {
+    const x = E[id], L = geo[id].len, sg = d1 >= d0 ? 1 : -1, A = Math.abs(d1 - d0), e = A * k;
     const v = isImaging() ? 0 : p.stenosis[id] || 0, wf = v > 0.01 ? waist(id, v, L, x.width, p) : null;
     const R = (d) => (x.width / 2) * (wf ? wf(d / (L || 1)) : 1) + (x.wallPx || 1) + 1.2;
-    const f = (d, side) => { const q = frameAt(id, d), r = R(d); return [q.x + q.nx * r * side, q.y + q.ny * r * side]; };
+    const f = (a, side) => { const d = d0 + sg * a, q = frameAt(id, d), r = R(d); return [q.x + q.nx * r * side, q.y + q.ny * r * side]; };
     const P = (p) => `${p[0].toFixed(1)} ${p[1].toFixed(1)}`;
-    const d0 = 2, d1 = L - 2, cell = Math.max(6, R(d0) * 1.7);
+    const cell = Math.max(6, R(d0) * 1.7);
     let rails = '', struts = '';
     for (const side of [1, -1]) {
-      rails += 'M' + P(f(d0, side));
-      for (let d = d0 + 3; d < d1; d += 3) rails += ' L' + P(f(d, side));
-      rails += ' L' + P(f(d1, side)) + ' ';
+      rails += 'M' + P(f(0, side));
+      for (let a = 3; a < e; a += 3) rails += ' L' + P(f(a, side));
+      rails += ' L' + P(f(e, side)) + ' ';
     }
     for (const start of [1, -1]) {
-      let side = start;
-      struts += 'M' + P(f(d0, side));
-      for (let d = d0 + cell / 2; d <= d1 + 0.01; d += cell / 2) { side = -side; struts += ' L' + P(f(Math.min(d, d1), side)); }
+      let side = start, prev = f(0, side);
+      struts += 'M' + P(prev);
+      for (let a = cell / 2; a <= A + 0.01; a += cell / 2) {
+        side = -side;
+        const q = f(Math.min(a, A), side);
+        if (a > e + 0.01) {   // (the lattice's growing end: the strut under way, drawn as far as it has come)
+          const u = (e - (a - cell / 2)) / (cell / 2);
+          if (u > 0.001) struts += ' L' + P([prev[0] + (q[0] - prev[0]) * u, prev[1] + (q[1] - prev[1]) * u]);
+          break;
+        }
+        struts += ' L' + P(q); prev = q;
+      }
       struts += ' ';
     }
     let marks = '';
-    for (const d of [d0, d1]) { const a = f(d, 1), b = f(d, -1); marks += `M${P(a)} L${P(b)} `; }
-    ov.stents.append(s('path', { class: 'stent-strut', d: struts }), s('path', { class: 'stent-rail', d: rails }), s('path', { class: 'stent-rail-glint', d: rails }), s('path', { class: 'stent-mark', d: marks }));
+    for (const a of k > 0.02 ? [0, e] : [0]) { const m = f(a, 1), n = f(a, -1); marks += `M${P(m)} L${P(n)} `; }
+    return [s('path', { class: 'stent-strut', d: struts }), s('path', { class: 'stent-rail', d: rails }), s('path', { class: 'stent-rail-glint', d: rails }), s('path', { class: 'stent-mark', d: marks })];
+  }
+  // TIPS, DIPS and the shunts drawn with the stent tool: the whole drawn shunt, in place at once (the vessel itself draws on).
+  function stentMesh(id, p) { ov.stents.append(...meshPaths(id, p, 2, geo[id].len - 2)); }
+  // A vein a slide shows stented (store.stented: a hepatic vein or the IVC, which the model has no device for): the same mesh over
+  // the stretch VST_SPAN of the vein, unrolled from its heart end (where a transjugular catheter comes from) while it fades in, and
+  // rolled back the same way when the slide leaves it. It eases on its own clock, so the figure is never waiting on the model.
+  const VST_SPAN = [0.25, 0.75], VST_MS = 1100;
+  const vst = new Map();   // id → how much of the stent is drawn (0 to 1); on: whether it should be
+  let vstRaf = 0, vstAt = 0, vstDirty = false;
+  const vstGoal = (id, anat) => (anat && store.get().stented?.includes(id) && E[id]?.vis && !E[id].reveal && geo[id]?.cur ? 1 : 0);
+  function venousDraw(p) {
+    ov.venous.innerHTML = '';
+    for (const [id, v] of vst) {
+      if (!(v.k > 0.002) || !E[id]?.vis || !geo[id]?.cur) continue;
+      const L = geo[id].len, g = s('g', { opacity: Math.min(1, v.k * 3).toFixed(3) });
+      g.append(...meshPaths(id, p, VST_SPAN[1] * L, VST_SPAN[0] * L, easeInOut(v.k)));
+      ov.venous.append(g);
+    }
+  }
+  function venousTick(now) {
+    vstRaf = 0;
+    const dt = vstAt ? Math.min(100, now - vstAt) : 0; vstAt = now;
+    let moving = false;
+    for (const [id, v] of vst) {
+      const goal = vstGoal(id, venousAnat);
+      if (v.k !== goal) {
+        const step = reduceMotion.matches ? 1 : dt / (goal ? VST_MS : VST_MS * 0.6);   // (out quicker than in)
+        v.k = goal ? Math.min(1, v.k + step) : Math.max(0, v.k - step);
+        vstDirty = true;
+        if (v.k !== goal) moving = true;
+      }
+      if (v.k === 0 && !goal) vst.delete(id);
+    }
+    if (vstDirty) { vstDirty = false; venousDraw(F?.viewParams || store.get().params); }
+    if (moving) vstRaf = nextFrame(venousTick); else vstAt = 0;
+  }
+  let venousAnat = true;
+  // Called from every overlay update: starts the ease when the slide's stented veins (or the view) changed, and redraws on a rebuild.
+  function venousSync(p, anat, rebuilt) {
+    venousAnat = anat;
+    for (const id of store.get().stented || []) if (!vst.has(id) && E[id]) vst.set(id, { k: 0 });
+    for (const [id, v] of vst) if (v.k !== vstGoal(id, anat) && !vstRaf) { vstAt = 0; vstRaf = nextFrame(venousTick); break; }
+    if (rebuilt && vst.size) { if (vstRaf) vstDirty = true; else venousDraw(p); }
   }
   // Surgical shunts: a row of sutures across each anastomosis.
   function anastomoses(id) {
@@ -7600,7 +7654,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const hold = (k, v, step) => { const h0 = held[k]; if (h0 == null || Math.abs(v - h0) > step * 0.75) held[k] = Math.round(v / step) * step; return held[k]; };
   function overlayInputs(f, p, t) {
     const m = f.metrics;
-    const lesions = [...Object.keys(p.stenosis), ...Object.keys(p.thrombus), ...Object.keys(p.occluded), 'TIPS', 'DIPS', 'S_PC', 'S_DSR', 'S_MC', ...LIGATED.map((l) => l[1]), ...Object.keys(p.customShunts || {}), 'C3'];
+    const lesions = [...Object.keys(p.stenosis), ...Object.keys(p.thrombus), ...Object.keys(p.occluded), 'TIPS', 'DIPS', 'S_PC', 'S_DSR', 'S_MC', ...LIGATED.map((l) => l[1]), ...Object.keys(p.customShunts || {}), ...(store.get().stented || []), 'C3'];
     return JSON.stringify([t.toFixed(3), isImaging(), findingHidden('clot'), p.stenosis, p.stenosisSite, p.thrombus, p.occluded, p.splenicRx | 0, p.tips, p.dips, p.customShunts, p.balloonEso, p.balloonGas,
       // A vessel's width eases with its pressure for a long while after a change; held in steps,
       // so a clot or stent is not rebuilt several times a second for sub-pixel drift.
@@ -7678,6 +7732,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     setVar(ov.gvarices, '--vx', pressureColor(qP(PM[NI.GV])));
     const key = overlayInputs(f, p, t);
     balloonStep(p, t < 0.5);
+    venousSync(p, t < 0.5, key !== overlayKey);
     if (key === overlayKey) return;
     overlayKey = key;
     const anat = t < 0.5;

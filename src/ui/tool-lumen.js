@@ -1,16 +1,18 @@
 // Deck visuals, package G, V19: a vessel in cross-section on a slide's data card, tool { kind: 'lumen', vessel: 'PV_TRUNK' }.
 // Drawn flat: the open lumen in the vessel's colour, a clot shaped by its grade (EASL 2025), a
-// narrowing as a thicker wall, a stent as a fine ring, and the open area as a percentage. It reads the live model's params
+// narrowing as a thicker wall, a stent as a fine ring (the TIPS and DIPS, and a vein a slide shows stented: store.stented), and the open area as a percentage. It reads the live model's params
 // (params.thrombus and params.stenosis for the vessel, combined as engine.js occlusion), so it moves with a clot-size slider,
 // a compare button or the days of anticoagulation, easing from one state to the next.
 
 import { h, clamp } from './util.js?v=8664598769';
 import { EDGES } from '../engine/topology.js?v=4044766e96';
-import { store } from './store.js?v=926dabfaef';
+import { store } from './store.js?v=a926bea9d4';
 import { frameFor } from './frame.js?v=c868718bdd';
 const nextFrame = frameFor('lumen');
 
 const STENTS = new Set(['TIPS', 'DIPS']);
+/** Whether the vessel carries a stent: the TIPS and DIPS always, any other vein when the slide on screen stents it (store.stented). */
+export const hasStent = (id, stented) => STENTS.has(id) || (Array.isArray(stented) && stented.includes(id));
 // The systemic veins the tool may show (the rest of the venous side carries portal blood, as a stent does; an artery is red).
 const SYSTEMIC = new Set(['RHV_IVC', 'MHV_IVC', 'LHV_IVC', 'IVCS_RA', 'IVCI', 'IVCS']);
 const NAME = { PV_TRUNK: 'main portal vein', PVH_R: 'right portal vein', PVH_L: 'left portal vein', SV_CONF: 'splenic vein', SV_MID: 'splenic vein', V_SPL: 'splenic vein',
@@ -110,6 +112,7 @@ export function createLumen() {
   const lumen = sv('circle', { class: 'gl-open', cx: 50, cy: 50 });
   const clot = sv('path', { class: 'gl-clot' });
   const ring = sv('circle', { class: 'gl-stent', cx: 50, cy: 50, r: LUMEN_R - LUMEN_WALL });
+  ring.style.opacity = '0';
   const pic = sv('svg', { class: 'gl-pic', viewBox: '0 0 100 100', role: 'img' });
   // The share of the lumen filled (clot, or tissue in a stent), one size at the vessel's centre, white with a dark outline so
   // it reads over the open lumen and the clot alike; the clot fills in behind it. Nothing else under the picture: a deck that
@@ -130,12 +133,14 @@ export function createLumen() {
   // What the picture shows now, easing to the model's state (a compare button or a new slide jumps the params; the picture eases).
   let shown = null, goal = null, raf = 0, at = 0;
   function paint(x) {
-    const g = lumenShape(x), L = { ...x, occlusion: 1 - (1 - x.stenosis) * (1 - x.thrombus), stent: STENTS.has(id) };
+    const g = lumenShape(x), stent = hasStent(id, store.get().stented), L = { ...x, occlusion: 1 - (1 - x.stenosis) * (1 - x.thrombus), stent };
     lumen.setAttribute('r', g.ri.toFixed(2));
     clot.setAttribute('d', clotPath(g));
     // A clot appears and leaves by growing from the wall and fading, never popping in.
     clot.style.opacity = Math.min(1, g.t / 0.06).toFixed(3);
-    tissue.style.display = STENTS.has(id) ? '' : 'none';
+    tissue.style.display = stent ? '' : 'none';
+    // The ring eases in and out as the slide stents the vein or lets it go (a vessel drawn afresh shows it at once: configure).
+    ring.style.opacity = stent ? '1' : '0';
     tissue.style.opacity = Math.min(1, x.stenosis / 0.06).toFixed(3);
     set(inNum, `${pct(L.occlusion)} %`);
     // With nothing filled there is no number and the name sits at the centre; as the clot comes the name eases up and the
@@ -143,7 +148,7 @@ export function createLumen() {
     const b = lumenBlock(L.occlusion);
     inWord.style.opacity = inNum.style.opacity = b.numOpacity.toFixed(3);
     inName.setAttribute('y', b.nameY.toFixed(2));
-    pic.setAttribute('aria-label', `${lumenName(id)} in cross-section: ${pct(L.occlusion)}% of the lumen filled, clot ${pct(x.thrombus)}%, narrowing ${pct(x.stenosis)}%`);
+    pic.setAttribute('aria-label', `${lumenName(id)} in cross-section${stent ? ' with a stent' : ''}: ${pct(L.occlusion)}% of the lumen filled, clot ${pct(x.thrombus)}%, narrowing ${pct(x.stenosis)}%`);
   }
   function tick(now) {
     raf = 0;
@@ -169,10 +174,14 @@ export function createLumen() {
    *  narrowing's segment) and the name written in it (tool.name, else the vessel's own). A new vessel is drawn at once. */
   function configure(t) {
     const v = t?.vessel || 'PV_TRUNK';
-    if (v !== id || !shown) { id = v; shown = null; }
+    const fresh = v !== id || !shown;
+    if (fresh) { id = v; shown = null; }
     el.dataset.vessel = SYSTEMIC.has(id) ? 'systemic' : id.startsWith('A_') ? 'artery' : 'portal';
-    ring.style.display = STENTS.has(id) ? '' : 'none';
     tool = t || null;
+    if (fresh) {   // (a new vessel is drawn at once, its ring with it: no fade from the vessel before)
+      ring.style.transition = 'none'; ring.style.opacity = hasStent(id, store.get().stented) ? '1' : '0';
+      void ring.getBoundingClientRect(); ring.style.transition = '';
+    }
     update();
   }
   // The word is never under 12 px on screen: the picture scales with its card, so tell the style how many px one unit is.

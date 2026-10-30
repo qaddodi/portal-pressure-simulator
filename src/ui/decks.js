@@ -18,6 +18,9 @@
 //   layers                   ['zones']: the lobule's zone bands on (a lobule slide shows none otherwise)
 //   mark                     { edges, label, seg? }: a ring and a callout on the figure; on a stent,
 //                            seg ('proximal' | 'mid' | 'distal' | 'site', the third holding its narrowing) lights and points at that third only
+//   stented                  ['RHV_IVC']: veins the slide shows with a stent in them (a vein the model has no device for, as a hepatic vein
+//                            or the IVC): the mesh is drawn over the middle of each on the figure, unrolled from its heart end, and a
+//                            cross-section tool on the same vein shows the stent's ring. The slide's mark names it ("Stent").
 //   eq                       [MathML, legend?]: an equation under the title (see mi, mo, sub and frac)
 //   kicker, site, title, line, causes
 //                            the words (site: a level of ladder.js SITES; it colours the kicker). The title stands alone without
@@ -112,7 +115,7 @@ import { PREHEPATIC } from './decks/prehepatic.js?v=7916930ff2';
 import { BLEED } from './decks/variceal-bleed.js?v=9716538348';
 import { TWO_INFLOWS } from './decks/two-inflows.js?v=bac786bc6d';
 import { NCPH } from './decks/ncph.js?v=fba64b2bbf';
-import { OUTFLOW } from './decks/outflow.js?v=70904753f4';
+import { OUTFLOW } from './decks/outflow.js?v=272a4f621e';
 import { RECOMPENSATION } from './decks/recompensation.js?v=0c98a198a5';
 import { WHERE } from './decks/where.js?v=c28f096edc';
 import { PREGNANCY_DECK } from './decks/pregnancy.js?v=d79b566bbb';

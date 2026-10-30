@@ -30,6 +30,7 @@ const state = {
   imaging: false,             // Imaging view: anatomy only, pressures unmeasured
   found: null,                // Set of findings a test has shown ('eso','gv','coll','clot','flow'); null shows all
   focus: null,                // { edges: [ids], label } where the figure asks the viewer to look
+  stented: [],                // edge ids a presenter slide shows stented, a vein with a device the model does not carry (the figure draws the mesh, the cross-section its ring)
   compareMetrics: null,
   healthy: null,
   presetId: 'healthy',

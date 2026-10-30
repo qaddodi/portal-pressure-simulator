@@ -20,7 +20,7 @@
 // Without WebGL2 the vessels are drawn flat on the tissue canvas.
 
 import { runFlick, FLICK } from './flick.js?v=a7626a5ad2';
-import { store } from './store.js?v=926dabfaef';
+import { store } from './store.js?v=a926bea9d4';
 import { glideClock } from './glide-clock.js?v=220d7f875c';
 import { radiiChanged, canvasPx, fxMoves, DIVE_RIM } from './lobule-render-cache.js?v=84bf4c2222';
 import { softwareYield } from './sw-yield.js?v=e580a095b1';
@@ -34,7 +34,7 @@ import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatCol
 import { NODES, EDGES } from '../engine/topology.js?v=4044766e96';
 import { createVeinsGL, binVeins, laneSum, N_SAMPLES, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_SPEC, F_EDGE, ORIGIN_GREY } from './veins-gl.js?v=41e77490f0';
 import { SLOT, PERIOD, originFractions, ORIGIN_N, DRIFT_PERIOD } from './blood.js?v=2667e8cf8d';
-import { createSinusoidView } from './sinusoid-view.js?v=aaea648531';
+import { createSinusoidView } from './sinusoid-view.js?v=4ab9b82417';
 import { frameFor, cancelFrame, noteDraw, saver, paceMs, renderScale, frame } from './frame.js?v=c868718bdd';
 import { gpuProbe, COUNTED } from './gpu-probe.js?v=dd12fc216c';
 import { leaderEnd, runInside } from './leader-end.js?v=8e884700ab';
