@@ -148,8 +148,8 @@ test('While moving drops the canvas once per move and back once it settles; the 
 test('Adapt: one step a move, down when frames ran half again as long as the fastest, up when they kept pace', () => {
   const stage = src('stage.js');
   const body = stage.slice(stage.indexOf('function adaptStep('), stage.indexOf('function noteMoveFrame('));
-  const run = (gaps, k0, fast = Infinity, on = true) => new Function('figOpt', 'AUTO_STEPS', 'g0', 'k0', 'f0', `let moveGaps = g0, adaptK = k0, fastGap = f0; ${body}; adaptStep(); return [adaptK, fastGap, moveGaps.length];`)(
-    () => on, [1, 0.75, 0.5, 0.35, 0.25, 0.18, 0.14, 0.1], gaps, k0, fast);
+  const run = (gaps, k0, fast = null, on = true) => new Function('figOpt', 'AUTO_STEPS', 'g0', 'k0', 'f0', `let moveGaps = g0, adaptK = k0, fastGap = Infinity, fastGaps = f0; ${body}; adaptStep(); return [adaptK, fastGap, moveGaps.length];`)(
+    () => on, [1, 0.75, 0.5, 0.35, 0.25, 0.18, 0.14, 0.1], gaps, k0, fast == null ? [] : [fast]);
   const steady = (ms, n = 40) => Array(n).fill(ms);
   assert.deepEqual(run(steady(8.3), 1), [1, 8.3, 0], 'keeping pace at Full: stays');
   assert.equal(run(steady(25), 1, 8.3)[0], 0.75, 'slow: one step down');
@@ -204,6 +204,7 @@ test('res-fade mixes old × a + new × (1 − a): a translucent pixel keeps its 
   const ctx = () => {
     const c = { buf: [0, 0, 0, 0], globalAlpha: 1, globalCompositeOperation: 'source-over' };
     c.setTransform = () => {}; c.clearRect = () => { c.buf = [0, 0, 0, 0]; };
+    c.save = c.restore = c.beginPath = c.rect = c.clip = () => {};   // (the old picture covers this pixel)
     c.drawImage = (img) => {
       const s = img.px.map((v) => v * c.globalAlpha);
       c.buf = c.globalCompositeOperation === 'lighter' ? c.buf.map((v, i) => Math.min(1, v + s[i])) : c.buf.map((v, i) => s[i] + v * (1 - s[3]));
@@ -220,4 +221,47 @@ test('res-fade mixes old × a + new × (1 − a): a translucent pixel keeps its 
   const a = px(1, 1, 1, 0.3), b = px(1, 1, 1, 0.6), c = ctx();
   mixInto(c, { width: 1, height: 1 }, a, b, 0.5, null);
   assert.ok(Math.abs(c.buf[3] - 0.45) < 1e-9);
+});
+
+// (Review, 30 Oct: where the moved old picture no longer reaches, the new one was drawn at 1 − a only, so the page showed through.)
+test('res-fade: outside the old picture the new one is drawn whole; the mix grows to the sharper picture', () => {
+  const rf = src('res-fade.js');
+  const mix = rf.slice(rf.indexOf('export function mixInto('), rf.indexOf('function end('));
+  assert.ok(mix.indexOf('c.drawImage(canvas, 0, 0, cv.width, cv.height);') < mix.indexOf('c.clip()'), 'the new picture whole first');
+  assert.match(mix, /c\.rect\(0, 0, w, h\); c\.clip\(\);/, 'then the mix only inside the old picture, where it is now');
+  assert.ok(mix.indexOf('c.clip()') < mix.indexOf('c.globalAlpha = a;'));
+  assert.match(rf, /if \(canvas\.width > f\.cv\.width \|\| canvas\.height > f\.cv\.height\) \{ f\.cv\.width = Math\.max/);
+});
+
+test('Adapt learns the screen again: after a few moves at 60 a second, 60 is the pace, and the figure steps back up', () => {
+  const stage = src('stage.js');
+  const body = stage.slice(stage.indexOf('function adaptStep('), stage.indexOf('function noteMoveFrame('));
+  const sim = new Function('figOpt', 'AUTO_STEPS', `let moveGaps = [], adaptK = 1, fastGap = Infinity, fastGaps = []; ${body};
+    const move = (ms) => { moveGaps = Array(40).fill(ms); adaptStep(); return adaptK; };
+    return { move, k: () => adaptK, fast: () => fastGap };`)(() => true, [1, 0.75, 0.5, 0.35, 0.25, 0.18, 0.14, 0.1]);
+  sim.move(8.3);   // (a 120 Hz screen)
+  for (let i = 0; i < 6; i++) sim.move(16.7);   // (then 60 a second, steadily)
+  assert.ok(Math.abs(sim.fast() - 16.7) < 1e-9, 'the pace is learned again');
+  let k = sim.k(), n = 0;
+  while (k < 1 && n < 8) { k = sim.move(16.7); n++; }
+  assert.equal(k, 1, 'and keeping up with it, back at Full, one step a move');
+  assert.ok(n <= 4);
+});
+
+test('Below Full the canvas is moved by the part of a canvas pixel the renderer rounds off; at Full nothing is set', () => {
+  const stage = src('stage.js');
+  const body = stage.slice(stage.indexOf('function subPixel('), stage.indexOf('function easeRes('));
+  const run = (vdpr, vBase, T) => { const vCanvas = { style: { translate: '' } }; new Function('vdpr', 'vBase', 'vCanvas', `${body}; subPixel(T);`.replace('subPixel(T);', 'subPixel(arguments[3]);'))(vdpr, vBase, vCanvas, T); return vCanvas.style.translate; };
+  assert.equal(run(2, 2, [1, 0, 0, 1, 10.4, 3.25]), '', 'Full: as on the live site');
+  assert.equal(run(0.5, 2, [1, 0, 0, 1, 10.4, 3.25]), '0.800px 0.500px', 'the rest of a canvas pixel, in CSS px');
+  assert.equal(run(0.5, 2, [1, 0, 0, 1, 10, 3]), '');
+  assert.match(stage, /subPixel\(T\);\n/);
+});
+
+test('A dive takes the canvas over at once from a resolution fade', () => {
+  const stage = src('stage.js');
+  const fade = stage.slice(stage.indexOf('function setDiveFade('), stage.indexOf('function setDiveFade(') + 600);
+  assert.ok(fade.indexOf('fadeStop(vCanvas)') > 0 && fade.indexOf('fadeStop(vCanvas)') < fade.indexOf('for (const el of diveEls())'));
+  assert.match(stage, /el\.style\.transformOrigin = o; \}\n\s*fadeStop\(vCanvas\);/);
+  assert.match(src('res-fade.js'), /export function fadeStop\(canvas\) \{ const f = fades\.get\(canvas\); if \(f\) end\(canvas, f\); \}/);
 });

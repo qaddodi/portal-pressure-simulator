@@ -15,23 +15,28 @@ const late = lateFrameFor('res-fade');
 const fades = new Map();   // canvas → { cv (shown: the mix), old (the picture before), t0, follow }
 let asked = false;
 
-/** One frame of the mix: the old picture at weight a (moved by follow), the canvas as drawn now at 1 − a, added. */
+/** One frame of the mix: the canvas as drawn now, and where the old picture (moved by follow) still lies, old × a + new × (1 − a).
+ *  (Outside it, at the edge a pan or a zoom out uncovers, the new picture is drawn whole: weighted 1 − a there with nothing to add,
+ *  it let the page show through, brighter in the light theme.) */
 export function mixInto(c, cv, old, canvas, a, m) {
   const w = canvas.offsetWidth || cv.width, h = canvas.offsetHeight || cv.height, sx = cv.width / w, sy = cv.height / h;
   c.setTransform(1, 0, 0, 1, 0, 0);
   c.globalCompositeOperation = 'source-over'; c.globalAlpha = 1;
   c.clearRect(0, 0, cv.width, cv.height);
-  if (a > 0) {
-    const [ma, mb, mc, md, me, mf] = m || [1, 0, 0, 1, 0, 0];
-    c.globalAlpha = a;
-    c.setTransform(sx * ma, sy * mb, sx * mc, sy * md, sx * me, sy * mf);
-    c.drawImage(old, 0, 0, w, h);
-    c.setTransform(1, 0, 0, 1, 0, 0);
-  }
-  if (a < 1) {
-    c.globalCompositeOperation = 'lighter'; c.globalAlpha = 1 - a;
-    c.drawImage(canvas, 0, 0, cv.width, cv.height);
-  }
+  c.drawImage(canvas, 0, 0, cv.width, cv.height);
+  if (a <= 0) return;
+  const [ma, mb, mc, md, me, mf] = m || [1, 0, 0, 1, 0, 0];
+  c.save();
+  c.setTransform(sx * ma, sy * mb, sx * mc, sy * md, sx * me, sy * mf);
+  c.beginPath(); c.rect(0, 0, w, h); c.clip();   // (the old picture's own rectangle, where it is now)
+  c.setTransform(1, 0, 0, 1, 0, 0);
+  c.clearRect(0, 0, cv.width, cv.height);
+  c.globalAlpha = a;
+  c.setTransform(sx * ma, sy * mb, sx * mc, sy * md, sx * me, sy * mf);
+  c.drawImage(old, 0, 0, w, h);
+  c.setTransform(1, 0, 0, 1, 0, 0);
+  if (a < 1) { c.globalCompositeOperation = 'lighter'; c.globalAlpha = 1 - a; c.drawImage(canvas, 0, 0, cv.width, cv.height); }
+  c.restore();
   c.globalCompositeOperation = 'source-over'; c.globalAlpha = 1;
 }
 
@@ -43,6 +48,8 @@ function step() {
   for (const [canvas, f] of fades) {
     const u = (now - f.t0) / FADE_MS;
     if (u >= 1 || !canvas.isConnected) { end(canvas, f); continue; }
+    // (As many pixels as the sharper of the two pictures: a fade up to a finer canvas shows its detail all the way, not at the end.)
+    if (canvas.width > f.cv.width || canvas.height > f.cv.height) { f.cv.width = Math.max(f.cv.width, canvas.width); f.cv.height = Math.max(f.cv.height, canvas.height); }
     try { mixInto(f.c, f.cv, f.old, canvas, fadeAlpha(u), f.follow?.()); } catch { end(canvas, f); }
   }
   if (fades.size) { asked = true; late(step); }
@@ -73,6 +80,9 @@ export function fadeOver(canvas, follow = null) {
   fades.set(canvas, f);
   if (!asked) { asked = true; late(step); }
 }
+
+/** Ends a fade over canvas at once: the mix goes and the canvas shows (a dive taking the canvas over). */
+export function fadeStop(canvas) { const f = fades.get(canvas); if (f) end(canvas, f); }
 
 /** Whether a mix is still showing over canvas (for tests). */
 export const fading = (canvas) => fades.has(canvas);

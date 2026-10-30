@@ -35,7 +35,7 @@ import { createRouter } from './circuit-router.js?v=0ee9e02fc6';
 import { gpuProbe, COUNTED } from './gpu-probe.js?v=dd12fc216c';
 import { plateStrips, premultiply, gutStep, viewReuse, copyPixels } from './plate-upload.js?v=5fc45556a1';
 import { refine } from './refine.js?v=b6b6fd7588';
-import { fadeOver } from './res-fade.js?v=3d1df7c126';
+import { fadeOver, fadeStop } from './res-fade.js?v=ac9fcbae08';
 import { leftAlone, sinceInput } from './quiet.js?v=82fc0f97e3';
 import { cropToGrid } from './organs-gl.js?v=efbea815e0';
 import { readGroup, shapeSource, bindShape, targetRoom } from './organ-paint.js?v=f67ce51385';
@@ -1881,6 +1881,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const q = o === null ? null : +o.toFixed(3);
     if (q === diveFadeO) return;
     diveFadeO = q;
+    fadeStop(vCanvas);   // (a resolution fade gives the canvas's opacity back to the dive at once: both set it, and its copy does not zoom)
     for (const el of diveEls()) { if (el.id === 'labels') continue; el.style.transition = q === null ? '' : 'none'; el.style.opacity = q === null ? '' : String(q); }
   }
   // (keep: landed in the lobule, the anatomy stays hidden under it a moment longer, see diveFrame.)
@@ -1903,6 +1904,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       const w0 = wrap.getBoundingClientRect();
       diveOrig = diveEls().map((el) => { const r = el.getBoundingClientRect(); return [el, `${(ox - (r.left - w0.left)).toFixed(1)}px ${(oy - (r.top - w0.top)).toFixed(1)}px`]; });
       for (const [el, o] of diveOrig) { el.style.willChange = 'transform'; el.style.transformOrigin = o; }
+      fadeStop(vCanvas);   // (likewise: the copy laid over the canvas would stand still while the dive zooms it)
     }
     const tf = `scale(${k.toFixed(4)})`;
     for (const [el] of diveOrig) el.style.transform = tf;
@@ -2291,7 +2293,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   });
   wrap.dataset.quality = String(quality);
   wrap.dataset.renderer = SOFTWARE ? 'software' : 'gpu';
-  let vdpr = 1, boxW = -1, boxH = -1;
+  let vdpr = 1, vBase = 1, boxW = -1, boxH = -1;   // (vBase: the canvas's pixels per CSS pixel at Full)
   // Figure resolution › Auto: zoomed in past the home framing the canvas is drawn at 1/zoom of its pixels (each part of the figure
   // keeps about the pixels it had at home), in steps down to 10%. It is changed only once the view has settled and been let go,
   // so a pinch or a glide never reallocates the canvas as it moves.
@@ -2303,12 +2305,15 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // Figure resolution › Adapt to frame rate: the gaps between the frames of each move (moveGaps, from drawVeins); once it settles,
   // one step lower (down to 25%) when they ran half again as long as the screen's own pace (the shortest gaps seen, fastGap), one
   // step back up when they kept up with it. Once a move, never during one.
-  let adaptK = 1, moveGaps = [], lastMoveAt = 0, fastGap = Infinity;
+  // (fastGap: the shortest of the last few moves' quick frames, so a screen that drops to 60 a second, a Low Power Mac or another
+  // monitor, is learned again within a few moves instead of every move looking slow from then on (review, 30 Oct).)
+  let adaptK = 1, moveGaps = [], lastMoveAt = 0, fastGap = Infinity, fastGaps = [];
   function adaptStep() {
     if (!figOpt('adapt')) { adaptK = 1; moveGaps = []; return; }
     if (moveGaps.length < 20) return;
     const g = [...moveGaps].sort((a, b) => a - b), med = g[g.length >> 1];
-    fastGap = Math.max(4, Math.min(fastGap, g[Math.floor(g.length * 0.1)]));
+    fastGaps.push(g[Math.floor(g.length * 0.1)]); if (fastGaps.length > 5) fastGaps.shift();
+    fastGap = Math.max(4, Math.min(...fastGaps));
     moveGaps = [];
     const at = AUTO_STEPS.indexOf(adaptK);
     if (med > fastGap * 1.5 && adaptK > 0.25) adaptK = AUTO_STEPS[at + 1];
@@ -2344,6 +2349,17 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const [A, B, C, D, E, G] = glM;   // (now ∘ then⁻¹)
     return [A * ia + C * ib, B * ia + D * ib, A * ic + C * id, B * ic + D * id, A * ie + C * iff + E, B * ie + D * iff + G];
   }
+  // Below Full a canvas pixel spans more of the screen, and the renderer draws the figure at whole canvas pixels (veins-gl whole()):
+  // the canvas is moved by the rest, in CSS px, so a pan glides with the labels instead of stepping (review, 30 Oct). At Full nothing
+  // is set, as on the live site. (`translate`, not `transform`: the dive scales the canvas by its transform.)
+  function subPixel(T) {
+    let v = '';
+    if (vdpr < vBase - 1e-9) {
+      const fx = T[4] - Math.round(T[4]), fy = T[5] - Math.round(T[5]);
+      if (fx || fy) v = `${(fx / vdpr).toFixed(3)}px ${(fy / vdpr).toFixed(3)}px`;
+    }
+    if (vCanvas.style.translate !== v) vCanvas.style.translate = v;
+  }
   function easeRes() {
     if (glM && !(lz?.isOpen() || lz?.covers())) { fadeOver(vCanvas, resFollow); fadeM0 = [...glM]; }
     resizeCanvas();
@@ -2359,7 +2375,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   function resizeCanvas() {
     const r = wrap.getBoundingClientRect(), was = vdpr;
     const base = Math.min(2, devicePixelRatio || 1) * QUALITY[quality].res;
-    vdpr = base * figShare(r.width, r.height, base);   // (Settings › Figure resolution)
+    vdpr = base * figShare(r.width, r.height, base); vBase = base;   // (Settings › Figure resolution)
     veins?.setLayerScale?.(figOpt('glow'));   // (Figure resolution › Glows: the glow layers' own share)
     wrap.dataset.res = vdpr.toFixed(2);   // (the vessel canvas's pixels per CSS pixel, for diagnosis)
     const bw = Math.max(1, Math.round(r.width * vdpr)), bh = Math.max(1, Math.round(r.height * vdpr));
@@ -3766,6 +3782,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (!CTM) refreshCTM();
     const m = CTM;
     const T = [vdpr * m.a, vdpr * m.b, vdpr * m.c, vdpr * m.d, vdpr * (m.e - wrapRect.left), vdpr * (m.f - wrapRect.top)];
+    subPixel(T);
     const key = T.map((v) => v.toFixed(3)).join(',') + `|${vCanvas.width}x${vCanvas.height}`;
     // The rows changed since the layer was drawn, taken once and kept until a draw has shown them: a refused partial draw
     // passes them on to the whole draw that stands in for it, and they are let go only once one of the two has drawn.
