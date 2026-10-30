@@ -192,11 +192,12 @@ export const EDGE_PATH = {
   // and runs across to the cava lower down (see STRANDS for its small veins).
   C7: 'M738 755 C 706 756 664 748 620 745',
   C8: 'M700 556 C 706 506 668 462 602 442',
-  // Ascending lumbar veins → the ascending azygos, up to its arch. It climbs its own lane, about 20 units left of the
-  // azygos trunk's (x 543, behind the liver, then clear above it), and bends in only over the last stretch to join the
-  // trunk's tail at the arch node, so the two veins stand apart instead of running in one lane. (That tail, from (564 52)
-  // to the node, is the trunk's own curve, so the join there is the one it has always had.)
-  C9: 'M620 650 C 584 604 546 500 543 400 C 541 320 542 250 543 190 C 543 150 543 114 546 96 C 549.6 74.4 561.4 66.3 564 52 C 566 41 569 35 574 30',
+  // Ascending lumbar veins → the ascending azygos. It climbs its own lane, about 20 units left of the azygos trunk's (x 543,
+  // behind the liver, then clear above it), and joins the trunk from the side at (562.9 100), the midpoint of the trunk's first
+  // curve, where the trunk is drawn solid (its fade starts at y 110, stage.js FEEDER_FADE_Y). Only the azygos runs on from
+  // there to the arch, so the esophageal varices (C1b), which drain into the arch at its node, end on the azygos, never on
+  // this collateral. It also stays clear below the epigastric vein (EPI_SVC) crossing the trunk at y 79.
+  C9: 'M620 650 C 584 604 546 500 543 400 C 541 320 542 250 543 190 C 543 150 551 120 562.9 100',
 
   AP_R: 'M655 478 C 612 470 552 432 505 398',
   AP_L: 'M655 478 C 668 440 680 405 688 378',
@@ -266,7 +267,8 @@ export const FEEDERS = {
   // neither.
   // Azygos: its ascending trunk (the intercostal and ascending lumbar veins' channel) climbs
   // beside the cava into the arch.
-  // `exact`: drawn on its curve, not meandered. The ascending lumbar collateral (C9) joins its tail at the arch from its own lane to the left.
+  // `exact`: drawn on its curve, not meandered. The ascending lumbar collateral (C9) joins it from the left at (562.9 100), well below the arch,
+  // so the stretch above, into the arch where the esophageal varices (C1b) drain, is the azygos alone.
   AZY_SVC: { k: 1, exact: true, paths: ['M564 172 C 563 120 562 72 564 52 C 566 41 569 35 574 30'] },
   // Caput medusae: the recanalized paraumbilical vein (C3) empties at the umbilicus into the
   // superficial epigastric veins, which fan out over the abdominal wall as a tortuous, branching
