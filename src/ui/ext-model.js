@@ -8,9 +8,9 @@
 //   tool: { kind: 'course', reading: 'asc', from, event, wait, after, then }   one reading over the days after an event, on the rating's zones, a line per
 //         treatment from the same day (tool-course.js)
 
-import { createCurve, warmCurve, curveLines, lineMeta, axisMeta } from './tool-curve.js?v=4371cce150';
-import { createCauses, metricOf } from './tool-causes.js?v=0731956e1e';
-import { createCourse, warmCourse, courseOf } from './tool-course.js?v=250c333f18';
+import { createCurve, warmCurve, curveLines, lineMeta, axisMeta } from './tool-curve.js?v=1be9ae26bf';
+import { createCauses, metricOf } from './tool-causes.js?v=174a24681f';
+import { createCourse, warmCourse, courseOf } from './tool-course.js?v=dc4319e060';
 import { TILE } from './table-marks.js?v=bca5ebb624';
 
 const lc = (s) => (/^[A-Z]{2,}/.test(s) ? s : s.charAt(0).toLowerCase() + s.slice(1));

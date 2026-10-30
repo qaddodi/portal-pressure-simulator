@@ -3,27 +3,27 @@
 
 import { startHost, host } from './host.js?v=164ee7d975';
 import { store, updateParams, replaceParams, bindParamSender, clearHistory, logAction, varicesPresent, hiddenNow } from './store.js?v=926dabfaef';
-import { createStage } from './stage.js?v=b2c2245cc9';
-import { createCreditPlacer } from './credit.js?v=ffaa9d169e';
+import { createStage } from './stage.js?v=89acaf0570';
+import { createCreditPlacer } from './credit.js?v=9c340db40e';
 import { whenQuiet } from './quiet.js?v=82fc0f97e3';
 import { sinusoidSupported } from './gl-support.js?v=94ad2a7ff1';
-import { createInspector } from './inspector.js?v=c4de047d23';
-import { createDock, CUTOFFS, savedInstruments } from './dock.js?v=b620f492cb';
-import { setHvpgStage } from './hvpg-proc.js?v=f07fceda9c';
-import { createWhy } from './why.js?v=c302bd5ba1';
-import { createTimeline, LAPSES } from './timeline.js?v=ccf5b088f4';
-import { createCompare } from './compare.js?v=ab94faa4b2';
-import { createCard } from './card.js?v=8339cd849a';
-import { createChart } from './chart.js?v=d5f7f231f5';
-import { createMenu } from './menu.js?v=48ca6c9fe1';
-import { caption } from './a11y.js?v=bf51eb777d';
+import { createInspector } from './inspector.js?v=9cc71f08e5';
+import { createDock, CUTOFFS, savedInstruments } from './dock.js?v=34c060164c';
+import { setHvpgStage } from './hvpg-proc.js?v=235c5f8d31';
+import { createWhy } from './why.js?v=45046a8f63';
+import { createTimeline, LAPSES } from './timeline.js?v=6788337d3f';
+import { createCompare } from './compare.js?v=359c98ac5f';
+import { createCard } from './card.js?v=c1169fc191';
+import { createChart } from './chart.js?v=90faf29663';
+import { createMenu } from './menu.js?v=ed3278b829';
+import { caption } from './a11y.js?v=ec295d31f4';
 import { startLMS } from './lms.js?v=284ef81e94';
 import { UPDATED, CONTENT_UPDATED, VALIDATION, AUTHOR, AUTHOR_URL, FEEDBACK_EMAIL } from '../version.js?v=a9debc0de8';
-import { normalizeSel, shuntable, edgeValue, bedStats } from './actions.js?v=ed7e962b04';
-import { gradientCss, dropCss, PRESSURE_TICKS, flowCss, flowPos, velocityCss, heatCss, HEAT_MAX, oxygenCss, OXY_MIN } from './colormap.js?v=5ab8f9fd13';
+import { normalizeSel, shuntable, edgeValue, bedStats } from './actions.js?v=7f864a885c';
+import { gradientCss, dropCss, PRESSURE_TICKS, flowCss, flowPos, velocityCss, heatCss, HEAT_MAX, oxygenCss, OXY_MIN } from './colormap.js?v=64a49af74c';
 import { EDGES, PORTAL_TERRITORY } from '../engine/topology.js?v=4044766e96';
 import { dopplerVel } from './velNormal.js?v=97920ddf3f';
-import { $, $$, h, icon, afterExit, fmt, fmtFlow, toast, tooltipFor, openModal, closeModal, isModalOpen, popover, closePopover, popoverOpen, menuItem, svgIcon, isPhoneLayout, TABLET_UP_MQ, markGone, enterAfterGone, enhanceRanges, systemEdge, sinkTo, stopSink, swapFade, scrollBehavior, reconcile } from './util.js?v=446096f407';
+import { $, $$, h, icon, afterExit, fmt, fmtFlow, toast, tooltipFor, openModal, closeModal, isModalOpen, popover, closePopover, popoverOpen, menuItem, svgIcon, isPhoneLayout, TABLET_UP_MQ, markGone, enterAfterGone, enhanceRanges, systemEdge, sinkTo, stopSink, swapFade, scrollBehavior, reconcile } from './util.js?v=8664598769';
 import { TEXT_STEPS } from './type-scale.js?v=d7cca3fb73';
 
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
@@ -36,13 +36,13 @@ const SPEEDS = [0.25, 0.5, 1, 2, 4, 8];
 
 // Everything the learner does is a verb on the structure they click (actions.js, card.js); the
 // only armed gesture left is a shunt waiting for its target.
-import { debugOptions, debugOn, setDebug, initDebug } from './debug.js?v=a5c49425b6';
-import { initTopbarMotion } from './topbar-motion.js?v=6050462913';
+import { debugOptions, debugOn, setDebug, initDebug } from './debug.js?v=241bd1c6ae';
+import { initTopbarMotion } from './topbar-motion.js?v=c07edd610c';
 import { ORIGINS } from './blood.js?v=2667e8cf8d';
 import { parseShare, cleanShare } from './share-link.js?v=b6f8e0f909';
 import { deepMerge, sanitizeParams } from '../engine/scenario.js?v=d7d3ea5b70';
 import { createPaintGate } from './paint-gate.js?v=68c692e8a3';
-import { frameFor, cancelFrame, perf as framePerf, RENDER_SCALES, renderSetting, setRenderScale, FIG_OPTS, figOpt, setFigOpt } from './frame.js?v=2a020ae210';
+import { frameFor, cancelFrame, perf as framePerf, RENDER_SCALES, renderSetting, setRenderScale, FIG_OPTS, figOpt, setFigOpt } from './frame.js?v=c868718bdd';
 import { easeIO3, glideShift, pillState, foldPill, stopFold } from './pill-motion.js?v=ea522a5215';
 const nextFrame = frameFor('main');
 
@@ -104,8 +104,8 @@ async function main() {
   // The Doppler and the FibroScan load after the first paint (a tab for one that has not come waits for it, dock.js). One left open when the
   // app was last used is asked for now and waited for with the model's first answers, so its pane is whole with the dock.
   const probeTo = (id) => { host.send({ type: 'probe', id }); logAction('probe', id); };
-  dopplerL = lazy(() => import('./doppler.js?v=c46c00e2a5'), ({ createDoppler }) => createDoppler({ onProbe: probeTo }));
-  fibroL = lazy(() => import('./fibroscan.js?v=6734bf3602'), ({ createFibroScan }) => createFibroScan());
+  dopplerL = lazy(() => import('./doppler.js?v=9b03b76cf9'), ({ createDoppler }) => createDoppler({ onProbe: probeTo }));
+  fibroL = lazy(() => import('./fibroscan.js?v=7f286e52af'), ({ createFibroScan }) => createFibroScan());
   const wasOpen = savedInstruments().open;
   const openAtStart = [];
   if (Array.isArray(wasOpen)) for (const [id, l] of [['doppler', dopplerL], ['fibroscan', fibroL]]) if (wasOpen.includes(id)) openAtStart.push(l.get().catch(() => {}));
@@ -178,7 +178,7 @@ async function main() {
   dock = createDock({ strip: $('#strip'), head: $('#dockHead'), body: $('#dockBody'), onWhy: (m, el) => why.open(m, el), onAction: doAction, onProbe: probeTo, lazy: { doppler: dopplerL, fibroscan: fibroL }, onReveal: revealDock, onLobule: () => zoomLobule('R'),
     onOpen: () => openPanel('instruments'), onClose: () => setPanelTab('chart'), onLayout: () => syncDoppler(), isVisible: () => app.classList.contains('dock-open'),
     marks: () => timeline.entries(), onBeat: () => sendBeat() });
-  presenterL = lazy(() => import('./presenter.js?v=0d47f9b17c'), ({ createPresenter }) => createPresenter({ openSettings, loadPreset, updateParams, host, stage, dock, action: doAction,
+  presenterL = lazy(() => import('./presenter.js?v=fee9faf9dc'), ({ createPresenter }) => createPresenter({ openSettings, loadPreset, updateParams, host, stage, dock, action: doAction,
     projectorOn: () => { if (!projector) toggleProjector(); }, projectorOff: () => { if (projector) toggleProjector(); },
     closeHome: () => mainMenu.close(), stashCards, rerenderHome: () => mainMenu.render() }));
   mainMenu = createMenu({
@@ -186,7 +186,7 @@ async function main() {
     onPreset: (id) => openInExplore(id), share, help: (a) => openHelpMenu(a),
     onToggle: (on, sheet) => { closePopover(); app.classList.toggle('menu-sheet-open', on && !!sheet); creditPlacer?.refresh(); labelsUnderMenu(on); },
   });
-  paletteL = lazy(() => import('./palette.js?v=af04bc8383'), ({ createPalette }) => createPalette({ ctx: {
+  paletteL = lazy(() => import('./palette.js?v=b25a622089'), ({ createPalette }) => createPalette({ ctx: {
     select, action: doAction, probe: (id) => { host.send({ type: 'probe', id }); logAction('probe', id); }, showPane: (id) => dock.show(id, { reveal: true }),
     jump: (d, l) => timeline.jump(d, l), undo: () => timeline.undo(), pin: () => timeline.togglePin(), lenses: Object.fromEntries(Object.entries(LENSES).map(([k, v]) => [k, v])),
     zoomLobule: () => zoomLobule('R'), instruments: () => dock.toggle(),
@@ -871,6 +871,8 @@ function openSettings(anchor, withSearch = false) {
     h('div', { class: 'menu-title' }, 'Figure resolution'),
     figSeg(RENDER_SCALES, renderSetting, setRenderScale, (v) => (v === 'auto' ? 'Auto' : v === 1 ? 'Full' : `${v * 100}%`)),
     // (The further experiments, each off until chosen: frame.js FIG_OPTS.)
+    h('div', { class: 'menu-title' }, 'Auto’s lowest resolution'),
+    figSeg(FIG_OPTS.floor, () => figOpt('floor'), (v) => setFigOpt('floor', v), (v) => `${v * 100}%`),
     h('div', { class: 'menu-title' }, 'Resolution while moving'),
     figSeg(FIG_OPTS.move, () => figOpt('move'), (v) => setFigOpt('move', v), (v) => (v === 1 ? 'Off' : `${v * 100}%`)),
     h('div', { class: 'menu-title' }, 'Glow resolution'),

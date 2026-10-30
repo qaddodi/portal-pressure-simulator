@@ -42,7 +42,7 @@ test('the anatomy canvas, the lobule and the sinusoid read it; the instruments a
   const stage = src('stage.js');
   assert.match(stage, /vdpr = base \* figShare\(r\.width, r\.height, base\);/);
   assert.match(stage, /let k = \(renderSetting\(\) === 'auto' \? autoK : renderScale\(\)\) \* \(moveLow \? figOpt\('move'\) : 1\) \* adaptK;/);
-  assert.match(stage, /onRenderScale\(\(\) => \{ autoK = 1; moveLow = false; adaptK = 1; moveGaps = \[\]; easeRes\(\); veinsDirty = true; forceDraw = true; stageWake\(\); settleRes\(\); \}\)/);
+  assert.match(stage, /onRenderScale\(\(\) => \{ autoK = autoNow\(\); moveLow = false; adaptK = 1; moveGaps = \[\]; easeRes\(\); veinsDirty = true; forceDraw = true; stageWake\(\); settleRes\(\); \}\)/);
   assert.equal(src('lobule-zoom.js').split('* lzScale()').length - 1, 5);
   assert.equal(src('sinusoid-view.js').split('* svScale()').length - 1, 1);
   for (const f of ['util.js', 'label-gl.js', 'glass-gl.js', 'instruments.js']) assert.ok(!src(f).includes('renderScale'), f);
@@ -108,8 +108,8 @@ test('the further options: all off by default, stored, and each one heard', asyn
   const store = new Map();
   globalThis.localStorage = { getItem: (k) => (store.has(k) ? store.get(k) : null), setItem: (k, v) => store.set(k, String(v)), removeItem: (k) => store.delete(k) };
   const f = await import(`../src/ui/frame.js?t=opts${Date.now()}`);
-  assert.deepEqual(f.FIG_OPTS, { move: [1, 0.75, 0.5, 0.25], glow: [1, 0.5, 0.25], cap: [0, 8, 4, 2], adapt: [false, true] });
-  for (const [k, v] of Object.entries({ move: 1, glow: 1, cap: 0, adapt: false })) assert.equal(f.figOpt(k), v, `${k} off by default`);
+  assert.deepEqual(f.FIG_OPTS, { move: [1, 0.75, 0.5, 0.25], glow: [1, 0.5, 0.25], cap: [0, 8, 4, 2], adapt: [false, true], floor: [0.1, 0.25, 0.5] });
+  for (const [k, v] of Object.entries({ move: 1, glow: 1, cap: 0, adapt: false, floor: 0.1 })) assert.equal(f.figOpt(k), v, `${k} off by default`);
   let heard = 0;
   f.onRenderScale(() => heard++);
   f.setFigOpt('move', 0.5); f.setFigOpt('glow', 0.25); f.setFigOpt('cap', 4); f.setFigOpt('adapt', true);
@@ -170,8 +170,24 @@ test('Glows: the two glow layers at their own share, read filtered; the outlines
 });
 
 test('Settings: the four further rows, in the menu a talk shows too', () => {
-  for (const t of ["'Resolution while moving'", "'Glow resolution'", "'Figure size cap'", "'Adapt to frame rate'"]) {
+  for (const t of ["'Auto’s lowest resolution'", "'Resolution while moving'", "'Glow resolution'", "'Figure size cap'", "'Adapt to frame rate'"]) {
     assert.equal(settings.split(t).length - 1, 1, t);
     assert.ok(settings.indexOf(t) < settings.indexOf('...(talk ? [] : ['), `${t}: a talk shows it too`);
   }
+});
+
+test('Auto’s lowest: Auto never goes under the chosen floor (10% unless chosen)', () => {
+  const stage = src('stage.js');
+  const steps = JSON.parse(stage.match(/const AUTO_STEPS = (\[[^\]]+\])/)[1]);
+  const body = stage.match(/const autoScale = (\(zoom\) => \{[^\n]+\});/)[1];
+  const now = stage.match(/const autoNow = (\(\) => [^\n]+\));/)[1];
+  const run = (zoom, floor, set = 'auto') => new Function('AUTO_STEPS', 'renderSetting', 'figOpt', 'vt', 'homeAt', `const autoScale = ${body}; return (${now})();`)(
+    steps, () => set, () => floor, { k: zoom }, { k: 1 });
+  assert.equal(run(20, 0.1), 0.1);
+  assert.equal(run(20, 0.25), 0.25);
+  assert.equal(run(20, 0.5), 0.5);
+  assert.equal(run(3, 0.5), 0.5);
+  assert.equal(run(1, 0.5), 1, 'zoomed out: still Full');
+  assert.equal(run(20, 0.1, 1), 1, 'not Auto: no step');
+  for (const f of [0.1, 0.25, 0.5]) assert.ok(steps.includes(f), `${f} is one of Auto's steps`);
 });

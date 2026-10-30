@@ -3,7 +3,7 @@
 // over FADE_MS. follow() (optional) gives the copy's CSS transform each frame, so it moves with a view that moves meanwhile
 // (stage.js: from the transform the copied picture was drawn in to the one drawn now). A second change while one still fades
 // copies the canvas with the fading copy laid over it as it shows, so neither picture jumps.
-import { lateFrameFor } from './frame.js?v=2a020ae210';
+import { lateFrameFor } from './frame.js?v=c868718bdd';
 
 export const FADE_MS = 350;
 /** The copy's opacity u of the way through its fade: 1 to 0, smoothstep (no step at either end). */
