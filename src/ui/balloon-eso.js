@@ -22,6 +22,9 @@ export function esoAt(y) {
 }
 
 export const BALLOON = { top: 170, bottom: 244, shaftR: 0.8, wall: 2.2, from: -40 };
+/** How long a tamponade balloon takes to go in (adv: the shaft slides down) and then fill (inflate), in ms, on screen (stage.js balloonStep).
+ *  The engine presses a bleed shut only after both (engine.js BALLOON_SEAL_S). */
+export const BALLOON_MS = { adv: 900, inflate: 1500 };
 
 /** A smooth path through points (Catmull-Rom as cubic Béziers), so the outline has no facets at any zoom. */
 export function smoothPath(P, closed = false) {

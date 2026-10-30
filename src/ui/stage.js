@@ -53,7 +53,7 @@ import { softwareYield } from './sw-yield.js?v=e580a095b1';
 import { portalSplit } from './table-marks.js?v=bca5ebb624';
 import { hashSeed, clotSide, clotSpan, clotRadius, clotShift, clotLayers, CLOT_EDGE } from './clot-shape.js?v=415ba6b9c0';
 import { leaderEnd as edgeOf, leaderEndRects as edgeOfRects } from './leader-end.js?v=8e884700ab';
-import { balloonShape, esoAt, smoothPath, BALLOON } from './balloon-eso.js?v=7f0feb412c';
+import { balloonShape, esoAt, smoothPath, BALLOON, BALLOON_MS } from './balloon-eso.js?v=e8b69b3217';
 import { balloonRy, balloonOutline, routeRadii } from './hvpg-balloon.js?v=35d7bb162c';
 import { outlineBox, placeSummary } from './cath-place.js?v=b5835a19ca';
 import { layoutWatch } from './idle-keys.js?v=6eccd5d85a';
@@ -7737,7 +7737,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // The tamponade balloons go in deflated, then fill: the shaft slides in (adv), then the balloon inflates (k), both eased
   // and run back when the balloon is switched off. Drawn again every frame while either is moving.
   const bal = { eso: { adv: 0, k: 0 }, gas: { adv: 0, k: 0 }, last: 0, on: { eso: false, gas: false }, anat: true, dirty: true };
-  const BAL_ADV_MS = 900, BAL_INF_MS = 1500;
+  const BAL_ADV_MS = BALLOON_MS.adv, BAL_INF_MS = BALLOON_MS.inflate;
   const balEase = (x) => x * x * (3 - 2 * x);
   function balloonStep(p, anat) {
     const now = performance.now(), dt = Math.min(100, bal.last ? now - bal.last : 0);
@@ -10183,7 +10183,11 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // (It fades in on a rupture and out once the bleed stops, or as the circuit view takes over: sprayA, stepped in animate;
   // while it fades out the jets keep spurting from the last bleed seen.)
   let sprayA = 0, sprayLast = null;
-  const sprayOn = () => !!F?.bleed?.active && morph < 0.5;
+  // (A tamponade balloon that is up over the tear presses it shut: once it has filled, the spray and the pool ease out with it, and
+  // they come back if it is let down while the model still bleeds. The model's own bleed ends BALLOON_SEAL_S after the balloon is on:
+  // engine.js. Up here is the eased picture of it, tied to the balloon on screen, not to the model's clock.)
+  const pressedShut = () => { const id = F.bleed.site === 'GV' ? 'gas' : 'eso'; return bal.on[id] && bal[id].k >= 1; };
+  const sprayOn = () => !!F?.bleed?.active && morph < 0.5 && !pressedShut();
   const sprayFading = () => sprayA !== (sprayOn() ? 1 : 0);
   function stepSpray(dt) {
     if (sprayOn()) sprayLast = { bleed: F.bleed, rate: F.metrics.bleeding?.rate, hr: F.metrics.vitals?.hr ?? F.metrics.hr };

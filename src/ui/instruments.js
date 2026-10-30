@@ -196,14 +196,18 @@ export function createEndoscopy({ onAction }) {
     // Nothing on the field changed since the last paint (the same bitmap, size, balloon and theme, no bleeding): it is left
     // as it is. It is asked for on every frame of the model, and a full repaint each time (a scaled bitmap and the rim) held
     // a phone's or a browser without a GPU's main thread for most of every frame.
-    const bleeding = !!(f.bleed?.active && f.bleed.site === 'VAR'), balloon = !!f.params?.balloonEso, root = document.documentElement;
+    const bleedNow = !!(f.bleed?.active && f.bleed.site === 'VAR'), balloon = !!f.params?.balloonEso, root = document.documentElement;
     // (The last bleed seen: its jet and pool keep drawing from it while they fade out after the bleed stops.)
-    if (bleeding) bleedLast = { rate: f.metrics?.bleeding?.rate, total: f.bleed.total, hr: f.metrics?.vitals?.hr ?? f.metrics?.hr };
+    if (bleedNow) bleedLast = { rate: f.metrics?.bleeding?.rate, total: f.bleed.total, hr: f.metrics?.vitals?.hr ?? f.metrics?.hr };
     // The new field fades in over the old; the balloon and the jet ease in and out (endo-motion.js).
     const tu = performance.now(), du = uiT ? Math.min(100, tu - uiT) : 0; uiT = tu;
     const poolT = bleedLast ? poolFill(bleedLast.total) : 0;
-    if (still.matches) { fadeT0 = -1; balA = +balloon; jetA = +bleeding; poolA = poolT; }
-    else { balA = glide(balA, +balloon, du); jetA = glide(jetA, +bleeding, du); poolA = poolA ? glide(poolA, poolT, du, 600) : poolT; }
+    // (A balloon that is up presses the tear shut: the jet and pool ease out once it has filled, and come back if it is let down while
+    // the model still bleeds. The model's own bleed ends a moment after the balloon is on: engine.js BALLOON_SEAL_S.)
+    if (still.matches) { fadeT0 = -1; balA = +balloon; } else balA = glide(balA, +balloon, du);
+    const bleeding = bleedNow && !(balloon && balA >= 1);
+    if (still.matches) { jetA = +bleeding; poolA = poolT; }
+    else { jetA = glide(jetA, +bleeding, du); poolA = poolA ? glide(poolA, poolT, du, 600) : poolT; }
     fadeA = fadeT0 < 0 ? 1 : fadeIn(tu - fadeT0);
     if (fadeA >= 1) fadeT0 = -1;
     shown = img;

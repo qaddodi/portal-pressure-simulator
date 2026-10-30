@@ -7,6 +7,9 @@ const K = 'The bleed';
 // (deltaLabel: the name of the dotted lines and grey band on the beat-by-beat card, where the patient stood before; beat-card.js)
 const BEATS = { kind: 'trace', range: 'beats', deltaLabel: 'before the bleed' }, REBEATS = { ...BEATS, deltaLabel: 'before the rebleed' };
 const SALINE = { kind: 'infuse', fluid: 'crystalloid' }, UNIT = { kind: 'infuse', fluid: 'prbc' }, BAND = { kind: 'band' };
+// The balloon slide's camera: the lower esophagus round the balloon (y 170 to 244, balloon-eso.js BALLOON) with the varix up the wall, the tear
+// at its foot (SITES.varix 797, 232) and the cardia below it, about twice the zoom of 'varices' (tests/tamponade-bleed.test.js holds the box to them).
+const BALLOON_CAM = [695, 70, 905, 340];
 
 export const BLEED = {
   id: 'variceal-bleed', level: 'core', title: 'Resuscitating an acute variceal bleed', minutes: 12,
@@ -103,7 +106,7 @@ export const BLEED = {
       ask: ['Name two ways an acute variceal bleed counts as treatment failure.', 'Bleeding that stays uncontrolled despite drugs and endoscopy, or a rebleed within 5 days.'],
     },
     {
-      id: 'bridge', params: { balloonEso: true }, action: [UNIT], cam: 'varices', labels: ['VAR'], mark: { edges: ['C1a', 'C1b'], label: 'Tamponade', kind: 'treat' }, tool: REBEATS, data: 'tiles', tiles: ['map', 'hb'], key: ['map'], delta: 'controlled',
+      id: 'bridge', params: { balloonEso: true }, action: [UNIT], cam: BALLOON_CAM, labels: ['VAR'], mark: { edges: ['C1a', 'C1b'], label: 'Tamponade', kind: 'treat' }, tool: REBEATS, data: 'tiles', tiles: ['map', 'hb'], key: ['map'], delta: 'controlled',
       kicker: 'The bridge', site: 'sin', title: 'A stent or a balloon holds the bleed until a TIPS',
       line: 'A covered esophageal stent is the preferred bridge, a balloon tube the fallback. Pressure on the varix stops the bleed and the blood pressure recovers to {map}.',
       notes: 'In refractory esophageal variceal bleeding a dedicated covered self-expanding metal stent is preferred over balloon tamponade, as a bridge to a TIPS or a transplant. AASLD 2024 notes that a stent can stay in place for up to a week and a balloon for 24 hours at most, and that specialized esophageal stents were not FDA approved in the United States, so many US centers have only the balloon. Intubate before the tube or the stent goes in. The model draws the tamponade of a balloon; it has no stent. (Baveno VIII 5.35; AASLD 2024 34.)',

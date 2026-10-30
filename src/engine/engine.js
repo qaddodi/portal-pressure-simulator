@@ -14,6 +14,9 @@ const KD = { vein: 0.03, diode: 0.03, collateral: 0.08 };
 const EXT_OVERRIDE = { IVC_IS: 'abd', CAUD: 'none' };
 
 export const VARIX = { Tcrit: 150, r0Healthy: 1.0, rMax: 6.0, w0: 1.0, open: 7.0, k: 0.35, kGV: 0.4, openGV: 5.0, mature: 0.3 };
+/** Seconds a tamponade balloon must press on the tear before the bleed counts as stopped: a little over the 2.4 s it takes the balloon to go
+ *  in and fill on screen (balloon-eso.js BALLOON_MS; tests/tamponade-bleed.test.js holds the two together). */
+export const BALLOON_SEAL_S = 3;
 /** Rupture hazard per day as a function of T/Tcrit (§7.5). */
 const ruptureHazardPerDay = (x) => (x <= 1 ? 0 : 0.01 * Math.pow((x - 1) / 0.25, 3));
 const COLLATERAL = { open: 7.5, span: 14, tauGrow: 50, tauRegress: 120, acute: 0,
@@ -738,9 +741,16 @@ export class Engine {
     // Bleeding / clot
     if (this.bleed.active) {
       const i = this.ni[this.bleed.site];
-      const ptm = this.P[i] - this.ext[i];
-      if (ptm < 9) this.bleed.clot += dt; else this.bleed.clot = Math.max(0, this.bleed.clot - dt * 0.5);
+      const ptm = this.P[i] - this.ext[i], slack = ptm < 9;
+      if (slack) this.bleed.clot += dt; else this.bleed.clot = Math.max(0, this.bleed.clot - dt * 0.5);
       if (this.bleed.clot > 45) this.stopBleed('clot');
+      // A balloon up over the tear presses it shut. Its pressure outweighs the varix's at once (the bleed's flow is nil from the first step,
+      // see the sink in the solve), so the tear stays open only for the time the balloon needs to go in and fill; lifted or outweighed
+      // before that (the varix still taut past the clot's own limit), the count starts over.
+      else if ((this.bleed.site === 'VAR' ? p.balloonEso : p.balloonGas) && slack) {
+        this.bleed.press = (this.bleed.press || 0) + dt;
+        if (this.bleed.press >= BALLOON_SEAL_S) this.stopBleed('balloon');
+      } else if (this.bleed.press) this.bleed.press = 0;
     } else if (p.bleeding) {
       for (const site of ['VAR', 'GV']) {
         const x = this.varix(site).ratio;
@@ -1076,14 +1086,15 @@ export class Engine {
   }
 
   rupture(site, tear = 0.6) {
-    this.bleed = { active: true, site, G: 0.25 * tear, clot: 0, total: 0, tear, t0: this.t, day: this.day };
+    this.bleed = { active: true, site, G: 0.25 * tear, clot: 0, press: 0, total: 0, tear, t0: this.t, day: this.day };
     this.pushEvent({ id: 'VARIX_RUPTURE', severity: 'critical', title: site === 'VAR' ? 'Esophageal varix ruptured' : 'Gastric varix ruptured', anchor: site });
   }
 
   stopBleed(reason) {
     if (!this.bleed.active) return;
+    const site = this.bleed.site;
     this.bleed = { active: false, site: null, G: 0, clot: 0, total: this.bleed.total };
-    this.pushEvent({ id: 'BLEED_STOPPED', severity: 'ok', title: reason === 'band' ? 'Bleeding controlled by banding' : 'Bleeding stopped (clot formed)', anchor: 'VAR' });
+    this.pushEvent({ id: 'BLEED_STOPPED', severity: 'ok', title: reason === 'band' ? 'Bleeding controlled by banding' : reason === 'balloon' ? 'Bleeding controlled by balloon tamponade' : 'Bleeding stopped (clot formed)', anchor: reason === 'balloon' ? site : 'VAR' });
   }
 
   band() {
