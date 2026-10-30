@@ -436,7 +436,7 @@ function spreadTest(world, wm, wr, sc, glows, gk, view, pad, done) {
   // (The facts the job reads are watched from its start: a change while it runs leaves them stale for the look after ART_TAKE.)
   const facts = fresh ? artFacts : null;
   if (!facts) { gpuProbe.note(COUNTED.creditRead); artDirty = false; watchArt(world); }
-  artJob = { world, done, reg, glows, gk, wk: null, facts, at: now, kids: world.childElementCount, ri: 0, list: null, i: 0, acc: { org: [], ves: [] }, stage: facts ? 1 : 0, org: null, ves: null };
+  artJob = { world, done, reg, glows, gk, wk: null, facts, at: now, kids: world.childElementCount, ri: 0, list: null, i: 0, acc: { org: [], ves: [] }, stage: facts ? 1 : 0, org: null, ves: null, drawn: false };
   nextFrame(artStep);
   return PENDING;
 }
@@ -487,14 +487,23 @@ function artSlice(j, inv, until) {
     if (!j.ctx) { j.stage = 4; return; }   // (no canvas: empty grids, as worldLevel leaves them)
     gridBegin(j.ctx, j.reg);
   }
+  // (Each grid is read back a frame after its last shape is drawn: Safari records a canvas's drawing and paints it when it is read,
+  // so a read straight after the drawing waited out all of it, 116 ms in one frame on his Mac (ee881888, 30 Oct). A frame later the
+  // painting has had that frame to get done, as the organ pictures' strips are read (stage.js rasterPlate). The same pixels.)
   while (j.stage === 2 || j.stage === 3) {
+    if (j.drawn) {
+      j.drawn = false;
+      gridRead(j.ctx, j.reg, j.stage === 2 ? j.org : j.ves);
+      j.stage++; j.i = 0;
+      if (j.stage === 3) gridBegin(j.ctx, j.reg);
+      if (performance.now() >= until) return;
+      continue;
+    }
     const list = j.stage === 2 ? j.facts.org : j.facts.ves;
     if (j.i < list.length) { j.i = gridShapes(j.ctx, j.reg, list, j.i, until); if (j.i < list.length) return; }
     if (j.stage === 3 && j.glows.length) gridGlows(j.ctx, j.reg, j.facts, j.glows, inv);
-    gridRead(j.ctx, j.reg, j.stage === 2 ? j.org : j.ves);
-    j.stage++; j.i = 0;
-    if (j.stage === 3) gridBegin(j.ctx, j.reg);
-    if (performance.now() >= until) return;
+    j.drawn = true;
+    return;
   }
 }
 

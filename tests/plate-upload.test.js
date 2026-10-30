@@ -82,9 +82,12 @@ test('organ strips shrink while their reads are slow, never below a quarter, and
   noteStripRead(4, PLATE_STRIP);
   assert.equal(stripPx(), PLATE_STRIP, 'a fast read keeps it');
   resetStripReads();
-  noteStripRead(27, PLATE_STRIP);
-  assert.equal(stripPx(), PLATE_STRIP / 2, '27 ms for a whole strip: half, about 13.5 ms a read');
-  assert.ok(stripPx() * 27 / PLATE_STRIP <= READ_MS);
+  noteStripRead(12, PLATE_STRIP);
+  assert.equal(stripPx(), PLATE_STRIP / 2, '12 ms for a whole strip: half, about 6 ms a read');
+  assert.ok(stripPx() * 12 / PLATE_STRIP <= READ_MS);
+  resetStripReads();
+  noteStripRead(17, PLATE_STRIP / 2);
+  assert.equal(stripPx(), STRIP_MIN, '17 ms for a half strip (his Mac, ee881888): a quarter, about 8.5 ms a read');
   noteStripRead(200, PLATE_STRIP / 2);
   assert.equal(stripPx(), STRIP_MIN, 'never below a quarter');
   for (let i = 0; i < 30; i++) noteStripRead(1, PLATE_STRIP / 2);

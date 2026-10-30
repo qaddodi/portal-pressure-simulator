@@ -237,7 +237,17 @@ test('spread over frames, the look answers PENDING, draws a slice a frame, and l
     assert.equal(organTest(wr, null, () => called++), PENDING);
     assert.equal(organTest(wr, null, () => called++), PENDING, 'one job at a time');
     let frames = 0;
-    while (!called && frames < 50) { const q = rafs.splice(0); for (const cb of q) cb(clock); frames++; }
+    // (Each grid is read back in a frame of its own, after the one that drew its last shape: Safari paints a canvas's recorded drawing
+    // when it is read, 116 ms in one frame on his Mac, ee881888.)
+    const drew = FakeCtx.prototype.fill, read = FakeCtx.prototype.getImageData;
+    let drawnNow = false, readAfterDraw = 0, reads = 0;
+    FakeCtx.prototype.fill = function (p) { drawnNow = true; return drew.call(this, p); };
+    FakeCtx.prototype.getImageData = function () { reads++; if (drawnNow) readAfterDraw++; return read.call(this); };
+    try {
+      while (!called && frames < 50) { drawnNow = false; const q = rafs.splice(0); for (const cb of q) cb(clock); frames++; }
+    } finally { FakeCtx.prototype.fill = drew; FakeCtx.prototype.getImageData = read; }
+    assert.equal(reads, 2, 'both grids read back');
+    assert.equal(readAfterDraw, 0, 'never in the frame that drew');
     assert.equal(called, 1, 'called back once its grid is in');
     assert.ok(frames > 2, `spread over ${frames} frames`);
     const art = organTest(wr, null, () => called++);

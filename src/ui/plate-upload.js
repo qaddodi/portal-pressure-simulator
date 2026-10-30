@@ -11,7 +11,7 @@ export const PLATE_STRIP = 1 << 19;
 // (ms per pixel, eased), the strip is halved, down to a quarter of its size, until one read fits READ_MS. Each strip is the same
 // world rows at the same scale (stage.js rasterPlate), so the picture is the same pixels in more strips; it takes more frames to
 // come in, the picture before it showing meanwhile.
-export const READ_MS = 14, STRIP_MIN = PLATE_STRIP >> 2;
+export const READ_MS = 8, STRIP_MIN = PLATE_STRIP >> 2;   // (8 ms: a strip's read and its drawing, 3 to 5 ms, fit one 60 Hz frame; at 14 they did not, ee881888)
 let readCost = 0;
 /** One strip's read-back: `ms` for `px` pixels. */
 export function noteStripRead(ms, px) {
