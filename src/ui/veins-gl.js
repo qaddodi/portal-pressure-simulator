@@ -1656,9 +1656,11 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false }) {
   // (draws marked soft) have a layer too, which the composite lays under the organs.
   const makeLayer = () => { const tex = dataTex(gl); gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, null); return { tex, fbo: gl.createFramebuffer(), w: 0, h: 0 }; };
   const lineLayer = makeLayer(), glowLayer = makeLayer(), warmLayer = makeLayer();
-  // The glow layers may be drawn at a share of the canvas's pixels (setLayerScale), and are then read filtered (glowOn 2).
+  // The glow layers may be drawn at a share of the canvas's pixels (setLayerScale), and are then read filtered (glowOn 2). At 1 they
+  // keep the textures exactly as before the setting (NEAREST, read by texelFetch), so with the setting off nothing in the GL state differs.
   let layerK = 1;
-  for (const L of [glowLayer, warmLayer]) { L.k = 1; gl.bindTexture(gl.TEXTURE_2D, L.tex); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR); }
+  for (const L of [glowLayer, warmLayer]) L.k = 1;
+  const layerFilter = (f) => { for (const L of [glowLayer, warmLayer]) { gl.bindTexture(gl.TEXTURE_2D, L.tex); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, f); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, f); } };
   const hasSoft = () => !!lines?.draws.some((d) => d.soft && !d.warm), hasHard = () => !!lines?.draws.some((d) => !d.soft), hasWarm = () => !!lines?.draws.some((d) => d.warm);
   function renderLayer(L, m, soft, warm = false) {
     const k = L.k ? layerK : 1, w = Math.max(1, Math.round(canvas.width * k)), h = Math.max(1, Math.round(canvas.height * k));
@@ -2796,7 +2798,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false }) {
       gl.bufferData(gl.ARRAY_BUFFER, lines.verts, gl.DYNAMIC_DRAW);
     },
     /** Figure resolution › Glows: the glow layers drawn at this share of the canvas's pixels (1: every pixel, read unfiltered). */
-    setLayerScale(k) { k = Math.min(1, Math.max(0.1, +k || 1)); if (k === layerK) return; layerK = k; glowKey = warmKey = ''; },
+    setLayerScale(k) { k = Math.min(1, Math.max(0.1, +k || 1)); if (k === layerK) return; if ((k < 1) !== (layerK < 1)) layerFilter(k < 1 ? gl.LINEAR : gl.NEAREST); layerK = k; glowKey = warmKey = ''; },
     /** Whether the catheter can be drawn here (else stage.js keeps its SVG one). */
     get canCath() { return !!cathP; },
     /**

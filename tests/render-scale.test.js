@@ -165,7 +165,10 @@ test('Glows: the two glow layers at their own share, read filtered; the outlines
   assert.match(gl, /else if \(warmOn == 2\)/);
   assert.match(gl, /gl\.uniform1i\(U\.glowOn, glow \? \(layerK < 1 \? 2 : 1\) : 0\)/);
   assert.match(gl, /const k = L\.k \? layerK : 1/);
-  assert.match(gl, /for \(const L of \[glowLayer, warmLayer\]\) \{ L\.k = 1;/, 'only the glow layers, not the outlines');
+  assert.match(gl, /for \(const L of \[glowLayer, warmLayer\]\) L\.k = 1;/, 'only the glow layers, not the outlines');
+  // (Off, the GL state is as before the setting: the glow textures stay NEAREST; LINEAR only while a share under 1 is chosen.)
+  assert.ok(!/L\.k = 1; gl\.bindTexture/.test(gl), 'no filter change at start-up');
+  assert.match(gl, /if \(\(k < 1\) !== \(layerK < 1\)\) layerFilter\(k < 1 \? gl\.LINEAR : gl\.NEAREST\);/);
   assert.match(gl, /setLayerScale\(k\) \{[^}]*glowKey = warmKey = '';/);
 });
 
