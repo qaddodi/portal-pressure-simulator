@@ -309,7 +309,7 @@ test('the blood pass leaves a lumen alone only when neither of its vessels\' row
   // Every setter of a vessel's row marks it; a new binning or flow table marks them all; a new texture under the lumens bumps texVer.
   const api = glSrc.slice(glSrc.indexOf('  const api = {'));
   assert.match(api, /setTubes\(data\) \{\n\s*figVer\+\+;\n\s*tubesNew = true;\n\s*markRows\(data, tubeNow, ROW_W\);/);
-  assert.match(api, /setBend\(row, pts\) \{\n\s*figVer\+\+;\n\s*moved\[row\] = 1;/);
+  assert.match(api, /setBend\(row, pts\) \{[\s\S]*?if \(same\) return;[\s\S]*?figVer\+\+;\n\s*moved\[row\] = 1;\n\s*gl\.bindTexture\(gl\.TEXTURE_2D, bendTex\);/);
   assert.match(api, /radRows\.add\(row\); moved\[row\] = 1;/);
   assert.match(api, /markRows\(data, flowSent, stride\);\n\s*const span = changedRows/);
   assert.match(api, /if \(dyeSent\) markRows\(data, dyeSent, DYE_BINS\);/);

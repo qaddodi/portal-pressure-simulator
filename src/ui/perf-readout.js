@@ -97,7 +97,7 @@ export function gestureText(r) {
 export function startPerfReadout({ zoom = () => '?' } = {}) {
   gpuProbe.cpuOnly = true; gpuProbe.on = true; gpuProbe.take();
   const reports = [];
-  let n = 0, cur = null, prevT = 0, wheelT = 0;
+  let n = 0, cur = null, prevT = 0, prevTs = 0, wheelT = 0;
   const recent = [];   // (the last 600 frame intervals, for the refresh)
   const down = new Map();
   let maxDown = 0, moved = false;
@@ -152,7 +152,10 @@ export function startPerfReadout({ zoom = () => '?' } = {}) {
   // (Timed by the clock when this callback runs, not by the frame's shared timestamp: the steps taken here ran since the last call,
   // so they fall inside the interval they are listed with. With the timestamp, work in other callbacks of a frame was set against
   // the wrong interval: a 24 ms frame with 139 ms of Doppler in it (external review, 21 Oct).)
-  const tick = () => {
+  // (The intervals the refresh and the histogram are told from are the frames' own timestamps (ts): the clock at a callback's run moves
+  // with the work done before it in that frame, so a late callback then an early one had looked 6 ms apart on a 60 Hz screen, and the
+  // refresh was taken as 100 to 165 Hz; his Mac readout, 30 Oct.)
+  const tick = (ts) => {
     const t = performance.now();
     const parts = gpuProbe.take(), notes = gpuProbe.takeNotes(), gauges = gpuProbe.takeGauges(), was = busy;
     if (cur) {
@@ -161,10 +164,11 @@ export function startPerfReadout({ zoom = () => '?' } = {}) {
     }
     busy = 0; frameAt = t;
     // (Every interval, gesture or not, goes into the last few seconds the refresh is told from.)
-    if (prevT) { recent.push(t - prevT); if (recent.length > 600) recent.splice(0, recent.length - 600); }
+    const fdt = prevTs && ts > prevTs ? ts - prevTs : 0;
+    if (fdt) { recent.push(fdt); if (recent.length > 600) recent.splice(0, recent.length - 600); }
     if (cur && prevT && t >= cur.t0) {
       const dt = t - prevT, at = prevT - cur.t0;
-      cur.frames++; cur.worst = Math.max(cur.worst, dt); cur.dts.push(dt);
+      cur.frames++; cur.worst = Math.max(cur.worst, dt); if (fdt) cur.dts.push(fdt);
       // (A frame missed its refresh past 1.5 of them: 12.5 ms at 120 Hz, 25 ms at 60. Before the refresh is known, 20 ms as before.)
       const hz = refreshOf(recent), limit = hz ? 1500 / hz : 20;
       if (dt > limit) cur.gaps.push({ at: Math.max(0, at), dt, parts, notes, busy: was });
@@ -176,7 +180,7 @@ export function startPerfReadout({ zoom = () => '?' } = {}) {
         reports.unshift(cur); reports.length = Math.min(reports.length, KEEP); cur = null; paint();
       }
     }
-    prevT = t;
+    prevT = t; prevTs = ts > 0 ? ts : 0;
     requestAnimationFrame(tick);
   };
   requestAnimationFrame(tick);

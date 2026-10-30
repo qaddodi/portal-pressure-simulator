@@ -1919,6 +1919,8 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false }) {
   gl.bindTexture(gl.TEXTURE_2D, bendTex);
   gl.texImage2D(gl.TEXTURE_2D, 0, gl.R32F, N_SAMPLES, nTubes, 0, gl.RED, gl.FLOAT, new Float32Array(N_SAMPLES * nTubes));
   const radRow = new Float32Array(N_SAMPLES * 2), rmaxOne = new Float32Array(1), bendRow = new Float32Array(N_SAMPLES);
+  // (What the curvature texture holds, as bits: all zero, as made above; see setBend.)
+  const bendRowBits = new Uint32Array(bendRow.buffer), bendBits = new Uint32Array(N_SAMPLES * nTubes);
   // Per-vessel blood (FLOW_TEXELS texels a row) and dye (DYE_BINS along the course).
   const flowTex = dataTex(gl), dyeTex = dataTex(gl, gl.LINEAR);
   let flowSent = null;   // (the blood rows as last uploaded: setFlow)
@@ -2571,9 +2573,17 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false }) {
     },
     /** A vessel's axis (N_SAMPLES points, as binned): its signed curvature at each sample, for the flow arrowheads. */
     setBend(row, pts) {
+      // (A row whose curvature comes out the same, bit for bit, as the texture holds is not sent again: every binning sent every
+      // vessel's, 99 rows a frame while one collateral coiled; his Mac readout, 30 Oct. The texture is the same, so the picture is.)
+      bendCurvature(pts, bendRow);
+      const kept = bendBits.subarray(row * N_SAMPLES, (row + 1) * N_SAMPLES);
+      let same = row >= 0 && row < nTubes;
+      for (let i = 0; same && i < N_SAMPLES; i++) if (bendRowBits[i] !== kept[i]) same = false;
+      if (same) return;
+      if (row >= 0 && row < nTubes) kept.set(bendRowBits);
+      if (gpuProbe.on) gpuProbe.note('uploaded: setBend', N_SAMPLES * 4 / 1024);
       figVer++;
       moved[row] = 1;
-      bendCurvature(pts, bendRow);
       gl.bindTexture(gl.TEXTURE_2D, bendTex);
       gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, row, N_SAMPLES, 1, gl.RED, gl.FLOAT, bendRow);
     },
@@ -3233,7 +3243,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false }) {
   // (And, for the ?perf readout, how much each upload sent, in KB: a camera-only frame should send none of the model's.)
   const kbOf = {
     setGeometry: (b) => (b.ent.byteLength + b.cells.byteLength + (b.blood?.byteLength || 0)) / 1024, setRadii: () => N_SAMPLES * 8 / 1024,
-    patchGeometry: (b) => b.patch.reduce((n, [r0, r1]) => n + (r1 - r0 + 1) * ENT_W * 16, 0) / 1024, setBend: () => N_SAMPLES * 4 / 1024,
+    patchGeometry: (b) => b.patch.reduce((n, [r0, r1]) => n + (r1 - r0 + 1) * ENT_W * 16, 0) / 1024,   // (setBend notes its own: only a row it sends)
     setTubes: (d) => d.byteLength / 1024, setDye: (d) => (d ? d.byteLength / 1024 : 0), setFluidCells: (c) => c.byteLength / 1024,
     setOrgans: (bm) => (bm.width * bm.height * 4) / 1024, plateRows: (job, y, rows, px) => px.byteLength / 1024,
   };
