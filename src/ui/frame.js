@@ -178,7 +178,10 @@ export function setFigOpt(k, v) {
 //   onto it by a sharper filter than the browser's (veins-gl.js UP_FS). The lobule and the sinusoid are not included.
 // lymphBoxes: in the lobule with the GPU's vessels, the lymph's layer is cleared and drawn again only in the tiles its drops left or
 //   reached, while nothing else on it changed (lobule-zoom.js lyKey).
-export const FIG_LAB = { motion60: [false, true], glassCache: [false, true], creditLean: [false, true], lymphBoxes: [false, true], pinchReuse: [0, 2, 3], upscale: [false, true], lightArt: [false, true] };
+// lightArt: the colon's and small bowel's lines with about half their points, none more than 0.05 units off (stage.js syncArtLite).
+// pinchLow: a zoom frame under a hand draws the vessel layer at PINCH_LOW_K of its width and height and stretches it; the view a
+//   pinch stops at is drawn at Full (veins-gl.js lowPass). Pinch frame reuse, when on, takes those frames instead.
+export const FIG_LAB = { motion60: [false, true], glassCache: [false, true], creditLean: [false, true], lymphBoxes: [false, true], pinchReuse: [0, 2, 3], upscale: [false, true], lightArt: [false, true], pinchLow: [false, true] };
 const figLabs = Object.fromEntries(Object.entries(FIG_LAB).map(([k, v]) => [k, v[0]]));
 for (const k of Object.keys(figLabs)) {
   try { const t = localStorage.getItem(`pps.fig.${k}`), v = t === 'true' ? true : +t; if (t != null && FIG_LAB[k].includes(v)) figLabs[k] = v; } catch { /* storage unavailable */ }
@@ -196,5 +199,7 @@ export function onFigLab(f) { labSubs.add(f); return () => labSubs.delete(f); }
 // (Motion at 60: a frame of steady motion is skipped when the last was drawn under 10 ms ago. A 120 Hz screen's frames come 8.3 ms
 // apart, so every other one is drawn; a 60 Hz screen's 16.7 ms, so all of them, as before; a 90 Hz screen's 11.1 ms, all of them.)
 export const MOTION60_MS = 10;
+/** Vessels lower while pinching: the share of the layer's width and height (0.71: half its pixels). */
+export const PINCH_LOW_K = 0.71;
 /** The least time between two drawn frames of steady motion: 0 (every frame) unless Battery saver or Motion at 60 is on. */
 export const paceMs = () => (saverOn ? SAVER_MS : figLabs.motion60 ? MOTION60_MS : 0);

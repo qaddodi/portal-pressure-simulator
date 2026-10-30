@@ -4,7 +4,7 @@
 // (TILES, GROUPS, VITALS, readoutValue), passed in so this file does not import the dock.
 
 import { store, hiddenNow } from './store.js?v=a926bea9d4';
-import { h, fmt, clamp, shownOf, countTo, swapText } from './util.js?v=f7abb6eb4f';
+import { h, fmt, clamp, shownOf, countTo, swapText } from './util.js?v=e88848482f';
 import { vitalReading } from './vital-read.js?v=cbba41a6b7';
 import { SCALE, RATE } from './table-marks.js?v=bca5ebb624';
 

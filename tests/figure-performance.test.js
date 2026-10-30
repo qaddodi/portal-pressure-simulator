@@ -163,7 +163,7 @@ test('Pinch frame reuse: off, the one-pass frame is as before; on, only while a 
   assert.match(rd, /if \(!rz\.m \|\| rz\.w !== PW\(\) \|\| rz\.h !== PH\(\)\) return false;/);
   assert.match(rd, /if \(!reuseCovers\(k, rz\.w, rz\.h\)\) return false;/);
   assert.match(rd, /if \(own\) present\(\);\n\s+pictured\(\);/, 'the glass and the own buffer hear of it');
-  assert.match(stage, /const reuse = figLab\('pinchReuse'\);\n\s+veins\.setReuse\?\.\(reuse, !!reuse && gestureOn\(\)\);\n\s+veins\.draw\(T, vLook, bloodLook\(\), rows\);\n\s+if \(veins\.reused\) veinsDirty = true;/);
+  assert.match(stage, /const reuse = figLab\('pinchReuse'\);\n\s+veins\.setReuse\?\.\(reuse, !!reuse && gestureOn\(\)\);\n[^\n]*\n\s+const low = figLab\('pinchLow'\);\n\s+veins\.setLow\?\.\(low \? PINCH_LOW_K : 0, low && gestureOn\(\)\);\n\s+veins\.draw\(T, vLook, bloodLook\(\), rows\);\n\s+if \(veins\.reused \|\| veins\.soft\) veinsDirty = true;/);
   // (The kept picture is the canvas's, through the own buffer when there is one; freed when the switch goes off.)
   assert.match(v, /gl\.bindFramebuffer\(gl\.READ_FRAMEBUFFER, own \? own\.fbo : null\);\n\s+gl\.bindFramebuffer\(gl\.DRAW_FRAMEBUFFER, rz\.fbo\);/);
   assert.match(v, /if \(!every && rz\.w && !lost\) \{ rz\.w = rz\.h = 0;/);

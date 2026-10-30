@@ -33,7 +33,7 @@
 
 import { CHEV_GLSL } from './chevron-glsl.js?v=96ec7c6666';
 import { SLOT, DYE_BINS } from './blood.js?v=96774a5b6a';
-import { cssRGB } from './util.js?v=f7abb6eb4f';
+import { cssRGB } from './util.js?v=e88848482f';
 import { LUMEN, STO_Y0, STO_DY, STO_N } from './stomach-lumen.js?v=9077feffd5';
 import { CELL, ENT_W, binVeins, splitRows, simpleCells, splitCells } from './veins-bin.js?v=d5372c91f9';
 import { gpuProbe, COUNTED } from './gpu-probe.js?v=dd12fc216c';
@@ -2190,13 +2190,14 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false }) {
   }
   // The vessel pass into the bound vessel framebuffer (draw() clears it first): `gen`, [vertex array, count] of cells for the
   // general program, and `one`, those for the one-vessel build (simpleCells). Each cell is drawn by exactly one of them.
-  function vesselPass(m, look, gen, one, redraw = false, tint = false) {
+  // (`size`: the target's pixels when it is not the layer's, for the vessels drawn lower while pinching: lowPass.)
+  function vesselPass(m, look, gen, one, redraw = false, tint = false, size = null) {
     gl.disable(gl.BLEND);
-    if (gen[1]) vesselDraw(prog, m, look, gen[0], gen[1], redraw, tint);
-    if (one[1] && simpleP) vesselDraw(simpleP, m, look, one[0], one[1], redraw, tint);
+    if (gen[1]) vesselDraw(prog, m, look, gen[0], gen[1], redraw, tint, size);
+    if (one[1] && simpleP) vesselDraw(simpleP, m, look, one[0], one[1], redraw, tint, size);
   }
-  function vesselDraw({ p, u }, m, look, va, count, redraw, tint) {
-    vesselSet({ p, u }, m, look, redraw, tint);
+  function vesselDraw({ p, u }, m, look, va, count, redraw, tint, size = null) {
+    vesselSet({ p, u }, m, look, redraw, tint, size);
     gl.bindVertexArray(va);
     // The one-vessel build writes no second-lumen target (8 of the layer's 21 bytes a pixel): in its cells that target is zero
     // already, as every whole draw clears it, a pan moves each pixel with the spot of the figure it shows (so within the same
@@ -2208,17 +2209,18 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false }) {
     gl.bindVertexArray(null);
   }
   // The vessel pass's program, uniforms and textures (vesselDraw; and the vessel half of a one-pass build, fuseBind).
-  function vesselSet({ p, u }, m, look, redraw, tint) {
+  function vesselSet({ p, u }, m, look, redraw, tint, size = null) {
     const M = new Float32Array([m[0], m[1], 0, m[2], m[3], 0, m[4], m[5], 1]);
+    const [SW, SH] = size || [PW(), PH()];
     gl.useProgram(p);
     gl.uniformMatrix3fv(u.world, false, M);
-    gl.uniform2f(u.size, PW(), PH());
+    gl.uniform2f(u.size, SW, SH);
     gl.uniform1f(u.cell, CELL);
     gl.uniform1f(u.px, 1 / Math.max(1e-6, Math.hypot(m[0], m[1])));
     const det = m[0] * m[3] - m[1] * m[2] || 1e-9;
     gl.uniform4f(u.invA, m[3] / det, -m[1] / det, -m[2] / det, m[0] / det);
     gl.uniform2f(u.tOff, m[4], m[5]);
-    gl.uniform2f(u.sizeF, PW(), PH());
+    gl.uniform2f(u.sizeF, SW, SH);
     gl.uniform1f(u.reachU, look.reach);
     gl.uniform2f(u.shOff, ...look.shOff);
     gl.uniform4f(u.casing, ...look.casing);
@@ -2352,6 +2354,48 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false }) {
     if (own) present();
     pictured();
     return true;
+  }
+  // Vessels lower while pinching (Settings, Figure performance; off by default): a zoom frame under a hand draws the vessel layer at
+  // `lowK` of its width and height (0.71: half its pixels) into targets of its own (lw), then stretches each into the layer's: the
+  // colour filtered, the flow targets and the lumen mask as they are (integers cannot be filtered; the mask stays 0 or 1). The
+  // composite then lays the layer as after any whole draw, with its own shader. Such a layer is not the exact one (`soft`), so the
+  // next draw at this view draws it whole: the view a pinch stops at is always shaded at Full. lowK 0: nothing here runs.
+  // (Pinch frame reuse, when on, takes the zoom frames instead: its kept picture is laid only over a layer left empty.)
+  let lowK = 0, lowOn = false, soft = false;
+  const lw = { fbo: null, tex: null, w: 0, h: 0 };
+  function lowPass(m, look) {
+    const w = Math.max(1, Math.round(PW() * lowK)), h = Math.max(1, Math.round(PH() * lowK));
+    if (!lw.fbo) { lw.fbo = gl.createFramebuffer(); lw.tex = ATTACH.map(() => dataTex(gl)); }
+    gl.bindFramebuffer(gl.FRAMEBUFFER, lw.fbo);
+    if (lw.w !== w || lw.h !== h) {
+      lw.w = w; lw.h = h;
+      const fmt = [[gl.RGBA8, gl.RGBA, gl.UNSIGNED_BYTE], [gl.RGBA16UI, gl.RGBA_INTEGER, gl.UNSIGNED_SHORT], [gl.RGBA16UI, gl.RGBA_INTEGER, gl.UNSIGNED_SHORT], [gl.R8, gl.RED, gl.UNSIGNED_BYTE]];
+      lw.tex.forEach((t, i) => { gl.bindTexture(gl.TEXTURE_2D, t); gl.texImage2D(gl.TEXTURE_2D, 0, fmt[i][0], w, h, 0, fmt[i][1], fmt[i][2], null); gl.framebufferTexture2D(gl.FRAMEBUFFER, ATTACH[i], gl.TEXTURE_2D, t, 0); });
+      gl.drawBuffers(ATTACH);
+    }
+    // (The transform to the small target's pixels, each axis by its own share, so the stretch lays every pixel back where it belongs.)
+    const kx = w / PW(), ky = h / PH();
+    gl.viewport(0, 0, w, h);
+    gl.disable(gl.SCISSOR_TEST);
+    clearLayer();
+    vesselPass([m[0] * kx, m[1] * ky, m[2] * kx, m[3] * ky, m[4] * kx, m[5] * ky], look, [vao, nGen], [oneVAO, nSimple], false, false, [w, h]);
+    gl.bindFramebuffer(gl.READ_FRAMEBUFFER, lw.fbo);
+    gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, fbo);
+    for (let i = 0; i < ATTACH.length; i++) {
+      gl.readBuffer(ATTACH[i]);
+      gl.drawBuffers(ATTACH.map((a, j) => (j === i ? a : gl.NONE)));
+      gl.blitFramebuffer(0, 0, w, h, 0, 0, fboW, fboH, gl.COLOR_BUFFER_BIT, i === 0 ? gl.LINEAR : gl.NEAREST);
+    }
+    gl.drawBuffers(ATTACH);
+    gl.readBuffer(gl.COLOR_ATTACHMENT0);
+    gl.bindFramebuffer(gl.READ_FRAMEBUFFER, null);
+    gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, null);
+  }
+  function lowFree() {
+    if (!lw.fbo || lost) return;
+    for (const t of lw.tex) gl.deleteTexture(t);
+    gl.deleteFramebuffer(lw.fbo);
+    lw.fbo = lw.tex = null; lw.w = lw.h = 0;
   }
   // The composite's textures, each on its unit (U: the program's uniforms; the flags: which of the layers it lays this frame).
   function compBind(U, layer, glow, warm, useStack) {
@@ -2636,7 +2680,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false }) {
      */
     draw(m, look, blood, rows = null) {
       m = whole(m);
-      reused = false;
+      reused = false; soft = false;
       lastLook = look;
       ensureFBO();
       const lk = lookKey(look);
@@ -2649,6 +2693,16 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false }) {
       const panAt = fboOK && radCovered(rows) && lk === drawnLook && (dx || dy) && Math.abs(dx) < fboW / 2 && Math.abs(dy) < fboH / 2 && m.slice(0, 4).every((v, i) => v === baseM[i]);
       if (panAt && rows?.length) { parts = rowParts(rows); if (parts.part.k > nCells * 0.6) parts = null; }
       const pan = panAt && (!(tubesNew || radRows.size) || parts);
+      // (Vessels lower while pinching, when on and Pinch frame reuse is off: a zoom frame under a hand draws the layer lower: lowPass.)
+      if (lowK && lowOn && !reuseEvery && !pan && baseM && m.slice(0, 4).some((v, i) => v !== baseM[i]) && !gpuProbe.skipGL && !lost) {
+        if (gpuProbe.on) gpuProbe.note('vessels: lower');
+        lowPass(m, look);
+        baseM = m; drawnLook = lk; tubesNew = false; radRows.clear(); drawnNow();
+        fboOK = false; stale = false; soft = true; rz.m = null;
+        gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+        this.composite(look, blood, true);
+        return;
+      }
       // A zoom or a turn with the one-pass builds (one-pass zoom frames): no vessel pass; the picture draws the vessels itself.
       if (!pan && baseM && m.slice(0, 4).some((v, i) => v !== baseM[i]) && fuseReady() && bareOf(blood || {}) && !gpuProbe.skipGL && !lost) {
         // (Pinch frame reuse, when on: this frame lays the last one-pass picture again, moved to the view now, if it covers the canvas.
@@ -2756,6 +2810,19 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false }) {
     picSize() { return [PW(), PH()]; },
     /** Whether the last draw laid the kept picture again (Pinch frame reuse): the next one at that view has to be shaded whole. */
     get reused() { return reused; },
+    /**
+     * Vessels lower while pinching: `k` (0 off, else the share of the layer's width and height a zoom frame draws it at) and `now` (a
+     * hand is zooming: only then). Off gives the small targets back.
+     */
+    setLow(k, now) {
+      lowOn = !!now;
+      k = k > 0 && k < 1 ? k : 0;
+      if (k === lowK) return;
+      lowK = k;
+      if (!k) lowFree();
+    },
+    /** Whether the last draw drew the layer lower (Vessels lower while pinching): the next one at that view has to draw it whole. */
+    get soft() { return soft; },
     /** The last drawRows call's outcome: 'drawn', or why it was refused (gpu-probe.js ROWS_REFUSED); '' before any. */
     get rowsStatus() { return rowsStatus; },
     /** Cells redrawn by drawRows so far (whole, and recoloured only), and the cells of the whole layer (for the checks). */
@@ -3075,6 +3142,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false }) {
         if (own) { gl.deleteTexture(own.tex); gl.deleteFramebuffer(own.fbo); if (own.rb) gl.deleteRenderbuffer(own.rb); }
         if (rz.tex) { gl.deleteTexture(rz.tex); gl.deleteFramebuffer(rz.fbo); }
         if (rz.P) gl.deleteProgram(rz.P.p);
+        lowFree();
         if (warmT) { for (const t of warmT.tx) gl.deleteTexture(t); gl.deleteFramebuffer(warmT.fb); gl.deleteBuffer(warmT.buf); gl.deleteVertexArray(warmT.va); }
         // (Builds still compiling: given back unpublished, with every shader.)
         if (later.length) { for (const k of later) for (const st of startsOf(k)) gl.deleteProgram(st.p); later.length = 0; freeShaders(); }
