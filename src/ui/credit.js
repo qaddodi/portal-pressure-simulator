@@ -448,7 +448,22 @@ function artStep() {
   const wk = [wm.a, wm.b, wm.c, wm.d, wm.e, wm.f].join();
   const still = j.wk === null || wk === j.wk;
   j.wk = wk;
+  // (The shapes' facts are read in a task straight after the frame is drawn, not inside it: read in the frame, after the figure's
+  // own changes to the page, the first shape's box and style made the browser lay the page out there and then, 49 to 91 ms in one
+  // frame on the catheter slide on his Mac (1d32d326, 30 Oct). Just after the frame the layout is the one the frame just drew, so
+  // the reads find it ready. The same reads of the same page, a slice a frame as before.)
+  if (still && j.stage === 0) { setTimeout(() => artRead(j), 0); return; }
   if (still) gpuProbe.time(null, 'credit: art grid', () => artSlice(j, inv, performance.now() + ART_SLICE));
+  artNext(j);
+}
+function artRead(j) {
+  if (artJob !== j) return;
+  const world = document.getElementById('world'), wm = world?.getScreenCTM?.(), inv = wm && invert(wm);
+  if (world !== j.world || !inv || !world.closest('.stage-view')?.classList.contains('gl-on')) { artJob = null; artDirty = true; j.done?.(); return; }
+  gpuProbe.time(null, 'credit: art read', () => artSlice(j, inv, performance.now() + ART_SLICE));
+  artNext(j);
+}
+function artNext(j) {
   if (artJob !== j) return;
   if (j.stage < 4) { nextFrame(artStep); return; }
   artJob = null;

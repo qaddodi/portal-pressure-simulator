@@ -224,8 +224,10 @@ test('the credit falls back to the screen grid in the lobule, with Lite graphics
 test('spread over frames, the look answers PENDING, draws a slice a frame, and lands on the same grid one frame draws', async () => {
   const { PENDING } = await import('../src/ui/credit.js');
   const rafs = [];
-  const raf0 = globalThis.requestAnimationFrame;
+  const raf0 = globalThis.requestAnimationFrame, st0 = globalThis.setTimeout, tasks = [];
   globalThis.requestAnimationFrame = (cb) => { rafs.push(cb); return rafs.length; };
+  // (The tasks the job queues for just after a frame: run once the frame's callbacks are done.)
+  globalThis.setTimeout = (cb) => { tasks.push(cb); return tasks.length; };
   const now0 = performance.now;
   let clock = now0.call(performance);
   performance.now = () => (clock += 5);   // (every reading of the clock 5 ms on: a slice holds a shape or two)
@@ -240,14 +242,26 @@ test('spread over frames, the look answers PENDING, draws a slice a frame, and l
     // (Each grid is read back in a frame of its own, after the one that drew its last shape: Safari paints a canvas's recorded drawing
     // when it is read, 116 ms in one frame on his Mac, ee881888.)
     const drew = FakeCtx.prototype.fill, read = FakeCtx.prototype.getImageData;
-    let drawnNow = false, readAfterDraw = 0, reads = 0;
+    let drawnNow = false, readAfterDraw = 0, reads = 0, shapesInFrame = 0, shapesAfter = 0;
     FakeCtx.prototype.fill = function (p) { drawnNow = true; return drew.call(this, p); };
     FakeCtx.prototype.getImageData = function () { reads++; if (drawnNow) readAfterDraw++; return read.call(this); };
     try {
-      while (!called && frames < 50) { drawnNow = false; const q = rafs.splice(0); for (const cb of q) cb(clock); frames++; }
+      while (!called && frames < 50) {
+        drawnNow = false;
+        let n = counts.shape;
+        const q = rafs.splice(0); for (const cb of q) cb(clock);
+        shapesInFrame += counts.shape - n; n = counts.shape;
+        const t = tasks.splice(0); for (const cb of t) cb();
+        shapesAfter += counts.shape - n;
+        frames++;
+      }
     } finally { FakeCtx.prototype.fill = drew; FakeCtx.prototype.getImageData = read; }
     assert.equal(reads, 2, 'both grids read back');
     assert.equal(readAfterDraw, 0, 'never in the frame that drew');
+    // (The shapes' boxes and matrices are read just after a frame, where the layout is the one it drew, never inside one: read there,
+    // after the figure's changes, they made the browser lay the page out mid-frame, 49 to 91 ms on his Mac, 1d32d326.)
+    assert.ok(shapesAfter >= 2 * 3, `the shapes read after the frame (${shapesAfter})`);
+    assert.equal(shapesInFrame, 0, 'no shape read inside a frame');
     assert.equal(called, 1, 'called back once its grid is in');
     assert.ok(frames > 2, `spread over ${frames} frames`);
     const art = organTest(wr, null, () => called++);
@@ -256,5 +270,5 @@ test('spread over frames, the look answers PENDING, draws a slice a frame, and l
     // (Taken for a while after, even with the art changed again: a breath would otherwise keep every look waiting.)
     for (const o of observers) o.cb([]);
     assert.notEqual(organTest(wr, null, () => called++), PENDING);
-  } finally { performance.now = now0; globalThis.requestAnimationFrame = raf0; }
+  } finally { performance.now = now0; globalThis.requestAnimationFrame = raf0; globalThis.setTimeout = st0; }
 });
