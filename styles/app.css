@@ -244,6 +244,8 @@ svg { flex: none; }
 .lb-alert { fill: var(--danger); }
 .lb-rev { fill: var(--flow-reversed); }
 .lb-organ { fill: var(--text-3); }
+/* On a phone the organ captions and the readings' names share the 12 px floor, so the captions step back in ink instead (looks review L8). */
+@media (max-width: 760px) { .lb-organ { fill: color-mix(in srgb, var(--text-3) 68%, var(--stage-bg)); } }
 .lb-zone { fill: var(--text-3); }
 .lb.node { pointer-events: auto; cursor: pointer; outline: none; }
 .lb.node.sel .lb-name { fill: var(--accent-ink); }

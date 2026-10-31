@@ -8694,7 +8694,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   function pressureRuns(P, id, compact) {
     if (!store.get().layers.chips || isImaging()) return null;
     const [v, u] = fp(P);
-    const runs = [{ t: v, size: 14, weight: 650, cls: 'lb-val' }, { t: u, size: 10, weight: 500, cls: 'lb-unit', gap: 2.5 }];
+    const runs = [{ t: v, size: 14, weight: 650, cls: 'lb-val' }];
+    if (unitHere(id, u)) runs.push({ t: u, size: 10, weight: 500, cls: 'lb-unit', gap: 2.5 });
     // A change from healthy is shown only once it matters clinically (5 mmHg, the upper limit
     // of a normal HVPG); while comparing, every change from the pinned moment is shown. Deltas
     // are neutral ink: red is kept for crossed thresholds.
@@ -8705,7 +8706,13 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // A change reads "+7.9" or "−7.9", in the reading's own colour (17 Oct design review: an arrowed change beside every reading doubled the
   // numbers on the figure). On a slide only the stations its words point at carry it (presentTerms); every callout keeps its reading.
   const signed = (d, txt) => `${d > 0 ? '+' : '−'}${txt}`;
-  const deltaHere = (id) => !store.get().presenting || !!termTone(id);
+  // Where the change shows (looks review L2, 31 Oct: a label is a name and a value; the change only where it is asked for): on the
+  // selected station, in the Change lens, while comparing with a pinned moment, and on a slide at the stations its words point at.
+  const selStation = (id) => { const sl = store.get().selection; return sl?.type === 'node' && sl.id === id; };
+  const deltaHere = (id) => { const st = store.get(); return st.presenting ? !!termTone(id) : selStation(id) || st.colorMode === 'delta' || !!st.compareSnap; };
+  // The unit is said once, in the lens legend ("Pressure mmHg"); a label carries it only when it differs from the legend's (the
+  // pressure unit setting) or when the label is selected. (Not a teaching-number change: every number stays; the unit moves.)
+  const unitHere = (id, u) => u !== 'mmHg' || selStation(id);
 
   // Flow layer: blood entering the station (L/min) and its change; velocity layer: the fastest
   // velocity in a vessel at the station as the Doppler reads it (peak, cm/s); oxygen layer: the blood's
@@ -8715,13 +8722,15 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (lm !== 'flow' && lm !== 'velocity' && lm !== 'oxygen') return null;
     if (!store.get().layers.chips) return null;
     const big = { size: 14, weight: 650, cls: 'lb-val' }, unit = { size: 10, weight: 500, cls: 'lb-unit', gap: 2.5 };
+    // (These lenses' legends name their unit too (L/min, cm/s, % O₂), so the label says it only when selected.)
+    const withUnit = (t) => (selStation(id) ? [{ ...unit, t }] : []);
     if (lm === 'oxygen') {
       const sat = oxygenFor(EDGES, NODES, f).node[NI[id]];
-      return { runs: [{ ...big, t: fmt(sat * 100, 0) }, { ...unit, t: '% O₂' }], color: oxygenColor(sat) };
+      return { runs: [{ ...big, t: fmt(sat * 100, 0) }, ...withUnit('% O₂')], color: oxygenColor(sat) };
     }
     if (lm === 'flow') {
       const v = throughput(f.Qf || f.Q, id);
-      const runs = [{ ...big, t: fmtFlow(v) }, { ...unit, t: 'L/min' }];
+      const runs = [{ ...big, t: fmtFlow(v) }, ...withUnit('L/min')];
       const refQ = store.get().healthy?.Q;
       if (refQ && !store.get().compareSnap) {
         const r = throughput(refQ, id);

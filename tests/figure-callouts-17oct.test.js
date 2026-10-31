@@ -25,7 +25,9 @@ test('a change reads "+7.9", in its reading\'s colour, and on a slide only on th
   assert.doesNotMatch(runs, /▲|▼/, 'no arrow before the change');
   assert.match(runs, /deltaHere\(id\) && badge\(/);
   assert.match(runs, /const signed = \(d, txt\) => `\$\{d > 0 \? '\+' : '−'\}\$\{txt\}`;/);
-  assert.match(runs, /const deltaHere = \(id\) => !store\.get\(\)\.presenting \|\| !!termTone\(id\);/);
+  // (Off a slide the change shows on the selected station, in the Change lens and while comparing; looks review L2, 31 Oct.)
+  assert.match(runs, /const deltaHere = \(id\) => \{ const st = store\.get\(\); return st\.presenting \? !!termTone\(id\) : selStation\(id\) \|\| st\.colorMode === 'delta' \|\| !!st\.compareSnap; \};/);
+  assert.match(runs, /const unitHere = \(id, u\) => u !== 'mmHg' \|\| selStation\(id\);/, 'the unit is said once, in the legend');
   assert.match(css, /\.lb-delta \{ fill: var\(--text\); \}/);
   assert.match(css, /#labels \.lb\.term [^{]*\.lb-delta \{ fill: var\(--term\); \}/);
 });
