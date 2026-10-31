@@ -1757,6 +1757,9 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   // (The copy made small by halves, each step a 2 × 2 average (a draw at exactly half size samples between four pixels), never in
   // one draw from the screen's density to half a CSS px: that drew one pixel in four of the moving blood streaks, a different few
   // each frame, and the frost under the pills flickered with them (31 Oct). pillHalf: the steps' canvases, kept between frames.)
+  // (Off by default since 31 Oct, evening: the pills flickered on his Mac with the frost drawn here, even with the copy made small by
+  // halves, so they are back on each pill's own backdrop blur, as before recs B4 that morning. ?lzpills=1 draws them here again.)
+  const PILLS_OFF = !/[?&]lzpills=1\b/.test(location.search) || /[?&]gpulabels=0\b/.test(location.search);
   const pillHalf = [document.createElement('canvas'), document.createElement('canvas')];
   function pillDown(c, src, w, h) {
     let cur = src, cw = src.width, ch = src.height;
@@ -1778,7 +1781,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     if (pillGL !== undefined) return pillGL;
     const g = ensureGL();
     pillGL = g && !g.software && !g.lost ? createGlassGL(el, pillSrc, [], {
-      off: /[?&](gpulabels|lzpills)=0\b/.test(location.search), live: pillLive, version: () => pillSeq,
+      off: PILLS_OFF, live: pillLive, version: () => pillSeq,
       onFigure: (f) => { pillFig.add(f); return () => pillFig.delete(f); },
       cards: { find: () => pillLabels(labels), watch: [labels], before: labels, read: (e) => pillOf(e) || null },
     }) : null;

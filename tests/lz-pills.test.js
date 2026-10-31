@@ -72,3 +72,11 @@ test('halving: each step at most halves, and the last lands on the size asked fo
   assert.deepEqual(steps(1500, 900, 750, 450), [[750, 450]], 'a 1× screen: one draw at exactly half');
   assert.deepEqual(steps(4500, 2700, 750, 450), [[2250, 1350], [1125, 675], [750, 450]]);
 });
+
+test('the pills keep their own backdrop blur unless ?lzpills=1 asks for the frost drawn on the GPU', () => {
+  const lz = readSrc(new URL('../src/ui/lobule-zoom.js', import.meta.url), 'utf8');
+  assert.match(lz, /const PILLS_OFF = !\/\[\?&\]lzpills=1\\b\/\.test\(location\.search\) \|\| \/\[\?&\]gpulabels=0\\b\/\.test\(location\.search\);/);
+  assert.match(lz, /off: PILLS_OFF, live: pillLive,/);
+  // (Off, no glass is made, so pillCopy stops at once: no copy of the lobule is taken in any frame.)
+  assert.match(lz, /if \(!pillsOn\(\)\) return;/);
+});
