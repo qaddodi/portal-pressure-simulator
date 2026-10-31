@@ -181,7 +181,10 @@ export function setFigOpt(k, v) {
 // lightArt: the colon's and small bowel's lines with about half their points, none more than 0.05 units off (stage.js syncArtLite).
 // pinchLow: a zoom frame under a hand draws the vessel layer at PINCH_LOW_K of its width and height and stretches it; the view a
 //   pinch stops at is drawn at Full (veins-gl.js lowPass). Pinch frame reuse, when on, takes those frames instead.
-export const FIG_LAB = { motion60: [false, true], glassCache: [false, true], creditLean: [false, true], lymphBoxes: [false, true], pinchReuse: [0, 2, 3], upscale: [false, true], lightArt: [false, true], pinchLow: [false, true] };
+// tissueLive: the open lobule's tissue (cells, collagen, stellate cells, septa, tracts) drawn by the shader on every frame it changes
+//   (lobule-live.js, tissue-gl.js) instead of laid from the painted bitmap, so it stays sharp at every zoom and its colours ease. Off,
+//   the bitmap alone is shown, as before the shader drew any of it. Flipping it eases the lobule between the two (lobule-zoom.js liveGoal).
+export const FIG_LAB = { tissueLive: [false, true], motion60: [false, true], glassCache: [false, true], creditLean: [false, true], lymphBoxes: [false, true], pinchReuse: [0, 2, 3], upscale: [false, true], lightArt: [false, true], pinchLow: [false, true] };
 const figLabs = Object.fromEntries(Object.entries(FIG_LAB).map(([k, v]) => [k, v[0]]));
 for (const k of Object.keys(figLabs)) {
   try { const t = localStorage.getItem(`pps.fig.${k}`), v = t === 'true' ? true : +t; if (t != null && FIG_LAB[k].includes(v)) figLabs[k] = v; } catch { /* storage unavailable */ }

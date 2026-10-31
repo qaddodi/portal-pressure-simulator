@@ -19,30 +19,30 @@
 // tapped (triad, inlet venule, sinusoid, arteriole, central vein, septum, hepatocytes).
 // Without WebGL2 the vessels are drawn flat on the tissue canvas.
 
-import { runFlick, FLICK } from './flick.js?v=faef51b93d';
+import { runFlick, FLICK } from './flick.js?v=5f768c6555';
 import { store } from './store.js?v=a926bea9d4';
 import { glideClock } from './glide-clock.js?v=220d7f875c';
 import { radiiChanged, canvasPx, fxMoves, DIVE_RIM } from './lobule-render-cache.js?v=84bf4c2222';
 import { softwareYield } from './sw-yield.js?v=e580a095b1';
-import { lobuleState, lymphRate, sinceOf, lensModeOf, LOBE } from './lobule-model.js?v=bb59583132';
+import { lobuleState, lymphRate, sinceOf, lensModeOf, LOBE } from './lobule-model.js?v=53245e5323';
 import { SIN_NARROW, dullSinusoid, NEIGHBOUR_FLAT, neighbourBlur, blurWrapped, FADE_MID, fadeOuter, padRect, wideDpr, wideTiles, FIELD_RS, fieldBlend, fieldDof, surroundGrade, greyStep } from './lobule-look.js?v=cf14995b07';
 import { isGreyLens } from './organ-dim.js?v=9e19f2fc30';
 import { createFieldGL } from './field-gl.js?v=779561d5dd';
-import { createTissueGL } from './tissue-gl.js?v=0b2e2e7256';
-import { buildLive, buildDyn, buildItems, liveFibre, liveEligible, liveZoomShare, liveColours } from './lobule-live.js?v=9512cbf33d';
-import { createTissueWorker } from './tissue-worker.js?v=ce7113c0de';
+import { createTissueGL } from './tissue-gl.js?v=c33503f98e';
+import { buildLive, buildDyn, buildItems, liveFibre, liveEligible, liveZoomShare, liveColours, liveEase, liveShareOf } from './lobule-live.js?v=3fbdead9c7';
+import { createTissueWorker } from './tissue-worker.js?v=eb65cc8d78';
 import { fibrousBand, fibrousTract, fibrousCuff, scarGrowth, paintWorldInto, useTokens } from './lobule-paint.js?v=f6e22a327b';
-import { h, s, fmt, clamp, createEaser, systemEdge, bloodColors, cssVar, cssAlpha, cssRGB01 } from './util.js?v=b061aaaabb';
-import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatColor, oxygenColor } from './colormap.js?v=197dfb008b';
+import { h, s, fmt, clamp, createEaser, systemEdge, bloodColors, cssVar, cssAlpha, cssRGB01 } from './util.js?v=90ca733567';
+import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatColor, oxygenColor } from './colormap.js?v=f5244ff113';
 import { NODES, EDGES } from '../engine/topology.js?v=4044766e96';
-import { createVeinsGL, binVeins, laneSum, N_SAMPLES, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_SPEC, F_EDGE, ORIGIN_GREY } from './veins-gl.js?v=f592dbbabf';
+import { createVeinsGL, binVeins, laneSum, N_SAMPLES, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_SPEC, F_EDGE, ORIGIN_GREY } from './veins-gl.js?v=232cddbbcb';
 import { SLOT, PERIOD, originFractions, ORIGIN_N, DRIFT_PERIOD } from './blood.js?v=300b3b5267';
-import { createSinusoidView } from './sinusoid-view.js?v=a8b7a2c9d9';
-import { frameFor, cancelFrame, noteDraw, saver, paceMs, renderScale, onRenderScale, frame, figLab } from './frame.js?v=d389474997';
-import { createGlassGL } from './glass-gl.js?v=f7568cef4e';
+import { createSinusoidView } from './sinusoid-view.js?v=8010a479dd';
+import { frameFor, cancelFrame, noteDraw, saver, paceMs, renderScale, onRenderScale, frame, figLab, onFigLab } from './frame.js?v=b11d87fd1b';
+import { createGlassGL } from './glass-gl.js?v=6e154f54c3';
 import { pillOf, pillLabels } from './lz-pills.js?v=670139934d';
 import { gpuProbe, COUNTED } from './gpu-probe.js?v=9832eccfbe';
-import { FADE_MS, fadeAlpha, stackInto, viewFollow } from './res-fade.js?v=5e901158f4';
+import { FADE_MS, fadeAlpha, stackInto, viewFollow } from './res-fade.js?v=18f6ec0368';
 import { leaderEnd, runInside } from './leader-end.js?v=8e884700ab';
 const nextFrame = frameFor('lobule-zoom');
 
@@ -2746,16 +2746,20 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   // bitmap's) and the zoom wants (liveZoomShare: the bitmap's mipmaps average cells under about 3.5 px, where a shader would shimmer).
   // The bitmap is still painted and kept, for the 2D canvas, the dive's copies and the shares that are not the shader's. Where the
   // state changes between the two, the share eases over LIVE_MS.
-  const LIVE_MS = 400;
+  // Settings › Figure performance › Lobule drawn live (frame.js tissueLive, off until chosen): off, the goal is 0, the share eases down
+  // to 0 and the shader is given nothing (liveArgs), so the lobule is the bitmap alone, as before the shader drew any of it. Flipped
+  // while the lobule shows, the share eases over LIVE_MS (lobule-live.js) either way, and the loop wakes at once to draw it; flipped while it is not
+  // on show, the next frame starts at the new goal, so opening the lobule shows no leftover easing.
   let liveE = -1, liveAt = 0, liveShare = 0;
-  const liveGoal = () => (model && liveEligible(model) ? 1 : 0);
+  const liveGoal = () => (model && liveEligible(model) && figLab('tissueLive') ? 1 : 0);
+  onFigLab((k) => { if (k !== 'tissueLive') return; if (unseen()) liveE = -1; else { liveAt = performance.now(); wake(); } });   // (liveAt: the first step of the easing is a frame's, not the time since the last draw)
   const liveMoving = () => liveE >= 0 && tissueOnGL && !unseen() && liveE !== liveGoal();
   function liveStep(dpr, now) {
     const goal = liveGoal();
     if (liveE < 0 || unseen()) liveE = goal;
-    else if (liveE !== goal) { const dt = Math.min(100, now - liveAt) / LIVE_MS; liveE = goal > liveE ? Math.min(goal, liveE + dt) : Math.max(goal, liveE - dt); }
+    else liveE = liveEase(liveE, goal, now - liveAt);
     liveAt = now;
-    liveShare = geo ? Math.min(liveE * liveE * (3 - 2 * liveE), liveZoomShare(V.k * dpr, geo.R)) : 0;
+    liveShare = geo ? liveShareOf(liveE, liveZoomShare(V.k * dpr, geo.R)) : 0;
     return liveShare;
   }
   const liveData = new WeakMap();

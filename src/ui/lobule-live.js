@@ -26,6 +26,18 @@ export const liveEligible = () => true;
  *  from 6 px. (The lobule's cells are 0.052 R long.) */
 export const liveZoomShare = (s, R) => smooth(3.5, 6, s * R * 0.052);
 
+/** How long the shader's share takes to ease between 0 and 1 when the switch (Settings › Lobule drawn live) or the state flips it, ms. */
+export const LIVE_MS = 400;
+/** One step of that easing from e toward goal (0 or 1) after dtMs: a gap longer than 100 ms (a pause, a hidden tab) counts as 100,
+ *  so nothing jumps when drawing starts again. */
+export function liveEase(e, goal, dtMs, ms = LIVE_MS) {
+  if (e === goal) return e;
+  const dt = Math.min(100, Math.max(0, dtMs)) / ms;
+  return goal > e ? Math.min(goal, e + dt) : Math.max(goal, e - dt);
+}
+/** The shader's share of the picture from the eased goal e (0 … 1, smoothed) and the zoom's own share (liveZoomShare): 0 when either is 0. */
+export const liveShareOf = (e, zoom) => Math.min(e * e * (3 - 2 * e), zoom);
+
 /** A colour token's value as [r, g, b, a], r g b in 0–1 ('#rgb', '#rrggbb', 'rgb()' or 'rgba()'). */
 export function parseRGBA(c) {
   c = (c || '').trim();

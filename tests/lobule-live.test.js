@@ -123,3 +123,61 @@ test('the packed bands are the bands fibrousBand draws: the same points, widths,
   }
   void fibrousBand; void fibrousCuff; void bands;
 });
+
+// ── Settings › Figure performance › Lobule drawn live (frame.js tissueLive) ──
+const uiSrc = (f) => readFileSync(new URL(`../src/ui/${f}`, import.meta.url), 'utf8');
+
+test('Lobule drawn live: off by default; off, the goal is 0 and the shader is given nothing, so the bitmap is the whole picture', async () => {
+  const store = new Map();
+  globalThis.localStorage = { getItem: (k) => (store.has(k) ? store.get(k) : null), setItem: (k, v) => store.set(k, String(v)), removeItem: (k) => store.delete(k) };
+  const f = await import(`../src/ui/frame.js?t=live${Math.random()}`);
+  assert.deepEqual(f.FIG_LAB.tissueLive, [false, true]);
+  assert.equal(f.figLab('tissueLive'), false, 'off until chosen');
+  let heard = 0;
+  f.onFigLab((k, v) => { if (k === 'tissueLive' && v === true) heard++; });
+  f.setFigLab('tissueLive', true);
+  assert.equal(heard, 1); assert.equal(store.get('pps.fig.tissueLive'), 'true');
+  f.setFigLab('tissueLive', false);
+  assert.ok(!store.has('pps.fig.tissueLive'), 'off stores nothing');
+  delete globalThis.localStorage;
+  const lz = uiSrc('lobule-zoom.js');
+  assert.match(lz, /const liveGoal = \(\) => \(model && liveEligible\(model\) && figLab\('tissueLive'\) \? 1 : 0\);/, 'the one place the switch is read');
+  assert.equal(lz.split("figLab('tissueLive')").length - 1, 1, 'and only there: nothing else in the lobule branches on it');
+  assert.match(lz, /function liveArgs\(dark, cs\) \{\n\s+if \(!\(liveShare > 0\)\) return null;/, 'no share: no shapes built, nothing sent');
+  assert.match(lz, /live: liveArgs\(dark, cs\),/);
+  // The two pictures are never mixed unless the share is above 0 (tissue-gl.js): the bitmap path is the one it was.
+  assert.match(gl, /if \(live && live\.share > 0\) \{/);
+  assert.match(gl, /\} else gl\.uniform1f\(U\.uLive, 0\);/);
+  assert.match(gl, /if \(uLive > 0\.0\) \{ vec4 ls = liveTissue\(w\) \* e;/);
+});
+
+test('Lobule drawn live: flipped while the lobule shows it eases over 400 ms and wakes the loop; flipped while it does not, it starts at the new goal', () => {
+  const lz = uiSrc('lobule-zoom.js');
+  assert.match(lz, /onFigLab\(\(k\) => \{ if \(k !== 'tissueLive'\) return; if \(unseen\(\)\) liveE = -1; else \{ liveAt = performance\.now\(\); wake\(\); \} \}\);/);
+  assert.match(lz, /if \(liveE < 0 \|\| unseen\(\)\) liveE = goal;\n\s+else liveE = liveEase\(liveE, goal, now - liveAt\);/);
+  assert.match(lz, /if \(liveMoving\(\)\) drawVersion\+\+;/, 'each frame of the easing is drawn');
+  assert.match(lz, /const key = \[[^\n]*lk > 0 \? lk\.toFixed\(3\)/, 'and the tissue\'s key moves with the share, so it is not skipped as unchanged');
+});
+
+test('the share eases in a 400 ms smoothstep either way, never in a step; a pause does not jump it', async () => {
+  const { liveEase, liveShareOf, LIVE_MS } = await import('../src/ui/lobule-live.js');
+  assert.equal(LIVE_MS, 400);
+  for (const [from, goal] of [[0, 1], [1, 0]]) {
+    let e = from, t = 0, last = liveShareOf(e, 1), worst = 0;
+    while (e !== goal) { e = liveEase(e, goal, 1000 / 60); t += 1000 / 60; const s = liveShareOf(e, 1); worst = Math.max(worst, Math.abs(s - last)); last = s; assert.ok(t < 600, 'arrives'); }
+    assert.ok(t >= 395 && t <= 420, `${from}→${goal} takes ${t.toFixed(0)} ms`);
+    assert.ok(worst < 0.07, `no frame at 60 Hz moves the share by ${worst.toFixed(3)}`);
+  }
+  assert.equal(liveEase(0, 1, 60000), 0.25, 'a gap of a minute counts as 100 ms');
+  assert.equal(liveEase(1, 1, 16), 1); assert.equal(liveEase(0, 0, 16), 0);
+  assert.equal(liveEase(0.3, 1, -50), 0.3, 'a clock that stepped back does not move it');
+  assert.equal(liveShareOf(0, 1), 0, 'off: exactly 0, so the shader is given nothing');
+  assert.equal(liveShareOf(1, 1), 1); assert.equal(liveShareOf(1, 0), 0, 'zoomed out, the bitmap alone');
+  assert.equal(liveShareOf(0.5, 0.2), 0.2, 'the smaller of the two');
+});
+
+test('the Settings row for it sits under Figure performance, with a plain label and what off means', () => {
+  const main = uiSrc('main.js');
+  const rows = main.slice(main.indexOf('function figLabRows('), main.indexOf('function figSeg('));
+  assert.match(rows, /sw\('tissueLive', 'Lobule drawn live', '[^']*Off: the lobule shows its painted picture'\),/);
+});
