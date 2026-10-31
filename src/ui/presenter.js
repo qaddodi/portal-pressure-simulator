@@ -49,6 +49,7 @@ import { flowTimeHeight, trailKeys } from './flow-time.js?v=06085d7796';
 import { PROCS, procBlocked, procOffered, playProcedure, stepMark } from './proc-anim.js?v=a6559fedac';
 import { dataPlan, textPlan, keepData, keepText, cardSnap, cardChanged, cardBack } from './card-keep.js?v=982397f8fb';
 import { createCardZoom, tapTracker } from './card-zoom.js?v=f589271cc7';
+import { sheetPanes } from './sheet-glass.js?v=3e559e624e';
 import { createScopeTile } from './scope-tile.js?v=5a2d52ae30';
 import { tileKeys as cardKeys, toolOnly } from './card-tiles.js?v=e547c76c7f';
 const nextFrame = frameFor('presenter');
@@ -4716,7 +4717,8 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     // (It comes in with the teaching card, in the card's own fade, once the card is fitted (pz-prep gone), and leaves with it.)
     const figKey = createFigureKey({ el: fk, app, watch: [text, root], ready: () => !text.hidden && !text.classList.contains('pz-leave') && !root.classList.contains('pz-prep') });
     // The cards' frosted glass drawn on the GPU under them while it can be (stage.cardGlass, glass-gl.js); else the browser's.
-    const glass = stage.cardGlass?.({ find: () => [shade, data, vcase, bar, scl, fk], watch: [root, shade], before: shade }) || null;
+    // (The split readings sheet's glass is its two pseudo-elements', read by sheetPanes; every other card's is its own box.)
+    const glass = stage.cardGlass?.({ find: () => [shade, data, vcase, bar, scl, fk], watch: [root, shade], before: shade, read: (g) => (g === data ? sheetPanes(g) : undefined) }) || null;
     return { root, shade, safe, load, text, data, lip, lipRO, lipMO, cardTouch, setFold, zoom, zbtn, pscrim, partOf, vcase, fk, figKey, glass, dhT, tiles, tools, veil, panel, prog, scl, bar, black: blackEl, jump, say };
   }
   // The start's cover (see start). While it is up (booting) the camera cuts instead of gliding.

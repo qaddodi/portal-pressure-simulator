@@ -2942,6 +2942,8 @@ button.finding { cursor: pointer; }
    edge and shadow still the DOM's. Specific enough to win over every glass rule above, the stacked and the phone's bar included.) */
 .pz-shade.pz-shade.pz-shade.pz-shade[data-gl], .pz .pz-data.pz-data.pz-data.pz-data.pz-data[data-gl], .pz .pz-fk.pz-fk.pz-fk.pz-fk.pz-fk[data-gl], .pz .pz-case.pz-case.pz-case.pz-case.pz-case[data-gl], .pz .pz-bar.pz-bar.pz-bar.pz-bar.pz-bar[data-gl], .pz .pz-scales.pz-scales.pz-scales.pz-scales.pz-scales[data-gl] { background: none; -webkit-backdrop-filter: none; backdrop-filter: none; }
 #cardGl { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: var(--z-figure); }
+/* (The split readings sheet's two cards likewise, its glass being theirs (presenter.js sheetPanes): their borders, edges and shadows the DOM's.) */
+.pz.pz.pz .pz-data.pz-data.pz-sheet.pz-sheet[data-gl]::before, .pz.pz.pz .pz-data.pz-data.pz-sheet.pz-sheet[data-gl]::after { background: none; -webkit-backdrop-filter: none; backdrop-filter: none; }
 .stage-view > canvas#paneGl { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
 #glassGl { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 4; }
 .cath-label[data-at="ahead"] { translate: -50% 18px; }

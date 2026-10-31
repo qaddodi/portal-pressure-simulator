@@ -289,11 +289,14 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
       const el = cards ? g : g.parentElement, cs = getComputedStyle(g);
       if (!el || cs.display === 'none' || cs.visibility !== 'visible') continue;
       const a = NUM(cs.opacity) * heldBy(g);
-      if (cards?.read) {
-        // (A glass whose box the page reads itself (cards.read(g): { r, rad, a, tint } or null, the lobule's pills: a pseudo-element's).)
-        const q = cards.read(g);
-        if (!q || !(a * q.a > 0.001) || !q.r.width || !q.r.height) continue;
-        panes.push({ g, el, a: a * q.a, r: q.r, d: null, rad: q.rad, lw: q.r.width, lh: q.r.height, er: q.r, shadow: null, tint: q.tint, k: 1 });
+      // (A glass whose box the page reads itself: cards.read(g) gives { r, rad | d, a, tint }, a list of them drawn in that order, or null
+      // (none shows); undefined reads the card as usual. The lobule's pills and the split sheet's cards, pseudo-elements; d: a mask path.)
+      const q = cards?.read ? cards.read(g) : undefined;
+      if (q !== undefined) {
+        for (const one of [].concat(q || [])) {
+          if (!one || !(a * one.a > 0.001) || !one.r.width || !one.r.height) continue;
+          panes.push({ g, el, a: a * one.a, r: one.r, d: one.d || null, rad: one.d ? null : one.rad, lw: one.r.width, lh: one.r.height, er: one.r, shadow: null, tint: one.tint, k: 1 });
+        }
         continue;
       }
       if (cards) {
