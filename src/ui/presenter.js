@@ -2897,6 +2897,9 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       if (s.maxHeight === '0px') continue;   // (a folded part, a phone's closed tool: its hidden contents are not overflow)
       const cz = parseFloat(s.zoom) || 1;
       if (wideTable && c.classList.contains('pz-table')) sideways = Math.max(sideways, (c.scrollWidth - c.clientWidth) * cz);
+      // (A phone's grid rows fit their width at the standard text size; at a large one a reading on the reference row can outgrow its
+      // column, which the table's clip hides from the card, so the first row's readings are measured and the fit zooms for them.)
+      else if (c.classList.contains('pz-table')) for (const td of c.querySelectorAll('tbody tr:first-child td.num')) sideways = Math.max(sideways, (td.scrollWidth - td.clientWidth - 1) * cz);
       // (A part with a height cap clips by design, and mid-fold its clipped contents are not overflow either: counting them
       // shrank the card while a phone's tool folded, and the shrunk fit then stuck.)
       // (A line's glyphs or a pinned button reaching a pixel or two past its part is not overflow: counted, it shrank every

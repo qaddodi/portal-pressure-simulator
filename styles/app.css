@@ -1661,6 +1661,10 @@ button.finding { cursor: pointer; }
    on its side: its full-height panel's top right, above the words' top gap. */
 .pz-shade, .pz-panel { --pz-tabf: calc(12px * var(--ts, 1)); --pz-tabh: calc(var(--pz-tabf) * 1.85); --pz-tab-bg: color-mix(in srgb, var(--text) 8%, transparent); }
 :is(.pz-shade.pz-card:not(.stack):not(.low), .pz:not(.stack):not(.low) .pz-panel) { --pz-tabh: calc(var(--pz-cp) * .72); --pz-tabf: max(12px, calc(var(--pz-tabh) * .56)); }
+/* (A phone's deck tab is never wider than its card: 24 capitals at most (presenter.js deckTab) with the tab's padding are 18.5 times its size upright and 18.2 on its side.
+   At a large text size it grows as far as that and stops, never under 12 px; at the standard size it is 12 px on every phone, as it was.) */
+.pz-shade.stack, .pz.stack .pz-panel { --pz-tabf: min(calc(12px * var(--ts, 1)), max(12px, calc((100vw - 32px) / 18.5))); }
+.pz-shade.low { --pz-tabf: min(calc(12px * var(--ts, 1)), max(12px, calc((var(--pz-cw) - 16px) / 18.2))); }
 :root[data-theme="dark"] :is(.pz-shade, .pz-panel) { --pz-tab-bg: rgb(var(--black-rgb) / .26); }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]):not([data-theme="soft"]) :is(.pz-shade, .pz-panel) { --pz-tab-bg: rgb(var(--black-rgb) / .26); } }
 .pz-tabname { position: absolute; top: 0; right: 0; z-index: 1; height: var(--pz-tabh); display: flex; align-items: center; padding: 0 calc(var(--pz-tabh) * .55 - .05em) 0 calc(var(--pz-tabh) * .55); border-radius: 0 var(--pz-tab-ro, 0px) 0 calc(var(--pz-tabh) * .5); background: var(--pz-tab-bg); font: var(--caps-w) var(--pz-tabf)/1 var(--font-ui); letter-spacing: var(--caps-ls); text-transform: uppercase; white-space: nowrap; color: var(--text-2); pointer-events: none; user-select: none; }
@@ -5046,6 +5050,7 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: crossfade var
 .imp > .btn-row { align-self: stretch; }
 .imp-src { width: 100%; min-height: 180px; resize: vertical; font: var(--fs-13, 13px)/1.5 ui-monospace, SFMono-Regular, Menlo, monospace; padding: 10px 12px; border: 1px solid var(--border); border-radius: var(--r-card); background: var(--surface-2); color: var(--text); }
 .imp-src:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+@media (pointer: coarse) { .imp-src { font-size: 16px; } }   /* (an iPhone zooms the page when a field under 16 px takes focus, as .select and the Search field) */
 .modal .imp-err { color: var(--danger-ink); margin: 0; font-size: var(--fs-14); }
 
 /* A data card squeezed by long words (an imported deck's long title, a tool and several tiles) shrinks to fit (presenter.js
@@ -5960,6 +5965,7 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: crossfade var
    on the zoom's clock and curve. */
 :is(.nb-views, .sin-views).vp-glide #viewSeg button { transition-duration: var(--vp-ms, var(--d-camera)); transition-timing-function: var(--ease-move); }
 @media (max-width: 359px) { :is(.nb-views, .sin-views) #viewSeg button { padding: 0 10px; font-size: var(--fs-12); } }   /* (the full 14 px pill is 340 px wide with four buttons, so it fits from 360 up) */
+@media (max-width: 299px) { :is(.nb-views, .sin-views) #viewSeg button { padding: 0 6px; } }   /* (Safari's page zoom lays a 390 phone out 260 wide: the pill is 245 px, not 278) */
 /* A phone: the cards (Tests, Treat, Details) and the menus sit above the dock, inset like it, round on every corner. */
 @media (max-width: 767px), (max-width: 1100px) and (orientation: portrait) {
   .app.thumb :is(.panel, .treat-card, .instrument-workspace.float-ui:not(.side)) {
