@@ -332,13 +332,17 @@ export function drawBlock(cv, d, dpr, rot = false) {
  * The GPU's label layer: a WebGL2 canvas laid over `svg` (the #labels layer, which it follows: its inline style, the dive's zoom and
  * fades included, is copied over), drawing the label groups under `blocks`. Null without a usable WebGL2.
  *   sync(list): the labels as stage.js laid them out this frame, [{ g, x, y, rot }] (x, y: the group's origin, stage px).
+ * With `host` ({ gl, canvas, ask, now, active }: the vessel canvas, veins-gl top), no canvas of its own: the labels are drawn into the
+ * host's, over the figure, each time it lays its picture (drawInto); ask() asks it to lay it again, now() lays it at once. While active() is false (the
+ * figure's overlays not all on the GPU, the labels' layer fading or hidden), it draws nothing and the SVG shows every label.
+ * `force`: on a software renderer too (CI's visual check, ?stageover=gpu).
  */
-export function createLabelGL(svg, blocks, { software = false, off = false, marks = [] } = {}) {
-  if (off || software || typeof WebGL2RenderingContext === 'undefined') return null;
-  const canvas = document.createElement('canvas');
-  canvas.id = 'labelGl'; canvas.setAttribute('aria-hidden', 'true');
-  let gl = null;
-  try { gl = canvas.getContext('webgl2', { alpha: true, premultipliedAlpha: true, antialias: false, depth: false, stencil: false, failIfMajorPerformanceCaveat: true }); } catch { gl = null; }
+export function createLabelGL(svg, blocks, { software = false, off = false, marks = [], host = null, force = false } = {}) {
+  if (off || (software && !force) || typeof WebGL2RenderingContext === 'undefined') return null;
+  const canvas = host ? host.canvas : document.createElement('canvas');
+  if (!host) { canvas.id = 'labelGl'; canvas.setAttribute('aria-hidden', 'true'); }
+  let gl = host ? host.gl : null;
+  if (!host) { try { gl = canvas.getContext('webgl2', { alpha: true, premultipliedAlpha: true, antialias: false, depth: false, stencil: false, failIfMajorPerformanceCaveat: true }); } catch { gl = null; } }
   if (!gl) return null;
   // A picture turned on the GPU, sampled smoothly: only for what is soft anyway (the FibroScan's blurred beam), never for words.
   const RVS = `#version 300 es
@@ -386,15 +390,23 @@ void main() { o = texture(uT, vUV) * uA; }`;
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
     return (pageTex[n] = t);
   };
-  svg.after(canvas);
+  if (!host) svg.after(canvas);
   let lost = false, dpr = 1, W = 1, H = 1, last = [], raf = 0;
+  // (Host mode: whether a picture with the labels is owed to the host's canvas; whether the SVG was given every label back.)
+  let owed = false, released = true;   // (at first the SVG shows every label: none is marked yet)
   const sprites = new WeakMap();   // group → { key, tex, ox, oy, w, h }
   const live = new Map();          // group → until (ms): a fade, an ease or a hover is running, its look read each frame
   const dirty = new Set();
   const scratch = document.createElement('canvas');
   // The label layer's inline style (the dive's zoom and fade, its visibility) is the canvas's too; its classes' rules are in app.css.
   const copyStyle = () => { const w = canvas.style.width, h = canvas.style.height; canvas.style.cssText = svg.style.cssText; canvas.style.width = w; canvas.style.height = h; };
-  new MutationObserver(copyStyle).observe(svg, { attributes: true, attributeFilter: ['style'] });
+  if (!host) new MutationObserver(copyStyle).observe(svg, { attributes: true, attributeFilter: ['style'] });
+  // (Host mode: the layer's own fade or visibility changed (the dive's, a camera move's): whether the labels may be drawn over the
+  // figure is asked again, at the next picture, and when its fade ends, so they come back onto the GPU once it has settled.)
+  if (host) {
+    new MutationObserver(() => check()).observe(svg, { attributes: true, attributeFilter: ['style', 'class'] });
+    svg.addEventListener('transitionend', (e) => { if (e.target === svg) ask(); });
+  }
   // A label changed (its words, a class, a colour, its place in the list): its look is read again.
   const labelOf = (n) => (n.nodeType === 1 ? n : n.parentElement)?.closest?.('.lb');
   // (Not its transform: where it stands comes with sync, every frame of a pan, and asks for no new picture. A write that changed
@@ -431,6 +443,14 @@ void main() { o = texture(uT, vUV) * uA; }`;
     probe?.removeAttribute('data-gl'); scanEl?.removeAttribute('data-gl');
   });
   function size() {
+    if (host) {
+      // (The host's canvas, sized by its owner at the screen's density: stage.js resizeCanvas.)
+      const k = devicePixelRatio || 1, w = canvas.width, h = canvas.height;
+      if (w === W && h === H && k === dpr) return false;
+      W = w; H = h; dpr = k;
+      for (const s of last) dirty.add(s.g);
+      return true;
+    }
     const r = svg.parentElement.getBoundingClientRect(), k = devicePixelRatio || 1;   // (the stage's box: the dive zooms the layer itself)
     const w = Math.max(1, Math.round(r.width * k)), h = Math.max(1, Math.round(r.height * k));
     if (w === W && h === H && k === dpr) return false;
@@ -443,7 +463,27 @@ void main() { o = texture(uT, vUV) * uA; }`;
   new ResizeObserver(() => { if (size()) ask(); }).observe(svg.parentElement);
   matchMedia(`(resolution: ${devicePixelRatio}dppx)`).addEventListener?.('change', () => { size(); ask(); });
   size();
-  function ask() { if (!raf && !lost) raf = nextFrame(() => { raf = 0; draw(); }); }
+  function ask() {
+    if (lost) return;
+    // (Given back to the SVG and still not to be drawn over the figure: no picture is laid again for them.)
+    if (host) { if (released && !host.active()) return; owed = true; host.ask(); return; }
+    if (!raf) raf = nextFrame(() => { raf = 0; draw(); });
+  }
+  // Host mode, whenever something that decides whether the labels may be drawn over the figure changed (stage.js watches it): drawn
+  // there and not to be any more, the picture is laid again now, without them, and the SVG given them in the same task, so they never
+  // show twice nor vanish for a frame; given back and now to be drawn there again, a picture with them is asked for.
+  function check() {
+    if (!host || lost) return;
+    if (!released) { if (!host.active()) { host.now(); if (!released) release(); } return; }
+    if (host.active()) ask();
+  }
+  // Every label, mark and the probes given back to the SVG (host mode, while the labels may not be drawn over the figure).
+  function release() {
+    for (const s of last) s.g.removeAttribute('data-gl');
+    for (const root of marks) for (const el of root.children) el.removeAttribute('data-gl');
+    probe?.removeAttribute('data-gl'); scanEl?.removeAttribute('data-gl');
+    released = true;
+  }
   // A label's state, read again when its look may have changed: 'gl' (its picture, drawn again only when its look changed), 'svg'
   // (the SVG draws it) or 'none' (it shows nothing).
   function refresh(g, rot) {
@@ -477,9 +517,16 @@ void main() { o = texture(uT, vUV) * uA; }`;
   }
   function draw() {
     if (lost || gl.isContextLost()) return;
+    if (host) {
+      owed = false;
+      size();
+      if (!host.active()) { if (!released) release(); return; }
+      if (released) { released = false; for (const s of last) dirty.add(s.g); allMarks(); pDirty = true; sDirty = true; }
+    }
     const now = performance.now();
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
     gl.viewport(0, 0, W, H);
-    gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT);
+    if (!host) { gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT); }
     gl.useProgram(prog); gl.bindVertexArray(vao);
     gl.enable(gl.BLEND); gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
     gl.uniform2f(U.uView, W, H); gl.uniform1i(U.uT, 0); gl.activeTexture(gl.TEXTURE0);
@@ -520,6 +567,11 @@ void main() { o = texture(uT, vUV) * uA; }`;
     }
     dirty.clear();
     moving = drawScan(now) || moving;   // (the FibroScan probe over the labels, as its layer lay)
+    // (In the host's context: its state as its own passes expect to find it.)
+    if (host) {
+      gl.disable(gl.BLEND); gl.bindVertexArray(null); gl.useProgram(null); gl.bindBuffer(gl.ARRAY_BUFFER, null);
+      gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, null); gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
+    }
     if (needRepack) repack();
     if (moving) ask();
   }
@@ -851,7 +903,13 @@ void main() { o = texture(uT, vUV) * uA; }`;
     setProbe,
     setScan,
     /** Draws now (a mark the stage just moved, outside a label layout: the probe's ease). */
-    redraw() { if (!lost) { if (raf) { cancelFrame(raf); raf = 0; } draw(); } },
+    redraw() { if (lost) return; if (host) { ask(); return; } if (raf) { cancelFrame(raf); raf = 0; } draw(); },
+    /** Host mode: draws the labels into the host's canvas now (veins-gl top, at the end of each present). */
+    drawInto() { if (host) draw(); },
+    /** Host mode: something that decides whether the labels may be drawn over the figure changed (see check). */
+    check() { check(); },
+    /** Host mode: whether the host's canvas owes a picture with the labels. */
+    get owed() { return owed; },
     get lost() { return lost; },
     /** This frame's labels: drawn now, in the same frame as the SVG's layout. */
     sync(list) {
@@ -863,6 +921,7 @@ void main() { o = texture(uT, vUV) * uA; }`;
       last = list;
       for (const s of list) was.delete(s.g);
       for (const g of was) { g.removeAttribute('data-gl'); const st = sprites.get(g); if (st) { packer.free(st.slot); sprites.delete(g); } live.delete(g); }
+      if (host) { ask(); return; }
       if (raf) { cancelFrame(raf); raf = 0; }
       draw();
     },

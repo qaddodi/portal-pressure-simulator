@@ -48,7 +48,7 @@ test('the SVG copy is see-through only while the GPU draws that label, marked in
 });
 
 test('stage.js hands the GPU every label it laid out, in the same frame, and the script fades', () => {
-  assert.match(STAGE, /const labelGL = createLabelGL\(labelSvg, gLabels, \{ software: SOFTWARE, off: \/\[\?&\]gpulabels=0\\b\/\.test\(location\.search\), marks: \[gLeaders, gScan\] \}\);/);
+  assert.match(STAGE, /const labelGL = createLabelGL\(labelSvg, gLabels, \{ software: SOFTWARE, off: \/\[\?&\]gpulabels=0\\b\/\.test\(location\.search\), marks: \[gLeaders, gScan\], host: labelHost, force: !!labelHost \}\);/);
   assert.match(STAGE, /b\.pos = \{ g: b\.g, x: \+it\.x\.toFixed\(1\), y: \+\(it\.rot \? it\.y \+ it\.w : it\.y\)\.toFixed\(1\), rot: !!it\.rot \};/);
   assert.match(STAGE, /dprobePaint\(\);\n\s+labelPainted = true;\n\s+labelGlSync\(\);/, 'last, after the probe is placed');
   for (const m of STAGE.matchAll(/b\.g\.animate\?\.\(/g)) assert.match(STAGE.slice(m.index, m.index + 260), /labelGL\?\.hold\(b\.g, /, 'a scripted fade is held');
@@ -72,7 +72,7 @@ test('leaders and dots: straight leaders and circles are drawn on the GPU, anyth
 });
 
 test('the leaders\' and the FibroScan callout\'s layers go to the GPU with the labels, their SVG copies hidden but still fading', () => {
-  assert.match(STAGE, /marks: \[gLeaders, gScan\] \}\);/);
+  assert.match(STAGE, /marks: \[gLeaders, gScan\], host: labelHost, force: !!labelHost \}\);/);
   assert.match(CSS, /#labels :is\(\.lb-leaders, \.lb-scan\) > \[data-gl\] \{ visibility: hidden; \}/);
   assert.match(STAGE, /el\.animate\?\.\(\[\{ opacity: 0 \}, \{ opacity: 1 \}\], \{ duration: 350, delay: wait, easing: 'ease-out', fill: 'backwards' \}\); labelGL\?\.hold\(el, wait \+ 350\); \}/);
   assert.match(LGL, /float span\(float x, float a, float b\)/);
@@ -146,4 +146,26 @@ test('labels draw as one instanced batch from the atlas, texel for texel', () =>
   assert.match(LGL, /gl\.texSubImage2D\(gl\.TEXTURE_2D, 0, st\.slot\.x, st\.slot\.y/);
   assert.match(LGL, /for \(const run of batchRuns\(items\)\)/);
   assert.match(LGL, /maxPages: 2/);
+});
+
+test('with the overlays on the GPU the labels go into the vessel canvas, only while nothing lies between the two', () => {
+  const VG = readFileSync(new URL('../src/ui/veins-gl.js', import.meta.url), 'utf8');
+  // (At the end of each picture laid; a snapshot is the figure alone, then laid again whole as it shows.)
+  assert.match(VG, /function present\(top = true\) \{/);
+  assert.match(VG, /if \(top && onTop\) \{\n\s+try \{ onTop\(\); \}/);
+  assert.match(VG, /snapshot\(\) \{ present\(false\); const url = canvas\.toDataURL\('image\/png'\); if \(onTop\) present\(\); return url; \}/);
+  assert.match(STAGE, /const labelHost = OVER_ON && veins\?\.top && !\/\[\?&\]labelhost=0\\b\/\.test\(location\.search\) \? \{/);
+  assert.match(STAGE, /if \(labelHold \|\| !veins \|\| veins\.lost \|\| !svgOver\?\.classList\.contains\(OVER_ALL\) \|\| !glass\.hidden \|\| fading\(vCanvas\)\) return false;/);
+  assert.match(STAGE, /wc\.contains\('cam-move'\) \|\| wc\.contains\('pinch-hide'\) \|\| wc\.contains\('unframed'\) \|\| wc\.contains\('in-lobule'\) \|\| wc\.contains\('cath-on'\)\) return false;/);
+  assert.match(STAGE, /if \(vdpr < vBase - 1e-9 \|\| vCanvas\.style\.translate \|\| !\(boxW > 0\) \|\| Math\.abs\(vCanvas\.width \/ boxW - \(devicePixelRatio \|\| 1\)\) > 0\.02\) return false;/);
+  assert.match(STAGE, /\+lc\.opacity >= 0\.999 && vc\.visibility === 'visible' && \+vc\.opacity >= 0\.999;/);
+  assert.match(STAGE, /veins\.top\.set\(\(\) => labelGL\.drawInto\(\)\);/);
+  for (const t of ['wrap, { attributes: true, attributeFilter: \\[\'class\'\\] }', 'glass, { attributes: true, attributeFilter: \\[\'hidden\'\\] }', 'vCanvas, { attributes: true, attributeFilter: \\[\'style\', \'width\', \'height\'\\] }']) assert.match(STAGE, new RegExp(`labelMo\\.observe\\(${t}\\);`));
+  // (Given back to the SVG in the same task as the picture is laid without them; none laid again while they stay there.)
+  assert.match(LGL, /if \(!released\) \{ if \(!host\.active\(\)\) \{ host\.now\(\); if \(!released\) release\(\); \} return; \}/);
+  assert.match(LGL, /if \(host\) \{ if \(released && !host\.active\(\)\) return; owed = true; host\.ask\(\); return; \}/);
+  assert.match(LGL, /let owed = false, released = true;/);
+  assert.match(LGL, /if \(!host\.active\(\)\) \{ if \(!released\) release\(\); return; \}/);
+  // (The host's GL state as its own passes expect to find it.)
+  assert.match(LGL, /if \(host\) \{\n\s+gl\.disable\(gl\.BLEND\); gl\.bindVertexArray\(null\); gl\.useProgram\(null\);/);
 });

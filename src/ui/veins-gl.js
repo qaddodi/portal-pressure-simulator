@@ -1681,7 +1681,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
   // is the canvas, as ever. Every size inside reads PW() and PH().
   let up = null, upLin = false;   // (upLin: the picture upscaled by a plain filtered copy, not Sharper upscaling's filter: setPicture)
   // (overM: the figure's transform as last given to draw or drawRows, before whole(): the overlays are drawn at it.)
-  let overM = null, overCss = 1, overSnap = false;   // (overCss: device px per CSS px, set by the stage: overlay.cssPx; overSnap: overlay.snap)
+  let overM = null, overCss = 1, overSnap = false, onTop = null;   // (overCss: device px per CSS px, set by the stage: overlay.cssPx; overSnap: overlay.snap)
   const PW = () => (up ? up[0] : canvas.width), PH = () => (up ? up[1] : canvas.height);
   const pcx = gl.getExtension('KHR_parallel_shader_compile');
   let started;
@@ -2401,7 +2401,8 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
     return true;
   }
   // The kept picture onto the canvas, every pixel, as it is (no scaling, no filtering).
-  function present() {
+  // (top: with what is drawn over the figure in this canvas, the labels; false for a picture of the figure alone, snapshot.)
+  function present(top = true) {
     if (!own?.w || lost) return;
     // (A canvas resized since the last picture holds nothing current: it is drawn whole by the next composite, which sizes the kept
     // picture first. Copied before that, the old picture would land in a corner of the new canvas.)
@@ -2416,6 +2417,11 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
       gl.bindFramebuffer(gl.FRAMEBUFFER, null);
     }
     overLay();
+    // (What is drawn over the figure in this canvas, the labels (label-gl's host): on every picture laid, as the overlays are.)
+    if (top && onTop) {
+      try { onTop(); } catch (e) { console.warn('Veins renderer: what is drawn over the figure failed.', e); onTop = null; }
+      gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    }
   }
   // The overlays over what present just laid: their stack drawn again first if anything in it changed (organs-gl render), at the
   // canvas's size under the view the vessels were last drawn in (the figure's own transform, before whole() rounds it), scaled to it.
@@ -3007,6 +3013,8 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
      * every present, at the canvas's own size; with none, nothing is laid. `stale`: something they paint changed since they were
      * last drawn (a present then draws them again).
      */
+    /** The canvas's own context for what is drawn over the figure in it (label-gl's host): set(fn), called at the end of each present. */
+    top: ownBuf ? { gl, canvas, set(fn) { onTop = fn || null; } } : null,
     overlay: overOK ? {
       set(groups, names) {
         if (!over && groups?.size && !lost) over = createOrganStack(gl, { painter: stack.painter });
@@ -3351,7 +3359,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
     onPicture(f) { onPicture.add(f); return () => onPicture.delete(f); },
     clear() { pictured(); if (own?.w) { gl.bindFramebuffer(gl.FRAMEBUFFER, own.fbo); gl.viewport(0, 0, own.w, own.h); gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT); } gl.bindFramebuffer(gl.FRAMEBUFFER, null); gl.viewport(0, 0, canvas.width, canvas.height); gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT); nCells = nBlood = nGen = nSimple = 0; baseM = null; fboOK = false; },
     /** The current picture as a PNG data URL (call right after draw, in the same task). */
-    snapshot() { present(); return canvas.toDataURL('image/png'); },
+    snapshot() { present(false); const url = canvas.toDataURL('image/png'); if (onTop) present(); return url; },   // (the figure alone; then laid again whole, as it shows)
     /**
      * The canvas holding the whole current picture, for a reader that takes it in this same task (a download, a handout, the glass'
      * copy, drawImage, createImageBitmap, toDataURL): the kept picture is copied onto it first, so the reader

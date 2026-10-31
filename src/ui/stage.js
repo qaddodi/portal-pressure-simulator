@@ -35,21 +35,21 @@ import { createRouter } from './circuit-router.js?v=0ee9e02fc6';
 import { gpuProbe, COUNTED } from './gpu-probe.js?v=b5449b0040';
 import { plateStrips, premultiply, gutStep, viewReuse, copyPixels, noteStripRead, stripPx } from './plate-upload.js?v=ea6a71d855';
 import { refine } from './refine.js?v=26ff46e269';
-import { fadeOver, fadeStop } from './res-fade.js?v=0c2ee70982';
+import { fadeOver, fadeStop, fading } from './res-fade.js?v=0c2ee70982';
 import { leftAlone, sinceInput } from './quiet.js?v=82fc0f97e3';
 import { cropToGrid } from './organs-gl.js?v=ac62b354a5';
 import { readGroup, shapeSource, bindShape, targetRoom, mul, elMat } from './organ-paint.js?v=ec1b2afbc1';
 import { overUnits, overRun, needsReread, netChanges, OVER_CLASS, OVER_ALL } from './stage-over.js?v=f364156fef';
 import { pathCmds, flattenCmds, polyBox } from './shape-gl.js?v=a5ba46162b';
-import { createLabelGL } from './label-gl.js?v=225e7ad808';
+import { createLabelGL } from './label-gl.js?v=0bfe1bb986';
 import { createGlassGL } from './glass-gl.js?v=e58605e60d';
-import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, ORIGIN_GREY } from './veins-gl.js?v=7d1a5b0f68';
+import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, ORIGIN_GREY } from './veins-gl.js?v=3eb910876c';
 import { varixBead, beadRadius } from './varix-bead.js?v=ac0e84fd89';
 import { LOOK_SITE, varixSize, varixHold, varixWidthK, varixSpreadK, varixOpacity } from './varix-look.js?v=6656962d05';
 import { advanceStream, createReversalHold, bleedShapes, stepBleedFade, fadeBleedShapes, chevFlowLevel, keyChevron, KEY_CHEV_LANES, originFractions, oxygenFor, ORIGIN_N, createBolus, DYE_BINS, KAPPA, STASIS_MIN_D, HIDDEN_SECONDS } from './blood.js?v=300b3b5267';
 import { retireRows } from './flow-rows.js?v=bea4089714';
 import { createJunctionWidths } from './junction-widths.js?v=c5726a67f9';
-import { frameFor, lateFrameFor, cancelFrame, noteDraw, setSaver as setFrameSaver, paceMs, renderScale, renderSetting, onRenderScale, figOpt, figLab, onFigLab, MOTION60_MS, PINCH_LOW_K } from './frame.js?v=9e0c25a14c';
+import { frameFor, lateFrameFor, cancelFrame, finalFrameFor, framePhase, noteDraw, setSaver as setFrameSaver, paceMs, renderScale, renderSetting, onRenderScale, figOpt, figLab, onFigLab, MOTION60_MS, PINCH_LOW_K } from './frame.js?v=9e0c25a14c';
 import { softwareYield } from './sw-yield.js?v=e580a095b1';
 import { portalSplit } from './table-marks.js?v=bca5ebb624';
 import { hashSeed, clotSide, clotSpan, clotRadius, clotShift, clotLayers, CLOT_EDGE } from './clot-shape.js?v=415ba6b9c0';
@@ -2298,7 +2298,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const lzAnchor = document.createComment('lobule');
   wrap.append(lzAnchor);
   // (The code is fetched as soon as the figure is shown; the layer is built a moment later, when the page is quiet, or at once for a dive.)
-  const lobuleCode = () => (lzCode ||= import('./lobule-zoom.js?v=ef101b0114').catch((err) => { lzCode = null; throw err; }));
+  const lobuleCode = () => (lzCode ||= import('./lobule-zoom.js?v=95db55235f').catch((err) => { lzCode = null; throw err; }));
   function lobuleReady() {
     return (lzLoad ||= lobuleCode().then(({ createLobuleZoom }) => {
       lz = createLobuleZoom({ host: wrap, styles: wrapCS, before: lzAnchor });
@@ -2431,7 +2431,12 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   }
   function easeRes() {
     // (The kept picture is copied onto the canvas before each read of it: the canvas keeps none of its own between frames.)
-    if (glM && !(lz?.isOpen() || lz?.covers()) && !diveOrig) { fadeOver(vCanvas, resFollow, () => veins?.present?.()); fadeM0 = [...glM]; }
+    if (glM && !(lz?.isOpen() || lz?.covers()) && !diveOrig) {
+      // (The picture kept for the fade is the figure without the labels: they go back to the SVG first, labelsOver.)
+      labelHold = true;
+      try { labelGL?.check(); fadeOver(vCanvas, resFollow, () => veins?.present?.()); } finally { labelHold = false; }
+      fadeM0 = [...glM];
+    }
     resizeCanvas();
   }
   // (The canvas's share of its pixels: the setting (or Auto's step), While moving's share during a move, Adapt's step, and at most
@@ -8053,8 +8058,40 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   labelSvg.append(gLeaders, gScan, gLabels);
   // The labels' words and pills, their leaders and dots drawn on the GPU (label-gl.js), the SVG kept as their model; the SVG draws them itself on a software
   // renderer, without WebGL2, with ?gpulabels=0, or once the GPU's context is lost.
-  const labelGL = createLabelGL(labelSvg, gLabels, { software: SOFTWARE, off: /[?&]gpulabels=0\b/.test(location.search), marks: [gLeaders, gScan] });
-  wrap.dataset.labels = labelGL ? 'gpu' : 'svg';
+  // Where the vessels and the overlays are drawn on the GPU, the labels are drawn into the same canvas, over them, at the end of each
+  // picture laid (veins-gl top), instead of on a canvas of their own: one screen-sized layer fewer for the page to composite on every
+  // frame. Only while nothing the page draws lies between the two (labelsOver); otherwise, and for a moment around each change, the
+  // SVG draws every label. ?labelhost=0 keeps their own canvas.
+  let labelHold = false, labelAsk = 0;
+  const labelLate = finalFrameFor('labels');
+  const labelNow = () => { if (veins && !veins.lost) veins.present(); };
+  const labelHost = OVER_ON && veins?.top && !/[?&]labelhost=0\b/.test(location.search) ? {
+    gl: veins.top.gl, canvas: veins.top.canvas, now: labelNow,
+    // (In the frame's last phase the picture is laid at once: one asked for then would wait for the next frame.)
+    ask() { if (framePhase() === 'final') labelNow(); else if (!labelAsk) labelAsk = labelLate(() => { labelAsk = 0; if (labelGL?.owed) labelNow(); }); },
+    active: () => labelsOver(),
+  } : null;
+  // (The overlays all on the GPU (their SVG composited at nothing), the liver card's pane hidden, no resolution fade, the canvas at the
+  // screen's density and not moved by a sub-pixel rest, neither it nor the labels' layer faded, hidden or about to fade.)
+  function labelsOver() {
+    if (labelHold || !veins || veins.lost || !svgOver?.classList.contains(OVER_ALL) || !glass.hidden || fading(vCanvas)) return false;
+    const wc = wrap.classList;
+    if (!wc.contains('gl-on') || wc.contains('cam-move') || wc.contains('pinch-hide') || wc.contains('unframed') || wc.contains('in-lobule') || wc.contains('cath-on')) return false;
+    if (vdpr < vBase - 1e-9 || vCanvas.style.translate || !(boxW > 0) || Math.abs(vCanvas.width / boxW - (devicePixelRatio || 1)) > 0.02) return false;
+    const lc = getComputedStyle(labelSvg), vc = getComputedStyle(vCanvas);
+    return lc.display !== 'none' && lc.visibility === 'visible' && +lc.opacity >= 0.999 && vc.visibility === 'visible' && +vc.opacity >= 0.999;
+  }
+  const labelGL = createLabelGL(labelSvg, gLabels, { software: SOFTWARE, off: /[?&]gpulabels=0\b/.test(location.search), marks: [gLeaders, gScan], host: labelHost, force: !!labelHost });
+  if (labelGL && labelHost) {
+    veins.top.set(() => labelGL.drawInto());
+    // (What decides it changed: the labels given back at once when they may no longer be drawn there, label-gl check.)
+    const labelMo = new MutationObserver(() => labelGL.check());
+    labelMo.observe(wrap, { attributes: true, attributeFilter: ['class'] });
+    labelMo.observe(glass, { attributes: true, attributeFilter: ['hidden'] });
+    labelMo.observe(vCanvas, { attributes: true, attributeFilter: ['style', 'width', 'height'] });
+    if (svgOver) labelMo.observe(svgOver, { attributes: true, attributeFilter: ['class'] });
+  }
+  wrap.dataset.labels = labelGL ? (labelHost ? 'gpu-host' : 'gpu') : 'svg';
   const labelGlSync = () => { if (labelGL) labelGL.sync([...pool.values()].filter((b) => b.pos).map((b) => b.pos)); };
   const FONT = 'Inter, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif';
   const measure = document.createElement('canvas').getContext('2d');
