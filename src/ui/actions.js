@@ -5,13 +5,13 @@
 
 import { EDGES, NODES, SHUNT_PORTAL, SHUNT_SYSTEMIC, dMinOf, edgePresent, isStent, stentSite } from '../engine/topology.js?v=4044766e96';
 import { dopplerVel, flowReversed } from './velNormal.js?v=97920ddf3f';
-import { store, updateParams, hiddenNow } from './store.js?v=a926bea9d4';
-import { fmt, fmtFlow, clamp } from './util.js?v=80c7abd296';
-import { PREGNANCY_INFO } from '../engine/scenario.js?v=d7d3ea5b70';
-import { aboutVessel, aboutOrgan } from './about.js?v=17892cb763';
-import { lobuleState } from './lobule-model.js?v=5f84f67069';
-import { oxygenFor } from './blood.js?v=a4bf4f2a03';
-import { LABEL_VESSEL, SIN_EDGES } from './anatomy.js?v=15d6102c13';
+import { store, updateParams, hiddenNow } from './store.js?v=3611054974';
+import { fmt, fmtFlow, clamp } from './util.js?v=ca062f41e6';
+import { PREGNANCY_INFO } from '../engine/scenario.js?v=bcedeba324';
+import { aboutVessel, aboutOrgan } from './about.js?v=cd0facc20a';
+import { lobuleState } from './lobule-model.js?v=668c7f52ac';
+import { oxygenFor } from './blood.js?v=acc95c9bbc';
+import { LABEL_VESSEL, SIN_EDGES } from './anatomy.js?v=e20e751129';
 
 export const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
 export const NI = Object.fromEntries(NODES.map((n, i) => [n.id, i]));
@@ -196,8 +196,11 @@ function varixVerbs(site, ctx) {
   const out = [];
   if (eso) out.push({ type: 'button', id: 'band', label: 'Band', icon: 'band', run: () => { ctx.action({ kind: 'band' }); }, note: (f) => (f.bands ? `${Math.round(f.bands)} band${f.bands >= 1.5 ? 's' : ''} placed` : null) });
   out.push({ type: 'button', id: 'endoscope', label: 'Endoscope', icon: 'endoscope', run: () => { ctx.paneApi('endoscopy')?.setView?.('eso'); ctx.showPane('endoscopy'); } });
-  const key = eso ? 'balloonEso' : 'balloonGas';
-  out.push({ type: 'toggle', id: 'balloon', key, label: eso ? 'Esophageal balloon' : 'Gastric balloon', icon: 'balloon', get: (p) => !!p[key], set: (p, v) => { p[key] = v; }, hist: eso ? 'Esophageal balloon' : 'Gastric balloon' });
+  // The tamponade tube. Its gastric balloon is the first step: filled in the stomach, the tube drawn up so it seats against the cardia.
+  // The esophageal balloon is the second, filled only if that does not hold, and only on a tube whose gastric balloon is up: switching it on
+  // brings the gastric one with it, and letting the gastric one down lets the esophageal one down first.
+  out.push({ type: 'toggle', id: 'balloon-gas', key: 'balloonGas', label: 'Gastric balloon', icon: 'balloon', get: (p) => !!p.balloonGas, set: (p, v) => { p.balloonGas = v; if (!v) p.balloonEso = false; }, hist: 'Gastric balloon' });
+  if (eso) out.push({ type: 'toggle', id: 'balloon', key: 'balloonEso', label: 'Esophageal balloon', icon: 'balloon', get: (p) => !!p.balloonEso, set: (p, v) => { p.balloonEso = v; if (v) p.balloonGas = true; }, hist: 'Esophageal balloon' });
   return out;
 }
 

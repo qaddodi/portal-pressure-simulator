@@ -34,15 +34,15 @@
 import { CHEV_GLSL } from './chevron-glsl.js?v=96ec7c6666';
 import { LIGHT } from './light.js?v=f0c4eefb81';
 import { EDGE_GLSL } from './edge.js?v=8321a8017f';
-import { SLOT, DYE_BINS } from './blood.js?v=a4bf4f2a03';
-import { cssRGB } from './util.js?v=80c7abd296';
-import { LUMEN, STO_Y0, STO_DY, STO_N } from './stomach-lumen.js?v=daf22d4fbe';
+import { SLOT, DYE_BINS } from './blood.js?v=acc95c9bbc';
+import { cssRGB } from './util.js?v=ca062f41e6';
+import { LUMEN, STO_Y0, STO_DY, STO_N } from './stomach-lumen.js?v=c90f146780';
 import { CELL, ENT_W, binVeins, splitRows, simpleCells, splitCells, cellsOfJoinEntries } from './veins-bin.js?v=7eb5e277a6';
 import { gpuProbe, COUNTED } from './gpu-probe.js?v=9832eccfbe';
 import { changedRows } from './flow-rows.js?v=bea4089714';
 import { leftAlone } from './quiet.js?v=82fc0f97e3';
 import { PUBLISH_QUIET_MS } from './gl-compile.js?v=5c4cd6c14c';
-import { createOrganStack } from './organs-gl.js?v=9010623a59';
+import { createOrganStack } from './organs-gl.js?v=ab917f2876';
 import { fusedVS, fusedFS } from './veins-fuse.js?v=892ef12160';
 import { NOISE_W, NOISE_H, NOISE_PER_ROW, OCTAVES, noiseBlock, blockAt, tableSize } from './blood-noise.js?v=bc65994b25';
 

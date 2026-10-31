@@ -7,6 +7,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { easeIO3, EASE_IO3 } from '../src/ui/pill-motion.js';
+import { easeMove, EASE_MOVE } from '../src/ui/ease.js';
 
 const read = (p) => readFileSync(new URL(p, import.meta.url), 'utf8');
 const main = read('../src/ui/main.js');
@@ -19,12 +20,11 @@ test('the pill and the bars move over the sinusoid zoom\'s own time and curve', 
   const zoom = lz.match(/ms = \(reduce\.matches \? 280 : on \? (\d+) : (\d+)\)/);
   assert.ok(zoom, 'the sinusoid zoom times');
   assert.match(main, new RegExp(`const PILL_IN = ${zoom[1]}, PILL_OUT = ${zoom[2]};`), 'the pill takes the zoom\'s times, in and out');
-  // The same cubic ease in and out as the zoom (easeIO), and the CSS crossfade and the fold on its cubic-bezier.
-  assert.ok(lz.includes('const easeIO = (u) => (u < 0.5 ? 4 * u * u * u : 1 - (-2 * u + 2) ** 3 / 2);'));
-  const easeIO = (u) => (u < 0.5 ? 4 * u * u * u : 1 - (-2 * u + 2) ** 3 / 2);
-  for (let u = 0; u <= 1; u += 0.05) assert.equal(easeIO3(u), easeIO(u));
-  assert.equal(EASE_IO3, 'cubic-bezier(.65, 0, .35, 1)');
-  assert.ok(css.includes(':is(.nb-views, .sin-views).vp-glide #viewSeg button { transition-duration: var(--vp-ms, .95s); transition-timing-function: cubic-bezier(.65, 0, .35, 1); }'));
+  // The same ease as the zoom (easeIO, the camera's quintic, ease.js), and the CSS crossfade and the fold on its bezier (--ease-move).
+  assert.ok(lz.includes('const easeIO = easeMove;'));
+  for (let u = 0; u <= 1; u += 0.05) assert.equal(easeIO3(u), easeMove(u));
+  assert.equal(EASE_IO3, EASE_MOVE);
+  assert.ok(css.includes(':is(.nb-views, .sin-views).vp-glide #viewSeg button { transition-duration: var(--vp-ms, var(--d-camera)); transition-timing-function: var(--ease-move); }'));
   // One step moves both, from one clock: the dock first, then the pill read against it, every frame.
   const m = fn('sinMotion');
   assert.match(m, /ms = intoSin \? PILL_IN : PILL_OUT, t0 = performance\.now\(\)/);

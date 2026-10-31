@@ -48,7 +48,7 @@ test('every canvas the copy needs is checked; a refusal drops the copy, never sh
 
 test('landed, the copy goes and the layers show as drawn; a softer copy fades into them; the copy goes on release and on a new framing', () => {
   assert.match(lz, /if \(wide && !rim\) dropWide\(true\);/);
-  assert.match(lz, /if \(ease && w\.soft && !reduce\.matches\) \{[^\n]*w\.el\.style\.transition = 'opacity 320ms var\(--ease\)'; w\.el\.style\.opacity = '0';/, 'never a snap to the sharp picture');
+  assert.match(lz, /if \(ease && w\.soft && !reduce\.matches\) \{[^\n]*w\.el\.style\.transition = `opacity \$\{D_SMALL\}ms var\(--ease\)`; w\.el\.style\.opacity = '0';/, 'never a snap to the sharp picture');
   assert.match(lz, /diveRim = rim && !wide \?/, 'no second copy of the tissue while the wide copy shows');
   assert.match(lz, /if \(wide\) \{ for \(const e of WIDE_HIDE\) e\.style\.visibility = 'hidden'; wide\.el\.style\.visibility = ''; \}/);
   assert.match(lz, /function release\(\) \{\n\s+dropWide\(\);/);

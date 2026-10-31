@@ -37,7 +37,7 @@ test('the gut organs, hidden while the gut\'s picture shows, build no mask or cl
 });
 
 test('the caudate\'s veins build no mask once the lobe has faded out and hidden, and get it back as it fades in', () => {
-  assert.match(css, /\.caud \{ opacity: 0; visibility: hidden;[^\n]*visibility 0s \.7s; \}/);
+  assert.match(css, /\.caud \{ opacity: 0; visibility: hidden;[^\n]*visibility 0s var\(--d-surface\); \}/);
   assert.match(css, /\.caud\.gone \.caud-veins \{ mask: none; \}/);
   assert.match(stage, /clearTimeout\(goneT\);\n\s+if \(on\) g\.classList\.remove\('gone'\); else goneT = setTimeout\(\(\) => g\.classList\.add\('gone'\), 760\);/);
   assert.match(stage, /const veinsG = s\('g', \{ mask: 'url\(#caudMask\)', class: 'caud-veins' \}\);/);

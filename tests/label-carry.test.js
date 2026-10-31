@@ -107,7 +107,7 @@ test('carryAbort and driftEnd, run on their own source: the usual fade begins, o
 });
 
 test('the leaders\' layer eases out while a move carries the labels; the names themselves are untouched', () => {
-  assert.match(css, /\.lb-leaders \{ transition: opacity \.25s var\(--ease\); \}\n\.stage-view\.lb-ride \.lb-leaders \{ opacity: 0; \}/);
+  assert.match(css, /\.lb-leaders \{ transition: opacity var\(--d-small\) var\(--ease\); \}\n\.stage-view\.lb-ride \.lb-leaders \{ opacity: 0; \}/);
   assert.doesNotMatch(css, /lb-ride[^\n]*(#labels\b|#labelGl|lb-glass)/, 'only the leaders; the label layer and its glass stay');
   // (A presenter's other moves still fade the whole label layer.)
   assert.match(css, /\.stage-view\.cam-move > #labels, \.stage-view\.cam-move > #labelGl, \.stage-view\.cam-move \.lb-glass \{ opacity: 0; \}/);

@@ -1,7 +1,8 @@
 // "Why?" popover (blueprint §9.3): one causal sentence, a contribution waterfall and the formula.
 
-import { host } from './host.js?v=8915961b06';
-import { h, fmt, svgIcon, visibleBottom } from './util.js?v=80c7abd296';
+import { host } from './host.js?v=06b55f7a94';
+import { h, fmt, svgIcon, visibleBottom } from './util.js?v=ca062f41e6';
+import { D_SMALL, EASE_ARRIVE, EASE_MOVE } from './ease.js?v=387660d4ad';
 
 export function createWhy(pop) {
   let openFor = null, anchorEl = null;
@@ -54,9 +55,9 @@ export function createWhy(pop) {
     // rather than the card jumping to a new size (P20).
     const h1 = pop.offsetHeight;
     if (pop.animate && h0 && Math.abs(h1 - h0) > 1 && !matchMedia('(prefers-reduced-motion: reduce)').matches) {
-      pop.animate([{ height: `${h0}px`, top: t0, overflow: 'hidden' }, { height: `${h1}px`, top: pop.style.top, overflow: 'hidden' }], { duration: 240, easing: 'cubic-bezier(.65, 0, .35, 1)' });
+      pop.animate([{ height: `${h0}px`, top: t0, overflow: 'hidden' }, { height: `${h1}px`, top: pop.style.top, overflow: 'hidden' }], { duration: D_SMALL, easing: EASE_MOVE });
     }
-    for (const k of pop.children) if (k.tagName !== 'HEADER') k.animate?.([{ opacity: 0 }, { opacity: 1 }], { duration: 200, easing: 'cubic-bezier(.2, .8, .2, 1)' });
+    for (const k of pop.children) if (k.tagName !== 'HEADER') k.animate?.([{ opacity: 0 }, { opacity: 1 }], { duration: D_SMALL, easing: EASE_ARRIVE });
   }
   // It fades out as it came in (it vanished in one frame: P20).
   let leaveT = 0;

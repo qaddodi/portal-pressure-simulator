@@ -36,7 +36,7 @@ test('the live organs grey through their own colours and dim through the groups\
   assert.match(stage, /for \(const g of greyList\) g\.el\.style\.setProperty\(g\.p, greyOf\(g\.c, sat\), 'important'\);/);
   assert.match(stage, /if \(!greyList\) \{ greyFilter = true; for \(const g of \[gOrgans, gBackdrop\]\) g\.setAttribute\('filter', 'url\(#organDim\)'\); \}/, 'only when a colour cannot be read');
   assert.match(stage, /const a = String\(organMorphA \* organDimA\), tr = organDimA !== 1 \? 'none' : '';\n\s+for \(const g of \[gOrgans, gBackdrop\]\) \{\n\s+if \(g\.style\.transition !== tr\) g\.style\.transition = tr;\n\s+if \(g\.style\.opacity !== a\) g\.style\.opacity = a;/, 'the dim times the morph\'s fade, set at once: the groups\' .5 s opacity transition would flash the undimmed organs');
-  assert.match(app, /#organs \{ transition: opacity \.5s var\(--ease\); \}/, 'the transition the dim turns off');
+  assert.match(app, /#organs \{ transition: opacity var\(--d-surface\) var\(--ease\); \}/, 'the transition the dim turns off');
   assert.match(stage, /organMorphA = 1 - t; paintOrganAlpha\(\);/);
   assert.doesNotMatch(app, /#organs[^{]*\{[^}]*filter:/, 'no CSS filter on the organs (it would override the attribute in Chrome)');
   assert.doesNotMatch(app, /#backdrop[^{,]*\{[^}]*filter:/);

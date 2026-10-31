@@ -1,6 +1,11 @@
 // One easing family and one duration scale for the camera and the things that arrive (combined plan M2), the same curves in CSS
 // (tokens.css --ease-move, --ease-arrive) and here.
 //
+// One motion scale (premium-feel R3): D_FLIP, D_SMALL and D_SURFACE are tokens.css --d-flip, --d-small and --d-surface in ms, and
+// EASE_ARRIVE, EASE_MOVE and EASE_IN are --ease-arrive, --ease-move and --ease-in as strings for the Web Animations API and inline
+// transitions. Nothing outside this file writes a cubic-bezier or a bare duration (tests/motion-scale.test.js reads the CSS and the
+// sources). A leave takes the step below its entrance.
+//
 // easeMove: the quintic smoothstep 6t⁵ − 15t⁴ + 10t³, for symmetric moves (the camera's glides). Its speed and its acceleration
 // both start and end at zero and change continuously, so a long glide has no catch half way, as the quadratic in-out it replaces
 // had (its acceleration flips at once at the midpoint). CSS: cubic-bezier(.5, 0, .5, 1), within 0.9 % of it.
@@ -9,6 +14,9 @@
 //
 // camMs: a camera glide's time from how far it goes on screen: 480 ms up to half a screen, then in proportion, at most 900 ms, so
 // a short pan is not slow and a move across the figure is not rushed.
+
+export const D_FLIP = 120, D_SMALL = 240, D_SURFACE = 420;   // (a state change; a word, chip, row or popover; a card, sheet, menu or lens crossfade)
+export const EASE_ARRIVE = 'cubic-bezier(.2, .8, .2, 1)', EASE_MOVE = 'cubic-bezier(.5, 0, .5, 1)', EASE_IN = 'cubic-bezier(.4, 0, 1, 1)';
 
 export const easeMove = (t) => (t <= 0 ? 0 : t >= 1 ? 1 : t * t * t * (t * (6 * t - 15) + 10));
 

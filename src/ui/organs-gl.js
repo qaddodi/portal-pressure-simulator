@@ -61,6 +61,7 @@ void main() {
 import { createShapeGL } from './shape-gl.js?v=74fff72fb9';
 import { createOrganPaint, mul } from './organ-paint.js?v=e08cf3a692';
 import { netChanged } from './idle-keys.js?v=70e26bf4a1';
+import { easeMove, D_SURFACE } from './ease.js?v=387660d4ad';
 
 /** The pixels (bytes) of live groups' pictures kept at a time on a canvas cw × ch: most of a screen, never more than 12 MB (an iPhone's budget is a few MB). */
 export const cacheBudget = (cw, ch) => Math.min(cw * ch * 4 * 0.75, 12e6);
@@ -69,9 +70,8 @@ export const cacheBudget = (cw, ch) => Math.min(cw * ch * 4 * 0.75, 12e6);
 // the same 350 ms smoothstep as a resolution change (res-fade FADE_MS) inside the organ stack alone, from what showed there before
 // (the view before where it lay, else the whole picture), so the blood over it is never mixed with a still picture of itself.
 // A view that lies inside the one before (the same pan, drawn again) takes its place at once, as before. ?viewfade=0 turns it off.
-export const VIEW_FADE_MS = 350;
+export const VIEW_FADE_MS = D_SURFACE;   // (the lens crossfade's clock, on its curve: stage.js LENS_FADE)
 const VIEW_FADE = !(typeof location !== 'undefined' && /[?&]viewfade=0\b/.test(location.search || ''));
-const smooth = (u) => (u <= 0 ? 0 : u >= 1 ? 1 : u * u * (3 - 2 * u));
 const within4 = (a, b) => b[0] >= a[0] && b[1] >= a[1] && b[0] + b[2] <= a[0] + a[2] && b[1] + b[3] <= a[1] + a[3];
 
 function program(gl, vs, fs) {
@@ -336,7 +336,7 @@ export function createOrganStack(gl, { painter: shared = null } = {}) {
       const now = performance.now(), ended = [];
       for (const L of live[1].values()) {
         if (L.from == null) continue;
-        L.k = smooth((now - L.from) / VIEW_FADE_MS);
+        L.k = easeMove((now - L.from) / VIEW_FADE_MS);
         if (L.k >= 1) ended.push(L);
         if (whole) continue;
         for (const r of L.prev ? [L.rect, L.prev.rect] : [L.rect]) {

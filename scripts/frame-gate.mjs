@@ -25,7 +25,7 @@ import { mkdirSync, writeFileSync, appendFileSync } from 'node:fs';
 import { serve } from './serve.mjs';
 import { PROFILES } from './perf-profiles.mjs';
 import { summarizeRaw, mergeRaw, longFrameLine } from '../src/ui/frame-stats.js';
-import { loadLimits, limitsFor, judgeFrames, judgeInput, frameLines, inputLines, verdictOf } from './frame-gate-lib.mjs';
+import { loadLimits, limitsFor, judgeFrames, judgeInput, frameLines, inputLines, idleLines, IDLE, verdictOf } from './frame-gate-lib.mjs';
 
 const argv = process.argv.slice(2);
 const dir = argv.find((a) => !a.startsWith('--')) || '.';
@@ -194,6 +194,14 @@ async function runProfile(name) {
       const box = await A.locator('.stage-view').boundingBox();
       const home = async () => { await A.evaluate(() => window.pps.stage.fit()); await sleep(1800); };
       const touchTo = (type, pts) => cdp.send('Input.dispatchTouchEvent', { type, touchPoints: pts.map(([x, y], id) => ({ x, y, id })) });
+
+      // (Idle: the model running, the view left alone. Not a gesture: what the page costs while nobody touches it, surface by surface, the
+      // number the laptop-heat work was blind to. Reported with its surfaces' totals; judged as any scenario is.)
+      await frameScenario(IDLE, async () => {
+        await home();
+        return recorded(A, async () => { await sleep(6000); }, 0);
+      }, 20000);
+      { const idle = res.frames.find((f) => f.name === IDLE); if (idle) for (const l of idleLines(idle.raw)) console.log(l); }
 
       // (Each run starts from the home view, so the second run of a scenario is the same gesture as the first.)
       await frameScenario('pan', async () => {

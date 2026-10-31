@@ -14,7 +14,7 @@ test('the cards start fading out, and are painted fading, before the figure chan
   for (const k of ['store.set({ focus: null', 'store.set({ colorMode: lens })', 'slideLayers(s)']) assert.ok(run.indexOf(k) > frames, k);
   // (It still runs its full length before the new words are built.)
   assert.ok(run.indexOf('await wait(Math.max(0, outMs - (performance.now() - outAt)))') > frames);
-  assert.match(src, /function wordsOut\(next\) \{[\s\S]*?return 340;/);
+  assert.match(src, /function wordsOut\(next\) \{[\s\S]*?return D_SMALL \+ 20;/);
 });
 
 test('the cards fade in only once the figure paints smoothly (after a new patient, once its organs are redrawn)', () => {
@@ -29,10 +29,10 @@ test('the cards fade in only once the figure paints smoothly (after a new patien
 test('with reduced motion the cards still fade (opacity only, no slide)', () => {
   const rm = css.slice(css.indexOf('.pz *, .pz, .app.presenting #stageView { animation: none !important; transition: none !important; }'));
   const block = rm.slice(0, rm.indexOf('\n}'));
-  assert.match(block, /\.pz > :is\(\.pz-text, \.pz-data, \.pz-panel\), \.pz-text > \*, \.pz-shade \{ transition: opacity \.3s var\(--ease\) !important; \}/);
+  assert.match(block, /\.pz > :is\(\.pz-text, \.pz-data, \.pz-panel\), \.pz-text > \*, \.pz-shade \{ transition: opacity var\(--d-small\) var\(--ease\) !important; \}/);
   assert.match(block, /\.pz > :is\(\.pz-text, \.pz-data, \.pz-panel\), \.pz-text > \.pz-leave, \.pz-shade \{ transform: none !important; \}/);
   // (The data card waits out its fade before it is hidden, reduced motion or not.)
-  assert.match(src, /data\.hidden = true; ui\?\.tools\.hide\(\); \} \}, 320\);/);
+  assert.match(src, /data\.hidden = true; ui\?\.tools\.hide\(\); \} \}, D_SMALL \+ 20\);/);
 });
 
 test('the cards are refitted and laid out at their final size while still unseen, then fade in', () => {

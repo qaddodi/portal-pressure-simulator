@@ -8,12 +8,13 @@
 // a glide is still playing is the true layout and an interrupted glide continues from where it was.
 // Nothing moves on a window resize or with reduced motion: the bar just takes its new layout.
 import { frameFor } from './frame.js?v=9d6b717149';
+import { D_FLIP, D_SMALL, EASE_ARRIVE, EASE_IN } from './ease.js?v=387660d4ad';
 const nextFrame = frameFor('topbar-motion');
 
 const ITEMS = '.tb-id, .tb-id > *, .sb-left, .sb-right, #viewSeg, #viewSeg > button, .sb-right > *, .top-right, .top-right > *';
 // Pills that grow reveal their new width from the old one instead of snapping wide.
 const GROW = '.tb-id, .top-right, #viewSeg';
-const MOVE_MS = 260, IN_MS = 220, OUT_MS = 130, EASE = 'cubic-bezier(.2,.8,.2,1)';
+const MOVE_MS = D_SMALL, IN_MS = D_SMALL, OUT_MS = D_FLIP, EASE = EASE_ARRIVE;
 
 export function initTopbarMotion() {
   const bar = document.getElementById('topbar'), app = document.getElementById('app');
@@ -116,7 +117,7 @@ export function initTopbarMotion() {
     if (pt && (Math.abs(pt.x) >= 1.5 || Math.abs(pt.y) >= 1.5)) {
       g.animate([{ transform: `translate(${-pt.x}px, ${-pt.y}px)` }, { transform: 'none' }], { duration: MOVE_MS, easing: EASE }).id = 'tbm';
     }
-    const a = g.animate([{ opacity: 1 }, { opacity: 0 }], { duration: OUT_MS, easing: 'ease-out', fill: 'forwards' });
+    const a = g.animate([{ opacity: 1 }, { opacity: 0 }], { duration: OUT_MS, easing: EASE_IN, fill: 'forwards' });
     a.id = 'tbm'; a.onfinish = a.oncancel = () => g.remove();
   }
 

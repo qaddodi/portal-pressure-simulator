@@ -27,7 +27,7 @@ test('a paused edit rolls the readouts to the new number, always ending on it (P
   assert.match(util, /c\.shown = u >= 1 \? c\.to : c\.from \+ \(c\.to - c\.from\) \* k;/);
   assert.match(dock, /countTo\(x\.val, v, t\.d, \{ eased \}\)/);
   assert.match(read('src/ui/readouts-pane.js'), /countTo\(x\.val, v, t\.d, \{ eased \}\)/);
-  assert.match(css, /\.metric \.val, \.metric \.status \{ transition: color \.3s var\(--ease\); \}/);
+  assert.match(css, /\.metric \.val, \.metric \.status \{ transition: color var\(--d-small\) var\(--ease\); \}/);
 });
 
 test('lists update in place, toasts leave through their own exit (P18, P19)', () => {
@@ -47,7 +47,7 @@ test('popovers and figure pieces fade out instead of vanishing (P20, P21, P23)',
   assert.match(css, /\.why-pop\.leaving \{ display: block;[^}]*animation: popOut/);
   assert.match(css, /\.node-dot\.off \{ opacity: 0;/);
   assert.match(read('src/ui/stage.js'), /cath\.at = null; cathFadeOut\(\); return;/);
-  assert.match(css, /\.mon\.bad \.mv \{ animation: monAlarm 1\.2s ease-in-out infinite; \}/);
+  assert.match(css, /\.mon\.bad \.mv \{ animation: monAlarm 1\.2s var\(--ease-move\) infinite; \}/);
 });
 
 test('the patient pill glides to a new name\'s width and the name crossfades (P8)', () => {

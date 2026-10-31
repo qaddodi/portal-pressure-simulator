@@ -53,7 +53,7 @@ test('the pill carries its rating, and its colour eases', () => {
   assert.match(SRC, /'data-rate': PILL_TONE\[rate\] \? rate : null/);
   assert.match(SRC, /valTone\(mk, fp, tips\), pillRate\(mk, fp, tips\)/);
   assert.match(SRC, /rich\(s\.line, s, st\?\.fp, !!st\?\.params\?\.tips\?\.on\)/);
-  assert.match(CSS, /\.pz-val\.tone \{ transition: background-color \.4s var\(--ease\), box-shadow \.4s var\(--ease\), color \.4s var\(--ease\); \}/);
+  assert.match(CSS, /\.pz-val\.tone \{ transition: background-color var\(--d-surface\) var\(--ease\), box-shadow var\(--d-surface\) var\(--ease\), color var\(--d-surface\) var\(--ease\); \}/);
   // (Rules stay outlined and plain.)
   assert.match(CSS, /\.pz-val\.cut \{ background: transparent;/);
 });

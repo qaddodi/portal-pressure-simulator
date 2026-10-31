@@ -1,24 +1,25 @@
 // Anatomical stage (blueprint §6): the figure drawn on the GPU (plate, vessels, moving blood),
 // over an SVG scene that holds the organ artwork, hit targets and overlays, and screen-space labels.
 
+import { gastricUp } from '../engine/scenario.js?v=bcedeba324';
 import { EDGES, dopplerK, NODES, PORTAL_TERRITORY, dMinOf, edgePresent, isOccluded, SHUNT_PORTAL, SHUNT_SYSTEMIC, customShuntId, isStent, stentSite, STENT_SITES, STENT_SPANS, stentGate, stentSegments } from '../engine/topology.js?v=4044766e96';
-import { route as metroRoute, RECTUM_FADE, LABEL_VESSEL, TIP_FADE, TIP_CONNECT, VIEW, VB_ANAT, VB_CIRC, ATLAS_COLUMNS, HIDDEN_EDGES, HIDDEN_NODES, ANAT_HIDDEN, ANAT_HIDDEN_NODES, CAUDATE, CONTEXT_EDGES, BACK_EDGES, IVC_EDGES, NEEDS_C3, NODE_POS, EDGE_PATH, CIRCUIT_PATH, metroPath, ORGANS, SEAM_D, ORGAN_DETAIL, BACKDROP, LIVER_INNER, LIVER_EDGES, LANE_CAPTIONS, ABDOMEN_CLIP, ABDOMEN_FLOOR, CAVITY_LOW, flankPath, abdomenOutline, cavityHalfWidths, SPLEEN_CENTER, SITES, ORGAN_LABELS, ATLAS_LABELS, SHORT, ABBR, CHIP_NODES, LIVER_SPLIT_X, CIRCUIT_ZONES, CIRCUIT_LABELS, STRANDS, STRAND_FROM, SIN_EDGES, FEEDERS, fanFeeders, CIRCUIT_TREES } from './anatomy.js?v=15d6102c13';
-import { pressureColor, deltaColor, dropColor, flowColor, heatColor, velColorOf, velocityColor, oxygenColor } from './colormap.js?v=dc7e0de1bd';
+import { route as metroRoute, RECTUM_FADE, LABEL_VESSEL, TIP_FADE, TIP_CONNECT, VIEW, VB_ANAT, VB_CIRC, ATLAS_COLUMNS, HIDDEN_EDGES, HIDDEN_NODES, ANAT_HIDDEN, ANAT_HIDDEN_NODES, CAUDATE, CONTEXT_EDGES, BACK_EDGES, IVC_EDGES, NEEDS_C3, NODE_POS, EDGE_PATH, CIRCUIT_PATH, metroPath, ORGANS, SEAM_D, ORGAN_DETAIL, BACKDROP, LIVER_INNER, LIVER_EDGES, LANE_CAPTIONS, ABDOMEN_CLIP, ABDOMEN_FLOOR, CAVITY_LOW, flankPath, abdomenOutline, cavityHalfWidths, SPLEEN_CENTER, SITES, ORGAN_LABELS, ATLAS_LABELS, SHORT, ABBR, CHIP_NODES, LIVER_SPLIT_X, CIRCUIT_ZONES, CIRCUIT_LABELS, STRANDS, STRAND_FROM, SIN_EDGES, FEEDERS, fanFeeders, CIRCUIT_TREES } from './anatomy.js?v=e20e751129';
+import { pressureColor, deltaColor, dropColor, flowColor, heatColor, velColorOf, velocityColor, oxygenColor } from './colormap.js?v=ddb18485b7';
 import { nodeJoins, sideEndScale } from './fork-joins.js?v=4c6eea81e5';
 import { nodeEnds, nodeDrawn, dotRadius, bareDots } from './circuit-nodes.js?v=1040ba0ec4';
 import { STATION_VESSEL, meanVel, velNormal, judgeFlow } from './velNormal.js?v=97920ddf3f';
-import { store, updateParams, varicesPresent, varixGrowth, shownVel } from './store.js?v=a926bea9d4';
-import { fibroReading } from './clock.js?v=73bb847dde';
-import { s, h, fmt, fmtFlow, fp, clamp, lerp, toast, systemEdge, bloodColors, restBox, translateRest, settledBox, putText, UPRIGHT_MQ } from './util.js?v=80c7abd296';
+import { store, updateParams, varicesPresent, varixGrowth, shownVel } from './store.js?v=3611054974';
+import { fibroReading } from './clock.js?v=678bfe1fb0';
+import { s, h, fmt, fmtFlow, fp, clamp, lerp, toast, systemEdge, bloodColors, restBox, translateRest, settledBox, putText, UPRIGHT_MQ } from './util.js?v=ca062f41e6';
 import { riseCentre } from './rise-path.js?v=c039cb7b49';
 import { lerpVT, camPath, blendPaths, viewsOverlap, driftEase } from './cam-arc.js?v=2e5111e648';
-import { easeMove, camMs, carryRate, carried } from './ease.js?v=7c37eab2c6';
+import { easeMove, camMs, carryRate, carried, D_SMALL, D_SURFACE, EASE_ARRIVE, EASE_IN } from './ease.js?v=387660d4ad';
 import { glideClock } from './glide-clock.js?v=220d7f875c';
 import { sinceSource } from './since-ref.js?v=ef1a818c75';
 import { clipBox, mapBox } from './fit-box.js?v=d5d6d4c60f';
 import { runFlick, FLICK } from './flick.js?v=2cf6e355ce';
 import { inlineStyles } from './svg-inline.js?v=fc17cb73fe';
-import { fluidTarget, poolFade, fluidLevel, fluidFloorAt, fluidBase } from './fluid-step.js?v=af75719b52';
+import { fluidTarget, poolFade, fluidLevel, fluidFloorAt, fluidBase } from './fluid-step.js?v=9bca7bbc89';
 import { easeTo, fluidSpring, fluidSpringFor } from './organ-ease.js?v=4ebb648131';
 import { spleenMotion } from './spleen-motion.js?v=4e87db0dbb';
 import { subpathsIn, foldOpacity, dropInvisible, mergeClipRuns, boxOutside, paintBox, maskRegionIn, maskSlot, fillMaskHead, pruneDefs } from './plate-copy.js?v=0b5acb0928';
@@ -28,7 +29,7 @@ import { flipFrom, flipAt } from './cath-flip.js?v=6b016952c4';
 import { TEXT_MIN, TEXT_MAX, rolePx, roleOf } from './type-scale.js?v=d7cca3fb73';
 import { seeded, strHash, nodularSites, nodularCells } from './liver-geo.js?v=977185f80a';
 import { diaphragmLine, diaphragmD } from './diaphragm.js?v=8012ab6b28';
-import { CIRR, smooth01, liverField, liverShrink, outlineNormals, contourNodules, morphOutline, fix1 } from './liver-morph.js?v=214809d49b';
+import { CIRR, smooth01, liverField, liverShrink, outlineNormals, contourNodules, morphOutline, fix1 } from './liver-morph.js?v=e8b73c44ea';
 import { LIVER_GEO } from './liver-geo-data.js?v=41a20a25ac';
 import { COLON_ART, BOWEL_ART, DUO_CLIPS, DUO_A, DUO_B } from './organ-art.js?v=a6a766d521';
 import { warmVisible, ringGrid, inGrid } from './warm-vis.js?v=ccf4f6f71b';
@@ -36,21 +37,21 @@ import { createRouter } from './circuit-router.js?v=0ee9e02fc6';
 import { gpuProbe, COUNTED } from './gpu-probe.js?v=9832eccfbe';
 import { plateStrips, premultiply, gutStep, viewReuse, copyPixels, noteStripRead, stripPx } from './plate-upload.js?v=ea6a71d855';
 import { refine } from './refine.js?v=010dc120b4';
-import { fadeOver, fadeStop, fading } from './res-fade.js?v=5097f31848';
+import { fadeOver, fadeStop, fading } from './res-fade.js?v=2d63c83115';
 import { LIGHT } from './light.js?v=f0c4eefb81';
 import { leftAlone, sinceInput } from './quiet.js?v=82fc0f97e3';
-import { cropToGrid } from './organs-gl.js?v=9010623a59';
+import { cropToGrid } from './organs-gl.js?v=ab917f2876';
 import { readGroup, shapeSource, bindShape, targetRoom, mul, elMat } from './organ-paint.js?v=e08cf3a692';
 import { overUnits, overRun, needsReread, netChanges, OVER_CLASS, OVER_ALL } from './stage-over.js?v=f364156fef';
 import { pathCmds, flattenCmds, polyBox } from './shape-gl.js?v=74fff72fb9';
 import { createLabelGL } from './label-gl.js?v=54f9e72ea5';
 import { createGlassGL } from './glass-gl.js?v=19e2ddf79b';
-import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, ORIGIN_GREY } from './veins-gl.js?v=9c9ee0fa65';
+import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, ORIGIN_GREY } from './veins-gl.js?v=da60303024';
 import { varixBead, beadRadius } from './varix-bead.js?v=ac0e84fd89';
 import { LOOK_SITE, varixSize, varixHold, varixWidthK, varixSpreadK, varixOpacity } from './varix-look.js?v=6656962d05';
 import { alongCurve } from './pressure-along.js?v=74c64e4286';
 import { follow2, createColourFollow } from './display-state.js?v=8d062d39dc';
-import { advanceStream, createStreamChain, displaySpeed, createReversalHold, bleedShapes, stepBleedFade, fadeBleedShapes, chevFlowLevel, keyChevron, KEY_CHEV_LANES, originFractions, oxygenFor, ORIGIN_N, createBolus, DYE_BINS, KAPPA, STASIS_MIN_D, HIDDEN_SECONDS } from './blood.js?v=a4bf4f2a03';
+import { advanceStream, createStreamChain, displaySpeed, createReversalHold, bleedShapes, stepBleedFade, fadeBleedShapes, chevFlowLevel, keyChevron, KEY_CHEV_LANES, originFractions, oxygenFor, ORIGIN_N, createBolus, DYE_BINS, KAPPA, STASIS_MIN_D, HIDDEN_SECONDS } from './blood.js?v=acc95c9bbc';
 import { retireRows } from './flow-rows.js?v=bea4089714';
 import { createJunctionWidths } from './junction-widths.js?v=c5726a67f9';
 import { frameFor, lateFrameFor, cancelFrame, noteDraw, setSaver as setFrameSaver, paceMs, renderScale, renderSetting, onRenderScale, figOpt, figLab, onFigLab, MOTION60_MS, PINCH_LOW_K } from './frame.js?v=9d6b717149';
@@ -58,7 +59,8 @@ import { softwareYield } from './sw-yield.js?v=e580a095b1';
 import { portalSplit } from './table-marks.js?v=e4c3c4f8c1';
 import { hashSeed, clotSide, clotSpan, clotRadius, clotShift, clotLayers, CLOT_EDGE } from './clot-shape.js?v=415ba6b9c0';
 import { leaderEnd as edgeOf, leaderEndRects as edgeOfRects } from './leader-end.js?v=8e884700ab';
-import { balloonShape, esoAt, smoothPath, BALLOON, BALLOON_MS } from './balloon-eso.js?v=e8b69b3217';
+import { balloonShape, esoAt, smoothPath, BALLOON, BALLOON_MS } from './balloon-eso.js?v=49e37b0228';
+import { GAS, gasShape, tubePath, tubeTip, tubeTo, pathAt, sheath, sheathArcs, pullArrow } from './balloon-gas.js?v=a8b2100832';
 import { balloonRy, balloonOutline, routeRadii } from './hvpg-balloon.js?v=35d7bb162c';
 import { outlineBox, placeSummary } from './cath-place.js?v=b5835a19ca';
 import { layoutWatch } from './idle-keys.js?v=70e26bf4a1';
@@ -71,7 +73,7 @@ import { organDimMatrix } from './organ-dim.js?v=9e19f2fc30';
 import { parseColor, greyOf, paintRef } from './organ-grey.js?v=02072c578d';
 import { encodePNG } from './png-encode.js?v=514301c9f4';
 import { bandRing, dashRings, liftEnd, normalShown, rippleList, systemOf, SYSTEM_COLOR } from './highlight-math.js?v=e2c1816e25';
-import { organAnchor, spleenCaliper, acrossVessel, stepGroups, spanOf, spanPath, zoneBand, SPAN_TICK, insideBy, clearOf, besideLine } from './callout-math.js?v=3df8dbee05';
+import { organAnchor, spleenCaliper, acrossVessel, stepGroups, spanOf, spanPath, zoneBand, SPAN_TICK, insideBy, clearOf, besideLine } from './callout-math.js?v=6a4cd6d476';
 const nextFrame = frameFor('stage');
 // The figure's render pass (animate) runs after every other callback of its frame: a glide's step, the catheter's state and its
 // camera, the labels are all set first, and the vessel layer is drawn once, as they left it.
@@ -246,7 +248,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   }
   const FADE_DOWN_Y = { C4: [892, 928], EPI_ILI: [870, 925], ILI_IVC: [800, 870], V_UP: [38, 4] };
   // The azygos trunk fades out toward its lower end: [y where the fade starts, y where it is gone].
-  // The ascending lumbar collateral (C9) comes round the liver's flank and over the dome, and joins it from the lower left at
+  // The ascending lumbar collateral (C9) climbs behind the liver and comes out above the dome, and joins it from the lower left at
   // y 108, just under where this fade starts, so the trunk fades out below the join on its own, behind the liver's dome. (A feeder listed in
   // FEEDER_CONNECTOR is drawn solid to its end while that collateral is open.)
   const FEEDER_FADE_Y = { AZY_SVC: [110, 176] };
@@ -274,7 +276,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (x.reveal) { const u = clamp((performance.now() - x.reveal.t0) / x.reveal.dur, 0, 1); k = x.reveal.out ? 1 - easeInOut(u) : easeInOut(u); }
     return k * (v.width * 2.2 + 2 * (v.wallPx || 1));
   }
-  // The ascending lumbar–azygos channel runs a smooth course of its own, round the liver's flank, so it is not coiled.
+  // The ascending lumbar–azygos channel runs a smooth course of its own, up behind the liver, so it is not coiled.
   const STRAIGHT_COLL = new Set(['C9']);
   // Veins that fade into the vessel they sink into: a linear mask [x1, y1, x2, y2, offset], from
   // solid at the offset to 30 % at the end (the caudate vein into the IVC, C5 into the renal vein).
@@ -287,6 +289,11 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const e = ALL_EDGES.find((q) => q.id === id), a = NODE_POS[e.from][0], b = NODE_POS[e.to][0];
     SIN_FADE[id] = [a[0], a[1], b[0], b[1], 0.5, 0.8, 0.36, 3];
   }
+  // The ascending lumbar collateral (C9) runs up behind the liver, so it is a faint ghost there and solid again where it comes out
+  // above the dome (Mohammad, 31 Oct: "I like behind the liver fade"): the same dip, along y, from solid under the liver's lower
+  // edge to its faintest where the lane crosses the hepatic veins, back to solid at the diaphragm (liver top y 189, diaphragm
+  // y 170). The organ's own veil (veins-gl, BACK_EDGES) comes on top of it, so behind the liver it is about a third of full.
+  SIN_FADE.C9 = [0, 520, 0, 172, 0.65, 1, 0.55, 3];
   for (const [id, fd] of Object.entries(FEEDERS)) {
     // A generated fan is a tortuous network (drawn like the variceal plexus); listed paths meander.
     const list = [...(fd.fan ? fanFeeders(fd.fan).map((x) => ({ ...x, fan: true, when: fd.fan.when, out: !!fd.fan.out })) : []), ...(fd.paths || []).map((d, i) => ({ d, k: 1, when: fd.when, src: fd.from?.[i] }))];
@@ -2402,7 +2409,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const lzAnchor = document.createComment('lobule');
   wrap.append(lzAnchor);
   // (The code is fetched as soon as the figure is shown; the layer is built a moment later, when the page is quiet, or at once for a dive.)
-  const lobuleCode = () => (lzCode ||= import('./lobule-zoom.js?v=e867508443').catch((err) => { lzCode = null; throw err; }));
+  const lobuleCode = () => (lzCode ||= import('./lobule-zoom.js?v=5b2be0f748').catch((err) => { lzCode = null; throw err; }));
   function lobuleReady() {
     return (lzLoad ||= lobuleCode().then(({ createLobuleZoom }) => {
       lz = createLobuleZoom({ host: wrap, styles: wrapCS, before: lzAnchor });
@@ -3521,7 +3528,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     jumpP.set(P);
     return big && shownCol.size > 0;
   }
-  const LENS_FADE = 300;
+  const LENS_FADE = D_SURFACE;   // (a lens crossfade is a surface step of the motion scale, ease.js; the organs' and the lobule's clocks are the same)
   const lensFading = () => !!lensFrom && performance.now() - lensT0 < LENS_FADE + 20;
   const colorCtx = veins ? document.createElement('canvas').getContext('2d') : null;
   const rgbCache = new Map();
@@ -3954,7 +3961,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         colRows.add(it.row);
       }
       if (lensFrom) {
-        const was = lensFrom.get(it.row), u = easeInOut(clamp((now - lensT0) / LENS_FADE, 0, 1));
+        const was = lensFrom.get(it.row), u = easeMove(clamp((now - lensT0) / LENS_FADE, 0, 1));
         if (was) { c0 = mix3(was[0], c0, u); c1 = mix3(was[1], c1, u); }
       }
       shownCol.set(it.row, [c0, c1]);
@@ -5081,7 +5088,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const plateEasing = () => { if (plateDim == null) return false; const [d, s, n] = plateTargets(); return d !== plateDim || s !== plateSat || n !== netA; };
   // Timed on the clock with an ease in and out (PLATE_FADE), so the organs fade to grey and back smoothly at any frame rate.
   // One clock for organs and vessels (G18): the plate eases over the vessels' own lens crossfade, from the same moment, on the
-  // same curve, as the SVG organs' filter does when the GPU plate is off (app.css: --view-fade, --ease-io).
+  // same curve (easeMove, the quintic), as the SVG organs' filter does when the GPU plate is off (app.css: --d-surface, --ease-move).
   const PLATE_FADE = LENS_FADE;
   let plateFrom = null, plateTo = null, plateT0 = 0;
   function stepPlateEase() {
@@ -5090,7 +5097,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (!plateEasing()) { plateFrom = null; return; }
     const to = plateTargets(), now = performance.now();
     if (!plateFrom || to.some((v, i) => v !== plateTo[i])) { plateFrom = [plateDim, plateSat, netA]; plateTo = to; plateT0 = lensFrom && now - lensT0 < 60 ? lensT0 : now; }
-    const u = easeInOut(clamp((now - plateT0) / PLATE_FADE, 0, 1));
+    const u = easeMove(clamp((now - plateT0) / PLATE_FADE, 0, 1));
     [plateDim, plateSat, netA] = u >= 1 ? to : plateFrom.map((v, i) => v + (to[i] - v) * u);
     if (u >= 1) plateFrom = null;
     syncPlateLook(); veinsDirty = true;
@@ -7543,15 +7550,15 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   }
   // When the procedure ends or is cancelled the catheter, its balloon and its labels fade out instead of vanishing in one frame
   // (MOTION_HEAT_REVIEW P21). A new catheter meanwhile ends the fade at once.
-  // The catheter fades over .22 s. The readings leave as every reading does (cathLabels: cath-pre, cath-out): each label's own children
+  // The catheter fades over a small step (240 ms). The readings leave as every reading does (cathLabels: cath-pre, cath-out): each label's own children
   // fade, so its glass, drawn on the GPU from the glass element's own opacity (glass-gl.js), fades with its words. A fade of the whole
   // layer was one that glass could not follow: the pills stayed solid after their words had gone.
-  const CATH_OUT_MS = 220, READING_OUT_MS = 450;
+  const CATH_OUT_MS = D_SMALL, READING_OUT_MS = D_SMALL + 100;
   let cathFade = null;
   function cathFadeOut() {
     const gs = veins?.canCath ? cathLast : null, anims = [];
     for (const el of cath.made?.values() || []) el.classList.add('cath-pre', 'cath-out');
-    if (cath.g.style.display !== 'none' && cath.g.animate) anims.push(cath.g.animate([{ opacity: 1 }, { opacity: 0 }], { duration: CATH_OUT_MS, easing: 'cubic-bezier(.4, 0, 1, 1)', fill: 'forwards' }));
+    if (cath.g.style.display !== 'none' && cath.g.animate) anims.push(cath.g.animate([{ opacity: 1 }, { opacity: 0 }], { duration: CATH_OUT_MS, easing: EASE_IN, fill: 'forwards' }));
     const me = { raf: 0, done: null, cleared: false }, t0 = performance.now();
     // The catheter itself: gone once its fade has run.
     const catheterGone = () => {
@@ -7948,7 +7955,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (same(m.cur, want)) return;
     const els = () => [...ov.clamps.querySelectorAll(`.clamp-label[data-id="${id}"]`)];
     m.busy = true;
-    const dur = reduceMotion.matches ? 0 : 260;
+    const dur = reduceMotion.matches ? 0 : D_SMALL;
     for (const el of els()) el.animate?.([{ opacity: getComputedStyle(el).opacity }, { opacity: 0 }], { duration: dur, fill: 'forwards' });
     setTimeout(() => {
       m.cur = m.want; m.busy = false;
@@ -7998,63 +8005,97 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       hold('gd', m.gastricVarix.d, 0.5), hold('c3', recruitFrac('C3', f), 0.1), lastMorph]);
   }
   const setVar = (el, k, v) => { const c = el._v || (el._v = {}); if (c[k] === v) return; c[k] = v; el.style.setProperty(k, v); };
-  // The tamponade balloons go in deflated, then fill: the shaft slides in (adv), then the balloon inflates (k), both eased
-  // and run back when the balloon is switched off. Drawn again every frame while either is moving.
-  const bal = { eso: { adv: 0, k: 0 }, gas: { adv: 0, k: 0 }, last: 0, on: { eso: false, gas: false }, anat: true, dirty: true };
-  const BAL_ADV_MS = BALLOON_MS.adv, BAL_INF_MS = BALLOON_MS.inflate;
+  // The tamponade tube goes in and its balloons fill in order, each eased: the tube slides down the esophagus and into the stomach (adv),
+  // its gastric balloon fills there and the tube is drawn up so the balloon seats against the cardia (gas, the traction in its second
+  // half), and only then the esophageal balloon fills (eso). Let down, the reverse: the esophageal balloon first, then the gastric one,
+  // then the tube comes out. Drawn again every frame while any of them moves. (The esophageal balloon is only ever filled on a tube
+  // whose gastric balloon is up: gastricUp, scenario.js.)
+  const bal = { adv: 0, gas: 0, eso: 0, last: 0, wantGas: false, wantEso: false, anat: true, dirty: true };
+  const BAL_ADV_MS = BALLOON_MS.adv, BAL_INF_MS = BALLOON_MS.inflate, BAL_ESO_MS = BALLOON_MS.eso;
   const balEase = (x) => x * x * (3 - 2 * x);
+  // (The tube's fit to the stomach is worked out once, in a few milliseconds: ahead of its first use, while the page is idle.)
+  (typeof requestIdleCallback === 'function' ? (f) => requestIdleCallback(f, { timeout: 5000 }) : (f) => setTimeout(f, 3000))(() => { tubePath(); });
   function balloonStep(p, anat) {
     const now = performance.now(), dt = Math.min(100, bal.last ? now - bal.last : 0);
     bal.last = now;
-    for (const [id, want] of [['eso', !!p.balloonEso], ['gas', !!p.balloonGas]]) {
-      const b = bal[id], on = want && anat;
-      if (on !== bal.on[id]) { bal.on[id] = on; bal.dirty = true; }
-      const d = dt / (on ? 1 : 0.6);   // (out quicker than in)
-      const oadv = b.adv, ok = b.k;
-      if (on) { b.adv = Math.min(1, b.adv + d / BAL_ADV_MS); if (b.adv >= 1) b.k = Math.min(1, b.k + d / BAL_INF_MS); }
-      else { b.k = Math.max(0, b.k - d / BAL_INF_MS * 1.5); if (b.k <= 0) b.adv = Math.max(0, b.adv - d / BAL_ADV_MS * 1.5); }
-      if (b.adv !== oadv || b.k !== ok) bal.dirty = true;
-    }
+    const wantEso = !!p.balloonEso && anat, wantGas = gastricUp(p) && anat;
+    if (wantGas !== bal.wantGas || wantEso !== bal.wantEso) { bal.wantGas = wantGas; bal.wantEso = wantEso; bal.dirty = true; }
+    const was = [bal.adv, bal.gas, bal.eso], out = dt / 0.6;   // (out quicker than in)
+    if (wantEso) { if (bal.gas >= 1) bal.eso = Math.min(1, bal.eso + dt / BAL_ESO_MS); }
+    else bal.eso = Math.max(0, bal.eso - out / BAL_ESO_MS * 1.5);
+    if (wantGas) { if (bal.adv >= 1) bal.gas = Math.min(1, bal.gas + dt / BAL_INF_MS); }
+    else if (bal.eso <= 0) bal.gas = Math.max(0, bal.gas - out / BAL_INF_MS * 1.5);
+    if (wantGas) bal.adv = Math.min(1, bal.adv + dt / BAL_ADV_MS);
+    else if (bal.gas <= 0) bal.adv = Math.max(0, bal.adv - out / BAL_ADV_MS * 1.5);
+    if (bal.adv !== was[0] || bal.gas !== was[1] || bal.eso !== was[2]) bal.dirty = true;
     bal.anat = anat;
-    balloonSqueeze = 1 - 0.45 * balEase(bal.eso.k);
+    balloonSqueeze = 1 - 0.45 * balEase(bal.eso);
     if (bal.dirty) { bal.dirty = false; balloonDraw(anat); }
   }
   function balloonDraw(anat) {
     ov.balloons.innerHTML = '';
-    if (!anat) return;
+    if (!anat || bal.adv <= 0) return;
     // Drawn as the HVPG catheter's wedge balloon is (veins-gl.js mode 5): cream latex, clear in the middle and denser toward
-    // the rim, a thin warm edge, a soft round highlight up top; on the white shaft with its dark rim and two marker bands.
+    // the rim, a thin warm edge, a soft round highlight up top; on the white tube with its dark rim and the esophageal balloon's two marker bands.
     // Plain translucent fills stacked as rings (no SVG gradients: on the iPhone a gradient in the other SVG's defs left
     // only the outline once the balloon was up), so the latex reads the same at every step of the inflation.
     const RINGS = [[1, 'balloon-latex'], [0.86, 'balloon-latex-rim'], [0.7, 'balloon-latex-rim']];
-    const hi = (cx, cy, rx, ry, k) => {
+    const hi = (cx, cy, rx, ry, k, turn = 0) => {
       const g = s('g', { class: 'balloon-hi', opacity: Math.min(1, (k - 0.3) / 0.4).toFixed(3) });
+      if (turn) g.setAttribute('transform', `rotate(${turn.toFixed(1)} ${cx.toFixed(2)} ${cy.toFixed(2)})`);
       for (const f of [1, 0.66, 0.36]) g.append(s('ellipse', { cx, cy, rx: rx * f, ry: ry * f }));
       return g;
     };
-    const e = bal.eso;
-    if (e.adv > 0) {
-      const k = balEase(e.k), sh = balloonShape(k, balEase(e.adv)), up = e.k > 0.01 || e.adv >= 1;
-      const shaft = smoothPath(sh.shaft);
-      ov.balloons.append(s('path', { d: shaft, class: 'balloon-shaft-rim' }), s('path', { d: shaft, class: 'balloon-shaft' }));
-      if (up) {
-        for (const y of sh.bands) { const q = esoAt(y); ov.balloons.append(s('rect', { x: q.c - BALLOON.shaftR - 0.3, y: y - 0.5, width: 2 * BALLOON.shaftR + 0.6, height: 1, rx: 0.3, class: 'balloon-marker' })); }
-        // The whole balloon, then two rims (the outline less a narrower copy of it), denser toward the edge.
-        const ring = (f) => sh.outline.map(([x, y]) => { const c = esoAt(y).c; return [c + (x - c) * f, y]; });
-        ov.balloons.append(s('path', { d: smoothPath(sh.outline, true), class: RINGS[0][1] }));
-        for (const [f, cls] of RINGS.slice(1)) ov.balloons.append(s('path', { d: smoothPath(sh.outline, true) + ' ' + smoothPath(ring(f), true), class: cls }));
-        ov.balloons.append(s('path', { d: smoothPath(sh.outline, true), class: 'balloon-edge' }));
-        if (k > 0.3) { const y = BALLOON.top + 14, h = sh.half(y); ov.balloons.append(hi(esoAt(y).c - h * 0.22, y, h * 0.34, h * 0.5, k)); }
+    const adv = balEase(bal.adv), kG = balEase(bal.gas), kE = balEase(bal.eso);
+    // (The traction is the gastric balloon's second half: drawn up as it fills, seated when it is full.)
+    const pull = balEase(Math.min(1, Math.max(0, (bal.gas - 0.45) / 0.55)));
+    const path = tubePath(), tip = tubeTip(adv, pull, path), arcs = sheathArcs(tip, path);
+    const shaft = smoothPath(tubeTo(adv, pull, path));
+    ov.balloons.append(s('path', { d: shaft, class: 'balloon-shaft-rim' }), s('path', { d: shaft, class: 'balloon-shaft' }));
+    // A balloon, whole: the latex over all of it, then two rims (the outline less narrower copies of it), denser toward the edge, then its edge.
+    const latex = (ring, narrow) => {
+      const d = smoothPath(ring, true);
+      ov.balloons.append(s('path', { d, class: RINGS[0][1] }));
+      for (const [f, cls] of RINGS.slice(1)) ov.balloons.append(s('path', { d: d + ' ' + smoothPath(narrow(f), true), class: cls }));
+      ov.balloons.append(s('path', { d, class: 'balloon-edge' }));
+    };
+    // The gastric balloon, the first step: collapsed on the tube it rides in with it, then a pear on the tube's axis, its cone drawn up into the
+    // cardia, as wide as the stomach's outline leaves room for.
+    if (kG > 0.001) {
+      const gs = gasShape(kG, pull);
+      latex(gs.outline, gs.ring);
+      if (kG > 0.3) {
+        // (The highlight on the upper side of the shoulder, along the axis, as the esophageal balloon's is up its length.)
+        const [dx, dy] = gs.dir, u = 0.42, w = gs.half(u), cx = gs.p0[0] + dx * u * gs.L + dy * 0.4 * w, cy = gs.p0[1] + dy * u * gs.L - dx * 0.4 * w;
+        ov.balloons.append(hi(cx, cy, gs.b * 0.34, gs.b * 0.17, kG, (Math.atan2(dy, dx) * 180) / Math.PI));
       }
+    } else {
+      const sg = sheath(arcs.gas[0], arcs.gas[1], () => GAS.neck, path);
+      if (sg) latex(sg.ring, sg.narrow);
     }
-    const g = bal.gas;
-    if (g.k > 0.01 || g.adv > 0) {
-      const k = balEase(g.k), r = 4 + 20 * k, [cx, cy] = SITES.fundus;
-      const circ = (rr) => `M${(cx - rr).toFixed(2)} ${cy}a${rr.toFixed(2)} ${rr.toFixed(2)} 0 1 0 ${(2 * rr).toFixed(2)} 0a${rr.toFixed(2)} ${rr.toFixed(2)} 0 1 0 ${(-2 * rr).toFixed(2)} 0Z`;
-      ov.balloons.append(s('path', { d: circ(r), class: RINGS[0][1] }));
-      for (const [f, cls] of RINGS.slice(1)) ov.balloons.append(s('path', { d: circ(r) + ' ' + circ(r * f), class: cls }));
-      ov.balloons.append(s('path', { d: circ(r), class: 'balloon-edge' }));
-      if (k > 0.3) ov.balloons.append(hi(cx - r * 0.28, cy - r * 0.5, r * 0.26, r * 0.16, k));
+    // The esophageal balloon, the second step: collapsed on the tube until the gastric balloon is up, then filled.
+    const per = (arcs.eso[1] - arcs.eso[0]) / (BALLOON.bottom - BALLOON.top), bands = [3, BALLOON.bottom - BALLOON.top - 3].map((o) => arcs.eso[0] + o * per);
+    if (kE > 0.001) {
+      const sh = balloonShape(kE);
+      const ering = (f) => sh.outline.map(([x, y]) => { const c = esoAt(y).c; return [c + (x - c) * f, y]; });
+      latex(sh.outline, ering);
+      const y = BALLOON.top + 14, h = sh.half(y);
+      if (kE > 0.3) ov.balloons.append(hi(esoAt(y).c - h * 0.22, y, h * 0.34, h * 0.5, kE));
+    } else {
+      const se = sheath(arcs.eso[0], arcs.eso[1], (t) => Math.max(BALLOON.shaftR, BALLOON.sleeve * Math.sqrt(Math.max(0, 1 - (2 * t - 1) ** 2))), path);
+      if (se) latex(se.ring, se.narrow);
+    }
+    // The two marker bands, on the tube at the esophageal balloon's ends.
+    for (const sb of bands) {
+      if (sb < 0 || sb > path.total) continue;
+      const { p, t } = pathAt(sb, path), turn = (Math.atan2(t[1], t[0]) * 180) / Math.PI - 90;
+      ov.balloons.append(s('rect', { x: p[0] - BALLOON.shaftR - 0.3, y: p[1] - 0.5, width: 2 * BALLOON.shaftR + 0.6, height: 1, rx: 0.3, class: 'balloon-marker', transform: `rotate(${turn.toFixed(1)} ${p[0].toFixed(2)} ${p[1].toFixed(2)})` }));
+    }
+    // The traction, shown as the tube is drawn up: an arrow up the esophagus's side, easing in with it.
+    if (pull > 0.01) {
+      const ar = pullArrow(), g = s('g', { class: 'balloon-pull', opacity: pull.toFixed(3) });
+      g.append(s('path', { d: smoothPath(ar.line), class: 'balloon-pull-line' }), s('path', { d: `M${ar.head.map((q) => q.map((v) => v.toFixed(2)).join(' ')).join('L')}Z`, class: 'balloon-pull-head' }));
+      ov.balloons.append(g);
     }
   }
   let balloonSqueeze = 1;
@@ -8473,7 +8514,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       // (A slide's mark that stays but takes new words fades the new words in, never swaps them in at once.)
       // (A live callout's words keep their shape as its numbers tick: it.fxw, so only a new slide's words fade in.)
       const words = it.fxw ?? (/^focus/.test(it.key) ? it.lines.map((line) => line.map((r) => r.t).join('')).join('\n') : null);
-      if (words != null && b.words != null && words !== b.words && b.g.style.display !== 'none' && !reduceMotion.matches) { b.g.animate?.([{ opacity: 0 }, { opacity: 1 }], { duration: 400, easing: 'ease-out' }); labelGL?.hold(b.g, 400); }
+      if (words != null && b.words != null && words !== b.words && b.g.style.display !== 'none' && !reduceMotion.matches) { b.g.animate?.([{ opacity: 0 }, { opacity: 1 }], { duration: D_SURFACE, easing: EASE_ARRIVE }); labelGL?.hold(b.g, D_SURFACE); }
       b.words = words;
       b.sw = it.swatch ? b.g.querySelector('.lb-sw') : null;
       b.bg = b.g.querySelector('.lb-bg');
@@ -10303,7 +10344,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       const b = pool.get(it.key), wait = it.delay - (performance.now() - glowSetAt);
       if (!b || b.fxIn) continue;
       b.fxIn = true;
-      if (wait > 0 && !reduceMotion.matches) { b.g.animate?.([{ opacity: 0 }, { opacity: 1 }], { duration: 350, delay: wait, easing: 'ease-out', fill: 'backwards' }); labelGL?.hold(b.g, wait + 350); }
+      if (wait > 0 && !reduceMotion.matches) { b.g.animate?.([{ opacity: 0 }, { opacity: 1 }], { duration: D_SURFACE, delay: wait, easing: EASE_ARRIVE, fill: 'backwards' }); labelGL?.hold(b.g, wait + D_SURFACE); }
     }
     const sit = out.find((o) => o.key === 'scan'), sblk = pool.get('scan');
     if (sit && !sit.hide) {
@@ -10331,7 +10372,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       const el = w.fanOf && leadEls.get(w.k), wait = el && w.fanOf.delay - (performance.now() - glowSetAt);
       if (!el || el.fxIn) continue;
       el.fxIn = true;
-      if (wait > 0 && !reduceMotion.matches) { el.animate?.([{ opacity: 0 }, { opacity: 1 }], { duration: 350, delay: wait, easing: 'ease-out', fill: 'backwards' }); labelGL?.hold(el, wait + 350); }
+      if (wait > 0 && !reduceMotion.matches) { el.animate?.([{ opacity: 0 }, { opacity: 1 }], { duration: D_SURFACE, delay: wait, easing: EASE_ARRIVE, fill: 'backwards' }); labelGL?.hold(el, wait + D_SURFACE); }
     }
     return true;
   }
@@ -10576,7 +10617,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // (A tamponade balloon that is up over the tear presses it shut: once it has filled, the spray and the pool ease out with it, and
   // they come back if it is let down while the model still bleeds. The model's own bleed ends BALLOON_SEAL_S after the balloon is on:
   // engine.js. Up here is the eased picture of it, tied to the balloon on screen, not to the model's clock.)
-  const pressedShut = () => { const id = F.bleed.site === 'GV' ? 'gas' : 'eso'; return bal.on[id] && bal[id].k >= 1; };
+  const pressedShut = () => bal.wantGas && bal.gas >= 1;   // (the tube's gastric balloon, filled and drawn up, presses either tear shut: engine.js)
   const sprayOn = () => !!F?.bleed?.active && morph < 0.5 && !pressedShut();
   const sprayFading = () => sprayA !== (sprayOn() ? 1 : 0);
   function stepSpray(dt) {

@@ -99,7 +99,7 @@ test('the figure places the gate where the callout points (the middle of the ves
   assert.equal((stage.match(/^\s*dprobePaint\(\);$/gm) || []).length, 4, 'view change, zoom glide, labels laid out, Doppler set');
   // It hides while the views morph and in the liver's own views, and moves by fading out and back in.
   assert.match(stage, /\(morph < 0\.01 \|\| morph > 0\.99\) && !camHides && !dpr\.hold && dprMonitorOn\(\) && !st\.lobule && !st\.sinusoid && !lz\?\.isOpen\(\)/);
-  assert.match(css, /\.dop-probe \{[^}]*transition: opacity \.36s var\(--ease\)/);
+  assert.match(css, /\.dop-probe \{[^}]*transition: opacity var\(--d-surface\) var\(--ease\)/);
   assert.match(css, /\.dop-probe\.off \{ opacity: 0; \}/);
 });
 
@@ -171,7 +171,7 @@ test('the line of sight stops at the near gate bar, the flow axis reaches past b
 });
 
 test('the station dot under the gate fades with the probe: out while it shows on that vessel, back when it goes; the reading and leader stay', () => {
-  assert.match(css, /\.lb-leaders > \.dpr-hid \{ opacity: 0; transition-duration: \.36s; \}/);
+  assert.match(css, /\.lb-leaders > \.dpr-hid \{ opacity: 0; transition-duration: var\(--d-surface\); \}/);
   assert.match(stage, /dpr\.gate = \[gx, gy\];\n\s+if \(!dpr\.on\) \{ dpr\.on = true; dpr\.el\.classList\.remove\('off'\); \}\n\s+dprDots\(\);/);
   assert.match(stage, /const g = \(dpr\.on \|\| dpr\.swap\) && dpr\.gate;/);
   assert.match(stage, /if \(!\/\^\(d\|h\):\/\.test\(k\)\) continue;/, 'only the anchor dots and their discs, never a leader');
@@ -327,7 +327,7 @@ test('with no place for the whole probe, its marks stay and the head fades (as t
   assert.ok(probePose({ g, t, r, w: W, h: H, cards: [{ x0: 0, y0: 0, x1: W, y1: H }] }).none);
   assert.match(stage, /dpr\.headOff = !!pose\.headOff;\s*dpr\.el\.classList\.toggle\('head-off', dpr\.headOff\);/);
   assert.match(css, /\.dop-probe\.head-off \.dpr-head \{ opacity: 0; \}/);
-  assert.match(css, /\.dop-probe \.dpr-head \{ transition: opacity \.36s/);
+  assert.match(css, /\.dop-probe \.dpr-head \{ transition: opacity var\(--d-surface\)/);
 });
 
 test('a crowded figure near the vessel: the probe stands farther out, in the empty space beyond the drawings', () => {

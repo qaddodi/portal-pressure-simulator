@@ -24,7 +24,7 @@ test('a zone band with no tint, and the lit zone when off, are not painted', () 
   assert.match(css, /\n\.zone\.alt \{ fill: var\(--text\); fill-opacity: \.028; \}/);
   const off = css.match(/\n\.fx-zone \{([^}]*)\}/)[1], on = css.match(/\n\.fx-zone\.on \{([^}]*)\}/)[1];
   assert.match(off, /visibility: hidden/);
-  assert.match(off, /visibility 0s \.5s/, 'hidden only after its fade out has run');
+  assert.match(off, /visibility 0s var\(--d-surface\)/, 'hidden only after its fade out has run');
   assert.match(on, /visibility: visible/);
   assert.doesNotMatch(on, /visibility 0s/, 'shown at once when lit, so the fade in shows');
 });

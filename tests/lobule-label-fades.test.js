@@ -14,10 +14,10 @@ test('lobule labels, zone names and leaders never cut out', () => {
   assert.doesNotMatch(js, /z\.hidden = !at/, 'a zone name with no spot fades out');
   assert.match(js, /function fadeOut\(el, done\)/);
   assert.match(css, /@property --off-o \{[^}]*inherits: true; initial-value: 1;/);
-  assert.match(css, /\.lz-lab, \.lz-zone \{[^}]*--off-o \.3s[^}]*animation: lz-in \.3s/, 'labels fade in and out');
+  assert.match(css, /\.lz-lab, \.lz-zone \{[^}]*--off-o var\(--d-small\)[^}]*animation: lz-in var\(--d-small\)/, 'labels fade in and out');
   assert.match(css, /@keyframes lz-in \{ from \{ --off-o: 0; \} \}/);
   assert.match(css, /\.lz-labels \.lz-off \{ --off-o: 0; pointer-events: none; \}/);
-  assert.match(css, /\.lz-leaders \.ld-gone \{ opacity: 0; transition: opacity \.3s/);
+  assert.match(css, /\.lz-leaders \.ld-gone \{ opacity: 0; transition: opacity var\(--d-small\)/);
   // Every opacity a label's parts take carries the fade, its lit pill included, so pill and letters fade together.
   assert.match(css, /\.lz-labels > \* > \* \{ opacity: calc\([^}]*var\(--off-o, 1\)\); \}/);
   for (const m of css.matchAll(/\.lz-zone span \{[^}]*opacity: calc\(([^}]*)\); \}/g)) assert.match(m[1], /--off-o/, 'zone name fade');

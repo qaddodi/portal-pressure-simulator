@@ -11,14 +11,17 @@ const rule = (sel) => {
   assert.ok(at >= 0, `missing rule ${sel}`);
   return css.slice(at, css.indexOf('}', at));
 };
-const secs = (v) => parseFloat(v) * (v.endsWith('ms') ? 0.001 : 1);
+// (Seconds: a number, or a step of the motion scale, tokens.css --d-flip, --d-small, --d-surface.)
+const STEPS = { 'var(--d-flip)': 0.12, 'var(--d-small)': 0.24, 'var(--d-surface)': 0.42 };
+const secs = (v) => (v in STEPS ? STEPS[v] : parseFloat(v) * (v.endsWith('ms') ? 0.001 : 1));
+const T = String.raw`(?:[\d.]+m?s|var\(--d-(?:flip|small|surface)\))`;
 const timing = (body, prop) => {
-  const m = body.match(new RegExp(`transition:[^;]*\\b${prop} ([\\d.]+m?s) var\\(--ease\\)(?: ([\\d.]+m?s))?`));
+  const m = body.match(new RegExp(`transition:[^;]*\\b${prop} (${T}) var\\(--ease\\)(?: (${T}))?`));
   assert.ok(m, `no ${prop} transition in ${body}`);
   return { dur: secs(m[1]), delay: m[2] ? secs(m[2]) : 0 };
 };
 const OPEN = '.app.thumb:is(.dock-open, .panel-open) .vdock:not(.mini)';
-const CARD_EXIT = 0.18;   // thumbOut, the phone card's slide down
+const CARD_EXIT = 0.12;   // thumbOut, the phone card's slide down (one flip step)
 
 test('the play bar, views pill and glass come back after the card has mostly sunk, never over it', () => {
   for (const [sel, props] of [['.app.thumb .vdock:not(.mini) > :not(.thumb-bar)', ['opacity', 'translate']], ['.app.thumb .vdock:not(.mini)::before', ['opacity']], ['.app.thumb .vdock:not(.mini) .thumb-bar', ['box-shadow', 'border-radius', 'border-top-width', 'padding-top']]]) {
@@ -29,7 +32,7 @@ test('the play bar, views pill and glass come back after the card has mostly sun
     }
   }
   assert.match(css, /@keyframes thumbOut \{ to \{ --sink: 100%; \} \}/);
-  assert.match(css, /#treatCard\.card-leaving[^{]*\{[^}]*animation: var\(--card-out\) \.18s/);
+  assert.match(css, /#treatCard\.card-leaving[^{]*\{[^}]*animation: var\(--card-out\) var\(--d-flip\)/);
 });
 
 test('they step aside at once, and quickly, when a card rises', () => {

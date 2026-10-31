@@ -193,18 +193,19 @@ export const EDGE_PATH = {
   // and runs across to the cava lower down (see STRANDS for its small veins).
   C7: 'M738 755 C 706 756 664 748 620 745',
   C8: 'M700 556 C 706 506 668 462 602 442',
-  // Ascending lumbar veins → the ascending azygos. It never crosses another vessel (Mohammad, 31 Oct, Budd–Chiari: "intersecting
-  // with hepatic vein"; every lane through the liver crosses the hepatic veins, which span it from the cava to its lateral
-  // margin, so it goes round the liver instead). It leaves the cava's left wall below the liver at y 566 (above the paraumbilical
-  // vein's crossing of the cava, y 600), runs left behind the right colon, turns up the right flank in a lane of its own between
-  // the diaphragm's foot and the epigastric vein (EPI_SVC), about 15 units clear of each at x 343 (the liver, swollen as far as
-  // congestion takes it, stays 25 units inside), arches over the dome, and joins the azygos trunk from the lower left at
-  // (562.9 108), where the trunk is drawn solid (its fade starts at y 110, stage.js FEEDER_FADE_Y). It arrives in a gentle S:
-  // about 20 units out it is still 17 from the trunk's centreline, and it closes the rest at about 42° to the trunk's course
-  // (the way a tributary meets a vein, not a long sliver beside it). Only the azygos runs on from there to the arch, so the
+  // Ascending lumbar veins → the ascending azygos. In the body it runs up the posterior abdominal wall beside the spine, behind
+  // the liver, and through the diaphragm's crus into the azygos, so it is drawn that way (Mohammad, 31 Oct, Budd–Chiari: the
+  // flank route over the dome read as a detour, and a route in front crossed the hepatic veins; "I like behind the liver fade"):
+  // it leaves the cava's left wall below the liver at y 566 (above the paraumbilical vein's crossing of the cava, y 600), climbs
+  // behind the liver's lower edge in one long bow, about x 520, and comes out above the dome (liver top y 189, diaphragm y 170)
+  // to join the azygos trunk from the lower left at (562.9 108), where the trunk is drawn solid (its fade starts at y 110,
+  // stage.js FEEDER_FADE_Y). Behind the liver it is a back-tier vessel, veiled by the organ and faded again (stage.js FADE_IN),
+  // so it passes behind the hepatic veins without reading as a crossing. It keeps 20–27 units from their nodes and joints,
+  // so no crossing reads as a junction either. It meets the trunk at about 50° and is 15 from its centreline 20 units out (the
+  // way a tributary meets a vein, not a long sliver beside it). Only the azygos runs on from there to the arch, so the
   // esophageal varices (C1b), which drain into the arch at its node, end on the azygos, never on this collateral. It stays
   // clear below the epigastric vein where that crosses the trunk at y 79. tests/ascending-lumbar-route.test.js holds these.
-  C9: 'M620 566 C 598.3 566.3 551.7 569.5 520 568 C 488.3 566.5 454.3 565 430 557 C 405.7 549 387.7 537.8 374 520 C 360.3 502.2 353.2 476.3 348 450 C 342.8 423.7 343.5 388.3 343 362 C 342.5 335.7 342.7 312.3 345 292 C 347.3 271.7 349.8 255.8 357 240 C 364.2 224.2 374.8 210.3 388 197 C 401.2 183.7 419.7 169.8 436 160 C 478.9 134.3 542.8 130.3 562.9 108',
+  C9: 'M620 566 C 574.7 544.9 528.1 470 526 410 C 523.6 342.4 517.3 272.5 522 205 C 524.5 169.1 528.2 135.1 562.9 108',
 
   AP_R: 'M655 478 C 612 470 552 432 505 398',
   AP_L: 'M655 478 C 668 440 680 405 688 378',

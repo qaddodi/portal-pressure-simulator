@@ -13,46 +13,47 @@
 // Enter jumps, G the slide list, Home End, B or . black screen, F full screen, ? the Guide, Esc. (The Guide lists them: PRESENT_KEYS in
 // main.js.) On a touch screen a sideways swipe anywhere on the slide goes on or back.
 
-import { store, replaceParams } from './store.js?v=a926bea9d4';
+import { store, replaceParams } from './store.js?v=3611054974';
 import { download } from './download.js?v=3564e5bf8c';
-import { h, toast, svgIcon, icon, fmt, clamp, openModal, closeModal, isModalOpen, restBox, paintRange, cssVar, swapText, setCanvasBoost, STACK_MQ, SHORT_SIDE_MQ, TABLET_UP_MQ } from './util.js?v=80c7abd296';
+import { h, toast, svgIcon, icon, fmt, clamp, openModal, closeModal, isModalOpen, restBox, paintRange, cssVar, swapText, setCanvasBoost, STACK_MQ, SHORT_SIDE_MQ, TABLET_UP_MQ } from './util.js?v=ca062f41e6';
 import { titleParts } from './title-units.js?v=c8d5ce1f26';
-import { liveText, wordsOf } from './live-text.js?v=1dd01fd50f';
+import { liveText, wordsOf } from './live-text.js?v=f5e329a592';
 import { swipeDir, ownsSideways, ownsTouch, cardSwipe, caseFling, caseFlight, wheelFinger, wheelGesture, ownsWheel } from './swipe.js?v=3ad619631e';
 import { sinusoidSupported } from './gl-support.js?v=94ad2a7ff1';
 import { SCALE_NAME, offeredScales, scaleView, pickedScale } from './scale-switch.js?v=072bfa63c1';
 import { isCamOn, unionBox, regionBox, growBox, camNames } from './cam-frame.js?v=3c321f5f7f';
-import { NODE_POS } from './anatomy.js?v=15d6102c13';
+import { NODE_POS } from './anatomy.js?v=e20e751129';
 import { DISEASE_SRC, diseasePieces } from './diseases.js?v=fb8a5451c3';
 import { nb, listCase, plateletText } from './glue.js?v=5a0f63226b';
-import { DECKS, DECK_ALIAS, REGIONS, LEVELS, TOPICS, withOverview, siteTag, SITE_TAGS } from './decks.js?v=4d1102863b';
+import { DECKS, DECK_ALIAS, REGIONS, LEVELS, TOPICS, withOverview, siteTag, SITE_TAGS } from './decks.js?v=68e76b2227';
 import { fingerprintOf } from '../engine/fingerprint.js?v=ca81723393';
 import { hvpgSev } from '../engine/pressure-cuts.js?v=8cc52435da';
-import { createHvpgMonitor } from './hvpg-proc.js?v=03019f15ee';
-import { createTools } from './presenter-tools.js?v=19d10c338b';
-import { openHandout } from './handout.js?v=9e65e4c4f6';
+import { createHvpgMonitor } from './hvpg-proc.js?v=64219f38b9';
+import { createTools } from './presenter-tools.js?v=9593a98b4e';
+import { openHandout } from './handout.js?v=3a027582b1';
 import { noteResume, resumeFor } from './resume.js?v=f086f80ee8';
 import { parseDeckSource, checkDeck } from './deck-source.js?v=8395c650cd';
 import { NO_ASC, TILE, cutText, tileOf, SCALE, bandsOf, rateOf, COLS, CUT, PRESS, fpv, dirAbs, dirRel, rateAbs, effOf, rateShown, tileShown, tipsGoal, liveSettled, shownSig } from './table-marks.js?v=e4c3c4f8c1';
 import { frameFor, cancelFrame } from './frame.js?v=9d6b717149';
 import { createFigureKey } from './figure-key.js?v=95b9d271ed';
 import { traceWhen } from './trace-labels.js?v=fc916a95c6';
-import { flowCss, heatCss, dropCss, gradientCss, oxygenCss } from './colormap.js?v=dc7e0de1bd';
-import { EXT, expandIds, stepExtra, markLabel, figureHooks, safe } from './slide-ext.js?v=901fa95fa8';
-import { clotWords } from './callout-math.js?v=3df8dbee05';
+import { flowCss, heatCss, dropCss, gradientCss, oxygenCss } from './colormap.js?v=ddb18485b7';
+import { EXT, expandIds, stepExtra, markLabel, figureHooks, safe } from './slide-ext.js?v=543121ee25';
+import { clotWords } from './callout-math.js?v=6a4cd6d476';
 import { citeText, focusOf, oneLadder } from './teach-extras.js?v=5f5248f5a7';
-import { createProfileTool, createProfileStrip, pillReadings, chartScale } from './tool-profile.js?v=f64be17fbf';
+import { createProfileTool, createProfileStrip, pillReadings, chartScale } from './tool-profile.js?v=d734a097bb';
 import { causeFit } from './cause-fit.js?v=830a6835a5';
-import { anchorsOf, roomFor } from './cam-room.js?v=8485f4fafc';
+import { anchorsOf, roomFor } from './cam-room.js?v=fa0fe7bf3f';
 import { beatCount, beatView } from './slide-beats.js?v=2aded612c4';
 import { COMPACT, WIDE } from './card-type.js?v=5af5f22935';
 import { flowTimeHeight, trailKeys } from './flow-time.js?v=154604c7e8';
 import { PROCS, procBlocked, procOffered, playProcedure, stepMark } from './proc-anim.js?v=cbc07dc306';
 import { dataPlan, textPlan, keepData, keepText, cardSnap, cardChanged, cardBack } from './card-keep.js?v=982397f8fb';
-import { createCardZoom, tapTracker } from './card-zoom.js?v=f589271cc7';
+import { createCardZoom, tapTracker } from './card-zoom.js?v=56bbaaebaf';
 import { sheetPanes } from './sheet-glass.js?v=3e559e624e';
-import { createScopeTile } from './scope-tile.js?v=30db343161';
+import { createScopeTile } from './scope-tile.js?v=c2ad6f4204';
 import { tileKeys as cardKeys, toolOnly } from './card-tiles.js?v=e547c76c7f';
+import { D_SMALL, D_SURFACE, EASE_ARRIVE, EASE_IN } from './ease.js?v=387660d4ad';
 const nextFrame = frameFor('presenter');
 
 const KEY = 'pps.scripts';
@@ -836,7 +837,7 @@ function makeCalc() {
   };
   const ready = (async () => {
     try {
-      const w = new Worker(new URL('../worker.js?v=bb8d04a571', import.meta.url), { type: 'module' });
+      const w = new Worker(new URL('../worker.js?v=5b440c6fac', import.meta.url), { type: 'module' });
       await new Promise((res, rej) => {
         const t = setTimeout(() => rej(new Error('worker timeout')), 15000);   // (long: a slow load still gets the worker; host.js)
         w.onmessage = (e) => { if (e.data?.type === 'presets') { clearTimeout(t); res(); } };
@@ -849,7 +850,7 @@ function makeCalc() {
       post = (m) => w.postMessage(m); kill = () => w.terminate();
     } catch {
       try {
-        const { createCore } = await import('../worker-core.js?v=f72ec52a24');
+        const { createCore } = await import('../worker-core.js?v=7582bd5fd2');
         const core = createCore((m) => setTimeout(() => onMsg(m), 0));
         core.handle({ type: 'visibility', visible: false }); core.handle({ type: 'run', running: false });
         post = (m) => core.handle(structuredClone(m)); kill = () => core.dispose();
@@ -1008,7 +1009,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   }
 
   // ── The figure's moves ──
-  const fadeMs = () => (reduce.matches ? 0 : 420);
+  const fadeMs = () => (reduce.matches ? 0 : D_SURFACE);
   // A quiet arc over the figure's free space while a new patient settles (it fades in and out with the dim, never pops).
   const loading = (on) => { ui?.load.classList.toggle('on', on); if (on) ui?.load.classList.remove('idle'); };
   async function figureOut() { loading(true); view.classList.add('pz-out'); await wait(fadeMs()); }
@@ -1571,7 +1572,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   let caseLift = null, caseCard = null;
   // The glass card goes up, a case's or a question's: its words fitted before it enters, so it never resizes on screen.
   function cardUp(tag, ...words) {
-    const c = ui.vcase, ms = reduce.matches ? 0 : 450;
+    const c = ui.vcase, ms = reduce.matches ? 0 : D_SURFACE;
     c.replaceChildren(h('span', { class: 'pz-site pz-case-tag' }, tag), ...words);
     for (const k of ['transform', 'transition', 'opacity']) c.style.removeProperty(k);   // (a card flung off last time comes back whole)
     c.hidden = false; void c.offsetWidth;
@@ -1652,17 +1653,17 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     const ms = reduce.matches ? 300 : caseFlight(left, v);
     const slope = (Math.abs(v) * ms) / left;   // the finger's speed as the curve's starting slope
     c.style.transition = reduce.matches ? `opacity ${ms}ms linear`
-      : `transform ${ms}ms cubic-bezier(.33,${clamp(0.33 * slope, 0.12, 0.9).toFixed(2)},.45,1), opacity ${ms}ms cubic-bezier(.4,0,.6,1)`;
+      : `transform ${ms}ms cubic-bezier(.33,${clamp(0.33 * slope, 0.12, 0.9).toFixed(2)},.45,1), opacity ${ms}ms cubic-bezier(.4,0,.6,1)`;   // motion-scale: own pace (a fling carries the finger's own speed, so its curve starts at the finger's slope)
     if (!reduce.matches) c.style.transform = `translateX(${dir * dist}px) rotate(${dir * 10}deg)`;
     c.style.opacity = '0';
     card.flown = performance.now() + ms; caseGone(card);
   }
   function caseBack(card) {
     const c = card.c;
-    c.style.transition = 'transform .35s var(--ease), opacity .35s var(--ease)';
+    c.style.transition = `transform ${D_SURFACE}ms var(--ease), opacity ${D_SURFACE}ms var(--ease)`;
     c.style.removeProperty('transform'); c.style.removeProperty('opacity');
     card.dx = 0;
-    setTimeout(() => { if (!card.flown && !card.drag) c.style.removeProperty('transition'); }, 380);
+    setTimeout(() => { if (!card.flown && !card.drag) c.style.removeProperty('transition'); }, D_SURFACE + 40);
   }
   // Before the slide's camera move: waits for the tap (the card fades as the camera sets off), and for the organs to be back on
   // their GPU copy, so the zoom to the slide is smooth even after a quick tap while the patient was still easing in.
@@ -1734,7 +1735,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   // Inside the liver a slide change is one sequence: every label (text, pill, ring, leader) eases out together, the
   // camera moves and the lit set changes with nothing showing, then only the new slide's labels ease in together
   // (.app.pz-hush; while it holds, no other state can bring a label back for a frame).
-  const HUSH_OUT = 250, HUSH_IN = 350;
+  const HUSH_OUT = D_SMALL, HUSH_IN = D_SURFACE;   // (app.css .pz-hush: the labels out over a small step, back over a surface step)
   let hushed = false, hushAt = 0, hushInT = 0, lastCam = null;
   // The liver labels' own eases still running (by property or animation name); getAnimations also starts any pending one.
   async function eased(props, cap) {
@@ -2075,7 +2076,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       if (keep && el === ui.text) { for (const c of el.children) if (c !== mon.el) c.classList.add('pz-leave'); }
       else el.classList.add('pz-leave');
     }
-    return 340;   // (the words leave at the data card's pace; with reduced motion they still fade, without sliding: app.css)
+    return D_SMALL + 20;   // (the words leave at the data card's pace, one small step; with reduced motion they still fade, without sliding: app.css)
   }
   // A slide's tiles can say how far each number moved: from the slide before (delta: true) or a named one. A slide that
   // changes the same patient (a drug, an action, days) counts from the slide before unless it says delta: false.
@@ -2136,7 +2137,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     nextFrame(() => {
       if (stay && !reduce.matches) {
         const dy = y0 - mon.el.getBoundingClientRect().top;
-        if (Math.abs(dy) > 1) mon.el.animate([{ transform: `translateY(${dy}px)` }, { transform: 'none' }], { duration: 450, easing: 'cubic-bezier(.2,.7,.2,1)' });
+        if (Math.abs(dy) > 1) mon.el.animate([{ transform: `translateY(${dy}px)` }, { transform: 'none' }], { duration: D_SURFACE, easing: EASE_ARRIVE });
       }
       mon.set(s.monitor, states[stateOf[i]]?.fp, cath.v.balloon);
     });
@@ -2279,7 +2280,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     } else if (!data.hidden) {
       data.dataset.gone = '';
       data.classList.add('pz-hide'); delete data.dataset.colswap;
-      setTimeout(() => { if (data.classList.contains('pz-hide')) { data.hidden = true; ui?.tools.hide(); } }, 320);
+      setTimeout(() => { if (data.classList.contains('pz-hide')) { data.hidden = true; ui?.tools.hide(); } }, D_SMALL + 20);
     }
     dataOn = planOf(s, i) ?? null;
     holdEase = answerAfter(s, i);
@@ -2338,7 +2339,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     for (const k of bad) keepNow = { ...keepNow, [k]: false };
     if (bad.includes('data')) { ui.data.classList.add('pz-hide'); delete ui.data.dataset.colswap; }
     if (bad.includes('text')) { ui.text.classList.add('pz-leave'); ui.scl.classList.add('pz-leave'); }
-    await wait(340);
+    await wait(D_SMALL + 20);
     if (cut() || !ui || !keepArgs) return false;
     const { s, st, i, fresh, lap, now } = keepArgs;
     if (bad.includes('text')) { textIn(s, st, i); ui.text.classList.add('pz-leave'); ui.root.dataset.bare = ''; }
@@ -2700,7 +2701,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     if (!ms || !moves) return;
     slideTell();
     els.forEach((el, i) => {
-      const a = el.animate?.([{ translate: from[i] }, { translate: getComputedStyle(el).translate }], { duration: ms, easing: 'cubic-bezier(.2, .8, .2, 1)' });
+      const a = el.animate?.([{ translate: from[i] }, { translate: getComputedStyle(el).translate }], { duration: ms, easing: EASE_ARRIVE });
       if (!a) return;
       words.anims.push(a);
       a.onfinish = () => { if (words.anims.includes(a)) { words.anims = words.anims.filter((x) => x !== a); if (!words.anims.length) dispatchEvent(new Event('pps:occ')); } };
@@ -2780,7 +2781,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   // A closed card shows only its glass edge and handle: its contents fade out as it goes and back in as it comes out (the sliver
   // had shown the cut-off foot of its readings, under the preview badge too). By the Web Animations API, over the parts' own
   // transitions; a part that arrives while the card is closed (the next slide's) is faded at once.
-  const DOCK_FADE = { duration: 320, easing: 'cubic-bezier(.2, .8, .2, 1)', fill: 'forwards' };
+  const DOCK_FADE = { duration: D_SMALL, easing: EASE_ARRIVE, fill: 'forwards' };
   function dockFade(shut) {
     for (const c of ui.data.children) {
       if (c.classList.contains('pz-grip') || !c.animate) continue;
@@ -4853,12 +4854,12 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     const els = ui ? [ui.root, ui.shade].filter((el) => el?.animate) : [];
     if (!els.length) { stopNow(restore); chromeIn(); return; }   // (Reduce Motion too: these are fades only, which it keeps)
     for (const el of els) el.inert = true;
-    const me = leaving = Promise.all(els.map((el) => el.animate([{ opacity: 0 }], { duration: 200, easing: 'cubic-bezier(.4, 0, 1, 1)', fill: 'forwards' }).finished.catch(() => {})));
+    const me = leaving = Promise.all(els.map((el) => el.animate([{ opacity: 0 }], { duration: D_SMALL, easing: EASE_IN, fill: 'forwards' }).finished.catch(() => {})));
     me.then(() => { if (leaving !== me) return; stopNow(restore); chromeIn(); });
   }
   function chromeIn() {
     for (const el of app.querySelectorAll('.topbar, .vdock, .stage-bar, #zoomPill, .toolbar')) {
-      if (el.getClientRects().length) el.animate?.([{ opacity: 0 }, { opacity: 1 }], { duration: 320, easing: 'cubic-bezier(.2, .8, .2, 1)' });
+      if (el.getClientRects().length) el.animate?.([{ opacity: 0 }, { opacity: 1 }], { duration: D_SMALL, easing: EASE_ARRIVE });
     }
   }
   function stopNow(restore = true) {
@@ -4901,7 +4902,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   // to full rather than staying dimmed or turning healthy under the new talk; motion review round 2, RF5.)
   let healthyGen = 0;
   async function putHealthy(b) {
-    const ms = reduce.matches ? 0 : 380;
+    const ms = reduce.matches ? 0 : D_SURFACE;
     const me = ++healthyGen, gone = () => me !== healthyGen && (view.style.opacity = '', true);
     if (ms) { view.style.transition = `opacity ${ms}ms var(--ease)`; view.style.opacity = '.22'; await wait(ms); if (gone()) return; }
     const st = store.get();

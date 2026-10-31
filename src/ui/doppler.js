@@ -5,10 +5,10 @@
 // full. It scrolls smoothly, one spectral line at a time, as the machine does.
 
 import { EDGES, dopplerK, stentSegments, stentSite, stentGate, stentCourse } from '../engine/topology.js?v=4044766e96';
-import { h, fmt, fitCanvas, clamp, icon, cssVar, cssAlpha } from './util.js?v=80c7abd296';
-import { FONT, textW } from './charts.js?v=26a7352724';
-import { logAction, shownVel, store } from './store.js?v=a926bea9d4';
-import { DOPPLER_MODES, THETA, dopplerColor, shadeColor, swatchGradient } from './dopplerColor.js?v=3e36ac9dff';
+import { h, fmt, fitCanvas, clamp, icon, cssVar, cssAlpha } from './util.js?v=ca062f41e6';
+import { FONT, textW } from './charts.js?v=20766fd9cd';
+import { logAction, shownVel, store } from './store.js?v=3611054974';
+import { DOPPLER_MODES, THETA, dopplerColor, shadeColor, swatchGradient } from './dopplerColor.js?v=22617c9ebe';
 import { frameFor, noteDraw, paceMs, cancelFrame } from './frame.js?v=9d6b717149';
 import { windowIndexFor, scaleFor, fitScale } from './dopplerWindow.js?v=1d34e63b32';
 import { velNormal, dopplerVel, judgeFlow } from './velNormal.js?v=97920ddf3f';
@@ -16,6 +16,7 @@ import { caliperFrame, caliperLevel, caliperX, CAL_FADE, pairOf, pairBand, pairS
 import { createDopplerGL } from './doppler-gl.js?v=85427ed298';
 import { olderThan } from './backfill.js?v=455d888760';
 import { createFollow } from './display-state.js?v=8d062d39dc';
+import { D_SMALL, EASE_ARRIVE } from './ease.js?v=387660d4ad';
 const nextFrame = frameFor('doppler');
 
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
@@ -141,7 +142,7 @@ export function createDoppler({ onProbe, pickGate = true }) {
   const showStat = (wrap, on) => {
     if (wrap.hidden !== on) return;
     wrap.hidden = !on;
-    if (on && wrap.isConnected && wrap.getClientRects().length) wrap.animate?.([{ opacity: 0 }, { opacity: 1 }], { duration: 180, easing: 'cubic-bezier(.2, .8, .2, 1)' });
+    if (on && wrap.isConnected && wrap.getClientRects().length) wrap.animate?.([{ opacity: 0 }, { opacity: 1 }], { duration: D_SMALL, easing: EASE_ARRIVE });
   };
   const stats = h('dl', { class: 'dop-stats' }, ['Peak', 'Trough', 'Pulsatility', 'CI', 'Proximal', 'Mid', 'Distal'].map((k) => {
     const dd = h('dd', {}, '—');

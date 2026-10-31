@@ -2,11 +2,11 @@
 // chart, so every command lands in the timeline like any other change. A number in the query is
 // the argument: "tips 8", "cirrhosis 60", "albumin 2.5", "+6 months", "narrow portal 80".
 
-import { store, updateParams } from './store.js?v=a926bea9d4';
-import { h, svgIcon, toast, afterExit } from './util.js?v=80c7abd296';
+import { store, updateParams } from './store.js?v=3611054974';
+import { h, svgIcon, toast, afterExit } from './util.js?v=ca062f41e6';
 import { EDGES } from '../engine/topology.js?v=4044766e96';
-import { DRUGS } from '../engine/scenario.js?v=d7d3ea5b70';
-import { HIDDEN_EDGES } from './anatomy.js?v=15d6102c13';
+import { DRUGS } from '../engine/scenario.js?v=bcedeba324';
+import { HIDDEN_EDGES } from './anatomy.js?v=e20e751129';
 
 const norm = (s) => s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9+ ]/g, ' ');
 
@@ -47,7 +47,9 @@ export function createPalette({ ctx }) {
     add('Treat', '1 L crystalloid', () => ctx.action({ kind: 'infuse', fluid: 'crystalloid' }), { kw: 'fluid saline' });
     add('Treat', '1 unit PRBC', () => ctx.action({ kind: 'infuse', fluid: 'prbc' }), { kw: 'transfuse blood' });
     add('Treat', 'BRTO', () => updateParams((p) => { p.occluded.C5 = true; return p; }, { label: 'BRTO' }), { kw: 'occlude gastrorenal' });
-    add('Treat', 'Esophageal balloon', () => updateParams((p) => { p.balloonEso = !p.balloonEso; return p; }, { label: 'Esophageal balloon' }), { kw: 'tamponade sengstaken' });
+    // (The tamponade tube: the gastric balloon first, drawn up against the cardia; the esophageal balloon second, on a tube whose gastric balloon is up.)
+    add('Treat', 'Gastric balloon', () => updateParams((p) => { p.balloonGas = !p.balloonGas; if (!p.balloonGas) p.balloonEso = false; return p; }, { label: 'Gastric balloon' }), { kw: 'tamponade sengstaken minnesota traction first' });
+    add('Treat', 'Esophageal balloon', () => updateParams((p) => { p.balloonEso = !p.balloonEso; if (p.balloonEso) p.balloonGas = true; return p; }, { label: 'Esophageal balloon' }), { kw: 'tamponade sengstaken minnesota second' });
     add('Tests', 'Doppler of the portal vein', () => { ctx.probe('PV_TRUNK'); ctx.showPane('doppler'); }, { kw: 'ultrasound velocity' });
     add('Tests', 'Endoscopy', () => ctx.showPane('endoscopy'), { kw: 'scope varices' });
     // Time

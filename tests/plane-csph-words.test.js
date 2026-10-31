@@ -39,7 +39,7 @@ test('the data card: no key, a dot in proportion to the plot with a gap around i
   assert.match(src, /ringG = sv\('g', \{ class: 'pze-ring' \}, halo, dot\)/, 'a dot with its gap, no ring');
   assert.match(src, /svg\.append\(base, wordsG, ringG\)/, 'the dot and the words stay the same elements, so they ease');
   assert.match(css, /\.pze-ring \.pze-halo \{ fill: var\(--surface\); \}/);
-  assert.match(css, /\.pze-ring \{ transition: transform \.7s var\(--ease\)/, 'the dot eases to each new reading');
+  assert.match(css, /\.pze-ring \{ transition: transform var\(--d-surface\) var\(--ease\)/, 'the dot eases to each new reading');
   for (const [W, H, fs, where] of CARD) {
     const fr = frame(W, H), { X, Y } = scaler(pl, fr), { r, g } = dotSize(fr), R = r + g, rules = lineBoxes(pl, X, Y, fr), numBoxes = plotNumbers(pl, fr, X, Y, fs).map((n) => n.box);
     assert.ok(r >= 4 && r <= Math.min(fr.R - fr.L, fr.B - fr.T) * 0.05 && g >= 2.5, `${where}: the dot in proportion (r ${r.toFixed(1)})`);

@@ -32,5 +32,5 @@ test('all wide chart-only cards share the protection while mixed and phone cards
   assert.match(js, /const eligible = chart && el\.classList\.contains\('tool-only'\) && ui\.root\.classList\.contains\('pz-wide'\) && !ui\.root\.classList\.contains\('stack'\) && !ui\.root\.classList\.contains\('low'\)/);
   assert.match(js, /c === chart\.parentElement \? 0 : c\.getBoundingClientRect\(\)\.height/);
   assert.match(css, /\.pz\.pz-wide[^\n]+pz-flowfit > \.pz-tool\[data-kind="flowtime"\] \{ width: 100%; zoom: 1; \}/);
-  assert.match(css, /pz-flowfit \.pz-flowtime \{ height: var\(--ft-room\); min-height: 0; transition: height \.32s var\(--ease\); \}/);
+  assert.match(css, /pz-flowfit \.pz-flowtime \{ height: var\(--ft-room\); min-height: 0; transition: height var\(--d-small\) var\(--ease\); \}/);
 });

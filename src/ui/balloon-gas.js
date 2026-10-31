@@ -1,0 +1,234 @@
+// The tamponade tube: its path, its gastric balloon and the stomach they are fitted to (pure, no DOM).
+//
+// A Sengstaken–Blakemore or Minnesota tube goes down the esophagus and through the cardia into the stomach. Its gastric balloon is
+// filled there first and the tube is drawn up (traction), so the balloon seats against the gastro-esophageal junction and presses on
+// the veins at the cardia. The esophageal balloon (balloon-eso.js) is the second step, filled only if that does not hold.
+//
+// The balloon is a pear on the tube's own axis: a cone into the cardia, a round body below it, the shape a gastric balloon takes
+// under traction. It is fitted to the stomach as drawn (anatomy.js ORGANS 'stomach'), never to fixed coordinates: the axis runs down
+// the middle of the stomach's upper part from the cardia, and the balloon is as large as the outline leaves room for, a margin inside
+// the wall, at every inflation and every stage of the traction, up to the size it is drawn at. A redrawn stomach moves and resizes it
+// (tests/balloon-gas.test.js holds it inside, and fits it to a smaller outline too).
+import { ORGANS } from './anatomy.js?v=e20e751129';
+import { pathCmds, flattenCmds } from './shape-gl.js?v=74fff72fb9';
+import { esoAt, BALLOON } from './balloon-eso.js?v=49e37b0228';
+
+export const GAS = {
+  margin: 3.5,   // how far inside the wall the balloon stays, in world units: the wall's line and glow, and the balloon's own edge
+  slack: 8,      // how far down the tube the balloon sits before the traction, in world units; the traction draws it up this far
+  neck: 1.6,     // the half width of the collapsed balloon: a sheath on the tube (the esophageal one: BALLOON.sleeve)
+  pole: 10,      // from the middle of the cardia to the balloon's upper end, along the tube
+  tail: 7,       // the tube past the balloon's lower end
+  bMax: 20,      // the half width it is drawn at when the stomach has room for it (about twice the esophagus's)
+  ratio: 2.9,    // its length over its half width
+  cone: 0.6,     // how far down its length it is widest
+  pCone: 1.3,    // the curve of the cone into the cardia (1: straight sides) and of the round end below
+  pCap: 2.2,
+};
+
+// ── The stomach's outline ─────────────────────────────
+/** A path as a polygon: the points of its first subpath, [[x, y], …]. */
+export function outlineOf(d) {
+  const f = flattenCmds(pathCmds(d), 0.25)[0].pts, out = [];
+  for (let i = 0; i < f.length; i += 2) out.push([f[i], f[i + 1]]);
+  return out;
+}
+let STOMACH = null;
+/** The stomach as drawn (anatomy.js ORGANS 'stomach': its own outline, which the highlights and the diaphragm's cut use), as a polygon. */
+export function stomachOutline() {
+  return STOMACH || (STOMACH = outlineOf(ORGANS.find((o) => o.id === 'stomach').d));
+}
+const inside = (poly, [x, y]) => {
+  let c = false;
+  for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+    const a = poly[i], b = poly[j];
+    if ((a[1] > y) !== (b[1] > y) && x < ((b[0] - a[0]) * (y - a[1])) / (b[1] - a[1]) + a[0]) c = !c;
+  }
+  return c;
+};
+/** How far inside the polygon a point stands: its distance to the nearest wall, negative outside. */
+export function clearance(p, poly = stomachOutline()) {
+  let best = Infinity;
+  for (let i = 0; i < poly.length; i++) {
+    const a = poly[i], b = poly[(i + 1) % poly.length], dx = b[0] - a[0], dy = b[1] - a[1], l2 = dx * dx + dy * dy;
+    const u = l2 ? Math.max(0, Math.min(1, ((p[0] - a[0]) * dx + (p[1] - a[1]) * dy) / l2)) : 0;
+    best = Math.min(best, Math.hypot(p[0] - a[0] - u * dx, p[1] - a[1] - u * dy));
+  }
+  return inside(poly, p) ? best : -best;
+}
+
+// ── The pear ──────────────────────────────────────────
+/** The pear's outline from its upper end p0 down the unit vector dir: length L, widest half width b, a sheath of half width h0 at each end. */
+function pearOutline(p0, dir, L, b, h0, n) {
+  const [dx, dy] = dir, nx = -dy, ny = dx, { cone, pCone, pCap } = GAS;
+  const half = (u) => {
+    const near = u < cone, t = near ? (cone - u) / cone : (u - cone) / (1 - cone), p = near ? pCone : pCap;
+    return h0 + (b - h0) * Math.max(0, 1 - t ** p) ** (1 / p);
+  };
+  const A = [], B = [];
+  for (let i = 0; i <= n; i++) {   // (denser toward the ends, where the outline turns)
+    const u = 0.5 - 0.5 * Math.cos((Math.PI * i) / n), w = half(u), x = p0[0] + dx * u * L, y = p0[1] + dy * u * L;
+    A.push([x + nx * w, y + ny * w]); B.push([x - nx * w, y - ny * w]);
+  }
+  return { ring: [...A, ...B.reverse()], half };
+}
+
+/**
+ * The balloon fitted to a stomach outline: where the tube meets the cardia (the middle of the esophagus's foot), the axis down the
+ * stomach's upper part that leaves the balloon the most room, and the largest half width b (up to GAS.bMax) at which the filled balloon,
+ * at every stage of the traction, stays GAS.margin inside the wall. `poly` and `mouth` default to the drawn stomach and cardia.
+ * The axis is the middle of the run of angles that give the full size (not the sharpest of them), so a small change to the outline moves
+ * the balloon a little, never a lot. → { mouth, dir, deg, p0 (the balloon's upper end, drawn up), b, L }
+ */
+export function fitGas(poly = stomachOutline(), mouth = [esoAt(251).c, 251]) {
+  const { margin, slack, pole, ratio, bMax, neck } = GAS;
+  const at = (deg) => { const t = (deg * Math.PI) / 180, dir = [Math.cos(t), Math.sin(t)]; return { dir, p0: [mouth[0] + dir[0] * pole, mouth[1] + dir[1] * pole] }; };
+  // The widest half width that fits with the axis at deg (bisected; n points round the outline, a coarse look first, a fine one at the end).
+  const widest = (deg, steps, n) => {
+    const { dir, p0 } = at(deg);
+    const fits = (b) => [0, slack / 2, slack].every((s) => {
+      const q = [p0[0] + dir[0] * s, p0[1] + dir[1] * s];
+      return pearOutline(q, dir, ratio * b, b, neck, n).ring.every((pt) => clearance(pt, poly) >= margin);
+    });
+    if (fits(bMax)) return bMax;
+    let lo = neck, hi = bMax;
+    for (let i = 0; i < steps; i++) { const mid = (lo + hi) / 2; if (fits(mid)) lo = mid; else hi = mid; }
+    return lo;
+  };
+  // First, which axes leave room for the full size: the middle of the longest run of them. Only when none does (a small stomach) is the best
+  // size found angle by angle.
+  const angles = [];
+  for (let deg = 20; deg <= 80; deg += 2) angles.push(deg);
+  const full = angles.filter((d) => widest(d, 0, 16) >= bMax);
+  let deg, b;
+  if (full.length) {
+    const runs = [[full[0]]];
+    for (let i = 1; i < full.length; i++) { if (full[i] - full[i - 1] <= 2) runs[runs.length - 1].push(full[i]); else runs.push([full[i]]); }
+    const run = runs.reduce((a, r) => (r.length > a.length ? r : a));
+    deg = (run[0] + run[run.length - 1]) / 2;
+    b = widest(deg, 16, 32);
+  } else {
+    const tried = angles.map((d) => [d, widest(d, 8, 16)]), top = Math.max(...tried.map((x) => x[1]));
+    deg = tried.find((x) => x[1] === top)[0];
+    b = widest(deg, 16, 32);
+  }
+  const { dir, p0 } = at(deg);
+  return { mouth, dir, deg, p0, b, L: ratio * b };
+}
+let FIT = null;
+const fit = () => FIT || (FIT = fitGas());
+
+/**
+ * The gastric balloon at inflation k (0 collapsed on the tube … 1 filled) with the traction at q (0 let go: it sits GAS.slack down the
+ * tube … 1 drawn up: its cone is seated against the cardia). The outline as a closed ring of points, the upper end p0, the axis dir,
+ * the length L, half(u) its half width u along its length (0 … 1), ring(f) the outline narrowed to f of its width (for the latex's
+ * rims) and b the widest half width now.
+ */
+export function gasShape(k, q = 1, n = 40, f = fit()) {
+  const b = GAS.neck + (f.b - GAS.neck) * k, s = GAS.slack * (1 - q);
+  const p0 = [f.p0[0] + f.dir[0] * s, f.p0[1] + f.dir[1] * s], { ring, half } = pearOutline(p0, f.dir, f.L, b, GAS.neck, n);
+  const [dx, dy] = f.dir;
+  const narrow = (w) => ring.map(([x, y]) => { const a = (x - p0[0]) * dx + (y - p0[1]) * dy, l = (x - p0[0]) * -dy + (y - p0[1]) * dx; return [p0[0] + dx * a - dy * l * w, p0[1] + dy * a + dx * l * w]; });
+  return { outline: ring, p0, dir: f.dir, L: f.L, half, ring: narrow, b };
+}
+
+// ── The tube ──────────────────────────────────────────
+let PATH = null;
+/**
+ * The tube's whole course, from above the figure down the esophagus's middle, round the bend at the cardia and along the axis through
+ * the balloon to its tip, and GAS.slack further (where the tip rests before the traction draws it up): { pts, arc (the length to each point),
+ * total, final (the length with the tube drawn up: its tip at rest), p0Arc (where the balloon's upper end is then), mouth }. Kept inside the esophagus
+ * and, past the cardia, inside the stomach.
+ */
+export function tubePath(f = fit()) {
+  if (PATH && PATH.f === f) return PATH;
+  const pts = [];
+  for (let y = BALLOON.from; y <= BALLOON.bottom; y += 4) pts.push([esoAt(y).c, y]);
+  // The bend: a quadratic from the esophagus's middle at the esophageal balloon's lower end (so the balloon lies on the tube all its length) into the
+  // axis at the gastric balloon's upper end.
+  const eb = BALLOON.bottom, E = [esoAt(eb).c, eb], t = [esoAt(eb).c - esoAt(eb - 8).c, 8], tl = Math.hypot(t[0], t[1]), uE = [t[0] / tl, t[1] / tl];
+  const dx = f.p0[0] - E[0], dy = f.p0[1] - E[1], det = uE[0] * f.dir[1] - uE[1] * f.dir[0];
+  const a = (dx * f.dir[1] - dy * f.dir[0]) / det, K = [E[0] + uE[0] * a, E[1] + uE[1] * a];
+  for (let i = 1; i <= 10; i++) { const u = i / 10, m = 1 - u; pts.push([m * m * E[0] + 2 * m * u * K[0] + u * u * f.p0[0], m * m * E[1] + 2 * m * u * K[1] + u * u * f.p0[1]]); }
+  const p0i = pts.length - 1, run = f.L + GAS.tail + GAS.slack;
+  for (let u = 4; u < run; u += 4) pts.push([f.p0[0] + f.dir[0] * u, f.p0[1] + f.dir[1] * u]);
+  pts.push([f.p0[0] + f.dir[0] * run, f.p0[1] + f.dir[1] * run]);
+  const arc = [0];
+  for (let i = 1; i < pts.length; i++) arc.push(arc[i - 1] + Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]));
+  const total = arc[arc.length - 1];
+  return (PATH = { f, pts, arc, total, final: total - GAS.slack, p0Arc: arc[p0i], mouth: f.mouth });
+}
+/** The point and the unit tangent at length s along the path (clamped to its ends). */
+export function pathAt(s, path = tubePath()) {
+  const g = Math.min(path.total, Math.max(0, s));
+  let i = 1;
+  while (i < path.pts.length - 1 && path.arc[i] <= g) i++;   // (at a vertex, the stretch after it)
+  const p = path.pts[i - 1], q = path.pts[i], len = path.arc[i] - path.arc[i - 1] || 1, u = (g - path.arc[i - 1]) / len;
+  return { p: [p[0] + (q[0] - p[0]) * u, p[1] + (q[1] - p[1]) * u], t: [(q[0] - p[0]) / len, (q[1] - p[1]) / len] };
+}
+/** How far down the path a height y on the esophagus's side of the cardia is. */
+export function arcAtY(y, path = tubePath()) {
+  let i = 1;
+  while (i < path.pts.length - 1 && path.pts[i][1] < y) i++;
+  const p = path.pts[i - 1], q = path.pts[i], u = (y - p[1]) / ((q[1] - p[1]) || 1);
+  return path.arc[i - 1] + (path.arc[i] - path.arc[i - 1]) * u;
+}
+/**
+ * Where the tube's tip is, as a length along the path: it slides in (a, 0 … 1) to GAS.slack past where it rests, then the traction (q, 0 … 1) draws
+ * it up by that much, the gastric balloon seating against the cardia. Everything on the tube sits at its own distance behind the tip.
+ */
+export function tubeTip(a, q = 0, path = tubePath()) {
+  const g = Math.min(1, Math.max(0, a));
+  return g * path.total - GAS.slack * Math.min(1, Math.max(0, q)) * g;
+}
+/** The tube's points as far as its tip has gone (tubeTip): the last point is the tip itself. */
+export function tubeTo(a, q = 0, path = tubePath()) {
+  const goal = tubeTip(a, q, path), out = [];
+  for (let i = 0; i < path.pts.length; i++) {
+    if (path.arc[i] <= goal) { out.push(path.pts[i]); continue; }
+    const u = (goal - path.arc[i - 1]) / (path.arc[i] - path.arc[i - 1]), p = path.pts[i - 1], r = path.pts[i];
+    out.push([p[0] + (r[0] - p[0]) * u, p[1] + (r[1] - p[1]) * u]);
+    break;
+  }
+  if (out.length < 2) out.push([path.pts[0][0], path.pts[0][1] + 0.01]);
+  return out;
+}
+/**
+ * A sheath on the tube between two lengths along it (s0 above s1), its half width half(t) at t (0 … 1) of the way down it: the balloon collapsed
+ * on the tube, riding it as it slides in. { ring: a closed ring of points, narrow(f): the ring at f of its width }, the part above the path's start
+ * (the figure's top) cut; null if none is left.
+ */
+export function sheath(s0, s1, half, path = tubePath()) {
+  const lo = Math.max(0, s0), hi = Math.min(path.total, s1);
+  if (hi - lo < 0.5) return null;
+  const n = Math.max(3, Math.ceil((hi - lo) / 3)), mid = [], nor = [], w = [];
+  for (let i = 0; i <= n; i++) {
+    const s = lo + ((hi - lo) * i) / n, { p, t } = pathAt(s, path);
+    mid.push(p); nor.push([-t[1], t[0]]); w.push(half((s - s0) / (s1 - s0)));
+  }
+  const at = (f) => {
+    const A = mid.map((p, i) => [p[0] + nor[i][0] * w[i] * f, p[1] + nor[i][1] * w[i] * f]), B = mid.map((p, i) => [p[0] - nor[i][0] * w[i] * f, p[1] - nor[i][1] * w[i] * f]);
+    return [...A, ...B.reverse()];
+  };
+  return { ring: at(1), narrow: at };
+}
+/**
+ * Where the tube's two balloons lie on it, as lengths along the path for the tip at `tip`: { eso: [top, bottom], gas: [top, bottom] }.
+ * The esophageal one is where balloon-eso.js has it once the tube is drawn up; the gastric one runs from the balloon's upper end for its length.
+ */
+export function sheathArcs(tip, path = tubePath()) {
+  const shift = tip - path.final;
+  return { eso: [arcAtY(BALLOON.top, path) + shift, arcAtY(BALLOON.bottom, path) + shift], gas: [path.p0Arc + shift, path.p0Arc + path.f.L + shift] };
+}
+
+// ── The pull ──────────────────────────────────────────
+/** The traction's arrow: up the esophagus's side, clear of its wall, beside the bare tube above the esophageal balloon. */
+export const PULL = { from: 152, to: 124, side: 17, head: 6.5, spread: 3 };
+/** { line: the shaft's points, head: the triangle's three points } of the arrow that shows the tube being drawn up. */
+export function pullArrow() {
+  const { from, to, side, head, spread } = PULL, at = (y) => [esoAt(y).c + side, y], line = [];
+  for (let y = from; y >= to + head - 0.5; y -= 7) line.push(at(y));
+  line.push(at(to + head - 0.5));
+  const tip = at(to), base = at(to + head);
+  return { line, head: [tip, [base[0] - spread, base[1]], [base[0] + spread, base[1]]] };
+}

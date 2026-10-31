@@ -10,11 +10,13 @@
 // Every measure is taken in the pill's own px from its centre, so a glide of the whole pill (main.js) does not enter it,
 // and one fold taking over from another starts from wherever the buttons and the face are drawn at that moment.
 
-export const easeIO3 = (u) => (u < 0.5 ? 4 * u * u * u : 1 - (-2 * u + 2) ** 3 / 2);
-export const EASE_IO3 = 'cubic-bezier(.65, 0, .35, 1)';   // (easeIO3 as a CSS curve)
+// (The glide rides the camera's curve, the quintic of ease.js, and its CSS copy is --ease-move: one curve for a move, premium-feel R3.)
+import { easeMove, D_SURFACE, EASE_ARRIVE, EASE_MOVE } from './ease.js?v=387660d4ad';
+export const easeIO3 = easeMove;
+export const EASE_IO3 = EASE_MOVE;
 // The fold is quicker than the zoom it plays in (17 Oct, Mohammad: "should be faster and eased"), on the app's own ease
 // (tokens.css --ease: quick off the mark, settling gently), so the buttons have folded well before the pill lands.
-export const FOLD_MS = 420, FOLD_EASE = 'cubic-bezier(.2, .8, .2, 1)';
+export const FOLD_MS = D_SURFACE, FOLD_EASE = EASE_ARRIVE;
 
 /**
  * One frame of the pill's glide (main.js sinMotion), on one axis, all in screen px. at: the pill's centre as drawn now, which
