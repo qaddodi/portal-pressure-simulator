@@ -2889,6 +2889,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     // (A wide screen's summary table clips what is wider than it, so the card's own scrollWidth never sees it: read from the table, in the
     // card's pixels. The fit then zooms the card until every column is in view. A phone's rows are a grid that fits its width by itself.)
     const wideTable = !ui.root.classList.contains('stack');
+    const bigText = parseFloat(getComputedStyle(ui.root).getPropertyValue('--ts')) > 1.001;   // (only a larger text setting can outgrow a phone's columns)
     let sideways = 0;
     for (const c of el.children) {
       if (c === side) continue;
@@ -2899,7 +2900,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       if (wideTable && c.classList.contains('pz-table')) sideways = Math.max(sideways, (c.scrollWidth - c.clientWidth) * cz);
       // (A phone's grid rows fit their width at the standard text size; at a large one a reading on the reference row can outgrow its
       // column, which the table's clip hides from the card, so the first row's readings are measured and the fit zooms for them.)
-      else if (c.classList.contains('pz-table')) for (const td of c.querySelectorAll('tbody tr:first-child td.num')) sideways = Math.max(sideways, (td.scrollWidth - td.clientWidth - 1) * cz);
+      else if (bigText && c.classList.contains('pz-table')) for (const td of c.querySelectorAll('tbody tr:first-child td.num')) sideways = Math.max(sideways, (td.scrollWidth - td.clientWidth - 1) * cz);
       // (A part with a height cap clips by design, and mid-fold its clipped contents are not overflow either: counting them
       // shrank the card while a phone's tool folded, and the shrunk fit then stuck.)
       // (A line's glyphs or a pinned button reaching a pixel or two past its part is not overflow: counted, it shrank every
@@ -2924,9 +2925,9 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   const fitDone = new WeakMap(), smOf = new WeakMap();
   // A narrow summary table's column heads are 12 px, never smaller: a row whose columns are too narrow for the words in one line
   // sets them upright (tr.th-up, turned to read from the bottom), one way for the whole row. (The phone and upright-tablet layouts read it.)
-  // A head fits when its word keeps 3 px clear of its column's edges, so two neighbours are never closer than 6 px: an iPad mini's nine
-  // columns had WHVP and FHVP, SAAG and PROT., touching.
-  const headFits = (th) => { const b = th.getBoundingClientRect(), g = document.createRange(); g.selectNodeContents(th); return [...g.getClientRects()].every((q) => !q.width || (q.left >= b.left + 2.5 && q.right <= b.right - 2.5)); };
+  // On an upright iPad a head fits when its word keeps 3 px clear of its column's edges, so two neighbours are never closer than 6 px: an
+  // iPad mini's nine columns had WHVP and FHVP, SAAG and PROT., touching. A phone's rule is as it was: the word inside its column.
+  const headFits = (th) => { const b = th.getBoundingClientRect(), g = document.createRange(), m = ui.root.classList.contains('tab') ? 2.5 : -0.5; g.selectNodeContents(th); return [...g.getClientRects()].every((q) => !q.width || (q.left >= b.left + m && q.right <= b.right - m)); };
   function fitHeadRow(tr) {
     const ths = [...tr.querySelectorAll('th.num')];
     if (!ths.length || !tr.getBoundingClientRect().width) return;

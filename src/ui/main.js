@@ -183,7 +183,7 @@ async function main() {
   dock = createDock({ strip: $('#strip'), head: $('#dockHead'), body: $('#dockBody'), onWhy: (m, el) => why.open(m, el), onAction: doAction, onProbe: probeTo, lazy: { doppler: dopplerL, fibroscan: fibroL }, onReveal: revealDock, onLobule: () => zoomLobule('R'),
     onOpen: () => openPanel('instruments'), onClose: () => setPanelTab('chart'), onLayout: () => syncDoppler(), isVisible: () => app.classList.contains('dock-open'),
     marks: () => timeline.entries(), onBeat: () => sendBeat() });
-  presenterL = lazy(() => import('./presenter.js?v=c49c630965'), ({ createPresenter }) => createPresenter({ openSettings, loadPreset, updateParams, host, stage, dock, action: doAction,
+  presenterL = lazy(() => import('./presenter.js?v=8fd4a104e6'), ({ createPresenter }) => createPresenter({ openSettings, loadPreset, updateParams, host, stage, dock, action: doAction,
     projectorOn: () => toggleProjector(true), projectorOff: () => toggleProjector(false),
     closeHome: () => mainMenu.close(), stashCards, rerenderHome: () => mainMenu.render() }));
   mainMenu = createMenu({
@@ -1127,10 +1127,10 @@ let panelOpener = null;
 // A finger's wide screen (an iPad held sideways) sets its right-hand cards side by side. Where Details, Tests and Treat or History
 // together would leave the figure less than a vessel card's strip (300 px and its margins), the one the learner did not just ask
 // for gives way, as on a phone. (withPanel: Details is about to open.)
-function rightShort(withPanel = false) {
+function rightShort(withPanel = false, withDock = false) {
   if (isPhone() || !matchMedia('(pointer: coarse)').matches) return false;
-  const w = [withPanel || panelShown() ? $('#panel').offsetWidth || 380 : 0, app.classList.contains('dock-open') && $('#dock').classList.contains('side') ? $('#dock').offsetWidth : 0, 400].filter(Boolean);
-  return innerWidth - w.reduce((a, b) => a + b, 0) - (w.length + 1) * 12 < 316;
+  const w = [withPanel || panelShown() ? $('#panel').offsetWidth || 380 : 0, withDock ? $('#dock').offsetWidth || 380 : app.classList.contains('dock-open') && $('#dock').classList.contains('side') ? $('#dock').offsetWidth : 0, 400].filter(Boolean);
+  return w.length > 2 && innerWidth - w.reduce((a, b) => a + b, 0) - (w.length + 1) * 12 < 316;   // (two cards stay as they were: only a third gives way)
 }
 function openPanel(tab = 'chart') {
   // (What it puts away on a phone goes first, so the instruments come in once it has gone.)
@@ -1159,6 +1159,7 @@ function setPanelTab(tab) {
   const instr = tab === 'instruments';
   if (instr) dock.ensure();
   const was = app.classList.contains('dock-open');
+  if (instr && !was && (treatOpen() || historyOpen()) && rightShort(panelShown(), true)) { closeTreat(); closeHistory(); }   // (Tests last: Treat or History gives way when the cards would leave the vessel card no strip)
   if (instr) arrive($('#dock')); else if (was && !app.classList.contains('instrument-focus')) leave($('#dock'));
   app.classList.toggle('dock-open', instr);
   $('#tabInstruments').setAttribute('aria-pressed', String(instr));
