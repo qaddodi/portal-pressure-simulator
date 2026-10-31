@@ -6383,7 +6383,9 @@ export function createStage({ figure = null, wrap, onSelect, onAction, onOpenTab
   // blood moves. Off with the callouts' (?gpulabels=0, software, no GPU figure): the cards keep the browser's glass.
   const cardGLs = new Set();
   const cardGlass = (cards) => {
-    if (!veins) return null;
+    // (Opt-in with ?cardglass=1, 31 Oct: each figure frame copies the region under the cards, which on Safari reads the canvas back and
+    // made the decks laggier than the browser's own blur; by default the cards keep the browser's glass, as before.)
+    if (!veins || !/[?&]cardglass=1\b/.test(location.search)) return null;
     const g = createGlassGL(wrap, vCanvas, [], { software: SOFTWARE, off: /[?&]gpulabels=0\b/.test(location.search), cards, live: () => wrap.classList.contains('gl-on') && !anatCovered() && !(diveT > 0), version: () => veins.drawSeq, capture: () => veins?.capture(), onFigure: (f) => veins.onPicture(f), keep: () => figLab('glassCache'), due: () => watch.due() });
     if (!g) return null;
     cardGLs.add(g);
