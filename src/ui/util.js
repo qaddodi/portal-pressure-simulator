@@ -1,5 +1,6 @@
 // DOM & formatting helpers.
 import { saver, frame, cancelFrame } from './frame.js?v=d389474997';
+import { follow2, jumpCount, SHOWN_TAU } from './display-state.js?v=e88f6aec64';
 
 // replaceChildren/append stringify null and arrays: flatten and drop empties instead.
 for (const m of ['replaceChildren', 'append', 'prepend']) {
@@ -719,23 +720,29 @@ export function enhanceRanges(root = document) {
 }
 
 /**
- * Eases an array of values toward a target, frame-rate independent (time constant `tau` seconds),
- * so a chart's line, dots, labels and axis glide rather than jump when the model changes. The
- * Pressure card and the lobule's pressure ladder share it. step(target) → { v, moving }.
+ * Eases an array of values toward a target, frame-rate independent, so a chart's line, dots, labels and axis glide rather than
+ * jump when the model changes. The Pressure card and the lobule's pressure ladder share it. step(target) → { v, moving }.
+ * It is the shown state's filter (display-state.js follow2, premium-feel R4: the widths', colours' and numbers' one clock, time
+ * constant tau): a value at rest takes a step of at most `small` at once (a steady model costs no frames). jumps: a jump of the model
+ * (noteJump: a reset, a patient, an intervention, a clock change) is taken at once, never blended into the state before it (the
+ * Pressure chart, which drew each model frame as it came before; the lobule, which always glided, still glides).
  */
-export function createEaser(tau = 0.3) {
-  let v = null, last = 0;
+export function createEaser(tau = SHOWN_TAU, { small = 0, eps = 0.02, jumps = false } = {}) {
+  let v = null, w = null, last = 0, moved = false, epoch = jumpCount();
   return {
     step(target) {
-      const now = performance.now(), dt = last ? Math.min(0.25, (now - last) / 1000) : 1;
+      const now = performance.now(), dt = last && moved ? Math.min(0.25, Math.max(0, (now - last) / 1000)) : 0;   // (from rest: no time has passed under the new target yet)
       last = now;
-      if (!v || v.length !== target.length) v = Float64Array.from(target);
-      const a = 1 - Math.exp(-dt / tau);
+      if (!v || v.length !== target.length || (jumps && epoch !== jumpCount())) { v = Float64Array.from(target); w = Float64Array.from(target); epoch = jumpCount(); moved = false; return { v, moving: false }; }
       let moving = false;
       for (let i = 0; i < target.length; i++) {
-        const d = target[i] - v[i];
-        if (Math.abs(d) > 0.02) { v[i] += d * a; moving = true; } else v[i] = target[i];
+        const T = target[i];
+        if (v[i] === w[i] && Math.abs(T - v[i]) <= small) { v[i] = w[i] = T; continue; }
+        const r = follow2(v[i], w[i], T, dt, tau, eps);
+        v[i] = r.v; w[i] = r.w;
+        if (r.v !== T || r.w !== T) moving = true;
       }
+      moved = moving;
       return { v, moving };
     },
   };

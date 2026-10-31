@@ -4,12 +4,13 @@
 // are left out. The map is a continuously evolving reading: coherent speckle that morphs smoothly, one
 // dominant dark shear-wave band, and a slope that drifts gently around the model's value.
 
-import { h, fitCanvas, clamp, cssAlpha } from './util.js?v=b061aaaabb';
-import { FONT } from './charts.js?v=686d490a31';
+import { h, fitCanvas, clamp, cssAlpha } from './util.js?v=8b0d306340';
+import { FONT } from './charts.js?v=c7265f3752';
 import { simTime, isPaused, fibroReading } from './clock.js?v=73bb847dde';
 import { store } from './store.js?v=a926bea9d4';
 import { elastogramGL, prepareElastogramGL } from './fibroscan-gl.js?v=2c4804ca17';
 import { frameFor, cancelFrame, noteDraw, saver, paceMs } from './frame.js?v=d389474997';
+import { createFollow } from './display-state.js?v=e88f6aec64';
 const nextFrame = frameFor('fibroscan');
 
 const WAVE_T0 = 8; // ms: the shear wave reaches the top of the window about 8 ms after the push
@@ -108,6 +109,7 @@ export function createFibroScan() {
   let N = 0, img = null;
   const cap = 300;
   let model = 10, running = false, shown = null, last = 0;
+  const kShown = createFollow({ small: 0.05, eps: 0.01 });
   const sized = { w: 0, h: 0, cap: 11, r: 1 };
   // Whether the panel is on screen, as the browser reports it when it changes (read every frame, offsetParent laid the page out);
   // coming on screen, it draws again at once. (No observer, as in a bare test page: read as before.)
@@ -126,7 +128,9 @@ export function createFibroScan() {
     // The wave front drifts gently around the model's median; the readout is the median itself (eased when it changes),
     // so it reads the same number as the slide's tile and words.
     const kNow = model * (1 + 0.05 * Math.sin(t * 0.8) + 0.03 * Math.sin(t * 1.9 + 1));
-    shown = shown === null || Math.abs(model - shown) < 0.05 ? model : shown + (model - shown) * (1 - Math.exp(-dt * 2.5));
+    // (On the shown state's filter, display-state.js, premium-feel R4: the bar's and the figure's clock; a jump of the model, a pause or
+    // Reduce Motion shows the new median at once.)
+    shown = kShown.step(model, dt, REDUCED || isPaused());
     const c = shearSpeed(kNow);
     const th = colors(now);
     const reading = shown.toFixed(1); if (cv.dataset.reading !== reading) cv.dataset.reading = reading;

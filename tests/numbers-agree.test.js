@@ -139,5 +139,6 @@ test('the right atrium is read over two breaths everywhere it is shown, and that
 test('the Doppler scale holds the reported peak and the report is drawn with the picture', () => {
   const d = src('doppler.js');
   assert.match(d, /const rd = reading\(\);\s*\n\s*if \(rd\) for \(const v of \[rd\.vmax \* gf \* sgn, rd\.vmin \* gf \* sgn\]\)/);
-  assert.match(d, /if \(reportDue\) \{ reportDue = false; updateReport\(\); \}\s*\n\s*draw\(now\);/);
+  // (Also while the reading still glides on the shown state, premium-feel R4: the words follow it in the picture's own frame.)
+  assert.match(d, /if \(reportDue \|\| velShown\.moving\) \{ reportDue = false; updateReport\(\); \}\s*\n\s*draw\(now\);/);
 });

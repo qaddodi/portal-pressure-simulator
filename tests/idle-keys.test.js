@@ -10,14 +10,14 @@ import { glideMoving, compareRows, netChanged, createLayoutWatch, PLACED, PLACE_
 const src = (f) => readFileSync(new URL(`../src/ui/${f}`, import.meta.url), 'utf8');
 
 test('the chart glides only while what it draws is moving', () => {
-  // With the model's filtered pressures in the frame, the eased copy is not what is drawn: its easing alone never keeps the glide.
-  assert.equal(glideMoving(true, true, false), false);
-  assert.equal(glideMoving(true, true, true), true);    // the axis still easing
-  assert.equal(glideMoving(false, true, false), true);  // before the filtered pressures exist, the eased copy is drawn
-  assert.equal(glideMoving(false, false, false), false);
+  // The eased copy of the filtered pressures is what is drawn (premium-feel R4): it keeps the glide while it moves, and settles.
+  assert.equal(glideMoving(true, false), true);
+  assert.equal(glideMoving(false, true), true);    // the axis still easing
+  assert.equal(glideMoving(false, false), false);
   const charts = src('charts.js');
-  assert.match(charts, /const moving = glideMoving\(!!Fraw\.Pf, mP, mA\)/);
-  // (It draws the filtered pressures: if that ever changed, the glide would have to follow the eased copy again.)
+  assert.match(charts, /const moving = glideMoving\(mP, mA\)/);
+  assert.match(charts, /F = \{ \.\.\.Fraw, P: shownP, \.\.\.\(Fraw\.Pf \? \{ Pf: shownP \} : \{\}\) \}/);
+  assert.match(charts, /createEaser\(undefined, \{ small: 0\.05, jumps: true \}\)/);
   assert.match(charts, /reading\(n, F\.Pf \|\| F\.P\)/);
 });
 

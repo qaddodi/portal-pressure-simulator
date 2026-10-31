@@ -26,7 +26,10 @@ test('live monitors fill the card width and get shorter when tight, never narrow
 
 test('the FibroScan reads the model median, the number in the tile and words', () => {
   const src = readFileSync(new URL('../src/ui/fibroscan.js', import.meta.url), 'utf8');
-  assert.match(src, /shown = shown === null \|\| Math\.abs\(model - shown\) < 0\.05 \? model/);
+  // (The median, on the shown state's filter, premium-feel R4: a change under 0.05 kPa at rest, a pause or a jump shows at once.)
+  assert.match(src, /const kShown = createFollow\(\{ small: 0\.05, eps: 0\.01 \}\)/);
+  assert.match(src, /shown = kShown\.step\(model, dt, REDUCED \|\| isPaused\(\)\)/);
+  assert.match(src, /const reading = shown\.toFixed\(1\)/);
 });
 
 test('a ladder card shows no HVPG or PPG tiles: its brackets give them, so no number is shown twice, rounded two ways', () => {

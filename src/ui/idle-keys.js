@@ -1,10 +1,10 @@
 // What lets a loop that runs while nothing changes skip its work, and nothing else: the picture it draws stays the same.
 // (No DOM needed to import: the unit tests load it in Node.)
 
-// The Pressure chart's glide: whether another display frame should be drawn. The chart draws the model's beat-filtered
-// pressures (Pf) where the frame carries them, so its own eased copy shows only before they arrive; its easing never
-// settled while the model ran, and kept the glide repainting an unchanged picture on every display frame.
-export const glideMoving = (hasPf, pressuresMoving, axisMoving) => (!hasPf && pressuresMoving) || axisMoving;
+// The Pressure chart's glide: whether another display frame should be drawn. The chart draws its eased copy of the model's
+// beat-filtered pressures (premium-feel R4: the shown state's filter, util.js createEaser), which settles once the model does
+// (a drift under what it prints is taken at once), so the glide runs only while the line or the axis is on its way.
+export const glideMoving = (pressuresMoving, axisMoving) => pressuresMoving || axisMoving;
 
 // The comparison line's deltas as shown, [label, text]: what the line is rebuilt from, and only when one of them changes.
 export function compareRows(a, b, hvpg, model, fmt) {

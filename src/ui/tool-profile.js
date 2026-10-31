@@ -11,11 +11,12 @@
 
 import { frame, cancelFrame } from './frame.js?v=d389474997';
 import { PROFILE_PATHS } from './anatomy.js?v=4d7c66b4f8';
+import { follow2, SHOWN_TAU } from './display-state.js?v=e88f6aec64';
 import { NODES } from '../engine/topology.js?v=4044766e96';
 import { RATE } from './table-marks.js?v=e4c3c4f8c1';
 import { monotoneSegs } from './curve-near.js?v=9ff15157e9';
 import { plotPanel } from './plot-look.js?v=5037697da7';
-import { pressureColor } from './colormap.js?v=197dfb008b';
+import { pressureColor } from './colormap.js?v=7198056ff9';
 
 const PATH = PROFILE_PATHS[0];
 export const STATIONS = PATH.nodes;
@@ -774,14 +775,28 @@ export function createProfileTool() {
   }
   const glideAt = (a, now) => { const e = 0.5 - 0.5 * Math.cos(Math.PI * Math.min(1, Math.max(0, (now - a.t0) / FADE_MS))); return [lerp(a.fx, a.x, e), lerp(a.fy, a.y, e)]; };
   const fadeK = (row, now) => (row.from == null ? 1 : 0.5 - 0.5 * Math.cos(Math.PI * Math.min(1, Math.max(0, (now - row.t0) / FADE_MS))));
-  function tick() {
+  // (The numbers glide on the shown state's filter, display-state.js follow2, premium-feel R4: the widths', the bar's and the charts' one
+  // clock, the same curve at 60 or 120 Hz. shownW: its first stage. tickAt: the last step's time, 0 at rest.)
+  let shownW = null, tickAt = 0;
+  function tick(now = performance.now()) {
     raf = 0;
     if (!goal) return;
-    const k = reduceMQ.matches || !shown ? 1 : 0.2;
-    const mix = (a, b) => lerp(a, b, k);
-    shown = shown ? { v: shown.v.map((x, i) => mix(x, goal.v[i])), hvpg: mix(shown.hvpg, goal.hvpg), ppg: mix(shown.ppg, goal.ppg), top: mix(shown.top, goal.top) } : { ...goal };
-    const done = shown.v.every((x, i) => Math.abs(x - goal.v[i]) < 0.02) && Math.abs(shown.top - goal.top) < 0.05;
-    if (done) shown = { ...goal, v: goal.v.slice() };
+    const dt = tickAt ? Math.min(0.1, Math.max(0, (now - tickAt) / 1000)) : 0;
+    tickAt = now;
+    let done;
+    if (reduceMQ.matches || !shown || !shownW) { shown = { ...goal }; done = true; }
+    else {
+      const fv = (k, i) => {
+        const T = i == null ? goal[k] : goal.v[i], r = follow2(i == null ? shown[k] : shown.v[i], i == null ? shownW[k] : shownW.v[i], T, dt, SHOWN_TAU, 0.005);
+        return [r.v, r.w];
+      };
+      const vs = goal.v.map((_, i) => fv('v', i)), [h1, h2] = fv('hvpg'), [p1, p2] = fv('ppg'), [t1, t2] = fv('top');
+      shown = { v: vs.map((x) => x[0]), hvpg: h1, ppg: p1, top: t1 };
+      shownW = { v: vs.map((x) => x[1]), hvpg: h2, ppg: p2, top: t2 };
+      const near = (x, T, e) => Math.abs(x - T) < e;
+      done = goal.v.every((T, i) => near(shown.v[i], T, 0.02) && near(shownW.v[i], T, 0.02)) && near(shown.top, goal.top, 0.05) && near(shownW.top, goal.top, 0.05);
+    }
+    if (done) { shown = { ...goal, v: goal.v.slice() }; shownW = { ...goal, v: goal.v.slice() }; tickAt = 0; }
     if (el.isConnected || !done || fading) draw();
     if (!done || fading) raf = frame(tick, 'tool-profile');
   }
