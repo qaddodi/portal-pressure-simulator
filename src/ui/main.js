@@ -1135,13 +1135,24 @@ function giveFocusBack(card, to) {
 }
 let panelOpener = null;
 /** Opens the patient chart; or the instruments when named. */
-// A finger's wide screen (an iPad held sideways) sets its right-hand cards side by side. Where Details, Tests and Treat or History
-// together would leave the figure less than a vessel card's strip (300 px and its margins), the one the learner did not just ask
-// for gives way, as on a phone. (withPanel: Details is about to open.)
-function rightShort(withPanel = false, withDock = false) {
+// A finger's wide screen (an iPad held sideways) sets its right-hand cards side by side: Details, Tests (380 px, or 38% of a 1200+ screen),
+// Treat or History (400 px), 12 px apart. A vessel card needs 300 px beside them (316 with its margin). Where the open cards and the one
+// opening would leave less, the others give way one at a time, Treat or History first, then Tests, then Details, each easing out, until it
+// fits: on a 1024 iPad that is one card at a time. (opening: 'treat', 'dock' or 'panel'.)
+function rightShort(opening) {
   if (isPhone() || !matchMedia('(pointer: coarse)').matches) return false;
-  const w = [withPanel || panelShown() ? $('#panel').offsetWidth || 380 : 0, withDock ? $('#dock').offsetWidth || 380 : app.classList.contains('dock-open') && $('#dock').classList.contains('side') ? $('#dock').offsetWidth : 0, 400].filter(Boolean);
-  return w.length > 2 && innerWidth - w.reduce((a, b) => a + b, 0) - (w.length + 1) * 12 < 316;   // (two cards stay as they were: only a third gives way)
+  const dock = $('#dock'), on = { panel: opening === 'panel' || panelShown(), dock: opening === 'dock' || (app.classList.contains('dock-open') && dock.classList.contains('side')), treat: opening === 'treat' || treatOpen() || historyOpen() };
+  const w = [on.panel && ($('#panel').offsetWidth || 380), on.dock && (dock.offsetWidth || (innerWidth < 1200 ? 380 : Math.max(440, innerWidth * 0.38))), on.treat && 400].filter(Boolean);
+  return w.length > 1 && innerWidth - w.reduce((a, b) => a + b, 0) - (w.length + 1) * 12 < 316;
+}
+function giveWay(opening) {
+  for (const k of ['treat', 'dock', 'panel']) {
+    if (!rightShort(opening)) return;
+    if (k === opening) continue;
+    if (k === 'treat') { closeTreat(); closeHistory(); }
+    else if (k === 'dock') { if (app.classList.contains('dock-open')) setPanelTab('chart'); }
+    else closePanel();
+  }
 }
 function openPanel(tab = 'chart') {
   // (What it puts away on a phone goes first, so the instruments come in once it has gone.)
@@ -1151,7 +1162,7 @@ function openPanel(tab = 'chart') {
   if (app.classList.contains('instrument-focus')) dock.setState('open');
   // A phone has room for one sheet at a time: the chart puts Treat and the instruments away.
   if (isPhone()) { closeTreat(); if (app.classList.contains('dock-open')) setPanelTab('chart'); }
-  else if ((treatOpen() || historyOpen()) && rightShort(true)) { closeTreat(); closeHistory(); }
+  else giveWay('panel');
   const a = document.activeElement;
   if (!panelShown() && a && a !== document.body && !$('#panel').contains(a)) panelOpener = a;
   arrive($('#panel'));
@@ -1170,7 +1181,7 @@ function setPanelTab(tab) {
   const instr = tab === 'instruments';
   if (instr) dock.ensure();
   const was = app.classList.contains('dock-open');
-  if (instr && !was && (treatOpen() || historyOpen()) && rightShort(panelShown(), true)) { closeTreat(); closeHistory(); }   // (Tests last: Treat or History gives way when the cards would leave the vessel card no strip)
+  if (instr && !was) giveWay('dock');   // (the other right-hand cards give way when they would leave the vessel card no strip)
   if (instr) arrive($('#dock')); else if (was && !app.classList.contains('instrument-focus')) leave($('#dock'));
   app.classList.toggle('dock-open', instr);
   $('#tabInstruments').setAttribute('aria-pressed', String(instr));
@@ -1693,7 +1704,7 @@ function openTreat() {
   closeHistory();
   const el = $('#treatCard');
   if (isPhone()) { closePanel(); if (app.classList.contains('dock-open')) setPanelTab('chart'); }
-  else if (panelShown() && rightShort()) closePanel();
+  else giveWay('treat');
   closePopover();
   const sync = [];
   const count = h('span', { class: 'card-meta' });
@@ -1739,7 +1750,7 @@ let historyOff = null, historyPaint = null;
 const historyOpen = () => !$('#historyCard').hidden;
 function openHistory() {
   closeTreat(); closePopover();
-  if (panelShown() && rightShort()) closePanel();
+  giveWay('treat');
   const el = $('#historyCard');
   const body = h('div', { class: 'tc-body' });
   // (The list is updated in place: a new entry rises in at the top, the rest stay put, P18.)

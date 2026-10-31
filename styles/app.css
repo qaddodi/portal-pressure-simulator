@@ -4955,6 +4955,13 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: crossfade var
   .instrument-workspace .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) .chart-side > .ctl-sub { display: none; }
   .instrument-workspace .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) .endo-stage { grid-column: 1; grid-row: 1 / span 2; }
 }
+/* (A phone held sideways at its shortest, 568x320: the pane is about 180 px high, so the readings and the button take a little less room, all words at 12 px or more.) */
+@container tpane (max-height: 200px) and (min-width: 300px) {
+  .instrument-workspace .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) { gap: 4px 14px; }
+  .instrument-workspace .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) .endo-read { gap: 4px; }
+  .instrument-workspace .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) .endo-read > div { padding: 2px 6px; }
+  .instrument-workspace .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) .chart-side > .btn { min-height: 40px; }
+}
 .endo-num small { font-size: var(--fs-12); font-weight: 500; color: var(--text-2); }
 .wall-law { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
 .wall-formula { font: 650 var(--fs-16) var(--font-ui); letter-spacing: .02em; color: var(--text); }
