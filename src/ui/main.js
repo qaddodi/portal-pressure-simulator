@@ -1,7 +1,7 @@
 // Application bootstrap: wires the engine host to the four surfaces (figure + action card,
 // timeline, patient chart, instruments) and to Home, the command palette and the menus.
 
-import { startHost, host } from './host.js?v=8968f54f32';
+import { startHost, host } from './host.js?v=c68cdde321';
 import { store, updateParams, replaceParams, bindParamSender, clearHistory, logAction, varicesPresent, hiddenNow } from './store.js?v=c2a9c76ba5';
 import { createStage } from './stage.js?v=db29ddc5c7';
 import { createCreditPlacer } from './credit.js?v=853fefa4ac';
@@ -10,8 +10,8 @@ import { sinusoidSupported } from './gl-support.js?v=94ad2a7ff1';
 import { createInspector } from './inspector.js?v=6817b89c45';
 import { createDock, CUTOFFS, savedInstruments } from './dock.js?v=53c655e106';
 import { setHvpgStage } from './hvpg-proc.js?v=5b484754bd';
-import { createWhy } from './why.js?v=9138229feb';
-import { createTimeline, LAPSES } from './timeline.js?v=3d81daa6d8';
+import { createWhy } from './why.js?v=281c2daebe';
+import { createTimeline, LAPSES } from './timeline.js?v=27924f65ce';
 import { createCompare } from './compare.js?v=b6d8863d2c';
 import { createCard } from './card.js?v=ad40039cc3';
 import { createChart } from './chart.js?v=e85e83077c';
@@ -183,7 +183,7 @@ async function main() {
   dock = createDock({ strip: $('#strip'), head: $('#dockHead'), body: $('#dockBody'), onWhy: (m, el) => why.open(m, el), onAction: doAction, onProbe: probeTo, lazy: { doppler: dopplerL, fibroscan: fibroL }, onReveal: revealDock, onLobule: () => zoomLobule('R'),
     onOpen: () => openPanel('instruments'), onClose: () => setPanelTab('chart'), onLayout: () => syncDoppler(), isVisible: () => app.classList.contains('dock-open'),
     marks: () => timeline.entries(), onBeat: () => sendBeat() });
-  presenterL = lazy(() => import('./presenter.js?v=d37e622804'), ({ createPresenter }) => createPresenter({ openSettings, loadPreset, updateParams, host, stage, dock, action: doAction,
+  presenterL = lazy(() => import('./presenter.js?v=faa34d0630'), ({ createPresenter }) => createPresenter({ openSettings, loadPreset, updateParams, host, stage, dock, action: doAction,
     projectorOn: () => toggleProjector(true), projectorOff: () => toggleProjector(false),
     closeHome: () => mainMenu.close(), stashCards, rerenderHome: () => mainMenu.render() }));
   mainMenu = createMenu({
@@ -327,7 +327,18 @@ async function main() {
     // by itself. (The first install, with no worker before it, is not an update.)
     if (navigator.serviceWorker.controller) {
       let offered = false;
-      navigator.serviceWorker.addEventListener('controllerchange', () => {
+      // (A page opened after a deploy is already on the new files, as the page itself is fetched fresh, and the worker that follows takes over this
+      // tab too: that is no update for it. The new worker lists its files; if every hashed file this page loaded is among them, nothing is offered.)
+      const holdsMine = (sw) => new Promise((res) => {
+        const mine = [...document.querySelectorAll('script[type="module"][src], link[rel="stylesheet"][href]')].map((n) => n.getAttribute('src') || n.getAttribute('href')).filter((u) => /^assets\//.test(u));
+        const ch = new MessageChannel(), t = setTimeout(() => res(false), 2000);
+        ch.port1.onmessage = (e) => { clearTimeout(t); res(Array.isArray(e.data) && mine.length > 0 && mine.every((u) => e.data.includes(u))); };
+        try { sw.postMessage('pps:files', [ch.port2]); } catch { clearTimeout(t); res(false); }
+      });
+      navigator.serviceWorker.addEventListener('controllerchange', async () => {
+        if (offered) return;
+        const sw = navigator.serviceWorker.controller;
+        if (sw && await holdsMine(sw)) return;
         if (offered) return;
         offered = true;
         const offer = () => { if (presenter.active()) { setTimeout(offer, 30000); return; } toast('A new version of the simulator is ready.', '', { actions: [['Reload', () => location.reload()]] }); };
@@ -1776,7 +1787,8 @@ function onMode(mode) {
 // ── Keyboard (§8.5) ─────────────────────────────────
 // The letter a key stands for: its character where that is a Latin letter, else its place on the board (an Arabic or Russian layout has no A, L or Z
 // to name, but the key in that place is the same one).
-const letterOf = (e) => /^[a-z]$/i.test(e.key) ? e.key.toLowerCase() : /^Key[A-Z]$/.test(e.code || '') ? e.code[3].toLowerCase() : (e.key || '').toLowerCase();
+// (Only a letter of another script falls back to its place: on a Dvorak or Colemak board the key that makes ; sits where Z is, and ; is not Z.)
+const letterOf = (e) => /^[a-z]$/i.test(e.key) ? e.key.toLowerCase() : /^\p{L}$/u.test(e.key || '') && /^Key[A-Z]$/.test(e.code || '') ? e.code[3].toLowerCase() : (e.key || '').toLowerCase();
 // Inputs that are controls, not text: a slider, a switch, a button. They keep their own keys (the arrows, Space) and leave the rest to the page.
 const NON_TEXT_INPUT = new Set(['range', 'checkbox', 'radio', 'button', 'submit', 'reset', 'image', 'color', 'file']);
 function wireKeyboard() {
@@ -1821,11 +1833,14 @@ function wireKeyboard() {
     if (e.key === '/') { e.preventDefault(); palette.open(); return; }
     if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') { e.preventDefault(); (e.shiftKey ? doRedo : doUndo)(); return; }
     // (A held key is one press: Space does not flicker play and pause, a number does not run its verb twenty times. J has its own rule below.)
-    if (e.repeat && !(e.ctrlKey || e.metaKey) && letterOf(e) !== 'j') return;
-    // (The speed keys [ and ] need Option on a German, French or Spanish layout: the character they make is the key, so Option alone is no reason to drop them.)
-    if (e.ctrlKey || e.metaKey || (e.altKey && e.key !== '[' && e.key !== ']')) return;
-    // (The figure's own stops act on Space themselves; a button the keyboard reached does too, one that was clicked does not.)
-    if (e.key === ' ' && !controlOwnsKey(e.target, ' ') && !e.target.closest?.('.v-hit, .org-key, .lb')) { e.preventDefault(); host.send({ type: 'run', running: !store.get().running }); return; }
+    // (The figure's own stops act on Space themselves; a button the keyboard reached does too, one that was clicked does not. A held Space is still ours: it must not scroll the panel behind.)
+    const spaceIsOurs = e.key === ' ' && !e.altKey && !controlOwnsKey(e.target, ' ') && !e.target.closest?.('.v-hit, .org-key, .lb');
+    if (e.repeat && !(e.ctrlKey || e.metaKey) && letterOf(e) !== 'j') { if (spaceIsOurs) e.preventDefault(); return; }
+    // (The speed keys [ and ] need Option on a German, French or Spanish layout: the character they make is the key, so Option alone is no reason to drop them. On Windows the
+    // same layouts make them with AltGr, which reports Ctrl and Alt together; AltGr makes other characters too (a Polish ą), and those are not the letter's key.)
+    const altGr = !!e.getModifierState?.('AltGraph');
+    if (altGr ? e.key !== '[' && e.key !== ']' : e.ctrlKey || e.metaKey || (e.altKey && e.key !== '[' && e.key !== ']')) return;
+    if (spaceIsOurs) { e.preventDefault(); host.send({ type: 'run', running: !store.get().running }); return; }
     // With a card open, the number keys run its verbs in order.
     if (/^[1-9]$/.test(e.key) && card.isOpen()) { if (card.trigger(+e.key)) e.preventDefault(); return; }
     if (e.key === '.') { host.send({ type: 'run', running: true }); setTimeout(() => host.send({ type: 'run', running: false }), 60); return; }

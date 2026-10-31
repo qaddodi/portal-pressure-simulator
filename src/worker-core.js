@@ -381,12 +381,15 @@ export function createCore(post) {
       morph = null; stoppedAt = null;
       lapse = days > 0 ? { left: days, total: days, ramp: ramp ? Object.entries(ramp) : null, bedside: bedside ? { t0: performance.now(), ms: (days / s) * 1000 } : null } : null;
       running = true; clock = lapse && !bedside ? 'disease' : 'hemo'; speed = lapse && !bedside ? s : 1; diseaseAcc = 0;
+      // (Begun while the model stands still, the page hidden: it has not begun to play, so the time until it starts again is not its own.)
+      stoppedAt = lapse?.bedside && !timer ? lapse.bedside.t0 : null;
     },
     // Next during a bedside time-lapse: what is left of it runs in ms.
     lapseFast({ ms }) {
       if (!lapse?.bedside) return;
-      const now = performance.now(), b = lapse.bedside, k = Math.min(1, (now - b.t0) / b.ms);
-      b.ms = ms / Math.max(1e-6, 1 - k); b.t0 = now - k * b.ms;
+      // (Stood still, its progress is where it stopped: start() adds the time it stood still to t0 afterwards, so judged at the later time it would run backwards.)
+      const at = stoppedAt ?? performance.now(), b = lapse.bedside, k = Math.min(1, (at - b.t0) / b.ms);
+      b.ms = ms / Math.max(1e-6, 1 - k); b.t0 = at - k * b.ms;
     },
     // The presenter's slide that turns breathing off stops it on the live model as the slide begins (only that switch;
     // a morph under way keeps easing to its own state).

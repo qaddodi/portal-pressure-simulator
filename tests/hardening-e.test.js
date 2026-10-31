@@ -93,7 +93,7 @@ test('a slider or switch left focused keeps only its own keys; text fields keep 
   assert.match(m, /if \(e\.isComposing \|\| e\.keyCode === 229\) return;/);
   assert.match(m, /tag === 'select' \|\| tag === 'textarea' \|\| e\.target\.isContentEditable \|\| \(tag === 'input' && !NON_TEXT_INPUT\.has\(inputType\)\)/);
   assert.match(m, /inputType === 'range' \? \/\^\(Arrow\(Left\|Right\|Up\|Down\)\|Home\|End\|Page\(Up\|Down\)\)\$\/ : \/\^\(Arrow\(Left\|Right\|Up\|Down\)\| \|Enter\)\$\//);
-  assert.match(m, /if \(e\.repeat && !\(e\.ctrlKey \|\| e\.metaKey\) && letterOf\(e\) !== 'j'\) return;/);
+  assert.match(m, /if \(e\.repeat && !\(e\.ctrlKey \|\| e\.metaKey\) && letterOf\(e\) !== 'j'\) \{ if \(spaceIsOurs\) e\.preventDefault\(\); return; \}/);
   assert.match(m, /\(e\.altKey && e\.key !== '\[' && e\.key !== '\]'\)\) return;/);
   // The letter rule, run: Latin letters by character, other layouts by the key's place.
   const letterOf = new Function('return ' + m.slice(m.indexOf('const letterOf = ') + 'const letterOf = '.length, m.indexOf(';', m.indexOf('const letterOf = ')))) ();
@@ -127,8 +127,59 @@ test('a bedside time-lapse waits while the model is stopped, and a new update of
   assert.match(w, /if \(timer\) \{ clearInterval\(timer\); if \(lapse\?\.bedside && stoppedAt == null\) stoppedAt = performance\.now\(\); \}/);
   assert.match(w, /morph = null; stoppedAt = null;/, 'a new lapse starts clean');
   const m = read('src/ui/main.js');
-  assert.match(m, /if \(navigator\.serviceWorker\.controller\) \{\s*let offered = false;\s*navigator\.serviceWorker\.addEventListener\('controllerchange'/);
+  assert.match(m, /if \(navigator\.serviceWorker\.controller\) \{\s*let offered = false;/);
+  assert.match(m, /navigator\.serviceWorker\.addEventListener\('controllerchange', async \(\) => \{/);
   assert.match(m, /if \(presenter\.active\(\)\) \{ setTimeout\(offer, 30000\); return; \}/, 'never in a talk');
+});
+
+test('a page opened after a deploy is not offered a reload: the new worker is asked which files it holds', () => {
+  const m = read('src/ui/main.js');
+  const at = m.indexOf("const holdsMine = (sw) =>");
+  assert.ok(at > 0);
+  const fn = m.slice(at, m.indexOf("navigator.serviceWorker.addEventListener('controllerchange'", at));
+  assert.match(fn, /script\[type="module"\]\[src\], link\[rel="stylesheet"\]\[href\]/, 'the hashed files this page began with');
+  assert.match(fn, /sw\.postMessage\('pps:files', \[ch\.port2\]\)/);
+  assert.match(fn, /mine\.length > 0 && mine\.every\(\(u\) => e\.data\.includes\(u\)\)/, 'every one of them is in the new worker\'s list');
+  assert.match(fn, /setTimeout\(\(\) => res\(false\), 2000\)/, 'a worker that does not answer means the offer stands');
+  const h = m.slice(m.indexOf("navigator.serviceWorker.addEventListener('controllerchange'"), m.indexOf('const reg = () =>'));
+  assert.match(h, /if \(sw && await holdsMine\(sw\)\) return;\s*if \(offered\) return;\s*offered = true;/, 'offered is set only when it is offered');
+  const b = read('scripts/build.mjs');
+  assert.match(b, /if \(e\.data === 'pps:files' && e\.ports\[0\]\) e\.ports\[0\]\.postMessage\(FILES\);/);
+  // The two sides together, run: the page's test against a list like the worker's.
+  const holds = (mine, files) => mine.length > 0 && mine.every((u) => files.includes(u));
+  assert.ok(holds(['assets/app-A.js', 'assets/app-B.css'], ['./', 'assets/app-A.js', 'assets/app-B.css', 'assets/chunk-C.js']), 'same build');
+  assert.ok(!holds(['assets/app-A.js', 'assets/app-B.css'], ['./', 'assets/app-Z.js', 'assets/app-B.css']), 'an older page');
+  assert.ok(!holds([], ['./']), 'a source page with no hashed files is not taken for current');
+});
+
+test('a held Space stays the figure\'s and does not scroll the page; AltGr brackets reach the speed keys; a Dvorak ; is not Z', () => {
+  const m = read('src/ui/main.js');
+  assert.match(m, /const spaceIsOurs = e\.key === ' ' && !e\.altKey && !controlOwnsKey\(e\.target, ' '\) && !e\.target\.closest\?\.\('\.v-hit, \.org-key, \.lb'\);/);
+  assert.match(m, /if \(e\.repeat && !\(e\.ctrlKey \|\| e\.metaKey\) && letterOf\(e\) !== 'j'\) \{ if \(spaceIsOurs\) e\.preventDefault\(\); return; \}/);
+  assert.match(m, /if \(spaceIsOurs\) \{ e\.preventDefault\(\); host\.send\(\{ type: 'run', running: !store\.get\(\)\.running \}\); return; \}/);
+  assert.match(m, /const altGr = !!e\.getModifierState\?\.\('AltGraph'\);\s*if \(altGr \? e\.key !== '\[' && e\.key !== '\]' : e\.ctrlKey \|\| e\.metaKey \|\| \(e\.altKey && e\.key !== '\[' && e\.key !== '\]'\)\) return;/);
+  const letterOf = new Function('return ' + m.slice(m.indexOf('const letterOf = ') + 'const letterOf = '.length, m.indexOf(';\n', m.indexOf('const letterOf = ')))) ();
+  assert.equal(letterOf({ key: ';', code: 'KeyZ' }), ';', 'Dvorak: the key in Z\'s place makes ;');
+  assert.equal(letterOf({ key: 'Dead', code: 'KeyA' }), 'dead');
+  assert.equal(letterOf({ key: 'ф', code: 'KeyA' }), 'a', 'a Russian layout still reaches A');
+  assert.equal(letterOf({ key: 'z', code: 'KeyZ' }), 'z');
+  // The AltGr gate, run on its own: [ and ] pass with Ctrl+Alt reported, a Polish ą (AltGr+A) does not.
+  const gate = (e) => { const altGr = !!e.getModifierState?.('AltGraph'); return !(altGr ? e.key !== '[' && e.key !== ']' : e.ctrlKey || e.metaKey || (e.altKey && e.key !== '[' && e.key !== ']')); };
+  const gr = { getModifierState: (k) => k === 'AltGraph' };
+  assert.ok(gate({ ...gr, ctrlKey: true, altKey: true, key: '[' }), 'German Windows: AltGr+8');
+  assert.ok(gate({ ...gr, ctrlKey: true, altKey: true, key: ']' }));
+  assert.ok(!gate({ ...gr, ctrlKey: true, altKey: true, key: 'ą' }));
+  assert.ok(!gate({ ctrlKey: true, key: 'a' }), 'Ctrl+A is the browser\'s');
+  assert.ok(gate({ altKey: true, key: '[' }), 'Option+[ on a Mac');
+  assert.ok(!gate({ altKey: true, key: 'a' }));
+});
+
+test('the menu sheet has no height floor over the keyboard and the tablet\'s 62 % follows it', () => {
+  const m = read('src/ui/menu.js');
+  assert.match(m, /const room = Math\.round\(vv\.height - 16\); el\.style\.setProperty\('--menu-kb', `\$\{kb\}px`\); el\.style\.setProperty\('--menu-h', `\$\{room\}px`\);/, 'the sheet is held to the room above the keyboard');
+  assert.ok(!/Math\.max\(240, Math\.round\(vv\.height/.test(m), 'a 240 px floor pushed the top off a phone held sideways');
+  const css = read('styles/app.css');
+  assert.match(css, /html\.thumb-ui \.umenu\.sheet \{ left: 15% !important; right: 15%; height: min\(62dvh, var\(--menu-h, 62dvh\)\); \}/);
 });
 
 import { createCore } from '../src/worker-core.js';
@@ -153,6 +204,53 @@ test('a bedside time-lapse does not run on while the page is hidden: it carries 
   const after = msgs.filter((m) => m.type === 'frame').at(-1);
   assert.notEqual(after.lapseDay, undefined, 'the lapse is still playing, not jumped to its end');
   assert.ok(after.lapseDay > before.lapseDay && after.lapseDay < 4.5, `it went on from ${before.lapseDay.toFixed(2)} to ${after.lapseDay.toFixed(2)}, not to the end`);
+});
+
+test('a bedside time-lapse begun while the page is hidden starts from its start when the page returns', (t) => {
+  t.mock.timers.enable({ apis: ['setInterval'] });
+  let now = 0;
+  t.mock.method(performance, 'now', () => now);
+  const msgs = [];
+  const core = createCore((m) => msgs.push(m));
+  t.after(() => core.dispose());
+  const advance = (ms) => { for (let k = 0; k < ms; k += 33) { now += 33; t.mock.timers.tick(33); } };
+  core.handle({ type: 'init', params: { respiration: false } });
+  advance(500);
+  core.handle({ type: 'visibility', visible: false });
+  core.handle({ type: 'lapse', days: 8, speed: 8 / 6, ramp: { meal: [0, 1] }, bedside: true });   // six seconds, asked of a model that is not running
+  now += 30000;
+  core.handle({ type: 'visibility', visible: true });
+  advance(500);
+  const after = msgs.filter((m) => m.type === 'frame').at(-1);
+  assert.notEqual(after.lapseDay, undefined, 'not jumped to its end while nobody watched');
+  assert.ok(after.lapseDay >= 0 && after.lapseDay < 2, `half a second into six seconds (${after.lapseDay} of 8 days)`);
+});
+
+test('Next during a bedside time-lapse while the page is hidden carries on forward from where it stopped, never backwards', (t) => {
+  t.mock.timers.enable({ apis: ['setInterval'] });
+  let now = 0;
+  t.mock.method(performance, 'now', () => now);
+  const msgs = [];
+  const core = createCore((m) => msgs.push(m));
+  t.after(() => core.dispose());
+  const advance = (ms) => { for (let k = 0; k < ms; k += 33) { now += 33; t.mock.timers.tick(33); } };
+  core.handle({ type: 'init', params: { respiration: false } });
+  advance(1000);
+  core.handle({ type: 'lapse', days: 8, speed: 8 / 6, ramp: { meal: [0, 1] }, bedside: true });
+  advance(2000);
+  const before = msgs.filter((m) => m.type === 'frame' && m.lapseDay != null).at(-1);
+  core.handle({ type: 'visibility', visible: false });
+  now += 30000;
+  core.handle({ type: 'lapseFast', ms: 1000 });
+  core.handle({ type: 'visibility', visible: true });
+  advance(100);
+  const a = msgs.filter((m) => m.type === 'frame').at(-1);
+  assert.notEqual(a.lapseDay, undefined, 'still playing');
+  assert.ok(a.lapseDay >= before.lapseDay - 1e-6, `it did not run backwards (${before.lapseDay.toFixed(2)} then ${a.lapseDay.toFixed(2)})`);
+  assert.ok(a.lapseDay < 8, 'and has not been thrown to the end');
+  advance(2000);
+  const done = msgs.filter((m) => m.type === 'frame').at(-1);
+  assert.equal(done.lapseDay, undefined, 'the rest ran in the second Next asked for');
 });
 
 test('a change of the device\'s light or dark setting repaints the instruments too, and the FibroScan reads Reduce Motion live', () => {

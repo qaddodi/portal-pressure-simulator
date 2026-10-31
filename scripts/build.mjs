@@ -124,7 +124,8 @@ const FILES = ${JSON.stringify(['./', ...install])};
 const LATER = ${JSON.stringify(later)};
 self.addEventListener('install', (e) => { e.waitUntil(caches.open(CACHE).then((c) => c.addAll(FILES)).then(() => self.skipWaiting())); });
 // The page asks for the rest once it has been left alone (src/ui/main.js): the fonts' other subsets, for offline use.
-self.addEventListener('message', (e) => { if (e.data === 'pps:fill') e.waitUntil(caches.open(CACHE).then(async (c) => { for (const f of LATER) if (!(await c.match(f))) await c.add(f); }).catch(() => {})); });
+// ('pps:files': a page that sees a new worker take over asks which files it holds, to tell an update that changed its own files from one it already has.)
+self.addEventListener('message', (e) => { if (e.data === 'pps:files' && e.ports[0]) e.ports[0].postMessage(FILES); else if (e.data === 'pps:fill') e.waitUntil(caches.open(CACHE).then(async (c) => { for (const f of LATER) if (!(await c.match(f))) await c.add(f); }).catch(() => {})); });
 // The previous version's cache is kept (keys() lists caches oldest first): a tab left open across an update still finds
 // its own hashed files (the server has only the new ones), so it can start a presentation; any older cache goes.
 self.addEventListener('activate', (e) => { e.waitUntil(caches.keys().then((ks) => { const prev = ks.filter((k) => k !== CACHE && k.startsWith(SCOPE)).at(-1); return Promise.all(ks.filter((k) => k !== CACHE && k !== prev && (k.startsWith(SCOPE) || k.startsWith('pps-'))).map((k) => caches.delete(k))); }).then(() => self.clients.claim())); });
