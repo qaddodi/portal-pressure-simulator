@@ -8103,7 +8103,7 @@ export function createStage({ figure = null, wrap, onSelect, onAction, onOpenTab
   }
   const labelGL = createLabelGL(labelSvg, gLabels, { software: SOFTWARE, off: /[?&]gpulabels=0\b/.test(location.search), marks: [gLeaders, gScan], host: labelHost, force: !!labelHost });
   if (labelGL && labelHost) {
-    veins.top.set(() => labelGL.drawInto());
+    veins.top.set(() => { labelGL.drawInto(); glassGL?.drawInto(); });
     // (What decides it changed: the labels given back at once when they may no longer be drawn there, label-gl check.)
     const labelMo = new MutationObserver(() => labelGL.check());
     labelMo.observe(wrap, { attributes: true, attributeFilter: ['class'] });
@@ -8112,6 +8112,17 @@ export function createStage({ figure = null, wrap, onSelect, onAction, onOpenTab
     if (svgOver) labelMo.observe(svgOver, { attributes: true, attributeFilter: ['class'] });
   }
   wrap.dataset.labels = labelGL ? (labelHost ? 'gpu-host' : 'gpu') : 'svg';
+  // The callouts' glass drawn into the same canvas, over the labels (recs A1, glass): from the picture itself, so the figure is never
+  // copied for it and its own canvas leaves the page's layers. Only while the labels are (labelsOver), outside a dive, and where no
+  // glass crosses what the page lays between the two: a label or mark the SVG still draws, the teaching card's shade, a Present card's
+  // GPU glass, the credit. Otherwise its own canvas, as before. ?glasshost=0 keeps that canvas always.
+  if (glassGL && labelGL && labelHost && !/[?&]glasshost=0\b/.test(location.search)) {
+    glassGL.setHost({
+      gl: veins.top.gl, canvas: veins.top.canvas, now: labelNow,
+      active: () => !(diveT > 0) && labelsOver(),
+      over: () => [...document.querySelectorAll('.pz-shade, .stage-credit, .pz [data-gl]'), ...labelGL.svgLeft()],
+    });
+  }
   const labelGlSync = () => { if (labelGL) labelGL.sync([...pool.values()].filter((b) => b.pos).map((b) => b.pos)); };
   const FONT = 'Inter, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif';
   const measure = document.createElement('canvas').getContext('2d');
