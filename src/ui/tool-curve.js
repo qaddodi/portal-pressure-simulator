@@ -67,7 +67,7 @@
 //   zone: { fall: 10, under: 12, label: 'Response' }
 //                     a soft band in the ok colour under y = max(under, x less fall %), dashed along its top and named in it.
 
-import { TILE, SCALE, RATE } from './table-marks.js?v=3b9e0d5a35';
+import { TILE, SCALE, RATE } from './table-marks.js?v=c82b75e3d5';
 import { HVPG_CUTS } from '../engine/pressure-cuts.js?v=8cc52435da';
 import { frameFor } from './frame.js?v=6a53e5fc6e';
 import { plotPanel } from './plot-look.js?v=5037697da7';

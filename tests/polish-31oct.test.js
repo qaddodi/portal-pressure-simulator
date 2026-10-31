@@ -23,7 +23,7 @@ test('a scale bar prints every cut-off with the decimals it has', () => {
 
 test('a percent tile sits its unit against the number, and the High word is mixed with the text as the amber word is', () => {
   assert.match(presenter, /class: 'pzt-vu' \+ \(T\.u === '%' \? ' pct' : ''\)/);
-  assert.match(css, /\.pz \.pz-data \.pz-tiles \.pz-tile \.pzt-vu\.pct\.pct \{ column-gap: \.06em; \}/);
+  assert.match(css, /\.pz \.pz-data \.pz-tiles \.pz-tile \.pzt-vu\.pct\.pct\.pct \{ column-gap: \.06em; \}/);
   assert.match(css, /\.pz-tile\[data-rate="hi"\] \.pzt-r \{ color: color-mix\(in srgb, var\(--danger\) 85%, var\(--text\)\); \}/);
 });
 
@@ -86,4 +86,13 @@ test('Enter full screen is a row like the others in Settings, not a bordered but
   assert.match(fs, /menuItem\('Enter full screen', \{ icon: 'fullscreen' \}\)/);
   assert.doesNotMatch(fs, /btn block menu-btn/);
   assert.doesNotMatch(css, /\.btn\.menu-btn/);
+});
+
+test('a heading is a repeat by the words the cell shows, and the two unmeasured-status leftovers are gone', async () => {
+  const { sameHead, headOf } = await import('../src/ui/table-marks.js');
+  assert.equal(headOf({ kicker: 'Intrahepatic · Sinusoidal' }), 'Sinusoidal');
+  assert.ok(sameHead({ kicker: 'Intrahepatic · Sinusoidal', site: 'sin' }, { kicker: 'Sinusoidal', site: 'sin' }), 'the same words on screen');
+  assert.ok(!sameHead({ kicker: 'Sinusoidal', site: 'sin' }, { kicker: 'Sinusoidal', site: 'pre' }), 'another site: both are drawn');
+  assert.ok(!sameHead({ kicker: '' }, { kicker: '' }) && !sameHead(null, { kicker: 'A' }));
+  assert.doesNotMatch(css, /\.rp-tiles \.metric \.status\.unmeas/);
 });

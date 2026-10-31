@@ -30,7 +30,7 @@
 // only, so the card never changes size with the case.
 
 import { h, fmt } from './util.js?v=c38708181c';
-import { TILE } from './table-marks.js?v=3b9e0d5a35';
+import { TILE } from './table-marks.js?v=c82b75e3d5';
 import { plotPanel } from './plot-look.js?v=5037697da7';
 
 export const CRITERIA_MAX = 4;

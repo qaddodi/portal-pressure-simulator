@@ -5737,7 +5737,7 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: crossfade var
 /* (Beside an instrument a tile's number and unit sit closer, so "−0.6 L/min" keeps clear of the tile's edge.) */
 .pz:not(.stack):not(.low) .pz-data.pz-beside .pz-tiles .pzt-vu { gap: 0 .12em; }
 /* A percent follows its number as US type sets it, "75%", not "75 %": the unit's gap is a sliver, in every context (the fit reads the same column gap). */
-.pz .pz-data .pz-tiles .pz-tile .pzt-vu.pct.pct { column-gap: .06em; }
+.pz .pz-data .pz-tiles .pz-tile .pzt-vu.pct.pct.pct { column-gap: .06em; }   /* (three .pct: the rule beside an instrument, .pz-beside .pzt-vu, outranks two) */
 /* (The beat-by-beat lanes never get too flat to tell the lines apart.) */
 :is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool, .pz.low .pz-data.has-tool) .pz-tool[data-kind="beats"] .pt-box { min-height: 170px; }
 :is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool, .pz.low .pz-data.has-tool) .pz-tool[data-kind="scope"] .endo-read > .endo-red > dt { display: inline; }   /* (named, "Stigmata ● None", so it never reads as a second grade) */
@@ -5822,8 +5822,6 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: crossfade var
 .rp-tiles .metric .k .k-l { display: inline; }
 .rp-tiles .metric .k .k-s { display: none; }
 .rp-tiles .metric .tr { display: inline; }
-.rp-tiles .metric .status.unmeas { font-size: var(--fs-12); }
-.rp-tiles .metric .status.unmeas::after { content: none; }
 .rp-tiles .metric[data-sev="danger"] .val, .rp-tiles .metric[data-sev="critical"] .val { color: color-mix(in srgb, var(--critical) 80%, var(--text)); }
 /* A narrow card (a phone's sheet) fits three tiles across, as the bar did, with the short names where a long one would be cut. */
 @container (max-width: 440px) {

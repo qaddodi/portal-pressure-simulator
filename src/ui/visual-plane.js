@@ -25,7 +25,7 @@
 
 import { h, fmt, clamp } from './util.js?v=c38708181c';
 import { HVPG_CUTS, PPG_CUTS } from '../engine/pressure-cuts.js?v=8cc52435da';
-import { TILE, tileShown } from './table-marks.js?v=3b9e0d5a35';
+import { TILE, tileShown } from './table-marks.js?v=c82b75e3d5';
 import { plotPanel } from './plot-look.js?v=5037697da7';
 
 // ── Conditions: [key, op, value], all of which must hold ──

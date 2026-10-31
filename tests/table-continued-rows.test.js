@@ -19,7 +19,7 @@ test('a heading repeats only when the words and the site both match the row abov
 
 test('the table marks a continued row and keeps its heading in the markup', () => {
   assert.match(js, /sameHead\(rows\[n - 1\], r\) \? 'pz-cont' : ''/);
-  assert.match(js, /h\('span', \{ class: 'pz-kick', 'data-site': r\.site \|\| 'none' \}, r\.kicker\.replace\('Intrahepatic · ', ''\)\)/, 'the heading is still in every row');
+  assert.match(js, /h\('span', \{ class: 'pz-kick', 'data-site': r\.site \|\| 'none' \}, headOf\(r\)\)/, 'the heading is still in every row');
 });
 
 test('the heading of a continued row takes no room (font-size 0, as the phone stroke does), stays in the markup, and the phone keeps its stroke', () => {

@@ -8,10 +8,10 @@
 //   tool: { kind: 'course', reading: 'asc', from, event, wait, after, then }   one reading over the days after an event, on the rating's zones, a line per
 //         treatment from the same day (tool-course.js)
 
-import { createCurve, warmCurve, curveLines, lineMeta, axisMeta } from './tool-curve.js?v=1374d9ccef';
-import { createCauses, metricOf } from './tool-causes.js?v=8db6ce6c1c';
-import { createCourse, warmCourse, courseOf } from './tool-course.js?v=28a23899f9';
-import { TILE } from './table-marks.js?v=3b9e0d5a35';
+import { createCurve, warmCurve, curveLines, lineMeta, axisMeta } from './tool-curve.js?v=05a99342ab';
+import { createCauses, metricOf } from './tool-causes.js?v=1313a8090e';
+import { createCourse, warmCourse, courseOf } from './tool-course.js?v=66dd31fbf9';
+import { TILE } from './table-marks.js?v=c82b75e3d5';
 
 const lc = (s) => (/^[A-Z]{2,}/.test(s) ? s : s.charAt(0).toLowerCase() + s.slice(1));
 // (A chart whose lines are different readings of one kind, the fundal and the esophageal varix, goes by the slide's `reading`.)

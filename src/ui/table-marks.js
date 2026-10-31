@@ -187,7 +187,9 @@ export const LIVE_MIN = 7000, LIVE_STEADY = 2000, LIVE_MAX = 60000;
 export const liveSettled = (elapsed, steady) => elapsed >= LIVE_MAX || (elapsed >= LIVE_MIN && steady >= LIVE_STEADY);
 // The readings as a what-if's card prints them (its tiles, and the ladder's stations), so a drift too small to show counts as still.
 export const shownSig = (f, keys) => keys.map((k) => (f[k] == null ? '—' : (f[k] * (TILE[k]?.x ?? 1)).toFixed(TILE[k]?.d ?? 1))).join('|');
-/** A summary row's heading is a repeat when the row above has the same words in the same site's colour: the table draws it once, over the first (presenter.js summaryTable). */
-export const sameHead = (a, b) => !!a && !!b && !!a.kicker && a.kicker === b.kicker && (a.site || '') === (b.site || '');
+/** The heading a summary row shows over its name (a site's "Intrahepatic · " is left off: its colour says it). */
+export const headOf = (r) => (r.kicker || '').replace('Intrahepatic · ', '');
+/** A row's heading is a repeat when the row above shows the same words in the same site's colour: the table draws it once, over the first (presenter.js summaryTable). */
+export const sameHead = (a, b) => !!a && !!b && !!headOf(a) && headOf(a) === headOf(b) && (a.site || '') === (b.site || '');
 /** The decimals a scale bar's cut-off number prints: the ones the cut-off has (0.15 L, 0.45, 2.5), so it never reads "0.1" or "0.5" beside a tile that says 0.12 or 0.47. */
 export const cutDp = (c) => (Math.abs((c * 10) % 1) > 1e-9 ? 2 : Math.abs(c % 1) > 1e-9 ? 1 : 0);

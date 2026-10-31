@@ -29,22 +29,22 @@ import { nb, listCase, plateletText } from './glue.js?v=5a0f63226b';
 import { DECKS, DECK_ALIAS, REGIONS, LEVELS, TOPICS, withOverview, siteTag, SITE_TAGS } from './decks.js?v=1833de0a4f';
 import { fingerprintOf } from '../engine/fingerprint.js?v=ca81723393';
 import { hvpgSev } from '../engine/pressure-cuts.js?v=8cc52435da';
-import { createHvpgMonitor } from './hvpg-proc.js?v=ea9ec352e6';
-import { createTools } from './presenter-tools.js?v=f4cbf5b383';
-import { openHandout } from './handout.js?v=cff132fc35';
+import { createHvpgMonitor } from './hvpg-proc.js?v=0194714254';
+import { createTools } from './presenter-tools.js?v=2726183a0c';
+import { openHandout } from './handout.js?v=c85e5b3fc1';
 import { noteResume, resumeFor } from './resume.js?v=f086f80ee8';
 import { parseDeckSource, checkDeck } from './deck-source.js?v=8395c650cd';
-import { NO_ASC, TILE, cutText, tileOf, SCALE, bandsOf, rateOf, COLS, CUT, PRESS, fpv, dirAbs, dirRel, rateAbs, effOf, rateShown, tileShown, tipsGoal, liveSettled, shownSig, sameHead, cutDp } from './table-marks.js?v=3b9e0d5a35';
+import { NO_ASC, TILE, cutText, tileOf, SCALE, bandsOf, rateOf, COLS, CUT, PRESS, fpv, dirAbs, dirRel, rateAbs, effOf, rateShown, tileShown, tipsGoal, liveSettled, shownSig, sameHead, headOf, cutDp } from './table-marks.js?v=c82b75e3d5';
 import { frameFor, cancelFrame } from './frame.js?v=6a53e5fc6e';
 import { createFigureKey } from './figure-key.js?v=e41b9d0553';
 import { traceWhen } from './trace-labels.js?v=fc916a95c6';
 import { flowCss, heatCss, dropCss, gradientCss, oxygenCss } from './colormap.js?v=dc0ceaf0a4';
-import { EXT, expandIds, stepExtra, markLabel, figureHooks, safe } from './slide-ext.js?v=608ac4a78a';
-import { clotWords } from './callout-math.js?v=dd738b9711';
+import { EXT, expandIds, stepExtra, markLabel, figureHooks, safe } from './slide-ext.js?v=62875b6d9c';
+import { clotWords } from './callout-math.js?v=20011c8729';
 import { citeText, focusOf, oneLadder } from './teach-extras.js?v=5f5248f5a7';
-import { createProfileTool, createProfileStrip, pillReadings, chartScale } from './tool-profile.js?v=71ca0ef14e';
+import { createProfileTool, createProfileStrip, pillReadings, chartScale } from './tool-profile.js?v=0950595667';
 import { causeFit } from './cause-fit.js?v=830a6835a5';
-import { anchorsOf, roomFor } from './cam-room.js?v=20d2955c85';
+import { anchorsOf, roomFor } from './cam-room.js?v=64dca5f617';
 import { beatCount, beatView } from './slide-beats.js?v=2aded612c4';
 import { COMPACT, WIDE } from './card-type.js?v=5af5f22935';
 import { flowTimeHeight, trailKeys } from './flow-time.js?v=9da13443fa';
@@ -2483,7 +2483,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       S.set(r.f, () => base);
       // (A phone shows the case's HVPG and PPG as two pills at the right of this row, tinted as the chart's brackets rate them; a wide screen's
       // chart carries them, so there they stay hidden: styles/app.css .pz-gpills.)
-      const k = h('div', { class: 'pz-cell-k' }, h('div', { class: 'pz-kick', 'data-site': r.site || 'none' }, r.kicker.replace('Intrahepatic · ', '')),
+      const k = h('div', { class: 'pz-cell-k' }, h('div', { class: 'pz-kick', 'data-site': r.site || 'none' }, headOf(r)),
         h('div', { class: 'pz-cell-t' }, r.name),   // (a row's `name` where its title is too long for the first row: Sites 10 "Sinusoidal obstr. synd.")
         h('div', { class: 'pz-gpills' }, pillReadings(r.f).map((q) => h('span', { class: 'pz-gpill', 'data-k': q.k, 'data-rate': q.rate }, h('span', { class: 'k' }, `${q.name} `), q.v))));
       rowRO?.observe(k); for (const c of k.children) rowRO?.observe(c);   // (and the site, the cause and the pills themselves: a font loading late widens them, not the row)
@@ -2596,7 +2596,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       h('tbody', {}, rows.map((r, n) => h('tr', { ...(r.i >= 0 ? { tabindex: '0', onclick: go1(r), onkeydown: go1(r), 'aria-label': `${r.title}: go to this slide` } : {}),
           class: [r.i >= 0 ? '' : 'static', focus && (r.key === focus || (r.i >= 0 && slides[r.i]?.id === focus)) ? 'pzv-focus' : '', sameHead(rows[n - 1], r) ? 'pz-cont' : ''].filter(Boolean).join(' ') || null,
           'data-arrived': r.k === arrived || (rel && n > 0 && (r.vs ? vsRow(r)?.k : rows[0].k) === arrived) ? '' : null },
-        h('th', { scope: 'row' }, h('span', { class: 'pz-kick', 'data-site': r.site || 'none' }, r.kicker.replace('Intrahepatic · ', '')), h('span', { class: 'tw' }, h('span', { class: 'tn' }, nb(r.title)),
+        h('th', { scope: 'row' }, h('span', { class: 'pz-kick', 'data-site': r.site || 'none' }, headOf(r)), h('span', { class: 'tw' }, h('span', { class: 'tn' }, nb(r.title)),
           r.vs ? h('span', { class: 'vs' }, `vs ${vsName(r)}`) : null)),
         cols.map((k) => (colExt(k) ? extCell(k, r, n) : cell(k, r, n))),
         ascCols ? ascCells(r, n) : null,
