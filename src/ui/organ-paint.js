@@ -667,6 +667,16 @@ export function createOrganPaint(gl, shape) {
     gl.activeTexture(gl.TEXTURE0);
     gl.bindVertexArray(null);
   }
+  // The group's ops laid over fbo (the painter sized to w × h), within a device box if given.
+  function layGroup(spec, m, w, h, fbo, within) {
+    const b = meet(groupBox(spec, m), within || [0, 0, w, h]);
+    if (!b) return;
+    clearIn(b, !!spec.mask);
+    paintOps(spec, m, layers[0].fbo, b);
+    // (A mask's content is in the user space of the element it masks: the group's frame.)
+    if (spec.mask) paintOps(spec.mask, m, layers[1].fbo, b);
+    lay(b, specOpacity(spec), !!spec.mask, fbo);
+  }
   return {
     /** Device px per CSS px of the target painted next (1 unless set): a non-scaling stroke's width. */
     set cssPx(v) { cssPx = v > 0 ? v : 1; },
@@ -674,13 +684,18 @@ export function createOrganPaint(gl, shape) {
     /** Lays the group `spec` (readGroup) under m over framebuffer `fbo` of size w × h, with its opacity and mask. */
     paintGroup(spec, m, w, h, fbo, within = null) {
       size(w, h, true);
-      const b = meet(groupBox(spec, m), within || [0, 0, w, h]);
-      if (!b) return;
-      clearIn(b, !!spec.mask);
-      paintOps(spec, m, layers[0].fbo, b);
-      // (A mask's content is in the user space of the element it masks: the group's frame.)
-      if (spec.mask) paintOps(spec.mask, m, layers[1].fbo, b);
-      lay(b, specOpacity(spec), !!spec.mask, fbo);
+      layGroup(spec, m, w, h, fbo, within);
+    },
+    /**
+     * The same group laid over a target of its own, `w` × `h` (a texture's framebuffer, cleared by the caller), for a picture of the
+     * group to be laid again later (organs-gl keeps one of a live group that stands still). `m` is the group's frame already moved
+     * by whole device pixels so that its box lies in the target; the canvas is `cw` × `ch`, and the painter is left sized to it.
+     */
+    paintGroupInto(spec, m, w, h, fbo, cw, ch) {
+      size(cw, ch, true);
+      size(w, h);
+      layGroup(spec, m, w, h, fbo, null);
+      W = cw; H = ch;
     },
     /**
      * A picture's group (organs-gl bake), laid over framebuffer `fbo` (w × h) as paintGroup lays it, as a job painted a few ops at a

@@ -66,7 +66,7 @@ test('a live organ that changed is drawn again within its box, and only its cell
   const gl = readFileSync(new URL('../src/ui/organs-gl.js', import.meta.url), 'utf8');
   const paint = readFileSync(new URL('../src/ui/organ-paint.js', import.meta.url), 'utf8');
   const veins = readFileSync(new URL('../src/ui/veins-gl.js', import.meta.url), 'utf8');
-  assert.match(gl, /setLive\(organs, masks\) \{ liveOrgans = organs \|\| new Map\(\); cuts = masks \|\| new Map\(\); liveVer\+\+; watchLive\(\); \}/, 'a live change moves its own version');
+  assert.match(gl, /setLive\(organs, masks\) \{ liveOrgans = organs \|\| new Map\(\); cuts = masks \|\| new Map\(\); liveVer\+\+; freeCache\(\); watchLive\(\); \}/, 'a live change moves its own version');
   assert.match(gl, /stale: \(m, cw, ch\) => drawnKey !== keyOf\(m, cw, ch\) \|\| \(!watch && liveNow\(\)\),/);
   assert.match(gl, /const keyOf = \(m, cw, ch\) => \{ pull\(\); return `\$\{ver\}\|\$\{liveVer\}\|\$\{watch \? pageVer : ''\}\|/);
   assert.match(gl, /const at = `\$\{ver\}\|\$\{m\.join\(','\)\}\|\$\{cw\}x\$\{ch\}`, same = at === drawnAt && !!painter;/, 'the same view and layers: only what changed');

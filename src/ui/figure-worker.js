@@ -13,7 +13,7 @@ self.onmessage = async ({ data: d }) => {
       if (typeof OffscreenCanvas !== 'function') throw new Error('no OffscreenCanvas');
       setFigureSettings(d.settings);
       // (After the settings: the renderer reads its switches when it loads.)
-      const { createVeinsGL } = await import('./veins-gl.js?v=253d935680');
+      const { createVeinsGL } = await import('./veins-gl.js?v=7d1a5b0f68');
       const api = createVeinsGL(d.canvas, { tubes: d.tubes, force: d.force !== false });
       if (!api) throw new Error('no WebGL2 here');
       host = serveFigure(api, (m) => self.postMessage(m), d.canvas);

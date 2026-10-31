@@ -49,8 +49,11 @@ void main() {
 }`;
 
 import { createShapeGL } from './shape-gl.js?v=a5ba46162b';
-import { createOrganPaint, mul } from './organ-paint.js?v=9acc72d4a2';
+import { createOrganPaint, mul } from './organ-paint.js?v=ec1b2afbc1';
 import { netChanged } from './idle-keys.js?v=235443a2a3';
+
+/** The pixels (bytes) of live groups' pictures kept at a time on a canvas cw × ch: most of a screen, never more than 12 MB (an iPhone's budget is a few MB). */
+export const cacheBudget = (cw, ch) => Math.min(cw * ch * 4 * 0.75, 12e6);
 
 function program(gl, vs, fs) {
   const p = gl.createProgram();
@@ -136,6 +139,18 @@ export function createOrganStack(gl, { painter: shared = null } = {}) {
     for (const el of els) if (el?.nodeType === 1) watch.observe(el, { attributes: true, attributeOldValue: true });
     pageVer++;
   }
+  // A live group that stands still while another eases beside it (the diaphragm under the easing liver) is kept as a picture of its own
+  // (spec → { key, tex, fb, box }), laid again in place of painting its shapes: its coverage is cut from the whole outline whatever
+  // the box being drawn, so a ease of the liver's box repainted every shape of the diaphragm that reached it, on every frame. Made once
+  // a group has held still across two renders, within a budget of pixels (the iPhone's memory), and given up the moment the view,
+  // the layers or the live set change, on trim and on dispose. Laid "over" what is under it as its shapes are, so the stack is
+  // the same within a level of rounding.
+  const cache = new Map();
+  let cacheBytes = 0;
+  const dropEntry = (spec) => { const e = cache.get(spec); if (!e) return; gl.deleteTexture(e.tex); gl.deleteFramebuffer(e.fb); cacheBytes -= e.bytes; cache.delete(spec); };
+  const freeCache = () => { for (const spec of [...cache.keys()]) dropEntry(spec); cacheBytes = 0; };
+  const descKey = (d) => `${d.sig}#${d.ops.map((o) => o[0]).join('\n')}`;
+  const sameDesc = (a, b) => !!a && !!b && a.sig === b.sig && a.ops.length === b.ops.length && a.ops.every((o, k) => o[0] === b.ops[k][0]);
   const liveNow = () => !!(painter && (liveOrgans.size || cuts.size));
   const keyOf = (m, cw, ch) => { pull(); return `${ver}|${liveVer}|${watch ? pageVer : ''}|${m.join(',')}|${cw}x${ch}`; };
   const free = (map) => { for (const L of map.values()) gl.deleteTexture(L.tex); map.clear(); };
@@ -209,7 +224,7 @@ export function createOrganStack(gl, { painter: shared = null } = {}) {
     /** Lets go of the shapes the pictures keep on the GPU (bake), when no picture is being made. */
     dropKept() { painter?.dropKept(); },
     /** What the painter holds on the GPU (organ-paint stats), or null without one. */
-    stats: () => painter?.stats() || null,
+    stats: () => (painter ? { ...painter.stats(), cached: cache.size, cacheBytes } : null),
     /** Shows the staged set for `slot` in place of the one shown, drawn in the order of `names` (back to front). */
     commit(slot, names) {
       free(live[slot]);
@@ -225,7 +240,7 @@ export function createOrganStack(gl, { painter: shared = null } = {}) {
      * The organs painted live, by layer name (each a list of { spec, m }), and the layers' live masks (name → { spec, m }), in
      * place of what was set before; null for none. Drawn at the next render.
      */
-    setLive(organs, masks) { liveOrgans = organs || new Map(); cuts = masks || new Map(); liveVer++; watchLive(); },
+    setLive(organs, masks) { liveOrgans = organs || new Map(); cuts = masks || new Map(); liveVer++; freeCache(); watchLive(); },
     /** A layer gathered under a cut (its `under`) now at dy world units down (drawn at its `at`), as of the next render. */
     shift(name, dy) {
       for (const c of cuts.values()) for (const u of c.under || []) if (u.name === name && u.dy !== dy) { u.dy = dy; liveVer++; }
@@ -251,7 +266,8 @@ export function createOrganStack(gl, { painter: shared = null } = {}) {
       drawnAt = at;
       // Every live group and cut described as it is now (its ops' strings and boxes); against the last drawing, the box that changed.
       let dirty = null, whole = !same;
-      const desc = new Map();
+      const desc = new Map(), prev = drawnDesc;
+      if (whole) freeCache();
       if (painter) {
         for (const n of order) {
           const lv = liveOrgans.get(n), cut = cuts.get(n);
@@ -314,9 +330,51 @@ export function createOrganStack(gl, { painter: shared = null } = {}) {
         gl.disable(gl.BLEND); gl.disable(gl.SCISSOR_TEST);
       };
       const dev = (r) => { const xs = [r[0], r[0] + r[2]].map((x) => m[0] * x + m[4]), ys = [r[1], r[1] + r[3]].map((y) => m[3] * y + m[5]); return [Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys)]; };
+      // A live group that is the same as when last drawn, laid from its picture within the box being drawn (made now if it has stood
+      // still since the render before and the budget allows); false for any other, which is painted from its shapes.
+      const layCached = (o, d, was) => {
+        const key = descKey(d), e = cache.get(o.spec);
+        if (e && e.key === key) {
+          if (!(e.box[2] > within[0] && e.box[0] < within[2] && e.box[3] > within[1] && e.box[1] < within[3])) return true;   // (reaches nothing of it)
+          gl.bindFramebuffer(gl.FRAMEBUFFER, fbo); gl.viewport(0, 0, w, h);
+          drawLayer({ tex: e.tex, rect: [(e.box[0] - m[4]) / m[0], (e.box[1] - m[5]) / m[3], (e.box[2] - e.box[0]) / m[0], (e.box[3] - e.box[1]) / m[3]], flip: true }, null);
+          return true;
+        }
+        if (e) dropEntry(o.spec);   // (it changed: the old picture is no use, and its memory goes at once)
+        if (!sameDesc(d, was)) return false;
+        let box = null;
+        for (const [, b] of d.ops) if (b) box = box ? [Math.min(box[0], b[0]), Math.min(box[1], b[1]), Math.max(box[2], b[2]), Math.max(box[3], b[3])] : b.slice();
+        if (!box) return false;
+        box = [Math.max(0, Math.floor(box[0])), Math.max(0, Math.floor(box[1])), Math.min(cw, Math.ceil(box[2])), Math.min(ch, Math.ceil(box[3]))];
+        const bw = box[2] - box[0], bh = box[3] - box[1];
+        if (!(bw > 0 && bh > 0)) return false;
+        if (!(box[2] > within[0] && box[0] < within[2] && box[3] > within[1] && box[1] < within[3])) return false;
+        const bytes = bw * bh * 4;
+        if (cacheBytes + bytes > cacheBudget(cw, ch)) return false;
+        const tex = gl.createTexture(), fb = gl.createFramebuffer();
+        gl.bindTexture(gl.TEXTURE_2D, tex);
+        for (const [k, v] of [[gl.TEXTURE_MIN_FILTER, gl.NEAREST], [gl.TEXTURE_MAG_FILTER, gl.NEAREST], [gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE], [gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE]]) gl.texParameteri(gl.TEXTURE_2D, k, v);
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, bw, bh, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+        gl.bindFramebuffer(gl.FRAMEBUFFER, fb);
+        gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, tex, 0);
+        gl.viewport(0, 0, bw, bh);
+        gl.disable(gl.SCISSOR_TEST);
+        gl.clearBufferfv(gl.COLOR, 0, [0, 0, 0, 0]);
+        // (Its frame moved by whole device pixels, so every shape is cut as it is in place.)
+        painter.paintGroupInto(o.spec, mul([1, 0, 0, 1, -box[0], -box[1]], mul(m, o.m)), bw, bh, fb, cw, ch);
+        cache.set(o.spec, { key, tex, fb, box, bytes }); cacheBytes += bytes;
+        return layCached(o, d, was);
+      };
       for (const n of order) {
         const lv = painter && liveOrgans.get(n);
-        if (lv) { for (const o of lv) painter.paintGroup(o.spec, mul(m, o.m), w, h, fbo, within); continue; }
+        if (lv) {
+          const ds = desc.get(n), ps = prev.get(n);
+          lv.forEach((o, i) => {
+            if (within && layCached(o, ds[i], ps && ps[i])) return;
+            painter.paintGroup(o.spec, mul(m, o.m), w, h, fbo, within);
+          });
+          continue;
+        }
         const L0 = live[0].get(n), L1 = live[1].get(n);
         if (!L0) continue;
         const cut = painter && cuts.get(n);
@@ -348,6 +406,7 @@ export function createOrganStack(gl, { painter: shared = null } = {}) {
     get painter() { return painter; },
     /** Gives back the stack's canvas-sized texture while nothing is shown (the next render makes it again). */
     trim() {
+      freeCache();
       if (!w) return;
       w = h = 0; drawnKey = ''; drawnAt = ''; drawnDesc = new Map();
       if (!shared) painter?.trim();
@@ -356,6 +415,7 @@ export function createOrganStack(gl, { painter: shared = null } = {}) {
     },
     dispose() {
       for (const s of [0, 1]) { free(live[s]); free(staged[s]); }
+      freeCache();
       if (!shared) painter?.dispose();
       watch?.disconnect();
       gl.deleteTexture(stackTex); gl.deleteFramebuffer(fbo); gl.deleteBuffer(quad); gl.deleteVertexArray(vao); gl.deleteProgram(layerP.p);
