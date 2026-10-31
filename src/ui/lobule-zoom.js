@@ -25,10 +25,12 @@ import { glideClock } from './glide-clock.js?v=220d7f875c';
 import { radiiChanged, canvasPx, fxMoves, DIVE_RIM } from './lobule-render-cache.js?v=84bf4c2222';
 import { softwareYield } from './sw-yield.js?v=e580a095b1';
 import { lobuleState, lymphRate, sinceOf, lensModeOf, LOBE } from './lobule-model.js?v=78f3cc69a1';
-import { SIN_NARROW, cordTone, dullSinusoid, NEIGHBOUR_FLAT, neighbourBlur, blurWrapped, bandOutline, FADE_MID, fadeOuter, padRect, wideDpr, wideTiles, FIELD_RS, fieldBlend, fieldDof, surroundGrade, greyStep } from './lobule-look.js?v=cf14995b07';
+import { SIN_NARROW, dullSinusoid, NEIGHBOUR_FLAT, neighbourBlur, blurWrapped, FADE_MID, fadeOuter, padRect, wideDpr, wideTiles, FIELD_RS, fieldBlend, fieldDof, surroundGrade, greyStep } from './lobule-look.js?v=cf14995b07';
 import { isGreyLens } from './organ-dim.js?v=9e19f2fc30';
 import { createFieldGL } from './field-gl.js?v=779561d5dd';
-import { createTissueGL } from './tissue-gl.js?v=8b86e77a93';
+import { createTissueGL } from './tissue-gl.js?v=be70a469fa';
+import { createTissueWorker } from './tissue-worker.js?v=2c6f0c7063';
+import { fibrousBand, fibrousTract, fibrousCuff, scarGrowth, paintWorldInto, useTokens } from './lobule-paint.js?v=8b9cefdd27';
 import { h, s, fmt, clamp, createEaser, systemEdge, bloodColors, cssVar, cssAlpha, cssRGB01 } from './util.js?v=543287bde4';
 import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatColor, oxygenColor } from './colormap.js?v=4791a8e2f6';
 import { NODES, EDGES } from '../engine/topology.js?v=4044766e96';
@@ -47,6 +49,7 @@ const N = N_SAMPLES;
 const MAXT = 320;                       // GPU rows: the lobule has ~170 vessels, ~285 with the lymphatics
 const LIGHT = (() => { const n = Math.hypot(-0.42, -0.91); return [-0.42 / n, -0.91 / n]; })();
 const tk = (n, a) => (a === undefined ? cssVar(n) : cssAlpha(n, a));   // a colour token, optionally with an alpha
+useTokens(tk);   // (the tissue's painting, lobule-paint.js, reads the same live tokens on the page)
 const smooth = (a, b, x) => { const t = clamp((x - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };
 const lerp = (a, b, t) => a + (b - a) * t;
 
@@ -98,121 +101,6 @@ function rgb01(c) {
   return o;
 }
 const css = (a, al = 1) => `rgba(${Math.round(a[0] * 255)},${Math.round(a[1] * 255)},${Math.round(a[2] * 255)},${al})`;
-
-// A fibrous septum, the way it looks under the microscope: a band of pale collagen, uneven in
-// width, soft at its edges, swelling where it leaves a portal tract, with wavy fibres running along
-// it and a few spindle-shaped fibroblast nuclei. Drawn once into a cached canvas, never per frame.
-// A, B: ends; w: mean width; e0, e1: width at each end (1.5 at a tract, ~0.2 for a septum that
-// stops in the parenchyma); seed: a fixed number so the same septum always looks the same;
-// detail: 0 … 1, fewer fibres and no nuclei when small on screen.
-const fibHash = (i) => { let q = (i * 374761393 + 668265263) >>> 0; q = ((q ^ (q >>> 13)) * 1274126177) >>> 0; return (q >>> 8) / 16777216; };
-function fibrousBand(c, A, B, { w, rgb, a = 1, seed = 0, e0 = 1.5, e1 = 1.5, amp = 0, detail = 1, path = null }) {
-  const n = 26, P = [], N = [], Wd = [];
-  const ph = fibHash(seed) * TAU, ph2 = fibHash(seed + 9) * TAU;
-  const dx = B[0] - A[0], dy = B[1] - A[1], L0 = Math.hypot(dx, dy) || 1;
-  for (let i = 0; i <= n; i++) {
-    const u = i / n;
-    if (path) P.push(path(u));
-    else { const e = amp * Math.sin(Math.PI * u) * (0.75 * Math.sin(3 * Math.PI * u + ph) + 0.25 * Math.sin(7 * Math.PI * u + ph2)); P.push([A[0] + dx * u - (dy / L0) * e, A[1] + dy * u + (dx / L0) * e]); }
-  }
-  for (let i = 0; i <= n; i++) {
-    const p = P[Math.max(0, i - 1)], q = P[Math.min(n, i + 1)], ex = q[0] - p[0], ey = q[1] - p[1], L = Math.hypot(ex, ey) || 1, u = i / n;
-    N.push([-ey / L, ex / L]);
-    const lump = 0.78 + 0.22 * Math.sin(TAU * 1.4 * u + ph) + 0.14 * Math.sin(TAU * 3.3 * u + ph2);
-    const end = 1 + (e0 - 1) * Math.max(0, 1 - u * 3) ** 2 + (e1 - 1) * Math.max(0, u * 3 - 2) ** 2;
-    Wd.push(Math.max(0, w * lump * end));
-  }
-  // (Round ends, so bands meeting at a tract blend; the widest, faintest pass narrows to the middle one's width at the
-  // ends, so it leaves no outer halo round the tract.)
-  const outline = (k) => bandOutline(c, P, N, Wd, k, Math.min(k, 1.45));
-  // Soft edges: the band laid down in three passes, wide and faint to narrow and dense.
-  const sb = c.shadowBlur;   // a shade (set by the caller) is cast by the faint outer pass only
-  for (const [k, al] of [[2.1, 0.12], [1.45, 0.24], [1, 0.5]]) { c.fillStyle = css(rgb, al * a); outline(k); c.fill(); c.shadowBlur = 0; }
-  c.shadowBlur = sb;
-  if (detail <= 0 || w < 1.2) return;
-  // Fibres: thin wavy strands along the band, some brighter, some deeper.
-  const lite = rgb.map((x) => x + (1 - x) * 0.45), deep = rgb.map((x, j) => x * [0.78, 0.74, 0.7][j]);
-  const nf = Math.round((3 + Math.min(7, w / 1.6)) * detail);
-  c.lineCap = 'round'; c.shadowBlur = 0;
-  for (let f = 0; f < nf; f++) {
-    const off = (fibHash(seed * 31 + f) - 0.5) * 0.9, fp = fibHash(seed * 17 + f) * TAU, wav = 0.05 + 0.08 * fibHash(seed * 7 + f);
-    const u0 = fibHash(seed * 13 + f) * 0.25, u1 = 1 - fibHash(seed * 19 + f) * 0.25;
-    c.strokeStyle = css(f % 3 === 0 ? deep : lite, (f % 3 === 0 ? 0.32 : 0.55) * a);
-    c.lineWidth = Math.max(0.45, w * (0.035 + 0.03 * fibHash(seed * 5 + f)));
-    c.beginPath();
-    for (let i = Math.floor(u0 * n); i <= Math.ceil(u1 * n); i++) {
-      const u = i / n, h = Wd[i] * (off + wav * Math.sin(TAU * 4 * u + fp));
-      c[i === Math.floor(u0 * n) ? 'moveTo' : 'lineTo'](P[i][0] + N[i][0] * h, P[i][1] + N[i][1] * h);
-    }
-    c.stroke();
-  }
-  if (detail < 0.6 || w < 3) { c.shadowBlur = sb; return; }
-  // Fibroblast nuclei: small dark spindles lying along the fibres.
-  const nn = Math.round((L0 / (w * 2.6)) * detail);
-  c.fillStyle = tk('--lz-shade', 0.32 * a);
-  for (let k = 0; k < nn; k++) {
-    const i = Math.min(n - 1, Math.max(1, Math.round(fibHash(seed * 41 + k) * n))), h = Wd[i] * (fibHash(seed * 43 + k) - 0.5) * 0.7;
-    const x = P[i][0] + N[i][0] * h, y = P[i][1] + N[i][1] * h;
-    c.beginPath(); c.ellipse(x, y, Math.max(0.8, w * 0.16), Math.max(0.35, w * 0.045), Math.atan2(N[i][0], -N[i][1]), 0, TAU); c.fill();
-  }
-  c.shadowBlur = sb;
-}
-
-// Visual scar growth is eased independently of the physiology and stays close to the vessels.
-const scarGrowth = (fibrosis) => clamp(fibrosis, 0, 1) ** 1.1;
-
-// Portal fibrosis has a compact circular footprint with interwoven collagen inside.
-// Cached with the tissue; fixed seeds keep the texture still as pressure changes.
-function fibrousTract(c, x, y, radius, angle, rgb, fibrosis, seed, detail = 1) {
-  c.save(); c.translate(x, y); c.rotate(angle);
-  const rx = radius, ry = radius;
-  const phase = fibHash(seed) * TAU;
-  c.beginPath(); c.arc(0, 0, radius, 0, TAU);
-  c.fillStyle = css(rgb, fibrosis * 0.24); c.fill(); c.clip();
-  // Broken curving bundles cross each other instead of forming a circular halo.
-  const count = Math.round(10 * detail);
-  for (let k = 0; k < count; k++) {
-    const sd = seed + k * 37, a0 = fibHash(sd) * TAU;
-    const span = 1.2 + 2 * fibHash(sd + 1), r0 = 0.25 + 0.65 * fibHash(sd + 2);
-    const path = (u) => {
-      const a = a0 + span * u;
-      const r = r0 + 0.09 * Math.sin(5 * a + phase) + 0.12 * Math.sin(Math.PI * u);
-      return [Math.cos(a) * rx * r, Math.sin(a) * ry * r];
-    };
-    fibrousBand(c, path(0), path(1), {
-      w: radius * (0.08 + 0.085 * fibrosis) * (0.7 + fibHash(sd + 3)),
-      rgb, a: Math.min(1, fibrosis * (0.75 + 0.35 * fibHash(sd + 4))),
-      e0: 0.2, e1: 0.25, seed: sd, path, detail,
-    });
-  }
-  c.restore();
-}
-
-// Perivenular collagen: overlapping curved bundles rather than a smooth, solid disc.
-// Like the bridging bands, this texture is painted only into the cached tissue bitmap.
-function fibrousCuff(c, cx, cy, inner, outer, rgb, fibrosis) {
-  const annulus = () => {
-    c.beginPath();
-    for (let i = 0; i <= 80; i++) {
-      const a = TAU * i / 80, r = outer * (1 + 0.035 * Math.sin(3 * a) + 0.025 * Math.sin(7 * a + 0.8));
-      c[i ? 'lineTo' : 'moveTo'](cx + Math.cos(a) * r, cy + Math.sin(a) * r);
-    }
-    c.closePath(); c.moveTo(cx + inner, cy); c.arc(cx, cy, inner, 0, TAU); c.closePath();
-  };
-  c.save();
-  annulus(); c.fillStyle = css(rgb, 0.4 * fibrosis); c.fill('evenodd'); c.clip('evenodd');
-  const thickness = outer - inner;
-  for (let ring = 0; ring < 3; ring++) for (let k = 0; k < 6; k++) {
-    const seed = 211 + ring * 17 + k, a0 = TAU * k / 6 + ring * 0.27;
-    const span = TAU / 6 * (1.2 + 0.5 * fibHash(seed)), r0 = inner + thickness * (0.18 + ring * 0.3);
-    const path = (u) => {
-      const a = a0 + span * u, r = r0 + thickness * 0.1 * Math.sin(a * 5 + fibHash(seed + 5) * TAU);
-      return [cx + Math.cos(a) * r, cy + Math.sin(a) * r];
-    };
-    fibrousBand(c, path(0), path(1), { w: thickness * 0.34, rgb, a: Math.min(1, 1.0 * fibrosis), e0: 0.45, e1: 0.5, seed, path });
-  }
-  c.restore();
-}
 
 /** `before`: a node of `host` the layer sits ahead of. The stage builds the layer after the first paint, and in the page it takes the
  *  place it always had (a layer of the same z-index drawn later would otherwise cover the labels the stage adds after it). With the
@@ -702,6 +590,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     resCoverEnd();
     free(tissue); free(tissueG); free(fx); free(glCv); free(diveCv); free(rimCv); diveCopyKey = '';
     clearTimeout(spareT); spareT = 0; free(spareCv); spare = null;
+    jobGen++; if (laying) { closeTiles(laying.tiles, laying.i); free(laying.cv); laying = null; }   // (a bitmap the worker is painting or sending is dropped)
     gl?.trim?.();   // (the vessels' framebuffer: the shaders and the uploaded network are kept)
     tissueKey = ''; idleDrawn = ''; drawKey = ''; glDirty = true; fxKey = '';
     staged = ''; relLater = false;
@@ -2400,6 +2289,15 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
       const dpr = Math.min(2, devicePixelRatio || 1);
       quietTile(fieldTile(cs, dark, geo.R * V.k * dpr * 0.55), bg);
     }, () => {
+      // (The bitmap in the worker where it can be painted there, so the anatomy is not held while it is: paintTissue below then finds
+      // it painted. The pieces wait for it, a moment at a time.)
+      const dpr = Math.min(2, devicePixelRatio || 1), G = geo, m = model;
+      if (!G || !m || !offPage()) return;
+      const sc = Math.min(2 ** (Math.ceil(Math.log2(Math.max(0.05, dpr * V.k)) * 2) / 2), 3600 / (2.6 * G.R)), ws = worldStateOf(m, G, dark, cs), wk = sc.toFixed(3) + '|' + ws;
+      if (wk === worldKey || !askPaint('world', sc, ws, wk, m, G, dark, cs)) return;
+      const wait = () => { if ((job || laying?.j)?.wk === wk) q.unshift(wait); };
+      q.unshift(wait);
+    }, () => {
       const dpr = Math.min(2, devicePixelRatio || 1);
       paintTissue(W, H, dpr, dark, cs, !gl || gl.lost);
     }, () => { if (fade <= 0) { draw(0); release(); prepKey = key; } });
@@ -2745,13 +2643,9 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   // The lobule in world space, painted into cv at sc px per world unit (its box: 1.3 R about the centre each way).
   function paintWorld(cv, sc, m, G, dark, cs) {
     if (gpuProbe.on) gpuProbe.note(COUNTED.tissue);
-    const v = (n, d) => cs.getPropertyValue(n).trim() || d, bg = v('--stage-bg', v('--bg'));
     const B = 1.3 * G.R, bx = G.cx - B, by = G.cy - B, n = Math.ceil(2 * B * sc);
     if (cv.width !== n || cv.height !== n) { cv.width = n; cv.height = n; }
-    const w = cv.getContext('2d');
-    w.setTransform(1, 0, 0, 1, 0, 0); w.clearRect(0, 0, n, n);
-    w.setTransform(sc, 0, 0, sc, -bx * sc, -by * sc);
-    paintLobule(w, m, G, dark, cs, bg, v);
+    paintWorldInto(cv.getContext('2d'), n, sc, bx, by, worldInput(m, G, dark, cs));
     cv.ver = ++texVer;   // (its texture is sent again: tissue-gl.js)
   }
   // On the GPU: the lobule's bitmap is mipmapped, so one painted for a closer zoom stays sharp shown smaller. Once the view has
@@ -2769,9 +2663,14 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     const dpr = Math.min(saver() ? 1 : 2, devicePixelRatio || 1) * lzScale(), cap = 3600 / (2.6 * G.R);
     const dark = isDark(), cs = styles(), ws = worldStateOf(m, G, dark, cs), sc = Math.min(2 ** (Math.ceil(Math.log2(Math.max(0.05, dpr * V.k)) * 2) / 2) * 2, cap);
     if (sc > worldSc * 1.01 && !(spare && spare.G === G && spare.ws === ws && spare.sc >= sc)) {
-      paintWorld(spareCv, sc, m, G, dark, cs);
-      spare = { sc, ws, G };
-      g.upload(spareCv, spareCv.ver);
+      // (In the worker where it can paint, so the page never waits for it; a job already under way is waited for.)
+      // (Not while the bitmap shown is still waiting for the one the lobule wants: that one goes first.)
+      if (offPage()) { if (worldKey !== wantWk || !askPaint('spare', sc, ws, '', m, G, dark, cs)) spareSoon(); }
+      else {
+        paintWorld(spareCv, sc, m, G, dark, cs);
+        spare = { sc, ws, G };
+        g.upload(spareCv, spareCv.ver);
+      }
     }
     // (The surround's tiles for that zoom too, each with its quieted copy, on the GPU.)
     const tone = shadeOf(stageBg(cs, dark), dark), { a, b } = fieldBlend(G.R * V.k * dpr * 0.55 * 2);
@@ -2785,6 +2684,79 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     if (tissueGL === undefined) { tissueGL = createTissueGL(tissueG); if (!tissueGL) tissueG.remove(); }
     return tissueGL && !tissueGL.lost ? tissueGL : null;
   }
+  // The bitmap painted off the page (performance review A5a, 31 Oct): painting it here held the page for as long as it took, up to
+  // 3600 px square (the 2.8 s step into the lobule after a new patient, the 60 to 80 ms pinch repaints). Where the tissue is on the
+  // GPU and a worker can paint the same picture (tissue-worker.js), a new bitmap is painted there by the same code from the same
+  // values (lobule-paint.js), while the bitmap it replaces goes on showing; its tiles come back and are laid a few a frame, on the
+  // GPU and on the 2D canvas the dive's copies read, and once all are in it takes over exactly as one painted here would: the last
+  // state's picture fading out under it, or simply replaced. One job at a time; one that lands after the bitmap changed on the page
+  // (worldSeq), the lobule's shape changed, or its pictures were given back (jobGen) is dropped, and the next frame asks again.
+  // Without the GPU (and so in the headless checks) and until the worker is ready, the bitmap is painted here, as before.
+  const painter = createTissueWorker();
+  const offPage = () => !!tissueGLOn() && painter.ready;
+  const TILE_BYTES = 4 * 1024 * 1024;   // laid per frame (four 512 px tiles, about a millisecond)
+  const layNext = frameFor('lobule-tiles');
+  let job = null, laying = null, worldSeq = 0, jobGen = 0, wantWk = '';   // (wantWk: the bitmap the screen last wanted)
+  // A bitmap asked of the worker: kind 'world' (the one shown) or 'spare' (twice the zoom, painted ahead). False while another is
+  // under way (the same one under way counts as asked).
+  function askPaint(kind, sc, ws, wk, m, G, dark, cs) {
+    if (job || laying) { const j = job || laying.j; return j.kind === kind && j.sc === sc && j.ws === ws && j.G === G; }
+    const B = 1.3 * G.R, n = Math.ceil(2 * B * sc), { G: shape, ...P } = worldInput(m, G, dark, cs);
+    const j = job = { kind, sc, ws, wk, G, n, seq: worldSeq, gen: jobGen };
+    painter.paint({ shape, n, sc, bx: G.cx - B, by: G.cy - B, P }).then((tiles) => landed(j, tiles));
+    return true;
+  }
+  const jobLive = (j) => j.gen === jobGen && j.G === geo && (j.kind === 'spare' || j.seq === worldSeq);
+  const closeTiles = (tiles, from = 0) => { for (let i = from; i < (tiles?.length || 0); i++) { try { tiles[i].bmp.close(); } catch { /* gone */ } } };
+  function landed(j, tiles) {
+    if (job === j) job = null;
+    if (!tiles || !jobLive(j)) { closeTiles(tiles); wake(); return; }   // (dropped, or the worker failed and is off: the next frame asks or paints here)
+    const cv = document.createElement('canvas');
+    cv.width = j.n; cv.height = j.n;
+    const c = cv.getContext('2d');
+    if (!c) { free(cv); closeTiles(tiles); wake(); return; }
+    cv.ver = ++texVer;
+    tissueGLOn()?.begin(cv);
+    laying = { j, cv, c, tiles, i: 0 };
+    layNext(layTiles);
+  }
+  function layTiles() {
+    const L = laying;
+    if (!L) return;
+    if (!jobLive(L.j)) { laying = null; closeTiles(L.tiles, L.i); free(L.cv); tissueGL?.sweep(); wake(); return; }
+    const g = tissueGLOn();
+    let bytes = 0;
+    while (L.i < L.tiles.length && bytes < TILE_BYTES) {
+      const { x, y, bmp } = L.tiles[L.i++];
+      L.c.drawImage(bmp, x, y);
+      g?.put(L.cv, x, y, bmp);
+      bytes += bmp.width * bmp.height * 4;
+      bmp.close();
+    }
+    if (L.i < L.tiles.length) { layNext(layTiles); return; }
+    laying = null;
+    g?.done(L.cv, L.cv.ver);
+    adopt(L.j, L.cv);
+  }
+  // A bitmap from the worker takes over, as paintTissue does with one it paints itself.
+  function adopt(j, cv) {
+    if (gpuProbe.on) gpuProbe.note(COUNTED.tissue);
+    if (j.kind === 'spare') {
+      free(spareCv); spareCv = cv; spare = { sc: j.sc, ws: j.ws, G: j.G };
+    } else {
+      // (The old picture stays under the new one as it fades in; a change while one is fading in replaces the incoming picture and
+      // lets the fade run on.)
+      const now = performance.now();
+      if (worldState && j.ws !== worldState && !unseen() && worldGeo === j.G && worldCv.width && !(xfT0 && now - xfT0 < XF_MS)) { free(worldOld); worldOld = worldCv; worldOldSc = worldSc; xfT0 = now; }
+      else free(worldCv);
+      worldCv = cv;
+      worldKey = j.wk; worldState = j.ws; worldSc = j.sc; worldGeo = j.G; worldDraws++; worldSeq++;
+    }
+    tissueGL?.sweep();
+    wake();
+  }
+  // The lobule draws again (its tissue first): a bitmap came in, or the next one can be asked for.
+  function wake() { tissueKey = ''; idleDrawn = ''; if (!raf && fade > 0) raf = nextFrame(loop); }
   // Which of the two shows (in the frame it was drawn in, so the picture never goes missing between them).
   function showTissueGL(on) {
     if (on === tissueOnGL) return;
@@ -2846,7 +2818,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     if (gpu && kept && sc > worldSc && spare && spare.G === G && spare.ws === ws && ws === worldState && spare.sc >= sc && spareCv.width) {
       // (The zoom wants more than the bitmap has: the sharper one painted ahead takes over, already on the GPU.)
       [worldCv, spareCv] = [spareCv, worldCv]; free(spareCv); tg.sweep();   // (the replaced bitmap's GPU copy goes with it)
-      worldSc = spare.sc; worldKey = worldSc.toFixed(3) + '|' + ws; spare = null;
+      worldSc = spare.sc; worldKey = worldSc.toFixed(3) + '|' + ws; spare = null; worldSeq++;
     }
     if (!held && gpu && kept && ws === worldState && sc <= worldSc && worldSc <= sc * 2.01) sc = worldSc;
     if (held && kept && (!gpu || sc <= worldSc)) { if (hand && sc !== worldSc) holdSoon(); sc = worldSc; }
@@ -2860,7 +2832,12 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     const bg = v('--stage-bg', v('--bg'));
     const { R, cx, cy } = G;
     const B = 1.3 * R, bx = cx - B, by = cy - B;
-    if (wk !== worldKey) {
+    if (gpu) wantWk = wk;
+    if (wk !== worldKey && gpu && worldGeo === G && worldCv.width && offPage()) {
+      // On the GPU with this lobule's bitmap to show meanwhile: the new one is painted in the worker (askPaint), and takes over
+      // when its tiles are in, as below (adopt). Nothing is painted here.
+      if (askPaint('world', sc, ws, wk, m, G, dark, cs) && gpuProbe.on && job?.wk === wk && !job.noted) { job.noted = true; gpuProbe.note(COUNTED.tissueWhy + (ws !== worldState ? 'state changed' : sc > worldSc ? 'zoomed in' : 'zoomed out'), Math.ceil(2.6 * R * sc) ** 2 * 4 / 1024); }
+    } else if (wk !== worldKey) {
       // The tissue's state changed (not just the scale it is drawn at): the old picture stays under the new one as it fades in.
       // (A change while one is fading in redraws the incoming picture in place and lets the fade run on, so a state that keeps
       // moving, as the pressures glide after a new patient, never restarts it.)
@@ -2868,7 +2845,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
       // (For the ?perf readout: why, and how large, gpu-probe.js TISSUE_WHY.)
       if (gpuProbe.on) gpuProbe.note(COUNTED.tissueWhy + (!worldState || worldGeo !== G ? 'first' : ws !== worldState ? 'state changed' : sc > worldSc ? 'zoomed in' : 'zoomed out'), Math.ceil(2.6 * R * sc) ** 2 * 4 / 1024);
       worldKey = wk; worldState = ws;
-      worldSc = sc; worldGeo = G; worldDraws++;
+      worldSc = sc; worldGeo = G; worldDraws++; worldSeq++;   // (a bitmap from the worker asked for before this one is dropped: adopt)
       paintWorld(worldCv, sc, m, G, dark, cs);
     }
     if (gpu && tissueOnGPU(tg, tw, th, dpr, dark, cs, bg, now)) { if (!held) spareSoon(); return true; }
@@ -2988,140 +2965,33 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     }
     c.globalCompositeOperation = 'source-over';
   }
-  // The lobule in world space (plates, septa, tracts, lymph): drawn into the cached bitmap.
-  function paintLobule(c, m, G, dark, cs, bg, v) {
-    const { R, cx, cy, lobules } = G;
-    { const l = lobules[0], bq = rgb01(bg); c.fillStyle = css(rgb01(v('--og-liver-2')).map((x, i) => lerp(bq[i], x, 0.55)), 1); c.beginPath(); l.corners.forEach(([x, y], i) => { const px = l.x + (x - l.x) * 1.015, py = l.y + (y - l.y) * 1.015; if (i) c.lineTo(px, py); else c.moveTo(px, py); }); c.closePath(); c.fill(); }
-    const gap = rgb01(v('--og-liver-2')), cell = rgb01(v('--og-liver-1'));
-    const COL = rgb01(v('--lz-septum'));   // (light and Soft: a deeper tan than the collagen token, to read on the pale cells)
-    const PRE = dark ? [0.86, 0.78, 0.6] : [0.78, 0.64, 0.44];   // periportal scar: deeper than COL to read on the tissue
-    const DIS = rgb01(v('--collagen')), col = (a) => css(DIS, a);   // (the space of Disse's lining keeps the paler collagen)
-    const hexPath = (l, k = 1) => { c.beginPath(); l.corners.forEach(([x, y], i) => { const px = l.x + (x - l.x) * k, py = l.y + (y - l.y) * k; if (i) c.lineTo(px, py); else c.moveTo(px, py); }); c.closePath(); };
-    // The lobule's own plates: hepatocytes in radial cords, one cell thick.
-    const main = lobules[0];
-    hexPath(main); c.fillStyle = css(gap, dark ? 0.55 : 0.5); c.fill();
-    c.save(); hexPath(main); c.clip();
-    const cu = m.congU;
-    // Each cell's membrane: a 0.6 px line where neighbouring cells meet, so a cord reads as a row of cells (G21).
-    c.strokeStyle = tk('--lz-plate-line'); c.lineWidth = Math.max(0.6, 0.6 / (c.getTransform().a || 1));
-    for (const k of G.cells) {
-      const z3 = k.q < 0.4, dead = z3 && cu > 0.12 && k.drop < cu * (1.25 - k.q * 1.6);
-      const t = 0.88 + 0.12 * k.tone;
-      const base = dark ? cell.map((x, i) => lerp(gap[i], x, 0.28)) : cell;
-      // (Zone 3, by the central vein, deeper and warmer than zone 1: cordTone.)
-      const fill = dead ? (dark ? [0.42, 0.33, 0.3] : [0.93, 0.86, 0.72]) : cordTone(base.map((x) => x * t + (1 - t) * (dark ? 0.15 : 1) * 0.3), k.q, dark);
-      // In cirrhosis the plates thicken and lose their order (regenerating nodules).
-      const sj = m.septU, dz = sj * Math.min(k.l, k.w) * 0.45;
-      c.save(); c.translate(k.x + k.jx * dz, k.y + k.jy * dz); c.rotate(k.a + k.ja * sj * 0.9);
-      const lw = (dead ? k.l * 0.7 : k.l) * (1 + 0.12 * sj), ww = (dead ? k.w * 0.7 : k.w) * (1 + 0.3 * sj);
-      c.fillStyle = css(fill, dead ? 0.6 : dark ? 0.8 : 0.92);
-      c.beginPath(); if (c.roundRect) c.roundRect(-lw / 2, -ww / 2, lw, ww, Math.min(lw, ww) * 0.38); else c.rect(-lw / 2, -ww / 2, lw, ww); c.fill();
-      if (!dead) c.stroke();
-      if (!dead) { c.fillStyle = tk('--lz-nodule-ink'); c.beginPath(); c.arc(k.nu * lw, 0, Math.max(0.9, ww * 0.16), 0, TAU); c.fill(); }
-      c.restore();
-    }
-    // Zone 3 congestion: blood pooling around the central vein (nutmeg).
-    if (cu > 0.04) {
-      const gr = c.createRadialGradient(cx, cy, R * 0.05, cx, cy, R * 0.55);
-      gr.addColorStop(0, tk('--lz-nutmeg', 0.5 * cu)); gr.addColorStop(0.6, tk('--lz-nutmeg', 0.22 * cu)); gr.addColorStop(1, tk('--lz-nutmeg', 0));
-      c.fillStyle = gr; c.fillRect(cx - R, cy - R, 2 * R, 2 * R);
-    }
-    // Zones of the acinus (toggle): hexagonal bands from the triads (1) to the central vein (3).
-    if (zonesOn) {
-      [[1, 0], [0.66, 1], [0.36, 2]].forEach(([k, i]) => { hexPath(main, k); c.fillStyle = tk(`--lz-zone-${i + 1}`, dark ? 0.2 : 0.17); c.fill(); });
-      c.lineWidth = 1; c.strokeStyle = tk('--lz-zone-line');
-      for (const k of [0.66, 0.36]) { hexPath(main, k); c.stroke(); }
-    }
-    // Space of Disse collagen (capillarization) along every sinusoid.
-    if (m.fibSin > 0.05) {
-      c.strokeStyle = col(0.75 * m.fibSin); c.lineCap = 'round'; c.lineJoin = 'round';
-      for (const t of G.tubes) {
-        if (t.kind[0] !== 's') continue;
-        c.lineWidth = 2 * radiusAt(t, N >> 1) + 2 + 3.5 * m.fibSin;
-        c.beginPath(); t.pts.forEach(([x, y], i) => (i ? c.lineTo(x, y) : c.moveTo(x, y))); c.stroke();
-      }
-    }
-    // Stellate (Ito) cells, in the space of Disse between a plate and its sinusoid: shown once fibrosis
-    // starts, when they activate. A spindle-shaped body lying along the sinusoid, with long thin
-    // processes hugging its wall; activated (myofibroblasts), they grow, darken and lay down collagen.
-    if (m.act > 0.08) {
-      const a = m.act, L = G.rs0 * (2.4 + 1.4 * a), Wb = G.rs0 * (0.42 + 0.2 * a);
-      const body = tk('--lz-hsc-body', (0.22 + 0.3 * a).toFixed(3)), nuc = tk('--lz-hsc-nucleus', (0.3 + 0.3 * a).toFixed(3));
-      // A tapered strand: from (x0, y0) along the wall, bowing toward the sinusoid, width w0 → 0.
-      const strand = (k, x0, y0, sgn, len, w0, bow) => {
-        const ux = Math.cos(k.a) * sgn, uy = Math.sin(k.a) * sgn, n = 10, Pq = [];
-        for (let i = 0; i <= n; i++) { const u = i / n, b = bow * Math.sin(Math.PI * u * 0.8) * G.rs0; Pq.push([x0 + ux * len * u - k.nx * b, y0 + uy * len * u - k.ny * b, w0 * (1 - u) ** 1.3]); }
-        c.moveTo(Pq[0][0] + k.nx * Pq[0][2], Pq[0][1] + k.ny * Pq[0][2]);
-        for (const [x, y, w] of Pq) c.lineTo(x + k.nx * w, y + k.ny * w);
-        for (let i = n; i >= 0; i--) c.lineTo(Pq[i][0] - k.nx * Pq[i][2], Pq[i][1] - k.ny * Pq[i][2]);
-        c.closePath();
-      };
-      for (const k of G.hsc) {
-        const ux = Math.cos(k.a), uy = Math.sin(k.a);
-        c.fillStyle = body; c.beginPath();
-        // Body: a slender spindle, its ends drawn out into the processes along the sinusoid.
-        c.ellipse(k.x, k.y, L * 0.6, Wb, k.a, 0, TAU);
-        for (const sgn of [-1, 1]) {
-          const x0 = k.x + ux * sgn * L * 0.45, y0 = k.y + uy * sgn * L * 0.45;
-          strand(k, x0, y0, sgn, L * (2 + 0.6 * a), Wb * 0.55, 0.45);
-          strand(k, x0, y0, sgn, L * (1.1 + 0.4 * a), Wb * 0.35, -0.25);   // a finer branch on the plate side
-        }
-        c.fill();
-        c.fillStyle = nuc; c.beginPath(); c.ellipse(k.x, k.y, L * 0.26, Wb * 0.5, k.a, 0, TAU); c.fill();
-      }
-    }
-    c.restore();
-    // Bridging septa in cirrhosis: fibrous bands along the borders (portal-portal) and, later, from
-    // the triads to the central vein (portal-central), cutting the lobule into rounded nodules.
-    const su = m.septU;
-    if (su > 0) {
-      const w = R * (0.045 + 0.075 * su), crn = lobules[0].corners;
-      // Early: incomplete septa reaching out from the tracts; then complete portal-portal bridges.
-      const reach = Math.min(1, 0.3 + 2.4 * su);
-      c.save();
-      c.shadowColor = tk('--lz-nodule-shadow'); c.shadowBlur = R * 0.06 * su;   // nodules bulge beside the bands
-      crn.forEach((A, i) => {
-        const B = crn[(i + 1) % 6], o = { w, rgb: COL, a: 0.55 + 0.45 * su, amp: R * 0.025, seed: 11 + i };
-        if (reach >= 1) fibrousBand(c, A, B, o);
-        else { const M = (t, P, Q) => [lerp(P[0], Q[0], t), lerp(P[1], Q[1], t)], h = reach / 2;
-          fibrousBand(c, A, M(h, A, B), { ...o, e1: 0.2, seed: 11 + i }); fibrousBand(c, B, M(h, B, A), { ...o, e1: 0.2, seed: 61 + i }); }
-      });
-      // Portal-central bridges (advanced): from three tracts to the central vein, then spurs from the others.
-      if (su > 0.18) {
-        const g = Math.min(1, (su - 0.18) / 0.4);
-        G.septaPC.forEach((sp, k) => { const P = sp.pts, q = P.length - 1;
-          fibrousBand(c, P[0], P[q], { w: w * (0.6 + 0.3 * g), rgb: COL, a: 0.45 + 0.5 * g, e1: 0.9, seed: 31 + k, path: (u) => at(P, u) }); });
-        if (su > 0.6) [1, 3, 5].forEach((i, k) => { const A = crn[i], t = 0.25 + 0.3 * Math.min(1, (su - 0.6) / 0.3);
-          fibrousBand(c, A, [lerp(A[0], cx, t), lerp(A[1], cy, t)], { w: w * 0.55, rgb: COL, a: 0.6, e1: 0.15, amp: R * 0.03, seed: 41 + k }); });
-      }
-      c.restore();
-    } else {
-      // Healthy: just the limiting plate, a hairline.
-      c.strokeStyle = tk('--lz-plate-line'); c.lineWidth = 1;
-      hexPath(lobules[0]); c.stroke();
-    }
-    // Portal tracts (connective tissue), thicker with portal fibrosis.
-    const seen = new Set();
-    c.globalAlpha = 1;
-    for (const [x, y] of lobules[0].corners) {
-      const kk = Math.round(x) + ',' + Math.round(y);
-      if (seen.has(kk)) continue; seen.add(kk);
-      // (Only this lobule's own corners: every one is a near triad, drawn whole.)
-      const gp = scarGrowth(m.fibPre), rt = G.rt * (0.8 + 0.9 * gp);
-      // Collagen expands asymmetrically around all three structures, continuous with the septa; in presinusoidal
-      // disease a denser, deeper-toned periportal collar (pipestem) rings the tract, clear of the orchid sinusoids.
-      if (m.fibPre > 0.03) {
-        fibrousTract(c, x, y, rt, Math.atan2(y - cy, x - cx), PRE, gp,
-          900 + lobules[0].corners.findIndex((p) => p[0] === x && p[1] === y) * 71);
-        fibrousCuff(c, x, y, rt * 0.62, rt * 1.08, PRE, gp);
-      }
-    }
-    // Central vein wall: wavy collagen bundles, continuous with the portal-central bridges.
-    if (m.fibPost > 0.05) {
-      const growth = scarGrowth(m.fibPost), inner = radiusAt(G.cv, 0);
-      const outer = inner + G.rcv0 * (0.1 + 0.85 * growth);
-      fibrousCuff(c, cx, cy, inner, outer, COL, growth);
-    }
+  // The plain values the lobule's painting reads (lobule-paint.js paintLobule), the same whether it paints on the page or in the
+  // worker: the model's tissue values, the lobule's shape (copied once per shape), the layers, its colours, and the calibers of the
+  // sinusoids and the central vein as they are now (only where the painting reads them: capillarization, the central vein's cuff).
+  const shapes = new WeakMap();
+  function worldShape(G) {
+    let S = shapes.get(G);
+    if (S) return S;
+    const l = G.lobules[0];
+    S = {
+      R: G.R, cx: G.cx, cy: G.cy, rt: G.rt, rs0: G.rs0, rcv0: G.rcv0,
+      lobules: [{ x: l.x, y: l.y, corners: l.corners.map(([x, y]) => [x, y]) }],
+      cells: G.cells.map((k) => ({ x: k.x, y: k.y, a: k.a, l: k.l, w: k.w, tone: k.tone, nu: k.nu, q: k.q, drop: k.drop, jx: k.jx, jy: k.jy, ja: k.ja })),
+      hsc: G.hsc.map((k) => ({ x: k.x, y: k.y, a: k.a, nx: k.nx, ny: k.ny })),
+      septaPC: G.septaPC.map((sp) => ({ pts: sp.pts.map(([x, y]) => [x, y]) })),
+    };
+    shapes.set(G, S);
+    return S;
+  }
+  function worldInput(m, G, dark, cs) {
+    const v = (n, d) => cs.getPropertyValue(n).trim() || d, bg = v('--stage-bg', v('--bg'));
+    return {
+      m: { congU: m.congU, septU: m.septU, fibSin: m.fibSin, act: m.act, fibPre: m.fibPre, fibPost: m.fibPost },
+      G: worldShape(G), dark, zonesOn,
+      rgb: { bg: rgb01(bg), gap: rgb01(v('--og-liver-2')), cell: rgb01(v('--og-liver-1')), col: rgb01(v('--lz-septum')), dis: rgb01(v('--collagen')) },
+      sin: m.fibSin > 0.05 ? G.tubes.filter((t) => t.kind[0] === 's').map((t) => ({ pts: t.pts, r: radiusAt(t, N >> 1) })) : [],
+      cvIn: m.fibPost > 0.05 ? radiusAt(G.cv, 0) : 0,
+    };
   }
   // Without WebGL2: the vessels as plain strokes on the tissue.
   function paintFlatVessels(c, cs) {

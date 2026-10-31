@@ -116,6 +116,37 @@ export function createTissueGL(canvas) {
     get lost() { return lost || failed || gl.isContextLost(); },
     /** Sends a canvas to the GPU now (painted ahead, so no frame of a gesture waits for it). */
     upload(cv, ver = 0, tile = false) { if (!this.lost && cv?.width) texFor(cv, ver, tile); },
+    /** A bitmap painted off the page (the tissue worker, tissue-worker.js) and sent in tiles, a few a frame: begin(cv) makes the
+     *  canvas's texture at its size, put(cv, x, y, bmp) lays one tile (an ImageBitmap, premultiplied as the canvas's own upload is),
+     *  done(cv, ver) builds its mipmaps. From then on it is the canvas's texture for that version, as if sent from the canvas (texFor);
+     *  until then a draw of the canvas would send it whole, so a texture half laid is never sampled. */
+    begin(cv) {
+      if (this.lost || !cv?.width) return;
+      let t = texs.get(cv);
+      if (!t) { t = { tex: gl.createTexture() }; texs.set(cv, t); }
+      gl.activeTexture(gl.TEXTURE0 + SCRATCH);
+      gl.bindTexture(gl.TEXTURE_2D, t.tex);
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, cv.width, cv.height, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
+      Object.assign(t, { w: cv.width, h: cv.height, ver: NaN });
+    },
+    put(cv, x, y, bmp) {
+      const t = texs.get(cv);
+      if (this.lost || !t || t.w !== cv.width || t.h !== cv.height) return;
+      gl.activeTexture(gl.TEXTURE0 + SCRATCH);
+      gl.bindTexture(gl.TEXTURE_2D, t.tex);
+      gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false); gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, true);
+      gl.texSubImage2D(gl.TEXTURE_2D, 0, x, y, gl.RGBA, gl.UNSIGNED_BYTE, bmp);
+    },
+    done(cv, ver) {
+      const t = texs.get(cv);
+      if (this.lost || !t || t.w !== cv.width || t.h !== cv.height) return;
+      gl.activeTexture(gl.TEXTURE0 + SCRATCH);
+      gl.bindTexture(gl.TEXTURE_2D, t.tex);
+      gl.generateMipmap(gl.TEXTURE_2D);
+      t.ver = ver;
+    },
     /** Gives back every texture whose canvas was given back (width 0) or is no longer wanted (keep(cv) false). */
     sweep(keep = () => true) {
       for (const [cv, t] of texs) if (!cv.width || !keep(cv)) { if (!lost) gl.deleteTexture(t.tex); texs.delete(cv); }

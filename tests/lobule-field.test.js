@@ -7,6 +7,7 @@ import { readFileSync } from 'node:fs';
 const read = (p) => readFileSync(new URL(p, import.meta.url), 'utf8');
 const stage = read('../src/ui/stage.js');
 const lz = read('../src/ui/lobule-zoom.js');
+const lp = read('../src/ui/lobule-paint.js');   // (the tissue's painting)
 
 // Their count no longer costs anything: the field is one pattern (one shader pass on the GPU, field-gl.js), whatever the size of
 // its lobules. They start about true to scale (Mohammad, 24 Oct: the lobule looked too large; zoom further to reach it).
@@ -93,9 +94,10 @@ test('the lobule\'s fibrous bands are a deeper tan in light and Soft, the collag
   const tokens = read('../styles/tokens.css');
   assert.match(tokens, /--lz-septum: rgb\(206, 178, 130\);/);
   assert.equal((tokens.match(/--lz-field-sin-pale: #2E1A26; --lz-septum: rgb\(199, 186, 153\);/g) || []).length, 2, 'dark unchanged, both dark blocks');
-  assert.match(lz, /const COL = rgb01\(v\('--lz-septum'\)\);/);
+  assert.match(lz, /col: rgb01\(v\('--lz-septum'\)\), dis: rgb01\(v\('--collagen'\)\)/);
+  assert.match(lp, /const COL = rgb\.col;/);
   assert.match(lz, /const COLa = cssRGB01\('--lz-septum'\), edges/);
-  assert.match(lz, /const DIS = rgb01\(v\('--collagen'\)\), col = \(a\) => css\(DIS, a\);/, 'the space of Disse lining is unchanged');
+  assert.match(lp, /const DIS = rgb\.dis, col = \(a\) => css\(DIS, a\);/, 'the space of Disse lining is unchanged');
 });
 
 test('the dive\'s field fills each pixel only with the passes that change it (the same picture)', () => {

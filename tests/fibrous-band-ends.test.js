@@ -47,9 +47,9 @@ test('a wide pass narrows to kEnd at its ends: no outer halo round the tract, th
 });
 
 test('the lobule view draws its fibrous bands through the round-ended outline, the widest pass tucked in at the ends', () => {
-  const lz = readFileSync(new URL('../src/ui/lobule-zoom.js', import.meta.url), 'utf8');
-  assert.match(lz, /const outline = \(k\) => bandOutline\(c, P, N, Wd, k, Math\.min\(k, 1\.45\)\)/);
-  assert.match(lz, /\[\[2\.1, 0\.12\], \[1\.45, 0\.24\], \[1, 0\.5\]\]/);
+  const lp = readFileSync(new URL('../src/ui/lobule-paint.js', import.meta.url), 'utf8');   // (the tissue's painting)
+  assert.match(lp, /const outline = \(k\) => bandOutline\(c, P, N, Wd, k, Math\.min\(k, 1\.45\)\)/);
+  assert.match(lp, /\[\[2\.1, 0\.12\], \[1\.45, 0\.24\], \[1, 0\.5\]\]/);
 });
 
 // The tissue's cross-fade mixes old and new before laying them on the field: drawn one over the other, the see-through

@@ -8,6 +8,7 @@ import { SIN_NARROW, cordTone, dullSinusoid, NEIGHBOUR_FLAT, neighbourBlur, blur
 const read = (p) => readFileSync(new URL(p, import.meta.url), 'utf8');
 const stage = read('../src/ui/stage.js');
 const lz = read('../src/ui/lobule-zoom.js');
+const lp = read('../src/ui/lobule-paint.js');   // (the tissue's painting: lobule-paint.js paintLobule)
 const app = read('../styles/app.css');
 const tokens = read('../styles/tokens.css');
 
@@ -46,9 +47,9 @@ test('G21: zone 3 cells are deeper and warmer; zone 1 keeps its tone', () => {
   const drop = z3.map((x, i) => 1 - x / cell[i]);
   assert.ok(drop[2] > drop[1] && drop[1] > drop[0], 'warmer: blue drops most, red least');
   assert.ok(cordTone(cell, 0, true)[2] > z3[2], 'gentler in dark mode');
-  assert.match(lz, /cordTone\(base\.map\(/);
-  assert.match(lz, /if \(!dead\) c\.stroke\(\);/, 'a thin membrane between neighbouring cells');
-  assert.match(lz, /c\.lineWidth = Math\.max\(0\.6, 0\.6 \/ \(c\.getTransform\(\)\.a \|\| 1\)\)/);
+  assert.match(lp, /cordTone\(base\.map\(/);
+  assert.match(lp, /if \(!dead\) c\.stroke\(\);/, 'a thin membrane between neighbouring cells');
+  assert.match(lp, /c\.lineWidth = Math\.max\(0\.6, 0\.6 \/ \(c\.getTransform\(\)\.a \|\| 1\)\)/);
 });
 
 test('G21: the sinusoids are a quarter narrower and the cords fill the room', () => {
@@ -166,7 +167,7 @@ test('the lobule\'s tissue fills each pixel only with the passes that change it,
   assert.match(lz, /const vg = c\.createRadialGradient\(x, y, r0, x, y, r1\);\n\s+vg\.addColorStop\(0, css\(bg, 0\)\);/, 'clear at the inner edge, the page colour at full strength past its outer edge');
   assert.match(pt, /fIn = rdv \* 1\.1;/); assert.match(pt, /const fOut = fadeOuter\(fIn, reach\);/);
   // The lobule's bitmap is opaque inside its own outline (filled first, at 1.015 of the hexagon, full strength).
-  assert.match(lz, /const px = l\.x \+ \(x - l\.x\) \* 1\.015, py = l\.y \+ \(y - l\.y\) \* 1\.015;[^\n]*c\.fill\(\); \}/);
+  assert.match(lp, /const px = l\.x \+ \(x - l\.x\) \* 1\.015, py = l\.y \+ \(y - l\.y\) \* 1\.015;[^\n]*c\.fill\(\); \}/);
 });
 
 test('holding only the ductules, the lobule\'s effects layer clears only where they were, not the whole screen each camera frame', () => {
@@ -184,7 +185,9 @@ test("the lobule's tissue bitmap is keyed only on what it paints: no vessel ink"
   const lz = readFileSync(new URL('../src/ui/lobule-zoom.js', import.meta.url), 'utf8');
   const ws = lz.match(/const worldStateOf = [^\n]+/)[0];
   assert.doesNotMatch(ws, /ink/i);
-  const i = lz.indexOf('  function paintLobule('), body = lz.slice(i, lz.indexOf('\n  }\n', i));
+  const i = lp.indexOf('export function paintLobule('), body = lp.slice(i, lp.indexOf('\n}\n', i));
+  assert.ok(i >= 0 && body.length > 1000, 'the painting itself');
+  assert.doesNotMatch(lz.match(/function worldInput\([\s\S]*?\n {2}\}\n/)[0], /\binkOf\(|\bink\(|tubeInk\(|m\.mode/, 'nor does what it is given');
   assert.doesNotMatch(body, /\binkOf\(|\bink\(|tubeInk\(|m\.mode/, 'the bitmap draws no vessel ink and no lens');
   assert.doesNotMatch(lz, /const qi = /);
 });

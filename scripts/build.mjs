@@ -41,8 +41,12 @@ const common = { bundle: true, format: 'esm', minify: true, target: ['es2022'], 
 // 1. The engine worker, as one self-contained module.
 const worker = await build({ ...common, entryPoints: [join(ROOT, 'src/worker.js')], outdir: ASSETS, entryNames: 'worker-[hash]', write: true, metafile: true });
 const workerFile = basename(Object.keys(worker.metafile.outputs).find((f) => f.endsWith('.js')));
+// (and the lobule's tissue worker, which paints its bitmap off the page: tissue-worker.js starts it)
+const tissueWorker = await build({ ...common, entryPoints: [join(ROOT, 'src/ui/tissue-paint-worker.js')], outdir: ASSETS, entryNames: 'tissue-worker-[hash]', write: true, metafile: true });
+const tissueWorkerFile = basename(Object.keys(tissueWorker.metafile.outputs).find((f) => f.endsWith('.js')));
 
-// 2. The app. host.js and presenter.js (each starts an engine worker) point the Worker at the bundled worker file.
+// 2. The app. host.js and presenter.js (each starts an engine worker) point the Worker at the bundled worker file, and
+//    tissue-worker.js at the bundled tissue worker.
 const workerUrl = {
   name: 'worker-url',
   setup(b) {
@@ -50,6 +54,11 @@ const workerUrl = {
       contents: readFileSync(args.path, 'utf8').replace(/new URL\('\.\.\/worker\.js(\?v=[0-9a-f]+)?', import\.meta\.url\)/, `new URL('./${workerFile}', import.meta.url)`),
       loader: 'js',
     }));
+    b.onLoad({ filter: /[\\/]src[\\/]ui[\\/]tissue-worker\.js$/ }, (args) => {
+      const src = readFileSync(args.path, 'utf8'), out = src.replace(/new URL\('\.\/tissue-paint-worker\.js(\?v=[0-9a-f]+)?', import\.meta\.url\)/, `new URL('./${tissueWorkerFile}', import.meta.url)`);
+      if (out === src) throw new Error('build: the tissue worker\'s URL was not found in tissue-worker.js');
+      return { contents: out, loader: 'js' };
+    });
   },
 };
 const app = await build({ ...common, plugins: [stripStamps, workerUrl], entryPoints: [join(ROOT, 'src/ui/main.js')], outdir: ASSETS, splitting: true, entryNames: 'app-[hash]', chunkNames: 'chunk-[hash]', write: true, metafile: true });
