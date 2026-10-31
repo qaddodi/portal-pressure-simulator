@@ -351,7 +351,7 @@ svg { flex: none; }
 .hover-tip .t { display: flex; align-items: center; gap: 7px; font-weight: 600; font-size: var(--fs-13, 13px); line-height: 1.3; color: var(--text); padding-bottom: 7px; margin-bottom: 6px; border-bottom: 1px solid var(--hairline); }
 .hover-tip .r { display: flex; justify-content: space-between; align-items: baseline; gap: 16px; color: var(--text-2); line-height: 1.7; }
 .hover-tip .r b { color: var(--text); font-weight: 600; font-variant-numeric: tabular-nums; }
-.hover-tip .r .u { margin-left: 3px; font-size: .86em; font-weight: 500; color: var(--text-3); }
+.hover-tip .r .u { margin-left: 3px; font-size: var(--fs-12); font-weight: 500; color: var(--text-3); }
 .glass { background: var(--glass); box-shadow: var(--shadow-2), inset 0 0 0 1px var(--hairline); border-radius: var(--r-card); }
 .stage-clock { display: none; }
 
@@ -644,7 +644,8 @@ div.vital { cursor: default; }
 .suture { fill: none; stroke: var(--text); stroke-opacity: .7; stroke-width: 1.1; stroke-linecap: round; }
 .clamp, .clamp-out { fill: var(--text); fill-opacity: .82; }
 .clamp-label, .clamp-label-out, .guide-label { font: 600 var(--fs-12) var(--font-ui); fill: var(--text); paint-order: stroke; stroke: var(--stage-bg); stroke-width: 4px; stroke-linejoin: round; }
-.clamp-label, .clamp-label-out { font-size: var(--clamp-fs, var(--fs-12)); }   /* (the labels' own name size on screen at any zoom: stage.js applyClampFs) */
+.clamp-label, .clamp-label-out { font-size: var(--clamp-fs, var(--fs-12)); }
+.guide-label { font-size: calc(var(--fs-12) * var(--halo-k, 1)); stroke-width: calc(4px * var(--halo-k, 1)); }   /* (the shunt's target name, 12 px on screen at any zoom) */   /* (the labels' own name size on screen at any zoom: stage.js applyClampFs) */
 /* Soft clot: three translucent layers of one red build toward the thick middle and fade at the edges. */
 .thrombus-halo { fill: var(--thrombus); fill-opacity: .4; }
 .thrombus { fill: var(--thrombus); fill-opacity: .55; }
@@ -1348,12 +1349,13 @@ button.finding { cursor: pointer; }
 /* Display type (Phase E): a serif for the few places that read as prose or a title. */
 .modal h2 { font-family: var(--font-display); letter-spacing: -.01em; }
 /* Δ halos: where pressure moved most after a change */
+.halo-in { transform: scale(var(--halo-k, 1)); }   /* (its size on screen at any zoom: stage.js applyClampFs) */
 .halo circle { fill: none; stroke-width: 2.5; animation: haloRing 1.5s var(--ease) forwards /*own pace*/; }
 .halo circle { stroke: var(--text-2); }
 .halo text { font: 700 var(--fs-16) var(--font-num); font-variant-numeric: tabular-nums; paint-order: stroke; stroke: var(--bg); stroke-width: 4px; animation: haloText 1.5s var(--ease) forwards /*own pace*/; }
 .halo text { fill: var(--text); }
 @keyframes haloRing { 0% { r: 8px; stroke-opacity: 0; } 20% { stroke-opacity: .9; } 100% { r: 26px; stroke-opacity: 0; } }
-@keyframes haloText { 0%, 70% { opacity: 1; } 100% { opacity: 0; } }
+@keyframes haloText { 0% { opacity: 0; } 12%, 70% { opacity: 1; } 100% { opacity: 0; } }   /* (fades in: it appeared in one frame) */
 /* Selection lift: the chosen vessel rises off the page */
 .vg.is-sel .v-shadow { transform: translate(0, 3px); opacity: .9; filter: blur(2.5px); transition: transform var(--d-flip) var(--ease); }
 @media (prefers-reduced-motion: reduce) { .halo circle, .halo text { animation: none; } }

@@ -1436,7 +1436,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   let resizeReady = false, forceDraw = false;   // forceDraw: the vessel canvas was just resized (and so cleared): the next frame draws it at once
   let glM = null;   // the world → stage transform (CSS px) the vessels were last drawn in (for the tests; and res-fade's follow)
   let moveLow = false;   // Figure resolution › While moving: the canvas is at its moving share until the view settles (see settleRes)
-  let clampFs = '', clampBase = 12;   // clampBase: the "60 %"'s size on screen (clampFontAt: the labels' own name size)
+  let clampFs = '', clampBase = 12, haloK = '';
+  const haloEls = [gGuides];   // (the groups that take --halo-k: the halos' joins once it is built)   // clampBase: the "60 %"'s size on screen (clampFontAt: the labels' own name size)
   // A narrowing's label stands level on screen whatever the figure's turn, at the spot the layout chose for it (clampLabelAt: the
   // column's side, a spot off the probe) or, where it chose none, just clear of its clamp on the vessel's side, at the labels' name size
   // (a turned "60 %" had stood on end across the right atrium in the circuit). Every rebuild of the marks and every change of zoom
@@ -1507,6 +1508,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   function applyClampFs() {
     const sk = CTM?.sc || 0, cfs = sk > 0 ? (clampBase / sk).toFixed(2) : '';
     if (cfs && cfs !== clampFs) { clampFs = cfs; for (const g of [ov.clamps, ov.clampsOut]) g.style.setProperty('--clamp-fs', `${cfs}px`); placeClampLabels(); }
+    // (The pressure-change halos and the shunt's target name: their size on screen at any zoom, as above.)
+    const hk = sk > 0 ? (1 / sk).toFixed(3) : '';
+    if (hk && hk !== haloK) { haloK = hk; for (const g of haloEls) g.style.setProperty('--halo-k', hk); }
   }
   function worldToLocal(x, y) {
     if (!CTM) refreshCTM();
@@ -5186,6 +5190,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // their change in mmHg, once the model has had a moment to respond. Answers "what did that do?"
   // without a sweep across the whole figure.
   const gHalo = s('g', { id: 'halos', 'aria-hidden': 'true' });
+  haloEls.push(gHalo); if (haloK) gHalo.style.setProperty('--halo-k', haloK);
   gOver.after(gHalo);
   let haloBase = null, haloTimer = 0, deltaT = 0;
   // Opening or resuming the app restores parameters and the model settles; that is not a change to explain.
@@ -5236,8 +5241,10 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (!reduceMotion.matches) setGlowSrc('delta', glows.slice(0, 16).map(([x, d]) => ({ id: x.e.id, col: d > 0 ? 'var(--glow-up)' : 'var(--glow-down)', amt: 1.35, wide: 1.1, dur: 420 })));
     gHalo.replaceChildren(...cand.slice(0, 3).map(([id, d]) => {
       const [x, y] = nodePos(id, t);
+      // (Its ring and number keep their size on screen at any zoom, as the labels do: --halo-k, applyClampFs. Drawn in world units,
+      // the number was 4 to 6 px on a phone. One decimal, as every reading.)
       return s('g', { class: 'halo ' + (d > 0 ? 'up' : 'down'), transform: `translate(${x.toFixed(1)} ${y.toFixed(1)})` },
-        s('circle', { r: 16 }), s('text', { y: -24, 'text-anchor': 'middle' }, `${d > 0 ? '+' : '−'}${Math.abs(d).toFixed(Math.abs(d) < 10 ? 1 : 0)}`));
+        s('g', { class: 'halo-in' }, s('circle', { r: 16 }), s('text', { y: -24, 'text-anchor': 'middle' }, `${d > 0 ? '+' : '−'}${Math.abs(d).toFixed(1)}`)));
     }));
     haloTimer = setTimeout(() => gHalo.replaceChildren(), 1700);
     clearTimeout(deltaT); deltaT = setTimeout(() => setGlowSrc('delta', []), 1000);
@@ -8885,7 +8892,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     // tucked its top under the glass, SMALL BOWEL on PVT 5 and STOMACH on Variceal bleed 3.)
     // (And the view switcher's holder over the play bar while it holds the switcher: reading labels sat under Circuit / Anatomy /
     // Lobule. By id, not the .stage-blocker class, which the credit and pan starts also read; round 2 review, G3-7.)
-    return [...document.querySelectorAll('.stage-blocker:not([hidden]), .pz-shade, #nbViews')].map((el) => {
+    // (And the phone's clock at the bottom left, "Day 30": a label there sat under it. It is display: none off the phone, so no box.)
+    return [...document.querySelectorAll('.stage-blocker:not([hidden]), .pz-shade, #nbViews, .stage-clock')].map((el) => {
       if (el.id === 'nbViews' && !el.querySelector('#viewSeg')) return null;
       // A closed card can stay in place, invisible (the patient chart does): it hides nothing. (So does a glass with no words on it.)
       if (getComputedStyle(el).visibility === 'hidden' || (el.classList.contains('pz-shade') && (el.style.opacity === '0' || el.classList.contains('pz-leave')))) return null;
@@ -11640,7 +11648,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (ok) {
       gGuides.append(s('path', { class: 'target-glow', d: E[tgt].wall.getAttribute('d'), 'stroke-width': E[tgt].width + 16 }));
       const r = shunt.targets.get(tgt);
-      gGuides.append(s('text', { x: wx + 14, y: wy - 10, class: 'guide-label' }, document.createTextNode(r.label)));
+      // (Placed and sized in screen pixels, as the halos: in world units it was 3 to 8 px.)
+      const k = CTM?.sc > 0 ? 1 / CTM.sc : 1;
+      gGuides.append(s('text', { x: wx + 14 * k, y: wy - 10 * k, class: 'guide-label' }, document.createTextNode(r.label)));
     }
   }
   function shuntDrop(ev) {

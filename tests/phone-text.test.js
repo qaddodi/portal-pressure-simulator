@@ -31,7 +31,7 @@ test('the FibroScan probe turns steeper beside the left edge, flatter below the 
 });
 
 test('figure labels keep off the teaching card\'s glass', () => {
-  assert.match(stage, /querySelectorAll\('\.stage-blocker:not\(\[hidden\]\), \.pz-shade, #nbViews'\)/);
+  assert.match(stage, /querySelectorAll\('\.stage-blocker:not\(\[hidden\]\), \.pz-shade, #nbViews, \.stage-clock'\)/);   // (and the phone's clock: a label sat under "Day 30")
 });
 
 test('a phone held sideways shows the short clock in its play row', () => {
