@@ -38,6 +38,32 @@ export function liveEase(e, goal, dtMs, ms = LIVE_MS) {
 /** The shader's share of the picture from the eased goal e (0 … 1, smoothed) and the zoom's own share (liveZoomShare): 0 when either is 0. */
 export const liveShareOf = (e, zoom) => Math.min(e * e * (3 - 2 * e), zoom);
 
+/** How far a pan may be from a whole number of device px and still count as one: only the rounding of the sums that make it (about
+ *  1e-12 for a drag of whole CSS px), and under the 0.0002 px a float32 steps at 3000 px, which the shader cannot tell apart either. */
+export const PAN_TOL = 1e-4;
+/** Whether the lobule's picture has only moved, by a whole number of device px both ways, since the kept one was drawn: [dx, dy], dx to
+ *  the right and dy down, or null. ref, pos: [the lobule's centre x, y, the bitmap box's corner x, y] (device px, from the top left) then
+ *  and now; the centre and the corner must have moved by the same whole number each way. Everything else about the picture being
+ *  the same is the caller's to check. */
+export function panShift(ref, pos, tol = PAN_TOL) {
+  const dx = pos[0] - ref[0], dy = pos[1] - ref[1], rx = Math.round(dx), ry = Math.round(dy);
+  const ok = Math.abs(dx - rx) <= tol && Math.abs(dy - ry) <= tol && Math.abs(pos[2] - ref[2] - rx) <= tol && Math.abs(pos[3] - ref[3] - ry) <= tol;
+  return ok ? [rx, ry] : null;
+}
+/** What a kept W × H picture needs when it moves by (dx right, dy down) device px: the part that stays on screen (src) and where it
+ *  lands (dst), and the strips it leaves bare (to be drawn), each as [x, y, w, h] in GL's coordinates (the origin at the bottom left,
+ *  so a move down is a move of −dy). The part kept and the strips tile the screen exactly. Null when nothing of it stays. */
+export function panPlan(W, H, dx, dy) {
+  const sx = dx, sy = -dy;
+  if (!(Math.abs(sx) < W && Math.abs(sy) < H)) return null;
+  const x0 = Math.max(0, -sx), x1 = Math.min(W, W - sx), y0 = Math.max(0, -sy), y1 = Math.min(H, H - sy);
+  const strips = [];
+  if (sx > 0) strips.push([0, 0, sx, H]); else if (sx < 0) strips.push([W + sx, 0, -sx, H]);
+  const c0 = Math.max(0, sx), c1 = Math.min(W, W + sx);
+  if (sy > 0) strips.push([c0, 0, c1 - c0, sy]); else if (sy < 0) strips.push([c0, H + sy, c1 - c0, -sy]);
+  return { src: [x0, y0, x1 - x0, y1 - y0], dst: [x0 + sx, y0 + sy, x1 - x0, y1 - y0], strips };
+}
+
 /** A colour token's value as [r, g, b, a], r g b in 0–1 ('#rgb', '#rrggbb', 'rgb()' or 'rgba()'). */
 export function parseRGBA(c) {
   c = (c || '').trim();

@@ -12,7 +12,7 @@
 // tissue is drawn on the 2D canvas as before.
 
 import { startProgram, checkProgram, exerciseDraw, publishWhenDone } from './gl-compile.js?v=5c4cd6c14c';
-import { LIVE_FS, CELLS_PER_ROW, IDX_ROW, SEG_ROW, K_ROW, BIN } from './lobule-live.js?v=3f6a2cdc45';
+import { LIVE_FS, CELLS_PER_ROW, IDX_ROW, SEG_ROW, K_ROW, BIN, panShift, panPlan } from './lobule-live.js?v=a47e034a32';
 
 const VS = `#version 300 es
 in vec2 p;
@@ -90,7 +90,7 @@ export function createTissueGL(canvas, opts = {}) {
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
 
   let lost = false;
-  canvas.addEventListener('webglcontextlost', (e) => { lost = true; texs.clear(); liveTex = null; e.preventDefault?.(); });
+  canvas.addEventListener('webglcontextlost', (e) => { lost = true; texs.clear(); liveTex = null; pic = null; e.preventDefault?.(); });
   let prog = null, U0 = null, failed = false, liveTex = null;   // (liveTex: the lobule's shapes on the GPU, for the shape liveTex.for)
   const COMMON_U = ['uQA', 'uQB', 'uQO', 'uW', 'uWO', 'uMix', 'uQOld', 'uO', 'uRd', 'uH', 'uRect', 'uWMix', 'uFade', 'uMid', 'uBg', 'uGrey'];
   const LIVE_U = ['uLC', 'uLB', 'uLI', 'uLBox', 'uLN', 'uLEdge', 'uLCtr', 'uLCen', 'uLSt', 'uLGap', 'uLGap55', 'uLBase', 'uLNut', 'uLZ1', 'uLZ2', 'uLZ3', 'uLPlate', 'uLInk', 'uLZl', 'uLive', 'uLS', 'uLK', 'uLSin', 'uLFib', 'uLKB', 'uLShd', 'uLShade', 'uLHs', 'uLHB', 'uLHN'];   // (the lobule drawn live, lobule-live.js)
@@ -176,8 +176,89 @@ export function createTissueGL(canvas, opts = {}) {
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA32F, K_ROW, dyn.rows, 0, gl.RGBA, gl.FLOAT, dyn.k);
     T.dyn = dyn;
   }
+  // The kept picture (a pan of the lobule drawn live). The live shader is the costly one, and a pan of a whole number of device px moves
+  // every pixel of the picture by that number and changes nothing else (the surround, the bitmap, the live lobule and the fade into
+  // the page are all functions of where the pixel lies against the lobule's centre and the bitmap's corner, which move together). So a
+  // frame drawn live is drawn into a texture of its own and copied to the canvas, and the next frame, when nothing but such a move
+  // has changed, is that texture copied again, shifted, with only the strips the move uncovers drawn live: an exact copy of
+  // pixels (a blit, no filtering), not a resampling, so it is the picture the shader would draw. Any other change, or a move
+  // by a fraction of a pixel, is drawn live in full, so nothing is ever approximate. Only live frames are kept; the bitmap program
+  // draws straight to the canvas as ever. ?tissuekeep=0 turns it off.
+  let keepOff = typeof location !== 'undefined' && /[?&]tissuekeep=0\b/.test(location.search || '');
+  let pic = null;   // { cur, spare, W, H, sig, ref }: cur holds the kept picture; spare is the other of the pair, made at the first pan
+  const keepStats = { full: 0, shifted: 0, still: 0 };
+  function makeTarget(w, h) {
+    const tex = gl.createTexture(), fbo = gl.createFramebuffer();
+    gl.activeTexture(gl.TEXTURE0 + SCRATCH);
+    gl.bindTexture(gl.TEXTURE_2D, tex);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, w, h, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
+    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, tex, 0);
+    const ok = gl.checkFramebufferStatus(gl.FRAMEBUFFER) === gl.FRAMEBUFFER_COMPLETE;
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    gl.bindTexture(gl.TEXTURE_2D, null);   // (not left bound on a unit: the target is only ever drawn into and copied from)
+    return { tex, fbo, ok };
+  }
+  const freeTarget = (t) => { if (t) { gl.deleteFramebuffer(t.fbo); gl.deleteTexture(t.tex); } };
+  function dropKept() { if (pic) { if (!lost) { freeTarget(pic.cur); freeTarget(pic.spare); } pic = null; } }
+  // Copies a rectangle [x, y, w, h] of one target to [x, y, w, h] of another (dst null: the canvas), pixel for pixel.
+  function blit(src, dst, s, d) {
+    gl.bindFramebuffer(gl.READ_FRAMEBUFFER, src.fbo);
+    gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, dst ? dst.fbo : null);
+    gl.blitFramebuffer(s[0], s[1], s[0] + s[2], s[1] + s[3], d[0], d[1], d[0] + d[2], d[1] + d[3], gl.COLOR_BUFFER_BIT, gl.NEAREST);
+  }
+  const same = (a, b) => a.length === b.length && a.every((v, i) => v === b[i] || (v !== v && b[i] !== b[i]));
+  // The live program is in use and its uniforms are set: draw the frame (sig: everything the frame is made from except where it lies;
+  // pos: the lobule's centre and the bitmap's corner, device px).
+  function drawLive(W, H, sig, pos) {
+    const tri = () => gl.drawArrays(gl.TRIANGLES, 0, 3);
+    if (keepOff || gl.drawingBufferWidth !== W || gl.drawingBufferHeight !== H) { dropKept(); tri(); return; }
+    if (pic && (pic.W !== W || pic.H !== H)) dropKept();
+    const full = [0, 0, W, H];
+    if (pic && same(pic.sig, sig)) {
+      const d = panShift(pic.ref, pos), plan = d && panPlan(W, H, d[0], d[1]);
+      if (plan && !d[0] && !d[1]) {   // (nothing moved: the kept picture as it is)
+        blit(pic.cur, null, full, full); gl.bindFramebuffer(gl.FRAMEBUFFER, null); keepStats.still++;
+        return;
+      }
+      if (plan) {
+        if (!pic.spare) { pic.spare = makeTarget(W, H); if (!pic.spare.ok) { keepOff = true; dropKept(); tri(); return; } }
+        const B = pic.spare;
+        blit(pic.cur, B, plan.src, plan.dst);
+        gl.bindFramebuffer(gl.FRAMEBUFFER, B.fbo);
+        gl.enable(gl.SCISSOR_TEST);
+        for (const [x, y, w, h] of plan.strips) { gl.scissor(x, y, w, h); tri(); }
+        gl.disable(gl.SCISSOR_TEST);
+        blit(B, null, full, full);
+        gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+        pic.spare = pic.cur; pic.cur = B;
+        pic.ref = [pic.ref[0] + d[0], pic.ref[1] + d[1], pic.ref[2] + d[0], pic.ref[3] + d[1]];   // (what its pixels are drawn for: whole steps from the last full frame, so no error builds up)
+        keepStats.shifted++;
+        return;
+      }
+    }
+    if (!pic) { const a = makeTarget(W, H); if (!a.ok) { keepOff = true; freeTarget(a); tri(); return; } pic = { cur: a, spare: null, W, H, sig: null, ref: null }; }
+    gl.bindFramebuffer(gl.FRAMEBUFFER, pic.cur.fbo);
+    tri();
+    blit(pic.cur, null, full, full);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    pic.sig = sig; pic.ref = pos.slice();
+    keepStats.full++;
+  }
+  // Everything a live frame is made from but where it lies (compared with the last one's: the same numbers, the same textures).
+  function liveSig(W, H, a, live) {
+    const cv = (c) => (c ? [c, c.width, c.height] : [null, 0, 0]);
+    return [W, H, ...cv(a.qa), ...cv(a.qb), a.mix, ...cv(a.qo), a.qOld, ...cv(a.w), a.wVer, ...cv(a.wo), a.woVer, a.wMix, a.rect[2], a.rd, a.fade[0], a.fade[1], a.mid,
+      a.bg[0], a.bg[1], a.bg[2], a.grey ? a.grey[0] : 1, a.grey ? a.grey[1] : 1, live.shape, live.data, live.dyn,
+      JSON.stringify([live.share, live.cu, live.sj, live.zones, live.dark, live.cen, live.rs0, live.fib, live.col])];
+  }
   return {
     get lost() { return lost || failed || gl.isContextLost(); },
+    /** How many live frames were drawn in full, as a shifted copy of the last (with only the strips the move uncovered drawn), or as
+     *  the last again. */
+    get kept() { return { ...keepStats }; },
     /** Whether the lobule can be drawn live now: the program for it is published. The first ask starts its compile; opts.onLive is
      *  called when it is done, either way. False for good if it failed. */
     liveReady() { startLive(); return !!liveP && !this.lost; },
@@ -217,6 +298,7 @@ export function createTissueGL(canvas, opts = {}) {
     /** Gives back every texture whose canvas was given back (width 0) or is no longer wanted (keep(cv) false). */
     sweep(keep = () => true) {
       for (const [cv, t] of texs) if (!cv.width || !keep(cv)) { if (!lost) gl.deleteTexture(t.tex); texs.delete(cv); }
+      if (!canvas.width) dropKept();   // (the canvas itself given back: the picture kept for it goes too)
     },
     /** One frame of the tissue. W, H: the canvas's size (device px); qa, qb, mix: the quiet tiles' canvases and the blend; qo, qOld:
      *  the last state's tile and how much of it is left; w, wVer, wo, woVer, wMix: the bitmap, the last state's, the new one's share;
@@ -267,7 +349,8 @@ export function createTissueGL(canvas, opts = {}) {
         gl.uniform4f(U.uLHN, C.nuc[0], C.nuc[1], C.nuc[2], (0.3 + 0.3 * ac.act) * F.act);
         gl.uniform1f(U.uLive, live.share);
       }
-      gl.drawArrays(gl.TRIANGLES, 0, 3);
+      if (isLive) drawLive(W, H, liveSig(W, H, { qa, qb: qb || null, mix: qb ? mix : 0, qo: qo && qOld > 0 ? qo : null, qOld: qo ? qOld : 0, w: w?.width ? w : null, wVer, wo: old ? wo : null, woVer: old ? woVer : 0, wMix: old ? wMix : 1, rect, rd, fade, mid, bg, grey }, live), [ox, oy, rect[0], rect[1]]);
+      else { dropKept(); gl.drawArrays(gl.TRIANGLES, 0, 3); }
       return true;
     },
   };

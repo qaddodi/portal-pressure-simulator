@@ -28,8 +28,8 @@ import { lobuleState, lymphRate, sinceOf, lensModeOf, LOBE } from './lobule-mode
 import { SIN_NARROW, dullSinusoid, NEIGHBOUR_FLAT, neighbourBlur, blurWrapped, FADE_MID, fadeOuter, padRect, wideDpr, wideTiles, FIELD_RS, fieldBlend, fieldDof, surroundGrade, greyStep } from './lobule-look.js?v=cf14995b07';
 import { isGreyLens } from './organ-dim.js?v=9e19f2fc30';
 import { createFieldGL } from './field-gl.js?v=779561d5dd';
-import { createTissueGL } from './tissue-gl.js?v=45afd09f37';
-import { buildLive, buildDyn, buildItems, liveFibre, liveEligible, liveZoomShare, liveColours, liveEase, liveShareOf } from './lobule-live.js?v=3f6a2cdc45';
+import { createTissueGL } from './tissue-gl.js?v=0e8e4ce9bf';
+import { buildLive, buildDyn, buildItems, liveFibre, liveEligible, liveZoomShare, liveColours, liveEase, liveShareOf } from './lobule-live.js?v=a47e034a32';
 import { createTissueWorker } from './tissue-worker.js?v=eb65cc8d78';
 import { fibrousBand, fibrousTract, fibrousCuff, scarGrowth, paintWorldInto, useTokens } from './lobule-paint.js?v=f6e22a327b';
 import { h, s, fmt, clamp, createEaser, systemEdge, bloodColors, cssVar, cssAlpha, cssRGB01 } from './util.js?v=90ca733567';
