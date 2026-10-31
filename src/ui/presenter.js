@@ -59,14 +59,18 @@ const nextFrame = frameFor('presenter');
 
 const KEY = 'pps.scripts';
 // Only well-formed scripts: a damaged saved value is ignored rather than stopping the library.
-const readMine = () => { try { const v = JSON.parse(localStorage.getItem(KEY) || '[]'); return Array.isArray(v) ? v.filter((x) => x && typeof x === 'object' && x.id) : []; } catch { return []; } };
+// (A script with no steps, or a null step, is dropped too: one bad entry from a hand-edited link or an old import used to stop every start.)
+const okScript = (x) => x && typeof x === 'object' && x.id && (x.deck ? typeof x.deck === 'object' : x.steps == null || (Array.isArray(x.steps) && x.steps.every((st) => st && typeof st === 'object')));
+const readMine = () => { try { const v = JSON.parse(localStorage.getItem(KEY) || '[]'); return Array.isArray(v) ? v.filter(okScript) : []; } catch { return []; } };
 // Test decks: on the /preview/ copy only (never the live site), listed under "Testing" in Present. Each plays exactly as
 // if imported (an "Outline and objectives" slide in front, so its slide numbers match the imported file's).
 const PREVIEW = typeof location !== 'undefined' && /\/preview\//.test(location.pathname);
 // (Loaded only there: the live site's bundle carried the 53 KB deck for nothing. The menu reads TESTING when it opens, long after.)
 let TESTING = [];
 const testingLoad = PREVIEW ? import('./test-decks/demo-all-new-visuals.js?v=8aeba8bb2b').then(({ DEMO_ALL }) => { TESTING = [DEMO_ALL].map((d) => ({ id: 'test-' + d.id, title: d.title, summary: d.summary || '', deck: checkDeck(d), test: true })); }).catch(() => { /* the preview's test deck only */ }) : Promise.resolve();
-const writeMine = (list) => { try { localStorage.setItem(KEY, JSON.stringify(list)); } catch { /* storage unavailable */ } };
+// (Says whether it kept them: storage that is full or blocked used to report "Script created" for a script that was not there.)
+const writeMine = (list) => { try { localStorage.setItem(KEY, JSON.stringify(list)); return true; } catch { return false; } };
+const NO_ROOM = 'This device has no room to keep scripts. Free some browser storage and try again.';
 const enc = (o) => btoa(unescape(encodeURIComponent(JSON.stringify(o)))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 const dec = (s) => JSON.parse(decodeURIComponent(escape(atob(s.replace(/-/g, '+').replace(/_/g, '/')))));
 
@@ -4492,15 +4496,18 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   function dockTouch(el, ...more) {   // (more: the card's sheet edge, its sibling, takes the same touch)
     let g = null;
     const reset = () => { g = null; dock.drag = false; };
+    // (A drag in progress that is cut short, by a second finger or by the system: the card goes on to where it was heading, never left part way.)
+    const abort = () => { if (g?.on) dockTo(dock.to, 300); if (g?.pull) sheetPull.settle(g.pull, false); reset(); };
     const hs = {}, on = (type, fn, opts) => { hs[type] = fn; for (const t of [el, ...more]) t.addEventListener(type, fn, opts); };   // (hs: a swipe elsewhere on the slide is fed the same, farTouch)
     on('touchstart', (e) => {
+      if (e.touches.length > 1) abort();   // (a second finger: a drag under way lands first)
       if (e.touches.length !== 1 || !deck || ui?.root.classList.contains('pz-wide')) { reset(); return; }   // (Mac and iPad landscape: the card never closes to the side, Mohammad, 22 Oct)
       const t = e.touches[0], vec = dockVec(), k = wrap.getBoundingClientRect().width / (wrap.clientWidth || 1) || 1;
       g = { x: t.clientX, y: t.clientY, t: performance.now(), lvl0: dock.lvl, vec, k, on: false, last: 0 };
     }, { passive: true });
     on('touchmove', (e) => {
       if (!g) return;
-      if (e.touches.length > 1) { reset(); return; }
+      if (e.touches.length > 1) { abort(); return; }
       const t = e.touches[0], dx = t.clientX - g.x, dy = t.clientY - g.y, vert = !!g.vec[1];
       const along = vert ? dy : dx, across = vert ? dx : dy, comp = vert ? g.vec[1] : g.vec[0];
       if (!g.on) {
@@ -4538,7 +4545,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
         else dockTo(to, 300);
       } else if (dock.to === 1 && dt < 500) { dock.auto = false; dock.tapAt = performance.now(); dockTo(0); }   // (tapAt: the click that follows is this tap's, .pz-lip)
     }, { passive: true });
-    on('touchcancel', () => { if (g?.on) dockTo(dock.to, 300); if (g?.pull) sheetPull.settle(g.pull, false); reset(); }, { passive: true });
+    on('touchcancel', abort, { passive: true });
     return hs;
   }
 
@@ -4577,6 +4584,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     // (The closed card's own pull hands on to the readings once the instrument card is out, dockTouch.)
     sheetPull = { begin: () => { const gg = grab(0, 0, false); take(gg); return gg; }, follow, settle };
     on('touchstart', (e) => {
+      if (g?.on) { const gg = g; g = null; settle(gg, gg.shown); return; }   // (a second finger on a fold being followed: it goes back to where it began, not left part way with its inline height and opacity)
       g = null;
       const sheet = el.classList.contains('pz-sheet'), open = el.classList.contains('tool-open');
       const split = splitSheet(el);
@@ -4810,7 +4818,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       lobuleLayers: st.lobuleLayers, running: st.running, speed: st.speed, lapse: st.lapse, clock: st.clock, hvpgMeasured: st.hvpgMeasured, lastHVPG: st.lastHVPG,
       labelK: stage.labelScale(), cam: stage.cameraState() };
   }
-  async function start(id, at = 0) {
+  async function start(id, at = 0, opts = null) {
     // (The slide a start lands on never plays its case card: it was skipped only while the start's cover was up, and the cover
     // gives up after 12 s, so on a slow machine a deep link sat on a case card waiting for a tap no one knew to give.)
     noCase = true;
@@ -4821,7 +4829,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     const aliased = typeof id === 'string' && Object.hasOwn(DECK_ALIAS, id);
     const want0 = aliased ? 0 : Math.max(0, (parseInt(at, 10) || 0));
     const d = typeof id === 'object' ? id : all().find((x) => x.id === (aliased ? DECK_ALIAS[id] : id));
-    if (!d && typeof id === 'string' && id.startsWith('test-') && !TESTING.length) return testingLoad.then(() => start(id, at));   // (a ?script= link to the preview's test deck, asked before it loaded)
+    if (!d && typeof id === 'string' && id.startsWith('test-') && !TESTING.length && !opts?.waited) return testingLoad.then(() => start(id, at, { ...opts, waited: true }));   // (a ?script= link to the preview's test deck, asked before it loaded)
     if (!d?.slides?.length) { toast('That presentation could not be found.', 'bad'); return; }
     // The start is one composed reveal: a calm cover fades over the screen, the projector layout, the first patient and
     // the first slide are all set up under it, and the cover fades away once nothing behind it is still moving.
@@ -4906,6 +4914,8 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     dispatchEvent(new Event('pps:occ'));
     if (restore && saved) putHealthy(saved);
     if (restore) { saved = null; if (layersBefore) store.set({ lobuleLayers: layersBefore }); layersBefore = null; }
+    // (The talk is over: a reload, or a tab the phone discarded and brings back, must not start it again from the link that opened it.)
+    if (restore) { try { const u = new URL(location.href); if (u.searchParams.has('script')) { u.searchParams.delete('script'); u.searchParams.delete('slide'); history.replaceState(null, '', u.pathname + u.search + u.hash); } } catch { /* no history here */ } }
   }
   // When the show ends, the app returns to the healthy patient from the start (not to where the viewer was): healthy preset, anatomy view
   // framed to fit, tools and cards closed, nothing from the last slide left on. The viewer's own settings (theme, label size, the
@@ -4940,7 +4950,8 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     if (!title) return;
     const list = readMine();
     list.push({ id: 'my-' + Date.now().toString(36), title, summary: 'Built from the live model.', steps: [captureStep()] });
-    writeMine(list); rerenderHome?.();
+    if (!writeMine(list)) { toast(NO_ROOM, 'bad'); return; }
+    rerenderHome?.();
     toast('Script created with the current model as its first slide. Change the model and use “Add current state” to add more.');
   }
   function addStep(id) {
@@ -4948,9 +4959,11 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     if (!s || s.deck) return;
     const step = captureStep();
     step.title = prompt('Title for this slide', step.title) || step.title;
-    s.steps.push(step); writeMine(list); rerenderHome?.();
+    s.steps.push(step);
+    if (!writeMine(list)) { toast(NO_ROOM, 'bad'); return; }
+    rerenderHome?.();
   }
-  function remove(id) { if (!confirm('Delete this script?')) return; writeMine(readMine().filter((x) => x.id !== id)); rerenderHome?.(); }
+  function remove(id) { if (!confirm('Delete this script?')) return; if (!writeMine(readMine().filter((x) => x.id !== id))) { toast(NO_ROOM, 'bad'); return; } rerenderHome?.(); }
   function exportScript(s) { download(`${s.title.replace(/[^\w-]+/g, '-').toLowerCase()}.pps-script.json`, JSON.stringify(s, null, 2), 'application/json'); }
   const copy = (url, msg) => navigator.clipboard?.writeText(url).then(() => toast(msg, '', { present: true }), () => prompt('Copy this link', url)) ?? prompt('Copy this link', url);
   const shareScript = (s) => copy(`${location.origin}${location.pathname}#script=${enc(s)}`, 'Link copied: opening it adds the script to the recipient’s library.');
@@ -4987,11 +5000,12 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     if (s?.deck) {
       const d = checkDeck(s.deck);
       s = { title: d.title, summary: d.summary || '', deck: d };
-    } else if (!s?.title || !Array.isArray(s.steps)) throw new Error('That is not a deck or a script.');
+    } else if (!s?.title || !Array.isArray(s.steps) || !s.steps.every((st) => st && typeof st === 'object')) throw new Error('That is not a deck or a script.');
     const list = readMine();
     const id = 'my-' + Date.now().toString(36);
     list.push({ ...s, id, builtin: undefined });
-    writeMine(list); rerenderHome?.();
+    if (!writeMine(list)) throw new Error(NO_ROOM);
+    rerenderHome?.();
     toast(`Added “${s.title}” to your scripts.`);
     return id;
   }
@@ -5000,7 +5014,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     const m = location.hash.match(/#script=([\w-]+)/);
     if (!m) return false;
     let id = true;
-    try { id = addToLibrary(dec(m[1])); } catch { toast('The shared script could not be read.'); }
+    try { id = addToLibrary(dec(m[1])); } catch (e) { toast(e?.message === NO_ROOM ? NO_ROOM : 'The shared script could not be read.', 'bad'); }
     history.replaceState(null, '', location.pathname + location.search);
     return id;
   }

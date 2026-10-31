@@ -182,8 +182,8 @@ async function main() {
   dock = createDock({ strip: $('#strip'), head: $('#dockHead'), body: $('#dockBody'), onWhy: (m, el) => why.open(m, el), onAction: doAction, onProbe: probeTo, lazy: { doppler: dopplerL, fibroscan: fibroL }, onReveal: revealDock, onLobule: () => zoomLobule('R'),
     onOpen: () => openPanel('instruments'), onClose: () => setPanelTab('chart'), onLayout: () => syncDoppler(), isVisible: () => app.classList.contains('dock-open'),
     marks: () => timeline.entries(), onBeat: () => sendBeat() });
-  presenterL = lazy(() => import('./presenter.js?v=e82a733144'), ({ createPresenter }) => createPresenter({ openSettings, loadPreset, updateParams, host, stage, dock, action: doAction,
-    projectorOn: () => { if (!projector) toggleProjector(); }, projectorOff: () => { if (projector) toggleProjector(); },
+  presenterL = lazy(() => import('./presenter.js?v=723d122da0'), ({ createPresenter }) => createPresenter({ openSettings, loadPreset, updateParams, host, stage, dock, action: doAction,
+    projectorOn: () => toggleProjector(true), projectorOff: () => toggleProjector(false),
     closeHome: () => mainMenu.close(), stashCards, rerenderHome: () => mainMenu.render() }));
   mainMenu = createMenu({
     anchor: $('#btnMenu'), library: presenter.library, libraryNow: presenter.libraryNow,
@@ -442,17 +442,19 @@ function readShare() {
 }
 async function loadShared(s, { quiet = false } = {}) {
   await loadPreset(s.preset);
+  let clamped = false;
   const missing = s.missing && `This link names a patient the app does not have (“${s.missing}”), so its settings opened on the healthy patient.`;
   if (s.params) {
     const merged = deepMerge(store.get().params, s.params), clean = sanitizeParams(merged);
     updateParams(() => clean, { settle: true, history: false });
-    if (JSON.stringify(clean) !== JSON.stringify(merged)) { timeline.flush(); toast(missing || 'This link had values out of range; they were set to the nearest allowed values.', missing ? 'bad' : undefined); return; }
+    if (JSON.stringify(clean) !== JSON.stringify(merged)) { timeline.flush(); clamped = true; }   // (the view, selection and camera of the link still apply)
   }
   if (s.view) store.set({ view: s.view });
   if (s.sel) store.set({ selection: s.sel });
   if (s.cam && !store.get().lobule) stage.setCamera(s.cam, 0);
   timeline.flush();
-  if (missing) toast(missing, 'bad');
+  if (clamped) toast(missing || 'This link had values out of range; they were set to the nearest allowed values.', missing ? 'bad' : undefined);
+  else if (missing) toast(missing, 'bad');
   else if (!quiet) toast('Loaded the shared scenario.');
 }
 // The orange PREVIEW pill reloads onto the newest build and calls this first: a URL for the same place. In Present, the same
@@ -471,7 +473,7 @@ async function share() {
   // by scripts/share-pages.mjs), so iMessage or Slack previews show the patient's name.
   const id = store.get().presetId, page = location.hostname.endsWith('github.io') && store.get().presetList?.some((p) => p.id === id);
   const url = `${page ? new URL(`c/${id}.html`, location.href).href : location.origin + location.pathname}#s=${encodeShare()}`;
-  try { await navigator.clipboard.writeText(url); toast('Link to this exact scenario copied.'); } catch { history.replaceState(null, '', url); toast('Link placed in the address bar.'); }
+  try { await navigator.clipboard.writeText(url); toast('Link to this exact scenario copied.'); } catch { history.replaceState(null, '', location.pathname + location.search + `#s=${encodeShare()}`); toast('Link placed in the address bar.'); }   // (the page's own path: a share page's /c/ path would make every later link /c/c/…)
 }
 
 // ── Restart & reset ─────────────────────────────────
@@ -1388,6 +1390,7 @@ function sheetBehaviour(el, { handle, drag, onClose, active = () => true, fit = 
   });
   el.addEventListener('pointermove', (e) => {
     if (!start || e.pointerId !== start.id) return;
+    if (e.pointerType === 'mouse' && !(e.buttons & 1)) { end(e); return; }   // (the button was let go outside the card before it was captured: the drag is over, not waiting to resume)
     const dx = e.clientX - start.x, dy = e.clientY - start.y;
     if (!start.moved) {
       if (Math.hypot(dx, dy) < 6) return;
@@ -1454,7 +1457,7 @@ function sheetBehaviour(el, { handle, drag, onClose, active = () => true, fit = 
     size = S.reduce((best, v, i) => (Math.abs(v - frac) < Math.abs(S[best] - frac) ? i : best), 0);
     apply();
   };
-  el.addEventListener('pointerup', end); el.addEventListener('pointercancel', end);
+  el.addEventListener('pointerup', end); el.addEventListener('pointercancel', end); el.addEventListener('lostpointercapture', end);
   // (Opening sizes the sheet at once: its height eases only for a change while it is open, so it never comes in
   // at the last size it had and shrinks into place, and the figure frames once.)
   return { open: () => { if (isPhone()) { size = half(); el.style.transition = 'none'; apply(); void el.offsetHeight; el.style.transition = ''; } }, closed: () => { stopSink(el); el.style.removeProperty('--sink'); el.style.translate = ''; el.style.height = ''; el.style.clipPath = ''; } };
@@ -1728,7 +1731,7 @@ function wireKeyboard() {
   addEventListener('keydown', (e) => {
     const tag = (e.target.tagName || '').toLowerCase();
     if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); palette.isOpen() ? palette.close() : palette.open(); return; }
-    if ((e.ctrlKey || e.metaKey) && !e.altKey && tag !== 'input' && tag !== 'textarea' && tag !== 'select') {
+    if ((e.ctrlKey || e.metaKey) && !e.altKey && tag !== 'input' && tag !== 'textarea' && tag !== 'select' && !presenter.active()) {
       const z = e.key === '=' || e.key === '+' ? 'in' : e.key === '-' || e.key === '_' ? 'out' : e.key === '0' ? 'fit' : null;
       if (z) { e.preventDefault(); if (z === 'in') stage.zoomIn(); else if (z === 'out') stage.zoomOut(); else stage.fit(); return; }
     }
@@ -1740,7 +1743,7 @@ function wireKeyboard() {
       if (popoverOpen()) { closePopover(); return; }
       if (isModalOpen()) closeModal();
       else if (mainMenu.isOpen()) mainMenu.close();
-      else if (projector) toggleProjector();
+      else if (projector) toggleProjector(false);
       else if (app.classList.contains('instrument-focus')) dock.setState('open');
       else if (treatOpen()) closeTreat({ focus: true });
       else if (historyOpen()) closeHistory({ focus: true });
@@ -1753,6 +1756,9 @@ function wireKeyboard() {
       return;
     }
     if (isModalOpen() || mainMenu.isOpen()) return;
+    // A talk owns the keyboard (presenter.js onKey takes its own keys): undo, speed, view, lens, dye, settle and the rest would change the
+    // slide's scripted model under it, and nothing puts it back. Search (/) and the guide (?) stay.
+    if (presenter.active() && e.key !== '/' && e.key !== '?') return;
     if (e.key === '/') { e.preventDefault(); palette.open(); return; }
     if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') { e.preventDefault(); (e.shiftKey ? doRedo : doUndo)(); return; }
     if (e.ctrlKey || e.metaKey || e.altKey) return;
@@ -1789,8 +1795,13 @@ function wireKeyboard() {
 let projector = false, bigEl = null, exitEl = null;
 // The switch crossfades the whole page, as a theme change does (the bars and cards came and went in one frame: P20);
 // where View Transitions are missing it switches at once.
-function toggleProjector() {
-  const want = !projector, go = () => { if (projector !== want) flipProjector(); };   // (asked twice before it ran: once)
+// (The state asked for, not a flip: starting a second talk asks "off" for the first and "on" for the second in one task, and the
+// crossfade runs both after it; the last ask wins, so the second talk keeps the projector layout. Asked twice before it ran: once.)
+let projWant = false;
+function toggleProjector(on = !projector) {
+  if (on === projWant && on === projector) return;
+  projWant = on;
+  const go = () => { if (projector !== projWant) flipProjector(); };
   if (!document.startViewTransition || document.hidden) { go(); return; }
   crossfade(go);
 }
@@ -1800,7 +1811,7 @@ function flipProjector() {
   if (projector) {
     bigEl = h('div', { class: 'big-overlay stage-blocker' });
     // The top bar (and its menu) is hidden in projector mode, so the way out is on the figure.
-    exitEl = h('button', { class: 'btn projector-exit stage-blocker', title: 'Leave projector mode (Esc)', onclick: () => { if (projector) toggleProjector(); } }, icon('close'), 'Exit projector');
+    exitEl = h('button', { class: 'btn projector-exit stage-blocker', title: 'Leave projector mode (Esc)', onclick: () => { if (projector) toggleProjector(false); } }, icon('close'), 'Exit projector');
     view.append(bigEl, exitEl);
     if (!presenter.active()) toast('Projector mode. Press Esc or Exit to leave.');
     const f = store.get().frame; if (f) updateProjector(f);
