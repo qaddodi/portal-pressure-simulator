@@ -12,7 +12,7 @@
 // is drawn in the frame's final phase, after the figure's own pass, so the new picture in it is this frame's. A canvas that keeps no
 // picture of its own between frames (the vessel canvas: veins-gl OWN_BUF) passes capture, which puts its whole current picture back
 // on it just before each read, so a frame the figure did not draw in still mixes the picture, not an empty buffer.
-import { finalFrameFor, noteDraw } from './frame.js?v=70a3411d2a';
+import { finalFrameFor, noteDraw } from './frame.js?v=f5d9ff95ad';
 import { gpuProbe, COUNTED } from './gpu-probe.js?v=c16e5847d4';
 import { D_SURFACE } from './ease.js?v=615d96d663';
 

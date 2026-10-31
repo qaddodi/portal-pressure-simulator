@@ -306,7 +306,7 @@ async function runProfile(name) {
           ignoredSeen += (await unanswered()) - ign0;
           raws.push(raw); if (a) answers.push({ ms: a.ms, what: `${a.kind} ${a.target} (${from} to ${to})` });
           const worst = (raw.long || []).slice().sort((x, y) => y.script - x.script)[0];
-          notes.push(`slide ${from} to ${to}: ${raw.frames} frames, script max ${summarizeRaw(raw).script.max.toFixed(0)} ms${worst ? ` (${worst.top.slice(0, 2).map(([t, p, m]) => `${t} ${p} ${m.toFixed(0)}`).join(', ')})` : ''}${a ? `, answered in ${a.ms.toFixed(0)} ms` : ', no answer seen'}`);
+          notes.push(`slide ${from} to ${to}: ${raw.frames} frames, script max ${summarizeRaw(raw).script.max.toFixed(0)} ms${worst ? ` (${worst.top.slice(0, 4).map(([t, p, m]) => `${t} ${p} ${m.toFixed(0)}`).join(', ')})` : ''}${a ? `, answered in ${a.ms.toFixed(0)} ms` : ', no answer seen'}`);
         }
         return { ...mergeRaw(raws), long: raws.flatMap((r) => r.long || []), notes, answers };
       };

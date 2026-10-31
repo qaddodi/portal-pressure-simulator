@@ -19,30 +19,30 @@
 // tapped (triad, inlet venule, sinusoid, arteriole, central vein, septum, hepatocytes).
 // Without WebGL2 the vessels are drawn flat on the tissue canvas.
 
-import { runFlick, FLICK } from './flick.js?v=e4fd991b94';
+import { runFlick, FLICK } from './flick.js?v=5ee02d44f7';
 import { store } from './store.js?v=3611054974';
 import { glideClock } from './glide-clock.js?v=220d7f875c';
 import { radiiChanged, canvasPx, fxMoves, DIVE_RIM } from './lobule-render-cache.js?v=84bf4c2222';
 import { softwareYield } from './sw-yield.js?v=e580a095b1';
-import { lobuleState, lymphRate, sinceOf, lensModeOf, LOBE } from './lobule-model.js?v=1463bc3572';
+import { lobuleState, lymphRate, sinceOf, lensModeOf, LOBE } from './lobule-model.js?v=6449002d08';
 import { SIN_NARROW, dullSinusoid, NEIGHBOUR_FLAT, neighbourBlur, blurWrapped, FADE_MID, fadeOuter, padRect, wideDpr, wideTiles, FIELD_RS, fieldBlend, fieldDof, surroundGrade, greyStep } from './lobule-look.js?v=cf14995b07';
 import { isGreyLens } from './organ-dim.js?v=9e19f2fc30';
 import { createFieldGL } from './field-gl.js?v=779561d5dd';
 import { createTissueGL } from './tissue-gl.js?v=d63f76a31f';
 import { buildLive, buildDyn, buildItems, liveFibre, liveEligible, liveZoomShare, liveColours, liveEase, liveShareOf } from './lobule-live.js?v=624ae21d7d';
-import { createTissueWorker } from './tissue-worker.js?v=c5f5769ca6';
+import { createTissueWorker } from './tissue-worker.js?v=82cc1ef4a6';
 import { fibrousBand, fibrousTract, fibrousCuff, scarGrowth, paintWorldInto, useTokens } from './lobule-paint.js?v=f6e22a327b';
-import { h, s, fmt, clamp, createEaser, systemEdge, bloodColors, cssVar, cssAlpha, cssRGB01 } from './util.js?v=3e36aa0200';
-import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatColor, oxygenColor } from './colormap.js?v=770fcfd88a';
+import { h, s, fmt, clamp, createEaser, systemEdge, bloodColors, cssVar, cssAlpha, cssRGB01 } from './util.js?v=87659daeff';
+import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatColor, oxygenColor } from './colormap.js?v=6487546a13';
 import { NODES, EDGES } from '../engine/topology.js?v=4044766e96';
-import { createVeinsGL, binVeins, laneSum, N_SAMPLES, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_SPEC, F_EDGE, ORIGIN_GREY } from './veins-gl.js?v=4d8449e868';
+import { createVeinsGL, binVeins, laneSum, N_SAMPLES, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_SPEC, F_EDGE, ORIGIN_GREY } from './veins-gl.js?v=4b40230d98';
 import { SLOT, PERIOD, originFractions, ORIGIN_N, DRIFT_PERIOD } from './blood.js?v=1eb39d1393';
-import { createSinusoidView } from './sinusoid-view.js?v=5216db8a74';
-import { frameFor, cancelFrame, noteDraw, saver, paceMs, renderScale, onRenderScale, frame, figLab } from './frame.js?v=70a3411d2a';
-import { createGlassGL } from './glass-gl.js?v=80de2598b7';
+import { createSinusoidView } from './sinusoid-view.js?v=cb43ffc688';
+import { frameFor, cancelFrame, noteDraw, saver, paceMs, renderScale, onRenderScale, frame, figLab, framePart } from './frame.js?v=f5d9ff95ad';
+import { createGlassGL } from './glass-gl.js?v=97c3f95c24';
 import { pillOf, pillLabels, pillHold } from './lz-pills.js?v=9c2fefe6b4';
 import { gpuProbe, COUNTED } from './gpu-probe.js?v=c16e5847d4';
-import { FADE_MS, fadeAlpha, stackInto, viewFollow } from './res-fade.js?v=335613482d';
+import { FADE_MS, fadeAlpha, stackInto, viewFollow } from './res-fade.js?v=1aa087e9df';
 import { leaderEnd, runInside } from './leader-end.js?v=8e884700ab';
 import { LIGHT } from './light.js?v=f0c4eefb81';
 import { easeMove, carryRate, carried, D_SMALL, D_SURFACE } from './ease.js?v=615d96d663';
@@ -1836,7 +1836,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     // (On the GPU for the screen; on the 2D canvas while the dive or the rise is staged (keep2D) or scaled, whose copies read it.)
     showTissueGL(paintTissue(W, H, dpr, dark, cs, !g, !keep2D && !scaled && g ? tissueGLOn() : null));
     snapNext = false;
-    layoutLabels();
+    framePart('lz.layoutLabels', layoutLabels);
     if (g && !g.lost) drawGL(W, H, dpr, dark, cs, dt);
     paintFx(W, H, dpr, dark, dt, !g || g.lost);
     pillCopy(W, H);
@@ -2065,7 +2065,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     }
     else { tileSets.delete(key); tileSets.set(key, tiles); }
     const t = tiles.find((q) => q.R >= rd) || tiles[tiles.length - 1];
-    if (!t.cv) drawTile(t, { cell, gap, cvc, pvc, art: v('--artery'), duct: v('--bile-duct'), dark, fs });
+    if (!t.cv) framePart('lz.drawTile', () => drawTile(t, { cell, gap, cvc, pvc, art: v('--artery'), duct: v('--bile-duct'), dark, fs }));
     return t;
   }
   // Tissue, not a diagram: the repeat is two lobules wide and two high, and every corner of the
@@ -2766,7 +2766,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     if (gpuProbe.on) gpuProbe.note(COUNTED.tissue);
     const B = 1.3 * G.R, bx = G.cx - B, by = G.cy - B, n = Math.ceil(2 * B * sc);
     if (cv.width !== n || cv.height !== n) { cv.width = n; cv.height = n; }
-    paintWorldInto(cv.getContext('2d'), n, sc, bx, by, worldInput(m, G, dark, cs));
+    framePart('lz.paintWorld', () => { paintWorldInto(cv.getContext('2d'), n, sc, bx, by, worldInput(m, G, dark, cs)); });
     cv.ver = ++texVer;   // (its texture is sent again: tissue-gl.js)
   }
   // On the GPU: the lobule's bitmap is mipmapped, so one painted for a closer zoom stays sharp shown smaller. Once the view has
@@ -2888,8 +2888,9 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     cv.ver = ++texVer;
     tissueGLOn()?.begin(cv);
     laying = { j, cv, c, tiles, i: 0 };
-    layNext(layTiles);
+    layNext(layTilesTimed);
   }
+  const layTilesTimed = () => framePart('lz.layTiles', layTiles);
   function layTiles() {
     const L = laying;
     if (!L) return;
@@ -2903,7 +2904,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
       bytes += bmp.width * bmp.height * 4;
       bmp.close();
     }
-    if (L.i < L.tiles.length) { layNext(layTiles); return; }
+    if (L.i < L.tiles.length) { layNext(layTilesTimed); return; }
     laying = null;
     g?.done(L.cv, L.cv.ver);
     adopt(L.j, L.cv);
@@ -2997,6 +2998,10 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     // (The dive's wide copy drawn at a lower pixel ratio than the screen's, its box past the budget (buildWide): it is drawn from the
     // screen's sharper bitmap of the same state, not from a softer one painted here for it, with the screen's painted again after.)
     if (wideBuild && !held && kept && ws === worldState && sc < worldSc && worldSc <= sc * 2.01) sc = worldSc;
+    // (And the rise's first frame, the layers drawn once on the 2D canvas to be shrunk by the compositor (HVPG 6 to 7: 0.6 to 1 s on CI,
+    // the bitmap painted again for the fit the presenter glided to just before): the sharper bitmap of the same state, shown smaller.)
+    let shrink = 1;
+    if (diveScaled && !wideBuild && kept && ws === worldState && sc < worldSc && worldSc <= sc * 4.01) { shrink = worldSc / sc; sc = worldSc; }
     const wk = sc.toFixed(3) + '|' + ws;
     const now = performance.now(), fading = tissueFading(now), gk = greyNow(now);   // (gk: the surround's grey, easing with the lens)
     const lk = gpu ? liveStep(dpr, now) : 0;   // (the share of the lobule drawn live by the shader)
@@ -3088,7 +3093,9 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
         c.drawImage(xfCv, sx * dpr, sy * dpr, side, side);
         worldAt = { cv: xfCv, x: sx * dpr, y: sy * dpr, side };
       } else {
+        if (shrink > 2.01) c.imageSmoothingQuality = 'high';   // (a bitmap over twice as sharp as the frame: filtered, not shimmering)
         c.drawImage(worldCv, sx * dpr, sy * dpr, side, side);
+        if (shrink > 2.01) c.imageSmoothingQuality = 'low';
         worldAt = { cv: worldCv, x: sx * dpr, y: sy * dpr, side };
         if (xfT0) { xfT0 = 0; free(worldOld); free(xfCv); tissueGL?.sweep(); }   // (faded in: the old picture is given back, and any GPU copy of it)
       }
@@ -3739,11 +3746,11 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
       const [x, y] = toScreen([geo.cx, geo.cy]);
       return { x, y, r: geo.R * V.k };
     },
-    setDive: paintField,
+    setDive: (d) => framePart('lz.setDive', () => paintField(d)),
     sinBusy: () => sinTo === 1 ? sinU < 1 : sinU > 0,
     sinusoidOpen: () => sv.isOpen(),
     sinZoom: () => sinZ,
-    prewarm, warm, stage, stageRise, paintAhead, preparePieces, prepareRun,
+    prewarm, warm, stage: () => framePart('lz.stage', stage), stageRise: () => framePart('lz.stageRise', stageRise), paintAhead, preparePieces, prepareRun,
     /** True once the dive's field (or the lobule) covers the anatomy, which then need not be drawn. */
     covers: () => fade > 0.98 || fieldOp >= 0.999,
     /** During the dive: the tissue (not its card) still zooming in, by k (≤ 1) about the stage point x, y. */

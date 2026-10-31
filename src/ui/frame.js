@@ -35,13 +35,26 @@ let windowAt = 0, frames = 0, fps = 0, allFrames = 0;
 const watchers = new Set();
 let parts = null, chained = false, lastNow = 0;
 
+// A named piece of a surface's work (framePart), timed on its own only while frames are watched (the ?perf readout, the frame-time
+// gate), so a long frame names what inside the surface took the time: phase 'in' (inside a callback: its time is also the surface's
+// own) or 'outside' (run from a timer or an event, outside the scheduler: listed with the next frame, never in its script time).
+let outsideParts = [];
+export function framePart(tag, fn) {
+  if (!watchers.size) return fn();
+  const t0 = performance.now();
+  try { return fn(); } finally {
+    const e = [tag, parts ? 'in' : 'outside', performance.now() - t0];
+    if (parts) parts.push(e); else if (outsideParts.length < 64) outsideParts.push(e);
+  }
+}
+
 function flush(now) {
   pending = 0;
   current = queue;
   queue = new Map();   // asked for while running: the next frame, as with requestAnimationFrame
   frames++; allFrames++;
   const watching = watchers.size > 0, t0 = watching ? performance.now() : 0;
-  parts = watching ? [] : null;
+  parts = watching ? outsideParts.splice(0) : null;
   try {
     run(current, now, 'early');
     lateNow = late;

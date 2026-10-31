@@ -35,3 +35,8 @@ test("the wide copy at a lower pixel ratio draws from the screen's sharper bitma
   assert.match(lz, /wideBuild = true;\n\s+try \{ for \(const t of parts\) \{/);
   assert.match(lz, /\} \} finally \{ wideBuild = false; \}/);
 });
+
+test("the rise's first frame on the 2D canvas shows the sharper bitmap of the same state smaller, filtered, rather than painting one", () => {
+  assert.match(lz, /if \(diveScaled && !wideBuild && kept && ws === worldState && sc < worldSc && worldSc <= sc \* 4\.01\) \{ shrink = worldSc \/ sc; sc = worldSc; \}/);
+  assert.match(lz, /if \(shrink > 2\.01\) c\.imageSmoothingQuality = 'high';[^\n]*\n\s+c\.drawImage\(worldCv, sx \* dpr, sy \* dpr, side, side\);\n\s+if \(shrink > 2\.01\) c\.imageSmoothingQuality = 'low';/);
+});

@@ -15,9 +15,9 @@
 // steps ease to their new places. These are the model's own shares: a deck line that quotes them needs a source.
 
 import { TILE, RATE, tileShown } from './table-marks.js?v=3b9e0d5a35';
-import { cutsOf } from './tool-curve.js?v=0317d8ca87';
+import { cutsOf } from './tool-curve.js?v=02b5f13952';
 import { DRUGS } from '../engine/scenario.js?v=bcedeba324';
-import { frameFor } from './frame.js?v=70a3411d2a';
+import { frameFor } from './frame.js?v=f5d9ff95ad';
 const nextFrame = frameFor('tool-causes');
 
 const CS_MIN = 12;   // (px on the screen: the smallest the chart's words are drawn)
