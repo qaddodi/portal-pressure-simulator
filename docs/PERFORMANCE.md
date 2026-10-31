@@ -110,17 +110,24 @@ What is measured, and where (`src/ui/frame.js`, `frame-stats.js`, `input-latency
   while nobody watches. `window.pps.perf.frames.start()` / `.stop()` record a window and return the raw numbers.
 - **Inputs.** `window.pps.perf.inputToPaint` stamps a click, a press on the figure or a key at the event's own time and closes it at the
   scheduler frame in which the page first changed (a DOM mutation). `.summary()`, `.entries(since)`, `.slowest()`. It is made on the
-  first read of it (`?perf`, the gate), so a page nobody measures has no listener for it, and a MutationObserver watches only while an
-  input waits for its answer. On a page whose readings change by themselves an unrelated change can answer an
-  input early, so a time is at most the true one; the gate pauses the model first.
+  first read of it, or at load when the address has `?perf` or `?inputs`, so a page nobody measures has no listener for it. (At load,
+  because the presenter's own window key listener stops the keys it uses: a tracker made after it never sees a Next.) A
+  MutationObserver watches only while an input waits for its answer. On a page whose readings change by themselves an unrelated
+  change can answer an input early, so a time is at most the true one; the gate pauses the model first.
 - **`?perf`.** The readout also lists every frame over 50 ms (when, the interval, the script, which surface ran in which phase, and what
   the scheduler's callbacks do not account for: style, layout, paint, the GPU) and the slowest inputs, and Copy carries both.
 - **The gate.** Laptop (CPU 4×, 2× pixels) and phone (CPU 6×, 3× pixels), as `npm run perf`. The script time per frame is judged always;
   the interval between frames only on a GPU (the runners draw in software, which sets their pace). Bars (`target`): p95 under 16.7 ms
-  laptop and 33 ms phone, no frame over 100 ms, an input answered within 100 ms and 150 ms. Ceilings (`fail`) start at twice the bars
-  (250 ms for the longest frame) because the gate was written without a browser run; tighten each to the runners' measured number plus a
-  margin. A scenario over a ceiling is run once more and the better run kept. `checks.yml` warns, `ci.yml` blocks; both run it in their
-  `visual` job so no runner is added. `npm run perf:gate -- dist` runs it by hand (`--profile=phone`, `--mode=block`).
+  laptop and 33 ms phone, no frame over 100 ms, an input answered within 100 ms and 150 ms; a measure past a bar is reported. Ceilings
+  (`fail`) are what blocks, and are not the bars: the runners draw in software under a 4× or 6× slower CPU, so untouched code
+  measured 120 to 190 ms of script at p95 and 990 ms for the longest frame (31 Oct, checks run 1105). Each scenario's own ceiling is
+  its measured number ×1.5 (×2 for the longest frame); a scenario nobody has measured yet has the profile's generic one. Tighten each
+  to the number the runners report next, with the same margin; never loosen one. A scenario over a ceiling is run once more, if the
+  time allows, and the better run kept. The whole run has 12 minutes (`--budget`, `PERF_BUDGET`) inside the workflow step's 15: a
+  scenario that cannot finish in what is left is listed as not run, the files are written as it goes, and the verdict is printed
+  whatever is done. The cold menu is reported, not judged, until a ceiling can be set from more than one sample. `checks.yml` warns,
+  `ci.yml` blocks; both run it in their `visual` job so no runner is added. `npm run perf:gate -- dist` runs it by hand
+  (`--profile=phone`, `--mode=block`).
 
 ## Compositor and canvas heat (31 Oct 2026; laptop-heat recs H2, H3)
 

@@ -8,7 +8,7 @@ export const MIN_FRAMES = 8;
 const LEVELS = ['fail', 'target'];
 const KEYS = ['p95', 'max', 'input'];
 
-/** The limits file: { laptop: { target: { p95, max, input }, fail: { ... } }, phone: ... }. Throws on a malformed one. */
+/** The limits file: { laptop: { target: { p95, max, input }, fail: { ... }, scenarios?: { name: { p95?, max?, input? } } }, phone: ... }. Throws on a malformed one. */
 export function loadLimits(file = new URL('./perf-limits.json', import.meta.url)) {
   const j = JSON.parse(readFileSync(file, 'utf8'));
   for (const profile of ['laptop', 'phone']) {
@@ -17,8 +17,17 @@ export function loadLimits(file = new URL('./perf-limits.json', import.meta.url)
       if (!(v > 0)) throw new Error(`perf-limits.json: ${profile}.${level}.${k} must be a positive number`);
     }
     for (const k of KEYS) if (j[profile].fail[k] < j[profile].target[k]) throw new Error(`perf-limits.json: ${profile}.fail.${k} is below its target`);
+    for (const [name, own] of Object.entries(j[profile].scenarios || {})) for (const [k, v] of Object.entries(own)) {
+      if (!KEYS.includes(k) || !(v >= j[profile].target[k])) throw new Error(`perf-limits.json: ${profile}.scenarios["${name}"].${k} must be one of ${KEYS.join(', ')} and not below its target`);
+    }
   }
   return j;
+}
+
+/** A profile's limits for one scenario: the profile's ceilings, with the ones that scenario has of its own (set from what the runners
+ *  measured for it) in their place. */
+export function limitsFor(limits, scenario) {
+  return { target: limits.target, fail: { ...limits.fail, ...(limits.scenarios?.[scenario] || {}) } };
 }
 
 /**
@@ -31,7 +40,7 @@ export function judgeFrames(sum, limits, { gpu = false } = {}) {
   if (!sum || sum.frames < MIN_FRAMES) return [];
   const out = [];
   const check = (metric, value, key) => {
-    for (const level of LEVELS) if (value > limits[level][key]) { out.push({ metric, value, limit: limits[level][key], target: limits.target[key], level }); return; }
+    for (const level of LEVELS) if (value > limits[level][key]) { out.push({ metric, value, limit: limits[level][key], ceiling: limits.fail[key], target: limits.target[key], level }); return; }
   };
   check('script p95', sum.script.p95, 'p95');
   check('script max', sum.script.max, 'max');
@@ -43,7 +52,7 @@ export function judgeFrames(sum, limits, { gpu = false } = {}) {
 export function judgeInput(samples, limits) {
   if (!samples.length) return [];
   const worst = Math.max(...samples.map((s) => s.ms));
-  for (const level of LEVELS) if (worst > limits[level].input) return [{ metric: 'input to first change', value: worst, limit: limits[level].input, target: limits.target.input, level }];
+  for (const level of LEVELS) if (worst > limits[level].input) return [{ metric: 'input to first change', value: worst, limit: limits[level].input, ceiling: limits.fail.input, target: limits.target.input, level }];
   return [];
 }
 
@@ -71,7 +80,7 @@ export function inputLines(r) {
 export function breachLine(b) {
   return b.level === 'fail'
     ? `OVER THE LIMIT: ${b.metric} ${ms(b.value)} ms is past the ${b.limit} ms limit (the bar is ${b.target} ms)`
-    : `over the bar: ${b.metric} ${ms(b.value)} ms is past ${b.target} ms (the limit is ${b.limit} ms)`;
+    : `over the bar: ${b.metric} ${ms(b.value)} ms is past ${b.target} ms (the limit is ${b.ceiling ?? b.limit} ms)`;
 }
 
 /** Every breach of a profile's results, with the scenario each came from. */

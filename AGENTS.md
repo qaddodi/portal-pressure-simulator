@@ -52,7 +52,7 @@ Loop for every change (fast previews first, full tests before merge):
    menu) and judged by the scheduler's script time per frame and the time from an input to the first change on the page. It runs
    inside the `visual` job of `checks.yml` (a warning with the numbers in the job summary and the long frames in the `perf-gate-*`
    artifact) and of `ci.yml` (blocks past a ceiling). A measure past its ceiling is a regression to fix, never a limit to raise;
-   tighten a ceiling to the measured number when the runners have reported. In the app, `?perf` lists every frame over 50 ms with
+   tighten a ceiling to the measured number (plus its margin) when the runners have reported. In the app, `?perf` lists every frame over 50 ms with
    its surfaces and phase and the slowest inputs, and Copy puts them in the paste.
 5. Merge to `main` only when the owner says so. That also resets `/preview/` to match `main`.
    If the branch is already merged, restart it from the latest `main` before more work.

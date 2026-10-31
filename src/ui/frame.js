@@ -142,7 +142,8 @@ export function perf() {
 
 // Input to first change (input-latency.js; recs R2): the time from a tap, a press or a key to the frame in which the page first
 // changed, kept for the last 200 inputs. perf().inputToPaint.summary() / .entries(since) / .slowest(). Browser only, and made on the
-// first read of it (the ?perf readout, the frame-time gate): a page nobody measures has no listener for it.
+// first read of it (the ?perf readout, the frame-time gate), or at load with ?perf or ?inputs in the address (below): a page nobody
+// measures has no listener for it.
 let inputLatency = null;
 function inputMeasure() {
   if (!inputLatency && typeof addEventListener === 'function' && typeof MutationObserver === 'function' && typeof document !== 'undefined') {
@@ -162,6 +163,10 @@ function inputMeasure() {
   }
   return inputLatency;
 }
+
+// (Asked for in the address, ?perf or ?inputs, it is made now, at load, before the presenter and the rest add their own window key
+// listeners: a key one of them uses stops at its listener (stopImmediatePropagation), and a tracker made later never sees it.)
+if (typeof location !== 'undefined' && /[?&](perf|inputs)(?=[=&#]|$)/.test(location.search || '')) inputMeasure();
 
 // Frame recording (recs R5): perf().frames.start() records every frame the scheduler runs; .stop() returns the recording's raw
 // numbers (frame-stats.js: intervals, script times, each surface's ms in each frame it ran in, each phase's) and the long frames.

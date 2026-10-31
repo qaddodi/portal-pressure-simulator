@@ -1,14 +1,17 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
-import { loadLimits, judgeFrames, judgeInput, frameLines, inputLines, breachLine, allBreaches, annotation, exitCode, summaryMarkdown, verdictOf, MIN_FRAMES } from '../scripts/frame-gate-lib.mjs';
+import { readFileSync, mkdtempSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { loadLimits, limitsFor, judgeFrames, judgeInput, frameLines, inputLines, breachLine, allBreaches, annotation, exitCode, summaryMarkdown, verdictOf, MIN_FRAMES } from '../scripts/frame-gate-lib.mjs';
 import { createFrameRecorder, summarizeRaw } from '../src/ui/frame-stats.js';
 import { PROFILES } from '../scripts/perf-profiles.mjs';
 
 // The frame-time and input-latency gate (recs R2, R5): what it decides, and where it runs. (The browser half, scripts/frame-gate.mjs,
 // runs in the workflows; nothing here opens a browser.)
 const read = (p) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8');
-const LIM = loadLimits().laptop;
+// (The numbers these tests judge against are their own, not the limits file's, which is retuned as the runners report.)
+const LIM = { target: { p95: 16.7, max: 100, input: 100 }, fail: { p95: 33.4, max: 250, input: 200 } };
 
 /** The summary of `n` frames that each cost `script` ms and came `gap` ms apart. */
 function sum(n, script, gap, extra = {}) {
@@ -22,6 +25,30 @@ test("the limits file holds the recs' bars and a ceiling at or above each", () =
   assert.deepEqual(j.laptop.target, { p95: 16.7, max: 100, input: 100 });
   assert.deepEqual(j.phone.target, { p95: 33, max: 100, input: 150 });
   for (const p of ['laptop', 'phone']) for (const k of ['p95', 'max', 'input']) assert.ok(j[p].fail[k] >= j[p].target[k], `${p}.fail.${k}`);
+});
+
+test("a scenario's own ceiling replaces the profile's for that scenario only, and must be at or above its bar", () => {
+  const j = loadLimits();
+  for (const p of ['laptop', 'phone']) for (const [name, own] of Object.entries(j[p].scenarios)) for (const [k, v] of Object.entries(own)) assert.ok(v >= j[p].target[k], `${p} ${name} ${k}`);
+  const mine = { target: LIM.target, fail: { p95: 300, max: 2000, input: 400 }, scenarios: { pan: { p95: 150, max: 400 } } };
+  assert.deepEqual(limitsFor(mine, 'pan').fail, { p95: 150, max: 400, input: 400 });
+  assert.deepEqual(limitsFor(mine, 'pinch').fail, mine.fail, 'a scenario with none of its own gets the profile\'s');
+  assert.deepEqual(limitsFor(LIM, 'pan'), LIM, 'a file with no scenarios at all');
+  // A scenario ceiling below its bar, or on a measure that does not exist, is a typo that would judge nothing right.
+  const dir = mkdtempSync(join(tmpdir(), 'limits-'));
+  const write = (scenarios) => { const f = join(dir, 'l.json'); writeFileSync(f, JSON.stringify({ laptop: { ...j.laptop, scenarios }, phone: j.phone })); return f; };
+  assert.throws(() => loadLimits(write({ pan: { p95: 10 } })), /scenarios\["pan"\]\.p95/);
+  assert.throws(() => loadLimits(write({ pan: { p99: 500 } })), /scenarios\["pan"\]\.p99/);
+  assert.doesNotThrow(() => loadLimits(write({ pan: { p95: 200 } })));
+});
+
+test('a measure over the bar but under the ceiling names the ceiling, not the bar, as the limit', () => {
+  const [b] = judgeFrames(sum(60, 20, 16.7), LIM);
+  assert.equal(b.level, 'target');
+  assert.equal(b.ceiling, 33.4);
+  assert.match(breachLine(b), /^over the bar: script p95 20\.0 ms is past 16\.7 ms \(the limit is 33\.4 ms\)$/);
+  const [i] = judgeInput([{ ms: 150, what: 'click button#x' }], LIM);
+  assert.match(breachLine(i), /\(the limit is 200 ms\)$/);
 });
 
 test('a scenario within the bar has no breach; between the bar and the ceiling it misses the bar; past it, it fails', () => {
@@ -157,4 +184,25 @@ test('checks.yml only warns and ci.yml blocks, both in the visual job, and no jo
   assert.deepEqual(jobs(ci), ['quick', 'browser-checks', 'gpu-organs', 'webkit', 'idle', 'gesture', 'text-floor', 'visual'], 'ci.yml: the same jobs as before');
   assert.ok(!/perf:gate|frame-gate/.test(read('.github/workflows/pages.yml')), 'pages.yml, the deploy, does not run it');
   assert.match(checks, /continue-on-error: true\n\s+timeout-minutes: 15\n\s+env:\n\s+PERF_PROFILE/, 'a warning here, never a red run');
+});
+
+test('the gate keeps to its time: a budget inside the step\'s, a verdict whatever is done, a second run only if it fits', () => {
+  const js = read('scripts/frame-gate.mjs');
+  const budget = +js.match(/flag\('budget', 'PERF_BUDGET', '(\d+)'\)/)[1];
+  // (the budget, the 90 s grace of the watchdog and a minute to close the browser must fit in the step's 15 minutes, in both workflows)
+  for (const f of ['checks.yml', 'ci.yml']) assert.match(read(`.github/workflows/${f}`), /timeout-minutes: 15\n\s+(continue-on-error: true\n\s+)?env:\n\s+PERF_PROFILE/);
+  assert.ok(budget + 90 + 60 < 15 * 60, `${budget} s and its grace fit in 15 minutes`);
+  assert.match(js, /setTimeout\(\(\) => finish\(true\), BUDGET \+ 90000\)/, 'a call that hangs is cut off with the verdict');
+  assert.match(js, /left\(\) < took \* 2 \+ 30000/, 'a frame scenario runs again only if there is time for two more');
+  assert.match(js, /if \(!afford\(what, need\)\) return;/, 'and is not started if there is not time for it');
+  assert.match(js, /writeFileSync\(`\$\{OUT\}\/perf-gate-\$\{res\.name\}\.json`/, 'the files are written as the run goes, not only at its end');
+});
+
+test('the gate loads each page with ?inputs, opens the Treat card where the phone has it, and waits for the boot cover to lift', () => {
+  const js = read('scripts/frame-gate.mjs');
+  assert.equal([...js.matchAll(/openPage\(ctx, prof, ([`'][^,]*), errors\)/g)].filter((m) => /&inputs/.test(m[1])).length, 3, 'all three pages');
+  assert.match(js, /#thumbBar \[data-tab="treat"\]/, 'a phone held upright has no Treat button in the top bar');
+  assert.match(js, /!document\.getElementById\('boot'\)/, 'nobody taps through the cover, and Playwright would wait for it for 30 s');
+  assert.match(js, /left unanswered after 800 ms/, 'a Next nobody answered says how many inputs the page left unanswered');
+  assert.match(js, /inputScenario\('menu \(cold\)', false,/, 'the cold open is reported, not judged, until a ceiling can be set from more than one sample');
 });
